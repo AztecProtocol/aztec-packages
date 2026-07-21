@@ -30,42 +30,33 @@ class ECCOpQueueTest {
      * @brief Check that the table column polynomials reconstructed by the op queue have the correct relationship
      *
      */
-    static void check_table_column_polynomials(const std::shared_ptr<bb::ECCOpQueue>& op_queue,
-                                               MergeSettings settings,
-                                               std::optional<size_t> ultra_fixed_offset = std::nullopt)
+    static void check_final_table_column_polynomials(const std::shared_ptr<bb::ECCOpQueue>& op_queue,
+                                                     std::optional<size_t> ultra_fixed_offset = std::nullopt)
     {
-        // Construct column polynomials corresponding to the full table (T), the previous table (T_prev), and the
-        // current subtable (t_current)
+        // Construct column polynomials corresponding to the full table (T), the table up to and including the tail
+        // (T_tail, the second to last table), and the current subtable (t_current). T and T_tail both include the ZK
+        // preamble.
         auto table_polynomials = op_queue->construct_ultra_ops_table_columns();
-        auto prev_table_polynomials = op_queue->construct_previous_ultra_ops_table_columns();
+        auto tail_table_polynomials = op_queue->construct_table_columns_up_to_tail();
         auto subtable_polynomials = op_queue->construct_current_ultra_ops_subtable_columns();
 
-        // Check T(x) = t_current(x) + x^k * T_prev(x) at a single random challenge point
+        // Check T(x) = T_tail(x) + x^k * t_current(x) at a single random challenge point
         Fr eval_challenge = Fr::random_element();
-        for (auto [table_poly, prev_table_poly, subtable_poly] :
-             zip_view(table_polynomials, prev_table_polynomials, subtable_polynomials)) {
+        for (auto [table_poly, tail_table_poly, subtable_poly] :
+             zip_view(table_polynomials, tail_table_polynomials, subtable_polynomials)) {
             const Fr table_eval = table_poly.evaluate(eval_challenge); // T(x)
-            // Check that the previous table polynomial is constructed correctly according to the merge settings by
-            // checking the identity at a single point
-            if (settings == MergeSettings::PREPEND) {
-                // T(x) = t_current(x) + x^k * T_prev(x), where k is the size of the current subtable
-                const size_t current_subtable_size = op_queue->get_current_ultra_ops_subtable_num_rows(); // k
-                const Fr subtable_eval = subtable_poly.evaluate(eval_challenge); // t_current(x)
-                const Fr shifted_previous_table_eval = prev_table_poly.evaluate(eval_challenge) *
-                                                       eval_challenge.pow(current_subtable_size); // x^k * T_prev(x)
-                EXPECT_EQ(table_eval, subtable_eval + shifted_previous_table_eval);
-            } else {
-                // APPEND merge performs concatenation directly to end of previous table or at a specified fixed offset
-                const size_t prev_table_size = op_queue->get_previous_ultra_ops_table_num_rows(); // k
-                const size_t shift_magnitude = ultra_fixed_offset.has_value()
-                                                   ? ultra_fixed_offset.value() * bb::UltraEccOpsTable::NUM_ROWS_PER_OP
-                                                   : prev_table_size; // k
-                // T(x) = T_prev(x) + x^k * t_current(x), where k is the shift magnitude
-                const Fr prev_table_eval = prev_table_poly.evaluate(eval_challenge); // T_prev(x)
-                const Fr shifted_subtable_eval =
-                    subtable_poly.evaluate(eval_challenge) * eval_challenge.pow(shift_magnitude); // x^k * t_current(x)
-                EXPECT_EQ(table_eval, shifted_subtable_eval + prev_table_eval);
-            }
+            // APPEND merge performs concatenation directly to end of previous table or at a specified fixed offset.
+            const size_t tail_table_size = op_queue->get_ultra_ops_table_num_rows_up_to_tail(); // k
+            const size_t shift_magnitude =
+                ultra_fixed_offset.has_value()
+                    ? bb::UltraEccOpsTable::ZK_ULTRA_OPS +
+                          (ultra_fixed_offset.value() * bb::UltraEccOpsTable::NUM_ROWS_PER_OP)
+                    : tail_table_size; // k
+            // T(x) = T_tail(x) + x^k * t_current(x), where k is the shift magnitude.
+            const Fr tail_table_eval = tail_table_poly.evaluate(eval_challenge); // T_tail(x)
+            const Fr shifted_subtable_eval =
+                subtable_poly.evaluate(eval_challenge) * eval_challenge.pow(shift_magnitude); // x^k * t_current(x)
+            EXPECT_EQ(table_eval, shifted_subtable_eval + tail_table_eval);
         }
     }
 
@@ -74,13 +65,18 @@ class ECCOpQueueTest {
      *
      * @param op_queue
      */
-    static void check_opcode_consistency_with_eccvm(const std::shared_ptr<bb::ECCOpQueue>& op_queue)
+    static void check_opcode_consistency_with_eccvm(const std::shared_ptr<bb::ECCOpQueue>& op_queue,
+                                                    const bool include_zk_ops = false)
     {
-        auto ultra_table = op_queue->get_ultra_ops();
+        auto ultra_table =
+            include_zk_ops ? op_queue->get_zk_reconstructed_ultra_ops() : op_queue->get_no_zk_reconstructed_ultra_ops();
         auto eccvm_table = op_queue->get_eccvm_ops();
 
         size_t j = 0;
         for (const auto& ultra_op : ultra_table) {
+            if (ultra_op.op_code.is_random_op) {
+                continue;
+            }
             if (ultra_op.op_code.value() == 0) {
                 continue;
             }
@@ -130,9 +126,8 @@ TEST(ECCOpQueueTest, InternalAccumulatorCorrectness)
     EXPECT_TRUE(op_queue.get_accumulator().is_point_at_infinity());
 }
 
-// Check that the ECC op queue correctly constructs the table column polynomials for the full table, the previous table,
-// and the current subtable via successive prepending of subtables
-TEST(ECCOpQueueTest, ColumnPolynomialConstructionPrependOnly)
+// Check that the ECC op queue correctly reconstructs subtables via successive appending of subtables.
+TEST(ECCOpQueueTest, ColumnPolynomialConstruction)
 {
     using Fq = curve::Grumpkin::ScalarField;
 
@@ -143,81 +138,43 @@ TEST(ECCOpQueueTest, ColumnPolynomialConstructionPrependOnly)
     const size_t NUM_SUBTABLES = 5;
     for (size_t i = 0; i < NUM_SUBTABLES; ++i) {
         op_queue->initialize_new_subtable();
-        // For prepend: the last subtable becomes the first in the final table.
-        // Add hiding op at the START of the last subtable so it lands at index 0.
-        if (i == NUM_SUBTABLES - 1) {
+        // Add hiding op to the first subtable so the Ultra and ECCVM opcode streams have matching order.
+        if (i == 0) {
             op_queue->append_hiding_op(Fq::random_element(), Fq::random_element());
         }
         ECCOpQueueTest::populate_an_arbitrary_subtable_of_ops(op_queue, /*initialize=*/false);
-        MergeSettings settings = MergeSettings::PREPEND;
-        op_queue->merge(settings);
-        ECCOpQueueTest::check_table_column_polynomials(op_queue, settings);
+        op_queue->merge();
     }
 
+    op_queue->construct_zk_columns();
     ECCOpQueueTest::check_opcode_consistency_with_eccvm(op_queue);
 }
 
-TEST(ECCOpQueueTest, ColumnPolynomialConstructionPrependThenAppend)
+TEST(ECCOpQueueTest, ColumnPolynomialConstructionUpToTailWithZkThenFixedAppend)
 {
-    using Fq = curve::Grumpkin::ScalarField;
-
     // Instantiate an EccOpQueue and populate it with several subtables of ECC ops
     auto op_queue = std::make_shared<bb::ECCOpQueue>();
 
-    // Check that the table polynomials have the correct form after each subtable concatenation
-    const size_t NUM_SUBTABLES = 2;
-    for (size_t i = 0; i < NUM_SUBTABLES; ++i) {
+    // Construct app/kernel subtables followed by the tail subtable.
+    const size_t NUM_SUBTABLES_THROUGH_TAIL = 3;
+    for (size_t i = 0; i < NUM_SUBTABLES_THROUGH_TAIL; ++i) {
         op_queue->initialize_new_subtable();
-        // For prepend: the last prepended subtable (i=1) becomes first in the final table.
-        // Add hiding op at the START of that subtable so it lands at index 0.
-        if (i == NUM_SUBTABLES - 1) {
-            op_queue->append_hiding_op(Fq::random_element(), Fq::random_element());
-        }
         ECCOpQueueTest::populate_an_arbitrary_subtable_of_ops(op_queue, /*initialize=*/false);
-        MergeSettings settings = MergeSettings::PREPEND;
-        op_queue->merge(settings);
-        ECCOpQueueTest::check_table_column_polynomials(op_queue, settings);
+        op_queue->merge();
     }
 
-    // Do a single append operation (goes at end, after prepended subtables)
-    ECCOpQueueTest::populate_an_arbitrary_subtable_of_ops(op_queue);
-    MergeSettings settings = MergeSettings::APPEND;
-    op_queue->merge(settings);
-    ECCOpQueueTest::check_table_column_polynomials(op_queue, settings);
+    op_queue->construct_zk_columns();
 
-    ECCOpQueueTest::check_opcode_consistency_with_eccvm(op_queue);
-}
-
-TEST(ECCOpQueueTest, ColumnPolynomialConstructionPrependThenAppendAtFixedOffset)
-{
-    using Fq = curve::Grumpkin::ScalarField;
-
-    // Instantiate an EccOpQueue and populate it with several subtables of ECC ops
-    auto op_queue = std::make_shared<bb::ECCOpQueue>();
-
-    // Check that the table polynomials have the correct form after each subtable concatenation
-    const size_t NUM_SUBTABLES = 2;
-    for (size_t i = 0; i < NUM_SUBTABLES; ++i) {
-        op_queue->initialize_new_subtable();
-        // For prepend: the last prepended subtable (i=1) becomes first in the final table.
-        // Add hiding op at the START of that subtable so it lands at index 0.
-        if (i == NUM_SUBTABLES - 1) {
-            op_queue->append_hiding_op(Fq::random_element(), Fq::random_element());
-        }
-        ECCOpQueueTest::populate_an_arbitrary_subtable_of_ops(op_queue, /*initialize=*/false);
-        MergeSettings settings = MergeSettings::PREPEND;
-        op_queue->merge(settings);
-        ECCOpQueueTest::check_table_column_polynomials(op_queue, settings);
-    }
-
-    // Do a single append operation at a fixed offset (sufficiently large as to not overlap with the existing table)
+    // Do a single append operation at a fixed offset for the hiding kernel subtable.
     const size_t ultra_fixed_offset = op_queue->get_ultra_ops_table_num_rows() + 20;
     ECCOpQueueTest::populate_an_arbitrary_subtable_of_ops(op_queue);
-    MergeSettings settings = MergeSettings::APPEND;
-    op_queue->merge(settings, ultra_fixed_offset);
-    ECCOpQueueTest::check_table_column_polynomials(op_queue, settings, ultra_fixed_offset);
+    op_queue->merge_fixed_append(ultra_fixed_offset);
+    auto table_up_to_tail = op_queue->construct_table_columns_up_to_tail();
+    EXPECT_EQ(table_up_to_tail[0].size(),
+              bb::UltraEccOpsTable::ZK_ULTRA_OPS + op_queue->get_ultra_ops_table_num_rows_up_to_tail());
+    ECCOpQueueTest::check_final_table_column_polynomials(op_queue, ultra_fixed_offset);
 
-    ECCOpQueueTest::check_opcode_consistency_with_eccvm(op_queue);
+    ECCOpQueueTest::check_opcode_consistency_with_eccvm(op_queue, /*include_zk_ops=*/true);
 }
 
 // Verify correct handling of point at infinity in add and mul operations
@@ -305,9 +262,10 @@ TEST(ECCOpQueueTest, HidingOpPositionConsistency)
     op_queue->eq_and_reset();
     op_queue->merge();
 
-    // Get the reconstructed tables
+    // Get the reconstructed ECCVM table and raw Ultra table. This test is checking the explicitly appended hiding op
+    // in the raw subtable, not the Chonk ZK-prefixed reconstruction.
     const auto& eccvm_ops = op_queue->get_eccvm_ops();
-    const auto& ultra_ops = op_queue->get_ultra_ops();
+    const auto& ultra_ops = op_queue->get_no_zk_reconstructed_ultra_ops();
 
     // === ECCVM Table Checks ===
     // Hiding op should be at index 0 (prepended during get_eccvm_ops())
@@ -318,7 +276,7 @@ TEST(ECCOpQueueTest, HidingOpPositionConsistency)
     EXPECT_EQ(eccvm_hiding_op.base_point.y, hiding_y);
 
     // === Ultra Table Checks ===
-    // Without tail kernel padding, the hiding op should be at index 2:
+    // By construction, the hiding op should be at index 2:
     //   index 0: add_accumulate(P1)
     //   index 1: mul_accumulate(P2, z)
     //   index 2: append_hiding_op (eq+reset opcode)

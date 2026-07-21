@@ -59,10 +59,7 @@
       "path": "../../../../yarn-project/kv-store"
     },
     {
-      "path": "../../../../yarn-project/l1-artifacts"
-    },
-    {
-      "path": "../../../../yarn-project/merkle-tree"
+      "path": "../../../../l1-contracts/l1-artifacts"
     },
     {
       "path": "../../../../yarn-project/node-keystore"
@@ -107,7 +104,7 @@
       "path": "../../../../yarn-project/telemetry-client"
     },
     {
-      "path": "../../../../yarn-project/test-wallet"
+      "path": "../../../../yarn-project/wallets"
     },
     {
       "path": "../../../../yarn-project/validator-client"

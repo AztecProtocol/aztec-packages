@@ -1,10 +1,18 @@
 #!/usr/bin/env bash
+# Unified bootstrap script for launching CI builds on EC2 instances.
+# Supports both SSH and SSM transport modes, controlled by CI_USE_SSH.
+#   CI_USE_SSH=1  → SSH into instance (requires key pair)
+#   CI_USE_SSH=0  → SSM RunShellScript (no SSH)
+# Both modes use instance profiles for AWS credentials.
+
 NO_CD=1 source $(git rev-parse --show-toplevel)/ci3/source
 source $ci3/source_refname
 
-cmd=$1
+cmd=${1:?usage: $(basename "$0") '<command-to-run-inside-devbox>'}
 arch=${ARCH:-amd64}
 NO_TERMINATE=${NO_TERMINATE:-0}
+use_ssh=${CI_USE_SSH:-0}
+status_job_id=${JOB_ID:-bootstrap}
 
 # We're always "in CI" if we're running on a remote instance.
 export CI=1
@@ -12,15 +20,27 @@ export CI=1
 # Set to 0 in ci3-external.yml for external contributors who don't have SSH access.
 export CI_USE_BUILD_INSTANCE_KEY=${CI_USE_BUILD_INSTANCE_KEY:-1}
 
+# Pre-generate a log ID and print the dashboard link.
+export CI_LOG_ID=$(date +%s%3N)$((100 + RANDOM % 900))
+echo "CI booting..." | redis_setexz "$CI_LOG_ID" 300
+log_url="http://ci.aztec-labs.com/$CI_LOG_ID"
+echo -e "CI Log: ${yellow}$log_url${reset}"
+if [ -n "${CI_DASHBOARD:-}" ]; then
+  echo "CI dashboard: http://ci.aztec-labs.com/section/$CI_DASHBOARD"
+fi
+
+# Post pending GitHub commit status so the CI log link is visible on the PR.
+post_github_status pending "ci/${status_job_id}" "$log_url" "${cmd:0:140}" 2>/dev/null || true
+
 if [ "$arch" == "arm64" ]; then
   cores=64
-  # Allow for 90 minutes as ARM has less cores.
-  export AWS_SHUTDOWN_TIME=${AWS_SHUTDOWN_TIME:-90}
+  export AWS_SHUTDOWN_TIME=${AWS_SHUTDOWN_TIME_ARM:-${AWS_SHUTDOWN_TIME:-60}}
 else
   cores=192,128,64
-  if [ "$CI_FULL" -eq 1 ]; then
-    # Allow for 75 minutes as ci-full time has crept up.
+  if [ "${CI_FULL:-0}" -eq 1 ]; then
     export AWS_SHUTDOWN_TIME=${AWS_SHUTDOWN_TIME:-75}
+  else
+    export AWS_SHUTDOWN_TIME=${AWS_SHUTDOWN_TIME:-60}
   fi
 fi
 
@@ -30,34 +50,40 @@ cores=${CPUS:-$cores}
 # Trap function to terminate our running instance when the script exits.
 function cleanup {
   if [ -d "${state_dir:-}" ]; then
-    aws_terminate_instance $state_dir
+    aws_terminate_instance "$state_dir" >/dev/null 2>&1
   fi
 }
 # It's important that cleanup writes to /dev/null.
-# We run this from parallel, which closes stdout/stderr during it's cleanup.
+# We run this from parallel, which closes stdout/stderr during its cleanup.
 # This causes cleanup to die silently, probably from a SIGPIPE.
 trap 'cleanup >/dev/null' SIGINT SIGTERM EXIT
 
-# Verify that the commit exists on the remote. It will be the remote tip of itself if so.
+# Verify that the commit exists on the remote.
 current_commit=$(git rev-parse HEAD)
-if [[ "$(git fetch origin --negotiate-only --negotiation-tip=$current_commit)" != *"$current_commit"* ]]; then
+if [[ "$(git fetch origin --negotiate-only --negotiation-tip="$current_commit")" != *"$current_commit"* ]]; then
   echo "Commit $current_commit is not pushed, exiting."
   exit 1
 fi
 
-# Our instance_name acts as a uniqueness key for the instance.
-# Instances are terminated if they exist with the same name.
-if [[ "$REF_NAME" =~ ^gh-readonly-queue/.*(pr-[0-9]+) ]]; then
-  # In merge queue, use the pr number as the instance name.
-  instance_name="${BASH_REMATCH[1]}_$arch"
-else
-  # In local or pr's, use the branch name as the instance name.
-  instance_name=$(echo -n "$REF_NAME" | head -c 50 | tr -c 'a-zA-Z0-9-' '_')_$arch
+# Our instance_name acts as a uniqueness key for the instance: an existing instance
+# with the same name is terminated first, reaping orphans left when a GA run is
+# cancelled (e.g. by a new push) on the same ref. It's repo-scoped so
+# aztec-packages{,-private} don't reap each other, and stable across re-runs within a
+# repo so cleanup still works. Derived by aws_instance_name, shared with ci.sh's
+# connect/kill helpers so the launch and connect names never drift.
+instance_name=$(aws_instance_name "$REF_NAME" "$arch" "${INSTANCE_POSTFIX:-}")
+
+# Merge-train PRs are intentionally not cancelled per-commit (see ci3.yml concurrency), so
+# several distinct commits build concurrently. Append the commit sha so each gets its own
+# instance and they don't reap each other. ci.sh's connect helpers match the Name tag by
+# substring, so the sha-free base from aws_instance_name still resolves these.
+if [[ "$REF_NAME" == merge-train/* ]]; then
+  instance_name="${instance_name}_${current_commit:0:9}"
 fi
 
 state_dir=$(mktemp -d /tmp/aws_request_instance.XXXXXX)
 
-if semver check $REF_NAME; then
+if semver check "$REF_NAME"; then
   # Override the public key that aws will load into ~/.ssh/authorized_keys on the launched instance.
   # This requires the restricted key only available in release environments.
   key_name="super-build-instance"
@@ -65,9 +91,14 @@ else
   key_name="build-instance"
 fi
 
-[ -n "${INSTANCE_POSTFIX:-}" ] && instance_name+="_$INSTANCE_POSTFIX"
+docker_hostname=$(echo -n "$instance_name" | tr '_' '-' | cut -c 1-63)
 
-echo_header "request build instance"
+if [ "$use_ssh" -eq 1 ]; then
+  echo_header "request build instance (SSH)"
+else
+  echo_header "request build instance (SSM)"
+fi
+
 # Terminate any existing instances with the same name.
 existing_instance=$(aws ec2 describe-instances \
   --region us-east-2 \
@@ -77,37 +108,55 @@ existing_instance=$(aws ec2 describe-instances \
 if [ -n "$existing_instance" ]; then
   for i in $existing_instance; do
     echo "Terminating existing instance: $i"
-    aws ec2 --region us-east-2 terminate-instances --instance-ids $i >/dev/null 2>&1
+    aws ec2 --region us-east-2 terminate-instances --instance-ids "$i" >/dev/null 2>&1
   done
 fi
 
 # Request new instance.
-KEY_NAME=$key_name aws_request_instance $instance_name $cores $arch $state_dir
-ip=$(cat $state_dir/ip)
+# SSH mode needs a key pair; SSM mode uses instance profile (no key pair).
+if [ "$use_ssh" -eq 1 ]; then
+  KEY_NAME=$key_name aws_request_instance "$instance_name" "$cores" "$arch" "$state_dir"
+else
+  KEY_NAME= aws_request_instance "$instance_name" "$cores" "$arch" "$state_dir"
+fi
+ip=$(cat "$state_dir/ip")
 sir=""
 if [[ -f "$state_dir/sir" ]]; then
-  sir=$(cat $state_dir/sir)
+  sir=$(cat "$state_dir/sir")
 fi
-iid=$(cat $state_dir/iid)
+iid=$(cat "$state_dir/iid" | tr -d '\n\r' | xargs)
+export EC2_INSTANCE_TYPE=$(cat "$state_dir/instance_type" 2>/dev/null || echo "unknown")
+export EC2_SPOT=$(cat "$state_dir/spot" 2>/dev/null || echo "unknown")
 
-# If AWS credentials are not set, try to load them from ~/.aws/build_instance_credentials.
-if [ -z "${AWS_ACCESS_KEY_ID:-}" ] || [ -z "${AWS_SECRET_ACCESS_KEY:-}" ]; then
-  if [ ! -f ~/.aws/build_instance_credentials ]; then
-    echo "No aws credentials found in env or ~/.aws/build_instance_credentials."
-    exit 1
-  fi
-  echo "AWS credentials are being set from ~/.aws/build_instance_credentials."
-  export AWS_ACCESS_KEY_ID=$(grep aws_access_key_id ~/.aws/build_instance_credentials | awk '{print $3}')
-  export AWS_SECRET_ACCESS_KEY=$(grep aws_secret_access_key ~/.aws/build_instance_credentials | awk '{print $3}')
-  if [[ $(echo "$AWS_ACCESS_KEY_ID" | wc -l) > 1 ]] || [[ $(echo "$AWS_SECRET_ACCESS_KEY" | wc -l) > 1 ]]; then
-    echo "Error: multiple AWS credentials found in ~/.aws/build_instance_credentials. Make sure you have only one profile defined."
-    exit 1
-  fi
+# --- Credential encoding ---
+# Encode GCP and network env files as base64 for transfer to the instance.
+export GOOGLE_APPLICATION_CREDENTIALS=${GOOGLE_APPLICATION_CREDENTIALS:-/tmp/gcp-key.json}
+export NETWORK_ENV_FILE=${NETWORK_ENV_FILE:-/tmp/network.env}
+if [ -f "${GOOGLE_APPLICATION_CREDENTIALS}" ]; then
+  export GCP_SA_KEY_B64=$(cat "${GOOGLE_APPLICATION_CREDENTIALS}" | base64 -w 0)
+fi
+if [ -f "${NETWORK_ENV_FILE}" ]; then
+  export NETWORK_ENV_FILE_B64=$(cat "${NETWORK_ENV_FILE}" | base64 -w 0)
 fi
 
-# If stdout is connected to a terminal, drop into a shell on failure.
-# Otherwise ensure all logs go to redis cache.
-if [ -t 1 ]; then
+# SSH-specific: encode SSH keys for transfer to the instance.
+# AWS credentials are handled by instance profiles on all paths.
+if [ "$use_ssh" -eq 1 ]; then
+  # Only pass SSH keys if disk logging is enabled (internal CI only).
+  if [ "${CI_USE_BUILD_INSTANCE_KEY:-1}" -eq 1 ]; then
+    if [ -f ~/.ssh/build_instance_key ]; then
+      export BUILD_INSTANCE_KEY_B64=$(cat ~/.ssh/build_instance_key | base64 -w 0)
+    fi
+    if [ -f "$ci3/aws/build_instance_ssh_config" ]; then
+      export BUILD_INSTANCE_SSH_CONFIG_B64=$(cat "$ci3/aws/build_instance_ssh_config" | base64 -w 0)
+    fi
+  fi
+fi
+
+# --- Determine run command ---
+# If stdout is connected to a terminal (SSH interactive), drop into a shell on failure.
+# Otherwise (CI mode, always for SSM), pipe logs through timestamps and cache.
+if [ "$use_ssh" -eq 1 ] && [ -t 1 ]; then
   ssh_args="-t"
   if [ "$NO_TERMINATE" -eq 0 ]; then
     run_cmd="run || exec zsh"
@@ -115,10 +164,11 @@ if [ -t 1 ]; then
     run_cmd="run; exec zsh"
   fi
 else
-  # We're probably running in CI. Handle aws evictions and add timestamps to the logs.
   run_cmd="PARENT_LOG_ID=\$ci_log_id run 2>&1 | ci3/add_timestamps | DUP=1 ci3/cache_log 'CI run' \$ci_log_id"
 fi
 
+# --- Container script ---
+# This runs inside the devbox Docker container.
 container_script=$(
   cat <<EOF
   set -euo pipefail
@@ -132,16 +182,18 @@ container_script=$(
   git config --global user.name "AztecBot"
   cd aztec-packages
   git config --global advice.detachedHead false
-  git init . &>/dev/null
-  git remote add origin https://github.com/aztecprotocol/aztec-packages
+  git init .
+  if [ -n "\${GITHUB_TOKEN:-}" ]; then
+    git remote add origin "https://x-access-token:\$GITHUB_TOKEN@github.com/\$GITHUB_REPOSITORY.git"
+  else
+    git remote add origin "https://github.com/\$GITHUB_REPOSITORY.git"
+  fi
   git fetch --depth 1 origin $current_commit
   git checkout FETCH_HEAD
   git checkout -b \$REF_NAME
   source ci3/source
-  source ci3/source_refname
-  source ci3/source_redis
-  source ci3/source_cache
-  ci_log_id=\$(log_ci_run)
+  ci_log_id=\$CI_LOG_ID
+  log_ci_run \$ci_log_id
 
   if [ -n "\$DOCKERHUB_PASSWORD" ]; then
     echo \$DOCKERHUB_PASSWORD | docker login -u \$DOCKERHUB_USERNAME --password-stdin
@@ -156,17 +208,11 @@ container_script=$(
       echo "Performing a release because \$REF_NAME is a semver."
     fi
 
-    # Capture cpu load.
-    mpstat 2 > >(cache_log cpufile) &
-    cpu_pid=\$!
-
-    # Capture mem load.
-    vmstat -w -S M 2 > >(add_timestamps | cache_log memfile) &
-    mem_pid=\$!
-
-    # Dump process tree every 10s.
-    bash -c "while true; do pstree -agl; echo; echo; sleep 10; done" 2>&1 > >(add_timestamps | cache_log processes) &
-    pstree_pid=\$!
+    # Background monitors. cache_log and add_timestamps both close inherited pipeline
+    # fds internally, so these long-running processes won't block the outer pipeline.
+    mpstat 2 2>&1 | cache_log cpufile &
+    vmstat -w -S M 2 2>&1 | add_timestamps | cache_log memfile &
+    bash -c "while true; do pstree -agl; echo; echo; sleep 10; done" 2>&1 | add_timestamps | cache_log processes &
 
     set +e
     set -x
@@ -175,7 +221,6 @@ container_script=$(
     set +x
 
     sudo dmesg 2>&1 | cache_log 'dmesg'
-    kill \$cpu_pid \$mem_pid \$pstree_pid &>/dev/null
 
     return \$code
   }
@@ -187,187 +232,254 @@ container_script=$(
 
   case \$code in
     155) ;;
-    0) log_ci_run PASSED \$ci_log_id ;;
-    *) log_ci_run FAILED \$ci_log_id && merge_train_failure_slack_notify \$ci_log_id && release_canary_slack_notify \$ci_log_id ;;
+    0) log_ci_run \$ci_log_id PASSED ;;
+    *)
+      log_ci_run \$ci_log_id FAILED
+      merge_train_failure_slack_notify \$ci_log_id
+      release_canary_slack_notify \$ci_log_id
+      ;;
   esac
   exit \$code
 EOF
 )
 
-# Use ~/.ssh/build_instance_key to ssh into our requested instance.
-# Launch our devbox container, clones the branches latest commit and runs the given command.
-# To improve performance we:
-#   - Use a volume on /var/lib/docker for docker-in-docker as overlayfs trashes performance (in fact it just breaks).
-#   - The volume has the devbox image preloaded within it in the ami_update.sh script.
-#   - Use a volume for the actual working directory in /home/aztec-dev/aztec-packages.
-#   - Mount the CRS directly from the host into the container.
-#   - Mount the hosts /tmp into the container.
-# We mount in aws credentials to leverage the s3 cache.
-# We enable the test cache, which uses a redis instance for tracking test runs.
-# We set SSH_CONNECTION to something to ensure the hostname is shown in the lean prompt.
-# We provide the host user and group ids to the entrypoint script to ensure alignment.
-# We raise the default pid limit to 32k.
-function run {
-  export GOOGLE_APPLICATION_CREDENTIALS=${GOOGLE_APPLICATION_CREDENTIALS:-/tmp/gcp-key.json}
-  export NETWORK_ENV_FILE=${NETWORK_ENV_FILE:-/tmp/network.env}
-  # if the google application credentials exist, load them into a base64 encoded string
-  if [ -f ${GOOGLE_APPLICATION_CREDENTIALS} ]; then
-    export GCP_SA_KEY_B64=$(cat ${GOOGLE_APPLICATION_CREDENTIALS} | base64 -w 0)
+# CI_SSM_MODE: 1 when using SSM, 0 when using SSH.
+ci_ssm_mode=$((1 - use_ssh))
+
+# --- Host script ---
+# This runs on the EC2 host (either via SSH or SSM).
+host_script=$(
+  cat <<EOF
+set -euo pipefail
+
+# This runtime guard should be baked into the build image. Unattended upgrades
+# can restart SSM while CI is running, leaving SSM commands stuck InProgress.
+echo "HOST: disabling apt periodic upgrades..."
+sudo systemctl mask --now apt-daily.timer apt-daily-upgrade.timer apt-daily.service apt-daily-upgrade.service unattended-upgrades.service &>/dev/null || true
+
+sudo sysctl fs.inotify.max_user_watches=1048576 &>/dev/null
+sudo sysctl fs.inotify.max_user_instances=1048576 &>/dev/null
+
+# DNS caching. CI's massively parallel jobs resolve the same handful of hosts (S3,
+# Docker Hub, npm, cargo, github) thousands of times. By default every lookup — from
+# the devbox container and nested docker-in-docker alike — goes straight to the VPC
+# resolver, which AWS caps at ~1024 pps per ENI for link-local services; over that,
+# packets are silently dropped and surface as "could not resolve host".
+# Route container lookups through the host's (caching) systemd-resolved instead, by
+# exposing its stub on the instance's primary private IP — the one address reachable
+# from both the devbox container and nested dind — and pointing containers at it via
+# --dns on docker run below. priv_ip is cleared (and --dns omitted, leaving DNS
+# unchanged) if any step fails, so this can only help, never break resolution.
+priv_ip=\$(ip -4 route get 169.254.169.253 2>/dev/null | awk '{for(i=1;i<=NF;i++) if(\$i=="src"){print \$(i+1); exit}}' || true)
+if [ -n "\$priv_ip" ] && systemctl is-active --quiet systemd-resolved \
+   && echo "DNSStubListenerExtra=\$priv_ip" | sudo tee -a /etc/systemd/resolved.conf >/dev/null \
+   && sudo systemctl restart systemd-resolved; then
+  # Only route containers to the cache once it's actually listening on priv_ip.
+  for _ in 1 2 3 4 5; do
+    sudo ss -lnu "sport = :53" 2>/dev/null | grep -qF "\$priv_ip:53" && { dns_ready=1; break; }
+    sleep 0.5
+  done
+  if [ "\${dns_ready:-0}" = 1 ]; then
+    echo "HOST: DNS cache active on \$priv_ip (systemd-resolved)."
+  else
+    echo "HOST: DNS cache failed to bind \$priv_ip; using default resolver."
+    priv_ip=
   fi
-  # if the network env file exists, load it into a base64 encoded string
-  if [ -f ${NETWORK_ENV_FILE} ]; then
-    export NETWORK_ENV_FILE_B64=$(cat ${NETWORK_ENV_FILE} | base64 -w 0)
-  fi
-  # Only pass SSH keys if disk logging is enabled (internal CI only)
-  if [ "${CI_USE_BUILD_INSTANCE_KEY:-1}" -eq 1 ]; then
-    # if the build instance key exists, load it into a base64 encoded string
-    if [ -f ~/.ssh/build_instance_key ]; then
-      export BUILD_INSTANCE_KEY_B64=$(cat ~/.ssh/build_instance_key | base64 -w 0)
-    fi
-    # if the build instance ssh config exists, load it into a base64 encoded string
-    if [ -f $ci3/aws/build_instance_ssh_config ]; then
-      export BUILD_INSTANCE_SSH_CONFIG_B64=$(cat $ci3/aws/build_instance_ssh_config | base64 -w 0)
-    fi
-  fi
-
-  ssh ${ssh_args:-} -F $ci3/aws/build_instance_ssh_config ubuntu@$ip "
-    # TODO: This should *not* be needed in a CI run. Remove watching code, e.g. in boxes.
-    sudo sysctl fs.inotify.max_user_watches=1048576 &>/dev/null
-    sudo sysctl fs.inotify.max_user_instances=1048576 &>/dev/null
-
-
-    aws_token=\$(curl -sX PUT http://169.254.169.254/latest/api/token -H 'X-aws-ec2-metadata-token-ttl-seconds: 21600')
-
-
-    # Save GCP_SA_KEY to a file if set
-    if [ -n "${GCP_SA_KEY_B64:-}" ]; then
-      echo "${GCP_SA_KEY_B64:-}" | base64 -d > ${GOOGLE_APPLICATION_CREDENTIALS}
-      echo "GCP_SA_KEY decoded and saved to ${GOOGLE_APPLICATION_CREDENTIALS}"
-    fi
-
-    # Save NETWORK_ENV_FILE to a file if set
-    if [ -n "${NETWORK_ENV_FILE_B64:-}" ]; then
-      echo "${NETWORK_ENV_FILE_B64:-}" | base64 -d > ${NETWORK_ENV_FILE}
-      echo "NETWORK_ENV_FILE decoded and saved to ${NETWORK_ENV_FILE}"
-    fi
-
-    # Save BUILD_INSTANCE_KEY to a file if set
-    if [ -n "${BUILD_INSTANCE_KEY_B64:-}" ]; then
-      mkdir -p \$HOME/.ssh
-      echo "${BUILD_INSTANCE_KEY_B64:-}" | base64 -d > \$HOME/.ssh/build_instance_key
-      chmod 600 \$HOME/.ssh/build_instance_key
-      echo "BUILD_INSTANCE_KEY decoded and saved to \$HOME/.ssh/build_instance_key"
-    fi
-
-    # Save BUILD_INSTANCE_SSH_CONFIG to a file if set
-    if [ -n "${BUILD_INSTANCE_SSH_CONFIG_B64:-}" ]; then
-      mkdir -p \$HOME/.ssh
-      echo "${BUILD_INSTANCE_SSH_CONFIG_B64:-}" | base64 -d > \$HOME/.ssh/build_instance_ssh_config
-      echo "BUILD_INSTANCE_SSH_CONFIG decoded and saved to \$HOME/.ssh/build_instance_ssh_config"
-    fi
-
-    start_build() {
-      echo Starting devbox...
-      docker run --privileged --rm \${docker_args:-} \
-        --name aztec_build \
-        --hostname $instance_name \
-        -v bootstrap_ci_local_docker:/var/lib/docker \
-        -v bootstrap_ci_repo:/home/aztec-dev/aztec-packages \
-        -v \$HOME/.aws:/home/aztec-dev/.aws:ro \
-        -v \$HOME/.ssh:/home/aztec-dev/.ssh:ro \
-        -v \$HOME/.bb-crs:/home/aztec-dev/.bb-crs \
-        -v /dev/kmsg:/dev/kmsg \
-        -v /tmp:/tmp \
-        -v ${GOOGLE_APPLICATION_CREDENTIALS}:${GOOGLE_APPLICATION_CREDENTIALS}:ro \
-        -v ${NETWORK_ENV_FILE}:${NETWORK_ENV_FILE}:ro \
-        -e GOOGLE_APPLICATION_CREDENTIALS="${GOOGLE_APPLICATION_CREDENTIALS}" \
-        -e NETWORK_ENV_FILE="${NETWORK_ENV_FILE}" \
-        -e CI=1 \
-        -e RUN_ID=${RUN_ID:-} \
-        -e JOB_ID=${JOB_ID:-} \
-        -e REF_NAME=${REF_NAME:-} \
-        -e TARGET_BRANCH=${TARGET_BRANCH:-} \
-        -e CI_DASHBOARD=${CI_DASHBOARD:-} \
-        -e PARENT_LOG_ID=${PARENT_LOG_ID:-} \
-        -e NO_CACHE=${NO_CACHE:-} \
-        -e NO_FAIL_FAST=${NO_FAIL_FAST:-} \
-        -e CI_USE_BUILD_INSTANCE_KEY=${CI_USE_BUILD_INSTANCE_KEY:-} \
-        -e CI_REDIS='ci-redis-tiered.lzka0i.ng.0001.use2.cache.amazonaws.com' \
-        -e SSH_CONNECTION=' ' \
-        -e LOCAL_USER_ID=\$(id -u) \
-        -e LOCAL_GROUP_ID=\$(id -g) \
-        -e GCP_PROJECT_ID=${GCP_PROJECT_ID:-} \
-        -e EXTERNAL_ETHEREUM_HOSTS=${EXTERNAL_ETHEREUM_HOSTS:-} \
-        -e EXTERNAL_ETHEREUM_CONSENSUS_HOST=${EXTERNAL_ETHEREUM_CONSENSUS_HOST:-} \
-        -e EXTERNAL_ETHEREUM_CONSENSUS_HOST_API_KEY=${EXTERNAL_ETHEREUM_CONSENSUS_HOST_API_KEY:-} \
-        -e EXTERNAL_ETHEREUM_CONSENSUS_HOST_API_KEY_HEADER=${EXTERNAL_ETHEREUM_CONSENSUS_HOST_API_KEY_HEADER:-} \
-        -e L1_DEPLOYMENT_PRIVATE_KEY=${L1_DEPLOYMENT_PRIVATE_KEY:-} \
-        -e DOCKERHUB_PASSWORD=${DOCKERHUB_PASSWORD:-} \
-        -e DOCKERHUB_USERNAME=${DOCKERHUB_USERNAME:-} \
-        -e AWS_ACCESS_KEY_ID=${AWS_ACCESS_KEY_ID:-} \
-        -e AWS_SECRET_ACCESS_KEY=${AWS_SECRET_ACCESS_KEY:-} \
-        -e R2_ACCESS_KEY_ID=${R2_ACCESS_KEY_ID:-} \
-        -e R2_SECRET_ACCESS_KEY=${R2_SECRET_ACCESS_KEY:-} \
-        -e BUILD_SYSTEM_DEBUG=${BUILD_SYSTEM_DEBUG:-} \
-        -e GITHUB_TOKEN=${GITHUB_TOKEN:-} \
-        -e NETLIFY_SITE_ID=${NETLIFY_SITE_ID:-} \
-        -e NETLIFY_AUTH_TOKEN=${NETLIFY_AUTH_TOKEN:-} \
-        -e NPM_TOKEN=${NPM_TOKEN:-} \
-        -e SLACK_BOT_TOKEN=${SLACK_BOT_TOKEN:-} \
-        -e AWS_TOKEN=\$aws_token \
-        -e NAMESPACE=${NAMESPACE:-} \
-        -e NETWORK=${NETWORK:-} \
-        --pids-limit=32768 \
-        --shm-size=2g \
-        aztecprotocol/devbox:3.0 bash -c $(printf '%q' "$container_script")
-    }
-
-    # If stdout is a tty, run in foreground, otherwise run in background and handle spot termination notices.
-    if [ -t 1 ]; then
-      docker_args+=' -ti'
-      start_build
-    else
-      echo 'Stdout is not a tty, starting build container in background...'
-      start_build &
-      build_pid=\$!
-
-      # While the docker container is running, check for spot termination notices.
-      while kill -0 \$build_pid &>/dev/null; do
-        # The check for the file allows for testing spot termination logic.
-        if [ -f /tmp/spot_term ] || curl -fs -H 'X-aws-ec2-metadata-token: '\$aws_token http://169.254.169.254/latest/meta-data/spot/termination-time &>/dev/null; then
-          # Termination notice found, exit with 155.
-          echo 'Spot will be terminated! Exiting early.'
-          docker kill aztec_build &>/dev/null || true
-          exit 155
-        fi
-        sleep 5
-      done
-
-      # Returns exit code from docker run.
-      wait \$build_pid
-    fi
-"
-}
-
-set +e
-# If in terminal run in foreground.
-# If not, run in background so we can handle the signals in a timely fashion, and wait for it to finish.
-if [ -t 1 ]; then
-  run
 else
-  echo "Stdout is not a tty, running in background..."
-  run &
-  wait $!
+  echo "HOST: DNS cache not configured; using default resolver."
+  priv_ip=
 fi
 
-code=$?
-set -e
-echo "SSH exited with code: $code"
+# Pin host processes to top CPU cores to keep benchmark cores clean.
+# CPU layout: physical cores 0..N/2-1, hyperthreads N/2..N-1.
+# OS gets top 8 physical cores + their hyperthread siblings.
+# Skip dockerd so containers it spawns can use all CPUs for build/test.
+total_cpus=\$(nproc)
+total_physical=\$((total_cpus / 2))
+os_start=\$((total_physical - 8))
+os_ht_start=\$((total_cpus - 8))
+os_cpu_list="\$os_start-\$((total_physical - 1)),\$os_ht_start-\$((total_cpus - 1))"
+for pid in \$(ps -eo pid= 2>/dev/null); do
+  comm=\$(cat /proc/\$pid/comm 2>/dev/null) || continue
+  [ "\$comm" = "dockerd" ] && continue
+  sudo taskset -apc "\$os_cpu_list" \$pid &>/dev/null || true
+done
+echo "Host processes pinned to OS CPUs: \$os_cpu_list"
+
+echo "HOST: fetching EC2 metadata token..."
+aws_token=\$(curl -sX PUT http://169.254.169.254/latest/api/token -H 'X-aws-ec2-metadata-token-ttl-seconds: 21600')
+echo "HOST: metadata token acquired."
+
+GOOGLE_APPLICATION_CREDENTIALS=\${GOOGLE_APPLICATION_CREDENTIALS:-/tmp/gcp-key.json}
+NETWORK_ENV_FILE=\${NETWORK_ENV_FILE:-/tmp/network.env}
+
+# Decode GCP service account key if provided (base64-encoded by the caller).
+echo "HOST: decoding credentials..."
+if [ -n "${GCP_SA_KEY_B64:-}" ]; then
+  echo "${GCP_SA_KEY_B64:-}" | base64 -d > "\${GOOGLE_APPLICATION_CREDENTIALS}"
+fi
+
+# Decode network env file if provided.
+if [ -n "${NETWORK_ENV_FILE_B64:-}" ]; then
+  echo "${NETWORK_ENV_FILE_B64:-}" | base64 -d > "\${NETWORK_ENV_FILE}"
+fi
+
+# Decode SSH keys if provided (SSH mode only, empty in SSM mode).
+if [ -n "${BUILD_INSTANCE_KEY_B64:-}" ]; then
+  mkdir -p \$HOME/.ssh
+  echo "${BUILD_INSTANCE_KEY_B64:-}" | base64 -d > \$HOME/.ssh/build_instance_key
+  chmod 600 \$HOME/.ssh/build_instance_key
+fi
+if [ -n "${BUILD_INSTANCE_SSH_CONFIG_B64:-}" ]; then
+  mkdir -p \$HOME/.ssh
+  echo "${BUILD_INSTANCE_SSH_CONFIG_B64:-}" | base64 -d > \$HOME/.ssh/build_instance_ssh_config
+fi
+
+start_build() {
+  echo "HOST: preparing devbox (uid/gid, docker run)..."
+  local_uid=\$(id -u)
+  local_gid=\$(id -g)
+
+  docker run --privileged --rm \${docker_args:-} \${priv_ip:+--dns \$priv_ip} \
+    --name aztec_build \
+    --hostname $docker_hostname \
+    -v bootstrap_ci_local_docker:/var/lib/docker \
+    -v bootstrap_ci_repo:/home/aztec-dev/aztec-packages \
+    -v \$HOME/.ssh:/home/aztec-dev/.ssh:ro \
+    -v \$HOME/.bb-crs:/home/aztec-dev/.bb-crs \
+    -v /dev/kmsg:/dev/kmsg \
+    -v /tmp:/tmp \
+    -e GOOGLE_APPLICATION_CREDENTIALS="\${GOOGLE_APPLICATION_CREDENTIALS}" \
+    -e NETWORK_ENV_FILE="\${NETWORK_ENV_FILE}" \
+    -e CI=1 \
+    -e CI_SSM_MODE=$ci_ssm_mode \
+    -e CI_LOG_ID=${CI_LOG_ID:-} \
+    -e CI_LOGS_S3_LOCATION=${CI_LOGS_S3_LOCATION:-s3://aztec-ci-artifacts/logs} \
+    -e RUN_ID=${RUN_ID:-} \
+    -e JOB_ID=${JOB_ID:-} \
+    -e REF_NAME=${REF_NAME:-} \
+    -e TARGET_BRANCH=${TARGET_BRANCH:-} \
+    -e CI_DASHBOARD=${CI_DASHBOARD:-} \
+    -e PARENT_LOG_ID=${PARENT_LOG_ID:-} \
+    -e NO_CACHE=${NO_CACHE:-} \
+    -e NO_FAIL_FAST=${NO_FAIL_FAST:-} \
+    -e CI_USE_BUILD_INSTANCE_KEY=${CI_USE_BUILD_INSTANCE_KEY:-1} \
+    -e CI_REDIS='ci-redis-tiered.lzka0i.ng.0001.use2.cache.amazonaws.com' \
+    -e SSH_CONNECTION=' ' \
+    -e LOCAL_USER_ID=\$local_uid \
+    -e LOCAL_GROUP_ID=\$local_gid \
+    -e GCP_PROJECT_ID=${GCP_PROJECT_ID:-} \
+    -e EXTERNAL_ETHEREUM_HOSTS=${EXTERNAL_ETHEREUM_HOSTS:-} \
+    -e EXTERNAL_ETHEREUM_CONSENSUS_HOST=${EXTERNAL_ETHEREUM_CONSENSUS_HOST:-} \
+    -e EXTERNAL_ETHEREUM_CONSENSUS_HOST_API_KEY=${EXTERNAL_ETHEREUM_CONSENSUS_HOST_API_KEY:-} \
+    -e EXTERNAL_ETHEREUM_CONSENSUS_HOST_API_KEY_HEADER=${EXTERNAL_ETHEREUM_CONSENSUS_HOST_API_KEY_HEADER:-} \
+    -e L1_DEPLOYMENT_PRIVATE_KEY=${L1_DEPLOYMENT_PRIVATE_KEY:-} \
+    -e DOCKERHUB_PASSWORD=${DOCKERHUB_PASSWORD:-} \
+    -e DOCKERHUB_USERNAME=${DOCKERHUB_USERNAME:-} \
+    -e R2_ACCESS_KEY_ID=${R2_ACCESS_KEY_ID:-} \
+    -e R2_SECRET_ACCESS_KEY=${R2_SECRET_ACCESS_KEY:-} \
+    -e BUILD_SYSTEM_DEBUG=${BUILD_SYSTEM_DEBUG:-} \
+    -e GITHUB_TOKEN=${GITHUB_TOKEN:-} \
+    -e GITHUB_REPOSITORY=${GITHUB_REPOSITORY:-aztecprotocol/aztec-packages} \
+    -e PR_NUMBER=${PR_NUMBER:-} \
+    -e PR_HEAD_REF=${PR_HEAD_REF:-} \
+    -e PR_BASE_REF=${PR_BASE_REF:-} \
+    -e CHONK_INPUTS_STATE_DIR=${CHONK_INPUTS_STATE_DIR:-} \
+    -e NETLIFY_SITE_ID=${NETLIFY_SITE_ID:-} \
+    -e NETLIFY_AUTH_TOKEN=${NETLIFY_AUTH_TOKEN:-} \
+    -e NPM_TOKEN=${NPM_TOKEN:-} \
+    -e CARGO_REGISTRY_TOKEN=${CARGO_REGISTRY_TOKEN:-} \
+    -e SLACK_BOT_TOKEN=${SLACK_BOT_TOKEN:-} \
+    -e AZTEC_FOUNDATION_CI_SLACK_BOT_TOKEN=${AZTEC_FOUNDATION_CI_SLACK_BOT_TOKEN:-} \
+    -e SOCKET_SECURITY_API_TOKEN=${SOCKET_SECURITY_API_TOKEN:-} \
+    -e AWS_TOKEN=\$aws_token \
+    -e NAMESPACE=${NAMESPACE:-} \
+    -e NETWORK=${NETWORK:-} \
+    -e GITHUB_ACTOR=${GITHUB_ACTOR:-} \
+    -e EC2_INSTANCE_TYPE=${EC2_INSTANCE_TYPE:-unknown} \
+    -e EC2_SPOT=${EC2_SPOT:-unknown} \
+    -e BENCH_UPLOAD=${BENCH_UPLOAD:-} \
+    -e AZTEC_TOOLCHAIN_DEFAULT_MAJOR_VERSION=${AZTEC_TOOLCHAIN_DEFAULT_MAJOR_VERSION:-} \
+    -e DRY_RUN=${DRY_RUN:-} \
+    -e PRIVATE_RELEASE=${PRIVATE_RELEASE:-} \
+    -e INTERNAL_DOCKER_REGISTRY=${INTERNAL_DOCKER_REGISTRY:-} \
+    -e SKIP_COMPAT_E2E=${SKIP_COMPAT_E2E:-} \
+    --pids-limit=65536 \
+    --shm-size=2g \
+    --ulimit nofile=1048576:1048576 \
+    aztecprotocol/devbox:3.0 bash -c $(printf '%q' "$container_script")
+}
+
+# If stdout is a tty, run in foreground, otherwise run in background and handle spot termination notices.
+if [ -t 1 ]; then
+  docker_args+=' -ti'
+  start_build
+else
+  echo "HOST: starting devbox container..."
+  start_build &
+  build_pid=\$!
+  echo "HOST: devbox container launched (pid=\$build_pid). Monitoring for spot termination..."
+
+  # While the docker container is running, check for spot termination notices.
+  while kill -0 \$build_pid &>/dev/null; do
+    # The check for the file allows for testing spot termination logic.
+    if [ -f /tmp/spot_term ] || curl -fs -H 'X-aws-ec2-metadata-token: '\$aws_token http://169.254.169.254/latest/meta-data/spot/termination-time &>/dev/null; then
+      echo 'Spot will be terminated! Exiting early.'
+      docker kill aztec_build &>/dev/null || true
+      exit 155
+    fi
+    sleep 5
+  done
+
+  # Returns exit code from docker run.
+  wait \$build_pid
+fi
+EOF
+)
+
+# --- Transport: send host_script to the instance ---
+if [ "$use_ssh" -eq 1 ]; then
+  echo_header "connect via SSH"
+  function run_ssh {
+    ssh ${ssh_args:-} -F $ci3/aws/build_instance_ssh_config ubuntu@$ip "$host_script"
+  }
+
+  set +e
+  # If in terminal run in foreground.
+  # If not, run in background so we can handle the signals in a timely fashion, and wait for it to finish.
+  if [ -t 1 ]; then
+    run_ssh
+  else
+    echo "Stdout is not a tty, running in background..."
+    run_ssh &
+    wait $!
+  fi
+  exit_code=$?
+  set -e
+  echo "SSH exited with code: $exit_code"
+else
+  echo_header "invoke SSM command"
+  # Send host script via SSM and poll until completion.
+  # Run as ubuntu to match SSH behavior (SSM defaults to root).
+  set +e
+  SSM_RUN_AS=ubuntu SSM_POLL_TIMEOUT=${SSM_POLL_TIMEOUT:-$((AWS_SHUTDOWN_TIME * 60 + 600))} \
+    ssm_send_command "$iid" "$host_script"
+  exit_code=$?
+  set -e
+fi
 
 # If we were spot evicted, try again using on-demand.
-if [ $code -eq 155 ]; then
+if [ "$exit_code" -eq 155 ]; then
   echo "Spot was evicted. Retrying with on-demand instance."
   NO_SPOT=1 exec "$0" "$@"
 else
-  exit $code
+  # Print CI log URL at the end for easy access (avoid scrolling up).
+  echo -e "CI Log: ${yellow}$log_url${reset}"
+  # Post final GitHub commit status.
+  if [ "$exit_code" -eq 0 ]; then
+    post_github_status success "ci/${status_job_id}" "$log_url" "${cmd:0:140}" 2>/dev/null || true
+  else
+    post_github_status failure "ci/${status_job_id}" "$log_url" "${cmd:0:140}" 2>/dev/null || true
+  fi
+  exit "$exit_code"
 fi

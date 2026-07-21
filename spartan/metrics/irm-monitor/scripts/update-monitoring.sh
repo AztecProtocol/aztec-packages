@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/usr/bin/env bash
 
 set -e
 
@@ -8,7 +8,7 @@ set -e
 NAMESPACE=${1:-"testnet"}
 MONITORING_NAMESPACE=${2:-"$NAMESPACE-irm"}
 NETWORK=${3:-"$NAMESPACE"}
-INFURA_URL_SECRET=${4:-"infura-sepolia-url"}
+ETHEREUM_HOSTS_SECRET=${4:-"irm-ethereum-hosts-sepolia"}
 
 # Deployment name includes the monitoring namespace prefix
 export DEPLOYMENT_NAME="${MONITORING_NAMESPACE}-monitor"
@@ -72,7 +72,7 @@ done
 echo "Retrieving rollup contract address..."
 
 L1_CONTRACTS=$(curl -s -X POST -H 'Content-Type: application/json' \
-  -d '{"jsonrpc":"2.0","method":"node_getL1ContractAddresses","params":[],"id":1}' \
+  -d '{"jsonrpc":"2.0","method":"aztec_getL1ContractAddresses","params":[],"id":1}' \
   "http://localhost:8080" 2>&1)
 
 if [ $? -ne 0 ]; then
@@ -130,7 +130,7 @@ fi
 
 # Fetch GCP secrets
 echo "Fetching GCP secrets..."
-INFURA_URL=$(gcloud secrets versions access latest --secret=$INFURA_URL_SECRET)
+ETHEREUM_HOSTS=$(gcloud secrets versions access latest --secret=$ETHEREUM_HOSTS_SECRET)
 GRAFANA_PASSWORD=$(gcloud secrets versions access latest --secret=grafana-cloud-password)
 
 # Ensure monitoring namespace exists
@@ -139,7 +139,7 @@ kubectl get ns "$MONITORING_NAMESPACE" >/dev/null 2>&1 || kubectl create ns "$MO
 # Create/update secrets
 echo "Applying monitoring secrets..."
 kubectl -n "$MONITORING_NAMESPACE" create secret generic irm-monitor-secrets \
-  --from-literal=infura-sepolia-url="$INFURA_URL" \
+  --from-literal=ethereum-hosts="$ETHEREUM_HOSTS" \
   --from-literal=grafana-cloud-password="$GRAFANA_PASSWORD" \
   --dry-run=client -o yaml | kubectl apply -f -
 

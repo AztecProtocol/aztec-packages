@@ -32,7 +32,7 @@ RUN git clone https://github.com/AztecProtocol/aztec-packages.git --depth 1 --br
 WORKDIR /root/aztec-packages
 
 # Run bootstrap up to yarn-project (release-image needs docker which isn't available)
-RUN BOOTSTRAP_TO=yarn-project ./bootstrap.sh
+RUN ./bootstrap.sh build yarn-project
 
 # Build the tx fuzzer
 WORKDIR /root/aztec-packages/barretenberg/cpp

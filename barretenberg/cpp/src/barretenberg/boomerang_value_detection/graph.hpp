@@ -111,11 +111,11 @@ template <typename FF, typename CircuitBuilder> class StaticAnalyzer_ {
     /**
      * @brief Extract gate variables using a declarative pattern
      */
-    template <typename Block, typename GateSelectorColumn>
+    template <typename Block>
     std::vector<uint32_t> extract_gate_variables(size_t index,
                                                  Block& blk,
                                                  const bb::gate_patterns::GatePattern& pattern,
-                                                 const GateSelectorColumn& gate_selector_column);
+                                                 bb::GateKind kind);
 
     void process_execution_trace();
 

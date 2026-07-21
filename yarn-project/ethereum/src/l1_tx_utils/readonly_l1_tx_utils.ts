@@ -3,6 +3,7 @@ import type { EthAddress } from '@aztec/foundation/eth-address';
 import { type Logger, createLogger } from '@aztec/foundation/log';
 import { makeBackoff, retry } from '@aztec/foundation/retry';
 import { DateProvider } from '@aztec/foundation/timer';
+import { getErrorCause } from '@aztec/foundation/types';
 import { RollupAbi } from '@aztec/l1-artifacts/RollupAbi';
 
 import pickBy from 'lodash.pickby';
@@ -130,9 +131,10 @@ export class ReadOnlyL1TxUtils {
     const numBlocks = Math.ceil(gasConfig.stallTimeMs! / BLOCK_TIME_MS);
     for (let i = 0; i < numBlocks; i++) {
       // each block can go up 12.5% from previous baseFee
-      maxFeePerGas = (maxFeePerGas * (1_000n + 125n)) / 1_000n;
+      // ceil, (a+b-1)/b, to avoid truncation at small values (e.g. 1 wei blob base fee)
+      maxFeePerGas = (maxFeePerGas * (1_000n + 125n) + 999n) / 1_000n;
       // same for blob gas fee
-      maxFeePerBlobGas = (maxFeePerBlobGas * (1_000n + 125n)) / 1_000n;
+      maxFeePerBlobGas = (maxFeePerBlobGas * (1_000n + 125n) + 999n) / 1_000n;
     }
 
     if (attempt > 0) {
@@ -242,13 +244,16 @@ export class ReadOnlyL1TxUtils {
     const gasConfig = { ...this.config, ..._gasConfig };
     let initialEstimate = 0n;
     if (_blobInputs) {
-      // @note requests with blobs also require maxFeePerBlobGas to be set
+      // @note requests with blobs also require maxFeePerBlobGas to be set.
+      // Use 2x buffer for maxFeePerBlobGas to avoid stale fees and to pass EIP-4844 validation (even if it is a gas estimation call).
+      // 1. maxFeePerBlobGas >= blobBaseFee
+      // 2. account balance >= gas * maxFeePerGas + maxFeePerBlobGas * blobCount + value
       const gasPrice = await this.getGasPrice(gasConfig, true, 0);
       initialEstimate = await this.client.estimateGas({
         account,
         ...request,
         ..._blobInputs,
-        maxFeePerBlobGas: gasPrice.maxFeePerBlobGas!,
+        maxFeePerBlobGas: gasPrice.maxFeePerBlobGas! * 2n,
         gas: MAX_L1_TX_LIMIT,
         blockTag: 'latest',
       });
@@ -391,7 +396,7 @@ export class ReadOnlyL1TxUtils {
       this.logger?.debug(`L1 transaction simulation succeeded`, { ...result[0].calls[0] });
       return { gasUsed: result[0].gasUsed, result: result[0].calls[0].data as `0x${string}` };
     } catch (err) {
-      if (err instanceof MethodNotFoundRpcError || err instanceof MethodNotSupportedRpcError) {
+      if (getErrorCause(err, MethodNotFoundRpcError) || getErrorCause(err, MethodNotSupportedRpcError)) {
         if (gasConfig.fallbackGasEstimate) {
           this.logger?.warn(
             `Node does not support eth_simulateV1 API. Using fallback gas estimate: ${gasConfig.fallbackGasEstimate}`,

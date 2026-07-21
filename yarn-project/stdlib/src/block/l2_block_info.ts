@@ -5,8 +5,10 @@ import { BufferReader, serializeToBuffer } from '@aztec/foundation/serialize';
 
 import { z } from 'zod';
 
+import { BlockHash } from './block_hash.js';
+
 export type L2BlockInfo = {
-  blockHash?: Fr;
+  blockHash?: BlockHash;
   archive: Fr;
   lastArchive: Fr;
   blockNumber: BlockNumber;
@@ -17,7 +19,7 @@ export type L2BlockInfo = {
 
 export function randomBlockInfo(blockNumber?: BlockNumber | number): L2BlockInfo {
   return {
-    blockHash: Fr.random(),
+    blockHash: BlockHash.random(),
     archive: Fr.random(),
     lastArchive: Fr.random(),
     blockNumber: BlockNumber(blockNumber ?? Math.floor(Math.random() * 100000) + 1),
@@ -28,7 +30,7 @@ export function randomBlockInfo(blockNumber?: BlockNumber | number): L2BlockInfo
 }
 
 export const BlockInfoSchema = z.object({
-  blockHash: schemas.Fr.optional(),
+  blockHash: BlockHash.schema.optional(),
   archive: schemas.Fr,
   lastArchive: schemas.Fr,
   blockNumber: BlockNumberSchema,
@@ -39,7 +41,7 @@ export const BlockInfoSchema = z.object({
 
 export function serializeBlockInfo(blockInfo: L2BlockInfo): Buffer {
   return serializeToBuffer(
-    blockInfo.blockHash ?? Fr.ZERO,
+    blockInfo.blockHash ?? BlockHash.ZERO,
     blockInfo.archive,
     blockInfo.lastArchive,
     blockInfo.blockNumber,
@@ -51,9 +53,9 @@ export function serializeBlockInfo(blockInfo: L2BlockInfo): Buffer {
 
 export function deserializeBlockInfo(buffer: Buffer | BufferReader): L2BlockInfo {
   const reader = BufferReader.asReader(buffer);
-  const blockHash = reader.readObject(Fr);
+  const blockHash = BlockHash.fromBuffer(reader);
   return {
-    blockHash: blockHash.equals(Fr.ZERO) ? undefined : blockHash,
+    blockHash: blockHash.equals(BlockHash.ZERO) ? undefined : blockHash,
     archive: reader.readObject(Fr),
     lastArchive: reader.readObject(Fr),
     blockNumber: BlockNumber(reader.readNumber()),

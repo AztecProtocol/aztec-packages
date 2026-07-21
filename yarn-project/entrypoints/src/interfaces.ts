@@ -51,11 +51,12 @@ export interface EntrypointInterface {
    * of a single entrypoint call.
    *
    * @param exec - The execution payload to wrap
+   * @param chainInfo - Chain information (chainId and version) for replay protection
    * @param options - Implementation-specific options
    * @returns A new execution payload with a single call to this entrypoint
    * @throws Error if the payload cannot be wrapped (e.g., exceeds call limit)
    */
-  wrapExecutionPayload(exec: ExecutionPayload, options?: any): Promise<ExecutionPayload>;
+  wrapExecutionPayload(exec: ExecutionPayload, chainInfo: ChainInfo, options?: any): Promise<ExecutionPayload>;
 }
 
 /** Creates authorization witnesses. */

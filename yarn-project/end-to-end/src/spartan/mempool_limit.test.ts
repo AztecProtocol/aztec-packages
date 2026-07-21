@@ -21,15 +21,15 @@ import { Fr } from '@aztec/aztec.js/fields';
 import { createAztecNodeClient } from '@aztec/aztec.js/node';
 import { Tx, TxStatus } from '@aztec/aztec.js/tx';
 import { asyncPool } from '@aztec/foundation/async-pool';
-import { times } from '@aztec/foundation/collection';
+import { times, timesAsync } from '@aztec/foundation/collection';
 import { createLogger } from '@aztec/foundation/log';
 import { retryUntil } from '@aztec/foundation/retry';
 import { TokenContract } from '@aztec/noir-contracts.js/Token';
-import { proveInteraction } from '@aztec/test-wallet/server';
 
 import { jest } from '@jest/globals';
 
 import { getSponsoredFPCAddress } from '../fixtures/utils.js';
+import { proveInteraction } from '../test-wallet/utils.js';
 import {
   type TestAccounts,
   createWalletAndAztecNodeClient,
@@ -53,6 +53,9 @@ const TX_FLOOD_SIZE = 15;
 const TX_MEMPOOL_LIMIT = 10;
 const CONCURRENCY = 5;
 
+// Tests mempool size limits on a live k8s deployment. Floods the mempool with more transactions than
+// the configured limit, then verifies that the sequencer respects the cap and that excess transactions
+// are either dropped or deferred without crashing the node.
 describe('mempool limiter test', () => {
   jest.setTimeout(10 * 60 * 2000); // 20 minutes
   let node: ReturnType<typeof createAztecNodeClient>;
@@ -199,11 +202,12 @@ describe('mempool limiter test', () => {
 
   it('evicts txs to keep mempool under specified limit', async () => {
     if (!config.REAL_VERIFIER) {
-      const txs = times(TX_FLOOD_SIZE, () => {
+      const txs = await timesAsync(TX_FLOOD_SIZE, async () => {
         const tx = Tx.fromBuffer(sampleTx.toBuffer());
         // this only works on unproven networks, otherwise this will fail verification
         tx.data.forPublic!.nonRevertibleAccumulatedData.nullifiers[0] = Fr.random();
-        tx.txHash;
+        // The nullifier mutation means the hash is outdated
+        await tx.recomputeHash();
         return tx;
       });
 

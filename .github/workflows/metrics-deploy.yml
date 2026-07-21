@@ -37,6 +37,11 @@ on:
         required: true
         type: string
         default: "grafana-dashboard-password"
+      slack_alert_mention_user_ids:
+        description: Optional Terraform list of Slack user IDs to mention on Grafana alert notifications
+        required: false
+        type: string
+        default: '["U0AQPRA1FSL"]'
     secrets:
       GCP_SA_KEY:
         required: true
@@ -70,6 +75,10 @@ on:
         description: The name of the secret which holds the Grafana dashboard password
         required: true
         default: "grafana-dashboard-password"
+      slack_alert_mention_user_ids:
+        description: Optional Terraform list of Slack user IDs to mention on Grafana alert notifications
+        required: false
+        default: '["U0AQPRA1FSL"]'
 
 jobs:
   metrics_deployment:
@@ -91,25 +100,25 @@ jobs:
       GRAFANA_DASHBOARD_PASSWORD_SECRET_NAME: ${{ inputs.grafana_dashboard_password_secret_name }}
       SLACK_WEBHOOK_URL_SECRET_NAME: slack-webhook-url
       SLACK_WEBHOOK_STAGING_PUBLIC_SECRET_NAME: slack-webhook-staging-public-url
-      SLACK_WEBHOOK_STAGING_IGNITION_SECRET_NAME: slack-webhook-staging-ignition-url
       SLACK_WEBHOOK_NEXT_SCENARIO_SECRET_NAME: slack-webhook-next-scenario-url
       SLACK_WEBHOOK_NEXT_NET_SECRET_NAME: slack-webhook-next-net-url
       SLACK_WEBHOOK_TESTNET_SECRET_NAME: slack-webhook-testnet-url
       SLACK_WEBHOOK_MAINNET_SECRET_NAME: slack-webhook-mainnet-url
+      TF_VAR_SLACK_ALERT_MENTION_USER_IDS: ${{ inputs.slack_alert_mention_user_ids }}
 
     steps:
       - name: Checkout code
-        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+        uses: actions/checkout@93cb6efe18208431cddfb8368fd83d5badbf9bfd # v5.0.1
         with:
           ref: ${{ inputs.ref }}
 
       - name: Authenticate to Google Cloud
-        uses: google-github-actions/auth@6fc4af4b145ae7821d527454aa9bd537d1f2dc5f
+        uses: google-github-actions/auth@7c6bc770dae815cd3e89ee6cdf493a5fab2cc093 # v3.0.0
         with:
           credentials_json: ${{ secrets.GCP_SA_KEY }}
 
       - name: Set up Cloud SDK
-        uses: google-github-actions/setup-gcloud@6189d56e4096ee891640bb02ac264be376592d6a
+        uses: google-github-actions/setup-gcloud@aa5489c8933f4cc7a4f7d45035b3b1440c9c10db # v3.0.1
 
       - name: Install GKE Auth Plugin
         run: |
@@ -129,12 +138,8 @@ jobs:
             echo "Terraform state bucket already exists"
           fi
 
-      - name: Import Dashboard
-        working-directory: ./spartan/metrics
-        run: ./copy-dashboard.sh
-
       - name: Setup Terraform
-        uses: hashicorp/setup-terraform@633666f66e0061ca3b725c73b2ec20cd13a8fdd1
+        uses: hashicorp/setup-terraform@dfe3c3f87815947d99a8997f908cb6525fc44e9e # v4.0.1
         with:
           terraform_version: "1.5.0" # Specify your desired version
 
@@ -158,7 +163,6 @@ jobs:
             -var="GRAFANA_PASSWORD_SECRET_NAME=${{ env.GRAFANA_DASHBOARD_PASSWORD_SECRET_NAME }}" \
             -var="SLACK_WEBHOOK_SECRET_NAME=${{ env.SLACK_WEBHOOK_URL_SECRET_NAME }}" \
             -var="SLACK_WEBHOOK_STAGING_PUBLIC_SECRET_NAME=${{ env.SLACK_WEBHOOK_STAGING_PUBLIC_SECRET_NAME }}" \
-            -var="SLACK_WEBHOOK_STAGING_IGNITION_SECRET_NAME=${{ env.SLACK_WEBHOOK_STAGING_IGNITION_SECRET_NAME }}" \
             -var="SLACK_WEBHOOK_NEXT_SCENARIO_SECRET_NAME=${{ env.SLACK_WEBHOOK_NEXT_SCENARIO_SECRET_NAME }}" \
             -var="SLACK_WEBHOOK_NEXT_NET_SECRET_NAME=${{ env.SLACK_WEBHOOK_NEXT_NET_SECRET_NAME }}" \
             -lock=${{ inputs.respect_tf_lock }}
@@ -173,7 +177,6 @@ jobs:
             -var="GRAFANA_PASSWORD_SECRET_NAME=${{ env.GRAFANA_DASHBOARD_PASSWORD_SECRET_NAME }}" \
             -var="SLACK_WEBHOOK_SECRET_NAME=${{ env.SLACK_WEBHOOK_URL_SECRET_NAME }}" \
             -var="SLACK_WEBHOOK_STAGING_PUBLIC_SECRET_NAME=${{ env.SLACK_WEBHOOK_STAGING_PUBLIC_SECRET_NAME }}" \
-            -var="SLACK_WEBHOOK_STAGING_IGNITION_SECRET_NAME=${{ env.SLACK_WEBHOOK_STAGING_IGNITION_SECRET_NAME }}" \
             -var="SLACK_WEBHOOK_NEXT_SCENARIO_SECRET_NAME=${{ env.SLACK_WEBHOOK_NEXT_SCENARIO_SECRET_NAME }}" \
             -var="SLACK_WEBHOOK_NEXT_NET_SECRET_NAME=${{ env.SLACK_WEBHOOK_NEXT_NET_SECRET_NAME }}" \
             -out=tfplan \

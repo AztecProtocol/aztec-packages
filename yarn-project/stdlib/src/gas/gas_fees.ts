@@ -1,12 +1,6 @@
 import { Fr } from '@aztec/foundation/curves/bn254';
 import { schemas } from '@aztec/foundation/schemas';
-import {
-  BufferReader,
-  FieldReader,
-  bigintToUInt128BE,
-  serializeToBuffer,
-  serializeToFields,
-} from '@aztec/foundation/serialize';
+import { BufferReader, BufferSink, FieldReader, serializeToFields } from '@aztec/foundation/serialize';
 import type { FieldsOf } from '@aztec/foundation/types';
 
 import { inspect } from 'util';
@@ -14,6 +8,17 @@ import { z } from 'zod';
 
 import type { UInt128 } from '../types/shared.js';
 import type { GasDimensions } from './gas.js';
+
+/**
+ * Multiplies a bigint by a non-integer scalar and returns the ceiling of the result.
+ * Avoids converting the bigint to Number (which loses precision above 2^53) by instead
+ * scaling the scalar into a bigint rational and performing ceiling division.
+ */
+function bigintMulCeil(value: bigint, scalar: number): bigint {
+  const SCALE = 1_000_000_000_000n; // 1e12
+  const scaledScalar = BigInt(Math.round(scalar * 1e12));
+  return (value * scaledScalar + SCALE - 1n) / SCALE;
+}
 
 /** Gas prices for each dimension. */
 export class GasFees {
@@ -56,8 +61,11 @@ export class GasFees {
       return this.clone();
     } else if (typeof scalar === 'bigint') {
       return new GasFees(this.feePerDaGas * scalar, this.feePerL2Gas * scalar);
+    } else if (Number.isInteger(scalar)) {
+      const s = BigInt(scalar);
+      return new GasFees(this.feePerDaGas * s, this.feePerL2Gas * s);
     } else {
-      return new GasFees(Number(this.feePerDaGas) * scalar, Number(this.feePerL2Gas) * scalar);
+      return new GasFees(bigintMulCeil(this.feePerDaGas, scalar), bigintMulCeil(this.feePerL2Gas, scalar));
     }
   }
 
@@ -96,8 +104,14 @@ export class GasFees {
     return new GasFees(reader.readUInt128(), reader.readUInt128());
   }
 
-  toBuffer() {
-    return serializeToBuffer(bigintToUInt128BE(this.feePerDaGas), bigintToUInt128BE(this.feePerL2Gas));
+  toBuffer(): Buffer;
+  toBuffer(sink: BufferSink): void;
+  toBuffer(sink?: BufferSink): Buffer | void {
+    if (!sink) {
+      return BufferSink.serialize(this);
+    }
+    sink.writeBigInt(this.feePerDaGas, 16);
+    sink.writeBigInt(this.feePerL2Gas, 16);
   }
 
   static fromFields(fields: Fr[] | FieldReader) {
@@ -119,4 +133,9 @@ export class GasFees {
   [inspect.custom]() {
     return `GasFees { feePerDaGas=${this.feePerDaGas} feePerL2Gas=${this.feePerL2Gas} }`;
   }
+}
+
+/** Provides projected minimum gas fees for the next block. */
+export interface BlockMinFeesProvider {
+  getCurrentMinFees(): Promise<GasFees>;
 }

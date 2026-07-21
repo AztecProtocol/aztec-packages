@@ -2,14 +2,14 @@ use super::{
     key_validation_hint::KeyValidationHint,
     validate_key_validation_request::validate_key_validation_request,
 };
-use dep::types::{
-    abis::validation_requests::KeyValidationRequestAndGenerator, side_effect::Scoped,
+use types::{
+    abis::validation_requests::KeyValidationRequestAndSeparator, side_effect::Scoped,
     utils::arrays::ClaimedLengthArray,
 };
 
 pub struct KeyValidationRequestsValidator<let KeyValidationRequestsLen: u32, let KeyValidationHintsLen: u32> {
-    pub key_validation_requests: ClaimedLengthArray<Scoped<KeyValidationRequestAndGenerator>, KeyValidationRequestsLen>,
-    pub propagated_key_validation_requests: ClaimedLengthArray<Scoped<KeyValidationRequestAndGenerator>, KeyValidationRequestsLen>,
+    pub key_validation_requests: ClaimedLengthArray<Scoped<KeyValidationRequestAndSeparator>, KeyValidationRequestsLen>,
+    pub propagated_key_validation_requests: ClaimedLengthArray<Scoped<KeyValidationRequestAndSeparator>, KeyValidationRequestsLen>,
     pub hints: [KeyValidationHint; KeyValidationHintsLen],
 }
 

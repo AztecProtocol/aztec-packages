@@ -1,0 +1,57 @@
+#!/usr/bin/env bash
+# Uses strict scheduling to run benchmarks in parallel on their own cpus.
+# For benchmarks that can't be parallelized, runs them one at a time to avoid resource contention.
+NO_CD=1 source $(git rev-parse --show-toplevel)/ci3/source
+
+bench_cmds_file=$1
+
+# Turn hyperthreading off and schedule benches over the bottom half of the logical CPUs
+# (one thread per physical core). Timing-sensitive benches (e.g. the p2p client benches)
+# degrade nonlinearly when a sibling thread on the same physical core runs other work, so
+# we offline the siblings outright. The strict scheduler then pools exactly these physical
+# cores via BENCH_CPU_COUNT.
+function isolate_bench_cpus {
+  [ "$CI" -eq 0 ] && return
+
+  # CPU layout assumption: physical cores are 0..N/2-1, hyperthreads are N/2..N-1.
+  local total_cpus=$(nproc)
+  local physical=$((total_cpus / 2))
+
+  for cpu in $(seq $physical $((total_cpus - 1))); do
+    sudo sh -c "echo 0 > /sys/devices/system/cpu/cpu$cpu/online" 2>/dev/null || true
+  done
+
+  export BENCH_CPU_COUNT=$physical
+  echo "Benchmark CPU isolation: CPUs 0-$((physical - 1)) ($physical cores, hyperthreads off) for benchmarks."
+}
+
+function unisolate_bench_cpus {
+  [ "$CI" -eq 0 ] && return
+
+  echo "Re-enabling all CPUs..."
+  local total_cpus=$(nproc --all)
+  for cpu in $(seq 1 $((total_cpus - 1))); do
+    sudo sh -c "echo 1 > /sys/devices/system/cpu/cpu$cpu/online" 2>/dev/null || true
+  done
+  echo "All CPUs re-enabled. Online CPUs: $(nproc)"
+}
+
+isolate_bench_cpus
+
+# Clean up old benchmark outputs to avoid confusion with new results.
+find . -type d -iname bench-out | xargs rm -rf
+
+# Run parallelizable benchmarks.
+cat $bench_cmds_file | grep -v ':PARALLEL=0' | STRICT_SCHEDULING=1 parallelize
+
+# Run serial benchmarks one at a time (for memory bandwidth / cache isolation).
+serial_cmds=$(cat $bench_cmds_file | grep ':PARALLEL=0' || true)
+if [ -n "$serial_cmds" ]; then
+  echo "Running serial benchmarks..."
+  while IFS= read -r cmd; do
+    [ -z "$cmd" ] && continue
+    run_test_cmd "$cmd"
+  done <<< "$serial_cmds"
+fi
+
+unisolate_bench_cpus

@@ -31,6 +31,11 @@ export class TestTxProvider implements ITxProvider {
     return this.getTxsByHashes(txHashes);
   }
 
+  /** Returns whether each tx hash is in the seeded collection. */
+  hasTxs(txHashes: TxHash[]): Promise<boolean[]> {
+    return Promise.resolve(txHashes.map(h => this.txs.has(h.toString())));
+  }
+
   /** Get txs for a block proposal, returning any seeded txs that match the requested hashes. */
   getTxsForBlockProposal(
     blockProposal: BlockProposal,

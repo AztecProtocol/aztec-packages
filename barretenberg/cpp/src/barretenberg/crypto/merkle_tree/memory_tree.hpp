@@ -1,5 +1,5 @@
 // === AUDIT STATUS ===
-// internal:    { status: Planned, auditors: [Raju], commit: }
+// internal:    { status: Complete, auditors: [Nishat], commit: 22d6fc368da0fbe5412f4f7b2890a052aa48d803 }
 // external_1:  { status: not started, auditors: [], commit: }
 // external_2:  { status: not started, auditors: [], commit: }
 // =====================
@@ -115,6 +115,9 @@ template <typename HashingPolicy> fr_sibling_path MemoryTree<HashingPolicy>::get
 
 template <typename HashingPolicy> fr MemoryTree<HashingPolicy>::update_element(size_t index, fr const& value)
 {
+    if (index >= total_size_) {
+        throw_or_abort("update_element: index out of range");
+    }
     size_t offset = 0;
     size_t layer_size = total_size_;
     fr current = value;

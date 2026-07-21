@@ -1,5 +1,5 @@
 // === AUDIT STATUS ===
-// internal:    { status: Planned, auditors: [], commit: }
+// internal:    { status: Complete, auditors: [Suyash], commit: e4712cda8def49d75fbba2d361625fc5e21945f5 }
 // external_1:  { status: not started, auditors: [], commit: }
 // external_2:  { status: not started, auditors: [], commit: }
 // =====================
@@ -84,8 +84,9 @@ template <size_t uint_size> inline MultiTable get_uint_xor_table(const MultiTabl
 
     const size_t TABLE_BIT_SIZE = 6;
     const size_t num_entries = uint_size / TABLE_BIT_SIZE;
+    const size_t total_tables = num_entries + 1; // +1 for the remaining-bits table
     const uint64_t base = 1 << TABLE_BIT_SIZE;
-    MultiTable table(base, base, base, num_entries);
+    MultiTable table(base, base, base, total_tables);
 
     table.id = id;
     for (size_t i = 0; i < num_entries; ++i) {
@@ -95,7 +96,7 @@ template <size_t uint_size> inline MultiTable get_uint_xor_table(const MultiTabl
     }
 
     // remaining bits
-    const size_t LAST_TABLE_BIT_SIZE = uint_size - TABLE_BIT_SIZE * num_entries;
+    const size_t LAST_TABLE_BIT_SIZE = uint_size - (TABLE_BIT_SIZE * num_entries);
     const size_t LAST_SLICE_SIZE = 1 << LAST_TABLE_BIT_SIZE;
     table.slice_sizes.emplace_back(LAST_SLICE_SIZE);
     if (uint_size == 8 || uint_size == 32) {
@@ -118,8 +119,9 @@ template <size_t uint_size> inline MultiTable get_uint_and_table(const MultiTabl
 
     const size_t TABLE_BIT_SIZE = 6;
     const size_t num_entries = uint_size / TABLE_BIT_SIZE;
+    const size_t total_tables = num_entries + 1; // +1 for the remaining-bits table
     const uint64_t base = 1 << TABLE_BIT_SIZE;
-    MultiTable table(base, base, base, num_entries);
+    MultiTable table(base, base, base, total_tables);
 
     table.id = id;
     for (size_t i = 0; i < num_entries; ++i) {
@@ -129,7 +131,7 @@ template <size_t uint_size> inline MultiTable get_uint_and_table(const MultiTabl
     }
 
     // remaining bits
-    const size_t LAST_TABLE_BIT_SIZE = uint_size - TABLE_BIT_SIZE * num_entries;
+    const size_t LAST_TABLE_BIT_SIZE = uint_size - (TABLE_BIT_SIZE * num_entries);
     const size_t LAST_SLICE_SIZE = 1 << LAST_TABLE_BIT_SIZE;
     table.slice_sizes.emplace_back(LAST_SLICE_SIZE);
     if (uint_size == 8 || uint_size == 32) {

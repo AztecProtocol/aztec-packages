@@ -1,5 +1,5 @@
 // === AUDIT STATUS ===
-// internal:    { status: Planned, auditors: [], commit: }
+// internal:    { status: Complete, auditors: [Nishat], commit: 8c1bc925461f1ed6f3f53824646c6e971b8c6af6 }
 // external_1:  { status: not started, auditors: [], commit: }
 // external_2:  { status: not started, auditors: [], commit: }
 // =====================
@@ -37,8 +37,8 @@ template <typename Curve> class pedersen_hash_base {
     using GeneratorContext = typename crypto::GeneratorContext<Curve>;
     inline static constexpr AffineElement length_generator =
         get_precomputed_generators<Group, "pedersen_hash_length", 1>()[0];
-    static Fq hash(const std::vector<Fq>& inputs, GeneratorContext context = {});
-    static Fq hash_buffer(const std::vector<uint8_t>& input, GeneratorContext context = {});
+    static Fq hash(const std::vector<Fq>& inputs, const GeneratorContext& context = {});
+    static Fq hash_buffer(const std::vector<uint8_t>& input, const GeneratorContext& context = {});
 
   private:
     static std::vector<Fq> convert_buffer(const std::vector<uint8_t>& input);

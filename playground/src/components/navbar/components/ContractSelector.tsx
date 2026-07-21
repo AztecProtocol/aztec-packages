@@ -9,11 +9,7 @@ import CircularProgress from '@mui/material/CircularProgress';
 import Typography from '@mui/material/Typography';
 import KeyboardArrowDownIcon from '@mui/icons-material/KeyboardArrowDown';
 import { CopyToClipboardButton } from '../../common/CopyToClipboardButton';
-import {
-  convertFromUTF8BufferAsString,
-  formatFrAsString,
-  parseAliasedBuffersAsString,
-} from '../../../utils/conversion';
+import { formatFrAsString } from '../../../utils/conversion';
 import { PREDEFINED_CONTRACTS } from '../../../utils/types';
 import { AztecContext } from '../../../aztecContext';
 import { loadContractArtifact } from '@aztec/aztec.js/abi';
@@ -50,9 +46,8 @@ export function ContractSelector() {
       setIsContractsLoading(true);
       try {
         const aliasedContracts = await playgroundDB.listAliases('contracts');
-        const contracts = parseAliasedBuffersAsString(aliasedContracts);
         // Temporarily filter out undeployed contracts
-        const deployedContracts = await filterDeployedAliasedContracts(contracts, wallet);
+        const deployedContracts = await filterDeployedAliasedContracts(aliasedContracts, wallet);
         setContracts(deployedContracts);
       } catch (error) {
         // Wallet may have disconnected during the async operation
@@ -112,8 +107,8 @@ export function ContractSelector() {
         setShowContractInterface(true);
       } else {
         const artifactAsString = await playgroundDB.retrieveAlias(`artifacts:${contractValue}`);
-        const contractArtifact = loadContractArtifact(parse(convertFromUTF8BufferAsString(artifactAsString)));
-        setCurrentContractAddress(AztecAddress.fromString(contractValue));
+        const contractArtifact = loadContractArtifact(parse(artifactAsString));
+        setCurrentContractAddress(AztecAddress.fromStringUnsafe(contractValue));
         setCurrentContractArtifact(contractArtifact);
         setSelectedPredefinedContract(undefined);
         setShowContractInterface(true);

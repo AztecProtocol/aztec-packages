@@ -1,5 +1,5 @@
 // === AUDIT STATUS ===
-// internal:    { status: Complete, auditors: [Nishat], commit: 8fb8b041d4c9179f62da56a9c7bbf22c40db46cc}
+// internal:    { status: Complete, auditors: [Nishat], commit: 66052c96cc754339ac3f2761f341f150130555b3}
 // external_1:  { status: not started, auditors: [], commit: }
 // external_2:  { status: not started, auditors: [], commit: }
 // =====================
@@ -27,8 +27,7 @@
     The following code works ONLY for inputs of size less than 1024 bytes. This kind of constraint
     on the input size greatly simplifies the code and helps us get rid of the recursive merkle-tree
     like operations on chunks (data of size 1024 bytes). This is because we would always be using BLAKE3
-    hashing for inputs of size 32 bytes (or lesser) in barretenberg. The full C++ version of BLAKE3
-    from the original authors is in the module `../crypto/blake3s_full`.
+    hashing for inputs of size 32 bytes (or lesser) in barretenberg.
 
     Also, the length of the output in this specific implementation is fixed at 32 bytes which is the only
     version relevant to Barretenberg.
@@ -62,7 +61,7 @@ enum blake3s_constant {
     BLAKE3_MAX_DEPTH = 54
 };
 
-using key_array = std::array<uint32_t, BLAKE3_KEY_LEN>;
+using key_array = std::array<uint32_t, BLAKE3_KEY_LEN / sizeof(uint32_t)>;
 using block_array = std::array<uint8_t, BLAKE3_BLOCK_LEN>;
 using state_array = std::array<uint32_t, 16>;
 using out_array = std::array<uint8_t, BLAKE3_OUT_LEN>;

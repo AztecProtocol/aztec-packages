@@ -273,7 +273,7 @@ enum class InstructionGenerationOptions {
     NOTEHASHEXISTS,
     CALLDATACOPY,
     SENDL2TOL1MSG,
-    EMITUNENCRYPTEDLOG,
+    EMITPUBLICLOG,
     CALL,
     RETURNDATASIZE,
     RETURNDATACOPY,
@@ -338,7 +338,7 @@ constexpr InstructionGenerationConfig BASIC_INSTRUCTION_GENERATION_CONFIGURATION
     { InstructionGenerationOptions::NOTEHASHEXISTS, 1 },
     { InstructionGenerationOptions::CALLDATACOPY, 1 },
     { InstructionGenerationOptions::SENDL2TOL1MSG, 1 },
-    { InstructionGenerationOptions::EMITUNENCRYPTEDLOG, 1 },
+    { InstructionGenerationOptions::EMITPUBLICLOG, 1 },
     { InstructionGenerationOptions::CALL, 1 },
     { InstructionGenerationOptions::RETURNDATASIZE, 1 },
     { InstructionGenerationOptions::RETURNDATACOPY, 1 },
@@ -434,14 +434,13 @@ constexpr SendL2ToL1MsgMutationConfig BASIC_SENDL2TOL1MSG_MUTATION_CONFIGURATION
     { SendL2ToL1MsgMutationOptions::content_address, 1 },
 });
 
-enum class EmitUnencryptedLogMutationOptions { log_size_address, log_values_address };
-using EmitUnencryptedLogMutationConfig = WeightedSelectionConfig<EmitUnencryptedLogMutationOptions, 2>;
+enum class EmitPublicLogMutationOptions { log_size_address, log_values_address };
+using EmitPublicLogMutationConfig = WeightedSelectionConfig<EmitPublicLogMutationOptions, 2>;
 
-constexpr EmitUnencryptedLogMutationConfig BASIC_EMITUNENCRYPTEDLOG_MUTATION_CONFIGURATION =
-    EmitUnencryptedLogMutationConfig({
-        { EmitUnencryptedLogMutationOptions::log_size_address, 1 },
-        { EmitUnencryptedLogMutationOptions::log_values_address, 1 },
-    });
+constexpr EmitPublicLogMutationConfig BASIC_EMITPUBLICLOG_MUTATION_CONFIGURATION = EmitPublicLogMutationConfig({
+    { EmitPublicLogMutationOptions::log_size_address, 1 },
+    { EmitPublicLogMutationOptions::log_values_address, 1 },
+});
 
 enum class CallMutationOptions {
     l2_gas_address,

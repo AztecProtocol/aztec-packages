@@ -1,3 +1,4 @@
+import { maxBigint } from '@aztec/foundation/bigint';
 import { CheckpointNumber } from '@aztec/foundation/branded-types';
 import { Buffer16, Buffer32 } from '@aztec/foundation/buffer';
 import { Fr } from '@aztec/foundation/curves/bn254';
@@ -37,7 +38,7 @@ export class InboxContract {
 
   static getFromConfig(config: L1ReaderConfig) {
     const client = getPublicClient(config);
-    const address = config.l1Contracts.inboxAddress.toString();
+    const address = config.inboxAddress.toString();
     return new InboxContract(client, address);
   }
 
@@ -82,10 +83,17 @@ export class InboxContract {
       .map(log => this.mapMessageSentLog(log));
   }
 
-  /** Fetches MessageSent events for a specific message hash within the given block range. */
-  async getMessageSentEventByHash(hash: Hex, fromBlock: bigint, toBlock: bigint): Promise<MessageSentLog[]> {
-    const logs = await this.inbox.getEvents.MessageSent({ hash }, { fromBlock, toBlock });
-    return logs.map(log => this.mapMessageSentLog(log));
+  /** Fetches MessageSent events for a specific message hash around a specific block. */
+  async getMessageSentEventByHash(msgHash: Hex, aroundL1BlockNumber: bigint): Promise<MessageSentLog> {
+    // We don't use blockHash here because we don't want the query to throw if the L1 block number no longer exists on chain
+    // due to an L1 reorg. The use case for this method is usually checking if a message still exists on the Inbox after
+    // a reorg, so it's possible the message was moved one block up or down, and that the original L1 block where we
+    // saw it no longer exists, rendering the block-by-hash approach invalid.
+    const [log] = await this.inbox.getEvents.MessageSent(
+      { hash: msgHash },
+      { fromBlock: maxBigint(aroundL1BlockNumber - 5n, 1n), toBlock: aroundL1BlockNumber + 5n },
+    );
+    return log && this.mapMessageSentLog(log);
   }
 
   private mapMessageSentLog(log: {

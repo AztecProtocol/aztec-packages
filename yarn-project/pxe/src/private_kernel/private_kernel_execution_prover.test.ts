@@ -1,33 +1,32 @@
 import { BackendType, BarretenbergSync } from '@aztec/bb.js';
 import {
-  MAX_INCLUDE_BY_TIMESTAMP_DURATION,
-  MAX_NOTE_HASHES_PER_CALL,
-  MAX_NOTE_HASHES_PER_TX,
+  MAX_APPS_PER_KERNEL,
+  MAX_KEY_VALIDATION_REQUESTS_PER_TX,
+  MAX_NOTE_HASH_READ_REQUESTS_PER_TX,
+  MAX_TX_LIFETIME,
+  MEGA_APP_VK_LENGTH_IN_FIELDS,
   VK_TREE_HEIGHT,
 } from '@aztec/constants';
-import { padArrayEnd } from '@aztec/foundation/collection';
 import { Fr } from '@aztec/foundation/curves/bn254';
 import { createLogger } from '@aztec/foundation/log';
 import { MembershipWitness } from '@aztec/foundation/trees';
-import { FunctionSelector, NoteSelector } from '@aztec/stdlib/abi';
+import { FunctionSelector } from '@aztec/stdlib/abi';
 import { AztecAddress } from '@aztec/stdlib/aztec-address';
 import type { PrivateKernelProver } from '@aztec/stdlib/interfaces/client';
-import {
-  ClaimedLengthArray,
-  NoteHash,
-  PrivateCircuitPublicInputs,
-  PrivateKernelCircuitPublicInputs,
-  PrivateKernelTailCircuitPublicInputs,
-  ScopedNoteHash,
-} from '@aztec/stdlib/kernel';
+import { PrivateCircuitPublicInputs, PrivateKernelTailCircuitPublicInputs } from '@aztec/stdlib/kernel';
 import { PublicKeys } from '@aztec/stdlib/keys';
-import { Note } from '@aztec/stdlib/note';
 import { makeTxRequest } from '@aztec/stdlib/testing';
-import { NoteAndSlot, PrivateCallExecutionResult, PrivateExecutionResult, type TxRequest } from '@aztec/stdlib/tx';
-import { VerificationKey, VerificationKeyData } from '@aztec/stdlib/vks';
+import { PrivateCallExecutionResult, PrivateExecutionResult, type TxRequest } from '@aztec/stdlib/tx';
+import { VerificationKeyData } from '@aztec/stdlib/vks';
 
 import { mock } from 'jest-mock-extended';
+import times from 'lodash.times';
 
+import {
+  PrivateCircuitPublicInputsBuilder,
+  PrivateKernelCircuitPublicInputsBuilder,
+  makeKernelOutput,
+} from './hints/test_utils.js';
 import { PrivateKernelExecutionProver } from './private_kernel_execution_prover.js';
 import type { PrivateKernelOracle } from './private_kernel_oracle.js';
 
@@ -40,113 +39,86 @@ describe('Private Kernel Sequencer', () => {
   let prover: PrivateKernelExecutionProver;
   let dependencies: { [name: string]: string[] } = {};
 
-  const contractAddress = AztecAddress.fromBigInt(987654n);
+  const contractAddress = AztecAddress.fromBigIntUnsafe(987654n);
   const blockTimestamp = 12345n;
-  const includeByTimestamp = blockTimestamp + BigInt(MAX_INCLUDE_BY_TIMESTAMP_DURATION);
+  const expirationTimestamp = blockTimestamp + BigInt(MAX_TX_LIFETIME);
 
   beforeAll(async () => {
     await BarretenbergSync.initSingleton({ backend: BackendType.NativeSharedMemory, logger: logger.debug });
   });
 
-  const notesAndSlots: NoteAndSlot[] = Array(10)
-    .fill(null)
-    .map(() =>
-      NoteAndSlot.from({
-        note: new Note([Fr.random(), Fr.random(), Fr.random()]),
-        storageSlot: Fr.random(),
-        randomness: Fr.random(),
-        noteTypeId: NoteSelector.random(),
-      }),
+  // Sanity-pin: the multi-app dispatch assertions below assume MAX_APPS_PER_KERNEL is 5. If the
+  // protocol constant changes, the per-test expected step shapes (especially the 14-app deep tree
+  // case) need to be reworked.
+  if (MAX_APPS_PER_KERNEL !== 5) {
+    throw new Error(
+      `This test suite assumes MAX_APPS_PER_KERNEL === 5, got ${MAX_APPS_PER_KERNEL}. Update the expected dispatch shapes.`,
     );
+  }
 
-  const createFakeSiloedCommitment = (commitment: Fr) => new Fr(commitment.value + 1n);
-  const generateFakeCommitment = (noteAndSlot: NoteAndSlot) => noteAndSlot.note.items[0];
-  const generateFakeSiloedCommitment = (note: NoteAndSlot) => createFakeSiloedCommitment(generateFakeCommitment(note));
-
-  const createExecutionResult = (fnName: string, newNoteIndices: number[] = []): PrivateExecutionResult => {
-    return new PrivateExecutionResult(createCallExecutionResult(fnName, newNoteIndices), Fr.zero(), []);
+  const createExecutionResult = (fnName: string): PrivateExecutionResult => {
+    return new PrivateExecutionResult(createCallExecutionResult(fnName), Fr.zero(), []);
   };
 
-  const createCallExecutionResult = (fnName: string, newNoteIndices: number[] = []): PrivateCallExecutionResult => {
-    const publicInputs = PrivateCircuitPublicInputs.empty();
-    publicInputs.noteHashes = new ClaimedLengthArray(
-      padArrayEnd(
-        newNoteIndices.map(newNoteIndex => new NoteHash(generateFakeCommitment(notesAndSlots[newNoteIndex]), 0)),
-        NoteHash.empty(),
-        MAX_NOTE_HASHES_PER_CALL,
-      ),
-      newNoteIndices.length,
-    );
+  const createCallExecutionResult = (
+    fnName: string,
+    {
+      publicInputs,
+      childPublicInputs = [],
+      address = contractAddress,
+      nestedResults,
+    }: {
+      publicInputs?: PrivateCircuitPublicInputs;
+      childPublicInputs?: PrivateCircuitPublicInputs[];
+      address?: AztecAddress;
+      nestedResults?: PrivateCallExecutionResult[];
+    } = {},
+  ): PrivateCallExecutionResult => {
+    if (!publicInputs) {
+      publicInputs = PrivateCircuitPublicInputs.empty();
+    }
     publicInputs.callContext.functionSelector = new FunctionSelector(fnName.charCodeAt(0));
-    publicInputs.callContext.contractAddress = contractAddress;
+    publicInputs.callContext.contractAddress = address;
+
     return new PrivateCallExecutionResult(
       Buffer.alloc(0),
-      VerificationKey.makeFakeMegaHonk(),
+      Buffer.alloc(MEGA_APP_VK_LENGTH_IN_FIELDS * Fr.SIZE_IN_BYTES),
       new Map(),
       publicInputs,
-      newNoteIndices.map(idx => notesAndSlots[idx]),
+      [],
       new Map(),
       [],
       [],
       [],
-      (dependencies[fnName] || []).map(name => createCallExecutionResult(name)),
-      [],
-    );
-  };
-
-  const simulateProofOutput = (newNoteIndices: number[]) => {
-    const publicInputs = PrivateKernelCircuitPublicInputs.empty();
-    publicInputs.constants.anchorBlockHeader.globalVariables.timestamp = blockTimestamp;
-    publicInputs.includeByTimestamp = includeByTimestamp;
-    publicInputs.end.noteHashes = new ClaimedLengthArray(
-      padArrayEnd(
-        newNoteIndices.map(newNoteIndex =>
-          new NoteHash(generateFakeSiloedCommitment(notesAndSlots[newNoteIndex]), 0).scope(contractAddress),
+      nestedResults ??
+        (dependencies[fnName] || []).map((name, i) =>
+          createCallExecutionResult(name, { publicInputs: childPublicInputs[i] }),
         ),
-        ScopedNoteHash.empty(),
-        MAX_NOTE_HASHES_PER_TX,
-      ),
-      newNoteIndices.length,
+      [],
     );
-
-    return {
-      publicInputs,
-      verificationKey: VerificationKeyData.empty(),
-      outputWitness: new Map(),
-      bytecode: Buffer.from([]),
-    };
   };
 
-  const simulateProofOutputFinal = (newNoteIndices: number[]) => {
-    const publicInputs = PrivateKernelTailCircuitPublicInputs.empty();
-    publicInputs.forRollup!.end.noteHashes = padArrayEnd(
-      newNoteIndices.map(newNoteIndex => generateFakeSiloedCommitment(notesAndSlots[newNoteIndex])),
-      Fr.ZERO,
-      MAX_NOTE_HASHES_PER_TX,
-    );
+  /** Creates a mock kernel output. Optionally accepts a callback to configure the builder before building. */
+  const simulateProofOutput = (configure?: (builder: PrivateKernelCircuitPublicInputsBuilder) => void) => {
+    const builder = new PrivateKernelCircuitPublicInputsBuilder(contractAddress);
+    // Every tx has at least one nullifier (the first nullifier), which needs siloing in the final reset.
+    builder.addNullifier();
+    configure?.(builder);
 
-    return {
-      publicInputs,
-      outputWitness: new Map(),
-      verificationKey: VerificationKeyData.empty(),
-      bytecode: Buffer.from([]),
-    };
+    const publicInputs = builder.build();
+    publicInputs.constants.anchorBlockHeader.globalVariables.timestamp = blockTimestamp;
+    publicInputs.expirationTimestamp = expirationTimestamp;
+
+    return makeKernelOutput(publicInputs);
   };
 
-  const expectExecution = (fns: string[]) => {
-    const callStackItemsInit = proofCreator.simulateInit.mock.calls.map(args =>
-      String.fromCharCode(args[0].privateCall.publicInputs.callContext.functionSelector.value),
-    );
-    const callStackItemsInner = proofCreator.simulateInner.mock.calls.map(args =>
-      String.fromCharCode(args[0].privateCall.publicInputs.callContext.functionSelector.value),
-    );
-
-    expect(proofCreator.simulateInit).toHaveBeenCalledTimes(Math.min(1, fns.length));
-    expect(proofCreator.simulateInner).toHaveBeenCalledTimes(Math.max(0, fns.length - 1));
-    expect(callStackItemsInit.concat(callStackItemsInner)).toEqual(fns);
-    proofCreator.simulateInner.mockClear();
-    proofCreator.simulateInit.mockClear();
-  };
+  /** Creates a mock kernel output for the final iteration. Returns empty result as we don't care about it in the tests */
+  const simulateProofOutputFinal = () => ({
+    publicInputs: PrivateKernelTailCircuitPublicInputs.empty(),
+    outputWitness: new Map(),
+    verificationKey: VerificationKeyData.empty(),
+    bytecode: Buffer.from([]),
+  });
 
   const prove = (executionResult: PrivateExecutionResult) => prover.proveWithKernels(txRequest, executionResult);
 
@@ -154,16 +126,17 @@ describe('Private Kernel Sequencer', () => {
     txRequest = makeTxRequest();
 
     oracle = mock<PrivateKernelOracle>();
-    // TODO(dbanks12): will need to mock oracle.getNoteMembershipWitness() to test non-transient reads
     oracle.getVkMembershipWitness.mockResolvedValue(MembershipWitness.random(VK_TREE_HEIGHT));
+    oracle.getMasterSecretKey.mockResolvedValue(Fr.random() as any);
 
     oracle.getContractAddressPreimage.mockResolvedValue({
-      version: 1 as const,
+      version: 2 as const,
       salt: Fr.random(),
       deployer: await AztecAddress.random(),
       currentContractClassId: Fr.random(),
       originalContractClassId: Fr.random(),
       initializationHash: Fr.random(),
+      immutablesHash: Fr.random(),
       publicKeys: await PublicKeys.random(),
       address: await AztecAddress.random(),
       saltedInitializationHash: Fr.random(),
@@ -174,42 +147,303 @@ describe('Private Kernel Sequencer', () => {
       privateFunctionsRoot: Fr.random(),
     });
 
+    oracle.getDebugFunctionName.mockImplementation((_, selector) =>
+      Promise.resolve(String.fromCharCode(selector.value)),
+    );
+
     proofCreator = mock<PrivateKernelProver>();
-    proofCreator.simulateInit.mockResolvedValue(simulateProofOutput([]));
-    proofCreator.simulateInner.mockResolvedValue(simulateProofOutput([]));
-    proofCreator.simulateReset.mockResolvedValue(simulateProofOutput([]));
-    proofCreator.simulateTail.mockResolvedValue(simulateProofOutputFinal([]));
+    proofCreator.simulateInit.mockResolvedValue(simulateProofOutput());
+    proofCreator.simulateInit2.mockResolvedValue(simulateProofOutput());
+    proofCreator.simulateInit3.mockResolvedValue(simulateProofOutput());
+    proofCreator.simulateInit4.mockResolvedValue(simulateProofOutput());
+    proofCreator.simulateInit5.mockResolvedValue(simulateProofOutput());
+    proofCreator.simulateInner.mockResolvedValue(simulateProofOutput());
+    proofCreator.simulateInner2.mockResolvedValue(simulateProofOutput());
+    proofCreator.simulateInner3.mockResolvedValue(simulateProofOutput());
+    proofCreator.simulateInner4.mockResolvedValue(simulateProofOutput());
+    proofCreator.simulateInner5.mockResolvedValue(simulateProofOutput());
+    proofCreator.simulateReset.mockResolvedValue(simulateProofOutput());
+    proofCreator.simulateResetTail.mockResolvedValue(simulateProofOutputFinal());
 
     prover = new PrivateKernelExecutionProver(oracle, proofCreator, true);
   });
 
-  it('should create proofs in correct order', async () => {
+  it('dispatches the right init_K / inner_K variant at MAX_APPS_PER_KERNEL', async () => {
     {
+      // Single app: only one app can be batched, so dispatch is plain init.
       dependencies = { a: [] };
       const executionResult = createExecutionResult('a');
       await prove(executionResult);
-      expectExecution(['a']);
+
+      expect(proofCreator.simulateInit).toHaveBeenCalledTimes(1);
+      expect(proofCreator.simulateInit2).not.toHaveBeenCalled();
+      expect(proofCreator.simulateInit3).not.toHaveBeenCalled();
+      expect(proofCreator.simulateInit4).not.toHaveBeenCalled();
+      expect(proofCreator.simulateInit5).not.toHaveBeenCalled();
+      expect(proofCreator.simulateInner).not.toHaveBeenCalled();
+      expect(proofCreator.simulateInner2).not.toHaveBeenCalled();
+      expect(proofCreator.simulateInner3).not.toHaveBeenCalled();
+      expect(proofCreator.simulateInner4).not.toHaveBeenCalled();
+      expect(proofCreator.simulateInner5).not.toHaveBeenCalled();
+      proofCreator.simulateInit.mockClear();
     }
 
     {
+      // a {
+      //   b {
+      //     c {}
+      //   }
+      //   d {}
+      // }
+      // DFS order: a, b, c, d (4 apps). At N=5 all four apps fit in the first batch, so dispatch
+      // is a single init_4 with no inner.
       dependencies = {
         a: ['b', 'd'],
         b: ['c'],
       };
       const executionResult = createExecutionResult('a');
       await prove(executionResult);
-      expectExecution(['a', 'b', 'c', 'd']);
+
+      expect(proofCreator.simulateInit).not.toHaveBeenCalled();
+      expect(proofCreator.simulateInit4).toHaveBeenCalledTimes(1);
+      expect(proofCreator.simulateInner).not.toHaveBeenCalled();
+      expect(proofCreator.simulateInner2).not.toHaveBeenCalled();
+      expect(proofCreator.simulateInner3).not.toHaveBeenCalled();
+      expect(proofCreator.simulateInner4).not.toHaveBeenCalled();
+      expect(proofCreator.simulateInner5).not.toHaveBeenCalled();
+      proofCreator.simulateInit4.mockClear();
     }
 
     {
+      // a {
+      //   b {
+      //     d {
+      //       h {}
+      //     }
+      //   }
+      //   c {
+      //     e {}
+      //     f {
+      //       i {}
+      //       j {
+      //         l {
+      //           n {}
+      //         }
+      //         m {}
+      //       }
+      //       k {}
+      //     }
+      //     g {}
+      //   }
+      // DFS order: a, b, d, h, c, e, f, i, j, l, n, m, k, g (14 apps). At N=5 the planner
+      // greedily takes 5 per iteration with no overflow under the mock kernel state, giving
+      // batches [a,b,d,h,c], [e,f,i,j,l], [n,m,k,g] → init_5 + inner_5 + inner_4.
       dependencies = {
-        k: ['m', 'o'],
-        m: ['q'],
-        o: ['n', 'p', 'r'],
+        a: ['b', 'c'],
+        b: ['d'],
+        d: ['h'],
+        c: ['e', 'f', 'g'],
+        f: ['i', 'j', 'k'],
+        j: ['l', 'm'],
+        l: ['n'],
       };
-      const executionResult = createExecutionResult('k');
+      const executionResult = createExecutionResult('a');
       await prove(executionResult);
-      expectExecution(['k', 'm', 'q', 'o', 'n', 'p', 'r']);
+
+      expect(proofCreator.simulateInit).not.toHaveBeenCalled();
+      expect(proofCreator.simulateInit5).toHaveBeenCalledTimes(1);
+      expect(proofCreator.simulateInner).not.toHaveBeenCalled();
+      expect(proofCreator.simulateInner2).not.toHaveBeenCalled();
+      expect(proofCreator.simulateInner3).not.toHaveBeenCalled();
+      expect(proofCreator.simulateInner4).toHaveBeenCalledTimes(1);
+      expect(proofCreator.simulateInner5).toHaveBeenCalledTimes(1);
     }
+  });
+
+  it('executes init and terminal reset+tail for a single function', async () => {
+    dependencies = { a: [] };
+    const executionResult = createExecutionResult('a');
+    const result = await prove(executionResult);
+
+    const stepNames = result.executionSteps.map(s => s.functionName);
+    expect(stepNames).toEqual(['a', 'private_kernel_init', 'private_kernel_reset_tail']);
+
+    expect(proofCreator.simulateInit).toHaveBeenCalledTimes(1);
+    expect(proofCreator.simulateInner).not.toHaveBeenCalled();
+    expect(proofCreator.simulateReset).not.toHaveBeenCalled();
+    expect(proofCreator.simulateResetTail).toHaveBeenCalledTimes(1);
+  });
+
+  it('executes init_4 and terminal reset+tail for nested functions', async () => {
+    // a {
+    //   b {
+    //     c {}
+    //   }
+    //   d {}
+    // }
+    // DFS order a, b, c, d. At MAX_APPS_PER_KERNEL=5 all four apps fit in the first batch, so the
+    // dispatch is a single init_4 with no inner iteration.
+    dependencies = { a: ['b', 'd'], b: ['c'] };
+
+    const executionResult = createExecutionResult('a');
+    const result = await prove(executionResult);
+
+    const stepNames = result.executionSteps.map(s => s.functionName);
+    expect(stepNames).toEqual(['a', 'b', 'c', 'd', 'private_kernel_init_4', 'private_kernel_reset_tail']);
+  });
+
+  it('runs inner reset before next iteration when key validation requests overflow', async () => {
+    // Inner-reset fires between kernel iterations. Use 6 apps so the planner fills init_5 with
+    // {a, b, c, d, e} and leaves f for a second iteration where the overflow check trips.
+    proofCreator.simulateInit5.mockResolvedValue(
+      simulateProofOutput(b => times(MAX_KEY_VALIDATION_REQUESTS_PER_TX, () => b.addKeyValidationRequest())),
+    );
+
+    // Leftover app f adds 1 key validation request → total exceeds MAX → inner reset needed.
+    const fBuilder = new PrivateCircuitPublicInputsBuilder(contractAddress);
+    fBuilder.addKeyValidationRequest();
+    const fPublicInputs = fBuilder.build();
+
+    // a { b c d e f } — DFS order a, b, c, d, e, f. First batch absorbs {a, b, c, d, e}; f is left
+    // for the second iteration.
+    dependencies = { a: ['b', 'c', 'd', 'e', 'f'] };
+
+    // Distinct empty PIs for b..e so the createCallExecutionResult helper doesn't mutate a
+    // shared callContext across siblings.
+    const entryExecResult = createCallExecutionResult('a', {
+      childPublicInputs: [
+        PrivateCircuitPublicInputs.empty(),
+        PrivateCircuitPublicInputs.empty(),
+        PrivateCircuitPublicInputs.empty(),
+        PrivateCircuitPublicInputs.empty(),
+        fPublicInputs,
+      ],
+    });
+
+    const executionResult = new PrivateExecutionResult(entryExecResult, Fr.zero(), []);
+    const result = await prove(executionResult);
+
+    const stepNames = result.executionSteps.map(s => s.functionName);
+    expect(stepNames).toEqual([
+      'a',
+      'b',
+      'c',
+      'd',
+      'e',
+      'private_kernel_init_5',
+      // Inner reset to clear key validation requests before processing f.
+      'private_kernel_reset',
+      'f',
+      'private_kernel_inner',
+      // Terminal reset+tail performs siloing.
+      'private_kernel_reset_tail',
+    ]);
+
+    expect(proofCreator.simulateInit5).toHaveBeenCalledTimes(1);
+    expect(proofCreator.simulateInner).toHaveBeenCalledTimes(1);
+    expect(proofCreator.simulateReset).toHaveBeenCalledTimes(1);
+    expect(proofCreator.simulateResetTail).toHaveBeenCalledTimes(1);
+  });
+
+  it('rounds the expiration timestamp down before passing it to the tail circuit', async () => {
+    // Raw offset 7265s (1h + 1805s) should round down to the 1-hour bucket.
+    const rawOffset = 7265n;
+    const expectedRoundedOffset = 7200n;
+
+    const customOutput = simulateProofOutput();
+    customOutput.publicInputs.expirationTimestamp = blockTimestamp + rawOffset;
+    proofCreator.simulateInit.mockResolvedValue(customOutput);
+    proofCreator.simulateReset.mockResolvedValue(customOutput);
+
+    dependencies = { a: [] };
+    const executionResult = createExecutionResult('a');
+    await prove(executionResult);
+
+    expect(proofCreator.simulateResetTail).toHaveBeenCalledTimes(1);
+    const tailInputs = proofCreator.simulateResetTail.mock.calls[0][0];
+    expect(tailInputs.expirationTimestampUpperBound).toBe(blockTimestamp + expectedRoundedOffset);
+  });
+
+  it('runs two consecutive inner resets when first reset output still overflows', async () => {
+    // Same 6-app shape as the previous test. Set up init_5 to emit BOTH MAX note hash read
+    // requests AND MAX key validation requests so the second iteration trips two distinct
+    // overflow predicates back-to-back.
+    proofCreator.simulateInit5.mockResolvedValue(
+      simulateProofOutput(b => {
+        times(MAX_NOTE_HASH_READ_REQUESTS_PER_TX, i => {
+          b.addNoteHash({ value: new Fr(i + 1) });
+          b.addPendingNoteHashReadRequest({ value: new Fr(i + 1) });
+        });
+        times(MAX_KEY_VALIDATION_REQUESTS_PER_TX, () => b.addKeyValidationRequest());
+      }),
+    );
+
+    // First inner reset clears the note hash read requests, but still returns MAX key validation requests → second inner reset needed.
+    proofCreator.simulateReset.mockResolvedValueOnce(
+      simulateProofOutput(b => times(MAX_KEY_VALIDATION_REQUESTS_PER_TX, () => b.addKeyValidationRequest())),
+    );
+
+    // Leftover app f adds 1 note hash read request and 1 key validation request → both
+    // dimensions overflow → two inner resets triggered.
+    const fBuilder = new PrivateCircuitPublicInputsBuilder(contractAddress);
+    fBuilder.addPendingNoteHashReadRequest();
+    fBuilder.addKeyValidationRequest();
+    const fPublicInputs = fBuilder.build();
+
+    // a { b c d e f } — DFS order a, b, c, d, e, f. First batch absorbs {a, b, c, d, e} into init_5;
+    // f is left for the second iteration where the dual-overflow forces two resets.
+    dependencies = { a: ['b', 'c', 'd', 'e', 'f'] };
+    const entryExecResult = createCallExecutionResult('a', {
+      childPublicInputs: [
+        PrivateCircuitPublicInputs.empty(),
+        PrivateCircuitPublicInputs.empty(),
+        PrivateCircuitPublicInputs.empty(),
+        PrivateCircuitPublicInputs.empty(),
+        fPublicInputs,
+      ],
+    });
+
+    const executionResult = new PrivateExecutionResult(entryExecResult, Fr.zero(), []);
+    const result = await prove(executionResult);
+
+    const stepNames = result.executionSteps.map(s => s.functionName);
+    expect(stepNames).toEqual([
+      'a',
+      'b',
+      'c',
+      'd',
+      'e',
+      'private_kernel_init_5',
+      // Two consecutive inner resets to clear note hash read requests and key validation requests before processing f.
+      'private_kernel_reset',
+      'private_kernel_reset',
+      'f',
+      'private_kernel_inner',
+      // Terminal reset+tail performs siloing.
+      'private_kernel_reset_tail',
+    ]);
+
+    expect(proofCreator.simulateInit5).toHaveBeenCalledTimes(1);
+    expect(proofCreator.simulateInner).toHaveBeenCalledTimes(1);
+    expect(proofCreator.simulateReset).toHaveBeenCalledTimes(2);
+    expect(proofCreator.simulateResetTail).toHaveBeenCalledTimes(1);
+  });
+
+  it('fetches updated class id hints once per unique contract address', async () => {
+    const contractAddressB = AztecAddress.fromBigIntUnsafe(111111n);
+
+    // a { b {} c {} }
+    // a and c use contractAddress, b uses contractAddressB → 2 unique contracts, 3 executions.
+    dependencies = {};
+    const bExec = createCallExecutionResult('b', { address: contractAddressB });
+    const cExec = createCallExecutionResult('c');
+    const aExec = createCallExecutionResult('a', { nestedResults: [bExec, cExec] });
+
+    const executionResult = new PrivateExecutionResult(aExec, Fr.zero(), []);
+    await prove(executionResult);
+
+    expect(oracle.getUpdatedClassIdHints).toHaveBeenCalledTimes(2);
+    expect(oracle.getUpdatedClassIdHints).toHaveBeenCalledWith(contractAddress);
+    expect(oracle.getUpdatedClassIdHints).toHaveBeenCalledWith(contractAddressB);
   });
 });

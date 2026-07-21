@@ -1,6 +1,16 @@
-import { BlockNumber } from '@aztec/foundation/branded-types';
+import { BlockNumber, EpochNumber, SlotNumber } from '@aztec/foundation/branded-types';
+import { BlockHash } from '@aztec/stdlib/block';
 import type { AztecNode } from '@aztec/stdlib/interfaces/client';
-import { TxExecutionResult, TxHash, TxReceipt, TxStatus } from '@aztec/stdlib/tx';
+import {
+  DroppedTxReceipt,
+  MinedTxReceipt,
+  type MinedTxStatus,
+  PendingTxReceipt,
+  TxExecutionResult,
+  TxHash,
+  type TxReceipt,
+  TxStatus,
+} from '@aztec/stdlib/tx';
 
 import { type MockProxy, mock } from 'jest-mock-extended';
 
@@ -10,6 +20,20 @@ describe('waitForTx', () => {
   let node: MockProxy<AztecNode>;
   let txHash: TxHash;
 
+  const minedReceipt = (status: MinedTxStatus, executionResult = TxExecutionResult.SUCCESS): MinedTxReceipt =>
+    new MinedTxReceipt(
+      txHash,
+      status,
+      executionResult,
+      1n,
+      BlockHash.random(),
+      BlockNumber(20),
+      SlotNumber(20),
+      0,
+      EpochNumber(1),
+      undefined,
+    );
+
   beforeEach(() => {
     node = mock();
     txHash = TxHash.random();
@@ -18,20 +42,12 @@ describe('waitForTx', () => {
   describe('basic behavior', () => {
     let txReceipt: TxReceipt;
     beforeEach(() => {
-      txReceipt = new TxReceipt(
-        txHash,
-        TxStatus.CHECKPOINTED,
-        TxExecutionResult.SUCCESS,
-        undefined,
-        undefined,
-        undefined,
-        BlockNumber(20),
-      );
+      txReceipt = minedReceipt(TxStatus.CHECKPOINTED);
       node.getTxReceipt.mockResolvedValue(txReceipt);
     });
 
     it('throws if tx is dropped', async () => {
-      const droppedReceipt = new TxReceipt(txHash, TxStatus.DROPPED, undefined, 'Tx dropped');
+      const droppedReceipt = new DroppedTxReceipt(txHash, 'Tx dropped');
       node.getTxReceipt.mockResolvedValue(droppedReceipt);
       await expect(waitForTx(node, txHash, { timeout: 1, interval: 0.4, ignoreDroppedReceiptsFor: 0 })).rejects.toThrow(
         /dropped/,
@@ -39,47 +55,31 @@ describe('waitForTx', () => {
     });
 
     it('throws if tx reverts and dontThrowOnRevert is false', async () => {
-      const revertedReceipt = new TxReceipt(
-        txHash,
-        TxStatus.CHECKPOINTED,
-        TxExecutionResult.APP_LOGIC_REVERTED,
-        undefined,
-        undefined,
-        undefined,
-        BlockNumber(20),
-      );
+      const revertedReceipt = minedReceipt(TxStatus.CHECKPOINTED, TxExecutionResult.REVERTED);
       node.getTxReceipt.mockResolvedValue(revertedReceipt);
       await expect(waitForTx(node, txHash, { timeout: 1, interval: 0.4 })).rejects.toThrow(/reverted/);
     });
 
     it('does not throw if tx reverts and dontThrowOnRevert is true', async () => {
-      const revertedReceipt = new TxReceipt(
-        txHash,
-        TxStatus.CHECKPOINTED,
-        TxExecutionResult.APP_LOGIC_REVERTED,
-        undefined,
-        undefined,
-        undefined,
-        BlockNumber(20),
-      );
+      const revertedReceipt = minedReceipt(TxStatus.CHECKPOINTED, TxExecutionResult.REVERTED);
       node.getTxReceipt.mockResolvedValue(revertedReceipt);
       const receipt = await waitForTx(node, txHash, { timeout: 1, interval: 0.4, dontThrowOnRevert: true });
       expect(receipt.hasExecutionReverted()).toBe(true);
+    });
+
+    it('keeps waiting while the tx is pending', async () => {
+      node.getTxReceipt
+        .mockResolvedValueOnce(new PendingTxReceipt(txHash, undefined))
+        .mockResolvedValueOnce(minedReceipt(TxStatus.CHECKPOINTED));
+      const receipt = await waitForTx(node, txHash, { timeout: 1, interval: 0.1 });
+      expect(receipt.status).toBe(TxStatus.CHECKPOINTED);
+      expect(node.getTxReceipt).toHaveBeenCalledTimes(2);
     });
   });
 
   describe('waitForStatus option', () => {
     it('returns immediately when receipt status matches requested status', async () => {
-      const checkpointedReceipt = new TxReceipt(
-        txHash,
-        TxStatus.CHECKPOINTED,
-        TxExecutionResult.SUCCESS,
-        undefined,
-        undefined,
-        undefined,
-        BlockNumber(20),
-      );
-      node.getTxReceipt.mockResolvedValue(checkpointedReceipt);
+      node.getTxReceipt.mockResolvedValue(minedReceipt(TxStatus.CHECKPOINTED));
 
       const receipt = await waitForTx(node, txHash, {
         timeout: 1,
@@ -90,16 +90,7 @@ describe('waitForTx', () => {
     });
 
     it('returns when receipt status exceeds requested status', async () => {
-      const provenReceipt = new TxReceipt(
-        txHash,
-        TxStatus.PROVEN,
-        TxExecutionResult.SUCCESS,
-        undefined,
-        undefined,
-        undefined,
-        BlockNumber(20),
-      );
-      node.getTxReceipt.mockResolvedValue(provenReceipt);
+      node.getTxReceipt.mockResolvedValue(minedReceipt(TxStatus.PROVEN));
 
       // Request CHECKPOINTED, but receive PROVEN - should return immediately
       const receipt = await waitForTx(node, txHash, {
@@ -111,24 +102,8 @@ describe('waitForTx', () => {
     });
 
     it('waits until receipt reaches requested status', async () => {
-      const proposedReceipt = new TxReceipt(
-        txHash,
-        TxStatus.PROPOSED,
-        TxExecutionResult.SUCCESS,
-        undefined,
-        undefined,
-        undefined,
-        BlockNumber(20),
-      );
-      const checkpointedReceipt = new TxReceipt(
-        txHash,
-        TxStatus.CHECKPOINTED,
-        TxExecutionResult.SUCCESS,
-        undefined,
-        undefined,
-        undefined,
-        BlockNumber(20),
-      );
+      const proposedReceipt = minedReceipt(TxStatus.PROPOSED);
+      const checkpointedReceipt = minedReceipt(TxStatus.CHECKPOINTED);
 
       // First call returns PROPOSED, second returns CHECKPOINTED
       node.getTxReceipt
@@ -146,16 +121,7 @@ describe('waitForTx', () => {
     });
 
     it('times out if receipt never reaches requested status', async () => {
-      const proposedReceipt = new TxReceipt(
-        txHash,
-        TxStatus.PROPOSED,
-        TxExecutionResult.SUCCESS,
-        undefined,
-        undefined,
-        undefined,
-        BlockNumber(20),
-      );
-      node.getTxReceipt.mockResolvedValue(proposedReceipt);
+      node.getTxReceipt.mockResolvedValue(minedReceipt(TxStatus.PROPOSED));
 
       // Request PROVEN but only get PROPOSED
       await expect(
@@ -164,16 +130,7 @@ describe('waitForTx', () => {
     });
 
     it('defaults to CHECKPOINTED if waitForStatus is not specified', async () => {
-      const checkpointedReceipt = new TxReceipt(
-        txHash,
-        TxStatus.CHECKPOINTED,
-        TxExecutionResult.SUCCESS,
-        undefined,
-        undefined,
-        undefined,
-        BlockNumber(20),
-      );
-      node.getTxReceipt.mockResolvedValue(checkpointedReceipt);
+      node.getTxReceipt.mockResolvedValue(minedReceipt(TxStatus.CHECKPOINTED));
 
       const receipt = await waitForTx(node, txHash, { timeout: 1, interval: 0.1 });
       expect(receipt.status).toBe(TxStatus.CHECKPOINTED);

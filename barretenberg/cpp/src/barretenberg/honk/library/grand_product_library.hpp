@@ -1,5 +1,5 @@
 // === AUDIT STATUS ===
-// internal:    { status: Planned, auditors: [], commit: }
+// internal:    { status: Complete, auditors: [Raju], commit: 21a7e3670e6 }
 // external_1:  { status: not started, auditors: [], commit: }
 // external_2:  { status: not started, auditors: [], commit: }
 // =====================
@@ -15,7 +15,6 @@
 
 #include "barretenberg/relations/relation_parameters.hpp"
 #include "barretenberg/trace_to_polynomials/trace_to_polynomials.hpp"
-#include <typeinfo>
 
 namespace bb {
 
@@ -81,7 +80,8 @@ namespace bb {
 template <typename Flavor, typename GrandProdRelation>
 void compute_grand_product(typename Flavor::ProverPolynomials& full_polynomials,
                            bb::RelationParameters<typename Flavor::FF>& relation_parameters,
-                           size_t size_override = 0)
+                           size_t size_override = 0,
+                           uint32_t* duplicate_count_out = nullptr)
 {
     BB_BENCH_NAME("compute_grand_product");
 
@@ -93,34 +93,63 @@ void compute_grand_product(typename Flavor::ProverPolynomials& full_polynomials,
     // the permutation grand product does not need to be computed beyond the index of the last active wire
     size_t domain_size = size_override == 0 ? full_polynomials.get_polynomial_size() : size_override;
 
-    // The size of the iteration domain is one less than the number of domain size since the final value of the
+    // Grand product starts after the disabled/reserved head rows (where lagrange_first lives).
+    constexpr size_t gp_start = Flavor::TRACE_OFFSET;
+
+    const size_t active_size = domain_size - gp_start;
+
+    // The size of the iteration domain is one less than the active domain since the final value of the
     // grand product is constructed only in the relation and not explicitly in the polynomial
-    const MultithreadData thread_data = calculate_thread_data(domain_size - 1);
+    const MultithreadData thread_data = calculate_thread_data(active_size - 1);
 
     // Allocate numerator/denominator polynomials that will serve as scratch space
-    // OPTIMIZE(zac) we can re-use the permutation polynomial as the numerator polynomial. Reduces readability
-    Polynomial numerator{ domain_size };
-    Polynomial denominator{ domain_size };
+    // TODO: we can re-use the permutation polynomial as the numerator polynomial (reduces readability)
+    Polynomial numerator{ active_size };
+    Polynomial denominator{ active_size };
+
+    // Optionally count rows whose per-row ratio is 1 (numerator == denominator): there z_perm is
+    // unchanged across the row, i.e. z_perm[i] == z_perm[i-1]. These are exactly the adjacent
+    // duplicate coefficients the MSM dedup pre-pass strips. Counting them here (the per-row values
+    // are already in hand) avoids a second full pass over z_perm in the caller.
+    const bool count_duplicates = duplicate_count_out != nullptr;
+    std::vector<uint32_t> thread_duplicate_counts(count_duplicates ? thread_data.num_threads : 0, 0);
 
     // Step (1)
     // Populate `numerator` and `denominator` with the algebra described by Relation
     parallel_for(thread_data.num_threads, [&](size_t thread_idx) {
+        BB_BENCH_TRACY_NAME("GrandProduct::step1_numerator_denominator");
         const size_t start = thread_data.start[thread_idx];
         const size_t end = thread_data.end[thread_idx];
         typename Flavor::AllValues row;
+        uint32_t local_duplicates = 0;
         for (size_t i = start; i < end; ++i) {
-            // OPTIMIZE(https://github.com/AztecProtocol/barretenberg/issues/940):consider avoiding get_row if possible.
+            const size_t poly_idx = i + gp_start;
+            // TODO: consider avoiding get_row if possible.
             if constexpr (IsUltraOrMegaHonk<Flavor>) {
-                row = full_polynomials.get_row_for_permutation_arg(i);
+                row = full_polynomials.get_row_for_permutation_arg(poly_idx);
             } else {
-                row = full_polynomials.get_row(i);
+                row = full_polynomials.get_row(poly_idx);
             }
             numerator.at(i) =
                 GrandProdRelation::template compute_grand_product_numerator<Accumulator>(row, relation_parameters);
             denominator.at(i) =
                 GrandProdRelation::template compute_grand_product_denominator<Accumulator>(row, relation_parameters);
+            if (count_duplicates && numerator[i] == denominator[i]) {
+                ++local_duplicates;
+            }
+        }
+        if (count_duplicates) {
+            thread_duplicate_counts[thread_idx] = local_duplicates;
         }
     });
+
+    if (count_duplicates) {
+        uint32_t total_duplicates = 0;
+        for (const uint32_t c : thread_duplicate_counts) {
+            total_duplicates += c;
+        }
+        *duplicate_count_out = total_duplicates;
+    }
 
     DEBUG_LOG_ALL(numerator.coeffs());
     DEBUG_LOG_ALL(denominator.coeffs());
@@ -141,6 +170,7 @@ void compute_grand_product(typename Flavor::ProverPolynomials& full_polynomials,
     std::vector<FF> partial_denominators(thread_data.num_threads);
 
     parallel_for(thread_data.num_threads, [&](size_t thread_idx) {
+        BB_BENCH_TRACY_NAME("GrandProduct::step2a_subproducts");
         const size_t start = thread_data.start[thread_idx];
         const size_t end = thread_data.end[thread_idx];
         for (size_t i = start; i < end - 1; ++i) {
@@ -155,6 +185,7 @@ void compute_grand_product(typename Flavor::ProverPolynomials& full_polynomials,
     DEBUG_LOG_ALL(partial_denominators);
 
     parallel_for(thread_data.num_threads, [&](size_t thread_idx) {
+        BB_BENCH_TRACY_NAME("GrandProduct::step2b_scale_and_invert");
         const size_t start = thread_data.start[thread_idx];
         const size_t end = thread_data.end[thread_idx];
         if (thread_idx > 0) {
@@ -182,12 +213,20 @@ void compute_grand_product(typename Flavor::ProverPolynomials& full_polynomials,
     auto& grand_product_polynomial = GrandProdRelation::get_grand_product_polynomial(full_polynomials);
     // The grand_product_polynomial must be shiftable for the permutation argument
     BB_ASSERT(grand_product_polynomial.is_shiftable());
-    // Compute grand product values
+
+    // Initialize grand product: z_perm[gp_start] = 1 (the first active row after disabled region)
+    // For non-ZK, gp_start = NUM_ZERO_ROWS = 1, which matches z_perm[1] = num[0] * inv_den[0] implicitly
+    // (since z_perm[0] = 0, the relation at lagrange_first uses z_perm + 1).
+    // For ZK with top masking, z_perm must be 0 at lagrange_first (row NUM_DISABLED_ROWS_IN_SUMCHECK)
+    // and the product starts from gp_start.
+
+    // Compute grand product values: z_perm[gp_start + i + 1] = numerator[i] / denominator[i]
     parallel_for(thread_data.num_threads, [&](size_t thread_idx) {
+        BB_BENCH_TRACY_NAME("GrandProduct::step3_quotient");
         const size_t start = thread_data.start[thread_idx];
         const size_t end = thread_data.end[thread_idx];
         for (size_t i = start; i < end; ++i) {
-            grand_product_polynomial.at(i + 1) = numerator[i] * denominator[i];
+            grand_product_polynomial.at(gp_start + i + 1) = numerator[i] * denominator[i];
         }
     });
 

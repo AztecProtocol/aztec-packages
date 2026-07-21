@@ -2,52 +2,67 @@ import { MAX_FR_CALLDATA_TO_ALL_ENQUEUED_CALLS, PRIVATE_CONTEXT_INPUTS_LENGTH } 
 import { Fr } from '@aztec/foundation/curves/bn254';
 import { createLogger } from '@aztec/foundation/log';
 import { Timer } from '@aztec/foundation/timer';
-import type { KeyStore } from '@aztec/key-store';
-import { type CircuitSimulator, toACVMWitness } from '@aztec/simulator/client';
+import { toACVMWitness } from '@aztec/simulator/client';
 import {
   type FunctionAbi,
   type FunctionArtifact,
-  type FunctionCall,
   FunctionSelector,
   type NoteSelector,
   countArgumentsSize,
 } from '@aztec/stdlib/abi';
-import type { AuthWitness } from '@aztec/stdlib/auth-witness';
 import { AztecAddress } from '@aztec/stdlib/aztec-address';
 import { siloNullifier } from '@aztec/stdlib/hash';
-import type { AztecNode } from '@aztec/stdlib/interfaces/client';
 import { PrivateContextInputs } from '@aztec/stdlib/kernel';
-import { type ContractClassLog, DirectionalAppTaggingSecret, type PreTag } from '@aztec/stdlib/logs';
-import { Tag } from '@aztec/stdlib/logs';
+import {
+  AppTaggingSecret,
+  AppTaggingSecretKind,
+  ContractClassLog,
+  ContractClassLogFields,
+  type TaggingIndexRange,
+} from '@aztec/stdlib/logs';
 import { Note, type NoteStatus } from '@aztec/stdlib/note';
 import {
-  type BlockHeader,
   CallContext,
-  Capsule,
   CountedContractClassLog,
   NoteAndSlot,
   PrivateCallExecutionResult,
   type TxContext,
 } from '@aztec/stdlib/tx';
 
-import { ensureContractSynced } from '../../contract_sync/index.js';
+import type { ResolveCustomRequest } from '../../hooks/resolve_custom_request.js';
+import type {
+  ResolveTaggingSecretStrategy,
+  TaggingSecretStrategy,
+} from '../../hooks/resolve_tagging_secret_strategy.js';
 import { NoteService } from '../../notes/note_service.js';
-import type { AddressStore } from '../../storage/address_store/address_store.js';
-import type { CapsuleStore } from '../../storage/capsule_store/capsule_store.js';
-import type { ContractStore } from '../../storage/contract_store/contract_store.js';
-import type { NoteStore } from '../../storage/note_store/note_store.js';
-import type { PrivateEventStore } from '../../storage/private_event_store/private_event_store.js';
-import type { RecipientTaggingStore } from '../../storage/tagging_store/recipient_tagging_store.js';
-import type { SenderAddressBookStore } from '../../storage/tagging_store/sender_address_book_store.js';
 import type { SenderTaggingStore } from '../../storage/tagging_store/sender_tagging_store.js';
 import { syncSenderTaggingIndexes } from '../../tagging/index.js';
 import type { ExecutionNoteCache } from '../execution_note_cache.js';
 import { ExecutionTaggingIndexCache } from '../execution_tagging_index_cache.js';
 import type { HashedValuesCache } from '../hashed_values_cache.js';
+import { BoundedVec } from '../noir-structs/bounded_vec.js';
+import type { ContractClassLogData } from '../noir-structs/contract_class_log_data.js';
+import type { NoteData } from '../noir-structs/note_data.js';
+import { Option } from '../noir-structs/option.js';
+import type { ResolvedTaggingStrategy } from '../noir-structs/resolved_tagging_strategy.js';
 import { pickNotes } from '../pick_notes.js';
-import type { IPrivateExecutionOracle, NoteData } from './interfaces.js';
+import type { IPrivateExecutionOracle } from './interfaces.js';
 import { executePrivateFunction } from './private_execution.js';
-import { UtilityExecutionOracle } from './utility_execution_oracle.js';
+import { UtilityExecutionOracle, type UtilityExecutionOracleArgs } from './utility_execution_oracle.js';
+
+/** Args for PrivateExecutionOracle constructor. */
+export type PrivateExecutionOracleArgs = UtilityExecutionOracleArgs & {
+  argsHash: Fr;
+  txContext: TxContext;
+  txRequestSalt: Fr;
+  executionCache: HashedValuesCache;
+  noteCache: ExecutionNoteCache;
+  taggingIndexCache: ExecutionTaggingIndexCache;
+  senderTaggingStore: SenderTaggingStore;
+  totalPublicCalldataCount?: number;
+  sideEffectCounter?: number;
+  senderForTags?: AztecAddress;
+};
 
 /**
  * The execution oracle for the private part of a transaction.
@@ -66,63 +81,45 @@ export class PrivateExecutionOracle extends UtilityExecutionOracle implements IP
   private newNotes: NoteAndSlot[] = [];
   private noteHashNullifierCounterMap: Map<number, number> = new Map();
   private contractClassLogs: CountedContractClassLog[] = [];
-  private offchainEffects: { data: Fr[] }[] = [];
   private nestedExecutionResults: PrivateCallExecutionResult[] = [];
 
-  constructor(
-    private readonly argsHash: Fr,
-    private readonly txContext: TxContext,
-    private readonly callContext: CallContext,
-    /** Header of a block whose state is used during private execution (not the block the transaction is included in). */
-    protected override readonly anchorBlockHeader: BlockHeader,
-    /** Needed to trigger contract synchronization before nested calls */
-    private readonly utilityExecutor: (call: FunctionCall) => Promise<void>,
-    /** List of transient auth witnesses to be used during this simulation */
-    authWitnesses: AuthWitness[],
-    capsules: Capsule[],
-    private readonly executionCache: HashedValuesCache,
-    private readonly noteCache: ExecutionNoteCache,
-    private readonly taggingIndexCache: ExecutionTaggingIndexCache,
-    contractStore: ContractStore,
-    noteStore: NoteStore,
-    keyStore: KeyStore,
-    addressStore: AddressStore,
-    aztecNode: AztecNode,
-    private readonly senderTaggingStore: SenderTaggingStore,
-    recipientTaggingStore: RecipientTaggingStore,
-    senderAddressBookStore: SenderAddressBookStore,
-    capsuleStore: CapsuleStore,
-    privateEventStore: PrivateEventStore,
-    jobId: string,
-    private totalPublicCalldataCount: number = 0,
-    protected sideEffectCounter: number = 0,
-    log = createLogger('simulator:client_execution_context'),
-    scopes?: AztecAddress[],
-    private senderForTags?: AztecAddress,
-    private simulator?: CircuitSimulator,
-  ) {
-    super(
-      callContext.contractAddress,
-      authWitnesses,
-      capsules,
-      anchorBlockHeader,
-      contractStore,
-      noteStore,
-      keyStore,
-      addressStore,
-      aztecNode,
-      recipientTaggingStore,
-      senderAddressBookStore,
-      capsuleStore,
-      privateEventStore,
-      jobId,
-      log,
-      scopes,
-    );
+  private readonly argsHash: Fr;
+  private readonly txContext: TxContext;
+  private readonly txRequestSalt: Fr;
+  private readonly executionCache: HashedValuesCache;
+  private readonly noteCache: ExecutionNoteCache;
+  private readonly taggingIndexCache: ExecutionTaggingIndexCache;
+  private readonly senderTaggingStore: SenderTaggingStore;
+  private totalPublicCalldataCount: number;
+  private readonly initialSideEffectCounter: number;
+  /** Sender for tags passed in at oracle construction time. Returned by `getSenderForTags`. */
+  private readonly defaultSenderForTags: AztecAddress | undefined;
+
+  constructor(args: PrivateExecutionOracleArgs) {
+    super({
+      ...args,
+      log: args.log ?? createLogger('simulator:client_execution_context'),
+    });
+    this.argsHash = args.argsHash;
+    this.txContext = args.txContext;
+    this.txRequestSalt = args.txRequestSalt;
+    this.executionCache = args.executionCache;
+    this.noteCache = args.noteCache;
+    this.taggingIndexCache = args.taggingIndexCache;
+    this.senderTaggingStore = args.senderTaggingStore;
+    this.totalPublicCalldataCount = args.totalPublicCalldataCount ?? 0;
+    this.initialSideEffectCounter = args.sideEffectCounter ?? 0;
+    this.defaultSenderForTags = args.senderForTags;
   }
 
   public getPrivateContextInputs(): PrivateContextInputs {
-    return new PrivateContextInputs(this.callContext, this.anchorBlockHeader, this.txContext, this.sideEffectCounter);
+    return new PrivateContextInputs(
+      this.callContext,
+      this.anchorBlockHeader,
+      this.txContext,
+      this.initialSideEffectCounter,
+      this.txRequestSalt,
+    );
   }
 
   // We still need this function until we can get user-defined ordering of structs for fn arguments
@@ -169,17 +166,10 @@ export class PrivateExecutionOracle extends UtilityExecutionOracle implements IP
   }
 
   /**
-   * Return the offchain effects emitted during this execution.
+   * Returns the tagging index ranges that were used in this execution (and that need to be stored in the db).
    */
-  public getOffchainEffects() {
-    return this.offchainEffects;
-  }
-
-  /**
-   * Returns the pre-tags that were used in this execution (and that need to be stored in the db).
-   */
-  public getUsedPreTags(): PreTag[] {
-    return this.taggingIndexCache.getUsedPreTags();
+  public getUsedTaggingIndexRanges(): TaggingIndexRange[] {
+    return this.taggingIndexCache.getUsedTaggingIndexRanges();
   }
 
   /**
@@ -196,64 +186,181 @@ export class PrivateExecutionOracle extends UtilityExecutionOracle implements IP
    * for a tag in order to emit a log. Constrained tagging should not use this as there is no
    * guarantee that the recipient knows about the sender, and hence about the shared secret.
    *
-   * The value persists through nested calls, meaning all calls down the stack will use the same
-   * 'senderForTags' value (unless it is replaced).
+   * Returns the wallet-supplied default sender for tags, or `None` if no default was provided.
    */
-  public privateGetSenderForTags(): Promise<AztecAddress | undefined> {
-    return Promise.resolve(this.senderForTags);
+  public getSenderForTags(): Promise<Option<AztecAddress>> {
+    return Promise.resolve(this.defaultSenderForTags ? Option.some(this.defaultSenderForTags) : Option.none());
   }
 
   /**
-   * Set the sender for tags.
-   *
-   * This unconstrained value is used as the sender when computing an unconstrained shared secret
-   * for a tag in order to emit a log. Constrained tagging should not use this as there is no
-   * guarantee that the recipient knows about the sender, and hence about the shared secret.
-   *
-   * Account contracts typically set this value before calling other contracts. The value persists
-   * through nested calls, meaning all calls down the stack will use the same 'senderForTags'
-   * value (unless it is replaced by another call to this setter).
+   * Resolves a custom, caller-defined request via the {@link ResolveCustomRequest} hook, which produces the response
+   * however it needs to. Throws when no hook is configured, since the request cannot be served.
    */
-  public privateSetSenderForTags(senderForTags: AztecAddress): Promise<void> {
-    this.senderForTags = senderForTags;
-    return Promise.resolve();
+  public async resolveCustomRequest(kind: Fr, payload: Fr[]): Promise<Fr[]> {
+    const hook: ResolveCustomRequest | undefined = this.hooks?.resolveCustomRequest;
+    if (!hook) {
+      throw new Error('Cannot serve a request: no resolveCustomRequest hook is configured');
+    }
+    const contractClassId = await this.#getCurrentContractClassId(this.contractAddress);
+    return hook({ contractAddress: this.contractAddress, contractClassId, kind, payload });
   }
 
   /**
-   * Returns the next app tag for a given sender and recipient pair.
-   * @param sender - The address sending the log
-   * @param recipient - The address receiving the log
-   * @returns An app tag to be used in a log.
+   * Resolves the tagging strategy for a message via the wallet's {@link ResolveTaggingSecretStrategy} hook. The contract receives a ready-to-use {@link ResolvedTaggingStrategy}.
+   * When no hook is configured, applies a default: a non-interactive handshake, except for an unconstrained self-send,
+   * which uses an address-derived secret.
    */
-  public async privateGetNextAppTagAsSender(sender: AztecAddress, recipient: AztecAddress): Promise<Tag> {
-    const secret = await this.#calculateDirectionalAppTaggingSecret(this.contractAddress, sender, recipient);
-
-    const index = await this.#getIndexToUseForSecret(secret);
-    this.log.debug(
-      `Incrementing tagging index for sender: ${sender}, recipient: ${recipient}, contract: ${this.contractAddress} to ${index}`,
-    );
-    this.taggingIndexCache.setLastUsedIndex(secret, index);
-
-    return Tag.compute({ secret, index });
-  }
-
-  async #calculateDirectionalAppTaggingSecret(
-    contractAddress: AztecAddress,
+  public async resolveTaggingStrategy(
     sender: AztecAddress,
     recipient: AztecAddress,
-  ) {
-    const senderCompleteAddress = await this.getCompleteAddressOrFail(sender);
-    const senderIvsk = await this.keyStore.getMasterIncomingViewingSecretKey(sender);
-    return DirectionalAppTaggingSecret.compute(
-      senderCompleteAddress,
-      senderIvsk,
-      recipient,
-      contractAddress,
-      recipient,
-    );
+    deliveryMode: AppTaggingSecretKind,
+  ): Promise<ResolvedTaggingStrategy> {
+    const [isUnconstrainedSelfSend, chosenStrategy] = await Promise.all([
+      this.#isUnconstrainedSelfSend(recipient, deliveryMode),
+      this.#chooseTaggingSecretStrategy(sender, recipient, deliveryMode),
+    ]);
+
+    // For unconstrained delivery, a self-send uses a local address-derived secret instead of a non-interactive
+    // handshake. A self-send is one where the wallet controls the recipient's keys, so both sides' keys are local: no
+    // handshake is needed and nothing is revealed onchain. It also avoids a recursion: a handshake self-delivers its
+    // note via unconstrained delivery, which would establish yet another handshake. This guard runs regardless of the
+    // resolved strategy (hook or default), to protect wallets from invalid configuration.
+    const strategy: TaggingSecretStrategy = isUnconstrainedSelfSend ? { type: 'address-derived' } : chosenStrategy;
+
+    return this.#resolveTaggingSecretStrategy(strategy, sender, recipient);
   }
 
-  async #getIndexToUseForSecret(secret: DirectionalAppTaggingSecret): Promise<number> {
+  async #chooseTaggingSecretStrategy(
+    sender: AztecAddress,
+    recipient: AztecAddress,
+    deliveryMode: AppTaggingSecretKind,
+  ): Promise<TaggingSecretStrategy> {
+    const hook: ResolveTaggingSecretStrategy | undefined = this.hooks?.resolveTaggingSecretStrategy;
+    if (!hook) {
+      // With no hook, both delivery modes default to a non-interactive handshake
+      return { type: 'non-interactive-handshake' };
+    }
+
+    const contractClassId = await this.#getCurrentContractClassId(this.contractAddress);
+    return hook({
+      contractAddress: this.contractAddress,
+      contractClassId,
+      sender,
+      recipient,
+      deliveryMode,
+    });
+  }
+
+  /**
+   * Resolves the class id the given contract runs at this simulation's anchor block. The instance no longer carries
+   * its class id (it is chain-derived), so it is resolved via the anchored contract data instead.
+   */
+  async #getCurrentContractClassId(address: AztecAddress): Promise<Fr> {
+    const classId = await this.anchoredContractData.getCurrentClassId(address);
+    if (classId === undefined) {
+      throw new Error(`Cannot resolve the current contract class for ${address}`);
+    }
+    return classId;
+  }
+
+  /** Whether this is an unconstrained delivery to one of the wallet's own accounts (a self-send). */
+  #isUnconstrainedSelfSend(recipient: AztecAddress, deliveryMode: AppTaggingSecretKind) {
+    return deliveryMode === AppTaggingSecretKind.UNCONSTRAINED
+      ? this.keyStore.hasAccount(recipient)
+      : Promise.resolve(false);
+  }
+
+  /** Resolves a wallet-provided {@link TaggingSecretStrategy} into the app-siloed secret handed to the contract. */
+  async #resolveTaggingSecretStrategy(
+    strategy: TaggingSecretStrategy,
+    sender: AztecAddress,
+    recipient: AztecAddress,
+  ): Promise<ResolvedTaggingStrategy> {
+    // PXE only performs the derivation; it does not reject a strategy that is unsound for the delivery mode (e.g. an
+    // address-derived or arbitrary-secret strategy for constrained delivery). That soundness check belongs in the
+    // Noir circuit, which constrains the resolved strategy against the delivery mode.
+    switch (strategy.type) {
+      case 'non-interactive-handshake':
+        return { type: 'non-interactive-handshake' };
+      case 'interactive-handshake':
+        return { type: 'interactive-handshake' };
+      case 'address-derived':
+        return this.#addressDerivedSecret(sender, recipient);
+      case 'arbitrary-secret': {
+        // App-silo the raw arbitrary secret point here so wallets never replicate the derivation.
+        const appTaggingSecret = await AppTaggingSecret.computeDirectional(
+          strategy.secret,
+          this.contractAddress,
+          recipient,
+        );
+        return { type: 'unconstrained-secret', secret: appTaggingSecret.secret };
+      }
+    }
+  }
+
+  /**
+   * The app-siloed, recipient-directional secret derived from the sender's and recipient's address keys via ECDH,
+   * ready to hand to the contract. Callers must validate the recipient in-circuit before reaching here, so an invalid one is unexpected.
+   */
+  async #addressDerivedSecret(sender: AztecAddress, recipient: AztecAddress): Promise<ResolvedTaggingStrategy> {
+    const secret = await this.getAppTaggingSecret(sender, recipient);
+    if (!secret.isSome()) {
+      throw new Error(`Cannot derive an address-derived tagging secret for invalid recipient ${recipient}`);
+    }
+    return { type: 'unconstrained-secret', secret: secret.value };
+  }
+
+  /**
+   * Returns the sender-side app tagging secret for a `(sender, recipient)` pair.
+   *
+   * The caller obtains an index via {@link getNextTaggingIndex} and computes the final tag itself.
+   * The only expected `None` case is an invalid recipient address; missing sender data fails while deriving.
+   *
+   * @param sender - The address sending the log
+   * @param recipient - The address receiving the log
+   * @returns The app tagging secret, or `None` if the recipient is invalid.
+   */
+  public async getAppTaggingSecret(sender: AztecAddress, recipient: AztecAddress): Promise<Option<Fr>> {
+    const extendedSecret = await this.#calculateAppTaggingSecret(this.contractAddress, sender, recipient);
+
+    if (!extendedSecret) {
+      this.logger.warn(`Computing a tagging secret for invalid recipient ${recipient} - returning no secret`, {
+        contractAddress: this.contractAddress,
+      });
+      return Option.none();
+    }
+
+    return Option.some(extendedSecret.secret);
+  }
+
+  /**
+   * Returns the next sender-side tagging index for a given secret and delivery mode.
+   *
+   * @param secret - The tagging secret to allocate an index for.
+   * @param kind - The sender-side index namespace.
+   * @returns The next index to use for this secret.
+   */
+  public async getNextTaggingIndex(secret: Fr, kind: AppTaggingSecretKind): Promise<number> {
+    const appTaggingSecret = new AppTaggingSecret(secret, this.contractAddress, kind);
+    const index = await this.#reserveNextIndexForSecret(appTaggingSecret);
+    this.logger.debug(`Incrementing ${kind} tagging index for secret in contract ${this.contractAddress} to ${index}`);
+    return index;
+  }
+
+  /** Resolves the next index for a given tagging secret, syncing from chain if it is missing from the in-tx cache. */
+  async #reserveNextIndexForSecret(secret: AppTaggingSecret): Promise<number> {
+    const index = await this.#getIndexToUseForSecret(secret);
+    this.taggingIndexCache.setLastUsedIndex(secret, index);
+    return index;
+  }
+
+  async #calculateAppTaggingSecret(contractAddress: AztecAddress, sender: AztecAddress, recipient: AztecAddress) {
+    const senderCompleteAddress = await this.getCompleteAddressOrFail(sender);
+    const senderIvsk = await this.keyStore.getMasterIncomingViewingSecretKey(sender);
+    return AppTaggingSecret.computeViaEcdh(senderCompleteAddress, senderIvsk, recipient, contractAddress, recipient);
+  }
+
+  async #getIndexToUseForSecret(secret: AppTaggingSecret): Promise<number> {
     // If we have the tagging index in the cache, we use it. If not we obtain it from the execution data provider.
     const lastUsedIndexInTx = this.taggingIndexCache.getLastUsedIndex(secret);
 
@@ -265,7 +372,6 @@ export class PrivateExecutionOracle extends UtilityExecutionOracle implements IP
       // that'd be wasteful as most tagging secrets are not used in each tx.
       await syncSenderTaggingIndexes(
         secret,
-        this.contractAddress,
         this.aztecNode,
         this.senderTaggingStore,
         await this.anchorBlockHeader.hash(),
@@ -284,7 +390,7 @@ export class PrivateExecutionOracle extends UtilityExecutionOracle implements IP
    * @param values - Values to store.
    * @returns The hash of the values.
    */
-  public privateStoreInExecutionCache(values: Fr[], hash: Fr) {
+  public setHashPreimage(values: Fr[], hash: Fr) {
     return this.executionCache.store(values, hash);
   }
 
@@ -293,7 +399,7 @@ export class PrivateExecutionOracle extends UtilityExecutionOracle implements IP
    * @param hash - Hash of the values.
    * @returns The values.
    */
-  public privateLoadFromExecutionCache(hash: Fr): Promise<Fr[]> {
+  public getHashPreimage(hash: Fr): Promise<Fr[]> {
     const preimage = this.executionCache.getPreimage(hash);
     if (!preimage) {
       throw new Error(`Preimage for hash ${hash.toString()} not found in cache`);
@@ -301,12 +407,12 @@ export class PrivateExecutionOracle extends UtilityExecutionOracle implements IP
     return Promise.resolve(preimage);
   }
 
-  override async utilityCheckNullifierExists(innerNullifier: Fr): Promise<boolean> {
+  override async doesNullifierExist(innerNullifier: Fr): Promise<boolean> {
     // This oracle must be overridden because while utility execution can only meaningfully check if a nullifier exists
     // in the synched block, during private execution there's also the possibility of it being pending, i.e. created
     // in the current transaction.
 
-    this.log.debug(`Checking existence of inner nullifier ${innerNullifier}`, {
+    this.logger.debug(`Checking existence of inner nullifier ${innerNullifier}`, {
       contractAddress: this.contractAddress,
     });
 
@@ -314,7 +420,7 @@ export class PrivateExecutionOracle extends UtilityExecutionOracle implements IP
 
     return (
       this.noteCache.getNullifiers(this.contractAddress).has(nullifier) ||
-      (await super.utilityCheckNullifierExists(innerNullifier))
+      (await super.doesNullifierExist(innerNullifier))
     );
   }
 
@@ -339,8 +445,8 @@ export class PrivateExecutionOracle extends UtilityExecutionOracle implements IP
    * @param status - The status of notes to fetch.
    * @returns Array of note data.
    */
-  public override async utilityGetNotes(
-    owner: AztecAddress | undefined,
+  public override async getNotes(
+    owner: Option<AztecAddress>,
     storageSlot: Fr,
     numSelects: number,
     selectByIndexes: number[],
@@ -355,16 +461,18 @@ export class PrivateExecutionOracle extends UtilityExecutionOracle implements IP
     limit: number,
     offset: number,
     status: NoteStatus,
-  ): Promise<NoteData[]> {
+    maxNotes: number,
+    packedHintedNoteLength: number,
+  ): Promise<BoundedVec<NoteData>> {
     // Nullified pending notes are already removed from the list.
-    const pendingNotes = this.noteCache.getNotes(this.callContext.contractAddress, owner, storageSlot);
+    const pendingNotes = this.noteCache.getNotes(this.callContext.contractAddress, owner.value, storageSlot);
 
     const pendingNullifiers = this.noteCache.getNullifiers(this.callContext.contractAddress);
 
     const noteService = new NoteService(this.noteStore, this.aztecNode, this.anchorBlockHeader, this.jobId);
     const dbNotes = await noteService.getNotes(
       this.callContext.contractAddress,
-      owner,
+      owner.value,
       storageSlot,
       status,
       this.scopes,
@@ -385,13 +493,13 @@ export class PrivateExecutionOracle extends UtilityExecutionOracle implements IP
       offset,
     });
 
-    this.log.debug(
+    this.logger.debug(
       `Returning ${notes.length} notes for ${this.callContext.contractAddress} at ${storageSlot}: ${notes
         .map(n => `${n.noteNonce.toString()}:[${n.note.items.map(i => i.toString()).join(',')}]`)
         .join(', ')}`,
     );
 
-    return notes;
+    return BoundedVec.from({ data: notes, maxLength: maxNotes, elementSize: packedHintedNoteLength });
   }
 
   /**
@@ -405,7 +513,7 @@ export class PrivateExecutionOracle extends UtilityExecutionOracle implements IP
    * @param noteHash - A hash of the new note.
    * @returns
    */
-  public privateNotifyCreatedNote(
+  public notifyCreatedNote(
     owner: AztecAddress,
     storageSlot: Fr,
     randomness: Fr,
@@ -414,7 +522,7 @@ export class PrivateExecutionOracle extends UtilityExecutionOracle implements IP
     noteHash: Fr,
     counter: number,
   ) {
-    this.log.debug(`Notified of new note with inner hash ${noteHash}`, {
+    this.logger.debug(`Notified of new note with inner hash ${noteHash}`, {
       contractAddress: this.callContext.contractAddress,
       storageSlot,
       randomness,
@@ -446,7 +554,7 @@ export class PrivateExecutionOracle extends UtilityExecutionOracle implements IP
    * @param innerNullifier - The pending nullifier to add in the list (not yet siloed by contract address).
    * @param noteHash - A hash of the new note.
    */
-  public async privateNotifyNullifiedNote(innerNullifier: Fr, noteHash: Fr, counter: number) {
+  public async notifyNullifiedNote(innerNullifier: Fr, noteHash: Fr, counter: number) {
     const nullifiedNoteHashCounter = await this.noteCache.nullifyNote(
       this.callContext.contractAddress,
       innerNullifier,
@@ -463,19 +571,19 @@ export class PrivateExecutionOracle extends UtilityExecutionOracle implements IP
    * @param innerNullifier - The pending nullifier to add in the list (not yet siloed by contract address).
    * @param noteHash - A hash of the new note.
    */
-  public privateNotifyCreatedNullifier(innerNullifier: Fr) {
-    this.log.debug(`Notified of new inner nullifier ${innerNullifier}`, { contractAddress: this.contractAddress });
+  public notifyCreatedNullifier(innerNullifier: Fr) {
+    this.logger.debug(`Notified of new inner nullifier ${innerNullifier}`, { contractAddress: this.contractAddress });
     return this.noteCache.nullifierCreated(this.callContext.contractAddress, innerNullifier);
   }
 
   /**
-   * Check if a nullifier has been emitted in the same transaction, i.e. if privateNotifyCreatedNullifier has been
+   * Check if a nullifier has been emitted in the same transaction, i.e. if notifyCreatedNullifier has been
    * called for this inner nullifier from the contract with the specified address.
    * @param innerNullifier - The inner nullifier to check.
    * @param contractAddress - Address of the contract that emitted the nullifier.
    * @returns A boolean indicating whether the nullifier is pending or not.
    */
-  public async privateIsNullifierPending(innerNullifier: Fr, contractAddress: AztecAddress): Promise<boolean> {
+  public async isNullifierPending(innerNullifier: Fr, contractAddress: AztecAddress): Promise<boolean> {
     const siloedNullifier = await siloNullifier(contractAddress, innerNullifier);
     const isNullifierPending = this.noteCache.getNullifiers(contractAddress).has(siloedNullifier.toBigInt());
     return Promise.resolve(isNullifierPending);
@@ -485,13 +593,18 @@ export class PrivateExecutionOracle extends UtilityExecutionOracle implements IP
    * Emit a contract class log.
    * This fn exists because we only carry a poseidon hash through the kernels, and need to
    * keep the preimage in ts for later.
-   * @param log - The contract class log to be emitted.
+   * @param logData - The contract class log to be emitted.
    * @param counter - The contract class log's counter.
    */
-  public privateNotifyCreatedContractClassLog(log: ContractClassLog, counter: number) {
+  public notifyCreatedContractClassLog(logData: ContractClassLogData, counter: number) {
+    const log = ContractClassLog.from({
+      contractAddress: logData.contractAddress,
+      fields: new ContractClassLogFields(logData.fields),
+      emittedLength: logData.emittedLength,
+    });
     this.contractClassLogs.push(new CountedContractClassLog(log, counter));
     const text = log.toBuffer().toString('hex');
-    this.log.verbose(
+    this.logger.verbose(
       `Emitted log from ContractClassRegistry: "${text.length > 100 ? text.slice(0, 100) + '...' : text}"`,
     );
   }
@@ -517,7 +630,7 @@ export class PrivateExecutionOracle extends UtilityExecutionOracle implements IP
    * @param isStaticCall - Whether the call is a static call.
    * @returns The execution result.
    */
-  async privateCallPrivateFunction(
+  async callPrivateFunction(
     targetContractAddress: AztecAddress,
     functionSelector: FunctionSelector,
     argsHash: Fr,
@@ -531,61 +644,72 @@ export class PrivateExecutionOracle extends UtilityExecutionOracle implements IP
     }
 
     const simulatorSetupTimer = new Timer();
-    this.log.debug(
+    this.logger.debug(
       `Calling private function ${targetContractAddress}:${functionSelector} from ${this.callContext.contractAddress}`,
     );
 
     isStaticCall = isStaticCall || this.callContext.isStaticCall;
 
-    await ensureContractSynced(
+    await this.contractSyncService.ensureContractSynced(
       targetContractAddress,
       functionSelector,
       this.utilityExecutor,
-      this.aztecNode,
-      this.contractStore,
-      this.noteStore,
       this.anchorBlockHeader,
       this.jobId,
+      this.scopes,
     );
 
-    const targetArtifact = await this.contractStore.getFunctionArtifactWithDebugMetadata(
+    const targetArtifact = await this.anchoredContractData.getFunctionArtifactWithDebugMetadata(
       targetContractAddress,
       functionSelector,
     );
+    if (!targetArtifact) {
+      throw new Error(
+        `Cannot call ${targetContractAddress}:${functionSelector}: the contract is not registered. ` +
+          `Register it via wallet.registerContract(...).`,
+      );
+    }
 
     const derivedTxContext = this.txContext.clone();
 
     const derivedCallContext = await this.deriveCallContext(targetContractAddress, targetArtifact, isStaticCall);
 
-    const privateExecutionOracle = new PrivateExecutionOracle(
+    const privateExecutionOracle = new PrivateExecutionOracle({
       argsHash,
-      derivedTxContext,
-      derivedCallContext,
-      this.anchorBlockHeader,
-      this.utilityExecutor,
-      this.authWitnesses,
-      this.capsules,
-      this.executionCache,
-      this.noteCache,
-      this.taggingIndexCache,
-      this.contractStore,
-      this.noteStore,
-      this.keyStore,
-      this.addressStore,
-      this.aztecNode,
-      this.senderTaggingStore,
-      this.recipientTaggingStore,
-      this.senderAddressBookStore,
-      this.capsuleStore,
-      this.privateEventStore,
-      this.jobId,
-      this.totalPublicCalldataCount,
+      txContext: derivedTxContext,
+      txRequestSalt: this.txRequestSalt,
+      callContext: derivedCallContext,
+      anchorBlockHeader: this.anchorBlockHeader,
+      utilityExecutor: this.utilityExecutor,
+      authWitnesses: this.authWitnesses,
+      capsules: this.capsules,
+      executionCache: this.executionCache,
+      noteCache: this.noteCache,
+      taggingIndexCache: this.taggingIndexCache,
+      anchoredContractData: this.anchoredContractData,
+      noteStore: this.noteStore,
+      keyStore: this.keyStore,
+      addressStore: this.addressStore,
+      aztecNode: this.aztecNode,
+      senderTaggingStore: this.senderTaggingStore,
+      recipientTaggingStore: this.recipientTaggingStore,
+      taggingSecretSourcesStore: this.taggingSecretSourcesStore,
+      capsuleService: this.capsuleService,
+      factService: this.factService,
+      privateEventStore: this.privateEventStore,
+      txResolver: this.txResolver,
+      contractSyncService: this.contractSyncService,
+      jobId: this.jobId,
+      totalPublicCalldataCount: this.totalPublicCalldataCount,
       sideEffectCounter,
-      this.log,
-      this.scopes,
-      this.senderForTags,
-      this.simulator,
-    );
+      log: this.logger,
+      scopes: this.scopes,
+      senderForTags: this.defaultSenderForTags,
+      simulator: this.simulator,
+      hooks: this.hooks,
+      l2TipsStore: this.l2TipsStore,
+      transientArrayService: this.transientArrayService,
+    });
 
     const setupTime = simulatorSetupTimer.ms();
 
@@ -596,6 +720,9 @@ export class PrivateExecutionOracle extends UtilityExecutionOracle implements IP
       targetContractAddress,
       functionSelector,
     );
+
+    // Propagate the nested call's calldata count so the parent sees its increments on subsequent enqueues.
+    this.totalPublicCalldataCount = privateExecutionOracle.getTotalPublicCalldataCount();
 
     if (isStaticCall) {
       this.#checkValidStaticCall(childExecutionResult);
@@ -616,7 +743,8 @@ export class PrivateExecutionOracle extends UtilityExecutionOracle implements IP
     };
   }
 
-  #onNewPublicFunctionCall(calldataHash: Fr) {
+  /** Validates the calldata preimage exists in the cache and checks cumulative calldata size is within limits. */
+  public assertValidPublicCalldata(calldataHash: Fr) {
     const calldata = this.executionCache.getPreimage(calldataHash);
     if (!calldata) {
       throw new Error('Calldata for public call not found in cache');
@@ -626,47 +754,18 @@ export class PrivateExecutionOracle extends UtilityExecutionOracle implements IP
     if (this.totalPublicCalldataCount > MAX_FR_CALLDATA_TO_ALL_ENQUEUED_CALLS) {
       throw new Error(`Too many total args to all enqueued public calls! (> ${MAX_FR_CALLDATA_TO_ALL_ENQUEUED_CALLS})`);
     }
-  }
-
-  /**
-   * Verify relevant information when a public function is enqueued.
-   * @param targetContractAddress - The address of the contract to call.
-   * @param calldataHash - The hash of the function selector and arguments.
-   * @param sideEffectCounter - The side effect counter at the start of the call.
-   * @param isStaticCall - Whether the call is a static call.
-   */
-  public privateNotifyEnqueuedPublicFunctionCall(
-    _targetContractAddress: AztecAddress,
-    calldataHash: Fr,
-    _sideEffectCounter: number,
-    _isStaticCall: boolean,
-  ) {
-    this.#onNewPublicFunctionCall(calldataHash);
     return Promise.resolve();
   }
 
-  /**
-   * Verify relevant information when a public teardown function is set.
-   * @param targetContractAddress - The address of the contract to call.
-   * @param argsHash - The arguments hash to pass to the function.
-   * @param sideEffectCounter - The side effect counter at the start of the call.
-   * @param isStaticCall - Whether the call is a static call.
-   */
-  public privateNotifySetPublicTeardownFunctionCall(
-    _targetContractAddress: AztecAddress,
-    calldataHash: Fr,
-    _sideEffectCounter: number,
-    _isStaticCall: boolean,
-  ) {
-    this.#onNewPublicFunctionCall(calldataHash);
-    return Promise.resolve();
+  public getTotalPublicCalldataCount(): number {
+    return this.totalPublicCalldataCount;
   }
 
-  public privateNotifySetMinRevertibleSideEffectCounter(minRevertibleSideEffectCounter: number): Promise<void> {
+  public notifyRevertiblePhaseStart(minRevertibleSideEffectCounter: number): Promise<void> {
     return this.noteCache.setMinRevertibleSideEffectCounter(minRevertibleSideEffectCounter);
   }
 
-  public privateIsSideEffectCounterRevertible(sideEffectCounter: number): Promise<boolean> {
+  public isExecutionInRevertiblePhase(sideEffectCounter: number): Promise<boolean> {
     return Promise.resolve(this.noteCache.isSideEffectCounterRevertible(sideEffectCounter));
   }
 
@@ -691,11 +790,10 @@ export class PrivateExecutionOracle extends UtilityExecutionOracle implements IP
   }
 
   public getDebugFunctionName() {
-    return this.contractStore.getDebugFunctionName(this.contractAddress, this.callContext.functionSelector);
+    return this.anchoredContractData.getDebugFunctionName(this.contractAddress, this.callContext.functionSelector);
   }
 
-  public utilityEmitOffchainEffect(data: Fr[]): Promise<void> {
-    this.offchainEffects.push({ data });
-    return Promise.resolve();
+  protected override get callerContext() {
+    return this.callContext.isStaticCall ? 'private view' : 'private';
   }
 }

@@ -13,7 +13,6 @@ import {ValidatorSelectionLib} from "@aztec/core/libraries/rollup/ValidatorSelec
 import {Timestamp, Slot, Epoch, TimeLib} from "@aztec/core/libraries/TimeLib.sol";
 import {CompressedSlot, CompressedTimeMath} from "@aztec/shared/libraries/CompressedTimeMath.sol";
 import {ECDSA} from "@oz/utils/cryptography/ECDSA.sol";
-import {MessageHashUtils} from "@oz/utils/cryptography/MessageHashUtils.sol";
 
 /**
  * @title InvalidateLib
@@ -57,7 +56,6 @@ library InvalidateLib {
   using TimeLib for Epoch;
   using ChainTipsLib for CompressedChainTips;
   using AttestationLib for CommitteeAttestations;
-  using MessageHashUtils for bytes32;
   using CompressedTimeMath for CompressedSlot;
 
   /**
@@ -215,9 +213,11 @@ library InvalidateLib {
     Epoch epoch = checkpointLog.slotNumber.decompress().epochFromSlot();
 
     // Check if this is an escape hatch epoch - escape hatch checkpoints cannot be invalidated
-    // since they have no committee attestations by design
+    // since they have no committee attestations by design.
+    // Uses epoch-stable lookup so invalidation rules use the escape hatch that was
+    // active when the epoch started, not whatever is currently configured.
     {
-      IEscapeHatch escapeHatch = ValidatorSelectionLib.getEscapeHatch();
+      IEscapeHatch escapeHatch = ValidatorSelectionLib.getEscapeHatchForEpoch(epoch);
       if (address(escapeHatch) != address(0)) {
         (bool isOpen,) = escapeHatch.isHatchOpen(epoch);
         require(!isOpen, Errors.Rollup__CannotInvalidateEscapeHatch());
@@ -233,7 +233,7 @@ library InvalidateLib {
     );
 
     // Get the digest of the payload that was signed by the committee
-    bytes32 digest = checkpointLog.payloadDigest.toEthSignedMessageHash();
+    bytes32 digest = checkpointLog.payloadDigest;
 
     return (digest, committeeSize);
   }

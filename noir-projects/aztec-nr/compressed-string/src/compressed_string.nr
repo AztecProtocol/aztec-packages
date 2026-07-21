@@ -13,7 +13,7 @@ pub struct CompressedString<let N: u32, let M: u32> {
 
 impl<let N: u32, let M: u32> CompressedString<N, M> {
     // TODO: if we move this into the utils of aztecnr (as suggested by #15968), we can adopt its existing
-    // `fields_from_bytes` conversion function, instead of this duplicated logic here.
+    // `encode_bytes_as_fields` conversion function, instead of this duplicated logic here.
     pub fn from_string(input_string: str<M>) -> Self {
         let mut fields = [0; N];
         let byts = input_string.as_bytes();
@@ -36,7 +36,7 @@ impl<let N: u32, let M: u32> CompressedString<N, M> {
     }
 
     // TODO: if we move this into the utils of aztecnr (as suggested by #15968), we can adopt its existing
-    // `bytes_from_fields` conversion function, instead of this duplicated logic here.
+    // `decode_bytes_from_fields` conversion function, instead of this duplicated logic here.
     pub fn to_bytes(self) -> [u8; M] {
         let mut result = [0; M];
         let mut w_index = 0 as u32;

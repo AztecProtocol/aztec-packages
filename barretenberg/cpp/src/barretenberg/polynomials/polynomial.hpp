@@ -1,5 +1,5 @@
 // === AUDIT STATUS ===
-// internal:    { status: Planned, auditors: [], commit: }
+// internal:    { status: Complete, auditors: [Nishat], commit: 94f596f8b3bbbc216f9ad7dc33253256141156b2 }
 // external_1:  { status: not started, auditors: [], commit: }
 // external_2:  { status: not started, auditors: [], commit: }
 // =====================
@@ -7,18 +7,24 @@
 #pragma once
 #include "barretenberg/common/assert.hpp"
 #include "barretenberg/common/bb_bench.hpp"
+#include "barretenberg/common/compiler_hints.hpp"
 #include "barretenberg/common/mem.hpp"
 #include "barretenberg/common/thread.hpp"
 #include "barretenberg/common/throw_or_abort.hpp"
+#include "barretenberg/common/type_traits.hpp"
 #include "barretenberg/common/zip_view.hpp"
 #include "barretenberg/constants.hpp"
-#include "barretenberg/honk/types/circuit_type.hpp"
+#include "barretenberg/ecc/fields/vector_field.hpp"
+#include "barretenberg/ecc/fields/vectorized_for.hpp"
+#include "barretenberg/polynomials/broadcast.hpp"
 #include "barretenberg/polynomials/shared_shifted_virtual_zeroes_array.hpp"
 #include "evaluation_domain.hpp"
 #include "polynomial_arithmetic.hpp"
+#include <array>
 #include <cstddef>
 #include <fstream>
 #include <ranges>
+#include <vector>
 namespace bb {
 
 /* Span class with a start index offset.
@@ -46,6 +52,32 @@ template <typename Fr> struct PolynomialSpan {
         BB_ASSERT_DEBUG(index < end_index());
         return span[index - start_index];
     }
+
+    // Read-only token-indexed accessors, mirroring Polynomial's scalar/vector
+    // read overloads. No write proxies: a PolynomialSpan<const Fr> is
+    // read-only, and the non-const PolynomialSpan<Fr> use sites we care
+    // about all pass through the implicit conversion to
+    // PolynomialSpan<const Fr> before reaching the kernel.
+    using element_type = std::remove_const_t<Fr>;
+    element_type operator[](ScalarIndex ctx) const { return (*this)[ctx.i]; }
+    template <size_t N, typename U = element_type> VectorField<typename U::Params> operator[](VectorIndex<N> ctx) const
+    {
+        static_assert(N == VECTOR_FIELD_WIDTH, "VectorField is fixed-width; N must equal VECTOR_FIELD_WIDTH");
+        return VectorField<typename U::Params>::gather(this->span.data(), ctx.idx, this->start_index);
+    }
+
+    // Contiguous vector read: lane L = this->span[base - start_index + L].
+    // Routes through the linear-memory `VectorField(const Field*)` ctor —
+    // the loop abstraction's primary load primitive, which uses SIMD
+    // shuffles to AoS→interleaved transpose without the per-lane scalar
+    // loads `gather` does.
+    template <size_t N, typename U = element_type>
+    [[gnu::always_inline]] VectorField<typename U::Params> operator[](ContiguousVectorIndex<N> ctx) const
+    {
+        static_assert(N == VECTOR_FIELD_WIDTH, "VectorField is fixed-width; N must equal VECTOR_FIELD_WIDTH");
+        return VectorField<typename U::Params>(this->span.data() + (ctx.base - this->start_index));
+    }
+
     PolynomialSpan subspan(size_t offset, size_t length)
     {
         if (offset > span.size()) { // Return a null span
@@ -72,6 +104,80 @@ template <typename Fr> struct PolynomialSpan {
  *
  * @tparam Fr the finite field type.
  */
+// Hidden-friend binary-operator wall stamped on both vector proxy types
+// (VectorWriteProxyT and ContiguousVectorWriteProxyT) so kernels written as
+//   p[ctx] = p[ctx] + other[ctx] * scalar;
+// resolve every operand combination (proxy×proxy, proxy×Value+reversed,
+// proxy×Scalar+reversed) through ADL on the proxy types. Defined as a
+// macro because there is no shared base — the two proxies materialise the
+// `Value` differently (gather vs. linear-memory ctor) and live in distinct
+// scopes inside the Polynomial template.
+//
+// Marked [[gnu::always_inline]] on every line: under -Oz V8/TurboFan leaves
+// unmarked proxy ops as standalone WASM functions, defeating the linear-
+// memory / gather primitives and adding ~0.7ms per 65k-field pass.
+#define BB_VECTOR_PROXY_BINARY_OPS(Proxy, Value, Scalar)                                                               \
+    [[gnu::always_inline]] friend Value operator+(const Proxy& a, const Proxy& b) noexcept                             \
+    {                                                                                                                  \
+        return Value(a) + Value(b);                                                                                    \
+    }                                                                                                                  \
+    [[gnu::always_inline]] friend Value operator-(const Proxy& a, const Proxy& b) noexcept                             \
+    {                                                                                                                  \
+        return Value(a) - Value(b);                                                                                    \
+    }                                                                                                                  \
+    [[gnu::always_inline]] friend Value operator*(const Proxy& a, const Proxy& b) noexcept                             \
+    {                                                                                                                  \
+        return Value(a) * Value(b);                                                                                    \
+    }                                                                                                                  \
+    [[gnu::always_inline]] friend Value operator+(const Proxy& a, const Value& b) noexcept                             \
+    {                                                                                                                  \
+        return Value(a) + b;                                                                                           \
+    }                                                                                                                  \
+    [[gnu::always_inline]] friend Value operator+(const Value& a, const Proxy& b) noexcept                             \
+    {                                                                                                                  \
+        return a + Value(b);                                                                                           \
+    }                                                                                                                  \
+    [[gnu::always_inline]] friend Value operator-(const Proxy& a, const Value& b) noexcept                             \
+    {                                                                                                                  \
+        return Value(a) - b;                                                                                           \
+    }                                                                                                                  \
+    [[gnu::always_inline]] friend Value operator-(const Value& a, const Proxy& b) noexcept                             \
+    {                                                                                                                  \
+        return a - Value(b);                                                                                           \
+    }                                                                                                                  \
+    [[gnu::always_inline]] friend Value operator*(const Proxy& a, const Value& b) noexcept                             \
+    {                                                                                                                  \
+        return Value(a) * b;                                                                                           \
+    }                                                                                                                  \
+    [[gnu::always_inline]] friend Value operator*(const Value& a, const Proxy& b) noexcept                             \
+    {                                                                                                                  \
+        return a * Value(b);                                                                                           \
+    }                                                                                                                  \
+    [[gnu::always_inline]] friend Value operator+(const Proxy& a, const Scalar& s) noexcept                            \
+    {                                                                                                                  \
+        return Value(a) + s;                                                                                           \
+    }                                                                                                                  \
+    [[gnu::always_inline]] friend Value operator+(const Scalar& s, const Proxy& a) noexcept                            \
+    {                                                                                                                  \
+        return s + Value(a);                                                                                           \
+    }                                                                                                                  \
+    [[gnu::always_inline]] friend Value operator-(const Proxy& a, const Scalar& s) noexcept                            \
+    {                                                                                                                  \
+        return Value(a) - s;                                                                                           \
+    }                                                                                                                  \
+    [[gnu::always_inline]] friend Value operator-(const Scalar& s, const Proxy& a) noexcept                            \
+    {                                                                                                                  \
+        return s - Value(a);                                                                                           \
+    }                                                                                                                  \
+    [[gnu::always_inline]] friend Value operator*(const Proxy& a, const Scalar& s) noexcept                            \
+    {                                                                                                                  \
+        return Value(a) * s;                                                                                           \
+    }                                                                                                                  \
+    [[gnu::always_inline]] friend Value operator*(const Scalar& s, const Proxy& a) noexcept                            \
+    {                                                                                                                  \
+        return s * Value(a);                                                                                           \
+    }
+
 template <typename Fr> class Polynomial {
   public:
     using FF = Fr;
@@ -93,7 +199,18 @@ template <typename Fr> class Polynomial {
     Polynomial(const Polynomial& other);
     Polynomial(const Polynomial& other, size_t target_size);
 
-    Polynomial(Polynomial&& other) noexcept = default;
+    // Explicit move constructor zeroes the source's scalar bookkeeping so that a moved-from
+    // polynomial reports size() == 0 / virtual_size() == 0, matching the default-constructed
+    // empty state. SharedShiftedVirtualZeroesArray's compiler-synthesized move copies its
+    // scalar fields while only the BackingMemory is moved out, leaving size() > 0 with
+    // data() == nullptr — UB on next use.
+    Polynomial(Polynomial&& other) noexcept
+        : coefficients_(std::move(other.coefficients_))
+    {
+        other.coefficients_.start_ = 0;
+        other.coefficients_.end_ = 0;
+        other.coefficients_.virtual_size_ = 0;
+    }
 
     Polynomial(std::span<const Fr> coefficients, size_t virtual_size);
 
@@ -103,18 +220,37 @@ template <typename Fr> class Polynomial {
 
     /**
      * @brief Utility to create a shiftable polynomial of given virtual size.
+     * @param masked If true, write random values at positions {1,2,3} for ZK masking.
      */
-    static Polynomial shiftable(size_t virtual_size)
+    static Polynomial shiftable(size_t virtual_size, bool masked = false)
     {
-        return Polynomial(
+        auto p = Polynomial(
             /*actual size*/ virtual_size - NUM_ZERO_ROWS, virtual_size, /*shiftable offset*/ NUM_ZERO_ROWS);
+        if (masked) {
+            p.add_masking();
+        }
+        return p;
     }
     /**
      * @brief Utility to create a shiftable polynomial of given size and virtual size.
+     * @param masked If true, write random values at positions {1,2,3} for ZK masking.
      */
-    static Polynomial shiftable(size_t size, size_t virtual_size)
+    static Polynomial shiftable(size_t size, size_t virtual_size, bool masked = false)
     {
-        return Polynomial(/*actual size*/ size - NUM_ZERO_ROWS, virtual_size, /*shiftable offset*/ NUM_ZERO_ROWS);
+        auto p = Polynomial(/*actual size*/ size - NUM_ZERO_ROWS, virtual_size, /*shiftable offset*/ NUM_ZERO_ROWS);
+        if (masked) {
+            p.add_masking();
+        }
+        return p;
+    }
+    /**
+     * @brief Overload of `shiftable` that leaves the backing memory uninitialized.
+     * @details Use only when the caller writes every cell in [NUM_ZERO_ROWS, NUM_ZERO_ROWS + size)
+     *          before any read.
+     */
+    static Polynomial shiftable(size_t size, size_t virtual_size, DontZeroMemory flag)
+    {
+        return Polynomial(/*actual size*/ size - NUM_ZERO_ROWS, virtual_size, /*shiftable offset*/ NUM_ZERO_ROWS, flag);
     }
     // Allow polynomials to be entirely reset/dormant
     Polynomial() = default;
@@ -128,8 +264,17 @@ template <typename Fr> class Polynomial {
      */
     Polynomial(std::span<const Fr> interpolation_points, std::span<const Fr> evaluations, size_t virtual_size);
 
-    // move assignment
-    Polynomial& operator=(Polynomial&& other) noexcept = default;
+    // move assignment; mirrors the move constructor above (see comment there).
+    Polynomial& operator=(Polynomial&& other) noexcept
+    {
+        if (this != &other) {
+            coefficients_ = std::move(other.coefficients_);
+            other.coefficients_.start_ = 0;
+            other.coefficients_.end_ = 0;
+            other.coefficients_.virtual_size_ = 0;
+        }
+        return *this;
+    }
     Polynomial& operator=(const Polynomial& other);
     ~Polynomial() = default;
 
@@ -137,8 +282,6 @@ template <typename Fr> class Polynomial {
      * Return a shallow clone of the polynomial. i.e. underlying memory is shared.
      */
     Polynomial share() const;
-
-    void clear() { coefficients_ = SharedShiftedVirtualZeroesArray<Fr>{}; }
 
     /**
      * @brief Check whether or not a polynomial is identically zero
@@ -179,12 +322,6 @@ template <typename Fr> class Polynomial {
     Polynomial shifted() const;
 
     /**
-     * @brief Returns a Polynomial equal to the right-shift-by-magnitude of self.
-     * @note Resulting Polynomial shares the memory of that used to generate it
-     */
-    Polynomial right_shifted(const size_t magnitude) const;
-
-    /**
      * @brief Returns the polynomial equal to the reverse of self
      *
      * @details If the coefficients of self are \f$(a_0, \dots, a_n)\f$, we return the polynomial with coefficients
@@ -209,9 +346,6 @@ template <typename Fr> class Polynomial {
      */
     Fr evaluate_mle(std::span<const Fr> evaluation_points, bool shift = false) const;
 
-    Fr compute_barycentric_evaluation(const Fr& z, const EvaluationDomain<Fr>& domain)
-        requires polynomial_arithmetic::SupportsFFT<Fr>;
-
     /**
      * @brief Divides p(X) by (X-r) in-place.
      * Assumes that p(rⱼ)=0 for all j
@@ -224,7 +358,6 @@ template <typename Fr> class Polynomial {
      */
     void factor_roots(const Fr& root) { polynomial_arithmetic::factor_roots(coeffs(), root); };
 
-    Fr evaluate(const Fr& z, size_t target_size) const;
     Fr evaluate(const Fr& z) const;
 
     /**
@@ -233,48 +366,38 @@ template <typename Fr> class Polynomial {
      * @param other q(X)
      * @param scaling_factor scaling factor by which all coefficients of q(X) are multiplied
      */
-    void add_scaled(PolynomialSpan<const Fr> other, const Fr& scaling_factor);
+    [[gnu::always_inline]] void add_scaled(PolynomialSpan<const Fr> other, const Fr& scaling_factor);
 
-    void add_scaled_chunk(const ThreadChunk& chunk, PolynomialSpan<const Fr> other, const Fr& scaling_factor);
+    [[gnu::always_inline]] void add_scaled_chunk(const ThreadChunk& chunk,
+                                                 PolynomialSpan<const Fr> other,
+                                                 const Fr& scaling_factor);
 
     /**
      * @brief adds the polynomial q(X) 'other'.
      *
      * @param other q(X)
      */
-    Polynomial& operator+=(PolynomialSpan<const Fr> other);
+    [[gnu::always_inline]] Polynomial& operator+=(PolynomialSpan<const Fr> other);
+
+    [[gnu::always_inline]] void add_chunk(const ThreadChunk& chunk, PolynomialSpan<const Fr> other);
 
     /**
      * @brief subtracts the polynomial q(X) 'other'.
      *
      * @param other q(X)
      */
-    Polynomial& operator-=(PolynomialSpan<const Fr> other);
+    [[gnu::always_inline]] Polynomial& operator-=(PolynomialSpan<const Fr> other);
+
+    [[gnu::always_inline]] void subtract_chunk(const ThreadChunk& chunk, PolynomialSpan<const Fr> other);
 
     /**
      * @brief sets this = p(X) to s⋅p(X)
      *
      * @param scaling_factor s
      */
-    Polynomial& operator*=(const Fr& scaling_factor);
+    [[gnu::always_inline]] Polynomial& operator*=(const Fr& scaling_factor);
 
-    void multiply_chunk(const ThreadChunk& chunk, const Fr& scaling_factor);
-
-    /**
-     * @brief Add random values to the coefficients of a polynomial. In practice, this is used for ensuring the
-     * commitment and evaluation of a polynomial don't leak information about the coefficients in the context of zero
-     * knowledge.
-     */
-    void mask()
-    {
-        // Ensure there is sufficient space to add masking and also that we have memory allocated up to the virtual_size
-        BB_ASSERT_GTE(virtual_size(), NUM_MASKED_ROWS);
-        BB_ASSERT_EQ(virtual_size(), end_index());
-
-        for (size_t i = virtual_size() - NUM_MASKED_ROWS; i < virtual_size(); ++i) {
-            at(i) = FF::random_element();
-        }
-    }
+    [[gnu::always_inline]] void multiply_chunk(const ThreadChunk& chunk, const Fr& scaling_factor);
 
     std::size_t size() const { return coefficients_.size(); }
     std::size_t virtual_size() const { return coefficients_.virtual_size(); }
@@ -297,10 +420,131 @@ template <typename Fr> class Polynomial {
     const Fr& operator[](size_t i) { return get(i); }
     const Fr& operator[](size_t i) const { return get(i); }
 
+    // ---- Index-token overloads (see vectorized_for.hpp) ----
+    //
+    // Gated on Fr exposing a Params typedef (true for native field<Params>,
+    // not for stdlib::field_t). This avoids pulling VectorField into circuit
+    // instantiations and also dodges an include cycle risk for stdlib types.
+
+    // Write-proxies: returned by non-const operator[] on index tokens so
+    // assignment routes through at() (the correct mutable accessor that
+    // respects the virtual/shifted buffer layout). Each proxy also implicitly
+    // converts back to the read type so a kernel written against a mutable
+    // Polynomial can read and write through the same token:
+    //   p[ctx] = p[ctx] + p[ctx];
+    // The assignment picks operator= and the RHS uses of p[ctx] convert to
+    // the value type.
+    struct ScalarWriteProxy {
+        Polynomial* self;
+        size_t i;
+        ScalarWriteProxy& operator=(const Fr& v)
+        {
+            self->at(i) = v;
+            return *this;
+        }
+        operator Fr() const { return self->at(i); }
+
+        // Hidden-friend binary operators that take the proxy directly.
+        //
+        // Fr's binary operators are class members and are not candidates
+        // when the LHS is a proxy. Defining free operators that accept the
+        // proxy type explicitly gives overload resolution a candidate
+        // reachable via ADL from proxy arguments. Each forwards by reading
+        // the Fr value through `at()` (via the operator Fr() conversion)
+        // and delegating to Fr's member operator.
+        friend Fr operator+(const ScalarWriteProxy& a, const ScalarWriteProxy& b) noexcept { return Fr(a) + Fr(b); }
+        friend Fr operator-(const ScalarWriteProxy& a, const ScalarWriteProxy& b) noexcept { return Fr(a) - Fr(b); }
+        friend Fr operator*(const ScalarWriteProxy& a, const ScalarWriteProxy& b) noexcept { return Fr(a) * Fr(b); }
+        friend Fr operator+(const ScalarWriteProxy& a, const Fr& b) noexcept { return Fr(a) + b; }
+        friend Fr operator+(const Fr& a, const ScalarWriteProxy& b) noexcept { return a + Fr(b); }
+        friend Fr operator-(const ScalarWriteProxy& a, const Fr& b) noexcept { return Fr(a) - b; }
+        friend Fr operator-(const Fr& a, const ScalarWriteProxy& b) noexcept { return a - Fr(b); }
+        friend Fr operator*(const ScalarWriteProxy& a, const Fr& b) noexcept { return Fr(a) * b; }
+        friend Fr operator*(const Fr& a, const ScalarWriteProxy& b) noexcept { return a * Fr(b); }
+    };
+    // Write-proxy for VectorIndex<5> on a mutable Polynomial. Sparse / gather
+    // counterpart to ContiguousVectorWriteProxyT — assignment routes through
+    // `VectorField::scatter` (per-lane scalar stores at random indices), and
+    // the implicit conversion through `VectorField::gather`. Same inline
+    // discipline as the contiguous proxy (see comment above the macro).
+    template <typename Params_> struct VectorWriteProxyT {
+        Polynomial* self;
+        std::array<size_t, 5> idx;
+        [[gnu::always_inline]] VectorWriteProxyT& operator=(const VectorField<Params_>& v)
+        {
+            v.scatter(self->data(), idx, self->start_index());
+            return *this;
+        }
+        [[gnu::always_inline]] operator VectorField<Params_>() const
+        {
+            return VectorField<Params_>::gather(self->data(), idx, self->start_index());
+        }
+
+        BB_VECTOR_PROXY_BINARY_OPS(VectorWriteProxyT, VectorField<Params_>, Fr)
+    };
+
+    // Write-proxy for ContiguousVectorIndex<5> on a mutable Polynomial.
+    // Holds {self, base} and assignment stores via VectorField::store_to,
+    // which uses the SIMD-shuffle path for AoS→interleaved write-back
+    // without the per-lane scalar stores `scatter` does. Also implicitly
+    // converts to VectorField via the linear-memory ctor so a kernel can
+    // read and write through the same token.
+    template <typename Params_> struct ContiguousVectorWriteProxyT {
+        Polynomial* self;
+        size_t base;
+        [[gnu::always_inline]] ContiguousVectorWriteProxyT& operator=(const VectorField<Params_>& v)
+        {
+            v.store_to(self->data() + (base - self->start_index()));
+            return *this;
+        }
+        [[gnu::always_inline]] operator VectorField<Params_>() const
+        {
+            return VectorField<Params_>(self->data() + (base - self->start_index()));
+        }
+
+        BB_VECTOR_PROXY_BINARY_OPS(ContiguousVectorWriteProxyT, VectorField<Params_>, Fr)
+    };
+
+    // Scalar read via token: delegates to the size_t overload.
+    Fr operator[](ScalarIndex ctx) const { return (*this)[ctx.i]; }
+
+    // Vector read via token: lane L = (*this)[ctx.idx[L]].
+    // Templated on U = Fr so that Fr::Params is only resolved lazily when
+    // this member is instantiated — avoids hard errors when Polynomial is
+    // instantiated with a type (e.g. stdlib::field_t) that has no Params.
+    template <size_t N, typename U = Fr> VectorField<typename U::Params> operator[](VectorIndex<N> ctx) const
+    {
+        static_assert(N == VECTOR_FIELD_WIDTH, "VectorField is fixed-width; N must equal VECTOR_FIELD_WIDTH");
+        return VectorField<typename U::Params>::gather(this->data(), ctx.idx, this->start_index());
+    }
+
+    // Contiguous vector read via token: lane L = (*this)[ctx.base + L].
+    // Routes through the linear-memory `VectorField(const Field*)` ctor.
+    template <size_t N, typename U = Fr>
+    [[gnu::always_inline]] VectorField<typename U::Params> operator[](ContiguousVectorIndex<N> ctx) const
+    {
+        static_assert(N == VECTOR_FIELD_WIDTH, "VectorField is fixed-width; N must equal VECTOR_FIELD_WIDTH");
+        return VectorField<typename U::Params>(this->data() + (ctx.base - this->start_index()));
+    }
+
+    // Non-const LHS overloads return write-proxies.
+    ScalarWriteProxy operator[](ScalarIndex ctx) { return ScalarWriteProxy{ this, ctx.i }; }
+    template <size_t N, typename U = Fr> VectorWriteProxyT<typename U::Params> operator[](VectorIndex<N> ctx)
+    {
+        static_assert(N == VECTOR_FIELD_WIDTH, "VectorField is fixed-width; N must equal VECTOR_FIELD_WIDTH");
+        return VectorWriteProxyT<typename U::Params>{ this, ctx.idx };
+    }
+    template <size_t N, typename U = Fr>
+    [[gnu::always_inline]] ContiguousVectorWriteProxyT<typename U::Params> operator[](ContiguousVectorIndex<N> ctx)
+    {
+        static_assert(N == VECTOR_FIELD_WIDTH, "VectorField is fixed-width; N must equal VECTOR_FIELD_WIDTH");
+        return ContiguousVectorWriteProxyT<typename U::Params>{ this, ctx.base };
+    }
+
     static Polynomial random(size_t size, size_t start_index = 0)
     {
         BB_BENCH_NAME("generate random polynomial");
-
+        BB_ASSERT_GTE(size, start_index);
         return random(size - start_index, size, start_index);
     }
 
@@ -385,11 +629,9 @@ template <typename Fr> class Polynomial {
     /**
      * @brief Copy over values from a vector that is of a convertible type.
      *
-     * @details There is an underlying assumption that the relevant start index in the vector
-     * corresponds to the start_index of the destination polynomial and also that the number of elements we want to copy
-     * corresponds to the size of the polynomial. This is quirky behavior and we might want to improve the UX.
-     *
-     * @todo https://github.com/AztecProtocol/barretenberg/issues/1292
+     * @details Assumes that the relevant start index in the vector corresponds to the start_index of the destination
+     * polynomial and also that the number of elements we want to copy corresponds to the size of the polynomial. It is
+     * not intended to be a general-purpose method for vector copy and should be used with caution.
      *
      * @tparam T a convertible type
      * @param vec the vector
@@ -403,16 +645,14 @@ template <typename Fr> class Polynomial {
         }
     }
 
-    /*
-     * @brief For quick and dirty comparisons. ONLY for development and log use!
+    /**
+     * @brief Write random ZK masking values at positions {1, 2, 3} (the disabled head region after the zero row).
      */
-    Fr debug_hash() const
+    void add_masking()
     {
-        Fr result{ 0 };
-        for (size_t i = start_index(); i < end_index(); i++) {
-            result += (*this)[i] * i;
+        for (size_t j = 0; j < NUM_MASKED_ROWS; j++) {
+            at(NUM_ZERO_ROWS + j) = Fr::random_element();
         }
-        return result;
     }
 
   private:
@@ -420,13 +660,175 @@ template <typename Fr> class Polynomial {
     // DOES NOT initialize memory
     void allocate_backing_memory(size_t size, size_t virtual_size, size_t start_index);
 
-    // safety check for in place operations
-    bool in_place_operation_viable(size_t domain_size) { return (size() >= domain_size); }
-
     // The underlying memory, with a bespoke (but minimal) shared array struct that fits our needs.
     // Namely, it supports polynomial shifts and 'virtual' zeroes past a size up until a 'virtual' size.
     SharedShiftedVirtualZeroesArray<Fr> coefficients_;
 };
+
+// Inline definitions for `add_scaled` / `add_scaled_chunk`.
+// Bodies live in the header so that callers (notably the V8/TurboFan-jitted
+// WASM code) can inline them and recover the per-iter `vector_field_raw`
+// ceiling — the polynomial.cpp definition added a real WASM function-call
+// boundary that V8 was not eliding.
+
+template <typename Fr>
+[[gnu::always_inline]] inline void Polynomial<Fr>::add_scaled_chunk(const ThreadChunk& chunk,
+                                                                    PolynomialSpan<const Fr> other,
+                                                                    const Fr& scaling_factor)
+{
+    auto range = chunk.range(other.size());
+    if (range.empty()) {
+        return;
+    }
+    const size_t lo = *range.begin() + other.start_index;
+    const size_t hi = lo + range.size();
+
+    // Loop abstraction: `vectorized_for<VECTOR_FIELD_WIDTH>` emits ContiguousVectorIndex<5>
+    // for the bulk pass and ScalarIndex for the tail. The kernel reads/writes
+    // through Polynomial / PolynomialSpan's index-token operator[], which
+    // route through the linear-memory `VectorField(const Field*)` ctor and
+    // its matching `store_to` write method (no gather/scatter). The proxy
+    // ops are [[gnu::always_inline]] so the abstraction lowers to the same
+    // SIMD-shuffle pack/op/unpack sequence as a hand-written tight loop.
+    //
+    // Scaling is wrapped in a `Broadcast<Fr>` so the same `scaling[ctx]`
+    // expression yields a scalar Fr in the tail path and a broadcast
+    // VectorField in the bulk path; both forms are materialized once in
+    // the Broadcast constructor.
+    const Broadcast<Fr> scaling(scaling_factor);
+    vectorized_for<VECTOR_FIELD_WIDTH, Fr>(
+        lo, hi, [&](auto ctx) { (*this)[ctx] = (*this)[ctx] + other[ctx] * scaling[ctx]; });
+}
+
+template <typename Fr>
+[[gnu::always_inline]] inline void Polynomial<Fr>::add_scaled(PolynomialSpan<const Fr> other, const Fr& scaling_factor)
+{
+    BB_ASSERT_LTE(start_index(), other.start_index);
+    BB_ASSERT_GTE(end_index(), other.end_index());
+    // Outer thread split. The template `parallel_for_heuristic` short-circuits
+    // below its work threshold by invoking `func(ThreadChunk{0, 1})` directly,
+    // so the small-range / single-thread case still reaches add_scaled_chunk's
+    // tight `vectorized_for<VECTOR_FIELD_WIDTH>` loop without parallel_for overhead.
+    BB_INLINE_STMT parallel_for_heuristic(
+        other.size(),
+        [&other, scaling_factor, this](const ThreadChunk& chunk) {
+            BB_INLINE_STMT add_scaled_chunk(chunk, other, scaling_factor);
+        },
+        thread_heuristics::FF_ADDITION_COST + thread_heuristics::FF_MULTIPLICATION_COST);
+}
+
+// Inline definitions for `operator+=` / `add_chunk` — pointwise polynomial
+// addition. Bodies in the header for the same V8/TurboFan inlining reason
+// `add_scaled_chunk` was lifted up: a polynomial.cpp definition introduces
+// a real WASM function-call boundary that V8 was not eliding.
+template <typename Fr>
+[[gnu::always_inline]] inline void Polynomial<Fr>::add_chunk(const ThreadChunk& chunk, PolynomialSpan<const Fr> other)
+{
+    auto range = chunk.range(other.size());
+    if (range.empty()) {
+        return;
+    }
+    const size_t lo = *range.begin() + other.start_index;
+    const size_t hi = lo + range.size();
+    vectorized_for<VECTOR_FIELD_WIDTH, Fr>(lo, hi, [&](auto ctx) { (*this)[ctx] = (*this)[ctx] + other[ctx]; });
+}
+
+template <typename Fr>
+[[gnu::always_inline]] inline Polynomial<Fr>& Polynomial<Fr>::operator+=(PolynomialSpan<const Fr> other)
+{
+    BB_ASSERT_LTE(start_index(), other.start_index);
+    BB_ASSERT_GTE(end_index(), other.end_index());
+    BB_INLINE_STMT parallel_for_heuristic(
+        other.size(),
+        [&other, this](const ThreadChunk& chunk) { BB_INLINE_STMT add_chunk(chunk, other); },
+        thread_heuristics::FF_ADDITION_COST);
+    return *this;
+}
+
+// Inline definitions for `operator-=` / `subtract_chunk`.
+template <typename Fr>
+[[gnu::always_inline]] inline void Polynomial<Fr>::subtract_chunk(const ThreadChunk& chunk,
+                                                                  PolynomialSpan<const Fr> other)
+{
+    auto range = chunk.range(other.size());
+    if (range.empty()) {
+        return;
+    }
+    const size_t lo = *range.begin() + other.start_index;
+    const size_t hi = lo + range.size();
+    vectorized_for<VECTOR_FIELD_WIDTH, Fr>(lo, hi, [&](auto ctx) { (*this)[ctx] = (*this)[ctx] - other[ctx]; });
+}
+
+template <typename Fr>
+[[gnu::always_inline]] inline Polynomial<Fr>& Polynomial<Fr>::operator-=(PolynomialSpan<const Fr> other)
+{
+    BB_ASSERT_LTE(start_index(), other.start_index);
+    BB_ASSERT_GTE(end_index(), other.end_index());
+    BB_INLINE_STMT parallel_for_heuristic(
+        other.size(),
+        [&other, this](const ThreadChunk& chunk) { BB_INLINE_STMT subtract_chunk(chunk, other); },
+        thread_heuristics::FF_ADDITION_COST);
+    return *this;
+}
+
+// Inline definitions for `operator*=` / `multiply_chunk` — pointwise scalar
+// multiply. Broadcast<Fr> exposes `scaling_factor` through the same
+// token-dispatched operator[] protocol Polynomial uses.
+template <typename Fr>
+[[gnu::always_inline]] inline void Polynomial<Fr>::multiply_chunk(const ThreadChunk& chunk, const Fr& scaling_factor)
+{
+    auto range = chunk.range(size());
+    if (range.empty()) {
+        return;
+    }
+    const size_t lo = *range.begin() + start_index();
+    const size_t hi = lo + range.size();
+    const Broadcast<Fr> scaling(scaling_factor);
+    vectorized_for<VECTOR_FIELD_WIDTH, Fr>(lo, hi, [&](auto ctx) { (*this)[ctx] = (*this)[ctx] * scaling[ctx]; });
+}
+
+template <typename Fr>
+[[gnu::always_inline]] inline Polynomial<Fr>& Polynomial<Fr>::operator*=(const Fr& scaling_factor)
+{
+    BB_INLINE_STMT parallel_for_heuristic(
+        size(),
+        [scaling_factor, this](const ThreadChunk& chunk) { BB_INLINE_STMT multiply_chunk(chunk, scaling_factor); },
+        thread_heuristics::FF_MULTIPLICATION_COST);
+    return *this;
+}
+
+/**
+ * @brief Fused parallel batched add: dst += sum_i scalars[i] * sources[i].
+ *
+ * Equivalent to invoking dst.add_scaled(sources[i], scalars[i]) for each i, but issues a single
+ * parallel_for over the destination range and visits every source within each chunk. Amortises
+ * the per-call parallel_for startup cost from N× down to 1×, which dominates the cost of small-N
+ * batched add-scaled patterns at high core counts.
+ *
+ * Each source must satisfy add_scaled's precondition: dst's index range covers the source's.
+ */
+template <typename Fr>
+void add_scaled_batch(Polynomial<Fr>& dst,
+                      std::span<const PolynomialSpan<const Fr>> sources,
+                      std::span<const Fr> scalars);
+
+template <typename Fr>
+void add_scaled_batch(Polynomial<Fr>& dst, std::span<const Polynomial<Fr>> sources, std::span<const Fr> scalars)
+{
+    std::vector<PolynomialSpan<const Fr>> source_spans;
+    source_spans.reserve(sources.size());
+    for (const auto& source : sources) {
+        source_spans.emplace_back(source);
+    }
+    add_scaled_batch(dst, std::span<const PolynomialSpan<const Fr>>(source_spans), scalars);
+}
+
+template <typename Fr>
+void add_scaled_batch(Polynomial<Fr>& dst, const std::vector<Polynomial<Fr>>& sources, std::span<const Fr> scalars)
+{
+    add_scaled_batch(dst, std::span<const Polynomial<Fr>>(sources), scalars);
+}
+
 // NOLINTNEXTLINE(cppcoreguidelines-avoid-c-arrays)
 template <typename Fr> std::shared_ptr<Fr[]> _allocate_aligned_memory(size_t n_elements)
 {
@@ -452,21 +854,24 @@ Fr_ _evaluate_mle(std::span<const Fr_> evaluation_points,
     }
 
     const size_t n = evaluation_points.size();
+    // A 0-variable MLE is the constant polynomial; return the single coefficient directly.
+    if (n == 0) {
+        BB_ASSERT_EQ(coefficients.virtual_size(), 1UL);
+        return coefficients.get(0);
+    }
     const size_t dim = numeric::get_msb(coefficients.end_ - 1) + 1; // Round up to next power of 2
 
     // To simplify handling of edge cases, we assume that the index space is always a power of 2
-    BB_ASSERT_EQ(coefficients.virtual_size(), static_cast<size_t>(1 << n));
+    BB_ASSERT_EQ(coefficients.virtual_size(), 1UL << n);
 
     // We first fold over dim rounds l = 0,...,dim-1.
     // in round l, n_l is the size of the buffer containing the Polynomial partially evaluated
     // at u₀,..., u_l.
     // In round 0, this is half the size of dim
-    size_t n_l = 1 << (dim - 1);
+    size_t n_l = 1UL << (dim - 1);
 
     // temporary buffer of half the size of the Polynomial
-    // TODO(https://github.com/AztecProtocol/barretenberg/issues/1096): Make this a Polynomial with
-    // DontZeroMemory::FLAG
-    auto tmp_ptr = _allocate_aligned_memory<Fr_>(sizeof(Fr_) * n_l);
+    auto tmp_ptr = _allocate_aligned_memory<Fr_>(n_l);
     auto tmp = tmp_ptr.get();
 
     size_t offset = 0;
@@ -490,7 +895,7 @@ Fr_ _evaluate_mle(std::span<const Fr_> evaluation_points,
 
     // partially evaluate the dim-1 remaining points
     for (size_t l = 1; l < dim; ++l) {
-        n_l = 1 << (dim - l - 1);
+        n_l = 1UL << (dim - l - 1);
         u_l = evaluation_points[l];
         for (size_t i = 0; i < n_l; ++i) {
             tmp[i] = tmp[i * 2] + u_l * (tmp[(i * 2) + 1] - tmp[i * 2]);

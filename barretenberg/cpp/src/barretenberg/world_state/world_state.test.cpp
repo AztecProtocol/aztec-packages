@@ -1,10 +1,10 @@
 #include "barretenberg/world_state/world_state.hpp"
+#include "barretenberg/aztec/aztec_constants.hpp"
 #include "barretenberg/crypto/merkle_tree/fixtures.hpp"
 #include "barretenberg/crypto/merkle_tree/indexed_tree/indexed_leaf.hpp"
 #include "barretenberg/crypto/merkle_tree/node_store/tree_meta.hpp"
 #include "barretenberg/crypto/merkle_tree/response.hpp"
 #include "barretenberg/ecc/curves/bn254/fr.hpp"
-#include "barretenberg/vm2/common/aztec_constants.hpp"
 #include "barretenberg/world_state/fork.hpp"
 #include "barretenberg/world_state/types.hpp"
 #include <array>
@@ -114,6 +114,18 @@ void assert_sibling_path(
     fr left;
     fr right;
     fr hash = leaf;
+    // Pick the merkle-pair hasher that matches the target tree.
+    auto hash_pair_for_tree = [tree_id](const fr& l, const fr& r) -> fr {
+        using namespace aztec;
+        switch (tree_id) {
+        case MerkleTreeId::NULLIFIER_TREE:
+            return NullifierMerkleHashPolicy::hash_pair(l, r);
+        case MerkleTreeId::PUBLIC_DATA_TREE:
+            return PublicDataMerkleHashPolicy::hash_pair(l, r);
+        default:
+            return AppendOnlyHashPolicy::hash_pair(l, r);
+        }
+    };
     for (const auto& node : sibling_path) {
         if (index % 2 == 0) {
             left = hash;
@@ -123,7 +135,7 @@ void assert_sibling_path(
             right = hash;
         }
 
-        hash = HashPolicy::hash_pair(left, right);
+        hash = hash_pair_for_tree(left, right);
         index >>= 1;
     }
 
@@ -162,28 +174,28 @@ TEST_F(WorldStateTest, GetInitialTreeInfoForAllTrees)
         auto info = ws.get_tree_info(WorldStateRevision::committed(), MerkleTreeId::NULLIFIER_TREE);
         EXPECT_EQ(info.meta.size, 128);
         EXPECT_EQ(info.meta.depth, tree_heights.at(MerkleTreeId::NULLIFIER_TREE));
-        EXPECT_EQ(info.meta.root, bb::fr("0x1ec3788cd1c32e54d889d67fe29e481114f9d4afe9b44b229aa29d8ad528dd31"));
+        EXPECT_EQ(info.meta.root, bb::fr("0x18935581a8ed73d08ffd00386fba55ba6c89f3ab848a76b8fedfa9034cee0454"));
     }
 
     {
         auto info = ws.get_tree_info(WorldStateRevision::committed(), MerkleTreeId::NOTE_HASH_TREE);
         EXPECT_EQ(info.meta.size, 0);
         EXPECT_EQ(info.meta.depth, tree_heights.at(MerkleTreeId::NOTE_HASH_TREE));
-        EXPECT_EQ(info.meta.root, bb::fr("0x2ac5dda169f6bb3b9ca09bbac34e14c94d1654597db740153a1288d859a8a30a"));
+        EXPECT_EQ(info.meta.root, bb::fr("0x2590f2aab19dd791700b4a43d3f52bb88ef2409a3731da8e848663559202e4c6"));
     }
 
     {
         auto info = ws.get_tree_info(WorldStateRevision::committed(), MerkleTreeId::PUBLIC_DATA_TREE);
         EXPECT_EQ(info.meta.size, 128);
         EXPECT_EQ(info.meta.depth, tree_heights.at(MerkleTreeId::PUBLIC_DATA_TREE));
-        EXPECT_EQ(info.meta.root, bb::fr("0x23c08a6b1297210c5e24c76b9a936250a1ce2721576c26ea797c7ec35f9e46a9"));
+        EXPECT_EQ(info.meta.root, bb::fr("0x1bef38b621017d3c7416663d0cd81369424560710526a3fbaaec13e356b9d084"));
     }
 
     {
         auto info = ws.get_tree_info(WorldStateRevision::committed(), MerkleTreeId::L1_TO_L2_MESSAGE_TREE);
         EXPECT_EQ(info.meta.size, 0);
         EXPECT_EQ(info.meta.depth, tree_heights.at(MerkleTreeId::L1_TO_L2_MESSAGE_TREE));
-        EXPECT_EQ(info.meta.root, bb::fr("0x0d582c10ff8115413aa5b70564fdd2f3cefe1f33a1e43a47bc495081e91e73e5"));
+        EXPECT_EQ(info.meta.root, bb::fr("0x0fef6d80d31109ddb56d6b3f607cbc9c0af0bff3ea0d43e8f278983c64c11f7a"));
     }
 
     {
@@ -274,28 +286,28 @@ TEST_F(WorldStateTest, GetStateReference)
             auto snapshot = state_ref.at(MerkleTreeId::NULLIFIER_TREE);
             EXPECT_EQ(
                 snapshot,
-                std::make_pair(bb::fr("0x1ec3788cd1c32e54d889d67fe29e481114f9d4afe9b44b229aa29d8ad528dd31"), 128UL));
+                std::make_pair(bb::fr("0x18935581a8ed73d08ffd00386fba55ba6c89f3ab848a76b8fedfa9034cee0454"), 128UL));
         }
 
         {
             auto snapshot = state_ref.at(MerkleTreeId::NOTE_HASH_TREE);
             EXPECT_EQ(
                 snapshot,
-                std::make_pair(bb::fr("0x2ac5dda169f6bb3b9ca09bbac34e14c94d1654597db740153a1288d859a8a30a"), 0UL));
+                std::make_pair(bb::fr("0x2590f2aab19dd791700b4a43d3f52bb88ef2409a3731da8e848663559202e4c6"), 0UL));
         }
 
         {
             auto snapshot = state_ref.at(MerkleTreeId::PUBLIC_DATA_TREE);
             EXPECT_EQ(
                 snapshot,
-                std::make_pair(bb::fr("0x23c08a6b1297210c5e24c76b9a936250a1ce2721576c26ea797c7ec35f9e46a9"), 128UL));
+                std::make_pair(bb::fr("0x1bef38b621017d3c7416663d0cd81369424560710526a3fbaaec13e356b9d084"), 128UL));
         }
 
         {
             auto snapshot = state_ref.at(MerkleTreeId::L1_TO_L2_MESSAGE_TREE);
             EXPECT_EQ(
                 snapshot,
-                std::make_pair(bb::fr("0x0d582c10ff8115413aa5b70564fdd2f3cefe1f33a1e43a47bc495081e91e73e5"), 0UL));
+                std::make_pair(bb::fr("0x0fef6d80d31109ddb56d6b3f607cbc9c0af0bff3ea0d43e8f278983c64c11f7a"), 0UL));
         }
     }
 
@@ -307,28 +319,28 @@ TEST_F(WorldStateTest, GetStateReference)
             auto snapshot = state_ref.at(MerkleTreeId::NULLIFIER_TREE);
             EXPECT_EQ(
                 snapshot,
-                std::make_pair(bb::fr("0x1ec3788cd1c32e54d889d67fe29e481114f9d4afe9b44b229aa29d8ad528dd31"), 128UL));
+                std::make_pair(bb::fr("0x18935581a8ed73d08ffd00386fba55ba6c89f3ab848a76b8fedfa9034cee0454"), 128UL));
         }
 
         {
             auto snapshot = state_ref.at(MerkleTreeId::NOTE_HASH_TREE);
             EXPECT_EQ(
                 snapshot,
-                std::make_pair(bb::fr("0x19581629b6133a7e6fb7b472992ed85cf2b33ee6a74109fd5323ffd2f12e4550"), 1UL));
+                std::make_pair(bb::fr("0x278449ce779093eaaa1bd9fc608f7ed7b595417710e2baf359e1488650967f47"), 1UL));
         }
 
         {
             auto snapshot = state_ref.at(MerkleTreeId::PUBLIC_DATA_TREE);
             EXPECT_EQ(
                 snapshot,
-                std::make_pair(bb::fr("0x23c08a6b1297210c5e24c76b9a936250a1ce2721576c26ea797c7ec35f9e46a9"), 128UL));
+                std::make_pair(bb::fr("0x1bef38b621017d3c7416663d0cd81369424560710526a3fbaaec13e356b9d084"), 128UL));
         }
 
         {
             auto snapshot = state_ref.at(MerkleTreeId::L1_TO_L2_MESSAGE_TREE);
             EXPECT_EQ(
                 snapshot,
-                std::make_pair(bb::fr("0x0d582c10ff8115413aa5b70564fdd2f3cefe1f33a1e43a47bc495081e91e73e5"), 0UL));
+                std::make_pair(bb::fr("0x0fef6d80d31109ddb56d6b3f607cbc9c0af0bff3ea0d43e8f278983c64c11f7a"), 0UL));
         }
     }
 }
@@ -467,7 +479,7 @@ TEST_F(WorldStateTest, NullifierTree)
                         WorldStateRevision::committed(),
                         tree_id,
                         info.meta.root,
-                        HashPolicy::hash(test_leaf.value().get_hash_inputs()),
+                        AppendOnlyHashPolicy::hash(test_leaf.value().get_hash_inputs()),
                         128);
 }
 
@@ -492,9 +504,9 @@ TEST_F(WorldStateTest, NullifierBatchInsert)
     auto response = ws.batch_insert_indexed_leaves<NullifierLeafValue>(
         MerkleTreeId::NULLIFIER_TREE, { NullifierLeafValue(150), NullifierLeafValue(142), NullifierLeafValue(180) }, 2);
 
-    std::vector<std::pair<NullifierLeafValue, size_t>> expected_sorted_leaves = { { NullifierLeafValue(180), 2 },
-                                                                                  { NullifierLeafValue(150), 0 },
-                                                                                  { NullifierLeafValue(142), 1 } };
+    std::vector<std::pair<NullifierLeafValue, index_t>> expected_sorted_leaves = { { NullifierLeafValue(180), 2 },
+                                                                                   { NullifierLeafValue(150), 0 },
+                                                                                   { NullifierLeafValue(142), 1 } };
     EXPECT_EQ(response.sorted_leaves, expected_sorted_leaves);
 
     {
@@ -588,13 +600,13 @@ TEST_F(WorldStateTest, SyncExternalBlockFromEmpty)
     WorldState ws(thread_pool_size, data_dir, map_size, tree_heights, tree_prefill, initial_header_generator_point);
     StateReference block_state_ref = {
         { MerkleTreeId::NULLIFIER_TREE,
-          { fr("0x1a8a3172ecd372de7d144459831cfabf0496159a5defd0f2ecb8f5124f1717af"), 129 } },
+          { fr("0x2e2e2d8b72294a440c728a646f01476624063f0b50dcfe293cc0fc26bef9e311"), 129 } },
         { MerkleTreeId::NOTE_HASH_TREE,
-          { fr("0x2496ae3983b59733967ef32aecb041134d5f17bd2b040def30e699432dcc8967"), 1 } },
+          { fr("0x25c4ef02ba2bec9490376d5b56b8f1a8e5bcf5ecff91636e76660b68c2a9952d"), 1 } },
         { MerkleTreeId::PUBLIC_DATA_TREE,
-          { fr("0x0278dcf9ff541da255ee722aecfad849b66af0d42c2924d949b5a509f2e1aec9"), 129 } },
+          { fr("0x1e2d8d1c3ea2449b3e4787d8295df3f137e08b56e891c006b3d93faef56ca3df"), 129 } },
         { MerkleTreeId::L1_TO_L2_MESSAGE_TREE,
-          { fr("0x149be5d1559bbefa0006c5e55ed982c43a1db53848e2f59385523d0c40d74a94"), 1 } },
+          { fr("0x22c6f7877092ecea5b313b22515e31f2e1e37349b787da10eff298800e3c7c0c"), 1 } },
     };
 
     WorldStateStatusFull status = ws.sync_block(
@@ -628,18 +640,86 @@ TEST_F(WorldStateTest, SyncExternalBlockFromEmpty)
                  std::runtime_error);
 }
 
+TEST_F(WorldStateTest, SyncBlockRejectsDivergentArchiveRoot)
+{
+    StateReference block_state_ref = {
+        { MerkleTreeId::NULLIFIER_TREE,
+          { fr("0x2e2e2d8b72294a440c728a646f01476624063f0b50dcfe293cc0fc26bef9e311"), 129 } },
+        { MerkleTreeId::NOTE_HASH_TREE,
+          { fr("0x25c4ef02ba2bec9490376d5b56b8f1a8e5bcf5ecff91636e76660b68c2a9952d"), 1 } },
+        { MerkleTreeId::PUBLIC_DATA_TREE,
+          { fr("0x1e2d8d1c3ea2449b3e4787d8295df3f137e08b56e891c006b3d93faef56ca3df"), 129 } },
+        { MerkleTreeId::L1_TO_L2_MESSAGE_TREE,
+          { fr("0x22c6f7877092ecea5b313b22515e31f2e1e37349b787da10eff298800e3c7c0c"), 1 } },
+    };
+
+    // Learn the canonical previous (genesis) and resulting archive roots from an untracked sync.
+    bb::fr previous_root;
+    bb::fr resulting_root;
+    {
+        WorldState scratch(
+            thread_pool_size, data_dir, map_size, tree_heights, tree_prefill, initial_header_generator_point);
+        previous_root = scratch.get_tree_info(WorldStateRevision::committed(), MerkleTreeId::ARCHIVE).meta.root;
+        scratch.sync_block(
+            block_state_ref, fr(1), { 42 }, { 43 }, { NullifierLeafValue(144) }, { { PublicDataLeafValue(145, 1) } });
+        resulting_root = scratch.get_tree_info(WorldStateRevision::committed(), MerkleTreeId::ARCHIVE).meta.root;
+    }
+
+    std::string data_dir2 = random_temp_directory();
+    std::filesystem::create_directories(data_dir2);
+    WorldState ws(thread_pool_size, data_dir2, map_size, tree_heights, tree_prefill, initial_header_generator_point);
+
+    // A wrong previous archive root is rejected before any leaves are appended.
+    EXPECT_THROW(ws.sync_block(block_state_ref,
+                               fr(1),
+                               { 42 },
+                               { 43 },
+                               { NullifierLeafValue(144) },
+                               { { PublicDataLeafValue(145, 1) } },
+                               resulting_root,
+                               previous_root + fr(1)),
+                 std::runtime_error);
+
+    // A wrong resulting archive root is rejected before commit.
+    EXPECT_THROW(ws.sync_block(block_state_ref,
+                               fr(1),
+                               { 42 },
+                               { 43 },
+                               { NullifierLeafValue(144) },
+                               { { PublicDataLeafValue(145, 1) } },
+                               resulting_root + fr(1),
+                               previous_root),
+                 std::runtime_error);
+
+    // Both rejections rolled back cleanly: world state is still at the genesis archive root.
+    EXPECT_EQ(ws.get_tree_info(WorldStateRevision::committed(), MerkleTreeId::ARCHIVE).meta.root, previous_root);
+
+    // Matching roots are accepted and advance the chain.
+    WorldStateStatusFull status = ws.sync_block(block_state_ref,
+                                                fr(1),
+                                                { 42 },
+                                                { 43 },
+                                                { NullifierLeafValue(144) },
+                                                { { PublicDataLeafValue(145, 1) } },
+                                                resulting_root,
+                                                previous_root);
+    WorldStateStatusSummary expected(1, 0, 1, true);
+    EXPECT_EQ(status.summary, expected);
+    EXPECT_EQ(ws.get_tree_info(WorldStateRevision::committed(), MerkleTreeId::ARCHIVE).meta.root, resulting_root);
+}
+
 TEST_F(WorldStateTest, SyncBlockFromDirtyState)
 {
     WorldState ws(thread_pool_size, data_dir, map_size, tree_heights, tree_prefill, initial_header_generator_point);
     StateReference block_state_ref = {
         { MerkleTreeId::NULLIFIER_TREE,
-          { fr("0x1a8a3172ecd372de7d144459831cfabf0496159a5defd0f2ecb8f5124f1717af"), 129 } },
+          { fr("0x2e2e2d8b72294a440c728a646f01476624063f0b50dcfe293cc0fc26bef9e311"), 129 } },
         { MerkleTreeId::NOTE_HASH_TREE,
-          { fr("0x2496ae3983b59733967ef32aecb041134d5f17bd2b040def30e699432dcc8967"), 1 } },
+          { fr("0x25c4ef02ba2bec9490376d5b56b8f1a8e5bcf5ecff91636e76660b68c2a9952d"), 1 } },
         { MerkleTreeId::PUBLIC_DATA_TREE,
-          { fr("0x0278dcf9ff541da255ee722aecfad849b66af0d42c2924d949b5a509f2e1aec9"), 129 } },
+          { fr("0x1e2d8d1c3ea2449b3e4787d8295df3f137e08b56e891c006b3d93faef56ca3df"), 129 } },
         { MerkleTreeId::L1_TO_L2_MESSAGE_TREE,
-          { fr("0x149be5d1559bbefa0006c5e55ed982c43a1db53848e2f59385523d0c40d74a94"), 1 } },
+          { fr("0x22c6f7877092ecea5b313b22515e31f2e1e37349b787da10eff298800e3c7c0c"), 1 } },
     };
 
     ws.append_leaves<fr>(MerkleTreeId::NOTE_HASH_TREE, { fr(142) });
@@ -676,13 +756,13 @@ TEST_F(WorldStateTest, SyncCurrentBlock)
     bb::fr block_hash(1);
     StateReference block_state_ref = {
         { MerkleTreeId::NULLIFIER_TREE,
-          { fr("0x1a8a3172ecd372de7d144459831cfabf0496159a5defd0f2ecb8f5124f1717af"), 129 } },
+          { fr("0x2e2e2d8b72294a440c728a646f01476624063f0b50dcfe293cc0fc26bef9e311"), 129 } },
         { MerkleTreeId::NOTE_HASH_TREE,
-          { fr("0x2496ae3983b59733967ef32aecb041134d5f17bd2b040def30e699432dcc8967"), 1 } },
+          { fr("0x25c4ef02ba2bec9490376d5b56b8f1a8e5bcf5ecff91636e76660b68c2a9952d"), 1 } },
         { MerkleTreeId::PUBLIC_DATA_TREE,
-          { fr("0x0278dcf9ff541da255ee722aecfad849b66af0d42c2924d949b5a509f2e1aec9"), 129 } },
+          { fr("0x1e2d8d1c3ea2449b3e4787d8295df3f137e08b56e891c006b3d93faef56ca3df"), 129 } },
         { MerkleTreeId::L1_TO_L2_MESSAGE_TREE,
-          { fr("0x149be5d1559bbefa0006c5e55ed982c43a1db53848e2f59385523d0c40d74a94"), 1 } },
+          { fr("0x22c6f7877092ecea5b313b22515e31f2e1e37349b787da10eff298800e3c7c0c"), 1 } },
     };
 
     ws.append_leaves<fr>(MerkleTreeId::NOTE_HASH_TREE, { 42 });
@@ -714,13 +794,13 @@ TEST_F(WorldStateTest, RejectSyncBlockWithBadPublicWriteBatches)
     WorldState ws(thread_pool_size, data_dir, map_size, tree_heights, tree_prefill, initial_header_generator_point);
     StateReference block_state_ref = {
         { MerkleTreeId::NULLIFIER_TREE,
-          { fr("0x1a8a3172ecd372de7d144459831cfabf0496159a5defd0f2ecb8f5124f1717af"), 129 } },
+          { fr("0x2e2e2d8b72294a440c728a646f01476624063f0b50dcfe293cc0fc26bef9e311"), 129 } },
         { MerkleTreeId::NOTE_HASH_TREE,
-          { fr("0x2496ae3983b59733967ef32aecb041134d5f17bd2b040def30e699432dcc8967"), 1 } },
+          { fr("0x25c4ef02ba2bec9490376d5b56b8f1a8e5bcf5ecff91636e76660b68c2a9952d"), 1 } },
         { MerkleTreeId::PUBLIC_DATA_TREE,
-          { fr("0x0278dcf9ff541da255ee722aecfad849b66af0d42c2924d949b5a509f2e1aec9"), 129 } },
+          { fr("0x1e2d8d1c3ea2449b3e4787d8295df3f137e08b56e891c006b3d93faef56ca3df"), 129 } },
         { MerkleTreeId::L1_TO_L2_MESSAGE_TREE,
-          { fr("0x149be5d1559bbefa0006c5e55ed982c43a1db53848e2f59385523d0c40d74a94"), 1 } },
+          { fr("0x22c6f7877092ecea5b313b22515e31f2e1e37349b787da10eff298800e3c7c0c"), 1 } },
     };
 
     auto sync = [&]() {
@@ -741,13 +821,13 @@ TEST_F(WorldStateTest, RejectSyncBlockWithInvalidStateRef)
     WorldState ws(thread_pool_size, data_dir, map_size, tree_heights, tree_prefill, initial_header_generator_point);
     StateReference block_state_ref = {
         { MerkleTreeId::NULLIFIER_TREE,
-          { fr("0x1a8a3172ecd372de7d144459831cfabf0496159a5defd0f2ecb8f5124f1717af"), 129 } },
+          { fr("0x2e2e2d8b72294a440c728a646f01476624063f0b50dcfe293cc0fc26bef9e311"), 129 } },
         { MerkleTreeId::NOTE_HASH_TREE,
-          { fr("0x2496ae3983b59733967ef32aecb041134d5f17bd2b040def30e699432dcc8967"), 1 } },
+          { fr("0x25c4ef02ba2bec9490376d5b56b8f1a8e5bcf5ecff91636e76660b68c2a9952d"), 1 } },
         { MerkleTreeId::PUBLIC_DATA_TREE,
-          { fr("0x0278dcf9ff541da255ee722aecfad849b66af0d42c2924d949b5a509f2e1aec9"), 129 } },
+          { fr("0x1e2d8d1c3ea2449b3e4787d8295df3f137e08b56e891c006b3d93faef56ca3df"), 129 } },
         { MerkleTreeId::L1_TO_L2_MESSAGE_TREE,
-          { fr("0x149be5d1559bbefa0006c5e55ed982c43a1db53848e2f59385523d0c40d74a94"), 1 } },
+          { fr("0x22c6f7877092ecea5b313b22515e31f2e1e37349b787da10eff298800e3c7c0c"), 1 } },
     };
 
     auto sync = [&]() {
@@ -902,13 +982,13 @@ TEST_F(WorldStateTest, GetBlockForIndex)
     // bb::fr block_hash(1);
     StateReference block_state_ref = {
         { MerkleTreeId::NULLIFIER_TREE,
-          { fr("0x1a8a3172ecd372de7d144459831cfabf0496159a5defd0f2ecb8f5124f1717af"), 129 } },
+          { fr("0x2e2e2d8b72294a440c728a646f01476624063f0b50dcfe293cc0fc26bef9e311"), 129 } },
         { MerkleTreeId::NOTE_HASH_TREE,
-          { fr("0x2496ae3983b59733967ef32aecb041134d5f17bd2b040def30e699432dcc8967"), 1 } },
+          { fr("0x25c4ef02ba2bec9490376d5b56b8f1a8e5bcf5ecff91636e76660b68c2a9952d"), 1 } },
         { MerkleTreeId::PUBLIC_DATA_TREE,
-          { fr("0x0278dcf9ff541da255ee722aecfad849b66af0d42c2924d949b5a509f2e1aec9"), 129 } },
+          { fr("0x1e2d8d1c3ea2449b3e4787d8295df3f137e08b56e891c006b3d93faef56ca3df"), 129 } },
         { MerkleTreeId::L1_TO_L2_MESSAGE_TREE,
-          { fr("0x149be5d1559bbefa0006c5e55ed982c43a1db53848e2f59385523d0c40d74a94"), 1 } },
+          { fr("0x22c6f7877092ecea5b313b22515e31f2e1e37349b787da10eff298800e3c7c0c"), 1 } },
     };
 
     WorldStateStatusFull status = ws.sync_block(
@@ -934,4 +1014,72 @@ TEST_F(WorldStateTest, GetBlockForIndex)
         EXPECT_TRUE(blockNumbers[0].has_value());
         EXPECT_EQ(blockNumbers[0].value(), 1);
     }
+}
+
+// Demonstrates the bug: syncing an empty block with a bogus block_header_hash succeeds when the optional
+// expected-archive-root arguments are omitted.  The 4-tree state-ref check passes (nothing changed), but
+// the wrong hash is committed to the ARCHIVE, silently diverging from the canonical chain.
+TEST_F(WorldStateTest, SyncEmptyBlockAcceptsBogusHashWithoutArchiveCheck)
+{
+    // Learn the canonical previous and resulting archive roots from an empty-block sync on a scratch instance.
+    bb::fr previous_archive_root;
+    bb::fr canonical_archive_root;
+    {
+        WorldState scratch(
+            thread_pool_size, data_dir, map_size, tree_heights, tree_prefill, initial_header_generator_point);
+        previous_archive_root = scratch.get_tree_info(WorldStateRevision::committed(), MerkleTreeId::ARCHIVE).meta.root;
+        StateReference genesis_state_ref = scratch.get_state_reference(WorldStateRevision::committed());
+        scratch.sync_block(genesis_state_ref, fr(1), {}, {}, {}, {});
+        canonical_archive_root =
+            scratch.get_tree_info(WorldStateRevision::committed(), MerkleTreeId::ARCHIVE).meta.root;
+    }
+
+    std::string data_dir2 = random_temp_directory();
+    std::filesystem::create_directories(data_dir2);
+    WorldState ws(thread_pool_size, data_dir2, map_size, tree_heights, tree_prefill, initial_header_generator_point);
+
+    StateReference genesis_state_ref = ws.get_state_reference(WorldStateRevision::committed());
+
+    // Sync an empty block using a bogus hash — no expected-archive-root arguments provided.
+    EXPECT_NO_THROW(ws.sync_block(genesis_state_ref, fr(42), {}, {}, {}, {}));
+
+    bb::fr actual_archive_root = ws.get_tree_info(WorldStateRevision::committed(), MerkleTreeId::ARCHIVE).meta.root;
+
+    // The bogus hash committed successfully, so the resulting archive root differs from the canonical one.
+    EXPECT_NE(actual_archive_root, canonical_archive_root);
+    EXPECT_NE(actual_archive_root, previous_archive_root);
+}
+
+// Demonstrates the fix: supplying the canonical expected archive roots causes sync_block to reject the bogus
+// block_header_hash for an empty block, and rolls back cleanly.
+TEST_F(WorldStateTest, SyncEmptyBlockRejectsBogusHashWhenArchiveRootsAreChecked)
+{
+    // Learn the canonical previous and resulting archive roots from an empty-block sync on a scratch instance.
+    bb::fr previous_archive_root;
+    bb::fr canonical_archive_root;
+    {
+        WorldState scratch(
+            thread_pool_size, data_dir, map_size, tree_heights, tree_prefill, initial_header_generator_point);
+        previous_archive_root = scratch.get_tree_info(WorldStateRevision::committed(), MerkleTreeId::ARCHIVE).meta.root;
+        StateReference genesis_state_ref = scratch.get_state_reference(WorldStateRevision::committed());
+        scratch.sync_block(genesis_state_ref, fr(1), {}, {}, {}, {});
+        canonical_archive_root =
+            scratch.get_tree_info(WorldStateRevision::committed(), MerkleTreeId::ARCHIVE).meta.root;
+    }
+
+    std::string data_dir2 = random_temp_directory();
+    std::filesystem::create_directories(data_dir2);
+    WorldState ws(thread_pool_size, data_dir2, map_size, tree_heights, tree_prefill, initial_header_generator_point);
+
+    StateReference genesis_state_ref = ws.get_state_reference(WorldStateRevision::committed());
+
+    // Sync an empty block using a bogus hash, but supply the canonical archive roots for validation.
+    // The resulting archive root will not match canonical_archive_root, so this must throw.
+    EXPECT_THROW(
+        ws.sync_block(genesis_state_ref, fr(42), {}, {}, {}, {}, canonical_archive_root, previous_archive_root),
+        std::runtime_error);
+
+    // The committed archive root must be unchanged (rollback was clean).
+    EXPECT_EQ(ws.get_tree_info(WorldStateRevision::committed(), MerkleTreeId::ARCHIVE).meta.root,
+              previous_archive_root);
 }

@@ -9,6 +9,7 @@ import {
   createProofStore,
   createProvingJobBrokerClient,
   proverAgentConfigMappings,
+  proverBrokerBackoff,
 } from '@aztec/prover-client/broker';
 import { getProverNodeAgentConfigFromEnv } from '@aztec/prover-node';
 import { ProverAgentApiSchema } from '@aztec/stdlib/interfaces/server';
@@ -23,8 +24,8 @@ export async function startProverAgent(
   services: NamespacedApiHandlers,
   userLog: LogFn,
 ) {
-  if (options.node || options.sequencer || options.pxe || options.p2pBootstrap || options.txe) {
-    userLog(`Starting a prover agent with --node, --sequencer, --pxe, --p2p-bootstrap, or --txe is not supported.`);
+  if (options.node || options.sequencer || options.p2pBootstrap || options.txe) {
+    userLog(`Starting a prover agent with --node, --sequencer, --p2p-bootstrap, or --txe is not supported.`);
     process.exit(1);
   }
 
@@ -45,12 +46,8 @@ export async function startProverAgent(
 
   await preloadCrsDataForServerSideProving(config, userLog);
 
-  const fetch = makeTracedFetch(
-    // retry connections every 3s, up to 30s before giving up
-    [1, 2, 3, 3, 3, 3, 3, 3, 3, 3, 3],
-    false,
-    makeUndiciFetch(new Agent({ connections: 10 })),
-  );
+  // Retry indefinitely until the epoch proving times out and the chain reorgs
+  const fetch = makeTracedFetch(proverBrokerBackoff, false, makeUndiciFetch(new Agent({ connections: 10 })));
   const broker = createProvingJobBrokerClient(config.proverBrokerUrl, getVersions(), fetch);
 
   const telemetry = await initTelemetryClient(extractRelevantOptions(options, telemetryClientConfigMappings, 'tel'));

@@ -48,6 +48,7 @@
 #include "barretenberg/flavor/flavor_macros.hpp"
 #include "barretenberg/flavor/partially_evaluated_multivariates.hpp"
 #include "barretenberg/polynomials/univariate.hpp"
+#include "barretenberg/relations/relation_tuple_helpers.hpp"
 #include "barretenberg/relations/relation_types.hpp"
 #include "barretenberg/relations/ultra_arithmetic_relation.hpp"
 #include "barretenberg/stdlib_circuit_builders/ultra_circuit_builder.hpp"
@@ -150,9 +151,10 @@ class SumcheckTestFlavor_ {
 
     // Configuration constants from template parameters
     static constexpr bool HasZK = HasZK_;
+    static constexpr size_t TRACE_OFFSET = HasZK_ ? NUM_DISABLED_ROWS_IN_SUMCHECK : 0;
     static constexpr bool USE_SHORT_MONOMIALS = UseShortMonomials_;
     static constexpr bool USE_PADDING = false;
-    static constexpr size_t NUM_WIRES = 4;
+    static constexpr size_t NUM_WIRES = bb::NUM_WIRES;
 
     // Entity counts:
     // Precomputed: q_m, q_l, q_r, q_o, q_4, q_c, q_arith + q_test = 8
@@ -241,6 +243,38 @@ class SumcheckTestFlavor_ {
         auto get_witness() { return WitnessEntities<DataType>::get_all(); }
         auto get_witness() const { return WitnessEntities<DataType>::get_all(); }
         auto get_shifted() { return ShiftedEntities<DataType>::get_all(); }
+        auto get_shifted() const { return ShiftedEntities<DataType>::get_all(); }
+
+        // EntityId-keyed access. Relations that take an `AllEntities` (e.g. ArithmeticRelation)
+        // use `in[AllEntities::EntityId::name]`; member fields q_m/q_l/.../w_4_shift come from the
+        // DEFINE_FLAVOR_MEMBERS-emitted public fields in the three base classes above.
+        enum class EntityId : uint16_t {
+            q_m = 0,
+            q_l,
+            q_r,
+            q_o,
+            q_4,
+            q_c,
+            q_arith,
+            q_test,
+            w_l,
+            w_r,
+            w_o,
+            w_4,
+            w_test_1,
+            w_test_2,
+            w_l_shift,
+            w_4_shift,
+        };
+
+        static constexpr std::array<DataType AllEntities::*, NUM_ALL_ENTITIES> ENTITY_REFS{
+            &AllEntities::q_m,      &AllEntities::q_l,      &AllEntities::q_r,       &AllEntities::q_o,
+            &AllEntities::q_4,      &AllEntities::q_c,      &AllEntities::q_arith,   &AllEntities::q_test,
+            &AllEntities::w_l,      &AllEntities::w_r,      &AllEntities::w_o,       &AllEntities::w_4,
+            &AllEntities::w_test_1, &AllEntities::w_test_2, &AllEntities::w_l_shift, &AllEntities::w_4_shift,
+        };
+        DataType& operator[](EntityId id) { return this->*ENTITY_REFS[static_cast<size_t>(id)]; }
+        const DataType& operator[](EntityId id) const { return this->*ENTITY_REFS[static_cast<size_t>(id)]; }
     };
 
     /**

@@ -15,6 +15,9 @@ import {
 
 const { L1_CHAIN_ID = '31337' } = process.env;
 
+// Integration test for RemoteSigner against a live Web3Signer instance (docker-compose web3signer suite).
+// No Aztec node; exercises EIP-712 typed-data signing and raw transaction signing, comparing remote results
+// against a local signer for the same key.
 describe('RemoteSigner integration: Web3Signer (compose)', () => {
   jest.setTimeout(180_000);
 
@@ -47,7 +50,7 @@ describe('RemoteSigner integration: Web3Signer (compose)', () => {
   it('signs EIP-712 typed data and matches r/s with local', async () => {
     const typedData: TypedDataDefinition = {
       domain: {
-        name: 'TallySlashingProposer',
+        name: 'SlashingProposer',
         version: '1',
         chainId,
         verifyingContract: EthAddress.random().toString(),

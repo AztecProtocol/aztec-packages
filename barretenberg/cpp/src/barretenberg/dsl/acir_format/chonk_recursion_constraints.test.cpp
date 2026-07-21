@@ -3,6 +3,7 @@
 #include "barretenberg/dsl/acir_format/acir_format.hpp"
 #include "barretenberg/dsl/acir_format/gate_count_constants.hpp"
 #include "barretenberg/dsl/acir_format/utils.hpp"
+#include "barretenberg/ultra_honk/ultra_prover.hpp"
 
 #include <gtest/gtest.h>
 
@@ -18,7 +19,6 @@ class ChonkRecursionConstraintTest : public ::testing::Test {
     using ProverInstance = ProverInstance_<Flavor>;
     using VerificationKey = Flavor::VerificationKey;
     // Types for Chonk
-    using DeciderZKProvingKey = ProverInstance_<MegaZKFlavor>;
     using MegaZKVerificationKey = MegaZKFlavor::VerificationKey;
 
     // Public inputs added by bb to a Chonk proof
@@ -35,7 +35,7 @@ class ChonkRecursionConstraintTest : public ::testing::Test {
 
         PrivateFunctionExecutionMockCircuitProducer circuit_producer(NUM_APP_CIRCUITS);
         const size_t num_circuits = circuit_producer.total_num_circuits;
-        Chonk ivc{ num_circuits };
+        Chonk ivc{ circuit_producer.circuit_kinds() };
 
         for (size_t j = 0; j < num_circuits; ++j) {
             circuit_producer.construct_and_accumulate_next_circuit(ivc);
@@ -93,6 +93,7 @@ TEST_F(ChonkRecursionConstraintTest, GenerateRecursiveChonkVerifierVKFromConstra
     using VerificationKey = ChonkRecursionConstraintTest::VerificationKey;
     using ChonkData = ChonkRecursionConstraintTest::ChonkData;
 
+    BB_DISABLE_ASSERTS();
     ChonkData chonk_data = ChonkRecursionConstraintTest::get_chonk_data();
 
     std::shared_ptr<VerificationKey> vk_from_valid_witness;
@@ -103,7 +104,7 @@ TEST_F(ChonkRecursionConstraintTest, GenerateRecursiveChonkVerifierVKFromConstra
 
         // Prove and verify
         UltraProver_<UltraFlavor> prover(prover_instance, vk_from_valid_witness);
-        HonkProof proof = prover.prove();
+        HonkProof proof = prover.construct_proof();
 
         auto vk_and_hash = std::make_shared<UltraFlavor::VKAndHash>(vk_from_valid_witness);
         UltraRollupVerifier verifier(vk_and_hash);

@@ -1,14 +1,13 @@
 /**
  * Test fixtures and utilities to set up and run a test using multiple validators
  */
-import { type AztecNodeConfig, AztecNodeService } from '@aztec/aztec-node';
+import { type AztecNodeConfig, AztecNodeService, createAztecNodeService } from '@aztec/aztec-node';
 import { range } from '@aztec/foundation/array';
 import { SecretValue } from '@aztec/foundation/config';
 import { withLoggerBindings } from '@aztec/foundation/log/server';
 import { bufferToHex } from '@aztec/foundation/string';
 import type { DateProvider } from '@aztec/foundation/timer';
-import type { ProverNodeConfig, ProverNodeDeps } from '@aztec/prover-node';
-import type { PublicDataTreeLeaf } from '@aztec/stdlib/trees';
+import type { GenesisData } from '@aztec/stdlib/world-state';
 
 import getPort from 'get-port';
 
@@ -41,7 +40,7 @@ export async function createNodes(
   bootstrapNodeEnr: string,
   numNodes: number,
   bootNodePort: number,
-  prefilledPublicData?: PublicDataTreeLeaf[],
+  genesis?: GenesisData,
   dataDirectory?: string,
   metricsPort?: number,
   indexOffset = 0,
@@ -66,7 +65,7 @@ export async function createNodes(
       port,
       bootstrapNodeEnr,
       validatorIndices,
-      prefilledPublicData,
+      genesis,
       dataDir,
       metricsPort,
     );
@@ -83,14 +82,26 @@ export async function createNodes(
   return nodes;
 }
 
-/** Creates a P2P enabled instance of Aztec Node Service with a validator */
+/** Extended config type for createNode with test-specific overrides. */
+export type CreateNodeConfig = AztecNodeConfig & {
+  /** Whether to skip starting the sequencer. */
+  dontStartSequencer?: boolean;
+  /** Override the private key (instead of deriving from addressIndex). */
+  validatorPrivateKey?: `0x${string}`;
+  /** Corrupt only the block proposal at this indexWithinCheckpoint (testing only). */
+  invalidBlockProposalIndexWithinCheckpoint?: number;
+  /** Accept proposal gossip regardless of slot timing (testing only). */
+  skipProposalSlotValidation?: boolean;
+};
+
+/** Creates a P2P enabled instance of Aztec Node Service with a validator. */
 export async function createNode(
-  config: AztecNodeConfig & { dontStartSequencer?: boolean },
+  config: CreateNodeConfig,
   dateProvider: DateProvider,
   tcpPort: number,
   bootstrapNode: string | undefined,
   addressIndex: number | number[],
-  prefilledPublicData?: PublicDataTreeLeaf[],
+  genesis?: GenesisData,
   dataDirectory?: string,
   metricsPort?: number,
 ) {
@@ -98,10 +109,10 @@ export async function createNode(
   return await withLoggerBindings({ actor: `validator-${actorIndex}` }, async () => {
     const validatorConfig = await createValidatorConfig(config, bootstrapNode, tcpPort, addressIndex, dataDirectory);
     const telemetry = await getEndToEndTestTelemetryClient(metricsPort);
-    return await AztecNodeService.createAndSync(
+    return await createAztecNodeService(
       validatorConfig,
       { telemetry, dateProvider },
-      { prefilledPublicData, dontStartSequencer: config.dontStartSequencer },
+      { genesis, dontStartSequencer: config.dontStartSequencer },
     );
   });
 }
@@ -112,7 +123,7 @@ export async function createNonValidatorNode(
   dateProvider: DateProvider,
   tcpPort: number,
   bootstrapNode: string | undefined,
-  prefilledPublicData?: PublicDataTreeLeaf[],
+  genesis?: GenesisData,
   dataDirectory?: string,
   metricsPort?: number,
 ) {
@@ -123,10 +134,10 @@ export async function createNonValidatorNode(
       ...p2pConfig,
       disableValidator: true,
       validatorPrivateKeys: undefined,
-      publisherPrivateKeys: [],
+      sequencerPublisherPrivateKeys: [],
     };
     const telemetry = await getEndToEndTestTelemetryClient(metricsPort);
-    return await AztecNodeService.createAndSync(config, { telemetry, dateProvider }, { prefilledPublicData });
+    return await createAztecNodeService(config, { telemetry, dateProvider }, { genesis });
   });
 }
 
@@ -135,31 +146,24 @@ export async function createProverNode(
   tcpPort: number,
   bootstrapNode: string | undefined,
   addressIndex: number,
-  proverNodeDeps: ProverNodeDeps & Required<Pick<ProverNodeDeps, 'dateProvider'>>,
-  prefilledPublicData?: PublicDataTreeLeaf[],
+  deps: { dateProvider: DateProvider },
+  genesis?: GenesisData,
   dataDirectory?: string,
   metricsPort?: number,
-) {
+): Promise<{ proverNode: AztecNodeService }> {
   const actorIndex = proverCounter++;
   return await withLoggerBindings({ actor: `prover-${actorIndex}` }, async () => {
     const proverNodePrivateKey = getPrivateKeyFromIndex(ATTESTER_PRIVATE_KEYS_START_INDEX + addressIndex)!;
     const telemetry = await getEndToEndTestTelemetryClient(metricsPort);
 
-    const proverConfig: Partial<ProverNodeConfig> = await createP2PConfig(
-      config,
-      bootstrapNode,
-      tcpPort,
-      dataDirectory,
-    );
+    const p2pConfig = await createP2PConfig(config, bootstrapNode, tcpPort, dataDirectory);
 
-    const aztecNodeRpcTxProvider = undefined;
     return await createAndSyncProverNode(
       bufferToHex(proverNodePrivateKey),
-      config,
-      { ...proverConfig, dataDirectory },
-      aztecNodeRpcTxProvider,
-      prefilledPublicData,
-      { ...proverNodeDeps, telemetry },
+      { ...config, ...p2pConfig },
+      { dataDirectory },
+      { ...deps, telemetry },
+      { genesis },
     );
   });
 }
@@ -187,26 +191,27 @@ export async function createP2PConfig(
 }
 
 export async function createValidatorConfig(
-  config: AztecNodeConfig,
+  config: CreateNodeConfig,
   bootstrapNodeEnr?: string,
   port?: number,
   addressIndex: number | number[] = 1,
   dataDirectory?: string,
 ) {
   const addressIndices = Array.isArray(addressIndex) ? addressIndex : [addressIndex];
-  if (addressIndices.length === 0) {
+  if (addressIndices.length === 0 && !config.validatorPrivateKey) {
     throw new Error('At least one address index must be provided to create a validator config');
   }
 
-  const attesterPrivateKeys = addressIndices.map(index =>
-    bufferToHex(getPrivateKeyFromIndex(ATTESTER_PRIVATE_KEYS_START_INDEX + index)!),
-  );
+  // Use override private key if provided, otherwise derive from address indices
+  const attesterPrivateKeys = config.validatorPrivateKey
+    ? [config.validatorPrivateKey]
+    : addressIndices.map(index => bufferToHex(getPrivateKeyFromIndex(ATTESTER_PRIVATE_KEYS_START_INDEX + index)!));
   const p2pConfig = await createP2PConfig(config, bootstrapNodeEnr, port, dataDirectory);
   const nodeConfig: AztecNodeConfig = {
     ...config,
     ...p2pConfig,
     validatorPrivateKeys: new SecretValue(attesterPrivateKeys),
-    publisherPrivateKeys: [new SecretValue(attesterPrivateKeys[0])],
+    sequencerPublisherPrivateKeys: [new SecretValue(attesterPrivateKeys[0])],
   };
 
   return nodeConfig;

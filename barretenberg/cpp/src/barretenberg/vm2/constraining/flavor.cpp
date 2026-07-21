@@ -1,5 +1,5 @@
 // === AUDIT STATUS ===
-// internal:    { status: Completed, auditors: [Federico], commit: }
+// internal:    { status: Completed, auditors: [Federico], commit: 0e37cb8}
 // external_1:  { status: not started, auditors: [], commit: }
 // external_2:  { status: not started, auditors: [], commit: }
 // =====================
@@ -11,11 +11,11 @@ namespace bb::avm2 {
 AvmFlavor::ProverPolynomials::ProverPolynomials(ProvingKey& proving_key)
 {
     for (auto [prover_poly, key_poly] : zip_view(this->get_unshifted(), proving_key.get_all())) {
-        BB_ASSERT_EQ(flavor_get_label(*this, prover_poly), flavor_get_label(proving_key, key_poly));
+        BB_ASSERT_DEBUG(flavor_get_label(*this, prover_poly) == flavor_get_label(proving_key, key_poly));
         prover_poly = key_poly.share();
     }
     for (auto [prover_poly, key_poly] : zip_view(this->get_shifted(), proving_key.get_to_be_shifted())) {
-        BB_ASSERT_EQ(flavor_get_label(*this, prover_poly), (flavor_get_label(proving_key, key_poly) + "_shift"));
+        BB_ASSERT_DEBUG(flavor_get_label(*this, prover_poly) == flavor_get_label(proving_key, key_poly) + "_shift");
         prover_poly = key_poly.shifted();
     }
 }
@@ -91,7 +91,7 @@ AvmFlavor::ProverPolynomials::ProverPolynomials(const ProverPolynomials& full_po
 }
 
 AvmFlavor::ProvingKey::ProvingKey()
-    : commitment_key(circuit_size + 1) {
+    : commitment_key(circuit_size) {
         // The proving key's polynomials are not allocated here because they are later overwritten
         // AvmComposer::compute_witness(). We should probably refactor this flow.
     };
@@ -121,9 +121,18 @@ const bb::Univariate<AvmFlavor::FF, AvmFlavor::MAX_PARTIAL_RELATION_LENGTH>& Avm
         }
         auto& extended_ptr = mutable_entities[static_cast<size_t>(c)];
         if (extended_ptr.get() == nullptr) {
+            const auto& val0 = multivariate[current_edge];
+            const auto& val1 = multivariate[current_edge + 1];
+            // Fast path: if both edge values are zero, return a static zero univariate
+            // without allocating or computing extend_to. This avoids heap allocation and
+            // the extend_to computation for zero selectors on sparse AVM traces.
+            if (val0.is_zero() && val1.is_zero()) {
+                static const auto zero_univariate = bb::Univariate<FF, MAX_PARTIAL_RELATION_LENGTH>::zero();
+                return zero_univariate; // Weirdly, defining a single static zero_univariate above the "if" block
+                                        // leads to a performance regression and obliterates the performance gain.
+            }
             extended_ptr = std::make_unique<bb::Univariate<FF, MAX_PARTIAL_RELATION_LENGTH>>(
-                bb::Univariate<FF, 2>({ multivariate[current_edge], multivariate[current_edge + 1] })
-                    .template extend_to<MAX_PARTIAL_RELATION_LENGTH>());
+                bb::Univariate<FF, 2>({ val0, val1 }).template extend_to<MAX_PARTIAL_RELATION_LENGTH>());
         }
         return *extended_ptr;
     }

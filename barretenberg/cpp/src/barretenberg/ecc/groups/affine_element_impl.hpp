@@ -21,8 +21,15 @@ template <typename BaseField, typename CompileTimeEnabled>
 constexpr affine_element<Fq, Fr, T> affine_element<Fq, Fr, T>::from_compressed(const uint256_t& compressed) noexcept
 {
     uint256_t x_coordinate = compressed;
-    x_coordinate.data[3] = x_coordinate.data[3] & (~0x8000000000000000ULL);
+    x_coordinate.data[3] = x_coordinate.data[3] & (~UINT256_TOP_LIMB_MSB);
     bool y_bit = compressed.get_bit(255);
+
+    // Reject non-canonical encodings: the lower 255 bits encode x. If x_coordinate >= Fq::modulus,
+    // Fq(x_coordinate) silently reduces mod p, so two distinct compressed bytestrings differing by
+    // a multiple of p would decompress to the same point (encoding malleability).
+    if (x_coordinate >= Fq::modulus) {
+        return affine_element(Fq::zero(), Fq::zero());
+    }
 
     Fq x = Fq(x_coordinate);
     Fq y2 = (x.sqr() * x + T::b);
@@ -45,26 +52,23 @@ template <typename BaseField, typename CompileTimeEnabled>
 constexpr std::array<affine_element<Fq, Fr, T>, 2> affine_element<Fq, Fr, T>::from_compressed_unsafe(
     const uint256_t& compressed) noexcept
 {
-    auto get_y_coordinate = [](const uint256_t& x_coordinate) {
+    // Try x as a recovery candidate: check it is in [0, p), compute y² = x³ + ax + b,
+    // and return the point if y exists. Fq(x) reduces silently, so ensuring x is in [0, p) is necessary to prevent
+    // returning an incorrect pair (x mod q, y).
+    auto try_candidate = [](const uint256_t& x_coordinate) -> affine_element<Fq, Fr, T> {
+        if (x_coordinate >= Fq::modulus) {
+            return { Fq::zero(), Fq::zero() };
+        }
         Fq x = Fq(x_coordinate);
-        Fq y2 = (x.sqr() * x + T::b);
+        Fq y2 = ((x.sqr() * x) + T::b);
         if constexpr (T::has_a) {
             y2 += (x * T::a);
         }
-        return y2.sqrt();
+        auto [is_qr, y] = y2.sqrt();
+        return is_qr ? affine_element<Fq, Fr, T>(x, y) : affine_element<Fq, Fr, T>(Fq::zero(), Fq::zero());
     };
 
-    uint256_t x_1 = compressed;
-    uint256_t x_2 = compressed + Fr::modulus;
-    auto [is_quadratic_remainder_1, y_1] = get_y_coordinate(x_1);
-    auto [is_quadratic_remainder_2, y_2] = get_y_coordinate(x_2);
-
-    auto output_1 = is_quadratic_remainder_1 ? affine_element<Fq, Fr, T>(Fq(x_1), y_1)
-                                             : affine_element<Fq, Fr, T>(Fq::zero(), Fq::zero());
-    auto output_2 = is_quadratic_remainder_2 ? affine_element<Fq, Fr, T>(Fq(x_2), y_2)
-                                             : affine_element<Fq, Fr, T>(Fq::zero(), Fq::zero());
-
-    return { output_1, output_2 };
+    return { try_candidate(compressed), try_candidate(compressed + Fr::modulus) };
 }
 
 template <class Fq, class Fr, class T>
@@ -78,18 +82,6 @@ template <class Fq, class Fr, class T>
 constexpr affine_element<Fq, Fr, T> affine_element<Fq, Fr, T>::operator*(const Fr& exponent) const noexcept
 {
     return bb::group_elements::element(*this) * exponent;
-}
-
-template <class Fq, class Fr, class T>
-template <typename BaseField, typename CompileTimeEnabled>
-
-constexpr uint256_t affine_element<Fq, Fr, T>::compress() const noexcept
-{
-    uint256_t out(x);
-    if (uint256_t(y).get_bit(0)) {
-        out.data[3] = out.data[3] | 0x8000000000000000ULL;
-    }
-    return out;
 }
 
 template <class Fq, class Fr, class T> constexpr affine_element<Fq, Fr, T> affine_element<Fq, Fr, T>::infinity()
@@ -109,12 +101,15 @@ constexpr affine_element<Fq, Fr, T> affine_element<Fq, Fr, T>::set_infinity() co
 
 template <class Fq, class Fr, class T> constexpr void affine_element<Fq, Fr, T>::self_set_infinity() noexcept
 {
-    if constexpr (Fq::modulus.data[3] >= 0x4000000000000000ULL) {
+    if constexpr (Fq::modulus.data[3] >= MODULUS_TOP_LIMB_LARGE_THRESHOLD) {
         // We set the value of x equal to modulus to represent inifinty
         x.data[0] = Fq::modulus.data[0];
         x.data[1] = Fq::modulus.data[1];
         x.data[2] = Fq::modulus.data[2];
         x.data[3] = Fq::modulus.data[3];
+
+        // Clear y for memory hygiene
+        y = Fq::zero();
     } else {
         (*this).x = Fq::zero();
         (*this).y = Fq::zero();
@@ -124,7 +119,7 @@ template <class Fq, class Fr, class T> constexpr void affine_element<Fq, Fr, T>:
 
 template <class Fq, class Fr, class T> constexpr bool affine_element<Fq, Fr, T>::is_point_at_infinity() const noexcept
 {
-    if constexpr (Fq::modulus.data[3] >= 0x4000000000000000ULL) {
+    if constexpr (Fq::modulus.data[3] >= MODULUS_TOP_LIMB_LARGE_THRESHOLD) {
         // We check if the value of x is equal to modulus to represent inifinty
         return ((x.data[0] ^ Fq::modulus.data[0]) | (x.data[1] ^ Fq::modulus.data[1]) |
                 (x.data[2] ^ Fq::modulus.data[2]) | (x.data[3] ^ Fq::modulus.data[3])) == 0;
@@ -147,6 +142,35 @@ template <class Fq, class Fr, class T> constexpr bool affine_element<Fq, Fr, T>:
     return (xxx == yy);
 }
 
+template <class Fq, class Fr, class T> bool affine_element<Fq, Fr, T>::is_in_prime_subgroup() const noexcept
+{
+    if (is_point_at_infinity()) {
+        return true;
+    }
+    // Weierstrass group law is unsound for off-curve coordinates, so the [r]·P trick can
+    // give a false positive on points that satisfy y² = x³ + b' for some b' ≠ b. Reject
+    // those up front.
+    if (!on_curve()) {
+        return false;
+    }
+    using Element = element<Fq, Fr, T>;
+
+    // To compute r * P, we convert modulus r to u256 and perform a left-to-right double-and-add.
+    constexpr uint256_t r = Fr::modulus;
+    const uint64_t r_msb = r.get_msb();
+
+    // Left-to-right double-and-add over the bits of r below the MSB. The MSB itself is consumed by
+    // initializing `acc` with `*this`. Loop terminates via unsigned underflow (i wraps past 0).
+    Element acc(*this);
+    for (uint64_t i = r_msb - 1; i < r_msb; --i) {
+        acc.self_dbl();
+        if (r.get_bit(i)) {
+            acc += *this;
+        }
+    }
+    return acc.is_point_at_infinity();
+}
+
 template <class Fq, class Fr, class T>
 constexpr bool affine_element<Fq, Fr, T>::operator==(const affine_element& other) const noexcept
 {
@@ -157,15 +181,9 @@ constexpr bool affine_element<Fq, Fr, T>::operator==(const affine_element& other
     return !only_one_is_infinity && (both_infinity || ((x == other.x) && (y == other.y)));
 }
 
-/**
- * Comparison operators (for std::sort)
- *
- * @details CAUTION!! Don't use this operator. It has no meaning other than for use by std::sort.
- **/
 template <class Fq, class Fr, class T>
 constexpr bool affine_element<Fq, Fr, T>::operator>(const affine_element& other) const noexcept
 {
-    // We are setting point at infinity to always be the lowest element
     if (is_point_at_infinity()) {
         return false;
     }
@@ -234,8 +252,8 @@ constexpr std::optional<affine_element<Fq, Fr, T>> affine_element<Fq, Fr, T>::de
  * @return constexpr affine_element<Fq, Fr, T>
  */
 template <class Fq, class Fr, class T>
-constexpr affine_element<Fq, Fr, T> affine_element<Fq, Fr, T>::hash_to_curve(const std::vector<uint8_t>& seed,
-                                                                             uint8_t attempt_count) noexcept
+affine_element<Fq, Fr, T> affine_element<Fq, Fr, T>::hash_to_curve(const std::vector<uint8_t>& seed,
+                                                                   uint8_t attempt_count) noexcept
     requires SupportsHashToCurve<T>
 {
     std::vector<uint8_t> target_seed(seed);

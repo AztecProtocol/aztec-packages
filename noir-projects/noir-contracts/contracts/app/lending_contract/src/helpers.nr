@@ -1,4 +1,4 @@
-use dep::aztec::protocol::hash::poseidon2_hash;
+use aztec::protocol::hash::poseidon2_hash;
 use std::ops::{Add, Sub};
 
 // Utility used to easily get a "id" for a private user that sits in the same
@@ -46,12 +46,7 @@ fn div_up(a: u128, b: u128) -> u128 {
     }
 }
 
-pub fn debt_updates(
-    interest_accumulator: u128,
-    static_debt: u128,
-    increase: u128,
-    decrease: u128,
-) -> DebtReturn {
+pub fn debt_updates(interest_accumulator: u128, static_debt: u128, increase: u128, decrease: u128) -> DebtReturn {
     assert(interest_accumulator > (0 as u128));
     let accumulator_precision = 1000000000 as u128;
 

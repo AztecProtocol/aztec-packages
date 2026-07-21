@@ -117,11 +117,184 @@ contract EscapeHatchValidateProofSubmissionTest is EscapeHatchBase {
     _;
   }
 
+  modifier givenEscapeHatchWasNOTActiveForEntirePeriod() {
+    // Simulate deactivation: FakeRollup now reports no escape hatch for any epoch.
+    // This makes wasActiveEntirePeriod = false.
+    fakeRollup.setEscapeHatch(address(0));
+    _;
+  }
+
   function test_GivenProposerNeverSubmitted(EscapeHatchConfig memory _config)
     external
     givenProposerWasDesignatedForTheHatch(_config)
     givenProposerStatusIsPROPOSING
     whenExitableAtHasBeenReached
+    givenEscapeHatchWasNOTActiveForEntirePeriod
+  {
+    // it should not apply punishment
+    // it should set status to EXITING
+    // it should clear lastCheckpointNumber and lastSubmittedArchive
+    // it should set isHatchValidated to true
+    // it should emit ProofValidated with success true and zero punishment
+    //
+    // Simulates governance deactivating the escape hatch during the proposer's window.
+    // The proposer did nothing (lastCheckpointNumber == 0) and the escape hatch was disrupted,
+    // so no punishment is applied.
+
+    CandidateInfo memory infoBefore = escapeHatch.getCandidateInfo(CANDIDATE1);
+    assertEq(infoBefore.lastCheckpointNumber, 0, "lastCheckpointNumber should be 0");
+    assertFalse(escapeHatch.isHatchValidated(preparedHatch), "Hatch should not be validated yet");
+
+    vm.expectEmit(true, true, true, true);
+    emit IEscapeHatchCore.ProofValidated(preparedHatch, CANDIDATE1, true, 0);
+
+    escapeHatch.validateProofSubmission(preparedHatch);
+
+    assertTrue(escapeHatch.isHatchValidated(preparedHatch), "Hatch should be validated");
+    CandidateInfo memory infoAfter = escapeHatch.getCandidateInfo(CANDIDATE1);
+    assertEq(uint8(infoAfter.status), uint8(Status.EXITING), "Status should be EXITING");
+    assertEq(infoAfter.amount, config.bondSize, "Punishment should NOT be applied");
+    assertEq(infoAfter.lastCheckpointNumber, 0, "lastCheckpointNumber should be cleared");
+    assertEq(infoAfter.lastSubmittedArchive, bytes32(0), "lastSubmittedArchive should be cleared");
+  }
+
+  function test_GivenProposerDidSubmit(EscapeHatchConfig memory _config)
+    external
+    givenProposerWasDesignatedForTheHatch(_config)
+    givenProposerStatusIsPROPOSING
+    whenExitableAtHasBeenReached
+    givenEscapeHatchWasNOTActiveForEntirePeriod
+  {
+    // it should apply normal validation (punish on failure)
+    //
+    // Even though the escape hatch was deactivated, the proposer submitted a checkpoint.
+    // They are on the hook for normal validation regardless of escape hatch changes,
+    // since proofs go to the rollup directly and are unaffected by escape hatch changes.
+
+    uint128 checkpointNumber = 10;
+    bytes32 archive = bytes32(uint256(0xdeadbeef));
+
+    // Proposer submitted a checkpoint before deactivation
+    vm.prank(address(fakeRollup));
+    escapeHatch.updateSubmittedArchive(CANDIDATE1, checkpointNumber, archive);
+
+    // provenCheckpointNumber is 0 by default (proofs not submitted up to checkpoint)
+    // Normal validation kicks in and punishes for failed proof submission.
+
+    assertFalse(escapeHatch.isHatchValidated(preparedHatch), "Hatch should not be validated yet");
+
+    vm.expectEmit(true, true, true, true);
+    emit IEscapeHatchCore.ProofValidated(preparedHatch, CANDIDATE1, false, config.failedHatchPunishment);
+
+    escapeHatch.validateProofSubmission(preparedHatch);
+
+    assertTrue(escapeHatch.isHatchValidated(preparedHatch), "Hatch should be validated");
+    CandidateInfo memory info = escapeHatch.getCandidateInfo(CANDIDATE1);
+    assertEq(uint8(info.status), uint8(Status.EXITING), "Status should be EXITING");
+    assertEq(info.amount, config.bondSize - config.failedHatchPunishment, "Punishment should be applied");
+  }
+
+  // ============ Middle-epoch gap tests ============
+  //
+  // These tests verify the loop in validateProofSubmission that checks EVERY epoch in the
+  // active period. A simpler first-and-last check would miss the case where governance
+  // briefly deactivates and re-activates the escape hatch mid-window, creating a gap only
+  // in the middle epochs.
+  //
+  // Requires activeDuration >= 3 so there exists a middle epoch distinct from first and last.
+
+  modifier givenMiddleEpochGap() {
+    // Skip fuzz runs where activeDuration < 3 (no distinct middle epoch exists)
+    vm.assume(config.activeDuration >= 3);
+
+    // Override a middle epoch to address(0) while first and last remain active.
+    // This simulates governance briefly deactivating and re-activating the escape hatch.
+    Epoch firstEpoch = escapeHatch.getFirstEpoch(preparedHatch);
+    fakeRollup.setEscapeHatchForEpoch(Epoch.unwrap(firstEpoch) + 1, address(0));
+    _;
+  }
+
+  function test_GivenMiddleEpochGapAndProposerNeverSubmitted(EscapeHatchConfig memory _config)
+    external
+    givenProposerWasDesignatedForTheHatch(_config)
+    givenProposerStatusIsPROPOSING
+    whenExitableAtHasBeenReached
+    givenMiddleEpochGap
+  {
+    // it should detect the gap via the epoch loop
+    // it should not apply punishment
+    // it should set status to EXITING
+    // it should clear lastCheckpointNumber and lastSubmittedArchive
+    // it should set isHatchValidated to true
+    //
+    // First and last epochs are active, but a middle epoch is not.
+    // A first-and-last check would incorrectly report wasActiveEntirePeriod = true.
+
+    CandidateInfo memory infoBefore = escapeHatch.getCandidateInfo(CANDIDATE1);
+    assertEq(infoBefore.lastCheckpointNumber, 0, "lastCheckpointNumber should be 0");
+    assertFalse(escapeHatch.isHatchValidated(preparedHatch), "Hatch should not be validated yet");
+
+    vm.expectEmit(true, true, true, true);
+    emit IEscapeHatchCore.ProofValidated(preparedHatch, CANDIDATE1, true, 0);
+
+    escapeHatch.validateProofSubmission(preparedHatch);
+
+    assertTrue(escapeHatch.isHatchValidated(preparedHatch), "Hatch should be validated");
+    CandidateInfo memory infoAfter = escapeHatch.getCandidateInfo(CANDIDATE1);
+    assertEq(uint8(infoAfter.status), uint8(Status.EXITING), "Status should be EXITING");
+    assertEq(infoAfter.amount, config.bondSize, "Punishment should NOT be applied");
+    assertEq(infoAfter.lastCheckpointNumber, 0, "lastCheckpointNumber should be cleared");
+    assertEq(infoAfter.lastSubmittedArchive, bytes32(0), "lastSubmittedArchive should be cleared");
+  }
+
+  function test_GivenMiddleEpochGapAndProposerDidSubmit(EscapeHatchConfig memory _config)
+    external
+    givenProposerWasDesignatedForTheHatch(_config)
+    givenProposerStatusIsPROPOSING
+    whenExitableAtHasBeenReached
+    givenMiddleEpochGap
+  {
+    // it should detect the gap via the epoch loop
+    // it should apply normal validation and punish on failure
+    // it should set status to EXITING
+    //
+    // Same governance flip-flop as above, but the proposer DID submit a checkpoint.
+    // Even though the escape hatch had a gap, the proposer is on the hook because they proposed.
+    // Proofs go to the rollup directly and are unaffected by escape hatch changes.
+
+    uint128 checkpointNumber = 10;
+    bytes32 archive = bytes32(uint256(0xdeadbeef));
+
+    vm.prank(address(fakeRollup));
+    escapeHatch.updateSubmittedArchive(CANDIDATE1, checkpointNumber, archive);
+
+    // provenCheckpointNumber is 0 by default (proofs not submitted up to checkpoint)
+
+    assertFalse(escapeHatch.isHatchValidated(preparedHatch), "Hatch should not be validated yet");
+
+    vm.expectEmit(true, true, true, true);
+    emit IEscapeHatchCore.ProofValidated(preparedHatch, CANDIDATE1, false, config.failedHatchPunishment);
+
+    escapeHatch.validateProofSubmission(preparedHatch);
+
+    assertTrue(escapeHatch.isHatchValidated(preparedHatch), "Hatch should be validated");
+    CandidateInfo memory infoAfter = escapeHatch.getCandidateInfo(CANDIDATE1);
+    assertEq(uint8(infoAfter.status), uint8(Status.EXITING), "Status should be EXITING");
+    assertEq(infoAfter.amount, config.bondSize - config.failedHatchPunishment, "Punishment should be applied");
+  }
+
+  modifier givenEscapeHatchWasActiveForEntirePeriod() {
+    // FakeRollup already reports this contract as the escape hatch for all epochs.
+    // This modifier is a marker for tree structure clarity.
+    _;
+  }
+
+  function test_GivenNoCheckpointWasSubmitted(EscapeHatchConfig memory _config)
+    external
+    givenProposerWasDesignatedForTheHatch(_config)
+    givenProposerStatusIsPROPOSING
+    whenExitableAtHasBeenReached
+    givenEscapeHatchWasActiveForEntirePeriod
   {
     // it should have lastCheckpointNumber EQ zero
     // it should apply FAILED_HATCH_PUNISHMENT
@@ -131,12 +304,14 @@ contract EscapeHatchValidateProofSubmissionTest is EscapeHatchBase {
 
     CandidateInfo memory infoBefore = escapeHatch.getCandidateInfo(CANDIDATE1);
     assertEq(infoBefore.lastCheckpointNumber, 0, "lastCheckpointNumber should be 0");
+    assertFalse(escapeHatch.isHatchValidated(preparedHatch), "Hatch should not be validated yet");
 
     vm.expectEmit(true, true, true, true);
     emit IEscapeHatchCore.ProofValidated(preparedHatch, CANDIDATE1, false, config.failedHatchPunishment);
 
     escapeHatch.validateProofSubmission(preparedHatch);
 
+    assertTrue(escapeHatch.isHatchValidated(preparedHatch), "Hatch should be validated");
     CandidateInfo memory infoAfter = escapeHatch.getCandidateInfo(CANDIDATE1);
     assertEq(uint8(infoAfter.status), uint8(Status.EXITING), "Status should be EXITING");
     assertEq(infoAfter.amount, config.bondSize - config.failedHatchPunishment, "Punishment not applied");
@@ -149,6 +324,7 @@ contract EscapeHatchValidateProofSubmissionTest is EscapeHatchBase {
     givenProposerWasDesignatedForTheHatch(_config)
     givenProposerStatusIsPROPOSING
     whenExitableAtHasBeenReached
+    givenEscapeHatchWasActiveForEntirePeriod
   {
     // it should apply FAILED_HATCH_PUNISHMENT
     // it should set status to EXITING
@@ -164,11 +340,14 @@ contract EscapeHatchValidateProofSubmissionTest is EscapeHatchBase {
 
     // provenCheckpointNumber is 0 by default (proofs not submitted up to checkpoint)
 
+    assertFalse(escapeHatch.isHatchValidated(preparedHatch), "Hatch should not be validated yet");
+
     vm.expectEmit(true, true, true, true);
     emit IEscapeHatchCore.ProofValidated(preparedHatch, CANDIDATE1, false, config.failedHatchPunishment);
 
     escapeHatch.validateProofSubmission(preparedHatch);
 
+    assertTrue(escapeHatch.isHatchValidated(preparedHatch), "Hatch should be validated");
     CandidateInfo memory info = escapeHatch.getCandidateInfo(CANDIDATE1);
     assertEq(uint8(info.status), uint8(Status.EXITING), "Status should be EXITING");
     assertEq(info.amount, config.bondSize - config.failedHatchPunishment, "Punishment not applied");
@@ -179,6 +358,7 @@ contract EscapeHatchValidateProofSubmissionTest is EscapeHatchBase {
     givenProposerWasDesignatedForTheHatch(_config)
     givenProposerStatusIsPROPOSING
     whenExitableAtHasBeenReached
+    givenEscapeHatchWasActiveForEntirePeriod
   {
     // it should apply FAILED_HATCH_PUNISHMENT
     // it should set status to EXITING
@@ -199,11 +379,14 @@ contract EscapeHatchValidateProofSubmissionTest is EscapeHatchBase {
     // But the archive at that checkpoint is different (pruned/reorged)
     fakeRollup.setArchiveAt(checkpointNumber, differentArchive);
 
+    assertFalse(escapeHatch.isHatchValidated(preparedHatch), "Hatch should not be validated yet");
+
     vm.expectEmit(true, true, true, true);
     emit IEscapeHatchCore.ProofValidated(preparedHatch, CANDIDATE1, false, config.failedHatchPunishment);
 
     escapeHatch.validateProofSubmission(preparedHatch);
 
+    assertTrue(escapeHatch.isHatchValidated(preparedHatch), "Hatch should be validated");
     CandidateInfo memory info = escapeHatch.getCandidateInfo(CANDIDATE1);
     assertEq(uint8(info.status), uint8(Status.EXITING), "Status should be EXITING");
     assertEq(info.amount, config.bondSize - config.failedHatchPunishment, "Punishment not applied");
@@ -216,6 +399,7 @@ contract EscapeHatchValidateProofSubmissionTest is EscapeHatchBase {
     givenProposerWasDesignatedForTheHatch(_config)
     givenProposerStatusIsPROPOSING
     whenExitableAtHasBeenReached
+    givenEscapeHatchWasActiveForEntirePeriod
   {
     // it should not apply punishment
     // it should set status to EXITING
@@ -244,11 +428,14 @@ contract EscapeHatchValidateProofSubmissionTest is EscapeHatchBase {
     // Archive matches what proposer submitted
     fakeRollup.setArchiveAt(checkpointNumber, archive);
 
+    assertFalse(escapeHatch.isHatchValidated(preparedHatch), "Hatch should not be validated yet");
+
     vm.expectEmit(true, true, true, true);
     emit IEscapeHatchCore.ProofValidated(preparedHatch, CANDIDATE1, true, 0);
 
     escapeHatch.validateProofSubmission(preparedHatch);
 
+    assertTrue(escapeHatch.isHatchValidated(preparedHatch), "Hatch should be validated");
     CandidateInfo memory info = escapeHatch.getCandidateInfo(CANDIDATE1);
     assertEq(uint8(info.status), uint8(Status.EXITING), "Status should be EXITING");
     assertEq(info.amount, config.bondSize, "Punishment should NOT be applied");

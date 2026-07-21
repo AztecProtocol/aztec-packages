@@ -3,12 +3,13 @@ import type { Fr } from '@aztec/foundation/curves/bn254';
 import { createLogger } from '@aztec/foundation/log';
 import { type IndexedTreeLeafPreimage, SiblingPath } from '@aztec/foundation/trees';
 
+import type { BlockHash } from '../block/block_hash.js';
 import type { MerkleTreeId, TreeHeights } from '../trees/merkle_tree_id.js';
 import type { NullifierLeaf } from '../trees/nullifier_leaf.js';
 import type { PublicDataTreeLeaf } from '../trees/public_data_leaf.js';
 import type { BlockHeader } from '../tx/block_header.js';
 import type { StateReference } from '../tx/state_reference.js';
-import type { WorldStateRevision, WorldStateRevisionWithHandle } from '../world-state/world_state_revision.js';
+import type { WorldStateRevision } from '../world-state/world_state_revision.js';
 
 /**
  * Type alias for the nullifier tree ID.
@@ -99,7 +100,7 @@ type LeafTypes = {
   [MerkleTreeId.NOTE_HASH_TREE]: Fr;
   [MerkleTreeId.PUBLIC_DATA_TREE]: Buffer;
   [MerkleTreeId.L1_TO_L2_MESSAGE_TREE]: Fr;
-  [MerkleTreeId.ARCHIVE]: Fr;
+  [MerkleTreeId.ARCHIVE]: BlockHash;
 };
 
 type LeafValueTypes = {
@@ -107,7 +108,7 @@ type LeafValueTypes = {
   [MerkleTreeId.NOTE_HASH_TREE]: Fr;
   [MerkleTreeId.PUBLIC_DATA_TREE]: PublicDataTreeLeaf;
   [MerkleTreeId.L1_TO_L2_MESSAGE_TREE]: Fr;
-  [MerkleTreeId.ARCHIVE]: Fr;
+  [MerkleTreeId.ARCHIVE]: BlockHash;
 };
 
 export type MerkleTreeLeafType<ID extends MerkleTreeId> = LeafTypes[ID];
@@ -137,7 +138,13 @@ export interface MerkleTreeReadOperations {
   /**
    * Gets the current revision.
    */
-  getRevision(): WorldStateRevision | WorldStateRevisionWithHandle;
+  getRevision(): WorldStateRevision;
+
+  /**
+   * Returns the IPC path of the underlying aztec-wsdb process. External AVM simulators use this to
+   * connect to the same world state instance that the TS layer is using.
+   */
+  getIpcPath(): string;
 
   /**
    * Gets sibling path for a leaf.
@@ -225,36 +232,26 @@ export interface MerkleTreeReadOperations {
 }
 
 export interface MerkleTreeCheckpointOperations {
-  /**
-   * Checkpoints the current fork state
-   */
-  createCheckpoint(): Promise<void>;
+  /** Checkpoints the current fork state. Returns the depth of the new checkpoint. */
+  createCheckpoint(): Promise<number>;
 
-  /**
-   * Commits the current checkpoint
-   */
+  /** Commits the current checkpoint. */
   commitCheckpoint(): Promise<void>;
 
-  /**
-   * Reverts the current checkpoint
-   */
+  /** Reverts the current checkpoint. */
   revertCheckpoint(): Promise<void>;
 
-  /**
-   * Commits all checkpoints
-   */
-  commitAllCheckpoints(): Promise<void>;
+  /** Commits all checkpoints above the given depth, leaving checkpoint depth at the given value. */
+  commitAllCheckpointsTo(depth: number): Promise<void>;
 
-  /**
-   * Reverts all checkpoints
-   */
-  revertAllCheckpoints(): Promise<void>;
+  /** Reverts all checkpoints above the given depth, leaving checkpoint depth at the given value. */
+  revertAllCheckpointsTo(depth: number): Promise<void>;
 }
 
 export interface MerkleTreeWriteOperations
   extends MerkleTreeReadOperations,
     MerkleTreeCheckpointOperations,
-    Disposable {
+    AsyncDisposable {
   /**
    * Appends leaves to a given tree.
    * @param treeId - The tree to be updated.

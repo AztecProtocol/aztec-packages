@@ -1,5 +1,5 @@
 import { Fr } from '@aztec/foundation/curves/bn254';
-import { BufferReader, FieldReader, serializeToBuffer } from '@aztec/foundation/serialize';
+import { BufferReader, BufferSink, FieldReader, serializeToSink } from '@aztec/foundation/serialize';
 import type { FieldsOf } from '@aztec/foundation/types';
 
 import { inspect } from 'util';
@@ -33,8 +33,13 @@ export class LogHash {
     return new LogHash(Fr.zero(), 0);
   }
 
-  toBuffer(): Buffer {
-    return serializeToBuffer(this.value, this.length);
+  toBuffer(): Buffer;
+  toBuffer(sink: BufferSink): void;
+  toBuffer(sink?: BufferSink): Buffer | void {
+    if (!sink) {
+      return BufferSink.serialize(this);
+    }
+    serializeToSink(sink, this.value, this.length);
   }
 
   static fromBuffer(buffer: Buffer | BufferReader) {
@@ -78,8 +83,13 @@ export class CountedLogHash {
     return new CountedLogHash(LogHash.empty(), 0);
   }
 
-  toBuffer(): Buffer {
-    return serializeToBuffer(this.logHash, this.counter);
+  toBuffer(): Buffer;
+  toBuffer(sink: BufferSink): void;
+  toBuffer(sink?: BufferSink): Buffer | void {
+    if (!sink) {
+      return BufferSink.serialize(this);
+    }
+    serializeToSink(sink, this.logHash, this.counter);
   }
 
   static fromBuffer(buffer: Buffer | BufferReader) {
@@ -104,7 +114,7 @@ export class ScopedLogHash {
 
   static fromFields(fields: Fr[] | FieldReader) {
     const reader = FieldReader.asReader(fields);
-    return new ScopedLogHash(reader.readObject(LogHash), AztecAddress.fromField(reader.readField()));
+    return new ScopedLogHash(reader.readObject(LogHash), AztecAddress.fromFieldUnsafe(reader.readField()));
   }
 
   isEmpty() {
@@ -115,8 +125,13 @@ export class ScopedLogHash {
     return new ScopedLogHash(LogHash.empty(), AztecAddress.ZERO);
   }
 
-  toBuffer(): Buffer {
-    return serializeToBuffer(this.logHash, this.contractAddress);
+  toBuffer(): Buffer;
+  toBuffer(sink: BufferSink): void;
+  toBuffer(sink?: BufferSink): Buffer | void {
+    if (!sink) {
+      return BufferSink.serialize(this);
+    }
+    serializeToSink(sink, this.logHash, this.contractAddress);
   }
 
   static fromBuffer(buffer: Buffer | BufferReader) {
@@ -141,11 +156,19 @@ export class ScopedCountedLogHash {
 
   static fromFields(fields: Fr[] | FieldReader) {
     const reader = FieldReader.asReader(fields);
-    return new ScopedCountedLogHash(reader.readObject(CountedLogHash), AztecAddress.fromField(reader.readField()));
+    return new ScopedCountedLogHash(
+      reader.readObject(CountedLogHash),
+      AztecAddress.fromFieldUnsafe(reader.readField()),
+    );
   }
 
-  toBuffer(): Buffer {
-    return serializeToBuffer(this.inner, this.contractAddress);
+  toBuffer(): Buffer;
+  toBuffer(sink: BufferSink): void;
+  toBuffer(sink?: BufferSink): Buffer | void {
+    if (!sink) {
+      return BufferSink.serialize(this);
+    }
+    serializeToSink(sink, this.inner, this.contractAddress);
   }
 
   static fromBuffer(buffer: Buffer | BufferReader) {

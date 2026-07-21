@@ -85,11 +85,23 @@ export class EthCheatCodes {
   }
 
   /**
-   * Get the current timestamp
-   * @returns The current timestamp
+   * Get the timestamp of the latest mined L1 block.
+   * Note: this is NOT the current time — it's the discrete timestamp of the last block.
+   * Between blocks, the actual chain time advances but no new block reflects it.
+   * @returns The latest block timestamp in seconds
    */
-  public async timestamp(): Promise<number> {
+  public async lastBlockTimestamp(): Promise<number> {
     const res = await this.doRpcCall('eth_getBlockByNumber', ['latest', true]);
+    return parseInt(res.timestamp, 16);
+  }
+
+  /**
+   * Get the timestamp of the pending L1 block — the block that anvil will mine next.
+   * Reflects any prior `setNextBlockTimestamp` call or the configured block interval.
+   * @returns The pending block timestamp in seconds.
+   */
+  public async nextBlockTimestamp(): Promise<number> {
+    const res = await this.doRpcCall('eth_getBlockByNumber', ['pending', false]);
     return parseInt(res.timestamp, 16);
   }
 
@@ -192,6 +204,22 @@ export class EthCheatCodes {
     if (!opts.silent) {
       this.logger.warn(`Set L1 interval mining to ${seconds} seconds`);
     }
+  }
+
+  /**
+   * Starts interval mining from a freshly mined block and syncs the date provider to the block timestamp.
+   */
+  public async startIntervalMiningWithFreshBlock(seconds: number): Promise<void> {
+    if (seconds <= 0) {
+      throw new Error(`Interval mining requires a positive interval, got ${seconds}`);
+    }
+
+    await this.setAutomine(false);
+    await this.setIntervalMining(0, { silent: true });
+    await this.evmMine();
+    await this.syncDateProvider();
+    await this.setIntervalMining(seconds);
+    this.logger.warn(`Started L1 interval mining at ${seconds} seconds from a fresh block`);
   }
 
   /**
@@ -466,56 +494,65 @@ export class EthCheatCodes {
   }
 
   /**
-   * Mines an empty block by temporarily removing all pending transactions from the mempool,
-   * mining a block, and then re-adding the transactions back to the pool.
+   * Mines empty blocks while leaving any pending transactions untouched in the mempool.
+   *
+   * Never manipulates the mempool, so it is immune to the race that dropping and re-adding txs has against a
+   * concurrent publisher that is monitoring and re-broadcasting the same in-flight tx (with that approach the
+   * in-flight tx could reappear in the pool and be swept into the "empty" block, mining a proposal the caller
+   * expected to stay pending). Works in two steps: first the block gas limit is temporarily lowered below the
+   * intrinsic cost of any transaction (21000 gas) and the blocks are mined, so no pending tx is includable;
+   * then those blocks are reorged out and replaced with empty blocks mined at the restored gas limit. The
+   * reorg is needed because anvil applies a new gas limit only to future blocks: without it the just-mined
+   * blocks would keep the tiny gas limit, and an `eth_call` against `latest` (whose gas is capped by the
+   * block gas limit) would revert with "intrinsic gas too high".
+   *
+   * The replacement blocks advance L1 time. `anvil_reorg` stamps each replacement as `parent + N*interval`,
+   * so on its own it would freeze L1 time at the parent timestamp; callers that measure elapsed L1 time
+   * (L1TxUtils stall/timeout detection, `syncDateProvider`-driven slot advancement) rely on it moving
+   * forward. We reproduce the wall-clock advance the mine step just made (at least 1s per block) via a
+   * temporary block-timestamp interval, then restore any pre-existing interval.
    */
   public async mineEmptyBlock(blockCount: number = 1): Promise<void> {
     await this.execWithPausedAnvil(async () => {
-      // Get all pending and queued transactions from the pool
-      const txs = await this.getTxPoolContents();
-
-      this.logger.debug(`Found ${txs.length} transactions in pool`);
-
-      // Get raw transactions before dropping them
-      const rawTxs: Hex[] = [];
-      for (const tx of txs) {
-        try {
-          const rawTx = await this.doRpcCall('debug_getRawTransaction', [tx.hash]);
-          if (rawTx) {
-            rawTxs.push(rawTx);
-            this.logger.debug(`Got raw tx for ${tx.hash}`);
-          } else {
-            this.logger.warn(`No raw tx found for ${tx.hash}`);
-          }
-        } catch {
-          this.logger.warn(`Failed to get raw transaction for ${tx.hash}`);
-        }
+      const originalGasLimit = await this.getBlockGasLimit();
+      const parentTimestamp = await this.lastBlockTimestamp();
+      // anvil has no getter for the block-timestamp interval, but the pending block is stamped
+      // `latest + interval`, so this delta is the standing interval (0 when none is set).
+      const priorInterval = (await this.nextBlockTimestamp()) - parentTimestamp;
+      try {
+        await this.setBlockGasLimit(1n);
+        await this.doMine(blockCount);
+      } finally {
+        await this.setBlockGasLimit(originalGasLimit);
       }
-
-      this.logger.debug(`Retrieved ${rawTxs.length} raw transactions`);
-
-      // Drop all transactions from the mempool
-      await this.doRpcCall('anvil_dropAllTransactions', []);
-
-      // Mine an empty block
-      await this.doMine(blockCount);
-
-      // Re-add the transactions to the pool
-      for (const rawTx of rawTxs) {
-        try {
-          const txHash = await this.doRpcCall('eth_sendRawTransaction', [rawTx]);
-          this.logger.debug(`Re-added transaction ${txHash}`);
-        } catch (err) {
-          this.logger.warn(`Failed to re-add transaction: ${err}`);
+      const advance = (await this.lastBlockTimestamp()) - parentTimestamp;
+      const perBlockInterval = Math.max(1, Math.floor(advance / blockCount));
+      // Replace the tiny-gas-limit blocks with empty blocks at the restored gas limit, keeping the same
+      // height. The reorged-out blocks held no transactions, so nothing returns to the pool.
+      await this.doRpcCall('anvil_setBlockTimestampInterval', [perBlockInterval]);
+      try {
+        await this.doRpcCall('anvil_reorg', [blockCount, []]);
+      } finally {
+        if (priorInterval > 0) {
+          await this.doRpcCall('anvil_setBlockTimestampInterval', [priorInterval]);
+        } else {
+          await this.doRpcCall('anvil_removeBlockTimestampInterval', []);
         }
-      }
-
-      if (rawTxs.length !== txs.length) {
-        this.logger.warn(`Failed to add all txs back: had ${txs.length} but re-added ${rawTxs.length}`);
       }
     });
 
     this.logger.warn(`Mined ${blockCount} empty L1 ${pluralize('block', blockCount)}`);
+  }
+
+  /** Returns the gas limit of the latest mined L1 block. */
+  public async getBlockGasLimit(): Promise<bigint> {
+    const block = await this.doRpcCall('eth_getBlockByNumber', ['latest', false]);
+    return BigInt(block.gasLimit);
+  }
+
+  /** Sets the block gas limit applied to subsequently mined L1 blocks. */
+  public async setBlockGasLimit(gasLimit: bigint): Promise<void> {
+    await this.doRpcCall('anvil_setBlockGasLimit', [toHex(gasLimit)]);
   }
 
   public async execWithPausedAnvil<T>(fn: () => Promise<T>): Promise<T> {
@@ -552,7 +589,7 @@ export class EthCheatCodes {
   }
 
   public async syncDateProvider() {
-    const timestamp = await this.timestamp();
+    const timestamp = await this.lastBlockTimestamp();
     if ('setTime' in this.dateProvider) {
       this.dateProvider.setTime(timestamp * 1000);
     }

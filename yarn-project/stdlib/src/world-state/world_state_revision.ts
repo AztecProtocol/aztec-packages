@@ -1,6 +1,14 @@
 import { z } from 'zod';
 
 export class WorldStateRevision {
+  /**
+   * Sentinel `blockNumber` meaning "not pinned to any historical block; use the latest committed
+   * state of the underlying tree". Mirrors the `WorldStateRevision::LATEST` constant on the C++
+   * side (defined as `std::numeric_limits<uint32_t>::max()`). Distinct from `blockNumber === 0`,
+   * which pins to the initial / genesis state.
+   */
+  public static readonly LATEST = 0xffffffff;
+
   constructor(
     public readonly forkId: number,
     public readonly blockNumber: number,
@@ -12,7 +20,7 @@ export class WorldStateRevision {
   }
 
   static empty() {
-    return new WorldStateRevision(0, 0, false);
+    return new WorldStateRevision(0, WorldStateRevision.LATEST, false);
   }
 
   static get schema() {
@@ -25,39 +33,6 @@ export class WorldStateRevision {
       .transform(
         ({ forkId, blockNumber, includeUncommitted }) =>
           new WorldStateRevision(forkId, blockNumber, includeUncommitted),
-      );
-  }
-}
-
-export class WorldStateRevisionWithHandle extends WorldStateRevision {
-  constructor(
-    forkId: number,
-    blockNumber: number,
-    includeUncommitted: boolean,
-    public readonly handle: any,
-  ) {
-    super(forkId, blockNumber, includeUncommitted);
-  }
-
-  public toWorldStateRevision() {
-    return new WorldStateRevision(this.forkId, this.blockNumber, this.includeUncommitted);
-  }
-
-  static fromWorldStateRevision(revision: WorldStateRevision, handle: any) {
-    return new WorldStateRevisionWithHandle(revision.forkId, revision.blockNumber, revision.includeUncommitted, handle);
-  }
-
-  static override get schema() {
-    return z
-      .object({
-        forkId: z.number(),
-        blockNumber: z.number(),
-        includeUncommitted: z.boolean(),
-        handle: z.any(),
-      })
-      .transform(
-        ({ forkId, blockNumber, includeUncommitted, handle }) =>
-          new WorldStateRevisionWithHandle(forkId, blockNumber, includeUncommitted, handle),
       );
   }
 }

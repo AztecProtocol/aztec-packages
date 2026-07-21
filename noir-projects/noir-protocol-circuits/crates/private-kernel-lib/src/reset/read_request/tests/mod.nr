@@ -8,11 +8,11 @@ use super::{
     get_propagated_read_requests::get_propagated_read_requests,
     read_request_validator::ReadRequestValidator,
 };
-use dep::types::{
+use protocol_test_utils::pad_end;
+use types::{
     address::AztecAddress,
-    merkle_tree::{LeafPreimage, MembershipWitness},
+    merkle_tree::{LeafPreimage, MembershipWitness, test_utils::SingleSubtreeMerkleTree},
     side_effect::{Counted, Readable, Scoped},
-    tests::{merkle_tree_utils::SingleSubtreeMerkleTree, utils::pad_end},
     traits::{Empty, FromField},
     utils::arrays::ClaimedLengthArray,
 };
@@ -182,6 +182,7 @@ impl TestBuilder {
             tree_root: self.tree_root,
             propagated_read_requests: self.propagated_read_requests,
             hints: self.hints.to_hints(),
+            merkle_hasher: types::merkle_tree::merkle_hash,
         }
             .validate::<PendingReadAmount, SettledReadAmount>();
     }

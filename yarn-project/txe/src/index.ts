@@ -1,52 +1,35 @@
-import { SchnorrAccountContractArtifact } from '@aztec/accounts/schnorr';
-import { type NoirCompiledContract, loadContractArtifact } from '@aztec/aztec.js/abi';
-import { AztecAddress } from '@aztec/aztec.js/addresses';
-import {
-  type ContractInstanceWithAddress,
-  getContractInstanceFromInstantiationParams,
-} from '@aztec/aztec.js/contracts';
 import { Fr } from '@aztec/aztec.js/fields';
-import { PublicKeys, deriveKeys } from '@aztec/aztec.js/keys';
-import { createSafeJsonRpcServer } from '@aztec/foundation/json-rpc/server';
 import type { Logger } from '@aztec/foundation/log';
-import { type ProtocolContract, protocolContractNames } from '@aztec/protocol-contracts';
-import { BundledProtocolContractsProvider } from '@aztec/protocol-contracts/providers/bundle';
-import { computeArtifactHash } from '@aztec/stdlib/contract';
+import { cloneEphemeralStoreFrom } from '@aztec/kv-store/lmdb-v2';
+import type { ProtocolContractName } from '@aztec/protocol-contracts';
+import { ContractStore } from '@aztec/pxe/client/lazy';
 import type { ApiSchemaFor } from '@aztec/stdlib/schemas';
 import { zodFor } from '@aztec/stdlib/schemas';
 
-import { createHash } from 'crypto';
-import { createReadStream } from 'fs';
-import { readFile, readdir } from 'fs/promises';
-import { join, parse } from 'path';
+import { join } from 'path';
 import { z } from 'zod';
 
+// Side-effect import: registers the msgpackr Fr extension for the bundled `Fr` class. Must
+// be loaded before any `sendMessage` call. See msgpackr_fr_extension.ts for the why.
+import './msgpackr_fr_extension.js';
 import { type TXEOracleFunctionName, TXESession } from './txe_session.js';
 import {
   type ForeignCallArgs,
   ForeignCallArgsSchema,
-  type ForeignCallArray,
   type ForeignCallResult,
   ForeignCallResultSchema,
-  type ForeignCallSingle,
-  fromArray,
-  fromSingle,
-  toSingle,
-} from './util/encoding.js';
-import type { ContractArtifactWithHash } from './util/txe_contract_store.js';
+} from './utils/encoding.js';
+import { TXEArtifactResolver } from './utils/txe_artifact_resolver.js';
+
+export const TXE_REQUIRED_PROTOCOL_CONTRACTS: ProtocolContractName[] = [
+  'ContractClassRegistry',
+  'ContractInstanceRegistry',
+  'FeeJuice',
+];
 
 const sessions = new Map<number, TXESession>();
 
-/*
- * TXE typically has to load the same contract artifacts over and over again for multiple tests,
- * so we cache them here to avoid both loading them from disk repeatedly and computing their artifact hashes
- */
-const TXEArtifactsCache = new Map<
-  string,
-  { artifact: ContractArtifactWithHash; instance: ContractInstanceWithAddress }
->();
-
-type TXEForeignCallInput = {
+export type TXEForeignCallInput = {
   session_id: number;
   function: TXEOracleFunctionName;
   root_path: string;
@@ -54,10 +37,13 @@ type TXEForeignCallInput = {
   inputs: ForeignCallArgs;
 };
 
-const TXEForeignCallInputSchema = zodFor<TXEForeignCallInput>()(
+export const TXEForeignCallInputSchema: z.ZodType<TXEForeignCallInput> = zodFor<TXEForeignCallInput>()(
   z.object({
+    // Nargo generates session_id as a u64, which may exceed Number.MAX_SAFE_INTEGER.
+    // Zod 4's `.int()` enforces the safe-integer bound, so we drop it here and only require
+    // the value to be a non-negative number (it is used solely as a Map key).
     // eslint-disable-next-line camelcase
-    session_id: z.number().int().nonnegative(),
+    session_id: z.number().nonnegative(),
     function: z.string() as z.ZodType<TXEOracleFunctionName>,
     // eslint-disable-next-line camelcase
     root_path: z.string(),
@@ -67,178 +53,101 @@ const TXEForeignCallInputSchema = zodFor<TXEForeignCallInput>()(
   }),
 );
 
-class TXEDispatcher {
-  private protocolContracts!: ProtocolContract[];
+export interface TXEDispatcherOptions {
+  /**
+   * Path to an LMDB directory holding the required protocol contracts (see
+   * {@link TXE_REQUIRED_PROTOCOL_CONTRACTS}) and the SchnorrAccount artifact. When set, the
+   * dispatcher clones this directory into a fresh tmpdir on first use instead of registering
+   * the contracts itself.
+   */
+  contractStoreSourceDir: string;
+  /**
+   * Class id (hex) of the SchnorrAccount artifact pre-registered in the shared LMDB. The
+   * {@link TXEArtifactResolver} looks the artifact up from the cloned store via this class id
+   * instead of recomputing it via `getSchnorrAccountContractArtifact()` + `computeArtifactHash()`.
+   */
+  schnorrClassId: string;
+}
 
-  constructor(private logger: Logger) {}
+export class TXEDispatcher {
+  private contractStore!: ContractStore;
+  private artifactResolver!: TXEArtifactResolver;
+  private readonly contractStoreSourceDir: string;
+  private readonly schnorrClassId: Fr;
 
-  private fastHashFile(path: string) {
-    return new Promise(resolve => {
-      const fd = createReadStream(path);
-      const hash = createHash('sha1');
-      hash.setEncoding('hex');
-
-      fd.on('end', function () {
-        hash.end();
-        resolve(hash.read());
-      });
-
-      fd.pipe(hash);
-    });
+  constructor(
+    private logger: Logger,
+    opts: TXEDispatcherOptions,
+  ) {
+    this.contractStoreSourceDir = opts.contractStoreSourceDir;
+    this.schnorrClassId = Fr.fromString(opts.schnorrClassId);
   }
 
-  async #processDeployInputs({ inputs, root_path: rootPath, package_name: packageName }: TXEForeignCallInput) {
-    const [contractPath, initializer] = inputs.slice(0, 2).map(input =>
-      fromArray(input as ForeignCallArray)
-        .map(char => String.fromCharCode(char.toNumber()))
-        .join(''),
+  /**
+   * Clones the pre-populated LMDB at `contractStoreSourceDir` into a fresh per-instance tmpdir
+   * on first use, so this dispatcher has a writable store already containing the required
+   * protocol contracts + SchnorrAccount. Idempotent — subsequent calls are no-ops.
+   */
+  private async warmUp(): Promise<void> {
+    if (this.contractStore) {
+      return;
+    }
+    const t0 = Date.now();
+    const kvStore = await cloneEphemeralStoreFrom(
+      join(this.contractStoreSourceDir, 'data.mdb'),
+      'txe-contracts',
+      undefined,
+      2,
     );
-
-    const decodedArgs = fromArray(inputs[3] as ForeignCallArray);
-    const secret = fromSingle(inputs[4] as ForeignCallSingle);
-    const publicKeys = secret.equals(Fr.ZERO) ? PublicKeys.default() : (await deriveKeys(secret)).publicKeys;
-    const publicKeysHash = await publicKeys.hash();
-
-    let artifactPath = '';
-    const { dir: contractDirectory, base: contractFilename } = parse(contractPath);
-    if (contractDirectory) {
-      if (contractDirectory.includes('@')) {
-        // We're deploying a contract that belongs in a workspace
-        // env.deploy("../path/to/workspace/root@packageName/contractName")
-        const [workspace, pkg] = contractDirectory.split('@');
-        const targetPath = join(rootPath, workspace, '/target');
-        this.logger.debug(`Looking for compiled artifact in workspace ${targetPath}`);
-        artifactPath = join(targetPath, `${pkg}-${contractFilename}.json`);
-      } else {
-        // We're deploying a standalone external contract
-        // env.deploy("../path/to/contract/root/contractName")
-        const targetPath = join(rootPath, contractDirectory, '/target');
-        this.logger.debug(`Looking for compiled artifact in ${targetPath}`);
-        [artifactPath] = (await readdir(targetPath)).filter(file => file.endsWith(`-${contractFilename}.json`));
-      }
-    } else {
-      // We're deploying a local contract
-      // env.deploy("contractName")
-      artifactPath = join(rootPath, './target', `${packageName}-${contractFilename}.json`);
-    }
-
-    const fileHash = await this.fastHashFile(artifactPath);
-
-    const cacheKey = `${contractDirectory ?? ''}-${contractFilename}-${initializer}-${decodedArgs
-      .map(arg => arg.toString())
-      .join('-')}-${publicKeysHash}-${fileHash}`;
-
-    let instance;
-    let artifact: ContractArtifactWithHash;
-
-    if (TXEArtifactsCache.has(cacheKey)) {
-      this.logger.debug(`Using cached artifact for ${cacheKey}`);
-      ({ artifact, instance } = TXEArtifactsCache.get(cacheKey)!);
-    } else {
-      this.logger.debug(`Loading compiled artifact ${artifactPath}`);
-      const artifactJSON = JSON.parse(await readFile(artifactPath, 'utf-8')) as NoirCompiledContract;
-      const artifactWithoutHash = loadContractArtifact(artifactJSON);
-      artifact = {
-        ...artifactWithoutHash,
-        // Artifact hash is *very* expensive to compute, so we do it here once
-        // and the TXE contract data provider can cache it
-        artifactHash: await computeArtifactHash(artifactWithoutHash),
-      };
-      this.logger.debug(
-        `Deploy ${
-          artifact.name
-        } with initializer ${initializer}(${decodedArgs}) and public keys hash ${publicKeysHash.toString()}`,
-      );
-      instance = await getContractInstanceFromInstantiationParams(artifact, {
-        constructorArgs: decodedArgs,
-        skipArgsDecoding: true,
-        salt: Fr.ONE,
-        publicKeys,
-        constructorArtifact: initializer ? initializer : undefined,
-        deployer: AztecAddress.ZERO,
-      });
-      TXEArtifactsCache.set(cacheKey, { artifact, instance });
-    }
-
-    inputs.splice(0, 1, artifact, instance, toSingle(secret));
-  }
-
-  async #processAddAccountInputs({ inputs }: TXEForeignCallInput) {
-    const secret = fromSingle(inputs[0] as ForeignCallSingle);
-
-    const cacheKey = `SchnorrAccountContract-${secret}`;
-
-    let artifact: ContractArtifactWithHash;
-    let instance;
-
-    if (TXEArtifactsCache.has(cacheKey)) {
-      this.logger.debug(`Using cached artifact for ${cacheKey}`);
-      ({ artifact, instance } = TXEArtifactsCache.get(cacheKey)!);
-    } else {
-      const keys = await deriveKeys(secret);
-      const args = [keys.publicKeys.masterIncomingViewingPublicKey.x, keys.publicKeys.masterIncomingViewingPublicKey.y];
-      artifact = {
-        ...SchnorrAccountContractArtifact,
-        // Artifact hash is *very* expensive to compute, so we do it here once
-        // and the TXE contract data provider can cache it
-        artifactHash: await computeArtifactHash(SchnorrAccountContractArtifact),
-      };
-      instance = await getContractInstanceFromInstantiationParams(artifact, {
-        constructorArgs: args,
-        skipArgsDecoding: true,
-        salt: Fr.ONE,
-        publicKeys: keys.publicKeys,
-        constructorArtifact: 'constructor',
-        deployer: AztecAddress.ZERO,
-      });
-      TXEArtifactsCache.set(cacheKey, { artifact, instance });
-    }
-
-    inputs.splice(0, 0, artifact, instance);
+    this.contractStore = new ContractStore(kvStore);
+    this.artifactResolver = new TXEArtifactResolver(this.contractStore, this.schnorrClassId);
+    this.logger.debug('Cloned shared protocol-contracts store', { totalMs: Date.now() - t0 });
   }
 
   // eslint-disable-next-line camelcase
   async resolve_foreign_call(callData: TXEForeignCallInput): Promise<ForeignCallResult> {
-    const { session_id: sessionId, function: functionName, inputs } = callData;
+    const {
+      session_id: sessionId,
+      function: functionName,
+      inputs,
+      root_path: rootPath,
+      package_name: packageName,
+    } = callData;
     this.logger.debug(`Calling ${functionName} on session ${sessionId}`);
 
     if (!sessions.has(sessionId)) {
       this.logger.debug(`Creating new session ${sessionId}`);
-      if (!this.protocolContracts) {
-        this.protocolContracts = await Promise.all(
-          protocolContractNames.map(name => new BundledProtocolContractsProvider().getProtocolContractArtifact(name)),
-        );
-      }
-      sessions.set(sessionId, await TXESession.init(this.protocolContracts));
-    }
-
-    switch (functionName) {
-      case 'txeDeploy': {
-        await this.#processDeployInputs(callData);
-        break;
-      }
-      case 'txeAddAccount': {
-        await this.#processAddAccountInputs(callData);
-        break;
-      }
+      await this.warmUp();
+      sessions.set(sessionId, await TXESession.init(this.contractStore, this.artifactResolver, rootPath, packageName));
     }
 
     return await sessions.get(sessionId)!.processFunction(functionName, inputs);
   }
+
+  /**
+   * Releases a session and its resources (per-session LMDB + `NativeWorldStateService`).
+   * Called by the dispatcher pool when nargo closes its TCP connection for a test (see
+   * `rpc_server.ts`'s socket tracker). No-op if the session was never created — that happens
+   * when nargo opens a connection but errors before sending a request.
+   */
+  async disposeSession(sessionId: number): Promise<void> {
+    const session = sessions.get(sessionId);
+    if (!session) {
+      return;
+    }
+    sessions.delete(sessionId);
+    await session.dispose();
+  }
 }
 
-const TXEDispatcherApiSchema: ApiSchemaFor<TXEDispatcher> = {
+/** Diagnostic-only: number of sessions currently held by this worker. */
+export function activeSessionCount(): number {
+  return sessions.size;
+}
+
+export const TXEDispatcherApiSchema: ApiSchemaFor<TXEDispatcher> = {
   // eslint-disable-next-line camelcase
-  resolve_foreign_call: z.function().args(TXEForeignCallInputSchema).returns(ForeignCallResultSchema),
+  resolve_foreign_call: z.function({ input: z.tuple([TXEForeignCallInputSchema]), output: ForeignCallResultSchema }),
+  // disposeSession is invoked over IPC from the worker, not via RPC; required by ApiSchemaFor.
+  disposeSession: z.function({ input: z.tuple([z.number().nonnegative()]), output: z.void() }),
 };
-
-/**
- * Creates an RPC server that forwards calls to the TXE.
- * @param logger - Logger to output to
- * @returns A TXE RPC server.
- */
-export function createTXERpcServer(logger: Logger) {
-  return createSafeJsonRpcServer(new TXEDispatcher(logger), TXEDispatcherApiSchema, {
-    http200OnError: true,
-  });
-}

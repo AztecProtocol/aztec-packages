@@ -7,9 +7,9 @@ import { createLogger } from '@aztec/foundation/log';
 import { retryFastUntil, retryUntil } from '@aztec/foundation/retry';
 import { sleep } from '@aztec/foundation/sleep';
 import { DateProvider, TestDateProvider } from '@aztec/foundation/timer';
+import { getErrorCause } from '@aztec/foundation/types';
 
 import { jest } from '@jest/globals';
-import type { Anvil } from '@viem/anvil';
 import { type MockProxy, mock } from 'jest-mock-extended';
 import assert from 'node:assert';
 import {
@@ -17,6 +17,8 @@ import {
   type BlockTag,
   type GetTransactionParameters,
   type Hex,
+  MethodNotFoundRpcError,
+  RpcRequestError,
   TransactionNotFoundError,
   type TransactionSerializable,
   createPublicClient,
@@ -26,8 +28,9 @@ import {
 import { mnemonicToAccount, privateKeyToAccount } from 'viem/accounts';
 import { foundry } from 'viem/chains';
 
-import { createExtendedL1Client, getPublicClient } from '../client.js';
+import { L1RpcError, createExtendedL1Client, getPublicClient } from '../client.js';
 import { EthCheatCodes } from '../test/eth_cheat_codes.js';
+import type { Anvil } from '../test/start_anvil.js';
 import { startAnvil } from '../test/start_anvil.js';
 import type { ExtendedViemWalletClient, ViemClient } from '../types.js';
 import { formatViemError } from '../utils.js';
@@ -41,10 +44,10 @@ import {
   ReadOnlyL1TxUtils,
   TxUtilsState,
   UnknownMinedTxError,
-  createL1TxUtilsFromViemWallet,
+  createL1TxUtils,
   defaultL1TxUtilsConfig,
 } from './index.js';
-import { L1TxUtilsWithBlobs } from './l1_tx_utils_with_blobs.js';
+import { L1TxUtils } from './l1_tx_utils.js';
 import { createViemSigner } from './signer.js';
 
 const MNEMONIC = 'test test test test test test test test test test test junk';
@@ -96,8 +99,8 @@ describe('L1TxUtils', () => {
     await anvil.stop().catch(err => createLogger('cleanup').error(err));
   }, 5000);
 
-  describe('L1TxUtilsWithBlobs', () => {
-    let gasUtils: TestL1TxUtilsWithBlobs;
+  describe('L1TxUtils with blobs', () => {
+    let gasUtils: TestL1TxUtils;
     let config: Partial<L1TxUtilsConfig>;
 
     const request = {
@@ -107,7 +110,7 @@ describe('L1TxUtils', () => {
     };
 
     const createL1TxUtils = () =>
-      new TestL1TxUtilsWithBlobs(
+      new TestL1TxUtils(
         l1Client,
         EthAddress.fromString(l1Client.account.address),
         createViemSigner(l1Client),
@@ -117,6 +120,8 @@ describe('L1TxUtils', () => {
         undefined,
         undefined,
         metrics,
+        Blob.getViemKzgInstance(),
+        undefined,
       );
 
     beforeEach(() => {
@@ -135,6 +140,68 @@ describe('L1TxUtils', () => {
       gasUtils.interrupt();
       await gasUtils.waitMonitoringStopped(1);
     });
+
+    it('recovery send reuses nonce after sendRawTransaction fails', async () => {
+      // Send a successful tx first to advance the chain nonce
+      await gasUtils.sendAndMonitorTransaction(request);
+
+      const expectedNonce = await l1Client.getTransactionCount({
+        blockTag: 'pending',
+        address: l1Client.account.address,
+      });
+
+      // Next send fails at sendRawTransaction (e.g. network error / 429)
+      const originalSendRawTransaction = l1Client.sendRawTransaction.bind(l1Client);
+      using _sendSpy = jest
+        .spyOn(l1Client, 'sendRawTransaction')
+        .mockImplementationOnce(() => Promise.reject(new Error('network error')))
+        .mockImplementation(originalSendRawTransaction);
+
+      await expect(gasUtils.sendTransaction(request)).rejects.toThrow('network error');
+
+      // Recovery send should reuse the same nonce (not skip ahead)
+      const { txHash, state: recoveryState } = await gasUtils.sendTransaction(request);
+
+      expect(recoveryState.nonce).toBe(expectedNonce);
+      expect((await l1Client.getTransaction({ hash: txHash })).nonce).toBe(expectedNonce);
+    }, 30_000);
+
+    it('bumps nonce when getTransactionCount returns a stale value after a successful send', async () => {
+      // Send a successful tx first to advance the chain nonce
+      await gasUtils.sendAndMonitorTransaction(request);
+
+      const expectedNonce = await l1Client.getTransactionCount({
+        blockTag: 'pending',
+        address: l1Client.account.address,
+      });
+
+      // Simulate a stale fallback RPC node that returns the pre-send nonce
+      const originalGetTransactionCount = l1Client.getTransactionCount.bind(l1Client);
+      using _spy = jest
+        .spyOn(l1Client, 'getTransactionCount')
+        .mockImplementationOnce(() => Promise.resolve(expectedNonce - 1)) // stale: one behind
+        .mockImplementation(originalGetTransactionCount);
+
+      // Despite the stale count, the send should use lastSentNonce+1 = expectedNonce
+      const { txHash, state } = await gasUtils.sendTransaction(request);
+
+      expect(state.nonce).toBe(expectedNonce);
+      expect((await l1Client.getTransaction({ hash: txHash })).nonce).toBe(expectedNonce);
+    }, 30_000);
+
+    it('concurrent sendTransaction calls use sequential nonces (A-810 nonce race fix)', async () => {
+      // Fire two sends concurrently on the same L1TxUtils. Without the mutex, both could read
+      // the same nonce before either updates lastSentNonce, causing a duplicate-nonce failure.
+      const req1 = { ...request, value: 1n };
+      const req2 = { ...request, value: 2n };
+
+      const [result1, result2] = await Promise.all([gasUtils.sendTransaction(req1), gasUtils.sendTransaction(req2)]);
+
+      expect(result1.state.nonce).not.toBe(result2.state.nonce);
+      expect(Math.abs(result1.state.nonce - result2.state.nonce)).toBe(1);
+      expect((await l1Client.getTransaction({ hash: result1.txHash })).nonce).toBe(result1.state.nonce);
+      expect((await l1Client.getTransaction({ hash: result2.txHash })).nonce).toBe(result2.state.nonce);
+    }, 30_000);
 
     // Regression for TMNT-312
     it('speed-up of blob tx sets non-zero maxFeePerBlobGas', async () => {
@@ -400,6 +467,50 @@ describe('L1TxUtils', () => {
         expect(gasPrice.maxFeePerGas).toBe(expectedMaxFee);
       } finally {
         // Restore original method
+        l1Client.estimateMaxPriorityFeePerGas = originalEstimate;
+      }
+    });
+
+    it('bumps gas fees correctly at very low wei values (ceiling division)', async () => {
+      await cheatCodes.setNextBlockBaseFeePerGas(1n);
+      await cheatCodes.evmMine();
+
+      const originalGetBlobBaseFee = l1Client.getBlobBaseFee;
+      l1Client.getBlobBaseFee = () => Promise.resolve(1n);
+
+      const originalEstimate = l1Client.estimateMaxPriorityFeePerGas;
+      l1Client.estimateMaxPriorityFeePerGas = () => Promise.resolve(0n);
+
+      try {
+        gasUtils.updateConfig({
+          ...defaultL1TxUtilsConfig,
+          stallTimeMs: 12_000,
+          priorityFeeBumpPercentage: 0,
+          minimumPriorityFeePerGas: 0,
+        });
+
+        const gasPrice = await gasUtils['getGasPrice'](undefined, true);
+
+        // With ceiling division: (1n * 1125n + 999n) / 1000n = 2n
+        expect(gasPrice.maxFeePerGas).toBe(2n);
+        expect(gasPrice.maxFeePerBlobGas).toBe(2n);
+
+        // Verify compounding works across multiple iterations
+        gasUtils.updateConfig({
+          ...defaultL1TxUtilsConfig,
+          stallTimeMs: 24_000,
+          priorityFeeBumpPercentage: 0,
+          minimumPriorityFeePerGas: 0,
+        });
+
+        const gasPrice2 = await gasUtils['getGasPrice'](undefined, true);
+
+        // Iteration 1: ceil(1 * 1125 / 1000) = 2
+        // Iteration 2: ceil(2 * 1125 / 1000) = ceil(2.25) = 3
+        expect(gasPrice2.maxFeePerGas).toBe(3n);
+        expect(gasPrice2.maxFeePerBlobGas).toBe(3n);
+      } finally {
+        l1Client.getBlobBaseFee = originalGetBlobBaseFee;
         l1Client.estimateMaxPriorityFeePerGas = originalEstimate;
       }
     });
@@ -796,28 +907,15 @@ describe('L1TxUtils', () => {
           value: 0n,
         });
         fail('Should have thrown');
-      } catch (err: any) {
-        const res = err;
-        const { message } = res;
-        // Verify the error contains actual newlines, not escaped \n
-        expect(message).not.toContain('\\n');
-        expect(message.split('\n').length).toBeGreaterThan(1);
+      } catch (err: unknown) {
+        expect(err).toBeInstanceOf(Error);
+        expect((err as Error).message).toContain('L1 RPC request failed');
 
-        // Check that we have the key error information
-        expect(message).toContain('max fee per gas less than block base fee');
+        const rpcError = getErrorCause(err, RpcRequestError);
+        expect(rpcError?.details).toContain('max fee per gas less than block base fee');
 
-        // Check request body formatting if present
-        if (message.includes('Request body:')) {
-          const bodyStart = message.indexOf('Request body:');
-          const body = message.slice(bodyStart);
-          expect(body).toContain('eth_sendRawTransaction');
-
-          // TODO: Fix this test. We no longer generate an error that gets truncated
-          // Check params are truncated if too long
-          // if (body.includes('0x')) {
-          //   expect(body).toContain('...');
-          // }
-        }
+        const metaMessages = rpcError?.metaMessages?.join('\n') ?? '';
+        expect(metaMessages).toContain('eth_sendRawTransaction');
       }
     }, 10_000);
 
@@ -916,6 +1014,23 @@ describe('L1TxUtils', () => {
       expect(result.receipt.status).toBe('reverted');
     });
 
+    it('does not consume nonce when transaction times out before sending', async () => {
+      // first send a transaction to advance the nonce
+      await gasUtils.sendAndMonitorTransaction(request);
+      // Get the expected nonce before any transaction
+      const expectedNonce = await l1Client.getTransactionCount({ address: l1Client.account.address });
+
+      // Try to send with an already-expired timeout (epoch 0 is well in the past)
+      const pastTimeout = new Date(0);
+      await expect(gasUtils.sendTransaction(request, { txTimeoutAt: pastTimeout })).rejects.toThrow(
+        /timed out before sending/,
+      );
+
+      // The next transaction should use the same nonce (not skip one due to a leaked consume)
+      const { state } = await gasUtils.sendTransaction(request);
+      expect(state.nonce).toBe(expectedNonce);
+    }, 10_000);
+
     it('stops trying after timeout once block is mined', async () => {
       await cheatCodes.setAutomine(false);
       await cheatCodes.setIntervalMining(0);
@@ -925,13 +1040,14 @@ describe('L1TxUtils', () => {
       const txRequest: L1TxRequest = { to: '0x1234567890123456789012345678901234567890', data: '0x', value: 0n };
       const { txHash, state } = await gasUtils.sendTransaction(txRequest);
       const testState: L1TxState = { ...state, txConfigOverrides: { ...state.txConfigOverrides, txTimeoutAt } };
-      const monitorPromise = gasUtils.monitorTransaction(testState);
+      // Attach the rejection handler synchronously so an early timeout does not surface as an unhandled rejection
+      const monitorPromise = gasUtils.monitorTransaction(testState).catch(err => err);
 
       await sleep(100);
       await cheatCodes.dropTransaction(txHash);
       await cheatCodes.setNextBlockTimestamp(txTimeoutAt);
       await cheatCodes.mine();
-      await expect(monitorPromise).rejects.toThrow(/timed out/);
+      await expect(monitorPromise).resolves.toBeInstanceOf(TimeoutError);
       expect(dateProvider.now() - now).toBeGreaterThanOrEqual(90);
     }, 20_000);
 
@@ -958,14 +1074,15 @@ describe('L1TxUtils', () => {
         ...state,
         txConfigOverrides: { ...state.txConfigOverrides, txTimeoutMs: 100 },
       };
-      const monitorPromise = gasUtils.monitorTransaction(testState);
+      // Attach the rejection handler synchronously so an early timeout does not surface as an unhandled rejection
+      const monitorPromise = gasUtils.monitorTransaction(testState).catch(err => err);
       logger.warn(`Monitoring tx ${txHash}`);
 
       // Mine a block to advance the timestamp and trigger the timeout
       await cheatCodes.mineEmptyBlock();
 
       // Wait for timeout and catch the error
-      await expect(monitorPromise).rejects.toThrow('timed out');
+      await expect(monitorPromise).resolves.toBeInstanceOf(TimeoutError);
       logger.warn(`Tx monitor has timed out`);
 
       // Wait for cancellation tx to be sent
@@ -1058,12 +1175,13 @@ describe('L1TxUtils', () => {
       // Monitor the tx. We will think it has timed out and submit a cancellation.
       state.txConfigOverrides.txTimeoutMs = 200;
       state.txConfigOverrides.checkIntervalMs = 100;
-      const monitorPromise = gasUtils.monitorTransaction(state);
+      // Attach the rejection handler synchronously so an early timeout does not surface as an unhandled rejection
+      const monitorPromise = gasUtils.monitorTransaction(state).catch(err => err);
 
       // Wait for timeout and catch the error
       await sleep(100);
       await cheatCodes.mineEmptyBlock();
-      await expect(monitorPromise).rejects.toThrow('timed out');
+      await expect(monitorPromise).resolves.toBeInstanceOf(TimeoutError);
       logger.warn('Monitor has thrown for timeout');
 
       // Wait for cancellation to be sent
@@ -1528,6 +1646,9 @@ describe('L1TxUtils', () => {
       state.txConfigOverrides.checkIntervalMs = 100;
       state.txConfigOverrides.txTimeoutMs = 60_000;
       state.txConfigOverrides.cancelTxOnTimeout = false;
+      // Limit to 1 speed-up to prevent a second speed-up from firing between the test dropping
+      // txs and the timeout, which would re-add a pending tx to the mempool and corrupt the nonce.
+      state.txConfigOverrides.maxSpeedUpAttempts = 1;
 
       expect(gasUtils.state).toBe(TxUtilsState.SENT);
 
@@ -1776,8 +1897,27 @@ describe('L1TxUtils', () => {
       expect(readOnlyUtils).not.toHaveProperty('sendAndMonitorTransaction');
     });
 
+    it('uses fallback gas estimate when wrapped simulateBlocks error reports unsupported method', async () => {
+      const readOnlyUtils = new ReadOnlyL1TxUtils(publicClient, logger, dateProvider);
+      using _simulateBlocksSpy = jest.spyOn(publicClient, 'simulateBlocks').mockRejectedValue(
+        new L1RpcError('L1 RPC request failed', {
+          cause: new MethodNotFoundRpcError(new Error('method not found'), { method: 'eth_simulateV1' }),
+        }),
+      );
+
+      await expect(
+        readOnlyUtils.simulate(
+          { to: '0x1234567890123456789012345678901234567890', data: '0xabcdef', value: 0n },
+          undefined,
+          undefined,
+          undefined,
+          { fallbackGasEstimate: 123n },
+        ),
+      ).resolves.toEqual({ gasUsed: 123n, result: '0x' });
+    });
+
     it('L1TxUtils can be instantiated with wallet client and has write methods', () => {
-      const l1TxUtils = createL1TxUtilsFromViemWallet(walletClient, { logger });
+      const l1TxUtils = createL1TxUtils(walletClient, { logger });
       expect(l1TxUtils).toBeDefined();
       expect(l1TxUtils.client).toBe(walletClient);
 
@@ -1789,7 +1929,7 @@ describe('L1TxUtils', () => {
     });
 
     it('L1TxUtils inherits all read-only methods from ReadOnlyL1TxUtils', () => {
-      const l1TxUtils = createL1TxUtilsFromViemWallet(walletClient, { logger });
+      const l1TxUtils = createL1TxUtils(walletClient, { logger });
 
       // Verify all read-only methods are available
       expect(l1TxUtils.getBlock).toBeDefined();
@@ -1803,13 +1943,13 @@ describe('L1TxUtils', () => {
 
     it('L1TxUtils cannot be instantiated with public client', () => {
       expect(() => {
-        createL1TxUtilsFromViemWallet(publicClient as any, { logger });
+        createL1TxUtils(publicClient as any, { logger });
       }).toThrow();
     });
   });
 });
 
-class TestL1TxUtilsWithBlobs extends L1TxUtilsWithBlobs {
+class TestL1TxUtils extends L1TxUtils {
   declare public txs: L1TxState[];
 
   public setMetrics(metrics: IL1TxMetrics) {

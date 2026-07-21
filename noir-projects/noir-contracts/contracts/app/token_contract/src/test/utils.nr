@@ -18,14 +18,9 @@ pub unconstrained fn setup(
     };
 
     // Deploy token contract
-    let initializer_call = Token::interface().constructor(
-        owner,
-        "TestToken0000000000000000000000",
-        "TT00000000000000000000000000000",
-        18,
-    );
-    let token_contract_address =
-        env.deploy("Token").with_public_initializer(owner, initializer_call);
+    let initializer_call =
+        Token::interface().constructor(owner, "TestToken0000000000000000000000", "TT00000000000000000000000000000", 18);
+    let token_contract_address = env.deploy("Token").with_public_initializer(owner, initializer_call);
     (env, token_contract_address, owner, recipient)
 }
 
@@ -68,10 +63,7 @@ pub unconstrained fn check_public_balance(
     address: AztecAddress,
     address_amount: u128,
 ) {
-    assert_eq(
-        env.view_public(Token::at(token_contract_address).balance_of_public(address)),
-        address_amount,
-    );
+    assert_eq(env.view_public(Token::at(token_contract_address).balance_of_public(address)), address_amount);
 }
 
 pub unconstrained fn check_private_balance(
@@ -80,8 +72,25 @@ pub unconstrained fn check_private_balance(
     address: AztecAddress,
     address_amount: u128,
 ) {
-    assert_eq(
-        env.simulate_utility(Token::at(token_contract_address).balance_of_private(address)),
-        address_amount,
-    );
+    assert_eq(env.execute_utility(Token::at(token_contract_address).balance_of_private(address)), address_amount);
+}
+
+// While authwits authorize a contract to perform an action, spending private notes still requires
+// knowledge of the note secrets. For private tokens, the note owner must be involved in the
+// transaction -- they cannot simply give another user an authwit and have that user spend the notes
+// independently. We deploy a proxy contract so that msg_sender in the target differs from the
+// caller, which is the condition that triggers authwit validation. We can't use another account for
+// this, since different scopes are enforced by TXE.
+pub unconstrained fn setup_and_mint_to_private_with_proxy() -> (TestEnvironment, AztecAddress, AztecAddress, AztecAddress, u128, AztecAddress) {
+    let (mut env, token_contract_address, owner, recipient, mint_amount) =
+        setup_and_mint_to_private(/* with_account_contracts */ true);
+    let proxy = env.deploy("@generic_proxy_contract/GenericProxy").without_initializer();
+    (env, token_contract_address, owner, recipient, mint_amount, proxy)
+}
+
+pub unconstrained fn setup_and_mint_to_public_with_proxy() -> (TestEnvironment, AztecAddress, AztecAddress, AztecAddress, u128, AztecAddress) {
+    let (mut env, token_contract_address, owner, recipient, mint_amount) =
+        setup_and_mint_to_public(/* with_account_contracts */ true);
+    let proxy = env.deploy("@generic_proxy_contract/GenericProxy").without_initializer();
+    (env, token_contract_address, owner, recipient, mint_amount, proxy)
 }

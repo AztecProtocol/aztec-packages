@@ -1,4 +1,4 @@
-import { GeneratorIndex } from '@aztec/constants';
+import { DomainSeparator } from '@aztec/constants';
 import { poseidon2HashWithSeparator } from '@aztec/foundation/crypto/poseidon';
 import { Fr } from '@aztec/foundation/curves/bn254';
 
@@ -6,22 +6,23 @@ import { type FunctionAbi, FunctionSelector, encodeArguments } from '../abi/inde
 import type { AztecAddress } from '../aztec-address/index.js';
 import { computeVarArgsHash } from '../hash/hash.js';
 import { computeAddress } from '../keys/index.js';
-import type { ContractInstance } from './interfaces/contract_instance.js';
+import type { ContractInstance, ContractInstancePreimage } from './interfaces/contract_instance.js';
+import type { PartialAddress } from './partial_address.js';
 
 // TODO(@spalladino): Review all generator indices in this file
 
 /**
  * Returns the deployment address for a given contract instance.
  * ```
- * salted_initialization_hash = pedersen([salt, initialization_hash, deployer], GENERATOR__SALTED_INITIALIZATION_HASH)
- * partial_address = pedersen([contract_class_id, salted_initialization_hash], GENERATOR__CONTRACT_PARTIAL_ADDRESS_V1)
- * address = ((poseidon2Hash([public_keys_hash, partial_address, GENERATOR__CONTRACT_ADDRESS_V1]) * G) + ivpk_m).x <- the x-coordinate of the address point
+ * salted_initialization_hash = poseidon2(DOM_SEP__SALTED_INITIALIZATION_HASH, [salt, initialization_hash, deployer, immutables_hash])
+ * partial_address = poseidon2(DOM_SEP__PARTIAL_ADDRESS, [contract_class_id, salted_initialization_hash])
+ * address = ((poseidon2(DOM_SEP__CONTRACT_ADDRESS_V2, [public_keys_hash, partial_address]) * G) + ivpk_m).x <- the x-coordinate of the address point
  * ```
  * @param instance - A contract instance for which to calculate the deployment address.
  */
 export async function computeContractAddressFromInstance(
   instance:
-    | ContractInstance
+    | ContractInstancePreimage
     | ({ originalContractClassId: Fr; saltedInitializationHash: Fr } & Pick<ContractInstance, 'publicKeys'>),
 ): Promise<AztecAddress> {
   const partialAddress = await computePartialAddress(instance);
@@ -34,9 +35,9 @@ export async function computeContractAddressFromInstance(
  */
 export async function computePartialAddress(
   instance:
-    | Pick<ContractInstance, 'originalContractClassId' | 'initializationHash' | 'salt' | 'deployer'>
+    | Pick<ContractInstance, 'originalContractClassId' | 'initializationHash' | 'salt' | 'deployer' | 'immutablesHash'>
     | { originalContractClassId: Fr; saltedInitializationHash: Fr },
-): Promise<Fr> {
+): Promise<PartialAddress> {
   const saltedInitializationHash =
     'saltedInitializationHash' in instance
       ? instance.saltedInitializationHash
@@ -44,7 +45,7 @@ export async function computePartialAddress(
 
   return poseidon2HashWithSeparator(
     [instance.originalContractClassId, saltedInitializationHash],
-    GeneratorIndex.PARTIAL_ADDRESS,
+    DomainSeparator.PARTIAL_ADDRESS,
   );
 }
 
@@ -53,11 +54,11 @@ export async function computePartialAddress(
  * @param instance - Contract instance for which to compute the salted initialization hash.
  */
 export function computeSaltedInitializationHash(
-  instance: Pick<ContractInstance, 'initializationHash' | 'salt' | 'deployer'>,
+  instance: Pick<ContractInstance, 'initializationHash' | 'salt' | 'deployer' | 'immutablesHash'>,
 ): Promise<Fr> {
   return poseidon2HashWithSeparator(
-    [instance.salt, instance.initializationHash, instance.deployer],
-    GeneratorIndex.PARTIAL_ADDRESS,
+    [instance.salt, instance.initializationHash, instance.deployer, instance.immutablesHash],
+    DomainSeparator.SALTED_INITIALIZATION_HASH,
   );
 }
 
@@ -87,5 +88,5 @@ export async function computeInitializationHashFromEncodedArgs(
   encodedArgs: Fr[],
 ): Promise<Fr> {
   const argsHash = await computeVarArgsHash(encodedArgs);
-  return poseidon2HashWithSeparator([initFn, argsHash], GeneratorIndex.INITIALIZER);
+  return poseidon2HashWithSeparator([initFn, argsHash], DomainSeparator.INITIALIZER);
 }

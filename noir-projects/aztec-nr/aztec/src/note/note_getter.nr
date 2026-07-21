@@ -29,11 +29,15 @@ fn extract_property_value_from_selector<let N: u32>(packed_note: [Field; N], sel
     let value: [u8; 32] = packed_note[selector.index as u32].to_be_bytes();
     let offset = selector.offset;
     let length = selector.length;
+    assert(offset as u32 + length as u32 <= 32, "PropertySelector offset + length exceeds field byte width");
     let mut value_field = 0 as Field;
     let mut acc: Field = 1;
     for i in 0..32 {
         if i < length {
-            value_field += value[(31 + offset - i) as u32] as Field * acc;
+            // `value` is big-endian, so the last byte (index 31) holds the lowest value.
+            // offset shifts the starting point away from that last byte, and i walks
+            // through consecutive bytes.
+            value_field += value[(31 - offset - i) as u32] as Field * acc;
             acc = acc * 256;
         }
     }
@@ -41,25 +45,57 @@ fn extract_property_value_from_selector<let N: u32>(packed_note: [Field; N], sel
 }
 
 fn check_packed_note<let N: u32>(packed_note: [Field; N], selects: BoundedVec<Option<Select>, N>) {
-    for i in 0..selects.len() {
-        let select = selects.get_unchecked(i).unwrap_unchecked();
-        let value_field = extract_property_value_from_selector(packed_note, select.property_selector);
+    for i in 0..selects.max_len() {
+        if i < selects.len() {
+            let select = selects.get_unchecked(i).unwrap_unchecked();
+            let value_field = extract_property_value_from_selector(packed_note, select.property_selector);
 
-        assert(compare(value_field, select.comparator, select.value.to_field()), "Mismatch return note field.");
+            assert(compare(value_field, select.comparator, select.value.to_field()), "Mismatch return note field.");
+        }
     }
 }
 
-fn check_notes_order<let N: u32>(fields_0: [Field; N], fields_1: [Field; N], sorts: BoundedVec<Option<Sort>, N>) {
-    for i in 0..sorts.len() {
-        let sort = sorts.get_unchecked(i).unwrap_unchecked();
-        let field_0 = extract_property_value_from_selector(fields_0, sort.property_selector);
-        let field_1 = extract_property_value_from_selector(fields_1, sort.property_selector);
-        let eq = field_0 == field_1;
-        let lt = field_0.lt(field_1);
-        if sort.order == SortOrder.ASC {
-            assert(eq | lt, "Return notes not sorted in ascending order.");
-        } else if !eq {
-            assert(!lt, "Return notes not sorted in descending order.");
+// Asserts that two notes are correctly ordered given the sort criteria.
+//
+// Only the provided criteria are checked -- fields not covered by any criterion are never compared, and if
+// `sort_criteria` is empty no ordering is enforced at all. Criteria are evaluated in priority order: the first
+// criterion where the two notes differ determines whether the pair is correctly ordered. If all sorted fields are
+// equal, any order is accepted.
+//
+// For example, with criteria `[field_0 ASC, field_1 DESC]`:
+//   - `[1, 10], [2, 999]` -> passes: field_0 (1 < 2) satisfies ASC, field_1 is not checked.
+//   - `[1, 10], [1, 5]`  -> passes: field_0 ties, so field_1 (10 > 5) satisfies DESC.
+//   - `[1, 5],  [1, 10]` -> fails:  field_0 ties, so field_1 (5 < 10) violates DESC.
+//   - `[1, 10], [1, 10]` -> passes: all fields tie, any order criteria is valid.
+//
+// With a single criterion, `[field_0 DESC]`:
+//   - `[10, 1], [5, 20]` -> passes: field_0 (10 > 5) satisfies DESC, field_1 is never compared.
+//   - `[5, 1],  [5, 20]` -> passes: field_0 ties and there are no more criteria, so any order is accepted.
+//
+// With no criteria:
+//   - `[2, 5],  [1, 10]` -> passes: nothing to check.
+//
+// This is called by [`confirm_hinted_notes`] to validate that the oracle returned notes in the requested order.
+fn assert_notes_order<let N: u32>(note_1: [Field; N], note_2: [Field; N], sort_criteria: BoundedVec<Option<Sort>, N>) {
+    // Tracks whether a prior criterion already determined the ordering. Once true, all subsequent
+    // asserts become trivially satisfied. We fold this into the assert condition instead of
+    // predicating the loop body to avoid gating field extraction behind a branch, which would be
+    // more expensive in a circuit.
+    let mut order_decided = false;
+    for i in 0..sort_criteria.max_len() {
+        if i < sort_criteria.len() {
+            let sort = sort_criteria.get_unchecked(i).unwrap_unchecked();
+            let field_1 = extract_property_value_from_selector(note_1, sort.property_selector);
+            let field_2 = extract_property_value_from_selector(note_2, sort.property_selector);
+            if field_1 != field_2 {
+                let lt = field_1.lt(field_2);
+                if sort.order == SortOrder.ASC {
+                    assert(lt | order_decided, "Return notes not sorted in ascending order.");
+                } else {
+                    assert(!lt | order_decided, "Return notes not sorted in descending order.");
+                }
+                order_decided = true;
+            }
         }
     }
 }
@@ -164,12 +200,25 @@ where
     let filtered_notes = filter_fn(maybe_hinted_notes, filter_args);
 
     let hinted_notes = array::collapse(filtered_notes);
-    let mut confirmed_notes = BoundedVec::new();
 
     // We have now collapsed the sparse array of Options into a BoundedVec. This is a more ergonomic type and also
     // results in reduced gate counts when setting a limit value, since we guarantee that the limit is an upper bound
     // for the runtime length, and can therefore have fewer loop iterations.
     assert(hinted_notes.len() <= options.limit, "Got more notes than limit.");
+
+    // What remains is to iterate over the hinted notes, assert their existence, and convert them into confirmed notes.
+    // Naively, we would construct a `BoundedVec<ConfirmedNote, _>` and simply `push` into it as we process each hinted
+    // note. We cannot use `BoundedVec::map` as the user specified the maximum number of notes in `options.limit`
+    // instead of a numeric type parameter (which is more ergonomic), and `map` requires the latter.
+    // Unfortunately, this results in terrible proving time performance. This is because the compiler is not smart
+    // enough to understand the structure of looping over the `BoundedVec<HintedNote, _>`: it treats every `push` as a
+    // conditional write to the confirmed array, resulting in runtime write indices (e.g. iteration 1 could write to
+    // indices either 0 or 1, beucase iteration 0 might not push).
+    // The loop does however have an interesting structure that we can reason about to achieve better performance:
+    // because we're just going over a `BoundedVec`, the first `vec.len()` iterations will result in writes, and the
+    // rest will not. Hence, we can just _unconditionally_ write to a raw storage array at the iteration index: we know
+    // the resulting array will have no gaps. Because of this, we can then manually create a correct `BoundedVec`.
+    let mut confirmed_notes_bvec_storage: [ConfirmedNote<_>; _] = std::mem::zeroed();
 
     let mut prev_packed_note = [0; M];
     for i in 0..options.limit {
@@ -198,17 +247,18 @@ where
             let packed_note = hinted_note.note.pack();
             check_packed_note(packed_note, options.selects);
             if i != 0 {
-                check_notes_order(prev_packed_note, packed_note, options.sorts);
+                assert_notes_order(prev_packed_note, packed_note, options.sorts);
             }
             prev_packed_note = packed_note;
 
             let note_existence_request = compute_note_existence_request(hinted_note);
             context.assert_note_exists(note_existence_request);
-            confirmed_notes.push(ConfirmedNote::new(hinted_note, note_existence_request.note_hash()));
+
+            confirmed_notes_bvec_storage[i] = ConfirmedNote::new(hinted_note, note_existence_request.note_hash());
         };
     }
 
-    confirmed_notes
+    BoundedVec::from_parts(confirmed_notes_bvec_storage, hinted_notes.len())
 }
 
 pub unconstrained fn view_note<Note>(owner: Option<AztecAddress>, storage_slot: Field) -> HintedNote<Note>

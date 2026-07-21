@@ -1,6 +1,6 @@
 {
   "name": "@aztec/aztec3-packages",
-  "packageManager": "yarn@4.5.2",
+  "packageManager": "yarn@4.13.0",
   "private": true,
   "scripts": {
     "ci": "../ci.sh",
@@ -18,7 +18,6 @@
   "workspaces": [
     "accounts",
     "archiver",
-    "aztec-faucet",
     "aztec-node",
     "aztec.js",
     "aztec",
@@ -28,6 +27,7 @@
     "bot",
     "builder",
     "cli-wallet",
+    "standard-contracts",
     "cli",
     "constants",
     "docs",
@@ -39,8 +39,6 @@
     "ivc-integration",
     "key-store",
     "kv-store",
-    "l1-artifacts",
-    "merkle-tree",
     "native",
     "node-keystore",
     "node-lib",
@@ -57,13 +55,14 @@
     "sequencer-client",
     "simulator",
     "slasher",
+    "sqlite3mc-wasm",
     "stdlib",
     "telemetry-client",
     "txe",
-    "test-wallet",
     "validator-client",
     "validator-ha-signer",
     "wallet-sdk",
+    "wallets",
     "world-state"
   ],
   "prettier": "@aztec/foundation/prettier",
@@ -81,11 +80,22 @@
     "eslint-plugin-import-x": "^4.6.1",
     "nodemon": "^3.1.9",
     "prettier": "^3.5.3",
-    "typedoc": "^0.24.8",
+    "typedoc": "^0.28.16",
     "typescript": "^5.3.3"
   },
   "resolutions": {
-    "@aztec/bb.js": "portal:../barretenberg/ts",
+    "@aztec/bb-avm-sim": "portal:../barretenberg/ts/bb-avm-sim",
+    "@aztec/bb-avm-sim-darwin-arm64": "portal:../barretenberg/ts/bb-avm-sim/packages/bb-avm-sim-darwin-arm64",
+    "@aztec/bb-avm-sim-darwin-x64": "portal:../barretenberg/ts/bb-avm-sim/packages/bb-avm-sim-darwin-x64",
+    "@aztec/bb-avm-sim-linux-arm64": "portal:../barretenberg/ts/bb-avm-sim/packages/bb-avm-sim-linux-arm64",
+    "@aztec/bb-avm-sim-linux-x64": "portal:../barretenberg/ts/bb-avm-sim/packages/bb-avm-sim-linux-x64",
+    "@aztec/bb.js": "portal:../barretenberg/ts/bb.js",
+    "@aztec/ipc-runtime": "portal:../ipc-runtime/ts",
+    "@aztec/wsdb": "portal:../wsdb/ts",
+    "@aztec/wsdb-darwin-arm64": "portal:../wsdb/ts/packages/wsdb-darwin-arm64",
+    "@aztec/wsdb-darwin-x64": "portal:../wsdb/ts/packages/wsdb-darwin-x64",
+    "@aztec/wsdb-linux-arm64": "portal:../wsdb/ts/packages/wsdb-linux-arm64",
+    "@aztec/wsdb-linux-x64": "portal:../wsdb/ts/packages/wsdb-linux-x64",
     "@aztec/noir-acvm_js": "portal:../noir/packages/acvm_js",
     "@aztec/noir-types": "portal:../noir/packages/types",
     "@aztec/noir-noirc_abi": "portal:../noir/packages/noirc_abi",
@@ -93,6 +103,13 @@
     "@aztec/noir-noir_js": "file:../noir/packages/noir_js",
     "jest-runner@npm:^29.7.0": "patch:jest-runner@npm%3A29.7.0#~/.yarn/patches/jest-runner-npm-29.7.0-3bc9f82b58.patch",
     "ws": "^8.17.1",
-    "d3-color": "^3.1.0"
+    "d3-color": "^3.1.0",
+    "rollup": "^4.59.0",
+    "systeminformation": "^5.31.0",
+    "node-forge": "^1.3.2",
+    "koa": "^2.16.4",
+    "serialize-javascript": "^7.0.3",
+    "@modelcontextprotocol/sdk": "^1.27.1",
+    "jws": "^4.0.1"
   }
 }

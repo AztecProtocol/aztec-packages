@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # create_doc_update_pr.sh - Create a PR with documentation updates
 #
-# This script is extracted from update_doc_references.sh for future use.
+# This script is extracted from check_doc_references.sh for future use.
 # It handles:
 # - Creating a branch for doc updates
 # - Committing changes

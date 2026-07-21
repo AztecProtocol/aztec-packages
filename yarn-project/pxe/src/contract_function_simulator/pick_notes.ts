@@ -85,9 +85,24 @@ interface ContainsNote {
 }
 
 const selectPropertyFromPackedNoteContent = (noteData: Fr[], selector: PropertySelector): Fr => {
+  if (selector.index >= noteData.length) {
+    throw new Error(`Property selector index ${selector.index} out of bounds for note with ${noteData.length} fields`);
+  }
+  if (selector.offset + selector.length > Fr.SIZE_IN_BYTES) {
+    throw new Error(
+      `Property selector range (offset=${selector.offset}, length=${selector.length}) exceeds Fr buffer size of ${Fr.SIZE_IN_BYTES} bytes`,
+    );
+  }
   const noteValueBuffer = noteData[selector.index].toBuffer();
-  const noteValue = noteValueBuffer.subarray(selector.offset, selector.offset + selector.length);
-  return Fr.fromBuffer(noteValue);
+  // Noir's PropertySelector counts offset from the LSB (last byte of the big-endian buffer),
+  // so offset=0,length=Fr.SIZE_IN_BYTES reads the entire field, and offset=0,length=1 reads the last byte.
+  const start = Fr.SIZE_IN_BYTES - selector.offset - selector.length;
+  const end = Fr.SIZE_IN_BYTES - selector.offset;
+  const noteValue = noteValueBuffer.subarray(start, end);
+  // Left-pad to Fr.SIZE_IN_BYTES so Fr.fromBuffer interprets the value correctly.
+  const padded = Buffer.alloc(Fr.SIZE_IN_BYTES);
+  noteValue.copy(padded, Fr.SIZE_IN_BYTES - noteValue.length);
+  return Fr.fromBuffer(padded);
 };
 
 const selectNotes = <T extends ContainsNote>(noteDatas: T[], selects: Select[]): T[] =>
@@ -103,7 +118,11 @@ const selectNotes = <T extends ContainsNote>(noteDatas: T[], selects: Select[]):
         [Comparator.GTE]: () => !noteValueFr.lt(value),
       };
 
-      return comparatorSelector[comparator]();
+      const fn = comparatorSelector[comparator];
+      if (!fn) {
+        throw new Error(`Invalid comparator value: ${comparator}`);
+      }
+      return fn();
     }),
   );
 

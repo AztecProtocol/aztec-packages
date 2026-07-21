@@ -1,5 +1,6 @@
 use super::TestBuilder;
-use types::{address::AztecAddress, tests::utils::assert_array_eq, traits::{Empty, FromField}};
+use protocol_test_utils::assert_array_eq;
+use types::{address::AztecAddress, traits::{Empty, FromField}};
 
 // Values that may be squashed in the reset circuit are tested in other tests.
 
@@ -14,9 +15,8 @@ fn correct_output_propagated_values() {
     builder.previous_kernel.append_public_call_requests(2);
     builder.previous_kernel.set_public_teardown_call_request();
     builder.previous_kernel.fee_payer = AztecAddress::from_field(62);
-    builder.previous_kernel.include_by_timestamp = 13;
+    builder.previous_kernel.expiration_timestamp = 13;
     builder.previous_kernel.is_private_only = true;
-    builder.previous_kernel.claimed_first_nullifier = 7788;
     builder.previous_kernel.claimed_revertible_counter = 42;
 
     let previous_kernel = builder.previous_kernel.to_private_kernel_circuit_public_inputs();
@@ -52,9 +52,8 @@ fn correct_output_propagated_values() {
     );
     assert_eq(pi.public_teardown_call_request, previous_kernel.public_teardown_call_request);
     assert_eq(pi.fee_payer, AztecAddress::from_field(62));
-    assert_eq(pi.include_by_timestamp, 13);
+    assert_eq(pi.expiration_timestamp, 13);
     assert_eq(pi.is_private_only, true);
-    assert_eq(pi.claimed_first_nullifier, 7788);
     assert_eq(pi.claimed_revertible_counter, 42);
 }
 
@@ -73,6 +72,5 @@ fn empty_propagated_values() {
     assert(pi.public_teardown_call_request.is_empty());
     assert(pi.fee_payer.is_empty());
     assert_eq(pi.is_private_only, false);
-    assert_eq(pi.claimed_first_nullifier, 0);
     assert_eq(pi.claimed_revertible_counter, 0);
 }

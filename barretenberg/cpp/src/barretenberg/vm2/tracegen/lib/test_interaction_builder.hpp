@@ -1,14 +1,12 @@
 #pragma once
 
+#include <array>
+#include <cstdint>
 #include <string>
-#include <unordered_set>
-#include <utility>
 
 #include "barretenberg/common/log.hpp"
-#include "barretenberg/common/tuple.hpp"
 #include "barretenberg/vm2/common/map.hpp"
-#include "barretenberg/vm2/common/stringify.hpp"
-#include "barretenberg/vm2/tracegen/lib/interaction_builder.hpp"
+#include "barretenberg/vm2/common/set.hpp"
 #include "barretenberg/vm2/tracegen/lib/lookup_builder.hpp"
 #include "barretenberg/vm2/tracegen/lib/permutation_builder.hpp"
 #include "barretenberg/vm2/tracegen/trace_container.hpp"
@@ -17,10 +15,14 @@ namespace bb::avm2::tracegen {
 
 // Adds checks to a lookup builder. The BaseBuilder needs to be an IndexedLookupTraceBuilder.
 template <typename BaseBuilder> class AddChecksToBuilder : public BaseBuilder {
-    static_assert(std::is_base_of<IndexedLookupTraceBuilder<typename BaseBuilder::LookupSettings>, BaseBuilder>::value,
+    static_assert(std::is_base_of_v<IndexedLookupTraceBuilder<typename BaseBuilder::LookupSettings>, BaseBuilder>,
                   "BaseBuilder must be an IndexedLookupTraceBuilder");
 
   public:
+    // Inherit the base constructors (incl. the outer_dst_selector one) so a strict-mode interaction can be
+    // registered with an explicit outer selector.
+    using BaseBuilder::BaseBuilder;
+
     using TupleType = typename BaseBuilder::TupleType;
     ~AddChecksToBuilder() override = default;
 
@@ -53,7 +55,7 @@ template <typename BaseBuilder> class AddChecksToBuilder : public BaseBuilder {
 template <typename PermutationSettings>
 class CheckingPermutationBuilder : public PermutationBuilder<PermutationSettings> {
   public:
-    // Use array for storage in map keys (tuples of references can't be stored).
+    // Owning value array; see get_multiple_as_array in interaction_builder.hpp for why we can't key on RefTuple.
     using ArrayTuple = std::array<FF, PermutationSettings::COLUMNS_PER_SET>;
 
     void process(TraceContainer& trace) override
@@ -63,13 +65,11 @@ class CheckingPermutationBuilder : public PermutationBuilder<PermutationSettings
         // Collect the source and destination tuples.
         source_tuples.clear();
         trace.visit_column(PermutationSettings::SRC_SELECTOR, [&](uint32_t row, const FF&) {
-            auto src_values = trace.get_multiple(PermutationSettings::SRC_COLUMNS, row);
-            source_tuples[to_array(src_values)].insert(row);
+            source_tuples[get_multiple_as_array(trace, PermutationSettings::SRC_COLUMNS, row)].insert(row);
         });
         destination_tuples.clear();
         trace.visit_column(PermutationSettings::DST_SELECTOR, [&](uint32_t row, const FF&) {
-            auto dst_values = trace.get_multiple(PermutationSettings::DST_COLUMNS, row);
-            destination_tuples[to_array(dst_values)].insert(row);
+            destination_tuples[get_multiple_as_array(trace, PermutationSettings::DST_COLUMNS, row)].insert(row);
         });
 
         auto build_error_message =
@@ -97,7 +97,7 @@ class CheckingPermutationBuilder : public PermutationBuilder<PermutationSettings
         // Check that every source tuple is found in the destination with the same multiplicity.
         for (const auto& [src_tuple, src_rows] : source_tuples) {
             auto dst_rows = destination_tuples.contains(src_tuple) ? destination_tuples.at(src_tuple)
-                                                                   : std::unordered_set<uint32_t>();
+                                                                   : unordered_flat_set<uint32_t>();
             if (src_rows.size() != dst_rows.size()) {
                 throw std::runtime_error(
                     build_error_message(src_tuple, PermutationSettings::SRC_COLUMNS, src_rows, dst_rows));
@@ -106,7 +106,7 @@ class CheckingPermutationBuilder : public PermutationBuilder<PermutationSettings
         // Check that every destination tuple is found in the source with the same multiplicity.
         for (const auto& [dst_tuple, dst_rows] : destination_tuples) {
             auto src_rows =
-                source_tuples.contains(dst_tuple) ? source_tuples.at(dst_tuple) : std::unordered_set<uint32_t>();
+                source_tuples.contains(dst_tuple) ? source_tuples.at(dst_tuple) : unordered_flat_set<uint32_t>();
             if (src_rows.size() != dst_rows.size()) {
                 throw std::runtime_error(
                     build_error_message(dst_tuple, PermutationSettings::DST_COLUMNS, src_rows, dst_rows));
@@ -115,16 +115,8 @@ class CheckingPermutationBuilder : public PermutationBuilder<PermutationSettings
     }
 
   private:
-    // Helper to convert tuple of references to array for storage.
-    template <typename... Ts> static ArrayTuple to_array(const flat_tuple::tuple<Ts...>& tup)
-    {
-        return [&]<size_t... Is>(std::index_sequence<Is...>) {
-            return ArrayTuple{ flat_tuple::get<Is>(tup)... };
-        }(std::make_index_sequence<sizeof...(Ts)>{});
-    }
-
-    unordered_flat_map<ArrayTuple, std::unordered_set<uint32_t>> source_tuples;
-    unordered_flat_map<ArrayTuple, std::unordered_set<uint32_t>> destination_tuples;
+    unordered_flat_map<ArrayTuple, unordered_flat_set<uint32_t>> source_tuples;
+    unordered_flat_map<ArrayTuple, unordered_flat_set<uint32_t>> destination_tuples;
 };
 
 } // namespace bb::avm2::tracegen

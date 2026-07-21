@@ -49,8 +49,8 @@ template <typename quadratic_field, typename base_field, typename Fq12Params> cl
 
     struct ell_coeffs {
         quadratic_field o;
+        quadratic_field w;
         quadratic_field vw;
-        quadratic_field vv;
     };
 
     static constexpr field12 zero() { return { base_field::zero(), base_field::zero() }; };
@@ -132,62 +132,43 @@ template <typename quadratic_field, typename base_field, typename Fq12Params> cl
 
     constexpr void self_sqr() { *this = sqr(); }
 
+    /**
+     * @brief Multiply the element by a sparse element of the form ell.o + ell.w * w + ell.vw * wv.
+     *
+     * @details Algorithm 5 from https://cacr.uwaterloo.ca/techreports/2012/cacr2012-17.pdf
+     *
+     * Tower structure: Fq12 = Fq6[w]/(w² - v), so an Fq12 element is (c0 + c1·w) with c0, c1 in Fq6.
+     * The sparse element is s = (s0 + s1·w) where s0 = {ell.o, 0, 0} and s1 = {ell.w, ell.vw, 0} in Fq6.
+     *
+     * Generic multiplication gives:
+     *   result.c0 = c0·s0 + c1·s1·v    (since w² = v)
+     *   result.c1 = c0·s1 + c1·s0      (cross terms)
+     *
+     * We use Karatsuba to compute the cross terms with one fewer Fq6 multiplication:
+     *   A = c0·s0                 (computed directly: s0 = {ell.o,0,0}, so A = {ell.o·c0.c0, ell.o·c0.c1, ell.o·c0.c2})
+     *   B = c1·s1                 (via field6::sparse_mul, since s1 = {ell.w, ell.vw, 0} = ell.w + ell.vw·v)
+     *   E = (c0+c1)·(s0+s1)      (via field6::sparse_mul, since s0+s1 = {ell.o+ell.w, ell.vw, 0})
+     *   F = E - A - B = c0·s1 + c1·s0   (Karatsuba cross term = result.c1)
+     *   G = v·B                   (constructed inline as {ξ·B.c2, B.c0, B.c1}, since v·(b0+b1·v+b2·v²) =
+     *                              ξ·b2 + b0·v + b1·v²; uses Fq6::mul_by_non_residue on B.c2 to get ξ·B.c2)
+     *   H = A + G = c0·s0 + c1·s1·v     (= result.c0)
+     *
+     * @param ell
+     */
     constexpr void self_sparse_mul(const ell_coeffs& ell)
     {
-        // multiplicand is sparse fp12 element (ell.0, 0, ell.vv) + \beta(0, ell.vw, 0)
-        quadratic_field d0 = c0.c0 * ell.o;
-        quadratic_field d2 = c0.c2 * ell.vv;
-        quadratic_field d4 = c1.c1 * ell.vw;
-        quadratic_field t2 = c0.c0 + c1.c1;
-        quadratic_field t1 = c0.c0 + c0.c2;
-        quadratic_field s0 = c0.c1 + c1.c0;
-        s0 += c1.c2;
+        quadratic_field A0 = ell.o * c0.c0;
+        quadratic_field A1 = ell.o * c0.c1;
+        quadratic_field A2 = ell.o * c0.c2;
+        base_field A{ A0, A1, A2 };
+        base_field B = c1.sparse_mul(ell.w, ell.vw);
+        base_field E = (c0 + c1).sparse_mul(ell.o + ell.w, ell.vw);
+        base_field F = E - (A + B);
+        base_field G{ base_field::mul_by_non_residue(B.c2), B.c0, B.c1 };
+        base_field H = A + G;
 
-        quadratic_field s1 = c0.c1 * ell.vv;
-        quadratic_field t3 = s1 + d4;
-        quadratic_field t4 = base_field::mul_by_non_residue(t3);
-        c0.c0 = t4 + d0;
-
-        t3 = c1.c2 * ell.vw;
-        s1 += t3;
-        t3 += d2;
-        t4 = base_field::mul_by_non_residue(t3);
-        t3 = c0.c1 * ell.o;
-        s1 += t3;
-        c0.c1 = t4 + t3;
-
-        quadratic_field t0 = ell.o + ell.vv;
-        t3 = t1 * t0;
-        t3 -= d0;
-        t3 -= d2;
-        t4 = c1.c0 * ell.vw;
-        s1 += t4;
-
-        t0 = c0.c2 + c1.c1;
-        c0.c2 = t3 + t4;
-
-        t1 = ell.vv + ell.vw;
-        t3 = t0 * t1;
-        t3 -= d2;
-        t3 -= d4;
-        t4 = base_field::mul_by_non_residue(t3);
-        t3 = c1.c0 * ell.o;
-        s1 += t3;
-        c1.c0 = t3 + t4;
-
-        t3 = c1.c2 * ell.vv;
-        s1 += t3;
-        t4 = base_field::mul_by_non_residue(t3);
-        t0 = ell.o + ell.vw;
-        t3 = t0 * t2;
-        t3 -= d0;
-        t3 -= d4;
-        c1.c1 = t3 + t4;
-
-        t0 = ell.o + ell.vv;
-        t0 += ell.vw;
-        t3 = s0 * t0;
-        c1.c2 = t3 - s1;
+        c0 = H;
+        c1 = F;
     }
 
     constexpr field12 sqr() const
@@ -239,12 +220,7 @@ template <typename quadratic_field, typename base_field, typename Fq12Params> cl
         };
     }
 
-    constexpr field12 cyclotomic_squared() const
-    {
-        // Possible Optimization: The cyclotomic squaring can be implemented more than efficiently
-        // than the generic squaring.
-        return sqr();
-    }
+    constexpr field12 cyclotomic_squared() const { return sqr(); }
 
     constexpr field12 unitary_inverse() const
     {
@@ -262,6 +238,7 @@ template <typename quadratic_field, typename base_field, typename Fq12Params> cl
         };
     }
 
+    // Montgomery form conversions produced outputs where the components are all in strict/reduced form.
     constexpr field12 to_montgomery_form()
     {
         return {
@@ -270,7 +247,7 @@ template <typename quadratic_field, typename base_field, typename Fq12Params> cl
         };
     }
 
-    constexpr field12 from_montgomery_form()
+    constexpr field12 from_montgomery_form() const
     {
         return {
             c0.from_montgomery_form(),

@@ -17,12 +17,9 @@ struct TxPhaseSpec {
     bool is_revertible = false;
     uint32_t read_pi_start_offset = 0;
     uint32_t read_pi_length_offset = 0;
-    bool non_revertible_append_note_hash = false;
-    bool non_revertible_append_nullifier = false;
-    bool non_revertible_append_l2_l1_msg = false;
-    bool revertible_append_note_hash = false;
-    bool revertible_append_nullifier = false;
-    bool revertible_append_l2_l1_msg = false;
+    bool append_note_hash = false;
+    bool append_nullifier = false;
+    bool append_l2_l1_msg = false;
     uint8_t next_phase_on_revert = 0;
 };
 

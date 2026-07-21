@@ -7,10 +7,11 @@
 1. [Overview](#overview)
 2. [High-Level Statement](#high-level-statement)
 3. [Architecture and Constants](#architecture-and-constants)
-4. [Witness Trace Structure](#witness-trace-structure)
-5. [Interleaving: The Key Optimization](#interleaving-the-key-optimization)
-6. [Witness Generation and Proving Key Construction](#witness-generation-and-proving-key-construction)
-7. [Translator Relations](#translator-relations)
+4. [Glossary and Common Confusions](#glossary-and-common-confusions)
+5. [Witness Trace Structure](#witness-trace-structure)
+6. [Concatenation: The Key Optimization](#concatenation-the-key-optimization)
+7. [Witness Generation and Proving Key Construction](#witness-generation-and-proving-key-construction)
+8. [Translator Relations](#translator-relations)
 
 ---
 
@@ -98,6 +99,53 @@ We verify this by proving the equation holds:
 
 By the Chinese Remainder Theorem, since $2^{272} \cdot r > 2^{514}$ exceeds the maximum possible value, the equation must hold in integers, and thus modulo $q$. More details on this relation are in [RELATIONS.md](RELATIONS.md#non-native-field-relations).
 
+## Architecture and Constants
+
+The Translator is a **fixed-size** circuit. Its key constants (from `translator_flavor.hpp` / `constants.hpp`):
+
+| Constant | Value | Meaning |
+|---|---|---|
+| `NUM_LIMB_BITS` | 68 | width of a non-native **limb** (one $\mathbb{F}_r$ chunk of an $\mathbb{F}_q$ value) |
+| `MICRO_LIMB_BITS` | 14 | width of a **microlimb** (the finer chunk used for range constraints) |
+| `LOG_MINI_CIRCUIT_SIZE` | 13 | $\log_2$ of the mini-circuit size |
+| `MINI_CIRCUIT_SIZE` | $2^{13}$ | rows in the mini-circuit (where the witness actually lives) |
+| `CONCATENATION_GROUP_SIZE` | 16 | mini-circuit-size columns concatenated into one full-circuit column |
+| `NUM_CONCATENATED_POLYS` | 5 | number of concatenated range-constraint polynomials |
+| `NUM_OP_QUEUE_WIRES` | 4 | op-queue transcript columns (`op`, `x_lo_y_hi`, `x_hi_z_1`, `y_lo_z_2`) |
+
+**Mini-circuit vs. full circuit.** Witness generation happens in the **mini-circuit** of `MINI_CIRCUIT_SIZE = 2^13` rows. Range-constraint columns are then **concatenated** in groups of `CONCATENATION_GROUP_SIZE = 16` into full-circuit-size polynomials, so the full circuit has $\log$-size `LOG_MINI_CIRCUIT_SIZE + log2(CONCATENATION_GROUP_SIZE) = 13 + 4 = 17` (this is the `17` rounds of the joint sumcheck). See [Concatenation](#concatenation-the-key-optimization).
+
+**Two fields.** The Translator's **native** field is $\mathbb{F}_r$ (the BN254 scalar field); the values it reduces — BN254 base-field elements — live in $\mathbb{F}_q$, which is **non-native** here ($q > r$), and the accumulator identity is checked $\bmod\ q$. This is the *opposite* convention to the ECCVM, whose native field is $\mathbb{F}_q$.
+
+## Glossary and Common Confusions
+
+A quick reference for terms and columns that are easy to confuse. Full treatment is in the linked sections.
+
+### Where things live in the code
+
+| Concern | Location |
+|---|---|
+| Columns / entities (canonical list) | `translator_vm/translator_flavor.hpp` |
+| Witness generation | `translator_vm/translator_circuit_builder.{hpp,cpp}` |
+| Constraints | `relations/translator_vm/` — see [RELATIONS.md](RELATIONS.md) |
+| Prover / Verifier | `translator_vm/translator_prover.cpp`, `translator_vm/translator_verifier.cpp` |
+
+### Easily-confused terms
+
+| Term | The trap | What it actually means |
+|---|---|---|
+| native $\mathbb{F}_r$ vs. non-native $\mathbb{F}_q$ | which field is which? | The Translator computes **natively in $\mathbb{F}_r$**; the modulus it reduces by is **$q$** (the BN254 base field $\mathbb{F}_q$, with $q > r$). This is the **opposite** of the ECCVM (native $\mathbb{F}_q$). |
+| limb (68-bit) vs. microlimb (14-bit) | both "limbs" | A **limb** (`NUM_LIMB_BITS = 68`) is one $\mathbb{F}_r$ chunk of a non-native $\mathbb{F}_q$ value (bigfield-style). A **microlimb** (`MICRO_LIMB_BITS = 14`) is the finer chunk a limb is split into for range constraints (the `*_range_constraint_*` columns). |
+| mod $2^{272}$ **and** mod $r$ | redundant checks? | The integer identity is proven **both** mod $2^{272}$ (68-bit-limb arithmetic, as two 136-bit halves) **and** mod $r$ (natively). By CRT, since $2^{272}\cdot r$ exceeds the maximum possible value, it then holds over the integers, hence mod $q$. Neither check alone suffices. |
+| mini-circuit vs. full circuit | one size? | The witness lives in the **mini-circuit** (`2^13`); range-constraint columns are concatenated ×`16` into the **full circuit** (`2^17`). See [Concatenation](#concatenation-the-key-optimization). |
+| even rows vs. odd rows | which row does what? | A **2-row cycle**: **even** rows (`2i`) are **computation** rows where the non-native relation is checked; **odd** rows (`2i+1`) are **storage** rows whose values (including the *previous* accumulator) are read from even rows via **shifts**. |
+| op-queue processing order | first op → first row? | The op queue is processed **in reverse**: `acc_0` is built from the *last* op `op_{n-1}`, and the final accumulator from `op_0`. The "previous accumulator" for the last op is `0`. |
+| `x` (evaluation challenge) vs. `v` (batching challenge) | two challenges | Both $\in \mathbb{F}_q$. `v` batches the **5 values per op** (`op, P_x, P_y, z_1, z_2`) via powers $v,\dots,v^4$; `x` combines **all ops** via Horner (powers of `x`). |
+| `z_1`, `z_2` vs. the accumulator | | `z_1`, `z_2` are the decomposed 128-bit scalar of one op ($z = z_1 + 2^{128} z_2$); the **accumulator** is the running batched evaluation across all ops. |
+| `*_binary_limbs_*` vs. `*_range_constraint_*` | | `*_binary_limbs_*` hold the four 68-bit limbs of a value (e.g. `accumulators_binary_limbs_0..3`); the `*_range_constraint_*` columns hold the 14-bit microlimb decomposition that **range-checks** those limbs. |
+| the op-queue columns `x_lo_y_hi`, `x_hi_z_1`, `y_lo_z_2` | odd names | The 4 op-queue transcript columns pack op data across the 2-row cycle; each non-`op` column carries two limbs (`x_lo_y_hi` = `P_x` low limb + `P_y` high limb, etc.). They are **shared** with the merge protocol: the same commitments are produced once in the kernel's Oink phase and reused, so the Translator does **not** commit to them independently. |
+| `ordered_extra_range_constraints_numerator` | a witness column | It is the **only precomputed selector that needs a commitment** (all other precomputed columns are verifier-computable); it seeds the sorted-list range argument. |
+
 ## Witness Trace Structure
 
 The Translator circuit has 81 witness columns, organized into:
@@ -111,14 +159,16 @@ The circuit operates on a 2-row cycle structure. Each `EccOpQueue` entry occupie
 - Row $2i$ (Even rows): Computation rows where the non-native field relation is actively checked
 - Row $2i+1$ (Odd rows): Data storage rows that hold values accessed via shifts
 
+The opcode is constrained to `0` on odd rows by the [Opcode Constraint Relation](RELATIONS.md#opcode-constraint-relation) — a soundness requirement: the non-native accumulator reads only even rows, so a genuine opcode parked on an odd row would be silently skipped, excluding that ECC operation from the batched evaluation.
+
 While enforcing constraints on the even rows, we can access values from the "next" row (which is odd) using shifted column polynomials.
 As hinted earlier, the "previous" accumulator value needed for computation is stored at odd row $(2i+1)$.
 This value becomes the "current" accumulator for the next even row $(2i+2)$:
 
 | Operation index      | $0$                                    | $1$                                   | $\quad \dots \quad$ | $(n-2)$                                  | $(n-1)$                              |
 | -------------------- | -------------------------------------- | ------------------------------------- | ------------------- | ---------------------------------------- | ------------------------------------ |
-| Current accumulator  | $\textcolor{violet}{\text{acc}_{n-1}}$ | $\textcolor{brown}{\text{acc}_{n-2}}$ | $\quad \dots \quad$ | $\textcolor{lightgreen}{\text{acc}_{1}}$ | $\textcolor{orange}{\text{acc}_{0}}$ |
-| Previous accumulator | $\textcolor{brown}{\text{acc}_{n-2}}$  | $\textcolor{grey}{\text{acc}_{n-3}}$  | $\quad \dots \quad$ | $\textcolor{orange}{\text{acc}_{0}}$     | $0$                                  |
+| Current accumulator  | $\textcolor{violet}{\text{acc}(n-1)}$ | $\textcolor{brown}{\text{acc}(n-2)}$ | $\quad \dots \quad$ | $\textcolor{lightgreen}{\text{acc}(1)}$ | $\textcolor{orange}{\text{acc}(0)}$ |
+| Previous accumulator | $\textcolor{brown}{\text{acc}(n-2)}$  | $\textcolor{grey}{\text{acc}(n-3)}$  | $\quad \dots \quad$ | $\textcolor{orange}{\text{acc}(0)}$     | $0$                                  |
 |                      |                                        |                                       |                     |                                          |                                      |
 
 #### 1. EccOpQueue Transcript Columns (4 columns)
@@ -127,7 +177,7 @@ These columns directly represent the EccOpQueue transcript:
 
 | Column Name | Even Row $(2i)$                  | Odd Row $(2i+1)$             | Description                                                        |
 | ----------- | -------------------------------- | ---------------------------- | ------------------------------------------------------------------ |
-| `OP`        | $\texttt{op} \in \{0, 3, 4, 8\}$ | 0 (no-op)                    | Opcode (the type of elliptic curve operation)                      |
+| `OP`        | $\texttt{op} \in \lbrace 0, 3, 4, 8\rbrace$ | 0 (no-op)                    | Opcode (the type of elliptic curve operation)                      |
 | `X_LO_Y_HI` | $P_{x,\text{lo}}$ (136 bits)     | $P_{y,\text{hi}}$ (118 bits) | Low 136 bits of $x$-coordinate and high 118 bits of $y$-coordinate |
 | `X_HI_Z_1`  | $P_{x,\text{hi}}$ (118 bits)     | $z_1$ (128 bits)             | High 118 bits of $x$-coordinate and first scalar                   |
 | `Y_LO_Z_2`  | $P_{y,\text{lo}}$ (136 bits)     | $z_2$ (128 bits)             | Low 136 bits of $y$-coordinate and second scalar                   |
@@ -135,8 +185,8 @@ These columns directly represent the EccOpQueue transcript:
 
 **Encoding scheme**: Point coordinates $P_x$ and $P_y$ are each 254 bits, split as:
 
-- $P_x = (P_{x,\text{hi}}$ (118 bits) $\|$ $P_{x,\text{lo}}$ (136 bits) $)$
-- $P_y = (P_{y,\text{hi}}$ (118 bits) $\|$ $P_{y,\text{lo}}$ (136 bits) $)$
+- $P_x = (P_{x,\text{hi}}$ (118 bits) $\Vert$ $P_{x,\text{lo}}$ (136 bits) $)$
+- $P_y = (P_{y,\text{hi}}$ (118 bits) $\Vert$ $P_{y,\text{lo}}$ (136 bits) $)$
 
 #### 2. Limb Decomposition Columns (13 columns)
 
@@ -251,7 +301,7 @@ The tail microlimbs (shown in yellow) enforce tight range constraints by ensurin
 
 Some columns are "virtual" and not explicitly stored in the witness trace. Instead, they are computed on-the-fly during relation evaluation using existing columns. These include:
 
-- Interleaved columns for range constraint microlimbs (computed from the physical microlimb columns)
+- Concatenated polynomials for range constraint microlimbs (committed by the prover)
 - Sorted (ordered) columns for range constraint microlimbs (computed by sorting the physical microlimb columns)
 
 ### Mini-Circuit Layout
@@ -264,14 +314,14 @@ The mini-circuit layout is illustrated below:
 - Let $n$ = total number of rows in the mini-circuit
 - Let $r_{\textsf{start}}$ = number of rows for randomness at start
 - Let $r_{\textsf{end}}$ = number of rows for randomness at the end
-- Let $z_1$ = number of initial no-op rows (to ensure column polynomials are shiftable)
+- Let $z_1$ = number of initial zero rows (to ensure column polynomials are shiftable)
 
 Color coding in the diagram:
 
 - Purple boxes ($\textcolor{violet}{\textsf{purple}}$): Zero values or initial values
-  - For all columns: initial no-op row contains zeros
+  - For all columns: initial zero rows for shiftability
   - For non-OP columns (13 limb + 64 microlimb): end randomness region initially contain zeros, later overwritten with random values for ZK sumcheck
-- Grey boxes ($\textcolor{grey}{\textsf{grey}}$): Random values (no-op) in the 4 OP queue columns only
+- Grey boxes ($\textcolor{grey}{\textsf{grey}}$): Random values in the 4 OP queue columns only
   - These remain as random values from the random op processing
   - Serve Merge Protocol ZK hiding
 - Orange boxes ($\textcolor{orange}{\textsf{orange}}$): Main operation rows
@@ -289,7 +339,7 @@ z_1
    }
 }^{4}
 &
-\textsf{\scriptsize $\longleftarrow$ initial no-op}
+\textsf{\scriptsize $\longleftarrow$ shiftability zeros}
 &
 \overbrace{
 \textcolor{violet}{
@@ -401,7 +451,7 @@ r_{\textsf{end}}
 \end{array}
 $$
 
-In our implementation, mini-circuit size is $n = 2^{13}$. We have $z_1 = 2$ (one no-op at the start to ensure shiftability), $r_{\textsf{start}} = 6$ (rows for three random ops at start), and $r_{\textsf{end}} = 4$ (rows for two random ops at end). Thus, the number of main operation rows is $n - r_{\textsf{start}} - r_{\textsf{end}} - z_1 = 8180$.
+In our implementation, mini-circuit size is $n = 2^{13}$. We have $z_1 = 2$ (two zero rows at the start to ensure shiftability), $r_{\textsf{start}} = 6$ (rows for three random ops at start), and $r_{\textsf{end}} = 4$ (rows for two random ops at end). Thus, the number of main operation rows is $n - r_{\textsf{start}} - r_{\textsf{end}} - z_1 = 8180$.
 
 The random ops serve dual purposes for zero-knowledge:
 
@@ -423,43 +473,44 @@ The random ops serve dual purposes for zero-knowledge:
 
 ### Lagrange Polynomials (Precomputed)
 
-The circuit uses Lagrange polynomials to control which constraints are active: ($I_{\text{size}} = 16$ is the number of columns interleaved together)
+The circuit uses Lagrange polynomials to control which constraints are active: ($I_{\text{size}} = 16$ is the number of columns concatenated together)
 
 | Polynomial                     | Description                               | Active Rows                                                                                     |
 | ------------------------------ | ----------------------------------------- | ----------------------------------------------------------------------------------------------- |
 | `lagrange_first`               | First row                                 | $i = 0$                                                                                         |
-| `lagrange_real_last`           | Last row in full circuit (before masking) | $i = 2^{17} - m \cdot I_{\text{size}} - 1$                                                      |
+| `lagrange_real_last`           | Last row in full circuit (before masking) | $i = N -$ `MAX_RANDOM_VALUES_PER_ORDERED` $- 1 = 2^{17} - 64 - 1 = 131007$               |
 | `lagrange_last`                | Last row in full circuit                  | $i = 2^{17} - 1$                                                                                |
-| `lagrange_masking`             | Masking rows in full circuit              | $i \in [2^{17} - m \cdot I_{\text{size}}, \ 2^{17})$                                            |
+| `lagrange_masking`             | Scattered masking rows in full circuit    | $i \in \lbrace j \cdot 2^{13} + k : j \in [0,16), k \in [2^{13} - m, 2^{13})\rbrace$                       |
 | `lagrange_mini_masking`        | Masking rows in mini circuit              | $i \in [z_1, \ z_1 + r_{\textsf{start}}) \cup [n - r_{\textsf{end}}, \ n)$                      |
-| `lagrange_even_in_minicircuit` | Even indices in real mini-circuit         | $i \in \{u \ \| \ u \ \% \ 2 = 0, \ (z_1 + r_{\textsf{start}}) \leq u < n - r_{\textsf{end}}\}$ |
-| `lagrange_odd_in_minicircuit`  | Odd indices in real mini-circuit          | $i \in \{u \ \| \ u \ \% \ 2 = 1, \ (z_1 + r_{\textsf{start}}) \leq u < n - r_{\textsf{end}}\}$ |
+| `lagrange_even_in_minicircuit` | Even indices in real mini-circuit         | $i \in \lbrace u \ \mid  \ u \ \bmod  \ 2 = 0, \ (z_1 + r_{\textsf{start}}) \leq u < n - r_{\textsf{end}}\rbrace$ |
+| `lagrange_odd_in_minicircuit`  | Odd indices in real mini-circuit          | $i \in \lbrace u \ \mid  \ u \ \bmod  \ 2 = 1, \ (z_1 + r_{\textsf{start}}) \leq u < n - r_{\textsf{end}}\rbrace$ |
 | `lagrange_last_in_minicircuit` | Last row in mini-circuit                  | $i = 8191$ (mini)                                                                               |
 | `lagrange_result_row`          | Row containing final accumulator result   | $i = (z_1 + r_{\textsf{start}})$                                                                |
 | `lagrange_last_in_minicircuit` | Last real row in mini-circuit             | $i = (n - r_{\textsf{end}}) - 1$                                                                |
+| `lagrange_ordered_masking`     | Contiguous masking at end of circuit      | $i \in [N - 64, N)$                                                                             |
 |                                |                                           |                                                                                                 |
 
-## Interleaving: The Key Optimization
+## Concatenation: The Key Optimization
 
-The Translator must range-constrain approximately 64 different microlimb sets using permutation argument (and the delta range constraint). The permutation argument's degree equals $1 + \textsf{NUM\_COLS}$, where NUM_COLS is the number of columns being permuted:
+The Translator must range-constrain approximately 64 different microlimb sets using permutation argument (and the delta range constraint). The permutation argument's degree equals $1 +$ `NUM_COLS`, where NUM_COLS is the number of columns being permuted:
 
 $$
 z_{\textsf{perm}}[i+1] \cdot \prod_{j=1}^{\textsf{NUM\_COLS}} (\textsf{ordered}[j] + \gamma) =
-z_{\textsf{perm}}[i] \cdot \prod_{j=1}^{\textsf{NUM\_COLS}} (\textsf{interleaved}[j] + \gamma)
+z_{\textsf{perm}}[i] \cdot \prod_{j=1}^{\textsf{NUM\_COLS}} (\textsf{concatenated}[j] + \gamma)
 $$
 
 The Problem: Permuting all ~64 microlimb columns simultaneously would require us to commit to all of them. Further, since the relation degree would be $1 + 64 = 65$, computing the sumcheck univariates could be a significant overhead for the prover. The prover would need to then commit to the univariates (instead of sending evaluations directly).
 
-The Solution: Interleave 16 logical columns into one virtual column, and create 4 such columns (plus 1 for the extra column). Each group can then perform an independent permutation check with degree $1 + 5 = 6$ (or 7 with Lagrange selector). This reduces the relation degree from 65 to 7.
+The Solution: Concatenate 16 logical columns into one polynomial, and create 4 such polynomials (plus 1 for the extra column). Each group can then perform an independent permutation check with degree $1 + 5 = 6$ (or 7 with Lagrange selector). This reduces the relation degree from 65 to 7.
 
 ### Circuit Structure
 
 ```
 Mini-circuit size:  2^13 = 8,192 rows    (actual computation)
-Full circuit size:  2^13 x 16 = 2^17 = 131,072 rows  (after interleaving)
+Full circuit size:  2^13 x 16 = 2^17 = 131,072 rows  (after concatenation)
 ```
 
-To compute the interleaved polynomials, we group 16 polynomials together and interleave their coefficients. Consider the following 16 polynomials each of size $n=2^{13}$ in the mini-circuit:
+To compute the concatenated polynomials, we group 16 polynomials together and concatenate them end-to-end (lane bits as MSB). Consider the following 16 polynomials each of size $n=2^{13}$ in the mini-circuit:
 
 $$
 \newcommand{\arraystretch}{1.2}
@@ -478,39 +529,37 @@ n-1 & \textcolor{skyblue}{a_{n-1}} & \textcolor{orange}{b_{n-1}} & \textcolor{li
 \quad \longrightarrow \quad
 \begin{array}{|c|c|c|}
 \hline
-\textsf{group} & \textsf{index} & \textsf{interleaved} \\
+\textsf{lane} & \textsf{index} & \textsf{concatenated} \\
 \hline
 0 & 0 & \textcolor{skyblue}{a_0} \\
-0 & 1 & \textcolor{orange}{b_0} \\
-0 & 2 & \textcolor{lightgreen}{c_0} \\
+0 & 1 & \textcolor{skyblue}{a_1} \\
+0 & 2 & \textcolor{skyblue}{a_2} \\
 \vdots & \vdots & \vdots \\[3pt]
-0 & 15 & \textcolor{firebrick}{p_0} \\ \hline
-1 & 16 & \textcolor{skyblue}{a_1} \\
-1 & 17 & \textcolor{orange}{b_1} \\
-1 & 18 & \textcolor{lightgreen}{c_1} \\
+0 & n-1 & \textcolor{skyblue}{a_{n-1}} \\ \hline
+1 & n & \textcolor{orange}{b_0} \\
+1 & n+1 & \textcolor{orange}{b_1} \\
+1 & n+2 & \textcolor{orange}{b_2} \\
 \vdots & \vdots & \vdots \\[3pt]
-1 & 31 & \textcolor{firebrick}{p_1} \\ \hline
+1 & 2n-1 & \textcolor{orange}{b_{n-1}} \\ \hline
 \vdots & \vdots & \vdots \\ \hline
-n-1 & 16n-16 & \textcolor{skyblue}{a_{n-1}} \\
-n-1 & 16n-15 & \textcolor{orange}{b_{n-1}} \\
-n-1 & 16n-14 & \textcolor{lightgreen}{c_{n-1}} \\
+15 & 15n & \textcolor{firebrick}{p_0} \\
+15 & 15n+1 & \textcolor{firebrick}{p_1} \\
+15 & 15n+2 & \textcolor{firebrick}{p_2} \\
 \vdots & \vdots & \vdots \\[3pt]
-n-1 & 16n-1 & \textcolor{firebrick}{p_{n-1}} \\
+15 & 16n-1 & \textcolor{firebrick}{p_{n-1}} \\
 \hline
 \end{array}
 $$
 
-For 64 microlimb columns, we have 4 groups of 16 columns each, resulting in four interleaved polynomials each of size $16n = 2^{17}$. Note that the interleaved polynomials are not "physical" wires in the circuit trace: we refer to them as virtual polynomials. Each of these groups performs an independent permutation check:
+For 64 microlimb columns, we have 4 groups of 16 columns each, resulting in four concatenated polynomials each of size $16n = 2^{17}$. The prover commits to these 5 concatenated polynomials (4 range constraint groups + 1 extra). Each of these groups performs an independent permutation check:
 
-- Numerator: 4 interleaved wires + 1 extra = 5 terms
+- Numerator: 4 concatenated wires + 1 extra = 5 terms
 - Denominator: 5 ordered wires = 5 terms
 - Degree: $1 + 5 = 6$ (or 7 with Lagrange)
 
-The permutation argument verifies that within each group, the interleaved values are a permutation of the ordered (sorted) values. Due to interleaving, the total circuit size increases 16×, requiring more zero-padding. Interleaving trades circuit size (inexpensive) for relation degree (expensive). The 16× size increase is acceptable given the 9× degree reduction.
+The permutation argument verifies that within each group, the concatenated values are a permutation of the ordered (sorted) values. Due to concatenation, the total circuit size increases 16×, requiring more zero-padding. Concatenation trades circuit size (inexpensive) for relation degree (expensive). The 16× size increase is acceptable given the 9× degree reduction.
 
-> **Effect on Commitment Scheme**: For polynomials $p_0, \dots, p_{15}$ of size $n$, the interleaved polynomial of size $16n$ is:
-> $$p_{\textsf{interleaved}}(x) = \sum_{i=0}^{15} x^i \cdot p_{i}(x^{16})$$
-> The interleaved polynomials don't need to be committed explicitly; they can be opened (at, say $\gamma$) by using the commitments to the original polynomials and their evaluations (at $\gamma^{16}$). This is explained in more detail in the [Gemini](../commitment_schemes/gemini/README.md) documentation.
+> **Effect on Commitment Scheme**: The prover **commits** to the 5 concatenated polynomials. This reduces the proof size and recursive verification cost compared to committing to 64 individual microlimb wires. The verifier reconstructs evaluations of the concatenated polynomials from individual wire evaluations using Lagrange decomposition over the top 4 sumcheck challenges.
 
 ## Witness Generation and Proving Key Construction
 
@@ -518,27 +567,27 @@ This section details how the Translator circuit's witness polynomials are popula
 
 ### Overview
 
-Witness generation transforms the `EccOpQueue` from the Mega circuit into the 91 polynomials required by the Translator circuit:
+Witness generation transforms the `EccOpQueue` from the Mega circuit into the 92 polynomials required by the Translator circuit:
 
 ```
 Input:  EccOpQueue (n operations)
         Evaluation challenge x ∈ Fq
         Batching challenge v ∈ Fq
 
-Output: 91 polynomials of size 2^17
+Output: 92 polynomials of size 2^17
         - 81 witness polynomials
         - 5 ordered range constraint polynomials
-        - 4 interleaved range constraint polynomials (virtual)
-        - 1 precomputed extra numerator
+        - 5 concatenated polynomials (committed)
+        - 1 grand product polynomial (z_perm, for the permutation argument)
 ```
 
-**Note:** Witness generation happens in the **mini-circuit size** (2¹³ = 8,192 rows), then is expanded to **full circuit size** (2¹⁷ = 131,072 rows) through interleaving and zero-padding.
+**Note:** Witness generation happens in the **mini-circuit size** (2¹³ = 8,192 rows), then is expanded to **full circuit size** (2¹⁷ = 131,072 rows) through concatenation and zero-padding.
 
 ### Step 1: Populate Transcript Polynomials
 
 The prover receives the `EccOpQueue` from the Mega circuit. Each entry contains:
 
-$$\texttt{UltraOp} = \{\texttt{op}, P_x, P_y, z_1, z_2\}$$
+$$\texttt{UltraOp} = \lbrace \texttt{op}, P_x, P_y, z_1, z_2\rbrace$$
 
 For operation $i$ at rows $2i$ (even) and $2i+1$ (odd), populate:
 
@@ -675,27 +724,23 @@ The decomposition relation enforces $m_{\text{tail}} \in [0, 2^{14})$, which imp
 - 50-bit limbs (top limb): $m_3 \in [0, 2^8) \implies$ tail shift is $2^{14-8} = 64$
 - 60-bit limbs (z high): $m_4 \in [0, 2^4)\implies$ tail shift is $2^{14-4} = 1024$
 
-### Step 5: Construct Interleaved Polynomials
+### Step 5: Construct Concatenated Polynomials
 
-The 64 microlimb columns are organized into 4 groups of 16 columns each. Each group is **interleaved** into a single polynomial at full circuit size.
+The 64 microlimb columns are organized into 4 groups of 16 columns each. Each group is **concatenated** into a single polynomial at full circuit size.
 
-**Interleaving formula:** For group polynomials $\{p_0, p_1, \ldots, p_{15}\}$ each of mini-size $n = 2^{13}$:
+**Concatenation formula:** For group polynomials $\lbrace p_0, p_1, \ldots, p_{15}\rbrace$ each of mini-size $n = 2^{13}$:
 
-$$p_{\text{interleaved}}(x) = \sum_{j=0}^{15} x^j \cdot p_j(x^{16})$$
-
-**In coefficient form:** Element at position $i \cdot 16 + j$ in the interleaved polynomial comes from row $i$ of polynomial $p_j$:
-
-$$p_{\text{interleaved}}[i \cdot 16 + j] = p_j[i] \quad \text{for } i \in [0, n), \ j \in [0, 16)$$
+$$p_{\text{concatenated}}[j \cdot n + k] = p_j[k] \quad \text{for } j \in [0, 16), \ k \in [0, n)$$
 
 This expands the circuit from mini-size $2^{13}$ to full size $2^{17} = 2^{13} \times 16$.
 
-**Illustration:** We have a total of 64 microlimb columns, each with $n = 2^{13}$ rows (mini-circuit size). We illustrate the microlimb distribution and interleaving process below:
+**Illustration:** We have a total of 64 microlimb columns, each with $n = 2^{13}$ rows (mini-circuit size). We illustrate the microlimb distribution and concatenation process below:
 
 1. Let $I_{\textsf{size}} = 16$ be the number of microlimb columns in one group. Since we have 64 microlimb columns, we will have 4 groups.
 
 2. Each group separates the microlimbs into circuit witnesses ($n-m$ rows in orange) and masking values ($m$ rows in gray).
 
-3. For each group, we interleave the microlimbs to create one interleaved polynomial of size $(n - m) \cdot I_{\textsf{size}}$ for circuit witnesses and $m \cdot I_{\textsf{size}}$ for masking values.
+3. For each group, we concatenate the microlimbs end-to-end to create one concatenated polynomial of size $n \cdot I_{\textsf{size}}$. Within each of the $I_{\textsf{size}}$ blocks, the last $m$ rows are masking values, so masking is scattered across the concatenated polynomial (not contiguous at the end).
 
 $$
 \begin{array}{rllll}
@@ -800,98 +845,71 @@ m
 }
 \end{array}
 
-\xrightarrow[]{\textsf{interleaved polys}}
+\xrightarrow[]{\textsf{concatenated polys}}
 
-\begin{array}{lllll}
+\begin{array}{ll}
 I_1 \quad I_2 \quad I_3 \quad I_4 \\
-\textcolor{orange}{
-\boxed{
-\begin{array}{c}
-\\ \\ \\ \\ \\ \\ \\[60pt]
-\end{array}
-}}
-\
-\textcolor{orange}{
-\boxed{
-\begin{array}{c}
-\\ \\ \\ \\ \\ \\ \\[60pt]
-\end{array}
-}}
-\
-\textcolor{orange}{
-\boxed{
-\begin{array}{c}
-\\ \\ \\ \\ \\ \\ \\[60pt]
-\end{array}
-}}
-\
-\textcolor{orange}{
-\boxed{
-\begin{array}{c}
-\\ \\ \\ \\ \\ \\ \\[60pt]
-\end{array}
-}}
-&
-N - m \cdot I_{\textsf{size}}
+\textcolor{orange}{\boxed{\begin{array}{c}\\ \\\end{array}}}
+\ \textcolor{orange}{\boxed{\begin{array}{c}\\ \\\end{array}}}
+\ \textcolor{orange}{\boxed{\begin{array}{c}\\ \\\end{array}}}
+\ \textcolor{orange}{\boxed{\begin{array}{c}\\ \\\end{array}}}
+& n - m
 \\
-\\[-10pt]
-\textcolor{gray}{
-\boxed{
-\begin{array}{c}
-\\[-3pt]\\[-3pt]
-\end{array}
-}}
-\
-\textcolor{gray}{
-\boxed{
-\begin{array}{c}
-\\[-3pt]\\[-3pt]
-\end{array}
-}}
-\
-\textcolor{gray}{
-\boxed{
-\begin{array}{c}
-\\[-3pt]\\[-3pt]
-\end{array}
-}}
-\
-\textcolor{gray}{
-\boxed{
-\begin{array}{c}
-\\[-3pt]\\[-3pt]
-\end{array}
-}}
-&
-m \cdot I_{\textsf{size}}
+\textcolor{gray}{\boxed{\begin{array}{c}\\[-3pt]\end{array}}}
+\ \textcolor{gray}{\boxed{\begin{array}{c}\\[-3pt]\end{array}}}
+\ \textcolor{gray}{\boxed{\begin{array}{c}\\[-3pt]\end{array}}}
+\ \textcolor{gray}{\boxed{\begin{array}{c}\\[-3pt]\end{array}}}
+& m
+\\[5pt]
+\textcolor{orange}{\boxed{\begin{array}{c}\\ \\\end{array}}}
+\ \textcolor{orange}{\boxed{\begin{array}{c}\\ \\\end{array}}}
+\ \textcolor{orange}{\boxed{\begin{array}{c}\\ \\\end{array}}}
+\ \textcolor{orange}{\boxed{\begin{array}{c}\\ \\\end{array}}}
+\\
+\textcolor{gray}{\boxed{\begin{array}{c}\\[-3pt]\end{array}}}
+\ \textcolor{gray}{\boxed{\begin{array}{c}\\[-3pt]\end{array}}}
+\ \textcolor{gray}{\boxed{\begin{array}{c}\\[-3pt]\end{array}}}
+\ \textcolor{gray}{\boxed{\begin{array}{c}\\[-3pt]\end{array}}}
+\\[10pt]
+\quad\vdots & \scriptstyle{\times\,16\text{ lanes}}
+\\[10pt]
+\textcolor{orange}{\boxed{\begin{array}{c}\\ \\\end{array}}}
+\ \textcolor{orange}{\boxed{\begin{array}{c}\\ \\\end{array}}}
+\ \textcolor{orange}{\boxed{\begin{array}{c}\\ \\\end{array}}}
+\ \textcolor{orange}{\boxed{\begin{array}{c}\\ \\\end{array}}}
+\\
+\textcolor{gray}{\boxed{\begin{array}{c}\\[-3pt]\end{array}}}
+\ \textcolor{gray}{\boxed{\begin{array}{c}\\[-3pt]\end{array}}}
+\ \textcolor{gray}{\boxed{\begin{array}{c}\\[-3pt]\end{array}}}
+\ \textcolor{gray}{\boxed{\begin{array}{c}\\[-3pt]\end{array}}}
 \end{array}
 $$
 
 ### Step 6: Construct Ordered (Sorted) Polynomials
 
-The permutation argument requires proving that the interleaved microlimbs equal the **sorted** microlimbs. The prover constructs 5 ordered polynomials by collecting microlimbs from all 64 columns, sorting them, and distributing across ordered polynomials with inserted step values. We first describe the mathematical setup and then illustrate the construction steps.
+The permutation argument requires proving that the concatenated microlimbs equal the **sorted** microlimbs. The prover constructs 5 ordered polynomials by collecting microlimbs from all 64 columns, sorting them, and distributing across ordered polynomials with inserted step values. We first describe the mathematical setup and then illustrate the construction steps.
 
 **Constants:**
 
 - Mini-circuit size: $n = 2^{13} = 8{,}192$
 - Number of masked rows in mini-circuit: $m = 4$
 - Mini-circuit size without masking: $(n - m) = 8{,}188$
-- Number of interleaving groups: $G = 4$
+- Number of concatenation groups: $G = 4$
 - Group size: $I_{\text{size}} = 16$ (polynomials per group)
 - Full circuit size: $N := n \cdot I_{\text{size}} = 2^{17} = 131{,}072$
 - Circuit size without masking: $N_{\text{no-mask}} = N - m \cdot I_{\textsf{size}}$
 - Step sequence size: $N_{\text{steps}} = 5{,}462$
 
-**Step sequence:** The sorted steps $\mathcal{S} = \{s_0, s_1, \ldots, s_{5461}\}$ where:
+**Step sequence:** The sorted steps $\mathcal{S} = \lbrace s_0, s_1, \ldots, s_{5461}\rbrace$ where:
 $$s_i = 3i \quad \text{for } i \in [0, 5461], \quad s_{5461} = 16{,}383 = 2^{14} - 1$$
 
 This ensures coverage of all values in $[0, 2^{14})$ with max gap of 3.
 
 #### Step 6.1: Collect Microlimbs from Each Group
 
-For each group $g \in \{0, 1, 2, 3\}$, collect all microlimbs from its 16 polynomials:
+For each group $g \in \lbrace 0, 1, 2, 3\rbrace$, collect all microlimbs from its 16 polynomials:
 
-$$\mathcal{M}_g = \bigcup_{j=0}^{15} \Big\{ p_{g,j}[i] : i \in [0, (n-m)) \Big\}$$
+$$\mathcal{M}_g = \bigcup_{j=0}^{15} \Big\lbrace p_{g,j}[i] : i \in [0, (n-m)) \Big\rbrace$$
 
 where $p_{g,j}$ is the $j$-th polynomial in group $g$. Size of each group microlimb set:
 
@@ -921,7 +939,7 @@ For groups 0-3, construct `ordered_range_constraints_i` by:
 3. Add step values $\mathcal{S}$
 4. Sort the combined set
 
-Mathematically, for $g \in \{0, 1, 2, 3\}$:
+Mathematically, for $g \in \lbrace 0, 1, 2, 3\rbrace$:
 
 $$
 \text{ordered}[g]_{\text{unsorted}} = \begin{cases}
@@ -934,9 +952,9 @@ $$
 Then sort:
 $$\text{ordered}[g] = \text{sort}(\text{ordered}[g]_{\text{unsorted}})$$
 
-Overflow microlimbs: If $|\mathcal{M}_g| > C_{\text{capacity}}$, the excess microlimbs go to group 4:
+Overflow microlimbs: If $|\mathcal M_g| > C_{\text{capacity}}$, the excess microlimbs go to group 4:
 
-$$\mathcal{M}_{g,\text{overflow}} = \left\{ \mathcal{M}_g[k] : k \geq C_{\text{capacity}} \right\}$$
+$$\mathcal{M}_{g,\text{overflow}} = \left\lbrace \mathcal{M}_g[k] : k \geq C_{\text{capacity}} \right\rbrace$$
 
 $$|\mathcal{M}_{g,\text{overflow}}| = |\mathcal{M}_g| - C_{\text{capacity}}$$
 
@@ -962,172 +980,89 @@ $$
 Then sort:
 $$\text{ordered}[4] = \text{sort}(\text{ordered}[4]_{\text{unsorted}})$$
 
-**Illustration:** We start with the 4 interleaved polynomials constructed earlier:
+**Illustration:** We start with the 4 concatenated range constraint polynomials constructed earlier:
 
 1. First, we add an extra numerator polynomial $I_5$ containing the step values (shown in green, repeated 5 times) to enable the delta range constraint.
 
-2. The remainder of $I_5$ is filled with zero-padding (shown in violet) to match the size $N$ of the interleaved polynomials.
+2. The remainder of $I_5$ is filled with zero-padding (shown in violet) to match the size $N$ of the concatenated polynomials.
 
-3. In the four interleaved polynomials, we have circuit witness values (orange) and masking values (gray). We also show the overflow microlimbs that will go into the 5th ordered polynomial (smaller orange boxes).
+3. In the four concatenated polynomials, we have circuit witness values (orange) and masking values (gray), scattered across 16 lanes. Some circuit witness values overflow into the 5th ordered polynomial.
 
-4. We then construct the ordered polynomials $O_1, \dots, O_5$ by adding the step values into each interleaved polynomial and sorting the witness values appropriately.
+4. We then construct the ordered polynomials $O_1, \dots, O_5$ by adding the step values into each concatenated polynomial and sorting the witness values appropriately.
 
-5. The randomess in the masking region (gray) is redistributed to ensure that the multisets of the interleaved polynomials plus extra numerator equal the multisets of the ordered polynomials. Hence, the number of masking rows in each of the ordered polynomials is at least $\left\lfloor\frac{4 \cdot m \cdot I_{\textsf{size}}}{5}\right\rfloor$. The remainder of the rows in each ordered polynomial is filled with zero-padding.
+5. The randomness in the masking region (gray) is redistributed to ensure that the multisets of the concatenated polynomials plus extra numerator equal the multisets of the ordered polynomials. Hence, the number of masking rows in each of the ordered polynomials is at least $\left\lfloor\frac{4 \cdot m \cdot I_{\textsf{size}}}{5}\right\rfloor$. The remainder of the rows in each ordered polynomial is filled with zero-padding.
 
 $$
-\begin{array}{rllll}
-& I_1 \quad I_2 \quad I_3 \quad I_4 \\
-N - m \cdot I_{\textsf{size}}
-&
-\textcolor{orange}{
-\boxed{
-\begin{array}{c}
-\\ \\ \\ \\ \\ \\ \\[60pt]
-\end{array}
-}}
-\
-\textcolor{orange}{
-\boxed{
-\begin{array}{c}
-\\ \\ \\ \\ \\ \\ \\[60pt]
-\end{array}
-}}
-\
-\textcolor{orange}{
-\boxed{
-\begin{array}{c}
-\\ \\ \\ \\ \\ \\ \\[60pt]
-\end{array}
-}}
-\
-\textcolor{orange}{
-\boxed{
-\begin{array}{c}
-\\ \\ \\ \\ \\ \\ \\[60pt]
-\end{array}
-}}
+\begin{array}{ll}
+I_1 \quad I_2 \quad I_3 \quad I_4 \\
+\textcolor{orange}{\boxed{\begin{array}{c}\\ \\\end{array}}}
+\ \textcolor{orange}{\boxed{\begin{array}{c}\\ \\\end{array}}}
+\ \textcolor{orange}{\boxed{\begin{array}{c}\\ \\\end{array}}}
+\ \textcolor{orange}{\boxed{\begin{array}{c}\\ \\\end{array}}}
 \\
-\\[-10pt]
-m \cdot I_{\textsf{size}}
-&
-\textcolor{gray}{
-\boxed{
-\begin{array}{c}
-\\[-3pt]\\[-3pt]
-\end{array}
-}}
-\
-\textcolor{gray}{
-\boxed{
-\begin{array}{c}
-\\[-3pt]\\[-3pt]
-\end{array}
-}}
-\
-\textcolor{gray}{
-\boxed{
-\begin{array}{c}
-\\[-3pt]\\[-3pt]
-\end{array}
-}}
-\
-\textcolor{gray}{
-\boxed{
-\begin{array}{c}
-\\[-3pt]\\[-3pt]
-\end{array}
-}}
+\textcolor{gray}{\boxed{\begin{array}{c}\\[-3pt]\end{array}}}
+\ \textcolor{gray}{\boxed{\begin{array}{c}\\[-3pt]\end{array}}}
+\ \textcolor{gray}{\boxed{\begin{array}{c}\\[-3pt]\end{array}}}
+\ \textcolor{gray}{\boxed{\begin{array}{c}\\[-3pt]\end{array}}}
+\\[5pt]
+\textcolor{orange}{\boxed{\begin{array}{c}\\ \\\end{array}}}
+\ \textcolor{orange}{\boxed{\begin{array}{c}\\ \\\end{array}}}
+\ \textcolor{orange}{\boxed{\begin{array}{c}\\ \\\end{array}}}
+\ \textcolor{orange}{\boxed{\begin{array}{c}\\ \\\end{array}}}
+\\
+\textcolor{gray}{\boxed{\begin{array}{c}\\[-3pt]\end{array}}}
+\ \textcolor{gray}{\boxed{\begin{array}{c}\\[-3pt]\end{array}}}
+\ \textcolor{gray}{\boxed{\begin{array}{c}\\[-3pt]\end{array}}}
+\ \textcolor{gray}{\boxed{\begin{array}{c}\\[-3pt]\end{array}}}
+\\[10pt]
+\quad\vdots
+\\[10pt]
+\textcolor{orange}{\boxed{\begin{array}{c}\\ \\\end{array}}}
+\ \textcolor{orange}{\boxed{\begin{array}{c}\\ \\\end{array}}}
+\ \textcolor{orange}{\boxed{\begin{array}{c}\\ \\\end{array}}}
+\ \textcolor{orange}{\boxed{\begin{array}{c}\\ \\\end{array}}}
+\\
+\textcolor{gray}{\boxed{\begin{array}{c}\\[-3pt]\end{array}}}
+\ \textcolor{gray}{\boxed{\begin{array}{c}\\[-3pt]\end{array}}}
+\ \textcolor{gray}{\boxed{\begin{array}{c}\\[-3pt]\end{array}}}
+\ \textcolor{gray}{\boxed{\begin{array}{c}\\[-3pt]\end{array}}}
 \end{array}
 
 \xrightarrow[]{\textsf{add extra numerator}}
 
-\begin{array}{lrrrrr}
+\begin{array}{ll}
 I_1 \quad I_2 \quad I_3 \quad I_4 \\
-\textcolor{orange}{
-\boxed{
-\begin{array}{c}
-\\ \\ \\ \\ \\ \\ \\[25pt]
-\end{array}
-}}
-\
-\textcolor{orange}{
-\boxed{
-\begin{array}{c}
-\\ \\ \\ \\ \\ \\ \\[25pt]
-\end{array}
-}}
-\
-\textcolor{orange}{
-\boxed{
-\begin{array}{c}
-\\ \\ \\ \\ \\ \\ \\[25pt]
-\end{array}
-}}
-\
-\textcolor{orange}{
-\boxed{
-\begin{array}{c}
-\\ \\ \\ \\ \\ \\ \\[25pt]
-\end{array}
-}}
+\textcolor{orange}{\boxed{\begin{array}{c}\\ \\\end{array}}}
+\ \textcolor{orange}{\boxed{\begin{array}{c}\\ \\\end{array}}}
+\ \textcolor{orange}{\boxed{\begin{array}{c}\\ \\\end{array}}}
+\ \textcolor{orange}{\boxed{\begin{array}{c}\\ \\\end{array}}}
 \\
-\\[-10pt]
-\textcolor{orange}{
-\boxed{
-\begin{array}{c}
-\\[1pt]
-\end{array}
-}}
-\
-\textcolor{orange}{
-\boxed{
-\begin{array}{c}
-\\[1pt]
-\end{array}
-}}
-\
-\textcolor{orange}{
-\boxed{
-\begin{array}{c}
-\\[1pt]
-\end{array}
-}}
-\
-\textcolor{orange}{
-\boxed{
-\begin{array}{c}
-\\[1pt]
-\end{array}
-}}
+\textcolor{gray}{\boxed{\begin{array}{c}\\[-3pt]\end{array}}}
+\ \textcolor{gray}{\boxed{\begin{array}{c}\\[-3pt]\end{array}}}
+\ \textcolor{gray}{\boxed{\begin{array}{c}\\[-3pt]\end{array}}}
+\ \textcolor{gray}{\boxed{\begin{array}{c}\\[-3pt]\end{array}}}
+\\[5pt]
+\textcolor{orange}{\boxed{\begin{array}{c}\\ \\\end{array}}}
+\ \textcolor{orange}{\boxed{\begin{array}{c}\\ \\\end{array}}}
+\ \textcolor{orange}{\boxed{\begin{array}{c}\\ \\\end{array}}}
+\ \textcolor{orange}{\boxed{\begin{array}{c}\\ \\\end{array}}}
 \\
-\\[-10pt]
-\textcolor{gray}{
-\boxed{
-\begin{array}{c}
-\\[-3pt]\\[-3pt]
-\end{array}
-}}
-\
-\textcolor{gray}{
-\boxed{
-\begin{array}{c}
-\\[-3pt]\\[-3pt]
-\end{array}
-}}
-\
-\textcolor{gray}{
-\boxed{
-\begin{array}{c}
-\\[-3pt]\\[-3pt]
-\end{array}
-}}
-\
-\textcolor{gray}{
-\boxed{
-\begin{array}{c}
-\\[-3pt]\\[-3pt]
-\end{array}
-}}
+\textcolor{gray}{\boxed{\begin{array}{c}\\[-3pt]\end{array}}}
+\ \textcolor{gray}{\boxed{\begin{array}{c}\\[-3pt]\end{array}}}
+\ \textcolor{gray}{\boxed{\begin{array}{c}\\[-3pt]\end{array}}}
+\ \textcolor{gray}{\boxed{\begin{array}{c}\\[-3pt]\end{array}}}
+\\[10pt]
+\quad\vdots
+\\[10pt]
+\textcolor{orange}{\boxed{\begin{array}{c}\\ \\\end{array}}}
+\ \textcolor{orange}{\boxed{\begin{array}{c}\\ \\\end{array}}}
+\ \textcolor{orange}{\boxed{\begin{array}{c}\\ \\\end{array}}}
+\ \textcolor{orange}{\boxed{\begin{array}{c}\\ \\\end{array}}}
+\\
+\textcolor{gray}{\boxed{\begin{array}{c}\\[-3pt]\end{array}}}
+\ \textcolor{gray}{\boxed{\begin{array}{c}\\[-3pt]\end{array}}}
+\ \textcolor{gray}{\boxed{\begin{array}{c}\\[-3pt]\end{array}}}
+\ \textcolor{gray}{\boxed{\begin{array}{c}\\[-3pt]\end{array}}}
 \end{array}
 
 \begin{array}{l}
@@ -1175,7 +1110,7 @@ I_1 \quad I_2 \quad I_3 \quad I_4 \\
    \textcolor{violet}{
    \boxed{
    \begin{array}{c}
-   \\ \\ z \\ \\[2pt]
+   \\ \\ z \\ \\[10pt]
    \end{array}
    }}
 \end{array}
@@ -1370,9 +1305,9 @@ O_1 \quad O_2 \ \ O_3 \quad O_4 \\
 \end{array}
 $$
 
-> In our case, we have $m=4$ and $I_{\textsf{size}}=16$ which results in $(m \cdot I_{\textsf{size}}) = 64$ masked rows in each interleaved polynomials. Thus, each ordered polynomial will have at least $\left\lfloor\frac{4 \cdot 64}{5}\right\rfloor = 51$ masked rows. The remainder masked rows are added to the respective ordered polynomials. The masking rows in each ordered polynomial are padded with zero values to ensure the multiset equality holds.
+> In our case, we have $m=4$ and $I_{\textsf{size}}=16$ which results in $(m \cdot I_{\textsf{size}}) = 64$ masked rows in each concatenated polynomial. Thus, each ordered polynomial will have at least $\left\lfloor\frac{4 \cdot 64}{5}\right\rfloor = 51$ masked rows. The remainder masked rows are added to the respective ordered polynomials. The masking rows in each ordered polynomial are padded with zero values to ensure the multiset equality holds.
 >
-> As illustrated, the two sets of interleaved and ordered polynomials satisfy the multiset equality:
+> As illustrated, the two sets of concatenated and ordered polynomials satisfy the multiset equality:
 > $$\bigcup_{i=1}^5 I_i = \bigcup_{i=1}^5 O_i.$$
 
 ### Step 7: Zero-Knowledge Masking
@@ -1394,7 +1329,7 @@ For each of the witness polynomials, the masking region is defined as the last $
 
 $$[n - m, \ n).$$
 
-After interleaving, the 4 interleaved polynomials have random values at positions:
+With concatenation, the 4 concatenated polynomials have random values at positions:
 
 $$[N - m \cdot I_{\textsf{size}}, \ N).$$
 
@@ -1402,7 +1337,7 @@ Where $m = r_{\textsf{end}} = 4$ (the same 4 rows used for ZK sumcheck masking).
 
 #### Redistributing Randomness to Ordered Polynomials
 
-The ordered polynomials must be committed (unlike interleaved polynomials, which are virtual). To maintain zero-knowledge, the prover redistributes the random values from the 4 interleaved to the 5 ordered polynomials. As illustrated above, each ordered polynomial receives approximately an equal share of the randomness from the interleaved polynomials. The total number of random values in the interleaved polynomials:
+The ordered polynomials must be committed. To maintain zero-knowledge, the prover redistributes the random values from the 4 concatenated to the 5 ordered polynomials. As illustrated above, each ordered polynomial receives approximately an equal share of the randomness from the concatenated polynomials. The total number of random values in the concatenated polynomials:
 
 $$M = 4 \cdot m \cdot I_{\textsf{size}}.$$
 
@@ -1415,7 +1350,7 @@ $$
 
 the remaining positions in the ordered masking region are filled with zeros.
 
-**Note:** The same random values appear in both interleaved and ordered polynomials (just at different positions within the masking region). This is why the $\beta \cdot L_{\text{mask}}$ term is needed in the permutation relation - see [RELATIONS.md](RELATIONS.md#permutation-relation-mathematical-specification) for details.
+**Note:** The same random values appear in both concatenated and ordered polynomials (just at different positions within the masking region). This is why the $\beta \cdot L_{\text{mask}}$ term is needed in the permutation relation - see [RELATIONS.md](RELATIONS.md#permutation-relation-mathematical-specification) for details.
 
 Some positions in the ordered masking region contain random values, others contain zeros. The `ordered_extra_range_constraints_numerator` compensates for these zeros in the permutation check.
 
@@ -1440,13 +1375,13 @@ $$
 
 This polynomial contains the "step values" repeated to balance the permutation:
 
-$$\texttt{ordered\_extra}[i \cdot 5 + j] = \text{sorted\_steps}[i] \quad \text{for } i \in [0, 5462), \ j \in [0, 5)$$
+$$\texttt{ordered extra}[i \cdot 5 + j] = \text{sorted steps}[i] \quad \text{for } i \in [0, 5462), \ j \in [0, 5)$$
 
-where $\text{sorted\_steps} = \{0, 3, 6, 9, \ldots, 16383\}$.
+where $\text{sorted steps} = \lbrace 0, 3, 6, 9, \ldots, 16383\rbrace$.
 
 This ensures the multisets balance:
 
-- **Numerator:** 4 interleaved + 1 extra (with 5 copies of each step value)
+- **Numerator:** 4 concatenated range constraints + 1 extra (with 5 copies of each step value)
 - **Denominator:** 5 ordered (each with 1 copy of each step value)
 
 ## Translator Relations

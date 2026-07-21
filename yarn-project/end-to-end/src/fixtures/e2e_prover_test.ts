@@ -1,44 +1,29 @@
-import type { InitialAccountData } from '@aztec/accounts/testing';
-import { type Archiver, createArchiver } from '@aztec/archiver';
+import { type InitialAccountData, generateSchnorrAccounts } from '@aztec/accounts/testing';
+import { AztecNodeService, createAztecNodeService } from '@aztec/aztec-node';
 import { AztecAddress, EthAddress } from '@aztec/aztec.js/addresses';
-import { type Logger, createLogger } from '@aztec/aztec.js/log';
+import { createLogger } from '@aztec/aztec.js/log';
 import type { AztecNode } from '@aztec/aztec.js/node';
 import { CheatCodes } from '@aztec/aztec/testing';
-import {
-  BBCircuitVerifier,
-  type ClientProtocolCircuitVerifier,
-  QueuedIVCVerifier,
-  TestCircuitVerifier,
-} from '@aztec/bb-prover';
+import type { ClientProtocolCircuitVerifier } from '@aztec/bb-prover';
 import { BackendType, Barretenberg } from '@aztec/bb.js';
-import { createBlobClientWithFileStores } from '@aztec/blob-client/client';
 import type { DeployAztecL1ContractsReturnType } from '@aztec/ethereum/deploy-aztec-l1-contracts';
 import { Buffer32 } from '@aztec/foundation/buffer';
 import { SecretValue } from '@aztec/foundation/config';
 import { FeeAssetHandlerAbi } from '@aztec/l1-artifacts';
 import { TokenContract } from '@aztec/noir-contracts.js/Token';
-import { type ProverNode, type ProverNodeConfig, createProverNode } from '@aztec/prover-node';
 import type { ContractInstanceWithAddress } from '@aztec/stdlib/contract';
 import type { AztecNodeAdmin } from '@aztec/stdlib/interfaces/client';
-import { TestWallet } from '@aztec/test-wallet/server';
 import { getGenesisValues } from '@aztec/world-state/testing';
 
 import { type Hex, getContract } from 'viem';
 import { privateKeyToAddress } from 'viem/accounts';
 
 import { TokenSimulator } from '../simulators/token_simulator.js';
+import { SingleNodeTestContext, type SingleNodeTestOpts } from '../single-node/single_node_test_context.js';
+import { TestWallet } from '../test-wallet/test_wallet.js';
 import { getACVMConfig } from './get_acvm_config.js';
 import { getBBConfig } from './get_bb_config.js';
-import {
-  type EndToEndContext,
-  deployAccounts,
-  getPrivateKeyFromIndex,
-  getSponsoredFPCAddress,
-  publicDeployAccounts,
-  setup,
-  setupPXEAndGetWallet,
-  teardown,
-} from './setup.js';
+import { getPrivateKeyFromIndex, getSponsoredFPCAddress, setup, setupPXEAndGetWallet } from './setup.js';
 
 type ProvenSetup = {
   wallet: TestWallet;
@@ -50,17 +35,21 @@ type ProvenSetup = {
  * However, we then setup a second PXE with a full prover instance.
  * We configure this instance with all of the accounts and contracts.
  * We then prove and verify transactions created via this full prover PXE.
+ *
+ * The real-prover sub-base of the single-node topology: extends {@link SingleNodeTestContext} so it
+ * reuses the base node tracking / chain monitor / teardown machinery, but builds its environment with
+ * the bespoke prover opts below (real BB, `realVerifier` L1, the snapshot/account + TokenSimulator
+ * harness, and a hand-built prover node) rather than the base's default fake-prover config.
  */
 
-export class FullProverTest {
+export class FullProverTest extends SingleNodeTestContext {
   static TOKEN_NAME = 'USDC';
   static TOKEN_SYMBOL = 'USD';
   static TOKEN_DECIMALS = 18n;
-  logger: Logger;
   wallet!: TestWallet;
   provenWallet!: TestWallet;
   accounts: AztecAddress[] = [];
-  deployedAccounts!: InitialAccountData[];
+  fundedAccounts!: InitialAccountData[];
   fakeProofsAsset!: TokenContract;
   fakeProofsAssetInstance!: ContractInstanceWithAddress;
   tokenSim!: TokenSimulator;
@@ -70,18 +59,23 @@ export class FullProverTest {
   private provenComponents: ProvenSetup[] = [];
   private bbConfigCleanup?: () => Promise<void>;
   private acvmConfigCleanup?: () => Promise<void>;
-  circuitProofVerifier?: ClientProtocolCircuitVerifier;
+  /** Returns the proof verifier from the prover node (for test assertions). */
+  get circuitProofVerifier(): ClientProtocolCircuitVerifier | undefined {
+    return this.proverAztecNode?.getProofVerifier();
+  }
   provenAsset!: TokenContract;
-  context!: EndToEndContext;
-  private proverNode!: ProverNode;
-  private simulatedProverNode!: ProverNode;
+  private proverAztecNode!: AztecNodeService;
+  private simulatedProverAztecNode!: AztecNodeService;
   public l1Contracts!: DeployAztecL1ContractsReturnType;
   public proverAddress!: EthAddress;
+  private testName: string;
   private minNumberOfTxsPerBlock: number;
   private coinbase: EthAddress;
   private realProofs: boolean;
 
   constructor(testName: string, minNumberOfTxsPerBlock: number, coinbase: EthAddress, realProofs = true) {
+    super();
+    this.testName = testName;
     this.logger = createLogger(`e2e:full_prover_test:${testName}`);
     this.minNumberOfTxsPerBlock = minNumberOfTxsPerBlock;
     this.coinbase = coinbase;
@@ -92,20 +86,13 @@ export class FullProverTest {
    * Applies base setup: deploys 2 accounts and token contract.
    */
   private async applyBaseSetup() {
-    this.logger.info('Applying base setup: deploying accounts');
-    const { deployedAccounts } = await deployAccounts(
-      2,
-      this.logger,
-    )({
-      wallet: this.context.wallet,
-      initialFundedAccounts: this.context.initialFundedAccounts,
-    });
-    this.deployedAccounts = deployedAccounts;
-    this.accounts = deployedAccounts.map(a => a.address);
+    this.logger.info('Applying base setup: registering funded accounts');
+    this.fundedAccounts = this.context.additionallyFundedAccounts;
+    this.accounts = this.fundedAccounts.map(a => a.address);
     this.wallet = this.context.wallet;
-
-    this.logger.info('Applying base setup: publicly deploying accounts');
-    await publicDeployAccounts(this.wallet, this.accounts.slice(0, 2));
+    for (const { secret, salt, signingKey } of this.fundedAccounts) {
+      await this.wallet.createSchnorrInitializerlessAccount(secret, salt, signingKey);
+    }
 
     this.logger.info('Applying base setup: deploying token contract');
     const { contract: asset, instance } = await TokenContract.deploy(
@@ -114,7 +101,7 @@ export class FullProverTest {
       FullProverTest.TOKEN_NAME,
       FullProverTest.TOKEN_SYMBOL,
       FullProverTest.TOKEN_DECIMALS,
-    ).send({ from: this.accounts[0], wait: { returnReceipt: true } });
+    ).send({ from: this.accounts[0] });
     this.logger.verbose(`Token deployed to ${asset.address}`);
 
     this.fakeProofsAsset = asset;
@@ -123,39 +110,42 @@ export class FullProverTest {
 
     this.tokenSim = new TokenSimulator(this.fakeProofsAsset, this.wallet, this.accounts[0], this.logger, this.accounts);
 
-    expect(await this.fakeProofsAsset.methods.get_admin().simulate({ from: this.accounts[0] })).toBe(
+    expect((await this.fakeProofsAsset.methods.get_admin().simulate({ from: this.accounts[0] })).result).toBe(
       this.accounts[0].toBigInt(),
     );
   }
 
-  async setup() {
+  override async setup(opts: SingleNodeTestOpts = {}) {
     this.logger.info('Setting up subsystems from fresh');
-    this.context = await setup(0, {
+    const context = await setup(0, {
+      ...opts,
       startProverNode: true,
       coinbase: this.coinbase,
       fundSponsoredFPC: true,
-      skipAccountDeployment: true,
+      additionallyFundedAccounts: await generateSchnorrAccounts(2),
       l1ContractsArgs: { realVerifier: this.realProofs },
     });
+
+    // Reuse the base context machinery (rollup, epoch cache, chain monitor, node tracking, teardown)
+    // over the environment built above. Restore the FullProverTest-named logger afterwards, since
+    // hydrateFromContext repoints `this.logger` at the context logger.
+    await this.hydrateFromContext(context);
+    this.logger = createLogger(`e2e:full_prover_test:${this.testName}`);
 
     await this.applyBaseSetup();
     await this.applyMint();
 
     this.logger.info(`Enabling proving`, { realProofs: this.realProofs });
 
-    // We don't wish to mark as proven automatically, so we set the flag to false
-    this.context.watcher!.setIsMarkingAsProven(false);
-
-    this.simulatedProverNode = this.context.proverNode!;
+    this.simulatedProverAztecNode = this.context.proverNode!;
     ({
       aztecNode: this.aztecNode,
       deployL1ContractsValues: this.l1Contracts,
       cheatCodes: this.cheatCodes,
     } = this.context);
-    this.aztecNodeAdmin = this.context.aztecNodeService!;
+    this.aztecNodeAdmin = this.context.aztecNodeService;
 
     const config = this.context.aztecNodeConfig;
-    const blobClient = await createBlobClientWithFileStores(config, this.logger);
 
     // Configure a full prover PXE
     let acvmConfig: Awaited<ReturnType<typeof getACVMConfig>> | undefined;
@@ -171,9 +161,6 @@ export class FullProverTest {
 
       await Barretenberg.initSingleton({ backend: BackendType.NativeUnixSocket });
 
-      const verifier = await BBCircuitVerifier.new(bbConfig);
-      this.circuitProofVerifier = new QueuedIVCVerifier(bbConfig, verifier);
-
       this.logger.debug(`Configuring the node for real proofs...`);
       await this.aztecNodeAdmin.setConfig({
         realProofs: true,
@@ -181,7 +168,6 @@ export class FullProverTest {
       });
     } else {
       this.logger.debug(`Configuring the node min txs per block ${this.minNumberOfTxsPerBlock}...`);
-      this.circuitProofVerifier = new TestCircuitVerifier();
       await this.aztecNodeAdmin.setConfig({
         minTxsPerBlock: this.minNumberOfTxsPerBlock,
       });
@@ -196,6 +182,7 @@ export class FullProverTest {
     this.logger.verbose(`Main setup completed, initializing full prover PXE, Node, and Prover Node`);
     const { wallet: provenWallet, teardown: provenTeardown } = await setupPXEAndGetWallet(
       this.aztecNode,
+      this.context.aztecNode,
       { proverEnabled: this.realProofs },
       undefined,
       'pxe-proven',
@@ -204,8 +191,13 @@ export class FullProverTest {
     await provenWallet.registerContract(this.fakeProofsAssetInstance, TokenContract.artifact);
 
     for (let i = 0; i < 2; i++) {
-      await provenWallet.createSchnorrAccount(this.deployedAccounts[i].secret, this.deployedAccounts[i].salt);
-      await this.wallet.createSchnorrAccount(this.deployedAccounts[i].secret, this.deployedAccounts[i].salt);
+      // Mirror the initializerless funded accounts (created via createFundedAccounts) in both wallets so
+      // their addresses match the genesis-funded ones.
+      await provenWallet.createSchnorrInitializerlessAccount(
+        this.fundedAccounts[i].secret,
+        this.fundedAccounts[i].salt,
+      );
+      await this.wallet.createSchnorrInitializerlessAccount(this.fundedAccounts[i].secret, this.fundedAccounts[i].salt);
     }
 
     const asset = TokenContract.at(this.fakeProofsAsset.address, provenWallet);
@@ -217,20 +209,13 @@ export class FullProverTest {
     this.provenWallet = provenWallet;
     this.logger.info(`Full prover PXE started`);
 
-    // Shutdown the current, simulated prover node
+    // Shutdown the current, simulated prover node (by stopping its hosting aztec node)
     this.logger.verbose('Shutting down simulated prover node');
-    await this.simulatedProverNode.stop();
-
-    // Creating temp store and archiver for fully proven prover node
-    this.logger.verbose('Starting archiver for new prover node');
-    const archiver = await createArchiver(
-      { ...this.context.aztecNodeConfig, dataDirectory: undefined },
-      { blobClient, dateProvider: this.context.dateProvider! },
-      { blockUntilSync: true },
-    );
+    await this.simulatedProverAztecNode.stop();
 
     // The simulated prover node (now shutdown) used private key index 2
     const proverNodePrivateKey = getPrivateKeyFromIndex(2);
+    const proverNodePrivateKeyHex = `0x${proverNodePrivateKey!.toString('hex')}` as const;
     const proverNodeSenderAddress = privateKeyToAddress(new Buffer32(proverNodePrivateKey!).toString());
     this.proverAddress = EthAddress.fromString(proverNodeSenderAddress);
 
@@ -238,40 +223,48 @@ export class FullProverTest {
     await this.mintFeeJuice(proverNodeSenderAddress);
 
     this.logger.verbose('Starting prover node');
-    const proverConfig: ProverNodeConfig = {
-      ...this.context.aztecNodeConfig,
-      txCollectionNodeRpcUrls: [],
+    const sponsoredFPCAddress = await getSponsoredFPCAddress();
+    const { genesis } = await getGenesisValues(
+      this.context.additionallyFundedAccounts.map(a => a.address).concat(sponsoredFPCAddress),
+      undefined,
+      undefined,
+      this.context.genesis!.genesisTimestamp,
+    );
+
+    const proverNodeConfig: Parameters<typeof createAztecNodeService>[0] = {
+      ...config,
+      enableProverNode: true,
+      disableValidator: true,
       dataDirectory: undefined,
+      txCollectionNodeRpcUrls: [],
       proverId: this.proverAddress,
       realProofs: this.realProofs,
       proverAgentCount: 2,
-      publisherPrivateKeys: [new SecretValue(`0x${proverNodePrivateKey!.toString('hex')}` as const)],
+      proverPublisherPrivateKeys: [new SecretValue(proverNodePrivateKeyHex)],
       proverNodeMaxPendingJobs: 100,
       proverNodeMaxParallelBlocksPerEpoch: 32,
       proverNodePollingIntervalMs: 100,
       txGatheringIntervalMs: 1000,
       txGatheringBatchSize: 10,
       txGatheringMaxParallelRequestsPerNode: 100,
-      txGatheringTimeoutMs: 24_000,
+      // The test warps the L1 clock forward a full epoch via cheatcodes; the prover-node
+      // tracks L1 time, so an in-flight tx-gather would see its deadline jump into the
+      // past. Use a generous window so the deadline survives the warp.
+      txGatheringTimeoutMs: 10 * 60 * 1000,
       proverNodeFailedEpochStore: undefined,
       proverNodeEpochProvingDelayMs: undefined,
+      validatorPrivateKeys: new SecretValue([]),
     };
-    const sponsoredFPCAddress = await getSponsoredFPCAddress();
-    const { prefilledPublicData } = await getGenesisValues(
-      this.context.initialFundedAccounts.map(a => a.address).concat(sponsoredFPCAddress),
-    );
-    this.proverNode = await createProverNode(
-      proverConfig,
-      {
-        aztecNodeTxProvider: this.aztecNode,
-        archiver: archiver as Archiver,
-      },
-      { prefilledPublicData },
-    );
-    await this.proverNode.start();
 
+    this.proverAztecNode = await createAztecNodeService(
+      proverNodeConfig,
+      { dateProvider: this.context.dateProvider, p2pClientDeps: { rpcTxProviders: [this.aztecNode] } },
+      { genesis },
+    );
+    // Track the real prover node so the base teardown stops it (the simulated one created by `setup`
+    // was already stopped above).
+    this.proverNodes = [this.proverAztecNode];
     this.logger.warn(`Proofs are now enabled`, { realProofs: this.realProofs });
-    return this;
   }
 
   private async mintFeeJuice(recipient: Hex) {
@@ -283,20 +276,22 @@ export class FullProverTest {
     await this.context.deployL1ContractsValues.l1Client.waitForTransactionReceipt({ hash });
   }
 
-  async teardown() {
+  override async teardown() {
     // Cleanup related to the full prover PXEs
     for (let i = 0; i < this.provenComponents.length; i++) {
       await this.provenComponents[i].teardown();
     }
 
-    // clean up the full prover node
-    await this.proverNode.stop();
+    // Stop the prover node before destroying the BB singleton it proves with.
+    await this.proverAztecNode.stop();
 
     await Barretenberg.destroySingleton();
     await this.bbConfigCleanup?.();
     await this.acvmConfigCleanup?.();
 
-    await teardown(this.context);
+    // Stops the chain monitor, the tracked nodes (main node + the already-stopped prover node, a
+    // safe no-op), and the context.
+    await super.teardown();
   }
 
   private async applyMint() {
@@ -320,16 +315,20 @@ export class FullProverTest {
     } = this;
     tokenSim.mintPublic(address, publicAmount);
 
-    const publicBalance = await fakeProofsAsset.methods.balance_of_public(address).simulate({ from: address });
+    const { result: publicBalance } = await fakeProofsAsset.methods
+      .balance_of_public(address)
+      .simulate({ from: address });
     this.logger.verbose(`Public balance of wallet 0: ${publicBalance}`);
     expect(publicBalance).toEqual(this.tokenSim.balanceOfPublic(address));
 
     tokenSim.mintPrivate(address, publicAmount);
-    const privateBalance = await fakeProofsAsset.methods.balance_of_private(address).simulate({ from: address });
+    const { result: privateBalance } = await fakeProofsAsset.methods
+      .balance_of_private(address)
+      .simulate({ from: address });
     this.logger.verbose(`Private balance of wallet 0: ${privateBalance}`);
     expect(privateBalance).toEqual(tokenSim.balanceOfPrivate(address));
 
-    const totalSupply = await fakeProofsAsset.methods.total_supply().simulate({ from: address });
+    const { result: totalSupply } = await fakeProofsAsset.methods.total_supply().simulate({ from: address });
     this.logger.verbose(`Total supply: ${totalSupply}`);
     expect(totalSupply).toEqual(tokenSim.totalSupply);
   }

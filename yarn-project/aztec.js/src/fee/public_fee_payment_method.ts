@@ -1,16 +1,18 @@
 import { Fr } from '@aztec/foundation/curves/bn254';
-import { type FunctionAbi, FunctionSelector, FunctionType, decodeFromAbi } from '@aztec/stdlib/abi';
+import { type FunctionAbi, FunctionCall, FunctionSelector, FunctionType, decodeFromAbi } from '@aztec/stdlib/abi';
 import { AztecAddress } from '@aztec/stdlib/aztec-address';
 import { GasSettings } from '@aztec/stdlib/gas';
 import { ExecutionPayload } from '@aztec/stdlib/tx';
 
 import { ContractFunctionInteraction } from '../contract/contract_function_interaction.js';
+import { NO_FROM } from '../contract/interaction_options.js';
 import { SetPublicAuthwitContractInteraction } from '../utils/authwit.js';
 import type { Wallet } from '../wallet/wallet.js';
 import type { FeePaymentMethod } from './fee_payment_method.js';
 
 /**
  * Holds information about how the fee for a transaction is to be paid.
+ * @deprecated Is not supported on mainnet. Use {@link FeeJuicePaymentMethodWithClaim} or `SponsoredFeePaymentMethod` instead.
  */
 export class PublicFeePaymentMethod implements FeePaymentMethod {
   private assetPromise: Promise<AztecAddress> | null = null;
@@ -68,11 +70,11 @@ export class PublicFeePaymentMethod implements FeePaymentMethod {
       const executionPayload = await interaction.request();
       this.assetPromise = this.wallet
         .simulateTx(executionPayload, {
-          from: AztecAddress.ZERO,
+          from: NO_FROM,
           skipFeeEnforcement: true,
         })
         .then(simulationResult => {
-          const rawReturnValues = simulationResult.getPrivateReturnValues().nested[0].values;
+          const rawReturnValues = simulationResult.getPrivateReturnValues().values;
           return decodeFromAbi(abi.returnTypes, rawReturnValues!);
         }) as Promise<AztecAddress>;
     }
@@ -94,16 +96,16 @@ export class PublicFeePaymentMethod implements FeePaymentMethod {
 
     const intent = {
       caller: this.paymentContract,
-      call: {
+      call: FunctionCall.from({
         name: 'transfer_in_public',
-        args: [this.sender.toField(), this.paymentContract.toField(), maxFee, txNonce],
+        to: await this.getAsset(),
         selector: await FunctionSelector.fromSignature('transfer_in_public((Field),(Field),u128,Field)'),
         type: FunctionType.PUBLIC,
-        isStatic: false,
         hideMsgSender: false /** The target function performs an authwit check, so msg_sender is needed */,
-        to: await this.getAsset(),
+        isStatic: false,
+        args: [this.sender.toField(), this.paymentContract.toField(), maxFee, txNonce],
         returnTypes: [],
-      },
+      }),
     };
 
     const setPublicAuthWitInteraction = await SetPublicAuthwitContractInteraction.create(
@@ -116,7 +118,7 @@ export class PublicFeePaymentMethod implements FeePaymentMethod {
     return new ExecutionPayload(
       [
         ...(await setPublicAuthWitInteraction.request()).calls,
-        {
+        FunctionCall.from({
           name: 'fee_entrypoint_public',
           to: this.paymentContract,
           selector: await FunctionSelector.fromSignature('fee_entrypoint_public(u128,Field)'),
@@ -125,7 +127,7 @@ export class PublicFeePaymentMethod implements FeePaymentMethod {
           isStatic: false,
           args: [maxFee, txNonce],
           returnTypes: [],
-        },
+        }),
       ],
       [],
       [],

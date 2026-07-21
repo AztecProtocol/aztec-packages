@@ -1,4 +1,4 @@
-import { SlotNumber } from '@aztec/foundation/branded-types';
+import { CheckpointProposalHash, SlotNumber } from '@aztec/foundation/branded-types';
 import { type JsonRpcTestContext, createJsonRpcTestSetup } from '@aztec/foundation/json-rpc/test';
 
 import { CheckpointAttestation } from '../p2p/checkpoint_attestation.js';
@@ -27,7 +27,10 @@ describe('P2PApiSchema', () => {
   });
 
   it('getCheckpointAttestationsForSlot', async () => {
-    const attestations = await context.client.getCheckpointAttestationsForSlot(SlotNumber(1), 'proposalId');
+    const attestations = await context.client.getCheckpointAttestationsForSlot(
+      SlotNumber(1),
+      CheckpointProposalHash('0xdeadbeef'),
+    );
     expect(attestations).toEqual([CheckpointAttestation.empty()]);
     expect(attestations[0]).toBeInstanceOf(CheckpointAttestation);
   });
@@ -65,9 +68,12 @@ const peers: PeerInfo[] = [
 ];
 
 class MockP2P implements P2PApi {
-  getCheckpointAttestationsForSlot(slot: SlotNumber, proposalId?: string): Promise<CheckpointAttestation[]> {
+  getCheckpointAttestationsForSlot(
+    slot: SlotNumber,
+    proposalId?: CheckpointProposalHash,
+  ): Promise<CheckpointAttestation[]> {
     expect(slot).toEqual(SlotNumber(1));
-    expect(proposalId).toEqual('proposalId');
+    expect(proposalId).toEqual(CheckpointProposalHash('0xdeadbeef'));
     return Promise.resolve([CheckpointAttestation.empty()]);
   }
 

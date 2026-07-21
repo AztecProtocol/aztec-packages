@@ -1,6 +1,6 @@
 // === AUDIT STATUS ===
 // internal:    { status: Complete, auditors: [Luke], commit: a48c205d6dcd4338f5b83b4fda18bff6015be07b}
-// external_1:  { status: not started, auditors: [], commit: }
+// external_1:  { status: Complete, auditors: [Sherlock], commit: 13c1b927c6c }
 // external_2:  { status: not started, auditors: [], commit: }
 // =====================
 
@@ -14,6 +14,7 @@
 #include "barretenberg/stdlib/primitives/field/field.hpp"
 #include "barretenberg/stdlib/primitives/group/cycle_scalar.hpp"
 #include "barretenberg/stdlib/primitives/group/straus_lookup_table.hpp"
+#include "barretenberg/stdlib/primitives/group/straus_plookup_table.hpp"
 #include "barretenberg/stdlib/primitives/group/straus_scalar_slice.hpp"
 #include "barretenberg/stdlib_circuit_builders/plookup_tables/fixed_base/fixed_base_params.hpp"
 #include "barretenberg/transcript/origin_tag.hpp"
@@ -25,7 +26,9 @@ namespace bb::stdlib {
  * @brief cycle_group represents a group Element of the proving system's embedded curve, i.e. a curve with a cofactor 1
  * defined over a field equal to the circuit's native field Builder::FF
  * @details In barretenberg, cycle group is used to represent the Grumpkin curve defined over the bn254 scalar field.
- * The point at infinity is represented as (0, 0).
+ * The point at infinity is tracked via an `is_infinity` flag. At observation boundaries (serialize_to_fields,
+ * set_public, operator==, assert_equal), coordinates are canonicalized to (0, 0) when is_infinity is true.
+ * Intermediate arithmetic results may have non-canonical coordinates when is_infinity is true.
  *
  * @note For the honest prover, we restrict the construction of cycle group elements in the following ways: (1) x and y
  * coordinates of a point must have matching constancy, i.e. both are constants or both are witnesses, enforced via a
@@ -50,6 +53,7 @@ template <typename Builder> class cycle_group {
     using BigScalarField = stdlib::bigfield<Builder, bb::fq::Params>;
     using cycle_scalar = ::bb::stdlib::cycle_scalar<Builder>;
     using straus_lookup_table = ::bb::stdlib::straus_lookup_table<Builder>;
+    using straus_plookup_table = ::bb::stdlib::straus_plookup_table<Builder>;
     using straus_scalar_slices = ::bb::stdlib::straus_scalar_slices<Builder>;
 
     // Bit-size for scalars represented in the ROM lookup tables used in the variable-base MSM algorithm
@@ -73,8 +77,8 @@ template <typename Builder> class cycle_group {
 
   public:
     cycle_group(Builder* _context = nullptr);
-    cycle_group(const field_t& x, const field_t& y, bool_t is_infinity, bool assert_on_curve);
-    cycle_group(const bb::fr& x, const bb::fr& y, bool is_infinity);
+    // Construct from coordinates. Infinity is auto-detected from (x == 0 && y == 0).
+    explicit cycle_group(const field_t& x, const field_t& y, bool assert_on_curve = true);
     cycle_group(const AffineElement& _in);
     static cycle_group one(Builder* _context);
     static cycle_group constant_infinity(Builder* _context = nullptr);
@@ -98,6 +102,7 @@ template <typename Builder> class cycle_group {
     }
     void standardize();
     void validate_on_curve() const;
+
     cycle_group dbl(const std::optional<AffineElement> hint = std::nullopt) const;
     cycle_group unconditional_add(const cycle_group& other,
                                   const std::optional<AffineElement> hint = std::nullopt) const;
@@ -125,6 +130,22 @@ template <typename Builder> class cycle_group {
     static cycle_group batch_mul(const std::vector<cycle_group>& base_points,
                                  const std::vector<cycle_scalar>& scalars,
                                  const GeneratorContext& context = {});
+
+    static cycle_group fixed_batch_mul(const std::vector<cycle_group>& constant_points,
+                                       const std::vector<BigScalarField>& scalars,
+                                       GeneratorContext context = {},
+                                       size_t table_bits = ROM_TABLE_BITS)
+    {
+        std::vector<cycle_scalar> cycle_scalars;
+        for (auto scalar : scalars) {
+            cycle_scalars.emplace_back(scalar);
+        }
+        return fixed_batch_mul(constant_points, cycle_scalars, context, table_bits);
+    }
+    static cycle_group fixed_batch_mul(const std::vector<cycle_group>& constant_points,
+                                       const std::vector<cycle_scalar>& scalars,
+                                       const GeneratorContext& context = {},
+                                       size_t table_bits = ROM_TABLE_BITS);
     cycle_group operator*(const cycle_scalar& scalar) const;
     cycle_group& operator*=(const cycle_scalar& scalar);
     cycle_group operator*(const BigScalarField& scalar) const;
@@ -195,12 +216,21 @@ template <typename Builder> class cycle_group {
      */
     uint32_t set_public()
     {
+        standardize(); // if point is at infinity, ensure coordinates are (0,0).
         uint32_t start_idx = _x.set_public();
         _y.set_public();
         return start_idx;
     }
 
   private:
+    // Allow straus_lookup_table and straus_plookup_table to access the private constructor for efficiency
+    friend class ::bb::stdlib::straus_lookup_table<Builder>;
+    friend class ::bb::stdlib::straus_plookup_table<Builder>;
+
+    // Private constructor that allows explicit control over infinity flag.
+    // Use public constructors or factory methods instead - they auto-detect infinity from coordinates.
+    cycle_group(const field_t& x, const field_t& y, bool_t is_infinity, bool assert_on_curve);
+
     field_t _x;
     field_t _y;
     bool_t _is_infinity;
@@ -213,6 +243,12 @@ template <typename Builder> class cycle_group {
 
     static batch_mul_internal_output _fixed_base_batch_mul_internal(std::span<cycle_scalar> scalars,
                                                                     std::span<AffineElement> base_points);
+
+    static batch_mul_internal_output _fixed_base_plookup_batch_mul_internal(
+        std::span<cycle_scalar> scalars,
+        std::span<AffineElement const> base_points,
+        std::span<AffineElement const> offset_generators,
+        size_t table_bits = ROM_TABLE_BITS);
 
     // Internal implementation for unconditional_add and unconditional_subtract
     cycle_group _unconditional_add_or_subtract(const cycle_group& other,

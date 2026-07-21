@@ -6,7 +6,7 @@ on:
   workflow_call:
     inputs:
       environment:
-        description: 'Environment to fund (e.g., staging-public, next-net, staging-ignition, testnet)'
+        description: 'Environment to fund (e.g., staging-public, staging-internal, next-net, testnet)'
         required: true
         type: string
       low_watermark:
@@ -19,6 +19,10 @@ on:
         required: false
         type: string
         default: '1.0'
+      namespace:
+        description: 'Kubernetes namespace override (e.g., v4-devnet-1). Sets NAMESPACE before sourcing env file.'
+        required: false
+        type: string
   workflow_dispatch:
     inputs:
       environment:
@@ -27,8 +31,8 @@ on:
         type: choice
         options:
         - staging-public
+        - staging-internal
         - next-net
-        - staging-ignition
         - testnet
         - devnet
         - tps-scenario
@@ -42,6 +46,10 @@ on:
         required: false
         type: string
         default: '1.0'
+      namespace:
+        description: 'Kubernetes namespace override (e.g., v4-devnet-1)'
+        required: false
+        type: string
 
 concurrency:
   group: ensure-funded-environment-${{ inputs.environment }}
@@ -54,7 +62,7 @@ jobs:
       GOOGLE_APPLICATION_CREDENTIALS: /tmp/gcp-key.json
     steps:
       - name: Checkout
-        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+        uses: actions/checkout@93cb6efe18208431cddfb8368fd83d5badbf9bfd # v5.0.1
         with:
           ref: ${{ github.ref }}
           fetch-depth: 1
@@ -95,14 +103,20 @@ jobs:
         run: |
           # Fetch the environment-specific secrets
           FUNDING_PRIVATE_KEY=$(gcloud secrets versions access latest --secret="sepolia-funding-private-key" --project="$GCP_PROJECT_ID")
+          EXTERNAL_ETHEREUM_HOST=$(gcloud secrets versions access latest --secret="sepolia-external-ethereum-host" --project="$GCP_PROJECT_ID")
+          echo "::add-mask::$FUNDING_PRIVATE_KEY"
+          echo "::add-mask::$EXTERNAL_ETHEREUM_HOST"
 
           # Export to environment
-          echo "FUNDING_PRIVATE_KEY=$FUNDING_PRIVATE_KEY" >> $GITHUB_ENV
+          {
+            printf 'FUNDING_PRIVATE_KEY=%s\n' "$FUNDING_PRIVATE_KEY"
+            printf 'EXTERNAL_ETHEREUM_HOST=%s\n' "$EXTERNAL_ETHEREUM_HOST"
+          } >> "$GITHUB_ENV"
 
       - name: Ensure funded environment
         env:
-          FUNDING_PRIVATE_KEY: ${{ env.FUNDING_PRIVATE_KEY }}
           GCP_PROJECT_ID: ${{ secrets.GCP_PROJECT_ID }}
+          NAMESPACE: ${{ inputs.namespace }}
         run: |
           cd spartan/scripts
 

@@ -86,6 +86,10 @@ export class NullifierLeafPreimage implements IndexedTreeLeafPreimage {
     ];
   }
 
+  isEmpty(): boolean {
+    return this.leaf.isEmpty() && this.nextKey.isZero() && this.nextIndex === 0n;
+  }
+
   toFields(): Fr[] {
     return this.toHashInputs().map(buf => Fr.fromBuffer(buf));
   }

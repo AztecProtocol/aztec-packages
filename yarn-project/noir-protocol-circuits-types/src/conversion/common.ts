@@ -175,7 +175,6 @@ export function mapPointToNoir(point: Point): NoirPoint {
   return {
     x: mapFieldToNoir(point.x),
     y: mapFieldToNoir(point.y),
-    is_infinite: point.isInfinite,
   };
 }
 
@@ -185,7 +184,7 @@ export function mapPointToNoir(point: Point): NoirPoint {
  * @returns The point.
  */
 export function mapPointFromNoir(point: NoirPoint): Point {
-  return new Point(mapFieldFromNoir(point.x), mapFieldFromNoir(point.y), point.is_infinite);
+  return new Point(mapFieldFromNoir(point.x), mapFieldFromNoir(point.y));
 }
 
 /**
@@ -226,7 +225,7 @@ export function mapAztecAddressToNoir(address: AztecAddress): NoirAztecAddress {
  * @returns The aztec address.
  */
 export function mapAztecAddressFromNoir(address: NoirAztecAddress): AztecAddress {
-  return AztecAddress.fromField(mapFieldFromNoir(address.inner));
+  return AztecAddress.fromFieldUnsafe(mapFieldFromNoir(address.inner));
 }
 
 /**
@@ -853,6 +852,7 @@ export function mapPrivateTxConstantDataToNoir(data: PrivateTxConstantData): Pri
   return {
     anchor_block_header: mapBlockHeaderToNoir(data.anchorBlockHeader),
     tx_context: mapTxContextToNoir(data.txContext),
+    tx_request_salt: mapFieldToNoir(data.txRequestSalt),
     vk_tree_root: mapFieldToNoir(data.vkTreeRoot),
     protocol_contracts: mapProtocolContractsToNoir(data.protocolContracts),
   };
@@ -862,6 +862,7 @@ export function mapPrivateTxConstantDataFromNoir(data: PrivateTxConstantDataNoir
   return new PrivateTxConstantData(
     mapBlockHeaderFromNoir(data.anchor_block_header),
     mapTxContextFromNoir(data.tx_context),
+    mapFieldFromNoir(data.tx_request_salt),
     mapFieldFromNoir(data.vk_tree_root),
     mapProtocolContractsFromNoir(data.protocol_contracts),
   );
@@ -893,7 +894,7 @@ export function mapPrivateToRollupKernelCircuitPublicInputsToNoir(
     end: mapPrivateToRollupAccumulatedDataToNoir(inputs.end),
     gas_used: mapGasToNoir(inputs.gasUsed),
     fee_payer: mapAztecAddressToNoir(inputs.feePayer),
-    include_by_timestamp: mapU64ToNoir(inputs.includeByTimestamp),
+    expiration_timestamp: mapU64ToNoir(inputs.expirationTimestamp),
   };
 }
 
@@ -907,6 +908,6 @@ export function mapPrivateToPublicKernelCircuitPublicInputsToNoir(
     public_teardown_call_request: mapPublicCallRequestToNoir(inputs.publicTeardownCallRequest),
     gas_used: mapGasToNoir(inputs.gasUsed),
     fee_payer: mapAztecAddressToNoir(inputs.feePayer),
-    include_by_timestamp: mapU64ToNoir(inputs.includeByTimestamp),
+    expiration_timestamp: mapU64ToNoir(inputs.expirationTimestamp),
   };
 }

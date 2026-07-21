@@ -55,6 +55,7 @@ export class BlockProvingState {
     | ProofState<BlockRollupPublicInputs, typeof NESTED_RECURSIVE_ROLLUP_HONK_PROOF_LENGTH>
     | undefined;
   private builtBlockHeader: BlockHeader | undefined;
+  private builtArchive: AppendOnlyTreeSnapshot | undefined;
   private endState: StateReference | undefined;
   private endSpongeBlob: SpongeBlob | undefined;
   private txs: TxProvingState[] = [];
@@ -230,6 +231,14 @@ export class BlockProvingState {
 
   public getBuiltBlockHeader() {
     return this.builtBlockHeader;
+  }
+
+  public setBuiltArchive(archive: AppendOnlyTreeSnapshot) {
+    this.builtArchive = archive;
+  }
+
+  public getBuiltArchive() {
+    return this.builtArchive;
   }
 
   public getStartSpongeBlob() {

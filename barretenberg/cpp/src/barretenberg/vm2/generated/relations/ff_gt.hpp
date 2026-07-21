@@ -3,7 +3,6 @@
 
 #include <string_view>
 
-#include "barretenberg/common/bb_bench.hpp"
 #include "barretenberg/relations/relation_parameters.hpp"
 #include "barretenberg/relations/relation_types.hpp"
 #include "barretenberg/vm2/generated/columns.hpp"
@@ -14,9 +13,9 @@ template <typename FF_> class ff_gtImpl {
   public:
     using FF = FF_;
 
-    static constexpr std::array<size_t, 30> SUBRELATION_PARTIAL_LENGTHS = {
-        3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 5, 5, 3, 3, 3, 3, 4, 3, 3, 3, 3, 3, 3, 3, 3, 2
-    };
+    static constexpr std::array<size_t, 32> SUBRELATION_PARTIAL_LENGTHS = { 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3,
+                                                                            3, 3, 3, 3, 3, 3, 3, 5, 5, 3, 3,
+                                                                            3, 3, 3, 3, 3, 3, 3, 3, 3, 3 };
 
     template <typename AllEntities> inline static bool skip(const AllEntities& in)
     {
@@ -37,27 +36,40 @@ template <typename FF> class ff_gt : public Relation<ff_gtImpl<FF>> {
     static constexpr const std::string_view NAME = "ff_gt";
 
     // Subrelation indices constants, to be used in tests.
-    static constexpr size_t SR_A_DECOMPOSITION = 5;
-    static constexpr size_t SR_P_SUB_A_LO = 7;
-    static constexpr size_t SR_P_SUB_A_HI = 8;
-    static constexpr size_t SR_B_DECOMPOSITION = 9;
-    static constexpr size_t SR_P_SUB_B_LO = 11;
-    static constexpr size_t SR_P_SUB_B_HI = 12;
-    static constexpr size_t SR_RES_LO = 14;
-    static constexpr size_t SR_RES_HI = 15;
-    static constexpr size_t SR_RNG_CTR_GT_INIT = 16;
-    static constexpr size_t SR_RNG_CTR_DEC_INIT = 17;
-    static constexpr size_t SR_RNG_CTR_DECREMENT = 18;
-    static constexpr size_t SR_RNG_CTR_NON_ZERO = 20;
-    static constexpr size_t SR_SHIFT_0 = 21;
-    static constexpr size_t SR_SHIFT_1 = 23;
-    static constexpr size_t SR_SHIFT_2 = 25;
-    static constexpr size_t SR_SHIFT_3 = 27;
-    static constexpr size_t SR_SEL_CONSISTENCY = 29;
+    static constexpr size_t SR_SEL_ON_START_OR_END = 5;
+    static constexpr size_t SR_TRACE_CONTINUITY = 6;
+    static constexpr size_t SR_START_AFTER_LATCH = 7;
+    static constexpr size_t SR_A_DECOMPOSITION = 9;
+    static constexpr size_t SR_P_SUB_A_LO = 11;
+    static constexpr size_t SR_P_SUB_A_HI = 12;
+    static constexpr size_t SR_B_DECOMPOSITION = 13;
+    static constexpr size_t SR_P_SUB_B_LO = 15;
+    static constexpr size_t SR_P_SUB_B_HI = 16;
+    static constexpr size_t SR_RES_LO = 18;
+    static constexpr size_t SR_RES_HI = 19;
+    static constexpr size_t SR_RNG_CTR_GT_INIT = 20;
+    static constexpr size_t SR_RNG_CTR_DEC_INIT = 21;
+    static constexpr size_t SR_RNG_CTR_DECREMENT = 22;
+    static constexpr size_t SR_RNG_CTR_END = 23;
+    static constexpr size_t SR_SHIFT_P_SUB_A_TO_A_LO = 24;
+    static constexpr size_t SR_SHIFT_P_SUB_A_TO_A_HI = 25;
+    static constexpr size_t SR_SHIFT_B_TO_P_SUB_A_LO = 26;
+    static constexpr size_t SR_SHIFT_B_TO_P_SUB_A_HI = 27;
+    static constexpr size_t SR_SHIFT_P_SUB_B_TO_B_LO = 28;
+    static constexpr size_t SR_SHIFT_P_SUB_B_TO_B_HI = 29;
+    static constexpr size_t SR_SHIFT_RES_TO_P_SUB_B_LO = 30;
+    static constexpr size_t SR_SHIFT_RES_TO_P_SUB_B_HI = 31;
 
     static std::string get_subrelation_label(size_t index)
     {
+#ifdef AVM_INCLUDE_COLUMN_INFORMATION
         switch (index) {
+        case SR_SEL_ON_START_OR_END:
+            return "SEL_ON_START_OR_END";
+        case SR_TRACE_CONTINUITY:
+            return "TRACE_CONTINUITY";
+        case SR_START_AFTER_LATCH:
+            return "START_AFTER_LATCH";
         case SR_A_DECOMPOSITION:
             return "A_DECOMPOSITION";
         case SR_P_SUB_A_LO:
@@ -80,19 +92,26 @@ template <typename FF> class ff_gt : public Relation<ff_gtImpl<FF>> {
             return "RNG_CTR_DEC_INIT";
         case SR_RNG_CTR_DECREMENT:
             return "RNG_CTR_DECREMENT";
-        case SR_RNG_CTR_NON_ZERO:
-            return "RNG_CTR_NON_ZERO";
-        case SR_SHIFT_0:
-            return "SHIFT_0";
-        case SR_SHIFT_1:
-            return "SHIFT_1";
-        case SR_SHIFT_2:
-            return "SHIFT_2";
-        case SR_SHIFT_3:
-            return "SHIFT_3";
-        case SR_SEL_CONSISTENCY:
-            return "SEL_CONSISTENCY";
+        case SR_RNG_CTR_END:
+            return "RNG_CTR_END";
+        case SR_SHIFT_P_SUB_A_TO_A_LO:
+            return "SHIFT_P_SUB_A_TO_A_LO";
+        case SR_SHIFT_P_SUB_A_TO_A_HI:
+            return "SHIFT_P_SUB_A_TO_A_HI";
+        case SR_SHIFT_B_TO_P_SUB_A_LO:
+            return "SHIFT_B_TO_P_SUB_A_LO";
+        case SR_SHIFT_B_TO_P_SUB_A_HI:
+            return "SHIFT_B_TO_P_SUB_A_HI";
+        case SR_SHIFT_P_SUB_B_TO_B_LO:
+            return "SHIFT_P_SUB_B_TO_B_LO";
+        case SR_SHIFT_P_SUB_B_TO_B_HI:
+            return "SHIFT_P_SUB_B_TO_B_HI";
+        case SR_SHIFT_RES_TO_P_SUB_B_LO:
+            return "SHIFT_RES_TO_P_SUB_B_LO";
+        case SR_SHIFT_RES_TO_P_SUB_B_HI:
+            return "SHIFT_RES_TO_P_SUB_B_HI";
         }
+#endif
         return std::to_string(index);
     }
 };

@@ -1,4 +1,4 @@
-import { BlockNumber, SlotNumber } from '@aztec/foundation/branded-types';
+import { CheckpointNumber, SlotNumber } from '@aztec/foundation/branded-types';
 import { Buffer32 } from '@aztec/foundation/buffer';
 import { EthAddress } from '@aztec/foundation/eth-address';
 import { AztecAddress } from '@aztec/stdlib/aztec-address';
@@ -13,7 +13,7 @@ import { NodeKeystoreAdapter } from './node_keystore_adapter.js';
 function createMockContext(): SigningContext {
   return {
     slot: SlotNumber(1),
-    blockNumber: BlockNumber(1),
+    checkpointNumber: CheckpointNumber(0),
     dutyType: DutyType.ATTESTATION,
   };
 }
@@ -40,9 +40,9 @@ const A = {
   COINBASE_1: EthAddress.fromString('0x3c44cdddb6a900fa2b585dd299e03d12fa4293bc'),
   COINBASE_2: EthAddress.fromString('0x90f79bf6eb2c4f870365e785982e1f101e93b906'),
   COINBASE_3: EthAddress.fromString('0x71be63f3384f5fb98995898a86b02fb2426c5788'),
-  FEE_1: AztecAddress.fromString('0x0bcd4042de499d14e55001ccbb24a551f3b95409600000000000000000000000'),
-  FEE_2: AztecAddress.fromString('0x071be63f3384f5fb98995898a86b02fb2426c578800000000000000000000000'),
-  FEE_3: AztecAddress.fromString('0x0f39fd6e51aad88f6f4ce6ab8827279cfffb9226600000000000000000000000'),
+  FEE_1: AztecAddress.fromStringUnsafe('0x0bcd4042de499d14e55001ccbb24a551f3b95409600000000000000000000000'),
+  FEE_2: AztecAddress.fromStringUnsafe('0x071be63f3384f5fb98995898a86b02fb2426c578800000000000000000000000'),
+  FEE_3: AztecAddress.fromStringUnsafe('0x0f39fd6e51aad88f6f4ce6ab8827279cfffb9226600000000000000000000000'),
   UNKNOWN: '0x9999999999999999999999999999999999999999',
 } as const;
 

@@ -11,7 +11,17 @@ node:
   nodeSelector:
     local-ssd: "false"
     node-type: "network"
-    cores: "2"
+
+  affinity:
+    nodeAffinity:
+      preferredDuringSchedulingIgnoredDuringExecution:
+        - weight: 100
+          preference:
+            matchExpressions:
+              - key: cores
+                operator: In
+                values:
+                  - "2"
 
   persistence:
     enabled: true
@@ -31,7 +41,17 @@ broker:
   nodeSelector:
     local-ssd: "false"
     node-type: "network"
-    cores: "2"
+
+  affinity:
+    nodeAffinity:
+      preferredDuringSchedulingIgnoredDuringExecution:
+        - weight: 100
+          preference:
+            matchExpressions:
+              - key: cores
+                operator: In
+                values:
+                  - "2"
 
   persistence:
     enabled: true
@@ -58,12 +78,17 @@ agent:
 
   node:
     env:
-      # the pod will be scheduled on a 32-core VM
-      HARDWARE_CONCURRENCY: "32"
+      HARDWARE_CONCURRENCY: "16"
     resources:
       requests:
-        memory: "115Gi"
-        cpu: "31"
+        cpu: "7.5"
+        memory: "28Gi"
+      limits:
+        cpu: "16"
+        memory: "64Gi"
+
+  nodeSelector:
+    pool: "spot"
 
   affinity:
     nodeAffinity:

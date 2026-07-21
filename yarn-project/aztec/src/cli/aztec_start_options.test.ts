@@ -94,6 +94,21 @@ describe('aztec_start_options commander integration', () => {
     expect(typeof opts.port).toBe('number');
   });
 
+  it('respects TEST_ACCOUNTS env var for local network', () => {
+    process.env.TEST_ACCOUNTS = 'false';
+    const cmd = buildCommandWith(['LOCAL_NETWORK']);
+    cmd.parse(['node', 'cli']);
+    const opts = cmd.opts();
+    expect(opts['localNetwork.testAccounts']).toBe(false);
+  });
+
+  it('defaults testAccounts to true for local network', () => {
+    const cmd = buildCommandWith(['LOCAL_NETWORK']);
+    cmd.parse(['node', 'cli']);
+    const opts = cmd.opts();
+    expect(opts['localNetwork.testAccounts']).toBe(true);
+  });
+
   it('parses optional boolean flag values', () => {
     const cmd = buildCommandWith(['P2P SUBSYSTEM']);
 

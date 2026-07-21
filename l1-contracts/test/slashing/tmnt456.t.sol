@@ -3,7 +3,7 @@
 pragma solidity >=0.8.27;
 
 /**
- * @title TallySlashingProposer Test Suite
+ * @title SlashingProposer Test Suite
  */
 import {Rollup} from "@aztec/core/Rollup.sol";
 import {IValidatorSelection} from "@aztec/core/interfaces/IValidatorSelection.sol";
@@ -11,8 +11,7 @@ import {Slot, Epoch} from "@aztec/core/libraries/TimeLib.sol";
 import {TimeLib} from "@aztec/core/libraries/TimeLib.sol";
 import {Slasher} from "@aztec/core/slashing/Slasher.sol";
 import {IPayload} from "@aztec/governance/interfaces/IPayload.sol";
-import {SlasherFlavor} from "@aztec/core/interfaces/ISlasher.sol";
-import {TallySlashingProposer} from "@aztec/core/slashing/TallySlashingProposer.sol";
+import {SlashingProposer} from "@aztec/core/slashing/SlashingProposer.sol";
 import {SlashRound} from "@aztec/core/libraries/SlashRoundLib.sol";
 import {MultiAdder, CheatDepositArgs} from "@aztec/mock/MultiAdder.sol";
 import {TestERC20} from "@aztec/mock/TestERC20.sol";
@@ -41,7 +40,7 @@ contract Tmnt456Test is TestBase {
   TestERC20 internal testERC20;
   Rollup internal rollup;
   Slasher internal slasher;
-  TallySlashingProposer internal slashingProposer;
+  SlashingProposer internal slashingProposer;
   TimeCheater internal timeCheater;
 
   // Test validator keys
@@ -76,13 +75,13 @@ contract Tmnt456Test is TestBase {
       .setTargetCommitteeSize(COMMITTEE_SIZE).setSlashingQuorum(QUORUM).setSlashingRoundSize(ROUND_SIZE)
       .setSlashingLifetimeInRounds(LIFETIME_IN_ROUNDS).setSlashingExecutionDelayInRounds(EXECUTION_DELAY_IN_ROUNDS)
       .setEpochDuration(EPOCH_DURATION).setSlashAmountSmall(SLASHING_UNIT).setSlashAmountMedium(SLASHING_UNIT * 2)
-      .setSlashAmountLarge(SLASHING_UNIT * 3).setSlasherFlavor(SlasherFlavor.TALLY);
+      .setSlashAmountLarge(SLASHING_UNIT * 3).setSlasherEnabled(true);
     builder.deploy();
 
     rollup = builder.getConfig().rollup;
     testERC20 = builder.getConfig().testERC20;
     slasher = Slasher(rollup.getSlasher());
-    slashingProposer = TallySlashingProposer(slasher.PROPOSER());
+    slashingProposer = SlashingProposer(slasher.PROPOSER());
 
     timeCheater = new TimeCheater(
       address(rollup),

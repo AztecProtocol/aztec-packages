@@ -7,6 +7,7 @@ references: ["noir-projects/noir-contracts/contracts/account/ecdsa_k_account_con
 ---
 
 import Image from '@theme/IdealImage';
+import YouTubeEmbed from '@site/src/components/YouTubeEmbed';
 
 On this page you'll learn:
 
@@ -14,6 +15,10 @@ On this page you'll learn:
 - The role of components like PXE, Aztec Node, and the sequencer
 - The private and public kernel circuits and how they execute function calls
 - The call stacks for private and public functions and how they determine a transaction's completion
+
+For a two-minute visual overview of how a single transaction spans private and public execution, watch this explainer (find more on the [video lessons](../resources/video_lessons.mdx) page):
+
+<YouTubeEmbed videoId="MayopgQ1FjI" title="One Transaction, Two Worlds: Private and Public State on Aztec" />
 
 ## Simple Example of the (Private) Transaction Lifecycle
 
@@ -109,8 +114,35 @@ The only information leaked about the transaction is:
 
 The addresses of all private calls are hidden from observers.
 
+## Transaction phases
+
+An Aztec transaction is split into up to three phases at execution time. The boundaries matter mostly when integrating with fee-paying contracts (FPCs): which phase a call runs in determines whether it can revert, which public functions it is allowed to call, and when its side effects become final.
+
+### Setup phase (non-revertible)
+
+The setup phase runs before the user's application logic. Fee-related bookkeeping happens here:
+
+- The fee payer is nominated via a call to the protocol's `set_as_fee_payer()` function. An FPC typically calls this in its entrypoint; a user paying directly with Fee Juice does it implicitly via the default entrypoint.
+- `end_setup()` is called to mark the boundary between the non-revertible and revertible phases. Everything committed before `end_setup()` stands regardless of whether later phases revert.
+
+Because the setup phase is non-revertible, the protocol restricts which public function calls are allowed during it. The default allowlist permits a small set of trusted setup functions (for example those on `AuthRegistry` and `FeeJuice`); in v4.2.0, public token functions such as `transfer_in_public` and `_increase_public_balance` were removed from it. See the [migration note](../resources/migration_notes.md#custom-token-fpcs-removed-from-default-public-setup-allowlist) for details.
+
+Practical consequences:
+
+- A fee payment committed during setup is charged to the payer even if the app phase later reverts.
+- An FPC cannot collect payment by directly calling an arbitrary user token's public transfer during setup. It either works purely in the private domain, or relies on a token function the network operator has added to the allowlist.
+
+### App phase (revertible)
+
+The app phase runs the user's actual transaction logic. Private execution has already happened locally in the PXE before the transaction was submitted (producing the proof, nullifiers, and note commitments included with the transaction); what runs in this phase is the public call stack. It starts with the public calls that private execution enqueued, and grows as those public calls themselves enqueue further public calls. If any public call in this phase reverts, all state changes from the phase are discarded, but fees committed during setup are still paid.
+
+### Teardown phase (optional)
+
+Transactions can optionally include a teardown phase after app execution. During teardown, the final transaction fee is available to public functions, which is useful for FPCs that want to refund unused gas to the user. Not every FPC uses teardown; some charge a fixed quoted amount with no refund, retaining any surplus in the FPC's Fee Juice balance.
+
 ## Next Steps
 
 - Learn about [accounts](./accounts/index.md) and how they authorize transactions
 - Understand [state management](./state_management.md) and how transaction effects are stored
 - Explore the [PXE](./pxe/index.md) in more detail
+- Understand the [performance impact of kernel circuits](./advanced/circuits/private_kernel.md#performance-impact) on proving time

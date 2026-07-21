@@ -1,89 +1,28 @@
-import type { LogFn, LogLevel, Logger } from '@aztec/foundation/log';
+import type { AvmStat } from '@aztec/bb.js';
+import { createLogger } from '@aztec/foundation/log';
 import { Timer } from '@aztec/foundation/timer';
 import {
+  type MeasuredSimulatorFactory,
   PublicTxSimulationTester,
   SimpleContractDataSource,
   type TestEnqueuedCall,
   type TestExecutorMetrics,
   type TestPrivateInsertions,
 } from '@aztec/simulator/public/fixtures';
+import { AvmSimulatorPool, MeasuredPublicTxSimulator } from '@aztec/simulator/server';
 import type { PublicTxResult } from '@aztec/simulator/server';
 import { AvmCircuitInputs, AvmCircuitPublicInputs, PublicSimulatorConfig } from '@aztec/stdlib/avm';
 import { AztecAddress } from '@aztec/stdlib/aztec-address';
+import type { Gas } from '@aztec/stdlib/gas';
 import type { MerkleTreeWriteOperations } from '@aztec/stdlib/interfaces/server';
 import type { GlobalVariables } from '@aztec/stdlib/tx';
 import { NativeWorldStateService } from '@aztec/world-state';
 
-import fs from 'node:fs/promises';
-import { tmpdir } from 'node:os';
 import path from 'path';
 
-import { type BBResult, type BBSuccess, BB_RESULT, generateAvmProof, verifyAvmProof } from '../bb/execute.js';
+import { BBJsFactory } from '../bb/bb_js_backend.js';
 
 const BB_PATH = path.resolve('../../barretenberg/cpp/build/bin/bb-avm');
-
-// An InterceptingLogger that records all log messages and forwards them to a wrapped logger.
-class InterceptingLogger implements Logger {
-  public readonly logs: string[] = [];
-  public level: LogLevel;
-  public module: string;
-
-  private logger: Logger;
-
-  constructor(logger: Logger) {
-    this.logger = logger;
-    this.level = logger.level;
-    this.module = logger.module;
-  }
-
-  isLevelEnabled(level: LogLevel): boolean {
-    return this.logger.isLevelEnabled(level);
-  }
-
-  createChild(_childModule: string): Logger {
-    throw new Error('Not implemented');
-  }
-
-  getBindings() {
-    return this.logger.getBindings();
-  }
-
-  private intercept(level: LogLevel, msg: string, ...args: any[]) {
-    this.logs.push(...msg.split('\n'));
-    // Forward to the wrapped logger
-    (this.logger[level] as LogFn)(msg, ...args);
-  }
-
-  // Log methods for each level
-  silent(msg: string, ...args: any[]) {
-    this.intercept('silent', msg, ...args);
-  }
-  fatal(msg: string, ...args: any[]) {
-    this.intercept('fatal', msg, ...args);
-  }
-  warn(msg: string, ...args: any[]) {
-    this.intercept('warn', msg, ...args);
-  }
-  info(msg: string, ...args: any[]) {
-    this.intercept('info', msg, ...args);
-  }
-  verbose(msg: string, ...args: any[]) {
-    this.intercept('verbose', msg, ...args);
-  }
-  debug(msg: string, ...args: any[]) {
-    this.intercept('debug', msg, ...args);
-  }
-  trace(msg: string, ...args: any[]) {
-    this.intercept('trace', msg, ...args);
-  }
-
-  // Error log function can be string or Error
-  error(err: Error | string, ...args: any[]) {
-    const msg = typeof err === 'string' ? err : err.message;
-    this.logs.push(msg);
-    this.logger.error(msg, err, ...args);
-  }
-}
 
 // Config with collectHints enabled for proving tests
 const provingConfig: PublicSimulatorConfig = PublicSimulatorConfig.from({
@@ -96,7 +35,10 @@ const provingConfig: PublicSimulatorConfig = PublicSimulatorConfig.from({
 });
 
 export class AvmProvingTester extends PublicTxSimulationTester {
-  private bbWorkingDirectory: string = '';
+  private readonly bbJsFactory = new BBJsFactory(BB_PATH, {
+    debugDir: process.env.BB_DEBUG_OUTPUT_DIR,
+    logger: createLogger('bb-prover:avm-proving-tester'),
+  });
 
   constructor(
     private checkCircuitOnly: boolean,
@@ -104,9 +46,9 @@ export class AvmProvingTester extends PublicTxSimulationTester {
     merkleTrees: MerkleTreeWriteOperations,
     globals?: GlobalVariables,
     metrics?: TestExecutorMetrics,
+    simulatorFactory?: MeasuredSimulatorFactory,
   ) {
-    // simulator factory is undefined because for proving, we use the default C++ simulator
-    super(merkleTrees, contractDataSource, globals, metrics, /*simulatorFactory=*/ undefined, provingConfig);
+    super(merkleTrees, contractDataSource, globals, metrics, simulatorFactory, provingConfig);
   }
 
   static async new(
@@ -117,56 +59,82 @@ export class AvmProvingTester extends PublicTxSimulationTester {
   ) {
     const contractDataSource = new SimpleContractDataSource();
     const merkleTrees = await worldStateService.fork();
-    return new AvmProvingTester(checkCircuitOnly, contractDataSource, merkleTrees, globals, metrics);
+
+    const avmSimulator = await AvmSimulatorPool.spawn({ wsdbIpcPath: worldStateService.getIpcPath() });
+    const simulatorFactory: MeasuredSimulatorFactory = (mt, cdb, g, m, c) =>
+      new MeasuredPublicTxSimulator(avmSimulator, g, cdb, mt.getRevision().forkId, m, c, undefined);
+
+    const tester = new AvmProvingTester(
+      checkCircuitOnly,
+      contractDataSource,
+      merkleTrees,
+      globals,
+      metrics,
+      simulatorFactory,
+    );
+    tester.avmSimulator = avmSimulator;
+    return tester;
   }
 
-  async prove(avmCircuitInputs: AvmCircuitInputs, txLabel: string = 'unlabeledTx'): Promise<BBResult> {
-    // We use a new working directory for each proof.
-    this.bbWorkingDirectory = await fs.mkdtemp(path.join(tmpdir(), 'bb-'));
-
-    const interceptingLogger = new InterceptingLogger(this.logger);
-
-    // Then we prove.
-    const proofRes = await generateAvmProof(
-      BB_PATH,
-      this.bbWorkingDirectory,
-      avmCircuitInputs,
-      interceptingLogger,
-      this.checkCircuitOnly,
-    );
-    if (proofRes.status === BB_RESULT.FAILURE) {
-      this.logger.error(`Proof generation failed: ${proofRes.reason}`);
+  public override async close(): Promise<void> {
+    const results = await Promise.allSettled([super.close(), this.bbJsFactory.destroy()]);
+    const errors = results.flatMap(result => (result.status === 'rejected' ? [result.reason] : []));
+    if (errors.length > 0) {
+      throw new AggregateError(errors, `Failed to close AVM proving tester`);
     }
-    expect(proofRes.status).toEqual(BB_RESULT.SUCCESS);
+  }
 
-    // Parse the logs into a structured format.
-    const logs = interceptingLogger.logs;
-    // const traceSizes: { name: string; size: number }[] = [];
-    // logs.forEach(log => {
-    //   const match = log.match(/\b(\w+): (\d+) \(~2/);
-    //   if (match) {
-    //     traceSizes.push({
-    //       name: match[1],
-    //       size: parseInt(match[2]),
-    //     });
-    //   }
-    // });
+  /**
+   * Generate an AVM proof (or run check-circuit if configured). Records per-stage timings in the test metrics.
+   * Returns the in-memory proof fields on success; throws via jest expect() on failure.
+   */
+  async prove(avmCircuitInputs: AvmCircuitInputs, txLabel: string = 'unlabeledTx'): Promise<Uint8Array[]> {
+    const inputsBuffer = avmCircuitInputs.serializeWithMessagePack();
+
+    if (this.checkCircuitOnly) {
+      await using instance = await this.bbJsFactory.getInstance();
+      const { passed, stats } = await instance.checkAvmCircuit(inputsBuffer);
+      this.recordProverMetrics(stats, txLabel);
+      expect(passed).toBe(true);
+      return [];
+    }
+
+    await using instance = await this.bbJsFactory.getInstance();
+    const { proof, stats } = await instance.generateAvmProof(inputsBuffer);
+    this.recordProverMetrics(stats, txLabel);
+    return proof;
+  }
+
+  async verify(proof: Uint8Array[], publicInputs: AvmCircuitPublicInputs): Promise<void> {
+    if (this.checkCircuitOnly) {
+      // Check-circuit did not generate a proof; nothing to verify.
+      return;
+    }
+    const piBuffer = publicInputs.serializeWithMessagePack();
+    await using instance = await this.bbJsFactory.getInstance();
+    const { verified } = await instance.verifyAvmProof(proof, piBuffer);
+    expect(verified).toBe(true);
+  }
+
+  public async proveVerify(avmCircuitInputs: AvmCircuitInputs, txLabel: string = 'unlabeledTx') {
+    const proof = await this.prove(avmCircuitInputs, txLabel);
+    await this.verify(proof, avmCircuitInputs.publicInputs);
+  }
+
+  private recordProverMetrics(stats: AvmStat[], txLabel: string) {
+    // Build a lookup keyed on the stage name with the `_ms` suffix stripped, matching the legacy
+    // stdout-scraped shape. bb::avm2::Stats::time() stores keys with `_ms` appended.
     const times: { [key: string]: number } = {};
-    logs.forEach(log => {
-      const match = log.match(/\b([\w/]+)_ms: (\d+)/);
-      if (match) {
-        times[match[1]] = parseInt(match[2]);
-      }
-    });
-
-    // Throw if logs did not contain any times.
-    if (Object.keys(times).length === 0) {
-      throw new Error('AVM stdout did not contain any proving times in the stats!');
+    for (const { name, valueMs } of stats) {
+      const key = name.endsWith('_ms') ? name.slice(0, -'_ms'.length) : name;
+      times[key] = valueMs;
     }
-
+    if (Object.keys(times).length === 0) {
+      throw new Error('AVM response did not contain any proving-stage timings!');
+    }
     // Hack to make labels match.
     const txLabelWithCount = `${txLabel}/${this.txCount - 1}`;
-    // I need to cast because TS doesnt realize metrics is protected not private.
+    // Cast because TS doesn't realize `metrics` is protected, not private on the parent class.
     (this as any).metrics?.recordProverMetrics(txLabelWithCount, {
       proverSimulationStepMs: times['simulation/all'],
       proverProvingStepMs: times['proving/all'],
@@ -179,26 +147,6 @@ export class AvmProvingTester extends PublicTxSimulationTester {
       provingLogDerivativeInverseCommitmentsMs: times['prove/log_derivative_inverse_commitments_round'],
       provingWireCommitmentsMs: times['prove/wire_commitments_round'],
     });
-
-    return proofRes as BBSuccess;
-  }
-
-  async verify(proofRes: BBSuccess, publicInputs: AvmCircuitPublicInputs): Promise<BBResult> {
-    if (this.checkCircuitOnly) {
-      // Skip verification if we are only checking the circuit.
-      // Check-circuit does not generate a proof to verify.
-      return proofRes;
-    }
-
-    return await verifyAvmProof(BB_PATH, this.bbWorkingDirectory, proofRes.proofPath!, publicInputs, this.logger);
-  }
-
-  public async proveVerify(avmCircuitInputs: AvmCircuitInputs, txLabel: string = 'unlabeledTx') {
-    const provingRes = await this.prove(avmCircuitInputs, txLabel);
-    expect(provingRes.status).toEqual(BB_RESULT.SUCCESS);
-
-    const verificationRes = await this.verify(provingRes as BBSuccess, avmCircuitInputs.publicInputs);
-    expect(verificationRes.status).toBe(BB_RESULT.SUCCESS);
   }
 
   public async simProveVerify(
@@ -211,6 +159,7 @@ export class AvmProvingTester extends PublicTxSimulationTester {
     privateInsertions?: TestPrivateInsertions,
     txLabel: string = 'unlabeledTx',
     disableRevertCheck: boolean = false,
+    gasLimits?: Gas,
   ): Promise<PublicTxResult> {
     const simTimer = new Timer();
     const simRes = await this.simulateTx(
@@ -221,6 +170,7 @@ export class AvmProvingTester extends PublicTxSimulationTester {
       feePayer,
       privateInsertions,
       txLabel,
+      gasLimits,
     );
     const simDuration = simTimer.ms();
     this.logger.info(`Simulation took ${simDuration} ms for tx ${txLabel}`);
@@ -247,6 +197,7 @@ export class AvmProvingTester extends PublicTxSimulationTester {
     teardownCall?: TestEnqueuedCall,
     feePayer?: AztecAddress,
     privateInsertions?: TestPrivateInsertions,
+    gasLimits?: Gas,
   ) {
     return await this.simProveVerify(
       sender,
@@ -258,6 +209,7 @@ export class AvmProvingTester extends PublicTxSimulationTester {
       privateInsertions,
       txLabel,
       true,
+      gasLimits,
     );
   }
 
@@ -265,9 +217,10 @@ export class AvmProvingTester extends PublicTxSimulationTester {
     appCall: TestEnqueuedCall,
     expectRevert?: boolean,
     txLabel: string = 'unlabeledTx',
+    gasLimits?: Gas,
   ) {
     await this.simProveVerify(
-      /*sender=*/ AztecAddress.fromNumber(42),
+      /*sender=*/ AztecAddress.fromNumberUnsafe(42),
       /*setupCalls=*/ [],
       [appCall],
       undefined,
@@ -275,6 +228,8 @@ export class AvmProvingTester extends PublicTxSimulationTester {
       /*feePayer=*/ undefined,
       /*privateInsertions=*/ undefined,
       txLabel,
+      /*disableRevertCheck=*/ false,
+      gasLimits,
     );
   }
 }

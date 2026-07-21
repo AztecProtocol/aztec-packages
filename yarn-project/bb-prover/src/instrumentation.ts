@@ -58,10 +58,18 @@ export class ProverInstrumentation {
     circuitName: CircuitName,
     timerOrMS: Timer | number,
   ) {
-    const s = typeof timerOrMS === 'number' ? timerOrMS / 1000 : timerOrMS.s();
-    this[metric].record(s, {
-      [Attributes.PROTOCOL_CIRCUIT_NAME]: circuitName,
-    });
+    // Simulation duration is stored in ms, while the others are stored in seconds
+    if (metric === 'simulationDuration') {
+      const ms = typeof timerOrMS === 'number' ? timerOrMS : timerOrMS.ms();
+      this[metric].record(Math.trunc(ms), {
+        [Attributes.PROTOCOL_CIRCUIT_NAME]: circuitName,
+      });
+    } else {
+      const s = typeof timerOrMS === 'number' ? timerOrMS / 1000 : timerOrMS.s();
+      this[metric].record(s, {
+        [Attributes.PROTOCOL_CIRCUIT_NAME]: circuitName,
+      });
+    }
   }
 
   /**

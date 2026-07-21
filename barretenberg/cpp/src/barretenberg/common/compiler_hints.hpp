@@ -1,9 +1,20 @@
 #pragma once
 
 #ifdef _WIN32
-#define BB_INLINE __forceinline inline
+#define BB_INLINE __forceinline
 #else
 #define BB_INLINE __attribute__((always_inline)) inline
+#endif
+
+// Statement-position force-inline hint, applied to a call statement (not a function). The underlying
+// `[[clang::always_inline]]` statement attribute is a Clang 12+ extension; GCC rejects an attribute at
+// the start of a statement ("attributes at the beginning of statement are ignored", an error under
+// -Werror=attributes). Expand to nothing off Clang -- GCC inlines these call sites at -O3 regardless;
+// the hint matters on the Clang/WASM -Oz path. See vectorized_for.hpp for the rationale.
+#ifdef __clang__
+#define BB_INLINE_STMT [[clang::always_inline]]
+#else
+#define BB_INLINE_STMT
 #endif
 
 // TODO(AD): Other instrumentation?

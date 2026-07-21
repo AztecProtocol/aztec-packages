@@ -30,8 +30,6 @@ interface IInbox {
    */
   event MessageSent(uint256 indexed checkpointNumber, uint256 index, bytes32 indexed hash, bytes16 rollingHash);
 
-  event InboxSynchronized(uint256 indexed inProgress);
-
   // docs:start:send_l1_to_l2_message
   /**
    * @notice Inserts a new message into the Inbox
@@ -60,8 +58,6 @@ interface IInbox {
    */
   function consume(uint256 _toConsume) external returns (bytes32);
   // docs:end:consume
-
-  function catchUp(uint256 _pendingCheckpointNumber) external;
 
   function getFeeAssetPortal() external view returns (address);
 

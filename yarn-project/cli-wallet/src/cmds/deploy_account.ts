@@ -1,10 +1,11 @@
+import { NO_FROM } from '@aztec/aztec.js/account';
 import { AztecAddress } from '@aztec/aztec.js/addresses';
 import { NO_WAIT } from '@aztec/aztec.js/contracts';
-import type { AztecNode } from '@aztec/aztec.js/node';
+import { type AztecNode, waitForTx } from '@aztec/aztec.js/node';
 import type { DeployAccountOptions } from '@aztec/aztec.js/wallet';
 import { prettyPrintJSON } from '@aztec/cli/cli-utils';
 import type { LogFn, Logger } from '@aztec/foundation/log';
-import type { TxHash, TxReceipt } from '@aztec/stdlib/tx';
+import type { TxHash, TxReceipt, TxStatus } from '@aztec/stdlib/tx';
 
 import { DEFAULT_TX_TIMEOUT_S } from '../utils/cli_wallet_and_node_wrapper.js';
 import type { CLIFeeArgs } from '../utils/options/fees.js';
@@ -21,6 +22,7 @@ export async function deployAccount(
   publicDeploy: boolean,
   skipInitialization: boolean,
   feeOpts: CLIFeeArgs,
+  waitForStatus: TxStatus,
   json: boolean,
   verbose: boolean,
   debugLogger: Logger,
@@ -52,7 +54,7 @@ export async function deployAccount(
   const { paymentMethod, gasSettings } = await feeOpts.toUserFeeOptions(aztecNode, wallet, address);
 
   const delegatedDeployment = deployer && !account.address.equals(deployer);
-  const from = delegatedDeployment ? deployer : AztecAddress.ZERO;
+  const from = delegatedDeployment ? deployer : NO_FROM;
 
   const deployAccountOpts: DeployAccountOptions = {
     skipClassPublication: !registerClass,
@@ -62,11 +64,15 @@ export async function deployAccount(
     fee: { paymentMethod, gasSettings },
   };
 
+  const localStart = performance.now();
   const deployMethod = await account.getDeployMethod();
-  const { estimatedGas, stats } = await deployMethod.simulate({
+  const sim = await deployMethod.simulate({
     ...deployAccountOpts,
-    fee: { ...deployAccountOpts.fee, estimateGas: true },
+    includeMetadata: true,
   });
+  // includeMetadata: true guarantees these fields are present
+  const estimatedGas = await wallet.estimateGasLimits(sim.gasUsed!);
+  const stats = sim.stats!;
 
   if (feeOpts.estimateOnly) {
     if (json) {
@@ -89,7 +95,7 @@ export async function deployAccount(
     if (!json) {
       log(`\nWaiting for account contract deployment...`);
     }
-    const result = await deployMethod.send({
+    const sendOpts = {
       ...deployAccountOpts,
       fee: deployAccountOpts.fee
         ? {
@@ -97,18 +103,25 @@ export async function deployAccount(
             gasSettings: estimatedGas,
           }
         : undefined,
-      wait: wait ? { timeout: DEFAULT_TX_TIMEOUT_S, returnReceipt: true } : NO_WAIT,
-    });
-    const isReceipt = (data: TxReceipt | TxHash): data is TxReceipt => 'txHash' in data;
-    if (isReceipt(result)) {
-      txReceipt = result;
-      txHash = result.txHash;
+    };
+
+    ({ txHash } = await deployMethod.send({ ...sendOpts, wait: NO_WAIT }));
+    const localTimeMs = performance.now() - localStart;
+
+    if (wait) {
+      const nodeStart = performance.now();
+      txReceipt = await waitForTx(aztecNode, txHash, { timeout: DEFAULT_TX_TIMEOUT_S, waitForStatus });
+      const nodeTimeMs = performance.now() - nodeStart;
+
       out.txReceipt = {
         status: txReceipt.status,
         transactionFee: txReceipt.transactionFee,
       };
-    } else {
-      txHash = result;
+
+      if (!json) {
+        log(` Local processing time: ${(localTimeMs / 1000).toFixed(1)}s`);
+        log(` Node inclusion time: ${(nodeTimeMs / 1000).toFixed(1)}s`);
+      }
     }
     debugLogger.debug(`Account contract tx sent with hash ${txHash.toString()}`);
     out.txHash = txHash;

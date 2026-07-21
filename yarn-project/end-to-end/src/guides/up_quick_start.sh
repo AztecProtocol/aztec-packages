@@ -18,10 +18,10 @@ aztec-wallet() {
 
 aztec-wallet import-test-accounts
 
-# docs:start:declare-accounts
 aztec-wallet create-account -a alice -f test0
 aztec-wallet create-account -a bob -f test0
-# docs:end:declare-accounts
+
+aztec-wallet bridge-fee-juice 1000000000000000000000 accounts:alice --mint --no-wait
 
 DEPLOY_OUTPUT=$(aztec-wallet deploy ../noir-contracts.js/artifacts/token_contract-Token.json --args accounts:test0 Test TST 18 -f test0)
 TOKEN_ADDRESS=$(echo "$DEPLOY_OUTPUT" | grep -oE 'Contract deployed at 0x[0-9a-fA-F]+' | cut -d ' ' -f4)
@@ -38,9 +38,12 @@ fi
 
 TRANSFER_AMOUNT=42
 
-aztec-wallet create-authwit transfer_in_private accounts:test0 -ca last --args accounts:alice accounts:bob $TRANSFER_AMOUNT 1 -f alice
+# Alice's bridged fee-juice claim is only consumable inboxLag (2) checkpoints after the L1->L2 message
+# is inserted. The token deploy and mint above produced two blocks; force one more here (a public mint
+# from test0, which leaves the alice/bob private balances untouched) so the claim is available below.
+aztec-wallet send mint_to_public -ca last --args accounts:test0 1 -f test0
 
-aztec-wallet send transfer_in_private -ca last --args accounts:alice accounts:bob $TRANSFER_AMOUNT 1 -aw authwits:last -f test0
+aztec-wallet send transfer_in_private -ca last --args accounts:alice accounts:bob $TRANSFER_AMOUNT 0 -f alice --payment method=fee_juice,claim
 
 # Test end result
 ALICE_BALANCE=$(aztec-wallet simulate balance_of_private -ca last --args accounts:alice -f alice)

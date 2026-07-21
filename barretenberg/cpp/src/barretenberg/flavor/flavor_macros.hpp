@@ -1,5 +1,5 @@
 // === AUDIT STATUS ===
-// internal:    { status: Planned, auditors: [], commit: }
+// internal:    { status: Completed, auditors: [Sergei], commit: }
 // external_1:  { status: not started, auditors: [], commit: }
 // external_2:  { status: not started, auditors: [], commit: }
 // =====================
@@ -13,13 +13,9 @@
 // classes.
 
 #include "barretenberg/common/ref_array.hpp"
-#include "barretenberg/common/std_array.hpp"
 #include "barretenberg/common/std_string.hpp"
 #include "barretenberg/common/std_vector.hpp"
 
-#include <array>
-#include <iostream>
-#include <sstream>
 #include <tuple>
 #include <type_traits>
 

@@ -9,13 +9,13 @@ This guide shows you how to create and deploy a new account on Aztec.
 
 ## Prerequisites
 
-- [Connected to a network](./how_to_connect_to_local_network.md) with a `TestWallet` instance
+- [Connected to a network](./how_to_connect_to_local_network.md) with a `EmbeddedWallet` instance
 - Understanding of [account concepts](../foundational-topics/accounts/index.md)
 
 ## Install dependencies
 
 ```bash
-yarn add @aztec/aztec.js@#include_version_without_prefix @aztec/test-wallet@#include_version_without_prefix
+yarn add @aztec/aztec.js@#include_version_without_prefix @aztec/wallets@#include_version_without_prefix @aztec/noir-contracts.js@#include_version_without_prefix
 ```
 
 ## Create a new account
@@ -36,25 +36,33 @@ New accounts must be deployed before they can send transactions. Deployment requ
 
 ### Using the Sponsored FPC
 
-If your account doesn't have Fee Juice, use the [Sponsored Fee Payment Contract](./how_to_pay_fees.md#sponsored-fee-payment-contracts):
+If your account doesn't have Fee Juice, use the [Sponsored FPC](./how_to_pay_fees.md#sponsored-fpc):
 
 #include_code deploy_account_sponsored_fpc /docs/examples/ts/aztecjs_connection/index.ts typescript
 
 :::info
-See the [guide on fees](./how_to_pay_fees.md#sponsored-fee-payment-contracts) for setting up the Sponsored FPC.
+See the [guide on fees](./how_to_pay_fees.md#sponsored-fpc) for more details on the Sponsored FPC and what this snippet means.
 :::
 
 ### Using Fee Juice
 
-If your account already has Fee Juice (for example, [bridged from L1](./how_to_pay_fees.md#bridge-fee-juice-from-l1)):
+If your account has Fee Juice from a [bridge from L1](./how_to_pay_fees.md#bridge-fee-juice-from-l1), you can claim it and deploy in one step using `FeeJuicePaymentMethodWithClaim`.
 
-#include_code deploy_account_fee_juice /docs/examples/ts/aztecjs_connection/index.ts typescript
+Create a new Schnorr account for this path:
 
-The `from: AztecAddress.ZERO` is required because there's no existing account to send from—the transaction itself creates the account.
+#include_code create_fee_juice_account /docs/examples/ts/aztecjs_connection/index.ts typescript
+
+Claim the bridged Fee Juice and deploy in one step:
+
+#include_code bridge_fee_juice_claim /docs/examples/ts/aztecjs_connection/index.ts typescript
+
+If the account already has Fee Juice on L2 (for example, from a faucet or a previously claimed bridge), no special payment method is needed — just call `send({ from: NO_FROM })` and Fee Juice is used automatically.
+
+The `from: NO_FROM` signals that this transaction should be executed without account contract mediation. The wallet will directly execute it via a default entrypoint with no authorization.
 
 ## Verify deployment
 
-Confirm the account was deployed successfully:
+Confirm the account was deployed successfully. Substitute the account variable for whichever path you used above (`newAccount` for the Sponsored FPC path, `feeJuiceAccount` for the Fee Juice path):
 
 #include_code verify_account_deployment /docs/examples/ts/aztecjs_connection/index.ts typescript
 

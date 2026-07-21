@@ -1,8 +1,7 @@
 use crate::{reader::Reader, serialization::{Deserialize, Serialize}, writer::Writer};
-use dep::std::embedded_curve_ops::EmbeddedCurvePoint;
-use dep::std::embedded_curve_ops::EmbeddedCurveScalar;
+use std::embedded_curve_ops::EmbeddedCurvePoint;
+use std::embedded_curve_ops::EmbeddedCurveScalar;
 
-global U1_SERIALIZED_LEN: u32 = 1;
 global BOOL_SERIALIZED_LEN: u32 = 1;
 global U8_SERIALIZED_LEN: u32 = 1;
 global U16_SERIALIZED_LEN: u32 = 1;
@@ -43,37 +42,6 @@ impl Deserialize for bool {
     #[inline_always]
     fn stream_deserialize<let K: u32>(reader: &mut Reader<K>) -> bool {
         reader.read() != 0
-    }
-}
-
-impl Serialize for u1 {
-    let N: u32 = U1_SERIALIZED_LEN;
-
-    fn serialize(self) -> [Field; Self::N] {
-        let mut writer: Writer<Self::N> = Writer::new();
-        self.stream_serialize(&mut writer);
-        writer.finish()
-    }
-
-    #[inline_always]
-    fn stream_serialize<let K: u32>(self, writer: &mut Writer<K>) {
-        writer.write(self as Field);
-    }
-}
-
-impl Deserialize for u1 {
-    let N: u32 = U1_SERIALIZED_LEN;
-
-    fn deserialize(fields: [Field; Self::N]) -> Self {
-        let mut reader = Reader::new(fields);
-        let result = Self::stream_deserialize(&mut reader);
-        reader.finish();
-        result
-    }
-
-    #[inline_always]
-    fn stream_deserialize<let K: u32>(reader: &mut Reader<K>) -> Self {
-        reader.read() as u1
     }
 }
 
@@ -507,19 +475,18 @@ impl Deserialize for EmbeddedCurveScalar {
     }
 }
 
-global POINT_SIZE: u32 = 3;
+global POINT_SIZE: u32 = 2;
 
 impl Serialize for EmbeddedCurvePoint {
     let N: u32 = POINT_SIZE;
 
     fn serialize(self) -> [Field; Self::N] {
-        [self.x, self.y, self.is_infinite as Field]
+        [self.x, self.y]
     }
 
     fn stream_serialize<let K: u32>(self, writer: &mut Writer<K>) {
         writer.write(self.x);
         writer.write(self.y);
-        writer.write(self.is_infinite as Field);
     }
 }
 
@@ -527,12 +494,12 @@ impl Deserialize for EmbeddedCurvePoint {
     let N: u32 = POINT_SIZE;
 
     fn deserialize(fields: [Field; Self::N]) -> Self {
-        Self { x: fields[0], y: fields[1], is_infinite: fields[2] != 0 }
+        Self { x: fields[0], y: fields[1] }
     }
 
     #[inline_always]
     fn stream_deserialize<let K: u32>(reader: &mut Reader<K>) -> Self {
-        Self { x: reader.read(), y: reader.read(), is_infinite: reader.read_bool() }
+        Self { x: reader.read(), y: reader.read() }
     }
 }
 
@@ -670,15 +637,15 @@ comptime fn impl_serialize_for_tuple(_m: Module, length: u32) -> Quoted {
     // `<T0 as Serialize>::N + <T1 as Serialize>::N + <T2 as Serialize>::N`
     let full_size_serialize = type_names
         .map(|type_name| quote {
-        <$type_name as Serialize>::N
-    })
+            <$type_name as Serialize>::N
+        })
         .join(quote [+]);
 
     // `<T0 as Deserialize>::N + <T1 as Deserialize>::N + <T2 as Deserialize>::N`
     let full_size_deserialize = type_names
         .map(|type_name| quote {
-        <$type_name as Deserialize>::N
-    })
+            <$type_name as Deserialize>::N
+        })
         .join(quote [+]);
 
     // `T0: Serialize, T1: Serialize, T2: Serialize,`
@@ -699,7 +666,7 @@ comptime fn impl_serialize_for_tuple(_m: Module, length: u32) -> Quoted {
     let serialized_fields = type_names
         .mapi(|i, _type_name| quote {
             $crate::serialization::Serialize::stream_serialize(self.$i, writer);
-    })
+        })
         .join(quote []);
 
     // Statements to deserialize each field
@@ -795,4 +762,32 @@ where
 #[impl_serialize_for_tuple(6)]
 mod impls {
     use crate::serialization::{Deserialize, Serialize};
+}
+
+#[test]
+unconstrained fn bounded_vec_serialization() {
+    // Test empty BoundedVec
+    let empty_vec: BoundedVec<Field, 3> = BoundedVec::from_array([]);
+    let serialized = empty_vec.serialize();
+    let deserialized = BoundedVec::<Field, 3>::deserialize(serialized);
+    assert_eq(empty_vec, deserialized);
+    assert_eq(deserialized.len(), 0);
+
+    // Test partially filled BoundedVec
+    let partial_vec: BoundedVec<[u32; 2], 3> = BoundedVec::from_array([[1, 2]]);
+    let serialized = partial_vec.serialize();
+    let deserialized = BoundedVec::<[u32; 2], 3>::deserialize(serialized);
+    assert_eq(partial_vec, deserialized);
+    assert_eq(deserialized.len(), 1);
+    assert_eq(deserialized.get(0), [1, 2]);
+
+    // Test full BoundedVec
+    let full_vec: BoundedVec<[u32; 2], 3> = BoundedVec::from_array([[1, 2], [3, 4], [5, 6]]);
+    let serialized = full_vec.serialize();
+    let deserialized = BoundedVec::<[u32; 2], 3>::deserialize(serialized);
+    assert_eq(full_vec, deserialized);
+    assert_eq(deserialized.len(), 3);
+    assert_eq(deserialized.get(0), [1, 2]);
+    assert_eq(deserialized.get(1), [3, 4]);
+    assert_eq(deserialized.get(2), [5, 6]);
 }

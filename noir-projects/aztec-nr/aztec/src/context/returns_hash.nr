@@ -1,8 +1,9 @@
 use crate::{hash::hash_args, oracle::execution_cache};
 use crate::protocol::traits::Deserialize;
 
-/// A hash that represents a private contract function call's return value. Call `get_preimage` to get the underlying
-/// value.
+/// The hash of a private contract function call's return value.
+///
+/// Use [`ReturnsHash::get_preimage`] to get the underlying value.
 ///
 /// The kernels don't process the actual return values but instead their hashes, so it is up to contracts to populate
 /// oracles with the preimages of these hashes on return to make them available to their callers.
@@ -81,17 +82,7 @@ mod test {
 
         let hash = hash_args(serialized);
 
-        let _ = OracleMock::mock("privateLoadFromExecutionCache").returns(bad_serialized);
+        let _ = OracleMock::mock("aztec_prv_getHashPreimage").returns(bad_serialized);
         assert_eq(ReturnsHash::new(hash).get_preimage(), value);
     }
-
-    // This test passes due to a Noir bug. #[test(should_fail_with="Preimage mismatch")] unconstrained fn
-    // rejects_bad_empty_preimage() {
-    //     let value = (); let serialized = [];
-
-    //     let hash = hash_args(serialized);
-
-    //     let _ = OracleMock::mock("privateLoadFromExecutionCache").returns([1]);
-    // assert_eq(ReturnsHash::new(hash).get_preimage(), value);
-    // }
 }

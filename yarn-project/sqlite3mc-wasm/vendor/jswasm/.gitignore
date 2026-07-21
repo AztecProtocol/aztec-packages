@@ -1,0 +1,11 @@
+# Upstream sqlite3mc-wasm release artifacts are fetched at build time by
+# scripts/vendor.sh (driven by scripts/vendor.pin). Don't commit them.
+#
+# Allowlist: keep this .gitignore, the .npmignore that shadows it for npm
+# pack, the integrity manifest, and our locally-authored TypeScript
+# declaration tracked in git.
+*
+!.gitignore
+!.npmignore
+!SHA256SUMS
+!sqlite3.d.mts

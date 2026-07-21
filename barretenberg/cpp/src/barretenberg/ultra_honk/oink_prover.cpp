@@ -1,137 +1,123 @@
 // === AUDIT STATUS ===
-// internal:    { status: Planned, auditors: [], commit: }
+// internal:    { status: Completed, auditors: [Sergei], commit: }
 // external_1:  { status: not started, auditors: [], commit: }
 // external_2:  { status: not started, auditors: [], commit: }
 // =====================
 
 #include "barretenberg/ultra_honk/oink_prover.hpp"
+#include "barretenberg/commitment_schemes/shplonk/sparse_masking_poly.hpp"
 #include "barretenberg/common/bb_bench.hpp"
+#include "barretenberg/flavor/mega_app_flavor.hpp"
 #include "barretenberg/flavor/mega_avm_flavor.hpp"
+#include "barretenberg/flavor/mega_flavor.hpp"
+#include "barretenberg/flavor/mega_kernel_flavor.hpp"
+#include "barretenberg/honk/library/grand_product_delta.hpp"
+#include "barretenberg/honk/library/grand_product_library.hpp"
 #include "barretenberg/honk/prover_instance_inspector.hpp"
+#include "barretenberg/numeric/bitop/get_msb.hpp"
+#include "barretenberg/relations/databus_lookup_relation.hpp"
 #include "barretenberg/relations/logderiv_lookup_relation.hpp"
-#include "barretenberg/ultra_honk/witness_computation.hpp"
+#include "barretenberg/relations/permutation_relation.hpp"
 
 namespace bb {
 
+template <typename Relation> constexpr bool relation_computes_logderivative_inverse()
+{
+    if constexpr (requires { Relation::HAS_LOGDERIVATIVE_INVERSE_COMPUTATION; }) {
+        return Relation::HAS_LOGDERIVATIVE_INVERSE_COMPUTATION;
+    }
+    return false;
+}
+
 /**
- * @brief Oink Prover function that runs all the rounds of the verifier
- * @details Returns the witness commitments and relation_parameters
- * @tparam Flavor
+ * @brief Commit to witnesses, compute relation parameters, and prepare for Sumcheck.
  */
-template <IsUltraOrMegaHonk Flavor> void OinkProver<Flavor>::prove()
+template <typename Flavor> void OinkProver<Flavor>::prove(bool emit_alpha)
 {
     BB_BENCH_NAME("OinkProver::prove");
-    if (!prover_instance->commitment_key.initialized()) {
-        prover_instance->commitment_key = CommitmentKey(prover_instance->dyadic_size());
-    }
-    // Add circuit size public input size and public inputs to transcript->
-    execute_preamble_round();
-    // For ZK flavors: create and commit to Gemini masking polynomial
+    const size_t ck_size = prover_instance->polynomials.max_end_index();
+    commitment_key = CommitmentKey(ck_size);
+
+    send_vk_hash_and_public_inputs();
     commit_to_masking_poly();
-    // Compute first three wire commitments
-    execute_wire_commitments_round();
-    // Compute sorted list accumulator and commitment
-    execute_sorted_list_accumulator_round();
-    // Fiat-Shamir: beta & gamma
-    execute_log_derivative_inverse_round();
-    // Compute grand product(s) and commitments.
-    execute_grand_product_computation_round();
 
-    // Generate relation separator alpha for sumcheck computation
-    prover_instance->alpha = generate_alpha_round();
-
-    // #ifndef __wasm__
-    // Free the commitment key
-    prover_instance->commitment_key = CommitmentKey();
-    // #endif
+    // All masked witness polynomials already have random masking values from allocation.
+    commit_to_wires();
+    commit_to_lookup_counts_and_w4();
+    commit_to_logderiv_inverses();
+    commit_to_z_perm();
+    if (emit_alpha) {
+        prover_instance->alpha = transcript->template get_challenge<FF>("alpha");
+    }
 }
 
 /**
  * @brief Export the Oink proof
  */
 
-template <IsUltraOrMegaHonk Flavor> typename OinkProver<Flavor>::Proof OinkProver<Flavor>::export_proof()
+template <typename Flavor> typename OinkProver<Flavor>::Proof OinkProver<Flavor>::export_proof()
 {
     return transcript->export_proof();
 }
 
 /**
- * @brief Add circuit size, public input size, and public inputs to transcript
- *
+ * @brief Hash the verification key and send public inputs to the transcript.
  */
-template <IsUltraOrMegaHonk Flavor> void OinkProver<Flavor>::execute_preamble_round()
+template <typename Flavor> void OinkProver<Flavor>::send_vk_hash_and_public_inputs()
 {
-    BB_BENCH_NAME("OinkProver::execute_preamble_round");
+    BB_BENCH_NAME("OinkProver::send_vk_hash_and_public_inputs");
     fr vk_hash = honk_vk->hash_with_origin_tagging(*transcript);
-    transcript->add_to_hash_buffer(domain_separator + "vk_hash", vk_hash);
+    transcript->add_to_hash_buffer("vk_hash", vk_hash);
     vinfo("vk hash in Oink prover: ", vk_hash);
 
     for (size_t i = 0; i < prover_instance->num_public_inputs(); ++i) {
         auto public_input_i = prover_instance->public_inputs[i];
-        transcript->send_to_verifier(domain_separator + "public_input_" + std::to_string(i), public_input_i);
+        transcript->send_to_verifier("public_input_" + std::to_string(i), public_input_i);
     }
 }
 
 /**
  * @brief Commit to the wire polynomials (part of the witness), with the exception of the fourth wire, which is
- * only commited to after adding memory records. In the Goblin Flavor, we also commit to the ECC OP wires and the
- * DataBus columns.
+ * only committed to after adding memory records. For Mega, we also commit to the ECC op wires and DataBus columns.
  */
-template <IsUltraOrMegaHonk Flavor> void OinkProver<Flavor>::execute_wire_commitments_round()
+template <typename Flavor> void OinkProver<Flavor>::commit_to_wires()
 {
-    BB_BENCH_NAME("OinkProver::execute_wire_commitments_round");
-    // Commit to the first three wire polynomials
-    // We only commit to the fourth wire polynomial after adding memory recordss
-    auto batch = prover_instance->commitment_key.start_batch();
-    // Commit to the first three wire polynomials
-    // We only commit to the fourth wire polynomial after adding memory records
+    BB_BENCH_NAME("OinkProver::commit_to_wires");
+    auto batch = commitment_key.start_batch();
 
-    batch.add_to_batch(prover_instance->polynomials.w_l, commitment_labels.w_l, /*mask?*/ Flavor::HasZK);
-    batch.add_to_batch(prover_instance->polynomials.w_r, commitment_labels.w_r, /*mask?*/ Flavor::HasZK);
-    batch.add_to_batch(prover_instance->polynomials.w_o, commitment_labels.w_o, /*mask?*/ Flavor::HasZK);
+    // Commit to the first three wire polynomials; w_4 is deferred until after memory records are added
+    // Masking values are already in the polynomials
+    batch.add_to_batch(prover_instance->polynomials.w_l(), commitment_labels.w_l(), /*has_duplicates_hint=*/true);
+    batch.add_to_batch(prover_instance->polynomials.w_r(), commitment_labels.w_r(), /*has_duplicates_hint=*/true);
+    batch.add_to_batch(prover_instance->polynomials.w_o(), commitment_labels.w_o(), /*has_duplicates_hint=*/true);
 
-    if constexpr (IsMegaFlavor<Flavor>) {
-
-        // Commit to Goblin ECC op wires.
-        // Note even with zk, we do not mask here. The masking for these is done differently.
-        // It is necessary that "random" ops are added to the op_queue, which is then used to populate these ecc op
-        // wires. This is more holistic and obviates the need to extend with random values.
-        bool mask_ecc_op_polys = false; // Flavor::HasZK
-
+    if constexpr (Flavor::HasEccOpQueue) {
         for (auto [polynomial, label] :
              zip_view(prover_instance->polynomials.get_ecc_op_wires(), commitment_labels.get_ecc_op_wires())) {
-            {
-                BB_BENCH_NAME("COMMIT::ecc_op_wires");
-                batch.add_to_batch(polynomial, domain_separator + label, mask_ecc_op_polys);
-            };
+            batch.add_to_batch(polynomial, label);
         }
-
-        // Commit to DataBus related polynomials
+    }
+    if constexpr (Flavor::HasDataBus) {
         for (auto [polynomial, label] :
              zip_view(prover_instance->polynomials.get_databus_entities(), commitment_labels.get_databus_entities())) {
-            {
-                BB_BENCH_NAME("COMMIT::databus");
-                bool is_unmasked_databus_commitment = label == "CALLDATA";
-                batch.add_to_batch(polynomial, label, /*mask?*/ Flavor::HasZK && !is_unmasked_databus_commitment);
-            }
+            batch.add_to_batch(polynomial, label);
         }
     }
 
     auto computed_commitments = batch.commit_and_send_to_verifier(transcript);
-    prover_instance->commitments.w_l = computed_commitments[0];
-    prover_instance->commitments.w_r = computed_commitments[1];
-    prover_instance->commitments.w_o = computed_commitments[2];
+    prover_instance->commitments.w_l() = computed_commitments[0];
+    prover_instance->commitments.w_r() = computed_commitments[1];
+    prover_instance->commitments.w_o() = computed_commitments[2];
 
-    if constexpr (IsMegaFlavor<Flavor>) {
-        size_t commitment_idx = 3;
+    size_t commitment_idx = 3;
+    if constexpr (Flavor::HasEccOpQueue) {
         for (auto& commitment : prover_instance->commitments.get_ecc_op_wires()) {
-            commitment = computed_commitments[commitment_idx];
-            commitment_idx++;
+            commitment = computed_commitments[commitment_idx++];
         }
-
+    }
+    if constexpr (Flavor::HasDataBus) {
         for (auto& commitment : prover_instance->commitments.get_databus_entities()) {
-            commitment = computed_commitments[commitment_idx];
-            commitment_idx++;
+            commitment = computed_commitments[commitment_idx++];
         }
     }
 }
@@ -140,68 +126,83 @@ template <IsUltraOrMegaHonk Flavor> void OinkProver<Flavor>::execute_wire_commit
  * @brief Compute sorted witness-table accumulator and commit to the resulting polynomials.
  *
  */
-template <IsUltraOrMegaHonk Flavor> void OinkProver<Flavor>::execute_sorted_list_accumulator_round()
+template <typename Flavor> void OinkProver<Flavor>::commit_to_lookup_counts_and_w4()
 {
-    BB_BENCH_NAME("OinkProver::execute_sorted_list_accumulator_round");
-    // Get eta challenge and compute powers (eta, eta², eta³)
-    prover_instance->relation_parameters.compute_eta_powers(transcript->template get_challenge<FF>("eta"));
+    BB_BENCH_NAME("OinkProver::commit_to_lookup_counts_and_w4");
+    // The memory relation is the sole consumer of the eta powers and the ROM-LogUp offset
+    // `rom_logup_gamma`, so `Flavor::HasMemory` gates their FS samples and the power computation.
+    // When false, skip them so the verifier (which gates on the same flag) stays in lockstep on the
+    // FS state.
+    if constexpr (Flavor::HasMemory) {
+        auto [eta, rom_logup_gamma] =
+            transcript->template get_challenges<FF>(std::array<std::string, 2>{ "eta", "rom_logup_gamma" });
+        prover_instance->relation_parameters.eta = eta;
+        prover_instance->relation_parameters.eta_two = eta * eta;
+        prover_instance->relation_parameters.eta_three = prover_instance->relation_parameters.eta_two * eta;
+        prover_instance->relation_parameters.rom_logup_gamma = rom_logup_gamma;
+    }
 
-    WitnessComputation<Flavor>::add_ram_rom_memory_records_to_wire_4(prover_instance->polynomials,
-                                                                     prover_instance->memory_read_records,
-                                                                     prover_instance->memory_write_records,
-                                                                     prover_instance->relation_parameters.eta,
-                                                                     prover_instance->relation_parameters.eta_two,
-                                                                     prover_instance->relation_parameters.eta_three);
+    // Memory record and ROM-LogUp row indices are in the active trace region (after disabled rows), so
+    // masking is preserved
+    add_ram_rom_memory_records_to_wire_4(*prover_instance);
+    add_rom_logup_inverses_to_wire_4(*prover_instance);
 
-    // Commit to lookup argument polynomials and the finalized (i.e. with memory records) fourth wire polynomial
-    auto batch = prover_instance->commitment_key.start_batch();
-    batch.add_to_batch(prover_instance->polynomials.lookup_read_counts,
-                       commitment_labels.lookup_read_counts,
-                       /*mask?*/ Flavor::HasZK);
-    batch.add_to_batch(
-        prover_instance->polynomials.lookup_read_tags, commitment_labels.lookup_read_tags, /*mask?*/ Flavor::HasZK);
-    batch.add_to_batch(
-        prover_instance->polynomials.w_4, domain_separator + commitment_labels.w_4, /*mask?*/ Flavor::HasZK);
+    auto batch = commitment_key.start_batch();
+    if constexpr (Flavor::HasLogDerivLookup) {
+        batch.add_to_batch(prover_instance->polynomials.lookup_read_counts(), commitment_labels.lookup_read_counts());
+        batch.add_to_batch(prover_instance->polynomials.lookup_read_tags(), commitment_labels.lookup_read_tags());
+    }
+    batch.add_to_batch(prover_instance->polynomials.w_4(), commitment_labels.w_4(), /*has_duplicates_hint=*/true);
     auto computed_commitments = batch.commit_and_send_to_verifier(transcript);
 
-    prover_instance->commitments.lookup_read_counts = computed_commitments[0];
-    prover_instance->commitments.lookup_read_tags = computed_commitments[1];
-    prover_instance->commitments.w_4 = computed_commitments[2];
+    size_t idx = 0;
+    if constexpr (Flavor::HasLogDerivLookup) {
+        prover_instance->commitments.lookup_read_counts() = computed_commitments[idx++];
+        prover_instance->commitments.lookup_read_tags() = computed_commitments[idx++];
+    }
+    prover_instance->commitments.w_4() = computed_commitments[idx++];
 }
 
 /**
  * @brief Compute log derivative inverse polynomial and its commitment, if required
  *
  */
-template <IsUltraOrMegaHonk Flavor> void OinkProver<Flavor>::execute_log_derivative_inverse_round()
+template <typename Flavor> void OinkProver<Flavor>::commit_to_logderiv_inverses()
 {
-    BB_BENCH_NAME("OinkProver::execute_log_derivative_inverse_round");
-    auto [beta, gamma] = transcript->template get_challenges<FF>(
-        std::array<std::string, 2>{ domain_separator + "beta", domain_separator + "gamma" });
-    prover_instance->relation_parameters.compute_beta_powers(beta);
+    BB_BENCH_NAME("OinkProver::commit_to_logderiv_inverses");
+    auto [beta, gamma] = transcript->template get_challenges<FF>(std::array<std::string, 2>{ "beta", "gamma" });
+    prover_instance->relation_parameters.beta = beta;
     prover_instance->relation_parameters.gamma = gamma;
+    // The log-derivative lookup relation is the sole consumer of the squared/cubed beta powers, so
+    // `Flavor::HasLogDerivLookup` gates their computation. When false, skip the extra multiplications
+    // to stay symmetric with the verifier.
+    if constexpr (Flavor::HasLogDerivLookup) {
+        prover_instance->relation_parameters.beta_sqr = beta * beta;
+        prover_instance->relation_parameters.beta_cube = prover_instance->relation_parameters.beta_sqr * beta;
+    }
 
     // Compute the inverses used in log-derivative lookup relations
-    WitnessComputation<Flavor>::compute_logderivative_inverses(
-        prover_instance->polynomials, prover_instance->dyadic_size(), prover_instance->relation_parameters);
+    // For ZK, computation starts after the disabled head region to preserve masking values
+    compute_logderivative_inverses(*prover_instance);
 
-    auto batch = prover_instance->commitment_key.start_batch();
-    batch.add_to_batch(prover_instance->polynomials.lookup_inverses,
-                       commitment_labels.lookup_inverses,
-                       /*mask?*/ Flavor::HasZK);
+    auto batch = commitment_key.start_batch();
+    if constexpr (Flavor::HasLogDerivLookup) {
+        batch.add_to_batch(prover_instance->polynomials.lookup_inverses(), commitment_labels.lookup_inverses());
+    }
 
-    // If Mega, commit to the databus inverse polynomials and send
-    if constexpr (IsMegaFlavor<Flavor>) {
+    if constexpr (Flavor::HasDataBus) {
         for (auto [polynomial, label] :
              zip_view(prover_instance->polynomials.get_databus_inverses(), commitment_labels.get_databus_inverses())) {
-            batch.add_to_batch(polynomial, label, /*mask?*/ Flavor::HasZK);
+            batch.add_to_batch(polynomial, label);
         };
     }
     auto computed_commitments = batch.commit_and_send_to_verifier(transcript);
 
-    prover_instance->commitments.lookup_inverses = computed_commitments[0];
-    if constexpr (IsMegaFlavor<Flavor>) {
-        size_t commitment_idx = 1;
+    size_t commitment_idx = 0;
+    if constexpr (Flavor::HasLogDerivLookup) {
+        prover_instance->commitments.lookup_inverses() = computed_commitments[commitment_idx++];
+    }
+    if constexpr (Flavor::HasDataBus) {
         for (auto& commitment : prover_instance->commitments.get_databus_inverses()) {
             commitment = computed_commitments[commitment_idx];
             commitment_idx++;
@@ -210,75 +211,165 @@ template <IsUltraOrMegaHonk Flavor> void OinkProver<Flavor>::execute_log_derivat
 }
 
 /**
- * @brief Compute permutation and lookup grand product polynomials and their commitments
- *
+ * @brief Compute the permutation grand product polynomial and commit to it.
  */
-template <IsUltraOrMegaHonk Flavor> void OinkProver<Flavor>::execute_grand_product_computation_round()
+template <typename Flavor> void OinkProver<Flavor>::commit_to_z_perm()
 {
-    BB_BENCH_NAME("OinkProver::execute_grand_product_computation_round");
-    // Compute the permutation grand product polynomial
+    BB_BENCH_NAME("OinkProver::commit_to_z_perm");
 
-    WitnessComputation<Flavor>::compute_grand_product_polynomial(prover_instance->polynomials,
-                                                                 prover_instance->public_inputs,
-                                                                 prover_instance->pub_inputs_offset(),
-                                                                 prover_instance->relation_parameters,
-                                                                 prover_instance->get_final_active_wire_idx() + 1);
+    // Grand product computation already starts after the disabled region (gp_start), preserving masking values.
+    // It also measures the adjacent-duplicate z_perm coefficients (rows where the per-row grand-product ratio is
+    // 1, so z_perm is unchanged) as a by-product, avoiding a second full pass over z_perm for the MSM dedup hint.
+    uint32_t z_perm_dup_count = 0;
+    compute_grand_product_polynomial(*prover_instance, z_perm_dup_count);
 
-    {
-        BB_BENCH_NAME("COMMIT::z_perm");
-        prover_instance->commitments.z_perm =
-            commit_to_witness_polynomial(prover_instance->polynomials.z_perm, commitment_labels.z_perm);
-    }
+    auto& z_perm = prover_instance->polynomials.z_perm();
+    auto batch = commitment_key.start_batch();
+    batch.add_to_batch(z_perm, commitment_labels.z_perm(), /*has_duplicates_hint=*/true, z_perm_dup_count);
+    auto commitments = batch.commit_and_send_to_verifier(transcript);
+    prover_instance->commitments.z_perm() = commitments[0];
 }
 
-template <IsUltraOrMegaHonk Flavor> typename Flavor::SubrelationSeparator OinkProver<Flavor>::generate_alpha_round()
+template <typename Flavor> void OinkProver<Flavor>::commit_to_masking_poly()
 {
-    BB_BENCH_NAME("OinkProver::generate_alpha_round");
+    if constexpr (flavor_has_gemini_masking<Flavor>()) {
+        // Sparse 2d-coefficient mask on the tail-halving support (dense random for tiny circuits).
+        // See SHPLEMINI_ZK_MASKING.md for the rank / ZK argument.
+        const size_t dyadic_size = prover_instance->dyadic_size();
+        const size_t d = numeric::get_msb(dyadic_size);
+        prover_instance->polynomials.gemini_masking_poly() =
+            build_gemini_masking_poly<FF>(d, prover_instance->polynomials.max_end_index(), dyadic_size);
 
-    // Get the single alpha challenge for sumcheck computation
-    // Powers of this challenge will be used to batch subrelations
-    return transcript->template get_challenge<FF>(domain_separator + "alpha");
-}
-
-/**
- * @brief A uniform method to mask, commit, and send the corresponding commitment to the verifier.
- *
- * @param polynomial
- * @param label
- * @param type
- */
-template <IsUltraOrMegaHonk Flavor>
-Flavor::Commitment OinkProver<Flavor>::commit_to_witness_polynomial(Polynomial<FF>& polynomial,
-                                                                    const std::string& label)
-{
-    BB_BENCH_NAME("OinkProver::commit_to_witness_polynomial");
-    // Mask the polynomial when proving in zero-knowledge
-    if constexpr (Flavor::HasZK) {
-        polynomial.mask();
-    };
-
-    typename Flavor::Commitment commitment;
-
-    commitment = prover_instance->commitment_key.commit(polynomial);
-    // Send the commitment to the verifier
-    transcript->send_to_verifier(domain_separator + label, commitment);
-
-    return commitment;
-}
-
-template <IsUltraOrMegaHonk Flavor> void OinkProver<Flavor>::commit_to_masking_poly()
-{
-    if constexpr (Flavor::HasZK) {
-        // Create a random masking polynomial for Gemini
-        const size_t polynomial_size = prover_instance->dyadic_size();
-        prover_instance->polynomials.gemini_masking_poly = Polynomial<FF>::random(polynomial_size);
-
-        // Commit to the masking polynomial and send to transcript
-        auto masking_commitment =
-            prover_instance->commitment_key.commit(prover_instance->polynomials.gemini_masking_poly);
+        typename Flavor::Commitment masking_commitment;
+        {
+            BB_BENCH_NAME("Oink::commit_masking_poly_msm");
+            masking_commitment = commitment_key.commit(prover_instance->polynomials.gemini_masking_poly());
+        }
         transcript->send_to_verifier("Gemini:masking_poly_comm", masking_commitment);
     }
 };
+
+/**
+ * @brief Add RAM/ROM memory records to the fourth wire polynomial
+ *
+ * @details This operation must be performed after the first three wires have been
+ * committed to, hence the dependence on the `eta` challenge.
+ *
+ * @tparam Flavor
+ * @param instance prover instance whose polynomials, memory records, and eta powers are used
+ */
+template <typename Flavor> void OinkProver<Flavor>::add_ram_rom_memory_records_to_wire_4(ProverInstance& instance)
+{
+    BB_BENCH_NAME("OinkProver::add_ram_rom_memory_records_to_wire_4");
+    // The memory record values are computed at the indicated indices as
+    // w4 = w3 * eta^3 + w2 * eta^2 + w1 * eta + read_write_flag;
+    // (See the Memory relation for details)
+    auto wires = instance.polynomials.get_wires();
+    const auto& eta = instance.relation_parameters.eta;
+    const auto& eta_two = instance.relation_parameters.eta_two;
+    const auto& eta_three = instance.relation_parameters.eta_three;
+
+    // Compute read record values
+    for (const auto& gate_idx : instance.memory_read_records) {
+        wires[3].at(gate_idx) = wires[2][gate_idx] * eta_three;
+        wires[3].at(gate_idx) += wires[1][gate_idx] * eta_two;
+        wires[3].at(gate_idx) += wires[0][gate_idx] * eta;
+    }
+
+    // Compute write record values
+    for (const auto& gate_idx : instance.memory_write_records) {
+        wires[3].at(gate_idx) = wires[2][gate_idx] * eta_three;
+        wires[3].at(gate_idx) += wires[1][gate_idx] * eta_two;
+        wires[3].at(gate_idx) += wires[0][gate_idx] * eta;
+        wires[3].at(gate_idx) += 1;
+    }
+}
+
+/**
+ * @brief Populate the inverse helper w_4 = 1 / (rom_logup_gamma + w_1 + eta * w_2 + eta_two * q_c) at every
+ * ROM-LogUp row
+ *
+ * @details This operation must be performed after the eta and rom_logup_gamma challenges have been generated
+ * but before w_4 is committed to. (See the ROM LogUp subrelations in the Memory relation for details.)
+ *
+ * @tparam Flavor
+ * @param instance prover instance whose polynomials, rom_logup_records, and challenges are used
+ */
+template <typename Flavor> void OinkProver<Flavor>::add_rom_logup_inverses_to_wire_4(ProverInstance& instance)
+{
+    BB_BENCH_NAME("OinkProver::add_rom_logup_inverses_to_wire_4");
+    if (instance.rom_logup_records.empty()) {
+        return;
+    }
+    auto wires = instance.polynomials.get_wires();
+    const auto& q_c = instance.polynomials.q_c();
+    const auto& eta = instance.relation_parameters.eta;
+    const auto& eta_two = instance.relation_parameters.eta_two;
+    const auto& rom_logup_gamma = instance.relation_parameters.rom_logup_gamma;
+
+    // The denominators are nonzero with overwhelming probability over the choice of rom_logup_gamma
+    std::vector<FF> denominators;
+    denominators.reserve(instance.rom_logup_records.size());
+    for (const auto& gate_idx : instance.rom_logup_records) {
+        const FF index_val = wires[0][gate_idx];
+        const FF value_val = wires[1][gate_idx];
+        const FF array_id = q_c[gate_idx]; // q_c carries the ROM array id
+        denominators.emplace_back(rom_logup_gamma + index_val + eta * value_val + eta_two * array_id);
+    }
+    FF::batch_invert(denominators);
+    for (size_t i = 0; i < instance.rom_logup_records.size(); ++i) {
+        wires[3].at(instance.rom_logup_records[i]) = denominators[i];
+    }
+}
+
+/**
+ * @brief Compute the inverse polynomials used in the log derivative lookup relations
+ *
+ * @tparam Flavor
+ * @param instance prover instance whose polynomials and relation parameters are used
+ */
+template <typename Flavor> void OinkProver<Flavor>::compute_logderivative_inverses(ProverInstance& instance)
+{
+    BB_BENCH_NAME("compute_logderivative_inverses");
+
+    auto& polynomials = instance.polynomials;
+    auto& relation_parameters = instance.relation_parameters;
+    const size_t circuit_size = instance.dyadic_size();
+
+    // Skip the disabled head region to preserve masking values
+    constexpr size_t start = ProverInstance::TRACE_OFFSET;
+
+    // Iterate the flavor's relation tuple at compile time. Relations that explicitly opt into
+    // inverse-polynomial computation participate, so the TS relation list determines the work
+    // without Oink knowing how many bus columns a flavor declares.
+    using Relations = typename Flavor::template Relations_<FF>;
+    bb::constexpr_for<0, std::tuple_size_v<Relations>, 1>([&]<size_t i>() {
+        using Relation = std::tuple_element_t<i, Relations>;
+        if constexpr (relation_computes_logderivative_inverse<Relation>()) {
+            Relation::compute_logderivative_inverse(polynomials, relation_parameters, circuit_size, start);
+        }
+    });
+}
+
+/**
+ * @brief Computes public_input_delta and the permutation grand product polynomial
+ *
+ * @param instance prover instance whose polynomials, public inputs, and relation parameters are used
+ */
+template <typename Flavor>
+void OinkProver<Flavor>::compute_grand_product_polynomial(ProverInstance& instance, uint32_t& z_perm_dup_count)
+{
+    BB_BENCH_NAME("OinkProver::compute_grand_product_polynomial");
+    auto& relation_parameters = instance.relation_parameters;
+    relation_parameters.public_input_delta = compute_public_input_delta<Flavor>(
+        instance.public_inputs, relation_parameters.beta, relation_parameters.gamma, instance.pub_inputs_offset());
+
+    // Compute permutation grand product polynomial, measuring adjacent-duplicate z_perm coefficients
+    // (rows where the per-row ratio is 1) into `z_perm_dup_count` for the MSM dedup hint, as a
+    // by-product of Step 1.
+    compute_grand_product<Flavor, UltraPermutationRelation<FF>>(
+        instance.polynomials, relation_parameters, instance.get_final_active_wire_idx() + 1, &z_perm_dup_count);
+}
 
 template class OinkProver<UltraFlavor>;
 template class OinkProver<UltraZKFlavor>;
@@ -291,5 +382,7 @@ template class OinkProver<UltraKeccakZKFlavor>;
 template class OinkProver<MegaFlavor>;
 template class OinkProver<MegaZKFlavor>;
 template class OinkProver<MegaAvmFlavor>;
+template class OinkProver<MegaAppFlavor>;
+template class OinkProver<MegaKernelFlavor>;
 
 } // namespace bb

@@ -1,29 +1,28 @@
-mod validate_include_by_timestamp_duration;
-
-pub(crate) use validate_include_by_timestamp_duration::validate_include_by_timestamp_duration;
-
 use crate::{
     accumulated_data::{assert_sorted_transformed_array, assert_transformed_array},
     components::gas_meter::meter_gas_used,
 };
 
-use dep::types::abis::kernel_circuit_public_inputs::{
-    PrivateKernelCircuitPublicInputs, PrivateToRollupKernelCircuitPublicInputs,
+use types::{
+    abis::kernel_circuit_public_inputs::{
+        PrivateKernelCircuitPublicInputs, PrivateToRollupKernelCircuitPublicInputs,
+    },
+    constants::MAX_TX_LIFETIME,
 };
 
 pub struct TailOutputValidator {
     output: PrivateToRollupKernelCircuitPublicInputs,
     previous_kernel: PrivateKernelCircuitPublicInputs,
-    include_by_timestamp_upper_bound: u64,
+    expiration_timestamp_upper_bound: u64,
 }
 
 impl TailOutputValidator {
     pub fn new(
         output: PrivateToRollupKernelCircuitPublicInputs,
         previous_kernel: PrivateKernelCircuitPublicInputs,
-        include_by_timestamp_upper_bound: u64,
+        expiration_timestamp_upper_bound: u64,
     ) -> Self {
-        TailOutputValidator { output, previous_kernel, include_by_timestamp_upper_bound }
+        TailOutputValidator { output, previous_kernel, expiration_timestamp_upper_bound }
     }
 
     pub fn validate(self) {
@@ -58,22 +57,29 @@ impl TailOutputValidator {
 
         assert_eq(self.output.fee_payer, self.previous_kernel.fee_payer, "mismatch fee_payer");
 
-        // `include_by_timestamp` - The timestamp at which the transaction expires.
+        // `expiration_timestamp` - The timestamp at which the transaction expires.
         // This value can only decrease with each iteration. Here we take the minimum of:
         // - The value from the previous kernel iteration
         // - An upper bound value set by the user
-        let include_by_timestamp = std::cmp::min(
-            self.previous_kernel.include_by_timestamp,
-            self.include_by_timestamp_upper_bound,
+        let max_timestamp = self
+            .previous_kernel
+            .constants
+            .anchor_block_header
+            .global_variables
+            .timestamp
+            + MAX_TX_LIFETIME;
+        let expiration_timestamp = std::cmp::min(
+            std::cmp::min(
+                self.previous_kernel.expiration_timestamp,
+                self.expiration_timestamp_upper_bound,
+            ),
+            max_timestamp,
         );
-        validate_include_by_timestamp_duration(
-            include_by_timestamp,
-            self.previous_kernel.constants.anchor_block_header.global_variables,
-        );
+
         assert_eq(
-            self.output.include_by_timestamp,
-            include_by_timestamp,
-            "incorrect include_by_timestamp",
+            self.output.expiration_timestamp,
+            expiration_timestamp,
+            "incorrect expiration_timestamp",
         );
 
         // note_hashes
@@ -94,7 +100,7 @@ impl TailOutputValidator {
         assert_transformed_array(
             self.previous_kernel.end.private_logs,
             self.output.end.private_logs,
-            |prev, out| assert_eq(out, prev.innermost().log, "mismatch private_logs"),
+            |prev, out| assert_eq(out, prev.expose_to_public(), "mismatch private_logs"),
         );
     }
 
@@ -117,7 +123,7 @@ impl TailOutputValidator {
     }
 
     fn validate_gas_used(self) {
-        let gas_used = meter_gas_used(self.previous_kernel, false /* is_for_public */);
+        let gas_used = meter_gas_used(self.previous_kernel, false);
         assert_eq(self.output.gas_used, gas_used, "incorrect metered gas used");
 
         let limits = self.previous_kernel.constants.tx_context.gas_settings.gas_limits;

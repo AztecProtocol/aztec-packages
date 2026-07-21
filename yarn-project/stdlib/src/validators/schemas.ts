@@ -12,7 +12,16 @@ import type {
 } from './types.js';
 
 export const ValidatorStatusInSlotSchema = zodFor<ValidatorStatusInSlot>()(
-  z.enum(['block-mined', 'block-proposed', 'block-missed', 'attestation-sent', 'attestation-missed']),
+  z.enum([
+    'checkpoint-mined',
+    'checkpoint-valid',
+    'checkpoint-invalid',
+    'checkpoint-unvalidated',
+    'checkpoint-missed',
+    'blocks-missed',
+    'attestation-sent',
+    'attestation-missed',
+  ]),
 );
 
 export const ValidatorStatusHistorySchema = zodFor<ValidatorStatusHistory>()(
@@ -26,7 +35,7 @@ export const ValidatorStatusHistorySchema = zodFor<ValidatorStatusHistory>()(
 
 export const ValidatorStatusHistorySchemaArray = z.array(ValidatorStatusHistorySchema);
 
-export const ValidatorStatusHistorySchemaMap = z.record(ValidatorStatusHistorySchemaArray);
+export const ValidatorStatusHistorySchemaMap = z.record(z.string(), ValidatorStatusHistorySchemaArray);
 
 const ValidatorTimeStatSchema = z.object({
   timestamp: schemas.BigInt,
@@ -57,7 +66,7 @@ export const ValidatorStatsSchema = zodFor<ValidatorStats>()(
 
 export const ValidatorsStatsSchema = zodFor<ValidatorsStats>()(
   z.object({
-    stats: z.record(ValidatorStatsSchema),
+    stats: z.record(z.string(), ValidatorStatsSchema),
     lastProcessedSlot: schemas.SlotNumber.optional(),
     initialSlot: schemas.SlotNumber.optional(),
     slotWindow: schemas.Integer,
@@ -67,7 +76,7 @@ export const ValidatorsStatsSchema = zodFor<ValidatorsStats>()(
 export const SingleValidatorStatsSchema = zodFor<SingleValidatorStats>()(
   z.object({
     validator: ValidatorStatsSchema,
-    allTimeProvenPerformance: z.array(
+    allTimeEpochPerformance: z.array(
       z.object({
         missed: schemas.Integer,
         total: schemas.Integer,

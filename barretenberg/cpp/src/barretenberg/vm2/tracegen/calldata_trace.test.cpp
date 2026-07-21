@@ -9,7 +9,7 @@
 #include <sys/types.h>
 #include <vector>
 
-#include "barretenberg/vm2/common/aztec_constants.hpp"
+#include "barretenberg/aztec/aztec_constants.hpp"
 #include "barretenberg/vm2/common/instruction_spec.hpp"
 #include "barretenberg/vm2/constraining/flavor_settings.hpp"
 #include "barretenberg/vm2/constraining/full_row.hpp"
@@ -33,11 +33,14 @@ TEST(CalldataTraceGenTest, BasicHashing)
     TestTraceContainer trace;
     CalldataTraceBuilder builder;
 
+    const auto calldata_hash = RawPoseidon2::hash({ DOM_SEP__PUBLIC_CALLDATA, 10, 20, 30 });
+
     builder.process_hashing(
         {
             simulation::CalldataEvent{
                 .context_id = 1,
                 .calldata = { 10, 20, 30 },
+                .calldata_hash = calldata_hash,
             },
         },
         trace);
@@ -50,7 +53,8 @@ TEST(CalldataTraceGenTest, BasicHashing)
                       ROW_FIELD_EQ(calldata_hashing_sel_not_start, 0),
                       ROW_FIELD_EQ(calldata_hashing_sel_not_padding_1, 1),
                       ROW_FIELD_EQ(calldata_hashing_sel_not_padding_2, 1),
-                      ROW_FIELD_EQ(calldata_hashing_latch, 0),
+                      ROW_FIELD_EQ(calldata_hashing_end, 0),
+                      ROW_FIELD_EQ(calldata_hashing_sel_end_not_empty, 0),
                       ROW_FIELD_EQ(calldata_hashing_context_id, 1),
                       ROW_FIELD_EQ(calldata_hashing_index_0_, 0),
                       ROW_FIELD_EQ(calldata_hashing_index_1_, 1),
@@ -61,17 +65,17 @@ TEST(CalldataTraceGenTest, BasicHashing)
                       ROW_FIELD_EQ(calldata_hashing_calldata_size, 3),
                       ROW_FIELD_EQ(calldata_hashing_input_len, 4),
                       ROW_FIELD_EQ(calldata_hashing_rounds_rem, 2),
-                      ROW_FIELD_EQ(calldata_hashing_output_hash,
-                                   RawPoseidon2::hash({ DOM_SEP__PUBLIC_CALLDATA, 10, 20, 30 }))));
+                      ROW_FIELD_EQ(calldata_hashing_output_hash, calldata_hash)));
 
-    // Latched row
+    // End row
     EXPECT_THAT(rows.at(2),
                 AllOf(ROW_FIELD_EQ(calldata_hashing_sel, 1),
                       ROW_FIELD_EQ(calldata_hashing_start, 0),
                       ROW_FIELD_EQ(calldata_hashing_sel_not_start, 1),
                       ROW_FIELD_EQ(calldata_hashing_sel_not_padding_1, 0),
                       ROW_FIELD_EQ(calldata_hashing_sel_not_padding_2, 0),
-                      ROW_FIELD_EQ(calldata_hashing_latch, 1),
+                      ROW_FIELD_EQ(calldata_hashing_end, 1),
+                      ROW_FIELD_EQ(calldata_hashing_sel_end_not_empty, 1),
                       ROW_FIELD_EQ(calldata_hashing_context_id, 1),
                       ROW_FIELD_EQ(calldata_hashing_index_0_, 3),
                       ROW_FIELD_EQ(calldata_hashing_index_1_, 4),
@@ -82,8 +86,7 @@ TEST(CalldataTraceGenTest, BasicHashing)
                       ROW_FIELD_EQ(calldata_hashing_calldata_size, 3),
                       ROW_FIELD_EQ(calldata_hashing_input_len, 4),
                       ROW_FIELD_EQ(calldata_hashing_rounds_rem, 1),
-                      ROW_FIELD_EQ(calldata_hashing_output_hash,
-                                   RawPoseidon2::hash({ DOM_SEP__PUBLIC_CALLDATA, 10, 20, 30 }))));
+                      ROW_FIELD_EQ(calldata_hashing_output_hash, calldata_hash)));
 }
 
 TEST(CalldataTraceGenTest, BasicRetrievalAndHashing)
@@ -91,14 +94,19 @@ TEST(CalldataTraceGenTest, BasicRetrievalAndHashing)
     TestTraceContainer trace;
     CalldataTraceBuilder builder;
 
+    const auto calldata_hash_1 = RawPoseidon2::hash({ DOM_SEP__PUBLIC_CALLDATA, 1, 2 });
+    const auto calldata_hash_2 = RawPoseidon2::hash({ DOM_SEP__PUBLIC_CALLDATA, 3 });
+
     // Must be sorted by context_id in ascending order.
     const auto events = { simulation::CalldataEvent{
                               .context_id = 1,
                               .calldata = { 1, 2 },
+                              .calldata_hash = calldata_hash_1,
                           },
                           simulation::CalldataEvent{
                               .context_id = 3,
                               .calldata = { 3 },
+                              .calldata_hash = calldata_hash_2,
                           } };
 
     builder.process_retrieval(events, trace);
@@ -108,47 +116,42 @@ TEST(CalldataTraceGenTest, BasicRetrievalAndHashing)
     // One extra empty row is prepended.
     EXPECT_THAT(rows.at(1),
                 AllOf(ROW_FIELD_EQ(calldata_sel, 1),
-                      ROW_FIELD_EQ(calldata_latch, 0),
+                      ROW_FIELD_EQ(calldata_end, 0),
                       ROW_FIELD_EQ(calldata_context_id, 1),
                       ROW_FIELD_EQ(calldata_index, 1),
-                      ROW_FIELD_EQ(calldata_value, 1),
-                      ROW_FIELD_EQ(calldata_diff_context_id, 0)));
+                      ROW_FIELD_EQ(calldata_value, 1)));
     EXPECT_THAT(rows.at(2),
                 AllOf(ROW_FIELD_EQ(calldata_sel, 1),
-                      ROW_FIELD_EQ(calldata_latch, 1),
+                      ROW_FIELD_EQ(calldata_end, 1),
                       ROW_FIELD_EQ(calldata_context_id, 1),
                       ROW_FIELD_EQ(calldata_index, 2),
-                      ROW_FIELD_EQ(calldata_value, 2),
-                      // Note that the diff is shifted by 1 to ensure the context_ids are increasing:
-                      ROW_FIELD_EQ(calldata_diff_context_id, 1)));
+                      ROW_FIELD_EQ(calldata_value, 2)));
     EXPECT_THAT(rows.at(3),
                 AllOf(ROW_FIELD_EQ(calldata_sel, 1),
-                      ROW_FIELD_EQ(calldata_latch, 1),
+                      ROW_FIELD_EQ(calldata_end, 1),
                       ROW_FIELD_EQ(calldata_context_id, 3),
                       ROW_FIELD_EQ(calldata_index, 1),
-                      ROW_FIELD_EQ(calldata_value, 3),
-                      // Last one and therefore no diff:
-                      ROW_FIELD_EQ(calldata_diff_context_id, 0)));
+                      ROW_FIELD_EQ(calldata_value, 3)));
     // Hashing tracegen:
-    EXPECT_THAT(
-        rows.at(1),
-        AllOf(ROW_FIELD_EQ(calldata_hashing_sel, 1),
-              ROW_FIELD_EQ(calldata_hashing_start, 1),
-              ROW_FIELD_EQ(calldata_hashing_sel_not_start, 0),
-              ROW_FIELD_EQ(calldata_hashing_sel_not_padding_1, 1),
-              ROW_FIELD_EQ(calldata_hashing_sel_not_padding_2, 1),
-              ROW_FIELD_EQ(calldata_hashing_latch, 1),
-              ROW_FIELD_EQ(calldata_hashing_context_id, 1),
-              ROW_FIELD_EQ(calldata_hashing_index_0_, 0),
-              ROW_FIELD_EQ(calldata_hashing_index_1_, 1),
-              ROW_FIELD_EQ(calldata_hashing_index_2_, 2),
-              ROW_FIELD_EQ(calldata_hashing_input_0_, DOM_SEP__PUBLIC_CALLDATA),
-              ROW_FIELD_EQ(calldata_hashing_input_1_, 1),
-              ROW_FIELD_EQ(calldata_hashing_input_2_, 2),
-              ROW_FIELD_EQ(calldata_hashing_calldata_size, 2),
-              ROW_FIELD_EQ(calldata_hashing_input_len, 3),
-              ROW_FIELD_EQ(calldata_hashing_rounds_rem, 1),
-              ROW_FIELD_EQ(calldata_hashing_output_hash, RawPoseidon2::hash({ DOM_SEP__PUBLIC_CALLDATA, 1, 2 }))));
+    EXPECT_THAT(rows.at(1),
+                AllOf(ROW_FIELD_EQ(calldata_hashing_sel, 1),
+                      ROW_FIELD_EQ(calldata_hashing_start, 1),
+                      ROW_FIELD_EQ(calldata_hashing_sel_not_start, 0),
+                      ROW_FIELD_EQ(calldata_hashing_sel_not_padding_1, 1),
+                      ROW_FIELD_EQ(calldata_hashing_sel_not_padding_2, 1),
+                      ROW_FIELD_EQ(calldata_hashing_end, 1),
+                      ROW_FIELD_EQ(calldata_hashing_sel_end_not_empty, 1),
+                      ROW_FIELD_EQ(calldata_hashing_context_id, 1),
+                      ROW_FIELD_EQ(calldata_hashing_index_0_, 0),
+                      ROW_FIELD_EQ(calldata_hashing_index_1_, 1),
+                      ROW_FIELD_EQ(calldata_hashing_index_2_, 2),
+                      ROW_FIELD_EQ(calldata_hashing_input_0_, DOM_SEP__PUBLIC_CALLDATA),
+                      ROW_FIELD_EQ(calldata_hashing_input_1_, 1),
+                      ROW_FIELD_EQ(calldata_hashing_input_2_, 2),
+                      ROW_FIELD_EQ(calldata_hashing_calldata_size, 2),
+                      ROW_FIELD_EQ(calldata_hashing_input_len, 3),
+                      ROW_FIELD_EQ(calldata_hashing_rounds_rem, 1),
+                      ROW_FIELD_EQ(calldata_hashing_output_hash, calldata_hash_1)));
 
     EXPECT_THAT(rows.at(2),
                 AllOf(ROW_FIELD_EQ(calldata_hashing_sel, 1),
@@ -156,7 +159,8 @@ TEST(CalldataTraceGenTest, BasicRetrievalAndHashing)
                       ROW_FIELD_EQ(calldata_hashing_sel_not_start, 0),
                       ROW_FIELD_EQ(calldata_hashing_sel_not_padding_1, 1),
                       ROW_FIELD_EQ(calldata_hashing_sel_not_padding_2, 0),
-                      ROW_FIELD_EQ(calldata_hashing_latch, 1),
+                      ROW_FIELD_EQ(calldata_hashing_end, 1),
+                      ROW_FIELD_EQ(calldata_hashing_sel_end_not_empty, 1),
                       ROW_FIELD_EQ(calldata_hashing_context_id, 3),
                       ROW_FIELD_EQ(calldata_hashing_index_0_, 0),
                       ROW_FIELD_EQ(calldata_hashing_index_1_, 1),
@@ -167,7 +171,7 @@ TEST(CalldataTraceGenTest, BasicRetrievalAndHashing)
                       ROW_FIELD_EQ(calldata_hashing_calldata_size, 1),
                       ROW_FIELD_EQ(calldata_hashing_input_len, 2),
                       ROW_FIELD_EQ(calldata_hashing_rounds_rem, 1),
-                      ROW_FIELD_EQ(calldata_hashing_output_hash, RawPoseidon2::hash({ DOM_SEP__PUBLIC_CALLDATA, 3 }))));
+                      ROW_FIELD_EQ(calldata_hashing_output_hash, calldata_hash_2)));
 }
 
 TEST(CalldataTraceGenTest, BasicRetrievalAndHashingEmpty)
@@ -175,9 +179,12 @@ TEST(CalldataTraceGenTest, BasicRetrievalAndHashingEmpty)
     TestTraceContainer trace;
     CalldataTraceBuilder builder;
 
+    const auto calldata_hash = RawPoseidon2::hash({ DOM_SEP__PUBLIC_CALLDATA });
+
     const auto events = { simulation::CalldataEvent{
         .context_id = 12,
         .calldata = {},
+        .calldata_hash = calldata_hash,
     } };
 
     builder.process_retrieval(events, trace);
@@ -186,13 +193,9 @@ TEST(CalldataTraceGenTest, BasicRetrievalAndHashingEmpty)
 
     // One extra empty row is prepended.
 
-    // Retrieval tracegen should have created the special empty case row:
-    EXPECT_THAT(rows.at(1),
-                AllOf(ROW_FIELD_EQ(calldata_sel, 1),
-                      ROW_FIELD_EQ(calldata_latch, 1),
-                      ROW_FIELD_EQ(calldata_context_id, 12),
-                      // This is the only case where the index is 0 and sel is on:
-                      ROW_FIELD_EQ(calldata_index, 0)));
+    // Retrieval tracegen should NOT create a row for empty calldata (no special row needed
+    // since sel_end_not_empty = 0 for empty calldata, so no permutation entry is required).
+    EXPECT_THAT(rows.at(1), AllOf(ROW_FIELD_EQ(calldata_sel, 0), ROW_FIELD_EQ(calldata_end, 0)));
     // Hashing tracegen should set the output hash as H(sep):
     EXPECT_THAT(rows.at(1),
                 AllOf(ROW_FIELD_EQ(calldata_hashing_sel, 1),
@@ -200,7 +203,8 @@ TEST(CalldataTraceGenTest, BasicRetrievalAndHashingEmpty)
                       ROW_FIELD_EQ(calldata_hashing_sel_not_start, 0),
                       ROW_FIELD_EQ(calldata_hashing_sel_not_padding_1, 0),
                       ROW_FIELD_EQ(calldata_hashing_sel_not_padding_2, 0),
-                      ROW_FIELD_EQ(calldata_hashing_latch, 1),
+                      ROW_FIELD_EQ(calldata_hashing_end, 1),
+                      ROW_FIELD_EQ(calldata_hashing_sel_end_not_empty, 0),
                       ROW_FIELD_EQ(calldata_hashing_context_id, 12),
                       ROW_FIELD_EQ(calldata_hashing_index_0_, 0),
                       ROW_FIELD_EQ(calldata_hashing_index_1_, 1),
@@ -211,7 +215,7 @@ TEST(CalldataTraceGenTest, BasicRetrievalAndHashingEmpty)
                       ROW_FIELD_EQ(calldata_hashing_calldata_size, 0),
                       ROW_FIELD_EQ(calldata_hashing_input_len, 1),
                       ROW_FIELD_EQ(calldata_hashing_rounds_rem, 1),
-                      ROW_FIELD_EQ(calldata_hashing_output_hash, RawPoseidon2::hash({ DOM_SEP__PUBLIC_CALLDATA }))));
+                      ROW_FIELD_EQ(calldata_hashing_output_hash, calldata_hash)));
 }
 
 TEST(CalldataTraceGenTest, LongerHash)
@@ -229,6 +233,7 @@ TEST(CalldataTraceGenTest, LongerHash)
             simulation::CalldataEvent{
                 .context_id = 1,
                 .calldata = calldata,
+                .calldata_hash = output_hash,
             },
         },
         trace);
@@ -265,7 +270,8 @@ TEST(CalldataTraceGenTest, LongerHash)
         EXPECT_THAT(row,
                     AllOf(ROW_FIELD_EQ(calldata_hashing_start, expected_index == 0 ? 1 : 0),
                           ROW_FIELD_EQ(calldata_hashing_sel_not_start, expected_index == 0 ? 0 : 1),
-                          ROW_FIELD_EQ(calldata_hashing_latch, expected_index == 99 ? 1 : 0),
+                          ROW_FIELD_EQ(calldata_hashing_end, expected_index == 99 ? 1 : 0),
+                          ROW_FIELD_EQ(calldata_hashing_sel_end_not_empty, expected_index == 99 ? 1 : 0),
                           ROW_FIELD_EQ(calldata_hashing_sel_not_padding_1, 1),
                           // The final value is padded:
                           ROW_FIELD_EQ(calldata_hashing_sel_not_padding_2, expected_index == 99 ? 0 : 1)));

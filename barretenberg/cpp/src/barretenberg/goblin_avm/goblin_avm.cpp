@@ -21,23 +21,19 @@
 
 namespace bb {
 
-GoblinAvm::GoblinAvm(MegaBuilder& builder,
-                     CommitmentKey<curve::BN254> bn254_commitment_key,
-                     const std::shared_ptr<Transcript>& avm_transcript)
+GoblinAvm::GoblinAvm(MegaBuilder& builder, const std::shared_ptr<Transcript>& avm_transcript)
 {
     // Set members of base Goblin class
     avm_mode = true;
     op_queue = builder.op_queue;
     transcript = avm_transcript;
-    commitment_key = std::move(bn254_commitment_key);
 
     /**
      * Add required initial ops to the op queue:
-     * - Add 1 no-op (for shiftability)
+     * - Add 1 no-op (for shiftability of Translator op queue wires)
      * - Add 3 random ops (for ZK hiding of accumulation result).
-     * This matches the structure expected by Translator. In Chonk, these ops are added automatically during
-     * circuit accumulation, but AVM uses Goblin directly without the full Chonk IVC flow.
-     *
+     * This matches the structure expected by Translator. In Chonk, these ops are added by the tail kernel; AVM uses
+     * Goblin directly without the full Chonk IVC flow, so it queues them explicitly here.
      */
     builder.queue_ecc_no_op();
     builder.queue_ecc_random_op();

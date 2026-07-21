@@ -1,11 +1,11 @@
-use crate::protocol::{point::Point, utils::field::sqrt};
+use crate::protocol::{point::EmbeddedCurvePoint, utils::field::sqrt};
 
 // I am storing the modulus minus 1 divided by 2 here because full modulus would throw "String literal too large" error
 // Full modulus is 21888242871839275222246405745257275088548364400416034343698204186575808495617
 global BN254_FR_MODULUS_DIV_2: Field = 10944121435919637611123202872628637544274182200208017171849102093287904247808;
 
 /// Returns: true if p.y <= MOD_DIV_2, else false.
-pub fn get_sign_of_point(p: Point) -> bool {
+pub fn get_sign_of_point(p: EmbeddedCurvePoint) -> bool {
     // We store only a "sign" of the y coordinate because the rest can be derived from the x coordinate. To get the
     // sign we check if the y coordinate is less or equal than the field's modulus minus 1 divided by 2. Ideally we'd
     // do `y <= MOD_DIV_2`, but there's no `lte` function, so instead we do `!(y > MOD_DIV_2)`, which is equivalent,
@@ -13,18 +13,18 @@ pub fn get_sign_of_point(p: Point) -> bool {
     !BN254_FR_MODULUS_DIV_2.lt(p.y)
 }
 
-/// Returns a `Point` in the Grumpkin curve given its x coordinate.
+/// Returns an `EmbeddedCurvePoint` in the Grumpkin curve given its x coordinate.
 ///
 /// Because not all values in the field are valid x coordinates of points in the curve (i.e. there is no corresponding
 /// y value in the field that satisfies the curve equation), it may not be possible to reconstruct a `Point`.
 /// `Option::none()` is returned in such cases.
-pub fn point_from_x_coord(x: Field) -> Option<Point> {
+pub fn point_from_x_coord(x: Field) -> Option<EmbeddedCurvePoint> {
     // y ^ 2 = x ^ 3 - 17
     let rhs = x * x * x - 17;
-    sqrt(rhs).map(|y| Point { x, y, is_infinite: false })
+    sqrt(rhs).map(|y| EmbeddedCurvePoint { x, y })
 }
 
-/// Returns a `Point` in the Grumpkin curve given its x coordinate and sign for the y coordinate.
+/// Returns an `EmbeddedCurvePoint` in the Grumpkin curve given its x coordinate and sign for the y coordinate.
 ///
 /// Because not all values in the field are valid x coordinates of points in the curve (i.e. there is no corresponding
 /// y value in the field that satisfies the curve equation), it may not be possible to reconstruct a `Point`.
@@ -32,7 +32,7 @@ pub fn point_from_x_coord(x: Field) -> Option<Point> {
 ///
 /// @param x - The x coordinate of the point @param sign - The "sign" of the y coordinate - determines whether y <=
 /// (Fr.MODULUS - 1) / 2
-pub fn point_from_x_coord_and_sign(x: Field, sign: bool) -> Option<Point> {
+pub fn point_from_x_coord_and_sign(x: Field, sign: bool) -> Option<EmbeddedCurvePoint> {
     // y ^ 2 = x ^ 3 - 17
     let rhs = x * x * x - 17;
 
@@ -40,12 +40,12 @@ pub fn point_from_x_coord_and_sign(x: Field, sign: bool) -> Option<Point> {
         // If there is a square root, we need to ensure it has the correct "sign"
         let y_is_positive = !BN254_FR_MODULUS_DIV_2.lt(y);
         let final_y = if y_is_positive == sign { y } else { -y };
-        Point { x, y: final_y, is_infinite: false }
+        EmbeddedCurvePoint { x, y: final_y }
     })
 }
 
 mod test {
-    use crate::protocol::point::Point;
+    use crate::protocol::point::EmbeddedCurvePoint;
     use crate::utils::point::{
         BN254_FR_MODULUS_DIV_2, get_sign_of_point, point_from_x_coord, point_from_x_coord_and_sign,
     };
@@ -59,7 +59,7 @@ mod test {
 
         assert_eq(p.x, x);
         assert_eq(p.y, 0x07fc22c7f2c7057571f137fe46ea9c95114282bc95d37d71ec4bfb88de457d4a);
-        assert_eq(p.is_infinite, false);
+        assert_eq(p.is_infinite(), false);
 
         // Test negative y coordinate
         let x2 = 0x247371652e55dd74c9af8dbe9fb44931ba29a9229994384bd7077796c14ee2b5;
@@ -68,7 +68,7 @@ mod test {
 
         assert_eq(p2.x, x2);
         assert_eq(p2.y, 0x26441aec112e1ae4cee374f42556932001507ad46e255ffb27369c7e3766e5c0);
-        assert_eq(p2.is_infinite, false);
+        assert_eq(p2.is_infinite(), false);
     }
 
     #[test]
@@ -123,7 +123,7 @@ mod test {
     unconstrained fn test_get_sign_of_point() {
         // Derive a point from x = 8, then test both possible y values
         let point = point_from_x_coord(8).unwrap();
-        let neg_point = Point { x: point.x, y: 0 - point.y, is_infinite: false };
+        let neg_point = EmbeddedCurvePoint { x: point.x, y: 0 - point.y };
 
         // One should be "positive" (y <= MOD_DIV_2) and one "negative"
         let sign1 = get_sign_of_point(point);
@@ -131,15 +131,15 @@ mod test {
         assert(sign1 != sign2);
 
         // y = 0 should return true (0 <= MOD_DIV_2)
-        let zero_y_point = Point { x: 0, y: 0, is_infinite: false };
+        let zero_y_point = EmbeddedCurvePoint { x: 0, y: 0 };
         assert(get_sign_of_point(zero_y_point) == true);
 
         // y = MOD_DIV_2 should return true (exactly at boundary)
-        let boundary_point = Point { x: 0, y: BN254_FR_MODULUS_DIV_2, is_infinite: false };
+        let boundary_point = EmbeddedCurvePoint { x: 0, y: BN254_FR_MODULUS_DIV_2 };
         assert(get_sign_of_point(boundary_point) == true);
 
         // y = MOD_DIV_2 + 1 should return false (just over boundary)
-        let over_boundary_point = Point { x: 0, y: BN254_FR_MODULUS_DIV_2 + 1, is_infinite: false };
+        let over_boundary_point = EmbeddedCurvePoint { x: 0, y: BN254_FR_MODULUS_DIV_2 + 1 };
         assert(get_sign_of_point(over_boundary_point) == false);
     }
 

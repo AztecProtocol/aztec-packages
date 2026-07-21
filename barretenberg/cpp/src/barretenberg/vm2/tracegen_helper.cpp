@@ -8,6 +8,7 @@
 
 #include "barretenberg/common/constexpr_utils.hpp"
 #include "barretenberg/common/std_array.hpp"
+#include "barretenberg/common/std_vector.hpp"
 #include "barretenberg/common/thread.hpp"
 #include "barretenberg/numeric/bitop/get_msb.hpp"
 #include "barretenberg/vm2/common/map.hpp"
@@ -27,6 +28,7 @@
 #include "barretenberg/vm2/tracegen/execution_trace.hpp"
 #include "barretenberg/vm2/tracegen/field_gt_trace.hpp"
 #include "barretenberg/vm2/tracegen/gt_trace.hpp"
+#include "barretenberg/vm2/tracegen/indexed_tree_check_trace.hpp"
 #include "barretenberg/vm2/tracegen/internal_call_stack_trace.hpp"
 #include "barretenberg/vm2/tracegen/keccakf1600_trace.hpp"
 #include "barretenberg/vm2/tracegen/l1_to_l2_message_tree_trace.hpp"
@@ -35,21 +37,18 @@
 #include "barretenberg/vm2/tracegen/memory_trace.hpp"
 #include "barretenberg/vm2/tracegen/merkle_check_trace.hpp"
 #include "barretenberg/vm2/tracegen/note_hash_tree_check_trace.hpp"
-#include "barretenberg/vm2/tracegen/nullifier_tree_check_trace.hpp"
-#include "barretenberg/vm2/tracegen/opcodes/emit_unencrypted_log_trace.hpp"
+#include "barretenberg/vm2/tracegen/opcodes/emit_public_log_trace.hpp"
 #include "barretenberg/vm2/tracegen/opcodes/get_contract_instance_trace.hpp"
 #include "barretenberg/vm2/tracegen/poseidon2_trace.hpp"
 #include "barretenberg/vm2/tracegen/precomputed_trace.hpp"
 #include "barretenberg/vm2/tracegen/public_data_tree_trace.hpp"
 #include "barretenberg/vm2/tracegen/public_inputs_trace.hpp"
 #include "barretenberg/vm2/tracegen/range_check_trace.hpp"
-#include "barretenberg/vm2/tracegen/retrieved_bytecodes_tree_check.hpp"
 #include "barretenberg/vm2/tracegen/sha256_trace.hpp"
 #include "barretenberg/vm2/tracegen/to_radix_trace.hpp"
 #include "barretenberg/vm2/tracegen/trace_container.hpp"
 #include "barretenberg/vm2/tracegen/tx_trace.hpp"
 #include "barretenberg/vm2/tracegen/update_check_trace.hpp"
-#include "barretenberg/vm2/tracegen/written_public_data_slots_tree_check_trace.hpp"
 
 namespace bb::avm2 {
 
@@ -129,8 +128,9 @@ template <typename T> inline void clear_events(T& c)
     c.shrink_to_fit();
 }
 
-void print_trace_stats(const TraceContainer& trace)
+void print_trace_stats([[maybe_unused]] const TraceContainer& trace)
 {
+#ifdef AVM_INCLUDE_COLUMN_INFORMATION
     constexpr auto main_relation_names = [] {
         constexpr size_t size = std::tuple_size_v<AvmFlavor::MainRelations>;
         std::array<std::string_view, size> names{};
@@ -167,6 +167,9 @@ void print_trace_stats(const TraceContainer& trace)
     }
     vinfo(
         "Sum of all column rows: ", total_rows, " (~2^", numeric::get_msb(numeric::round_up_power_2(total_rows)), ")");
+#else
+    vinfo("Tracegen column stats unavailable. Build with AVM_INCLUDE_COLUMN_INFORMATION=1 to enable.");
+#endif
 }
 
 } // namespace
@@ -335,11 +338,10 @@ void AvmTraceGenHelper::fill_trace_columns(TraceContainer& trace,
                     clear_events(events.update_check_events);
                 },
                 [&]() {
-                    NullifierTreeCheckTraceBuilder nullifier_tree_check_trace_builder;
-                    AVM_TRACK_TIME(
-                        "tracegen/nullifier_tree_check",
-                        nullifier_tree_check_trace_builder.process(events.nullifier_tree_check_events, trace));
-                    clear_events(events.nullifier_tree_check_events);
+                    IndexedTreeCheckTraceBuilder indexed_tree_check_trace_builder;
+                    AVM_TRACK_TIME("tracegen/indexed_tree_check",
+                                   indexed_tree_check_trace_builder.process(events.indexed_tree_check_events, trace));
+                    clear_events(events.indexed_tree_check_events);
                 },
                 [&]() {
                     MemoryTraceBuilder memory_trace_builder;
@@ -385,13 +387,6 @@ void AvmTraceGenHelper::fill_trace_columns(TraceContainer& trace,
                     clear_events(events.note_hash_tree_check_events);
                 },
                 [&]() {
-                    WrittenPublicDataSlotsTreeCheckTraceBuilder written_public_data_slots_tree_check_trace_builder;
-                    AVM_TRACK_TIME("tracegen/written_public_data_slots_tree_check",
-                                   written_public_data_slots_tree_check_trace_builder.process(
-                                       events.written_public_data_slots_tree_check_events, trace));
-                    clear_events(events.written_public_data_slots_tree_check_events);
-                },
-                [&]() {
                     GreaterThanTraceBuilder gt_builder;
                     AVM_TRACK_TIME("tracegen/gt", gt_builder.process(events.gt_events, trace));
                     clear_events(events.gt_events);
@@ -417,17 +412,10 @@ void AvmTraceGenHelper::fill_trace_columns(TraceContainer& trace,
                     clear_events(events.l1_to_l2_msg_tree_check_events);
                 },
                 [&]() {
-                    EmitUnencryptedLogTraceBuilder emit_unencrypted_log_builder;
-                    AVM_TRACK_TIME("tracegen/emit_unencrypted_log",
-                                   emit_unencrypted_log_builder.process(events.emit_unencrypted_log_events, trace));
-                    clear_events(events.emit_unencrypted_log_events);
-                },
-                [&]() {
-                    RetrievedBytecodesTreeCheckTraceBuilder retrieved_bytecodes_tree_check_builder;
-                    AVM_TRACK_TIME("tracegen/retrieved_bytecodes_tree_check",
-                                   retrieved_bytecodes_tree_check_builder.process(
-                                       events.retrieved_bytecodes_tree_check_events, trace));
-                    clear_events(events.retrieved_bytecodes_tree_check_events);
+                    EmitPublicLogTraceBuilder emit_public_log_builder;
+                    AVM_TRACK_TIME("tracegen/emit_public_log",
+                                   emit_public_log_builder.process(events.emit_public_log_events, trace));
+                    clear_events(events.emit_public_log_events);
                 } });
 
         AVM_TRACK_TIME("tracegen/traces", execute_jobs(jobs));
@@ -461,17 +449,15 @@ void AvmTraceGenHelper::fill_trace_interactions(TraceContainer& trace)
                              MerkleCheckTraceBuilder::interactions.get_all_jobs(index_cache),
                              PublicDataTreeTraceBuilder::interactions.get_all_jobs(index_cache),
                              UpdateCheckTraceBuilder::interactions.get_all_jobs(index_cache),
-                             NullifierTreeCheckTraceBuilder::interactions.get_all_jobs(index_cache),
+                             IndexedTreeCheckTraceBuilder::interactions.get_all_jobs(index_cache),
                              DataCopyTraceBuilder::interactions.get_all_jobs(index_cache),
                              CalldataTraceBuilder::interactions.get_all_jobs(index_cache),
                              NoteHashTreeCheckTraceBuilder::interactions.get_all_jobs(index_cache),
-                             WrittenPublicDataSlotsTreeCheckTraceBuilder::interactions.get_all_jobs(index_cache),
                              GreaterThanTraceBuilder::interactions.get_all_jobs(index_cache),
                              ContractInstanceRetrievalTraceBuilder::interactions.get_all_jobs(index_cache),
                              GetContractInstanceTraceBuilder::interactions.get_all_jobs(index_cache),
                              L1ToL2MessageTreeCheckTraceBuilder::interactions.get_all_jobs(index_cache),
-                             EmitUnencryptedLogTraceBuilder::interactions.get_all_jobs(index_cache),
-                             RetrievedBytecodesTreeCheckTraceBuilder::interactions.get_all_jobs(index_cache));
+                             EmitPublicLogTraceBuilder::interactions.get_all_jobs(index_cache));
 
         // Order jobs to minimize index building contention:
         // Jobs with unique destination columns come first, then jobs that share destinations with earlier ones.

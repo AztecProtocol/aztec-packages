@@ -2,18 +2,23 @@ import type { DateProvider } from '@aztec/foundation/timer';
 import type { PeerErrorSeverity } from '@aztec/stdlib/p2p';
 
 import type { PeerId } from '@libp2p/interface';
+import { peerIdFromString } from '@libp2p/peer-id';
 
+import type { ConnectionSampler } from '../connection-sampler/connection_sampler.js';
 import { DEFAULT_BATCH_TX_REQUESTER_BAD_PEER_THRESHOLD } from './config.js';
 import type { IPeerPenalizer } from './interface.js';
 
 export const RATE_LIMIT_EXCEEDED_PEER_CACHE_TTL = 1000; // 1s
 
 export interface IPeerCollection {
-  getAllPeers(): Set<string>;
-  getSmartPeers(): Set<string>;
   markPeerSmart(peerId: PeerId): void;
-  getSmartPeersToQuery(): Array<string>;
-  getDumbPeersToQuery(): Array<string>;
+  markPeerDumb(peerId: PeerId): void;
+
+  /** Sample next peer in round-robin fashion. No smart peers if returns undefined */
+  nextSmartPeerToQuery(): PeerId | undefined;
+  /** Sample next peer in round-robin fashion. No dumb peers if returns undefined */
+  nextDumbPeerToQuery(): PeerId | undefined;
+
   thereAreSomeDumbRatelimitExceededPeers(): boolean;
   penalisePeer(peerId: PeerId, severity: PeerErrorSeverity): void;
   unMarkPeerAsBad(peerId: PeerId): void;
@@ -28,8 +33,6 @@ export interface IPeerCollection {
 }
 
 export class PeerCollection implements IPeerCollection {
-  private readonly peers;
-
   private readonly smartPeers = new Set<string>();
   private readonly inFlightPeers = new Set<string>();
   private readonly rateLimitExceededPeers = new Map<string, number>();
@@ -37,46 +40,64 @@ export class PeerCollection implements IPeerCollection {
   private readonly badPeers = new Set<string>();
 
   constructor(
-    initialPeers: PeerId[],
+    private readonly connectionSampler: Pick<ConnectionSampler, 'getPeerListSortedByConnectionCountAsc'>,
     private readonly pinnedPeerId: PeerId | undefined,
     private readonly dateProvider: DateProvider,
     private readonly badPeerThreshold: number = DEFAULT_BATCH_TX_REQUESTER_BAD_PEER_THRESHOLD,
     private readonly peerPenalizer?: IPeerPenalizer,
   ) {
-    this.peers = new Set(initialPeers.map(peer => peer.toString()));
-
-    // Pinned peer is treaded specially, always mark it as in-flight
+    // Pinned peer is treated specially, always mark it as in-flight
     // and never return it as part of smart/dumb peers
     if (this.pinnedPeerId) {
       const peerIdStr = this.pinnedPeerId.toString();
       this.inFlightPeers.add(peerIdStr);
-      this.peers.delete(peerIdStr);
     }
-  }
-
-  public getAllPeers(): Set<string> {
-    return this.peers;
-  }
-
-  public getSmartPeers(): Set<string> {
-    return this.smartPeers;
   }
 
   public markPeerSmart(peerId: PeerId): void {
     this.smartPeers.add(peerId.toString());
   }
 
-  public getSmartPeersToQuery(): Array<string> {
-    return Array.from(
+  public markPeerDumb(peerId: PeerId): void {
+    this.smartPeers.delete(peerId.toString());
+  }
+
+  // We keep track of all peers that are queried for peer sampling algorithm
+  private queriedSmartPeers: Set<string> = new Set<string>();
+  private queriedDumbPeers: Set<string> = new Set<string>();
+
+  private static nextPeer(allPeers: Set<string>, queried: Set<string>): PeerId | undefined {
+    if (allPeers.size === 0) {
+      return undefined;
+    }
+    const availablePeers = allPeers.difference(queried);
+    let [first] = availablePeers;
+    if (first === undefined) {
+      // We queried all peers. Start over
+      [first] = allPeers;
+      queried.clear();
+    }
+    queried.add(first);
+    return peerIdFromString(first);
+  }
+
+  public nextSmartPeerToQuery(): PeerId | undefined {
+    return PeerCollection.nextPeer(this.availableSmartPeers, this.queriedSmartPeers);
+  }
+
+  public nextDumbPeerToQuery(): PeerId | undefined {
+    return PeerCollection.nextPeer(this.availableDumbPeers, this.queriedDumbPeers);
+  }
+
+  private get availableSmartPeers(): Set<string> {
+    return this.peers.intersection(
       this.smartPeers.difference(this.getBadPeers().union(this.inFlightPeers).union(this.getRateLimitExceededPeers())),
     );
   }
 
-  public getDumbPeersToQuery(): Array<string> {
-    return Array.from(
-      this.peers.difference(
-        this.smartPeers.union(this.getBadPeers()).union(this.inFlightPeers).union(this.getRateLimitExceededPeers()),
-      ),
+  private get availableDumbPeers(): Set<string> {
+    return this.peers.difference(
+      this.smartPeers.union(this.getBadPeers()).union(this.inFlightPeers).union(this.getRateLimitExceededPeers()),
     );
   }
 
@@ -201,5 +222,28 @@ export class PeerCollection implements IPeerCollection {
     }
 
     return minExpiry! - now;
+  }
+
+  private orderedPeers: Set<string> = new Set();
+
+  private get peers(): Set<string> {
+    const pinnedStr = this.pinnedPeerId?.toString();
+    const currentlyConnected = new Set(
+      this.connectionSampler
+        .getPeerListSortedByConnectionCountAsc()
+        .map(p => p.toString())
+        .filter(p => p !== pinnedStr),
+    );
+
+    // Remove disconnected peers, preserving order of the rest.
+    this.orderedPeers = this.orderedPeers.intersection(currentlyConnected);
+
+    // Append newly connected peers at the end (lowest priority).
+    for (const peer of currentlyConnected) {
+      if (!this.orderedPeers.has(peer)) {
+        this.orderedPeers.add(peer);
+      }
+    }
+    return this.orderedPeers;
   }
 }

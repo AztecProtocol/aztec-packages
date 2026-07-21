@@ -12,6 +12,7 @@ import {
 } from '@aztec/cli/utils';
 import { randomBytes } from '@aztec/foundation/crypto/random';
 import type { LogFn, Logger } from '@aztec/foundation/log';
+import { TxStatus } from '@aztec/stdlib/tx';
 
 import { type Command, Option } from 'commander';
 import inquirer from 'inquirer';
@@ -40,6 +41,17 @@ import {
   integerArgParser,
 } from '../utils/options/index.js';
 
+function parseWaitForStatus(status: string): TxStatus {
+  switch (status) {
+    case 'proposed':
+      return TxStatus.PROPOSED;
+    case 'checkpointed':
+      return TxStatus.CHECKPOINTED;
+    default:
+      throw new Error(`Invalid wait-for-status: ${status}. Use 'proposed' or 'checkpointed'.`);
+  }
+}
+
 // TODO: This function is only used in 1 place so we could just inline this
 export function injectCommands(
   program: Command,
@@ -63,7 +75,7 @@ export function injectCommands(
   const createAccountCommand = program
     .command('create-account')
     .description(
-      'Creates an aztec account that can be used for sending transactions. Registers the account on the PXE and deploys an account contract. Uses a Schnorr single-key account which uses the same key for encryption and authentication (not secure for production usage).',
+      'Creates an aztec account that can be used for sending transactions. Registers the account on the PXE and deploys an account contract. Uses a Schnorr account which uses an immutable key for authentication.',
     )
     .summary('Creates an aztec account that can be used for sending transactions.')
     .addOption(createAccountOption('Alias or address of the account performing the deployment', !db, db))
@@ -91,6 +103,11 @@ export function injectCommands(
     .addOption(createAliasOption('Alias for the account. Used for easy reference in subsequent commands.', !db))
     .addOption(createTypeOption(true))
     .option(
+      '-s, --salt <hex string>',
+      'Optional deployment salt as a hex string for generating the deployment address. Defaults to 0.',
+      parseFieldFromHexString,
+    )
+    .option(
       '--register-only',
       'Just register the account on the Wallet. Do not deploy or initialize the account contract.',
     )
@@ -98,6 +115,7 @@ export function injectCommands(
     // `options.wait` is default true. Passing `--no-wait` will set it to false.
     // https://github.com/tj/commander.js#other-option-types-negatable-boolean-and-booleanvalue
     .option('--no-wait', 'Skip waiting for the contract to be deployed. Print the hash of deployment transaction')
+    .option('--wait-for-status <status>', "Tx status to wait for: 'proposed' or 'checkpointed'", 'proposed')
     .addOption(createVerboseOption());
 
   addOptions(createAccountCommand, CLIFeeArgs.getOptions()).action(async (_options, command) => {
@@ -107,7 +125,9 @@ export function injectCommands(
       type,
       from: parsedFromAddress,
       secretKey,
+      salt,
       wait,
+      waitForStatus: waitForStatusStr,
       registerOnly,
       skipInitialization,
       publicDeploy,
@@ -137,6 +157,7 @@ export function injectCommands(
       node,
       type,
       secretKey,
+      salt,
       publicKey,
       alias,
       parsedFromAddress,
@@ -146,6 +167,7 @@ export function injectCommands(
       registerClass,
       wait,
       CLIFeeArgs.parse(options, log, db),
+      parseWaitForStatus(waitForStatusStr),
       json,
       verbose,
       debugLogger,
@@ -180,12 +202,22 @@ export function injectCommands(
       '--skip-initialization',
       'Skip initializing the account contract. Useful for publicly deploying an existing account.',
     )
+    .option('--wait-for-status <status>', "Tx status to wait for: 'proposed' or 'checkpointed'", 'proposed')
     .addOption(createVerboseOption());
 
   addOptions(deployAccountCommand, CLIFeeArgs.getOptions()).action(async (parsedAccount, _options, command) => {
     const { deployAccount } = await import('./deploy_account.js');
     const options = command.optsWithGlobals();
-    const { wait, from: parsedFromAddress, json, registerClass, skipInitialization, publicDeploy, verbose } = options;
+    const {
+      wait,
+      waitForStatus: waitForStatusStr,
+      from: parsedFromAddress,
+      json,
+      registerClass,
+      skipInitialization,
+      publicDeploy,
+      verbose,
+    } = options;
 
     const { wallet, node } = walletAndNodeWrapper;
 
@@ -199,6 +231,7 @@ export function injectCommands(
       publicDeploy,
       skipInitialization,
       CLIFeeArgs.parse(options, log, db),
+      parseWaitForStatus(waitForStatusStr),
       json,
       verbose,
       debugLogger,
@@ -219,7 +252,7 @@ export function injectCommands(
     )
     .option(
       '-s, --salt <hex string>',
-      'Optional deployment salt as a hex string for generating the deployment address.',
+      'Optional deployment salt as a hex string for generating the deployment address. Defaults to random.',
       parseFieldFromHexString,
     )
     .option('--universal', 'Do not mix the sender address into the deployment.')
@@ -238,6 +271,7 @@ export function injectCommands(
         'The amount of time in seconds to wait for the deployment to post to L2',
       ).conflicts('wait'),
     )
+    .option('--wait-for-status <status>', "Tx status to wait for: 'proposed' or 'checkpointed'", 'proposed')
     .addOption(createVerboseOption());
 
   addOptions(deployCommand, CLIFeeArgs.getOptions()).action(async (artifactPathPromise, _options, command) => {
@@ -249,6 +283,7 @@ export function injectCommands(
       args,
       salt,
       wait,
+      waitForStatus: waitForStatusStr,
       classRegistration,
       init,
       publicDeployment,
@@ -262,12 +297,12 @@ export function injectCommands(
     const { wallet, node } = walletAndNodeWrapper;
     const artifactPath = await artifactPathPromise;
 
-    debugLogger.info(`Using wallet with address ${parsedFromAddress.toString()}`);
+    debugLogger.info(`Using wallet with address ${parsedFromAddress?.toString() ?? '<none>'}`);
 
     const address = await deploy(
       wallet,
       node,
-      universal ? undefined : parsedFromAddress,
+      parsedFromAddress,
       artifactPath,
       json,
       publicKey,
@@ -279,10 +314,12 @@ export function injectCommands(
       typeof init === 'string' ? false : init,
       wait,
       CLIFeeArgs.parse(options, log, db),
-      timeout,
+      parseWaitForStatus(waitForStatusStr),
       verbose,
+      timeout,
       debugLogger,
       log,
+      universal,
     );
     if (db && address) {
       await db.storeContract(address, artifactPath, log, alias);
@@ -308,6 +345,7 @@ export function injectCommands(
     )
     .addOption(createAccountOption('Alias or address of the account to send the transaction from', !db, db))
     .option('--no-wait', 'Print transaction hash without waiting for it to be mined')
+    .option('--wait-for-status <status>', "Tx status to wait for: 'proposed' or 'checkpointed'", 'proposed')
     .addOption(createVerboseOption());
 
   addOptions(sendCommand, CLIFeeArgs.getOptions()).action(async (functionName, _options, command) => {
@@ -319,6 +357,7 @@ export function injectCommands(
       contractAddress,
       from: parsedFromAddress,
       wait,
+      waitForStatus: waitForStatusStr,
       alias,
       authWitness: authWitnessArray,
       verbose,
@@ -342,6 +381,7 @@ export function injectCommands(
       alias,
       CLIFeeArgs.parse(options, log, db),
       authWitnesses,
+      parseWaitForStatus(waitForStatusStr),
       verbose,
       log,
     );
@@ -490,6 +530,20 @@ export function injectCommands(
       if (db) {
         await db.pushBridgedFeeJuice(recipient, secret, amount, messageLeafIndex, log);
       }
+    });
+
+  program
+    .command('get-fee-juice-balance')
+    .description('Checks the Fee Juice balance for a given address.')
+    .argument('<address>', 'Aztec address or alias to check balance for', address =>
+      aliasedAddressParser('accounts', address, db),
+    )
+    .option('--json', 'Emit output as json')
+    .option('--exact', 'Show exact balance with all 18 decimal places')
+    .action(async (address, options) => {
+      const { getFeeJuiceBalanceCmd } = await import('./get_fee_juice_balance.js');
+      const { json, exact } = options;
+      await getFeeJuiceBalanceCmd(walletAndNodeWrapper.node, address, json, exact, log);
     });
 
   program

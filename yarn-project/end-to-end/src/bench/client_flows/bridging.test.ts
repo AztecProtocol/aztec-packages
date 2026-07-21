@@ -3,16 +3,18 @@ import type { SimulateInteractionOptions } from '@aztec/aztec.js/contracts';
 import type { Wallet } from '@aztec/aztec.js/wallet';
 import { FPCContract } from '@aztec/noir-contracts.js/FPC';
 import { SponsoredFPCContract } from '@aztec/noir-contracts.js/SponsoredFPC';
-import { TokenContract } from '@aztec/noir-contracts.js/Token';
+import { TestTokenContract } from '@aztec/noir-test-contracts.js/TestToken';
 
 import { jest } from '@jest/globals';
 
 import type { CrossChainTestHarness } from '../../shared/cross_chain_test_harness.js';
-import { captureProfile } from './benchmark.js';
+import { captureProfile, expectedExecutionSteps } from './benchmark.js';
 import { type AccountType, type BenchmarkingFeePaymentMethod, ClientFlowsBenchmark } from './client_flows_benchmark.js';
 
 jest.setTimeout(300_000);
 
+// L1↔L2 bridging round-trip benchmark. Uses ClientFlowsBenchmark (wraps CrossChainTestHarness) with
+// BENCHMARK_CONFIG; profiles the full bridge-in flow for multiple account/fee-method combinations.
 describe('Bridging benchmark', () => {
   const t = new ClientFlowsBenchmark('bridging');
   // The wallet used by the user to interact
@@ -57,7 +59,7 @@ describe('Bridging benchmark', () => {
         await userWallet.registerSender(adminAddress);
         // Register both FPC and BananCoin on the user's PXE so we can simulate and prove
         await userWallet.registerContract(bananaFPCInstance, FPCContract.artifact);
-        await userWallet.registerContract(bananaCoinInstance, TokenContract.artifact);
+        await userWallet.registerContract(bananaCoinInstance, TestTokenContract.artifact);
         // Register the sponsored FPC on the user's PXE so we can simulate and prove
         await userWallet.registerContract(sponsoredFPCInstance, SponsoredFPCContract.artifact);
       });
@@ -94,19 +96,17 @@ describe('Bridging benchmark', () => {
             `${accountType}+token_bridge_claim_private+${benchmarkingPaymentMethod}`,
             claimInteraction,
             options,
-            1 + // Account entrypoint
-              1 + // Kernel init
-              paymentMethod.circuits + // Payment method circuits
-              2 + // TokenBridge claim_private + kernel inner
-              2 + // BridgedAsset mint_to_private + kernel inner
-              1 + // Kernel reset
-              1 + // Kernel tail
-              1, // Kernel hiding
+            expectedExecutionSteps(
+              1 + // Account entrypoint
+                paymentMethod.apps + // Payment method apps
+                1 + // TokenBridge claim_private
+                1, // BridgedAsset mint_to_private
+            ),
           );
 
           if (process.env.SANITY_CHECKS) {
             // Ensure we paid a fee
-            const tx = await claimInteraction.send(options);
+            const { receipt: tx } = await claimInteraction.send(options);
             expect(tx.transactionFee!).toBeGreaterThan(0n);
 
             // 4. Check the balance

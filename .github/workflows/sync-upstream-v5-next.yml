@@ -1,0 +1,52 @@
+# Mirror upstream aztec-packages:v5-next onto public-v5-next, then merge it into the private v5-next.
+#
+# Mirror of sync-upstream-next.yml for the v5 release line. public-v5-next is force-rewritten to
+# exactly match upstream (it holds no private commits); the merge into v5-next is a separate step.
+# The automation lives only on v5-next, so we check it out to get the scripts. Uses
+# AZTEC_BOT_GITHUB_TOKEN (PAT) because GITHUB_TOKEN cannot push commits that modify .github/workflows/.
+name: Sync Upstream v5-next
+
+on:
+  # Primary trigger: dispatched by the PUBLIC repo's "Notify Private Sync" workflow on every push to
+  # upstream v5-next (replaces the old 15-minute poll). The daily cron is only a safety net in case a
+  # dispatch is missed; it runs at 03:00 UTC, the quietest part of the day for the global team, so the
+  # nightly deployment chain that flows from it builds off a stable end-of-day snapshot.
+  workflow_dispatch:
+  schedule:
+    - cron: "0 3 * * *"
+
+jobs:
+  sync:
+    name: Sync public-v5-next and v5-next
+    runs-on: ubuntu-latest
+    if: github.repository == 'AztecProtocol/aztec-packages-private'
+    concurrency:
+      group: sync-public-v5-next
+      cancel-in-progress: false
+    steps:
+      - name: Checkout automation from v5-next
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+        with:
+          ref: v5-next
+          fetch-depth: 0
+          token: ${{ secrets.AZTEC_BOT_GITHUB_TOKEN }}
+          persist-credentials: true
+
+      - name: Configure Git
+        run: |
+          git config user.name "AztecBot"
+          git config user.email "tech@aztecprotocol.com"
+
+      - name: Force-sync public-v5-next to upstream
+        env:
+          PUBLIC_BRANCH: public-v5-next
+          UPSTREAM_BRANCH: v5-next
+        run: ./scripts/merge-train/sync-public-next.sh
+
+      - name: Merge public-v5-next into v5-next
+        env:
+          GH_TOKEN: ${{ secrets.AZTEC_BOT_GITHUB_TOKEN }}
+          SOURCE_BRANCH: public-v5-next
+          TARGET_BRANCH: v5-next
+          CONFLICT_EXIT_CODE: 1
+        run: ./scripts/merge-train/merge-public-next.sh

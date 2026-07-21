@@ -11,10 +11,12 @@ This guide shows you how to deploy compiled contracts to Aztec using the generat
 
 Deploying a contract to Aztec involves publishing the contract class (the bytecode) and creating a contract instance at a specific address. The generated TypeScript classes handle this process through an API: you call `deploy()` with constructor arguments and `send()` with transaction options to deploy and get the contract instance. The contract address is deterministically computed from the contract class, constructor arguments, salt, and deployer address.
 
+import { General } from '@site/src/components/Snippets/general_snippets';
+
 ## Prerequisites
 
-- Compiled contract artifacts (see [How to Compile](../aztec-nr/how_to_compile_contract.md))
-- [Connected to a network](./how_to_connect_to_local_network.md) with a `TestWallet` instance and funded accounts
+- Compiled contract artifacts (see [How to Compile](../aztec-nr/compiling_contracts.md))
+- <General.AztecJSPrerequisites />
 - TypeScript project set up
 
 ## Generate TypeScript bindings
@@ -57,7 +59,7 @@ On testnet, your account likely won't have Fee Juice. Instead, pay fees using th
 
 Here's a complete example from the test suite:
 
-#include_code deploy_basic yarn-project/end-to-end/src/e2e_deploy_contract/deploy_method.test.ts typescript
+#include_code deploy_basic yarn-project/end-to-end/src/automine/contracts/deploy/deploy_method.parallel.test.ts typescript
 
 ## Use deployment options
 
@@ -71,7 +73,7 @@ By default, the deployment's salt is random, but you can specify it (for example
 
 Deploy to the same address across networks by setting `universalDeploy: true`:
 
-#include_code deploy_universal yarn-project/end-to-end/src/e2e_deploy_contract/deploy_method.test.ts typescript
+#include_code deploy_universal yarn-project/end-to-end/src/automine/contracts/deploy/deploy_method.parallel.test.ts typescript
 
 :::info
 Universal deployment excludes the sender from address computation, allowing the same address on any network with the same salt.
@@ -87,7 +89,7 @@ Deploy without running the constructor:
 
 Some contracts have multiple initializer functions (e.g., both a private `constructor` and a `public_constructor`). By default, the generated `deploy()` method uses the default initializer (typically named `constructor`). To deploy using a different initializer, use `deployWithOpts`:
 
-#include_code deploy_with_opts yarn-project/end-to-end/src/e2e_deploy_contract/deploy_method.test.ts typescript
+#include_code deploy_with_opts yarn-project/end-to-end/src/automine/contracts/deploy/deploy_method.parallel.test.ts typescript
 
 The `deployWithOpts` method accepts an options object as its first argument:
 
@@ -129,7 +131,7 @@ For most use cases, simply await the deployment to get the contract directly:
 
 Here's an example deploying a `TokenContract` with constructor arguments for admin, name, symbol, and decimals:
 
-#include_code deploy_token yarn-project/end-to-end/src/e2e_deploy_contract/deploy_method.test.ts typescript
+#include_code deploy_token yarn-project/end-to-end/src/automine/contracts/deploy/deploy_method.parallel.test.ts typescript
 
 ### Deploy contracts with dependencies
 
@@ -153,7 +155,7 @@ Parallel deployment is faster, but transactions from the same account share a no
 
 Use `BatchCall` to bundle a deployment with other calls into a single transaction. This is useful when you need to deploy a contract and immediately call methods on it:
 
-#include_code deploy_batch yarn-project/end-to-end/src/e2e_deploy_contract/deploy_method.test.ts typescript
+#include_code deploy_batch yarn-project/end-to-end/src/automine/contracts/deploy/deploy_method.parallel.test.ts typescript
 
 ## Verify deployment
 
@@ -165,17 +167,17 @@ Use `wallet.getContractMetadata()` to check your contract's current state:
 const metadata = await wallet.getContractMetadata(contractAddress);
 
 // Check each state:
-metadata.instance                          // Contract registered in your wallet?
-metadata.isContractClassPubliclyRegistered // Class registered on the network?
-metadata.isContractPublished               // Instance registered on the network?
-metadata.isContractInitialized             // Constructor has been called?
+metadata.instance; // Contract registered in your wallet?
+metadata.isContractClassPubliclyRegistered; // Class registered on the network?
+metadata.isContractPublished; // Instance registered on the network?
+metadata.initializationStatus; // Constructor has been called?
 ```
 
 For a complete overview of what these states mean and when functions become callable, see [Contract Readiness States](../aztec-nr/contract_readiness_states.md).
 
 Here's a complete example:
 
-#include_code verify_deployment yarn-project/end-to-end/src/e2e_deploy_contract/deploy_method.test.ts typescript
+#include_code verify_deployment yarn-project/end-to-end/src/automine/contracts/deploy/deploy_method.parallel.test.ts typescript
 
 ### What the PXE checks automatically
 

@@ -5,12 +5,10 @@ pragma solidity >=0.8.27;
 import {RollupStore, SubmitEpochRootProofArgs} from "@aztec/core/interfaces/IRollup.sol";
 import {CompressedFeeHeader, FeeHeaderLib} from "@aztec/core/libraries/compressed-data/fees/FeeStructs.sol";
 import {Errors} from "@aztec/core/libraries/Errors.sol";
-import {FeeLib} from "@aztec/core/libraries/rollup/FeeLib.sol";
 import {STFLib} from "@aztec/core/libraries/rollup/STFLib.sol";
 import {Epoch, Timestamp, TimeLib} from "@aztec/core/libraries/TimeLib.sol";
 import {IBoosterCore} from "@aztec/core/reward-boost/RewardBooster.sol";
 import {IRewardDistributor} from "@aztec/governance/interfaces/IRewardDistributor.sol";
-import {CompressedTimeMath, CompressedTimestamp} from "@aztec/shared/libraries/CompressedTimeMath.sol";
 import {IERC20} from "@oz/token/ERC20/IERC20.sol";
 import {SafeERC20} from "@oz/token/ERC20/utils/SafeERC20.sol";
 import {Math} from "@oz/utils/math/Math.sol";
@@ -43,13 +41,19 @@ struct RewardConfig {
   uint96 checkpointReward;
 }
 
+/// @notice The post-deployment-mutable subset of {RewardConfig}.
+/// @dev `rewardDistributor` and `booster` are deliberately *not* in this struct: they are
+///      set once at construction and immutable thereafter.
+struct MutableRewardConfig {
+  Bps sequencerBps;
+  uint96 checkpointReward;
+}
+
 struct RewardStorage {
   mapping(address => uint256) sequencerRewards;
   mapping(Epoch => EpochRewards) epochRewards;
   mapping(address prover => BitMaps.BitMap claimed) proverClaimed;
   RewardConfig config;
-  CompressedTimestamp earliestRewardsClaimableTimestamp;
-  bool isRewardsClaimable;
 }
 
 struct Values {
@@ -68,8 +72,6 @@ struct Totals {
 library RewardLib {
   using SafeERC20 for IERC20;
   using BitMaps for BitMaps.BitMap;
-  using CompressedTimeMath for CompressedTimestamp;
-  using CompressedTimeMath for Timestamp;
   using TimeLib for Timestamp;
   using TimeLib for Epoch;
   using FeeHeaderLib for CompressedFeeHeader;
@@ -82,34 +84,29 @@ library RewardLib {
   // such as sacrificial hearts, during rituals performed within temples.
   address public constant BURN_ADDRESS = address(bytes20("CUAUHXICALLI"));
 
-  function initialize(Timestamp _earliestRewardsClaimableTimestamp) internal {
-    RewardStorage storage rewardStorage = getStorage();
-    rewardStorage.earliestRewardsClaimableTimestamp = _earliestRewardsClaimableTimestamp.compress();
-    rewardStorage.isRewardsClaimable = false;
-  }
-
-  function setConfig(RewardConfig memory _config) internal {
+  /// @notice One-shot writer used during rollup construction. Writes every field of
+  ///         {RewardConfig}, including the immutable `rewardDistributor` and `booster`.
+  /// @dev Must only be reachable from the constructor path. Post-deployment updates go through
+  ///      {updateConfig}, which preserves the immutable fields.
+  function initializeConfig(RewardConfig memory _config) internal {
     require(Bps.unwrap(_config.sequencerBps) <= 10_000, Errors.RewardLib__InvalidSequencerBps());
     RewardStorage storage rewardStorage = getStorage();
     rewardStorage.config = _config;
   }
 
-  function setIsRewardsClaimable(bool _isRewardsClaimable) internal {
+  /// @notice Owner-gated post-deployment writer. Only updates the mutable subset
+  ///         (`sequencerBps`, `checkpointReward`). The `rewardDistributor` and `booster`
+  ///         addresses MUST NOT be reachable from this path -- they remain whatever was
+  ///         written by {initializeConfig}.
+  function updateConfig(MutableRewardConfig memory _config) internal {
+    require(Bps.unwrap(_config.sequencerBps) <= 10_000, Errors.RewardLib__InvalidSequencerBps());
     RewardStorage storage rewardStorage = getStorage();
-    uint256 earliestRewardsClaimableTimestamp =
-      Timestamp.unwrap(rewardStorage.earliestRewardsClaimableTimestamp.decompress());
-    require(
-      block.timestamp >= earliestRewardsClaimableTimestamp,
-      Errors.Rollup__TooSoonToSetRewardsClaimable(earliestRewardsClaimableTimestamp, block.timestamp)
-    );
-
-    rewardStorage.isRewardsClaimable = _isRewardsClaimable;
+    rewardStorage.config.sequencerBps = _config.sequencerBps;
+    rewardStorage.config.checkpointReward = _config.checkpointReward;
   }
 
   function claimSequencerRewards(address _sequencer) internal returns (uint256) {
     RewardStorage storage rewardStorage = getStorage();
-    require(rewardStorage.isRewardsClaimable, Errors.Rollup__RewardsNotClaimable());
-
     RollupStore storage rollupStore = STFLib.getStorage();
     uint256 amount = rewardStorage.sequencerRewards[_sequencer];
 
@@ -126,8 +123,6 @@ library RewardLib {
     RollupStore storage rollupStore = STFLib.getStorage();
 
     RewardStorage storage rewardStorage = getStorage();
-
-    require(rewardStorage.isRewardsClaimable, Errors.Rollup__RewardsNotClaimable());
 
     uint256 accumulatedRewards = 0;
     for (uint256 i = 0; i < _epochs.length; i++) {
@@ -156,11 +151,9 @@ library RewardLib {
     return accumulatedRewards;
   }
 
-  function handleRewardsAndFees(SubmitEpochRootProofArgs memory _args, Epoch _endEpoch) internal {
+  function handleRewardsAndFees(SubmitEpochRootProofArgs calldata _args, Epoch _endEpoch) internal {
     RollupStore storage rollupStore = STFLib.getStorage();
     RewardStorage storage rewardStorage = getStorage();
-
-    // Determine if this rollup is canonical according to its RewardDistributor.
 
     uint256 length = _args.end - _args.start + 1;
     EpochRewards storage $er = rewardStorage.epochRewards[_endEpoch];
@@ -175,6 +168,13 @@ library RewardLib {
       // efficient way to do it, so this is fine.
       uint256 shares = rewardStorage.config.booster.updateAndGetShares(prover);
 
+      // The duplicate-submission guard above uses `shares == 0` as the sentinel for "not yet
+      // submitted". A booster that ever returns zero would let the same prover submit again
+      // for the same epoch length, breaking that guard. RewardBooster's constructor rejects
+      // configs that can return zero, but the booster slot is an external pointer; bounce
+      // back if a misbehaving booster ever crosses this layer.
+      require(shares > 0, Errors.RewardLib__ZeroShares(prover));
+
       $sr.shares[prover] = shares;
       $sr.summedShares += shares;
     }
@@ -188,19 +188,15 @@ library RewardLib {
         uint256 checkpointRewardsDesired = added * getCheckpointReward();
         uint256 checkpointRewardsAvailable = 0;
 
-        // Only if we require checkpoint rewards and are canonical will we claim.
         if (checkpointRewardsDesired > 0) {
           // Cache the reward distributor contract
           IRewardDistributor distributor = rewardStorage.config.rewardDistributor;
 
-          if (address(this) == distributor.canonicalRollup()) {
-            uint256 amountToClaim =
-              Math.min(checkpointRewardsDesired, rollupStore.config.feeAsset.balanceOf(address(distributor)));
+          uint256 amountToClaim = Math.min(checkpointRewardsDesired, distributor.availableTo(address(this)));
 
-            if (amountToClaim > 0) {
-              distributor.claim(address(this), amountToClaim);
-              checkpointRewardsAvailable = amountToClaim;
-            }
+          if (amountToClaim > 0) {
+            distributor.claim(address(this), amountToClaim);
+            checkpointRewardsAvailable = amountToClaim;
           }
         }
 
@@ -214,32 +210,27 @@ library RewardLib {
         }
       }
 
-      bool isTxsEnabled = FeeLib.isTxsEnabled();
-
       for (uint256 i = $er.longestProvenLength; i < length; i++) {
-        if (isTxsEnabled) {
-          // During ignition there can be no txs, so there can be no fees either
-          // so we can skip the fee calculation
+        CompressedFeeHeader feeHeader = STFLib.getFeeHeader(_args.start + i);
 
-          CompressedFeeHeader feeHeader = STFLib.getFeeHeader(_args.start + i);
+        v.manaUsed = feeHeader.getManaUsed();
 
-          v.manaUsed = feeHeader.getManaUsed();
+        uint256 fee = _args.headers[i].accumulatedFees;
+        uint256 burn = feeHeader.getCongestionCost() * v.manaUsed;
 
-          uint256 fee = uint256(_args.fees[1 + i * 2]);
-          uint256 burn = feeHeader.getCongestionCost() * v.manaUsed;
+        t.feesToClaim += fee;
+        t.totalBurn += burn;
 
-          t.feesToClaim += fee;
-          t.totalBurn += burn;
-
-          // Compute the proving fee in the fee asset
-          v.proverFee = Math.min(v.manaUsed * feeHeader.getProverCost(), fee - burn);
+        // Compute the proving fee in the fee asset
+        v.proverFee = Math.min(v.manaUsed * feeHeader.getProverCost(), fee - burn);
+        if (v.proverFee > 0) {
           $er.rewards += v.proverFee.toUint128();
-
-          v.sequencerFee = fee - burn - v.proverFee;
         }
 
+        v.sequencerFee = fee - burn - v.proverFee;
+
         {
-          v.sequencer = fieldToAddress(_args.fees[i * 2]);
+          v.sequencer = _args.headers[i].coinbase;
           uint256 toSequencer = v.sequencerCheckpointReward + v.sequencerFee;
           if (toSequencer > 0) {
             rewardStorage.sequencerRewards[v.sequencer] += toSequencer;
@@ -302,22 +293,10 @@ library RewardLib {
     return (se.shares[_prover] * er.rewards / se.summedShares);
   }
 
-  function isRewardsClaimable() internal view returns (bool) {
-    return getStorage().isRewardsClaimable;
-  }
-
-  function getEarliestRewardsClaimableTimestamp() internal view returns (Timestamp) {
-    return getStorage().earliestRewardsClaimableTimestamp.decompress();
-  }
-
   function getStorage() internal pure returns (RewardStorage storage storageStruct) {
     bytes32 position = REWARD_STORAGE_POSITION;
     assembly {
       storageStruct.slot := position
     }
-  }
-
-  function fieldToAddress(bytes32 _f) private pure returns (address) {
-    return address(uint160(uint256(_f)));
   }
 }

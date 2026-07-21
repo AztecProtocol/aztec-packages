@@ -81,6 +81,6 @@ extern "C" int LLVMFuzzerTestOneInput(const uint8_t* Data, size_t Size)
     assert(circuit_output_u == expected_state);
 
     // Verify circuit correctness
-    assert(!CircuitChecker::check(builder));
+    assert(CircuitChecker::check(builder));
     return 0;
 }

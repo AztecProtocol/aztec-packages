@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/usr/bin/env bash
 
 set -euo pipefail
 
@@ -38,8 +38,8 @@ INACTIVITY_HOURS="${INACTIVITY_HOURS:-4}"
 INACTIVITY_SECONDS=$((INACTIVITY_HOURS * 3600))
 
 function get_prs_by_branch_pattern {
-  gh pr list --state open --json number,headRefName,updatedAt \
-    --jq '.[] | select(.headRefName | startswith("'"$BRANCH_PATTERN"'"))'
+  gh pr list --state open --limit 100 --search "head:$BRANCH_PATTERN" \
+    --json number,headRefName,updatedAt --jq '.[]'
 }
 
 function get_meaningful_commits_for_pr {

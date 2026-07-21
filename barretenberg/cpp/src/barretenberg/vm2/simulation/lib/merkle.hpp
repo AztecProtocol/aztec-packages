@@ -7,7 +7,10 @@
 
 namespace bb::avm2::simulation {
 
-FF unconstrained_root_from_path(const FF& leaf_value, const uint64_t leaf_index, std::span<const FF> path);
+FF unconstrained_root_from_path(uint64_t domain_separator,
+                                const FF& leaf_value,
+                                uint64_t leaf_index,
+                                std::span<const FF> path);
 
 FF unconstrained_compute_leaf_slot(const AztecAddress& contract_address, const FF& slot);
 

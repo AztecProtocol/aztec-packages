@@ -12,7 +12,9 @@ pub(crate) mod internal;
 
 use abi_export::create_fn_abi_export;
 use external::{
-    private::generate_private_external, public::generate_public_external, utility::generate_utility_external,
+    private::generate_private_external,
+    public::{generate_public_external, generate_public_self_creator, generate_public_self_creator_from_context},
+    utility::{generate_utility_external, generate_utility_self_creator},
 };
 use internal::{generate_private_internal, generate_public_internal};
 
@@ -23,28 +25,12 @@ comptime fn make_functions_uncallable<let N: u32>(functions: [FunctionDefinition
         let name = function.name();
         // The body of the function will contain a static_assert(false, ...) to prevent the function from being called
         // directly and a std::mem::zeroed() to make the compilation fail on the static_assert and not on a missing
-        // return value. TODO(benesjan): Add a link to the documentation for instructions on the proper invocation of
-        // functions.
-        let error_message = f"{error_message_template}{name}. See documentation for instructions on the proper invocation of functions.";
-        let body = f"{{ std::static_assert(false, \"{error_message}\"); std::mem::zeroed() }}".quoted_contents();
-        let body_expr = body.as_expr().expect(f"Body is not an expression: {body}");
+        // return value.
+        let error_message = f"{error_message_template}{name}. See https://docs.aztec.network/errors/6";
 
-        // Prefix all parameter names with "_" to suppress unused variable warnings
-        let params = function.parameters();
-        let prefixed_params = params.map(|(param_name, param_type)| {
-            let prefixed_name = f"_{param_name}".quoted_contents();
-            (prefixed_name, param_type)
-        });
-
-        function.set_body(body_expr);
-        function.set_parameters(prefixed_params);
-        // We need to add the `contract_library_method` attribute to the function to prevent this function from being
-        // compiled as an entrypoint function (function that's compiled as its own circuit).
-        function.add_attribute("contract_library_method");
-
-        // Contract functions need to have a public return type so we mark it as such to avoid undesired compilation
-        // errors.
-        function.set_return_public(true);
+        // Disabling the function also adds a `contract_library_method` attribute to the function to prevent this
+        // function from being compiled as an entrypoint function (function that's compiled as its own circuit).
+        function.disable(error_message);
     });
 }
 
@@ -63,6 +49,35 @@ pub(crate) comptime fn process_functions(m: Module) -> Quoted {
     let transformed_utility_functions =
         utility_functions.map(|function| generate_utility_external(function)).join(quote {});
 
+    // INTERNAL FUNCTIONS
+    let private_internal_functions = internal_functions_registry::get_private_functions(m);
+    let public_internal_functions = internal_functions_registry::get_public_functions(m);
+
+    // Emit per-contract helpers that construct `self` for public functions, so the preamble is not duplicated into
+    // every public function body. The creator takes a `PublicContext` and is shared by both public external functions
+    // (via `__aztec_nr_internals__create_public_self`) and public internal functions, which receive the context as a
+    // parameter. We only emit each helper if there is a caller for it.
+    let any_public_function = public_functions.len() > 0 | public_internal_functions.len() > 0;
+    let public_self_creator_from_context = if any_public_function {
+        generate_public_self_creator_from_context(m)
+    } else {
+        quote {}
+    };
+    let public_self_creator = if public_functions.len() > 0 {
+        generate_public_self_creator(m)
+    } else {
+        quote {}
+    };
+
+    // Same idea for utility functions: emit a per-contract helper that builds the `self` value, so the construction is
+    // not duplicated into every utility body. UtilityContext takes no calldata, so a single helper is enough; there is
+    // no internal/external split to share with.
+    let utility_self_creator = if utility_functions.len() > 0 {
+        generate_utility_self_creator(m)
+    } else {
+        quote {}
+    };
+
     // Now that we have generated quotes of the new functions based on the original function definitions, we replace
     // the original functions' bodies with `static_assert(false, ...)` to prevent them from being called directly from
     // within the contract. We also need to set the return type to `()` to avoid compilation errors.
@@ -76,12 +91,8 @@ pub(crate) comptime fn process_functions(m: Module) -> Quoted {
     );
     make_functions_uncallable(
         utility_functions,
-        "Calling utility functions directly from within the contract is not supported. You attempted to call ",
+        "Direct invocation of utility functions is not supported. You attempted to call ",
     );
-
-    // INTERNAL FUNCTIONS
-    let private_internal_functions = internal_functions_registry::get_private_functions(m);
-    let public_internal_functions = internal_functions_registry::get_public_functions(m);
 
     let generated_private_internal_functions =
         private_internal_functions.map(|function| generate_private_internal(function)).join(quote {});
@@ -100,6 +111,9 @@ pub(crate) comptime fn process_functions(m: Module) -> Quoted {
 
     // We return the new functions' quotes to be injected into the contract.
     quote {
+        $public_self_creator_from_context
+        $public_self_creator
+        $utility_self_creator
         $transformed_private_functions
         $transformed_public_functions
         $transformed_utility_functions

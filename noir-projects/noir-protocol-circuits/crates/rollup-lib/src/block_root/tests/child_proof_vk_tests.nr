@@ -1,10 +1,8 @@
 use super::TestBuilder;
-use types::{
-    constants::{
-        BLOCK_ROOT_FIRST_ROLLUP_VK_INDEX, BLOCK_ROOT_ROLLUP_VK_INDEX, PARITY_BASE_VK_INDEX,
-        PRIVATE_TX_BASE_ROLLUP_VK_INDEX, PUBLIC_TX_BASE_ROLLUP_VK_INDEX,
-    },
-    tests::fixtures::vk_tree::VK_MERKLE_TREE,
+use protocol_test_utils::fixtures::vk_tree::{update_vk_hash, VK_MERKLE_TREE};
+use types::constants::{
+    BLOCK_ROOT_FIRST_ROLLUP_VK_INDEX, BLOCK_ROOT_ROLLUP_VK_INDEX, PARITY_BASE_VK_INDEX,
+    PRIVATE_TX_BASE_ROLLUP_VK_INDEX, PUBLIC_TX_BASE_ROLLUP_VK_INDEX,
 };
 
 #[test(should_fail_with = "Vk index not in allowed list")]
@@ -73,7 +71,7 @@ fn left_rollup_vk_not_in_vk_tree__first_block() {
 
     // Update the vk hash so that the old vk hash in the proof data is no longer in the vk tree.
     let mut new_vk_tree = VK_MERKLE_TREE;
-    new_vk_tree.update_vk_hash(builder.left_rollup_vk_index, 999);
+    update_vk_hash(&mut new_vk_tree, builder.left_rollup_vk_index, 999);
 
     builder.parity_root.vk_tree_root = new_vk_tree.get_root();
     builder.left_rollup.constants.vk_tree_root = new_vk_tree.get_root();
@@ -93,7 +91,7 @@ fn right_rollup_vk_not_in_vk_tree__first_block() {
 
     // Update the vk hash so that the old vk hash in the proof data is no longer in the vk tree.
     let mut new_vk_tree = VK_MERKLE_TREE;
-    new_vk_tree.update_vk_hash(builder.right_rollup_vk_index, 999);
+    update_vk_hash(&mut new_vk_tree, builder.right_rollup_vk_index, 999);
 
     builder.parity_root.vk_tree_root = new_vk_tree.get_root();
     builder.left_rollup.constants.vk_tree_root = new_vk_tree.get_root();
@@ -107,7 +105,7 @@ fn left_rollup_vk_not_in_vk_tree__first_single_tx_block() {
 
     // Update the vk hash so that the old vk hash in the proof data is no longer in the vk tree.
     let mut new_vk_tree = VK_MERKLE_TREE;
-    new_vk_tree.update_vk_hash(builder.left_rollup_vk_index, 999);
+    update_vk_hash(&mut new_vk_tree, builder.left_rollup_vk_index, 999);
 
     builder.parity_root.vk_tree_root = new_vk_tree.get_root();
     builder.left_rollup.constants.vk_tree_root = new_vk_tree.get_root();
@@ -127,7 +125,7 @@ fn left_rollup_vk_not_in_vk_tree__non_first_block() {
 
     // Update the vk hash so that the old vk hash in the proof data is no longer in the vk tree.
     let mut new_vk_tree = VK_MERKLE_TREE;
-    new_vk_tree.update_vk_hash(builder.left_rollup_vk_index, 999);
+    update_vk_hash(&mut new_vk_tree, builder.left_rollup_vk_index, 999);
 
     builder.parity_root.vk_tree_root = new_vk_tree.get_root();
     builder.left_rollup.constants.vk_tree_root = new_vk_tree.get_root();
@@ -147,7 +145,7 @@ fn right_rollup_vk_not_in_vk_tree__non_first_block() {
 
     // Update the vk hash so that the old vk hash in the proof data is no longer in the vk tree.
     let mut new_vk_tree = VK_MERKLE_TREE;
-    new_vk_tree.update_vk_hash(builder.right_rollup_vk_index, 999);
+    update_vk_hash(&mut new_vk_tree, builder.right_rollup_vk_index, 999);
 
     builder.parity_root.vk_tree_root = new_vk_tree.get_root();
     builder.left_rollup.constants.vk_tree_root = new_vk_tree.get_root();
@@ -161,7 +159,7 @@ fn left_rollup_vk_not_in_vk_tree__non_first_single_tx_block() {
 
     // Update the vk hash so that the old vk hash in the proof data is no longer in the vk tree.
     let mut new_vk_tree = VK_MERKLE_TREE;
-    new_vk_tree.update_vk_hash(builder.left_rollup_vk_index, 999);
+    update_vk_hash(&mut new_vk_tree, builder.left_rollup_vk_index, 999);
 
     builder.parity_root.vk_tree_root = new_vk_tree.get_root();
     builder.left_rollup.constants.vk_tree_root = new_vk_tree.get_root();
@@ -207,7 +205,7 @@ fn parity_root_vk_not_in_vk_tree__first_block() {
 
     // Update the vk hash so that the old vk hash in the proof data is no longer in the vk tree.
     let mut new_vk_tree = VK_MERKLE_TREE;
-    new_vk_tree.update_vk_hash(builder.parity_root_vk_index, 999);
+    update_vk_hash(&mut new_vk_tree, builder.parity_root_vk_index, 999);
 
     builder.parity_root.vk_tree_root = new_vk_tree.get_root();
     builder.left_rollup.constants.vk_tree_root = new_vk_tree.get_root();
@@ -221,7 +219,7 @@ fn parity_root_vk_not_in_vk_tree__first_single_tx_block() {
 
     // Update the vk hash so that the old vk hash in the proof data is no longer in the vk tree.
     let mut new_vk_tree = VK_MERKLE_TREE;
-    new_vk_tree.update_vk_hash(builder.parity_root_vk_index, 999);
+    update_vk_hash(&mut new_vk_tree, builder.parity_root_vk_index, 999);
 
     builder.parity_root.vk_tree_root = new_vk_tree.get_root();
     builder.left_rollup.constants.vk_tree_root = new_vk_tree.get_root();
@@ -235,7 +233,7 @@ fn parity_root_vk_not_in_vk_tree__first_empty_block() {
 
     // Update the vk hash so that the old vk hash in the proof data is no longer in the vk tree.
     let mut new_vk_tree = VK_MERKLE_TREE;
-    new_vk_tree.update_vk_hash(builder.parity_root_vk_index, 999);
+    update_vk_hash(&mut new_vk_tree, builder.parity_root_vk_index, 999);
 
     builder.parity_root.vk_tree_root = new_vk_tree.get_root();
     builder.checkpoint_constants.vk_tree_root = new_vk_tree.get_root();

@@ -1,29 +1,31 @@
 import type { RollupContract } from '@aztec/ethereum/contracts';
 import type { L1TxUtils } from '@aztec/ethereum/l1-tx-utils';
 import type { PublisherManager } from '@aztec/ethereum/publisher-manager';
+import type { EthAddress } from '@aztec/foundation/eth-address';
 import type { LoggerBindings } from '@aztec/foundation/log';
-import type { PublisherConfig, TxSenderConfig } from '@aztec/sequencer-client';
+import type { ProverPublisherConfig, ProverTxSenderConfig } from '@aztec/sequencer-client';
 import type { TelemetryClient } from '@aztec/telemetry-client';
 
 import { ProverNodePublisher } from './prover-node-publisher.js';
 
 export class ProverPublisherFactory {
   constructor(
-    private config: TxSenderConfig & PublisherConfig,
+    private config: ProverTxSenderConfig & ProverPublisherConfig,
     private deps: {
       rollupContract: RollupContract;
       publisherManager: PublisherManager<L1TxUtils>;
+      proofSubmissionTarget?: EthAddress;
       telemetry?: TelemetryClient;
     },
     private bindings?: LoggerBindings,
   ) {}
 
   public async start() {
-    await this.deps.publisherManager.loadState();
+    await this.deps.publisherManager.start();
   }
 
-  public stop() {
-    this.deps.publisherManager.interrupt();
+  public async stop() {
+    await this.deps.publisherManager.stop();
   }
 
   /**
@@ -37,6 +39,7 @@ export class ProverPublisherFactory {
       {
         rollupContract: this.deps.rollupContract,
         l1TxUtils: l1Publisher,
+        proofSubmissionTarget: this.deps.proofSubmissionTarget,
         telemetry: this.deps.telemetry,
       },
       this.bindings,

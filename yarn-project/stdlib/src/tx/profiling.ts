@@ -1,8 +1,10 @@
+import { CircuitKind } from '@aztec/bb.js';
 import { Fr } from '@aztec/foundation/curves/bn254';
 import { type ZodFor, optional, schemas } from '@aztec/foundation/schemas';
 
 import { z } from 'zod';
 
+import { AztecAddress } from '../aztec-address/index.js';
 import type { AztecNode } from '../interfaces/aztec-node.js';
 import { type PrivateExecutionStep, PrivateExecutionStepSchema } from '../kernel/private_kernel_prover_output.js';
 
@@ -124,6 +126,7 @@ export class TxProfileResult {
           bytecode: Buffer.from('random'),
           witness: new Map([[1, 'random']]),
           vk: Buffer.from('random'),
+          kind: CircuitKind.App,
           timings: {
             witgen: 1,
             gateCount: 1,
@@ -132,12 +135,12 @@ export class TxProfileResult {
       ],
       {
         nodeRPCCalls: {
-          perMethod: { getBlockHeader: { times: [1] } },
+          perMethod: { getBlock: { times: [1] } },
           roundTrips: {
             roundTrips: 1,
             totalBlockingTime: 1,
             roundTripDurations: [1],
-            roundTripMethods: [['getBlockHeader']],
+            roundTripMethods: [['getBlock']],
           },
         },
         timings: {
@@ -157,30 +160,38 @@ export class TxProfileResult {
   }
 }
 
-export class UtilitySimulationResult {
+export class UtilityExecutionResult {
   constructor(
     public result: Fr[],
+    public offchainEffects: { data: Fr[]; contractAddress: AztecAddress }[],
+    /** Timestamp of the anchor block used during utility execution. */
+    public anchorBlockTimestamp: bigint,
     public stats?: SimulationStats,
   ) {}
 
-  static get schema(): ZodFor<UtilitySimulationResult> {
+  static get schema(): ZodFor<UtilityExecutionResult> {
     return z
       .object({
         result: z.array(schemas.Fr),
+        offchainEffects: z.array(z.object({ data: z.array(schemas.Fr), contractAddress: AztecAddress.schema })),
+        anchorBlockTimestamp: schemas.BigInt,
         stats: optional(SimulationStatsSchema),
       })
-      .transform(({ result, stats }) => new UtilitySimulationResult(result, stats));
+      .transform(
+        ({ result, offchainEffects, anchorBlockTimestamp, stats }) =>
+          new UtilityExecutionResult(result, offchainEffects, anchorBlockTimestamp, stats),
+      );
   }
 
-  static random(): UtilitySimulationResult {
-    return new UtilitySimulationResult([Fr.random()], {
+  static random(): UtilityExecutionResult {
+    return new UtilityExecutionResult([Fr.random()], [], 0n, {
       nodeRPCCalls: {
-        perMethod: { getBlockHeader: { times: [1] } },
+        perMethod: { getBlock: { times: [1] } },
         roundTrips: {
           roundTrips: 1,
           totalBlockingTime: 1,
           roundTripDurations: [1],
-          roundTripMethods: [['getBlockHeader']],
+          roundTripMethods: [['getBlock']],
         },
       },
       timings: {

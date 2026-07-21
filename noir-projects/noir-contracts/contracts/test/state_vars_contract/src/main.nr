@@ -5,11 +5,9 @@ use aztec::macros::aztec;
 pub contract StateVars {
     use aztec::{
         macros::{functions::{external, view}, storage::{storage, storage_no_init}},
-        messages::message_delivery::MessageDelivery,
+        messages::delivery::MessageDelivery,
         protocol::{address::AztecAddress, traits::{Deserialize, Packable, Serialize}},
-        state_vars::{
-            Owned, PrivateImmutable, PrivateMutable, PublicImmutable, PublicMutable, StateVariable,
-        },
+        state_vars::{Owned, PrivateImmutable, PrivateMutable, PublicImmutable, PublicMutable, StateVariable},
     };
 
     use field_note::FieldNote;
@@ -41,7 +39,7 @@ pub contract StateVars {
 
     #[external("public")]
     fn initialize_public_immutable(value: u8) {
-        let mut new_mock_struct = MockStruct { account: self.msg_sender(), value };
+        let new_mock_struct = MockStruct { account: self.msg_sender(), value };
         self.storage.public_immutable.initialize(new_mock_struct);
     }
 
@@ -95,14 +93,14 @@ pub contract StateVars {
         self.storage.public_immutable.read()
     }
 
+    // This function is called from tests that execute it across many parallel txs.
+    // Since constrained delivery doesn't support it, this function must use unconstrained delivery instead.
     #[external("private")]
     fn initialize_private_immutable(randomness: Field, value: Field) {
         let owner = self.msg_sender();
         let new_note = FieldNote { value };
 
-        self.storage.private_immutable.at(owner).initialize(new_note).deliver(
-            MessageDelivery.ONCHAIN_CONSTRAINED,
-        );
+        self.storage.private_immutable.at(owner).initialize(new_note).deliver(MessageDelivery::onchain_unconstrained());
     }
 
     #[external("private")]
@@ -111,7 +109,7 @@ pub contract StateVars {
         let private_mutable = FieldNote { value };
 
         self.storage.private_mutable.at(owner).initialize(private_mutable).deliver(
-            MessageDelivery.ONCHAIN_CONSTRAINED,
+            MessageDelivery::onchain_unconstrained(),
         );
     }
 
@@ -119,7 +117,7 @@ pub contract StateVars {
     fn update_private_mutable(randomness: Field, value: Field) {
         let owner = self.msg_sender();
         self.storage.private_mutable.at(owner).replace(|_old_note| FieldNote { value }).deliver(
-            MessageDelivery.ONCHAIN_CONSTRAINED,
+            MessageDelivery::onchain_unconstrained(),
         );
     }
 
@@ -135,7 +133,7 @@ pub contract StateVars {
                 let new_value = old_note.value + 1;
                 FieldNote { value: new_value }
             })
-            .deliver(MessageDelivery.ONCHAIN_CONSTRAINED);
+            .deliver(MessageDelivery::onchain_unconstrained());
     }
 
     #[external("utility")]

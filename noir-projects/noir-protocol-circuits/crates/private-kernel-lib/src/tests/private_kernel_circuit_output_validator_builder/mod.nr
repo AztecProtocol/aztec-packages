@@ -3,11 +3,11 @@ mod validate_propagated_from_previous_kernel;
 mod validate_propagated_from_private_call;
 
 use crate::components::private_kernel_circuit_output_validator::PrivateKernelCircuitOutputValidator;
-use dep::types::{
+use protocol_test_utils::FixtureBuilder;
+use types::{
     abis::{private_call_request::PrivateCallRequest, transaction::tx_request::TxRequest},
     constants::PRIVATE_KERNEL_INIT_VK_INDEX,
-    hash::{create_protocol_nullifier, silo_nullifier},
-    tests::fixture_builder::FixtureBuilder,
+    hash::create_protocol_nullifier,
     traits::Empty,
 };
 
@@ -16,7 +16,6 @@ pub struct PrivateKernelCircuitOutputValidatorBuilder {
     private_call: FixtureBuilder,
     output: FixtureBuilder,
     tx_request: TxRequest,
-    first_nullifier_hint: Field,
     revertible_counter_hint: u32,
     is_private_only: bool,
 }
@@ -28,10 +27,8 @@ impl PrivateKernelCircuitOutputValidatorBuilder {
         let mut output = FixtureBuilder::new();
         let tx_request = output.to_tx_request();
 
-        output.claimed_first_nullifier = 27;
         output.claimed_revertible_counter = 42;
 
-        previous_kernel.claimed_first_nullifier = 27;
         previous_kernel.claimed_revertible_counter = 42;
 
         previous_kernel = previous_kernel.in_vk_tree(PRIVATE_KERNEL_INIT_VK_INDEX);
@@ -41,7 +38,6 @@ impl PrivateKernelCircuitOutputValidatorBuilder {
             private_call,
             output,
             tx_request,
-            first_nullifier_hint: 27,
             revertible_counter_hint: 42,
             is_private_only: false,
         }
@@ -51,10 +47,6 @@ impl PrivateKernelCircuitOutputValidatorBuilder {
         let protocol_nullifier = create_protocol_nullifier(self.tx_request);
         self.output.nullifiers.push(protocol_nullifier);
         self.previous_kernel.nullifiers.push(protocol_nullifier);
-
-        self.first_nullifier_hint = silo_nullifier(protocol_nullifier);
-        self.previous_kernel.claimed_first_nullifier = self.first_nullifier_hint;
-        self.output.claimed_first_nullifier = self.first_nullifier_hint;
     }
 
     pub fn with_previous_kernel_vk_index(&mut self, vk_index: u32) {

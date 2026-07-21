@@ -10,9 +10,9 @@ import {
   initTelemetryClient,
   makeTracedFetch,
 } from '@aztec/telemetry-client';
-import { TestWallet } from '@aztec/test-wallet/server';
+import { EmbeddedWallet } from '@aztec/wallets/embedded';
 
-import { extractRelevantOptions } from '../util.js';
+import { extractRelevantOptions, stringifyConfig } from '../util.js';
 import { getVersions } from '../versioning.js';
 
 export async function startBot(
@@ -21,11 +21,9 @@ export async function startBot(
   services: NamespacedApiHandlers,
   userLog: LogFn,
 ) {
-  const { proverNode, archiver, sequencer, p2pBootstrap, txe, prover } = options;
-  if (proverNode || archiver || sequencer || p2pBootstrap || txe || prover) {
-    userLog(
-      `Starting a bot with --prover-node, --prover, --archiver, --sequencer, --p2p-bootstrap, or --txe is not supported.`,
-    );
+  const { proverNode, sequencer, p2pBootstrap, txe, prover } = options;
+  if (proverNode || sequencer || p2pBootstrap || txe || prover) {
+    userLog(`Starting a bot with --prover-node, --prover, --sequencer, --p2p-bootstrap, or --txe is not supported.`);
     process.exit(1);
   }
 
@@ -38,22 +36,30 @@ export async function startBot(
   const aztecNode = createAztecNodeClient(config.nodeUrl, getVersions(), fetch);
 
   const pxeConfig = extractRelevantOptions<PXEConfig & CliPXEOptions>(options, allPxeConfigMappings, 'pxe');
-  const wallet = await TestWallet.create(aztecNode, pxeConfig);
+  userLog(`Creating bot wallet with config ${stringifyConfig(pxeConfig)}`);
+  const wallet = await EmbeddedWallet.create(aztecNode, { pxeConfig });
 
   const telemetry = await initTelemetryClient(getTelemetryClientConfig());
-  await addBot(options, signalHandlers, services, wallet, aztecNode, telemetry, undefined);
+  await addBot(options, signalHandlers, services, wallet, aztecNode, telemetry, undefined, userLog);
 }
 
 export async function addBot(
   options: any,
   signalHandlers: (() => Promise<void>)[],
   services: NamespacedApiHandlers,
-  wallet: TestWallet,
+  wallet: EmbeddedWallet,
   aztecNode: AztecNode,
   telemetry: TelemetryClient,
   aztecNodeAdmin?: AztecNodeAdmin,
+  userLog?: LogFn,
 ) {
   const config = extractRelevantOptions<BotConfig>(options, botConfigMappings, 'bot');
+  userLog?.(`Starting bot with config ${stringifyConfig(config)}`);
+
+  // The bot wallet's embedded PXE syncs to this tip (see start_bot.ts/start_node.ts which build the wallet from the
+  // same options). L1-to-L2 readiness checks must be evaluated at this tip rather than at 'latest', or the bot can
+  // consider a message ready while the PXE simulation anchors to an older block that cannot prove its membership yet.
+  const { syncChainTip } = extractRelevantOptions<PXEConfig & CliPXEOptions>(options, allPxeConfigMappings, 'pxe');
 
   const db = await (config.dataDirectory
     ? createStore('bot', BotStore.SCHEMA_VERSION, config)
@@ -62,7 +68,7 @@ export async function addBot(
   const store = new BotStore(db);
   await store.cleanupOldClaims();
 
-  const botRunner = new BotRunner(config, wallet, aztecNode, telemetry, aztecNodeAdmin, store);
+  const botRunner = new BotRunner(config, wallet, aztecNode, telemetry, aztecNodeAdmin, store, syncChainTip);
   if (!config.noStart) {
     void botRunner.start(); // Do not block since bot setup takes time
   }

@@ -6,18 +6,16 @@ import { makeProtocolContract } from '../make_protocol_contract.js';
 import type { ProtocolContract } from '../protocol_contract.js';
 
 export * from './contract_class_published_event.js';
-export * from './private_function_broadcasted_event.js';
-export * from './utility_function_broadcasted_event.js';
 
 export const ContractClassRegistryArtifact = loadContractArtifact(ContractClassRegistryJson as NoirCompiledContract);
 
 let protocolContract: ProtocolContract;
 
 /** Returns the canonical deployment of the contract. */
-export async function getCanonicalClassRegistry(): Promise<ProtocolContract> {
+export function getCanonicalClassRegistry(): Promise<ProtocolContract> {
   if (!protocolContract) {
     const artifact = ContractClassRegistryArtifact;
-    protocolContract = await makeProtocolContract('ContractClassRegistry', artifact);
+    protocolContract = makeProtocolContract('ContractClassRegistry', artifact);
   }
-  return protocolContract;
+  return Promise.resolve(protocolContract);
 }

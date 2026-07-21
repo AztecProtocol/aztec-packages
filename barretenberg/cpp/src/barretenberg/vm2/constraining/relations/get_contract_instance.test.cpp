@@ -60,7 +60,7 @@ TEST(GetContractInstanceConstrainingTest, WriteInBoundsCheck)
     trace.set(C::get_contract_instance_dst_offset_diff_max_inv, 1, wrong_inv_value); // Wrong inv value
     EXPECT_THROW_WITH_MESSAGE(
         check_relation<get_contract_instance>(trace, get_contract_instance::SR_WRITE_OUT_OF_BOUNDS_CHECK),
-        "WRITE_OUT_OF_BOUNDS_CHECK");
+        get_contract_instance::get_subrelation_label(get_contract_instance::SR_WRITE_OUT_OF_BOUNDS_CHECK));
     // Reset
     trace.set(C::get_contract_instance_dst_offset_diff_max_inv, 1, dst_offset_diff_max_inv);
 
@@ -68,7 +68,7 @@ TEST(GetContractInstanceConstrainingTest, WriteInBoundsCheck)
     trace.set(C::get_contract_instance_is_valid_writes_in_bounds, 1, 0); // Out of bounds
     EXPECT_THROW_WITH_MESSAGE(
         check_relation<get_contract_instance>(trace, get_contract_instance::SR_WRITE_OUT_OF_BOUNDS_CHECK),
-        "WRITE_OUT_OF_BOUNDS_CHECK");
+        get_contract_instance::get_subrelation_label(get_contract_instance::SR_WRITE_OUT_OF_BOUNDS_CHECK));
     // Reset
     trace.set(C::get_contract_instance_is_valid_writes_in_bounds, 1, 1);
 }
@@ -93,7 +93,7 @@ TEST(GetContractInstanceConstrainingTest, WriteOutOfBoundsCheck)
     trace.set(C::get_contract_instance_is_valid_writes_in_bounds, 1, 1);
     EXPECT_THROW_WITH_MESSAGE(
         check_relation<get_contract_instance>(trace, get_contract_instance::SR_WRITE_OUT_OF_BOUNDS_CHECK),
-        "WRITE_OUT_OF_BOUNDS_CHECK");
+        get_contract_instance::get_subrelation_label(get_contract_instance::SR_WRITE_OUT_OF_BOUNDS_CHECK));
     // Reset
     trace.set(C::get_contract_instance_is_valid_writes_in_bounds, 1, 0);
 }
@@ -131,8 +131,9 @@ TEST(GetContractInstanceConstrainingTest, ErrorAggregationConstraint)
 
     // Negative test: wrong error value
     trace.set(C::get_contract_instance_sel_error, 1, 0);
-    EXPECT_THROW_WITH_MESSAGE(check_relation<get_contract_instance>(trace, get_contract_instance::SR_ERROR_AGGREGATION),
-                              "ERROR_AGGREGATION");
+    EXPECT_THROW_WITH_MESSAGE(
+        check_relation<get_contract_instance>(trace, get_contract_instance::SR_ERROR_AGGREGATION),
+        get_contract_instance::get_subrelation_label(get_contract_instance::SR_ERROR_AGGREGATION));
 }
 
 TEST(GetContractInstanceConstrainingTest, SelectedMemberConstraint)
@@ -141,6 +142,7 @@ TEST(GetContractInstanceConstrainingTest, SelectedMemberConstraint)
     const FF deployer_addr = 0x1234;
     const FF class_id = 0x5678;
     const FF init_hash = 0x9ABC;
+    const FF immutables_hash = 0xCAFE;
     const FF wrong_value = 0x1111;
 
     // Test selected member subrelation
@@ -152,9 +154,11 @@ TEST(GetContractInstanceConstrainingTest, SelectedMemberConstraint)
           { C::get_contract_instance_is_deployer, 1 },
           { C::get_contract_instance_is_class_id, 0 },
           { C::get_contract_instance_is_init_hash, 0 },
+          { C::get_contract_instance_is_immutables_hash, 0 },
           { C::get_contract_instance_retrieved_deployer_addr, deployer_addr },
           { C::get_contract_instance_retrieved_class_id, class_id },
-          { C::get_contract_instance_retrieved_init_hash, init_hash } },
+          { C::get_contract_instance_retrieved_init_hash, init_hash },
+          { C::get_contract_instance_retrieved_immutables_hash, immutables_hash } },
     });
 
     check_relation<get_contract_instance>(trace, get_contract_instance::SR_SELECTED_MEMBER);
@@ -171,10 +175,16 @@ TEST(GetContractInstanceConstrainingTest, SelectedMemberConstraint)
     trace.set(C::get_contract_instance_is_init_hash, 1, 1);
     check_relation<get_contract_instance>(trace, get_contract_instance::SR_SELECTED_MEMBER);
 
+    // Test IMMUTABLES_HASH selection
+    trace.set(C::get_contract_instance_selected_member, 1, immutables_hash);
+    trace.set(C::get_contract_instance_is_init_hash, 1, 0);
+    trace.set(C::get_contract_instance_is_immutables_hash, 1, 1);
+    check_relation<get_contract_instance>(trace, get_contract_instance::SR_SELECTED_MEMBER);
+
     // Negative test: wrong selected member
     trace.set(C::get_contract_instance_selected_member, 1, wrong_value); // Wrong value
     EXPECT_THROW_WITH_MESSAGE(check_relation<get_contract_instance>(trace, get_contract_instance::SR_SELECTED_MEMBER),
-                              "SELECTED_MEMBER");
+                              get_contract_instance::get_subrelation_label(get_contract_instance::SR_SELECTED_MEMBER));
 }
 
 TEST(GetContractInstanceConstrainingTest, ComplexMultiRowSequence)
@@ -460,7 +470,7 @@ TEST(GetContractInstanceConstrainingTest, NegativeGhostRowInjectionBlocked)
     trace.set(ghost_row,
               std::vector<std::pair<Column, FF>>{
                   { C::precomputed_first_row, 1 },
-                  { C::precomputed_clk, ghost_row },
+                  { C::execution_clk, ghost_row },
                   { C::get_contract_instance_sel, 0 },
                   { C::get_contract_instance_is_valid_member_enum, 1 },
                   { C::get_contract_instance_is_valid_writes_in_bounds, 1 },
@@ -482,7 +492,9 @@ TEST(GetContractInstanceConstrainingTest, NegativeGhostRowInjectionBlocked)
 
     // The fix: is_valid_writes_in_bounds * (1 - sel) = 0 should cause the relation check to fail
     // (in conjunction with WRITES_OUT_OF_BOUNDS * is_valid_member_enum = 0)
-    EXPECT_THROW_WITH_MESSAGE(check_relation<get_contract_instance>(trace), "IS_VALID_WRITES_IN_BOUNDS_REQUIRES_SEL");
+    EXPECT_THROW_WITH_MESSAGE(
+        check_relation<get_contract_instance>(trace),
+        get_contract_instance::get_subrelation_label(get_contract_instance::SR_IS_VALID_WRITES_IN_BOUNDS_REQUIRES_SEL));
 }
 
 // M-1: Verifies tracegen sets member_write_offset = 0 when writes are out of bounds.
@@ -518,7 +530,7 @@ TEST(GetContractInstanceConstrainingTest, TracegenMemberWriteOffsetOutOfBounds)
     trace.set(C::get_contract_instance_member_write_offset, data_row, FF(AVM_HIGHEST_MEM_ADDRESS) + FF(1));
     EXPECT_THROW_WITH_MESSAGE(
         check_relation<get_contract_instance>(trace, get_contract_instance::SR_MEMBER_WRITE_OFFSET),
-        "MEMBER_WRITE_OFFSET");
+        get_contract_instance::get_subrelation_label(get_contract_instance::SR_MEMBER_WRITE_OFFSET));
 }
 
 } // namespace

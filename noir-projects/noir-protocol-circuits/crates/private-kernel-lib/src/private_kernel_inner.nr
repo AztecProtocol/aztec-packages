@@ -3,20 +3,36 @@ use crate::components::{
     private_kernel_circuit_output_composer::PrivateKernelCircuitOutputComposer,
     private_kernel_circuit_output_validator::PrivateKernelCircuitOutputValidator,
 };
-use dep::types::{
+use types::{
     abis::{
         kernel_circuit_public_inputs::PrivateKernelCircuitPublicInputs,
         private_kernel::private_call_data::PrivateCallData, private_kernel_data::PrivateKernelData,
     },
     constants::{
-        PRIVATE_KERNEL_INIT_VK_INDEX, PRIVATE_KERNEL_INNER_VK_INDEX, PRIVATE_KERNEL_RESET_VK_INDEX,
+        PRIVATE_KERNEL_INIT_2_VK_INDEX, PRIVATE_KERNEL_INIT_3_VK_INDEX,
+        PRIVATE_KERNEL_INIT_4_VK_INDEX, PRIVATE_KERNEL_INIT_5_VK_INDEX,
+        PRIVATE_KERNEL_INIT_VK_INDEX, PRIVATE_KERNEL_INNER_2_VK_INDEX,
+        PRIVATE_KERNEL_INNER_3_VK_INDEX, PRIVATE_KERNEL_INNER_4_VK_INDEX,
+        PRIVATE_KERNEL_INNER_5_VK_INDEX, PRIVATE_KERNEL_INNER_VK_INDEX,
+        PRIVATE_KERNEL_RESET_VK_INDEX,
     },
 };
 
 /// The set of circuits that can precede an Inner circuit in the kernel chain.
 /// Inner can follow Init (first call), another Inner (subsequent calls), or Reset (after processing validation requests).
-pub global ALLOWED_PREVIOUS_CIRCUITS: [u32; 3] =
-    [PRIVATE_KERNEL_INIT_VK_INDEX, PRIVATE_KERNEL_INNER_VK_INDEX, PRIVATE_KERNEL_RESET_VK_INDEX];
+pub global ALLOWED_PREVIOUS_CIRCUITS: [u32; 11] = [
+    PRIVATE_KERNEL_INIT_VK_INDEX,
+    PRIVATE_KERNEL_INIT_2_VK_INDEX,
+    PRIVATE_KERNEL_INIT_3_VK_INDEX,
+    PRIVATE_KERNEL_INIT_4_VK_INDEX,
+    PRIVATE_KERNEL_INIT_5_VK_INDEX,
+    PRIVATE_KERNEL_INNER_VK_INDEX,
+    PRIVATE_KERNEL_INNER_2_VK_INDEX,
+    PRIVATE_KERNEL_INNER_3_VK_INDEX,
+    PRIVATE_KERNEL_INNER_4_VK_INDEX,
+    PRIVATE_KERNEL_INNER_5_VK_INDEX,
+    PRIVATE_KERNEL_RESET_VK_INDEX,
+];
 
 pub struct PrivateKernelInnerCircuitPrivateInputs {
     /// The output from the previous kernel circuit (Init, Inner, or Reset).
@@ -48,7 +64,7 @@ unconstrained fn generate_output(
 /// - Appends arrays of new nonempty side effects (note hashes, nullifiers, logs, etc.) from the current call to
 ///   the larger, cumulative arrays that are propagated by each kernel iteration.
 /// - Similarly appends any new validation requests (read requests, key validation requests) for later processing.
-/// - Ensures the hints `is_private_only`, `claimed_first_nullifier`, `claimed_revertible_counter` remain consistent.
+/// - Ensures the hints `is_private_only`, `claimed_revertible_counter` remain consistent.
 ///
 /// Each Inner circuit consumes one private call request and may add new ones to the stack.
 /// The output feeds into subsequent Private Kernel Inner circuits if there are more private calls,
@@ -58,8 +74,8 @@ unconstrained fn generate_output(
 /// VkIndex: PRIVATE_KERNEL_INNER_VK_INDEX
 pub fn execute(inputs: PrivateKernelInnerCircuitPrivateInputs) -> PrivateKernelCircuitPublicInputs {
     // Validate inputs - previous kernel
-    if !dep::std::runtime::is_unconstrained() {
-        inputs.previous_kernel.verify(false);
+    if !::std::runtime::is_unconstrained() {
+        inputs.previous_kernel.verify();
     }
     inputs.previous_kernel.validate_vk_in_vk_tree(ALLOWED_PREVIOUS_CIRCUITS);
 
@@ -73,7 +89,7 @@ pub fn execute(inputs: PrivateKernelInnerCircuitPrivateInputs) -> PrivateKernelC
     let output = unsafe { generate_output(inputs) };
 
     // Validate output.
-    if dep::types::validate::should_validate_output() {
+    if ::types::validate::should_validate_output() {
         PrivateKernelCircuitOutputValidator::new(output).validate_as_inner_call(
             inputs.previous_kernel.public_inputs,
             inputs.private_call,

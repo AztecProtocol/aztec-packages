@@ -1,18 +1,15 @@
 #!/usr/bin/env bash
 NO_CD=1 source $(git rev-parse --show-toplevel)/ci3/source
-source $ci3/source_refname
-source $ci3/source_redis
-source $ci3/source_color
 
-status=${1:-RUNNING}
-key=${2:-}
+key=${1:?usage: log_ci_run <key> [status]}
+status=${2:-RUNNING}
 
 if [ -z "${RUN_ID:-}" ]; then
   echo_stderr "No RUN_ID set in log_ci_run. This ci run won't be seen on the dashboards."
   exit
 fi
 
-if [ -z "$CI_DASHBOARD:-}" ]; then
+if [ -z "${CI_DASHBOARD:-}" ]; then
   # This path is deprecated. Set CI_DASHBOARD explicitly in ci.sh.
   # CI runs are grouped by:
   # - The 'release' group if tagged with a semver.
@@ -29,12 +26,19 @@ else
   range_key="ci-run-$CI_DASHBOARD"
 fi
 
-if [ -z "$key" ]; then
-  key=$(date +%s%3N)
+if [ "$status" = "RUNNING" ]; then
   msg=$(git log -1 --pretty=format:"%s")
   author="$(git log -1 --pretty=format:"%an")"
   name=$REF_NAME
   [ "$(aws_get_meta_data instance-life-cycle)" == "spot" ] && spot=true || spot=false
+  instance_type=$(aws_get_meta_data instance-type 2>/dev/null || echo "unknown")
+  instance_vcpus=$(nproc 2>/dev/null || echo 0)
+
+  # Extract PR number from branch name or merge queue ref
+  pr_number=""
+  if [[ "$REF_NAME" =~ [Pp][Rr]-?([0-9]+) ]]; then
+    pr_number="${BASH_REMATCH[1]}"
+  fi
 
   # If this is github merge queue, just keep the queue name.
   if [[ "$name" =~ ^gh-readonly-queue/([^/]+)/ ]]; then
@@ -42,6 +46,7 @@ if [ -z "$key" ]; then
   fi
 
   msg=$(pr_link "$msg")
+  dashboard="${range_key#ci-run-}"
 
   json=$(jq -c -j -n \
       --argjson timestamp "$key" \
@@ -53,15 +58,18 @@ if [ -z "$key" ]; then
       --arg author "$author" \
       --arg arch "$(arch)" \
       --argjson spot "$spot" \
-      '{timestamp: $timestamp, run_id: $run_id, job_id: $job_id, status: $status, msg: $msg, name: $name, author: $author, arch: $arch, spot: $spot}')
+      --arg instance_type "$instance_type" \
+      --argjson instance_vcpus "$instance_vcpus" \
+      --arg pr_number "$pr_number" \
+      --arg dashboard "$dashboard" \
+      --arg github_actor "${GITHUB_ACTOR:-}" \
+      '{timestamp: $timestamp, run_id: $run_id, job_id: $job_id, status: $status, msg: $msg, name: $name, author: $author, github_actor: $github_actor, arch: $arch, spot: $spot, instance_type: $instance_type, instance_vcpus: $instance_vcpus, pr_number: $pr_number, dashboard: $dashboard}')
   # echo "$json" >&2
   redis_cli ZADD $range_key $key "$json" &>/dev/null
   redis_cli SETEX hb-$key 60 1 &>/dev/null
 
   # To keep only the last 1000 entries (by score).
   redis_cli ZREMRANGEBYRANK $range_key 0 -1001 &>/dev/null
-
-  echo $key
 else
   # Retrieve the current entry.
   old_json=$(redis_cli ZRANGEBYSCORE $range_key $key $key)

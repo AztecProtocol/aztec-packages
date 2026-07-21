@@ -3,7 +3,8 @@ title: Call Types
 sidebar_position: 6
 tags: [calls, contracts, execution]
 description: Understand the different types of contract calls in Aztec, including private and public execution modes, and how they compare to Ethereum's call types.
-references: ["noir-projects/noir-contracts/contracts/app/auth_contract/src/main.nr", "noir-projects/noir-contracts/contracts/app/crowdfunding_contract/src/main.nr", "noir-projects/noir-contracts/contracts/app/lending_contract/src/main.nr", "noir-projects/noir-contracts/contracts/fees/fpc_contract/src/main.nr", "noir-projects/noir-contracts/contracts/protocol/router_contract/src/main.nr", "noir-projects/noir-contracts/contracts/protocol/router_contract/src/utils.nr", "yarn-project/end-to-end/src/composed/docs_examples.test.ts", "yarn-project/end-to-end/src/e2e_card_game.test.ts", "yarn-project/end-to-end/src/e2e_crowdfunding_and_claim.test.ts"]
+references: ["noir-projects/noir-contracts/contracts/app/auth_contract/src/main.nr", "noir-projects/noir-contracts/contracts/app/crowdfunding_contract/src/main.nr", "noir-projects/noir-contracts/contracts/app/lending_contract/src/main.nr", "noir-projects/noir-contracts/contracts/fees/fpc_contract/src/main.nr", "yarn-project/end-to-end/src/automine/card_game.test.ts", "yarn-project/end-to-end/src/automine/token/crowdfunding_and_claim.test.ts"]
+
 ---
 
 ## What is a Call
@@ -16,6 +17,12 @@ We say that a smart contract is called when one of its functions is invoked and 
 - a call status (successful or failed)
 
 There are multiple types of calls, and some of the naming can make things **very** confusing. This page lists the different call types and execution modes, pointing out key differences between them.
+
+import YouTubeEmbed from '@site/src/components/YouTubeEmbed';
+
+A key property of Aztec calls is that contracts can call each other privately, keeping even the call stack itself private. This two-minute explainer covers the idea before we get into the details (find more on the [video lessons](../resources/video_lessons.mdx) page):
+
+<YouTubeEmbed videoId="idxRuGQnQKs" title="What is Private Composability? An Aztec Explainer" />
 
 ## Ethereum Call Types
 
@@ -131,7 +138,7 @@ It is also possible to create public functions that can _only_ be invoked by pri
 
 A common pattern is to enqueue public calls to check some validity condition on public state, e.g. that a deadline has not expired or that some public value is set.
 
-#include_code enqueueing /noir-projects/noir-contracts/contracts/protocol/public_checks_contract/src/utils.nr rust
+#include_code enqueueing /noir-projects/aztec-nr/aztec/src/public_checks.nr rust
 
 Note that this reveals what public function is being called on what contract, and perhaps more importantly which contract enqueued the call during private execution.
 To prevent this you can enqueue a call to a public function using `self.enqueue_incognito` that behaves the same as `self.enqueue` but conceals the message sender.
@@ -145,11 +152,11 @@ An example of how a deadline can be checked using the `PublicChecks` contract fo
 
 `privately_check_timestamp` and `privately_check_block_number` are helper functions around the call to the `PublicChecks` contract:
 
-#include_code helper_public_checks_functions /noir-projects/noir-contracts/contracts/protocol/public_checks_contract/src/utils.nr rust
+#include_code helper_public_checks_functions /noir-projects/aztec-nr/aztec/src/public_checks.nr rust
 
 This is what the implementation of the check timestamp functionality looks like:
 
-#include_code check_timestamp /noir-projects/noir-contracts/contracts/protocol/public_checks_contract/src/main.nr rust
+#include_code check_timestamp /noir-projects/noir-contracts/contracts/standard/public_checks_contract/src/main.nr rust
 
 :::note
 The `PublicChecks` contract is not part of the [aztec-nr repository](https://github.com/AztecProtocol/aztec-nr).
@@ -157,18 +164,22 @@ To add it as a dependency, point to the aztec-packages repository:
 
 ```toml
 [dependencies]
-public_checks = { git = "https://github.com/AztecProtocol/aztec-packages/", tag = "#include_aztec_version", directory = "noir-projects/noir-contracts/contracts/protocol/public_checks_contract" }
+public_checks = { git = "https://github.com/AztecProtocol/aztec-packages/", tag = "#include_aztec_version", directory = "noir-projects/noir-contracts/contracts/standard/public_checks_contract" }
 ```
 
 :::
 
 Even with the public checks contract, achieving good privacy is hard.
 For example, if the value being checked against is unique and stored in the contract's public storage, it's then simple to find private transactions that are using that value in the enqueued public reads, and therefore link them to this contract.
-For this reason it is encouraged to try to avoid public function calls and instead privately read [Delayed Public Mutable](../aztec-nr/framework-description/how_to_define_storage.md#delayed-public-mutable) state when possible.
+For this reason it is encouraged to try to avoid public function calls and instead privately read [Delayed Public Mutable](../aztec-nr/framework-description/state_variables.md#delayedpublicmutable) state when possible.
 
 ### Public Execution
 
 Contract functions marked with `#[external("public")]` can only be called publicly, and are executed by the sequencer. The computation model is very similar to the EVM: all state, parameters, etc. are known to the entire network, and no data is private. Static execution like the EVM's `STATICCALL` is possible too, with similar semantics (state can be accessed but not modified, etc.).
+
+:::note
+The AVM supports a subset of Noir's cryptographic operations. Signature verification (ECDSA) is not available in public functions. See [AVM Cryptographic Compatibility](./advanced/circuits/avm_compatibility.md) for details.
+:::
 
 Since private calls are always run in a user's device, it is not possible to perform any private execution from a public context. A reasonably good mental model for public execution is that of an EVM in which some work has already been done privately, and all that is known about it is its correctness and side-effects (new notes and nullifiers, enqueued public calls, etc.). A reverted public execution will also revert the private side-effects.
 
@@ -182,10 +193,12 @@ Public functions can be called either directly in a public context (as shown abo
 
 ### Utility
 
-Contract functions marked with `#[external("utility")]` cannot be called as part of a transaction. They are only invoked by applications that interact with contracts for:
+Contract functions marked with `#[external("utility")]` are never proven as part of a transaction, even when called from a private function. They are invoked by applications that interact with contracts for:
 
 - **State queries**: Reading from both private and public state via an offchain client
 - **Local state management**: Modifying contract-related PXE state (e.g., processing logs in Aztec.nr)
+
+Utility functions can also be called from other utility functions, and from private functions as unconstrained code. Calls that cross a contract boundary require wallet authorization. See [utility calls](../aztec-nr/framework-description/calling_contracts.md#utility-calls) for how to make them.
 
 Since utility execution is unconstrained and relies heavily on oracle calls, no guarantees are made on the correctness of results. However, you can verify that the bytecode being executed is correct, since a contract's address includes a commitment to all of its utility functions.
 
@@ -197,9 +210,7 @@ There are two main ways to execute an Aztec contract function using the `aztec.j
 
 This is used to get a result out of an execution, either private or public. It creates no transaction and spends no gas. The mental model is fairly close to that of [`eth_call`](#eth_call), in that it can be used to call any type of function, simulate its execution and get a result out of it. `simulate` is also the only way to run [utility functions](#utility).
 
-#include_code public_getter /noir-projects/noir-contracts/contracts/app/auth_contract/src/main.nr rust
-
-#include_code simulate_function yarn-project/end-to-end/src/composed/docs_examples.test.ts typescript
+#include_code simulate_function docs/examples/ts/aztecjs_connection/index.ts typescript
 
 :::warning
 No correctness is guaranteed on the result of `simulate`! Correct execution is entirely optional and left up to the client that handles this request.
@@ -209,15 +220,15 @@ No correctness is guaranteed on the result of `simulate`! Correct execution is e
 
 This creates a transaction, generates proofs for private execution, broadcasts the transaction to the network, and returns a receipt. This is how transactions are sent, getting them to be included in blocks and spending gas. It is similar to [`eth_sendTransaction`](#eth_sendtransaction), except it also performs work on the user's device, namely the production of the proof for the private part of the transaction.
 
-#include_code send_tx yarn-project/end-to-end/src/e2e_card_game.test.ts typescript
+#include_code send_tx yarn-project/end-to-end/src/automine/card_game.test.ts typescript
 
 You can also use `send` to check for execution failures in testing contexts by expecting the transaction to throw:
 
-#include_code local-tx-fails /yarn-project/end-to-end/src/e2e_crowdfunding_and_claim.test.ts typescript
+#include_code local-tx-fails /yarn-project/end-to-end/src/automine/token/crowdfunding_and_claim.test.ts typescript
 
 ## Next Steps
 
 - [State Management](./state_management.md) - Learn how private and public state works in Aztec
 - [Transactions](./transactions.md) - Understand the transaction lifecycle
 - [Contract Creation](./contract_creation.md) - Deploy and interact with contracts
-- [Declaring Storage](../aztec-nr/framework-description/how_to_define_storage.md) - Define storage in your contracts
+- [Declaring Storage](../aztec-nr/framework-description/state_variables.md) - Define storage in your contracts

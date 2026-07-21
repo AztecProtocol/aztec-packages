@@ -6,14 +6,15 @@
 namespace bb::avm2::simulation {
 
 struct AddressDerivationEvent {
-    AztecAddress address;
-    ContractInstance instance;
-    FF salted_initialization_hash;
-    FF partial_address;
-    FF public_keys_hash;
-    FF preaddress;
-    EmbeddedCurvePoint preaddress_public_key;
-    EmbeddedCurvePoint address_point;
+    AztecAddress address = 0;
+    ContractInstance instance{};
+    FF salted_initialization_hash = 0;
+    FF partial_address = 0;
+    FF incoming_viewing_key_hash = 0;
+    FF public_keys_hash = 0;
+    FF preaddress = 0;
+    EmbeddedCurvePoint preaddress_public_key = EmbeddedCurvePoint::infinity();
+    EmbeddedCurvePoint address_point = EmbeddedCurvePoint::infinity();
 };
 
 } // namespace bb::avm2::simulation

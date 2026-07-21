@@ -1,13 +1,13 @@
-import { GeneratorIndex } from '@aztec/constants';
+import { DomainSeparator } from '@aztec/constants';
 
 import type { KeyGenerator, KeyPrefix } from './key_types.js';
 
 export function getKeyGenerator(prefix: KeyPrefix): KeyGenerator {
   const map: Record<KeyPrefix, KeyGenerator> = {
-    n: GeneratorIndex.NHK_M,
-    iv: GeneratorIndex.IVSK_M,
-    ov: GeneratorIndex.OVSK_M,
-    t: GeneratorIndex.TSK_M,
+    n: DomainSeparator.NHK_M,
+    iv: DomainSeparator.IVSK_M,
+    ov: DomainSeparator.OVSK_M,
+    t: DomainSeparator.TSK_M,
   };
   return map[prefix];
 }

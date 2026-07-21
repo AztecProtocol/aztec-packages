@@ -1,14 +1,10 @@
 import type { AztecNodeConfig } from '@aztec/aztec-node';
 import type { AccountManager } from '@aztec/aztec.js/wallet';
-import type { ViemClient } from '@aztec/ethereum/types';
 import type { ConfigMappingsType } from '@aztec/foundation/config';
-import { Fr } from '@aztec/foundation/curves/bn254';
-import { EthAddress } from '@aztec/foundation/eth-address';
-import { type LogFn, createLogger } from '@aztec/foundation/log';
-import type { SharedNodeConfig } from '@aztec/node-lib/config';
+import { jsonStringify } from '@aztec/foundation/json-rpc';
+import type { LogFn } from '@aztec/foundation/log';
 import type { ProverConfig } from '@aztec/stdlib/interfaces/server';
-import { getTelemetryClient } from '@aztec/telemetry-client/start';
-import type { TestWallet } from '@aztec/test-wallet/server';
+import type { EmbeddedWallet } from '@aztec/wallets/embedded';
 
 import chalk from 'chalk';
 import type { Command } from 'commander';
@@ -50,6 +46,24 @@ export function isShuttingDown(): boolean {
   return shutdownPromise !== undefined;
 }
 
+/**
+ * Stops the node's subsystems (via the registered signal handlers) without exiting the process, leaving
+ * the HTTP health server listening so K8s liveness/readiness probes keep passing. Unlike {@link shutdown}
+ * this deliberately does not latch `shutdownPromise` or call `process.exit`; instead it re-arms
+ * SIGTERM/SIGINT so a later K8s pod deletion still terminates the wound-down pod with a clean exit.
+ */
+export async function softShutdown(logFn: LogFn, signalHandlers: Array<() => Promise<void>>): Promise<void> {
+  logFn('Canonical rollup upgrade detected: stopping subsystems, health server stays up.', {
+    exitCode: ExitCode.ROLLUP_UPGRADE,
+  });
+  await Promise.allSettled(signalHandlers.map(fn => fn()));
+  for (const sig of ['SIGTERM', 'SIGINT'] as const) {
+    process.removeAllListeners(sig);
+    process.once(sig, () => process.exit(ExitCode.ROLLUP_UPGRADE));
+  }
+  logFn('Subsystems stopped due to rollup upgrade. Health server remains active.');
+}
+
 export const installSignalHandlers = (logFn: LogFn, cb?: Array<() => Promise<void>>) => {
   const signals = [
     ['SIGINT', ExitCode.SIGINT],
@@ -68,41 +82,30 @@ export const installSignalHandlers = (logFn: LogFn, cb?: Array<() => Promise<voi
 /**
  * Creates logs for the initial accounts
  * @param accounts - The initial accounts
- * @param wallet - A TestWallet instance to get the registered accounts
+ * @param wallet - A EmbeddedWallet instance to get the registered accounts
  * @returns A string array containing the initial accounts details
  */
-export async function createAccountLogs(
-  accountsWithSecretKeys: {
-    /**
-     * The account object
-     */
-    account: AccountManager;
-    /**
-     * The secret key of the account
-     */
-    secretKey: Fr;
-  }[],
-  wallet: TestWallet,
-) {
+export async function createAccountLogs(accountManagers: AccountManager[], wallet: EmbeddedWallet) {
   const registeredAccounts = await wallet.getAccounts();
   const accountLogStrings = [`Initial Accounts:\n\n`];
-  for (const accountWithSecretKey of accountsWithSecretKeys) {
-    const completeAddress = await accountWithSecretKey.account.getCompleteAddress();
+  for (const accountManager of accountManagers) {
+    const account = await accountManager.getAccount();
+    const completeAddress = account.getCompleteAddress();
     if (registeredAccounts.find(a => a.item.equals(completeAddress.address))) {
       accountLogStrings.push(` Address: ${completeAddress.address.toString()}\n`);
       accountLogStrings.push(` Partial Address: ${completeAddress.partialAddress.toString()}\n`);
-      accountLogStrings.push(` Secret Key: ${accountWithSecretKey.secretKey.toString()}\n`);
+      accountLogStrings.push(` Secret Key: ${accountManager.getSecretKey().toString()}\n`);
+      accountLogStrings.push(` Master nullifier public key hash: ${completeAddress.publicKeys.npkMHash.toString()}\n`);
+      accountLogStrings.push(` Master incoming viewing public key: ${completeAddress.publicKeys.ivpkM.toString()}\n\n`);
       accountLogStrings.push(
-        ` Master nullifier public key: ${completeAddress.publicKeys.masterNullifierPublicKey.toString()}\n`,
+        ` Master outgoing viewing public key hash: ${completeAddress.publicKeys.ovpkMHash.toString()}\n\n`,
+      );
+      accountLogStrings.push(` Master tagging public key hash: ${completeAddress.publicKeys.tpkMHash.toString()}\n\n`);
+      accountLogStrings.push(
+        ` Master message-signing public key hash: ${completeAddress.publicKeys.mspkMHash.toString()}\n\n`,
       );
       accountLogStrings.push(
-        ` Master incoming viewing public key: ${completeAddress.publicKeys.masterIncomingViewingPublicKey.toString()}\n\n`,
-      );
-      accountLogStrings.push(
-        ` Master outgoing viewing public key: ${completeAddress.publicKeys.masterOutgoingViewingPublicKey.toString()}\n\n`,
-      );
-      accountLogStrings.push(
-        ` Master tagging public key: ${completeAddress.publicKeys.masterTaggingPublicKey.toString()}\n\n`,
+        ` Master fallback public key hash: ${completeAddress.publicKeys.fbpkMHash.toString()}\n\n`,
       );
     }
   }
@@ -282,7 +285,7 @@ export async function preloadCrsDataForVerifying(
 ): Promise<void> {
   if (realProofs) {
     const { Crs, GrumpkinCrs } = await import('@aztec/bb.js');
-    await Promise.all([Crs.new(2 ** 1, undefined, log), GrumpkinCrs.new(2 ** 16 + 1, undefined, log)]);
+    await Promise.all([Crs.new(2 ** 1, undefined, log), GrumpkinCrs.new(2 ** 16, undefined, log)]);
   }
 }
 
@@ -297,94 +300,12 @@ export async function preloadCrsDataForServerSideProving(
 ): Promise<void> {
   if (realProofs) {
     const { Crs, GrumpkinCrs } = await import('@aztec/bb.js');
-    await Promise.all([Crs.new(2 ** 25 + 1, undefined, log), GrumpkinCrs.new(2 ** 18 + 1, undefined, log)]);
+    await Promise.all([Crs.new(2 ** 25, undefined, log), GrumpkinCrs.new(2 ** 18, undefined, log)]);
   }
 }
 
-export async function setupUpdateMonitor(
-  autoUpdateMode: SharedNodeConfig['autoUpdate'],
-  updatesLocation: URL,
-  followsCanonicalRollup: boolean,
-  publicClient: ViemClient,
-  registryContractAddress: EthAddress,
-  signalHandlers: Array<() => Promise<void>>,
-  updateNodeConfig?: (config: object) => Promise<void>,
-) {
-  const logger = createLogger('update-check');
-  const { UpdateChecker } = await import('@aztec/stdlib/update-checker');
-  const checker = await UpdateChecker.new({
-    baseURL: updatesLocation,
-    publicClient,
-    registryContractAddress,
-  });
-
-  // eslint-disable-next-line @typescript-eslint/no-misused-promises
-  checker.on('newRollupVersion', async ({ latestVersion, currentVersion }) => {
-    if (isShuttingDown()) {
-      return;
-    }
-
-    // if node follows canonical rollup then this is equivalent to a config update
-    if (!followsCanonicalRollup) {
-      return;
-    }
-
-    if (autoUpdateMode === 'config' || autoUpdateMode === 'config-and-version') {
-      logger.info(`New rollup version detected. Please restart the node`, { latestVersion, currentVersion });
-      await shutdown(logger.info, ExitCode.ROLLUP_UPGRADE, signalHandlers);
-    } else if (autoUpdateMode === 'notify') {
-      logger.warn(`New rollup detected. Please restart the node`, { latestVersion, currentVersion });
-    }
-  });
-
-  // eslint-disable-next-line @typescript-eslint/no-misused-promises
-  checker.on('newNodeVersion', async ({ latestVersion, currentVersion }) => {
-    if (isShuttingDown()) {
-      return;
-    }
-    if (autoUpdateMode === 'config-and-version') {
-      logger.info(`New node version detected. Please update and restart the node`, { latestVersion, currentVersion });
-      await shutdown(logger.info, ExitCode.VERSION_UPGRADE, signalHandlers);
-    } else if (autoUpdateMode === 'notify') {
-      logger.info(`New node version detected. Please update and restart the node`, { latestVersion, currentVersion });
-    }
-  });
-
-  // eslint-disable-next-line @typescript-eslint/no-misused-promises
-  checker.on('updateNodeConfig', async config => {
-    if (isShuttingDown()) {
-      return;
-    }
-
-    if ((autoUpdateMode === 'config' || autoUpdateMode === 'config-and-version') && updateNodeConfig) {
-      logger.warn(`Config change detected. Updating node`, config);
-      try {
-        await updateNodeConfig(config);
-      } catch (err) {
-        logger.warn('Failed to update config', { err });
-      }
-    }
-    // don't notify on these config changes
-  });
-
-  checker.on('updatePublicTelemetryConfig', config => {
-    if (autoUpdateMode === 'config' || autoUpdateMode === 'config-and-version') {
-      logger.warn(`Public telemetry config change detected. Updating telemetry client`, config);
-      try {
-        const publicIncludeMetrics: unknown = (config as any).publicIncludeMetrics;
-        if (Array.isArray(publicIncludeMetrics) && publicIncludeMetrics.every(m => typeof m === 'string')) {
-          getTelemetryClient().setExportedPublicTelemetry(publicIncludeMetrics);
-        }
-        const publicMetricsCollectFrom: unknown = (config as any).publicMetricsCollectFrom;
-        if (Array.isArray(publicMetricsCollectFrom) && publicMetricsCollectFrom.every(m => typeof m === 'string')) {
-          getTelemetryClient().setPublicTelemetryCollectFrom(publicMetricsCollectFrom);
-        }
-      } catch (err) {
-        logger.warn('Failed to update config', { err });
-      }
-    }
-    // don't notify on these config changes
-  });
-
-  checker.start();
+export function stringifyConfig(config: object): string {
+  return Object.entries(config)
+    .map(([key, value]) => `${key}=${jsonStringify(value)}`)
+    .join(' ');
 }

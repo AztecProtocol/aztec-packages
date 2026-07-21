@@ -17,13 +17,9 @@
  *   - devnet
  *   - testnet
  *   - mainnet
- *   - ignition (alias for mainnet)
  */
 
-const VALID_CONDITIONS = ["nightly", "devnet", "testnet", "mainnet", "ignition"];
-
-// Normalize ignition -> mainnet since they're equivalent
-const normalize = (type) => (type === "ignition" ? "mainnet" : type);
+const VALID_CONDITIONS = ["nightly", "devnet", "testnet", "mainnet"];
 
 /**
  * Parses a conditional block into its component parts.
@@ -93,11 +89,11 @@ function parseConditionalBlock(block, filePath) {
 
   for (const section of sections) {
     if (section.directive === "elif") {
-      branches.push({ condition: normalize(currentCondition), content: currentContent });
+      branches.push({ condition: currentCondition, content: currentContent });
       currentCondition = section.condition;
       currentContent = "";
     } else if (section.directive === "else") {
-      branches.push({ condition: normalize(currentCondition), content: currentContent });
+      branches.push({ condition: currentCondition, content: currentContent });
       currentCondition = null; // null means "else" (always true if reached)
       currentContent = "";
     } else if (section.content !== null) {
@@ -105,7 +101,7 @@ function parseConditionalBlock(block, filePath) {
     }
   }
 
-  branches.push({ condition: currentCondition ? normalize(currentCondition) : null, content: currentContent });
+  branches.push({ condition: currentCondition || null, content: currentContent });
 
   // Check for nested conditionals
   for (const branch of branches) {
@@ -143,8 +139,7 @@ function processConditionalBlock(block, releaseType, filePath) {
  * @returns {string} - The processed content with conditionals resolved
  */
 function processConditionalBlocks(content, releaseType, filePath = "unknown") {
-  // Normalize release type (ignition -> mainnet)
-  const normalizedReleaseType = normalize(releaseType);
+  const normalizedReleaseType = releaseType;
 
   const blockPattern = /#if\(\w+\)\s*\n[\s\S]*?#endif/g;
   let result = content;

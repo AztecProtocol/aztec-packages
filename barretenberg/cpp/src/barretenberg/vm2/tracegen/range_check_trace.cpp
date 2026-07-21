@@ -2,9 +2,6 @@
 
 #include <cstddef>
 #include <cstdint>
-#include <memory>
-#include <ranges>
-#include <stdexcept>
 
 #include "barretenberg/vm2/generated/relations/lookups_range_check.hpp"
 #include "barretenberg/vm2/simulation/events/event_emitter.hpp"
@@ -13,6 +10,19 @@
 
 namespace bb::avm2::tracegen {
 
+/**
+ * @brief Processes range check events and populates the trace with decomposed value columns.
+ *
+ * For each event, the value is decomposed into up to 8 sixteen-bit slices. The lower slices are
+ * placed in fixed registers (u16_r0..r6), while the most significant (potentially partial) slice
+ * goes into the dynamic register (u16_r7). A flag column (is_lte_u16..is_lte_u128) marks which
+ * bit-width bucket the value falls into, and lookup selectors are set for every fixed slice that
+ * is actually used. The dynamic slice is further constrained by recording its bit-width, the
+ * corresponding power of two, and the difference to the upper bound of that sub-range.
+ *
+ * @param events  The range check events emitted during witness generation.
+ * @param trace   The trace container to populate.
+ */
 void RangeCheckTraceBuilder::process(
     const simulation::EventEmitterInterface<simulation::RangeCheckEvent>::Container& events, TraceContainer& trace)
 {
@@ -20,34 +30,34 @@ void RangeCheckTraceBuilder::process(
 
     uint32_t row = 0;
     for (const auto& event : events) {
-        // store off event entries to be used directly in row
         const uint256_t original_num_bits = event.num_bits;
         const uint256_t original_value = static_cast<uint256_t>(event.value);
 
-        // these will be mutated below
+        // Mutable copies used while slicing the value into 16-bit chunks.
         uint8_t num_bits = event.num_bits;
         uint256_t value = static_cast<uint256_t>(event.value);
 
-        std::array<uint16_t, 7> fixed_slice_registers; // u16_r0...6
+        std::array<uint16_t, 7> fixed_slice_registers{}; // u16_r0..r6
         size_t index_of_most_sig_16b_chunk = 0;
-        uint16_t dynamic_slice_register = 0; // same as u16_r7
+        uint16_t dynamic_slice_register = 0; // u16_r7
         uint8_t dynamic_bits = 0;
 
-        // Split the value into 16-bit chunks
+        // Decompose the value into 16-bit chunks from LSB to MSB.
         for (size_t i = 0; i < 8; i++) {
-            // The most significant 16-bits have to be placed in the dynamic slice register
+            // The most significant (possibly partial) chunk goes into the dynamic register.
             if (num_bits <= 16) {
                 dynamic_slice_register = static_cast<uint16_t>(value);
                 index_of_most_sig_16b_chunk = i;
                 dynamic_bits = num_bits;
                 break;
             }
-            // We have more chunks of 16-bits to operate on, so set the ith fixed register
+            // Full 16-bit chunk — store in the corresponding fixed register.
             fixed_slice_registers[i] = static_cast<uint16_t>(value);
             num_bits -= 16;
             value >>= 16;
         }
 
+        // dynamic_diff = (2^dynamic_bits - 1) - dynamic_slice_register, proving the slice fits.
         auto dynamic_diff = static_cast<uint16_t>((1 << dynamic_bits) - dynamic_slice_register - 1);
 
         trace.set(row,
@@ -95,15 +105,24 @@ void RangeCheckTraceBuilder::process(
 
 const InteractionDefinition RangeCheckTraceBuilder::interactions =
     InteractionDefinition()
-        .add<lookup_range_check_dyn_diff_is_u16_settings, InteractionType::LookupIntoIndexedByClk>()
-        .add<lookup_range_check_dyn_rng_chk_pow_2_settings, InteractionType::LookupIntoIndexedByClk>()
-        .add<lookup_range_check_r0_is_u16_settings, InteractionType::LookupIntoIndexedByClk>()
-        .add<lookup_range_check_r1_is_u16_settings, InteractionType::LookupIntoIndexedByClk>()
-        .add<lookup_range_check_r2_is_u16_settings, InteractionType::LookupIntoIndexedByClk>()
-        .add<lookup_range_check_r3_is_u16_settings, InteractionType::LookupIntoIndexedByClk>()
-        .add<lookup_range_check_r4_is_u16_settings, InteractionType::LookupIntoIndexedByClk>()
-        .add<lookup_range_check_r5_is_u16_settings, InteractionType::LookupIntoIndexedByClk>()
-        .add<lookup_range_check_r6_is_u16_settings, InteractionType::LookupIntoIndexedByClk>()
-        .add<lookup_range_check_r7_is_u16_settings, InteractionType::LookupIntoIndexedByClk>();
+        .add<InteractionType::LookupIntoIndexedByRow, lookup_range_check_dyn_diff_is_u16_settings>(
+            Column::precomputed_sel_range_16)
+        .add<InteractionType::LookupIntoIndexedByRow, lookup_range_check_dyn_rng_chk_pow_2_settings>()
+        .add<InteractionType::LookupIntoIndexedByRow, lookup_range_check_r0_is_u16_settings>(
+            Column::precomputed_sel_range_16)
+        .add<InteractionType::LookupIntoIndexedByRow, lookup_range_check_r1_is_u16_settings>(
+            Column::precomputed_sel_range_16)
+        .add<InteractionType::LookupIntoIndexedByRow, lookup_range_check_r2_is_u16_settings>(
+            Column::precomputed_sel_range_16)
+        .add<InteractionType::LookupIntoIndexedByRow, lookup_range_check_r3_is_u16_settings>(
+            Column::precomputed_sel_range_16)
+        .add<InteractionType::LookupIntoIndexedByRow, lookup_range_check_r4_is_u16_settings>(
+            Column::precomputed_sel_range_16)
+        .add<InteractionType::LookupIntoIndexedByRow, lookup_range_check_r5_is_u16_settings>(
+            Column::precomputed_sel_range_16)
+        .add<InteractionType::LookupIntoIndexedByRow, lookup_range_check_r6_is_u16_settings>(
+            Column::precomputed_sel_range_16)
+        .add<InteractionType::LookupIntoIndexedByRow, lookup_range_check_r7_is_u16_settings>(
+            Column::precomputed_sel_range_16);
 
 } // namespace bb::avm2::tracegen

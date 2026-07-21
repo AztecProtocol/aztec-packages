@@ -1,4 +1,5 @@
 use super::TestBuilder;
+use protocol_test_utils::{FixtureBuilder, pad_end};
 use types::{
     blob_data::{create_tx_start_marker, MAX_TX_BLOB_DATA_SIZE_IN_FIELDS, TxEffectArrayLengths},
     constants::{
@@ -6,12 +7,11 @@ use types::{
         MAX_NOTE_HASHES_PER_TX, MAX_NULLIFIERS_PER_TX, MAX_PRIVATE_LOGS_PER_TX,
         PRIVATE_LOG_SIZE_IN_FIELDS,
     },
-    tests::{FixtureBuilder, utils::pad_end},
     traits::{Hash, ToField},
 };
 
 #[test]
-unconstrained fn full_tx_effects() {
+fn full_tx_effects() {
     let mut builder = TestBuilder::new();
 
     let mut fixture_builder = FixtureBuilder::new();
@@ -119,7 +119,7 @@ unconstrained fn full_tx_effects() {
 }
 
 #[test]
-unconstrained fn all_side_effects_non_full() {
+fn all_side_effects_non_full() {
     let mut builder = TestBuilder::new();
 
     let mut fixture_builder = FixtureBuilder::new();
@@ -230,7 +230,7 @@ unconstrained fn all_side_effects_non_full() {
 }
 
 #[test]
-unconstrained fn partially_empty_tx_effects() {
+fn partially_empty_tx_effects() {
     let mut builder = TestBuilder::new();
 
     let mut fixture_builder = FixtureBuilder::new();

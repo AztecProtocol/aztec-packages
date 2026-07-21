@@ -18,20 +18,21 @@ struct GetContractInstanceException : public std::runtime_error {
 
 struct GetContractInstanceEvent {
     // Interface columns
-    uint32_t execution_clk;
-    AztecAddress contract_address;
-    MemoryAddress dst_offset;
-    uint8_t member_enum;
-    uint16_t space_id;
-    FF nullifier_tree_root;
-    FF public_data_tree_root;
+    uint32_t execution_clk = 0;
+    AztecAddress contract_address = 0;
+    MemoryAddress dst_offset = 0;
+    uint8_t member_enum = 0;
+    uint16_t space_id = 0;
+    FF nullifier_tree_root = 0;
+    FF public_data_tree_root = 0;
 
-    // Instance retrieval results including all three members which are all needed for tracegen
+    // Instance retrieval results including all four members which are all needed for tracegen
     // despite only needing the selected member in simulation.
-    bool instance_exists;
-    FF retrieved_deployer_addr;
-    FF retrieved_class_id;
-    FF retrieved_init_hash;
+    bool instance_exists = false;
+    FF retrieved_deployer_addr = 0;
+    FF retrieved_class_id = 0;
+    FF retrieved_init_hash = 0;
+    FF retrieved_immutables_hash = 0;
 };
 
 } // namespace bb::avm2::simulation

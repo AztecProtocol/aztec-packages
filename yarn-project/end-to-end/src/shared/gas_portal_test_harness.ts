@@ -8,7 +8,13 @@ import type { ExtendedViemWalletClient } from '@aztec/ethereum/types';
 import { retryUntil } from '@aztec/foundation/retry';
 import { FeeJuiceContract } from '@aztec/noir-contracts.js/FeeJuice';
 import { ProtocolContractAddress } from '@aztec/protocol-contracts';
-import type { AztecNodeAdmin } from '@aztec/stdlib/interfaces/client';
+import type { AztecNodeAdmin, AztecNodeDebug } from '@aztec/stdlib/interfaces/client';
+
+import { testSpan } from '../fixtures/timing.js';
+import { waitForL1ToL2MessageSeen } from './wait_for_l1_to_l2_message.js';
+
+/** Aztec node that may expose the debug mining API in local e2e setups. */
+type MiningAztecNode = AztecNode & Partial<AztecNodeDebug>;
 
 export interface IGasBridgingTestHarness {
   getL1FeeJuiceBalance(address: EthAddress): Promise<bigint>;
@@ -19,7 +25,7 @@ export interface IGasBridgingTestHarness {
 }
 
 export interface FeeJuicePortalTestingHarnessFactoryConfig {
-  aztecNode: AztecNode;
+  aztecNode: MiningAztecNode;
   aztecNodeAdmin?: AztecNodeAdmin;
   l1Client: ExtendedViemWalletClient;
   wallet: Wallet;
@@ -75,7 +81,7 @@ export class GasBridgingTestHarness implements IGasBridgingTestHarness {
 
   constructor(
     /** Aztec node */
-    public aztecNode: AztecNode,
+    public aztecNode: MiningAztecNode,
     /** Aztec node admin interface */
     public aztecNodeAdmin: AztecNodeAdmin | undefined,
     /** Wallet. */
@@ -131,7 +137,7 @@ export class GasBridgingTestHarness implements IGasBridgingTestHarness {
   }
 
   async getL2PublicBalanceOf(owner: AztecAddress) {
-    return await this.feeJuice.methods.balance_of_public(owner).simulate({ from: owner });
+    return (await this.feeJuice.methods.balance_of_public(owner).simulate({ from: owner })).result;
   }
 
   async expectPublicBalanceOnL2(owner: AztecAddress, expectedBalance: bigint) {
@@ -144,8 +150,7 @@ export class GasBridgingTestHarness implements IGasBridgingTestHarness {
     await this.mintTokensOnL1();
     const claim = await this.sendTokensToPortalPublic(bridgeAmount, owner);
 
-    const isSynced = async () => await this.aztecNode.isL1ToL2MessageSynced(Fr.fromHexString(claim.messageHash));
-    await retryUntil(isSynced, `message ${claim.messageHash} sync`, 24, 1);
+    await waitForL1ToL2MessageSeen(this.aztecNode, Fr.fromHexString(claim.messageHash), { timeoutSeconds: 24 });
 
     // Progress by 2 L2 blocks so that the l1ToL2Message added above will be available to use on L2.
     await this.advanceL2Block();
@@ -155,14 +160,21 @@ export class GasBridgingTestHarness implements IGasBridgingTestHarness {
   }
 
   async bridgeFromL1ToL2(owner: AztecAddress, claimer: AztecAddress) {
-    // Prepare the tokens on the L1 side
-    const claim = await this.prepareTokensOnL1(owner);
+    await testSpan('setup:bridge', async () => {
+      // Prepare the tokens on the L1 side
+      const claim = await this.prepareTokensOnL1(owner);
 
-    // Consume L1 -> L2 message and claim tokens privately on L2
-    await this.consumeMessageOnAztecAndClaimPrivately(owner, claimer, claim);
+      // Consume L1 -> L2 message and claim tokens privately on L2
+      await this.consumeMessageOnAztecAndClaimPrivately(owner, claimer, claim);
+    });
   }
 
   private async advanceL2Block() {
+    if (this.aztecNode.mineBlock) {
+      await this.aztecNode.mineBlock();
+      return;
+    }
+
     const initialBlockNumber = await this.aztecNode.getBlockNumber();
 
     let minTxsPerBlock = undefined;
@@ -171,11 +183,17 @@ export class GasBridgingTestHarness implements IGasBridgingTestHarness {
       await this.aztecNodeAdmin.setConfig({ minTxsPerBlock: 0 }); // Set to 0 to ensure we can advance the block
     }
 
-    await retryUntil(async () => (await this.aztecNode.getBlockNumber()) >= initialBlockNumber + 1);
-
-    if (this.aztecNodeAdmin && minTxsPerBlock !== undefined) {
-      await this.aztecNodeAdmin.setConfig({ minTxsPerBlock });
+    try {
+      await retryUntil(
+        async () => (await this.aztecNode.getBlockNumber()) >= initialBlockNumber + 1,
+        'gas portal block advance',
+        0,
+        0.25,
+      );
+    } finally {
+      if (this.aztecNodeAdmin && minTxsPerBlock !== undefined) {
+        await this.aztecNodeAdmin.setConfig({ minTxsPerBlock });
+      }
     }
   }
 }
-// docs:end:cross_chain_test_harness

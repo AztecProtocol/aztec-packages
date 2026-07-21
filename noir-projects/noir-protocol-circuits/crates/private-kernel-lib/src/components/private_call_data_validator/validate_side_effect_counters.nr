@@ -405,11 +405,6 @@ fn validate_side_effect_counter_for_single_value(
             "Mismatch counter: value does not match hint",
         );
         assert_eq(
-            counter,
-            sorted_side_effect_counter_hint.counter,
-            "Mismatch counter: value does not match hint",
-        );
-        assert_eq(
             global_index_offset,
             sorted_side_effect_counter_hint.global_index,
             "Mismatch global index: value does not match hint",
@@ -721,15 +716,13 @@ mod tests {
         build_uniqueness_hints, SideEffectUniquenessHints,
         validate_unique_and_within_bounds_side_effect_counters_with_hints,
     };
-    use dep::types::{
-        constants::{
-            MAX_CONTRACT_CLASS_LOGS_PER_CALL, MAX_ENQUEUED_CALLS_PER_CALL,
-            MAX_L2_TO_L1_MSGS_PER_CALL, MAX_NOTE_HASH_READ_REQUESTS_PER_CALL,
-            MAX_NOTE_HASHES_PER_CALL, MAX_NULLIFIER_READ_REQUESTS_PER_CALL, MAX_NULLIFIERS_PER_CALL,
-            MAX_PRIVATE_CALL_STACK_LENGTH_PER_CALL, MAX_PRIVATE_LOGS_PER_CALL,
-            TOTAL_COUNTED_SIDE_EFFECTS_PER_CALL,
-        },
-        tests::FixtureBuilder,
+    use protocol_test_utils::FixtureBuilder;
+    use types::constants::{
+        MAX_CONTRACT_CLASS_LOGS_PER_CALL, MAX_ENQUEUED_CALLS_PER_CALL, MAX_L2_TO_L1_MSGS_PER_CALL,
+        MAX_NOTE_HASH_READ_REQUESTS_PER_CALL, MAX_NOTE_HASHES_PER_CALL,
+        MAX_NULLIFIER_READ_REQUESTS_PER_CALL, MAX_NULLIFIERS_PER_CALL,
+        MAX_PRIVATE_CALL_STACK_LENGTH_PER_CALL, MAX_PRIVATE_LOGS_PER_CALL,
+        TOTAL_COUNTED_SIDE_EFFECTS_PER_CALL,
     };
 
     struct TestBuilder {
@@ -739,7 +732,7 @@ mod tests {
 
     impl TestBuilder {
         pub fn new() -> Self {
-            let mut private_call = FixtureBuilder::new_from_counter(50);
+            let private_call = FixtureBuilder::new_from_counter(50);
 
             // Safety: For testing purposes only.
             let hints =

@@ -10,14 +10,14 @@ export type { EnvVar, NetworkNames };
 export type { NetworkConfig, NetworkConfigMap } from './network_config.js';
 export { NetworkConfigMapSchema, NetworkConfigSchema } from './network_config.js';
 
-export interface ConfigMapping {
+export interface ConfigMapping<T> {
   env?: EnvVar;
-  parseEnv?: (val: string) => any;
-  defaultValue?: any;
+  /** Parse an env-var string into `T`. Throws on invalid input. */
+  parseEnv?: (val: string) => T;
+  defaultValue?: T;
   printDefault?: (val: any) => string;
   description: string;
   isBoolean?: boolean;
-  nested?: Record<string, ConfigMapping>;
   fallback?: EnvVar[];
   /**
    * List of deprecated env vars that are still supported but will log a warning.
@@ -30,7 +30,9 @@ export function isBooleanConfigValue<T>(obj: T, key: keyof T): boolean {
   return typeof obj[key] === 'boolean';
 }
 
-export type ConfigMappingsType<T> = Record<keyof T, ConfigMapping>;
+export type ConfigMappingsType<T> = {
+  [K in keyof T]-?: ConfigMapping<Required<T>[K]>;
+};
 
 /**
  * Shared utility function to get a value from environment variables with fallback support.
@@ -66,8 +68,8 @@ export function getValueFromEnvWithFallback<T>(
     }
   }
 
-  // Parse the value if needed
-  if (value !== undefined) {
+  // Parse the value if needed. Empty strings are treated as "not set".
+  if (value !== undefined && value !== '') {
     return parseFunc ? parseFunc(value) : (value as unknown as T);
   }
 
@@ -79,22 +81,20 @@ export function getConfigFromMappings<T>(configMappings: ConfigMappingsType<T>):
   const config = {} as T;
 
   for (const key in configMappings) {
-    const { env, parseEnv, defaultValue, nested, fallback, deprecatedFallback } = configMappings[key];
-    if (nested) {
-      (config as any)[key] = getConfigFromMappings(nested);
-    } else {
-      // Use the shared utility function
+    const { env, parseEnv, defaultValue, fallback, deprecatedFallback } = configMappings[key];
+    try {
       (config as any)[key] = getValueFromEnvWithFallback(env, parseEnv, defaultValue, fallback);
+    } catch (e: any) {
+      throw new Error(`Failed to parse config '${key}' (env: ${env ?? 'none'}): ${e.message}`);
+    }
 
-      // Check for deprecated env vars and warn if logger is set
-      if (deprecatedFallback?.length) {
-        const userLog = createConsoleLogger('[DEPRECATED]');
-        for (const { env: deprecatedEnv, message } of deprecatedFallback) {
-          if (process.env[deprecatedEnv]) {
-            const warningMessage =
-              message ?? `Environment variable ${deprecatedEnv} is deprecated. Please use ${env} instead.`;
-            userLog(warningMessage, { deprecatedEnvVar: deprecatedEnv, newEnvVar: env });
-          }
+    if (deprecatedFallback?.length) {
+      const userLog = createConsoleLogger('[DEPRECATED]');
+      for (const { env: deprecatedEnv, message } of deprecatedFallback) {
+        if (process.env[deprecatedEnv]) {
+          const warningMessage =
+            message ?? `Environment variable ${deprecatedEnv} is deprecated. Please use ${env} instead.`;
+          userLog(warningMessage, { deprecatedEnvVar: deprecatedEnv, newEnvVar: env });
         }
       }
     }
@@ -119,29 +119,37 @@ export function omitConfigMappings<T, K extends keyof T>(
 }
 
 /**
- * Generates parseEnv and default values for a numerical config value.
- * @param defaultVal - The default numerical value to use if the environment variable is not set or is invalid
- * @returns Object with parseEnv and default values for a numerical config value
+ * Generates parseEnv and default values for an integer config value.
+ *
+ * The default is used only when the environment variable is unset or empty. A set-but-invalid
+ * value (non-numeric, fractional, or outside the safe-integer range) throws rather than silently
+ * falling back to the default.
+ * @param defaultVal - The default value to use when the environment variable is unset
+ * @returns Object with parseEnv and default values for an integer config value
  */
-export function numberConfigHelper(defaultVal: number): Pick<ConfigMapping, 'parseEnv' | 'defaultValue'> {
+export function numberConfigHelper(defaultVal: number): Pick<ConfigMapping<number>, 'parseEnv' | 'defaultValue'> {
   return {
-    parseEnv: (val: string) => safeParseNumber(val, defaultVal),
+    parseEnv: (val: string) => parseSafeInteger(val),
     defaultValue: defaultVal,
   };
 }
 
 /**
- * Generates parseEnv and default values for a numerical config value.
- * @param defaultVal - The default numerical value to use if the environment variable is not set or is invalid
- * @returns Object with parseEnv and default values for a numerical config value
+ * Generates parseEnv and default values for a floating-point config value.
+ *
+ * The default is used only when the environment variable is unset or empty. A set-but-invalid
+ * value (not a finite number) throws rather than silently falling back to the default.
+ * @param defaultVal - The default value to use when the environment variable is unset
+ * @param validationFn - Optional extra validation applied to the parsed value; should throw on invalid input
+ * @returns Object with parseEnv and default values for a floating-point config value
  */
 export function floatConfigHelper(
   defaultVal: number,
   validationFn?: (val: number) => void,
-): Pick<ConfigMapping, 'parseEnv' | 'defaultValue'> {
+): Pick<ConfigMapping<number>, 'parseEnv' | 'defaultValue'> {
   return {
     parseEnv: (val: string): number => {
-      const parsed = safeParseFloat(val, defaultVal);
+      const parsed = parseFiniteNumber(val);
       validationFn?.(parsed);
       return parsed;
     },
@@ -150,12 +158,17 @@ export function floatConfigHelper(
 }
 
 /**
- * Parses an environment variable to a 0-1 percentage value
+ * Generates parseEnv and default values for a 0-1 percentage config value.
+ *
+ * The default is used only when the environment variable is unset or empty. A set-but-invalid
+ * value (not a finite number, or outside the 0-1 range) throws rather than silently falling back
+ * to the default.
+ * @param defaultVal - The default value to use when the environment variable is unset
  */
-export function percentageConfigHelper(defaultVal: number): Pick<ConfigMapping, 'parseEnv' | 'defaultValue'> {
+export function percentageConfigHelper(defaultVal: number): Pick<ConfigMapping<number>, 'parseEnv' | 'defaultValue'> {
   return {
     parseEnv: (val: string): number => {
-      const parsed = safeParseFloat(val, defaultVal);
+      const parsed = parseFiniteNumber(val);
       if (parsed < 0 || parsed > 1) {
         throw new TypeError(`Invalid percentage value: ${parsed} should be between 0 and 1`);
       }
@@ -171,11 +184,27 @@ export function percentageConfigHelper(defaultVal: number): Pick<ConfigMapping, 
  * @param defaultVal - The default numerical value to use if the environment variable is not set or is invalid
  * @returns Object with parseEnv and default values for a numerical config value
  */
-export function bigintConfigHelper(defaultVal?: bigint): Pick<ConfigMapping, 'parseEnv' | 'defaultValue'> {
+export function bigintConfigHelper(defaultVal: bigint): Pick<ConfigMapping<bigint>, 'parseEnv' | 'defaultValue'>;
+export function bigintConfigHelper(): Pick<ConfigMapping<bigint | undefined>, 'parseEnv' | 'defaultValue'>;
+export function bigintConfigHelper(
+  defaultVal?: bigint,
+): Pick<ConfigMapping<bigint | undefined>, 'parseEnv' | 'defaultValue'> {
   return {
     parseEnv: (val: string) => {
-      if (val === '') {
-        return defaultVal;
+      // Handle scientific notation (e.g. "1e+23", "2E23") which BigInt() doesn't accept directly.
+      // We parse it losslessly using bigint arithmetic instead of going through float64.
+      if (/[eE]/.test(val)) {
+        const match = val.match(/^(-?\d+(?:\.(\d+))?)[eE]([+-]?\d+)$/);
+        if (!match) {
+          throw new Error(`Cannot convert '${val}' to a BigInt`);
+        }
+        const digits = match[1].replace('.', '');
+        const decimalPlaces = match[2]?.length ?? 0;
+        const exponent = parseInt(match[3], 10) - decimalPlaces;
+        if (exponent < 0) {
+          throw new Error(`Cannot convert '${val}' to a BigInt: result is not an integer`);
+        }
+        return BigInt(digits) * 10n ** BigInt(exponent);
       }
       return BigInt(val);
     },
@@ -185,32 +214,31 @@ export function bigintConfigHelper(defaultVal?: bigint): Pick<ConfigMapping, 'pa
 
 /**
  * Generates parseEnv for an optional numerical config value.
+ * Empty strings are already handled by getValueFromEnvWithFallback.
  */
-export function optionalNumberConfigHelper(): Pick<ConfigMapping, 'parseEnv'> {
+export function optionalNumberConfigHelper(): Pick<ConfigMapping<number>, 'parseEnv'> {
   return {
-    parseEnv: (val: string | undefined) => {
-      if (val !== undefined && val.length > 0) {
-        const parsedValue = parseInt(val);
-        return Number.isSafeInteger(parsedValue) ? parsedValue : undefined;
-      }
-      return undefined;
-    },
+    parseEnv: (val: string) => parseSafeInteger(val),
   };
 }
 
 /** Generates parseEnv for an enum-like config value. */
 export function enumConfigHelper<T extends string>(
   values: T[],
+  defaultValue: NoInfer<T>,
+): Pick<ConfigMapping<T>, 'parseEnv' | 'defaultValue'>;
+export function enumConfigHelper<T extends string>(
+  values: T[],
+): Pick<ConfigMapping<T | undefined>, 'parseEnv' | 'defaultValue'>;
+export function enumConfigHelper<T extends string>(
+  values: T[],
   defaultValue?: NoInfer<T>,
-): Pick<ConfigMapping, 'parseEnv' | 'defaultValue'> {
+): Pick<ConfigMapping<T | undefined>, 'parseEnv' | 'defaultValue'> {
   return {
     parseEnv: (val: string) => {
-      const sanitizedVal = (val ?? '').trim().toLowerCase();
-      if (values.includes(sanitizedVal as T)) {
-        return sanitizedVal as T;
-      }
-      if (!val && defaultValue) {
-        return defaultValue;
+      const sanitizedVal = val.trim().toLowerCase();
+      if (values.some(v => v.toLowerCase() === sanitizedVal)) {
+        return values.find(v => v.toLowerCase() === sanitizedVal)!;
       }
       throw new Error(`Invalid config value '${val}' (must be one of ${values.join(', ')})`);
     },
@@ -225,7 +253,9 @@ export function enumConfigHelper<T extends string>(
  */
 export function booleanConfigHelper(
   defaultVal = false,
-): Required<Pick<ConfigMapping, 'parseEnv' | 'defaultValue' | 'isBoolean'> & { parseVal: (val: string) => boolean }> {
+): Required<
+  Pick<ConfigMapping<boolean>, 'parseEnv' | 'defaultValue' | 'isBoolean'> & { parseVal: (val: string) => boolean }
+> {
   const parse = (val: string | boolean) => (typeof val === 'boolean' ? val : parseBooleanEnv(val));
   return {
     parseEnv: parse,
@@ -235,116 +265,122 @@ export function booleanConfigHelper(
   };
 }
 
-export function secretValueConfigHelper<T>(parse: (val: string | undefined) => T): Required<
-  Pick<ConfigMapping, 'parseEnv' | 'defaultValue' | 'isBoolean'> & {
-    parseVal: (val: string) => SecretValue<T>;
-  }
-> {
+export function secretValueConfigHelper<T>(parse: (val: string | undefined) => T): Pick<
+  ConfigMapping<SecretValue<T>>,
+  'parseEnv' | 'defaultValue'
+> & {
+  parseVal: (val: string) => SecretValue<T>;
+} {
   const wrap = (val: string) => new SecretValue(parse(val));
   return {
     parseEnv: wrap,
     parseVal: wrap,
     defaultValue: new SecretValue(parse(undefined)),
-    isBoolean: true,
   };
 }
 
 export { parseBooleanEnv } from './parse-env.js';
 
-export function secretStringConfigHelper(): Required<
-  Pick<ConfigMapping, 'parseEnv' | 'defaultValue' | 'isBoolean'> & {
-    parseVal: (val: string) => SecretValue<string | undefined>;
-  }
->;
-export function secretStringConfigHelper(defaultValue: string): Required<
-  Pick<ConfigMapping, 'parseEnv' | 'defaultValue' | 'isBoolean'> & {
-    parseVal: (val: string) => SecretValue<string>;
-  }
->;
-export function secretStringConfigHelper(defaultValue?: string): Required<
-  Pick<ConfigMapping, 'parseEnv' | 'defaultValue' | 'isBoolean'> & {
-    parseVal: (val: string) => SecretValue<string | typeof defaultValue>;
-  }
-> {
+export function secretStringConfigHelper(): {
+  parseEnv: (val: string) => SecretValue<string>;
+  parseVal: (val: string) => SecretValue<string>;
+  defaultValue: undefined;
+};
+export function secretStringConfigHelper(defaultValue: string): {
+  parseEnv: (val: string) => SecretValue<string>;
+  parseVal: (val: string) => SecretValue<string>;
+  defaultValue: SecretValue<string>;
+};
+export function secretStringConfigHelper(defaultValue?: string): {
+  parseEnv: (val: string) => SecretValue<string>;
+  parseVal: (val: string) => SecretValue<string>;
+  defaultValue: SecretValue<string> | undefined;
+} {
   const parse = (val: string) => new SecretValue(val);
   return {
     parseEnv: parse,
     parseVal: parse,
     defaultValue: defaultValue !== undefined ? new SecretValue(defaultValue) : undefined,
-    isBoolean: true,
   };
 }
 
-export function secretFrConfigHelper(): Required<
-  Pick<ConfigMapping, 'parseEnv' | 'defaultValue' | 'isBoolean'> & {
-    parseVal: (val: string) => SecretValue<Fr | undefined>;
-  }
->;
-export function secretFrConfigHelper(defaultValue: Fr): Required<
-  Pick<ConfigMapping, 'parseEnv' | 'defaultValue' | 'isBoolean'> & {
-    parseVal: (val: string) => SecretValue<Fr>;
-  }
->;
-export function secretFrConfigHelper(defaultValue?: Fr): Required<
-  Pick<ConfigMapping, 'parseEnv' | 'defaultValue' | 'isBoolean'> & {
-    parseVal: (val: string) => SecretValue<Fr | typeof defaultValue>;
-  }
-> {
+export function secretFrConfigHelper(): {
+  parseEnv: (val: string) => SecretValue<Fr>;
+  parseVal: (val: string) => SecretValue<Fr>;
+  defaultValue: undefined;
+};
+export function secretFrConfigHelper(defaultValue: Fr): {
+  parseEnv: (val: string) => SecretValue<Fr>;
+  parseVal: (val: string) => SecretValue<Fr>;
+  defaultValue: SecretValue<Fr>;
+};
+export function secretFrConfigHelper(defaultValue?: Fr): {
+  parseEnv: (val: string) => SecretValue<Fr>;
+  parseVal: (val: string) => SecretValue<Fr>;
+  defaultValue: SecretValue<Fr> | undefined;
+} {
   const parse = (val: string) => new SecretValue(Fr.fromHexString(val));
   return {
     parseEnv: parse,
     parseVal: parse,
     defaultValue: defaultValue !== undefined ? new SecretValue(defaultValue) : undefined,
-    isBoolean: true,
   };
 }
 
-export function secretFqConfigHelper(defaultValue: Fq): Required<
-  Pick<ConfigMapping, 'parseEnv' | 'defaultValue' | 'isBoolean'> & {
-    parseVal: (val: string) => SecretValue<Fq>;
-  }
->;
-export function secretFqConfigHelper(): Required<
-  Pick<ConfigMapping, 'parseEnv' | 'defaultValue' | 'isBoolean'> & {
-    parseVal: (val: string) => SecretValue<Fq | undefined>;
-  }
->;
-export function secretFqConfigHelper(defaultValue?: Fq): Required<
-  Pick<ConfigMapping, 'parseEnv' | 'defaultValue' | 'isBoolean'> & {
-    parseVal: (val: string) => SecretValue<Fq | typeof defaultValue>;
-  }
-> {
+export function secretFqConfigHelper(): {
+  parseEnv: (val: string) => SecretValue<Fq>;
+  parseVal: (val: string) => SecretValue<Fq>;
+  defaultValue: undefined;
+};
+export function secretFqConfigHelper(defaultValue: Fq): {
+  parseEnv: (val: string) => SecretValue<Fq>;
+  parseVal: (val: string) => SecretValue<Fq>;
+  defaultValue: SecretValue<Fq>;
+};
+export function secretFqConfigHelper(defaultValue?: Fq): {
+  parseEnv: (val: string) => SecretValue<Fq>;
+  parseVal: (val: string) => SecretValue<Fq>;
+  defaultValue: SecretValue<Fq> | undefined;
+} {
   const parse = (val: string) => new SecretValue(Fq.fromHexString(val));
   return {
     parseEnv: parse,
     parseVal: parse,
-    defaultValue: typeof defaultValue !== 'undefined' ? new SecretValue(defaultValue) : undefined,
-    isBoolean: true,
+    defaultValue: defaultValue !== undefined ? new SecretValue(defaultValue) : undefined,
   };
 }
 
 /**
- * Safely parses a number from a string.
- * If the value is not a number or is not a safe integer, the default value is returned.
+ * Parses a string into a safe integer, throwing if the value is numeric but not an integer.
+ *
+ * Unlike `parseInt`, this does not silently truncate decimals: `'0.8'` throws rather than
+ * becoming `0`. A fractional value indicates the caller intended a non-integer where only
+ * integers are supported (use `floatConfigHelper`/`percentageConfigHelper` for those).
  * @param value - The string value to parse
- * @param defaultValue - The default value to return
- * @returns Either parsed value or default value
+ * @returns The parsed integer value
  */
-function safeParseNumber(value: string, defaultValue: number): number {
-  const parsedValue = parseInt(value, 10);
-  return Number.isSafeInteger(parsedValue) ? parsedValue : defaultValue;
+function parseSafeInteger(value: string): number {
+  const parsedValue = parseFloat(value);
+  if (!Number.isSafeInteger(parsedValue)) {
+    throw new Error(`Invalid integer config value '${value}'; expected a whole number`);
+  }
+  return parsedValue;
 }
 
 /**
- * Safely parses a floating point number from a string.
- * If the value is not a number, the default value is returned.
+ * Parses a string into a finite floating-point number, throwing if the value is not a finite number.
+ *
+ * Invalid input (e.g. `'abc'`, or an overflow to `Infinity`) throws rather than being silently
+ * swallowed, so a misconfigured value fails loudly instead of falling back to the config default.
  * @param value - The string value to parse
- * @param defaultValue - The default value to return
- * @returns Either parsed value or default value
+ * @returns The parsed number
  */
-function safeParseFloat(value: string, defaultValue: number): number {
+function parseFiniteNumber(value: string): number {
   const parsedValue = parseFloat(value);
-  return Number.isNaN(parsedValue) ? defaultValue : parsedValue;
+  if (!Number.isFinite(parsedValue)) {
+    throw new Error(`Invalid number config value '${value}'`);
+  }
+  return parsedValue;
 }
 
 /**

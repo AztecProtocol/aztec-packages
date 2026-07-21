@@ -1,6 +1,5 @@
 import { BlockNumber } from '@aztec/foundation/branded-types';
 import { Fr } from '@aztec/foundation/curves/bn254';
-import { Point } from '@aztec/foundation/curves/grumpkin';
 import { BufferReader, serializeToBuffer } from '@aztec/foundation/serialize';
 import { AztecAddress } from '@aztec/stdlib/aztec-address';
 import { Note } from '@aztec/stdlib/note';
@@ -148,9 +147,7 @@ export class NoteDao {
    * @returns - Its size in bytes.
    */
   public getSize() {
-    const noteSize = 4 + this.note.items.length * Fr.SIZE_IN_BYTES;
-    // 2 numbers for txIndexInBlock and noteIndexInTx (4 bytes each)
-    return noteSize + AztecAddress.SIZE_IN_BYTES * 2 + Fr.SIZE_IN_BYTES * 4 + TxHash.SIZE + Point.SIZE_IN_BYTES + 8;
+    return this.toBuffer().length;
   }
 
   static async random({

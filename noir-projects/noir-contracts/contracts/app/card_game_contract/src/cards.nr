@@ -1,7 +1,7 @@
 use aztec::{
     context::{PrivateContext, UtilityContext},
     keys::getters::get_public_keys,
-    messages::message_delivery::MessageDelivery,
+    messages::delivery::MessageDelivery,
     note::{
         constants::MAX_NOTES_PER_PAGE, HintedNote, note_getter_options::NoteGetterOptions,
         note_viewer_options::NoteViewerOptions,
@@ -9,18 +9,32 @@ use aztec::{
     protocol::{
         address::AztecAddress,
         constants::MAX_NOTE_HASH_READ_REQUESTS_PER_CALL,
-        traits::{FromField, Hash, Packable, Serialize, ToField},
+        traits::{Deserialize, FromField, Packable, Serialize, ToField},
     },
     state_vars::{Owned, PrivateSet, StateVariable},
 };
 use field_note::FieldNote;
 use std::meta::derive;
 
-#[derive(Packable, Serialize)]
+#[derive(Serialize, Deserialize)]
 pub struct Card {
     // We use u32s since u16s are unsupported
     pub strength: u32,
     pub points: u32,
+}
+
+impl Packable for Card {
+    let N: u32 = 1;
+
+    fn pack(self) -> [Field; Self::N] {
+        [(self.strength as Field) * 2.pow_32(32) + (self.points as Field)]
+    }
+
+    fn unpack(packed: [Field; Self::N]) -> Self {
+        let points = packed[0] as u32;
+        let strength = ((packed[0] - points as Field) / 2.pow_32(32)) as u32;
+        Self { strength, points }
+    }
 }
 
 impl FromField for Card {
@@ -38,11 +52,39 @@ impl ToField for Card {
     }
 }
 
-#[test]
-fn test_to_from_field() {
-    let field = 1234567890;
-    let card = Card::from_field(field);
-    assert(card.to_field() == field);
+mod test {
+    use super::{Card, FromField, Packable, ToField};
+
+    #[test]
+    fn test_to_from_field() {
+        let field = 1234567890;
+        let card = Card::from_field(field);
+        assert(card.to_field() == field);
+    }
+
+    #[test]
+    fn test_pack_unpack_card() {
+        let card = Card { strength: 42, points: 100 };
+        let unpacked = Card::unpack(card.pack());
+        assert_eq(unpacked.strength, card.strength);
+        assert_eq(unpacked.points, card.points);
+    }
+
+    #[test]
+    fn test_pack_unpack_card_zeros() {
+        let card = Card { strength: 0, points: 0 };
+        let unpacked = Card::unpack(card.pack());
+        assert_eq(unpacked.strength, 0);
+        assert_eq(unpacked.points, 0);
+    }
+
+    #[test]
+    fn test_pack_unpack_card_max() {
+        let card = Card { strength: 0xffffffff, points: 0xffffffff };
+        let unpacked = Card::unpack(card.pack());
+        assert_eq(unpacked.strength, card.strength);
+        assert_eq(unpacked.points, card.points);
+    }
 }
 
 pub struct CardNote {
@@ -51,11 +93,6 @@ pub struct CardNote {
 }
 
 impl CardNote {
-    fn new(strength: u32, points: u32) -> Self {
-        let card = Card { strength, points };
-        CardNote::from_card(card)
-    }
-
     pub fn from_card(card: Card) -> CardNote {
         CardNote { card, note: FieldNote { value: card.to_field() } }
     }
@@ -118,9 +155,7 @@ impl Deck<&mut PrivateContext> {
         let mut inserted_cards = @[];
         for card in cards {
             let card_note = CardNote::from_card(card);
-            self.owned_set.at(owner).insert(card_note.note).deliver(
-                MessageDelivery.ONCHAIN_CONSTRAINED,
-            );
+            self.owned_set.at(owner).insert(card_note.note).deliver(MessageDelivery::onchain_constrained());
             inserted_cards = inserted_cards.push_back(card_note);
         }
 
@@ -135,11 +170,7 @@ impl Deck<&mut PrivateContext> {
 }
 
 impl Deck<UtilityContext> {
-    pub unconstrained fn view_cards(
-        self,
-        owner: AztecAddress,
-        offset: u32,
-    ) -> BoundedVec<Card, MAX_NOTES_PER_PAGE> {
+    pub unconstrained fn view_cards(self, owner: AztecAddress, offset: u32) -> BoundedVec<Card, MAX_NOTES_PER_PAGE> {
         let options = NoteViewerOptions::new().set_offset(offset);
         let notes = self.owned_set.at(owner).view_notes(options);
 
@@ -149,12 +180,8 @@ impl Deck<UtilityContext> {
 
 global PACK_CARDS: u32 = 3; // Limited by number of write requests (max 4)
 
-pub fn get_pack_cards(
-    seed: Field,
-    owner: AztecAddress,
-    context: &mut PrivateContext,
-) -> [Card; PACK_CARDS] {
-    let owner_npk_m_hash = get_public_keys(owner).npk_m.hash();
+pub fn get_pack_cards(seed: Field, owner: AztecAddress, context: &mut PrivateContext) -> [Card; PACK_CARDS] {
+    let owner_npk_m_hash = get_public_keys(owner).npk_m_hash;
 
     // generate pseudo randomness deterministically from 'seed' and user secret
     let secret = context.request_nhk_app(owner_npk_m_hash);

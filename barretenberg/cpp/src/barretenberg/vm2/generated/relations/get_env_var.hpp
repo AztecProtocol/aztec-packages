@@ -3,7 +3,6 @@
 
 #include <string_view>
 
-#include "barretenberg/common/bb_bench.hpp"
 #include "barretenberg/relations/relation_parameters.hpp"
 #include "barretenberg/relations/relation_types.hpp"
 #include "barretenberg/vm2/generated/columns.hpp"
@@ -14,7 +13,7 @@ template <typename FF_> class get_env_varImpl {
   public:
     using FF = FF_;
 
-    static constexpr std::array<size_t, 7> SUBRELATION_PARTIAL_LENGTHS = { 4, 4, 4, 4, 4, 4, 4 };
+    static constexpr std::array<size_t, 9> SUBRELATION_PARTIAL_LENGTHS = { 3, 3, 4, 4, 4, 4, 4, 4, 4 };
 
     template <typename AllEntities> inline static bool skip(const AllEntities& in)
     {
@@ -35,17 +34,24 @@ template <typename FF> class get_env_var : public Relation<get_env_varImpl<FF>> 
     static constexpr const std::string_view NAME = "get_env_var";
 
     // Subrelation indices constants, to be used in tests.
-    static constexpr size_t SR_FROM_PUBLIC_INPUTS = 0;
-    static constexpr size_t SR_ADDRESS_FROM_CONTEXT = 1;
-    static constexpr size_t SR_SENDER_FROM_CONTEXT = 2;
-    static constexpr size_t SR_TRANSACTION_FEE_FROM_CONTEXT = 3;
-    static constexpr size_t SR_ISSTATICCALL_FROM_CONTEXT = 4;
-    static constexpr size_t SR_L2GASLEFT_FROM_GAS = 5;
-    static constexpr size_t SR_DAGASLEFT_FROM_GAS = 6;
+    static constexpr size_t SR_SEL_ENV_PI_COL_0_IS_ZERO = 0;
+    static constexpr size_t SR_SEL_ENV_PI_COL_1_IS_ZERO = 1;
+    static constexpr size_t SR_FROM_PUBLIC_INPUTS = 2;
+    static constexpr size_t SR_ADDRESS_FROM_CONTEXT = 3;
+    static constexpr size_t SR_SENDER_FROM_CONTEXT = 4;
+    static constexpr size_t SR_TRANSACTION_FEE_FROM_CONTEXT = 5;
+    static constexpr size_t SR_ISSTATICCALL_FROM_CONTEXT = 6;
+    static constexpr size_t SR_L2GASLEFT_FROM_GAS = 7;
+    static constexpr size_t SR_DAGASLEFT_FROM_GAS = 8;
 
     static std::string get_subrelation_label(size_t index)
     {
+#ifdef AVM_INCLUDE_COLUMN_INFORMATION
         switch (index) {
+        case SR_SEL_ENV_PI_COL_0_IS_ZERO:
+            return "SEL_ENV_PI_COL_0_IS_ZERO";
+        case SR_SEL_ENV_PI_COL_1_IS_ZERO:
+            return "SEL_ENV_PI_COL_1_IS_ZERO";
         case SR_FROM_PUBLIC_INPUTS:
             return "FROM_PUBLIC_INPUTS";
         case SR_ADDRESS_FROM_CONTEXT:
@@ -61,6 +67,7 @@ template <typename FF> class get_env_var : public Relation<get_env_varImpl<FF>> 
         case SR_DAGASLEFT_FROM_GAS:
             return "DAGASLEFT_FROM_GAS";
         }
+#endif
         return std::to_string(index);
     }
 };

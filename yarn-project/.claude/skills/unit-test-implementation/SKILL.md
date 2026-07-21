@@ -23,6 +23,28 @@ beforeEach(() => {
 });
 ```
 
+### NEVER Pass Complex Objects as mock() Props
+
+`jest-mock-extended`'s `mock<T>(props)` deep-processes any objects passed as initial properties. When those objects contain class instances with internal state (like `Fr`, `EthAddress`, `AztecAddress`, `GasFees`, `Buffer`, etc.), this causes **O(2^n) exponential slowdown** across tests — each test doubles the time of the previous one.
+
+```typescript
+// ❌ NEVER: Passing complex domain objects as mock props
+// This causes exponential test slowdown (1s → 2s → 4s → 8s → ...)
+const constants = { chainId: new Fr(1), coinbase: EthAddress.random(), gasFees: GasFees.empty() };
+beforeEach(() => {
+  builder = mock<CheckpointBuilder>({ checkpointNumber, constants });
+});
+
+// ✅ GOOD: Create mock without props, then set properties directly
+beforeEach(() => {
+  builder = mock<CheckpointBuilder>();
+  Object.defineProperty(builder, 'checkpointNumber', { value: checkpointNumber });
+  Object.defineProperty(builder, 'constants', { value: constants });
+});
+```
+
+Simple primitives (strings, numbers, booleans) and arrow functions are safe to pass as props. The issue is specifically with class instances that have complex prototypes.
+
 ### When to Use Real Instances vs Mocks
 
 **Mock external dependencies** that are:

@@ -1,5 +1,5 @@
 // === AUDIT STATUS ===
-// internal:    { status: Complete, auditors: [Luke, Raju], commit: 8fb8b041d4c9179f62da56a9c7bbf22c40db46cc}
+// internal:    { status: Complete, auditors: [Luke, Raju], commit: dd03c4a23ab067274b4964cacb36d1545f73fb14}
 // external_1:  { status: not started, auditors: [], commit: }
 // external_2:  { status: not started, auditors: [], commit: }
 // =====================
@@ -54,6 +54,7 @@ plookup::ReadData<field_t<Builder>> plookup_read<Builder>::get_lookup_accumulato
         const auto accumulator_witnesses =
             ctx->create_gates_from_plookup_accumulators(id, lookup_data, lhs_index, key_b_witness);
 
+        const auto merged_tag = OriginTag(key_a.get_origin_tag(), key_b.get_origin_tag());
         for (size_t i = 0; i < lookup_data[ColumnIdx::C1].size(); ++i) {
             lookup[ColumnIdx::C1].emplace_back(
                 field_t<Builder>::from_witness_index(ctx, accumulator_witnesses[ColumnIdx::C1][i]));
@@ -61,6 +62,9 @@ plookup::ReadData<field_t<Builder>> plookup_read<Builder>::get_lookup_accumulato
                 field_t<Builder>::from_witness_index(ctx, accumulator_witnesses[ColumnIdx::C2][i]));
             lookup[ColumnIdx::C3].emplace_back(
                 field_t<Builder>::from_witness_index(ctx, accumulator_witnesses[ColumnIdx::C3][i]));
+            lookup[ColumnIdx::C1].back().set_origin_tag(merged_tag);
+            lookup[ColumnIdx::C2].back().set_origin_tag(merged_tag);
+            lookup[ColumnIdx::C3].back().set_origin_tag(merged_tag);
         }
     }
     return lookup;

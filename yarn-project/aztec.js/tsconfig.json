@@ -19,10 +19,10 @@
       "path": "../foundation"
     },
     {
-      "path": "../l1-artifacts"
+      "path": "../protocol-contracts"
     },
     {
-      "path": "../protocol-contracts"
+      "path": "../standard-contracts"
     },
     {
       "path": "../stdlib"

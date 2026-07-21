@@ -15,7 +15,9 @@ void ff_gtImpl<FF_>::accumulate(ContainerOverSubrelations& evals,
 {
     using C = ColumnAndShifts;
 
-    const auto ff_gt_SEL_START = in.get(C::ff_gt_sel_gt) + in.get(C::ff_gt_sel_dec);
+    const auto ff_gt_START = in.get(C::ff_gt_sel_gt) + in.get(C::ff_gt_sel_dec);
+    const auto ff_gt_LATCH_CONDITION = in.get(C::ff_gt_end) + in.get(C::precomputed_first_row);
+    const auto ff_gt_NOT_END = (in.get(C::ff_gt_sel) - in.get(C::ff_gt_end));
     const auto ff_gt_POW_128 = FF(uint256_t{ 0UL, 0UL, 1UL, 0UL });
     const auto ff_gt_P_LO = FF(uint256_t{ 4891460686036598785UL, 2896914383306846353UL, 0UL, 0UL });
     const auto ff_gt_P_HI = FF(uint256_t{ 13281191951274694749UL, 3486998266802970665UL, 0UL, 0UL });
@@ -49,177 +51,183 @@ void ff_gtImpl<FF_>::accumulate(ContainerOverSubrelations& evals,
     }
     {
         using View = typename std::tuple_element_t<4, ContainerOverSubrelations>::View;
-        auto tmp =
-            static_cast<View>(in.get(C::ff_gt_sel)) * (FF(128) - static_cast<View>(in.get(C::ff_gt_constant_128)));
+        auto tmp = static_cast<View>(in.get(C::ff_gt_end)) * (FF(1) - static_cast<View>(in.get(C::ff_gt_end)));
         std::get<4>(evals) += (tmp * scaling_factor);
     }
-    { // A_DECOMPOSITION
+    { // SEL_ON_START_OR_END
         using View = typename std::tuple_element_t<5, ContainerOverSubrelations>::View;
-        auto tmp = CView(ff_gt_SEL_START) * (static_cast<View>(in.get(C::ff_gt_a)) -
-                                             (static_cast<View>(in.get(C::ff_gt_a_lo)) +
-                                              CView(ff_gt_POW_128) * static_cast<View>(in.get(C::ff_gt_a_hi))));
+        auto tmp = (CView(ff_gt_START) + static_cast<View>(in.get(C::ff_gt_end))) *
+                   (FF(1) - static_cast<View>(in.get(C::ff_gt_sel)));
         std::get<5>(evals) += (tmp * scaling_factor);
     }
-    {
+    { // TRACE_CONTINUITY
         using View = typename std::tuple_element_t<6, ContainerOverSubrelations>::View;
-        auto tmp =
-            static_cast<View>(in.get(C::ff_gt_p_a_borrow)) * (FF(1) - static_cast<View>(in.get(C::ff_gt_p_a_borrow)));
+        auto tmp = (FF(1) - CView(ff_gt_LATCH_CONDITION)) *
+                   (static_cast<View>(in.get(C::ff_gt_sel)) - static_cast<View>(in.get(C::ff_gt_sel_shift)));
         std::get<6>(evals) += (tmp * scaling_factor);
     }
-    { // P_SUB_A_LO
+    { // START_AFTER_LATCH
         using View = typename std::tuple_element_t<7, ContainerOverSubrelations>::View;
-        auto tmp = CView(ff_gt_SEL_START) * (static_cast<View>(in.get(C::ff_gt_p_sub_a_lo)) -
-                                             (((CView(ff_gt_P_LO) - static_cast<View>(in.get(C::ff_gt_a_lo))) - FF(1)) +
-                                              static_cast<View>(in.get(C::ff_gt_p_a_borrow)) * CView(ff_gt_POW_128)));
+        auto tmp =
+            static_cast<View>(in.get(C::ff_gt_sel_shift)) *
+            ((static_cast<View>(in.get(C::ff_gt_sel_gt_shift)) + static_cast<View>(in.get(C::ff_gt_sel_dec_shift))) -
+             CView(ff_gt_LATCH_CONDITION));
         std::get<7>(evals) += (tmp * scaling_factor);
     }
-    { // P_SUB_A_HI
+    {
         using View = typename std::tuple_element_t<8, ContainerOverSubrelations>::View;
-        auto tmp = CView(ff_gt_SEL_START) * (static_cast<View>(in.get(C::ff_gt_p_sub_a_hi)) -
-                                             ((CView(ff_gt_P_HI) - static_cast<View>(in.get(C::ff_gt_a_hi))) -
-                                              static_cast<View>(in.get(C::ff_gt_p_a_borrow))));
+        auto tmp =
+            static_cast<View>(in.get(C::ff_gt_sel)) * (FF(128) - static_cast<View>(in.get(C::ff_gt_constant_128)));
         std::get<8>(evals) += (tmp * scaling_factor);
     }
-    { // B_DECOMPOSITION
+    { // A_DECOMPOSITION
         using View = typename std::tuple_element_t<9, ContainerOverSubrelations>::View;
-        auto tmp =
-            static_cast<View>(in.get(C::ff_gt_sel_gt)) *
-            (static_cast<View>(in.get(C::ff_gt_b)) - (static_cast<View>(in.get(C::ff_gt_b_lo)) +
-                                                      CView(ff_gt_POW_128) * static_cast<View>(in.get(C::ff_gt_b_hi))));
+        auto tmp = CView(ff_gt_START) * (static_cast<View>(in.get(C::ff_gt_a)) -
+                                         (static_cast<View>(in.get(C::ff_gt_a_lo)) +
+                                          CView(ff_gt_POW_128) * static_cast<View>(in.get(C::ff_gt_a_hi))));
         std::get<9>(evals) += (tmp * scaling_factor);
     }
     {
         using View = typename std::tuple_element_t<10, ContainerOverSubrelations>::View;
         auto tmp =
-            static_cast<View>(in.get(C::ff_gt_p_b_borrow)) * (FF(1) - static_cast<View>(in.get(C::ff_gt_p_b_borrow)));
+            static_cast<View>(in.get(C::ff_gt_p_a_borrow)) * (FF(1) - static_cast<View>(in.get(C::ff_gt_p_a_borrow)));
         std::get<10>(evals) += (tmp * scaling_factor);
     }
-    { // P_SUB_B_LO
+    { // P_SUB_A_LO
         using View = typename std::tuple_element_t<11, ContainerOverSubrelations>::View;
+        auto tmp = CView(ff_gt_START) * (static_cast<View>(in.get(C::ff_gt_p_sub_a_lo)) -
+                                         (((CView(ff_gt_P_LO) - static_cast<View>(in.get(C::ff_gt_a_lo))) - FF(1)) +
+                                          static_cast<View>(in.get(C::ff_gt_p_a_borrow)) * CView(ff_gt_POW_128)));
+        std::get<11>(evals) += (tmp * scaling_factor);
+    }
+    { // P_SUB_A_HI
+        using View = typename std::tuple_element_t<12, ContainerOverSubrelations>::View;
+        auto tmp = CView(ff_gt_START) * (static_cast<View>(in.get(C::ff_gt_p_sub_a_hi)) -
+                                         ((CView(ff_gt_P_HI) - static_cast<View>(in.get(C::ff_gt_a_hi))) -
+                                          static_cast<View>(in.get(C::ff_gt_p_a_borrow))));
+        std::get<12>(evals) += (tmp * scaling_factor);
+    }
+    { // B_DECOMPOSITION
+        using View = typename std::tuple_element_t<13, ContainerOverSubrelations>::View;
+        auto tmp =
+            static_cast<View>(in.get(C::ff_gt_sel_gt)) *
+            (static_cast<View>(in.get(C::ff_gt_b)) - (static_cast<View>(in.get(C::ff_gt_b_lo)) +
+                                                      CView(ff_gt_POW_128) * static_cast<View>(in.get(C::ff_gt_b_hi))));
+        std::get<13>(evals) += (tmp * scaling_factor);
+    }
+    {
+        using View = typename std::tuple_element_t<14, ContainerOverSubrelations>::View;
+        auto tmp =
+            static_cast<View>(in.get(C::ff_gt_p_b_borrow)) * (FF(1) - static_cast<View>(in.get(C::ff_gt_p_b_borrow)));
+        std::get<14>(evals) += (tmp * scaling_factor);
+    }
+    { // P_SUB_B_LO
+        using View = typename std::tuple_element_t<15, ContainerOverSubrelations>::View;
         auto tmp = static_cast<View>(in.get(C::ff_gt_sel_gt)) *
                    (static_cast<View>(in.get(C::ff_gt_p_sub_b_lo)) -
                     (((CView(ff_gt_P_LO) - static_cast<View>(in.get(C::ff_gt_b_lo))) - FF(1)) +
                      static_cast<View>(in.get(C::ff_gt_p_b_borrow)) * CView(ff_gt_POW_128)));
-        std::get<11>(evals) += (tmp * scaling_factor);
+        std::get<15>(evals) += (tmp * scaling_factor);
     }
     { // P_SUB_B_HI
-        using View = typename std::tuple_element_t<12, ContainerOverSubrelations>::View;
+        using View = typename std::tuple_element_t<16, ContainerOverSubrelations>::View;
         auto tmp = static_cast<View>(in.get(C::ff_gt_sel_gt)) *
                    (static_cast<View>(in.get(C::ff_gt_p_sub_b_hi)) -
                     ((CView(ff_gt_P_HI) - static_cast<View>(in.get(C::ff_gt_b_hi))) -
                      static_cast<View>(in.get(C::ff_gt_p_b_borrow))));
-        std::get<12>(evals) += (tmp * scaling_factor);
+        std::get<16>(evals) += (tmp * scaling_factor);
     }
     {
-        using View = typename std::tuple_element_t<13, ContainerOverSubrelations>::View;
+        using View = typename std::tuple_element_t<17, ContainerOverSubrelations>::View;
         auto tmp = static_cast<View>(in.get(C::ff_gt_borrow)) * (FF(1) - static_cast<View>(in.get(C::ff_gt_borrow)));
-        std::get<13>(evals) += (tmp * scaling_factor);
+        std::get<17>(evals) += (tmp * scaling_factor);
     }
     { // RES_LO
-        using View = typename std::tuple_element_t<14, ContainerOverSubrelations>::View;
+        using View = typename std::tuple_element_t<18, ContainerOverSubrelations>::View;
         auto tmp =
             static_cast<View>(in.get(C::ff_gt_sel_gt)) *
             (static_cast<View>(in.get(C::ff_gt_res_lo)) -
              (CView(ff_gt_A_SUB_B_LO) * CView(ff_gt_IS_GT) + CView(ff_gt_B_SUB_A_LO) * (FF(1) - CView(ff_gt_IS_GT))));
-        std::get<14>(evals) += (tmp * scaling_factor);
+        std::get<18>(evals) += (tmp * scaling_factor);
     }
     { // RES_HI
-        using View = typename std::tuple_element_t<15, ContainerOverSubrelations>::View;
+        using View = typename std::tuple_element_t<19, ContainerOverSubrelations>::View;
         auto tmp =
             static_cast<View>(in.get(C::ff_gt_sel_gt)) *
             (static_cast<View>(in.get(C::ff_gt_res_hi)) -
              (CView(ff_gt_A_SUB_B_HI) * CView(ff_gt_IS_GT) + CView(ff_gt_B_SUB_A_HI) * (FF(1) - CView(ff_gt_IS_GT))));
-        std::get<15>(evals) += (tmp * scaling_factor);
-    }
-    { // RNG_CTR_GT_INIT
-        using View = typename std::tuple_element_t<16, ContainerOverSubrelations>::View;
-        auto tmp =
-            static_cast<View>(in.get(C::ff_gt_sel_gt)) * (static_cast<View>(in.get(C::ff_gt_cmp_rng_ctr)) - FF(4));
-        std::get<16>(evals) += (tmp * scaling_factor);
-    }
-    { // RNG_CTR_DEC_INIT
-        using View = typename std::tuple_element_t<17, ContainerOverSubrelations>::View;
-        auto tmp =
-            static_cast<View>(in.get(C::ff_gt_sel_dec)) * (static_cast<View>(in.get(C::ff_gt_cmp_rng_ctr)) - FF(1));
-        std::get<17>(evals) += (tmp * scaling_factor);
-    }
-    { // RNG_CTR_DECREMENT
-        using View = typename std::tuple_element_t<18, ContainerOverSubrelations>::View;
-        auto tmp = static_cast<View>(in.get(C::ff_gt_cmp_rng_ctr)) *
-                   ((static_cast<View>(in.get(C::ff_gt_cmp_rng_ctr)) - FF(1)) -
-                    static_cast<View>(in.get(C::ff_gt_cmp_rng_ctr_shift)));
-        std::get<18>(evals) += (tmp * scaling_factor);
-    }
-    {
-        using View = typename std::tuple_element_t<19, ContainerOverSubrelations>::View;
-        auto tmp = static_cast<View>(in.get(C::ff_gt_sel_shift_rng)) *
-                   (FF(1) - static_cast<View>(in.get(C::ff_gt_sel_shift_rng)));
         std::get<19>(evals) += (tmp * scaling_factor);
     }
-    { // RNG_CTR_NON_ZERO
+    { // RNG_CTR_GT_INIT
         using View = typename std::tuple_element_t<20, ContainerOverSubrelations>::View;
-        auto tmp = (static_cast<View>(in.get(C::ff_gt_cmp_rng_ctr)) *
-                        ((FF(1) - static_cast<View>(in.get(C::ff_gt_sel_shift_rng))) *
-                             (FF(1) - static_cast<View>(in.get(C::ff_gt_cmp_rng_ctr_inv))) +
-                         static_cast<View>(in.get(C::ff_gt_cmp_rng_ctr_inv))) -
-                    static_cast<View>(in.get(C::ff_gt_sel_shift_rng)));
+        auto tmp =
+            static_cast<View>(in.get(C::ff_gt_sel_gt)) * (static_cast<View>(in.get(C::ff_gt_cmp_rng_ctr)) - FF(4));
         std::get<20>(evals) += (tmp * scaling_factor);
     }
-    { // SHIFT_0
+    { // RNG_CTR_DEC_INIT
         using View = typename std::tuple_element_t<21, ContainerOverSubrelations>::View;
-        auto tmp = (static_cast<View>(in.get(C::ff_gt_a_lo_shift)) - static_cast<View>(in.get(C::ff_gt_p_sub_a_lo))) *
-                   static_cast<View>(in.get(C::ff_gt_sel_shift_rng));
+        auto tmp =
+            static_cast<View>(in.get(C::ff_gt_sel_dec)) * (static_cast<View>(in.get(C::ff_gt_cmp_rng_ctr)) - FF(1));
         std::get<21>(evals) += (tmp * scaling_factor);
     }
-    {
+    { // RNG_CTR_DECREMENT
         using View = typename std::tuple_element_t<22, ContainerOverSubrelations>::View;
-        auto tmp = (static_cast<View>(in.get(C::ff_gt_a_hi_shift)) - static_cast<View>(in.get(C::ff_gt_p_sub_a_hi))) *
-                   static_cast<View>(in.get(C::ff_gt_sel_shift_rng));
+        auto tmp = CView(ff_gt_NOT_END) * ((static_cast<View>(in.get(C::ff_gt_cmp_rng_ctr)) - FF(1)) -
+                                           static_cast<View>(in.get(C::ff_gt_cmp_rng_ctr_shift)));
         std::get<22>(evals) += (tmp * scaling_factor);
     }
-    { // SHIFT_1
+    { // RNG_CTR_END
         using View = typename std::tuple_element_t<23, ContainerOverSubrelations>::View;
-        auto tmp = (static_cast<View>(in.get(C::ff_gt_p_sub_a_lo_shift)) - static_cast<View>(in.get(C::ff_gt_b_lo))) *
-                   static_cast<View>(in.get(C::ff_gt_sel_shift_rng));
+        auto tmp = static_cast<View>(in.get(C::ff_gt_end)) * static_cast<View>(in.get(C::ff_gt_cmp_rng_ctr));
         std::get<23>(evals) += (tmp * scaling_factor);
     }
-    {
+    { // SHIFT_P_SUB_A_TO_A_LO
         using View = typename std::tuple_element_t<24, ContainerOverSubrelations>::View;
-        auto tmp = (static_cast<View>(in.get(C::ff_gt_p_sub_a_hi_shift)) - static_cast<View>(in.get(C::ff_gt_b_hi))) *
-                   static_cast<View>(in.get(C::ff_gt_sel_shift_rng));
+        auto tmp = CView(ff_gt_NOT_END) *
+                   (static_cast<View>(in.get(C::ff_gt_a_lo_shift)) - static_cast<View>(in.get(C::ff_gt_p_sub_a_lo)));
         std::get<24>(evals) += (tmp * scaling_factor);
     }
-    { // SHIFT_2
+    { // SHIFT_P_SUB_A_TO_A_HI
         using View = typename std::tuple_element_t<25, ContainerOverSubrelations>::View;
-        auto tmp = (static_cast<View>(in.get(C::ff_gt_b_lo_shift)) - static_cast<View>(in.get(C::ff_gt_p_sub_b_lo))) *
-                   static_cast<View>(in.get(C::ff_gt_sel_shift_rng));
+        auto tmp = CView(ff_gt_NOT_END) *
+                   (static_cast<View>(in.get(C::ff_gt_a_hi_shift)) - static_cast<View>(in.get(C::ff_gt_p_sub_a_hi)));
         std::get<25>(evals) += (tmp * scaling_factor);
     }
-    {
+    { // SHIFT_B_TO_P_SUB_A_LO
         using View = typename std::tuple_element_t<26, ContainerOverSubrelations>::View;
-        auto tmp = (static_cast<View>(in.get(C::ff_gt_b_hi_shift)) - static_cast<View>(in.get(C::ff_gt_p_sub_b_hi))) *
-                   static_cast<View>(in.get(C::ff_gt_sel_shift_rng));
+        auto tmp = CView(ff_gt_NOT_END) *
+                   (static_cast<View>(in.get(C::ff_gt_p_sub_a_lo_shift)) - static_cast<View>(in.get(C::ff_gt_b_lo)));
         std::get<26>(evals) += (tmp * scaling_factor);
     }
-    { // SHIFT_3
+    { // SHIFT_B_TO_P_SUB_A_HI
         using View = typename std::tuple_element_t<27, ContainerOverSubrelations>::View;
-        auto tmp = (static_cast<View>(in.get(C::ff_gt_p_sub_b_lo_shift)) - static_cast<View>(in.get(C::ff_gt_res_lo))) *
-                   static_cast<View>(in.get(C::ff_gt_sel_shift_rng));
+        auto tmp = CView(ff_gt_NOT_END) *
+                   (static_cast<View>(in.get(C::ff_gt_p_sub_a_hi_shift)) - static_cast<View>(in.get(C::ff_gt_b_hi)));
         std::get<27>(evals) += (tmp * scaling_factor);
     }
-    {
+    { // SHIFT_P_SUB_B_TO_B_LO
         using View = typename std::tuple_element_t<28, ContainerOverSubrelations>::View;
-        auto tmp = (static_cast<View>(in.get(C::ff_gt_p_sub_b_hi_shift)) - static_cast<View>(in.get(C::ff_gt_res_hi))) *
-                   static_cast<View>(in.get(C::ff_gt_sel_shift_rng));
+        auto tmp = CView(ff_gt_NOT_END) *
+                   (static_cast<View>(in.get(C::ff_gt_b_lo_shift)) - static_cast<View>(in.get(C::ff_gt_p_sub_b_lo)));
         std::get<28>(evals) += (tmp * scaling_factor);
     }
-    { // SEL_CONSISTENCY
+    { // SHIFT_P_SUB_B_TO_B_HI
         using View = typename std::tuple_element_t<29, ContainerOverSubrelations>::View;
-        auto tmp =
-            ((static_cast<View>(in.get(C::ff_gt_sel_shift_rng)) + static_cast<View>(in.get(C::ff_gt_sel_gt_shift)) +
-              static_cast<View>(in.get(C::ff_gt_sel_dec_shift))) -
-             static_cast<View>(in.get(C::ff_gt_sel_shift)));
+        auto tmp = CView(ff_gt_NOT_END) *
+                   (static_cast<View>(in.get(C::ff_gt_b_hi_shift)) - static_cast<View>(in.get(C::ff_gt_p_sub_b_hi)));
         std::get<29>(evals) += (tmp * scaling_factor);
+    }
+    { // SHIFT_RES_TO_P_SUB_B_LO
+        using View = typename std::tuple_element_t<30, ContainerOverSubrelations>::View;
+        auto tmp = CView(ff_gt_NOT_END) *
+                   (static_cast<View>(in.get(C::ff_gt_p_sub_b_lo_shift)) - static_cast<View>(in.get(C::ff_gt_res_lo)));
+        std::get<30>(evals) += (tmp * scaling_factor);
+    }
+    { // SHIFT_RES_TO_P_SUB_B_HI
+        using View = typename std::tuple_element_t<31, ContainerOverSubrelations>::View;
+        auto tmp = CView(ff_gt_NOT_END) *
+                   (static_cast<View>(in.get(C::ff_gt_p_sub_b_hi_shift)) - static_cast<View>(in.get(C::ff_gt_res_hi)));
+        std::get<31>(evals) += (tmp * scaling_factor);
     }
 }
 

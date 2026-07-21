@@ -1,12 +1,12 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-# Test rollup upgrade deployment on local anvil with devnet defaults.
+# Test rollup upgrade deployment on local anvil with the base l1-contracts defaults.
 
 cd "$(dirname "$0")/.."
 
-echo "=== Loading devnet defaults ==="
-source ./scripts/load_network_defaults.sh devnet
+echo "=== Loading L1 contract defaults ==="
+source ./scripts/load_network_defaults.sh
 
 cleanup() {
   if [[ -n "${anvil_pid:-}" ]]; then
@@ -17,19 +17,25 @@ cleanup() {
 }
 trap cleanup EXIT
 
-echo "=== Starting anvil ==="
-anvil &
+# Clean stale broadcast artifacts from previous runs to avoid nonce conflicts.
+rm -rf broadcast/
+
+# Fixed port — this test runs with ISOLATE=1 so no conflicts.
+ANVIL_PORT="${ANVIL_PORT:-8545}"
+
+echo "=== Starting anvil on port $ANVIL_PORT ==="
+anvil --port "$ANVIL_PORT" &
 anvil_pid=$!
 sleep 2
 
-export L1_RPC_URL="http://127.0.0.1:8545"
+export L1_RPC_URL="http://127.0.0.1:$ANVIL_PORT"
 export ROLLUP_DEPLOYMENT_PRIVATE_KEY="0xac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80"
 
 echo "=== Deploying initial L1 contracts ==="
-forge script script/deploy/DeployAztecL1Contracts.s.sol:DeployAztecL1Contracts \
+./scripts/forge_broadcast.js \
+  script/deploy/DeployAztecL1Contracts.s.sol:DeployAztecL1Contracts \
   --rpc-url "$L1_RPC_URL" \
   --private-key "$ROLLUP_DEPLOYMENT_PRIVATE_KEY" \
-  --broadcast \
   --json > /tmp/initial_deploy.jsonl
 
 deploy_json=$(head -1 /tmp/initial_deploy.jsonl | jq -r '.logs[0]' | sed 's/JSON DEPLOY RESULT: //')
@@ -45,8 +51,9 @@ if [[ -z "$registry_address" || "$registry_address" == "null" ]]; then
 fi
 
 echo "=== Testing run_rollup_upgrade.sh ==="
-# Use a different genesis to get a different rollup version
-export GENESIS_ARCHIVE_ROOT="0x$(openssl rand -hex 32)"
+# Use a different genesis to get a different rollup version. Only 31 random bytes (top byte zero) so the value is
+# always below the BN254 scalar field modulus; the rollup rejects a genesis archive root >= the field modulus.
+export GENESIS_ARCHIVE_ROOT="0x00$(openssl rand -hex 31)"
 
 ./scripts/run_rollup_upgrade.sh "$registry_address"
 

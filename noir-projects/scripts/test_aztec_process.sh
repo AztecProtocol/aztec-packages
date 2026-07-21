@@ -93,4 +93,14 @@ fi
 
 echo "✓ Force regeneration works"
 
+# Test 4: Verify prefix stripping
+echo "Test 4: Prefix stripping"
+prefix_count=$(jq '[.functions[] | select(.name | startswith("__aztec_nr_internals__"))] | length' "$tmp_output")
+if [ "$prefix_count" -ne 0 ]; then
+  echo "Error: Found $prefix_count functions with __aztec_nr_internals__ prefix after processing"
+  exit 1
+fi
+
+echo "✓ Prefix stripping works (no functions with internal prefix)"
+
 echo "All bb aztec_process tests passed!"

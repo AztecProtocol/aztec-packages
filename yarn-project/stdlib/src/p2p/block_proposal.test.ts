@@ -1,9 +1,11 @@
 // Serde test for the block proposal type
 import { Secp256k1Signer } from '@aztec/foundation/crypto/secp256k1-signer';
+import { Signature } from '@aztec/foundation/eth-signature';
 
-import { makeBlockProposal } from '../tests/mocks.js';
+import { TEST_COORDINATION_SIGNATURE_CONTEXT, makeBlockProposal } from '../tests/mocks.js';
 import { Tx } from '../tx/tx.js';
 import { BlockProposal } from './block_proposal.js';
+import { SignedTxs } from './signed_txs.js';
 
 describe('Block Proposal serialization / deserialization', () => {
   const checkEquivalence = (serialized: BlockProposal, deserialized: BlockProposal) => {
@@ -65,5 +67,29 @@ describe('Block Proposal serialization / deserialization', () => {
 
     expect(proposal.slotNumber).toBe(proposal.blockHeader.getSlot());
     expect(proposal.blockNumber).toBe(proposal.blockHeader.getBlockNumber());
+  });
+
+  it('getSender returns undefined when inner signedTxs carries a foreign signing domain', async () => {
+    const account = Secp256k1Signer.random();
+    const txs = await Promise.all([Tx.random(), Tx.random()]);
+    const proposal = await makeBlockProposal({ txs, signer: account });
+
+    const foreignContext = {
+      ...TEST_COORDINATION_SIGNATURE_CONTEXT,
+      chainId: TEST_COORDINATION_SIGNATURE_CONTEXT.chainId + 1,
+    };
+    const foreignSignedTxs = new SignedTxs(txs, Signature.random(), foreignContext);
+    const tampered = new BlockProposal(
+      proposal.blockHeader,
+      proposal.indexWithinCheckpoint,
+      proposal.inHash,
+      proposal.archiveRoot,
+      proposal.txHashes,
+      proposal.signature,
+      proposal.signatureContext,
+      foreignSignedTxs,
+    );
+
+    expect(tampered.getSender()).toBeUndefined();
   });
 });

@@ -32,7 +32,7 @@ The default governance configuration for local networks:
 Ensure you are on the correct Aztec version:
 
 ```bash
-aztec-up #release_version
+aztec-up install #release_version
 ```
 
 ```bash
@@ -43,7 +43,7 @@ Wait for output showing deployed contract addresses. To get the **Registry Addre
 
 ```bash
 curl -s http://localhost:8080 -X POST -H "Content-Type: application/json" \
-  -d '{"jsonrpc":"2.0","method":"node_getNodeInfo","params":[],"id":1}' | jq '.result.l1ContractAddresses'
+  -d '{"jsonrpc":"2.0","method":"aztec_getNodeInfo","params":[],"id":1}' | jq '.result.l1ContractAddresses'
 ```
 
 Note the `registryAddress` from the output.
@@ -70,14 +70,15 @@ git clone --depth 1 https://github.com/foundry-rs/forge-std forge-std
 git clone --depth 1 https://github.com/OpenZeppelin/openzeppelin-contracts openzeppelin-contracts
 cd ..
 
-# Install solc (uses forge's built-in svm)
-forge build --use 0.8.30 src/core/libraries/ConstantsGen.sol
+# Install solc (uses forge's built-in svm). The Aztec installer ships
+# Foundry as `aztec-forge`/`aztec-cast`/`aztec-anvil` -- substitute your
+# own `forge` install if you have one.
+aztec-forge build --use 0.8.30 src/core/libraries/ConstantsGen.sol
 cp ~/.svm/0.8.30/solc-0.8.30 ./solc-0.8.30
 
 # Copy the HonkVerifier to the generated directory (required for build)
 mkdir -p generated
 cp src/HonkVerifier.sol generated/HonkVerifier.sol
-echo '{}' > generated/default.json
 
 # Remove zkpassport-dependent files (not needed for rollup deployment)
 rm -f src/mock/StakingAssetHandler.sol
@@ -113,7 +114,7 @@ export AZTEC_SLASHING_ROUND_SIZE_IN_EPOCHS=1
 export AZTEC_SLASHING_LIFETIME_IN_ROUNDS=10
 export AZTEC_SLASHING_EXECUTION_DELAY_IN_ROUNDS=1
 export AZTEC_SLASHING_OFFSET_IN_ROUNDS=0
-export AZTEC_SLASHER_FLAVOR=none
+export AZTEC_SLASHER_ENABLED=false
 export AZTEC_SLASHING_VETOER=0x0000000000000000000000000000000000000000
 export AZTEC_SLASHING_DISABLE_DURATION=0
 export AZTEC_MANA_TARGET=100000000
@@ -130,7 +131,7 @@ export AZTEC_INITIAL_ETH_PER_FEE_ASSET=10000000
 ## Step 4: Deploy New Rollup
 
 ```bash
-forge script script/deploy/DeployRollupForUpgrade.s.sol:DeployRollupForUpgrade \
+aztec-forge script script/deploy/DeployRollupForUpgrade.s.sol:DeployRollupForUpgrade \
   --rpc-url $L1_RPC_URL \
   --broadcast \
   --private-key $PRIVATE_KEY
@@ -151,7 +152,7 @@ export NEW_ROLLUP_ADDRESS=0x...
 ```bash
 cd l1-contracts
 
-forge create \
+aztec-forge create \
   --rpc-url $L1_RPC_URL \
   --private-key $PRIVATE_KEY \
   --broadcast \
@@ -359,9 +360,12 @@ aztec get-l1-addresses \
 
 ```bash
 aztec debug-rollup \
+  --rollup $NEW_ROLLUP_ADDRESS \
   --l1-rpc-urls $L1_RPC_URL \
   -c $L1_CHAIN_ID
 ```
+
+The `--rollup` flag is required; without it the command may fail trying to resolve the default rollup address.
 
 ---
 
@@ -373,7 +377,7 @@ If you just want to test the governance flow without deploying a real rollup:
 cd l1-contracts
 
 # Deploy empty payload (no constructor args needed)
-forge create \
+aztec-forge create \
   --rpc-url $L1_RPC_URL \
   --private-key $PRIVATE_KEY \
   --broadcast \

@@ -1,8 +1,8 @@
 #pragma once
 
+#include <cstdint>
 #include <optional>
 
-#include "barretenberg/vm2/common/field.hpp"
 #include "barretenberg/vm2/constraining/full_row.hpp"
 #include "barretenberg/vm2/generated/columns.hpp"
 

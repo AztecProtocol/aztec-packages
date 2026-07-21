@@ -1,7 +1,9 @@
 import { NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP } from '@aztec/constants';
 import { BlockNumber } from '@aztec/foundation/branded-types';
+import { padArrayEnd } from '@aztec/foundation/collection';
 import { Fr } from '@aztec/foundation/curves/bn254';
-import type { L2Block } from '@aztec/stdlib/block';
+import { AvmSimulatorPool } from '@aztec/simulator/server';
+import type { BlockHash, L2Block } from '@aztec/stdlib/block';
 import type {
   MerkleTreeReadOperations,
   MerkleTreeWriteOperations,
@@ -15,30 +17,39 @@ export class TXESynchronizer implements WorldStateSynchronizer {
   // This works when set to 1 as well.
   private blockNumber = BlockNumber.ZERO;
 
+  /** AVM execution backend (simulator pool + CDB server) shared across all public simulations. */
+  public avmSimulator!: AvmSimulatorPool;
+
   constructor(public nativeWorldStateService: NativeWorldStateService) {}
 
   static async create() {
-    const nativeWorldStateService = await NativeWorldStateService.tmp();
+    const nativeWorldStateService = await NativeWorldStateService.ephemeral();
 
-    return new this(nativeWorldStateService);
+    const synchronizer = new this(nativeWorldStateService);
+
+    synchronizer.avmSimulator = await AvmSimulatorPool.spawn({
+      wsdbIpcPath: nativeWorldStateService.getIpcPath(),
+    });
+
+    return synchronizer;
   }
 
-  public async handleL2Block(block: L2Block) {
+  public async handleL2Block(block: L2Block, l1ToL2Messages: Fr[] = []) {
     await this.nativeWorldStateService.handleL2BlockAndMessages(
       block,
-      Array(NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP).fill(0).map(Fr.zero),
+      padArrayEnd<Fr, number>(l1ToL2Messages, Fr.ZERO, NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP),
     );
 
     this.blockNumber = block.header.globalVariables.blockNumber;
   }
 
   /**
-   * Forces an immediate sync to an optionally provided minimum block number
+   * Forces an immediate sync to an optionally provided minimum block number.
    * @param targetBlockNumber - The target block number that we must sync to. Will download unproven blocks if needed to reach it.
-   * @param skipThrowIfTargetNotReached - Whether to skip throwing if the target block number is not reached.
+   * @param blockHash - If provided, verifies the block at targetBlockNumber matches this hash.
    * @returns A promise that resolves with the block number the world state was synced to
    */
-  public syncImmediate(_minBlockNumber?: BlockNumber, _skipThrowIfTargetNotReached?: boolean): Promise<BlockNumber> {
+  public syncImmediate(_minBlockNumber?: BlockNumber, _blockHash?: BlockHash): Promise<BlockNumber> {
     return Promise.resolve(this.blockNumber);
   }
 
@@ -57,6 +68,11 @@ export class TXESynchronizer implements WorldStateSynchronizer {
     return this.nativeWorldStateService.getSnapshot(BlockNumber(blockNumber));
   }
 
+  /** Gets a snapshot at the given block number. The TXE has no reorgs, so the fork hash is not verified. */
+  public getVerifiedSnapshot(blockNumber: number, _blockHash: BlockHash): Promise<MerkleTreeReadOperations> {
+    return Promise.resolve(this.getSnapshot(blockNumber));
+  }
+
   /** Backups the db to the target path. */
   public backupTo(dstPath: string, compact?: boolean): Promise<Record<Exclude<SnapshotDataKeys, 'archiver'>, string>> {
     return this.nativeWorldStateService.backupTo(dstPath, compact);
@@ -70,8 +86,8 @@ export class TXESynchronizer implements WorldStateSynchronizer {
     throw new Error('TXE Synchronizer does not implement "status"');
   }
 
-  public stop(): Promise<void> {
-    throw new Error('TXE Synchronizer does not implement "stop"');
+  public async stop(): Promise<void> {
+    await this.closeIpc();
   }
 
   public stopSync(): Promise<void> {
@@ -84,5 +100,10 @@ export class TXESynchronizer implements WorldStateSynchronizer {
 
   public clear(): Promise<void> {
     throw new Error('TXE Synchronizer does not implement "clear"');
+  }
+
+  /** Clean up IPC resources. */
+  public async closeIpc(): Promise<void> {
+    await this.avmSimulator?.[Symbol.asyncDispose]();
   }
 }

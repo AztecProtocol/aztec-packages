@@ -6,12 +6,13 @@ import { readFieldCompressedString } from '@aztec/aztec.js/utils';
 import { createLogger } from '@aztec/foundation/log';
 import { sleep } from '@aztec/foundation/sleep';
 import type { TxHash } from '@aztec/stdlib/tx';
-import type { ProvenTx, TestWallet } from '@aztec/test-wallet/server';
-import { proveInteraction } from '@aztec/test-wallet/server';
 
 import { jest } from '@jest/globals';
 
 import { getSponsoredFPCAddress } from '../fixtures/utils.js';
+import type { TestWallet } from '../test-wallet/test_wallet.js';
+import type { ProvenTx } from '../test-wallet/utils.js';
+import { proveInteraction } from '../test-wallet/utils.js';
 import {
   type TestAccounts,
   createWalletAndAztecNodeClient,
@@ -20,6 +21,8 @@ import {
 import { type ServiceEndpoint, getRPCEndpoint, setupEnvironment } from './utils.js';
 
 const config = { ...setupEnvironment(process.env) };
+// 1 TPS sustained transfer test against a live k8s deployment. Not yet wired into CI (see TODO above).
+// Sends token transfers at roughly 1 tx/s and verifies inclusion.
 describe('token transfer test', () => {
   jest.setTimeout(10 * 60 * 2000); // 20 minutes
 
@@ -62,7 +65,8 @@ describe('token transfer test', () => {
 
   it('can get info', async () => {
     const name = readFieldCompressedString(
-      await testAccounts.tokenContract.methods.private_get_name().simulate({ from: testAccounts.tokenAdminAddress }),
+      (await testAccounts.tokenContract.methods.private_get_name().simulate({ from: testAccounts.tokenAdminAddress }))
+        .result,
     );
     expect(name).toBe(testAccounts.tokenName);
   });
@@ -73,16 +77,20 @@ describe('token transfer test', () => {
 
     for (const acc of testAccounts.accounts) {
       expect(MINT_AMOUNT).toBe(
-        await testAccounts.tokenContract.methods
-          .balance_of_public(acc)
-          .simulate({ from: testAccounts.tokenAdminAddress }),
+        (
+          await testAccounts.tokenContract.methods
+            .balance_of_public(acc)
+            .simulate({ from: testAccounts.tokenAdminAddress })
+        ).result,
       );
     }
 
     expect(0n).toBe(
-      await testAccounts.tokenContract.methods
-        .balance_of_public(recipient)
-        .simulate({ from: testAccounts.tokenAdminAddress }),
+      (
+        await testAccounts.tokenContract.methods
+          .balance_of_public(recipient)
+          .simulate({ from: testAccounts.tokenAdminAddress })
+      ).result,
     );
 
     const defaultAccountAddress = testAccounts.accounts[0];
@@ -127,7 +135,7 @@ describe('token transfer test', () => {
       }),
     );
 
-    const recipientBalance = await testAccounts.tokenContract.methods
+    const { result: recipientBalance } = await testAccounts.tokenContract.methods
       .balance_of_public(recipient)
       .simulate({ from: testAccounts.tokenAdminAddress });
     logger.info(`recipientBalance: ${recipientBalance}`);

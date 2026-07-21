@@ -61,7 +61,7 @@ extern "C" int LLVMFuzzerTestOneInput(const unsigned char* data, size_t size)
         verifier_transcript, proof, x, translation_batching_challenge, accumulated_result, op_queue_commitments);
     auto verification_result = verifier.reduce_to_pairing_check();
     bool verified = verification_result.reduction_succeeded && verification_result.pairing_points.check();
-    (void)checked;
-    (void)verified;
+    BB_ASSERT(checked, "Translator CircuitChecker failed on valid circuit");
+    BB_ASSERT(verified, "Translator proof verification failed for honest prover");
     return 0;
 }

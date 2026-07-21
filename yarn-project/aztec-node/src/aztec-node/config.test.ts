@@ -1,7 +1,7 @@
 import { EthAddress } from '@aztec/foundation/eth-address';
 import type { EthPrivateKey } from '@aztec/node-keystore';
 import type { SharedNodeConfig } from '@aztec/node-lib/config';
-import type { SequencerClientConfig, TxSenderConfig } from '@aztec/sequencer-client/config';
+import type { SequencerClientConfig, SequencerTxSenderConfig } from '@aztec/sequencer-client/config';
 import { AztecAddress } from '@aztec/stdlib/aztec-address';
 import type { ValidatorClientConfig } from '@aztec/validator-client/config';
 
@@ -33,7 +33,7 @@ describe('createKeyStoreForValidator', () => {
     web3SignerUrl?: string,
     validatorAddresses: EthAddress[] = [],
     publisherAddresses: EthAddress[] = [],
-  ): TxSenderConfig & ValidatorClientConfig & SequencerClientConfig & SharedNodeConfig => {
+  ): SequencerTxSenderConfig & ValidatorClientConfig & SequencerClientConfig & SharedNodeConfig => {
     const mockValidatorPrivateKeys =
       validatorKeys.length > 0
         ? {
@@ -46,14 +46,14 @@ describe('createKeyStoreForValidator', () => {
 
     return {
       validatorPrivateKeys: mockValidatorPrivateKeys,
-      publisherPrivateKeys: mockPublisherPrivateKeys,
+      sequencerPublisherPrivateKeys: mockPublisherPrivateKeys,
       coinbase: coinbase,
       feeRecipient: feeRecipient,
       web3SignerUrl,
       validatorAddresses: validatorAddresses.map(addr => addr),
-      publisherAddresses: publisherAddresses.map(addr => addr),
-      l1Contracts: { rollupAddress: EthAddress.random() },
-    } as TxSenderConfig & ValidatorClientConfig & SequencerClientConfig & SharedNodeConfig;
+      sequencerPublisherAddresses: publisherAddresses.map(addr => addr),
+      rollupAddress: EthAddress.random(),
+    } as SequencerTxSenderConfig & ValidatorClientConfig & SequencerClientConfig & SharedNodeConfig;
   };
 
   beforeAll(async () => {
@@ -69,11 +69,11 @@ describe('createKeyStoreForValidator', () => {
   it('should return undefined when validatorPrivateKeys is undefined', () => {
     const config = {
       validatorPrivateKeys: undefined,
-      publisherPrivateKeys: undefined,
+      sequencerPublisherPrivateKeys: undefined,
       coinbase: undefined,
       feeRecipient: undefined,
-      l1Contracts: { rollupAddress: EthAddress.random() },
-    } as unknown as TxSenderConfig & ValidatorClientConfig & SequencerClientConfig & SharedNodeConfig;
+      rollupAddress: EthAddress.random(),
+    } as unknown as SequencerTxSenderConfig & ValidatorClientConfig & SequencerClientConfig & SharedNodeConfig;
     const result = createKeyStoreForValidator(config);
     expect(result).toBeUndefined();
   });

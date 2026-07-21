@@ -19,6 +19,8 @@ export class Capsule {
     public readonly storageSlot: Fr,
     /** Data passed to the contract  */
     public readonly data: Fr[],
+    /** Optional namespace for the capsule contents */
+    public readonly scope?: AztecAddress,
   ) {}
 
   static get schema() {
@@ -30,12 +32,18 @@ export class Capsule {
   }
 
   toBuffer() {
-    return serializeToBuffer(this.contractAddress, this.storageSlot, new Vector(this.data));
+    return this.scope
+      ? serializeToBuffer(this.contractAddress, this.storageSlot, new Vector(this.data), true, this.scope)
+      : serializeToBuffer(this.contractAddress, this.storageSlot, new Vector(this.data), false);
   }
 
   static fromBuffer(buffer: Buffer | BufferReader): Capsule {
     const reader = BufferReader.asReader(buffer);
-    return new Capsule(AztecAddress.fromBuffer(reader), Fr.fromBuffer(reader), reader.readVector(Fr));
+    const contractAddress = AztecAddress.fromBuffer(reader);
+    const storageSlot = Fr.fromBuffer(reader);
+    const data = reader.readVector(Fr);
+    const hasScope = reader.readBoolean();
+    return new Capsule(contractAddress, storageSlot, data, hasScope ? AztecAddress.fromBuffer(reader) : undefined);
   }
 
   toString() {

@@ -29,7 +29,7 @@ include "memory.pil";
  *
  *[DISPATCH_TO_POSEIDON2_PERM]
  * sel_exec_dispatch_poseidon2_perm {
- *         precomputed.clk,
+ *         clk,
  *         context_id,
  *         rop[0],
  *         rop[1],
@@ -80,6 +80,10 @@ namespace poseidon2_perm_mem;
     // (2) write_address[3] > max_mem_addr
     pol commit max_mem_addr;
     sel * (max_mem_addr - constants.AVM_HIGHEST_MEM_ADDRESS) = 0;
+    // Preconditions to `gt` gadget require both inputs to be bounded by 2^128.
+    // `read_address[3]` = read_address[0] + 3 where read_address[0] is an address (< 2^32), so < 2^33.
+    // `write_address[3]` = write_address[0] + 3 where write_address[0] is an address (< 2^32), so < 2^33.
+    // `max_mem_addr` = AVM_HIGHEST_MEM_ADDRESS which is < 2^32.
     #[CHECK_SRC_ADDR_IN_RANGE]
     sel { read_address[3], max_mem_addr, sel_src_out_of_range_err }
     in

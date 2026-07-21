@@ -3,7 +3,6 @@
 
 #include <string_view>
 
-#include "barretenberg/common/bb_bench.hpp"
 #include "barretenberg/relations/relation_parameters.hpp"
 #include "barretenberg/relations/relation_types.hpp"
 #include "barretenberg/vm2/generated/columns.hpp"
@@ -14,10 +13,10 @@ template <typename FF_> class sha256_memImpl {
   public:
     using FF = FF_;
 
-    static constexpr std::array<size_t, 52> SUBRELATION_PARTIAL_LENGTHS = { 3, 4, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3,
-                                                                            3, 5, 2, 3, 5, 5, 5, 5, 5, 5, 5, 5, 5,
-                                                                            5, 5, 5, 5, 5, 5, 5, 3, 3, 6, 4, 3, 3,
-                                                                            5, 4, 3, 4, 5, 3, 3, 3, 5, 5, 3, 3, 4 };
+    static constexpr std::array<size_t, 50> SUBRELATION_PARTIAL_LENGTHS = { 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3,
+                                                                            3, 5, 2, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3,
+                                                                            3, 3, 3, 3, 3, 3, 3, 2, 3, 5, 3, 3, 3,
+                                                                            3, 4, 4, 3, 3, 3, 5, 3, 3, 3, 2 };
 
     template <typename AllEntities> inline static bool skip(const AllEntities& in)
     {
@@ -38,34 +37,33 @@ template <typename FF> class sha256_mem : public Relation<sha256_memImpl<FF>> {
     static constexpr const std::string_view NAME = "sha256_mem";
 
     // Subrelation indices constants, to be used in tests.
-    static constexpr size_t SR_TRACE_CONTINUITY = 1;
-    static constexpr size_t SR_LATCH_HAS_SEL_ON = 4;
-    static constexpr size_t SR_START_AFTER_LAST = 5;
+    static constexpr size_t SR_SEL_ON_START_OR_END = 3;
+    static constexpr size_t SR_TRACE_CONTINUITY = 4;
+    static constexpr size_t SR_START_AFTER_LATCH = 5;
     static constexpr size_t SR_CONTINUITY_EXEC_CLK = 6;
     static constexpr size_t SR_CONTINUITY_SPACE_ID = 7;
     static constexpr size_t SR_CONTINUITY_OUTPUT_ADDR = 8;
     static constexpr size_t SR_CONTINUITY_INPUT_ADDR = 9;
-    static constexpr size_t SR_START_OR_LAST_MEM = 16;
+    static constexpr size_t SR_START_OR_END_MEM = 16;
     static constexpr size_t SR_BATCH_ZERO_CHECK_READ = 35;
     static constexpr size_t SR_BATCH_ENFORCE_ZERO_WRITE = 36;
-    static constexpr size_t SR_SEL_IS_INPUT_ROUND_START_COND = 38;
-    static constexpr size_t SR_SEL_IS_INPUT_END = 39;
-    static constexpr size_t SR_SEL_IS_INPUT_PROPAGATE = 40;
-    static constexpr size_t SR_INPUT_ROUND_CTR_START_COND = 41;
-    static constexpr size_t SR_INPUT_ROUND_CTR_DECR_COND = 42;
-    static constexpr size_t SR_INPUT_TAG_DIFF_CHECK = 47;
-    static constexpr size_t SR_TAG_ERROR_INIT = 49;
-    static constexpr size_t SR_TAG_ERROR_PROPAGATION = 50;
+    static constexpr size_t SR_INPUT_ROUND_CTR_START_COND = 37;
+    static constexpr size_t SR_INPUT_ROUND_CTR_DECR_COND = 38;
+    static constexpr size_t SR_SEL_IS_INPUT_ROUND_ZERO_CHECK = 40;
+    static constexpr size_t SR_INPUT_TAG_DIFF_CHECK = 45;
+    static constexpr size_t SR_TAG_ERROR_INIT = 47;
+    static constexpr size_t SR_TAG_ERROR_PROPAGATION = 48;
 
     static std::string get_subrelation_label(size_t index)
     {
+#ifdef AVM_INCLUDE_COLUMN_INFORMATION
         switch (index) {
+        case SR_SEL_ON_START_OR_END:
+            return "SEL_ON_START_OR_END";
         case SR_TRACE_CONTINUITY:
             return "TRACE_CONTINUITY";
-        case SR_LATCH_HAS_SEL_ON:
-            return "LATCH_HAS_SEL_ON";
-        case SR_START_AFTER_LAST:
-            return "START_AFTER_LAST";
+        case SR_START_AFTER_LATCH:
+            return "START_AFTER_LATCH";
         case SR_CONTINUITY_EXEC_CLK:
             return "CONTINUITY_EXEC_CLK";
         case SR_CONTINUITY_SPACE_ID:
@@ -74,22 +72,18 @@ template <typename FF> class sha256_mem : public Relation<sha256_memImpl<FF>> {
             return "CONTINUITY_OUTPUT_ADDR";
         case SR_CONTINUITY_INPUT_ADDR:
             return "CONTINUITY_INPUT_ADDR";
-        case SR_START_OR_LAST_MEM:
-            return "START_OR_LAST_MEM";
+        case SR_START_OR_END_MEM:
+            return "START_OR_END_MEM";
         case SR_BATCH_ZERO_CHECK_READ:
             return "BATCH_ZERO_CHECK_READ";
         case SR_BATCH_ENFORCE_ZERO_WRITE:
             return "BATCH_ENFORCE_ZERO_WRITE";
-        case SR_SEL_IS_INPUT_ROUND_START_COND:
-            return "SEL_IS_INPUT_ROUND_START_COND";
-        case SR_SEL_IS_INPUT_END:
-            return "SEL_IS_INPUT_END";
-        case SR_SEL_IS_INPUT_PROPAGATE:
-            return "SEL_IS_INPUT_PROPAGATE";
         case SR_INPUT_ROUND_CTR_START_COND:
             return "INPUT_ROUND_CTR_START_COND";
         case SR_INPUT_ROUND_CTR_DECR_COND:
             return "INPUT_ROUND_CTR_DECR_COND";
+        case SR_SEL_IS_INPUT_ROUND_ZERO_CHECK:
+            return "SEL_IS_INPUT_ROUND_ZERO_CHECK";
         case SR_INPUT_TAG_DIFF_CHECK:
             return "INPUT_TAG_DIFF_CHECK";
         case SR_TAG_ERROR_INIT:
@@ -97,6 +91,7 @@ template <typename FF> class sha256_mem : public Relation<sha256_memImpl<FF>> {
         case SR_TAG_ERROR_PROPAGATION:
             return "TAG_ERROR_PROPAGATION";
         }
+#endif
         return std::to_string(index);
     }
 };

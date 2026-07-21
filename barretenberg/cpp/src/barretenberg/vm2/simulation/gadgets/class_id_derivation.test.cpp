@@ -4,7 +4,7 @@
 #include <gmock/gmock.h>
 #include <gtest/gtest.h>
 
-#include "barretenberg/vm2/common/aztec_constants.hpp"
+#include "barretenberg/aztec/aztec_constants.hpp"
 #include "barretenberg/vm2/common/aztec_types.hpp"
 #include "barretenberg/vm2/common/field.hpp"
 #include "barretenberg/vm2/simulation/events/class_id_derivation_event.hpp"
@@ -46,8 +46,8 @@ TEST(AvmSimulationClassIdDerivationTest, Positive)
 
     auto events = class_id_derivation_event_emitter.dump_events();
     EXPECT_THAT(events, SizeIs(1));
-    EXPECT_EQ(events[0].klass.id, expected_class_id);
-    EXPECT_EQ(events[0].klass.artifact_hash, klass.artifact_hash);
+    EXPECT_EQ(events[0].class_id, expected_class_id);
+    EXPECT_EQ(events[0].artifact_hash, klass.artifact_hash);
 
     // Second derivation for the same class ID should be a cache hit and should not emit an event
     class_id_derivation.assert_derivation(klass);

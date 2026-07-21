@@ -1,17 +1,6 @@
+import { BBJsFactory, type UltraHonkFlavor, constructRecursiveProofFromBuffers } from '@aztec/bb-prover';
 import {
-  BB_RESULT,
-  PROOF_FILENAME,
-  PUBLIC_INPUTS_FILENAME,
-  type UltraHonkFlavor,
-  VK_FILENAME,
-  generateAvmProof,
-  generateProof,
-  readProofsFromOutputDirectory,
-  verifyAvmProof,
-  verifyProof,
-} from '@aztec/bb-prover';
-import {
-  AVM_V2_PROOF_LENGTH_IN_FIELDS_PADDED,
+  AVM_V2_PROOF_LENGTH_IN_FIELDS,
   CHONK_PROOF_LENGTH,
   HIDING_KERNEL_IO_PUBLIC_INPUTS_SIZE,
   NESTED_RECURSIVE_PROOF_LENGTH,
@@ -19,14 +8,13 @@ import {
 } from '@aztec/constants';
 import { Fr } from '@aztec/foundation/curves/bn254';
 import type { Logger } from '@aztec/foundation/log';
-import { BufferReader } from '@aztec/foundation/serialize';
 import type { AvmCircuitInputs, AvmCircuitPublicInputs } from '@aztec/stdlib/avm';
 import { makeProofAndVerificationKey } from '@aztec/stdlib/interfaces/server';
 import type { NoirCompiledCircuit } from '@aztec/stdlib/noir';
 import { Proof, RecursiveProof } from '@aztec/stdlib/proofs';
 import { VerificationKeyAsFields, VerificationKeyData } from '@aztec/stdlib/vks';
 
-import * as fs from 'fs/promises';
+import { ungzip } from 'pako';
 import * as path from 'path';
 
 export async function proofBytesToRecursiveProof(
@@ -49,62 +37,55 @@ export async function proofBytesToRecursiveProof(
   return new RecursiveProof(fieldsWithoutPublicInputs, proof, true, CHONK_PROOF_LENGTH);
 }
 
-async function verifyProofWithKey(
-  pathToBB: string,
-  workingDirectory: string,
-  verificationKey: VerificationKeyData,
-  proof: Proof,
-  flavor: UltraHonkFlavor,
-  logger: Logger,
-) {
-  const publicInputsFileName = path.join(workingDirectory, PUBLIC_INPUTS_FILENAME);
-  const proofFileName = path.join(workingDirectory, PROOF_FILENAME);
-  const verificationKeyPath = path.join(workingDirectory, VK_FILENAME);
-  // TODO(https://github.com/AztecProtocol/aztec-packages/issues/13189): Put this proof parsing logic in the proof class.
-  await fs.writeFile(publicInputsFileName, proof.buffer.slice(0, proof.numPublicInputs * 32));
-  await fs.writeFile(proofFileName, proof.buffer.slice(proof.numPublicInputs * 32));
-  await fs.writeFile(verificationKeyPath, verificationKey.keyAsBytes);
-
-  const result = await verifyProof(pathToBB, proofFileName, verificationKeyPath, flavor, logger);
-  if (result.status === BB_RESULT.FAILURE) {
-    throw new Error(`Failed to verify proof from key!`);
-  }
-  logger.info(`Successfully verified proof from key in ${result.durationMs} ms`);
-}
-
 async function proveRollupCircuit<T extends UltraHonkFlavor, ProofLength extends number>(
   name: string,
   pathToBB: string,
-  workingDirectory: string,
+  _workingDirectory: string,
   circuit: NoirCompiledCircuit,
   witness: Uint8Array,
   logger: Logger,
   flavor: T,
   proofLength: ProofLength,
 ) {
-  await fs.writeFile(path.join(workingDirectory, 'witness.gz'), witness);
-  const vkBuffer = Buffer.from(circuit.verificationKey.bytes, 'hex');
-  const proofResult = await generateProof(
-    pathToBB,
-    workingDirectory,
-    name,
-    Buffer.from(circuit.bytecode, 'base64'),
-    vkBuffer,
-    path.join(workingDirectory, 'witness.gz'),
-    flavor,
-    logger,
-  );
+  const factory = new BBJsFactory(pathToBB, { logger });
+  try {
+    // Decompress witness and bytecode for bb.js
+    const decompressedWitness = ungzip(witness);
+    const bytecode = ungzip(Buffer.from(circuit.bytecode, 'base64'));
+    const vkBuffer = Buffer.from(circuit.verificationKey.bytes, 'hex');
 
-  if (proofResult.status != BB_RESULT.SUCCESS) {
-    throw new Error(`Failed to generate proof for ${name} with flavor ${flavor}`);
+    // Generate proof via bb.js
+    await using proveInstance = await factory.getInstance();
+    const proofResult = await proveInstance.generateProof(name, bytecode, vkBuffer, decompressedWitness, flavor);
+
+    const vk = await VerificationKeyData.fromFrBuffer(vkBuffer);
+
+    // Construct proof from in-memory buffers
+    const proof = constructRecursiveProofFromBuffers(
+      proofResult.proofFields,
+      proofResult.publicInputFields,
+      vk,
+      proofLength,
+    );
+
+    // Verify the proof via bb.js
+    await using verifyInstance = await factory.getInstance();
+    const { verified } = await verifyInstance.verifyProof(
+      proofResult.proofFields,
+      vk.keyAsBytes,
+      proofResult.publicInputFields,
+      flavor,
+    );
+
+    if (!verified) {
+      throw new Error(`Failed to verify proof from key!`);
+    }
+    logger.info(`Successfully verified proof from key`);
+
+    return makeProofAndVerificationKey(proof, vk);
+  } finally {
+    await factory.destroy();
   }
-
-  const vk = await VerificationKeyData.fromFrBuffer(vkBuffer);
-  const proof = await readProofsFromOutputDirectory(proofResult.proofPath!, vk, proofLength, logger);
-
-  await verifyProofWithKey(pathToBB, workingDirectory, vk, proof.binaryProof, flavor, logger);
-
-  return makeProofAndVerificationKey(proof, vk);
 }
 
 export function proveRollupHonk(
@@ -147,58 +128,45 @@ export function proveKeccakHonk(
   );
 }
 
+/** Generate and verify an AVM proof via bb.js. */
 export async function proveAvm(
   avmCircuitInputs: AvmCircuitInputs,
-  workingDirectory: string,
+  _workingDirectory: string,
   logger: Logger,
 ): Promise<{
   proof: Fr[];
   publicInputs: AvmCircuitPublicInputs;
 }> {
-  // The paths for the barretenberg binary and the write path are hardcoded for now.
   const bbPath = path.resolve('../../barretenberg/cpp/build/bin/bb-avm');
+  const factory = new BBJsFactory(bbPath, { logger });
+  try {
+    const inputsBuffer = avmCircuitInputs.serializeWithMessagePack();
+    let proofFields: Uint8Array[];
+    {
+      await using instance = await factory.getInstance();
+      ({ proof: proofFields } = await instance.generateAvmProof(inputsBuffer));
+    }
 
-  // Then we prove.
-  const proofRes = await generateAvmProof(bbPath, workingDirectory, avmCircuitInputs, logger);
-  if (proofRes.status === BB_RESULT.FAILURE) {
-    throw new Error(`AVM V2 proof generation failed: ${proofRes.reason}`);
-  } else if (proofRes.status === BB_RESULT.ALREADY_PRESENT) {
-    throw new Error(`AVM V2 proof already exists`);
+    // Convert Uint8Array field elements → Fr[]
+    const proof: Fr[] = proofFields.map(f => Fr.fromBuffer(Buffer.from(f)));
+
+    if (proof.length !== AVM_V2_PROOF_LENGTH_IN_FIELDS) {
+      throw new Error(`AVM V2 proof has ${proof.length} fields, expected exactly ${AVM_V2_PROOF_LENGTH_IN_FIELDS}.`);
+    }
+
+    // Explicit verify pass against the serialized public inputs (matches the legacy binary flow).
+    const piBuffer = avmCircuitInputs.publicInputs.serializeWithMessagePack();
+    await using verifyInstance = await factory.getInstance();
+    const { verified: reVerified } = await verifyInstance.verifyAvmProof(proofFields, piBuffer);
+    if (!reVerified) {
+      throw new Error('AVM V2 proof verification failed');
+    }
+
+    return {
+      proof,
+      publicInputs: avmCircuitInputs.publicInputs,
+    };
+  } finally {
+    await factory.destroy();
   }
-
-  const avmProofPath = proofRes.proofPath;
-  expect(avmProofPath).toBeDefined();
-
-  // Read the binary proof
-  const avmProofBuffer = await fs.readFile(avmProofPath!);
-  const reader = BufferReader.asReader(avmProofBuffer);
-
-  const proof: Fr[] = [];
-  while (!reader.isEmpty()) {
-    proof.push(Fr.fromBuffer(reader));
-  }
-
-  // We extend to a fixed-size padded proof as during development any new AVM circuit column changes the
-  // proof length and we do not have a mechanism to feedback a cpp constant to noir/TS.
-  // TODO(#13390): Revive a non-padded AVM proof
-  while (proof.length < AVM_V2_PROOF_LENGTH_IN_FIELDS_PADDED) {
-    proof.push(new Fr(0));
-  }
-
-  const verificationResult = await verifyAvmProof(
-    bbPath,
-    workingDirectory,
-    proofRes.proofPath!,
-    avmCircuitInputs.publicInputs,
-    logger,
-  );
-
-  if (verificationResult.status === BB_RESULT.FAILURE) {
-    throw new Error(`AVM V2 proof verification failed: ${verificationResult.reason}`);
-  }
-
-  return {
-    proof,
-    publicInputs: avmCircuitInputs.publicInputs,
-  };
 }

@@ -8,7 +8,7 @@ export type InboxMessage = {
   index: bigint;
   leaf: Fr;
   checkpointNumber: CheckpointNumber;
-  l1BlockNumber: bigint; // L1 block number - NOT Aztec L2
+  l1BlockNumber: bigint;
   l1BlockHash: Buffer32;
   rollingHash: Buffer16;
 };

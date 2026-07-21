@@ -1,4 +1,4 @@
-import { GeneratorIndex, MAX_PROTOCOL_CONTRACTS } from '@aztec/constants';
+import { DomainSeparator, MAX_PROTOCOL_CONTRACTS } from '@aztec/constants';
 import { makeTuple } from '@aztec/foundation/array';
 import { arraySerializedSizeOfNonEmpty } from '@aztec/foundation/collection';
 import { poseidon2HashWithSeparator } from '@aztec/foundation/crypto/poseidon';
@@ -71,7 +71,7 @@ export class ProtocolContracts {
   }
 
   hash() {
-    return poseidon2HashWithSeparator(this.derivedAddresses, GeneratorIndex.PROTOCOL_CONTRACTS);
+    return poseidon2HashWithSeparator(this.derivedAddresses, DomainSeparator.PROTOCOL_CONTRACTS);
   }
 
   static get schema() {

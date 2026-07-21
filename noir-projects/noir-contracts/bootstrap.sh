@@ -1,5 +1,4 @@
 #!/usr/bin/env bash
-# TODO: THIS SCRIPT SHOULD NOW BE ABLE TO REPLACE TRANSPILATION AND VK GENERATION WITH 'bb aztec_process'.
 #
 # Some notes if you have to work on this script.
 # - First of all, I'm sorry (edit: not sorry). It's a beautiful script but it's no fun to debug. I got carried away.
@@ -30,76 +29,13 @@ export PLATFORM_TAG=any
 
 export BB=${BB:-../../barretenberg/cpp/build/bin/bb}
 export NARGO=${NARGO:-../../noir/noir-repo/target/release/nargo}
-export TRANSPILER=${TRANSPILER:-../../avm-transpiler/target/release/avm-transpiler}
-export STRIP_AZTEC_NR_PREFIX=${STRIP_AZTEC_NR_PREFIX:-./scripts/strip_aztec_nr_prefix.sh}
 export BB_HASH=${BB_HASH:-$(../../barretenberg/cpp/bootstrap.sh hash)}
 export NOIR_HASH=${NOIR_HASH:-$(../../noir/bootstrap.sh hash)}
-
-export tmp_dir=./target/tmp
-
-# Remove our tmp dir from last run.
-# Note: This can use BASH 'trap' for better cleanliness, but the script has been hitting edge-cases so is (temporarily?) simplified.
-rm -rf $tmp_dir
-mkdir -p $tmp_dir
+# Below the Linux ephemeral range (32768-60999) to reduce accidental port conflicts.
+DEFAULT_TXE_PORT=14730
 
 # Set common flags for parallel.
 export PARALLEL_FLAGS="-j${PARALLELISM:-16} --halt now,fail=1 --memsuspend $(memsuspend_limit)"
-
-# This computes a vk and adds it to the input function json if it's private, else returns same input.
-# stdin has the function json.
-# stdout receives the function json with the vk added (if private).
-# The function is exported and called by a sub-shell in parallel, so we must "set -eu" etc..
-# If debugging, a set -x at the start can help.
-function process_function {
-  set -euo pipefail
-  local func name bytecode_b64 hash vk
-
-  contract_hash=$1
-  # Read the function json.
-  func="$(cat)"
-  name=$(echo "$func" | jq -r '.name')
-  echo_stderr "Processing function: $name..."
-
-  # Check if the function is neither public nor unconstrained.
-  # TODO: Why do we need to gen keys for functions that are not marked private?
-  # We allow the jq call to error (set +e) because it returns an error code if the result is false.
-  # We then differentiate between a real error, and the result being false.
-  set +e
-  make_vk=$(echo "$func" | jq -e '(.custom_attributes | index("public") == null) and (.is_unconstrained == false)')
-  if [ $? -ne 0 ] && [ "$make_vk" != "false" ]; then
-    echo_stderr "Failed to check function $name is neither public nor unconstrained."
-    exit 1
-  fi
-  set -e
-
-  if [ "$make_vk" == "true" ]; then
-    # It's a private function.
-    # Build hash, check if in cache.
-    # If it's in the cache it's extracted to $tmp_dir/$hash
-    bytecode_b64=$(echo "$func" | jq -r '.bytecode')
-    hash=$((echo "$BB_HASH"; echo "$bytecode_b64") | sha256sum | tr -d ' -')
-
-    if ! cache_download vk-$contract_hash-$hash.tar.gz >&2; then
-      # It's not in the cache. Generate the vk file and upload it to the cache.
-      echo_stderr "Generating vk for function: $name..."
-
-      local outdir=$(mktemp -d -p $tmp_dir)
-      echo "$bytecode_b64" | base64 -d | gunzip | $BB write_vk --scheme chonk -b - -o $outdir -v
-      mv $outdir/vk $tmp_dir/$contract_hash/$hash
-
-      cache_upload vk-$contract_hash-$hash.tar.gz $tmp_dir/$contract_hash/$hash
-    fi
-
-    # Return (echo) json containing the base64 encoded verification key.
-    vk=$(cat $tmp_dir/$contract_hash/$hash | base64 -w 0)
-    echo "$func" | jq -c --arg vk "$vk" '. + {verification_key: $vk}'
-  else
-    echo_stderr "Function $name is neither public nor unconstrained, skipping."
-    # Not a private function. Return the original function json.
-    echo "$func"
-  fi
-}
-export -f process_function
 
 # Compute hash for a given contract.
 # $1 is the contract name, $2 is the folder name (e.g. "contracts" or "examples")
@@ -159,42 +95,41 @@ function get_contract_path {
 }
 export -f get_contract_path
 
-# This compiles a noir contract, transpile's public functions, and generates vk's for private functions.
+# Stamps "dev" (DEV_VERSION) as the artifact's aztec_version - that is the expected version of a locally checked out
+# monorepo. The real release version is applied at publish time by whichever path owns it:
+# ci3/release_prep_package_json for npm packages, release-image/Dockerfile for the docker image.
+function stamp_dev_aztec_version {
+  local json_path=$1
+  local tmp=$(mktemp)
+  jq '.aztec_version = "dev"' "$json_path" > "$tmp"
+  cat "$tmp" > "$json_path"
+  rm "$tmp"
+}
+export -f stamp_dev_aztec_version
+
+# This compiles a noir contract, transpiles public functions, strips internal prefixes,
+# and generates verification keys for private functions via 'bb aztec_process'.
 # $1 is the input package name, $2 is the folder name (e.g. "contracts" or "examples")
-# On exit it's fully processed json artifact is in the target dir.
+# On exit its fully processed json artifact is in the target dir.
 # The function is exported and called by a sub-shell in parallel, so we must "set -eu" etc..
 function compile {
   set -euo pipefail
-  local contract_name contract_hash
 
   local contract_path=$(get_contract_path "$1" "$2")
-  local contract=${contract_path##*/}
+  local contract=$(grep -oP '(?<=^name = ")[^"]+' "$2/$contract_path/Nargo.toml")
   # Calculate filename because nargo...
-  contract_name=$(cat $2/$contract_path/src/main.nr | awk '/^contract / { print $2 } /^pub contract / { print $3 }')
+  local contract_name=$(cat $2/$contract_path/src/main.nr | awk '/^contract / { print $2 } /^pub contract / { print $3 }')
   local filename="$contract-$contract_name.json"
   local json_path="./target/$filename"
-  contract_hash=$(get_contract_hash $1 $2)
+  local contract_hash=$(get_contract_hash $1 $2)
   if ! cache_download contract-$contract_hash.tar.gz; then
-    $NARGO compile --package $contract --inliner-aggressiveness 0  --deny-warnings
-    $TRANSPILER $json_path $json_path
-    $STRIP_AZTEC_NR_PREFIX $json_path
+    $NARGO compile --package $contract --inliner-aggressiveness 0 --deny-warnings
+    $BB aztec_process -i $json_path
     cache_upload contract-$contract_hash.tar.gz $json_path
   fi
-
-  # We segregate equivalent vk's created by process_function. This was done to narrow down potential edge cases with identical VKs
-  # reading from cache at the same time. Create this folder up-front.
-  mkdir -p $tmp_dir/$contract_hash
-
-  # Pipe each contract function, one per line (jq -c), into parallel calls of process_function.
-  # The returned jsons from process_function are converted back to a json array in the second jq -s call.
-  # When slurping (-s) in the last jq, we get an array of two elements:
-  # .[0] is the original json (at $json_path)
-  # .[1] is the updated functions on stdin (-)
-  # * merges their fields.
-  jq -c '.functions[]' $json_path | \
-    parallel $PARALLEL_FLAGS --keep-order -N1 --block 8M --pipe process_function $contract_hash | \
-    jq -s '{functions: .}' | jq -s '.[0] * {functions: .[1].functions}' $json_path - > $tmp_dir/$filename
-  mv $tmp_dir/$filename $json_path
+  # Stamp the version after the cache block so the field is always present, whether the artifact came from a fresh
+  # compile or a cache hit.
+  stamp_dev_aztec_version "$json_path"
 }
 export -f compile
 
@@ -207,12 +142,31 @@ function build {
     folder_name="examples"
   else
     folder_name="contracts"
+    # test_token_contract is generated from canonical app/token_contract. Locally, regenerate it in
+    # place so an edited Token is reflected in TestToken-based tests before you commit (the precommit
+    # hook also regenerates it on commit). In CI we verify instead of regenerate: the committed copy
+    # must already be in sync, and a CI build must not modify checked-in files. See gen_test_token.sh.
+    if [ "$CI" -eq 1 ]; then
+      ./scripts/gen_test_token.sh --check
+    else
+      ./scripts/gen_test_token.sh
+    fi
   fi
 
   if [ "$#" -eq 0 ]; then
     rm -rf target
-    mkdir -p $tmp_dir
+    mkdir -p target
     local contracts=$(grep -oP "(?<=$folder_name/)[^\"]+" Nargo.toml)
+
+    # If a pinned standard-contracts archive is present, extract it into target/ and skip
+    # recompilation of those contracts. The archive pins the canonical standard-contract
+    # artifacts so their deterministic addresses can never silently drift; when it is absent,
+    # everything compiles fresh.
+    if [ -f pinned-standard-contracts.tar.gz ]; then
+      echo_stderr "Using pinned-standard-contracts.tar.gz for pinned standard contracts."
+      tar xzf pinned-standard-contracts.tar.gz -C target
+      contracts=$(echo "$contracts" | grep -vE "^standard/")
+    fi
   else
     local contracts="$@"
   fi
@@ -224,7 +178,7 @@ function build {
 }
 
 function test_cmds {
-  local -A cache
+  local txe_port=${1:-$DEFAULT_TXE_PORT}
   local folder_name
   if [ -n "${DOCS_WORKING_DIR:-}" ]; then
     folder_name="examples"
@@ -235,32 +189,118 @@ function test_cmds {
   # Test bb aztec_process command
   echo "$BB_HASH noir-projects/scripts/test_aztec_process.sh"
 
-  i=0
-  $NARGO test --list-tests --silence-warnings | sort | while read -r package test; do
-    port=$((45730 + (i++ % ${NUM_TXES:-1})))
-    [ -z "${cache[$package]:-}" ] && cache[$package]=$(get_contract_hash $package $folder_name)
-    echo "${cache[$package]} noir-projects/scripts/run_test.sh noir-contracts $package $test $port"
-  done
+  # Fairies want to run these tests on every PR
+  if [ "${TARGET_BRANCH:-}" = "merge-train/fairies" ]; then
+    $NARGO test --list-tests --silence-warnings | sort | while read -r package test; do
+      echo "disabled-cache noir-projects/scripts/run_test.sh noir-contracts $package $test $txe_port"
+    done
+  else
+    local -A cache
+    $NARGO test --list-tests --silence-warnings | sort | while read -r package test; do
+      [ -z "${cache[$package]:-}" ] && cache[$package]=$(get_contract_hash $package $folder_name)
+      echo "${cache[$package]} noir-projects/scripts/run_test.sh noir-contracts $package $test $txe_port"
+    done
+  fi
 }
 
-function test {
-  # Starting txe servers with incrementing port numbers.
-  export NUM_TXES=8
+function start_txe {
+  local txe_port=$1
   trap 'kill $(jobs -p) &>/dev/null || true' EXIT
-  for i in $(seq 0 $((NUM_TXES-1))); do
-    (cd $root/yarn-project/txe && LOG_LEVEL=silent TXE_PORT=$((45730 + i)) yarn start) >/dev/null &
-  done
-  echo "Waiting for TXE's to start..."
-  for i in $(seq 0 $((NUM_TXES-1))); do
-      while ! nc -z 127.0.0.1 $((45730 + i)) &>/dev/null; do sleep 1; done
+
+  check_port "$txe_port" || echo "WARNING: port $txe_port is in use, TXE may fail to start"
+  (cd $root/yarn-project/txe && UV_THREADPOOL_SIZE=8 LOG_LEVEL=silent TXE_PORT=$txe_port yarn start) >/dev/null &
+
+  echo "Waiting for TXE to start..."
+  local j=0
+  while ! nc -z 127.0.0.1 "$txe_port" &>/dev/null; do
+    if [ $j == 60 ]; then
+      echo "TXE failed to start on port $txe_port after 60s." >&2
+      check_port "$txe_port"
+      exit 1
+    fi
+    sleep 1
+    j=$((j+1))
   done
 
   export NARGO_FOREIGN_CALL_TIMEOUT=300000
-  test_cmds | filter_test_cmds | parallelize
+}
+
+function test {
+  local txe_port=$DEFAULT_TXE_PORT
+  start_txe "$txe_port"
+  test_cmds "$txe_port" | filter_test_cmds | parallelize
+}
+
+function test-package {
+  if [ "$#" -ne 1 ]; then
+    echo_stderr "Usage: ./bootstrap.sh test-package <package>"
+    return 1
+  fi
+
+  local package=$1
+  local txe_port=$DEFAULT_TXE_PORT
+  start_txe "$txe_port"
+
+  $NARGO test \
+    --silence-warnings \
+    --skip-brillig-constraints-check \
+    --oracle-resolver "http://127.0.0.1:$txe_port" \
+    --package "$package"
+}
+
+function test-one {
+  if [ "$#" -ne 2 ]; then
+    echo_stderr "Usage: ./bootstrap.sh test-one <package> <exact_test_name>"
+    return 1
+  fi
+
+  local package=$1
+  local test_name=$2
+  local txe_port=$DEFAULT_TXE_PORT
+  start_txe "$txe_port"
+
+  $root/noir-projects/scripts/run_test.sh noir-contracts "$package" "$test_name" "$txe_port"
 }
 
 function format {
   $NARGO fmt
+}
+
+function bench_cmds {
+  # Size every compiled contract artifact (total JSON size + public bytecode size). Reads the
+  # artifacts produced by `build`, so it runs after the contracts are compiled. Keyed on the noir/bb
+  # toolchain plus the contract sources (the same inputs as get_contract_hash, but covering all
+  # contracts) so it re-runs whenever any artifact could change. Skipped in the docs/examples flow.
+  [ -n "${DOCS_WORKING_DIR:-}" ] && return
+  local hash=$(hash_str \
+    $NOIR_HASH \
+    $BB_HASH \
+    $(cache_content_hash \
+      ../../avm-transpiler/.rebuild_patterns \
+      ../../barretenberg/cpp/.rebuild_patterns \
+      ../../barretenberg/ts/.rebuild_patterns \
+      "^noir-projects/noir-contracts/" \
+      "^noir-projects/aztec-nr/" \
+      "^noir-projects/noir-protocol-circuits/crates/types/" \
+      "^noir-projects/scripts/bench_artifact_sizes.sh"))
+  echo "$hash noir-projects/scripts/bench_artifact_sizes.sh"
+}
+
+# Force-builds standard contracts and tar-balls their artifacts into pinned-standard-contracts.tar.gz.
+# Run this to (re)pin the standard-contract artifacts, then commit the resulting tarball. Re-run and
+# re-commit whenever the canonical standard-contract artifacts are intended to change.
+# Mirrors the v4 `pin-build` mechanism that pins protocol contracts.
+function pin-standard-build {
+  rm -f pinned-standard-contracts.tar.gz
+  local standard_contracts=$(grep -oP '(?<=contracts/)[^"]+' Nargo.toml | grep "^standard/")
+  build $standard_contracts || { echo_stderr "Build failed; refusing to create tarball."; return 1; }
+  local standard_artifacts=$(jq -r '.[]' standard_contracts.json | sed 's/$/.json/')
+  for a in $standard_artifacts; do
+    [ -f "target/$a" ] || { echo_stderr "Missing artifact target/$a; refusing to create tarball."; return 1; }
+  done
+  echo_stderr "Creating pinned-standard-contracts.tar.gz..."
+  (cd target && tar czf ../pinned-standard-contracts.tar.gz $standard_artifacts)
+  echo_stderr "Done. pinned-standard-contracts.tar.gz created. Commit it to pin these artifacts."
 }
 
 case "$cmd" in
@@ -276,6 +316,9 @@ case "$cmd" in
     ;;
   "compile")
     VERBOSE=${VERBOSE:-1} build "$@"
+    ;;
+  "pin-standard-build")
+    pin-standard-build
     ;;
   *)
     default_cmd_handler "$@"

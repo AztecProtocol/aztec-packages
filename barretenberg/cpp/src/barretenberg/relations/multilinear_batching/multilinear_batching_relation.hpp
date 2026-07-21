@@ -1,39 +1,28 @@
 // === AUDIT STATUS ===
-// internal:    { status: Complete, auditors: [Sergei], commit: }
+// internal:    { status: not started, auditors: [], commit: }
 // external_1:  { status: not started, auditors: [], commit: }
 // external_2:  { status: not started, auditors: [], commit: }
 // =====================
 #pragma once
+
 #include "barretenberg/relations/relation_parameters.hpp"
 #include "barretenberg/relations/relation_types.hpp"
 
 namespace bb {
 
 /**
- * @brief Multilinear batching relations for HyperNova claim batching.
- * @details See: chonk/README.md#batching-claims-into-accumulator
+ * @brief Relation for the multilinear batching sumcheck.
  *
- * Relation for accumulator contribution to the multilinear batching sumcheck.
+ * @details The prover supplies exactly NumClaims accumulator claims. The powers of the batching challenge γ enter as
+ * public coefficients (`relation_parameters.multilinear_batching_challenges`, with the i-th polynomial weighted by
+ * γ^i), so the sumcheck proves
  *
- * @details In HyperNova, we batch polynomial evaluation claims from the accumulator and instance
- * into a new combined claim. This is done via a sumcheck that verifies:
+ *   Σ_i γ^i · P_i(r_i)       = Σ_x Σ_i γ^i · P_i(x)       · eq(x, r_i)
+ *   Σ_i γ^i · P_i_shift(r_i) = Σ_x Σ_i γ^i · P_i_shift(x) · eq(x, r_i)
  *
- *   target_sum = acc_non_shifted
- *              + α · acc_shifted
- *              + α² · Σᵢ(ρᵢ · inst_unshifted_evalᵢ)
- *              + α³ · Σᵢ(σᵢ · inst_shifted_evalᵢ)
- *
- * where ρᵢ and σᵢ are per-polynomial batching challenges, and each evaluation is weighted
- * by eq(r, u) to "select" the correct evaluation point.
- *
- * This relation contributes the accumulator terms:
- *   - Subrelation 0: batched_unshifted_accumulator * eq_accumulator (non-shifted contribution)
- *   - Subrelation 1: batched_shifted_accumulator * eq_accumulator (shifted contribution)
- *
- * The eq_accumulator polynomial encodes eq(u, r_acc) which "selects" the accumulator's
- * evaluation point. The verifier checks this polynomial matches the expected eq evaluation.
+ * and the sumcheck verifier batches the two identities with its standard alpha separator.
  */
-template <typename FF_> class MultilinearBatchingAccumulatorRelationImpl {
+template <typename FF_, size_t NumClaims> class MultilinearBatchingRelationImpl {
   public:
     using FF = FF_;
 
@@ -44,90 +33,39 @@ template <typename FF_> class MultilinearBatchingAccumulatorRelationImpl {
 
     static constexpr std::array<bool, 2> SUBRELATION_LINEARLY_INDEPENDENT = { false, false };
 
-    /**
-     * @brief Returns true if the contribution from all subrelations for the provided inputs is identically zero
-     */
-    template <typename AllEntities> inline static bool skip(const AllEntities& in)
-    {
-        return (in.batched_unshifted_accumulator.is_zero() && in.batched_shifted_accumulator.is_zero()) ||
-               (in.eq_accumulator.is_zero());
-    }
-
-    /**
-     * @brief Accumulate the accumulator's contribution to the batching sumcheck.
-     * @details Computes: batched_unshifted * eq + batched_shifted * eq
-     */
-    template <typename ContainerOverSubrelations, typename AllEntities>
-    inline static void accumulate(ContainerOverSubrelations& evals,
-                                  const AllEntities& in,
-                                  [[maybe_unused]] const RelationParameters<FF>& relation_parameters = {},
-                                  [[maybe_unused]] const FF& scaling_factor = {})
-    {
-        using Accumulator = std::tuple_element_t<0, ContainerOverSubrelations>;
-
-        auto batched_unshifted_acc = Accumulator(in.batched_unshifted_accumulator);
-        auto eq_acc = Accumulator(in.eq_accumulator);
-        auto batched_shifted_acc = Accumulator(in.batched_shifted_accumulator);
-
-        std::get<0>(evals) += (batched_unshifted_acc * eq_acc);
-        std::get<1>(evals) += (batched_shifted_acc * eq_acc);
-    };
-};
-/**
- * @brief Relation for instance contribution to the multilinear batching sumcheck.
- *
- * @details Analogous to MultilinearBatchingAccumulatorRelationImpl but for the incoming instance.
- * Contributes the instance terms to the batching sumcheck:
- *   - Subrelation 0: batched_unshifted_instance * eq_instance (non-shifted contribution)
- *   - Subrelation 1: batched_shifted_instance * eq_instance (shifted contribution)
- *
- * The eq_instance polynomial encodes eq(u, r_inst) which "selects" the instance's
- * evaluation point. The verifier checks this polynomial matches the expected eq evaluation.
- */
-template <typename FF_> class MultilinearBatchingInstanceRelationImpl {
-  public:
-    using FF = FF_;
-
-    static constexpr std::array<size_t, 2> SUBRELATION_PARTIAL_LENGTHS{
-        3, // non-shifted instance contribution
-        3, // shifted instance contribution
-    };
-
-    static constexpr std::array<bool, 2> SUBRELATION_LINEARLY_INDEPENDENT = { false, false };
-
-    /**
-     * @brief Returns true if the contribution from all subrelations for the provided inputs is identically zero
-     */
     template <typename AllEntities> static bool skip(const AllEntities& in)
     {
-        return (in.batched_unshifted_accumulator.is_zero() && in.batched_unshifted_instance.is_zero() &&
-                in.batched_shifted_accumulator.is_zero() && in.batched_shifted_instance.is_zero()) ||
-               (in.eq_accumulator.is_zero() && in.eq_instance.is_zero());
+        for (size_t idx = 0; idx < NumClaims; ++idx) {
+            const bool should_skip =
+                (in.non_shifted(idx).is_zero() && in.shifted(idx).is_zero()) || in.eq(idx).is_zero();
+            if (!should_skip) {
+                return false;
+            }
+        }
+        return true;
     }
 
-    /**
-     * @brief Accumulate the instance's contribution to the batching sumcheck.
-     * @details Computes: batched_unshifted * eq + batched_shifted * eq
-     */
     template <typename ContainerOverSubrelations, typename AllEntities>
     static void accumulate(ContainerOverSubrelations& evals,
                            const AllEntities& in,
-                           [[maybe_unused]] const RelationParameters<FF>& relation_parameters = {},
+                           const RelationParameters<FF>& relation_parameters = {},
                            [[maybe_unused]] const FF& scaling_factor = {})
     {
+        static_assert(NumClaims <= RelationParameters<FF>::NUM_MULTILINEAR_BATCHING_CHALLENGES);
         using Accumulator = std::tuple_element_t<0, ContainerOverSubrelations>;
 
-        auto batched_unshifted_inst = Accumulator(in.batched_unshifted_instance);
-        auto eq_inst = Accumulator(in.eq_instance);
-        auto batched_shifted_inst = Accumulator(in.batched_shifted_instance);
-
-        std::get<0>(evals) += (batched_unshifted_inst * eq_inst);
-        std::get<1>(evals) += (batched_shifted_inst * eq_inst);
+        // The powers of the batching challenge γ are precomputed by the caller; the i-th polynomial is weighted by
+        // γ^i = multilinear_batching_challenges[i].
+        const auto& gamma_powers = relation_parameters.multilinear_batching_challenges;
+        for (size_t idx = 0; idx < NumClaims; ++idx) {
+            const auto eq = Accumulator(in.eq(idx)) * gamma_powers[idx];
+            std::get<0>(evals) += Accumulator(in.non_shifted(idx)) * eq;
+            std::get<1>(evals) += Accumulator(in.shifted(idx)) * eq;
+        }
     };
 };
 
-template <typename FF>
-using MultilinearBatchingInstanceRelation = Relation<MultilinearBatchingInstanceRelationImpl<FF>>;
-template <typename FF>
-using MultilinearBatchingAccumulatorRelation = Relation<MultilinearBatchingAccumulatorRelationImpl<FF>>;
+template <typename FF, size_t NumClaims>
+using MultilinearBatchingRelation = Relation<MultilinearBatchingRelationImpl<FF, NumClaims>>;
+
 } // namespace bb

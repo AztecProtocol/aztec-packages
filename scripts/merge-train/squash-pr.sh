@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/usr/bin/env bash
 
 set -xeuo pipefail
 
@@ -54,6 +54,16 @@ git fetch origin "$base_branch"
 # Find the merge-base between our branch and the base branch
 merge_base=$(git merge-base "$original_head" "origin/$base_branch")
 
+# Idempotency guard: if the branch is already a single commit on top of the base there is nothing
+# to squash. Rewriting it anyway produces a new commit (fresh committer timestamp, identical tree)
+# and force-pushes it, which retriggers CI and re-enters this script — an infinite loop while the
+# ci-squash-and-merge label remains. Skip the rewrite and force-push so the caller can go straight
+# to merging.
+if [[ "$(git rev-list --count "$merge_base..$original_head")" -le 1 ]]; then
+  echo "PR #$pr_number is already a single commit on top of $base_branch; nothing to squash."
+  exit 0
+fi
+
 # Collect all unique authors from non-merge commits that are not in the base branch
 # Get all commits between merge_base and HEAD, excluding merges
 authors_info=$(git log "$merge_base..$original_head" --no-merges --format='%an <%ae>' | sort -u)
@@ -93,10 +103,10 @@ git commit -m "$commit_message" --no-verify
 if [[ "$is_fork" == "true" ]]; then
   # It's a fork - need to push to the fork repository
   echo "Detected fork: pushing to $head_repo"
-  
+
   # Add the fork as a remote (assumes GITHUB_TOKEN env var is set from workflow)
   git remote add fork "https://x-access-token:${GITHUB_TOKEN}@github.com/${head_repo}.git"
-  
+
   # Push to the fork
   git push --force fork "HEAD:refs/heads/$branch"
 else

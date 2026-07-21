@@ -2,18 +2,17 @@
 
 #include <algorithm>
 #include <array>
-#include <cstdint>
-#include <memory>
-#include <stdexcept>
+#include <vector>
 
-#include "barretenberg/vm2/simulation/lib/sha256_compression.hpp"
+#include "barretenberg/aztec/aztec_constants.hpp"
+#include "barretenberg/common/assert.hpp"
 
 namespace bb::avm2::simulation {
 
 namespace {
 
 // constants come from barretenberg/cpp/src/barretenberg/crypto/sha256/sha256.cpp
-constexpr std::array<uint32_t, 64> round_constants{
+constexpr std::array<uint32_t, 64> ROUND_CONSTANTS{
     0x428a2f98, 0x71374491, 0xb5c0fbcf, 0xe9b5dba5, 0x3956c25b, 0x59f111f1, 0x923f82a4, 0xab1c5ed5,
     0xd807aa98, 0x12835b01, 0x243185be, 0x550c7dc3, 0x72be5d74, 0x80deb1fe, 0x9bdc06a7, 0xc19bf174,
     0xe49b69c1, 0xefbe4786, 0x0fc19dc6, 0x240ca1cc, 0x2de92c6f, 0x4a7484aa, 0x5cb0a9dc, 0x76f988da,
@@ -26,22 +25,46 @@ constexpr std::array<uint32_t, 64> round_constants{
 
 } // namespace
 
-// Don't worry about any weird edge cases since we have fixed non-zero shifts
+/**
+ * @brief Perform a 32-bit right rotation on a MemoryValue.
+ * @param x The value to rotate (must hold a uint32_t).
+ * @param shift The number of bits to rotate right (must be non-zero and < 32).
+ * @return The rotated 32-bit result wrapped in a MemoryValue.
+ * @pre x must be tagged as U32. This is an internal helper; all callers (sha256_compress) guarantee
+ *      the precondition by validating tags before invoking this function. The cast exception is
+ *      therefore never thrown in practice.
+ * @pre shift must satisfy 0 < shift < 32. A shift >= 32 causes undefined behavior per the
+ *      C++ standard for 32-bit operands. A shift == 0 also causes undefined behavior because
+ *      the reconstruction `lo << (32 - shift)` becomes a left shift by 32. All callers use
+ *      fixed SHA-256 rotation amounts (2, 6, 7, 11, 13, 17, 18, 19, 22, 25), so this
+ *      precondition is always satisfied.
+ * @note Asserts that the lower bits extracted during decomposition are in range (lo < 2^shift).
+ */
 MemoryValue Sha256::ror(const MemoryValue& x, uint8_t shift)
 {
     auto val = x.as<uint32_t>();
     // In a rotation, we decompose into a lhs and rhs (or hi and lo) part.
     uint32_t lo = val & ((static_cast<uint32_t>(1) << shift) - 1);
     uint32_t hi = val >> shift;
-    uint32_t result = lo << (32U - (shift & 31U)) | hi;
+    uint32_t result = (lo << (32U - shift)) | hi;
 
-    // Do this outside of an assert, in case this gets built without assert
-    bool lo_in_range = gt.gt(static_cast<uint32_t>(1) << shift, lo); // Ensure the lower bits are in range
-    BB_ASSERT(lo_in_range, "Low Value in ROR out of range");
+    range_check.assert_range(lo, shift);
     return MemoryValue::from<uint32_t>(result);
 }
 
-// Don't need to worry about edge cases with shifts since we know we only shift by 3 and 10 for sha256
+/**
+ * @brief Perform a 32-bit right shift on a MemoryValue.
+ * @param x The value to shift (must hold a uint32_t).
+ * @param shift The number of bits to shift right (only 3 and 10 are used in SHA-256).
+ * @return The shifted 32-bit result wrapped in a MemoryValue.
+ * @pre x must be tagged as U32. This is an internal helper; all callers (sha256_compress) guarantee
+ *      the precondition by validating tags before invoking this function. The cast exception is
+ *      therefore never thrown in practice.
+ * @pre shift must satisfy shift < 32. A shift >= 32 would cause undefined behavior per the
+ *      C++ standard for 32-bit operands. All callers use fixed SHA-256 shift amounts
+ *      (3, 10), so this precondition is always satisfied.
+ * @note Asserts that the lower bits extracted during decomposition are in range (lo < 2^shift).
+ */
 MemoryValue Sha256::shr(const MemoryValue& x, uint8_t shift)
 {
     uint32_t input = x.as<uint32_t>();
@@ -49,14 +72,20 @@ MemoryValue Sha256::shr(const MemoryValue& x, uint8_t shift)
     uint32_t lo = input & ((static_cast<uint32_t>(1) << shift) - 1);
     uint32_t hi = input >> shift;
 
-    // Do this outside of an assert, in case this gets built without assert
-    bool lo_in_range = gt.gt(static_cast<uint32_t>(1) << shift, lo); // Ensure the lower bits are in range
-    BB_ASSERT(lo_in_range, "Low Value in SHR out of range");
+    range_check.assert_range(lo, shift);
 
     return MemoryValue::from<uint32_t>(hi);
 }
 
-// This function is used to sum the values in the vector and return the result modulo 2^32.
+/**
+ * @brief Sum a span of U32 MemoryValues and return the result modulo 2^32.
+ * @param values A span of MemoryValue elements, each expected to hold a uint32_t.
+ * @return The sum reduced modulo 2^32, wrapped in a MemoryValue.
+ * @pre Every element in values must be tagged as U32. This is an internal helper; all callers
+ *      (sha256_compress) guarantee the precondition by validating tags before invoking this
+ *      function. The cast exception is therefore never thrown in practice.
+ * @note Asserts that both the low and high 32-bit halves of the 64-bit sum are in range.
+ */
 MemoryValue Sha256::modulo_sum(std::span<const MemoryValue> values)
 {
     uint64_t sum = 0;
@@ -67,15 +96,36 @@ MemoryValue Sha256::modulo_sum(std::span<const MemoryValue> values)
     uint32_t lo = static_cast<uint32_t>(sum);
     uint32_t hi = static_cast<uint32_t>(sum >> 32);
 
-    // Do these outside of an assert, in case this gets built without assert
-    bool lo_in_range =
-        gt.gt(static_cast<uint64_t>(1) << 32, static_cast<uint64_t>(lo)); // Ensure the lower bits are in range
-    bool hi_in_range =
-        gt.gt(static_cast<uint64_t>(1) << 32, static_cast<uint64_t>(hi)); // Ensure the upper bits are in range
-    BB_ASSERT(lo_in_range && hi_in_range, "Sum in MODULO_SUM out of range");
+    // lo matches PIL RANGE_COMP_*_RHS lookups (range_check.sel_sha256 at 32 bits).
+    range_check.assert_range(lo, 32);
+    // hi is range-checked in PIL via boolean constraint (output) or precomputed.sel_range_8 lookup
+    // (computed_w / next_a / next_e); both bounds fit in 8 bits, so this sim-time assert is sufficient.
+    BB_ASSERT(hi < 256, "High value in MODULO_SUM out of range");
     return MemoryValue::from<uint32_t>(lo);
 }
 
+/**
+ * @brief Execute the SHA-256 compression function: read state and input from memory, compress, and write output.
+ *
+ * Events are emitted in the following flavors:
+ * - Normal execution: all fields populated (state, input of 16 elements, computed output).
+ * - Error (address out of range, invalid state tag, or invalid input tag): state is partially
+ *   populated (up to the point of failure), input contains elements read before the error,
+ *   output is zeroed.
+ *
+ * In all cases the event is emitted before re-throwing the exception.
+ *
+ * @param memory The memory interface to read state/input from and write output to.
+ * @param state_addr The starting address of the 8-element hash state in memory.
+ * @param input_addr The starting address of the 16-element hash input in memory.
+ * @param output_addr The starting address where the 8-element output will be written.
+ * @throws Sha256CompressionException If any of state/input/output address ranges exceed the
+ *         maximum memory address (checked first).
+ * @throws Sha256CompressionException If any of the 8 state values do not have tag U32
+ *         (checked after address validation).
+ * @throws Sha256CompressionException If any of the 16 input values do not have tag U32
+ *         (checked after state tag validation, on first invalid element).
+ */
 void Sha256::compression(MemoryInterface& memory,
                          MemoryAddress state_addr,
                          MemoryAddress input_addr,
@@ -135,8 +185,9 @@ void Sha256::compression(MemoryInterface& memory,
 
         // Extend the input data into the remaining 48 words
         for (size_t i = 16; i < 64; ++i) {
-            MemoryValue s0 = bitwise.xor_op(bitwise.xor_op(ror(w[i - 15], 7), ror(w[i - 15], 18)), shr(w[i - 15], 3));
-            MemoryValue s1 = bitwise.xor_op(bitwise.xor_op(ror(w[i - 2], 17), ror(w[i - 2], 19)), shr(w[i - 2], 10));
+            MemoryValue s0 =
+                bitwise.xor_op(bitwise.xor_op(ror(w[i - 15], 7U), ror(w[i - 15], 18U)), shr(w[i - 15], 3U));
+            MemoryValue s1 = bitwise.xor_op(bitwise.xor_op(ror(w[i - 2], 17U), ror(w[i - 2], 19U)), shr(w[i - 2], 10U));
             // Could be explicit with an std::initializer_list<uint32_t> here, the array overload is more readable imo.
             // std::spans are annoying to construct from literals
             // (https://www.open-std.org/jtc1/sc22/wg21/docs/papers/2022/p2447r2.html)
@@ -166,12 +217,12 @@ void Sha256::compression(MemoryInterface& memory,
             g = f;
             f = e;
             // e = d + temp1;
-            e = modulo_sum({ { d, prev_h, S1, ch, MemoryValue::from<uint32_t>(round_constants[i]), w[i] } });
+            e = modulo_sum({ { d, prev_h, S1, ch, MemoryValue::from<uint32_t>(ROUND_CONSTANTS[i]), w[i] } });
             d = c;
             c = b;
             b = a;
             // a = temp1 + temp2;
-            a = modulo_sum({ { prev_h, S1, ch, MemoryValue::from<uint32_t>(round_constants[i]), w[i], S0, maj } });
+            a = modulo_sum({ { prev_h, S1, ch, MemoryValue::from<uint32_t>(ROUND_CONSTANTS[i]), w[i], S0, maj } });
         }
 
         // Add into previous block output and return

@@ -1,9 +1,11 @@
 import { BlockNumber } from '@aztec/foundation/branded-types';
 import { Fr } from '@aztec/foundation/curves/bn254';
 import { type Logger, createLogger } from '@aztec/foundation/log';
+import type { ContractStore } from '@aztec/pxe/server';
 import { PublicDataWrite } from '@aztec/stdlib/avm';
 import { AztecAddress } from '@aztec/stdlib/aztec-address';
 import type { L2Block } from '@aztec/stdlib/block';
+import type { ContractInstancePreimageWithAddress } from '@aztec/stdlib/contract';
 import { computePublicDataTreeLeafSlot, siloNoteHash, siloNullifier } from '@aztec/stdlib/hash';
 import {
   MerkleTreeId,
@@ -29,6 +31,7 @@ export class TXEOraclePublicContext implements IAvmExecutionOracle {
     private forkedWorldTrees: MerkleTreeWriteOperations,
     private txRequestHash: Fr,
     private globalVariables: GlobalVariables,
+    private contractStore: ContractStore,
   ) {
     this.logger = createLogger('txe:public_context');
 
@@ -39,46 +42,46 @@ export class TXEOraclePublicContext implements IAvmExecutionOracle {
     });
   }
 
-  avmOpcodeAddress(): Promise<AztecAddress> {
+  address(): Promise<AztecAddress> {
     return Promise.resolve(this.contractAddress);
   }
 
-  avmOpcodeSender(): Promise<AztecAddress> {
+  sender(): Promise<AztecAddress> {
     return Promise.resolve(AztecAddress.ZERO); // todo: change?
   }
 
-  avmOpcodeBlockNumber(): Promise<BlockNumber> {
+  blockNumber(): Promise<BlockNumber> {
     return Promise.resolve(this.globalVariables.blockNumber);
   }
 
-  avmOpcodeTimestamp(): Promise<bigint> {
+  timestamp(): Promise<bigint> {
     return Promise.resolve(this.globalVariables.timestamp);
   }
 
-  avmOpcodeIsStaticCall(): Promise<boolean> {
+  isStaticCall(): Promise<boolean> {
     return Promise.resolve(false);
   }
 
-  avmOpcodeChainId(): Promise<Fr> {
+  chainId(): Promise<Fr> {
     return Promise.resolve(this.globalVariables.chainId);
   }
 
-  avmOpcodeVersion(): Promise<Fr> {
+  version(): Promise<Fr> {
     return Promise.resolve(this.globalVariables.version);
   }
 
-  async avmOpcodeEmitNullifier(nullifier: Fr) {
+  async emitNullifier(nullifier: Fr) {
     const siloedNullifier = await siloNullifier(this.contractAddress, nullifier);
     this.transientSiloedNullifiers.push(siloedNullifier);
   }
 
-  async avmOpcodeEmitNoteHash(noteHash: Fr) {
+  async emitNoteHash(noteHash: Fr) {
     const siloedNoteHash = await siloNoteHash(this.contractAddress, noteHash);
     // TODO: make the note hash unique - they are only siloed right now
     this.transientUniqueNoteHashes.push(siloedNoteHash);
   }
 
-  async avmOpcodeNullifierExists(siloedNullifier: Fr): Promise<boolean> {
+  async nullifierExists(siloedNullifier: Fr): Promise<boolean> {
     const treeIndex = (
       await this.forkedWorldTrees.findLeafIndices(MerkleTreeId.NULLIFIER_TREE, [siloedNullifier.toBuffer()])
     )[0];
@@ -87,7 +90,7 @@ export class TXEOraclePublicContext implements IAvmExecutionOracle {
     return treeIndex !== undefined || transientIndex !== undefined;
   }
 
-  async avmOpcodeStorageWrite(slot: Fr, value: Fr) {
+  async storageWrite(slot: Fr, value: Fr) {
     this.logger.debug('AVM storage write', { slot, value });
 
     const dataWrite = new PublicDataWrite(await computePublicDataTreeLeafSlot(this.contractAddress, slot), value);
@@ -99,7 +102,7 @@ export class TXEOraclePublicContext implements IAvmExecutionOracle {
     ]);
   }
 
-  async avmOpcodeStorageRead(slot: Fr, contractAddress: AztecAddress): Promise<Fr> {
+  async storageRead(slot: Fr, contractAddress: AztecAddress): Promise<Fr> {
     const leafSlot = await computePublicDataTreeLeafSlot(contractAddress, slot);
 
     const lowLeafResult = await this.forkedWorldTrees.getPreviousValueIndex(
@@ -120,6 +123,65 @@ export class TXEOraclePublicContext implements IAvmExecutionOracle {
     this.logger.debug('AVM storage read', { slot, contractAddress, value });
 
     return value;
+  }
+
+  getContractInstanceDeployer(address: AztecAddress): Promise<{ member: Fr; exists: boolean }[]> {
+    return this.getContractInstanceMember(address, i => i.deployer.toField());
+  }
+
+  getContractInstanceClassId(address: AztecAddress): Promise<{ member: Fr; exists: boolean }[]> {
+    // TXE has no contract updates, so the current class always equals the original.
+    return this.getContractInstanceMember(address, i => i.originalContractClassId);
+  }
+
+  getContractInstanceInitializationHash(address: AztecAddress): Promise<{ member: Fr; exists: boolean }[]> {
+    return this.getContractInstanceMember(address, i => i.initializationHash);
+  }
+
+  getContractInstanceImmutablesHash(address: AztecAddress): Promise<{ member: Fr; exists: boolean }[]> {
+    return this.getContractInstanceMember(address, i => i.immutablesHash);
+  }
+
+  // The one-element array mirrors the oracles' Noir return type, `[GetContractInstanceResult; 1]`.
+  private async getContractInstanceMember(
+    address: AztecAddress,
+    accessor: (instance: ContractInstancePreimageWithAddress) => Fr,
+  ): Promise<{ member: Fr; exists: boolean }[]> {
+    const instance = await this.contractStore.getContractInstance(address);
+    if (!instance) {
+      return [{ member: Fr.ZERO, exists: false }];
+    }
+    return [{ member: accessor(instance), exists: true }];
+  }
+
+  returndataSize(): Promise<number> {
+    throw new Error(
+      'Contract calls are forbidden inside a `TestEnvironment::public_context`, use `public_call` instead',
+    );
+  }
+
+  returndataCopy(_rdOffset: number, _copySize: number): Promise<Fr[]> {
+    throw new Error(
+      'Contract calls are forbidden inside a `TestEnvironment::public_context`, use `public_call` instead',
+    );
+  }
+
+  call(_l2Gas: number, _daGas: number, _address: AztecAddress, _argsLength: number, _args: Fr[]): Promise<void> {
+    throw new Error(
+      'Contract calls are forbidden inside a `TestEnvironment::public_context`, use `public_call` instead',
+    );
+  }
+
+  staticCall(_l2Gas: number, _daGas: number, _address: AztecAddress, _argsLength: number, _args: Fr[]): Promise<void> {
+    throw new Error(
+      'Contract calls are forbidden inside a `TestEnvironment::public_context`, use `public_call` instead',
+    );
+  }
+
+  successCopy(): Promise<boolean> {
+    throw new Error(
+      'Contract calls are forbidden inside a `TestEnvironment::public_context`, use `public_call` instead',
+    );
   }
 
   async close(): Promise<L2Block> {

@@ -1,7 +1,8 @@
 use super::TestBuilder;
-use types::{constants::AVM_MAX_PROCESSABLE_L2_GAS, tests::fixture_builder::FixtureBuilder};
+use protocol_test_utils::fixture_builder::FixtureBuilder;
+use types::constants::MAX_PROCESSABLE_L2_GAS;
 
-#[test(should_fail_with = "Membership check failed: previous block hash not found in archive tree")]
+#[test(should_fail_with = "Membership check failed: anchor block header hash not found in archive tree")]
 unconstrained fn anchor_block_header_not_in_archive() {
     let mut builder = TestBuilder::new();
 
@@ -53,7 +54,7 @@ unconstrained fn gas_settings_l2_gas_limit_exceeds_max_processable_l2_gas() {
     let mut builder = TestBuilder::new();
 
     builder.private_tail.constants.tx_context.gas_settings.gas_limits.l2_gas =
-        AVM_MAX_PROCESSABLE_L2_GAS + 1;
+        MAX_PROCESSABLE_L2_GAS + 1;
 
     builder.execute_and_fail();
 }
@@ -123,30 +124,30 @@ unconstrained fn non_empty_contract_class_log_fields_for_reverted_log() {
     builder.execute_and_fail();
 }
 
-#[test(should_fail_with = "tx include_by_timestamp is smaller than block timestamp")]
-unconstrained fn include_by_timestamp_lower_than_block_timestamp() {
+#[test(should_fail_with = "tx expiration_timestamp is smaller than block timestamp")]
+unconstrained fn expiration_timestamp_lower_than_block_timestamp() {
     let mut builder = TestBuilder::new();
 
-    builder.private_tail.include_by_timestamp = builder.avm.global_variables.timestamp - 1;
+    builder.private_tail.expiration_timestamp = builder.avm.global_variables.timestamp - 1;
 
     builder.execute_and_fail();
 }
 
 #[test]
-unconstrained fn include_by_timestamp_equal_to_block_timestamp() {
+unconstrained fn expiration_timestamp_equal_to_block_timestamp() {
     let mut builder = TestBuilder::new();
 
-    builder.private_tail.include_by_timestamp = builder.avm.global_variables.timestamp;
+    builder.private_tail.expiration_timestamp = builder.avm.global_variables.timestamp;
 
     let pi = builder.execute();
     builder.assert_expected_public_inputs(pi);
 }
 
 #[test]
-unconstrained fn include_by_timestamp_higher_than_block_timestamp() {
+unconstrained fn expiration_timestamp_higher_than_block_timestamp() {
     let mut builder = TestBuilder::new();
 
-    builder.private_tail.include_by_timestamp = builder.avm.global_variables.timestamp + 1;
+    builder.private_tail.expiration_timestamp = builder.avm.global_variables.timestamp + 1;
 
     let pi = builder.execute();
     builder.assert_expected_public_inputs(pi);

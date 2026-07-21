@@ -1,5 +1,6 @@
 #pragma once
 
+#include "barretenberg/aztec/aztec_hash_policy.hpp"
 #include "barretenberg/vm2/common/field.hpp"
 #include "barretenberg/vm2/simulation/interfaces/db.hpp"
 #include "barretenberg/vm2/simulation/lib/indexed_memory_tree.hpp"
@@ -35,7 +36,8 @@ struct WrittenPublicDataSlotLeafValue {
     static std::string name();
 };
 
-using WrittenPublicDataSlotsTree = IndexedMemoryTree<WrittenPublicDataSlotLeafValue, Poseidon2HashPolicy>;
+using WrittenPublicDataSlotsTree =
+    IndexedMemoryTree<WrittenPublicDataSlotLeafValue, aztec::WrittenSlotsMerkleHashPolicy>;
 
 using WrittenPublicDataSlotsTreeLeafPreimage = IndexedLeaf<WrittenPublicDataSlotLeafValue>;
 

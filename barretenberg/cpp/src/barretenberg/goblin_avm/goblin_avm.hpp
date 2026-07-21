@@ -25,7 +25,6 @@ class GoblinAvm : public Goblin {
     using TranslatorVerificationKey = TranslatorFlavor::VerificationKey;
 
     explicit GoblinAvm(MegaBuilder& builder,
-                       CommitmentKey<curve::BN254> bn254_commitment_key = CommitmentKey<curve::BN254>(),
                        const std::shared_ptr<Transcript>& avm_transcript = std::make_shared<Transcript>());
 
     /**

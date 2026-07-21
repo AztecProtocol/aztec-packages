@@ -62,23 +62,39 @@ std::vector<GtTestParams> comparison_tests = {
     // GT
     GtTestParams{ 27, 0, true },
     GtTestParams{ TWO_POW_128, 0, true },
-    GtTestParams{ -1, 0, true },
+    GtTestParams{ -1, 0, true }, // p-1 > 0
     // EQ
     GtTestParams{ 27, 27, false },
     GtTestParams{ TWO_POW_128, TWO_POW_128, false },
-    GtTestParams{ -1, -1, false },
+    GtTestParams{ -1, -1, false }, // p-1 == p-1
     // LT
     GtTestParams{ 0, 1, false },
     GtTestParams{ 0, TWO_POW_128, false },
-    GtTestParams{ 0, -1, false }
+    GtTestParams{ 0, -1, false }, // 0 < p-1
+    // Edge cases: zero
+    GtTestParams{ 0, 0, false }, // 0 == 0
+    GtTestParams{ 1, 0, true },  // 1 > 0
+    // Edge cases: maximum field element (p-1)
+    GtTestParams{ -1, 1, true },   // p-1 > 1
+    GtTestParams{ -2, -1, false }, // p-2 < p-1
+    // Edge cases: boundary at 2^128
+    GtTestParams{ TWO_POW_128 - 1, TWO_POW_128, false }, // boundary at 2^128
+    GtTestParams{ TWO_POW_128, TWO_POW_128 - 1, true }   // boundary at 2^128
 };
 
 std::vector<DecTestParams> decomposition_tests = {
+    // Basic cases
     DecTestParams{ 0, { .lo = 0, .hi = 0 } },
     DecTestParams{ 1, { .lo = 1, .hi = 0 } },
+    // Powers of 2 at 128-bit boundary
     DecTestParams{ uint256_t(1) << 128, { .lo = 0, .hi = 1 } },
+    DecTestParams{ (uint256_t(1) << 128) - 1, { .lo = static_cast<uint128_t>((uint256_t(1) << 128) - 1), .hi = 0 } },
+    // Large values
     DecTestParams{ (uint256_t(1) << 200) - 1,
                    { .lo = static_cast<uint128_t>((uint256_t(1) << 128) - 1), .hi = (uint128_t(1) << 72) - 1 } },
+    // Edge case: maximum field element (p-1)
+    // p-1 decomposes into its limbs (computed at runtime)
+    DecTestParams{ FF(-1), simulation::decompose_256(FF::modulus - 1) },
 };
 
 class GtBasicTest : public TestWithParam<GtTestParams> {};
@@ -214,8 +230,10 @@ TEST(FieldGreaterThanConstrainingTest, NegativeManipulatedDecompositions)
     trace.set(Column::ff_gt_a_lo, 1, 1);
     trace.set(Column::ff_gt_b_hi, 1, 1);
 
-    EXPECT_THROW_WITH_MESSAGE(check_relation<ff_gt>(trace, ff_gt::SR_A_DECOMPOSITION), "A_DECOMPOSITION");
-    EXPECT_THROW_WITH_MESSAGE(check_relation<ff_gt>(trace, ff_gt::SR_B_DECOMPOSITION), "B_DECOMPOSITION");
+    EXPECT_THROW_WITH_MESSAGE(check_relation<ff_gt>(trace, ff_gt::SR_A_DECOMPOSITION),
+                              ff_gt::get_subrelation_label(ff_gt::SR_A_DECOMPOSITION));
+    EXPECT_THROW_WITH_MESSAGE(check_relation<ff_gt>(trace, ff_gt::SR_B_DECOMPOSITION),
+                              ff_gt::get_subrelation_label(ff_gt::SR_B_DECOMPOSITION));
 }
 
 TEST(FieldGreaterThanConstrainingTest, NegativeManipulatedComparisonsWithP)
@@ -249,10 +267,14 @@ TEST(FieldGreaterThanConstrainingTest, NegativeManipulatedComparisonsWithP)
     trace.set(Column::ff_gt_p_sub_b_hi, 1, p_lo - 1);
     trace.set(Column::ff_gt_p_sub_b_lo, 1, p_hi - 1);
 
-    EXPECT_THROW_WITH_MESSAGE(check_relation<ff_gt>(trace, ff_gt::SR_P_SUB_A_LO), "P_SUB_A_LO");
-    EXPECT_THROW_WITH_MESSAGE(check_relation<ff_gt>(trace, ff_gt::SR_P_SUB_A_HI), "P_SUB_A_HI");
-    EXPECT_THROW_WITH_MESSAGE(check_relation<ff_gt>(trace, ff_gt::SR_P_SUB_B_LO), "P_SUB_B_LO");
-    EXPECT_THROW_WITH_MESSAGE(check_relation<ff_gt>(trace, ff_gt::SR_P_SUB_B_HI), "P_SUB_B_HI");
+    EXPECT_THROW_WITH_MESSAGE(check_relation<ff_gt>(trace, ff_gt::SR_P_SUB_A_LO),
+                              ff_gt::get_subrelation_label(ff_gt::SR_P_SUB_A_LO));
+    EXPECT_THROW_WITH_MESSAGE(check_relation<ff_gt>(trace, ff_gt::SR_P_SUB_A_HI),
+                              ff_gt::get_subrelation_label(ff_gt::SR_P_SUB_A_HI));
+    EXPECT_THROW_WITH_MESSAGE(check_relation<ff_gt>(trace, ff_gt::SR_P_SUB_B_LO),
+                              ff_gt::get_subrelation_label(ff_gt::SR_P_SUB_B_LO));
+    EXPECT_THROW_WITH_MESSAGE(check_relation<ff_gt>(trace, ff_gt::SR_P_SUB_B_HI),
+                              ff_gt::get_subrelation_label(ff_gt::SR_P_SUB_B_HI));
 }
 
 TEST(FieldGreaterThanConstrainingTest, NegativeLessRangeChecks)
@@ -274,8 +296,10 @@ TEST(FieldGreaterThanConstrainingTest, NegativeLessRangeChecks)
     trace.set(Column::ff_gt_cmp_rng_ctr, 1, 3);
     trace.set(Column::ff_gt_cmp_rng_ctr, 2, 0);
 
-    EXPECT_THROW_WITH_MESSAGE(check_relation<ff_gt>(trace, ff_gt::SR_RNG_CTR_GT_INIT), "RNG_CTR_GT_INIT");
-    EXPECT_THROW_WITH_MESSAGE(check_relation<ff_gt>(trace, ff_gt::SR_RNG_CTR_DECREMENT), "RNG_CTR_DECREMENT");
+    EXPECT_THROW_WITH_MESSAGE(check_relation<ff_gt>(trace, ff_gt::SR_RNG_CTR_GT_INIT),
+                              ff_gt::get_subrelation_label(ff_gt::SR_RNG_CTR_GT_INIT));
+    EXPECT_THROW_WITH_MESSAGE(check_relation<ff_gt>(trace, ff_gt::SR_RNG_CTR_DECREMENT),
+                              ff_gt::get_subrelation_label(ff_gt::SR_RNG_CTR_DECREMENT));
 }
 
 TEST(FieldGreaterThanConstrainingTest, NegativeRangeCheckCtrInitInDec)
@@ -297,8 +321,10 @@ TEST(FieldGreaterThanConstrainingTest, NegativeRangeCheckCtrInitInDec)
     trace.set(Column::ff_gt_cmp_rng_ctr, 1, 4);
     trace.set(Column::ff_gt_cmp_rng_ctr, 2, 2);
 
-    EXPECT_THROW_WITH_MESSAGE(check_relation<ff_gt>(trace, ff_gt::SR_RNG_CTR_DEC_INIT), "RNG_CTR_DEC_INIT");
-    EXPECT_THROW_WITH_MESSAGE(check_relation<ff_gt>(trace, ff_gt::SR_RNG_CTR_DECREMENT), "RNG_CTR_DECREMENT");
+    EXPECT_THROW_WITH_MESSAGE(check_relation<ff_gt>(trace, ff_gt::SR_RNG_CTR_DEC_INIT),
+                              ff_gt::get_subrelation_label(ff_gt::SR_RNG_CTR_DEC_INIT));
+    EXPECT_THROW_WITH_MESSAGE(check_relation<ff_gt>(trace, ff_gt::SR_RNG_CTR_DECREMENT),
+                              ff_gt::get_subrelation_label(ff_gt::SR_RNG_CTR_DECREMENT));
 }
 
 TEST(FieldGreaterThanConstrainingTest, NegativeSelectorConsistency)
@@ -320,7 +346,8 @@ TEST(FieldGreaterThanConstrainingTest, NegativeSelectorConsistency)
     // Disable the selector after the first row
     trace.set(Column::ff_gt_sel, 2, 0);
 
-    EXPECT_THROW_WITH_MESSAGE(check_relation<ff_gt>(trace, ff_gt::SR_SEL_CONSISTENCY), "SEL_CONSISTENCY");
+    EXPECT_THROW_WITH_MESSAGE(check_relation<ff_gt>(trace, ff_gt::SR_TRACE_CONTINUITY),
+                              ff_gt::get_subrelation_label(ff_gt::SR_TRACE_CONTINUITY));
 }
 
 TEST(FieldGreaterThanConstrainingTest, NegativeEraseShift)
@@ -346,12 +373,24 @@ TEST(FieldGreaterThanConstrainingTest, NegativeEraseShift)
     trace.set(Column::ff_gt_b_lo, 2, 0);
     trace.set(Column::ff_gt_b_hi, 2, 0);
     trace.set(Column::ff_gt_p_sub_b_lo, 2, 0);
-    trace.set(Column::ff_gt_p_sub_b_hi, 2, 0);
+    trace.set(Column::ff_gt_p_sub_b_hi, 2, 1);
 
-    EXPECT_THROW_WITH_MESSAGE(check_relation<ff_gt>(trace, ff_gt::SR_SHIFT_0), "SHIFT_0");
-    EXPECT_THROW_WITH_MESSAGE(check_relation<ff_gt>(trace, ff_gt::SR_SHIFT_1), "SHIFT_1");
-    EXPECT_THROW_WITH_MESSAGE(check_relation<ff_gt>(trace, ff_gt::SR_SHIFT_2), "SHIFT_2");
-    EXPECT_THROW_WITH_MESSAGE(check_relation<ff_gt>(trace, ff_gt::SR_SHIFT_3), "SHIFT_3");
+    EXPECT_THROW_WITH_MESSAGE(check_relation<ff_gt>(trace, ff_gt::SR_SHIFT_P_SUB_A_TO_A_LO),
+                              ff_gt::get_subrelation_label(ff_gt::SR_SHIFT_P_SUB_A_TO_A_LO));
+    EXPECT_THROW_WITH_MESSAGE(check_relation<ff_gt>(trace, ff_gt::SR_SHIFT_P_SUB_A_TO_A_HI),
+                              ff_gt::get_subrelation_label(ff_gt::SR_SHIFT_P_SUB_A_TO_A_HI));
+    EXPECT_THROW_WITH_MESSAGE(check_relation<ff_gt>(trace, ff_gt::SR_SHIFT_B_TO_P_SUB_A_LO),
+                              ff_gt::get_subrelation_label(ff_gt::SR_SHIFT_B_TO_P_SUB_A_LO));
+    EXPECT_THROW_WITH_MESSAGE(check_relation<ff_gt>(trace, ff_gt::SR_SHIFT_B_TO_P_SUB_A_HI),
+                              ff_gt::get_subrelation_label(ff_gt::SR_SHIFT_B_TO_P_SUB_A_HI));
+    EXPECT_THROW_WITH_MESSAGE(check_relation<ff_gt>(trace, ff_gt::SR_SHIFT_P_SUB_B_TO_B_LO),
+                              ff_gt::get_subrelation_label(ff_gt::SR_SHIFT_P_SUB_B_TO_B_LO));
+    EXPECT_THROW_WITH_MESSAGE(check_relation<ff_gt>(trace, ff_gt::SR_SHIFT_P_SUB_B_TO_B_HI),
+                              ff_gt::get_subrelation_label(ff_gt::SR_SHIFT_P_SUB_B_TO_B_HI));
+    EXPECT_THROW_WITH_MESSAGE(check_relation<ff_gt>(trace, ff_gt::SR_SHIFT_RES_TO_P_SUB_B_LO),
+                              ff_gt::get_subrelation_label(ff_gt::SR_SHIFT_RES_TO_P_SUB_B_LO));
+    EXPECT_THROW_WITH_MESSAGE(check_relation<ff_gt>(trace, ff_gt::SR_SHIFT_RES_TO_P_SUB_B_HI),
+                              ff_gt::get_subrelation_label(ff_gt::SR_SHIFT_RES_TO_P_SUB_B_HI));
 }
 
 } // namespace

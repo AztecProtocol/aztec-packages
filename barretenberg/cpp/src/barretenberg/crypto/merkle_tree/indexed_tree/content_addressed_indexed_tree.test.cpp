@@ -4,7 +4,6 @@
 #include "../node_store/array_store.hpp"
 #include "../nullifier_tree/nullifier_memory_tree.hpp"
 #include "../test_fixtures.hpp"
-#include "./fixtures.hpp"
 #include "barretenberg/common/streams.hpp"
 #include "barretenberg/common/test.hpp"
 #include "barretenberg/common/thread_pool.hpp"
@@ -16,6 +15,8 @@
 #include "barretenberg/crypto/merkle_tree/types.hpp"
 #include "barretenberg/numeric/random/engine.hpp"
 #include <algorithm>
+#include <atomic>
+#include <chrono>
 #include <cstdint>
 #include <filesystem>
 #include <future>
@@ -23,6 +24,23 @@
 #include <optional>
 #include <stdexcept>
 #include <vector>
+
+namespace bb::crypto::merkle_tree {
+template <typename Store, typename HashingPolicy> struct ContentAddressedIndexedTreeTestAccess {
+    using Tree = ContentAddressedIndexedTree<Store, HashingPolicy>;
+    using LeafUpdate = typename Tree::LeafUpdate;
+    using UpdatesCompletionResponse = typename Tree::UpdatesCompletionResponse;
+    using UpdatesCompletionCallback = typename Tree::UpdatesCompletionCallback;
+
+    static void perform_updates_without_witness(Tree& tree,
+                                                const index_t& highest_index,
+                                                std::shared_ptr<std::vector<LeafUpdate>> updates,
+                                                const UpdatesCompletionCallback& completion)
+    {
+        tree.perform_updates_without_witness(highest_index, std::move(updates), completion);
+    }
+};
+} // namespace bb::crypto::merkle_tree
 
 using namespace bb;
 using namespace bb::crypto::merkle_tree;
@@ -37,6 +55,42 @@ using PublicDataTreeType = ContentAddressedIndexedTree<PublicDataStore, Poseidon
 
 using CompletionCallback = TreeType::AddCompletionCallbackWithWitness;
 using SequentialCompletionCallback = TreeType::AddSequentiallyCompletionCallbackWithWitness;
+
+using IndexedNullifierLeafType = IndexedLeaf<NullifierLeafValue>;
+using IndexedPublicDataLeafType = IndexedLeaf<PublicDataLeafValue>;
+
+// Throws on the Nth get_current_root call (fail_on_call). The tree dispatches on the concrete store type
+// at compile time, so this non-virtual override is what it actually calls.
+class FailingRootStore : public Store {
+  public:
+    using Store::Store;
+
+    mutable std::atomic<uint32_t> root_call_count{ 0 };
+    std::atomic<uint32_t> fail_on_call{ 0 }; // 0 disables injection
+
+    fr get_current_root(ReadTransaction& tx, bool includeUncommitted) const
+    {
+        uint32_t call = ++root_call_count;
+        if (fail_on_call != 0 && call >= fail_on_call) {
+            throw std::runtime_error("injected get_current_root failure");
+        }
+        return Store::get_current_root(tx, includeUncommitted);
+    }
+};
+using FailingRootTreeType = ContentAddressedIndexedTree<FailingRootStore, HashPolicy>;
+
+inline IndexedNullifierLeafType create_indexed_nullifier_leaf(const fr& value, index_t nextIndex, const fr& nextValue)
+{
+    return IndexedNullifierLeafType{ NullifierLeafValue(value), nextIndex, nextValue };
+}
+
+inline IndexedPublicDataLeafType create_indexed_public_data_leaf(const fr& slot,
+                                                                 const fr& value,
+                                                                 index_t nextIndex,
+                                                                 const fr& nextValue)
+{
+    return IndexedPublicDataLeafType{ PublicDataLeafValue(slot, value), nextIndex, nextValue };
+}
 
 class PersistedContentAddressedIndexedTreeTest : public testing::Test {
   protected:
@@ -400,6 +454,34 @@ TEST_F(PersistedContentAddressedIndexedTreeTest, can_only_recreate_with_same_nam
 
     EXPECT_ANY_THROW(Store("Wrong name", depth, db));
     EXPECT_ANY_THROW(Store(name, depth + 1, db));
+}
+
+// A failing subtree sibling path read during a witnessed insertion must still invoke the completion
+// callback (with success=false) rather than dropping it and deadlocking the caller.
+TEST_F(PersistedContentAddressedIndexedTreeTest, reports_failure_when_subtree_sibling_path_read_fails)
+{
+    constexpr size_t depth = 10;
+    std::string name = random_string();
+    LMDBTreeStore::SharedPtr db = std::make_shared<LMDBTreeStore>(_directory, name, _mapSize, _maxReaders);
+    auto store = std::make_unique<FailingRootStore>(name, depth, db);
+    FailingRootStore* store_ptr = store.get();
+    ThreadPoolPtr workers = make_thread_pool(1);
+    FailingRootTreeType tree(std::move(store), workers, 2);
+
+    // Ignore genesis reads; pass generate_insertions (call 1) and fail get_subtree_sibling_path (call 2).
+    store_ptr->root_call_count = 0;
+    store_ptr->fail_on_call = 2;
+
+    std::promise<bool> completed;
+    std::future<bool> completed_future = completed.get_future();
+    auto completion = [&](const TypedResponse<AddIndexedDataResponse<NullifierLeafValue>>& response) -> void {
+        completed.set_value(response.success);
+    };
+    tree.add_or_update_values(std::vector<NullifierLeafValue>{ NullifierLeafValue(get_value(1)) }, completion);
+
+    // Bounded wait so a regression fails the test
+    ASSERT_EQ(completed_future.wait_for(std::chrono::seconds(60)), std::future_status::ready);
+    EXPECT_FALSE(completed_future.get());
 }
 
 TEST_F(PersistedContentAddressedIndexedTreeTest, test_size)
@@ -2812,6 +2894,39 @@ TEST_F(PersistedContentAddressedIndexedTreeTest, test_prefilled_public_data)
     EXPECT_EQ(get_leaf<PublicDataLeafValue>(tree, 3), leaf_3);
 }
 
+// Regression: a low leaf whose value is zero (the head of the list) must not be treated as padding when it
+// is re-hashed. Inserting into the gap beneath such a head leaf previously zeroed its hash and corrupted
+// the root. The leaf only hashes to zero when its next pointers are also zero (i.e. the true padding leaf).
+TEST_F(PersistedContentAddressedIndexedTreeTest, low_leaf_with_zero_value_is_not_treated_as_padding)
+{
+    ThreadPoolPtr workers = make_thread_pool(1);
+    constexpr size_t depth = 4;
+    std::string name = random_string();
+    LMDBTreeStore::SharedPtr db = std::make_shared<LMDBTreeStore>(_directory, name, _mapSize, _maxReaders);
+    std::unique_ptr<Store> store = std::make_unique<Store>(name, depth, db);
+
+    // index 0 = {nullifier=0, nextIndex=1, nextKey=1000}, index 1 = {nullifier=1000, nextIndex=0, nextKey=0}
+    index_t initial_size = 2;
+    std::vector<NullifierLeafValue> prefilled_values = { NullifierLeafValue(1000) };
+    auto tree = TreeType(std::move(store), workers, initial_size, prefilled_values);
+
+    // Insert into the (0, 1000) gap; index 0 (value 0) is selected as the low leaf and re-hashed.
+    add_value(tree, NullifierLeafValue(500));
+
+    // Expected post-insert leaves.
+    IndexedNullifierLeafType expected_leaf_0 = create_indexed_nullifier_leaf(0, 2, 500);
+    IndexedNullifierLeafType expected_leaf_1 = create_indexed_nullifier_leaf(1000, 0, 0);
+    IndexedNullifierLeafType expected_leaf_2 = create_indexed_nullifier_leaf(500, 1, 1000);
+    EXPECT_EQ(get_leaf<NullifierLeafValue>(tree, 0), expected_leaf_0);
+
+    // Independently compute the expected root; the low leaf must contribute its real hash, not zero.
+    MemoryTree<HashPolicy> expected(depth);
+    expected.update_element(0, HashPolicy::hash(expected_leaf_0.get_hash_inputs()));
+    expected.update_element(1, HashPolicy::hash(expected_leaf_1.get_hash_inputs()));
+    expected.update_element(2, HashPolicy::hash(expected_leaf_2.get_hash_inputs()));
+    check_root(tree, expected.root());
+}
+
 TEST_F(PersistedContentAddressedIndexedTreeTest, test_full_prefilled_public_data)
 {
     ThreadPoolPtr workers = make_thread_pool(1);
@@ -3213,4 +3328,78 @@ TEST_F(PersistedContentAddressedIndexedTreeTest, nullifiers_can_be_inserted_afte
         current_size += size_to_insert;
         check_size(forkTree, current_size);
     }
+}
+
+// Configured to throw an exception when put_cached_node_by_index is called, to simulate a failure in the thread during
+// a path update.
+class ThrowingNullifierStore : public ContentAddressedCachedTreeStore<NullifierLeafValue> {
+  public:
+    using Base = ContentAddressedCachedTreeStore<NullifierLeafValue>;
+    using Base::Base;
+
+    std::atomic<bool> throw_on_put_cached_node_by_index{ false };
+    std::atomic<uint64_t> num_put_cached_node_calls{ 0 };
+
+    void put_cached_node_by_index(uint32_t level, index_t index, const fr& value)
+    {
+        if (throw_on_put_cached_node_by_index.load()) {
+            num_put_cached_node_calls.fetch_add(1);
+            throw std::runtime_error("injected failure from put_cached_node_by_index");
+        }
+        Base::put_cached_node_by_index(level, index, value);
+    }
+};
+
+using ThrowingTreeType = ContentAddressedIndexedTree<ThrowingNullifierStore, Poseidon2HashPolicy>;
+using TestAccess = ContentAddressedIndexedTreeTestAccess<ThrowingNullifierStore, Poseidon2HashPolicy>;
+
+// The test checks that the perform_updates_without_witness callback has success=false
+// and an error message, and that at least one call to put_cached_node_by_index was made (to ensure the failure was
+// injected at the right place). This tests that the tree correctly handles exceptions thrown from the thread.
+TEST_F(PersistedContentAddressedIndexedTreeTest, perform_updates_without_witness_when_thread_fails)
+{
+    constexpr size_t depth = 6;
+    constexpr index_t initial_size = 2;
+
+    std::string name = random_string();
+    LMDBTreeStore::SharedPtr db = std::make_shared<LMDBTreeStore>(_directory, name, _mapSize, _maxReaders);
+    auto store = std::make_unique<ThrowingNullifierStore>(name, depth, db);
+    auto* raw_store = store.get();
+
+    ThreadPoolPtr workers = make_thread_pool(4);
+    ThrowingTreeType tree(std::move(store), workers, initial_size);
+
+    auto updates = std::make_shared<std::vector<typename TestAccess::LeafUpdate>>();
+    updates->push_back(typename TestAccess::LeafUpdate{
+        .leaf_index = 1,
+        .updated_leaf = IndexedLeaf<NullifierLeafValue>(NullifierLeafValue(fr(123)), 0, fr(0)),
+        .original_leaf = IndexedLeaf<NullifierLeafValue>::empty(),
+    });
+
+    // Configure to throw an exception when put_cached_node_by_index is called, to simulate a failure in the thread
+    // during a path update.
+    raw_store->throw_on_put_cached_node_by_index = true;
+
+    Signal signal;
+    bool callback_success = false;
+    std::string callback_message;
+
+    TestAccess::perform_updates_without_witness(
+        tree,
+        /*highest_index=*/1,
+        updates,
+        [&](const TypedResponse<typename TestAccess::UpdatesCompletionResponse>& response) {
+            callback_success = response.success;
+            callback_message = response.message;
+            signal.signal_level();
+        });
+
+    signal.wait_for_level();
+
+    // At least one call to put_cached_node_by_index should have been made
+    EXPECT_GT(raw_store->num_put_cached_node_calls.load(), 0);
+
+    // The callback should indicate failure and contain an error message
+    EXPECT_FALSE(callback_success);
+    EXPECT_FALSE(callback_message.empty());
 }

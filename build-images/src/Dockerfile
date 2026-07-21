@@ -21,12 +21,12 @@ RUN export DEBIAN_FRONTEND="noninteractive" \
     && apt-get clean \
     && rm -rf /var/lib/apt/lists/* /tmp/* /var/tmp/*
 
-# Install rust and cross-compilers. Noir specifically uses 1.85.0.
+# Install rust and cross-compilers. Noir specifically uses 1.89.0.
 # We give everyone write ownership so downstream boxes can write.
 ENV RUSTUP_HOME=/opt/rust/rustup
 ENV CARGO_HOME=/opt/rust/cargo
 ENV PATH="/opt/rust/cargo/bin:$PATH"
-RUN curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y --default-toolchain 1.85.0 && \
+RUN curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y --default-toolchain 1.89.0 && \
     rustup target add wasm32-unknown-unknown wasm32-wasip1 aarch64-apple-darwin && \
     chmod -R a+w /opt/rust
 
@@ -61,7 +61,7 @@ RUN curl -L https://foundry.paradigm.xyz | bash \
 # We use this image for test isolation.
 FROM base-build AS build
 
-# APT repo for node (24.12.0)
+# APT repo for node (24.15.0)
 RUN curl -fsSL https://deb.nodesource.com/gpgkey/nodesource-repo.gpg.key | gpg --dearmor -o /etc/apt/keyrings/nodesource.gpg
 ENV NODE_MAJOR=24
 RUN echo "deb [signed-by=/etc/apt/keyrings/nodesource.gpg] https://deb.nodesource.com/node_$NODE_MAJOR.x nodistro main" | tee /etc/apt/sources.list.d/nodesource.list
@@ -102,8 +102,7 @@ RUN apt update && \
         pkg-config \
         libssl-dev \
         # Node
-        # WARNING: Need to downgrade to this version in the basebox below as well.
-        nodejs=24.12.0-1nodesource1 \
+        nodejs=24.15.0-1nodesource1 \
         # Python (clang bindings for wasm bindgen.)
         python3 \
         python3-clang \
@@ -133,7 +132,7 @@ COPY --from=foundry /opt/foundry /opt/foundry
 ENV PATH="/opt/foundry/bin:$PATH"
 
 # Install corepack and yarn.
-RUN npm install --global corepack && corepack enable && corepack install --global yarn@4.5.2
+RUN npm install --global corepack && corepack enable && corepack install --global yarn@4.13.0
 
 # Install solhint.
 RUN npm install --global solhint
@@ -203,6 +202,7 @@ RUN apt update && \
         neovim \
         psmisc \
         python3-blessed \
+        qemu-utils \
         redis-tools \
         rsync \
         software-properties-common \
@@ -215,7 +215,7 @@ RUN apt update && \
         zsh \
         inotify-tools \
         # Annoyingly unminimize upgrades nodejs.
-        nodejs=24.12.0-1nodesource1 \
+        nodejs=24.15.0-1nodesource1 \
         # smt_verification dependencies
         python3-venv \
         python3-pip \
@@ -264,7 +264,7 @@ RUN echo '%sudo ALL=(ALL) NOPASSWD: ALL' >> /etc/sudoers
 # It can be used independently:
 # - The user should use the ./run.sh script to launch.
 # - A persistent volume will be mounted to /home/aztec-dev.
-# - It provides docker via the hosts docker instance, mounted at /var/lib/docker.sock.
+# - It provides docker-in-docker.
 # - It uses an entrypoint script at runtime to perform uid/gid alignment with the host and drop into user account.
 FROM basebox AS devbox
 

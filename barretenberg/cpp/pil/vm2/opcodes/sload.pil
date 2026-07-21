@@ -1,35 +1,43 @@
 include "../constants_gen.pil";
 include "../trees/public_data_check.pil";
 
-// SLOAD opcode: Reads a value from storage at the provided slot
-//
-// This opcode interacts with the public data check gadget to read a value at the specified slot.
-// The execution trace reads the slot from memory into register[0], the contract address from
-// memory into register[1], performs FF tag validation, and writes the value retrieved from the
-// tree to memory via register[2].
-// The value written to memory is checked to have tag FF.
-//
-// Register usage:
-// - register[0]: Contains the storage slot to read from
-// - register[1]: Contains the contract address to read from
-// - register[2]: Contains the retrieved value to be written to memory
-//
-// The opcode leverages the public_data_check gadget to verify the storage read operation
-// against the current public data tree root. The public_data_check gadget silos the slot
-// with the contract address.
-//
-namespace execution; // this is a virtual gadget that shares rows with the execution trace
+/**
+ * This virtual gadget implements the SLOAD opcode, which reads a value from public storage
+ * at the provided slot. The slot is siloed with the contract address by the public_data_check
+ * gadget before the read. The value retrieved from the tree is written to memory with tag FF.
+ *
+ * The opcode is gated by the `sel_execute_sload` selector, which is set to 1 if the
+ * SLOAD opcode has reached opcode dispatch (there are no earlier errors).
+ *
+ * This opcode also uses:
+ * - register[0]: the storage slot to read from (FF)                          (from execution.pil)
+ * - register[1]: the contract address to read from (FF)                      (from execution.pil)
+ * - register[2]: the retrieved value to be written to memory (FF)            (from execution.pil)
+ * - prev_public_data_tree_root: root of the public data tree                 (from context.pil)
+ *
+ * Interactions:
+ * - The gadget performs a lookup into the public_data_check gadget to read the storage value.
+ *     - The lookup passes the slot, contract address, and tree root, and receives the value.
+ *     - The public_data_check gadget silos the slot with the contract address.
+ *
+ * This opcode is infallible and sel_opcode_error is constrained to be zero
+ * in execution.pil (see #[INFALLIBLE_OPCODES_SUCCESS]).
+ *
+ */
+namespace execution;
 
     #[skippable_if]
     sel_execute_sload = 0; // from execution.pil.
 
     #[STORAGE_READ]
     sel_execute_sload {
+        precomputed.zero, // write = 0 (read)
         register[0], // Slot
         register[1], // Contract address from memory
         register[2], // Value (output)
         prev_public_data_tree_root // From context
     } in public_data_check.sel {
+        public_data_check.write,
         public_data_check.slot,
         public_data_check.address,
         public_data_check.value,

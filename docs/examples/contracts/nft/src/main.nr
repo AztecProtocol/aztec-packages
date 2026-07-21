@@ -5,12 +5,12 @@ pub mod nft;
 #[aztec]
 pub contract NFTPunk {
     use crate::nft::NFTNote;
-    use dep::aztec::{
+    use aztec::{
         macros::{functions::{external, initializer, only_self}, storage::storage},
         protocol::address::AztecAddress,
         state_vars::{DelayedPublicMutable, Map, Owned, PrivateSet, PublicImmutable},
     };
-    use dep::aztec::messages::message_delivery::MessageDelivery;
+    use aztec::messages::delivery::MessageDelivery;
     use aztec::note::{
         note_getter_options::NoteGetterOptions, note_interface::NoteProperties,
         note_viewer_options::NoteViewerOptions,
@@ -21,7 +21,7 @@ pub contract NFTPunk {
     struct Storage<Context> {
         admin: PublicImmutable<AztecAddress, Context>,
         minter: PublicImmutable<AztecAddress, Context>,
-        nfts: Map<Field, DelayedPublicMutable<bool, 2, Context>, Context>,
+        nfts: Map<Field, DelayedPublicMutable<bool, 2u64, Context>, Context>,
         owners: Owned<PrivateSet<NFTNote, Context>, Context>,
     }
     #[external("public")]
@@ -57,7 +57,7 @@ pub contract NFTPunk {
 
         // we create an NFT note and insert it to the PrivateSet - a collection of notes meant to be read in private
         let new_nft = NFTNote { token_id };
-        self.storage.owners.at(to).insert(new_nft).deliver(MessageDelivery.ONCHAIN_CONSTRAINED);
+        self.storage.owners.at(to).insert(new_nft).deliver(MessageDelivery::onchain_constrained());
 
         // calling the internal public function above to indicate that the NFT is taken
         self.enqueue_self._mark_nft_exists(token_id, true);

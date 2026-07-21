@@ -1,6 +1,5 @@
 #!/usr/bin/env bash
 set -euo pipefail
-shopt -s inherit_errexit
 
 # Re-execute using correct version if we have an .aztecrc file.
 if [ "${AZTEC_VERSIONED:-0}" -eq 0 ] && [ -f .aztecrc ] && command -v aztec-up &>/dev/null; then
@@ -21,13 +20,20 @@ function aztec {
 
 case $cmd in
   test)
-    export LOG_LEVEL="${LOG_LEVEL:-error}"
+    # Attempt to compile, no-op if there are no changes
+    node --no-warnings "$script_dir/../dest/bin/index.js" compile
+
+    export LOG_LEVEL="${LOG_LEVEL:-"error;trace:^contract:"}"
     aztec start --txe --port 8081 &
     server_pid=$!
     trap 'kill $server_pid &>/dev/null || true' EXIT
+    if ! command -v nc &>/dev/null; then
+      echo "Error: 'nc' (netcat) is required but not installed." >&2
+      exit 1
+    fi
     while ! nc -z 127.0.0.1 8081 &>/dev/null; do sleep 0.2; done
     export NARGO_FOREIGN_CALL_TIMEOUT=300000
-    nargo test --silence-warnings  --oracle-resolver http://127.0.0.1:8081 "$@"
+    nargo test --silence-warnings --oracle-resolver http://127.0.0.1:8081 "$@"
     ;;
   start)
     if [ "${1:-}" == "--local-network" ]; then
@@ -47,15 +53,19 @@ case $cmd in
       export ETHEREUM_HOSTS=${ETHEREUM_HOSTS:-"http://127.0.0.1:${ANVIL_PORT}"}
 
       anvil --version
-      anvil --silent &
+      anvil --silent --port "$ANVIL_PORT" &
       anvil_pid=$!
       trap 'kill $anvil_pid &>/dev/null' EXIT
     fi
 
     aztec start "$@"
     ;;
-  compile|new|init|flamegraph)
+  new|init)
     $script_dir/${cmd}.sh "$@"
+    ;;
+  flamegraph)
+    echo "Warning: 'aztec flamegraph' is deprecated. Use 'aztec profile flamegraph' instead." >&2
+    aztec profile flamegraph "$@"
     ;;
   *)
     aztec $cmd "$@"

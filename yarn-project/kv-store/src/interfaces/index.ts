@@ -6,4 +6,4 @@ export * from './store.js';
 export * from './set.js';
 export * from './multi_map.js';
 export { mapRange } from './common.js';
-export type { CustomRange, Range, StoreSize } from './common.js';
+export type { CustomRange, Key, Range, StoreSize } from './common.js';

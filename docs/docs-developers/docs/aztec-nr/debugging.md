@@ -1,11 +1,9 @@
 ---
 title: Debugging Aztec Code
-sidebar_position: 4
-tags: [debugging, errors, logging, local_network, aztec.nr]
+sidebar_position: 5
+tags: [debugging, errors, local_network, aztec.nr]
 description: This guide shows you how to debug issues in your Aztec contracts.
 ---
-
-<!-- need to move some into aztec.js  -->
 
 This guide shows you how to debug issues in your Aztec development environment.
 
@@ -17,72 +15,13 @@ This guide shows you how to debug issues in your Aztec development environment.
 
 ## Enable logging
 
-Enable different levels of logging on the local network or node by setting `LOG_LEVEL`:
+For adding log statements to your contracts, controlling log verbosity, and understanding the `LOG_LEVEL` syntax, see the [Logging from Contracts](./logging.md) guide.
+
+To enable verbose system-level logging on a local network:
 
 ```bash
-# Set log level (options: fatal, error, warn, info, verbose, debug, trace)
-LOG_LEVEL=debug aztec start --local-network
-
-# Different levels for different services
-LOG_LEVEL="verbose;info:sequencer" aztec start --local-network
+LOG_LEVEL=verbose aztec start --local-network
 ```
-
-## Logging in Aztec.nr contracts
-
-Log values from your contract using `debug_log`:
-
-```rust
-// Import debug logging
-use dep::aztec::oracle::debug_log::{ debug_log, debug_log_format };
-
-// Log simple messages
-debug_log("checkpoint reached");
-
-// Log field values with context
-debug_log_format("slot:{0}, hash:{1}", [storage_slot, note_hash]);
-
-// Log a single value
-debug_log_format("my_field: {0}", [my_field]);
-
-// Log multiple values
-debug_log_format("values: {0}, {1}, {2}", [val1, val2, val3]);
-```
-
-:::note
-Debug logs appear only during local execution. Private functions always execute locally, but public functions must be simulated to show logs. Use `.simulate()` or `.prove()` in TypeScript, or `env.simulate_public_function()` in TXE tests.
-:::
-
-To see debug logs from your tests, set `LOG_LEVEL` when running:
-
-```bash
-LOG_LEVEL="debug" yarn run test
-```
-
-To filter specific modules, use a semicolon-delimited list:
-
-```bash
-LOG_LEVEL="info;debug:simulator:client_execution_context;debug:simulator:client_view_context" yarn run test
-```
-
-:::info Log filter format
-`LOG_LEVEL` accepts a semicolon-delimited list of filters. Each filter can be:
-
-- `level` - Sets default level for all modules
-- `level:module` - Sets level for a specific module
-- `level:module:submodule` - Sets level for a specific submodule
-
-```bash
-# Default level only
-LOG_LEVEL="debug"
-
-# Default level + specific module overrides
-LOG_LEVEL="info;debug:simulator;debug:execution"
-
-# Default level + specific submodule overrides
-LOG_LEVEL="info;debug:simulator:client_execution_context;debug:simulator:client_view_context"
-```
-
-:::
 
 ## Debugging common errors
 
@@ -94,7 +33,24 @@ LOG_LEVEL="info;debug:simulator:client_execution_context;debug:simulator:client_
 | `Public state writes only supported in public functions` | Move state writes to public functions                                                                                                                           |
 | `Unknown contract 0x0`                                   | Call `wallet.registerContract(...)` to register contract                                                                                                        |
 | `No public key registered for address`                   | Call `wallet.registerSender(...)`                                                                                                                               |
+| `Direct invocation of ... functions is not supported`    | Use `self.call()`, `self.view()`, or `self.enqueue()` to [call contract functions](framework-description/calling_contracts.md) |
 | `Failed to solve brillig function`                       | Check function parameters and note validity                                                                                                                     |
+| `Cross-contract utility call denied`                     | Configure an `authorizeUtilityCall` [execution hook](#cross-contract-utility-call-denied) on your PXE                                                           |
+
+#### Cross-contract utility call denied
+
+Utility functions execute on the user's device and have access to private state. A cross-contract utility call made by
+a malicious or compromised contract could leak private information to an untrusted contract. PXE therefore denies cross-
+contract utility calls by default and requires explicit authorization via an execution hook. Calls to standard contracts
+(such as the HandshakeRegistry, which is queried during every contract's sync) are always automatically authorized.
+
+When a contract executes a utility function that calls into a different contract, PXE asks the wallet through an [execution hook](../foundational-topics/pxe/execution_hooks.md) whether the call should be allowed. If no hook is configured, or the wallet denies the request, you will see:
+
+```
+Cross-contract utility call denied: <reason>. <caller> attempted to call <target>:<selector> (<name>).
+```
+
+See [execution hooks](../foundational-topics/pxe/execution_hooks.md#authorizeutilitycall) for how to authorize calls, both in production and in Noir tests.
 
 ### Circuit Errors
 
@@ -112,9 +68,12 @@ LOG_LEVEL="info;debug:simulator:client_execution_context;debug:simulator:client_
 ### Quick Fixes for Common Issues
 
 ```bash
-# Archiver sync issues - force progress with dummy transactions
-aztec-wallet send transfer --from test0 --to test0 --amount 0
-aztec-wallet send transfer --from test0 --to test0 --amount 0
+# Archiver sync issues - force progress with dummy transactions.
+# Assumes you have imported the local network test accounts
+# (aztec-wallet import-test-accounts) and have a deployed token
+# aliased as `testtoken`.
+aztec-wallet send transfer --from test0 --contract-address testtoken --args accounts:test0 0
+aztec-wallet send transfer --from test0 --contract-address testtoken --args accounts:test0 0
 
 # L1 to L2 message pending - wait for inclusion
 # Messages need 2 blocks to be processed
@@ -159,7 +118,7 @@ link.click();
 
 ## Interpret error messages
 
-### Kernel circuit errors (2xxx)
+### Circuit and protocol errors
 
 - **Private kernel errors (2xxx)**: Issues with private function execution
 - **Public kernel errors (3xxx)**: Issues with public function execution
@@ -203,10 +162,12 @@ When debugging fails:
 LOG_LEVEL=verbose aztec start --local-network
 ```
 
-### Common debug imports
+### Contract logging
+
+See the full [Logging from Contracts](./logging.md) guide for all available log functions and `LOG_LEVEL` configuration.
 
 ```rust
-use dep::aztec::oracle::debug_log::{ debug_log, debug_log_format };
+use aztec::oracle::logging::{debug_log, debug_log_format};
 ```
 
 ### Check contract registration
@@ -217,7 +178,7 @@ await wallet.getContractMetadata(myContractInstance.address);
 
 ### Decode L1 errors
 
-Check hex errors against [Errors.sol](https://github.com/AztecProtocol/aztec-packages/blob/master/l1-contracts/src/core/libraries/Errors.sol)
+Check hex errors against [Errors.sol](https://github.com/AztecProtocol/aztec-packages/blob/#include_aztec_version/l1-contracts/src/core/libraries/Errors.sol)
 
 ## Tips
 

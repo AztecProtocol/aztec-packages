@@ -5,6 +5,6 @@ if(AVM_TRANSPILER_LIB)
     target_link_libraries(api_objects PRIVATE avm_transpiler)
 endif()
 
-if(NOT WASM)
+if(NOT WASM AND NOT BB_LITE)
     target_link_libraries(api_objects PRIVATE ipc)
 endif()

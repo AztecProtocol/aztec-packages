@@ -14,6 +14,7 @@
 
 #include "barretenberg/common/assert.hpp"
 #include "barretenberg/common/log.hpp"
+#include "barretenberg/ecc/fields/field_declarations.hpp"
 #include "barretenberg/numeric/uint256/uint256.hpp"
 #include "barretenberg/numeric/uintx/uintx.hpp"
 #include <algorithm>
@@ -149,7 +150,7 @@ template <typename Field> struct FieldVM {
      *
      * @details Fields with moduli >= 2^254 require uint512_t for safe addition/subtraction
      */
-    static constexpr bool LARGE_MODULUS = (Field::modulus.data[3] >= 0x4000000000000000ULL);
+    static constexpr bool LARGE_MODULUS = (Field::modulus.data[3] >= MODULUS_TOP_LIMB_LARGE_THRESHOLD);
 
     /**
      * @brief Flag indicating if the field supports square root operations
@@ -961,13 +962,13 @@ template <typename Field> struct FieldVM {
                         assert(uint_internal_state[idx] == individual_uint_inverses[i]);
 
                         // Verify the inverse property: a * a^(-1) = 1
-                        Field product = original_elements[i] * field_internal_state[idx];
+                        [[maybe_unused]] Field product = original_elements[i] * field_internal_state[idx];
                         assert(product == Field::one());
 
                         // Verify uint arithmetic consistency
-                        auto uint_product = (static_cast<uint512_t>(original_uint_elements[i]) *
-                                             static_cast<uint512_t>(uint_internal_state[idx])) %
-                                            static_cast<uint512_t>(Field::modulus);
+                        [[maybe_unused]] auto uint_product = (static_cast<uint512_t>(original_uint_elements[i]) *
+                                                              static_cast<uint512_t>(uint_internal_state[idx])) %
+                                                             static_cast<uint512_t>(Field::modulus);
                         assert(uint_product == static_cast<uint512_t>(1));
                     } else {
                         // Zero elements should remain zero

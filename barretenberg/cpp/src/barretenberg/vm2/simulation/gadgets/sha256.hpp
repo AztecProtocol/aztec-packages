@@ -1,14 +1,15 @@
 #pragma once
 
 #include <cstdint>
-#include <memory>
+#include <span>
 
 #include "barretenberg/vm2/common/memory_types.hpp"
 #include "barretenberg/vm2/simulation/events/event_emitter.hpp"
 #include "barretenberg/vm2/simulation/events/sha256_event.hpp"
-#include "barretenberg/vm2/simulation/gadgets/bitwise.hpp"
-#include "barretenberg/vm2/simulation/gadgets/gt.hpp"
-#include "barretenberg/vm2/simulation/gadgets/memory.hpp"
+#include "barretenberg/vm2/simulation/interfaces/bitwise.hpp"
+#include "barretenberg/vm2/simulation/interfaces/gt.hpp"
+#include "barretenberg/vm2/simulation/interfaces/memory.hpp"
+#include "barretenberg/vm2/simulation/interfaces/range_check.hpp"
 #include "barretenberg/vm2/simulation/interfaces/sha256.hpp"
 #include "barretenberg/vm2/simulation/lib/execution_id_manager.hpp"
 
@@ -19,10 +20,12 @@ class Sha256 : public Sha256Interface {
     Sha256(ExecutionIdGetterInterface& execution_id_manager,
            BitwiseInterface& bitwise,
            GreaterThanInterface& gt,
+           RangeCheckInterface& range_check,
            EventEmitterInterface<Sha256CompressionEvent>& event_emitter)
         : execution_id_manager(execution_id_manager)
         , bitwise(bitwise)
         , gt(gt)
+        , range_check(range_check)
         , events(event_emitter)
     {}
 
@@ -40,6 +43,7 @@ class Sha256 : public Sha256Interface {
     ExecutionIdGetterInterface& execution_id_manager;
     BitwiseInterface& bitwise;
     GreaterThanInterface& gt;
+    RangeCheckInterface& range_check;
     EventEmitterInterface<Sha256CompressionEvent>& events;
 };
 

@@ -1,60 +1,142 @@
-// Usage:
-//
-// sel { val, num_bits } in range_check.sel_XXX { range_check.value, range_check.rng_chk_bits };
-//
-// sel_XXX is one of:
-// - sel
-// - sel_keccak
-// - sel_gt
-// - sel_memory
-// - sel_alu
-//
-// Asserts that val < 2^num_bits.
-// Supported for any 0 <= val < 2^128. Any val > 2^128 is not satisfiable (would fail #[CHECK_RECOMPOSITION] combined with
-// the 16-bit range checks #[R0_IS_U16]...#[R7_IS_U16] on the limbs).
-// Note that we use the unsatisfiability of val > 2^128 as part of an assumption in gt.pil. Should a modification
-// here changes the assumption, the gt.pil needs to be modified as well.
+include "precomputed.pil";
+
+/**
+ * Range check gadget.
+ *
+ * Proves that a given value fits within a specified number of bits: value < 2^rng_chk_bits.
+ * A single trace row is used per range check. The gadget decomposes the value into up to
+ * eight 16-bit limbs (u16_r0..u16_r7) and performs a dynamic 16-bit range check on the
+ * most significant limb (u16_r7).
+ *
+ * Usage (as a destination trace):
+ *   caller_sel { val, num_bits }
+ *   in range_check.sel_XXX { range_check.value, range_check.rng_chk_bits };
+ *
+ * where sel_XXX is either the standard sel selector or one of the dedicated lookup selectors listed below.
+ *  1) sel_keccak
+ *  2) sel_gt
+ *  3) sel_memory
+ *  4) sel_alu
+ *  5) sel_sha256
+ *
+ *
+ * Preconditions:
+ * - 0 <= value < 2^128. Any value >= 2^128 is unsatisfiable because the 16-bit range checks
+ *   on limbs u16_r0..u16_r7 combined with #[CHECK_RECOMPOSITION] restrict value to at most
+ *   128 bits.
+ * - 0 <= rng_chk_bits <= 128. Enforced indirectly: dyn_rng_chk_bits is constrained to [0, 16]
+ *   (see dynamic check section), and rng_chk_bits = dyn_rng_chk_bits + k*16 where k in [0, 7].
+ *
+ * NOTE: The unsatisfiability of value >= 2^128 is relied upon as an assumption in gt.pil.
+ * Should a modification here change the assumption, the gt.pil needs to be modified as well.
+ *
+ * Trace shape: 1 row per range check (single-row computation).
+ *
+ * Example trace row — proving 0x6_1234_5678 < 2^35 (rng_chk_bits = 35):
+ * is_lte_u48 is set because 48 is the smallest multiple of 16 >= 35. u16_r0 and u16_r1
+ * hold the lower 32 bits. u16_r7 holds the top bits, dynamically checked to fit in 35 - 32 = 3 bits.
+ *
+ * | value          | rng_chk_bits | is_lte_u48 | other is_lte | u16_r0 | u16_r1 | u16_r2..r6 | u16_r7 | dyn_rng_chk_bits | dyn_rng_chk_pow_2 | dyn_diff | sel_r0_lookup | sel_r1_lookup | sel_r2..r6_lookup |
+ * |----------------|--------------|------------|--------------|--------|--------|------------|--------|------------------|-------------------|----------|---------------|---------------|-------------------|
+ * | 0x6_1234_5678  | 35           | 1          | 0            | 0x5678 | 0x1234 | *          | 0x6    | 3                | 8                 | 1        | 1             | 1             | 0                 |
+ *
+ * Interactions (this gadget as destination):
+ *
+ * | Caller              | Lookup Name                           | Selector   |
+ * |---------------------|---------------------------------------|------------|
+ * | gt.pil              | #[GT_RANGE]                           | sel_gt     |
+ * | alu.pil             | #[RANGE_CHECK_DECOMPOSITION_A_LO]     | sel_alu    |
+ * | alu.pil             | #[RANGE_CHECK_DECOMPOSITION_A_HI]     | sel_alu    |
+ * | alu.pil             | #[RANGE_CHECK_DECOMPOSITION_B_LO]     | sel_alu    |
+ * | alu.pil             | #[RANGE_CHECK_DECOMPOSITION_B_HI]     | sel_alu    |
+ * | alu.pil             | #[RANGE_CHECK_MUL_C_HI]               | sel_alu    |
+ * | alu.pil             | #[RANGE_CHECK_TRUNC_MID]              | sel_alu    |
+ * | memory.pil          | #[RANGE_CHECK_WRITE_TAGGED_VALUE]     | sel_memory |
+ * | keccakf1600.pil     | #[THETA_LIMB_*_RANGE] (24 lookups)    | sel_keccak |
+ * | ff_gt.pil           | #[A_LO_RANGE], #[A_HI_RANGE]          | sel        |
+ * | instr_fetching.pil  | #[PC_ABS_DIFF_POSITIVE]               | sel        |
+ * | update_check.pil    | #[UPDATE_HI/LO_METADATA_RANGE]        | sel        |
+ *
+ * Interactions (this gadget as source -- lookups into precomputed tables):
+ *
+ * | Lookup Name          | Selector                  | LHS Tuple                               | RHS (precomputed)                 |
+ * |----------------------|---------------------------|-----------------------------------------|-----------------------------------|
+ * | #[DYN_RNG_CHK_POW_2] | sel                       | { dyn_rng_chk_bits, dyn_rng_chk_pow_2 } | sel_range_8 { idx, power_of_2 }   |
+ * | #[DYN_DIFF_IS_U16]   | sel                       | { dyn_diff }                            | sel_range_16_active { idx }       |
+ * | #[R0_IS_U16]         | sel_r0_16_bit_rng_lookup  | { u16_r0 }                              | sel_range_16_active { idx }       |
+ * | #[R1_IS_U16]         | sel_r1_16_bit_rng_lookup  | { u16_r1 }                              | sel_range_16_active { idx }       |
+ * | #[R2_IS_U16]         | sel_r2_16_bit_rng_lookup  | { u16_r2 }                              | sel_range_16_active { idx }       |
+ * | #[R3_IS_U16]         | sel_r3_16_bit_rng_lookup  | { u16_r3 }                              | sel_range_16_active { idx }       |
+ * | #[R4_IS_U16]         | sel_r4_16_bit_rng_lookup  | { u16_r4 }                              | sel_range_16_active { idx }       |
+ * | #[R5_IS_U16]         | sel_r5_16_bit_rng_lookup  | { u16_r5 }                              | sel_range_16_active { idx }       |
+ * | #[R6_IS_U16]         | sel_r6_16_bit_rng_lookup  | { u16_r6 }                              | sel_range_16_active { idx }       |
+ * | #[R7_IS_U16]         | sel                       | { u16_r7 }                              | sel_range_16_active { idx }       |
+ *
+ * Soundness argument summary:
+ * 1) #[CHECK_RECOMPOSITION] forces value = sum of (u16_r_i * 2^(16*i)) + u16_r7 * 2^(16*k),
+ *    where k is determined by the mutually exclusive is_lte_uXX flag.
+ * 2) Each u16_r_i (i=0..6) is range-checked to [0, 2^16) via lookups #[R0_IS_U16]..#[R6_IS_U16],
+ *    activated cumulatively based on the is_lte_uXX flag.
+ * 3) u16_r7 is range-checked to [0, 2^16) via #[R7_IS_U16], plus dynamically range-checked
+ *    to [0, 2^dyn_rng_chk_bits) via dyn_diff = 2^dyn_rng_chk_bits - u16_r7 - 1 >= 0.
+ * 4) dyn_rng_chk_bits is constrained to [0, 16] by the combination of #[DYN_RNG_CHK_POW_2]
+ *    (8-bit lookup), #[DYN_DIFF_IS_U16] (16-bit lookup on dyn_diff), and #[R7_IS_U16].
+ *    See detailed proof in the inline comments below.
+ */
 namespace range_check;
-    // Range check selector
-    pol commit sel;
+
+    ////////////////////////////////////////////////
+    // Selectors
+    ////////////////////////////////////////////////
+
+    pol commit sel; // @boolean
     sel * (1 - sel) = 0;
 
-    // This is used to decouple generation of inverses of lookups into this trace.
-    pol commit sel_keccak;
-    pol commit sel_gt;
-    pol commit sel_memory;
-    pol commit sel_alu;
+    // Dedicated selectors for decoupling inverse generation across caller traces.
+    pol commit sel_keccak; // @boolean - destination for keccakf1600.pil #[THETA_LIMB_XX_RANGE]
+    pol commit sel_gt; // @boolean - destination for gt.pil #[GT_RANGE]
+    pol commit sel_memory; // @boolean - destination for memory.pil #[RANGE_CHECK_WRITE_TAGGED_VALUE]
+    pol commit sel_alu; // @boolean - destination for alu.pil range check lookups
+    pol commit sel_sha256; // @boolean - destination for sha256.pil range check lookups
     sel_keccak * (1 - sel_keccak) = 0;
     sel_gt * (1 - sel_gt) = 0;
     sel_memory * (1 - sel_memory) = 0;
     sel_alu * (1 - sel_alu) = 0;
+    sel_sha256 * (1 - sel_sha256) = 0;
     // If any of the above selectors is 1, then sel must be 1.
-    (sel_keccak + sel_gt + sel_memory + sel_alu) * (1 - sel) = 0;
+    (sel_keccak + sel_gt + sel_memory + sel_alu + sel_sha256) * (1 - sel) = 0;
 
     // No relations will be checked if this identity is satisfied.
     #[skippable_if]
     sel = 0;
 
+    ////////////////////////////////////////////////
     // Witnesses
+    ////////////////////////////////////////////////
+
     // Value to range check
     pol commit value;
     // Number of bits to check against (this number must be <=128)
     pol commit rng_chk_bits;
 
-    // Bit Size Columns
-    // It is enforced (further down) that the selected column is the lowest multiple of 16 that is greater than rng_chk_bits
+    ////////////////////////////////////////////////
+    // Bit Size Flags (is_lte_uXX)
+    ////////////////////////////////////////////////
+
+    // It is enforced (further down) that the selected flag is the lowest multiple of 16 that is >= rng_chk_bits
     // e.g., rng_chk_bits = 10 ===> is_lte_u16, rng_chk_bits = 100 ==> is_lte_u112
-    // If rng_chk_bits is a multiple of 16, a prover is able to choose either is_lte_xx or is_lte_xx(+16), since the dynamic register will prove 0
+    // If rng_chk_bits is a multiple of 16, a prover is able to choose either is_lte_xx or is_lte_xx(+16), since dyn_rng_chk_bits will be 0 in the latter case
     // This isn't a concern and only costs the prover additional compute.
-    // TODO: Maybe we can get rid of is_lte_u128 since it's implicit if we have sel and no other is_lte_x
-    pol commit is_lte_u16;
-    pol commit is_lte_u32;
-    pol commit is_lte_u48;
-    pol commit is_lte_u64;
-    pol commit is_lte_u80;
-    pol commit is_lte_u96;
-    pol commit is_lte_u112;
-    pol commit is_lte_u128;
+    // Improvement: is_lte_u128 could be eliminated since it is implicit when sel = 1
+    // and no other is_lte_uXX flag is set (follows from #[IS_LTE_MUTUALLY_EXCLUSIVE]).
+    pol commit is_lte_u16; // @boolean
+    pol commit is_lte_u32; // @boolean
+    pol commit is_lte_u48; // @boolean
+    pol commit is_lte_u64; // @boolean
+    pol commit is_lte_u80; // @boolean
+    pol commit is_lte_u96; // @boolean
+    pol commit is_lte_u112; // @boolean
+    pol commit is_lte_u128; // @boolean
     is_lte_u16 * (1 - is_lte_u16) = 0;
     is_lte_u32 * (1 - is_lte_u32) = 0;
     is_lte_u48 * (1 - is_lte_u48) = 0;
@@ -68,6 +150,10 @@ namespace range_check;
     #[IS_LTE_MUTUALLY_EXCLUSIVE]
     is_lte_u16 + is_lte_u32 + is_lte_u48 + is_lte_u64 + is_lte_u80 + is_lte_u96 + is_lte_u112 + is_lte_u128 = sel;
 
+    ////////////////////////////////////////////////
+    // 16-bit Decomposition Registers
+    ////////////////////////////////////////////////
+
     // Eight 16-bit slice registers
     pol commit u16_r0;
     pol commit u16_r1;
@@ -79,7 +165,11 @@ namespace range_check;
     // This register has a (more expensive) set of constraint that enables dynamic range check of bit values between 0 and 16 bits
     pol commit u16_r7;
 
-    // In each of these relations, the u16_r7 register contains the most significant 16 bits of value.
+    ////////////////////////////////////////////////
+    // Value Recomposition
+    ////////////////////////////////////////////////
+
+    // In each of these relations, the u16_r7 register contains the most significant limb of value (up to 16 bits).
     pol PX_0 = 0;
     pol R7_0 = u16_r7;
     pol PX_1 = u16_r0;
@@ -109,7 +199,9 @@ namespace range_check;
     #[CHECK_RECOMPOSITION]
     sel * (RESULT - value) = 0;
 
-    // ===== Dynamic Check Constraints =====
+    ////////////////////////////////////////////////
+    // Dynamic Range Check Constraints
+    ////////////////////////////////////////////////
 
     // The number of bits that form the dynamic range check is depending on the claimed lte value and the witness rng_chk_bits
     // claimed is_lte_x | dyn_rng_chk_bits
@@ -130,7 +222,7 @@ namespace range_check;
 
     // [ASSERTIONS]
     // 1) Assert 0 <= dyn_rng_chk_bits <= 16 (i.e. dyn_rng_chk_bits supports up to a 16-bit number)
-    // 2) Assert dyn_diff > 0 (i.e. dyn_diff did not underflow)
+    // 2) Assert dyn_diff >= 0 (i.e. dyn_diff did not underflow)
 
     // === Ensuring dyn_rng_chk_bits is in the range [0,16] ===
     // 1) We perform an 8-bit lookup to get dyn_rng_chk_pow_2 - note this is an 8-bit lookup so only constrains dyn_rng_chk_bits to be [0, 255]
@@ -139,28 +231,28 @@ namespace range_check;
     //    (b) u16_r7 is constrained by a 16-bit lookup table [0, 2^16 - 1]
     // 3) If the value of dyn_rng_chk_pow_2 > 2^16, i.e. dyn_rng_chk_bits is > 16, the condition (2a) will not hold
     //    (a) [0, 2^16 - 1] = dyn_rng_chk_pow_2 - [0, 2^16 - 1] - 1
-    //    (b) from above, dyn_rng_check_pow_2 must be [0, 2^16] (remember from (1), dyn_rng_check_pow_2 is constrained to be a power of 2)
+    //    (b) from above, dyn_rng_chk_pow_2 must be [0, 2^16] (remember from (1), dyn_rng_chk_pow_2 is constrained to be a power of 2)
 
     // Some counter-examples
     // Assume a range check that the value 3 fits into 100 bits
     // [A Valid Proof]
     // 1) value = 3, rng_chk_bits = 100, is_lte_u112 = 1
     // 2) u16_r0 = 3, while all other registers including u16_r7 (the dynamic one) are set to zero - passing #[CHECK_RECOMPOSITION]
-    // 3) dyn_rng_chk_bits = 100 - 96 = 4, as per the table above - this passes #[LOOKUP_RNG_CHK_POW_2]
+    // 3) dyn_rng_chk_bits = 100 - 96 = 4, as per the table above - this passes #[DYN_RNG_CHK_POW_2]
     // 4) dyn_rng_chk_pow_2 = 2^4 = 16
-    // 5) dyn_diff = dyn_rng_chk_pow_2 - u16_r7 - 1 = 16 - 0 - 1 = 15 - passing the range check #[LOOKUP_RNG_CHK_DIFF]
+    // 5) dyn_diff = dyn_rng_chk_pow_2 - u16_r7 - 1 = 16 - 0 - 1 = 15 - passing the range check #[DYN_DIFF_IS_U16]
 
     // [An Invalid Proof where dyn_rng_chk_bits > 16]
     // 1) value = 3, rng_chk_bits = 100, is_lte_u16 = 1 -- a prover tries to claim the value is between 0 and u16 (which it is but isnt what the range check attesting)
     // 2) u16_r7 = 3, this still passes #[CHECK_RECOMPOSITION]
-    // 3) dyn_rng_chk_bits = 100, as per the table - this still passes #[LOOKUP_RNG_CHK_POW_2]
-    // 4) dyn_rng_check_pow_2 = 2^100
-    // 5) dyn_diff = dyn_rng_chk_pow_2 - u16_r7 - 1 = 2^100 - 3 - 1 = 2^100 - 4 - this would fail the 16-bit range check #[LOOKUP_RNG_CHK_DIFF]
+    // 3) dyn_rng_chk_bits = 100, as per the table - this still passes #[DYN_RNG_CHK_POW_2] (100 is in [0, 255])
+    // 4) dyn_rng_chk_pow_2 = 2^100
+    // 5) dyn_diff = dyn_rng_chk_pow_2 - u16_r7 - 1 = 2^100 - 3 - 1 = 2^100 - 4 - this would fail the 16-bit range check #[DYN_DIFF_IS_U16]
 
     // [An Invalid Proof where dyn_rng_chk_bits < 0]
-    // 1) value = 3, rng_chk_bits = 100, is_lte_u128 = 1 -- a prover claims it fits within u112 and u128.
+    // 1) value = 3, rng_chk_bits = 100, is_lte_u128 = 1 -- a prover picks a decomposition that is too wide for rng_chk_bits
     // 2) u16_r0 = 3, while all other registers including u16_r7 (the dynamic one) are set to zero - passing #[CHECK_RECOMPOSITION]
-    // 3) dyn_rng_chk_bits = 100 - 112 = -12, as per the table above - this fails #[LOOKUP_RNG_CHK_POW_2]
+    // 3) dyn_rng_chk_bits = 100 - 112 = -12, as per the table above - this fails #[DYN_RNG_CHK_POW_2]
 
     // The number of bits that need to be dynamically range checked.
     pol commit dyn_rng_chk_bits;
@@ -172,8 +264,8 @@ namespace range_check;
 
     // This lookup does 2 things (1) Indirectly range checks dyn_rng_chk_bits to not have underflowed and (2) Simplified calculation of 2^dyn_rng_chk_bits
     #[DYN_RNG_CHK_POW_2]
-    sel { dyn_rng_chk_bits, dyn_rng_chk_pow_2 } in precomputed.sel_range_8 { precomputed.clk, precomputed.power_of_2 };
-    // NOTE: `sel_range_8` is chosen because it gives us rows [0, 256] which will give us all of the powers we need (plus many we don't need)
+    sel { dyn_rng_chk_bits, dyn_rng_chk_pow_2 } in precomputed.sel_range_8 { precomputed.idx, precomputed.power_of_2 };
+    // NOTE: `sel_range_8` is chosen because it gives us 256 rows [0, 2^8) which will give us all of the powers we need (plus many we don't need)
 
     // Now we need to perform the dynamic range check itself
     // We check that u16_r7 < dyn_rng_chk_pow_2 ==> dyn_rng_chk_pow_2 - u16_r7 - 1 >= 0
@@ -182,20 +274,28 @@ namespace range_check;
     // The value of dyn_diff has to be between [0, 2^16)
     // To check we did not underflow we just range check it
     #[DYN_DIFF_IS_U16]
-    sel { dyn_diff } in precomputed.sel_range_16 { precomputed.clk };
+    sel { dyn_diff } in precomputed.sel_range_16_active { precomputed.idx };
 
-    // Lookup relations.
+    ////////////////////////////////////////////////
+    // Cumulative Lookup Selectors and 16-bit Range Check Lookups
+    ////////////////////////////////////////////////
+
     // We only need these relations while we do not support pol in the LHS selector
-    pol commit sel_r0_16_bit_rng_lookup;
-    pol commit sel_r1_16_bit_rng_lookup;
-    pol commit sel_r2_16_bit_rng_lookup;
-    pol commit sel_r3_16_bit_rng_lookup;
-    pol commit sel_r4_16_bit_rng_lookup;
-    pol commit sel_r5_16_bit_rng_lookup;
-    pol commit sel_r6_16_bit_rng_lookup;
+    pol commit sel_r0_16_bit_rng_lookup; // @boolean (implicit: equals CUM_LTE_32, a sum of mutually exclusive booleans constrained to <= 1 by #[IS_LTE_MUTUALLY_EXCLUSIVE])
+    pol commit sel_r1_16_bit_rng_lookup; // @boolean (implicit: equals CUM_LTE_48, same reasoning)
+    pol commit sel_r2_16_bit_rng_lookup; // @boolean (implicit: equals CUM_LTE_64, same reasoning)
+    pol commit sel_r3_16_bit_rng_lookup; // @boolean (implicit: equals CUM_LTE_80, same reasoning)
+    pol commit sel_r4_16_bit_rng_lookup; // @boolean (implicit: equals CUM_LTE_96, same reasoning)
+    pol commit sel_r5_16_bit_rng_lookup; // @boolean (implicit: equals CUM_LTE_112, same reasoning)
+    pol commit sel_r6_16_bit_rng_lookup; // @boolean (implicit: equals CUM_LTE_128, same reasoning)
 
-    // The lookups are cumulative - i.e. every value greater than 16 bits involve sel_r0_16_bit_rng_lookup
-    // Note that the lookup for the u16_r7 is always active (dynamic range check)
+    // The lookup selectors are cumulative: sel_rN activates for all is_lte_uXX flags that use
+    // register u16_rN. For example, sel_r0 = CUM_LTE_32 = is_lte_u32 + is_lte_u48 + ... + is_lte_u128
+    // since any range check > 16 bits uses u16_r0.
+    // These selectors are implicitly boolean because they equal a cumulative sum of mutually exclusive
+    // booleans (guaranteed by #[IS_LTE_MUTUALLY_EXCLUSIVE] constraining the sum to sel in {0,1}).
+    // Note: u16_r7 lookup (#[R7_IS_U16]) is always active (gated by sel) since u16_r7 is the
+    // dynamic range check register used in every range check.
     pol CUM_LTE_128 = is_lte_u128;
     pol CUM_LTE_112 = is_lte_u112 + CUM_LTE_128;
     pol CUM_LTE_96 = is_lte_u96 + CUM_LTE_112;
@@ -212,18 +312,18 @@ namespace range_check;
     sel_r6_16_bit_rng_lookup - CUM_LTE_128 = 0;
 
     #[R0_IS_U16]
-    sel_r0_16_bit_rng_lookup { u16_r0 } in precomputed.sel_range_16 { precomputed.clk };
+    sel_r0_16_bit_rng_lookup { u16_r0 } in precomputed.sel_range_16_active { precomputed.idx };
     #[R1_IS_U16]
-    sel_r1_16_bit_rng_lookup { u16_r1 } in precomputed.sel_range_16 { precomputed.clk };
+    sel_r1_16_bit_rng_lookup { u16_r1 } in precomputed.sel_range_16_active { precomputed.idx };
     #[R2_IS_U16]
-    sel_r2_16_bit_rng_lookup { u16_r2 } in precomputed.sel_range_16 { precomputed.clk };
+    sel_r2_16_bit_rng_lookup { u16_r2 } in precomputed.sel_range_16_active { precomputed.idx };
     #[R3_IS_U16]
-    sel_r3_16_bit_rng_lookup { u16_r3 } in precomputed.sel_range_16 { precomputed.clk };
+    sel_r3_16_bit_rng_lookup { u16_r3 } in precomputed.sel_range_16_active { precomputed.idx };
     #[R4_IS_U16]
-    sel_r4_16_bit_rng_lookup { u16_r4 } in precomputed.sel_range_16 { precomputed.clk };
+    sel_r4_16_bit_rng_lookup { u16_r4 } in precomputed.sel_range_16_active { precomputed.idx };
     #[R5_IS_U16]
-    sel_r5_16_bit_rng_lookup { u16_r5 } in precomputed.sel_range_16 { precomputed.clk };
+    sel_r5_16_bit_rng_lookup { u16_r5 } in precomputed.sel_range_16_active { precomputed.idx };
     #[R6_IS_U16]
-    sel_r6_16_bit_rng_lookup { u16_r6 } in precomputed.sel_range_16 { precomputed.clk };
+    sel_r6_16_bit_rng_lookup { u16_r6 } in precomputed.sel_range_16_active { precomputed.idx };
     #[R7_IS_U16]
-    sel { u16_r7 } in precomputed.sel_range_16 { precomputed.clk };
+    sel { u16_r7 } in precomputed.sel_range_16_active { precomputed.idx };

@@ -23,6 +23,7 @@ using namespace bb::avm2::tracegen;
 using namespace bb::avm2::constraining;
 using namespace bb::avm2::fuzzing;
 
+using bb::avm2::Column;
 using bb::avm2::FF;
 using bb::avm2::MemoryTag;
 using bb::avm2::MemoryValue;
@@ -102,15 +103,15 @@ extern "C" int LLVMFuzzerTestOneInput(const uint8_t* data, size_t size)
     // Set execution trace columns
     trace.set(0,
               { {
-                  { avm2::Column::execution_mem_tag_reg_0_, static_cast<uint8_t>(a.get_tag()) }, // = ia_tag
-                  { avm2::Column::execution_mem_tag_reg_1_, static_cast<uint8_t>(b.get_tag()) }, // = ib_tag
-                  { avm2::Column::execution_mem_tag_reg_2_, static_cast<uint8_t>(c.get_tag()) }, // = ic_tag
-                  { avm2::Column::execution_register_0_, a.as_ff() },                            // = ia
-                  { avm2::Column::execution_register_1_, b.as_ff() },                            // = ib
-                  { avm2::Column::execution_register_2_, c.as_ff() },                            // = ic
-                  { avm2::Column::execution_sel_exec_dispatch_bitwise, 1 },                      // = sel
-                  { avm2::Column::execution_sel_opcode_error, bitwise_error ? 1 : 0 },           // = sel_err
-                  { avm2::Column::execution_subtrace_operation_id, op_id },                      // = bitwise_op_id
+                  { Column::execution_mem_tag_reg_0_, static_cast<uint8_t>(a.get_tag()) }, // = ia_tag
+                  { Column::execution_mem_tag_reg_1_, static_cast<uint8_t>(b.get_tag()) }, // = ib_tag
+                  { Column::execution_mem_tag_reg_2_, static_cast<uint8_t>(c.get_tag()) }, // = ic_tag
+                  { Column::execution_register_0_, a.as_ff() },                            // = ia
+                  { Column::execution_register_1_, b.as_ff() },                            // = ib
+                  { Column::execution_register_2_, c.as_ff() },                            // = ic
+                  { Column::execution_sel_exec_dispatch_bitwise, 1 },                      // = sel
+                  { Column::execution_sel_opcode_error, bitwise_error ? 1 : 0 },           // = sel_err
+                  { Column::execution_subtrace_operation_id, op_id },                      // = bitwise_op_id
 
               } });
 
@@ -133,30 +134,24 @@ extern "C" int LLVMFuzzerTestOneInput(const uint8_t* data, size_t size)
     for (uint8_t i = 1; i < 17; i++) {
         trace.set(i,
                   { {
-                      { avm2::Column::bitwise_op_id, 0 },
-                      { avm2::Column::bitwise_start, 0 },
-                      { avm2::Column::bitwise_sel_get_ctr, 0 },
-                      { avm2::Column::bitwise_last, 0 },
-                      { avm2::Column::bitwise_acc_ia, 0 },
-                      { avm2::Column::bitwise_acc_ib, 0 },
-                      { avm2::Column::bitwise_acc_ic, 0 },
-                      { avm2::Column::bitwise_ia_byte, 0 },
-                      { avm2::Column::bitwise_ib_byte, 0 },
-                      { avm2::Column::bitwise_ic_byte, 0 },
-                      { avm2::Column::bitwise_tag_a, 0 },
-                      { avm2::Column::bitwise_tag_b, 0 },
-                      { avm2::Column::bitwise_tag_c, 0 },
-                      { avm2::Column::bitwise_sel_tag_ff_err, 0 },
-                      { avm2::Column::bitwise_sel_tag_mismatch_err, 0 },
-                      { avm2::Column::bitwise_err, 0 },
-                      { avm2::Column::bitwise_tag_a_inv, 0 },
-                      { avm2::Column::bitwise_tag_ab_diff_inv, 0 },
-                      { avm2::Column::bitwise_ctr, 0 },
-                      { avm2::Column::bitwise_ctr_inv, 0 },
-                      { avm2::Column::bitwise_ctr_min_one_inv, 0 },
-                      { avm2::Column::bitwise_sel, 0 },
-                      { avm2::Column::bitwise_tag_a_inv, 0 },
-                      { avm2::Column::bitwise_tag_ab_diff_inv, 0 },
+                      { Column::bitwise_op_id, 0 },
+                      { Column::bitwise_sel_bitwise_opcode, 0 },
+                      { Column::bitwise_ia, 0 },
+                      { Column::bitwise_ib, 0 },
+                      { Column::bitwise_ic, 0 },
+                      { Column::bitwise_ia_byte_0_, 0 },
+                      { Column::bitwise_ib_byte_0_, 0 },
+                      { Column::bitwise_tag_a, 0 },
+                      { Column::bitwise_tag_b, 0 },
+                      { Column::bitwise_tag_c, 0 },
+                      { Column::bitwise_sel_tag_ff_err, 0 },
+                      { Column::bitwise_sel_tag_mismatch_err, 0 },
+                      { Column::bitwise_err, 0 },
+                      { Column::bitwise_tag_a_inv, 0 },
+                      { Column::bitwise_tag_ab_diff_inv, 0 },
+                      { Column::bitwise_sel, 0 },
+                      { Column::bitwise_tag_a_inv, 0 },
+                      { Column::bitwise_tag_ab_diff_inv, 0 },
                   } });
     }
 

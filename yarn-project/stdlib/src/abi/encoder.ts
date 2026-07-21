@@ -1,7 +1,13 @@
 import { Fr } from '@aztec/foundation/curves/bn254';
 
 import type { AbiType, FunctionAbi } from './abi.js';
-import { isAddressStruct, isBoundedVecStruct, isFunctionSelectorStruct, isWrappedFieldStruct } from './utils.js';
+import {
+  isAddressStruct,
+  isBoundedVecStruct,
+  isFunctionSelectorStruct,
+  isOptionStruct,
+  isWrappedFieldStruct,
+} from './utils.js';
 
 /**
  * Encodes arguments for a function call.
@@ -43,6 +49,32 @@ class ArgumentEncoder {
    * @param name - Name.
    */
   private encodeArgument(abiType: AbiType, arg: any, name?: string) {
+    if (isOptionStruct(abiType)) {
+      const optionType = abiType as Extract<AbiType, { kind: 'struct' }>;
+      const [isSomeField, valueField] = optionType.fields;
+
+      if (arg === undefined || arg === null) {
+        this.encodeArgument(isSomeField.type, false, `${name}._is_some`);
+        this.#encodeDefaultValue(valueField.type);
+        return;
+      }
+
+      if (typeof arg === 'object' && '_is_some' in arg) {
+        this.encodeArgument(isSomeField.type, arg._is_some, `${name}._is_some`);
+
+        if (arg._is_some) {
+          this.encodeArgument(valueField.type, arg._value, `${name}._value`);
+        } else {
+          this.#encodeDefaultValue(valueField.type);
+        }
+        return;
+      }
+
+      this.encodeArgument(isSomeField.type, true, `${name}._is_some`);
+      this.encodeArgument(valueField.type, arg, `${name}._value`);
+      return;
+    }
+
     if (arg === undefined || arg == null) {
       throw new Error(`Undefined argument ${name ?? 'unnamed'} of type ${abiType.kind}`);
     }
@@ -74,13 +106,28 @@ class ArgumentEncoder {
         this.flattened.push(new Fr(arg ? 1n : 0n));
         break;
       case 'array':
+        if (!Array.isArray(arg)) {
+          throw new Error(`Expected array for '${name ?? 'unnamed'}' but received ${typeof arg}`);
+        }
+        if (arg.length !== abiType.length) {
+          throw new Error(
+            `Expected array of length ${abiType.length} for '${name ?? 'unnamed'}' but received length ${arg.length}`,
+          );
+        }
         for (let i = 0; i < abiType.length; i += 1) {
           this.encodeArgument(abiType.type, arg[i], `${name}[${i}]`);
         }
         break;
       case 'string':
+        if (typeof arg !== 'string') {
+          throw new Error(`Expected string for '${name ?? 'unnamed'}' but received ${typeof arg}`);
+        }
+        if (arg.length > abiType.length) {
+          throw new Error(
+            `Expected string of max length ${abiType.length} for '${name ?? 'unnamed'}' but received length ${arg.length}`,
+          );
+        }
         for (let i = 0; i < abiType.length; i += 1) {
-          // If the string is shorter than the defined length, pad it with 0s.
           const toInsert = i < arg.length ? BigInt((arg as string).charCodeAt(i)) : 0n;
           this.flattened.push(new Fr(toInsert));
         }
@@ -123,14 +170,33 @@ class ArgumentEncoder {
         }
         break;
       }
-      case 'integer':
-        if (typeof arg === 'string') {
-          const value = BigInt(arg);
+      case 'integer': {
+        const value = BigInt(arg);
+        if (abiType.sign === 'unsigned') {
+          const maxValue = (1n << BigInt(abiType.width)) - 1n;
+          if (value < 0n || value > maxValue) {
+            throw new Error(
+              `Value ${value} does not fit in u${abiType.width} for '${name ?? 'unnamed'}' (valid range: 0 to ${maxValue})`,
+            );
+          }
           this.flattened.push(new Fr(value));
         } else {
-          this.flattened.push(new Fr(arg));
+          const minValue = -(1n << BigInt(abiType.width - 1));
+          const maxValue = (1n << BigInt(abiType.width - 1)) - 1n;
+          if (value < minValue || value > maxValue) {
+            throw new Error(
+              `Value ${value} does not fit in i${abiType.width} for '${name ?? 'unnamed'}' (valid range: ${minValue} to ${maxValue})`,
+            );
+          }
+          if (value < 0n) {
+            const twosComplement = value + (1n << BigInt(abiType.width));
+            this.flattened.push(new Fr(twosComplement));
+          } else {
+            this.flattened.push(new Fr(value));
+          }
         }
         break;
+      }
       default:
         throw new Error(`Unsupported type: ${abiType.kind}`);
     }
@@ -141,6 +207,11 @@ class ArgumentEncoder {
    * @returns The encoded arguments.
    */
   public encode() {
+    if (this.args.length !== this.abi.parameters.length) {
+      throw new Error(
+        `Function '${this.abi.name}' expects ${this.abi.parameters.length} argument(s) but received ${this.args.length}`,
+      );
+    }
     for (let i = 0; i < this.abi.parameters.length; i += 1) {
       const parameterAbi = this.abi.parameters[i];
       this.encodeArgument(parameterAbi.type, this.args[i], parameterAbi.name);
@@ -223,6 +294,14 @@ class ArgumentEncoder {
       const lenField = (abiType as unknown as any).fields.find((f: any) => f.name === 'len')!;
       this.encodeArgument(lenField.type, arg.length, 'len');
     }
+  }
+
+  /**
+   * Appends the flattened zero value for an ABI type.
+   * Option::None still serializes the wrapped value, so we need to zero-fill its footprint.
+   */
+  #encodeDefaultValue(abiType: AbiType) {
+    this.flattened.push(...new Array(ArgumentEncoder.typeSize(abiType)).fill(Fr.ZERO));
   }
 }
 

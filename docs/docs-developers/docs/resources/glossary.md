@@ -38,7 +38,7 @@ Read more and review the source code [here](https://github.com/AztecProtocol/azt
 
 ### Aztec.nr
 
-[Aztec.nr](https://github.com/AztecProtocol/aztec-packages/tree/next/noir-projects/aztec-nr) is a Noir framework for writing Aztec smart contracts that abstracts away state management, handling note generation, state trees, and more.
+[Aztec.nr](https://github.com/AztecProtocol/aztec-packages/tree/#include_aztec_version/noir-projects/aztec-nr) is a Noir framework for writing Aztec smart contracts that abstracts away state management, handling note generation, state trees, and more.
 
 Read more and review the source code [here](https://aztec.nr).
 
@@ -68,6 +68,8 @@ Merkle trees in Aztec are used to store cryptographic commitments. They are used
 
 With `nargo`, you can start new projects, compile, execute, and test your Noir programs.
 
+The Aztec installer ships its own pinned `nargo` and exposes it as the `aztec-nargo` wrapper on `PATH` (bare `nargo` is intentionally not provided so it does not shadow your own install). For Aztec contract work, prefer `aztec compile` and `aztec test`; for plain Noir commands, use `aztec-nargo` (or your own `nargo` install).
+
 You can find more information in the nargo installation docs [here](https://noir-lang.org/docs/getting_started/quick_start#installation) and the nargo command reference [here](https://noir-lang.org/docs/reference/nargo_commands).
 
 ### Noir
@@ -86,7 +88,7 @@ A node is a computer running Aztec software that participates in the Aztec netwo
 
 The Aztec testnet rolls up to Ethereum Sepolia.
 
-To run your own node see [here](/network/).
+To run your own node see [here](/operate/operators).
 
 ### Note
 
@@ -138,7 +140,6 @@ Included in the local network:
 - Deployed Aztec protocol contracts (for L1 and L2)
 - A set of test accounts with some test tokens to pay fees
 - Development tools to compile contracts and interact with the network (`aztec` and `aztec-wallet`)
-- All of this comes packaged in a Docker container to make it easy to install and run.
 
 ### Sequencer
 

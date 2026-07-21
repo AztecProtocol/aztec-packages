@@ -20,3 +20,7 @@ add_definitions(-DENABLE_AVM_TRANSPILER)
 
 message(STATUS "avm-transpiler library: ${AVM_TRANSPILER_LIB}")
 message(STATUS "avm-transpiler include: ${AVM_TRANSPILER_INCLUDE}")
+
+if(APPLE AND NOT CMAKE_CROSSCOMPILING)
+    target_link_libraries(avm_transpiler INTERFACE "-framework CoreFoundation")
+endif()

@@ -259,6 +259,50 @@ describe('getNotes', () => {
     ]);
   });
 
+  it('should select using sub-field byte range with LSB offset convention', () => {
+    // Each note has a single field. We'll use values where the low bytes differ:
+    // 0x0102 = 258: low byte (offset=0, len=1) = 0x02, second byte (offset=1, len=1) = 0x01
+    // 0x0302 = 770: low byte = 0x02, second byte = 0x03
+    // 0x0105 = 261: low byte = 0x05, second byte = 0x01
+    const notes = [createNote([258n]), createNote([770n]), createNote([261n])];
+
+    // Select by low byte (offset=0, length=1) == 0x02
+    {
+      const options = {
+        selects: [{ selector: { index: 0, offset: 0, length: 1 }, value: new Fr(0x02n), comparator: Comparator.EQ }],
+      };
+      const result = pickNotes(notes, options);
+      expectNotes(result, [[258n], [770n]]);
+    }
+
+    // Select by second byte (offset=1, length=1) == 0x01
+    {
+      const options = {
+        selects: [{ selector: { index: 0, offset: 1, length: 1 }, value: new Fr(0x01n), comparator: Comparator.EQ }],
+      };
+      const result = pickNotes(notes, options);
+      expectNotes(result, [[258n], [261n]]);
+    }
+
+    // Select by two low bytes (offset=0, length=2) == 0x0102 = 258
+    {
+      const options = {
+        selects: [{ selector: { index: 0, offset: 0, length: 2 }, value: new Fr(0x0102n), comparator: Comparator.EQ }],
+      };
+      const result = pickNotes(notes, options);
+      expectNotes(result, [[258n]]);
+    }
+
+    // GT on low byte: low byte > 0x02 matches only 261 (low byte = 0x05)
+    {
+      const options = {
+        selects: [{ selector: { index: 0, offset: 0, length: 1 }, value: new Fr(0x02n), comparator: Comparator.GT }],
+      };
+      const result = pickNotes(notes, options);
+      expectNotes(result, [[261n]]);
+    }
+  });
+
   it('should get sorted matching notes with GTE and LTE', () => {
     const notes = [
       createNote([2n, 1n, 1n]),
@@ -316,5 +360,59 @@ describe('getNotes', () => {
       [4n, 5n, 2n],
       [7n, 6n, 3n],
     ]);
+  });
+
+  it('throws a clear error for an invalid comparator value', () => {
+    const notes = [createNote([1n])];
+    const options = {
+      selects: [
+        {
+          selector: { index: 0, offset: 0, length: 32 },
+          value: new Fr(1n),
+          comparator: 99 as Comparator,
+        },
+      ],
+    };
+
+    expect(() => pickNotes(notes, options)).toThrow('Invalid comparator value: 99');
+  });
+
+  it('throws when selector.index is out of bounds', () => {
+    const notes = [createNote([1n, 2n])];
+    const options = {
+      selects: [
+        {
+          selector: { index: 5, offset: 0, length: 32 },
+          value: new Fr(1n),
+          comparator: Comparator.EQ,
+        },
+      ],
+    };
+
+    expect(() => pickNotes(notes, options)).toThrow(/index 5 out of bounds/);
+  });
+
+  it('throws when selector.index is out of bounds in a sort', () => {
+    const notes = [createNote([1n]), createNote([2n])];
+    const options = {
+      sorts: [{ selector: { index: 3, offset: 0, length: 32 }, order: SortOrder.ASC }],
+    };
+
+    expect(() => pickNotes(notes, options)).toThrow(/index 3 out of bounds/);
+  });
+
+  it('throws when selector.offset + selector.length exceeds Fr buffer size', () => {
+    const notes = [createNote([1n])];
+    const options = {
+      selects: [
+        {
+          selector: { index: 0, offset: 30, length: 5 },
+          value: new Fr(0n),
+          comparator: Comparator.EQ,
+        },
+      ],
+    };
+
+    expect(() => pickNotes(notes, options)).toThrow(/exceeds Fr buffer size/);
   });
 });

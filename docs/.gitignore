@@ -33,4 +33,5 @@ test-results
 !CLAUDE.md
 
 target
+foundry.lock
 static/aztec-nr-api/next

@@ -3,7 +3,6 @@
 
 #include <string_view>
 
-#include "barretenberg/common/bb_bench.hpp"
 #include "barretenberg/relations/relation_parameters.hpp"
 #include "barretenberg/relations/relation_types.hpp"
 #include "barretenberg/vm2/generated/columns.hpp"
@@ -14,8 +13,8 @@ template <typename FF_> class bc_hashingImpl {
   public:
     using FF = FF_;
 
-    static constexpr std::array<size_t, 24> SUBRELATION_PARTIAL_LENGTHS = { 3, 4, 3, 3, 3, 3, 3, 4, 4, 3, 3, 3,
-                                                                            3, 3, 3, 3, 4, 4, 4, 4, 5, 3, 4, 3 };
+    static constexpr std::array<size_t, 23> SUBRELATION_PARTIAL_LENGTHS = { 3, 3, 3, 3, 3, 3, 2, 3, 3, 3, 3, 3,
+                                                                            3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3 };
 
     template <typename AllEntities> inline static bool skip(const AllEntities& in)
     {
@@ -36,32 +35,32 @@ template <typename FF> class bc_hashing : public Relation<bc_hashingImpl<FF>> {
     static constexpr const std::string_view NAME = "bc_hashing";
 
     // Subrelation indices constants, to be used in tests.
-    static constexpr size_t SR_TRACE_CONTINUITY = 1;
-    static constexpr size_t SR_SEL_TOGGLED_AT_LATCH = 3;
-    static constexpr size_t SR_START_AFTER_LATCH = 6;
+    static constexpr size_t SR_SEL_ON_START_OR_END = 3;
+    static constexpr size_t SR_TRACE_CONTINUITY = 4;
+    static constexpr size_t SR_START_AFTER_LATCH = 5;
     static constexpr size_t SR_PC_INCREMENTS = 7;
     static constexpr size_t SR_PC_INCREMENTS_1 = 8;
     static constexpr size_t SR_PC_INCREMENTS_2 = 9;
     static constexpr size_t SR_ID_PROPAGATION = 10;
-    static constexpr size_t SR_START_IS_SEPARATOR = 11;
-    static constexpr size_t SR_SEL_NOT_PADDING_1_REQUIRES_SEL = 14;
-    static constexpr size_t SR_SEL_NOT_PADDING_2_REQUIRES_SEL = 15;
-    static constexpr size_t SR_PADDING_CONSISTENCY = 16;
-    static constexpr size_t SR_PADDING_END = 17;
-    static constexpr size_t SR_PADDED_BY_ZERO_1 = 18;
-    static constexpr size_t SR_PADDED_BY_ZERO_2 = 19;
-    static constexpr size_t SR_PADDING_CORRECTNESS = 20;
+    static constexpr size_t SR_START_IS_FIRST_FIELD = 11;
+    static constexpr size_t SR_SEL_NOT_PADDING_REQUIRES_SEL = 14;
+    static constexpr size_t SR_PADDING_CONSISTENCY = 15;
+    static constexpr size_t SR_PADDING_END = 16;
+    static constexpr size_t SR_PADDED_BY_ZERO_1 = 17;
+    static constexpr size_t SR_PADDED_BY_ZERO_2 = 18;
+    static constexpr size_t SR_PADDING_COMPUTATION = 19;
+    static constexpr size_t SR_PADDING_PROPAGATION = 20;
     static constexpr size_t SR_BYTECODE_LENGTH_FIELDS = 21;
     static constexpr size_t SR_ROUNDS_DECREMENT = 22;
-    static constexpr size_t SR_HASH_IS_ID = 23;
 
     static std::string get_subrelation_label(size_t index)
     {
+#ifdef AVM_INCLUDE_COLUMN_INFORMATION
         switch (index) {
+        case SR_SEL_ON_START_OR_END:
+            return "SEL_ON_START_OR_END";
         case SR_TRACE_CONTINUITY:
             return "TRACE_CONTINUITY";
-        case SR_SEL_TOGGLED_AT_LATCH:
-            return "SEL_TOGGLED_AT_LATCH";
         case SR_START_AFTER_LATCH:
             return "START_AFTER_LATCH";
         case SR_PC_INCREMENTS:
@@ -72,12 +71,10 @@ template <typename FF> class bc_hashing : public Relation<bc_hashingImpl<FF>> {
             return "PC_INCREMENTS_2";
         case SR_ID_PROPAGATION:
             return "ID_PROPAGATION";
-        case SR_START_IS_SEPARATOR:
-            return "START_IS_SEPARATOR";
-        case SR_SEL_NOT_PADDING_1_REQUIRES_SEL:
-            return "SEL_NOT_PADDING_1_REQUIRES_SEL";
-        case SR_SEL_NOT_PADDING_2_REQUIRES_SEL:
-            return "SEL_NOT_PADDING_2_REQUIRES_SEL";
+        case SR_START_IS_FIRST_FIELD:
+            return "START_IS_FIRST_FIELD";
+        case SR_SEL_NOT_PADDING_REQUIRES_SEL:
+            return "SEL_NOT_PADDING_REQUIRES_SEL";
         case SR_PADDING_CONSISTENCY:
             return "PADDING_CONSISTENCY";
         case SR_PADDING_END:
@@ -86,15 +83,16 @@ template <typename FF> class bc_hashing : public Relation<bc_hashingImpl<FF>> {
             return "PADDED_BY_ZERO_1";
         case SR_PADDED_BY_ZERO_2:
             return "PADDED_BY_ZERO_2";
-        case SR_PADDING_CORRECTNESS:
-            return "PADDING_CORRECTNESS";
+        case SR_PADDING_COMPUTATION:
+            return "PADDING_COMPUTATION";
+        case SR_PADDING_PROPAGATION:
+            return "PADDING_PROPAGATION";
         case SR_BYTECODE_LENGTH_FIELDS:
             return "BYTECODE_LENGTH_FIELDS";
         case SR_ROUNDS_DECREMENT:
             return "ROUNDS_DECREMENT";
-        case SR_HASH_IS_ID:
-            return "HASH_IS_ID";
         }
+#endif
         return std::to_string(index);
     }
 };

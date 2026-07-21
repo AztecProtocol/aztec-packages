@@ -1,19 +1,28 @@
 import {
   type ConfigMappingsType,
   SecretValue,
+  bigintConfigHelper,
   booleanConfigHelper,
+  floatConfigHelper,
   getConfigFromMappings,
   getDefaultConfig,
   numberConfigHelper,
+  optionalNumberConfigHelper,
   percentageConfigHelper,
   pickConfigMappings,
   secretStringConfigHelper,
 } from '@aztec/foundation/config';
 import { Fr } from '@aztec/foundation/curves/bn254';
-import { type DataStoreConfig, dataConfigMappings } from '@aztec/kv-store/config';
 import { FunctionSelector } from '@aztec/stdlib/abi/function-selector';
 import { AztecAddress } from '@aztec/stdlib/aztec-address';
-import { type AllowedElement, type ChainConfig, chainConfigMappings } from '@aztec/stdlib/config';
+import {
+  type AllowedElement,
+  type ChainConfig,
+  type SequencerConfig,
+  chainConfigMappings,
+  sharedSequencerConfigMappings,
+} from '@aztec/stdlib/config';
+import { type DataStoreConfig, dataConfigMappings } from '@aztec/stdlib/kv-store';
 
 import {
   type BatchTxRequesterConfig,
@@ -31,7 +40,23 @@ export interface P2PConfig
     BatchTxRequesterConfig,
     ChainConfig,
     TxCollectionConfig,
-    TxFileStoreConfig {
+    TxFileStoreConfig,
+    Pick<
+      SequencerConfig,
+      | 'expectedBlockProposalsPerSlot'
+      | 'maxTxsPerBlock'
+      | 'checkpointProposalSyncGraceSeconds'
+      | 'maxBlocksPerCheckpoint'
+    >,
+    // `blockDurationMs` is optional on the loose `SequencerConfig` but is always populated for p2p via
+    // the shared `numberConfigHelper(3000)` mapping, so it is required here.
+    Required<Pick<SequencerConfig, 'blockDurationMs'>> {
+  /** Maximum transactions per block for validation. Overrides maxTxsPerBlock for gossip validation when set. */
+  validateMaxTxsPerBlock?: number;
+
+  /** Maximum transactions per checkpoint for validation. Used as fallback for maxTxsPerBlock when that is not set. */
+  validateMaxTxsPerCheckpoint?: number;
+
   /** A flag dictating whether the P2P subsystem should be enabled. */
   p2pEnabled: boolean;
 
@@ -46,6 +71,9 @@ export interface P2PConfig
 
   /** The frequency in which to check for new peers. */
   peerCheckIntervalMS: number;
+
+  /** How long to ban a peer after it fails MAX_DIAL_ATTEMPTS dials. */
+  peerFailedBanTimeMs: number;
 
   /** Size of queue of L2 blocks to store. */
   l2QueueSize: number;
@@ -83,6 +111,11 @@ export interface P2PConfig
   /** If announceUdpAddress or announceTcpAddress are not provided, query for the IP address of the machine. Default is false. */
   queryForIp: boolean;
 
+  /**
+   * HTTPS URLs that return plain-text public IPv4, tried in order when resolving the announce IP (e.g. when `queryForIp` is true and `p2pIp` is unset).
+   */
+  publicIpServices: string[];
+
   /** The interval of the gossipsub heartbeat to perform maintenance tasks. */
   gossipsubInterval: number;
 
@@ -110,6 +143,13 @@ export interface P2PConfig
   /** How long to keep message IDs in the seen cache (ms). */
   gossipsubSeenTTL: number;
 
+  /**
+   * Maximum clock-disparity tolerance (ms) applied to proposal/attestation gossip receive windows. Both
+   * ends of each acceptance window are widened by this much so peers are not penalized for messages valid
+   * when sent but arriving slightly early or late due to clock skew (Ethereum's MAXIMUM_GOSSIP_CLOCK_DISPARITY).
+   */
+  maxGossipClockDisparityMs: number;
+
   /** The 'age' (in # of L2 blocks) of a processed tx after which we heavily penalize a peer for re-sending it. */
   doubleSpendSeverePeerPenaltyWindow: number;
 
@@ -124,6 +164,9 @@ export interface P2PConfig
 
   /** The values for the peer scoring system. Passed as a comma separated list of values in order: low, mid, high tolerance errors. */
   peerPenaltyValues: number[];
+
+  /** How long (in seconds) a peer is banned for once its score drops below the ban threshold. */
+  peerBanDurationSeconds: number;
 
   /** Limit of transactions to archive in the tx pool. Once the archived tx limit is reached, the oldest archived txs will be purged. */
   archivedTxLimit: number;
@@ -140,14 +183,17 @@ export interface P2PConfig
   /** The maximum possible size of the P2P DB in KB. Overwrites the general dataStoreMapSizeKb. */
   p2pStoreMapSizeKb?: number;
 
-  /** Which calls are allowed in the public setup phase of a tx. */
-  txPublicSetupAllowList: AllowedElement[];
+  /** Additional entries to extend the default setup allow list. */
+  txPublicSetupAllowListExtend: AllowedElement[];
 
   /** The maximum number of pending txs before evicting lower priority txs. */
   maxPendingTxCount: number;
 
   /** The node's seen message ID cache size */
   seenMessageCacheSize: number;
+
+  /** Maximum number of (validator, tx) pairs to keep in the tx validation LRU cache. */
+  txValidationCacheSize: number;
 
   /** True to disable the status handshake on peer connected. */
   p2pDisableStatusHandshake?: boolean;
@@ -163,10 +209,7 @@ export interface P2PConfig
   /** Whether transactions are disabled for this node. This means transactions will be rejected at the RPC and P2P layers. */
   disableTransactions: boolean;
 
-  /** True to simulate discarding transactions. - For testing purposes only*/
-  dropTransactions: boolean;
-
-  /** The probability that a transaction is discarded. - For testing purposes only */
+  /** The probability that a transaction is discarded (0 = disabled). - For testing purposes only */
   dropTransactionsProbability: number;
 
   /** Whether to delete transactions from the pool after a reorg instead of moving them back to pending. */
@@ -177,11 +220,73 @@ export interface P2PConfig
 
   /** Whether to run in fisherman mode: validates all proposals and attestations but does not broadcast attestations or participate in consensus */
   fishermanMode: boolean;
+
+  /** Broadcast block proposals even when a conflicting proposal for the same slot already exists in the pool (for testing purposes only). */
+  broadcastEquivocatedProposals?: boolean;
+
+  /** Minimum age (ms) a transaction must have been in the pool before it's eligible for block building. */
+  minTxPoolAgeMs: number;
+
+  /**
+   * Number of full L2 slots to wait after a checkpoint's slot before declaring its txs missing
+   * for data-withholding slashing.
+   */
+  slashDataWithholdingToleranceSlots: number;
+
+  /**
+   * Number of L2 slots after a mined block's slot to keep collecting its missing txs. Clamped
+   * up so that collection always runs at least until the data-withholding slash verdict is
+   * rendered (`block.slot + slashDataWithholdingToleranceSlots + 1`). Defaults to undefined,
+   * in which case the tolerance window is used directly.
+   */
+  p2pMissingTxCollectionDeadlineSlots?: number;
+
+  /** Minimum percentage fee increase required to replace an existing tx via RPC (0 = no bump). */
+  priceBumpPercentage: bigint;
+
+  /**
+   * Number of slots behind the finalized tip to keep finalized txs for before deleting them. 0 deletes
+   * at the finalized tip (default).
+   */
+  keepFinalizedTxsForSlots: number;
+
+  /** Drop incoming block and checkpoint proposals at the libp2p dispatch layer (for testing only) */
+  skipIncomingProposals?: boolean;
+
+  /** Accept proposal gossip regardless of slot timing (for testing only). */
+  skipProposalSlotValidation?: boolean;
+
+  /**
+   * Whether this node skips checkpoint proposal validation and always attests. When set, the checkpoint
+   * attestation is created and broadcast before the embedded last block is processed, so it is not delayed
+   * past the slot's attestation window by that block's re-execution. Mirrors the validator config flag.
+   */
+  skipCheckpointProposalValidation?: boolean;
 }
 
 export const DEFAULT_P2P_PORT = 40400;
 
+/** Default endpoints used to discover this machine's public IPv4 when `queryForIp` is enabled. */
+export const DEFAULT_PUBLIC_IP_SERVICES: string[] = [
+  'https://api.ipify.org/',
+  'https://checkip.amazonaws.com/',
+  'https://ifconfig.me/ip',
+  'https://icanhazip.com/',
+];
+
 export const p2pConfigMappings: ConfigMappingsType<P2PConfig> = {
+  validateMaxTxsPerBlock: {
+    env: 'VALIDATOR_MAX_TX_PER_BLOCK',
+    description:
+      'Maximum transactions per block for validation. Overrides maxTxsPerBlock for gossip validation when set.',
+    ...optionalNumberConfigHelper(),
+  },
+  validateMaxTxsPerCheckpoint: {
+    env: 'VALIDATOR_MAX_TX_PER_CHECKPOINT',
+    description:
+      'Maximum transactions per checkpoint for validation. Used as fallback for maxTxsPerBlock when that is not set.',
+    ...optionalNumberConfigHelper(),
+  },
   p2pEnabled: {
     env: 'P2P_ENABLED',
     description: 'A flag dictating whether the P2P subsystem should be enabled.',
@@ -206,6 +311,11 @@ export const p2pConfigMappings: ConfigMappingsType<P2PConfig> = {
     env: 'P2P_PEER_CHECK_INTERVAL_MS',
     description: 'The frequency in which to check for new peers.',
     ...numberConfigHelper(30_000),
+  },
+  peerFailedBanTimeMs: {
+    env: 'P2P_PEER_FAILED_BAN_TIME_MS',
+    description: 'How long to ban a peer after it fails maximum dial attempts.',
+    ...numberConfigHelper(5 * 60 * 1000),
   },
   l2QueueSize: {
     env: 'P2P_L2_QUEUE_SIZE',
@@ -267,6 +377,17 @@ export const p2pConfigMappings: ConfigMappingsType<P2PConfig> = {
       'If announceUdpAddress or announceTcpAddress are not provided, query for the IP address of the machine. Default is false.',
     ...booleanConfigHelper(),
   },
+  publicIpServices: {
+    env: 'P2P_PUBLIC_IP_SERVICES',
+    parseEnv: (val: string) =>
+      val
+        .split(',')
+        .map(s => s.trim())
+        .filter(Boolean),
+    description:
+      'Comma-separated HTTPS URLs that return plain-text public IPv4. Used when P2P_QUERY_FOR_IP is true and P2P_IP is unset. Tried in order until one succeeds.',
+    defaultValue: DEFAULT_PUBLIC_IP_SERVICES,
+  },
   gossipsubInterval: {
     env: 'P2P_GOSSIPSUB_INTERVAL_MS',
     description: 'The interval of the gossipsub heartbeat to perform maintenance tasks.',
@@ -300,7 +421,7 @@ export const p2pConfigMappings: ConfigMappingsType<P2PConfig> = {
   gossipsubMcacheLength: {
     env: 'P2P_GOSSIPSUB_MCACHE_LENGTH',
     description: 'The number of gossipsub interval message cache windows to keep.',
-    ...numberConfigHelper(6),
+    ...numberConfigHelper(12),
   },
   gossipsubMcacheGossip: {
     env: 'P2P_GOSSIPSUB_MCACHE_GOSSIP',
@@ -312,20 +433,26 @@ export const p2pConfigMappings: ConfigMappingsType<P2PConfig> = {
     description: 'How long to keep message IDs in the seen cache.',
     ...numberConfigHelper(20 * 60 * 1000),
   },
+  maxGossipClockDisparityMs: {
+    env: 'P2P_MAX_GOSSIP_CLOCK_DISPARITY_MS',
+    description:
+      'Maximum clock-disparity tolerance (ms) applied to both ends of proposal/attestation gossip receive windows.',
+    ...numberConfigHelper(500),
+  },
   gossipsubTxTopicWeight: {
     env: 'P2P_GOSSIPSUB_TX_TOPIC_WEIGHT',
     description: 'The weight of the tx topic for the gossipsub protocol.',
-    ...numberConfigHelper(1),
+    ...floatConfigHelper(1),
   },
   gossipsubTxInvalidMessageDeliveriesWeight: {
     env: 'P2P_GOSSIPSUB_TX_INVALID_MESSAGE_DELIVERIES_WEIGHT',
     description: 'The weight of the tx invalid message deliveries for the gossipsub protocol.',
-    ...numberConfigHelper(-20),
+    ...floatConfigHelper(-20),
   },
   gossipsubTxInvalidMessageDeliveriesDecay: {
     env: 'P2P_GOSSIPSUB_TX_INVALID_MESSAGE_DELIVERIES_DECAY',
     description: 'Determines how quickly the penalty for invalid message deliveries decays over time. Between 0 and 1.',
-    ...numberConfigHelper(0.5),
+    ...floatConfigHelper(0.5),
   },
   peerPenaltyValues: {
     env: 'P2P_PEER_PENALTY_VALUES',
@@ -333,6 +460,11 @@ export const p2pConfigMappings: ConfigMappingsType<P2PConfig> = {
     description:
       'The values for the peer scoring system. Passed as a comma separated list of values in order: low, mid, high tolerance errors.',
     defaultValue: [2, 10, 50],
+  },
+  peerBanDurationSeconds: {
+    env: 'P2P_PEER_BAN_DURATION_SECONDS',
+    description: 'How long (in seconds) a peer is banned for once its score drops below the ban threshold.',
+    ...numberConfigHelper(24 * 60 * 60),
   },
   doubleSpendSeverePeerPenaltyWindow: {
     env: 'P2P_DOUBLE_SPEND_SEVERE_PEER_PENALTY_WINDOW',
@@ -372,15 +504,16 @@ export const p2pConfigMappings: ConfigMappingsType<P2PConfig> = {
   },
   p2pStoreMapSizeKb: {
     env: 'P2P_STORE_MAP_SIZE_KB',
-    parseEnv: (val: string | undefined) => (val ? +val : undefined),
+    ...optionalNumberConfigHelper(),
     description: 'The maximum possible size of the P2P DB in KB. Overwrites the general dataStoreMapSizeKb.',
   },
-  txPublicSetupAllowList: {
+  txPublicSetupAllowListExtend: {
     env: 'TX_PUBLIC_SETUP_ALLOWLIST',
     parseEnv: (val: string) => parseAllowList(val),
-    description: 'The list of functions calls allowed to run in setup',
+    description:
+      'Additional entries to extend the default setup allow list. Format: I:address:selector[:flags],C:classId:selector[:flags]. Flags: os (onlySelf), rn (rejectNullMsgSender), cl=N (calldataLength), joined with +.',
     printDefault: () =>
-      'AuthRegistry, FeeJuice.increase_public_balance, Token.increase_public_balance, FPC.prepare_fee',
+      'Default: AuthRegistry._set_authorized, AuthRegistry.set_authorized, FeeJuice._increase_public_balance',
   },
   maxPendingTxCount: {
     env: 'P2P_MAX_PENDING_TX_COUNT',
@@ -393,6 +526,11 @@ export const p2pConfigMappings: ConfigMappingsType<P2PConfig> = {
     env: 'P2P_SEEN_MSG_CACHE_SIZE',
     description: 'The number of messages to keep in the seen message cache',
     ...numberConfigHelper(100_000), // 100K
+  },
+  txValidationCacheSize: {
+    env: 'P2P_TX_VALIDATION_CACHE_SIZE',
+    description: 'Maximum number of items to keep in the tx validation LRU cache.',
+    ...numberConfigHelper(5_000),
   },
   p2pDisableStatusHandshake: {
     env: 'P2P_DISABLE_STATUS_HANDSHAKE',
@@ -408,11 +546,6 @@ export const p2pConfigMappings: ConfigMappingsType<P2PConfig> = {
     env: 'P2P_MAX_AUTH_FAILED_ATTEMPTS_ALLOWED',
     description: 'Number of auth attempts to allow before peer is banned. Number is inclusive',
     ...numberConfigHelper(3),
-  },
-  dropTransactions: {
-    env: 'P2P_DROP_TX',
-    description: 'True to simulate discarding transactions. - For testing purposes only',
-    ...booleanConfigHelper(false),
   },
   dropTransactionsProbability: {
     env: 'P2P_DROP_TX_CHANCE',
@@ -441,6 +574,60 @@ export const p2pConfigMappings: ConfigMappingsType<P2PConfig> = {
       'Whether to run in fisherman mode: validates all proposals and attestations but does not broadcast attestations or participate in consensus.',
     ...booleanConfigHelper(false),
   },
+  broadcastEquivocatedProposals: {
+    description:
+      'Broadcast block proposals even when a conflicting proposal for the same slot already exists in the pool (for testing purposes only).',
+    ...booleanConfigHelper(false),
+  },
+  skipIncomingProposals: {
+    description: 'Drop incoming block and checkpoint proposals at the libp2p dispatch layer (for testing only)',
+    ...booleanConfigHelper(false),
+  },
+  skipProposalSlotValidation: {
+    description: 'Accept proposal gossip regardless of slot timing (for testing only)',
+    ...booleanConfigHelper(false),
+  },
+  skipCheckpointProposalValidation: {
+    description:
+      'Skip checkpoint proposal validation and always attest, broadcasting the attestation before processing the embedded last block',
+    ...booleanConfigHelper(false),
+  },
+  minTxPoolAgeMs: {
+    env: 'P2P_MIN_TX_POOL_AGE_MS',
+    description: 'Minimum age (ms) a transaction must have been in the pool before it is eligible for block building.',
+    ...numberConfigHelper(2_000),
+  },
+  slashDataWithholdingToleranceSlots: {
+    env: 'SLASH_DATA_WITHHOLDING_TOLERANCE_SLOTS',
+    description:
+      'L2 slots to wait after a checkpoint slot before declaring its txs missing. Drives both the data-withholding slasher check and the missing-tx collection deadline.',
+    ...numberConfigHelper(3),
+  },
+  p2pMissingTxCollectionDeadlineSlots: {
+    env: 'P2P_MISSING_TX_COLLECTION_DEADLINE_SLOTS',
+    description:
+      'Optional deadline (in L2 slots after the block slot) for collecting missing txs for unproven mined blocks. Clamped up to the data-withholding tolerance window so collection never gives up before the slash verdict.',
+    ...optionalNumberConfigHelper(),
+  },
+  priceBumpPercentage: {
+    env: 'P2P_RPC_PRICE_BUMP_PERCENTAGE',
+    description:
+      'Minimum percentage fee increase required to replace an existing tx via RPC. Even at 0%, replacement still requires paying at least 1 unit more.',
+    ...bigintConfigHelper(10n),
+  },
+  keepFinalizedTxsForSlots: {
+    env: 'P2P_KEEP_FINALIZED_TXS_FOR_SLOTS',
+    description:
+      'Number of slots behind the finalized tip to keep finalized txs for before deleting them. 0 deletes at the finalized tip.',
+    ...numberConfigHelper(0),
+  },
+  ...pickConfigMappings(sharedSequencerConfigMappings, [
+    'expectedBlockProposalsPerSlot',
+    'maxTxsPerBlock',
+    'checkpointProposalSyncGraceSeconds',
+    'maxBlocksPerCheckpoint',
+    'blockDurationMs',
+  ]),
   ...p2pReqRespConfigMappings,
   ...batchTxRequesterConfigMappings,
   ...chainConfigMappings,
@@ -473,6 +660,7 @@ export type BootnodeConfig = Pick<
   | 'bootstrapNodes'
   | 'listenAddress'
   | 'queryForIp'
+  | 'publicIpServices'
 > &
   Required<Pick<P2PConfig, 'p2pIp' | 'p2pPort'>> &
   Pick<DataStoreConfig, 'dataDirectory' | 'dataStoreMapSizeKb'> &
@@ -490,6 +678,7 @@ const bootnodeConfigKeys: (keyof BootnodeConfig)[] = [
   'bootstrapNodes',
   'l1ChainId',
   'queryForIp',
+  'publicIpServices',
 ];
 
 export const bootnodeConfigMappings = pickConfigMappings(
@@ -498,12 +687,43 @@ export const bootnodeConfigMappings = pickConfigMappings(
 );
 
 /**
+ * Parses a `+`-separated flags string into validation properties for an allow list entry.
+ * Supported flags: `os` (onlySelf), `rn` (rejectNullMsgSender), `cl=N` (calldataLength).
+ */
+function parseFlags(
+  flags: string,
+  entry: string,
+): { onlySelf?: boolean; rejectNullMsgSender?: boolean; calldataLength?: number } {
+  const result: { onlySelf?: boolean; rejectNullMsgSender?: boolean; calldataLength?: number } = {};
+  for (const flag of flags.split('+')) {
+    if (flag === 'os') {
+      result.onlySelf = true;
+    } else if (flag === 'rn') {
+      result.rejectNullMsgSender = true;
+    } else if (flag.startsWith('cl=')) {
+      const n = parseInt(flag.slice(3), 10);
+      if (isNaN(n) || n < 0) {
+        throw new Error(
+          `Invalid allow list entry "${entry}": invalid calldataLength in flag "${flag}". Expected a non-negative integer.`,
+        );
+      }
+      result.calldataLength = n;
+    } else {
+      throw new Error(`Invalid allow list entry "${entry}": unknown flag "${flag}". Supported flags: os, rn, cl=N.`);
+    }
+  }
+  return result;
+}
+
+/**
  * Parses a string to a list of allowed elements.
- * Each encoded is expected to be of one of the following formats
- * `I:${address}`
- * `I:${address}:${selector}`
- * `C:${classId}`
- * `C:${classId}:${selector}`
+ * Each entry is expected to be of one of the following formats:
+ * `I:${address}:${selector}` — instance (contract address) with function selector
+ * `C:${classId}:${selector}` — class with function selector
+ *
+ * An optional flags segment can be appended after the selector:
+ * `I:${address}:${selector}:${flags}` or `C:${classId}:${selector}:${flags}`
+ * where flags is a `+`-separated list of: `os` (onlySelf), `rn` (rejectNullMsgSender), `cl=N` (calldataLength).
  *
  * @param value The string to parse
  * @returns A list of allowed elements
@@ -516,31 +736,37 @@ export function parseAllowList(value: string): AllowedElement[] {
   }
 
   for (const val of value.split(',')) {
-    const [typeString, identifierString, selectorString] = val.split(':');
-    const selector = selectorString !== undefined ? FunctionSelector.fromString(selectorString) : undefined;
+    const trimmed = val.trim();
+    if (!trimmed) {
+      continue;
+    }
+    const [typeString, identifierString, selectorString, flagsString] = trimmed.split(':');
+
+    if (!selectorString) {
+      throw new Error(
+        `Invalid allow list entry "${trimmed}": selector is required. Expected format: I:address:selector or C:classId:selector`,
+      );
+    }
+
+    const selector = FunctionSelector.fromString(selectorString);
+    const flags = flagsString ? parseFlags(flagsString, trimmed) : {};
 
     if (typeString === 'I') {
-      if (selector) {
-        entries.push({
-          address: AztecAddress.fromString(identifierString),
-          selector,
-        });
-      } else {
-        entries.push({
-          address: AztecAddress.fromString(identifierString),
-        });
-      }
+      entries.push({
+        address: AztecAddress.fromStringUnsafe(identifierString),
+        selector,
+        ...flags,
+      });
     } else if (typeString === 'C') {
-      if (selector) {
-        entries.push({
-          classId: Fr.fromHexString(identifierString),
-          selector,
-        });
-      } else {
-        entries.push({
-          classId: Fr.fromHexString(identifierString),
-        });
-      }
+      entries.push({
+        classId: Fr.fromHexString(identifierString),
+        selector,
+        ...flags,
+      });
+    } else {
+      throw new Error(
+        `Invalid allow list entry "${trimmed}": unknown type "${typeString}". Expected "I" (instance) or "C" (class).`,
+      );
     }
   }
 

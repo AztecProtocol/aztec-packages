@@ -3,7 +3,7 @@ import { padArrayEnd } from '@aztec/foundation/collection';
 import { Fr } from '@aztec/foundation/curves/bn254';
 import { type Logger, type LoggerBindings, createLogger } from '@aztec/foundation/log';
 import { sleep } from '@aztec/foundation/sleep';
-import { DateProvider, Timer, elapsed, executeTimeout } from '@aztec/foundation/timer';
+import { DateProvider, Timer, elapsed, execWithSignal } from '@aztec/foundation/timer';
 import { ProtocolContractAddress } from '@aztec/protocol-contracts';
 import { ContractClassPublishedEvent } from '@aztec/protocol-contracts/class-registry';
 import { computeFeePayerBalanceLeafSlot, computeFeePayerBalanceStorageSlot } from '@aztec/protocol-contracts/fee-juice';
@@ -25,6 +25,7 @@ import type {
   PublicProcessorValidator,
   SequencerConfig,
 } from '@aztec/stdlib/interfaces/server';
+import { type DebugLog, type DebugLogStore, NullDebugLogStore } from '@aztec/stdlib/logs';
 import { ProvingRequestType } from '@aztec/stdlib/proofs';
 import { MerkleTreeId } from '@aztec/stdlib/trees';
 import {
@@ -49,11 +50,12 @@ import { ForkCheckpoint } from '@aztec/world-state/native';
 
 import { AssertionError } from 'assert';
 
+import type { AvmSimulator } from '../avm_simulator.js';
 import { PublicContractsDB, PublicTreesDB } from '../public_db_sources.js';
 import {
   type PublicTxSimulatorConfig,
   type PublicTxSimulatorInterface,
-  TelemetryCppPublicTxSimulator,
+  TelemetryPublicTxSimulator,
 } from '../public_tx_simulator/index.js';
 import { GuardedMerkleTreeOperations } from './guarded_merkle_tree.js';
 import { PublicProcessorMetrics } from './public_processor_metrics.js';
@@ -65,6 +67,7 @@ export class PublicProcessorFactory {
   private log: Logger;
   constructor(
     private contractDataSource: ContractDataSource,
+    private avmSimulator: AvmSimulator,
     private dateProvider: DateProvider = new DateProvider(),
     protected telemetryClient: TelemetryClient = getTelemetryClient(),
     bindings?: LoggerBindings,
@@ -73,21 +76,23 @@ export class PublicProcessorFactory {
   }
 
   /**
-   * Creates a new instance of a PublicProcessor.
+   * Creates a new instance of a PublicProcessor. The simulator it drives reads contract data from the fork's
+   * contracts DB, scoped by the fork id so AVM requests route to the right state.
+   *
    * @param globalVariables - The global variables for the block being processed.
-   * @param skipFeeEnforcement - Allows disabling balance checks for fee estimations.
+   * @param contractsDB - Optional pre-populated contracts DB; a fresh one is constructed if omitted.
    * @returns A new instance of a PublicProcessor.
    */
   public create(
     merkleTree: MerkleTreeWriteOperations,
     globalVariables: GlobalVariables,
     config: PublicSimulatorConfig,
+    contractsDB: PublicContractsDB = new PublicContractsDB(this.contractDataSource, this.log.getBindings()),
   ): PublicProcessor {
-    const bindings = this.log.getBindings();
-    const contractsDB = new PublicContractsDB(this.contractDataSource, bindings);
+    const forkId = merkleTree.getRevision().forkId;
 
     const guardedFork = new GuardedMerkleTreeOperations(merkleTree);
-    const publicTxSimulator = this.createPublicTxSimulator(guardedFork, contractsDB, globalVariables, config);
+    const publicTxSimulator = this.createPublicTxSimulator(forkId, globalVariables, contractsDB, config);
 
     return new PublicProcessor(
       globalVariables,
@@ -96,20 +101,21 @@ export class PublicProcessorFactory {
       publicTxSimulator,
       this.dateProvider,
       this.telemetryClient,
-      createLogger('simulator:public-processor', bindings),
+      createLogger('simulator:public-processor', this.log.getBindings()),
     );
   }
 
   protected createPublicTxSimulator(
-    merkleTree: MerkleTreeWriteOperations,
-    contractsDB: PublicContractsDB,
+    forkId: number,
     globalVariables: GlobalVariables,
+    contractsDB: PublicContractsDB,
     config?: Partial<PublicTxSimulatorConfig>,
   ): PublicTxSimulatorInterface {
-    return new TelemetryCppPublicTxSimulator(
-      merkleTree,
-      contractsDB,
+    return new TelemetryPublicTxSimulator(
+      this.avmSimulator,
       globalVariables,
+      contractsDB,
+      forkId,
       this.telemetryClient,
       config,
       this.log.getBindings(),
@@ -124,13 +130,19 @@ class PublicProcessorTimeoutError extends Error {
   }
 }
 
+class PublicProcessorAbortError extends Error {
+  constructor(message: string = 'Aborted while processing tx') {
+    super(message);
+    this.name = 'PublicProcessorAbortError';
+  }
+}
+
 /**
  * Converts Txs lifted from the P2P module into ProcessedTx objects by executing
  * any public function calls in them. Txs with private calls only are unaffected.
  */
 export class PublicProcessor implements Traceable {
   private metrics: PublicProcessorMetrics;
-
   constructor(
     protected globalVariables: GlobalVariables,
     private guardedMerkleTree: GuardedMerkleTreeOperations,
@@ -140,6 +152,7 @@ export class PublicProcessor implements Traceable {
     telemetryClient: TelemetryClient = getTelemetryClient(),
     private log: Logger,
     private opts: Pick<SequencerConfig, 'fakeProcessingDelayPerTxMs' | 'fakeThrowAfterProcessingTxCount'> = {},
+    private debugLogStore: DebugLogStore = new NullDebugLogStore(),
   ) {
     this.metrics = new PublicProcessorMetrics(telemetryClient, 'PublicProcessor');
   }
@@ -159,12 +172,13 @@ export class PublicProcessor implements Traceable {
     txs: Iterable<Tx> | AsyncIterable<Tx>,
     limits: PublicProcessorLimits = {},
     validator: PublicProcessorValidator = {},
-  ): Promise<[ProcessedTx[], FailedTx[], Tx[], NestedProcessReturnValues[], number]> {
-    const { maxTransactions, maxBlockSize, deadline, maxBlockGas, maxBlobFields } = limits;
+  ): Promise<[ProcessedTx[], FailedTx[], Tx[], NestedProcessReturnValues[], DebugLog[]]> {
+    const { maxTransactions, deadline, maxBlockGas, maxBlobFields, isBuildingProposal, signal } = limits;
     const { preprocessValidator, nullifierCache } = validator;
     const result: ProcessedTx[] = [];
     const usedTxs: Tx[] = [];
     const failed: FailedTx[] = [];
+    const debugLogs: DebugLog[] = [];
     const timer = new Timer();
 
     let totalSizeInBytes = 0;
@@ -172,6 +186,8 @@ export class PublicProcessor implements Traceable {
     let totalPublicGas = new Gas(0, 0);
     let totalBlockGas = new Gas(0, 0);
     let totalBlobFields = 0;
+    let silentlySkippedCount = 0;
+    let totalSilentlySkippedDurationMs = 0;
 
     for await (const tx of txs) {
       // Only process up to the max tx limit
@@ -180,28 +196,33 @@ export class PublicProcessor implements Traceable {
         break;
       }
 
-      // Bail if we've hit the deadline
+      // Bail if we've hit the deadline or have been interrupted.
       if (deadline && this.dateProvider.now() > +deadline) {
         this.log.warn(`Stopping tx processing due to timeout.`);
         break;
       }
+      if (signal?.aborted) {
+        this.log.warn(`Stopping tx processing due to abort signal.`);
+        break;
+      }
 
-      // Skip this tx if it'd exceed max block size
       const txHash = tx.getTxHash().toString();
-      const preTxSizeInBytes = tx.getEstimatedPrivateTxEffectsSize();
-      if (maxBlockSize !== undefined && totalSizeInBytes + preTxSizeInBytes > maxBlockSize) {
-        this.log.warn(`Skipping processing of tx ${txHash} sized ${preTxSizeInBytes} bytes due to block size limit`, {
-          txHash,
-          sizeInBytes: preTxSizeInBytes,
-          totalSizeInBytes,
-          maxBlockSize,
-        });
+
+      // Skip this tx if its estimated blob fields would exceed the limit.
+      // Only done during proposal building: during re-execution we must process the exact txs from the proposal.
+      const txBlobFields = tx.getPrivateTxEffectsSizeInFields();
+      if (isBuildingProposal && maxBlobFields !== undefined && totalBlobFields + txBlobFields > maxBlobFields) {
+        this.log.warn(
+          `Skipping tx ${txHash} with ${txBlobFields} fields from private side effects due to blob fields limit`,
+          { txHash, txBlobFields, totalBlobFields, maxBlobFields },
+        );
         continue;
       }
 
-      // Skip this tx if its gas limit would exceed the block gas limit
+      // Skip this tx if its gas limit would exceed the block gas limit (either da or l2).
+      // Only done during proposal building: during re-execution we must process the exact txs from the proposal.
       const txGasLimit = tx.data.constants.txContext.gasSettings.gasLimits;
-      if (maxBlockGas !== undefined && totalBlockGas.add(txGasLimit).gtAny(maxBlockGas)) {
+      if (isBuildingProposal && maxBlockGas !== undefined && totalBlockGas.add(txGasLimit).gtAny(maxBlockGas)) {
         this.log.warn(`Skipping processing of tx ${txHash} due to block gas limit`, {
           txHash,
           txGasLimit,
@@ -221,11 +242,6 @@ export class PublicProcessor implements Traceable {
           failed.push({ tx, error: new Error(`Tx failed preprocess validation: ${reason}`) });
           returns.push(new NestedProcessReturnValues([]));
           continue;
-        } else if (result.result === 'skipped') {
-          const reason = result.reason.join(', ');
-          this.log.debug(`Skipping tx ${txHash.toString()} due to pre-process validation: ${reason}`);
-          returns.push(new NestedProcessReturnValues([]));
-          continue;
         } else {
           this.log.trace(`Tx ${txHash.toString()} is valid before processing.`);
         }
@@ -241,7 +257,9 @@ export class PublicProcessor implements Traceable {
       this.contractsDB.createCheckpoint();
 
       try {
-        const [processedTx, returnValues] = await this.processTx(tx, deadline);
+        const [txProcessingTimeMs, [processedTx, returnValues, txDebugLogs]] = await elapsed(() =>
+          this.processTx(tx, deadline, signal),
+        );
 
         // Inject a fake processing failure after N txs if requested
         const fakeThrowAfter = this.opts.fakeThrowAfterProcessingTxCount;
@@ -250,23 +268,9 @@ export class PublicProcessor implements Traceable {
         }
 
         const txBlobFields = processedTx.txEffect.getNumBlobFields();
-
-        // If the actual size of this tx would exceed block size, skip it
         const txSize = txBlobFields * Fr.SIZE_IN_BYTES;
-        if (maxBlockSize !== undefined && totalSizeInBytes + txSize > maxBlockSize) {
-          this.log.debug(`Skipping processed tx ${txHash} sized ${txSize} due to max block size.`, {
-            txHash,
-            sizeInBytes: txSize,
-            totalSizeInBytes,
-            maxBlockSize,
-          });
-          // Need to revert the checkpoint here and don't go any further
-          await checkpoint.revert();
-          this.contractsDB.revertCheckpoint();
-          continue;
-        }
 
-        // If the actual blob fields of this tx would exceed the limit, skip it
+        // If the actual blob fields of this tx would exceed the limit, skip it.
         // Note: maxBlobFields already accounts for block end blob fields and previous blocks in checkpoint.
         if (maxBlobFields !== undefined && totalBlobFields + txBlobFields > maxBlobFields) {
           this.log.debug(
@@ -276,12 +280,35 @@ export class PublicProcessor implements Traceable {
               txBlobFields,
               totalBlobFields,
               maxBlobFields,
+              txProcessingTimeMs,
             },
           );
+          silentlySkippedCount += 1;
+          totalSilentlySkippedDurationMs += txProcessingTimeMs;
+          this.metrics.recordSilentlySkipped(txProcessingTimeMs);
           // Need to revert the checkpoint here and don't go any further
           await checkpoint.revert();
           this.contractsDB.revertCheckpoint();
           continue;
+        }
+
+        // During re-execution, check if the actual gas used by this tx would push the block over the gas limit.
+        // Unlike the proposal-building check (which uses declared gas limits pessimistically before processing),
+        // this uses actual gas and stops processing when the limit is exceeded.
+        if (
+          !isBuildingProposal &&
+          maxBlockGas !== undefined &&
+          totalBlockGas.add(processedTx.gasUsed.totalGas).gtAny(maxBlockGas)
+        ) {
+          this.log.warn(`Stopping re-execution since tx ${txHash} would push block gas over limit`, {
+            txHash,
+            txGas: processedTx.gasUsed.totalGas,
+            totalBlockGas,
+            maxBlockGas,
+          });
+          await checkpoint.revert();
+          this.contractsDB.revertCheckpoint();
+          break;
         }
 
         // FIXME(fcarreiro): it's ugly to have to notify the validator of nullifiers.
@@ -290,21 +317,27 @@ export class PublicProcessor implements Traceable {
         result.push(processedTx);
         usedTxs.push(tx);
         returns = returns.concat(returnValues);
+        debugLogs.push(...txDebugLogs);
+
+        this.debugLogStore.storeLogs(processedTx.hash.toString(), txDebugLogs);
 
         totalPublicGas = totalPublicGas.add(processedTx.gasUsed.publicGas);
         totalBlockGas = totalBlockGas.add(processedTx.gasUsed.totalGas);
         totalSizeInBytes += txSize;
         totalBlobFields += txBlobFields;
+
+        // Commit the tx-level contracts checkpoint on success
+        this.contractsDB.commitCheckpoint();
       } catch (err: any) {
-        if (err?.name === 'PublicProcessorTimeoutError') {
-          this.log.warn(`Stopping tx processing due to timeout.`);
-          // We hit the transaction execution deadline.
-          // There may still be a transaction executing on a worker thread (C++ via NAPI).
-          // Signal cancellation AND WAIT for the simulation to actually stop.
-          // This is critical because C++ might be in the middle of a slow operation (e.g., pad_trees)
-          // and won't check the cancellation flag until that operation completes.
-          // Without waiting, we'd proceed to revert checkpoints while C++ is still writing to state.
-          // Wait for C++ to stop gracefully.
+        if (err?.name === 'PublicProcessorTimeoutError' || err?.name === 'PublicProcessorAbortError') {
+          this.log.warn(
+            `Stopping tx processing due to ${err.name === 'PublicProcessorTimeoutError' ? 'timeout' : 'abort'}.`,
+          );
+          // We hit the transaction execution deadline or an external abort signal.
+          // There may still be a simulation in progress.
+          // Signal cancellation AND WAIT for the simulation to actually stop. Cancellation is
+          // cooperative: the simulator may be mid slow-operation and won't observe the flag until it
+          // completes, and without waiting we'd revert checkpoints while it's still writing to state.
           await this.publicTxSimulator.cancel?.();
 
           // Now stop the guarded fork to prevent any further TS-side access to the world state.
@@ -314,14 +347,10 @@ export class PublicProcessor implements Traceable {
           // 1. At least one outstanding checkpoint that has not been committed (the one created before we processed the tx).
           // 2. Possible state updates on that checkpoint or any others created during execution.
 
-          // First we revert a checkpoint as managed by the ForkCheckpoint. This will revert whatever is the current checkpoint
-          // which may not be the one originally created by this object. But that is ok, we do this to fulfil the ForkCheckpoint
-          // lifecycle expectations and ensure it doesn't attempt to commit later on.
-          await checkpoint.revert();
-
-          // Now we want to revert any/all remaining checkpoints, destroying any outstanding state updates.
-          // This needs to be done directly on the underlying fork as the guarded fork has been stopped.
-          await this.guardedMerkleTree.getUnderlyingFork().revertAllCheckpoints();
+          // Revert all checkpoints at or above this checkpoint's depth (inclusive), destroying any outstanding state
+          // updates from this tx and any nested checkpoints created during execution. This preserves any checkpoints
+          // created by callers below our depth.
+          await checkpoint.revertToCheckpoint();
 
           // Revert any contracts added to the DB for the tx.
           this.contractsDB.revertCheckpoint();
@@ -333,9 +362,9 @@ export class PublicProcessor implements Traceable {
           break;
         }
 
-        // Roll back state to start of TX before proceeding to next TX
-        await checkpoint.revert();
-        await this.guardedMerkleTree.getUnderlyingFork().revertAllCheckpoints();
+        // Roll back state to start of TX before proceeding to next TX.
+        // Reverts all checkpoints at or above this checkpoint's depth, preserving any caller checkpoints below.
+        await checkpoint.revertToCheckpoint();
         this.contractsDB.revertCheckpoint();
         const errorMessage = err instanceof Error || err instanceof AssertionError ? err.message : 'Unknown error';
         this.log.warn(`Failed to process tx ${txHash.toString()}: ${errorMessage} ${err?.stack}`);
@@ -347,7 +376,6 @@ export class PublicProcessor implements Traceable {
       } finally {
         // Base case is we always commit the checkpoint. Using the ForkCheckpoint means this has no effect if the tx was previously reverted
         await checkpoint.commit();
-        this.contractsDB.commitCheckpointOkIfNone();
       }
     }
 
@@ -355,15 +383,26 @@ export class PublicProcessor implements Traceable {
     const rate = duration > 0 ? totalPublicGas.l2Gas / duration : 0;
     this.metrics.recordAllTxs(totalPublicGas, rate);
 
-    this.log.info(`Processed ${result.length} successful txs and ${failed.length} failed txs in ${duration}s`, {
-      duration,
-      rate,
-      totalPublicGas,
-      totalBlockGas,
-      totalSizeInBytes,
-    });
+    const silentlySkippedDurationMs = Math.round(totalSilentlySkippedDurationMs);
+    this.log.info(
+      `Processed ${result.length} successful txs and ${failed.length} failed txs ` +
+        `(${silentlySkippedCount} silently skipped, ${silentlySkippedDurationMs}ms wasted) ` +
+        `in ${duration}s`,
+      {
+        blockNumber: this.globalVariables.blockNumber,
+        successfulCount: result.length,
+        failedCount: failed.length,
+        duration,
+        rate,
+        totalPublicGas,
+        totalBlockGas,
+        totalSizeInBytes,
+        silentlySkippedCount,
+        silentlySkippedDurationMs,
+      },
+    );
 
-    return [result, failed, usedTxs, returns, totalBlobFields];
+    return [result, failed, usedTxs, returns, debugLogs];
   }
 
   private async checkWorldStateUnchanged(
@@ -383,8 +422,14 @@ export class PublicProcessor implements Traceable {
   }
 
   @trackSpan('PublicProcessor.processTx', tx => ({ [Attributes.TX_HASH]: tx.getTxHash().toString() }))
-  private async processTx(tx: Tx, deadline: Date | undefined): Promise<[ProcessedTx, NestedProcessReturnValues[]]> {
-    const [time, [processedTx, returnValues]] = await elapsed(() => this.processTxWithinDeadline(tx, deadline));
+  private async processTx(
+    tx: Tx,
+    deadline: Date | undefined,
+    signal: AbortSignal | undefined,
+  ): Promise<[ProcessedTx, NestedProcessReturnValues[], DebugLog[]]> {
+    const [time, [processedTx, returnValues, debugLogs]] = await elapsed(() =>
+      this.processTxWithinDeadline(tx, deadline, signal),
+    );
 
     this.log.verbose(
       !tx.hasPublicCalls()
@@ -407,7 +452,7 @@ export class PublicProcessor implements Traceable {
       },
     );
 
-    return [processedTx, returnValues ?? []];
+    return [processedTx, returnValues ?? [], debugLogs];
   }
 
   private async doTreeInsertionsForPrivateOnlyTx(processedTx: ProcessedTx): Promise<void> {
@@ -437,14 +482,14 @@ export class PublicProcessor implements Traceable {
     this.metrics.recordTreeInsertions(Number(treeInsertionEnd - treeInsertionStart) / 1_000);
   }
 
-  /** Processes the given tx within deadline. Returns timeout if deadline is hit. */
+  /** Processes the given tx within deadline or until the signal is aborted. */
   private async processTxWithinDeadline(
     tx: Tx,
     deadline: Date | undefined,
-  ): Promise<[ProcessedTx, NestedProcessReturnValues[] | undefined]> {
-    const innerProcessFn: () => Promise<[ProcessedTx, NestedProcessReturnValues[] | undefined]> = tx.hasPublicCalls()
-      ? () => this.processTxWithPublicCalls(tx)
-      : () => this.processPrivateOnlyTx(tx);
+    signal: AbortSignal | undefined,
+  ): Promise<[ProcessedTx, NestedProcessReturnValues[] | undefined, DebugLog[]]> {
+    const innerProcessFn: () => Promise<[ProcessedTx, NestedProcessReturnValues[] | undefined, DebugLog[]]> =
+      tx.hasPublicCalls() ? () => this.processTxWithPublicCalls(tx) : () => this.processPrivateOnlyTx(tx);
 
     // Fake a delay per tx if instructed (used for tests)
     const fakeDelayPerTxMs = this.opts.fakeProcessingDelayPerTxMs;
@@ -458,27 +503,38 @@ export class PublicProcessor implements Traceable {
           }
         : innerProcessFn;
 
-    if (!deadline) {
+    const processingSignal = this.getProcessingSignal(tx, deadline, signal);
+    if (!processingSignal) {
       return await processFn();
     }
 
-    const txHash = tx.getTxHash();
+    return await execWithSignal(
+      () => processFn(),
+      processingSignal,
+      signal =>
+        signal.reason?.name === 'TimeoutError' ? new PublicProcessorTimeoutError() : new PublicProcessorAbortError(),
+    );
+  }
+
+  private getProcessingSignal(tx: Tx, deadline: Date | undefined, signal: AbortSignal | undefined) {
+    if (!deadline) {
+      return signal;
+    }
+
     const timeout = +deadline - this.dateProvider.now();
     if (timeout <= 0) {
       throw new PublicProcessorTimeoutError();
     }
 
+    const txHash = tx.getTxHash();
     this.log.debug(`Processing tx ${txHash.toString()} within ${timeout}ms`, {
       deadline: deadline.toISOString(),
       now: new Date(this.dateProvider.now()).toISOString(),
       txHash,
     });
 
-    return await executeTimeout(
-      () => processFn(),
-      timeout,
-      () => new PublicProcessorTimeoutError(),
-    );
+    const timeoutSignal = AbortSignal.timeout(timeout);
+    return signal ? AbortSignal.any([signal, timeoutSignal]) : timeoutSignal;
   }
 
   /**
@@ -512,7 +568,7 @@ export class PublicProcessor implements Traceable {
   @trackSpan('PublicProcessor.processPrivateOnlyTx', (tx: Tx) => ({
     [Attributes.TX_HASH]: tx.getTxHash().toString(),
   }))
-  private async processPrivateOnlyTx(tx: Tx): Promise<[ProcessedTx, undefined]> {
+  private async processPrivateOnlyTx(tx: Tx): Promise<[ProcessedTx, undefined, DebugLog[]]> {
     const gasFees = this.globalVariables.gasFees;
     const transactionFee = computeTransactionFee(gasFees, tx.data.constants.txContext.gasSettings, tx.data.gasUsed);
 
@@ -535,15 +591,15 @@ export class PublicProcessor implements Traceable {
     // Fee payment insertion has already been done. Do the rest.
     await this.doTreeInsertionsForPrivateOnlyTx(processedTx);
 
-    await this.contractsDB.addNewContracts(tx);
+    this.contractsDB.addNewContracts(tx);
 
-    return [processedTx, undefined];
+    return [processedTx, undefined, []];
   }
 
   @trackSpan('PublicProcessor.processTxWithPublicCalls', tx => ({
     [Attributes.TX_HASH]: tx.getTxHash().toString(),
   }))
-  private async processTxWithPublicCalls(tx: Tx): Promise<[ProcessedTx, NestedProcessReturnValues[]]> {
+  private async processTxWithPublicCalls(tx: Tx): Promise<[ProcessedTx, NestedProcessReturnValues[], DebugLog[]]> {
     const timer = new Timer();
 
     const result = await this.publicTxSimulator.simulate(tx);
@@ -581,7 +637,7 @@ export class PublicProcessor implements Traceable {
       revertReason,
     );
 
-    return [processedTx, appLogicReturnValues];
+    return [processedTx, appLogicReturnValues, result.logs ?? []];
   }
 
   /**

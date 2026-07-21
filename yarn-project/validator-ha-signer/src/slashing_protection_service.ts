@@ -7,6 +7,8 @@
 import { type Logger, createLogger } from '@aztec/foundation/log';
 import { RunningPromise } from '@aztec/foundation/promise';
 import { sleep } from '@aztec/foundation/sleep';
+import type { DateProvider } from '@aztec/foundation/timer';
+import type { BaseSignerConfig } from '@aztec/stdlib/ha-signing';
 
 import {
   type CheckAndRecordParams,
@@ -16,7 +18,16 @@ import {
   getBlockIndexFromDutyIdentifier,
 } from './db/types.js';
 import { DutyAlreadySignedError, SlashingProtectionError } from './errors.js';
-import type { SlashingProtectionDatabase, ValidatorHASignerConfig } from './types.js';
+import type { HASignerMetrics } from './metrics.js';
+import type { SlashingProtectionDatabase } from './types.js';
+
+export interface SlashingProtectionServiceDeps {
+  metrics: HASignerMetrics;
+  dateProvider: DateProvider;
+}
+
+/** Default max age (ms) of a stuck SIGNING duty before cleanup reclaims it: 2x the 72s Aztec slot duration. */
+export const DEFAULT_MAX_STUCK_DUTIES_AGE_MS = 144_000;
 
 /**
  * Slashing Protection Service
@@ -36,23 +47,28 @@ import type { SlashingProtectionDatabase, ValidatorHASignerConfig } from './type
 export class SlashingProtectionService {
   private readonly log: Logger;
   private readonly pollingIntervalMs: number;
-  private readonly signingTimeoutMs: number;
+  private readonly peerSigningTimeoutMs: number;
   private readonly maxStuckDutiesAgeMs: number;
+
+  private readonly metrics: HASignerMetrics;
+  private readonly dateProvider: DateProvider;
 
   private cleanupRunningPromise: RunningPromise;
   private lastOldDutiesCleanupAtMs?: number;
 
   constructor(
     private readonly db: SlashingProtectionDatabase,
-    private readonly config: ValidatorHASignerConfig,
+    private readonly config: BaseSignerConfig,
+    deps: SlashingProtectionServiceDeps,
   ) {
     this.log = createLogger('slashing-protection');
     this.pollingIntervalMs = config.pollingIntervalMs;
-    this.signingTimeoutMs = config.signingTimeoutMs;
-    // Default to 144s (2x 72s Aztec slot duration) if not explicitly configured
-    this.maxStuckDutiesAgeMs = config.maxStuckDutiesAgeMs ?? 144_000;
+    this.peerSigningTimeoutMs = config.peerSigningTimeoutMs;
+    this.maxStuckDutiesAgeMs = config.maxStuckDutiesAgeMs ?? DEFAULT_MAX_STUCK_DUTIES_AGE_MS;
 
     this.cleanupRunningPromise = new RunningPromise(this.cleanup.bind(this), this.log, this.maxStuckDutiesAgeMs);
+    this.metrics = deps.metrics;
+    this.dateProvider = deps.dateProvider;
   }
 
   /**
@@ -72,7 +88,7 @@ export class SlashingProtectionService {
    */
   async checkAndRecord(params: CheckAndRecordParams): Promise<string> {
     const { validatorAddress, slot, dutyType, messageHash, nodeId } = params;
-    const startTime = Date.now();
+    const startTime = this.dateProvider.now();
 
     this.log.debug(`Checking duty: ${dutyType} for slot ${slot}`, {
       validatorAddress: validatorAddress.toString(),
@@ -85,10 +101,11 @@ export class SlashingProtectionService {
 
       if (isNew) {
         // We successfully acquired the lock
-        this.log.info(`Acquired lock for duty ${dutyType} at slot ${slot}`, {
+        this.log.verbose(`Acquired lock for duty ${dutyType} at slot ${slot}`, {
           validatorAddress: validatorAddress.toString(),
           nodeId,
         });
+        this.metrics.recordLockAcquire(true);
         return record.lockToken;
       }
 
@@ -103,6 +120,7 @@ export class SlashingProtectionService {
             existingNodeId: record.nodeId,
             attemptingNodeId: nodeId,
           });
+          this.metrics.recordSlashingProtection(dutyType);
           throw new SlashingProtectionError(
             slot,
             dutyType,
@@ -112,15 +130,17 @@ export class SlashingProtectionService {
             record.nodeId,
           );
         }
+        this.metrics.recordDutyAlreadySigned(dutyType);
         throw new DutyAlreadySignedError(slot, dutyType, record.blockIndexWithinCheckpoint, record.nodeId);
       } else if (record.status === DutyStatus.SIGNING) {
         // Another node is currently signing - check for timeout
-        if (Date.now() - startTime > this.signingTimeoutMs) {
+        if (this.dateProvider.now() - startTime > this.peerSigningTimeoutMs) {
           this.log.warn(`Timeout waiting for signing to complete for duty ${dutyType} at slot ${slot}`, {
             validatorAddress: validatorAddress.toString(),
-            timeoutMs: this.signingTimeoutMs,
+            timeoutMs: this.peerSigningTimeoutMs,
             signingNodeId: record.nodeId,
           });
+          this.metrics.recordDutyAlreadySigned(dutyType);
           throw new DutyAlreadySignedError(slot, dutyType, record.blockIndexWithinCheckpoint, 'unknown (timeout)');
         }
 
@@ -159,7 +179,7 @@ export class SlashingProtectionService {
     );
 
     if (success) {
-      this.log.info(`Recorded successful signing for duty ${dutyType} at slot ${slot}`, {
+      this.log.verbose(`Recorded successful signing for duty ${dutyType} at slot ${slot}`, {
         validatorAddress: validatorAddress.toString(),
         nodeId,
       });
@@ -223,11 +243,12 @@ export class SlashingProtectionService {
    */
   async start() {
     // One-time cleanup at startup: remove duties from previous rollup versions
-    const numOutdatedRollupDuties = await this.db.cleanupOutdatedRollupDuties(this.config.l1Contracts.rollupAddress);
+    const numOutdatedRollupDuties = await this.db.cleanupOutdatedRollupDuties(this.config.rollupAddress);
     if (numOutdatedRollupDuties > 0) {
       this.log.info(`Cleaned up ${numOutdatedRollupDuties} duties with outdated rollup address at startup`, {
-        currentRollupAddress: this.config.l1Contracts.rollupAddress.toString(),
+        currentRollupAddress: this.config.rollupAddress.toString(),
       });
+      this.metrics.recordCleanup('outdated_rollup', numOutdatedRollupDuties);
     }
 
     this.cleanupRunningPromise.start();
@@ -256,20 +277,24 @@ export class SlashingProtectionService {
    * Runs in the background via RunningPromise.
    */
   private async cleanup() {
-    // 1. Clean up stuck duties (our own node's duties that got stuck in 'signing' status)
+    // 1. Clean up stuck duties (our own node's duties that got stuck in 'signing' status).
+    // This cannot race an in-flight signing: every signing operation is hard-bounded by a timeout
+    // clamped below maxStuckDutiesAgeMs / 2 (see ValidatorHASigner), so a live SIGNING row is
+    // always released long before it can be considered stuck.
     const numStuckDuties = await this.db.cleanupOwnStuckDuties(this.config.nodeId, this.maxStuckDutiesAgeMs);
     if (numStuckDuties > 0) {
       this.log.verbose(`Cleaned up ${numStuckDuties} stuck duties`, {
         nodeId: this.config.nodeId,
         maxStuckDutiesAgeMs: this.maxStuckDutiesAgeMs,
       });
+      this.metrics.recordCleanup('stuck', numStuckDuties);
     }
 
     // 2. Clean up old signed duties if configured
     // we shouldn't run this as often as stuck duty cleanup.
     if (this.config.cleanupOldDutiesAfterHours !== undefined) {
       const maxAgeMs = this.config.cleanupOldDutiesAfterHours * 60 * 60 * 1000;
-      const nowMs = Date.now();
+      const nowMs = this.dateProvider.now();
       const shouldRun =
         this.lastOldDutiesCleanupAtMs === undefined || nowMs - this.lastOldDutiesCleanupAtMs >= maxAgeMs;
       if (shouldRun) {
@@ -280,6 +305,7 @@ export class SlashingProtectionService {
             cleanupOldDutiesAfterHours: this.config.cleanupOldDutiesAfterHours,
             maxAgeMs,
           });
+          this.metrics.recordCleanup('old', numOldDuties);
         }
       }
     }

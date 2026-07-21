@@ -3,10 +3,8 @@
 #include "barretenberg/lmdblib/types.hpp"
 #include "barretenberg/nodejs_module/lmdb_store/lmdb_store_message.hpp"
 #include "napi.h"
-#include <algorithm>
 #include <chrono>
 #include <cstdint>
-#include <iterator>
 #include <memory>
 #include <optional>
 #include <ratio>
@@ -37,7 +35,12 @@ LMDBStoreWrapper::LMDBStoreWrapper(const Napi::CallbackInfo& info)
     uint64_t map_size = DEFAULT_MAP_SIZE;
     if (info.Length() > map_size_index) {
         if (info[map_size_index].IsNumber()) {
-            map_size = info[map_size_index].As<Napi::Number>().Uint32Value();
+            // Int64Value is the widest integer accessor in N-API (no Uint64Value exists)
+            int64_t val = info[map_size_index].As<Napi::Number>().Int64Value();
+            if (val <= 0) {
+                throw Napi::TypeError::New(env, "Map size must be a positive number");
+            }
+            map_size = static_cast<uint64_t>(val);
         } else {
             throw Napi::TypeError::New(env, "Map size must be a number or an object");
         }
@@ -53,7 +56,21 @@ LMDBStoreWrapper::LMDBStoreWrapper(const Napi::CallbackInfo& info)
         }
     }
 
-    _store = std::make_unique<lmdblib::LMDBStore>(data_dir, map_size, max_readers, 2);
+    // `ephemeral` opens the LMDB env with `MDB_NOSYNC | MDB_NOMETASYNC`, so commits return
+    // without waiting for fsync. The on-disk file is unrecoverable after a crash but stays
+    // sparse on every byte LMDB doesn't touch; the trade-off is appropriate for tmp stores
+    // that get cleaned up on close (see `openTmpStore`).
+    size_t ephemeral_index = 3;
+    bool ephemeral = false;
+    if (info.Length() > ephemeral_index) {
+        if (info[ephemeral_index].IsBoolean()) {
+            ephemeral = info[ephemeral_index].As<Napi::Boolean>().Value();
+        } else if (!info[ephemeral_index].IsUndefined()) {
+            throw Napi::TypeError::New(env, "The ephemeral flag must be a boolean");
+        }
+    }
+
+    _store = std::make_unique<lmdblib::LMDBStore>(data_dir, map_size, max_readers, 2, ephemeral);
 
     _msg_processor.register_handler(LMDBStoreMessageType::OPEN_DATABASE, this, &LMDBStoreWrapper::open_database);
 
@@ -117,52 +134,9 @@ GetResponse LMDBStoreWrapper::get(const GetRequest& req)
 
 HasResponse LMDBStoreWrapper::has(const HasRequest& req)
 {
-    auto string_cmp = [](const std::vector<unsigned char>& a, const std::vector<unsigned char>& b) {
-        return std::lexicographical_compare(a.begin(), a.end(), b.begin(), b.end());
-    };
-
     verify_store();
-    std::set<lmdblib::Key, decltype(string_cmp)> key_set(string_cmp);
-    for (const auto& entry : req.entries) {
-        key_set.insert(entry.first);
-    }
-
-    lmdblib::KeysVector keys(key_set.begin(), key_set.end());
-    lmdblib::OptionalValuesVector vals;
-    _store->get(keys, vals, req.db);
-
     std::vector<bool> exists;
-
-    for (const auto& entry : req.entries) {
-        const auto& key = entry.first;
-        const auto& requested_values = entry.second;
-
-        const auto& key_it = std::find(keys.begin(), keys.end(), key);
-        if (key_it == keys.end()) {
-            // this shouldn't happen. It means we missed a key when we created the key_set
-            exists.push_back(false);
-            continue;
-        }
-
-        // should be fine to convert this to an index in the array?
-        const auto& values = vals[static_cast<size_t>(key_it - keys.begin())];
-
-        if (!values.has_value()) {
-            exists.push_back(false);
-            continue;
-        }
-
-        // client just wanted to know if the key exists
-        if (!requested_values.has_value()) {
-            exists.push_back(true);
-            continue;
-        }
-
-        exists.push_back(std::all_of(requested_values->begin(), requested_values->end(), [&](const auto& val) {
-            return std::find(values->begin(), values->end(), val) != values->begin();
-        }));
-    }
-
+    _store->has(req.entries, exists, req.db);
     return { exists };
 }
 

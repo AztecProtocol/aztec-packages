@@ -1,4 +1,5 @@
 #include "barretenberg/world_state/world_state.hpp"
+#include "barretenberg/aztec/aztec_constants.hpp"
 #include "barretenberg/crypto/merkle_tree/append_only_tree/content_addressed_append_only_tree.hpp"
 #include "barretenberg/crypto/merkle_tree/hash.hpp"
 #include "barretenberg/crypto/merkle_tree/hash_path.hpp"
@@ -9,7 +10,6 @@
 #include "barretenberg/crypto/merkle_tree/signal.hpp"
 #include "barretenberg/crypto/merkle_tree/types.hpp"
 #include "barretenberg/lmdblib/lmdb_helpers.hpp"
-#include "barretenberg/vm2/common/aztec_constants.hpp"
 #include "barretenberg/world_state/fork.hpp"
 #include "barretenberg/world_state/tree_with_store.hpp"
 #include "barretenberg/world_state/types.hpp"
@@ -39,16 +39,19 @@ WorldState::WorldState(uint64_t thread_pool_size,
                        const std::unordered_map<MerkleTreeId, uint32_t>& tree_heights,
                        const std::unordered_map<MerkleTreeId, index_t>& tree_prefill,
                        const std::vector<PublicDataLeafValue>& prefilled_public_data,
-                       uint32_t initial_header_generator_point)
+                       uint32_t initial_header_generator_point,
+                       uint64_t genesis_timestamp,
+                       bool ephemeral)
     : _workers(std::make_shared<ThreadPool>(thread_pool_size))
     , _tree_heights(tree_heights)
     , _initial_tree_size(tree_prefill)
     , _forkId(CANONICAL_FORK_ID)
     , _initial_header_generator_point(initial_header_generator_point)
+    , _genesis_timestamp(genesis_timestamp)
 {
     // We set the max readers to be high, at least the number of given threads or the default if higher
     uint64_t maxReaders = std::max(thread_pool_size, DEFAULT_MIN_NUMBER_OF_READERS);
-    create_canonical_fork(data_dir, map_size, prefilled_public_data, maxReaders);
+    create_canonical_fork(data_dir, map_size, prefilled_public_data, maxReaders, ephemeral);
     try {
         attempt_tree_resync();
     } catch (std::exception& e) {
@@ -61,14 +64,18 @@ WorldState::WorldState(uint64_t thread_pool_size,
                        const std::unordered_map<MerkleTreeId, uint64_t>& map_size,
                        const std::unordered_map<MerkleTreeId, uint32_t>& tree_heights,
                        const std::unordered_map<MerkleTreeId, index_t>& tree_prefill,
-                       uint32_t initial_header_generator_point)
+                       uint32_t initial_header_generator_point,
+                       uint64_t genesis_timestamp,
+                       bool ephemeral)
     : WorldState::WorldState(thread_pool_size,
                              data_dir,
                              map_size,
                              tree_heights,
                              tree_prefill,
                              std::vector<PublicDataLeafValue>(),
-                             initial_header_generator_point)
+                             initial_header_generator_point,
+                             genesis_timestamp,
+                             ephemeral)
 {}
 
 WorldState::WorldState(uint64_t thread_pool_size,
@@ -77,7 +84,9 @@ WorldState::WorldState(uint64_t thread_pool_size,
                        const std::unordered_map<MerkleTreeId, uint32_t>& tree_heights,
                        const std::unordered_map<MerkleTreeId, index_t>& tree_prefill,
                        const std::vector<PublicDataLeafValue>& prefilled_public_data,
-                       uint32_t initial_header_generator_point)
+                       uint32_t initial_header_generator_point,
+                       uint64_t genesis_timestamp,
+                       bool ephemeral)
     : WorldState(thread_pool_size,
                  data_dir,
                  {
@@ -90,7 +99,9 @@ WorldState::WorldState(uint64_t thread_pool_size,
                  tree_heights,
                  tree_prefill,
                  prefilled_public_data,
-                 initial_header_generator_point)
+                 initial_header_generator_point,
+                 genesis_timestamp,
+                 ephemeral)
 {}
 
 WorldState::WorldState(uint64_t thread_pool_size,
@@ -98,20 +109,25 @@ WorldState::WorldState(uint64_t thread_pool_size,
                        uint64_t map_size,
                        const std::unordered_map<MerkleTreeId, uint32_t>& tree_heights,
                        const std::unordered_map<MerkleTreeId, index_t>& tree_prefill,
-                       uint32_t initial_header_generator_point)
+                       uint32_t initial_header_generator_point,
+                       uint64_t genesis_timestamp,
+                       bool ephemeral)
     : WorldState(thread_pool_size,
                  data_dir,
                  map_size,
                  tree_heights,
                  tree_prefill,
                  std::vector<PublicDataLeafValue>(),
-                 initial_header_generator_point)
+                 initial_header_generator_point,
+                 genesis_timestamp,
+                 ephemeral)
 {}
 
 void WorldState::create_canonical_fork(const std::string& dataDir,
                                        const std::unordered_map<MerkleTreeId, uint64_t>& dbSize,
                                        const std::vector<PublicDataLeafValue>& prefilled_public_data,
-                                       uint64_t maxReaders)
+                                       uint64_t maxReaders,
+                                       bool ephemeral)
 {
     // create the underlying stores
     auto createStore = [&](MerkleTreeId id) {
@@ -119,7 +135,7 @@ void WorldState::create_canonical_fork(const std::string& dataDir,
         std::filesystem::path directory = dataDir;
         directory /= name;
         std::filesystem::create_directories(directory);
-        return std::make_shared<LMDBTreeStore>(directory, name, dbSize.at(id), maxReaders);
+        return std::make_shared<LMDBTreeStore>(directory, name, dbSize.at(id), maxReaders, ephemeral);
     };
     _persistentStores = std::make_unique<WorldStateStores>(createStore(MerkleTreeId::NULLIFIER_TREE),
                                                            createStore(MerkleTreeId::PUBLIC_DATA_TREE),
@@ -162,7 +178,9 @@ void WorldState::create_canonical_fork(const std::string& dataDir,
     {
         uint32_t levels = _tree_heights.at(MerkleTreeId::ARCHIVE);
         std::vector<bb::fr> initial_values{ compute_initial_block_header_hash(
-            get_state_reference(WorldStateRevision::committed(), fork, true), _initial_header_generator_point) };
+            get_state_reference(WorldStateRevision::committed(), fork, true),
+            _initial_header_generator_point,
+            _genesis_timestamp) };
         auto store = std::make_unique<FrStore>(
             getMerkleTreeName(MerkleTreeId::ARCHIVE), levels, _persistentStores->archiveStore);
         auto tree = std::make_unique<FrTree>(std::move(store), _workers, initial_values);
@@ -197,7 +215,7 @@ uint64_t WorldState::create_fork(const std::optional<block_number_t>& blockNumbe
     block_number_t blockNumberForFork = 0;
     if (!blockNumber.has_value()) {
         // we are forking at latest
-        WorldStateRevision revision{ .forkId = CANONICAL_FORK_ID, .blockNumber = 0, .includeUncommitted = false };
+        WorldStateRevision revision{ .forkId = CANONICAL_FORK_ID, .includeUncommitted = false };
         TreeMetaResponse archiveMeta = get_tree_info(revision, MerkleTreeId::ARCHIVE);
         blockNumberForFork = archiveMeta.meta.unfinalizedBlockHeight;
     } else {
@@ -302,7 +320,7 @@ TreeMetaResponse WorldState::get_tree_info(const WorldStateRevision& revision, M
                 signal.signal_level(0);
             };
 
-            if (revision.blockNumber) {
+            if (revision.is_historical()) {
                 wrapper.tree->get_meta_data(revision.blockNumber, revision.includeUncommitted, callback);
             } else {
                 wrapper.tree->get_meta_data(revision.includeUncommitted, callback);
@@ -341,7 +359,7 @@ void WorldState::get_all_tree_info(const WorldStateRevision& revision, std::arra
         };
         std::visit(
             [&callback, &revision](auto&& wrapper) {
-                if (revision.blockNumber) {
+                if (revision.is_historical()) {
                     wrapper.tree->get_meta_data(revision.blockNumber, revision.includeUncommitted, callback);
                 } else {
                     wrapper.tree->get_meta_data(revision.includeUncommitted, callback);
@@ -404,7 +422,7 @@ StateReference WorldState::get_state_reference(const WorldStateRevision& revisio
         };
         std::visit(
             [&callback, &revision](auto&& wrapper) {
-                if (revision.blockNumber) {
+                if (revision.is_historical()) {
                     wrapper.tree->get_meta_data(revision.blockNumber, revision.includeUncommitted, callback);
                 } else {
                     wrapper.tree->get_meta_data(revision.includeUncommitted, callback);
@@ -446,7 +464,7 @@ fr_sibling_path WorldState::get_sibling_path(const WorldStateRevision& revision,
                 signal.signal_level(0);
             };
 
-            if (revision.blockNumber) {
+            if (revision.is_historical()) {
                 wrapper.tree->get_sibling_path(leaf_index, revision.blockNumber, callback, revision.includeUncommitted);
             } else {
                 wrapper.tree->get_sibling_path(leaf_index, callback, revision.includeUncommitted);
@@ -478,7 +496,7 @@ void WorldState::get_block_numbers_for_leaf_indices(const WorldStateRevision& re
                 signal.signal_level();
             };
 
-            if (revision.blockNumber) {
+            if (revision.is_historical()) {
                 wrapper.tree->find_block_numbers(leafIndices, revision.blockNumber, callback);
             } else {
                 wrapper.tree->find_block_numbers(leafIndices, callback);
@@ -584,10 +602,32 @@ WorldStateStatusFull WorldState::sync_block(const StateReference& block_state_re
                                             const std::vector<bb::fr>& notes,
                                             const std::vector<bb::fr>& l1_to_l2_messages,
                                             const std::vector<crypto::merkle_tree::NullifierLeafValue>& nullifiers,
-                                            const std::vector<crypto::merkle_tree::PublicDataLeafValue>& public_writes)
+                                            const std::vector<crypto::merkle_tree::PublicDataLeafValue>& public_writes,
+                                            const std::optional<bb::fr>& expected_archive_root,
+                                            const std::optional<bb::fr>& expected_previous_archive_root)
 {
     validate_trees_are_equally_synched();
     rollback();
+
+    // The archive tree is an append-only accumulator of block header hashes, so a single bad leaf (e.g. from a
+    // mishandled reorg) is never self-corrected: every later root stays noncanonical while the other state trees
+    // can re-converge from block effects. The checks further down only verify the appended leaf is the tip and
+    // that the four non-archive trees match the block state reference — neither catches a divergent archive root.
+    // So verify the local archive root against canonical both before appending (the parent root must equal the
+    // block's lastArchive) and after (the resulting root must equal the block's archive), failing before commit
+    // so the divergence is never persisted.
+    if (expected_previous_archive_root.has_value()) {
+        const bb::fr actual_previous_archive_root =
+            get_tree_info(WorldStateRevision::committed(), MerkleTreeId::ARCHIVE).meta.root;
+        if (actual_previous_archive_root != expected_previous_archive_root.value()) {
+            throw std::runtime_error(
+                format("Can't sync block: local archive root ",
+                       actual_previous_archive_root,
+                       " does not match the block's previous archive root ",
+                       expected_previous_archive_root.value(),
+                       "; world state has diverged from the canonical chain and must be resynced"));
+        }
+    }
 
     Fork::SharedPtr fork = retrieve_fork(CANONICAL_FORK_ID);
     Signal signal(static_cast<uint32_t>(fork->_trees.size()));
@@ -663,6 +703,21 @@ WorldStateStatusFull WorldState::sync_block(const StateReference& block_state_re
             throw std::runtime_error("Can't synch block: block state does not match world state");
         }
 
+        // The archive tree is not part of the block state reference (see is_same_state_reference), so verify the
+        // resulting archive root against the canonical block's archive root explicitly.
+        if (expected_archive_root.has_value()) {
+            const bb::fr actual_archive_root =
+                get_tree_info(WorldStateRevision::uncommitted(), MerkleTreeId::ARCHIVE).meta.root;
+            if (actual_archive_root != expected_archive_root.value()) {
+                throw std::runtime_error(
+                    format("Can't sync block: resulting archive root ",
+                           actual_archive_root,
+                           " does not match the block's archive root ",
+                           expected_archive_root.value(),
+                           "; world state has diverged from the canonical chain and must be resynced"));
+            }
+        }
+
         std::pair<bool, std::string> result = commit(status);
         if (!result.first) {
             throw std::runtime_error(result.second);
@@ -691,14 +746,14 @@ GetLowIndexedLeafResponse WorldState::find_low_leaf_index(const WorldStateRevisi
     };
 
     if (const auto* wrapper = std::get_if<TreeWithStore<NullifierTree>>(&fork->_trees.at(tree_id))) {
-        if (revision.blockNumber != 0U) {
+        if (revision.is_historical()) {
             wrapper->tree->find_low_leaf(leaf_key, revision.blockNumber, revision.includeUncommitted, callback);
         } else {
             wrapper->tree->find_low_leaf(leaf_key, revision.includeUncommitted, callback);
         }
 
     } else if (const auto* wrapper = std::get_if<TreeWithStore<PublicDataTree>>(&fork->_trees.at(tree_id))) {
-        if (revision.blockNumber != 0U) {
+        if (revision.is_historical()) {
             wrapper->tree->find_low_leaf(leaf_key, revision.blockNumber, revision.includeUncommitted, callback);
         } else {
             wrapper->tree->find_low_leaf(leaf_key, revision.includeUncommitted, callback);
@@ -729,7 +784,7 @@ WorldStateStatusFull WorldState::unwind_blocks(const block_number_t& toBlockNumb
     // Ensure no uncommitted state
     rollback();
 
-    WorldStateRevision revision{ .forkId = CANONICAL_FORK_ID, .blockNumber = 0, .includeUncommitted = false };
+    WorldStateRevision revision{ .forkId = CANONICAL_FORK_ID, .includeUncommitted = false };
     std::array<TreeMeta, NUM_TREES> responses;
     get_all_tree_info(revision, responses);
 
@@ -763,7 +818,7 @@ WorldStateStatusFull WorldState::unwind_blocks(const block_number_t& toBlockNumb
 
 WorldStateStatusFull WorldState::remove_historical_blocks(const block_number_t& toBlockNumber)
 {
-    WorldStateRevision revision{ .forkId = CANONICAL_FORK_ID, .blockNumber = 0, .includeUncommitted = false };
+    WorldStateRevision revision{ .forkId = CANONICAL_FORK_ID, .includeUncommitted = false };
     std::array<TreeMeta, NUM_TREES> responses;
     get_all_tree_info(revision, responses);
 
@@ -950,38 +1005,41 @@ bool WorldState::remove_historical_block(const block_number_t& blockNumber, Worl
     return true;
 }
 
-bb::fr WorldState::compute_initial_block_header_hash(const StateReference& initial_state_ref, uint32_t generator_point)
+bb::fr WorldState::compute_initial_block_header_hash(const StateReference& initial_state_ref,
+                                                     uint32_t generator_point,
+                                                     uint64_t genesis_timestamp)
 {
     // NOTE: this hash operations needs to match the one in
     // noir-project/noir-protocol-circuits/crates/types/src/abis/block_header.nr
-    return HashPolicy::hash({ generator_point,
-                              // last archive - which, at genesis, is all 0s
-                              0, // root
-                              0, // next_available_leaf_index
-                              // state reference - the initial state for all the trees (accept the archive tree)
-                              initial_state_ref.at(MerkleTreeId::L1_TO_L2_MESSAGE_TREE).first,
-                              initial_state_ref.at(MerkleTreeId::L1_TO_L2_MESSAGE_TREE).second,
-                              initial_state_ref.at(MerkleTreeId::NOTE_HASH_TREE).first,
-                              initial_state_ref.at(MerkleTreeId::NOTE_HASH_TREE).second,
-                              initial_state_ref.at(MerkleTreeId::NULLIFIER_TREE).first,
-                              initial_state_ref.at(MerkleTreeId::NULLIFIER_TREE).second,
-                              initial_state_ref.at(MerkleTreeId::PUBLIC_DATA_TREE).first,
-                              initial_state_ref.at(MerkleTreeId::PUBLIC_DATA_TREE).second,
-                              0, // sponge_blob_hash
-                              // global variables
-                              0, // chain_id
-                              0, // version
-                              0, // block_number
-                              0, // slot_number
-                              0, // timestamp
-                              0, // coinbase
-                              0, // fee_recipient
-                              0, // gas_fee.fee_per_da_gas
-                              0, // gas_fee.fee_per_l2_gas
-                              // total fees
-                              0,
-                              // total mana used
-                              0 });
+    return AppendOnlyHashPolicy::hash(
+        { generator_point,
+          // last archive - which, at genesis, is all 0s
+          0, // root
+          0, // next_available_leaf_index
+          // state reference - the initial state for all the trees (accept the archive tree)
+          initial_state_ref.at(MerkleTreeId::L1_TO_L2_MESSAGE_TREE).first,
+          initial_state_ref.at(MerkleTreeId::L1_TO_L2_MESSAGE_TREE).second,
+          initial_state_ref.at(MerkleTreeId::NOTE_HASH_TREE).first,
+          initial_state_ref.at(MerkleTreeId::NOTE_HASH_TREE).second,
+          initial_state_ref.at(MerkleTreeId::NULLIFIER_TREE).first,
+          initial_state_ref.at(MerkleTreeId::NULLIFIER_TREE).second,
+          initial_state_ref.at(MerkleTreeId::PUBLIC_DATA_TREE).first,
+          initial_state_ref.at(MerkleTreeId::PUBLIC_DATA_TREE).second,
+          0, // sponge_blob_hash
+          // global variables
+          0,                         // chain_id
+          0,                         // version
+          0,                         // block_number
+          0,                         // slot_number
+          bb::fr(genesis_timestamp), // timestamp
+          0,                         // coinbase
+          0,                         // fee_recipient
+          0,                         // gas_fee.fee_per_da_gas
+          0,                         // gas_fee.fee_per_l2_gas
+          // total fees
+          0,
+          // total mana used
+          0 });
 }
 
 bool WorldState::is_archive_tip(const WorldStateRevision& revision, const bb::fr& block_header_hash) const
@@ -1003,7 +1061,7 @@ bool WorldState::is_archive_tip(const WorldStateRevision& revision, const bb::fr
 
 void WorldState::get_status_summary(WorldStateStatusSummary& status) const
 {
-    WorldStateRevision revision{ .forkId = CANONICAL_FORK_ID, .blockNumber = 0, .includeUncommitted = false };
+    WorldStateRevision revision{ .forkId = CANONICAL_FORK_ID, .includeUncommitted = false };
     std::array<TreeMeta, NUM_TREES> responses;
     get_all_tree_info(revision, responses);
     get_status_summary_from_meta_responses(status, responses);
@@ -1038,7 +1096,7 @@ bool WorldState::is_same_state_reference(const WorldStateRevision& revision, con
 
 void WorldState::validate_trees_are_equally_synched()
 {
-    WorldStateRevision revision{ .forkId = CANONICAL_FORK_ID, .blockNumber = 0, .includeUncommitted = false };
+    WorldStateRevision revision{ .forkId = CANONICAL_FORK_ID, .includeUncommitted = false };
     std::array<TreeMeta, NUM_TREES> responses;
     get_all_tree_info(revision, responses);
 
@@ -1062,16 +1120,16 @@ bool WorldState::determine_if_synched(std::array<TreeMeta, NUM_TREES>& metaRespo
     return true;
 }
 
-void WorldState::checkpoint(const uint64_t& forkId)
+uint32_t WorldState::checkpoint(const uint64_t& forkId)
 {
     Fork::SharedPtr fork = retrieve_fork(forkId);
     Signal signal(static_cast<uint32_t>(fork->_trees.size()));
-    std::array<Response, NUM_TREES> local;
+    std::array<TypedResponse<CheckpointResponse>, NUM_TREES> local;
     std::mutex mtx;
     for (auto& [id, tree] : fork->_trees) {
         std::visit(
             [&signal, &local, id, &mtx](auto&& wrapper) {
-                wrapper.tree->checkpoint([&signal, &local, &mtx, id](Response& resp) {
+                wrapper.tree->checkpoint([&signal, &local, &mtx, id](TypedResponse<CheckpointResponse>& resp) {
                     {
                         std::lock_guard<std::mutex> lock(mtx);
                         local[id] = std::move(resp);
@@ -1087,6 +1145,8 @@ void WorldState::checkpoint(const uint64_t& forkId)
             throw std::runtime_error(m.message);
         }
     }
+    // All trees have the same checkpoint depth; return it from the first tree's response
+    return local[0].inner.depth;
 }
 
 void WorldState::commit_checkpoint(const uint64_t& forkId)
@@ -1143,7 +1203,7 @@ void WorldState::revert_checkpoint(const uint64_t& forkId)
     }
 }
 
-void WorldState::commit_all_checkpoints(const uint64_t& forkId)
+void WorldState::commit_all_checkpoints_to(const uint64_t& forkId, uint32_t depth)
 {
     Fork::SharedPtr fork = retrieve_fork(forkId);
     Signal signal(static_cast<uint32_t>(fork->_trees.size()));
@@ -1151,14 +1211,15 @@ void WorldState::commit_all_checkpoints(const uint64_t& forkId)
     std::mutex mtx;
     for (auto& [id, tree] : fork->_trees) {
         std::visit(
-            [&signal, &local, id, &mtx](auto&& wrapper) {
-                wrapper.tree->commit_all_checkpoints([&signal, &local, &mtx, id](Response& resp) {
+            [&signal, &local, id, &mtx, depth](auto&& wrapper) {
+                auto callback = [&signal, &local, &mtx, id](Response& resp) {
                     {
                         std::lock_guard<std::mutex> lock(mtx);
                         local[id] = std::move(resp);
                     }
                     signal.signal_decrement();
-                });
+                };
+                wrapper.tree->commit_to_depth(depth, callback);
             },
             tree);
     }
@@ -1170,7 +1231,7 @@ void WorldState::commit_all_checkpoints(const uint64_t& forkId)
     }
 }
 
-void WorldState::revert_all_checkpoints(const uint64_t& forkId)
+void WorldState::revert_all_checkpoints_to(const uint64_t& forkId, uint32_t depth)
 {
     Fork::SharedPtr fork = retrieve_fork(forkId);
     Signal signal(static_cast<uint32_t>(fork->_trees.size()));
@@ -1178,14 +1239,15 @@ void WorldState::revert_all_checkpoints(const uint64_t& forkId)
     std::mutex mtx;
     for (auto& [id, tree] : fork->_trees) {
         std::visit(
-            [&signal, &local, id, &mtx](auto&& wrapper) {
-                wrapper.tree->revert_all_checkpoints([&signal, &local, &mtx, id](Response& resp) {
+            [&signal, &local, id, &mtx, depth](auto&& wrapper) {
+                auto callback = [&signal, &local, &mtx, id](Response& resp) {
                     {
                         std::lock_guard<std::mutex> lock(mtx);
                         local[id] = std::move(resp);
                     }
                     signal.signal_decrement();
-                });
+                };
+                wrapper.tree->revert_to_depth(depth, callback);
             },
             tree);
     }
@@ -1199,7 +1261,7 @@ void WorldState::revert_all_checkpoints(const uint64_t& forkId)
 
 WorldStateStatusFull WorldState::attempt_tree_resync()
 {
-    WorldStateRevision revision{ .forkId = CANONICAL_FORK_ID, .blockNumber = 0, .includeUncommitted = false };
+    WorldStateRevision revision{ .forkId = CANONICAL_FORK_ID, .includeUncommitted = false };
     std::array<TreeMeta, NUM_TREES> responses;
     get_all_tree_info(revision, responses);
 

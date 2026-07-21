@@ -3,7 +3,6 @@
 
 #include <string_view>
 
-#include "barretenberg/common/bb_bench.hpp"
 #include "barretenberg/relations/relation_parameters.hpp"
 #include "barretenberg/relations/relation_types.hpp"
 #include "barretenberg/vm2/generated/columns.hpp"
@@ -14,10 +13,10 @@ template <typename FF_> class keccak_memoryImpl {
   public:
     using FF = FF_;
 
-    static constexpr std::array<size_t, 48> SUBRELATION_PARTIAL_LENGTHS = { 3, 4, 3, 3, 3, 3, 3, 4, 3, 5, 3, 3,
-                                                                            3, 4, 3, 3, 3, 3, 4, 3, 3, 3, 5, 3,
+    static constexpr std::array<size_t, 46> SUBRELATION_PARTIAL_LENGTHS = { 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 5, 3,
+                                                                            4, 3, 3, 3, 3, 4, 3, 3, 3, 5, 3, 3,
                                                                             3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3,
-                                                                            3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3 };
+                                                                            3, 3, 3, 3, 3, 3, 3, 3, 3, 3 };
 
     template <typename AllEntities> inline static bool skip(const AllEntities& in)
     {
@@ -38,71 +37,69 @@ template <typename FF> class keccak_memory : public Relation<keccak_memoryImpl<F
     static constexpr const std::string_view NAME = "keccak_memory";
 
     // Subrelation indices constants, to be used in tests.
-    static constexpr size_t SR_TRACE_CONTINUITY = 1;
-    static constexpr size_t SR_CTR_INIT = 4;
-    static constexpr size_t SR_RW_READ_INIT = 5;
-    static constexpr size_t SR_RW_WRITE_INIT = 6;
-    static constexpr size_t SR_SEL_CTR_NON_ZERO = 7;
-    static constexpr size_t SR_CTR_END = 9;
-    static constexpr size_t SR_LAST = 10;
-    static constexpr size_t SR_LAST_HAS_SEL_ON = 11;
-    static constexpr size_t SR_START_AFTER_LATCH = 12;
-    static constexpr size_t SR_CTR_INCREMENT = 13;
-    static constexpr size_t SR_SINGLE_TAG_ERROR_BOOLEAN = 14;
-    static constexpr size_t SR_NO_TAG_ERROR_ON_WRITE = 15;
-    static constexpr size_t SR_TAG_ERROR_INIT = 16;
-    static constexpr size_t SR_TAG_ERROR_PROPAGATION = 17;
-    static constexpr size_t SR_MEM_ADDR_INCREMENT = 18;
-    static constexpr size_t SR_SPACEID_PROPAGATION = 19;
-    static constexpr size_t SR_CLK_PROPAGATION = 20;
-    static constexpr size_t SR_RW_PROPAGATION = 21;
-    static constexpr size_t SR_SINGLE_TAG_ERROR = 22;
-    static constexpr size_t SR_VAL01 = 23;
-    static constexpr size_t SR_VAL02 = 24;
-    static constexpr size_t SR_VAL03 = 25;
-    static constexpr size_t SR_VAL04 = 26;
-    static constexpr size_t SR_VAL05 = 27;
-    static constexpr size_t SR_VAL06 = 28;
-    static constexpr size_t SR_VAL07 = 29;
-    static constexpr size_t SR_VAL8 = 30;
-    static constexpr size_t SR_VAL09 = 31;
-    static constexpr size_t SR_VAL10 = 32;
-    static constexpr size_t SR_VAL11 = 33;
-    static constexpr size_t SR_VAL12 = 34;
-    static constexpr size_t SR_VAL13 = 35;
-    static constexpr size_t SR_VAL14 = 36;
-    static constexpr size_t SR_VAL15 = 37;
-    static constexpr size_t SR_VAL16 = 38;
-    static constexpr size_t SR_VAL17 = 39;
-    static constexpr size_t SR_VAL18 = 40;
-    static constexpr size_t SR_VAL19 = 41;
-    static constexpr size_t SR_VAL20 = 42;
-    static constexpr size_t SR_VAL21 = 43;
-    static constexpr size_t SR_VAL22 = 44;
-    static constexpr size_t SR_VAL23 = 45;
-    static constexpr size_t SR_VAL24 = 46;
+    static constexpr size_t SR_SEL_ON_START_OR_END = 1;
+    static constexpr size_t SR_TRACE_CONTINUITY = 2;
+    static constexpr size_t SR_START_AFTER_LATCH = 3;
+    static constexpr size_t SR_CTR_INIT = 6;
+    static constexpr size_t SR_RW_READ_INIT = 7;
+    static constexpr size_t SR_RW_WRITE_INIT = 8;
+    static constexpr size_t SR_CTR_END = 10;
+    static constexpr size_t SR_END = 11;
+    static constexpr size_t SR_CTR_INCREMENT = 12;
+    static constexpr size_t SR_SINGLE_TAG_ERROR_BOOLEAN = 13;
+    static constexpr size_t SR_NO_TAG_ERROR_ON_WRITE = 14;
+    static constexpr size_t SR_TAG_ERROR_INIT = 15;
+    static constexpr size_t SR_TAG_ERROR_PROPAGATION = 16;
+    static constexpr size_t SR_MEM_ADDR_INCREMENT = 17;
+    static constexpr size_t SR_SPACEID_PROPAGATION = 18;
+    static constexpr size_t SR_CLK_PROPAGATION = 19;
+    static constexpr size_t SR_RW_PROPAGATION = 20;
+    static constexpr size_t SR_SINGLE_TAG_ERROR = 21;
+    static constexpr size_t SR_VAL01 = 22;
+    static constexpr size_t SR_VAL02 = 23;
+    static constexpr size_t SR_VAL03 = 24;
+    static constexpr size_t SR_VAL04 = 25;
+    static constexpr size_t SR_VAL05 = 26;
+    static constexpr size_t SR_VAL06 = 27;
+    static constexpr size_t SR_VAL07 = 28;
+    static constexpr size_t SR_VAL08 = 29;
+    static constexpr size_t SR_VAL09 = 30;
+    static constexpr size_t SR_VAL10 = 31;
+    static constexpr size_t SR_VAL11 = 32;
+    static constexpr size_t SR_VAL12 = 33;
+    static constexpr size_t SR_VAL13 = 34;
+    static constexpr size_t SR_VAL14 = 35;
+    static constexpr size_t SR_VAL15 = 36;
+    static constexpr size_t SR_VAL16 = 37;
+    static constexpr size_t SR_VAL17 = 38;
+    static constexpr size_t SR_VAL18 = 39;
+    static constexpr size_t SR_VAL19 = 40;
+    static constexpr size_t SR_VAL20 = 41;
+    static constexpr size_t SR_VAL21 = 42;
+    static constexpr size_t SR_VAL22 = 43;
+    static constexpr size_t SR_VAL23 = 44;
+    static constexpr size_t SR_VAL24 = 45;
 
     static std::string get_subrelation_label(size_t index)
     {
+#ifdef AVM_INCLUDE_COLUMN_INFORMATION
         switch (index) {
+        case SR_SEL_ON_START_OR_END:
+            return "SEL_ON_START_OR_END";
         case SR_TRACE_CONTINUITY:
             return "TRACE_CONTINUITY";
+        case SR_START_AFTER_LATCH:
+            return "START_AFTER_LATCH";
         case SR_CTR_INIT:
             return "CTR_INIT";
         case SR_RW_READ_INIT:
             return "RW_READ_INIT";
         case SR_RW_WRITE_INIT:
             return "RW_WRITE_INIT";
-        case SR_SEL_CTR_NON_ZERO:
-            return "SEL_CTR_NON_ZERO";
         case SR_CTR_END:
             return "CTR_END";
-        case SR_LAST:
-            return "LAST";
-        case SR_LAST_HAS_SEL_ON:
-            return "LAST_HAS_SEL_ON";
-        case SR_START_AFTER_LATCH:
-            return "START_AFTER_LATCH";
+        case SR_END:
+            return "END";
         case SR_CTR_INCREMENT:
             return "CTR_INCREMENT";
         case SR_SINGLE_TAG_ERROR_BOOLEAN:
@@ -137,8 +134,8 @@ template <typename FF> class keccak_memory : public Relation<keccak_memoryImpl<F
             return "VAL06";
         case SR_VAL07:
             return "VAL07";
-        case SR_VAL8:
-            return "VAL8";
+        case SR_VAL08:
+            return "VAL08";
         case SR_VAL09:
             return "VAL09";
         case SR_VAL10:
@@ -172,6 +169,7 @@ template <typename FF> class keccak_memory : public Relation<keccak_memoryImpl<F
         case SR_VAL24:
             return "VAL24";
         }
+#endif
         return std::to_string(index);
     }
 };

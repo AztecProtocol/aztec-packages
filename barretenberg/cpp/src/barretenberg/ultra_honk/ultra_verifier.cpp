@@ -1,5 +1,5 @@
 // === AUDIT STATUS ===
-// internal:    { status: Planned, auditors: [], commit: }
+// internal:    { status: Completed, auditors: [Sergei], commit: }
 // external_1:  { status: not started, auditors: [], commit: }
 // external_2:  { status: not started, auditors: [], commit: }
 // =====================
@@ -8,11 +8,13 @@
 #include "barretenberg/commitment_schemes/ipa/ipa.hpp"
 #include "barretenberg/commitment_schemes/pairing_points.hpp"
 #include "barretenberg/commitment_schemes/shplonk/shplemini.hpp"
+#include "barretenberg/common/bb_bench.hpp"
 #include "barretenberg/flavor/mega_avm_recursive_flavor.hpp"
+#include "barretenberg/flavor/mega_flavor.hpp"
+#include "barretenberg/flavor/mega_recursive_flavor.hpp"
 #include "barretenberg/flavor/mega_zk_recursive_flavor.hpp"
 #include "barretenberg/flavor/ultra_zk_recursive_flavor.hpp"
 #include "barretenberg/honk/proof_length.hpp"
-#include "barretenberg/stdlib/primitives/padding_indicator_array/padding_indicator_array.hpp"
 #include "barretenberg/sumcheck/sumcheck.hpp"
 #include "barretenberg/ultra_honk/oink_verifier.hpp"
 
@@ -29,41 +31,11 @@ template <typename Flavor, class IO> size_t UltraVerifier_<Flavor, IO>::compute_
         return static_cast<size_t>(Flavor::VIRTUAL_LOG_N);
     } else {
         // Non-padded: use actual circuit size from VK (native only)
-        return static_cast<size_t>(verifier_instance->get_vk()->log_circuit_size);
+        const size_t log_circuit_size = static_cast<size_t>(verifier_instance->get_vk()->log_circuit_size);
+        BB_ASSERT_GTE(
+            log_circuit_size, static_cast<size_t>(1), "VK log_circuit_size is 0, which is invalid for any circuit");
+        return log_circuit_size;
     }
-}
-
-/**
- * @brief Compute padding indicator array based on flavor configuration.
- * @details Must be called AFTER OinkVerifier::verify() so that VK fields are properly
- *          tagged through the transcript (for recursive ZK flavors).
- * @param log_n The log circuit size (from compute_log_n)
- * @return std::vector<FF> padding indicator array
- */
-template <typename Flavor, class IO>
-std::vector<typename Flavor::FF> UltraVerifier_<Flavor, IO>::compute_padding_indicator_array(size_t log_n) const
-{
-    // - Non-ZK flavors: all 1s (no masking needed)
-    // - ZK without padding: all 1s (log_n == log_circuit_size, no padded region)
-    // - ZK with padding: computed to mask padded rounds (1s for real, 0s for padding)
-    std::vector<FF> padding_indicator_array(log_n, FF{ 1 });
-    if constexpr (Flavor::HasZK && Flavor::USE_PADDING) {
-        auto vk_ptr = verifier_instance->get_vk();
-        if constexpr (IsRecursive) {
-            // Recursive: use in-circuit computation via Lagrange polynomials
-            // Note: Must be called after OinkVerifier so log_circuit_size is properly tagged
-            padding_indicator_array =
-                stdlib::compute_padding_indicator_array<Curve, Flavor::VIRTUAL_LOG_N>(vk_ptr->log_circuit_size);
-        } else {
-            // Native: simple loop comparison
-            const size_t log_circuit_size = static_cast<size_t>(vk_ptr->log_circuit_size);
-            for (size_t idx = 0; idx < log_n; idx++) {
-                padding_indicator_array[idx] = (idx < log_circuit_size) ? FF{ 1 } : FF{ 0 };
-            }
-        }
-    }
-
-    return padding_indicator_array;
 }
 
 /**
@@ -131,7 +103,7 @@ template <typename Flavor, class IO>
 typename UltraVerifier_<Flavor, IO>::ReductionResult UltraVerifier_<Flavor, IO>::reduce_to_pairing_check(
     const typename UltraVerifier_<Flavor, IO>::Proof& proof)
 {
-    using Shplemini = ShpleminiVerifier_<Curve, Flavor::HasZK>;
+    using Shplemini = ShpleminiVerifier_<Curve, Flavor::HasZK, flavor_has_gemini_masking<Flavor>()>;
     using ClaimBatcher = ClaimBatcher_<Curve>;
     using ClaimBatch = ClaimBatcher::Batch;
 
@@ -140,35 +112,37 @@ typename UltraVerifier_<Flavor, IO>::ReductionResult UltraVerifier_<Flavor, IO>:
     // Compute log_n first (needed for proof layout calculation)
     const size_t log_n = compute_log_n();
 
+    // Guard against proof size underflow before deriving num_public_inputs
+    const size_t min_proof_size = ProofLength::Honk<Flavor>::LENGTH_WITHOUT_PUB_INPUTS(log_n);
+    BB_ASSERT_GTE(proof.size(),
+                  min_proof_size,
+                  "Proof size too small. Got " + std::to_string(proof.size()) + " field elements, but need at least " +
+                      std::to_string(min_proof_size) + " (excluding public inputs) for log_n=" + std::to_string(log_n));
+
     // Derive num_public_inputs from proof size using centralized proof layout
     const size_t num_public_inputs = ProofLength::Honk<Flavor>::derive_num_public_inputs(proof.size(), log_n);
 
     OinkVerifier<Flavor> oink_verifier{ verifier_instance, transcript, num_public_inputs };
     oink_verifier.verify();
 
-    // Compute padding indicator array AFTER OinkVerifier so VK fields are properly tagged
-    auto padding_indicator_array = compute_padding_indicator_array(log_n);
     verifier_instance->gate_challenges =
         transcript->template get_dyadic_powers_of_challenge<FF>("Sumcheck:gate_challenge", log_n);
 
-    // Get the witness commitments that the verifier needs to verify
-    VerifierCommitments commitments{ verifier_instance->get_vk(), verifier_instance->witness_commitments };
-    // For ZK flavors: set gemini_masking_poly commitment from accumulator
-    if constexpr (Flavor::HasZK) {
-        commitments.gemini_masking_poly = verifier_instance->gemini_masking_commitment;
-    }
+    auto commitments = VerifierCommitmentsConstructor<Flavor>::construct(verifier_instance->get_vk(),
+                                                                         verifier_instance->witness_commitments,
+                                                                         verifier_instance->gemini_masking_commitment);
 
     // Construct the sumcheck verifier
     SumcheckVerifier<Flavor> sumcheck(transcript, verifier_instance->alpha, log_n);
     // Receive commitments to Libra masking polynomials for ZKFlavors
-    std::array<Commitment, NUM_LIBRA_COMMITMENTS> libra_commitments = {};
+    std::array<Commitment, NUM_SMALL_IPA_COMMITMENTS> libra_commitments = {};
 
     if constexpr (Flavor::HasZK) {
         libra_commitments[0] = transcript->template receive_from_prover<Commitment>("Libra:concatenation_commitment");
     }
     // Run the sumcheck verifier
-    SumcheckOutput<Flavor> sumcheck_output = sumcheck.verify(
-        verifier_instance->relation_parameters, verifier_instance->gate_challenges, padding_indicator_array);
+    SumcheckOutput<Flavor> sumcheck_output =
+        sumcheck.verify(verifier_instance->relation_parameters, verifier_instance->gate_challenges);
     // Get the claimed evaluation of the Libra polynomials for ZKFlavors
     if constexpr (Flavor::HasZK) {
         libra_commitments[1] = transcript->template receive_from_prover<Commitment>("Libra:grand_sum_commitment");
@@ -188,8 +162,7 @@ typename UltraVerifier_<Flavor, IO>::ReductionResult UltraVerifier_<Flavor, IO>:
         }
     }();
 
-    auto shplemini_output = Shplemini::compute_batch_opening_claim(padding_indicator_array,
-                                                                   claim_batcher,
+    auto shplemini_output = Shplemini::compute_batch_opening_claim(claim_batcher,
                                                                    sumcheck_output.challenge,
                                                                    one_commitment,
                                                                    transcript,
@@ -224,6 +197,7 @@ template <typename Flavor, class IO>
 typename UltraVerifier_<Flavor, IO>::Output UltraVerifier_<Flavor, IO>::verify_proof(
     const typename UltraVerifier_<Flavor, IO>::Proof& proof)
 {
+    BB_BENCH_NAME("UltraVerifier::verify_proof");
     // Step 1: Split proof if needed
     Proof honk_proof;
     Proof ipa_proof;

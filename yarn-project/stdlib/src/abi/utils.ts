@@ -58,11 +58,13 @@ export function isPublicKeysStruct(abiType: AbiType) {
   return (
     abiType.kind === 'struct' &&
     abiType.path === 'aztec::protocol_types::public_keys::PublicKeys' &&
-    abiType.fields.length === 4 &&
-    abiType.fields[0].name === 'npk_m' &&
+    abiType.fields.length === 6 &&
+    abiType.fields[0].name === 'npk_m_hash' &&
     abiType.fields[1].name === 'ivpk_m' &&
-    abiType.fields[2].name === 'ovpk_m' &&
-    abiType.fields[3].name === 'tpk_m'
+    abiType.fields[2].name === 'ovpk_m_hash' &&
+    abiType.fields[3].name === 'tpk_m_hash' &&
+    abiType.fields[4].name === 'mspk_m_hash' &&
+    abiType.fields[5].name === 'fbpk_m_hash'
   );
 }
 
@@ -79,6 +81,31 @@ export function isBoundedVecStruct(abiType: AbiType) {
     abiType.fields[0].name === 'storage' &&
     abiType.fields[1].name === 'len'
   );
+}
+
+/**
+ * Returns whether the ABI type is Noir's std::option::Option lowered to a struct.
+ * @param abiType - Type to check.
+ * @returns A boolean indicating whether the ABI type is an Option struct.
+ */
+export function isOptionStruct(abiType: AbiType) {
+  return (
+    abiType.kind === 'struct' &&
+    abiType.path === 'std::option::Option' &&
+    abiType.fields.length === 2 &&
+    abiType.fields[0].name === '_is_some' &&
+    abiType.fields[1].name === '_value'
+  );
+}
+
+/**
+ * Returns whether `null` or `undefined` can be mapped to a valid ABI value for this type.
+ *
+ * @param abiType - Type to check.
+ * @returns A boolean indicating whether nullish values are valid shorthand for this ABI type.
+ */
+export function canBeMappedFromNullOrUndefined(abiType: AbiType) {
+  return isOptionStruct(abiType);
 }
 
 /**

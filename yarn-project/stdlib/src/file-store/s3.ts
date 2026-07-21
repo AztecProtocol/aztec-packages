@@ -13,9 +13,13 @@ import { tmpdir } from 'os';
 import { basename, dirname, join } from 'path';
 import { Readable } from 'stream';
 import { pipeline } from 'stream/promises';
-import { createGzip } from 'zlib';
+import { promisify } from 'util';
+import { createGzip, gunzip as gunzipCb, gzip as gzipCb } from 'zlib';
 
 import type { FileStore, FileStoreSaveOptions } from './interface.js';
+
+const gzip = promisify(gzipCb);
+const gunzip = promisify(gunzipCb);
 
 function normalizeBasePath(path: string): string {
   return path?.replace(/^\/+|\/+$/g, '') ?? '';
@@ -52,7 +56,7 @@ export class S3FileStore implements FileStore {
     const key = this.getFullPath(path);
     const shouldCompress = !!opts.compress;
 
-    const body = shouldCompress ? (await import('zlib')).gzipSync(data) : data;
+    const body = shouldCompress ? await gzip(data) : data;
     const contentLength = body.length;
     const contentType = this.detectContentType(key, shouldCompress);
     const put = new PutObjectCommand({
@@ -60,6 +64,7 @@ export class S3FileStore implements FileStore {
       Key: key,
       Body: body,
       ContentType: contentType,
+      ContentEncoding: shouldCompress ? 'gzip' : undefined,
       CacheControl: opts.metadata?.['Cache-control'],
       Metadata: this.extractUserMetadata(opts.metadata),
       ContentLength: contentLength,
@@ -134,7 +139,11 @@ export class S3FileStore implements FileStore {
     for await (const chunk of stream) {
       chunks.push(Buffer.isBuffer(chunk) ? chunk : Buffer.from(chunk));
     }
-    return Buffer.concat(chunks);
+    const buffer = Buffer.concat(chunks);
+    if (out.ContentEncoding === 'gzip') {
+      return await gunzip(buffer);
+    }
+    return buffer;
   }
 
   public async download(pathOrUrlStr: string, destPath: string): Promise<void> {

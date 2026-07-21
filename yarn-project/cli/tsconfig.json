@@ -28,9 +28,6 @@
       "path": "../foundation"
     },
     {
-      "path": "../l1-artifacts"
-    },
-    {
       "path": "../node-keystore"
     },
     {
@@ -52,7 +49,7 @@
       "path": "../stdlib"
     },
     {
-      "path": "../test-wallet"
+      "path": "../wallets"
     },
     {
       "path": "../world-state"

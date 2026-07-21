@@ -1,4 +1,5 @@
 #include "barretenberg/common/log.hpp"
+#include "barretenberg/common/wasm_export.hpp"
 #include <stdexcept>
 #ifdef STACKTRACES
 #include <backward.hpp>
@@ -10,8 +11,8 @@ inline void abort_with_message [[noreturn]] (std::string const& err)
     std::abort();
 }
 
-// Native implementation of throw_or_abort
-extern "C" void throw_or_abort_impl [[noreturn]] (const char* err)
+// WASM_EXPORT ensures this symbol stays visible when compiling with -fvisibility=hidden.
+WASM_EXPORT void throw_or_abort_impl [[noreturn]] (const char* err)
 {
 
 #ifdef STACKTRACES

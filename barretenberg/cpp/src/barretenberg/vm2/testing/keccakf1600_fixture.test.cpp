@@ -1,6 +1,6 @@
 #include "barretenberg/vm2/testing/keccakf1600_fixture.test.hpp"
 
-#include "barretenberg/vm2/common/aztec_constants.hpp"
+#include "barretenberg/aztec/aztec_constants.hpp"
 #include "barretenberg/vm2/simulation/events/bitwise_event.hpp"
 #include "barretenberg/vm2/simulation/events/event_emitter.hpp"
 #include "barretenberg/vm2/simulation/events/keccakf1600_event.hpp"

@@ -1,12 +1,14 @@
 #!/usr/bin/env bash
 source $(git rev-parse --show-toplevel)/ci3/source_bootstrap
+source "$root/barretenberg/cpp/scripts/pinned_chonk_inputs.sh"
 
 if [ "${AVM:-1}" -eq "1" ]; then
   export native_preset=${NATIVE_PRESET:-clang20}
 else
   export native_preset=${NATIVE_PRESET:-clang20-no-avm}
 fi
-export hash=$(hash_str $(../../avm-transpiler/bootstrap.sh hash) $(cache_content_hash .rebuild_patterns))
+export hash=$(hash_str $(../../avm-transpiler/bootstrap.sh hash) $(../../ipc-runtime/bootstrap.sh hash) $(cache_content_hash .rebuild_patterns))
+export native_build_dir=$(scripts/preset-build-dir $native_preset)
 
 # Injects version number into a given bb binary.
 # Means we don't actually need to rebuild bb to release a new version if code hasn't changed.
@@ -34,10 +36,29 @@ function inject_version {
   # Version starts immediately after the sentinel
   local version_offset=$((sentinel_offset + ${#sentinel}))
   printf "$version\0" | dd of="$binary" bs=1 seek=$version_offset conv=notrunc 2>/dev/null
+
+  # Re-sign after modifying the binary.
+  # On macOS, use codesign. On Linux amd64, use ldid for Mach-O cross-compiled binaries.
+  # ARM64 Linux instances don't need ldid — all macOS release artifacts are published from amd64.
+  if [[ "$(os)" == "macos" ]]; then
+    codesign -s - -f "$binary" 2>/dev/null || true
+  elif [[ "$(arch)" == "amd64" ]] && llvm-objdump-20 --macho --private-header "$binary" 2>/dev/null | grep -q "Mach header"; then
+    ldid -S "$binary"
+  fi
 }
 
-# Define build commands for each preset
-function build_preset() {
+# Inject version into all bb binaries in a directory (no-op if none exist).
+function inject_bb_versions {
+   local bin_dir=$1
+   for f in "$bin_dir"/bb "$bin_dir"/bb.exe "$bin_dir"/bb-avm; do
+     if [ -f "$f" ]; then
+       inject_version "$f"
+     fi
+   done
+ }
+
+# Raw cmake configure + build. Internal helper.
+function cmake_build {
   local preset=$1
   shift
   local cmake_args=()
@@ -46,6 +67,49 @@ function build_preset() {
   fi
   cmake --preset "$preset" "${cmake_args[@]}"
   cmake --build --preset "$preset" "$@"
+}
+
+# Returns cache paths for a preset's build outputs.
+# If preset has explicit targets: finds those specific files in bin/ and lib/.
+# Otherwise: returns existing {bin,lib} dirs (catch-all).
+function preset_cache_paths {
+  local preset=$1
+  local build_dir=$2
+  local targets=$(jq -r --arg p "$preset" '
+    .buildPresets[] | select(.name==$p) | .targets // [] | .[]
+  ' CMakePresets.json)
+
+  if [ -z "$targets" ]; then
+    for d in $build_dir/bin $build_dir/lib; do
+      [ -d "$d" ] && echo "$d"
+    done
+  else
+    for t in $targets; do
+      find $build_dir/bin $build_dir/lib \
+        -maxdepth 1 \( -name "$t" -o -name "$t.exe" -o -name "$t.node" -o -name "lib${t}.a" \) \
+        2>/dev/null
+    done
+  fi
+}
+
+# Cache-aware build: download from cache or build + upload, then inject versions.
+# Usage: build_preset <preset>
+function build_preset {
+  set -eu
+  local preset=$1
+  local build_dir=$(scripts/preset-build-dir $preset)
+  if ! cache_download barretenberg-$preset-$hash.zst; then
+    cmake_build $preset
+    cache_upload barretenberg-$preset-$hash.zst $(preset_cache_paths $preset $build_dir)
+  fi
+  inject_bb_versions $build_dir/bin
+}
+
+# Only check formatting if we're actually going to build (not cached).
+function build_format_check {
+  if ! cache_exists barretenberg-$native_preset-$hash.zst; then
+    ./format.sh check
+  fi
 }
 
 # Builds as many targets as possible that don't have any external dependencies, e.g. on avm_transpiler.
@@ -60,88 +124,18 @@ function build_native_objects {
   fi
 }
 
-# Build all native binaries, including bb, bb-avm, tests, benches and napi lib.
-function build_native {
-  set -eu
-  if ! cache_download barretenberg-$native_preset-$hash.zst; then
-    ./format.sh check
-    build_preset $native_preset
-    # Build bb-external for barretenberg-rs FFI backend (not part of default targets)
-    cmake --build --preset $native_preset --target bb-external
-    cache_upload barretenberg-$native_preset-$hash.zst build/{bin,lib}
-  fi
-  # Always inject version (even for cached binaries) to ensure correct version on release
-  inject_version build/bin/bb
-  if [ -f build/bin/bb-avm ]; then
-    inject_version build/bin/bb-avm
-  fi
+function build_native { build_preset $native_preset; }
+
+function download_chonk_inputs {
+  scripts/chonk_inputs.sh download
 }
 
-# Builds as many targets as possible that don't have any external dependencies, e.g. on avm_transpiler.
-# Allow the build system to get a head start on compilation while building dependencies.
-# For cross compilation we're only building bb and napi module.
-# This is a noop if the final artifacts exist in the cache.
+# Builds object files early for cross compilation (parallel with avm-transpiler).
 function build_cross_objects {
   set -eu
   target=$1
   if ! cache_exists barretenberg-$target-$hash.zst; then
-    build_preset zig-$target --target barretenberg nodejs_module vm2_stub circuit_checker honk
-  fi
-}
-
-# Cross compile binaries (bb and napi lib).
-# Arg is target arch-os e.g. amd64-linux.
-function build_cross {
-  set -eu
-  target=$1
-  is_macos=${2:-false}
-  if ! cache_download barretenberg-$target-$hash.zst; then
-    build_preset zig-$target --target bb --target nodejs_module --target bb-external
-    cache_upload barretenberg-$target-$hash.zst build-zig-$target/{bin,lib}
-  fi
-  # Always inject version (even for cached binaries) to ensure correct version on release
-  inject_version build-zig-$target/bin/bb
-  # Code sign for macOS after version injection (must be last modification to binary)
-  if [ "$is_macos" == "true" ]; then
-    ldid -S build-zig-$target/bin/bb
-  fi
-}
-
-# Selectively build components with address sanitizer (with optimizations)
-function build_asan_fast {
-  set -eu
-  if ! cache_download barretenberg-asan-fast-$hash.zst; then
-    # Pass the keys from asan_tests to the build_preset function.
-    local bins="commitment_schemes_recursion_tests chonk_tests ultra_honk_tests dsl_tests"
-    build_preset asan-fast --target $bins
-    # We upload only the binaries specified in --target in build-asan-fast/bin
-    cache_upload barretenberg-asan-fast-$hash.zst $(printf "build-asan-fast/bin/%s " $bins)
-  fi
-}
-
-# Build single threaded wasm. Needed when no shared mem available.
-function build_wasm {
-  set -eu
-  if ! cache_download barretenberg-wasm-$hash.zst; then
-    build_preset wasm
-    cache_upload barretenberg-wasm-$hash.zst build-wasm/bin
-  fi
-}
-
-# Build multi-threaded wasm. Requires shared memory.
-function build_wasm_threads {
-  set -eu
-  if ! cache_download barretenberg-wasm-threads-$hash.zst; then
-    build_preset wasm-threads
-    cache_upload barretenberg-wasm-threads-$hash.zst build-wasm-threads/bin
-  fi
-}
-
-function build_wasm_threads_benches {
-  set -eu
-  if ! cache_download barretenberg-wasm-threads-benches-$hash.zst; then
-    build_preset wasm-threads --target ultra_honk_bench chonk_bench bb
-    cache_upload barretenberg-wasm-threads-benches-$hash.zst build-wasm-threads/bin/{ultra_honk_bench,chonk_bench,bb}
+    cmake_build $target --target barretenberg vm2_stub vm2_sim circuit_checker honk
   fi
 }
 
@@ -158,6 +152,22 @@ function build_gcc_syntax_check_only {
   # Note: There's no real artifact here, we fake one for consistency.
   echo success > build-gcc/syntax-check-success.flag
   cache_upload barretenberg-gcc-$hash.zst build-gcc/syntax-check-success.flag
+}
+
+# Do a basic test that the amd64-windows cross-compile preset still compiles (syntax only: no
+# optimization, linking, or real artifacts). The Windows binary is otherwise only built on the
+# release path, so without this PR CI misses Windows-only breakages — e.g. POSIX-only symbols
+# such as SIGPIPE that are undeclared under MinGW.
+function build_windows_syntax_check_only {
+  set -eu
+  if cache_download barretenberg-windows-syntax-$hash.zst; then
+    return
+  fi
+  cmake --preset amd64-windows -DSYNTAX_ONLY=1
+  cmake --build --preset amd64-windows
+  # Note: There's no real artifact here, we fake one for consistency.
+  echo success > build-amd64-windows/syntax-check-success.flag
+  cache_upload barretenberg-windows-syntax-$hash.zst build-amd64-windows/syntax-check-success.flag
 }
 
 # Do basic tests that the fuzzing and fuzzing-avm presets still compile (does not do optimization or create object files).
@@ -205,34 +215,33 @@ function build_release_dir {
   rm -rf build-release
   mkdir build-release
 
-  # Version is injected in build_native/build_cross (always, even for cached binaries)
-  tar -czf build-release/barretenberg-$arch-linux.tar.gz -C build/bin bb
-  tar -czf build-release/barretenberg-avm-$arch-linux.tar.gz -C build/bin bb-avm
+  # Native (should be amd64-linux) builds.
+  tar -czf build-release/barretenberg-$arch-linux.tar.gz -C $native_build_dir/bin bb
+  tar -czf build-release/barretenberg-avm-$arch-linux.tar.gz -C $native_build_dir/bin bb-avm
 
+  # Wasm.
   tar -czf build-release/barretenberg-wasm.tar.gz -C build-wasm/bin barretenberg.wasm
-  tar -czf build-release/barretenberg-debug-wasm.tar.gz -C build-wasm/bin barretenberg-debug.wasm
   tar -czf build-release/barretenberg-threads-wasm.tar.gz -C build-wasm-threads/bin barretenberg.wasm
-  tar -czf build-release/barretenberg-threads-debug-wasm.tar.gz -C build-wasm-threads/bin barretenberg-debug.wasm
 
-  # Package arm64-linux
-  tar -czf build-release/barretenberg-arm64-linux.tar.gz -C build-zig-arm64-linux/bin bb
+  # bb cross-compiles.
+  tar -czf build-release/barretenberg-arm64-linux.tar.gz -C build-arm64-linux/bin bb
+  tar -czf build-release/barretenberg-arm64-darwin.tar.gz -C build-arm64-macos/bin bb
+  tar -czf build-release/barretenberg-amd64-darwin.tar.gz -C build-amd64-macos/bin bb
+  tar -czf build-release/barretenberg-amd64-windows.tar.gz -C build-amd64-windows/bin bb.exe
 
-  # Package arm64-macos
-  tar -czf build-release/barretenberg-arm64-darwin.tar.gz -C build-zig-arm64-macos/bin bb
-
-  # Package amd64-macos
-  tar -czf build-release/barretenberg-amd64-darwin.tar.gz -C build-zig-amd64-macos/bin bb
-
-  # Package static libraries for FFI bindings
-  if [ -f build/lib/libbb-external.a ]; then
-    tar -czf build-release/barretenberg-static-amd64-linux.tar.gz -C build/lib libbb-external.a
-  fi
-  if [ -f build-zig-arm64-linux/lib/libbb-external.a ]; then
-    tar -czf build-release/barretenberg-static-arm64-linux.tar.gz -C build-zig-arm64-linux/lib libbb-external.a
-  fi
+  # Package static libraries for FFI bindings (stripped at build time via CMake POST_BUILD).
+  tar -czf build-release/barretenberg-static-amd64-linux.tar.gz -C $native_build_dir/lib libbb-external.a
+  tar -czf build-release/barretenberg-static-arm64-linux.tar.gz -C build-arm64-linux/lib libbb-external.a
+  tar -czf build-release/barretenberg-static-amd64-darwin.tar.gz -C build-amd64-macos/lib libbb-external.a
+  tar -czf build-release/barretenberg-static-arm64-darwin.tar.gz -C build-arm64-macos/lib libbb-external.a
+  tar -czf build-release/barretenberg-static-amd64-windows.tar.gz -C build-amd64-windows/lib libbb-external.a
+  tar -czf build-release/barretenberg-static-arm64-ios.tar.gz -C build-arm64-ios/lib libbb-external.a
+  tar -czf build-release/barretenberg-static-arm64-ios-sim.tar.gz -C build-arm64-ios-sim/lib libbb-external.a
+  tar -czf build-release/barretenberg-static-arm64-android.tar.gz -C build-arm64-android/lib libbb-external.a
+  tar -czf build-release/barretenberg-static-x86_64-android.tar.gz -C build-x86_64-android/lib libbb-external.a
 }
 
-export -f build_preset build_native_objects build_cross_objects build_native build_cross build_asan_fast build_wasm build_wasm_threads build_gcc_syntax_check_only build_fuzzing_syntax_check_only build_smt_verification inject_version
+export -f cmake_build preset_cache_paths build_preset build_format_check build_native_objects build_cross_objects build_native download_chonk_inputs build_gcc_syntax_check_only build_fuzzing_syntax_check_only build_windows_syntax_check_only build_smt_verification inject_version inject_bb_versions
 
 function build {
   echo_header "bb cpp build"
@@ -240,48 +249,15 @@ function build {
   if [ "$CI_FULL" -eq 1 ]; then
     # Deletes all build dirs and build bb and wasms from scratch.
     rm -rf build*
-  fi
-
-  (cd src/barretenberg/nodejs_module && yarn --frozen-lockfile --prefer-offline)
-
-  if semver check "$REF_NAME" && [[ "$(arch)" == "amd64" ]]; then
-    # Perform release builds of bb and napi module, for all architectures.
-    parallel --line-buffered --tag --halt now,fail=1 "denoise {}" ::: \
-      "build_native" \
-      "build_wasm" \
-      "build_wasm_threads" \
-      "build_cross arm64-linux" \
-      "build_cross amd64-macos true" \
-      "build_cross arm64-macos true"
-    build_release_dir
+    (cd $root && make bb-cpp-full)
   else
-    builds=(
-      build_native
-      build_wasm
-      build_wasm_threads
-    )
-    if [ "$(arch)" == "amd64" ] && [ "$CI" -eq 1 ]; then
-      builds+=(build_gcc_syntax_check_only build_fuzzing_syntax_check_only build_asan_fast)
-    fi
-    if [ "$(arch)" == "amd64" ] && [ "$CI_FULL" -eq 1 ]; then
-      builds+=("build_cross arm64-macos true" build_smt_verification)
-    fi
-    parallel --line-buffered --tag --halt now,fail=1 "denoise {}" ::: "${builds[@]}"
+    (cd $root && make bb-cpp)
   fi
-}
-
-function build_with_makefile {
-  if [ "$CI_FULL" -eq 1 ]; then
-    # Deletes all build dirs and build bb and wasms from scratch.
-    rm -rf build*
-  fi
-
-  (cd $root && make bb-cpp)
 }
 
 function test_cmds_native {
   # E.g. build, build-debug or build-coverage
-  cd $(scripts/native-preset-build-dir)
+  cd $native_build_dir
 
   for bin in ./bin/*_tests; do
     local bin_name=$(basename $bin)
@@ -290,17 +266,34 @@ function test_cmds_native {
       awk '/^[a-zA-Z]/ {suite=$1} /^[ ]/ {print suite$1}' | \
       grep -v 'DISABLED_' | \
       while read -r test; do
+        if [[ "$test" == "ChonkPinnedIvcInputsTest.AllPinnedFlows" ]]; then
+          continue
+        fi
+        # Skip heavy recursion tests in debug builds — they take 400-600s+ and the same
+        # code paths are already exercised (with assertions) by faster tests in the suite.
+        # Keep WithoutPredicate/1.GenerateVKFromConstraints (241s) so that the debug-only
+        # native_verification_debug path in honk_recursion_constraint.cpp is still exercised.
+        # None of the other skipped suites exercise unique debug-only (#ifndef NDEBUG) code paths.
+        if [[ "$native_preset" == *debug* ]] && [[ "$test" =~ ^(HonkRecursionConstraintTest|ChonkRecursionConstraintTest|AvmRecursionInnerCircuitTests|AvmRecursionConstraintTest|AvmRecursiveTests\.TwoLayer|PaddingVariants/AvmRecursiveTestsParameterized\.TwoLayer|BoomerangTwoLayerAvmRecursiveVerifierTests|ECCVMRecursiveTests|GoblinRecursiveVerifierTests|GoblinAvmRecursiveVerifierTests|BoomerangGoblinRecursiveVerifierTests|BoomerangGoblinAvmRecursiveVerifierTests) ]]; then
+          if [[ "$test" != "HonkRecursionConstraintTestWithoutPredicate/1.GenerateVKFromConstraints" ]]; then
+            continue
+          fi
+        fi
         local prefix=$hash
+        if [[ "${CI_FULL:-0}" -eq 0 && "$test" == "ChonkKernelCapacity.MaxCapacityPassing" ]]; then
+          continue
+        fi
         # A little extra resource for these tests.
         # IPARecursiveTests fails with 2 threads.
-        if [[ "$test" =~ ^(AcirAvmRecursionConstraint|ChonkKernelCapacity|AvmRecursiveTests|IPARecursiveTests|HonkRecursionConstraintTest) ]]; then
+        if [[ "$test" =~ ^(AcirAvmRecursionConstraint|ChonkKernelCapacity|AvmRecursiveTests|IPARecursiveTests|HonkRecursionConstraintTest|ChonkRecursionConstraintTest) ]]; then
           prefix="$prefix:CPUS=4:MEM=8g"
         fi
         echo -e "$prefix barretenberg/cpp/scripts/run_test.sh $bin_name $test"
       done || (echo "Failed to list tests in $bin" && exit 1)
   done
 
-  echo "$hash barretenberg/cpp/scripts/test_chonk_standalone_vks_havent_changed.sh"
+  echo "$hash:CPUS=8:MEM=32g:TIMEOUT=20m barretenberg/cpp/scripts/run_test.sh bbapi_tests ChonkPinnedIvcInputsTest.AllPinnedFlows"
+  echo "$hash barretenberg/cpp/scripts/chonk_inputs.sh check"
 }
 
 function test_cmds_wasm_threads {
@@ -351,28 +344,51 @@ function test {
   test_cmds | filter_test_cmds | parallelize
 }
 
-function build_bench {
-  set -eu
-  if ! cache_download barretenberg-benchmarks-$hash.zst; then
-    # Run builds in parallel with different targets per preset
-    parallel --line-buffered denoise ::: \
-      "build_preset $native_preset --target ultra_honk_bench --target chonk_bench --target bb --target honk_solidity_proof_gen" \
-      "build_preset wasm-threads --target ultra_honk_bench --target chonk_bench --target bb"
-    cache_upload barretenberg-benchmarks-$hash.zst \
-      {build,build-wasm-threads}/bin/{ultra_honk_bench,chonk_bench,bb}
-  fi
+function pinned_chonk_bench_flow_names {
+  ensure_pinned_chonk_inputs "$(pinned_chonk_inputs_dir)" >&2
+  list_pinned_chonk_input_flows "$(pinned_chonk_inputs_dir)"
+}
+
+function chonk_ivc_bench_cmds {
+  local flow_filter="${1:-}"
+  local flow flow_dir
+  while IFS= read -r flow; do
+    [[ -n "$flow" ]] || continue
+    [[ -z "$flow_filter" || "$flow" == *"$flow_filter"* ]] || continue
+    flow_dir="chonk-pinned-flows/$flow"
+    echo "$hash:CPUS=8 barretenberg/cpp/scripts/ci_benchmark_ivc_flows.sh native $flow_dir"
+    if [[ "${NO_WASM:-}" != "1" ]]; then
+      echo "$hash:CPUS=8 barretenberg/cpp/scripts/ci_benchmark_ivc_flows.sh wasm $flow_dir"
+    fi
+  done < <(pinned_chonk_bench_flow_names)
+}
+
+function chonk_browser_bench_cmds {
+  local flow flow_dir
+  while IFS= read -r flow; do
+    [[ -n "$flow" ]] || continue
+    flow_dir="chonk-pinned-flows/$flow"
+    echo "$hash:ISOLATE=1:NET=1:CPUS=8:PARALLEL=0 barretenberg/cpp/scripts/ci_benchmark_browser_memory.sh $flow_dir"
+  done < <(pinned_chonk_bench_flow_names)
+}
+
+function ultrahonk_rollup_bench_cmds {
+  local inputs_dir="../../yarn-project/end-to-end/ultrahonk-bench-inputs"
+  local cpus
+  for cpus in 8 16 32; do
+    echo "$hash:CPUS=$cpus:PARALLEL=0 barretenberg/cpp/scripts/ci_benchmark_ultrahonk_circuits.sh parity_base $inputs_dir $cpus"
+  done
 }
 
 function bench_cmds {
   prefix="$hash:CPUS=8"
-  echo "$prefix barretenberg/cpp/scripts/run_bench.sh native bb-micro-bench/native/ultra_honk build/bin/ultra_honk_bench construct_proof_ultrahonk_power_of_2/20$"
-  echo "$prefix barretenberg/cpp/scripts/run_bench.sh native bb-micro-bench/native/ultra_honk_zk build/bin/ultra_honk_bench construct_proof_ultrahonk_zk_power_of_2/20$"
-  echo "$prefix barretenberg/cpp/scripts/run_bench.sh native bb-micro-bench/native/chonk build/bin/chonk_bench ChonkBench/Full/5$"
+  echo "$prefix barretenberg/cpp/scripts/run_bench.sh native bb-micro-bench/native/ultra_honk $native_build_dir/bin/ultra_honk_bench construct_proof_ultrahonk_power_of_2/20$"
+  echo "$prefix barretenberg/cpp/scripts/run_bench.sh native bb-micro-bench/native/ultra_honk_zk $native_build_dir/bin/ultra_honk_bench construct_proof_ultrahonk_zk_power_of_2/20$"
   echo "$prefix barretenberg/cpp/scripts/run_bench.sh wasm bb-micro-bench/wasm/ultra_honk build-wasm-threads/bin/ultra_honk_bench construct_proof_ultrahonk_power_of_2/20$"
   echo "$prefix barretenberg/cpp/scripts/run_bench.sh wasm bb-micro-bench/wasm/ultra_honk_zk build-wasm-threads/bin/ultra_honk_bench construct_proof_ultrahonk_zk_power_of_2/20$"
-  echo "$prefix barretenberg/cpp/scripts/run_bench.sh wasm bb-micro-bench/wasm/chonk build-wasm-threads/bin/chonk_bench ChonkBench/Full/5$"
-  prefix="$hash:CPUS=1"
-  echo "$prefix barretenberg/cpp/scripts/run_bench.sh native bb-micro-bench/native/chonk_verify build/bin/chonk_bench VerificationOnly$"
+  chonk_ivc_bench_cmds
+  chonk_browser_bench_cmds
+  ultrahonk_rollup_bench_cmds
 }
 
 # Runs benchmarks sharded over machine cores.
@@ -382,56 +398,42 @@ function bench {
   bench_cmds | STRICT_SCHEDULING=1 parallelize
 }
 
-# Upload assets to release.
+# Upload assets to release in AztecProtocol/barretenberg.
 function release {
   echo_header "bb cpp release"
-  do_or_dryrun gh release upload $REF_NAME build-release/* --clobber
+  do_or_dryrun gh release upload $REF_NAME build-release/* --repo AztecProtocol/barretenberg --clobber
 }
 
 function bench_ivc {
-  # Intended only for dev usage. For CI usage, we run yarn-project/end-to-end/bootstrap.sh bench.
+  # Intended only for dev usage. CI gets the same commands from bench_cmds.
   # Sample usage (CI=1 required for bench results to be visible; exclude NO_WASM=1 to run wasm benchmarks):
   # CI=1 NO_WASM=1 ./barretenberg/cpp/bootstrap.sh bench_ivc transfer_0_recursions+sponsored_fpc
-  git fetch origin next
 
-  flow_filter="${1:-}"               # optional string-match filter for flow names
-  commit_hash="${2:-origin/next~3}"  # commit from which to download flow inputs
+  flow_filter="${1:-}" # optional string-match filter for flow names
 
   # Build both native and wasm benchmark binaries
   builds=(
-    "build_preset $native_preset --target bb"
+    "cmake_build $native_preset --target bb"
   )
   if [[ "${NO_WASM:-}" != "1" ]]; then
-    builds+=("build_preset wasm-threads --target bb")
+    builds+=("cmake_build wasm-threads --target bb")
   fi
   parallel --line-buffered --tag -v denoise ::: "${builds[@]}"
 
-  # Download cached flow inputs from the specified commit
-  export AZTEC_CACHE_COMMIT=$commit_hash
-  # TODO currently does nothing! to reinstate in cache_download
-  export FORCE_CACHE_DOWNLOAD=${FORCE_CACHE_DOWNLOAD:-1}
-  # make sure that disabling the aztec VM does not interfere with cache results from CI.
+  # Make sure disabling the aztec VM does not interfere with cache results from CI.
   BOOTSTRAP_AFTER=barretenberg BOOSTRAP_TO=yarn-project ../../bootstrap.sh
 
   rm -rf bench-out
 
-  # Recreation of logic from bench.
-  ../../yarn-project/end-to-end/bootstrap.sh build_bench
-
-  # Extract and filter benchmark commands by flow name and wasm/no-wasm
-  function ivc_bench_cmds {
-    local flow_filter="$1"  # select only flows containing this string
-
-    ../../yarn-project/end-to-end/bootstrap.sh bench_cmds |
-      grep barretenberg/cpp/scripts/ci_benchmark_ivc_flows.sh |
-      { [[ "${NO_WASM:-}" == "1" ]] && grep -v wasm || cat; } |
-      { [[ -n "$flow_filter" ]] && grep -F "$flow_filter" || cat; }
-  }
-
   echo "Running commands:"
-  ivc_bench_cmds "$flow_filter"
+  chonk_ivc_bench_cmds "$flow_filter"
 
-  ivc_bench_cmds "$flow_filter" | STRICT_SCHEDULING=1 parallelize
+  chonk_ivc_bench_cmds "$flow_filter" | STRICT_SCHEDULING=1 parallelize
+}
+
+function chonk_input_update {
+  echo_header "bb chonk input update"
+  scripts/ci_update_chonk_inputs.sh
 }
 
 case "$cmd" in

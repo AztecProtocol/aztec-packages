@@ -5,28 +5,48 @@ import {
   type ConfigMappingsType,
   SecretValue,
   booleanConfigHelper,
-  getConfigFromMappings,
+  numberConfigHelper,
 } from '@aztec/foundation/config';
 import { EthAddress } from '@aztec/foundation/eth-address';
 
-/**
- * The configuration of the rollup transaction publisher.
- */
+import { parseEther } from 'viem';
+
+/** Configuration of the transaction publisher. */
 export type TxSenderConfig = L1ReaderConfig & {
-  /**
-   * The private key to be used by the publisher.
-   */
+  /** The private key to be used by the publisher. */
   publisherPrivateKeys?: SecretValue<`0x${string}`>[];
 
-  /**
-   * Publisher addresses to be used with a remote signer
-   */
+  /** Publisher addresses to be used with a remote signer */
   publisherAddresses?: EthAddress[];
 };
 
-/**
- * Configuration of the L1Publisher.
- */
+export type ProverTxSenderConfig = L1ReaderConfig & {
+  proverPublisherPrivateKeys?: SecretValue<`0x${string}`>[];
+  proverPublisherAddresses?: EthAddress[];
+};
+
+export type SequencerTxSenderConfig = L1ReaderConfig & {
+  sequencerPublisherPrivateKeys?: SecretValue<`0x${string}`>[];
+  sequencerPublisherAddresses?: EthAddress[];
+};
+
+export function getTxSenderConfigFromProverConfig(config: ProverTxSenderConfig): TxSenderConfig {
+  return {
+    ...config,
+    publisherPrivateKeys: config.proverPublisherPrivateKeys,
+    publisherAddresses: config.proverPublisherAddresses,
+  };
+}
+
+export function getTxSenderConfigFromSequencerConfig(config: SequencerTxSenderConfig): TxSenderConfig {
+  return {
+    ...config,
+    publisherPrivateKeys: config.sequencerPublisherPrivateKeys,
+    publisherAddresses: config.sequencerPublisherAddresses,
+  };
+}
+
+/** Configuration of the L1Publisher. */
 export type PublisherConfig = L1TxUtilsConfig &
   BlobClientConfig & {
     /** True to use publishers in invalid states (timed out, cancelled, etc) if no other is available */
@@ -35,37 +55,117 @@ export type PublisherConfig = L1TxUtilsConfig &
     fishermanMode?: boolean;
     /** Address of the forwarder contract to wrap all L1 transactions through (for testing purposes only) */
     publisherForwarderAddress?: EthAddress;
+    /** Store for failed L1 transaction inputs (test networks only). Format: gs://bucket/path */
+    l1TxFailedStore?: string;
+    /** Min ETH balance below which a publisher gets funded. Undefined = funding disabled. */
+    publisherFundingThreshold?: bigint;
+    /** Amount of ETH to send when funding a publisher. Undefined = funding disabled. */
+    publisherFundingAmount?: bigint;
   };
 
-export const getTxSenderConfigMappings: (
-  scope: 'PROVER' | 'SEQ',
-) => ConfigMappingsType<Omit<TxSenderConfig, 'l1Contracts'>> = (scope: 'PROVER' | 'SEQ') => ({
-  ...l1ReaderConfigMappings,
-  publisherPrivateKeys: {
-    env: scope === 'PROVER' ? `PROVER_PUBLISHER_PRIVATE_KEYS` : `SEQ_PUBLISHER_PRIVATE_KEYS`,
-    description: 'The private keys to be used by the publisher.',
-    parseEnv: (val: string) => val.split(',').map(key => new SecretValue(`0x${key.replace('0x', '')}`)),
-    defaultValue: [],
-    fallback: [scope === 'PROVER' ? `PROVER_PUBLISHER_PRIVATE_KEY` : `SEQ_PUBLISHER_PRIVATE_KEY`],
+/** Shared config mappings for publisher funding, used by both sequencer and prover publisher configs. */
+const publisherFundingConfigMappings = {
+  publisherFundingThreshold: {
+    env: 'PUBLISHER_FUNDING_THRESHOLD' as const,
+    description:
+      'Min ETH balance below which a publisher gets funded. Specified in ether (e.g. 0.1). Unset = funding disabled.',
+    parseEnv: (val: string) => parseEther(val),
   },
-  publisherAddresses: {
-    env: scope === 'PROVER' ? `PROVER_PUBLISHER_ADDRESSES` : `SEQ_PUBLISHER_ADDRESSES`,
+  publisherFundingAmount: {
+    env: 'PUBLISHER_FUNDING_AMOUNT' as const,
+    description:
+      'Amount of ETH to send when funding a publisher. Specified in ether (e.g. 0.5). Unset = funding disabled.',
+    parseEnv: (val: string) => parseEther(val),
+  },
+};
+
+export type ProverPublisherConfig = L1TxUtilsConfig &
+  BlobClientConfig & {
+    fishermanMode?: boolean;
+    proverPublisherAllowInvalidStates?: boolean;
+    proverPublisherForwarderAddress?: EthAddress;
+    /** Min ETH balance below which a publisher gets funded. Undefined = funding disabled. */
+    publisherFundingThreshold?: bigint;
+    /** Amount of ETH to send when funding a publisher. Undefined = funding disabled. */
+    publisherFundingAmount?: bigint;
+  };
+
+export type SequencerPublisherConfig = L1TxUtilsConfig &
+  BlobClientConfig & {
+    fishermanMode?: boolean;
+    sequencerPublisherAllowInvalidStates?: boolean;
+    sequencerPublisherForwarderAddress?: EthAddress;
+    /** How long to wait for the previous L1 block before sending scheduled publisher txs anyway. */
+    sequencerPublisherPreviousL1BlockWaitTimeoutMs: number;
+    /** Poll interval while waiting for the previous L1 block before scheduled publisher txs. */
+    sequencerPublisherPreviousL1BlockWaitPollIntervalMs: number;
+    /** Store for failed L1 transaction inputs (test networks only). Format: gs://bucket/path */
+    l1TxFailedStore?: string;
+    /** Min ETH balance below which a publisher gets funded. Undefined = funding disabled. */
+    publisherFundingThreshold?: bigint;
+    /** Amount of ETH to send when funding a publisher. Undefined = funding disabled. */
+    publisherFundingAmount?: bigint;
+  };
+
+export function getPublisherConfigFromProverConfig(config: ProverPublisherConfig): PublisherConfig {
+  return {
+    ...config,
+    publisherAllowInvalidStates: config.proverPublisherAllowInvalidStates,
+    publisherForwarderAddress: config.proverPublisherForwarderAddress,
+  };
+}
+
+export function getPublisherConfigFromSequencerConfig(config: SequencerPublisherConfig): PublisherConfig {
+  return {
+    ...config,
+    publisherAllowInvalidStates: config.sequencerPublisherAllowInvalidStates,
+    publisherForwarderAddress: config.sequencerPublisherForwarderAddress,
+    l1TxFailedStore: config.l1TxFailedStore,
+  };
+}
+
+export const proverTxSenderConfigMappings: ConfigMappingsType<ProverTxSenderConfig> = {
+  ...l1ReaderConfigMappings,
+  proverPublisherPrivateKeys: {
+    env: `PROVER_PUBLISHER_PRIVATE_KEYS`,
+    description: 'The private keys to be used by the prover publisher.',
+    parseEnv: (val: string) =>
+      val.split(',').map(key => new SecretValue(`0x${key.replace('0x', '')}` as `0x${string}`)),
+    defaultValue: [],
+    fallback: [`PROVER_PUBLISHER_PRIVATE_KEY`],
+  },
+  proverPublisherAddresses: {
+    env: `PROVER_PUBLISHER_ADDRESSES`,
     description: 'The addresses of the publishers to use with remote signers',
     parseEnv: (val: string) => val.split(',').map(address => EthAddress.fromString(address)),
     defaultValue: [],
   },
-});
+};
 
-export function getTxSenderConfigFromEnv(scope: 'PROVER' | 'SEQ'): Omit<TxSenderConfig, 'l1Contracts'> {
-  return getConfigFromMappings(getTxSenderConfigMappings(scope));
-}
+export const sequencerTxSenderConfigMappings: ConfigMappingsType<SequencerTxSenderConfig> = {
+  ...l1ReaderConfigMappings,
+  sequencerPublisherPrivateKeys: {
+    env: `SEQ_PUBLISHER_PRIVATE_KEYS`,
+    description: 'The private keys to be used by the sequencer publisher.',
+    parseEnv: (val: string) =>
+      val.split(',').map(key => new SecretValue(`0x${key.replace('0x', '')}` as `0x${string}`)),
+    defaultValue: [],
+    fallback: [`SEQ_PUBLISHER_PRIVATE_KEY`],
+  },
+  sequencerPublisherAddresses: {
+    env: `SEQ_PUBLISHER_ADDRESSES`,
+    description: 'The addresses of the publishers to use with remote signers',
+    parseEnv: (val: string) => val.split(',').map(address => EthAddress.fromString(address)),
+    defaultValue: [],
+  },
+};
 
-export const getPublisherConfigMappings: (
-  scope: 'PROVER' | 'SEQ',
-) => ConfigMappingsType<PublisherConfig & L1TxUtilsConfig> = scope => ({
-  publisherAllowInvalidStates: {
+export const sequencerPublisherConfigMappings: ConfigMappingsType<SequencerPublisherConfig & L1TxUtilsConfig> = {
+  ...l1TxUtilsConfigMappings,
+  ...blobClientConfigMapping,
+  sequencerPublisherAllowInvalidStates: {
+    env: `SEQ_PUBLISHER_ALLOW_INVALID_STATES`,
     description: 'True to use publishers in invalid states (timed out, cancelled, etc) if no other is available',
-    env: scope === `PROVER` ? `PROVER_PUBLISHER_ALLOW_INVALID_STATES` : `SEQ_PUBLISHER_ALLOW_INVALID_STATES`,
     ...booleanConfigHelper(true),
   },
   fishermanMode: {
@@ -74,15 +174,48 @@ export const getPublisherConfigMappings: (
       'Whether to run in fisherman mode: builds blocks on every slot for validation without publishing to L1',
     ...booleanConfigHelper(false),
   },
-  publisherForwarderAddress: {
-    env: scope === `PROVER` ? `PROVER_PUBLISHER_FORWARDER_ADDRESS` : `SEQ_PUBLISHER_FORWARDER_ADDRESS`,
+  sequencerPublisherForwarderAddress: {
+    env: `SEQ_PUBLISHER_FORWARDER_ADDRESS`,
     description: 'Address of the forwarder contract to wrap all L1 transactions through (for testing purposes only)',
-    parseEnv: (val: string) => (val ? EthAddress.fromString(val) : undefined),
+    parseEnv: (val: string) => EthAddress.fromString(val),
   },
+  sequencerPublisherPreviousL1BlockWaitTimeoutMs: {
+    env: `SEQ_PUBLISHER_PREVIOUS_L1_BLOCK_WAIT_TIMEOUT_MS`,
+    description:
+      'How long to wait for the previous L1 block before sending scheduled publisher txs anyway, in milliseconds.',
+    ...numberConfigHelper(8_000),
+  },
+  sequencerPublisherPreviousL1BlockWaitPollIntervalMs: {
+    env: `SEQ_PUBLISHER_PREVIOUS_L1_BLOCK_WAIT_POLL_INTERVAL_MS`,
+    description:
+      'Poll interval while waiting for the previous L1 block before scheduled publisher txs, in milliseconds.',
+    ...numberConfigHelper(500),
+  },
+  l1TxFailedStore: {
+    env: 'L1_TX_FAILED_STORE',
+    description: 'Store for failed L1 transaction inputs (test networks only). Format: gs://bucket/path',
+  },
+  ...publisherFundingConfigMappings,
+};
+
+export const proverPublisherConfigMappings: ConfigMappingsType<ProverPublisherConfig & L1TxUtilsConfig> = {
   ...l1TxUtilsConfigMappings,
   ...blobClientConfigMapping,
-});
-
-export function getPublisherConfigFromEnv(scope: 'PROVER' | 'SEQ'): PublisherConfig {
-  return getConfigFromMappings(getPublisherConfigMappings(scope));
-}
+  proverPublisherAllowInvalidStates: {
+    env: `PROVER_PUBLISHER_ALLOW_INVALID_STATES`,
+    description: 'True to use publishers in invalid states (timed out, cancelled, etc) if no other is available',
+    ...booleanConfigHelper(true),
+  },
+  fishermanMode: {
+    env: 'FISHERMAN_MODE',
+    description:
+      'Whether to run in fisherman mode: builds blocks on every slot for validation without publishing to L1',
+    ...booleanConfigHelper(false),
+  },
+  proverPublisherForwarderAddress: {
+    env: `PROVER_PUBLISHER_FORWARDER_ADDRESS`,
+    description: 'Address of the forwarder contract to wrap all L1 transactions through (for testing purposes only)',
+    parseEnv: (val: string) => EthAddress.fromString(val),
+  },
+  ...publisherFundingConfigMappings,
+};

@@ -27,8 +27,8 @@ using Builder = UltraCircuitBuilder;
 using bn254 = stdlib::bn254<Builder>;
 using fr_ct = bn254::ScalarField;
 using fq_ct = bn254::BaseField;
-using public_witness_ct = bn254::public_witness_ct;
-using witness_ct = bn254::witness_ct;
+using public_witness_ct = stdlib::public_witness_t<Builder>;
+using witness_ct = stdlib::witness_t<Builder>;
 
 /**
  * @brief Fix a bigfield element to prevent it from being identified as a variable in one gate.
@@ -41,10 +41,7 @@ using witness_ct = bn254::witness_ct;
  */
 void fix_bigfield_element(const fq_ct& element)
 {
-    for (size_t i = 0; i < 4; i++) {
-        element.binary_basis_limbs[i].element.fix_witness();
-    }
-    element.prime_basis_limb.fix_witness();
+    stdlib::bigfield_test_access::fix_witness_in_place(element);
 }
 
 /**
@@ -387,7 +384,7 @@ TEST(boomerang_bigfield, test_graph_description_mult_madd_function)
     }
     fq_ct f = fq_ct::mult_madd(mul_left, mul_right, to_add);
     fix_bigfield_element(f);
-    builder.finalize_circuit(false);
+    builder.finalize_circuit();
     auto graph = StaticAnalyzer(builder);
     auto variables_in_one_gate = graph.get_variables_in_one_gate();
     EXPECT_EQ(variables_in_one_gate.size(), 0);
@@ -412,7 +409,7 @@ TEST(boomerang_bigfield, test_graph_description_constructor_high_low_bits)
         fq_ct::create_from_u512_as_witness(&builder, uint512_t(uint256_t(mul_right_value)));
     fq_ct product = mul_left * mul_right;
     fix_bigfield_element(product);
-    builder.finalize_circuit(false);
+    builder.finalize_circuit();
     auto graph = StaticAnalyzer(builder);
     auto connected_components = graph.find_connected_components();
     auto variables_in_one_gate = graph.get_variables_in_one_gate();

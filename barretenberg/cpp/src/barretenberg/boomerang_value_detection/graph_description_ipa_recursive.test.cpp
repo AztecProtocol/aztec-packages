@@ -99,7 +99,7 @@ class BoomerangIPARecursiveTests : public CommitmentTest<NativeCurve> {
 
         RecursiveIPA::reduce_verify(stdlib_claim, stdlib_transcript);
         stdlib::recursion::honk::DefaultIO<Builder>::add_default(builder);
-        builder.finalize_circuit(/*ensure_nonzero=*/true);
+        builder.finalize_circuit();
         return builder;
     }
     // flag to determine what type of polynomial to generate
@@ -172,7 +172,7 @@ class BoomerangIPARecursiveTests : public CommitmentTest<NativeCurve> {
         output_claim.set_public();
         output_claim.commitment.fix_witness();
         builder.ipa_proof = ipa_proof;
-        builder.finalize_circuit(/*ensure_nonzero=*/false);
+        builder.finalize_circuit();
         EXPECT_TRUE(CircuitChecker::check(builder));
 
         const OpeningPair<NativeCurve> opening_pair{ bb::fq(output_claim.opening_pair.challenge.get_value()),
@@ -206,7 +206,7 @@ TEST_F(BoomerangIPARecursiveTests, FullRecursiveVerifierMediumRandom)
     VerifierCommitmentKey<Curve> stdlib_pcs_vkey(&builder, poly_length, this->vk());
     auto result = RecursiveIPA::full_verify_recursive(stdlib_pcs_vkey, stdlib_claim, stdlib_transcript);
     EXPECT_TRUE(result);
-    builder.finalize_circuit(/*ensure_nonzero=*/true);
+    builder.finalize_circuit();
 
     auto tool = StaticAnalyzer(builder);
     auto tool_results = tool.analyze_circuit();
@@ -261,7 +261,7 @@ TEST_F(BoomerangIPARecursiveTests, AccumulationAndFullRecursiveVerifierMediumRan
     auto [output_claim, ipa_proof] = RecursiveIPA::accumulate(this->ck(), transcript_1, claim_1, transcript_2, claim_2);
     output_claim.set_public();
     builder.ipa_proof = ipa_proof;
-    builder.finalize_circuit(/*ensure_nonzero=*/false);
+    builder.finalize_circuit();
 
     Builder root_rollup;
     // Fully recursively verify this proof to check it.
@@ -274,7 +274,7 @@ TEST_F(BoomerangIPARecursiveTests, AccumulationAndFullRecursiveVerifierMediumRan
         Curve::ScalarField::create_from_u512_as_witness(&root_rollup, output_claim.opening_pair.evaluation.get_value());
     ipa_claim.commitment = Curve::AffineElement::from_witness(&root_rollup, output_claim.commitment.get_value());
     auto result = RecursiveIPA::full_verify_recursive(stdlib_pcs_vkey, ipa_claim, stdlib_verifier_transcript);
-    root_rollup.finalize_circuit(/*ensure_nonzero=*/true);
+    root_rollup.finalize_circuit();
     EXPECT_TRUE(result);
 
     auto tool = StaticAnalyzer(root_rollup);

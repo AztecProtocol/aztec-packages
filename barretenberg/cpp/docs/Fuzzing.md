@@ -14,6 +14,11 @@ Barretenberg includes fuzzing targets for a wide range of components:
 #### primitives
 - bigfield
 - cycle_group
+- biggroup
+  - biggroup_bn254
+  - biggroup_bn254_bigfield
+  - biggroup_secp256k1
+  - biggroup_secp256r1
 - safe_uint
 - field
 - byte_array
@@ -36,7 +41,7 @@ Barretenberg includes fuzzing targets for a wide range of components:
    - circuit_builder
 - IPA fuzzer
 - ECC multi-field fuzzer
-- AVM fuzzers 
+- AVM fuzzers
    - ALU harness
 - ECCVM fuzzer
 
@@ -87,7 +92,7 @@ The `run.sh` script supports several configuration options:
 - `--show-fuzzers`: List all available fuzzers
 - `-h, --help`: Show help information
 
-#### Advanced options 
+#### Advanced options
 - `-c, --cpus <count>`: Set number of CPUs for the container (default: 8)
 - `--mem <size>`: Set memory limit for the container (default: 16G)
 - `-j, --jobs <count>`: Set the amount of processes to run (default: 8)
@@ -106,7 +111,7 @@ This section covers direct invocation of fuzzers without Docker.
 
 ### Basic use
 
-Run a fuzzer binary directly: 
+Run a fuzzer binary directly:
 
 ```bash
 ./bin/stdlib_primitives_bigfield_ultra_fuzzer
@@ -242,7 +247,7 @@ cmake --preset clang20-coverage -DFUZZING=ON
 cmake --build --preset clang20-coverage
 ```
 
-or 
+or
 
 ```bash
 cmake --preset fuzzing-coverage
@@ -266,7 +271,7 @@ llvm-cov show \
   -instr-profile=coverage.profdata
 ```
 
-For expanded output: 
+For expanded output:
 
 ```
 llvm-cov show <fuzzing_binary> \
@@ -278,7 +283,7 @@ llvm-cov show <fuzzing_binary> \
      --show-directory-coverage
 ```
 
-## View report 
+## View report
 
 ```
 python3 -m http.server --directory out/

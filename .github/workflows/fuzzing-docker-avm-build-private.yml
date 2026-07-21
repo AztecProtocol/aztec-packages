@@ -1,0 +1,64 @@
+name: Build Private Fuzzing AVM Container
+
+on:
+  workflow_dispatch:
+    inputs:
+      commit:
+        description: "Git commit SHA to build (leave empty for latest)"
+        required: false
+        default: ""
+jobs:
+  build:
+    if: github.repository == 'AztecProtocol/aztec-packages-private'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
+      id-token: write
+
+    steps:
+      - uses: actions/checkout@93cb6efe18208431cddfb8368fd83d5badbf9bfd # v5.0.1
+
+      - name: Free up disk space on runner
+        uses: jlumbroso/free-disk-space@54081f138730dfa15788a46383842cd2f914a1be
+        with:
+          large-packages: false
+
+      - name: Log in to GitHub Container Registry
+        uses: docker/login-action@650006c6eb7dba73a995cc03b0b2d7f5ca915bee # v4.2.0
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Build and push
+        id: build
+        uses: docker/build-push-action@f9f3042f7e2789586610d6e8b85c8f03e5195baf # v7.2.0
+        with:
+          context: container-builds/avm-fuzzing-container/src/
+          file: container-builds/avm-fuzzing-container/src/Dockerfile.private
+          push: true
+          tags: |
+            ghcr.io/aztecprotocol/avm-fuzzing-container-private:latest
+            ghcr.io/aztecprotocol/avm-fuzzing-container-private:${{ github.sha }}
+          build-args: |
+            COMMIT=${{ github.event_name == 'workflow_dispatch' && github.event.inputs.commit || github.sha }}
+            BRANCH=${{ github.ref_name }}
+            REPO=${{ github.repository }}
+          secrets: |
+            github_token=${{ secrets.GITHUB_TOKEN }}
+          labels: |
+            org.opencontainers.image.source=https://github.com/${{ github.repository }}
+            org.opencontainers.image.revision=${{ github.sha }}
+            org.opencontainers.image.revision.branch=${{ github.ref_name }}
+            com.aztec.visibility=private
+
+      - name: Install cosign
+        uses: sigstore/cosign-installer@ba7bc0a3fef59531c69a25acd34668d6d3fe6f22 # v4.1.0
+        with:
+          cosign-release: 'v3.0.5'
+
+      - name: Sign image
+        run: |
+          cosign sign --yes --tlog-upload=false \
+            ghcr.io/aztecprotocol/avm-fuzzing-container-private@${{ steps.build.outputs.digest }}

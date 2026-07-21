@@ -1,26 +1,25 @@
 import type { EpochCacheInterface } from '@aztec/epoch-cache';
-import { type BlockNumber, EpochNumber, SlotNumber } from '@aztec/foundation/branded-types';
+import type { CheckpointProposalHash } from '@aztec/foundation/branded-types';
+import { EpochNumber, SlotNumber } from '@aztec/foundation/branded-types';
 import type { Logger } from '@aztec/foundation/log';
+import type { L2Block, L2BlockId } from '@aztec/stdlib/block';
 import type { WorldStateSynchronizer } from '@aztec/stdlib/interfaces/server';
-import type {
-  BlockProposal,
-  CheckpointAttestation,
-  CheckpointProposal,
-  CheckpointProposalCore,
-} from '@aztec/stdlib/p2p';
+import type { BlockProposal, CheckpointAttestation, CheckpointProposalCore } from '@aztec/stdlib/p2p';
 import { type BlockHeader, Tx, TxHash } from '@aztec/stdlib/tx';
 
 import EventEmitter from 'events';
 
-import type { AttestationPool } from '../mem_pools/attestation_pool/attestation_pool.js';
-import type { TxPool } from '../mem_pools/tx_pool/index.js';
+import type { TryAddResult } from '../mem_pools/attestation_pool/attestation_pool.js';
+import type { AddTxsResult, TxPoolV2, TxPoolV2Config } from '../mem_pools/tx_pool_v2/interfaces.js';
+import type { TxState } from '../mem_pools/tx_pool_v2/tx_metadata.js';
 import { RateLimitStatus } from '../services/reqresp/rate-limiter/rate_limiter.js';
 
 /**
  * In-memory TxPool implementation for testing.
  * Provides basic tx storage without persistence.
+ * Implements TxPoolV2 interface with stub implementations for testing.
  */
-export class InMemoryTxPool extends EventEmitter implements TxPool {
+export class InMemoryTxPool extends EventEmitter implements TxPoolV2 {
   private txsByHash = new Map<string, Tx>();
   private logger: Logger | null = null;
 
@@ -54,22 +53,92 @@ export class InMemoryTxPool extends EventEmitter implements TxPool {
     this.removeAllListeners();
   }
 
-  addTxs(txs: Tx[], opts?: { source?: string }): Promise<number> {
+  // === Core Operations (TxPoolV2) ===
+
+  addPendingTxs(txs: Tx[], opts?: { source?: string; feeComparisonOnly?: boolean }): Promise<AddTxsResult> {
+    const accepted: TxHash[] = [];
     const newTxs: Tx[] = [];
-    let added = 0;
     for (const tx of txs) {
       const key = tx.getTxHash().toString();
       if (!this.txsByHash.has(key)) {
         newTxs.push(tx);
-        added += 1;
+        accepted.push(tx.getTxHash());
       }
       this.txsByHash.set(key, tx);
     }
     if (newTxs.length > 0) {
       this.emit('txs-added', { txs: newTxs, source: opts?.source });
     }
-    return Promise.resolve(added);
+    return Promise.resolve({ accepted, ignored: [], rejected: [] });
   }
+
+  canAddPendingTx(tx: Tx): Promise<'accepted' | 'ignored'> {
+    const key = tx.getTxHash().toString();
+    if (this.txsByHash.has(key)) {
+      return Promise.resolve('ignored');
+    }
+    return Promise.resolve('accepted');
+  }
+
+  addProtectedTxs(txs: Tx[], _block: BlockHeader, opts?: { source?: string }): Promise<void> {
+    for (const tx of txs) {
+      const key = tx.getTxHash().toString();
+      this.txsByHash.set(key, tx);
+    }
+    if (txs.length > 0) {
+      this.emit('txs-added', { txs, source: opts?.source });
+    }
+    return Promise.resolve();
+  }
+
+  protectTxs(txHashes: TxHash[], _block: BlockHeader): Promise<TxHash[]> {
+    const notFound: TxHash[] = [];
+    for (const txHash of txHashes) {
+      if (!this.txsByHash.has(txHash.toString())) {
+        notFound.push(txHash);
+      }
+    }
+    return Promise.resolve(notFound);
+  }
+
+  addMinedTxs(txs: Tx[], _block: BlockHeader, _opts?: { source?: string }): Promise<void> {
+    for (const tx of txs) {
+      const key = tx.getTxHash().toString();
+      this.txsByHash.set(key, tx);
+    }
+    return Promise.resolve();
+  }
+
+  // === State Transition Handlers (TxPoolV2) ===
+
+  handleMinedBlock(_block: L2Block): Promise<void> {
+    return Promise.resolve();
+  }
+
+  prepareForSlot(_slotNumber: SlotNumber): Promise<void> {
+    return Promise.resolve();
+  }
+
+  unprotectTxs(_txHashes: TxHash[], _slotNumber: SlotNumber): Promise<void> {
+    return Promise.resolve();
+  }
+
+  handlePrunedBlocks(_latestBlock: L2BlockId, _options?: { deleteAllTxs?: boolean }): Promise<void> {
+    return Promise.resolve();
+  }
+
+  handleFailedExecution(txHashes: TxHash[]): Promise<void> {
+    for (const txHash of txHashes) {
+      this.txsByHash.delete(txHash.toString());
+    }
+    return Promise.resolve();
+  }
+
+  handleFinalizedBlock(_block: BlockHeader): Promise<void> {
+    return Promise.resolve();
+  }
+
+  // === Query Operations (TxPoolV2) ===
 
   getTxByHash(hash: TxHash): Promise<Tx | undefined> {
     return Promise.resolve(this.txsByHash.get(hash.toString()));
@@ -86,101 +155,113 @@ export class InMemoryTxPool extends EventEmitter implements TxPool {
     return Promise.resolve(hashes.map(h => this.txsByHash.has(h.toString())));
   }
 
-  hasTx(hash: TxHash): Promise<boolean> {
-    return Promise.resolve(this.txsByHash.has(hash.toString()));
-  }
-
   getArchivedTxByHash(_hash: TxHash): Promise<Tx | undefined> {
     return Promise.resolve(undefined);
-  }
-
-  async markAsMined(_txHashes: TxHash[], _blockHeader: BlockHeader): Promise<void> {}
-
-  async markMinedAsPending(_txHashes: TxHash[], _latestBlock: BlockNumber): Promise<void> {}
-
-  deleteTxs(txHashes: TxHash[], _opts?: { permanently?: boolean }): Promise<void> {
-    for (const txHash of txHashes) {
-      this.txsByHash.delete(txHash.toString());
-    }
-    return Promise.resolve();
-  }
-
-  getAllTxs(): Promise<Tx[]> {
-    return Promise.resolve([...this.txsByHash.values()]);
-  }
-
-  getAllTxHashes(): Promise<TxHash[]> {
-    return Promise.resolve([...this.txsByHash.keys()].map(key => TxHash.fromString(key)));
   }
 
   getPendingTxHashes(): Promise<TxHash[]> {
     return Promise.resolve([...this.txsByHash.keys()].map(key => TxHash.fromString(key)));
   }
 
+  getEligiblePendingTxHashes(): Promise<TxHash[]> {
+    return this.getPendingTxHashes();
+  }
+
   getPendingTxCount(): Promise<number> {
     return Promise.resolve(this.txsByHash.size);
   }
 
-  getMinedTxHashes(): Promise<[tx: TxHash, blockNumber: BlockNumber][]> {
+  async hasEligiblePendingTxs(minCount: number): Promise<boolean> {
+    return (await this.getPendingTxCount()) >= minCount;
+  }
+
+  getMinedTxHashes(): Promise<[TxHash, L2BlockId][]> {
     return Promise.resolve([]);
   }
 
-  getTxStatus(hash: TxHash): Promise<'pending' | 'mined' | 'deleted' | undefined> {
-    return Promise.resolve(this.txsByHash.has(hash.toString()) ? 'pending' : undefined);
+  getMinedTxCount(): Promise<number> {
+    return Promise.resolve(0);
   }
 
-  updateConfig(_config: { maxPendingTxCount?: number; archivedTxLimit?: number }): void {}
+  getTxStatus(hash: TxHash): Promise<TxState | 'deleted' | undefined> {
+    return Promise.resolve(this.txsByHash.has(hash.toString()) ? 'pending' : undefined);
+  }
 
   isEmpty(): Promise<boolean> {
     return Promise.resolve(this.txsByHash.size === 0);
   }
 
-  async markTxsAsNonEvictable(_txHashes: TxHash[]): Promise<void> {}
+  getLowestPriorityPending(_limit: number): Promise<TxHash[]> {
+    return Promise.resolve([]);
+  }
 
-  async clearNonEvictableTxs(): Promise<void> {}
+  // === Configuration (TxPoolV2) ===
 
-  cleanupDeletedMinedTxs(_blockNumber: BlockNumber): Promise<number> {
-    return Promise.resolve(0);
+  updateConfig(_config: Partial<TxPoolV2Config>): Promise<void> {
+    return Promise.resolve();
+  }
+
+  // === Lifecycle (TxPoolV2) ===
+
+  start(): Promise<void> {
+    return Promise.resolve();
+  }
+
+  stop(): Promise<void> {
+    return Promise.resolve();
   }
 }
 
 /**
- * In-memory AttestationPool implementation for testing.
+ * In-memory AttestationPool mock for testing/benchmarking.
+ * Provides minimal implementation without persistence.
  */
-export class InMemoryAttestationPool implements AttestationPool {
+export class InMemoryAttestationPool {
   private proposals = new Map<string, BlockProposal>();
+  private checkpoints = new Map<SlotNumber, CheckpointProposalCore[]>();
 
-  addBlockProposal(blockProposal: BlockProposal): Promise<void> {
-    this.proposals.set(blockProposal.archive.toString(), blockProposal);
-    return Promise.resolve();
+  tryAddBlockProposal(blockProposal: BlockProposal): Promise<TryAddResult> {
+    const id = blockProposal.archive.toString();
+    const alreadyExists = this.proposals.has(id);
+    if (alreadyExists) {
+      return Promise.resolve({ added: false, alreadyExists: true, count: 1 });
+    }
+    this.proposals.set(id, blockProposal);
+    return Promise.resolve({ added: true, alreadyExists: false, count: 1 });
   }
 
-  getBlockProposal(id: string): Promise<BlockProposal | undefined> {
+  getBlockProposalByArchive(id: string): Promise<BlockProposal | undefined> {
     return Promise.resolve(this.proposals.get(id));
   }
 
-  hasBlockProposal(idOrProposal: string | BlockProposal): Promise<boolean> {
-    const id = typeof idOrProposal === 'string' ? idOrProposal : idOrProposal.archive.toString();
-    return Promise.resolve(this.proposals.has(id));
+  tryAddCheckpointProposal(proposal: CheckpointProposalCore): Promise<TryAddResult> {
+    const proposals = this.checkpoints.get(proposal.slotNumber) ?? [];
+    proposals.push(proposal);
+    this.checkpoints.set(proposal.slotNumber, proposals);
+    return Promise.resolve({ added: true, alreadyExists: false, count: 1 });
   }
 
-  canAddProposal(_block: BlockProposal): Promise<boolean> {
-    return Promise.resolve(true);
+  getCheckpointProposal(slot: SlotNumber): Promise<CheckpointProposalCore | undefined> {
+    return Promise.resolve(this.checkpoints.get(slot)?.[0]);
   }
 
-  async addCheckpointProposal(_proposal: CheckpointProposal): Promise<void> {}
-
-  getCheckpointProposal(_id: string): Promise<CheckpointProposalCore | undefined> {
-    return Promise.resolve(undefined);
+  hasCheckpointProposalForSlot(slot: SlotNumber): Promise<boolean> {
+    return Promise.resolve(this.checkpoints.has(slot));
   }
 
-  hasCheckpointProposal(_idOrProposal: string | CheckpointProposal): Promise<boolean> {
-    return Promise.resolve(false);
+  getProposalsForSlot(slot: SlotNumber): Promise<{
+    blockProposals: BlockProposal[];
+    checkpointProposals: CheckpointProposalCore[];
+  }> {
+    return Promise.resolve({
+      blockProposals: [...this.proposals.values()].filter(proposal => proposal.slotNumber === slot),
+      checkpointProposals: this.checkpoints.get(slot) ?? [],
+    });
   }
 
-  async addCheckpointAttestations(_attestations: CheckpointAttestation[]): Promise<void> {}
+  async addOwnCheckpointAttestations(_attestations: CheckpointAttestation[]): Promise<void> {}
 
-  async deleteCheckpointAttestationsOlderThan(_slot: SlotNumber): Promise<void> {}
+  async deleteOlderThan(_slot: SlotNumber): Promise<void> {}
 
   getCheckpointAttestationsForSlot(_slot: SlotNumber): Promise<CheckpointAttestation[]> {
     return Promise.resolve([]);
@@ -188,37 +269,26 @@ export class InMemoryAttestationPool implements AttestationPool {
 
   getCheckpointAttestationsForSlotAndProposal(
     _slot: SlotNumber,
-    _proposalId: string,
+    _proposalPayloadHash: CheckpointProposalHash,
   ): Promise<CheckpointAttestation[]> {
     return Promise.resolve([]);
   }
 
-  hasCheckpointAttestation(_attestation: CheckpointAttestation): Promise<boolean> {
-    return Promise.resolve(false);
+  tryAddCheckpointAttestation(_attestation: CheckpointAttestation): Promise<TryAddResult> {
+    return Promise.resolve({ added: true, alreadyExists: false, count: 1 });
   }
 
-  canAddCheckpointProposal(_proposal: CheckpointProposal): Promise<boolean> {
-    return Promise.resolve(true);
-  }
-
-  canAddCheckpointAttestation(_attestation: CheckpointAttestation, _committeeSize: number): Promise<boolean> {
-    return Promise.resolve(true);
-  }
-
-  hasReachedCheckpointProposalCap(_slot: SlotNumber): Promise<boolean> {
-    return Promise.resolve(false);
-  }
-
-  hasReachedCheckpointAttestationCap(_slot: SlotNumber, _proposalId: string, _committeeSize: number): Promise<boolean> {
+  hasBlockProposalsForSlot(_slot: SlotNumber): Promise<boolean> {
     return Promise.resolve(false);
   }
 
   isEmpty(): Promise<boolean> {
-    return Promise.resolve(this.proposals.size === 0);
+    return Promise.resolve(this.proposals.size === 0 && this.checkpoints.size === 0);
   }
 
   resetState(): void {
     this.proposals.clear();
+    this.checkpoints.clear();
   }
 }
 
@@ -226,18 +296,52 @@ export class InMemoryAttestationPool implements AttestationPool {
  * Creates a mock EpochCache for testing.
  */
 export function createMockEpochCache(): EpochCacheInterface {
-  return {
+  const cache: EpochCacheInterface = {
     getCommittee: () => Promise.resolve({ committee: [], seed: 1n, epoch: EpochNumber.ZERO, isEscapeHatchOpen: false }),
     getProposerIndexEncoding: () => '0x' as `0x${string}`,
-    getEpochAndSlotNow: () => ({ epoch: EpochNumber.ZERO, slot: SlotNumber.ZERO, ts: 0n, nowMs: 0n }),
+    getSlotNow: () => SlotNumber.ZERO,
+    getTargetSlot: () => SlotNumber.ZERO,
+    getEpochNow: () => EpochNumber.ZERO,
+    getTargetEpoch: () => EpochNumber.ZERO,
+    getEpochAndSlotNow: () => ({
+      epoch: EpochNumber.ZERO,
+      slot: SlotNumber.ZERO,
+      ts: 0n,
+      nowMs: 0n,
+    }),
     computeProposerIndex: () => 0n,
     getCurrentAndNextSlot: () => ({ currentSlot: SlotNumber.ZERO, nextSlot: SlotNumber.ZERO }),
+    getTargetAndNextSlot: () => ({ targetSlot: SlotNumber.ZERO, nextSlot: SlotNumber.ZERO }),
     getProposerAttesterAddressInSlot: () => Promise.resolve(undefined),
-    getEpochAndSlotInNextL1Slot: () => ({ epoch: EpochNumber.ZERO, slot: SlotNumber.ZERO, ts: 0n, now: 0n }),
+    getEpochAndSlotInNextL1Slot: () => ({
+      epoch: EpochNumber.ZERO,
+      slot: SlotNumber.ZERO,
+      ts: 0n,
+      nowSeconds: 0n,
+    }),
+    getTargetEpochAndSlotInNextL1Slot: () => ({
+      epoch: EpochNumber.ZERO,
+      slot: SlotNumber.ZERO,
+      ts: 0n,
+      nowSeconds: 0n,
+    }),
     isInCommittee: () => Promise.resolve(false),
     getRegisteredValidators: () => Promise.resolve([]),
     filterInCommittee: () => Promise.resolve([]),
+    isEscapeHatchOpen: () => Promise.resolve(false),
+    isEscapeHatchOpenAtSlot: () => Promise.resolve(false),
+    getL1Constants: () => ({
+      l1StartBlock: 0n,
+      l1GenesisTime: 0n,
+      epochDuration: 1,
+      slotDuration: 1,
+      ethereumSlotDuration: 1,
+      proofSubmissionEpochs: 1,
+      targetCommitteeSize: 48,
+      rollupManaLimit: Number.MAX_SAFE_INTEGER,
+    }),
   };
+  return cache;
 }
 
 /**
@@ -283,19 +387,6 @@ export function installUnlimitedRateLimitsOnReqResp(reqResp: any): void {
  * Distribution patterns for benchmark transaction distribution.
  */
 export type DistributionPattern = 'uniform' | 'sparse' | 'pinned-only';
-
-/**
- * Collector implementation types for benchmarking.
- */
-export type CollectorType = 'batch-requester' | 'send-batch-request';
-
-/**
- * Display names for collector types (for output/logging only).
- */
-export const COLLECTOR_DISPLAY_NAMES: Record<CollectorType, string> = {
-  'batch-requester': 'batch-requester (new)',
-  'send-batch-request': 'send-batch-request (old)',
-};
 
 /**
  * Benchmark timing constants.

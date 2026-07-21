@@ -1,12 +1,17 @@
 #pragma once
 #include "barretenberg/flavor/ultra_flavor.hpp"
+#include "barretenberg/relations/bilinear_or_batched_eq_check_relation.hpp"
 #include "barretenberg/relations/delta_range_constraint_relation.hpp"
 #include "barretenberg/relations/ecc_op_queue_relation.hpp"
 #include "barretenberg/relations/elliptic_relation.hpp"
 #include "barretenberg/relations/memory_relation.hpp"
 #include "barretenberg/relations/non_native_field_relation.hpp"
 #include "barretenberg/relations/poseidon2_external_relation.hpp"
+#include "barretenberg/relations/poseidon2_initial_external_relation.hpp"
 #include "barretenberg/relations/poseidon2_internal_relation.hpp"
+#include "barretenberg/relations/poseidon2_quad_internal_relation.hpp"
+#include "barretenberg/relations/poseidon2_quad_internal_terminal_relation.hpp"
+#include "barretenberg/relations/poseidon2_transition_entry_relation.hpp"
 #include "barretenberg/relations/relation_parameters.hpp"
 #include "barretenberg/relations/ultra_arithmetic_relation.hpp"
 #include "barretenberg/stdlib_circuit_builders/ultra_circuit_builder.hpp"
@@ -19,12 +24,17 @@ class UltraCircuitChecker {
   public:
     using FF = bb::fr;
     using Arithmetic = ArithmeticRelation<FF>;
+    using BilinearBatchedEq = BilinearOrBatchedEqCheckRelation<FF>;
     using Elliptic = EllipticRelation<FF>;
     using Memory = MemoryRelation<FF>;
     using NonNativeField = NonNativeFieldRelation<FF>;
     using DeltaRangeConstraint = DeltaRangeConstraintRelation<FF>;
     using PoseidonExternal = Poseidon2ExternalRelation<FF>;
+    using PoseidonInitialExternal = Poseidon2InitialExternalRelation<FF>;
     using PoseidonInternal = Poseidon2InternalRelation<FF>;
+    using PoseidonQuadInternal = Poseidon2QuadInternalRelation<FF>;
+    using PoseidonQuadInternalTerminal = Poseidon2QuadInternalTerminalRelation<FF>;
+    using PoseidonTransitionEntry = Poseidon2TransitionEntryRelation<FF>;
     using Params = RelationParameters<FF>;
 
     /**
@@ -40,6 +50,14 @@ class UltraCircuitChecker {
      * @param builder
      */
     template <typename Builder> static bool check(const Builder& builder_in);
+
+    /**
+     * @brief Evaluate a single `Relation` at `block`'s row `row_idx` in isolation, returning true iff every
+     * subrelation vanishes. Unlike `check`, which short-circuits on the first failing relation, this attributes a
+     * constraint to a specific (relation, row) pair. The builder's gates must already be emitted (no finalization).
+     */
+    template <typename Relation, typename Builder, typename Block>
+    static bool check_relation_at_row(Builder& builder, Block& block, size_t row_idx);
 
   private:
     struct TagCheckData;           // Container for data pertaining to generalized permutation tag check
@@ -85,6 +103,12 @@ class UltraCircuitChecker {
      * @param params
      */
     template <typename Relation> static bool check_relation(auto& values, auto& params);
+
+    // Variant of `check_relation` for MemoryRelation. Per-row linearly-independent subrelations are checked
+    // immediately; linearly-dependent subrelation contributions (the ROM-LogUp sum identity) are summed into
+    // `memory_data.rom_logup_sum` for a final cross-row check.
+    template <typename Memory>
+    static bool check_memory_relation_with_logup(auto& values, auto& params, MemoryCheckData& memory_data);
 
     /**
      * @brief Check whether the values in a lookup gate are contained within a corresponding hash table
@@ -151,13 +175,18 @@ class UltraCircuitChecker {
      * @brief Struct for managing memory record data for ensuring RAM/ROM correctness
      */
     struct MemoryCheckData {
-        // randomness for constructing wire 4 mem records (eta powers)
+        // randomness for constructing wire 4 mem records (eta powers and rom logup gamma)
         FF eta = FF::random_element();
         FF eta_two = eta * eta;       // eta²
         FF eta_three = eta_two * eta; // eta³
+        FF rom_logup_gamma = FF::random_element();
 
         std::unordered_set<size_t> read_record_gates;  // row indices for gates containing RAM/ROM read mem record
         std::unordered_set<size_t> write_record_gates; // row indices for gates containing RAM/ROM write mem record
+        std::unordered_set<size_t> rom_logup_gates;    // row indices for ROM-LogUp table-entry or read-access gates
+        // Accumulator for MemoryRelation's linearly-dependent subrelation 7 (ROM-LogUp sum identity). Summed
+        // across all rows by check_block; checked == 0 at the end of check_circuit.
+        FF rom_logup_sum = 0;
         // Construct hash tables for memory read/write indices to efficiently determine if row is a memory record
         MemoryCheckData(const auto& builder)
         {
@@ -166,6 +195,9 @@ class UltraCircuitChecker {
             }
             for (const auto& gate_idx : builder.memory_write_records) {
                 write_record_gates.insert(gate_idx);
+            }
+            for (const auto& gate_idx : builder.rom_logup_records) {
+                rom_logup_gates.insert(gate_idx);
             }
         }
     };

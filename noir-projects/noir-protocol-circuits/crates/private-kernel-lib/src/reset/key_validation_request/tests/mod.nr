@@ -5,23 +5,25 @@ use super::{
     key_validation_hint::KeyValidationHint,
     key_validation_requests_validator::KeyValidationRequestsValidator,
 };
-use dep::types::{
-    abis::validation_requests::{KeyValidationRequest, KeyValidationRequestAndGenerator},
+use std::embedded_curve_ops::fixed_base_scalar_mul as derive_public_key;
+use types::{
+    abis::validation_requests::{KeyValidationRequest, KeyValidationRequestAndSeparator},
     address::AztecAddress,
     hash::compute_app_siloed_secret_key,
+    point::EmbeddedCurvePoint,
+    public_keys::hash_public_key,
     scalar::Scalar,
     side_effect::Scoped,
     traits::{Empty, FromField},
     utils::arrays::ClaimedLengthArray,
 };
-use std::embedded_curve_ops::fixed_base_scalar_mul as derive_public_key;
 
 global TEST_READ_REQUEST_LEN: u32 = 6;
 global TEST_HINT_LEN: u32 = 2;
 
 struct TestBuilder {
-    key_validation_requests: ClaimedLengthArray<Scoped<KeyValidationRequestAndGenerator>, TEST_READ_REQUEST_LEN>,
-    propagated_key_validation_requests: ClaimedLengthArray<Scoped<KeyValidationRequestAndGenerator>, TEST_READ_REQUEST_LEN>,
+    key_validation_requests: ClaimedLengthArray<Scoped<KeyValidationRequestAndSeparator>, TEST_READ_REQUEST_LEN>,
+    propagated_key_validation_requests: ClaimedLengthArray<Scoped<KeyValidationRequestAndSeparator>, TEST_READ_REQUEST_LEN>,
     hints: BoundedVec<KeyValidationHint, TEST_HINT_LEN>,
 }
 
@@ -73,13 +75,15 @@ impl TestBuilder {
 
         let sk_m = Scalar::from_field(sk);
         let pk_m = derive_public_key(sk_m);
+        let pk_m_hash = hash_public_key(pk_m);
 
-        let sk_app_generator = 123321;
-        let sk_app = compute_app_siloed_secret_key(sk_m, contract_address, sk_app_generator);
+        let key_type_domain_separator = 123321;
+        let sk_app =
+            compute_app_siloed_secret_key(sk_m, contract_address, key_type_domain_separator);
 
-        let request = KeyValidationRequestAndGenerator {
-            request: KeyValidationRequest { pk_m, sk_app },
-            sk_app_generator,
+        let request = KeyValidationRequestAndSeparator {
+            request: KeyValidationRequest { pk_m_hash, sk_app },
+            key_type_domain_separator,
         }
             .scope(contract_address);
 
@@ -97,7 +101,7 @@ impl TestBuilder {
 
     pub fn get_propagated_key_validation_requests(
         self,
-    ) -> ClaimedLengthArray<Scoped<KeyValidationRequestAndGenerator>, TEST_READ_REQUEST_LEN> {
+    ) -> ClaimedLengthArray<Scoped<KeyValidationRequestAndSeparator>, TEST_READ_REQUEST_LEN> {
         let key_validation_amount = self.hints.len();
         // Safety: This is only used in tests.
         unsafe {

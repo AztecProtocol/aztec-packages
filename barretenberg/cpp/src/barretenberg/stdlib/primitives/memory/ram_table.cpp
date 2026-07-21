@@ -1,6 +1,6 @@
 // === AUDIT STATUS ===
 // internal:    { status: Complete, auditors: [Raju], commit: 05a381f8b31ae4648e480f1369e911b148216e8b}
-// external_1:  { status: not started, auditors: [], commit: }
+// external_1:  { status: Complete, auditors: [Sherlock], commit: e6694849223 }
 // external_2:  { status: not started, auditors: [], commit: }
 // =====================
 
@@ -20,7 +20,7 @@ namespace bb::stdlib {
  * @details This constructor is used in DSL, where we need to initialize a table with a builder to prevent the case in
  * which a read operation happens before the context has been set.
  */
-template <IsUltraOrMegaBuilder Builder>
+template <typename Builder>
 ram_table<Builder>::ram_table(Builder* builder, const std::vector<field_pt>& table_entries)
     : raw_entries(table_entries)
     , length(table_entries.size())
@@ -45,7 +45,7 @@ ram_table<Builder>::ram_table(Builder* builder, const std::vector<field_pt>& tab
  * builder. It is especially useful when methods create new rom tables operating on in-circuit values which a priori we
  * don't know whether they are constant or witnesses.
  */
-template <IsUltraOrMegaBuilder Builder>
+template <typename Builder>
 ram_table<Builder>::ram_table(const std::vector<field_pt>& table_entries)
     : raw_entries(table_entries)
     , length(raw_entries.size())
@@ -80,7 +80,7 @@ ram_table<Builder>::ram_table(const std::vector<field_pt>& table_entries)
  *
  * @tparam Builder
  */
-template <IsUltraOrMegaBuilder Builder> void ram_table<Builder>::initialize_table() const
+template <typename Builder> void ram_table<Builder>::initialize_table() const
 {
     if (ram_table_generated_in_builder) {
         return;
@@ -115,11 +115,48 @@ template <IsUltraOrMegaBuilder Builder> void ram_table<Builder>::initialize_tabl
     ram_table_generated_in_builder = true;
 }
 // constructors and move operators
-template <IsUltraOrMegaBuilder Builder> ram_table<Builder>::ram_table(const ram_table& other) = default;
-template <IsUltraOrMegaBuilder Builder> ram_table<Builder>::ram_table(ram_table&& other) = default;
-template <IsUltraOrMegaBuilder Builder>
-ram_table<Builder>& ram_table<Builder>::operator=(const ram_table& other) = default;
-template <IsUltraOrMegaBuilder Builder> ram_table<Builder>& ram_table<Builder>::operator=(ram_table&& other) = default;
+template <typename Builder> ram_table<Builder>::ram_table(const ram_table& other) = default;
+
+template <typename Builder>
+ram_table<Builder>::ram_table(ram_table&& other) noexcept
+    : raw_entries(std::move(other.raw_entries))
+    , _tags(std::move(other._tags))
+    , index_initialized(std::move(other.index_initialized))
+    , length(other.length)
+    , ram_id(other.ram_id)
+    , ram_table_generated_in_builder(other.ram_table_generated_in_builder)
+    , all_entries_written_to_with_constant_index(other.all_entries_written_to_with_constant_index)
+    , context(other.context)
+{
+    other.length = 0;
+    other.ram_id = 0;
+    other.ram_table_generated_in_builder = false;
+    other.all_entries_written_to_with_constant_index = false;
+    other.context = nullptr;
+}
+
+template <typename Builder> ram_table<Builder>& ram_table<Builder>::operator=(const ram_table& other) = default;
+
+template <typename Builder> ram_table<Builder>& ram_table<Builder>::operator=(ram_table&& other) noexcept
+{
+    if (this != &other) {
+        raw_entries = std::move(other.raw_entries);
+        _tags = std::move(other._tags);
+        index_initialized = std::move(other.index_initialized);
+        length = other.length;
+        ram_id = other.ram_id;
+        ram_table_generated_in_builder = other.ram_table_generated_in_builder;
+        all_entries_written_to_with_constant_index = other.all_entries_written_to_with_constant_index;
+        context = other.context;
+
+        other.length = 0;
+        other.ram_id = 0;
+        other.ram_table_generated_in_builder = false;
+        other.all_entries_written_to_with_constant_index = false;
+        other.context = nullptr;
+    }
+    return *this;
+}
 
 /**
  * @brief Read a field element from the RAM table at an index value
@@ -128,7 +165,7 @@ template <IsUltraOrMegaBuilder Builder> ram_table<Builder>& ram_table<Builder>::
  * @param index
  * @return field_t<Builder>
  */
-template <IsUltraOrMegaBuilder Builder> field_t<Builder> ram_table<Builder>::read(const field_pt& index) const
+template <typename Builder> field_t<Builder> ram_table<Builder>::read(const field_pt& index) const
 {
     if (context == nullptr) {
         context = index.get_context();
@@ -138,19 +175,14 @@ template <IsUltraOrMegaBuilder Builder> field_t<Builder> ram_table<Builder>::rea
             "ram_table: Performing a read operation without providing a context. We cannot initialize the table.");
     }
 
+    const auto native_index = uint256_t(index.get_value());
+    BB_ASSERT_LT(native_index, length, "ram_table: RAM array access out of bounds");
+
     // When we perform the first read operation, we initialize the table
     initialize_table();
 
-    const auto native_index = uint256_t(index.get_value());
-    if (native_index >= length) {
-        // set a failure when the index is out of bounds. another error will be thrown when we try to call
-        // `read_RAM_array`.
-        context->failure("ram_table: RAM array access out of bounds");
-    }
-
-    if (!check_indices_initialized()) {
-        context->failure("ram_table must have initialized every RAM entry before the table can be read");
-    }
+    BB_ASSERT(check_indices_initialized(),
+              "ram_table must have initialized every RAM entry before the table can be read");
 
     field_pt index_wire = index;
     if (index.is_constant()) {
@@ -160,6 +192,7 @@ template <IsUltraOrMegaBuilder Builder> field_t<Builder> ram_table<Builder>::rea
     uint32_t output_idx = context->read_RAM_array(ram_id, index_wire.get_witness_index());
     auto element = field_pt::from_witness_index(context, output_idx);
 
+    // This cast is safe because native_index is uint64_t (other components are zero) and native_index < length
     const size_t cast_index = static_cast<size_t>(static_cast<uint64_t>(native_index));
     // If the index is legitimate, restore the tag
     if (native_index < length) {
@@ -177,7 +210,7 @@ template <IsUltraOrMegaBuilder Builder> field_t<Builder> ram_table<Builder>::rea
  *
  * @note This is used to write an already-existing RAM entry and also to initialize a not-yet-written RAM entry.
  */
-template <IsUltraOrMegaBuilder Builder> void ram_table<Builder>::write(const field_pt& index, const field_pt& value)
+template <typename Builder> void ram_table<Builder>::write(const field_pt& index, const field_pt& value)
 {
     if (context == nullptr) {
         context = index.get_context();
@@ -187,33 +220,28 @@ template <IsUltraOrMegaBuilder Builder> void ram_table<Builder>::write(const fie
             "ram_table: Performing a write operation without providing a context. We cannot initialize the table.");
     }
 
+    const auto native_index = uint256_t(index.get_value());
+    BB_ASSERT_LT(native_index, length, "ram_table: RAM array access out of bounds");
+
     // When we perform the first read operation, we initialize the table
     initialize_table();
 
-    if (uint256_t(index.get_value()) >= length) {
-        // set a failure when the index is out of bounds. an error will be thrown when we try to call either
-        // `init_RAM_element` or `write_RAM_array`.
-        context->failure("ram_table: RAM array access out of bounds");
-    }
-
     field_pt index_wire = index;
-    const auto native_index = uint256_t(index.get_value());
     if (index.is_constant()) {
-        // need to write/process every array element at constant indicies before doing reads/writes at prover-defined
+        // need to write/process every array element at constant indices before doing reads/writes at prover-defined
         // indices
-        index_wire.convert_constant_to_fixed_witness(context);
+        index_wire = field_pt::from_witness_index(context, context->put_constant_variable(index.get_value()));
     } else {
-        if (!check_indices_initialized()) {
-            context->failure("ram_table must have initialized every RAM entry before a write can be performed");
-        }
+        BB_ASSERT(check_indices_initialized(),
+                  "ram_table must have initialized every RAM entry before a write can be performed");
     }
 
     field_pt value_wire = value;
-    auto native_value = value.get_value();
     if (value.is_constant()) {
-        value_wire = field_pt::from_witness_index(context, context->put_constant_variable(native_value));
+        value_wire = field_pt::from_witness_index(context, context->put_constant_variable(value.get_value()));
     }
 
+    // This cast is safe because native_index is uint64_t (other components are zero) and native_index < length
     const size_t cast_index = static_cast<size_t>(static_cast<uint64_t>(native_index));
     if (index.is_constant() && !index_initialized[cast_index]) {
         context->init_RAM_element(ram_id, cast_index, value_wire.get_witness_index());
@@ -222,8 +250,8 @@ template <IsUltraOrMegaBuilder Builder> void ram_table<Builder>::write(const fie
     } else {
         context->write_RAM_array(ram_id, index_wire.get_witness_index(), value_wire.get_witness_index());
     }
-    // Update the value of the stored tag, if index is legitimate
 
+    // Update the value of the stored tag, if index is legitimate
     if (native_index < length) {
         _tags[cast_index] = value.get_origin_tag();
     }

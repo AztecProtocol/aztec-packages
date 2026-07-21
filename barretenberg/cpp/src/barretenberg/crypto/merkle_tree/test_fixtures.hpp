@@ -257,10 +257,18 @@ template <typename TreeType> void rollback_tree(TreeType& tree)
     call_operation(completion);
 }
 
-template <typename TreeType> void checkpoint_tree(TreeType& tree)
+template <typename TreeType> uint32_t checkpoint_tree(TreeType& tree)
 {
-    auto completion = [&](auto completion) { tree.checkpoint(completion); };
-    call_operation(completion);
+    Signal signal;
+    uint32_t depth = 0;
+    auto completion = [&](const TypedResponse<CheckpointResponse>& response) -> void {
+        EXPECT_EQ(response.success, true);
+        depth = response.inner.depth;
+        signal.signal_level();
+    };
+    tree.checkpoint(completion);
+    signal.wait_for_level();
+    return depth;
 }
 
 template <typename TreeType> void commit_checkpoint_tree(TreeType& tree, bool expected_success = true)
@@ -279,13 +287,25 @@ template <typename TreeType> void revert_checkpoint_tree(TreeType& tree, bool ex
 template <typename TreeType> void commit_all_tree_checkpoints(TreeType& tree, bool expected_success = true)
 
 {
-    auto completion = [&](auto completion) { tree.commit_all_checkpoints(completion); };
+    auto completion = [&](auto completion) { tree.commit_all_checkpoints_to(completion); };
     call_operation(completion, expected_success);
 }
 
 template <typename TreeType> void revert_all_tree_checkpoints(TreeType& tree, bool expected_success = true)
 {
-    auto completion = [&](auto completion) { tree.revert_all_checkpoints(completion); };
+    auto completion = [&](auto completion) { tree.revert_all_checkpoints_to(completion); };
+    call_operation(completion, expected_success);
+}
+
+template <typename TreeType> void commit_tree_to_depth(TreeType& tree, uint32_t depth, bool expected_success = true)
+{
+    auto completion = [&](auto completion) { tree.commit_to_depth(depth, completion); };
+    call_operation(completion, expected_success);
+}
+
+template <typename TreeType> void revert_tree_to_depth(TreeType& tree, uint32_t depth, bool expected_success = true)
+{
+    auto completion = [&](auto completion) { tree.revert_to_depth(depth, completion); };
     call_operation(completion, expected_success);
 }
 } // namespace bb::crypto::merkle_tree

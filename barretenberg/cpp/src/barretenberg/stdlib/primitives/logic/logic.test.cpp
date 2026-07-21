@@ -3,7 +3,6 @@
 #include "../bool/bool.hpp"
 #include "../circuit_builders/circuit_builders.hpp"
 #include "barretenberg/circuit_checker/circuit_checker.hpp"
-#include "barretenberg/honk/types/circuit_type.hpp"
 #include "barretenberg/numeric/random/engine.hpp"
 #include "barretenberg/numeric/uint256/uint256.hpp"
 #include "logic.hpp"
@@ -122,27 +121,123 @@ TYPED_TEST(LogicTest, DifferentWitnessSameResult)
 
     STDLIB_TYPE_ALIASES
     auto builder = Builder();
-    if (IsUltraOrMegaBuilder<Builder>) {
-        uint256_t a = 3758096391;
-        uint256_t b = 2147483649;
-        field_ct x = witness_ct(&builder, uint256_t(a));
-        field_ct y = witness_ct(&builder, uint256_t(b));
+    uint256_t a = 3758096391;
+    uint256_t b = 2147483649;
+    field_ct x = witness_ct(&builder, uint256_t(a));
+    field_ct y = witness_ct(&builder, uint256_t(b));
 
-        uint256_t xor_expected = a ^ b;
-        const std::function<std::pair<uint256_t, uint256_t>(uint256_t, uint256_t, size_t)>& get_bad_chunk =
-            [](uint256_t left, uint256_t right, size_t chunk_size) {
-                (void)left;
-                (void)right;
-                (void)chunk_size;
-                auto left_chunk = uint256_t(2684354565);
-                auto right_chunk = uint256_t(3221225475);
-                return std::make_pair(left_chunk, right_chunk);
-            };
+    uint256_t xor_expected = a ^ b;
+    const std::function<std::pair<uint256_t, uint256_t>(uint256_t, uint256_t, size_t)>& get_bad_chunk =
+        [](uint256_t left, uint256_t right, size_t chunk_size) {
+            (void)left;
+            (void)right;
+            (void)chunk_size;
+            auto left_chunk = uint256_t(2684354565);
+            auto right_chunk = uint256_t(3221225475);
+            return std::make_pair(left_chunk, right_chunk);
+        };
 
-        field_ct xor_result = stdlib::logic<Builder>::create_logic_constraint(x, y, 32, true, get_bad_chunk);
-        EXPECT_EQ(uint256_t(xor_result.get_value()), xor_expected);
+    field_ct xor_result = stdlib::logic<Builder>::create_logic_constraint(x, y, 32, true, get_bad_chunk);
+    EXPECT_EQ(uint256_t(xor_result.get_value()), xor_expected);
 
-        bool result = CircuitChecker::check(builder);
-        EXPECT_EQ(result, false);
+    bool result = CircuitChecker::check(builder);
+    EXPECT_EQ(result, false);
+}
+
+TYPED_TEST(LogicTest, OriginTagConsistency)
+{
+    STDLIB_TYPE_ALIASES
+    auto builder = Builder();
+
+    const size_t parent_id = 0;
+    const auto tag_a = OriginTag(parent_id, /*round_id=*/0, /*is_submitted=*/true);
+    const auto tag_b = OriginTag(parent_id, /*round_id=*/0, /*is_submitted=*/false);
+    const auto merged_tag = OriginTag(tag_a, tag_b);
+
+    uint256_t a_val = 0x0f;
+    uint256_t b_val = 0xa3;
+
+    // Witness-witness path
+    field_ct x = witness_ct(&builder, a_val);
+    field_ct y = witness_ct(&builder, b_val);
+    x.set_origin_tag(tag_a);
+    y.set_origin_tag(tag_b);
+    field_ct and_result = stdlib::logic<Builder>::create_logic_constraint(x, y, 8, false);
+    EXPECT_EQ(and_result.get_origin_tag(), merged_tag);
+
+    field_ct xor_result = stdlib::logic<Builder>::create_logic_constraint(x, y, 8, true);
+    EXPECT_EQ(xor_result.get_origin_tag(), merged_tag);
+
+    // Constant-witness path (left constant)
+    field_ct x_const(&builder, a_val);
+    x_const.set_origin_tag(tag_a);
+    field_ct and_result_lc = stdlib::logic<Builder>::create_logic_constraint(x_const, y, 8, false);
+    EXPECT_EQ(and_result_lc.get_origin_tag(), merged_tag);
+
+    // Constant-witness path (right constant)
+    field_ct y_const(&builder, b_val);
+    y_const.set_origin_tag(tag_b);
+    field_ct and_result_rc = stdlib::logic<Builder>::create_logic_constraint(x, y_const, 8, false);
+    EXPECT_EQ(and_result_rc.get_origin_tag(), merged_tag);
+}
+
+// Regression test: OriginTag must propagate through all logic constraint paths.
+TYPED_TEST(LogicTest, OriginTagPropagation)
+{
+    STDLIB_TYPE_ALIASES
+    STANDARD_TESTING_TAGS
+
+    auto builder = Builder();
+    uint256_t a_val = 0xAB;
+    uint256_t b_val = 0xCD;
+
+    // Both witnesses
+    {
+        field_ct x = witness_ct(&builder, a_val);
+        field_ct y = witness_ct(&builder, b_val);
+        x.set_origin_tag(submitted_value_origin_tag);
+        y.set_origin_tag(challenge_origin_tag);
+
+        field_ct and_result = stdlib::logic<Builder>::create_logic_constraint(x, y, 8, false);
+        field_ct xor_result = stdlib::logic<Builder>::create_logic_constraint(x, y, 8, true);
+
+        EXPECT_EQ(and_result.get_origin_tag(), first_two_merged_tag);
+        EXPECT_EQ(xor_result.get_origin_tag(), first_two_merged_tag);
     }
+
+    // Left constant, right witness
+    {
+        field_ct x_const(&builder, a_val);
+        field_ct y = witness_ct(&builder, b_val);
+        x_const.set_origin_tag(submitted_value_origin_tag);
+        y.set_origin_tag(challenge_origin_tag);
+
+        field_ct result = stdlib::logic<Builder>::create_logic_constraint(x_const, y, 8, false);
+        EXPECT_EQ(result.get_origin_tag(), first_two_merged_tag);
+    }
+
+    // Right constant, left witness
+    {
+        field_ct x = witness_ct(&builder, a_val);
+        field_ct y_const(&builder, b_val);
+        x.set_origin_tag(submitted_value_origin_tag);
+        y_const.set_origin_tag(challenge_origin_tag);
+
+        field_ct result = stdlib::logic<Builder>::create_logic_constraint(x, y_const, 8, false);
+        EXPECT_EQ(result.get_origin_tag(), first_two_merged_tag);
+    }
+
+    // Both constants
+    {
+        field_ct x_const(&builder, a_val);
+        field_ct y_const(&builder, b_val);
+        x_const.set_origin_tag(submitted_value_origin_tag);
+        y_const.set_origin_tag(challenge_origin_tag);
+
+        field_ct result = stdlib::logic<Builder>::create_logic_constraint(x_const, y_const, 8, false);
+        EXPECT_EQ(result.get_origin_tag(), first_two_merged_tag);
+    }
+
+    bool result = CircuitChecker::check(builder);
+    EXPECT_EQ(result, true);
 }

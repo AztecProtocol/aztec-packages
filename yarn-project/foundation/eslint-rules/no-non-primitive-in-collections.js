@@ -5,18 +5,38 @@ import * as ts from 'typescript';
  * @fileoverview Rule to disallow non-primitive types in Set<T> and Map<T, ...> collections
  */
 
+/**
+ * Branded primitive types whose underlying representation is a primitive (number/string/etc.)
+ * and are therefore safe to use as Set/Map keys. Used as a fallback when the TypeScript type
+ * checker is unavailable (AST-only mode). The type-checker path detects these structurally
+ * via the `Branded<T, Brand>` intersection encoding, so this list only needs to cover the
+ * names — not their full definitions.
+ */
+const BRANDED_PRIMITIVE_TYPES = new Set([
+  'BlockNumber',
+  'SlotNumber',
+  'CheckpointNumber',
+  'EpochNumber',
+  'IndexWithinCheckpoint',
+]);
+
+const ARRAY_MEMBERSHIP_METHODS = new Set(['includes', 'indexOf', 'lastIndexOf']);
+
 /** @type {import('eslint').Rule.RuleModule} */
 export default {
   meta: {
     type: 'problem',
     docs: {
-      description: 'Disallow non-primitive types in Set<T> and Map<T, ...> collections',
+      description:
+        'Disallow non-primitive types in Set<T>, Map<T, ...>, and Array.prototype.{includes,indexOf,lastIndexOf} membership checks',
       category: 'Best Practices',
       recommended: true,
     },
     messages: {
       nonPrimitiveInSet: 'Set should only be used with primitive types. Found Set<{{type}}>',
       nonPrimitiveInMapKey: 'Map keys should only be primitive types. Found Map<{{type}}, ...>',
+      nonPrimitiveInArrayMembership:
+        'Array.prototype.{{method}} uses SameValueZero (reference equality for objects) and will silently miss equal-but-distinct class instances. Use .some(x => x.equals(target)) or project to a primitive (e.g. .map(x => x.toString())) first. Element type: {{type}}',
     },
     schema: [],
   },
@@ -100,7 +120,59 @@ export default {
         }
       }
 
+      // Check for branded primitive types: T & { _branding: Brand } where T is a primitive.
+      // Permits SlotNumber, BlockNumber, etc. while still rejecting branded class types
+      // such as BlockProposalHash = Branded<BaseBuffer32, ...>.
+      if (flags & ts.TypeFlags.Intersection) {
+        if (tsType.isIntersection && tsType.isIntersection()) {
+          return isBrandedPrimitive(tsType);
+        }
+      }
+
       return false;
+    }
+
+    /**
+     * Detect a Branded<Primitive, Brand> intersection. The intersection must contain
+     * at least one primitive constituent and all non-primitive constituents must be
+     * the brand marker object (a single `_branding` property and nothing else).
+     */
+    function isBrandedPrimitive(tsType) {
+      const components = tsType.types;
+      if (!components || components.length === 0) return false;
+
+      const allowedPrimitiveFlags =
+        ts.TypeFlags.String |
+        ts.TypeFlags.Number |
+        ts.TypeFlags.BigInt |
+        ts.TypeFlags.Boolean |
+        ts.TypeFlags.ESSymbol |
+        ts.TypeFlags.Literal |
+        ts.TypeFlags.TemplateLiteral |
+        ts.TypeFlags.StringMapping |
+        ts.TypeFlags.Enum |
+        ts.TypeFlags.EnumLiteral;
+
+      let hasPrimitive = false;
+      let hasBrandMarker = false;
+
+      for (const component of components) {
+        const componentFlags = component.getFlags();
+        if (componentFlags & allowedPrimitiveFlags) {
+          hasPrimitive = true;
+          continue;
+        }
+        if (componentFlags & ts.TypeFlags.Object) {
+          const props = component.getProperties ? component.getProperties() : [];
+          if (props.length === 1 && props[0].getName() === '_branding') {
+            hasBrandMarker = true;
+            continue;
+          }
+        }
+        return false;
+      }
+
+      return hasPrimitive && hasBrandMarker;
     }
 
     /**
@@ -148,12 +220,52 @@ export default {
             if (primitives.includes(name)) {
               return true;
             }
+
+            // Branded primitives that wrap number/string — safe to use as keys
+            if (BRANDED_PRIMITIVE_TYPES.has(name)) {
+              return true;
+            }
           }
           return false;
 
         default:
           return false;
       }
+    }
+
+    /**
+     * Heuristic: does this type expose an `equals` method? Types that do are opting into value
+     * equality (Fr, AztecAddress, TxHash, ...) — and using SameValueZero membership checks on
+     * arrays of them is almost always a bug. Types without `equals` (callback function types,
+     * AbortController, plain objects) are typically used with reference equality intentionally.
+     */
+    function hasEqualsMethod(tsType) {
+      if (!tsType || !tsType.getProperty) return false;
+      const equalsSymbol = tsType.getProperty('equals');
+      if (!equalsSymbol) return false;
+      const decls = equalsSymbol.getDeclarations?.() ?? [];
+      return decls.some(d => ts.isMethodDeclaration(d) || ts.isMethodSignature(d));
+    }
+
+    /**
+     * Extract the element type of an Array<T> / ReadonlyArray<T> / T[] / readonly T[].
+     * Returns undefined for non-array receivers (e.g. `string`, which also has a `.includes` method).
+     */
+    function getArrayElementType(tsType) {
+      if (!tsType) return undefined;
+
+      if (typeof checker.getElementTypeOfArrayType === 'function') {
+        const elem = checker.getElementTypeOfArrayType(tsType);
+        if (elem) return elem;
+      }
+
+      const symbol = tsType.getSymbol ? tsType.getSymbol() : undefined;
+      const name = symbol?.getName?.();
+      if (name === 'Array' || name === 'ReadonlyArray') {
+        return tsType.typeArguments?.[0] ?? tsType.aliasTypeArguments?.[0];
+      }
+
+      return undefined;
     }
 
     /**
@@ -242,6 +354,55 @@ export default {
               },
             });
           }
+        }
+      },
+
+      CallExpression(node) {
+        // We need the type checker to know whether the receiver is an array of class instances.
+        // In AST-only fallback mode we can't reliably distinguish `addrs.includes(x)` (bug)
+        // from `["a","b"].includes(x)` (fine), so we skip rather than risk false positives.
+        if (!checker || !parserServices) {
+          return;
+        }
+
+        const callee = node.callee;
+        if (callee.type !== 'MemberExpression' || callee.computed) {
+          return;
+        }
+        if (callee.property.type !== 'Identifier' || !ARRAY_MEMBERSHIP_METHODS.has(callee.property.name)) {
+          return;
+        }
+        if (node.arguments.length === 0) {
+          return;
+        }
+
+        try {
+          const receiverTsNode = parserServices.esTreeNodeToTSNodeMap.get(callee.object);
+          const receiverType = checker.getTypeAtLocation(receiverTsNode);
+          const elementType = getArrayElementType(receiverType);
+          if (!elementType) {
+            // Not an array (e.g. `string.includes`, or an unknown receiver) — leave alone.
+            return;
+          }
+          if (isAllowedTypeWithChecker(elementType)) {
+            return;
+          }
+          // Only flag types that opted into value equality. Arrays of callbacks / DOM types /
+          // plain function types are commonly searched via reference identity on purpose.
+          if (!hasEqualsMethod(elementType)) {
+            return;
+          }
+
+          context.report({
+            node,
+            messageId: 'nonPrimitiveInArrayMembership',
+            data: {
+              method: callee.property.name,
+              type: checker.typeToString(elementType),
+            },
+          });
+        } catch (e) {
+          // Type information unavailable for this node — skip silently.
         }
       },
     };

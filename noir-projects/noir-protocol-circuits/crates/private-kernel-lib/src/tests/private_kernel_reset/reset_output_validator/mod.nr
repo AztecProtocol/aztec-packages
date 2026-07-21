@@ -1,5 +1,6 @@
 mod propagated_note_hashes_tests;
 mod propagated_nullifiers_tests;
+mod propagated_private_logs_tests;
 
 use crate::{
     abis::PrivateKernelResetHints,
@@ -16,6 +17,21 @@ use super::{
     NULLIFIER_SILOING_AMOUNT, PRIVATE_LOG_SILOING_AMOUNT, TestBuilder,
     TRANSIENT_DATA_SQUASHING_HINTS_LEN,
 };
+
+/// Rebuilds a BoundedVec with clean zero-initialized storage past its length.
+/// BoundedVec.pop() no longer zeroes vacated slots; call this after pop() to
+/// ensure elements beyond the claimed length are zero.
+fn rebuild_bounded_vec<T, let N: u32>(vec: BoundedVec<T, N>) -> BoundedVec<T, N> {
+    let storage = vec.storage();
+    let len = vec.len();
+    let mut clean: BoundedVec<T, N> = BoundedVec::new();
+    for i in 0..N {
+        if i < len {
+            clean.push(storage[i]);
+        }
+    }
+    clean
+}
 
 impl TestBuilder {
     pub fn get_output_hints(self) -> SquashedOutputArrayHints {
@@ -60,7 +76,7 @@ impl TestBuilder {
             );
     }
 
-    pub fn validate_with_amounts<let NoteHashPendingReadAmount: u32, let NoteHashSettledReadAmount: u32, let NullifierPendingReadAmount: u32, let NullifierSettledReadAmount: u32, let KeyValidationAmount: u32, let TransientDataSquashingAmount: u32, let NoteHashSiloingAmount: u32, let NullifierSiloingAmount: u32, let PrivateLogSiloingAmount: u32>(
+    fn validate_with_amounts<let NoteHashPendingReadAmount: u32, let NoteHashSettledReadAmount: u32, let NullifierPendingReadAmount: u32, let NullifierSettledReadAmount: u32, let KeyValidationAmount: u32, let TransientDataSquashingAmount: u32, let NoteHashSiloingAmount: u32, let NullifierSiloingAmount: u32, let PrivateLogSiloingAmount: u32>(
         self,
         output_hints: SquashedOutputArrayHints,
     ) {

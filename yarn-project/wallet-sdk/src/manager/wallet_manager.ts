@@ -2,6 +2,7 @@ import type { ChainInfo } from '@aztec/aztec.js/account';
 import { promiseWithResolvers } from '@aztec/foundation/promise';
 
 import { type DiscoveredWallet, ExtensionProvider, ExtensionWallet } from '../extension/provider/index.js';
+import { discoverWebWallets } from '../iframe/provider/iframe_discovery.js';
 import { WalletMessageType } from '../types.js';
 import type {
   DiscoverWalletsOptions,
@@ -88,6 +89,20 @@ export class WalletManager {
 
     const { promise: donePromise, resolve: resolveDone } = promiseWithResolvers<void>();
 
+    const pendingSources = new Set<string>();
+
+    const emit = (provider: WalletProvider) => {
+      options.onWalletDiscovered?.(provider);
+
+      if (pendingResolve) {
+        const resolve = pendingResolve;
+        pendingResolve = null;
+        resolve({ value: provider, done: false });
+      } else {
+        pendingProviders.push(provider);
+      }
+    };
+
     const markComplete = () => {
       completed = true;
       resolveDone();
@@ -98,7 +113,15 @@ export class WalletManager {
       }
     };
 
+    const sourceComplete = (source: string) => {
+      pendingSources.delete(source);
+      if (pendingSources.size === 0) {
+        markComplete();
+      }
+    };
+
     if (this.config.extensions?.enabled) {
+      pendingSources.add('extensions');
       const extensionConfig = this.config.extensions;
 
       void ExtensionProvider.discoverWallets(chainInfo, {
@@ -107,24 +130,35 @@ export class WalletManager {
         signal: abortController.signal,
         onWalletDiscovered: discoveredWallet => {
           const provider = this.createProviderFromDiscoveredWallet(discoveredWallet, chainInfo, extensionConfig);
-          if (!provider) {
-            return;
-          }
-
-          // Call user's callback if provided
-          options.onWalletDiscovered?.(provider);
-
-          // Also queue for async iterator
-          if (pendingResolve) {
-            const resolve = pendingResolve;
-            pendingResolve = null;
-            resolve({ value: provider, done: false });
-          } else {
-            pendingProviders.push(provider);
+          if (provider) {
+            emit(provider);
           }
         },
-      }).then(markComplete);
-    } else {
+      }).then(() => sourceComplete('extensions'));
+    }
+
+    if (this.config.webWallets?.urls && this.config.webWallets.urls.length > 0) {
+      pendingSources.add('webWallets');
+      const webSession = discoverWebWallets(this.config.webWallets.urls, chainInfo);
+
+      // Forward discovered web wallets into the shared iterator
+      void (async () => {
+        try {
+          for await (const provider of webSession.wallets) {
+            if (abortController.signal.aborted) {
+              break;
+            }
+            emit(provider);
+          }
+        } finally {
+          sourceComplete('webWallets');
+        }
+      })();
+
+      abortController.signal.addEventListener('abort', () => webSession.cancel(), { once: true });
+    }
+
+    if (pendingSources.size === 0) {
       markComplete();
     }
 
@@ -196,15 +230,14 @@ export class WalletManager {
         return {
           verificationHash: connection.info.verificationHash!,
           confirm: () => {
-            return Promise.resolve(
-              ExtensionWallet.create(
-                connection.info.id,
-                connection.port,
-                connection.sharedKey,
-                chainInfo,
-                connectAppId,
-              ),
+            extensionWallet = ExtensionWallet.create(
+              connection.info.id,
+              connection.port,
+              connection.sharedKey,
+              chainInfo,
+              connectAppId,
             );
+            return Promise.resolve(extensionWallet.asWallet());
           },
           cancel: () => {
             // Send disconnect to terminate the session on the extension side
@@ -213,7 +246,6 @@ export class WalletManager {
               type: WalletMessageType.DISCONNECT,
               requestId: discoveredWallet.requestId,
             });
-            // Don't close the port - allow retry with fresh key exchange
           },
         };
       },

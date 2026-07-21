@@ -5,12 +5,14 @@ import type { PXE } from '@aztec/pxe/server';
 import { FunctionSelector } from '@aztec/stdlib/abi/function-selector';
 import { AztecAddress } from '@aztec/stdlib/aztec-address';
 import { PublicKeys } from '@aztec/stdlib/keys';
-import { LogId } from '@aztec/stdlib/logs/log-id';
+import { LogCursor, Tag } from '@aztec/stdlib/logs';
 import { TxHash } from '@aztec/stdlib/tx/tx-hash';
 
 import { type Command, CommanderError, InvalidArgumentError, Option } from 'commander';
 import { lookup } from 'dns/promises';
 import { rename, writeFile } from 'fs/promises';
+
+export { LogCursor };
 
 /**
  * If we can successfully resolve 'host.docker.internal', then we are running in a container, and we should treat
@@ -99,7 +101,7 @@ export async function getTxSender(pxe: PXE, _from?: string) {
   let from: AztecAddress;
   if (_from) {
     try {
-      from = AztecAddress.fromString(_from);
+      from = AztecAddress.fromStringUnsafe(_from);
     } catch {
       throw new InvalidArgumentError(`Invalid option 'from' passed: ${_from}`);
     }
@@ -193,7 +195,7 @@ export function parseFieldFromHexString(str: string): Fr {
  */
 export function parseAztecAddress(address: string): AztecAddress {
   try {
-    return AztecAddress.fromString(address);
+    return AztecAddress.fromStringUnsafe(address);
   } catch {
     throw new InvalidArgumentError(`Invalid Aztec address: ${address}`);
   }
@@ -227,16 +229,27 @@ export function parseOptionalAztecAddress(address: string): AztecAddress | undef
 }
 
 /**
- * Parses an optional log ID string into a LogId object.
- *
- * @param logId - The log ID string to parse.
- * @returns The parsed LogId object, or undefined if the log ID is missing or empty.
+ * Parses an optional `<blockNumber>-<txIndexWithinBlock>-<logIndexWithinTx>` triple into a {@link LogCursor},
+ * used as the `--after-log` argument of `get-logs` to resume pagination strictly after a previously-seen log.
+ * Thin wrapper over {@link LogCursor.parseOptional} that surfaces parse errors as commander's
+ * {@link InvalidArgumentError}.
  */
-export function parseOptionalLogId(logId: string): LogId | undefined {
-  if (!logId) {
-    return undefined;
+export function parseOptionalLogCursor(value: string): LogCursor | undefined {
+  try {
+    return LogCursor.parseOptional(value);
+  } catch (err) {
+    throw new InvalidArgumentError(err instanceof Error ? err.message : String(err));
   }
-  return LogId.fromString(logId);
+}
+
+/**
+ * Parses a log tag from a string. Tags are field-element values; we delegate to the {@link parseField} parser.
+ *
+ * @param tag - A hex string, integer, or boolean string representing the tag.
+ * @returns A {@link Tag} wrapping the parsed field.
+ */
+export function parseTag(tag: string): Tag {
+  return new Tag(parseField(tag));
 }
 
 /**

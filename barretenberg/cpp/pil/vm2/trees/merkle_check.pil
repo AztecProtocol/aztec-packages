@@ -1,3 +1,4 @@
+include "../constants_gen.pil";
 include "../poseidon2_hash.pil";
 include "../precomputed.pil";
 
@@ -88,44 +89,40 @@ namespace merkle_check;
     pol commit read_root;
 
     // Write specific inputs/outputs - These are only looked up when we want to update the root
-    pol commit write; // This should be a boolean passed by the caller. For a read usage, it is under-constrained but read
-                      // relevant values are constrained. For write, the caller must pass 1.
+    // Unconditionally boolean — required as a lookup source selector.
+    // For read usage, it is under-constrained but read-relevant values are constrained.
+    // For write, the caller must pass 1.
+    pol commit write; // @boolean
+    write * (1 - write) = 0;
     pol commit write_node;
     pol commit write_root;
 
     // Hints
     pol commit sibling;
 
-    // Boundaries
+    // Multi-row computation selectors.
+    // See recipe: https://github.com/AztecProtocol/aztec-packages/blob/next/barretenberg/cpp/pil/vm2/docs/recipes.md#contiguous-multi-rows-computation-trace
     pol commit start; // @boolean
     pol commit end; // @boolean
     start * (1 - start) = 0;
     end * (1 - end) = 0;
+
+    pol LATCH_CONDITION = end + precomputed.first_row;
+
+    #[SEL_ON_START_OR_END]
+    (start + end) * (1 - sel) = 0;
+
+    #[TRACE_CONTINUITY]
+    (1 - LATCH_CONDITION) * (sel - sel') = 0;
+
+    #[START_AFTER_LATCH]
+    sel' * (start' - LATCH_CONDITION) = 0;
 
     // End when remaining path reaches 1. In other words, (path_len == 1) <==> (end == 1)
     pol PATH_LEN_MIN_ONE = path_len - 1;
     pol commit path_len_min_one_inv;
     #[END_IFF_REM_PATH_EMPTY]
     sel * (PATH_LEN_MIN_ONE * (end * (1 - path_len_min_one_inv) + path_len_min_one_inv) - 1 + end) = 0;
-
-    // This prevents a computation to be stopped prematurely, i.e., truncating last rows before
-    // we reach a row where end == 1. Note that #[END_IFF_REM_PATH_EMPTY] is conditioned on `sel == 1`
-    // and a malicious prover could prematurely stop by setting `sel == 0` and `end == 0`.
-    #[COMPUTATION_FINISH_AT_END]
-    sel * (1 - sel') * (1 - end) = 0;
-
-    // This gadget is looked up based on `start` destination selector and therefore we
-    // need to ensure that this computation is performed on the active (`sel == 1`) rows. Otherwise,
-    // a malicious prover could circumvent most of the constraints. Note that #[START_AFTER_LATCH]
-    // does not prevent this from happening.
-    // In addition, we want `end == 1` to be on an active row as well.
-    #[SELECTOR_ON_START_OR_END]
-    (start + end) * (1 - sel) = 0;
-
-    // LATCH_CONDITION is true if either `end` is 1 or `first_row` is 1
-    // LATCH_CONDITION is a boolean because `end` cannot be 1 on the first row (as `sel == 1` when `end == 1`
-    // and `sel == 0` on first row)
-    pol LATCH_CONDITION = end + precomputed.first_row;
 
     #[PROPAGATE_READ_ROOT]
     (1 - LATCH_CONDITION) * (read_root' - read_root) = 0;
@@ -199,14 +196,24 @@ namespace merkle_check;
     pol commit write_output_hash;
 
     // Lookup constant support: Can be removed when we support constants in lookups.
-    pol commit const_two;
-    sel * (const_two - 2) = 0;
+    pol commit const_three;
+    sel * (const_three - 3) = 0;
+
+    // Caller-supplied per-tree merkle hash separator.
+    // The caller must constrain this column to its tree-specific DOM_SEP__*_MERKLE constant
+    // (e.g. DOM_SEP__MERKLE_HASH for append-only trees, DOM_SEP__NULLIFIER_MERKLE for the
+    // nullifier tree) at its own lookup site.
+    pol commit merkle_hash_separator;
+
+    #[PROPAGATE_MERKLE_HASH_SEPARATOR]
+    (1 - LATCH_CONDITION) * (merkle_hash_separator' - merkle_hash_separator) = 0;
 
     // Lookup to the full poseidon2 gadget
+    // Hash is: poseidon2(merkle_hash_separator, left_node, right_node) with input_len=3
     #[MERKLE_POSEIDON2_READ]
     sel {
-        read_left_node, read_right_node, /*input_2=*/ precomputed.zero,
-        read_output_hash, const_two
+        merkle_hash_separator, read_left_node, read_right_node,
+        read_output_hash, const_three
     } in poseidon2_hash.start {
         poseidon2_hash.input_0, poseidon2_hash.input_1, poseidon2_hash.input_2,
         poseidon2_hash.output, poseidon2_hash.input_len
@@ -214,8 +221,8 @@ namespace merkle_check;
 
     #[MERKLE_POSEIDON2_WRITE]
     write {
-        write_left_node, write_right_node, /*input_2=*/ precomputed.zero,
-        write_output_hash, const_two
+        merkle_hash_separator, write_left_node, write_right_node,
+        write_output_hash, const_three
     } in poseidon2_hash.start {
         poseidon2_hash.input_0, poseidon2_hash.input_1, poseidon2_hash.input_2,
         poseidon2_hash.output, poseidon2_hash.input_len

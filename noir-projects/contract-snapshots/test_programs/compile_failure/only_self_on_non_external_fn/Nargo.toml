@@ -1,0 +1,7 @@
+[package]
+name = "only_self_on_non_external_fn"
+type = "contract"
+authors = [""]
+
+[dependencies]
+aztec = { path = "../../../../aztec-nr/aztec" }

@@ -1,0 +1,85 @@
+#!/usr/bin/env bash
+set -eu
+# Post a Slack notification and dispatch ClaudeBox to investigate.
+#
+# Usage: slack_notify_with_claudebox_kickoff <channel> <slack_text> <claudebox_prompt> [--link <url>] [--target-ref <ref>] [--mode <public|private>] [--repo <owner/repo>]
+#
+# --mode  forces the ClaudeBox session's repo-access mode. Leave unset to let
+#         claudebox.yml pick it (private for a private target repo, else public).
+# --repo  the repo the work targets (e.g. AztecProtocol/aztec-packages-private).
+#         Passed to ClaudeBox so a private target lands in private mode; without
+#         it, work aimed at a private repo dead-ends in a public-mode session.
+#
+# Requires: SLACK_BOT_TOKEN
+# Optional: CLAUDEBOX_REPO (default: AztecProtocol/aztec-packages) -- the repo
+#           whose claudebox.yml is dispatched (holds the CLAUDEBOX_API_SECRET).
+
+NO_CD=1 source "$(git rev-parse --show-toplevel)/ci3/source_base"
+
+if [[ "${CI:-}" != "1" ]]; then
+  echo "Not in CI — skipping slack_notify_with_claudebox_kickoff"
+  exit 0
+fi
+
+channel="$1"
+slack_text="$2"
+prompt="$3"
+shift 3
+
+link=""
+target_ref=""
+mode=""
+work_repo=""
+while [[ $# -gt 0 ]]; do
+  case $1 in
+    --link) link="$2"; shift 2 ;;
+    --target-ref) target_ref="$2"; shift 2 ;;
+    --mode) mode="$2"; shift 2 ;;
+    --repo) work_repo="$2"; shift 2 ;;
+    *) shift ;;
+  esac
+done
+
+REPO="${CLAUDEBOX_REPO:-AztecProtocol/aztec-packages}"
+
+# Post to Slack (inline rather than via ci3/slack_notify because we need the response for permalink)
+if [[ -n "${SLACK_BOT_TOKEN:-}" ]]; then
+  RESP=$(curl -sS -X POST https://slack.com/api/chat.postMessage \
+    -H "Authorization: Bearer $SLACK_BOT_TOKEN" \
+    -H "Content-type: application/json" \
+    -d "$(jq -n --arg c "$channel" --arg t "$slack_text" '{channel:$c, text:$t}')")
+  echo "Slack response: $RESP"
+  TS=$(echo "$RESP" | jq -r '.ts // empty')
+  CHANNEL_ID=$(echo "$RESP" | jq -r '.channel // empty')
+
+  # Build Slack permalink as context link (prefer over provided link)
+  if [[ -n "$TS" && -n "$CHANNEL_ID" ]]; then
+    link="https://aztecprotocol.slack.com/archives/$CHANNEL_ID/p${TS//./}"
+  fi
+fi
+
+# Dispatch ClaudeBox workflow (CI=1 guaranteed above; gh auth assumed in CI).
+# claudebox.yml forwards these inputs to the ClaudeBox v2 /run webhook; passing
+# the Slack channel + thread ts lets v2 reply into the message posted above.
+extra_args=()
+if [[ -n "$target_ref" ]]; then
+  extra_args+=(-f "target_ref=$target_ref")
+fi
+if [[ -n "$mode" ]]; then
+  extra_args+=(-f "mode=$mode")
+fi
+if [[ -n "$work_repo" ]]; then
+  extra_args+=(-f "repo=$work_repo")
+fi
+if [[ -n "${CHANNEL_ID:-}" ]]; then
+  extra_args+=(-f "slack_channel=$CHANNEL_ID")
+fi
+if [[ -n "${TS:-}" ]]; then
+  extra_args+=(-f "slack_thread_ts=$TS")
+fi
+gh workflow run claudebox.yml \
+  -R "$REPO" --ref next \
+  -f prompt="$prompt" \
+  -f link="$link" \
+  "${extra_args[@]}" || true
+echo "ClaudeBox dispatched"

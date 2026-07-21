@@ -1,6 +1,14 @@
 #include "barretenberg/vm2/tracegen/public_data_tree_trace.hpp"
 
-#include "barretenberg/vm2/common/aztec_constants.hpp"
+#include <algorithm>
+#include <cstdint>
+#include <limits>
+#include <unordered_map>
+#include <vector>
+
+#include "barretenberg/aztec/aztec_constants.hpp"
+#include "barretenberg/common/assert.hpp"
+#include "barretenberg/vm2/common/field.hpp"
 #include "barretenberg/vm2/generated/columns.hpp"
 #include "barretenberg/vm2/generated/relations/lookups_public_data_check.hpp"
 #include "barretenberg/vm2/generated/relations/lookups_public_data_squash.hpp"
@@ -8,6 +16,7 @@
 #include "barretenberg/vm2/generated/relations/perms_sstore.hpp"
 #include "barretenberg/vm2/generated/relations/perms_tx.hpp"
 #include "barretenberg/vm2/simulation/events/public_data_tree_check_event.hpp"
+#include "barretenberg/vm2/simulation/lib/db_types.hpp"
 #include "barretenberg/vm2/tracegen/lib/discard_reconstruction.hpp"
 #include "barretenberg/vm2/tracegen/lib/interaction_def.hpp"
 
@@ -25,7 +34,18 @@ struct EventWithDiscard {
     bool discard;
 };
 
-void process_public_data_tree_check_trace(const std::vector<EventWithDiscard>& events_with_metadata,
+/**
+ * @brief Populate the public_data_check columns from sorted read/write events.
+ *
+ * Iterates over the events, computing derived columns (existence flags, updated low leaf,
+ * insertion data, write indices, squashing results) and writing them into the trace.
+ *
+ * @param events_with_discard Events with discard metadata, sorted by execution_id (clk).
+ * @param first_write_per_slot Map from leaf_slot to the execution_id of its first non-discarded write.
+ * @param last_value_per_slot Map from leaf_slot to the value of its last non-discarded write.
+ * @param trace The trace container to populate.
+ */
+void process_public_data_tree_check_trace(const std::vector<EventWithDiscard>& events_with_discard,
                                           const std::unordered_map<FF, uint32_t>& first_write_per_slot,
                                           const std::unordered_map<FF, FF>& last_value_per_slot,
                                           TraceContainer& trace)
@@ -37,10 +57,10 @@ void process_public_data_tree_check_trace(const std::vector<EventWithDiscard>& e
 
     uint32_t write_idx = AVM_PUBLIC_INPUTS_AVM_ACCUMULATED_DATA_PUBLIC_DATA_WRITES_ROW_IDX;
 
-    for (size_t i = 0; i < events_with_metadata.size(); i++) {
-        bool end = i == events_with_metadata.size() - 1;
-        const auto& event = events_with_metadata[i].event;
-        const bool discard = events_with_metadata[i].discard;
+    for (size_t i = 0; i < events_with_discard.size(); i++) {
+        bool end = i == events_with_discard.size() - 1;
+        const auto& event = events_with_discard[i].event;
+        const bool discard = events_with_discard[i].discard;
 
         bool exists = event.low_leaf_preimage.leaf.slot == event.leaf_slot;
         FF slot_low_leaf_slot_diff = event.leaf_slot - event.low_leaf_preimage.leaf.slot;
@@ -58,7 +78,7 @@ void process_public_data_tree_check_trace(const std::vector<EventWithDiscard>& e
         bool protocol_write = event.execution_id == std::numeric_limits<uint32_t>::max();
         bool should_insert = !exists && write;
         bool nondiscarded_write = write && !discard;
-        bool should_write_to_public_inputs =
+        bool sel_write_to_public_inputs =
             nondiscarded_write && first_write_per_slot.at(event.leaf_slot) == event.execution_id;
         FF final_value = nondiscarded_write ? last_value_per_slot.at(event.leaf_slot) : 0;
 
@@ -76,11 +96,11 @@ void process_public_data_tree_check_trace(const std::vector<EventWithDiscard>& e
             new_leaf_hash = event.write_data->new_leaf_hash;
         }
         uint32_t clk = event.execution_id;
-        uint32_t clk_diff = end ? 0 : events_with_metadata[i + 1].event.execution_id - clk;
+        uint32_t clk_diff = end ? 0 : events_with_discard[i + 1].event.execution_id - clk;
 
         uint32_t public_data_writes_length = write_idx -
                                              AVM_PUBLIC_INPUTS_AVM_ACCUMULATED_DATA_PUBLIC_DATA_WRITES_ROW_IDX +
-                                             static_cast<uint32_t>(should_write_to_public_inputs);
+                                             static_cast<uint32_t>(sel_write_to_public_inputs);
 
         trace.set(row,
                   { {
@@ -121,24 +141,36 @@ void process_public_data_tree_check_trace(const std::vector<EventWithDiscard>& e
                       { C::public_data_check_tree_height, PUBLIC_DATA_TREE_HEIGHT },
                       { C::public_data_check_const_three, 3 },
                       { C::public_data_check_const_four, 4 },
+                      { C::public_data_check_merkle_hash_separator, DOM_SEP__PUBLIC_DATA_MERKLE },
                       { C::public_data_check_updated_low_leaf_hash, updated_low_leaf_hash },
                       { C::public_data_check_should_insert, should_insert },
                       { C::public_data_check_new_leaf_hash, new_leaf_hash },
                       { C::public_data_check_write_idx, write_idx },
                       { C::public_data_check_non_discarded_write, nondiscarded_write },
-                      { C::public_data_check_should_write_to_public_inputs, should_write_to_public_inputs },
+                      { C::public_data_check_sel_write_to_public_inputs, sel_write_to_public_inputs },
                       { C::public_data_check_final_value, final_value },
                       { C::public_data_check_public_data_writes_length, public_data_writes_length },
                       { C::public_data_check_length_pi_idx,
                         AVM_PUBLIC_INPUTS_AVM_ACCUMULATED_DATA_ARRAY_LENGTHS_PUBLIC_DATA_WRITES_ROW_IDX },
                   } });
         row++;
-        if (should_write_to_public_inputs) {
+        if (sel_write_to_public_inputs) {
             write_idx++;
         }
     }
 }
 
+/**
+ * @brief Populate the public_data_squash columns from non-discarded writes.
+ *
+ * Writes are sorted by (leaf_slot, execution_id). For consecutive events with the same slot,
+ * the clock difference is range-checked. For slot transitions, an ff_gt event is looked up.
+ *
+ * @param nondiscarded_writes Non-discarded write events, sorted by (leaf_slot, execution_id).
+ * @param first_write_per_slot Map from leaf_slot to the execution_id of its first non-discarded write.
+ * @param last_value_per_slot Map from leaf_slot to the value of its last non-discarded write.
+ * @param trace The trace container to populate.
+ */
 void process_squashing_trace(const std::vector<PublicDataTreeReadWriteEvent>& nondiscarded_writes,
                              const std::unordered_map<FF, uint32_t>& first_write_per_slot,
                              const std::unordered_map<FF, FF>& last_value_per_slot,
@@ -165,7 +197,8 @@ void process_squashing_trace(const std::vector<PublicDataTreeReadWriteEvent>& no
             if (event.leaf_slot == next_event.leaf_slot) {
                 BB_ASSERT_LT(
                     event.execution_id, next_event.execution_id, "Execution id is not less than next execution id");
-                clk_diff = next_event.execution_id - event.execution_id;
+                // We check strictly increasing clk diff in the squash trace.
+                clk_diff = next_event.execution_id - event.execution_id - 1;
                 check_clock = true;
             } else {
                 BB_ASSERT_LT(static_cast<uint256_t>(event.leaf_slot),
@@ -175,7 +208,7 @@ void process_squashing_trace(const std::vector<PublicDataTreeReadWriteEvent>& no
             }
         }
 
-        bool should_write_to_public_inputs = first_write_per_slot.at(event.leaf_slot) == event.execution_id;
+        bool sel_write_to_public_inputs = first_write_per_slot.at(event.leaf_slot) == event.execution_id;
         FF final_value = last_value_per_slot.at(event.leaf_slot);
 
         trace.set(row,
@@ -184,7 +217,7 @@ void process_squashing_trace(const std::vector<PublicDataTreeReadWriteEvent>& no
                       { C::public_data_squash_leaf_slot, event.leaf_slot },
                       { C::public_data_squash_value, event.value },
                       { C::public_data_squash_clk, clk },
-                      { C::public_data_squash_write_to_public_inputs, should_write_to_public_inputs },
+                      { C::public_data_squash_write_to_public_inputs, sel_write_to_public_inputs },
                       { C::public_data_squash_leaf_slot_increase, leaf_slot_increase },
                       { C::public_data_squash_check_clock, check_clock },
                       { C::public_data_squash_clk_diff_lo, static_cast<uint16_t>(clk_diff) },
@@ -197,40 +230,51 @@ void process_squashing_trace(const std::vector<PublicDataTreeReadWriteEvent>& no
 
 } // namespace
 
+/**
+ * @brief Process the public data tree check events and populate the relevant columns in the trace.
+ *
+ * Reconstructs discard status from checkpoint events, sorts events by clk for the main trace
+ * and by (leaf_slot, clk) for the squash trace, then delegates to the two sub-trace builders.
+ *
+ * @param events The container of PublicDataTreeCheckEvent variants (read/write events and checkpoint markers).
+ * @param trace The trace container to populate.
+ */
 void PublicDataTreeTraceBuilder::process(
     const simulation::EventEmitterInterface<simulation::PublicDataTreeCheckEvent>::Container& events,
     TraceContainer& trace)
 {
-    std::vector<EventWithDiscard> events_with_metadata;
-    std::unordered_map<FF, uint32_t> first_write_per_slot;
-    std::unordered_map<FF, FF> last_value_per_slot;
+    std::vector<EventWithDiscard> events_with_discard;
+    std::unordered_map<FF, uint32_t> first_write_clk_per_slot;
+    std::unordered_map<FF, FF> last_write_value_per_slot;
 
-    events_with_metadata.reserve(events.size());
+    events_with_discard.reserve(events.size());
+    // Initial order of events will be chronological order.
     process_with_discard(events, [&](const simulation::PublicDataTreeReadWriteEvent& event, bool discard) {
-        events_with_metadata.push_back({ event, discard });
+        events_with_discard.push_back({ event, discard });
         if (!discard && event.write_data.has_value()) {
-            if (!first_write_per_slot.contains(event.leaf_slot)) {
-                first_write_per_slot[event.leaf_slot] = event.execution_id;
+            if (!first_write_clk_per_slot.contains(event.leaf_slot)) {
+                first_write_clk_per_slot[event.leaf_slot] = event.execution_id;
             }
-            last_value_per_slot[event.leaf_slot] = event.value;
+            last_write_value_per_slot[event.leaf_slot] = event.value;
         }
     });
 
-    // Sort by clk in ascending order (reads will have clk=0)
-    std::ranges::sort(events_with_metadata.begin(),
-                      events_with_metadata.end(),
+    // Sort by clk in ascending order (reads will come with clk=0)
+    std::ranges::sort(events_with_discard.begin(),
+                      events_with_discard.end(),
                       [](const EventWithDiscard& a, const EventWithDiscard& b) {
                           return a.event.execution_id < b.event.execution_id;
                       });
 
-    process_public_data_tree_check_trace(events_with_metadata, first_write_per_slot, last_value_per_slot, trace);
+    process_public_data_tree_check_trace(
+        events_with_discard, first_write_clk_per_slot, last_write_value_per_slot, trace);
 
     std::vector<PublicDataTreeReadWriteEvent> nondiscarded_writes;
-    nondiscarded_writes.reserve(events_with_metadata.size());
-    // Retain only nondiscarded writes
-    for (const auto& event_with_metadata : events_with_metadata) {
-        if (event_with_metadata.event.write_data.has_value() && !event_with_metadata.discard) {
-            nondiscarded_writes.push_back(event_with_metadata.event);
+    nondiscarded_writes.reserve(events_with_discard.size());
+    // Use only nondiscarded writes
+    for (const auto& event_with_discard : events_with_discard) {
+        if (event_with_discard.event.write_data.has_value() && !event_with_discard.discard) {
+            nondiscarded_writes.push_back(event_with_discard.event);
         }
     }
 
@@ -244,38 +288,45 @@ void PublicDataTreeTraceBuilder::process(
                           return static_cast<uint256_t>(a.leaf_slot) < static_cast<uint256_t>(b.leaf_slot);
                       });
 
-    process_squashing_trace(nondiscarded_writes, first_write_per_slot, last_value_per_slot, trace);
+    process_squashing_trace(nondiscarded_writes, first_write_clk_per_slot, last_write_value_per_slot, trace);
 
     // Batch invert the columns.
     trace.invert_columns(
         { { Column::public_data_check_leaf_slot_low_leaf_slot_diff_inv, Column::public_data_check_next_slot_inv } });
 }
 
+// This is a sorted trace, so we can't use sequential lookups. Instead, we'll use generic lookups and clk indexed ones
+// for the ones targeting precomputed or public inputs.
 const InteractionDefinition PublicDataTreeTraceBuilder::interactions =
     InteractionDefinition()
         // Public data read/write
-        .add<lookup_public_data_check_silo_poseidon2_settings, InteractionType::LookupGeneric>()
-        .add<lookup_public_data_check_low_leaf_slot_validation_settings, InteractionType::LookupGeneric>()
-        .add<lookup_public_data_check_low_leaf_next_slot_validation_settings, InteractionType::LookupGeneric>()
-        .add<lookup_public_data_check_low_leaf_poseidon2_0_settings, InteractionType::LookupGeneric>()
-        .add<lookup_public_data_check_low_leaf_poseidon2_1_settings, InteractionType::LookupGeneric>()
-        .add<lookup_public_data_check_updated_low_leaf_poseidon2_0_settings, InteractionType::LookupGeneric>()
-        .add<lookup_public_data_check_updated_low_leaf_poseidon2_1_settings, InteractionType::LookupGeneric>()
-        .add<lookup_public_data_check_low_leaf_merkle_check_settings, InteractionType::LookupGeneric>()
-        .add<lookup_public_data_check_new_leaf_poseidon2_0_settings, InteractionType::LookupGeneric>()
-        .add<lookup_public_data_check_new_leaf_poseidon2_1_settings, InteractionType::LookupGeneric>()
-        .add<lookup_public_data_check_new_leaf_merkle_check_settings, InteractionType::LookupGeneric>()
+        .add<InteractionType::LookupGeneric, lookup_public_data_check_silo_poseidon2_settings>()
+        .add<InteractionType::LookupGeneric, lookup_public_data_check_low_leaf_slot_validation_settings>()
+        .add<InteractionType::LookupGeneric, lookup_public_data_check_low_leaf_next_slot_validation_settings>()
+        .add<InteractionType::LookupGeneric, lookup_public_data_check_low_leaf_poseidon2_0_settings>()
+        .add<InteractionType::LookupGeneric, lookup_public_data_check_low_leaf_poseidon2_1_settings>()
+        .add<InteractionType::LookupGeneric, lookup_public_data_check_updated_low_leaf_poseidon2_0_settings>()
+        .add<InteractionType::LookupGeneric, lookup_public_data_check_updated_low_leaf_poseidon2_1_settings>()
+        .add<InteractionType::LookupGeneric, lookup_public_data_check_low_leaf_merkle_check_settings>()
+        .add<InteractionType::LookupGeneric, lookup_public_data_check_new_leaf_poseidon2_0_settings>()
+        .add<InteractionType::LookupGeneric, lookup_public_data_check_new_leaf_poseidon2_1_settings>()
+        .add<InteractionType::LookupGeneric, lookup_public_data_check_new_leaf_merkle_check_settings>()
         .add<InteractionType::MultiPermutation, perm_sstore_storage_write_settings, perm_tx_balance_update_settings>(
             Column::public_data_check_write)
-        .add<perm_public_data_check_squashing_settings, InteractionType::Permutation>()
-        .add<lookup_public_data_check_write_writes_length_to_public_inputs_settings,
-             InteractionType::LookupIntoIndexedByClk>()
-        .add<lookup_public_data_squash_leaf_slot_increase_ff_gt_settings, InteractionType::LookupGeneric>()
-        .add<lookup_public_data_squash_clk_diff_range_lo_settings, InteractionType::LookupIntoIndexedByClk>()
-        .add<lookup_public_data_squash_clk_diff_range_hi_settings, InteractionType::LookupIntoIndexedByClk>()
-        .add<lookup_public_data_check_clk_diff_range_lo_settings, InteractionType::LookupIntoIndexedByClk>()
-        .add<lookup_public_data_check_clk_diff_range_hi_settings, InteractionType::LookupIntoIndexedByClk>()
-        .add<lookup_public_data_check_write_public_data_to_public_inputs_settings,
-             InteractionType::LookupIntoIndexedByClk>();
+        .add<InteractionType::Permutation, perm_public_data_check_squashing_settings>()
+        .add<InteractionType::LookupIntoIndexedByRow,
+             lookup_public_data_check_write_writes_length_to_public_inputs_settings>()
+        .add<InteractionType::LookupIntoIndexedByRow, lookup_public_data_check_clk_diff_range_lo_settings>(
+            Column::precomputed_sel_range_16)
+        .add<InteractionType::LookupIntoIndexedByRow, lookup_public_data_check_clk_diff_range_hi_settings>(
+            Column::precomputed_sel_range_16)
+        .add<InteractionType::LookupIntoIndexedByRow,
+             lookup_public_data_check_write_public_data_to_public_inputs_settings>()
+        // Public data squash
+        .add<InteractionType::LookupGeneric, lookup_public_data_squash_leaf_slot_increase_ff_gt_settings>()
+        .add<InteractionType::LookupIntoIndexedByRow, lookup_public_data_squash_clk_diff_range_lo_settings>(
+            Column::precomputed_sel_range_16)
+        .add<InteractionType::LookupIntoIndexedByRow, lookup_public_data_squash_clk_diff_range_hi_settings>(
+            Column::precomputed_sel_range_16);
 
 } // namespace bb::avm2::tracegen

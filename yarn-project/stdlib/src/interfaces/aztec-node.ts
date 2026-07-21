@@ -1,13 +1,17 @@
 import { ARCHIVE_HEIGHT, L1_TO_L2_MSG_TREE_HEIGHT, NOTE_HASH_TREE_HEIGHT } from '@aztec/constants';
 import { type L1ContractAddresses, L1ContractAddressesSchema } from '@aztec/ethereum/l1-contract-addresses';
 import {
-  BlockNumber,
+  type BlockNumber,
   BlockNumberPositiveSchema,
   BlockNumberSchema,
+  type CheckpointNumber,
   CheckpointNumberPositiveSchema,
-  EpochNumber,
+  CheckpointNumberSchema,
+  type CheckpointProposalHash,
+  type EpochNumber,
   EpochNumberSchema,
   type SlotNumber,
+  SlotNumberSchema,
 } from '@aztec/foundation/branded-types';
 import type { Fr } from '@aztec/foundation/curves/bn254';
 import type { EthAddress } from '@aztec/foundation/eth-address';
@@ -17,13 +21,18 @@ import { MembershipWitness, SiblingPath } from '@aztec/foundation/trees';
 import { z } from 'zod';
 
 import type { AztecAddress } from '../aztec-address/index.js';
+import { type BlockData, BlockDataSchema } from '../block/block_data.js';
 import { BlockHash } from '../block/block_hash.js';
-import { type BlockParameter, BlockParameterSchema } from '../block/block_parameter.js';
-import { CheckpointedL2Block } from '../block/checkpointed_l2_block.js';
+import { type BlockParameter, BlockParameterSchema, BlockTagWithoutLatestSchema } from '../block/block_parameter.js';
 import { type DataInBlock, dataInBlockSchemaFor } from '../block/in_block.js';
-import { L2Block } from '../block/l2_block.js';
-import { type L2BlockSource, type L2Tips, L2TipsSchema } from '../block/l2_block_source.js';
-import { PublishedCheckpoint } from '../checkpoint/published_checkpoint.js';
+import {
+  type CheckpointsQuery,
+  CheckpointsQuerySchema,
+  type L2BlockTag,
+  type L2Tips,
+  L2TipsSchema,
+} from '../block/l2_block_source.js';
+import { type CheckpointData, CheckpointDataSchema } from '../checkpoint/checkpoint_data.js';
 import {
   type ContractClassPublic,
   ContractClassPublicSchema,
@@ -34,20 +43,32 @@ import {
   type ProtocolContractAddresses,
   ProtocolContractAddressesSchema,
 } from '../contract/index.js';
+import { type L1RollupConstants, L1RollupConstantsSchema } from '../epoch-helpers/index.js';
+import { ManaUsageEstimate } from '../gas/fee_math.js';
 import { GasFees } from '../gas/gas_fees.js';
-import { SiloedTag, Tag, TxScopedL2Log } from '../logs/index.js';
-import { type LogFilter, LogFilterSchema } from '../logs/log_filter.js';
+import { type LogResult, LogResultSchema } from '../logs/log_result.js';
+import {
+  type PrivateLogsQuery,
+  PrivateLogsQuerySchema,
+  type PublicLogsQuery,
+  PublicLogsQuerySchema,
+} from '../logs/logs_query.js';
+import { type L2ToL1MembershipWitness, L2ToL1MembershipWitnessSchema } from '../messaging/l2_to_l1_membership.js';
+import { CheckpointAttestation } from '../p2p/checkpoint_attestation.js';
 import { type ApiSchemaFor, optional, schemas } from '../schemas/schemas.js';
 import { MerkleTreeId } from '../trees/merkle_tree_id.js';
 import { NullifierMembershipWitness } from '../trees/nullifier_membership_witness.js';
 import { PublicDataWitness } from '../trees/public_data_witness.js';
 import {
-  BlockHeader,
+  type GetTxReceiptOptions,
+  GetTxReceiptOptionsSchema,
   type IndexedTxEffect,
   PublicSimulationOutput,
+  SimulationOverrides,
   Tx,
   TxHash,
-  TxReceipt,
+  type TxReceipt,
+  TxReceiptSchema,
   type TxValidationResult,
   TxValidationResultSchema,
   indexedTxSchema,
@@ -58,27 +79,33 @@ import { type ComponentsVersions, getVersioningResponseHandler } from '../versio
 import { type AllowedElement, AllowedElementSchema } from './allowed_element.js';
 import { MAX_RPC_BLOCKS_LEN, MAX_RPC_CHECKPOINTS_LEN, MAX_RPC_LEN, MAX_RPC_TXS_LEN } from './api_limit.js';
 import {
-  type GetContractClassLogsResponse,
-  GetContractClassLogsResponseSchema,
-  type GetPublicLogsResponse,
-  GetPublicLogsResponseSchema,
-} from './get_logs_response.js';
+  type BlockIncludeOptions,
+  BlockIncludeOptionsSchema,
+  type BlockResponse,
+  BlockResponseSchema,
+  type BlocksIncludeOptions,
+  BlocksIncludeOptionsSchema,
+} from './block_response.js';
+import { type CheckpointTag, CheckpointTagSchema } from './chain_tips.js';
+import { type CheckpointParameter, CheckpointParameterSchema } from './checkpoint_parameter.js';
+import {
+  type CheckpointIncludeOptions,
+  CheckpointIncludeOptionsSchema,
+  type CheckpointResponse,
+  CheckpointResponseSchema,
+} from './checkpoint_response.js';
+import { type GetTxByHashOptions, GetTxByHashOptionsSchema } from './get_tx_by_hash_options.js';
+import { type PeerInfo, PeerInfoSchema, type ProposalsForSlot, ProposalsForSlotSchema } from './p2p.js';
 import { type WorldStateSyncStatus, WorldStateSyncStatusSchema } from './world_state.js';
+
+export type { GetTxByHashOptions } from './get_tx_by_hash_options.js';
+export { GetTxByHashOptionsSchema } from './get_tx_by_hash_options.js';
 
 /**
  * The aztec node.
  * We will probably implement the additional interfaces by means other than Aztec Node as it's currently a privacy leak
  */
-export interface AztecNode
-  extends Pick<
-    L2BlockSource,
-    'getBlocks' | 'getCheckpoints' | 'getBlockHeader' | 'getL2Tips' | 'getCheckpointedBlocks'
-  > {
-  /**
-   * Returns the tips of the L2 chain.
-   */
-  getL2Tips(): Promise<L2Tips>;
-
+export interface AztecNode {
   /**
    * Returns the sync status of the node's world state
    */
@@ -114,6 +141,7 @@ export interface AztecNode
    * @param referenceBlock - The block parameter (block number, block hash, or 'latest') at which to get the data.
    * @param nullifier - Nullifier we try to find the low nullifier witness for.
    * @returns The low nullifier membership witness (if found).
+   * @throws If the nullifier already exists in the tree, since non-inclusion cannot be proven.
    * @remarks Low nullifier witness can be used to perform a nullifier non-inclusion proof by leveraging the "linked
    * list structure" of leaves and proving that a lower nullifier is pointing to a bigger next value than the nullifier
    * we are trying to prove non-inclusion for.
@@ -172,19 +200,14 @@ export interface AztecNode
     l1ToL2Message: Fr,
   ): Promise<[bigint, SiblingPath<typeof L1_TO_L2_MSG_TREE_HEIGHT>] | undefined>;
 
-  /** Returns the L2 block number in which this L1 to L2 message becomes available, or undefined if not found. */
-  getL1ToL2MessageBlock(l1ToL2Message: Fr): Promise<BlockNumber | undefined>;
-
-  /**
-   * Returns whether an L1 to L2 message is synced by archiver.
-   * @param l1ToL2Message - The L1 to L2 message to check.
-   * @returns Whether the message is synced.
-   * @deprecated Use `getL1ToL2MessageBlock` instead. This method may return true even if the message is not ready to use.
-   */
-  isL1ToL2MessageSynced(l1ToL2Message: Fr): Promise<boolean>;
+  /** Returns the L2 checkpoint number in which this L1 to L2 message becomes available, or undefined if not found. */
+  getL1ToL2MessageCheckpoint(l1ToL2Message: Fr): Promise<CheckpointNumber | undefined>;
 
   /**
    * Returns all the L2 to L1 messages in an epoch.
+   *
+   * @deprecated Use {@link getL2ToL1MembershipWitness} to get an L2-to-L1 message witness directly.
+   *
    * @param epoch - The epoch at which to get the data.
    * @returns A nested array of the L2 to L1 messages in each tx of each block in each checkpoint in the epoch (empty
    * array if the epoch is not found).
@@ -192,43 +215,112 @@ export interface AztecNode
   getL2ToL1Messages(epoch: EpochNumber): Promise<Fr[][][][]>;
 
   /**
-   * Get a block specified by its block number or 'latest'.
-   * @param blockParameter - The block parameter (block number, block hash, or 'latest').
-   * @returns The requested block.
+   * Returns the L2-to-L1 membership witness for `message` emitted by tx `txHash`. The node selects
+   * the smallest partial-proof root on the Outbox that covers the tx's checkpoint and builds the
+   * witness against it.
+   *
+   * The node reads the Outbox roots lazily, pinned to its synced L1 block, so the witness reflects
+   * the node's synced view. Returns `undefined` if the tx isn't yet in a block/epoch or no covering
+   * root has landed on L1 as of the synced block.
+   *
+   * Caveat: cached roots that are sealed and L1-finalized are not re-validated. A reorg deeper than
+   * L1 finality could leave the node serving a witness against a no-longer-canonical root.
+   *
+   * @param txHash - The tx whose L2-to-L1 message we want a witness for.
+   * @param message - The message hash to prove inclusion of.
+   * @param messageIndexInTx - Optional index of the message within the tx's L2-to-L1 messages; pass
+   *   this when the same message hash appears multiple times in the tx.
    */
-  getBlock(blockParameter: BlockParameter): Promise<L2Block | undefined>;
+  getL2ToL1MembershipWitness(
+    txHash: TxHash,
+    message: Fr,
+    messageIndexInTx?: number,
+  ): Promise<L2ToL1MembershipWitness | undefined>;
 
   /**
-   * Get a block specified by its hash.
-   * @param blockHash - The block hash being requested.
-   * @returns The requested block.
+   * Returns the block number at a given block tag, or the latest proposed block number when
+   * `tip` is omitted.
    */
-  getBlockByHash(blockHash: BlockHash): Promise<L2Block | undefined>;
+  getBlockNumber(tip?: L2BlockTag): Promise<BlockNumber>;
 
   /**
-   * Get a block specified by its archive root.
-   * @param archive - The archive root being requested.
-   * @returns The requested block.
+   * Returns the checkpoint number at a given checkpoint tag, or the latest checkpointed number when
+   * `tip` is omitted. The proposed-but-unconfirmed checkpoint frontier is archiver-internal and not
+   * exposed over RPC, so `'proposed'` is not a valid checkpoint tag (see {@link CheckpointTag}).
    */
-  getBlockByArchive(archive: Fr): Promise<L2Block | undefined>;
+  getCheckpointNumber(tip?: CheckpointTag): Promise<CheckpointNumber>;
+
+  /** Returns the tips of the L2 chain. */
+  getChainTips(): Promise<L2Tips>;
+
+  /** Returns the rollup constants for the current chain. */
+  getL1Constants(): Promise<L1RollupConstants>;
 
   /**
-   * Method to fetch the latest block number synchronized by the node.
-   * @returns The block number.
+   * Returns the last L2 slot number for which the node has all L1 data needed to build the next checkpoint.
    */
-  getBlockNumber(): Promise<BlockNumber>;
+  getSyncedL2SlotNumber(): Promise<SlotNumber | undefined>;
 
   /**
-   * Fetches the latest proven block number.
-   * @returns The block number.
+   * Returns the last L2 epoch number that has been fully synchronized from L1.
    */
-  getProvenBlockNumber(): Promise<BlockNumber>;
+  getSyncedL2EpochNumber(): Promise<EpochNumber | undefined>;
+
+  /** Returns the latest L1 timestamp according to the archiver's synced L1 view. */
+  getSyncedL1Timestamp(): Promise<bigint | undefined>;
 
   /**
-   * Fetches the latest checkpointed block number.
-   * @returns The block number.
+   * Gets lightweight checkpoint metadata for a contiguous range or for an entire epoch.
+   * @param query - Either `{ from, limit }` or `{ epoch }`.
    */
-  getCheckpointedBlockNumber(): Promise<BlockNumber>;
+  getCheckpointsData(query: CheckpointsQuery): Promise<CheckpointData[]>;
+
+  /**
+   * Unified block fetch. Returns the block identified by `param`, with optional fields controlled
+   * by `options`.
+   * @param param - A block number, block hash, archive root, chain-tip name, or object variant.
+   * @param options - Narrowing options: `includeTransactions`, `includeL1PublishInfo`, `includeAttestations`.
+   */
+  getBlock<Opts extends BlockIncludeOptions = {}>(
+    param: BlockParameter,
+    options?: Opts,
+  ): Promise<BlockResponse<Opts> | undefined>;
+
+  /**
+   * Lightweight block-metadata fetch. Returns the block identified by `param` without transaction
+   * bodies or other optional context. Cheaper than `getBlock` for header-only access.
+   * @param param - A block number, block hash, archive root, chain-tip name, or object variant.
+   */
+  getBlockData(param: BlockParameter): Promise<BlockData | undefined>;
+
+  /**
+   * Returns up to `limit` blocks starting from `from`, projected to the {@link BlockResponse}
+   * shape determined by `options`.
+   */
+  getBlocks<Opts extends BlocksIncludeOptions = {}>(
+    from: BlockNumber,
+    limit: number,
+    options?: Opts,
+  ): Promise<BlockResponse<Opts>[]>;
+
+  /**
+   * Unified checkpoint fetch. Returns the checkpoint identified by `param`, with optional fields
+   * controlled by `options`.
+   */
+  getCheckpoint<Opts extends CheckpointIncludeOptions = {}>(
+    param: CheckpointParameter,
+    options?: Opts,
+  ): Promise<CheckpointResponse<Opts> | undefined>;
+
+  /**
+   * Returns up to `limit` checkpoints starting from `from`, projected to the
+   * {@link CheckpointResponse} shape determined by `options`.
+   */
+  getCheckpoints<Opts extends CheckpointIncludeOptions = {}>(
+    from: CheckpointNumber,
+    limit: number,
+    options?: Opts,
+  ): Promise<CheckpointResponse<Opts>[]>;
 
   /**
    * Method to determine if the node is ready to accept transactions.
@@ -244,18 +336,19 @@ export interface AztecNode
   getNodeInfo(): Promise<NodeInfo>;
 
   /**
-   * Method to request blocks. Will attempt to return all requested blocks but will return only those available.
-   * @param from - The start of the range of blocks to return.
-   * @param limit - The maximum number of blocks to return.
-   * @returns The blocks requested.
-   */
-  getBlocks(from: BlockNumber, limit: number): Promise<L2Block[]>;
-
-  /**
    * Method to fetch the current min fees.
    * @returns The current min fees.
    */
   getCurrentMinFees(): Promise<GasFees>;
+
+  /**
+   * Returns predicted min fees for the current slot and next N slots.
+   * Each entry accounts for the L1 gas oracle transition and congestion growth based on the
+   * given mana usage estimate. Defaults to target usage (steady state).
+   * @param manaUsage - Expected mana usage per checkpoint (none, target, or limit).
+   * @returns An array of GasFees with current min fees first, followed by one entry per predicted slot.
+   */
+  getPredictedMinFees(manaUsage?: ManaUsageEstimate): Promise<GasFees[]>;
 
   /**
    * Method to fetch the current max priority fee of txs in the mempool.
@@ -293,58 +386,25 @@ export interface AztecNode
   getProtocolContractAddresses(): Promise<ProtocolContractAddresses>;
 
   /**
-   * Registers contract function signatures for debugging purposes.
-   * @param functionSignatures - An array of function signatures to register by selector.
+   * Gets private logs matching the given tags. Returns one inner array per element of `query.tags`, in
+   * input order. An empty inner array means no logs matched that tag. Set `query.includeEffects` to also
+   * receive the tx's note hashes and nullifiers.
+   *
+   * The return type is the widest {@link LogResult} shape — `noteHashes`/`nullifiers` are typed as
+   * optional even when `includeEffects: true` is set. JSON-RPC validation can't preserve a stricter
+   * narrowing across the wire. Callers that want a narrowed type at the call site should use the typed
+   * helpers in `pxe/src/tagging/get_all_logs_by_tags.ts`.
    */
-  registerContractFunctionSignatures(functionSignatures: string[]): Promise<void>;
+  getPrivateLogsByTags(query: PrivateLogsQuery): Promise<LogResult[][]>;
 
   /**
-   * Gets public logs based on the provided filter.
-   * @param filter - The filter to apply to the logs.
-   * @returns The requested logs.
+   * Gets public logs matching the given tags for the given contract. Returns one inner array per element
+   * of `query.tags`, in input order. An empty inner array means no logs matched that tag. Set
+   * `query.includeEffects` to also receive the tx's note hashes and nullifiers.
+   *
+   * The return type is the widest {@link LogResult} shape — see {@link getPrivateLogsByTags}.
    */
-  getPublicLogs(filter: LogFilter): Promise<GetPublicLogsResponse>;
-
-  /**
-   * Gets contract class logs based on the provided filter.
-   * @param filter - The filter to apply to the logs.
-   * @returns The requested logs.
-   */
-  getContractClassLogs(filter: LogFilter): Promise<GetContractClassLogsResponse>;
-
-  /**
-   * Gets private logs that match any of the `tags`. For each tag, an array of matching logs is returned. An empty
-   * array implies no logs match that tag.
-   * @param tags - The tags to search for.
-   * @param page - The page number (0-indexed) for pagination.
-   * @param referenceBlock - Optional block hash used to ensure the block still exists before logs are retrieved.
-   * This block is expected to represent the latest block to which the client has synced (called anchor block in PXE).
-   * If specified and the block is not found, an error is thrown. This helps detect reorgs, which could result in
-   * undefined behavior in the client's code.
-   * @returns An array of log arrays, one per tag. Returns at most 10 logs per tag per page. If 10 logs are returned
-   * for a tag, the caller should fetch the next page to check for more logs.
-   */
-  getPrivateLogsByTags(tags: SiloedTag[], page?: number, referenceBlock?: BlockHash): Promise<TxScopedL2Log[][]>;
-
-  /**
-   * Gets public logs that match any of the `tags` from the specified contract. For each tag, an array of matching
-   * logs is returned. An empty array implies no logs match that tag.
-   * @param contractAddress - The contract address to search logs for.
-   * @param tags - The tags to search for.
-   * @param page - The page number (0-indexed) for pagination.
-   * @param referenceBlock - Optional block hash used to ensure the block still exists before logs are retrieved.
-   * This block is expected to represent the latest block to which the client has synced (called anchor block in PXE).
-   * If specified and the block is not found, an error is thrown. This helps detect reorgs, which could result in
-   * undefined behavior in the client's code.
-   * @returns An array of log arrays, one per tag. Returns at most 10 logs per tag per page. If 10 logs are returned
-   * for a tag, the caller should fetch the next page to check for more logs.
-   */
-  getPublicLogsByTagsFromContract(
-    contractAddress: AztecAddress,
-    tags: Tag[],
-    page?: number,
-    referenceBlock?: BlockHash,
-  ): Promise<TxScopedL2Log[][]>;
+  getPublicLogsByTags(query: PublicLogsQuery): Promise<LogResult[][]>;
 
   /**
    * Method to submit a transaction to the p2p pool.
@@ -354,27 +414,37 @@ export interface AztecNode
   sendTx(tx: Tx): Promise<void>;
 
   /**
-   * Fetches a transaction receipt for a given transaction hash. Returns a mined receipt if it was added
-   * to the chain, a pending receipt if it's still in the mempool of the connected Aztec node, or a dropped
-   * receipt if not found in the connected Aztec node.
+   * Fetches a transaction receipt for a given transaction hash. Always resolves to one of the lifecycle variants of
+   * the {@link TxReceipt} union: a {@link MinedTxReceipt} if the tx was included in a block, a {@link PendingTxReceipt}
+   * if it's still in the mempool of the connected Aztec node, or a {@link DroppedTxReceipt} if not found.
    *
    * @param txHash - The transaction hash.
+   * @param options - Optional flags controlling which extra data is attached: `includeTxEffect` attaches the full
+   * {@link TxEffect} to a mined receipt, `includePendingTx` attaches the pending {@link Tx} to a pending receipt, and
+   * `includeProof` keeps the proof on that attached pending tx (only meaningful with `includePendingTx`).
    * @returns A receipt of the transaction.
    */
-  getTxReceipt(txHash: TxHash): Promise<TxReceipt>;
+  getTxReceipt<TGetTxReceiptOptions extends GetTxReceiptOptions = {}>(
+    txHash: TxHash,
+    options?: TGetTxReceiptOptions,
+  ): Promise<TxReceipt<TGetTxReceiptOptions>>;
 
   /**
    * Gets a tx effect.
    * @param txHash - The hash of the tx corresponding to the tx effect.
    * @returns The requested tx effect with block info (or undefined if not found).
+   * @deprecated Use `getTxReceipt(txHash, { includeTxEffect: true })` and read the `.txEffect` field instead.
    */
   getTxEffect(txHash: TxHash): Promise<IndexedTxEffect | undefined>;
 
   /**
-   * Method to retrieve pending txs.
+   * Method to retrieve pending txs. The txs' proofs are stripped unless `includeProof` is set.
+   * @param limit - The number of items to return.
+   * @param after - The last known pending tx. Used for pagination.
+   * @param options - Options for the returned txs (eg whether to include their proofs).
    * @returns The pending txs.
    */
-  getPendingTxs(limit?: number, after?: TxHash): Promise<Tx[]>;
+  getPendingTxs(limit?: number, after?: TxHash, options?: GetTxByHashOptions): Promise<Tx[]>;
 
   /**
    * Retrieves the number of pending txs
@@ -383,18 +453,20 @@ export interface AztecNode
   getPendingTxCount(): Promise<number>;
 
   /**
-   * Method to retrieve a single pending tx.
+   * Method to retrieve a single pending tx. The tx's proof is stripped unless `includeProof` is set.
    * @param txHash - The transaction hash to return.
+   * @param options - Options for the returned tx (eg whether to include its proof).
    * @returns The pending tx if it exists.
    */
-  getTxByHash(txHash: TxHash): Promise<Tx | undefined>;
+  getTxByHash(txHash: TxHash, options?: GetTxByHashOptions): Promise<Tx | undefined>;
 
   /**
-   * Method to retrieve multiple pending txs.
+   * Method to retrieve multiple pending txs. The txs' proofs are stripped unless `includeProof` is set.
    * @param txHash - The transaction hashes to return.
+   * @param options - Options for the returned txs (eg whether to include their proofs).
    * @returns The pending txs if exist.
    */
-  getTxsByHash(txHashes: TxHash[]): Promise<Tx[]>;
+  getTxsByHash(txHashes: TxHash[], options?: GetTxByHashOptions): Promise<Tx[]>;
 
   /**
    * Gets the storage value at the given contract storage slot.
@@ -408,20 +480,6 @@ export interface AztecNode
    * @returns Storage value at the given contract slot.
    */
   getPublicStorageAt(referenceBlock: BlockParameter, contract: AztecAddress, slot: Fr): Promise<Fr>;
-
-  /**
-   * Returns the block header for a given block number, block hash, or 'latest'.
-   * @param block - The block parameter (block number, block hash, or 'latest'). Defaults to 'latest'.
-   * @returns The requested block header.
-   */
-  getBlockHeader(block?: BlockParameter): Promise<BlockHeader | undefined>;
-
-  /**
-   * Get a block header specified by its archive root.
-   * @param archive - The archive root being requested.
-   * @returns The requested block header.
-   */
-  getBlockHeaderByArchive(archive: Fr): Promise<BlockHeader | undefined>;
 
   /** Returns stats for validators if enabled. */
   getValidatorsStats(): Promise<ValidatorsStats>;
@@ -437,13 +495,20 @@ export interface AztecNode
    * Simulates the public part of a transaction with the current state.
    * This currently just checks that the transaction execution succeeds.
    * @param tx - The transaction to simulate.
+   * @param skipFeeEnforcement - If true, fee enforcement is skipped.
+   * @param overrides - Optional pre-simulation overrides applied to the ephemeral fork and contract DB
+   * (publicStorage writes, contract instance overrides).
    **/
-  simulatePublicCalls(tx: Tx, skipFeeEnforcement?: boolean): Promise<PublicSimulationOutput>;
+  simulatePublicCalls(
+    tx: Tx,
+    skipFeeEnforcement?: boolean,
+    overrides?: SimulationOverrides,
+  ): Promise<PublicSimulationOutput>;
 
   /**
    * Returns true if the transaction is valid for inclusion at the current state. Valid transactions can be
    * made invalid by *other* transactions if e.g. they emit the same nullifiers, or come become invalid
-   * due to e.g. the include_by_timestamp property.
+   * due to e.g. the expiration_timestamp property.
    * @param tx - The transaction to validate for correctness.
    * @param isSimulation - True if the transaction is a simulated one without generated proofs. (Optional)
    * @param skipFeeEnforcement - True if the validation of the fee should be skipped. Useful when the simulation is for estimating fee (Optional)
@@ -457,10 +522,18 @@ export interface AztecNode
   getContractClass(id: Fr): Promise<ContractClassPublic | undefined>;
 
   /**
-   * Returns a publicly deployed contract instance given its address.
+   * Returns a publicly deployed contract instance given its address. Its current class id is resolved as of the given
+   * reference block.
+   *
+   * Returns `undefined` if the instance has not been published (i.e. `publish_for_public_execution` was never called
+   * on the `ContractInstanceRegistry`). A contract whose class has been updated will never return `undefined`:
+   * scheduling an update requires the contract's deployment nullifier, which is only emitted by publishing, so any
+   * updatable contract has necessarily been published.
    * @param address - Address of the deployed contract.
+   * @param referenceBlock - The block parameter (block number, block hash, or 'latest') at which to get the data.
+   *        Defaults to 'latest'.
    */
-  getContract(address: AztecAddress): Promise<ContractInstanceWithAddress | undefined>;
+  getContract(address: AztecAddress, referenceBlock?: BlockParameter): Promise<ContractInstanceWithAddress | undefined>;
 
   /**
    * Returns the ENR of this node for peer discovery, if available.
@@ -472,176 +545,249 @@ export interface AztecNode
    * @returns The list of allowed elements.
    */
   getAllowedPublicSetup(): Promise<AllowedElement[]>;
+
+  /**
+   * Returns info for all connected, dialing, and cached peers. Only available when P2P is enabled.
+   * @param includePending - If true, also include peers in the pending state.
+   */
+  getPeers(includePending?: boolean): Promise<PeerInfo[]>;
+
+  /**
+   * Queries the attestation pool for checkpoint attestations for the given slot.
+   * @param slot - The slot to query.
+   * @param proposalPayloadHash - Hex-encoded keccak256 of the target proposal's signed payload hash.
+   *        When provided, only attestations whose payload hash matches are returned.
+   *        When omitted, all attestations for the slot are returned.
+   */
+  getCheckpointAttestationsForSlot(
+    slot: SlotNumber,
+    proposalPayloadHash?: CheckpointProposalHash,
+  ): Promise<CheckpointAttestation[]>;
+
+  /**
+   * Returns block and checkpoint proposals retained in the attestation pool for the given slot.
+   * Only available when P2P is enabled.
+   */
+  getProposalsForSlot(slot: SlotNumber): Promise<ProposalsForSlot>;
 }
 
-const MAX_SIGNATURES_PER_REGISTER_CALL = 100;
-const MAX_SIGNATURE_LEN = 10000;
-
 export const AztecNodeApiSchema: ApiSchemaFor<AztecNode> = {
-  getL2Tips: z.function().args().returns(L2TipsSchema),
+  getWorldStateSyncStatus: z.function({ input: z.tuple([]), output: WorldStateSyncStatusSchema }),
 
-  getWorldStateSyncStatus: z.function().args().returns(WorldStateSyncStatusSchema),
+  findLeavesIndexes: z.function({
+    input: z.tuple([BlockParameterSchema, z.nativeEnum(MerkleTreeId), z.array(schemas.Fr).max(MAX_RPC_LEN)]),
+    output: z.array(optional(dataInBlockSchemaFor(schemas.BigInt))),
+  }),
 
-  findLeavesIndexes: z
-    .function()
-    .args(BlockParameterSchema, z.nativeEnum(MerkleTreeId), z.array(schemas.Fr).max(MAX_RPC_LEN))
-    .returns(z.array(optional(dataInBlockSchemaFor(schemas.BigInt)))),
+  getNullifierMembershipWitness: z.function({
+    input: z.tuple([BlockParameterSchema, schemas.Fr]),
+    output: NullifierMembershipWitness.schema.optional(),
+  }),
 
-  getNullifierMembershipWitness: z
-    .function()
-    .args(BlockParameterSchema, schemas.Fr)
-    .returns(NullifierMembershipWitness.schema.optional()),
+  getLowNullifierMembershipWitness: z.function({
+    input: z.tuple([BlockParameterSchema, schemas.Fr]),
+    output: NullifierMembershipWitness.schema.optional(),
+  }),
 
-  getLowNullifierMembershipWitness: z
-    .function()
-    .args(BlockParameterSchema, schemas.Fr)
-    .returns(NullifierMembershipWitness.schema.optional()),
+  getPublicDataWitness: z.function({
+    input: z.tuple([BlockParameterSchema, schemas.Fr]),
+    output: PublicDataWitness.schema.optional(),
+  }),
 
-  getPublicDataWitness: z
-    .function()
-    .args(BlockParameterSchema, schemas.Fr)
-    .returns(PublicDataWitness.schema.optional()),
+  getBlockHashMembershipWitness: z.function({
+    input: z.tuple([BlockParameterSchema, BlockHash.schema]),
+    output: MembershipWitness.schemaFor(ARCHIVE_HEIGHT).optional(),
+  }),
 
-  getBlockHashMembershipWitness: z
-    .function()
-    .args(BlockParameterSchema, BlockHash.schema)
-    .returns(MembershipWitness.schemaFor(ARCHIVE_HEIGHT).optional()),
+  getNoteHashMembershipWitness: z.function({
+    input: z.tuple([BlockParameterSchema, schemas.Fr]),
+    output: MembershipWitness.schemaFor(NOTE_HASH_TREE_HEIGHT).optional(),
+  }),
 
-  getNoteHashMembershipWitness: z
-    .function()
-    .args(BlockParameterSchema, schemas.Fr)
-    .returns(MembershipWitness.schemaFor(NOTE_HASH_TREE_HEIGHT).optional()),
+  getL1ToL2MessageMembershipWitness: z.function({
+    input: z.tuple([BlockParameterSchema, schemas.Fr]),
+    output: z.tuple([schemas.BigInt, SiblingPath.schemaFor(L1_TO_L2_MSG_TREE_HEIGHT)]).optional(),
+  }),
 
-  getL1ToL2MessageMembershipWitness: z
-    .function()
-    .args(BlockParameterSchema, schemas.Fr)
-    .returns(z.tuple([schemas.BigInt, SiblingPath.schemaFor(L1_TO_L2_MSG_TREE_HEIGHT)]).optional()),
+  getL1ToL2MessageCheckpoint: z.function({ input: z.tuple([schemas.Fr]), output: CheckpointNumberSchema.optional() }),
 
-  getL1ToL2MessageBlock: z.function().args(schemas.Fr).returns(BlockNumberSchema.optional()),
+  getL2ToL1Messages: z.function({
+    input: z.tuple([EpochNumberSchema]),
+    output: z.array(z.array(z.array(z.array(schemas.Fr)))),
+  }),
 
-  isL1ToL2MessageSynced: z.function().args(schemas.Fr).returns(z.boolean()),
+  // Reads Outbox roots lazily, pinned to the node's synced L1 block. Caveat: cached roots that are
+  // sealed and L1-finalized are not re-validated, so a reorg deeper than L1 finality could leave the
+  // node serving a witness against a no-longer-canonical root.
+  getL2ToL1MembershipWitness: z.function({
+    input: z.tuple([TxHash.schema, schemas.Fr, optional(schemas.Integer)]),
+    output: L2ToL1MembershipWitnessSchema.optional(),
+  }),
 
-  getL2ToL1Messages: z
-    .function()
-    .args(EpochNumberSchema)
-    .returns(z.array(z.array(z.array(z.array(schemas.Fr))))),
+  getBlockNumber: z.function({ input: z.tuple([optional(BlockTagWithoutLatestSchema)]), output: BlockNumberSchema }),
 
-  getBlock: z.function().args(BlockParameterSchema).returns(L2Block.schema.optional()),
+  getCheckpointNumber: z.function({ input: z.tuple([optional(CheckpointTagSchema)]), output: CheckpointNumberSchema }),
 
-  getBlockByHash: z.function().args(BlockHash.schema).returns(L2Block.schema.optional()),
+  getChainTips: z.function({ input: z.tuple([]), output: L2TipsSchema }),
 
-  getBlockByArchive: z.function().args(schemas.Fr).returns(L2Block.schema.optional()),
+  getL1Constants: z.function({ input: z.tuple([]), output: L1RollupConstantsSchema }),
 
-  getBlockNumber: z.function().returns(BlockNumberSchema),
+  getSyncedL2SlotNumber: z.function({ input: z.tuple([]), output: SlotNumberSchema.optional() }),
 
-  getProvenBlockNumber: z.function().returns(BlockNumberSchema),
+  getSyncedL2EpochNumber: z.function({ input: z.tuple([]), output: EpochNumberSchema.optional() }),
 
-  getCheckpointedBlockNumber: z.function().returns(BlockNumberSchema),
+  getSyncedL1Timestamp: z.function({ input: z.tuple([]), output: schemas.BigInt.optional() }),
 
-  isReady: z.function().returns(z.boolean()),
+  getCheckpointsData: z.function({ input: z.tuple([CheckpointsQuerySchema]), output: z.array(CheckpointDataSchema) }),
 
-  getNodeInfo: z.function().returns(NodeInfoSchema),
+  getBlock: z.function({
+    input: z.tuple([BlockParameterSchema, optional(BlockIncludeOptionsSchema)]),
+    output: BlockResponseSchema.optional(),
+  }),
 
-  getBlocks: z
-    .function()
-    .args(BlockNumberPositiveSchema, z.number().gt(0).lte(MAX_RPC_BLOCKS_LEN))
-    .returns(z.array(L2Block.schema)),
+  getBlockData: z.function({ input: z.tuple([BlockParameterSchema]), output: BlockDataSchema.optional() }),
 
-  getCheckpoints: z
-    .function()
-    .args(CheckpointNumberPositiveSchema, z.number().gt(0).lte(MAX_RPC_CHECKPOINTS_LEN))
-    .returns(z.array(PublishedCheckpoint.schema)),
+  getBlocks: z.function({
+    input: z.tuple([
+      BlockNumberPositiveSchema,
+      z.number().gt(0).lte(MAX_RPC_BLOCKS_LEN),
+      optional(BlocksIncludeOptionsSchema),
+    ]),
+    output: z.array(BlockResponseSchema),
+  }),
 
-  getCheckpointedBlocks: z
-    .function()
-    .args(BlockNumberPositiveSchema, z.number().gt(0).lte(MAX_RPC_BLOCKS_LEN))
-    .returns(z.array(CheckpointedL2Block.schema)),
+  getCheckpoint: z.function({
+    input: z.tuple([CheckpointParameterSchema, optional(CheckpointIncludeOptionsSchema)]),
+    output: CheckpointResponseSchema.optional(),
+  }),
 
-  getCurrentMinFees: z.function().returns(GasFees.schema),
+  getCheckpoints: z.function({
+    input: z.tuple([
+      CheckpointNumberPositiveSchema,
+      z.number().gt(0).lte(MAX_RPC_CHECKPOINTS_LEN),
+      optional(CheckpointIncludeOptionsSchema),
+    ]),
+    output: z.array(CheckpointResponseSchema),
+  }),
 
-  getMaxPriorityFees: z.function().returns(GasFees.schema),
+  isReady: z.function({ input: z.tuple([]), output: z.boolean() }),
 
-  getNodeVersion: z.function().returns(z.string()),
+  getNodeInfo: z.function({ input: z.tuple([]), output: NodeInfoSchema }),
 
-  getVersion: z.function().returns(z.number()),
+  getCurrentMinFees: z.function({ input: z.tuple([]), output: GasFees.schema }),
 
-  getChainId: z.function().returns(z.number()),
+  getPredictedMinFees: z.function({
+    input: z.tuple([optional(z.nativeEnum(ManaUsageEstimate))]),
+    output: z.array(GasFees.schema),
+  }),
 
-  getL1ContractAddresses: z.function().returns(L1ContractAddressesSchema),
+  getMaxPriorityFees: z.function({ input: z.tuple([]), output: GasFees.schema }),
 
-  getProtocolContractAddresses: z.function().returns(ProtocolContractAddressesSchema),
+  getNodeVersion: z.function({ input: z.tuple([]), output: z.string() }),
 
-  registerContractFunctionSignatures: z
-    .function()
-    .args(z.array(z.string().max(MAX_SIGNATURE_LEN)).max(MAX_SIGNATURES_PER_REGISTER_CALL))
-    .returns(z.void()),
+  getVersion: z.function({ input: z.tuple([]), output: z.number() }),
 
-  getPublicLogs: z.function().args(LogFilterSchema).returns(GetPublicLogsResponseSchema),
+  getChainId: z.function({ input: z.tuple([]), output: z.number() }),
 
-  getContractClassLogs: z.function().args(LogFilterSchema).returns(GetContractClassLogsResponseSchema),
+  getL1ContractAddresses: z.function({ input: z.tuple([]), output: L1ContractAddressesSchema }),
 
-  getPrivateLogsByTags: z
-    .function()
-    .args(z.array(SiloedTag.schema).max(MAX_RPC_LEN), optional(z.number().gte(0)), optional(BlockHash.schema))
-    .returns(z.array(z.array(TxScopedL2Log.schema))),
+  getProtocolContractAddresses: z.function({ input: z.tuple([]), output: ProtocolContractAddressesSchema }),
 
-  getPublicLogsByTagsFromContract: z
-    .function()
-    .args(
-      schemas.AztecAddress,
-      z.array(Tag.schema).max(MAX_RPC_LEN),
-      optional(z.number().gte(0)),
-      optional(BlockHash.schema),
-    )
-    .returns(z.array(z.array(TxScopedL2Log.schema))),
+  getPrivateLogsByTags: z.function({
+    input: z.tuple([PrivateLogsQuerySchema]),
+    output: z.array(z.array(LogResultSchema)),
+  }),
 
-  sendTx: z.function().args(Tx.schema).returns(z.void()),
+  getPublicLogsByTags: z.function({
+    input: z.tuple([PublicLogsQuerySchema]),
+    output: z.array(z.array(LogResultSchema)),
+  }),
 
-  getTxReceipt: z.function().args(TxHash.schema).returns(TxReceipt.schema),
+  sendTx: z.function({ input: z.tuple([Tx.schema]), output: z.void() }),
 
-  getTxEffect: z.function().args(TxHash.schema).returns(indexedTxSchema().optional()),
+  getTxReceipt: z.function({
+    input: z.tuple([TxHash.schema, optional(GetTxReceiptOptionsSchema)]),
+    output: TxReceiptSchema,
+  }),
 
-  getPendingTxs: z
-    .function()
-    .args(optional(z.number().gte(1).lte(MAX_RPC_TXS_LEN).default(MAX_RPC_TXS_LEN)), optional(TxHash.schema))
-    .returns(z.array(Tx.schema)),
+  getTxEffect: z.function({ input: z.tuple([TxHash.schema]), output: indexedTxSchema().optional() }),
 
-  getPendingTxCount: z.function().returns(z.number()),
+  getPendingTxs: z.function({
+    input: z.tuple([
+      optional(z.number().gte(1).lte(MAX_RPC_TXS_LEN).default(MAX_RPC_TXS_LEN)),
+      optional(TxHash.schema),
+      optional(GetTxByHashOptionsSchema),
+    ]),
+    output: z.array(Tx.schema),
+  }),
 
-  getTxByHash: z.function().args(TxHash.schema).returns(Tx.schema.optional()),
+  getPendingTxCount: z.function({ input: z.tuple([]), output: z.number() }),
 
-  getTxsByHash: z.function().args(z.array(TxHash.schema).max(MAX_RPC_TXS_LEN)).returns(z.array(Tx.schema)),
+  getTxByHash: z.function({
+    input: z.tuple([TxHash.schema, optional(GetTxByHashOptionsSchema)]),
+    output: Tx.schema.optional(),
+  }),
 
-  getPublicStorageAt: z.function().args(BlockParameterSchema, schemas.AztecAddress, schemas.Fr).returns(schemas.Fr),
+  getTxsByHash: z.function({
+    input: z.tuple([z.array(TxHash.schema).max(MAX_RPC_TXS_LEN), optional(GetTxByHashOptionsSchema)]),
+    output: z.array(Tx.schema),
+  }),
 
-  getBlockHeader: z.function().args(optional(BlockParameterSchema)).returns(BlockHeader.schema.optional()),
+  getPublicStorageAt: z.function({
+    input: z.tuple([BlockParameterSchema, schemas.AztecAddress, schemas.Fr]),
+    output: schemas.Fr,
+  }),
 
-  getBlockHeaderByArchive: z.function().args(schemas.Fr).returns(BlockHeader.schema.optional()),
+  getValidatorsStats: z.function({ input: z.tuple([]), output: ValidatorsStatsSchema }),
 
-  getValidatorsStats: z.function().returns(ValidatorsStatsSchema),
+  getValidatorStats: z.function({
+    input: z.tuple([schemas.EthAddress, optional(schemas.SlotNumber), optional(schemas.SlotNumber)]),
+    output: SingleValidatorStatsSchema.optional(),
+  }),
 
-  getValidatorStats: z
-    .function()
-    .args(schemas.EthAddress, optional(schemas.SlotNumber), optional(schemas.SlotNumber))
-    .returns(SingleValidatorStatsSchema.optional()),
+  simulatePublicCalls: z.function({
+    input: z.tuple([Tx.schema, optional(z.boolean()), optional(SimulationOverrides.schema)]),
+    output: PublicSimulationOutput.schema,
+  }),
 
-  simulatePublicCalls: z.function().args(Tx.schema, optional(z.boolean())).returns(PublicSimulationOutput.schema),
-
-  isValidTx: z
-    .function()
-    .args(
+  isValidTx: z.function({
+    input: z.tuple([
       Tx.schema,
-      optional(z.object({ isSimulation: optional(z.boolean()), skipFeeEnforcement: optional(z.boolean()) })),
-    )
-    .returns(TxValidationResultSchema),
+      optional(
+        z.object({
+          isSimulation: optional(z.boolean()).optional(),
+          skipFeeEnforcement: optional(z.boolean()).optional(),
+        }),
+      ),
+    ]),
+    output: TxValidationResultSchema,
+  }),
 
-  getContractClass: z.function().args(schemas.Fr).returns(ContractClassPublicSchema.optional()),
+  getContractClass: z.function({ input: z.tuple([schemas.Fr]), output: ContractClassPublicSchema.optional() }),
 
-  getContract: z.function().args(schemas.AztecAddress).returns(ContractInstanceWithAddressSchema.optional()),
+  getContract: z.function({
+    input: z.tuple([schemas.AztecAddress, optional(BlockParameterSchema)]),
+    output: ContractInstanceWithAddressSchema.optional(),
+  }),
 
-  getEncodedEnr: z.function().returns(z.string().optional()),
+  getEncodedEnr: z.function({ input: z.tuple([]), output: z.string().optional() }),
 
-  getAllowedPublicSetup: z.function().args().returns(z.array(AllowedElementSchema)),
+  getAllowedPublicSetup: z.function({ input: z.tuple([]), output: z.array(AllowedElementSchema) }),
+
+  getPeers: z.function({ input: z.tuple([optional(z.boolean())]), output: z.array(PeerInfoSchema) }),
+
+  getCheckpointAttestationsForSlot: z.function({
+    input: z.tuple([
+      schemas.SlotNumber,
+      optional(z.string().regex(/^0x[0-9a-fA-F]+$/) as unknown as z.ZodType<CheckpointProposalHash>),
+    ]),
+    output: z.array(CheckpointAttestation.schema),
+  }),
+
+  getProposalsForSlot: z.function({
+    input: z.tuple([schemas.SlotNumber]),
+    output: ProposalsForSlotSchema,
+  }),
 };
 
 export function createAztecNodeClient(
@@ -651,7 +797,7 @@ export function createAztecNodeClient(
   batchWindowMS = 0,
 ): AztecNode {
   return createSafeJsonRpcClient<AztecNode>(url, AztecNodeApiSchema, {
-    namespaceMethods: 'node',
+    namespaceMethods: 'aztec',
     fetch,
     batchWindowMS,
     onResponse: getVersioningResponseHandler(versions),

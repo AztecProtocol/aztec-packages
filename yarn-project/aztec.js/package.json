@@ -30,7 +30,16 @@
   },
   "typedocOptions": {
     "entryPoints": [
-      "./src/index.ts"
+      "./src/api/abi.ts",
+      "./src/api/account.ts",
+      "./src/api/contract.ts",
+      "./src/api/deployment.ts",
+      "./src/api/ethereum.ts",
+      "./src/api/fee.ts",
+      "./src/api/fields.ts",
+      "./src/api/keys.ts",
+      "./src/api/tx.ts",
+      "./src/api/wallet.ts"
     ],
     "name": "Aztec.js",
     "tsconfig": "./tsconfig.json"
@@ -89,13 +98,14 @@
     "@aztec/entrypoints": "workspace:^",
     "@aztec/ethereum": "workspace:^",
     "@aztec/foundation": "workspace:^",
-    "@aztec/l1-artifacts": "workspace:^",
+    "@aztec/l1-artifacts": "portal:../../l1-contracts/l1-artifacts",
     "@aztec/protocol-contracts": "workspace:^",
+    "@aztec/standard-contracts": "workspace:^",
     "@aztec/stdlib": "workspace:^",
-    "axios": "^1.12.0",
+    "axios": "^1.15.1",
     "tslib": "^2.4.0",
     "viem": "npm:@aztec/viem@2.38.2",
-    "zod": "^3.23.8"
+    "zod": "^4"
   },
   "devDependencies": {
     "@aztec/builder": "workspace:^",

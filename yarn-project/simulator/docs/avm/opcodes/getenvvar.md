@@ -95,7 +95,9 @@ packet-beta
 
 ## Tag Updates
 
-- `T[dstOffset] = FIELD`
+The destination tag is set to the type of the requested variable (see Variable Reference table above):
+
+- `T[dstOffset] = Type(varEnum)`
 
 ## Error Conditions
 

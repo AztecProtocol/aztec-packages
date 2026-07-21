@@ -17,6 +17,11 @@
 #include <vector>
 
 namespace bb::group_elements {
+
+// MSB of the top 64-bit limb in a uint256_t (bit 255). Used in point compression to encode the
+// y-coordinate parity bit, and cleared when recovering the x-coordinate.
+static constexpr uint64_t UINT256_TOP_LIMB_MSB = 0x8000000000000000ULL;
+
 template <typename T>
 concept SupportsHashToCurve = T::can_hash_to_curve;
 template <typename Fq_, typename Fr_, typename Params_> class alignas(64) affine_element {
@@ -63,7 +68,6 @@ template <typename Fq_, typename Fr_, typename Params_> class alignas(64) affine
      * @brief Reconstruct a point in affine coordinates from compressed form.
      * @details #LARGE_MODULUS_AFFINE_POINT_COMPRESSION Point compression is implemented for curves of a prime
      * field F_p with p being 256 bits.
-     * TODO(Suyash): Check with kesha if this is correct.
      *
      * @param compressed compressed point
      * @return constexpr affine_element
@@ -80,10 +84,6 @@ template <typename Fq_, typename Fr_, typename Params_> class alignas(64) affine
 
     constexpr affine_element operator*(const Fr& exponent) const noexcept;
 
-    template <typename BaseField = Fq,
-              typename CompileTimeEnabled = std::enable_if_t<(BaseField::modulus >> 255) == uint256_t(0), void>>
-    [[nodiscard]] constexpr uint256_t compress() const noexcept;
-
     static constexpr affine_element infinity();
     constexpr affine_element set_infinity() const noexcept;
     constexpr void self_set_infinity() noexcept;
@@ -91,6 +91,22 @@ template <typename Fq_, typename Fr_, typename Params_> class alignas(64) affine
     [[nodiscard]] constexpr bool is_point_at_infinity() const noexcept;
 
     [[nodiscard]] constexpr bool on_curve() const noexcept;
+
+    /**
+     * @brief Check that the point lies in the prime-order subgroup of size `Fr::modulus`.
+     *
+     * @details For curves whose cofactor is 1 (e.g. BN254 G1, Grumpkin) every on-curve point trivially
+     * satisfies this, so callers that already validated `on_curve()` can skip the call. For curves with
+     * non-trivial cofactor (notably BN254 G2, with cofactor h2 ≈ 2^254), `on_curve()` alone is
+     * insufficient: an attacker can supply a curve point that lies in a small subgroup of order
+     * dividing h2 and pass `on_curve()`. This routine performs the full subgroup check via `[r]·P == ∞`.
+     *
+     * @note Not constant-time. Intended for one-shot validation of public, externally-supplied points
+     * (e.g. at the bbapi boundary or when loading SRS bytes).
+     *
+     * @return true iff `*this` is the point at infinity or has order dividing `Fr::modulus`.
+     */
+    [[nodiscard]] bool is_in_prime_subgroup() const noexcept;
 
     static constexpr std::optional<affine_element> derive_from_x_coordinate(const Fq& x, bool sign_bit) noexcept;
 
@@ -100,7 +116,7 @@ template <typename Fq_, typename Fr_, typename Params_> class alignas(64) affine
      * @return A randomly chosen point on the curve
      */
     static affine_element random_element(numeric::RNG* engine = nullptr) noexcept;
-    static constexpr affine_element hash_to_curve(const std::vector<uint8_t>& seed, uint8_t attempt_count = 0) noexcept
+    static affine_element hash_to_curve(const std::vector<uint8_t>& seed, uint8_t attempt_count = 0) noexcept
         requires SupportsHashToCurve<Params>;
 
     constexpr bool operator==(const affine_element& other) const noexcept;
@@ -162,6 +178,11 @@ template <typename Fq_, typename Fr_, typename Params_> class alignas(64) affine
         // same order in our various serialization flows
         read(buffer, write_x_first ? result.x : result.y);
         read(buffer, write_x_first ? result.y : result.x);
+
+        // Validate the deserialized point lies on the curve
+        if (!result.on_curve()) {
+            throw_or_abort("affine_element::serialize_from_buffer: point is not on the curve");
+        }
         return result;
     }
 
@@ -194,7 +215,7 @@ template <typename Fq_, typename Fr_, typename Params_> class alignas(64) affine
      * @param masking_scalar Ignored for native (needed for safe offset generators in stdlib)
      */
     static affine_element batch_mul(std::span<const affine_element> points,
-                                    std::span<const Fr> scalars,
+                                    std::span<Fr> scalars,
                                     size_t max_num_bits = 0,
                                     bool with_edgecases = true,
                                     const Fr& masking_scalar = Fr(1)) noexcept;
@@ -217,7 +238,7 @@ template <typename Fq_, typename Fr_, typename Params_> class alignas(64) affine
 
         FieldType x{};
         FieldType y{};
-        MSGPACK_FIELDS(x, y);
+        SERIALIZATION_FIELDS(x, y);
     };
 
     void msgpack_pack(auto& packer) const

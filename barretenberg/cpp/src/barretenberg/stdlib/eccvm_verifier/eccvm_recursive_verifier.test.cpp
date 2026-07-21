@@ -3,8 +3,8 @@
 #include "barretenberg/dsl/acir_format/gate_count_constants.hpp"
 #include "barretenberg/eccvm/eccvm_prover.hpp"
 #include "barretenberg/eccvm/eccvm_verifier.hpp"
+#include "barretenberg/flavor/test_utils/proof_structures.hpp"
 #include "barretenberg/stdlib/honk_verifier/ultra_verification_keys_comparator.hpp"
-#include "barretenberg/stdlib/test_utils/tamper_proof.hpp"
 #include "barretenberg/ultra_honk/ultra_prover.hpp"
 #include "barretenberg/ultra_honk/ultra_verifier.hpp"
 
@@ -38,7 +38,7 @@ class ECCVMRecursiveTests : public ::testing::Test {
     using OuterVerifier = UltraVerifier_<OuterFlavor, bb::DefaultIO>;
     using OuterProverInstance = ProverInstance_<OuterFlavor>;
 
-    using PCS = IPA<ECCVMFlavor::Curve, CONST_ECCVM_LOG_N>;
+    using NativeTripleIPA = InnerVerifier::TripleIPA;
     static void SetUpTestSuite() { bb::srs::init_file_crs_factory(bb::srs::bb_crs_path()); }
 
     /**
@@ -88,12 +88,7 @@ class ECCVMRecursiveTests : public ::testing::Test {
         InnerBuilder builder = generate_circuit(&engine);
         std::shared_ptr<Transcript> prover_transcript = std::make_shared<Transcript>();
         InnerProver prover(builder, prover_transcript);
-        auto [proof, opening_claim] = prover.construct_proof();
-
-        // Compute IPA proof
-        auto ipa_transcript = std::make_shared<Transcript>();
-        PCS::compute_opening_proof(prover.key->commitment_key, opening_claim, ipa_transcript);
-        HonkProof ipa_proof = ipa_transcript->export_proof();
+        auto proof = prover.construct_proof();
 
         auto verification_key = std::make_shared<InnerFlavor::VerificationKey>();
 
@@ -103,7 +98,7 @@ class ECCVMRecursiveTests : public ::testing::Test {
         std::shared_ptr<StdlibTranscript> stdlib_verifier_transcript = std::make_shared<StdlibTranscript>();
         RecursiveVerifier verifier{ stdlib_verifier_transcript, stdlib_proof };
         verifier.get_transcript()->enable_manifest();
-        [[maybe_unused]] auto recursive_result = verifier.reduce_to_ipa_opening();
+        [[maybe_unused]] auto recursive_result = verifier.reduce_to_triple_ipa_claim();
         stdlib::recursion::honk::DefaultIO<OuterBuilder>::add_default(outer_circuit);
 
         info("Recursive Verifier: num gates = ", outer_circuit.get_num_finalized_gates_inefficient());
@@ -117,13 +112,14 @@ class ECCVMRecursiveTests : public ::testing::Test {
         std::shared_ptr<Transcript> verifier_transcript = std::make_shared<Transcript>();
         InnerVerifier native_verifier(verifier_transcript, proof);
         verifier_transcript->enable_manifest();
-        auto native_result = native_verifier.reduce_to_ipa_opening();
+        auto native_result = native_verifier.reduce_to_triple_ipa_claim();
 
-        // Verify IPA
-        auto ipa_verify_transcript = std::make_shared<Transcript>();
-        ipa_verify_transcript->load_proof(ipa_proof);
+        // Verify the TripleIPA proof against the claim emitted by the native verifier
+        auto ipa_verify_transcript = std::make_shared<Transcript>(prover.ipa_proof);
         auto ipa_vk = VerifierCommitmentKey<curve::Grumpkin>{ ECCVMFlavor::ECCVM_FIXED_SIZE };
-        bool ipa_verified = IPA<curve::Grumpkin>::reduce_verify(ipa_vk, native_result.ipa_claim, ipa_verify_transcript);
+        auto accumulator =
+            NativeTripleIPA::reduce_to_accumulator(native_result.triple_ipa_claim, ipa_verify_transcript);
+        bool ipa_verified = NativeTripleIPA::verify_accumulator(ipa_vk, accumulator);
         EXPECT_TRUE(ipa_verified && native_result.reduction_succeeded);
         auto recursive_manifest = verifier.get_transcript()->get_manifest();
         auto native_manifest = native_verifier.get_transcript()->get_manifest();
@@ -166,12 +162,7 @@ class ECCVMRecursiveTests : public ::testing::Test {
         builder.op_queue->merge();
         std::shared_ptr<Transcript> prover_transcript = std::make_shared<Transcript>();
         InnerProver prover(builder, prover_transcript);
-        auto [proof, opening_claim] = prover.construct_proof();
-
-        // Compute IPA proof
-        auto ipa_transcript = std::make_shared<Transcript>();
-        PCS::compute_opening_proof(prover.key->commitment_key, opening_claim, ipa_transcript);
-        HonkProof ipa_proof = ipa_transcript->export_proof();
+        auto proof = prover.construct_proof();
 
         auto verification_key = std::make_shared<InnerFlavor::VerificationKey>();
 
@@ -180,7 +171,7 @@ class ECCVMRecursiveTests : public ::testing::Test {
 
         std::shared_ptr<StdlibTranscript> stdlib_verifier_transcript = std::make_shared<StdlibTranscript>();
         RecursiveVerifier verifier{ stdlib_verifier_transcript, stdlib_proof };
-        [[maybe_unused]] auto output = verifier.reduce_to_ipa_opening();
+        [[maybe_unused]] auto output = verifier.reduce_to_triple_ipa_claim();
         stdlib::recursion::honk::DefaultIO<OuterBuilder>::add_default(outer_circuit);
         info("Recursive Verifier: estimated num finalized gates = ",
              outer_circuit.get_num_finalized_gates_inefficient());
@@ -189,47 +180,119 @@ class ECCVMRecursiveTests : public ::testing::Test {
         EXPECT_FALSE(CircuitChecker::check(outer_circuit));
     }
 
-    static void test_recursive_verification_failure_tampered_proof()
+    /**
+     * @brief Verify that StructuredProof<ECCVMFlavor> can round-trip serialize/deserialize a proof.
+     * @details Validates the field layout matches the actual ECCVM proof structure. This is the foundation
+     * for targeted proof tampering in TargetedProofTampering.
+     */
+    static void test_structured_proof_round_trip()
     {
-        for (size_t idx = 0; idx < 2; idx++) {
+        InnerBuilder builder = generate_circuit(&engine);
+        std::shared_ptr<Transcript> prover_transcript = std::make_shared<Transcript>();
+        InnerProver prover(builder, prover_transcript);
+        auto proof = prover.construct_proof();
+
+        ASSERT_EQ(proof.size(), InnerFlavor::PROOF_LENGTH);
+
+        StructuredProof<InnerFlavor> structured_proof;
+        auto proof_data = prover.transcript->test_get_proof_data();
+        structured_proof.deserialize(proof_data, /*num_public_inputs=*/0, CONST_ECCVM_LOG_N);
+        structured_proof.serialize(proof_data, CONST_ECCVM_LOG_N);
+
+        auto original_data = prover.transcript->test_get_proof_data();
+        ASSERT_EQ(proof_data.size(), original_data.size());
+        EXPECT_EQ(proof_data, original_data);
+    }
+
+    enum class TamperType {
+        MODIFY_SUMCHECK_UNIVARIATE, // Tests committed sumcheck first-round sum constraint (circuit FAIL)
+        MODIFY_SUMCHECK_EVAL,       // Tests Gemini consistency constraint (circuit FAIL)
+        MODIFY_TRIPLE_IPA_CLAIM,    // Tests TripleIPA opening (circuit PASS, TripleIPA FAIL)
+        MODIFY_TRANSLATION_EVAL,    // Tests translation masking consistency constraint (circuit FAIL)
+        MODIFY_LIBRA_EVAL,          // Tests Libra SmallSubgroupIPA consistency constraint (circuit FAIL)
+        END
+    };
+
+    static void tamper_eccvm_proof(InnerProver& prover,
+                                   typename InnerFlavor::Transcript::Proof& proof,
+                                   TamperType tamper_type)
+    {
+        using FF = InnerFF;
+        static constexpr size_t FIRST_WITNESS_INDEX = InnerFlavor::NUM_PRECOMPUTED_ENTITIES;
+
+        StructuredProof<InnerFlavor> structured_proof;
+        structured_proof.deserialize(
+            prover.transcript->test_get_proof_data(), /*num_public_inputs=*/0, CONST_ECCVM_LOG_N);
+
+        switch (tamper_type) {
+        case TamperType::MODIFY_SUMCHECK_UNIVARIATE:
+            // Committed sumcheck: break the first-round sum by modifying eval_0 without compensating eval_1.
+            // Preserving the sum would only break TripleIPA opening (external), not any in-circuit constraint.
+            structured_proof.sumcheck_round_eval_0s[0] += FF::random_element();
+            break;
+        case TamperType::MODIFY_SUMCHECK_EVAL:
+            structured_proof.sumcheck_evaluations[FIRST_WITNESS_INDEX] = FF::random_element();
+            break;
+        case TamperType::MODIFY_TRIPLE_IPA_CLAIM:
+            // Modify the final Shplonk Q commitment — bypasses circuit constraints but corrupts TripleIPA opening
+            // claim.
+            structured_proof.final_shplonk_q_comm = structured_proof.final_shplonk_q_comm * FF(2);
+            break;
+        case TamperType::MODIFY_TRANSLATION_EVAL:
+            structured_proof.translation_op_eval = FF::random_element();
+            break;
+        case TamperType::MODIFY_LIBRA_EVAL:
+            structured_proof.libra_quotient_eval = FF::random_element();
+            break;
+        case TamperType::END:
+            break;
+        }
+
+        structured_proof.serialize(prover.transcript->test_get_proof_data(), CONST_ECCVM_LOG_N);
+        prover.transcript->test_set_proof_parsing_state(0, InnerFlavor::PROOF_LENGTH);
+        proof = prover.export_proof();
+    }
+
+    static void test_recursive_verification_fails()
+    {
+        for (size_t idx = 0; idx < static_cast<size_t>(TamperType::END); idx++) {
+            TamperType tamper_type = static_cast<TamperType>(idx);
+
             InnerBuilder builder = generate_circuit(&engine);
             std::shared_ptr<Transcript> prover_transcript = std::make_shared<Transcript>();
             InnerProver prover(builder, prover_transcript);
-            auto [proof, opening_claim] = prover.construct_proof();
+            auto proof = prover.construct_proof();
 
-            // Compute IPA proof
-            auto ipa_transcript_prover = std::make_shared<Transcript>();
-            PCS::compute_opening_proof(prover.key->commitment_key, opening_claim, ipa_transcript_prover);
-            HonkProof ipa_proof_native = ipa_transcript_prover->export_proof();
+            // The genuine TripleIPA proof (needed for MODIFY_TRIPLE_IPA_CLAIM case)
+            HonkProof ipa_proof = prover.ipa_proof;
 
-            // Tamper with the proof to be verified
-            tamper_with_proof<InnerFlavor>(proof, static_cast<bool>(idx));
+            // Tamper with the proof
+            tamper_eccvm_proof(prover, proof, tamper_type);
 
             OuterBuilder outer_circuit;
             auto stdlib_proof = stdlib::Proof<OuterBuilder>(outer_circuit, proof);
             std::shared_ptr<StdlibTranscript> stdlib_verifier_transcript = std::make_shared<StdlibTranscript>();
             RecursiveVerifier verifier{ stdlib_verifier_transcript, stdlib_proof };
-            auto recursive_result = verifier.reduce_to_ipa_opening();
+            [[maybe_unused]] auto recursive_result = verifier.reduce_to_triple_ipa_claim();
             stdlib::recursion::honk::DefaultIO<OuterBuilder>::add_default(outer_circuit);
 
-            if (idx == 0) {
-                // In this case, we changed the first non-zero value in the proof. It leads to a circuit check failure.
-                EXPECT_FALSE(CircuitChecker::check(outer_circuit));
-            } else {
-                // Changing the last commitment in the `proof_data` would not result in a circuit check failure at
-                // this stage.
+            if (tamper_type == TamperType::MODIFY_TRIPLE_IPA_CLAIM) {
+                // Modifying the final Shplonk Q bypasses circuit constraints but causes IPA failure
                 EXPECT_TRUE(CircuitChecker::check(outer_circuit));
 
-                // However, IPA recursive verifier must fail, as one of the commitments is incorrect.
-                VerifierCommitmentKey<InnerFlavor::Curve> native_pcs_vk(1UL << CONST_ECCVM_LOG_N);
-                VerifierCommitmentKey<stdlib::grumpkin<OuterBuilder>> stdlib_pcs_vkey(
-                    &outer_circuit, 1UL << CONST_ECCVM_LOG_N, native_pcs_vk);
-
-                // Construct ipa_transcript from proof
-                auto stdlib_ipa_proof = stdlib::Proof<OuterBuilder>(outer_circuit, ipa_proof_native);
-                std::shared_ptr<StdlibTranscript> ipa_transcript = std::make_shared<StdlibTranscript>(stdlib_ipa_proof);
-                EXPECT_FALSE(IPA<RecursiveFlavor::Curve>::full_verify_recursive(
-                    stdlib_pcs_vkey, recursive_result.ipa_claim, ipa_transcript));
+                // Verify that the TripleIPA fails: the tampered Shplonk Q corrupts the univariate claim, so the
+                // claim emitted by the verifier no longer matches the genuine TripleIPA proof
+                std::shared_ptr<Transcript> native_transcript = std::make_shared<Transcript>();
+                InnerVerifier native_verifier(native_transcript, proof);
+                auto native_result = native_verifier.reduce_to_triple_ipa_claim();
+                auto ipa_verify_transcript = std::make_shared<Transcript>(ipa_proof);
+                auto ipa_vk = VerifierCommitmentKey<curve::Grumpkin>{ ECCVMFlavor::ECCVM_FIXED_SIZE };
+                auto accumulator =
+                    NativeTripleIPA::reduce_to_accumulator(native_result.triple_ipa_claim, ipa_verify_transcript);
+                EXPECT_FALSE(NativeTripleIPA::verify_accumulator(ipa_vk, accumulator));
+            } else {
+                // All other tamper types should cause a circuit constraint violation
+                EXPECT_FALSE(CircuitChecker::check(outer_circuit)) << "Expected circuit failure for TamperType " << idx;
             }
         }
     }
@@ -244,12 +307,7 @@ class ECCVMRecursiveTests : public ::testing::Test {
             std::shared_ptr<Transcript> prover_transcript = std::make_shared<Transcript>();
             InnerProver inner_prover(inner_circuit, prover_transcript);
 
-            auto [proof, opening_claim] = inner_prover.construct_proof();
-
-            // Compute IPA proof
-            auto ipa_transcript = std::make_shared<Transcript>();
-            PCS::compute_opening_proof(inner_prover.key->commitment_key, opening_claim, ipa_transcript);
-            HonkProof ipa_proof = ipa_transcript->export_proof();
+            auto proof = inner_prover.construct_proof();
 
             // Create a recursive verification circuit for the proof of the inner circuit
             OuterBuilder outer_circuit;
@@ -258,7 +316,7 @@ class ECCVMRecursiveTests : public ::testing::Test {
             std::shared_ptr<StdlibTranscript> stdlib_verifier_transcript = std::make_shared<StdlibTranscript>();
             RecursiveVerifier verifier{ stdlib_verifier_transcript, stdlib_proof };
 
-            [[maybe_unused]] auto recursive_opening_claim = verifier.reduce_to_ipa_opening();
+            [[maybe_unused]] auto recursive_triple_ipa_claim = verifier.reduce_to_triple_ipa_claim();
             stdlib::recursion::honk::DefaultIO<OuterBuilder>::add_default(outer_circuit);
 
             auto outer_proving_key = std::make_shared<OuterProverInstance>(outer_circuit);
@@ -286,14 +344,19 @@ TEST_F(ECCVMRecursiveTests, SingleRecursiveVerificationFailure)
     ECCVMRecursiveTests::test_recursive_verification_failure();
 };
 
-TEST_F(ECCVMRecursiveTests, SingleRecursiveVerificationFailureTamperedProof)
+TEST_F(ECCVMRecursiveTests, StructureTest)
 {
-    BB_DISABLE_ASSERTS(); // Avoid on_curve assertion failure in cycle_group constructor
-    ECCVMRecursiveTests::test_recursive_verification_failure_tampered_proof();
+    ECCVMRecursiveTests::test_structured_proof_round_trip();
+};
+
+TEST_F(ECCVMRecursiveTests, TargetedProofTampering)
+{
+    ECCVMRecursiveTests::test_recursive_verification_fails();
 };
 
 TEST_F(ECCVMRecursiveTests, IndependentVKHash)
 {
     ECCVMRecursiveTests::test_independent_vk_hash();
 };
+
 } // namespace bb

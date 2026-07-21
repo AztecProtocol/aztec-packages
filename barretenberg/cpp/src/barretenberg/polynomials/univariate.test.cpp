@@ -137,17 +137,3 @@ TYPED_TEST(UnivariateTest, Serialization)
         EXPECT_EQ(univariate.value_at(i), deserialized_univariate.value_at(i));
     }
 }
-
-// DISABLED: domain_start parameter removed
-// TYPED_TEST(UnivariateTest, EvaluationCustomDomain)
-// {
-//     []() {
-//         auto poly = Univariate<fr, 3, 1>(std::array<fr, 2>{ 1, 2 });
-//         EXPECT_EQ(poly.evaluate(fr(5)), fr(5));
-//     }();
-//
-//     []() {
-//         auto poly = Univariate<fr, 37, 32>(std::array<fr, 5>{ 1, 11, 111, 1111, 11111 });
-//         EXPECT_EQ(poly.evaluate(fr(2)), fr(294330751));
-//     }();
-// }

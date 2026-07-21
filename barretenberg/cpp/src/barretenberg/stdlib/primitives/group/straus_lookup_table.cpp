@@ -54,6 +54,7 @@ straus_lookup_table<Builder>::straus_lookup_table(Builder* context,
                                                   size_t table_bits,
                                                   std::optional<std::span<AffineElement>> hints)
     : _context(context)
+    , _table_bits(table_bits)
     , tag(OriginTag(base_point.get_origin_tag(), offset_generator.get_origin_tag()))
 {
     const size_t table_size = 1UL << table_bits;
@@ -75,7 +76,10 @@ straus_lookup_table<Builder>::straus_lookup_table(Builder* context,
         field_t::conditional_assign(base_point.is_point_at_infinity(), fallback_point.x(), base_point.x());
     field_t modded_y =
         field_t::conditional_assign(base_point.is_point_at_infinity(), fallback_point.y(), base_point.y());
-    cycle_group<Builder> modded_base_point(modded_x, modded_y, false, /*assert_on_curve=*/false);
+    // The modded point is never at infinity since we fallback to Group::one when the base point is infinity.
+    // Use the private 4-arg constructor to avoid auto-detection gates.
+    cycle_group<Builder> modded_base_point(
+        modded_x, modded_y, /*is_infinity=*/bool_t<Builder>(modded_x.get_context(), false), /*assert_on_curve=*/false);
     // We assume that the native hints (if present) do not account for the point at infinity edge case in the same way
     // as above (i.e. replacing with "one") so we avoid using any provided hints in this case. (N.B. No efficiency is
     // lost here since native addition with the point at infinity is nearly free).
@@ -92,11 +96,15 @@ straus_lookup_table<Builder>::straus_lookup_table(Builder* context,
         // Case 1: if the input point is constant, it is cheaper to fix the point as a witness and then derive the
         // table, than it is to derive the table and fix its witnesses to be constant! (due to group additions = 1 gate,
         // and fixing x/y coords to be constant = 2 gates)
+
+        // base_point == offset_generator collapses the first table add into a degenerate G + G ecc_add gate;
+        // the non-doubling relation is identically zero when operands match, so is satisfied by any result coordinates.
+        BB_ASSERT(base_point.get_value() != offset_generator.get_value(),
+                  "straus_lookup_table case-1: base_point must not coincide with offset_generator");
+
         modded_base_point = cycle_group<Builder>::from_constant_witness(_context, modded_base_point.get_value());
         point_table[0] = cycle_group<Builder>::from_constant_witness(_context, offset_generator.get_value());
         for (size_t i = 1; i < table_size; ++i) {
-            // Safe to use unconditional_add without collision checking due to constant points and inclusion of offset
-            // generator in table entries
             point_table[i] = point_table[i - 1].unconditional_add(modded_base_point, get_hint(i - 1));
         }
     } else {
@@ -140,12 +148,16 @@ straus_lookup_table<Builder>::straus_lookup_table(Builder* context,
  * @details Performs a ROM read which costs one gate. If `_index` is constant, we convert it to a witness constrained to
  * equal the constant value.
  *
+ * @note The caller must enforce that _index < 2^table_bits, _index is not constrained in this function
+ *
  * @tparam Builder
  * @param _index
  * @return cycle_group<Builder>
  */
 template <typename Builder> cycle_group<Builder> straus_lookup_table<Builder>::read(const field_t& _index)
 {
+    BB_ASSERT_LT(uint256_t(_index.get_value()).get_msb(), _table_bits, "straus_lookup_table read index out of bounds");
+
     field_t index(_index);
     // A ROM array index must be a witness; we convert constants to a witness constrained to equal the constant value
     if (index.is_constant()) {
@@ -159,8 +171,9 @@ template <typename Builder> cycle_group<Builder> straus_lookup_table<Builder>::r
     x.set_origin_tag(OriginTag(tag, _index.get_origin_tag()));
     y.set_origin_tag(OriginTag(tag, _index.get_origin_tag()));
 
-    // The result is known to not be the point at infinity due to the use of offset generators in the table
-    return cycle_group<Builder>(x, y, /*is_infinity=*/false, /*assert_on_curve=*/false);
+    // The result is known to not be the point at infinity due to the use of offset generators in the table.
+    // Use the private 4-arg constructor to avoid auto-detection gates.
+    return cycle_group<Builder>(x, y, /*is_infinity=*/bool_t<Builder>(_context, false), /*assert_on_curve=*/false);
 }
 
 template class straus_lookup_table<bb::UltraCircuitBuilder>;

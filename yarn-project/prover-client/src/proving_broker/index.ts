@@ -7,3 +7,4 @@ export * from './proving_broker_database/persisted.js';
 export * from './proof_store/index.js';
 export * from './factory.js';
 export * from './config.js';
+export { BrokerCircuitProverFacade } from './broker_prover_facade.js';

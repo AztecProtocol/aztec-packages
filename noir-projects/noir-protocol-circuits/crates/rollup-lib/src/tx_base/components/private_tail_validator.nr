@@ -2,14 +2,14 @@
 // It's not straightforward to define a single function or component that validates both structs. Instead, this file
 // provides functions that can be called individually on the attributes common to both. All functions should be called
 // from both `PrivateTxBaseInputsValidator` and `PublicTxBaseInputValidator`.
-use dep::types::{
+use types::{
     abis::{
         block_constant_data::BlockConstantData, global_variables::GlobalVariables,
         log_hash::LogHash, tx_constant_data::TxConstantData,
     },
     constants::{
-        ARCHIVE_HEIGHT, AVM_MAX_PROCESSABLE_L2_GAS, CONTRACT_CLASS_LOG_SIZE_IN_FIELDS,
-        MAX_CONTRACT_CLASS_LOGS_PER_TX,
+        ARCHIVE_HEIGHT, CONTRACT_CLASS_LOG_SIZE_IN_FIELDS, MAX_CONTRACT_CLASS_LOGS_PER_TX,
+        MAX_PROCESSABLE_L2_GAS,
     },
     hash::compute_contract_class_log_hash,
     merkle_tree::{check_membership, MembershipWitness},
@@ -65,7 +65,7 @@ pub fn validate_tx_constant_data(
             },
             block_last_archive_root,
         ),
-        "Membership check failed: previous block hash not found in archive tree",
+        "Membership check failed: anchor block header hash not found in archive tree",
     );
 
     assert_eq(tx_chain_id, block_chain_id, "Mismatched chain_id between kernel and rollup");
@@ -101,10 +101,9 @@ pub fn validate_tx_constant_data(
     );
 
     // Ensure that the l2 gas limit is within the max processable l2 gas.
-    // The constant is prefixed with `AVM_` but it applies to both private-only and public-inclusive txs.
     // TODO: This should be moved to the private kernels once they are not used for gas estimation anymore.
     assert(
-        tx_gas_settings.gas_limits.l2_gas <= AVM_MAX_PROCESSABLE_L2_GAS,
+        tx_gas_settings.gas_limits.l2_gas <= MAX_PROCESSABLE_L2_GAS,
         "l2 gas limit exceeds max processable l2 gas",
     );
 }
@@ -141,26 +140,26 @@ pub fn validate_contract_class_logs(
     }
 }
 
-/// Validate the `include_by_timestamp` of the tx against the block timestamp.
-pub fn validate_include_by_timestamp(
-    include_by_timestamp: u64,
+/// Validate the `expiration_timestamp` of the tx against the block timestamp.
+pub fn validate_expiration_timestamp(
+    expiration_timestamp: u64,
     global_variables_of_block_being_built: GlobalVariables,
 ) {
     // Skip validation when building block 1, since the genesis block header has a zero timestamp.
-    // Without this skip, no txs could be included in block 1, because `include_by_timestamp` must be at most
-    // `MAX_INCLUDE_BY_TIMESTAMP_DURATION` from the anchor block's timestamp. This means that any tx anchored to the
-    // genesis block would almost certainly have an `include_by_timestamp` earlier than the first block's timestamp,
+    // Without this skip, no txs could be included in block 1, because `expiration_timestamp` must be at most
+    // `MAX_TX_LIFETIME` from the anchor block's timestamp. This means that any tx anchored to the
+    // genesis block would almost certainly have an `expiration_timestamp` earlier than the first block's timestamp,
     // making them impossible to be included.
     //
-    // Normally, `include_by_timestamp` may change when calling an updatable contract, and this check ensures that the
+    // Normally, `expiration_timestamp` may change when calling an updatable contract, and this check ensures that the
     // tx does not call an outdated contract that has already been upgraded. However, since no updatable contracts exist
     // in the genesis block, skipping this check here is safe.
     let is_building_block_1 = global_variables_of_block_being_built.block_number == 1;
     let block_timestamp = global_variables_of_block_being_built.timestamp;
     if !is_building_block_1 {
         assert(
-            include_by_timestamp >= block_timestamp,
-            "tx include_by_timestamp is smaller than block timestamp",
+            expiration_timestamp >= block_timestamp,
+            "tx expiration_timestamp is smaller than block timestamp",
         );
     }
 }

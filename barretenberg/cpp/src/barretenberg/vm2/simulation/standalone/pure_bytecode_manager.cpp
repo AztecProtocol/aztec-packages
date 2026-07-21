@@ -2,18 +2,14 @@
 
 #include <cassert>
 
+#include "barretenberg/aztec/aztec_constants.hpp"
 #include "barretenberg/common/bb_bench.hpp"
 #include "barretenberg/common/log.hpp"
-#include "barretenberg/common/serialize.hpp"
-#include "barretenberg/vm2/common/aztec_constants.hpp"
 #include "barretenberg/vm2/common/aztec_types.hpp"
-#include "barretenberg/vm2/common/constants.hpp"
-#include "barretenberg/vm2/common/instruction_spec.hpp"
 #include "barretenberg/vm2/common/stringify.hpp"
 #include "barretenberg/vm2/simulation/interfaces/bytecode_manager.hpp"
 #include "barretenberg/vm2/simulation/interfaces/contract_instance_manager.hpp"
 #include "barretenberg/vm2/simulation/interfaces/db.hpp"
-#include "barretenberg/vm2/simulation/interfaces/memory.hpp"
 #include "barretenberg/vm2/simulation/lib/serialization.hpp"
 
 namespace bb::avm2::simulation {
@@ -34,6 +30,23 @@ PureTxBytecodeManager::~PureTxBytecodeManager()
           " kB.");
 }
 
+/**
+ * @brief Retrieves and validates bytecode from the PureTxBytecodeManager's ContractDBInterface.
+ *
+ *  If we have not yet processed the gathered bytecode instance, we store the packed bytecode in the
+ *  flat map bytecodes against the class id.
+ *
+ * @throws BytecodeRetrievalError if
+ *        - the contract at the given address is not deployed
+ *        - we have reached the limit of the number of bytecodes to retrieve for this tx
+ * @throws Unexpected exception if
+ *        - the contract class for the retrieved instance does not exist
+ *          Note: the deployer contract guarantees that if we have a deployed instance, its contract class
+ *          must exist. If the contract is not deployed, this is caught by the above BytecodeRetrievalError.
+ *
+ * @param address The address of the contract instance to retrieve bytecode for.
+ * @return The id (=class_id here) of the bytecode.
+ */
 BytecodeId PureTxBytecodeManager::get_bytecode(const AztecAddress& address)
 {
     BB_BENCH_NAME("PureTxBytecodeManager::get_bytecode");
@@ -74,6 +87,7 @@ BytecodeId PureTxBytecodeManager::get_bytecode(const AztecAddress& address)
     }
 
     // Contract class retrieval and class ID validation
+
     std::optional<ContractClass> maybe_klass = contract_db.get_contract_class(current_class_id);
     // Note: we don't need to silo and check the class id because the deployer contract guarantees
     // that if a contract instance exists, the class has been registered.
@@ -81,11 +95,24 @@ BytecodeId PureTxBytecodeManager::get_bytecode(const AztecAddress& address)
     auto& klass = maybe_klass.value();
     debug("Bytecode for ", address, " successfully retrieved!");
 
-    // We now save the bytecode so that we don't repeat this process.
+    // We now save the bytecode against the class id so that we don't repeat this process for the same class.
     bytecodes[bytecode_id] = std::make_shared<std::vector<uint8_t>>(std::move(klass.packed_bytecode));
+
     return bytecode_id;
 }
 
+/**
+ * @brief Reads and deserializes the instruction given by the pair [ @p bytecode_id, @p pc ]. Corresponds to
+ *  instr_fetching.pil.
+ *
+ *  Overloaded helper fn which looks up the bytecode data by bytecode_id and delegates to
+ *  read_instruction(bytecode_id, bytecode_ptr, pc) below.
+ *
+ * @throws InstructionFetchingError if any parse error is detected (see below).
+ * @param bytecode_id The bytecode identifier (public bytecode commitment).
+ * @param pc The program counter.
+ * @return The deserialized instruction.
+ */
 Instruction PureTxBytecodeManager::read_instruction(const BytecodeId& bytecode_id, PC pc)
 {
     // The corresponding bytecode is already stored in the cache if we call this routine. This is safe-guarded by the
@@ -93,6 +120,27 @@ Instruction PureTxBytecodeManager::read_instruction(const BytecodeId& bytecode_i
     return read_instruction(bytecode_id, get_bytecode_data(bytecode_id), pc);
 }
 
+/**
+ * @brief Reads and deserializes the instruction given by the pair [ @p bytecode_id, @p pc ].
+ *
+ * Attempts to read the instruction at @p pc in the provided bytecode @p bytecode_ptr and check its tag
+ * operand (if any). If the instruction exists in the cache, we return it directly. Otherwise, we perform
+ * deserialisation and tag checks (if a tag operand exists) before storing in the cache.
+ *
+ * If any parsing error occurs (see below), we throw and do not record the instruction in the cache.
+ *
+ * @throws InstructionFetchingError if any parse error is detected:
+ *          - PC_OUT_OF_RANGE: thrown by deserialize_instruction() if pc >= bytecode.size().
+ *          - OPCODE_OUT_OF_RANGE: thrown by deserialize_instruction() if the opcode byte does not correspond to a valid
+ *            wire opcode.
+ *          - INSTRUCTION_OUT_OF_RANGE: thrown by deserialize_instruction() if instruction_size > bytes_to_read from the
+ *            bytecode.
+ *          - TAG_OUT_OF_RANGE: if the instruction has a tag operand which does not correspond to a valid memory tag
+ *            i.e. when the operand value > MemoryTag::MAX, as determined by check_tag().
+ * @param bytecode_ptr Shared pointer to the raw bytecode bytes.
+ * @param pc The program counter.
+ * @return The deserialized instruction.
+ */
 Instruction PureTxBytecodeManager::read_instruction(const BytecodeId&,
                                                     std::shared_ptr<std::vector<uint8_t>> bytecode_ptr,
                                                     PC pc)

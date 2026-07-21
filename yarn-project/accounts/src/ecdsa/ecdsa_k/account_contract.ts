@@ -21,7 +21,7 @@ export abstract class EcdsaKBaseAccountContract extends DefaultAccountContract {
     const signingPublicKey = await new Ecdsa().computePublicKey(this.signingPrivateKey);
     return {
       constructorName: 'constructor',
-      constructorArgs: [signingPublicKey.subarray(0, 32), signingPublicKey.subarray(32, 64)],
+      constructorArgs: [[...signingPublicKey.subarray(0, 32)], [...signingPublicKey.subarray(32, 64)]],
     };
   }
 

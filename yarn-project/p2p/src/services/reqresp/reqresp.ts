@@ -1,5 +1,4 @@
 // @attribution: lodestar impl for inspiration
-import { compactArray } from '@aztec/foundation/collection';
 import { AbortError, TimeoutError } from '@aztec/foundation/error';
 import { createLogger } from '@aztec/foundation/log';
 import { executeTimeout } from '@aztec/foundation/timer';
@@ -11,31 +10,31 @@ import type { Libp2p } from 'libp2p';
 import { pipeline } from 'node:stream/promises';
 import type { Uint8ArrayList } from 'uint8arraylist';
 
+import { IndividualReqRespTimeoutError, OversizedReqRespRequestError } from '../../errors/reqresp.error.js';
 import {
-  CollectiveReqRespTimeoutError,
-  IndividualReqRespTimeoutError,
-  InvalidResponseError,
-} from '../../errors/reqresp.error.js';
-import { SnappyTransform } from '../encoding.js';
+  DEFAULT_MAX_RESPONSE_SIZE_KB,
+  OversizedSnappyResponseError,
+  ResponseSizeLimitExceededError,
+  SnappyTransform,
+} from '../encoding.js';
 import type { PeerScoring } from '../peer-manager/peer_scoring.js';
 import {
   DEFAULT_INDIVIDUAL_REQUEST_TIMEOUT_MS,
   DEFAULT_REQRESP_DIAL_TIMEOUT_MS,
+  MAX_REQRESP_REQUEST_SIZE_BYTES,
   type P2PReqRespConfig,
 } from './config.js';
-import { BatchConnectionSampler } from './connection-sampler/batch_connection_sampler.js';
 import { ConnectionSampler, RandomSampler } from './connection-sampler/connection_sampler.js';
 import {
-  DEFAULT_SUB_PROTOCOL_VALIDATORS,
   type ReqRespInterface,
   type ReqRespResponse,
   ReqRespSubProtocol,
   type ReqRespSubProtocolHandler,
   type ReqRespSubProtocolHandlers,
   type ReqRespSubProtocolRateLimits,
-  type ReqRespSubProtocolValidators,
-  type SubProtocolMap,
-  responseFromBuffer,
+  type ShouldRejectPeer,
+  UNAUTHENTICATED_ALLOWED_PROTOCOLS,
+  subProtocolSizeCalculators,
 } from './interface.js';
 import { ReqRespMetrics } from './metrics.js';
 import {
@@ -43,13 +42,13 @@ import {
   RequestResponseRateLimiter,
   prettyPrintRateLimitStatus,
 } from './rate-limiter/rate_limiter.js';
-import { ReqRespStatus, ReqRespStatusError, parseStatusChunk, prettyPrintReqRespStatus } from './status.js';
+import { ReqRespStatus, ReqRespStatusError, parseStatusChunk } from './status.js';
 
 /**
  * The Request Response Service
  *
  * It allows nodes to request specific information from their peers, its use case covers recovering
- * information that was missed during a syncronisation or a gossip event.
+ * information that was missed during a synchronisation or a gossip event.
  *
  * This service implements the request response sub protocol, it is heavily inspired from
  * ethereum implementations of the same name.
@@ -64,12 +63,13 @@ export class ReqResp implements ReqRespInterface {
   private dialTimeoutMs: number = DEFAULT_REQRESP_DIAL_TIMEOUT_MS;
 
   private subProtocolHandlers: Partial<ReqRespSubProtocolHandlers> = {};
-  private subProtocolValidators: Partial<ReqRespSubProtocolValidators> = {};
 
   private connectionSampler: ConnectionSampler;
   private rateLimiter: RequestResponseRateLimiter;
 
   private snappyTransform: SnappyTransform;
+
+  private shouldRejectPeer: ShouldRejectPeer | undefined;
 
   private metrics: ReqRespMetrics;
 
@@ -107,6 +107,10 @@ export class ReqResp implements ReqRespInterface {
     }
   }
 
+  public setShouldRejectPeer(checker: ShouldRejectPeer): void {
+    this.shouldRejectPeer = checker;
+  }
+
   get tracer() {
     return this.metrics.tracer;
   }
@@ -121,11 +125,11 @@ export class ReqResp implements ReqRespInterface {
   /**
    * Start the reqresp service
    */
-  async start(subProtocolHandlers: ReqRespSubProtocolHandlers, subProtocolValidators: ReqRespSubProtocolValidators) {
+  async start(subProtocolHandlers: ReqRespSubProtocolHandlers) {
     Object.assign(this.subProtocolHandlers, subProtocolHandlers);
-    Object.assign(this.subProtocolValidators, subProtocolValidators);
 
-    // Register all protocol handlers
+    // Register streamHandler with libp2p.
+    // The streamHandler is responsible for reading the incoming stream, determining the protocol, then triggering the appropriate handler.
     for (const subProtocol of Object.keys(subProtocolHandlers)) {
       this.logger.debug(`Registering handler for sub protocol ${subProtocol}`);
       await this.libp2p.handle(
@@ -139,13 +143,8 @@ export class ReqResp implements ReqRespInterface {
     this.rateLimiter.start();
   }
 
-  async addSubProtocol(
-    subProtocol: ReqRespSubProtocol,
-    handler: ReqRespSubProtocolHandler,
-    validator: ReqRespSubProtocolValidators[ReqRespSubProtocol] = DEFAULT_SUB_PROTOCOL_VALIDATORS[subProtocol],
-  ): Promise<void> {
+  async addSubProtocol(subProtocol: ReqRespSubProtocol, handler: ReqRespSubProtocolHandler): Promise<void> {
     this.subProtocolHandlers[subProtocol] = handler;
-    this.subProtocolValidators[subProtocol] = validator;
     this.logger.debug(`Registering handler for sub protocol ${subProtocol}`);
     await this.libp2p.handle(
       subProtocol,
@@ -177,225 +176,6 @@ export class ReqResp implements ReqRespInterface {
     this.logger.debug('ReqResp: Rate limiter stopped');
 
     // NOTE: We assume libp2p instance is managed by the caller
-  }
-
-  /**
-   * Request multiple messages over the same sub protocol, balancing the requests across peers.
-   *
-   * @devnote
-   * - The function prioritizes sending requests to free peers using a batch sampling strategy.
-   * - If a peer fails to respond or returns an invalid response, it is removed from the sampling pool and replaced.
-   * - The function stops retrying once all requests are processed, no active peers remain, or the maximum retry attempts are reached.
-   * - Responses are validated using a custom validator for the sub-protocol.*
-   *
-   * Requests are sent in parallel to each peer, but multiple requests are sent to the same peer in series
-   * - If a peer fails to respond or returns an invalid response, it is removed from the sampling pool and replaced.
-   * - The function stops retrying once all requests are processed, no active peers remain, or the maximum retry attempts are reached.
-   * - Responses are validated using a custom validator for the sub-protocol.*
-   *
-   * @param subProtocol
-   * @param requests
-   * @param timeoutMs
-   * @param maxPeers
-   * @returns
-   *
-   * @throws {CollectiveReqRespTimeoutError} - If the request batch exceeds the specified timeout (`timeoutMs`).
-   */
-  @trackSpan(
-    'ReqResp.sendBatchRequest',
-    (subProtocol: ReqRespSubProtocol, requests: InstanceType<SubProtocolMap[ReqRespSubProtocol]['request']>[]) => ({
-      [Attributes.P2P_REQ_RESP_PROTOCOL]: subProtocol,
-      [Attributes.P2P_REQ_RESP_BATCH_REQUESTS_COUNT]: requests.length,
-    }),
-  )
-  async sendBatchRequest<SubProtocol extends ReqRespSubProtocol>(
-    subProtocol: SubProtocol,
-    requests: InstanceType<SubProtocolMap[SubProtocol]['request']>[],
-    pinnedPeer: PeerId | undefined,
-    timeoutMs = 10000,
-    maxPeers = Math.max(10, Math.ceil(requests.length / 3)),
-    maxRetryAttempts = 3,
-  ): Promise<InstanceType<SubProtocolMap[SubProtocol]['response']>[]> {
-    const responseValidator = this.subProtocolValidators[subProtocol] ?? DEFAULT_SUB_PROTOCOL_VALIDATORS[subProtocol];
-    const responses: InstanceType<SubProtocolMap[SubProtocol]['response']>[] = new Array(requests.length);
-    const requestBuffers = requests.map(req => req.toBuffer());
-    const isEmptyResponse = (value: unknown): boolean => {
-      // Some responses serialize to a non-empty buffer even when they contain no items (e.g., empty TxArray).
-      if (!value || typeof value !== 'object') {
-        return false;
-      }
-      const length = (value as { length?: number }).length;
-      return typeof length === 'number' && length === 0;
-    };
-
-    const requestFunction = async (signal: AbortSignal) => {
-      // Track which requests still need to be processed
-      const pendingRequestIndices = new Set(requestBuffers.map((_, i) => i));
-
-      // Create batch sampler with the total number of requests and max peers
-      const batchSampler = new BatchConnectionSampler(
-        this.connectionSampler,
-        requests.length,
-        maxPeers,
-        compactArray([pinnedPeer]), // Exclude pinned peer from sampling, we will forcefully send all requests to it
-        createLogger(`${this.logger.module}:batch-connection-sampler`),
-      );
-
-      if (batchSampler.activePeerCount === 0 && !pinnedPeer) {
-        this.logger.warn('No active peers to send requests to');
-        return [];
-      }
-
-      // This is where it gets fun
-      // The outer loop is the retry loop, we will continue to retry until we process all indices we have
-      // not received a response for, or we have reached the max retry attempts
-
-      // The inner loop is the batch loop, we will process all requests for each peer in parallel
-      // We will then process the results of the requests, and resample any peers that failed to respond
-      // We will continue to retry until we have processed all indices, or we have reached the max retry attempts
-
-      let retryAttempts = 0;
-      while (pendingRequestIndices.size > 0 && batchSampler.activePeerCount > 0 && retryAttempts < maxRetryAttempts) {
-        if (signal.aborted) {
-          throw new AbortError('Batch request aborted');
-        }
-        // Process requests in parallel for each available peer
-        type BatchEntry = { peerId: PeerId; indices: number[] };
-        const requestBatches = new Map<string, BatchEntry>();
-
-        // Group requests by peer
-        for (const requestIndex of pendingRequestIndices) {
-          const peer = batchSampler.getPeerForRequest(requestIndex);
-          if (!peer) {
-            // No peer available for this specific index (all peers exhausted for it)
-            // Skip this index for now - it stays in pendingRequestIndices for retry
-            continue;
-          }
-          const peerAsString = peer.toString();
-          if (!requestBatches.has(peerAsString)) {
-            requestBatches.set(peerAsString, { peerId: peer, indices: [] });
-          }
-          requestBatches.get(peerAsString)!.indices.push(requestIndex);
-        }
-
-        // If there is a pinned peer, we will always send every request to that peer
-        // We use the default limits for the subprotocol to avoid hitting the rate limiter
-        if (pinnedPeer) {
-          const limit = this.rateLimiter.getRateLimits(subProtocol).peerLimit.quotaCount;
-          requestBatches.set(pinnedPeer.toString(), {
-            peerId: pinnedPeer,
-            indices: Array.from(pendingRequestIndices.values()).slice(0, limit),
-          });
-        }
-
-        // If no requests could be assigned (all peers exhausted for all indices), exit early
-        if (requestBatches.size === 0) {
-          this.logger.warn('No peers available for any pending request indices, stopping batch request');
-          break;
-        }
-
-        // Make parallel requests for each peer's batch
-        // A batch entry will look something like this:
-        // PeerId0: [0, 1, 2, 3]
-        // PeerId1: [4, 5, 6, 7]
-
-        // Peer Id 0 will send requests 0, 1, 2, 3 in serial
-        // while simultaneously Peer Id 1 will send requests 4, 5, 6, 7 in serial
-
-        const batchResults = await Promise.all(
-          Array.from(requestBatches.entries()).map(async ([peerAsString, { peerId: peer, indices }]) => {
-            try {
-              const markIndexFailed = (index: number) => batchSampler.markPeerFailedForIndex(peer, index);
-              // Requests all going to the same peer are sent synchronously
-              const peerResults: { index: number; response: InstanceType<SubProtocolMap[SubProtocol]['response']> }[] =
-                [];
-              let shouldReplacePeer = false;
-              const handleFailure = (status: ReqRespStatus, index: number) => {
-                this.logger.warn(
-                  `Request to peer ${peerAsString} failed with status ${prettyPrintReqRespStatus(status)}`,
-                );
-                markIndexFailed(index);
-                return status === ReqRespStatus.RATE_LIMIT_EXCEEDED;
-              };
-
-              for (const index of indices) {
-                this.logger.info(`Sending request ${index} to peer ${peerAsString}`);
-                const response = await this.sendRequestToPeer(peer, subProtocol, requestBuffers[index]);
-
-                // Check the status of the response buffer
-                if (response.status !== ReqRespStatus.SUCCESS) {
-                  shouldReplacePeer = handleFailure(response.status, index);
-                  if (shouldReplacePeer) {
-                    break;
-                  }
-                  continue;
-                }
-
-                if (response.data.length === 0) {
-                  markIndexFailed(index);
-                  continue;
-                }
-
-                const object = responseFromBuffer(subProtocol, response.data);
-                if (isEmptyResponse(object)) {
-                  markIndexFailed(index);
-                  continue;
-                }
-
-                const isValid = await responseValidator(requests[index], object, peer);
-                if (!isValid) {
-                  markIndexFailed(index);
-                  continue;
-                }
-
-                peerResults.push({ index, response: object });
-              }
-
-              // If peer had a hard failure (rate limit), replace it for future iterations
-              if (shouldReplacePeer) {
-                this.logger.warn(`Peer ${peerAsString} hit a hard failure, removing from sampler`);
-                batchSampler.removePeerAndReplace(peer);
-              }
-
-              return { peer, results: peerResults };
-            } catch (error) {
-              this.logger.warn(`Failed batch request to peer ${peerAsString}:`, error);
-              batchSampler.removePeerAndReplace(peer);
-              return { peer, results: [] };
-            }
-          }),
-        );
-
-        // Process results
-        for (const { results } of batchResults) {
-          for (const { index, response } of results) {
-            if (response) {
-              responses[index] = response;
-              pendingRequestIndices.delete(index);
-            }
-          }
-        }
-
-        retryAttempts++;
-      }
-
-      if (retryAttempts >= maxRetryAttempts) {
-        this.logger.warn(`Max retry attempts ${maxRetryAttempts} reached for batch request`);
-      }
-
-      return responses;
-    };
-
-    try {
-      return await executeTimeout<InstanceType<SubProtocolMap[SubProtocol]['response']>[]>(
-        requestFunction,
-        timeoutMs,
-        () => new CollectiveReqRespTimeoutError(),
-      );
-    } catch (e: any) {
-      this.logger.warn(`${e.message} | subProtocol: ${subProtocol}`);
-      return [];
-    }
   }
 
   /**
@@ -433,9 +213,17 @@ export class ReqResp implements ReqRespInterface {
     payload: Buffer,
     dialTimeout: number = this.dialTimeoutMs,
   ): Promise<ReqRespResponse> {
+    // Thrown before the try block so the generic error handling below does not penalize the peer for our own bug.
+    if (payload.length > MAX_REQRESP_REQUEST_SIZE_BYTES) {
+      throw new OversizedReqRespRequestError(subProtocol, payload.length, MAX_REQRESP_REQUEST_SIZE_BYTES);
+    }
+
     let stream: Stream | undefined;
     try {
       this.metrics.recordRequestSent(subProtocol);
+
+      // Calculate expected response size based on the request payload
+      const expectedSizeKb = subProtocolSizeCalculators[subProtocol](payload);
 
       this.logger.trace(`Sending request to peer ${peerId.toString()} on sub protocol ${subProtocol}`);
       stream = await this.connectionSampler.dialProtocol(peerId, subProtocol, dialTimeout);
@@ -444,18 +232,21 @@ export class ReqResp implements ReqRespInterface {
       );
 
       const timeoutErr = new IndividualReqRespTimeoutError();
+      // Create a wrapper to pass the expected size to readMessage
+      const readMessageWithSizeLimit = (source: AsyncIterable<Uint8ArrayList>) =>
+        this.readMessage(source, expectedSizeKb);
       const [_, resp] = await executeTimeout(
         signal =>
           Promise.all([
             pipeline([payload], stream!.sink, { signal }),
-            pipeline(stream!.source, this.readMessage.bind(this), { signal }),
+            pipeline(stream!.source, readMessageWithSizeLimit, { signal }),
           ]),
         this.individualRequestTimeoutMs,
         () => timeoutErr,
       );
       return resp;
     } catch (e: any) {
-      this.logger.warn(`SUBPROTOCOL: ${subProtocol}\n`, e);
+      this.logger.debug(`SUBPROTOCOL: ${subProtocol}\n`, e);
       // On error we immediately abort the stream, this is preferred way,
       // because it signals to the sender that error happened, whereas
       // closing the stream only closes our side and is much slower
@@ -510,15 +301,36 @@ export class ReqResp implements ReqRespInterface {
    * The message is split into two components
    * - The first chunk should contain a control byte, indicating the status of the response see `ReqRespStatus`
    * - The second chunk should contain the response data
+   *
+   * To bound memory usage we abort reception as soon as the accumulated compressed bytes exceed a
+   * bound derived from `maxSizeKb`, before the full stream has been buffered. Without this a peer we
+   * dialed could stream data up to the request timeout, forcing us to buffer arbitrarily much (the
+   * `maxSizeKb` guard in `inboundTransformData` only runs after the whole compressed payload is
+   * concatenated, so it does nothing to cap reception memory). Snappy can expand incompressible input
+   * to ~1.17x its size, so we allow 2x `maxSizeKb`: comfortably above the worst-case expansion of a
+   * legitimate max-size response, while still capping buffered memory at twice the permitted size.
+   *
+   * @param source - The async iterable source of data chunks
+   * @param maxSizeKb - Optional maximum expected size in KB for the decompressed response
    */
-  private async readMessage(source: AsyncIterable<Uint8ArrayList>): Promise<ReqRespResponse> {
+  private async readMessage(source: AsyncIterable<Uint8ArrayList>, maxSizeKb?: number): Promise<ReqRespResponse> {
     let status: ReqRespStatus | undefined;
     const chunks: Uint8Array[] = [];
+
+    const maxAccumulatedBytes = (maxSizeKb ?? DEFAULT_MAX_RESPONSE_SIZE_KB) * 1024 * 2;
+    let accumulatedBytes = 0;
 
     try {
       for await (const chunk of source) {
         const statusParsed = status !== undefined;
         if (statusParsed) {
+          // Use `byteLength` (the logical length) rather than `chunk.subarray().length`: calling
+          // `subarray()` on a `Uint8ArrayList` consolidates its backing buffers into a single copy,
+          // which would materialize the very chunk we are trying to reject.
+          accumulatedBytes += chunk.byteLength;
+          if (accumulatedBytes > maxAccumulatedBytes) {
+            throw new ResponseSizeLimitExceededError(accumulatedBytes, maxAccumulatedBytes);
+          }
           chunks.push(chunk.subarray());
           continue;
         }
@@ -536,23 +348,17 @@ export class ReqResp implements ReqRespInterface {
       }
 
       const messageData = Buffer.concat(chunks);
-      const message: Buffer = this.snappyTransform.inboundTransformData(messageData);
+      const message: Buffer = this.snappyTransform.inboundTransformData(messageData, undefined, maxSizeKb);
 
       return {
         status: status ?? ReqRespStatus.UNKNOWN,
         data: message,
       };
     } catch (e: any) {
+      // All errors (invalid status bytes, oversized snappy responses, corrupt data, etc.)
+      // are re-thrown so the caller can penalize the peer via handleResponseError.
       this.logger.debug(`Reading message failed: ${e.message}`);
-
-      let status = ReqRespStatus.UNKNOWN;
-      if (e instanceof ReqRespStatusError) {
-        status = e.status;
-      }
-
-      return {
-        status,
-      };
+      throw e;
     }
   }
 
@@ -592,6 +398,15 @@ export class ReqResp implements ReqRespInterface {
         throw new ReqRespStatusError(ReqRespStatus.RATE_LIMIT_EXCEEDED);
       }
 
+      // When p2pAllowOnlyValidators is enabled, reject unauthenticated peers on data protocols
+      if (
+        !UNAUTHENTICATED_ALLOWED_PROTOCOLS.has(protocol) &&
+        (this.shouldRejectPeer?.(connection.remotePeer.toString()) ?? false)
+      ) {
+        this.logger.debug(`Rejecting unauthenticated peer ${connection.remotePeer} on gated protocol ${protocol}`);
+        throw new ReqRespStatusError(ReqRespStatus.FAILURE);
+      }
+
       await this.processStream(protocol, incomingStream);
     } catch (err: any) {
       this.metrics.recordResponseError(protocol);
@@ -617,7 +432,9 @@ export class ReqResp implements ReqRespInterface {
         // and that this stream should be dropped
         const isMessageToNotWarn =
           err instanceof Error &&
-          ['stream reset', 'Cannot push value onto an ended pushable'].some(msg => err.message.includes(msg));
+          ['stream reset', 'Cannot push value onto an ended pushable', 'read ECONNRESET'].some(msg =>
+            err.message.includes(msg),
+          );
         const level = isMessageToNotWarn ? 'debug' : 'warn';
         this.logger[level]('Unknown stream error while handling the stream, aborting', {
           protocol,
@@ -652,6 +469,9 @@ export class ReqResp implements ReqRespInterface {
     await pipeline(
       stream.source,
       async function* (source: any) {
+        // Req/resp is one-request-one-response: an honest sender writes a single payload and half-closes.
+        // Process only the first chunk and return, so extra frames a peer queues on the same stream cannot
+        // drive further handler invocations that bypass the per-stream rate-limit check in streamHandler.
         for await (const chunk of source) {
           const response = await handler(connection.remotePeer, chunk.subarray());
 
@@ -666,6 +486,7 @@ export class ReqResp implements ReqRespInterface {
 
           yield SUCCESS;
           yield snappy.outboundTransformData(response);
+          return;
         }
       },
       stream.sink,
@@ -734,13 +555,13 @@ export class ReqResp implements ReqRespInterface {
   ): PeerErrorSeverity | undefined {
     const logTags = { peerId: peerId.toString(), subProtocol };
 
-    //Punishable error - peer should never send badly formed request
+    // Punishable error - peer should never send badly formed request
     if (e instanceof ReqRespStatusError && e.status === ReqRespStatus.BADLY_FORMED_REQUEST) {
       this.logger.debug(`Punishable error in ${subProtocol}: ${e.cause}`, logTags);
       return PeerErrorSeverity.LowToleranceError;
     }
 
-    //TODO: (mralj): think if we should penalize peer here based on connection errors
+    // TODO: (mralj): think if we should penalize peer here based on connection errors
     return undefined;
   }
 
@@ -762,10 +583,25 @@ export class ReqResp implements ReqRespInterface {
       return undefined;
     }
 
-    // We do not punish a collective timeout, as the node triggers this interupt, independent of the peer's behaviour
-    if (e instanceof CollectiveReqRespTimeoutError || e instanceof InvalidResponseError) {
-      this.logger.debug(`Non-punishable error in ${subProtocol}: ${e.message}`, logTags);
-      return undefined;
+    // Invalid status byte: the peer sent a status byte that doesn't match any known status code.
+    // This is a protocol violation, penalize harshly.
+    if (e instanceof ReqRespStatusError) {
+      this.logger.warn(`Invalid status byte from peer ${peerId.toString()} in ${subProtocol}: ${e.message}`, logTags);
+      return PeerErrorSeverity.LowToleranceError;
+    }
+
+    // Oversized snappy response: the peer is sending data that exceeds the allowed size.
+    // This is a protocol violation that wastes bandwidth, so penalize harshly.
+    if (e instanceof OversizedSnappyResponseError) {
+      this.logger.warn(`Oversized response from peer ${peerId.toString()} in ${subProtocol}: ${e.message}`, logTags);
+      return PeerErrorSeverity.LowToleranceError;
+    }
+
+    // Response exceeded the reception buffer bound: the peer streamed more compressed data than the
+    // per-request size limit allows. Same protocol violation as above, penalize harshly.
+    if (e instanceof ResponseSizeLimitExceededError) {
+      this.logger.warn(`Oversized response from peer ${peerId.toString()} in ${subProtocol}: ${e.message}`, logTags);
+      return PeerErrorSeverity.LowToleranceError;
     }
 
     return this.categorizeConnectionErrors(e, peerId, subProtocol);
@@ -773,7 +609,8 @@ export class ReqResp implements ReqRespInterface {
 
   /*
    * Errors specific to connection  handling
-   * These can happen  both when sending request and response*/
+   * These can happen  both when sending request and response.
+   */
   private categorizeConnectionErrors(
     e: any,
     peerId: PeerId,

@@ -3,7 +3,9 @@
   "compilerOptions": {
     "outDir": "dest",
     "rootDir": "src",
-    "tsBuildInfoFile": ".tsbuildinfo"
+    "tsBuildInfoFile": ".tsbuildinfo",
+    "allowJs": true,
+    "checkJs": false
   },
   "references": [
     {
@@ -17,6 +19,9 @@
     },
     {
       "path": "../native"
+    },
+    {
+      "path": "../sqlite3mc-wasm"
     },
     {
       "path": "../stdlib"

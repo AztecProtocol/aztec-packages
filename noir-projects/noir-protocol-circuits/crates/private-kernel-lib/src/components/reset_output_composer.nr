@@ -17,16 +17,55 @@ use types::{
         nullifier::Nullifier, private_log::PrivateLogData,
         validation_requests::PrivateValidationRequests,
     },
-    address::AztecAddress,
     constants::{
         MAX_NOTE_HASH_READ_REQUESTS_PER_TX, MAX_NOTE_HASHES_PER_TX,
         MAX_NULLIFIER_READ_REQUESTS_PER_TX, MAX_NULLIFIERS_PER_TX, MAX_PRIVATE_LOGS_PER_TX,
         MAX_U32_VALUE, SIDE_EFFECT_MASKING_ADDRESS,
     },
-    hash::{compute_unique_siloed_note_hash, silo_note_hash, silo_nullifier, silo_private_log},
-    side_effect::{Counted, Ordered, Scoped},
+    hash::{
+        compute_note_nonce_and_unique_note_hash, compute_siloed_note_hash, compute_siloed_nullifier,
+        compute_siloed_private_log,
+    },
+    side_effect::{Counted, Scoped},
     utils::arrays::ClaimedLengthArray,
 };
+
+pub fn silo_note_hash(note_hash: Scoped<Counted<NoteHash>>) -> Scoped<Counted<NoteHash>> {
+    let mut siloed = note_hash;
+    siloed.inner.inner =
+        compute_siloed_note_hash(note_hash.contract_address, note_hash.innermost());
+    siloed
+}
+
+pub fn uniquify_siloed_note_hash(
+    siloed_note_hash: Scoped<Counted<NoteHash>>,
+    first_nullifier: Field,
+    index_in_tx: u32,
+) -> Scoped<Counted<NoteHash>> {
+    let mut uniquified = siloed_note_hash;
+    uniquified.inner.inner = compute_note_nonce_and_unique_note_hash(
+        siloed_note_hash.inner.inner,
+        first_nullifier,
+        index_in_tx,
+    );
+    uniquified
+}
+
+pub fn silo_nullifier(nullifier: Scoped<Counted<Nullifier>>) -> Scoped<Counted<Nullifier>> {
+    let mut siloed = nullifier;
+    siloed.inner.inner.value =
+        compute_siloed_nullifier(nullifier.contract_address, nullifier.innermost().value);
+    siloed
+}
+
+pub fn silo_private_log(
+    private_log: Scoped<Counted<PrivateLogData>>,
+) -> Scoped<Counted<PrivateLogData>> {
+    let mut siloed = private_log;
+    siloed.inner.inner.log =
+        compute_siloed_private_log(private_log.contract_address, private_log.innermost().log);
+    siloed
+}
 
 pub struct ResetOutputComposer {
     pub previous_kernel: PrivateKernelCircuitPublicInputs,
@@ -77,18 +116,23 @@ impl ResetOutputComposer {
         // "Siloing" is the act of hashing the side-effect with the contract_address which emitted
         // it, effectively "siloing" one contract's state and logs from another's, to prevent
         // cross-contamination.
-        output.end.note_hashes = if NoteHashSiloingAmount == 0 {
-            // Some transient note_hashes have been removed (squashed).
-            self.squashed_output_array_hints.kept_note_hashes
-        } else {
-            self.get_padded_unique_siloed_sorted_kept_note_hashes::<NoteHashSiloingAmount>()
-        };
-
         output.end.nullifiers = if NullifierSiloingAmount == 0 {
             // Some transient nullifiers have been removed (squashed).
             self.squashed_output_array_hints.kept_nullifiers
         } else {
             self.get_padded_siloed_sorted_kept_nullifiers::<NullifierSiloingAmount>()
+        };
+
+        // Compute note hashes after nullifiers: uniquifying a note hash uses the tx's first
+        // nullifier (`end.nullifiers[0]`) as the note-nonce base, taken from the settled (squashed,
+        // sorted, siloed) nullifier output. See `get_padded_unique_siloed_sorted_kept_note_hashes`.
+        output.end.note_hashes = if NoteHashSiloingAmount == 0 {
+            // Some transient note_hashes have been removed (squashed).
+            self.squashed_output_array_hints.kept_note_hashes
+        } else {
+            self.get_padded_unique_siloed_sorted_kept_note_hashes::<NoteHashSiloingAmount>(
+                output.end.nullifiers,
+            )
         };
 
         output.end.private_logs = if PrivateLogSiloingAmount == 0 {
@@ -116,20 +160,21 @@ impl ResetOutputComposer {
             self.nullifier_read_request_actions_hints,
         );
 
-        let scoped_key_validation_requests_and_generators = get_propagated_key_validation_requests(
-            validation_requests.scoped_key_validation_requests_and_generators,
+        let scoped_key_validation_requests_and_separators = get_propagated_key_validation_requests(
+            validation_requests.scoped_key_validation_requests_and_separators,
             KeyValidationAmount,
         );
 
         PrivateValidationRequests {
             note_hash_read_requests: kept_note_hash_read_requests,
             nullifier_read_requests: kept_nullifier_read_requests,
-            scoped_key_validation_requests_and_generators,
+            scoped_key_validation_requests_and_separators,
         }
     }
 
     unconstrained fn get_padded_unique_siloed_sorted_kept_note_hashes<let NoteHashSiloingAmount: u32>(
         self,
+        siloed_nullifiers: ClaimedLengthArray<Scoped<Counted<Nullifier>>, MAX_NULLIFIERS_PER_TX>,
     ) -> ClaimedLengthArray<Scoped<Counted<NoteHash>>, MAX_NOTE_HASHES_PER_TX> {
         // Sort:
         let sorted_kept_note_hashes = ClaimedLengthArray {
@@ -142,7 +187,7 @@ impl ResetOutputComposer {
         // Calling this in the unconstrained context is not a problem. Since it doesn't matter if there are non-empty
         // items outside of the range [num_kept_note_hashes, NoteHashSiloingAmount). The values will simply be ignored.
         // Having the check here is useful to catch any bugs where the padded values are not configured correctly by mistake.
-        check_padded_items(
+        let num_padded_items = check_padded_items(
             padded_note_hashes,
             num_kept_note_hashes,
             NoteHashSiloingAmount,
@@ -150,11 +195,17 @@ impl ResetOutputComposer {
 
         let mut padded_unique_siloed_sorted_kept_note_hashes = sorted_kept_note_hashes;
 
-        for i in 0..sorted_kept_note_hashes.array.len() {
+        // The note-nonce base is the tx's first nullifier: `end.nullifiers[0]` of the settled
+        // (squashed, sorted, siloed) output, passed in here. It must be a surviving nullifier - only
+        // survivors are inserted into the nullifier tree, where uniqueness is enforced - so deriving
+        // the nonce from it makes the resulting note hashes globally unique (preventing Faerie-Gold).
+        // The tail circuit guarantees at least one nullifier survives, so this is always present.
+        let siloed_first_nullifier = siloed_nullifiers.array[0].innermost().value;
+
+        for i in 0..num_kept_note_hashes + num_padded_items {
             // Push padding:
-            if (i >= num_kept_note_hashes)
+            if i >= num_kept_note_hashes {
                 // We only apply padding if the executor of this circuit provides padding as input:
-                & (padded_note_hashes[i] != 0) {
                 // We 'push' so that the length increments.
                 // Note: beyond `NoteHashSiloingAmount`, these so-called "padded" note_hashes
                 // will be empty, because we just called `check_padded_items`.
@@ -176,14 +227,8 @@ impl ResetOutputComposer {
             let siloed_note_hash = silo_note_hash(note_hash);
 
             // Unique:
-            let unique_siloed_note_hash = compute_unique_siloed_note_hash(
-                siloed_note_hash,
-                self.previous_kernel.claimed_first_nullifier,
-                i,
-            );
-
-            let min_revertible_side_effect_counter =
-                self.previous_kernel.min_revertible_side_effect_counter;
+            let unique_siloed_note_hash =
+                uniquify_siloed_note_hash(siloed_note_hash, siloed_first_nullifier, i);
 
             // We don't silo revertible note hashes with a note_nonce, since we don't know their final position in the tx.
             //
@@ -227,7 +272,7 @@ impl ResetOutputComposer {
             // This means the "revertible from private-land" note_hashes cannot be made unique in
             // private-land, since the uniqueness can only be derived in public-land, because the
             // revertible notes' indices (within the note_hashes of the tx) will only be known in
-            // public-land. See `compute_unique_siloed_note_hash` for more explanation on how the
+            // public-land. See `compute_note_nonce_and_unique_note_hash` for more explanation on how the
             // uniqueness (aka note_nonce) is derived.
             //
             // In summary:
@@ -237,22 +282,16 @@ impl ResetOutputComposer {
             //   - For "non-revertible from private-land" note hashes, the `unique_siloed_note_hash`es
             //     that we derived above are correct.
             //   - None of the `unique_siloed_note_hash`es for "revertible" note hashes are fit for use.
-            let is_non_revertible = note_hash.counter() < min_revertible_side_effect_counter;
-            let is_private_only = self.previous_kernel.is_private_only;
+            let is_non_revertible = note_hash.is_non_revertible(
+                self.previous_kernel.is_private_only,
+                self.previous_kernel.claimed_revertible_counter,
+            );
 
-            padded_unique_siloed_sorted_kept_note_hashes.array[i].inner.inner = if is_private_only
-                | is_non_revertible {
+            padded_unique_siloed_sorted_kept_note_hashes.array[i] = if is_non_revertible {
                 unique_siloed_note_hash
             } else {
                 siloed_note_hash
             };
-
-            // Why is it doing this? Is the contract_address being overloaded to mean something else?
-            // Oh, is it being used to say "This has already been siloed"?
-            // TODO: Why not use an extra bool to convey that?
-            // A contract address will be assigned to the padding within constrained-land (see validate_sorted_siloed_unique_padded_note_hashes).
-            padded_unique_siloed_sorted_kept_note_hashes.array[i].contract_address =
-                AztecAddress::zero();
         }
         padded_unique_siloed_sorted_kept_note_hashes
     }
@@ -272,7 +311,7 @@ impl ResetOutputComposer {
         // Calling this in the unconstrained context is not a problem. Since it doesn't matter if there are non-empty
         // items outside of the range [num_nullifiers, NullifierSiloingAmount). The values will simply be ignored.
         // Having the check here is useful to catch any bugs where the padded values are not configured correctly by mistake.
-        check_padded_items(
+        let num_padded_items = check_padded_items(
             padded_nullifiers,
             num_kept_nullifiers,
             NullifierSiloingAmount,
@@ -280,11 +319,10 @@ impl ResetOutputComposer {
 
         let mut padded_siloed_sorted_kept_nullifiers = sorted_kept_nullifiers;
 
-        for i in 0..sorted_kept_nullifiers.array.len() {
+        for i in 0..num_kept_nullifiers + num_padded_items {
             // Push padding:
-            if (i >= num_kept_nullifiers)
+            if i >= num_kept_nullifiers {
                 // we only apply padding if the executor of this circuit provides padding as input:
-                & (padded_nullifiers[i] != 0) {
                 padded_siloed_sorted_kept_nullifiers.push(Nullifier {
                     value: padded_nullifiers[i],
                     note_hash: 0,
@@ -297,11 +335,8 @@ impl ResetOutputComposer {
                     .scope(SIDE_EFFECT_MASKING_ADDRESS));
             }
 
-            // Silo:
-            padded_siloed_sorted_kept_nullifiers.array[i].inner.inner.value =
-                silo_nullifier(padded_siloed_sorted_kept_nullifiers.array[i]);
-            // A contract address will be assigned to the padding within constrained-land (see validate_sorted_siloed_padded_nullifiers).
-            padded_siloed_sorted_kept_nullifiers.array[i].contract_address = AztecAddress::zero();
+            let nullifier = padded_siloed_sorted_kept_nullifiers.array[i];
+            padded_siloed_sorted_kept_nullifiers.array[i] = silo_nullifier(nullifier);
         }
 
         padded_siloed_sorted_kept_nullifiers
@@ -322,7 +357,7 @@ impl ResetOutputComposer {
         // Calling this in the unconstrained context is not a problem. Since it doesn't matter if there are non-empty
         // items outside of the range [num_private_logs, PrivateLogSiloingAmount). The values will simply be ignored.
         // Having the check here is useful to catch any bugs where the padded values are not configured correctly by mistake.
-        check_padded_items(
+        let num_padded_items = check_padded_items(
             padded_private_logs,
             num_kept_private_logs,
             PrivateLogSiloingAmount,
@@ -331,11 +366,10 @@ impl ResetOutputComposer {
         // The ordering of adjectives in this name is intentional (back to front).
         let mut padded_siloed_sorted_kept_private_logs = sorted_kept_private_logs;
 
-        for i in 0..sorted_kept_private_logs.array.len() {
+        for i in 0..num_kept_private_logs + num_padded_items {
             // Pad:
-            if (i >= num_kept_private_logs)
+            if i >= num_kept_private_logs {
                 // we only apply padding if the executor of this circuit provides padding as input:
-                & (padded_private_logs[i].length != 0) {
                 padded_siloed_sorted_kept_private_logs.push(PrivateLogData {
                     log: padded_private_logs[i],
                     note_hash_counter: 0, // Recall: this is only used to hint which note (if any) this log corresponds to.
@@ -348,11 +382,8 @@ impl ResetOutputComposer {
                     .scope(SIDE_EFFECT_MASKING_ADDRESS));
             }
 
-            // Silo:
-            padded_siloed_sorted_kept_private_logs.array[i].inner.inner.log =
-                silo_private_log(padded_siloed_sorted_kept_private_logs.array[i]);
-            // A contract address will be assigned to the padding within constrained-land (see validate_sorted_siloed_padded_private_logs).
-            padded_siloed_sorted_kept_private_logs.array[i].contract_address = AztecAddress::zero();
+            let private_log = padded_siloed_sorted_kept_private_logs.array[i];
+            padded_siloed_sorted_kept_private_logs.array[i] = silo_private_log(private_log);
         }
 
         padded_siloed_sorted_kept_private_logs

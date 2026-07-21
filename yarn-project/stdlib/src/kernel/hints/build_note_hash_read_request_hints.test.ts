@@ -13,12 +13,15 @@ import { ReadRequest, ScopedReadRequest } from './read_request.js';
 import { PendingReadHint, ReadRequestAction, SettledReadHint } from './read_request_hints.js';
 
 describe('buildNoteHashReadRequestHints', () => {
-  const contractAddress = AztecAddress.fromBigInt(112233n);
+  const contractAddress = AztecAddress.fromBigIntUnsafe(112233n);
 
   const getNoteHashValue = (index: number) => index + 9999;
 
-  const makeReadRequest = (value: number, counter = 2) =>
+  const makePendingReadRequest = (value: number, counter = 2) =>
     new ReadRequest(new Fr(value), counter).scope(contractAddress);
+
+  const makeSettledReadRequest = (value: number, counter = 2) =>
+    new ReadRequest(new Fr(value), counter).scope(AztecAddress.ZERO);
 
   const makeNoteHash = (value: number, counter = 1) => new NoteHash(new Fr(value), counter).scope(contractAddress);
   /**
@@ -53,7 +56,7 @@ describe('buildNoteHashReadRequestHints', () => {
   const readPendingNoteHash = (noteHashIndex: number) => {
     const readRequestIndex = numReadRequests;
     const hintIndex = numPendingReads;
-    noteHashReadRequests[readRequestIndex] = makeReadRequest(getNoteHashValue(noteHashIndex));
+    noteHashReadRequests[readRequestIndex] = makePendingReadRequest(getNoteHashValue(noteHashIndex));
     expectedHints.readRequestActions[readRequestIndex] = ReadRequestAction.readAsPending(hintIndex);
     expectedHints.pendingReadHints[hintIndex] = new PendingReadHint(readRequestIndex, noteHashIndex);
     numReadRequests++;
@@ -64,7 +67,7 @@ describe('buildNoteHashReadRequestHints', () => {
     const readRequestIndex = numReadRequests;
     const hintIndex = numSettledReads;
     const value = settledNoteHashes[noteHashIndex];
-    noteHashReadRequests[readRequestIndex] = makeReadRequest(settledNoteHashes[noteHashIndex]);
+    noteHashReadRequests[readRequestIndex] = makeSettledReadRequest(settledNoteHashes[noteHashIndex]);
     expectedHints.readRequestActions[readRequestIndex] = ReadRequestAction.readAsSettled(hintIndex);
     expectedHints.settledReadHints[hintIndex] = new SettledReadHint(readRequestIndex, {} as any, new Fr(value));
     numReadRequests++;
@@ -73,7 +76,7 @@ describe('buildNoteHashReadRequestHints', () => {
 
   const readFutureNoteHash = (noteHashIndex: number) => {
     const readRequestIndex = numReadRequests;
-    noteHashReadRequests[readRequestIndex] = makeReadRequest(futureNoteHashes[noteHashIndex].value.toNumber());
+    noteHashReadRequests[readRequestIndex] = makePendingReadRequest(futureNoteHashes[noteHashIndex].value.toNumber());
     numReadRequests++;
   };
 
@@ -82,7 +85,6 @@ describe('buildNoteHashReadRequestHints', () => {
       oracle,
       new ClaimedLengthArray(noteHashReadRequests, numReadRequests),
       new ClaimedLengthArray(noteHashes, MAX_NOTE_HASHES_PER_TX),
-      futureNoteHashes,
     );
 
   beforeEach(() => {
@@ -128,10 +130,10 @@ describe('buildNoteHashReadRequestHints', () => {
     expect(hints).toEqual(expectedHints);
   });
 
-  it('throws if cannot find a match in pending set and in the tree', async () => {
-    readPendingNoteHash(2);
-    // Tweak the value of the read request.
-    noteHashReadRequests[0].readRequest.value = new Fr(123);
+  it('throws if settled read request cannot find a match in the tree', async () => {
+    // A settled read request for a value that the oracle can't find.
+    noteHashReadRequests[0] = makeSettledReadRequest(456);
+    numReadRequests = 1;
     await expect(() => buildHints()).rejects.toThrow('Read request is reading an unknown note hash.');
   });
 });

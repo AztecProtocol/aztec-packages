@@ -1,4 +1,3 @@
-export * from './dispatch/create_dispatch_fn.js';
 export * from './dispatch/create_dispatch_proxy.js';
 export * from './dispatch/messages.js';
 export * from './interface/connector.js';

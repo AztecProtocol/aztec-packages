@@ -1,0 +1,77 @@
+#!/usr/bin/env bash
+# Shows a spinner while running a command.
+# Usage: spinner <message> <command>
+# In interactive mode: prints message + spinner, then "done." in green on success
+# In non-interactive mode: just prints message and newline
+# On failure: outputs dump_fail style error info
+set -uo pipefail
+source $(git rev-parse --show-toplevel)/ci3/source_color
+
+if [ "$#" -ne 2 ]; then
+  echo "Usage: $0 <message> <command>"
+  exit 1
+fi
+
+message="$1"
+command="$2"
+
+# Check if we're in a terminal
+if [ ! -t 1 ]; then
+  # Non-interactive mode: just print message and run command
+  echo "$message"
+  bash -c "set -euo pipefail; $command"
+  exit $?
+fi
+
+# Interactive mode: show spinner
+echo -n "$message "
+
+# Spinner characters (braille circle worm)
+spinner_chars=(⠋ ⠙ ⠹ ⠸ ⠼ ⠴ ⠦ ⠧ ⠇ ⠏)
+
+# Hide cursor and ensure it's restored on exit
+printf "$hide_cursor"
+
+# Run command in background, capturing output
+output=$(mktemp)
+trap "printf '$show_cursor'; rm -f $output" EXIT
+
+bash -c "set -euo pipefail; $command" >$output 2>&1 &
+pid=$!
+trap 'kill -SIGTERM $pid &>/dev/null || true' SIGTERM
+
+# Show spinner while command runs
+i=0
+while kill -0 $pid 2>/dev/null; do
+  i=$(( (i+1) %10 ))
+  printf "\r$message ${orange}${spinner_chars[$i]}${reset}"
+  sleep 0.1
+done
+
+# Wait for the command to complete and get status
+# We wait twice, as the first awakening might be due to this script receiving SIGTERM.
+# In that case wait will return with 143, and the trap handler is immediately called.
+# We then wait on the pid again, to get the actual status code.
+wait $pid
+wait $pid
+status=$?
+
+# Show cursor again
+printf "$show_cursor"
+
+# 0 or SIGTERM considered a success.
+if [ "$status" -eq 0 ] || [ "$status" -eq 143 ]; then
+  # Success - print done in green
+  printf "\r$message ${green}done.${reset}\n"
+else
+  # Failure - clear the line and show dump_fail style output
+  printf "\r\033[K"
+  {
+    echo -e "${red}command failed${reset}: $command (exit: $status)"
+    echo -e "${blue}--- output ---${reset}"
+    cat $output
+    echo -e "${blue}--------------${reset}"
+  } >&2
+fi
+
+exit $status

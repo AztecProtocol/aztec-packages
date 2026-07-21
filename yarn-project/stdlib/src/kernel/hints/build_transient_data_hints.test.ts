@@ -4,18 +4,20 @@ import { AztecAddress } from '../../aztec-address/index.js';
 import { ClaimedLengthArray } from '../claimed_length_array.js';
 import { NoteHash, type ScopedNoteHash } from '../note_hash.js';
 import { Nullifier, type ScopedNullifier } from '../nullifier.js';
-import { buildTransientDataHints } from './build_transient_data_hints.js';
+import { PrivateLogData, ScopedPrivateLogData } from '../private_log_data.js';
+import { buildTransientDataHints, countSquashedLogs } from './build_transient_data_hints.js';
 import { ReadRequest, ScopedReadRequest } from './read_request.js';
 import { TransientDataSquashingHint } from './transient_data_squashing_hint.js';
 
 describe('buildTransientDataHints', () => {
-  const contractAddress = AztecAddress.fromBigInt(987654n);
+  const contractAddress = AztecAddress.fromBigIntUnsafe(987654n);
 
   let noteHashes: ScopedNoteHash[];
   let nullifiers: ScopedNullifier[];
   let nadaIndexHint: TransientDataSquashingHint;
   let futureNoteHashReads: ScopedReadRequest[];
   let futureNullifierReads: ScopedReadRequest[];
+  let futureLogs: PrivateLogData[];
   let noteHashNullifierCounterMap: Map<number, number>;
   let validationRequestsSplitCounter = 0;
 
@@ -25,12 +27,14 @@ describe('buildTransientDataHints', () => {
       new ClaimedLengthArray(nullifiers, nullifiers.length),
       futureNoteHashReads,
       futureNullifierReads,
+      futureLogs,
       noteHashNullifierCounterMap,
       validationRequestsSplitCounter,
     );
 
   beforeEach(() => {
     validationRequestsSplitCounter = 0;
+    futureLogs = [];
     noteHashes = [
       new NoteHash(new Fr(11), 100).scope(contractAddress),
       new NoteHash(new Fr(22), 200).scope(contractAddress),
@@ -86,7 +90,7 @@ describe('buildTransientDataHints', () => {
   });
 
   it('throws if contract address does not match', () => {
-    nullifiers[3].contractAddress = AztecAddress.fromBigInt(123456n);
+    nullifiers[3].contractAddress = AztecAddress.fromBigIntUnsafe(123456n);
     expect(buildHints).toThrow('Contract address of hinted note hash does not match.');
   });
 
@@ -94,5 +98,94 @@ describe('buildTransientDataHints', () => {
     nullifiers[3].nullifier.counter = noteHashes[0].counter - 1;
     noteHashNullifierCounterMap.set(noteHashes[0].counter, noteHashes[0].counter - 1);
     expect(buildHints).toThrow('Hinted nullifier has smaller counter than note hash.');
+  });
+
+  it('keeps the pair if a future log is linked to the note hash', () => {
+    // noteHashes[0] (counter 100) <> nullifiers[3] would normally be squashed.
+    // Add a future log linked to noteHashes[0].
+    const log = PrivateLogData.empty();
+    log.noteHashCounter = 100;
+    futureLogs = [log];
+    const { numTransientData, hints } = buildHints();
+    expect(numTransientData).toBe(0);
+    expect(hints).toEqual(Array(nullifiers.length).fill(nadaIndexHint));
+  });
+
+  it('squashes the pair if future log is linked to a different note hash', () => {
+    // Future log linked to noteHashes[1] (counter 200), not noteHashes[0] (counter 100).
+    const log = PrivateLogData.empty();
+    log.noteHashCounter = 200;
+    futureLogs = [log];
+    const { numTransientData, hints } = buildHints();
+    // noteHashes[0] <> nullifiers[3] should still be squashed.
+    expect(numTransientData).toBe(1);
+    expect(hints).toEqual([new TransientDataSquashingHint(3, 0), nadaIndexHint, nadaIndexHint, nadaIndexHint]);
+  });
+
+  it('ignores future logs with noteHashCounter of 0', () => {
+    // A log with noteHashCounter = 0 is not linked to any note hash.
+    const log = PrivateLogData.empty();
+    log.noteHashCounter = 0;
+    futureLogs = [log];
+    const { numTransientData, hints } = buildHints();
+    expect(numTransientData).toBe(1);
+    expect(hints).toEqual([new TransientDataSquashingHint(3, 0), nadaIndexHint, nadaIndexHint, nadaIndexHint]);
+  });
+});
+
+describe('countSquashedLogs', () => {
+  const contractAddress = AztecAddress.fromBigIntUnsafe(987654n);
+
+  const makeLog = (noteHashCounter: number, counter: number): ScopedPrivateLogData => {
+    const log = PrivateLogData.empty();
+    log.noteHashCounter = noteHashCounter;
+    log.counter = counter;
+    return new ScopedPrivateLogData(log, contractAddress);
+  };
+
+  it('returns 0 when no hints are provided', () => {
+    const noteHashes: ScopedNoteHash[] = [new NoteHash(new Fr(11), 100).scope(contractAddress)];
+    const logs: ScopedPrivateLogData[] = [makeLog(100, 101)];
+
+    const result = countSquashedLogs(
+      new ClaimedLengthArray(noteHashes, noteHashes.length),
+      new ClaimedLengthArray(logs, logs.length),
+      [],
+    );
+    expect(result).toBe(0);
+  });
+
+  it('returns 0 when no logs are linked to squashed note hashes', () => {
+    const noteHashes: ScopedNoteHash[] = [
+      new NoteHash(new Fr(11), 100).scope(contractAddress),
+      new NoteHash(new Fr(22), 200).scope(contractAddress),
+    ];
+    const logs: ScopedPrivateLogData[] = [makeLog(0, 300), makeLog(0, 400)];
+    const hints = [new TransientDataSquashingHint(0, 0)];
+
+    const result = countSquashedLogs(
+      new ClaimedLengthArray(noteHashes, noteHashes.length),
+      new ClaimedLengthArray(logs, logs.length),
+      hints,
+    );
+    expect(result).toBe(0);
+  });
+
+  it('counts logs linked to squashed note hashes', () => {
+    const noteHashes: ScopedNoteHash[] = [
+      new NoteHash(new Fr(11), 100).scope(contractAddress),
+      new NoteHash(new Fr(22), 200).scope(contractAddress),
+    ];
+    // Two logs linked to noteHashes[0] (counter 100), one unlinked.
+    const logs: ScopedPrivateLogData[] = [makeLog(100, 101), makeLog(100, 102), makeLog(0, 300)];
+    // Hint squashes noteHashes[0].
+    const hints = [new TransientDataSquashingHint(0, 0)];
+
+    const result = countSquashedLogs(
+      new ClaimedLengthArray(noteHashes, noteHashes.length),
+      new ClaimedLengthArray(logs, logs.length),
+      hints,
+    );
+    expect(result).toBe(2);
   });
 });

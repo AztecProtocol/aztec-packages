@@ -1,7 +1,7 @@
 # BLAKE2s + BLAKE3 Audit Scope
 
-Repository: https://github.com/AztecProtocol/aztec-packages
-Commit hash: 8fb8b041d4c9179f62da56a9c7bbf22c40db46cc
+Repository: https://github.com/AztecProtocol/aztec-packages-private
+Commit hash: Most recent commit on branch 'next'
 
 ### Files to audit
 
@@ -71,7 +71,7 @@ BLAKE2s: https://www.blake2.net/blake2.pdf
 
 BLAKE3: https://github.com/BLAKE3-team/BLAKE3-specs/blob/master/blake3.pdf
 
-Lookup tables: https://github.com/AztecProtocol/aztec-packages/blob/next/barretenberg/cpp/src/barretenberg/stdlib_circuit_builders/plookup_tables/README.md
+Lookup tables: https://github.com/AztecProtocol/aztec-packages-private/blob/next/barretenberg/cpp/src/barretenberg/stdlib_circuit_builders/plookup_tables/README.md
 
 ### Note
 Previously, certain inputs were pushing the addition overflows in `g` to beyond 3 bits (where `add_normalize` can tolerate up to 3 bits of overflow), causing failures. This has been addressed by calling `add_normalize` in the second half of every call to `g` to ensure that the overflow doesn't go beyond 3 bits. The input that was causing failures earlier has been added as a test case now. A detailed description of the issue can be found here: https://hackmd.io/@aztec-network/SyTHLkAWZx.

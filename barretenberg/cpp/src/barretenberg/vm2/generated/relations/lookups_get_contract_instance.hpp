@@ -16,7 +16,7 @@ namespace bb::avm2 {
 struct lookup_get_contract_instance_precomputed_info_settings_ {
     static constexpr std::string_view NAME = "LOOKUP_GET_CONTRACT_INSTANCE_PRECOMPUTED_INFO";
     static constexpr std::string_view RELATION_NAME = "get_contract_instance";
-    static constexpr size_t LOOKUP_TUPLE_SIZE = 5;
+    static constexpr size_t LOOKUP_TUPLE_SIZE = 6;
     static constexpr Column SRC_SELECTOR = Column::get_contract_instance_is_valid_writes_in_bounds;
     static constexpr Column DST_SELECTOR = Column::precomputed_sel_range_8;
     static constexpr Column COUNTS = Column::lookup_get_contract_instance_precomputed_info_counts;
@@ -26,14 +26,13 @@ struct lookup_get_contract_instance_precomputed_info_settings_ {
         ColumnAndShifts::get_contract_instance_is_valid_member_enum,
         ColumnAndShifts::get_contract_instance_is_deployer,
         ColumnAndShifts::get_contract_instance_is_class_id,
-        ColumnAndShifts::get_contract_instance_is_init_hash
+        ColumnAndShifts::get_contract_instance_is_init_hash,
+        ColumnAndShifts::get_contract_instance_is_immutables_hash
     };
     static constexpr std::array<ColumnAndShifts, LOOKUP_TUPLE_SIZE> DST_COLUMNS = {
-        ColumnAndShifts::precomputed_clk,
-        ColumnAndShifts::precomputed_is_valid_member_enum,
-        ColumnAndShifts::precomputed_is_deployer,
-        ColumnAndShifts::precomputed_is_class_id,
-        ColumnAndShifts::precomputed_is_init_hash
+        ColumnAndShifts::precomputed_idx,          ColumnAndShifts::precomputed_is_valid_member_enum,
+        ColumnAndShifts::precomputed_is_deployer,  ColumnAndShifts::precomputed_is_class_id,
+        ColumnAndShifts::precomputed_is_init_hash, ColumnAndShifts::precomputed_is_immutables_hash
     };
 };
 
@@ -48,7 +47,7 @@ using lookup_get_contract_instance_precomputed_info_relation =
 struct lookup_get_contract_instance_contract_instance_retrieval_settings_ {
     static constexpr std::string_view NAME = "LOOKUP_GET_CONTRACT_INSTANCE_CONTRACT_INSTANCE_RETRIEVAL";
     static constexpr std::string_view RELATION_NAME = "get_contract_instance";
-    static constexpr size_t LOOKUP_TUPLE_SIZE = 7;
+    static constexpr size_t LOOKUP_TUPLE_SIZE = 8;
     static constexpr Column SRC_SELECTOR = Column::get_contract_instance_is_valid_member_enum;
     static constexpr Column DST_SELECTOR = Column::contract_instance_retrieval_sel;
     static constexpr Column COUNTS = Column::lookup_get_contract_instance_contract_instance_retrieval_counts;
@@ -60,7 +59,8 @@ struct lookup_get_contract_instance_contract_instance_retrieval_settings_ {
         ColumnAndShifts::get_contract_instance_instance_exists,
         ColumnAndShifts::get_contract_instance_retrieved_deployer_addr,
         ColumnAndShifts::get_contract_instance_retrieved_class_id,
-        ColumnAndShifts::get_contract_instance_retrieved_init_hash
+        ColumnAndShifts::get_contract_instance_retrieved_init_hash,
+        ColumnAndShifts::get_contract_instance_retrieved_immutables_hash
     };
     static constexpr std::array<ColumnAndShifts, LOOKUP_TUPLE_SIZE> DST_COLUMNS = {
         ColumnAndShifts::contract_instance_retrieval_address,
@@ -69,7 +69,8 @@ struct lookup_get_contract_instance_contract_instance_retrieval_settings_ {
         ColumnAndShifts::contract_instance_retrieval_exists,
         ColumnAndShifts::contract_instance_retrieval_deployer_addr,
         ColumnAndShifts::contract_instance_retrieval_current_class_id,
-        ColumnAndShifts::contract_instance_retrieval_init_hash
+        ColumnAndShifts::contract_instance_retrieval_init_hash,
+        ColumnAndShifts::contract_instance_retrieval_immutables_hash
     };
 };
 

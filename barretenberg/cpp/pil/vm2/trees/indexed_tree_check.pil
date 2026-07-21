@@ -1,0 +1,309 @@
+include "merkle_check.pil";
+include "../ff_gt.pil";
+include "../poseidon2_hash.pil";
+include "../constants_gen.pil";
+include "../precomputed.pil";
+include "../public_inputs.pil";
+
+/**
+ * This gadget reads and writes in an indexed tree. An indexed tree is a Merkle tree where leaves
+ * contain a value and linked-list pointers (next_value, next_index) to the leaf with the next
+ * highest value. When we read from the tree, we check whether a value exists or not.
+ * For this we perform a low leaf membership proof and:
+ *  - if the low leaf value is equal to the value, that means the value is present in the tree, and we assert that
+ *    exists is true.
+ *  - if the low leaf value is not equal to the value, we assert that the low leaf is indeed a valid low leaf for the
+ *    requested value, proving non existence of the value in the tree. In that case we check exists is false.
+ * In order to validate that a leaf is a low leaf of the value, we need to check that low_leaf.value < value
+ * and that low_leaf.next_value > value. However, we need to consider the case where next_value is zero, which
+ * means "infinity". The highest value inserted in the tree will point to infinity as the "next_value".
+ * In order to write, we perform the above, and also:
+ *  - We update the low leaf. The low leaf must now point to the leaf we are going to insert.
+ *  - We construct the new leaf and insert it into the tree at 'tree_size_before_write'
+ * Note: Indexed trees start prefilled with at least two items, so we can assume that no low leaf will be all zeroes
+ * and that there will always be a low leaf for any given value.
+ *
+ * This gadget is generic and can be used for any indexed tree with just one value per leaf (nullifier tree, retrieved bytecodes tree,
+ * written public data slots tree, etc.). The caller provides the tree height, and optionally a siloing
+ * separator and contract address to silo the value before insertion.
+ *
+ * Values can be optionally siloed with a contract address to bind them to their originating contract.
+ * The siloing_separator and address are provided by the caller when sel_silo is set.
+ *
+ * Shape:
+ * One row per read or write operation.
+ *
+ * Errors:
+ * - Failing write: When exists == true on a write operation, the value already exists in the tree.
+ *   In this case, the write_root equals the input root and no tree update occurs.
+ *
+ * Read usage:
+ * sel {
+ *       exists,
+ *       not_exists,
+ *       value,
+ *       tree_root,
+ *       tree_height,
+ *       merkle_hash_separator, // Per-tree merkle-node domain separator (e.g. DOM_SEP__NULLIFIER_MERKLE)
+ *       sel_silo,
+ *       siloing_separator, // Can be omitted if sel_silo is precomputed.zero
+ *       address            // Can be omitted if sel_silo is precomputed.zero
+ * } in indexed_tree_check.sel {
+ *       indexed_tree_check.exists,                    // Output
+ *       indexed_tree_check.not_exists,                // Output
+ *       indexed_tree_check.value,                     // Input
+ *       indexed_tree_check.root,                      // Input
+ *       indexed_tree_check.tree_height,               // Input
+ *       indexed_tree_check.merkle_hash_separator,     // Input
+ *       indexed_tree_check.sel_silo,                  // Input
+ *       indexed_tree_check.siloing_separator,         // Input (omit if sel_silo == 0)
+ *       indexed_tree_check.address                    // Input (omit if sel_silo == 0)
+ * };
+ *
+ * Write usage:
+ * sel {
+ *       value,
+ *       prev_tree_root,
+ *       exists,
+ *       not_exists,
+ *       next_tree_root,
+ *       prev_tree_size,
+ *       next_tree_size,
+ *       discard,              // Can be omitted if not writing to public inputs
+ *       public_inputs_index,  // Can be omitted if not writing to public inputs
+ *       tree_height,
+ *       merkle_hash_separator, // Per-tree merkle-node domain separator (e.g. DOM_SEP__NULLIFIER_MERKLE)
+ *       sel_silo,
+ *       siloing_separator,    // Can be omitted if sel_silo is precomputed.zero
+ *       address               // Can be omitted if sel_silo is precomputed.zero
+ * } in indexed_tree_check.write {
+ *     indexed_tree_check.value,                  // Input
+ *     indexed_tree_check.root,                   // Input
+ *     indexed_tree_check.exists,                 // Output
+ *     indexed_tree_check.not_exists,             // Output
+ *     indexed_tree_check.write_root,             // Output
+ *     indexed_tree_check.tree_size_before_write, // Input
+ *     indexed_tree_check.tree_size_after_write,  // Output
+ *     indexed_tree_check.discard,                // Input (omit if not writing to public inputs)
+ *     indexed_tree_check.public_inputs_index,    // Input (omit if not writing to public inputs)
+ *     indexed_tree_check.tree_height,            // Input
+ *     indexed_tree_check.merkle_hash_separator,  // Input
+ *     indexed_tree_check.sel_silo,               // Input
+ *     indexed_tree_check.siloing_separator,      // Input (omit if sel_silo == 0)
+ *     indexed_tree_check.address                 // Input (omit if sel_silo == 0)
+ * };
+ *
+ * Note: On a failing write (when exists == true), the write_root equals the input root and no tree update occurs.
+ * The siloing_separator and address columns should be omitted (or set to zero) when sel_silo == 0.
+ * Omit discard and public inputs index to skip writing the value to public inputs (e.g., for transient trees).
+ * Omitting these columns is fine, since the write to public inputs is a lookup, not a permutation. If the prover chooses
+ * to disable discard on a transient tree, the prover will just be asserting extra constraints.
+ *
+ * Preconditions:
+ * - low_leaf_index < 2^tree_height (Merkle check requirement)
+ * - tree_size_before_write < 2^tree_height (Merkle check requirement)
+ * - The tree genesis state must have an irreproducible hash for uninitialized leaves (0). See note.
+ *
+ * Interactions:
+ * - poseidon2_hash: Conditional siloing (sel_silo, 1-row, input_len=3),
+ *      low leaf hash (1-row, input_len=3), updated low leaf hash (sel_insert, 1-row, input_len=3),
+ *      new leaf hash (sel_insert, 1-row, input_len=3).
+ * - merkle_check: Low leaf membership/update (sel_insert), new leaf insertion (sel_insert)
+ * - ff_gt: Low leaf value validation (not_exists), next value validation (next_value_is_nonzero)
+ * - public_inputs: Write siloed value to public inputs (sel_write_to_public_inputs)
+ *
+ * Irreproducible hash for uninitialized leaves:
+ * An indexed tree genesis state must have at least one populated leaf to serve as low leaf for further operations.
+ * All other leaves (unpopulated) must have a hash that cannot be reproduced by hashing a structured, valid leaf.
+ * For that, we typically use a value of zero for unpopulated leaves, since there is no valid leaf that hashes to zero.
+ * With this, we forbid using unpopulated leaves as low leaves for any operation.
+ *
+ **/
+namespace indexed_tree_check;
+    pol commit sel; // @boolean
+    sel * (1 - sel) = 0;
+
+    #[skippable_if]
+    sel = 0;
+
+    // ====== INPUTS ======
+    pol commit write; // @boolean
+    write * (1 - write) = 0;
+    // Allows this gadget to be looked up by the write column
+    write * (1 - sel) = 0;
+
+    pol commit value;
+    pol commit root;
+    pol commit exists; // @boolean
+    exists * (1 - exists) = 0;
+    pol commit not_exists; // @boolean (by definition)
+    not_exists = sel * (1 - exists);
+    pol commit sel_silo; // @boolean
+    sel_silo * (1 - sel_silo) = 0;
+    pol commit address;
+    pol commit siloing_separator;
+    // Per-tree merkle-node domain separator. Caller-supplied via lookup and passed through to
+    // merkle_check. Leaf preimages are no longer domain-separated; cross-tree separation
+    // comes entirely from this column.
+    pol commit merkle_hash_separator;
+    pol commit tree_height;
+
+    // Write specific inputs
+    pol commit write_root;
+    pol commit tree_size_before_write;
+    pol commit tree_size_after_write;
+    pol commit discard; // @boolean
+    discard * (1 - discard) = 0;
+    pol commit public_inputs_index;
+
+    // ========= SILOING =========
+    pol commit siloed_value;
+    #[PASSTHROUGH_SILOING]
+    (1 - sel_silo) * (value - siloed_value) = 0;
+
+    pol commit const_three;
+    sel * (const_three - 3) = 0;
+
+    #[SILO_POSEIDON2]
+    sel_silo {
+        siloing_separator, address, value,
+        siloed_value, const_three
+    } in poseidon2_hash.start {
+        poseidon2_hash.input_0, poseidon2_hash.input_1, poseidon2_hash.input_2,
+        poseidon2_hash.output, poseidon2_hash.input_len
+    };
+
+    // ========= LOW LEAF VALIDATION =========
+    // Note: We don't validate that the low leaf is not empty. This is because we force hashing the low leaf for the
+    // membership check. An empty leaf would pass the low leaf validation, but the membership check would fail,
+    // since uninitialized leaves have hash 0, which is not the poseidon2 hash of an empty leaf.
+    // It is expected that no circuit introduces an empty leaf with its proper hash ever into an indexed tree.
+    // Doing so would break the tree as it'd be a valid low leaf for any insertion.
+    pol commit low_leaf_value;
+    pol commit low_leaf_next_index;
+    pol commit low_leaf_next_value;
+    pol commit low_leaf_hash;
+
+    pol commit value_low_leaf_value_diff_inv; // @zero-check
+    pol VALUE_LOW_LEAF_VALUE_DIFF = siloed_value - low_leaf_value;
+
+    // VALUE_LOW_LEAF_VALUE_DIFF == 0 <==> exists == 1
+    #[EXISTS_CHECK]
+    sel * (VALUE_LOW_LEAF_VALUE_DIFF * (exists * (1 - value_low_leaf_value_diff_inv) + value_low_leaf_value_diff_inv) - 1 + exists) = 0;
+
+    // If the leaf doesn't exist, we need to validate that the value is greater than the low leaf value
+
+    #[LOW_LEAF_VALUE_VALIDATION]
+    not_exists { siloed_value, low_leaf_value, sel }
+    in ff_gt.sel_gt { ff_gt.a, ff_gt.b, ff_gt.result };
+
+    // If next value is not zero (which would be infinity), it has to be greater than the value.
+    // We commit next_value_is_nonzero instead of next_value_is_zero since it'll be used as a selector for a lookup
+    pol commit next_value_is_nonzero; // @boolean
+    next_value_is_nonzero * (1 - next_value_is_nonzero) = 0;
+    pol NEXT_VALUE_IS_ZERO = 1 - next_value_is_nonzero;
+
+    pol commit next_value_inv; // @zero-check
+    #[NEXT_VALUE_IS_ZERO_CHECK]
+    not_exists * (low_leaf_next_value * (NEXT_VALUE_IS_ZERO * (1 - next_value_inv) + next_value_inv) - 1 + NEXT_VALUE_IS_ZERO) = 0;
+
+    #[LOW_LEAF_NEXT_VALUE_VALIDATION]
+    next_value_is_nonzero { low_leaf_next_value, siloed_value, sel }
+    in ff_gt.sel_gt { ff_gt.a, ff_gt.b, ff_gt.result };
+
+    // ========= HANDLE REDUNDANT WRITES  =========
+    // sel_insert implies sel since write and not_exists imply sel
+    pol commit sel_insert; // @boolean (by definition)
+    sel_insert = write * not_exists;
+
+    // On a redundant write, the root must not change
+    write * exists * (root - write_root) = 0;
+    tree_size_after_write = tree_size_before_write + sel_insert;
+
+    // ========= COMPUTE LOW LEAF UPDATE =========
+    // Unconstrained if sel_insert=0
+    pol commit updated_low_leaf_next_index;
+    pol commit updated_low_leaf_next_value;
+    sel_insert * (tree_size_before_write - updated_low_leaf_next_index) = 0;
+    sel_insert * (siloed_value - updated_low_leaf_next_value) = 0;
+
+    // ========= LOW LEAF MERKLE CHECK & UPDATE =========
+    // Unconstrained if sel_insert=0
+    // Tracegen must set it to 0 if sel_insert is 0 (precondition to merkle check).
+    pol commit updated_low_leaf_hash;
+
+    // Leaf preimage is (value, next_value, next_index) with no domain separator -- fits in one row.
+    #[LOW_LEAF_POSEIDON2]
+    sel {
+        low_leaf_value, low_leaf_next_value, low_leaf_next_index,
+        low_leaf_hash, const_three
+    } in poseidon2_hash.start {
+        poseidon2_hash.input_0, poseidon2_hash.input_1, poseidon2_hash.input_2,
+        poseidon2_hash.output, poseidon2_hash.input_len
+    };
+
+    #[UPDATED_LOW_LEAF_POSEIDON2]
+    sel_insert {
+        low_leaf_value, updated_low_leaf_next_value, updated_low_leaf_next_index,
+        updated_low_leaf_hash, const_three
+    } in poseidon2_hash.start {
+        poseidon2_hash.input_0, poseidon2_hash.input_1, poseidon2_hash.input_2,
+        poseidon2_hash.output, poseidon2_hash.input_len
+    };
+
+    pol commit low_leaf_index;
+
+    // The intermediate root is the root of the tree after the low leaf update but before the new leaf is inserted.
+    // Unconstrained if sel_insert is 0. Tracegen must set it to zero in that case (precondition to merkle check).
+    pol commit intermediate_root;
+
+    #[LOW_LEAF_MERKLE_CHECK]
+    sel {
+        sel_insert, low_leaf_hash, updated_low_leaf_hash,
+        low_leaf_index, tree_height, root, intermediate_root,
+        merkle_hash_separator
+    } in merkle_check.start {
+        merkle_check.write, merkle_check.read_node, merkle_check.write_node,
+        merkle_check.index, merkle_check.path_len, merkle_check.read_root, merkle_check.write_root,
+        merkle_check.merkle_hash_separator
+    };
+
+    // ========= NEW LEAF INSERTION =========
+    // Unconstrained if sel_insert=0
+    pol commit new_leaf_hash;
+
+    #[NEW_LEAF_POSEIDON2]
+    sel_insert {
+        siloed_value, low_leaf_next_value, low_leaf_next_index,
+        new_leaf_hash, const_three
+    } in poseidon2_hash.start {
+        poseidon2_hash.input_0, poseidon2_hash.input_1, poseidon2_hash.input_2,
+        poseidon2_hash.output, poseidon2_hash.input_len
+    };
+
+    #[NEW_LEAF_MERKLE_CHECK]
+    sel_insert {
+        sel, precomputed.zero, new_leaf_hash,
+        tree_size_before_write, tree_height, intermediate_root, write_root,
+        merkle_hash_separator
+    } in merkle_check.start {
+        merkle_check.write, merkle_check.read_node, merkle_check.write_node,
+        merkle_check.index, merkle_check.path_len, merkle_check.read_root, merkle_check.write_root,
+        merkle_check.merkle_hash_separator
+    };
+
+    // ====== WRITE TO PUBLIC INPUTS ======
+    // ONE-WAY write: only the active rows [0, length) are constrained. Rows [length, MAX) are left
+    // free by the AVM and are defensively zero-checked by the public base rollup
+    // (validate_avm_accumulated_data_padding). See public_inputs.pil's NOTE ON NON-MALLEABILITY.
+    pol commit sel_write_to_public_inputs; // @boolean (by definition)
+    sel_write_to_public_inputs = sel_insert * (1 - discard);
+
+    #[WRITE_VALUE_TO_PUBLIC_INPUTS]
+    sel_write_to_public_inputs {
+        public_inputs_index,
+        siloed_value
+    } in public_inputs.sel {
+        precomputed.idx,
+        public_inputs.cols[0]
+    };

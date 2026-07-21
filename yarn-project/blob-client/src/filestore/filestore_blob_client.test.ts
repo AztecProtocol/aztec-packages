@@ -74,7 +74,7 @@ describe('FileStoreBlobClient', () => {
 
   describe('saveBlob', () => {
     it('should save a blob to the filestore', async () => {
-      const blob = Blob.fromFields([Fr.random(), Fr.random()]);
+      const blob = await Blob.fromFields([Fr.random(), Fr.random()]);
       const versionedHash = `0x${blob.getEthVersionedBlobHash().toString('hex')}`;
 
       await client.saveBlob(blob);
@@ -88,7 +88,7 @@ describe('FileStoreBlobClient', () => {
     });
 
     it('should skip saving if blob already exists and skipIfExists=true', async () => {
-      const blob = Blob.fromFields([Fr.random()]);
+      const blob = await Blob.fromFields([Fr.random()]);
       const versionedHash = `0x${blob.getEthVersionedBlobHash().toString('hex')}`;
 
       // Save first time
@@ -107,7 +107,7 @@ describe('FileStoreBlobClient', () => {
     });
 
     it('should overwrite if skipIfExists=false', async () => {
-      const blob = Blob.fromFields([Fr.random()]);
+      const blob = await Blob.fromFields([Fr.random()]);
       const versionedHash = `0x${blob.getEthVersionedBlobHash().toString('hex')}`;
 
       // Save first time
@@ -130,8 +130,8 @@ describe('FileStoreBlobClient', () => {
 
   describe('saveBlobs', () => {
     it('should save multiple blobs', async () => {
-      const blob1 = Blob.fromFields([Fr.random()]);
-      const blob2 = Blob.fromFields([Fr.random()]);
+      const blob1 = await Blob.fromFields([Fr.random()]);
+      const blob2 = await Blob.fromFields([Fr.random()]);
 
       await client.saveBlobs([blob1, blob2]);
 
@@ -145,7 +145,7 @@ describe('FileStoreBlobClient', () => {
 
   describe('getBlobsByHashes', () => {
     it('should retrieve blobs by their versioned hashes', async () => {
-      const blob = Blob.fromFields([Fr.random(), Fr.random()]);
+      const blob = await Blob.fromFields([Fr.random(), Fr.random()]);
       const versionedHash = `0x${blob.getEthVersionedBlobHash().toString('hex')}`;
 
       await client.saveBlob(blob);
@@ -163,8 +163,8 @@ describe('FileStoreBlobClient', () => {
     });
 
     it('should retrieve multiple blobs', async () => {
-      const blob1 = Blob.fromFields([Fr.random()]);
-      const blob2 = Blob.fromFields([Fr.random()]);
+      const blob1 = await Blob.fromFields([Fr.random()]);
+      const blob2 = await Blob.fromFields([Fr.random()]);
 
       await client.saveBlobs([blob1, blob2]);
 
@@ -177,7 +177,7 @@ describe('FileStoreBlobClient', () => {
     });
 
     it('should skip blobs that fail to parse', async () => {
-      const blob = Blob.fromFields([Fr.random()]);
+      const blob = await Blob.fromFields([Fr.random()]);
       const hash = `0x${blob.getEthVersionedBlobHash().toString('hex')}`;
 
       // Save invalid JSON
@@ -191,7 +191,7 @@ describe('FileStoreBlobClient', () => {
 
   describe('exists', () => {
     it('should return true if blob exists', async () => {
-      const blob = Blob.fromFields([Fr.random()]);
+      const blob = await Blob.fromFields([Fr.random()]);
       const versionedHash = `0x${blob.getEthVersionedBlobHash().toString('hex')}`;
 
       await client.saveBlob(blob);
@@ -240,14 +240,14 @@ describe('FileStoreBlobClient', () => {
       const readOnlyStore = new MockReadOnlyFileStore();
       const readOnlyClient = new FileStoreBlobClient(readOnlyStore, basePath);
 
-      const blob = Blob.fromFields([Fr.random()]);
+      const blob = await Blob.fromFields([Fr.random()]);
 
       await expect(readOnlyClient.saveBlob(blob)).rejects.toThrow('FileStore is read-only');
     });
 
     it('should be able to read from read-only store', async () => {
       const files = new Map<string, Buffer>();
-      const blob = Blob.fromFields([Fr.random()]);
+      const blob = await Blob.fromFields([Fr.random()]);
       const versionedHash = `0x${blob.getEthVersionedBlobHash().toString('hex')}`;
       const path = `${basePath}/blobs/${versionedHash}.data`;
 

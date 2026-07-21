@@ -16,11 +16,9 @@ class MemGrumpkinCrs : public Crs<Grumpkin> {
     MemGrumpkinCrs& operator=(const MemGrumpkinCrs&) = delete;
     MemGrumpkinCrs& operator=(MemGrumpkinCrs&&) = delete;
 
-    MemGrumpkinCrs(std::vector<Grumpkin::AffineElement> const& points)
-        : monomials_(points.size())
-    {
-        std::copy(points.begin(), points.end(), monomials_.begin());
-    }
+    MemGrumpkinCrs(std::vector<Grumpkin::AffineElement> points)
+        : monomials_(std::move(points))
+    {}
 
     ~MemGrumpkinCrs() override = default;
     std::span<Grumpkin::AffineElement> get_monomial_points() override { return monomials_; }
@@ -35,15 +33,9 @@ class MemGrumpkinCrs : public Crs<Grumpkin> {
 
 namespace bb::srs::factories {
 
-MemGrumpkinCrsFactory::MemGrumpkinCrsFactory(const std::vector<Grumpkin::AffineElement>& points)
-    : crs_(std::make_shared<MemGrumpkinCrs>(points))
-{
-    if (points.empty() || !points[0].on_curve()) {
-        throw_or_abort("invalid vector passed to MemGrumpkinCrsFactory");
-    }
-    vinfo(
-        "Initialized ", curve::Grumpkin::name, " prover CRS from memory with num points = ", crs_->get_monomial_size());
-}
+MemGrumpkinCrsFactory::MemGrumpkinCrsFactory(std::vector<Grumpkin::AffineElement> points)
+    : crs_(std::make_shared<MemGrumpkinCrs>(std::move(points)))
+{}
 
 std::shared_ptr<bb::srs::factories::Crs<Grumpkin>> MemGrumpkinCrsFactory::get_crs(size_t degree)
 {

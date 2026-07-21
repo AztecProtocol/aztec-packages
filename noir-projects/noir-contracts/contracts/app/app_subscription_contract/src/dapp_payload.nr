@@ -1,21 +1,19 @@
-use dep::aztec::{
+use aztec::{
     authwit::entrypoint::FunctionCall,
     context::PrivateContext,
     protocol::{
         address::AztecAddress,
         constants::DOM_SEP__SIGNATURE_PAYLOAD,
         hash::poseidon2_hash_with_separator,
-        traits::{Hash, Serialize},
+        traits::{Deserialize, Hash, Serialize},
     },
 };
 use std::meta::derive;
 
 global DAPP_MAX_CALLS: u32 = 1;
-// FUNCTION_CALL_SIZE_IN_BYTES * DAPP_MAX_CALLS + 32
-global DAPP_PAYLOAD_SIZE_IN_BYTES: u32 = 130;
 
 // @dev: If you change the following struct you have to update default_entrypoint.ts
-#[derive(Serialize)]
+#[derive(Deserialize, Serialize)]
 pub struct DAppPayload {
     function_calls: [FunctionCall; DAPP_MAX_CALLS],
     // A nonce that enables transaction cancellation. When the cancellable flag is enabled, this nonce is used to
@@ -31,18 +29,6 @@ impl Hash for DAppPayload {
 }
 
 impl DAppPayload {
-    // Serializes the payload as an array of bytes. Useful for hashing with sha256.
-    fn to_be_bytes(self) -> [u8; DAPP_PAYLOAD_SIZE_IN_BYTES] {
-        let mut bytes: BoundedVec<u8, DAPP_PAYLOAD_SIZE_IN_BYTES> = BoundedVec::new();
-
-        for i in 0..DAPP_MAX_CALLS {
-            bytes.extend_from_array(self.function_calls[i].to_be_bytes());
-        }
-        bytes.extend_from_array(self.tx_nonce.to_be_bytes::<32>());
-
-        bytes.storage()
-    }
-
     // Executes all private and public calls
     pub fn execute_calls(self, context: &mut PrivateContext, target_address: AztecAddress) {
         for i in 0..DAPP_MAX_CALLS {

@@ -111,16 +111,13 @@ pub unsafe extern "C" fn avm_transpile_file(
         return create_error_result("Contract already transpiled");
     }
 
-    if Path::new(output_path_str).exists() {
-        if let Err(e) = std::fs::copy(
+    if Path::new(output_path_str).exists()
+        && let Err(e) = std::fs::copy(
             Path::new(output_path_str),
             Path::new(&(output_path_str.to_string() + ".bak")),
-        ) {
-            return create_error_result(&format!(
-                "Unable to backup file {}: {}",
-                output_path_str, e
-            ));
-        }
+        )
+    {
+        return create_error_result(&format!("Unable to backup file {}: {}", output_path_str, e));
     }
 
     let contract: CompiledAcirContractArtifact = match serde_json::from_str(&contract_json) {

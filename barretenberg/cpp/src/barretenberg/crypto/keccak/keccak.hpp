@@ -1,5 +1,5 @@
 // === AUDIT STATUS ===
-// internal:    { status: Complete, auditors: [Nishat], commit: 89a12920681072efff1eed881589aad16347e0d6 }
+// internal:    { status: Complete, auditors: [Nishat], commit: 5be53b6f75bac06d6d0132220044b28777021f0f }
 // external_1:  { status: not started, auditors: [], commit: }
 // external_2:  { status: not started, auditors: [], commit: }
 // =====================
@@ -39,10 +39,6 @@ extern "C" {
 void ethash_keccakf1600(uint64_t state[KECCAKF1600_LANES]) NOEXCEPT;
 
 struct keccak256 ethash_keccak256(const uint8_t* data, size_t size) NOEXCEPT;
-
-struct keccak256 hash_field_elements(const uint64_t* limbs, size_t num_elements);
-
-struct keccak256 hash_field_element(const uint64_t* limb);
 
 namespace bb::crypto {
 /**

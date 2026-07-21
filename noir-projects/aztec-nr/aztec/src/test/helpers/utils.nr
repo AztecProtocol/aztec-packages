@@ -6,6 +6,7 @@ pub struct ContractDeployment<let O: u32> {
     pub env: TestEnvironment,
     pub path: str<O>,
     pub secret: Field,
+    pub salt: Field,
 }
 
 impl<let O: u32> ContractDeployment<O> {
@@ -38,7 +39,14 @@ impl<let O: u32> ContractDeployment<O> {
         let name = initializer_call.name;
         let selector = initializer_call.selector;
         let args = initializer_call.args;
-        let instance = txe_oracles::deploy(self.path, name, args, self.secret);
+        let instance = txe_oracles::deploy(
+            self.path,
+            name,
+            args,
+            self.secret,
+            self.salt,
+            AztecAddress::zero(),
+        );
 
         // initializer_call does not actually have the target_contract value set - it is created with the helper
         // `interface` function created by `generate_contract_interface` in the aztec macros - it represents a call to
@@ -77,7 +85,14 @@ impl<let O: u32> ContractDeployment<O> {
         let name = initializer_call.name;
         let selector = initializer_call.selector;
         let args = initializer_call.args;
-        let instance = txe_oracles::deploy(self.path, name, args, self.secret);
+        let instance = txe_oracles::deploy(
+            self.path,
+            name,
+            args,
+            self.secret,
+            self.salt,
+            AztecAddress::zero(),
+        );
 
         // initializer_call does not actually have the target_contract value set - it is created with the helper
         // `interface` function created by `generate_contract_interface` in the aztec macros - it represents a call to
@@ -96,7 +111,15 @@ impl<let O: u32> ContractDeployment<O> {
     /// contains a commitment to the lack of initialization arguments as per the protocol rules. Initializers can only
     /// be invoked by using the `with_private_initializer` or `with_public_initializer` functions.
     pub unconstrained fn without_initializer(self) -> AztecAddress {
-        txe_oracles::deploy(self.path, "", [], self.secret).to_address()
+        txe_oracles::deploy(
+            self.path,
+            "",
+            [],
+            self.secret,
+            self.salt,
+            AztecAddress::zero(),
+        )
+            .to_address()
     }
 }
 

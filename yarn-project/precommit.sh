@@ -3,6 +3,9 @@
 # Autoformats staged files, unless any are partially staged (committed in chunks).
 set -euo pipefail
 
+# we have to unset this env var set by git hooks so that this relative paths work correctly when used inside worktrees
+unset GIT_DIR
+
 cd $(dirname $0)
 
 export FORCE_COLOR=true
@@ -14,6 +17,11 @@ staged_files=$(git diff-index --diff-filter=d --relative --cached --name-only HE
 
 # Filter for formattable files
 staged_format_files=$(echo "$staged_files" | grep -E '\.(json|js|mjs|cjs|ts)$' || true)
+
+# Drop symlinks; prettier errors when handed a symbolic link (e.g. .codex/settings.json).
+if [[ -n "$staged_format_files" ]]; then
+  staged_format_files=$(echo "$staged_format_files" | while IFS= read -r f; do [ -L "$f" ] || printf '%s\n' "$f"; done)
+fi
 
 # Get unstaged changes for formattable files
 unstaged_format_files=$(git diff --relative --name-only --diff-filter=d | grep -E '\.(json|js|mjs|cjs|ts)$' || true)

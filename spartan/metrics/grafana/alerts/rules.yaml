@@ -173,7 +173,7 @@ groups:
           for: 5m
           annotations:
             summary: Fisherman detected block re-execution failure
-            description: Fisherman node ({{ ` {{ $labels.k8s_namespace_name }} ` }}) failed to re-execute block(s).
+            description: Fisherman node ({{ $labels.k8s_namespace_name }}) failed to re-execute block(s).
           labels:
             <<: *common_labels
           isPaused: false
@@ -188,7 +188,7 @@ groups:
               datasourceUid: spartan-metrics-prometheus
               model:
                 editorMode: code
-                expr: sum by (k8s_namespace_name, aztec_error_type) (increase(aztec_sequencer_block_proposal_failed_count{k8s_namespace_name=~".*(fisherman|mainnet).*"}[$__rate_interval]))
+                expr: sum by (k8s_namespace_name, aztec_error_type) (increase(aztec_sequencer_block_proposal_failed_count{k8s_namespace_name=~".*(fisherman|mainnet).*", aztec_error_type!="insufficient_txs"}[$__rate_interval]))
                 instant: true
                 intervalMs: 60000
                 legendFormat: __auto
@@ -258,7 +258,7 @@ groups:
           for: 5m
           annotations:
             summary: Fisherman node failed to build validation block
-            description: Fisherman node ({{ ` {{ $labels.k8s_namespace_name }} ` }}) failed to build block. Reason - {{ ` {{ $labels.aztec_error_type }} ` }}.
+            description: Fisherman node ({{ $labels.k8s_namespace_name }}) failed to build block. Reason - {{ $labels.aztec_error_type }}.
           labels:
             <<: *common_labels
           isPaused: false
@@ -273,7 +273,7 @@ groups:
               datasourceUid: spartan-metrics-prometheus
               model:
                 editorMode: code
-                expr: sum by (k8s_namespace_name, aztec_error_type) (increase(aztec_sequencer_block_proposal_precheck_failed_count{k8s_namespace_name=~".*(fisherman|mainnet).*"}[$__rate_interval]))
+                expr: sum by (k8s_namespace_name, aztec_error_type) (increase(aztec_sequencer_checkpoint_precheck_failed_count{k8s_namespace_name=~".*(fisherman|mainnet).*"}[$__rate_interval]))
                 instant: true
                 intervalMs: 60000
                 legendFormat: __auto
@@ -343,7 +343,7 @@ groups:
           for: 5m
           annotations:
             summary: Fisherman node failed pre-build checks
-            description: Fisherman node ({{ ` {{ $labels.k8s_namespace_name }} ` }}) failed pre-build checks. Check type - {{ ` {{ $labels.aztec_error_type }} ` }}.
+            description: Fisherman node ({{ $labels.k8s_namespace_name }}) failed pre-build checks. Check type - {{ $labels.aztec_error_type }}.
           labels:
             <<: *common_labels
           isPaused: false
@@ -428,7 +428,7 @@ groups:
           for: 5m
           annotations:
             summary: Fisherman node received invalid attestations
-            description: Fisherman node ({{ ` {{ $labels.k8s_namespace_name }} ` }}) received invalid attestations from other validators. Reason - {{ ` {{ $labels.aztec_error_type }} ` }}.
+            description: Fisherman node ({{ $labels.k8s_namespace_name }}) received invalid attestations from other validators. Reason - {{ $labels.aztec_error_type }}.
           labels:
             <<: *common_labels
           isPaused: false
@@ -443,7 +443,7 @@ groups:
               datasourceUid: spartan-metrics-prometheus
               model:
                 editorMode: code
-                expr: max by (k8s_namespace_name) (increase(aztec_archiver_block_height{k8s_namespace_name!="",aztec_status=""}[10m]))
+                expr: max by (k8s_namespace_name) (increase(aztec_archiver_block_height{k8s_namespace_name!="",aztec_status="proposed"}[10m]))
                 instant: true
                 intervalMs: 60000
                 legendFormat: __auto
@@ -512,12 +512,12 @@ groups:
           execErrState: Error
           for: 10m
           annotations:
-            summary: Pending chain in {{ ` {{ $labels.k8s_namespace_name  }} ` }} hasn't advanced in 10 minutes
+            summary: Pending chain in {{ $labels.k8s_namespace_name }} hasn't advanced in 10 minutes
           labels:
             <<: *common_labels
           isPaused: false
-        - uid: def0g11bn64n4a
-          title: Chain - reorg
+        - uid: slashingroundexecuted
+          title: Slashing - round executed
           condition: C
           data:
             - refId: A
@@ -527,7 +527,91 @@ groups:
               datasourceUid: spartan-metrics-prometheus
               model:
                 editorMode: code
-                expr: max by (k8s_namespace_name) (increase(aztec_archiver_prune_count{k8s_namespace_name!=""}[$__rate_interval]))
+                expr: sum by (k8s_namespace_name) (increase(aztec_slasher_round_executed_count{k8s_namespace_name=~"__INTERNAL_NETWORK_NAMESPACES_REGEX__"}[10m]))
+                instant: true
+                intervalMs: 60000
+                legendFormat: __auto
+                maxDataPoints: 43200
+                range: false
+                refId: A
+            - refId: B
+              relativeTimeRange:
+                from: 600
+                to: 0
+              datasourceUid: __expr__
+              model:
+                conditions:
+                    - evaluator:
+                        params: []
+                        type: gt
+                      operator:
+                        type: and
+                      query:
+                        params:
+                            - B
+                      reducer:
+                        params: []
+                        type: last
+                      type: query
+                datasource:
+                    type: __expr__
+                    uid: __expr__
+                expression: A
+                intervalMs: 1000
+                maxDataPoints: 43200
+                reducer: last
+                refId: B
+                type: reduce
+            - refId: C
+              relativeTimeRange:
+                from: 600
+                to: 0
+              datasourceUid: __expr__
+              model:
+                conditions:
+                    - evaluator:
+                        params:
+                            - 0
+                        type: gt
+                      operator:
+                        type: and
+                      query:
+                        params:
+                            - C
+                      reducer:
+                        params: []
+                        type: last
+                      type: query
+                datasource:
+                    type: __expr__
+                    uid: __expr__
+                expression: B
+                intervalMs: 1000
+                maxDataPoints: 43200
+                refId: C
+                type: threshold
+          dashboardUid: ""
+          panelId: 0
+          noDataState: NoData
+          execErrState: Error
+          for: 0s
+          annotations:
+            summary: Slashing round executed in {{ $labels.k8s_namespace_name }}
+          labels:
+            <<: *common_labels
+          isPaused: false
+        - uid: def0g11bn64n4a
+          title: Chain - unproven reorg
+          condition: C
+          data:
+            - refId: A
+              relativeTimeRange:
+                from: 600
+                to: 0
+              datasourceUid: spartan-metrics-prometheus
+              model:
+                editorMode: code
+                expr: max by (k8s_namespace_name) (increase(aztec_archiver_prune_count{k8s_namespace_name!="", aztec_archiver_prune_type="unproven"}[$__rate_interval]))
                 instant: true
                 intervalMs: 300000
                 legendFormat: __auto
@@ -596,7 +680,7 @@ groups:
           execErrState: Error
           for: 0s
           annotations:
-            summary: Pending chain has re-orged in {{ ` {{ $labels.k8s_namespace_name  }} ` }}
+            summary: Pending chain has undergone an unproven reorg (unproven epoch pruned back to last proven checkpoint) in {{ $labels.k8s_namespace_name }}
           labels:
             <<: *common_labels
           isPaused: false
@@ -680,7 +764,7 @@ groups:
           execErrState: Error
           for: 1m
           annotations:
-            summary: Attestations collection is taking over 10 seconds in {{ ` {{ $labels.k8s_namespace_name  }} ` }}
+            summary: Attestations collection is taking over 10 seconds in {{ $labels.k8s_namespace_name }}
           labels:
             <<: *common_labels
           isPaused: false
@@ -764,7 +848,7 @@ groups:
           execErrState: Error
           for: 5m
           annotations:
-            summary: High CPU usage in {{ ` {{ $labels.k8s_namespace_name  }} ` }} by {{ ` {{ $labels.service_name  }} ` }}
+            summary: High CPU usage in {{ $labels.k8s_namespace_name }} by {{ $labels.service_name }}
           labels:
             <<: *common_labels
           isPaused: false
@@ -779,7 +863,7 @@ groups:
               datasourceUid: spartan-metrics-prometheus
               model:
                 editorMode: code
-                expr: avg by (k8s_namespace_name,service_name) (process_memory_usage) / 1024^3
+                expr: avg by (k8s_namespace_name,service_name) (system_memory_utilization{system_memory_state="used"})
                 instant: true
                 intervalMs: 1000
                 legendFormat: __auto
@@ -823,7 +907,7 @@ groups:
                 conditions:
                     - evaluator:
                         params:
-                            - 5
+                            - 0.8 # trigger alert if using more than 80% total memory
                         type: gt
                       operator:
                         type: and
@@ -848,7 +932,7 @@ groups:
           execErrState: Error
           for: 5m
           annotations:
-            summary: High memory usage in {{ ` {{ $labels.k8s_namespace_name  }} ` }} by {{ ` {{ $labels.service_name  }} ` }}
+            summary: High memory usage in {{ $labels.k8s_namespace_name }} by {{ $labels.service_name }}
           labels:
             <<: *common_labels
           isPaused: false
@@ -932,7 +1016,7 @@ groups:
           execErrState: Error
           for: 1m
           annotations:
-            summary: Something is blocking the main thread in {{ ` {{ $labels.service_name  }} ` }} ({{ ` {{ $labels.k8s_namespace_name  }} ` }})
+            summary: Something is blocking the main thread in {{ $labels.service_name }} ({{ $labels.k8s_namespace_name }})
           labels:
             <<: *common_labels
           isPaused: false
@@ -1016,7 +1100,7 @@ groups:
           execErrState: Error
           for: 1m
           annotations:
-            summary: Critical errors in the WorldState of {{ ` {{ $labels.service_name  }} ` }} ({{ ` {{ $labels.k8s_namespace_name  }} ` }})
+            summary: Critical errors in the WorldState of {{ $labels.service_name }} ({{ $labels.k8s_namespace_name }})
           labels:
             <<: *common_labels
           isPaused: false
@@ -1182,7 +1266,1027 @@ groups:
           execErrState: Error
           for: 0s
           annotations:
-            summary: There was an error taking a snapshot in {{ ` {{ $labels.k8s_namespace_name  }} ` }}
+            summary: There was an error taking a snapshot in {{ $labels.k8s_namespace_name }}
+          labels:
+            <<: *common_labels
+          isPaused: false
+        - uid: netlowSlotFillRate
+          title: Sequencer - low slot fill rate
+          condition: C
+          data:
+            - refId: A
+              relativeTimeRange:
+                from: 600
+                to: 0
+              datasourceUid: spartan-metrics-prometheus
+              model:
+                editorMode: code
+                expr: (sum by (k8s_namespace_name) (max by (k8s_namespace_name, aztec_block_proposer) (increase(aztec_sequencer_slot_filled_count{k8s_namespace_name=~"__INTERNAL_NETWORK_NAMESPACES_REGEX__"}[10m]))) / sum by (k8s_namespace_name) (max by (k8s_namespace_name, aztec_block_proposer) (increase(aztec_sequencer_slot_total_count{k8s_namespace_name=~"__INTERNAL_NETWORK_NAMESPACES_REGEX__"}[10m])))) and on (k8s_namespace_name) (sum by (k8s_namespace_name) (max by (k8s_namespace_name, aztec_block_proposer) (increase(aztec_sequencer_slot_total_count{k8s_namespace_name=~"__INTERNAL_NETWORK_NAMESPACES_REGEX__"}[10m]))) >= 5)
+                instant: true
+                intervalMs: 60000
+                legendFormat: __auto
+                maxDataPoints: 43200
+                range: false
+                refId: A
+            - refId: B
+              relativeTimeRange:
+                from: 600
+                to: 0
+              datasourceUid: __expr__
+              model:
+                conditions:
+                    - evaluator:
+                        params: []
+                        type: gt
+                      operator:
+                        type: and
+                      query:
+                        params:
+                            - B
+                      reducer:
+                        params: []
+                        type: last
+                      type: query
+                datasource:
+                    type: __expr__
+                    uid: __expr__
+                expression: A
+                intervalMs: 1000
+                maxDataPoints: 43200
+                reducer: last
+                refId: B
+                type: reduce
+            - refId: C
+              relativeTimeRange:
+                from: 600
+                to: 0
+              datasourceUid: __expr__
+              model:
+                conditions:
+                    - evaluator:
+                        params:
+                            - 0.8
+                        type: lt
+                      operator:
+                        type: and
+                      query:
+                        params:
+                            - C
+                      reducer:
+                        params: []
+                        type: last
+                      type: query
+                datasource:
+                    type: __expr__
+                    uid: __expr__
+                expression: B
+                intervalMs: 1000
+                maxDataPoints: 43200
+                refId: C
+                type: threshold
+          dashboardUid: ""
+          panelId: 0
+          noDataState: NoData
+          execErrState: Error
+          for: 5m
+          annotations:
+            summary: Sequencer slot fill rate is below 80% in {{ $labels.k8s_namespace_name }}
+          labels:
+            <<: *common_labels
+          isPaused: false
+        - uid: netCheckpointFailures
+          title: Sequencer - checkpoint proposal failures
+          condition: C
+          data:
+            - refId: A
+              relativeTimeRange:
+                from: 600
+                to: 0
+              datasourceUid: spartan-metrics-prometheus
+              model:
+                editorMode: code
+                expr: sum by (k8s_namespace_name, aztec_error_type) (increase(aztec_sequencer_checkpoint_proposal_failed_count{k8s_namespace_name=~"__INTERNAL_NETWORK_NAMESPACES_REGEX__"}[10m]))
+                instant: true
+                intervalMs: 60000
+                legendFormat: __auto
+                maxDataPoints: 43200
+                range: false
+                refId: A
+            - refId: B
+              relativeTimeRange:
+                from: 600
+                to: 0
+              datasourceUid: __expr__
+              model:
+                conditions:
+                    - evaluator:
+                        params: []
+                        type: gt
+                      operator:
+                        type: and
+                      query:
+                        params:
+                            - B
+                      reducer:
+                        params: []
+                        type: last
+                      type: query
+                datasource:
+                    type: __expr__
+                    uid: __expr__
+                expression: A
+                intervalMs: 1000
+                maxDataPoints: 43200
+                reducer: last
+                refId: B
+                type: reduce
+            - refId: C
+              relativeTimeRange:
+                from: 600
+                to: 0
+              datasourceUid: __expr__
+              model:
+                conditions:
+                    - evaluator:
+                        params:
+                            - 2
+                        type: gt
+                      operator:
+                        type: and
+                      query:
+                        params:
+                            - C
+                      reducer:
+                        params: []
+                        type: last
+                      type: query
+                datasource:
+                    type: __expr__
+                    uid: __expr__
+                expression: B
+                intervalMs: 1000
+                maxDataPoints: 43200
+                refId: C
+                type: threshold
+          dashboardUid: ""
+          panelId: 0
+          noDataState: NoData
+          execErrState: Error
+          for: 1m
+          annotations:
+            summary: Checkpoint proposal failed in {{ $labels.k8s_namespace_name }}
+            description: Checkpoint proposal failure reason - {{ $labels.aztec_error_type }}.
+          labels:
+            <<: *common_labels
+          isPaused: false
+        - uid: l1TxPublishFailures
+          title: L1 - tx publish failures
+          condition: C
+          data:
+            - refId: A
+              relativeTimeRange:
+                from: 600
+                to: 0
+              datasourceUid: spartan-metrics-prometheus
+              model:
+                editorMode: code
+                expr: sum by (k8s_namespace_name) (increase({__name__=~"aztec_l1_tx_(reverted|cancelled|not_mined)_count",k8s_namespace_name=~"__INTERNAL_NETWORK_NAMESPACES_REGEX__"}[10m]))
+                instant: true
+                intervalMs: 60000
+                legendFormat: __auto
+                maxDataPoints: 43200
+                range: false
+                refId: A
+            - refId: B
+              relativeTimeRange:
+                from: 600
+                to: 0
+              datasourceUid: __expr__
+              model:
+                conditions:
+                    - evaluator:
+                        params: []
+                        type: gt
+                      operator:
+                        type: and
+                      query:
+                        params:
+                            - B
+                      reducer:
+                        params: []
+                        type: last
+                      type: query
+                datasource:
+                    type: __expr__
+                    uid: __expr__
+                expression: A
+                intervalMs: 1000
+                maxDataPoints: 43200
+                reducer: last
+                refId: B
+                type: reduce
+            - refId: C
+              relativeTimeRange:
+                from: 600
+                to: 0
+              datasourceUid: __expr__
+              model:
+                conditions:
+                    - evaluator:
+                        params:
+                            - 2
+                        type: gt
+                      operator:
+                        type: and
+                      query:
+                        params:
+                            - C
+                      reducer:
+                        params: []
+                        type: last
+                      type: query
+                datasource:
+                    type: __expr__
+                    uid: __expr__
+                expression: B
+                intervalMs: 1000
+                maxDataPoints: 43200
+                refId: C
+                type: threshold
+          dashboardUid: ""
+          panelId: 0
+          noDataState: NoData
+          execErrState: Error
+          for: 1m
+          annotations:
+            summary: L1 transaction publishing is failing in {{ $labels.k8s_namespace_name }}
+          labels:
+            <<: *common_labels
+          isPaused: false
+        - uid: p2pSlowGossipValidation
+          title: P2P - slow gossip validation
+          condition: C
+          data:
+            - refId: A
+              relativeTimeRange:
+                from: 600
+                to: 0
+              datasourceUid: spartan-metrics-prometheus
+              model:
+                editorMode: code
+                expr: sum by (k8s_namespace_name) (increase(aztec_p2p_gossip_slow_validation_count{k8s_namespace_name=~"__INTERNAL_NETWORK_NAMESPACES_REGEX__"}[10m]))
+                instant: true
+                intervalMs: 60000
+                legendFormat: __auto
+                maxDataPoints: 43200
+                range: false
+                refId: A
+            - refId: B
+              relativeTimeRange:
+                from: 600
+                to: 0
+              datasourceUid: __expr__
+              model:
+                conditions:
+                    - evaluator:
+                        params: []
+                        type: gt
+                      operator:
+                        type: and
+                      query:
+                        params:
+                            - B
+                      reducer:
+                        params: []
+                        type: last
+                      type: query
+                datasource:
+                    type: __expr__
+                    uid: __expr__
+                expression: A
+                intervalMs: 1000
+                maxDataPoints: 43200
+                reducer: last
+                refId: B
+                type: reduce
+            - refId: C
+              relativeTimeRange:
+                from: 600
+                to: 0
+              datasourceUid: __expr__
+              model:
+                conditions:
+                    - evaluator:
+                        params:
+                            - 0
+                        type: gt
+                      operator:
+                        type: and
+                      query:
+                        params:
+                            - C
+                      reducer:
+                        params: []
+                        type: last
+                      type: query
+                datasource:
+                    type: __expr__
+                    uid: __expr__
+                expression: B
+                intervalMs: 1000
+                maxDataPoints: 43200
+                refId: C
+                type: threshold
+          dashboardUid: ""
+          panelId: 0
+          noDataState: NoData
+          execErrState: Error
+          for: 1m
+          annotations:
+            summary: P2P gossip validation is slow in {{ $labels.k8s_namespace_name }}
+          labels:
+            <<: *common_labels
+          isPaused: false
+        - uid: mempoolTxPoolAnomaly
+          title: Mempool - tx pool rejection spike
+          condition: C
+          data:
+            - refId: A
+              relativeTimeRange:
+                from: 600
+                to: 0
+              datasourceUid: spartan-metrics-prometheus
+              model:
+                editorMode: code
+                expr: sum by (k8s_namespace_name) (increase({__name__=~"aztec_mempool_tx_pool_v2_(rejected_count|evicted_count|ignored_count|missing_on_protect)",k8s_namespace_name=~"__INTERNAL_NETWORK_NAMESPACES_REGEX__"}[10m]))
+                instant: true
+                intervalMs: 60000
+                legendFormat: __auto
+                maxDataPoints: 43200
+                range: false
+                refId: A
+            - refId: B
+              relativeTimeRange:
+                from: 600
+                to: 0
+              datasourceUid: __expr__
+              model:
+                conditions:
+                    - evaluator:
+                        params: []
+                        type: gt
+                      operator:
+                        type: and
+                      query:
+                        params:
+                            - B
+                      reducer:
+                        params: []
+                        type: last
+                      type: query
+                datasource:
+                    type: __expr__
+                    uid: __expr__
+                expression: A
+                intervalMs: 1000
+                maxDataPoints: 43200
+                reducer: last
+                refId: B
+                type: reduce
+            - refId: C
+              relativeTimeRange:
+                from: 600
+                to: 0
+              datasourceUid: __expr__
+              model:
+                conditions:
+                    - evaluator:
+                        params:
+                            - 50
+                        type: gt
+                      operator:
+                        type: and
+                      query:
+                        params:
+                            - C
+                      reducer:
+                        params: []
+                        type: last
+                      type: query
+                datasource:
+                    type: __expr__
+                    uid: __expr__
+                expression: B
+                intervalMs: 1000
+                maxDataPoints: 43200
+                refId: C
+                type: threshold
+          dashboardUid: ""
+          panelId: 0
+          noDataState: NoData
+          execErrState: Error
+          for: 1m
+          annotations:
+            summary: Tx pool rejected, evicted, ignored, or missing tx count is elevated in {{ $labels.k8s_namespace_name }}
+          labels:
+            <<: *common_labels
+          isPaused: false
+        - uid: seqPipelineDiscards
+          title: Sequencer - pipeline discards
+          condition: C
+          data:
+            - refId: A
+              relativeTimeRange:
+                from: 600
+                to: 0
+              datasourceUid: spartan-metrics-prometheus
+              model:
+                editorMode: code
+                expr: sum by (k8s_namespace_name) (increase({__name__=~"aztec_sequencer_pipeline_(discards_count|parent_checkpoint_mismatch_count)",k8s_namespace_name=~"__INTERNAL_NETWORK_NAMESPACES_REGEX__"}[10m]))
+                instant: true
+                intervalMs: 60000
+                legendFormat: __auto
+                maxDataPoints: 43200
+                range: false
+                refId: A
+            - refId: B
+              relativeTimeRange:
+                from: 600
+                to: 0
+              datasourceUid: __expr__
+              model:
+                conditions:
+                    - evaluator:
+                        params: []
+                        type: gt
+                      operator:
+                        type: and
+                      query:
+                        params:
+                            - B
+                      reducer:
+                        params: []
+                        type: last
+                      type: query
+                datasource:
+                    type: __expr__
+                    uid: __expr__
+                expression: A
+                intervalMs: 1000
+                maxDataPoints: 43200
+                reducer: last
+                refId: B
+                type: reduce
+            - refId: C
+              relativeTimeRange:
+                from: 600
+                to: 0
+              datasourceUid: __expr__
+              model:
+                conditions:
+                    - evaluator:
+                        params:
+                            - 2
+                        type: gt
+                      operator:
+                        type: and
+                      query:
+                        params:
+                            - C
+                      reducer:
+                        params: []
+                        type: last
+                      type: query
+                datasource:
+                    type: __expr__
+                    uid: __expr__
+                expression: B
+                intervalMs: 1000
+                maxDataPoints: 43200
+                refId: C
+                type: threshold
+          dashboardUid: ""
+          panelId: 0
+          noDataState: NoData
+          execErrState: Error
+          for: 1m
+          annotations:
+            summary: Sequencer pipeline discarded checkpoint work in {{ $labels.k8s_namespace_name }}
+          labels:
+            <<: *common_labels
+          isPaused: false
+        - uid: validatorAttestationFailures
+          title: Validator - attestation failures
+          condition: C
+          data:
+            - refId: A
+              relativeTimeRange:
+                from: 600
+                to: 0
+              datasourceUid: spartan-metrics-prometheus
+              model:
+                editorMode: code
+                expr: sum by (k8s_namespace_name, aztec_error_type) (increase({__name__=~"aztec_validator_attestation_failed_(bad_proposal|node_issue)_count",k8s_namespace_name=~"__INTERNAL_NETWORK_NAMESPACES_REGEX__",aztec_is_committee_member="true",aztec_error_type!~"block_number_already_exists|parent_block_not_found"}[10m]))
+                instant: true
+                intervalMs: 60000
+                legendFormat: __auto
+                maxDataPoints: 43200
+                range: false
+                refId: A
+            - refId: B
+              relativeTimeRange:
+                from: 600
+                to: 0
+              datasourceUid: __expr__
+              model:
+                conditions:
+                    - evaluator:
+                        params: []
+                        type: gt
+                      operator:
+                        type: and
+                      query:
+                        params:
+                            - B
+                      reducer:
+                        params: []
+                        type: last
+                      type: query
+                datasource:
+                    type: __expr__
+                    uid: __expr__
+                expression: A
+                intervalMs: 1000
+                maxDataPoints: 43200
+                reducer: last
+                refId: B
+                type: reduce
+            - refId: C
+              relativeTimeRange:
+                from: 600
+                to: 0
+              datasourceUid: __expr__
+              model:
+                conditions:
+                    - evaluator:
+                        params:
+                            - 0
+                        type: gt
+                      operator:
+                        type: and
+                      query:
+                        params:
+                            - C
+                      reducer:
+                        params: []
+                        type: last
+                      type: query
+                datasource:
+                    type: __expr__
+                    uid: __expr__
+                expression: B
+                intervalMs: 1000
+                maxDataPoints: 43200
+                refId: C
+                type: threshold
+          dashboardUid: ""
+          panelId: 0
+          noDataState: NoData
+          execErrState: Error
+          for: 1m
+          annotations:
+            summary: Validator attestation failures detected in {{ $labels.k8s_namespace_name }}
+            description: Attestation failure reason - {{ $labels.aztec_error_type }}.
+          labels:
+            <<: *common_labels
+          isPaused: false
+    - orgId: 1
+      name: L1 Ethereum Nodes
+      folder: L1
+      interval: 1m
+      rules:
+        - uid: l1EthNodeScrapeDown
+          title: L1 Ethereum - node scrape down
+          condition: C
+          data:
+            - refId: A
+              relativeTimeRange:
+                from: 600
+                to: 0
+              datasourceUid: spartan-metrics-prometheus
+              model:
+                editorMode: code
+                expr: min by (eth_chain, eth_client, eth_endpoint) (up{network="ethereum",component="ethereum-node"})
+                instant: true
+                intervalMs: 60000
+                legendFormat: __auto
+                maxDataPoints: 43200
+                range: false
+                refId: A
+            - refId: B
+              relativeTimeRange:
+                from: 600
+                to: 0
+              datasourceUid: __expr__
+              model:
+                conditions:
+                    - evaluator:
+                        params: []
+                        type: gt
+                      operator:
+                        type: and
+                      query:
+                        params:
+                            - B
+                      reducer:
+                        params: []
+                        type: last
+                      type: query
+                datasource:
+                    type: __expr__
+                    uid: __expr__
+                expression: A
+                intervalMs: 1000
+                maxDataPoints: 43200
+                reducer: last
+                refId: B
+                type: reduce
+            - refId: C
+              relativeTimeRange:
+                from: 600
+                to: 0
+              datasourceUid: __expr__
+              model:
+                conditions:
+                    - evaluator:
+                        params:
+                            - 1
+                        type: lt
+                      operator:
+                        type: and
+                      query:
+                        params:
+                            - C
+                      reducer:
+                        params: []
+                        type: last
+                      type: query
+                datasource:
+                    type: __expr__
+                    uid: __expr__
+                expression: B
+                intervalMs: 1000
+                maxDataPoints: 43200
+                refId: C
+                type: threshold
+          dashboardUid: ""
+          panelId: 0
+          noDataState: NoData
+          execErrState: Error
+          for: 5m
+          annotations:
+            summary: Ethereum {{ $labels.eth_client }} scrape is down for {{ $labels.eth_chain }}
+            description: Metrics scrape for the {{ $labels.eth_endpoint }} L1 node on {{ $labels.eth_chain }} has been failing.
+          labels:
+            <<: *common_labels
+          isPaused: false
+        - uid: l1EthRethLowPeers
+          title: L1 Ethereum - Reth low peers
+          condition: C
+          data:
+            - refId: A
+              relativeTimeRange:
+                from: 600
+                to: 0
+              datasourceUid: spartan-metrics-prometheus
+              model:
+                editorMode: code
+                expr: max by (eth_chain) (reth_network_connected_peers{network="ethereum",eth_client="reth"})
+                instant: true
+                intervalMs: 60000
+                legendFormat: __auto
+                maxDataPoints: 43200
+                range: false
+                refId: A
+            - refId: B
+              relativeTimeRange:
+                from: 600
+                to: 0
+              datasourceUid: __expr__
+              model:
+                conditions:
+                    - evaluator:
+                        params: []
+                        type: gt
+                      operator:
+                        type: and
+                      query:
+                        params:
+                            - B
+                      reducer:
+                        params: []
+                        type: last
+                      type: query
+                datasource:
+                    type: __expr__
+                    uid: __expr__
+                expression: A
+                intervalMs: 1000
+                maxDataPoints: 43200
+                reducer: last
+                refId: B
+                type: reduce
+            - refId: C
+              relativeTimeRange:
+                from: 600
+                to: 0
+              datasourceUid: __expr__
+              model:
+                conditions:
+                    - evaluator:
+                        params:
+                            - 5
+                        type: lt
+                      operator:
+                        type: and
+                      query:
+                        params:
+                            - C
+                      reducer:
+                        params: []
+                        type: last
+                      type: query
+                datasource:
+                    type: __expr__
+                    uid: __expr__
+                expression: B
+                intervalMs: 1000
+                maxDataPoints: 43200
+                refId: C
+                type: threshold
+          dashboardUid: ""
+          panelId: 0
+          noDataState: NoData
+          execErrState: Error
+          for: 10m
+          annotations:
+            summary: Reth peer count is low for {{ $labels.eth_chain }}
+            description: Reth has had fewer than 5 connected peers for 10 minutes.
+          labels:
+            <<: *common_labels
+          isPaused: false
+        - uid: l1EthLighthouseLowPeers
+          title: L1 Ethereum - Lighthouse low peers
+          condition: C
+          data:
+            - refId: A
+              relativeTimeRange:
+                from: 600
+                to: 0
+              datasourceUid: spartan-metrics-prometheus
+              model:
+                editorMode: code
+                expr: max by (eth_chain) (libp2p_peers{network="ethereum",eth_client="lighthouse"})
+                instant: true
+                intervalMs: 60000
+                legendFormat: __auto
+                maxDataPoints: 43200
+                range: false
+                refId: A
+            - refId: B
+              relativeTimeRange:
+                from: 600
+                to: 0
+              datasourceUid: __expr__
+              model:
+                conditions:
+                    - evaluator:
+                        params: []
+                        type: gt
+                      operator:
+                        type: and
+                      query:
+                        params:
+                            - B
+                      reducer:
+                        params: []
+                        type: last
+                      type: query
+                datasource:
+                    type: __expr__
+                    uid: __expr__
+                expression: A
+                intervalMs: 1000
+                maxDataPoints: 43200
+                reducer: last
+                refId: B
+                type: reduce
+            - refId: C
+              relativeTimeRange:
+                from: 600
+                to: 0
+              datasourceUid: __expr__
+              model:
+                conditions:
+                    - evaluator:
+                        params:
+                            - 5
+                        type: lt
+                      operator:
+                        type: and
+                      query:
+                        params:
+                            - C
+                      reducer:
+                        params: []
+                        type: last
+                      type: query
+                datasource:
+                    type: __expr__
+                    uid: __expr__
+                expression: B
+                intervalMs: 1000
+                maxDataPoints: 43200
+                refId: C
+                type: threshold
+          dashboardUid: ""
+          panelId: 0
+          noDataState: NoData
+          execErrState: Error
+          for: 10m
+          annotations:
+            summary: Lighthouse peer count is low for {{ $labels.eth_chain }}
+            description: Lighthouse has had fewer than 5 libp2p peers for 10 minutes.
+          labels:
+            <<: *common_labels
+          isPaused: false
+        - uid: l1EthLighthouseUnsynced
+          title: L1 Ethereum - Lighthouse not synced
+          condition: C
+          data:
+            - refId: A
+              relativeTimeRange:
+                from: 600
+                to: 0
+              datasourceUid: spartan-metrics-prometheus
+              model:
+                editorMode: code
+                expr: max by (eth_chain) (sync_eth2_synced{network="ethereum",eth_client="lighthouse"})
+                instant: true
+                intervalMs: 60000
+                legendFormat: __auto
+                maxDataPoints: 43200
+                range: false
+                refId: A
+            - refId: B
+              relativeTimeRange:
+                from: 600
+                to: 0
+              datasourceUid: __expr__
+              model:
+                conditions:
+                    - evaluator:
+                        params: []
+                        type: gt
+                      operator:
+                        type: and
+                      query:
+                        params:
+                            - B
+                      reducer:
+                        params: []
+                        type: last
+                      type: query
+                datasource:
+                    type: __expr__
+                    uid: __expr__
+                expression: A
+                intervalMs: 1000
+                maxDataPoints: 43200
+                reducer: last
+                refId: B
+                type: reduce
+            - refId: C
+              relativeTimeRange:
+                from: 600
+                to: 0
+              datasourceUid: __expr__
+              model:
+                conditions:
+                    - evaluator:
+                        params:
+                            - 1
+                        type: lt
+                      operator:
+                        type: and
+                      query:
+                        params:
+                            - C
+                      reducer:
+                        params: []
+                        type: last
+                      type: query
+                datasource:
+                    type: __expr__
+                    uid: __expr__
+                expression: B
+                intervalMs: 1000
+                maxDataPoints: 43200
+                refId: C
+                type: threshold
+          dashboardUid: ""
+          panelId: 0
+          noDataState: NoData
+          execErrState: Error
+          for: 30m
+          annotations:
+            summary: Lighthouse is not synced for {{ $labels.eth_chain }}
+            description: Lighthouse has reported unsynced for 30 minutes.
+          labels:
+            <<: *common_labels
+          isPaused: false
+        - uid: l1EthLighthouseHeadStalled
+          title: L1 Ethereum - Lighthouse head stalled
+          condition: C
+          data:
+            - refId: A
+              relativeTimeRange:
+                from: 1200
+                to: 0
+              datasourceUid: spartan-metrics-prometheus
+              model:
+                editorMode: code
+                expr: (max by (eth_chain) (max_over_time(beacon_head_slot{network="ethereum",eth_client="lighthouse"}[15m]) - min_over_time(beacon_head_slot{network="ethereum",eth_client="lighthouse"}[15m]))) and on (eth_chain) (max by (eth_chain) (sync_eth2_synced{network="ethereum",eth_client="lighthouse"}) == 1)
+                instant: true
+                intervalMs: 60000
+                legendFormat: __auto
+                maxDataPoints: 43200
+                range: false
+                refId: A
+            - refId: B
+              relativeTimeRange:
+                from: 1200
+                to: 0
+              datasourceUid: __expr__
+              model:
+                conditions:
+                    - evaluator:
+                        params: []
+                        type: gt
+                      operator:
+                        type: and
+                      query:
+                        params:
+                            - B
+                      reducer:
+                        params: []
+                        type: last
+                      type: query
+                datasource:
+                    type: __expr__
+                    uid: __expr__
+                expression: A
+                intervalMs: 1000
+                maxDataPoints: 43200
+                reducer: last
+                refId: B
+                type: reduce
+            - refId: C
+              relativeTimeRange:
+                from: 1200
+                to: 0
+              datasourceUid: __expr__
+              model:
+                conditions:
+                    - evaluator:
+                        params:
+                            - 1
+                        type: lt
+                      operator:
+                        type: and
+                      query:
+                        params:
+                            - C
+                      reducer:
+                        params: []
+                        type: last
+                      type: query
+                datasource:
+                    type: __expr__
+                    uid: __expr__
+                expression: B
+                intervalMs: 1000
+                maxDataPoints: 43200
+                refId: C
+                type: threshold
+          dashboardUid: ""
+          panelId: 0
+          noDataState: NoData
+          execErrState: Error
+          for: 15m
+          annotations:
+            summary: Lighthouse head slot is not advancing for {{ $labels.eth_chain }}
+            description: Lighthouse is reporting synced, but beacon_head_slot has not advanced for 15 minutes.
           labels:
             <<: *common_labels
           isPaused: false
@@ -1271,7 +2375,7 @@ groups:
           execErrState: Error
           for: 1m
           annotations:
-            summary: Prometheus scraping for job {{ ` {{ $labels.job  }} ` }} takes more than 7.5s
+            summary: Prometheus scraping for job {{ $labels.job }} takes more than 7.5s
           labels:
             <<: *common_labels
           isPaused: false
@@ -1336,7 +2440,92 @@ groups:
             __panelId__: "5"
             description: ""
             runbook_url: ""
-            summary: One or more bootnodes for {{ ` {{ $labels.network }} ` }} may have stopped.
+            summary: One or more bootnodes for {{ $labels.network }} may have stopped.
           labels:
             "": ""
+          isPaused: false
+        - uid: pcomdgyzwtlaxv
+          title: Proof failed
+          condition: C
+          data:
+            - refId: A
+              relativeTimeRange:
+                from: 600
+                to: 0
+              datasourceUid: spartan-metrics-prometheus
+              model:
+                editorMode: code
+                expr: sum by (k8s_namespace_name) (increase(aztec_proving_queue_rejected_jobs_count[$__rate_interval]))
+                instant: true
+                intervalMs: 60000
+                legendFormat: __auto
+                maxDataPoints: 43200
+                range: false
+                refId: A
+            - refId: B
+              relativeTimeRange:
+                from: 600
+                to: 0
+              datasourceUid: __expr__
+              model:
+                conditions:
+                    - evaluator:
+                        params: []
+                        type: gt
+                      operator:
+                        type: and
+                      query:
+                        params:
+                            - B
+                      reducer:
+                        params: []
+                        type: last
+                      type: query
+                datasource:
+                    type: __expr__
+                    uid: __expr__
+                expression: A
+                intervalMs: 1000
+                maxDataPoints: 43200
+                reducer: last
+                refId: B
+                type: reduce
+            - refId: C
+              relativeTimeRange:
+                from: 600
+                to: 0
+              datasourceUid: __expr__
+              model:
+                conditions:
+                    - evaluator:
+                        params:
+                            - 0
+                        type: gt
+                      operator:
+                        type: and
+                      query:
+                        params:
+                            - C
+                      reducer:
+                        params: []
+                        type: last
+                      type: query
+                datasource:
+                    type: __expr__
+                    uid: __expr__
+                expression: B
+                intervalMs: 1000
+                maxDataPoints: 43200
+                refId: C
+                type: threshold
+          dashboardUid: ""
+          panelId: 0
+          noDataState: NoData
+          execErrState: Error
+          for: 5m
+          annotations:
+            summary: Proof failed
+            description: One or more proving jobs were rejected in {{ $labels.k8s_namespace_name }}.
+          labels:
+            <<: *common_labels
           isPaused: false

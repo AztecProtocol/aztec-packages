@@ -1,8 +1,8 @@
-use dep::types::{
+use protocol_test_utils::make_fixture;
+use types::{
     abis::{block_constant_data::BlockConstantData, partial_state_reference::PartialStateReference},
     blob_data::SpongeBlob,
     constants::TX_ROLLUP_PUBLIC_INPUTS_LENGTH,
-    tests::utils::make_fixture,
     traits::{Deserialize, Empty, Serialize},
 };
 

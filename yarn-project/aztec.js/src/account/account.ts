@@ -53,8 +53,8 @@ export class BaseAccount implements Account {
     return this.entrypoint.createTxExecutionRequest(exec, gasSettings, chainInfo, options);
   }
 
-  wrapExecutionPayload(exec: ExecutionPayload, options?: any): Promise<ExecutionPayload> {
-    return this.entrypoint.wrapExecutionPayload(exec, options);
+  wrapExecutionPayload(exec: ExecutionPayload, chainInfo: ChainInfo, options?: any): Promise<ExecutionPayload> {
+    return this.entrypoint.wrapExecutionPayload(exec, chainInfo, options);
   }
 
   async createAuthWit(messageHashOrIntent: CallIntent | IntentInnerHash, chainInfo: ChainInfo): Promise<AuthWitness> {

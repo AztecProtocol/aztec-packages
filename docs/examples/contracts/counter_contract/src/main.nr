@@ -1,5 +1,5 @@
 // docs:start:setup
-use dep::aztec::macros::aztec;
+use aztec::macros::aztec;
 
 #[aztec]
 pub contract Counter {
@@ -7,8 +7,8 @@ pub contract Counter {
     // docs:start:imports
     use aztec::{
         macros::{functions::{external, initializer}, storage::storage},
-        messages::message_delivery::MessageDelivery,
-        oracle::debug_log::debug_log_format,
+        messages::delivery::MessageDelivery,
+        oracle::logging::debug_log_format,
         protocol::{address::AztecAddress, traits::ToField},
         state_vars::Owned,
     };
@@ -25,10 +25,10 @@ pub contract Counter {
     // docs:start:constructor
     #[initializer]
     #[external("private")]
-    // We can name our initializer anything we want as long as it's marked as aztec(initializer)
-    fn initialize(headstart: u64, owner: AztecAddress) {
-        self.storage.counters.at(owner).add(headstart as u128).deliver(
-            MessageDelivery.ONCHAIN_CONSTRAINED,
+    // We can name our initializer anything we want as long as it's marked as #[initializer]
+    fn constructor(initial_value: u128, owner: AztecAddress) {
+        self.storage.counters.at(owner).add(initial_value).deliver(
+            MessageDelivery::onchain_constrained(),
         );
     }
     // docs:end:constructor
@@ -37,7 +37,7 @@ pub contract Counter {
     #[external("private")]
     fn increment(owner: AztecAddress) {
         debug_log_format("Incrementing counter for owner {0}", [owner.to_field()]);
-        self.storage.counters.at(owner).add(1).deliver(MessageDelivery.ONCHAIN_CONSTRAINED);
+        self.storage.counters.at(owner).add(1).deliver(MessageDelivery::onchain_constrained());
     }
     // docs:end:increment
 

@@ -1,0 +1,106 @@
+{
+  "version": 5,
+  "cmakeMinimumRequired": {
+    "major": 3,
+    "minor": 20,
+    "patch": 0
+  },
+  "configurePresets": [
+    {
+      "name": "cross-base",
+      "displayName": "Zig (base)",
+      "hidden": true,
+      "generator": "Ninja",
+      "binaryDir": "${sourceDir}/build-${presetName}",
+      "environment": {
+        "CC": "zig cc",
+        "CXX": "zig c++",
+        "CFLAGS": "-g0 -fvisibility=hidden",
+        "CXXFLAGS": "-g0 -fvisibility=hidden"
+      },
+      "cacheVariables": {
+        "CMAKE_AR": "${sourceDir}/scripts/zig-ar.sh",
+        "CMAKE_BUILD_TYPE": "Release",
+        "CMAKE_RANLIB": "${sourceDir}/scripts/zig-ranlib.sh",
+        "ENABLE_PIC": "ON",
+        "IPC_RUNTIME_BUILD_TESTS": "OFF"
+      }
+    },
+    {
+      "name": "amd64-linux",
+      "inherits": "cross-base",
+      "environment": {
+        "CC": "zig cc -target x86_64-linux-gnu.2.35",
+        "CXX": "zig c++ -target x86_64-linux-gnu.2.35",
+        "LDFLAGS": "-s"
+      },
+      "cacheVariables": {
+        "CMAKE_SYSTEM_NAME": "Linux"
+      }
+    },
+    {
+      "name": "arm64-linux",
+      "inherits": "cross-base",
+      "environment": {
+        "CC": "zig cc -target aarch64-linux-gnu.2.35",
+        "CXX": "zig c++ -target aarch64-linux-gnu.2.35",
+        "LDFLAGS": "-s"
+      },
+      "cacheVariables": {
+        "CMAKE_SYSTEM_NAME": "Linux"
+      }
+    },
+    {
+      "name": "amd64-macos",
+      "inherits": "cross-base",
+      "environment": {
+        "CC": "zig cc -target x86_64-macos -mcpu=baseline",
+        "CXX": "zig c++ -target x86_64-macos -mcpu=baseline",
+        "LDFLAGS": "-s"
+      },
+      "cacheVariables": {
+        "CMAKE_SYSTEM_NAME": "Darwin",
+        "CMAKE_SYSTEM_PROCESSOR": "x86_64"
+      }
+    },
+    {
+      "name": "arm64-macos",
+      "inherits": "cross-base",
+      "environment": {
+        "CC": "zig cc -target aarch64-macos -mcpu=apple_a14",
+        "CXX": "zig c++ -target aarch64-macos -mcpu=apple_a14",
+        "LDFLAGS": "-s"
+      },
+      "cacheVariables": {
+        "CMAKE_SYSTEM_NAME": "Darwin",
+        "CMAKE_SYSTEM_PROCESSOR": "aarch64"
+      }
+    }
+  ],
+  "buildPresets": [
+    {
+      "name": "amd64-linux",
+      "configurePreset": "amd64-linux",
+      "inheritConfigureEnvironment": true,
+      "targets": ["ipc_runtime_napi"]
+    },
+    {
+      "name": "arm64-linux",
+      "configurePreset": "arm64-linux",
+      "inheritConfigureEnvironment": true,
+      "targets": ["ipc_runtime_napi"]
+    },
+    {
+      "name": "amd64-macos",
+      "configurePreset": "amd64-macos",
+      "inheritConfigureEnvironment": true,
+      "targets": ["ipc_runtime_napi"]
+    },
+    {
+      "name": "arm64-macos",
+      "configurePreset": "arm64-macos",
+      "inheritConfigureEnvironment": true,
+      "targets": ["ipc_runtime_napi"]
+    }
+  ]
+}

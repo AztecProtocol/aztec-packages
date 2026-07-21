@@ -241,6 +241,10 @@ template <class Builder_> class BoolTest : public ::testing::Test {
         for (auto& lhs : all_inputs) {
             for (auto& rhs : all_inputs) {
                 Builder builder;
+                // Prime the constant cache for FF::one() so that assert_equal_constant against `true`
+                // doesn't charge a one-time fix_witness to the diff below. (zero_idx is pre-cached by the
+                // builder constructor; FF::one() is not.)
+                builder.put_constant_variable(bb::fr::one());
 
                 bool_ct a = create_bool_ct(lhs, &builder);
                 bool_ct b = create_bool_ct(rhs, &builder);

@@ -8,76 +8,81 @@
 
 #include "barretenberg/common/serialize.hpp"
 #include "barretenberg/common/streams.hpp"
-#include "barretenberg/goblin/goblin.hpp"
+#include "barretenberg/eccvm/eccvm_flavor.hpp"
+#include "barretenberg/flavor/mega_zk_flavor.hpp"
+#include "barretenberg/goblin/types.hpp"
 #include "barretenberg/honk/proof_length.hpp"
 #include "barretenberg/serialize/msgpack_impl.hpp"
+#include "barretenberg/special_public_inputs/special_public_inputs.hpp"
 #include "barretenberg/stdlib/primitives/field/field.hpp"
 #include "barretenberg/stdlib_circuit_builders/mega_circuit_builder.hpp"
-#include "barretenberg/ultra_honk/ultra_verifier.hpp"
+#include "barretenberg/translator_vm/translator_flavor.hpp"
 #include <fstream>
 
 namespace bb {
 
 /**
  * @brief Chonk proof type.
- * @details When IsRecursive=false (native): Contains native proof types with msgpack serialization.
- *          When IsRecursive=true (recursive): Contains stdlib proof types for in-circuit verification.
+ * @details Contains five proof segments produced by the batched MegaZK + Translator protocol:
+ *   1. hiding_oink_proof: Hiding kernel Oink (pre-sumcheck commitments for the hiding kernel)
+ *   2. merge_proof: Merge proof for the hiding kernel's ECC op subtable
+ *   3. eccvm_proof: ECCVM proof without the final TripleIPA proof
+ *   4. ipa_proof: TripleIPA transcript for reducing ECCVM PCS checks to an accumulator
+ *   5. joint_proof: Translator Oink + joint sumcheck + joint Shplemini/KZG PCS
+ *
+ * The joint sumcheck and PCS batch the MegaZK and translator circuits together,
+ * eliminating separate sumcheck/PCS phases and reducing overall proof size.
  */
 template <bool IsRecursive = false> struct ChonkProof_ {
     using Builder = std::conditional_t<IsRecursive, UltraCircuitBuilder, void>;
     using HonkProof = std::conditional_t<IsRecursive, stdlib::Proof<Builder>, ::bb::HonkProof>;
-    using GoblinProof = std::conditional_t<IsRecursive, GoblinStdlibProof, ::bb::GoblinProof>;
     using FF = std::conditional_t<IsRecursive, stdlib::field_t<Builder>, bb::fr>;
 
-    HonkProof mega_proof;     // MegaZK proof of the hiding kernel circuit
-    GoblinProof goblin_proof; // Goblin proof (Merge + ECCVM + IPA + Translator)
+    HonkProof hiding_oink_proof; // Hiding kernel Oink (pre-sumcheck only)
+    HonkProof merge_proof;       // Merge proof
+    HonkProof eccvm_proof;       // ECCVM proof
+    HonkProof ipa_proof;         // TripleIPA transcript
+    HonkProof joint_proof;       // Translator Oink + joint sumcheck + joint PCS
 
-    // Hiding kernel proof length (MegaZK with fixed circuit size)
-    static constexpr size_t HIDING_KERNEL_PROOF_LENGTH_WITHOUT_PUBLIC_INPUTS =
-        ProofLength::Honk<MegaZKFlavor>::LENGTH_WITHOUT_PUB_INPUTS(MegaZKFlavor::VIRTUAL_LOG_N);
+    // Sub-proof sizes (in field elements, excluding public inputs).
+    static constexpr size_t HIDING_OINK_LENGTH = ProofLength::Oink<MegaZKFlavor>::LENGTH_WITHOUT_PUB_INPUTS;
 
-    /**
-     * @brief The size of a Chonk proof without backend-added public inputs
-     */
-    static constexpr size_t PROOF_LENGTH_WITHOUT_PUB_INPUTS =
-        /*mega_proof*/ HIDING_KERNEL_PROOF_LENGTH_WITHOUT_PUBLIC_INPUTS +
-        /*merge_proof*/ MERGE_PROOF_SIZE +
-        /*eccvm proof*/ ECCVMFlavor::PROOF_LENGTH +
-        /*ipa proof*/ IPA_PROOF_LENGTH +
-        /*translator*/ TranslatorFlavor::PROOF_LENGTH;
+    // Joint proof = translator proof structure (with committed sumcheck) + MegaZK evaluations.
+    static constexpr size_t JOINT_PROOF_LENGTH =
+        TranslatorFlavor::COMMITTED_SUMCHECK_PROOF_LENGTH + MegaZKFlavor::NUM_ALL_ENTITIES;
 
-    /**
-     * @brief The size of a Chonk proof with backend-added public inputs: HidingKernelIO
-     */
-    static constexpr size_t PROOF_LENGTH = PROOF_LENGTH_WITHOUT_PUB_INPUTS +
-                                           /*public_inputs*/ bb::HidingKernelIO::PUBLIC_INPUTS_SIZE;
+    static constexpr size_t PROOF_LENGTH_WITHOUT_PUB_INPUTS = HIDING_OINK_LENGTH + MERGE_PROOF_SIZE +
+                                                              ECCVMFlavor::PROOF_LENGTH +
+                                                              ECCVMFlavor::TRIPLE_IPA_PROOF_LENGTH + JOINT_PROOF_LENGTH;
+    static constexpr size_t PROOF_LENGTH = PROOF_LENGTH_WITHOUT_PUB_INPUTS + bb::HidingKernelIO::PUBLIC_INPUTS_SIZE;
 
     // Default constructor
     ChonkProof_() = default;
 
-    // Copy constructor (needed for msgpack deserialization)
-    ChonkProof_(const HonkProof& mega, const GoblinProof& goblin)
-        : mega_proof(mega)
-        , goblin_proof(goblin)
-    {}
-
-    // Move constructor for both native and recursive modes
-    ChonkProof_(HonkProof&& mega, GoblinProof&& goblin)
-        : mega_proof(std::move(mega))
-        , goblin_proof(std::move(goblin))
+    ChonkProof_(HonkProof mega_zk, HonkProof merge, HonkProof eccvm, HonkProof ipa, HonkProof joint)
+        : hiding_oink_proof(std::move(mega_zk))
+        , merge_proof(std::move(merge))
+        , eccvm_proof(std::move(eccvm))
+        , ipa_proof(std::move(ipa))
+        , joint_proof(std::move(joint))
     {}
 
     // Constructs a stdlib Chonk proof from a native Chonk proof
     template <typename B = Builder>
         requires IsRecursive
     ChonkProof_(B& builder, const ChonkProof_<false>& proof)
-        : mega_proof(builder, proof.mega_proof)
-        , goblin_proof(builder, proof.goblin_proof)
+        : hiding_oink_proof(builder, proof.hiding_oink_proof)
+        , merge_proof(builder, proof.merge_proof)
+        , eccvm_proof(builder, proof.eccvm_proof)
+        , ipa_proof(builder, proof.ipa_proof)
+        , joint_proof(builder, proof.joint_proof)
     {}
 
-    // Serde methods
-
-    size_t size() const { return mega_proof.size() + goblin_proof.size(); }
+    size_t size() const
+    {
+        return hiding_oink_proof.size() + merge_proof.size() + eccvm_proof.size() + ipa_proof.size() +
+               joint_proof.size();
+    }
 
     /**
      * @brief Serialize proof to field elements (native mode)
@@ -85,8 +90,7 @@ template <bool IsRecursive = false> struct ChonkProof_ {
     std::vector<FF> to_field_elements() const;
 
     /**
-     * @brief Common logic to reconstruct proof from field elements
-     * @tparam FieldType Either bb::fr (native) or stdlib::field_t<Builder> (recursive)
+     * @brief Reconstruct proof from field elements
      */
     static ChonkProof_ from_field_elements(const std::vector<FF>& fields);
 
@@ -120,10 +124,14 @@ template <bool IsRecursive = false> struct ChonkProof_ {
     static ChonkProof_ from_msgpack_buffer(const msgpack::sbuffer& buffer)
         requires(!IsRecursive)
     {
-        msgpack::object_handle oh = msgpack::unpack(buffer.data(), buffer.size());
-        msgpack::object obj = oh.get();
+        std::size_t offset = 0;
+        msgpack::object_handle oh = msgpack::unpack(buffer.data(), buffer.size(), offset);
+        if (offset != buffer.size()) {
+            throw_or_abort("ChonkProof::from_msgpack_buffer: trailing data (" + std::to_string(buffer.size() - offset) +
+                           " extra bytes)");
+        }
         ChonkProof_ proof;
-        obj.convert(proof);
+        oh.get().convert(proof);
         return proof;
     }
 
@@ -167,7 +175,7 @@ template <bool IsRecursive = false> struct ChonkProof_ {
         {}
     };
 
-    MSGPACK_FIELDS(mega_proof, goblin_proof);
+    SERIALIZATION_FIELDS(hiding_oink_proof, merge_proof, eccvm_proof, ipa_proof, joint_proof);
     bool operator==(const ChonkProof_& other) const = default;
 };
 

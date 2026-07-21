@@ -56,12 +56,6 @@
       "path": "../kv-store"
     },
     {
-      "path": "../l1-artifacts"
-    },
-    {
-      "path": "../merkle-tree"
-    },
-    {
       "path": "../node-keystore"
     },
     {
@@ -98,13 +92,13 @@
       "path": "../slasher"
     },
     {
+      "path": "../standard-contracts"
+    },
+    {
       "path": "../stdlib"
     },
     {
       "path": "../telemetry-client"
-    },
-    {
-      "path": "../test-wallet"
     },
     {
       "path": "../validator-client"
@@ -113,8 +107,15 @@
       "path": "../validator-ha-signer"
     },
     {
+      "path": "../wallet-sdk"
+    },
+    {
+      "path": "../wallets"
+    },
+    {
       "path": "../world-state"
     }
   ],
-  "include": ["src"]
+  "include": ["src"],
+  "exclude": ["node_modules", "**/node_modules", "**/.*/", "src/shared/timing_env.mjs"]
 }

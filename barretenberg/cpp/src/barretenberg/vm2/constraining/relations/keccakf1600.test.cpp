@@ -1,9 +1,11 @@
 #include <gmock/gmock.h>
 #include <gtest/gtest.h>
 
+#include "barretenberg/common/assert.hpp"
 #include "barretenberg/vm2/common/memory_types.hpp"
 #include "barretenberg/vm2/constraining/flavor_settings.hpp"
 #include "barretenberg/vm2/constraining/testing/check_relation.hpp"
+#include "barretenberg/vm2/generated/columns.hpp"
 #include "barretenberg/vm2/generated/relations/keccak_memory.hpp"
 #include "barretenberg/vm2/generated/relations/keccakf1600.hpp"
 #include "barretenberg/vm2/testing/fixtures.hpp"
@@ -16,6 +18,7 @@ namespace {
 
 using tracegen::KeccakF1600TraceBuilder;
 using tracegen::TestTraceContainer;
+using C = Column;
 
 using keccakf1600_relation = bb::avm2::keccakf1600<AvmFlavorSettings::FF>;
 using keccak_memory_relation = bb::avm2::keccak_memory<AvmFlavorSettings::FF>;
@@ -117,6 +120,55 @@ TEST(KeccakF1600ConstrainingTest, DstAddressOutOfBounds)
     check_all_interactions<tracegen::KeccakF1600TraceBuilder>(trace);
     check_relation<keccakf1600_relation>(trace);
     check_relation<keccak_memory_relation>(trace);
+}
+
+// Negative test: when sel_slice_write is active, round must equal AVM_KECCAKF1600_NUM_ROUNDS (24).
+TEST(KeccakF1600ConstrainingTest, NegativeRoundCountAtWrite)
+{
+    TestTraceContainer trace = TestTraceContainer({ {
+                                                        { C::precomputed_first_row, 1 },
+                                                    },
+                                                    {
+                                                        { C::keccakf1600_sel, 1 },
+                                                        { C::keccakf1600_sel_slice_write, 1 },
+                                                        { C::keccakf1600_round, 23 },
+                                                    } });
+
+    EXPECT_THROW_WITH_MESSAGE(
+        check_relation<keccakf1600_relation>(trace, keccakf1600_relation::SR_ROUND_COUNT_AT_WRITE),
+        keccakf1600_relation::get_subrelation_label(keccakf1600_relation::SR_ROUND_COUNT_AT_WRITE));
+
+    // Setting round to 24 should satisfy the constraint.
+    trace.set(C::keccakf1600_round, 1, 24);
+    check_relation<keccakf1600_relation>(trace, keccakf1600_relation::SR_ROUND_COUNT_AT_WRITE);
+}
+
+// Negative test: sel cannot drop from 1 to 0 mid-block (i.e., without end == 1).
+// Row 0: first_row=1, sel=1, start=1 (LATCH_CONDITION=1 via first_row)
+// Row 1: sel=1, end=0 (mid-block row, sel must not drop to 0 here)
+// Row 2: sel=0 (violates TRACE_CONTINUITY at row 1)
+TEST(KeccakF1600ConstrainingTest, NegativeTraceContinuity)
+{
+    TestTraceContainer trace = TestTraceContainer({ {
+                                                        { C::precomputed_first_row, 1 },
+                                                        { C::keccakf1600_sel, 1 },
+                                                        { C::keccakf1600_start, 1 },
+                                                    },
+                                                    {
+                                                        { C::keccakf1600_sel, 1 },
+                                                    },
+                                                    {
+                                                        { C::keccakf1600_sel, 0 },
+                                                    } });
+
+    // sel drops from 1 to 0 at row 1 without end == 1, so this should fail.
+    EXPECT_THROW_WITH_MESSAGE(check_relation<keccakf1600_relation>(trace, keccakf1600_relation::SR_TRACE_CONTINUITY),
+                              keccakf1600_relation::get_subrelation_label(keccakf1600_relation::SR_TRACE_CONTINUITY));
+
+    // Setting end=1 on row 1 should satisfy the constraint.
+    trace.set(C::keccakf1600_end, 1, 1);
+
+    check_relation<keccakf1600_relation>(trace, keccakf1600_relation::SR_TRACE_CONTINUITY);
 }
 
 } // namespace

@@ -1,9 +1,10 @@
 use crate::abis::ParityPublicInputs;
-use dep::types::{constants::NUM_MSGS_PER_BASE_PARITY, merkle_tree::MerkleTree};
+use types::{constants::NUM_MSGS_PER_BASE_PARITY, merkle_tree::MerkleTree};
 
 pub struct ParityBasePrivateInputs {
     pub(crate) msgs: [Field; NUM_MSGS_PER_BASE_PARITY],
     pub(crate) vk_tree_root: Field,
+    pub(crate) prover_id: Field,
 }
 
 /// The Parity Base circuit processes a batch of L1-to-L2 messages and computes their merkle roots.
@@ -28,5 +29,6 @@ pub fn execute(inputs: ParityBasePrivateInputs) -> ParityPublicInputs {
         sha_root: sha_tree.get_root(),
         converted_root: poseidon_tree.get_root(),
         vk_tree_root: inputs.vk_tree_root,
+        prover_id: inputs.prover_id,
     }
 }

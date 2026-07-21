@@ -4,10 +4,7 @@ use aztec::macros::aztec;
 /// doesn't use notes.
 #[aztec]
 contract EventOnly {
-    use aztec::{
-        macros::{events::event, functions::external},
-        messages::message_delivery::MessageDelivery,
-    };
+    use aztec::{macros::{events::event, functions::external}, messages::delivery::MessageDelivery};
 
     #[event]
     struct TestEvent {
@@ -17,6 +14,6 @@ contract EventOnly {
     #[external("private")]
     fn emit_event_for_msg_sender(value: Field) {
         let sender = self.msg_sender();
-        self.emit(TestEvent { value }).deliver_to(sender, MessageDelivery.ONCHAIN_UNCONSTRAINED);
+        self.emit(TestEvent { value }).deliver_to(sender, MessageDelivery::onchain_unconstrained());
     }
 }

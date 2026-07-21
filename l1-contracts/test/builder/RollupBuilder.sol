@@ -10,7 +10,6 @@ import {RewardDistributor} from "@aztec/governance/RewardDistributor.sol";
 import {TestERC20} from "@aztec/mock/TestERC20.sol";
 import {TestConstants} from "../harnesses/TestConstants.sol";
 import {EthValue} from "@aztec/core/interfaces/IRollup.sol";
-import {SlasherFlavor} from "@aztec/core/interfaces/ISlasher.sol";
 import {GSE} from "@aztec/governance/GSE.sol";
 import {Governance} from "@aztec/governance/Governance.sol";
 import {GovernanceProposer} from "@aztec/governance/proposer/GovernanceProposer.sol";
@@ -225,13 +224,18 @@ contract RollupBuilder is Test {
     return this;
   }
 
-  function setSlasherFlavor(SlasherFlavor _slasherFlavor) public returns (RollupBuilder) {
-    config.rollupConfigInput.slasherFlavor = _slasherFlavor;
+  function setSlasherEnabled(bool _enabled) public returns (RollupBuilder) {
+    config.rollupConfigInput.slasherEnabled = _enabled;
     return this;
   }
 
   function setTargetCommitteeSize(uint256 _targetCommitteeSize) public returns (RollupBuilder) {
     config.rollupConfigInput.targetCommitteeSize = _targetCommitteeSize;
+    return this;
+  }
+
+  function setLocalEjectionThreshold(uint256 _localEjectionThreshold) public returns (RollupBuilder) {
+    config.rollupConfigInput.localEjectionThreshold = _localEjectionThreshold;
     return this;
   }
 

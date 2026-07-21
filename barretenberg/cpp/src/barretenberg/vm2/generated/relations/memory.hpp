@@ -3,7 +3,6 @@
 
 #include <string_view>
 
-#include "barretenberg/common/bb_bench.hpp"
 #include "barretenberg/relations/relation_parameters.hpp"
 #include "barretenberg/relations/relation_types.hpp"
 #include "barretenberg/vm2/generated/columns.hpp"
@@ -14,10 +13,10 @@ template <typename FF_> class memoryImpl {
   public:
     using FF = FF_;
 
-    static constexpr std::array<size_t, 59> SUBRELATION_PARTIAL_LENGTHS = { 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3,
-                                                                            3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3,
-                                                                            3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 2, 3, 3, 3,
-                                                                            3, 4, 3, 2, 2, 5, 5, 2, 4, 4, 4, 4, 5, 3 };
+    static constexpr std::array<size_t, 52> SUBRELATION_PARTIAL_LENGTHS = { 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3,
+                                                                            3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3,
+                                                                            3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 2, 3, 3,
+                                                                            3, 3, 3, 3, 5, 5, 2, 4, 4, 4, 4, 5, 3 };
 
     template <typename AllEntities> inline static bool skip(const AllEntities& in)
     {
@@ -38,34 +37,29 @@ template <typename FF> class memory : public Relation<memoryImpl<FF>> {
     static constexpr const std::string_view NAME = "memory";
 
     // Subrelation indices constants, to be used in tests.
-    static constexpr size_t SR_ACTIVE_ROW_NEEDS_PERM_SELECTOR = 41;
-    static constexpr size_t SR_MEM_CONTIGUOUS = 46;
-    static constexpr size_t SR_SEL_RNG_CHK = 47;
-    static constexpr size_t SR_GLOBAL_ADDR = 48;
-    static constexpr size_t SR_TIMESTAMP = 49;
-    static constexpr size_t SR_LAST_ACCESS = 50;
-    static constexpr size_t SR_DIFF = 51;
-    static constexpr size_t SR_DIFF_DECOMP = 52;
-    static constexpr size_t SR_MEMORY_INIT_VALUE = 53;
-    static constexpr size_t SR_MEMORY_INIT_TAG = 54;
-    static constexpr size_t SR_READ_WRITE_CONSISTENCY_VALUE = 55;
-    static constexpr size_t SR_READ_WRITE_CONSISTENCY_TAG = 56;
-    static constexpr size_t SR_TAG_IS_FF = 57;
-    static constexpr size_t SR_SEL_RNG_WRITE = 58;
+    static constexpr size_t SR_ACTIVE_ROW_NEEDS_PERM_SELECTOR = 36;
+    static constexpr size_t SR_MEM_CONTINUITY = 41;
+    static constexpr size_t SR_SEL_RNG_CHK = 42;
+    static constexpr size_t SR_LAST_ACCESS = 43;
+    static constexpr size_t SR_DIFF = 44;
+    static constexpr size_t SR_DIFF_DECOMP = 45;
+    static constexpr size_t SR_MEMORY_INIT_VALUE = 46;
+    static constexpr size_t SR_MEMORY_INIT_TAG = 47;
+    static constexpr size_t SR_READ_WRITE_CONSISTENCY_VALUE = 48;
+    static constexpr size_t SR_READ_WRITE_CONSISTENCY_TAG = 49;
+    static constexpr size_t SR_TAG_IS_FF = 50;
+    static constexpr size_t SR_SEL_RNG_WRITE = 51;
 
     static std::string get_subrelation_label(size_t index)
     {
+#ifdef AVM_INCLUDE_COLUMN_INFORMATION
         switch (index) {
         case SR_ACTIVE_ROW_NEEDS_PERM_SELECTOR:
             return "ACTIVE_ROW_NEEDS_PERM_SELECTOR";
-        case SR_MEM_CONTIGUOUS:
-            return "MEM_CONTIGUOUS";
+        case SR_MEM_CONTINUITY:
+            return "MEM_CONTINUITY";
         case SR_SEL_RNG_CHK:
             return "SEL_RNG_CHK";
-        case SR_GLOBAL_ADDR:
-            return "GLOBAL_ADDR";
-        case SR_TIMESTAMP:
-            return "TIMESTAMP";
         case SR_LAST_ACCESS:
             return "LAST_ACCESS";
         case SR_DIFF:
@@ -85,6 +79,7 @@ template <typename FF> class memory : public Relation<memoryImpl<FF>> {
         case SR_SEL_RNG_WRITE:
             return "SEL_RNG_WRITE";
         }
+#endif
         return std::to_string(index);
     }
 };

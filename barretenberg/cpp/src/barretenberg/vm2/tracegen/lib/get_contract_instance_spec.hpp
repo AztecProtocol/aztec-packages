@@ -2,8 +2,6 @@
 
 #include <cstdint>
 
-#include "barretenberg/vm2/common/aztec_types.hpp"
-
 namespace bb::avm2::tracegen {
 
 class GetContractInstanceSpec {
@@ -13,6 +11,7 @@ class GetContractInstanceSpec {
         bool is_deployer;
         bool is_class_id;
         bool is_init_hash;
+        bool is_immutables_hash;
     };
 
     static Table get_table(uint8_t member_enum);

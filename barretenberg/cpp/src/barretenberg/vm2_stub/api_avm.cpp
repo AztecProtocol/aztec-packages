@@ -1,4 +1,5 @@
 #include "api_avm.hpp"
+#include "barretenberg/api/api_avm.hpp"
 #include "barretenberg/common/throw_or_abort.hpp"
 #include <stdexcept>
 
@@ -30,6 +31,22 @@ void avm_simulate([[maybe_unused]] const std::filesystem::path& inputs_path)
 }
 
 void avm_write_verification_key([[maybe_unused]] const std::filesystem::path& output_path)
+{
+    throw_or_abort("AVM is not supported in this build. Use the 'bb-avm' binary with full AVM support.");
+}
+
+AvmProveResult avm_prove_from_bytes([[maybe_unused]] std::vector<uint8_t> inputs)
+{
+    throw_or_abort("AVM is not supported in this build. Use the 'bb-avm' binary with full AVM support.");
+}
+
+bool avm_verify_from_bytes([[maybe_unused]] std::vector<bb::fr> proof,
+                           [[maybe_unused]] std::vector<uint8_t> public_inputs)
+{
+    throw_or_abort("AVM is not supported in this build. Use the 'bb-avm' binary with full AVM support.");
+}
+
+bool avm_check_circuit_from_bytes([[maybe_unused]] std::vector<uint8_t> inputs)
 {
     throw_or_abort("AVM is not supported in this build. Use the 'bb-avm' binary with full AVM support.");
 }

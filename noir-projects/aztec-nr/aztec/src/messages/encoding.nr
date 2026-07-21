@@ -9,20 +9,23 @@ use crate::utils::array;
 // fields, so MESSAGE_CIPHERTEXT_LEN is the size of the message in fields.
 pub global MESSAGE_CIPHERTEXT_LEN: u32 = PRIVATE_LOG_CIPHERTEXT_LEN;
 
-// TODO(#12750): The global variables below should not be here as they are AES128 specific. ciphertext_length (2) + 14
-// bytes pkcs#7 AES padding.
+// TODO(#12750): The global variables below should not be here as they are AES128 specific.
+// The header plaintext is 2 bytes (ciphertext length), padded to the 16-byte AES block size by PKCS#7.
 pub(crate) global HEADER_CIPHERTEXT_SIZE_IN_BYTES: u32 = 16;
+// AES PKCS#7 always adds at least one byte of padding. Since each plaintext field is 32 bytes (a multiple of the
+// 16-byte AES block size), a full 16-byte padding block is always appended.
+pub(crate) global AES128_PKCS7_EXPANSION_IN_BYTES: u32 = 16;
 
 pub global EPH_PK_X_SIZE_IN_FIELDS: u32 = 1;
-pub global EPH_PK_SIGN_BYTE_SIZE_IN_BYTES: u32 = 1;
 
-// (17 - 1) * 31 - 16 - 1 = 479 Note: We multiply by 31 because ciphertext bytes are stored in fields using
-// bytes_to_fields, which packs 31 bytes per field (since a Field is ~254 bits and can safely store 31 whole bytes).
-global MESSAGE_PLAINTEXT_SIZE_IN_BYTES: u32 = (MESSAGE_CIPHERTEXT_LEN - EPH_PK_X_SIZE_IN_FIELDS) * 31
+// (15 - 1) * 31 - 16 - 16 = 402. Note: We multiply by 31 because ciphertext bytes are stored in fields using
+// encode_bytes_as_fields, which packs 31 bytes per field (since a Field is ~254 bits and can safely store 31 whole
+// bytes).
+pub(crate) global MESSAGE_PLAINTEXT_SIZE_IN_BYTES: u32 = (MESSAGE_CIPHERTEXT_LEN - EPH_PK_X_SIZE_IN_FIELDS) * 31
     - HEADER_CIPHERTEXT_SIZE_IN_BYTES
-    - EPH_PK_SIGN_BYTE_SIZE_IN_BYTES;
-// The plaintext bytes represent Field values that were originally serialized using fields_to_bytes, which converts
-// each Field to 32 bytes. To convert the plaintext bytes back to fields, we divide by 32. 479 / 32 = 14
+    - AES128_PKCS7_EXPANSION_IN_BYTES;
+// The plaintext bytes represent Field values that were originally serialized using encode_fields_as_bytes, which
+// converts each Field to 32 bytes. To convert the plaintext bytes back to fields, we divide by 32. 402 / 32 = 12
 pub global MESSAGE_PLAINTEXT_LEN: u32 = MESSAGE_PLAINTEXT_SIZE_IN_BYTES / 32;
 
 pub global MESSAGE_EXPANDED_METADATA_LEN: u32 = 1;
@@ -88,29 +91,34 @@ pub fn encode_message<let N: u32>(
 
 /// Decodes a standard aztec-nr message, i.e. one created via `encode_message`, returning the original encoded values.
 ///
+/// Returns `None` if the message is empty or has invalid (>128 bit) expanded metadata.
+///
 /// Note that `encode_message` returns a fixed size array while this function takes a `BoundedVec`: this is because
 /// prior to decoding the message type is unknown, and consequentially not known at compile time. If working with
 /// fixed-size messages, consider using `BoundedVec::from_array` to convert them.
 pub unconstrained fn decode_message(
     message: BoundedVec<Field, MESSAGE_PLAINTEXT_LEN>,
-) -> (u64, u64, BoundedVec<Field, MAX_MESSAGE_CONTENT_LEN>) {
-    assert(
-        message.len() >= MESSAGE_EXPANDED_METADATA_LEN,
-        f"Invalid message: it must have at least {MESSAGE_EXPANDED_METADATA_LEN} fields",
-    );
-
-    // If MESSAGE_EXPANDED_METADATA_LEN is changed, causing the assertion below to fail, then the destructuring of the
-    // message encoding below must be updated as well.
-    std::static_assert(
-        MESSAGE_EXPANDED_METADATA_LEN == 1,
-        "unexpected value for MESSAGE_EXPANDED_METADATA_LEN",
-    );
-
-    let msg_expanded_metadata = message.get(0);
-    let (msg_type_id, msg_metadata) = from_expanded_metadata(msg_expanded_metadata);
-    let msg_content = array::subbvec(message, MESSAGE_EXPANDED_METADATA_LEN);
-
-    (msg_type_id, msg_metadata, msg_content)
+) -> Option<(u64, u64, BoundedVec<Field, MAX_MESSAGE_CONTENT_LEN>)> {
+    Option::some(message)
+        .and_then(|message| {
+            // If MESSAGE_EXPANDED_METADATA_LEN is changed, causing the assertion below to fail, then the destructuring
+            // of the
+            // message encoding below must be updated as well.
+            std::static_assert(
+                MESSAGE_EXPANDED_METADATA_LEN == 1,
+                "unexpected value for MESSAGE_EXPANDED_METADATA_LEN",
+            );
+            if message.len() < MESSAGE_EXPANDED_METADATA_LEN {
+                Option::none()
+            } else {
+                Option::some(message.get(0))
+            }
+        })
+        .and_then(|msg_expanded_metadata| from_expanded_metadata(msg_expanded_metadata))
+        .map(|(msg_type_id, msg_metadata)| {
+            let msg_content = array::subbvec(message, MESSAGE_EXPANDED_METADATA_LEN);
+            (msg_type_id, msg_metadata, msg_content)
+        })
 }
 
 global U64_SHIFT_MULTIPLIER: Field = 2.pow_32(64);
@@ -124,17 +132,26 @@ fn to_expanded_metadata(msg_type: u64, msg_metadata: u64) -> Field {
     type_field + msg_metadata_field
 }
 
-fn from_expanded_metadata(input: Field) -> (u64, u64) {
-    input.assert_max_bit_size::<128>();
-    let msg_metadata = (input as u64);
-    let msg_type = ((input - (msg_metadata as Field)) / U64_SHIFT_MULTIPLIER) as u64;
-    // Use division instead of bit shift since bit shifts are expensive in circuits
-    (msg_type, msg_metadata)
+global TWO_POW_128: Field = 2.pow_32(128);
+
+/// Unpacks expanded metadata into (msg_type, msg_metadata). Returns `None` if `input >= 2^128`.
+fn from_expanded_metadata(input: Field) -> Option<(u64, u64)> {
+    if input.lt(TWO_POW_128) {
+        let msg_metadata = (input as u64);
+        let msg_type = ((input - (msg_metadata as Field)) / U64_SHIFT_MULTIPLIER) as u64;
+        // Use division instead of bit shift since bit shifts are expensive in circuits
+        Option::some((msg_type, msg_metadata))
+    } else {
+        Option::none()
+    }
 }
 
 mod tests {
     use crate::utils::array::subarray::subarray;
-    use super::{decode_message, encode_message, from_expanded_metadata, MAX_MESSAGE_CONTENT_LEN, to_expanded_metadata};
+    use super::{
+        decode_message, encode_message, from_expanded_metadata, MAX_MESSAGE_CONTENT_LEN, to_expanded_metadata,
+        TWO_POW_128,
+    };
 
     global U64_MAX: u64 = (2.pow_32(64) - 1) as u64;
     global U128_MAX: Field = (2.pow_32(128) - 1);
@@ -143,7 +160,7 @@ mod tests {
     unconstrained fn encode_decode_empty_message(msg_type: u64, msg_metadata: u64) {
         let encoded = encode_message(msg_type, msg_metadata, []);
         let (decoded_msg_type, decoded_msg_metadata, decoded_msg_content) =
-            decode_message(BoundedVec::from_array(encoded));
+            decode_message(BoundedVec::from_array(encoded)).unwrap();
 
         assert_eq(decoded_msg_type, msg_type);
         assert_eq(decoded_msg_metadata, msg_metadata);
@@ -158,7 +175,7 @@ mod tests {
     ) {
         let encoded = encode_message(msg_type, msg_metadata, msg_content);
         let (decoded_msg_type, decoded_msg_metadata, decoded_msg_content) =
-            decode_message(BoundedVec::from_array(encoded));
+            decode_message(BoundedVec::from_array(encoded)).unwrap();
 
         assert_eq(decoded_msg_type, msg_type);
         assert_eq(decoded_msg_metadata, msg_metadata);
@@ -174,7 +191,7 @@ mod tests {
     ) {
         let encoded = encode_message(msg_type, msg_metadata, msg_content);
         let (decoded_msg_type, decoded_msg_metadata, decoded_msg_content) =
-            decode_message(BoundedVec::from_array(encoded));
+            decode_message(BoundedVec::from_array(encoded)).unwrap();
 
         assert_eq(decoded_msg_type, msg_type);
         assert_eq(decoded_msg_metadata, msg_metadata);
@@ -186,25 +203,25 @@ mod tests {
     unconstrained fn to_expanded_metadata_packing() {
         // Test case 1: All bits set
         let packed = to_expanded_metadata(U64_MAX, U64_MAX);
-        let (msg_type, msg_metadata) = from_expanded_metadata(packed);
+        let (msg_type, msg_metadata) = from_expanded_metadata(packed).unwrap();
         assert_eq(msg_type, U64_MAX);
         assert_eq(msg_metadata, U64_MAX);
 
         // Test case 2: Only log type bits set
         let packed = to_expanded_metadata(U64_MAX, 0);
-        let (msg_type, msg_metadata) = from_expanded_metadata(packed);
+        let (msg_type, msg_metadata) = from_expanded_metadata(packed).unwrap();
         assert_eq(msg_type, U64_MAX);
         assert_eq(msg_metadata, 0);
 
         // Test case 3: Only msg_metadata bits set
         let packed = to_expanded_metadata(0, U64_MAX);
-        let (msg_type, msg_metadata) = from_expanded_metadata(packed);
+        let (msg_type, msg_metadata) = from_expanded_metadata(packed).unwrap();
         assert_eq(msg_type, 0);
         assert_eq(msg_metadata, U64_MAX);
 
         // Test case 4: No bits set
         let packed = to_expanded_metadata(0, 0);
-        let (msg_type, msg_metadata) = from_expanded_metadata(packed);
+        let (msg_type, msg_metadata) = from_expanded_metadata(packed).unwrap();
         assert_eq(msg_type, 0);
         assert_eq(msg_metadata, 0);
     }
@@ -213,25 +230,25 @@ mod tests {
     unconstrained fn from_expanded_metadata_packing() {
         // Test case 1: All bits set
         let input = U128_MAX as Field;
-        let (msg_type, msg_metadata) = from_expanded_metadata(input);
+        let (msg_type, msg_metadata) = from_expanded_metadata(input).unwrap();
         assert_eq(msg_type, U64_MAX);
         assert_eq(msg_metadata, U64_MAX);
 
         // Test case 2: Only log type bits set
         let input = (U128_MAX - U64_MAX as Field);
-        let (msg_type, msg_metadata) = from_expanded_metadata(input);
+        let (msg_type, msg_metadata) = from_expanded_metadata(input).unwrap();
         assert_eq(msg_type, U64_MAX);
         assert_eq(msg_metadata, 0);
 
         // Test case 3: Only msg_metadata bits set
         let input = U64_MAX as Field;
-        let (msg_type, msg_metadata) = from_expanded_metadata(input);
+        let (msg_type, msg_metadata) = from_expanded_metadata(input).unwrap();
         assert_eq(msg_type, 0);
         assert_eq(msg_metadata, U64_MAX);
 
         // Test case 4: No bits set
         let input = 0;
-        let (msg_type, msg_metadata) = from_expanded_metadata(input);
+        let (msg_type, msg_metadata) = from_expanded_metadata(input).unwrap();
         assert_eq(msg_type, 0);
         assert_eq(msg_metadata, 0);
     }
@@ -239,9 +256,44 @@ mod tests {
     #[test]
     unconstrained fn to_from_expanded_metadata(original_msg_type: u64, original_msg_metadata: u64) {
         let packed = to_expanded_metadata(original_msg_type, original_msg_metadata);
-        let (unpacked_msg_type, unpacked_msg_metadata) = from_expanded_metadata(packed);
+        let (unpacked_msg_type, unpacked_msg_metadata) = from_expanded_metadata(packed).unwrap();
 
         assert_eq(original_msg_type, unpacked_msg_type);
         assert_eq(original_msg_metadata, unpacked_msg_metadata);
+    }
+
+    #[test]
+    unconstrained fn encode_decode_max_size_message() {
+        let msg_type_id: u64 = 42;
+        let msg_metadata: u64 = 99;
+        let mut msg_content = [0; MAX_MESSAGE_CONTENT_LEN];
+        for i in 0..MAX_MESSAGE_CONTENT_LEN {
+            msg_content[i] = i as Field;
+        }
+
+        let encoded = encode_message(msg_type_id, msg_metadata, msg_content);
+        let (decoded_type_id, decoded_metadata, decoded_content) =
+            decode_message(BoundedVec::from_array(encoded)).unwrap();
+
+        assert_eq(decoded_type_id, msg_type_id);
+        assert_eq(decoded_metadata, msg_metadata);
+        assert_eq(decoded_content, BoundedVec::from_array(msg_content));
+    }
+
+    #[test(should_fail_with = "Invalid message content: it must have a length of at most MAX_MESSAGE_CONTENT_LEN")]
+    fn encode_oversized_message_fails() {
+        let msg_content = [0; MAX_MESSAGE_CONTENT_LEN + 1];
+        let _ = encode_message(0, 0, msg_content);
+    }
+
+    #[test]
+    unconstrained fn decode_empty_message_returns_none() {
+        assert(decode_message(BoundedVec::new()).is_none());
+    }
+
+    #[test]
+    unconstrained fn decode_message_with_oversized_metadata_returns_none() {
+        let message = BoundedVec::from_array([TWO_POW_128]);
+        assert(decode_message(message).is_none());
     }
 }

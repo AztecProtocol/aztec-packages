@@ -4,6 +4,7 @@
 #include <barretenberg/env/hardware_concurrency.hpp>
 #include <cstdlib>
 #include <string>
+#include <utility>
 
 #ifndef NO_MULTITHREADING
 #include <thread>
@@ -172,11 +173,7 @@ void parallel_for_heuristic(size_t num_points,
                             const std::function<void(size_t, size_t, size_t)>& func,
                             size_t heuristic_cost)
 {
-    // We take the maximum observed parallel_for cost (388 us) and round it up.
-    // The goals of these checks is to evade significantly (10x) increasing processing time for small workloads. So we
-    // can accept not triggering parallel_for if the workload would become faster by half a millisecond for medium
-    // workloads
-    constexpr size_t PARALLEL_FOR_COST = 400000;
+    using namespace thread_heuristics;
     // Get number of cpus we can split into
     const size_t num_cpus = get_num_cpus();
 
@@ -194,17 +191,16 @@ void parallel_for_heuristic(size_t num_points,
     // Parallelize over chunks
     parallel_for(num_cpus, [num_points, chunk_size, &func](size_t chunk_index) {
         // If num_points is small, sometimes we need fewer CPUs
-        if (chunk_size * chunk_index > num_points) {
+        if ((chunk_size * chunk_index) > num_points) {
             return;
         }
         // Compute the current chunk size (can differ in case it's the last chunk)
-        size_t current_chunk_size = std::min(num_points - (chunk_size * chunk_index), chunk_size);
+        const size_t current_chunk_size = std::min(num_points - (chunk_size * chunk_index), chunk_size);
         if (current_chunk_size == 0) {
             return;
         }
-        size_t start = chunk_index * chunk_size;
-        size_t end = chunk_index * chunk_size + current_chunk_size;
-
+        const size_t start = chunk_index * chunk_size;
+        const size_t end = start + current_chunk_size;
         func(start, end, chunk_index);
     });
 };
@@ -222,14 +218,13 @@ MultithreadData calculate_thread_data(size_t num_iterations, size_t min_iteratio
         end[thread_idx] = (thread_idx == num_threads - 1) ? num_iterations : (thread_idx + 1) * thread_size;
     }
 
-    return MultithreadData{ num_threads, start, end };
+    return MultithreadData{ num_threads, std::move(start), std::move(end) };
 }
 
 /**
  * @brief calculates number of threads to create based on minimum iterations per thread
  * @details Finds the number of cpus with get_num_cpus(), and calculates `desired_num_threads`
  * Returns the min of `desired_num_threads` and `max_num_threads`.
- * Note that it will not calculate a power of 2 necessarily, use `calculate_num_threads_pow2` instead
  *
  * @param num_iterations
  * @param min_iterations_per_thread
@@ -239,23 +234,6 @@ size_t calculate_num_threads(size_t num_iterations, size_t min_iterations_per_th
 {
     size_t max_num_threads = get_num_cpus(); // number of available threads
     size_t desired_num_threads = num_iterations / min_iterations_per_thread;
-    size_t num_threads = std::min(desired_num_threads, max_num_threads); // fewer than max if justified
-    num_threads = num_threads > 0 ? num_threads : 1;                     // ensure num_threads is at least 1
-    return num_threads;
-}
-
-/**
- * @brief calculates number of threads to create based on minimum iterations per thread, guaranteed power of 2
- * @details Same functionality as `calculate_num_threads` but guaranteed power of 2
- * @param num_iterations
- * @param min_iterations_per_thread
- * @return size_t
- */
-size_t calculate_num_threads_pow2(size_t num_iterations, size_t min_iterations_per_thread)
-{
-    size_t max_num_threads = get_num_cpus_pow2(); // number of available threads (power of 2)
-    size_t desired_num_threads = num_iterations / min_iterations_per_thread;
-    desired_num_threads = static_cast<size_t>(1ULL << numeric::get_msb(desired_num_threads));
     size_t num_threads = std::min(desired_num_threads, max_num_threads); // fewer than max if justified
     num_threads = num_threads > 0 ? num_threads : 1;                     // ensure num_threads is at least 1
     return num_threads;

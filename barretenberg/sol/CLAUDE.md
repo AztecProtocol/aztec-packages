@@ -31,7 +31,10 @@ Circuit-specific verification keys:
 
 - `honk-optimized.sol` - Hand-optimized assembly verifier (uses Blake circuit for testing)
 - `honk-optimized.sol.template` - Template used to generate honk-optimized.sol
-- `generate_offsets.py` - Helper for memory layout
+
+The memory layout (the `// {{ SECTION_START MEMORY_LAYOUT }}` block) is the source of truth in
+`generate_memory_offsets` in `cpp/.../acir_proofs/honk_optimized_common.hpp`; `bb write_solidity_verifier`
+regenerates it from there. Do not hand-edit those offset constants or maintain a separate generator.
 
 ### C++ Contract Templates (cpp/src/barretenberg/dsl/acir_proofs/)
 
@@ -130,6 +133,8 @@ Same for beta powers used in lookup relation.
 
 ### 4. File Regeneration Order
 
+**IMPORTANT:** `honk_contract.hpp` and `honk_zk_contract.hpp` can silently drift from the Solidity sources. Always re-run `copy_to_cpp.sh` after editing any Solidity verifier file, or the `bb write_solidity_verifier` command will generate stale contracts.
+
 When making changes to core Solidity files:
 
 1. Edit Solidity files (`HonkTypes.sol`, `Transcript.sol`, `Relations.sol`, etc.)
@@ -137,10 +142,14 @@ When making changes to core Solidity files:
 3. Rebuild C++ if needed: `cd ../cpp/build && ninja honk_solidity_proof_gen`
 4. Run tests: `forge test`
 
+`copy_to_cpp.sh` bundles these files (in order): `IVerifier.sol`, `Errors.sol`, `Fr.sol`, `HonkTypes.sol`, `Transcript.sol`/`ZKTranscript.sol`, `Relations.sol`, `CommitmentScheme.sol`, `utils.sol`, `BaseHonkVerifier.sol`/`BaseZKHonkVerifier.sol`. If a new `.sol` file is added that others depend on, it must be added to this script.
+
 For optimized verifier changes:
 1. Edit `honk-optimized.sol.template`
 2. Run `./scripts/sync_blake_opt_vk.sh` to apply VK values
 3. Run `./scripts/copy_optimized_to_cpp.sh -f`
+
+Note: `copy_optimized_to_cpp.sh` copies from the concrete `BlakeHonkOpt.sol` instance, NOT from the template. If you only edit the template, the hpp won't update until `sync_blake_opt_vk.sh` regenerates the instance.
 
 ## Test Structure
 
@@ -174,6 +183,33 @@ Powers (eta², eta³, β², β³) are computed locally where needed, not stored.
 2. **Isolate relations**: Comment out relation accumulations in `Relations.sol` to find the failing one
 3. **Check wire mappings**: Ensure `WIRE` enum matches C++ `AllEntities` ordering
 4. **Verify VK hash**: The `VK_HASH` constant must match what C++ computes
+
+## Common Pitfalls
+
+### (0,0) handling: commitments vs. pairing points
+
+`(0,0)` is the EIP-196 canonical identity encoding. The verifier accepts it for **commitment-position** G1 inputs (witness commitments, gemini fold commitments, shplonkQ, kzgQuotient, VK selectors/tables): polynomial commitments to identically-zero polynomials are legitimately the identity, the ecAdd/ecMul precompiles treat `(0,0)` as the additive identity, and `(0,0)` substitution for a non-zero commitment is caught downstream by sumcheck/Shplemini on inconsistent evaluations. Do not reintroduce a blanket `rejectPointAtInfinity` on those slots.
+
+`rejectPointAtInfinity` is preserved on the **pairing points** reconstructed from `pairing_point_object` (`P_0_other`, `P_1_other` in the recursive aggregation block). A `(0,0)` there no-ops the aggregation and would give the prover a free pass on whatever recursive verification was supposed to occur. The legitimate "no recursion" case is signaled by all-zero limbs and short-circuited via `arePairingPointsDefault()` — call it before `convertPairingPointsToG1` / `validateOnCurve` / `rejectPointAtInfinity` on the reconstructed points.
+
+### Running ACIR Solidity tests locally
+
+Use `AVM=0` when running with a locally-built `bb` (not `bb-avm`):
+```bash
+AVM=0 barretenberg/acir_tests/scripts/bb_prove_sol_verify.sh assert_statement --disable_zk
+AVM=0 USE_OPTIMIZED_CONTRACT=true barretenberg/acir_tests/scripts/bb_prove_sol_verify.sh assert_statement --disable_zk
+```
+
+### Proof format for Solidity
+
+The proof bytes sent to the Solidity verifier contain pairing point limbs at the front, followed by honk proof data. The `loadProof` function in `Transcript.sol` reads them in this order:
+1. Pairing point limbs (8 × 32 bytes)
+2. Witness commitments (G1 points: w1, w2, w3, lookupReadCounts, lookupReadTags, w4, lookupInverses, zPerm)
+3. Sumcheck univariates and evaluations
+4. Gemini fold commitments and evaluations
+5. Shplonk Q and KZG quotient commitments
+
+Public inputs (user-facing, not including pairing points) are passed separately via `bytes32[] calldata publicInputs`.
 
 ## Optimized Verifier Memory Layout
 

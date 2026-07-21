@@ -1,4 +1,4 @@
-use dep::aztec::protocol::address::AztecAddress;
+use aztec::protocol::address::AztecAddress;
 
 pub unconstrained fn call<let N: u32>(
     l2_gas_allocation: u32,
@@ -32,7 +32,7 @@ pub unconstrained fn revert(revertdata: [Field]) {
 // While the length parameter might seem unnecessary given that we have N we keep it around because at the AVM bytecode
 // level, we want to support non-comptime-known lengths for such opcodes, even if Noir code will not generally take that
 // route.
-#[oracle(avmOpcodeCall)]
+#[oracle(aztec_avm_call)]
 unconstrained fn call_opcode<let N: u32>(
     l2_gas_allocation: u32,
     da_gas_allocation: u32,
@@ -41,17 +41,17 @@ unconstrained fn call_opcode<let N: u32>(
     args: [Field; N],
 ) {}
 
-#[oracle(avmOpcodeSuccessCopy)]
+#[oracle(aztec_avm_successCopy)]
 unconstrained fn success_copy_opcode() -> bool {}
 
-#[oracle(avmOpcodeReturndataSize)]
+#[oracle(aztec_avm_returndataSize)]
 unconstrained fn returndata_size_opcode() -> u32 {}
 
-#[oracle(avmOpcodeReturndataCopy)]
+#[oracle(aztec_avm_returndataCopy)]
 unconstrained fn returndata_copy_opcode(rdoffset: u32, copy_size: u32) -> [Field] {}
 
-#[oracle(avmOpcodeReturn)]
+#[oracle(aztec_avm_return)]
 unconstrained fn return_opcode(returndata: [Field]) {}
 
-#[oracle(avmOpcodeRevert)]
+#[oracle(aztec_avm_revert)]
 unconstrained fn revert_opcode(revertdata: [Field]) {}

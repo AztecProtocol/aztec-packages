@@ -284,8 +284,8 @@ template <typename Builder_> class field_t {
     field_t sqr() const { return operator*(*this); }
 
     field_t pow(const uint32_t& exponent) const;
-    // N.B. we implicitly range-constrain 'exponent' to be a 32-bit integer!
-    field_t pow(const field_t& exponent) const;
+    // N.B. we implicitly range-constrain 'exponent' to be a num_bits-bit integer!
+    template <size_t num_bits = 32> field_t pow(const field_t& exponent) const;
 
     field_t operator+=(const field_t& other)
     {
@@ -333,11 +333,12 @@ template <typename Builder_> class field_t {
         //      (this.v * this.mul + this.add) * inverse.v == 1;
         // created by applying `assert_is_not_zero` to `*this` coincides with the constraint created by
         // `divide_no_zero_check`, hence we can safely apply the latter instead of `/` operator.
-        auto* ctx = get_context();
         if (is_constant()) {
             BB_ASSERT(!get_value().is_zero(), "field_t::invert denominator is constant 0");
+            return field_t(fr::one()).divide_no_zero_check(*this);
         }
 
+        auto* ctx = get_context();
         if (get_value().is_zero() && !ctx->failed()) {
             ctx->failure("field_t::invert denominator is 0");
         }
@@ -355,7 +356,20 @@ template <typename Builder_> class field_t {
         return result;
     }
 
-    void set_origin_tag(const OriginTag& new_tag) const { tag = new_tag; }
+    void set_origin_tag(const OriginTag& new_tag) const
+    {
+        // GCC -O3 mis-analyzes this defaulted OriginTag copy as a write into a zero-sized region when
+        // set_origin_tag is inlined through bigfield::self_reduce (-Werror=stringop-overflow). The destination
+        // is a fixed-size member; the warning is a known GCC false positive, so suppress it at the write.
+#if defined(__GNUC__) && !defined(__clang__)
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Wstringop-overflow"
+#endif
+        tag = new_tag;
+#if defined(__GNUC__) && !defined(__clang__)
+#pragma GCC diagnostic pop
+#endif
+    }
     OriginTag get_origin_tag() const { return tag; };
 
     /**
@@ -565,6 +579,7 @@ template <typename Builder_> class field_t {
 
         bool predicate_witness = uint256_t(a.get_value()) < uint256_t(b.get_value());
         bool_t<Builder> predicate(witness_t<Builder>(ctx, predicate_witness));
+        predicate.set_origin_tag(OriginTag(a.get_origin_tag(), b.get_origin_tag()));
         field_t predicate_valid = b.add_two(-(a) + range_constant - 1, -field_t(predicate) * range_constant);
         predicate_valid.create_range_constraint(num_bits);
         return predicate;

@@ -1,5 +1,4 @@
 import type { Gossipable } from '@aztec/stdlib/p2p';
-import type { Tx } from '@aztec/stdlib/tx';
 import {
   Attributes,
   type BatchObservableResult,
@@ -73,7 +72,7 @@ export class PoolInstrumentation<PoolObject extends Gossipable> {
   private defaultAttributes;
   private meter: Meter;
 
-  private txAddedTimestamp: Map<bigint, number> = new Map<bigint, number>();
+  private mempoolItemAddedTimestamp: Map<bigint | string, number> = new Map<bigint | string, number>();
 
   constructor(
     telemetry: TelemetryClient,
@@ -100,7 +99,11 @@ export class PoolInstrumentation<PoolObject extends Gossipable> {
 
     this.addObjectCounter = createUpDownCounterWithDefault(this.meter, metricsLabels.itemsAdded);
 
-    this.minedDelay = this.meter.createHistogram(metricsLabels.itemMinedDelay);
+    this.minedDelay = this.meter.createHistogram(metricsLabels.itemMinedDelay, {
+      advice: {
+        explicitBucketBoundaries: [100, 500, 1000, 5000, 10000, 30000, 60000, 300000, 600000, 1800000, 3600000],
+      },
+    });
 
     this.meter.addBatchObservableCallback(this.observeStats, [this.objectsInMempool]);
   }
@@ -113,24 +116,31 @@ export class PoolInstrumentation<PoolObject extends Gossipable> {
     this.addObjectCounter.add(count);
   }
 
-  public transactionsAdded(transactions: Tx[]) {
+  public trackMempoolItemAdded(key: bigint | string): void {
+    this.mempoolItemAddedTimestamp.set(key, Date.now());
+  }
+
+  public trackMempoolItemRemoved(key: bigint | string): void {
     const timestamp = Date.now();
-    for (const transaction of transactions) {
-      this.txAddedTimestamp.set(transaction.txHash.toBigInt(), timestamp);
+    const addedAt = this.mempoolItemAddedTimestamp.get(key);
+    if (addedAt !== undefined) {
+      this.mempoolItemAddedTimestamp.delete(key);
+      if (addedAt < timestamp) {
+        this.minedDelay.record(timestamp - addedAt);
+      }
     }
   }
 
-  public transactionsRemoved(hashes: Iterable<bigint> | Iterable<string>) {
-    const timestamp = Date.now();
-    for (const hash of hashes) {
-      const key = BigInt(hash);
-      const addedAt = this.txAddedTimestamp.get(key);
-      if (addedAt !== undefined) {
-        this.txAddedTimestamp.delete(key);
-        if (addedAt < timestamp) {
-          this.minedDelay.record(timestamp - addedAt);
-        }
-      }
+  /**
+   * Records a pre-computed pending-to-mined delay directly, bypassing the
+   * `mempoolItemAddedTimestamp` map. Used by the tx pool, which derives the
+   * delay from the persisted `receivedAt` on tx metadata at the mined
+   * transition — more accurate than the add/remove map (which also fires on
+   * eviction) and resilient to the caller not having tracked the add.
+   */
+  public recordMinedDelay(delayMs: number): void {
+    if (delayMs > 0) {
+      this.minedDelay.record(delayMs);
     }
   }
 

@@ -13,7 +13,7 @@ jobs:
       pull-requests: write
 
     steps:
-      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+      - uses: actions/checkout@93cb6efe18208431cddfb8368fd83d5badbf9bfd # v5.0.1
         with:
           fetch-depth: 0
           token: ${{ secrets.AZTEC_BOT_GITHUB_TOKEN }}
@@ -24,15 +24,25 @@ jobs:
           git config --global user.email "tech@aztecprotocol.com"
 
       - name: Recreate branch
+        env:
+          MERGE_TRAIN_BRANCH: ${{ github.event.pull_request.head.ref }}
+          BASE_BRANCH: ${{ github.event.pull_request.base.ref }}
         run: |
-          MERGE_TRAIN_BRANCH="${{ github.event.pull_request.head.ref }}"
-          BASE_BRANCH="${{ github.event.pull_request.base.ref }}"
           git fetch origin "$BASE_BRANCH"
           git checkout -b "$MERGE_TRAIN_BRANCH" "origin/$BASE_BRANCH"
 
       - name: Push branch
         continue-on-error: true
+        env:
+          MERGE_TRAIN_BRANCH: ${{ github.event.pull_request.head.ref }}
         run: |
           # This will generally only succeed if the branch does not exist, as a fallback if the branch is unprotected and gets deleted.
           git push origin "$MERGE_TRAIN_BRANCH"
+
+      - name: Wake up PRs targeting this branch
+        env:
+          GH_TOKEN: ${{ secrets.AZTEC_BOT_GITHUB_TOKEN }}
+          MERGE_TRAIN_BRANCH: ${{ github.event.pull_request.head.ref }}
+        run: |
+          ./scripts/merge-train/wakeup-prs.sh "$MERGE_TRAIN_BRANCH"
 

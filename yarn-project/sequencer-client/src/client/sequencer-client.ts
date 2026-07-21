@@ -1,9 +1,9 @@
 import type { BlobClientInterface } from '@aztec/blob-client/client';
+import { MAX_PROCESSABLE_DA_GAS_PER_CHECKPOINT } from '@aztec/constants';
 import { EpochCache } from '@aztec/epoch-cache';
-import { isAnvilTestChain } from '@aztec/ethereum/chain';
 import { getPublicClient } from '@aztec/ethereum/client';
 import { GovernanceProposerContract, RollupContract } from '@aztec/ethereum/contracts';
-import { L1TxUtilsWithBlobs } from '@aztec/ethereum/l1-tx-utils-with-blobs';
+import { type Delayer, L1TxUtils } from '@aztec/ethereum/l1-tx-utils';
 import { PublisherManager } from '@aztec/ethereum/publisher-manager';
 import { EthAddress } from '@aztec/foundation/eth-address';
 import { createLogger } from '@aztec/foundation/log';
@@ -11,15 +11,14 @@ import type { DateProvider } from '@aztec/foundation/timer';
 import type { KeystoreManager } from '@aztec/node-keystore';
 import type { P2P } from '@aztec/p2p';
 import type { SlasherClientInterface } from '@aztec/slasher';
-import type { L2BlockSink, L2BlockSource } from '@aztec/stdlib/block';
+import type { L2BlockSink, L2BlockSource, ProposedCheckpointSink } from '@aztec/stdlib/block';
 import type { ValidatorClientFullConfig, WorldStateSynchronizer } from '@aztec/stdlib/interfaces/server';
-import { SlashFactoryContract } from '@aztec/stdlib/l1-contracts';
 import type { L1ToL2MessageSource } from '@aztec/stdlib/messaging';
 import { L1Metrics, type TelemetryClient } from '@aztec/telemetry-client';
 import { FullNodeCheckpointsBuilder, NodeKeystoreAdapter, type ValidatorClient } from '@aztec/validator-client';
 
-import type { SequencerClientConfig } from '../config.js';
-import { GlobalVariableBuilder } from '../global_variable_builder/index.js';
+import { type SequencerClientConfig, getPublisherConfigFromSequencerConfig } from '../config.js';
+import type { GlobalVariableBuilder } from '../global_variable_builder/index.js';
 import { SequencerPublisherFactory } from '../publisher/sequencer-publisher-factory.js';
 import { Sequencer, type SequencerConfig } from '../sequencer/index.js';
 
@@ -28,11 +27,12 @@ import { Sequencer, type SequencerConfig } from '../sequencer/index.js';
  */
 export class SequencerClient {
   constructor(
-    protected publisherManager: PublisherManager<L1TxUtilsWithBlobs>,
+    protected publisherManager: PublisherManager<L1TxUtils>,
     protected sequencer: Sequencer,
     protected checkpointsBuilder: FullNodeCheckpointsBuilder,
     protected validatorClient?: ValidatorClient,
     private l1Metrics?: L1Metrics,
+    private delayer_?: Delayer,
   ) {}
 
   /**
@@ -55,15 +55,17 @@ export class SequencerClient {
       worldStateSynchronizer: WorldStateSynchronizer;
       slasherClient: SlasherClientInterface | undefined;
       checkpointsBuilder: FullNodeCheckpointsBuilder;
-      l2BlockSource: L2BlockSource & L2BlockSink;
+      l2BlockSource: L2BlockSource & L2BlockSink & ProposedCheckpointSink;
       l1ToL2MessageSource: L1ToL2MessageSource;
       telemetry: TelemetryClient;
       publisherFactory?: SequencerPublisherFactory;
       blobClient: BlobClientInterface;
       dateProvider: DateProvider;
       epochCache?: EpochCache;
-      l1TxUtils: L1TxUtilsWithBlobs[];
+      l1TxUtils: L1TxUtils[];
+      funderL1TxUtils?: L1TxUtils;
       nodeKeyStore: KeystoreManager;
+      globalVariableBuilder: GlobalVariableBuilder;
     },
   ) {
     const {
@@ -85,23 +87,25 @@ export class SequencerClient {
       publicClient,
       l1TxUtils.map(x => x.getSenderAddress()),
     );
-    const publisherManager = new PublisherManager(l1TxUtils, config, log.getBindings());
-    const rollupContract = new RollupContract(publicClient, config.l1Contracts.rollupAddress.toString());
-    const [l1GenesisTime, slotDuration, rollupVersion, rollupManaLimit] = await Promise.all([
+    const publisherManager = new PublisherManager(l1TxUtils, getPublisherConfigFromSequencerConfig(config), {
+      bindings: log.getBindings(),
+      funder: deps.funderL1TxUtils,
+    });
+    const rollupContract = new RollupContract(publicClient, config.rollupAddress.toString());
+    const [l1GenesisTime, slotDuration, rollupManaLimit] = await Promise.all([
       rollupContract.getL1GenesisTime(),
       rollupContract.getSlotDuration(),
-      rollupContract.getVersion(),
       rollupContract.getManaLimit().then(Number),
     ] as const);
 
     const governanceProposerContract = new GovernanceProposerContract(
       publicClient,
-      config.l1Contracts.governanceProposerAddress.toString(),
+      config.governanceProposerAddress.toString(),
     );
     const epochCache =
       deps.epochCache ??
       (await EpochCache.create(
-        config.l1Contracts.rollupAddress,
+        config.rollupAddress,
         {
           l1RpcUrls: rpcUrls,
           l1ChainId: chainId,
@@ -111,11 +115,6 @@ export class SequencerClient {
         { dateProvider: deps.dateProvider },
       ));
 
-    const slashFactoryContract = new SlashFactoryContract(
-      publicClient,
-      config.l1Contracts.slashFactoryAddress?.toString() ?? EthAddress.ZERO.toString(),
-    );
-
     const publisherFactory =
       deps.publisherFactory ??
       new SequencerPublisherFactory(config, {
@@ -123,7 +122,6 @@ export class SequencerClient {
         blobClient: deps.blobClient,
         epochCache,
         governanceProposerContract,
-        slashFactoryContract,
         rollupContract,
         dateProvider: deps.dateProvider,
         publisherManager,
@@ -132,25 +130,18 @@ export class SequencerClient {
       });
 
     const ethereumSlotDuration = config.ethereumSlotDuration;
-    const l1Constants = { l1GenesisTime, slotDuration: Number(slotDuration), ethereumSlotDuration };
 
-    const globalsBuilder = new GlobalVariableBuilder({ ...config, ...l1Constants, rollupVersion });
+    const globalsBuilder = deps.globalVariableBuilder;
 
-    let sequencerManaLimit = config.maxL2BlockGas ?? rollupManaLimit;
-    if (sequencerManaLimit > rollupManaLimit) {
-      log.warn(
-        `Provided maxL2BlockGas ${sequencerManaLimit} is greater than the max allowed by L1. Setting limit to ${rollupManaLimit}.`,
-      );
-      sequencerManaLimit = rollupManaLimit;
-    }
+    const { maxL2BlockGas, maxDABlockGas, maxTxsPerBlock } = capPerBlockLimits(config, rollupManaLimit, log);
 
-    // When running in anvil, assume we can post a tx up until one second before the end of an L1 slot.
-    // Otherwise, we need the full L1 slot duration for publishing to ensure inclusion.
-    // In theory, the L1 slot has an initial 4s phase where the block is propagated, so we could
-    // reduce the publishing time allowance. However, we prefer being conservative.
-    // See https://www.blocknative.com/blog/anatomy-of-a-slot#7 for more info.
-    const l1PublishingTimeBasedOnChain = isAnvilTestChain(config.l1ChainId) ? 1 : ethereumSlotDuration;
-    const l1PublishingTime = config.l1PublishingTime ?? l1PublishingTimeBasedOnChain;
+    const l1Constants = {
+      l1GenesisTime,
+      slotDuration: Number(slotDuration),
+      ethereumSlotDuration,
+      rollupManaLimit,
+      epochDuration: config.aztecEpochDuration,
+    };
 
     const sequencer = new Sequencer(
       publisherFactory,
@@ -166,14 +157,17 @@ export class SequencerClient {
       deps.dateProvider,
       epochCache,
       rollupContract,
-      { ...config, l1PublishingTime, maxL2BlockGas: sequencerManaLimit },
+      { ...config, maxL2BlockGas, maxDABlockGas, maxTxsPerBlock },
       telemetryClient,
       log,
     );
 
-    await sequencer.init();
+    sequencer.init();
 
-    return new SequencerClient(publisherManager, sequencer, checkpointsBuilder, validatorClient, l1Metrics);
+    // Extract the shared delayer from the first L1TxUtils instance (all instances share the same delayer)
+    const delayer = l1TxUtils[0]?.delayer;
+
+    return new SequencerClient(publisherManager, sequencer, checkpointsBuilder, validatorClient, l1Metrics, delayer);
   }
 
   /**
@@ -186,26 +180,57 @@ export class SequencerClient {
     this.validatorClient?.updateConfig(config);
   }
 
-  /** Starts the sequencer. */
+  /**
+   * Starts (or resumes) the sequencer, validator, publishers, and metrics. Each underlying start is
+   * idempotent, so this is safe to call after a previous {@link pause} to resume building and publishing.
+   * The publisher manager is started before the sequencer's poll loop so publishing is ready before the
+   * sequencer first tries to publish to L1.
+   */
   public async start() {
     await this.validatorClient?.start();
+    await this.publisherManager.start();
     this.sequencer.start();
     this.l1Metrics?.start();
-    await this.publisherManager.loadState();
   }
 
   /**
-   * Stops the sequencer from processing new txs.
+   * Stops the sequencer, validator, publishers, and metrics for good, draining in-flight work. This is the
+   * final teardown path: stopping the validator client closes its slashing-protection database. For a
+   * restartable pause (e.g. around a test clock warp) use {@link pause} instead.
    */
   public async stop() {
     await this.sequencer.stop();
     await this.validatorClient?.stop();
-    this.publisherManager.interrupt();
+    await this.publisherManager.stop();
     this.l1Metrics?.stop();
+  }
+
+  /**
+   * Gracefully pauses block production, waiting for in-flight work to finish rather than interrupting it,
+   * while leaving the validator, publishers, and metrics running so the sequencer can be resumed with
+   * {@link start}. Used by tests that pause sequencers around an L1 clock warp.
+   */
+  public async pause() {
+    await this.sequencer.pause();
+  }
+
+  /** Triggers an immediate run of the sequencer, bypassing the polling interval. */
+  public trigger() {
+    return this.sequencer.trigger();
   }
 
   public getSequencer(): Sequencer {
     return this.sequencer;
+  }
+
+  /** Updates the publisher factory's node keystore adapter after a keystore reload. */
+  public updatePublisherNodeKeyStore(adapter: NodeKeystoreAdapter): void {
+    this.sequencer.updatePublisherNodeKeyStore(adapter);
+  }
+
+  /** Returns the shared tx delayer for sequencer L1 txs, if enabled. Test-only. */
+  getDelayer(): Delayer | undefined {
+    return this.delayer_;
   }
 
   get validatorAddresses(): EthAddress[] | undefined {
@@ -215,4 +240,42 @@ export class SequencerClient {
   get maxL2BlockGas(): number | undefined {
     return this.sequencer.maxL2BlockGas;
   }
+}
+
+/**
+ * Caps operator-provided per-block limits at checkpoint-level limits.
+ * Returns undefined for any limit the operator didn't set — the checkpoint builder handles redistribution.
+ */
+function capPerBlockLimits(
+  config: SequencerClientConfig,
+  rollupManaLimit: number,
+  log: ReturnType<typeof createLogger>,
+): { maxL2BlockGas: number | undefined; maxDABlockGas: number | undefined; maxTxsPerBlock: number | undefined } {
+  let maxL2BlockGas = config.maxL2BlockGas;
+  if (maxL2BlockGas !== undefined && maxL2BlockGas > rollupManaLimit) {
+    log.warn(`Provided MAX_L2_BLOCK_GAS ${maxL2BlockGas} exceeds rollup mana limit ${rollupManaLimit} (capping)`);
+    maxL2BlockGas = rollupManaLimit;
+  }
+
+  let maxDABlockGas = config.maxDABlockGas;
+  if (maxDABlockGas !== undefined && maxDABlockGas > MAX_PROCESSABLE_DA_GAS_PER_CHECKPOINT) {
+    log.warn(
+      `Provided MAX_DA_BLOCK_GAS ${maxDABlockGas} exceeds DA checkpoint limit ${MAX_PROCESSABLE_DA_GAS_PER_CHECKPOINT} (capping)`,
+    );
+    maxDABlockGas = MAX_PROCESSABLE_DA_GAS_PER_CHECKPOINT;
+  }
+
+  let maxTxsPerBlock = config.maxTxsPerBlock;
+  if (
+    maxTxsPerBlock !== undefined &&
+    config.maxTxsPerCheckpoint !== undefined &&
+    maxTxsPerBlock > config.maxTxsPerCheckpoint
+  ) {
+    log.warn(
+      `Provided MAX_TX_PER_BLOCK ${maxTxsPerBlock} exceeds MAX_TX_PER_CHECKPOINT ${config.maxTxsPerCheckpoint} (capping)`,
+    );
+    maxTxsPerBlock = config.maxTxsPerCheckpoint;
+  }
+
+  return { maxL2BlockGas, maxDABlockGas, maxTxsPerBlock };
 }

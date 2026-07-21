@@ -5,7 +5,7 @@
 #include "barretenberg/translator_vm/translator_proving_key.hpp"
 
 #include <gtest/gtest.h>
-#include <unordered_set>
+#include <set>
 using namespace bb;
 
 class TranslatorRelationCorrectnessTests : public ::testing::Test {
@@ -35,10 +35,8 @@ TEST_F(TranslatorRelationCorrectnessTests, TranslatorExtraRelationsCorrectness)
     // Create storage for polynomials
     ProverPolynomials prover_polynomials;
     constexpr size_t mini_circuit_size_without_masking = TranslatorProvingKey::dyadic_mini_circuit_size_without_masking;
-    // Fill in lagrange even polynomial
-    for (size_t i = prover_polynomials.lagrange_even_in_minicircuit.start_index();
-         i < prover_polynomials.lagrange_even_in_minicircuit.end_index();
-         i += 2) {
+    // Fill in lagrange even and odd polynomials (only in first minicircuit, not the full concatenated circuit)
+    for (size_t i = Flavor::RESULT_ROW; i < mini_circuit_size_without_masking; i += 2) {
         prover_polynomials.lagrange_even_in_minicircuit.at(i) = 1;
         prover_polynomials.lagrange_odd_in_minicircuit.at(i + 1) = 1;
     }
@@ -106,12 +104,14 @@ TEST_F(TranslatorRelationCorrectnessTests, Decomposition)
 
     // Create storage for polynomials
     ProverPolynomials prover_polynomials;
+    constexpr size_t full_circuit_size = Flavor::MINI_CIRCUIT_SIZE * Flavor::CONCATENATION_GROUP_SIZE;
 
-    auto lagrange_odd_in_minicircuit = prover_polynomials.lagrange_odd_in_minicircuit;
+    // Reallocate to start at index 0: the constructor allocates lagrange_odd starting at RESULT_ROW+1,
+    // but this test needs it filled from index 0 to cover the full decomposition check range.
+    prover_polynomials.lagrange_odd_in_minicircuit = typename Flavor::Polynomial(full_circuit_size);
+
     // Fill in lagrange odd polynomial (the only non-witness one we are using)
-    for (size_t i = prover_polynomials.lagrange_odd_in_minicircuit.start_index();
-         i < lagrange_odd_in_minicircuit.end_index();
-         i += 2) {
+    for (size_t i = 0; i < full_circuit_size; i += 2) {
         prover_polynomials.lagrange_odd_in_minicircuit.at(i) = 1;
     }
 
@@ -454,49 +454,40 @@ TEST_F(TranslatorRelationCorrectnessTests, NonNative)
     auto& engine = numeric::get_debug_randomness();
 
     auto op_queue = std::make_shared<bb::ECCOpQueue>();
-    op_queue->no_op_ultra_only();
-    op_queue->random_op_ultra_only();
-    op_queue->random_op_ultra_only();
-    op_queue->random_op_ultra_only();
+    op_queue->construct_zk_columns();
 
     // Generate random EccOpQueue actions
 
     for (size_t i = 0; i < (mini_circuit_size >> 1) / 2; i++) {
-        switch (engine.get_random_uint8() & 3) {
+        switch (engine.get_random_uint8() % 3) {
         case 0:
-            op_queue->no_op_ultra_only();
-            break;
-        case 1:
             op_queue->eq_and_reset();
             break;
-        case 2:
+        case 1:
             op_queue->add_accumulate(GroupElement::random_element(&engine));
             break;
-        case 3:
+        case 2:
             op_queue->mul_accumulate(GroupElement::random_element(&engine), FF::random_element(&engine));
             break;
         }
     }
     op_queue->merge();
     for (size_t i = 0; i < 100; i++) {
-        switch (engine.get_random_uint8() & 3) {
+        switch (engine.get_random_uint8() % 3) {
         case 0:
-            op_queue->no_op_ultra_only();
-            break;
-        case 1:
             op_queue->eq_and_reset();
             break;
-        case 2:
+        case 1:
             op_queue->add_accumulate(GroupElement::random_element(&engine));
             break;
-        case 3:
+        case 2:
             op_queue->mul_accumulate(GroupElement::random_element(&engine), FF::random_element(&engine));
             break;
         }
     }
     op_queue->random_op_ultra_only();
     op_queue->random_op_ultra_only();
-    op_queue->merge(MergeSettings::APPEND, ECCOpQueue::OP_QUEUE_SIZE - op_queue->get_current_subtable_size());
+    op_queue->merge_fixed_append(op_queue->get_append_offset_for_prover());
 
     const auto batching_challenge_v = BF::random_element(&engine);
     const auto evaluation_input_x = BF::random_element(&engine);
@@ -525,11 +516,8 @@ TEST_F(TranslatorRelationCorrectnessTests, NonNative)
 
     // Create storage for polynomials
     ProverPolynomials prover_polynomials = TranslatorFlavor::ProverPolynomials();
-
     // Copy values of wires used in the non-native field relation from the circuit builder
-    for (size_t i = Builder::NUM_NO_OPS_START + Builder::NUM_RANDOM_OPS_START;
-         i < circuit_builder.num_gates() - Builder::NUM_RANDOM_OPS_END;
-         i++) {
+    for (size_t i = Builder::NUM_RANDOM_OPS_START; i < circuit_builder.num_gates() - Builder::NUM_RANDOM_OPS_END; i++) {
         prover_polynomials.op.at(i) = circuit_builder.get_variable(circuit_builder.wires[circuit_builder.OP][i]);
         prover_polynomials.p_x_low_limbs.at(i) =
             circuit_builder.get_variable(circuit_builder.wires[circuit_builder.P_X_LOW_LIMBS][i]);
@@ -576,14 +564,11 @@ TEST_F(TranslatorRelationCorrectnessTests, ZeroKnowledgePermutation)
     using FF = typename Flavor::FF;
     using ProverPolynomials = typename Flavor::ProverPolynomials;
 
-    const size_t full_circuit_size = Flavor::MINI_CIRCUIT_SIZE * Flavor::INTERLEAVING_GROUP_SIZE;
     auto& engine = numeric::get_debug_randomness();
-    const size_t full_masking_offset = NUM_DISABLED_ROWS_IN_SUMCHECK * Flavor::INTERLEAVING_GROUP_SIZE;
 
     TranslatorProvingKey key{};
     key.proving_key = std::make_shared<typename Flavor::ProvingKey>();
     ProverPolynomials& prover_polynomials = key.proving_key->polynomials;
-    const size_t dyadic_circuit_size_without_masking = full_circuit_size - full_masking_offset;
 
     // Fill required relation parameters
     RelationParameters<FF> params{ .beta = FF::random_element(), .gamma = FF::random_element() };
@@ -599,21 +584,18 @@ TEST_F(TranslatorRelationCorrectnessTests, ZeroKnowledgePermutation)
         }
     };
 
-    for (const auto& group : prover_polynomials.get_groups_to_be_interleaved()) {
+    for (const auto& group : prover_polynomials.get_groups_to_be_concatenated()) {
         for (auto& poly : group) {
+            // Skip null padding slots (empty zero polynomials in group 4)
+            if (poly.is_empty()) {
+                continue;
+            }
             fill_polynomial_with_random_14_bit_values(poly);
         }
     }
 
-    // Fill in lagrange polynomials used in the permutation relation
-    prover_polynomials.lagrange_first.at(0) = 1;
-    prover_polynomials.lagrange_real_last.at(dyadic_circuit_size_without_masking - 1) = 1;
-    prover_polynomials.lagrange_last.at(full_circuit_size - 1) = 1;
-    for (size_t i = dyadic_circuit_size_without_masking; i < full_circuit_size; i++) {
-        prover_polynomials.lagrange_masking.at(i) = 1;
-    }
-
-    key.compute_interleaved_polynomials();
+    key.compute_lagrange_polynomials();
+    key.compute_concatenated_polynomials();
     key.compute_extra_range_constraint_numerator();
     key.compute_translator_range_constraint_ordered_polynomials();
 
@@ -621,10 +603,12 @@ TEST_F(TranslatorRelationCorrectnessTests, ZeroKnowledgePermutation)
     compute_grand_product<Flavor, bb::TranslatorPermutationRelation<FF>>(prover_polynomials, params);
 
     // Check that permutation relation is satisfied across each row of the prover polynomials
-    RelationChecker<Flavor>::check<TranslatorPermutationRelation<FF>>(
+    auto perm_failures = RelationChecker<Flavor>::check<TranslatorPermutationRelation<FF>>(
         prover_polynomials, params, "TranslatorPermutationRelation");
-    RelationChecker<Flavor>::check<TranslatorDeltaRangeConstraintRelation<FF>>(
-        prover_polynomials, params, "TranslatorPermutationRelation");
+    EXPECT_TRUE(perm_failures.empty());
+    auto delta_failures = RelationChecker<Flavor>::check<TranslatorDeltaRangeConstraintRelation<FF>>(
+        prover_polynomials, params, "TranslatorDeltaRangeConstraintRelation");
+    EXPECT_TRUE(delta_failures.empty());
 }
 
 TEST_F(TranslatorRelationCorrectnessTests, ZeroKnowledgeDeltaRange)
@@ -638,24 +622,17 @@ TEST_F(TranslatorRelationCorrectnessTests, ZeroKnowledgeDeltaRange)
     key.proving_key = std::make_shared<typename Flavor::ProvingKey>();
     ProverPolynomials& prover_polynomials = key.proving_key->polynomials;
 
-    const size_t full_masking_offset = NUM_DISABLED_ROWS_IN_SUMCHECK * Flavor::INTERLEAVING_GROUP_SIZE;
     const size_t dyadic_circuit_size_without_masking = TranslatorProvingKey::dyadic_circuit_size_without_masking;
 
-    // Construct lagrange polynomials that are needed for Translator's DeltaRangeConstraint Relation
-    prover_polynomials.lagrange_first.at(0) = 0;
-    prover_polynomials.lagrange_real_last.at(dyadic_circuit_size_without_masking - 1) = 1;
-
-    for (size_t i = dyadic_circuit_size_without_masking; i < key.dyadic_circuit_size; i++) {
-        prover_polynomials.lagrange_masking.at(i) = 1;
-    }
+    key.compute_lagrange_polynomials();
 
     // Create a vector and fill with necessary steps for the DeltaRangeConstraint relation
     auto sorted_steps = TranslatorProvingKey::get_sorted_steps();
     std::vector<uint64_t> vector_for_sorting(sorted_steps.begin(), sorted_steps.end());
 
-    // Add random values in the appropriate range to fill the leftover space
+    // Add random values in the appropriate range to fill the leftover space (before masking region)
     for (size_t i = sorted_steps.size();
-         i < prover_polynomials.ordered_range_constraints_0.size() - full_masking_offset;
+         i < prover_polynomials.ordered_range_constraints_0.size() - Flavor::MAX_RANDOM_VALUES_PER_ORDERED;
          i++) {
         vector_for_sorting.emplace_back(engine.get_random_uint16() & ((1 << Flavor::MICRO_LIMB_BITS) - 1));
     }
@@ -689,6 +666,359 @@ TEST_F(TranslatorRelationCorrectnessTests, ZeroKnowledgeDeltaRange)
     }
 
     // Check that DeltaRangeConstraint relation is satisfied across each row of the prover polynomials
-    RelationChecker<Flavor>::check<TranslatorDeltaRangeConstraintRelation<FF>>(
+    auto delta_range_failures = RelationChecker<Flavor>::check<TranslatorDeltaRangeConstraintRelation<FF>>(
         prover_polynomials, RelationParameters<FF>(), "TranslatorDeltaRangeConstraintRelation");
+    EXPECT_TRUE(delta_range_failures.empty());
+}
+
+/**
+ * @brief Test that compute_concatenated_polynomials() correctly maps wire values into concatenated polys.
+ * @details Verifies that non-masking positions contain the original wire values, masking positions contain
+ * random masking values, null padding slots (group 4, lanes 13-15) are zero, and position 0 in each block
+ * (below start_index=1) is zero.
+ */
+TEST_F(TranslatorRelationCorrectnessTests, ConcatenatedPolynomialLayout)
+{
+    using Flavor = TranslatorFlavor;
+    using FF = typename Flavor::FF;
+
+    auto& engine = numeric::get_debug_randomness();
+
+    constexpr size_t MINI = Flavor::MINI_CIRCUIT_SIZE;
+
+    TranslatorProvingKey key{};
+    key.proving_key = std::make_shared<typename Flavor::ProvingKey>();
+    auto& pp = key.proving_key->polynomials;
+
+    // Fill group wire polynomials with deterministic 14-bit values in circuit region, random values in masking rows
+    auto groups = pp.get_groups_to_be_concatenated();
+    for (size_t i = 0; i < groups.size(); i++) {
+        for (size_t j = 0; j < Flavor::CONCATENATION_GROUP_SIZE; j++) {
+            auto& poly = groups[i][j];
+            if (poly.is_empty()) {
+                continue;
+            }
+            // Fill circuit region with deterministic 14-bit values
+            for (size_t k = poly.start_index(); k < poly.end_index() - NUM_DISABLED_ROWS_IN_SUMCHECK; k++) {
+                poly.at(k) = FF(engine.get_random_uint16() & ((1 << Flavor::MICRO_LIMB_BITS) - 1));
+            }
+            // Fill masking rows with random FF values
+            for (size_t k = poly.end_index() - NUM_DISABLED_ROWS_IN_SUMCHECK; k < poly.end_index(); k++) {
+                poly.at(k) = FF::random_element();
+            }
+        }
+    }
+
+    key.compute_concatenated_polynomials();
+
+    auto concatenated = pp.get_concatenated();
+
+    // Re-fetch groups (they are RefVectors, so point to same data)
+    auto groups_after = pp.get_groups_to_be_concatenated();
+
+    for (size_t i = 0; i < groups_after.size(); i++) {
+        for (size_t j = 0; j < Flavor::CONCATENATION_GROUP_SIZE; j++) {
+            auto& poly = groups_after[i][j];
+
+            // Null padding slots in group 4 (lanes 13-15): all positions should be zero
+            if (i == 4 && j >= 13) {
+                for (size_t k = 0; k < MINI; k++) {
+                    EXPECT_EQ(concatenated[i][j * MINI + k], FF(0))
+                        << "Null padding not zero at group=" << i << " lane=" << j << " row=" << k;
+                }
+                continue;
+            }
+
+            // Position 0 in each block should be zero (below start_index=1)
+            EXPECT_EQ(concatenated[i][j * MINI + 0], FF(0)) << "Position 0 not zero at group=" << i << " lane=" << j;
+
+            // Non-zero region: values should match original wire values
+            for (size_t k = poly.start_index(); k < poly.end_index(); k++) {
+                EXPECT_EQ(concatenated[i][j * MINI + k], poly[k])
+                    << "Mismatch at group=" << i << " lane=" << j << " row=" << k;
+            }
+        }
+    }
+}
+
+/**
+ * @brief Test that split_concatenated_random_coefficients_to_ordered() redistributes all random values
+ * from the 4 range-constraint concatenated polys into the 5 ordered polys at contiguous end positions.
+ * @details Verifies that all 256 random values from scattered masking positions appear in ordered polys,
+ * and non-masking positions in ordered polys have only in-range sorted values.
+ */
+TEST_F(TranslatorRelationCorrectnessTests, RandomnessRedistributionIntegrity)
+{
+    using Flavor = TranslatorFlavor;
+    using FF = typename Flavor::FF;
+
+    auto& engine = numeric::get_debug_randomness();
+
+    constexpr size_t MINI = Flavor::MINI_CIRCUIT_SIZE;
+    constexpr size_t full_circuit_size = MINI * Flavor::CONCATENATION_GROUP_SIZE;
+
+    TranslatorProvingKey key{};
+    key.proving_key = std::make_shared<typename Flavor::ProvingKey>();
+    auto& pp = key.proving_key->polynomials;
+
+    // Fill group wire polynomials
+    for (const auto& group : pp.get_groups_to_be_concatenated()) {
+        for (auto& poly : group) {
+            if (poly.is_empty()) {
+                continue;
+            }
+            for (size_t k = poly.start_index(); k < poly.end_index() - NUM_DISABLED_ROWS_IN_SUMCHECK; k++) {
+                poly.at(k) = FF(engine.get_random_uint16() & ((1 << Flavor::MICRO_LIMB_BITS) - 1));
+            }
+            for (size_t k = poly.end_index() - NUM_DISABLED_ROWS_IN_SUMCHECK; k < poly.end_index(); k++) {
+                poly.at(k) = FF::random_element();
+            }
+        }
+    }
+
+    key.compute_concatenated_polynomials();
+    key.compute_extra_range_constraint_numerator();
+
+    // Collect random values from scattered masking positions in concatenated[0..3] BEFORE redistribution
+    auto concatenated = pp.get_concatenated();
+    std::multiset<uint256_t> random_values_from_concat;
+    for (size_t i = 0; i < 4; i++) { // Only first 4 (range constraint) concatenated polys
+        for (size_t j = 0; j < Flavor::CONCATENATION_GROUP_SIZE; j++) {
+            size_t block_masking_start = j * MINI + (MINI - NUM_DISABLED_ROWS_IN_SUMCHECK);
+            size_t block_masking_end = j * MINI + MINI;
+            for (size_t k = block_masking_start; k < block_masking_end; k++) {
+                random_values_from_concat.insert(uint256_t(concatenated[i][k]));
+            }
+        }
+    }
+
+    // Total expected: 4 concat polys * 16 blocks * NUM_DISABLED_ROWS_IN_SUMCHECK rows
+    const size_t expected_total = 4 * Flavor::CONCATENATION_GROUP_SIZE * NUM_DISABLED_ROWS_IN_SUMCHECK;
+    EXPECT_EQ(random_values_from_concat.size(), expected_total);
+
+    // Now compute ordered polynomials (which calls split_concatenated_random_coefficients_to_ordered)
+    key.compute_translator_range_constraint_ordered_polynomials();
+
+    // Collect random values from contiguous masking region at end of ordered polys.
+    // The random values from the 4 concatenated polys (4*16*4 = 256 values) are redistributed across 5 ordered polys,
+    // with each ordered poly getting at most MAX_RANDOM_VALUES_PER_ORDERED positions. Not all positions may be filled,
+    // so we collect only non-padding (non-zero) values. Since random FF elements are zero with negligible probability
+    // (1/p), this is safe.
+    auto ordered = pp.get_ordered_range_constraints();
+    std::multiset<uint256_t> random_values_from_ordered;
+    for (size_t i = 0; i < ordered.size(); i++) {
+        for (size_t pos = full_circuit_size - Flavor::MAX_RANDOM_VALUES_PER_ORDERED; pos < full_circuit_size; pos++) {
+            FF val = ordered[i][pos];
+            if (val != FF(0)) {
+                random_values_from_ordered.insert(uint256_t(val));
+            }
+        }
+    }
+
+    // The multisets should be equal (same values with same multiplicities)
+    EXPECT_EQ(random_values_from_concat, random_values_from_ordered);
+
+    // Verify non-masking region of ordered polys has values in [0, 16383]
+    const size_t max_range_value = (1 << Flavor::MICRO_LIMB_BITS) - 1;
+    for (size_t i = 0; i < ordered.size(); i++) {
+        for (size_t pos = 1; pos < full_circuit_size - Flavor::MAX_RANDOM_VALUES_PER_ORDERED; pos++) {
+            uint256_t val = uint256_t(ordered[i][pos]);
+            EXPECT_LE(val, max_range_value) << "Out-of-range value in ordered poly " << i << " at position " << pos;
+        }
+    }
+}
+
+/**
+ * @brief Test values at critical positions around block boundaries in concatenated polys.
+ * @details Verifies that sentinel circuit values and masking sentinels appear at the correct positions,
+ * and that block transitions (last masking row -> first row of next block) are correct.
+ */
+TEST_F(TranslatorRelationCorrectnessTests, BlockBoundaryEdgeCases)
+{
+    using Flavor = TranslatorFlavor;
+    using FF = typename Flavor::FF;
+
+    constexpr size_t MINI = Flavor::MINI_CIRCUIT_SIZE;
+
+    TranslatorProvingKey key{};
+    key.proving_key = std::make_shared<typename Flavor::ProvingKey>();
+    auto& pp = key.proving_key->polynomials;
+
+    const FF circuit_sentinel(42);
+    const FF masking_sentinel(9999);
+
+    // Fill wires with sentinels
+    auto groups = pp.get_groups_to_be_concatenated();
+    for (size_t i = 0; i < groups.size(); i++) {
+        for (size_t j = 0; j < Flavor::CONCATENATION_GROUP_SIZE; j++) {
+            auto& poly = groups[i][j];
+            if (poly.is_empty()) {
+                continue;
+            }
+            // Circuit region: fill with circuit_sentinel
+            for (size_t k = poly.start_index(); k < poly.end_index() - NUM_DISABLED_ROWS_IN_SUMCHECK; k++) {
+                poly.at(k) = circuit_sentinel;
+            }
+            // Masking region: fill with masking_sentinel
+            for (size_t k = poly.end_index() - NUM_DISABLED_ROWS_IN_SUMCHECK; k < poly.end_index(); k++) {
+                poly.at(k) = masking_sentinel;
+            }
+        }
+    }
+
+    key.compute_concatenated_polynomials();
+
+    auto concatenated = pp.get_concatenated();
+
+    // Check boundary positions for each block in each group
+    for (size_t i = 0; i < groups.size(); i++) {
+        for (size_t j = 0; j < Flavor::CONCATENATION_GROUP_SIZE; j++) {
+            if (i == 4 && j >= 13) {
+                continue; // skip null padding
+            }
+
+            // Last non-masking row: j*MINI + MINI - NUM_MASKED - 1
+            // Note: NUM_DISABLED_ROWS_IN_SUMCHECK = NUM_MASKED_ROWS_END (== 4 for translator)
+            size_t last_circuit_row = j * MINI + (MINI - NUM_DISABLED_ROWS_IN_SUMCHECK - 1);
+            EXPECT_EQ(concatenated[i][last_circuit_row], circuit_sentinel)
+                << "Last circuit row mismatch at group=" << i << " block=" << j;
+
+            // First masking row: j*MINI + MINI - NUM_MASKED
+            size_t first_masking_row = j * MINI + (MINI - NUM_DISABLED_ROWS_IN_SUMCHECK);
+            EXPECT_EQ(concatenated[i][first_masking_row], masking_sentinel)
+                << "First masking row mismatch at group=" << i << " block=" << j;
+
+            // Last masking row: j*MINI + MINI - 1
+            size_t last_masking_row = j * MINI + MINI - 1;
+            EXPECT_EQ(concatenated[i][last_masking_row], masking_sentinel)
+                << "Last masking row mismatch at group=" << i << " block=" << j;
+
+            // First row of next block (if exists): should be zero (position 0 below start_index)
+            if (j + 1 < Flavor::CONCATENATION_GROUP_SIZE) {
+                size_t next_block_row_0 = (j + 1) * MINI + 0;
+                EXPECT_EQ(concatenated[i][next_block_row_0], FF(0))
+                    << "Next block row 0 not zero at group=" << i << " block=" << j;
+
+                // Second row of next block: should be circuit_sentinel (first circuit value, start_index=1)
+                // But only if not a null padding slot
+                if (!(i == 4 && (j + 1) >= 13)) {
+                    size_t next_block_row_1 = (j + 1) * MINI + 1;
+                    EXPECT_EQ(concatenated[i][next_block_row_1], circuit_sentinel)
+                        << "Next block row 1 mismatch at group=" << i << " block=" << j;
+                }
+            }
+        }
+    }
+}
+
+/**
+ * @brief Test the boundary between sorted values and masking in ordered polynomials.
+ * @details Verifies that lagrange_real_last is at the correct position, ordered values are non-descending,
+ * the max range value appears at the last non-masking position, and position 0 is zero.
+ */
+TEST_F(TranslatorRelationCorrectnessTests, OrderedPolynomialBoundary)
+{
+    using Flavor = TranslatorFlavor;
+    using FF = typename Flavor::FF;
+
+    auto& engine = numeric::get_debug_randomness();
+
+    constexpr size_t MINI = Flavor::MINI_CIRCUIT_SIZE;
+    constexpr size_t full_circuit_size = MINI * Flavor::CONCATENATION_GROUP_SIZE;
+    const size_t max_range_value = (1 << Flavor::MICRO_LIMB_BITS) - 1;
+
+    TranslatorProvingKey key{};
+    key.proving_key = std::make_shared<typename Flavor::ProvingKey>();
+    auto& pp = key.proving_key->polynomials;
+
+    // Fill group wire polynomials with random 14-bit values and random masking values
+    for (const auto& group : pp.get_groups_to_be_concatenated()) {
+        for (auto& poly : group) {
+            if (poly.is_empty()) {
+                continue;
+            }
+            for (size_t k = poly.start_index(); k < poly.end_index() - NUM_DISABLED_ROWS_IN_SUMCHECK; k++) {
+                poly.at(k) = FF(engine.get_random_uint16() & ((1 << Flavor::MICRO_LIMB_BITS) - 1));
+            }
+            for (size_t k = poly.end_index() - NUM_DISABLED_ROWS_IN_SUMCHECK; k < poly.end_index(); k++) {
+                poly.at(k) = FF::random_element();
+            }
+        }
+    }
+
+    key.compute_lagrange_polynomials();
+    key.compute_extra_range_constraint_numerator();
+    key.compute_concatenated_polynomials();
+    key.compute_translator_range_constraint_ordered_polynomials();
+
+    auto ordered = pp.get_ordered_range_constraints();
+    const size_t last_non_masking = full_circuit_size - Flavor::MAX_RANDOM_VALUES_PER_ORDERED - 1;
+
+    // The last non-masking position should hold the max range value (sorted_steps start from max)
+    for (size_t i = 0; i < ordered.size(); i++) {
+        EXPECT_EQ(ordered[i][last_non_masking], FF(max_range_value))
+            << "Max range value not at last_non_masking for ordered poly " << i;
+    }
+
+    // Ordered values should be non-descending in [1, last_non_masking]
+    for (size_t i = 0; i < ordered.size(); i++) {
+        for (size_t pos = 2; pos <= last_non_masking; pos++) {
+            uint256_t prev = uint256_t(ordered[i][pos - 1]);
+            uint256_t curr = uint256_t(ordered[i][pos]);
+            EXPECT_LE(prev, curr) << "Non-monotonic at ordered poly " << i << " position " << pos;
+        }
+    }
+
+    // Position 0 in each ordered poly should be 0 (virtual zero for shift)
+    for (size_t i = 0; i < ordered.size(); i++) {
+        EXPECT_EQ(ordered[i][0], FF(0)) << "Position 0 not zero for ordered poly " << i;
+    }
+}
+
+/**
+ * @brief Test that all masking-related lagrange selectors have correct values at every critical boundary.
+ * @details Checks lagrange_masking (scattered), lagrange_ordered_masking (contiguous at end),
+ * and lagrange_real_last at their boundary positions.
+ */
+TEST_F(TranslatorRelationCorrectnessTests, LagrangeSelectorBoundaryCorrectness)
+{
+    using Flavor = TranslatorFlavor;
+    using FF = typename Flavor::FF;
+
+    constexpr size_t MINI = Flavor::MINI_CIRCUIT_SIZE;
+    constexpr size_t full_circuit_size = MINI * Flavor::CONCATENATION_GROUP_SIZE;
+    constexpr size_t NUM_MASKED = Flavor::NUM_MASKED_ROWS_END;
+
+    TranslatorProvingKey key{};
+    key.proving_key = std::make_shared<typename Flavor::ProvingKey>();
+    auto& pp = key.proving_key->polynomials;
+
+    key.compute_lagrange_polynomials();
+
+    // --- lagrange_masking (scattered): 1 at last NUM_MASKED rows of each block ---
+    for (size_t j = 0; j < Flavor::CONCATENATION_GROUP_SIZE; j++) {
+        size_t block_masking_start = j * MINI + (MINI - NUM_MASKED);
+        // Row before masking should be 0
+        EXPECT_EQ(pp.lagrange_masking[block_masking_start - 1], FF(0))
+            << "lagrange_masking should be 0 before masking block " << j;
+        // All masking rows should be 1
+        for (size_t k = block_masking_start; k < j * MINI + MINI; k++) {
+            EXPECT_EQ(pp.lagrange_masking[k], FF(1)) << "lagrange_masking should be 1 at block=" << j << " pos=" << k;
+        }
+    }
+
+    // --- lagrange_ordered_masking (contiguous at end) ---
+    EXPECT_EQ(pp.lagrange_ordered_masking[full_circuit_size - Flavor::MAX_RANDOM_VALUES_PER_ORDERED - 1], FF(0))
+        << "lagrange_ordered_masking should be 0 one position before masking region";
+    for (size_t i = full_circuit_size - Flavor::MAX_RANDOM_VALUES_PER_ORDERED; i < full_circuit_size; i++) {
+        EXPECT_EQ(pp.lagrange_ordered_masking[i], FF(1)) << "lagrange_ordered_masking should be 1 at position " << i;
+    }
+
+    // --- lagrange_real_last ---
+    const size_t real_last_pos = full_circuit_size - Flavor::MAX_RANDOM_VALUES_PER_ORDERED - 1;
+    EXPECT_EQ(pp.lagrange_real_last[real_last_pos], FF(1)) << "lagrange_real_last should be 1 at real_last position";
+    EXPECT_EQ(pp.lagrange_real_last[real_last_pos - 1], FF(0))
+        << "lagrange_real_last should be 0 before real_last position";
+    EXPECT_EQ(pp.lagrange_real_last[real_last_pos + 1], FF(0))
+        << "lagrange_real_last should be 0 after real_last position";
 }

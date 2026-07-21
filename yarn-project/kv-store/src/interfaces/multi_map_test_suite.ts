@@ -1,7 +1,5 @@
 import { toArray } from '@aztec/foundation/iterable';
 
-import { expect } from 'chai';
-
 import type { Key, Range } from './common.js';
 import type { AztecAsyncMultiMap, AztecMultiMap } from './multi_map.js';
 import type { AztecAsyncKVStore, AztecKVStore } from './store.js';
@@ -72,16 +70,16 @@ export function describeAztecMultiMap(
       await multiMap.set('foo', 'bar');
       await multiMap.set('baz', 'qux');
 
-      expect(await get('foo')).to.equal('bar');
-      expect(await get('baz')).to.equal('qux');
-      expect(await get('quux')).to.equal(undefined);
+      expect(await get('foo')).toBe('bar');
+      expect(await get('baz')).toBe('qux');
+      expect(await get('quux')).toBe(undefined);
     });
 
     it('should be able to set values if they do not exist', async () => {
-      expect(await multiMap.setIfNotExists('foo', 'bar')).to.equal(true);
-      expect(await multiMap.setIfNotExists('foo', 'baz')).to.equal(false);
+      expect(await multiMap.setIfNotExists('foo', 'bar')).toBe(true);
+      expect(await multiMap.setIfNotExists('foo', 'baz')).toBe(false);
 
-      expect(await get('foo')).to.equal('bar');
+      expect(await get('foo')).toBe('bar');
     });
 
     it('should be able to delete values', async () => {
@@ -90,61 +88,61 @@ export function describeAztecMultiMap(
 
       await multiMap.delete('foo');
 
-      expect(await get('foo')).to.equal(undefined);
-      expect(await get('baz')).to.equal('qux');
+      expect(await get('foo')).toBe(undefined);
+      expect(await get('baz')).toBe('qux');
     });
 
     it('should be able to get size of the map', async () => {
       await multiMap.set('foo', 'bar');
-      expect(await size()).to.equal(1);
+      expect(await size()).toBe(1);
       await multiMap.set('baz', 'qux');
-      expect(await size()).to.equal(2);
+      expect(await size()).toBe(2);
 
       await multiMap.delete('foo');
-      expect(await size()).to.equal(1);
+      expect(await size()).toBe(1);
     });
 
     it('returns 0 for empty multimap size', async () => {
-      expect(await size()).to.equal(0);
+      expect(await size()).toBe(0);
     });
 
     it('calculates size correctly with multiple values per key', async () => {
-      expect(await size()).to.equal(0);
+      expect(await size()).toBe(0);
 
       // Add multiple values for same key
       await multiMap.set('key1', 'value1');
-      expect(await size()).to.equal(1);
+      expect(await size()).toBe(1);
       await multiMap.set('key1', 'value2');
-      expect(await size()).to.equal(2);
+      expect(await size()).toBe(2);
       await multiMap.set('key1', 'value3');
-      expect(await size()).to.equal(3);
+      expect(await size()).toBe(3);
 
       // Add values for different key
       await multiMap.set('key2', 'value4');
-      expect(await size()).to.equal(4);
+      expect(await size()).toBe(4);
 
       // Delete one value from key1
       await multiMap.deleteValue('key1', 'value2');
-      expect(await size()).to.equal(3);
+      expect(await size()).toBe(3);
 
       // Delete entire key
       await multiMap.delete('key1');
-      expect(await size()).to.equal(1);
+      expect(await size()).toBe(1);
 
       // Delete last key
       await multiMap.delete('key2');
-      expect(await size()).to.equal(0);
+      expect(await size()).toBe(0);
     });
 
     it('should be able to iterate over entries when there are no keys', async () => {
-      expect(await entries()).to.deep.equal([]);
+      expect(await entries()).toEqual([]);
     });
 
     it('should be able to iterate over entries', async () => {
       await multiMap.set('foo', 'bar');
       await multiMap.set('baz', 'qux');
 
-      expect(await entries()).to.deep.equal([
+      expect(await entries()).toEqual([
         ['baz', 'qux'],
         ['foo', 'bar'],
       ]);
@@ -154,28 +152,28 @@ export function describeAztecMultiMap(
       await multiMap.set('foo', 'bar');
       await multiMap.set('baz', 'quux');
 
-      expect(await values()).to.deep.equal(['quux', 'bar']);
+      expect(await values()).toEqual(['quux', 'bar']);
     });
 
     it('should be able to iterate over keys', async () => {
       await multiMap.set('foo', 'bar');
       await multiMap.set('baz', 'qux');
 
-      expect(await keys()).to.deep.equal(['baz', 'foo']);
+      expect(await keys()).toEqual(['baz', 'foo']);
     });
 
     it('should be able to get multiple values for a single key', async () => {
       await multiMap.set('foo', 'bar');
       await multiMap.set('foo', 'baz');
 
-      expect(await getValues('foo')).to.deep.equal(['bar', 'baz']);
+      expect(await getValues('foo')).toEqual(['bar', 'baz']);
     });
 
     it('should ignore multiple identical values', async () => {
       await multiMap.set('foo', 'bar');
       await multiMap.set('foo', 'bar');
 
-      expect(await getValues('foo')).to.deep.equal(['bar']);
+      expect(await getValues('foo')).toEqual(['bar']);
     });
 
     it('should be able to delete individual values for a single key', async () => {
@@ -185,22 +183,22 @@ export function describeAztecMultiMap(
 
       await multiMap.deleteValue('foo', '2');
 
-      expect(await getValues('foo')).to.deep.equal(['1', '3']);
+      expect(await getValues('foo')).toEqual(['1', '3']);
     });
 
     it('should be able to get size of the map with duplicate keys', async () => {
       await multiMap.set('foo', '1');
       await multiMap.set('foo', '2');
       await multiMap.set('foo', '3');
-      expect(await size()).to.equal(3);
+      expect(await size()).toBe(3);
 
       await multiMap.set('bar', '1');
       await multiMap.set('bar', '2');
       await multiMap.set('bar', '3');
-      expect(await size()).to.equal(6);
+      expect(await size()).toBe(6);
 
       await multiMap.deleteValue('foo', '2');
-      expect(await size()).to.equal(5);
+      expect(await size()).toBe(5);
     });
 
     it('should be able to delete the last and first values for a key', async () => {
@@ -210,11 +208,11 @@ export function describeAztecMultiMap(
 
       await multiMap.deleteValue('foo', '1');
 
-      expect(await getValues('foo')).to.deep.equal(['2', '3']);
+      expect(await getValues('foo')).toEqual(['2', '3']);
 
       await multiMap.deleteValue('foo', '3');
 
-      expect(await getValues('foo')).to.deep.equal(['2']);
+      expect(await getValues('foo')).toEqual(['2']);
     });
 
     it('should be able to fully clear a key', async () => {
@@ -226,7 +224,7 @@ export function describeAztecMultiMap(
       await multiMap.deleteValue('foo', '3');
       await multiMap.deleteValue('foo', '2');
 
-      expect(await getValues('foo')).to.deep.equal([]);
+      expect(await getValues('foo')).toEqual([]);
     });
 
     it('should be able to insert after deletion', async () => {
@@ -237,12 +235,12 @@ export function describeAztecMultiMap(
       await multiMap.deleteValue('foo', '2');
       await multiMap.set('foo', 'bar');
 
-      expect(await getValues('foo')).to.deep.equal(['1', '3', 'bar']);
+      expect(await getValues('foo')).toEqual(['1', '3', 'bar']);
 
       // Delete the just-added entry
       await multiMap.deleteValue('foo', 'bar');
 
-      expect(await getValues('foo')).to.deep.equal(['1', '3']);
+      expect(await getValues('foo')).toEqual(['1', '3']);
 
       // Reinsert the initially deleted key
       await multiMap.set('foo', '2');
@@ -250,7 +248,7 @@ export function describeAztecMultiMap(
       // LMDB and IndexedDB behave differently here, the former ordering by value and the latter by insertion. This is
       // fine because there is no expectation for values in a multimap to be ordered.
       const values = (await getValues('foo')).sort((a, b) => a.localeCompare(b));
-      expect(values).to.deep.equal(['1', '2', '3']);
+      expect(values).toEqual(['1', '2', '3']);
 
       // Fully clear the key
       await multiMap.deleteValue('foo', '1');
@@ -260,7 +258,7 @@ export function describeAztecMultiMap(
       // Insert some more
       await multiMap.set('foo', 'baz');
       await multiMap.set('foo', 'qux');
-      expect(await getValues('foo')).to.deep.equal(['baz', 'qux']);
+      expect(await getValues('foo')).toEqual(['baz', 'qux']);
     });
 
     it('supports range queries', async () => {
@@ -269,29 +267,29 @@ export function describeAztecMultiMap(
       await multiMap.set('c', 'c');
       await multiMap.set('d', 'd');
 
-      expect(await keys({ start: 'b', end: 'c' })).to.deep.equal(['b']);
-      expect(await keys({ start: 'b' })).to.deep.equal(['b', 'c', 'd']);
-      expect(await keys({ end: 'c' })).to.deep.equal(['a', 'b']);
-      expect(await keys({ start: 'b', end: 'c', reverse: true })).to.deep.equal(['c']);
-      expect(await keys({ start: 'b', limit: 1 })).to.deep.equal(['b']);
-      expect(await keys({ start: 'b', reverse: true })).to.deep.equal(['d', 'c']);
-      expect(await keys({ end: 'b', reverse: true })).to.deep.equal(['b', 'a']);
+      expect(await keys({ start: 'b', end: 'c' })).toEqual(['b']);
+      expect(await keys({ start: 'b' })).toEqual(['b', 'c', 'd']);
+      expect(await keys({ end: 'c' })).toEqual(['a', 'b']);
+      expect(await keys({ start: 'b', end: 'c', reverse: true })).toEqual(['c']);
+      expect(await keys({ start: 'b', limit: 1 })).toEqual(['b']);
+      expect(await keys({ start: 'b', reverse: true })).toEqual(['d', 'c']);
+      expect(await keys({ end: 'b', reverse: true })).toEqual(['b', 'a']);
     });
 
     it('returns 0 for missing key', async () => {
-      expect(await getValueCount('missing')).to.equal(0);
+      expect(await getValueCount('missing')).toBe(0);
     });
 
     it('counts a single value', async () => {
       await multiMap.set('foo', 'bar');
-      expect(await getValueCount('foo')).to.equal(1);
+      expect(await getValueCount('foo')).toBe(1);
     });
 
     it('counts multiple distinct values for same key', async () => {
       await multiMap.set('foo', 'bar');
       await multiMap.set('foo', 'baz');
       await multiMap.set('foo', 'qux');
-      expect(await getValueCount('foo')).to.equal(3);
+      expect(await getValueCount('foo')).toBe(3);
     });
 
     it('does not increase count for duplicate inserts', async () => {
@@ -299,42 +297,42 @@ export function describeAztecMultiMap(
       await multiMap.set('foo', 'bar');
       await multiMap.set('foo', 'baz');
       await multiMap.set('foo', 'baz');
-      expect(await getValueCount('foo')).to.equal(2);
-      expect(await getValues('foo')).to.have.members(['bar', 'baz']);
+      expect(await getValueCount('foo')).toBe(2);
+      expect((await getValues('foo')).sort()).toEqual(['bar', 'baz'].sort());
     });
 
     it('decrements when deleting a single value', async () => {
       await multiMap.set('foo', '1');
       await multiMap.set('foo', '2');
       await multiMap.set('foo', '3');
-      expect(await getValueCount('foo')).to.equal(3);
+      expect(await getValueCount('foo')).toBe(3);
       await multiMap.deleteValue('foo', '2');
-      expect(await getValueCount('foo')).to.equal(2);
-      expect(await getValues('foo')).to.have.members(['1', '3']);
+      expect(await getValueCount('foo')).toBe(2);
+      expect((await getValues('foo')).sort()).toEqual(['1', '3'].sort());
     });
 
     it('does not change count when deleting a non-existent value', async () => {
       await multiMap.set('foo', '1');
       await multiMap.set('foo', '3');
-      expect(await getValueCount('foo')).to.equal(2);
+      expect(await getValueCount('foo')).toBe(2);
       await multiMap.deleteValue('foo', '2');
-      expect(await getValueCount('foo')).to.equal(2);
+      expect(await getValueCount('foo')).toBe(2);
     });
 
     it('clears all values when deleting a key', async () => {
       await multiMap.set('foo', 'bar');
       await multiMap.set('foo', 'baz');
-      expect(await getValueCount('foo')).to.equal(2);
+      expect(await getValueCount('foo')).toBe(2);
       await multiMap.delete('foo');
-      expect(await getValueCount('foo')).to.equal(0);
-      expect(await getValues('foo')).to.deep.equal([]);
+      expect(await getValueCount('foo')).toBe(0);
+      expect(await getValues('foo')).toEqual([]);
     });
 
     it('count equals enumerated values length', async () => {
       await multiMap.set('foo', '1');
       await multiMap.set('foo', '2');
       const vals = await getValues('foo');
-      expect(await getValueCount('foo')).to.equal(vals.length);
+      expect(await getValueCount('foo')).toBe(vals.length);
     });
 
     it('sum of per-key counts equals total size', async () => {
@@ -348,27 +346,27 @@ export function describeAztecMultiMap(
       const uniqueKeys = Array.from(new Set(allKeys));
       const counts = await Promise.all(uniqueKeys.map(k => getValueCount(k)));
       const sum = counts.reduce((s, n) => s + n, 0);
-      expect(sum).to.equal(await size());
+      expect(sum).toBe(await size());
     });
 
     it('supports sparse slots: delete middle, reinsert new, count remains correct', async () => {
       await multiMap.set('foo', '1');
       await multiMap.set('foo', '2');
       await multiMap.set('foo', '3');
-      expect(await getValueCount('foo')).to.equal(3);
+      expect(await getValueCount('foo')).toBe(3);
       await multiMap.deleteValue('foo', '2');
-      expect(await getValueCount('foo')).to.equal(2);
+      expect(await getValueCount('foo')).toBe(2);
       await multiMap.set('foo', '4');
-      expect(await getValueCount('foo')).to.equal(3);
-      expect(await getValues('foo')).to.have.members(['1', '3', '4']);
+      expect(await getValueCount('foo')).toBe(3);
+      expect((await getValues('foo')).sort()).toEqual(['1', '3', '4'].sort());
     });
 
     it('multiple keys are independent', async () => {
       await multiMap.set('foo', '1');
       await multiMap.set('foo', '2');
       await multiMap.set('bar', '3');
-      expect(await getValueCount('foo')).to.equal(2);
-      expect(await getValueCount('bar')).to.equal(1);
+      expect(await getValueCount('foo')).toBe(2);
+      expect(await getValueCount('bar')).toBe(1);
     });
   });
 }

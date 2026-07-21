@@ -1,12 +1,10 @@
 use crate::tests::private_kernel_init::TestBuilder;
-use dep::types::{
-    constants::{
-        MAX_CONTRACT_CLASS_LOGS_PER_CALL, MAX_ENQUEUED_CALLS_PER_CALL, MAX_L2_TO_L1_MSGS_PER_CALL,
-        MAX_NOTE_HASH_READ_REQUESTS_PER_CALL, MAX_NOTE_HASHES_PER_CALL,
-        MAX_NULLIFIER_READ_REQUESTS_PER_CALL, MAX_NULLIFIERS_PER_CALL,
-        MAX_PRIVATE_CALL_STACK_LENGTH_PER_CALL, MAX_PRIVATE_LOGS_PER_CALL,
-    },
-    tests::utils::swap_items,
+use protocol_test_utils::swap_items;
+use types::constants::{
+    MAX_CONTRACT_CLASS_LOGS_PER_CALL, MAX_ENQUEUED_CALLS_PER_CALL, MAX_L2_TO_L1_MSGS_PER_CALL,
+    MAX_NOTE_HASH_READ_REQUESTS_PER_CALL, MAX_NOTE_HASHES_PER_CALL,
+    MAX_NULLIFIER_READ_REQUESTS_PER_CALL, MAX_NULLIFIERS_PER_CALL,
+    MAX_PRIVATE_CALL_STACK_LENGTH_PER_CALL, MAX_PRIVATE_LOGS_PER_CALL,
 };
 
 #[test]
@@ -23,9 +21,6 @@ fn full_side_effects() {
     builder.private_call.append_l2_to_l1_msgs(MAX_L2_TO_L1_MSGS_PER_CALL);
     builder.private_call.append_private_logs(MAX_PRIVATE_LOGS_PER_CALL);
     builder.private_call.append_contract_class_logs(MAX_CONTRACT_CLASS_LOGS_PER_CALL);
-
-    // First nullifier hint is set to a non-zero value to avoid adding a protocol nullifier to the output.
-    builder.first_nullifier_hint = 123;
 
     let pi = builder.execute();
     builder.assert_expected_public_inputs(pi);
@@ -54,9 +49,6 @@ fn full_unordered_side_effects() {
     builder.private_call.append_public_call_requests(MAX_ENQUEUED_CALLS_PER_CALL - 5);
     builder.private_call.append_l2_to_l1_msgs(MAX_L2_TO_L1_MSGS_PER_CALL - 3);
     builder.private_call.append_private_logs(MAX_PRIVATE_LOGS_PER_CALL - 4);
-
-    // First nullifier hint is set to a non-zero value to avoid adding a protocol nullifier to the output.
-    builder.first_nullifier_hint = 123;
 
     // Shuffle the side effects so the counters are not sorted.
     swap_items(&mut builder.private_call.note_hashes, 0, 1);

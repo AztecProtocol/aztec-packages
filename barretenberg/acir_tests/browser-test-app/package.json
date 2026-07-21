@@ -9,18 +9,18 @@
     "serve": "serve -n -L -p ${PORT:-8080} -c ../serve.json dest"
   },
   "devDependencies": {
-    "@aztec/bb.js": "portal:../../ts",
+    "@aztec/bb.js": "portal:../../ts/bb.js",
     "@types/pako": "^2.0.3",
     "html-webpack-plugin": "^5.6.0",
     "pako": "^2.1.0",
     "pino": "^9.5.0",
     "process": "^0.11.10",
-    "serve": "^14.2.1",
+    "serve": "^14.2.6",
     "ts-loader": "^9.5.1",
     "typescript": "^5.4.2",
     "webpack": "^5.99.6",
     "webpack-cli": "^6.0.1",
     "webpack-dev-server": "^5.2.1"
   },
-  "packageManager": "yarn@4.5.2"
+  "packageManager": "yarn@4.13.0"
 }

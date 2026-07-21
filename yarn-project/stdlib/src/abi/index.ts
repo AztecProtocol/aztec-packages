@@ -1,6 +1,7 @@
 export * from './abi.js';
 export * from './buffer.js';
 export * from './decoder.js';
+export * from './function_signature_decoder.js';
 export * from './encoder.js';
 export * from './authorization_selector.js';
 export * from './event_metadata_definition.js';

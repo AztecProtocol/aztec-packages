@@ -1,9 +1,10 @@
 import type { AztecAddress } from '@aztec/aztec.js/addresses';
 import { AuthWitness } from '@aztec/aztec.js/authorization';
 import { Contract, NO_WAIT, type SendInteractionOptions } from '@aztec/aztec.js/contracts';
-import type { AztecNode } from '@aztec/aztec.js/node';
+import { type AztecNode, waitForTx } from '@aztec/aztec.js/node';
 import { prepTx } from '@aztec/cli/utils';
 import type { LogFn } from '@aztec/foundation/log';
+import { TxStatus } from '@aztec/stdlib/tx';
 
 import { DEFAULT_TX_TIMEOUT_S } from '../utils/cli_wallet_and_node_wrapper.js';
 import { CLIFeeArgs } from '../utils/options/fees.js';
@@ -22,6 +23,7 @@ export async function send(
   cancellable: boolean,
   feeOpts: CLIFeeArgs,
   authWitnesses: AuthWitness[],
+  waitForStatus: TxStatus,
   verbose: boolean,
   log: LogFn,
 ) {
@@ -37,10 +39,14 @@ export async function send(
     authWitnesses,
   };
 
-  const { estimatedGas, stats } = await call.simulate({
+  const localStart = performance.now();
+  const sim = await call.simulate({
     ...sendOptions,
-    fee: { ...sendOptions.fee, estimateGas: true },
+    includeMetadata: true,
   });
+  // includeMetadata: true guarantees these fields are present
+  const estimatedGas = await wallet.estimateGasLimits(sim.gasUsed!);
+  const stats = sim.stats!;
 
   if (feeOpts.estimateOnly) {
     return;
@@ -50,21 +56,29 @@ export async function send(
     printProfileResult(stats!, log);
   }
 
+  const { txHash } = await call.send({
+    ...sendOptions,
+    fee: { ...sendOptions.fee, gasSettings: estimatedGas },
+    wait: NO_WAIT,
+  });
+  const localTimeMs = performance.now() - localStart;
+
+  log(`\nTransaction hash: ${txHash.toString()}`);
+
   if (wait) {
     try {
-      const receipt = await call.send({
-        ...sendOptions,
-        fee: { ...sendOptions.fee, gasSettings: estimatedGas },
-        wait: { timeout: DEFAULT_TX_TIMEOUT_S },
-      });
+      const nodeStart = performance.now();
+      const receipt = await waitForTx(node, txHash, { timeout: DEFAULT_TX_TIMEOUT_S, waitForStatus });
+      const nodeTimeMs = performance.now() - nodeStart;
 
-      const txHash = receipt.txHash;
-      log(`\nTransaction hash: ${txHash.toString()}`);
-      log('Transaction has been mined');
+      const statusLabel = waitForStatus === TxStatus.PROPOSED ? 'proposed' : 'checkpointed';
+      log(`Transaction has been ${statusLabel}`);
       log(` Tx fee: ${receipt.transactionFee}`);
       log(` Status: ${receipt.status}`);
       log(` Block number: ${receipt.blockNumber}`);
       log(` Block hash: ${receipt.blockHash?.toString()}`);
+      log(` Local processing time: ${(localTimeMs / 1000).toFixed(1)}s`);
+      log(` Node inclusion time: ${(nodeTimeMs / 1000).toFixed(1)}s`);
 
       return {
         txHash,
@@ -74,12 +88,6 @@ export async function send(
       throw err;
     }
   } else {
-    const txHash = await call.send({
-      ...sendOptions,
-      fee: { ...sendOptions.fee, gasSettings: estimatedGas },
-      wait: NO_WAIT,
-    });
-    log(`\nTransaction hash: ${txHash.toString()}`);
     log('Transaction pending. Check status with check-tx');
     return {
       txHash,

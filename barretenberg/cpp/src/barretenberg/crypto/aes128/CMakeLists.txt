@@ -1,1 +1,1 @@
-barretenberg_module(crypto_aes128)
+barretenberg_module(crypto_aes128 common)

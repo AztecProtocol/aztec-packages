@@ -7,13 +7,13 @@ pub contract Crowdfunding {
     use crate::config::Config;
     use aztec::{
         macros::{events::event, functions::{external, initializer, only_self}, storage::storage},
-        messages::message_delivery::MessageDelivery,
+        messages::delivery::MessageDelivery,
         protocol::address::AztecAddress,
         state_vars::{Owned, PrivateSet, PublicImmutable, StateVariable},
         utils::{array, comparison::Comparator},
     };
     use aztec::note::{constants::MAX_NOTES_PER_PAGE, HintedNote, note_getter_options::NoteStatus};
-    use public_checks::utils::privately_check_timestamp;
+    use aztec::public_checks::privately_check_timestamp;
     use token::Token;
     use uint_note::UintNote;
 
@@ -22,14 +22,12 @@ pub contract Crowdfunding {
         who: AztecAddress,
         amount: u128,
     }
-    // docs:start:storage
     #[storage]
     struct Storage<Context> {
         config: PublicImmutable<Config, Context>,
         // Notes emitted to donors when they donate (can be used as proof to obtain rewards, eg in Claim contracts)
         donation_receipts: Owned<PrivateSet<UintNote, Context>, Context>,
     }
-    // docs:end:storage
 
     // TODO(#8367): Ensure deadline is quantized to improve privacy set.
     #[external("public")]
@@ -43,7 +41,8 @@ pub contract Crowdfunding {
     fn donate(amount: u128) {
         let config = self.storage.config.read();
 
-        // 1) Check that the deadline has not passed --> we do that via the public checks contract to conceal which contract
+        // 1) Check that the deadline has not passed --> we do that via the public checks contract to conceal which
+        // contract
         // is performing the check.
         // docs:start:call-check-deadline
         privately_check_timestamp(Comparator.LT, config.deadline, self.context);
@@ -51,9 +50,7 @@ pub contract Crowdfunding {
 
         // 2) Transfer the donation tokens from donor to this contract
         let donor = self.msg_sender();
-        Token::at(config.donation_token).transfer_in_private(donor, self.address, amount, 0).call(
-            self.context,
-        );
+        Token::at(config.donation_token).transfer_in_private(donor, self.address, amount, 0).call(self.context);
 
         // 3) Create a value note for the donor so that he can later on claim a rewards token in the Claim
         // contract by proving that the hash of this note exists in the note hash tree.
@@ -61,9 +58,7 @@ pub contract Crowdfunding {
 
         // We don't constrain encryption because the donor is sending the note to himself. And hence by performing
         // encryption incorrectly would harm himself only.
-        self.storage.donation_receipts.at(donor).insert(note).deliver(
-            MessageDelivery.ONCHAIN_UNCONSTRAINED,
-        );
+        self.storage.donation_receipts.at(donor).insert(note).deliver(MessageDelivery::onchain_unconstrained());
     }
 
     // Withdraws balance to the operator. Requires that msg_sender() is the operator.

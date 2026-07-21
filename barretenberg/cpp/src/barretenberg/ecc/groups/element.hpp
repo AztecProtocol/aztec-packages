@@ -11,9 +11,9 @@
 #include "barretenberg/common/mem.hpp"
 #include "barretenberg/numeric/random/engine.hpp"
 #include "barretenberg/numeric/uint256/uint256.hpp"
-#include "wnaf.hpp"
 #include <array>
 #include <random>
+#include <span>
 #include <vector>
 
 namespace bb::group_elements {
@@ -22,10 +22,12 @@ namespace bb::group_elements {
  * @brief element class. Implements ecc group arithmetic using Jacobian coordinates
  * See https://hyperelliptic.org/EFD/g1p/auto-shortw-jacobian-0.html#doubling-dbl-2009-l
  *
- * Note: Currently subgroup checks are NOT IMPLEMENTED
- * Our current implementation uses G1 points that have a cofactor of 1.
- * All G2 points are precomputed (generator [1]_2 and trusted setup point [x]_2).
- * Explicitly assume precomputed points are valid members of the prime-order subgroup for G2.
+ * Note: BN254 / Grumpkin G1 have cofactor 1, so on-curve membership coincides with prime-order
+ * subgroup membership. BN254 G2 has a non-trivial cofactor; an explicit subgroup check is provided
+ * by `affine_element::is_in_prime_subgroup()` and must be applied to externally-supplied G2 bytes
+ * (see bbapi). The arithmetic in this file does not rederive subgroup membership and assumes the
+ * caller already ensured operands are valid prime-order subgroup elements.
+ *
  * @tparam Fq prime field the curve is defined over
  * @tparam Fr prime field whose characteristic equals the size of the prime-order elliptic curve subgroup
  * @tparam Params curve parameters
@@ -59,7 +61,6 @@ template <class Fq, class Fr, class Params> class alignas(32) element {
 
     constexpr element dbl() const noexcept;
     constexpr void self_dbl() noexcept;
-    constexpr void self_mixed_add_or_sub(const affine_element<Fq, Fr, Params>& other, uint64_t predicate) noexcept;
 
     constexpr element operator+(const element& other) const noexcept;
     constexpr element operator+(const affine_element<Fq, Fr, Params>& other) const noexcept;
@@ -84,11 +85,36 @@ template <class Fq, class Fr, class Params> class alignas(32) element {
     element operator*(const Fr& exponent) const noexcept;
     element operator*=(const Fr& exponent) noexcept;
 
+    /**
+     * @brief Constant-time scalar multiplication intended for secret scalars (e.g. ECDSA / Schnorr nonces).
+     *
+     * Implementation: Montgomery ladder (Montgomery 1987 [1]; SCA-regular form: Joye & Yen,
+     * CHES 2002 [2]) over a fixed iteration count, with Coron's first DPA countermeasure
+     * (CHES 1999 [3]) applied to the scalar: k' = k + r * n for a fresh random 64-bit r sampled
+     * per call. Since n * P = O in the prime-order subgroup, k' * P = k * P; the randomization
+     * decorrelates the per-bit timing trace across signings with the same k.
+     *
+     * [1] P. L. Montgomery, "Speeding the Pollard and Elliptic Curve Methods of Factorization",
+     *     Mathematics of Computation 48 (1987), pp. 243-264.
+     * [2] M. Joye and S.-M. Yen, "The Montgomery Powering Ladder", CHES 2002, LNCS 2523,
+     *     pp. 291-302.
+     * [3] J.-S. Coron, "Resistance against Differential Power Analysis for Elliptic Curve
+     *     Cryptosystems", CHES 1999, LNCS 1717, pp. 292-302.
+     *
+     * @param engine Optional RNG for the blinding factor. If nullptr, uses the global RNG.
+     *
+     * @warning Slower than operator*. Use only when the scalar is secret. For public scalars (MSM,
+     *          public arithmetic), prefer operator*.
+     */
+    element mul_const_time(const Fr& scalar, numeric::RNG* engine = nullptr) const noexcept;
+
     // If you end up implementing this, congrats, you've solved the DL problem!
     // P.S. This is a joke, don't even attempt! 😂
     // constexpr Fr operator/(const element& other) noexcept {}
 
     constexpr element normalize() const noexcept;
+    constexpr element normalize_const_time() const noexcept;
+    constexpr affine_element<Fq, Fr, Params> to_affine_const_time() const noexcept;
     static element infinity();
     BB_INLINE constexpr element set_infinity() const noexcept;
     BB_INLINE constexpr void self_set_infinity() noexcept;
@@ -100,15 +126,39 @@ template <class Fq, class Fr, class Params> class alignas(32) element {
     static void batch_affine_add(const std::span<affine_element<Fq, Fr, Params>>& first_group,
                                  const std::span<affine_element<Fq, Fr, Params>>& second_group,
                                  const std::span<affine_element<Fq, Fr, Params>>& results) noexcept;
+
+    /**
+     * @brief Straus-style multi-scalar multiplication.
+     * @details Computes Σ_i scalars[i] * points[i], efficient when num points is small (~64 or less)
+     */
+    static element straus_msm(std::span<const affine_element<Fq, Fr, Params>> points,
+                              std::span<const Fr> scalars) noexcept;
     static std::vector<affine_element<Fq, Fr, Params>> batch_mul_with_endomorphism(
         const std::span<const affine_element<Fq, Fr, Params>>& points, const Fr& scalar) noexcept;
+
+    /**
+     * @brief Fused two-round IPA SRS fold: out[i] = (u1·u2)·P[i] + u1·P[i+t] + u2·P[i+2t] + P[i+3t].
+     *
+     * @details Equivalent to two sequential `u·LHS + RHS` folds (H = u1·P_lo + P_hi, then
+     * u2·H_lo + H_hi) evaluated on one shared doubling chain without materialising H. See ipa/ELEMENT_IMPL_FOLD.md for
+     * the derivation and cost model.
+     *
+     * @param points 4t source points; the four length-t quarters are the fold operands.
+     * @param u1 First-round challenge; must be < 2^127 (IPA transcript challenges are 127 bits).
+     * @param u2 Second-round challenge; must be < 2^127.
+     * @return The t folded points.
+     *
+     * @warning Assumes no input point is at infinity (IPA SRS points are never at infinity).
+     */
+    static std::vector<affine_element<Fq, Fr, Params>> batch_two_round_fold(
+        const std::span<const affine_element<Fq, Fr, Params>>& points, const Fr& u1, const Fr& u2) noexcept;
 
     /**
      * @brief Multi-scalar multiplication: compute sum_i(scalars[i] * points[i])
      * @details Delegates to affine_element::batch_mul. Provided for interface compatibility with stdlib.
      */
     static affine_element<Fq, Fr, Params> batch_mul(std::span<const affine_element<Fq, Fr, Params>> points,
-                                                    std::span<const Fr> scalars,
+                                                    std::span<Fr> scalars,
                                                     size_t max_num_bits = 0,
                                                     bool with_edgecases = true,
                                                     const Fr& masking_scalar = Fr(1)) noexcept
@@ -128,31 +178,6 @@ template <class Fq, class Fr, class Params> class alignas(32) element {
 
     template <typename = typename std::enable_if<Params::can_hash_to_curve>>
     static element random_coordinates_on_curve(numeric::RNG* engine = nullptr) noexcept;
-    // {
-    //     bool found_one = false;
-    //     Fq yy;
-    //     Fq x;
-    //     Fq y;
-    //     Fq t0;
-    //     while (!found_one) {
-    //         x = Fq::random_element(engine);
-    //         yy = x.sqr() * x + Params::b;
-    //         if constexpr (Params::has_a) {
-    //             yy += (x * Params::a);
-    //         }
-    //         y = yy.sqrt();
-    //         t0 = y.sqr();
-    //         found_one = (yy == t0);
-    //     }
-    //     return { x, y, Fq::one() };
-    // }
-    // TODO(https://github.com/AztecProtocol/barretenberg/issues/908) point at inifinty isn't handled
-    // To reenable this do NOT do use MSGPACK_FIELDS macro below, instead follow the logic in affine_element
-    // MSGPACK_FIELDS(x, y, z);
-
-    static void conditional_negate_affine(const affine_element<Fq, Fr, Params>& in,
-                                          affine_element<Fq, Fr, Params>& out,
-                                          uint64_t predicate) noexcept;
 
     friend std::ostream& operator<<(std::ostream& os, const element& a)
     {
@@ -165,60 +190,6 @@ template <class Fq, class Fr, class Params> std::ostream& operator<<(std::ostrea
 {
     return os << "x:" << e.x << " y:" << e.y << " z:" << e.z;
 }
-
-// constexpr element<Fq, Fr, Params>::one = element<Fq, Fr, Params>{ Params::one_x, Params::one_y, Fq::one() };
-// constexpr element<Fq, Fr, Params>::point_at_infinity = one.set_infinity();
-// constexpr element<Fq, Fr, Params>::curve_b = Params::b;
-
-/**
- * @brief Memory layout policy for batch affine operations with parallel arrays
- * @details Layout: (lhs[i], rhs[i]) -> rhs[i] with sequential output (no prefetch needed)
- */
-struct ParallelArrayPolicy {
-    static constexpr bool ENABLE_PREFETCH = false;
-
-    template <typename AffineElement> static constexpr size_t lhs_index(size_t i) noexcept { return i; }
-
-    template <typename AffineElement> static constexpr size_t rhs_index(size_t i) noexcept { return i; }
-
-    template <typename AffineElement>
-    static constexpr size_t output_index(size_t i, [[maybe_unused]] size_t num_pairs) noexcept
-    {
-        return i;
-    }
-};
-
-/**
- * @brief Memory layout policy for batch affine operations with interleaved arrays
- * @details Layout: (points[2i], points[2i+1]) -> points[num_pairs+i] (non-sequential, needs prefetch)
- */
-struct InterleavedArrayPolicy {
-    static constexpr bool ENABLE_PREFETCH = true;
-
-    template <typename AffineElement> static constexpr size_t lhs_index(size_t i) noexcept { return i * 2; }
-
-    template <typename AffineElement> static constexpr size_t rhs_index(size_t i) noexcept { return (i * 2) + 1; }
-
-    template <typename AffineElement> static constexpr size_t output_index(size_t i, size_t num_pairs) noexcept
-    {
-        return num_pairs + i;
-    }
-
-    template <typename AffineElement, typename Fq>
-    static void prefetch_iteration(const AffineElement* base_points,
-                                   const Fq* scratch,
-                                   size_t i,
-                                   size_t num_pairs) noexcept
-    {
-        if (i >= 1) {
-            size_t prev = i - 1;
-            __builtin_prefetch(&base_points[prev * 2]);
-            __builtin_prefetch(&base_points[(prev * 2) + 1]);
-            __builtin_prefetch(&base_points[num_pairs + prev]);
-            __builtin_prefetch(&scratch[prev]);
-        }
-    }
-};
 
 } // namespace bb::group_elements
 

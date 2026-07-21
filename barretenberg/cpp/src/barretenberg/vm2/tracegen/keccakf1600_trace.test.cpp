@@ -2,7 +2,7 @@
 #include <gmock/gmock.h>
 #include <gtest/gtest.h>
 
-#include "barretenberg/vm2/common/aztec_constants.hpp"
+#include "barretenberg/aztec/aztec_constants.hpp"
 #include "barretenberg/vm2/common/constants.hpp"
 #include "barretenberg/vm2/common/memory_types.hpp"
 #include "barretenberg/vm2/simulation/events/keccakf1600_event.hpp"
@@ -69,7 +69,7 @@ TEST(KeccakF1600TraceGenTest, MemorySliceReadAndWrite)
                       ROW_FIELD_EQ(keccak_memory_ctr, 1),
                       ROW_FIELD_EQ(keccak_memory_start_read, 1),
                       ROW_FIELD_EQ(keccak_memory_start_write, 0),
-                      ROW_FIELD_EQ(keccak_memory_last, 0),
+                      ROW_FIELD_EQ(keccak_memory_end, 0),
                       ROW_FIELD_EQ(keccak_memory_ctr_end, 0),
                       ROW_FIELD_EQ(keccak_memory_rw, 0),
                       ROW_FIELD_EQ(keccak_memory_addr, 100),
@@ -78,7 +78,7 @@ TEST(KeccakF1600TraceGenTest, MemorySliceReadAndWrite)
                       ROW_FIELD_EQ(keccak_memory_tag, static_cast<uint8_t>(MemoryTag::U64)),
                       ROW_FIELD_EQ(keccak_memory_single_tag_error, 0),
                       ROW_FIELD_EQ(keccak_memory_tag_error, 0),
-                      ROW_FIELD_EQ(keccak_memory_ctr_inv, 1),
+
                       ROW_FIELD_EQ(keccak_memory_state_size_min_ctr_inv, (FF(AVM_KECCAKF1600_STATE_SIZE - 1)).invert()),
                       ROW_FIELD_EQ(keccak_memory_tag_min_u64_inv, 0)));
 
@@ -88,7 +88,7 @@ TEST(KeccakF1600TraceGenTest, MemorySliceReadAndWrite)
                       ROW_FIELD_EQ(keccak_memory_ctr, AVM_KECCAKF1600_STATE_SIZE),
                       ROW_FIELD_EQ(keccak_memory_start_read, 0),
                       ROW_FIELD_EQ(keccak_memory_start_write, 0),
-                      ROW_FIELD_EQ(keccak_memory_last, 1),
+                      ROW_FIELD_EQ(keccak_memory_end, 1),
                       ROW_FIELD_EQ(keccak_memory_ctr_end, 1),
                       ROW_FIELD_EQ(keccak_memory_rw, 0),
                       ROW_FIELD_EQ(keccak_memory_addr, 100 + AVM_KECCAKF1600_STATE_SIZE - 1),
@@ -97,7 +97,7 @@ TEST(KeccakF1600TraceGenTest, MemorySliceReadAndWrite)
                       ROW_FIELD_EQ(keccak_memory_tag, static_cast<uint8_t>(MemoryTag::U64)),
                       ROW_FIELD_EQ(keccak_memory_single_tag_error, 0),
                       ROW_FIELD_EQ(keccak_memory_tag_error, 0),
-                      ROW_FIELD_EQ(keccak_memory_ctr_inv, FF(AVM_KECCAKF1600_STATE_SIZE).invert()),
+
                       ROW_FIELD_EQ(keccak_memory_state_size_min_ctr_inv, 0),
                       ROW_FIELD_EQ(keccak_memory_tag_min_u64_inv, 0)));
 
@@ -107,7 +107,7 @@ TEST(KeccakF1600TraceGenTest, MemorySliceReadAndWrite)
                       ROW_FIELD_EQ(keccak_memory_ctr, 1),
                       ROW_FIELD_EQ(keccak_memory_start_read, 0),
                       ROW_FIELD_EQ(keccak_memory_start_write, 1),
-                      ROW_FIELD_EQ(keccak_memory_last, 0),
+                      ROW_FIELD_EQ(keccak_memory_end, 0),
                       ROW_FIELD_EQ(keccak_memory_ctr_end, 0),
                       ROW_FIELD_EQ(keccak_memory_rw, 1),
                       ROW_FIELD_EQ(keccak_memory_addr, 200),
@@ -116,7 +116,7 @@ TEST(KeccakF1600TraceGenTest, MemorySliceReadAndWrite)
                       ROW_FIELD_EQ(keccak_memory_tag, static_cast<uint8_t>(MemoryTag::U64)),
                       ROW_FIELD_EQ(keccak_memory_single_tag_error, 0),
                       ROW_FIELD_EQ(keccak_memory_tag_error, 0),
-                      ROW_FIELD_EQ(keccak_memory_ctr_inv, 1),
+
                       ROW_FIELD_EQ(keccak_memory_state_size_min_ctr_inv, (FF(AVM_KECCAKF1600_STATE_SIZE - 1)).invert()),
                       ROW_FIELD_EQ(keccak_memory_tag_min_u64_inv, 0)));
 
@@ -126,7 +126,7 @@ TEST(KeccakF1600TraceGenTest, MemorySliceReadAndWrite)
                       ROW_FIELD_EQ(keccak_memory_ctr, AVM_KECCAKF1600_STATE_SIZE),
                       ROW_FIELD_EQ(keccak_memory_start_read, 0),
                       ROW_FIELD_EQ(keccak_memory_start_write, 0),
-                      ROW_FIELD_EQ(keccak_memory_last, 1),
+                      ROW_FIELD_EQ(keccak_memory_end, 1),
                       ROW_FIELD_EQ(keccak_memory_ctr_end, 1),
                       ROW_FIELD_EQ(keccak_memory_rw, 1),
                       ROW_FIELD_EQ(keccak_memory_addr, 200 + AVM_KECCAKF1600_STATE_SIZE - 1),
@@ -135,7 +135,7 @@ TEST(KeccakF1600TraceGenTest, MemorySliceReadAndWrite)
                       ROW_FIELD_EQ(keccak_memory_tag, static_cast<uint8_t>(MemoryTag::U64)),
                       ROW_FIELD_EQ(keccak_memory_single_tag_error, 0),
                       ROW_FIELD_EQ(keccak_memory_tag_error, 0),
-                      ROW_FIELD_EQ(keccak_memory_ctr_inv, FF(AVM_KECCAKF1600_STATE_SIZE).invert()),
+
                       ROW_FIELD_EQ(keccak_memory_state_size_min_ctr_inv, 0),
                       ROW_FIELD_EQ(keccak_memory_tag_min_u64_inv, 0)));
 }
@@ -165,7 +165,7 @@ TEST(KeccakF1600TraceGenTest, MainKeccakTraceWithSimulation)
               ROW_FIELD_EQ(keccakf1600_sel_slice_read, 1),
               ROW_FIELD_EQ(keccakf1600_sel_slice_write, 0),
               ROW_FIELD_EQ(keccakf1600_src_addr, src_addr),
-              ROW_FIELD_EQ(keccakf1600_last, 0)));
+              ROW_FIELD_EQ(keccakf1600_end, 0)));
 
     // Check values on all rows of the keccakf1600 permutation subtrace.
     for (size_t i = 1; i < AVM_KECCAKF1600_NUM_ROUNDS + 1; i++) {
@@ -191,7 +191,7 @@ TEST(KeccakF1600TraceGenTest, MainKeccakTraceWithSimulation)
                       ROW_FIELD_EQ(keccakf1600_sel_slice_read, 0),
                       ROW_FIELD_EQ(keccakf1600_sel_slice_write, 1),
                       ROW_FIELD_EQ(keccakf1600_src_addr, 0),
-                      ROW_FIELD_EQ(keccakf1600_last, 1)));
+                      ROW_FIELD_EQ(keccakf1600_end, 1)));
 }
 
 // We test when the memory tag is not U64 for a read value at index (1, 2).
@@ -232,7 +232,7 @@ TEST(KeccakF1600TraceGenTest, TagErrorHandling)
         EXPECT_THAT(rows.at(i),
                     AllOf(ROW_FIELD_EQ(keccak_memory_single_tag_error, 0),
                           ROW_FIELD_EQ(keccak_memory_tag_min_u64_inv, 0),
-                          ROW_FIELD_EQ(keccak_memory_last, 0)));
+                          ROW_FIELD_EQ(keccak_memory_end, 0)));
     }
 
     // Specific checks on the last row of the active keccak_memory subtrace.
@@ -240,7 +240,7 @@ TEST(KeccakF1600TraceGenTest, TagErrorHandling)
         rows.at(error_offset + 1),
         AllOf(ROW_FIELD_EQ(keccak_memory_tag_min_u64_inv,
                            (FF(static_cast<uint8_t>(error_tag)) - FF(static_cast<uint8_t>(MemoryTag::U64))).invert()),
-              ROW_FIELD_EQ(keccak_memory_last, 1)));
+              ROW_FIELD_EQ(keccak_memory_end, 1)));
 
     // Next row is not active in keccak_memory.
     EXPECT_THAT(rows.at(error_offset + 2), ROW_FIELD_EQ(keccak_memory_sel, 0));
@@ -260,7 +260,7 @@ TEST(KeccakF1600TraceGenTest, TagErrorHandling)
                       ROW_FIELD_EQ(keccakf1600_tag_error, 1),
                       ROW_FIELD_EQ(keccakf1600_error, 1),
                       ROW_FIELD_EQ(keccakf1600_sel_no_error, 0),
-                      ROW_FIELD_EQ(keccakf1600_last, 1))); // We set last at the initial row when there is an error.
+                      ROW_FIELD_EQ(keccakf1600_end, 1))); // We set last at the initial row when there is an error.
 
     // Check that all the subsequent rows have inactive selectors.
     for (size_t i = 2; i < AVM_KECCAKF1600_NUM_ROUNDS + 1; i++) {
@@ -300,7 +300,7 @@ TEST(KeccakF1600TraceGenTest, SrcAddressOutOfBounds)
                       ROW_FIELD_EQ(keccakf1600_tag_error, 0),
                       ROW_FIELD_EQ(keccakf1600_error, 1),
                       ROW_FIELD_EQ(keccakf1600_sel_no_error, 0),
-                      ROW_FIELD_EQ(keccakf1600_last, 1))); // We set last at the initial row when there is an error.
+                      ROW_FIELD_EQ(keccakf1600_end, 1))); // We set last at the initial row when there is an error.
 
     // Check that all the subsequent rows have inactive selectors.
     for (size_t i = 2; i < AVM_KECCAKF1600_NUM_ROUNDS + 1; i++) {
@@ -343,7 +343,7 @@ TEST(KeccakF1600TraceGenTest, DstAddressOutOfBounds)
                       ROW_FIELD_EQ(keccakf1600_tag_error, 0),
                       ROW_FIELD_EQ(keccakf1600_error, 1),
                       ROW_FIELD_EQ(keccakf1600_sel_no_error, 0),
-                      ROW_FIELD_EQ(keccakf1600_last, 1))); // We set last at the initial row when there is an error.
+                      ROW_FIELD_EQ(keccakf1600_end, 1))); // We set last at the initial row when there is an error.
 
     // Check that all the subsequent rows have inactive selectors.
     for (size_t i = 2; i < AVM_KECCAKF1600_NUM_ROUNDS + 1; i++) {

@@ -16,8 +16,10 @@ pub unconstrained fn load<let N: u32>(hash: Field) -> [Field; N] {
     load_from_execution_cache_oracle(hash)
 }
 
-#[oracle(privateStoreInExecutionCache)]
+// TODO(F-498): review naming consistency
+#[oracle(aztec_prv_setHashPreimage)]
 unconstrained fn store_in_execution_cache_oracle<let N: u32>(_values: [Field; N], _hash: Field) {}
 
-#[oracle(privateLoadFromExecutionCache)]
+// TODO(F-498): review naming consistency
+#[oracle(aztec_prv_getHashPreimage)]
 unconstrained fn load_from_execution_cache_oracle<let N: u32>(_hash: Field) -> [Field; N] {}

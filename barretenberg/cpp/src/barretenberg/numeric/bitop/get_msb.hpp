@@ -1,15 +1,18 @@
 // === AUDIT STATUS ===
-// internal:    { status: Planned, auditors: [], commit: }
+// internal:    { status: Complete, auditors: [Luke], commit: }
 // external_1:  { status: not started, auditors: [], commit: }
 // external_2:  { status: not started, auditors: [], commit: }
 // =====================
 
 #pragma once
 #include <array>
+#include <cassert>
 #include <cstddef>
 #include <cstdint>
+#include <limits>
 namespace bb::numeric {
 
+// De Bruijn MSB. Returns 0 for input 0 (by convention; many callers rely on this).
 // from http://supertech.csail.mit.edu/papers/debruijn.pdf
 constexpr inline uint32_t get_msb32(const uint32_t in)
 {
@@ -72,8 +75,17 @@ template <typename T> constexpr inline T get_lsb(const T in)
 
 template <typename T> constexpr inline T round_up_power_2(const T in)
 {
+    if (in == 0) {
+        return 0;
+    }
     auto lower_bound = T(1) << get_msb(in);
-    return (lower_bound == in || lower_bound == 1) ? in : lower_bound * 2;
+    if (lower_bound == in) {
+        return in;
+    }
+    // Overflow check: lower_bound is the highest power of 2 <= in,
+    // so lower_bound * 2 would overflow if lower_bound is already the top bit.
+    assert(lower_bound <= (std::numeric_limits<T>::max() >> 1));
+    return lower_bound * 2;
 }
 
 } // namespace bb::numeric

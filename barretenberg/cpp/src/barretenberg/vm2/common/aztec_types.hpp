@@ -4,10 +4,10 @@
 #include <stdexcept>
 #include <vector>
 
-#include "barretenberg/common/streams.hpp" // Derives operator<< from MSGPACK_FIELDS.
+#include "barretenberg/aztec/aztec_constants.hpp"
+#include "barretenberg/common/streams.hpp" // Derives operator<< from SERIALIZATION_FIELDS.
 #include "barretenberg/serialize/msgpack.hpp"
 #include "barretenberg/serialize/msgpack_impl/uint_128_t_adaptor.hpp"
-#include "barretenberg/vm2/common/aztec_constants.hpp"
 #include "barretenberg/vm2/common/field.hpp"
 #include "msgpack/adaptor/define_decl.hpp"
 
@@ -77,23 +77,28 @@ enum class ContractInstanceMember : uint8_t {
     DEPLOYER = 0,
     CLASS_ID = 1,
     INIT_HASH = 2,
-    MAX = INIT_HASH,
+    IMMUTABLES_HASH = 3,
+    MAX = IMMUTABLES_HASH,
 };
 
 ////////////////////////////////////////////////////////////////////////////
 // Keys, Instances, Classes
 ////////////////////////////////////////////////////////////////////////////
 
+// Only `incoming_viewing_key` is exposed as a point (since address derivation
+// needs the curve point in-circuit); the other five keys are exposed as their hashes.
 struct PublicKeys {
-    AffinePoint nullifier_key;
+    FF nullifier_key_hash;
     AffinePoint incoming_viewing_key;
-    AffinePoint outgoing_viewing_key;
-    AffinePoint tagging_key;
+    FF outgoing_viewing_key_hash;
+    FF tagging_key_hash;
+    FF message_signing_key_hash;
+    FF fallback_key_hash;
 
     std::vector<FF> to_fields() const
     {
-        return { nullifier_key.x,        nullifier_key.y,        incoming_viewing_key.x, incoming_viewing_key.y,
-                 outgoing_viewing_key.x, outgoing_viewing_key.y, tagging_key.x,          tagging_key.y };
+        return { nullifier_key_hash, incoming_viewing_key.x,   incoming_viewing_key.y, outgoing_viewing_key_hash,
+                 tagging_key_hash,   message_signing_key_hash, fallback_key_hash };
     }
 
     bool operator==(const PublicKeys& other) const = default;
@@ -102,14 +107,18 @@ struct PublicKeys {
     // TODO(fcarreiro): solve with macro
     void msgpack(auto pack_fn)
     {
-        pack_fn("masterNullifierPublicKey",
-                nullifier_key,
-                "masterIncomingViewingPublicKey",
+        pack_fn("npkMHash",
+                nullifier_key_hash,
+                "ivpkM",
                 incoming_viewing_key,
-                "masterOutgoingViewingPublicKey",
-                outgoing_viewing_key,
-                "masterTaggingPublicKey",
-                tagging_key);
+                "ovpkMHash",
+                outgoing_viewing_key_hash,
+                "tpkMHash",
+                tagging_key_hash,
+                "mspkMHash",
+                message_signing_key_hash,
+                "fbpkMHash",
+                fallback_key_hash);
     }
 };
 
@@ -119,7 +128,8 @@ struct ContractInstance {
     ContractClassId current_contract_class_id = 0;
     ContractClassId original_contract_class_id = 0;
     FF initialization_hash = 0;
-    PublicKeys public_keys;
+    FF immutables_hash = 0;
+    PublicKeys public_keys{};
 
     bool operator==(const ContractInstance& other) const = default;
 
@@ -136,6 +146,8 @@ struct ContractInstance {
                 original_contract_class_id,
                 "initializationHash",
                 initialization_hash,
+                "immutablesHash",
+                immutables_hash,
                 "publicKeys",
                 public_keys);
     }
@@ -217,7 +229,7 @@ struct L2ToL1Message {
 
     bool operator==(const L2ToL1Message& other) const = default;
 
-    MSGPACK_FIELDS(recipient, content);
+    SERIALIZATION_FIELDS(recipient, content);
 };
 
 struct ScopedL2ToL1Message {
@@ -289,7 +301,7 @@ struct PublicLogs {
         return logs;
     }
 
-    MSGPACK_FIELDS(length, payload);
+    SERIALIZATION_FIELDS(length, payload);
 };
 
 struct PublicDataWrite {
@@ -392,7 +404,7 @@ struct ContractClassLogFields {
 
     bool operator==(const ContractClassLogFields& other) const = default;
 
-    MSGPACK_FIELDS(fields);
+    SERIALIZATION_FIELDS(fields);
 };
 
 struct ContractClassLog {
@@ -509,7 +521,7 @@ struct TreeState {
     uint32_t counter = 0;
 
     bool operator==(const TreeState& other) const = default;
-    MSGPACK_FIELDS(tree, counter);
+    SERIALIZATION_FIELDS(tree, counter);
 };
 
 struct TreeStates {

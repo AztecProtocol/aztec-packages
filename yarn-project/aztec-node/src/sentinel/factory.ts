@@ -1,10 +1,12 @@
 import type { EpochCache } from '@aztec/epoch-cache';
 import { createLogger } from '@aztec/foundation/log';
-import type { DataStoreConfig } from '@aztec/kv-store/config';
 import { createStore } from '@aztec/kv-store/lmdb-v2';
 import type { P2PClient } from '@aztec/p2p';
 import type { L2BlockSource } from '@aztec/stdlib/block';
-import type { SlasherConfig } from '@aztec/stdlib/interfaces/server';
+import type { CheckpointReexecutionTracker } from '@aztec/stdlib/checkpoint';
+import type { ChainConfig } from '@aztec/stdlib/config';
+import type { SlasherConfig, ValidatorClientConfig } from '@aztec/stdlib/interfaces/server';
+import type { DataStoreConfig } from '@aztec/stdlib/kv-store';
 
 import type { SentinelConfig } from './config.js';
 import { Sentinel } from './sentinel.js';
@@ -14,18 +16,31 @@ export async function createSentinel(
   epochCache: EpochCache,
   archiver: L2BlockSource,
   p2p: P2PClient,
-  config: SentinelConfig & DataStoreConfig & SlasherConfig,
+  reexecutionTracker: CheckpointReexecutionTracker,
+  config: SentinelConfig &
+    DataStoreConfig &
+    SlasherConfig &
+    Pick<ChainConfig, 'l1ChainId' | 'rollupAddress'> &
+    Pick<ValidatorClientConfig, 'disableValidator'>,
   logger = createLogger('node:sentinel'),
 ): Promise<Sentinel | undefined> {
-  if (!config.sentinelEnabled) {
+  const runsValidator = !config.disableValidator;
+  if (!runsValidator && !config.sentinelEnabled) {
+    logger.verbose('Sentinel is disabled');
     return undefined;
   }
+  if (runsValidator) {
+    logger.info('Enabling sentinel since this node runs a validator');
+  } else {
+    logger.info('Enabling sentinel from SENTINEL_ENABLED configuration');
+  }
+
   const kvStore = await createStore('sentinel', SentinelStore.SCHEMA_VERSION, config, logger.getBindings());
   const storeHistoryLength = config.sentinelHistoryLengthInEpochs * epochCache.getL1Constants().epochDuration;
-  const storeHistoricProvenPerformanceLength = config.sentinelHistoricProvenPerformanceLengthInEpochs;
+  const storeHistoricEpochPerformanceLength = config.sentinelHistoricEpochPerformanceLengthInEpochs;
   const sentinelStore = new SentinelStore(kvStore, {
     historyLength: storeHistoryLength,
-    historicProvenPerformanceLength: storeHistoricProvenPerformanceLength,
+    historicEpochPerformanceLength: storeHistoricEpochPerformanceLength,
   });
-  return new Sentinel(epochCache, archiver, p2p, sentinelStore, config, logger);
+  return new Sentinel(epochCache, archiver, p2p, sentinelStore, reexecutionTracker, config, logger);
 }

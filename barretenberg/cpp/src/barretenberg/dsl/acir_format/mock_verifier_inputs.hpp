@@ -47,17 +47,17 @@ bb::HonkProof create_mock_oink_proof(const size_t acir_public_inputs_size = 0);
 template <typename Flavor> bb::HonkProof create_mock_sumcheck_proof();
 
 /**
- * @brief Create a mock multilinear batching sumcheck proof that has the correct structure but is not in general valid
- *
+ * @brief Create a mock multilinear batching proof of the given width (number of batched claims) that has correct
+ * structure for that width but is not in general valid.
  */
-bb::HonkProof create_mock_multilinear_batch_proof();
+bb::HonkProof create_mock_multilinear_batch_proof(size_t num_claims);
 
 /**
- * @brief Create a mock Hypernova proof that has the correct structure but is not in general valid
+ * @brief Create a mock proof turning an instance into an Hypernova accumulator that has the correct structure but is
+ * not in general valid
  *
- * @param include_fold If true, the proof contains a mock multilinear batching sumcheck proof
  */
-template <typename Flavor, class PublicInputs> bb::HonkProof create_mock_hyper_nova_proof(bool include_fold = false);
+template <typename Flavor, class PublicInputs> bb::HonkProof create_mock_sumcheck_to_accumulator_proof();
 
 /**
  * @brief Create a mock PCS proof that has the correct structure but is not in general valid
@@ -83,7 +83,7 @@ bb::HonkProof create_mock_honk_proof(const size_t acir_public_inputs_size = 0);
  * @brief Create a mock AVM proof without public inputs that has the correct structure but is not in general valid
  *
  */
-bb::HonkProof create_mock_avm_proof_without_pub_inputs(const bool add_padding);
+bb::HonkProof create_mock_avm_proof_without_pub_inputs();
 
 /**
  * @brief Create a valid honk proof and vk for a circuit with a single big add gate. Adds random public inputs to
@@ -105,6 +105,12 @@ std::pair<bb::HonkProof, std::shared_ptr<typename Flavor::VerificationKey>> cons
 bb::Goblin::MergeProof create_mock_merge_proof();
 
 /**
+ * @brief Create a mock batch merge proof which has the correct structure but is not necessarily valid
+ *
+ */
+bb::HonkProof create_mock_batch_merge_proof();
+
+/**
  * @brief Create a mock pre-ipa proof which has the correct structure but is not necessarily valid
  *
  * @details An ECCVM proof is made of a pre-ipa proof and an ipa-proof. Here we mock the pre-ipa part.
@@ -124,6 +130,12 @@ bb::HonkProof create_mock_ipa_proof();
  *
  */
 bb::HonkProof create_mock_translator_proof();
+
+/**
+ * @brief Create a mock batched joint proof (Translator Oink + joint sumcheck + joint PCS).
+ * @details Matches the structure produced by BatchedHonkTranslatorProver::prove().
+ */
+bb::HonkProof create_mock_batched_joint_proof();
 
 /**
  * @brief Create a mock Chonk proof which has the correct structure but is not necessarily valid

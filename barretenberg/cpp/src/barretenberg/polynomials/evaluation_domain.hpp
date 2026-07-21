@@ -1,5 +1,5 @@
 // === AUDIT STATUS ===
-// internal:    { status: Planned, auditors: [], commit: }
+// internal:    { status: Complete, auditors: [Nishat], commit: 94f596f8b3bbbc216f9ad7dc33253256141156b2 }
 // external_1:  { status: not started, auditors: [], commit: }
 // external_2:  { status: not started, auditors: [], commit: }
 // =====================
@@ -27,12 +27,11 @@ template <typename FF> class EvaluationDomain {
         , domain_inverse(FF::zero())
         , generator(FF::zero())
         , generator_inverse(FF::zero())
-        , four_inverse(FF::zero())
         , roots(nullptr) {};
 
     EvaluationDomain(const size_t domain_size, const size_t target_generator_size = 0);
-    EvaluationDomain(const EvaluationDomain& other);
-    EvaluationDomain(EvaluationDomain&& other);
+    EvaluationDomain(const EvaluationDomain& other) = delete;
+    EvaluationDomain(EvaluationDomain&& other) = delete;
 
     EvaluationDomain& operator=(const EvaluationDomain&) = delete;
     EvaluationDomain& operator=(EvaluationDomain&&);
@@ -40,7 +39,6 @@ template <typename FF> class EvaluationDomain {
     ~EvaluationDomain();
 
     void compute_lookup_table();
-    void compute_generator_table(const size_t target_generator_size);
 
     const std::vector<FF*>& get_round_roots() const { return round_roots; };
     const std::vector<FF*>& get_inverse_round_roots() const { return inverse_round_roots; }
@@ -59,7 +57,6 @@ template <typename FF> class EvaluationDomain {
     FF domain_inverse; // n^{-1}
     FF generator;
     FF generator_inverse;
-    FF four_inverse;
 
   private:
     std::vector<FF*> round_roots; // An entry for each of the log(n) rounds: each entry is a pointer to

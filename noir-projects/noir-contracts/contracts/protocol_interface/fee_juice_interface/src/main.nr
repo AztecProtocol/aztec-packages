@@ -14,22 +14,14 @@ use aztec::macros::aztec;
 // where the macros generate the `FeeJuice` struct.
 #[aztec]
 pub contract FeeJuice {
-    use aztec::{
-        macros::functions::{external, nophasecheck, only_self, view},
-        protocol::address::AztecAddress,
-    };
+    use aztec::{macros::functions::{allow_phase_change, external, only_self, view}, protocol::address::AztecAddress};
 
     #[external("private")]
     fn claim(to: AztecAddress, amount: u128, secret: Field, message_leaf_index: Field) {}
 
     #[external("private")]
-    #[nophasecheck]
-    fn claim_and_end_setup(
-        to: AztecAddress,
-        amount: u128,
-        secret: Field,
-        message_leaf_index: Field,
-    ) {}
+    #[allow_phase_change]
+    fn claim_and_end_setup(to: AztecAddress, amount: u128, secret: Field, message_leaf_index: Field) {}
 
     #[external("public")]
     #[only_self]

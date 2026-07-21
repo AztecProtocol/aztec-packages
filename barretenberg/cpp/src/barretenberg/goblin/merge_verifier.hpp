@@ -16,8 +16,10 @@
 namespace bb {
 
 /**
- * @brief Unified verifier class for the Goblin ECC op queue transcript merge protocol
- * @details Works for both native verification and recursive (in-circuit) verification
+ * @brief Verifier for the single-step Goblin ECC op queue merge protocol.
+ * @details Works for both native verification and recursive (in-circuit) verification. In the Chonk flow this
+ * verifier is used only for the final merge of the hiding kernel's subtable; the multi-subtable batched merge
+ * proven once at the end of an IVC is handled by BatchMergeVerifier_.
  * @tparam Curve The curve type (native curve::BN254 or stdlib bn254<Builder>)
  */
 template <typename Curve> class MergeVerifier_ {
@@ -43,9 +45,15 @@ template <typename Curve> class MergeVerifier_ {
 
     /**
      * Commitments used by the verifier to run the verification algorithm. They contain:
-     *  - `t_commitments`: the subtable commitments data, containing the commitments to t_j read from the transcript by
-     *     the HN verifier with which the Merge verifier shares a transcript
-     *  - `T_prev_commitments`: the commitments to the full op_queue table after the previous iteration of merge
+     *  - `t_commitments`: commitments to the subtable being merged (t_j), read from the transcript by the HN
+     *     verifier with which the Merge verifier shares a transcript
+     *  - `T_prev_commitments`: commitments to the aggregate op_queue table prior to this merge (i.e. covering all
+     *     subtables up to and including the tail subtable, but excluding the one currently being appended)
+     *
+     * The Merge verifier receives these commitments from its caller rather than from the merge proof. Callers must
+     * ensure they are already bound to the shared Fiat-Shamir transcript before Merge samples its challenges. Chonk
+     * satisfies this by running MegaZK Oink first on the same transcript: `t_commitments` are the ecc-op wire
+     * commitments read by Oink, and `T_prev_commitments` are reconstructed from public inputs read by Oink.
      */
     struct InputCommitments {
         TableCommitments t_commitments;
@@ -63,13 +71,10 @@ template <typename Curve> class MergeVerifier_ {
         bool reduction_succeeded = false; // Aggregate of degree and concatenation checks
     };
 
-    MergeSettings settings;
     std::shared_ptr<Transcript> transcript;
 
-    explicit MergeVerifier_(const MergeSettings settings = MergeSettings::PREPEND,
-                            std::shared_ptr<Transcript> transcript = std::make_shared<Transcript>())
-        : settings(settings)
-        , transcript(std::move(transcript))
+    explicit MergeVerifier_(std::shared_ptr<Transcript> transcript = std::make_shared<Transcript>())
+        : transcript(std::move(transcript))
     {}
 
     /**
@@ -110,7 +115,7 @@ template <typename Curve> class MergeVerifier_ {
 
     bool check_concatenation_identities(std::vector<FF>& evals, const FF& pow_kappa) const;
 
-    bool check_degree_identity(std::vector<FF>& evals,
+    bool check_degree_identity(const std::vector<FF>& evals,
                                const FF& pow_kappa_minus_one,
                                const std::vector<FF>& degree_check_challenges) const;
 

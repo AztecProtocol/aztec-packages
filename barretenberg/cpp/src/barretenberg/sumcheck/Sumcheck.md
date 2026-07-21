@@ -10,20 +10,20 @@ The implementation varies depending on the `Flavor` provided as a template param
 This is a fairly standard implementation of the sumcheck protocol utilizing a __book-keeping table__.
 
 The protocol proves/verifies the correctness of a claim
-$\sum_{X\in\{0,1\}^d}\tilde{F} = 0$, where $$\tilde{F}(X) = \textsf{pow}_{\beta}(X_0,\dots,X_{d-1}) F(P_1(X), \dots, P_N(X)) = 0$$
+$\sum_{X\in\lbrace 0,1\rbrace^d}\tilde{F} = 0$, where $$\tilde{F}(X) = \textsf{pow}_{\beta}(X_0,\dots,X_{d-1}) F(P_1(X), \dots, P_N(X)) = 0$$
 
 to prove that $F(P_1(X),\dots,P_N(X)) = 0$ on points on the hypercube.
 Couple things to note:
 1. $P_i$'s are multilinear polynomials
-2. for $\beta = (\beta_0,\dots, \beta_{d-1})$, $\textsf{pow}_\beta(X)$ is a multilinear polynomial with evaluation $\Pi_{i\in [d]} \beta_i^{X_i}$ for any $X$ on the hypercube.
+2. for $\beta = (\beta_0,\dots, \beta_{d-1})$, $\textsf{pow}(\beta)(X)$ is a multilinear polynomial with evaluation $\Pi_{i\in [d]} \beta_i^{X_i}$ for any $X$ on the hypercube.
 
-> note: for all flavors other than `MultiLinearBatchingFlavor` we set the vector $\beta$ to be $(\beta, \beta^2, \dots, \beta^{2^{d}})$. Hence, the evaluation at the $i^{th}$ hypercube edge (i.e. $bin(i)$), is $\beta^i$.
+> note: for all flavors other than `MultilinearBatchingFlavor` we set the vector $\beta$ to be $(\beta, \beta^2, \dots, \beta^{2^{d}})$. Hence, the evaluation at the $i^{th}$ hypercube edge (i.e. $bin(i)$), is $\beta^i$.
 
 ### `SumcheckProver::prove()`
 This is the typical sumcheck proving algorithm.
-At each round the prover computes a round univariate $$S^i(X_i) = \sum_{\ell\in \{0,1\}^d}F(u_0,\dots,u_{i-1},X_i, \ell_{i+1},\dots,\ell_{d-1})$$
+At each round the prover computes a round univariate $$S^i(X_i) = \sum_{\ell\in \lbrace 0,1\rbrace^d}F(u_0,\dots,u_{i-1},X_i, \ell_{i+1},\dots,\ell_{d-1})$$
 
-The important observation is that since $P_i$'s are multilinear polynomials, we have the following equality for $\ell \in \{0,1\}^{d-k-1}$:
+The important observation is that since $P_i$'s are multilinear polynomials, we have the following equality for $\ell \in \lbrace 0,1\rbrace^{d-k-1}$:
 $$\begin{align}P_i(u_0,\dots, u_{k-1}, u_k, \ell)=&\\  &u_k\cdot P_i(u_0,\dots,u_{k-1},1,\ell) \\+ &(1-u_k)\cdot P_i(u_0,\dots,u_{k-1},0,\ell)\end{align}$$
 
 Hence, at round $i$ the prover will keep a __book-keeping table__ of evaluations $P_j(u_0,\dots,u_{i-1},\ell)$ for $\ell$ on the hypercube. In the code these are referred to as `partially_evaluated_polynomials`. The next book-keeping table (for round $i+1$) which has half the size of the one from round $i$, is computed using the equation above.
@@ -107,22 +107,22 @@ One important detail is how the round univariates (and the row disabling polynom
 
 To compute the round univariate first we would need to compute the corresponding univariates $P_j\left(u_0,\ldots, u_{i-1}, X_{i} , \vec \ell \right)$, for all prover multilinear polynomials $P_j$, over all $\vec \ell$ on the boolean hypercube.
 
-Note that, $P_j\left(u_0,\ldots, u_{i-1}, X_{i} , \vec \ell \right)$ is already computed for $X_i \in \{0,1\}$ in `PartiallyEvalutedPolynomials` book keeping table. To be able to compute evaluations of this univariate on an arbitrary point $X_i$ we should extend the evaluation table to the max individual degree of the relations in each variable. This is referred to as `MAX_PARTIAL_RELATION_LENGTH` and is specified by the `Flavor`.
+Note that, $P_j\left(u_0,\ldots, u_{i-1}, X_{i} , \vec \ell \right)$ is already computed for $X_i \in \lbrace 0,1\rbrace$ in `PartiallyEvalutedPolynomials` book keeping table. To be able to compute evaluations of this univariate on an arbitrary point $X_i$ we should extend the evaluation table to the max individual degree of the relations in each variable. This is referred to as `MAX_PARTIAL_RELATION_LENGTH` and is specified by the `Flavor`.
 
 This extension is done via the `extend_edges` method. This method uses a barycentric evaluation type algorithm (with specific optimizations for univariates of low degrees).
 
 Computing the final round univariate, from the evaluations of the individual multilinear polynomials is done via the `batch_over_relations` method, which as the name suggests batches the univariate contributions of each multilinear to obtain the final univariate.
 
-The contribution of the `RowDisablingPoly` to the round univariate is done quite similarly using the equalities given in the previous section and can be found in `compute_disabled_contribution` method of the `SumcheckProverRound` method.
+The contribution of the `RowDisablingPoly` to the round univariate is done quite similarly using the equalities given in the previous section and can be found in the `compute_offset_area_contribution` method of `SumcheckProverRound`. The same method also applies the dual `L` factor to any relation tagged `IS_OFFSET_ONLY` (see `IsOffsetOnlyRelation`), which is how boundary constraints on the offset rows 0..3 are enforced.
 
 
 
 ### Libra
 Now that we have covered removing the contribution of masking randomness in the witness polynomials we move to describing zero-knowledge variant of the sumcheck IOP itself. The approach we take is from [Libra](https://eprint.iacr.org/2019/317.pdf).
 
-The main idea is that for a sumcheck claim $\sum_{x\in\{0,1\}^d} F(x) = 0$ we pick a multivariate polynomial $G(x_0,\dots,x_{d-1})$ and a random challenge $\rho$ and perform a sumcheck protocol for the claim $$\sum_{x\in\{0,1\}^d} (F(x) + \rho G(x)) = \rho\cdot \sum_{x\in\{0,1\}^d} G(x)$$
+The main idea is that for a sumcheck claim $\sum_{x\in\lbrace 0,1\rbrace^d} F(x) = 0$ we pick a multivariate polynomial $G(x_0,\dots,x_{d-1})$ and a random challenge $\rho$ and perform a sumcheck protocol for the claim $$\sum_{x\in\lbrace 0,1\rbrace^d} (F(x) + \rho G(x)) = \rho\cdot \sum_{x\in\lbrace 0,1\rbrace^d} G(x)$$
 
-In the code, we refer to $\rho$ as `libra_challenge` and $\sum_{x\in\{0,1\}^d} G(x)$ as `libra_total_sum`.
+In the code, we refer to $\rho$ as `libra_challenge` and $\sum_{x\in\lbrace 0,1\rbrace^d} G(x)$ as `libra_total_sum`.
 
 The main contribution of Libra is that $G$ can have a very specific structure of form:
 $$\begin{align}
@@ -153,7 +153,7 @@ S_{F,i}' &= S_{F,i} + \rho \times 2^{d-i-1}[a_0+g_0(u_0) + \dots + g_{i-1}(u_{i-
 
 Now let us separate this poly into different chunks.
 - let's call $2^{d-i-1}(a_0 + g_0(u_0)+ \dots+ g_{{i-1}}(u_{i-1}))$ as $2^{d-i-1} \textsf{prefix-sum}_i$
-- and $2^{d-i-1}\cdot\sum_{i+1}^{d-1}\left(g_j(0)+g_j(1)\right)/2$ as $\textsf{suffix\_sum}_i$
+- and $2^{d-i-1}\cdot\sum_{i+1}^{d-1}\left(g_j(0)+g_j(1)\right)/2$ as $\textsf{suffix sum}_i$
 
 Now let us see, how these values should be updated when a new challenge $u_{i+1}$ is received. We have the following two equalities:
 $$\begin{align}
@@ -200,7 +200,7 @@ Now we describe the sumcheck verifier algorithm. In our codebase, we differentia
 
 Here's how the verification algorithm goes for all flavors other than `ECCVMFlavor`
 1. The verifier instantiates a `VerifierZKCorrectionHandler`. This struct is in charge of applying the correction required in the zero-knowledge case.
-2. The verifier initializes the `target_sum` by adding $\rho\cdot \sum_{x_i\in\{0,1\}} H(x_0,\dots,x_{d-1})$ to the target sum of the round object.
+2. The verifier initializes the `target_sum` by adding $\rho\cdot \sum_{x_i\in\lbrace 0,1\rbrace} H(x_0,\dots,x_{d-1})$ to the target sum of the round object.
 3. For $i \in [d]$, the verifier calls the `process_round` method of the `SumcheckVerifierRound` class which does:
     - recovers the `round_univariate` from the transcript
     - checks that `round_univariate.eval(0) + round_univariate.eval(1) = target_sum`
@@ -222,12 +222,12 @@ The list of `[(round_uni_commitment, round_uni_expected_eval)]` gets batched and
 
 # Virtual Rounds and Padding in Sumcheck
 
-Finally we describe the virtual rounds mechanism and padding indicator array used to support circuits of varying sizes while maintaining constant proof size and constant recursive verifier circuits.
+Finally we describe the virtual rounds mechanism used to support circuits of varying sizes while maintaining constant proof size and constant recursive verifier circuits.
 
 This is specifically important for recursive proving, since the inner verifier circuit must have a fixed size. However, circuits being verified may have different sizes (different values of `log_n`). To handle this:
 
 1. **Fixed proof size**: All proofs are padded to a maximum size `virtual_log_n` (defined by `CONST_PROOF_SIZE_LOG_N`).
-2. **Constant verifier circuit**: The recursive verifier always processes `virtual_log_n` rounds, using padding indicators to conditionally skip verification logic for padded rounds.
+2. **Constant verifier circuit**: The recursive verifier always processes `virtual_log_n` rounds uniformly.
 
 ## Virtual Rounds
 
@@ -244,7 +244,7 @@ The rounds are categorized as:
 #### Non-ZK Flavors
 For virtual rounds, the prover computes the round univariate by treating all polynomials as extended by zero:
 
-$$P_i(X_0, \ldots, X_{d-1}) \to P_i(X_0, \ldots, X_{d-1}) \cdot \tau(X_d, \ldots, X_{\text{virtual\_log\_n} - 1})$$
+$$P_i(X_0, \ldots, X_{d-1}) \to P_i(X_0, \ldots, X_{d-1}) \cdot \tau(X_d, \ldots, X_{\text{virtual log n} - 1})$$
 
 where $\tau(X_d, \ldots, X_k) = \prod_{j=d}^{k} (1 - X_j)$ is the indicator polynomial that is 1 only on the real rounds range.
 
@@ -264,44 +264,4 @@ The prover still generates challenges for these rounds to maintain transcript co
 
 ### Verifier Behavior
 
-The verifier processes all `virtual_log_n` rounds uniformly but uses the **padding indicator array** to conditionally apply verification logic.
-
-## Padding Indicator Array
-The padding indicator array is computed on the verifier side, to disable the contributions of the `virtual_rounds`.
-
-### Definition
-
-The padding indicator array is a vector of size `virtual_log_n` where:
-
-$$\text{padding\_indicator\_array}[i] = \begin{cases} 1 & \text{if } i < \text{multivariate\_d} \text{ (real round)} \\ 0 & \text{if } i \geq \text{multivariate\_d} \text{ (padding round)} \end{cases}$$
-
-### Native vs Recursive Computation
-
-**Native verification**: The array is computed trivially:
-```cpp
-std::vector<FF> padding_indicator_array(virtual_log_n, 1);
-for (size_t idx = multivariate_d; idx < virtual_log_n; idx++) {
-    padding_indicator_array[idx] = FF{ 0 };
-}
-```
-
-**Recursive verification**: The array is computed in-circuit using Lagrange interpolation to ensure constant gate count regardless of the actual `log_n` value. This is implemented in `compute_padding_indicator_array`.
-
-The in-circuit computation:
-1. Constrains `log_n` to be in range $[1, \text{virtual\_log\_n}]$
-2. Evaluates Lagrange polynomials $L_i(\text{log\_n} - 1)$
-3. Computes step functions: $b_i = \sum_{j=i}^{N-1} L_j(\text{log\_n} - 1)$
-
-### Usage in Verification
-
-The padding indicator is used to conditionally apply sumcheck verification logic. The following checks are only applied if `padding_indicator_array[i] = 1`
-
-1. **`check_sum`**: Verifying $S^{i-1}(u_{i-1}) = S^i(0) + S^i(1)$ .
-2. **`compute_next_target_sum`**: Updating target sum
-3. **`gate_separators.partially_evaluate`**: updating gate separator polynomial.
-4. **`RowDisablingPolynomial::evaluate_at_challenge`**: applying ZK correction.
-
-
-## ECCVM/Grumpkin Note
-
-For Grumpkin-based flavors (ECCVM), the padding indicator is **not used** in round processing. Instead, all consistency checks are deferred to the polynomial commitment scheme (Shplemini), which batches and verifies all round univariate commitments together.
+The verifier processes all `virtual_log_n` rounds uniformly — all rounds apply `check_sum`, `compute_next_target_sum`, and `gate_separators.partially_evaluate` unconditionally.

@@ -7,7 +7,12 @@ namespace bb::avm2::simulation {
 
 namespace {
 
-LimbsComparisonWitness limb_gt_witness(const U256Decomposition& a, const U256Decomposition& b, bool allow_eq)
+// Unconstrained. Gives witness values for a > b (or a >= b if allow_eq is true).
+// The approach is that to prove that two range-constrained numbers x, y (e.g., to 20 bits each) are such that x > y,
+// you prove that x - y - 1 does not underflow. That is, you prove that x - y - 1 still fits in 20 bits.
+// So, your witness value (for a later range check) will be x - y - 1, for each pair of limbs.
+// The >= case is handled with a borrow flag.
+LimbsComparisonWitness limb_gt_or_gte_witness_(const U256Decomposition& a, const U256Decomposition& b, bool allow_eq)
 {
     bool borrow = allow_eq ? (a.lo < b.lo) : (a.lo <= b.lo);
     // No need to add borrow * TWO_POW_128 since uint128_t will wrap in the way we need
@@ -16,14 +21,33 @@ LimbsComparisonWitness limb_gt_witness(const U256Decomposition& a, const U256Dec
     return { x_lo, x_hi, borrow };
 }
 
+// Unconstrained.
+inline LimbsComparisonWitness limb_gt_witness(const U256Decomposition& a, const U256Decomposition& b)
+{
+    return limb_gt_or_gte_witness_(a, b, false);
+}
+
+// Unconstrained.
+inline LimbsComparisonWitness limb_gte_witness(const U256Decomposition& a, const U256Decomposition& b)
+{
+    return limb_gt_or_gte_witness_(a, b, true);
+}
+
+/**
+ * @brief Constrains that the limbs are 128-bit and that, when recombined, they are strictly less than the modulus.
+ *
+ * @param x_limbs The decomposition of the field element into 128-bit limbs.
+ * @param range_check The range check to be used for asserting limb bit sizes.
+ * @return LimbsComparisonWitness Witness values for the constraint check (modulus_limbs - x_limbs).
+ */
 LimbsComparisonWitness canonical_decomposition(const U256Decomposition& x_limbs, RangeCheckInterface& range_check)
 {
-    static auto p_limbs = decompose_256(FF::modulus);
-
     range_check.assert_range(x_limbs.lo, 128);
     range_check.assert_range(x_limbs.hi, 128);
 
-    auto p_sub_x_witness = limb_gt_witness(p_limbs, x_limbs, false);
+    static U256Decomposition p_limbs = decompose_256(FF::modulus);
+    const LimbsComparisonWitness p_sub_x_witness = limb_gt_witness(p_limbs, x_limbs);
+
     range_check.assert_range(p_sub_x_witness.lo, 128);
     range_check.assert_range(p_sub_x_witness.hi, 128);
 
@@ -32,20 +56,31 @@ LimbsComparisonWitness canonical_decomposition(const U256Decomposition& x_limbs,
 
 } // namespace
 
+/**
+ * @brief Computes the result of a > b (in a constrained way).
+ *
+ * @param a The first field element.
+ * @param b The second field element.
+ * @return bool True if a > b, false otherwise.
+ */
 bool FieldGreaterThan::ff_gt(const FF& a, const FF& b)
 {
     const uint256_t a_integer(a);
     const uint256_t b_integer(b);
-    const auto a_limbs = decompose_256(a_integer);
-    const auto b_limbs = decompose_256(b_integer);
 
-    const auto p_sub_a_witness = canonical_decomposition(a_limbs, range_check);
-    const auto p_sub_b_witness = canonical_decomposition(b_limbs, range_check);
+    // This result would be enough for fast simulation, but we need to do a lot more for the circuit.
+    const bool result_a_gt_b = a_integer > b_integer;
 
-    const bool result = a_integer > b_integer;
+    const U256Decomposition a_limbs = decompose_256(a_integer);
+    const U256Decomposition b_limbs = decompose_256(b_integer);
 
-    const auto res_witness =
-        result ? limb_gt_witness(a_limbs, b_limbs, false) : limb_gt_witness(b_limbs, a_limbs, true);
+    // These decompositions are constrained.
+    const LimbsComparisonWitness p_sub_a_witness = canonical_decomposition(a_limbs, range_check);
+    const LimbsComparisonWitness p_sub_b_witness = canonical_decomposition(b_limbs, range_check);
+
+    // We will either be proving that a > b or that b >= a.
+    const LimbsComparisonWitness res_witness =
+        result_a_gt_b ? limb_gt_witness(a_limbs, b_limbs) : limb_gte_witness(b_limbs, a_limbs);
     range_check.assert_range(res_witness.lo, 128);
     range_check.assert_range(res_witness.hi, 128);
 
@@ -58,15 +93,22 @@ bool FieldGreaterThan::ff_gt(const FF& a, const FF& b)
         .b_limbs = b_limbs,
         .p_sub_b_witness = p_sub_b_witness,
         .res_witness = res_witness,
-        .gt_result = result,
+        .gt_result = result_a_gt_b,
     });
-    return result;
+
+    return result_a_gt_b;
 }
 
+/**
+ * @brief Decomposes the provided field element into 128-bit limbs (in a constrained way).
+ *
+ * @param a The field element to be decomposed.
+ * @return U256Decomposition The decomposition of the field element into 128-bit limbs.
+ */
 U256Decomposition FieldGreaterThan::canon_dec(const FF& a)
 {
-    const auto a_limbs = decompose_256(static_cast<uint256_t>(a));
-    const auto p_sub_a_witness = canonical_decomposition(a_limbs, range_check);
+    const U256Decomposition a_limbs = decompose_256(static_cast<uint256_t>(a));
+    const LimbsComparisonWitness p_sub_a_witness = canonical_decomposition(a_limbs, range_check);
 
     events.emit({
         .operation = FieldGreaterOperation::CANONICAL_DECOMPOSITION,

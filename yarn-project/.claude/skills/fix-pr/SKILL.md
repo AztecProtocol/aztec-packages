@@ -16,6 +16,17 @@ Autonomous workflow to fix CI failures for a PR. Delegates failure identificatio
 
 ## Workflow
 
+### Phase 0: Validate PR
+
+Before doing anything, verify the PR is valid:
+
+```bash
+gh pr view <PR> --repo AztecProtocol/aztec-packages --json state,baseRefName,headRefName
+```
+
+**Abort if:**
+- `state` is not `OPEN` → "PR #\<N> is \<state>, nothing to fix."
+
 ### Phase 1: Identify Failures
 
 Spawn the `identify-ci-failures` subagent:
@@ -37,20 +48,14 @@ This returns:
 ### Phase 2: Checkout and Rebase
 
 ```bash
-# Get PR info
-gh pr view <PR> --repo AztecProtocol/aztec-packages --json headRefName,baseRefName
-
-# Checkout PR
 gh pr checkout <PR>
-
-# Rebase on base branch
 git fetch origin <base-branch>
 git rebase origin/<base-branch>
 ```
 
 If there are conflicts:
 1. Resolve the conflicts
-2. `git add .`
+2. `git add <resolved-files>`
 3. `git rebase --continue`
 
 **Important**: Always REBASE, never merge.
@@ -64,7 +69,7 @@ git diff origin/<base-branch>...HEAD --name-only | grep -v '^yarn-project/'
 
 If yes, run bootstrap:
 ```bash
-(cd $(git rev-parse --show-toplevel) && BOOTSTRAP_TO=yarn-project ./bootstrap.sh)
+(cd $(git rev-parse --show-toplevel) && ./bootstrap.sh build yarn-project)
 ```
 
 ### Phase 4: Fix Based on Failure Type
@@ -73,56 +78,20 @@ Run from `yarn-project` directory.
 
 | Failure Type | Fix Action |
 |-------------|------------|
-| **FORMAT** | `yarn format <package-name>` |
+| **FORMAT** | `yarn format` |
 | **LINT** | `yarn lint` |
 | **BUILD** | `yarn build`, fix TypeScript errors, repeat |
 | **UNIT TEST** | `yarn workspace @aztec/<package> test <file>`, fix, repeat |
 | **E2E TEST** | For simple failures, fix. For complex failures, suggest `/debug-e2e` |
-
-#### Format Errors
-```bash
-yarn format
-```
-
-#### Lint Errors
-```bash
-yarn lint
-```
-
-#### Build Errors
-```bash
-yarn build
-# Fix errors shown
-yarn build  # Repeat until clean
-```
-
-#### Unit Test Errors
-```bash
-yarn workspace @aztec/<package> test <file>.test.ts
-# Fix errors
-yarn workspace @aztec/<package> test <file>.test.ts  # Repeat until passing
-```
-
-#### E2E Test Errors
-
-For simple failures (obvious assertion fix):
-```bash
-yarn workspace @aztec/end-to-end test:e2e <file>.test.ts -t '<test name>'
-# Fix and repeat
-```
-
-For complex failures (flaky, timeout, unclear cause):
-- Inform the user that this needs deeper investigation
-- Suggest using `/debug-e2e` skill instead
 
 ### Phase 5: Quality Checklist
 
 Before committing, run from `yarn-project`:
 
 ```bash
-yarn build                              # Ensure it compiles
-yarn format                             # Format modified packages
-yarn lint                               # Lint (same as CI)
+yarn build
+yarn format
+yarn lint
 ```
 
 Run tests for modified files:
@@ -130,7 +99,9 @@ Run tests for modified files:
 yarn workspace @aztec/<package> test <file>.test.ts
 ```
 
-### Phase 6: Amend and Push
+### Phase 6: Commit and Push
+
+If the PR targets `next`, amend to keep it as a single commit:
 
 ```bash
 git add .
@@ -138,11 +109,20 @@ git commit --amend --no-edit
 git push --force-with-lease
 ```
 
+Otherwise, create a normal commit:
+
+```bash
+git add .
+git commit -m "fix: <description of fix>"
+git push
+```
+
 ## Key Points
 
+- **Validate first**: Only fix PRs that are open
 - **Delegate identification**: Use `identify-ci-failures` subagent, don't analyze logs directly
 - **Rebase, don't merge**: Always rebase on the base branch
-- **Amend, don't create new commits**: PRs should be single commits
+- **Amend only for PRs targeting `next`**: Other PRs use normal commits
 - **Bootstrap when needed**: Only if changes outside yarn-project
 - **Escalate e2e failures**: Complex e2e issues need `/debug-e2e`
 

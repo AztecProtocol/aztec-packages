@@ -1,527 +1,190 @@
-import { AVM_MAX_PROCESSABLE_L2_GAS } from '@aztec/constants';
-import { Fr } from '@aztec/foundation/curves/bn254';
 import { type Logger, type LoggerBindings, createLogger } from '@aztec/foundation/log';
-import { ProtocolContractAddress, ProtocolContractsList } from '@aztec/protocol-contracts';
-import { computeFeePayerBalanceStorageSlot } from '@aztec/protocol-contracts/fee-juice';
-import { AvmExecutionHints, AvmTxHint, PublicSimulatorConfig, PublicTxEffect, PublicTxResult } from '@aztec/stdlib/avm';
+import { sleep } from '@aztec/foundation/sleep';
+import {
+  AvmFastSimulationInputs,
+  AvmTxHint,
+  type PublicSimulatorConfig,
+  PublicTxResult,
+  deserializeFromMessagePack,
+} from '@aztec/stdlib/avm';
 import { SimulationError } from '@aztec/stdlib/errors';
-import { Gas } from '@aztec/stdlib/gas';
-import type { MerkleTreeWriteOperations } from '@aztec/stdlib/trees';
-import {
-  type GlobalVariables,
-  NestedProcessReturnValues,
-  ProtocolContracts,
-  PublicCallRequestWithCalldata,
-  Tx,
-  TxExecutionPhase,
-} from '@aztec/stdlib/tx';
+import type { GlobalVariables, Tx } from '@aztec/stdlib/tx';
+import { WorldStateRevision } from '@aztec/stdlib/world-state';
+import { type TelemetryClient, type Tracer, getTelemetryClient } from '@aztec/telemetry-client';
 
-import { strict as assert } from 'assert';
-
-import type { AvmFinalizedCallResult } from '../avm/avm_contract_call_result.js';
-import { CallDataArray } from '../avm/calldata.js';
-import { AvmSimulator } from '../avm/index.js';
-import { getPublicFunctionDebugName } from '../debug_fn_name.js';
-import { HintingMerkleWriteOperations, HintingPublicContractsDB } from '../hinting_db_sources.js';
-import { type PublicContractsDB, PublicTreesDB } from '../public_db_sources.js';
-import {
-  L2ToL1MessageLimitReachedError,
-  NoteHashLimitReachedError,
-  NullifierCollisionError,
-  NullifierLimitReachedError,
-} from '../side_effect_errors.js';
-import type { PublicPersistableStateManager } from '../state_manager/state_manager.js';
-import { PublicTxContext } from './public_tx_context.js';
-import type { PublicTxSimulatorInterface } from './public_tx_simulator_interface.js';
-
-// The errors below are only thrown here in the public tx simulator,
-// and only during revertible phases (revertible insertions, app logic and teardown).
-// These are strictly "checked" errors (not exported and never propagated).
-// They are used internally for control flow to trigger rollbacks to the post-setup state.
+import type { AvmContractsDBContext, AvmSimulator } from '../avm_simulator.js';
+import { ExecutorMetrics } from '../executor_metrics.js';
+import type { ExecutorMetricsInterface } from '../executor_metrics_interface.js';
+import type { PublicContractsDB } from '../public_db_sources.js';
+import { PublicTxSimulatorBase } from './public_tx_simulator_base.js';
+import type {
+  MeasuredPublicTxSimulatorInterface,
+  PublicTxSimulatorInterface,
+} from './public_tx_simulator_interface.js';
 
 /**
- * Error thrown when public tx simulation reverts in a known/checked way during revertible insertions.
+ * Simulates a transaction's public portion by running its public calls through an {@link AvmSimulator}.
+ * `forkId` selects the fork whose contract data the simulation reads.
  */
-class TxSimRevertibleInsertionsRevert extends Error {
-  constructor() {
-    super('Public Tx Simulation reverted during Revertible Insertions');
-    this.name = 'TxSimRevertibleInsertionsRevert';
-  }
-}
-
-/**
- * Error thrown when public tx simulation reverts during app logic.
- */
-class TxSimAppLogicRevert extends Error {
-  constructor() {
-    super('Public Tx Simulation reverted during App Logic');
-    this.name = 'TxSimAppLogicRevert';
-  }
-}
-
-/**
- * Error thrown when public tx simulation reverts during teardown.
- */
-class TxSimTeardownRevert extends Error {
-  constructor() {
-    super('Public Tx Simulation reverted during Teardown');
-    this.name = 'TxSimTeardownRevert';
-  }
-}
-
-/** Only used internally. */
-type ProcessedPhase = {
-  phase: TxExecutionPhase;
-  durationMs?: number;
-  returnValues: NestedProcessReturnValues[];
-  reverted: boolean;
-  revertReason?: SimulationError;
-};
-
-export class PublicTxSimulator implements PublicTxSimulatorInterface {
-  protected log: Logger;
-  protected readonly config: PublicSimulatorConfig;
-  protected readonly bindings?: LoggerBindings;
+export class PublicTxSimulator extends PublicTxSimulatorBase implements PublicTxSimulatorInterface {
+  protected override log: Logger;
+  /** Aborts the in-flight simulation. */
+  private abortController?: AbortController;
+  /** Current simulation promise, used to wait for completion after cancellation. */
+  private simulationPromise?: Promise<PublicTxResult>;
 
   constructor(
-    protected merkleTree: MerkleTreeWriteOperations,
-    protected contractsDB: PublicContractsDB,
-    protected globalVariables: GlobalVariables,
+    avmSimulator: AvmSimulator,
+    globalVariables: GlobalVariables,
+    contractsDB: PublicContractsDB,
+    forkId: number,
     config?: Partial<PublicSimulatorConfig>,
-    protected protocolContracts: ProtocolContracts = ProtocolContractsList,
     bindings?: LoggerBindings,
   ) {
-    this.config = PublicSimulatorConfig.from(config ?? {});
-    this.bindings = bindings;
+    super(avmSimulator, globalVariables, contractsDB, forkId, config, undefined, bindings);
     this.log = createLogger(`simulator:public_tx_simulator`, bindings);
   }
 
   /**
-   * Simulate a transaction's public portion including all of its phases.
+   * Simulate a transaction's public portion.
+   *
    * @param tx - The transaction to simulate.
    * @returns The result of the transaction's public execution.
    */
   public async simulate(tx: Tx): Promise<PublicTxResult> {
+    this.abortController = new AbortController();
+    this.simulationPromise = this.doSimulate(tx, this.abortController.signal);
+    try {
+      return await this.simulationPromise;
+    } finally {
+      this.abortController = undefined;
+      this.simulationPromise = undefined;
+    }
+  }
+
+  protected async doSimulate(tx: Tx, signal: AbortSignal): Promise<PublicTxResult> {
     const txHash = this.computeTxHash(tx);
-    this.log.debug(`Simulating ${tx.publicFunctionCalldata.length} public calls for tx ${txHash}`, { txHash });
-
-    // Create hinting DBs.
-    const hints = new AvmExecutionHints(
-      this.globalVariables,
-      AvmTxHint.fromTx(tx, this.globalVariables.gasFees),
-      this.protocolContracts,
-    );
-    const hintingMerkleTree = await HintingMerkleWriteOperations.create(this.merkleTree, hints);
-    const hintingTreesDB = new PublicTreesDB(hintingMerkleTree);
-    const hintingContractsDB = new HintingPublicContractsDB(this.contractsDB, hints);
-
-    const context = await PublicTxContext.create(
-      hintingTreesDB,
-      hintingContractsDB,
-      tx,
-      this.globalVariables,
-      this.protocolContracts,
-      this.config.proverId,
-      this.bindings,
-    );
-
-    // This will throw if there is a nullifier collision.
-    // In that case the transaction will be thrown out.
-    await this.insertNonRevertiblesFromPrivate(context);
-
-    const processedPhases: ProcessedPhase[] = [];
-    if (context.hasPhase(TxExecutionPhase.SETUP)) {
-      // This will throw if the setup phase reverts.
-      // In that case the transaction will be thrown out.
-      const setupResult = await this.simulatePhase(TxExecutionPhase.SETUP, context);
-      if (setupResult.reverted) {
-        throw new Error(
-          `[SETUP] UNRECOVERABLE ERROR! The transaction will be thrown out. ${setupResult.revertReason?.message}`,
-        );
-      }
-      processedPhases.push(setupResult);
-    }
-
-    // The checkpoint we should go back to if anything from now on reverts.
-    await context.state.fork();
-    hintingContractsDB.createCheckpoint();
-
-    try {
-      // This will throw if there is a nullifier collision or other insertion error (limit reached).
-      await this.insertRevertiblesFromPrivate(context);
-
-      // Only proceed with app logic if there was no revert during revertible insertion.
-      if (context.hasPhase(TxExecutionPhase.APP_LOGIC)) {
-        const appLogicResult = await this.simulatePhase(TxExecutionPhase.APP_LOGIC, context);
-        processedPhases.push(appLogicResult);
-        if (appLogicResult.reverted) {
-          throw new TxSimAppLogicRevert();
-        }
-      }
-    } catch (e: any) {
-      if (e instanceof TxSimRevertibleInsertionsRevert || e instanceof TxSimAppLogicRevert) {
-        // We revert to the post-setup state.
-        await context.state.discardForkedState();
-        hintingContractsDB.revertCheckpoint();
-        // But we also create a new fork so that the teardown phase can transparently
-        // commit or rollback at the end of teardown.
-        await context.state.fork();
-        hintingContractsDB.createCheckpoint();
-      } else {
-        // Unchecked/unknown error - re-throw as-is
-        throw e;
-      }
-    }
-
-    try {
-      if (context.hasPhase(TxExecutionPhase.TEARDOWN)) {
-        const teardownResult = await this.simulatePhase(TxExecutionPhase.TEARDOWN, context);
-        processedPhases.push(teardownResult);
-        if (teardownResult.reverted) {
-          throw new TxSimTeardownRevert();
-        }
-      }
-      // We commit the forked state and we are done.
-      await context.state.mergeForkedState();
-      hintingContractsDB.commitCheckpoint();
-    } catch (e: any) {
-      if (e instanceof TxSimTeardownRevert) {
-        // We revert to the post-setup state and we are done.
-        await context.state.discardForkedState();
-        hintingContractsDB.revertCheckpoint();
-      } else {
-        // Unchecked/unknown error - re-throw as-is
-        throw e;
-      }
-    }
-
-    context.halt();
-
-    // Such transactions should be filtered by GasTxValidator.
-    assert(
-      context.getActualGasUsed().l2Gas <= AVM_MAX_PROCESSABLE_L2_GAS,
-      `Transaction consumes ${context.getActualGasUsed().l2Gas} L2 gas, which exceeds the AVM maximum processable gas of ${AVM_MAX_PROCESSABLE_L2_GAS}`,
-    );
-    await this.payFee(context);
-
-    const publicInputs = await context.generateAvmCircuitPublicInputs();
-    const revertCode = context.getFinalRevertCode();
-
-    // We only return the app logic phase information, and only 1 per phase.
-    const appLogicReturnValues: NestedProcessReturnValues[] =
-      processedPhases.find(({ phase }) => phase === TxExecutionPhase.APP_LOGIC)?.returnValues ?? [];
-
-    // TODO(fcarreiro): This is a temporary backwards compatibility layer until we migrate to the C++ simulator.
-    if (context.revertReason !== undefined) {
-      (appLogicReturnValues as any).revertReason = context.revertReason;
-    }
-
-    // Create PublicTxEffect from PublicInputs.
-    const publicTxEffect = new PublicTxEffect(
-      publicInputs.transactionFee,
-      publicInputs.accumulatedData.noteHashes.filter(h => !h.isEmpty()),
-      publicInputs.accumulatedData.nullifiers.filter(n => !n.isEmpty()),
-      publicInputs.accumulatedData.l2ToL1Msgs.filter(m => !m.isEmpty()),
-      publicInputs.accumulatedData.publicLogs.toLogs(),
-      publicInputs.accumulatedData.publicDataWrites.filter(w => !w.isEmpty()),
-    );
-
-    return new PublicTxResult(
-      /*gasUsed=*/ {
-        totalGas: context.getActualGasUsed(),
-        teardownGas: context.teardownGasUsed,
-        publicGas: context.getActualPublicGasUsed(),
-        billedGas: context.getTotalGasUsed(),
-      },
-      /*revertCode=*/ revertCode,
-      /*publicTxEffect=*/ publicTxEffect,
-      /*callStackMetadata=*/ appLogicReturnValues,
-      /*logs=*/ context.state.getActiveStateManager().getLogs(),
-      /*hints=*/ hints,
-      /*publicInputs=*/ publicInputs,
-    );
-  }
-
-  protected computeTxHash(tx: Tx) {
-    return tx.getTxHash();
-  }
-
-  /**
-   * Simulate the setup phase of a transaction's public execution.
-   * @param context - WILL BE MUTATED. The context of the currently executing public transaction portion
-   * @returns The phase result.
-   */
-  protected async simulatePhase(phase: TxExecutionPhase, context: PublicTxContext): Promise<ProcessedPhase> {
-    const callRequests = context.getCallRequestsForPhase(phase);
-
-    this.log.debug(`Processing phase ${TxExecutionPhase[phase]} for tx ${context.txHash}`, {
-      txHash: context.txHash.toString(),
-      phase: TxExecutionPhase[phase],
-      callRequests: callRequests.length,
-    });
-
-    const returnValues: NestedProcessReturnValues[] = [];
-    let reverted = false;
-    let revertReason: SimulationError | undefined;
-    for (let i = 0; i < callRequests.length; i++) {
-      if (reverted) {
-        break;
-      }
-
-      const callRequest = callRequests[i];
-
-      const enqueuedCallResult = await this.simulateEnqueuedCall(phase, context, callRequest);
-
-      returnValues.push(new NestedProcessReturnValues(enqueuedCallResult.output.bestEffortReadAll()));
-
-      if (enqueuedCallResult.reverted) {
-        reverted = true;
-        revertReason = enqueuedCallResult.revertReason;
-      }
-    }
-
-    return {
-      phase,
-      returnValues,
-      reverted,
-      revertReason,
-    };
-  }
-
-  /**
-   * Simulate an enqueued public call.
-   * @param phase - The current phase of public execution
-   * @param context - WILL BE MUTATED. The context of the currently executing public transaction portion
-   * @param callRequest - The public function call request, including the calldata.
-   * @returns The result of execution.
-   */
-  protected async simulateEnqueuedCall(
-    phase: TxExecutionPhase,
-    context: PublicTxContext,
-    callRequest: PublicCallRequestWithCalldata,
-  ): Promise<AvmFinalizedCallResult> {
-    const stateManager = context.state.getActiveStateManager();
-    const contractAddress = callRequest.request.contractAddress;
-    const fnName = await getPublicFunctionDebugName(
-      this.contractsDB,
-      contractAddress,
-      new CallDataArray(callRequest.calldata),
-    );
-
-    const allocatedGas = context.getGasLeftAtPhase(phase);
-
-    const result = await this.simulateEnqueuedCallInternal(
-      stateManager,
-      callRequest,
-      allocatedGas,
-      /*transactionFee=*/ context.getTransactionFee(phase),
-      fnName,
-    );
-
-    const gasUsed = allocatedGas.sub(result.gasLeft); // by enqueued call
-    context.consumeGas(phase, gasUsed);
     this.log.debug(
-      `Simulated enqueued public call (${fnName}) consumed ${gasUsed.l2Gas} L2 gas ending with ${result.gasLeft.l2Gas} L2 gas left.`,
+      `Simulating ${tx.publicFunctionCalldata.length} public calls for tx ${txHash}, forkId=${this.forkId}`,
+      { txHash },
     );
 
-    if (result.reverted) {
-      const culprit = `${contractAddress}:${fnName}`;
-      context.revert(phase, result.revertReason, culprit);
+    // Create the fast simulation inputs.
+    const txHint = AvmTxHint.fromTx(tx, this.globalVariables.gasFees);
+    const fastSimInputs = new AvmFastSimulationInputs(
+      // blockNumber: WorldStateRevision.LATEST sentinel so the WSDB walks the fork's current
+      // uncommitted state. Using 0 here makes WSDB treat this as a historical query against
+      // the empty genesis tree and miss any in-fork uncommitted leaves (deployed contracts,
+      // etc.) from earlier txs in the same block.
+      { forkId: this.forkId, blockNumber: WorldStateRevision.LATEST, includeUncommitted: true },
+      this.config,
+      txHint,
+      this.globalVariables,
+      this.protocolContracts,
+    );
+
+    this.log.trace(`Serializing fast simulation inputs to msgpack...`);
+    const inputBuffer = fastSimInputs.serializeWithMessagePack();
+
+    this.log.debug(`Running AVM simulation for tx ${txHash}`);
+    const context: AvmContractsDBContext = {
+      contractsDB: this.contractsDB,
+      forkId: this.forkId,
+      timestamp: this.globalVariables.timestamp,
+    };
+    let resultBuffer: Uint8Array;
+    try {
+      resultBuffer = await this.avmSimulator.simulate(inputBuffer, context, signal);
+    } catch (error: any) {
+      if (error.message?.includes('cancelled')) {
+        throw new SimulationError(`AVM simulation cancelled`, []);
+      }
+      throw new SimulationError(`AVM simulation failed: ${error.message}`, []);
     }
+
+    this.log.trace(`Deserializing simulation result from buffer (size: ${resultBuffer.length})...`);
+    const resultJSON: object = deserializeFromMessagePack(Buffer.from(resultBuffer));
+    const result = PublicTxResult.fromPlainObject(resultJSON);
+
+    this.log.trace(`AVM simulation completed for tx ${txHash}`, {
+      txHash,
+      reverted: !result.revertCode.isOK(),
+      l2GasUsed: result.gasUsed.totalGas.l2Gas,
+    });
 
     return result;
   }
 
   /**
-   * Simulate an enqueued public call, without modifying the context (PublicTxContext).
-   * Resulting modifications to the context can be applied by the caller.
+   * Cancel the current simulation if one is in progress.
+   * This signals the underlying simulator to stop at the next safe point (between opcodes, before a
+   * world-state write). Safe to call even if no simulation is in progress.
    *
-   * This function can be mocked for testing to skip actual AVM simulation
-   * while still simulating phases and generating a proving request.
-   *
-   * @param stateManager - The state manager for AvmSimulation
-   * @param callRequest - The public function call request, including the calldata.
-   * @param allocatedGas - The gas allocated to the enqueued call
-   * @param fnName - The name of the function
-   * @returns The result of execution.
+   * @param waitTimeoutMs - If provided, wait up to this many ms for the simulation to actually stop.
+   *                        Cancellation is cooperative: the simulator may be mid slow-operation and
+   *                        won't observe the cancellation until it completes.
+   *                        Default timeout of 100ms after cancellation.
    */
-  protected async simulateEnqueuedCallInternal(
-    stateManager: PublicPersistableStateManager,
-    { request, calldata }: PublicCallRequestWithCalldata,
-    allocatedGas: Gas,
-    transactionFee: Fr,
-    fnName: string,
-  ): Promise<AvmFinalizedCallResult> {
-    const address = request.contractAddress;
-    const sender = request.msgSender;
+  public async cancel(waitTimeoutMs: number = 100): Promise<void> {
+    if (this.abortController) {
+      this.log.debug('Cancelling AVM simulation');
+      this.abortController.abort();
+    }
 
-    this.log.debug(
-      `Executing enqueued public call to external function ${fnName}@${address} with ${allocatedGas.l2Gas} allocated L2 gas.`,
-    );
+    if (this.simulationPromise) {
+      this.log.debug(`Waiting up to ${waitTimeoutMs}ms for AVM simulation to stop`);
+      await Promise.race([
+        this.simulationPromise.catch(() => {}), // Ignore rejection, just wait for completion
+        sleep(waitTimeoutMs),
+      ]);
+      this.log.debug('AVM simulation stopped or wait timed out');
+    }
+  }
+}
 
-    const simulator = await AvmSimulator.create(
-      stateManager,
-      address,
-      sender,
-      transactionFee,
-      this.globalVariables,
-      request.isStaticCall,
-      new CallDataArray(calldata),
-      allocatedGas,
-      this.config,
-    );
-    const avmCallResult = await simulator.execute();
-    return avmCallResult.finalize();
+export class MeasuredPublicTxSimulator extends PublicTxSimulator implements MeasuredPublicTxSimulatorInterface {
+  constructor(
+    avmSimulator: AvmSimulator,
+    globalVariables: GlobalVariables,
+    contractsDB: PublicContractsDB,
+    forkId: number,
+    protected readonly metrics: ExecutorMetricsInterface,
+    config?: Partial<PublicSimulatorConfig>,
+    bindings?: LoggerBindings,
+  ) {
+    super(avmSimulator, globalVariables, contractsDB, forkId, config, bindings);
   }
 
-  /**
-   * Insert the non-revertible accumulated data from private into the public state.
-   */
-  protected async insertNonRevertiblesFromPrivate(context: PublicTxContext) {
-    const stateManager = context.state.getActiveStateManager();
-
-    for (const siloedNullifier of context.nonRevertibleAccumulatedDataFromPrivate.nullifiers.filter(
-      n => !n.isEmpty(),
-    )) {
-      await stateManager.writeSiloedNullifier(siloedNullifier);
+  public override async simulate(tx: Tx, txLabel: string = 'unlabeledTx'): Promise<PublicTxResult> {
+    this.metrics.startRecordingTxSimulation(txLabel);
+    let result: PublicTxResult | undefined;
+    try {
+      result = await super.simulate(tx);
+    } finally {
+      this.metrics.stopRecordingTxSimulation(txLabel, result?.gasUsed, result?.revertCode);
     }
-    for (const noteHash of context.nonRevertibleAccumulatedDataFromPrivate.noteHashes) {
-      if (!noteHash.isEmpty()) {
-        await stateManager.writeUniqueNoteHash(noteHash);
-      }
-    }
-    for (const l2ToL1Message of context.nonRevertibleAccumulatedDataFromPrivate.l2ToL1Msgs) {
-      if (!l2ToL1Message.isEmpty()) {
-        stateManager.writeScopedL2ToL1Message(l2ToL1Message);
-      }
-    }
-
-    // add new contracts to the contracts db so that their code may be found and called
-    // FIXME(fcarreiro): this should conceptually use the hinting contracts db.
-    // However, things work as expected because later calls to getters on the hintingContractsDB
-    // will pick up the new contracts and will generate the necessary hints.
-    // So, a consumer of the hints will always see the new contracts.
-    await this.contractsDB.addContracts(context.nonRevertibleContractDeploymentData);
+    return result;
   }
+}
 
-  /**
-   * Insert the revertible accumulated data from private into the public state.
-   * Throws TxSimRevertibleInsertionsRevert if there is some checked error during revertible insertions.
-   * This function checks for the following errors:
-   * - NullifierLimitReachedError
-   * - NullifierCollisionError
-   * - NoteHashLimitReachedError
-   * - L2ToL1MessageLimitReachedError
-   */
-  protected async insertRevertiblesFromPrivate(context: PublicTxContext) {
-    const stateManager = context.state.getActiveStateManager();
+/**
+ * A public tx simulator that tracks runtime/production metrics with telemetry.
+ */
+export class TelemetryPublicTxSimulator extends MeasuredPublicTxSimulator {
+  /* tracer needed by trackSpans */
+  public readonly tracer: Tracer;
 
-    try {
-      for (const siloedNullifier of context.revertibleAccumulatedDataFromPrivate.nullifiers.filter(n => !n.isEmpty())) {
-        await stateManager.writeSiloedNullifier(siloedNullifier);
-      }
-    } catch (e: any) {
-      if (e instanceof NullifierLimitReachedError || e instanceof NullifierCollisionError) {
-        context.revert(
-          TxExecutionPhase.APP_LOGIC,
-          new SimulationError(
-            `Error encountered when inserting revertible nullifiers from private.\nDetails: ${e.message}`,
-            [],
-          ),
-        );
-        throw new TxSimRevertibleInsertionsRevert();
-      } else {
-        // Unchecked/unknown error - re-throw as-is
-        throw e;
-      }
-    }
-
-    try {
-      for (const noteHash of context.revertibleAccumulatedDataFromPrivate.noteHashes) {
-        if (!noteHash.isEmpty()) {
-          // Revertible note hashes from private are not hashed with nonce, since private can't know their final position, only we can.
-          await stateManager.writeSiloedNoteHash(noteHash);
-        }
-      }
-    } catch (e: any) {
-      if (e instanceof NoteHashLimitReachedError) {
-        context.revert(
-          TxExecutionPhase.APP_LOGIC,
-          new SimulationError(
-            `Error encountered when inserting revertible note hashes from private.\nDetails: ${e.message}`,
-            [],
-          ),
-        );
-        throw new TxSimRevertibleInsertionsRevert();
-      } else {
-        // Unchecked/unknown error - re-throw as-is
-        throw e;
-      }
-    }
-
-    try {
-      for (const l2ToL1Message of context.revertibleAccumulatedDataFromPrivate.l2ToL1Msgs) {
-        if (!l2ToL1Message.isEmpty()) {
-          stateManager.writeScopedL2ToL1Message(l2ToL1Message);
-        }
-      }
-    } catch (e: any) {
-      if (e instanceof L2ToL1MessageLimitReachedError) {
-        context.revert(
-          TxExecutionPhase.APP_LOGIC,
-          new SimulationError(
-            `Error encountered when inserting revertible L2-to-L1 messages from private.\nDetails: ${e.message}`,
-            [],
-          ),
-        );
-        throw new TxSimRevertibleInsertionsRevert();
-      } else {
-        // Unchecked/unknown error - re-throw as-is
-        throw e;
-      }
-    }
-
-    // add new contracts to the contracts db so that their functions may be found and called
-    // FIXME(fcarreiro): this should conceptually use the hinting contracts db.
-    // However, things work as expected because later calls to getters on the hintingContractsDB
-    // will pick up the new contracts and will generate the necessary hints.
-    // So, a consumer of the hints will always see the new contracts.
-    await this.contractsDB.addContracts(context.revertibleContractDeploymentData);
-  }
-
-  private async payFee(context: PublicTxContext) {
-    const txFee = context.getTransactionFee(TxExecutionPhase.TEARDOWN);
-
-    if (context.feePayer.isZero()) {
-      // Real transactions are enforced by private kernel to have nonzero fee payer.
-      // Real transactions cannot skip fee enforcement (skipping fee enforcement makes them unprovable).
-      assert(this.config.skipFeeEnforcement, 'Fee payer cannot be 0 unless skipping fee enforcement for simulation');
-      this.log.debug(`Fee payer is 0. Skipping fee enforcement. No one is paying the fee of ${txFee.toBigInt()}`);
-      return;
-    }
-
-    const feeJuiceAddress = ProtocolContractAddress.FeeJuice;
-    const balanceSlot = await computeFeePayerBalanceStorageSlot(context.feePayer);
-
-    this.log.debug(`Deducting ${txFee.toBigInt()} balance in Fee Juice for ${context.feePayer}`);
-    const stateManager = context.state.getActiveStateManager();
-
-    let currentBalance = await stateManager.readStorage(feeJuiceAddress, balanceSlot);
-    // We allow to fake the balance of the fee payer to allow fee estimation
-    // When mocking the balance of the fee payer, the circuit should not be able to prove the simulation
-
-    if (currentBalance.lt(txFee)) {
-      // Without "skipFeeEnforcement", such transactions should be filtered by GasTxValidator.
-      assert(
-        this.config.skipFeeEnforcement,
-        `Not enough balance for fee payer to pay for transaction (got ${currentBalance.toBigInt()} needs ${txFee.toBigInt()})`,
-      );
-      this.log.debug(`Fee payer balance insufficient, but we're skipping fee enforcement`);
-      // We still proceed and perform the storage write to minimize deviation from normal execution.
-      currentBalance = txFee;
-    }
-
-    const updatedBalance = currentBalance.sub(txFee);
-    await stateManager.writeStorage(feeJuiceAddress, balanceSlot, updatedBalance, true);
+  constructor(
+    avmSimulator: AvmSimulator,
+    globalVariables: GlobalVariables,
+    contractsDB: PublicContractsDB,
+    forkId: number,
+    telemetryClient: TelemetryClient = getTelemetryClient(),
+    config?: Partial<PublicSimulatorConfig>,
+    bindings?: LoggerBindings,
+  ) {
+    const metrics = new ExecutorMetrics(telemetryClient, 'PublicTxSimulator');
+    super(avmSimulator, globalVariables, contractsDB, forkId, metrics, config, bindings);
+    this.tracer = metrics.tracer;
   }
 }

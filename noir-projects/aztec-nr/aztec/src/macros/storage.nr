@@ -5,7 +5,9 @@ use std::meta::unquote;
 /// generating a `storage_layout()` getter on the contract struct.
 pub comptime mut global STORAGE_LAYOUT_NAME: CHashMap<Module, Quoted> = CHashMap::new();
 
-/// This function
+/// Declares the contract's storage.
+///
+/// This function:
 /// - marks the contract as having storage, so that `macros::utils::module_has_storage` will return true,
 /// - marks the struct `s` as the one describing the storage layout of a contract,
 /// - generates an `impl` block for the storage struct with an `init` function (call to `init` is then injected at the
@@ -45,7 +47,7 @@ pub comptime fn storage(s: TypeDefinition) -> Quoted {
             if typ.implements(quote { crate::state_vars::OwnedStateVariable<$_maybe_owned_context> }
                 .as_trait_constraint()) {
                 panic(
-                    f"Type {typ} implements OwnedStateVariable and hence cannot be placed in Storage struct without being wrapped in Owned. Define the type in storage as Owned<{typ}<..., Context>>, Context>.",
+                    f"Type {typ} implements OwnedStateVariable and hence cannot be placed in Storage struct without being wrapped in Owned. Wrap the type in Owned<..., Context>.",
                 )
             }
 
@@ -81,7 +83,7 @@ pub comptime fn storage(s: TypeDefinition) -> Quoted {
     let module_name = module.name();
     let storage_layout_name = f"STORAGE_LAYOUT_{module_name}".quoted_contents();
     let module_name_str = f"{module_name}".as_quoted_str();
-    let module_name_len: u32 = unquote!(quote { $module_name_str.as_bytes().len()});
+    let module_name_len: u32 = unquote!(quote { $module_name_str.as_bytes().len() });
     STORAGE_LAYOUT_NAME.insert(module, storage_layout_name);
 
     quote {

@@ -1,30 +1,59 @@
 include "../constants_gen.pil";
-include "../precomputed.pil";
 include "../trees/public_data_check.pil";
-include "../trees/written_public_data_slots_tree_check.pil";
+include "../trees/indexed_tree_check.pil";
 
-// SSTORE opcode: Writes a value to storage at the provided slot
-//
-// This opcode interacts with the public data check gadget to write a value at the specified slot.
-// The execution trace reads the slot and value from memory into register[1] and register[0] respectively,
-// performs dynamic gas calculation based on whether the slot was previously written to,
-// validates against maximum data write limits, and updates the public data tree.
-//
-// Register usage:
-// - register[0]: Contains the value to write to storage
-// - register[1]: Contains the storage slot to write to
-//
-// The opcode leverages the public_data_check gadget to verify the storage write operation
-// and the written_public_data_slots_tree_check gadget to track written slots for gas calculation.
-//
-namespace execution; // this is a virtual gadget that shares rows with the execution trace
+/**
+ * This virtual gadget implements the SStore opcode, which writes a value to storage
+ * at the provided slot. The slot is recorded in the written public data slots tree
+ * (via indexed_tree_check) for dynamic gas tracking, and the value is written to the public
+ * data tree (via public_data_check).
+ *
+ * The opcode is gated by the `sel_execute_sstore` selector, which is set to 1 if the
+ * SStore opcode has reached opcode dispatch (there are no earlier errors).
+ *
+ * This opcode also uses:
+ * - register[0]: the value to write to storage (FF)                            (from execution.pil)
+ * - register[1]: the storage slot to write to (FF)                             (from execution.pil)
+ * - is_static: whether the current context is static                           (from context.pil)
+ * - contract_address: address of the current contract                          (from context.pil)
+ * - prev_written_public_data_slots_tree_root: root before the slot record      (from context.pil)
+ * - prev_written_public_data_slots_tree_size: size before the slot record      (from context.pil)
+ * - written_public_data_slots_tree_root: root after the slot record            (from context.pil)
+ * - written_public_data_slots_tree_size: size after the slot record            (from context.pil)
+ * - written_slots_tree_height: height of the written slots tree                (from execution.pil)
+ * - written_slots_tree_siloing_separator: siloing separator for written slots  (from execution.pil)
+ * - prev_public_data_tree_root: root before the write                          (from context.pil)
+ * - prev_public_data_tree_size: size before the write                          (from context.pil)
+ * - public_data_tree_root: root after the write                                (from context.pil)
+ * - public_data_tree_size: size after the write                                (from context.pil)
+ * - dynamic_da_gas_factor: 1 if slot not previously written, 0 otherwise       (from execution.pil)
+ * - clk: clock value for ordering                                              (from execution.pil)
+ * - sel_opcode_error: whether an opcode error was raised                       (from execution.pil)
+ * - discard: whether the transaction will be discarded (reverted)              (from discard.pil)
+ *
+ * Interactions:
+ * - The gadget performs a lookup into the indexed_tree_check gadget to record the written slot
+ *     (for dynamic gas tracking). The lookup passes sel_silo=1 so the tree check gadget silos
+ *     the slot with the contract address.
+ * - The gadget performs a lookup into the public_data_check gadget to write the value at the slot.
+ * - Both lookups are only performed if no error occurs (sel_write_public_data = 1).
+ *
+ * Errors:
+ * - If the max data writes limit has been reached and the slot was not previously written
+ *   (dynamic_da_gas_factor = 1), the operation raises an opcode error.
+ * - If the current context is static, the operation raises an opcode error.
+ *
+ * If there are errors in earlier temporality groups (i.e. the opcode is not dispatched),
+ * all columns in this trace should be 0 (gated by sel_execute_sstore).
+ */
+namespace execution;
 
     #[skippable_if]
     sel_execute_sstore = 0; // from execution.pil.
 
     // =========== VALIDATION ===========
 
-    pol commit max_data_writes_reached;
+    pol commit max_data_writes_reached; // @boolean
     max_data_writes_reached * (1 - max_data_writes_reached) = 0;
 
     // We use the written public data slots tree size (taking into account the prefill) to track how many data writes we have emitted.
@@ -32,7 +61,7 @@ namespace execution; // this is a virtual gadget that shares rows with the execu
         constants.AVM_WRITTEN_PUBLIC_DATA_SLOTS_TREE_INITIAL_SIZE -
         prev_written_public_data_slots_tree_size;
 
-    pol commit remaining_data_writes_inv;
+    pol commit remaining_data_writes_inv; // @zero-check
     #[SSTORE_MAX_DATA_WRITES_REACHED]
     sel_execute_sstore * (REMAINING_DATA_WRITES * (max_data_writes_reached * (1 - remaining_data_writes_inv) + remaining_data_writes_inv) - 1 + max_data_writes_reached) = 0;
 
@@ -44,33 +73,39 @@ namespace execution; // this is a virtual gadget that shares rows with the execu
     #[OPCODE_ERROR_IF_OVERFLOW_OR_STATIC]
     sel_execute_sstore * ((1 - max_data_writes_reached * dynamic_da_gas_factor) * (1 - is_static) - (1 - sel_opcode_error)) = 0;
 
-    // Commited since it's used in the lookup
+    // Committed since it's used in the lookup
     // Note: we could perform the work unconditionally here, since the roots will be reverted if sel_opcode_error is one.
     // We'd save one column, but we'd perform more work in the error case, both in simulation and proving.
-    pol commit sel_write_public_data;
+    pol commit sel_write_public_data; // @boolean (by definition)
     #[SEL_WRITE_PUBLIC_DATA_IS_EXECUTE_AND_NOT_ERROR]
     sel_write_public_data = sel_execute_sstore * (1 - sel_opcode_error);
-    // Note that this forces sel_write_public_data to 0 when sel_execute_store is 0 (prevents ghost row injection attacks)
+    // Note that this forces sel_write_public_data to 0 when sel_execute_sstore is 0 (prevents ghost row injection attacks)
 
     // =========== OPCODE EXECUTION ===========
 
     #[RECORD_WRITTEN_STORAGE_SLOT]
     sel_write_public_data {
-        contract_address,
         register[1], // slot
-        sel_write_public_data/*=1*/,
         prev_written_public_data_slots_tree_root,
-        prev_written_public_data_slots_tree_size,
         written_public_data_slots_tree_root,
-        written_public_data_slots_tree_size
-    } in written_public_data_slots_tree_check.sel {
-        written_public_data_slots_tree_check.address,
-        written_public_data_slots_tree_check.slot,
-        written_public_data_slots_tree_check.write,
-        written_public_data_slots_tree_check.root,
-        written_public_data_slots_tree_check.tree_size_before_write,
-        written_public_data_slots_tree_check.write_root,
-        written_public_data_slots_tree_check.tree_size_after_write
+        prev_written_public_data_slots_tree_size,
+        written_public_data_slots_tree_size,
+        written_slots_tree_height,  // From execution.pil. Gated by sel_gas_sstore, which is a requirement for sel_write_public_data.
+        written_slots_merkle_separator, // From execution.pil. Gated by sel_gas_sstore, which is a requirement for sel_write_public_data.
+        sel_write_public_data, // sel_silo = 1
+        written_slots_tree_siloing_separator, // From execution.pil. Gated by sel_gas_sstore, which is a requirement for sel_write_public_data.
+        contract_address
+    } in indexed_tree_check.write {
+        indexed_tree_check.value,
+        indexed_tree_check.root,
+        indexed_tree_check.write_root,
+        indexed_tree_check.tree_size_before_write,
+        indexed_tree_check.tree_size_after_write,
+        indexed_tree_check.tree_height,
+        indexed_tree_check.merkle_hash_separator,
+        indexed_tree_check.sel_silo,
+        indexed_tree_check.siloing_separator,
+        indexed_tree_check.address
     };
 
     #[STORAGE_WRITE]
@@ -83,7 +118,7 @@ namespace execution; // this is a virtual gadget that shares rows with the execu
         public_data_tree_root,
         prev_public_data_tree_size,
         public_data_tree_size,
-        precomputed.clk
+        clk
     } is public_data_check.non_protocol_write {
         public_data_check.value,
         public_data_check.address,

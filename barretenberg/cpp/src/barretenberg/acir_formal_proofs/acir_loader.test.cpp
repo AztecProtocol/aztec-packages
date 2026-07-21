@@ -287,7 +287,7 @@ TEST(acir_formal_proofs, uint_terms_shl8)
  */
 TEST(acir_formal_proofs, uint_terms_shl32)
 {
-    std::string TESTNAME = "Binary::Shl_Unsigned_32_Unsigned_8";
+    std::string TESTNAME = "Binary::Shl_Unsigned_32_Unsigned_32";
     AcirToSmtLoader loader = AcirToSmtLoader(ARTIFACTS_PATH + TESTNAME + ".acir");
     smt_solver::Solver solver = loader.get_smt_solver();
     smt_circuit::UltraCircuit circuit = loader.get_bitvec_smt_circuit(&solver);
@@ -306,7 +306,7 @@ TEST(acir_formal_proofs, uint_terms_shl32)
  */
 TEST(acir_formal_proofs, uint_terms_shr)
 {
-    std::string TESTNAME = "Binary::Shr_Unsigned_64_Unsigned_8";
+    std::string TESTNAME = "Binary::Shr_Unsigned_64_Unsigned_64";
     AcirToSmtLoader loader = AcirToSmtLoader(ARTIFACTS_PATH + TESTNAME + ".acir");
     smt_solver::Solver solver = loader.get_smt_solver();
     smt_circuit::UltraCircuit circuit = loader.get_bitvec_smt_circuit(&solver);
@@ -627,7 +627,7 @@ TEST(AcirFormalProofs, SignedOr)
     std::string TESTNAME = "Binary::Or_Signed_64_Signed_64";
     AcirToSmtLoader loader = AcirToSmtLoader(ARTIFACTS_PATH + TESTNAME + ".acir");
     smt_solver::Solver solver = loader.get_smt_solver();
-    smt_circuit::UltraCircuit circuit = loader.get_integer_smt_circuit(&solver);
+    smt_circuit::UltraCircuit circuit = loader.get_bitvec_smt_circuit(&solver);
     bool res = verify_or(&solver, circuit);
     EXPECT_FALSE(res);
     if (res) {
@@ -653,12 +653,46 @@ TEST(AcirFormalProofs, SignedShl)
 }
 
 /**
+ * @brief Test for i64 << i64
+ *
+ */
+TEST(AcirFormalProofs, SignedShl64)
+{
+    std::string TESTNAME = "Binary::Shl_Signed_64_Signed_64";
+    AcirToSmtLoader loader = AcirToSmtLoader(ARTIFACTS_PATH + TESTNAME + ".acir");
+    smt_solver::Solver solver = loader.get_smt_solver();
+    smt_circuit::UltraCircuit circuit = loader.get_bitvec_smt_circuit(&solver);
+    bool res = verify_shl64(&solver, circuit);
+    EXPECT_FALSE(res);
+    if (res) {
+        save_buggy_witness(TESTNAME, circuit);
+    }
+}
+
+/**
  * @brief Test for i8 >> i8
  *
  */
 TEST(AcirFormalProofs, SignedShr)
 {
     std::string TESTNAME = "Binary::Shr_Signed_8_Signed_8";
+    AcirToSmtLoader loader = AcirToSmtLoader(ARTIFACTS_PATH + TESTNAME + ".acir");
+    smt_solver::Solver solver = loader.get_smt_solver();
+    smt_circuit::UltraCircuit circuit = loader.get_bitvec_smt_circuit(&solver);
+    bool res = verify_shr(&solver, circuit);
+    EXPECT_FALSE(res);
+    if (res) {
+        save_buggy_witness(TESTNAME, circuit);
+    }
+}
+
+/**
+ * @brief Test for i64 >> i64
+ *
+ */
+TEST(AcirFormalProofs, SignedShr64)
+{
+    std::string TESTNAME = "Binary::Shr_Signed_64_Signed_64";
     AcirToSmtLoader loader = AcirToSmtLoader(ARTIFACTS_PATH + TESTNAME + ".acir");
     smt_solver::Solver solver = loader.get_smt_solver();
     smt_circuit::UltraCircuit circuit = loader.get_bitvec_smt_circuit(&solver);

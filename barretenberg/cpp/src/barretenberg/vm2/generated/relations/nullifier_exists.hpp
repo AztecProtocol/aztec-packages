@@ -3,7 +3,6 @@
 
 #include <string_view>
 
-#include "barretenberg/common/bb_bench.hpp"
 #include "barretenberg/relations/relation_parameters.hpp"
 #include "barretenberg/relations/relation_types.hpp"
 #include "barretenberg/vm2/generated/columns.hpp"
@@ -14,7 +13,7 @@ template <typename FF_> class nullifier_existsImpl {
   public:
     using FF = FF_;
 
-    static constexpr std::array<size_t, 1> SUBRELATION_PARTIAL_LENGTHS = { 3 };
+    static constexpr std::array<size_t, 3> SUBRELATION_PARTIAL_LENGTHS = { 3, 3, 3 };
 
     template <typename AllEntities> inline static bool skip(const AllEntities& in)
     {
@@ -35,14 +34,16 @@ template <typename FF> class nullifier_exists : public Relation<nullifier_exists
     static constexpr const std::string_view NAME = "nullifier_exists";
 
     // Subrelation indices constants, to be used in tests.
-    static constexpr size_t SR_NULLIFIER_EXISTS_U1_OUTPUT_TAG = 0;
+    static constexpr size_t SR_NULLIFIER_EXISTS_U1_OUTPUT_TAG = 2;
 
     static std::string get_subrelation_label(size_t index)
     {
+#ifdef AVM_INCLUDE_COLUMN_INFORMATION
         switch (index) {
         case SR_NULLIFIER_EXISTS_U1_OUTPUT_TAG:
             return "NULLIFIER_EXISTS_U1_OUTPUT_TAG";
         }
+#endif
         return std::to_string(index);
     }
 };

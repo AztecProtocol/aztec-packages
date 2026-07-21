@@ -2,6 +2,7 @@
 // Copyright 2024 Aztec Labs.
 pragma solidity >=0.8.27;
 
+import {TestConstants} from "../harnesses/TestConstants.sol";
 import {
   FeeLib,
   FeeHeaderLib,
@@ -55,7 +56,7 @@ contract MinimalFeeModel {
   uint256 internal constant BLOB_GAS_PER_BLOB = 2 ** 17;
   uint256 internal constant GAS_PER_BLOB_POINT_EVALUATION = 50_000;
 
-  uint256 internal constant MANA_TARGET = 100_000_000;
+  uint256 internal constant MANA_TARGET = TestConstants.AZTEC_MANA_TARGET;
 
   Slot public constant LIFETIME = Slot.wrap(5);
   Slot public constant LAG = Slot.wrap(2);
@@ -66,10 +67,11 @@ contract MinimalFeeModel {
     uint256 _slotDuration,
     uint256 _epochDuration,
     uint256 _proofSubmissionEpochs,
-    EthPerFeeAssetE12 _initialEthPerFeeAsset
+    EthPerFeeAssetE12 _initialEthPerFeeAsset,
+    EthValue _provingCost
   ) {
     TimeLib.initialize(block.timestamp, _slotDuration, _epochDuration, _proofSubmissionEpochs);
-    FeeLib.initialize(MANA_TARGET, EthValue.wrap(100), _initialEthPerFeeAsset);
+    FeeLib.initialize(MANA_TARGET, _provingCost, _initialEthPerFeeAsset);
     STFLib.initialize(
       GenesisState({vkTreeRoot: bytes32(0), protocolContractsHash: bytes32(0), genesisArchiveRoot: bytes32(0)})
     );
@@ -128,10 +130,6 @@ contract MinimalFeeModel {
       })
     );
     //    FeeLib.writeFeeHeader(++populatedThrough, _oracleInput.feeAssetPriceModifier, _manaUsed, 0, 0);
-  }
-
-  function setProvingCost(EthValue _provingCost) public {
-    FeeLib.updateProvingCostPerMana(_provingCost);
   }
 
   /**

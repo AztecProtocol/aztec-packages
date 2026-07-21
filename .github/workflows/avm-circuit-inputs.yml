@@ -15,10 +15,11 @@ concurrency:
 
 jobs:
   collect-avm-circuit-inputs:
+    if: ${{ github.repository != 'AztecProtocol/aztec-packages-private' && (github.event_name != 'schedule' || github.repository == 'AztecProtocol/aztec-packages') }}
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
-        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+        uses: actions/checkout@93cb6efe18208431cddfb8368fd83d5badbf9bfd # v5.0.1
         with:
           persist-credentials: false
 
@@ -58,7 +59,7 @@ jobs:
           aws s3 cp "s3://aztec-ci-artifacts/build-cache/$TARBALL_NAME" "./$TARBALL_NAME"
 
       - name: Upload AVM inputs artifact
-        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
         with:
           name: avm-circuit-inputs
           path: ${{ steps.compute-hash.outputs.tarball_name }}
@@ -66,10 +67,11 @@ jobs:
 
   avm-check-circuit:
     needs: collect-avm-circuit-inputs
+    if: ${{ github.repository != 'AztecProtocol/aztec-packages-private' && (github.event_name != 'schedule' || github.repository == 'AztecProtocol/aztec-packages') }}
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
-        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+        uses: actions/checkout@93cb6efe18208431cddfb8368fd83d5badbf9bfd # v5.0.1
         with:
           persist-credentials: false
 
@@ -88,13 +90,14 @@ jobs:
           # Run via ci.sh which spins up an EC2 instance and runs ./bootstrap.sh ci-avm-check-circuit
           ./ci.sh avm-check-circuit
 
-      - name: Notify Slack on failure
+      - name: Notify Slack and dispatch ClaudeBox on failure
         if: failure()
         env:
           SLACK_BOT_TOKEN: ${{ secrets.SLACK_BOT_TOKEN }}
+          GITHUB_TOKEN: ${{ secrets.AZTEC_BOT_GITHUB_TOKEN }}
         run: |
-          WORKFLOW_URL="${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}"
-          curl -X POST https://slack.com/api/chat.postMessage \
-            -H "Authorization: Bearer $SLACK_BOT_TOKEN" \
-            -H "Content-type: application/json" \
-            --data "{\"channel\": \"#team-bonobos\", \"text\": \"🚨 AVM check-circuit failed\\n<$WORKFLOW_URL|View Run>\"}"
+          RUN_URL="${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}"
+          ./ci3/slack_notify_with_claudebox_kickoff "#team-bonobos" \
+            "🚨 AVM check-circuit failed. <${RUN_URL}|View Run> (🤖)" \
+            "AVM check-circuit failed. CI run: ${RUN_URL}. Investigate the failure, identify the root cause, and create a fix PR targeting next." \
+            --link "$RUN_URL"

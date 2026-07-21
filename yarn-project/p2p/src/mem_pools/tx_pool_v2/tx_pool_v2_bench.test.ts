@@ -1,0 +1,540 @@
+import { BlockNumber, CheckpointNumber, IndexWithinCheckpoint, SlotNumber } from '@aztec/foundation/branded-types';
+import { Fr } from '@aztec/foundation/curves/bn254';
+import { createLogger } from '@aztec/foundation/log';
+import { openTmpStore } from '@aztec/kv-store/lmdb-v2';
+import { RevertCode } from '@aztec/stdlib/avm';
+import { AztecAddress } from '@aztec/stdlib/aztec-address';
+import { Body, L2Block, type L2BlockId, type L2BlockSource } from '@aztec/stdlib/block';
+import { GasFees } from '@aztec/stdlib/gas';
+import type { MerkleTreeReadOperations, WorldStateSynchronizer } from '@aztec/stdlib/interfaces/server';
+import { mockTx } from '@aztec/stdlib/testing';
+import {
+  AppendOnlyTreeSnapshot,
+  MerkleTreeId,
+  PublicDataTreeLeaf,
+  PublicDataTreeLeafPreimage,
+} from '@aztec/stdlib/trees';
+import { BlockHeader, GlobalVariables, type Tx, TxEffect, TxHash, type TxValidator } from '@aztec/stdlib/tx';
+
+import { jest } from '@jest/globals';
+import { mkdir, writeFile } from 'fs/promises';
+import { type MockProxy, mock } from 'jest-mock-extended';
+import path from 'path';
+
+import type { TxMetaData } from './tx_metadata.js';
+import { TxPoolBenchMetrics, TxPoolOperation } from './tx_pool_bench_metrics.js';
+import { AztecKVTxPoolV2 } from './tx_pool_v2.js';
+
+/** A validator that accepts all transactions. */
+const alwaysValidValidator: TxValidator<TxMetaData> = {
+  validateTx: () => Promise.resolve({ result: 'valid' }),
+};
+
+jest.setTimeout(300_000);
+
+describe('TxPoolV2: benchmarks', () => {
+  const logger = createLogger('p2p:tx_pool_v2:bench');
+  const metrics = new TxPoolBenchMetrics();
+
+  // Use a fixed set of fee payers to test fee payer index with multiple txs per payer
+  const feePayers = [
+    AztecAddress.fromBigIntUnsafe(1n),
+    AztecAddress.fromBigIntUnsafe(2n),
+    AztecAddress.fromBigIntUnsafe(3n),
+  ];
+
+  // Pre-created transaction pools for different sizes
+  const POOL_SIZES = [10, 100, 1000] as const;
+  const preCreatedTxs: Map<number, Tx[]> = new Map();
+
+  // Block headers for benchmarks
+  const slot1Header = BlockHeader.empty({
+    globalVariables: GlobalVariables.empty({
+      blockNumber: BlockNumber(1),
+      slotNumber: SlotNumber(1),
+    }),
+  });
+
+  const slot2Header = BlockHeader.empty({
+    globalVariables: GlobalVariables.empty({
+      blockNumber: BlockNumber(2),
+      slotNumber: SlotNumber(2),
+    }),
+  });
+
+  // Shared mocks
+  let mockL2BlockSource: MockProxy<L2BlockSource>;
+  let mockWorldState: MockProxy<WorldStateSynchronizer>;
+  let db: MockProxy<MerkleTreeReadOperations>;
+
+  /**
+   * Creates a batch of mock transactions with varied priority fees and cycling fee payers.
+   * Uses unique seeds with large spacing to avoid nullifier conflicts between transactions.
+   */
+  const createTxBatch = async (count: number, startSeed = 1): Promise<Tx[]> => {
+    const txs: Tx[] = [];
+    for (let i = 0; i < count; i++) {
+      const priorityFee = ((startSeed + i) % 100) + 1;
+      const feePayer = feePayers[(startSeed + i) % feePayers.length];
+      // Use large seed spacing to prevent nullifier overlaps between transactions
+      // Each tx generates nullifiers from seed+1 onwards, so spacing by 100 ensures no overlap
+      txs.push(
+        await mockTx((startSeed + i) * 100, {
+          numberOfNonRevertiblePublicCallRequests: 1,
+          maxPriorityFeesPerGas: new GasFees(priorityFee, priorityFee),
+          feePayer,
+        }),
+      );
+    }
+    return txs;
+  };
+
+  /** Creates an L2Block from transactions and a header */
+  const makeBlock = (txs: Tx[], header: BlockHeader): L2Block => {
+    const txEffects = txs.map(tx => {
+      const nullifiers = tx.data.getNonEmptyNullifiers();
+      return new TxEffect(RevertCode.OK, tx.getTxHash(), Fr.ZERO, [], nullifiers, [], [], [], [], []);
+    });
+    const body = new Body(txEffects);
+    const archive = new AppendOnlyTreeSnapshot(Fr.random(), header.globalVariables.blockNumber + 1);
+    return new L2Block(
+      archive,
+      header,
+      body,
+      CheckpointNumber(Number(header.globalVariables.blockNumber)),
+      IndexWithinCheckpoint(0),
+    );
+  };
+
+  const setupMocks = () => {
+    mockL2BlockSource = mock<L2BlockSource>();
+    mockL2BlockSource.getTxEffect.mockResolvedValue(undefined);
+
+    mockWorldState = mock<WorldStateSynchronizer>();
+    db = mock<MerkleTreeReadOperations>();
+    mockWorldState.getCommitted.mockReturnValue(db);
+    mockWorldState.getSnapshot.mockReturnValue(db);
+
+    db.getPreviousValueIndex.mockImplementation((_tree, slot) => {
+      return Promise.resolve({ index: slot, alreadyPresent: true });
+    });
+    db.getLeafPreimage.mockImplementation((tree, index) => {
+      if (tree === MerkleTreeId.PUBLIC_DATA_TREE) {
+        // Return a very high balance (1e24) to ensure fee payer balance checks pass
+        // with 1000 txs split across 3 fee payers (~333 txs each with high fee limits)
+        return Promise.resolve(
+          new PublicDataTreeLeafPreimage(
+            new PublicDataTreeLeaf(new Fr(index), new Fr(BigInt('1000000000000000000000000'))),
+            Fr.ONE,
+            1n,
+          ),
+        );
+      }
+      return Promise.resolve(undefined);
+    });
+    // Return indices for all archive lookups (all blocks exist)
+    db.findLeafIndices.mockImplementation((_tree, leaves) => {
+      return Promise.resolve((leaves as Fr[]).map((_, i) => BigInt(i + 1)));
+    });
+  };
+
+  const createPool = async (): Promise<{ pool: AztecKVTxPoolV2; cleanup: () => Promise<void> }> => {
+    const store = await openTmpStore('p2p-bench');
+    const archiveStore = await openTmpStore('archive-bench');
+    const pool = new AztecKVTxPoolV2(store, archiveStore, {
+      l2BlockSource: mockL2BlockSource,
+      worldStateSynchronizer: mockWorldState,
+      createTxValidator: () => Promise.resolve(alwaysValidValidator),
+      checkAllowedSetupCalls: () => Promise.resolve(true),
+      blockMinFeesProvider: { getCurrentMinFees: () => Promise.resolve(GasFees.empty()) },
+    });
+    await pool.start();
+    const cleanup = async () => {
+      await pool.stop();
+      await store.delete();
+      await archiveStore.delete();
+    };
+    return { pool, cleanup };
+  };
+
+  const populatePool = async (pool: AztecKVTxPoolV2, count: number): Promise<Tx[]> => {
+    const txs = preCreatedTxs.get(count);
+    if (!txs) {
+      throw new Error(`No pre-created txs for count ${count}`);
+    }
+    await pool.addPendingTxs(txs);
+    return txs;
+  };
+
+  const measureOperation = async (operation: () => Promise<void>, iterations: number): Promise<number> => {
+    const startTime = performance.now();
+    for (let i = 0; i < iterations; i++) {
+      await operation();
+    }
+    const endTime = performance.now();
+    return (endTime - startTime) / iterations;
+  };
+
+  // Pre-create all transactions before running any benchmarks
+  beforeAll(async () => {
+    logger.info('Pre-creating transactions for benchmarks...');
+
+    // Create txs for the largest pool size (others will use subsets)
+    const maxSize = Math.max(...POOL_SIZES);
+    const allTxs = await createTxBatch(maxSize);
+
+    // Store subsets for each pool size
+    for (const size of POOL_SIZES) {
+      preCreatedTxs.set(size, allTxs.slice(0, size));
+    }
+
+    // Also create extra txs for addPendingTxs benchmarks (to add to existing pools)
+    const extraTxs = await createTxBatch(100, maxSize + 1);
+    preCreatedTxs.set(-1, extraTxs); // Use -1 as key for "extra" txs
+
+    logger.info(`Pre-created ${maxSize} transactions + 100 extra for add benchmarks`);
+  });
+
+  afterAll(async () => {
+    if (process.env.BENCH_OUTPUT) {
+      await mkdir(path.dirname(process.env.BENCH_OUTPUT), { recursive: true });
+      await writeFile(process.env.BENCH_OUTPUT, metrics.toGithubActionBenchmarkJSON());
+    } else if (process.env.BENCH_OUTPUT_MD) {
+      await writeFile(process.env.BENCH_OUTPUT_MD, metrics.toPrettyString());
+    } else {
+      logger.info(`\n`);
+      logger.info(metrics.toPrettyString());
+      logger.info(`\n`);
+    }
+  });
+
+  // Read-only benchmarks - can share pools within each size group
+
+  describe.each(POOL_SIZES)('read-only operations: pool=%d', (poolSize: number) => {
+    let pool: AztecKVTxPoolV2;
+    let cleanup: () => Promise<void>;
+    let txs: Tx[];
+
+    beforeAll(async () => {
+      setupMocks();
+      ({ pool, cleanup } = await createPool());
+      txs = await populatePool(pool, poolSize);
+    });
+
+    afterAll(async () => {
+      await cleanup();
+    });
+
+    it('getPendingTxHashes', async () => {
+      const duration = await measureOperation(async () => {
+        await pool.getPendingTxHashes();
+      }, 100);
+
+      metrics.addMetric(TxPoolOperation.GET_PENDING_TX_HASHES, poolSize, 0, duration);
+    });
+
+    it('getTxByHash', async () => {
+      const randomTxHash = txs[Math.floor(Math.random() * txs.length)].getTxHash();
+
+      const duration = await measureOperation(async () => {
+        await pool.getTxByHash(randomTxHash);
+      }, 1000);
+
+      metrics.addMetric(TxPoolOperation.GET_TX_BY_HASH, poolSize, 0, duration);
+    });
+
+    it.each([1, 10, Math.min(50, poolSize)])('getTxsByHash: batch=%d', async (batchSize: number) => {
+      const hashes: TxHash[] = [];
+      for (let i = 0; i < batchSize; i++) {
+        hashes.push(txs[Math.floor(Math.random() * txs.length)].getTxHash());
+      }
+
+      const duration = await measureOperation(async () => {
+        await pool.getTxsByHash(hashes);
+      }, 100);
+
+      metrics.addMetric(TxPoolOperation.GET_TXS_BY_HASH, poolSize, batchSize, duration);
+    });
+
+    it.each([1, 10, Math.min(50, poolSize)])('hasTxs: batch=%d', async (batchSize: number) => {
+      const hashes: TxHash[] = [];
+      for (let i = 0; i < batchSize; i++) {
+        if (i % 2 === 0) {
+          hashes.push(txs[Math.floor(Math.random() * txs.length)].getTxHash());
+        } else {
+          hashes.push(TxHash.random());
+        }
+      }
+
+      const duration = await measureOperation(async () => {
+        await pool.hasTxs(hashes);
+      }, 100);
+
+      metrics.addMetric(TxPoolOperation.HAS_TXS, poolSize, batchSize, duration);
+    });
+
+    it.each([10, Math.min(50, poolSize)])('getLowestPriorityPending: limit=%d', async (limit: number) => {
+      const duration = await measureOperation(async () => {
+        await pool.getLowestPriorityPending(limit);
+      }, 100);
+
+      metrics.addMetric(TxPoolOperation.GET_LOWEST_PRIORITY_PENDING, poolSize, limit, duration);
+    });
+
+    it('canAddPendingTx', async () => {
+      const extraTxs = preCreatedTxs.get(-1)!;
+      const newTx = extraTxs[0];
+
+      const duration = await measureOperation(async () => {
+        await pool.canAddPendingTx(newTx);
+      }, 100);
+
+      metrics.addMetric(TxPoolOperation.CAN_ADD_PENDING_TX, poolSize, 0, duration);
+    });
+  });
+
+  // Mutating benchmarks - run each operation multiple times with reset
+
+  const MUTATION_ITERATIONS = 5;
+
+  describe('addPendingTxs', () => {
+    beforeAll(() => {
+      setupMocks();
+    });
+
+    it.each([
+      [0, 1],
+      [0, 10],
+      [0, 100],
+      [100, 1],
+      [100, 10],
+      [100, 100],
+      [1000, 1],
+      [1000, 10],
+      [1000, 100],
+    ])('pool=%d, batch=%d', async (poolSize: number, batchSize: number) => {
+      const { pool, cleanup } = await createPool();
+
+      try {
+        // Populate pool if needed
+        if (poolSize > 0) {
+          await populatePool(pool, poolSize);
+        }
+
+        // Get batch to add from extra txs
+        const extraTxs = preCreatedTxs.get(-1)!;
+        const txsToAdd = extraTxs.slice(0, batchSize);
+        const hashesToRemove = txsToAdd.map(tx => tx.getTxHash());
+
+        let totalDuration = 0;
+        for (let i = 0; i < MUTATION_ITERATIONS; i++) {
+          const startTime = performance.now();
+          await pool.addPendingTxs(txsToAdd);
+          totalDuration += performance.now() - startTime;
+
+          // Reset: remove added txs
+          await pool.handleFailedExecution(hashesToRemove);
+        }
+
+        metrics.addMetric(TxPoolOperation.ADD_PENDING_TXS, poolSize, batchSize, totalDuration / MUTATION_ITERATIONS);
+      } finally {
+        await cleanup();
+      }
+    });
+  });
+
+  describe('handleMinedBlock', () => {
+    beforeAll(() => {
+      setupMocks();
+    });
+
+    it.each([
+      [100, 10],
+      [100, 50],
+      [1000, 10],
+      [1000, 100],
+    ])('pool=%d, mined=%d', async (poolSize: number, minedCount: number) => {
+      const { pool, cleanup } = await createPool();
+
+      try {
+        const txs = await populatePool(pool, poolSize);
+        const txsToMine = txs.slice(0, minedCount);
+        const block = makeBlock(txsToMine, slot1Header);
+
+        // Pre-compute block IDs for reset
+        const block0Hash = await BlockHeader.empty().hash();
+        const block0Id: L2BlockId = { number: BlockNumber(0), hash: block0Hash.toString() };
+
+        let totalDuration = 0;
+        for (let i = 0; i < MUTATION_ITERATIONS; i++) {
+          const startTime = performance.now();
+          await pool.handleMinedBlock(block);
+          totalDuration += performance.now() - startTime;
+
+          // Reset: un-mine by pruning back to block 0
+          await pool.handlePrunedBlocks(block0Id);
+        }
+
+        metrics.addMetric(
+          TxPoolOperation.HANDLE_MINED_BLOCK,
+          poolSize,
+          minedCount,
+          totalDuration / MUTATION_ITERATIONS,
+        );
+      } finally {
+        await cleanup();
+      }
+    });
+  });
+
+  describe('prepareForSlot', () => {
+    beforeAll(() => {
+      setupMocks();
+    });
+
+    it.each([
+      [100, 10],
+      [100, 50],
+      [1000, 10],
+      [1000, 100],
+    ])('pool=%d, protected=%d', async (poolSize: number, protectedCount: number) => {
+      const { pool, cleanup } = await createPool();
+
+      try {
+        // Get txs and split into pending and protected
+        const txs = preCreatedTxs.get(poolSize)!;
+        const pendingTxs = txs.slice(0, poolSize - protectedCount);
+        const protectedTxs = txs.slice(poolSize - protectedCount);
+
+        await pool.addPendingTxs(pendingTxs);
+
+        let totalDuration = 0;
+        for (let i = 0; i < MUTATION_ITERATIONS; i++) {
+          // Protect txs for slot N
+          const slotN = SlotNumber(i * 2 + 1);
+          const slotNHeader = BlockHeader.empty({
+            globalVariables: GlobalVariables.empty({
+              blockNumber: BlockNumber(i * 2 + 1),
+              slotNumber: slotN,
+            }),
+          });
+          await pool.addProtectedTxs(protectedTxs, slotNHeader);
+
+          // Measure prepareForSlot(N+1) which unprotects slot N txs
+          const startTime = performance.now();
+          await pool.prepareForSlot(SlotNumber(i * 2 + 2));
+          totalDuration += performance.now() - startTime;
+        }
+
+        metrics.addMetric(
+          TxPoolOperation.PREPARE_FOR_SLOT,
+          poolSize,
+          protectedCount,
+          totalDuration / MUTATION_ITERATIONS,
+        );
+      } finally {
+        await cleanup();
+      }
+    });
+  });
+
+  describe('handlePrunedBlocks', () => {
+    beforeAll(() => {
+      setupMocks();
+    });
+
+    it.each([
+      [100, 10],
+      [100, 50],
+      [1000, 10],
+      [1000, 100],
+    ])('pool=%d, mined=%d', async (poolSize: number, minedCount: number) => {
+      const { pool, cleanup } = await createPool();
+
+      try {
+        const txs = await populatePool(pool, poolSize);
+        const txsToMine = txs.slice(0, minedCount);
+        const block = makeBlock(txsToMine, slot2Header);
+
+        // Pre-compute block IDs
+        const block1Hash = await slot1Header.hash();
+        const block1Id: L2BlockId = { number: BlockNumber(1), hash: block1Hash.toString() };
+
+        let totalDuration = 0;
+        for (let i = 0; i < MUTATION_ITERATIONS; i++) {
+          // Mine transactions at block 2
+          await pool.handleMinedBlock(block);
+
+          // Measure: prune back to block 1 (un-mines the transactions)
+          const startTime = performance.now();
+          await pool.handlePrunedBlocks(block1Id);
+          totalDuration += performance.now() - startTime;
+        }
+
+        metrics.addMetric(
+          TxPoolOperation.HANDLE_PRUNED_BLOCKS,
+          poolSize,
+          minedCount,
+          totalDuration / MUTATION_ITERATIONS,
+        );
+      } finally {
+        await cleanup();
+      }
+    });
+  });
+
+  describe('hydrateFromDatabase', () => {
+    it('hydrate 1000 pending txs', async () => {
+      setupMocks();
+
+      // Create persistent stores that survive pool restart
+      const store = await openTmpStore('p2p-hydrate-bench');
+      const archiveStore = await openTmpStore('archive-hydrate-bench');
+
+      try {
+        // Create pool and populate with 1000 txs (default config has no limit)
+        const pool1 = new AztecKVTxPoolV2(store, archiveStore, {
+          l2BlockSource: mockL2BlockSource,
+          worldStateSynchronizer: mockWorldState,
+          createTxValidator: () => Promise.resolve(alwaysValidValidator),
+          checkAllowedSetupCalls: () => Promise.resolve(true),
+          blockMinFeesProvider: { getCurrentMinFees: () => Promise.resolve(GasFees.empty()) },
+        });
+        await pool1.start();
+
+        const txs = preCreatedTxs.get(1000)!;
+        expect(txs.length).toBe(1000); // Verify we have 1000 pre-created txs
+        await pool1.addPendingTxs(txs);
+        expect(await pool1.getPendingTxCount()).toBe(1000);
+
+        await pool1.stop();
+
+        // Measure hydration time
+        let totalDuration = 0;
+        for (let i = 0; i < MUTATION_ITERATIONS; i++) {
+          const pool2 = new AztecKVTxPoolV2(store, archiveStore, {
+            l2BlockSource: mockL2BlockSource,
+            worldStateSynchronizer: mockWorldState,
+            createTxValidator: () => Promise.resolve(alwaysValidValidator),
+            checkAllowedSetupCalls: () => Promise.resolve(true),
+            blockMinFeesProvider: { getCurrentMinFees: () => Promise.resolve(GasFees.empty()) },
+          });
+
+          const startTime = performance.now();
+          await pool2.start();
+          totalDuration += performance.now() - startTime;
+
+          // Verify hydration was successful
+          expect(await pool2.getPendingTxCount()).toBe(1000);
+
+          await pool2.stop();
+        }
+
+        metrics.addMetric(TxPoolOperation.HYDRATE_FROM_DATABASE, 1000, 0, totalDuration / MUTATION_ITERATIONS);
+      } finally {
+        await store.delete();
+        await archiveStore.delete();
+      }
+    });
+  });
+});

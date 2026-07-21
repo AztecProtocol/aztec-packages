@@ -398,27 +398,31 @@ TEST(PlookupTests, secp256k1_generator)
         const auto xhi = plookup_read::read_pair_from_table(MultiTableId::SECP256K1_XHI, index);
         const auto ylo = plookup_read::read_pair_from_table(MultiTableId::SECP256K1_YLO, index);
         const auto yhi = plookup_read::read_pair_from_table(MultiTableId::SECP256K1_YHI, index);
-        curve::fq_ct x = curve::fq_ct::unsafe_construct_from_limbs(xlo.first, xlo.second, xhi.first, xhi.second);
-        curve::fq_ct y = curve::fq_ct::unsafe_construct_from_limbs(ylo.first, ylo.second, yhi.first, yhi.second);
+        curve::BaseField x =
+            curve::BaseField::unsafe_construct_from_limbs(xlo.first, xlo.second, xhi.first, xhi.second);
+        curve::BaseField y =
+            curve::BaseField::unsafe_construct_from_limbs(ylo.first, ylo.second, yhi.first, yhi.second);
 
-        const auto res = curve::g1_ct(x, y).get_value();
-        curve::fr scalar(i);
+        const auto res = curve::Group(x, y).get_value();
+        curve::ScalarFieldNative scalar(i);
         scalar = scalar + scalar;
         scalar = scalar - 255;
-        curve::g1::affine_element expec(curve::g1::one * scalar);
+        curve::GroupNative::affine_element expec(curve::GroupNative::one * scalar);
 
         EXPECT_EQ(res, expec);
     }
-    curve::g1_ct accumulator;
+    curve::Group accumulator;
     {
         const auto xlo = plookup_read::read_pair_from_table(MultiTableId::SECP256K1_XLO, circuit_naf_values[0]);
         const auto xhi = plookup_read::read_pair_from_table(MultiTableId::SECP256K1_XHI, circuit_naf_values[0]);
         const auto ylo = plookup_read::read_pair_from_table(MultiTableId::SECP256K1_YLO, circuit_naf_values[0]);
         const auto yhi = plookup_read::read_pair_from_table(MultiTableId::SECP256K1_YHI, circuit_naf_values[0]);
 
-        curve::fq_ct x = curve::fq_ct::unsafe_construct_from_limbs(xlo.first, xlo.second, xhi.first, xhi.second);
-        curve::fq_ct y = curve::fq_ct::unsafe_construct_from_limbs(ylo.first, ylo.second, yhi.first, yhi.second);
-        accumulator = curve::g1_ct(x, y);
+        curve::BaseField x =
+            curve::BaseField::unsafe_construct_from_limbs(xlo.first, xlo.second, xhi.first, xhi.second);
+        curve::BaseField y =
+            curve::BaseField::unsafe_construct_from_limbs(ylo.first, ylo.second, yhi.first, yhi.second);
+        accumulator = curve::Group(x, y);
     }
     for (size_t i = 1; i < circuit_naf_values.size(); ++i) {
         accumulator = accumulator.dbl();
@@ -433,17 +437,19 @@ TEST(PlookupTests, secp256k1_generator)
         const auto xhi = plookup_read::read_pair_from_table(MultiTableId::SECP256K1_XHI, circuit_naf_values[i]);
         const auto ylo = plookup_read::read_pair_from_table(MultiTableId::SECP256K1_YLO, circuit_naf_values[i]);
         const auto yhi = plookup_read::read_pair_from_table(MultiTableId::SECP256K1_YHI, circuit_naf_values[i]);
-        curve::fq_ct x = curve::fq_ct::unsafe_construct_from_limbs(xlo.first, xlo.second, xhi.first, xhi.second);
-        curve::fq_ct y = curve::fq_ct::unsafe_construct_from_limbs(ylo.first, ylo.second, yhi.first, yhi.second);
-        accumulator = accumulator.dbl() + curve::g1_ct(x, y);
+        curve::BaseField x =
+            curve::BaseField::unsafe_construct_from_limbs(xlo.first, xlo.second, xhi.first, xhi.second);
+        curve::BaseField y =
+            curve::BaseField::unsafe_construct_from_limbs(ylo.first, ylo.second, yhi.first, yhi.second);
+        accumulator = accumulator.dbl() + curve::Group(x, y);
     }
 
     if (skew) {
-        accumulator = accumulator - curve::g1_ct::one(&builder);
+        accumulator = accumulator - curve::Group::one(&builder);
     }
 
-    curve::g1::affine_element result = accumulator.get_value();
-    curve::g1::affine_element expected(curve::g1::one * input_value);
+    curve::GroupNative::affine_element result = accumulator.get_value();
+    curve::GroupNative::affine_element expected(curve::GroupNative::one * input_value);
     EXPECT_EQ(result, expected);
 
     bool proof_result = CircuitChecker::check(builder);
@@ -516,4 +522,113 @@ TEST(PlookupTests, MixedConstantVariableInputs)
     EXPECT_EQ(lookup[ColumnIdx::C3][0].get_value(), bb::fr(expected));
 
     EXPECT_TRUE(CircuitChecker::check(builder));
+}
+
+// Regression: the eight SECP256K1 generator MultiTables previously declared slice_sizes = 512
+// while the basic tables only have 256 rows, so a key in [256, 511] would slip past the
+// slice bound in slice_input_using_variable_bases and OOB-index generator_*_table.
+TEST(PlookupTests, Secp256k1GeneratorSliceSizeBound)
+{
+    const std::array<MultiTableId, 8> ids{
+        MultiTableId::SECP256K1_XLO,      MultiTableId::SECP256K1_XHI,          MultiTableId::SECP256K1_YLO,
+        MultiTableId::SECP256K1_YHI,      MultiTableId::SECP256K1_XYPRIME,      MultiTableId::SECP256K1_XLO_ENDO,
+        MultiTableId::SECP256K1_XHI_ENDO, MultiTableId::SECP256K1_XYPRIME_ENDO,
+    };
+    for (const auto id : ids) {
+        // Last valid key.
+        EXPECT_NO_THROW(plookup::get_lookup_accumulators(id, bb::fr(255), bb::fr(0), false));
+        // First out-of-range key — used to silently OOB-read.
+        EXPECT_THROW(plookup::get_lookup_accumulators(id, bb::fr(256), bb::fr(0), false), std::runtime_error);
+        // Mid-range OOB witness from the auditor's PoC.
+        EXPECT_THROW(plookup::get_lookup_accumulators(id, bb::fr(300), bb::fr(0), false), std::runtime_error);
+    }
+}
+
+// Checking the eight SECP256R1_FIXED_BASE multitables: (1) the slicer rejects keys
+// past the 2^136 / 2^120 bit budget, and (2) each slot's basic-table size equals its declared
+// slice_size. Widening either bound lets a prover witness a slice past the tail's basic-table range.
+TEST(PlookupTests, Secp256r1FixedBaseSliceSizeBound)
+{
+    using bb::numeric::uint256_t;
+    using Params = Secp256r1FixedBaseParams;
+    // Bits per half = (NUM_WINDOWS − 1) full 7-bit windows + tail: 136 (lo) and 120 (hi).
+    constexpr size_t LO_BIT_BUDGET = ((Params::NUM_WINDOWS_LO - 1) * Params::WINDOW_BITS) + Params::WINDOW_BITS_LO_TAIL;
+    constexpr size_t HI_BIT_BUDGET = ((Params::NUM_WINDOWS_HI - 1) * Params::WINDOW_BITS) + Params::WINDOW_BITS_HI_TAIL;
+
+    const std::array<MultiTableId, 4> lo_ids{
+        MultiTableId::SECP256R1_FIXED_BASE_XLO_LO,
+        MultiTableId::SECP256R1_FIXED_BASE_XHI_LO,
+        MultiTableId::SECP256R1_FIXED_BASE_YLO_LO,
+        MultiTableId::SECP256R1_FIXED_BASE_YHI_LO,
+    };
+    const std::array<MultiTableId, 4> hi_ids{
+        MultiTableId::SECP256R1_FIXED_BASE_XLO_HI,
+        MultiTableId::SECP256R1_FIXED_BASE_XHI_HI,
+        MultiTableId::SECP256R1_FIXED_BASE_YLO_HI,
+        MultiTableId::SECP256R1_FIXED_BASE_YHI_HI,
+    };
+
+    // (1) Slicer rejects keys at the bit budget; accepts the immediately-preceding key.
+    const uint256_t lo_oob_key = uint256_t(1) << LO_BIT_BUDGET;
+    const uint256_t hi_oob_key = uint256_t(1) << HI_BIT_BUDGET;
+    for (const auto id : lo_ids) {
+        EXPECT_NO_THROW(plookup::get_lookup_accumulators(id, bb::fr(lo_oob_key - 1), bb::fr(0), false));
+        EXPECT_THROW(plookup::get_lookup_accumulators(id, bb::fr(lo_oob_key), bb::fr(0), false), std::runtime_error);
+    }
+    for (const auto id : hi_ids) {
+        EXPECT_NO_THROW(plookup::get_lookup_accumulators(id, bb::fr(hi_oob_key - 1), bb::fr(0), false));
+        EXPECT_THROW(plookup::get_lookup_accumulators(id, bb::fr(hi_oob_key), bb::fr(0), false), std::runtime_error);
+    }
+
+    // (2) Each slot's slice_size and basic-table size both equal Params::TABLE_SIZE_BIG, except the tail.
+    auto check_layout = [](MultiTableId mt_id, size_t num_windows, size_t tail_rows) {
+        SCOPED_TRACE("MultiTable id=" + std::to_string(static_cast<size_t>(mt_id)));
+        const auto& mt = get_multitable(mt_id);
+        ASSERT_EQ(mt.basic_table_ids.size(), num_windows);
+        ASSERT_EQ(mt.slice_sizes.size(), num_windows);
+        for (size_t slot = 0; slot < num_windows; ++slot) {
+            SCOPED_TRACE("slot=" + std::to_string(slot));
+            const size_t expected = (slot == num_windows - 1) ? tail_rows : Params::TABLE_SIZE_BIG;
+            EXPECT_EQ(mt.slice_sizes[slot], expected);
+            EXPECT_EQ(create_basic_table(mt.basic_table_ids[slot], 1).size(), expected);
+        }
+    };
+    for (const auto id : lo_ids) {
+        check_layout(id, Params::NUM_WINDOWS_LO, Params::TABLE_SIZE_LO_TAIL);
+    }
+    for (const auto id : hi_ids) {
+        check_layout(id, Params::NUM_WINDOWS_HI, Params::TABLE_SIZE_HI_TAIL);
+    }
+}
+
+/**
+ * @brief Invariant check for SHA-256 input multitables: basic-table sizes match declared slice_sizes.
+ *
+ * @details Each SHA-256 input multitable (MAJ_INPUT, CH_INPUT, WITNESS_INPUT) is a 1-to-1 decomposition
+ * lookup: each slot reads a single key in [0, slice_sizes[slot]) and the backing basic table is generated
+ * by iterating `i = 0 .. 2^bits_per_slice`. Soundness requires basic.size() == slice_sizes[slot]; a larger
+ * basic table admits keys outside the declared range and lets a prover witness an out-of-range slice.
+ *
+ */
+TEST(PlookupTests, Sha256InputMultiTablesMatchBasicTableSizes)
+{
+    const std::array<MultiTableId, 3> sha256_input_tables = {
+        MultiTableId::SHA256_MAJ_INPUT,
+        MultiTableId::SHA256_CH_INPUT,
+        MultiTableId::SHA256_WITNESS_INPUT,
+    };
+
+    for (auto mt_id : sha256_input_tables) {
+        const auto& mt = get_multitable(mt_id);
+        ASSERT_EQ(mt.basic_table_ids.size(), mt.slice_sizes.size())
+            << "MultiTable id=" << static_cast<size_t>(mt_id)
+            << ": basic_table_ids and slice_sizes have different sizes";
+
+        for (size_t slot = 0; slot < mt.slice_sizes.size(); ++slot) {
+            const auto basic = create_basic_table(mt.basic_table_ids[slot], 1);
+            EXPECT_EQ(basic.size(), mt.slice_sizes[slot])
+                << "MultiTable id=" << static_cast<size_t>(mt_id) << " slot=" << slot << ": basic-table size "
+                << basic.size() << " != declared slice_size " << mt.slice_sizes[slot];
+        }
+    }
 }

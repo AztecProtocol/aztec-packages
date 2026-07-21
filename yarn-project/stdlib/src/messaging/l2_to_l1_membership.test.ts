@@ -1,4 +1,4 @@
-import { MAX_L2_TO_L1_MSGS_PER_TX, OUT_HASH_TREE_HEIGHT } from '@aztec/constants';
+import { MAX_CHECKPOINTS_PER_EPOCH, MAX_L2_TO_L1_MSGS_PER_TX, OUT_HASH_TREE_HEIGHT } from '@aztec/constants';
 import { randomInt } from '@aztec/foundation/crypto/random';
 import { sha256Trunc } from '@aztec/foundation/crypto/sha256';
 import { Fr } from '@aztec/foundation/curves/bn254';
@@ -23,7 +23,7 @@ describe('L2 to L1 membership', () => {
   const hasher = (left: Buffer, right: Buffer) => sha256Trunc(Buffer.concat([left, right]));
 
   // This should match the implementation in Outbox.sol -> verifyMembership
-  const verifyMembership = (leaf: Fr, witness: L2ToL1MembershipWitness) => {
+  const verifyMembership = (leaf: Fr, witness: Pick<L2ToL1MembershipWitness, 'leafIndex' | 'siblingPath' | 'root'>) => {
     let subtreeRoot = leaf.toBuffer();
     let indexAtHeight = witness.leafIndex;
     const path = witness.siblingPath.toBufferArray();
@@ -35,24 +35,33 @@ describe('L2 to L1 membership', () => {
     expect(subtreeRoot).toEqual(witness.root.toBuffer());
   };
 
-  const verifyMembershipForMessagesInEpoch = (messagesInEpoch: Fr[][][][]): L2ToL1MembershipWitness[] => {
+  const verifyMembershipForMessagesInEpoch = (messagesInEpoch: Fr[][][][]) => {
     let root = Fr.ZERO;
-    const messages = messagesInEpoch.flat(3);
-    const witnesses = messages.map((msg, i) => {
-      const witness = computeL2ToL1MembershipWitnessFromMessagesInEpoch(messagesInEpoch, msg);
-      const leafId = getL2ToL1MessageLeafId(witness);
-      expect(foundLeafIds.has(leafId)).toBe(false);
-      foundLeafIds.add(leafId);
-      verifyMembership(msg, witness);
+    const witnesses: ReturnType<typeof computeL2ToL1MembershipWitnessFromMessagesInEpoch>[] = [];
+    let isFirst = true;
+    for (let ci = 0; ci < messagesInEpoch.length; ci++) {
+      for (let bi = 0; bi < messagesInEpoch[ci].length; bi++) {
+        for (let ti = 0; ti < messagesInEpoch[ci][bi].length; ti++) {
+          for (let mi = 0; mi < messagesInEpoch[ci][bi][ti].length; mi++) {
+            const msg = messagesInEpoch[ci][bi][ti][mi];
+            const witness = computeL2ToL1MembershipWitnessFromMessagesInEpoch(messagesInEpoch, msg, ci, bi, ti, mi);
+            const leafId = getL2ToL1MessageLeafId(witness);
+            expect(foundLeafIds.has(leafId)).toBe(false);
+            foundLeafIds.add(leafId);
+            verifyMembership(msg, witness);
 
-      if (i === 0) {
-        root = witness.root;
-      } else {
-        expect(witness.root).toEqual(root);
+            if (isFirst) {
+              root = witness.root;
+              isFirst = false;
+            } else {
+              expect(witness.root).toEqual(root);
+            }
+
+            witnesses.push(witness);
+          }
+        }
       }
-
-      return witness;
-    });
+    }
 
     const computedRoot = computeEpochOutHash(messagesInEpoch);
     expect(root).toEqual(computedRoot);
@@ -68,8 +77,35 @@ describe('L2 to L1 membership', () => {
     it('throws if the message is not found', () => {
       const messagesInEpoch = [[[msgHashes(3), msgHashes(1)]]];
       const targetMsg = Fr.random();
-      expect(() => computeL2ToL1MembershipWitnessFromMessagesInEpoch(messagesInEpoch, targetMsg)).toThrow(
+      expect(() => computeL2ToL1MembershipWitnessFromMessagesInEpoch(messagesInEpoch, targetMsg, 0, 0, 0)).toThrow(
         'The L2ToL1Message you are trying to prove inclusion of does not exist',
+      );
+    });
+
+    it('throws if duplicate messages exist in tx without explicit index', () => {
+      const msg = Fr.random();
+      const messagesInEpoch = [[[[msg, msg, Fr.random()]]]];
+      expect(() => computeL2ToL1MembershipWitnessFromMessagesInEpoch(messagesInEpoch, msg, 0, 0, 0)).toThrow(
+        'Multiple messages with the same value',
+      );
+    });
+
+    it('succeeds with explicit index for duplicate messages', () => {
+      const msg = Fr.random();
+      const messagesInEpoch = [[[[msg, msg, Fr.random()]]]];
+      const witness0 = computeL2ToL1MembershipWitnessFromMessagesInEpoch(messagesInEpoch, msg, 0, 0, 0, 0);
+      const witness1 = computeL2ToL1MembershipWitnessFromMessagesInEpoch(messagesInEpoch, msg, 0, 0, 0, 1);
+      expect(witness0.leafIndex).not.toEqual(witness1.leafIndex);
+      verifyMembership(msg, witness0);
+      verifyMembership(msg, witness1);
+    });
+
+    it('throws if explicit index does not match the message', () => {
+      const msg = Fr.random();
+      const otherMsg = Fr.random();
+      const messagesInEpoch = [[[[otherMsg, msg]]]];
+      expect(() => computeL2ToL1MembershipWitnessFromMessagesInEpoch(messagesInEpoch, msg, 0, 0, 0, 0)).toThrow(
+        'Message at index 0 in tx does not match the expected message',
       );
     });
 
@@ -525,17 +561,17 @@ describe('L2 to L1 membership', () => {
     it('full checkpoints in the epoch, with 3 checkpoints in the left epoch top tree and 4 checkpoints in the right epoch top tree that have messages', () => {
       //   left epoch top tree      right epoch top tree
       //    /     /      /           \     \     \     \
-      //   c7    c19    c31          c32   c33  c41   c47
+      //   c7    c11    c15          c16   c17  c29   c31
 
-      const messagesInEpoch: Fr[][][][] = Array.from({ length: 48 }, () => [[[]]]);
+      const messagesInEpoch: Fr[][][][] = Array.from({ length: MAX_CHECKPOINTS_PER_EPOCH }, () => [[[]]]);
       // Add one message to each of the target checkpoints.
       messagesInEpoch[7] = [[msgHashes(1)]]; // m0
       messagesInEpoch[11] = [[msgHashes(2)]]; // m1, m2
-      messagesInEpoch[31] = [[msgHashes(3)]]; // m3, m4, m5
-      messagesInEpoch[32] = [[msgHashes(2)]]; // m6, m7
-      messagesInEpoch[33] = [[msgHashes(1)]]; // m8
-      messagesInEpoch[43] = [[msgHashes(2)]]; // m9, m10
-      messagesInEpoch[47] = [[msgHashes(3)]]; // m11, m12, m13
+      messagesInEpoch[15] = [[msgHashes(3)]]; // m3, m4, m5
+      messagesInEpoch[16] = [[msgHashes(2)]]; // m6, m7
+      messagesInEpoch[17] = [[msgHashes(1)]]; // m8
+      messagesInEpoch[29] = [[msgHashes(2)]]; // m9, m10
+      messagesInEpoch[31] = [[msgHashes(3)]]; // m11, m12, m13
 
       const witnesses = verifyMembershipForMessagesInEpoch(messagesInEpoch);
       {
@@ -555,47 +591,47 @@ describe('L2 to L1 membership', () => {
         expect(m1.siblingPath.pathSize).toBe(1 + epochTopTreeDepth);
       }
       {
-        //      c31
+        //      c15
         //     /  \
         //    .   m5
         //  /  \
         // m3  m4
         const m4 = witnesses[4];
-        expect(m4.leafIndex).toBe(31n * 4n + 1n); // 31 checkpoints before it, each has 4 (ghost) leaves.
+        expect(m4.leafIndex).toBe(15n * 4n + 1n); // 15 checkpoints before it, each has 4 (ghost) leaves.
         expect(m4.siblingPath.pathSize).toBe(2 + epochTopTreeDepth);
       }
       {
-        //   c32
+        //   c16
         //  /  \
         // m6  m7
         const m6 = witnesses[6];
-        expect(m6.leafIndex).toBe(32n * 2n); // 32 checkpoints before it, each has 2 (ghost) leaves.
+        expect(m6.leafIndex).toBe(16n * 2n); // 16 checkpoints before it, each has 2 (ghost) leaves.
         expect(m6.siblingPath.pathSize).toBe(1 + epochTopTreeDepth);
       }
       {
-        // c33
+        // c17
         //  |
         // m8
         const m8 = witnesses[8];
-        expect(m8.leafIndex).toBe(32n + 1n);
+        expect(m8.leafIndex).toBe(17n);
         expect(m8.siblingPath.pathSize).toBe(epochTopTreeDepth);
       }
       {
-        //   c43
+        //   c29
         //  /  \
         // m9  m10
         const m10 = witnesses[10];
-        expect(m10.leafIndex).toBe(43n * 2n + 1n); // (32 + 11) checkpoints before it, each has 2 (ghost) leaves.
+        expect(m10.leafIndex).toBe(29n * 2n + 1n); // 29 checkpoints before it, each has 2 (ghost) leaves.
         expect(m10.siblingPath.pathSize).toBe(1 + epochTopTreeDepth);
       }
       {
-        //      c47
+        //      c31
         //     /  \
         //    .   m13
         //  /  \
         // m11 m12
         const m11 = witnesses[11];
-        expect(m11.leafIndex).toBe(47n * 4n); // (32 + 15) checkpoints before it, each has 4 (ghost) leaves.
+        expect(m11.leafIndex).toBe(31n * 4n); // 31 checkpoints before it, each has 4 (ghost) leaves.
         expect(m11.siblingPath.pathSize).toBe(2 + epochTopTreeDepth);
       }
     });
@@ -802,7 +838,7 @@ describe('L2 to L1 membership', () => {
         [[[], []]],
         [[[], []], [[]], [[], [], []], [[], []]],
       ];
-      const witness = computeL2ToL1MembershipWitnessFromMessagesInEpoch(messagesInEpoch, msg);
+      const witness = computeL2ToL1MembershipWitnessFromMessagesInEpoch(messagesInEpoch, msg, 2, 2, 0, 0);
       expect(witness.leafIndex).toBe(2n); // The message is the root of the second checkpoint.
       expect(witness.siblingPath.pathSize).toBe(epochTopTreeDepth);
     });
@@ -840,9 +876,9 @@ describe('L2 to L1 membership', () => {
     });
 
     it('a complex full epoch, with multiple checkpoints, blocks, txs, and messages', () => {
-      const messagesInEpoch: Fr[][][][] = Array.from({ length: 48 }, () => [[[]]]);
+      const messagesInEpoch: Fr[][][][] = Array.from({ length: MAX_CHECKPOINTS_PER_EPOCH }, () => [[[]]]);
       let totalNumMessages = 0;
-      for (let checkpointIndex = 0; checkpointIndex < 48; checkpointIndex++) {
+      for (let checkpointIndex = 0; checkpointIndex < MAX_CHECKPOINTS_PER_EPOCH; checkpointIndex++) {
         const numBlocks = randomInt(72); // Assumes at most 72 blocks per checkpoint.
         for (let blockIndex = 0; blockIndex < numBlocks; blockIndex++) {
           const blockMessages = [];

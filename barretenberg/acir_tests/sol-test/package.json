@@ -11,5 +11,5 @@
     "ethers": "^6.8.1",
     "solc": "^0.8.27"
   },
-  "packageManager": "yarn@4.5.2"
+  "packageManager": "yarn@4.13.0"
 }

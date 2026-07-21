@@ -51,25 +51,38 @@ void ECCVMBoolsRelationImpl<FF>::accumulate(ContainerOverSubrelations& accumulat
     auto msm_double = View(in.msm_double);
     auto msm_skew = View(in.msm_skew);
     auto precompute_select = View(in.precompute_select);
+    auto msm_add1 = View(in.msm_add1);
+    auto msm_add2 = View(in.msm_add2);
+    auto msm_add3 = View(in.msm_add3);
+    auto msm_add4 = View(in.msm_add4);
 
-    std::get<0>(accumulator) += q_eq * (q_eq - 1) * scaling_factor;
-    std::get<1>(accumulator) += q_add * (q_add - 1) * scaling_factor;
-    std::get<2>(accumulator) += q_mul * (q_mul - 1) * scaling_factor;
-    std::get<3>(accumulator) += q_reset_accumulator * (q_reset_accumulator - 1) * scaling_factor;
-    std::get<4>(accumulator) += transcript_msm_transition * (transcript_msm_transition - 1) * scaling_factor;
-    std::get<5>(accumulator) += is_accumulator_not_empty * (is_accumulator_not_empty - 1) * scaling_factor;
-    std::get<6>(accumulator) += z1_zero * (z1_zero - 1) * scaling_factor;
-    std::get<7>(accumulator) += z2_zero * (z2_zero - 1) * scaling_factor;
-    std::get<8>(accumulator) += transcript_add_x_equal * (transcript_add_x_equal - 1) * scaling_factor;
-    std::get<9>(accumulator) += transcript_add_y_equal * (transcript_add_y_equal - 1) * scaling_factor;
-    std::get<10>(accumulator) += transcript_Pinfinity * (transcript_Pinfinity - 1) * scaling_factor;
-    std::get<11>(accumulator) += transcript_msm_infinity * (transcript_msm_infinity - 1) * scaling_factor;
-    std::get<12>(accumulator) += msm_count_zero_at_transition * (msm_count_zero_at_transition - 1) * scaling_factor;
-    std::get<13>(accumulator) += msm_transition * (msm_transition - 1) * scaling_factor;
-    std::get<14>(accumulator) += precompute_point_transition * (precompute_point_transition - 1) * scaling_factor;
-    std::get<15>(accumulator) += msm_add * (msm_add - 1) * scaling_factor;
-    std::get<16>(accumulator) += msm_double * (msm_double - 1) * scaling_factor;
-    std::get<17>(accumulator) += msm_skew * (msm_skew - 1) * scaling_factor;
-    std::get<18>(accumulator) += precompute_select * (precompute_select - 1) * scaling_factor;
+    std::get<BOOL_Q_EQ>(accumulator) += q_eq * (q_eq - 1) * scaling_factor;
+    std::get<BOOL_Q_ADD>(accumulator) += q_add * (q_add - 1) * scaling_factor;
+    std::get<BOOL_Q_MUL>(accumulator) += q_mul * (q_mul - 1) * scaling_factor;
+    std::get<BOOL_Q_RESET_ACCUMULATOR>(accumulator) += q_reset_accumulator * (q_reset_accumulator - 1) * scaling_factor;
+    std::get<BOOL_MSM_TRANSITION>(accumulator) +=
+        transcript_msm_transition * (transcript_msm_transition - 1) * scaling_factor;
+    std::get<BOOL_ACCUMULATOR_NOT_EMPTY>(accumulator) +=
+        is_accumulator_not_empty * (is_accumulator_not_empty - 1) * scaling_factor;
+    std::get<BOOL_Z1_ZERO>(accumulator) += z1_zero * (z1_zero - 1) * scaling_factor;
+    std::get<BOOL_Z2_ZERO>(accumulator) += z2_zero * (z2_zero - 1) * scaling_factor;
+    std::get<BOOL_ADD_X_EQUAL>(accumulator) += transcript_add_x_equal * (transcript_add_x_equal - 1) * scaling_factor;
+    std::get<BOOL_ADD_Y_EQUAL>(accumulator) += transcript_add_y_equal * (transcript_add_y_equal - 1) * scaling_factor;
+    std::get<BOOL_BASE_INFINITY>(accumulator) += transcript_Pinfinity * (transcript_Pinfinity - 1) * scaling_factor;
+    std::get<BOOL_MSM_INFINITY>(accumulator) +=
+        transcript_msm_infinity * (transcript_msm_infinity - 1) * scaling_factor;
+    std::get<BOOL_MSM_COUNT_ZERO_AT_TRANSITION>(accumulator) +=
+        msm_count_zero_at_transition * (msm_count_zero_at_transition - 1) * scaling_factor;
+    std::get<BOOL_MSM_TRANSITION_MSM>(accumulator) += msm_transition * (msm_transition - 1) * scaling_factor;
+    std::get<BOOL_PRECOMPUTE_POINT_TRANSITION>(accumulator) +=
+        precompute_point_transition * (precompute_point_transition - 1) * scaling_factor;
+    std::get<BOOL_MSM_ADD>(accumulator) += msm_add * (msm_add - 1) * scaling_factor;
+    std::get<BOOL_MSM_DOUBLE>(accumulator) += msm_double * (msm_double - 1) * scaling_factor;
+    std::get<BOOL_MSM_SKEW>(accumulator) += msm_skew * (msm_skew - 1) * scaling_factor;
+    std::get<BOOL_PRECOMPUTE_SELECT>(accumulator) += precompute_select * (precompute_select - 1) * scaling_factor;
+    std::get<BOOL_MSM_ADD1>(accumulator) += msm_add1 * (msm_add1 - 1) * scaling_factor;
+    std::get<BOOL_MSM_ADD2>(accumulator) += msm_add2 * (msm_add2 - 1) * scaling_factor;
+    std::get<BOOL_MSM_ADD3>(accumulator) += msm_add3 * (msm_add3 - 1) * scaling_factor;
+    std::get<BOOL_MSM_ADD4>(accumulator) += msm_add4 * (msm_add4 - 1) * scaling_factor;
 }
 } // namespace bb

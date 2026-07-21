@@ -1,19 +1,21 @@
 mod test;
 
-// Test contract showing basic public access control that can be used in private. It uses a DelayedPublicMutable state variable to
+// Test contract showing basic public access control that can be used in private. It uses a DelayedPublicMutable state
+// variable to
 // publicly store the address of an authorized account that can call private functions.
-use dep::aztec::macros::aztec;
+use aztec::macros::aztec;
 
 #[aztec]
 pub contract Auth {
-    use dep::aztec::{
+    use aztec::{
         macros::{functions::{external, initializer, view}, storage::storage},
         protocol::address::AztecAddress,
         state_vars::{DelayedPublicMutable, PublicImmutable},
     };
 
-    // Authorizing a new address has a certain delay before it goes into effect. Set to 180 seconds which is 5 slots.
-    pub(crate) global CHANGE_AUTHORIZED_DELAY: u64 = 180;
+    // docs:start:delayed_public_mutable_storage
+    // Authorizing a new address has a certain delay before it goes into effect. Set to 360 seconds which is 5 slots.
+    pub(crate) global CHANGE_AUTHORIZED_DELAY: u64 = 360;
 
     #[storage]
     struct Storage<Context> {
@@ -21,6 +23,7 @@ pub contract Auth {
         admin: PublicImmutable<AztecAddress, Context>,
         authorized: DelayedPublicMutable<AztecAddress, CHANGE_AUTHORIZED_DELAY, Context>,
     }
+    // docs:end:delayed_public_mutable_storage
 
     #[external("public")]
     #[initializer]
@@ -29,25 +32,29 @@ pub contract Auth {
         self.storage.admin.initialize(admin);
     }
 
+    // docs:start:schedule_value_change
     #[external("public")]
     fn set_authorized(authorized: AztecAddress) {
         assert_eq(self.storage.admin.read(), self.msg_sender(), "caller is not admin");
         self.storage.authorized.schedule_value_change(authorized);
     }
+    // docs:end:schedule_value_change
 
-    // docs:start:public_getter
+    // docs:start:get_current_value
     #[external("public")]
     #[view]
     fn get_authorized() -> AztecAddress {
         self.storage.authorized.get_current_value()
     }
-    // docs:end:public_getter
+    // docs:end:get_current_value
 
+    // docs:start:get_scheduled_value
     #[external("public")]
     #[view]
     fn get_scheduled_authorized() -> (AztecAddress, u64) {
         self.storage.authorized.get_scheduled_value()
     }
+    // docs:end:get_scheduled_value
 
     #[external("public")]
     #[view]

@@ -16,28 +16,34 @@ namespace bb::avm2 {
 struct lookup_sstore_record_written_storage_slot_settings_ {
     static constexpr std::string_view NAME = "LOOKUP_SSTORE_RECORD_WRITTEN_STORAGE_SLOT";
     static constexpr std::string_view RELATION_NAME = "sstore";
-    static constexpr size_t LOOKUP_TUPLE_SIZE = 7;
+    static constexpr size_t LOOKUP_TUPLE_SIZE = 10;
     static constexpr Column SRC_SELECTOR = Column::execution_sel_write_public_data;
-    static constexpr Column DST_SELECTOR = Column::written_public_data_slots_tree_check_sel;
+    static constexpr Column DST_SELECTOR = Column::indexed_tree_check_write;
     static constexpr Column COUNTS = Column::lookup_sstore_record_written_storage_slot_counts;
     static constexpr Column INVERSES = Column::lookup_sstore_record_written_storage_slot_inv;
     static constexpr std::array<ColumnAndShifts, LOOKUP_TUPLE_SIZE> SRC_COLUMNS = {
-        ColumnAndShifts::execution_contract_address,
         ColumnAndShifts::execution_register_1_,
-        ColumnAndShifts::execution_sel_write_public_data,
         ColumnAndShifts::execution_prev_written_public_data_slots_tree_root,
-        ColumnAndShifts::execution_prev_written_public_data_slots_tree_size,
         ColumnAndShifts::execution_written_public_data_slots_tree_root,
-        ColumnAndShifts::execution_written_public_data_slots_tree_size
+        ColumnAndShifts::execution_prev_written_public_data_slots_tree_size,
+        ColumnAndShifts::execution_written_public_data_slots_tree_size,
+        ColumnAndShifts::execution_written_slots_tree_height,
+        ColumnAndShifts::execution_written_slots_merkle_separator,
+        ColumnAndShifts::execution_sel_write_public_data,
+        ColumnAndShifts::execution_written_slots_tree_siloing_separator,
+        ColumnAndShifts::execution_contract_address
     };
     static constexpr std::array<ColumnAndShifts, LOOKUP_TUPLE_SIZE> DST_COLUMNS = {
-        ColumnAndShifts::written_public_data_slots_tree_check_address,
-        ColumnAndShifts::written_public_data_slots_tree_check_slot,
-        ColumnAndShifts::written_public_data_slots_tree_check_write,
-        ColumnAndShifts::written_public_data_slots_tree_check_root,
-        ColumnAndShifts::written_public_data_slots_tree_check_tree_size_before_write,
-        ColumnAndShifts::written_public_data_slots_tree_check_write_root,
-        ColumnAndShifts::written_public_data_slots_tree_check_tree_size_after_write
+        ColumnAndShifts::indexed_tree_check_value,
+        ColumnAndShifts::indexed_tree_check_root,
+        ColumnAndShifts::indexed_tree_check_write_root,
+        ColumnAndShifts::indexed_tree_check_tree_size_before_write,
+        ColumnAndShifts::indexed_tree_check_tree_size_after_write,
+        ColumnAndShifts::indexed_tree_check_tree_height,
+        ColumnAndShifts::indexed_tree_check_merkle_hash_separator,
+        ColumnAndShifts::indexed_tree_check_sel_silo,
+        ColumnAndShifts::indexed_tree_check_siloing_separator,
+        ColumnAndShifts::indexed_tree_check_address
     };
 };
 

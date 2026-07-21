@@ -1,7 +1,7 @@
 #include "barretenberg/vm2/simulation/standalone/pure_sha256.hpp"
 
+#include "barretenberg/aztec/aztec_constants.hpp"
 #include "barretenberg/crypto/sha256/sha256.hpp"
-#include "barretenberg/vm2/common/aztec_constants.hpp"
 #include "barretenberg/vm2/common/tagged_value.hpp"
 #include "barretenberg/vm2/simulation/events/sha256_event.hpp"
 #include "barretenberg/vm2/simulation/interfaces/memory.hpp"

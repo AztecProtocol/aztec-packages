@@ -12,6 +12,7 @@ import { join } from 'path';
 import { mnemonicToAccount, privateKeyToAccount } from 'viem/accounts';
 
 import { KeystoreError, KeystoreManager } from '../src/keystore_manager.js';
+import { ethPrivateKeySchema } from '../src/schemas.js';
 import { LocalSigner, RemoteSigner } from '../src/signer.js';
 import type { KeyStore } from '../src/types.js';
 
@@ -94,7 +95,9 @@ describe('KeystoreManager', () => {
         validators: [
           {
             attester: EthAddress.random(),
-            feeRecipient: AztecAddress.fromString('0x1111111111111111111111111111111111111111111111111111111111111111'),
+            feeRecipient: AztecAddress.fromStringUnsafe(
+              '0x1111111111111111111111111111111111111111111111111111111111111111',
+            ),
           },
         ],
       };
@@ -104,7 +107,7 @@ describe('KeystoreManager', () => {
 
       expect(
         feeRecipient.equals(
-          AztecAddress.fromString('0x1111111111111111111111111111111111111111111111111111111111111111'),
+          AztecAddress.fromStringUnsafe('0x1111111111111111111111111111111111111111111111111111111111111111'),
         ),
       ).toBeTruthy();
     });
@@ -1442,7 +1445,7 @@ describe('KeystoreManager', () => {
       expect(validateAccessSpy).toHaveBeenCalledWith(testUrl, [publisherAddress.toString()]);
     });
 
-    it('should handle validation errors', async () => {
+    it('should handle validation errors after retries are exhausted', async () => {
       const testUrl = 'http://test-signer:9000';
       const address = EthAddress.random();
 
@@ -1456,11 +1459,52 @@ describe('KeystoreManager', () => {
         ],
       };
 
+      const manager = new KeystoreManager(keystore);
+
       using validateAccessSpy = jest.spyOn(RemoteSigner, 'validateAccess');
-      validateAccessSpy.mockRejectedValueOnce(new Error('Connection refused'));
+      validateAccessSpy.mockRejectedValue(new Error('Connection refused'));
+
+      jest.useFakeTimers();
+
+      const promise = manager.validateSigners().catch(err => err);
+      await jest.advanceTimersByTimeAsync(32_000);
+      const error = await promise;
+      expect(error).toBeInstanceOf(Error);
+      expect((error as Error).message).toBe('Connection refused');
+
+      jest.useRealTimers();
+    });
+
+    it('should retry and succeed when validateAccess fails transiently', async () => {
+      const testUrl = 'http://test-signer:9000';
+      const address = EthAddress.random();
+
+      const keystore: KeyStore = {
+        schemaVersion: 1,
+        validators: [
+          {
+            attester: { address, remoteSignerUrl: testUrl },
+            feeRecipient: await AztecAddress.random(),
+          },
+        ],
+      };
 
       const manager = new KeystoreManager(keystore);
-      await expect(manager.validateSigners()).rejects.toThrow('Connection refused');
+
+      using validateAccessSpy = jest.spyOn(RemoteSigner, 'validateAccess');
+      validateAccessSpy
+        .mockRejectedValueOnce(new Error('ECONNREFUSED'))
+        .mockRejectedValueOnce(new Error('ECONNREFUSED'))
+        .mockResolvedValueOnce(undefined);
+
+      jest.useFakeTimers();
+
+      const promise = manager.validateSigners();
+      await jest.advanceTimersByTimeAsync(4_000);
+      await expect(promise).resolves.not.toThrow();
+      expect(validateAccessSpy).toHaveBeenCalledTimes(3);
+
+      jest.useRealTimers();
     });
 
     it('should skip validation for mnemonic and JSON V3 configs', async () => {
@@ -1517,6 +1561,49 @@ describe('KeystoreManager', () => {
       expect(validateAccessSpy).toHaveBeenCalledTimes(2);
       expect(validateAccessSpy).toHaveBeenCalledWith(url1, [address1.toString()]);
       expect(validateAccessSpy).toHaveBeenCalledWith(url2, [address2.toString()]);
+    });
+  });
+
+  describe('createFundingSigner', () => {
+    const fundingPrivateKey = ethPrivateKeySchema.parse(
+      '0x1234567890123456789012345678901234567890123456789012345678901234',
+    );
+
+    it('returns signer from top-level fundingAccount', async () => {
+      const keystore: KeyStore = {
+        schemaVersion: 1,
+        validators: [
+          {
+            attester: EthAddress.random(),
+            feeRecipient: await AztecAddress.random(),
+          },
+        ],
+        fundingAccount: fundingPrivateKey,
+      };
+
+      const manager = new KeystoreManager(keystore);
+      const signer = manager.createFundingSigner();
+
+      expect(signer).toBeDefined();
+      const expected = new LocalSigner(Buffer32.fromString(fundingPrivateKey));
+      expect(signer!.address.equals(expected.address)).toBeTruthy();
+    });
+
+    it('returns undefined when no fundingAccount configured', async () => {
+      const keystore: KeyStore = {
+        schemaVersion: 1,
+        validators: [
+          {
+            attester: EthAddress.random(),
+            feeRecipient: await AztecAddress.random(),
+          },
+        ],
+      };
+
+      const manager = new KeystoreManager(keystore);
+      const signer = manager.createFundingSigner();
+
+      expect(signer).toBeUndefined();
     });
   });
 });

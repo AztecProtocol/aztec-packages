@@ -13,7 +13,7 @@ export function describeBlobStore(getBlobStore: () => Promise<BlobStore>) {
   it('should store and retrieve a blob by hash', async () => {
     // Create a test blob with random fields
     const testFields = [Fr.random(), Fr.random(), Fr.random()];
-    const blob = Blob.fromFields(testFields);
+    const blob = await Blob.fromFields(testFields);
     const blobHash = blob.getEthVersionedBlobHash();
 
     // Store the blob
@@ -29,8 +29,8 @@ export function describeBlobStore(getBlobStore: () => Promise<BlobStore>) {
 
   it('should handle multiple blobs stored and retrieved by their hashes', async () => {
     // Create two different blobs
-    const blob1 = Blob.fromFields([Fr.random(), Fr.random()]);
-    const blob2 = Blob.fromFields([Fr.random(), Fr.random(), Fr.random()]);
+    const blob1 = await Blob.fromFields([Fr.random(), Fr.random()]);
+    const blob2 = await Blob.fromFields([Fr.random(), Fr.random(), Fr.random()]);
 
     const blobHash1 = blob1.getEthVersionedBlobHash();
     const blobHash2 = blob2.getEthVersionedBlobHash();
@@ -57,9 +57,9 @@ export function describeBlobStore(getBlobStore: () => Promise<BlobStore>) {
 
   it('should handle retrieving subset of stored blobs', async () => {
     // Store multiple blobs
-    const blob1 = Blob.fromFields([Fr.random()]);
-    const blob2 = Blob.fromFields([Fr.random()]);
-    const blob3 = Blob.fromFields([Fr.random()]);
+    const blob1 = await Blob.fromFields([Fr.random()]);
+    const blob2 = await Blob.fromFields([Fr.random()]);
+    const blob3 = await Blob.fromFields([Fr.random()]);
 
     await blobStore.addBlobs([blob1, blob2, blob3]);
 
@@ -75,7 +75,7 @@ export function describeBlobStore(getBlobStore: () => Promise<BlobStore>) {
   });
 
   it('should handle duplicate blob hashes in request', async () => {
-    const blob = Blob.fromFields([Fr.random()]);
+    const blob = await Blob.fromFields([Fr.random()]);
     const blobHash = blob.getEthVersionedBlobHash();
 
     await blobStore.addBlobs([blob]);
@@ -91,8 +91,8 @@ export function describeBlobStore(getBlobStore: () => Promise<BlobStore>) {
   it('should overwrite blob when storing with same hash', async () => {
     // Create two blobs that will have the same hash (same content)
     const fields = [Fr.random(), Fr.random()];
-    const blob1 = Blob.fromFields(fields);
-    const blob2 = Blob.fromFields(fields);
+    const blob1 = await Blob.fromFields(fields);
+    const blob2 = await Blob.fromFields(fields);
 
     const blobHash = blob1.getEthVersionedBlobHash();
 

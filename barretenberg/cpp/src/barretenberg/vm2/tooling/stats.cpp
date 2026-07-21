@@ -52,4 +52,10 @@ std::string Stats::to_string(int depth) const
     return joined;
 }
 
+std::vector<std::pair<std::string, uint64_t>> Stats::snapshot() const
+{
+    std::lock_guard lock(stats_mutex);
+    return { stats.begin(), stats.end() };
+}
+
 } // namespace bb::avm2

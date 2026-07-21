@@ -1,17 +1,20 @@
-import { BlockNumber, IndexWithinCheckpoint, SlotNumber } from '@aztec/foundation/branded-types';
+import { BlockNumber, CheckpointNumber, IndexWithinCheckpoint, SlotNumber } from '@aztec/foundation/branded-types';
 import { Buffer32 } from '@aztec/foundation/buffer';
 import { EthAddress } from '@aztec/foundation/eth-address';
 import type { Signature } from '@aztec/foundation/eth-signature';
 import { sleep } from '@aztec/foundation/sleep';
+import { TestDateProvider } from '@aztec/foundation/timer';
+import { type BaseSignerConfig, defaultValidatorHASignerConfig } from '@aztec/stdlib/ha-signing';
+import { getTelemetryClient } from '@aztec/telemetry-client';
 
 import { PGlite } from '@electric-sql/pglite';
 import { afterEach, beforeEach, describe, expect, it, jest } from '@jest/globals';
 
-import { type ValidatorHASignerConfig, defaultValidatorHASignerConfig } from './config.js';
 import { PostgresSlashingProtectionDatabase } from './db/postgres.js';
 import { setupTestSchema } from './db/test_helper.js';
 import { DutyStatus, DutyType } from './db/types.js';
-import { DutyAlreadySignedError, SlashingProtectionError } from './errors.js';
+import { DutyAlreadySignedError, SigningLockLostError, SlashingProtectionError } from './errors.js';
+import { HASignerMetrics } from './metrics.js';
 import { Pool } from './test/pglite_pool.js';
 import { ValidatorHASigner } from './validator_ha_signer.js';
 
@@ -31,7 +34,9 @@ describe('ValidatorHASigner', () => {
   let pglite: PGlite;
   let pool: Pool;
   let db: PostgresSlashingProtectionDatabase;
-  let config: ValidatorHASignerConfig;
+  let config: BaseSignerConfig;
+  let dateProvider: TestDateProvider;
+  const telemetryClient = getTelemetryClient();
 
   beforeEach(async () => {
     pglite = new PGlite();
@@ -41,14 +46,14 @@ describe('ValidatorHASigner', () => {
     db = new PostgresSlashingProtectionDatabase(pool);
     await db.initialize();
 
+    dateProvider = new TestDateProvider();
+
     config = {
-      haSigningEnabled: true,
-      l1Contracts: { rollupAddress: EthAddress.random() },
+      rollupAddress: EthAddress.random(),
       nodeId: NODE_ID,
       pollingIntervalMs: 50,
-      signingTimeoutMs: 1000,
+      peerSigningTimeoutMs: 1000,
       maxStuckDutiesAgeMs: 60_000,
-      databaseUrl: 'postgresql://user:pass@localhost:5432/testdb',
     };
   });
 
@@ -65,27 +70,19 @@ describe('ValidatorHASigner', () => {
     it('should not initialize when nodeId is not explicitly set', () => {
       const defaultConfig = {
         ...defaultValidatorHASignerConfig,
-        l1Contracts: { rollupAddress: EthAddress.random() },
+        rollupAddress: EthAddress.random(),
       };
-      expect(
-        () =>
-          new ValidatorHASigner(db, {
-            ...defaultConfig,
-            databaseUrl: 'postgresql://user:pass@localhost:5432/testdb',
-            haSigningEnabled: true,
-          }),
-      ).toThrow('NODE_ID is required for high-availability setups');
-    });
-
-    it('should not initialize when enabled is false', () => {
-      const disabledConfig = { ...config, haSigningEnabled: false };
-      expect(() => new ValidatorHASigner(db, disabledConfig)).toThrow('Validator HA Signer is not enabled in config');
+      const metrics = new HASignerMetrics(telemetryClient, 'test-node');
+      expect(() => new ValidatorHASigner(db, defaultConfig, { metrics, dateProvider })).toThrow(
+        'NODE_ID is required for high-availability setups',
+      );
     });
   });
 
   describe('lifecycle', () => {
     it('should start and stop without error when enabled', async () => {
-      const signer = new ValidatorHASigner(db, config);
+      const metrics = new HASignerMetrics(telemetryClient, config.nodeId);
+      const signer = new ValidatorHASigner(db, config, { metrics, dateProvider });
       await signer.start();
       await signer.stop();
     });
@@ -96,7 +93,8 @@ describe('ValidatorHASigner', () => {
     let signFn: jest.Mock<(messageHash: Buffer32) => Promise<Signature>>;
 
     beforeEach(async () => {
-      signer = new ValidatorHASigner(db, config);
+      const metrics = new HASignerMetrics(telemetryClient, config.nodeId);
+      signer = new ValidatorHASigner(db, config, { metrics, dateProvider });
       await signer.start();
       signFn = jest.fn<(messageHash: Buffer32) => Promise<Signature>>();
       signFn.mockResolvedValue(mockSignature);
@@ -113,6 +111,7 @@ describe('ValidatorHASigner', () => {
         {
           slot: SlotNumber(100),
           blockNumber: BlockNumber(50),
+          checkpointNumber: CheckpointNumber(1),
           dutyType: DutyType.BLOCK_PROPOSAL,
           blockIndexWithinCheckpoint: IndexWithinCheckpoint(0),
         },
@@ -125,10 +124,11 @@ describe('ValidatorHASigner', () => {
 
       // Verify duty was recorded
       const dutyResult = await db.tryInsertOrGetExisting({
-        rollupAddress: config.l1Contracts.rollupAddress,
+        rollupAddress: config.rollupAddress,
         validatorAddress: VALIDATOR_ADDRESS,
         slot: SlotNumber(100),
         blockNumber: BlockNumber(50),
+        checkpointNumber: CheckpointNumber(1),
         blockIndexWithinCheckpoint: IndexWithinCheckpoint(0),
         dutyType: DutyType.BLOCK_PROPOSAL,
         messageHash: MESSAGE_HASH.toString(),
@@ -150,6 +150,7 @@ describe('ValidatorHASigner', () => {
           {
             slot: SlotNumber(100),
             blockNumber: BlockNumber(50),
+            checkpointNumber: CheckpointNumber(1),
             dutyType: DutyType.BLOCK_PROPOSAL,
             blockIndexWithinCheckpoint: IndexWithinCheckpoint(0),
           },
@@ -159,16 +160,108 @@ describe('ValidatorHASigner', () => {
 
       // Verify duty was deleted
       const dutyResult = await db.tryInsertOrGetExisting({
-        rollupAddress: config.l1Contracts.rollupAddress,
+        rollupAddress: config.rollupAddress,
         validatorAddress: VALIDATOR_ADDRESS,
         slot: SlotNumber(100),
         blockNumber: BlockNumber(50),
+        checkpointNumber: CheckpointNumber(1),
         dutyType: DutyType.BLOCK_PROPOSAL,
         blockIndexWithinCheckpoint: IndexWithinCheckpoint(0),
         messageHash: MESSAGE_HASH.toString(),
         nodeId: NODE_ID,
       });
       expect(dutyResult.isNew).toBe(true);
+    });
+
+    it('should fail signing and not return a signature when the protection record is lost', async () => {
+      // Simulate the SIGNING row being deleted (e.g. by stuck-duty cleanup) while the remote signer
+      // was slow: recordSuccess can no longer find/own the row and returns false.
+      jest.spyOn(db, 'updateDutySigned').mockResolvedValue(false);
+
+      await expect(
+        signer.signWithProtection(
+          VALIDATOR_ADDRESS,
+          MESSAGE_HASH,
+          {
+            slot: SlotNumber(100),
+            blockNumber: BlockNumber(50),
+            checkpointNumber: CheckpointNumber(1),
+            dutyType: DutyType.BLOCK_PROPOSAL,
+            blockIndexWithinCheckpoint: IndexWithinCheckpoint(0),
+          },
+          signFn,
+        ),
+      ).rejects.toThrow(SigningLockLostError);
+
+      expect(signFn).toHaveBeenCalledTimes(1);
+    });
+
+    it('should time out a hung signing, release the lock, and allow a later retry', async () => {
+      const shortTimeoutConfig = { ...config, signerCallTimeoutMs: 100 };
+      const metrics = new HASignerMetrics(telemetryClient, shortTimeoutConfig.nodeId);
+      const timeoutSigner = new ValidatorHASigner(db, shortTimeoutConfig, { metrics, dateProvider });
+      await timeoutSigner.start();
+
+      const context = {
+        slot: SlotNumber(100),
+        blockNumber: BlockNumber(50),
+        checkpointNumber: CheckpointNumber(1),
+        dutyType: DutyType.BLOCK_PROPOSAL,
+        blockIndexWithinCheckpoint: IndexWithinCheckpoint(0),
+      } as const;
+
+      try {
+        // Signer never returns - the operation must time out rather than hang forever.
+        const hangingSignFn = jest.fn<(messageHash: Buffer32) => Promise<Signature>>();
+        hangingSignFn.mockReturnValue(new Promise<Signature>(() => {}));
+
+        await expect(
+          timeoutSigner.signWithProtection(VALIDATOR_ADDRESS, MESSAGE_HASH, context, hangingSignFn),
+        ).rejects.toThrow(/timed out/i);
+
+        // The lock was released on timeout: a fresh signing for the same duty with different data
+        // succeeds, proving nothing was broadcast and the SIGNING row was deleted.
+        const retrySignFn = jest.fn<(messageHash: Buffer32) => Promise<Signature>>();
+        retrySignFn.mockResolvedValue(mockSignature);
+        const result = await timeoutSigner.signWithProtection(VALIDATOR_ADDRESS, MESSAGE_HASH_2, context, retrySignFn);
+
+        expect(result).toBe(mockSignature);
+        expect(retrySignFn).toHaveBeenCalledTimes(1);
+      } finally {
+        await timeoutSigner.stop();
+      }
+    });
+
+    it('should clamp the signing timeout to half of maxStuckDutiesAgeMs', async () => {
+      // Configured timeout (5s) exceeds maxStuckDutiesAgeMs / 2 (200ms), so the clamp must win:
+      // a hung signing times out at 200ms, not at the configured 5s.
+      const clampedConfig = { ...config, maxStuckDutiesAgeMs: 400, signerCallTimeoutMs: 5000 };
+      const metrics = new HASignerMetrics(telemetryClient, clampedConfig.nodeId);
+      const clampedSigner = new ValidatorHASigner(db, clampedConfig, { metrics, dateProvider });
+
+      try {
+        const hangingSignFn = jest.fn<(messageHash: Buffer32) => Promise<Signature>>();
+        hangingSignFn.mockReturnValue(new Promise<Signature>(() => {}));
+
+        const startedAt = Date.now();
+        await expect(
+          clampedSigner.signWithProtection(
+            VALIDATOR_ADDRESS,
+            MESSAGE_HASH,
+            {
+              slot: SlotNumber(100),
+              blockNumber: BlockNumber(50),
+              checkpointNumber: CheckpointNumber(1),
+              dutyType: DutyType.BLOCK_PROPOSAL,
+              blockIndexWithinCheckpoint: IndexWithinCheckpoint(0),
+            },
+            hangingSignFn,
+          ),
+        ).rejects.toThrow(/timed out after 200ms/);
+        expect(Date.now() - startedAt).toBeLessThan(5000);
+      } finally {
+        await clampedSigner.stop();
+      }
     });
 
     it('should throw DutyAlreadySignedError when duty already signed', async () => {
@@ -179,6 +272,7 @@ describe('ValidatorHASigner', () => {
         {
           slot: SlotNumber(100),
           blockNumber: BlockNumber(50),
+          checkpointNumber: CheckpointNumber(1),
           dutyType: DutyType.BLOCK_PROPOSAL,
           blockIndexWithinCheckpoint: IndexWithinCheckpoint(0),
         },
@@ -193,6 +287,7 @@ describe('ValidatorHASigner', () => {
           {
             slot: SlotNumber(100),
             blockNumber: BlockNumber(50),
+            checkpointNumber: CheckpointNumber(1),
             dutyType: DutyType.BLOCK_PROPOSAL,
             blockIndexWithinCheckpoint: IndexWithinCheckpoint(0),
           },
@@ -212,6 +307,7 @@ describe('ValidatorHASigner', () => {
         {
           slot: SlotNumber(100),
           blockNumber: BlockNumber(50),
+          checkpointNumber: CheckpointNumber(1),
           dutyType: DutyType.BLOCK_PROPOSAL,
           blockIndexWithinCheckpoint: IndexWithinCheckpoint(0),
         },
@@ -226,6 +322,7 @@ describe('ValidatorHASigner', () => {
           {
             slot: SlotNumber(100),
             blockNumber: BlockNumber(50),
+            checkpointNumber: CheckpointNumber(1),
             dutyType: DutyType.BLOCK_PROPOSAL,
             blockIndexWithinCheckpoint: IndexWithinCheckpoint(0),
           },
@@ -246,6 +343,7 @@ describe('ValidatorHASigner', () => {
         {
           slot: SlotNumber(100),
           blockNumber: BlockNumber(50),
+          checkpointNumber: CheckpointNumber(1),
           dutyType: DutyType.BLOCK_PROPOSAL,
           blockIndexWithinCheckpoint: IndexWithinCheckpoint(0),
         },
@@ -258,7 +356,7 @@ describe('ValidatorHASigner', () => {
         messageHash,
         {
           slot: SlotNumber(100),
-          blockNumber: BlockNumber(50),
+          checkpointNumber: CheckpointNumber(0),
           dutyType: DutyType.ATTESTATION,
         },
         signFn,
@@ -268,20 +366,22 @@ describe('ValidatorHASigner', () => {
 
       // Verify both duties exist
       const blockDutyResult = await db.tryInsertOrGetExisting({
-        rollupAddress: config.l1Contracts.rollupAddress,
+        rollupAddress: config.rollupAddress,
         validatorAddress: VALIDATOR_ADDRESS,
         slot: SlotNumber(100),
         blockNumber: BlockNumber(50),
+        checkpointNumber: CheckpointNumber(1),
         dutyType: DutyType.BLOCK_PROPOSAL,
         blockIndexWithinCheckpoint: IndexWithinCheckpoint(0),
         messageHash: MESSAGE_HASH.toString(),
         nodeId: NODE_ID,
       });
       const attestationDutyResult = await db.tryInsertOrGetExisting({
-        rollupAddress: config.l1Contracts.rollupAddress,
+        rollupAddress: config.rollupAddress,
         validatorAddress: VALIDATOR_ADDRESS,
         slot: SlotNumber(100),
-        blockNumber: BlockNumber(50),
+        blockNumber: BlockNumber(0),
+        checkpointNumber: CheckpointNumber(0),
         dutyType: DutyType.ATTESTATION,
         messageHash: messageHash.toString(),
         nodeId: NODE_ID,
@@ -299,6 +399,7 @@ describe('ValidatorHASigner', () => {
         {
           slot: SlotNumber(100),
           blockNumber: BlockNumber(50),
+          checkpointNumber: CheckpointNumber(1),
           dutyType: DutyType.BLOCK_PROPOSAL,
           blockIndexWithinCheckpoint: IndexWithinCheckpoint(0),
         },
@@ -312,6 +413,7 @@ describe('ValidatorHASigner', () => {
         {
           slot: SlotNumber(101),
           blockNumber: BlockNumber(51),
+          checkpointNumber: CheckpointNumber(1),
           dutyType: DutyType.BLOCK_PROPOSAL,
           blockIndexWithinCheckpoint: IndexWithinCheckpoint(0),
         },
@@ -328,6 +430,7 @@ describe('ValidatorHASigner', () => {
         {
           slot: SlotNumber(100),
           blockNumber: BlockNumber(50),
+          checkpointNumber: CheckpointNumber(1),
           dutyType: DutyType.BLOCK_PROPOSAL,
           blockIndexWithinCheckpoint: IndexWithinCheckpoint(0),
         },
@@ -340,6 +443,7 @@ describe('ValidatorHASigner', () => {
         {
           slot: SlotNumber(100),
           blockNumber: BlockNumber(50),
+          checkpointNumber: CheckpointNumber(1),
           dutyType: DutyType.BLOCK_PROPOSAL,
           blockIndexWithinCheckpoint: IndexWithinCheckpoint(1),
         },
@@ -350,20 +454,22 @@ describe('ValidatorHASigner', () => {
 
       // Verify both duties exist
       const blockDutyResult = await db.tryInsertOrGetExisting({
-        rollupAddress: config.l1Contracts.rollupAddress,
+        rollupAddress: config.rollupAddress,
         validatorAddress: VALIDATOR_ADDRESS,
         slot: SlotNumber(100),
         blockNumber: BlockNumber(50),
+        checkpointNumber: CheckpointNumber(1),
         dutyType: DutyType.BLOCK_PROPOSAL,
         blockIndexWithinCheckpoint: IndexWithinCheckpoint(0),
         messageHash: MESSAGE_HASH.toString(),
         nodeId: NODE_ID,
       });
       const blockDutyResult2 = await db.tryInsertOrGetExisting({
-        rollupAddress: config.l1Contracts.rollupAddress,
+        rollupAddress: config.rollupAddress,
         validatorAddress: VALIDATOR_ADDRESS,
         slot: SlotNumber(100),
         blockNumber: BlockNumber(50),
+        checkpointNumber: CheckpointNumber(1),
         dutyType: DutyType.BLOCK_PROPOSAL,
         blockIndexWithinCheckpoint: IndexWithinCheckpoint(1),
         messageHash: MESSAGE_HASH.toString(),
@@ -376,6 +482,7 @@ describe('ValidatorHASigner', () => {
     it('should allow checkpoint proposal alongside block proposals in same slot', async () => {
       const slot = SlotNumber(100);
       const blockNumber = BlockNumber(50);
+      const checkpointNumber = CheckpointNumber(1);
 
       // Sign multiple block proposals
       await signer.signWithProtection(
@@ -384,6 +491,7 @@ describe('ValidatorHASigner', () => {
         {
           slot,
           blockNumber,
+          checkpointNumber,
           dutyType: DutyType.BLOCK_PROPOSAL,
           blockIndexWithinCheckpoint: IndexWithinCheckpoint(0),
         },
@@ -396,6 +504,7 @@ describe('ValidatorHASigner', () => {
         {
           slot,
           blockNumber,
+          checkpointNumber,
           dutyType: DutyType.BLOCK_PROPOSAL,
           blockIndexWithinCheckpoint: IndexWithinCheckpoint(1),
         },
@@ -408,7 +517,7 @@ describe('ValidatorHASigner', () => {
         MESSAGE_HASH,
         {
           slot,
-          blockNumber,
+          checkpointNumber,
           dutyType: DutyType.CHECKPOINT_PROPOSAL,
         },
         signFn,
@@ -418,30 +527,33 @@ describe('ValidatorHASigner', () => {
 
       // Verify all three duties exist in database
       const block0Result = await db.tryInsertOrGetExisting({
-        rollupAddress: config.l1Contracts.rollupAddress,
+        rollupAddress: config.rollupAddress,
         validatorAddress: VALIDATOR_ADDRESS,
         slot,
         blockNumber,
+        checkpointNumber,
         dutyType: DutyType.BLOCK_PROPOSAL,
         blockIndexWithinCheckpoint: IndexWithinCheckpoint(0),
         messageHash: MESSAGE_HASH.toString(),
         nodeId: NODE_ID,
       });
       const block1Result = await db.tryInsertOrGetExisting({
-        rollupAddress: config.l1Contracts.rollupAddress,
+        rollupAddress: config.rollupAddress,
         validatorAddress: VALIDATOR_ADDRESS,
         slot,
         blockNumber,
+        checkpointNumber,
         dutyType: DutyType.BLOCK_PROPOSAL,
         blockIndexWithinCheckpoint: IndexWithinCheckpoint(1),
         messageHash: MESSAGE_HASH.toString(),
         nodeId: NODE_ID,
       });
       const checkpointResult = await db.tryInsertOrGetExisting({
-        rollupAddress: config.l1Contracts.rollupAddress,
+        rollupAddress: config.rollupAddress,
         validatorAddress: VALIDATOR_ADDRESS,
         slot,
-        blockNumber,
+        blockNumber: BlockNumber(0),
+        checkpointNumber,
         dutyType: DutyType.CHECKPOINT_PROPOSAL,
         messageHash: MESSAGE_HASH.toString(),
         nodeId: NODE_ID,
@@ -459,6 +571,7 @@ describe('ValidatorHASigner', () => {
         {
           slot: SlotNumber(100),
           blockNumber: BlockNumber(50),
+          checkpointNumber: CheckpointNumber(1),
           dutyType: DutyType.BLOCK_PROPOSAL,
           blockIndexWithinCheckpoint: IndexWithinCheckpoint(0),
         },
@@ -473,6 +586,7 @@ describe('ValidatorHASigner', () => {
           {
             slot: SlotNumber(100),
             blockNumber: BlockNumber(50),
+            checkpointNumber: CheckpointNumber(1),
             dutyType: DutyType.BLOCK_PROPOSAL,
             blockIndexWithinCheckpoint: IndexWithinCheckpoint(0),
           },
@@ -488,6 +602,7 @@ describe('ValidatorHASigner', () => {
           {
             slot: SlotNumber(100),
             blockNumber: BlockNumber(50),
+            checkpointNumber: CheckpointNumber(1),
             dutyType: DutyType.BLOCK_PROPOSAL,
             blockIndexWithinCheckpoint: IndexWithinCheckpoint(1),
           },
@@ -504,6 +619,7 @@ describe('ValidatorHASigner', () => {
         {
           slot: SlotNumber(100),
           blockNumber: BlockNumber(50),
+          checkpointNumber: CheckpointNumber(1),
           dutyType: DutyType.BLOCK_PROPOSAL,
           blockIndexWithinCheckpoint: IndexWithinCheckpoint(0),
         },
@@ -516,7 +632,7 @@ describe('ValidatorHASigner', () => {
         MESSAGE_HASH,
         {
           slot: SlotNumber(100),
-          blockNumber: BlockNumber(50),
+          checkpointNumber: CheckpointNumber(0),
           dutyType: DutyType.ATTESTATION,
         },
         signFn,
@@ -528,7 +644,7 @@ describe('ValidatorHASigner', () => {
         MESSAGE_HASH,
         {
           slot: SlotNumber(100),
-          blockNumber: BlockNumber(50),
+          checkpointNumber: CheckpointNumber(0),
           dutyType: DutyType.ATTESTATIONS_AND_SIGNERS,
         },
         signFn,
@@ -540,7 +656,7 @@ describe('ValidatorHASigner', () => {
         MESSAGE_HASH,
         {
           slot: SlotNumber(100),
-          blockNumber: BlockNumber(50),
+          checkpointNumber: CheckpointNumber(1),
           dutyType: DutyType.CHECKPOINT_PROPOSAL,
         },
         signFn,
@@ -598,19 +714,21 @@ describe('ValidatorHASigner', () => {
 
       // Verify both duties were recorded with blockNumber = 0
       const governanceResult = await db.tryInsertOrGetExisting({
-        rollupAddress: config.l1Contracts.rollupAddress,
+        rollupAddress: config.rollupAddress,
         validatorAddress: VALIDATOR_ADDRESS,
         slot: SlotNumber(100),
         blockNumber: BlockNumber(0), // getBlockNumberFromSigningContext returns 0 for vote duties
+        checkpointNumber: CheckpointNumber(0),
         dutyType: DutyType.GOVERNANCE_VOTE,
         messageHash: MESSAGE_HASH.toString(),
         nodeId: NODE_ID,
       });
       const slashingResult = await db.tryInsertOrGetExisting({
-        rollupAddress: config.l1Contracts.rollupAddress,
+        rollupAddress: config.rollupAddress,
         validatorAddress: VALIDATOR_ADDRESS,
         slot: SlotNumber(100),
         blockNumber: BlockNumber(0),
+        checkpointNumber: CheckpointNumber(0),
         dutyType: DutyType.SLASHING_VOTE,
         messageHash: MESSAGE_HASH.toString(),
         nodeId: NODE_ID,
@@ -712,6 +830,7 @@ describe('ValidatorHASigner', () => {
         {
           slot,
           blockNumber: BlockNumber(50),
+          checkpointNumber: CheckpointNumber(1),
           dutyType: DutyType.BLOCK_PROPOSAL,
           blockIndexWithinCheckpoint: IndexWithinCheckpoint(0),
         },
@@ -748,6 +867,7 @@ describe('ValidatorHASigner', () => {
         {
           slot: SlotNumber(100),
           blockNumber: BlockNumber(50),
+          checkpointNumber: CheckpointNumber(1),
           dutyType: DutyType.BLOCK_PROPOSAL,
           blockIndexWithinCheckpoint: IndexWithinCheckpoint(0),
         },
@@ -760,6 +880,7 @@ describe('ValidatorHASigner', () => {
         {
           slot: SlotNumber(100),
           blockNumber: BlockNumber(50),
+          checkpointNumber: CheckpointNumber(1),
           dutyType: DutyType.BLOCK_PROPOSAL,
           blockIndexWithinCheckpoint: IndexWithinCheckpoint(0),
         },
@@ -774,7 +895,17 @@ describe('ValidatorHASigner', () => {
       const nodeIds = Array.from({ length: numSigners }, (_, i) => `node-${i + 1}`);
 
       // Create separate signers with different node IDs for the same validator
-      const signers = nodeIds.map(nodeId => new ValidatorHASigner(db, { ...config, nodeId }));
+      const signers = nodeIds.map(
+        nodeId =>
+          new ValidatorHASigner(
+            db,
+            { ...config, nodeId },
+            {
+              metrics: new HASignerMetrics(telemetryClient, nodeId),
+              dateProvider,
+            },
+          ),
+      );
 
       // Start all signers
       await Promise.all(signers.map(signer => signer.start()));
@@ -802,6 +933,7 @@ describe('ValidatorHASigner', () => {
               {
                 slot: sameSlot,
                 blockNumber: sameBlockNumber,
+                checkpointNumber: CheckpointNumber(1),
                 dutyType: sameDutyType,
                 blockIndexWithinCheckpoint: sameBlockIndex,
               },
@@ -830,10 +962,11 @@ describe('ValidatorHASigner', () => {
 
         // Verify the duty is recorded in the database with the winning nodeId
         const dutyResult = await db.tryInsertOrGetExisting({
-          rollupAddress: config.l1Contracts.rollupAddress,
+          rollupAddress: config.rollupAddress,
           validatorAddress: VALIDATOR_ADDRESS,
           slot: sameSlot,
           blockNumber: sameBlockNumber,
+          checkpointNumber: CheckpointNumber(1),
           dutyType: sameDutyType,
           blockIndexWithinCheckpoint: sameBlockIndex,
           messageHash: MESSAGE_HASH.toString(),
@@ -867,6 +1000,7 @@ describe('ValidatorHASigner', () => {
         {
           slot: SlotNumber(100),
           blockNumber: BlockNumber(50),
+          checkpointNumber: CheckpointNumber(1),
           dutyType: DutyType.BLOCK_PROPOSAL,
           blockIndexWithinCheckpoint: IndexWithinCheckpoint(0),
         },
@@ -883,6 +1017,7 @@ describe('ValidatorHASigner', () => {
         {
           slot: SlotNumber(100),
           blockNumber: BlockNumber(50),
+          checkpointNumber: CheckpointNumber(1),
           dutyType: DutyType.BLOCK_PROPOSAL,
           blockIndexWithinCheckpoint: IndexWithinCheckpoint(0),
         },
@@ -918,6 +1053,7 @@ describe('ValidatorHASigner', () => {
         {
           slot: SlotNumber(100),
           blockNumber: BlockNumber(50),
+          checkpointNumber: CheckpointNumber(1),
           dutyType: DutyType.BLOCK_PROPOSAL,
           blockIndexWithinCheckpoint: IndexWithinCheckpoint(0),
         },
@@ -934,6 +1070,7 @@ describe('ValidatorHASigner', () => {
         {
           slot: SlotNumber(100),
           blockNumber: BlockNumber(50),
+          checkpointNumber: CheckpointNumber(1),
           dutyType: DutyType.BLOCK_PROPOSAL,
           blockIndexWithinCheckpoint: IndexWithinCheckpoint(0),
         },
@@ -951,10 +1088,11 @@ describe('ValidatorHASigner', () => {
 
       // Verify the duty is marked as signed by the second signer
       const dutyResult = await db.tryInsertOrGetExisting({
-        rollupAddress: config.l1Contracts.rollupAddress,
+        rollupAddress: config.rollupAddress,
         validatorAddress: VALIDATOR_ADDRESS,
         slot: SlotNumber(100),
         blockNumber: BlockNumber(50),
+        checkpointNumber: CheckpointNumber(1),
         dutyType: DutyType.BLOCK_PROPOSAL,
         blockIndexWithinCheckpoint: IndexWithinCheckpoint(0),
         messageHash: MESSAGE_HASH.toString(),
@@ -971,10 +1109,14 @@ describe('ValidatorHASigner', () => {
       const newRollupAddress = EthAddress.random();
 
       // Create signer with old rollup address
-      const oldSigner = new ValidatorHASigner(db, {
-        ...config,
-        l1Contracts: { rollupAddress: oldRollupAddress },
-      });
+      const oldSigner = new ValidatorHASigner(
+        db,
+        {
+          ...config,
+          rollupAddress: oldRollupAddress,
+        },
+        { metrics: new HASignerMetrics(telemetryClient, config.nodeId), dateProvider },
+      );
       await oldSigner.start();
 
       try {
@@ -988,6 +1130,7 @@ describe('ValidatorHASigner', () => {
           {
             slot: SlotNumber(100),
             blockNumber: BlockNumber(50),
+            checkpointNumber: CheckpointNumber(1),
             dutyType: DutyType.BLOCK_PROPOSAL,
             blockIndexWithinCheckpoint: IndexWithinCheckpoint(0),
           },
@@ -997,10 +1140,14 @@ describe('ValidatorHASigner', () => {
         expect(signFn).toHaveBeenCalledTimes(1);
 
         // "Upgrade" - create new signer with new rollup address
-        const newSigner = new ValidatorHASigner(db, {
-          ...config,
-          l1Contracts: { rollupAddress: newRollupAddress },
-        });
+        const newSigner = new ValidatorHASigner(
+          db,
+          {
+            ...config,
+            rollupAddress: newRollupAddress,
+          },
+          { metrics: new HASignerMetrics(telemetryClient, config.nodeId), dateProvider },
+        );
         // Starting the new signer will clean up duties with outdated rollup addresses
         await newSigner.start();
 
@@ -1015,6 +1162,7 @@ describe('ValidatorHASigner', () => {
             {
               slot: SlotNumber(100), // Same slot!
               blockNumber: BlockNumber(50),
+              checkpointNumber: CheckpointNumber(1),
               dutyType: DutyType.BLOCK_PROPOSAL,
               blockIndexWithinCheckpoint: IndexWithinCheckpoint(0),
             },
@@ -1029,6 +1177,7 @@ describe('ValidatorHASigner', () => {
             validatorAddress: VALIDATOR_ADDRESS,
             slot: SlotNumber(100),
             blockNumber: BlockNumber(50),
+            checkpointNumber: CheckpointNumber(1),
             dutyType: DutyType.BLOCK_PROPOSAL,
             blockIndexWithinCheckpoint: IndexWithinCheckpoint(0),
             messageHash: MESSAGE_HASH.toString(),
@@ -1041,6 +1190,7 @@ describe('ValidatorHASigner', () => {
             validatorAddress: VALIDATOR_ADDRESS,
             slot: SlotNumber(100),
             blockNumber: BlockNumber(50),
+            checkpointNumber: CheckpointNumber(1),
             dutyType: DutyType.BLOCK_PROPOSAL,
             blockIndexWithinCheckpoint: IndexWithinCheckpoint(0),
             messageHash: MESSAGE_HASH.toString(),

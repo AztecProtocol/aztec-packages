@@ -1,5 +1,5 @@
 // === AUDIT STATUS ===
-// internal:    { status: Complete, auditors: [Nishat], commit: 8fb8b041d4c9179f62da56a9c7bbf22c40db46cc}
+// internal:    { status: Complete, auditors: [Nishat], commit: 66052c96cc754339ac3f2761f341f150130555b3}
 // external_1:  { status: not started, auditors: [], commit: }
 // external_2:  { status: not started, auditors: [], commit: }
 // =====================
@@ -28,8 +28,7 @@
     The following code works ONLY for inputs of size less than 1024 bytes. This kind of constraint
     on the input size greatly simplifies the code and helps us get rid of the recursive merkle-tree
     like operations on chunks (data of size 1024 bytes). This is because we would always be using BLAKE3
-    hashing for inputs of size 32 bytes (or lesser) in barretenberg. The full C++ version of BLAKE3
-    from the original authors is in the module `../crypto/blake3s_full`.
+    hashing for inputs of size 32 bytes (or lesser) in barretenberg.
 
     Also, the length of the output in this specific implementation is fixed at 32 bytes which is the only
     version relevant to Barretenberg.
@@ -181,7 +180,7 @@ struct output_t {
 constexpr output_t make_output(const key_array& input_cv, const uint8_t* block, uint8_t block_len, uint8_t flags)
 {
     output_t ret;
-    for (size_t i = 0; i < (BLAKE3_OUT_LEN >> 2); ++i) {
+    for (size_t i = 0; i < ret.input_cv.size(); ++i) {
         ret.input_cv[i] = input_cv[i];
     }
     for (size_t i = 0; i < BLAKE3_BLOCK_LEN; i++) {
@@ -194,7 +193,7 @@ constexpr output_t make_output(const key_array& input_cv, const uint8_t* block, 
 
 constexpr void blake3_hasher_init(blake3_hasher* self)
 {
-    for (size_t i = 0; i < (BLAKE3_KEY_LEN >> 2); ++i) {
+    for (size_t i = 0; i < IV.size(); ++i) {
         self->key[i] = IV[i];
         self->cv[i] = IV[i];
     }
@@ -261,6 +260,11 @@ std::vector<uint8_t> blake3s(std::vector<uint8_t> const& input)
 
 constexpr std::array<uint8_t, BLAKE3_OUT_LEN> blake3s_constexpr(const uint8_t* input, const size_t input_size)
 {
+    if (std::is_constant_evaluated()) {
+        if (input_size > 1024U) {
+            __builtin_trap();
+        }
+    }
     blake3_hasher hasher;
     blake3_hasher_init(&hasher);
     blake3_hasher_update(&hasher, input, input_size);

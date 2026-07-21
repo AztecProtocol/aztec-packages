@@ -17,14 +17,22 @@ spec:
         app.kubernetes.io/name: {{ .Chart.Name }}
         app.kubernetes.io/instance: {{ .Release.Name }}
         app.kubernetes.io/component: {{ .Values.component | default .Chart.Name }}
+      {{- with .Values.podAnnotations }}
+      annotations:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
     spec:
+      {{- with .Values.nodeSelector }}
+      nodeSelector:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
       containers:
         - name: postgres
           image: "{{ .Values.image.repository }}:{{ .Values.image.tag }}"
           imagePullPolicy: {{ .Values.image.pullPolicy }}
+          command: ["/bin/sh", "-c"]
           args:
-            - -c
-            - max_connections={{ .Values.maxConnections }}
+            - "docker-entrypoint.sh postgres -c max_connections={{ .Values.maxConnections }} 2>&1"
           ports:
             - containerPort: 5432
               name: postgres

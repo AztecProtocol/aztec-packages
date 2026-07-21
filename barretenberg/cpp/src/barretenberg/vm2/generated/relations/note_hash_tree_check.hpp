@@ -3,7 +3,6 @@
 
 #include <string_view>
 
-#include "barretenberg/common/bb_bench.hpp"
 #include "barretenberg/relations/relation_parameters.hpp"
 #include "barretenberg/relations/relation_types.hpp"
 #include "barretenberg/vm2/generated/columns.hpp"
@@ -14,8 +13,8 @@ template <typename FF_> class note_hash_tree_checkImpl {
   public:
     using FF = FF_;
 
-    static constexpr std::array<size_t, 21> SUBRELATION_PARTIAL_LENGTHS = { 3, 3, 3, 3, 3, 3, 3, 3, 4, 3, 3,
-                                                                            3, 4, 3, 3, 3, 5, 3, 3, 3, 3 };
+    static constexpr std::array<size_t, 24> SUBRELATION_PARTIAL_LENGTHS = { 3, 3, 3, 3, 3, 3, 3, 3, 3, 4, 3, 3,
+                                                                            3, 4, 3, 3, 3, 5, 3, 3, 3, 3, 3, 3 };
 
     template <typename AllEntities> inline static bool skip(const AllEntities& in)
     {
@@ -36,13 +35,15 @@ template <typename FF> class note_hash_tree_check : public Relation<note_hash_tr
     static constexpr const std::string_view NAME = "note_hash_tree_check";
 
     // Subrelation indices constants, to be used in tests.
-    static constexpr size_t SR_DISABLE_SILOING_ON_READ = 6;
-    static constexpr size_t SR_PASSTHROUGH_SILOING = 8;
-    static constexpr size_t SR_DISABLE_UNIQUENESS_ON_READ = 11;
-    static constexpr size_t SR_PASSTHROUGH_UNIQUENESS = 12;
+    static constexpr size_t SR_DISABLE_SILOING_ON_READ = 7;
+    static constexpr size_t SR_PASSTHROUGH_SILOING = 9;
+    static constexpr size_t SR_DISABLE_UNIQUENESS_ON_READ = 12;
+    static constexpr size_t SR_PASSTHROUGH_UNIQUENESS = 13;
+    static constexpr size_t SR_MERKLE_HASH_SEPARATOR_CONSTANT = 21;
 
     static std::string get_subrelation_label(size_t index)
     {
+#ifdef AVM_INCLUDE_COLUMN_INFORMATION
         switch (index) {
         case SR_DISABLE_SILOING_ON_READ:
             return "DISABLE_SILOING_ON_READ";
@@ -52,7 +53,10 @@ template <typename FF> class note_hash_tree_check : public Relation<note_hash_tr
             return "DISABLE_UNIQUENESS_ON_READ";
         case SR_PASSTHROUGH_UNIQUENESS:
             return "PASSTHROUGH_UNIQUENESS";
+        case SR_MERKLE_HASH_SEPARATOR_CONSTANT:
+            return "MERKLE_HASH_SEPARATOR_CONSTANT";
         }
+#endif
         return std::to_string(index);
     }
 };

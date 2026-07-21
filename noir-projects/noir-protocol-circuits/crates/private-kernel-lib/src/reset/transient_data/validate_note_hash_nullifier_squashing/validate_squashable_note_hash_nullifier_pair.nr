@@ -15,6 +15,12 @@ pub fn validate_squashable_note_hash_nullifier_pair(
     nullifier: Scoped<Counted<Nullifier>>,
     split_counter: u32,
 ) {
+    // A zero-valued note hash is the aztec-nr "no transient link" sentinel: a nullifier that
+    // nullifies a settled (tree-resident) note carries `note_hash == 0`. Such a pair must never be
+    // squashed, otherwise the linkage check below is satisfied vacuously (0 == 0) and the
+    // settled-note nullifier is silently dropped, leaving the note spendable.
+    assert(note_hash.innermost() != 0, "Cannot squash a zero-valued transient note hash");
+
     // Ensure the nullifier refers to the note hash.
     assert_eq(
         note_hash.innermost(),
@@ -35,8 +41,7 @@ pub fn validate_squashable_note_hash_nullifier_pair(
         "Cannot nullify a note hash created afterwards",
     );
 
-    // If the nullifier is revertible (i.e., counter >= `split_counter`), the note hash must also
-    // be revertible.
+    // If the nullifier is revertible (i.e., counter > `split_counter`), the note hash must also be revertible.
     //
     // A revertible nullifier and non-revertible note hash pair can't be squashed; they must be propagated.
     // This is because if the tx were to then revert (in some public function), the revertible nullifier must be discarded
@@ -55,9 +60,9 @@ pub fn validate_squashable_note_hash_nullifier_pair(
     // side-effect counter to be `0` (as enforced by the init and inner kernel circuits).
     // Otherwise, `split_counter` is the `min_revertible_side_effect_counter` of the tx, which is
     // asserted to be distinct from all other counters in the init and inner kernel circuits.
-    if nullifier.counter() >= split_counter {
+    if nullifier.counter() > split_counter {
         assert(
-            note_hash.counter() >= split_counter,
+            note_hash.counter() > split_counter,
             "Cannot squash a non-revertible note hash with a revertible nullifier",
         );
     }
@@ -66,6 +71,29 @@ pub fn validate_squashable_note_hash_nullifier_pair(
 mod tests {
     use crate::reset::transient_data::tests::TransientDataFixtureBuilder;
     use types::{abis::nullifier::Nullifier, side_effect::Counted};
+
+    // PoC for kernels-audit #538 (https://github.com/AztecProtocol/aztec-claude/issues/538): a
+    // zero-valued note hash paired with a settled-note nullifier (`nullifier.note_hash == 0`, the
+    // aztec-nr "no transient link" sentinel) satisfies the linkage `assert_eq` vacuously (0 == 0),
+    // so the reset squashes the pair and silently drops the settled-note nullifier. The guard added
+    // for this finding now rejects the pair, so this is a regression test: it must fail with the
+    // guard's message.
+    #[test(should_fail_with = "Cannot squash a zero-valued transient note hash")]
+    fn poc_538_squash_zero_value_note_hash_drops_settled_nullifier() {
+        let mut builder = TransientDataFixtureBuilder::new();
+
+        // 0-valued note hash within `note_hashes.length` (push_note_hash(0) is permitted by aztec-nr
+        // and only rejected at the tail, after this squash).
+        builder.add_note_hashes([Counted::new(0, 1)]);
+
+        // Settled-note nullifier shape: `note_hash == 0`.
+        builder.add_nullifiers([Nullifier { value: 505, note_hash: 0 }.count(5)]);
+
+        builder.add_squashing_hint(0, 0);
+
+        // expected_kept_* stay empty: both arrays are emptied by the squash.
+        builder.validate();
+    }
 
     #[test]
     fn succeeds_squash_one_pair() {
@@ -149,7 +177,7 @@ mod tests {
 
         builder.add_nullifiers([Nullifier { value: 505, note_hash: 11 }.count(9)]);
 
-        // Both counters (5 and 9) are >= split_counter (3), so both are revertible.
+        // Both counters (5 and 9) are > split_counter (3), so both are revertible.
         builder.split_counter = 3;
 
         builder.add_squashing_hint(0, 0);

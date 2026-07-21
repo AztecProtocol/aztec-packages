@@ -1,7 +1,7 @@
 # External Audit Scope: Honk Solidity Verifier
 
-Repository: https://github.com/AztecProtocol/aztec-packages
-Commit hash: TBD
+Repository: https://github.com/AztecProtocol/aztec-packages-private
+Commit hash: Most recent commit on branch 'next'
 
 ## Files to Audit
 **Note:** all paths are relative to `aztec-packages/barretenberg/cpp/src/barretenberg`

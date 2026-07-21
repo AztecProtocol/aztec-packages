@@ -5,7 +5,7 @@ import { VerificationKeyAsFields, VerificationKeyData } from '@aztec/stdlib/vks'
 import { promises as fs } from 'fs';
 import * as path from 'path';
 
-import { VK_FILENAME } from '../bb/execute.js';
+import { VK_FILENAME } from '../bb/file_names.js';
 
 /**
  * Reads the verification key data stored at the specified location and parses into a VerificationKeyData

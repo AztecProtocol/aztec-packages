@@ -1,5 +1,5 @@
 // === AUDIT STATUS ===
-// internal:    { status: Planned, auditors: [], commit: }
+// internal:    { status: Complete, auditors: [Nishat], commit: 94f596f8b3bbbc216f9ad7dc33253256141156b2 }
 // external_1:  { status: not started, auditors: [], commit: }
 // external_2:  { status: not started, auditors: [], commit: }
 // =====================
@@ -20,6 +20,7 @@
 #include <mutex>
 #include <span>
 #include <sys/stat.h>
+#include <type_traits>
 #include <unordered_map>
 #include <utility>
 
@@ -119,6 +120,8 @@ Polynomial<Fr>::Polynomial(std::span<const Fr> interpolation_points,
     : Polynomial(interpolation_points.size(), virtual_size)
 {
     BB_ASSERT_GT(coefficients_.size(), static_cast<size_t>(0));
+    // compute_efficient_interpolation indexes evaluations by interpolation_points.size()
+    BB_ASSERT_EQ(interpolation_points.size(), evaluations.size());
 
     polynomial_arithmetic::compute_efficient_interpolation(
         evaluations.data(), coefficients_.data(), interpolation_points.data(), coefficients_.size());
@@ -171,67 +174,20 @@ template <typename Fr> bool Polynomial<Fr>::operator==(Polynomial const& rhs) co
     return true;
 }
 
-template <typename Fr> Polynomial<Fr>& Polynomial<Fr>::operator+=(PolynomialSpan<const Fr> other)
-{
-    BB_ASSERT_LTE(start_index(), other.start_index);
-    BB_ASSERT_GTE(end_index(), other.end_index());
-    parallel_for([&](const ThreadChunk& chunk) {
-        for (size_t offset : chunk.range(other.size())) {
-            size_t i = offset + other.start_index;
-            at(i) += other[i];
-        }
-    });
-    return *this;
-}
-
-template <typename Fr> Fr Polynomial<Fr>::evaluate(const Fr& z, const size_t target_size) const
-{
-    BB_ASSERT(size() == virtual_size());
-    return polynomial_arithmetic::evaluate(data(), z, target_size);
-}
-
 template <typename Fr> Fr Polynomial<Fr>::evaluate(const Fr& z) const
 {
-    BB_ASSERT(size() == virtual_size());
-    return polynomial_arithmetic::evaluate(data(), z, size());
+    // Evaluate only the backing data; virtual zeroes beyond backing contribute nothing.
+    // When start_index > 0, multiply by z^start_index to account for the offset.
+    Fr result = polynomial_arithmetic::evaluate(data(), z, size());
+    if (start_index() > 0) {
+        result *= z.pow(start_index());
+    }
+    return result;
 }
 
 template <typename Fr> Fr Polynomial<Fr>::evaluate_mle(std::span<const Fr> evaluation_points, bool shift) const
 {
     return _evaluate_mle(evaluation_points, coefficients_, shift);
-}
-
-template <typename Fr>
-Fr Polynomial<Fr>::compute_barycentric_evaluation(const Fr& z, const EvaluationDomain<Fr>& domain)
-    requires polynomial_arithmetic::SupportsFFT<Fr>
-{
-    return polynomial_arithmetic::compute_barycentric_evaluation(data(), domain.size, z, domain);
-}
-
-template <typename Fr> Polynomial<Fr>& Polynomial<Fr>::operator-=(PolynomialSpan<const Fr> other)
-{
-    BB_ASSERT_LTE(start_index(), other.start_index);
-    BB_ASSERT_GTE(end_index(), other.end_index());
-    parallel_for([&](const ThreadChunk& chunk) {
-        for (size_t offset : chunk.range(other.size())) {
-            size_t i = offset + other.start_index;
-            at(i) -= other[i];
-        }
-    });
-    return *this;
-}
-
-template <typename Fr> Polynomial<Fr>& Polynomial<Fr>::operator*=(const Fr& scaling_factor)
-{
-    parallel_for([scaling_factor, this](const ThreadChunk& chunk) { multiply_chunk(chunk, scaling_factor); });
-    return *this;
-}
-
-template <typename Fr> void Polynomial<Fr>::multiply_chunk(const ThreadChunk& chunk, const Fr& scaling_factor)
-{
-    for (size_t i : chunk.range(size())) {
-        data()[i] *= scaling_factor;
-    }
 }
 
 template <typename Fr> Polynomial<Fr> Polynomial<Fr>::create_non_parallel_zero_init(size_t size, size_t virtual_size)
@@ -244,36 +200,23 @@ template <typename Fr> Polynomial<Fr> Polynomial<Fr>::create_non_parallel_zero_i
 template <typename Fr> void Polynomial<Fr>::shrink_end_index(const size_t new_end_index)
 {
     BB_ASSERT_LTE(new_end_index, end_index());
+    // Without this lower-bound check, end_ < start_ would silently underflow size().
+    BB_ASSERT_GTE(new_end_index, start_index());
     coefficients_.end_ = new_end_index;
 }
 
 template <typename Fr> Polynomial<Fr> Polynomial<Fr>::full() const
 {
-    Polynomial result = *this;
+    Polynomial result;
     // Make 0..virtual_size usable
     result.coefficients_ = _clone(coefficients_, virtual_size() - end_index(), start_index());
     return result;
 }
 
-template <typename Fr> void Polynomial<Fr>::add_scaled(PolynomialSpan<const Fr> other, const Fr& scaling_factor)
-{
-    BB_ASSERT_LTE(start_index(), other.start_index);
-    BB_ASSERT_GTE(end_index(), other.end_index());
-    parallel_for(
-        [&other, scaling_factor, this](const ThreadChunk& chunk) { add_scaled_chunk(chunk, other, scaling_factor); });
-}
-
-template <typename Fr>
-void Polynomial<Fr>::add_scaled_chunk(const ThreadChunk& chunk,
-                                      PolynomialSpan<const Fr> other,
-                                      const Fr& scaling_factor)
-{
-    // Iterate over the chunk of the other polynomial's range
-    for (size_t offset : chunk.range(other.size())) {
-        size_t index = other.start_index + offset;
-        at(index) += scaling_factor * other[index];
-    }
-}
+// add_scaled / add_scaled_chunk are defined inline in polynomial.hpp so
+// that callers (including the V8/TurboFan-jitted WASM bench) can inline
+// them and avoid a real WASM function-call boundary that V8 would not
+// otherwise elide.
 
 template <typename Fr> Polynomial<Fr> Polynomial<Fr>::shifted() const
 {
@@ -282,17 +225,6 @@ template <typename Fr> Polynomial<Fr> Polynomial<Fr>::shifted() const
     result.coefficients_ = coefficients_;
     result.coefficients_.start_ -= 1;
     result.coefficients_.end_ -= 1;
-    return result;
-}
-
-template <typename Fr> Polynomial<Fr> Polynomial<Fr>::right_shifted(const size_t magnitude) const
-{
-    // ensure that at least the last magnitude-many coefficients are virtual 0's
-    BB_ASSERT_LTE((coefficients_.end_ + magnitude), virtual_size());
-    Polynomial result;
-    result.coefficients_ = coefficients_;
-    result.coefficients_.start_ += magnitude;
-    result.coefficients_.end_ += magnitude;
     return result;
 }
 
@@ -308,6 +240,58 @@ template <typename Fr> Polynomial<Fr> Polynomial<Fr>::reverse() const
     return reversed;
 }
 
+template <typename Fr>
+void add_scaled_batch(Polynomial<Fr>& dst,
+                      std::span<const PolynomialSpan<const Fr>> sources,
+                      std::span<const Fr> scalars)
+{
+    BB_BENCH_NAME("add_scaled_batch");
+    BB_ASSERT_EQ(sources.size(), scalars.size(), "sources and scalars must have the same length");
+    if (sources.empty()) {
+        return;
+    }
+
+    size_t min_start = sources[0].start_index;
+    size_t max_end = sources[0].end_index();
+    for (size_t i = 1; i < sources.size(); ++i) {
+        min_start = std::min(min_start, sources[i].start_index);
+        max_end = std::max(max_end, sources[i].end_index());
+    }
+    BB_ASSERT_LTE(dst.start_index(), min_start);
+    BB_ASSERT_GTE(dst.end_index(), max_end);
+
+    const size_t union_size = max_end - min_start;
+    parallel_for([&](const ThreadChunk& chunk) {
+        BB_BENCH_TRACY_NAME("add_scaled_batch/chunk");
+        auto chunk_indices = chunk.range(union_size, min_start);
+        if (chunk_indices.empty()) {
+            return;
+        }
+        auto chunk_start = chunk_indices.front();
+        auto chunk_end = chunk_indices.back();
+
+        for (size_t k = 0; k < sources.size(); ++k) {
+            const auto& src = sources[k];
+            const Fr& c = scalars[k];
+            const size_t src_start = src.start_index;
+            const size_t src_end = src.end_index();
+
+            const size_t idx_start = std::max(chunk_start, src_start);
+            const size_t idx_end = std::min(chunk_end + 1, src_end);
+
+            for (size_t i = idx_start; i < idx_end; ++i) {
+                dst.at(i) += c * src[i];
+            }
+        }
+    });
+}
+
 template class Polynomial<bb::fr>;
 template class Polynomial<grumpkin::fr>;
+template void add_scaled_batch<bb::fr>(Polynomial<bb::fr>& dst,
+                                       std::span<const PolynomialSpan<const bb::fr>> sources,
+                                       std::span<const bb::fr> scalars);
+template void add_scaled_batch<grumpkin::fr>(Polynomial<grumpkin::fr>& dst,
+                                             std::span<const PolynomialSpan<const grumpkin::fr>> sources,
+                                             std::span<const grumpkin::fr> scalars);
 } // namespace bb

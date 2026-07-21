@@ -12,10 +12,8 @@ use crate::{
 };
 
 use crate::protocol::{
-    address::AztecAddress,
-    constants::DOM_SEP__INITIALIZATION_NULLIFIER,
-    hash::poseidon2_hash_with_separator,
-    traits::{Hash, Packable},
+    address::AztecAddress, constants::DOM_SEP__INITIALIZATION_NULLIFIER, hash::poseidon2_hash_with_separator,
+    traits::Packable,
 };
 
 mod test;
@@ -104,8 +102,7 @@ where
     /// also be useful for contracts that need to check if a PrivateMutable has been initialized.
     ///
     fn get_initialization_nullifier(self) -> Field {
-        let owner_npk_m = get_public_keys(self.owner).npk_m;
-        let owner_npk_m_hash = owner_npk_m.hash();
+        let owner_npk_m_hash = get_public_keys(self.owner).npk_m_hash;
         let secret = self.context.request_nhk_app(owner_npk_m_hash);
         self.compute_initialization_nullifier(secret)
     }
@@ -145,7 +142,7 @@ where
     {
         // Nullify the storage slot.
         let nullifier = self.get_initialization_nullifier();
-        self.context.push_nullifier(nullifier);
+        self.context.push_nullifier_unsafe(nullifier);
 
         create_note(self.context, self.owner, self.storage_slot, note)
     }
@@ -285,7 +282,6 @@ where
     /// The kernel will inject a unique nonce into the newly-created note, which means the new note will have a
     /// different nullifier, allowing it to be consumed in the future.
     ///
-    /// docs:start:get_note
     pub fn get_note(self) -> NoteMessage<Note>
     where
         Note: Packable,
@@ -312,8 +308,7 @@ where
 {
     /// Computes the nullifier that will be created when this PrivateMutable is first initialized.
     unconstrained fn get_initialization_nullifier(self) -> Field {
-        let owner_npk_m = get_public_keys(self.owner).npk_m;
-        let owner_npk_m_hash = owner_npk_m.hash();
+        let owner_npk_m_hash = get_public_keys(self.owner).npk_m_hash;
         let secret = get_nhk_app(owner_npk_m_hash);
         self.compute_initialization_nullifier(secret)
     }
@@ -345,7 +340,6 @@ where
     ///
     /// * `Note` - The current note stored in this PrivateMutable.
     ///
-    /// docs:start:view_note
     pub unconstrained fn view_note(self) -> Note
     where
         Note: Packable,

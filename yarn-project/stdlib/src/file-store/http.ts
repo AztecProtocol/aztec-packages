@@ -10,6 +10,14 @@ import { pipeline } from 'stream/promises';
 
 import type { ReadOnlyFileStore } from './interface.js';
 
+/** Options for configuring HttpFileStore behavior. */
+export interface HttpFileStoreOptions {
+  /** Retry backoff intervals in seconds. Empty array disables retries. Default: [1, 1, 3]. */
+  retryBackoff?: number[];
+  /** Request timeout in milliseconds. Default: no timeout (axios default). */
+  timeoutMs?: number;
+}
+
 export class HttpFileStore implements ReadOnlyFileStore {
   private readonly axiosInstance: AxiosInstance;
   private readonly fetch: <T>(config: AxiosRequestConfig) => Promise<AxiosResponse<T>>;
@@ -17,17 +25,28 @@ export class HttpFileStore implements ReadOnlyFileStore {
   constructor(
     private readonly baseUrl: string,
     private readonly log: Logger = createLogger('stdlib:http-file-store'),
+    options?: HttpFileStoreOptions,
   ) {
-    this.axiosInstance = axios.create();
-    this.fetch = async <T>(config: AxiosRequestConfig) => {
-      return await retry(
-        () => this.axiosInstance.request<T>(config),
-        `Fetching ${config.url}`,
-        makeBackoff([1, 1, 3]),
-        this.log,
-        /*failSilently=*/ true,
-      );
-    };
+    this.axiosInstance = axios.create({
+      ...(options?.timeoutMs !== undefined && { timeout: options.timeoutMs }),
+    });
+
+    const retryBackoff = options?.retryBackoff ?? [1, 1, 3];
+    if (retryBackoff.length > 0) {
+      this.fetch = async <T>(config: AxiosRequestConfig) => {
+        return await retry(
+          () => this.axiosInstance.request<T>(config),
+          `Fetching ${config.url}`,
+          makeBackoff(retryBackoff),
+          this.log,
+          /*failSilently=*/ true,
+        );
+      };
+    } else {
+      this.fetch = async <T>(config: AxiosRequestConfig) => {
+        return await this.axiosInstance.request<T>(config);
+      };
+    }
   }
 
   public async read(pathOrUrl: string): Promise<Buffer> {

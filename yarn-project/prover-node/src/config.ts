@@ -1,18 +1,16 @@
-import { type ArchiverConfig, archiverConfigMappings } from '@aztec/archiver/config';
 import type { ACVMConfig, BBConfig } from '@aztec/bb-prover/config';
-import { type GenesisStateConfig, genesisStateConfigMappings } from '@aztec/ethereum/config';
 import {
   type ConfigMappingsType,
   booleanConfigHelper,
   getConfigFromMappings,
   numberConfigHelper,
+  pickConfigMappings,
 } from '@aztec/foundation/config';
-import { type DataStoreConfig, dataConfigMappings } from '@aztec/kv-store/config';
+import { EthAddress } from '@aztec/foundation/eth-address';
 import { type KeyStoreConfig, keyStoreConfigMappings } from '@aztec/node-keystore/config';
 import { ethPrivateKeySchema } from '@aztec/node-keystore/schemas';
 import type { KeyStore } from '@aztec/node-keystore/types';
 import { type SharedNodeConfig, sharedNodeConfigMappings } from '@aztec/node-lib/config';
-import { type P2PConfig, p2pConfigMappings } from '@aztec/p2p/config';
 import {
   type ProverAgentConfig,
   type ProverBrokerConfig,
@@ -21,24 +19,20 @@ import {
 } from '@aztec/prover-client/broker/config';
 import { type ProverClientUserConfig, bbConfigMappings, proverClientConfigMappings } from '@aztec/prover-client/config';
 import {
-  type PublisherConfig,
-  type TxSenderConfig,
-  getPublisherConfigMappings,
-  getTxSenderConfigMappings,
+  type ProverPublisherConfig,
+  type ProverTxSenderConfig,
+  proverPublisherConfigMappings,
+  proverTxSenderConfigMappings,
 } from '@aztec/sequencer-client/config';
-import { type WorldStateConfig, worldStateConfigMappings } from '@aztec/world-state/config';
+import { type DataStoreConfig, dataConfigMappings } from '@aztec/stdlib/kv-store';
 
-export type ProverNodeConfig = ArchiverConfig &
-  ProverClientUserConfig &
-  P2PConfig &
-  WorldStateConfig &
-  PublisherConfig &
-  TxSenderConfig &
+export type ProverNodeConfig = ProverClientUserConfig &
+  ProverPublisherConfig &
+  ProverTxSenderConfig &
   DataStoreConfig &
   KeyStoreConfig &
-  SharedNodeConfig &
   SpecificProverNodeConfig &
-  GenesisStateConfig;
+  Pick<SharedNodeConfig, 'web3SignerUrl'>;
 
 export type SpecificProverNodeConfig = {
   proverNodeMaxPendingJobs: number;
@@ -51,9 +45,10 @@ export type SpecificProverNodeConfig = {
   txGatheringIntervalMs: number;
   txGatheringBatchSize: number;
   txGatheringMaxParallelRequestsPerNode: number;
+  proofSubmissionTargetAddress?: EthAddress;
 };
 
-const specificProverNodeConfigMappings: ConfigMappingsType<SpecificProverNodeConfig> = {
+export const specificProverNodeConfigMappings: ConfigMappingsType<SpecificProverNodeConfig> = {
   proverNodeMaxPendingJobs: {
     env: 'PROVER_NODE_MAX_PENDING_JOBS',
     description: 'The maximum number of pending jobs for the prover node',
@@ -67,7 +62,7 @@ const specificProverNodeConfigMappings: ConfigMappingsType<SpecificProverNodeCon
   proverNodeMaxParallelBlocksPerEpoch: {
     env: 'PROVER_NODE_MAX_PARALLEL_BLOCKS_PER_EPOCH',
     description: 'The Maximum number of blocks to process in parallel while proving an epoch',
-    ...numberConfigHelper(32),
+    ...numberConfigHelper(0),
   },
   proverNodeFailedEpochStore: {
     env: 'PROVER_NODE_FAILED_EPOCH_STORE',
@@ -75,7 +70,8 @@ const specificProverNodeConfigMappings: ConfigMappingsType<SpecificProverNodeCon
     defaultValue: undefined,
   },
   proverNodeEpochProvingDelayMs: {
-    description: 'Optional delay in milliseconds to wait before proving a new epoch',
+    description:
+      'Optional delay in milliseconds to wait for late-arriving events (e.g. reorgs) to settle before starting top-tree proving for an epoch',
     defaultValue: undefined,
   },
   txGatheringIntervalMs: {
@@ -103,20 +99,24 @@ const specificProverNodeConfigMappings: ConfigMappingsType<SpecificProverNodeCon
     description: 'Whether the prover node skips publishing proofs to L1',
     ...booleanConfigHelper(false),
   },
+  proofSubmissionTargetAddress: {
+    env: 'PROVER_NODE_PROOF_SUBMISSION_TARGET_ADDRESS',
+    description:
+      'Optional L1 address the submitEpochRootProof tx is sent to. Must expose the identical submitEpochRootProof ABI ' +
+      'and forward to the rollup. Defaults to the rollup address.',
+    parseEnv: (val: string) => EthAddress.fromString(val),
+    defaultValue: undefined,
+  },
 };
 
 export const proverNodeConfigMappings: ConfigMappingsType<ProverNodeConfig> = {
   ...dataConfigMappings,
   ...keyStoreConfigMappings,
-  ...archiverConfigMappings,
   ...proverClientConfigMappings,
-  ...p2pConfigMappings,
-  ...worldStateConfigMappings,
-  ...getPublisherConfigMappings('PROVER'),
-  ...getTxSenderConfigMappings('PROVER'),
+  ...proverPublisherConfigMappings,
+  ...proverTxSenderConfigMappings,
   ...specificProverNodeConfigMappings,
-  ...genesisStateConfigMappings,
-  ...sharedNodeConfigMappings,
+  ...pickConfigMappings(sharedNodeConfigMappings, ['web3SignerUrl']),
 };
 
 export function getProverNodeConfigFromEnv(): ProverNodeConfig {
@@ -143,7 +143,7 @@ function createKeyStoreFromWeb3Signer(config: ProverNodeConfig): KeyStore | unde
   }
 
   // Also, we need at least one publisher address.
-  const publishers = config.publisherAddresses ?? [];
+  const publishers = config.proverPublisherAddresses ?? [];
 
   if (publishers.length === 0) {
     return undefined;
@@ -164,8 +164,8 @@ function createKeyStoreFromWeb3Signer(config: ProverNodeConfig): KeyStore | unde
 
 function createKeyStoreFromPublisherKeys(config: ProverNodeConfig): KeyStore | undefined {
   // Extract the publisher keys from the provided config.
-  const publisherKeys = config.publisherPrivateKeys
-    ? config.publisherPrivateKeys.map((k: { getValue: () => string }) => ethPrivateKeySchema.parse(k.getValue()))
+  const publisherKeys = config.proverPublisherPrivateKeys
+    ? config.proverPublisherPrivateKeys.map((k: { getValue: () => string }) => ethPrivateKeySchema.parse(k.getValue()))
     : [];
 
   // There must be at least 1.
@@ -194,7 +194,10 @@ function createKeyStoreFromPublisherKeys(config: ProverNodeConfig): KeyStore | u
 
 export function createKeyStoreForProver(config: ProverNodeConfig): KeyStore | undefined {
   if (config.web3SignerUrl !== undefined && config.web3SignerUrl.length > 0) {
-    return createKeyStoreFromWeb3Signer(config);
+    const keyStore = createKeyStoreFromWeb3Signer(config);
+    if (keyStore) {
+      return keyStore;
+    }
   }
 
   return createKeyStoreFromPublisherKeys(config);

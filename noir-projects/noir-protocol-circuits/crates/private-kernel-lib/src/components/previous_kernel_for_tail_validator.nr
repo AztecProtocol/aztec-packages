@@ -1,6 +1,5 @@
 mod validate_accumulated_items;
-mod validate_no_transient_data;
-mod validate_siloed_values;
+mod validate_unsquashable_note_hash_nullifier_ordering;
 
 use types::{
     abis::kernel_circuit_public_inputs::PrivateKernelCircuitPublicInputs,
@@ -8,8 +7,7 @@ use types::{
     traits::Empty,
 };
 use validate_accumulated_items::validate_accumulated_items;
-use validate_no_transient_data::validate_no_transient_data;
-use validate_siloed_values::validate_siloed_values;
+use validate_unsquashable_note_hash_nullifier_ordering::validate_unsquashable_note_hash_nullifier_ordering;
 
 /// Validate the previous kernel for a private tail, either to_rollup or to_public.
 /// `is_for_public` should be known at compile time.
@@ -31,10 +29,14 @@ pub fn validate_previous_kernel_for_tail(
             "min_revertible_side_effect_counter must not be 0 for tail_to_public",
         );
     } else {
-        // The `min_revertible_side_effect_counter` could be anything for a pure private tx, as it's not used in the
-        // tail circuit or any circuits before the tail.
+        // For a private-only tx, `min_revertible_side_effect_counter` can be 0 or non-zero - it doesn't
+        // affect correctness. The reset circuit uses 0 as the split counter for private-only txs, so the
+        // revertible/non-revertible boundary is never applied regardless of this value.
     }
 
+    // Here, we finally reconcile that the "claimed" revertible counter (as hinted by all app circuits
+    // and kernel iterations of this tx) actually reconciles with the min_revertible_side_effect counter
+    // that was set by one of the app circuits of this tx.
     assert_eq(
         previous_kernel_public_inputs.claimed_revertible_counter,
         min_revertible_side_effect_counter,
@@ -56,7 +58,7 @@ pub fn validate_previous_kernel_for_tail(
         "Non empty nullifier read requests",
     );
     assert_eq(
-        validation_requests.scoped_key_validation_requests_and_generators.length,
+        validation_requests.scoped_key_validation_requests_and_separators.length,
         0,
         "Non empty key validation requests",
     );
@@ -64,10 +66,10 @@ pub fn validate_previous_kernel_for_tail(
     // --- fee_payer ---
 
     let fee_payer = previous_kernel_public_inputs.fee_payer;
-    // TODO: use assert_not_empty after Noir #9002.
+
     assert(!fee_payer.is_empty(), "Fee payer can't be empty");
 
-    // --- include_by_timestamp ---
+    // --- expiration_timestamp ---
     // It's checked against the given upper bound and the output value in the output validator.
 
     // --- is_private_only ---
@@ -79,23 +81,15 @@ pub fn validate_previous_kernel_for_tail(
         assert(is_private_only, "Must be private only to be processed in tail");
     }
 
-    // --- claimed_first_nullifier ---
+    // --- first nullifier ---
 
     assert(
         previous_kernel_public_inputs.end.nullifiers.length != 0,
         "TX must create at least one nullifier",
     );
 
-    let claimed_first_nullifier = previous_kernel_public_inputs.claimed_first_nullifier;
-
-    let first_nullifier = previous_kernel_public_inputs.end.nullifiers.array[0];
-    assert_eq(
-        claimed_first_nullifier,
-        first_nullifier.innermost().value,
-        "First nullifier claim was not satisfied",
-    );
-
     if is_for_public {
+        let first_nullifier = previous_kernel_public_inputs.end.nullifiers.array[0];
         assert(
             first_nullifier.inner.counter < min_revertible_side_effect_counter,
             "First nullifier must be non revertible",
@@ -103,8 +97,6 @@ pub fn validate_previous_kernel_for_tail(
     }
 
     // --- end & public_teardown_call_request ---
-    let note_hashes = previous_kernel_public_inputs.end.note_hashes;
-    let nullifiers = previous_kernel_public_inputs.end.nullifiers;
     let private_logs = previous_kernel_public_inputs.end.private_logs;
     let contract_class_logs_hashes = previous_kernel_public_inputs.end.contract_class_logs_hashes;
     let l2_to_l1_msgs = previous_kernel_public_inputs.end.l2_to_l1_msgs;
@@ -114,12 +106,9 @@ pub fn validate_previous_kernel_for_tail(
 
     validate_accumulated_items(previous_kernel_public_inputs, is_for_public);
 
-    validate_siloed_values(note_hashes, "note hashes");
-    validate_siloed_values(nullifiers, "nullifiers");
-    validate_siloed_values(private_logs, "private logs");
     l2_to_l1_msgs.for_each(|msg| msg.innermost().recipient.validate());
 
-    validate_no_transient_data(previous_kernel_public_inputs);
+    validate_unsquashable_note_hash_nullifier_ordering(previous_kernel_public_inputs);
 
     for private_log in private_logs.array {
         assert(

@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/usr/bin/env bash
 
 set -euo pipefail
 
@@ -62,9 +62,11 @@ mask_secret_value() {
 
     if [[ "$is_json_secret" == "true" ]]; then
         jq -r '.[]' "$secret_file" | while IFS= read -r element; do
-            echo "::add-mask::$element"
+            if [[ -n "$element" ]]; then
+                echo "::add-mask::$element"
+            fi
         done
-    else 
+    elif [[ -n "$secret_value" ]]; then
         echo "::add-mask::$secret_value"
     fi
 }
@@ -86,6 +88,7 @@ declare -A SECRET_MAPPINGS=(
     ["FUNDING_PRIVATE_KEY"]="${L1_NETWORK}-funding-private-key"
     ["ROLLUP_DEPLOYMENT_PRIVATE_KEY"]="${L1_NETWORK}-labs-rollup-private-key"
     ["OTEL_COLLECTOR_ENDPOINT"]="otel-collector-url"
+    ["PROVER_AGENT_KEDA_PROMETHEUS_SERVER_ADDRESS"]="prometheus-internal-read-url"
     ["ETHERSCAN_API_KEY"]="etherscan-api-key"
     ["LABS_INFRA_MNEMONIC"]="${MNEMONIC_SECRET}"
     ["STORE_SNAPSHOT_URL"]="r2-account-id"
@@ -155,6 +158,14 @@ if [[ -n "${BLOB_BUCKET_DIRECTORY:-}" ]]; then
     mask_secret_value "BLOB_FILE_STORE_UPLOAD_URL" "$secret_file"
     r2_account_id=$(cat "$secret_file")
     export BLOB_FILE_STORE_UPLOAD_URL="s3://testnet-bucket/${BLOB_BUCKET_DIRECTORY}/?endpoint=https://${r2_account_id}.r2.cloudflarestorage.com"
+fi
+
+# Construct TX_FILE_STORE_URL from the r2-account-id secret and TX_FILE_STORE_BUCKET_DIRECTORY
+if [[ -n "${TX_FILE_STORE_BUCKET_DIRECTORY:-}" ]]; then
+    secret_file=$(get_secret "r2-account-id")
+    mask_secret_value "TX_FILE_STORE_URL" "$secret_file"
+    r2_account_id=$(cat "$secret_file")
+    export TX_FILE_STORE_URL="s3://testnet-bucket/${TX_FILE_STORE_BUCKET_DIRECTORY}/?endpoint=https://${r2_account_id}.r2.cloudflarestorage.com"
 fi
 
 echo "Successfully set up GCP secrets for $NETWORK"

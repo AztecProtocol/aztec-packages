@@ -77,6 +77,8 @@ These rules must always hold:
 2. **Global variables match within checkpoint**: All blocks within the same checkpoint must have identical global variables (except `blockNumber`), which includes the slot number
 3. **inHash is constant**: All blocks in a checkpoint share the same L1-to-L2 messages hash
 4. **Sequential indexWithinCheckpoint**: Block N must have `indexWithinCheckpoint = parent.indexWithinCheckpoint + 1`
+5. **One proposer per slot**: Each slot has exactly one designated proposer. Sending multiple proposals for the same position (slot, indexWithinCheckpoint) with different content is equivocation and slashable
+6. **One attestation per slot**: Validators should only attest to one checkpoint per slot. Attesting to different proposals (different archives) for the same slot is equivocation and slashable
 
 ## Validation Flow
 
@@ -87,15 +89,14 @@ When a `BlockProposal` is received via P2P, the `BlockProposalHandler` performs:
 ```
 1. Verify proposer signature
 2. Check proposal is from current/next slot proposer (via BlockProposalValidator)
-3. Find parent block by archive root (wait/retry if not synced)
-4. Compute checkpoint number from parent
-5. If indexWithinCheckpoint > 0:
-   - Validate global variables match parent (chainId, version, slotNumber,
-     timestamp, coinbase, feeRecipient, gasFees)
-6. Verify inHash matches computed from L1-to-L2 messages
-7. Collect transactions from pool/network/proposal
-8. Re-execute transactions (if enabled)
-9. Compare re-execution result with proposal
+3. Detect duplicate proposals (same slot + indexWithinCheckpoint, different archive) slashing proposer on equivocation
+4. Find parent block by archive root (wait/retry if not synced)
+5. Compute checkpoint number from parent
+6. If indexWithinCheckpoint > 0, then validate global variables match parent (chainId, version, slotNumber, timestamp, coinbase, feeRecipient, gasFees)
+7. Verify inHash matches computed from L1-to-L2 messages
+8. Collect transactions from pool/network/proposal
+9. Re-execute transactions (if enabled)
+10. Compare re-execution result with proposal
 ```
 
 ### Checkpoint Proposal Validation
@@ -155,15 +156,16 @@ Time | Proposer                     | Validator
 
 ## Configuration
 
-| Flag                                  | Purpose                                                               |
-| ------------------------------------- | --------------------------------------------------------------------- |
-| `validatorReexecute`                  | Re-execute transactions to verify proposals                           |
-| `fishermanMode`                       | Validate proposals but don't broadcast attestations (monitoring only) |
-| `alwaysReexecuteBlockProposals`       | Force re-execution even when not in committee                         |
-| `slashBroadcastedInvalidBlockPenalty` | Penalty amount for invalid proposals (0 = disabled)                   |
-| `validatorReexecuteDeadlineMs`        | Time reserved at end of slot for propagation/publishing               |
-| `attestationPollingIntervalMs`        | How often to poll for attestations when collecting                    |
-| `disabledValidators`                  | Validator addresses to exclude from duties                            |
+| Flag                                               | Purpose                                                              |
+| -------------------------------------------------- | -------------------------------------------------------------------- |
+| `fishermanMode`                                    | Validate proposals but don't broadcast attestations (monitoring only) |
+| `alwaysReexecuteBlockProposals`                    | Force re-execution even when not in committee                         |
+| `slashBroadcastedInvalidBlockPenalty`              | Penalty amount for invalid proposals (0 = disabled)                   |
+| `slashBroadcastedInvalidCheckpointProposalPenalty` | Penalty amount for invalid checkpoint proposals (0 = disabled)        |
+| `slashDuplicateProposalPenalty`                    | Penalty amount for duplicate proposals (0 = disabled)                 |
+| `slashDuplicateAttestationPenalty`                 | Penalty amount for duplicate attestations (0 = disabled)              |
+| `attestationPollingIntervalMs`                     | How often to poll for attestations when collecting                    |
+| `disabledValidators`                               | Validator addresses to exclude from duties                            |
 
 ### High Availability (HA) Keystore
 
@@ -219,6 +221,49 @@ This is useful for monitoring network health without participating in consensus.
 - `createBlockProposal(...)` → `BlockProposal`: Signs block proposal with validator key
 - `createCheckpointProposal(...)` → `CheckpointProposal`: Signs checkpoint proposal
 - `attestToCheckpointProposal(proposal, attestors)` → `CheckpointAttestation[]`: Creates attestations for given addresses
+
+## Block Building Limits
+
+L1 enforces gas and blob capacity per checkpoint. The node enforces these during block building to avoid L1 rejection. Three dimensions are metered: L2 gas (mana), DA gas, and blob fields. DA gas maps to blob fields today (`daGas = blobFields * 32`) but both are tracked independently.
+
+The full per-tx → per-block → per-checkpoint limits hierarchy, including how the per-block budgets relate to the network admission limits, is documented in [`stdlib/src/gas/README.md`](../stdlib/src/gas/README.md) under "Gas and Data Limits".
+
+### Checkpoint limits
+
+| Dimension | Source | Budget |
+| --- | --- | --- |
+| L2 gas (mana) | `rollup.getManaLimit()` | Fetched from L1 at startup |
+| DA gas | `MAX_PROCESSABLE_DA_GAS_PER_CHECKPOINT` | 786,432 (6 blobs × 4096 fields × 32 gas/field) |
+| Blob fields | `BLOBS_PER_CHECKPOINT × FIELDS_PER_BLOB` | 24,576 minus checkpoint/block-end overhead |
+
+### Per-block budgets
+
+Per-block budgets prevent one block from consuming the entire checkpoint budget. The checkpoint builder dynamically computes per-block limits before each block based on the remaining checkpoint budget and the number of remaining blocks.
+
+**Proposer**: When building a proposal (`isBuildingProposal: true`), the `CheckpointProposalJob` passes `maxBlocksPerCheckpoint` (from the timetable) and `perBlockAllocationMultiplier` (default 1.2) via opts to `CheckpointBuilder.buildBlock`. The builder computes a fair share as `min(perBlockLimit, ceil(remainingBudget / remainingBlocks * multiplier), remainingBudget)`. The multiplier greater than 1 allows early blocks to use more than their even share, since different blocks hit different limit dimensions (L2 gas, DA gas, blob fields) — a strict even split would waste capacity. As prior blocks consume budget, later blocks see tightened limits. This applies to all four dimensions (L2 gas, DA gas, blob fields, transaction count). Operators can set hard per-block caps via `SEQ_MAX_L2_BLOCK_GAS` / `SEQ_MAX_DA_BLOCK_GAS` / `SEQ_MAX_TX_PER_BLOCK` (capped at checkpoint limits at startup); these act as additional upper bounds alongside the redistribution.
+
+**Validator**: When re-executing a proposal (`isBuildingProposal` unset), `capLimitsByCheckpointBudgets` only caps by the per-block limit and the total remaining checkpoint budget — no redistribution or multiplier is applied. This avoids false rejections due to differences between proposer and validator fair-share calculations. Validators can optionally set hard per-block limits via `VALIDATOR_MAX_L2_BLOCK_GAS`, `VALIDATOR_MAX_DA_BLOCK_GAS`, and `VALIDATOR_MAX_TX_PER_BLOCK`. When unset, no per-block limit is enforced (checkpoint-level protocol limits still apply). These are independent of the `SEQ_` vars so operators can tune proposer and validation limits separately.
+
+### Per-transaction enforcement
+
+**Mempool entry** (`GasLimitsValidator`): L2 gas must be ≤ `MAX_PROCESSABLE_L2_GAS` (6,540,000) and ≥ fixed minimums.
+
+**Block building** (`PublicProcessor.process`): Before processing, txs are skipped if their estimated blob fields or gas limits would exceed the block budget. After processing, actual values are checked and the tx is reverted if limits are exceeded.
+
+### Gas limit configuration
+
+| Variable | Default | Description |
+| --- | --- | --- |
+| `SEQ_MAX_L2_BLOCK_GAS` | *none* | Hard per-block L2 gas cap. Capped at `rollupManaLimit` at startup. When unset, redistribution dynamically computes per-block limits. |
+| `SEQ_MAX_DA_BLOCK_GAS` | *none* | Hard per-block DA gas cap. Capped at `MAX_PROCESSABLE_DA_GAS_PER_CHECKPOINT` at startup. When unset, redistribution handles it. |
+| `SEQ_MAX_TX_PER_BLOCK` | *none* | Hard per-block tx count cap. Capped at `SEQ_MAX_TX_PER_CHECKPOINT` at startup (if set). |
+| `SEQ_MAX_TX_PER_CHECKPOINT` | *none* | Total txs across all blocks in a checkpoint. When set, checkpoint-level capping and redistribution are enforced for tx count. |
+| `SEQ_PER_BLOCK_ALLOCATION_MULTIPLIER` | 1.2 | Multiplier for per-block budget redistribution. Passed via opts to the checkpoint builder during proposal building. |
+| `SEQ_REDISTRIBUTE_CHECKPOINT_BUDGET` | true | Legacy flag; redistribution is now always active during proposal building and inactive during validation. |
+| `VALIDATOR_MAX_L2_BLOCK_GAS` | *none* | Per-block L2 gas limit for validation. Proposals exceeding this are rejected. |
+| `VALIDATOR_MAX_DA_BLOCK_GAS` | *none* | Per-block DA gas limit for validation. Proposals exceeding this are rejected. |
+| `VALIDATOR_MAX_TX_PER_BLOCK` | *none* | Per-block tx count limit for validation. Proposals exceeding this are rejected. |
+| `VALIDATOR_MAX_TX_PER_CHECKPOINT` | *none* | Per-checkpoint tx count limit for validation. Proposals exceeding this are rejected. |
 
 ## Testing Patterns
 

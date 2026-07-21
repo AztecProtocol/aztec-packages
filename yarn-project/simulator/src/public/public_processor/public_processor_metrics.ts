@@ -30,6 +30,9 @@ export class PublicProcessorMetrics {
 
   private treeInsertionDuration: Histogram;
 
+  private silentlySkippedCount: UpDownCounter;
+  private silentlySkippedDuration: Histogram;
+
   constructor(client: TelemetryClient, name = 'PublicProcessor') {
     this.tracer = client.getTracer(name);
     const meter = client.getMeter(name);
@@ -60,6 +63,10 @@ export class PublicProcessorMetrics {
     this.gasRate = meter.createHistogram(Metrics.PUBLIC_PROCESSOR_GAS_RATE);
 
     this.treeInsertionDuration = meter.createHistogram(Metrics.PUBLIC_PROCESSOR_TREE_INSERTION);
+
+    this.silentlySkippedCount = createUpDownCounterWithDefault(meter, Metrics.PUBLIC_PROCESSOR_SILENTLY_SKIPPED_COUNT);
+
+    this.silentlySkippedDuration = meter.createHistogram(Metrics.PUBLIC_PROCESSOR_SILENTLY_SKIPPED_DURATION);
   }
 
   recordPhaseDuration(phaseName: TxExecutionPhase, durationMs: number) {
@@ -122,5 +129,10 @@ export class PublicProcessorMetrics {
 
   recordTreeInsertions(durationUs: number) {
     this.treeInsertionDuration.record(Math.ceil(durationUs));
+  }
+
+  recordSilentlySkipped(durationMs: number) {
+    this.silentlySkippedCount.add(1);
+    this.silentlySkippedDuration.record(Math.ceil(durationMs));
   }
 }

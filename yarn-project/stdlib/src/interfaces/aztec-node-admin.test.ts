@@ -1,7 +1,7 @@
 import { EthAddress } from '@aztec/foundation/eth-address';
 import { type JsonRpcTestContext, createJsonRpcTestSetup } from '@aztec/foundation/json-rpc/test';
 
-import { type Offense, OffenseType, type SlashPayloadRound } from '../slashing/index.js';
+import { type Offense, OffenseType } from '../slashing/index.js';
 import { type AztecNodeAdmin, AztecNodeAdminApiSchema } from './aztec-node-admin.js';
 import type { SequencerConfig } from './configs.js';
 import type { ProverConfig } from './prover-client.js';
@@ -57,22 +57,12 @@ describe('AztecNodeAdminApiSchema', () => {
     await context.client.resumeSync();
   });
 
-  it('getSlashPayloads', async () => {
-    const payloads = await context.client.getSlashPayloads();
-    expect(payloads).toHaveLength(1);
-    expect(payloads[0]).toMatchObject({
-      address: expect.any(EthAddress),
-      slashes: [
-        {
-          validator: expect.any(EthAddress),
-          amount: 1000n,
-          offenses: [{ offenseType: OffenseType.PROPOSED_INSUFFICIENT_ATTESTATIONS, epochOrSlot: 1n }],
-        },
-      ],
-      votes: 1n,
-      round: 1n,
-      timestamp: 1000n,
-    } satisfies SlashPayloadRound);
+  it('pauseSequencer', async () => {
+    await context.client.pauseSequencer();
+  });
+
+  it('resumeSequencer', async () => {
+    await context.client.resumeSequencer();
   });
 
   it('getSlashOffenses', async () => {
@@ -85,6 +75,10 @@ describe('AztecNodeAdminApiSchema', () => {
       epochOrSlot: expect.any(BigInt),
     });
   });
+
+  it('reloadKeystore', async () => {
+    await context.client.reloadKeystore();
+  });
 });
 
 class MockAztecNodeAdmin implements AztecNodeAdmin {
@@ -92,28 +86,6 @@ class MockAztecNodeAdmin implements AztecNodeAdmin {
   setConfig(config: Partial<SequencerConfig & ProverConfig & SlasherConfig>): Promise<void> {
     expect(config.coinbase).toBeInstanceOf(EthAddress);
     return Promise.resolve();
-  }
-  getSlashPayloads(): Promise<SlashPayloadRound[]> {
-    return Promise.resolve([
-      {
-        address: EthAddress.random(),
-        slashes: [
-          {
-            validator: EthAddress.random(),
-            amount: 1000n,
-            offenses: [
-              {
-                offenseType: OffenseType.PROPOSED_INSUFFICIENT_ATTESTATIONS,
-                epochOrSlot: 1n,
-              },
-            ],
-          },
-        ],
-        timestamp: 1000n,
-        votes: 1n,
-        round: 1n,
-      },
-    ]);
   }
   getSlashOffenses(): Promise<Offense[]> {
     return Promise.resolve([
@@ -134,57 +106,69 @@ class MockAztecNodeAdmin implements AztecNodeAdmin {
       proverTestDelayMs: 100,
       proverTestDelayFactor: 1,
       cancelJobsOnStop: false,
+      enqueueConcurrency: 10,
       proverAgentCount: 1,
       coinbase: EthAddress.random(),
       maxPendingTxCount: 1000,
       slashAmountSmall: 500n,
       slashAmountMedium: 1000n,
       slashAmountLarge: 2000n,
-      slashMinPenaltyPercentage: 0.1,
-      slashMaxPenaltyPercentage: 3.0,
       slashValidatorsAlways: [],
       slashValidatorsNever: [],
-      slashPrunePenalty: 1000n,
       slashDataWithholdingPenalty: 1000n,
+      slashDataWithholdingToleranceSlots: 3,
       slashInactivityTargetPercentage: 0.5,
       slashInactivityConsecutiveEpochThreshold: 1,
       slashInactivityPenalty: 1000n,
       slashBroadcastedInvalidBlockPenalty: 1n,
+      slashBroadcastedInvalidCheckpointProposalPenalty: 1n,
+      slashDuplicateProposalPenalty: 1n,
+      slashDuplicateAttestationPenalty: 1n,
+      slashAttestInvalidCheckpointProposalPenalty: 1000n,
       secondsBeforeInvalidatingBlockAsCommitteeMember: 0,
       secondsBeforeInvalidatingBlockAsNonCommitteeMember: 0,
       slashProposeInvalidAttestationsPenalty: 1000n,
-      slashAttestDescendantOfInvalidPenalty: 1000n,
+      slashProposeDescendantOfCheckpointWithInvalidAttestationsPenalty: 1000n,
       slashOffenseExpirationRounds: 4,
       slashMaxPayloadSize: 50,
       slashUnknownPenalty: 1000n,
       slashGracePeriodL2Slots: 0,
       slashExecuteRoundsLookBack: 4,
-      slasherClientType: 'tally' as const,
+
       disableValidator: false,
       disabledValidators: [],
       attestationPollingIntervalMs: 1000,
-      validatorReexecute: true,
+      blockDurationMs: 3000,
       disableTransactions: false,
       haSigningEnabled: false,
       nodeId: 'test-node-id',
       pollingIntervalMs: 50,
-      signingTimeoutMs: 3000,
+      peerSigningTimeoutMs: 3000,
       maxStuckDutiesAgeMs: 72000,
-      l1Contracts: {
-        rollupAddress: EthAddress.random(),
-      },
+      dataStoreMapSizeKb: 128 * 1024 * 1024,
+      l1ChainId: 1,
+      rollupAddress: EthAddress.random(),
     });
   }
   startSnapshotUpload(_location: string): Promise<void> {
     return Promise.resolve();
   }
-  rollbackTo(_targetBlockNumber: number): Promise<void> {
+  rollbackTo(_targetBlockNumber: number, _force?: boolean, _resumeSync?: boolean): Promise<void> {
     return Promise.resolve();
   }
   pauseSync(): Promise<void> {
     return Promise.resolve();
   }
   resumeSync(): Promise<void> {
+    return Promise.resolve();
+  }
+  pauseSequencer(): Promise<void> {
+    return Promise.resolve();
+  }
+  resumeSequencer(): Promise<void> {
+    return Promise.resolve();
+  }
+  reloadKeystore(): Promise<void> {
     return Promise.resolve();
   }
 }

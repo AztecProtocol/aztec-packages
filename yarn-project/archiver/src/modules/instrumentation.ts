@@ -1,5 +1,9 @@
+import type { SlotNumber } from '@aztec/foundation/branded-types';
 import { createLogger } from '@aztec/foundation/log';
 import type { L2Block } from '@aztec/stdlib/block';
+import type { CheckpointData } from '@aztec/stdlib/checkpoint';
+import type { L1RollupConstants } from '@aztec/stdlib/epoch-helpers';
+import { getTimestampForSlot } from '@aztec/stdlib/epoch-helpers';
 import {
   Attributes,
   type Gauge,
@@ -17,6 +21,7 @@ export class ArchiverInstrumentation {
   public readonly tracer: Tracer;
 
   private blockHeight: Gauge;
+  private checkpointHeight: Gauge;
   private txCount: UpDownCounter;
   private l1BlockHeight: Gauge;
   private proofsSubmittedDelay: Histogram;
@@ -27,6 +32,7 @@ export class ArchiverInstrumentation {
   private pruneCount: UpDownCounter;
 
   private syncDurationPerBlock: Histogram;
+  private syncDurationPerCheckpoint: Histogram;
   private syncBlockCount: UpDownCounter;
   private manaPerBlock: Histogram;
   private txsPerBlock: Histogram;
@@ -35,6 +41,9 @@ export class ArchiverInstrumentation {
   private syncMessageCount: UpDownCounter;
 
   private blockProposalTxTargetCount: UpDownCounter;
+
+  private checkpointL1InclusionDelay: Histogram;
+  private checkpointPromotedCount: UpDownCounter;
 
   private log = createLogger('archiver:instrumentation');
 
@@ -46,6 +55,8 @@ export class ArchiverInstrumentation {
     const meter = telemetry.getMeter('Archiver');
 
     this.blockHeight = meter.createGauge(Metrics.ARCHIVER_BLOCK_HEIGHT);
+
+    this.checkpointHeight = meter.createGauge(Metrics.ARCHIVER_CHECKPOINT_HEIGHT);
 
     this.l1BlockHeight = meter.createGauge(Metrics.ARCHIVER_L1_BLOCK_HEIGHT);
 
@@ -59,6 +70,8 @@ export class ArchiverInstrumentation {
 
     this.syncDurationPerBlock = meter.createHistogram(Metrics.ARCHIVER_SYNC_PER_BLOCK);
 
+    this.syncDurationPerCheckpoint = meter.createHistogram(Metrics.ARCHIVER_SYNC_PER_CHECKPOINT);
+
     this.syncBlockCount = createUpDownCounterWithDefault(meter, Metrics.ARCHIVER_SYNC_BLOCK_COUNT);
 
     this.manaPerBlock = meter.createHistogram(Metrics.ARCHIVER_MANA_PER_BLOCK);
@@ -71,7 +84,9 @@ export class ArchiverInstrumentation {
 
     this.pruneDuration = meter.createHistogram(Metrics.ARCHIVER_PRUNE_DURATION);
 
-    this.pruneCount = createUpDownCounterWithDefault(meter, Metrics.ARCHIVER_PRUNE_COUNT);
+    this.pruneCount = createUpDownCounterWithDefault(meter, Metrics.ARCHIVER_PRUNE_COUNT, {
+      [Attributes.PRUNE_TYPE]: ['unproven', 'uncheckpointed', 'l1_conflict', 'orphan', 'l1_mismatch'],
+    });
 
     this.blockProposalTxTargetCount = createUpDownCounterWithDefault(
       meter,
@@ -80,6 +95,10 @@ export class ArchiverInstrumentation {
         [Attributes.L1_BLOCK_PROPOSAL_USED_TRACE]: [true, false],
       },
     );
+
+    this.checkpointL1InclusionDelay = meter.createHistogram(Metrics.ARCHIVER_CHECKPOINT_L1_INCLUSION_DELAY);
+
+    this.checkpointPromotedCount = createUpDownCounterWithDefault(meter, Metrics.ARCHIVER_CHECKPOINT_PROMOTED_COUNT);
 
     this.dbMetrics = new LmdbMetrics(
       meter,
@@ -102,16 +121,26 @@ export class ArchiverInstrumentation {
     return this.telemetry.isEnabled();
   }
 
-  public processNewBlocks(syncTimePerBlock: number, blocks: L2Block[]) {
+  public processNewProposedBlock(syncTimePerBlock: number, block: L2Block) {
+    const attrs = { [Attributes.STATUS]: 'proposed' };
+    this.blockHeight.record(block.number, attrs);
     this.syncDurationPerBlock.record(Math.ceil(syncTimePerBlock));
-    this.blockHeight.record(Math.max(...blocks.map(b => b.number)));
-    this.syncBlockCount.add(blocks.length);
 
-    for (const block of blocks) {
-      this.txCount.add(block.body.txEffects.length);
-      this.txsPerBlock.record(block.body.txEffects.length);
-      this.manaPerBlock.record(block.header.totalManaUsed.toNumber() / 1e6);
+    // Per block metrics
+    this.txCount.add(block.body.txEffects.length);
+    this.txsPerBlock.record(block.body.txEffects.length);
+    this.manaPerBlock.record(block.header.totalManaUsed.toNumber() / 1e6);
+  }
+
+  public processNewCheckpointedBlocks(syncTimePerCheckpoint: number, blocks: L2Block[]) {
+    if (blocks.length === 0) {
+      return;
     }
+
+    this.syncDurationPerCheckpoint.record(Math.ceil(syncTimePerCheckpoint));
+    this.blockHeight.record(Math.max(...blocks.map(b => b.number)), { [Attributes.STATUS]: 'checkpointed' });
+    this.checkpointHeight.record(Math.max(...blocks.map(b => b.checkpointNumber)));
+    this.syncBlockCount.add(blocks.length);
   }
 
   public processNewMessages(count: number, syncPerMessageMs: number) {
@@ -123,12 +152,25 @@ export class ArchiverInstrumentation {
   }
 
   public processPrune(duration: number) {
-    this.pruneCount.add(1);
+    this.pruneCount.add(1, { [Attributes.PRUNE_TYPE]: 'unproven' });
     this.pruneDuration.record(Math.ceil(duration));
   }
 
-  public updateLastProvenBlock(blockNumber: number) {
-    this.blockHeight.record(blockNumber, { [Attributes.STATUS]: 'proven' });
+  /**
+   * Records a pending-chain reorg, where the archiver dropped proposed blocks (and world-state follows by pruning). The
+   * type distinguishes the cause: 'uncheckpointed' (slot ended without a checkpoint), 'l1_conflict' (proposed blocks
+   * conflicting with an L1 checkpoint), 'orphan' (no matching proposed checkpoint arrived before the deadline), or
+   * 'l1_mismatch' (the local checkpointed tip diverged from L1 — an L1 reorg or a pruned/missed-proof checkpoint — so
+   * already-checkpointed blocks were rewound).
+   */
+  public recordPrune(pruneType: 'uncheckpointed' | 'l1_conflict' | 'orphan' | 'l1_mismatch') {
+    this.pruneCount.add(1, { [Attributes.PRUNE_TYPE]: pruneType });
+  }
+
+  public updateLastProvenCheckpoint(checkpoint: CheckpointData) {
+    const lastBlockNumberInCheckpoint = checkpoint.startBlock + checkpoint.blockCount - 1;
+    this.blockHeight.record(lastBlockNumberInCheckpoint, { [Attributes.STATUS]: 'proven' });
+    this.checkpointHeight.record(checkpoint.checkpointNumber, { [Attributes.STATUS]: 'proven' });
   }
 
   public processProofsVerified(logs: { proverId: string; l2BlockNumber: bigint; delay: bigint }[]) {
@@ -153,5 +195,23 @@ export class ArchiverInstrumentation {
       [Attributes.L1_BLOCK_PROPOSAL_TX_TARGET]: target.toLowerCase(),
       [Attributes.L1_BLOCK_PROPOSAL_USED_TRACE]: usedTrace,
     });
+  }
+
+  /** Records a checkpoint promoted from proposed (blob fetch skipped). */
+  public processCheckpointPromoted() {
+    this.checkpointPromotedCount.add(1);
+  }
+
+  /**
+   * Records L1 inclusion timing for a checkpoint observed on L1 (seconds into the L2 slot).
+   */
+  public processCheckpointL1Timing(data: {
+    slotNumber: SlotNumber;
+    l1Timestamp: bigint;
+    l1Constants: Pick<L1RollupConstants, 'l1GenesisTime' | 'slotDuration'>;
+  }): void {
+    const slotStartTs = getTimestampForSlot(data.slotNumber, data.l1Constants);
+    const inclusionDelaySeconds = Number(data.l1Timestamp - slotStartTs);
+    this.checkpointL1InclusionDelay.record(inclusionDelaySeconds);
   }
 }

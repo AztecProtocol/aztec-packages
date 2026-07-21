@@ -1,7 +1,5 @@
 import { toArray } from '@aztec/foundation/iterable';
 
-import { expect } from 'chai';
-
 import type { Range } from './common.js';
 import type { AztecAsyncSet, AztecSet } from './set.js';
 import type { AztecAsyncKVStore, AztecKVStore } from './store.js';
@@ -41,9 +39,9 @@ export function describeAztecSet(
       await set.add('foo');
       await set.add('baz');
 
-      expect(await has('foo')).to.equal(true);
-      expect(await has('baz')).to.equal(true);
-      expect(await has('bar')).to.equal(false);
+      expect(await has('foo')).toBe(true);
+      expect(await has('baz')).toBe(true);
+      expect(await has('bar')).toBe(false);
     });
 
     it('should be able to delete values', async () => {
@@ -52,15 +50,15 @@ export function describeAztecSet(
 
       await set.delete('foo');
 
-      expect(await has('foo')).to.equal(false);
-      expect(await has('baz')).to.equal(true);
+      expect(await has('foo')).toBe(false);
+      expect(await has('baz')).toBe(true);
     });
 
     it('should be able to iterate over entries', async () => {
       await set.add('baz');
       await set.add('foo');
 
-      expect(await entries()).to.deep.equal(['baz', 'foo']);
+      expect(await entries()).toEqual(['baz', 'foo']);
     });
 
     it('supports range queries', async () => {
@@ -69,13 +67,13 @@ export function describeAztecSet(
       await set.add('c');
       await set.add('d');
 
-      expect(await entries({ start: 'b', end: 'c' })).to.deep.equal(['b']);
-      expect(await entries({ start: 'b' })).to.deep.equal(['b', 'c', 'd']);
-      expect(await entries({ end: 'c' })).to.deep.equal(['a', 'b']);
-      expect(await entries({ start: 'b', end: 'c', reverse: true })).to.deep.equal(['c']);
-      expect(await entries({ start: 'b', limit: 1 })).to.deep.equal(['b']);
-      expect(await entries({ start: 'b', reverse: true })).to.deep.equal(['d', 'c']);
-      expect(await entries({ end: 'b', reverse: true })).to.deep.equal(['b', 'a']);
+      expect(await entries({ start: 'b', end: 'c' })).toEqual(['b']);
+      expect(await entries({ start: 'b' })).toEqual(['b', 'c', 'd']);
+      expect(await entries({ end: 'c' })).toEqual(['a', 'b']);
+      expect(await entries({ start: 'b', end: 'c', reverse: true })).toEqual(['c']);
+      expect(await entries({ start: 'b', limit: 1 })).toEqual(['b']);
+      expect(await entries({ start: 'b', reverse: true })).toEqual(['d', 'c']);
+      expect(await entries({ end: 'b', reverse: true })).toEqual(['b', 'a']);
     });
   });
 }

@@ -1,5 +1,5 @@
 // === AUDIT STATUS ===
-// internal:    { status: Planned, auditors: [], commit: }
+// internal:    { status: Complete, auditors: [Khashayar], commit: 21476601b111f046f023474465598843e4cfd8ac}
 // external_1:  { status: not started, auditors: [], commit: }
 // external_2:  { status: not started, auditors: [], commit: }
 // =====================
@@ -19,23 +19,25 @@ template <typename Builder> void create_aes128_constraints(Builder& builder, con
 {
 
     using field_ct = bb::stdlib::field_t<Builder>;
-
     // Packs 16 bytes from the inputs (plaintext, iv, key) into a field element
-    const auto convert_input =
-        [&](std::span<const WitnessOrConstant<bb::fr>, std::dynamic_extent> inputs, size_t padding, Builder& builder) {
-            field_ct converted = 0;
-            for (size_t i = 0; i < 16 - padding; ++i) {
-                converted *= 256;
-                field_ct byte = to_field_ct(inputs[i], builder);
-                converted += byte;
-            }
-            for (size_t i = 0; i < padding; ++i) {
-                converted *= 256;
-                field_ct byte = padding;
-                converted += byte;
-            }
-            return converted;
-        };
+    // Note that noir-stdlib already pads the inputs in accordance with PKCS7 padding scheme.
+    BB_ASSERT(constraint.inputs.size() % 16 == 0, "Inputs must be a multiple of 16");
+    BB_ASSERT(constraint.outputs.size() == constraint.inputs.size(), "Outputs must have the same length as inputs");
+    const auto convert_input = [&](std::span<const WitnessOrConstant<bb::fr>, std::dynamic_extent> inputs,
+                                   Builder& builder) {
+        field_ct converted = 0;
+        for (size_t i = 0; i < 16; ++i) {
+            converted *= 256;
+            field_ct byte = to_field_ct(inputs[i], builder);
+            // Noir enforces bytes to be in the range [0, 255] by type declarations, however, if inputs are taken
+            // from
+            // ACIR directly, these ranges should be enforced by the range constraint. In case these range
+            // constraints already exist we won't be paying for the extra constraint.
+            byte.create_range_constraint(8);
+            converted += byte;
+        }
+        return converted;
+    };
 
     // Packs 16 bytes from the outputs (witness indexes) into a field element for comparison
     const auto convert_output = [&](std::span<const uint32_t, 16> outputs) {
@@ -43,27 +45,23 @@ template <typename Builder> void create_aes128_constraints(Builder& builder, con
         for (const auto& output : outputs) {
             converted *= 256;
             field_ct byte = field_ct::from_witness_index(&builder, output);
+            // Noir enforces bytes to be in the range [0, 255] by type declarations, however, if inputs are taken from
+            // ACIR directly, these ranges should be enforced by the range constraint. In case these range constraints
+            // already exist we won't be paying for the extra constraint.
+            byte.create_range_constraint(8);
             converted += byte;
         }
         return converted;
     };
 
-    const size_t padding_size = 16 - (constraint.inputs.size() % 16);
-
     // Perform the conversions from array of bytes to field elements
     std::vector<field_ct> converted_inputs;
     for (size_t i = 0; i < constraint.inputs.size(); i += 16) {
         field_ct to_add;
-        if (i + 16 > constraint.inputs.size()) {
-            to_add =
-                convert_input(std::span<const WitnessOrConstant<bb::fr>, std::dynamic_extent>{ &constraint.inputs[i],
-                                                                                               16 - padding_size },
-                              padding_size,
-                              builder);
-        } else {
-            to_add =
-                convert_input(std::span<const WitnessOrConstant<bb::fr>, 16>{ &constraint.inputs[i], 16 }, 0, builder);
-        }
+
+        to_add = convert_input(
+            std::span<const WitnessOrConstant<bb::fr>, std::dynamic_extent>{ &constraint.inputs[i], 16 }, builder);
+
         converted_inputs.emplace_back(to_add);
     }
 
@@ -74,7 +72,7 @@ template <typename Builder> void create_aes128_constraints(Builder& builder, con
     }
 
     const std::vector<field_ct> output_bytes = bb::stdlib::aes128::encrypt_buffer_cbc<Builder>(
-        converted_inputs, convert_input(constraint.iv, 0, builder), convert_input(constraint.key, 0, builder));
+        converted_inputs, convert_input(constraint.iv, builder), convert_input(constraint.key, builder));
 
     for (size_t i = 0; i < output_bytes.size(); ++i) {
         output_bytes[i].assert_equal(converted_outputs[i]);

@@ -1,15 +1,15 @@
-import type { RollupContract, TallySlashingProposerContract } from '@aztec/ethereum/contracts';
+import type { RollupContract, SlashingProposerContract } from '@aztec/ethereum/contracts';
 
-import type { TallySlasherSettings } from '../tally_slasher_client.js';
+import type { SlasherSettings } from '../slasher_client.js';
 
-export async function getTallySlasherSettings(
+export async function getSlasherSettings(
   rollup: RollupContract,
-  slashingProposer?: TallySlashingProposerContract,
-): Promise<TallySlasherSettings> {
+  slashingProposer?: SlashingProposerContract,
+): Promise<Omit<SlasherSettings, 'rollupRegisteredAtL2Slot'>> {
   if (!slashingProposer) {
     const rollupSlashingProposer = await rollup.getSlashingProposer();
-    if (!rollupSlashingProposer || rollupSlashingProposer.type !== 'tally') {
-      throw new Error('Rollup slashing proposer is not of type tally');
+    if (!rollupSlashingProposer) {
+      throw new Error('Rollup slashing proposer not found');
     }
     slashingProposer = rollupSlashingProposer;
   }
@@ -40,7 +40,7 @@ export async function getTallySlasherSettings(
     rollup.getTargetCommitteeSize(),
   ]);
 
-  const settings: TallySlasherSettings = {
+  const settings: Omit<SlasherSettings, 'rollupRegisteredAtL2Slot'> = {
     slashingExecutionDelayInRounds: Number(slashingExecutionDelayInRounds),
     slashingRoundSize: Number(slashingRoundSize),
     slashingRoundSizeInEpochs: Number(slashingRoundSizeInEpochs),

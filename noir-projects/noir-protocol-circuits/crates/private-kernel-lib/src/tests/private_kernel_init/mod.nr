@@ -2,24 +2,23 @@ mod private_call_data;
 mod output_composition_tests;
 
 use crate::{
-    components::private_kernel_circuit_output_composer::get_include_by_timestamp_for_contract_updates,
+    components::private_kernel_circuit_output_composer::get_expiration_timestamp_for_contract_updates,
     private_kernel_init::{self, PrivateKernelInitCircuitPrivateInputs},
 };
-use dep::types::{
+use protocol_test_utils::FixtureBuilder;
+use types::{
     abis::{
         kernel_circuit_public_inputs::PrivateKernelCircuitPublicInputs,
         transaction::tx_request::TxRequest,
     },
     address::AztecAddress,
-    hash::{create_protocol_nullifier, silo_nullifier},
-    tests::fixture_builder::FixtureBuilder,
+    hash::create_protocol_nullifier,
 };
 
 struct TestBuilder {
     tx_request: TxRequest,
     private_call: FixtureBuilder,
     is_private_only: bool,
-    first_nullifier_hint: Field,
     revertible_counter_hint: u32,
 }
 
@@ -34,13 +33,7 @@ impl TestBuilder {
 
         let tx_request = private_call.to_tx_request();
 
-        TestBuilder {
-            tx_request,
-            private_call,
-            is_private_only: false,
-            first_nullifier_hint: 123, // Set a random value to not inject the protocol nullifier by default.
-            revertible_counter_hint: 0,
-        }
+        TestBuilder { tx_request, private_call, is_private_only: false, revertible_counter_hint: 0 }
     }
 
     pub fn execute(self) -> PrivateKernelCircuitPublicInputs {
@@ -52,7 +45,6 @@ impl TestBuilder {
             vk_tree_root: self.private_call.vk_tree_root,
             protocol_contracts: self.private_call.protocol_contracts,
             is_private_only: self.is_private_only,
-            first_nullifier_hint: self.first_nullifier_hint,
             revertible_counter_hint: self.revertible_counter_hint,
         };
 
@@ -87,11 +79,15 @@ impl TestBuilder {
         let mut accumulated_data = private_call.to_private_accumulated_data();
 
         let scoped_protocol_nullifier = create_protocol_nullifier(self.tx_request);
-        let protocol_nullifier = silo_nullifier(scoped_protocol_nullifier);
-        if self.first_nullifier_hint == protocol_nullifier {
-            accumulated_data.nullifiers.length = 1;
-            accumulated_data.nullifiers.array[0] = scoped_protocol_nullifier;
+        // The protocol nullifier is always injected at index 0; app nullifiers shift to index 1+.
+        let app_nullifiers = accumulated_data.nullifiers;
+        let mut nullifiers = app_nullifiers;
+        nullifiers.array[0] = scoped_protocol_nullifier;
+        for i in 0..nullifiers.array.len() - 1 {
+            nullifiers.array[i + 1] = app_nullifiers.array[i];
         }
+        nullifiers.length = app_nullifiers.length + 1;
+        accumulated_data.nullifiers = nullifiers;
         assert_eq(pi.end, accumulated_data);
 
         assert_eq(pi.public_teardown_call_request, self.private_call.public_teardown_call_request);
@@ -103,15 +99,13 @@ impl TestBuilder {
         };
         assert_eq(pi.fee_payer, expected_fee_payer);
 
-        let expected_include_by_timestamp = std::cmp::min(
-            self.private_call.include_by_timestamp,
-            get_include_by_timestamp_for_contract_updates(self.private_call.to_private_call_data()),
+        let expected_expiration_timestamp = std::cmp::min(
+            self.private_call.expiration_timestamp,
+            get_expiration_timestamp_for_contract_updates(self.private_call.to_private_call_data()),
         );
-        assert_eq(pi.include_by_timestamp, expected_include_by_timestamp);
+        assert_eq(pi.expiration_timestamp, expected_expiration_timestamp);
 
         assert_eq(pi.is_private_only, self.is_private_only);
-
-        assert_eq(pi.claimed_first_nullifier, self.first_nullifier_hint);
 
         assert_eq(pi.claimed_revertible_counter, self.revertible_counter_hint);
     }

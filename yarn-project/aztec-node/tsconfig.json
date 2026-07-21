@@ -16,6 +16,9 @@
       "path": "../blob-client"
     },
     {
+      "path": "../blob-lib"
+    },
+    {
       "path": "../constants"
     },
     {
@@ -29,12 +32,6 @@
     },
     {
       "path": "../kv-store"
-    },
-    {
-      "path": "../l1-artifacts"
-    },
-    {
-      "path": "../merkle-tree"
     },
     {
       "path": "../node-keystore"
@@ -55,6 +52,9 @@
       "path": "../prover-client"
     },
     {
+      "path": "../prover-node"
+    },
+    {
       "path": "../sequencer-client"
     },
     {
@@ -62,6 +62,9 @@
     },
     {
       "path": "../slasher"
+    },
+    {
+      "path": "../standard-contracts"
     },
     {
       "path": "../stdlib"

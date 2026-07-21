@@ -73,7 +73,7 @@ function injectInternalCommands(program: Command, log: LogFn, db: WalletDB) {
 
 /** CLI wallet main entrypoint */
 async function main() {
-  const walletVersion = getPackageVersion() ?? '0.0.0';
+  const walletVersion = getPackageVersion();
 
   const db = WalletDB.getInstance();
   const walletAndNodeWrapper = new CliWalletAndNodeWrapper();

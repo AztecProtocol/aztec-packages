@@ -11,6 +11,7 @@ import {Errors} from "@aztec/core/libraries/Errors.sol";
 import {Timestamp, Epoch} from "@aztec/shared/libraries/TimeMath.sol";
 import {IValidatorSelection} from "@aztec/core/interfaces/IValidatorSelection.sol";
 import {FakeRollup} from "./mocks/FakeRollup.sol";
+import {Ownable} from "@oz/access/Ownable.sol";
 
 /// @notice Configuration struct for EscapeHatch deployment
 /// @dev Foundry can fuzz this struct directly when passed as a test parameter
@@ -98,6 +99,10 @@ contract EscapeHatchBase is TestBase {
       DEFAULT_PROPOSING_EXIT_DELAY
     );
 
+    // Register escape hatch with the rollup so selectCandidates deactivation guard passes
+    vm.prank(Ownable(address(rollup)).owner());
+    rollup.setEscapeHatch(address(escapeHatch));
+
     vm.label(address(rollup), "Rollup");
     vm.label(address(bondToken), "BondToken");
     vm.label(address(escapeHatch), "EscapeHatch");
@@ -132,6 +137,9 @@ contract EscapeHatchBase is TestBase {
       config.proposingExitDelay
     );
     vm.label(address(escapeHatch), "EscapeHatchWithFakeRollup");
+
+    // Register escape hatch with the fake rollup so selectCandidates deactivation guard passes
+    fakeRollup.setEscapeHatch(address(escapeHatch));
   }
 
   function _mintAndApprove(address _candidate, uint256 _amount) internal {
@@ -248,9 +256,42 @@ contract EscapeHatchBase is TestBase {
 
     vm.label(address(escapeHatch), "FuzzedEscapeHatch");
 
+    // Register the new escape hatch so selectCandidates deactivation guard passes.
+    // Production rollup.setEscapeHatch is one-shot, so we reset the checkpoint trace via
+    // vm.store before re-registering. This is a test-only bypass of the one-shot guard.
+    if (useFakeRollup) {
+      fakeRollup.setEscapeHatch(address(escapeHatch));
+    } else {
+      _resetRollupEscapeHatchRegistration();
+      vm.prank(Ownable(address(rollup)).owner());
+      rollup.setEscapeHatch(address(escapeHatch));
+    }
+
     // Warp to safe epoch to avoid HatchTooEarly errors
     _warpToSafeEpoch();
     _;
+  }
+
+  /// @notice Test-only helper that clears the rollup's escape-hatch checkpoint trace length.
+  /// @dev Allows re-registering an escape hatch despite the one-shot production guard.
+  ///      Matches the storage layout of ValidatorSelectionStorage.escapeHatchCheckpoints
+  ///      (a Trace160 whose inner array's length slot sits at offset 3 of the library's
+  ///      storage struct -- see ValidatorSelectionLib.VALIDATOR_SELECTION_STORAGE_POSITION).
+  function _resetRollupEscapeHatchRegistration() internal {
+    bytes32 base = keccak256("aztec.validator_selection.storage");
+    // Layout: [0]=committeeCommitments mapping ptr, [1]=Trace224 randaos, [2]=packed uint32s,
+    //         [3]=Trace160 escapeHatchCheckpoints (whose sole field is the Checkpoint160[]
+    //             dynamic array; its length lives directly at this slot).
+    bytes32 traceLengthSlot = bytes32(uint256(base) + 3);
+    vm.store(address(rollup), traceLengthSlot, bytes32(0));
+    // Layout-drift canary: if ValidatorSelectionStorage gains/loses/reorders a field, the slot
+    // above no longer holds the trace length and the public getter will still see the prior
+    // checkpoint. Surface that explicitly instead of silently clobbering an unrelated slot.
+    assertEq(
+      address(IValidatorSelection(address(rollup)).getEscapeHatch()),
+      address(0),
+      "escapeHatchCheckpoints trace length not at expected slot - ValidatorSelectionStorage layout drift?"
+    );
   }
 
   /// @notice Helper to join candidate set using current config's bond size

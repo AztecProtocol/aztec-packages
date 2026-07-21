@@ -6,6 +6,7 @@ import { schemas, zodFor } from '@aztec/foundation/schemas';
 import { inflate } from 'pako';
 import { z } from 'zod';
 
+import { DEV_VERSION } from '../update-checker/dev_version.js';
 import { FunctionSelector } from './function_selector.js';
 
 /** A basic value. */
@@ -221,10 +222,17 @@ export const FunctionDebugMetadataSchema = z.object({
         }),
       ),
     }),
-    acir_locations: z.record(z.number()),
-    brillig_locations: z.record(z.record(z.number())),
+    acir_locations: z.record(z.string(), z.number()),
+    brillig_locations: z.record(z.string(), z.record(z.string(), z.number())),
   }),
-  files: z.record(z.object({ source: z.string(), path: z.string() })),
+  files: z.record(
+    z.string(),
+    z.object({
+      source: z.string(),
+      path: z.string(),
+      function_locations: z.array(z.object({ start: z.number(), name: z.string() })),
+    }),
+  ),
 }) satisfies z.ZodType<FunctionDebugMetadata>;
 
 /** The artifact entry of a function. */
@@ -305,6 +313,14 @@ export interface ProgramDebugInfo {
   debug_infos: Array<DebugInfo>;
 }
 
+/** The range a function occupies in a file. */
+export type FunctionLocation = {
+  /** The byte where the function starts. */
+  start: number;
+  /** The name of the function. */
+  name: string;
+};
+
 /** Maps a file ID to its metadata for debugging purposes. */
 export type DebugFileMap = Record<
   FileId,
@@ -313,6 +329,8 @@ export type DebugFileMap = Record<
     source: string;
     /** The path of the file. */
     path: string;
+    /** The range each function occupies in the file. */
+    function_locations: FunctionLocation[];
   }
 >;
 
@@ -322,10 +340,16 @@ export type FieldLayout = {
   slot: Fr;
 };
 
+/** Placeholder version injected into artifacts compiled before aztecVersion was added. TODO(F-557): Remove. */
+export const ARTIFACT_VERSION_BEFORE_INJECTION = 'FROM_RELEASE_BEFORE_VERSION_INJECTION';
+
 /** Defines artifact of a contract. */
 export interface ContractArtifact {
   /** The name of the contract. */
   name: string;
+
+  /** The version of the Aztec stack that compiled this artifact. */
+  aztecVersion: string;
 
   /** The functions of the contract. Includes private and utility functions, plus the public dispatch function. */
   functions: FunctionArtifact[];
@@ -349,10 +373,11 @@ export interface ContractArtifact {
 export const ContractArtifactSchema = zodFor<ContractArtifact>()(
   z.object({
     name: z.string(),
+    aztecVersion: z.string().default(ARTIFACT_VERSION_BEFORE_INJECTION), // TODO(F-557): Remove default.
     functions: z.array(FunctionArtifactSchema),
     nonDispatchPublicFunctions: z.array(FunctionAbiSchema),
     outputs: z.object({
-      structs: z.record(z.array(AbiTypeSchema)).transform(structs => {
+      structs: z.record(z.string(), z.array(AbiTypeSchema)).transform(structs => {
         for (const [key, value] of Object.entries(structs)) {
           // We are manually ordering events and functions in the abi by path.
           // The path ordering is arbitrary, and only needed to ensure deterministic order.
@@ -364,10 +389,17 @@ export const ContractArtifactSchema = zodFor<ContractArtifact>()(
         }
         return structs;
       }),
-      globals: z.record(z.array(AbiValueSchema)),
+      globals: z.record(z.string(), z.array(AbiValueSchema)),
     }),
-    storageLayout: z.record(z.object({ slot: schemas.Fr })),
-    fileMap: z.record(z.coerce.number(), z.object({ source: z.string(), path: z.string() })),
+    storageLayout: z.record(z.string(), z.object({ slot: schemas.Fr })),
+    fileMap: z.record(
+      z.coerce.number(),
+      z.object({
+        source: z.string(),
+        path: z.string(),
+        function_locations: z.array(z.object({ start: z.number(), name: z.string() })),
+      }),
+    ),
   }),
 );
 
@@ -387,20 +419,10 @@ export async function getFunctionArtifact(
   artifact: ContractArtifact,
   functionNameOrSelector: string | FunctionSelector,
 ): Promise<FunctionArtifactWithContractName> {
-  let functionArtifact;
-  if (typeof functionNameOrSelector === 'string') {
-    functionArtifact = artifact.functions.find(f => f.name === functionNameOrSelector);
-  } else {
-    const functionsAndSelectors = await Promise.all(
-      artifact.functions.map(async fn => ({
-        fn,
-        selector: await FunctionSelector.fromNameAndParameters(fn.name, fn.parameters),
-      })),
-    );
-    functionArtifact = functionsAndSelectors.find(fnAndSelector =>
-      functionNameOrSelector.equals(fnAndSelector.selector),
-    )?.fn;
-  }
+  const functionArtifact =
+    typeof functionNameOrSelector === 'string'
+      ? artifact.functions.find(f => f.name === functionNameOrSelector)
+      : await findFunctionArtifactBySelector(artifact, functionNameOrSelector);
   if (!functionArtifact) {
     throw new Error(`Unknown function ${functionNameOrSelector}`);
   }
@@ -408,6 +430,40 @@ export async function getFunctionArtifact(
   const debugMetadata = getFunctionDebugMetadata(artifact, functionArtifact);
 
   return { ...functionArtifact, debug: debugMetadata, contractName: artifact.name };
+}
+
+/**
+ * Finds the function artifact within `artifact.functions` whose selector matches `selector`.
+ * Returns `undefined` if no match is found.
+ */
+export async function findFunctionArtifactBySelector(
+  artifact: ContractArtifact,
+  selector: FunctionSelector,
+): Promise<FunctionArtifact | undefined> {
+  const fnsAndSelectors = await Promise.all(
+    artifact.functions.map(async fn => ({
+      fn,
+      selector: await FunctionSelector.fromNameAndParameters(fn.name, fn.parameters),
+    })),
+  );
+  return fnsAndSelectors.find(({ selector: s }) => s.equals(selector))?.fn;
+}
+
+/**
+ * Finds the function abi (across both `functions` and `nonDispatchPublicFunctions`) whose selector
+ * matches `selector`. Returns `undefined` if no match is found.
+ */
+export async function findFunctionAbiBySelector(
+  artifact: ContractArtifact,
+  selector: FunctionSelector,
+): Promise<FunctionAbi | undefined> {
+  const fnsAndSelectors = await Promise.all(
+    getAllFunctionAbis(artifact).map(async fn => ({
+      fn,
+      selector: await FunctionSelector.fromNameAndParameters(fn.name, fn.parameters),
+    })),
+  );
+  return fnsAndSelectors.find(({ selector: s }) => s.equals(selector))?.fn;
 }
 
 /** Gets all function abis */
@@ -528,6 +584,7 @@ export function emptyFunctionArtifact(): FunctionArtifact {
 export function emptyContractArtifact(): ContractArtifact {
   return {
     name: '',
+    aztecVersion: DEV_VERSION,
     functions: [emptyFunctionArtifact()],
     nonDispatchPublicFunctions: [emptyFunctionAbi()],
     outputs: {

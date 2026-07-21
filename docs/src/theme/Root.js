@@ -1,10 +1,28 @@
-import React from 'react';
+import React, { useEffect } from 'react';
 import useMatomo from '@site/src/components/Matomo/matomo';
 import BrowserOnly from '@docusaurus/BrowserOnly';
 import useIsBrowser from '@docusaurus/useIsBrowser';
 import useDocusaurusContext from '@docusaurus/useDocusaurusContext';
-import AskCookbook from '@cookbookdev/docsbot/react';
 import { AnalyticsManager } from '@site/src/utils/analytics';
+import { OperatorConfigProvider } from '@site/src/components/OperatorConfig/context';
+
+function useOpenDetailsOnHash() {
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+    const openMatching = () => {
+      const id = window.location.hash.replace(/^#/, '');
+      if (!id) return;
+      const el = document.getElementById(id);
+      if (el && el.tagName === 'DETAILS') {
+        el.open = true;
+        el.scrollIntoView({ block: 'start' });
+      }
+    };
+    openMatching();
+    window.addEventListener('hashchange', openMatching);
+    return () => window.removeEventListener('hashchange', openMatching);
+  }, []);
+}
 
 function OptOutForm() {
   const banner = useMatomo();
@@ -12,14 +30,12 @@ function OptOutForm() {
   return <>{banner}</>;
 }
 
-/** It's a public API key, so it's safe to expose it here. */
-const COOKBOOK_PUBLIC_API_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiI2NmIyOWRmZDM3ZWIwYzRiMTVlZGYzMDAiLCJpYXQiOjE3MjI5ODE4ODUsImV4cCI6MjAzODU1Nzg4NX0.19rsZIFNmgVEbpmDjEJ8oPnL7uHYePytf-Ex1pjm2_8';
-
 export default function Root({ children }) {
   const useIsBrowserValue = useIsBrowser();
   const { siteConfig } = useDocusaurusContext();
+  useOpenDetailsOnHash();
 
-  if (!useIsBrowserValue) return <>{children}</>;
+  if (!useIsBrowserValue) return <OperatorConfigProvider>{children}</OperatorConfigProvider>;
 
   // Create analytics instance with environment from siteConfig
   if (typeof window !== 'undefined' && !window.analytics) {
@@ -30,10 +46,9 @@ export default function Root({ children }) {
   }
 
   return (
-    <>
+    <OperatorConfigProvider>
       {children}
       <BrowserOnly>{() => <OptOutForm />}</BrowserOnly>
-      <BrowserOnly>{() => <AskCookbook apiKey={COOKBOOK_PUBLIC_API_KEY} />}</BrowserOnly>
-    </>
+    </OperatorConfigProvider>
   );
 }

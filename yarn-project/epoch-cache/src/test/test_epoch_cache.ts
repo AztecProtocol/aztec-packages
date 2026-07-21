@@ -1,9 +1,20 @@
 import { EpochNumber, SlotNumber } from '@aztec/foundation/branded-types';
 import { EthAddress } from '@aztec/foundation/eth-address';
 import type { L1RollupConstants } from '@aztec/stdlib/epoch-helpers';
-import { getEpochAtSlot, getSlotAtTimestamp, getTimestampRangeForEpoch } from '@aztec/stdlib/epoch-helpers';
+import {
+  getEpochAtSlot,
+  getSlotAtTimestamp,
+  getTimestampForSlot,
+  getTimestampRangeForEpoch,
+} from '@aztec/stdlib/epoch-helpers';
 
-import type { EpochAndSlot, EpochCacheInterface, EpochCommitteeInfo, SlotTag } from '../epoch_cache.js';
+import {
+  type EpochAndSlot,
+  type EpochCacheInterface,
+  type EpochCommitteeInfo,
+  PROPOSER_PIPELINING_SLOT_OFFSET,
+  type SlotTag,
+} from '../epoch_cache.js';
 
 /** Default L1 constants for testing. */
 const DEFAULT_L1_CONSTANTS: L1RollupConstants = {
@@ -13,6 +24,8 @@ const DEFAULT_L1_CONSTANTS: L1RollupConstants = {
   epochDuration: 16,
   ethereumSlotDuration: 12,
   proofSubmissionEpochs: 2,
+  targetCommitteeSize: 48,
+  rollupManaLimit: Number.MAX_SAFE_INTEGER,
 };
 
 /**
@@ -112,19 +125,55 @@ export class TestEpochCache implements EpochCacheInterface {
     });
   }
 
-  getEpochAndSlotNow(): EpochAndSlot & { nowMs: bigint } {
-    const epoch = getEpochAtSlot(this.currentSlot, this.l1Constants);
-    const ts = getTimestampRangeForEpoch(epoch, this.l1Constants)[0];
-    return { epoch, slot: this.currentSlot, ts, nowMs: ts * 1000n };
+  getSlotNow(): SlotNumber {
+    return this.currentSlot;
   }
 
-  getEpochAndSlotInNextL1Slot(): EpochAndSlot & { now: bigint } {
-    const now = getTimestampRangeForEpoch(getEpochAtSlot(this.currentSlot, this.l1Constants), this.l1Constants)[0];
-    const nextSlotTs = now + BigInt(this.l1Constants.ethereumSlotDuration);
+  getTargetSlot(): SlotNumber {
+    return SlotNumber(this.currentSlot + PROPOSER_PIPELINING_SLOT_OFFSET);
+  }
+
+  getEpochNow(): EpochNumber {
+    return getEpochAtSlot(this.currentSlot, this.l1Constants);
+  }
+
+  getTargetEpoch(): EpochNumber {
+    return getEpochAtSlot(this.getTargetSlot(), this.l1Constants);
+  }
+
+  getEpochAndSlotNow(): EpochAndSlot & { nowMs: bigint } {
+    // Model "now" as the start of the current slot (mirroring the real EpochCache, which derives nowMs
+    // from the wall clock). Using the slot start rather than the epoch start keeps nowMs consistent with
+    // currentSlot, which the pipelining receive-window check (clock_tolerance) relies on.
+    const epochNow = getEpochAtSlot(this.currentSlot, this.l1Constants);
+    const ts = getTimestampForSlot(this.currentSlot, this.l1Constants);
+    return {
+      epoch: epochNow,
+      slot: this.currentSlot,
+      ts,
+      nowMs: ts * 1000n,
+    };
+  }
+
+  getEpochAndSlotInNextL1Slot(): EpochAndSlot & { nowSeconds: bigint } {
+    const nowTs = getTimestampRangeForEpoch(getEpochAtSlot(this.currentSlot, this.l1Constants), this.l1Constants)[0];
+    const nextSlotTs = nowTs + BigInt(this.l1Constants.ethereumSlotDuration);
     const nextSlot = getSlotAtTimestamp(nextSlotTs, this.l1Constants);
-    const epoch = getEpochAtSlot(nextSlot, this.l1Constants);
-    const ts = getTimestampRangeForEpoch(epoch, this.l1Constants)[0];
-    return { epoch, slot: nextSlot, ts, now };
+    const epochNow = getEpochAtSlot(nextSlot, this.l1Constants);
+    const ts = getTimestampRangeForEpoch(epochNow, this.l1Constants)[0];
+    return {
+      epoch: epochNow,
+      slot: nextSlot,
+      ts,
+      nowSeconds: nowTs,
+    };
+  }
+
+  getTargetEpochAndSlotInNextL1Slot(): EpochAndSlot & { nowSeconds: bigint } {
+    const result = this.getEpochAndSlotInNextL1Slot();
+    const offset = PROPOSER_PIPELINING_SLOT_OFFSET;
+    const targetSlot = SlotNumber(result.slot + offset);
+    return { ...result, slot: targetSlot, epoch: getEpochAtSlot(targetSlot, this.l1Constants) };
   }
 
   getProposerIndexEncoding(epoch: EpochNumber, slot: SlotNumber, seed: bigint): `0x${string}` {
@@ -140,9 +189,22 @@ export class TestEpochCache implements EpochCacheInterface {
   }
 
   getCurrentAndNextSlot(): { currentSlot: SlotNumber; nextSlot: SlotNumber } {
+    const currentSlot = this.getSlotNow();
+    const next = this.getEpochAndSlotInNextL1Slot();
+
     return {
-      currentSlot: this.currentSlot,
-      nextSlot: SlotNumber(this.currentSlot + 1),
+      currentSlot,
+      nextSlot: next.slot,
+    };
+  }
+
+  getTargetAndNextSlot(): { targetSlot: SlotNumber; nextSlot: SlotNumber } {
+    const targetSlot = this.getTargetSlot();
+    const next = this.getTargetEpochAndSlotInNextL1Slot();
+
+    return {
+      targetSlot,
+      nextSlot: next.slot,
     };
   }
 
@@ -161,6 +223,10 @@ export class TestEpochCache implements EpochCacheInterface {
   filterInCommittee(_slot: SlotTag, validators: EthAddress[]): Promise<EthAddress[]> {
     const committeeSet = new Set(this.committee.map(v => v.toString()));
     return Promise.resolve(validators.filter(v => committeeSet.has(v.toString())));
+  }
+
+  isEscapeHatchOpen(_epoch: EpochNumber): Promise<boolean> {
+    return Promise.resolve(this.escapeHatchOpen);
   }
 
   isEscapeHatchOpenAtSlot(_slot?: SlotTag): Promise<boolean> {

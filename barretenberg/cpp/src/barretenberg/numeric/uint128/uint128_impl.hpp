@@ -1,5 +1,5 @@
 // === AUDIT STATUS ===
-// internal:    { status: Planned, auditors: [], commit: }
+// internal:    { status: Complete, auditors: [Luke], commit: }
 // external_1:  { status: not started, auditors: [], commit: }
 // external_2:  { status: not started, auditors: [], commit: }
 // =====================
@@ -9,6 +9,7 @@
 #include "../bitop/get_msb.hpp"
 #include "./uint128.hpp"
 #include "barretenberg/common/assert.hpp"
+#include "barretenberg/common/throw_or_abort.hpp"
 namespace bb::numeric {
 
 constexpr std::pair<uint32_t, uint32_t> uint128_t::mul_wide(const uint32_t a, const uint32_t b)
@@ -83,7 +84,10 @@ constexpr uint32_t uint128_t::mac_discard_hi(const uint32_t a,
 
 constexpr std::pair<uint128_t, uint128_t> uint128_t::divmod(const uint128_t& b) const
 {
-    if (*this == 0 || b == 0) {
+    if (b == 0) {
+        throw_or_abort("uint128_t::divmod: divisor must be nonzero");
+    }
+    if (*this == 0) {
         return { 0, 0 };
     }
     if (b == 1) {
@@ -163,6 +167,9 @@ constexpr std::pair<uint128_t, uint128_t> uint128_t::mul_extended(const uint128_
  */
 constexpr uint128_t uint128_t::slice(const uint64_t start, const uint64_t end) const
 {
+    // Plain assert is used here because BB_ASSERT_DEBUG defines a std::ostringstream, which is
+    // a non-literal type and therefore disallowed in the body of a constexpr function before C++23.
+    assert(start <= end);
     const uint64_t range = end - start;
     const uint128_t mask = (range == 128) ? -uint128_t(1) : (uint128_t(1) << range) - 1;
     return ((*this) >> start) & mask;

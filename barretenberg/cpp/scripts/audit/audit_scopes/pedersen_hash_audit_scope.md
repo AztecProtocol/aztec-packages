@@ -1,7 +1,7 @@
 # Pedersen Hash Audit Scope
 
-Repository: https://github.com/AztecProtocol/aztec-packages
-Commit hash:
+Repository: https://github.com/AztecProtocol/aztec-packages-private
+Commit hash: Most recent commit on branch 'next'
 
 ### Files to audit
 

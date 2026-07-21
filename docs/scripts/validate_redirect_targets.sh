@@ -7,7 +7,7 @@ set -euo pipefail
 # 1. Extracts all 'to' paths from [[redirects]] blocks in netlify.toml
 # 2. Skips wildcard patterns (:splat, *) and external URLs
 # 3. Maps URL paths to filesystem paths (using versioned docs for default versions)
-# 4. Validates that each target file exists
+# 4. Validates that each target file exists (by filename or Docusaurus id frontmatter)
 # 5. Exits with error code 1 if any invalid paths are found
 #
 # Usage: validate_redirect_targets.sh [netlify_toml_path]
@@ -30,23 +30,16 @@ echo "Validating redirect targets in $NETLIFY_TOML..."
 DEVELOPER_VERSION_FILE="$DOCS_ROOT/developer_versions.json"
 NETWORK_VERSION_FILE="$DOCS_ROOT/network_versions.json"
 
-# Get the default developer version (last version ending in devnet.* or the first version)
+# Get the default developer version (first entry in the array = highest priority, typically mainnet)
 if [[ -f "$DEVELOPER_VERSION_FILE" ]]; then
-  # Get versions with -devnet suffix, prefer the devnet version for production
-  DEVELOPER_DEFAULT_VERSION=$(jq -r '.[] | select(contains("devnet"))' "$DEVELOPER_VERSION_FILE" | head -n1)
-  if [[ -z "$DEVELOPER_DEFAULT_VERSION" ]]; then
-    DEVELOPER_DEFAULT_VERSION=$(jq -r '.[0]' "$DEVELOPER_VERSION_FILE")
-  fi
+  DEVELOPER_DEFAULT_VERSION=$(jq -r '.[0]' "$DEVELOPER_VERSION_FILE")
 else
   DEVELOPER_DEFAULT_VERSION=""
 fi
 
-# Get the default network version (ignition version)
+# Get the default network version (first entry = mainnet)
 if [[ -f "$NETWORK_VERSION_FILE" ]]; then
-  NETWORK_DEFAULT_VERSION=$(jq -r '.[] | select(contains("ignition"))' "$NETWORK_VERSION_FILE" | head -n1)
-  if [[ -z "$NETWORK_DEFAULT_VERSION" ]]; then
-    NETWORK_DEFAULT_VERSION=$(jq -r '.[0]' "$NETWORK_VERSION_FILE")
-  fi
+  NETWORK_DEFAULT_VERSION=$(jq -r '.[0]' "$NETWORK_VERSION_FILE")
 else
   NETWORK_DEFAULT_VERSION=""
 fi
@@ -62,13 +55,13 @@ else
 fi
 
 if [[ -n "$NETWORK_DEFAULT_VERSION" ]] && [[ -d "$DOCS_ROOT/network_versioned_docs/version-$NETWORK_DEFAULT_VERSION" ]]; then
-  NETWORK_DOCS_DIR="$DOCS_ROOT/network_versioned_docs/version-$NETWORK_DEFAULT_VERSION"
+  OPERATE_DOCS_DIR="$DOCS_ROOT/network_versioned_docs/version-$NETWORK_DEFAULT_VERSION"
 else
-  NETWORK_DOCS_DIR="$DOCS_ROOT/docs-network"
+  OPERATE_DOCS_DIR="$DOCS_ROOT/docs-operate"
 fi
 
 echo "Developer docs dir: $DEVELOPER_DOCS_DIR"
-echo "Network docs dir: $NETWORK_DOCS_DIR"
+echo "Operate docs dir: $OPERATE_DOCS_DIR"
 
 # Extract all 'to' values from redirect blocks
 # Handles both:
@@ -88,6 +81,138 @@ echo "Found $TOTAL_COUNT redirect target(s)."
 INVALID_PATHS=""
 SKIPPED_COUNT=0
 VALIDATED_COUNT=0
+
+# Check if a URL sub_path resolves to a file in the given base directory.
+# Handles direct file matches, index files in directories, and Docusaurus id frontmatter.
+# Args: $1 = base directory, $2 = sub_path (can be empty for bare category paths)
+# Returns: 0 if found, 1 if not
+check_file_or_id() {
+  local base_dir="$1"
+  local sub_path="$2"
+
+  # Handle empty sub_path (bare category path like /participate)
+  if [[ -z "$sub_path" ]]; then
+    for ext in md mdx; do
+      if [[ -f "$base_dir/index.${ext}" ]]; then
+        return 0
+      fi
+    done
+    return 1
+  fi
+
+  # Direct file match
+  for ext in md mdx; do
+    if [[ -f "$base_dir/${sub_path}.${ext}" ]]; then
+      return 0
+    fi
+  done
+
+  # Directory with index file
+  if [[ -d "$base_dir/${sub_path}" ]]; then
+    for ext in md mdx; do
+      if [[ -f "$base_dir/${sub_path}/index.${ext}" ]]; then
+        return 0
+      fi
+    done
+  fi
+
+  # Check Docusaurus id frontmatter in sibling files
+  # Split sub_path into parent directory + slug
+  local parent_dir slug search_dir
+  if [[ "$sub_path" == */* ]]; then
+    parent_dir="${sub_path%/*}"
+    slug="${sub_path##*/}"
+  else
+    parent_dir=""
+    slug="$sub_path"
+  fi
+
+  if [[ -n "$parent_dir" ]]; then
+    search_dir="$base_dir/$parent_dir"
+  else
+    search_dir="$base_dir"
+  fi
+
+  if [[ -d "$search_dir" ]]; then
+    for file in "$search_dir"/*.md "$search_dir"/*.mdx; do
+      [[ -f "$file" ]] || continue
+      # Extract id from YAML frontmatter (between --- markers)
+      local file_id
+      file_id=$(sed -n '/^---$/,/^---$/{s/^id:[[:space:]]*//p}' "$file" | head -1)
+      if [[ "$file_id" == "$slug" ]]; then
+        return 0
+      fi
+      # Docusaurus strips "NN-" number prefixes from filenames when deriving
+      # doc ids/routes, so 01-foo.md is served at .../foo.
+      local base_name
+      base_name=$(basename "$file")
+      base_name="${base_name%.mdx}"
+      base_name="${base_name%.md}"
+      if [[ "$base_name" =~ ^[0-9]+-(.+)$ ]] && [[ "${BASH_REMATCH[1]}" == "$slug" ]]; then
+        return 0
+      fi
+    done
+  fi
+
+  return 1
+}
+
+# Check if a path resolves to a file in a static HTML directory (case-insensitive, with .html fallback).
+# Args: $1 = base directory, $2 = relative path
+# Returns: 0 if found, 1 if not
+check_static_html() {
+  local base_dir="$1"
+  local rel_path="$2"
+
+  [[ -d "$base_dir" ]] || return 1
+
+  # Strip trailing slash
+  rel_path="${rel_path%/}"
+  [[ -z "$rel_path" ]] && { [[ -f "$base_dir/index.html" ]] && return 0 || return 1; }
+
+  # Try exact matches first
+  if [[ -f "$base_dir/$rel_path" ]]; then return 0; fi
+  if [[ -f "$base_dir/${rel_path}.html" ]]; then return 0; fi
+  if [[ -d "$base_dir/$rel_path" ]] && [[ -f "$base_dir/$rel_path/index.html" ]]; then return 0; fi
+
+  # Case-insensitive: walk path components
+  local current_dir="$base_dir"
+  local IFS='/'
+  local components
+  read -ra components <<< "$rel_path"
+  local last_idx=$(( ${#components[@]} - 1 ))
+
+  for i in "${!components[@]}"; do
+    local component="${components[$i]}"
+    [[ -z "$component" ]] && continue
+    local found=""
+
+    if [[ $i -eq $last_idx ]]; then
+      for candidate in "$current_dir"/*; do
+        [[ -e "$candidate" ]] || continue
+        local basename
+        basename=$(basename "$candidate")
+        if [[ "${basename,,}" == "${component,,}" ]]; then
+          [[ -f "$candidate" ]] && { found="$candidate"; break; }
+          [[ -d "$candidate" ]] && [[ -f "$candidate/index.html" ]] && { found="$candidate/index.html"; break; }
+        fi
+        [[ "${basename,,}" == "${component,,}.html" ]] && [[ -f "$candidate" ]] && { found="$candidate"; break; }
+      done
+    else
+      for candidate in "$current_dir"/*/; do
+        [[ -d "$candidate" ]] || continue
+        local basename
+        basename=$(basename "$candidate")
+        [[ "${basename,,}" == "${component,,}" ]] && { found="${candidate%/}"; break; }
+      done
+    fi
+
+    [[ -z "$found" ]] && return 1
+    current_dir="$found"
+  done
+
+  return 0
+}
 
 # Function to check if a docs file exists
 # Args: $1 = URL path
@@ -111,74 +236,57 @@ check_docs_path() {
   # Remove leading slash for path construction
   local clean_path="${url_path#/}"
 
+  # Static assets (e.g. /img/*) are served directly from static/
+  if [[ -f "$DOCS_ROOT/static/$clean_path" ]]; then
+    return 0
+  fi
+
+  # Handle /aztec-nr-api/* paths (static HTML from nargo doc)
+  if [[ "$clean_path" =~ ^aztec-nr-api/(.*) ]]; then
+    local api_path="${BASH_REMATCH[1]}"
+    # Strip fragment identifiers
+    api_path="${api_path%%#*}"
+    check_static_html "$DOCS_ROOT/static/aztec-nr-api" "$api_path"
+    return $?
+  fi
+
   # Handle /developers/docs/* paths
   if [[ "$clean_path" =~ ^developers/docs/(.*) ]]; then
-    local sub_path="${BASH_REMATCH[1]}"
-    # Check in versioned docs/
-    for ext in md mdx; do
-      if [[ -f "$DEVELOPER_DOCS_DIR/docs/${sub_path}.${ext}" ]]; then
-        return 0
-      fi
-      # Also check for index files in directories
-      if [[ -d "$DEVELOPER_DOCS_DIR/docs/${sub_path}" ]]; then
-        if [[ -f "$DEVELOPER_DOCS_DIR/docs/${sub_path}/index.${ext}" ]]; then
-          return 0
-        fi
-      fi
-    done
-    return 1
+    check_file_or_id "$DEVELOPER_DOCS_DIR/docs" "${BASH_REMATCH[1]}"
+    return $?
   fi
 
   # Handle /developers/* paths (not /developers/docs/*)
   if [[ "$clean_path" =~ ^developers/(.*) ]]; then
-    local sub_path="${BASH_REMATCH[1]}"
-    # Check in versioned developer docs root
-    for ext in md mdx; do
-      if [[ -f "$DEVELOPER_DOCS_DIR/${sub_path}.${ext}" ]]; then
-        return 0
-      fi
-      # Also check for index files in directories
-      if [[ -d "$DEVELOPER_DOCS_DIR/${sub_path}" ]]; then
-        if [[ -f "$DEVELOPER_DOCS_DIR/${sub_path}/index.${ext}" ]]; then
-          return 0
-        fi
-      fi
-    done
-    return 1
+    check_file_or_id "$DEVELOPER_DOCS_DIR" "${BASH_REMATCH[1]}"
+    return $?
   fi
 
-  # Handle /network/* paths
+  # Handle /operate/* paths (formerly /network/*)
+  if [[ "$clean_path" =~ ^operate/(.*) ]]; then
+    check_file_or_id "$OPERATE_DOCS_DIR" "${BASH_REMATCH[1]}"
+    return $?
+  fi
+
+  # Handle /network/* paths (legacy, will redirect to /operate/*)
   if [[ "$clean_path" =~ ^network/(.*) ]]; then
-    local sub_path="${BASH_REMATCH[1]}"
-    # Check in versioned network docs
-    for ext in md mdx; do
-      if [[ -f "$NETWORK_DOCS_DIR/${sub_path}.${ext}" ]]; then
-        return 0
-      fi
-      # Also check for index files in directories
-      if [[ -d "$NETWORK_DOCS_DIR/${sub_path}" ]]; then
-        if [[ -f "$NETWORK_DOCS_DIR/${sub_path}/index.${ext}" ]]; then
-          return 0
-        fi
-      fi
-    done
-    return 1
+    check_file_or_id "$OPERATE_DOCS_DIR" "${BASH_REMATCH[1]}"
+    return $?
   fi
 
-  # Handle other root-level paths (e.g., /ignition_info, /aztec_connect_sunset)
-  for ext in md mdx; do
-    if [[ -f "$DOCS_ROOT/docs/${clean_path}.${ext}" ]]; then
-      return 0
-    fi
-    # Also check for index files in directories
-    if [[ -d "$DOCS_ROOT/docs/${clean_path}" ]]; then
-      if [[ -f "$DOCS_ROOT/docs/${clean_path}/index.${ext}" ]]; then
-        return 0
-      fi
-    fi
-  done
+  # Handle /participate (bare) or /participate/* paths
+  if [[ "$clean_path" == "participate" ]]; then
+    check_file_or_id "$DOCS_ROOT/docs-participate" ""
+    return $?
+  fi
+  if [[ "$clean_path" =~ ^participate/(.*) ]]; then
+    check_file_or_id "$DOCS_ROOT/docs-participate" "${BASH_REMATCH[1]}"
+    return $?
+  fi
 
-  return 1
+  # Handle other root-level paths (e.g., /aztec_connect_sunset)
+  check_file_or_id "$DOCS_ROOT/docs" "$clean_path"
+  return $?
 }
 
 while IFS= read -r to_path; do
@@ -197,8 +305,11 @@ while IFS= read -r to_path; do
     continue
   fi
 
+  # Strip fragment identifiers (#anchor) before validation
+  check_path="${to_path%%#*}"
+
   # Validate the path
-  if check_docs_path "$to_path"; then
+  if check_docs_path "$check_path"; then
     VALIDATED_COUNT=$((VALIDATED_COUNT + 1))
   else
     INVALID_PATHS="${INVALID_PATHS}  - ${to_path}\n"
@@ -214,15 +325,14 @@ if [[ -n "$INVALID_PATHS" ]]; then
   INVALID_COUNT=$(echo -e "$INVALID_PATHS" | grep -c "^  -" || echo "0")
   echo "  - Invalid: $INVALID_COUNT"
   echo ""
-  echo "WARNING: The following redirect targets may not point to valid documentation paths:"
+  echo "ERROR: The following redirect targets do not point to valid documentation paths:"
   echo -e "$INVALID_PATHS"
   echo ""
-  echo "Note: These paths were checked against the default versioned docs."
-  echo "If these paths exist in the source docs but not in the versioned docs,"
-  echo "they will become valid after the next docs version is released."
+  echo "These targets were checked against the default versioned docs, which is what"
+  echo "production serves at the bare URL. A redirect to one of these paths would 301"
+  echo "visitors straight into a 404. Fix the 'to' value or remove the redirect."
   echo ""
-  # Exit with success to avoid breaking builds, but warn about potential issues
-  exit 0
+  exit 1
 fi
 
 echo ""

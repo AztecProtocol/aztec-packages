@@ -2,7 +2,7 @@ mod config;
 mod subscription_note;
 mod dapp_payload;
 
-use dep::aztec::macros::aztec;
+use aztec::macros::aztec;
 
 /// # AppSubscription Contract
 ///
@@ -32,7 +32,8 @@ use dep::aztec::macros::aztec;
 ///
 /// ## Usage Pattern
 ///
-/// 1. **Contract Deployment**: Deploy with target contract address, recipient address, token address, price, and gas limits
+/// 1. **Contract Deployment**: Deploy with target contract address, recipient address, token address, price, and gas
+/// limits
 /// 2. **User Subscription**: Users call `subscribe()` with payment and subscription parameters
 /// 3. **DApp Interface**: Users interact with target contracts through `DefaultDappInterface`
 /// 4. **Entrypoint Validation**: Each call goes through `entrypoint()` which validates subscription status
@@ -44,41 +45,34 @@ pub contract AppSubscription {
 
     use aztec::{
         authwit::auth::assert_current_call_valid_authwit,
-        macros::{functions::{external, initializer, nophasecheck}, storage::storage},
-        messages::message_delivery::MessageDelivery,
-        oracle::notes::set_sender_for_tags,
+        macros::{functions::{allow_phase_change, external, initializer}, storage::storage},
+        messages::delivery::MessageDelivery,
         protocol::address::AztecAddress,
         state_vars::{Owned, PrivateMutable, PublicImmutable},
         utils::comparison::Comparator,
     };
-    use public_checks::utils::privately_check_block_number;
+    use aztec::public_checks::privately_check_block_number;
     use token::Token;
 
     #[storage]
     struct Storage<Context> {
         config: PublicImmutable<Config, Context>,
+        // docs:start:owned_private_mutable
         subscriptions: Owned<PrivateMutable<SubscriptionNote, Context>, Context>,
+        // docs:end:owned_private_mutable
     }
 
     global SUBSCRIPTION_DURATION_IN_BLOCKS: u32 = 5;
     global SUBSCRIPTION_TXS: u32 = 5;
 
     #[external("private")]
-    #[nophasecheck]
+    #[allow_phase_change]
     fn entrypoint(payload: DAppPayload, user_address: AztecAddress) {
-        // Safety: The sender for tags is only used to compute unconstrained shared secrets for emitting logs.
-        // Since this value is only used for unconstrained tagging and not for any constrained logic,
-        // it is safe to set from a constrained context.
-        // We set the sender for tags to the user address because we don't want to force the user
-        // to add this contract as a sender to their PXE. By setting it to the user address, user's PXE
-        // will manage to find the notes even if this contract is not registered as a sender
-        unsafe { set_sender_for_tags(user_address) };
-
-        // This function takes a generic argument that corresponds to the number of params
-        // the parent takes. See aztec-nr/src/authwit/auth.nr for more details.
         assert_current_call_valid_authwit::<2>(self.context, user_address);
 
         let user_expiry_block_number = &mut 0;
+        // We use the user address as the sender for tags so the user's PXE can find the notes without
+        // having to register this contract as a sender.
         self
             .storage
             .subscriptions
@@ -92,7 +86,7 @@ pub contract AppSubscription {
                     remaining_txs: note.remaining_txs - 1,
                 }
             })
-            .deliver(MessageDelivery.ONCHAIN_CONSTRAINED);
+            .deliver(MessageDelivery::onchain_constrained().with_sender(user_address));
 
         self.context.set_as_fee_payer();
 
@@ -131,12 +125,7 @@ pub contract AppSubscription {
     }
 
     #[external("private")]
-    fn subscribe(
-        subscriber: AztecAddress,
-        authwit_nonce: Field,
-        expiry_block_number: u32,
-        tx_count: u32,
-    ) {
+    fn subscribe(subscriber: AztecAddress, authwit_nonce: Field, expiry_block_number: u32, tx_count: u32) {
         assert(tx_count <= SUBSCRIPTION_TXS);
 
         let config = self.storage.config.read();
@@ -155,19 +144,20 @@ pub contract AppSubscription {
             expiry_block_number - SUBSCRIPTION_DURATION_IN_BLOCKS,
             self.context,
         );
-
+        // docs:start:owned_private_mutable_initialize
         self
             .storage
             .subscriptions
             .at(subscriber)
-            .initialize_or_replace(|_| {
-                SubscriptionNote { expiry_block_number, remaining_txs: tx_count }
-            })
-            .deliver(MessageDelivery.ONCHAIN_CONSTRAINED);
+            .initialize_or_replace(|_| SubscriptionNote { expiry_block_number, remaining_txs: tx_count })
+            .deliver(MessageDelivery::onchain_constrained());
+        // docs:end:owned_private_mutable_initialize
     }
 
+    // docs:start:owned_private_mutable_is_initialized
     #[external("utility")]
     unconstrained fn is_initialized(subscriber: AztecAddress) -> bool {
         self.storage.subscriptions.at(subscriber).is_initialized()
     }
+    // docs:end:owned_private_mutable_is_initialized
 }

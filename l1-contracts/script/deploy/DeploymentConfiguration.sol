@@ -99,7 +99,7 @@ contract DeploymentConfiguration is IDeploymentConfiguration, Test {
   function getGovernanceConfiguration() external view returns (GovernanceConfiguration memory) {
     bytes32 h = keccak256(bytes(networkName));
 
-    if (h == keccak256("staging-public")) {
+    if (h == keccak256("staging")) {
       return GovernanceConfiguration({
         proposeConfig: ProposeWithLockConfiguration({
           lockDelay: Timestamp.wrap(60 * 60 * 24 * 30), lockAmount: 100e18 * 100
@@ -143,7 +143,7 @@ contract DeploymentConfiguration is IDeploymentConfiguration, Test {
         }),
         votingDelay: Timestamp.wrap(3 * 24 * 60 * 60),
         votingDuration: Timestamp.wrap(7 * 24 * 60 * 60),
-        executionDelay: Timestamp.wrap(7 * 24 * 60 * 60),
+        executionDelay: Timestamp.wrap(30 * 24 * 60 * 60),
         gracePeriod: Timestamp.wrap(7 * 24 * 60 * 60),
         quorum: 0.2e18,
         requiredYeaMargin: 0.33e18,

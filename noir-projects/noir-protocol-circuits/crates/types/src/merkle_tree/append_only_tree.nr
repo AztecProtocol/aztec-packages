@@ -41,7 +41,15 @@ pub fn insert_subtree_root_to_snapshot<let TreeHeight: u32, let SubtreeHeight: u
     )
 }
 
-fn insert_subtree_root_to_snapshot_with_hasher<let TreeHeight: u32, let SubtreeHeight: u32>(
+/// Inserts a subtree root into an append-only tree snapshot.
+///
+/// `SubtreeHeight` must be strictly less than 64: the leaf index is shifted right by `SubtreeHeight`
+/// as a `u64` (and the subtree leaf count is computed as `1 << SubtreeHeight`), and a u64 shift amount
+/// of 64 or more is out of range. As a consequence the whole tree cannot be replaced in a single call
+/// (that would require `SubtreeHeight == TreeHeight`). Supporting `SubtreeHeight >= 64` would require
+/// wider integer types and is out of scope; in practice every protocol tree uses a far smaller subtree
+/// height.
+pub fn insert_subtree_root_to_snapshot_with_hasher<let TreeHeight: u32, let SubtreeHeight: u32>(
     snapshot: AppendOnlyTreeSnapshot,
     sibling_path: [Field; TreeHeight - SubtreeHeight],
     subtree_root_to_insert: Field,
@@ -53,6 +61,14 @@ fn insert_subtree_root_to_snapshot_with_hasher<let TreeHeight: u32, let SubtreeH
     assert(
         TreeHeight <= 64,
         "`insert_subtree_root_to_snapshot` does not support trees with height greater than 64",
+    );
+
+    // Sanity check: ensure the subtree height is strictly less than 64. The leaf index is shifted right
+    // by `SubtreeHeight` as a u64 (and `1 << SubtreeHeight` computes the leaf count); a u64 shift amount
+    // of 64 or more is out of range. This also means the entire tree cannot be replaced in a single call.
+    std::static_assert(
+        SubtreeHeight < 64,
+        "`insert_subtree_root_to_snapshot` does not support subtrees with height 64 or greater",
     );
 
     // Find the index of the subtree root at the depth of the insertion.
@@ -91,16 +107,25 @@ fn insert_subtree_root_to_snapshot_with_hasher<let TreeHeight: u32, let SubtreeH
 mod tests {
     use crate::{
         abis::append_only_tree_snapshot::AppendOnlyTreeSnapshot,
-        merkle_tree::merkle_tree::MerkleTree,
-        tests::{
-            merkle_tree_utils::single_subtree_merkle_tree::{
-                compute_zero_hashes, SingleSubtreeMerkleTree,
-            },
-            utils::pad_end,
+        merkle_tree::{
+            merkle_tree::MerkleTree,
+            test_utils::{compute_zero_hashes, SingleSubtreeMerkleTree},
         },
+        traits::Empty,
         utils::arrays::subarray,
     };
     use super::insert_subtree_root_to_snapshot;
+
+    fn pad_end<T, let N: u32, let M: u32>(items: [T; N]) -> [T; M]
+    where
+        T: Empty,
+    {
+        let mut output = [T::empty(); M];
+        for i in 0..N {
+            output[i] = items[i];
+        }
+        output
+    }
 
     struct TestBuilder<let SubtreeWidth: u32, let SubtreeHeight: u32, let TreeHeight: u32> {
         tree: SingleSubtreeMerkleTree<SubtreeWidth, SubtreeHeight, TreeHeight>,
@@ -268,5 +293,14 @@ mod tests {
             AppendOnlyTreeSnapshot { root: empty_root, next_available_leaf_index: 0 };
 
         let _ = insert_subtree_root_to_snapshot::<65, 1>(empty_snapshot, sibling_path_0, 0);
+    }
+
+    #[test(should_fail_with = "does not support subtrees with height 64 or greater")]
+    fn with_subtree_of_height_64() {
+        // SubtreeHeight == 64 is out of range (the leaf-index/leaf-count computations shift by
+        // SubtreeHeight as a u64). The static_assert must reject this instantiation.
+        let empty_snapshot = AppendOnlyTreeSnapshot { root: 0, next_available_leaf_index: 0 };
+        let sibling_path: [Field; 0] = [];
+        let _ = insert_subtree_root_to_snapshot::<64, 64>(empty_snapshot, sibling_path, 0);
     }
 }

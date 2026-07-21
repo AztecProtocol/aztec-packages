@@ -3,7 +3,6 @@
 pragma solidity >=0.8.27;
 
 import {IInstance} from "@aztec/core/interfaces/IInstance.sol";
-import {Errors} from "@aztec/core/libraries/Errors.sol";
 import {Ownable} from "@oz/access/Ownable.sol";
 import {IERC20} from "@oz/token/ERC20/IERC20.sol";
 import {SafeERC20} from "@oz/token/ERC20/utils/SafeERC20.sol";
@@ -47,8 +46,6 @@ contract FlushRewarder is Ownable, IFlushRewarder {
   }
 
   function claimRewards() external override(IFlushRewarder) {
-    require(ROLLUP.isRewardsClaimable(), Errors.Rollup__RewardsNotClaimable());
-
     uint256 rewardsToClaim = rewardsOf[msg.sender];
     if (rewardsToClaim > 0) {
       rewardsOf[msg.sender] = 0;

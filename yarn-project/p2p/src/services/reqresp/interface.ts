@@ -1,5 +1,3 @@
-import { Fr } from '@aztec/foundation/curves/bn254';
-import { L2Block } from '@aztec/stdlib/block';
 import { TxArray, TxHashArray } from '@aztec/stdlib/tx';
 
 import type { PeerId } from '@libp2p/interface';
@@ -7,8 +5,13 @@ import type { PeerId } from '@libp2p/interface';
 import type { P2PReqRespConfig } from './config.js';
 import type { ConnectionSampler } from './connection-sampler/connection_sampler.js';
 import { AuthRequest, AuthResponse } from './protocols/auth.js';
-import { BlockTxsRequest, BlockTxsResponse } from './protocols/block_txs/block_txs_reqresp.js';
+import {
+  BlockTxsRequest,
+  BlockTxsResponse,
+  calculateBlockTxsResponseSize,
+} from './protocols/block_txs/block_txs_reqresp.js';
 import { StatusMessage } from './protocols/status.js';
+import { calculateTxResponseSize } from './protocols/tx.js';
 import type { ReqRespStatus } from './status.js';
 
 /*
@@ -18,7 +21,6 @@ export const PING_PROTOCOL = '/aztec/req/ping/1.0.0';
 export const STATUS_PROTOCOL = '/aztec/req/status/1.0.0';
 export const GOODBYE_PROTOCOL = '/aztec/req/goodbye/1.0.0';
 export const TX_REQ_PROTOCOL = '/aztec/req/tx/1.0.0';
-export const BLOCK_REQ_PROTOCOL = '/aztec/req/block/1.0.0';
 export const AUTH_PROTOCOL = '/aztec/req/auth/1.0.0';
 export const BLOCK_TXS_REQ_PROTOCOL = '/aztec/req/block_txs/1.0.0';
 
@@ -27,7 +29,6 @@ export enum ReqRespSubProtocol {
   STATUS = STATUS_PROTOCOL,
   GOODBYE = GOODBYE_PROTOCOL,
   TX = TX_REQ_PROTOCOL,
-  BLOCK = BLOCK_REQ_PROTOCOL,
   AUTH = AUTH_PROTOCOL,
   BLOCK_TXS = BLOCK_TXS_REQ_PROTOCOL,
 }
@@ -77,32 +78,28 @@ export interface ProtocolRateLimitQuota {
   globalLimit: RateLimitQuota;
 }
 
-export const noopValidator = () => Promise.resolve(true);
-
 /**
  * A type mapping from supprotocol to it's handling function
  */
 export type ReqRespSubProtocolHandlers = Record<ReqRespSubProtocol, ReqRespSubProtocolHandler>;
 
-type ResponseValidator<RequestIdentifier, Response> = (
-  request: RequestIdentifier,
-  response: Response,
-  peerId: PeerId,
-) => Promise<boolean>;
+/**
+ * Protocols that are always allowed without authentication, even when p2pAllowOnlyValidators is enabled.
+ * These are needed for the handshake and connection management flow.
+ * All other protocols require the remote peer to be authenticated.
+ */
+export const UNAUTHENTICATED_ALLOWED_PROTOCOLS: ReadonlySet<ReqRespSubProtocol> = new Set([
+  ReqRespSubProtocol.PING,
+  ReqRespSubProtocol.STATUS,
+  ReqRespSubProtocol.AUTH,
+  ReqRespSubProtocol.GOODBYE,
+]);
 
-export type ReqRespSubProtocolValidators = {
-  [S in ReqRespSubProtocol]: ResponseValidator<any, any>;
-};
-
-export const DEFAULT_SUB_PROTOCOL_VALIDATORS: ReqRespSubProtocolValidators = {
-  [ReqRespSubProtocol.PING]: noopValidator,
-  [ReqRespSubProtocol.STATUS]: noopValidator,
-  [ReqRespSubProtocol.TX]: noopValidator,
-  [ReqRespSubProtocol.GOODBYE]: noopValidator,
-  [ReqRespSubProtocol.BLOCK]: noopValidator,
-  [ReqRespSubProtocol.AUTH]: noopValidator,
-  [ReqRespSubProtocol.BLOCK_TXS]: noopValidator,
-};
+/**
+ * Callback that checks whether a peer should be rejected from req/resp data protocols.
+ * Returns true if the peer should be rejected (i.e. p2pAllowOnlyValidators is on and peer is unauthenticated).
+ */
+export type ShouldRejectPeer = (peerId: string) => boolean;
 
 /*
  * Helper class to sub-protocol validation error*/
@@ -197,10 +194,6 @@ export const subProtocolMap = {
     request: RequestableBuffer,
     response: RequestableBuffer,
   },
-  [ReqRespSubProtocol.BLOCK]: {
-    request: Fr, // block number
-    response: L2Block,
-  },
   [ReqRespSubProtocol.AUTH]: {
     request: AuthRequest,
     response: AuthResponse,
@@ -211,25 +204,28 @@ export const subProtocolMap = {
   },
 };
 
+/**
+ * Type for a function that calculates the expected response size in KB for a given request.
+ */
+export type ExpectedResponseSizeCalculator = (requestBuffer: Buffer) => number;
+
+/**
+ * Map of sub-protocols to their expected response size calculators.
+ * These are used to validate that responses don't exceed expected sizes based on request parameters.
+ */
+export const subProtocolSizeCalculators: Record<ReqRespSubProtocol, ExpectedResponseSizeCalculator> = {
+  [ReqRespSubProtocol.TX]: calculateTxResponseSize,
+  [ReqRespSubProtocol.BLOCK_TXS]: calculateBlockTxsResponseSize,
+  [ReqRespSubProtocol.STATUS]: () => 1,
+  [ReqRespSubProtocol.PING]: () => 1,
+  [ReqRespSubProtocol.AUTH]: () => 1,
+  [ReqRespSubProtocol.GOODBYE]: () => 1, // No response expected, but provide minimal limit
+};
+
 export interface ReqRespInterface {
-  start(
-    subProtocolHandlers: Partial<ReqRespSubProtocolHandlers>,
-    subProtocolValidators: ReqRespSubProtocolValidators,
-  ): Promise<void>;
-  addSubProtocol(
-    subProtocol: ReqRespSubProtocol,
-    handler: ReqRespSubProtocolHandler,
-    validator?: ReqRespSubProtocolValidators[ReqRespSubProtocol],
-  ): Promise<void>;
+  start(subProtocolHandlers: Partial<ReqRespSubProtocolHandlers>): Promise<void>;
+  addSubProtocol(subProtocol: ReqRespSubProtocol, handler: ReqRespSubProtocolHandler): Promise<void>;
   stop(): Promise<void>;
-  sendBatchRequest<SubProtocol extends ReqRespSubProtocol>(
-    subProtocol: SubProtocol,
-    requests: InstanceType<SubProtocolMap[SubProtocol]['request']>[],
-    pinnedPeer: PeerId | undefined,
-    timeoutMs?: number,
-    maxPeers?: number,
-    maxRetryAttempts?: number,
-  ): Promise<InstanceType<SubProtocolMap[SubProtocol]['response']>[]>;
   sendRequestToPeer(
     peerId: PeerId,
     subProtocol: ReqRespSubProtocol,
@@ -238,6 +234,9 @@ export interface ReqRespInterface {
   ): Promise<ReqRespResponse>;
 
   updateConfig(config: Partial<P2PReqRespConfig>): void;
+
+  /** Sets the callback used to reject unauthenticated peers on gated req/resp protocols. */
+  setShouldRejectPeer(checker: ShouldRejectPeer): void;
 
   getConnectionSampler(): Pick<ConnectionSampler, 'getPeerListSortedByConnectionCountAsc'>;
 }

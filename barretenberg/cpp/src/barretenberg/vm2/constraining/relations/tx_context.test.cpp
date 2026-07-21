@@ -3,8 +3,8 @@
 
 #include <cstdint>
 
+#include "barretenberg/aztec/aztec_constants.hpp"
 #include "barretenberg/vm2/common/avm_io.hpp"
-#include "barretenberg/vm2/common/aztec_constants.hpp"
 #include "barretenberg/vm2/common/aztec_types.hpp"
 #include "barretenberg/vm2/constraining/flavor_settings.hpp"
 #include "barretenberg/vm2/constraining/testing/check_relation.hpp"
@@ -53,7 +53,7 @@ TEST(TxContextConstrainingTest, Continuity)
             { C::tx_l1_l2_tree_root, 11 },
             { C::tx_next_retrieved_bytecodes_tree_root, 12 },
             { C::tx_next_retrieved_bytecodes_tree_size, 13 },
-            { C::tx_next_num_unencrypted_log_fields, 14 },
+            { C::tx_next_num_public_log_fields, 14 },
             { C::tx_next_num_l2_to_l1_messages, 15 },
         },
         {
@@ -74,7 +74,7 @@ TEST(TxContextConstrainingTest, Continuity)
             { C::tx_l1_l2_tree_root, 11 },
             { C::tx_prev_retrieved_bytecodes_tree_root, 12 },
             { C::tx_prev_retrieved_bytecodes_tree_size, 13 },
-            { C::tx_prev_num_unencrypted_log_fields, 14 },
+            { C::tx_prev_num_public_log_fields, 14 },
             { C::tx_prev_num_l2_to_l1_messages, 15 },
             { C::tx_next_note_hash_tree_root, 10 },
             { C::tx_next_note_hash_tree_size, 20 },
@@ -88,7 +88,7 @@ TEST(TxContextConstrainingTest, Continuity)
             { C::tx_next_written_public_data_slots_tree_size, 100 },
             { C::tx_next_retrieved_bytecodes_tree_root, 120 },
             { C::tx_next_retrieved_bytecodes_tree_size, 130 },
-            { C::tx_next_num_unencrypted_log_fields, 140 },
+            { C::tx_next_num_public_log_fields, 140 },
             { C::tx_next_num_l2_to_l1_messages, 150 },
         },
         {
@@ -109,7 +109,7 @@ TEST(TxContextConstrainingTest, Continuity)
             { C::tx_l1_l2_tree_root, 11 },
             { C::tx_prev_retrieved_bytecodes_tree_root, 120 },
             { C::tx_prev_retrieved_bytecodes_tree_size, 130 },
-            { C::tx_prev_num_unencrypted_log_fields, 14 },
+            { C::tx_prev_num_public_log_fields, 14 },
             { C::tx_prev_num_l2_to_l1_messages, 15 },
         },
     });
@@ -128,7 +128,7 @@ TEST(TxContextConstrainingTest, Continuity)
                                tx_context::SR_L1_L2_TREE_ROOT_CONTINUITY,
                                tx_context::SR_RETRIEVED_BYTECODES_TREE_ROOT_CONTINUITY,
                                tx_context::SR_RETRIEVED_BYTECODES_TREE_SIZE_CONTINUITY,
-                               tx_context::SR_NUM_UNENCRYPTED_LOGS_CONTINUITY,
+                               tx_context::SR_NUM_PUBLIC_LOGS_CONTINUITY,
                                tx_context::SR_NUM_L2_TO_L1_MESSAGES_CONTINUITY,
                                tx_context::SR_TX_REVERTED_CONTINUITY);
 
@@ -137,40 +137,40 @@ TEST(TxContextConstrainingTest, Continuity)
     trace.set(C::tx_reverted, 1, 0);
 
     EXPECT_THROW_WITH_MESSAGE(check_relation<tx_context>(trace, tx_context::SR_NOTE_HASH_ROOT_CONTINUITY),
-                              "NOTE_HASH_ROOT_CONTINUITY");
+                              tx_context::get_subrelation_label(tx_context::SR_NOTE_HASH_ROOT_CONTINUITY));
     EXPECT_THROW_WITH_MESSAGE(check_relation<tx_context>(trace, tx_context::SR_NOTE_HASH_TREE_SIZE_CONTINUITY),
-                              "NOTE_HASH_TREE_SIZE_CONTINUITY");
+                              tx_context::get_subrelation_label(tx_context::SR_NOTE_HASH_TREE_SIZE_CONTINUITY));
     EXPECT_THROW_WITH_MESSAGE(check_relation<tx_context>(trace, tx_context::SR_NUM_NOTE_HASHES_EMITTED_CONTINUITY),
-                              "NUM_NOTE_HASHES_EMITTED_CONTINUITY");
+                              tx_context::get_subrelation_label(tx_context::SR_NUM_NOTE_HASHES_EMITTED_CONTINUITY));
     EXPECT_THROW_WITH_MESSAGE(check_relation<tx_context>(trace, tx_context::SR_NULLIFIER_TREE_ROOT_CONTINUITY),
-                              "NULLIFIER_TREE_ROOT_CONTINUITY");
+                              tx_context::get_subrelation_label(tx_context::SR_NULLIFIER_TREE_ROOT_CONTINUITY));
     EXPECT_THROW_WITH_MESSAGE(check_relation<tx_context>(trace, tx_context::SR_NULLIFIER_TREE_SIZE_CONTINUITY),
-                              "NULLIFIER_TREE_SIZE_CONTINUITY");
+                              tx_context::get_subrelation_label(tx_context::SR_NULLIFIER_TREE_SIZE_CONTINUITY));
     EXPECT_THROW_WITH_MESSAGE(check_relation<tx_context>(trace, tx_context::SR_NUM_NULLIFIERS_EMITTED_CONTINUITY),
-                              "NUM_NULLIFIERS_EMITTED_CONTINUITY");
+                              tx_context::get_subrelation_label(tx_context::SR_NUM_NULLIFIERS_EMITTED_CONTINUITY));
     EXPECT_THROW_WITH_MESSAGE(check_relation<tx_context>(trace, tx_context::SR_PUBLIC_DATA_TREE_ROOT_CONTINUITY),
-                              "PUBLIC_DATA_TREE_ROOT_CONTINUITY");
+                              tx_context::get_subrelation_label(tx_context::SR_PUBLIC_DATA_TREE_ROOT_CONTINUITY));
     EXPECT_THROW_WITH_MESSAGE(check_relation<tx_context>(trace, tx_context::SR_PUBLIC_DATA_TREE_SIZE_CONTINUITY),
-                              "PUBLIC_DATA_TREE_SIZE_CONTINUITY");
+                              tx_context::get_subrelation_label(tx_context::SR_PUBLIC_DATA_TREE_SIZE_CONTINUITY));
     EXPECT_THROW_WITH_MESSAGE(
         check_relation<tx_context>(trace, tx_context::SR_WRITTEN_PUBLIC_DATA_SLOTS_TREE_ROOT_CONTINUITY),
-        "WRITTEN_PUBLIC_DATA_SLOTS_TREE_ROOT_CONTINUITY");
+        tx_context::get_subrelation_label(tx_context::SR_WRITTEN_PUBLIC_DATA_SLOTS_TREE_ROOT_CONTINUITY));
     EXPECT_THROW_WITH_MESSAGE(
         check_relation<tx_context>(trace, tx_context::SR_WRITTEN_PUBLIC_DATA_SLOTS_TREE_SIZE_CONTINUITY),
-        "WRITTEN_PUBLIC_DATA_SLOTS_TREE_SIZE_CONTINUITY");
-    EXPECT_THROW_WITH_MESSAGE(check_relation<tx_context>(trace, tx_context::SR_NUM_UNENCRYPTED_LOGS_CONTINUITY),
-                              "NUM_UNENCRYPTED_LOGS_CONTINUITY");
+        tx_context::get_subrelation_label(tx_context::SR_WRITTEN_PUBLIC_DATA_SLOTS_TREE_SIZE_CONTINUITY));
+    EXPECT_THROW_WITH_MESSAGE(check_relation<tx_context>(trace, tx_context::SR_NUM_PUBLIC_LOGS_CONTINUITY),
+                              tx_context::get_subrelation_label(tx_context::SR_NUM_PUBLIC_LOGS_CONTINUITY));
     EXPECT_THROW_WITH_MESSAGE(check_relation<tx_context>(trace, tx_context::SR_NUM_L2_TO_L1_MESSAGES_CONTINUITY),
-                              "NUM_L2_TO_L1_MESSAGES_CONTINUITY");
+                              tx_context::get_subrelation_label(tx_context::SR_NUM_L2_TO_L1_MESSAGES_CONTINUITY));
     EXPECT_THROW_WITH_MESSAGE(check_relation<tx_context>(trace, tx_context::SR_TX_REVERTED_CONTINUITY),
-                              "TX_REVERTED_CONTINUITY");
+                              tx_context::get_subrelation_label(tx_context::SR_TX_REVERTED_CONTINUITY));
 
     // Negative test: l1 to l2 root should not change
 
     trace.set(C::tx_l1_l2_tree_root, 1, 20);
 
     EXPECT_THROW_WITH_MESSAGE(check_relation<tx_context>(trace, tx_context::SR_L1_L2_TREE_ROOT_CONTINUITY),
-                              "L1_L2_TREE_ROOT_CONTINUITY");
+                              tx_context::get_subrelation_label(tx_context::SR_L1_L2_TREE_ROOT_CONTINUITY));
 
     // Negative test: even in reverts, retrieved bytecodes tree root and size should not change
     trace.set(C::tx_prev_retrieved_bytecodes_tree_root, 2, 12);
@@ -178,10 +178,10 @@ TEST(TxContextConstrainingTest, Continuity)
 
     EXPECT_THROW_WITH_MESSAGE(
         check_relation<tx_context>(trace, tx_context::SR_RETRIEVED_BYTECODES_TREE_ROOT_CONTINUITY),
-        "RETRIEVED_BYTECODES_TREE_ROOT_CONTINUITY");
+        tx_context::get_subrelation_label(tx_context::SR_RETRIEVED_BYTECODES_TREE_ROOT_CONTINUITY));
     EXPECT_THROW_WITH_MESSAGE(
         check_relation<tx_context>(trace, tx_context::SR_RETRIEVED_BYTECODES_TREE_SIZE_CONTINUITY),
-        "RETRIEVED_BYTECODES_TREE_SIZE_CONTINUITY");
+        tx_context::get_subrelation_label(tx_context::SR_RETRIEVED_BYTECODES_TREE_SIZE_CONTINUITY));
 }
 
 TEST(TxContextConstrainingTest, StateMutability)
@@ -190,7 +190,7 @@ TEST(TxContextConstrainingTest, StateMutability)
         {
             { C::tx_sel, 1 },
             { C::tx_is_public_call_request, 1 },
-            { C::tx_should_process_call_request, 1 },
+            { C::tx_sel_process_call_request, 1 },
             { C::tx_prev_note_hash_tree_root, 1 },
             { C::tx_prev_note_hash_tree_size, 2 },
             { C::tx_prev_num_note_hashes_emitted, 3 },
@@ -204,7 +204,7 @@ TEST(TxContextConstrainingTest, StateMutability)
             { C::tx_l1_l2_tree_root, 11 },
             { C::tx_prev_retrieved_bytecodes_tree_root, 12 },
             { C::tx_prev_retrieved_bytecodes_tree_size, 13 },
-            { C::tx_prev_num_unencrypted_log_fields, 13 },
+            { C::tx_prev_num_public_log_fields, 13 },
             { C::tx_prev_num_l2_to_l1_messages, 14 },
             { C::tx_next_note_hash_tree_root, 10 },
             { C::tx_next_note_hash_tree_size, 20 },
@@ -219,7 +219,7 @@ TEST(TxContextConstrainingTest, StateMutability)
             { C::tx_l1_l2_tree_root, 110 },
             { C::tx_next_retrieved_bytecodes_tree_root, 120 },
             { C::tx_next_retrieved_bytecodes_tree_size, 130 },
-            { C::tx_next_num_unencrypted_log_fields, 140 },
+            { C::tx_next_num_public_log_fields, 140 },
             { C::tx_next_num_l2_to_l1_messages, 150 },
         },
     });
@@ -237,97 +237,96 @@ TEST(TxContextConstrainingTest, StateMutability)
                                tx_context::SR_WRITTEN_PUBLIC_DATA_SLOTS_SIZE_IMMUTABILITY,
                                tx_context::SR_RETRIEVED_BYTECODES_TREE_ROOT_IMMUTABILITY,
                                tx_context::SR_RETRIEVED_BYTECODES_TREE_SIZE_IMMUTABILITY,
-                               tx_context::SR_UNENCRYPTED_LOG_COUNT_IMMUTABILITY,
+                               tx_context::SR_PUBLIC_LOG_COUNT_IMMUTABILITY,
                                tx_context::SR_L2_TO_L1_MESSAGE_COUNT_IMMUTABILITY);
 
     // Negative test: immutability check on note hashes
     trace.set(C::tx_is_public_call_request, 0, 0);
 
     EXPECT_THROW_WITH_MESSAGE(check_relation<tx_context>(trace, tx_context::SR_NOTE_HASH_ROOT_IMMUTABILITY),
-                              "NOTE_HASH_ROOT_IMMUTABILITY");
+                              tx_context::get_subrelation_label(tx_context::SR_NOTE_HASH_ROOT_IMMUTABILITY));
     EXPECT_THROW_WITH_MESSAGE(check_relation<tx_context>(trace, tx_context::SR_NOTE_HASH_SIZE_IMMUTABILITY),
-                              "NOTE_HASH_SIZE_IMMUTABILITY");
+                              tx_context::get_subrelation_label(tx_context::SR_NOTE_HASH_SIZE_IMMUTABILITY));
     EXPECT_THROW_WITH_MESSAGE(check_relation<tx_context>(trace, tx_context::SR_NOTE_HASH_COUNT_IMMUTABILITY),
-                              "NOTE_HASH_COUNT_IMMUTABILITY");
+                              tx_context::get_subrelation_label(tx_context::SR_NOTE_HASH_COUNT_IMMUTABILITY));
 
     // Negative test: immutability check on nullifiers
 
     EXPECT_THROW_WITH_MESSAGE(check_relation<tx_context>(trace, tx_context::SR_NULLIFIER_ROOT_IMMUTABILITY),
-                              "NULLIFIER_ROOT_IMMUTABILITY");
+                              tx_context::get_subrelation_label(tx_context::SR_NULLIFIER_ROOT_IMMUTABILITY));
     EXPECT_THROW_WITH_MESSAGE(check_relation<tx_context>(trace, tx_context::SR_NULLIFIER_SIZE_IMMUTABILITY),
-                              "NULLIFIER_SIZE_IMMUTABILITY");
+                              tx_context::get_subrelation_label(tx_context::SR_NULLIFIER_SIZE_IMMUTABILITY));
     EXPECT_THROW_WITH_MESSAGE(check_relation<tx_context>(trace, tx_context::SR_NULLIFIER_COUNT_IMMUTABILITY),
-                              "NULLIFIER_COUNT_IMMUTABILITY");
+                              tx_context::get_subrelation_label(tx_context::SR_NULLIFIER_COUNT_IMMUTABILITY));
 
     // Negative test: immutability check on public data
 
     EXPECT_THROW_WITH_MESSAGE(check_relation<tx_context>(trace, tx_context::SR_PUBLIC_DATA_ROOT_IMMUTABILITY),
-                              "PUBLIC_DATA_ROOT_IMMUTABILITY");
+                              tx_context::get_subrelation_label(tx_context::SR_PUBLIC_DATA_ROOT_IMMUTABILITY));
     EXPECT_THROW_WITH_MESSAGE(check_relation<tx_context>(trace, tx_context::SR_PUBLIC_DATA_SIZE_IMMUTABILITY),
-                              "PUBLIC_DATA_SIZE_IMMUTABILITY");
+                              tx_context::get_subrelation_label(tx_context::SR_PUBLIC_DATA_SIZE_IMMUTABILITY));
     EXPECT_THROW_WITH_MESSAGE(
         check_relation<tx_context>(trace, tx_context::SR_WRITTEN_PUBLIC_DATA_SLOTS_ROOT_IMMUTABILITY),
-        "WRITTEN_PUBLIC_DATA_SLOTS_ROOT_IMMUTABILITY");
+        tx_context::get_subrelation_label(tx_context::SR_WRITTEN_PUBLIC_DATA_SLOTS_ROOT_IMMUTABILITY));
     EXPECT_THROW_WITH_MESSAGE(
         check_relation<tx_context>(trace, tx_context::SR_WRITTEN_PUBLIC_DATA_SLOTS_SIZE_IMMUTABILITY),
-        "WRITTEN_PUBLIC_DATA_SLOTS_SIZE_IMMUTABILITY");
+        tx_context::get_subrelation_label(tx_context::SR_WRITTEN_PUBLIC_DATA_SLOTS_SIZE_IMMUTABILITY));
 
-    // Negative test: immutability check on unencrypted logs
+    // Negative test: immutability check on public logs
 
-    EXPECT_THROW_WITH_MESSAGE(check_relation<tx_context>(trace, tx_context::SR_UNENCRYPTED_LOG_COUNT_IMMUTABILITY),
-                              "UNENCRYPTED_LOG_COUNT_IMMUTABILITY");
+    EXPECT_THROW_WITH_MESSAGE(check_relation<tx_context>(trace, tx_context::SR_PUBLIC_LOG_COUNT_IMMUTABILITY),
+                              tx_context::get_subrelation_label(tx_context::SR_PUBLIC_LOG_COUNT_IMMUTABILITY));
 
     // Negative test: immutability check on l2 to l1 messages
 
     EXPECT_THROW_WITH_MESSAGE(check_relation<tx_context>(trace, tx_context::SR_L2_TO_L1_MESSAGE_COUNT_IMMUTABILITY),
-                              "L2_TO_L1_MESSAGE_COUNT_IMMUTABILITY");
+                              tx_context::get_subrelation_label(tx_context::SR_L2_TO_L1_MESSAGE_COUNT_IMMUTABILITY));
 
     // Negative test: immutability check on retrieved bytecodes tree
-    trace.set(C::tx_should_process_call_request, 0, 0);
+    trace.set(C::tx_sel_process_call_request, 0, 0);
 
     EXPECT_THROW_WITH_MESSAGE(
         check_relation<tx_context>(trace, tx_context::SR_RETRIEVED_BYTECODES_TREE_ROOT_IMMUTABILITY),
-        "RETRIEVED_BYTECODES_TREE_ROOT_IMMUTABILITY");
+        tx_context::get_subrelation_label(tx_context::SR_RETRIEVED_BYTECODES_TREE_ROOT_IMMUTABILITY));
     EXPECT_THROW_WITH_MESSAGE(
         check_relation<tx_context>(trace, tx_context::SR_RETRIEVED_BYTECODES_TREE_SIZE_IMMUTABILITY),
-        "RETRIEVED_BYTECODES_TREE_SIZE_IMMUTABILITY");
+        tx_context::get_subrelation_label(tx_context::SR_RETRIEVED_BYTECODES_TREE_SIZE_IMMUTABILITY));
 
     // Negative test: selectors enabled but it's a padded row
     trace.set(C::tx_is_public_call_request, 0, 1);
     trace.set(C::tx_is_padded, 0, 1);
 
     EXPECT_THROW_WITH_MESSAGE(check_relation<tx_context>(trace, tx_context::SR_NOTE_HASH_ROOT_PADDED_IMMUTABILITY),
-                              "NOTE_HASH_ROOT_PADDED_IMMUTABILITY");
+                              tx_context::get_subrelation_label(tx_context::SR_NOTE_HASH_ROOT_PADDED_IMMUTABILITY));
     EXPECT_THROW_WITH_MESSAGE(check_relation<tx_context>(trace, tx_context::SR_NOTE_HASH_SIZE_PADDED_IMMUTABILITY),
-                              "NOTE_HASH_SIZE_PADDED_IMMUTABILITY");
+                              tx_context::get_subrelation_label(tx_context::SR_NOTE_HASH_SIZE_PADDED_IMMUTABILITY));
     EXPECT_THROW_WITH_MESSAGE(check_relation<tx_context>(trace, tx_context::SR_NOTE_HASH_COUNT_PADDED_IMMUTABILITY),
-                              "NOTE_HASH_COUNT_PADDED_IMMUTABILITY");
+                              tx_context::get_subrelation_label(tx_context::SR_NOTE_HASH_COUNT_PADDED_IMMUTABILITY));
 
     EXPECT_THROW_WITH_MESSAGE(check_relation<tx_context>(trace, tx_context::SR_NULLIFIER_ROOT_PADDED_IMMUTABILITY),
-                              "NULLIFIER_ROOT_PADDED_IMMUTABILITY");
+                              tx_context::get_subrelation_label(tx_context::SR_NULLIFIER_ROOT_PADDED_IMMUTABILITY));
     EXPECT_THROW_WITH_MESSAGE(check_relation<tx_context>(trace, tx_context::SR_NULLIFIER_SIZE_PADDED_IMMUTABILITY),
-                              "NULLIFIER_SIZE_PADDED_IMMUTABILITY");
+                              tx_context::get_subrelation_label(tx_context::SR_NULLIFIER_SIZE_PADDED_IMMUTABILITY));
     EXPECT_THROW_WITH_MESSAGE(check_relation<tx_context>(trace, tx_context::SR_NULLIFIER_COUNT_PADDED_IMMUTABILITY),
-                              "NULLIFIER_COUNT_PADDED_IMMUTABILITY");
+                              tx_context::get_subrelation_label(tx_context::SR_NULLIFIER_COUNT_PADDED_IMMUTABILITY));
 
     EXPECT_THROW_WITH_MESSAGE(check_relation<tx_context>(trace, tx_context::SR_PUBLIC_DATA_ROOT_PADDED_IMMUTABILITY),
-                              "PUBLIC_DATA_ROOT_PADDED_IMMUTABILITY");
+                              tx_context::get_subrelation_label(tx_context::SR_PUBLIC_DATA_ROOT_PADDED_IMMUTABILITY));
     EXPECT_THROW_WITH_MESSAGE(check_relation<tx_context>(trace, tx_context::SR_PUBLIC_DATA_SIZE_PADDED_IMMUTABILITY),
-                              "PUBLIC_DATA_SIZE_PADDED_IMMUTABILITY");
+                              tx_context::get_subrelation_label(tx_context::SR_PUBLIC_DATA_SIZE_PADDED_IMMUTABILITY));
     EXPECT_THROW_WITH_MESSAGE(
         check_relation<tx_context>(trace, tx_context::SR_WRITTEN_PUBLIC_DATA_SLOTS_ROOT_PADDED_IMMUTABILITY),
-        "WRITTEN_PUBLIC_DATA_SLOTS_ROOT_PADDED_IMMUTABILITY");
+        tx_context::get_subrelation_label(tx_context::SR_WRITTEN_PUBLIC_DATA_SLOTS_ROOT_PADDED_IMMUTABILITY));
     EXPECT_THROW_WITH_MESSAGE(
         check_relation<tx_context>(trace, tx_context::SR_WRITTEN_PUBLIC_DATA_SLOTS_SIZE_PADDED_IMMUTABILITY),
-        "WRITTEN_PUBLIC_DATA_SLOTS_SIZE_PADDED_IMMUTABILITY");
+        tx_context::get_subrelation_label(tx_context::SR_WRITTEN_PUBLIC_DATA_SLOTS_SIZE_PADDED_IMMUTABILITY));
 
-    EXPECT_THROW_WITH_MESSAGE(
-        check_relation<tx_context>(trace, tx_context::SR_UNENCRYPTED_LOG_COUNT_PADDED_IMMUTABILITY),
-        "UNENCRYPTED_LOG_COUNT_PADDED_IMMUTABILITY");
+    EXPECT_THROW_WITH_MESSAGE(check_relation<tx_context>(trace, tx_context::SR_PUBLIC_LOG_COUNT_PADDED_IMMUTABILITY),
+                              tx_context::get_subrelation_label(tx_context::SR_PUBLIC_LOG_COUNT_PADDED_IMMUTABILITY));
 
     EXPECT_THROW_WITH_MESSAGE(
         check_relation<tx_context>(trace, tx_context::SR_L2_TO_L1_MESSAGE_COUNT_PADDED_IMMUTABILITY),
-        "L2_TO_L1_MESSAGE_COUNT_PADDED_IMMUTABILITY");
+        tx_context::get_subrelation_label(tx_context::SR_L2_TO_L1_MESSAGE_COUNT_PADDED_IMMUTABILITY));
 }
 
 TEST(TxContextConstrainingTest, InitialStateChecks)
@@ -370,7 +369,7 @@ TEST(TxContextConstrainingTest, InitialStateChecks)
             { C::tx_prev_da_gas_used, start_gas_used.da_gas },
             { C::tx_l2_gas_limit, gas_limit.l2_gas },
             { C::tx_da_gas_limit, gas_limit.da_gas },
-            { C::tx_prev_num_unencrypted_log_fields, 0 },
+            { C::tx_prev_num_public_log_fields, 0 },
             { C::tx_prev_num_l2_to_l1_messages, 0 },
             { C::tx_note_hash_pi_offset, FF(AVM_PUBLIC_INPUTS_START_TREE_SNAPSHOTS_NOTE_HASH_TREE_ROW_IDX) },
             { C::tx_sel_read_trees_and_gas_used, 1 },
@@ -416,7 +415,7 @@ TEST(TxContextConstrainingTest, InitialStateChecks)
                       lookup_tx_context_public_inputs_write_note_hash_count_settings,
                       lookup_tx_context_public_inputs_write_nullifier_count_settings,
                       lookup_tx_context_public_inputs_write_l2_to_l1_message_count_settings,
-                      lookup_tx_context_public_inputs_write_unencrypted_log_count_settings,
+                      lookup_tx_context_public_inputs_write_public_log_count_settings,
                       lookup_tx_context_restore_state_on_revert_settings>(trace);
 }
 
@@ -465,7 +464,7 @@ TEST(TxContextConstrainingTest, EndStateChecks)
             { C::tx_l1_l2_tree_size, tree_snapshots.l1_to_l2_message_tree.next_available_leaf_index },
             { C::tx_prev_l2_gas_used, end_gas_used.l2_gas },
             { C::tx_prev_da_gas_used, end_gas_used.da_gas },
-            { C::tx_prev_num_unencrypted_log_fields, public_logs.length },
+            { C::tx_prev_num_public_log_fields, public_logs.length },
             { C::tx_prev_num_l2_to_l1_messages, array_lengths.l2_to_l1_msgs },
             { C::tx_note_hash_pi_offset, FF(AVM_PUBLIC_INPUTS_END_TREE_SNAPSHOTS_NOTE_HASH_TREE_ROW_IDX) },
             { C::tx_sel_read_trees_and_gas_used, 1 },
@@ -480,7 +479,7 @@ TEST(TxContextConstrainingTest, EndStateChecks)
               FF(AVM_PUBLIC_INPUTS_AVM_ACCUMULATED_DATA_ARRAY_LENGTHS_NULLIFIERS_ROW_IDX) },
             { C::tx_array_length_l2_to_l1_messages_pi_offset,
               FF(AVM_PUBLIC_INPUTS_AVM_ACCUMULATED_DATA_ARRAY_LENGTHS_L2_TO_L1_MSGS_ROW_IDX) },
-            { C::tx_fields_length_unencrypted_logs_pi_offset,
+            { C::tx_fields_length_public_logs_pi_offset,
               FF(AVM_PUBLIC_INPUTS_AVM_ACCUMULATED_DATA_PUBLIC_LOGS_ROW_IDX) },
             { C::tx_next_note_hash_tree_root, tree_snapshots.note_hash_tree.root },
             { C::tx_next_note_hash_tree_size, tree_snapshots.note_hash_tree.next_available_leaf_index },
@@ -492,7 +491,7 @@ TEST(TxContextConstrainingTest, EndStateChecks)
             { C::tx_next_public_data_tree_size, tree_snapshots.public_data_tree.next_available_leaf_index },
             { C::tx_next_l2_gas_used, end_gas_used.l2_gas },
             { C::tx_next_da_gas_used, end_gas_used.da_gas },
-            { C::tx_next_num_unencrypted_log_fields, public_logs.length },
+            { C::tx_next_num_public_log_fields, public_logs.length },
             { C::tx_next_num_l2_to_l1_messages, array_lengths.l2_to_l1_msgs },
             { C::tx_setup_phase_value, static_cast<uint8_t>(TransactionPhase::SETUP) },
         },
@@ -518,7 +517,7 @@ TEST(TxContextConstrainingTest, EndStateChecks)
                       lookup_tx_context_public_inputs_write_note_hash_count_settings,
                       lookup_tx_context_public_inputs_write_nullifier_count_settings,
                       lookup_tx_context_public_inputs_write_l2_to_l1_message_count_settings,
-                      lookup_tx_context_public_inputs_write_unencrypted_log_count_settings,
+                      lookup_tx_context_public_inputs_write_public_log_count_settings,
                       lookup_tx_context_restore_state_on_revert_settings>(trace);
 }
 
@@ -539,7 +538,7 @@ TEST(TxContextConstrainingTest, NegativeContextIdChecks)
             // Row 2
             { C::tx_sel, 1 },
             { C::tx_next_context_id, 1 },
-            { C::tx_should_process_call_request, 1 },
+            { C::tx_sel_process_call_request, 1 },
         },
         {
             // Row 3
@@ -553,12 +552,12 @@ TEST(TxContextConstrainingTest, NegativeContextIdChecks)
     // Negative test: initial context id should be 1
     trace.set(C::tx_next_context_id, 1, 2);
     EXPECT_THROW_WITH_MESSAGE(check_relation<tx_context>(trace, tx_context::SR_NEXT_CONTEXT_ID_INITIAL_VALUE),
-                              "NEXT_CONTEXT_ID_INITIAL_VALUE");
+                              tx_context::get_subrelation_label(tx_context::SR_NEXT_CONTEXT_ID_INITIAL_VALUE));
 
     // Negative test: continuity check
     trace.set(C::tx_next_context_id, 2, 42);
     EXPECT_THROW_WITH_MESSAGE(check_relation<tx_context>(trace, tx_context::SR_NEXT_CONTEXT_ID_CONTINUITY),
-                              "NEXT_CONTEXT_ID_CONTINUITY");
+                              tx_context::get_subrelation_label(tx_context::SR_NEXT_CONTEXT_ID_CONTINUITY));
 }
 
 TEST(TxContextConstrainingTest, NegativeTxRevertedChecks)
@@ -590,16 +589,18 @@ TEST(TxContextConstrainingTest, NegativeTxRevertedChecks)
 
     // Negative test: initial tx_reverted should match reverted
     trace.set(C::tx_tx_reverted, 1, 1);
-    EXPECT_THROW_WITH_MESSAGE(check_relation<tx_context>(trace, tx_context::SR_INIT_TX_REVERTED), "INIT_TX_REVERTED");
+    EXPECT_THROW_WITH_MESSAGE(check_relation<tx_context>(trace, tx_context::SR_INIT_TX_REVERTED),
+                              tx_context::get_subrelation_label(tx_context::SR_INIT_TX_REVERTED));
 
     // Negative test: continuity check
     trace.set(C::tx_tx_reverted, 3, 0);
     EXPECT_THROW_WITH_MESSAGE(check_relation<tx_context>(trace, tx_context::SR_TX_REVERTED_CONTINUITY),
-                              "TX_REVERTED_CONTINUITY");
+                              tx_context::get_subrelation_label(tx_context::SR_TX_REVERTED_CONTINUITY));
 
     // Negative test: tx_reverted should match reverted if reverted == 1
     trace.set(C::tx_tx_reverted, 2, 0);
-    EXPECT_THROW_WITH_MESSAGE(check_relation<tx_context>(trace, tx_context::SR_SET_TX_REVERTED), "SET_TX_REVERTED");
+    EXPECT_THROW_WITH_MESSAGE(check_relation<tx_context>(trace, tx_context::SR_SET_TX_REVERTED),
+                              tx_context::get_subrelation_label(tx_context::SR_SET_TX_REVERTED));
 }
 
 } // namespace

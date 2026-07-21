@@ -1,12 +1,13 @@
 import { MockPrefilledArchiver } from '@aztec/archiver/test';
+import { GENESIS_ARCHIVE_ROOT } from '@aztec/constants';
 import { BlockNumber, CheckpointNumber } from '@aztec/foundation/branded-types';
 import { timesAsync } from '@aztec/foundation/collection';
-import type { Fr } from '@aztec/foundation/curves/bn254';
+import { Fr } from '@aztec/foundation/curves/bn254';
 import { EthAddress } from '@aztec/foundation/eth-address';
 import { type Logger, createLogger } from '@aztec/foundation/log';
 import { sleep } from '@aztec/foundation/sleep';
-import type { DataStoreConfig } from '@aztec/kv-store/config';
 import type { Checkpoint } from '@aztec/stdlib/checkpoint';
+import type { DataStoreConfig } from '@aztec/stdlib/kv-store';
 import { MerkleTreeId } from '@aztec/stdlib/trees';
 
 import { describe, jest } from '@jest/globals';
@@ -34,7 +35,7 @@ describe('world-state integration', () => {
   beforeAll(async () => {
     log = createLogger('world-state:test:integration');
     rollupAddress = EthAddress.random();
-    const db = await NativeWorldStateService.tmp(rollupAddress);
+    await using db = await NativeWorldStateService.tmp();
     const fork = await db.fork(BlockNumber(0));
     log.info(`Generating ${MAX_CHECKPOINT_COUNT} mock checkpoints`);
     checkpoints = await timesAsync(MAX_CHECKPOINT_COUNT, i =>
@@ -48,16 +49,18 @@ describe('world-state integration', () => {
     config = {
       dataDirectory: undefined,
       dataStoreMapSizeKb: 1024 * 1024,
-      l1Contracts: { rollupAddress },
+      rollupAddress,
       worldStateBlockCheckIntervalMS: 20,
       worldStateBlockRequestBatchSize: 5,
       worldStateDbMapSizeKb: 1024 * 1024,
-      worldStateBlockHistory: 0,
+      worldStateCheckpointHistory: 0,
     };
 
     archiver = new MockPrefilledArchiver(checkpoints);
 
     db = (await createWorldState(config)) as NativeWorldStateService;
+    await archiver.setInitialHeader(db.getInitialHeader());
+    archiver.setGenesisArchiveRoot(new Fr(GENESIS_ARCHIVE_ROOT));
     synchronizer = new TestWorldStateSynchronizer(db, archiver, config);
     log.info(`Created synchronizer`);
   }, 30_000);
@@ -94,7 +97,7 @@ describe('world-state integration', () => {
 
   const expectSynchedBlockHashMatches = async (number: number) => {
     const syncedBlockHash = await db.getCommitted().getLeafValue(MerkleTreeId.ARCHIVE, BigInt(number));
-    const archiverBlockHash = await (await archiver.getBlockHeader(number))?.hash();
+    const archiverBlockHash = await (await archiver.getBlockData({ number: BlockNumber(number) }))?.header.hash();
     expect(syncedBlockHash).toEqual(archiverBlockHash);
   };
 
@@ -143,8 +146,6 @@ describe('world-state integration', () => {
     });
 
     it('syncs from latest block when restarting', async () => {
-      const getBlocksSpy = jest.spyOn(archiver, 'getBlocks');
-
       await synchronizer.start();
       await archiver.createBlocks(5);
       await awaitSync(5);
@@ -160,10 +161,6 @@ describe('world-state integration', () => {
       await archiver.createBlocks(4);
       await awaitSync(12);
       await expectSynchedToBlock(12);
-
-      expect(getBlocksSpy).toHaveBeenCalledWith(1, 5);
-      expect(getBlocksSpy).toHaveBeenCalledWith(6, 3);
-      expect(getBlocksSpy).toHaveBeenCalledWith(9, 4);
     });
   });
 
@@ -251,6 +248,45 @@ describe('world-state integration', () => {
       archiver.setFinalizedBlockNumber(4);
       await awaitSync(5, 4);
       await expectSynchedToBlock(5, 4);
+    });
+
+    it('does not throw when finalized block jumps backwards past pruned blocks', async () => {
+      // Create 20 blocks and sync them all
+      await archiver.createBlocks(MAX_CHECKPOINT_COUNT);
+      await synchronizer.start();
+      await awaitSync(MAX_CHECKPOINT_COUNT);
+      await expectSynchedToBlock(MAX_CHECKPOINT_COUNT);
+
+      // Manually finalize to block 15 and prune historical blocks up to block 10
+      // to simulate world-state having pruned old data.
+      await db.setFinalized(BlockNumber(15));
+      await db.removeHistoricalBlocks(BlockNumber(10));
+
+      const summary = await db.getStatusSummary();
+      log.info(
+        `After manual finalize+prune: oldest=${summary.oldestHistoricalBlock}, finalized=${summary.finalizedBlockNumber}`,
+      );
+      expect(summary.oldestHistoricalBlock).toBe(10);
+      expect(summary.finalizedBlockNumber).toBe(15);
+
+      // Now simulate the scenario from PR #21597: finalized block jumps backwards
+      // to a block M that is older than oldestHistoricalBlock.
+      // This should NOT throw — the clamping logic should handle it.
+      const backwardsFinalized = BlockNumber(5);
+      log.info(
+        `Sending chain-finalized for block ${backwardsFinalized} (below oldest ${summary.oldestHistoricalBlock})`,
+      );
+      await expect(
+        synchronizer.handleBlockStreamEvent({
+          type: 'chain-finalized',
+          block: { number: backwardsFinalized, hash: '' },
+          checkpoint: { number: CheckpointNumber(1), hash: new Fr(1).toString() },
+        }),
+      ).resolves.not.toThrow();
+
+      // Finalized block should remain at 15 (unchanged by the backwards event)
+      const afterSummary = await db.getStatusSummary();
+      expect(afterSummary.finalizedBlockNumber).toBe(15);
     });
   });
 });

@@ -88,7 +88,38 @@ static void construct_proof_ultrahonk_1M_gates_dyadic_2_21(State& state) noexcep
         state, &bb::mock_circuits::generate_basic_arithmetic_circuit_with_target_gates<UltraCircuitBuilder>, num_gates);
 }
 
+/**
+ * @brief Benchmark: Ultra Honk proof of a single poseidon2 hash over a vector of state.range(0) elements.
+ */
+static void construct_proof_ultrahonk_poseidon2_hash(State& state) noexcept
+{
+    const auto num_inputs = static_cast<size_t>(state.range(0));
+
+    UltraCircuitBuilder builder;
+    bb::generate_poseidon2_hash_test_circuit<UltraCircuitBuilder>(builder, num_inputs);
+    auto instance = std::make_shared<ProverInstance_<UltraFlavor>>(builder);
+    info("construct_proof_ultrahonk_poseidon2_hash: num_inputs=",
+         num_inputs,
+         ", actual_gates=",
+         builder.num_gates(),
+         ", dyadic_size=",
+         instance->dyadic_size());
+
+    bb::mock_circuits::construct_proof_with_specified_num_iterations<UltraProver>(
+        state, &bb::generate_poseidon2_hash_test_circuit<UltraCircuitBuilder>, num_inputs);
+}
+
 // Define benchmarks
+// Sweep input sizes so dyadic domain ranges 2^15..2^19 (Ultra: ~25 gates/input).
+BENCHMARK(construct_proof_ultrahonk_poseidon2_hash)
+    ->Arg(750)
+    ->Arg(1500)
+    ->Arg(3000)
+    ->Arg(6000)
+    ->Arg(12000)
+    ->Arg(50000)
+    ->Unit(kMillisecond);
+
 BENCHMARK_CAPTURE(construct_proof_ultrahonk, sha256, &generate_sha256_test_circuit<UltraCircuitBuilder>)
     ->Unit(kMillisecond);
 BENCHMARK_CAPTURE(construct_proof_ultrahonk,
@@ -106,13 +137,46 @@ BENCHMARK(construct_proof_ultrahonk_zk_power_of_2)
     ->DenseRange(15, 20)
     ->Unit(kMillisecond);
 
+/**
+ * @brief Benchmark: Non-ZK proof where the gate count is 2^n + 10%, causing dyadic size to round up to 2^(n+1).
+ * This gives ~55% trace utilization — measures the cost of padding waste.
+ */
+static void construct_proof_ultrahonk_sparse(State& state) noexcept
+{
+    auto log2_of_gates = static_cast<size_t>(state.range(0));
+    size_t target_gates = (1UL << log2_of_gates) + (1UL << log2_of_gates) / 10;
+    bb::mock_circuits::construct_proof_with_specified_num_iterations<UltraProver>(
+        state,
+        &bb::mock_circuits::generate_basic_arithmetic_circuit_with_target_gates<UltraCircuitBuilder>,
+        target_gates);
+}
+
+/**
+ * @brief Benchmark: ZK proof where the gate count is 2^n + 10%, causing dyadic size to round up to 2^(n+1).
+ */
+static void construct_proof_ultrahonk_zk_sparse(State& state) noexcept
+{
+    auto log2_of_gates = static_cast<size_t>(state.range(0));
+    size_t target_gates = (1UL << log2_of_gates) + (1UL << log2_of_gates) / 10;
+    bb::mock_circuits::construct_proof_with_specified_num_iterations<UltraZKProver>(
+        state,
+        &bb::mock_circuits::generate_basic_arithmetic_circuit_with_target_gates<UltraCircuitBuilder>,
+        target_gates);
+}
+
+BENCHMARK(construct_proof_ultrahonk_sparse)->DenseRange(15, 20)->Unit(kMillisecond);
+
+BENCHMARK(construct_proof_ultrahonk_zk_sparse)->DenseRange(15, 20)->Unit(kMillisecond);
+
 BENCHMARK(construct_proof_ultrahonk_1M_gates_dyadic_2_20)->Unit(kMillisecond);
 BENCHMARK(construct_proof_ultrahonk_1M_gates_dyadic_2_21)->Unit(kMillisecond);
 
 int main(int argc, char** argv)
 {
+#if !defined(__wasm__) || defined(ENABLE_WASM_BENCH)
     // Enable BB_BENCH profiling
     bb::detail::use_bb_bench = true;
+#endif
 
     // Run benchmarks
     ::benchmark::Initialize(&argc, argv);
@@ -121,9 +185,11 @@ int main(int argc, char** argv)
     ::benchmark::RunSpecifiedBenchmarks();
     ::benchmark::Shutdown();
 
+#if !defined(__wasm__) || defined(ENABLE_WASM_BENCH)
     // Print detailed profiling stats
     std::cout << "\n=== Detailed BB_BENCH Profiling Stats ===\n";
     bb::detail::GLOBAL_BENCH_STATS.print_aggregate_counts_hierarchical(std::cout);
+#endif
 
     return 0;
 }

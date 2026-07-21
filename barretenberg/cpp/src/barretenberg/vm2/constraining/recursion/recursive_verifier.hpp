@@ -1,5 +1,5 @@
 // === AUDIT STATUS ===
-// internal:    { status: Completed, auditors: [Federico], commit: }
+// internal:    { status: Completed, auditors: [Federico], commit: 0e37cb8}
 // external_1:  { status: not started, auditors: [], commit: }
 // external_2:  { status: not started, auditors: [], commit: }
 // =====================
@@ -41,7 +41,7 @@ class AvmRecursiveVerifier {
      * have been verified.
      *
      */
-    FF hash_avm_transcript(const StdlibProof& stdlib_proof);
+    FF hash_avm_transcript();
 
   private:
     Builder& builder;

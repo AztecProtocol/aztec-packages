@@ -1,21 +1,19 @@
 // docs:start:setup
-import { createAztecNodeClient } from "@aztec/aztec.js/node";
-import { TestWallet } from "@aztec/test-wallet/server";
+import { EmbeddedWallet } from "@aztec/wallets/embedded";
 import { getInitialTestAccountsData } from "@aztec/accounts/testing";
 
-const nodeUrl = "http://localhost:8080";
-const node = createAztecNodeClient(nodeUrl);
-const wallet = await TestWallet.create(node);
+const nodeUrl = process.env.AZTEC_NODE_URL ?? "http://localhost:8080";
+const wallet = await EmbeddedWallet.create(nodeUrl, { ephemeral: true });
 
 const [alice, bob] = await getInitialTestAccountsData();
-await wallet.createSchnorrAccount(alice.secret, alice.salt);
-await wallet.createSchnorrAccount(bob.secret, bob.salt);
+await wallet.createSchnorrInitializerlessAccount(alice.secret, alice.salt);
+await wallet.createSchnorrInitializerlessAccount(bob.secret, bob.salt);
 // docs:end:setup
 
 // docs:start:deploy
 import { TokenContract } from "@aztec/noir-contracts.js/Token";
 
-const token = await TokenContract.deploy(
+const { contract: token } = await TokenContract.deploy(
   wallet,
   alice.address,
   "TokenName",
@@ -31,11 +29,11 @@ await token.methods
 // docs:end:mint
 
 // docs:start:check_balances
-let aliceBalance = await token.methods
+let { result: aliceBalance } = await token.methods
   .balance_of_private(alice.address)
   .simulate({ from: alice.address });
 console.log(`Alice's balance: ${aliceBalance}`);
-let bobBalance = await token.methods
+let { result: bobBalance } = await token.methods
   .balance_of_private(bob.address)
   .simulate({ from: bob.address });
 console.log(`Bob's balance: ${bobBalance}`);
@@ -43,9 +41,9 @@ console.log(`Bob's balance: ${bobBalance}`);
 
 // docs:start:transfer
 await token.methods.transfer(bob.address, 10).send({ from: alice.address });
-bobBalance = await token.methods
+({ result: bobBalance } = await token.methods
   .balance_of_private(bob.address)
-  .simulate({ from: bob.address });
+  .simulate({ from: bob.address }));
 console.log(`Bob's balance: ${bobBalance}`);
 // docs:end:transfer
 
@@ -57,8 +55,8 @@ await token.methods.set_minter(bob.address, true).send({ from: alice.address });
 await token.methods
   .mint_to_private(bob.address, 100)
   .send({ from: bob.address });
-bobBalance = await token.methods
+({ result: bobBalance } = await token.methods
   .balance_of_private(bob.address)
-  .simulate({ from: bob.address });
+  .simulate({ from: bob.address }));
 console.log(`Bob's balance: ${bobBalance}`);
 // docs:end:bob_mints

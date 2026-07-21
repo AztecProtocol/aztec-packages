@@ -1,6 +1,5 @@
 import { PUBLIC_DATA_TREE_HEIGHT } from '@aztec/constants';
 import { toBigIntBE } from '@aztec/foundation/bigint-buffer';
-import { Fr } from '@aztec/foundation/curves/bn254';
 import { BufferReader, serializeToBuffer } from '@aztec/foundation/serialize';
 import { bufferToHex, hexToBuffer } from '@aztec/foundation/string';
 import { MembershipWitness, SiblingPath } from '@aztec/foundation/trees';
@@ -41,36 +40,6 @@ export class PublicDataWitness {
         siblingPath: SiblingPath.schemaFor(PUBLIC_DATA_TREE_HEIGHT),
       })
       .transform(({ index, leafPreimage, siblingPath }) => new PublicDataWitness(index, leafPreimage, siblingPath));
-  }
-
-  /**
-   * Returns a field array representation of a public data witness.
-   * @returns A field array representation of a public data witness.
-   */
-  public toFields(): Fr[] {
-    return [
-      new Fr(this.index),
-      new Fr(this.leafPreimage.leaf.slot),
-      new Fr(this.leafPreimage.leaf.value),
-      new Fr(this.leafPreimage.nextIndex),
-      new Fr(this.leafPreimage.nextKey),
-      ...this.siblingPath.toFields(),
-    ];
-  }
-
-  /**
-   * Returns a representation of the public data witness as expected by intrinsic Noir deserialization.
-   */
-  public toNoirRepresentation(): (string | string[])[] {
-    // TODO(#12874): remove the stupid as string conversion by modifying ForeignCallOutput type in acvm.js
-    return [
-      new Fr(this.index).toString() as string,
-      new Fr(this.leafPreimage.leaf.slot).toString() as string,
-      new Fr(this.leafPreimage.leaf.value).toString() as string,
-      new Fr(this.leafPreimage.nextKey).toString() as string,
-      new Fr(this.leafPreimage.nextIndex).toString() as string,
-      this.siblingPath.toFields().map(fr => fr.toString()) as string[],
-    ];
   }
 
   toBuffer(): Buffer {

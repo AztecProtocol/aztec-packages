@@ -68,7 +68,7 @@ fn absorb_full_permutations<let NUM_ITEMS: u32, let MAX_PERMUTATIONS: u32>(
             for j in 0..3 {
                 sponge.state[j] += sponge.cache[j];
             }
-            sponge.state = std::hash::poseidon2_permutation(sponge.state, 4);
+            sponge.state = std::hash::poseidon2_permutation(sponge.state);
             sponge.cache[0] = input[chunk_base_index + 2];
         }
     }
@@ -274,7 +274,7 @@ mod tests {
     fn existing_sponge_poseidon_chunks_matches_fixed() {
         let in_len = 501;
         let mut input: [Field; 4096] = [0; 4096];
-        let mut fixed_input = [3; 501];
+        let fixed_input = [3; 501];
         assert(in_len == fixed_input.len()); // sanity check
         for i in 0..in_len {
             input[i] = 3;
@@ -291,7 +291,7 @@ mod tests {
     #[test]
     fn poseidon_chunks_empty_inputs() {
         let in_len = 0;
-        let mut input: [Field; 4096] = [0; 4096];
+        let input: [Field; 4096] = [0; 4096];
         let mut constructed_empty_sponge = poseidon2_absorb_in_chunks(input, in_len);
         let mut first_sponge =
             poseidon2_absorb_in_chunks_existing_sponge(constructed_empty_sponge, input, in_len);

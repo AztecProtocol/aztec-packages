@@ -14,7 +14,7 @@ pub fn validate_previous_rollups<let NumPreviousRollups: u32, let NumVkIndices: 
     previous_rollups: [RollupHonkProofData<TxRollupPublicInputs>; NumPreviousRollups],
     allowed_previous_vk_indices: [u32; NumVkIndices],
 ) {
-    if !dep::std::runtime::is_unconstrained() {
+    if !::std::runtime::is_unconstrained() {
         for i in 0..NumPreviousRollups {
             previous_rollups[i].verify_proof();
         }
@@ -67,9 +67,14 @@ pub fn validate_l1_to_l2_tree_snapshot_in_constants(
     );
 }
 
-/// Verify the parity root proof and vk, and check that its vk tree root equals the one in the rollup's constants.
-pub fn validate_parity_root(data: UltraHonkProofData<ParityPublicInputs>, vk_tree_root: Field) {
-    if !dep::std::runtime::is_unconstrained() {
+/// Verify the parity root proof and vk, and check that its vk tree root and prover_id equal the ones in the
+/// rollup's constants.
+pub fn validate_parity_root(
+    data: UltraHonkProofData<ParityPublicInputs>,
+    vk_tree_root: Field,
+    prover_id: Field,
+) {
+    if !::std::runtime::is_unconstrained() {
         data.verify_proof();
     }
 
@@ -81,6 +86,14 @@ pub fn validate_parity_root(data: UltraHonkProofData<ParityPublicInputs>, vk_tre
         data.public_inputs.vk_tree_root,
         vk_tree_root,
         "The vk tree root of the parity root does not match the rollup's vk tree root",
+    );
+
+    // Check that the `prover_id` in the public inputs matches the one in the rollup's constants, preventing sybil
+    // attacks where the same prover submits a parity root proof under different identities.
+    assert_eq(
+        data.public_inputs.prover_id,
+        prover_id,
+        "The prover id of the parity root does not match the rollup's prover id",
     );
 
     data.vk_data.validate_in_vk_tree(vk_tree_root);

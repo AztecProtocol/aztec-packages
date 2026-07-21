@@ -154,7 +154,7 @@ export class KVBrokerDatabase implements ProvingBrokerDatabase {
       const db = await openVersionedStoreAt(
         fullDirectory,
         SingleEpochDatabase.SCHEMA_VERSION,
-        config.l1Contracts.rollupAddress,
+        config.rollupAddress,
         config.dataStoreMapSizeKb,
       );
       const epochDb = new SingleEpochDatabase(db);
@@ -222,7 +222,7 @@ export class KVBrokerDatabase implements ProvingBrokerDatabase {
       const db = await openVersionedStoreAt(
         newEpochDirectory,
         SingleEpochDatabase.SCHEMA_VERSION,
-        this.config.l1Contracts.rollupAddress,
+        this.config.rollupAddress,
         this.config.dataStoreMapSizeKb,
       );
       epochDb = new SingleEpochDatabase(db);

@@ -1,5 +1,5 @@
 // === AUDIT STATUS ===
-// internal:    { status: Complete, auditors: [Sergei], commit: }
+// internal:    { status: Complete, auditors: [Sergei], commit: dd03c4a23ab067274b4964cacb36d1545f73fb14}
 // external_1:  { status: not started, auditors: [], commit: }
 // external_2:  { status: not started, auditors: [], commit: }
 // =====================
@@ -17,9 +17,10 @@ namespace bb::crypto {
 
 /**
  * @brief Implements a cryptographic sponge over prime fields.
- *        Implements the sponge specification from the Community Cryptographic Specification Project
- *        see https://github.com/C2SP/C2SP/blob/792c1254124f625d459bfe34417e8f6bdd02eb28/poseidon-sponge.md
- *        (Note: this spec was not accepted into the C2SP repo, we might want to reference something else!)
+ *        Sponge construction follows the Duplex Sponge model (https://keccak.team/files/SpongeDuplex.pdf).
+ *        Domain separation uses IV = (input_length << 64) per Section 4.2 of the Poseidon paper
+ *        (https://eprint.iacr.org/2019/458.pdf). Permutation is Poseidon2
+ *        (https://eprint.iacr.org/2023/323.pdf).
  *
  *        Note: If we ever use this sponge class for more than 1 hash functions, we should move this out of `poseidon2`
  *              and into its own directory

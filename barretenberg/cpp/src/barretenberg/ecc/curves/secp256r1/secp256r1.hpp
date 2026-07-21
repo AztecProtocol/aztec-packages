@@ -1,5 +1,5 @@
 // === AUDIT STATUS ===
-// internal:    { status: Planned, auditors: [], commit: }
+// internal:    { status: Completed, auditors: [Federico], commit: 158dd845c99f8f702979c20f1625730d126c4b20}
 // external_1:  { status: not started, auditors: [], commit: }
 // external_2:  { status: not started, auditors: [], commit: }
 // =====================
@@ -9,8 +9,18 @@
 #include "../../fields/field.hpp"
 #include "../../groups/group.hpp"
 
-namespace bb::secp256r1 {
 // NOLINTBEGIN(cppcoreguidelines-avoid-c-arrays)
+namespace bb::secp256r1 {
+
+/**
+ * @brief Parameters defining the base field of the secp256r1 curve.
+ *
+ * @details When split into 4 64-bit words, the parameters are represented in little-endian, i.e. the least significant
+ * bit comes first. For example, to recover the modulus from the 64-bit words we concatenate its limbs to obtain:
+ *           0xffffffff00000001000000000000000000000000ffffffffffffffffffffffff
+ *
+ * @note These parameters can be extracted by running the script parameter_helper.py in ecc/fields
+ */
 struct FqParams {
     static constexpr const char* schema_name = "secp256r1_fq";
 
@@ -27,51 +37,20 @@ struct FqParams {
     static constexpr uint64_t r_squared_3 = 21474836477ULL;
 
     // -(Modulus^-1) mod 2^64
-    // This is used to compute k = r_inv * lower_limb(scalar), such that scalar + k*modulus in integers would have 0 in
-    // the lowest limb By performing this sequentially for 4 limbs, we get an 8-limb representation of the scalar, where
-    // the lowest 4 limbs are zeros. Then we can immediately divide by 2^256 by simply getting rid of the lowest 4 limbs
+    // This constant is used during multiplication: given an 8-limb representation of the multiplication of two field
+    // elements, for each of the lowest four limbs we compute: k_i = r_inv * limb_i and we add 2^{64 * i} * k_i * p to
+    // the result of the multiplication. In this way we zero out the lowest four limbs of the multiplication and we can
+    // divide by 2^256 by taking the highest four limbs. See field_docs.hpp for more details.
     static constexpr uint64_t r_inv = 1;
 
     // 2^(-64) mod Modulus
-    // Used in the reduction mechanism from https://hackmd.io/@Ingonyama/Barret-Montgomery
+    // Used in the reduction mechanism, see field_docs.md
     // Instead of computing k, we multiply the lowest limb by this value and then add to the following 5 limbs.
     // This saves us from having to compute k
     static constexpr uint64_t r_inv_0 = 0x100000000UL;
     static constexpr uint64_t r_inv_1 = 0x0UL;
     static constexpr uint64_t r_inv_2 = 0xffffffff00000001UL;
     static constexpr uint64_t r_inv_3 = 0x0UL;
-
-    // 2^(-29) mod Modulus
-    // Used in the reduction mechanism from https://hackmd.io/@Ingonyama/Barret-Montgomery
-    // Instead of computing k, we multiply the lowest limb by this value and then add to the following 10 limbs.
-    // This saves us from having to compute k
-    static constexpr uint64_t r_inv_wasm_0 = 0x0;
-    static constexpr uint64_t r_inv_wasm_1 = 0x0;
-    static constexpr uint64_t r_inv_wasm_2 = 0x200;
-    static constexpr uint64_t r_inv_wasm_3 = 0x0;
-    static constexpr uint64_t r_inv_wasm_4 = 0x0;
-    static constexpr uint64_t r_inv_wasm_5 = 0x40000;
-    static constexpr uint64_t r_inv_wasm_6 = 0x1fe00000;
-    static constexpr uint64_t r_inv_wasm_7 = 0xffffff;
-    static constexpr uint64_t r_inv_wasm_8 = 0x0;
-
-    // Coset generators in Montgomery form for R=2^256 mod Modulus. Used in FFT-based proving systems, don't really need
-    // them here
-    static constexpr uint64_t coset_generators_0[8]{
-        0x3ULL, 0x4ULL, 0x5ULL, 0x6ULL, 0x7ULL, 0x8ULL, 0x9ULL, 0xaULL,
-    };
-    static constexpr uint64_t coset_generators_1[8]{
-        0xfffffffd00000000ULL, 0xfffffffc00000000ULL, 0xfffffffb00000000ULL, 0xfffffffa00000000ULL,
-        0xfffffff900000000ULL, 0xfffffff800000000ULL, 0xfffffff700000000ULL, 0xfffffff600000000ULL,
-    };
-    static constexpr uint64_t coset_generators_2[8]{
-        0xffffffffffffffffULL, 0xffffffffffffffffULL, 0xffffffffffffffffULL, 0xffffffffffffffffULL,
-        0xffffffffffffffffULL, 0xffffffffffffffffULL, 0xffffffffffffffffULL, 0xffffffffffffffffULL,
-    };
-    static constexpr uint64_t coset_generators_3[8]{
-        0x2fffffffcULL, 0x3fffffffbULL, 0x4fffffffaULL, 0x5fffffff9ULL,
-        0x6fffffff8ULL, 0x7fffffff7ULL, 0x8fffffff6ULL, 0x9fffffff5ULL,
-    };
 
     // Not used for secp256r1
     static constexpr uint64_t cube_root_0 = 0UL;
@@ -84,6 +63,13 @@ struct FqParams {
     static constexpr uint64_t primitive_root_1 = 0UL;
     static constexpr uint64_t primitive_root_2 = 0UL;
     static constexpr uint64_t primitive_root_3 = 0UL;
+
+    // Coset generators in Montgomery form for R=2^256 mod Modulus. Used in FFT-based proving systems, don't really need
+    // them here
+    static constexpr uint64_t coset_generator_0 = 0x3ULL;
+    static constexpr uint64_t coset_generator_1 = 0xfffffffd00000000ULL;
+    static constexpr uint64_t coset_generator_2 = 0xffffffffffffffffULL;
+    static constexpr uint64_t coset_generator_3 = 0x2fffffffcULL;
 
     // A little-endian representation of the modulus split into 9 29-bit limbs
     // This is used in wasm because we can only do multiplication with 64-bit result instead of 128-bit like in x86_64
@@ -104,6 +90,20 @@ struct FqParams {
     static constexpr uint64_t r_squared_wasm_2 = 0xfffffffffffffbffUL;
     static constexpr uint64_t r_squared_wasm_3 = 0x000013fffffff7ffUL;
 
+    // 2^(-29) mod Modulus
+    // Used in the reduction mechanism, see field_docs.md
+    // Instead of computing k, we multiply the lowest limb by this value and then add to the following 10 limbs.
+    // This saves us from having to compute k
+    static constexpr uint64_t r_inv_wasm_0 = 0x0;
+    static constexpr uint64_t r_inv_wasm_1 = 0x0;
+    static constexpr uint64_t r_inv_wasm_2 = 0x200;
+    static constexpr uint64_t r_inv_wasm_3 = 0x0;
+    static constexpr uint64_t r_inv_wasm_4 = 0x0;
+    static constexpr uint64_t r_inv_wasm_5 = 0x40000;
+    static constexpr uint64_t r_inv_wasm_6 = 0x1fe00000;
+    static constexpr uint64_t r_inv_wasm_7 = 0xffffff;
+    static constexpr uint64_t r_inv_wasm_8 = 0x0;
+
     // Not used for secp256r1
     static constexpr uint64_t cube_root_wasm_0 = 0x0000000000000000UL;
     static constexpr uint64_t cube_root_wasm_1 = 0x0000000000000000UL;
@@ -118,22 +118,10 @@ struct FqParams {
 
     // Coset generators in Montgomery form for R=2^261 mod Modulus. Used in FFT-based proving systems, don't really need
     // them here
-    static constexpr uint64_t coset_generators_wasm_0[8] = { 0x0000000000000060ULL, 0x0000000000000080ULL,
-                                                             0x00000000000000a0ULL, 0x00000000000000c0ULL,
-                                                             0x00000000000000e0ULL, 0x0000000000000100ULL,
-                                                             0x0000000000000120ULL, 0x0000000000000140ULL };
-    static constexpr uint64_t coset_generators_wasm_1[8] = { 0xffffffa000000000ULL, 0xffffff8000000000ULL,
-                                                             0xffffff6000000000ULL, 0xffffff4000000000ULL,
-                                                             0xffffff2000000000ULL, 0xffffff0000000000ULL,
-                                                             0xfffffee000000000ULL, 0xfffffec000000000ULL };
-    static constexpr uint64_t coset_generators_wasm_2[8] = { 0xffffffffffffffffULL, 0xffffffffffffffffULL,
-                                                             0xffffffffffffffffULL, 0xffffffffffffffffULL,
-                                                             0xffffffffffffffffULL, 0xffffffffffffffffULL,
-                                                             0xffffffffffffffffULL, 0xffffffffffffffffULL };
-    static constexpr uint64_t coset_generators_wasm_3[8] = { 0x0000005fffffff9fULL, 0x0000007fffffff7fULL,
-                                                             0x0000009fffffff5fULL, 0x000000bfffffff3fULL,
-                                                             0x000000dfffffff1fULL, 0x000000fffffffeffULL,
-                                                             0x0000011ffffffedfULL, 0x0000013ffffffebfULL };
+    static constexpr uint64_t coset_generator_wasm_0 = 0x0000000000000060ULL;
+    static constexpr uint64_t coset_generator_wasm_1 = 0xffffffa000000000ULL;
+    static constexpr uint64_t coset_generator_wasm_2 = 0xffffffffffffffffULL;
+    static constexpr uint64_t coset_generator_wasm_3 = 0x0000005fffffff9fULL;
 
     // For consistency with bb::fq, if we ever represent an element of bb::secp256r1::fq in the public inputs, we do so
     // as a bigfield element, so with 4 public inputs
@@ -141,6 +129,15 @@ struct FqParams {
 };
 using fq = field<FqParams>;
 
+/**
+ * @brief Parameters defining the scalar field of the secp256r1 curve.
+ *
+ * @details When split into 4 64-bit words, the parameters are represented in little-endian, i.e. the least significant
+ * bit comes first. For example, to recover the modulus from the 64-bit words we concatenate its limbs to obtain:
+ *           0xffffffff00000000ffffffffffffffffbce6faada7179e84f3b9cac2fc632551
+ *
+ * @note These parameters can be extracted by running the script parameter_helper.py in ecc/fields
+ */
 struct FrParams {
     static constexpr const char* schema_name = "secp256r1_fr";
 
@@ -163,45 +160,13 @@ struct FrParams {
     static constexpr uint64_t r_inv = 14758798090332847183ULL;
 
     // 2^(-64) mod Modulus
-    // Used in the reduction mechanism from https://hackmd.io/@Ingonyama/Barret-Montgomery
+    // Used in the reduction mechanism, see field_docs.md
     // Instead of computing k, we multiply the lowest limb by this value and then add to the following 5 limbs.
     // This saves us from having to compute k
     static constexpr uint64_t r_inv_0 = 0x230102a06d6251dcUL;
     static constexpr uint64_t r_inv_1 = 0xca5113bcafc4ea28UL;
     static constexpr uint64_t r_inv_2 = 0xded10c5bee00bc4eUL;
     static constexpr uint64_t r_inv_3 = 0xccd1c8aa212ef3a4UL;
-
-    // 2^(-29) mod Modulus
-    // Used in the reduction mechanism from https://hackmd.io/@Ingonyama/Barret-Montgomery
-    // Instead of computing k, we multiply the lowest limb by this value and then add to the following 5 limbs.
-    // This saves us from having to compute k
-    static constexpr uint64_t r_inv_wasm_0 = 0x8517c79;
-    static constexpr uint64_t r_inv_wasm_1 = 0x1edc694;
-    static constexpr uint64_t r_inv_wasm_2 = 0x459ee5c;
-    static constexpr uint64_t r_inv_wasm_3 = 0x705a6a8;
-    static constexpr uint64_t r_inv_wasm_4 = 0x1ffffe2a;
-    static constexpr uint64_t r_inv_wasm_5 = 0x113bffff;
-    static constexpr uint64_t r_inv_wasm_6 = 0x1621c017;
-    static constexpr uint64_t r_inv_wasm_7 = 0xef1ff43;
-    static constexpr uint64_t r_inv_wasm_8 = 0x7005e2;
-
-    // Coset generators in Montgomery form for R=2^256 mod Modulus. Used in FFT-based proving systems, don't really need
-    // them here
-    static constexpr uint64_t coset_generators_0[8]{
-        0x55eb74ab1949fac9ULL, 0x6231a9e81ce6d578ULL, 0x6e77df252083b027ULL, 0x7abe146224208ad6ULL,
-        0x8704499f27bd6585ULL, 0x934a7edc2b5a4034ULL, 0x9f90b4192ef71ae3ULL, 0xabd6e9563293f592ULL,
-    };
-    static constexpr uint64_t coset_generators_1[8]{
-        0xd5af25406e5aaa5dULL, 0x18c82a92c7430bd8ULL, 0x5be12fe5202b6d53ULL, 0x9efa35377913ceceULL,
-        0xe2133a89d1fc3049ULL, 0x252c3fdc2ae491c4ULL, 0x6845452e83ccf33fULL, 0xab5e4a80dcb554baULL,
-    };
-    static constexpr uint64_t coset_generators_2[8]{
-        0x1ULL, 0x2ULL, 0x2ULL, 0x2ULL, 0x2ULL, 0x3ULL, 0x3ULL, 0x3ULL,
-    };
-    static constexpr uint64_t coset_generators_3[8]{
-        0x6fffffff9ULL, 0x7fffffff8ULL, 0x8fffffff7ULL, 0x9fffffff6ULL,
-        0xafffffff5ULL, 0xbfffffff4ULL, 0xcfffffff3ULL, 0xdfffffff2ULL,
-    };
 
     // Not used for secp256r1
     static constexpr uint64_t cube_root_0 = 0UL;
@@ -214,6 +179,13 @@ struct FrParams {
     static constexpr uint64_t primitive_root_1 = 0UL;
     static constexpr uint64_t primitive_root_2 = 0UL;
     static constexpr uint64_t primitive_root_3 = 0UL;
+
+    // Coset generator in Montgomery form for R=2^256 mod Modulus. Used in FFT-based proving systems, don't really need
+    // them here
+    static constexpr uint64_t coset_generator_0 = 0x55eb74ab1949fac9ULL;
+    static constexpr uint64_t coset_generator_1 = 0xd5af25406e5aaa5dULL;
+    static constexpr uint64_t coset_generator_2 = 0x1ULL;
+    static constexpr uint64_t coset_generator_3 = 0x6fffffff9ULL;
 
     // A little-endian representation of the modulus split into 9 29-bit limbs
     // This is used in wasm because we can only do multiplication with 64-bit result instead of 128-bit like in x86_64
@@ -234,6 +206,20 @@ struct FrParams {
     static constexpr uint64_t r_squared_wasm_2 = 0x16c8e4adafb16586UL;
     static constexpr uint64_t r_squared_wasm_3 = 0x84b6556a65587f06UL;
 
+    // 2^(-29) mod Modulus
+    // Used in the reduction mechanism, see field_docs.md
+    // Instead of computing k, we multiply the lowest limb by this value and then add to the following 5 limbs.
+    // This saves us from having to compute k
+    static constexpr uint64_t r_inv_wasm_0 = 0x8517c79;
+    static constexpr uint64_t r_inv_wasm_1 = 0x1edc694;
+    static constexpr uint64_t r_inv_wasm_2 = 0x459ee5c;
+    static constexpr uint64_t r_inv_wasm_3 = 0x705a6a8;
+    static constexpr uint64_t r_inv_wasm_4 = 0x1ffffe2a;
+    static constexpr uint64_t r_inv_wasm_5 = 0x113bffff;
+    static constexpr uint64_t r_inv_wasm_6 = 0x1621c017;
+    static constexpr uint64_t r_inv_wasm_7 = 0xef1ff43;
+    static constexpr uint64_t r_inv_wasm_8 = 0x7005e2;
+
     // Not used for secp256r1
     static constexpr uint64_t cube_root_wasm_0 = 0x0000000000000000UL;
     static constexpr uint64_t cube_root_wasm_1 = 0x0000000000000000UL;
@@ -248,22 +234,10 @@ struct FrParams {
 
     // Coset generators in Montgomery form for R=2^261 mod Modulus. Used in FFT-based proving systems, don't really need
     // them here
-    static constexpr uint64_t coset_generators_wasm_0[8] = { 0xbd6e9563293f5920ULL, 0x46353d039cdaaf00ULL,
-                                                             0xcefbe4a4107604e0ULL, 0x57c28c4484115ac0ULL,
-                                                             0xe08933e4f7acb0a0ULL, 0x694fdb856b480680ULL,
-                                                             0xf2168325dee35c60ULL, 0x7add2ac6527eb240ULL };
-    static constexpr uint64_t coset_generators_wasm_1[8] = { 0xb5e4a80dcb554baaULL, 0x19055258e8617b0cULL,
-                                                             0x7c25fca4056daa6dULL, 0xdf46a6ef2279d9cfULL,
-                                                             0x4267513a3f860930ULL, 0xa587fb855c923892ULL,
-                                                             0x08a8a5d0799e67f3ULL, 0x6bc9501b96aa9755ULL };
-    static constexpr uint64_t coset_generators_wasm_2[8] = { 0x000000000000003aULL, 0x0000000000000043ULL,
-                                                             0x000000000000004bULL, 0x0000000000000053ULL,
-                                                             0x000000000000005cULL, 0x0000000000000064ULL,
-                                                             0x000000000000006dULL, 0x0000000000000075ULL };
-    static constexpr uint64_t coset_generators_wasm_3[8] = { 0x000000dfffffff20ULL, 0x000000ffffffff00ULL,
-                                                             0x0000011ffffffee0ULL, 0x0000013ffffffec0ULL,
-                                                             0x0000015ffffffea0ULL, 0x0000017ffffffe80ULL,
-                                                             0x0000019ffffffe60ULL, 0x000001bffffffe40ULL };
+    static constexpr uint64_t coset_generator_wasm_0 = 0xbd6e9563293f5920ULL;
+    static constexpr uint64_t coset_generator_wasm_1 = 0xb5e4a80dcb554baaULL;
+    static constexpr uint64_t coset_generator_wasm_2 = 0x000000000000003aULL;
+    static constexpr uint64_t coset_generator_wasm_3 = 0x000000dfffffff20ULL;
 
     // For consistency with bb::fq, if we ever represent an element of bb::secp256r1::fq in the public inputs, we do so
     // as a bigfield element, so with 4 public inputs
@@ -274,7 +248,6 @@ using fr = field<FrParams>;
 struct G1Params {
     static constexpr bool USE_ENDOMORPHISM = false;
     static constexpr bool can_hash_to_curve = true;
-    static constexpr bool small_elements = true;
     static constexpr bool has_a = true;
 
     static constexpr fq b =

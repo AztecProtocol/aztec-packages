@@ -1,5 +1,6 @@
 global:
-  aztecRollupVersion: "canonical"
+  aztecEnv:
+    ROLLUP_VERSION: "canonical"
   aztecNetwork: ""
   customAztecNetwork:
     enabled: false
@@ -12,14 +13,17 @@ bot:
   publicTransfersPerTx: 1
   # Do not wait for transactions
   followChain: "NONE"
+  pxeSyncChainTip: "checkpointed"
   botNoStart: false
   feePaymentMethod: "fee_juice"
-  ammTxs: false
+  botMode: "transfer"
   maxErrors: 3
   stopIfUnhealthy: true
   nodeUrl: ""
   testAccounts: false
   botPrivateKey: "0xcafe"
+  daGasLimit: ""
+  l2GasLimit: ""
 
   persistence:
     enabled: false
@@ -53,7 +57,7 @@ bot:
           ELAPSED=0
           while [ $ELAPSED -lt $TIMEOUT ]; do
             BLOCK_NUMBER=$(curl -s -X POST -H 'Content-Type: application/json' \
-              -d '{"jsonrpc":"2.0","method":"node_getBlockNumber","params":[],"id":1}' \
+              -d '{"jsonrpc":"2.0","method":"aztec_getBlockNumber","params":[],"id":1}' \
               ${AZTEC_NODE_URL} | grep -o '"result":[0-9]*' | cut -d':' -f2)
 
             if [ ! -z "$BLOCK_NUMBER" ] && [ "$BLOCK_NUMBER" -gt 0 ]; then
@@ -74,6 +78,8 @@ bot:
             name: "{{ .Release.Name }}-env"
 
   node:
+    env:
+      OTEL_SERVICE_NAME: "bot"
     configMap:
       envEnabled: true
     secret:
@@ -90,7 +96,8 @@ bot:
 
     startCmd:
       - --bot
-      - --pxe
+    readinessProbe:
+      enabled: false
 
     hostNetwork: false
 

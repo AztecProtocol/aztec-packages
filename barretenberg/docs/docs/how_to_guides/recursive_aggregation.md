@@ -151,6 +151,6 @@ You can obviously chain this proof into another proof. In fact, if you're using 
 
 You can find a non-exhaustive example of recursive aggregation in the [noir-examples](https://github.com/noir-lang/noir-examples/tree/master/recursion) repository.
 
-Keep in mind that recursive proof aggregation is very much an experimental way of using Barretenberg, and you may need to tweak or downgrade versions.
+Keep in mind that recursive proof aggregation is an advanced feature that requires careful circuit design. Check the [noir-examples](https://github.com/noir-lang/noir-examples) repo for up-to-date patterns.
 
 [Join the Noir discord](https://discord.gg/noirlang) for discussions, feedback and questions about anything regarding Noir and BB.

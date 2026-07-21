@@ -1,6 +1,6 @@
 import { Fr } from '@aztec/foundation/curves/bn254';
 import { bufferSchemaFor } from '@aztec/foundation/schemas';
-import { BufferReader, bigintToUInt64BE, serializeToBuffer } from '@aztec/foundation/serialize';
+import { BufferReader, BufferSink, serializeToSink } from '@aztec/foundation/serialize';
 
 import { AztecAddress } from '../aztec-address/index.js';
 import { Gas } from '../gas/gas.js';
@@ -60,8 +60,14 @@ export class PartialPrivateTailPublicInputsForPublic {
     );
   }
 
-  toBuffer() {
-    return serializeToBuffer(
+  toBuffer(): Buffer;
+  toBuffer(sink: BufferSink): void;
+  toBuffer(sink?: BufferSink): Buffer | void {
+    if (!sink) {
+      return BufferSink.serialize(this);
+    }
+    serializeToSink(
+      sink,
       this.nonRevertibleAccumulatedData,
       this.revertibleAccumulatedData,
       this.publicTeardownCallRequest,
@@ -89,8 +95,13 @@ export class PartialPrivateTailPublicInputsForRollup {
     return this.end.getSize();
   }
 
-  toBuffer() {
-    return serializeToBuffer(this.end);
+  toBuffer(): Buffer;
+  toBuffer(sink: BufferSink): void;
+  toBuffer(sink?: BufferSink): Buffer | void {
+    if (!sink) {
+      return BufferSink.serialize(this);
+    }
+    serializeToSink(sink, this.end);
   }
 
   static empty() {
@@ -116,7 +127,7 @@ export class PrivateKernelTailCircuitPublicInputs {
     /**
      * The timestamp by which the transaction must be included in a block.
      */
-    public includeByTimestamp: UInt64,
+    public expirationTimestamp: UInt64,
 
     public forPublic?: PartialPrivateTailPublicInputsForPublic,
     public forRollup?: PartialPrivateTailPublicInputsForRollup,
@@ -146,7 +157,7 @@ export class PrivateKernelTailCircuitPublicInputs {
       this.constants.getSize() +
       this.gasUsed.getSize() +
       this.feePayer.size +
-      8 // includeByTimestamp
+      8 // expirationTimestamp
     );
   }
 
@@ -161,7 +172,7 @@ export class PrivateKernelTailCircuitPublicInputs {
       this.forPublic.publicTeardownCallRequest,
       this.gasUsed,
       this.feePayer,
-      this.includeByTimestamp,
+      this.expirationTimestamp,
     );
   }
 
@@ -180,7 +191,7 @@ export class PrivateKernelTailCircuitPublicInputs {
       this.forRollup.end,
       this.gasUsed,
       this.feePayer,
-      this.includeByTimestamp,
+      this.expirationTimestamp,
     );
   }
 
@@ -232,6 +243,15 @@ export class PrivateKernelTailCircuitPublicInputs {
         )
       : this.forRollup!.end.noteHashes;
     return noteHashes.filter(n => !n.isZero());
+  }
+
+  getNonEmptyL2ToL1Msgs() {
+    const l2ToL1Msgs = this.forPublic
+      ? this.forPublic.nonRevertibleAccumulatedData.l2ToL1Msgs.concat(
+          this.forPublic.revertibleAccumulatedData.l2ToL1Msgs,
+        )
+      : this.forRollup!.end.l2ToL1Msgs;
+    return l2ToL1Msgs.filter(m => !m.isEmpty());
   }
 
   getNonEmptyNullifiers() {
@@ -291,16 +311,20 @@ export class PrivateKernelTailCircuitPublicInputs {
     );
   }
 
-  toBuffer() {
+  toBuffer(): Buffer;
+  toBuffer(sink: BufferSink): void;
+  toBuffer(sink?: BufferSink): Buffer | void {
+    if (!sink) {
+      return BufferSink.serialize(this);
+    }
     const isForPublic = !!this.forPublic;
-    return serializeToBuffer(
-      isForPublic,
-      this.constants,
-      this.gasUsed,
-      this.feePayer,
-      bigintToUInt64BE(this.includeByTimestamp),
-      isForPublic ? this.forPublic!.toBuffer() : this.forRollup!.toBuffer(),
-    );
+    serializeToSink(sink, isForPublic, this.constants, this.gasUsed, this.feePayer);
+    sink.writeUInt64(this.expirationTimestamp);
+    if (isForPublic) {
+      this.forPublic!.toBuffer(sink);
+    } else {
+      this.forRollup!.toBuffer(sink);
+    }
   }
 
   static empty() {

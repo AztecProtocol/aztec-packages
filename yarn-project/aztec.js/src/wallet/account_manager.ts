@@ -1,4 +1,5 @@
 import { Fr } from '@aztec/foundation/curves/bn254';
+import type { AztecAddress } from '@aztec/stdlib/aztec-address';
 import {
   CompleteAddress,
   type ContractInstanceWithAddress,
@@ -7,11 +8,25 @@ import {
 import { deriveKeys } from '@aztec/stdlib/keys';
 
 import type { AccountContract } from '../account/account_contract.js';
-import { AccountWithSecretKey } from '../account/account_with_secret_key.js';
-import type { Salt } from '../account/index.js';
+import type { Account, Salt } from '../account/index.js';
 import { Contract } from '../contract/contract.js';
 import { DeployAccountMethod } from './deploy_account_method.js';
 import type { Wallet } from './wallet.js';
+
+/**
+ * Optional overrides passed to {@link AccountManager.create}.
+ */
+export interface AccountManagerCreateOptions {
+  /** Contract instantiation salt. Defaults to a random `Fr`. */
+  salt?: Salt;
+  /**
+   * Commitment to the contract's immutable storage values. Folded into the salted initialization
+   * hash, so a non-zero value affects the derived address. Defaults to `Fr.ZERO`.
+   */
+  immutablesHash?: Fr;
+  /** Address recorded as the instance deployer. Defaults to `AztecAddress.ZERO`. */
+  deployer?: AztecAddress;
+}
 
 /**
  * Manages a user account. Provides methods for calculating the account's address and other related data,
@@ -23,15 +38,16 @@ export class AccountManager {
     private secretKey: Fr,
     private accountContract: AccountContract,
     private instance: ContractInstanceWithAddress,
-    /**
-     * Contract instantiation salt for the account contract
-     */
-    public readonly salt: Salt,
   ) {}
 
-  static async create(wallet: Wallet, secretKey: Fr, accountContract: AccountContract, salt?: Salt) {
+  static async create(
+    wallet: Wallet,
+    secretKey: Fr,
+    accountContract: AccountContract,
+    opts?: AccountManagerCreateOptions,
+  ) {
     const { publicKeys } = await deriveKeys(secretKey);
-    salt = salt !== undefined ? new Fr(salt) : Fr.random();
+    const salt = opts?.salt !== undefined ? new Fr(opts.salt) : Fr.random();
 
     const { constructorName, constructorArgs } = (await accountContract.getInitializationFunctionAndArgs()) ?? {
       constructorName: undefined,
@@ -42,11 +58,13 @@ export class AccountManager {
     const instance = await getContractInstanceFromInstantiationParams(artifact, {
       constructorArtifact: constructorName,
       constructorArgs,
-      salt: salt,
+      salt,
       publicKeys,
+      deployer: opts?.deployer,
+      immutablesHash: opts?.immutablesHash ?? (await accountContract.getImmutablesHash()),
     });
 
-    return new AccountManager(wallet, secretKey, accountContract, instance, salt);
+    return new AccountManager(wallet, secretKey, accountContract, instance);
   }
 
   protected getPublicKeys() {
@@ -87,14 +105,12 @@ export class AccountManager {
   }
 
   /**
-   * Returns a Wallet instance associated with this account. Use it to create Contract
-   * instances to be interacted with from this account.
-   * @returns A Wallet instance.
+   * Returns the account (the transaction signer) backed by this account contract. Use it to build and authorize
+   * transactions from this account.
    */
-  public async getAccount(): Promise<AccountWithSecretKey> {
+  public async getAccount(): Promise<Account> {
     const completeAddress = await this.getCompleteAddress();
-    const account = this.accountContract.getAccount(completeAddress);
-    return new AccountWithSecretKey(account, this.secretKey, this.salt);
+    return this.accountContract.getAccount(completeAddress);
   }
 
   /**
@@ -130,7 +146,8 @@ export class AccountManager {
       this.wallet,
       artifact,
       instance => Contract.at(instance.address, artifact, this.wallet),
-      new Fr(this.salt),
+      this.instance.salt,
+      this.instance.immutablesHash,
       account,
       constructorArgs,
       constructorName,

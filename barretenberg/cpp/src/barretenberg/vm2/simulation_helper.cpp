@@ -34,10 +34,10 @@
 #include "barretenberg/vm2/simulation/events/execution_event.hpp"
 #include "barretenberg/vm2/simulation/events/field_gt_event.hpp"
 #include "barretenberg/vm2/simulation/events/get_contract_instance_event.hpp"
+#include "barretenberg/vm2/simulation/events/indexed_tree_check_event.hpp"
 #include "barretenberg/vm2/simulation/events/keccakf1600_event.hpp"
 #include "barretenberg/vm2/simulation/events/memory_event.hpp"
 #include "barretenberg/vm2/simulation/events/merkle_check_event.hpp"
-#include "barretenberg/vm2/simulation/events/nullifier_tree_check_event.hpp"
 #include "barretenberg/vm2/simulation/events/public_data_tree_check_event.hpp"
 #include "barretenberg/vm2/simulation/events/range_check_event.hpp"
 #include "barretenberg/vm2/simulation/events/sha256_event.hpp"
@@ -46,6 +46,7 @@
 #include "barretenberg/vm2/simulation/events/update_check.hpp"
 
 // Gadgets.
+#include "barretenberg/aztec/aztec_constants.hpp"
 #include "barretenberg/vm2/simulation/gadgets/addressing.hpp"
 #include "barretenberg/vm2/simulation/gadgets/alu.hpp"
 #include "barretenberg/vm2/simulation/gadgets/bitwise.hpp"
@@ -56,7 +57,7 @@
 #include "barretenberg/vm2/simulation/gadgets/contract_instance_manager.hpp"
 #include "barretenberg/vm2/simulation/gadgets/data_copy.hpp"
 #include "barretenberg/vm2/simulation/gadgets/ecc.hpp"
-#include "barretenberg/vm2/simulation/gadgets/emit_unencrypted_log.hpp"
+#include "barretenberg/vm2/simulation/gadgets/emit_public_log.hpp"
 #include "barretenberg/vm2/simulation/gadgets/execution.hpp"
 #include "barretenberg/vm2/simulation/gadgets/execution_components.hpp"
 #include "barretenberg/vm2/simulation/gadgets/field_gt.hpp"
@@ -163,18 +164,16 @@ std::tuple<EventsContainer, TxSimulationResult> AvmSimulationHelper::simulate_fo
     DefaultEventEmitter<ContextStackEvent> context_stack_emitter;
     DefaultEventEmitter<PublicDataTreeCheckEvent> public_data_tree_check_emitter;
     DefaultEventEmitter<UpdateCheckEvent> update_check_emitter;
-    DefaultEventEmitter<NullifierTreeCheckEvent> nullifier_tree_check_emitter;
+    DefaultEventEmitter<IndexedTreeCheckEvent> indexed_tree_check_emitter;
     DefaultEventEmitter<TxEvent> tx_event_emitter;
     DefaultEventEmitter<CalldataEvent> calldata_emitter;
     DefaultEventEmitter<InternalCallStackEvent> internal_call_stack_emitter;
     DefaultEventEmitter<NoteHashTreeCheckEvent> note_hash_tree_check_emitter;
-    DefaultEventEmitter<WrittenPublicDataSlotsTreeCheckEvent> written_public_data_slots_tree_check_emitter;
     DefaultDeduplicatingEventEmitter<GreaterThanEvent> greater_than_emitter;
     DefaultEventEmitter<ContractInstanceRetrievalEvent> contract_instance_retrieval_emitter;
     DefaultEventEmitter<GetContractInstanceEvent> get_contract_instance_emitter;
     DefaultEventEmitter<L1ToL2MessageTreeCheckEvent> l1_to_l2_msg_tree_check_emitter;
-    DefaultEventEmitter<EmitUnencryptedLogEvent> emit_unencrypted_log_emitter;
-    DefaultEventEmitter<RetrievedBytecodesTreeCheckEvent> retrieved_bytecodes_tree_check_emitter;
+    DefaultEventEmitter<EmitPublicLogEvent> emit_public_log_emitter;
 
     ExecutionIdManager execution_id_manager(1);
     RangeCheck range_check(range_check_emitter);
@@ -184,16 +183,20 @@ std::tuple<EventsContainer, TxSimulationResult> AvmSimulationHelper::simulate_fo
     Poseidon2 poseidon2(
         execution_id_manager, greater_than, poseidon2_hash_emitter, poseidon2_perm_emitter, poseidon2_perm_mem_emitter);
     MerkleCheck merkle_check(poseidon2, merkle_check_emitter);
+
     PublicDataTreeCheck public_data_tree_check(
         poseidon2, merkle_check, field_gt, execution_id_manager, public_data_tree_check_emitter);
-    WrittenPublicDataSlotsTreeCheck written_public_data_slots_tree_check(poseidon2,
-                                                                         merkle_check,
-                                                                         field_gt,
-                                                                         build_public_data_slots_tree(),
-                                                                         written_public_data_slots_tree_check_emitter);
-    RetrievedBytecodesTreeCheck retrieved_bytecodes_tree_check(
-        poseidon2, merkle_check, field_gt, build_retrieved_bytecodes_tree(), retrieved_bytecodes_tree_check_emitter);
-    NullifierTreeCheck nullifier_tree_check(poseidon2, merkle_check, field_gt, nullifier_tree_check_emitter);
+    IndexedTreeCheck indexed_tree_check(
+        poseidon2, merkle_check, field_gt, DOM_SEP__NULLIFIER_MERKLE, indexed_tree_check_emitter);
+    IndexedTreeCheck indexed_tree_check_written_slots(
+        poseidon2, merkle_check, field_gt, DOM_SEP__WRITTEN_SLOTS_MERKLE, indexed_tree_check_emitter);
+    IndexedTreeCheck indexed_tree_check_retrieved_bytecodes(
+        poseidon2, merkle_check, field_gt, DOM_SEP__RETRIEVED_BYTECODES_MERKLE, indexed_tree_check_emitter);
+
+    WrittenPublicDataSlotsTreeCheck written_public_data_slots_tree_check(indexed_tree_check_written_slots,
+                                                                         build_public_data_slots_tree());
+    RetrievedBytecodesTreeCheck retrieved_bytecodes_tree_check(indexed_tree_check_retrieved_bytecodes,
+                                                               build_retrieved_bytecodes_tree());
 
     // The protocol requires at least one non-revertible nullifier in the transaction (used for uniqueness of note
     // hashes).
@@ -204,10 +207,10 @@ std::tuple<EventsContainer, TxSimulationResult> AvmSimulationHelper::simulate_fo
     NoteHashTreeCheck note_hash_tree_check(
         tx.non_revertible_accumulated_data.nullifiers[0], poseidon2, merkle_check, note_hash_tree_check_emitter);
     L1ToL2MessageTreeCheck l1_to_l2_msg_tree_check(merkle_check, l1_to_l2_msg_tree_check_emitter);
-    EmitUnencryptedLog emit_unencrypted_log_component(execution_id_manager, greater_than, emit_unencrypted_log_emitter);
+    EmitPublicLog emit_public_log_component(execution_id_manager, greater_than, emit_public_log_emitter);
     Alu alu(greater_than, field_gt, range_check, alu_emitter);
     Bitwise bitwise(bitwise_emitter);
-    Sha256 sha256(execution_id_manager, bitwise, greater_than, sha256_compression_emitter);
+    Sha256 sha256(execution_id_manager, bitwise, greater_than, range_check, sha256_compression_emitter);
     KeccakF1600 keccakf1600(execution_id_manager, keccakf1600_emitter, bitwise, range_check, greater_than);
 
     Ecc ecc(execution_id_manager, greater_than, to_radix, ecc_add_emitter, scalar_mul_emitter, ecc_add_memory_emitter);
@@ -218,15 +221,15 @@ std::tuple<EventsContainer, TxSimulationResult> AvmSimulationHelper::simulate_fo
 
     MerkleDB base_merkle_db(raw_merkle_db,
                             public_data_tree_check,
-                            nullifier_tree_check,
+                            indexed_tree_check,
                             note_hash_tree_check,
                             written_public_data_slots_tree_check,
                             l1_to_l2_msg_tree_check);
     base_merkle_db.add_checkpoint_listener(note_hash_tree_check);
-    base_merkle_db.add_checkpoint_listener(nullifier_tree_check);
+    base_merkle_db.add_checkpoint_listener(indexed_tree_check);
     base_merkle_db.add_checkpoint_listener(public_data_tree_check);
     // This one is only needed for events.
-    base_merkle_db.add_checkpoint_listener(emit_unencrypted_log_component);
+    base_merkle_db.add_checkpoint_listener(emit_public_log_component);
 
     // Side effect tracking is only strictly needed for logs and L2-to-L1 messages.
     SideEffectTracker side_effect_tracker;
@@ -294,7 +297,7 @@ std::tuple<EventsContainer, TxSimulationResult> AvmSimulationHelper::simulate_fo
                         keccakf1600,
                         greater_than,
                         get_contract_instance,
-                        emit_unencrypted_log_component,
+                        emit_public_log_component,
                         debug_log_component,
                         merkle_db,
                         *call_stack_metadata_collector);
@@ -356,17 +359,15 @@ std::tuple<EventsContainer, TxSimulationResult> AvmSimulationHelper::simulate_fo
         context_stack_emitter.dump_events(),
         public_data_tree_check_emitter.dump_events(),
         update_check_emitter.dump_events(),
-        nullifier_tree_check_emitter.dump_events(),
+        indexed_tree_check_emitter.dump_events(),
         data_copy_emitter.dump_events(),
         calldata_emitter.dump_events(),
         internal_call_stack_emitter.dump_events(),
         note_hash_tree_check_emitter.dump_events(),
-        written_public_data_slots_tree_check_emitter.dump_events(),
         contract_instance_retrieval_emitter.dump_events(),
         get_contract_instance_emitter.dump_events(),
         l1_to_l2_msg_tree_check_emitter.dump_events(),
-        emit_unencrypted_log_emitter.dump_events(),
-        retrieved_bytecodes_tree_check_emitter.dump_events(),
+        emit_public_log_emitter.dump_events(),
     };
 
     TxSimulationResult tx_simulation_result = {
@@ -406,9 +407,9 @@ TxSimulationResult AvmSimulationHelper::simulate_fast_internal(ContractDBInterfa
     NoopEventEmitter<InternalCallStackEvent> internal_call_stack_emitter;
     NoopEventEmitter<ContractInstanceRetrievalEvent> contract_instance_retrieval_emitter;
     NoopEventEmitter<GetContractInstanceEvent> get_contract_instance_emitter;
-    NoopEventEmitter<EmitUnencryptedLogEvent> emit_unencrypted_log_emitter;
-    NoopEventEmitter<RetrievedBytecodesTreeCheckEvent> retrieved_bytecodes_tree_check_emitter;
+    NoopEventEmitter<EmitPublicLogEvent> emit_public_log_emitter;
     NoopEventEmitter<UpdateCheckEvent> update_check_emitter;
+    NoopEventEmitter<IndexedTreeCheckEvent> indexed_tree_check_emitter;
 
     ExecutionIdManager execution_id_manager(1);
     RangeCheck range_check(range_check_emitter);
@@ -418,9 +419,11 @@ TxSimulationResult AvmSimulationHelper::simulate_fast_internal(ContractDBInterfa
     PurePoseidon2 poseidon2;
     MerkleCheck merkle_check(poseidon2, merkle_check_emitter);
     PureWrittenPublicDataSlotsTreeCheck written_public_data_slots_tree_check(poseidon2);
-    RetrievedBytecodesTreeCheck retrieved_bytecodes_tree_check(
-        poseidon2, merkle_check, field_gt, build_retrieved_bytecodes_tree(), retrieved_bytecodes_tree_check_emitter);
-    EmitUnencryptedLog emit_unencrypted_log_component(execution_id_manager, greater_than, emit_unencrypted_log_emitter);
+    IndexedTreeCheck indexed_tree_check_retrieved_bytecodes(
+        poseidon2, merkle_check, field_gt, DOM_SEP__RETRIEVED_BYTECODES_MERKLE, indexed_tree_check_emitter);
+    RetrievedBytecodesTreeCheck retrieved_bytecodes_tree_check(indexed_tree_check_retrieved_bytecodes,
+                                                               build_retrieved_bytecodes_tree());
+    EmitPublicLog emit_public_log_component(execution_id_manager, greater_than, emit_public_log_emitter);
     PureAlu alu;
     PureBitwise bitwise;
     PureSha256 sha256;
@@ -503,7 +506,7 @@ TxSimulationResult AvmSimulationHelper::simulate_fast_internal(ContractDBInterfa
                               keccakf1600,
                               greater_than,
                               get_contract_instance,
-                              emit_unencrypted_log_component,
+                              emit_public_log_component,
                               *debug_log_component,
                               merkle_db,
                               *call_stack_metadata_collector,
@@ -573,21 +576,17 @@ TxSimulationResult AvmSimulationHelper::simulate_fast_with_existing_ws(
         raw_contract_db, raw_merkle_db, config, tx, global_variables, protocol_contracts, cancellation_token);
 }
 
-TxSimulationResult AvmSimulationHelper::simulate_for_hint_collection(
+TxSimulationResult AvmSimulationHelper::simulate_for_hint_collection_internal(
     simulation::ContractDBInterface& raw_contract_db,
-    const world_state::WorldStateRevision& world_state_revision,
-    world_state::WorldState& ws,
+    simulation::LowLevelMerkleDBInterface& raw_merkle_db,
     const PublicSimulatorConfig& config,
     const Tx& tx,
     const GlobalVariables& global_variables,
     const ProtocolContracts& protocol_contracts,
     CancellationTokenPtr cancellation_token)
 {
-    // If you are not collecting hints, don't use this method.
-    BB_ASSERT(config.collect_hints && "Use simulate_fast_with_existing_ws instead");
-
-    // Create PureRawMerkleDB with the provided WorldState instance and cancellation token
-    PureRawMerkleDB raw_merkle_db(world_state_revision, ws, /*cache_tree_roots=*/true, cancellation_token);
+    (void)cancellation_token; // Not yet used in this path.
+    BB_ASSERT(config.collect_hints && "Use simulate_fast_internal instead");
 
     auto starting_tree_roots = raw_merkle_db.get_tree_roots();
     HintingContractsDB hinting_contract_db(raw_contract_db);
@@ -606,9 +605,27 @@ TxSimulationResult AvmSimulationHelper::simulate_for_hint_collection(
 
     tx_result.hints = std::move(collected_hints);
 
-    // Need to std::move to avoid copying (due to structured bindings).
-    // This was fixed in C++23 via http://wg21.link/P2266R3.
     return std::move(tx_result);
+}
+
+TxSimulationResult AvmSimulationHelper::simulate_for_hint_collection(
+    simulation::ContractDBInterface& raw_contract_db,
+    const world_state::WorldStateRevision& world_state_revision,
+    world_state::WorldState& ws,
+    const PublicSimulatorConfig& config,
+    const Tx& tx,
+    const GlobalVariables& global_variables,
+    const ProtocolContracts& protocol_contracts,
+    CancellationTokenPtr cancellation_token)
+{
+    // If you are not collecting hints, don't use this method.
+    BB_ASSERT(config.collect_hints && "Use simulate_fast_with_existing_ws instead");
+
+    // Create PureRawMerkleDB with the provided WorldState instance and cancellation token
+    PureRawMerkleDB raw_merkle_db(world_state_revision, ws, /*cache_tree_roots=*/true, cancellation_token);
+
+    return simulate_for_hint_collection_internal(
+        raw_contract_db, raw_merkle_db, config, tx, global_variables, protocol_contracts, cancellation_token);
 }
 
 EventsContainer AvmSimulationHelper::simulate_for_witgen(const ExecutionHints& hints)

@@ -15,9 +15,9 @@ export const ContractInstanceRegistryArtifact = loadContractArtifact(
 let protocolContract: ProtocolContract;
 
 /** Returns the canonical deployment of the contract. */
-export async function getCanonicalInstanceRegistry(): Promise<ProtocolContract> {
+export function getCanonicalInstanceRegistry(): Promise<ProtocolContract> {
   if (!protocolContract) {
-    protocolContract = await makeProtocolContract('ContractInstanceRegistry', ContractInstanceRegistryArtifact);
+    protocolContract = makeProtocolContract('ContractInstanceRegistry', ContractInstanceRegistryArtifact);
   }
-  return protocolContract;
+  return Promise.resolve(protocolContract);
 }

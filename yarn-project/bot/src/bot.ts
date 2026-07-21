@@ -4,8 +4,9 @@ import { TxHash } from '@aztec/aztec.js/tx';
 import { times } from '@aztec/foundation/collection';
 import type { PrivateTokenContract } from '@aztec/noir-contracts.js/PrivateToken';
 import type { TokenContract } from '@aztec/noir-contracts.js/Token';
+import type { BlockTag } from '@aztec/stdlib/block';
 import type { AztecNode, AztecNodeAdmin } from '@aztec/stdlib/interfaces/client';
-import type { TestWallet } from '@aztec/test-wallet/server';
+import type { EmbeddedWallet } from '@aztec/wallets/embedded';
 
 import { BaseBot } from './base_bot.js';
 import type { BotConfig } from './config.js';
@@ -18,7 +19,7 @@ const TRANSFER_AMOUNT = 1;
 export class Bot extends BaseBot {
   protected constructor(
     node: AztecNode,
-    wallet: TestWallet,
+    wallet: EmbeddedWallet,
     defaultAccountAddress: AztecAddress,
     public readonly token: TokenContract | PrivateTokenContract,
     public readonly recipient: AztecAddress,
@@ -29,10 +30,11 @@ export class Bot extends BaseBot {
 
   static async create(
     config: BotConfig,
-    wallet: TestWallet,
+    wallet: EmbeddedWallet,
     aztecNode: AztecNode,
     aztecNodeAdmin: AztecNodeAdmin | undefined,
     store: BotStore,
+    syncChainTip?: BlockTag,
   ): Promise<Bot> {
     const { defaultAccountAddress, token, recipient } = await new BotFactory(
       config,
@@ -40,6 +42,7 @@ export class Bot extends BaseBot {
       store,
       aztecNode,
       aztecNodeAdmin,
+      syncChainTip,
     ).setup();
     return new Bot(aztecNode, wallet, defaultAccountAddress, token, recipient, config);
   }
@@ -70,20 +73,18 @@ export class Bot extends BaseBot {
         );
 
     const batch = new BatchCall(wallet, calls);
-    const opts = await this.getSendMethodOpts(batch);
-
-    this.log.verbose(`Simulating transaction with ${calls.length}`, logCtx);
-    await batch.simulate({ from: this.defaultAccountAddress });
+    const opts = this.getSendMethodOpts();
 
     this.log.verbose(`Sending transaction`, logCtx);
-    return batch.send({ ...opts, wait: NO_WAIT });
+    const { txHash } = await batch.send({ ...opts, wait: NO_WAIT });
+    return txHash;
   }
 
   public async getBalances() {
     if (isStandardTokenContract(this.token)) {
       return {
         sender: await getBalances(this.token, this.defaultAccountAddress),
-        recipient: await getBalances(this.token, this.recipient, this.defaultAccountAddress),
+        recipient: await getBalances(this.token, this.recipient),
       };
     } else {
       return {
@@ -92,7 +93,7 @@ export class Bot extends BaseBot {
           publicBalance: 0n,
         },
         recipient: {
-          privateBalance: await getPrivateBalance(this.token, this.recipient, this.defaultAccountAddress),
+          privateBalance: await getPrivateBalance(this.token, this.recipient),
           publicBalance: 0n,
         },
       };

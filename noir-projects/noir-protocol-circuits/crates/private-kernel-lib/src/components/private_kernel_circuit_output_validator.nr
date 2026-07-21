@@ -3,9 +3,9 @@ use crate::{
         assert_array_appended, assert_array_appended_and_scoped, assert_array_appended_reversed,
         assert_array_prepended, assert_array_prepended_up_to_some_length,
     },
-    components::private_kernel_circuit_output_composer::get_include_by_timestamp_for_contract_updates::get_include_by_timestamp_for_contract_updates,
+    components::private_kernel_circuit_output_composer::get_expiration_timestamp_for_contract_updates::get_expiration_timestamp_for_contract_updates,
 };
-use dep::types::{
+use types::{
     abis::{
         kernel_circuit_public_inputs::PrivateKernelCircuitPublicInputs,
         private_kernel::private_call_data::PrivateCallData,
@@ -21,7 +21,7 @@ use dep::types::{
 /// - Initial values are correctly set (constants, tx_context, protocol contracts)
 /// - Arrays from previous kernel are correctly prepended to output arrays
 /// - Arrays from the private call are correctly appended and scoped to the calling contract
-/// - Aggregated values (fee_payer, min_revertible_counter, include_by_timestamp) are correct
+/// - Aggregated values (fee_payer, min_revertible_counter, expiration_timestamp) are correct
 ///
 /// See the README.md in this directory for more details on the composer/validator pattern.
 
@@ -70,23 +70,23 @@ impl PrivateKernelCircuitOutputValidator {
             "incorrect output min_revertible_side_effect_counter",
         );
 
-        // `include_by_timestamp` - The timestamp at which the transaction expires.
+        // `expiration_timestamp` - The timestamp at which the transaction expires.
         // This value can only decrease with each iteration. Here we take the minimum of:
         // - The value from the previous kernel iteration
-        // - The value set by the private call (via `context.set_include_by_timestamp()`)
+        // - The value set by the private call (via `context.set_expiration_timestamp()`)
         // - The timestamp before which our earlier read of the contract instance registry would
         //   become stale.
-        let include_by_timestamp = std::cmp::min(
-            previous_kernel.include_by_timestamp,
+        let expiration_timestamp = std::cmp::min(
+            previous_kernel.expiration_timestamp,
             std::cmp::min(
-                private_call.public_inputs.include_by_timestamp,
-                get_include_by_timestamp_for_contract_updates(private_call),
+                private_call.public_inputs.expiration_timestamp,
+                get_expiration_timestamp_for_contract_updates(private_call),
             ),
         );
         assert_eq(
-            self.output.include_by_timestamp,
-            include_by_timestamp,
-            "incorrect output include_by_timestamp",
+            self.output.expiration_timestamp,
+            expiration_timestamp,
+            "incorrect output expiration_timestamp",
         );
 
         // public_teardown_call_request can only be set once.
@@ -129,11 +129,6 @@ impl PrivateKernelCircuitOutputValidator {
             "mismatch is_private_only",
         );
         assert_eq(
-            self.output.claimed_first_nullifier,
-            previous_kernel.claimed_first_nullifier,
-            "mismatch claimed_first_nullifier",
-        );
-        assert_eq(
             self.output.claimed_revertible_counter,
             previous_kernel.claimed_revertible_counter,
             "mismatch claimed_revertible_counter",
@@ -149,8 +144,8 @@ impl PrivateKernelCircuitOutputValidator {
             previous_kernel.validation_requests.nullifier_read_requests,
         );
         assert_array_prepended(
-            self.output.validation_requests.scoped_key_validation_requests_and_generators,
-            previous_kernel.validation_requests.scoped_key_validation_requests_and_generators,
+            self.output.validation_requests.scoped_key_validation_requests_and_separators,
+            previous_kernel.validation_requests.scoped_key_validation_requests_and_separators,
         );
         assert_array_prepended(self.output.end.note_hashes, previous_kernel.end.note_hashes);
         assert_array_prepended(self.output.end.nullifiers, previous_kernel.end.nullifiers);
@@ -196,11 +191,11 @@ impl PrivateKernelCircuitOutputValidator {
             previous_kernel_public_inputs.validation_requests.nullifier_read_requests.length,
         );
         assert_array_appended_and_scoped(
-            self.output.validation_requests.scoped_key_validation_requests_and_generators,
-            private_call.public_inputs.key_validation_requests_and_generators,
+            self.output.validation_requests.scoped_key_validation_requests_and_separators,
+            private_call.public_inputs.key_validation_requests_and_separators,
             previous_kernel_public_inputs
                 .validation_requests
-                .scoped_key_validation_requests_and_generators
+                .scoped_key_validation_requests_and_separators
                 .length,
             contract_address,
         );

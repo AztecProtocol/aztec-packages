@@ -26,10 +26,11 @@ TEST(MerkleCheckSimulationTest, AssertMembership)
     FF leaf_value = 333;
     uint64_t leaf_index = 30;
     std::vector<FF> sibling_path = { 10, 2, 30, 4, 50, 6 };
-    FF root = unconstrained_root_from_path(leaf_value, leaf_index, sibling_path);
+    FF root = unconstrained_root_from_path(DOM_SEP__MERKLE_HASH, leaf_value, leaf_index, sibling_path);
 
-    merkle_check.assert_membership(leaf_value, leaf_index, sibling_path, root);
+    merkle_check.assert_membership(DOM_SEP__MERKLE_HASH, leaf_value, leaf_index, sibling_path, root);
     MerkleCheckEvent expect_event = {
+        .merkle_hash_domain_separator = DOM_SEP__MERKLE_HASH,
         .leaf_value = leaf_value,
         .leaf_index = leaf_index,
         .sibling_path = sibling_path,
@@ -39,9 +40,10 @@ TEST(MerkleCheckSimulationTest, AssertMembership)
     FF leaf_value2 = 334;
     uint64_t leaf_index2 = 31;
     std::vector<FF> sibling_path2 = { 10, 2, 30, 4, 50, 7 };
-    FF root2 = unconstrained_root_from_path(leaf_value2, leaf_index2, sibling_path2);
-    merkle_check.assert_membership(leaf_value2, leaf_index2, sibling_path2, root2);
+    FF root2 = unconstrained_root_from_path(DOM_SEP__MERKLE_HASH, leaf_value2, leaf_index2, sibling_path2);
+    merkle_check.assert_membership(DOM_SEP__MERKLE_HASH, leaf_value2, leaf_index2, sibling_path2, root2);
     MerkleCheckEvent expect_event2 = {
+        .merkle_hash_domain_separator = DOM_SEP__MERKLE_HASH,
         .leaf_value = leaf_value2,
         .leaf_index = leaf_index2,
         .sibling_path = sibling_path2,
@@ -63,10 +65,11 @@ TEST(MerkleCheckSimulationTest, Write)
     FF new_value = 334;
     uint64_t leaf_index = 30;
     std::vector<FF> sibling_path = { 10, 2, 30, 4, 50, 6 };
-    FF current_root = unconstrained_root_from_path(current_value, leaf_index, sibling_path);
-    FF expected_new_root = unconstrained_root_from_path(new_value, leaf_index, sibling_path);
+    FF current_root = unconstrained_root_from_path(DOM_SEP__MERKLE_HASH, current_value, leaf_index, sibling_path);
+    FF expected_new_root = unconstrained_root_from_path(DOM_SEP__MERKLE_HASH, new_value, leaf_index, sibling_path);
 
     MerkleCheckEvent expect_event = {
+        .merkle_hash_domain_separator = DOM_SEP__MERKLE_HASH,
         .leaf_value = current_value,
         .new_leaf_value = new_value,
         .leaf_index = leaf_index,
@@ -75,7 +78,8 @@ TEST(MerkleCheckSimulationTest, Write)
         .new_root = expected_new_root,
     };
 
-    FF new_root = merkle_check.write(current_value, new_value, leaf_index, sibling_path, current_root);
+    FF new_root =
+        merkle_check.write(DOM_SEP__MERKLE_HASH, current_value, new_value, leaf_index, sibling_path, current_root);
 
     EXPECT_EQ(new_root, expected_new_root);
     EXPECT_THAT(emitter.dump_events(), ElementsAre(expect_event));
@@ -92,11 +96,12 @@ TEST(MerkleCheckSimulationTest, NegativeBadFinalIndex)
     FF leaf_value = 333;
     uint64_t leaf_index = 64; // too large! halving it 5 times results in 2!
     std::vector<FF> sibling_path = { 10, 2, 30, 4, 50, 6 };
-    FF root = unconstrained_root_from_path(leaf_value, leaf_index, sibling_path);
+    FF root = unconstrained_root_from_path(DOM_SEP__MERKLE_HASH, leaf_value, leaf_index, sibling_path);
 
-    EXPECT_THROW_WITH_MESSAGE(merkle_check.assert_membership(leaf_value, leaf_index, sibling_path, root),
-                              "Merkle check's final node index must be 0");
-    EXPECT_THROW_WITH_MESSAGE(merkle_check.write(leaf_value, 334, leaf_index, sibling_path, root),
+    EXPECT_THROW_WITH_MESSAGE(
+        merkle_check.assert_membership(DOM_SEP__MERKLE_HASH, leaf_value, leaf_index, sibling_path, root),
+        "Merkle check's final node index must be 0");
+    EXPECT_THROW_WITH_MESSAGE(merkle_check.write(DOM_SEP__MERKLE_HASH, leaf_value, 334, leaf_index, sibling_path, root),
                               "Merkle check's final node index must be 0");
 }
 
@@ -113,10 +118,12 @@ TEST(MerkleCheckSimulationTest, NegativeWrongRoot)
     std::vector<FF> sibling_path = { 10, 2, 30, 4, 50, 6 };
     FF incorrect_root = 66;
 
-    EXPECT_THROW_WITH_MESSAGE(merkle_check.assert_membership(leaf_value, leaf_index, sibling_path, incorrect_root),
-                              "Merkle read check failed");
-    EXPECT_THROW_WITH_MESSAGE(merkle_check.write(leaf_value, 334, leaf_index, sibling_path, incorrect_root),
-                              "Merkle read check failed");
+    EXPECT_THROW_WITH_MESSAGE(
+        merkle_check.assert_membership(DOM_SEP__MERKLE_HASH, leaf_value, leaf_index, sibling_path, incorrect_root),
+        "Merkle read check failed");
+    EXPECT_THROW_WITH_MESSAGE(
+        merkle_check.write(DOM_SEP__MERKLE_HASH, leaf_value, 334, leaf_index, sibling_path, incorrect_root),
+        "Merkle read check failed");
 }
 
 TEST(MerkleCheckSimulationTest, NegativeWrongLeafIndex)
@@ -130,12 +137,14 @@ TEST(MerkleCheckSimulationTest, NegativeWrongLeafIndex)
     FF leaf_value = 333;
     uint64_t leaf_index = 30;
     std::vector<FF> sibling_path = { 10, 2, 30, 4, 50, 6 };
-    FF root = unconstrained_root_from_path(leaf_value, leaf_index, sibling_path);
+    FF root = unconstrained_root_from_path(DOM_SEP__MERKLE_HASH, leaf_value, leaf_index, sibling_path);
     uint64_t incorrect_leaf_index = 31;
-    EXPECT_THROW_WITH_MESSAGE(merkle_check.assert_membership(leaf_value, incorrect_leaf_index, sibling_path, root),
-                              "Merkle read check failed");
-    EXPECT_THROW_WITH_MESSAGE(merkle_check.write(leaf_value, 334, incorrect_leaf_index, sibling_path, root),
-                              "Merkle read check failed");
+    EXPECT_THROW_WITH_MESSAGE(
+        merkle_check.assert_membership(DOM_SEP__MERKLE_HASH, leaf_value, incorrect_leaf_index, sibling_path, root),
+        "Merkle read check failed");
+    EXPECT_THROW_WITH_MESSAGE(
+        merkle_check.write(DOM_SEP__MERKLE_HASH, leaf_value, 334, incorrect_leaf_index, sibling_path, root),
+        "Merkle read check failed");
 }
 
 TEST(MerkleCheckSimulationTest, NegativeWrongSiblingPath)
@@ -149,13 +158,14 @@ TEST(MerkleCheckSimulationTest, NegativeWrongSiblingPath)
     FF leaf_value = 333;
     uint64_t leaf_index = 30;
     std::vector<FF> sibling_path = { 10, 2, 30, 4, 50, 6 };
-    FF root = unconstrained_root_from_path(leaf_value, leaf_index, sibling_path);
+    FF root = unconstrained_root_from_path(DOM_SEP__MERKLE_HASH, leaf_value, leaf_index, sibling_path);
     // corrupt the sibling path
     sibling_path[2] = 11;
 
-    EXPECT_THROW_WITH_MESSAGE(merkle_check.assert_membership(leaf_value, leaf_index, sibling_path, root),
-                              "Merkle read check failed");
-    EXPECT_THROW_WITH_MESSAGE(merkle_check.write(leaf_value, 334, leaf_index, sibling_path, root),
+    EXPECT_THROW_WITH_MESSAGE(
+        merkle_check.assert_membership(DOM_SEP__MERKLE_HASH, leaf_value, leaf_index, sibling_path, root),
+        "Merkle read check failed");
+    EXPECT_THROW_WITH_MESSAGE(merkle_check.write(DOM_SEP__MERKLE_HASH, leaf_value, 334, leaf_index, sibling_path, root),
                               "Merkle read check failed");
 }
 
@@ -170,13 +180,15 @@ TEST(MerkleCheckSimulationTest, NegativeWrongLeafValue)
     FF leaf_value = 333;
     uint64_t leaf_index = 30;
     std::vector<FF> sibling_path = { 10, 2, 30, 4, 50, 6 };
-    FF root = unconstrained_root_from_path(leaf_value, leaf_index, sibling_path);
+    FF root = unconstrained_root_from_path(DOM_SEP__MERKLE_HASH, leaf_value, leaf_index, sibling_path);
     FF incorrect_leaf_value = 334;
 
-    EXPECT_THROW_WITH_MESSAGE(merkle_check.assert_membership(incorrect_leaf_value, leaf_index, sibling_path, root),
-                              "Merkle read check failed");
-    EXPECT_THROW_WITH_MESSAGE(merkle_check.write(incorrect_leaf_value, 334, leaf_index, sibling_path, root),
-                              "Merkle read check failed");
+    EXPECT_THROW_WITH_MESSAGE(
+        merkle_check.assert_membership(DOM_SEP__MERKLE_HASH, incorrect_leaf_value, leaf_index, sibling_path, root),
+        "Merkle read check failed");
+    EXPECT_THROW_WITH_MESSAGE(
+        merkle_check.write(DOM_SEP__MERKLE_HASH, incorrect_leaf_value, 334, leaf_index, sibling_path, root),
+        "Merkle read check failed");
 }
 
 } // namespace

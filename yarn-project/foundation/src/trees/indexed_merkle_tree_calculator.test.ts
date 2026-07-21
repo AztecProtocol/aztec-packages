@@ -198,15 +198,15 @@ describe('indexed merkle tree root calculator', () => {
     // Pick some value to find a witness for...
     const testIndex = 2;
     const testValue = values[testIndex];
-    const sortedValues = [...values].sort((a, b) => Number(a.toBigInt() - b.toBigInt()));
+    const sortedValues = [...values].sort((a, b) => a.cmp(b));
     // ...and find its next value.
-    const nextValue = sortedValues[sortedValues.indexOf(testValue) + 1] || Fr.ZERO;
+    const nextValue = sortedValues[sortedValues.findIndex(v => v.equals(testValue)) + 1] || Fr.ZERO;
 
     // Reconstruct its leaf preimage.
     const testLeafPreimage = new TestLeafPreimage(
       testValue.toField(),
       nextValue.toField(),
-      BigInt(values.indexOf(nextValue) || 0),
+      BigInt(values.findIndex(v => v.equals(nextValue))),
     );
     expect(tree.leafPreimages[testIndex]).toEqual(testLeafPreimage);
 
@@ -230,7 +230,7 @@ describe('indexed merkle tree root calculator', () => {
 
     // Pick some value to find a low leaf for...
     const testValue = Fr.random();
-    const sortedValues = [...values].sort((a, b) => Number(a.toBigInt() - b.toBigInt()));
+    const sortedValues = [...values].sort((a, b) => a.cmp(b));
     // ...and find its 'sandwich' values.
     const previousIndex = sortedValues.findIndex(
       (a, i) =>
@@ -243,7 +243,7 @@ describe('indexed merkle tree root calculator', () => {
     const expectedLowLeaf = new TestLeafPreimage(
       previousValue.toField(),
       nextValue.toField(),
-      BigInt(values.indexOf(nextValue)),
+      BigInt(values.findIndex(v => v.equals(nextValue))),
     );
     const lowLeaf = tree.getLowLeaf(testValue.toBigInt());
     const hashedLowLeaf = await hasher.hashInputs(lowLeaf.toHashInputs());

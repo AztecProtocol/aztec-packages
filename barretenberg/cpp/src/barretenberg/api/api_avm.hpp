@@ -1,7 +1,37 @@
 #pragma once
 #include <filesystem>
+#include <vector>
+
+#include "barretenberg/ecc/curves/bn254/fr.hpp"
 
 namespace bb {
+
+/**
+ * @brief Result of in-memory AVM proving.
+ */
+struct AvmProveResult {
+    std::vector<bb::fr> proof;
+};
+
+/**
+ * @brief Prove an AVM transaction from serialized inputs (msgpack bytes).
+ * Callers that need to verify the proof should call avm_verify_from_bytes separately.
+ */
+AvmProveResult avm_prove_from_bytes(std::vector<uint8_t> inputs);
+
+/**
+ * @brief Verify an AVM proof from serialized data.
+ * @param proof The proof as a vector of field elements.
+ * @param public_inputs Serialized public inputs (msgpack bytes).
+ * @return true if verification succeeds.
+ */
+bool avm_verify_from_bytes(std::vector<bb::fr> proof, std::vector<uint8_t> public_inputs);
+
+/**
+ * @brief Check the AVM circuit from serialized inputs (msgpack bytes).
+ * @return true if the circuit check passes.
+ */
+bool avm_check_circuit_from_bytes(std::vector<uint8_t> inputs);
 
 // Global flag indicating AVM support is available
 extern const bool avm_enabled;

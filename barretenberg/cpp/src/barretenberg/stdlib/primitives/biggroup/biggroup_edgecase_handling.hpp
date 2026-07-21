@@ -35,33 +35,39 @@ typename G::affine_element element<C, Fq, Fr, G>::compute_table_offset_generator
  * @brief Given two lists of points that need to be multiplied by scalars, create a new list of length +1 with original
  * points masked, but the same scalar product sum
  *
- * @details Add (δ)G, (2δ)G, (4δ)G etc to the original points and adds a new point (2ⁿ)⋅G and scalar x to the lists.
- * By doubling the point every time, we ensure that no +-1 combination of 6 sequential elements run into edgecases.
- * Since the challenge δ not known to the prover ahead of time, it is not possible to create points that cancel out
- * the offset generators.
+ * @details Add G, 2G, 4G etc to the original points and adds a new point (2ⁿ)⋅G and scalar x to the lists, where G
+ * is a random curve point (free witness) chosen by the prover at proof-generation time. By doubling the point
+ * every time, we ensure that no +-1 combination of 6 sequential elements run into edgecases for an honest prover.
+ *
+ * Security argument: An honest prover samples a uniformly random G, so any ROM table entry is at infinity with
+ * negligible probability. A malicious prover who picks a degenerate G cannot produce a valid proof: the circuit's
+ * algebraic constraints propagate the intermediate values end-to-end, and a wrong intermediate result (from hitting
+ * a special case) would cause the final MSM output to be wrong, failing the verifier's checks.
  */
 template <typename C, class Fq, class Fr, class G>
-std::pair<std::vector<element<C, Fq, Fr, G>>, std::vector<Fr>> element<C, Fq, Fr, G>::mask_points(
-    const std::vector<element>& _points, const std::vector<Fr>& _scalars, const Fr& masking_scalar)
+std::tuple<std::vector<element<C, Fq, Fr, G>>, std::vector<Fr>, element<C, Fq, Fr, G>> element<C, Fq, Fr, G>::
+    mask_points(const std::vector<element>& _points, const std::vector<Fr>& _scalars)
 {
     std::vector<element> points;
     std::vector<Fr> scalars;
     BB_ASSERT_EQ(_points.size(), _scalars.size());
 
-    BB_ASSERT_LTE(uint256_t(masking_scalar.get_value()).get_msb() + 1ULL,
-                  128ULL,
-                  "biggroup mask_points: masking_scalar must ≤ 128 bits");
-
-    // Get the offset generator G_offset in native and in-circuit form
-    const typename G::affine_element native_offset_generator = element::compute_table_offset_generator();
+    // Sample a random curve point as the offset generator (free witness).
+    // The prover provides this point: the circuit only constrains it to lie on the curve.
     C* builder = validate_context<C>(validate_context<C>(_points), validate_context<C>(_scalars));
+    const typename G::affine_element native_offset_generator = typename G::affine_element(G::element::random_element());
     const element offset_generator_element = element::from_witness(builder, native_offset_generator);
+
+    // Disallow offset generator G = ∞ (point at infinity) because the downstream ROM table logic relies on
+    // none of the points being at infinity. If we allow any point to be at infinity in ROM table construction,
+    // a malicious prover can cause the output of the MSM to be wrong.
+    offset_generator_element.is_point_at_infinity().assert_equal(
+        false, "mask_points: offset generator must not be the point at infinity");
+
     auto empty_tag = OriginTag::constant(); // Disable origin checking during intermediate operations
     offset_generator_element.set_origin_tag(empty_tag);
 
-    // Compute initial point to be added: (δ)⋅G_offset
-    // TODO(https://github.com/AztecProtocol/barretenberg/issues/1585): do we really need to multiply by δ here?
-    element running_point = offset_generator_element.scalar_mul(masking_scalar, 128);
+    element running_point = offset_generator_element;
 
     // Start the running scalar at 1
     Fr running_scalar = Fr(1);
@@ -71,18 +77,22 @@ std::pair<std::vector<element<C, Fq, Fr, G>>, std::vector<Fr>> element<C, Fq, Fr
     for (size_t i = 0; i < _points.size(); i++) {
         scalars.push_back(_scalars[i]);
 
-        // Convert point into point + (2ⁱ)⋅(δG_offset)
-        points.push_back(_points[i] + running_point);
+        // Convert point into point + (2ⁱ)⋅G_offset
+        element masked = _points[i].add_internal(running_point);
+        // Each masked point must also be finite, for the same ROM table reason as the offset generator above.
+        masked.is_point_at_infinity().assert_equal(false,
+                                                   "mask_points: masked point must not be the point at infinity");
+        points.push_back(masked);
 
         // Add 2ⁱ⋅scalar_i to the last scalar
         last_scalar += _scalars[i] * running_scalar;
 
         // Double the running scalar and point for next iteration
         running_scalar += running_scalar;
-        running_point = running_point.dbl();
+        running_point = running_point.dbl_internal();
     }
 
-    // Add a scalar -(<δ(1, 2, 2²,...,2ⁿ⁻¹),(scalar₀,...,scalarₙ₋₁)> / 2ⁿ)
+    // Add a scalar -(<(1, 2, 2²,...,2ⁿ⁻¹),(scalar₀,...,scalarₙ₋₁)> / 2ⁿ)
     const uint32_t n = static_cast<uint32_t>(_points.size());
     const Fr two_power_n = Fr(2).pow(n);
     const Fr two_power_n_inverse = two_power_n.invert();
@@ -91,10 +101,10 @@ std::pair<std::vector<element<C, Fq, Fr, G>>, std::vector<Fr>> element<C, Fq, Fr
     if constexpr (Fr::is_composite) {
         scalars.back().self_reduce();
     }
-    // Add in-circuit 2ⁿ.(δ.G_offset) to points
+    // Add in-circuit 2ⁿ·G_offset to points
     points.push_back(running_point);
 
-    return { points, scalars };
+    return { points, scalars, offset_generator_element };
 }
 
 /**

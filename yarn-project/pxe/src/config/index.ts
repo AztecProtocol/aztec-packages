@@ -1,14 +1,16 @@
 import {
   type ConfigMappingsType,
   booleanConfigHelper,
+  enumConfigHelper,
   getConfigFromMappings,
   numberConfigHelper,
   parseBooleanEnv,
 } from '@aztec/foundation/config';
-import { type DataStoreConfig, dataConfigMappings } from '@aztec/kv-store/config';
 import { type ChainConfig, chainConfigMappings } from '@aztec/stdlib/config';
+import { type DataStoreConfig, dataConfigMappings } from '@aztec/stdlib/kv-store';
 
 export { getPackageInfo } from './package_info.js';
+export * from '../hooks/index.js';
 
 /**
  * Configuration settings for the prover factory
@@ -26,6 +28,12 @@ export interface BlockSynchronizerConfig {
   l2BlockBatchSize: number;
   /** Which chain tip to sync to (proposed, checkpointed, proven, finalized) */
   syncChainTip?: 'proposed' | 'checkpointed' | 'proven' | 'finalized';
+  /**
+   * Whether PXE should automatically sync with the node before each operation (simulate, prove, profile,
+   * execute utility, get private events, update contract). When disabled, callers (e.g. wallets) are
+   * responsible for calling `pxe.sync()` explicitly
+   */
+  autoSync: boolean;
 }
 
 export type PXEConfig = KernelProverConfig & DataStoreConfig & ChainConfig & BlockSynchronizerConfig;
@@ -58,14 +66,13 @@ export const pxeConfigMappings: ConfigMappingsType<PXEConfig> = {
   syncChainTip: {
     env: 'PXE_SYNC_CHAIN_TIP',
     description: 'Which chain tip to sync to (proposed, checkpointed, proven, finalized)',
-    defaultValue: 'proposed',
-    parseEnv: (val: string) => {
-      const allowedValues = ['proposed', 'checkpointed', 'proven', 'finalized'];
-      if (allowedValues.includes(val)) {
-        return val;
-      }
-      throw new Error(`Invalid value for PXE_SYNC_CHAIN_TIP: ${val}. Allowed values are: ${allowedValues.join(', ')}`);
-    },
+    ...enumConfigHelper(['proposed', 'checkpointed', 'proven', 'finalized'], 'proposed'),
+  },
+  autoSync: {
+    env: 'PXE_AUTO_SYNC',
+    description:
+      'Whether PXE syncs with the node automatically before each operation. Disable to let the caller (e.g. a wallet) drive syncs explicitly via pxe.sync().',
+    ...booleanConfigHelper(true),
   },
 };
 

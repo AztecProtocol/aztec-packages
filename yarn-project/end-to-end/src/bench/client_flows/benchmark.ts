@@ -5,6 +5,7 @@ import {
   type ProfileInteractionOptions,
 } from '@aztec/aztec.js/contracts';
 import type { Logger } from '@aztec/aztec.js/log';
+import { MAX_APPS_PER_KERNEL } from '@aztec/constants';
 import { createLogger } from '@aztec/foundation/log';
 import { type PrivateExecutionStep, serializePrivateExecutionSteps } from '@aztec/stdlib/kernel';
 import type {
@@ -318,6 +319,26 @@ export function convertProfileToGHBenchmark(benchmark: ClientFlowBenchmark): Git
     });
   }
   return benches;
+}
+
+/**
+ * Computes the expected number of `PrivateExecutionStep` entries the orchestrator will produce
+ * for a tx with `apps` private function calls.
+ *
+ * Step layout: `apps` app circuits + kernel iterations + 1 final reset + 1 tail + 1 hiding kernel.
+ * Each kernel iteration absorbs up to `MAX_APPS_PER_KERNEL` apps via the `init_K` / `inner_K`
+ * variants, so the kernel count is `ceil(apps / MAX_APPS_PER_KERNEL)`.
+ *
+ * Caveat: this assumes no mid-flow reset is triggered, which would split a batch into two kernels
+ * separated by a reset. For the flows currently exercised in this benchmark suite that holds, but
+ * a future flow that grows large enough to overflow per-tx limits before consuming all apps will
+ * not match this formula.
+ */
+export function expectedExecutionSteps(apps: number): number {
+  const kernels = Math.ceil(apps / MAX_APPS_PER_KERNEL);
+  // The final reset and tail are proved as a single circuit (reset_tail or reset_tail_to_public),
+  // so they share one execution step.
+  return apps + kernels + 1 /* reset+tail */ + 1 /* hiding */;
 }
 
 export async function captureProfile(

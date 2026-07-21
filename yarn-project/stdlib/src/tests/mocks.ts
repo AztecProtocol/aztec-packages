@@ -1,10 +1,13 @@
 import {
-  FIXED_DA_GAS,
-  FIXED_L2_GAS,
   MAX_ENQUEUED_CALLS_PER_TX,
-  MAX_INCLUDE_BY_TIMESTAMP_DURATION,
   MAX_NULLIFIERS_PER_TX,
+  MAX_PROCESSABLE_L2_GAS,
   MAX_TOTAL_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX,
+  MAX_TX_DA_GAS,
+  MAX_TX_LIFETIME,
+  PRIVATE_TX_L2_GAS_OVERHEAD,
+  PUBLIC_TX_L2_GAS_OVERHEAD,
+  TX_DA_GAS_OVERHEAD,
 } from '@aztec/constants';
 import { type FieldsOf, makeTuple } from '@aztec/foundation/array';
 import { BlockNumber, CheckpointNumber, IndexWithinCheckpoint, SlotNumber } from '@aztec/foundation/branded-types';
@@ -13,7 +16,10 @@ import { padArrayEnd, times } from '@aztec/foundation/collection';
 import { randomBytes } from '@aztec/foundation/crypto/random';
 import { Secp256k1Signer } from '@aztec/foundation/crypto/secp256k1-signer';
 import { Fr } from '@aztec/foundation/curves/bn254';
+import { EthAddress } from '@aztec/foundation/eth-address';
 import { Signature } from '@aztec/foundation/eth-signature';
+
+import { type TypedDataDefinition, hashTypedData } from 'viem';
 
 import type { ContractArtifact } from '../abi/abi.js';
 import { PublicTxEffect } from '../avm/avm.js';
@@ -22,10 +28,9 @@ import { AvmCircuitPublicInputs } from '../avm/avm_circuit_public_inputs.js';
 import { PublicDataWrite } from '../avm/public_data_write.js';
 import { RevertCode } from '../avm/revert_code.js';
 import { AztecAddress } from '../aztec-address/index.js';
-import { CheckpointedL2Block, CommitteeAttestation, L2Block } from '../block/index.js';
+import { L2Block } from '../block/index.js';
 import type { CommitteeAttestationsAndSigners } from '../block/proposal/attestations_and_signers.js';
 import { Checkpoint } from '../checkpoint/checkpoint.js';
-import { L1PublishedData } from '../checkpoint/published_checkpoint.js';
 import { computeContractAddressFromInstance } from '../contract/contract_address.js';
 import { getContractClassFromArtifact } from '../contract/contract_class.js';
 import { SerializableContractInstance } from '../contract/contract_instance.js';
@@ -50,7 +55,7 @@ import { BlockProposal } from '../p2p/block_proposal.js';
 import { CheckpointAttestation } from '../p2p/checkpoint_attestation.js';
 import { CheckpointProposal } from '../p2p/checkpoint_proposal.js';
 import { ConsensusPayload } from '../p2p/consensus_payload.js';
-import { SignatureDomainSeparator, getHashedSignaturePayloadEthSignedMessage } from '../p2p/signature_utils.js';
+import { type CoordinationSignatureContext, getHashedSignaturePayloadTypedData } from '../p2p/signature_utils.js';
 import { ChonkProof } from '../proofs/chonk_proof.js';
 import { ProvingRequestType } from '../proofs/proving_request_type.js';
 import { CheckpointHeader } from '../rollup/checkpoint_header.js';
@@ -71,6 +76,7 @@ import { NestedProcessReturnValues, PublicSimulationOutput } from '../tx/public_
 import { TxSimulationResult } from '../tx/simulated_tx.js';
 import { TxEffect } from '../tx/tx_effect.js';
 import { TxHash } from '../tx/tx_hash.js';
+import { DEV_VERSION } from '../update-checker/dev_version.js';
 import {
   makeAvmCircuitInputs,
   makeAztecAddress,
@@ -85,6 +91,15 @@ import {
   makePublicDataWrite,
 } from './factories.js';
 
+export const TEST_COORDINATION_SIGNATURE_CONTEXT: CoordinationSignatureContext = {
+  chainId: 31337,
+  rollupAddress: EthAddress.fromNumber(1),
+};
+
+function signTypedData(signer: Secp256k1Signer, typedData: TypedDataDefinition): Signature {
+  return signer.sign(Buffer32.fromString(hashTypedData(typedData)));
+}
+
 export const randomTxHash = (): TxHash => TxHash.random();
 
 export const mockTx = async (
@@ -97,6 +112,7 @@ export const mockTx = async (
     publicCalldataSize = 2,
     feePayer,
     chonkProof = ChonkProof.random(),
+    gasLimits = new Gas(MAX_TX_DA_GAS, MAX_PROCESSABLE_L2_GAS),
     maxFeesPerGas = new GasFees(10, 10),
     maxPriorityFeesPerGas,
     gasUsed = Gas.empty(),
@@ -113,6 +129,7 @@ export const mockTx = async (
     publicCalldataSize?: number;
     feePayer?: AztecAddress;
     chonkProof?: ChonkProof;
+    gasLimits?: Gas;
     maxFeesPerGas?: GasFees;
     maxPriorityFeesPerGas?: GasFees;
     gasUsed?: Gas;
@@ -131,7 +148,7 @@ export const mockTx = async (
   const data = PrivateKernelTailCircuitPublicInputs.empty();
   const firstNullifier = new Nullifier(new Fr(seed + 1), Fr.ZERO, 0);
   data.constants.anchorBlockHeader = anchorBlockHeader;
-  data.constants.txContext.gasSettings = GasSettings.default({ maxFeesPerGas, maxPriorityFeesPerGas });
+  data.constants.txContext.gasSettings = GasSettings.fallback({ gasLimits, maxFeesPerGas, maxPriorityFeesPerGas });
   data.feePayer = feePayer ?? (await AztecAddress.random());
   data.gasUsed = gasUsed;
   data.constants.txContext.chainId = chainId;
@@ -139,8 +156,8 @@ export const mockTx = async (
   data.constants.vkTreeRoot = vkTreeRoot;
   data.constants.protocolContractsHash = protocolContractsHash;
 
-  // Set includeByTimestamp to the maximum allowed duration from the current time.
-  data.includeByTimestamp = BigInt(Math.floor(Date.now() / 1000) + MAX_INCLUDE_BY_TIMESTAMP_DURATION);
+  // Set expirationTimestamp to the maximum allowed duration from the current time.
+  data.expirationTimestamp = BigInt(Math.floor(Date.now() / 1000) + MAX_TX_LIFETIME);
 
   const publicFunctionCalldata: HashedValues[] = [];
   if (!isForPublic) {
@@ -197,7 +214,10 @@ export async function mockProcessedTx({
   db,
   chainId = Fr.ZERO,
   version = Fr.ZERO,
-  gasSettings = GasSettings.default({ maxFeesPerGas: new GasFees(10, 10) }),
+  gasSettings = GasSettings.fallback({
+    gasLimits: new Gas(MAX_TX_DA_GAS, MAX_PROCESSABLE_L2_GAS),
+    maxFeesPerGas: new GasFees(10, 10),
+  }),
   vkTreeRoot = Fr.ZERO,
   protocolContracts = makeProtocolContracts(seed + 0x100),
   globalVariables = GlobalVariables.empty(),
@@ -205,8 +225,11 @@ export async function mockProcessedTx({
   feePayer,
   feePaymentPublicDataWrite,
   // The default gasUsed is the tx overhead.
-  gasUsed = Gas.from({ daGas: FIXED_DA_GAS, l2Gas: FIXED_L2_GAS }),
   privateOnly = false,
+  gasUsed = Gas.from({
+    daGas: TX_DA_GAS_OVERHEAD,
+    l2Gas: privateOnly ? PRIVATE_TX_L2_GAS_OVERHEAD : PUBLIC_TX_L2_GAS_OVERHEAD,
+  }),
   avmAccumulatedData,
   ...mockTxOpts
 }: {
@@ -421,10 +444,13 @@ export async function mockCheckpointAndMessages(
     Partial<Parameters<typeof L2Block.random>[1]> = {},
 ) {
   const slotNumber = options.slotNumber ?? SlotNumber(Number(checkpointNumber) * 10);
+  const globals = GlobalVariables.random({ slotNumber, ...options });
   const blocksAndMessages = [];
+
   // Track the previous block's archive to ensure consecutive blocks have consistent archive roots.
   // The current block's header.lastArchive must equal the previous block's archive.
   let lastArchive: AppendOnlyTreeSnapshot | undefined = previousArchive;
+
   // Pass maxEffects via txOptions so it reaches TxEffect.random
   const txOptions = maxEffects !== undefined ? { maxEffects } : {};
   for (let i = 0; i < (blocks?.length ?? numBlocks); i++) {
@@ -433,11 +459,11 @@ export async function mockCheckpointAndMessages(
       block:
         blocks?.[i] ??
         (await L2Block.random(blockNumber, {
+          ...globals,
           checkpointNumber,
           indexWithinCheckpoint: IndexWithinCheckpoint(i),
           txsPerBlock: numTxsPerBlock,
           txOptions,
-          slotNumber,
           ...options,
           ...makeBlockOptions(blockNumber),
           ...(lastArchive ? { lastArchive } : {}),
@@ -451,12 +477,18 @@ export async function mockCheckpointAndMessages(
 
   const messages = blocksAndMessages[0].messages;
   const inHash = computeInHashFromL1ToL2Messages(messages);
-  const checkpoint = await Checkpoint.random(checkpointNumber, { numBlocks: 0, slotNumber, inHash, ...options });
+  const firstBlockLastArchive = blocksAndMessages[0].block.header.lastArchive;
+  const checkpoint = await Checkpoint.random(checkpointNumber, {
+    numBlocks: 0,
+    inHash,
+    ...options,
+    ...globals,
+    lastArchive: firstBlockLastArchive,
+    lastArchiveRoot: firstBlockLastArchive.root,
+    archive: lastArchive,
+  });
+
   checkpoint.blocks = blocksAndMessages.map(({ block }) => block);
-  // Set the checkpoint's archive to match the last block's archive for proper chaining.
-  // When the archiver reconstructs checkpoints from L1, it uses the checkpoint's archive root
-  // from the L1 event to set the last block's archive. Without this, the archive chain breaks.
-  checkpoint.archive = lastArchive!;
 
   // Return lastArchive so callers can chain it across multiple checkpoints
   return { checkpoint, messages, lastArchive };
@@ -464,6 +496,7 @@ export async function mockCheckpointAndMessages(
 
 export const randomContractArtifact = (): ContractArtifact => ({
   name: randomBytes(4).toString('hex'),
+  aztecVersion: DEV_VERSION,
   functions: [],
   nonDispatchPublicFunctions: [],
   outputs: {
@@ -503,6 +536,8 @@ export interface MakeConsensusPayloadOptions {
   archive?: Fr;
   txHashes?: TxHash[];
   txs?: Tx[];
+  feeAssetPriceModifier?: bigint;
+  signatureContext?: CoordinationSignatureContext;
 }
 
 export interface MakeBlockProposalOptions {
@@ -513,12 +548,15 @@ export interface MakeBlockProposalOptions {
   archiveRoot?: Fr;
   txHashes?: TxHash[];
   txs?: Tx[];
+  signatureContext?: CoordinationSignatureContext;
 }
 
 export interface MakeCheckpointProposalOptions {
   signer?: Secp256k1Signer;
   checkpointHeader?: CheckpointHeader;
   archiveRoot?: Fr;
+  feeAssetPriceModifier?: bigint;
+  signatureContext?: CoordinationSignatureContext;
   /** Options for the lastBlock - if undefined, no lastBlock is included */
   lastBlock?: {
     blockHeader?: BlockHeader;
@@ -529,19 +567,18 @@ export interface MakeCheckpointProposalOptions {
 }
 
 // eslint-disable-next-line @typescript-eslint/no-unused-vars
-const makeAndSignConsensusPayload = (
-  domainSeparator: SignatureDomainSeparator,
-  options?: MakeConsensusPayloadOptions,
-) => {
+const makeAndSignConsensusPayload = (options?: MakeConsensusPayloadOptions) => {
   const header = options?.header ?? makeCheckpointHeader(1);
-  const { signer = Secp256k1Signer.random(), archive = Fr.random() } = options ?? {};
+  const { signer = Secp256k1Signer.random(), archive = Fr.random(), feeAssetPriceModifier = 0n } = options ?? {};
 
   const payload = ConsensusPayload.fromFields({
     header,
     archive,
+    feeAssetPriceModifier,
+    signatureContext: TEST_COORDINATION_SIGNATURE_CONTEXT,
   });
 
-  const hash = getHashedSignaturePayloadEthSignedMessage(payload, domainSeparator);
+  const hash = getHashedSignaturePayloadTypedData(payload);
   const signature = signer.sign(hash);
 
   return { blockNumber: header.slotNumber, payload, signature };
@@ -551,10 +588,7 @@ export const makeAndSignCommitteeAttestationsAndSigners = (
   attestationsAndSigners: CommitteeAttestationsAndSigners,
   signer: Secp256k1Signer = Secp256k1Signer.random(),
 ) => {
-  const hash = getHashedSignaturePayloadEthSignedMessage(
-    attestationsAndSigners,
-    SignatureDomainSeparator.attestationsAndSigners,
-  );
+  const hash = getHashedSignaturePayloadTypedData(attestationsAndSigners);
   return signer.sign(hash);
 };
 
@@ -566,36 +600,51 @@ export const makeBlockProposal = (options?: MakeBlockProposalOptions): Promise<B
   const txHashes = options?.txHashes ?? [0, 1, 2, 3, 4, 5].map(() => TxHash.random());
   const txs = options?.txs;
   const signer = options?.signer ?? Secp256k1Signer.random();
+  const signatureContext = options?.signatureContext ?? TEST_COORDINATION_SIGNATURE_CONTEXT;
 
   return BlockProposal.createProposalFromSigner(
     blockHeader,
+    CheckpointNumber(1),
     indexWithinCheckpoint,
     inHash,
     archiveRoot,
     txHashes,
     txs,
-    (_payload, _context) => Promise.resolve(signer.signMessage(_payload)),
+    signatureContext,
+    (typedData, _context) => Promise.resolve(signTypedData(signer, typedData)),
+    (typedData, _context) => Promise.resolve(signTypedData(signer, typedData)),
   );
 };
 
-export const makeCheckpointProposal = (options?: MakeCheckpointProposalOptions): Promise<CheckpointProposal> => {
-  const blockHeader = options?.lastBlock?.blockHeader ?? makeBlockHeader(1);
+export const makeCheckpointProposal = async (options?: MakeCheckpointProposalOptions): Promise<CheckpointProposal> => {
   const checkpointHeader = options?.checkpointHeader ?? makeCheckpointHeader(1);
   const archiveRoot = options?.archiveRoot ?? Fr.random();
+  const feeAssetPriceModifier = options?.feeAssetPriceModifier ?? 0n;
   const signer = options?.signer ?? Secp256k1Signer.random();
+  const signatureContext = options?.signatureContext ?? TEST_COORDINATION_SIGNATURE_CONTEXT;
 
-  // Build lastBlock info if provided
-  const lastBlockInfo = options?.lastBlock
-    ? {
-        blockHeader,
-        indexWithinCheckpoint: options.lastBlock.indexWithinCheckpoint ?? IndexWithinCheckpoint(4), // Last block in a 5-block checkpoint
-        txHashes: options.lastBlock.txHashes ?? [0, 1, 2, 3, 4, 5].map(() => TxHash.random()),
+  // Build a signed block proposal if lastBlock options are provided
+  const lastBlockProposal = options?.lastBlock
+    ? await makeBlockProposal({
+        blockHeader: options.lastBlock.blockHeader,
+        indexWithinCheckpoint: options.lastBlock.indexWithinCheckpoint ?? IndexWithinCheckpoint(4),
+        inHash: checkpointHeader.inHash,
+        archiveRoot,
+        txHashes: options.lastBlock.txHashes,
         txs: options.lastBlock.txs,
-      }
+        signer,
+        signatureContext,
+      })
     : undefined;
 
-  return CheckpointProposal.createProposalFromSigner(checkpointHeader, archiveRoot, lastBlockInfo, payload =>
-    Promise.resolve(signer.signMessage(payload)),
+  return CheckpointProposal.createProposalFromSigner(
+    checkpointHeader,
+    archiveRoot,
+    CheckpointNumber(1),
+    feeAssetPriceModifier,
+    lastBlockProposal,
+    signatureContext,
+    typedData => Promise.resolve(signTypedData(signer, typedData)),
   );
 };
 
@@ -605,9 +654,11 @@ export const makeCheckpointProposal = (options?: MakeCheckpointProposalOptions):
 export type MakeCheckpointAttestationOptions = {
   header?: CheckpointHeader;
   archive?: Fr;
+  feeAssetPriceModifier?: bigint;
   attesterSigner?: Secp256k1Signer;
   proposerSigner?: Secp256k1Signer;
   signer?: Secp256k1Signer;
+  signatureContext?: CoordinationSignatureContext;
 };
 
 /**
@@ -616,26 +667,28 @@ export type MakeCheckpointAttestationOptions = {
 export const makeCheckpointAttestation = (options: MakeCheckpointAttestationOptions = {}): CheckpointAttestation => {
   const header = options.header ?? makeCheckpointHeader(1);
   const archive = options.archive ?? Fr.random();
+  const feeAssetPriceModifier = options.feeAssetPriceModifier ?? 0n;
+  const signatureContext = options.signatureContext ?? TEST_COORDINATION_SIGNATURE_CONTEXT;
   const { signer, attesterSigner = signer, proposerSigner = signer } = options;
 
-  const payload = new ConsensusPayload(header, archive);
+  const payload = new ConsensusPayload(header, archive, feeAssetPriceModifier, signatureContext);
 
   // Sign as attester
-  const attestationHash = getHashedSignaturePayloadEthSignedMessage(
-    payload,
-    SignatureDomainSeparator.checkpointAttestation,
-  );
+  const attestationHash = getHashedSignaturePayloadTypedData(payload);
   const attestationSigner = attesterSigner ?? Secp256k1Signer.random();
   const attestationSignature = attestationSigner.sign(attestationHash);
 
   // Sign as proposer - use CheckpointProposal's payload format (serializeToBuffer)
   // This is different from ConsensusPayload's format (ABI encoding)
   const proposalSignerToUse = proposerSigner ?? Secp256k1Signer.random();
-  const tempProposal = new CheckpointProposal(header, archive, Signature.empty());
-  const proposalHash = getHashedSignaturePayloadEthSignedMessage(
-    tempProposal,
-    SignatureDomainSeparator.checkpointProposal,
+  const tempProposal = new CheckpointProposal(
+    header,
+    archive,
+    feeAssetPriceModifier,
+    Signature.empty(),
+    signatureContext,
   );
+  const proposalHash = getHashedSignaturePayloadTypedData(tempProposal);
   const proposerSignature = proposalSignerToUse.sign(proposalHash);
 
   return new CheckpointAttestation(payload, attestationSignature, proposerSignature);
@@ -648,13 +701,15 @@ export const makeCheckpointAttestationFromProposal = (
   proposal: CheckpointProposal,
   attesterSigner?: Secp256k1Signer,
 ): CheckpointAttestation => {
-  const payload = new ConsensusPayload(proposal.checkpointHeader, proposal.archive);
+  const payload = new ConsensusPayload(
+    proposal.checkpointHeader,
+    proposal.archive,
+    proposal.feeAssetPriceModifier,
+    proposal.signatureContext,
+  );
 
   // Sign as attester
-  const attestationHash = getHashedSignaturePayloadEthSignedMessage(
-    payload,
-    SignatureDomainSeparator.checkpointAttestation,
-  );
+  const attestationHash = getHashedSignaturePayloadTypedData(payload);
   const attestationSigner = attesterSigner ?? Secp256k1Signer.random();
   const attestationSignature = attestationSigner.sign(attestationHash);
 
@@ -672,8 +727,9 @@ export const makeCheckpointAttestationFromCheckpoint = (
 ): CheckpointAttestation => {
   const header = checkpoint.header;
   const archive = checkpoint.archive.root;
+  const feeAssetPriceModifier = checkpoint.feeAssetPriceModifier;
 
-  return makeCheckpointAttestation({ header, archive, attesterSigner, proposerSigner });
+  return makeCheckpointAttestation({ header, archive, feeAssetPriceModifier, attesterSigner, proposerSigner });
 };
 
 /**
@@ -696,32 +752,3 @@ export const makeCheckpointAttestationFromBlock = (
 
   return makeCheckpointAttestation({ header, archive, attesterSigner, proposerSigner });
 };
-
-export async function randomPublishedL2Block(
-  l2BlockNumber: number,
-  opts: { signers?: Secp256k1Signer[] } = {},
-): Promise<CheckpointedL2Block> {
-  const block = await L2Block.random(BlockNumber(l2BlockNumber));
-  const l1 = L1PublishedData.fromFields({
-    blockNumber: BigInt(block.number),
-    timestamp: block.header.globalVariables.timestamp,
-    blockHash: Buffer32.random().toString(),
-  });
-
-  const signers = opts.signers ?? times(3, () => Secp256k1Signer.random());
-  const checkpoint = await Checkpoint.random(CheckpointNumber.fromBlockNumber(BlockNumber(l2BlockNumber)), {
-    numBlocks: 0,
-  });
-  checkpoint.blocks = [block];
-  const atts = signers.map(signer =>
-    makeCheckpointAttestation({
-      signer,
-      archive: block.archive.root,
-      header: checkpoint.header,
-    }),
-  );
-  const attestations = atts.map(
-    (attestation, i) => new CommitteeAttestation(signers[i].address, attestation.signature),
-  );
-  return new CheckpointedL2Block(CheckpointNumber.fromBlockNumber(BlockNumber(l2BlockNumber)), block, l1, attestations);
-}

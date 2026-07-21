@@ -1,7 +1,7 @@
 # External Audit Scope: polynomial
 
-Repository: https://github.com/AztecProtocol/aztec-packages
-Commit hash: TBD (link)
+Repository: https://github.com/AztecProtocol/aztec-packages-private
+Commit hash: Most recent commit on branch 'next'
 
 ## Files to Audit
 Note: Paths relative to `aztec-packages/barretenberg/cpp/src/barretenberg`
@@ -12,13 +12,12 @@ Note: Paths relative to `aztec-packages/barretenberg/cpp/src/barretenberg`
 4. `polynomials/eq_polynomial.hpp`
 5. `polynomials/evaluation_domain.cpp`
 6. `polynomials/evaluation_domain.hpp`
-7. `polynomials/iterate_over_domain.hpp`
-8. `polynomials/polynomial.cpp`
-9. `polynomials/polynomial.hpp`
-10. `polynomials/polynomial_arithmetic.cpp`
-11. `polynomials/polynomial_arithmetic.hpp`
-12. `polynomials/shared_shifted_virtual_zeroes_array.hpp`
-13. `polynomials/univariate_coefficient_basis.hpp`
+7. `polynomials/polynomial.cpp`
+8. `polynomials/polynomial.hpp`
+9. `polynomials/polynomial_arithmetic.cpp`
+10. `polynomials/polynomial_arithmetic.hpp`
+11. `polynomials/shared_shifted_virtual_zeroes_array.hpp`
+12. `polynomials/univariate_coefficient_basis.hpp`
 
 ## Summary of Module
 

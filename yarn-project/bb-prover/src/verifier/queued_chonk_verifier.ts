@@ -16,8 +16,6 @@ import {
 
 import { createHistogram } from 'node:perf_hooks';
 
-import type { BBConfig } from '../config.js';
-
 class IVCVerifierMetrics {
   private ivcVerificationHistogram: Histogram;
   private ivcTotalVerificationHistogram: Histogram;
@@ -86,15 +84,15 @@ export class QueuedIVCVerifier implements ClientProtocolCircuitVerifier {
   private metrics: IVCVerifierMetrics;
 
   public constructor(
-    config: BBConfig,
     private verifier: ClientProtocolCircuitVerifier,
+    concurrency: number,
     private telemetry: TelemetryClient = getTelemetryClient(),
     private logger = createLogger('bb-prover:queued_chonk_verifier'),
   ) {
     this.metrics = new IVCVerifierMetrics(this.telemetry, 'QueuedIVCVerifier');
     this.queue = new SerialQueue();
-    this.logger.info(`Starting QueuedIVCVerifier with ${config.numConcurrentIVCVerifiers} concurrent verifiers`);
-    this.queue.start(config.numConcurrentIVCVerifiers);
+    this.logger.info(`Starting QueuedIVCVerifier with ${concurrency} concurrent verifiers`);
+    this.queue.start(concurrency);
   }
 
   public async verifyProof(tx: Tx): Promise<IVCProofVerificationResult> {
@@ -103,7 +101,8 @@ export class QueuedIVCVerifier implements ClientProtocolCircuitVerifier {
     return result;
   }
 
-  stop(): Promise<void> {
-    return this.queue.end();
+  async stop(): Promise<void> {
+    await this.queue.end();
+    await this.verifier.stop();
   }
 }

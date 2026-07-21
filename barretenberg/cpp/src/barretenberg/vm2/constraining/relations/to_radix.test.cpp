@@ -2,8 +2,9 @@
 #include <gmock/gmock.h>
 #include <gtest/gtest.h>
 
-#include "barretenberg/vm2/common/aztec_constants.hpp"
+#include "barretenberg/aztec/aztec_constants.hpp"
 #include "barretenberg/vm2/common/aztec_types.hpp"
+#include "barretenberg/vm2/common/to_radix.hpp"
 #include "barretenberg/vm2/constraining/flavor_settings.hpp"
 #include "barretenberg/vm2/constraining/testing/check_relation.hpp"
 #include "barretenberg/vm2/generated/relations/lookups_to_radix.hpp"
@@ -11,6 +12,7 @@
 #include "barretenberg/vm2/generated/relations/perms_to_radix_mem.hpp"
 #include "barretenberg/vm2/simulation/events/gt_event.hpp"
 #include "barretenberg/vm2/simulation/events/range_check_event.hpp"
+#include "barretenberg/vm2/simulation/gadgets/gt.hpp"
 #include "barretenberg/vm2/simulation/gadgets/range_check.hpp"
 #include "barretenberg/vm2/simulation/gadgets/to_radix.hpp"
 #include "barretenberg/vm2/simulation/standalone/pure_gt.hpp"
@@ -288,7 +290,7 @@ TEST(ToRadixConstrainingTest, ToLeBitsInteractions)
     ToRadixTraceBuilder to_radix_builder;
     to_radix_builder.process(to_radix_event_emitter.dump_events(), trace);
     tracegen::PrecomputedTraceBuilder precomputed_builder;
-    precomputed_builder.process_misc(trace, 257);
+    precomputed_builder.process_misc(trace, NUM_RADIXES);
     precomputed_builder.process_sel_range_8(trace);
     precomputed_builder.process_to_radix_safe_limbs(trace);
     precomputed_builder.process_to_radix_p_decompositions(trace);
@@ -322,7 +324,7 @@ TEST(ToRadixConstrainingTest, ToLeRadixInteractions)
     to_radix_builder.process(to_radix_event_emitter.dump_events(), trace);
     tracegen::PrecomputedTraceBuilder precomputed_builder;
 
-    precomputed_builder.process_misc(trace, 257);
+    precomputed_builder.process_misc(trace, NUM_RADIXES);
     precomputed_builder.process_sel_range_8(trace);
     precomputed_builder.process_to_radix_safe_limbs(trace);
     precomputed_builder.process_to_radix_p_decompositions(trace);
@@ -354,7 +356,8 @@ TEST(ToRadixConstrainingTest, NegativeOverflowCheck)
     ToRadixTraceBuilder builder;
     builder.process(events, trace);
 
-    EXPECT_THROW_WITH_MESSAGE(check_relation<to_radix>(trace, to_radix::SR_OVERFLOW_CHECK), "OVERFLOW_CHECK");
+    EXPECT_THROW_WITH_MESSAGE(check_relation<to_radix>(trace, to_radix::SR_OVERFLOW_CHECK),
+                              to_radix::get_subrelation_label(to_radix::SR_OVERFLOW_CHECK));
 }
 
 TEST(ToRadixConstrainingTest, NegativeConsistency)
@@ -378,26 +381,26 @@ TEST(ToRadixConstrainingTest, NegativeConsistency)
     // Disable the selector in the middle
     trace.set(Column::to_radix_sel, 6, 0);
 
-    EXPECT_THROW_WITH_MESSAGE(check_relation<to_radix>(trace, to_radix::SR_SELECTOR_CONSISTENCY),
-                              "SELECTOR_CONSISTENCY");
+    EXPECT_THROW_WITH_MESSAGE(check_relation<to_radix>(trace, to_radix::SR_TRACE_CONTINUITY),
+                              to_radix::get_subrelation_label(to_radix::SR_TRACE_CONTINUITY));
 
     // Mutate the radix
     trace.set(Column::to_radix_radix, 5, 200);
 
-    EXPECT_THROW_WITH_MESSAGE(check_relation<to_radix>(trace, to_radix::SR_CONSTANT_CONSISTENCY_RADIX),
-                              "CONSTANT_CONSISTENCY_RADIX");
+    EXPECT_THROW_WITH_MESSAGE(check_relation<to_radix>(trace, to_radix::SR_RADIX_CONTINUITY),
+                              to_radix::get_subrelation_label(to_radix::SR_RADIX_CONTINUITY));
 
     // Mutate the value
     trace.set(Column::to_radix_value, 4, 27);
 
-    EXPECT_THROW_WITH_MESSAGE(check_relation<to_radix>(trace, to_radix::SR_CONSTANT_CONSISTENCY_VALUE),
-                              "CONSTANT_CONSISTENCY_VALUE");
+    EXPECT_THROW_WITH_MESSAGE(check_relation<to_radix>(trace, to_radix::SR_VALUE_CONTINUITY),
+                              to_radix::get_subrelation_label(to_radix::SR_VALUE_CONTINUITY));
 
     // Mutate the safe_limbs
     trace.set(Column::to_radix_safe_limbs, 3, 200);
 
-    EXPECT_THROW_WITH_MESSAGE(check_relation<to_radix>(trace, to_radix::SR_CONSTANT_CONSISTENCY_SAFE_LIMBS),
-                              "CONSTANT_CONSISTENCY_SAFE_LIMBS");
+    EXPECT_THROW_WITH_MESSAGE(check_relation<to_radix>(trace, to_radix::SR_SAFE_LIMBS_CONTINUITY),
+                              to_radix::get_subrelation_label(to_radix::SR_SAFE_LIMBS_CONTINUITY));
 }
 
 /////////////////////////
@@ -426,6 +429,9 @@ TEST(ToRadixMemoryConstrainingTest, BasicTest)
             { C::gt_input_a, dst_addr + num_limbs },
             { C::gt_input_b, MAX_MEM },
             { C::gt_res, 0 }, // GT should return true
+        },
+        // Row 1
+        {
             // Execution Trace (No gas)
             { C::execution_sel, 1 },
             { C::execution_sel_exec_dispatch_to_radix, 1 },
@@ -434,10 +440,6 @@ TEST(ToRadixMemoryConstrainingTest, BasicTest)
             { C::execution_register_2_, num_limbs },
             { C::execution_register_3_, 0 }, // is_output_bits
             { C::execution_rop_4_, dst_addr },
-
-        },
-        // Row 1
-        {
             // To Radix Mem
             { C::to_radix_mem_sel, 1 },
             { C::to_radix_mem_max_mem_size, MAX_MEM },
@@ -461,6 +463,8 @@ TEST(ToRadixMemoryConstrainingTest, BasicTest)
             { C::to_radix_mem_num_limbs_inv, FF(num_limbs).invert() },
             { C::to_radix_mem_sel_value_is_zero, 0 },
             { C::to_radix_mem_value_inv, value.invert() },
+            { C::to_radix_mem_sel_radix_eq_2, 0 },
+            { C::to_radix_mem_radix_min_two_inv, (FF(radix) - FF(2)).invert() },
             // Output
             { C::to_radix_mem_limb_value, 1 },
             { C::to_radix_mem_sel_should_decompose, 1 },
@@ -594,20 +598,20 @@ TEST(ToRadixMemoryConstrainingTest, BasicTest)
     PrecomputedTraceBuilder precomputed_builder;
     precomputed_builder.process_to_radix_safe_limbs(trace);
     precomputed_builder.process_to_radix_p_decompositions(trace);
-    precomputed_builder.process_misc(trace, 257); // Needed for precomputed safe limbs table
+    precomputed_builder.process_misc(trace, NUM_RADIXES); // Needed for precomputed safe limbs table
 
     check_relation<to_radix_mem>(trace);
     check_all_interactions<ToRadixTraceBuilder>(trace);
 
     // Negative test: disable memory write after the start row:
     trace.set(Column::to_radix_mem_sel_should_write_mem, 2, 0);
-    EXPECT_THROW_WITH_MESSAGE((check_relation<to_radix_mem>(trace, to_radix_mem::SR_SEL_SHOULD_WRITE_MEM_CONTINUITY)),
-                              "SEL_SHOULD_WRITE_MEM_CONTINUITY");
+    EXPECT_THROW_WITH_MESSAGE(check_relation<to_radix_mem>(trace, to_radix_mem::SR_SEL_SHOULD_WRITE_MEM_CONTINUITY),
+                              to_radix_mem::get_subrelation_label(to_radix_mem::SR_SEL_SHOULD_WRITE_MEM_CONTINUITY));
 
     // Negative test: disable decomposition after the start row:
     trace.set(Column::to_radix_mem_sel_should_decompose, 2, 0);
-    EXPECT_THROW_WITH_MESSAGE((check_relation<to_radix_mem>(trace, to_radix_mem::SR_SEL_SHOULD_DECOMPOSE_CONTINUITY)),
-                              "SEL_SHOULD_DECOMPOSE_CONTINUITY");
+    EXPECT_THROW_WITH_MESSAGE(check_relation<to_radix_mem>(trace, to_radix_mem::SR_SEL_SHOULD_DECOMPOSE_CONTINUITY),
+                              to_radix_mem::get_subrelation_label(to_radix_mem::SR_SEL_SHOULD_DECOMPOSE_CONTINUITY));
 }
 
 TEST(ToRadixMemoryConstrainingTest, DstOutOfRange)
@@ -668,6 +672,8 @@ TEST(ToRadixMemoryConstrainingTest, DstOutOfRange)
             { C::to_radix_mem_num_limbs_inv, FF(num_limbs).invert() },
             { C::to_radix_mem_sel_value_is_zero, 0 },
             { C::to_radix_mem_value_inv, value.invert() },
+            { C::to_radix_mem_sel_radix_eq_2, 0 },
+            { C::to_radix_mem_radix_min_two_inv, (FF(radix) - FF(2)).invert() },
         },
     });
 
@@ -723,6 +729,8 @@ TEST(ToRadixMemoryConstrainingTest, InvalidRadix)
             { C::to_radix_mem_num_limbs_inv, FF(num_limbs).invert() },
             { C::to_radix_mem_sel_value_is_zero, 0 },
             { C::to_radix_mem_value_inv, value.invert() },
+            { C::to_radix_mem_sel_radix_eq_2, 0 },
+            { C::to_radix_mem_radix_min_two_inv, (FF(radix) - FF(2)).invert() },
         },
     });
     check_relation<to_radix_mem>(trace);
@@ -777,6 +785,8 @@ TEST(ToRadixMemoryConstrainingTest, InvalidBitwiseRadix)
             { C::to_radix_mem_num_limbs_inv, FF(num_limbs).invert() },
             { C::to_radix_mem_sel_value_is_zero, 0 },
             { C::to_radix_mem_value_inv, value.invert() },
+            { C::to_radix_mem_sel_radix_eq_2, 0 },
+            { C::to_radix_mem_radix_min_two_inv, (FF(radix) - FF(2)).invert() },
         },
     });
     check_relation<to_radix_mem>(trace);
@@ -819,7 +829,6 @@ TEST(ToRadixMemoryConstrainingTest, InvalidNumLimbsForValue)
             { C::to_radix_mem_num_limbs, num_limbs },
             { C::to_radix_mem_is_output_bits, is_output_bits ? 1 : 0 },
             // Errors
-            { C::to_radix_mem_sel_invalid_num_limbs_err, 1 }, // num_limbs should not be 0 if value != 0
             { C::to_radix_mem_input_validation_error, 1 },
             { C::to_radix_mem_err, 1 },
             // Control Flow
@@ -831,6 +840,8 @@ TEST(ToRadixMemoryConstrainingTest, InvalidNumLimbsForValue)
             { C::to_radix_mem_num_limbs_inv, 0 },
             { C::to_radix_mem_sel_value_is_zero, 0 },
             { C::to_radix_mem_value_inv, value.invert() },
+            { C::to_radix_mem_sel_radix_eq_2, 0 },
+            { C::to_radix_mem_radix_min_two_inv, (FF(radix) - FF(2)).invert() },
         },
     });
     check_relation<to_radix_mem>(trace);
@@ -873,7 +884,6 @@ TEST(ToRadixMemoryConstrainingTest, TruncationError)
             { C::to_radix_mem_num_limbs, num_limbs },
             { C::to_radix_mem_is_output_bits, is_output_bits ? 1 : 0 },
             // Errors
-            { C::to_radix_mem_sel_truncation_error, 1 }, // found = false on the last le limb
             { C::to_radix_mem_err, 1 },
             // Control Flow
             { C::to_radix_mem_start, 1 },
@@ -888,21 +898,23 @@ TEST(ToRadixMemoryConstrainingTest, TruncationError)
             { C::to_radix_mem_num_limbs_inv, FF(num_limbs).invert() },
             { C::to_radix_mem_sel_value_is_zero, 0 },
             { C::to_radix_mem_value_inv, value.invert() },
+            { C::to_radix_mem_sel_radix_eq_2, 0 },
+            { C::to_radix_mem_radix_min_two_inv, (FF(radix) - FF(2)).invert() },
         },
     });
     check_relation<to_radix_mem>(trace);
     check_interaction<ToRadixTraceBuilder, lookup_to_radix_mem_check_radix_lt_2_settings>(trace);
 
     // Negative test: truncation error should be on if found = false on the start row
-    trace.set(C::to_radix_mem_sel_truncation_error, 1, 0);
-    EXPECT_THROW_WITH_MESSAGE(check_relation<to_radix_mem>(trace, to_radix_mem::SR_TRUNCATION_ERROR),
-                              "TRUNCATION_ERROR");
-    trace.set(C::to_radix_mem_sel_truncation_error, 1, 1);
+    trace.set(C::to_radix_mem_err, 1, 0);
+    EXPECT_THROW_WITH_MESSAGE(check_relation<to_radix_mem>(trace, to_radix_mem::SR_ERR_COMPUTATION),
+                              to_radix_mem::get_subrelation_label(to_radix_mem::SR_ERR_COMPUTATION));
+    trace.set(C::to_radix_mem_err, 1, 1);
 
     // Negative test: truncation error can't be on if found = true on the start row
     trace.set(C::to_radix_mem_value_found, 1, 1);
-    EXPECT_THROW_WITH_MESSAGE(check_relation<to_radix_mem>(trace, to_radix_mem::SR_TRUNCATION_ERROR),
-                              "TRUNCATION_ERROR");
+    EXPECT_THROW_WITH_MESSAGE(check_relation<to_radix_mem>(trace, to_radix_mem::SR_ERR_COMPUTATION),
+                              to_radix_mem::get_subrelation_label(to_radix_mem::SR_ERR_COMPUTATION));
 }
 
 TEST(ToRadixMemoryConstrainingTest, ZeroNumLimbsAndZeroValueIsNoop)
@@ -949,6 +961,8 @@ TEST(ToRadixMemoryConstrainingTest, ZeroNumLimbsAndZeroValueIsNoop)
             { C::to_radix_mem_num_limbs_inv, 0 },
             { C::to_radix_mem_sel_value_is_zero, 1 },
             { C::to_radix_mem_value_inv, 0 },
+            { C::to_radix_mem_sel_radix_eq_2, 0 },
+            { C::to_radix_mem_radix_min_two_inv, (FF(radix) - FF(2)).invert() },
         },
     });
     check_relation<to_radix_mem>(trace);
@@ -991,7 +1005,7 @@ TEST(ToRadixMemoryConstrainingTest, ComplexTest)
     PrecomputedTraceBuilder precomputed_builder;
     precomputed_builder.process_to_radix_safe_limbs(trace);
     precomputed_builder.process_to_radix_p_decompositions(trace);
-    precomputed_builder.process_misc(trace, 257); // Needed for precomputed safe limbs table
+    precomputed_builder.process_misc(trace, NUM_RADIXES); // Needed for precomputed safe limbs table
 
     check_relation<to_radix>(trace);
     check_relation<to_radix_mem>(trace);
@@ -1039,7 +1053,7 @@ TEST(ToRadixMemoryConstrainingTest, NegativeGhostRowMemoryWrite_RelationsOnly)
     // The fix: sel_should_write_mem * (1 - sel) = 0
     // When sel=0 and sel_should_write_mem=1: 1 * (1-0) = 1 != 0 -> FAILS
     EXPECT_THROW_WITH_MESSAGE(check_relation<to_radix_mem>(trace, to_radix_mem::SR_SEL_SHOULD_WRITE_MEM_REQUIRES_SEL),
-                              "SEL_SHOULD_WRITE_MEM_REQUIRES_SEL");
+                              to_radix_mem::get_subrelation_label(to_radix_mem::SR_SEL_SHOULD_WRITE_MEM_REQUIRES_SEL));
 }
 
 // Test that the fix blocks ghost row injection attacks with full traces.
@@ -1094,7 +1108,7 @@ TEST(ToRadixMemoryConstrainingTest, NegativeGhostRowInjectionBlocked)
     trace.set(ghost_row,
               std::vector<std::pair<Column, FF>>{
                   { C::precomputed_first_row, 1 },
-                  { C::precomputed_clk, ghost_row },
+                  { C::execution_clk, ghost_row },
                   { C::to_radix_mem_sel, 0 },
                   { C::to_radix_mem_sel_should_write_mem, 1 },
                   { C::to_radix_mem_execution_clk, malicious_clk },
@@ -1107,7 +1121,51 @@ TEST(ToRadixMemoryConstrainingTest, NegativeGhostRowInjectionBlocked)
     trace.set(C::memory_sel_to_radix_write, memory_row, 1);
 
     // The fix: sel_should_write_mem * (1 - sel) = 0 should cause the relation check to fail
-    EXPECT_THROW_WITH_MESSAGE(check_relation<to_radix_mem>(trace), "SEL_SHOULD_WRITE_MEM_REQUIRES_SEL");
+    EXPECT_THROW_WITH_MESSAGE(check_relation<to_radix_mem>(trace),
+                              to_radix_mem::get_subrelation_label(to_radix_mem::SR_SEL_SHOULD_WRITE_MEM_REQUIRES_SEL));
+}
+
+// We test that the bitwise radix error must not be raised when is_output_bits is true and radix is 2
+TEST(ToRadixMemoryConstrainingTest, NegativeBitwiseRadixError)
+{
+    TestTraceContainer trace({
+        {
+            { C::to_radix_mem_start, 1 },
+            { C::to_radix_mem_sel, 1 },
+            { C::to_radix_mem_sel_radix_eq_2, 1 },
+            { C::to_radix_mem_is_output_bits, 1 },
+        },
+    });
+
+    check_relation<to_radix_mem>(trace, to_radix_mem::SR_IS_OUTPUT_BITS_IMPLY_RADIX_2);
+
+    // Activate maliciously the sel_invalid_bitwise_radix flag
+    trace.set(C::to_radix_mem_sel_invalid_bitwise_radix, 0, 1);
+
+    EXPECT_THROW_WITH_MESSAGE(check_relation<to_radix_mem>(trace, to_radix_mem::SR_IS_OUTPUT_BITS_IMPLY_RADIX_2),
+                              to_radix_mem::get_subrelation_label(to_radix_mem::SR_IS_OUTPUT_BITS_IMPLY_RADIX_2));
+}
+
+// We test that the bitwise radix error must be raised when is_output_bits is true and radix is not 2
+TEST(ToRadixMemoryConstrainingTest, NegativeBitwiseRadixNoError)
+{
+    TestTraceContainer trace({
+        {
+            { C::to_radix_mem_start, 1 },
+            { C::to_radix_mem_sel, 1 },
+            { C::to_radix_mem_sel_radix_eq_2, 0 },
+            { C::to_radix_mem_is_output_bits, 1 },
+            { C::to_radix_mem_sel_invalid_bitwise_radix, 1 },
+        },
+    });
+
+    check_relation<to_radix_mem>(trace, to_radix_mem::SR_IS_OUTPUT_BITS_IMPLY_RADIX_2);
+
+    // De-activate maliciously the sel_invalid_bitwise_radix flag
+    trace.set(C::to_radix_mem_sel_invalid_bitwise_radix, 0, 0);
+
+    EXPECT_THROW_WITH_MESSAGE(check_relation<to_radix_mem>(trace, to_radix_mem::SR_IS_OUTPUT_BITS_IMPLY_RADIX_2),
+                              to_radix_mem::get_subrelation_label(to_radix_mem::SR_IS_OUTPUT_BITS_IMPLY_RADIX_2));
 }
 
 } // namespace

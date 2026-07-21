@@ -163,7 +163,7 @@ contract EscapeHatchJoinCandidateSetTest is EscapeHatchBase {
     uint256 contractBalanceBefore = bondToken.balanceOf(address(escapeHatch));
 
     vm.expectEmit(true, true, true, true);
-    emit IEscapeHatchCore.CandidateJoined(CANDIDATE1, config.bondSize);
+    emit IEscapeHatchCore.CandidateJoined(CANDIDATE1);
 
     vm.prank(CANDIDATE1);
     escapeHatch.joinCandidateSet();

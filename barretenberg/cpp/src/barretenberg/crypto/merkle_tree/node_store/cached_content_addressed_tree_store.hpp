@@ -1,5 +1,5 @@
 // === AUDIT STATUS ===
-// internal:    { status: Planned, auditors: [Raju], commit: }
+// internal:    { status: Complete, auditors: [Nishat], commit: 22d6fc368da0fbe5412f4f7b2890a052aa48d803 }
 // external_1:  { status: not started, auditors: [], commit: }
 // external_2:  { status: not started, auditors: [], commit: }
 // =====================
@@ -191,11 +191,14 @@ template <typename LeafValueType> class ContentAddressedCachedTreeStore {
 
     std::optional<block_number_t> find_block_for_index(const index_t& index, ReadTransaction& tx) const;
 
-    void checkpoint();
+    uint32_t checkpoint();
     void revert_checkpoint();
     void commit_checkpoint();
-    void revert_all_checkpoints();
-    void commit_all_checkpoints();
+    void revert_all_checkpoints_to();
+    void commit_all_checkpoints_to();
+    void commit_to_depth(uint32_t depth);
+    void revert_to_depth(uint32_t depth);
+    uint32_t checkpoint_depth() const;
 
   private:
     using Cache = ContentAddressedCache<LeafValueType>;
@@ -276,10 +279,10 @@ ContentAddressedCachedTreeStore<LeafValueType>::ContentAddressedCachedTreeStore(
 // These checkpoint apis modify the cache's internal state.
 // They acquire the mutex to prevent races with concurrent read/write operations (e.g., when C++ AVM simulation
 // runs on a worker thread while TypeScript calls revert_checkpoint from a timeout handler).
-template <typename LeafValueType> void ContentAddressedCachedTreeStore<LeafValueType>::checkpoint()
+template <typename LeafValueType> uint32_t ContentAddressedCachedTreeStore<LeafValueType>::checkpoint()
 {
     std::unique_lock lock(mtx_);
-    cache_.checkpoint();
+    return cache_.checkpoint();
 }
 
 template <typename LeafValueType> void ContentAddressedCachedTreeStore<LeafValueType>::revert_checkpoint()
@@ -294,16 +297,34 @@ template <typename LeafValueType> void ContentAddressedCachedTreeStore<LeafValue
     cache_.commit();
 }
 
-template <typename LeafValueType> void ContentAddressedCachedTreeStore<LeafValueType>::revert_all_checkpoints()
+template <typename LeafValueType> void ContentAddressedCachedTreeStore<LeafValueType>::revert_all_checkpoints_to()
 {
     std::unique_lock lock(mtx_);
     cache_.revert_all();
 }
 
-template <typename LeafValueType> void ContentAddressedCachedTreeStore<LeafValueType>::commit_all_checkpoints()
+template <typename LeafValueType> void ContentAddressedCachedTreeStore<LeafValueType>::commit_all_checkpoints_to()
 {
     std::unique_lock lock(mtx_);
     cache_.commit_all();
+}
+
+template <typename LeafValueType> void ContentAddressedCachedTreeStore<LeafValueType>::commit_to_depth(uint32_t depth)
+{
+    std::unique_lock lock(mtx_);
+    cache_.commit_to_depth(depth);
+}
+
+template <typename LeafValueType> void ContentAddressedCachedTreeStore<LeafValueType>::revert_to_depth(uint32_t depth)
+{
+    std::unique_lock lock(mtx_);
+    cache_.revert_to_depth(depth);
+}
+
+template <typename LeafValueType> uint32_t ContentAddressedCachedTreeStore<LeafValueType>::checkpoint_depth() const
+{
+    std::unique_lock lock(mtx_);
+    return cache_.depth();
 }
 
 template <typename LeafValueType>
@@ -673,6 +694,14 @@ template <typename LeafValueType> void ContentAddressedCachedTreeStore<LeafValue
 
             meta.committedSize = meta.size;
             persist_meta(meta, *tx);
+
+            // Persist a BlockPayload entry for block 0 so that genesis state can be queried as a first-class
+            // historical block. Without this, get_block_data(0) would fail and any historical read targeting block 0
+            // would throw. The payload captures the tree's initial root/size before any blocks have been committed.
+            BlockPayload genesisBlock{ .size = meta.initialSize, .blockNumber = 0, .root = meta.initialRoot };
+            dataStore_->write_block_data(0, genesisBlock, *tx);
+            dataStore_->write_block_index_data(0, meta.initialSize, *tx);
+
             tx->commit();
         } catch (std::exception& e) {
             tx->try_abort();
@@ -846,6 +875,10 @@ void ContentAddressedCachedTreeStore<LeafValueType>::advance_finalized_block(con
         ReadTransactionPtr readTx = create_read_transaction();
         get_meta(uncommittedMeta);
         get_meta(committedMeta, *readTx, false);
+        // do nothing if the block is already finalized
+        if (committedMeta.finalizedBlockHeight >= blockNumber) {
+            return;
+        }
         if (!dataStore_->read_block_data(blockNumber, blockPayload, *readTx)) {
             throw std::runtime_error(format("Unable to advance finalized block: ",
                                             blockNumber,
@@ -853,17 +886,13 @@ void ContentAddressedCachedTreeStore<LeafValueType>::advance_finalized_block(con
                                             forkConstantData_.name_));
         }
     }
-    // do nothing if the block is already finalized
-    if (committedMeta.finalizedBlockHeight >= blockNumber) {
-        return;
-    }
 
     // can currently only finalize up to the unfinalized block height
-    if (committedMeta.finalizedBlockHeight > committedMeta.unfinalizedBlockHeight) {
+    if (blockNumber > committedMeta.unfinalizedBlockHeight) {
         throw std::runtime_error(format("Unable to finalize block ",
                                         blockNumber,
                                         " currently unfinalized block height ",
-                                        committedMeta.finalizedBlockHeight));
+                                        committedMeta.unfinalizedBlockHeight));
     }
 
     {

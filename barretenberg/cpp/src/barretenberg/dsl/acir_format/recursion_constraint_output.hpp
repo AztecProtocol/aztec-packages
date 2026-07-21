@@ -1,12 +1,14 @@
 // === AUDIT STATUS ===
-// internal:    { status: Planned, auditors: [], commit: }
+// internal:    { status: Completed, auditors: [Federico], commit: }
 // external_1:  { status: not started, auditors: [], commit: }
 // external_2:  { status: not started, auditors: [], commit: }
 // =====================
 
 #pragma once
 #include "barretenberg/commitment_schemes/claim.hpp"
+#include "barretenberg/eccvm/eccvm_verifier.hpp"
 #include "barretenberg/stdlib/eccvm_verifier/verifier_commitment_key.hpp"
+#include "barretenberg/stdlib/honk_verifier/ipa_accumulator.hpp"
 #include "barretenberg/stdlib/primitives/pairing_points.hpp"
 #include "barretenberg/stdlib/proof/proof.hpp"
 #include "barretenberg/ultra_honk/ultra_verifier.hpp"
@@ -29,8 +31,14 @@ using HonkRecursionConstraintOutput = bb::stdlib::recursion::honk::UltraRecursiv
  */
 template <typename Builder> struct HonkRecursionConstraintsOutput {
     stdlib::recursion::PairingPoints<stdlib::bn254<Builder>> points_accumulator;
+    using IPAAccumulator = bb::stdlib::recursion::honk::IpaAccumulator<stdlib::grumpkin<Builder>>;
+
+    using TripleIpaClaim = typename bb::ECCVMRecursiveVerifier::TripleIpaClaim;
+    using TripleIpaOpening = typename bb::ECCVMRecursiveVerifier::DeferredTripleIpaOpening;
+
     std::vector<OpeningClaim<stdlib::grumpkin<Builder>>> nested_ipa_claims;
     std::vector<stdlib::Proof<Builder>> nested_ipa_proofs;
+    std::vector<TripleIpaOpening> nested_triple_ipa_openings;
     bool is_root_rollup = false;
 
     /**
@@ -42,6 +50,9 @@ template <typename Builder> struct HonkRecursionConstraintsOutput {
      * @brief Update the current output with the results of a series of recursive verifications
      */
     void update(const HonkRecursionConstraintsOutput<Builder>& other, bool update_ipa_data);
+
+    void update_triple_ipa_opening(const stdlib::recursion::PairingPoints<stdlib::bn254<Builder>>& pairing_points,
+                                   TripleIpaOpening triple_ipa_opening);
 
     /**
      * @brief Finalize the output by accumulating IPA claims/proofs, performing full IPA verification, and propagating

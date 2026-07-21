@@ -56,34 +56,10 @@ tests:
     error_regex: "field_t::range_constraint"
     owners:
       - *luke
-  - regex: "barretenberg/acir_tests/scripts/browser_prove.sh"
-    error_regex: "Failed to fetch"
-    owners:
-      - *adam
-  - regex: "barretenberg/acir_tests/scripts/browser_prove.sh"
-    error_regex: "RuntimeError: Out of bounds memory access"
-    owners:
-      - *adam
-  - regex: "barretenberg/acir_tests/scripts/browser_prove.sh"
-    error_regex: "call_indirect to a null table entry"
-    owners:
-      - *adam
-  - regex: "barretenberg/acir_tests/scripts/browser_prove.sh"
-    error_regex: "Input is not large enough"
-    owners:
-      - *adam
-  # https://gist.github.com/spalladino/4fd3d2abd7b7fb05be2e556649868626
-  - regex: "barretenberg/acir_tests/scripts/browser_prove.sh"
-    error_regex: "sending signal TERM to command"
-    owners:
-      - *adam
   - regex: "barretenberg/cpp/scripts/run_bench.sh wasm bb-micro-bench/wasm/ultra_honk"
     error_regex: "Aborted.*core dumped"
     owners:
       - *adam
-  - regex: "barretenberg/cpp/scripts/run_bench.sh wasm bb-micro-bench/wasm/chonk build-wasm-threads/bin/chonk_bench"
-    owners:
-      - *luke
 
   # noir
   # Something to do with how I run the tests now. Think these are fine in nextest.
@@ -115,6 +91,13 @@ tests:
     owners:
       - *nico
 
+  # Fails in CI: "No execution steps in ivc-inputs.msgpack" — pinned Chonk IVC
+  # inputs missing/stale. http://ci.aztec-labs.com/d7647a841ee811a0
+  - regex: "bbapi/chonk_pinned_inputs.test"
+    skip: true
+    owners:
+      - *palla
+
   # e2e tests skipped
   - regex: "testbench/port_change.test.ts"
     skip: true
@@ -125,56 +108,51 @@ tests:
     skip: true
     owners:
       - *alex
-  - regex: "src/e2e_fees/private_payments"
+  - regex: "src/single-node/fees/private_payments"
     owners:
       - *phil
-  - regex: "src/e2e_token_contract/access_control"
+  - regex: "src/automine/token/access_control"
     error_regex: "HttpRequestError: HTTP request failed."
     owners:
       - *charlie
-  - regex: "src/e2e_lending_contract"
+  - regex: "src/automine/token/lending"
     error_regex: "✕ Depositing"
     owners:
       - *lasse
-  - regex: "src/e2e_lending_contract"
+  - regex: "src/automine/token/lending"
     error_regex: "✕ Repay"
     owners:
       - *lasse
-  # http://ci.aztec-labs.com/e85ff6c5da65a1e7
-  - regex: "src/e2e_cross_chain_messaging/l1_to_l2.test.ts"
-    error_regex: "Failed to advance block"
+  - regex: "src/single-node/cross-chain/l1_to_l2"
     owners:
       - *palla
-  - regex: "src/e2e_cross_chain_messaging/token_bridge_private"
+  - regex: "src/single-node/cross-chain/token_bridge"
     error_regex: "✕ Claim secret is enough to consume the message"
     owners:
       - *lasse
-  - regex: "src/e2e_cross_chain_messaging/token_bridge_public"
+  - regex: "src/single-node/cross-chain/token_bridge"
     error_regex: "✕ Someone else can mint funds to me on my behalf"
     owners:
       - *lasse
-  - regex: "src/e2e_cross_chain_messaging/token_bridge_public"
+  - regex: "src/single-node/cross-chain/token_bridge"
     error_regex: "✕ Publicly deposit funds"
     owners:
       - *lasse
-  - regex: "src/e2e_cross_chain_messaging/token_bridge_failure_cases"
+  - regex: "src/single-node/cross-chain/token_bridge"
     error_regex: "✕ Can't claim funds"
     owners:
       - *lasse
-  - regex: "src/e2e_l1_publisher/e2e_l1_publisher.test.ts"
-    error_regex: "Anvil failed to stop in time|Cannot read properties of undefined"
+  - regex: "src/single-node/bot/bot.test.ts"
+    error_regex: "Tx dropped"
     owners:
       - *palla
-  # http://ci.aztec-labs.com/f2007345762c50a8
-  - regex: "src/e2e_multi_validator_node.test.ts"
-    error_regex: "✕ should attest ONLY with the correct validator keys"
-    owners:
-      - *spyros
-  - regex: "src/composed/ha/e2e_ha_full.test.ts"
-    owners:
-      - *alex
 
   # yarn-project tests
+  # Attempt to catch all kv-store browser test failures (consider them quarantined for now)
+  - regex: "yarn-project/kv-store"
+    error_regex: "vitest"
+    owners:
+      - *martin
   - regex: "yarn-project/kv-store"
     error_regex: "Could not import your test module"
     owners:
@@ -182,11 +160,19 @@ tests:
   - regex: "yarn-project/kv-store"
     error_regex: "timeout: sending signal TERM to command"
     owners:
-      - *alex
+      - *martin
   - regex: "yarn-project/kv-store"
     error_regex: "Failed to fetch dynamically imported module"
     owners:
       - *grego
+  - regex: "yarn-project/kv-store"
+    error_regex: "Error: Timeout of 2000ms exceeded"
+    owners:
+      - *martin
+  - regex: "kv-store/.*store\\.test"
+    error_regex: "guards against too many cursors"
+    owners:
+      - *palla
   - regex: "ethereum/src/test/tx_delayer.test.ts"
     error_regex: "delays a transaction until a given L1 timestamp"
     owners:
@@ -206,6 +192,10 @@ tests:
   - regex: "p2p/src/services/discv5/discv5_service.test.ts"
     owners:
       - *phil
+      - *palla
+  - regex: "sequencer-client/src/publisher/l1_publisher.integration.test.ts"
+    error_regex: "Anvil failed to stop in time|Cannot read properties of undefined"
+    owners:
       - *palla
 
   # Nightly GKE tests
@@ -231,7 +221,7 @@ tests:
     owners:
       - *adam
 
-  - regex: "yarn-project/end-to-end/scripts/run_test.sh simple src/e2e_bot.test.ts"
+  - regex: "yarn-project/end-to-end/scripts/run_test.sh simple src/single-node/bot/bot.test.ts"
     error_regex: "Nonce provided for the transaction is lower than the current nonce of the account"
     owners:
       - *adam
@@ -241,27 +231,6 @@ tests:
     error_regex: "Error: Timed out [0-9]+ms waiting for expect\\(locator\\)"
     owners:
       - *saleel
-
-  # Example http://ci.aztec-labs.com/18db8adf0db50928
-  # This seems to be an error in acvm wasm/js
-  - regex: "run_compose_test [a-z]*-[a-z]* box boxes"
-    error_regex: "call_indirect to a null table entry"
-    owners:
-      - *adam
-
-  # Example http://ci.aztec-labs.com/1752518c2215134c
-  # This seems to be a flake in how this is set up. TODO redo boxes.
-  - regex: "run_compose_test [a-z]*-[a-z]* box boxes"
-    error_regex: "expect.locator..toBeVisible.."
-    owners:
-      - *adam
-
-  # Example http://ci.aztec-labs.com/cd76b19670ab613f
-  # related to wasm proving browser flakes potentially
-  - regex: "run_compose_test [a-z]*-[a-z]* box boxes"
-    error_regex: "Out of bounds memory access (evaluating 'this.exports"
-    owners:
-      - *adam
 
   - regex: "run_compose_test vite-[a-z]* box boxes"
     error_regex: "Test timeout of [0-9]+ms exceeded."
@@ -294,15 +263,45 @@ tests:
       - *charlie
       - *adam
 
+  - regex: "src/single-node/l1-reorgs/blocks.parallel.test.ts"
+    owners:
+      - *phil
+
+  - regex: "src/single-node/l1-reorgs/messages.parallel.test.ts"
+    owners:
+      - *phil
+
+  - regex: "src/multi-node/recovery/pipeline_prune.test.ts.*prunes uncheckpointed"
+    owners:
+      - *sean
+
+  # Asserts a late tx burst is redistributed across the checkpoint's last two blocks, but the proposer
+  # seals the one-before-last block as soon as one tx is available and snapshots the mempool, so late
+  # txs still propagating over gossip spill into the next checkpoint. Flaky until the sequencer waits
+  # for the last block's tx window.
+  - regex: "src/multi-node/block-production/redistribution.parallel.test.ts.*redistributes checkpoint budget"
+    owners:
+      - *phil
+
   # Blanket flake patterns for unstable p2p, epoch, and l1 tx utils tests
   # This is a temporary measure while team bandwidth is constrained
   # Replaced many specific patterns - see https://github.com/AztecProtocol/aztec-packages/pull/17962 for historical context
-  - regex: "src/e2e_p2p/.*\\.test\\.ts"
+  - regex: "src/p2p/.*\\.test\\.ts"
     flake_group_id: e2e-p2p-epoch-flakes
     owners:
       - *phil
 
-  - regex: "src/e2e_epochs/.*\\.test\\.ts"
+  - regex: "src/single-node/.*\\.test\\.ts"
+    flake_group_id: e2e-p2p-epoch-flakes
+    owners:
+      - *palla
+
+  - regex: "src/multi-node/.*\\.test\\.ts"
+    flake_group_id: e2e-p2p-epoch-flakes
+    owners:
+      - *palla
+
+  - regex: "src/automine/.*\\.test\\.ts"
     flake_group_id: e2e-p2p-epoch-flakes
     owners:
       - *palla
@@ -318,10 +317,13 @@ tests:
     owners:
       - *palla
 
-  - regex: "bb-micro-bench/wasm/chonk build-wasm-threads/bin/chonk_bench"
-    error_regex: "core dumped"
+  # tx_stats_bench's 10 TPS sub-test occasionally returns valid:false from a single IVC
+  # verification under heavy concurrency (8 parallel verifiers, each spawning a fresh bb subprocess
+  # via the bb.js NativeUnixSocket backend introduced in #21564). The serial sub-tests pass.
+  - regex: "tx_stats_bench"
+    error_regex: "tx_stats_bench\\.test\\.ts:[0-9]+:[0-9]+"
     owners:
-      - *adam
+      - *charlie
 
   - regex: "src/e2e_token_bridge_tutorial.test.ts"
     error_regex: "Error: Unable to find low leaf for block"
@@ -329,17 +331,19 @@ tests:
       - *leila
 
   # http://ci.aztec-labs.com/61d96be1402847b1
+  # The L1↔L2 bridging flow sends its L1 txs against an automining anvil that the
+  # local-network sequencer and cheat codes also drive; under load a tx can sit
+  # unmined past viem's confirmation timeout, surfacing as either the jest per-test
+  # timeout or a viem WaitForTransactionReceiptTimeoutError (http://ci.aztec-labs.com/1643e817d7242e0e).
   - regex: "src/composed/e2e_token_bridge_tutorial_test.test.ts"
-    error_regex: "Exceeded timeout of [0-9]+ ms for a test"
+    error_regex: "Exceeded timeout of [0-9]+ ms for a test|WaitForTransactionReceiptTimeoutError: Timed out while waiting for transaction"
     owners:
       - *palla
 
-  # http://ci.aztec-labs.com/963635a09039594f
-  # http://ci.aztec-labs.com/d3b12131764bce18
-  - regex: "boxes/scripts/run_test.sh"
-    error_regex: "sending signal TERM to command"
+  - regex: "src/single-node/block-building/block_building.test.ts"
+    error_regex: "✕ processes txs until hitting timetable"
     owners:
-      - *adam
+      - *palla
 
   # http://ci.aztec-labs.com/e8228a36afda93b8
   # Test passed but there was an error on stopping
@@ -355,12 +359,93 @@ tests:
     owners:
       - *adam
 
+  # http://ci.aztec-labs.com/93754bdf832ef9bd
+  # P2P receipt race in the compose CLI-wallet flow: the account deployment tx
+  # can be reported as dropped after the 5s grace window before inclusion is
+  # visible to the queried node.
+  - regex: "yarn-project/end-to-end/scripts/run_test.sh compose ../cli-wallet/test/flows/public_authwit_transfer.sh"
+    error_regex: "Transaction .* was dropped\\. Reason: Tx dropped by P2P node"
+    owners:
+      - *palla
+
   - regex: "cd l1-contracts && forge test"
     error_regex: "Encountered 1 failing test in test/staking_asset_handler/claim.t.sol:ClaimTest"
     owners:
       - *lasse
 
-  - regex: "yarn-project/scripts/run_test.sh pxe/src/notes/note_service.test.ts"
-    error_regex: "should remove notes that have been nullified"
+  - regex: "yarn-project/end-to-end/scripts/run_test.sh simple src/single-node/fees/gas_estimation.parallel.test.ts"
+    error_regex: "timeout: sending signal TERM to command 'bash'"
+    owners:
+      - *alex
+
+  - regex: "yarn-project/end-to-end/scripts/run_test.sh compose src/composed/docs_examples.test.ts"
+    error_regex: "maxFeesPerGas.feePerL2Gas must be greater than or equal to gasFees.feePerL2Gas,"
+    owners:
+      - *esau
+
+  # http://ci.aztec-labs.com/6db6103599cb22e6
+  # Under pipelining, the lazy validator's attestation can arrive after the
+  # p2p checkpoint-attestation-validator's acceptance window, getting rejected
+  # before the slasher's gossip callback fires. The slasher then never records
+  # ATTESTED_TO_INVALID_CHECKPOINT_PROPOSAL and the test times out.
+  - regex: "src/multi-node/slashing/attested_invalid_proposal.parallel.test.ts"
+    error_regex: "Timeout awaiting honest validator slash offenses for invalid proposal attestation"
+    owners:
+      - *palla
+
+  - regex: "yarn-project/end-to-end/scripts/run_test.sh ha src/composed/ha/e2e_ha_full.parallel.test.ts"
+    owners:
+      - *spyros
+
+  - regex: "yarn-project/end-to-end/scripts/run_test.sh ha src/composed/ha/e2e_ha_distribute_work.test.ts"
+    owners:
+      - *spyros
+
+  # http://ci.aztec-labs.com/98d59d04f85223f8
+  # Build-cache flake: module not found during Jest startup
+  - regex: "src/single-node/sequencer/gov_proposal.parallel.test.ts"
+    error_regex: "Cannot find module '@aztec/sequencer-client/config'"
+    owners:
+      - *palla
+
+  # http://ci.aztec-labs.com/e5938ff415312e06
+  # ChainMonitor teardown race: its poll loop calls the L1 Inbox getState() after
+  # Jest has torn down the module env (ERR_VM_MODULE_NOT_MODULE). Test itself passes.
+  - regex: "src/e2e_sequencer/gov_proposal.parallel.test.ts"
+    error_regex: "a file after the Jest environment has been torn down"
+    owners:
+      - *palla
+
+  # http://ci.aztec-labs.com/153f5dcbb0f3799c
+  - regex: "src/automine/effects/offchain_payment.parallel.test.ts"
+    error_regex: "✕ reprocesses an offchain-delivered payment after an L1 reorg"
     owners:
       - *martin
+
+  - regex: "yarn-project/scripts/run_test.sh bb-prover/src/avm_proving_tests/avm_"
+    error_regex: "timeout: sending signal"
+    owners:
+      - *charlie
+
+  - regex: "run_test.sh simple tx_stats_bench"
+    error_regex: "✕ verifies transactions at 10 TPS"
+    owners:
+      - *phil
+
+  # http://ci.aztec-labs.com/930ddc9ede87059f
+  # Pipelining race: slasher doesn't record the duplicate proposal offense before
+  # the test's wait timeout — same family as #23501.
+  - regex: "src/multi-node/slashing/equivocation_offenses.test.ts.*duplicate proposals"
+    error_regex: "TimeoutError: Timeout awaiting duplicate proposal offense"
+    owners:
+      - *palla
+
+  # http://ci.aztec-labs.com/620b664d9d37ad65
+  # Wall-clock-deadline flake under CI CPU contention: the public processor can be
+  # descheduled past its block-build deadline before processing a single tx, so
+  # re-execution applies 0 txs and the validator rejects a block the test expects
+  # accepted. Scoped to that end-state-mismatch signature; not a logic regression.
+  - regex: "validator-client/src/validator.integration.test.ts"
+    error_regex: "✕ rejects block that would exceed checkpoint mana limit"
+    owners:
+      - *palla

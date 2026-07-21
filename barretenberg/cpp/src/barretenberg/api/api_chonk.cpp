@@ -7,6 +7,7 @@
 #include "barretenberg/chonk/chonk_verifier.hpp"
 #include "barretenberg/chonk/mock_circuit_producer.hpp"
 #include "barretenberg/chonk/private_execution_steps.hpp"
+#include "barretenberg/chonk/proof_compression.hpp"
 #include "barretenberg/common/get_bytecode.hpp"
 #include "barretenberg/common/map.hpp"
 #include "barretenberg/common/throw_or_abort.hpp"
@@ -21,19 +22,30 @@
 namespace bb {
 namespace { // anonymous namespace
 
-/**
- * @brief Compute and write to file a MegaHonk VK for a circuit to be accumulated by Chonk.
- * @note This method differes from write_vk_honk<MegaFlavor> in that it handles kernel circuits which require special
- * treatment (i.e. construction of mock IVC state to correctly complete the kernel logic).
+CircuitKind parse_circuit_kind(const std::string& s)
+{
+    if (s == "app") {
+        return CircuitKind::App;
+    }
+    if (s == "kernel") {
+        return CircuitKind::Kernel;
+    }
+    if (s == "hiding") {
+        return CircuitKind::HidingKernel;
+    }
+    throw_or_abort("write_chonk_vk: --circuit_kind must be one of 'app' / 'kernel' / 'hiding' (got '" + s + "')");
+    __builtin_unreachable();
+}
 
- *
- * @param bytecode ACIR bytecode of the circuit
- * @param output_path Directory to write the VK (or "-" for stdout)
- * @param flags API flags including output_format
+/**
+ * @brief Compute and write a Chonk VK in the per-kind flavor selected by `flags.circuit_kind`
+ * (app → MegaApp, kernel → MegaKernel, hiding → MegaZK). Delegates to ChonkComputeVk; the dummy
+ * IVC inputs that make a kernel's recursion constraints satisfiable are handled in the ACIR layer.
  */
 void write_chonk_vk(std::vector<uint8_t> bytecode, const std::filesystem::path& output_path, const API::Flags& flags)
 {
-    auto response = bbapi::ChonkComputeVk{ .circuit = { .bytecode = std::move(bytecode) } }.execute();
+    const CircuitKind kind = parse_circuit_kind(flags.circuit_kind);
+    auto response = bbapi::ChonkComputeVk{ .circuit = { .bytecode = std::move(bytecode) }, .kind = kind }.execute();
 
     const bool is_stdout = output_path == "-";
     if (is_stdout) {
@@ -58,12 +70,20 @@ void ChonkAPI::prove(const Flags& flags,
     request.vk_policy = bbapi::parse_vk_policy(flags.vk_policy);
     std::vector<PrivateExecutionStepRaw> raw_steps = PrivateExecutionStepRaw::load_and_decompress(input_path);
 
-    bbapi::ChonkStart{ .num_circuits = raw_steps.size() }.execute(request);
-    info("Chonk: starting with ", raw_steps.size(), " circuits");
+    std::vector<CircuitKind> kinds;
+    kinds.reserve(raw_steps.size());
     for (const auto& step : raw_steps) {
+        kinds.push_back(step.kind);
+    }
+    bbapi::ChonkStart{ .kinds = std::move(kinds) }.execute(request);
+    info("Chonk: starting with ", raw_steps.size(), " circuits");
+    for (size_t i = 0; i < raw_steps.size(); ++i) {
+        const auto& step = raw_steps[i];
         bbapi::ChonkLoad{
-            .circuit = { .name = step.function_name, .bytecode = step.bytecode, .verification_key = step.vk }
-        }.execute(request);
+            .circuit = { .name = step.function_name, .bytecode = step.bytecode, .verification_key = step.vk },
+            .kind = step.kind,
+        }
+            .execute(request);
 
         // NOLINTNEXTLINE(bugprone-unchecked-optional-access): we know the optional has been set here.
         info("Chonk: accumulating " + step.function_name);
@@ -95,8 +115,10 @@ void ChonkAPI::prove(const Flags& flags,
 
     if (flags.write_vk) {
         vinfo("writing Chonk vk in directory ", output_dir);
-        // write CHONK vk using the bytecode of the Hiding kernel (the last step of the execution)
-        write_chonk_vk(raw_steps[raw_steps.size() - 1].bytecode, output_dir, flags);
+        // Write CHONK vk for the hiding kernel (last step) — proven as MegaZK.
+        Flags hiding_flags = flags;
+        hiding_flags.circuit_kind = "hiding";
+        write_chonk_vk(raw_steps[raw_steps.size() - 1].bytecode, output_dir, hiding_flags);
     }
 }
 
@@ -113,6 +135,61 @@ bool ChonkAPI::verify([[maybe_unused]] const Flags& flags,
 
     auto response = bbapi::ChonkVerify{ .proof = std::move(proof), .vk = std::move(vk_buffer) }.execute();
     return response.valid;
+}
+
+bool ChonkAPI::batch_verify([[maybe_unused]] const Flags& flags, const std::filesystem::path& proofs_dir)
+{
+    BB_BENCH_NAME("ChonkAPI::batch_verify");
+
+    std::vector<ChonkProof> proofs;
+    std::vector<std::vector<uint8_t>> vks;
+
+    for (size_t i = 0;; ++i) {
+        auto proof_file = proofs_dir / ("proof_" + std::to_string(i));
+        auto vk_file = proofs_dir / ("vk_" + std::to_string(i));
+
+        if (!std::filesystem::exists(proof_file) || !std::filesystem::exists(vk_file)) {
+            break;
+        }
+
+        auto proof_fields = many_from_buffer<fr>(read_file(proof_file));
+        proofs.push_back(ChonkProof::from_field_elements(proof_fields));
+        vks.push_back(read_vk_file(vk_file));
+    }
+
+    if (proofs.empty()) {
+        throw_or_abort("batch_verify: no proof_0/vk_0 pairs found in " + proofs_dir.string());
+    }
+
+    info("ChonkAPI::batch_verify - found ", proofs.size(), " proof/vk pairs in ", proofs_dir.string());
+
+    auto response = bbapi::ChonkBatchVerify{ .proofs = std::move(proofs), .vks = std::move(vks) }.execute();
+    return response.valid;
+}
+
+void ChonkAPI::proof_stats(const std::filesystem::path& proof_path, const std::filesystem::path& output_path)
+{
+    auto proof_fields = many_from_buffer<fr>(read_file(proof_path));
+    auto proof = ChonkProof::from_field_elements(proof_fields);
+
+    auto compressed = ProofCompressor::compress_chonk_proof(proof);
+
+    std::string json = "{\n"
+                       "  \"compressed_proof_size_bytes\": " +
+                       std::to_string(compressed.size()) +
+                       "\n"
+                       "}";
+
+    if (output_path == "-") {
+        std::cout << json << std::endl;
+    } else {
+        write_file(output_path, std::vector<uint8_t>(json.begin(), json.end()));
+        // Write the compressed proof alongside the JSON for further processing (e.g. gzip)
+        auto compressed_proof_path = output_path;
+        compressed_proof_path.replace_extension(".bin");
+        write_file(compressed_proof_path, compressed);
+        info("Proof stats written to ", output_path);
+    }
 }
 
 // WORKTODO(bbapi) remove this
@@ -134,7 +211,7 @@ bool ChonkAPI::prove_and_verify(const std::filesystem::path& input_path)
 void ChonkAPI::gates(const Flags& flags, const std::filesystem::path& bytecode_path)
 {
     BB_BENCH_NAME("ChonkAPI::gates");
-    chonk_gate_count(bytecode_path, flags.include_gates_per_opcode);
+    chonk_gate_count(bytecode_path.string(), flags.include_gates_per_opcode);
 }
 
 void ChonkAPI::write_solidity_verifier([[maybe_unused]] const Flags& flags,
@@ -153,14 +230,18 @@ bool ChonkAPI::check_precomputed_vks(const Flags& flags, const std::filesystem::
 
     bbapi::VkPolicy vk_policy = bbapi::parse_vk_policy(flags.vk_policy);
     bool check_failed = false;
-    for (auto& step : raw_steps) {
+    for (size_t i = 0; i < raw_steps.size(); ++i) {
+        auto& step = raw_steps[i];
         if (step.vk.empty()) {
             info("FAIL: Expected precomputed vk for function ", step.function_name);
             return false;
         }
-        auto response = bbapi::ChonkCheckPrecomputedVk{
-            .circuit = { .name = step.function_name, .bytecode = step.bytecode, .verification_key = step.vk }
-        }.execute();
+        auto response =
+            bbapi::ChonkCheckPrecomputedVk{
+                .circuit = { .name = step.function_name, .bytecode = step.bytecode, .verification_key = step.vk },
+                .kind = step.kind,
+            }
+                .execute();
 
         if (!response.valid) {
             info("VK mismatch detected for function ", step.function_name);

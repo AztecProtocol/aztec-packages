@@ -1,6 +1,6 @@
 #pragma once
 
-#include <cstdint>
+#include <utility>
 
 #include "barretenberg/vm2/common/memory_types.hpp"
 #include "barretenberg/vm2/simulation/events/bitwise_event.hpp"
@@ -9,8 +9,14 @@
 
 namespace bb::avm2::simulation {
 
-class Bitwise : public BitwiseInterface {
+/**
+ * @brief Witness-generating implementation of bitwise AND/OR/XOR operations.
+ */
+class Bitwise : public BitwiseSimdInterface {
   public:
+    /**
+     * @param event_emitter Destination for BitwiseEvent emissions consumed by tracegen.
+     */
     Bitwise(EventEmitterInterface<BitwiseEvent>& event_emitter)
         : events(event_emitter)
     {}
@@ -19,9 +25,16 @@ class Bitwise : public BitwiseInterface {
     MemoryValue or_op(const MemoryValue& a, const MemoryValue& b) override;
     MemoryValue xor_op(const MemoryValue& a, const MemoryValue& b) override;
 
+    std::pair<MemoryValue, MemoryValue> simd_and_op_64(const MemoryValue& a1,
+                                                       const MemoryValue& b1,
+                                                       const MemoryValue& a2,
+                                                       const MemoryValue& b2) override;
+    std::pair<MemoryValue, MemoryValue> simd_xor_op_64(const MemoryValue& a1,
+                                                       const MemoryValue& b1,
+                                                       const MemoryValue& a2,
+                                                       const MemoryValue& b2) override;
+
   private:
-    // TODO: Use deduplicating events + consider (see bottom paragraph of bitwise.pil) a further deduplication
-    // when some inputs are prefixes of another ones (with a bigger tag).
     EventEmitterInterface<BitwiseEvent>& events;
 };
 

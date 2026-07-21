@@ -55,9 +55,9 @@ TYPED_TEST(StrausLookupTableTest, TestTableConstuction)
     straus_lookup_table table(&builder, base_point, offset_gen, table_bits);
 
     if constexpr (std::is_same_v<TypeParam, bb::UltraCircuitBuilder>) {
-        check_circuit_and_gate_count(builder, 184);
+        check_circuit_and_gate_count(builder, 192);
     } else {
-        check_circuit_and_gate_count(builder, 181);
+        check_circuit_and_gate_count(builder, 189);
     }
 }
 
@@ -99,9 +99,9 @@ TYPED_TEST(StrausLookupTableTest, TestTableRead)
     // Mega pre-adds constants {0, 3, 4, 8} for ECC op codes during construction. When setting ROM elements at indices
     // {3, 4, 8}, Mega doesn't need to add a corresponding gate for the constant value, whereas Ultra does.
     if constexpr (std::is_same_v<TypeParam, bb::UltraCircuitBuilder>) {
-        check_circuit_and_gate_count(builder, 216);
+        check_circuit_and_gate_count(builder, 224);
     } else {
-        check_circuit_and_gate_count(builder, 213);
+        check_circuit_and_gate_count(builder, 221);
     }
 }
 
@@ -151,9 +151,9 @@ TYPED_TEST(StrausLookupTableTest, TestWithProvidedHints)
     // Gate count difference explanation:
     // Same as TestTableRead - ROM with 8 elements (indices 0-7).
     if constexpr (std::is_same_v<TypeParam, bb::UltraCircuitBuilder>) {
-        check_circuit_and_gate_count(builder, 98);
+        check_circuit_and_gate_count(builder, 106);
     } else {
-        check_circuit_and_gate_count(builder, 96);
+        check_circuit_and_gate_count(builder, 104);
     }
 }
 
@@ -188,11 +188,41 @@ TYPED_TEST(StrausLookupTableTest, TestInfinityBasePoint)
         EXPECT_EQ(result.get_value(), AffineElement(offset_gen_native));
     }
 
-    // Gate count difference explanation:
     // Same as TestTableRead - ROM with 4 elements (indices 0-3).
     if constexpr (std::is_same_v<TypeParam, bb::UltraCircuitBuilder>) {
-        check_circuit_and_gate_count(builder, 60);
+        check_circuit_and_gate_count(builder, 68);
     } else {
-        check_circuit_and_gate_count(builder, 59);
+        check_circuit_and_gate_count(builder, 67);
     }
+}
+
+/**
+ * When table_index = 0 and all the wires contributing to the lookup term are zero, the batched denominator term in the
+ * log derivative lookup relation is equal to gamma (it is independent of beta), and a malicious prover could inject a
+ * fake row anywhere in the trace balancing the lookup. This test shows this bug is not possible anymore because tables
+ * are indexed from 1.
+ *
+ */
+TYPED_TEST(StrausLookupTableTest, ZeroIndexTable)
+{
+    using Builder = TypeParam;
+    using cycle_group_ct = stdlib::cycle_group<Builder>;
+    using cycle_scalar_ct = typename cycle_group_ct::cycle_scalar;
+
+    Builder builder;
+
+    auto base = grumpkin::g1::affine_one;
+    cycle_group_ct base_ct(base);
+
+    auto scalar_value = grumpkin::fr::random_element();
+    cycle_scalar_ct scalar = cycle_scalar_ct::from_witness(&builder, scalar_value);
+
+    std::vector<cycle_group_ct> points = { base_ct };
+    std::vector<cycle_scalar_ct> scalars = { scalar };
+
+    cycle_group_ct::fixed_batch_mul(points, scalars);
+
+    const auto& tables = builder.get_lookup_tables();
+    ASSERT_FALSE(tables.empty());
+    EXPECT_EQ(tables[0].table_index, 1U) << "The first registered table should be at index 1";
 }

@@ -1,8 +1,4 @@
-import { BlockNumber } from '@aztec/foundation/branded-types';
-import { times } from '@aztec/foundation/collection';
-import { Fr } from '@aztec/foundation/curves/bn254';
 import { sleep } from '@aztec/foundation/sleep';
-import { L2Block, type L2BlockSource } from '@aztec/stdlib/block';
 import { PeerErrorSeverity } from '@aztec/stdlib/p2p';
 import { mockTx } from '@aztec/stdlib/testing';
 import { Tx, TxArray, TxHash, TxHashArray } from '@aztec/stdlib/tx';
@@ -10,7 +6,9 @@ import { Tx, TxArray, TxHash, TxHashArray } from '@aztec/stdlib/tx';
 import { describe, expect, it, jest } from '@jest/globals';
 import type { PeerId } from '@libp2p/interface';
 import { type MockProxy, mock } from 'jest-mock-extended';
+import type { Libp2p } from 'libp2p';
 
+import { OversizedReqRespRequestError } from '../../errors/reqresp.error.js';
 import {
   MOCK_SUB_PROTOCOL_HANDLERS,
   type ReqRespNode,
@@ -19,12 +17,14 @@ import {
   startNodes,
   stopNodes,
 } from '../../test-helpers/reqresp-nodes.js';
+import { ResponseSizeLimitExceededError, SnappyTransform } from '../encoding.js';
 import type { PeerManager } from '../peer-manager/peer_manager.js';
 import type { PeerScoring } from '../peer-manager/peer_scoring.js';
-import { type ReqRespResponse, ReqRespSubProtocol, RequestableBuffer } from './interface.js';
-import { reqRespBlockHandler } from './protocols/block.js';
+import { MAX_REQRESP_REQUEST_SIZE_BYTES, type P2PReqRespConfig } from './config.js';
+import { type ReqRespResponse, ReqRespSubProtocol, type ReqRespSubProtocolHandler } from './interface.js';
 import { GoodByeReason, reqGoodbyeHandler } from './protocols/goodbye.js';
-import { ReqRespStatus, prettyPrintReqRespStatus } from './status.js';
+import { ReqResp } from './reqresp.js';
+import { ReqRespStatus } from './status.js';
 
 const PING_REQUEST = Buffer.from('ping');
 
@@ -44,6 +44,64 @@ describe('ReqResp', () => {
     if (nodes) {
       await stopNodes(nodes);
     }
+  });
+
+  // Req/resp is one-request-one-response, but a malicious peer can write many request frames on a single
+  // stream. Each frame arrives as its own chunk, and the rate limiter is only checked once per stream, so
+  // processing every chunk would let one token drive unbounded handler invocations. processStream must
+  // therefore invoke the handler at most once per stream.
+  describe('processStream', () => {
+    let req: ReqResp;
+
+    beforeEach(() => {
+      const config: P2PReqRespConfig = {
+        overallRequestTimeoutMs: 4000,
+        individualRequestTimeoutMs: 2000,
+        dialTimeoutMs: 1000,
+        p2pOptimisticNegotiation: false,
+      };
+      req = new ReqResp(config, mock<Libp2p>(), peerScoring);
+    });
+
+    afterEach(async () => {
+      // Stop the connection sampler so its cleanup interval does not leak past the test.
+      await (req as any).connectionSampler.stop();
+    });
+
+    it('invokes the handler at most once per stream, ignoring extra frames', async () => {
+      const handler = jest.fn<ReqRespSubProtocolHandler>().mockResolvedValue(Buffer.from('pong'));
+      // Register via a fresh handlers object so we do not mutate the shared MOCK_SUB_PROTOCOL_HANDLERS.
+      (req as any).subProtocolHandlers = { [ReqRespSubProtocol.PING]: handler };
+
+      const received: Buffer[] = [];
+      const incomingStream = {
+        connection: { remotePeer: mock<PeerId>() },
+        stream: {
+          metadata: {},
+          // A malicious peer pushes three request frames on the one stream it opened.
+          source: (async function* () {
+            for (const frame of [Buffer.from('req-1'), Buffer.from('req-2'), Buffer.from('req-3')]) {
+              yield frame;
+            }
+          })(),
+          sink: async (source: AsyncIterable<Buffer>) => {
+            for await (const chunk of source) {
+              received.push(chunk);
+            }
+          },
+        },
+      };
+
+      await (req as any).processStream(ReqRespSubProtocol.PING, incomingStream);
+
+      // Only the first frame is handled; the remaining two are discarded when the stream closes.
+      expect(handler).toHaveBeenCalledTimes(1);
+
+      // The sink receives exactly one SUCCESS status byte followed by one response payload.
+      expect(received).toHaveLength(2);
+      expect(received[0][0]).toBe(ReqRespStatus.SUCCESS);
+      expect(new SnappyTransform().inboundTransformData(Buffer.from(received[1])).toString('utf-8')).toEqual('pong');
+    });
   });
 
   it('should perform a ping request', async () => {
@@ -370,145 +428,189 @@ describe('ReqResp', () => {
     });
   });
 
-  describe('Block protocol', () => {
-    it('should handle block requests', async () => {
-      const blockNumber = 1;
-      const blockNumberFr = Fr.ONE;
-      const block = await L2Block.random(BlockNumber(blockNumber));
-
-      const l2BlockSource: MockProxy<L2BlockSource> = mock<L2BlockSource>();
-      l2BlockSource.getBlock.mockImplementation((_blockNumber: number) => {
-        return Promise.resolve(block);
-      });
-
-      const protocolHandlers = MOCK_SUB_PROTOCOL_HANDLERS;
-      protocolHandlers[ReqRespSubProtocol.BLOCK] = reqRespBlockHandler(l2BlockSource);
-
+  describe('Authentication gating', () => {
+    it('should reject unauthenticated peers on all data protocols', async () => {
       nodes = await createNodes(peerScoring, 2);
 
-      await startNodes(nodes, protocolHandlers);
+      await startNodes(nodes);
       await sleep(500);
       await connectToPeers(nodes);
       await sleep(500);
 
-      const resp = await nodes[0].req.sendRequestToPeer(
-        nodes[1].p2p.peerId,
-        ReqRespSubProtocol.BLOCK,
-        blockNumberFr.toBuffer(),
-      );
-      expectSuccess(resp);
+      // Set up auth checker that rejects all peers (simulates p2pAllowOnlyValidators=true with no authenticated peers)
+      nodes[1].req.setShouldRejectPeer(() => true);
 
-      const res = L2Block.fromBuffer(resp.data);
-      expect(res).toEqual(block);
+      // All data protocols should be rejected
+      for (const protocol of [ReqRespSubProtocol.TX, ReqRespSubProtocol.BLOCK_TXS]) {
+        const resp = await nodes[0].req.sendRequestToPeer(nodes[1].p2p.peerId, protocol, Buffer.from('request'));
+        expect(resp.status).toEqual(ReqRespStatus.FAILURE);
+      }
+
+      // PING is an allowed protocol — should succeed
+      const pingResp = await nodes[0].req.sendRequestToPeer(nodes[1].p2p.peerId, ReqRespSubProtocol.PING, PING_REQUEST);
+      expectSuccess(pingResp);
+      expect(pingResp.data.toString('utf-8')).toEqual('pong');
+    });
+
+    it('should allow handshake protocols for unauthenticated peers', async () => {
+      nodes = await createNodes(peerScoring, 2);
+
+      await startNodes(nodes);
+      await sleep(500);
+      await connectToPeers(nodes);
+      await sleep(500);
+
+      // Reject all peers on gated protocols
+      nodes[1].req.setShouldRejectPeer(() => true);
+
+      // PING, STATUS, AUTH, GOODBYE should still work
+      const pingResp = await nodes[0].req.sendRequestToPeer(nodes[1].p2p.peerId, ReqRespSubProtocol.PING, PING_REQUEST);
+      expectSuccess(pingResp);
+
+      const statusResp = await nodes[0].req.sendRequestToPeer(
+        nodes[1].p2p.peerId,
+        ReqRespSubProtocol.STATUS,
+        Buffer.from('status'),
+      );
+      expectSuccess(statusResp);
+
+      const authResp = await nodes[0].req.sendRequestToPeer(
+        nodes[1].p2p.peerId,
+        ReqRespSubProtocol.AUTH,
+        Buffer.from('auth'),
+      );
+      expectSuccess(authResp);
+    });
+
+    it('should allow authenticated peers on all protocols', async () => {
+      nodes = await createNodes(peerScoring, 2);
+
+      await startNodes(nodes);
+      await sleep(500);
+      await connectToPeers(nodes);
+      await sleep(500);
+
+      // Set up auth checker that allows all peers (simulates authenticated validator)
+      nodes[1].req.setShouldRejectPeer(() => false);
+
+      // Data protocols should succeed for authenticated peers
+      const pingResp = await nodes[0].req.sendRequestToPeer(nodes[1].p2p.peerId, ReqRespSubProtocol.PING, PING_REQUEST);
+      expectSuccess(pingResp);
+      expect(pingResp.data.toString('utf-8')).toEqual('pong');
+
+      const txResp = await nodes[0].req.sendRequestToPeer(
+        nodes[1].p2p.peerId,
+        ReqRespSubProtocol.TX,
+        Buffer.from('request'),
+      );
+      expectSuccess(txResp);
+    });
+
+    it('should allow all protocols when no auth checker is set', async () => {
+      nodes = await createNodes(peerScoring, 2);
+
+      await startNodes(nodes);
+      await sleep(500);
+      await connectToPeers(nodes);
+      await sleep(500);
+
+      // No setShouldRejectPeer called — all protocols should work (backwards compatible)
+      const pingResp = await nodes[0].req.sendRequestToPeer(nodes[1].p2p.peerId, ReqRespSubProtocol.PING, PING_REQUEST);
+      expectSuccess(pingResp);
+      expect(pingResp.data.toString('utf-8')).toEqual('pong');
+
+      const txResp = await nodes[0].req.sendRequestToPeer(
+        nodes[1].p2p.peerId,
+        ReqRespSubProtocol.TX,
+        Buffer.from('request'),
+      );
+      expectSuccess(txResp);
     });
   });
 
-  describe('Batch requests', () => {
-    it('should send a batch request between many peers', async () => {
-      const batchSize = 9;
-      nodes = await createNodes(peerScoring, 3);
+  describe('readMessage response size bounding', () => {
+    it('aborts reception once accumulated bytes exceed the size bound', async () => {
+      nodes = await createNodes(peerScoring, 1);
+      const { req } = nodes[0];
 
-      await startNodes(nodes);
-      await sleep(500);
-      await connectToPeers(nodes);
-      await sleep(500);
+      const totalDataChunks = 20;
+      let pulled = 0;
 
-      const sendRequestToPeerSpy = jest.spyOn(nodes[0].req, 'sendRequestToPeer');
-
-      const requests = Array.from({ length: batchSize }, _ => RequestableBuffer.fromBuffer(Buffer.from(`ping`)));
-      const expectResponses = Array.from({ length: batchSize }, _ => RequestableBuffer.fromBuffer(Buffer.from(`pong`)));
-
-      const res = await nodes[0].req.sendBatchRequest(ReqRespSubProtocol.PING, requests, undefined);
-      expect(res).toEqual(expectResponses);
-
-      // Expect one request to have been sent to each peer
-      expect(sendRequestToPeerSpy).toHaveBeenCalledTimes(batchSize);
-      expect(sendRequestToPeerSpy).toHaveBeenCalledWith(
-        expect.objectContaining({
-          publicKey: nodes[1].p2p.peerId.publicKey,
-        }),
-        ReqRespSubProtocol.PING,
-        Buffer.from('ping'),
-      );
-      expect(sendRequestToPeerSpy).toHaveBeenCalledWith(
-        expect.objectContaining({
-          publicKey: nodes[2].p2p.peerId.publicKey,
-        }),
-        ReqRespSubProtocol.PING,
-        Buffer.from('ping'),
-      );
-    });
-
-    it('should send a batch request with a pinned peer', async () => {
-      const batchSize = 9;
-      nodes = await createNodes(peerScoring, 4, {
-        // Bump rate limits so the pinned peer can respond
-        [ReqRespSubProtocol.PING]: {
-          peerLimit: { quotaTimeMs: 1000, quotaCount: 50 },
-          globalLimit: { quotaTimeMs: 1000, quotaCount: 50 },
-        },
-      });
-
-      await startNodes(nodes);
-      await sleep(500);
-      await connectToPeers(nodes);
-      await sleep(500);
-
-      const sendRequestToPeerSpy = jest.spyOn(nodes[0].req, 'sendRequestToPeer');
-
-      const requests = times(batchSize, i => RequestableBuffer.fromBuffer(Buffer.from(`ping${i}`)));
-      const expectResponses = times(batchSize, _ => RequestableBuffer.fromBuffer(Buffer.from(`pong`)));
-
-      const res = await nodes[0].req.sendBatchRequest(ReqRespSubProtocol.PING, requests, nodes[1].p2p.peerId);
-      expect(res).toEqual(expectResponses);
-
-      // Expect pinned peer to have received all requests
-      for (let i = 0; i < batchSize; i++) {
-        expect(sendRequestToPeerSpy).toHaveBeenCalledWith(
-          expect.objectContaining({ publicKey: nodes[1].p2p.peerId.publicKey }),
-          ReqRespSubProtocol.PING,
-          Buffer.from(`ping${i}`),
-        );
+      // A SUCCESS status chunk followed by oversized data chunks. `pulled` counts how many data
+      // chunks the reader drained, so we can prove reception aborts early instead of buffering the
+      // whole stream: with the fix the first 64KB chunk trips the bound (pulled === 1); without it
+      // the reader drains all 20 (pulled === 20) before the concat/size check.
+      async function* source() {
+        yield Buffer.from([ReqRespStatus.SUCCESS]);
+        for (let i = 0; i < totalDataChunks; i++) {
+          pulled++;
+          yield Buffer.alloc(64 * 1024);
+        }
       }
 
-      // Expect at least one request to have been sent to each other peer
-      expect(sendRequestToPeerSpy).toHaveBeenCalledWith(
-        expect.objectContaining({ publicKey: nodes[2].p2p.peerId.publicKey }),
-        ReqRespSubProtocol.PING,
-        expect.any(Buffer),
-      );
+      // maxSizeKb = 10 => bound = 10 * 1024 * 2 = 20,480 bytes, so a single 64KB data chunk exceeds it.
+      await expect((req as any).readMessage(source(), 10)).rejects.toBeInstanceOf(ResponseSizeLimitExceededError);
 
-      expect(sendRequestToPeerSpy).toHaveBeenCalledWith(
-        expect.objectContaining({ publicKey: nodes[3].p2p.peerId.publicKey }),
-        ReqRespSubProtocol.PING,
-        expect.any(Buffer),
-      );
+      expect(pulled).toBeLessThan(totalDataChunks);
+    });
+  });
+
+  // A request must fit in a single muxer frame: yamux splits larger writes into multiple frames, each arriving as
+  // its own chunk, and the responder never reassembles them into one request. Guard against a request type growing
+  // past that limit and surfacing as a confusing decoding error on the responder.
+  describe('sendRequestToPeer', () => {
+    let req: ReqResp;
+
+    beforeEach(() => {
+      const config: P2PReqRespConfig = {
+        overallRequestTimeoutMs: 4000,
+        individualRequestTimeoutMs: 2000,
+        dialTimeoutMs: 1000,
+        p2pOptimisticNegotiation: false,
+      };
+      req = new ReqResp(config, mock<Libp2p>(), peerScoring);
     });
 
-    it('should stop after max retry attempts', async () => {
-      const batchSize = 12;
-      nodes = await createNodes(peerScoring, 3);
+    afterEach(async () => {
+      // Stop the connection sampler so its cleanup interval does not leak past the test.
+      await (req as any).connectionSampler.stop();
+    });
 
-      const requesterLoggerSpy = jest.spyOn((nodes[0].req as any).logger, 'warn');
+    it('rejects a request payload that does not fit in a single muxer frame, without dialing the peer', async () => {
+      const dialSpy = jest.spyOn((req as any).connectionSampler, 'dialProtocol');
+      const payload = Buffer.alloc(MAX_REQRESP_REQUEST_SIZE_BYTES + 1);
 
-      await startNodes(nodes);
-      await sleep(500);
-      await connectToPeers(nodes);
-      await sleep(500);
-
-      const requests = Array.from({ length: batchSize }, _ => RequestableBuffer.fromBuffer(Buffer.from(`ping`)));
-      // We will fail two of the responses - due to hitting the ping rate limit on the responding nodes
-      const expectResponses = Array.from({ length: batchSize - 2 }, _ =>
-        RequestableBuffer.fromBuffer(Buffer.from(`pong`)),
+      await expect(req.sendRequestToPeer(mock<PeerId>(), ReqRespSubProtocol.PING, payload)).rejects.toThrow(
+        OversizedReqRespRequestError,
       );
 
-      const res = await nodes[0].req.sendBatchRequest(ReqRespSubProtocol.PING, requests, undefined);
-      expect(res).toEqual(expectResponses);
+      expect(dialSpy).not.toHaveBeenCalled();
+      // The oversized request is our own bug, so the remote peer must not be penalized for it.
+      expect(peerScoring.penalizePeer).not.toHaveBeenCalled();
+    });
 
-      // Check that we did detect hitting a rate limit
-      expect(requesterLoggerSpy).toHaveBeenCalledWith(
-        expect.stringContaining(`${prettyPrintReqRespStatus(ReqRespStatus.RATE_LIMIT_EXCEEDED)}`),
-      );
+    it('sends a request payload at exactly the single-frame limit', async () => {
+      const snappy = new SnappyTransform();
+      const stream = {
+        id: 'test-stream',
+        metadata: {},
+        source: (async function* () {
+          yield Buffer.from([ReqRespStatus.SUCCESS]);
+          yield snappy.outboundTransformData(Buffer.from('pong'));
+        })(),
+        sink: async (source: AsyncIterable<Buffer>) => {
+          for await (const _chunk of source) {
+            // Consume the request.
+          }
+        },
+        close: () => Promise.resolve(),
+      };
+      jest.spyOn((req as any).connectionSampler, 'dialProtocol').mockResolvedValue(stream);
+
+      const payload = Buffer.alloc(MAX_REQRESP_REQUEST_SIZE_BYTES);
+      const response = await req.sendRequestToPeer(mock<PeerId>(), ReqRespSubProtocol.PING, payload);
+
+      expect(response).toEqual({ status: ReqRespStatus.SUCCESS, data: Buffer.from('pong') });
     });
   });
 });

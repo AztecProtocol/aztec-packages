@@ -1,70 +1,24 @@
 import { Fr } from '@aztec/foundation/curves/bn254';
-import { createLogger } from '@aztec/foundation/log';
-import { TestDateProvider } from '@aztec/foundation/timer';
 import { TokenContractArtifact } from '@aztec/noir-contracts.js/Token';
 import { AvmTestContractArtifact } from '@aztec/noir-test-contracts.js/AvmTest';
-import { PublicSimulatorConfig, RevertCode } from '@aztec/stdlib/avm';
+import { RevertCode } from '@aztec/stdlib/avm';
 import { AztecAddress } from '@aztec/stdlib/aztec-address';
-import { GasFees } from '@aztec/stdlib/gas';
-import { GlobalVariables } from '@aztec/stdlib/tx';
-import { getTelemetryClient } from '@aztec/telemetry-client';
-import { NativeWorldStateService } from '@aztec/world-state';
 
-import { PublicContractsDB } from '../../../server.js';
-import { createContractClassAndInstance } from '../../avm/fixtures/utils.js';
-import { PublicTxSimulationTester, SimpleContractDataSource } from '../../fixtures/index.js';
+import { createContractClassAndInstance } from '../../avm/testing/utils.js';
+import { PublicProcessorTestEnv } from '../../fixtures/index.js';
 import { addNewContractClassToTx, addNewContractInstanceToTx, createTxForPrivateOnly } from '../../fixtures/utils.js';
-import { CppPublicTxSimulator } from '../../public_tx_simulator/cpp_public_tx_simulator.js';
-import { CppVsTsPublicTxSimulator } from '../../public_tx_simulator/cpp_vs_ts_public_tx_simulator.js';
-import { GuardedMerkleTreeOperations } from '../guarded_merkle_tree.js';
-import { PublicProcessor } from '../public_processor.js';
 
-describe.each([
-  { useCppSimulator: false, simulatorName: 'TS Simulator' },
-  { useCppSimulator: true, simulatorName: 'Cpp Simulator' },
-])('Public processor contract registration/deployment tests ($simulatorName)', ({ useCppSimulator }) => {
-  const admin = AztecAddress.fromNumber(42);
-  const sender = AztecAddress.fromNumber(111);
+describe('Public processor contract registration/deployment tests', () => {
+  const admin = AztecAddress.fromNumberUnsafe(42);
+  const sender = AztecAddress.fromNumberUnsafe(111);
 
-  let worldStateService: NativeWorldStateService;
-  let contractsDB: PublicContractsDB;
-  let tester: PublicTxSimulationTester;
-  let processor: PublicProcessor;
+  let env: PublicProcessorTestEnv;
+  let tester: PublicProcessorTestEnv['tester'];
+  let processor: PublicProcessorTestEnv['processor'];
 
   beforeEach(async () => {
-    const globals = GlobalVariables.empty();
-    // apply some nonzero default gas fees
-    globals.gasFees = new GasFees(2, 3);
-
-    const contractDataSource = new SimpleContractDataSource();
-    worldStateService = await NativeWorldStateService.tmp();
-    const merkleTrees = await worldStateService.fork();
-    const guardedMerkleTrees = new GuardedMerkleTreeOperations(merkleTrees);
-    contractsDB = new PublicContractsDB(contractDataSource);
-    const config = PublicSimulatorConfig.from({
-      skipFeeEnforcement: false,
-      collectDebugLogs: true,
-      collectHints: false,
-      collectStatistics: false,
-      collectCallMetadata: true,
-    });
-    // TS mode: use CppVsTs to compare TS and C++ results
-    // C++ mode: use only C++ (pure Cpp simulator)
-    const simulator = useCppSimulator
-      ? new CppPublicTxSimulator(guardedMerkleTrees, contractsDB, globals, config)
-      : new CppVsTsPublicTxSimulator(guardedMerkleTrees, contractsDB, globals, config);
-
-    processor = new PublicProcessor(
-      globals,
-      guardedMerkleTrees,
-      contractsDB,
-      simulator,
-      new TestDateProvider(),
-      getTelemetryClient(),
-      createLogger('simulator:public-processor'),
-    );
-
-    tester = new PublicTxSimulationTester(merkleTrees, contractDataSource);
+    env = await PublicProcessorTestEnv.create();
+    ({ tester, processor } = env);
 
     // make sure tx senders have fee balance
     await tester.setFeePayerBalance(admin);
@@ -72,7 +26,7 @@ describe.each([
   });
 
   afterEach(async () => {
-    await worldStateService.close();
+    await env[Symbol.asyncDispose]();
   });
 
   it('can deploy in a private-only tx and call a public function later in the block', async () => {
@@ -196,7 +150,7 @@ describe.each([
     // the contract data source.
 
     // Second transaction - deploys second token but fails during transfer
-    const receiver = AztecAddress.fromNumber(222);
+    const receiver = AztecAddress.fromNumberUnsafe(222);
     const transferAmount = 10n;
     const authwitNonce = new Fr(0);
     const failingConstructorTx = await tester.createTx(
@@ -218,9 +172,10 @@ describe.each([
         },
       ],
     );
-    // FIXME(#12375): should be able to include the nullifier insertions, but at the moment
-    // tx simulator cannot recover from errors during revertible private insertions.
-    // Once fixed, this skipNullifierInsertion flag can be removed.
+    // We must skip the nullifier insertions here because this tx re-deploys the same contract
+    // class/instance as the first tx, which would produce a nullifier collision. By design, a
+    // nullifier collision during tx-level revertible insertions is unprovable (not revertible),
+    // so without this flag the tx would be thrown out rather than reverting in app logic.
     await addNewContractClassToTx(failingConstructorTx, contractClass, /*skipNullifierInsertion=*/ true);
     await addNewContractInstanceToTx(failingConstructorTx, contractInstance, /*skipNullifierInsertion=*/ true);
 
@@ -248,7 +203,7 @@ describe.each([
     expect(processedTxs[0].revertCode).toEqual(RevertCode.OK);
 
     // Second tx should revert in app logic (failed transfer)
-    expect(processedTxs[1].revertCode).toEqual(RevertCode.APP_LOGIC_REVERTED);
+    expect(processedTxs[1].revertCode).toEqual(RevertCode.REVERTED);
 
     // Third tx should succeed (mint), proving first contract is still accessible
     expect(processedTxs[2].revertCode).toEqual(RevertCode.OK);

@@ -1,22 +1,14 @@
 // === AUDIT STATUS ===
-// internal:    { status: Planned, auditors: [], commit: }
+// internal:    { status: Completed, auditors: [Sergei], commit: }
 // external_1:  { status: not started, auditors: [], commit: }
 // external_2:  { status: not started, auditors: [], commit: }
 // =====================
 
 #pragma once
-#include "barretenberg/commitment_schemes/commitment_key.hpp"
 #include "barretenberg/commitment_schemes/kzg/kzg.hpp"
-#include "barretenberg/ecc/curves/bn254/g1.hpp"
-#include "barretenberg/flavor/flavor.hpp"
-#include "barretenberg/flavor/flavor_macros.hpp"
 #include "barretenberg/flavor/mega_flavor.hpp"
-#include "barretenberg/polynomials/barycentric.hpp"
-#include "barretenberg/polynomials/evaluation_domain.hpp"
-#include "barretenberg/polynomials/univariate.hpp"
 #include "barretenberg/stdlib/primitives/curves/bn254.hpp"
 #include "barretenberg/stdlib/primitives/field/field.hpp"
-#include "barretenberg/stdlib_circuit_builders/mega_circuit_builder.hpp"
 
 namespace bb {
 
@@ -49,25 +41,25 @@ template <typename BuilderType> class MegaRecursiveFlavor_ {
     static constexpr size_t VIRTUAL_LOG_N = MegaFlavor::VIRTUAL_LOG_N;
     // indicates when evaluating sumcheck, edges can be left as degree-1 monomials
     static constexpr bool USE_SHORT_MONOMIALS = MegaFlavor::USE_SHORT_MONOMIALS;
-    // Note(luke): Eventually this may not be needed at all
-    using VerifierCommitmentKey = bb::VerifierCommitmentKey<NativeFlavor::Curve>;
     // Indicates that this flavor runs with non-ZK Sumcheck.
     static constexpr bool HasZK = false;
     // To achieve fixed proof size and that the recursive verifier circuit is constant, we are using padding in Sumcheck
     // and Shplemini
     static constexpr bool USE_PADDING = MegaFlavor::USE_PADDING;
     static constexpr size_t NUM_WIRES = MegaFlavor::NUM_WIRES;
-    // The number of multivariate polynomials on which a sumcheck prover sumcheck operates (including shifts). We often
-    // need containers of this size to hold related data, so we choose a name more agnostic than `NUM_POLYNOMIALS`.
-    // Note: this number does not include the individual sorted list polynomials.
     static constexpr size_t NUM_ALL_ENTITIES = MegaFlavor::NUM_ALL_ENTITIES;
-    // The number of polynomials precomputed to describe a circuit and to aid a prover in constructing a satisfying
-    // assignment of witnesses. We again choose a neutral name.
     static constexpr size_t NUM_PRECOMPUTED_ENTITIES = MegaFlavor::NUM_PRECOMPUTED_ENTITIES;
-    // The total number of witness entities not including shifts.
     static constexpr size_t NUM_WITNESS_ENTITIES = MegaFlavor::NUM_WITNESS_ENTITIES;
     static constexpr size_t NUM_SHIFTED_ENTITIES = MegaFlavor::NUM_SHIFTED_ENTITIES;
     static constexpr size_t NUM_UNSHIFTED_ENTITIES = MegaFlavor::NUM_UNSHIFTED_ENTITIES;
+    static constexpr bool HasDataBus = MegaFlavor::HasDataBus;
+    static constexpr size_t NUM_BUS_COLUMNS = MegaFlavor::NUM_BUS_COLUMNS;
+    // Per-relation capability bools — see flavor-codegen `RELATION_CAPABILITY_BOOLS`.
+    static constexpr bool HasLogDerivLookup = MegaFlavor::HasLogDerivLookup;
+    static constexpr bool HasElliptic = MegaFlavor::HasElliptic;
+    static constexpr bool HasMemory = MegaFlavor::HasMemory;
+    static constexpr bool HasNonNativeField = MegaFlavor::HasNonNativeField;
+    static constexpr bool HasEccOpQueue = MegaFlavor::HasEccOpQueue;
 
     // define the tuple of Relations that comprise the Sumcheck relation
     // Reuse the Relations from Mega
@@ -75,9 +67,6 @@ template <typename BuilderType> class MegaRecursiveFlavor_ {
 
     static constexpr size_t MAX_PARTIAL_RELATION_LENGTH = compute_max_partial_relation_length<Relations>();
 
-    // BATCHED_RELATION_PARTIAL_LENGTH = algebraic degree of sumcheck relation *after* multiplying by the `pow_zeta`
-    // random polynomial e.g. For \sum(x) [A(x) * B(x) + C(x)] * PowZeta(X), relation length = 2 and random relation
-    // length = 3
     static constexpr size_t BATCHED_RELATION_PARTIAL_LENGTH = MAX_PARTIAL_RELATION_LENGTH + 1;
 
     static constexpr size_t FINAL_PCS_MSM_SIZE(size_t log_n = VIRTUAL_LOG_N)
@@ -112,8 +101,7 @@ template <typename BuilderType> class MegaRecursiveFlavor_ {
     using WitnessCommitments = MegaFlavor::WitnessEntities<Commitment>;
 
     using CommitmentLabels = MegaFlavor::CommitmentLabels;
-    // Reuse the VerifierCommitments from Mega
-    using VerifierCommitments = MegaFlavor::VerifierCommitments_<Commitment, VerificationKey>;
+    static const CommitmentLabels& commitment_labels() { return MegaFlavor::commitment_labels(); }
 
     using VKAndHash = VKAndHash_<FF, VerificationKey>;
 };

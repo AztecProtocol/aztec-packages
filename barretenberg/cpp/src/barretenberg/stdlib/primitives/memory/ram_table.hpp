@@ -1,6 +1,6 @@
 // === AUDIT STATUS ===
 // internal:    { status: Complete, auditors: [Raju], commit: 05a381f8b31ae4648e480f1369e911b148216e8b}
-// external_1:  { status: not started, auditors: [], commit: }
+// external_1:  { status: Complete, auditors: [Sherlock], commit: e6694849223 }
 // external_2:  { status: not started, auditors: [], commit: }
 // =====================
 
@@ -12,8 +12,7 @@
 namespace bb::stdlib {
 
 // A runtime-defined read-write memory table. Table entries must be initialized in the constructor.
-// Works with UltraBuilder and MegaBuilder.
-template <IsUltraOrMegaBuilder Builder> class ram_table {
+template <typename Builder> class ram_table {
   private:
     typedef field_t<Builder> field_pt;
 
@@ -22,12 +21,12 @@ template <IsUltraOrMegaBuilder Builder> class ram_table {
     ram_table(Builder* builder, const std::vector<field_pt>& table_entries);
     ram_table(const std::vector<field_pt>& table_entries);
     ram_table(const ram_table& other);
-    ram_table(ram_table&& other);
+    ram_table(ram_table&& other) noexcept;
 
     void initialize_table() const;
 
     ram_table& operator=(const ram_table& other);
-    ram_table& operator=(ram_table&& other);
+    ram_table& operator=(ram_table&& other) noexcept;
 
     field_pt read(const field_pt& index) const;
 
@@ -57,7 +56,7 @@ template <IsUltraOrMegaBuilder Builder> class ram_table {
     std::vector<field_pt> raw_entries;
     // Origin Tags for detection of dangerous interactions within stdlib primitives
     mutable std::vector<OriginTag> _tags;
-    mutable std::vector<bool> index_initialized; // Keeps track if the indicies of the RAM table have been initialized
+    mutable std::vector<bool> index_initialized; // Keeps track if the indices of the RAM table have been initialized
     size_t length = 0;
     mutable size_t ram_id = 0; // Identifier of this ROM table for the builder
     mutable bool ram_table_generated_in_builder = false;

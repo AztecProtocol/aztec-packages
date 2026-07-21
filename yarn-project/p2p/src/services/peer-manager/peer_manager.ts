@@ -1,4 +1,5 @@
 import type { EpochCacheInterface } from '@aztec/epoch-cache';
+import { compactArray } from '@aztec/foundation/collection';
 import { makeEthSignDigest, tryRecoverAddress } from '@aztec/foundation/crypto/secp256k1-signer';
 import { Fr } from '@aztec/foundation/curves/bn254';
 import type { EthAddress } from '@aztec/foundation/eth-address';
@@ -32,7 +33,7 @@ import { PeerScoreState, type PeerScoring } from './peer_scoring.js';
 const MAX_DIAL_ATTEMPTS = 3;
 const MAX_CACHED_PEERS = 100;
 const MAX_CACHED_PEER_AGE_MS = 5 * 60 * 1000; // 5 minutes
-const FAILED_PEER_BAN_TIME_MS = 5 * 60 * 1000; // 5 minutes timeout after failing MAX_DIAL_ATTEMPTS
+const DEFAULT_FAILED_PEER_BAN_TIME_MS = 5 * 60 * 1000; // 5 minutes timeout after failing MAX_DIAL_ATTEMPTS
 const GOODBYE_DIAL_TIMEOUT_MS = 1000;
 const FAILED_AUTH_HANDSHAKE_EXPIRY_MS = 60 * 60 * 1000; // 1 hour
 
@@ -164,6 +165,7 @@ export class PeerManager implements PeerManagerInterface {
   public async heartbeat() {
     this.heartbeatCounter++;
     this.peerScoring.decayAllScores();
+    this.peerScoring.pruneExpiredBans();
     this.cleanupExpiredTimeouts();
 
     await this.setupDirectPeersIfValidator();
@@ -198,21 +200,27 @@ export class PeerManager implements PeerManagerInterface {
       .then(peerIds => peerIds.forEach(peerId => this.preferredPeers.add(peerId.toString())))
       .catch(e => this.logger.error('Error initializing preferred peers', e));
 
-    const directPeers = (
+    const directPeers = compactArray(
       await Promise.all(
         preferredPeersEnrs.map(async enr => {
-          const peerId = await enr.peerId();
-          const address = enr.getLocationMultiaddr('tcp');
-          if (address === undefined) {
-            throw new Error(`Direct peer ${peerId.toString()} has no TCP address, ENR: ${enr.encodeTxt()}`);
+          try {
+            const peerId = await enr.peerId();
+            const address = enr.getLocationMultiaddr('tcp');
+            if (address === undefined) {
+              throw new Error(`Direct peer ${peerId.toString()} has no TCP address, ENR: ${enr.encodeTxt()}`);
+            }
+            return {
+              id: peerId,
+              addrs: [address],
+            };
+          } catch (err) {
+            // A malformed configured ENR shouldn't abort preferred-peer setup — skip it and log.
+            this.logger.warn(`Skipping preferred peer with invalid ENR`, { err });
+            return undefined;
           }
-          return {
-            id: peerId,
-            addrs: [address],
-          };
         }),
-      )
-    ).filter(peer => peer !== undefined);
+      ),
+    );
 
     await Promise.all(
       directPeers.map(peer => {
@@ -226,18 +234,28 @@ export class PeerManager implements PeerManagerInterface {
   }
 
   /**
-   * Cleans up expired timeouts.
+   * Cleans up expired timeouts and stale failed-auth-handshake entries.
    *
    * When peers fail to dial after a number of retries, they are temporarily timed out.
    * This function removes any peers that have been in the timed out state for too long.
    * To give them a chance to reconnect.
+   *
+   * Also evicts entries from the failed-auth-handshake map whose expiry window has passed.
+   * Without this, peers that probe once and never reconnect would leave their entries in the
+   * map forever, causing an unbounded memory leak.
    */
   private cleanupExpiredTimeouts() {
-    // Clean up expired timeouts
     const now = this.dateProvider.now();
+
     for (const [peerId, timedOutPeer] of this.timedOutPeers.entries()) {
       if (now >= timedOutPeer.timeoutUntilMs) {
         this.timedOutPeers.delete(peerId);
+      }
+    }
+
+    for (const [id, entry] of this.failedAuthHandshakes.entries()) {
+      if (now - entry.lastFailureTimestamp > FAILED_AUTH_HANDSHAKE_EXPIRY_MS) {
+        this.failedAuthHandshakes.delete(id);
       }
     }
   }
@@ -303,15 +321,20 @@ export class PeerManager implements PeerManagerInterface {
    */
   private handleDisconnectedPeerEvent(e: CustomEvent<PeerId>) {
     const peerId = e.detail;
+    const peerIdStr = peerId.toString();
     this.metrics.peerDisconnected(peerId);
-    this.logger.verbose(`Disconnected from peer ${peerId.toString()}`);
-    const validatorAddress = this.authenticatedPeerIdToValidatorAddress.get(peerId.toString());
+    this.logger.verbose(`Disconnected from peer ${peerIdStr}`);
+    const validatorAddress = this.authenticatedPeerIdToValidatorAddress.get(peerIdStr);
     if (validatorAddress !== undefined) {
       this.logger.info(
-        `Removing authentication for validator ${validatorAddress} at peer id ${peerId.toString()} due to disconnection`,
+        `Removing authentication for validator ${validatorAddress} at peer id ${peerIdStr} due to disconnection`,
       );
       this.authenticatedValidatorAddressToPeerId.delete(validatorAddress.toString());
-      this.authenticatedPeerIdToValidatorAddress.delete(peerId.toString());
+      this.authenticatedPeerIdToValidatorAddress.delete(peerIdStr);
+    }
+
+    if (this.peerScoring.getScoreState(peerIdStr) === PeerScoreState.Healthy) {
+      this.peerScoring.removePeer(peerIdStr);
     }
   }
 
@@ -479,15 +502,38 @@ export class PeerManager implements PeerManagerInterface {
    *
    * @returns: True if node is allowed to connect, otherwise false
    * */
-  public isNodeAllowedToConnect(id: string | PeerId): boolean {
-    const entry = this.failedAuthHandshakes.get(id.toString());
+  /**
+   * Whether a peer is allowed to connect, given its peer id. Rejects peers serving an active ban and
+   * peers that have exceeded the failed auth-handshake limit. Use this once the peer id is known —
+   * i.e. for the encrypted-inbound gater and when dialing.
+   */
+  public isPeerAllowedToConnect(peerId: string | PeerId): boolean {
+    const id = peerId.toString();
+    if (this.peerScoring.getScoreState(id) === PeerScoreState.Banned) {
+      return false;
+    }
+    return this.isWithinFailedAuthLimit(id);
+  }
+
+  /**
+   * Whether a connection from an address is allowed. Bans are keyed by peer id, which isn't known at
+   * the raw-inbound layer, so only the failed auth-handshake limit (also tracked per address) is
+   * enforced here; the ban is applied once the peer id is known via {@link isPeerAllowedToConnect}.
+   */
+  public isAddressAllowedToConnect(address: string): boolean {
+    return this.isWithinFailedAuthLimit(address);
+  }
+
+  /** Whether the failed auth-handshake count for a peer id or address is below the configured limit. */
+  private isWithinFailedAuthLimit(key: string): boolean {
+    const entry = this.failedAuthHandshakes.get(key);
     if (!entry) {
       return true;
     }
 
     // In case entry is too old, remove it and allow connection
     if (this.dateProvider.now() - entry.lastFailureTimestamp > FAILED_AUTH_HANDSHAKE_EXPIRY_MS) {
-      this.failedAuthHandshakes.delete(id.toString());
+      this.failedAuthHandshakes.delete(key);
       return true;
     }
 
@@ -512,10 +558,12 @@ export class PeerManager implements PeerManagerInterface {
       protectedConnections: protectedPeerCount,
       maxPeerCount: this.config.maxPeerCount,
       cachedPeers: this.cachedPeers.size,
+      discv5KadPeers: this.peerDiscoveryService.getKadValues().length,
       ...this.peerScoring.getStats(),
     });
 
-    this.metrics.recordPeerCount(healthyConnections.length);
+    this.metrics.recordPeerCount(connections.length);
+    this.metrics.recordHealthyPeerCount(healthyConnections.length);
 
     // Exit if no peers to connect
     if (peersToConnect <= 0) {
@@ -712,6 +760,12 @@ export class PeerManager implements PeerManagerInterface {
       return;
     }
 
+    // Don't dial banned peers or those that have exceeded the auth failure threshold
+    if (!this.isPeerAllowedToConnect(peerId)) {
+      this.logger.trace(`Skipping peer ${peerId} due to ban or failed auth handshake attempts`);
+      return;
+    }
+
     const [multiaddrTcp] = await Promise.all([enr.getFullMultiaddr('tcp')]);
 
     this.logger.trace(`Handling discovered peer ${peerId} at ${multiaddrTcp?.toString() ?? 'undefined address'}`);
@@ -775,7 +829,8 @@ export class PeerManager implements PeerManagerInterface {
         // Add to timed out peers
         this.timedOutPeers.set(id, {
           peerId: id,
-          timeoutUntilMs: this.dateProvider.now() + FAILED_PEER_BAN_TIME_MS,
+          timeoutUntilMs:
+            this.dateProvider.now() + (this.config.peerFailedBanTimeMs ?? DEFAULT_FAILED_PEER_BAN_TIME_MS),
         });
       }
     }
@@ -937,6 +992,8 @@ export class PeerManager implements PeerManagerInterface {
           `Received auth for validator ${sender.toString()} from peer ${peerIdString}, but this validator is already authenticated to peer ${peerForAddress.toString()}`,
           { ...logData, address: sender.toString() },
         );
+        this.markAuthHandshakeFailed(peerId);
+        this.markPeerForDisconnect(peerId);
         return;
       }
 
@@ -966,14 +1023,14 @@ export class PeerManager implements PeerManagerInterface {
     const peerIdStr = peerId.toString();
 
     const existingEntry = this.failedAuthHandshakes.get(peerIdStr);
+    const failureCount = (existingEntry?.count || 0) + 1;
     this.failedAuthHandshakes.set(peerIdStr, {
-      count: (existingEntry?.count || 0) + 1,
+      count: failureCount,
       lastFailureTimestamp: now,
     });
 
     const connections = this.libP2PNode.getConnections(peerId);
     connections.forEach(conn => {
-      // We mark the IP address
       const address = conn.remoteAddr.nodeAddress().address;
       const existingAddressEntry = this.failedAuthHandshakes.get(address);
       this.failedAuthHandshakes.set(address, {
@@ -981,6 +1038,15 @@ export class PeerManager implements PeerManagerInterface {
         lastFailureTimestamp: now,
       });
     });
+
+    // Ban the peer from being re-dialed for a cooldown period (exponential backoff)
+    const banTimeMs = this.config.peerFailedBanTimeMs ?? DEFAULT_FAILED_PEER_BAN_TIME_MS;
+    const backoffMs = banTimeMs * Math.pow(2, Math.min(failureCount - 1, 5));
+    this.timedOutPeers.set(peerIdStr, {
+      peerId: peerIdStr,
+      timeoutUntilMs: now + backoffMs,
+    });
+    this.cachedPeers.delete(peerIdStr);
   }
 
   /*

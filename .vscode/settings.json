@@ -148,11 +148,53 @@
   },
   "solidity.formatter": "forge",
   "search.exclude": {
+    // Package managers / dependencies
     "**/.yarn": true,
     "**/.yalc": true,
     "**/node_modules": true,
     "**/.pnp.*": true,
-    "**/msgpack-c/**": true
+    "**/l1-contracts/lib/**": true,
+    "**/barretenberg/sol/lib/**": true,
+    "**/msgpack-c/**": true,
+
+    // Build outputs
+    "**/dest/**": true,
+    "**/dist/**": true,
+    "**/target/**": true,
+    "**/build/**": true,
+    "**/out/**": true,
+    "**/artifacts/**": true,
+    "**/generated/**": true,
+
+    // Caches
+    "**/.cache/**": true,
+    "**/.cache-loader/**": true,
+    "**/.docusaurus/**": true,
+    "**/.tsbuildinfo": true,
+    "**/tsconfig.tsbuildinfo": true,
+    "**/.eslintcache": true,
+
+    // Docs: versioned/generated content
+    "**/docs/developer_versioned_docs/**": true,
+    "**/docs/network_versioned_docs/**": true,
+    "**/docs/network_versioned_sidebars/**": true,
+    "**/docs/processed-docs/**": true,
+    "**/docs/processed-docs-cache/**": true,
+    "**/docs/static/**": true,
+    "**/docs/build/**": true,
+    "**/barretenberg/docs/versioned_docs/**": true,
+    "**/barretenberg/docs/versioned_sidebars/**": true,
+    "**/barretenberg/docs/static/**": true,
+    "**/barretenberg/docs/build/**": true,
+    "**/noir/noir-repo/docs/versioned_docs/**": true,
+    "**/noir/noir-repo/docs/versioned_sidebars/**": true,
+
+    // C++/Rust build
+    "**/barretenberg/cpp/build*/**": true,
+    "**/barretenberg/cpp/src/wasi-sdk*/**": true,
+    "**/cmake-build-*/**": true,
+    "**/bench-out/**": true,
+    "**/coverage/**": true
   },
   "[terraform]": {
     "editor.defaultFormatter": "hashicorp.terraform"
@@ -197,15 +239,27 @@
     "bb-pilcom/Cargo.toml"
   ],
   "files.watcherExclude": {
+    "**/.docusaurus/**": true,
     "**/.git/**": true,
-    "**/node_modules/**": true,
     "**/.hg/store/**": true,
-    "**/target/**": true,
-    "**/l1-contracts/lib/**": true,
+    "**/.yarn/**": true,
     "**/barretenberg/cpp/build*/**": true,
     "**/barretenberg/cpp/src/wasi-sdk*/**": true,
+    "**/barretenberg/docs/build/**": true,
+    "**/barretenberg/docs/static/**": true,
+    "**/barretenberg/docs/versioned_docs/**": true,
     "**/dest/**": true,
-    "**/noir/noir-repo/docs/versioned_docs/**": true
+    "**/docs/.docusaurus/**": true,
+    "**/docs/build/**": true,
+    "**/docs/developer_versioned_docs/**": true,
+    "**/docs/network_versioned_docs/**": true,
+    "**/docs/processed-docs-cache/**": true,
+    "**/docs/processed-docs/**": true,
+    "**/docs/static/**": true,
+    "**/l1-contracts/lib/**": true,
+    "**/node_modules/**": true,
+    "**/noir/noir-repo/docs/versioned_docs/**": true,
+    "**/target/**": true
   },
   "files.trimTrailingWhitespace": true,
   "files.insertFinalNewline": true,

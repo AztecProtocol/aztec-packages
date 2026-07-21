@@ -14,13 +14,15 @@ namespace bb::avm2::simulation {
  *
  * @throws std::runtime_error if the membership check fails.
  *
+ * @param domain_separator The per-tree DOM_SEP__*_MERKLE constant for this invocation.
  * @param leaf_value The value of the leaf to check.
  * @param leaf_index The index of the leaf to check.
  * @param sibling_path The sibling path to the leaf to check.
  * @param root The root of the Merkle tree.
  */
-void MerkleCheck::assert_membership(const FF& leaf_value,
-                                    const uint64_t leaf_index,
+void MerkleCheck::assert_membership(uint64_t domain_separator,
+                                    const FF& leaf_value,
+                                    uint64_t leaf_index,
                                     std::span<const FF> sibling_path,
                                     const FF& root)
 {
@@ -32,7 +34,8 @@ void MerkleCheck::assert_membership(const FF& leaf_value,
     for (const auto& sibling : sibling_path) {
         bool index_is_even = (curr_index % 2 == 0);
 
-        curr_value = index_is_even ? poseidon2.hash({ curr_value, sibling }) : poseidon2.hash({ sibling, curr_value });
+        curr_value = index_is_even ? poseidon2.hash({ FF(domain_separator), curr_value, sibling })
+                                   : poseidon2.hash({ FF(domain_separator), sibling, curr_value });
 
         // Halve the index (to get the parent index) as we move up the tree.
         curr_index >>= 1;
@@ -47,6 +50,7 @@ void MerkleCheck::assert_membership(const FF& leaf_value,
 
     std::vector<FF> sibling_vec(sibling_path.begin(), sibling_path.end());
     events.emit({
+        .merkle_hash_domain_separator = domain_separator,
         .leaf_value = leaf_value,
         .leaf_index = leaf_index,
         .sibling_path = std::move(sibling_vec),
@@ -63,6 +67,7 @@ void MerkleCheck::assert_membership(const FF& leaf_value,
  *
  * @throws std::runtime_error if the membership check fails.
  *
+ * @param domain_separator The per-tree DOM_SEP__*_MERKLE constant for this invocation.
  * @param current_value The value of the current leaf.
  * @param new_value The value of the new leaf.
  * @param leaf_index The index of the leaf to write.
@@ -70,9 +75,10 @@ void MerkleCheck::assert_membership(const FF& leaf_value,
  * @param current_root The root of the Merkle tree before the write.
  * @return The new root of the Merkle tree after the write.
  */
-FF MerkleCheck::write(const FF& current_value,
+FF MerkleCheck::write(uint64_t domain_separator,
+                      const FF& current_value,
                       const FF& new_value,
-                      const uint64_t leaf_index,
+                      uint64_t leaf_index,
                       std::span<const FF> sibling_path,
                       const FF& current_root)
 {
@@ -86,9 +92,10 @@ FF MerkleCheck::write(const FF& current_value,
     for (const auto& sibling : sibling_path) {
         bool index_is_even = (curr_index % 2 == 0);
 
-        read_value = index_is_even ? poseidon2.hash({ read_value, sibling }) : poseidon2.hash({ sibling, read_value });
-        write_value =
-            index_is_even ? poseidon2.hash({ write_value, sibling }) : poseidon2.hash({ sibling, write_value });
+        read_value = index_is_even ? poseidon2.hash({ FF(domain_separator), read_value, sibling })
+                                   : poseidon2.hash({ FF(domain_separator), sibling, read_value });
+        write_value = index_is_even ? poseidon2.hash({ FF(domain_separator), write_value, sibling })
+                                    : poseidon2.hash({ FF(domain_separator), sibling, write_value });
 
         // Halve the index (to get the parent index) as we move up the tree.
         curr_index >>= 1;
@@ -103,6 +110,7 @@ FF MerkleCheck::write(const FF& current_value,
 
     std::vector<FF> sibling_vec(sibling_path.begin(), sibling_path.end());
     events.emit({
+        .merkle_hash_domain_separator = domain_separator,
         .leaf_value = current_value,
         .new_leaf_value = new_value,
         .leaf_index = leaf_index,

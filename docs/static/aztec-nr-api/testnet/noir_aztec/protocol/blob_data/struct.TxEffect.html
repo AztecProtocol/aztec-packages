@@ -1,0 +1,110 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="UTF-8">
+<link rel="stylesheet" href="../../../styles.css">
+<script defer src="../../../nargo_doc.js"></script>
+<title>Struct TxEffect documentation</title>
+</head>
+<body>
+<div id="sidebar-toggle">
+<button id="sidebar-toggle-button"></button>
+<div id="sidebar-toggle-title">TxEffect</div>
+</div>
+<span id="main-contents">
+<nav class="sidebar">
+<h1><a href="../../../index.html">aztec-nr</a></h1>
+<div><a href="../../../all.html">All items</a></div>
+<h2 id="crate-name"><a href="../../index.html">noir_aztec</a></h2>
+<div id="crate-version">0.0.0</div>
+<h2><a href="#struct">Struct TxEffect</a></h2>
+<h3>Fields</h3>
+<ul class="sidebar-list">
+<li><a href="#structfield.contract_class_logs">contract_class_logs</a></li>
+<li><a href="#structfield.l2_to_l1_msgs">l2_to_l1_msgs</a></li>
+<li><a href="#structfield.note_hashes">note_hashes</a></li>
+<li><a href="#structfield.nullifiers">nullifiers</a></li>
+<li><a href="#structfield.private_logs">private_logs</a></li>
+<li><a href="#structfield.public_data_writes">public_data_writes</a></li>
+<li><a href="#structfield.public_logs">public_logs</a></li>
+<li><a href="#structfield.revert_code">revert_code</a></li>
+<li><a href="#structfield.transaction_fee">transaction_fee</a></li>
+<li><a href="#structfield.tx_hash">tx_hash</a></li>
+</ul>
+<h3>Trait implementations</h3>
+<ul class="sidebar-list">
+<li><a href="#impl-Empty-for-TxEffect">Empty</a></li>
+<li><a href="#impl-Eq-for-TxEffect">Eq</a></li>
+<li><a href="#impl-Serialize-for-TxEffect">Serialize</a></li>
+</ul>
+<h2>In module blob_data</h2>
+<h3>Structs</h3><ul class="item-list">
+<li><a href="struct.SpongeBlob.html">SpongeBlob</a></div></li>
+<li><a href="struct.TxEffect.html">TxEffect</a></div></li>
+<li><a href="struct.TxEffectArrayLengths.html">TxEffectArrayLengths</a></div></li>
+</ul>
+<h3>Functions</h3><ul class="item-list">
+<li><a href="fn.create_block_end_blob_data.html">create_block_end_blob_data</a></div></li>
+<li><a href="fn.create_block_end_marker.html">create_block_end_marker</a></div></li>
+<li><a href="fn.create_block_end_state_field.html">create_block_end_state_field</a></div></li>
+<li><a href="fn.create_checkpoint_end_marker.html">create_checkpoint_end_marker</a></div></li>
+<li><a href="fn.create_tx_start_marker.html">create_tx_start_marker</a></div></li>
+</ul>
+<h3>Globals</h3><ul class="item-list">
+<li><a href="global.MAX_TX_BLOB_DATA_SIZE_IN_FIELDS.html">MAX_TX_BLOB_DATA_SIZE_IN_FIELDS</a></div></li>
+</ul>
+</nav>
+<main>
+<div><a href="../../../index.html">aztec-nr</a> - <a href="../../index.html">noir_aztec</a>::<a href="../index.html">protocol</a>::<a href="index.html">blob_data</a></div>
+<h1>Struct <span id="struct" class="struct">TxEffect</span></h1>
+<pre><code>pub struct TxEffect {
+    pub revert_code: <a href="../../../std/primitive.u8.html" class="primitive">u8</a>,
+    pub tx_hash: <a href="../../../std/primitive.Field.html" class="primitive">Field</a>,
+    pub transaction_fee: <a href="../../../std/primitive.Field.html" class="primitive">Field</a>,
+    pub note_hashes: [<a href="../../../std/primitive.Field.html" class="primitive">Field</a>; 64],
+    pub nullifiers: [<a href="../../../std/primitive.Field.html" class="primitive">Field</a>; 64],
+    pub l2_to_l1_msgs: [<a href="../../../std/primitive.Field.html" class="primitive">Field</a>; 8],
+    pub public_data_writes: [<a href="../../../protocol_types/abis/public_data_write/struct.PublicDataWrite.html" class="struct">PublicDataWrite</a>; 64],
+    pub private_logs: [<a href="../../../protocol_types/abis/private_log/type.PrivateLog.html" class="type">PrivateLog</a>; 64],
+    pub public_logs: <a href="../../../protocol_types/abis/public_logs/struct.PublicLogs.html" class="struct">PublicLogs</a>,
+    pub contract_class_logs: [<a href="../../../protocol_types/abis/contract_class_log/struct.ContractClassLog.html" class="struct">ContractClassLog</a>; 1],
+}
+</code></pre>
+<h2>Fields</h2>
+<div id="structfield.revert_code" class="struct-field"><code class="code-header">revert_code: <a href="../../../std/primitive.u8.html" class="primitive">u8</a></code></div>
+<div class="padded-description"></div><div id="structfield.tx_hash" class="struct-field"><code class="code-header">tx_hash: <a href="../../../std/primitive.Field.html" class="primitive">Field</a></code></div>
+<div class="padded-description"></div><div id="structfield.transaction_fee" class="struct-field"><code class="code-header">transaction_fee: <a href="../../../std/primitive.Field.html" class="primitive">Field</a></code></div>
+<div class="padded-description"></div><div id="structfield.note_hashes" class="struct-field"><code class="code-header">note_hashes: [<a href="../../../std/primitive.Field.html" class="primitive">Field</a>; 64]</code></div>
+<div class="padded-description"></div><div id="structfield.nullifiers" class="struct-field"><code class="code-header">nullifiers: [<a href="../../../std/primitive.Field.html" class="primitive">Field</a>; 64]</code></div>
+<div class="padded-description"></div><div id="structfield.l2_to_l1_msgs" class="struct-field"><code class="code-header">l2_to_l1_msgs: [<a href="../../../std/primitive.Field.html" class="primitive">Field</a>; 8]</code></div>
+<div class="padded-description"></div><div id="structfield.public_data_writes" class="struct-field"><code class="code-header">public_data_writes: [<a href="../../../protocol_types/abis/public_data_write/struct.PublicDataWrite.html" class="struct">PublicDataWrite</a>; 64]</code></div>
+<div class="padded-description"></div><div id="structfield.private_logs" class="struct-field"><code class="code-header">private_logs: [<a href="../../../protocol_types/abis/private_log/type.PrivateLog.html" class="type">PrivateLog</a>; 64]</code></div>
+<div class="padded-description"></div><div id="structfield.public_logs" class="struct-field"><code class="code-header">public_logs: <a href="../../../protocol_types/abis/public_logs/struct.PublicLogs.html" class="struct">PublicLogs</a></code></div>
+<div class="padded-description"></div><div id="structfield.contract_class_logs" class="struct-field"><code class="code-header">contract_class_logs: [<a href="../../../protocol_types/abis/contract_class_log/struct.ContractClassLog.html" class="struct">ContractClassLog</a>; 1]</code></div>
+<div class="padded-description"></div><h2>Trait implementations</h2>
+<h3 id="impl-Empty-for-TxEffect"><code class="code-header">impl <a href="../../../protocol_types/traits/trait.Empty.html" class="trait">Empty</a> for <a href="../../../protocol_types/blob_data/struct.TxEffect.html" class="struct">TxEffect</a></code></h3>
+
+<div class="padded-methods"><code class="code-header">pub fn <span class="fn">empty</span>() -> Self</code>
+
+<code class="code-header">pub fn <span class="fn">is_empty</span>(self: Self) -> <a href="../../../std/primitive.bool.html" class="primitive">bool</a>
+<div class="where-clause">where
+    Self: <a href="../../../std/cmp/trait.Eq.html" class="trait">Eq</a></div></code>
+
+<code class="code-header">pub fn <span class="fn">assert_empty</span>&lt;let S: <a href="../../../std/primitive.u32.html" class="primitive">u32</a>&gt;(self: Self, msg: <a href="../../../std/primitive.str.html" class="primitive">str</a>&lt;S&gt;)
+<div class="where-clause">where
+    Self: <a href="../../../std/cmp/trait.Eq.html" class="trait">Eq</a></div></code>
+
+</div><h3 id="impl-Eq-for-TxEffect"><code class="code-header">impl <a href="../../../std/cmp/trait.Eq.html" class="trait">Eq</a> for <a href="../../../protocol_types/blob_data/struct.TxEffect.html" class="struct">TxEffect</a></code></h3>
+
+<div class="padded-methods"><code class="code-header">pub fn <span class="fn">eq</span>(_self: Self, _other: Self) -> <a href="../../../std/primitive.bool.html" class="primitive">bool</a></code>
+
+</div><h3 id="impl-Serialize-for-TxEffect"><code class="code-header">impl <a href="../../../serde/serialization/trait.Serialize.html" class="trait">Serialize</a> for <a href="../../../protocol_types/blob_data/struct.TxEffect.html" class="struct">TxEffect</a></code></h3>
+
+<div class="padded-methods"><code class="code-header">pub fn <span class="fn">serialize</span>(self) -> [<a href="../../../std/primitive.Field.html" class="primitive">Field</a>; 8477]</code>
+
+<code class="code-header">pub fn <span class="fn">stream_serialize</span>&lt;let K: <a href="../../../std/primitive.u32.html" class="primitive">u32</a>&gt;(self, writer: &mut <a href="../../../serde/writer/struct.Writer.html" class="struct">Writer</a>&lt;K&gt;)</code>
+
+</div></main>
+</span>
+</body>
+</html>

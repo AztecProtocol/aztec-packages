@@ -29,6 +29,11 @@ data "terraform_remote_state" "ssl" {
   }
 }
 
+data "google_compute_subnetwork" "default" {
+  name   = "default"
+  region = var.region
+}
+
 resource "google_compute_address" "grafana_ip" {
   provider     = google
   name         = "grafana-ip"
@@ -51,6 +56,18 @@ resource "google_compute_address" "otel_collector_ip" {
   }
 }
 
+resource "google_compute_address" "prometheus_ip" {
+  provider     = google
+  name         = "prometheus-ip"
+  address_type = "INTERNAL"
+  region       = var.region
+  subnetwork   = data.google_compute_subnetwork.default.id
+
+  lifecycle {
+    prevent_destroy = true
+  }
+}
+
 provider "kubernetes" {
   alias          = "gke-cluster"
   config_path    = "~/.kube/config"
@@ -65,49 +82,17 @@ provider "helm" {
   }
 }
 
-data "google_secret_manager_secret_version" "grafana_password" {
-  secret  = var.GRAFANA_PASSWORD_SECRET_NAME
-  project = var.project
-}
-
-data "google_secret_manager_secret_version" "slack_webhook" {
-  secret  = var.SLACK_WEBHOOK_SECRET_NAME
-  project = var.project
-}
-
-data "google_secret_manager_secret_version" "slack_webhook_staging_public" {
-  secret  = var.SLACK_WEBHOOK_STAGING_PUBLIC_SECRET_NAME
-  project = var.project
-}
-
-data "google_secret_manager_secret_version" "slack_webhook_staging_ignition" {
-  secret  = var.SLACK_WEBHOOK_STAGING_IGNITION_SECRET_NAME
-  project = var.project
-}
-
-data "google_secret_manager_secret_version" "slack_webhook_next_scenario" {
-  secret  = var.SLACK_WEBHOOK_NEXT_SCENARIO_SECRET_NAME
-  project = var.project
-}
-
-data "google_secret_manager_secret_version" "slack_webhook_next_net" {
-  secret  = var.SLACK_WEBHOOK_NEXT_NET_SECRET_NAME
-  project = var.project
-}
-
-data "google_secret_manager_secret_version" "slack_webhook_devnet" {
-  secret  = var.SLACK_WEBHOOK_DEVNET_SECRET_NAME
-  project = var.project
-}
-
-data "google_secret_manager_secret_version" "slack_webhook_testnet" {
-  secret  = var.SLACK_WEBHOOK_TESTNET_SECRET_NAME
-  project = var.project
-}
-
-data "google_secret_manager_secret_version" "slack_webhook_mainnet" {
-  secret  = var.SLACK_WEBHOOK_MAINNET_SECRET_NAME
-  project = var.project
+locals {
+  metrics_chart_path = "${path.module}/../../metrics"
+  metrics_chart_trigger_files = sort(concat(
+    tolist(fileset(local.metrics_chart_path, "Chart.yaml")),
+    tolist(fileset(local.metrics_chart_path, "Chart.lock")),
+    tolist(fileset(local.metrics_chart_path, "templates/**")),
+    tolist(fileset(local.metrics_chart_path, "grafana/**")),
+  ))
+  metrics_chart_content_hash = sha256(join("", [
+    for file in local.metrics_chart_trigger_files : "${file}:${filesha256("${local.metrics_chart_path}/${file}")}"
+  ]))
 }
 
 # Aztec Helm release for gke-cluster
@@ -121,13 +106,16 @@ resource "helm_release" "aztec-gke-cluster" {
   upgrade_install   = true
   dependency_update = true
   force_update      = true
-  reuse_values      = true
+  reuse_values      = false
 
   # base values file
   values = [
     file("../../metrics/values.yaml"),
     file("../../metrics/values/${var.VALUES_FILE}"),
     yamlencode({
+      aztecMetricsChart = {
+        contentHash = local.metrics_chart_content_hash
+      }
       grafana = {
         service = {
           annotations = {
@@ -144,6 +132,81 @@ resource "helm_release" "aztec-gke-cluster" {
             "ingress.gcp.kubernetes.io/pre-shared-cert"   = data.terraform_remote_state.ssl.outputs.grafana_cert_name
           }
         }
+        podAnnotations = {
+          "aztec.network/metrics-chart-content-hash" = local.metrics_chart_content_hash
+        }
+        admin = {
+          existingSecret = "grafana-admin"
+          passwordKey    = "admin-password"
+        }
+
+        env = {
+          # we have to set an admin username through env vars otherwise the chart expects to find an 'admin-user' key in the admin secret
+          GF_SECURITY_ADMIN_USER       = "admin"
+          SLACK_ALERT_MENTION_USER_IDS = join(",", var.SLACK_ALERT_MENTION_USER_IDS)
+        }
+
+        sidecar = {
+          alerts = {
+            env = {
+              REQ_USERNAME = "admin"
+            }
+          }
+          dashboards = {
+            env = {
+              REQ_USERNAME = "admin"
+            }
+          }
+        }
+
+        envFromSecrets = [
+          {
+            name     = "grafana-webhooks"
+            optional = false
+          }
+        ]
+
+        extraObjects = [
+          {
+            apiVersion = "external-secrets.io/v1"
+            kind       = "ExternalSecret"
+            metadata = {
+              name = "grafana-admin"
+            }
+            spec = {
+              refreshInterval = "1m"
+              secretStoreRef = {
+                name = "gcp-secret-store"
+                kind = "ClusterSecretStore"
+              }
+              data = [
+                { secretKey = "admin-password", remoteRef = { key = var.GRAFANA_PASSWORD_SECRET_NAME } },
+              ]
+            }
+          },
+          {
+            apiVersion = "external-secrets.io/v1"
+            kind       = "ExternalSecret"
+            metadata = {
+              name = "grafana-webhooks"
+            }
+            spec = {
+              secretStoreRef = {
+                name = "gcp-secret-store"
+                kind = "ClusterSecretStore"
+              }
+              data = [
+                { secretKey = "SLACK_WEBHOOK_URL", remoteRef = { key = var.SLACK_WEBHOOK_SECRET_NAME } },
+                { secretKey = "SLACK_WEBHOOK_STAGING_PUBLIC_URL", remoteRef = { key = var.SLACK_WEBHOOK_STAGING_PUBLIC_SECRET_NAME } },
+                { secretKey = "SLACK_WEBHOOK_NEXT_SCENARIO_URL", remoteRef = { key = var.SLACK_WEBHOOK_NEXT_SCENARIO_SECRET_NAME } },
+                { secretKey = "SLACK_WEBHOOK_NEXT_NET_URL", remoteRef = { key = var.SLACK_WEBHOOK_NEXT_NET_SECRET_NAME } },
+                { secretKey = "SLACK_WEBHOOK_DEVNET_URL", remoteRef = { key = var.SLACK_WEBHOOK_DEVNET_SECRET_NAME } },
+                { secretKey = "SLACK_WEBHOOK_TESTNET_URL", remoteRef = { key = var.SLACK_WEBHOOK_TESTNET_SECRET_NAME } },
+                { secretKey = "SLACK_WEBHOOK_MAINNET_URL", remoteRef = { key = var.SLACK_WEBHOOK_MAINNET_SECRET_NAME } },
+              ]
+            }
+          }
+        ]
       }
     })
   ]
@@ -159,53 +222,23 @@ resource "helm_release" "aztec-gke-cluster" {
   }
 
   set {
-    name  = "grafana.adminPassword"
-    value = data.google_secret_manager_secret_version.grafana_password.secret_data
-  }
-
-  set {
-    name  = "grafana.env.SLACK_WEBHOOK_URL"
-    value = data.google_secret_manager_secret_version.slack_webhook.secret_data
-  }
-
-  set {
-    name  = "grafana.env.SLACK_WEBHOOK_STAGING_PUBLIC_URL"
-    value = data.google_secret_manager_secret_version.slack_webhook_staging_public.secret_data
-  }
-
-  set {
-    name  = "grafana.env.SLACK_WEBHOOK_STAGING_IGNITION_URL"
-    value = data.google_secret_manager_secret_version.slack_webhook_staging_ignition.secret_data
-  }
-
-  set {
-    name  = "grafana.env.SLACK_WEBHOOK_NEXT_SCENARIO_URL"
-    value = data.google_secret_manager_secret_version.slack_webhook_next_scenario.secret_data
-  }
-
-  set {
-    name  = "grafana.env.SLACK_WEBHOOK_NEXT_NET_URL"
-    value = data.google_secret_manager_secret_version.slack_webhook_next_net.secret_data
-  }
-
-  set {
-    name  = "grafana.env.SLACK_WEBHOOK_DEVNET_URL"
-    value = data.google_secret_manager_secret_version.slack_webhook_devnet.secret_data
-  }
-
-  set {
-    name  = "grafana.env.SLACK_WEBHOOK_TESTNET_URL"
-    value = data.google_secret_manager_secret_version.slack_webhook_testnet.secret_data
-  }
-
-  set {
-    name  = "grafana.env.SLACK_WEBHOOK_MAINNET_URL"
-    value = data.google_secret_manager_secret_version.slack_webhook_mainnet.secret_data
-  }
-
-  set {
     name  = "opentelemetry-collector.service.loadBalancerIP"
     value = google_compute_address.otel_collector_ip.address
+  }
+
+  set {
+    name  = "prometheus.server.service.type"
+    value = "LoadBalancer"
+  }
+
+  set {
+    name  = "prometheus.server.service.annotations.networking\\.gke\\.io\\/load-balancer-type"
+    value = "Internal"
+  }
+
+  set {
+    name  = "prometheus.server.service.loadBalancerIP"
+    value = google_compute_address.prometheus_ip.address
   }
 
   set {

@@ -5,13 +5,13 @@ import { BlockNumber, CheckpointNumber } from '@aztec/foundation/branded-types';
 import { padArrayEnd, times, timesAsync } from '@aztec/foundation/collection';
 import { Fr } from '@aztec/foundation/curves/bn254';
 import type { Logger } from '@aztec/foundation/log';
+import { SerialQueue } from '@aztec/foundation/queue';
 import type { FieldsOf } from '@aztec/foundation/types';
 import { getVKTreeRoot } from '@aztec/noir-protocol-circuits-types/vk-tree';
 import { ProtocolContractsList } from '@aztec/protocol-contracts';
 import { computeFeePayerBalanceLeafSlot } from '@aztec/protocol-contracts/fee-juice';
 import { PublicDataWrite } from '@aztec/stdlib/avm';
 import { AztecAddress } from '@aztec/stdlib/aztec-address';
-import { EthAddress } from '@aztec/stdlib/block';
 import type { Checkpoint } from '@aztec/stdlib/checkpoint';
 import type { MerkleTreeWriteOperations, ServerCircuitProver } from '@aztec/stdlib/interfaces/server';
 import type { CheckpointConstantData } from '@aztec/stdlib/rollup';
@@ -24,6 +24,7 @@ import {
   StateReference,
   TreeSnapshots,
 } from '@aztec/stdlib/tx';
+import type { GenesisData } from '@aztec/stdlib/world-state';
 import type { MerkleTreeAdminDatabase } from '@aztec/world-state';
 import { NativeWorldStateService } from '@aztec/world-state/native';
 
@@ -35,11 +36,20 @@ import {
   getTreeSnapshot,
   insertSideEffects,
 } from '../orchestrator/block-building-helpers.js';
-import type { BlockProvingState } from '../orchestrator/block-proving-state.js';
-import { ProvingOrchestrator } from '../orchestrator/index.js';
 import { BrokerCircuitProverFacade } from '../proving_broker/broker_prover_facade.js';
 import { TestBroker } from '../test/mock_prover.js';
 import { getEnvironmentConfig, getSimulator, makeCheckpointConstants, makeGlobals } from './fixtures.js';
+
+/**
+ * Builds a started `SerialQueue` for use as an orchestrator's deferred-job queue in
+ * tests. Production wires a single shared queue via `ProverClient`; tests that construct
+ * orchestrators directly use one of these per orchestrator (or share one).
+ */
+export function makeTestDeferredJobQueue(concurrency = 10): SerialQueue {
+  const queue = new SerialQueue();
+  queue.start(concurrency);
+  return queue;
+}
 
 export class TestContext {
   private headers: Map<number, BlockHeader> = new Map();
@@ -56,17 +66,12 @@ export class TestContext {
     public prover: ServerCircuitProver,
     public broker: TestBroker,
     public brokerProverFacade: BrokerCircuitProverFacade,
-    public orchestrator: TestProvingOrchestrator,
     private feePayer: AztecAddress,
     initialFeePayerBalance: Fr,
     private directoriesToCleanup: string[],
     private logger: Logger,
   ) {
     this.feePayerBalance = initialFeePayerBalance;
-  }
-
-  public get epochProver() {
-    return this.orchestrator;
   }
 
   static async new(
@@ -81,17 +86,16 @@ export class TestContext {
   ) {
     const directoriesToCleanup: string[] = [];
 
-    const feePayer = AztecAddress.fromNumber(42222);
+    const feePayer = AztecAddress.fromNumberUnsafe(42222);
     const initialFeePayerBalance = new Fr(10n ** 20n);
     const feePayerSlot = await computeFeePayerBalanceLeafSlot(feePayer);
-    const prefilledPublicData = [new PublicDataTreeLeaf(feePayerSlot, initialFeePayerBalance)];
+    const genesis: GenesisData = {
+      prefilledPublicData: [new PublicDataTreeLeaf(feePayerSlot, initialFeePayerBalance)],
+      genesisTimestamp: 0n,
+    };
 
     // Separated dbs for public processor and prover - see public_processor for context
-    const ws = await NativeWorldStateService.tmp(
-      /*rollupAddress=*/ undefined,
-      /*cleanupTmpDir=*/ true,
-      prefilledPublicData,
-    );
+    const ws = await NativeWorldStateService.tmp(/*cleanupTmpDir=*/ true, genesis);
 
     let localProver: ServerCircuitProver;
     const config = await getEnvironmentConfig(logger);
@@ -104,8 +108,10 @@ export class TestContext {
         bbBinaryPath: config.expectedBBPath,
         bbWorkingDirectory: config.bbWorkingDirectory,
         bbSkipCleanup: config.bbSkipCleanup,
-        numConcurrentIVCVerifiers: 2,
+        numConcurrentIVCVerifiers: 8,
         bbIVCConcurrency: 1,
+        bbChonkVerifyMaxBatch: 16,
+        bbChonkVerifyConcurrency: 6,
       };
       localProver = await createProver(bbConfig);
     }
@@ -116,22 +122,11 @@ export class TestContext {
 
     const broker = new TestBroker(proverCount, localProver);
     const facade = new BrokerCircuitProverFacade(broker);
-    const orchestrator = new TestProvingOrchestrator(ws, facade, EthAddress.ZERO);
 
     await broker.start();
     facade.start();
 
-    return new this(
-      ws,
-      localProver,
-      broker,
-      facade,
-      orchestrator,
-      feePayer,
-      initialFeePayerBalance,
-      directoriesToCleanup,
-      logger,
-    );
+    return new this(ws, localProver, broker, facade, feePayer, initialFeePayerBalance, directoriesToCleanup, logger);
   }
 
   public getFork() {
@@ -141,6 +136,7 @@ export class TestContext {
   async cleanup() {
     await this.brokerProverFacade.stop();
     await this.broker.stop();
+    await this.worldState.close();
     for (const dir of this.directoriesToCleanup.filter(x => x !== '')) {
       try {
         await fs.rm(dir, { recursive: true, force: true, maxRetries: 3 });
@@ -250,7 +246,7 @@ export class TestContext {
     const previousCheckpointOutHashes = this.checkpointOutHashes;
     const builder = await LightweightCheckpointBuilder.startNewCheckpoint(
       checkpointNumber,
-      constants,
+      { ...constants, timestamp },
       l1ToL2Messages,
       previousCheckpointOutHashes,
       cleanFork,
@@ -262,7 +258,7 @@ export class TestContext {
       const txs = blockTxs[i];
       const state = blockEndStates[i];
 
-      const block = await builder.addBlock(blockGlobalVariables[i], txs, {
+      const { block } = await builder.addBlock(blockGlobalVariables[i], txs, {
         expectedEndState: state,
         insertTxsEffects: true,
       });
@@ -282,6 +278,7 @@ export class TestContext {
 
     return {
       constants,
+      checkpoint,
       header: checkpoint.header,
       blocks,
       l1ToL2Messages,
@@ -347,18 +344,5 @@ export class TestContext {
     }
 
     return endStateReference;
-  }
-}
-
-class TestProvingOrchestrator extends ProvingOrchestrator {
-  public isVerifyBuiltBlockAgainstSyncedStateEnabled = false;
-
-  // Disable this check by default, since it requires seeding world state with the block being built
-  // This is only enabled in some tests with multiple blocks that populate the pending chain via makePendingBlock
-  protected override verifyBuiltBlockAgainstSyncedState(provingState: BlockProvingState): Promise<void> {
-    if (this.isVerifyBuiltBlockAgainstSyncedStateEnabled) {
-      return super.verifyBuiltBlockAgainstSyncedState(provingState);
-    }
-    return Promise.resolve();
   }
 }

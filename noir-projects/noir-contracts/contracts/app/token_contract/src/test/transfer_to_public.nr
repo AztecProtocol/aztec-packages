@@ -1,6 +1,7 @@
 use crate::test::utils;
 use crate::Token;
 use aztec::{oracle::random::random, test::helpers::authwit::add_private_authwit_from_call};
+use generic_proxy_contract::GenericProxy;
 
 #[test]
 unconstrained fn transfer_to_public_on_behalf_of_self() {
@@ -11,12 +12,7 @@ unconstrained fn transfer_to_public_on_behalf_of_self() {
     let transfer_to_public_amount = mint_amount / (10 as u128);
     env.call_private(
         owner,
-        Token::at(token_contract_address).transfer_to_public(
-            owner,
-            owner,
-            transfer_to_public_amount,
-            0,
-        ),
+        Token::at(token_contract_address).transfer_to_public(owner, owner, transfer_to_public_amount, 0),
     );
     utils::check_private_balance(
         env,
@@ -34,19 +30,22 @@ unconstrained fn transfer_to_public_on_behalf_of_self() {
 
 #[test]
 unconstrained fn transfer_to_public_on_behalf_of_other() {
-    let (env, token_contract_address, owner, recipient, mint_amount) =
-        utils::setup_and_mint_to_private(/* with_account_contracts */ true);
+    let (env, token_contract_address, owner, recipient, mint_amount, proxy) =
+        utils::setup_and_mint_to_private_with_proxy();
 
     let transfer_to_public_amount = mint_amount / (10 as u128);
-    let transfer_to_public_call = Token::at(token_contract_address).transfer_to_public(
-        owner,
-        recipient,
-        transfer_to_public_amount,
-        0,
-    );
-    add_private_authwit_from_call(env, owner, recipient, transfer_to_public_call);
+    let transfer_to_public_call =
+        Token::at(token_contract_address).transfer_to_public(owner, recipient, transfer_to_public_amount, 0);
+    add_private_authwit_from_call(env, owner, proxy, transfer_to_public_call);
     // transfer_to_public tokens
-    env.call_private(recipient, transfer_to_public_call);
+    env.call_private(
+        owner,
+        GenericProxy::at(proxy).forward_private_4(
+            transfer_to_public_call.target_contract,
+            transfer_to_public_call.selector,
+            transfer_to_public_call.args,
+        ),
+    );
     utils::check_private_balance(
         env,
         token_contract_address,
@@ -70,12 +69,7 @@ unconstrained fn transfer_to_public_failure_more_than_balance() {
     let transfer_to_public_amount = mint_amount + (1 as u128);
     env.call_private(
         owner,
-        Token::at(token_contract_address).transfer_to_public(
-            owner,
-            owner,
-            transfer_to_public_amount,
-            0,
-        ),
+        Token::at(token_contract_address).transfer_to_public(owner, owner, transfer_to_public_amount, 0),
     );
 }
 
@@ -88,64 +82,68 @@ unconstrained fn transfer_to_public_failure_on_behalf_of_self_non_zero_nonce() {
     let transfer_to_public_amount = mint_amount + (1 as u128);
     env.call_private(
         owner,
-        Token::at(token_contract_address).transfer_to_public(
-            owner,
-            owner,
-            transfer_to_public_amount,
-            random(),
-        ),
+        Token::at(token_contract_address).transfer_to_public(owner, owner, transfer_to_public_amount, random()),
     );
 }
 
 #[test(should_fail_with = "Balance too low")]
 unconstrained fn transfer_to_public_failure_on_behalf_of_other_more_than_balance() {
-    let (env, token_contract_address, owner, recipient, mint_amount) =
-        utils::setup_and_mint_to_private(/* with_account_contracts */ true);
+    let (env, token_contract_address, owner, recipient, mint_amount, proxy) =
+        utils::setup_and_mint_to_private_with_proxy();
 
     let transfer_to_public_amount = mint_amount + (1 as u128);
-    let transfer_to_public_call = Token::at(token_contract_address).transfer_to_public(
-        owner,
-        recipient,
-        transfer_to_public_amount,
-        0,
-    );
-    add_private_authwit_from_call(env, owner, recipient, transfer_to_public_call);
+    let transfer_to_public_call =
+        Token::at(token_contract_address).transfer_to_public(owner, recipient, transfer_to_public_amount, 0);
+    add_private_authwit_from_call(env, owner, proxy, transfer_to_public_call);
 
     // transfer_to_public tokens
-    env.call_private(recipient, transfer_to_public_call);
+    env.call_private(
+        owner,
+        GenericProxy::at(proxy).forward_private_4(
+            transfer_to_public_call.target_contract,
+            transfer_to_public_call.selector,
+            transfer_to_public_call.args,
+        ),
+    );
 }
 
 #[test(should_fail_with = "Unknown auth witness for message hash")]
 unconstrained fn transfer_to_public_failure_on_behalf_of_other_invalid_designated_caller() {
-    let (env, token_contract_address, owner, recipient, mint_amount) =
-        utils::setup_and_mint_to_private(/* with_account_contracts */ true);
+    let (env, token_contract_address, owner, recipient, mint_amount, proxy) =
+        utils::setup_and_mint_to_private_with_proxy();
 
     let transfer_to_public_amount = mint_amount + (1 as u128);
-    let transfer_to_public_call = Token::at(token_contract_address).transfer_to_public(
-        owner,
-        recipient,
-        transfer_to_public_amount,
-        0,
-    );
+    let transfer_to_public_call =
+        Token::at(token_contract_address).transfer_to_public(owner, recipient, transfer_to_public_amount, 0);
     add_private_authwit_from_call(env, owner, owner, transfer_to_public_call);
 
     // transfer_to_public tokens
-    env.call_private(recipient, transfer_to_public_call);
+    env.call_private(
+        owner,
+        GenericProxy::at(proxy).forward_private_4(
+            transfer_to_public_call.target_contract,
+            transfer_to_public_call.selector,
+            transfer_to_public_call.args,
+        ),
+    );
 }
 
 #[test(should_fail_with = "Unknown auth witness for message hash")]
 unconstrained fn transfer_to_public_failure_on_behalf_of_other_no_approval() {
-    let (env, token_contract_address, owner, recipient, mint_amount) =
-        utils::setup_and_mint_to_private(/* with_account_contracts */ true);
+    let (env, token_contract_address, owner, recipient, mint_amount, proxy) =
+        utils::setup_and_mint_to_private_with_proxy();
 
     let transfer_to_public_amount = mint_amount + (1 as u128);
-    let transfer_to_public_call = Token::at(token_contract_address).transfer_to_public(
-        owner,
-        recipient,
-        transfer_to_public_amount,
-        0,
-    );
+    let transfer_to_public_call =
+        Token::at(token_contract_address).transfer_to_public(owner, recipient, transfer_to_public_amount, 0);
 
     // transfer_to_public tokens
-    env.call_private(recipient, transfer_to_public_call);
+    env.call_private(
+        owner,
+        GenericProxy::at(proxy).forward_private_4(
+            transfer_to_public_call.target_contract,
+            transfer_to_public_call.selector,
+            transfer_to_public_call.args,
+        ),
+    );
 }

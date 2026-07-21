@@ -12,6 +12,7 @@ import {
 import {
   type ABIParameter,
   type ABIParameterVisibility,
+  ARTIFACT_VERSION_BEFORE_INJECTION,
   type AbiType,
   type BasicValue,
   type ContractArtifact,
@@ -51,6 +52,10 @@ export function contractArtifactFromBuffer(buffer: Buffer): ContractArtifact {
  */
 export function loadContractArtifact(input: NoirCompiledContract): ContractArtifact {
   if (isContractArtifact(input)) {
+    // TODO(F-557): Remove this fallback once pre-version artifacts are no longer tested.
+    if (!(input as unknown as Record<string, unknown>).aztecVersion) {
+      return { ...input, aztecVersion: ARTIFACT_VERSION_BEFORE_INJECTION };
+    }
     return input;
   }
   return generateContractArtifact(input);
@@ -276,10 +281,9 @@ function getStorageLayout(input: NoirCompiledContract) {
 }
 
 /**
- * Given a Nargo output generates an Aztec-compatible contract artifact.
+ * Given a post-processed Nargo output defined as `contract` generates an Aztec-compatible contract artifact.
+ *
  * Does not include public bytecode, apart from the public_dispatch function.
- * @param compiled - Noir build output.
- * @returns Aztec contract build artifact.
  */
 function generateContractArtifact(contract: NoirCompiledContract): ContractArtifact {
   try {
@@ -288,6 +292,7 @@ function generateContractArtifact(contract: NoirCompiledContract): ContractArtif
     }
     return ContractArtifactSchema.parse({
       name: contract.name,
+      aztecVersion: contract.aztec_version,
       functions: contract.functions.filter(f => retainBytecode(f)).map(f => generateFunctionArtifact(f, contract)),
       nonDispatchPublicFunctions: contract.functions
         .filter(f => !retainBytecode(f))
@@ -302,15 +307,15 @@ function generateContractArtifact(contract: NoirCompiledContract): ContractArtif
 }
 
 /**
- * Given a Nargo output generates an Aztec-compatible contract artifact.
+ * Given a post-processed Nargo output defined as `contract` generates an Aztec-compatible contract artifact.
+ *
  * Retains all public bytecode.
- * @param compiled - Noir build output.
- * @returns Aztec contract build artifact.
  */
 function generateContractArtifactForPublic(contract: NoirCompiledContract): ContractArtifact {
   try {
     return ContractArtifactSchema.parse({
       name: contract.name,
+      aztecVersion: contract.aztec_version,
       functions: contract.functions.map(f => generateFunctionArtifact(f, contract)),
       nonDispatchPublicFunctions: contract.functions
         .filter(f => !retainBytecode(f))

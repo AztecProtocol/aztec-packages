@@ -1,6 +1,7 @@
 import { type Logger, createLogger } from '@aztec/foundation/log';
 import {
   type FileStore,
+  type HttpFileStoreOptions,
   type ReadOnlyFileStore,
   createFileStore,
   createReadOnlyFileStore,
@@ -44,16 +45,19 @@ export async function createReadOnlyFileStoreBlobClient(
   storeUrl: string,
   metadata: BlobFileStoreMetadata,
   logger?: Logger,
+  httpOptions?: HttpFileStoreOptions,
 ): Promise<FileStoreBlobClient>;
 export async function createReadOnlyFileStoreBlobClient(
   storeUrl: string | undefined,
   metadata: BlobFileStoreMetadata,
   logger?: Logger,
+  httpOptions?: HttpFileStoreOptions,
 ): Promise<FileStoreBlobClient | undefined>;
 export async function createReadOnlyFileStoreBlobClient(
   storeUrl: string | undefined,
   metadata: BlobFileStoreMetadata,
   logger?: Logger,
+  httpOptions?: HttpFileStoreOptions,
 ): Promise<FileStoreBlobClient | undefined> {
   if (!storeUrl) {
     return undefined;
@@ -64,7 +68,7 @@ export async function createReadOnlyFileStoreBlobClient(
 
   log.debug(`Creating read-only filestore blob client`, { storeUrl, basePath });
 
-  const store: ReadOnlyFileStore = await createReadOnlyFileStore(storeUrl, log);
+  const store: ReadOnlyFileStore = await createReadOnlyFileStore(storeUrl, log, httpOptions);
   return new FileStoreBlobClient(store, basePath, log);
 }
 
@@ -80,6 +84,7 @@ export async function createReadOnlyFileStoreBlobClients(
   storeUrls: string[] | undefined,
   metadata: BlobFileStoreMetadata,
   logger?: Logger,
+  httpOptions?: HttpFileStoreOptions,
 ): Promise<FileStoreBlobClient[]> {
   if (!storeUrls || storeUrls.length === 0) {
     return [];
@@ -90,7 +95,7 @@ export async function createReadOnlyFileStoreBlobClients(
 
   for (const storeUrl of storeUrls) {
     try {
-      const client = await createReadOnlyFileStoreBlobClient(storeUrl, metadata, log);
+      const client = await createReadOnlyFileStoreBlobClient(storeUrl, metadata, log, httpOptions);
       if (client) {
         clients.push(client);
       }

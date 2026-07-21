@@ -16,8 +16,8 @@ This guide shows you how to retrieve and filter notes from private storage using
 ## Required imports
 
 ```rust
-use dep::aztec::note::note_getter_options::{NoteGetterOptions, NoteStatus, SortOrder};
-use dep::aztec::utils::comparison::Comparator;
+use aztec::note::note_getter_options::{NoteGetterOptions, NoteStatus, SortOrder};
+use aztec::utils::comparison::Comparator;
 ```
 
 ## Set up basic note retrieval
@@ -33,8 +33,8 @@ This returns up to `MAX_NOTE_HASH_READ_REQUESTS_PER_CALL` notes without filterin
 ### Step 2: Retrieve notes from storage
 
 ```rust
-// Returns BoundedVec<HintedNote<MyNote>, ...>
-let hinted_notes = storage.my_notes.at(owner).get_notes(options);
+// Returns BoundedVec<ConfirmedNote<MyNote>, ...>
+let confirmed_notes = storage.my_notes.at(owner).get_notes(options);
 ```
 
 :::tip get_notes vs pop_notes
@@ -161,6 +161,6 @@ options = options.set_status(NoteStatus.ACTIVE_OR_NULLIFIED);
 
 ## Next steps
 
-- Learn about [custom note implementations](../how_to_implement_custom_notes.md)
+- Learn about [custom note implementations](../custom_notes.md)
 - Explore [note discovery mechanisms](../../../foundational-topics/advanced/storage/note_discovery.md)
 - Understand [partial notes](./partial_notes.md)

@@ -1,4 +1,5 @@
 #include "barretenberg/polynomials/eq_polynomial.hpp"
+#include "barretenberg/common/assert.hpp"
 #include "barretenberg/ecc/curves/bn254/fr.hpp"
 #include "gate_separator.hpp"
 #include <algorithm>
@@ -206,7 +207,7 @@ TEST_F(EqPolyTest, ProverTableMatchesVerifierOnBooleanPoints)
     for (uint64_t ell = 0; ell < (1ULL << d); ++ell) {
         const auto u = bool_vec_from_mask(d, ell);
         const FF got_ver = v.evaluate(u);
-        const FF got_prov = peq.at(ell);
+        const FF got_prov = peq.at(static_cast<size_t>(ell));
         EXPECT_EQ(got_prov, got_ver) << "ell=" << ell;
     }
 }
@@ -357,4 +358,30 @@ TEST_F(EqPolyTest, ProverEqSomeChallengesAreOnes)
             EXPECT_EQ(table_val, verifier_val) << "mask=" << mask;
         }
     }
+}
+
+// ProverEqPolynomial::construct asserts when challenges.size() < log_num_monomials.
+TEST_F(EqPolyTest, ConstructRejectsTooFewChallenges)
+{
+    GTEST_FLAG_SET(death_test_style, "threadsafe");
+    std::vector<FF> r = { FF(7), FF(9) }; // size 2, but we ask for 3 variables
+    ASSERT_THROW_OR_ABORT(ProverEqPolynomial<FF>::construct(r, /*log_num_monomials=*/3), ".*");
+}
+
+// ProverEqPolynomial::construct accepts challenges.size() > log_num_monomials (truncated eq-table).
+TEST_F(EqPolyTest, ConstructAcceptsExtraChallenges)
+{
+    std::vector<FF> r = { FF(7), FF(11), FF(13), FF(17), FF(19) }; // size 5
+    const size_t log_num_monomials = 3;
+    const auto coeffs = ProverEqPolynomial<FF>::construct(r, log_num_monomials);
+    EXPECT_EQ(coeffs.size(), 1UL << log_num_monomials);
+}
+
+// ProverEqPolynomial::construct returns the empty-product constant [1] for log_num_monomials=0.
+TEST_F(EqPolyTest, ConstructZeroVariablesReturnsOne)
+{
+    std::vector<FF> empty_challenges;
+    const auto coeffs = ProverEqPolynomial<FF>::construct(empty_challenges, /*log_num_monomials=*/0);
+    ASSERT_EQ(coeffs.size(), 1UL);
+    EXPECT_EQ(coeffs.get(0), FF(1));
 }

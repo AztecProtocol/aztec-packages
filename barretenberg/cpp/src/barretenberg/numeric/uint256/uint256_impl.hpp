@@ -1,5 +1,5 @@
 // === AUDIT STATUS ===
-// internal:    { status: Planned, auditors: [], commit: }
+// internal:    { status: Complete, auditors: [Luke], commit: }
 // external_1:  { status: not started, auditors: [], commit: }
 // external_2:  { status: not started, auditors: [], commit: }
 // =====================
@@ -8,6 +8,7 @@
 #include "../bitop/get_msb.hpp"
 #include "./uint256.hpp"
 #include "barretenberg/common/assert.hpp"
+#include "barretenberg/numeric/uint128/uint128.hpp"
 namespace bb::numeric {
 
 constexpr std::pair<uint64_t, uint64_t> uint256_t::mul_wide(const uint64_t a, const uint64_t b)
@@ -114,20 +115,29 @@ constexpr void uint256_t::wasm_madd(const uint64_t& left_limb,
  */
 constexpr std::array<uint64_t, WASM_NUM_LIMBS> uint256_t::wasm_convert(const uint64_t* data)
 {
-    return { data[0] & 0x1fffffff,
-             (data[0] >> 29) & 0x1fffffff,
-             ((data[0] >> 58) & 0x3f) | ((data[1] & 0x7fffff) << 6),
-             (data[1] >> 23) & 0x1fffffff,
-             ((data[1] >> 52) & 0xfff) | ((data[2] & 0x1ffff) << 12),
-             (data[2] >> 17) & 0x1fffffff,
-             ((data[2] >> 46) & 0x3ffff) | ((data[3] & 0x7ff) << 18),
-             (data[3] >> 11) & 0x1fffffff,
-             (data[3] >> 40) & 0x1fffffff };
+    // 0x1fffffff == 2^30 - 1
+    return {
+        data[0] & 0x1fffffff,         // bits [0, 29) from data[0]
+        (data[0] >> 29) & 0x1fffffff, // bits [29, 58) from data[0]
+        ((data[0] >> 58) & 0x3f) |
+            ((data[1] & 0x7fffff) << 6), // bits [58, 64) from data[0] + bits [0, 23) from data[1]
+        (data[1] >> 23) & 0x1fffffff,    // bits [23, 52) from data[1]
+        ((data[1] >> 52) & 0xfff) |
+            ((data[2] & 0x1ffff) << 12), // bits [52, 64) from data[1] + bits [0, 17) from data[2]
+        (data[2] >> 17) & 0x1fffffff,    // bits [17, 46) from data[2]
+        ((data[2] >> 46) & 0x3ffff) |
+            ((data[3] & 0x7ff) << 18), // bits [46, 64) from data[2] + bits [0, 11) from data[3]
+        (data[3] >> 11) & 0x1fffffff,  // bits [11, 40) from data[3]
+        (data[3] >> 40) & 0x1fffffff   // bits [40, 64) from data[3]
+    };
 }
 #endif
 constexpr std::pair<uint256_t, uint256_t> uint256_t::divmod(const uint256_t& b) const
 {
-    if (*this == 0 || b == 0) {
+    if (b == 0) {
+        throw_or_abort("uint256_t::divmod: divisor must be nonzero");
+    }
+    if (*this == 0) {
         return { 0, 0 };
     }
     if (b == 1) {
@@ -171,6 +181,41 @@ constexpr std::pair<uint256_t, uint256_t> uint256_t::divmod(const uint256_t& b) 
     }
 
     return { quotient, remainder };
+}
+
+/**
+ * @brief Optimized divmod for a single-limb divisor using schoolbook long division in base 2^64.
+ * For smaller divisors this is significantly faster than the general divmod.
+ * Each iteration divides a 128-bit intermediate (remainder << 64 | limb) by b, which is safe
+ * because the invariant remainder < b guarantees the quotient limb fits in 64 bits.
+ * Falls back to the uint256_t overload for wasm.
+ */
+constexpr std::pair<uint256_t, uint64_t> uint256_t::divmod(uint64_t b) const
+{
+    if (b == 0) {
+        throw_or_abort("uint256_t::divmod: divisor must be nonzero");
+    }
+    if (*this == 0) {
+        return { 0, 0 };
+    }
+    if (b == 1) {
+        return { *this, 0 };
+    }
+
+#if !defined(__wasm__)
+    uint256_t quotient;
+    uint64_t remainder = 0;
+    for (int i = 3; i >= 0; --i) {
+        uint128_t cur = (static_cast<uint128_t>(remainder) << 64) | data[i];
+        quotient.data[i] = static_cast<uint64_t>(cur / b);
+        remainder = static_cast<uint64_t>(cur % b);
+    }
+    return { quotient, remainder };
+#else
+    // Fallback to the general divmod since wasm doesn't have native support for 128-bit instructions.
+    auto [q, r] = divmod(uint256_t(b));
+    return { q, static_cast<uint64_t>(r.data[0]) };
+#endif
 }
 
 /**
@@ -290,7 +335,9 @@ constexpr std::pair<uint256_t, uint256_t> uint256_t::mul_extended(const uint256_
  */
 constexpr uint256_t uint256_t::slice(const uint64_t start, const uint64_t end) const
 {
-    assert(start < end);
+    // Plain assert is used here because BB_ASSERT_DEBUG defines a std::ostringstream, which is
+    // a non-literal type and therefore disallowed in the body of a constexpr function before C++23.
+    assert(start <= end);
     const uint64_t range = end - start;
     const uint256_t mask = (range == 256) ? -uint256_t(1) : (uint256_t(1) << range) - 1;
     return ((*this) >> start) & mask;

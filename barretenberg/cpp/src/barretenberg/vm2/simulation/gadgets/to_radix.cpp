@@ -1,28 +1,39 @@
 #include "barretenberg/vm2/simulation/gadgets/to_radix.hpp"
 
 #include <algorithm>
-#include <cstdint>
-#include <stdexcept>
-#include <vector>
 
+#include "barretenberg/aztec/aztec_constants.hpp"
+#include "barretenberg/common/assert.hpp"
 #include "barretenberg/numeric/uint256/uint256.hpp"
 #include "barretenberg/vm2/common/to_radix.hpp"
-#include "barretenberg/vm2/simulation/events/to_radix_event.hpp"
 
 namespace bb::avm2::simulation {
 
+/**
+ * @brief Performs a little endian radix decomposition of a field element into limbs. This emits a ToRadixEvent.
+ *
+ * @note Asserts that radix is in range [2, 256].
+ *
+ * @param value The field element to decompose.
+ * @param num_limbs The number of limbs to decompose into.
+ * @param radix The radix to decompose into. Must be in the range [2, 256].
+ * @return A pair containing the vector of limbs and a boolean indicating if the decomposition was truncated.
+ */
 std::pair<std::vector<uint8_t>, /* truncated */ bool> ToRadix::to_le_radix(const FF& value,
                                                                            uint32_t num_limbs,
                                                                            uint32_t radix)
 {
+    BB_ASSERT_LTE(radix, static_cast<decltype(radix)>(256), "Radix is greater than 256");
+    BB_ASSERT_GTE(radix, static_cast<decltype(radix)>(2), "Radix is less than 2");
+
     std::vector<uint8_t> limbs;
     uint32_t num_p_limbs = static_cast<uint32_t>(get_p_limbs_per_radix_size(radix));
     limbs.reserve(std::max(num_limbs, num_p_limbs));
 
     uint256_t value_integer = static_cast<uint256_t>(value);
     while (value_integer != 0) {
-        auto [quotient, remainder] = value_integer.divmod(radix);
-        limbs.push_back(static_cast<uint8_t>(remainder));
+        auto [quotient, remainder] = value_integer.divmod(static_cast<uint64_t>(radix));
+        limbs.push_back(static_cast<uint8_t>(remainder)); // Cast is fine by the precondition that radix <= 256.
         value_integer = quotient;
     }
 
@@ -45,18 +56,49 @@ std::pair<std::vector<uint8_t>, /* truncated */ bool> ToRadix::to_le_radix(const
     return { limbs, truncated };
 }
 
+/**
+ * @brief Performs a little endian radix decomposition of a field element into bits. This emits a ToRadixEvent.
+ *
+ * @param value The field element to decompose.
+ * @param num_limbs The number of bits to decompose into.
+ * @return A pair containing the vector of bits and a boolean indicating if the decomposition was truncated. The bits
+ * are converted in a standard way, i.e., from non-zero values to `true`, zero to `false`.
+ */
 std::pair<std::vector<bool>, /* truncated */ bool> ToRadix::to_le_bits(const FF& value, uint32_t num_limbs)
 {
     const auto [limbs, truncated] = to_le_radix(value, num_limbs, 2);
-    std::vector<bool> bits(limbs.size());
+    std::vector<bool> bits;
+    bits.reserve(limbs.size());
 
-    std::transform(limbs.begin(), limbs.end(), bits.begin(), [](uint8_t val) {
-        return val != 0; // Convert nonzero values to `true`, zero to `false`
-    });
+    for (uint8_t val : limbs) {
+        bits.push_back(val != 0); // Convert nonzero values to `true`, zero to `false`
+    };
 
     return { bits, truncated };
 }
 
+/**
+ * @brief Performs a big endian radix decomposition of a field element into limbs. This directly emits a
+ * ToRadixMemoryEvent and indirectly emits a ToRadixEvent if no error different than truncation is encountered. The
+ * limbs are written to the memory in big endian order at the supplied destination address.
+ *
+ * @throws ToRadixException on input validation errors (checked first, all grouped):
+ * - The destination memory slice is out-of-range (dst_addr + num_limbs > AVM_MEMORY_SIZE).
+ * - Radix is less than 2.
+ * - Radix is greater than 256.
+ * - Radix is not 2 while is_output_bits is true.
+ * - Num limbs is zero while value is not zero.
+ * @throws ToRadixException on truncation error (checked after input validation and decomposition):
+ * - The value cannot be fully decomposed into the given number of limbs. Note that the supplied num_limbs can be
+ *   greater than the number of limbs that the value decomposes into.
+ *
+ * @param memory The memory to write the limbs to.
+ * @param value The field element to decompose.
+ * @param radix The radix to decompose into. Must be in the range [2, 256].
+ * @param num_limbs The number of limbs to decompose into.
+ * @param is_output_bits A boolean indicating if the output is U1 or U8.
+ * @param dst_addr The address to write the limbs to.
+ */
 void ToRadix::to_be_radix(MemoryInterface& memory,
                           const FF& value,
                           uint32_t radix,
@@ -67,9 +109,6 @@ void ToRadix::to_be_radix(MemoryInterface& memory,
 
     uint32_t execution_clk = execution_id_manager.get_execution_id();
     uint16_t space_id = memory.get_space_id();
-
-    // todo(ilyas): there must be a nicer way to do this in the simulator. See if it's fine to provide
-    // a hierarchy of errors so that we can throw on the first error we encounter
 
     // Error handling - check that the maximum write address does not exceed the highest memory address
     // This subtrace writes in the range { dst_addr, dst_addr + 1, ..., dst_addr + num_limbs - 1 }
@@ -85,7 +124,7 @@ void ToRadix::to_be_radix(MemoryInterface& memory,
     // Error handling - check that if is_output_bits is true, the radix has to be 2
     bool invalid_bitwise_radix = is_output_bits && (radix != 2);
     // Error handling - if num_limbs is zero, value needs to be zero
-    bool invalid_num_limbs = (num_limbs == 0) && (value != FF(0));
+    bool invalid_num_limbs = (num_limbs == 0) && (!value.is_zero());
 
     ToRadixMemoryEvent event = {
         .execution_clk = execution_clk,

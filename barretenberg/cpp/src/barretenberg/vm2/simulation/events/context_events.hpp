@@ -46,7 +46,7 @@ struct ContextEvent {
     AppendOnlyTreeSnapshot retrieved_bytecodes_tree_snapshot;
 
     // Non-tree-tracked side effects
-    uint32_t numUnencryptedLogFields = 0;
+    uint32_t numPublicLogFields = 0;
     uint32_t numL2ToL1Messages = 0;
 
     // Phase
@@ -83,7 +83,7 @@ struct ContextStackEvent {
     AppendOnlyTreeSnapshot written_public_data_slots_tree_snapshot;
 
     // Non-tree-tracked side effects
-    uint32_t numUnencryptedLogFields = 0;
+    uint32_t numPublicLogFields = 0;
     uint32_t numL2ToL1Messages = 0;
 };
 

@@ -1,5 +1,5 @@
 // === AUDIT STATUS ===
-// internal:    { status: Planned, auditors: [], commit: }
+// internal:    { status: Completed, auditors: [Sergei], commit: }
 // external_1:  { status: not started, auditors: [], commit: }
 // external_2:  { status: not started, auditors: [], commit: }
 // =====================
@@ -7,61 +7,20 @@
 #include "ultra_prover.hpp"
 #include "barretenberg/commitment_schemes/gemini/gemini.hpp"
 #include "barretenberg/commitment_schemes/shplonk/shplemini.hpp"
+#include "barretenberg/common/memory_profile.hpp"
 #include "barretenberg/flavor/mega_avm_flavor.hpp"
+#include "barretenberg/flavor/mega_flavor.hpp"
 #include "barretenberg/sumcheck/sumcheck.hpp"
 #include "barretenberg/ultra_honk/oink_prover.hpp"
 namespace bb {
 
-template <IsUltraOrMegaHonk Flavor>
-UltraProver_<Flavor>::UltraProver_(const std::shared_ptr<ProverInstance>& prover_instance,
-                                   const std::shared_ptr<HonkVK>& honk_vk,
-                                   const CommitmentKey& commitment_key)
-    : prover_instance(std::move(prover_instance))
-    , honk_vk(honk_vk)
-    , transcript(std::make_shared<Transcript>())
-    , commitment_key(commitment_key)
-{}
-
-/**
- * @brief Create UltraProver_ from a decider proving key.
- *
- * @param prover_instance key whose proof we want to generate.
- *
- * @tparam a type of UltraFlavor
- * */
-template <IsUltraOrMegaHonk Flavor>
-UltraProver_<Flavor>::UltraProver_(const std::shared_ptr<ProverInstance>& prover_instance,
+template <typename Flavor>
+UltraProver_<Flavor>::UltraProver_(std::shared_ptr<ProverInstance> prover_instance,
                                    const std::shared_ptr<HonkVK>& honk_vk,
                                    const std::shared_ptr<Transcript>& transcript)
     : prover_instance(std::move(prover_instance))
-    , honk_vk(honk_vk)
     , transcript(transcript)
-    , commitment_key(prover_instance->commitment_key)
-{}
-
-/**
- * @brief Create UltraProver_ from a circuit.
- *
- * @param circuit Circuit with witnesses whose validity we'd like to prove.
- *
- * @tparam a type of UltraFlavor
- * */
-template <IsUltraOrMegaHonk Flavor>
-UltraProver_<Flavor>::UltraProver_(Builder& circuit,
-                                   const std::shared_ptr<HonkVK>& honk_vk,
-                                   const std::shared_ptr<Transcript>& transcript)
-    : prover_instance(std::make_shared<ProverInstance>(circuit))
     , honk_vk(honk_vk)
-    , transcript(transcript)
-    , commitment_key(prover_instance->commitment_key)
-{}
-
-template <IsUltraOrMegaHonk Flavor>
-UltraProver_<Flavor>::UltraProver_(Builder&& circuit, const std::shared_ptr<HonkVK>& honk_vk)
-    : prover_instance(std::make_shared<ProverInstance>(circuit))
-    , honk_vk(honk_vk)
-    , transcript(std::make_shared<Transcript>())
-    , commitment_key(prover_instance->commitment_key)
 {}
 
 /**
@@ -79,7 +38,7 @@ UltraProver_<Flavor>::UltraProver_(Builder&& circuit, const std::shared_ptr<Honk
  *
  * @note IPA_PROOF_LENGTH is defined in ipa.hpp as 4*CONST_ECCVM_LOG_N + 4 = 64 elements
  */
-template <IsUltraOrMegaHonk Flavor> typename UltraProver_<Flavor>::Proof UltraProver_<Flavor>::export_proof()
+template <typename Flavor> typename UltraProver_<Flavor>::Proof UltraProver_<Flavor>::export_proof()
 {
     auto proof = transcript->export_proof();
 
@@ -92,42 +51,58 @@ template <IsUltraOrMegaHonk Flavor> typename UltraProver_<Flavor>::Proof UltraPr
     return proof;
 }
 
-template <IsUltraOrMegaHonk Flavor> void UltraProver_<Flavor>::generate_gate_challenges()
+template <typename Flavor> void UltraProver_<Flavor>::generate_gate_challenges()
 {
-    // Determine the number of rounds in the sumcheck based on whether or not padding is employed
-    const size_t virtual_log_n =
+    virtual_log_n =
         Flavor::USE_PADDING ? Flavor::VIRTUAL_LOG_N : static_cast<size_t>(prover_instance->log_dyadic_size());
 
     prover_instance->gate_challenges =
         transcript->template get_dyadic_powers_of_challenge<FF>("Sumcheck:gate_challenge", virtual_log_n);
 }
 
-template <IsUltraOrMegaHonk Flavor> typename UltraProver_<Flavor>::Proof UltraProver_<Flavor>::construct_proof()
+template <typename Flavor> typename UltraProver_<Flavor>::Proof UltraProver_<Flavor>::construct_proof()
 {
+    BB_BENCH_NAME("UltraProver::construct_proof");
+    size_t key_size = prover_instance->polynomials.max_end_index();
+    if constexpr (Flavor::HasZK) {
+        // SmallSubgroupIPA commits polynomials up to SUBGROUP_SIZE + 3.
+        constexpr size_t log_subgroup_size = static_cast<size_t>(numeric::get_msb(Curve::SUBGROUP_SIZE));
+        key_size = std::max(key_size, size_t{ 1 } << (log_subgroup_size + 1));
+    }
+    commitment_key = CommitmentKey(key_size);
+
     OinkProver<Flavor> oink_prover(prover_instance, honk_vk, transcript);
     oink_prover.prove();
     vinfo("created oink proof");
+    if (detail::use_memory_profile) {
+        detail::GLOBAL_MEMORY_PROFILE.add_checkpoint("after_oink");
+    }
 
     generate_gate_challenges();
 
     // Run sumcheck
     execute_sumcheck_iop();
     vinfo("finished relation check rounds");
+    if (detail::use_memory_profile) {
+        detail::GLOBAL_MEMORY_PROFILE.add_checkpoint("after_sumcheck");
+    }
     // Execute Shplemini PCS
     execute_pcs();
     vinfo("finished PCS rounds");
+    if (detail::use_memory_profile) {
+        detail::GLOBAL_MEMORY_PROFILE.add_checkpoint("after_pcs");
+    }
 
     return export_proof();
 }
 
 /**
- * @brief Run Sumcheck to establish that ∑_i pow(\vec{β*})f_i(ω) = 0. This results in u = (u_1,...,u_d) sumcheck round
- * challenges and all evaluations at u being calculated.
- *
+ * @brief Run Sumcheck to establish that ∑_i pow(\vec{β*})f_i(ω) = 0, producing sumcheck round challenges
+ * u = (u_1,...,u_d) and claimed evaluations at u.
  */
-template <IsUltraOrMegaHonk Flavor> void UltraProver_<Flavor>::execute_sumcheck_iop()
+template <typename Flavor> void UltraProver_<Flavor>::execute_sumcheck_iop()
 {
-    const size_t virtual_log_n = Flavor::USE_PADDING ? Flavor::VIRTUAL_LOG_N : prover_instance->log_dyadic_size();
+    BB_BENCH_NAME("sumcheck.prove");
 
     using Sumcheck = SumcheckProver<Flavor>;
     size_t polynomial_size = prover_instance->dyadic_size();
@@ -138,38 +113,30 @@ template <IsUltraOrMegaHonk Flavor> void UltraProver_<Flavor>::execute_sumcheck_
                       prover_instance->gate_challenges,
                       prover_instance->relation_parameters,
                       virtual_log_n);
-    {
 
-        BB_BENCH_NAME("sumcheck.prove");
-
-        if constexpr (Flavor::HasZK) {
-            const size_t log_subgroup_size = static_cast<size_t>(numeric::get_msb(Curve::SUBGROUP_SIZE));
-            CommitmentKey commitment_key(1 << (log_subgroup_size + 1));
-            zk_sumcheck_data = ZKData(numeric::get_msb(polynomial_size), transcript, commitment_key);
-            sumcheck_output = sumcheck.prove(zk_sumcheck_data);
-        } else {
-            sumcheck_output = sumcheck.prove();
-        }
+    if constexpr (Flavor::HasZK) {
+        // Generate libra univariates for ALL rounds (real + virtual) so that the ZK and non-ZK
+        // virtual round paths are unified. The libra contributes to every round uniformly.
+        zk_sumcheck_data = ZKData(virtual_log_n, transcript, commitment_key);
+        sumcheck_output = sumcheck.prove(zk_sumcheck_data);
+    } else {
+        sumcheck_output = sumcheck.prove();
     }
 }
 
 /**
- * @brief Produce a univariate opening claim for the sumcheck multivariate evalutions and a batched univariate claim
- * for the transcript polynomials (for the Translator consistency check). Reduce the two opening claims to a single one
- * via Shplonk and produce an opening proof with the univariate PCS of choice (IPA when operating on Grumpkin).
- *
+ * @brief Reduce the sumcheck multivariate evaluations to a single univariate opening claim via Shplemini,
+ * then produce an opening proof with the PCS (KZG or IPA).
  */
-template <IsUltraOrMegaHonk Flavor> void UltraProver_<Flavor>::execute_pcs()
+template <typename Flavor> void UltraProver_<Flavor>::execute_pcs()
 {
+    BB_BENCH_NAME("UltraProver::execute_pcs");
     using OpeningClaim = ProverOpeningClaim<Curve>;
     using PolynomialBatcher = GeminiProver_<Curve>::PolynomialBatcher;
 
-    auto& ck = prover_instance->commitment_key;
-    if (!ck.initialized()) {
-        ck = CommitmentKey(prover_instance->dyadic_size());
-    }
+    auto& ck = commitment_key;
 
-    PolynomialBatcher polynomial_batcher(prover_instance->dyadic_size());
+    PolynomialBatcher polynomial_batcher(prover_instance->dyadic_size(), prover_instance->polynomials.max_end_index());
     polynomial_batcher.set_unshifted(prover_instance->polynomials.get_unshifted());
     polynomial_batcher.set_to_be_shifted_by_one(prover_instance->polynomials.get_to_be_shifted());
 

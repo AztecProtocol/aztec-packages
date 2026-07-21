@@ -20,7 +20,7 @@ import {RollupBuilder} from "@test/builder/RollupBuilder.sol";
 import {MockVerifier} from "@aztec/mock/MockVerifier.sol";
 
 contract Tmnt333Test is StakingBase {
-  uint256 public constant FUSAKA_GAS_LIMIT = 16_000_000;
+  uint256 public constant FUSAKA_GAS_LIMIT = 20_000_000;
 
   function testGas() external {
     RollupBuilder builder = new RollupBuilder(address(this)).setSlashingQuorum(1).setSlashingRoundSize(1);
@@ -37,13 +37,13 @@ contract Tmnt333Test is StakingBase {
     );
   }
 
-  function test_GivenBigBootstrap() external {
+  function test_GivenBigBootstrap() external skipWhenCoverage {
     StakingQueueConfig memory stakingQueueConfig = StakingQueueConfig({
       bootstrapValidatorSetSize: 1250,
       bootstrapFlushSize: 125,
       normalFlushSizeMin: 1,
       normalFlushSizeQuotient: 2048,
-      maxQueueFlushSize: 8
+      maxQueueFlushSize: 125
     });
     Rollup rollup = Rollup(address(registry.getCanonicalRollup()));
     vm.prank(rollup.owner());

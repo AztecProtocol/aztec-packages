@@ -2,17 +2,17 @@ import type { EpochCache } from '@aztec/epoch-cache';
 import { timesParallel } from '@aztec/foundation/collection';
 import { SecretValue } from '@aztec/foundation/config';
 import { createLogger } from '@aztec/foundation/log';
-import type { DataStoreConfig } from '@aztec/kv-store/config';
 import { openTmpStore } from '@aztec/kv-store/lmdb-v2';
 import type { L2BlockSource } from '@aztec/stdlib/block';
 import { type ChainConfig, emptyChainConfig } from '@aztec/stdlib/config';
 import type { ContractDataSource } from '@aztec/stdlib/contract';
+import { GasFees } from '@aztec/stdlib/gas';
 import type {
   ClientProtocolCircuitVerifier,
   IVCProofVerificationResult,
   WorldStateSynchronizer,
 } from '@aztec/stdlib/interfaces/server';
-import type { P2PClientType } from '@aztec/stdlib/p2p';
+import type { DataStoreConfig } from '@aztec/stdlib/kv-store';
 import type { Tx } from '@aztec/stdlib/tx';
 import { compressComponentVersions } from '@aztec/stdlib/versioning';
 import { type TelemetryClient, getTelemetryClient } from '@aztec/telemetry-client';
@@ -31,9 +31,10 @@ import getPort from 'get-port';
 import { type Libp2p, type Libp2pOptions, createLibp2p } from 'libp2p';
 
 import { BootstrapNode } from '../bootstrap/bootstrap.js';
-import type { BootnodeConfig, P2PConfig } from '../config.js';
+import { type BootnodeConfig, DEFAULT_PUBLIC_IP_SERVICES, type P2PConfig } from '../config.js';
 import type { MemPools } from '../mem_pools/interface.js';
 import { DiscV5Service } from '../services/discv5/discV5_service.js';
+import { APP_SPECIFIC_WEIGHT } from '../services/gossipsub/scoring.js';
 import { LibP2PService } from '../services/libp2p/libp2p_service.js';
 import { PeerManager } from '../services/peer-manager/peer_manager.js';
 import { PeerScoring } from '../services/peer-manager/peer_scoring.js';
@@ -42,8 +43,6 @@ import {
   ReqRespSubProtocol,
   type ReqRespSubProtocolHandlers,
   type ReqRespSubProtocolRateLimits,
-  type ReqRespSubProtocolValidators,
-  noopValidator,
 } from '../services/reqresp/interface.js';
 import { pingHandler } from '../services/reqresp/protocols/index.js';
 import { ReqResp } from '../services/reqresp/reqresp.js';
@@ -76,6 +75,10 @@ export async function createLibp2pNode(
       identify: identify({
         protocolPrefix: 'aztec',
       }),
+      components: (components: { connectionManager: any; addressManager: any }) => ({
+        connectionManager: components.connectionManager,
+        addressManager: components.addressManager,
+      }),
     },
   };
 
@@ -106,8 +109,7 @@ export async function createLibp2pNode(
  *
  *
  */
-export async function createTestLibP2PService<T extends P2PClientType>(
-  clientType: T,
+export async function createTestLibP2PService(
   boostrapAddrs: string[] = [],
   archiver: L2BlockSource & ContractDataSource,
   worldStateSynchronizer: WorldStateSynchronizer,
@@ -154,12 +156,13 @@ export async function createTestLibP2PService<T extends P2PClientType>(
     epochCache,
   );
 
-  p2pNode.services.pubsub.score.params.appSpecificWeight = 10;
+  reqresp.setShouldRejectPeer(peerId => peerManager.shouldDisableP2PGossip(peerId));
+
+  p2pNode.services.pubsub.score.params.appSpecificWeight = APP_SPECIFIC_WEIGHT;
   p2pNode.services.pubsub.score.params.appSpecificScore = (peerId: string) =>
     peerManager.shouldDisableP2PGossip(peerId) ? -Infinity : peerManager.getPeerScore(peerId);
 
-  return new LibP2PService<T>(
-    clientType,
+  return new LibP2PService(
     config,
     p2pNode as PubSubLibp2p,
     discoveryService,
@@ -170,6 +173,7 @@ export async function createTestLibP2PService<T extends P2PClientType>(
     epochCache,
     proofVerifier,
     worldStateSynchronizer,
+    { getCurrentMinFees: () => Promise.resolve(GasFees.empty()) },
     telemetry,
   );
 }
@@ -189,21 +193,8 @@ export const MOCK_SUB_PROTOCOL_HANDLERS: ReqRespSubProtocolHandlers = {
   [ReqRespSubProtocol.STATUS]: (_msg: any) => Promise.resolve(Buffer.from('status')),
   [ReqRespSubProtocol.TX]: (_msg: any) => Promise.resolve(Buffer.from('tx')),
   [ReqRespSubProtocol.GOODBYE]: (_msg: any) => Promise.resolve(Buffer.from('goodbye')),
-  [ReqRespSubProtocol.BLOCK]: (_msg: any) => Promise.resolve(Buffer.from('block')),
   [ReqRespSubProtocol.AUTH]: (_msg: any) => Promise.resolve(Buffer.from('auth')),
   [ReqRespSubProtocol.BLOCK_TXS]: (_msg: any) => Promise.resolve(Buffer.from('block_txs')),
-};
-
-// By default, all requests are valid
-// If you want to test an invalid response, you can override the validator
-export const MOCK_SUB_PROTOCOL_VALIDATORS: ReqRespSubProtocolValidators = {
-  [ReqRespSubProtocol.PING]: noopValidator,
-  [ReqRespSubProtocol.STATUS]: noopValidator,
-  [ReqRespSubProtocol.TX]: noopValidator,
-  [ReqRespSubProtocol.GOODBYE]: noopValidator,
-  [ReqRespSubProtocol.BLOCK]: noopValidator,
-  [ReqRespSubProtocol.AUTH]: noopValidator,
-  [ReqRespSubProtocol.BLOCK_TXS]: noopValidator,
 };
 
 /**
@@ -218,13 +209,9 @@ export const createNodes = (
   return timesParallel(numberOfNodes, () => createReqResp(peerScoring, rateLimits));
 };
 
-export const startNodes = async (
-  nodes: ReqRespNode[],
-  subProtocolHandlers = MOCK_SUB_PROTOCOL_HANDLERS,
-  subProtocolValidators = MOCK_SUB_PROTOCOL_VALIDATORS,
-) => {
+export const startNodes = async (nodes: ReqRespNode[], subProtocolHandlers = MOCK_SUB_PROTOCOL_HANDLERS) => {
   for (const node of nodes) {
-    await node.req.start(subProtocolHandlers, subProtocolValidators);
+    await node.req.start(subProtocolHandlers);
   }
 };
 
@@ -292,6 +279,7 @@ export function createBootstrapNodeConfig(privateKey: string, port: number, chai
     bootstrapNodes: [],
     listenAddress: '127.0.0.1',
     queryForIp: false,
+    publicIpServices: DEFAULT_PUBLIC_IP_SERVICES,
   };
 }
 

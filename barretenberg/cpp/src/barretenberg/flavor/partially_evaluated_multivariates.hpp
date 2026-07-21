@@ -24,6 +24,11 @@ namespace bb {
 template <typename AllEntitiesBase, typename ProverPolynomialsType, typename Polynomial>
 class PartiallyEvaluatedMultivariatesBase : public AllEntitiesBase {
   public:
+    // One-past the last relation-active row at this round; the sumcheck prover skips rows beyond it. Halved each round
+    // to track the trace folding (here and in SumcheckProver::partially_evaluate). Populated only by flavors with a
+    // static row-skip manifest; 0 means scan every row.
+    size_t row_skip_active_prefix_end = 0;
+
     /**
      * @brief Construct from full polynomials, allocating based on their actual sizes.
      * @details After the initial sumcheck round, the new size is CEIL(size/2).
@@ -33,7 +38,12 @@ class PartiallyEvaluatedMultivariatesBase : public AllEntitiesBase {
         for (auto [poly, full_poly] : zip_view(this->get_all(), full_polynomials.get_all())) {
             // After the initial sumcheck round, the new size is CEIL(size/2).
             size_t desired_size = (full_poly.end_index() / 2) + (full_poly.end_index() % 2);
-            poly = Polynomial(desired_size, circuit_size / 2);
+            // partially_evaluate writes to [0, desired_size) before any read; backing memory can be left uninitialized.
+            poly = Polynomial(desired_size, circuit_size / 2, 0, Polynomial::DontZeroMemory::FLAG);
+        }
+        if constexpr (requires { full_polynomials.row_skip_active_prefix_end; }) {
+            row_skip_active_prefix_end =
+                (full_polynomials.row_skip_active_prefix_end / 2) + (full_polynomials.row_skip_active_prefix_end % 2);
         }
     }
 };

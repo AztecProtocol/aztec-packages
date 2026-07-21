@@ -56,15 +56,19 @@ void DebugLogger::debug_log(MemoryInterface& memory,
     const auto fields_size_value = unconstrained_read(fields_size_offset);
     const uint32_t fields_size = fields_size_value.as<uint32_t>();
 
-    const uint32_t memory_reads =
+    // Promote to uint64_t to avoid overflow in the addition below.
+    const uint64_t memory_reads =
         1 /* level */ + 1 /* fields_size */ + message_size /* message */ + fields_size; /* fields */
 
-    if (memory_reads + total_memory_reads > max_memory_reads) {
+    if (memory_reads + static_cast<uint64_t>(total_memory_reads) > static_cast<uint64_t>(max_memory_reads)) {
         // Unrecoverable error
         throw std::runtime_error(
             "Max debug log memory reads exceeded: " + std::to_string(memory_reads + total_memory_reads) + " > " +
             std::to_string(max_memory_reads));
     }
+
+    // Accounting for the memory reads
+    total_memory_reads += memory_reads;
 
     // Read message and fields from memory
     std::string message_as_str;

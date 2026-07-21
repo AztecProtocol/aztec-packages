@@ -165,6 +165,8 @@ contract EscapeHatchLeaveCandidateSetTest is EscapeHatchBase {
     assertEq(uint8(info.status), uint8(Status.NONE), "Status should be NONE");
     assertEq(info.amount, 0, "Amount should be 0");
     assertEq(info.exitableAt, 0, "exitableAt should be 0");
+    assertEq(info.lastCheckpointNumber, 0, "lastCheckpointNumber should be 0");
+    assertEq(info.lastSubmittedArchive, bytes32(0), "lastSubmittedArchive should be 0");
 
     // Verify token transfer
     assertEq(bondToken.balanceOf(CANDIDATE1), balanceBefore + expectedRefund, "Refund amount mismatch");
@@ -233,6 +235,8 @@ contract EscapeHatchLeaveCandidateSetTest is EscapeHatchBase {
     assertEq(uint8(info.status), uint8(Status.NONE), "Status should be NONE");
     assertEq(info.amount, 0, "Amount should be 0");
     assertEq(info.exitableAt, 0, "exitableAt should be 0");
+    assertEq(info.lastCheckpointNumber, 0, "lastCheckpointNumber should be 0");
+    assertEq(info.lastSubmittedArchive, bytes32(0), "lastSubmittedArchive should be 0");
 
     // Verify token transfer
     assertEq(bondToken.balanceOf(CANDIDATE1), balanceBefore + expectedRefund, "Refund after punishment mismatch");

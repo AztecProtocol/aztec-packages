@@ -1,5 +1,5 @@
 pub fn field_from_bytes<let N: u32>(bytes: [u8; N], big_endian: bool) -> Field {
-    assert(bytes.len() < 32, "field_from_bytes: N must be less than 32");
+    std::static_assert(N < 32, "field_from_bytes: N must be less than 32");
     let mut as_field = 0;
     let mut offset = 1;
     for i in 0..N {
@@ -34,15 +34,6 @@ pub fn field_from_bytes_32_trunc(bytes32: [u8; 32]) -> Field {
     low + high * v
 }
 
-// TODO to radix returns u8, so we cannot use bigger radixes. It'd be ideal to use a radix of the maximum range-constrained integer noir supports
-pub fn full_field_less_than(lhs: Field, rhs: Field) -> bool {
-    lhs.lt(rhs)
-}
-
-pub fn full_field_greater_than(lhs: Field, rhs: Field) -> bool {
-    rhs.lt(lhs)
-}
-
 pub fn min(f1: Field, f2: Field) -> Field {
     if f1.lt(f2) {
         f1
@@ -64,7 +55,7 @@ global C5: Field = 1910321906792171394429139282769207003614565195732928631530564
 // Only if your exponent is larger than 32 bits, resort to using this function.
 pub fn pow(x: Field, y: Field) -> Field {
     let mut r = 1 as Field;
-    let b: [u1; 254] = y.to_le_bits();
+    let b: [bool; 254] = y.to_le_bits();
 
     for i in 0..254 {
         r *= r;
@@ -300,17 +291,6 @@ unconstrained fn min_test() {
 }
 
 #[test]
-unconstrained fn full_field_comparison_test() {
-    assert(full_field_less_than(5, 10));
-    assert(!full_field_less_than(10, 5));
-    assert(!full_field_less_than(5, 5));
-
-    assert(full_field_greater_than(10, 5));
-    assert(!full_field_greater_than(5, 10));
-    assert(!full_field_greater_than(5, 5));
-}
-
-#[test]
 unconstrained fn sqrt_has_two_roots_test() {
     // Every square has two roots: r and -r (i.e., p - r)
     // sqrt(16) can return 4 or -4
@@ -335,8 +315,23 @@ unconstrained fn sqrt_has_two_roots_test() {
 #[test]
 unconstrained fn sqrt_negative_one_test() {
     let x = 0 - 1;
-    let result = sqrt(x);
-    assert(result.unwrap() == 0x30644e72e131a029048b6e193fd841045cea24f6fd736bec231204708f703636);
+    let result = sqrt(x).unwrap();
+    // -1 has two square roots, `r` and `-r` (= p - r), and `sqrt()` may legitimately return either one.
+    // Accept both rather than pinning the test to one particular root.
+    let known_root = 0x30644e72e131a029048b6e193fd841045cea24f6fd736bec231204708f703636;
+    assert((result == known_root) | (result == 0 - known_root));
+}
+
+#[test]
+unconstrained fn sqrt_negative_one_squares_back_test() {
+    let x = 0 - 1;
+    let root = sqrt(x).unwrap();
+    // Whichever root `sqrt` returns is a genuine square root of -1...
+    assert_eq(root * root, x);
+    // ...and so is its negation (the other root), which must be distinct.
+    let other_root = 0 - root;
+    assert_eq(other_root * other_root, x);
+    assert(root != other_root);
 }
 
 #[test]

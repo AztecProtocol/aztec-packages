@@ -1,2 +1,5 @@
 /target
+contracts/target/
 *.sw?
+# Symlink to yarn-project/node_modules created by setup-local.sh.
+/node_modules

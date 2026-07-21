@@ -28,7 +28,6 @@ library Errors {
   error Inbox__ContentTooLarge(bytes32 content); // 0x47452014
   error Inbox__SecretHashTooLarge(bytes32 secretHash); // 0xecde7e2c
   error Inbox__MustBuildBeforeConsume(); // 0xc4901999
-  error Inbox__Ignition();
 
   // Outbox
   error Outbox__Unauthorized(); // 0x2c9490c2
@@ -49,11 +48,14 @@ library Errors {
   error Outbox__NothingToConsumeAtEpoch(Epoch epoch); // 0x5e3d32ce
   error Outbox__PathTooLong();
   error Outbox__LeafIndexOutOfBounds(uint256 leafIndex, uint256 pathLength);
+  error Outbox__InvalidNumCheckpointsInEpoch(uint256 numCheckpointsInEpoch);
 
   // Rollup
   error Rollup__InsufficientBondAmount(uint256 minimum, uint256 provided); // 0xa165f276
   error Rollup__InsufficientFundsInEscrow(uint256 required, uint256 available); // 0xa165f276
   error Rollup__InvalidArchive(bytes32 expected, bytes32 actual); // 0xb682a40e
+  error Rollup__InvalidCheckpointHeader(bytes32 expected, bytes32 actual);
+  error Rollup__InvalidCheckpointHeaderCount(uint256 expected, uint256 actual);
   error Rollup__InvalidCheckpointNumber(uint256 expected, uint256 actual); // 0xd1ba9bfa
   error Rollup__InvalidInHash(bytes32 expected, bytes32 actual); // 0xcd6f4233
   error Rollup__InvalidOutHash(bytes32 expected, bytes32 actual); // 0x8eb39062
@@ -88,8 +90,6 @@ library Errors {
   error Rollup__ProverHaveAlreadySubmitted(address prover, Epoch epoch);
   error Rollup__InvalidManaTarget(uint256 minimum, uint256 provided);
   error Rollup__ManaLimitExceeded();
-  error Rollup__RewardsNotClaimable();
-  error Rollup__TooSoonToSetRewardsClaimable(uint256 earliestRewardsClaimableTimestamp, uint256 currentTimestamp);
   error Rollup__InvalidFirstEpochProof();
   error Rollup__InvalidCoinbase();
   error Rollup__UnavailableTempCheckpointLog(
@@ -98,6 +98,7 @@ library Errors {
   error Rollup__NoBlobsInCheckpoint();
   error Rollup__CannotInvalidateEscapeHatch();
   error Rollup__InvalidEscapeHatchProposer(address expected, address actual);
+  error Rollup__FieldElementOutOfRange(bytes32 value);
 
   // EscapeHatch
   error EscapeHatch__AlreadyInCandidateSet(address candidate);
@@ -134,6 +135,9 @@ library Errors {
   error ValidatorSelection__ProposerIndexTooLarge(uint256 index);
   error ValidatorSelection__EpochNotStable(uint256 queriedEpoch, uint32 currentTimestamp);
   error ValidatorSelection__InvalidLagInEpochs(uint256 lagInEpochsForValidatorSet, uint256 lagInEpochsForRandao);
+  error ValidatorSelection__EscapeHatchAlreadySet();
+  error ValidatorSelection__EscapeHatchCannotBeZero();
+  error ValidatorSelection__EscapeHatchRollupMismatch(address expected, address actual);
 
   // Staking
   error Staking__AlreadyQueued(address _attester);
@@ -170,6 +174,13 @@ library Errors {
   error Staking__InsufficientBootstrapValidators(uint256 queueSize, uint256 bootstrapFlushSize);
   error Staking__InvalidStakingQueueConfig();
   error Staking__InvalidNormalFlushSizeQuotient();
+  error Staking__InvalidMaxQueueFlushSize();
+  error Staking__InvalidBootstrapFlushSize();
+  error Staking__BootstrapFlushSizeAboveMax(uint256 bootstrapFlushSize, uint256 maxQueueFlushSize);
+  error Staking__ExitDelayAboveSlasherDelay(uint256 exitDelaySeconds, uint256 slasherExecutionDelay);
+  error Staking__SlasherProposerNotInitialized(address slasher);
+  error Staking__NoPendingSlasher();
+  error Staking__SlasherNotReady(Timestamp readyAt);
 
   // Fee Juice Portal
   error FeeJuicePortal__AlreadyInitialized(); // 0xc7a172fe
@@ -184,8 +195,13 @@ library Errors {
   // FeeLib
   error FeeLib__InvalidFeeAssetPriceModifier(); // 0xf2fb32ad
   error FeeLib__AlreadyPreheated();
+  error FeeLib__InvalidManaTarget(uint256 minimum, uint256 provided);
   error FeeLib__InvalidManaLimit(uint256 maximum, uint256 provided);
   error FeeLib__InvalidInitialEthPerFeeAsset(uint256 provided, uint256 minimum, uint256 maximum);
+  error FeeLib__ProvingCostBelowFloor(uint256 provided, uint256 minimum);
+  error FeeLib__ProvingCostAboveCeiling(uint256 provided, uint256 maximum);
+  error FeeLib__ProvingCostCooldown(uint256 nextAllowed);
+  error FeeLib__ProvingCostStepExceeded(uint256 current, uint256 requested);
 
   // SignatureLib (duplicated)
   error SignatureLib__InvalidSignature(address, address); // 0xd9cbae6c
@@ -199,34 +215,37 @@ library Errors {
 
   // RewardBooster
   error RewardBooster__OnlyRollup(address caller);
+  error RewardBooster__InvalidConfig();
 
   error RewardLib__InvalidSequencerBps();
+  error RewardLib__ZeroShares(address prover);
 
-  // TallySlashingProposer
-  error TallySlashingProposer__InvalidSignature();
-  error TallySlashingProposer__InvalidVoteLength(uint256 expected, uint256 actual);
-  error TallySlashingProposer__RoundAlreadyExecuted(SlashRound round);
-  error TallySlashingProposer__InvalidNumberOfCommittees(uint256 expected, uint256 actual);
-  error TallySlashingProposer__RoundNotComplete(SlashRound round);
-  error TallySlashingProposer__InvalidCommitteeSize(uint256 expected, uint256 actual);
-  error TallySlashingProposer__InvalidCommitteeCommitment();
-  error TallySlashingProposer__InvalidQuorumAndRoundSize(uint256 quorum, uint256 roundSize);
-  error TallySlashingProposer__QuorumMustBeGreaterThanZero();
-  error TallySlashingProposer__InvalidSlashAmounts(uint256[3] slashAmounts);
-  error TallySlashingProposer__LifetimeMustBeGreaterThanExecutionDelay(uint256 lifetime, uint256 executionDelay);
-  error TallySlashingProposer__LifetimeMustBeLessThanRoundabout(uint256 lifetime, uint256 roundabout);
-  error TallySlashingProposer__RoundSizeInEpochsMustBeGreaterThanZero(uint256 roundSizeInEpochs);
-  error TallySlashingProposer__RoundSizeTooLarge(uint256 roundSize, uint256 maxRoundSize);
-  error TallySlashingProposer__CommitteeSizeMustBeGreaterThanZero(uint256 committeeSize);
-  error TallySlashingProposer__SlashAmountTooLarge();
-  error TallySlashingProposer__VoteAlreadyCastInCurrentSlot(Slot slot);
-  error TallySlashingProposer__RoundOutOfRange(SlashRound round, SlashRound currentRound);
-  error TallySlashingProposer__RoundSizeMustBeMultipleOfEpochDuration(uint256 roundSize, uint256 epochDuration);
-  error TallySlashingProposer__VotingNotOpen(SlashRound currentRound);
-  error TallySlashingProposer__SlashOffsetMustBeGreaterThanZero(uint256 slashOffset);
-  error TallySlashingProposer__InvalidEpochIndex(uint256 epochIndex, uint256 roundSizeInEpochs);
-  error TallySlashingProposer__VoteSizeTooBig(uint256 voteSize, uint256 maxSize);
-  error TallySlashingProposer__VotesMustBeMultipleOf4(uint256 votes);
+  // SlashingProposer
+  error SlashingProposer__InvalidSignature();
+  error SlashingProposer__InvalidVoteLength(uint256 expected, uint256 actual);
+  error SlashingProposer__RoundAlreadyExecuted(SlashRound round);
+  error SlashingProposer__InvalidNumberOfCommittees(uint256 expected, uint256 actual);
+  error SlashingProposer__RoundNotComplete(SlashRound round);
+  error SlashingProposer__InvalidCommitteeSize(uint256 expected, uint256 actual);
+  error SlashingProposer__InvalidCommitteeCommitment();
+  error SlashingProposer__InvalidQuorumAndRoundSize(uint256 quorum, uint256 roundSize);
+  error SlashingProposer__QuorumMustBeGreaterThanZero();
+  error SlashingProposer__InvalidSlashAmounts(uint256[3] slashAmounts);
+  error SlashingProposer__LifetimeMustBeGreaterThanExecutionDelay(uint256 lifetime, uint256 executionDelay);
+  error SlashingProposer__LifetimeMustBeLessThanRoundabout(uint256 lifetime, uint256 roundabout);
+  error SlashingProposer__RoundSizeInEpochsMustBeGreaterThanZero(uint256 roundSizeInEpochs);
+  error SlashingProposer__RoundSizeTooLarge(uint256 roundSize, uint256 maxRoundSize);
+  error SlashingProposer__CommitteeSizeMustBeGreaterThanZero(uint256 committeeSize);
+  error SlashingProposer__SlashAmountTooLarge();
+  error SlashingProposer__VoteAlreadyCastInCurrentSlot(Slot slot);
+  error SlashingProposer__RoundOutOfRange(SlashRound round, SlashRound currentRound);
+  error SlashingProposer__RoundSizeMustBeMultipleOfEpochDuration(uint256 roundSize, uint256 epochDuration);
+  error SlashingProposer__VotingNotOpen(SlashRound currentRound);
+  error SlashingProposer__SlashOffsetMustBeGreaterThanZero(uint256 slashOffset);
+  error SlashingProposer__InvalidEpochIndex(uint256 epochIndex, uint256 roundSizeInEpochs);
+  error SlashingProposer__VoteSizeTooBig(uint256 voteSize, uint256 maxSize);
+  error SlashingProposer__VotesMustBeMultipleOf4(uint256 votes);
+  error SlashingProposer__SlashAmountMustBeGtZero(string info);
 
   // SlashPayloadLib
   error SlashPayload_ArraySizeMismatch(uint256 expected, uint256 actual);

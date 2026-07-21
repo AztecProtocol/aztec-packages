@@ -119,7 +119,7 @@ unconstrained fn read_public_nullifier_same_context() {
     let env = TestEnvironment::new();
 
     env.public_context(|context| {
-        context.push_nullifier(nullifier);
+        context.push_nullifier_unsafe(nullifier);
         assert(context.nullifier_exists_unsafe(nullifier, context.this_address()));
     });
 }
@@ -128,7 +128,7 @@ unconstrained fn read_public_nullifier_same_context() {
 unconstrained fn read_public_nullifier_other_context() {
     let env = TestEnvironment::new();
 
-    env.public_context(|context| { context.push_nullifier(nullifier); });
+    env.public_context(|context| { context.push_nullifier_unsafe(nullifier); });
 
     env.public_context(|context| { assert(context.nullifier_exists_unsafe(nullifier, context.this_address())); });
 }
@@ -137,7 +137,7 @@ unconstrained fn read_public_nullifier_other_context() {
 unconstrained fn read_private_nullifier() {
     let env = TestEnvironment::new();
 
-    env.private_context(|context| { context.push_nullifier(nullifier); });
+    env.private_context(|context| { context.push_nullifier_unsafe(nullifier); });
 
     env.public_context(|context| { assert(context.nullifier_exists_unsafe(nullifier, context.this_address())); });
 }
@@ -147,8 +147,8 @@ unconstrained fn rejects_duplicate_transient_nullifiers() {
     let env = TestEnvironment::new();
 
     env.public_context(|context| {
-        context.push_nullifier(1);
-        context.push_nullifier(1);
+        context.push_nullifier_unsafe(1);
+        context.push_nullifier_unsafe(1);
     });
 }
 
@@ -156,9 +156,9 @@ unconstrained fn rejects_duplicate_transient_nullifiers() {
 unconstrained fn rejects_duplicate_settled_nullifiers() {
     let env = TestEnvironment::new();
 
-    env.public_context(|context| { context.push_nullifier(1); });
+    env.public_context(|context| { context.push_nullifier_unsafe(1); });
 
-    env.public_context(|context| { context.push_nullifier(1); });
+    env.public_context(|context| { context.push_nullifier_unsafe(1); });
 }
 
 #[test(should_fail_with = "Contract calls are forbidden")]

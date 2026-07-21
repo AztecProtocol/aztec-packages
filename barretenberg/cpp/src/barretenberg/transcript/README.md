@@ -169,7 +169,7 @@ Add element to the Fiat-Shamir transcript (affects challenge generation).
 
 ```cpp
 // Add VK hash to the Fiat-Shamir transcript
-FF vk_hash = vk->hash_with_origin_tagging(domain_separator, *transcript);
+FF vk_hash = vk->hash_with_origin_tagging(*transcript);
 transcript->add_to_hash_buffer("vk_hash", vk_hash);
 
 // Now challenges will depend on the VK hash
@@ -197,7 +197,7 @@ auto commitment = transcript->receive_from_prover<Commitment>("wire_commitments"
 - Deserializes via `Codec::deserialize_from_fields<T>()` which enforces:
   - **Curve checks** (for point types): `validate_on_curve()` called during deserialization
   - **Range constraints** (for `bigfield` with UltraCircuitBuilder): Limb bounds enforced
-  - **Point-at-infinity detection**: `check_point_at_infinity()` used during point reconstruction
+  - **Point-at-infinity detection**: auto-detected from (0, 0) coordinates during point reconstruction
 - Assigns and validates origin tag (in-circuit mode)
 
 ### Challenge Generation
@@ -280,9 +280,9 @@ Origin tags prevent these violations by **tainting** each value with metadata tr
 
 ```cpp
 struct OriginTag {
-    size_t transcript_index;           // Which transcript instance created this value
-    numeric::uint256_t round_provenance; // Which protocol rounds contributed to this value
-    bool instant_death;          // Poison flag - abort on any arithmetic
+    size_t transcript_index;             // Which transcript instance created this value
+    numeric::uint512_t round_provenance; // Which protocol rounds contributed to this value
+    bool instant_death;                  // Poison flag - abort on any arithmetic
 };
 ```
 
@@ -303,42 +303,42 @@ transcript_index = unique_transcript_index.fetch_add(1);
 
 #### round_provenance - Round Tracking Bitmask
 
-A 256-bit value split into two 128-bit halves:
+A 512-bit value split into two 256-bit halves:
 
 ```
-[Upper 128 bits: Challenges] [Lower 128 bits: Submitted Values]
+[Upper 256 bits: Challenges] [Lower 256 bits: Submitted Values]
 ```
 
-- **Bit `i` in lower 128 bits**: This value uses data submitted in round `i`
-- **Bit `i` in upper 128 bits**: This value uses a challenge generated in round `i`
+- **Bit `i` in lower 256 bits**: This value uses data submitted in round `i`
+- **Bit `i` in upper 256 bits**: This value uses a challenge generated in round `i`
 
 **Construction**:
 ```cpp
 // SINGLE BIT EXAMPLES - Values from one round only
 
 // Submitted value in round 3
-round_provenance = (1 << 3);  // 0x0000...0008 (bit 3 in lower 128 bits)
+round_provenance = (1 << 3);  // 0x0000...0008 (bit 3 in lower 256 bits)
 
 // Challenge from round 5
-round_provenance = (1 << (5 + 128));  // 0x0020...0000 (bit 5 in upper 128 bits)
+round_provenance = (1 << (5 + 256));  // 0x0020...0000 (bit 5 in upper 256 bits)
 
 
 // MULTIPLE BITS EXAMPLES - Values combined from multiple rounds
 
 // Value depending on submitted data from BOTH round 0 AND round 2
-round_provenance = (1 << 0) | (1 << 2);  // 0x0000...0005 (bits 0 and 2 in lower 128)
+round_provenance = (1 << 0) | (1 << 2);  // 0x0000...0005 (bits 0 and 2 in lower 256)
 // Meaning: "This value incorporates data submitted in rounds 0 AND 2"
 
 // Value depending on challenges from BOTH round 1 AND round 3
-round_provenance = (1 << (1 + 128)) | (1 << (3 + 128));  // 0x000A...0000 (bits 1 and 3 in upper 128)
+round_provenance = (1 << (1 + 256)) | (1 << (3 + 256));  // 0x000A...0000 (bits 1 and 3 in upper 256)
 // Meaning: "This value incorporates challenges from rounds 1 AND 3"
 
 // Value depending on submitted data (round 0) AND challenge (round 0)
-round_provenance = (1 << 0) | (1 << (0 + 128));  // 0x0001...0001 (bit 0 in both halves)
+round_provenance = (1 << 0) | (1 << (0 + 256));  // 0x0001...0001 (bit 0 in both halves)
 // Meaning: "This value uses both the data submitted in round 0 AND the challenge from round 0"
 
 // Complex example: submitted data from rounds 0,1 and challenges from rounds 0,2
-round_provenance = (1 << 0) | (1 << 1) | (1 << (0 + 128)) | (1 << (2 + 128));
+round_provenance = (1 << 0) | (1 << 1) | (1 << (0 + 256)) | (1 << (2 + 256));
 //          0x0005...0003
 // Meaning: "This value's computation involved:
 //          - Submitted values from rounds 0 and 1
@@ -397,7 +397,7 @@ OriginTag::OriginTag(const OriginTag& tag_a, const OriginTag& tag_b)
     }
 
     // 5. Check cross-round contamination (the critical security check)
-    check_round_provenances(tag_a.round_provenance, tag_b.round_provenance);
+    check_round_provenance(tag_a.round_provenance, tag_b.round_provenance);
 
     // 6. Merge the tags
     transcript_index = tag_a.transcript_index;
@@ -422,23 +422,23 @@ In recursive verification (in-circuit mode), values receive origin tags when the
 // Recursive verifier receives wire commitment from proof (round 0)
 auto comm = transcript->receive_from_prover<Commitment>("wire_comm");
 // comm.get_origin_tag() = OriginTag(transcript_id, round=0, is_submitted=true)
-//   → round_provenance = 0x0000...0001 (bit 0 set in lower 128 bits)
+//   → round_provenance = 0x0000...0001 (bit 0 set in lower 256 bits)
 
 // Verifier generates challenge after round 0 data
 auto beta = transcript->get_challenge<FF>("beta");
 // beta.get_origin_tag() = OriginTag(transcript_id, round=0, is_submitted=false)
-//   → round_provenance = 0x0001...0000 (bit 0 set in upper 128 bits)
+//   → round_provenance = 0x0001...0000 (bit 0 set in upper 256 bits)
 ```
 
 **Tag construction** (in `origin_tag.hpp:OriginTag` constructor):
 ```cpp
 OriginTag(size_t parent_index, size_t child_index, bool is_submitted = true)
     : transcript_index(parent_index)
-    , round_provenance((static_cast<uint256_t>(1) << (child_index + (is_submitted ? 0 : 128))))
+    , round_provenance((static_cast<uint512_t>(1) << (child_index + (is_submitted ? 0 : 256))))
 ```
 
-- Submitted values: bit shifted by `child_index` (lower 128 bits)
-- Challenges: bit shifted by `child_index + 128` (upper 128 bits)
+- Submitted values: bit shifted by `child_index` (lower 256 bits)
+- Challenges: bit shifted by `child_index + 256` (upper 256 bits)
 
 #### 2. Tag Merging Example
 
@@ -458,21 +458,26 @@ This merged tag now carries the full provenance: it depends on data submitted in
 
 #### 3. The Cross-Round Check
 
-The critical security check in `check_round_provenances()`:
+The critical security check in `check_round_provenance()`:
 
 ```cpp
-void check_round_provenances(const uint256_t& tag_a, const uint256_t& tag_b)
+void check_round_provenance(const uint512_t& provenance_a, const uint512_t& provenance_b)
 {
-    const uint128_t* challenges_a = (const uint128_t*)(&tag_a.data[2]);  // Upper 128 bits
-    const uint128_t* submitted_a = (const uint128_t*)(&tag_a.data[0]);   // Lower 128 bits
+    // Lower 256 bits = submitted rounds, Upper 256 bits = challenge rounds
+    const uint256_t& submitted_a = provenance_a.lo;
+    const uint256_t& submitted_b = provenance_b.lo;
 
-    // Similar for tag_b...
+    // Nothing to check if either has no submitted data or both are from the same round(s)
+    if (submitted_a == 0 || submitted_b == 0 || submitted_a == submitted_b) {
+        return;
+    }
 
-    // VIOLATION: Two submitted values from different rounds mixing without challenges
-    if (*challenges_a == 0 && *challenges_b == 0 &&     // Neither has challenge bits set
-        *submitted_a != 0 && *submitted_b != 0 &&        // Both have submitted bits set
-        *submitted_a != *submitted_b) {                  // From different rounds
-        throw_or_abort("Submitted values from 2 different rounds are mixing without challenges");
+    // VIOLATION: max challenge round must be >= max submitted round, otherwise the submitted
+    // values from different rounds were combined without a challenge that binds the later round.
+    const int max_challenge_round = highest_set_bit_256(provenance_a.hi | provenance_b.hi);
+    const int max_submitted_round = highest_set_bit_256(submitted_a | submitted_b);
+    if (max_challenge_round < max_submitted_round) {
+        throw_or_abort("Round provenance check failed: max challenge round < max submitted round");
     }
 }
 ```
@@ -587,27 +592,29 @@ ROUND 2 - LOG DERIVATIVE INVERSE (challenge_generation_phase=true → false, rou
 │ receive_from_prover("lookup_inverses")   │──► Origin tag: OriginTag(42, 2, true)
 └──────────────────────────────────────────┘    round_provenance = 0x0000...0004 (bit 2 lower)
 
+┌──────────────────────────────────┐
+│ get_challenge("delta")           │──► Tag: OriginTag(42, 2, false)
+└──────────────────────────────────┘    round_provenance = 0x0004...0000 (bit 2 upper)
+
     ** Example: Tag merging with cross-round values **
 
-    combined = eta * lookup_inverses
+    combined = delta * lookup_inverses
          │
          │ Tag Merging:
-         │  eta.tag            = OriginTag(42, 0, false) → 0x0001...0000
-         │  lookup_inv.tag     = OriginTag(42, 2, true)  → 0x0000...0004
-         │  combined.tag       = OriginTag(42, parent)   → 0x0001...0004 (OR'd)
+         │  delta.tag           = OriginTag(42, 2, false) → 0x0004...0000
+         │  lookup_inv.tag      = OriginTag(42, 2, true)  → 0x0000...0004
+         │  combined.tag        = OriginTag(42, parent)   → 0x0004...0004 (OR'd)
          │
          ▼
     ┌─────────────────────────────────────────────┐
-    │ check_round_provenances(eta.tag, lookup_inv.tag)   │
+    │ check_round_provenance(delta.tag, lookup_inv.tag)  │
     └─────────────────────────────────────────────┘
          │
-         │ CHECK: Submitted values from different rounds?
-         │   challenges_eta   = 0x0001...0000 (non-zero) ✓
-         │   submitted_eta    = 0x0000...0000 (zero)
-         │   challenges_inv   = 0x0000...0000 (zero)
-         │   submitted_inv    = 0x0000...0004 (non-zero)
+         │ CHECK: max challenge round >= max submitted round?
+         │   max challenge round = 2 (delta is round-2 challenge)
+         │   max submitted round = 2 (lookup_inverses submitted in round 2)
          │
-         │ ✓ PASS: eta has challenge bits, prevents cross-round violation
+         │ ✓ PASS: 2 >= 2. Round-2 challenge correctly binds round-2 submitted data.
          │
          ▼
     combined (FF witness with merged tag)
@@ -618,35 +625,34 @@ ORIGIN TAG VIOLATION EXAMPLE (Cross-Round Contamination)
 
     ┌──────────────────────────────────┐
     │ Round 0: w_l (wire commitment)   │ tag = OriginTag(42, 0, true)
-    │          round_provenance = 0x...0001   │      (bit 0 in lower 128 bits)
+    │          round_provenance = 0x...0001   │      (bit 0 in lower 256 bits)
     └──────────────────────────────────┘
                                 │
-                                │ (eta challenges generated)
+                                │ (eta challenges generated → tag has bit 0 in upper 256 bits)
                                 │
     ┌──────────────────────────────────┐
     │ Round 1: w_4 (4th wire)          │ tag = OriginTag(42, 1, true)
-    │          round_provenance = 0x...0002   │      (bit 1 in lower 128 bits)
+    │          round_provenance = 0x...0002   │      (bit 1 in lower 256 bits)
     └──────────────────────────────────┘
                                 │
                                 ▼
-                    ❌ VIOLATION: Direct mixing without challenges
-                    result = w_l + w_4
-                                │
-                    check_round_provenances() detects:
-                      challenges_w_l = 0 (no challenges involved)
-                      challenges_w_4 = 0 (no challenges involved)
-                      submitted_w_l  = 0x...0001 (from round 0)
-                      submitted_w_4  = 0x...0002 (from round 1)
-                      submitted_w_l != submitted_w_4  ← DIFFERENT ROUNDS!
-
-                    → throw_or_abort("Submitted values from 2 different
-                                      rounds are mixing without challenges")
-
-    ✅ CORRECT: Must use challenge to combine cross-round values
+                    ❌ VIOLATION: round-0 challenge cannot bind round-1 submission
                     result = eta * w_l + w_4
+                                │
+                    check_round_provenance() detects:
+                      max challenge round  = 0 (only eta involved, from round 0)
+                      max submitted round  = 1 (w_4 was submitted in round 1)
+                      0 < 1  ← challenge does not reach the latest submitted round!
+
+                    → throw_or_abort("Round provenance check failed:
+                                      max challenge round < max submitted round")
+
+    ✅ CORRECT: Use a challenge from round >= max submitted round
+                    auto beta = transcript->get_challenge<FF>("beta");  // round-1 challenge
+                    result = beta * w_l + w_4
                       │
-                      │ eta.tag has challenge bits from round 0
-                      │ → Properly binds the two rounds together
+                      │ beta.tag has challenge bits from round 1
+                      │ max challenge round = 1, max submitted round = 1 → PASS
                       ▼
                     OK (merged tag tracks both rounds AND challenge)
 

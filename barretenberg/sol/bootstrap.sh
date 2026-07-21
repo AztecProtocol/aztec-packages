@@ -19,7 +19,11 @@ function test_cmds {
 }
 
 function test_cmds_internal {
-    echo "cd barretenberg/sol && forge test --no-match-contract Base"
+    # forge reaches out to binaries.soliditylang.org to resolve/fetch solc, which intermittently
+    # fails DNS resolution under heavy parallel merge-queue load ("Temporary failure in name
+    # resolution"). Retry every 10s for ~5 min, but only on connection/DNS failures so genuine test
+    # failures still fail fast.
+    echo "cd barretenberg/sol && RETRY_ATTEMPTS=30 RETRY_SLEEP=10 retry -p 'dns error|Temporary failure in name resolution|error sending request|failed to lookup address|Connection refused|connection reset' 'forge test --no-match-contract Base'"
 }
 
 function build_sol {
@@ -45,13 +49,20 @@ function generate_vks {
     ./scripts/init_honk.sh
 }
 
+function check_generated_contracts_synced {
+    echo_header "barretenberg/sol checking generated contract templates are synced"
+    ./scripts/check_generated_contracts_synced.sh
+}
+
 function build_code {
     # These steps are sequential
+    # generate_vks must run before the sync check because BlakeHonkOpt.sol is generated
     generate_vks
+    check_generated_contracts_synced
     build_sol
 }
 
-export -f build_code generate_vks build_sol
+export -f build_code check_generated_contracts_synced generate_vks build_sol
 
 function build {
   echo_header "barretenberg/sol building"
@@ -70,7 +81,7 @@ function bench {
   # Run forge test with gas report using JSON flag
   echo "Running gas report for verifier contracts..."
   # Do not include foundry std err messages in the output
-  FORGE_GAS_REPORT=true forge test --no-match-contract Base --json 2>&1 | grep -v "non-empty stderr" > gas_report.json
+  FORGE_GAS_REPORT=true forge test --no-match-contract Base --mt "(testValidProof|test_ValidProof)" --json 2>&1 | grep -v "non-empty stderr" > gas_report.json
 
   # Check if we got any output
   if [ ! -s gas_report.json ]; then

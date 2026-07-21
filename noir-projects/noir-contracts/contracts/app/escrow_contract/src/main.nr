@@ -5,7 +5,7 @@ use aztec::macros::aztec;
 pub contract Escrow {
     use aztec::{
         macros::{functions::{external, initializer}, storage::storage},
-        messages::message_delivery::MessageDelivery,
+        messages::delivery::MessageDelivery,
         protocol::address::AztecAddress,
         state_vars::SinglePrivateImmutable,
     };
@@ -23,7 +23,7 @@ pub contract Escrow {
     #[initializer]
     fn constructor(owner: AztecAddress) {
         let note = AddressNote { address: owner };
-        self.storage.owner.initialize(note).deliver(MessageDelivery.ONCHAIN_CONSTRAINED);
+        self.storage.owner.initialize(note).deliver(MessageDelivery::onchain_constrained());
     }
 
     // Withdraws balance. Requires that msg.sender is the owner.

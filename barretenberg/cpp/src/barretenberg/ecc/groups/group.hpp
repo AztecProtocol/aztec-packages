@@ -24,10 +24,12 @@ namespace bb {
  * @brief group class. Represents an elliptic curve group element.
  * Group is parametrised by Fq and Fr
  *
- * Note: Currently subgroup checks are NOT IMPLEMENTED
- * Our current implementation uses G1 points that have a cofactor of 1.
- * All G2 points are precomputed (generator [1]_2 and trusted setup point [x]_2).
- * Explicitly assume precomputed points are valid members of the prime-order subgroup for G2.
+ * Note: BN254 / Grumpkin G1 have cofactor 1, so `affine_element::on_curve()` is itself a subgroup
+ * check. BN254 G2 has a non-trivial cofactor, so callers that accept externally-supplied G2 bytes
+ * must additionally invoke `affine_element::is_in_prime_subgroup()` to reject cofactor-subgroup
+ * points before they reach pairing-based verifiers; routine internal G2 arithmetic stays inside
+ * the prime-order subgroup because every starting point is the precomputed generator [1]_2 or the
+ * SRS point [x]_2.
  *
  * @tparam Fq
  * @tparam subgroup_field
@@ -70,8 +72,11 @@ template <typename Fq_, typename Fr_, typename Params> class group {
      *              (d), invert y-coordinate.
      *           j. return (x, y)
      *
-     * NOTE: In step 3b it is sufficient to use 1 byte to store `count`.
-     *       Step 3 has a 50% chance of returning, the probability of `count` exceeding 256 is 1 in 2^256
+     * NOTE: In step 3b it is sufficient to use 1 byte (uint8_t) to store `count` (called
+     *       `attempt_count` in hash_to_curve). For BN254/Grumpkin, approximately half of all Fq field
+     *       elements are quadratic residues, so each attempt succeeds with probability ~1/2. The
+     *       probability of needing more than N attempts is ~2^-N, making P(count > 255) ≈ 2^-255 —
+     *       negligible for any practical use. The type uint8_t is therefore intentional, not a bug.
      * NOTE: The domain separator is included to ensure that it is possible to derive independent sets of
      * index-addressable generators.
      * NOTE: we produce 64 bytes of BLAKE3 output when producing x-coordinate field
@@ -130,16 +135,6 @@ template <typename Fq_, typename Fr_, typename Params> class group {
         }
         return derive_generators(domain_bytes, num_generators, starting_index);
     }
-
-    BB_INLINE static void conditional_negate_affine(const affine_element* src,
-                                                    affine_element* dest,
-                                                    uint64_t predicate);
 };
 
 } // namespace bb
-
-#ifdef DISABLE_ASM
-#include "group_impl_int128.tcc"
-#else
-#include "group_impl_asm.tcc"
-#endif

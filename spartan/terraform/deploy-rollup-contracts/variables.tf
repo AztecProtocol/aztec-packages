@@ -86,6 +86,12 @@ variable "AZTEC_PROOF_SUBMISSION_EPOCHS" {
   nullable    = true
 }
 
+variable "AZTEC_INBOX_LAG" {
+  description = "Checkpoints to lag in inbox (prevents sequencer DOS attacks)"
+  type        = string
+  nullable    = true
+}
+
 variable "AZTEC_ACTIVATION_THRESHOLD" {
   description = "Aztec activation threshold"
   type        = string
@@ -176,8 +182,8 @@ variable "AZTEC_SLASH_AMOUNT_LARGE" {
   nullable    = true
 }
 
-variable "AZTEC_SLASHER_FLAVOR" {
-  description = "Type of slasher proposer (empire, tally, or none)"
+variable "AZTEC_SLASHER_ENABLED" {
+  description = "Whether to deploy a slasher proposer"
   type        = string
   nullable    = true
 }
@@ -238,6 +244,12 @@ variable "JOB_TTL_SECONDS_AFTER_FINISHED" {
 
 variable "NETWORK" {
   description = "One of the existing network names to use default config for"
+  type        = string
+  nullable    = true
+}
+
+variable "ALLOW_OVERRIDING_NETWORK_CONFIG" {
+  description = "Allow consensus-critical env vars to diverge from the generated network defaults for NETWORK"
   type        = string
   nullable    = true
 }

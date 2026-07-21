@@ -1,0 +1,46 @@
+output "namespace" {
+  description = "Kubernetes namespace for RPC workloads and Kong routes."
+  value       = var.NAMESPACE
+}
+
+output "rpc_services" {
+  description = "RPC Service names and ports keyed by alias."
+  value = {
+    for name, rpc in module.rpc : name => {
+      namespace = rpc.namespace
+      service   = rpc.service_name
+      port      = rpc.service_port
+      hpa       = rpc.hpa_name
+    }
+  }
+}
+
+output "kong_routes" {
+  description = "Kong route names keyed by alias."
+  value       = module.rpc_gateway.route_names
+}
+
+output "kong_upstream_policy_name" {
+  description = "Kong upstream policy name."
+  value       = module.rpc_gateway.upstream_policy_name
+}
+
+output "kong_metrics_service" {
+  description = "Kong metrics Service details for Prometheus scraping."
+  value = {
+    namespace      = module.rpc_gateway.metrics_service_namespace
+    service        = module.rpc_gateway.metrics_service_name
+    port           = module.rpc_gateway.metrics_service_port
+    otel_collector = try(module.rpc_gateway_metrics_collector[0].deployment_name, null)
+  }
+}
+
+output "frontend_load_balancer_ip" {
+  description = "Global static IP assigned to the public GKE frontend Ingress."
+  value       = module.rpc_gateway.frontend_load_balancer_ip
+}
+
+output "gcp_managed_certificate_names" {
+  description = "GKE ManagedCertificate resource names keyed by RPC host."
+  value       = module.rpc_gateway.gcp_managed_certificate_names
+}

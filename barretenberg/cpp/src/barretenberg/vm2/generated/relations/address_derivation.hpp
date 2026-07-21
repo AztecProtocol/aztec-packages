@@ -3,7 +3,6 @@
 
 #include <string_view>
 
-#include "barretenberg/common/bb_bench.hpp"
 #include "barretenberg/relations/relation_parameters.hpp"
 #include "barretenberg/relations/relation_types.hpp"
 #include "barretenberg/vm2/generated/columns.hpp"
@@ -14,7 +13,7 @@ template <typename FF_> class address_derivationImpl {
   public:
     using FF = FF_;
 
-    static constexpr std::array<size_t, 10> SUBRELATION_PARTIAL_LENGTHS = { 3, 3, 3, 3, 3, 3, 3, 3, 3, 3 };
+    static constexpr std::array<size_t, 13> SUBRELATION_PARTIAL_LENGTHS = { 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 5 };
 
     template <typename AllEntities> inline static bool skip(const AllEntities& in)
     {
@@ -34,9 +33,17 @@ template <typename FF> class address_derivation : public Relation<address_deriva
   public:
     static constexpr const std::string_view NAME = "address_derivation";
 
+    // Subrelation indices constants, to be used in tests.
+    static constexpr size_t SR_IVK_ON_CURVE_CHECK = 12;
+
     static std::string get_subrelation_label(size_t index)
     {
-        switch (index) {}
+#ifdef AVM_INCLUDE_COLUMN_INFORMATION
+        switch (index) {
+        case SR_IVK_ON_CURVE_CHECK:
+            return "IVK_ON_CURVE_CHECK";
+        }
+#endif
         return std::to_string(index);
     }
 };

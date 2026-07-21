@@ -64,13 +64,13 @@ pub fn unpack_delay_change<let INITIAL_DELAY: u64>(
     let sdc_timestamp_of_change = tmp as u32;
 
     tmp = (tmp - sdc_timestamp_of_change as Field) / TWO_POW_32;
-    let sdc_post_is_some = (tmp as u1) != 0;
+    let sdc_post_is_some = (tmp as u8) % 2 != 0;
 
     tmp = (tmp - sdc_post_is_some as Field) / TWO_POW_8;
     let sdc_post_inner = tmp as u32;
 
     tmp = (tmp - sdc_post_inner as Field) / TWO_POW_32;
-    let sdc_pre_is_some = (tmp as u1) != 0;
+    let sdc_pre_is_some = (tmp as u8) % 2 != 0;
 
     tmp = (tmp - sdc_pre_is_some as Field) / TWO_POW_8;
     let sdc_pre_inner = tmp as u32;
@@ -107,9 +107,17 @@ where
     fn pack(self) -> [Field; Self::N] {
         let mut result = [0; Self::N];
 
-        // We pack sdc.pre, sdc.post, sdc.timestamp_of_change and svc.timestamp_of_change into a single field as follows:
-        // [ sdc.pre_inner: u32 | sdc.pre_is_some: u8 | sdc.post_inner: u32 | sdc.post_is_some: u8 | sdc.timestamp_of_change: u32 | svc.timestamp_of_change: u32 ]
-        // Note that the code below no longer works after 2106 as by that time the timestamp will overflow u32. This is a tech debt that is not worth tackling.
+        // We pack sdc.pre, sdc.post, sdc.timestamp_of_change and svc.timestamp_of_change into a single field:
+        // [ sdc.pre_inner: u32 | sdc.pre_is_some: u8 | sdc.post_inner: u32 | sdc.post_is_some: u8 |
+        //   sdc.timestamp_of_change: u32 | svc.timestamp_of_change: u32 ]
+        // Note that this layout stores timestamps and delays in 32-bit slots. The 2106 timestamp overflow is accepted
+        // tech debt, but any value that exceeds its assigned slot would spill into adjacent fields and unpack to
+        // different data. Enforce the layout here so every persistence and hash path fails closed.
+        (self.svc.timestamp_of_change as Field).assert_max_bit_size::<32>();
+        (self.sdc.timestamp_of_change as Field).assert_max_bit_size::<32>();
+        (self.sdc.post.unwrap_unchecked() as Field).assert_max_bit_size::<32>();
+        (self.sdc.pre.unwrap_unchecked() as Field).assert_max_bit_size::<32>();
+
         result[0] = self.svc.timestamp_of_change as Field
             + ((self.sdc.timestamp_of_change as Field) * 2.pow_32(32))
             + ((self.sdc.post.is_some() as Field) * 2.pow_32(64))

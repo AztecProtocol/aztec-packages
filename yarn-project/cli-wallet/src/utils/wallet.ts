@@ -1,36 +1,46 @@
 import { EcdsaRAccountContract, EcdsaRSSHAccountContract } from '@aztec/accounts/ecdsa';
-import { SchnorrAccountContract } from '@aztec/accounts/schnorr';
-import { StubAccountContractArtifact, createStubAccount } from '@aztec/accounts/stub';
+import { StubEcdsaAccountContractArtifact, createStubEcdsaAccount } from '@aztec/accounts/ecdsa/stub';
+import { SchnorrAccountContract, SchnorrInitializerlessAccountContract } from '@aztec/accounts/schnorr';
+import { StubSchnorrAccountContractArtifact, createStubSchnorrAccount } from '@aztec/accounts/schnorr/stub';
 import { getIdentities } from '@aztec/accounts/utils';
-import { type Account, type AccountContract, SignerlessAccount } from '@aztec/aztec.js/account';
+import { type Account, type AccountContract, NO_FROM } from '@aztec/aztec.js/account';
 import {
+  ContractFunctionInteraction,
   type InteractionFeeOptions,
-  getContractInstanceFromInstantiationParams,
-  getGasLimits,
+  getContractClassFromArtifact,
 } from '@aztec/aztec.js/contracts';
 import type { AztecNode } from '@aztec/aztec.js/node';
-import { AccountManager, type Aliased, type SimulateOptions } from '@aztec/aztec.js/wallet';
+import { AccountManager, type Aliased } from '@aztec/aztec.js/wallet';
+import { TxSimulationResultWithAppOffset } from '@aztec/aztec.js/wallet';
 import type { DefaultAccountEntrypointOptions } from '@aztec/entrypoints/account';
+import { DefaultEntrypoint } from '@aztec/entrypoints/default';
 import { Fr } from '@aztec/foundation/curves/bn254';
 import type { LogFn } from '@aztec/foundation/log';
+import type { NotesFilter } from '@aztec/pxe/client/lazy';
 import type { PXEConfig } from '@aztec/pxe/config';
 import type { PXE } from '@aztec/pxe/server';
 import { createPXE, getPXEConfig } from '@aztec/pxe/server';
+import { getStandardAuthRegistry } from '@aztec/standard-contracts/auth-registry';
 import { AztecAddress } from '@aztec/stdlib/aztec-address';
+import type { Gas, GasUsed } from '@aztec/stdlib/gas';
 import { deriveSigningKey } from '@aztec/stdlib/keys';
 import { NoteDao } from '@aztec/stdlib/note';
-import type { NotesFilter } from '@aztec/stdlib/note';
-import type { TxProvingResult, TxSimulationResult } from '@aztec/stdlib/tx';
+import type { SimulationOverrides, TxExecutionRequest, TxProvingResult } from '@aztec/stdlib/tx';
 import { ExecutionPayload, mergeExecutionPayloads } from '@aztec/stdlib/tx';
-import { BaseWallet } from '@aztec/wallet-sdk/base-wallet';
+import { BaseWallet, type SimulateViaEntrypointOptions, getGasLimits } from '@aztec/wallet-sdk/base-wallet';
 
 import type { WalletDB } from '../storage/wallet_db.js';
 import type { AccountType } from './constants.js';
 import { extractECDSAPublicKeyFromBase64String } from './ecdsa.js';
-import { printGasEstimates } from './options/fees.js';
+
+/** Padding the CLI wallet applies to simulated gas usage when deriving declared gas limits. */
+const DEFAULT_ESTIMATED_GAS_PADDING = 0.1;
 
 export class CLIWallet extends BaseWallet {
   private accountCache = new Map<string, Account>();
+  // Stub class ids, populated on wallet startup
+  // to avoid redundant work per simulation
+  private stubClassIds = new Map<AccountType, Fr>();
 
   constructor(
     pxe: PXE,
@@ -50,12 +60,55 @@ export class CLIWallet extends BaseWallet {
   ): Promise<CLIWallet> {
     const pxeConfig = Object.assign(getPXEConfig(), overridePXEConfig);
     const pxe = await createPXE(node, pxeConfig);
-    return new CLIWallet(pxe, node, log, db);
+    const wallet = new CLIWallet(pxe, node, log, db);
+    await wallet.initStubClasses();
+    await wallet.registerAuthRegistry();
+    return wallet;
+  }
+
+  private async registerAuthRegistry(): Promise<void> {
+    const { instance, artifact } = await getStandardAuthRegistry();
+    await this.pxe.registerContractClass(artifact);
+    await this.pxe.registerContract(instance);
+  }
+
+  /**
+   * Hashes and registers the stub class for every supported account type with PXE, populating
+   * stubClassIds. Called on wallet initialization.
+   */
+  private async initStubClasses(): Promise<void> {
+    const { id: schnorrClassId } = await getContractClassFromArtifact(StubSchnorrAccountContractArtifact);
+    await this.pxe.registerContractClass(StubSchnorrAccountContractArtifact);
+
+    // ecdsa stubs share the same class id
+    const { id: ecdsaClassId } = await getContractClassFromArtifact(StubEcdsaAccountContractArtifact);
+    await this.pxe.registerContractClass(StubEcdsaAccountContractArtifact);
+
+    this.stubClassIds.set('schnorr', schnorrClassId);
+    this.stubClassIds.set('schnorr_initializerless', schnorrClassId);
+    this.stubClassIds.set('ecdsasecp256k1', ecdsaClassId);
+    this.stubClassIds.set('ecdsasecp256r1', ecdsaClassId);
+    this.stubClassIds.set('ecdsasecp256r1ssh', ecdsaClassId);
   }
 
   override async getAccounts(): Promise<Aliased<AztecAddress>[]> {
     const accounts = (await this.db?.listAliases('accounts')) ?? [];
-    return Promise.resolve(accounts.map(({ key, value }) => ({ alias: value, item: AztecAddress.fromString(key) })));
+    return Promise.resolve(
+      accounts.map(({ key, value }) => {
+        const alias = key.includes(':') ? key.slice(key.indexOf(':') + 1) : key;
+        return { alias, item: AztecAddress.fromStringUnsafe(value) };
+      }),
+    );
+  }
+
+  /**
+   * Derives suggested total and teardown gas limits from simulated gas usage, padded and clamped to the
+   * network's per-tx admission limits.
+   * @param gasUsed - The gas consumed during simulation (from a `simulate({ includeMetadata: true })` result).
+   */
+  async estimateGasLimits(gasUsed: GasUsed): Promise<{ gasLimits: Gas; teardownGasLimits: Gas }> {
+    const maxTxGasLimits = await this.getMaxTxGasLimits();
+    return getGasLimits(gasUsed, maxTxGasLimits, DEFAULT_ESTIMATED_GAS_PADDING);
   }
 
   private async createCancellationTxExecutionRequest(
@@ -64,14 +117,19 @@ export class CLIWallet extends BaseWallet {
     increasedFee: InteractionFeeOptions,
   ) {
     const executionPayload = ExecutionPayload.empty();
-    const feeOptions = await this.completeFeeOptions(from, executionPayload.feePayer, increasedFee.gasSettings);
+    const feeOptions = await this.completeFeeOptions({
+      from,
+      feePayer: executionPayload.feePayer,
+      gasSettings: increasedFee.gasSettings,
+    });
     const feeExecutionPayload = await feeOptions.walletFeePaymentMethod?.getExecutionPayload();
     const fromAccount = await this.getAccountFromAddress(from);
     const chainInfo = await this.getChainInfo();
     const executionOptions: DefaultAccountEntrypointOptions = {
       txNonce,
       cancellable: this.cancellableTransactions,
-      feePaymentMethodOptions: feeOptions.accountFeePaymentMethodOptions,
+      // If from is an address, feeOptions include the way the account contract should handle the fee payment
+      feePaymentMethodOptions: feeOptions.accountFeePaymentMethodOptions!,
     };
     return await fromAccount.createTxExecutionRequest(
       feeExecutionPayload ?? executionPayload,
@@ -87,14 +145,12 @@ export class CLIWallet extends BaseWallet {
     increasedFee: InteractionFeeOptions,
   ): Promise<TxProvingResult> {
     const cancellationTxRequest = await this.createCancellationTxExecutionRequest(from, txNonce, increasedFee);
-    return await this.pxe.proveTx(cancellationTxRequest);
+    return await this.pxe.proveTx(cancellationTxRequest, { scopes: this.scopesFrom(from), senderForTags: from });
   }
 
   override async getAccountFromAddress(address: AztecAddress) {
     let account: Account | undefined;
-    if (address.equals(AztecAddress.ZERO)) {
-      account = new SignerlessAccount();
-    } else if (this.accountCache.has(address.toString())) {
+    if (this.accountCache.has(address.toString())) {
       return this.accountCache.get(address.toString())!;
     } else {
       const accountManager = await this.createOrRetrieveAccount(address);
@@ -108,13 +164,27 @@ export class CLIWallet extends BaseWallet {
   }
 
   private async createAccount(secret: Fr, salt: Fr, contract: AccountContract): Promise<AccountManager> {
-    const accountManager = await AccountManager.create(this, secret, contract, salt);
+    const accountManager = await AccountManager.create(this, secret, contract, { salt });
 
     const instance = accountManager.getInstance();
     const artifact = await contract.getContractArtifact();
 
     await this.registerContract(instance, artifact, secret);
     this.accountCache.set(accountManager.address.toString(), await accountManager.getAccount());
+
+    // Initializerless accounts have no deployment tx; their address commits to the signing public key
+    // (via the contract's immutablesHash, resolved by AccountManager.create) and the constructor's
+    // storage writes are materialized locally via a simulated "store" call here.
+    if (contract instanceof SchnorrInitializerlessAccountContract) {
+      const constructorAbi = artifact.functions.find(f => f.name === 'constructor');
+      if (!constructorAbi) {
+        throw new Error('Could not create SchnorrInitializerlessAccount: constructor ABI not found');
+      }
+      const { x, y } = await contract.getSigningPublicKey();
+      const storeCall = new ContractFunctionInteraction(this, instance.address, constructorAbi, [x, y]);
+      await storeCall.simulate({ from: instance.address });
+    }
+
     return accountManager;
   }
 
@@ -140,6 +210,14 @@ export class CLIWallet extends BaseWallet {
     switch (type) {
       case 'schnorr': {
         account = await this.createAccount(secretKey, salt, new SchnorrAccountContract(deriveSigningKey(secretKey)));
+        break;
+      }
+      case 'schnorr_initializerless': {
+        account = await this.createAccount(
+          secretKey,
+          salt,
+          new SchnorrInitializerlessAccountContract(deriveSigningKey(secretKey)),
+        );
         break;
       }
       case 'ecdsasecp256r1': {
@@ -185,82 +263,76 @@ export class CLIWallet extends BaseWallet {
    */
   private async getFakeAccountDataFor(address: AztecAddress) {
     const originalAccount = await this.getAccountFromAddress(address);
-    // Account contracts can only be overridden if they have an associated address
-    // Overwriting SignerlessAccount is not supported, and does not really make sense
-    // since it has no authorization mechanism.
-    if (originalAccount instanceof SignerlessAccount) {
-      throw new Error(`Cannot create fake account data for SignerlessAccount at address: ${address}`);
-    }
-    const originalAddress = (originalAccount as Account).getCompleteAddress();
+    const originalAddress = originalAccount.getCompleteAddress();
     const contractInstance = await this.pxe.getContractInstance(originalAddress.address);
     if (!contractInstance) {
       throw new Error(`No contract instance found for address: ${originalAddress.address}`);
     }
-    const stubAccount = createStubAccount(originalAddress);
-    const instance = await getContractInstanceFromInstantiationParams(StubAccountContractArtifact, {
-      salt: Fr.random(),
-    });
-    return {
-      account: stubAccount,
-      instance,
-      artifact: StubAccountContractArtifact,
-    };
+    const { type } = await this.db!.retrieveAccount(address);
+    const stubAccount =
+      type === 'schnorr' || type === 'schnorr_initializerless'
+        ? createStubSchnorrAccount(originalAddress)
+        : createStubEcdsaAccount(originalAddress);
+    const stubClassId = this.stubClassIds.get(type);
+    if (!stubClassId) {
+      throw new Error(
+        `Stub class for account type '${type}' was not registered at wallet init. This is a bug — initStubClasses should cover every supported AccountType.`,
+      );
+    }
+    const instance = { ...contractInstance, currentContractClassId: stubClassId };
+    return { account: stubAccount, instance };
   }
 
-  override async simulateTx(executionPayload: ExecutionPayload, opts: SimulateOptions): Promise<TxSimulationResult> {
-    let simulationResults;
-    const feeOptions = opts.fee?.estimateGas
-      ? await this.completeFeeOptionsForEstimation(opts.from, executionPayload.feePayer, opts.fee?.gasSettings)
-      : await this.completeFeeOptions(opts.from, executionPayload.feePayer, opts.fee?.gasSettings);
+  /**
+   * Uses a stub account for kernelless simulation, bypassing real account authorization.
+   * Uses DefaultEntrypoint directly for NO_FROM transactions.
+   */
+  protected override async simulateViaEntrypoint(
+    executionPayload: ExecutionPayload,
+    opts: SimulateViaEntrypointOptions,
+  ): Promise<TxSimulationResultWithAppOffset> {
+    const { from, feeOptions, additionalScopes, sendMessagesAs } = opts;
+    const scopes = this.scopesFrom(from, additionalScopes);
     const feeExecutionPayload = await feeOptions.walletFeePaymentMethod?.getExecutionPayload();
-    const chainInfo = await this.getChainInfo();
-    const executionOptions: DefaultAccountEntrypointOptions = {
-      txNonce: Fr.random(),
-      cancellable: this.cancellableTransactions,
-      feePaymentMethodOptions: feeOptions.accountFeePaymentMethodOptions,
-    };
     const finalExecutionPayload = feeExecutionPayload
       ? mergeExecutionPayloads([feeExecutionPayload, executionPayload])
       : executionPayload;
+    const chainInfo = await this.getChainInfo();
 
-    // Kernelless simulations using the multicall entrypoints are not currently supported,
-    // since we only override proper account contracts.
-    // TODO: allow disabling kernels even when no overrides are necessary
-    if (opts.from.equals(AztecAddress.ZERO)) {
-      const fromAccount = await this.getAccountFromAddress(opts.from);
-      const txRequest = await fromAccount.createTxExecutionRequest(
-        finalExecutionPayload,
-        feeOptions.gasSettings,
-        chainInfo,
-        executionOptions,
-      );
-      simulationResults = await this.pxe.simulateTx(
-        txRequest,
-        true /* simulatePublic */,
-        opts?.skipTxValidation,
-        opts?.skipFeeEnforcement ?? true,
-      );
+    let overrides: SimulationOverrides | undefined;
+    let txRequest: TxExecutionRequest;
+    if (from === NO_FROM) {
+      const entrypoint = new DefaultEntrypoint();
+      txRequest = await entrypoint.createTxExecutionRequest(finalExecutionPayload, feeOptions.gasSettings, chainInfo);
     } else {
-      const { account: fromAccount, instance, artifact } = await this.getFakeAccountDataFor(opts.from);
-      const txRequest = await fromAccount.createTxExecutionRequest(
+      const { account, instance } = await this.getFakeAccountDataFor(from);
+      overrides = {
+        contracts: { [from.toString()]: { instance } },
+      };
+      const executionOptions: DefaultAccountEntrypointOptions = {
+        txNonce: Fr.random(),
+        cancellable: this.cancellableTransactions,
+        // If from is an address, feeOptions include the way the account contract should handle the fee payment
+        feePaymentMethodOptions: feeOptions.accountFeePaymentMethodOptions!,
+      };
+      txRequest = await account.createTxExecutionRequest(
         finalExecutionPayload,
         feeOptions.gasSettings,
         chainInfo,
         executionOptions,
       );
-      const contractOverrides = {
-        [opts.from.toString()]: { instance, artifact },
-      };
-      simulationResults = await this.pxe.simulateTx(txRequest, true /* simulatePublic */, true, true, {
-        contracts: contractOverrides,
-      });
     }
 
-    if (opts.fee?.estimateGas) {
-      const limits = getGasLimits(simulationResults, opts.fee?.estimatedGasPadding);
-      printGasEstimates(feeOptions, limits, this.userLog);
-    }
-    return simulationResults;
+    const result = await this.pxe.simulateTx(txRequest, {
+      simulatePublic: true,
+      skipFeeEnforcement: true,
+      skipTxValidation: true,
+      overrides,
+      scopes,
+      senderForTags: this.senderForTagsFrom(from, sendMessagesAs),
+    });
+    const appCallOffset = await this.computeAppCallOffset(from, feeOptions);
+    return TxSimulationResultWithAppOffset.fromResultAndOffset(result, appCallOffset);
   }
 
   // Exposed because of the `aztec-wallet get-tx` command. It has been decided that it's fine to keep around because

@@ -2,14 +2,14 @@ services:
   redis:
     image: redis:latest
     ports:
-      - "6379:6379"
+      - "15233:6379"
 
   prover:
     build:
       context: .
       dockerfile: Dockerfile
       args:
-        BB_VERSION: "0.84.0"
+        BB_VERSION: "5.0.0-nightly.20260311"
     depends_on:
       - redis
     environment:

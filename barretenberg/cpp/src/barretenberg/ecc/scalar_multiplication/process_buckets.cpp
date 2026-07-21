@@ -69,8 +69,12 @@ void radix_sort_count_zero_entries(uint64_t* keys,
         for (size_t i = 0; i < NUM_RADIX_BUCKETS; ++i) {
             const size_t bucket_size = offsets_copy[i + 1] - offsets_copy[i];
             if (bucket_size > 1) {
-                radix_sort_count_zero_entries(
-                    &keys[offsets_copy[i]], bucket_size, shift - RADIX_BITS, num_zero_entries, bucket_index_bits, keys);
+                radix_sort_count_zero_entries(&keys[offsets_copy[i]],
+                                              bucket_size,
+                                              shift - RADIX_BITS,
+                                              num_zero_entries,
+                                              bucket_index_bits,
+                                              top_level_keys);
             }
         }
     }

@@ -10,6 +10,9 @@ import { bufferToHex } from '../string/index.js';
  * A class representing a 16 byte Buffer.
  */
 export class Buffer16 {
+  /** Branding for nominal typing. */
+  declare private readonly _branding: 'Buffer16';
+
   /**
    * The size of the hash in bytes.
    */

@@ -2,7 +2,7 @@ use crate::protocol::{hash::poseidon2_hash_bytes, traits::{Deserialize, Empty, F
 
 #[derive(Deserialize, Eq, Serialize)]
 pub struct EventSelector {
-    // 1st 4-bytes (big-endian leftmost) of abi-encoding of an event.
+    // Low 32 bits of the poseidon2 hash of the event signature.
     inner: u32,
 }
 

@@ -1,5 +1,5 @@
 // === AUDIT STATUS ===
-// internal:    { status: Planned, auditors: [], commit: }
+// internal:    { status: Completed, auditors: [Federico], commit: }
 // external_1:  { status: not started, auditors: [], commit: }
 // external_2:  { status: not started, auditors: [], commit: }
 // =====================
@@ -13,7 +13,7 @@ void HonkRecursionConstraintsOutput<Builder>::update(const HonkRecursionConstrai
                                                      bool update_ipa_data)
 {
     // Update points accumulator
-    if (this->points_accumulator.has_data) {
+    if (this->points_accumulator.is_populated()) {
         this->points_accumulator.aggregate(other.points_accumulator);
     } else {
         this->points_accumulator = other.points_accumulator;
@@ -30,8 +30,7 @@ template <typename Builder>
 void HonkRecursionConstraintsOutput<Builder>::update(const HonkRecursionConstraintsOutput<Builder>& other,
                                                      bool update_ipa_data)
 {
-    // Update points accumulator
-    if (this->points_accumulator.has_data) {
+    if (this->points_accumulator.is_populated()) {
         this->points_accumulator.aggregate(other.points_accumulator);
     } else {
         this->points_accumulator = other.points_accumulator;
@@ -43,55 +42,56 @@ void HonkRecursionConstraintsOutput<Builder>::update(const HonkRecursionConstrai
             this->nested_ipa_proofs.end(), other.nested_ipa_proofs.begin(), other.nested_ipa_proofs.end());
         this->nested_ipa_claims.insert(
             this->nested_ipa_claims.end(), other.nested_ipa_claims.begin(), other.nested_ipa_claims.end());
+        this->nested_triple_ipa_openings.insert(this->nested_triple_ipa_openings.end(),
+                                                other.nested_triple_ipa_openings.begin(),
+                                                other.nested_triple_ipa_openings.end());
     }
+}
+
+template <typename Builder>
+void HonkRecursionConstraintsOutput<Builder>::update_triple_ipa_opening(
+    const stdlib::recursion::PairingPoints<stdlib::bn254<Builder>>& pairing_points, TripleIpaOpening triple_ipa_opening)
+{
+    if (this->points_accumulator.is_populated()) {
+        this->points_accumulator.aggregate(pairing_points);
+    } else {
+        this->points_accumulator = pairing_points;
+    }
+    this->nested_triple_ipa_openings.push_back(std::move(triple_ipa_opening));
 }
 
 template <>
 std::pair<OpeningClaim<stdlib::grumpkin<UltraCircuitBuilder>>, HonkProof> HonkRecursionConstraintsOutput<
     UltraCircuitBuilder>::perform_IPA_accumulation(UltraCircuitBuilder& builder) const
 {
+    using RecursiveCurve = stdlib::grumpkin<UltraCircuitBuilder>;
+    using StdlibTranscript = UltraStdlibTranscript;
+    using RecursiveIPA = IPA<RecursiveCurve>;
     BB_ASSERT_EQ(
         nested_ipa_claims.size(), nested_ipa_proofs.size(), "Mismatched number of nested IPA claims and proofs.");
 
-    OpeningClaim<stdlib::grumpkin<UltraCircuitBuilder>> final_ipa_claim;
-    HonkProof final_ipa_proof;
-
-    if (nested_ipa_claims.size() == 2) {
-        // If we have two claims, accumulate.
-        CommitmentKey<curve::Grumpkin> commitment_key(1 << CONST_ECCVM_LOG_N);
-        using StdlibTranscript = UltraStdlibTranscript;
-
-        auto ipa_transcript_1 = std::make_shared<StdlibTranscript>(nested_ipa_proofs[0]);
-        auto ipa_transcript_2 = std::make_shared<StdlibTranscript>(nested_ipa_proofs[1]);
-        auto [ipa_claim, ipa_proof] = IPA<stdlib::grumpkin<UltraCircuitBuilder>>::accumulate(
-            commitment_key, ipa_transcript_1, nested_ipa_claims[0], ipa_transcript_2, nested_ipa_claims[1]);
-
-        final_ipa_claim = ipa_claim;
-        final_ipa_proof = ipa_proof;
-    } else if (nested_ipa_claims.size() == 1) {
-        // If we have one claim, just forward it along.
-        final_ipa_claim = nested_ipa_claims[0];
-        // This conversion looks suspicious but there's no need to make this an output of the circuit since
-        // its a proof that will be checked anyway.
-        final_ipa_proof = nested_ipa_proofs[0].get_value();
-    } else if (nested_ipa_claims.empty()) {
-        // If we don't have any claims, we may need to inject a fake one if we're proving with
-        // UltraRollupHonk, indicated by the manual setting of the honk_recursion metadata to 2.
-        info("Proving with UltraRollupHonk but no IPA claims exist.");
-        auto [stdlib_opening_claim, ipa_proof] =
-            IPA<stdlib::grumpkin<UltraCircuitBuilder>>::create_random_valid_ipa_claim_and_proof(builder);
-
-        final_ipa_claim = stdlib_opening_claim;
-        final_ipa_proof = ipa_proof;
-    } else {
-        // We don't support and shouldn't expect to support circuits with 3+ IPA recursive verifiers.
-        throw_or_abort("Too many nested IPA claims to accumulate");
+    std::vector<IPAAccumulator> accumulators;
+    accumulators.reserve(nested_ipa_claims.size() + nested_triple_ipa_openings.size());
+    for (size_t idx = 0; idx < nested_ipa_claims.size(); ++idx) {
+        auto ipa_transcript = std::make_shared<StdlibTranscript>(nested_ipa_proofs[idx]);
+        accumulators.emplace_back(RecursiveIPA::reduce_verify(nested_ipa_claims[idx], ipa_transcript));
+    }
+    for (const auto& opening : nested_triple_ipa_openings) {
+        accumulators.emplace_back(opening.reduce_verify());
     }
 
-    BB_ASSERT_EQ(final_ipa_proof.size(), IPA_PROOF_LENGTH);
-
-    // Return the IPA claim and proof
-    return { final_ipa_claim, final_ipa_proof };
+    CommitmentKey<curve::Grumpkin> commitment_key(1 << CONST_ECCVM_LOG_N);
+    if (accumulators.size() == 2) {
+        return RecursiveIPA::accumulate(commitment_key, std::move(accumulators[0]), std::move(accumulators[1]));
+    }
+    if (accumulators.size() == 1) {
+        return RecursiveIPA::prove_accumulator_claim(commitment_key, std::move(accumulators[0]));
+    }
+    if (accumulators.empty()) {
+        info("Proving with UltraRollupHonk but no IPA claims exist.");
+        return RecursiveIPA::create_random_valid_ipa_claim_and_proof(builder);
+    }
+    throw_or_abort("Too many nested IPA accumulators to accumulate");
 }
 
 template <>
@@ -102,7 +102,9 @@ void HonkRecursionConstraintsOutput<UltraCircuitBuilder>::perform_full_IPA_verif
 
     BB_ASSERT_EQ(
         nested_ipa_claims.size(), nested_ipa_proofs.size(), "Mismatched number of nested IPA claims and proofs.");
-    BB_ASSERT_EQ(nested_ipa_claims.size(), 2U, "Root rollup must have two nested IPA claims.");
+    BB_ASSERT_EQ(nested_ipa_claims.size() + nested_triple_ipa_openings.size(),
+                 2U,
+                 "Root rollup must accumulate two IPA proofs.");
 
     auto [ipa_claim, ipa_proof] = perform_IPA_accumulation(builder);
 
@@ -133,7 +135,7 @@ void HonkRecursionConstraintsOutput<UltraCircuitBuilder>::finalize(UltraCircuitB
         // Propagate pairing points and ipa claim
         IO inputs;
         inputs.pairing_inputs =
-            points_accumulator.has_data
+            points_accumulator.is_populated()
                 ? points_accumulator
                 : stdlib::recursion::PairingPoints<stdlib::bn254<UltraCircuitBuilder>>::construct_default();
         inputs.ipa_claim = ipa_claim;
@@ -147,10 +149,13 @@ void HonkRecursionConstraintsOutput<UltraCircuitBuilder>::finalize(UltraCircuitB
         } else {
             // We shouldn't accidentally have IPA proofs.
             BB_ASSERT_EQ(nested_ipa_proofs.size(), static_cast<size_t>(0), "IPA proofs present when not expected.");
+            BB_ASSERT_EQ(nested_triple_ipa_openings.size(),
+                         static_cast<size_t>(0),
+                         "TripleIPA openings present when not expected.");
         }
 
         // Propagate public inputs
-        if (points_accumulator.has_data) {
+        if (points_accumulator.is_populated()) {
             IO inputs;
             inputs.pairing_inputs = points_accumulator;
             inputs.set_public();
@@ -169,11 +174,14 @@ void HonkRecursionConstraintsOutput<MegaCircuitBuilder>::finalize(MegaCircuitBui
 
     BB_ASSERT_EQ(
         nested_ipa_claims.size(), static_cast<size_t>(0), "IPA claims present when not expected in MegaBuilder.");
+    BB_ASSERT_EQ(nested_triple_ipa_openings.size(),
+                 static_cast<size_t>(0),
+                 "TripleIPA openings present when not expected in MegaBuilder.");
 
     // If the recursion constraints from HN, the public inputs have already been set. Otherwise, we need to propagate
     // the pairing points
     if (!is_hn_recursion_constraints) {
-        if (points_accumulator.has_data) {
+        if (points_accumulator.is_populated()) {
             IO inputs;
             inputs.pairing_inputs = points_accumulator;
             inputs.set_public();
@@ -194,5 +202,9 @@ template void HonkRecursionConstraintsOutput<UltraCircuitBuilder>::update(
 
 template void HonkRecursionConstraintsOutput<MegaCircuitBuilder>::update(
     const HonkRecursionConstraintsOutput<MegaCircuitBuilder>&, bool);
+
+template void HonkRecursionConstraintsOutput<UltraCircuitBuilder>::update_triple_ipa_opening(
+    const stdlib::recursion::PairingPoints<stdlib::bn254<UltraCircuitBuilder>>&,
+    HonkRecursionConstraintsOutput<UltraCircuitBuilder>::TripleIpaOpening);
 
 } // namespace acir_format

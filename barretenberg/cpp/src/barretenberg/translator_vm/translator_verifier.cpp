@@ -6,11 +6,13 @@
 
 #include "./translator_verifier.hpp"
 #include "barretenberg/commitment_schemes/shplonk/shplemini.hpp"
+#include "barretenberg/common/bb_bench.hpp"
 #include "barretenberg/relations/translator_vm/translator_decomposition_relation_impl.hpp"
 #include "barretenberg/relations/translator_vm/translator_delta_range_constraint_relation_impl.hpp"
 #include "barretenberg/relations/translator_vm/translator_extra_relations_impl.hpp"
 #include "barretenberg/relations/translator_vm/translator_non_native_field_relation_impl.hpp"
 #include "barretenberg/relations/translator_vm/translator_permutation_relation_impl.hpp"
+#include "barretenberg/relations/translator_vm/translator_shiftable_first_coeff_zero_relation_impl.hpp"
 #include "barretenberg/sumcheck/sumcheck.hpp"
 #include "barretenberg/transcript/origin_tag.hpp"
 #include "barretenberg/transcript/transcript.hpp"
@@ -69,10 +71,10 @@ void put_translation_data_in_relation_parameters_impl(RelationParameters<typenam
     using BF = typename Flavor::BF;
 
     const auto compute_four_limbs = [](const BF& in) {
-        auto result = std::array<FF, 4>{ FF(in.binary_basis_limbs[0].element),
-                                         FF(in.binary_basis_limbs[1].element),
-                                         FF(in.binary_basis_limbs[2].element),
-                                         FF(in.binary_basis_limbs[3].element) };
+        auto result = std::array<FF, 4>{ FF(in.get_limb(0).element),
+                                         FF(in.get_limb(1).element),
+                                         FF(in.get_limb(2).element),
+                                         FF(in.get_limb(3).element) };
         // Ensure extracted limbs are witnesses, not constants
         for (const auto& limb : result) {
             BB_ASSERT(!limb.is_constant());
@@ -81,11 +83,11 @@ void put_translation_data_in_relation_parameters_impl(RelationParameters<typenam
     };
 
     const auto compute_five_limbs = [](const BF& in) {
-        auto result = std::array<FF, 5>{ FF(in.binary_basis_limbs[0].element),
-                                         FF(in.binary_basis_limbs[1].element),
-                                         FF(in.binary_basis_limbs[2].element),
-                                         FF(in.binary_basis_limbs[3].element),
-                                         FF(in.prime_basis_limb) };
+        auto result = std::array<FF, 5>{ FF(in.get_limb(0).element),
+                                         FF(in.get_limb(1).element),
+                                         FF(in.get_limb(2).element),
+                                         FF(in.get_limb(3).element),
+                                         FF(in.get_prime_basis_limb()) };
         // Ensure extracted limbs are witnesses, not constants
         for (const auto& limb : result) {
             BB_ASSERT(!limb.is_constant());
@@ -103,7 +105,7 @@ void put_translation_data_in_relation_parameters_impl(RelationParameters<typenam
 
     relation_parameters.accumulated_result = compute_four_limbs(accumulated_result);
 
-    // OriginTag: The accumulated_result limbs originate from ECCVM verifier (different protocol phase)
+    // OriginTag false positive: The accumulated_result limbs originate from ECCVM verifier (different protocol phase)
     // and are used directly in Translator relations. The fact that these values do not interact
     // with any other value from the Translator circuit would trigger the round provenance mechanism if we didn't clear
     // the round provenance. This cross-protocol usage is sound because:
@@ -130,17 +132,16 @@ template <typename Flavor> void TranslatorVerifier_<Flavor>::put_translation_dat
  * @details This function verifies the Translator circuit which ensures consistency between
  * the ECCVM transcript and the op queue data. Returns verification result with pairing points and check status.
  */
+/**
+ * @brief Load translator proof and run the pre-sumcheck (Oink-like) phase.
+ * @details Hashes the VK, populates relation parameters from ECCVM inputs, and receives all
+ * wire commitments and beta/gamma challenges from the transcript. This phase corresponds to
+ * what OinkProver/OinkVerifier do for the hiding kernel: it is the pre-sumcheck setup that
+ * binds all committed data to the shared Fiat-Shamir transcript before the joint sumcheck.
+ */
 template <typename Flavor>
-typename TranslatorVerifier_<Flavor>::ReductionResult TranslatorVerifier_<Flavor>::reduce_to_pairing_check()
+typename TranslatorVerifier_<Flavor>::VerifierCommitments TranslatorVerifier_<Flavor>::receive_pre_sumcheck()
 {
-    using PCS = typename Flavor::PCS;
-    using Shplemini = ShpleminiVerifier_<Curve, Flavor::HasZK>;
-    using ClaimBatcher = ClaimBatcher_<Curve>;
-    using ClaimBatch = typename ClaimBatcher::Batch;
-    using InterleavedBatch = typename ClaimBatcher::InterleavedBatch;
-    using Sumcheck = SumcheckVerifier<Flavor>;
-
-    // Load the proof produced by the translator prover
     transcript->load_proof(proof);
 
     // Fiat-Shamir the vk hash
@@ -153,7 +154,7 @@ typename TranslatorVerifier_<Flavor>::ReductionResult TranslatorVerifier_<Flavor
     // For recursive verification, mark the accumulated result's prime basis limb as used
     // (it can be recovered from binary basis limbs, so no need to constrain it further)
     if constexpr (IsRecursive) {
-        mark_witness_as_used(accumulated_result.prime_basis_limb);
+        mark_witness_as_used(accumulated_result.get_prime_basis_limb());
     }
 
     // Use accumulated_result from ECCVM verifier
@@ -184,6 +185,21 @@ typename TranslatorVerifier_<Flavor>::ReductionResult TranslatorVerifier_<Flavor
     // Get commitment to permutation and lookup grand products
     commitments.z_perm = transcript->template receive_from_prover<Commitment>(commitment_labels.z_perm);
 
+    return commitments;
+}
+
+template <typename Flavor>
+typename TranslatorVerifier_<Flavor>::ReductionResult TranslatorVerifier_<Flavor>::reduce_to_pairing_check()
+{
+    BB_BENCH_NAME("TranslatorVerifier::reduce");
+    using PCS = typename Flavor::PCS;
+    using Shplemini = ShpleminiVerifier_<Curve, Flavor::HasZK>;
+    using ClaimBatcher = ClaimBatcher_<Curve>;
+    using ClaimBatch = typename ClaimBatcher::Batch;
+    using Sumcheck = SumcheckVerifier<Flavor>;
+
+    auto commitments = receive_pre_sumcheck();
+
     // Each linearly independent subrelation contribution is multiplied by `alpha^i`, where
     //  i = 0, ..., NUM_SUBRELATIONS- 1.
     const FF alpha = transcript->template get_challenge<FF>("Sumcheck:alpha");
@@ -191,33 +207,46 @@ typename TranslatorVerifier_<Flavor>::ReductionResult TranslatorVerifier_<Flavor
     // Execute Sumcheck Verifier
     Sumcheck sumcheck(transcript, alpha, TranslatorFlavor::CONST_TRANSLATOR_LOG_N);
 
-    std::vector<FF> gate_challenges(TranslatorFlavor::CONST_TRANSLATOR_LOG_N);
-    for (size_t idx = 0; idx < gate_challenges.size(); idx++) {
-        gate_challenges[idx] = transcript->template get_challenge<FF>("Sumcheck:gate_challenge_" + std::to_string(idx));
-    }
+    std::vector<FF> gate_challenges = transcript->template get_dyadic_powers_of_challenge<FF>(
+        "Sumcheck:gate_challenge", TranslatorFlavor::CONST_TRANSLATOR_LOG_N);
 
     // Receive commitments to Libra masking polynomials
-    std::array<Commitment, NUM_LIBRA_COMMITMENTS> libra_commitments = {};
+    std::array<Commitment, NUM_SMALL_IPA_COMMITMENTS> libra_commitments = {};
     libra_commitments[0] = transcript->template receive_from_prover<Commitment>("Libra:concatenation_commitment");
 
-    // Create padding indicator array
-    std::vector<FF> padding_indicator_array(TranslatorFlavor::CONST_TRANSLATOR_LOG_N, FF(1));
-
-    auto sumcheck_output = sumcheck.verify(relation_parameters, gate_challenges, padding_indicator_array);
+    auto sumcheck_output = sumcheck.verify(relation_parameters, gate_challenges);
 
     libra_commitments[1] = transcript->template receive_from_prover<Commitment>("Libra:grand_sum_commitment");
     libra_commitments[2] = transcript->template receive_from_prover<Commitment>("Libra:quotient_commitment");
 
-    // Execute Shplemini
-    ClaimBatcher claim_batcher{
-        .unshifted = ClaimBatch{ commitments.get_unshifted_without_interleaved(),
-                                 sumcheck_output.claimed_evaluations.get_unshifted_without_interleaved() },
-        .shifted = ClaimBatch{ commitments.get_to_be_shifted(), sumcheck_output.claimed_evaluations.get_shifted() },
-        .interleaved = InterleavedBatch{ .commitments_groups = commitments.get_groups_to_be_interleaved(),
-                                         .evaluations = sumcheck_output.claimed_evaluations.get_interleaved() }
-    };
+    // Unshifted concat evals are reconstructed inside sumcheck (via complete_full_circuit_evaluations).
+    // Here we only need the shifted concat evals for PCS, which are not stored in AllEntities.
+    auto& claimed = sumcheck_output.claimed_evaluations;
+    auto concat_shift_evals = TranslatorFlavor::reconstruct_concatenated_evaluations(
+        claimed.get_groups_to_be_concatenated_shifted(), std::span<const FF>(sumcheck_output.challenge));
 
-    // Get Commitment::one() - requires builder for recursive case
+    // --- PCS: build opening claims and verify ---
+    auto combined_unshifted_comms = commitments.get_pcs_unshifted();
+    auto combined_unshifted_evals = claimed.get_pcs_unshifted();
+
+    // For shifted: commitments use the getter, but evals must be assembled manually since
+    // the reconstructed shifted concat evals live in a local array, not in AllEntities.
+    auto combined_shifted_comms = commitments.get_pcs_to_be_shifted();
+    RefVector<FF> combined_shifted_evals(claimed.get_pcs_shifted());
+    for (auto& eval : concat_shift_evals) {
+        combined_shifted_evals.push_back(eval);
+    }
+
+    if (combined_unshifted_comms.size() != TranslatorFlavor::NUM_PCS_UNSHIFTED ||
+        combined_unshifted_evals.size() != TranslatorFlavor::NUM_PCS_UNSHIFTED ||
+        combined_shifted_comms.size() != TranslatorFlavor::NUM_PCS_TO_BE_SHIFTED ||
+        combined_shifted_evals.size() != TranslatorFlavor::NUM_PCS_TO_BE_SHIFTED) {
+        throw_or_abort("Translator verifier: PCS commitment/evaluation size mismatch");
+    }
+
+    ClaimBatcher claim_batcher{ .unshifted = ClaimBatch{ combined_unshifted_comms, combined_unshifted_evals },
+                                .shifted = ClaimBatch{ combined_shifted_comms, combined_shifted_evals } };
+
     Commitment commitment_one;
     if constexpr (IsRecursive) {
         commitment_one = Commitment::one(builder);
@@ -226,8 +255,7 @@ typename TranslatorVerifier_<Flavor>::ReductionResult TranslatorVerifier_<Flavor
     }
 
     auto [opening_claim, consistency_checked] =
-        Shplemini::compute_batch_opening_claim(padding_indicator_array,
-                                               claim_batcher,
+        Shplemini::compute_batch_opening_claim(claim_batcher,
                                                sumcheck_output.challenge,
                                                commitment_one,
                                                transcript,

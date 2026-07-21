@@ -22,9 +22,12 @@ jobs:
     runs-on: ubuntu-latest
     # exclusive with ci3.yml, only run on forks.
     if: github.event.pull_request.head.repo.fork
+    permissions:
+      contents: read
+      pull-requests: write
     steps:
       - name: Checkout
-        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+        uses: actions/checkout@93cb6efe18208431cddfb8368fd83d5badbf9bfd # v5.0.1
         with:
           # The commit to checkout.  We want our actual commit, and not the result of merging the PR to the target.
           ref: ${{ github.event.pull_request.head.sha || github.sha }}
@@ -36,28 +39,69 @@ jobs:
         if: github.event.pull_request.draft
         run: echo "CI is not run on drafts." && exit 1
 
-      - name: External Contributor Checks
+      # Gate 'ci-external' on the labeller being a member of AztecProtocol/watchers.
+      - name: Verify ci-external Labeller Authorization
+        if: contains(github.event.pull_request.labels.*.name, 'ci-external')
+        env:
+          PR_NUMBER: ${{ github.event.pull_request.number }}
+          REPO: ${{ github.repository }}
+          GH_TOKEN: ${{ secrets.AZTEC_BOT_GITHUB_TOKEN }}
         run: |
           set -o pipefail
-          git fetch origin ${{ github.event.pull_request.base.ref }} --depth=1 &>/dev/null
-          forbidden_changes=$(git diff --name-only origin/${{ github.event.pull_request.base.ref }} HEAD -- ci3 .github ci.sh scripts)
+          # Note: pipe to jq with -s add to flatten paginated arrays; gh's own --jq runs per-page.
+          labeller=$(gh api --paginate "/repos/$REPO/issues/$PR_NUMBER/events" \
+            | jq -r -s 'add | [.[] | select(.event == "labeled" and .label.name == "ci-external")] | last | .actor.login // empty')
+          if [ -z "$labeller" ] || [ "$labeller" = "null" ]; then
+            echo "Error: could not determine who applied the 'ci-external' label. Stripping it."
+            gh pr edit "$PR_NUMBER" --remove-label "ci-external" || true
+            exit 1
+          fi
+          state=$(gh api "/orgs/AztecProtocol/teams/watchers/memberships/$labeller" --jq '.state' 2>/dev/null || true)
+          if [ "$state" != "active" ]; then
+            echo "Error: labeller is not an active member of AztecProtocol/watchers. Stripping 'ci-external' label."
+            gh pr edit "$PR_NUMBER" --remove-label "ci-external"
+            exit 1
+          fi
+          echo "Labeller is authorized."
+
+      - name: External Contributor Checks
+        env:
+          PR_BASE_REF: ${{ github.event.pull_request.base.ref }}
+          PR_NUMBER: ${{ github.event.pull_request.number }}
+          HAS_CI_LABEL: ${{ contains(github.event.pull_request.labels.*.name, 'ci-external') || github.event.label.name == 'ci-external-once' }}
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -o pipefail
+          git fetch origin "$PR_BASE_REF" --depth=1 &>/dev/null
+          forbidden_changes=$(git diff --name-only "origin/$PR_BASE_REF" HEAD -- ci3 .github ci.sh scripts)
           if echo "$forbidden_changes" | grep -q .; then
             echo "Error: External PRs can't contain CI changes (forbidden files: $forbidden_changes)."
             exit 1
           fi
-          if [[ "${{ github.event.pull_request.base.ref }}" != "master" && \
-                "${{ github.event.pull_request.base.ref }}" != "staging" && \
-                "${{ github.event.pull_request.base.ref }}" != "next" && \
-                "${{ github.event.pull_request.base.ref }}" != merge-train/* ]]; then
-            echo "Error: External PRs can only target master, staging, next or merge-train/* branches. Targeted: ${{ github.event.pull_request.base.ref }}."
+          if [[ "$PR_BASE_REF" != "master" && \
+                "$PR_BASE_REF" != "staging" && \
+                "$PR_BASE_REF" != "next" && \
+                "$PR_BASE_REF" != merge-train/* ]]; then
+            echo "Error: External PRs can only target master, staging, next or merge-train/* branches. Targeted: $PR_BASE_REF."
             exit 1
           fi
-          labeled="${{contains(github.event.pull_request.labels.*.name, 'ci-external') || github.event.label.name == 'ci-external-once'}}"
-          if [ "$labeled" = false ]; then
+          if [ "$HAS_CI_LABEL" = false ]; then
             echo "External PRs need the 'ci-external' or 'ci-external-once' labels to run."
             exit 1
           fi
-          GITHUB_TOKEN=${{ secrets.AZTEC_BOT_GITHUB_TOKEN }} gh pr edit ${{ github.event.pull_request.number }} --remove-label "ci-external-once"
+          gh pr edit "$PR_NUMBER" --remove-label "ci-external-once"
+
+      - name: Determine CI Mode
+        env:
+          MERGE_GROUP_BASE_REF: ${{ github.event.merge_group.base_ref }}
+          PR_BASE_REF: ${{ github.event.pull_request.base.ref }}
+          GITHUB_REF_NAME: ${{ github.ref_name }}
+          GITHUB_TOKEN: ${{ github.token }}
+          PR_LABELS_JSON: ${{ toJson(github.event.pull_request.labels.*.name) }}
+        run: |
+          # Parse labels from JSON env var to avoid shell injection via label names
+          mapfile -t LABELS < <(echo "$PR_LABELS_JSON" | jq -r '.[]')
+          ./.github/ci3_labels_to_env.sh "${LABELS[@]}"
 
       - name: Run
         env:
@@ -69,7 +113,7 @@ jobs:
           # creds for being able to upload to cache.
           AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
           AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
-          GITHUB_TOKEN: ${{ secrets.AZTEC_BOT_GITHUB_TOKEN }}
+          GITHUB_TOKEN: ${{ github.token }}
           BUILD_INSTANCE_SSH_KEY: ${{ secrets.BUILD_INSTANCE_SSH_KEY }}
           # DO NOT allow build instance key access to external jobs.
           CI_USE_BUILD_INSTANCE_KEY: "0"
@@ -78,17 +122,17 @@ jobs:
           PR_HEAD_REF: ${{ github.event.pull_request.head.ref }}
           PR_COMMITS: ${{ github.event.pull_request.commits }}
           GITHUB_REF_NAME: ${{ github.ref_name }}
-        run: ./.github/ci3.sh "${{ join(github.event.pull_request.labels.*.name, ',') }}"
+        run: ./.github/ci3.sh $CI_MODE
 
       - name: Post-Actions
         if: always()
         env:
           SHOULD_SQUASH_MERGE: ${{ contains(github.event.pull_request.labels.*.name, 'ci-squash-and-merge') && '1' || '0' }}
-          SHOULD_UPLOAD_BENCHMARKS: "0"
+          BENCH_UPLOAD: "0"
           # For updating success cache.
           AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
           AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
-          GITHUB_TOKEN: ${{ secrets.AZTEC_BOT_GITHUB_TOKEN }}
+          GITHUB_TOKEN: ${{ github.token }}
           PR_NUMBER: ${{ github.event.pull_request.number }}
           PR_HEAD_REF: ${{ github.event.pull_request.head.ref }}
           PR_BASE_REF: ${{ github.event.pull_request.base.ref }}

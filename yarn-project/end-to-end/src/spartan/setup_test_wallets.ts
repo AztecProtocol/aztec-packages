@@ -1,23 +1,31 @@
 import { generateSchnorrAccounts } from '@aztec/accounts/testing';
+import { NO_FROM } from '@aztec/aztec.js/account';
 import { AztecAddress } from '@aztec/aztec.js/addresses';
-import { NO_WAIT } from '@aztec/aztec.js/contracts';
+import { DefaultWaitOpts, NO_WAIT } from '@aztec/aztec.js/contracts';
 import { L1FeeJuicePortalManager } from '@aztec/aztec.js/ethereum';
 import { FeeJuicePaymentMethodWithClaim } from '@aztec/aztec.js/fee';
 import { type FeePaymentMethod, SponsoredFeePaymentMethod } from '@aztec/aztec.js/fee';
 import { Fr } from '@aztec/aztec.js/fields';
+import { waitForL1ToL2MessageReady } from '@aztec/aztec.js/messaging';
 import { type AztecNode, createAztecNodeClient, waitForTx } from '@aztec/aztec.js/node';
 import type { Wallet } from '@aztec/aztec.js/wallet';
 import { createEthereumChain } from '@aztec/ethereum/chain';
 import { createExtendedL1Client } from '@aztec/ethereum/client';
 import type { Logger } from '@aztec/foundation/log';
-import { retryUntil } from '@aztec/foundation/retry';
+import { makeBackoff, retry, retryUntil } from '@aztec/foundation/retry';
 import { TokenContract } from '@aztec/noir-contracts.js/Token';
+import { Gas } from '@aztec/stdlib/gas';
 import type { AztecNodeAdmin } from '@aztec/stdlib/interfaces/client';
-import { TestWallet, proveInteraction, registerInitialLocalNetworkAccountsInWallet } from '@aztec/test-wallet/server';
+import { TxStatus } from '@aztec/stdlib/tx';
+import { getGasLimits } from '@aztec/wallet-sdk/base-wallet';
+import { registerInitialLocalNetworkAccountsInWallet } from '@aztec/wallets/testing';
 
 import { getACVMConfig } from '../fixtures/get_acvm_config.js';
 import { getBBConfig } from '../fixtures/get_bb_config.js';
 import { getSponsoredFPCAddress, registerSponsoredFPC } from '../fixtures/utils.js';
+import { TestWallet } from '../test-wallet/test_wallet.js';
+import { proveInteraction } from '../test-wallet/utils.js';
+import { WorkerWallet } from '../test-wallet/worker_wallet.js';
 
 export interface TestAccounts {
   aztecNode: AztecNode;
@@ -48,6 +56,8 @@ export async function setupTestAccountsWithTokens(
 
   const aztecNode = createAztecNodeClient(nodeUrl);
   const wallet = await TestWallet.create(aztecNode);
+  // Remote JSON-RPC node: keep the 1s poll cadence rather than the in-process TestWallet fast default.
+  wallet.setDefaultWaitInterval(DefaultWaitOpts.interval);
 
   const [recipientAccount, ...accounts] = (await registerInitialLocalNetworkAccountsInWallet(wallet)).slice(
     0,
@@ -85,11 +95,19 @@ export async function deploySponsoredTestAccountsWithTokens(
 
   const paymentMethod = new SponsoredFeePaymentMethod(await getSponsoredFPCAddress());
   const recipientDeployMethod = await recipientAccount.getDeployMethod();
-  await recipientDeployMethod.send({ from: AztecAddress.ZERO, fee: { paymentMethod }, wait: { timeout: 2400 } });
+  await recipientDeployMethod.send({
+    from: NO_FROM,
+    fee: { paymentMethod },
+    wait: { timeout: 2400 },
+  });
   await Promise.all(
     fundedAccounts.map(async a => {
       const deployMethod = await a.getDeployMethod();
-      await deployMethod.send({ from: AztecAddress.ZERO, fee: { paymentMethod }, wait: { timeout: 2400 } }); // increase timeout on purpose in order to account for two empty epochs
+      await deployMethod.send({
+        from: NO_FROM,
+        fee: { paymentMethod },
+        wait: { timeout: 2400 },
+      }); // increase timeout on purpose in order to account for two empty epochs
       logger.info(`Account deployed at ${a.address}`);
     }),
   );
@@ -118,49 +136,92 @@ export async function deploySponsoredTestAccountsWithTokens(
 }
 
 async function deployAccountWithDiagnostics(
-  account: { getDeployMethod: () => Promise<{ send: (opts: any) => any }>; address: any },
+  account: { getDeployMethod: () => Promise<{ simulate: (opts: any) => any; send: (opts: any) => any }>; address: any },
   paymentMethod: SponsoredFeePaymentMethod,
   aztecNode: AztecNode,
   logger: Logger,
   accountLabel: string,
+  estimateGas?: boolean,
 ): Promise<void> {
   const deployMethod = await account.getDeployMethod();
-  let txHash;
-  try {
-    txHash = await deployMethod.send({ from: AztecAddress.ZERO, fee: { paymentMethod }, wait: NO_WAIT });
-    await waitForTx(aztecNode, txHash, { timeout: 2400 });
-    logger.info(`${accountLabel} deployed at ${account.address}`);
-  } catch (error) {
-    const blockNumber = await aztecNode.getBlockNumber();
-    let receipt;
-    try {
-      receipt = await aztecNode.getTxReceipt(txHash);
-    } catch {
-      receipt = 'unavailable';
-    }
-    logger.error(`${accountLabel} deployment failed`, {
-      txHash: txHash.toString(),
-      receipt: JSON.stringify(receipt),
-      currentBlockNumber: blockNumber,
-      error: String(error),
-    });
-    throw error;
+  let gasSettings: any;
+  if (estimateGas) {
+    const sim = await deployMethod.simulate({ from: NO_FROM, fee: { paymentMethod }, includeMetadata: true });
+    const { txsLimits } = await aztecNode.getNodeInfo();
+    gasSettings = getGasLimits(sim.gasUsed!, Gas.from(txsLimits.gas));
+    logger.info(`${accountLabel} estimated gas: DA=${gasSettings.gasLimits.daGas} L2=${gasSettings.gasLimits.l2Gas}`);
   }
+
+  // Track the tx hash across retries so we don't re-send when the previous tx is still pending.
+  let sentTxHash: { txHash: any } | undefined;
+
+  await retry(
+    async () => {
+      // Check if already deployed (handles case where previous attempt succeeded but waitForTx timed out)
+      const existing = await aztecNode.getContract(account.address);
+      if (existing) {
+        logger.info(`${accountLabel} already deployed at ${account.address}, skipping`);
+        return;
+      }
+
+      // If we already sent a tx, check if it was dropped before deciding to re-send.
+      if (sentTxHash) {
+        const prevReceipt = await aztecNode.getTxReceipt(sentTxHash.txHash);
+        if (prevReceipt.isDropped()) {
+          logger.info(`${accountLabel} previous tx ${sentTxHash.txHash} was dropped, re-sending`);
+          sentTxHash = undefined;
+        } else {
+          logger.info(`${accountLabel} previous tx ${sentTxHash.txHash} still pending, waiting again...`);
+        }
+      }
+
+      if (!sentTxHash) {
+        const deployResult = await deployMethod.send({
+          from: NO_FROM,
+          fee: { paymentMethod, gasSettings },
+          wait: NO_WAIT,
+        });
+        sentTxHash = { txHash: deployResult.txHash };
+        logger.info(`${accountLabel} tx sent`, { txHash: sentTxHash.txHash.toString() });
+      }
+
+      const receipt = await waitForTx(aztecNode, sentTxHash.txHash, { timeout: 600 });
+      if (receipt.isDropped()) {
+        sentTxHash = undefined;
+        throw new Error(`${accountLabel} tx was dropped, retrying...`);
+      }
+      logger.info(`${accountLabel} deployed at ${account.address}`);
+    },
+    `deploy ${accountLabel}`,
+    makeBackoff([1, 2, 4, 8, 16]),
+    logger,
+  );
 }
 
 async function deployAccountsInBatches(
-  accounts: { getDeployMethod: () => Promise<{ send: (opts: any) => any }>; address: any }[],
+  accounts: {
+    getDeployMethod: () => Promise<{ simulate: (opts: any) => any; send: (opts: any) => any }>;
+    address: any;
+  }[],
   paymentMethod: SponsoredFeePaymentMethod,
   aztecNode: AztecNode,
   logger: Logger,
   labelPrefix: string,
   batchSize = 2,
+  estimateGas?: boolean,
 ): Promise<void> {
   for (let i = 0; i < accounts.length; i += batchSize) {
     const batch = accounts.slice(i, i + batchSize);
     await Promise.all(
       batch.map((account, idx) =>
-        deployAccountWithDiagnostics(account, paymentMethod, aztecNode, logger, `${labelPrefix}${i + idx + 1}`),
+        deployAccountWithDiagnostics(
+          account,
+          paymentMethod,
+          aztecNode,
+          logger,
+          `${labelPrefix}${i + idx + 1}`,
+          estimateGas,
+        ),
       ),
     );
   }
@@ -171,6 +232,7 @@ export async function deploySponsoredTestAccounts(
   aztecNode: AztecNode,
   logger: Logger,
   numberOfFundedWallets = 1,
+  opts?: { estimateGas?: boolean },
 ): Promise<TestAccountsWithoutTokens> {
   const [recipient, ...funded] = await generateSchnorrAccounts(numberOfFundedWallets + 1);
   const recipientAccount = await wallet.createSchnorrAccount(recipient.secret, recipient.salt);
@@ -180,8 +242,23 @@ export async function deploySponsoredTestAccounts(
 
   const paymentMethod = new SponsoredFeePaymentMethod(await getSponsoredFPCAddress());
 
-  await deployAccountWithDiagnostics(recipientAccount, paymentMethod, aztecNode, logger, 'Recipient account');
-  await deployAccountsInBatches(fundedAccounts, paymentMethod, aztecNode, logger, 'Funded account ', 2);
+  await deployAccountWithDiagnostics(
+    recipientAccount,
+    paymentMethod,
+    aztecNode,
+    logger,
+    'Recipient account',
+    opts?.estimateGas,
+  );
+  await deployAccountsInBatches(
+    fundedAccounts,
+    paymentMethod,
+    aztecNode,
+    logger,
+    'Funded account ',
+    2,
+    opts?.estimateGas,
+  );
 
   return {
     aztecNode,
@@ -201,6 +278,8 @@ export async function deployTestAccountsWithTokens(
 ): Promise<TestAccounts> {
   const aztecNode = createAztecNodeClient(nodeUrl);
   const wallet = await TestWallet.create(aztecNode);
+  // Remote JSON-RPC node: keep the 1s poll cadence rather than the in-process TestWallet fast default.
+  wallet.setDefaultWaitInterval(DefaultWaitOpts.interval);
 
   const [recipient, ...funded] = await generateSchnorrAccounts(numberOfFundedWallets + 1);
   const recipientAccount = await wallet.createSchnorrAccount(recipient.secret, recipient.salt);
@@ -219,7 +298,7 @@ export async function deployTestAccountsWithTokens(
     fundedAccounts.map(async (a, i) => {
       const paymentMethod = new FeeJuicePaymentMethodWithClaim(a.address, claims[i]);
       const deployMethod = await a.getDeployMethod();
-      await deployMethod.send({ from: AztecAddress.ZERO, fee: { paymentMethod } });
+      await deployMethod.send({ from: NO_FROM, fee: { paymentMethod } });
       logger.info(`Account deployed at ${a.address}`);
     }),
   );
@@ -262,9 +341,7 @@ async function bridgeL1FeeJuice(
   const portal = await L1FeeJuicePortalManager.new(aztecNode, l1Client, log);
   const claim = await portal.bridgeTokensPublic(recipient, amount, true /* mint */);
 
-  const isSynced = async () =>
-    (await aztecNode.getL1ToL2MessageBlock(Fr.fromHexString(claim.messageHash))) !== undefined;
-  await retryUntil(isSynced, `message ${claim.messageHash} sync`, 24, 0.5);
+  await waitForL1ToL2MessageReady(aztecNode, Fr.fromHexString(claim.messageHash), { timeoutSeconds: 24 });
 
   log.info(`Created a claim for ${amount} L1 fee juice to ${recipient}.`, claim);
   return claim;
@@ -306,7 +383,7 @@ async function deployTokenAndMint(
     fee: {
       paymentMethod,
     },
-    wait: { timeout: 600, returnReceipt: true },
+    wait: { timeout: 600 },
   });
 
   const tokenAddress = tokenContract.address;
@@ -357,7 +434,9 @@ export async function performTransfers({
 
     const provenTxs = await Promise.all(txs);
 
-    await Promise.all(provenTxs.map(t => t.send({ wait: { timeout: 600 } })));
+    // Wait only for the txs to be proposed, not checkpointed. This is enough to keep the chain
+    // loaded for the reorg scenario, and avoids each round blocking on the (slower) checkpoint lag.
+    await Promise.all(provenTxs.map(t => t.send({ wait: { timeout: 600, waitForStatus: TxStatus.PROPOSED } })));
 
     logger.info(`Completed round ${i + 1} / ${rounds}`);
   }
@@ -384,6 +463,8 @@ export async function createWalletAndAztecNodeClient(
     proverEnabled,
   };
   const wallet = await TestWallet.create(aztecNode, pxeConfig);
+  // Remote JSON-RPC node: keep the 1s poll cadence rather than the in-process TestWallet fast default.
+  wallet.setDefaultWaitInterval(DefaultWaitOpts.interval);
 
   return {
     wallet,
@@ -392,6 +473,45 @@ export async function createWalletAndAztecNodeClient(
       await wallet.stop();
       await bbConfig?.cleanup();
       await acvmConfig?.cleanup();
+    },
+  };
+}
+
+export type WorkerWalletWrapper = {
+  wallet: WorkerWallet;
+  aztecNode: AztecNode;
+  cleanup: () => Promise<void>;
+};
+
+export async function createWorkerWalletClient(
+  nodeUrl: string,
+  proverEnabled: boolean,
+  logger: Logger,
+): Promise<WorkerWalletWrapper> {
+  const aztecNode = createAztecNodeClient(nodeUrl);
+  const [bbConfig, acvmConfig] = await Promise.all([getBBConfig(logger), getACVMConfig(logger)]);
+
+  // Strip cleanup functions — they can't be structured-cloned for worker transfer
+  const { cleanup: bbCleanup, ...bbPaths } = bbConfig ?? {};
+  const { cleanup: acvmCleanup, ...acvmPaths } = acvmConfig ?? {};
+
+  const pxeConfig = {
+    dataDirectory: undefined,
+    dataStoreMapSizeKb: 1024 * 1024,
+    ...bbPaths,
+    ...acvmPaths,
+    proverEnabled,
+  };
+
+  const wallet = await WorkerWallet.create(nodeUrl, pxeConfig);
+
+  return {
+    wallet,
+    aztecNode,
+    async cleanup() {
+      await wallet.stop();
+      await bbCleanup?.();
+      await acvmCleanup?.();
     },
   };
 }

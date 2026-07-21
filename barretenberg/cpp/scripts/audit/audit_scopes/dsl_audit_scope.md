@@ -1,7 +1,7 @@
 # DSL Audit Scope
 
-Repository: https://github.com/AztecProtocol/aztec-packages
-Commit hash: 2094fd1467dd9a94803b2c5007cf60ac357aa7d2 (22.12.2025)
+Repository: https://github.com/AztecProtocol/aztec-packages-private
+Commit hash: Most recent commit on branch 'next'
 
 ## Files to Audit
 **Note:** all paths are relative to `aztec-packages/barretenberg/cpp/src/barretenberg`

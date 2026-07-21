@@ -1,12 +1,13 @@
 import { AztecAddress } from '@aztec/aztec.js/addresses';
 import { NO_WAIT } from '@aztec/aztec.js/contracts';
 import { Fr } from '@aztec/aztec.js/fields';
-import { TxHash, TxReceipt } from '@aztec/aztec.js/tx';
+import type { TxHash, TxReceipt } from '@aztec/aztec.js/tx';
 import { jsonStringify } from '@aztec/foundation/json-rpc';
 import type { AMMContract } from '@aztec/noir-contracts.js/AMM';
 import type { TokenContract } from '@aztec/noir-contracts.js/Token';
+import type { BlockTag } from '@aztec/stdlib/block';
 import type { AztecNode, AztecNodeAdmin } from '@aztec/stdlib/interfaces/client';
-import type { TestWallet } from '@aztec/test-wallet/server';
+import type { EmbeddedWallet } from '@aztec/wallets/embedded';
 
 import { BaseBot } from './base_bot.js';
 import type { BotConfig } from './config.js';
@@ -21,7 +22,7 @@ type Balances = { token0: bigint; token1: bigint };
 export class AmmBot extends BaseBot {
   protected constructor(
     node: AztecNode,
-    wallet: TestWallet,
+    wallet: EmbeddedWallet,
     defaultAccountAddress: AztecAddress,
     public readonly amm: AMMContract,
     public readonly token0: TokenContract,
@@ -33,10 +34,11 @@ export class AmmBot extends BaseBot {
 
   static async create(
     config: BotConfig,
-    wallet: TestWallet,
+    wallet: EmbeddedWallet,
     aztecNode: AztecNode,
     aztecNodeAdmin: AztecNodeAdmin | undefined,
     store: BotStore,
+    syncChainTip?: BlockTag,
   ): Promise<AmmBot> {
     const { defaultAccountAddress, token0, token1, amm } = await new BotFactory(
       config,
@@ -44,6 +46,7 @@ export class AmmBot extends BaseBot {
       store,
       aztecNode,
       aztecNodeAdmin,
+      syncChainTip,
     ).setupAmm();
     return new AmmBot(aztecNode, wallet, defaultAccountAddress, amm, token0, token1, config);
   }
@@ -71,12 +74,14 @@ export class AmmBot extends BaseBot {
         .getFunctionCall(),
     });
 
-    const amountOutMin = await amm.methods
-      .get_amount_out_for_exact_in(
-        await tokenIn.methods.balance_of_public(amm.address).simulate({ from: this.defaultAccountAddress }),
-        await tokenOut.methods.balance_of_public(amm.address).simulate({ from: this.defaultAccountAddress }),
-        amountIn,
-      )
+    const { result: tokenInBalance } = await tokenIn.methods
+      .balance_of_public(amm.address)
+      .simulate({ from: this.defaultAccountAddress });
+    const { result: tokenOutBalance } = await tokenOut.methods
+      .balance_of_public(amm.address)
+      .simulate({ from: this.defaultAccountAddress });
+    const { result: amountOutMin } = await amm.methods
+      .get_amount_out_for_exact_in(tokenInBalance, tokenOutBalance, amountIn)
       .simulate({ from: this.defaultAccountAddress });
 
     const swapExactTokensInteraction = amm.methods
@@ -85,11 +90,12 @@ export class AmmBot extends BaseBot {
         authWitnesses: [swapAuthwit],
       });
 
-    const opts = await this.getSendMethodOpts(swapExactTokensInteraction);
+    const opts = this.getSendMethodOpts();
 
     this.log.verbose(`Sending transaction`, logCtx);
     this.log.info(`Tx. Balances: ${jsonStringify(balances)}`, { ...logCtx, balances });
-    return swapExactTokensInteraction.send({ ...opts, wait: NO_WAIT });
+    const { txHash } = await swapExactTokensInteraction.send({ ...opts, wait: NO_WAIT });
+    return txHash;
   }
 
   protected override async onTxMined(receipt: TxReceipt, logCtx: object): Promise<void> {
@@ -110,15 +116,17 @@ export class AmmBot extends BaseBot {
   }
 
   private async getPublicBalanceFor(address: AztecAddress, from?: AztecAddress): Promise<Balances> {
-    return {
-      token0: await this.token0.methods.balance_of_public(address).simulate({ from: from ?? address }),
-      token1: await this.token1.methods.balance_of_public(address).simulate({ from: from ?? address }),
-    };
+    const { result: token0 } = await this.token0.methods.balance_of_public(address).simulate({ from: from ?? address });
+    const { result: token1 } = await this.token1.methods.balance_of_public(address).simulate({ from: from ?? address });
+    return { token0, token1 };
   }
   private async getPrivateBalanceFor(address: AztecAddress, from?: AztecAddress): Promise<Balances> {
-    return {
-      token0: await this.token0.methods.balance_of_private(address).simulate({ from: from ?? address }),
-      token1: await this.token1.methods.balance_of_private(address).simulate({ from: from ?? address }),
-    };
+    const { result: token0 } = await this.token0.methods
+      .balance_of_private(address)
+      .simulate({ from: from ?? address });
+    const { result: token1 } = await this.token1.methods
+      .balance_of_private(address)
+      .simulate({ from: from ?? address });
+    return { token0, token1 };
   }
 }

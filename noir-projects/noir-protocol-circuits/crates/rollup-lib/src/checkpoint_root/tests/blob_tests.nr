@@ -3,8 +3,8 @@ use bignum::{BigNum, BLS12_381_Fr};
 use blob::abis::{BatchingBlobCommitment, BlobAccumulator, FinalBlobBatchingChallenges};
 use types::{
     blob_data::create_checkpoint_end_marker,
-    constants::{BLOBS_PER_CHECKPOINT, FIELDS_PER_BLOB},
-    hash::poseidon2_hash,
+    constants::{BLOBS_PER_CHECKPOINT, DOM_SEP__BLOB_HASHED_Y_LIMBS, FIELDS_PER_BLOB},
+    hash::poseidon2_hash_with_separator,
     traits::Empty,
 };
 
@@ -17,26 +17,26 @@ impl TestBuilder {
             0x0000000000000000000000000000000000000000000000000000007cffffff83,
             0x0000000000000000000000000000000000000000000000000000007dffffff82,
             0x0000000000000000000000000000000000000000000000000000007effffff81,
-            0x0000000000000000000000000000636865636b706f696e745f656e6400000006,
+            0x0000000000000000000000000000000000000000000000008c63744300000006,
         ];
         let blob_commitment_limbs_x_from_ts = [
-            0xd31a330b5cd07fc78df6ffe5c7c4d6,
-            0xd159ac2a801309b22d1612691ecc97,
-            0x57a8799e584eeac804e0e01d8bc4e1,
-            0x16e7a4,
+            0x6b6d91f1569e91e7353f2686151c4f,
+            0x200543e0d0c63d9466aaf8238cc422,
+            0xff58b30787118558b932c9782f8b6d,
+            0x0237b1,
         ];
         let blob_commitment_limbs_y_from_ts = [
-            0x3eca4d0931923980df2d7e38f25ab9,
-            0xaa5610c1f44f9ea433fc8c0646855a,
-            0x2e8f65bb5310b1ca0f16d5108d7936,
-            0x106c88,
+            0x19ade85454853199c24f5f5c55bb9f,
+            0x89ddb964c66bf6340b4a43fb88b218,
+            0x7bfd78cdc7f3b66e60effa134308ed,
+            0x0c6eb1,
         ];
         let blob_commitment = BatchingBlobCommitment::from_limbs(
             blob_commitment_limbs_x_from_ts,
             blob_commitment_limbs_y_from_ts,
         );
         let challenge_z_from_ts =
-            0x214fde23666780cf52da41db2ce5ac67b74907efeecfb183c477063859fd8e4b;
+            0x0a3c46459eb1496fb668371f5a418f65a40c0d35b0aac56585b37d80024c124a;
 
         let mut builder = Self::default_with_blob_fields(blob_fields_from_ts);
         builder.hints.blob_commitments[0] = blob_commitment.point;
@@ -105,8 +105,10 @@ fn correct_end_blob_accumulator_with_one_blob() {
     // We have a single blob, so the accumulated outputs are just those after a single evaluation:
     assert_eq(end_blob_accumulator.c_acc, builder.hints.blob_commitments[0]);
 
-    let expected_gamma_acc =
-        poseidon2_hash(end_blob_accumulator.y_acc.get_limbs().map(|l| l as Field));
+    let expected_gamma_acc = poseidon2_hash_with_separator(
+        end_blob_accumulator.y_acc.get_limbs().map(|l| l as Field),
+        DOM_SEP__BLOB_HASHED_Y_LIMBS,
+    );
     assert_eq(end_blob_accumulator.gamma_acc, expected_gamma_acc);
 }
 
@@ -185,36 +187,36 @@ fn correct_end_blob_accumulator_with_max_blobs() {
         0x080795,
     ];
     let kzg_commitment_x_limbs_blob_5_from_ts = [
-        0xbf595cd6406168a3c4b66f40965f40,
-        0x42c6ec0d08f7f9fbdc1c0518788055,
-        0x6dcd2df2fb15c4bdb83c6c57ea0e67,
-        0x16afbf,
+        0xe4b918b6a213ea1acca9574d9a94bc,
+        0x5a6853e4bdbc84ca90cf39b7bf0b72,
+        0xa27b42dc96614a6e330e825fc564a8,
+        0x1418d3,
     ];
     let kzg_commitment_y_limbs_blob_5_from_ts = [
-        0xd9e061b50aee8e9edea40ee8e28aff,
-        0x05beedf910fb31d43399cf1dea18cf,
-        0xe25ad714587e6f3a7e573ce56127e7,
-        0x001bd8,
+        0x66f8e0d7a76db22640553c0ce97e2f,
+        0xd443fc94d99bc9a5fe7c6591d9f02e,
+        0xa4269746c44c705269f7ff3338e98a,
+        0x18883f,
     ];
-    let z_6_blobs_from_ts = 0x0d39b1130a385e47a54e3736b57b864cdbb90e7e190856cf80c2be76d4a335f2;
+    let z_6_blobs_from_ts = 0x2fb9c6809d9b09d4726eca4c5dd25b155a0fc73c69a416e8403774e63a1b39dd;
     let gamma_limbs_6_blobs_from_ts =
-        [0x31d456aa106e8a1d79ffedb0ed0485, 0x6f4acc25b4f29560ecdc6deea568aa, 0x12fe];
+        [0xdd7dd6b3aa1162e54426bb54746f2e, 0x2aa78e62535afe9d77697b5ea6c308, 0x2f5f];
     let y_limbs_6_blobs_from_ts =
-        [0x0a2fedb8ba726d2d1ed4394796a031, 0x3822a4e42167ad10a5665c813bd5cd, 0x04ef];
+        [0x345fda79213b9c7b7919c3035cf82c, 0xc161c9db997aeceaeb8eb4c54b2872, 0x58c0];
     let batched_c_x_limbs_6_blobs_from_ts = [
-        0xc7c19538ef27019a111bcec7742330,
-        0x00b03aaf3e1f924a66d83ea8da4efb,
-        0x0dc05cbd0b036ea4d7cdcd96f29255,
-        0x0abe86,
+        0x0516186db862333586f4fa3037204f,
+        0xe7ba5c92a0653cff740fb0ffe7c320,
+        0x45017813d380bed6cc46b30af5068f,
+        0x12b1b7,
     ];
     let batched_c_y_limbs_6_blobs_from_ts = [
-        0x44122eaa471d7a5ec6947787fbcec7,
-        0x431ac1e0466cedd88ceda55f5efaf7,
-        0x8eeba206eef1bfc4fc030b1cb7b96d,
-        0x03f0a6,
+        0x123c6c95f09ef6c77e4cbc5fab99eb,
+        0xe47528ef0561c34a6d658a72842b1b,
+        0xf3cafdbdd26681a212ba30659977f2,
+        0x10f1d0,
     ];
     let blob_commitments_hash_6_blobs_from_ts =
-        0x00f234038a323b2776a3f460156e2e6e21b19221f1b964e74c367204337dd510;
+        0x003aa7b42572dcb47fa231c81efe81564edeb146b9e13f38d84288fdbac693e7;
 
     // Init. injected values:
     // - Commitments are injected and checked for correctness on L1 via acc.v

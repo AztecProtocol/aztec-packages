@@ -1,5 +1,5 @@
 // === AUDIT STATUS ===
-// internal:    { status: Complete, auditors: [Nishat], commit: 89a12920681072efff1eed881589aad16347e0d6 }
+// internal:    { status: Complete, auditors: [Nishat], commit: 5be53b6f75bac06d6d0132220044b28777021f0f }
 // external_1:  { status: not started, auditors: [], commit: }
 // external_2:  { status: not started, auditors: [], commit: }
 // =====================
@@ -312,8 +312,10 @@ template <typename Builder> void keccak<Builder>::theta(keccak_state& internal)
 
         // assert equal should cost 1 gate (multipliers are all constants)
         D[i].assert_equal((hi * multiplicand).add_two(mid * 11, lo));
-        internal.context->create_small_range_constraint(hi.get_witness_index(), static_cast<uint64_t>(BASE));
-        internal.context->create_small_range_constraint(lo.get_witness_index(), static_cast<uint64_t>(BASE));
+        // Range-constrain hi and lo to valid base-11 digits [0, 10]. Using BASE - 1 because
+        // create_small_range_constraint(var, N) constrains var to [0, N] inclusive.
+        internal.context->create_small_range_constraint(hi.get_witness_index(), static_cast<uint64_t>(BASE - 1));
+        internal.context->create_small_range_constraint(lo.get_witness_index(), static_cast<uint64_t>(BASE - 1));
 
         // If number of bits in KECCAK_THETA_OUTPUT table does NOT cleanly divide KECCAK_LANE_SIZE=64,
         // we need an additional range constraint to ensure that mid < 11^64

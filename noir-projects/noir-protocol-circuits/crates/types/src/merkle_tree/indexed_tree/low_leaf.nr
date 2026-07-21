@@ -24,7 +24,7 @@ where
 }
 
 mod tests {
-    use crate::tests::types::test_leaf_preimage::TestLeafPreimage;
+    use crate::merkle_tree::test_utils::TestLeafPreimage;
     use super::is_valid_low_leaf;
 
     #[test]

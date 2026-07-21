@@ -4,7 +4,7 @@
 #include <gmock/gmock.h>
 #include <gtest/gtest.h>
 
-#include "barretenberg/vm2/common/aztec_constants.hpp"
+#include "barretenberg/aztec/aztec_constants.hpp"
 #include "barretenberg/vm2/common/instruction_spec.hpp"
 #include "barretenberg/vm2/common/opcodes.hpp"
 #include "barretenberg/vm2/constraining/flavor_settings.hpp"
@@ -125,7 +125,6 @@ TEST(ExecutionTraceGenTest, RegisterAllocation)
 
     builder.process({ ex_event }, trace);
 
-    // todo: Test doesnt check the other register fields are zeroed out.
     EXPECT_THAT(trace.as_rows(),
                 ElementsAre(
                     // First row is empty
@@ -145,6 +144,14 @@ TEST(ExecutionTraceGenTest, RegisterAllocation)
                           ROW_FIELD_EQ(execution_rw_reg_0_, 0),
                           ROW_FIELD_EQ(execution_rw_reg_1_, 0),
                           ROW_FIELD_EQ(execution_rw_reg_2_, 1))));
+
+    // Verify that unused registers (3-5) and their associated fields are zeroed out.
+    const auto rows = trace.as_rows();
+    EXPECT_THAT(rows[1],
+                AllOf(ROW_FIELD_EQ(execution_register_3_, 0),
+                      ROW_FIELD_EQ(execution_mem_tag_reg_3_, 0),
+                      ROW_FIELD_EQ(execution_sel_mem_op_reg_3_, 0),
+                      ROW_FIELD_EQ(execution_rw_reg_3_, 0)));
 }
 
 TEST(ExecutionTraceGenTest, Call)
@@ -636,7 +643,7 @@ TEST(ExecutionTraceGenTest, JumpI)
                           ROW_FIELD_EQ(execution_mem_tag_reg_0_, static_cast<uint8_t>(ValueTag::U1)),
                           ROW_FIELD_EQ(execution_expected_tag_reg_0_, static_cast<uint8_t>(ValueTag::U1)),
                           ROW_FIELD_EQ(execution_sel_tag_check_reg_0_, 1),
-                          ROW_FIELD_EQ(execution_sel_should_read_registers, 1),
+                          ROW_FIELD_EQ(execution_sel_read_registers, 1),
                           ROW_FIELD_EQ(execution_sel_register_read_error, 0),
                           ROW_FIELD_EQ(execution_subtrace_operation_id, AVM_EXEC_OP_ID_JUMPI))));
 }
@@ -678,7 +685,7 @@ TEST(ExecutionTraceGenTest, JumpiWrongTag)
                           ROW_FIELD_EQ(execution_mem_tag_reg_0_, static_cast<uint8_t>(MemoryTag::U8)),
                           ROW_FIELD_EQ(execution_expected_tag_reg_0_, static_cast<uint8_t>(MemoryTag::U1)),
                           ROW_FIELD_EQ(execution_sel_tag_check_reg_0_, 1),
-                          ROW_FIELD_EQ(execution_sel_should_read_registers, 1),
+                          ROW_FIELD_EQ(execution_sel_read_registers, 1),
                           ROW_FIELD_EQ(execution_batched_tags_diff_inv_reg,
                                        1), // (2**0  * (mem_tag_reg[0] - expected_tag_reg[0]))^-1 = 1
                           ROW_FIELD_EQ(execution_sel_register_read_error, 1),

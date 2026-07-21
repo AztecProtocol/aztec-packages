@@ -4,7 +4,6 @@
 #include <gtest/gtest.h>
 
 #include "barretenberg/crypto/merkle_tree/memory_tree.hpp"
-#include "barretenberg/vm2/simulation/events/note_hash_tree_check_event.hpp"
 #include "barretenberg/vm2/simulation/gadgets/poseidon2.hpp"
 #include "barretenberg/vm2/simulation/testing/mock_merkle_check.hpp"
 #include "barretenberg/vm2/simulation/testing/mock_poseidon2.hpp"
@@ -13,9 +12,7 @@
 namespace bb::avm2::simulation {
 
 using ::testing::_;
-using ::testing::AllOf;
 using ::testing::ElementsAre;
-using ::testing::Field;
 using ::testing::Return;
 using ::testing::StrictMock;
 
@@ -40,7 +37,8 @@ TEST(AvmSimulationNoteHashTree, Exists)
     FF note_hash = 42;
     uint64_t leaf_index = 30;
 
-    EXPECT_CALL(merkle_check, assert_membership(note_hash, leaf_index, _, snapshot.root)).WillRepeatedly(Return());
+    EXPECT_CALL(merkle_check, assert_membership(DOM_SEP__MERKLE_HASH, note_hash, leaf_index, _, snapshot.root))
+        .WillRepeatedly(Return());
 
     EXPECT_TRUE(note_hash_tree_check.note_hash_exists(note_hash, note_hash, leaf_index, sibling_path, snapshot));
     EXPECT_FALSE(note_hash_tree_check.note_hash_exists(27, note_hash, leaf_index, sibling_path, snapshot));
@@ -77,7 +75,8 @@ TEST(AvmSimulationNoteHashTree, WriteUnique)
     uint64_t note_hash_counter = 10;
     FF next_root = 234567;
 
-    EXPECT_CALL(merkle_check, write(FF(0), note_hash, snapshot.next_available_leaf_index, _, snapshot.root))
+    EXPECT_CALL(merkle_check,
+                write(DOM_SEP__MERKLE_HASH, FF(0), note_hash, snapshot.next_available_leaf_index, _, snapshot.root))
         .WillOnce(Return(next_root));
 
     AppendOnlyTreeSnapshot next_snapshot =
@@ -121,7 +120,9 @@ TEST(AvmSimulationNoteHashTree, WriteSiloed)
     std::vector<FF> unique_note_hash_inputs = { DOM_SEP__UNIQUE_NOTE_HASH, nonce, siloed_note_hash };
     EXPECT_CALL(poseidon2, hash(unique_note_hash_inputs)).WillOnce(Return(unique_note_hash));
 
-    EXPECT_CALL(merkle_check, write(FF(0), unique_note_hash, snapshot.next_available_leaf_index, _, snapshot.root))
+    EXPECT_CALL(
+        merkle_check,
+        write(DOM_SEP__MERKLE_HASH, FF(0), unique_note_hash, snapshot.next_available_leaf_index, _, snapshot.root))
         .WillOnce(Return(next_root));
 
     AppendOnlyTreeSnapshot next_snapshot =
@@ -179,7 +180,9 @@ TEST(AvmSimulationNoteHashTree, WriteRaw)
     std::vector<FF> unique_note_hash_inputs = { DOM_SEP__UNIQUE_NOTE_HASH, nonce, siloed_note_hash };
     EXPECT_CALL(poseidon2, hash(unique_note_hash_inputs)).WillOnce(Return(unique_note_hash));
 
-    EXPECT_CALL(merkle_check, write(FF(0), unique_note_hash, snapshot.next_available_leaf_index, _, snapshot.root))
+    EXPECT_CALL(
+        merkle_check,
+        write(DOM_SEP__MERKLE_HASH, FF(0), unique_note_hash, snapshot.next_available_leaf_index, _, snapshot.root))
         .WillOnce(Return(next_root));
 
     AppendOnlyTreeSnapshot next_snapshot = note_hash_tree_check.append_note_hash(

@@ -11,7 +11,7 @@ import { deriveSigningKey } from '@aztec/stdlib/keys';
 import FormControl from '@mui/material/FormControl';
 import Select from '@mui/material/Select';
 import MenuItem from '@mui/material/MenuItem';
-import type { AccountType } from '../wallet_db';
+import type { AccountType } from '@aztec/wallets/embedded';
 import { randomBytes } from '@aztec/foundation/crypto/random';
 import { FeePaymentSelector } from '../../components/common/FeePaymentSelector';
 import CircularProgress from '@mui/material/CircularProgress';
@@ -23,7 +23,8 @@ import { InfoText } from '../../components/common/InfoText';
 import { INFO_TEXT } from '../../constants';
 import { Box, DialogContent } from '@mui/material';
 import { DialogActions } from '@mui/material';
-import type { EmbeddedWallet } from '../embedded_wallet';
+import type { EmbeddedWallet } from '@aztec/wallets/embedded';
+import { NO_FROM } from '@aztec/aztec.js/account';
 
 export function CreateAccountDialog({
   wallet,
@@ -77,7 +78,7 @@ export function CreateAccountDialog({
       if (publiclyDeploy) {
         deployMethod = await accountManager.getDeployMethod();
         opts = {
-          from: AztecAddress.ZERO,
+          from: NO_FROM,
           fee: {
             paymentMethod: feePaymentMethod,
           },

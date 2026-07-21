@@ -18,23 +18,56 @@ const path = require("path");
 const fs = require("fs");
 const macros = require("./src/katex-macros.js");
 
-// Load separate version files for each docs instance
-const developerVersions = require("./developer_versions.json");
-const networkVersions = require("./network_versions.json");
+// Version config files are the source of truth for type→version mappings.
+// Generate *_versions.json: config-mapped versions first (preserving config order),
+// then any extra directories not yet in the config (e.g. freshly cut versions).
+function syncVersionsFromConfig(configFile, versionsFile, versionedDocsDir) {
+  const config = require(configFile);
+  const docsDir = path.join(__dirname, versionedDocsDir);
+  const configVersions = [
+    ...new Set(
+      Object.values(config).filter(
+        (v) => v && fs.existsSync(path.join(docsDir, `version-${v}`))
+      )
+    ),
+  ];
+  const configVersionSet = new Set(Object.values(config).filter(Boolean));
+  const extraVersions = fs.existsSync(docsDir)
+    ? fs
+        .readdirSync(docsDir)
+        .filter((d) => d.startsWith("version-"))
+        .map((d) => d.replace("version-", ""))
+        .filter((v) => !configVersionSet.has(v))
+    : [];
+  fs.writeFileSync(
+    path.join(__dirname, versionsFile),
+    JSON.stringify([...configVersions, ...extraVersions], null, 2) + "\n"
+  );
+  return config;
+}
 
-// Find specific versions dynamically for Developer docs
-const nightlyVersion = developerVersions.find((v) => v.includes("nightly"));
-const devnetVersion = developerVersions.find((v) => v.includes("devnet"));
+const developerVersionConfig = syncVersionsFromConfig(
+  "./developer_version_config.json",
+  "developer_versions.json",
+  "developer_versioned_docs"
+);
+const mainnetDeveloperVersion = developerVersionConfig.mainnet || null;
+const developerTestnetVersion = developerVersionConfig.testnet || null;
 
-// Find specific versions dynamically for Network docs
-const ignitionVersion = networkVersions.find((v) => v.includes("ignition"));
-const testnetVersion = networkVersions.find((v) => !v.includes("ignition"));
+const networkVersionConfig = syncVersionsFromConfig(
+  "./network_version_config.json",
+  "network_versions.json",
+  "network_versioned_docs"
+);
+const mainnetNetworkVersion = networkVersionConfig.mainnet || null;
+const testnetVersion = networkVersionConfig.testnet || null;
 
 // Always serve from processed-docs (with resolved macros)
 // Preprocessing runs on both `yarn start` and `yarn build`
 const docsPath = "processed-docs/docs";
 const developerDocsPath = "processed-docs/docs-developers";
-const networkDocsPath = "processed-docs/docs-network";
+const operateDocsPath = "processed-docs/docs-operate";
+const participateDocsPath = "processed-docs/docs-participate";
 
 // Shared remark/rehype plugins configuration
 const remarkPlugins = [math];
@@ -77,6 +110,12 @@ const config = {
       onBrokenMarkdownLinks: "throw",
     },
   },
+  future: {
+    faster: true,
+    v4: {
+      removeLegacyPostBuildHeadAttribute: true,
+    },
+  },
   themes: ["@docusaurus/theme-mermaid", "docusaurus-theme-search-typesense"],
   presets: [
     [
@@ -93,6 +132,11 @@ const config = {
         pages: {
           path: "src/pages",
         },
+        // Keep utility routes out of the sitemap so they don't count against
+        // llms.txt coverage (they are also excluded from the llms.txt index).
+        sitemap: {
+          ignorePatterns: ["/search", "/**/tags", "/**/tags/**"],
+        },
       },
     ],
   ],
@@ -106,7 +150,7 @@ const config = {
     },
   ],
   plugins: [
-    // Developer docs instance - nightly/devnet versions
+    // Developer docs instance - mainnet/testnet versions
     [
       "@docusaurus/plugin-content-docs",
       {
@@ -122,21 +166,26 @@ const config = {
         },
         // Version configuration for Build docs
         includeCurrentVersion: process.env.CONTEXT !== "production",
-        lastVersion: devnetVersion,
+        lastVersion: mainnetDeveloperVersion || developerTestnetVersion,
         versions: {
-          ...(devnetVersion && {
-            [devnetVersion]: {
-              label: `Devnet (${devnetVersion})`,
+          ...(mainnetDeveloperVersion && {
+            [mainnetDeveloperVersion]: {
+              label:
+                mainnetDeveloperVersion === developerTestnetVersion
+                  ? `Alpha / Testnet (${mainnetDeveloperVersion})`
+                  : `Alpha (${mainnetDeveloperVersion})`,
               path: "",
               banner: "none",
             },
           }),
-          ...(nightlyVersion && {
-            [nightlyVersion]: {
-              path: "nightly",
-              banner: "unreleased",
-            },
-          }),
+          ...(developerTestnetVersion &&
+            developerTestnetVersion !== mainnetDeveloperVersion && {
+              [developerTestnetVersion]: {
+                label: `Testnet (${developerTestnetVersion})`,
+                path: mainnetDeveloperVersion ? "testnet" : "",
+                banner: "none",
+              },
+            }),
           ...(process.env.CONTEXT !== "production" && {
             current: {
               label: "dev",
@@ -148,45 +197,72 @@ const config = {
         rehypePlugins,
       },
     ],
-    // Network docs instance (node operators) - testnet/ignition versions
+    // Operate docs instance (node operators) - alpha/testnet versions
+    // Note: Plugin ID remains "network" for versioned docs compatibility (network_versioned_docs/)
     [
       "@docusaurus/plugin-content-docs",
       {
         id: "network",
-        path: networkDocsPath,
-        routeBasePath: "network",
-        sidebarPath: "./sidebars-network.js",
+        path: operateDocsPath,
+        routeBasePath: "operate",
+        sidebarPath: "./sidebars-operate.js",
         editUrl: (params) => {
           return (
-            `https://github.com/AztecProtocol/aztec-packages/edit/next/docs/docs-network/` +
+            `https://github.com/AztecProtocol/aztec-packages/edit/next/docs/docs-operate/` +
             params.docPath
           );
         },
-        // Version configuration for Network docs
+        // Version configuration for Operate docs
         includeCurrentVersion: process.env.CONTEXT !== "production",
-        lastVersion: ignitionVersion,
+        lastVersion:
+          process.env.CONTEXT !== "production"
+            ? "current"
+            : mainnetNetworkVersion,
         versions: {
-          ...(ignitionVersion && {
-            [ignitionVersion]: {
-              label: `Ignition (${ignitionVersion.replace("-ignition", "")})`,
-              path: "",
+          ...(mainnetNetworkVersion && {
+            [mainnetNetworkVersion]: {
+              label:
+                mainnetNetworkVersion === testnetVersion
+                  ? `Alpha / Testnet (${mainnetNetworkVersion})`
+                  : `Alpha (${mainnetNetworkVersion})`,
+              path: process.env.CONTEXT !== "production" ? "alpha" : "",
               banner: "none",
             },
           }),
-          ...(testnetVersion && {
-            [testnetVersion]: {
-              label: `Testnet (${testnetVersion})`,
-              path: "testnet",
-              banner: "none",
-            },
-          }),
+          ...(testnetVersion &&
+            testnetVersion !== mainnetNetworkVersion && {
+              [testnetVersion]: {
+                label: `Testnet (${testnetVersion})`,
+                path: "testnet",
+                banner: "none",
+              },
+            }),
           ...(process.env.CONTEXT !== "production" && {
             current: {
               label: "dev",
-              path: "dev",
+              path: "",
             },
           }),
         },
+        remarkPlugins,
+        rehypePlugins,
+      },
+    ],
+    // Participate docs instance - NOT versioned (educational content)
+    [
+      "@docusaurus/plugin-content-docs",
+      {
+        id: "participate",
+        path: participateDocsPath,
+        routeBasePath: "participate",
+        sidebarPath: "./sidebars-participate.js",
+        editUrl: (params) => {
+          return (
+            `https://github.com/AztecProtocol/aztec-packages/edit/next/docs/docs-participate/` +
+            params.docPath
+          );
+        },
+        // NO versioning - educational content is stable
         remarkPlugins,
         rehypePlugins,
       },
@@ -204,18 +280,36 @@ const config = {
       },
     ],
     [
-      "docusaurus-plugin-llms",
+      "@signalwire/docusaurus-plugin-llms-txt",
       {
-        generateLLMsTxt: true,
-        generateLLMsFullTxt: true,
-        docsDir: devnetVersion
-          ? `developer_versioned_docs/version-${devnetVersion}/`
-          : `developer_versioned_docs/version-${developerVersions[0]}/`,
-        title: "Aztec Protocol Documentation",
-        excludeImports: true,
-        version: devnetVersion || developerVersions[0],
-        pathTransformation: {
-          ignorePaths: ["docs"],
+        siteTitle: "Aztec Protocol Documentation",
+        siteDescription:
+          "Build private smart contracts on Ethereum's leading privacy-first L2 zkRollup.",
+        content: {
+          // Emit a .md sibling for every route so agents can fetch clean
+          // markdown at PAGE.md, and a single-file llms-full.txt dump.
+          enableMarkdownFiles: true,
+          enableLlmsFullTxt: true,
+          includeDocs: true,
+          includePages: true,
+          includeBlog: false,
+          // In production the served docs ARE the versioned snapshots (the
+          // current version is excluded), so they must be included or the index
+          // covers nothing.
+          includeVersionedDocs: true,
+          // The auto-generated API reference (raw static HTML under
+          // /aztec-nr-api and markdown under /typescript-api) is not part of
+          // Docusaurus's routes. It is surfaced in llms.txt separately by
+          // scripts/append_api_docs_to_llms.js, and deliberately kept out of the
+          // sitemap, so exclude it here too. Utility routes are excluded for the
+          // same reason.
+          excludeRoutes: [
+            "/search",
+            "/**/tags",
+            "/**/tags/**",
+            "/aztec-nr-api/**",
+            "/typescript-api/**",
+          ],
         },
       },
     ],
@@ -231,6 +325,7 @@ const config = {
     ],
     // ["./src/plugins/plugin-embed-code", {}],
   ],
+  clientModules: ["./src/clientModules/docsgpt.js"],
   customFields: {},
   themeConfig:
     /** @type {import('@docusaurus/preset-classic').ThemeConfig} */
@@ -254,6 +349,11 @@ const config = {
           ],
           apiKey: "gpH8o2YnqsOEj2jgtIMTULbtHi1kZ2X3", // public search-only api key, safe to commit
         },
+        // aztec-nr-api pages live in /static/ as raw HTML, not React Router
+        // routes. Without this, the dropdown calls history.push() and the SPA
+        // 404s on click. Matching the regex makes the theme use
+        // window.location.href for a real page load that Netlify resolves.
+        externalUrlRegex: "/aztec-nr-api/",
       },
       colorMode: {
         defaultMode: "light",
@@ -268,12 +368,7 @@ const config = {
           src: "img/Aztec Wordmark_Dark.svg",
         },
         items: [
-          // Unified version dropdown - shows context-aware versions based on current section
-          {
-            type: "custom-unifiedVersionDropdown",
-            position: "left",
-          },
-          // Developer sidebar link
+          // Developer sidebar link (Build)
           {
             type: "docSidebar",
             sidebarId: "sidebar",
@@ -281,14 +376,26 @@ const config = {
             position: "left",
             label: "Build",
           },
-
-          // Network portal link
+          // Operate portal link (node operators)
+          {
+            type: "doc",
+            docId: "operators/index",
+            docsPluginId: "network",
+            position: "left",
+            label: "Run a Node",
+          },
+          // Participate section - educational content (non-versioned)
           {
             type: "doc",
             docId: "index",
-            docsPluginId: "network",
+            docsPluginId: "participate",
             position: "left",
-            label: "Network",
+            label: "Participate",
+          },
+          // Unified version dropdown - shows context-aware versions based on current section
+          {
+            type: "custom-unifiedVersionDropdown",
+            position: "right",
           },
           {
             to: "/networks",
@@ -339,6 +446,11 @@ const config = {
                 className: "dropdown-subtitle",
               },
               {
+                to: "/developers/docs/resources/video_lessons",
+                label: "Video Lessons",
+                className: "no-external-icon",
+              },
+              {
                 to: "/developers/docs/resources/glossary",
                 label: "Glossary",
                 className: "no-external-icon",
@@ -365,8 +477,19 @@ const config = {
                 className: "dropdown-subtitle",
               },
               {
-                to: "https://airtable.com/appMhZd7lsZS3v27R/pagxWYAHYYrnrrXmm/form",
-                label: "Join community",
+                to: "/developers/support",
+                label: "Support",
+                className: "no-external-icon",
+              },
+              {
+                to: "https://discord.gg/aztec",
+                label: "Discord",
+                target: "_blank",
+                rel: "noopener noreferrer",
+              },
+              {
+                to: "https://forum.aztec.network",
+                label: "Forum",
                 target: "_blank",
                 rel: "noopener noreferrer",
               },
@@ -401,8 +524,16 @@ const config = {
             title: "Community",
             items: [
               {
+                label: "Support",
+                to: "/developers/support",
+              },
+              {
                 label: "Forum",
                 href: "https://forum.aztec.network",
+              },
+              {
+                label: "Discord",
+                href: "https://discord.gg/aztec",
               },
               {
                 label: "Noir Discord",
@@ -424,6 +555,14 @@ const config = {
               {
                 label: "Awesome Aztec",
                 to: "https://github.com/AztecProtocol/awesome-aztec",
+              },
+              {
+                label: "Technical Whitepaper",
+                href: "https://aztec.network/technical-whitepaper",
+              },
+              {
+                label: "Economic Whitepaper",
+                href: "https://aztec.network/economic-whitepaper",
               },
             ],
           },
@@ -459,17 +598,6 @@ const config = {
           {
             className: "code-block-error-line",
             line: "this-will-error",
-          },
-          // This could be used to have release-please modify the current version in code blocks.
-          // However doing so requires to manually add each md file to release-please-config.json/extra-files
-          // which is easy to forget an error prone, so instead we rely on the AztecPackagesVersion() function.
-          {
-            line: "x-release-please-version",
-            block: {
-              start: "x-release-please-start-version",
-              end: "x-release-please-end",
-            },
-            className: "not-allowed-to-be-empty",
           },
         ],
       },

@@ -42,79 +42,6 @@ const PrivateFunctionSchema = zodFor<PrivateFunction>()(
   }),
 );
 
-/** Private function definition with executable bytecode. */
-export interface ExecutablePrivateFunction extends PrivateFunction {
-  /** ACIR and Brillig bytecode */
-  bytecode: Buffer;
-}
-
-const ExecutablePrivateFunctionSchema = zodFor<ExecutablePrivateFunction>()(
-  PrivateFunctionSchema.and(z.object({ bytecode: schemas.Buffer })),
-);
-
-/** Utility function definition. */
-export interface UtilityFunction {
-  /** Selector of the function. Calculated as the hash of the method name and parameters. The specification of this is not enforced by the protocol. */
-  selector: FunctionSelector;
-  /** Brillig. */
-  bytecode: Buffer;
-}
-
-const UtilityFunctionSchema = zodFor<UtilityFunction>()(
-  z.object({
-    selector: FunctionSelector.schema,
-    bytecode: schemas.Buffer,
-  }),
-);
-
-/** Sibling paths and sibling commitments for proving membership of a private function within a contract class. */
-export type PrivateFunctionMembershipProof = {
-  artifactMetadataHash: Fr;
-  functionMetadataHash: Fr;
-  utilityFunctionsTreeRoot: Fr;
-  privateFunctionTreeSiblingPath: Fr[];
-  privateFunctionTreeLeafIndex: number;
-  artifactTreeSiblingPath: Fr[];
-  artifactTreeLeafIndex: number;
-};
-
-const PrivateFunctionMembershipProofSchema = zodFor<PrivateFunctionMembershipProof>()(
-  z.object({
-    artifactMetadataHash: schemas.Fr,
-    functionMetadataHash: schemas.Fr,
-    utilityFunctionsTreeRoot: schemas.Fr,
-    privateFunctionTreeSiblingPath: z.array(schemas.Fr),
-    privateFunctionTreeLeafIndex: schemas.Integer,
-    artifactTreeSiblingPath: z.array(schemas.Fr),
-    artifactTreeLeafIndex: schemas.Integer,
-  }),
-);
-
-/** A private function with a membership proof. */
-export type ExecutablePrivateFunctionWithMembershipProof = ExecutablePrivateFunction & PrivateFunctionMembershipProof;
-
-/** Sibling paths and commitments for proving membership of a utility  function within a contract class. */
-export type UtilityFunctionMembershipProof = {
-  artifactMetadataHash: Fr;
-  functionMetadataHash: Fr;
-  privateFunctionsArtifactTreeRoot: Fr;
-  artifactTreeSiblingPath: Fr[];
-  artifactTreeLeafIndex: number;
-};
-
-const UtilityFunctionMembershipProofSchema = zodFor<UtilityFunctionMembershipProof>()(
-  z.object({
-    artifactMetadataHash: schemas.Fr,
-    functionMetadataHash: schemas.Fr,
-    privateFunctionsArtifactTreeRoot: schemas.Fr,
-    artifactTreeSiblingPath: z.array(schemas.Fr),
-    artifactTreeLeafIndex: schemas.Integer,
-  }),
-);
-
-/** A utility function with a membership proof. */
-export type UtilityFunctionWithMembershipProof = UtilityFunction & UtilityFunctionMembershipProof;
-
 export const ContractClassSchema = zodFor<ContractClass>()(
   z.object({
     version: z.literal(VERSION),
@@ -143,11 +70,8 @@ export const ContractClassWithIdSchema = zodFor<ContractClassWithId>()(
   }),
 );
 
-/** A contract class with public bytecode information, and optional private and utility functions. */
-export type ContractClassPublic = {
-  privateFunctions: ExecutablePrivateFunctionWithMembershipProof[];
-  utilityFunctions: UtilityFunctionWithMembershipProof[];
-} & Pick<ContractClassCommitments, 'id' | 'privateFunctionsRoot'> &
+/** A contract class with public bytecode information. */
+export type ContractClassPublic = Pick<ContractClassCommitments, 'id' | 'privateFunctionsRoot'> &
   Omit<ContractClass, 'privateFunctions'>;
 
 export type ContractClassPublicWithCommitment = ContractClassPublic &
@@ -158,8 +82,6 @@ export const ContractClassPublicSchema = zodFor<ContractClassPublic>()(
     .object({
       id: schemas.Fr,
       privateFunctionsRoot: schemas.Fr,
-      privateFunctions: z.array(ExecutablePrivateFunctionSchema.and(PrivateFunctionMembershipProofSchema)),
-      utilityFunctions: z.array(UtilityFunctionSchema.and(UtilityFunctionMembershipProofSchema)),
     })
     .and(ContractClassSchema.omit({ privateFunctions: true })),
 );
@@ -179,8 +101,6 @@ export function contractClassPublicFromPlainObject(obj: any): ContractClassPubli
     version: 1,
     artifactHash: Fr.fromPlainObject(obj.artifactHash),
     privateFunctionsRoot: Fr.fromPlainObject(obj.privateFunctionsRoot),
-    privateFunctions: [],
-    utilityFunctions: [],
     packedBytecode: obj.packedBytecode instanceof Buffer ? obj.packedBytecode : Buffer.from(obj.packedBytecode),
   };
 }

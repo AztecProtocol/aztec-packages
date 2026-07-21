@@ -17,10 +17,10 @@ extract_references_mapping() {
   # Clear output file
   > "$output_file"
 
-  # Scan docs-developers and docs-network subdirectories
-  for docs_subdir in docs-developers docs-network; do
-    if [[ -d "$docs_dir/$docs_subdir/docs" ]]; then
-      _extract_from_directory "$docs_dir/$docs_subdir/docs" "$output_file"
+  # Scan docs-developers, docs-operate, and docs-participate subdirectories
+  for docs_subdir in docs-developers docs-operate docs-participate; do
+    if [[ -d "$docs_dir/$docs_subdir" ]]; then
+      _extract_from_directory "$docs_dir/$docs_subdir" "$output_file"
     fi
   done
 

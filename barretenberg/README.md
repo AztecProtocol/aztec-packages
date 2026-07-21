@@ -10,7 +10,7 @@ Barretenberg (or `bb` for short) is an optimized elliptic curve library for the 
 
 - [Barretenberg](#barretenberg)
   - [Development](#development)
-    - [Bootstrap](#bootstrap)
+    - [Quick Start](#quick-start)
     - [Build Options and Instructions](#build-options-and-instructions)
       - [WASM build](#wasm-build)
       - [Fuzzing build](#fuzzing-build)
@@ -19,7 +19,6 @@ Barretenberg (or `bb` for short) is an optimized elliptic curve library for the 
     - [Testing](#testing)
       - [Integration tests with Aztec in Monorepo](#integration-tests-with-aztec-in-monorepo)
         - [Integration tests with Aztec in Barretenberg Standalone Repo](#integration-tests-with-aztec-in-barretenberg-standalone-repo)
-        - [Testing locally in docker](#testing-locally-in-docker)
     - [Docs Build](#docs-build)
     - [Benchmarks](#benchmarks)
       - [x86\_64](#x86_64)
@@ -92,14 +91,32 @@ git clone -b release/10.x --depth 1 https://github.com/llvm/llvm-project.git \
 
 </details>
 
-### Bootstrap
+### Quick Start
 
-The bootstrap script will build both the native and wasm versions of barretenberg:
+If you just want to use the `bb` binary and don't need to modify the source code, the easiest option is to install a pre-built binary using [bbup](bbup/README.md):
 
 ```bash
-cd cpp
-./bootstrap.sh
+curl -L https://raw.githubusercontent.com/AztecProtocol/aztec-packages/refs/heads/master/barretenberg/bbup/install | bash
+bbup
+bb --version
 ```
+
+To build from source, use the bootstrap script. By default it uses a [Zig](https://ziglang.org/)-wrapped Clang for portable binaries (glibc 2.35+). This requires `zig` to be installed in addition to the dependencies listed above:
+
+```bash
+cd barretenberg/cpp
+./bootstrap.sh               # Full build (native + WASM)
+./bootstrap.sh build_native  # Native only (faster)
+```
+
+If you don't have Zig installed, you can use the `default` preset which only requires a standard Clang toolchain:
+
+```bash
+cd barretenberg/cpp
+NATIVE_PRESET=default ./bootstrap.sh build_native
+```
+
+The resulting binary will be at `build/bin/bb`.
 
 ### Build Options and Instructions
 
@@ -236,19 +253,6 @@ CI will automatically run integration tests against Aztec. It is located in the 
 ##### Integration tests with Aztec in Barretenberg Standalone Repo
 
 When working on a PR, you may want to point this file to a different Aztec branch or commit, but then it should probably be pointed back to master before merging.
-
-##### Testing locally in docker
-
-A common issue that arises is that our CI system has a different compiler version e.g. namely for GCC. If you need to mimic the CI operating system locally you can use bootstrap_docker.sh or run dockerfiles directly. However, there is a more efficient workflow for iterative development:
-
-```
-cd barretenberg/cpp
-./scripts/docker_interactive.sh
-mv build build-native # your native build folders are mounted, but will not work! have to clear them
-cmake --preset gcc ;  cmake --build build
-```
-
-This will allow you to rebuild as efficiently as if you were running native code, and not have to see a full compile cycle.
 
 ### Docs Build
 
@@ -403,15 +407,16 @@ Now when you `print` things with e.g. `print bigfield_t.get_value()` or inspect 
 
 #### Running Realistic Chonk from barretenberg folder
 
-Realistic IVC inputs pose a problem as the only code to sequence them requires a full end to end run.
-One can run the fourth newest master commit for example (any master commit that has finished benchmarking can be used):
-`barretenberg/cpp/bootstrap.sh bench_ivc origin/master~3`
+Realistic IVC inputs are pinned in CI and downloaded into
+`barretenberg/cpp/chonk-pinned-flows`.
+Run the benchmark flow with:
+`barretenberg/cpp/bootstrap.sh bench_ivc`
 
 To do a single benchmark you can do e.g.
-`IVC_BENCH=ecdsar1+transfer_0_recursions+sponsored_fpc ./bootstrap.sh bench_ivc origin/master~3`
+`barretenberg/cpp/bootstrap.sh bench_ivc transfer_0_recursions+sponsored_fpc`
 
-If one doesn't provide the commit, it generates these IVC inputs on the fly (depends on yarn-project having been bootstrapped).
-To use these inputs manually, just abort after input download and run Chonk proving on those inputs (stored in `yarn-project/end-to-end/example-app-ivc-inputs-out`).
+To use these inputs manually, run `barretenberg/cpp/scripts/chonk_inputs.sh download` and then point
+`bb prove --scheme chonk` at the downloaded flow's `ivc-inputs.msgpack`.
 
 #### Using Tracy to Profile Memory/CPU/Gate Counts
 

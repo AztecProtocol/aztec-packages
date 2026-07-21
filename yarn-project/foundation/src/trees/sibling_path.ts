@@ -1,5 +1,6 @@
+import { z } from 'zod';
+
 import { makeTuple } from '../array/array.js';
-import { poseidon2Hash } from '../crypto/poseidon/index.js';
 import { Fr } from '../curves/bn254/index.js';
 import { schemas } from '../schemas/index.js';
 import {
@@ -43,10 +44,14 @@ export class SiblingPath<N extends number> {
   }
 
   static schemaFor<N extends number>(size: N) {
-    return schemas.Buffer.transform(b => SiblingPath.fromBuffer(b) as SiblingPath<N>).refine(
-      path => path.pathSize === size,
-      path => ({ message: `Expected sibling path size ${size} but got ${path.pathSize}` }),
-    );
+    return schemas.Buffer.transform(b => SiblingPath.fromBuffer(b) as SiblingPath<N>).superRefine((path, ctx) => {
+      if (path.pathSize !== size) {
+        ctx.addIssue({
+          code: z.ZodIssueCode.custom,
+          message: `Expected sibling path size ${size} but got ${path.pathSize}`,
+        });
+      }
+    });
   }
 
   toJSON() {
@@ -172,7 +177,7 @@ export async function computeRootFromSiblingPath(
   leaf: Buffer,
   siblingPath: Buffer[],
   index: number,
-  hasher = async (left: Buffer, right: Buffer) => (await poseidon2Hash([left, right])).toBuffer(),
+  hasher: (left: Buffer, right: Buffer) => Promise<Buffer>,
 ) {
   let result = leaf;
   for (const sibling of siblingPath) {

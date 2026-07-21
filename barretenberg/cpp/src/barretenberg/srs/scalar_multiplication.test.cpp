@@ -33,43 +33,6 @@ using Curves = ::testing::Types<curve::BN254, curve::Grumpkin>;
 
 TYPED_TEST_SUITE(ScalarMultiplicationTests, Curves);
 
-TYPED_TEST(ScalarMultiplicationTests, AddAffinePoints)
-{
-    using Curve = TypeParam;
-    using Element = typename Curve::Element;
-    using AffineElement = typename Curve::AffineElement;
-    using Fq = typename Curve::BaseField;
-
-    constexpr size_t num_points = 20;
-    AffineElement* points = (AffineElement*)(aligned_alloc(64, sizeof(AffineElement) * (num_points)));
-    Fq* scratch_space = (Fq*)(aligned_alloc(64, sizeof(Fq) * (num_points * 2)));
-    Fq* lambda = (Fq*)(aligned_alloc(64, sizeof(Fq) * (num_points * 2)));
-
-    Element* points_copy = (Element*)(aligned_alloc(64, sizeof(Element) * (num_points)));
-    for (size_t i = 0; i < num_points; ++i) {
-        points[i] = AffineElement(Element::random_element());
-        points_copy[i].x = points[i].x;
-        points_copy[i].y = points[i].y;
-        points_copy[i].z = Fq::one();
-    }
-
-    size_t count = num_points - 1;
-    for (size_t i = num_points - 2; i < num_points; i -= 2) {
-        points_copy[count--] = points_copy[i] + points_copy[i + 1];
-        points_copy[count + 1] = points_copy[count + 1].normalize();
-    }
-
-    scalar_multiplication::MSM<Curve>::add_affine_points(points, num_points, scratch_space);
-    for (size_t i = num_points - 1; i > num_points - 1 - (num_points / 2); --i) {
-        EXPECT_EQ((points[i].x == points_copy[i].x), true);
-        EXPECT_EQ((points[i].y == points_copy[i].y), true);
-    }
-    aligned_free(lambda);
-    aligned_free(points);
-    aligned_free(points_copy);
-    aligned_free(scratch_space);
-}
-
 TYPED_TEST(ScalarMultiplicationTests, EndomorphismSplit)
 {
     using Curve = TypeParam;
@@ -83,16 +46,10 @@ TYPED_TEST(ScalarMultiplicationTests, EndomorphismSplit)
 
     Element expected = Group::one * scalar;
 
-    // we want to test that we can split a scalar into two half-length components, using the same location in memory.
-    Fr* k1_t = &scalar;
-    Fr* k2_t = (Fr*)&scalar.data[2];
+    Fr k1{ 0, 0, 0, 0 };
+    Fr k2{ 0, 0, 0, 0 };
+    Fr::split_into_endomorphism_scalars(scalar, k1, k2);
 
-    Fr::split_into_endomorphism_scalars(scalar, *k1_t, *k2_t);
-    Fr k1{ (*k1_t).data[0], (*k1_t).data[1], 0, 0 };
-    Fr k2{ (*k2_t).data[0], (*k2_t).data[1], 0, 0 };
-#if !defined(__clang__) && defined(__GNUC__)
-#pragma GCC diagnostic pop
-#endif
     Element result;
     Element t1 = Group::affine_one * k1;
     AffineElement generator = Group::affine_one;
@@ -103,55 +60,6 @@ TYPED_TEST(ScalarMultiplicationTests, EndomorphismSplit)
     result = t1 + t2;
 
     EXPECT_EQ(result == expected, true);
-}
-
-TYPED_TEST(ScalarMultiplicationTests, RadixSort)
-{
-    using Curve = TypeParam;
-    using Fr = typename Curve::ScalarField;
-
-    // check that our radix sort correctly sorts!
-    constexpr size_t target_degree = 1 << 8;
-    const size_t num_rounds = scalar_multiplication::MSM<Curve>::get_num_rounds(target_degree);
-    Fr* scalars = (Fr*)(aligned_alloc(64, sizeof(Fr) * target_degree));
-
-    Fr source_scalar = Fr::random_element();
-    for (size_t i = 0; i < target_degree; ++i) {
-        source_scalar.self_sqr();
-        Fr::__copy(source_scalar, scalars[i]);
-    }
-
-    uint32_t bits_per_slice = scalar_multiplication::MSM<Curve>::get_optimal_log_num_buckets(target_degree);
-
-    for (uint32_t i = 0; i < num_rounds; ++i) {
-
-        std::vector<uint64_t> scalar_slices(target_degree);
-        std::vector<uint64_t> sorted_scalar_slices(target_degree);
-
-        for (size_t j = 0; j < target_degree; ++j) {
-            scalar_slices[j] = scalar_multiplication::MSM<Curve>::get_scalar_slice(scalars[j], i, bits_per_slice);
-            sorted_scalar_slices[j] = scalar_slices[j];
-        }
-        scalar_multiplication::sort_point_schedule_and_count_zero_buckets(
-            &sorted_scalar_slices[0], target_degree, static_cast<uint32_t>(bits_per_slice));
-
-        const auto find_entry = [scalar_slices, num_entries = target_degree](auto x) {
-            for (size_t k = 0; k < num_entries; ++k) {
-                if (scalar_slices[k] == x) {
-                    return true;
-                }
-            }
-            return false;
-        };
-        for (size_t j = 0; j < target_degree; ++j) {
-            EXPECT_EQ(find_entry(sorted_scalar_slices[j]), true);
-            if (j > 0) {
-                EXPECT_EQ((sorted_scalar_slices[j] & 0x7fffffffU) >= (sorted_scalar_slices[j - 1] & 0x7fffffffU), true);
-            }
-        }
-    }
-
-    free(scalars);
 }
 
 TYPED_TEST(ScalarMultiplicationTests, OversizedInputs)

@@ -21,20 +21,17 @@ template <typename Curve_> class VerifierCommitmentKey {
     using NativeEmbeddedCurve = typename Builder::EmbeddedCurve;
 
     /**
-     * @brief Construct a new Verifier Commitment Key object from its native counterpart. instantiated on Grumpkin.
-     * This will be part of the ECCVMRecursiveFlavor once implemented. The Grumpkin SRS points are represented after
-     * applying the pippenger point table so the values at odd indices contain the point {srs[i-1].x * beta,
-     * srs[i-1].y}, where beta is the endomorphism. We retrieve only the original SRS for IPA verification.
+     * @brief Construct a recursive (in-circuit) Verifier Commitment Key from its native Grumpkin counterpart.
+     * The first `num_points` native Grumpkin SRS monomial points are copied directly into in-circuit commitments;
+     * these are the raw SRS points used for IPA verification.
      *
-     * @details The Grumpkin SRS points will be initialized as constants in the circuit but might be subsequently
+     * @details The Grumpkin SRS points are initialized as constants in the circuit but might be subsequently
      * turned into constant witnesses to make operations in the circuit more efficient.
      */
     VerifierCommitmentKey([[maybe_unused]] Builder* builder,
                           size_t num_points,
                           const VerifierCommitmentKey<NativeEmbeddedCurve>& native_pcs_verification_key)
-        : g1_identity(Commitment(native_pcs_verification_key.get_g1_identity()))
     {
-
         auto native_points = native_pcs_verification_key.get_monomial_points();
         BB_ASSERT_LTE(num_points, native_points.size());
         for (size_t i = 0; i < num_points; i += 1) {
@@ -42,13 +39,9 @@ template <typename Curve_> class VerifierCommitmentKey {
         }
     }
 
-    VerifierCommitmentKey() = default;
-
-    Commitment get_g1_identity() const { return g1_identity; }
     std::vector<Commitment> get_monomial_points() const { return monomial_points; }
 
   private:
-    Commitment g1_identity;
     std::vector<Commitment> monomial_points;
 };
 } // namespace bb

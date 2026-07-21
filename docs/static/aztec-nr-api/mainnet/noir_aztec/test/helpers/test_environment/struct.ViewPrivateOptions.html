@@ -1,0 +1,85 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="UTF-8">
+<link rel="stylesheet" href="../../../../styles.css">
+<script defer src="../../../../nargo_doc.js"></script>
+<title>Struct ViewPrivateOptions documentation</title>
+</head>
+<body>
+<div id="sidebar-toggle">
+<button id="sidebar-toggle-button"></button>
+<div id="sidebar-toggle-title">ViewPrivateOptions</div>
+</div>
+<span id="main-contents">
+<nav class="sidebar">
+<h1><a href="../../../../index.html">aztec-nr</a></h1>
+<div><a href="../../../../all.html">All items</a></div>
+<h2 id="crate-name"><a href="../../../index.html">noir_aztec</a></h2>
+<div id="crate-version">0.0.0</div>
+<h2><a href="#struct">Struct ViewPrivateOptions</a></h2>
+<h3>Methods</h3>
+<ul class="sidebar-list">
+<li><a href="#new">new</a></li>
+<li><a href="#with_additional_scopes">with_additional_scopes</a></li>
+<li><a href="#with_authorized_utility_call_targets">with_authorized_utility_call_targets</a></li>
+</ul>
+<h2>In module test_environment</h2>
+<h3>Structs</h3><ul class="item-list">
+<li><a href="struct.CallPrivateOptions.html">CallPrivateOptions</a></div></li>
+<li><a href="struct.CallPublicOptions.html">CallPublicOptions</a></div></li>
+<li><a href="struct.DeployOptions.html">DeployOptions</a></div></li>
+<li><a href="struct.ExecuteUtilityOptions.html">ExecuteUtilityOptions</a></div></li>
+<li><a href="struct.PrivateContextOptions.html">PrivateContextOptions</a></div></li>
+<li><a href="struct.TestEnvironment.html">TestEnvironment</a></div></li>
+<li><a href="struct.TestEnvironmentOptions.html">TestEnvironmentOptions</a></div></li>
+<li><a href="struct.ViewPrivateOptions.html">ViewPrivateOptions</a></div></li>
+</ul>
+</nav>
+<main>
+<div><a href="../../../../index.html">aztec-nr</a> - <a href="../../../index.html">noir_aztec</a>::<a href="../../index.html">test</a>::<a href="../index.html">helpers</a>::<a href="index.html">test_environment</a></div>
+<h1>Struct <span id="struct" class="struct">ViewPrivateOptions</span></h1>
+<pre><code>pub struct ViewPrivateOptions&lt;let S: <a href="../../../../std/primitive.u32.html" class="primitive">u32</a>, let T: <a href="../../../../std/primitive.u32.html" class="primitive">u32</a>&gt;
+{ <span class="comment">/* private fields */</span> }
+</code></pre>
+<div class="comments">
+<p>Configuration for <a href="../../../../noir_aztec/test/helpers/test_environment/struct.TestEnvironment.html#view_private_opts"><code>TestEnvironment::view_private_opts</code></a>.</p>
+<p>Constructed by calling <a href="../../../../noir_aztec/test/helpers/test_environment/struct.ViewPrivateOptions.html#new"><code>ViewPrivateOptions::new</code></a> and then chaining methods setting each value:</p>
+<pre><code>env.view_private_opts(from, ViewPrivateOptions::new().with_additional_scopes([other]), call);</code></pre></div>
+<h2>Implementations</h2>
+<h3><code class="code-header">impl&lt;let S: <a href="../../../../std/primitive.u32.html" class="primitive">u32</a>, let T: <a href="../../../../std/primitive.u32.html" class="primitive">u32</a>&gt; <a href="../../../../noir_aztec/test/helpers/test_environment/struct.ViewPrivateOptions.html" class="struct">ViewPrivateOptions</a>&lt;S, T&gt;</code></h3>
+
+<div class="padded-methods"><code id="with_additional_scopes" class="code-header">pub fn <a href="#with_additional_scopes"><span class="fn">with_additional_scopes</span></a>&lt;let S2: <a href="../../../../std/primitive.u32.html" class="primitive">u32</a>&gt;(
+    self,
+    additional_scopes: [<a href="../../../../protocol_types/address/aztec_address/struct.AztecAddress.html" class="struct">AztecAddress</a>; S2],
+) -> <a href="../../../../noir_aztec/test/helpers/test_environment/struct.ViewPrivateOptions.html" class="struct">ViewPrivateOptions</a>&lt;S2, T&gt;</code>
+
+<div class="padded-description"><div class="comments">
+<p>Grants access to secrets of additional accounts.</p>
+<p>By default only the secrets that belong to the <code>from</code> account can be accessed: this function lets contracts
+retrieve private information from other accounts during execution.</p>
+<p>Example usage includes accounts querying an escrow's balance, which may require accessing the escrow's own
+notes.</p>
+</div>
+</div><code id="with_authorized_utility_call_targets" class="code-header">pub fn <a href="#with_authorized_utility_call_targets"><span class="fn">with_authorized_utility_call_targets</span></a>&lt;let T_2: <a href="../../../../std/primitive.u32.html" class="primitive">u32</a>&gt;(
+    self,
+    targets: [<a href="../../../../protocol_types/address/aztec_address/struct.AztecAddress.html" class="struct">AztecAddress</a>; T_2],
+) -> <a href="../../../../noir_aztec/test/helpers/test_environment/struct.ViewPrivateOptions.html" class="struct">ViewPrivateOptions</a>&lt;S, T_2&gt;</code>
+
+<div class="padded-description"><div class="comments">
+<p>Authorizes cross-contract utility calls to given targets.</p>
+<p>By default, cross-contract utility calls are denied. This method lets the test author specify which target
+contracts are allowed to be called via utility functions during execution.</p>
+</div>
+</div></div><h3><code class="code-header">impl <a href="../../../../noir_aztec/test/helpers/test_environment/struct.ViewPrivateOptions.html" class="struct">ViewPrivateOptions</a>&lt;0, 0&gt;</code></h3>
+
+<div class="padded-methods"><code id="new" class="code-header">pub fn <a href="#new"><span class="fn">new</span></a>() -> Self</code>
+
+<div class="padded-description"><div class="comments">
+<p>Creates default <code>ViewPrivateOptions</code>.</p>
+<p>The default values are the same as if using <a href="../../../../noir_aztec/test/helpers/test_environment/struct.TestEnvironment.html#view_private"><code>TestEnvironment::view_private</code></a> instead of
+<a href="../../../../noir_aztec/test/helpers/test_environment/struct.TestEnvironment.html#view_private_opts"><code>TestEnvironment::view_private_opts</code></a>.</p></div>
+</div></div></main>
+</span>
+</body>
+</html>

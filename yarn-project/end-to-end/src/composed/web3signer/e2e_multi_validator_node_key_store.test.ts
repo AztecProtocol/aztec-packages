@@ -1,7 +1,7 @@
 import type { AztecNodeConfig } from '@aztec/aztec-node';
 import { AztecAddress, EthAddress } from '@aztec/aztec.js/addresses';
 import { NO_WAIT, waitForProven } from '@aztec/aztec.js/contracts';
-import { ContractDeployer } from '@aztec/aztec.js/deployment';
+import { ContractDeployer, publishContractClass } from '@aztec/aztec.js/deployment';
 import { Fr } from '@aztec/aztec.js/fields';
 import { type AztecNode, waitForTx } from '@aztec/aztec.js/node';
 import type { Wallet } from '@aztec/aztec.js/wallet';
@@ -9,7 +9,7 @@ import { getAddressFromPrivateKey } from '@aztec/ethereum/account';
 import { getL1ContractsConfigEnvVars } from '@aztec/ethereum/config';
 import { RollupContract } from '@aztec/ethereum/contracts';
 import type { DeployAztecL1ContractsReturnType } from '@aztec/ethereum/deploy-aztec-l1-contracts';
-import { IndexWithinCheckpoint } from '@aztec/foundation/branded-types';
+import { type CheckpointNumber, IndexWithinCheckpoint } from '@aztec/foundation/branded-types';
 import { SecretValue } from '@aztec/foundation/config';
 import { retryUntil } from '@aztec/foundation/retry';
 import { type EthPrivateKey, KeystoreManager, loadKeystores, mergeKeystores } from '@aztec/node-keystore';
@@ -26,6 +26,14 @@ import { tmpdir } from 'os';
 import { join } from 'path';
 import { privateKeyToAccount } from 'viem/accounts';
 
+import { MNEMONIC, PIPELINING_SETUP_OPTS } from '../../fixtures/fixtures.js';
+import { getPrivateKeyFromIndex, setup } from '../../fixtures/utils.js';
+import {
+  createWeb3SignerKeystore,
+  getWeb3SignerTestKeystoreDir,
+  getWeb3SignerUrl,
+  refreshWeb3Signer,
+} from '../../fixtures/web3signer.js';
 import {
   addressForPrivateKey,
   createKeyFile1,
@@ -34,15 +42,7 @@ import {
   createKeyFile4,
   createKeyFile5,
   createKeyFile6,
-} from '../../e2e_multi_validator/utils.js';
-import { MNEMONIC } from '../../fixtures/fixtures.js';
-import { getPrivateKeyFromIndex, setup } from '../../fixtures/utils.js';
-import {
-  createWeb3SignerKeystore,
-  getWeb3SignerTestKeystoreDir,
-  getWeb3SignerUrl,
-  refreshWeb3Signer,
-} from '../../fixtures/web3signer.js';
+} from './multi_validator_keystore_utils.js';
 
 const VALIDATOR_COUNT = 7;
 const COMMITTEE_SIZE = VALIDATOR_COUNT;
@@ -80,7 +80,7 @@ async function createKeyFiles() {
   });
 
   const feeRecipientAddresses = Array.from({ length: VALIDATOR_COUNT }, (_, i) => {
-    return AztecAddress.fromNumber(i + 1);
+    return AztecAddress.fromNumberUnsafe(i + 1);
   });
 
   await createKeyFile1(
@@ -154,6 +154,11 @@ function verifyKeyStore(directory: string) {
   expect(validatorAdapter.getAttesterAddresses()).toHaveLength(VALIDATOR_COUNT);
 }
 
+jest.setTimeout(10 * 60 * 1000);
+
+// Multi-validator key-store test using a Web3Signer sidecar (docker-compose web3signer suite). Runs
+// setup() with PIPELINING_SETUP_OPTS and multiple keystores loaded through the NodeKeystoreAdapter and
+// Web3Signer, then verifies that blocks are proposed and proven across VALIDATOR_COUNT validators.
 describe('e2e_multi_validator_node', () => {
   let initialValidatorPrivateKeys: `0x${string}`[];
   let validatorAddresses: `0x${string}`[];
@@ -200,7 +205,7 @@ describe('e2e_multi_validator_node', () => {
         .toString()
         .toLowerCase();
       expectedCoinbaseAddresses.set(validatorAddress.toLowerCase(), coinbase);
-      const feeRecipient = AztecAddress.fromNumber(i + 1)
+      const feeRecipient = AztecAddress.fromNumberUnsafe(i + 1)
         .toString()
         .toLowerCase();
       expectedFeeRecipientAddresses.set(validatorAddress.toLowerCase(), feeRecipient);
@@ -282,18 +287,24 @@ describe('e2e_multi_validator_node', () => {
       deployL1ContractsValues,
       aztecNode,
       sequencer: sequencerClient,
-    } = await setup(1, {
-      initialValidators,
-      aztecTargetCommitteeSize: COMMITTEE_SIZE,
-      keyStoreDirectory,
-      minTxsPerBlock: 1,
-      maxTxsPerBlock: 1,
-      archiverPollingIntervalMS: 200,
-      sequencerPollingIntervalMS: 200,
-      worldStateBlockCheckIntervalMS: 200,
-      blockCheckIntervalMS: 200,
-      startProverNode: true,
-    }));
+    } = await setup(
+      1,
+      {
+        ...PIPELINING_SETUP_OPTS,
+        initialValidators,
+        aztecTargetCommitteeSize: COMMITTEE_SIZE,
+        keyStoreDirectory,
+        maxTxsPerBlock: 1,
+        archiverPollingIntervalMS: 200,
+        sequencerPollingIntervalMS: 200,
+        worldStateBlockCheckIntervalMS: 200,
+        blockCheckIntervalMS: 200,
+        startProverNode: true,
+        aztecEpochDuration: 8,
+        aztecProofSubmissionEpochs: 4,
+      },
+      { syncChainTip: 'checkpointed' },
+    ));
 
     sequencer = (sequencerClient! as TestSequencerClient).getSequencer();
     publisherFactory = (sequencer as TestSequencer).publisherFactory;
@@ -314,6 +325,9 @@ describe('e2e_multi_validator_node', () => {
       config.ethereumSlotDuration * 3,
       1,
     );
+
+    const publishClass = await publishContractClass(wallet, StatefulTestContractArtifact);
+    await publishClass.send({ from: ownerAddress });
   });
 
   afterEach(async () => {
@@ -321,13 +335,11 @@ describe('e2e_multi_validator_node', () => {
     await rmdir(keyStoreDirectory, { recursive: true });
   });
 
-  const sendTx = (sender: AztecAddress, contractAddressSalt: Fr) => {
+  const sendTx = (salt: Fr) => {
     const deployer = new ContractDeployer(artifact, wallet);
-    return deployer.deploy(ownerAddress, sender, 1).send({
+    return deployer.deploy([ownerAddress, 1], { salt }).send({
       from: ownerAddress,
-      contractAddressSalt,
       skipClassPublication: true,
-      skipInstancePublication: true,
       wait: NO_WAIT,
     });
   };
@@ -362,6 +374,7 @@ describe('e2e_multi_validator_node', () => {
     const originalCreateProposal = validatorClient.createBlockProposal.bind(validatorClient);
     const createBlockProposal = (
       blockHeader: BlockHeader,
+      checkpointNumber: CheckpointNumber,
       indexWithinCheckpoint: number,
       inHash: Fr,
       archive: Fr,
@@ -382,6 +395,7 @@ describe('e2e_multi_validator_node', () => {
 
       return originalCreateProposal(
         blockHeader,
+        checkpointNumber,
         IndexWithinCheckpoint(indexWithinCheckpoint),
         inHash,
         archive,
@@ -396,11 +410,14 @@ describe('e2e_multi_validator_node', () => {
     // Then we check the results captured above
     const sentTransactionPromises = Array.from({ length: BLOCK_COUNT }, (_, i) => {
       const contractAddressSalt = new Fr(i + 1);
-      return sendTx(ownerAddress, contractAddressSalt);
+      return sendTx(contractAddressSalt);
     });
 
     const settledTransactions = await Promise.all(
-      sentTransactionPromises.map(async sentTransactionPromise => waitForTx(aztecNode, await sentTransactionPromise)),
+      sentTransactionPromises.map(async sentTransactionPromise => {
+        const { txHash } = await sentTransactionPromise;
+        return waitForTx(aztecNode, txHash);
+      }),
     );
 
     await Promise.all(

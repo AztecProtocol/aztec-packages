@@ -1,7 +1,6 @@
-import { poseidon2Hash } from '@aztec/foundation/crypto/poseidon';
-
-import type { AsyncHasher } from './hasher.js';
 import { MerkleTree } from './merkle_tree.js';
+
+type MerkleHashFn = (left: Buffer, right: Buffer) => Promise<Buffer<ArrayBuffer>>;
 
 /**
  * Merkle tree calculator.
@@ -10,17 +9,12 @@ export class MerkleTreeCalculator {
   private constructor(
     private height: number,
     private zeroHashes: Buffer[],
-    private hasher: AsyncHasher['hash'],
+    private hasher: MerkleHashFn,
   ) {
     this.hasher = hasher;
   }
 
-  static async create(
-    height: number,
-    zeroLeaf: Buffer = Buffer.alloc(32),
-    hasher = async (left: Buffer, right: Buffer) =>
-      (await poseidon2Hash([left, right])).toBuffer() as Buffer<ArrayBuffer>,
-  ) {
+  static async create(height: number, zeroLeaf: Buffer = Buffer.alloc(32), hasher: MerkleHashFn) {
     const zeroHashes = [zeroLeaf];
     for (let i = 0; i < height; i++) {
       zeroHashes.push((await hasher(zeroHashes[i], zeroHashes[i])) as Buffer<ArrayBuffer>);

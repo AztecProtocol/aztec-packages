@@ -464,10 +464,12 @@ template <typename Builder> field_t<Builder> field_t<Builder>::pow(const uint32_
  * @brief Raise a field_t to a power of an exponent (field_t). Note that the exponent must not exceed 32 bits and is
  * implicitly range constrained.
  */
-template <typename Builder> field_t<Builder> field_t<Builder>::pow(const field_t& exponent) const
+template <typename Builder>
+template <size_t num_bits>
+field_t<Builder> field_t<Builder>::pow(const field_t& exponent) const
 {
     uint256_t exponent_value = exponent.get_value();
-    BB_ASSERT_LT(exponent_value.get_msb(), 32U, "Exponent too large in field_t::pow");
+    BB_ASSERT_LT(exponent_value.get_msb(), num_bits, "Exponent too large in field_t::pow");
 
     if (is_constant() && exponent.is_constant()) {
         return field_t(get_value().pow(exponent_value));
@@ -479,14 +481,14 @@ template <typename Builder> field_t<Builder> field_t<Builder>::pow(const field_t
 
     auto* ctx = validate_context(context, exponent.context);
 
-    std::array<bool_t<Builder>, 32> exponent_bits;
+    std::array<bool_t<Builder>, num_bits> exponent_bits;
     // Collect individual bits as bool_t's
     for (size_t i = 0; i < exponent_bits.size(); ++i) {
         uint256_t value_bit = exponent_value & 1;
         bool_t<Builder> bit;
         bit = bool_t<Builder>(witness_t<Builder>(ctx, value_bit.data[0]));
         bit.set_origin_tag(exponent.tag);
-        exponent_bits[31 - i] = bit;
+        exponent_bits[num_bits - 1 - i] = bit;
         exponent_value >>= 1;
     }
 
@@ -501,7 +503,7 @@ template <typename Builder> field_t<Builder> field_t<Builder>::pow(const field_t
     // Compute the result of exponentiation
     field_t accumulator(ctx, bb::fr::one());
     const field_t one(bb::fr::one());
-    for (size_t i = 0; i < 32; ++i) {
+    for (size_t i = 0; i < num_bits; ++i) {
         accumulator *= accumulator;
         // If current bit == 1, multiply by the base, else propagate the accumulator
         const field_t multiplier = conditional_assign_internal(exponent_bits[i], *this, one);
@@ -900,10 +902,12 @@ field_t<Builder> field_t<Builder>::conditional_assign_internal(const bool_t<Buil
         result.set_origin_tag(OriginTag(predicate.get_origin_tag(), lhs.get_origin_tag(), rhs.get_origin_tag()));
         return result;
     }
-    // If lhs and rhs are the same witness or constant, just return it
+    // If lhs and rhs are the same witness or constant, just return it (but still merge tags)
     if (witness_indices_match(lhs, rhs) && (lhs.additive_constant == rhs.additive_constant) &&
         (lhs.multiplicative_constant == rhs.multiplicative_constant)) {
-        return lhs;
+        auto result = lhs;
+        result.set_origin_tag(OriginTag(predicate.get_origin_tag(), lhs.get_origin_tag(), rhs.get_origin_tag()));
+        return result;
     }
 
     return (lhs - rhs).madd(predicate, rhs);
@@ -1100,7 +1104,7 @@ void field_t<Builder>::evaluate_linear_identity(
     Builder* ctx = validate_context(a.context, b.context, c.context, d.context);
 
     if (a.is_constant() && b.is_constant() && c.is_constant() && d.is_constant()) {
-        BB_ASSERT_EQ(a.get_value() + b.get_value() + c.get_value() + d.get_value(), 0);
+        BB_ASSERT_EQ(a.get_value() + b.get_value() + c.get_value() + d.get_value(), 0, msg);
         return;
     }
 
@@ -1134,7 +1138,7 @@ void field_t<Builder>::evaluate_polynomial_identity(
     const field_t& a, const field_t& b, const field_t& c, const field_t& d, const std::string& msg)
 {
     if (a.is_constant() && b.is_constant() && c.is_constant() && d.is_constant()) {
-        BB_ASSERT((a.get_value() * b.get_value() + c.get_value() + d.get_value()).is_zero());
+        BB_ASSERT((a.get_value() * b.get_value() + c.get_value() + d.get_value()).is_zero(), msg);
         return;
     }
 
@@ -1343,6 +1347,19 @@ std::pair<field_t<Builder>, field_t<Builder>> field_t<Builder>::no_wrap_split_at
 
     return std::make_pair(lo_wit, hi_wit);
 }
+
+// Explicit instantations of pow
+template field_t<bb::UltraCircuitBuilder> field_t<UltraCircuitBuilder>::pow<32UL>(
+    const field_t<bb::UltraCircuitBuilder>&) const;
+
+template field_t<bb::MegaCircuitBuilder> field_t<MegaCircuitBuilder>::pow<32UL>(
+    const field_t<bb::MegaCircuitBuilder>&) const;
+
+template field_t<bb::UltraCircuitBuilder> field_t<UltraCircuitBuilder>::pow<CONST_OP_QUEUE_LOG_SIZE + 1>(
+    const field_t<bb::UltraCircuitBuilder>&) const;
+
+template field_t<bb::MegaCircuitBuilder> field_t<MegaCircuitBuilder>::pow<CONST_OP_QUEUE_LOG_SIZE + 1>(
+    const field_t<bb::MegaCircuitBuilder>&) const;
 
 template class field_t<bb::UltraCircuitBuilder>;
 template class field_t<bb::MegaCircuitBuilder>;

@@ -1,8 +1,10 @@
 #include <benchmark/benchmark.h>
 
+#include "barretenberg/ecc/curves/bn254/fq.hpp"
 #include "barretenberg/eccvm/eccvm_circuit_builder.hpp"
 #include "barretenberg/eccvm/eccvm_prover.hpp"
 #include "barretenberg/eccvm/eccvm_verifier.hpp"
+#include "barretenberg/srs/global_crs.hpp"
 
 using namespace benchmark;
 using namespace bb;
@@ -40,6 +42,9 @@ Builder generate_trace(size_t target_num_gates)
         op_queue->merge();
     }
 
+    using Fq = curve::BN254::BaseField;
+    op_queue->append_hiding_op(Fq::random_element(), Fq::random_element());
+
     Builder builder{ op_queue };
     return builder;
 }
@@ -55,20 +60,58 @@ void eccvm_generate_prover(State& state) noexcept
     };
 }
 
-void eccvm_prove(State& state) noexcept
+template <typename Prover> void construct_proof(State& state) noexcept
 {
-
     size_t target_num_gates = 1 << static_cast<size_t>(state.range(0));
-    Builder builder = generate_trace(target_num_gates);
-    std::shared_ptr<Transcript> prover_transcript = std::make_shared<Transcript>();
-    ECCVMProver prover(builder, prover_transcript);
     for (auto _ : state) {
-        auto [proof, ipa_claim] = prover.construct_proof();
+        Builder builder = generate_trace(target_num_gates);
+        std::shared_ptr<Transcript> prover_transcript = std::make_shared<Transcript>();
+        Prover prover(builder, prover_transcript);
+        auto proof = prover.construct_proof();
+        benchmark::DoNotOptimize(proof);
+        benchmark::DoNotOptimize(prover.ipa_proof);
     };
 }
 
+template <typename Prover> void execute_sumcheck(State& state) noexcept
+{
+    size_t target_num_gates = 1 << static_cast<size_t>(state.range(0));
+    for (auto _ : state) {
+        state.PauseTiming();
+        Builder builder = generate_trace(target_num_gates);
+        std::shared_ptr<Transcript> prover_transcript = std::make_shared<Transcript>();
+        Prover prover(builder, prover_transcript);
+        prover.execute_preamble_round();
+        prover.execute_wire_commitments_round();
+        prover.execute_log_derivative_commitments_round();
+        prover.execute_grand_product_computation_round();
+        state.ResumeTiming();
+
+        prover.execute_relation_check_rounds();
+        benchmark::DoNotOptimize(prover.sumcheck_output);
+    };
+}
+
+void eccvm_full_prove(State& state) noexcept
+{
+    construct_proof<ECCVMProver>(state);
+}
+
+void eccvm_full_sumcheck(State& state) noexcept
+{
+    execute_sumcheck<ECCVMProver>(state);
+}
+
 BENCHMARK(eccvm_generate_prover)->Unit(kMillisecond)->DenseRange(12, CONST_ECCVM_LOG_N);
-BENCHMARK(eccvm_prove)->Unit(kMillisecond)->DenseRange(12, CONST_ECCVM_LOG_N);
+BENCHMARK(eccvm_full_prove)->Unit(kMillisecond)->DenseRange(12, CONST_ECCVM_LOG_N);
+BENCHMARK(eccvm_full_sumcheck)->Unit(kMillisecond)->DenseRange(12, CONST_ECCVM_LOG_N);
 } // namespace
 
-BENCHMARK_MAIN();
+int main(int argc, char** argv)
+{
+    bb::srs::init_file_crs_factory(bb::srs::bb_crs_path());
+    benchmark::Initialize(&argc, argv);
+    benchmark::RunSpecifiedBenchmarks();
+    benchmark::Shutdown();
+    return 0;
+}

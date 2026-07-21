@@ -1,56 +1,23 @@
 // === AUDIT STATUS ===
-// internal:    { status: Planned, auditors: [Raju], commit: }
+// internal:    { status: Complete, auditors: [Nishat], commit: 22d6fc368da0fbe5412f4f7b2890a052aa48d803 }
 // external_1:  { status: not started, auditors: [], commit: }
 // external_2:  { status: not started, auditors: [], commit: }
 // =====================
 
 #pragma once
-#include "barretenberg/stdlib/primitives/field/field.hpp"
 #include "hash.hpp"
-#include <algorithm>
 #include <vector>
 
 namespace bb::crypto::merkle_tree {
 
 using fr_hash_path = std::vector<std::pair<fr, fr>>;
 using fr_sibling_path = std::vector<fr>;
-template <typename Ctx> using hash_path = std::vector<std::pair<bb::stdlib::field_t<Ctx>, bb::stdlib::field_t<Ctx>>>;
-
-inline fr_hash_path get_random_hash_path(size_t const& tree_depth)
-{
-    fr_hash_path path;
-    for (size_t i = 0; i < tree_depth; ++i) {
-        path.push_back(std::make_pair(fr::random_element(), fr::random_element()));
-    }
-    return path;
-}
-
-template <typename Ctx> inline hash_path<Ctx> create_witness_hash_path(Ctx& ctx, fr_hash_path const& input)
-{
-    hash_path<Ctx> result;
-    std::transform(input.begin(), input.end(), std::back_inserter(result), [&](auto const& v) {
-        return std::make_pair(bb::stdlib::field_t(bb::stdlib::witness_t(&ctx, v.first)),
-                              bb::stdlib::field_t(bb::stdlib::witness_t(&ctx, v.second)));
-    });
-    return result;
-}
 
 } // namespace bb::crypto::merkle_tree
 
 // We add to std namespace as fr_hash_path is actually a std::vector, and this is the only way
 // to achieve effective ADL.
 namespace std {
-template <typename Ctx>
-inline std::ostream& operator<<(std::ostream& os, bb::crypto::merkle_tree::hash_path<Ctx> const& path)
-{
-    os << "[\n";
-    for (size_t i = 0; i < path.size(); ++i) {
-        os << "  (" << i << ": " << path[i].first << ", " << path[i].second << ")\n";
-    }
-    os << "]\n";
-    return os;
-}
-
 inline std::ostream& operator<<(std::ostream& os, bb::crypto::merkle_tree::fr_hash_path const& path)
 {
     os << "[\n";

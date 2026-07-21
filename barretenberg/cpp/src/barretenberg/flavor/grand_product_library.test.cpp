@@ -45,6 +45,9 @@ template <class FF> class GrandProductTests : public testing::Test {
                 poly = Polynomial::random(circuit_size);
             }
         }
+        // Zero out z_perm — compute_grand_product will fill the active region and expects
+        // z_perm[gp_start] = 0 as the initial value of the running product.
+        prover_polynomials.z_perm() = Polynomial::shiftable(circuit_size, circuit_size);
 
         // Get random challenges
         auto beta = FF::random_element();
@@ -84,31 +87,36 @@ template <class FF> class GrandProductTests : public testing::Test {
          * Step 4) Compute Z_perm[i+1] = numer[i]/denom[i] (recall: Z_perm[0] = 1)
          */
 
+        // Grand product starts after disabled rows (for flavors with row-disabling polynomial)
+        constexpr size_t gp_start = Flavor::TRACE_OFFSET;
+        constexpr size_t active_size = circuit_size - gp_start;
+
         // Make scratch space for the numerator and denominator accumulators.
-        std::array<std::array<FF, circuit_size>, Flavor::NUM_WIRES> numerator_accum;
-        std::array<std::array<FF, circuit_size>, Flavor::NUM_WIRES> denominator_accum;
+        std::array<std::array<FF, active_size>, Flavor::NUM_WIRES> numerator_accum;
+        std::array<std::array<FF, active_size>, Flavor::NUM_WIRES> denominator_accum;
 
         auto wires = prover_polynomials.get_wires();
         auto sigmas = prover_polynomials.get_sigmas();
         auto ids = prover_polynomials.get_ids();
         // Step (1)
-        for (size_t i = 0; i < circuit_size; ++i) {
+        for (size_t i = 0; i < active_size; ++i) {
+            const size_t poly_idx = i + gp_start;
             for (size_t k = 0; k < Flavor::NUM_WIRES; ++k) {
-                numerator_accum[k][i] = wires[k][i] + (ids[k][i] * beta) + gamma;      // w_k(i) + β.id_k(i) + γ
-                denominator_accum[k][i] = wires[k][i] + (sigmas[k][i] * beta) + gamma; // w_k(i) + β.σ_k(i) + γ
+                numerator_accum[k][i] = wires[k][poly_idx] + (ids[k][poly_idx] * beta) + gamma;
+                denominator_accum[k][i] = wires[k][poly_idx] + (sigmas[k][poly_idx] * beta) + gamma;
             }
         }
 
         // Step (2)
         for (size_t k = 0; k < Flavor::NUM_WIRES; ++k) {
-            for (size_t i = 0; i < circuit_size - 1; ++i) {
+            for (size_t i = 0; i < active_size - 1; ++i) {
                 numerator_accum[k][i + 1] *= numerator_accum[k][i];
                 denominator_accum[k][i + 1] *= denominator_accum[k][i];
             }
         }
 
         // Step (3)
-        for (size_t i = 0; i < circuit_size; ++i) {
+        for (size_t i = 0; i < active_size; ++i) {
             for (size_t k = 1; k < Flavor::NUM_WIRES; ++k) {
                 numerator_accum[0][i] *= numerator_accum[k][i];
                 denominator_accum[0][i] *= denominator_accum[k][i];
@@ -117,14 +125,15 @@ template <class FF> class GrandProductTests : public testing::Test {
 
         // Step (4)
         Polynomial z_permutation_expected(circuit_size);
-        z_permutation_expected.at(0) = FF::zero(); // Z_0 = 1
-        // Note: in practice, we replace this expensive element-wise division with Montgomery batch inversion
-        for (size_t i = 0; i < circuit_size - 1; ++i) {
-            z_permutation_expected.at(i + 1) = numerator_accum[0][i] / denominator_accum[0][i];
+        for (size_t i = 0; i < active_size - 1; ++i) {
+            z_permutation_expected.at(gp_start + i + 1) = numerator_accum[0][i] / denominator_accum[0][i];
         }
 
-        // Check consistency between locally computed z_perm and the one computed by the prover library
-        EXPECT_EQ(prover_polynomials.z_perm, z_permutation_expected);
+        // Check consistency between locally computed z_perm and the one computed by the prover library.
+        // Only compare the active region (after disabled rows); masking values at rows 1..3 are random.
+        for (size_t i = gp_start; i < circuit_size; ++i) {
+            EXPECT_EQ(prover_polynomials.z_perm()[i], z_permutation_expected[i]) << "Mismatch at index " << i;
+        }
     };
 };
 

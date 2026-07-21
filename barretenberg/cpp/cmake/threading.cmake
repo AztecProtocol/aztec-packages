@@ -8,6 +8,11 @@ if(MULTITHREADING)
         # Prevent indirect call type mismatch errors in thread_local destructors
         # (without this the benchmark flow fails at destruction point for WASM)
         add_compile_options(-fno-c++-static-destructors)
+        # Enable WASM SIMD128. V8 TurboFan ≥ 9.1 (Chrome/Node 91+), wasmtime ≥ 2.0,
+        # all modern browsers support v128 — the WASM binary requires a runtime
+        # with SIMD enabled. Hot loops in barretenberg (e.g. Phase 5a sched→pts
+        # copy in round_parallel_msm) gate v128.load/store on __wasm_simd128__.
+        add_compile_options(-msimd128)
     endif()
     #add_compile_options(-fsanitize=thread)
     #add_link_options(-fsanitize=thread)
@@ -30,6 +35,7 @@ if(ENABLE_PAR_ALGOS)
     find_package(TBB QUIET OPTIONAL_COMPONENTS tbb)
     if(${TBB_FOUND})
         message(STATUS "std::execution parallel algorithms are enabled.")
+        link_libraries(TBB::tbb)
     else()
         message(STATUS "Could not locate Intel TBB, disabling std::execution parallel algorithms.")
         add_definitions(-DNO_PAR_ALGOS)

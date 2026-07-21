@@ -1,20 +1,31 @@
 import { createAztecNodeClient, waitForNode } from "@aztec/aztec.js/node";
-import {
-  TestWallet,
-  registerInitialLocalNetworkAccountsInWallet,
-} from "@aztec/test-wallet/server";
+import { EmbeddedWallet } from "@aztec/wallets/embedded";
+import { getInitialTestAccountsData } from "@aztec/accounts/testing";
 import { TokenContract } from "@aztec/noir-contracts.js/Token";
 import { Fr } from "@aztec/aztec.js/fields";
+import { SetPublicAuthwitContractInteraction } from "@aztec/aztec.js/authorization";
 
 // Setup: connect to network and deploy a token contract
-const node = createAztecNodeClient("http://localhost:8080");
+const node = createAztecNodeClient(
+  process.env.AZTEC_NODE_URL ?? "http://localhost:8080",
+);
 await waitForNode(node);
-const wallet = await TestWallet.create(node);
+const wallet = await EmbeddedWallet.create(node, { ephemeral: true });
 
-const [aliceAddress, bobAddress] =
-  await registerInitialLocalNetworkAccountsInWallet(wallet);
+const testAccounts = await getInitialTestAccountsData();
+const [aliceAddress, bobAddress] = await Promise.all(
+  testAccounts.slice(0, 2).map(async (account) => {
+    return (
+      await wallet.createSchnorrInitializerlessAccount(
+        account.secret,
+        account.salt,
+        account.signingKey,
+      )
+    ).address;
+  }),
+);
 
-const tokenContract = await TokenContract.deploy(
+const { contract: tokenContract } = await TokenContract.deploy(
   wallet,
   aliceAddress,
   "TestToken",
@@ -46,11 +57,17 @@ const privateAction = tokenContract.methods.transfer_in_private(
 // Alice creates an authwit authorizing Bob to call this function
 const privateWitness = await wallet.createAuthWit(aliceAddress, {
   caller: bobAddress,
-  action: privateAction,
+  call: await privateAction.getFunctionCall(),
 });
 
 // Bob executes the transfer, providing the authwit
-await privateAction.send({ from: bobAddress, authWitnesses: [privateWitness] });
+// additionalScopes lets the PXE access Alice's private state
+// during authwit verification
+await privateAction.send({
+  from: bobAddress,
+  authWitnesses: [privateWitness],
+  additionalScopes: [aliceAddress],
+});
 // docs:end:private_authwit
 
 // docs:start:public_authwit
@@ -66,7 +83,8 @@ const publicAction = tokenContract.methods.transfer_in_public(
 );
 
 // Alice sets the public authwit (this requires a transaction)
-const authwit = await wallet.setPublicAuthWit(
+const authwit = await SetPublicAuthwitContractInteraction.create(
+  wallet,
   aliceAddress,
   { caller: bobAddress, action: publicAction },
   true, // authorized
@@ -108,7 +126,8 @@ const revokeAction = tokenContract.methods.transfer_in_public(
 );
 
 // First, set the authwit
-const setAuthwit = await wallet.setPublicAuthWit(
+const setAuthwit = await SetPublicAuthwitContractInteraction.create(
+  wallet,
   aliceAddress,
   { caller: bobAddress, action: revokeAction },
   true,
@@ -116,7 +135,8 @@ const setAuthwit = await wallet.setPublicAuthWit(
 await setAuthwit.send();
 
 // Later, revoke it
-const revokeInteraction = await wallet.setPublicAuthWit(
+const revokeInteraction = await SetPublicAuthwitContractInteraction.create(
+  wallet,
   aliceAddress,
   { caller: bobAddress, action: revokeAction },
   false, // revoke authorization

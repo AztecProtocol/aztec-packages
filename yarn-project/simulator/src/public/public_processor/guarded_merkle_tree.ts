@@ -12,7 +12,7 @@ import type {
   TreeInfo,
 } from '@aztec/stdlib/trees';
 import type { BlockHeader, StateReference } from '@aztec/stdlib/tx';
-import type { WorldStateRevision, WorldStateRevisionWithHandle } from '@aztec/stdlib/world-state';
+import type { WorldStateRevision } from '@aztec/stdlib/world-state';
 
 /**
  * Wraps an instance of `MerkleTreeWriteOperations` to allow the sequencer to gate access.
@@ -82,7 +82,7 @@ export class GuardedMerkleTreeOperations implements MerkleTreeWriteOperations {
     return this.guardAndPush(() => this.target.close());
   }
 
-  async [Symbol.dispose](): Promise<void> {
+  async [Symbol.asyncDispose](): Promise<void> {
     await this.close();
   }
   getTreeInfo(treeId: MerkleTreeId): Promise<TreeInfo> {
@@ -94,8 +94,11 @@ export class GuardedMerkleTreeOperations implements MerkleTreeWriteOperations {
   getInitialHeader(): BlockHeader {
     return this.target.getInitialHeader();
   }
-  public getRevision(): WorldStateRevision | WorldStateRevisionWithHandle {
+  public getRevision(): WorldStateRevision {
     return this.target.getRevision();
+  }
+  public getIpcPath(): string {
+    return this.target.getIpcPath();
   }
   getSiblingPath<ID extends MerkleTreeId>(treeId: ID, index: bigint): Promise<SiblingPath<TreeHeights[ID]>> {
     return this.guardAndPush(() => this.target.getSiblingPath(treeId, index));
@@ -134,7 +137,7 @@ export class GuardedMerkleTreeOperations implements MerkleTreeWriteOperations {
   ): Promise<(BlockNumber | undefined)[]> {
     return this.guardAndPush(() => this.target.getBlockNumbersForLeafIndices(treeId, leafIndices));
   }
-  createCheckpoint(): Promise<void> {
+  createCheckpoint(): Promise<number> {
     return this.guardAndPush(() => this.target.createCheckpoint());
   }
   commitCheckpoint(): Promise<void> {
@@ -143,11 +146,11 @@ export class GuardedMerkleTreeOperations implements MerkleTreeWriteOperations {
   revertCheckpoint(): Promise<void> {
     return this.guardAndPush(() => this.target.revertCheckpoint());
   }
-  commitAllCheckpoints(): Promise<void> {
-    return this.guardAndPush(() => this.target.commitAllCheckpoints());
+  commitAllCheckpointsTo(depth: number): Promise<void> {
+    return this.guardAndPush(() => this.target.commitAllCheckpointsTo(depth));
   }
-  revertAllCheckpoints(): Promise<void> {
-    return this.guardAndPush(() => this.target.revertAllCheckpoints());
+  revertAllCheckpointsTo(depth: number): Promise<void> {
+    return this.guardAndPush(() => this.target.revertAllCheckpointsTo(depth));
   }
   findSiblingPaths<ID extends MerkleTreeId>(
     treeId: ID,

@@ -1,5 +1,5 @@
-use dep::types::{
-    merkle_tree::{check_membership, LeafPreimage, MembershipWitness},
+use types::{
+    merkle_tree::{check_membership_with_hasher, LeafPreimage, MembershipWitness},
     side_effect::{Counted, Readable, Scoped},
     traits::Empty,
     utils::arrays::ClaimedLengthArray,
@@ -41,6 +41,7 @@ pub fn validate_settled_read_requests<let ReadRequestLen: u32, let SettledReadHi
     read_requests: ClaimedLengthArray<Scoped<Counted<Field>>, ReadRequestLen>,
     settled_read_hints: [SettledReadHint<TreeHeight, SettledReadLeafPreimage>; SettledReadHintsLen],
     tree_root: Field,
+    merkle_hasher: fn(Field, Field) -> Field,
 )
 where
     SettledReadLeafPreimage: LeafPreimage + Readable,
@@ -77,7 +78,7 @@ where
             let leaf = leaf_preimage.as_leaf();
             let witness = hint.membership_witness;
             assert(
-                check_membership(leaf, witness, tree_root),
+                check_membership_with_hasher(leaf, witness, tree_root, merkle_hasher),
                 "Membership check failed: leaf for read request not found in tree",
             );
         }

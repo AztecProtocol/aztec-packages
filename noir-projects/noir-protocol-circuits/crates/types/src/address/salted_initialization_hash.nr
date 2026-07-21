@@ -1,5 +1,5 @@
 use crate::{
-    address::aztec_address::AztecAddress, constants::DOM_SEP__PARTIAL_ADDRESS,
+    address::aztec_address::AztecAddress, constants::DOM_SEP__SALTED_INITIALIZATION_HASH,
     hash::poseidon2_hash_with_separator, traits::ToField,
 };
 
@@ -20,10 +20,15 @@ impl SaltedInitializationHash {
         Self { inner: field }
     }
 
-    pub fn compute(salt: Field, initialization_hash: Field, deployer: AztecAddress) -> Self {
+    pub fn compute(
+        salt: Field,
+        initialization_hash: Field,
+        deployer: AztecAddress,
+        immutables_hash: Field,
+    ) -> Self {
         SaltedInitializationHash::from_field(poseidon2_hash_with_separator(
-            [salt, initialization_hash, deployer.to_field()],
-            DOM_SEP__PARTIAL_ADDRESS,
+            [salt, initialization_hash, deployer.to_field(), immutables_hash],
+            DOM_SEP__SALTED_INITIALIZATION_HASH,
         ))
     }
 

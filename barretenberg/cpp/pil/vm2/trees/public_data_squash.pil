@@ -1,60 +1,108 @@
 include "../ff_gt.pil";
 include "../precomputed.pil";
 
-// Utility trace to perform left squashing of public data writes.
-// Sorted by leaf_slot, and then by clk.
-// Write to public inputs is true in the first write to a leaf slot.
-// The final value is the value written last to the given leaf slot.
-// +-----+-----------+-------+-----+-------------+----------------------+-------------+----------+-------------+
-// | sel | leaf_slot | value | clk | write_to_pi |  leaf_slot_increase  | check_clock | clk_diff | final_value |
-// +-----+-----------+-------+-----+-------------+----------------------+-------------+----------+-------------+
-// |   0 |         0 |     0 |   0 |           0 |                    0 |           0 |        0 |           0 |
-// |   1 |        27 |     1 |   5 |           1 |                    0 |           1 |        7 |           2 |
-// |   1 |        27 |     2 |  12 |           0 |                    1 |           0 |        0 |           2 |
-// |   1 |        50 |    42 |   7 |           1 |                    0 |           0 |        0 |          42 |
-// |   0 |         0 |     0 |   0 |           0 |                    0 |           0 |        0 |           0 |
-// +-----+-----------+-------+-----+-------------+----------------------+-------------+----------+-------------+
-//
+/**
+ * Utility trace to perform left squashing of public data writes.
+ * Sorted by leaf_slot, and then by clk.
+ * Write to public inputs is true in the first write to a leaf slot.
+ * The final value is the value written last to the given leaf slot.
+ *
+ * Shape:
+ * One row per non-discarded write. Sorted by (leaf_slot ascending, clk ascending).
+ *
+ * Example:
+ * +-----+-----------+-------+-----+-------------+----------------------+-------------+----------+-------------+
+ * | sel | leaf_slot | value | clk | write_to_pi |  leaf_slot_increase  | check_clock | clk_diff | final_value |
+ * +-----+-----------+-------+-----+-------------+----------------------+-------------+----------+-------------+
+ * |   0 |         0 |     0 |   0 |           0 |                    0 |           0 |        0 |           0 |
+ * |   1 |        27 |     1 |   5 |           1 |                    0 |           1 |        6 |           2 |
+ * |   1 |        27 |     2 |  12 |           0 |                    1 |           0 |        0 |           2 |
+ * |   1 |        50 |    42 |   7 |           1 |                    0 |           0 |        0 |          42 |
+ * |   0 |         0 |     0 |   0 |           0 |                    0 |           0 |        0 |           0 |
+ * +-----+-----------+-------+-----+-------------+----------------------+-------------+----------+-------------+
+ *
+ * Errors: None. This is a utility trace.
+ *
+ * Preconditions:
+ * - clk must be a 32-bit number (enforced by the caller / public_data_check).
+ * - clk must be strictly increasing (no two equal clocks allowed for the same leaf slot).
+ *
+ * Interactions (destinations):
+ * - ff_gt: Leaf slot ordering (leaf_slot_increase).
+ *
+ * Destination usage (from public_data_check.pil #[SQUASHING]):
+ * non_discarded_write {
+ *     leaf_slot,
+ *     clk,
+ *     sel_write_to_public_inputs,
+ *     value,
+ *     final_value
+ * } is public_data_squash.sel {
+ *     public_data_squash.leaf_slot,              // Input
+ *     public_data_squash.clk,                    // Input
+ *     public_data_squash.write_to_public_inputs, // Output (true for first write per slot)
+ *     public_data_squash.value,                  // Input
+ *     public_data_squash.final_value             // Output (last value written to the slot)
+ * };
+ *
+ **/
 namespace public_data_squash;
-    pol commit sel;
+    pol commit sel; // @boolean
     sel * (1 - sel) = 0;
 
     #[skippable_if]
     sel = 0;
 
-    // We can only activate next sel if the current row is on or is the first row
-    pol START = sel' * (1 - sel);
-    #[START_CONDITION]
-    START * (1 - precomputed.first_row) = 0;
+    // ============ CONTIGUOUS TRACE ============
+
+    // Next sel=1 implies current sel=1 or first_row=1
+    // With this constraint, we can only have sel=1 for N rows after the first, where N could be zero.
+    #[TRACE_CONTINUITY]
+    (1 - sel - precomputed.first_row) * sel' = 0;
+
     pol END = sel * (1 - sel');
     pol NOT_END = sel * sel';
 
+    // ============ INPUTS ============
     pol commit leaf_slot;
-    pol commit value;
+    // Precondition: clk is a 32-bit number (enforced by the caller / public_data_check).
     pol commit clk;
-    pol commit write_to_public_inputs;
+    pol commit write_to_public_inputs; // @boolean
     write_to_public_inputs * (1 - write_to_public_inputs) = 0;
 
-    // ====== SORTING ======
+    pol commit value;
+    // Checked at the last ocurrence of a leaf slot
+    pol commit final_value;
+
+    // ============ SORTING ============
     // Leaf slot must not decrease
     // Later on, we constrain that if leaf slot is the same, the clock must not decrease.
     // Leaf slot increase is on if next row will have a higher leaf slot
-    pol commit leaf_slot_increase;
+    pol commit leaf_slot_increase; // @boolean
     leaf_slot_increase * (1 - leaf_slot_increase) = 0;
-    // !end && !leaf_slot_increase ==> next leaf_slot is the same
-    #[CHECK_SAME_LEAF_SLOT]
-    NOT_END * (1 - leaf_slot_increase) * (leaf_slot - leaf_slot') = 0;
 
     #[LEAF_SLOT_INCREASE_FF_GT]
-    leaf_slot_increase { leaf_slot', leaf_slot, sel }
-    in ff_gt.sel_gt { ff_gt.a, ff_gt.b, ff_gt.result };
+    leaf_slot_increase {
+        leaf_slot', leaf_slot, leaf_slot_increase /* result=1 */
+    } in ff_gt.sel_gt {
+        ff_gt.a, ff_gt.b, ff_gt.result
+    };
 
-    // Our 32 bit clock must not decrease for the same leaf slot
-    pol commit check_clock;
+    // leaf_slot_increase=1 and end are mutually exclusive
+    END * leaf_slot_increase = 0;
+
+    // clock must not decrease for the same leaf slot
+    pol commit check_clock; // @boolean (by definition)
+    #[CHECK_CLOCK_CONDITION]
     check_clock = NOT_END * (1 - leaf_slot_increase);
+    // check_clock implies next leaf_slot is the same
+    #[CHECK_SAME_LEAF_SLOT]
+    check_clock * (leaf_slot - leaf_slot') = 0;
 
-    pol CLK_DIFF = check_clock * (clk' - clk);
+    // We use -1 to disable two writes with the same clock.
+    pol CLK_DIFF = check_clock * (clk' - clk - 1);
 
+    // Unconstrained when check_clock=0.
     pol commit clk_diff_lo;
     pol commit clk_diff_hi;
     #[CLK_DIFF_DECOMP]
@@ -62,27 +110,25 @@ namespace public_data_squash;
 
     #[CLK_DIFF_RANGE_LO]
     check_clock { clk_diff_lo }
-    in precomputed.sel_range_16 { precomputed.clk };
+    in precomputed.sel_range_16_active { precomputed.idx };
 
     #[CLK_DIFF_RANGE_HI]
     check_clock { clk_diff_hi }
-    in precomputed.sel_range_16 { precomputed.clk };
+    in precomputed.sel_range_16_active { precomputed.idx };
 
-    // ====== SQUASHING ======
+    // ============ SQUASHING ============
     // We write to public inputs the first ocurrence of a leaf slot, but with the last ocurrence value
 
-    // Next write to public inputs is on if this row is leaf_slot_increase (next leaf slot will be higher) or if it's START (this sel is off next sel is on)
+    // Next write_to_public_inputs=1 if this row is leaf_slot_increase=1 (next leaf slot will be higher) or if it's the first active row
     // Otherwise, it's off
-    write_to_public_inputs' = leaf_slot_increase + START;
-
-    // This column will be checked at the last ocurrence of a leaf slot
-    pol commit final_value;
+    write_to_public_inputs' = leaf_slot_increase + sel' * (1 - sel);
 
     // Check clock is on for all rows where the next leaf slot is the same. In those cases, we need to check propagation.
     #[FINAL_VALUE_PROPAGATION]
     check_clock * (final_value - final_value') = 0;
 
-    // We need to validate the final value when the leaf slot section ends
+    // We need to validate the final value when the leaf slot section ends.
+    // leaf_slot_increase and END are mutually exclusive (enforced at line 61), so this is an OR.
     pol LEAF_SLOT_END = leaf_slot_increase + END;
 
     #[FINAL_VALUE_CHECK]

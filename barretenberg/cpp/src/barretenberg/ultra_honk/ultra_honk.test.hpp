@@ -24,9 +24,9 @@ namespace bb {
 
 using AggregationState = stdlib::recursion::PairingPoints<UltraCircuitBuilder>;
 
-template <typename Flavor, typename IO_ = DefaultIO> class UltraHonkTests : public ::testing::Test {
+template <typename Flavor> class UltraHonkTests : public ::testing::Test {
   public:
-    using IO = IO_; // Expose IO type for test access
+    using IO = DefaultIO;
     using ProverInstance = ProverInstance_<Flavor>;
     using VerificationKey = typename Flavor::VerificationKey;
     using Prover = UltraProver_<Flavor>;

@@ -8,32 +8,33 @@
 /// The output generated here is validated by `PrivateKernelCircuitOutputValidator` to ensure correctness.
 /// See the README.md in this directory for more details on the composer/validator pattern.
 
-pub(crate) mod get_include_by_timestamp_for_contract_updates;
+pub(crate) mod get_expiration_timestamp_for_contract_updates;
 
-pub(crate) use get_include_by_timestamp_for_contract_updates::get_include_by_timestamp_for_contract_updates;
+pub(crate) use get_expiration_timestamp_for_contract_updates::get_expiration_timestamp_for_contract_updates;
 
 use crate::{
     accumulated_data::{
         assert_array_appended::{
-            append_and_scope_to_empty_dest, append_and_scope_to_index_0_or_1,
+            append_and_scope_after_protocol_nullifier, append_and_scope_to_empty_dest,
             append_reversed_to_empty_dest, append_to_empty_dest,
         },
         sort_by_counter,
     },
     private_kernel_init::PrivateKernelInitCircuitPrivateInputs,
 };
-use dep::types::{
+use types::{
     abis::{
         accumulated_data::private_accumulated_data::PrivateAccumulatedData,
         kernel_circuit_public_inputs::PrivateKernelCircuitPublicInputs,
         private_circuit_public_inputs::PrivateCircuitPublicInputs,
         private_kernel::private_call_data::PrivateCallData,
-        private_tx_constant_data::PrivateTxConstantData,
+        private_tx_constant_data::PrivateTxConstantData, protocol_contracts::ProtocolContracts,
+        public_call_request::PublicCallRequest, transaction::tx_request::TxRequest,
         validation_requests::PrivateValidationRequests,
     },
     address::AztecAddress,
-    debug::no_op,
-    hash::{create_protocol_nullifier, silo_nullifier},
+    constants::MAX_U64_VALUE,
+    hash::create_protocol_nullifier,
     side_effect::Ordered,
     traits::Empty,
     utils::arrays::ClaimedLengthArray,
@@ -67,6 +68,7 @@ impl PrivateKernelCircuitOutputComposer {
     ) -> PrivateKernelCircuitPublicInputs {
         let constants = PrivateTxConstantData {
             tx_context: inputs.private_call.public_inputs.tx_context,
+            tx_request_salt: inputs.private_call.public_inputs.tx_request_salt,
             vk_tree_root: inputs.vk_tree_root,
             protocol_contracts: inputs.protocol_contracts,
             anchor_block_header: inputs.private_call.public_inputs.anchor_block_header,
@@ -75,18 +77,13 @@ impl PrivateKernelCircuitOutputComposer {
         let mut validation_requests = PrivateValidationRequests::empty();
         let mut end = PrivateAccumulatedData::empty();
 
-        // Every tx needs at least one nullifier for uniqueness (used for computing the nonce for note hashes).
-        // If `first_nullifier_hint` equals the protocol nullifier, it is inserted at index 0. Otherwise, at least one
-        // private call must emit a nullifier, and the hint should match the first nullifier emitted.
+        // The protocol nullifier seeds the note-hash nonce computation: unsquashable (`note_hash == 0`),
+        // non-revertible (counter 1, so it sorts to index 0), and globally unique (`tx_request.hash()`
+        // includes the salt).
         let scoped_protocol_nullifier = create_protocol_nullifier(inputs.tx_request);
-        let protocol_nullifier = silo_nullifier(scoped_protocol_nullifier);
-        let should_inject_protocol_nullifier = inputs.first_nullifier_hint == protocol_nullifier;
-        if should_inject_protocol_nullifier {
-            // Safety: we should ordinarily use `push`, so that the length correctly updates, but we know this is the very
-            // first entry in the array, so we do it manually.
-            end.nullifiers.array[0] = scoped_protocol_nullifier;
-            end.nullifiers.length = 1;
-        };
+        // Safety: index 0 is empty, so a direct write plus `length = 1` is equivalent to a `push`.
+        end.nullifiers.array[0] = scoped_protocol_nullifier;
+        end.nullifiers.length = 1;
 
         let contract_address = inputs.private_call.public_inputs.call_context.contract_address;
 
@@ -99,8 +96,8 @@ impl PrivateKernelCircuitOutputComposer {
             inputs.private_call.public_inputs.nullifier_read_requests,
         );
         append_and_scope_to_empty_dest(
-            &mut validation_requests.scoped_key_validation_requests_and_generators,
-            inputs.private_call.public_inputs.key_validation_requests_and_generators,
+            &mut validation_requests.scoped_key_validation_requests_and_separators,
+            inputs.private_call.public_inputs.key_validation_requests_and_separators,
             contract_address,
         );
 
@@ -110,10 +107,9 @@ impl PrivateKernelCircuitOutputComposer {
             contract_address,
         );
 
-        append_and_scope_to_index_0_or_1(
+        append_and_scope_after_protocol_nullifier(
             &mut end.nullifiers,
             inputs.private_call.public_inputs.nullifiers,
-            should_inject_protocol_nullifier,
             contract_address,
         );
 
@@ -159,17 +155,17 @@ impl PrivateKernelCircuitOutputComposer {
             AztecAddress::zero()
         };
 
-        // `include_by_timestamp` - The timestamp at which the transaction expires.
+        // `expiration_timestamp` - The timestamp at which the transaction expires.
         // This value can only decrease with each kernel iteration.
         // Here we take the minimum of:
-        // - The timestamp set by this private call (via `context.set_include_by_timestamp()`)
+        // - The timestamp set by this private call (via `context.set_expiration_timestamp()`)
         // - The timestamp before which our earlier read of the contract instance registry would
         //   become stale.
         //   Recall: for the contract address of the private_call, we read whether the contract's
         //   class have ever been upgraded, and if so we read the current class_id,
         //   from a mapping in the ContractInstanceRegistry. Such reads (of DelayedPublicMutable state)
         //   are only valid for a short period of time, after which the class_id might have been
-        //   overwritten. Hence, the include_by_timestamp of this entire tx must be at most the
+        //   overwritten. Hence, the expiration_timestamp of this entire tx must be at most the
         //   timestamp at which our read becomes stale.
         //   Note: even if the contract has never upgraded its class_id, we must still read (and
         //   derive) an inclusion timestamp from its default INITIAL_DELAY in case an upgrade has
@@ -177,15 +173,15 @@ impl PrivateKernelCircuitOutputComposer {
         //   can go stale.
         //
         // Note: by default, at the time of writing, aztecnr sets the private_call.public_inputs.
-        // include_by_timestamp to be 24 hours after the anchor block's timestamp.
+        // expiration_timestamp to be 24 hours after the anchor block's timestamp.
         // Smart contract frameworks are responsible for setting such sensible values. If they were
         // to set a value of `0`, this `min` would be `0` and the tx would be out of date before it's
         // been submitted!
         let timestamp_before_registry_read_goes_stale =
-            get_include_by_timestamp_for_contract_updates(inputs.private_call);
+            get_expiration_timestamp_for_contract_updates(inputs.private_call);
 
-        let include_by_timestamp = std::cmp::min(
-            inputs.private_call.public_inputs.include_by_timestamp,
+        let expiration_timestamp = std::cmp::min(
+            inputs.private_call.public_inputs.expiration_timestamp,
             timestamp_before_registry_read_goes_stale,
         );
 
@@ -196,9 +192,8 @@ impl PrivateKernelCircuitOutputComposer {
             end,
             public_teardown_call_request,
             fee_payer,
-            include_by_timestamp,
+            expiration_timestamp,
             is_private_only: inputs.is_private_only,
-            claimed_first_nullifier: inputs.first_nullifier_hint,
             claimed_revertible_counter: inputs.revertible_counter_hint,
         };
 
@@ -219,9 +214,8 @@ impl PrivateKernelCircuitOutputComposer {
             end: previous_kernel.end,
             public_teardown_call_request: previous_kernel.public_teardown_call_request,
             fee_payer: previous_kernel.fee_payer,
-            include_by_timestamp: previous_kernel.include_by_timestamp,
+            expiration_timestamp: previous_kernel.expiration_timestamp,
             is_private_only: previous_kernel.is_private_only,
-            claimed_first_nullifier: previous_kernel.claimed_first_nullifier,
             claimed_revertible_counter: previous_kernel.claimed_revertible_counter,
         };
 
@@ -273,7 +267,7 @@ impl PrivateKernelCircuitOutputComposer {
         &mut self,
         private_call: PrivateCallData,
     ) {
-        self.propagate_include_by_timestamp(private_call);
+        self.propagate_expiration_timestamp(private_call);
 
         self.propagate_note_hash_read_requests(private_call.public_inputs);
         self.propagate_nullifier_read_requests(private_call.public_inputs);
@@ -305,17 +299,17 @@ impl PrivateKernelCircuitOutputComposer {
         };
     }
 
-    /// Updates include_by_timestamp by taking the minimum of all constraints.
+    /// Updates expiration_timestamp by taking the minimum of all constraints.
     /// Sources of timestamp constraints:
-    /// - Explicit: `context.set_include_by_timestamp()` called by the private function
+    /// - Explicit: `context.set_expiration_timestamp()` called by the private function
     /// - Implicit: Contract updates via delayed public mutable have time horizons
     /// - Initial: The initial value when this composer is constructed, which is from the previous kernel iteration.
-    unconstrained fn propagate_include_by_timestamp(&mut self, private_call: PrivateCallData) {
-        self.public_inputs.include_by_timestamp = std::cmp::min(
-            self.public_inputs.include_by_timestamp,
+    unconstrained fn propagate_expiration_timestamp(&mut self, private_call: PrivateCallData) {
+        self.public_inputs.expiration_timestamp = std::cmp::min(
+            self.public_inputs.expiration_timestamp,
             std::cmp::min(
-                private_call.public_inputs.include_by_timestamp,
-                get_include_by_timestamp_for_contract_updates(private_call),
+                private_call.public_inputs.expiration_timestamp,
+                get_expiration_timestamp_for_contract_updates(private_call),
             ),
         );
     }
@@ -325,11 +319,10 @@ impl PrivateKernelCircuitOutputComposer {
         private_call_public_inputs: PrivateCircuitPublicInputs,
     ) {
         let read_requests = private_call_public_inputs.note_hash_read_requests;
-        for i in 0..read_requests.array.len() {
-            let request = read_requests.array[i];
-            if !request.is_empty() {
-                self.public_inputs.validation_requests.note_hash_read_requests.push(request);
-            }
+        for i in 0..read_requests.length {
+            self.public_inputs.validation_requests.note_hash_read_requests.push(
+                read_requests.array[i],
+            );
         }
     }
 
@@ -338,11 +331,10 @@ impl PrivateKernelCircuitOutputComposer {
         private_call_public_inputs: PrivateCircuitPublicInputs,
     ) {
         let nullifier_read_requests = private_call_public_inputs.nullifier_read_requests;
-        for i in 0..nullifier_read_requests.array.len() {
-            let request = nullifier_read_requests.array[i];
-            if !request.is_empty() {
-                self.public_inputs.validation_requests.nullifier_read_requests.push(request);
-            }
+        for i in 0..nullifier_read_requests.length {
+            self.public_inputs.validation_requests.nullifier_read_requests.push(
+                nullifier_read_requests.array[i],
+            );
         }
     }
 
@@ -350,17 +342,17 @@ impl PrivateKernelCircuitOutputComposer {
         &mut self,
         private_call_public_inputs: PrivateCircuitPublicInputs,
     ) {
-        let key_validation_requests_and_generators =
-            private_call_public_inputs.key_validation_requests_and_generators;
-        for i in 0..key_validation_requests_and_generators.array.len() {
-            let request = key_validation_requests_and_generators.array[i];
-            if !request.is_empty() {
-                self
-                    .public_inputs
-                    .validation_requests
-                    .scoped_key_validation_requests_and_generators
-                    .push(request.scope(private_call_public_inputs.call_context.contract_address));
-            }
+        let key_validation_requests_and_separators =
+            private_call_public_inputs.key_validation_requests_and_separators;
+        for i in 0..key_validation_requests_and_separators.length {
+            let scoped_request = key_validation_requests_and_separators.array[i].scope(
+                private_call_public_inputs.call_context.contract_address,
+            );
+            self
+                .public_inputs
+                .validation_requests
+                .scoped_key_validation_requests_and_separators
+                .push(scoped_request);
         }
     }
 
@@ -368,16 +360,12 @@ impl PrivateKernelCircuitOutputComposer {
         &mut self,
         private_call_public_inputs: PrivateCircuitPublicInputs,
     ) {
-        // BUG: If we delete this print, the resoluting note_hashes bounded vec is missing the original items.
-        no_op(self.public_inputs.end.note_hashes);
         let note_hashes = private_call_public_inputs.note_hashes;
-        for i in 0..note_hashes.array.len() {
-            let note_hash = note_hashes.array[i];
-            if note_hash.inner != 0 {
-                self.public_inputs.end.note_hashes.push(note_hash.scope(
-                    private_call_public_inputs.call_context.contract_address,
-                ));
-            }
+        for i in 0..note_hashes.length {
+            let scoped_note_hash = note_hashes.array[i].scope(
+                private_call_public_inputs.call_context.contract_address,
+            );
+            self.public_inputs.end.note_hashes.push(scoped_note_hash);
         }
     }
 
@@ -386,13 +374,10 @@ impl PrivateKernelCircuitOutputComposer {
         private_call_public_inputs: PrivateCircuitPublicInputs,
     ) {
         let nullifiers = private_call_public_inputs.nullifiers;
-        for i in 0..nullifiers.array.len() {
-            let nullifier = nullifiers.array[i];
-            if nullifier.inner.value != 0 {
-                self.public_inputs.end.nullifiers.push(nullifier.scope(
-                    private_call_public_inputs.call_context.contract_address,
-                ));
-            }
+        for i in 0..nullifiers.length {
+            let scoped_nullifier =
+                nullifiers.array[i].scope(private_call_public_inputs.call_context.contract_address);
+            self.public_inputs.end.nullifiers.push(scoped_nullifier);
         }
     }
 
@@ -401,13 +386,11 @@ impl PrivateKernelCircuitOutputComposer {
         private_call_public_inputs: PrivateCircuitPublicInputs,
     ) {
         let l2_to_l1_msgs = private_call_public_inputs.l2_to_l1_msgs;
-        for i in 0..l2_to_l1_msgs.array.len() {
-            let msg = l2_to_l1_msgs.array[i];
-            if !msg.is_empty() {
-                self.public_inputs.end.l2_to_l1_msgs.push(msg.scope(
-                    private_call_public_inputs.call_context.contract_address,
-                ));
-            }
+        for i in 0..l2_to_l1_msgs.length {
+            let scoped_msg = l2_to_l1_msgs.array[i].scope(
+                private_call_public_inputs.call_context.contract_address,
+            );
+            self.public_inputs.end.l2_to_l1_msgs.push(scoped_msg);
         }
     }
 
@@ -416,23 +399,19 @@ impl PrivateKernelCircuitOutputComposer {
         private_call_public_inputs: PrivateCircuitPublicInputs,
     ) {
         let private_logs = private_call_public_inputs.private_logs;
-        for i in 0..private_logs.array.len() {
-            let log = private_logs.array[i];
-            if !log.is_empty() {
-                self.public_inputs.end.private_logs.push(log.scope(
-                    private_call_public_inputs.call_context.contract_address,
-                ));
-            }
+        for i in 0..private_logs.length {
+            let scoped_log = private_logs.array[i].scope(
+                private_call_public_inputs.call_context.contract_address,
+            );
+            self.public_inputs.end.private_logs.push(scoped_log);
         }
 
         let contract_class_logs = private_call_public_inputs.contract_class_logs_hashes;
-        for i in 0..contract_class_logs.array.len() {
-            let log = contract_class_logs.array[i];
-            if !log.is_empty() {
-                self.public_inputs.end.contract_class_logs_hashes.push(log.scope(
-                    private_call_public_inputs.call_context.contract_address,
-                ));
-            }
+        for i in 0..contract_class_logs.length {
+            let scoped_log = contract_class_logs.array[i].scope(
+                private_call_public_inputs.call_context.contract_address,
+            );
+            self.public_inputs.end.contract_class_logs_hashes.push(scoped_log);
         }
     }
 
@@ -447,11 +426,9 @@ impl PrivateKernelCircuitOutputComposer {
     ) {
         let call_requests = private_call_public_inputs.private_call_requests;
         let num_requests = call_requests.length;
-        for i in 0..call_requests.array.len() {
-            if i < num_requests {
-                let call_request = call_requests.array[num_requests - i - 1];
-                self.public_inputs.end.private_call_stack.push(call_request);
-            }
+        for i in 0..num_requests {
+            let call_request = call_requests.array[num_requests - i - 1];
+            self.public_inputs.end.private_call_stack.push(call_request);
         }
     }
 
@@ -460,11 +437,8 @@ impl PrivateKernelCircuitOutputComposer {
         private_call_public_inputs: PrivateCircuitPublicInputs,
     ) {
         let call_requests = private_call_public_inputs.public_call_requests;
-        for i in 0..call_requests.array.len() {
-            let call_request = call_requests.array[i];
-            if !call_request.is_empty() {
-                self.public_inputs.end.public_call_requests.push(call_request);
-            }
+        for i in 0..call_requests.length {
+            self.public_inputs.end.public_call_requests.push(call_requests.array[i]);
         }
     }
 
@@ -474,8 +448,11 @@ impl PrivateKernelCircuitOutputComposer {
     ) {
         let call_request = private_call_public_inputs.public_teardown_call_request;
         if !call_request.is_empty() {
-            // Q: why would it already be set by this point?
-            // Q: why assert within this unconstrained function?
+            // The public teardown call request may be set at most once.
+            // If the private call sets it, the value from the previous kernel must be empty.
+            // We assert it in this unconstrained function so users can catch the error during simulation, even when
+            // `should_validate_output` is set to false.
+            // The output validator must constrain this properly.
             assert(
                 self.public_inputs.public_teardown_call_request.is_empty(),
                 "Public teardown call request already set",
@@ -489,10 +466,75 @@ impl PrivateKernelCircuitOutputComposer {
         private_call_public_inputs: PrivateCircuitPublicInputs,
     ) {
         if (private_call_public_inputs.is_fee_payer) {
-            // Q: why would it already be set by this point?
-            // Q: why assert within this unconstrained function?
+            // The fee payer must be set once and only once.
+            // If the private call sets it, the value from the previous kernel must be empty.
+            // We assert it in this unconstrained function so users can catch the error during simulation, even when
+            // `should_validate_output` is set to false.
+            // The output validator must constrain this properly.
             assert(self.public_inputs.fee_payer.is_zero(), "Cannot overwrite non-empty fee_payer");
             self.public_inputs.fee_payer = private_call_public_inputs.call_context.contract_address;
         }
     }
+}
+
+/// Unconstrained composer for the batched inner kernel. It materializes only the final accumulator
+/// state, no intermediate `PrivateKernelCircuitPublicInputs` is produced. Output correctness is proved by
+/// the batched validator.
+pub unconstrained fn compose_inner_batch_n<let N: u32>(
+    previous_kernel: PrivateKernelCircuitPublicInputs,
+    private_calls: [PrivateCallData; N],
+) -> PrivateKernelCircuitPublicInputs {
+    let mut composer =
+        PrivateKernelCircuitOutputComposer::new_from_previous_kernel(previous_kernel);
+    for i in 0..N {
+        let _ = composer.pop_top_call_request();
+        let _ = composer.with_private_call(private_calls[i]);
+    }
+    composer.finish()
+}
+
+/// Unconstrained composer for the batched init kernel. It seeds the accumulator from the
+/// tx_request + first call's tx_context, injects the protocol nullifier at index 0,
+/// then propagates all N apps with pop+push semantics for apps 1..N (app 0 starts from empty).
+pub unconstrained fn compose_init_batch_n<let N: u32>(
+    tx_request: TxRequest,
+    vk_tree_root: Field,
+    protocol_contracts: ProtocolContracts,
+    is_private_only: bool,
+    revertible_counter_hint: u32,
+    private_calls: [PrivateCallData; N],
+) -> PrivateKernelCircuitPublicInputs {
+    let constants = PrivateTxConstantData {
+        tx_context: private_calls[0].public_inputs.tx_context,
+        tx_request_salt: private_calls[0].public_inputs.tx_request_salt,
+        vk_tree_root,
+        protocol_contracts,
+        anchor_block_header: private_calls[0].public_inputs.anchor_block_header,
+    };
+
+    let mut end = PrivateAccumulatedData::empty();
+    let scoped_protocol_nullifier = create_protocol_nullifier(tx_request);
+    end.nullifiers.array[0] = scoped_protocol_nullifier;
+    end.nullifiers.length = 1;
+
+    let seeded = PrivateKernelCircuitPublicInputs {
+        constants,
+        min_revertible_side_effect_counter: 0,
+        validation_requests: PrivateValidationRequests::empty(),
+        end,
+        public_teardown_call_request: PublicCallRequest::empty(),
+        fee_payer: AztecAddress::zero(),
+        expiration_timestamp: MAX_U64_VALUE,
+        is_private_only,
+        claimed_revertible_counter: revertible_counter_hint,
+    };
+
+    let mut composer = PrivateKernelCircuitOutputComposer { public_inputs: seeded };
+    for i in 0..N {
+        if i > 0 {
+            let _ = composer.pop_top_call_request();
+        }
+        let _ = composer.with_private_call(private_calls[i]);
+    }
+    composer.finish()
 }

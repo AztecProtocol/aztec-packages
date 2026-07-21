@@ -91,12 +91,12 @@ bool is_private_constrained_function(const nlohmann::json& function)
 }
 
 /**
- * @brief Get cached VK or generate if missing
+ * @brief Get cached VK or generate if missing, for a user-contract private function.
  */
-std::vector<uint8_t> get_or_generate_cached_vk(const std::filesystem::path& cache_dir,
-                                               const std::string& circuit_name,
-                                               const std::vector<uint8_t>& bytecode,
-                                               bool force)
+std::vector<uint8_t> get_or_generate_cached_app_vk(const std::filesystem::path& cache_dir,
+                                                   const std::string& circuit_name,
+                                                   const std::vector<uint8_t>& bytecode,
+                                                   bool force)
 {
     std::string hash_str = compute_bytecode_hash(bytecode);
     std::filesystem::path vk_cache_path = cache_dir / (hash_str + ".vk");
@@ -107,9 +107,11 @@ std::vector<uint8_t> get_or_generate_cached_vk(const std::filesystem::path& cach
         return read_file(vk_cache_path);
     }
 
-    // Generate new VK
+    // Generate new VK (offline / build-time helper, filesystem-cached by bytecode hash).
     info("Generating verification key: ", hash_str);
-    auto response = bbapi::ChonkComputeVk{ .circuit = { .name = circuit_name, .bytecode = bytecode } }.execute();
+    auto response =
+        bbapi::ChonkComputeVk{ .circuit = { .name = circuit_name, .bytecode = bytecode }, .kind = CircuitKind::App }
+            .execute();
 
     // Cache the VK
     write_file(vk_cache_path, response.bytes);
@@ -155,7 +157,7 @@ void generate_vks_for_functions(const std::filesystem::path& cache_dir,
             auto bytecode = extract_bytecode(*function);
 
             // Generate and cache VK (can use parallel_for internally)
-            get_or_generate_cached_vk(cache_dir, fn_name, bytecode, force);
+            get_or_generate_cached_app_vk(cache_dir, fn_name, bytecode, force);
         }
     };
 
@@ -258,6 +260,21 @@ bool process_aztec_artifact(const std::string& input_path, const std::string& ou
         return true;
     }
 
+    // Strip __aztec_nr_internals__ prefix from function names.
+    // The #[aztec] macro generates wrapper functions with this prefix; we strip it so
+    // the exported ABI exposes the original developer-written names.
+    const std::string internal_prefix = "__aztec_nr_internals__";
+    for (auto& function : artifact_json["functions"]) {
+        auto& name = function["name"];
+        if (name.is_string()) {
+            std::string fn_name = name.get<std::string>();
+            if (fn_name.size() >= internal_prefix.size() &&
+                fn_name.compare(0, internal_prefix.size(), internal_prefix) == 0) {
+                name = fn_name.substr(internal_prefix.size());
+            }
+        }
+    }
+
     // Filter to private constrained functions
     std::vector<nlohmann::json*> private_functions;
     for (auto& function : artifact_json["functions"]) {
@@ -266,13 +283,12 @@ bool process_aztec_artifact(const std::string& input_path, const std::string& ou
         }
     }
 
-    if (private_functions.empty()) {
+    if (!private_functions.empty()) {
+        // Generate VKs
+        generate_vks_for_functions(cache_dir, private_functions, force);
+    } else {
         info("No private constrained functions found");
-        return true;
     }
-
-    // Generate VKs
-    generate_vks_for_functions(cache_dir, private_functions, force);
 
     // Write updated JSON back to file
     std::ofstream out_file(output_path);

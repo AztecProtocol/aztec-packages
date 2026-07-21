@@ -1,5 +1,5 @@
 #include "barretenberg/vm2/generated/relations/external_call.hpp"
-#include "barretenberg/vm2/common/aztec_constants.hpp"
+#include "barretenberg/aztec/aztec_constants.hpp"
 #include "barretenberg/vm2/common/memory_types.hpp"
 #include "barretenberg/vm2/common/opcodes.hpp"
 #include <array>
@@ -15,7 +15,9 @@
 #include "barretenberg/vm2/simulation/events/execution_event.hpp"
 #include "barretenberg/vm2/simulation/events/gas_event.hpp"
 #include "barretenberg/vm2/simulation/gadgets/execution_components.hpp"
+#include "barretenberg/vm2/simulation/interfaces/addressing.hpp"
 #include "barretenberg/vm2/simulation/interfaces/context.hpp"
+#include "barretenberg/vm2/simulation/interfaces/gas_tracker.hpp"
 #include "barretenberg/vm2/simulation/interfaces/memory.hpp"
 #include "barretenberg/vm2/simulation/lib/instruction_info.hpp"
 #include "barretenberg/vm2/testing/instruction_builder.hpp"

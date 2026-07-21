@@ -1,6 +1,5 @@
 #include "pedersen.hpp"
 #include "barretenberg/crypto/generators/generator_data.hpp"
-#include "barretenberg/crypto/pedersen_commitment/c_bind.hpp"
 #include "barretenberg/numeric/uint256/uint256.hpp"
 #include <gtest/gtest.h>
 
@@ -64,6 +63,27 @@ TEST(Pedersen, Hash32Bytes)
     auto got = pedersen_hash::hash_buffer(buf);
 
     EXPECT_EQ(got, expected);
+}
+// Verifies that hashing an empty input throws an exception
+TEST(Pedersen, HashRejectsEmptyInput)
+{
+    EXPECT_THROW(
+        {
+            auto result = pedersen_hash::hash({});
+            static_cast<void>(result);
+        },
+        std::runtime_error);
+}
+
+// Verifies that hashing an empty input throws an exception
+TEST(Pedersen, HashBufferRejectsEmptyInput)
+{
+    EXPECT_THROW(
+        {
+            auto result = pedersen_hash::hash_buffer({});
+            static_cast<void>(result);
+        },
+        std::runtime_error);
 }
 
 } // namespace bb::crypto

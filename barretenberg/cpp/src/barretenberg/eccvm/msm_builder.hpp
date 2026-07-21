@@ -135,6 +135,7 @@ class ECCVMMSMMBuilder {
 
         const auto update_read_count = [&point_table_read_counts](const size_t point_idx, const int slice) {
             /**
+             * AUDITTODO: verify and correct the point table ordering described below.
              * The wNAF digits for base 16 lie in the range -15, -13, ..., 13, 15.
              * The *point table* format is the following:
              * (for positive point table) T[0] =  P, T[1] =  3P, ..., T[7]  =  15P
@@ -143,14 +144,14 @@ class ECCVMMSMMBuilder {
              *      if the slice value is positive, we must take 15 - (compressed wNAF) to get the table index
              */
             const size_t row_index_offset = point_idx * 8;
-            const bool digit_is_negative = slice < 0;
-            const auto relative_row_idx = static_cast<size_t>((slice + 15) / 2);
-            const size_t column_index = digit_is_negative ? 1 : 0;
-
-            if (digit_is_negative) {
-                point_table_read_counts[column_index][row_index_offset + relative_row_idx]++;
+            if (slice < 0) {
+                // negative table: T[0] = -15P, T[1] = -13P, ..., T[7] = -P
+                const auto table_index = static_cast<size_t>((slice + 15) / 2);
+                point_table_read_counts[1][row_index_offset + table_index]++;
             } else {
-                point_table_read_counts[column_index][row_index_offset + 15 - relative_row_idx]++;
+                // positive table: T[0] = 15P, T[1] = 13P, ..., T[7] = P
+                const auto table_index = static_cast<size_t>((15 - slice) / 2);
+                point_table_read_counts[0][row_index_offset + table_index]++;
             }
         };
 
@@ -354,6 +355,7 @@ class ECCVMMSMMBuilder {
                     row.q_add = false;
                     row.q_double = true;
                     row.q_skew = false;
+                    row.pc = pc; // required by MSM_PC_CONTINUITY in ecc_msm_relation
                     for (size_t point_idx = 0; point_idx < ADDITIONS_PER_ROW; ++point_idx) {
                         auto& add_state = row.add_state[point_idx];
                         add_state.add = false;
@@ -423,16 +425,18 @@ class ECCVMMSMMBuilder {
 
         // inverse_trace is used to compute the value of the `collision_inverse` column in the ECCVM.
         std::vector<FF> inverse_trace(num_point_adds_and_doubles);
-        parallel_for_range(num_point_adds_and_doubles, [&](size_t start, size_t end) {
-            for (size_t operation_idx = start; operation_idx < end; ++operation_idx) {
-                if (is_double_or_add[operation_idx]) {
-                    inverse_trace[operation_idx] = (p1_trace[operation_idx].y + p1_trace[operation_idx].y);
-                } else {
-                    inverse_trace[operation_idx] = (p2_trace[operation_idx].x - p1_trace[operation_idx].x);
+        if (num_point_adds_and_doubles > 0) {
+            parallel_for_range(num_point_adds_and_doubles, [&](size_t start, size_t end) {
+                for (size_t operation_idx = start; operation_idx < end; ++operation_idx) {
+                    if (is_double_or_add[operation_idx]) {
+                        inverse_trace[operation_idx] = (p1_trace[operation_idx].y + p1_trace[operation_idx].y);
+                    } else {
+                        inverse_trace[operation_idx] = (p2_trace[operation_idx].x - p1_trace[operation_idx].x);
+                    }
                 }
-            }
-            FF::batch_invert(&inverse_trace[start], end - start);
-        });
+                FF::batch_invert(&inverse_trace[start], end - start);
+            });
+        }
 
         // complete the computation of the ECCVM execution trace, by adding the affine intermediate point data
         // i.e. row.accumulator_x, row.accumulator_y, row.add_state[0...3].collision_inverse,

@@ -1,9 +1,12 @@
 use crate::tests::private_kernel_init::TestBuilder;
-use dep::types::{
-    abis::protocol_contracts::ProtocolContracts, address::AztecAddress,
-    constants::MAX_PROTOCOL_CONTRACTS, traits::FromField,
-};
 use std::embedded_curve_ops::{EmbeddedCurveScalar, fixed_base_scalar_mul as derive_public_key};
+use types::{
+    abis::protocol_contracts::ProtocolContracts,
+    address::AztecAddress,
+    constants::{DEFAULT_UPDATE_DELAY, MAX_PROTOCOL_CONTRACTS},
+    delayed_public_mutable::scheduled_delay_change::ScheduledDelayChange,
+    traits::FromField,
+};
 
 impl TestBuilder {
     pub fn new_with_regular_contract() -> Self {
@@ -178,6 +181,28 @@ fn updated_contract_mismatch_computed_class_id() {
     );
 
     builder.private_call.contract_class_artifact_hash += 1;
+
+    builder.execute_and_fail();
+}
+
+// Regression: when the updated-class-id hash slot is uninitialized (i.e. the public-data leaf is
+// absent and the read returns 0), the delayed-public-mutable hint must be zeroed. Otherwise the
+// same hint is later reused by `get_expiration_timestamp_for_contract_updates`, where a non-zeroed
+// delay change would yield a time horizon further in the future than the storage state warrants.
+// This test guards the kernel path specifically, so a future refactor cannot leave the helper test
+// in `delayed_public_mutable/with_hash.nr` passing while accidentally bypassing the check here.
+#[test(should_fail_with = "delayed_public_mutable must be zeroed when its stored hash is zero")]
+fn uninitialized_updated_class_id_rejects_non_zeroed_delay_hint() {
+    let mut builder = TestBuilder::new_with_regular_contract();
+
+    // The builder's public-data witness proves the updated-class-id hash slot is absent. Mutate
+    // only the delayed mutable hint to the stale-read-extending shape (value stays empty, delay
+    // metadata is non-zeroed).
+    builder.private_call.updated_class_id_delay_change = ScheduledDelayChange::<DEFAULT_UPDATE_DELAY>::new(
+        Option::none(),
+        Option::some(DEFAULT_UPDATE_DELAY + 1),
+        0,
+    );
 
     builder.execute_and_fail();
 }

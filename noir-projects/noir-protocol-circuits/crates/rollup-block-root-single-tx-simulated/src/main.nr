@@ -1,4 +1,4 @@
-use dep::rollup_lib::block_root::{
+use rollup_lib::block_root::{
     block_root_single_tx_rollup, BlockRollupPublicInputs, BlockRootSingleTxRollupPrivateInputs,
 };
 

@@ -1,29 +1,20 @@
-use crate::protocol::{
-    address::{AztecAddress, PartialAddress},
-    point::Point,
-    public_keys::{IvpkM, NpkM, OvpkM, PublicKeys, TpkM},
-};
+use crate::protocol::{address::{AztecAddress, PartialAddress}, public_keys::PublicKeys};
 
+// TODO(F-498): review naming consistency
 pub unconstrained fn get_public_keys_and_partial_address(address: AztecAddress) -> (PublicKeys, PartialAddress) {
     try_get_public_keys_and_partial_address(address).expect(f"Public keys not registered for account {address}")
 }
 
-#[oracle(utilityTryGetPublicKeysAndPartialAddress)]
-unconstrained fn try_get_public_keys_and_partial_address_oracle(_address: AztecAddress) -> Option<[Field; 13]> {}
+/// Five of the six master public keys are exposed only as hashes; `ivpk_m` is sent as its affine coordinates because
+/// address derivation and encrypt-to-address require the point in-circuit. This point is assumed to be non-infinite.
+#[oracle(aztec_utl_getPublicKeysAndPartialAddress)]
+unconstrained fn get_public_keys_and_partial_address_oracle(
+    _address: AztecAddress,
+) -> Option<(PublicKeys, PartialAddress)> {}
 
+// TODO(F-498): review naming consistency
 pub unconstrained fn try_get_public_keys_and_partial_address(
     address: AztecAddress,
 ) -> Option<(PublicKeys, PartialAddress)> {
-    try_get_public_keys_and_partial_address_oracle(address).map(|result: [Field; 13]| {
-        let keys = PublicKeys {
-            npk_m: NpkM { inner: Point { x: result[0], y: result[1], is_infinite: result[2] != 0 } },
-            ivpk_m: IvpkM { inner: Point { x: result[3], y: result[4], is_infinite: result[5] != 0 } },
-            ovpk_m: OvpkM { inner: Point { x: result[6], y: result[7], is_infinite: result[8] != 0 } },
-            tpk_m: TpkM { inner: Point { x: result[9], y: result[10], is_infinite: result[11] != 0 } },
-        };
-
-        let partial_address = PartialAddress::from_field(result[12]);
-
-        (keys, partial_address)
-    })
+    get_public_keys_and_partial_address_oracle(address)
 }

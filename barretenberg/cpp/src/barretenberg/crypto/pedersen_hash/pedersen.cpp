@@ -1,5 +1,5 @@
 // === AUDIT STATUS ===
-// internal:    { status: Planned, auditors: [], commit: }
+// internal:    { status: Complete, auditors: [Nishat], commit: 8c1bc925461f1ed6f3f53824646c6e971b8c6af6 }
 // external_1:  { status: not started, auditors: [], commit: }
 // external_2:  { status: not started, auditors: [], commit: }
 // =====================
@@ -36,6 +36,7 @@ std::vector<typename Curve::BaseField> pedersen_hash_base<Curve>::convert_buffer
     };
 
     std::vector<Fq> elements;
+    elements.reserve(num_elements);
     for (size_t i = 0; i < num_elements - 1; ++i) {
         size_t bytes_to_slice = bytes_per_element;
         Fq element = slice(input, i * bytes_per_element, bytes_to_slice);
@@ -75,8 +76,13 @@ std::vector<typename Curve::BaseField> pedersen_hash_base<Curve>::convert_buffer
  * @return Fq (i.e. SNARK circuit scalar field, when hashing using a curve defined over the SNARK circuit scalar field)
  */
 template <typename Curve>
-typename Curve::BaseField pedersen_hash_base<Curve>::hash(const std::vector<Fq>& inputs, const GeneratorContext context)
+typename Curve::BaseField pedersen_hash_base<Curve>::hash(const std::vector<Fq>& inputs,
+                                                          const GeneratorContext& context)
 {
+    if (inputs.empty()) {
+        throw_or_abort("pedersen hash: empty input");
+    }
+
     Element result = length_generator * Fr(inputs.size());
     return (result + pedersen_commitment_base<Curve>::commit_native(inputs, context)).normalize().x;
 }
@@ -86,8 +92,12 @@ typename Curve::BaseField pedersen_hash_base<Curve>::hash(const std::vector<Fq>&
  */
 template <typename Curve>
 typename Curve::BaseField pedersen_hash_base<Curve>::hash_buffer(const std::vector<uint8_t>& input,
-                                                                 const GeneratorContext context)
+                                                                 const GeneratorContext& context)
 {
+    if (input.empty()) {
+        throw_or_abort("pedersen hash_buffer: empty input");
+    }
+
     std::vector<Fq> converted = convert_buffer(input);
 
     if (converted.size() < 2) {

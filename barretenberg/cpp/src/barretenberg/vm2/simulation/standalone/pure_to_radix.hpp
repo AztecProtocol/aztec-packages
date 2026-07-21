@@ -1,8 +1,12 @@
 #pragma once
 
-#include "barretenberg/vm2/simulation/interfaces/to_radix.hpp"
+#include <cstdint>
+#include <utility>
+#include <vector>
 
 #include "barretenberg/vm2/common/field.hpp"
+#include "barretenberg/vm2/common/memory_types.hpp"
+#include "barretenberg/vm2/simulation/interfaces/to_radix.hpp"
 
 namespace bb::avm2::simulation {
 

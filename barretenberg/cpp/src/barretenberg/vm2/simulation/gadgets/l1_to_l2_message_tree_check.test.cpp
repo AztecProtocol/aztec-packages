@@ -34,7 +34,8 @@ TEST(AvmSimulationL1ToL2MessageTree, Read)
     FF msg_hash = 42;
     uint64_t leaf_index = 30;
 
-    EXPECT_CALL(merkle_check, assert_membership(msg_hash, leaf_index, _, snapshot.root)).WillRepeatedly(Return());
+    EXPECT_CALL(merkle_check, assert_membership(DOM_SEP__MERKLE_HASH, msg_hash, leaf_index, _, snapshot.root))
+        .WillRepeatedly(Return());
 
     EXPECT_TRUE(l1_to_l2_message_tree_check.exists(msg_hash, msg_hash, leaf_index, sibling_path, snapshot));
     EXPECT_FALSE(l1_to_l2_message_tree_check.exists(27, msg_hash, leaf_index, sibling_path, snapshot));

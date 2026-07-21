@@ -9,27 +9,21 @@ export class IndividualReqRespTimeoutError extends Error {
   }
 }
 
-/** Collective request timeout error
+/** Oversized reqresp request error
  *
- * This error will be thrown when a req resp request times out regardless of the peer.
+ * Thrown locally (before dialing) when a request payload does not fit in a single muxer frame. Such a request would
+ * reach the responder split across multiple chunks, which are never reassembled into one request.
  * @category Errors
  */
-export class CollectiveReqRespTimeoutError extends Error {
-  constructor() {
-    super(`Request to all peers timed out`);
-  }
-}
-
-/** Invalid response error
- *
- * This error will be thrown when a response is received that is not valid.
- *
- * This error does not need to be punished as message validators will handle punishing invalid
- * requests
- * @category Errors
- */
-export class InvalidResponseError extends Error {
-  constructor() {
-    super(`Invalid response received`);
+export class OversizedReqRespRequestError extends Error {
+  constructor(
+    public readonly subProtocol: string,
+    public readonly payloadSizeBytes: number,
+    public readonly maxSizeBytes: number,
+  ) {
+    super(
+      `Request payload of ${payloadSizeBytes} bytes for ${subProtocol} exceeds the ${maxSizeBytes} byte limit of a single muxer frame`,
+    );
+    this.name = 'OversizedReqRespRequestError';
   }
 }

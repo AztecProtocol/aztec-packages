@@ -1,5 +1,5 @@
 // === AUDIT STATUS ===
-// internal:    { status: Planned, auditors: [], commit: }
+// internal:    { status: Completed, auditors: [Sergei], commit: }
 // external_1:  { status: not started, auditors: [], commit: }
 // external_2:  { status: not started, auditors: [], commit: }
 // =====================
@@ -8,6 +8,7 @@
 #include "barretenberg/ecc/curves/grumpkin/grumpkin.hpp"
 #include "barretenberg/flavor/mega_zk_recursive_flavor.hpp"
 #include "barretenberg/flavor/ultra_zk_recursive_flavor.hpp"
+#include "barretenberg/flavor/verifier_commitments.hpp"
 #include "barretenberg/honk/proof_system/types/proof.hpp"
 #include "barretenberg/special_public_inputs/special_public_inputs.hpp"
 #include "barretenberg/stdlib/primitives/pairing_points.hpp"
@@ -83,7 +84,7 @@ template <typename Flavor, class IO> class UltraVerifier_ {
     using Curve = typename Flavor::Curve;
     using PCS = typename Flavor::PCS;
     using VerificationKey = typename Flavor::VerificationKey;
-    using VerifierCommitments = typename Flavor::VerifierCommitments;
+    using VerifierCommitments = typename VerifierCommitmentsConstructor<Flavor>::Commitments;
     using Transcript = typename Flavor::Transcript;
     using Instance = VerifierInstance_<Flavor>;
 
@@ -107,7 +108,7 @@ template <typename Flavor, class IO> class UltraVerifier_ {
     using IPAClaim = OpeningClaim<IPACurve>;
 
     /**
-     * @brief Result of reducing ultra proof to pairing points check. Contains pairing points and the aggrefate result
+     * @brief Result of reducing ultra proof to pairing points check. Contains pairing points and the aggregate result
      * of intermediate checks.
      */
     struct ReductionResult {
@@ -143,12 +144,6 @@ template <typename Flavor, class IO> class UltraVerifier_ {
      * @details Returns VIRTUAL_LOG_N for padded flavors, or VK's log_circuit_size otherwise.
      */
     size_t compute_log_n() const;
-
-    /**
-     * @brief Compute padding indicator array based on flavor configuration.
-     * @details Must be called AFTER OinkVerifier::verify() so VK fields are properly tagged.
-     */
-    std::vector<FF> compute_padding_indicator_array(size_t log_n) const;
 
     [[nodiscard("Reduction result should be verified")]] ReductionResult reduce_to_pairing_check(const Proof& proof);
 
@@ -207,19 +202,19 @@ template <typename Flavor, class IO> class UltraVerifier_ {
     }
 
     /**
-     * @brief Get calldata commitment (MegaFlavor only)
+     * @brief Get kernel_calldata commitment (flavors that include databus only)
      */
     const Commitment& get_calldata_commitment() const
-        requires IsMegaFlavor<Flavor>
+        requires(Flavor::HasDataBus)
     {
-        return verifier_instance->witness_commitments.calldata;
+        return verifier_instance->witness_commitments.kernel_calldata();
     }
 
     /**
-     * @brief Get ECC op wire commitments as an array (MegaFlavor only)
+     * @brief Get ECC op wire commitments as an array (flavors that own an ECC op queue).
      */
     auto get_ecc_op_wires() const
-        requires IsMegaFlavor<Flavor>
+        requires(Flavor::HasEccOpQueue)
     {
         return verifier_instance->witness_commitments.get_ecc_op_wires().get_copy();
     }
@@ -230,8 +225,8 @@ template <typename Flavor, class IO> class UltraVerifier_ {
     std::shared_ptr<Transcript> transcript;
     std::shared_ptr<Transcript> ipa_transcript; // Native only
 
-    // Builder pointer (extracted from proof for recursive, nullptr for native)
-    Builder* builder;
+    // Builder pointer (extracted from VKAndHash for recursive, nullptr for native)
+    Builder* builder = nullptr;
 };
 
 // Native verifier type aliases

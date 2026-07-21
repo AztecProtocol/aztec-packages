@@ -1,5 +1,7 @@
 import { MAX_FR_CALLDATA_TO_ALL_ENQUEUED_CALLS } from '@aztec/constants';
 import { type Logger, type LoggerBindings, createLogger } from '@aztec/foundation/log';
+import { ContractClassPublishedEvent } from '@aztec/protocol-contracts/class-registry';
+import { computeContractClassId } from '@aztec/stdlib/contract';
 import { computeCalldataHash } from '@aztec/stdlib/hash';
 import {
   TX_ERROR_CALLDATA_COUNT_MISMATCH,
@@ -9,13 +11,17 @@ import {
   TX_ERROR_CONTRACT_CLASS_LOG_LENGTH,
   TX_ERROR_CONTRACT_CLASS_LOG_SORTING,
   TX_ERROR_INCORRECT_CALLDATA,
+  TX_ERROR_INCORRECT_CONTRACT_CLASS_ID,
   TX_ERROR_INCORRECT_HASH,
+  TX_ERROR_MALFORMED_CONTRACT_CLASS_LOG,
   Tx,
   type TxValidationResult,
   type TxValidator,
 } from '@aztec/stdlib/tx';
 
 export class DataTxValidator implements TxValidator<Tx> {
+  public readonly identifier: symbol = Symbol('DataTxValidator');
+
   #log: Logger;
 
   constructor(bindings?: LoggerBindings) {
@@ -26,7 +32,8 @@ export class DataTxValidator implements TxValidator<Tx> {
     const reason =
       (await this.#hasCorrectHash(tx)) ??
       (await this.#hasCorrectCalldata(tx)) ??
-      (await this.#hasCorrectContractClassLogs(tx));
+      (await this.#hasCorrectContractClassLogs(tx)) ??
+      (await this.#hasCorrectContractClassIds(tx));
     return reason ? { result: 'invalid', reason: [reason] } : { result: 'valid' };
   }
 
@@ -125,6 +132,42 @@ export class DataTxValidator implements TxValidator<Tx> {
       }
     }
 
+    return undefined;
+  }
+
+  async #hasCorrectContractClassIds(tx: Tx): Promise<string | undefined> {
+    const contractClassLogs = tx.getContractClassLogs();
+    for (const log of contractClassLogs) {
+      if (!ContractClassPublishedEvent.isContractClassPublishedEvent(log)) {
+        continue;
+      }
+
+      let event;
+      try {
+        event = ContractClassPublishedEvent.fromLog(log);
+      } catch (e) {
+        this.#log.warn(`Rejecting tx ${tx.getTxHash()}: failed to parse contract class event: ${e}`);
+        return TX_ERROR_MALFORMED_CONTRACT_CLASS_LOG;
+      }
+
+      try {
+        const { publicBytecodeCommitment } = await event.toContractClassPublicWithBytecodeCommitment();
+        const computedClassId = await computeContractClassId({
+          artifactHash: event.artifactHash,
+          privateFunctionsRoot: event.privateFunctionsRoot,
+          publicBytecodeCommitment,
+        });
+        if (!computedClassId.equals(event.contractClassId)) {
+          this.#log.warn(
+            `Rejecting tx ${tx.getTxHash()}: contract class id mismatch. Claimed ${event.contractClassId}, computed ${computedClassId}`,
+          );
+          return TX_ERROR_INCORRECT_CONTRACT_CLASS_ID;
+        }
+      } catch (e) {
+        this.#log.warn(`Rejecting tx ${tx.getTxHash()}: failed to compute contract class id: ${e}`);
+        return TX_ERROR_MALFORMED_CONTRACT_CLASS_LOG;
+      }
+    }
     return undefined;
   }
 }

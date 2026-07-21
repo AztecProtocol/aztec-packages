@@ -5,7 +5,7 @@ import { Fr } from '@aztec/foundation/curves/bn254';
 import type { LogFn } from '@aztec/foundation/log';
 import type { FieldsOf } from '@aztec/foundation/types';
 import { AztecAddress } from '@aztec/stdlib/aztec-address';
-import { Gas, GasFees, GasSettings } from '@aztec/stdlib/gas';
+import { Gas, GasFees, GasSettings, ManaUsageEstimate } from '@aztec/stdlib/gas';
 import type { FeeOptions } from '@aztec/wallet-sdk/base-wallet';
 
 import { Option } from 'commander';
@@ -115,6 +115,7 @@ export function parsePaymentMethod(
   payment: string,
   log: LogFn,
   db?: WalletDB,
+  estimateOnly?: boolean,
 ): (wallet: Wallet, from: AztecAddress, gasSettings: GasSettings) => Promise<FeePaymentMethod | undefined> {
   const parsed = payment.split(',').reduce(
     (acc, item) => {
@@ -136,7 +137,7 @@ export function parsePaymentMethod(
     if (!parsed.asset) {
       throw new Error('Missing "asset" in payment option');
     }
-    return AztecAddress.fromString(parsed.asset);
+    return AztecAddress.fromStringUnsafe(parsed.asset);
   };
 
   return async (wallet: Wallet, from: AztecAddress, gasSettings: GasSettings) => {
@@ -149,7 +150,7 @@ export function parsePaymentMethod(
               amount: claimAmount,
               secret: claimSecret,
               leafIndex: messageLeafIndex,
-            } = await db.popBridgedFeeJuice(from, log));
+            } = estimateOnly ? await db.peekBridgedFeeJuice(from, log) : await db.popBridgedFeeJuice(from, log));
           } else {
             ({ claimAmount, claimSecret, messageLeafIndex } = parsed);
           }
@@ -157,10 +158,10 @@ export function parsePaymentMethod(
           const { FeeJuicePaymentMethodWithClaim } = await import('@aztec/aztec.js/fee');
           return new FeeJuicePaymentMethodWithClaim(from, {
             claimAmount: (typeof claimAmount === 'string'
-              ? Fr.fromHexString(claimAmount)
+              ? Fr.fromString(claimAmount)
               : new Fr(claimAmount)
             ).toBigInt(),
-            claimSecret: Fr.fromHexString(claimSecret),
+            claimSecret: typeof claimSecret === 'string' ? Fr.fromString(claimSecret) : claimSecret,
             messageLeafIndex: BigInt(messageLeafIndex),
           });
         } else {
@@ -171,6 +172,9 @@ export function parsePaymentMethod(
       case 'fpc-public': {
         const fpc = getFpc();
         const asset = getAsset();
+        log(
+          `WARNING: fpc-public is deprecated and will not work on mainnet alpha. Use fee_juice or fpc-sponsored instead.`,
+        );
         log(`Using public fee payment with asset ${asset} via paymaster ${fpc}`);
         const { PublicFeePaymentMethod } = await import('@aztec/aztec.js/fee');
         return new PublicFeePaymentMethod(fpc, from, wallet, gasSettings);
@@ -178,6 +182,9 @@ export function parsePaymentMethod(
       case 'fpc-private': {
         const fpc = getFpc();
         const asset = getAsset();
+        log(
+          `WARNING: fpc-private is deprecated and will not work on mainnet alpha. Use fee_juice or fpc-sponsored instead.`,
+        );
         log(`Using private fee payment with asset ${asset} via paymaster ${fpc}`);
         const { PrivateFeePaymentMethod } = await import('@aztec/aztec.js/fee');
         return new PrivateFeePaymentMethod(fpc, from, wallet, gasSettings);
@@ -250,8 +257,11 @@ export class CLIFeeArgs {
   ) {}
 
   async toUserFeeOptions(node: AztecNode, wallet: Wallet, from: AztecAddress): Promise<ParsedFeeOptions> {
-    const maxFeesPerGas = (await node.getCurrentMinFees()).mul(1 + MIN_FEE_PADDING);
-    const gasSettings = GasSettings.default({ ...this.gasSettings, maxFeesPerGas });
+    const minFees = await this.getMinFees(node);
+    const maxFeesPerGas = minFees.mul(1 + MIN_FEE_PADDING);
+    const { txsLimits } = await node.getNodeInfo();
+    const gasLimits = this.gasSettings.gasLimits ?? Gas.from(txsLimits.gas);
+    const gasSettings = GasSettings.fallback({ ...this.gasSettings, gasLimits, maxFeesPerGas });
     const paymentMethod = await this.paymentMethod(wallet, from, gasSettings);
     return {
       paymentMethod,
@@ -259,10 +269,32 @@ export class CLIFeeArgs {
     };
   }
 
+  /**
+   * Returns the worst-case min fee across predicted future slots.
+   * Falls back to getCurrentMinFees if the node doesn't support getPredictedMinFees.
+   */
+  private async getMinFees(node: AztecNode): Promise<GasFees> {
+    try {
+      const predicted = await node.getPredictedMinFees(ManaUsageEstimate.Limit);
+      if (predicted.length === 0) {
+        return node.getCurrentMinFees();
+      }
+      return predicted.reduce((worst, fees) => (fees.feePerL2Gas > worst.feePerL2Gas ? fees : worst));
+    } catch (err: any) {
+      // Fallback for old nodes that don't support getPredictedMinFees.
+      // Only fall back on method-not-found errors (JSON-RPC code -32601); rethrow others.
+      if (err?.cause?.code === -32601 || err?.message?.includes('Method not found')) {
+        return node.getCurrentMinFees();
+      }
+      throw err;
+    }
+  }
+
   static parse(args: RawCliFeeArgs, log: LogFn, db?: WalletDB): CLIFeeArgs {
+    const estimateOnly = !!args.estimateGasOnly;
     return new CLIFeeArgs(
-      !!args.estimateGasOnly,
-      parsePaymentMethod(args.payment ?? 'method=fee_juice', log, db),
+      estimateOnly,
+      parsePaymentMethod(args.payment ?? 'method=fee_juice', log, db, estimateOnly),
       parseGasSettings(args),
     );
   }
@@ -288,7 +320,7 @@ function formatGasEstimate(estimate: Pick<GasSettings, 'gasLimits' | 'teardownGa
 }
 
 function getEstimatedCost(estimate: Pick<GasSettings, 'gasLimits' | 'teardownGasLimits'>, maxFeesPerGas: GasFees) {
-  return GasSettings.default({ ...estimate, maxFeesPerGas })
+  return GasSettings.fallback({ ...estimate, maxFeesPerGas })
     .getFeeLimit()
     .toBigInt();
 }

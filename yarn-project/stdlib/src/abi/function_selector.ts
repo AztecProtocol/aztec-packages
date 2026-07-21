@@ -3,22 +3,16 @@ import { poseidon2HashBytes } from '@aztec/foundation/crypto/poseidon';
 import { randomBytes } from '@aztec/foundation/crypto/random';
 import type { Fr } from '@aztec/foundation/curves/bn254';
 import { type ZodFor, hexSchemaFor } from '@aztec/foundation/schemas';
-import { BufferReader, FieldReader, TypeRegistry } from '@aztec/foundation/serialize';
+import { BufferReader, FieldReader } from '@aztec/foundation/serialize';
 
 import type { ABIParameter } from './abi.js';
-import { decodeFunctionSignature } from './decoder.js';
+import { decodeFunctionSignature } from './function_signature_decoder.js';
 import { Selector } from './selector.js';
-
-/* eslint-disable @typescript-eslint/no-unsafe-declaration-merging */
-
-/** Function selector branding */
-export interface FunctionSelector {
-  /** Brand. */
-  _branding: 'FunctionSelector';
-}
 
 /** A function selector is the first 4 bytes of the hash of a function signature. */
 export class FunctionSelector extends Selector {
+  /** Branding for nominal typing. */
+  declare private readonly _branding: 'FunctionSelector';
   /**
    * Deserializes from a buffer or reader, corresponding to a write in cpp.
    * @param buffer - Buffer  or BufferReader to read from.
@@ -127,6 +121,3 @@ export class FunctionSelector extends Selector {
     return hexSchemaFor(FunctionSelector);
   }
 }
-
-// For deserializing JSON.
-TypeRegistry.register('FunctionSelector', FunctionSelector);

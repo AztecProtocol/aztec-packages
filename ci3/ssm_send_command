@@ -1,0 +1,151 @@
+#!/usr/bin/env bash
+# ssm_send_command - Send a shell script to an EC2 instance via SSM and wait for completion.
+#
+# Usage:
+#   ssm_send_command <instance-id> <script-string>
+#   ssm_send_command <instance-id> - < script_file
+#
+# Env:
+#   SSM_RUN_AS       - User to run the command as (default: no runuser wrapper).
+#   SSM_POLL_TIMEOUT - Max seconds to poll for completion (default: 7200 = 2h).
+#   SSM_EXEC_TIMEOUT - Max seconds AWS allows the command to run (default: SSM_POLL_TIMEOUT).
+#                      Maps to the AWS-RunShellScript executionTimeout parameter.
+#   SSM_NO_WAIT      - If set to 1, fire-and-forget: send the command and exit 0 immediately.
+#   AWS_DEFAULT_REGION - Region (default: us-east-2).
+#
+# Behaviour:
+#   1. Base64-encodes the script and sends it via AWS-RunShellScript.
+#   2. Polls get-command-invocation every 5s, printing stdout/stderr as it arrives.
+#   3. Exits with the remote command's exit code.
+
+set -euo pipefail
+
+iid=${1:?"usage: ssm_send_command <instance-id> <script | ->"}
+shift
+
+# Read the script: from argument or from stdin when "-" is given.
+if [ "${1:-}" = "-" ]; then
+  script=$(cat)
+else
+  script=${1:?"usage: ssm_send_command <instance-id> <script | ->"}
+fi
+
+region=${AWS_DEFAULT_REGION:-us-east-2}
+
+# --- Step 1: Encode and send ---
+# Base64-encode the script so it survives JSON embedding without quoting issues.
+# On Linux base64 uses -w 0 for no line wrapping; on macOS that flag doesn't exist.
+encoded=$(printf '%s' "$script" | base64 -w 0 2>/dev/null || printf '%s' "$script" | base64)
+
+# Build the shell command that SSM will execute on the instance:
+#   1. Decode the base64 payload into a temp file
+#   2. Optionally wrap with runuser if SSM_RUN_AS is set
+#   3. Execute it with bash
+if [ -n "${SSM_RUN_AS:-}" ]; then
+  run_prefix="runuser -u $SSM_RUN_AS -- "
+else
+  run_prefix=""
+fi
+
+# AWS-RunShellScript executionTimeout defaults to 3600s (1h). For long-running
+# jobs (e.g. 6h network scenarios), this silently kills the command on the AWS
+# side. Align it with the poll timeout so the server-side limit matches.
+SSM_POLL_TIMEOUT=${SSM_POLL_TIMEOUT:-7200}
+exec_timeout=${SSM_EXEC_TIMEOUT:-$SSM_POLL_TIMEOUT}
+
+ssm_params=$(jq -n --arg e "$encoded" --arg p "$run_prefix" --arg t "$exec_timeout" \
+  '{commands: ["f=$(mktemp /tmp/ssm_cmd.XXXXXX); echo " + ($e | @json) + " | base64 -d > $f; chmod 644 $f; " + $p + "bash $f; ret=$?; rm -f $f; exit $ret"], executionTimeout: [$t]}')
+
+command_id=$(aws ssm send-command \
+  --region "$region" \
+  --instance-ids "$iid" \
+  --document-name "AWS-RunShellScript" \
+  --parameters "$ssm_params" \
+  --query "Command.CommandId" \
+  --output text)
+
+if [ -z "$command_id" ] || [ "$command_id" = "None" ]; then
+  echo "Failed to send SSM command to instance $iid" >&2
+  exit 1
+fi
+
+echo "SSM command $command_id sent to $iid" >&2
+
+# Cancel the SSM command server-side on signal so it doesn't stay InProgress
+# after the instance is terminated. This is a runner→SSM-service API call,
+# independent of the SSM agent on the instance.
+# Exit so bootstrap_ec2's EXIT trap can run and terminate the EC2 instance.
+function cancel_ssm_command {
+  aws ssm cancel-command \
+    --region "$region" \
+    --command-id "$command_id" 2>/dev/null || true
+  exit 143  # 128 + 15 (SIGTERM)
+}
+trap cancel_ssm_command SIGINT SIGTERM
+
+# --- Step 2: Optionally skip polling (fire-and-forget) ---
+if [ "${SSM_NO_WAIT:-0}" -eq 1 ]; then
+  exit 0
+fi
+
+# --- Step 3: Poll for completion ---
+# We poll get-command-invocation every 5 seconds.
+# StandardOutputContent / StandardErrorContent are cumulative snapshots of the
+# first 24KB of output. Each poll returns the *full* buffer so far, so we track
+# how many characters we've already printed and only emit the new portion.
+poll_start=$SECONDS
+last_log=$SECONDS
+
+while true; do
+  if (( SECONDS - poll_start >= SSM_POLL_TIMEOUT )); then
+    echo "SSM command $command_id polling timed out after ${SSM_POLL_TIMEOUT}s on instance $iid." >&2
+    exit 1
+  fi
+
+  inv=$(aws ssm get-command-invocation \
+    --region "$region" \
+    --command-id "$command_id" \
+    --instance-id "$iid" \
+    --output json 2>/dev/null || echo '{}')
+
+  # SSM output is a truncated 24KB snapshot; real logs go to cache_log/S3.
+  # We only need the status to know when the command finishes.
+  status=$(printf '%s' "$inv" | jq -r '.Status // "Unknown"')
+
+  case "$status" in
+    Success|Cancelled|TimedOut|Failed)
+      break
+      ;;
+    Unknown)
+      # SSM API failed — instance may have shut down. Check before waiting.
+      inst_state=$(aws ec2 describe-instance-status --region "$region" \
+        --instance-ids "$iid" --include-all-instances \
+        --query 'InstanceStatuses[0].InstanceState.Name' --output text 2>/dev/null || echo "unknown")
+      if [[ "$inst_state" == "terminated" || "$inst_state" == "stopped" || "$inst_state" == "shutting-down" ]]; then
+        echo "Instance $iid is $inst_state; aborting SSM poll." >&2
+        exit 1
+      fi
+      ;;
+    *)
+      if (( SECONDS - last_log >= 600 )); then
+        elapsed=$(( (SECONDS - poll_start) / 60 ))
+        echo "SSM command $command_id still $status after ${elapsed}m." >&2
+        last_log=$SECONDS
+      fi
+      sleep 5
+      ;;
+  esac
+done
+
+# --- Step 4: Exit with the remote exit code ---
+exit_code=$(printf '%s' "$inv" | jq -r '.ResponseCode // 1')
+if [ "$status" != "Success" ] || [ "$exit_code" != "0" ]; then
+  status_details=$(printf '%s' "$inv" | jq -r '.StatusDetails // empty')
+  stderr_content=$(printf '%s' "$inv" | jq -r '.StandardErrorContent // empty')
+  echo "SSM command $command_id did not succeed on instance $iid: status=$status, statusDetails=${status_details:-none}, responseCode=$exit_code." >&2
+  if [ -n "$stderr_content" ]; then
+    echo "SSM stderr tail:" >&2
+    printf '%s\n' "$stderr_content" | tail -40 >&2
+  fi
+fi
+exit "$exit_code"

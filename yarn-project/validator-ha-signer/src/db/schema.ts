@@ -9,7 +9,7 @@
 /**
  * Current schema version
  */
-export const SCHEMA_VERSION = 1;
+export const SCHEMA_VERSION = 2;
 
 /**
  * SQL to create the validator_duties table
@@ -20,6 +20,7 @@ CREATE TABLE IF NOT EXISTS validator_duties (
   validator_address VARCHAR(42) NOT NULL,
   slot BIGINT NOT NULL,
   block_number BIGINT NOT NULL,
+  checkpoint_number BIGINT NOT NULL DEFAULT 0,
   block_index_within_checkpoint INTEGER NOT NULL DEFAULT 0,
   duty_type VARCHAR(30) NOT NULL CHECK (duty_type IN ('BLOCK_PROPOSAL', 'CHECKPOINT_PROPOSAL', 'ATTESTATION', 'ATTESTATIONS_AND_SIGNERS', 'GOVERNANCE_VOTE', 'SLASHING_VOTE')),
   status VARCHAR(20) NOT NULL CHECK (status IN ('signing', 'signed')),
@@ -106,6 +107,7 @@ WITH inserted AS (
     validator_address,
     slot,
     block_number,
+    checkpoint_number,
     block_index_within_checkpoint,
     duty_type,
     status,
@@ -113,13 +115,14 @@ WITH inserted AS (
     node_id,
     lock_token,
     started_at
-  ) VALUES ($1, $2, $3, $4, $5, $6, 'signing', $7, $8, $9, CURRENT_TIMESTAMP)
+  ) VALUES ($1, $2, $3, $4, $5, $6, $7, 'signing', $8, $9, $10, CURRENT_TIMESTAMP)
   ON CONFLICT (rollup_address, validator_address, slot, duty_type, block_index_within_checkpoint) DO NOTHING
   RETURNING
     rollup_address,
     validator_address,
     slot,
     block_number,
+    checkpoint_number,
     block_index_within_checkpoint,
     duty_type,
     status,
@@ -139,6 +142,7 @@ SELECT
   validator_address,
   slot,
   block_number,
+  checkpoint_number,
   block_index_within_checkpoint,
   duty_type,
   status,
@@ -154,8 +158,8 @@ FROM validator_duties
 WHERE rollup_address = $1
   AND validator_address = $2
   AND slot = $3
-  AND duty_type = $6
-  AND block_index_within_checkpoint = $5
+  AND duty_type = $7
+  AND block_index_within_checkpoint = $6
   AND NOT EXISTS (SELECT 1 FROM inserted);
 `;
 
@@ -203,23 +207,24 @@ WHERE status = 'signed'
 
 /**
  * Query to clean up old duties (for maintenance)
- * Removes SIGNED duties older than a specified timestamp
+ * Removes SIGNED duties older than a specified age (in milliseconds)
  */
 export const CLEANUP_OLD_DUTIES = `
 DELETE FROM validator_duties
 WHERE status = 'signed'
-  AND started_at < $1;
+  AND started_at < CURRENT_TIMESTAMP - ($1 || ' milliseconds')::INTERVAL;
 `;
 
 /**
  * Query to cleanup own stuck duties
  * Removes duties in 'signing' status for a specific node that are older than maxAgeMs
+ * Uses DB's CURRENT_TIMESTAMP to avoid clock skew issues between nodes
  */
 export const CLEANUP_OWN_STUCK_DUTIES = `
 DELETE FROM validator_duties
 WHERE node_id = $1
   AND status = 'signing'
-  AND started_at < $2;
+  AND started_at < CURRENT_TIMESTAMP - ($2 || ' milliseconds')::INTERVAL;
 `;
 
 /**
@@ -252,6 +257,7 @@ SELECT
   validator_address,
   slot,
   block_number,
+  checkpoint_number,
   block_index_within_checkpoint,
   duty_type,
   status,

@@ -1,9 +1,11 @@
+import type { BlobKzgInstance } from '@aztec/blob-lib/types';
 import { maxBigint } from '@aztec/foundation/bigint';
 import { merge, pick } from '@aztec/foundation/collection';
 import { InterruptError, TimeoutError } from '@aztec/foundation/error';
 import { EthAddress } from '@aztec/foundation/eth-address';
-import { type Logger, createLogger } from '@aztec/foundation/log';
-import { retryUntil } from '@aztec/foundation/retry';
+import { type Logger, type LoggerBindings, createLogger } from '@aztec/foundation/log';
+import { Semaphore } from '@aztec/foundation/queue';
+import { makeBackoff, retry, retryUntil } from '@aztec/foundation/retry';
 import { sleep } from '@aztec/foundation/sleep';
 import { DateProvider } from '@aztec/foundation/timer';
 import { RollupAbi } from '@aztec/l1-artifacts/RollupAbi';
@@ -13,16 +15,13 @@ import {
   type Abi,
   type BlockOverrides,
   type Hex,
-  type NonceManager,
   type PrepareTransactionRequestRequest,
   type StateOverride,
   type TransactionReceipt,
   type TransactionSerializable,
-  createNonceManager,
   formatGwei,
   serializeTransaction,
 } from 'viem';
-import { jsonRpc } from 'viem/nonce';
 
 import type { ViemClient } from '../types.js';
 import { formatViemError } from '../utils.js';
@@ -30,12 +29,14 @@ import { type L1TxUtilsConfig, l1TxUtilsConfigMappings } from './config.js';
 import { MAX_L1_TX_LIMIT } from './constants.js';
 import type { IL1TxMetrics, IL1TxStore } from './interfaces.js';
 import { ReadOnlyL1TxUtils } from './readonly_l1_tx_utils.js';
+import { Delayer, createDelayer, wrapClientWithDelayer } from './tx_delayer.js';
 import {
   DroppedTransactionError,
   type L1BlobInputs,
   type L1TxConfig,
   type L1TxRequest,
   type L1TxState,
+  L1TxTimeoutError,
   type SigningCallback,
   TerminalTxUtilsState,
   TxUtilsState,
@@ -44,9 +45,21 @@ import {
 
 const MAX_L1_TX_STATES = 32;
 
+// Backoff (in seconds) for retrying the read-only RPC calls that prepare a tx cancellation. A
+// cancellation is fired in the background after a tx times out and is important (it frees the stuck
+// nonce), so a transient RPC failure while reading the pending nonce or gas price must not abandon it.
+const CANCELLATION_PREP_RETRY_BACKOFF_S = [1, 2, 4, 8];
+
 export class L1TxUtils extends ReadOnlyL1TxUtils {
-  protected nonceManager: NonceManager;
   protected txs: L1TxState[] = [];
+  /** Last nonce successfully sent to the chain. Used as a lower bound when a fallback RPC node returns a stale count. */
+  private lastSentNonce: number | undefined;
+  /** Mutex to prevent concurrent sendTransaction calls from racing on the same nonce. */
+  private readonly sendMutex = new Semaphore(1);
+  /** Tx delayer for testing. Only set when enableDelayer config is true. */
+  public delayer?: Delayer;
+  /** KZG instance for blob operations. */
+  protected kzg?: BlobKzgInstance;
 
   constructor(
     public override client: ViemClient,
@@ -58,9 +71,25 @@ export class L1TxUtils extends ReadOnlyL1TxUtils {
     debugMaxGasLimit: boolean = false,
     protected store?: IL1TxStore,
     protected metrics?: IL1TxMetrics,
+    kzg?: BlobKzgInstance,
+    delayer?: Delayer,
   ) {
     super(client, logger, dateProvider, config, debugMaxGasLimit);
-    this.nonceManager = createNonceManager({ source: jsonRpc() });
+    this.kzg = kzg;
+
+    // Set up delayer: use provided one or create new
+    if (config?.enableDelayer && config?.ethereumSlotDuration) {
+      this.delayer =
+        delayer ?? this.createDelayer({ ethereumSlotDuration: config.ethereumSlotDuration }, logger.getBindings());
+      this.client = wrapClientWithDelayer(this.client, this.delayer);
+      if (config.txDelayerMaxInclusionTimeIntoSlot !== undefined) {
+        this.delayer.setMaxInclusionTimeIntoSlot(config.txDelayerMaxInclusionTimeIntoSlot);
+      }
+    } else if (delayer) {
+      // Delayer provided but enableDelayer not set — just store it without wrapping
+      logger.warn('Delayer provided but enableDelayer config is not set; delayer will not be used');
+      this.delayer = delayer;
+    }
   }
 
   public get state() {
@@ -87,6 +116,11 @@ export class L1TxUtils extends ReadOnlyL1TxUtils {
       this.metrics?.recordMinedTx(l1TxState, new Date(l1Timestamp));
     } else if (newState === TxUtilsState.NOT_MINED) {
       this.metrics?.recordDroppedTx(l1TxState);
+      // The tx was dropped: the chain nonce reverted to l1TxState.nonce, so our lower bound is
+      // no longer valid. Clear it so the next send fetches the real nonce from the chain.
+      if (this.lastSentNonce === l1TxState.nonce) {
+        this.lastSentNonce = undefined;
+      }
     }
 
     // Update state in the store
@@ -101,6 +135,14 @@ export class L1TxUtils extends ReadOnlyL1TxUtils {
       'Updated L1TxUtils config',
       pickBy(newConfig, (_, key) => key in l1TxUtilsConfigMappings),
     );
+  }
+
+  /**
+   * Clears the cached `lastSentNonce` so the next `sendTransaction` call fetches the real
+   * nonce from the chain. Call this after an L1 reorg to prevent stale nonce references.
+   */
+  public resetNonce(): void {
+    this.lastSentNonce = undefined;
   }
 
   public getSenderAddress() {
@@ -185,6 +227,19 @@ export class L1TxUtils extends ReadOnlyL1TxUtils {
     return await this.signTransaction(txRequest as TransactionSerializable);
   }
 
+  private async checkInterruptedOrTimedOut(gasConfig: Pick<L1TxConfig, 'txTimeoutAt'>): Promise<Date> {
+    if (this.interrupted) {
+      throw new InterruptError(`Transaction sending is interrupted`);
+    }
+    const now = new Date(await this.getL1Timestamp());
+    if (gasConfig.txTimeoutAt && now > gasConfig.txTimeoutAt) {
+      throw new TimeoutError(
+        `Transaction timed out before sending (now ${now.toISOString()} > timeoutAt ${gasConfig.txTimeoutAt.toISOString()})`,
+      );
+    }
+    return now;
+  }
+
   /**
    * Sends a transaction with gas estimation and pricing
    * @param request - The transaction request (to, data, value)
@@ -197,13 +252,14 @@ export class L1TxUtils extends ReadOnlyL1TxUtils {
     blobInputs?: L1BlobInputs,
     stateChange: TxUtilsState = TxUtilsState.SENT,
   ): Promise<{ txHash: Hex; state: L1TxState }> {
-    if (this.interrupted) {
-      throw new InterruptError(`Transaction sending is interrupted`);
-    }
-
     try {
       const gasConfig = merge(this.config, gasConfigOverrides);
       const account = this.getSenderAddress().toString();
+
+      // Fail fast before doing any work (gas estimation, balance check) if we've been interrupted
+      // or if the caller's deadline has already passed. The same check is repeated after gas
+      // estimation in case it took long enough to push us past the deadline.
+      await this.checkInterruptedOrTimedOut(gasConfig);
 
       let gasLimit: bigint;
       if (this.debugMaxGasLimit) {
@@ -217,40 +273,41 @@ export class L1TxUtils extends ReadOnlyL1TxUtils {
 
       const gasPrice = await this.getGasPrice(gasConfig, !!blobInputs);
 
-      if (this.interrupted) {
-        throw new InterruptError(`Transaction sending is interrupted`);
+      const now = await this.checkInterruptedOrTimedOut(gasConfig);
+
+      let txHash: Hex;
+      let nonce: number;
+      let baseState: Pick<L1TxState, 'request' | 'gasLimit' | 'blobInputs' | 'gasPrice' | 'nonce'>;
+
+      await this.sendMutex.acquire();
+      try {
+        const chainNonce = await this.client.getTransactionCount({ address: account, blockTag: 'pending' });
+        // If a fallback RPC node returns a stale count (lower than what we last sent), use our
+        // local lower bound to avoid sending a duplicate of an already-pending transaction.
+        nonce =
+          this.lastSentNonce !== undefined && chainNonce <= this.lastSentNonce ? this.lastSentNonce + 1 : chainNonce;
+
+        baseState = { request, gasLimit, blobInputs, gasPrice, nonce };
+        const txData = this.makeTxData(baseState, { isCancelTx: false });
+
+        const signedRequest = await this.prepareSignedTransaction(txData);
+        txHash = await this.client.sendRawTransaction({ serializedTransaction: signedRequest });
+        this.lastSentNonce = nonce;
+      } finally {
+        this.sendMutex.release();
       }
-
-      const nonce = await this.nonceManager.consume({
-        client: this.client,
-        address: account,
-        chainId: this.client.chain.id,
-      });
-
-      const baseState = { request, gasLimit, blobInputs, gasPrice, nonce };
-      const txData = this.makeTxData(baseState, { isCancelTx: false });
-
-      const now = new Date(await this.getL1Timestamp());
-      if (gasConfig.txTimeoutAt && now > gasConfig.txTimeoutAt) {
-        throw new TimeoutError(
-          `Transaction timed out before sending (now ${now.toISOString()} > timeoutAt ${gasConfig.txTimeoutAt.toISOString()})`,
-        );
-      }
-
-      // Send the new tx
-      const signedRequest = await this.prepareSignedTransaction(txData);
-      const txHash = await this.client.sendRawTransaction({ serializedTransaction: signedRequest });
 
       // Create the new state for monitoring
       const l1TxState: L1TxState = {
         ...baseState,
-        id: (await this.store?.consumeNextStateId(account)) ?? Math.max(...this.txs.map(tx => tx.id), 0),
+        id: (await this.store?.consumeNextStateId(account)) ?? Math.max(...this.txs.map(tx => tx.id), -1) + 1,
         txHashes: [txHash],
         cancelTxHashes: [],
         status: TxUtilsState.IDLE,
         txConfigOverrides: gasConfigOverrides ?? {},
         sentAtL1Ts: now,
         lastSentAtL1Ts: now,
+        gasPriceHistory: [baseState.gasPrice],
       };
 
       // And persist it
@@ -381,10 +438,23 @@ export class L1TxUtils extends ReadOnlyL1TxUtils {
 
     const initialTxHash = txHashes[0];
     let currentTxHash = txHashes.at(-1)!;
-    let l1Timestamp: number;
+    let l1Timestamp = 0;
 
     while (true) {
-      l1Timestamp = await this.getL1Timestamp();
+      try {
+        l1Timestamp = await this.getL1Timestamp();
+      } catch (err) {
+        // A transient RPC failure here must not abort monitoring with a rejection: callers that
+        // fire this loop in the background would surface it as an unhandled rejection (e.g. when a
+        // test tears down its L1 node while a monitor iteration is in flight). Exit quietly if we
+        // are shutting down, otherwise retry on the next interval.
+        if (this.interrupted) {
+          break;
+        }
+        this.logger.error(`Error fetching L1 timestamp while monitoring tx ${currentTxHash}`, err, { nonce, account });
+        await sleep(gasConfig.checkIntervalMs!);
+        continue;
+      }
 
       try {
         const timePassed = l1Timestamp - state.lastSentAtL1Ts.getTime();
@@ -423,7 +493,6 @@ export class L1TxUtils extends ReadOnlyL1TxUtils {
             { nonce, account, pendingNonce, timePassed },
           );
           await this.updateState(state, TxUtilsState.NOT_MINED);
-          this.nonceManager.reset({ address: account, chainId: this.client.chain.id });
           throw new DroppedTransactionError(nonce, account);
         }
 
@@ -437,6 +506,7 @@ export class L1TxUtils extends ReadOnlyL1TxUtils {
         if (timePassed >= stallTimeMs && attempts <= maxSpeedUpAttempts) {
           const newGasPrice = await this.getGasPrice(gasConfig, isBlobTx, attempts, state.gasPrice);
           state.gasPrice = newGasPrice;
+          state.gasPriceHistory?.push(newGasPrice);
 
           this.logger.debug(
             `Tx ${currentTxHash} with nonce ${nonce} from ${account} appears stuck. ` +
@@ -515,12 +585,7 @@ export class L1TxUtils extends ReadOnlyL1TxUtils {
 
     // Oh no, the transaction has timed out!
     if (isCancelTx || !gasConfig.cancelTxOnTimeout) {
-      // If this was already a cancellation tx, or we are configured to not cancel txs, we just mark it as NOT_MINED
-      // and reset the nonce manager, so the next tx that comes along can reuse the nonce if/when this tx gets dropped.
-      // This is the nastiest scenario for us, since the new tx could acquire the next nonce, but then this tx is dropped,
-      // and the new tx would never get mined. Eventually, the new tx would also drop.
       await this.updateState(state, TxUtilsState.NOT_MINED);
-      this.nonceManager.reset({ address: account, chainId: this.client.chain.id });
     } else {
       // Otherwise we fire the cancellation without awaiting to avoid blocking the caller,
       // and monitor it in the background so we can speed it up as needed.
@@ -610,8 +675,22 @@ export class L1TxUtils extends ReadOnlyL1TxUtils {
     blobInputs?: L1BlobInputs,
   ): Promise<{ receipt: TransactionReceipt; state: L1TxState }> {
     const { state } = await this.sendTransaction(request, gasConfig, blobInputs);
-    const receipt = await this.monitorTransaction(state);
-    return { receipt, state };
+    try {
+      const receipt = await this.monitorTransaction(state);
+      return { receipt, state };
+    } catch (err) {
+      if (err instanceof TimeoutError) {
+        // Snapshot the ladder now: the fire-and-forget cancellation mutates state.gasPrice moments later.
+        throw new L1TxTimeoutError(err.message, {
+          gasPriceHistory: state.gasPriceHistory ? [...state.gasPriceHistory] : undefined,
+          finalGasPrice: state.gasPrice,
+          attempts: state.txHashes.length,
+          nonce: state.nonce,
+          gasLimit: state.gasLimit,
+        });
+      }
+      throw err;
+    }
   }
 
   public override async simulate(
@@ -659,33 +738,47 @@ export class L1TxUtils extends ReadOnlyL1TxUtils {
         { nonce, account },
       );
       await this.updateState(state, TxUtilsState.NOT_MINED);
-      this.nonceManager.reset({ address: account, chainId: this.client.chain.id });
       return;
     }
 
-    // Check if the original tx is still pending
-    const currentNonce = await this.client.getTransactionCount({ address: account, blockTag: 'pending' });
-    if (currentNonce < nonce) {
+    // Resolve the pending nonce and cancellation gas price up front. These are read-only RPC calls, so
+    // they are safe to retry; a transient RPC failure here must not permanently abandon the cancellation
+    // (which would leave the nonce stuck and the tx state stranded short of CANCELLED). We retry with a
+    // real backoff before giving up, unlike getGasPrice's tight internal retry which can be exhausted by
+    // a brief node hiccup. The retried block performs no state-changing send, so retrying cannot
+    // double-send the cancellation tx.
+    const { currentNonce, cancelGasPrice } = await retry(
+      async () => {
+        const currentNonce = await this.client.getTransactionCount({ address: account, blockTag: 'pending' });
+        if (currentNonce >= nonce) {
+          // Get gas price with higher priority fee for cancellation
+          const cancelGasPrice = await this.getGasPrice(
+            {
+              ...this.config,
+              // Use high bump for cancellation to ensure it replaces the original tx
+              priorityFeeRetryBumpPercentage: 150, // 150% bump should be enough to replace any tx
+            },
+            isBlobTx,
+            state.txHashes.length,
+            previousGasPrice,
+          );
+          return { currentNonce, cancelGasPrice };
+        }
+        return { currentNonce, cancelGasPrice: undefined };
+      },
+      `Preparing cancellation for L1 tx from account ${account} with nonce ${nonce}`,
+      makeBackoff(CANCELLATION_PREP_RETRY_BACKOFF_S),
+      this.logger,
+    );
+
+    if (cancelGasPrice === undefined) {
       this.logger.verbose(
         `Not sending cancellation for L1 tx from account ${account} with nonce ${nonce} as it is dropped`,
         { nonce, account, currentNonce },
       );
       await this.updateState(state, TxUtilsState.NOT_MINED);
-      this.nonceManager.reset({ address: account, chainId: this.client.chain.id });
       return;
     }
-
-    // Get gas price with higher priority fee for cancellation
-    const cancelGasPrice = await this.getGasPrice(
-      {
-        ...this.config,
-        // Use high bump for cancellation to ensure it replaces the original tx
-        priorityFeeRetryBumpPercentage: 150, // 150% bump should be enough to replace any tx
-      },
-      isBlobTx,
-      state.txHashes.length,
-      previousGasPrice,
-    );
 
     const { maxFeePerGas, maxPriorityFeePerGas, maxFeePerBlobGas } = cancelGasPrice;
     this.logger.verbose(
@@ -731,8 +824,17 @@ export class L1TxUtils extends ReadOnlyL1TxUtils {
     return Number(timestamp) * 1000;
   }
 
-  /** Makes empty blob inputs for the cancellation tx. To be overridden in L1TxUtilsWithBlobs. */
-  protected makeEmptyBlobInputs(_maxFeePerBlobGas: bigint): Required<L1BlobInputs> {
-    throw new Error('Cannot make empty blob inputs for cancellation');
+  /** Makes empty blob inputs for the cancellation tx. */
+  protected makeEmptyBlobInputs(maxFeePerBlobGas: bigint): Required<L1BlobInputs> {
+    if (!this.kzg) {
+      throw new Error('Cannot make empty blob inputs for cancellation without kzg');
+    }
+    const blobData = new Uint8Array(131072).fill(0);
+    return { blobs: [blobData], kzg: this.kzg, maxFeePerBlobGas };
+  }
+
+  /** Creates a new delayer instance. */
+  protected createDelayer(opts: { ethereumSlotDuration: bigint | number }, bindings: LoggerBindings): Delayer {
+    return createDelayer(this.dateProvider, opts, bindings);
   }
 }

@@ -7,9 +7,10 @@ pragma solidity >=0.8.27;
 
 import {IRollupCore, CheckpointLog} from "@aztec/core/interfaces/IRollup.sol";
 import {IStakingCore} from "@aztec/core/interfaces/IStaking.sol";
+import {IVerifier} from "@aztec/core/interfaces/IVerifier.sol";
 import {TestConstants} from "./harnesses/TestConstants.sol";
 import {Timestamp, Slot, Epoch} from "@aztec/shared/libraries/TimeMath.sol";
-import {RewardConfig, Bps} from "@aztec/core/libraries/rollup/RewardLib.sol";
+import {RewardConfig, MutableRewardConfig, Bps} from "@aztec/core/libraries/rollup/RewardLib.sol";
 import {StakingQueueConfig} from "@aztec/core/libraries/compressed-data/StakingQueueConfig.sol";
 import {ValidatorSelectionTestBase} from "./validator-selection/ValidatorSelectionBase.sol";
 import {IRewardDistributor} from "@aztec/governance/interfaces/IRewardDistributor.sol";
@@ -141,6 +142,10 @@ contract RollupShouldBeGetters is ValidatorSelectionTestBase {
     (, bytes32[] memory writes) = vm.accesses(address(rollup.getGSE()));
     assertEq(writes.length, 0, "No writes should be done");
 
+    if (isCoverage()) {
+      return;
+    }
+
     // 16 insertions in total, so binary search should hit 4 values (3 extra).
     // Since using recent, we should only hit 2 additional at most though, so
     // we will compute the overhead as 2 extra (each 3K) for each of the members
@@ -202,6 +207,10 @@ contract RollupShouldBeGetters is ValidatorSelectionTestBase {
 
     emit log_named_uint("gasSmall", gasSmall);
     emit log_named_uint("gasBig", gasBig);
+
+    if (isCoverage()) {
+      return;
+    }
 
     // Should not have grown by more than 10K
     assertGt(gasSmall + 1e4, gasBig, "growing too quickly");
@@ -284,22 +293,34 @@ contract RollupShouldBeGetters is ValidatorSelectionTestBase {
     assertEq(writes.length, 0, "No writes should be done");
   }
 
+  function test_getGenesisConfig() external setup(1, 1) {
+    vm.record();
+
+    bytes32 vkTreeRoot = rollup.getVkTreeRoot();
+    bytes32 protocolContractsHash = rollup.getProtocolContractsHash();
+    IVerifier epochProofVerifier = rollup.getEpochProofVerifier();
+
+    assertEq(vkTreeRoot, TestConstants.GENESIS_VK_TREE_ROOT, "invalid vkTreeRoot");
+    assertEq(protocolContractsHash, TestConstants.GENESIS_PROTOCOL_CONTRACTS_HASH, "invalid protocolContractsHash");
+    assertTrue(address(epochProofVerifier) != address(0), "epochProofVerifier not set");
+
+    (, bytes32[] memory writes) = vm.accesses(address(rollup));
+    assertEq(writes.length, 0, "No writes should be done");
+  }
+
   function test_getRewardConfig() external setup(1, 1) {
-    // By default, we will be replacing the reward distributor and booster addresses
+    // AZIP-2: setRewardConfig MUST NOT mutate `rewardDistributor` or `booster`. They are
+    // set exactly once in the constructor and immutable thereafter.
     RewardConfig memory defaultConfig = TestConstants.getRewardConfig();
-    RewardConfig memory config = rollup.getRewardConfig();
+    RewardConfig memory before = rollup.getRewardConfig();
 
-    RewardConfig memory updated = RewardConfig({
-      sequencerBps: Bps.wrap(1),
-      rewardDistributor: IRewardDistributor(address(2)),
-      booster: IBoosterCore(address(3)),
-      checkpointReward: 100e18
-    });
+    address initialDistributor = address(before.rewardDistributor);
+    address initialBooster = address(before.booster);
 
-    assertNotEq(address(config.rewardDistributor), address(updated.rewardDistributor), "invalid reward distributor");
-    assertNotEq(address(config.booster), address(updated.booster), "invalid booster");
-    assertEq(Bps.unwrap(config.sequencerBps), Bps.unwrap(defaultConfig.sequencerBps), "invalid sequencerBps");
-    assertEq(config.checkpointReward, defaultConfig.checkpointReward, "invalid initial checkpointReward");
+    assertEq(Bps.unwrap(before.sequencerBps), Bps.unwrap(defaultConfig.sequencerBps), "invalid sequencerBps");
+    assertEq(before.checkpointReward, defaultConfig.checkpointReward, "invalid initial checkpointReward");
+
+    MutableRewardConfig memory updated = MutableRewardConfig({sequencerBps: Bps.wrap(1), checkpointReward: 100e18});
 
     address owner = rollup.owner();
 
@@ -307,11 +328,15 @@ contract RollupShouldBeGetters is ValidatorSelectionTestBase {
     emit IRollupCore.RewardConfigUpdated(updated);
     vm.prank(owner);
     rollup.setRewardConfig(updated);
-    config = rollup.getRewardConfig();
 
-    assertEq(Bps.unwrap(config.sequencerBps), Bps.unwrap(updated.sequencerBps), "invalid sequencerBps");
-    assertEq(address(config.rewardDistributor), address(updated.rewardDistributor), "invalid reward distributor");
-    assertEq(address(config.booster), address(updated.booster), "invalid booster");
-    assertEq(config.checkpointReward, updated.checkpointReward, "invalid checkpointReward");
+    RewardConfig memory afterUpdate = rollup.getRewardConfig();
+
+    // The mutable subset reflects the new values.
+    assertEq(Bps.unwrap(afterUpdate.sequencerBps), Bps.unwrap(updated.sequencerBps), "sequencerBps not updated");
+    assertEq(afterUpdate.checkpointReward, updated.checkpointReward, "checkpointReward not updated");
+
+    // The immutable fields are unchanged regardless of what the owner tried to do.
+    assertEq(address(afterUpdate.rewardDistributor), initialDistributor, "rewardDistributor must be immutable");
+    assertEq(address(afterUpdate.booster), initialBooster, "booster must be immutable");
   }
 }

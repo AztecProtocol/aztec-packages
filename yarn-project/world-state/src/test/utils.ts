@@ -60,7 +60,16 @@ export async function updateBlockState(block: L2Block, l1ToL2Messages: Fr[], for
   await Promise.all([publicDataInsert, nullifierInsert, noteHashInsert, messageInsert]);
 
   const state = await fork.getStateReference();
-  block.header = BlockHeader.from({ ...block.header, state });
+
+  // Capture the archive root *before* appending this block so the header's lastArchive chains off the previous block.
+  // sync_block now verifies lastArchive against the committed archive root, so a block carrying an unchained value
+  // (e.g. the random lastArchive from L2Block.random) would be rejected as a divergence from the canonical chain.
+  const previousArchive = await fork.getTreeInfo(MerkleTreeId.ARCHIVE);
+  block.header = BlockHeader.from({
+    ...block.header,
+    state,
+    lastArchive: new AppendOnlyTreeSnapshot(Fr.fromBuffer(previousArchive.root), Number(previousArchive.size)),
+  });
   await fork.updateArchive(block.header);
 
   const archiveState = await fork.getTreeInfo(MerkleTreeId.ARCHIVE);

@@ -5,12 +5,12 @@ import { jsonStringify } from '@aztec/foundation/json-rpc';
 import { createLogger } from '@aztec/foundation/log';
 import { promiseWithResolvers } from '@aztec/foundation/promise';
 import type { Fr } from '@aztec/foundation/schemas';
-import { fileURLToPath } from '@aztec/foundation/url';
 
 import { bn254 } from '@noble/curves/bn254';
 import type { Abi, Narrow } from 'abitype';
 import { spawn } from 'child_process';
 import { cpSync, existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'fs';
+import { createRequire } from 'node:module';
 import { tmpdir } from 'os';
 import { dirname, join, resolve } from 'path';
 import readline from 'readline';
@@ -19,21 +19,22 @@ import { mainnet, sepolia } from 'viem/chains';
 
 import { createEthereumChain, isAnvilTestChain } from './chain.js';
 import { createExtendedL1Client } from './client.js';
-import type { L1ContractsConfig } from './config.js';
+import { type L1ContractsConfig, assertValidSlotDurations } from './config.js';
 import { deployMulticall3 } from './contracts/multicall.js';
 import { RollupContract } from './contracts/rollup.js';
 import type { L1ContractAddresses } from './l1_contract_addresses.js';
-import type { L1TxUtilsConfig } from './l1_tx_utils/config.js';
 import type { ExtendedViemWalletClient } from './types.js';
 
 const logger = createLogger('ethereum:deploy_aztec_l1_contracts');
 
+const require = createRequire(import.meta.url);
+
 const JSON_DEPLOY_RESULT_PREFIX = 'JSON DEPLOY RESULT:';
 
 /**
- * Runs a process with the given command, arguments, and environment.
- * If the process outputs a line starting with JSON_DEPLOY_RESULT_PREFIX,
- * the JSON is parsed and returned.
+ * Runs a process and parses JSON deploy results from stdout.
+ * Lines starting with JSON_DEPLOY_RESULT_PREFIX are parsed and returned.
+ * All other stdout goes to logger.info, stderr goes to logger.warn.
  */
 function runProcess<T>(
   command: string,
@@ -49,26 +50,41 @@ function runProcess<T>(
   });
 
   let result: T | undefined;
+  let parseError: Error | undefined;
+  let settled = false;
 
   readline.createInterface({ input: proc.stdout }).on('line', line => {
     const trimmedLine = line.trim();
     if (trimmedLine.startsWith(JSON_DEPLOY_RESULT_PREFIX)) {
       const jsonStr = trimmedLine.slice(JSON_DEPLOY_RESULT_PREFIX.length).trim();
-      // TODO(AD): should this be a zod parse?
-      result = JSON.parse(jsonStr);
+      try {
+        result = JSON.parse(jsonStr);
+      } catch {
+        parseError = new Error(`Failed to parse deploy result JSON: ${jsonStr.slice(0, 200)}`);
+      }
     } else {
       logger.info(line);
     }
   });
-  readline.createInterface({ input: proc.stderr }).on('line', logger.error.bind(logger));
+  readline.createInterface({ input: proc.stderr }).on('line', logger.warn.bind(logger));
 
   proc.on('error', error => {
+    if (settled) {
+      return;
+    }
+    settled = true;
     reject(new Error(`Failed to spawn ${command}: ${error.message}`));
   });
 
   proc.on('close', code => {
+    if (settled) {
+      return;
+    }
+    settled = true;
     if (code !== 0) {
-      reject(new Error(`${command} exited with code ${code}. See logs for details.\n`));
+      reject(new Error(`${command} exited with code ${code}`));
+    } else if (parseError) {
+      reject(parseError);
     } else {
       resolve(result);
     }
@@ -109,15 +125,13 @@ export interface ValidatorJson {
 }
 
 /**
- * Gets the path to the l1-contracts foundry artifacts directory.
- * These are copied from l1-contracts to yarn-project/l1-artifacts/l1-contracts
- * during build to make yarn-project self-contained.
+ * Gets the path to the l1-contracts foundry artifacts directory bundled inside @aztec/l1-artifacts.
+ * Resolved through the package (its "." export -> dest/index.js) so it works whether the package is
+ * linked via portal (monorepo) or installed under node_modules (published npm) — resolution follows
+ * the symlink in the portal case. The bundled foundry subtree sits alongside dest/, at <pkg>/l1-contracts.
  */
 export function getL1ContractsPath(): string {
-  const currentDir = dirname(fileURLToPath(import.meta.url));
-  // Go up from yarn-project/ethereum/dest to yarn-project, then to l1-artifacts/l1-contracts
-  const l1ContractsPath = resolve(currentDir, '..', '..', 'l1-artifacts', 'l1-contracts');
-  return l1ContractsPath;
+  return resolve(dirname(require.resolve('@aztec/l1-artifacts')), '..', 'l1-contracts');
 }
 
 // Cached deployment directory
@@ -216,7 +230,6 @@ export function computeValidatorData(operator: Operator): ValidatorJson {
 export interface RollupUpgradeAddresses {
   rollupAddress: string;
   verifierAddress: string;
-  slashFactoryAddress: string;
   inboxAddress: string;
   outboxAddress: string;
   feeJuicePortalAddress: string;
@@ -229,7 +242,6 @@ export interface RollupUpgradeAddresses {
 export interface ForgeRollupUpgradeResult {
   rollupAddress: Hex;
   verifierAddress: Hex;
-  slashFactoryAddress: Hex;
   inboxAddress: Hex;
   outboxAddress: Hex;
   feeJuicePortalAddress: Hex;
@@ -270,6 +282,7 @@ export async function deployAztecL1Contracts(
   args: DeployAztecL1ContractsArgs,
 ): Promise<DeployAztecL1ContractsReturnType> {
   logger.info(`Deploying L1 contracts with config: ${jsonStringify(args)}`);
+  assertValidSlotDurations(args);
   if (args.initialValidators && args.initialValidators.length > 0 && args.existingTokenAddress) {
     throw new Error(
       'Cannot deploy with both initialValidators and existingTokenAddress. ' +
@@ -321,11 +334,8 @@ export async function deployAztecL1Contracts(
     );
   }
 
-  // From heuristic testing. More caused issues with anvil.
-  const MAGIC_ANVIL_BATCH_SIZE = 8;
-  // Anvil seems to stall with unbounded batch size. Otherwise no max batch size is desirable.
+  const scriptPath = join(getL1ContractsPath(), 'scripts', 'forge_broadcast.js');
   const forgeArgs = [
-    'script',
     FORGE_SCRIPT,
     '--sig',
     'run()',
@@ -333,9 +343,6 @@ export async function deployAztecL1Contracts(
     privateKey,
     '--rpc-url',
     rpcUrl,
-    '--broadcast',
-    '--batch-size',
-    MAGIC_ANVIL_BATCH_SIZE.toString(),
     ...(shouldVerify ? ['--verify'] : []),
   ];
   const forgeEnv = {
@@ -344,7 +351,12 @@ export async function deployAztecL1Contracts(
     FOUNDRY_PROFILE: chainId === mainnet.id ? 'production' : undefined,
     ...getDeployAztecL1ContractsEnvVars(args),
   };
-  const result = await runProcess<ForgeL1ContractsDeployResult>('forge', forgeArgs, forgeEnv, l1ContractsPath);
+  const result = await runProcess<ForgeL1ContractsDeployResult>(
+    process.execPath,
+    [scriptPath, ...forgeArgs],
+    forgeEnv,
+    l1ContractsPath,
+  );
   if (!result) {
     throw new Error('Forge script did not output deployment result');
   }
@@ -390,7 +402,6 @@ export async function deployAztecL1Contracts(
       governanceProposerAddress: EthAddress.fromString(result.governanceProposerAddress),
       governanceAddress: EthAddress.fromString(result.governanceAddress),
       stakingAssetAddress: EthAddress.fromString(result.stakingAssetAddress),
-      slashFactoryAddress: result.slashFactoryAddress ? EthAddress.fromString(result.slashFactoryAddress) : undefined,
       feeAssetHandlerAddress: result.feeAssetHandlerAddress
         ? EthAddress.fromString(result.feeAssetHandlerAddress)
         : undefined,
@@ -477,7 +488,25 @@ export type VerificationRecord = {
   libraries: VerificationLibraryEntry[];
 };
 
-export interface DeployAztecL1ContractsArgs extends Omit<L1ContractsConfig, keyof L1TxUtilsConfig> {
+export interface DeployAztecL1ContractsArgs
+  extends Omit<
+    L1ContractsConfig,
+    | 'gasLimitBufferPercentage'
+    | 'maxGwei'
+    | 'maxBlobGwei'
+    | 'priorityFeeBumpPercentage'
+    | 'priorityFeeRetryBumpPercentage'
+    | 'minimumPriorityFeePerGas'
+    | 'maxSpeedUpAttempts'
+    | 'checkIntervalMs'
+    | 'stallTimeMs'
+    | 'txTimeoutMs'
+    | 'cancelTxOnTimeout'
+    | 'txCancellationFinalTimeoutMs'
+    | 'txUnseenConsideredDroppedMs'
+    | 'enableDelayer'
+    | 'txDelayerMaxInclusionTimeIntoSlot'
+  > {
   /** The vk tree root. */
   vkTreeRoot: Fr;
   /** The hash of the protocol contracts. */
@@ -554,13 +583,18 @@ export function getDeployRollupForUpgradeEnvVars(
     AZTEC_EXIT_DELAY_SECONDS: args.exitDelaySeconds.toString(),
     AZTEC_PROVING_COST_PER_MANA: args.provingCostPerMana.toString(),
     AZTEC_INITIAL_ETH_PER_FEE_ASSET: args.initialEthPerFeeAsset.toString(),
-    AZTEC_SLASHER_FLAVOR: args.slasherFlavor,
+    AZTEC_SLASHER_ENABLED: args.slasherEnabled ? 'true' : 'false',
     AZTEC_SLASHING_ROUND_SIZE_IN_EPOCHS: args.slashingRoundSizeInEpochs.toString(),
     AZTEC_SLASHING_QUORUM: args.slashingQuorum?.toString(),
     AZTEC_SLASHING_OFFSET_IN_ROUNDS: args.slashingOffsetInRounds.toString(),
     AZTEC_SLASH_AMOUNT_SMALL: args.slashAmountSmall.toString(),
     AZTEC_SLASH_AMOUNT_MEDIUM: args.slashAmountMedium.toString(),
     AZTEC_SLASH_AMOUNT_LARGE: args.slashAmountLarge.toString(),
+    AZTEC_ENTRY_QUEUE_BOOTSTRAP_VALIDATOR_SET_SIZE: args.entryQueueBootstrapValidatorSetSize.toString(),
+    AZTEC_ENTRY_QUEUE_BOOTSTRAP_FLUSH_SIZE: args.entryQueueBootstrapFlushSize.toString(),
+    AZTEC_ENTRY_QUEUE_FLUSH_SIZE_MIN: args.entryQueueFlushSizeMin.toString(),
+    AZTEC_ENTRY_QUEUE_FLUSH_SIZE_QUOTIENT: args.entryQueueFlushSizeQuotient.toString(),
+    AZTEC_ENTRY_QUEUE_MAX_FLUSH_SIZE: args.entryQueueMaxFlushSize.toString(),
   } as const;
 }
 
@@ -587,17 +621,8 @@ export const deployRollupForUpgrade = async (
   const FORGE_SCRIPT = 'script/deploy/DeployRollupForUpgrade.s.sol';
   await maybeForgeForceProductionBuild(l1ContractsPath, FORGE_SCRIPT, chainId);
 
-  const forgeArgs = [
-    'script',
-    FORGE_SCRIPT,
-    '--sig',
-    'run()',
-    '--private-key',
-    privateKey,
-    '--rpc-url',
-    rpcUrl,
-    '--broadcast',
-  ];
+  const scriptPath = join(getL1ContractsPath(), 'scripts', 'forge_broadcast.js');
+  const forgeArgs = [FORGE_SCRIPT, '--sig', 'run()', '--private-key', privateKey, '--rpc-url', rpcUrl];
   const forgeEnv = {
     FOUNDRY_PROFILE: chainId === mainnet.id ? 'production' : undefined,
     // Env vars required by l1-contracts/script/deploy/RollupConfiguration.sol.
@@ -606,7 +631,12 @@ export const deployRollupForUpgrade = async (
     ...getDeployRollupForUpgradeEnvVars(args),
   };
 
-  const result = await runProcess<ForgeRollupUpgradeResult>('forge', forgeArgs, forgeEnv, l1ContractsPath);
+  const result = await runProcess<ForgeRollupUpgradeResult>(
+    process.execPath,
+    [scriptPath, ...forgeArgs],
+    forgeEnv,
+    l1ContractsPath,
+  );
   if (!result) {
     throw new Error('Forge script did not output deployment result');
   }
@@ -618,6 +648,5 @@ export const deployRollupForUpgrade = async (
 
   return {
     rollup,
-    slashFactoryAddress: result.slashFactoryAddress,
   };
 };

@@ -1,11 +1,11 @@
 import type { ChainInfo } from '@aztec/entrypoints/interfaces';
 import { Fr } from '@aztec/foundation/curves/bn254';
-import { ProtocolContractAddress } from '@aztec/protocol-contracts';
+import { STANDARD_AUTH_REGISTRY_ADDRESS } from '@aztec/standard-contracts/auth-registry/constants';
 import { type ABIParameterVisibility, type FunctionAbi, type FunctionCall, FunctionType } from '@aztec/stdlib/abi';
 import { AuthWitness, computeInnerAuthWitHash, computeOuterAuthWitHash } from '@aztec/stdlib/auth-witness';
 import type { AztecAddress } from '@aztec/stdlib/aztec-address';
 import { computeVarArgsHash } from '@aztec/stdlib/hash';
-import type { TxHash, TxProfileResult, TxReceipt } from '@aztec/stdlib/tx';
+import type { TxProfileResult } from '@aztec/stdlib/tx';
 
 import { ContractFunctionInteraction } from '../contract/contract_function_interaction.js';
 import type {
@@ -15,7 +15,8 @@ import type {
   SendInteractionOptionsWithoutWait,
   SendReturn,
   SimulateInteractionOptions,
-  SimulationReturn,
+  SimulationResult,
+  TxSendResultMined,
 } from '../contract/interaction_options.js';
 import type { Wallet } from '../wallet/index.js';
 
@@ -189,10 +190,12 @@ export async function lookupValidity(
     errorTypes: {},
   } as FunctionAbi;
   try {
-    results.isValidInPrivate = (await new ContractFunctionInteraction(wallet, onBehalfOf, lookupValidityAbi, [
-      consumer,
-      innerHash,
-    ]).simulate({ from: onBehalfOf, authWitnesses: [witness] })) as boolean;
+    results.isValidInPrivate = (
+      await new ContractFunctionInteraction(wallet, onBehalfOf, lookupValidityAbi, [consumer, innerHash]).simulate({
+        from: onBehalfOf,
+        authWitnesses: [witness],
+      })
+    ).result as boolean;
     // TODO: Narrow down the error to make sure simulation failed due to an invalid authwit
     // eslint-disable-next-line no-empty
   } catch {}
@@ -219,12 +222,12 @@ export async function lookupValidity(
     returnTypes: [{ kind: 'boolean' }],
     errorTypes: {},
   } as FunctionAbi;
-  results.isValidInPublic = (await new ContractFunctionInteraction(
-    wallet,
-    ProtocolContractAddress.AuthRegistry,
-    isConsumableAbi,
-    [onBehalfOf, messageHash],
-  ).simulate({ from: onBehalfOf })) as boolean;
+  results.isValidInPublic = (
+    await new ContractFunctionInteraction(wallet, STANDARD_AUTH_REGISTRY_ADDRESS, isConsumableAbi, [
+      onBehalfOf,
+      messageHash,
+    ]).simulate({ from: onBehalfOf })
+  ).result as boolean;
 
   return results;
 }
@@ -239,7 +242,7 @@ export class SetPublicAuthwitContractInteraction extends ContractFunctionInterac
     messageHash: Fr,
     authorized: boolean,
   ) {
-    super(wallet, ProtocolContractAddress.AuthRegistry, SetPublicAuthwitContractInteraction.getSetAuthorizedAbi(), [
+    super(wallet, STANDARD_AUTH_REGISTRY_ADDRESS, SetPublicAuthwitContractInteraction.getSetAuthorizedAbi(), [
       messageHash,
       authorized,
     ]);
@@ -262,14 +265,10 @@ export class SetPublicAuthwitContractInteraction extends ContractFunctionInterac
    * @param options - An optional object containing additional configuration for the transaction.
    * @returns The result of the transaction as returned by the contract function.
    */
-  public override simulate<T extends SimulateInteractionOptions>(
-    options: Omit<T, 'from'>,
-  ): Promise<SimulationReturn<T['includeMetadata']>>;
-  // eslint-disable-next-line jsdoc/require-jsdoc
   public override simulate(
-    options: Omit<SimulateInteractionOptions, 'from'> = {},
-  ): Promise<SimulationReturn<typeof options.includeMetadata>> {
-    return super.simulate({ ...options, from: this.from });
+    options: Omit<SimulateInteractionOptions, 'from'> = {} as Omit<SimulateInteractionOptions, 'from'>,
+  ): Promise<SimulationResult> {
+    return super.simulate({ ...options, from: this.from } as SimulateInteractionOptions);
   }
 
   /**
@@ -290,8 +289,7 @@ export class SetPublicAuthwitContractInteraction extends ContractFunctionInterac
    * @param options - An optional object containing 'fee' options information
    * @returns A TxReceipt (if wait is true/undefined) or TxHash (if wait is false)
    */
-  // Overload for when wait is not specified at all - returns TxReceipt
-  public override send(options?: Omit<SendInteractionOptionsWithoutWait, 'from'>): Promise<TxReceipt>;
+  public override send(options?: Omit<SendInteractionOptionsWithoutWait, 'from'>): Promise<TxSendResultMined>;
   // Generic overload for explicit wait values
   // eslint-disable-next-line jsdoc/require-jsdoc
   public override send<W extends InteractionWaitOptions>(
@@ -300,7 +298,7 @@ export class SetPublicAuthwitContractInteraction extends ContractFunctionInterac
   // eslint-disable-next-line jsdoc/require-jsdoc
   public override send(
     options?: Omit<SendInteractionOptions<InteractionWaitOptions>, 'from'>,
-  ): Promise<TxReceipt | TxHash> {
+  ): Promise<SendReturn<InteractionWaitOptions>> {
     return super.send({ ...options, from: this.from });
   }
 

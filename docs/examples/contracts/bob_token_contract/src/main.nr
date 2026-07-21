@@ -7,7 +7,7 @@ pub contract BobToken {
     // docs:end:start
     use aztec::{
         macros::{functions::{external, initializer, only_self}, storage::storage},
-        messages::message_delivery::MessageDelivery,
+        messages::delivery::MessageDelivery,
         protocol::address::AztecAddress,
         state_vars::{Map, Owned, PublicMutable},
     };
@@ -86,7 +86,7 @@ pub contract BobToken {
         self.enqueue_self._deduct_public_balance(sender, amount);
         // Add to private balance
         self.storage.private_balances.at(sender).add(amount as u128).deliver(
-            MessageDelivery.ONCHAIN_CONSTRAINED,
+            MessageDelivery::onchain_constrained(),
         );
     }
     // docs:end:public_to_private
@@ -107,11 +107,11 @@ pub contract BobToken {
         let sender = self.msg_sender();
         // Spend sender's notes (consumes existing notes)
         self.storage.private_balances.at(sender).sub(amount as u128).deliver(
-            MessageDelivery.ONCHAIN_CONSTRAINED,
+            MessageDelivery::onchain_constrained(),
         );
         // Create new notes for recipient
         self.storage.private_balances.at(to).add(amount as u128).deliver(
-            MessageDelivery.ONCHAIN_CONSTRAINED,
+            MessageDelivery::onchain_constrained(),
         );
     }
     // docs:end:transfer_private
@@ -144,7 +144,7 @@ pub contract BobToken {
 
         // If check passes, mint tokens privately
         self.storage.private_balances.at(employee).add(amount as u128).deliver(
-            MessageDelivery.ONCHAIN_CONSTRAINED,
+            MessageDelivery::onchain_constrained(),
         );
     }
     // docs:end:mint_private
@@ -155,7 +155,7 @@ pub contract BobToken {
         let sender = self.msg_sender();
         // Remove from private balance
         self.storage.private_balances.at(sender).sub(amount as u128).deliver(
-            MessageDelivery.ONCHAIN_CONSTRAINED,
+            MessageDelivery::onchain_constrained(),
         );
         // Enqueue public credit
         self.enqueue_self._credit_public_balance(sender, amount);

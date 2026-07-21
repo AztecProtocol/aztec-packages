@@ -45,7 +45,12 @@ const chunkSizeValidator = (limits: ChunkSizeLimit[]): Plugin => {
     configResolved(resolvedConfig) {
       config = resolvedConfig;
     },
-    closeBundle() {
+    // `writeBundle` is documented to fire AFTER the output bundle has been
+    // written to disk, whereas `closeBundle` (which we used previously) is the
+    // last hook to run and can fire before any chunks have been flushed in
+    // current vite/rollup versions — manifesting as ENOENT on `scandir 'dist'`
+    // for a build that otherwise transformed all modules cleanly.
+    writeBundle() {
       const outDir = this.meta?.watchMode ? null : 'dist';
       if (!outDir) return; // Skip in watch mode
 
@@ -115,7 +120,7 @@ export default defineConfig(({ mode }) => {
           '../yarn-project/noir-protocol-circuits-types/artifacts',
           '../noir/packages/noirc_abi/web',
           '../noir/packages/acvm_js/web',
-          '../barretenberg/ts/dest/browser',
+          '../barretenberg/ts/bb.js/dest/browser',
         ],
       },
     },
@@ -136,9 +141,13 @@ export default defineConfig(({ mode }) => {
         // Bump log:
         // - AD: bumped from 1600 => 1680 as we now have a 20kb msgpack lib in bb.js and other logic got us 50kb higher, adding some wiggle room.
         // - MW: bumped from 1700 => 1750 after adding the noble curves pkg to foundation required for blob batching calculations.
+        // - 2026-05-08: bumped from 1750 => 1800 after merge of next into merge-train/fairies brought in barretenberg changes (optimized Poseidon2, n1 apps) that nudged bb.js over the prior limit (1750.02 KB).
+        // - JB: bumped from 1750 => 1800 after adding the `aztec_utl_getTxEffect` oracle handler, which pulls TxEffect / FlatPublicLogs / PrivateLog / PublicDataWrite into the eager PXE import path (#22979).
+        // - 2026-05-12: bumped from 1800 => 1850 after merge-train/barretenberg brought in further bb-side changes (multi-app kernel circuits #23076 etc.) that pushed the main entrypoint to 1801.31 KB, just over the limit raised four days earlier.
+        // - 2026-06-08: bumped from 1850 => 1925 after aztec RPC namespace / client surface changes pushed the main entrypoint to 1872.57 KB on CI (playground cold build).
         {
           pattern: /assets\/index-.*\.js$/,
-          maxSizeKB: 1750,
+          maxSizeKB: 1925,
           description: 'Main entrypoint, hard limit',
         },
         // Bump log:
@@ -149,9 +158,14 @@ export default defineConfig(({ mode }) => {
         // greatly needed here.
         // - Dec 2025: bumped from 4500 --> 4600 as SimpleToken grew a bit again.
         // PR: https://github.com/AztecProtocol/aztec-packages/pull/18815
+        // - 2026-06-18: bumped from 4600 => 4700 after rebuilding the bb.js browser package at its new
+        //   barretenberg/ts/bb.js path produced assets/barretenberg-*.js at 4641.65 KB.
+        // - 2026-07-02: bumped to 5000 after merging from public to private repo resulted in 4800+k for some reason.
+        // - 2026-07-04: bumped from 5000 => 5300 after bb changes on merge-train/barretenberg grew
+        //   assets/barretenberg-*.js to 5079.12 KB and assets/barretenberg-threads-*.js to 5116.65 KB.
         {
           pattern: /.*/,
-          maxSizeKB: 4600,
+          maxSizeKB: 5300,
           description: 'Detect if json artifacts or bb.js wasm get out of control',
         },
       ]),

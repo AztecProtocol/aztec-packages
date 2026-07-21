@@ -12,22 +12,22 @@ namespace bb::stdlib::recursion::honk {
 /**
  * @brief **For test purposes only**: Native representation and serde for KernelIO public inputs
  * @details Used for testing and verification with native bb::fr vectors.
- * Mirrors the structure of stdlib KernelIO but works with native types.
+ * Mirrors the structure of stdlib KernelIO_<N> but works with native types.
  */
-class KernelIOSerde {
+template <size_t N> class KernelIOSerde_ {
   public:
     using NativeFF = bb::fr;
     using NativeG1 = curve::BN254::AffineElement;
     using NativeFq = curve::BN254::BaseField;
     using NativePairingPoints = bb::PairingPoints<curve::BN254>;
-    using NativeTableCommitments = std::array<NativeG1, MegaCircuitBuilder::NUM_WIRES>;
+    using NativeAppReturnDataCommitments = std::array<NativeG1, N>;
 
-    static constexpr size_t PUBLIC_INPUTS_SIZE = KERNEL_PUBLIC_INPUTS_SIZE;
+    static constexpr size_t PUBLIC_INPUTS_SIZE = kernel_public_inputs_size(N);
 
     NativePairingPoints pairing_inputs;
     NativeG1 kernel_return_data;
-    NativeG1 app_return_data;
-    NativeTableCommitments ecc_op_tables;
+    NativeAppReturnDataCommitments app_return_data;
+    NativeFF ecc_op_hash;
     NativeFF output_hn_accum_hash;
 
     /**
@@ -37,9 +37,9 @@ class KernelIOSerde {
      * @details KernelIO is at the END of the public inputs section, so we start at
      *          offset (num_public_inputs - PUBLIC_INPUTS_SIZE)
      */
-    static KernelIOSerde from_proof(const std::vector<NativeFF>& proof, size_t num_public_inputs)
+    static KernelIOSerde_ from_proof(const std::vector<NativeFF>& proof, size_t num_public_inputs)
     {
-        KernelIOSerde result;
+        KernelIOSerde_ result;
         // KernelIO is at the end of public inputs, which are at the start of the proof
         size_t idx = num_public_inputs - PUBLIC_INPUTS_SIZE;
 
@@ -54,10 +54,10 @@ class KernelIOSerde {
         result.pairing_inputs.P0() = deserialize_point();
         result.pairing_inputs.P1() = deserialize_point();
         result.kernel_return_data = deserialize_point();
-        result.app_return_data = deserialize_point();
-        for (auto& commitment : result.ecc_op_tables) {
-            commitment = deserialize_point();
+        for (auto& app_commitment : result.app_return_data) {
+            app_commitment = deserialize_point();
         }
+        result.ecc_op_hash = proof[idx++];
         result.output_hn_accum_hash = proof[idx];
 
         return result;
@@ -83,98 +83,28 @@ class KernelIOSerde {
         };
 
         auto serialize_point = [&](const NativeG1& point) {
-            serialize_fq(point.x);
-            serialize_fq(point.y);
+            if (point.is_point_at_infinity()) {
+                for (size_t i = 0; i < NativeG1::PUBLIC_INPUTS_SIZE; ++i) {
+                    proof[idx++] = NativeFF::zero();
+                }
+            } else {
+                serialize_fq(point.x);
+                serialize_fq(point.y);
+            }
         };
 
         serialize_point(pairing_inputs.P0());
         serialize_point(pairing_inputs.P1());
         serialize_point(kernel_return_data);
-        serialize_point(app_return_data);
-        for (const auto& commitment : ecc_op_tables) {
-            serialize_point(commitment);
+        for (const auto& app_commitment : app_return_data) {
+            serialize_point(app_commitment);
         }
+        proof[idx++] = ecc_op_hash;
         proof[idx] = output_hn_accum_hash;
     }
 };
 
-/**
- * @brief Native representation and serde for HidingKernelIO public inputs
- * @details Used for testing and verification with native bb::fr vectors.
- * Mirrors the structure of stdlib HidingKernelIO but works with native types.
- * HidingKernelIO is the final kernel output (no accum hash since folding terminates).
- */
-class HidingKernelIOSerde {
-  public:
-    using NativeFF = bb::fr;
-    using NativeG1 = curve::BN254::AffineElement;
-    using NativeFq = curve::BN254::BaseField;
-    using NativePairingPoints = bb::PairingPoints<curve::BN254>;
-    using NativeTableCommitments = std::array<NativeG1, MegaCircuitBuilder::NUM_WIRES>;
-
-    static constexpr size_t PUBLIC_INPUTS_SIZE = HIDING_KERNEL_PUBLIC_INPUTS_SIZE;
-
-    NativePairingPoints pairing_inputs;
-    NativeG1 kernel_return_data;
-    NativeTableCommitments ecc_op_tables;
-
-    /**
-     * @brief Deserialize HidingKernelIO from a proof vector
-     * @param proof The proof vector (public inputs are at the beginning)
-     * @param num_public_inputs Total number of public inputs in the proof
-     */
-    static HidingKernelIOSerde from_proof(const std::vector<NativeFF>& proof, size_t num_public_inputs)
-    {
-        HidingKernelIOSerde result;
-        size_t idx = num_public_inputs - PUBLIC_INPUTS_SIZE;
-
-        auto deserialize_point = [&]() {
-            std::span<const NativeFF, NativeG1::PUBLIC_INPUTS_SIZE> limbs(proof.data() + idx,
-                                                                          NativeG1::PUBLIC_INPUTS_SIZE);
-            idx += NativeG1::PUBLIC_INPUTS_SIZE;
-            return FrCodec::deserialize_from_fields<NativeG1>(limbs);
-        };
-
-        result.pairing_inputs.P0() = deserialize_point();
-        result.pairing_inputs.P1() = deserialize_point();
-        result.kernel_return_data = deserialize_point();
-        for (auto& commitment : result.ecc_op_tables) {
-            commitment = deserialize_point();
-        }
-
-        return result;
-    }
-
-    /**
-     * @brief Serialize HidingKernelIO back to a proof vector
-     * @param proof The proof vector to write to
-     * @param num_public_inputs Total number of public inputs in the proof
-     */
-    void to_proof(std::vector<NativeFF>& proof, size_t num_public_inputs) const
-    {
-        size_t idx = num_public_inputs - PUBLIC_INPUTS_SIZE;
-
-        auto serialize_fq = [&](const NativeFq& fq_val) {
-            constexpr uint64_t NUM_LIMB_BITS = 2 * NUM_LIMB_BITS_IN_FIELD_SIMULATION;
-            constexpr uint256_t LIMB_MASK = (uint256_t(1) << NUM_LIMB_BITS) - 1;
-            uint256_t val = static_cast<uint256_t>(fq_val);
-            proof[idx++] = NativeFF(val & LIMB_MASK);
-            proof[idx++] = NativeFF((val >> NUM_LIMB_BITS) & LIMB_MASK);
-        };
-
-        auto serialize_point = [&](const NativeG1& point) {
-            serialize_fq(point.x);
-            serialize_fq(point.y);
-        };
-
-        serialize_point(pairing_inputs.P0());
-        serialize_point(pairing_inputs.P1());
-        serialize_point(kernel_return_data);
-        for (const auto& commitment : ecc_op_tables) {
-            serialize_point(commitment);
-        }
-    }
-};
+using KernelIOSerde = KernelIOSerde_<MAX_APPS_PER_KERNEL>;
 
 /**
  * @brief Native representation and serde for AppIO public inputs
@@ -239,8 +169,14 @@ class AppIOSerde {
         };
 
         auto serialize_point = [&](const NativeG1& point) {
-            serialize_fq(point.x);
-            serialize_fq(point.y);
+            if (point.is_point_at_infinity()) {
+                for (size_t i = 0; i < NativeG1::PUBLIC_INPUTS_SIZE; ++i) {
+                    proof[idx++] = NativeFF::zero();
+                }
+            } else {
+                serialize_fq(point.x);
+                serialize_fq(point.y);
+            }
         };
 
         serialize_point(pairing_inputs.P0());

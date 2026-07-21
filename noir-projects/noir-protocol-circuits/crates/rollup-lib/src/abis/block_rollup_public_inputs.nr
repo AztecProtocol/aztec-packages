@@ -1,11 +1,11 @@
-use dep::types::{
+use protocol_test_utils::make_fixture;
+use types::{
     abis::{
         append_only_tree_snapshot::AppendOnlyTreeSnapshot,
         checkpoint_constant_data::CheckpointConstantData, state_reference::StateReference,
     },
     blob_data::SpongeBlob,
     constants::BLOCK_ROLLUP_PUBLIC_INPUTS_LENGTH,
-    tests::utils::make_fixture,
     traits::{Deserialize, Serialize},
 };
 

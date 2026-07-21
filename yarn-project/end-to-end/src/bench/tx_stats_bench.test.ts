@@ -5,7 +5,6 @@ import { sleep } from '@aztec/foundation/sleep';
 import { Timer } from '@aztec/foundation/timer';
 import type { IVCProofVerificationResult } from '@aztec/stdlib/interfaces/server';
 import type { Tx } from '@aztec/stdlib/tx';
-import { type TestWallet, proveInteraction } from '@aztec/test-wallet/server';
 
 import '@jest/globals';
 import { mkdir, writeFile } from 'fs/promises';
@@ -21,12 +20,17 @@ import {
 } from 'zlib';
 
 import { FullProverTest } from '../fixtures/e2e_prover_test.js';
+import { PIPELINING_SETUP_OPTS } from '../fixtures/fixtures.js';
+import type { TestWallet } from '../test-wallet/test_wallet.js';
+import { proveInteraction } from '../test-wallet/utils.js';
 
-// Set a 3 minute timeout.
-const TIMEOUT = 180_000;
+const REAL_PROOFS = !parseBooleanEnv(process.env.FAKE_PROOFS);
+const TIMEOUT = REAL_PROOFS ? 45 * 60 * 1000 : 15 * 60 * 1000;
 
+// Transaction stats benchmark. Uses FullProverTest with real or fake proofs (FAKE_PROOFS env var).
+// Measures proof generation time, tx wire size, and compression ratios (snappy/brotli/zstd) for public
+// and private transactions; emits BENCH_OUTPUT JSON. Bench pipeline only.
 describe('transaction benchmarks', () => {
-  const REAL_PROOFS = !parseBooleanEnv(process.env.FAKE_PROOFS);
   const COINBASE_ADDRESS = EthAddress.random();
   const t = new FullProverTest('full_prover', 1, COINBASE_ADDRESS, REAL_PROOFS);
 
@@ -54,7 +58,7 @@ describe('transaction benchmarks', () => {
   beforeAll(async () => {
     t.logger.warn(`Running suite with ${REAL_PROOFS ? 'real' : 'fake'} proofs`);
 
-    await t.setup();
+    await t.setup({ ...PIPELINING_SETUP_OPTS });
 
     ({
       provenWallet,
@@ -64,12 +68,12 @@ describe('transaction benchmarks', () => {
     } = t);
 
     // Create the two transactions
-    const privateBalance = await provenAsset.methods.balance_of_private(sender).simulate({ from: sender });
+    const { result: privateBalance } = await provenAsset.methods.balance_of_private(sender).simulate({ from: sender });
     const privateSendAmount = privateBalance / 10n;
     expect(privateSendAmount).toBeGreaterThan(0n);
     const privateInteraction = provenAsset.methods.transfer(recipient, privateSendAmount);
 
-    const publicBalance = await provenAsset.methods.balance_of_public(sender).simulate({ from: sender });
+    const { result: publicBalance } = await provenAsset.methods.balance_of_public(sender).simulate({ from: sender });
     const publicSendAmount = publicBalance / 10n;
     expect(publicSendAmount).toBeGreaterThan(0n);
     const publicInteraction = provenAsset.methods.transfer_in_public(sender, recipient, publicSendAmount, 0);
@@ -247,7 +251,12 @@ describe('transaction benchmarks', () => {
     TIMEOUT,
   );
 
-  it(
+  // TODO(#23083): Skipped while a flake under heavy bb-prover concurrency is investigated.
+  // Under 8x parallel IVC verifications (each spawning a bb subprocess via the bb.js
+  // NativeUnixSocket backend) at least one verification intermittently returns valid:false on
+  // the bench host. The serial sub-tests above pass cleanly. Re-enable once the underlying
+  // verifier-under-load interaction is fixed.
+  it.skip(
     'verifies transactions at 10 TPS',
     async () => {
       const seconds = 60;

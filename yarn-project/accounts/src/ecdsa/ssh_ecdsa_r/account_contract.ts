@@ -25,7 +25,7 @@ export abstract class EcdsaRSSHBaseAccountContract extends DefaultAccountContrac
   getInitializationFunctionAndArgs() {
     return Promise.resolve({
       constructorName: 'constructor',
-      constructorArgs: [this.signingPublicKey.subarray(0, 32), this.signingPublicKey.subarray(32, 64)],
+      constructorArgs: [[...this.signingPublicKey.subarray(0, 32)], [...this.signingPublicKey.subarray(32, 64)]],
     });
   }
 

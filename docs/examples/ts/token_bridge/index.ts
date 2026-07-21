@@ -4,16 +4,13 @@ import { AztecAddress, EthAddress } from "@aztec/aztec.js/addresses";
 import { Fr } from "@aztec/aztec.js/fields";
 import { createAztecNodeClient } from "@aztec/aztec.js/node";
 import { createExtendedL1Client } from "@aztec/ethereum/client";
-import { RollupContract } from "@aztec/ethereum/contracts";
 import { deployL1Contract } from "@aztec/ethereum/deploy-l1-contract";
-import { CheckpointNumber } from "@aztec/foundation/branded-types";
 import { sha256ToField } from "@aztec/foundation/crypto/sha256";
 import {
   computeL2ToL1MessageHash,
   computeSecretHash,
 } from "@aztec/stdlib/hash";
-import { computeL2ToL1MembershipWitness } from "@aztec/stdlib/messaging";
-import { TestWallet } from "@aztec/test-wallet/server";
+import { EmbeddedWallet } from "@aztec/wallets/embedded";
 import { decodeEventLog, pad } from "@aztec/viem";
 import { foundry } from "@aztec/viem/chains";
 import NFTPortal from "../../../target/solidity/nft_bridge/NFTPortal.sol/NFTPortal.json" with { type: "json" };
@@ -29,9 +26,9 @@ const ownerEthAddress = l1Client.account.address;
 // Setup L2 using Aztec's local network and one of its initial accounts
 console.log("Setting up L2...\n");
 const node = createAztecNodeClient("http://localhost:8080");
-const aztecWallet = await TestWallet.create(node);
+const aztecWallet = await EmbeddedWallet.create(node);
 const [accData] = await getInitialTestAccountsData();
-const account = await aztecWallet.createSchnorrAccount(
+const account = await aztecWallet.createSchnorrInitializerlessAccount(
   accData.secret,
   accData.salt,
 );
@@ -41,10 +38,6 @@ console.log(`Account: ${account.address.toString()}\n`);
 const nodeInfo = await node.getNodeInfo();
 const registryAddress = nodeInfo.l1ContractAddresses.registryAddress.toString();
 const inboxAddress = nodeInfo.l1ContractAddresses.inboxAddress.toString();
-const rollupAddress = nodeInfo.l1ContractAddresses.rollupAddress.toString();
-
-// Create rollup contract instance for querying epoch information
-const rollup = new RollupContract(l1Client, rollupAddress);
 // docs:end:setup
 
 // docs:start:deploy_l1_contracts
@@ -69,11 +62,14 @@ console.log(`NFTPortal: ${portalAddress}\n`);
 // docs:start:deploy_l2_contracts
 console.log("Deploying L2 contracts...\n");
 
-const l2Nft = await NFTPunkContract.deploy(aztecWallet, account.address).send({
+const { contract: l2Nft } = await NFTPunkContract.deploy(
+  aztecWallet,
+  account.address,
+).send({
   from: account.address,
 });
 
-const l2Bridge = await NFTBridgeContract.deploy(
+const { contract: l2Bridge } = await NFTBridgeContract.deploy(
   aztecWallet,
   l2Nft.address,
 ).send({ from: account.address });
@@ -168,7 +164,7 @@ const INBOX_ABI = [
     type: "event",
     name: "MessageSent",
     inputs: [
-      { name: "l2BlockNumber", type: "uint256", indexed: true },
+      { name: "checkpointNumber", type: "uint256", indexed: true },
       { name: "index", type: "uint256", indexed: false },
       { name: "hash", type: "bytes32", indexed: true },
       { name: "rollingHash", type: "bytes16", indexed: false },
@@ -202,16 +198,14 @@ const messageLeafIndex = new Fr(messageSentLogs[0].decoded.args.index);
 
 // docs:start:mine_blocks
 async function mine2Blocks(
-  aztecWallet: TestWallet,
+  aztecWallet: EmbeddedWallet,
   accountAddress: AztecAddress,
 ) {
   await NFTPunkContract.deploy(aztecWallet, accountAddress).send({
     from: accountAddress,
-    contractAddressSalt: Fr.random(),
   });
   await NFTPunkContract.deploy(aztecWallet, accountAddress).send({
     from: accountAddress,
-    contractAddressSalt: Fr.random(),
   });
 }
 // docs:end:mine_blocks
@@ -222,7 +216,7 @@ await mine2Blocks(aztecWallet, account.address);
 
 // Check notes before claiming (should be 0)
 console.log("Checking notes before claim...");
-const notesBefore = await l2Nft.methods
+const { result: notesBefore } = await l2Nft.methods
   .notes_of(account.address)
   .simulate({ from: account.address });
 console.log(`   Notes count: ${notesBefore}`);
@@ -235,7 +229,7 @@ console.log("NFT claimed on L2\n");
 
 // Check notes after claiming (should be 1)
 console.log("Checking notes after claim...");
-const notesAfterClaim = await l2Nft.methods
+const { result: notesAfterClaim } = await l2Nft.methods
   .notes_of(account.address)
   .simulate({ from: account.address });
 console.log(`   Notes count: ${notesAfterClaim}\n`);
@@ -249,7 +243,7 @@ await mine2Blocks(aztecWallet, account.address);
 
 const recipientEthAddress = EthAddress.fromString(ownerEthAddress);
 
-const exitReceipt = await l2Bridge.methods
+const { receipt: exitReceipt } = await l2Bridge.methods
   .exit(new Fr(Number(tokenId)), recipientEthAddress)
   .send({ from: account.address });
 
@@ -257,7 +251,7 @@ console.log(`Exit message sent (block: ${exitReceipt.blockNumber})\n`);
 
 // Check notes after burning (should be 0 again)
 console.log("Checking notes after burn...");
-const notesAfterBurn = await l2Nft.methods
+const { result: notesAfterBurn } = await l2Nft.methods
   .notes_of(account.address)
   .simulate({ from: account.address });
 console.log(`   Notes count: ${notesAfterBurn}\n`);
@@ -295,7 +289,7 @@ const msgLeaf = computeL2ToL1MessageHash({
 console.log("Waiting for block to be proven...");
 console.log(`   Exit block number: ${exitReceipt.blockNumber}`);
 
-let provenBlockNumber = await node.getProvenBlockNumber();
+let provenBlockNumber = await node.getBlockNumber("proven");
 console.log(`   Current proven block: ${provenBlockNumber}`);
 
 while (provenBlockNumber < exitReceipt.blockNumber!) {
@@ -303,20 +297,21 @@ while (provenBlockNumber < exitReceipt.blockNumber!) {
     `   Waiting... (proven: ${provenBlockNumber}, needed: ${exitReceipt.blockNumber})`,
   );
   await new Promise((resolve) => setTimeout(resolve, 10000)); // Wait 10 seconds
-  provenBlockNumber = await node.getProvenBlockNumber();
+  provenBlockNumber = await node.getBlockNumber("proven");
 }
 
 console.log("Block proven!\n");
 
-// Get the epoch for the exit block's checkpoint
-// In Aztec, checkpoint number equals block number (1:1 mapping)
-const epoch = await rollup.getEpochNumberForCheckpoint(
-  CheckpointNumber.fromBlockNumber(exitReceipt.blockNumber!),
+// Compute the membership witness using the message hash and the L2 tx hash.
+// The node picks the smallest partial-proof root that covers the tx's checkpoint.
+const witness = await node.getL2ToL1MembershipWitness(
+  exitReceipt.txHash,
+  msgLeaf,
 );
+const epoch = witness!.epochNumber;
+const numCheckpointsInEpoch = witness!.numCheckpointsInEpoch;
 console.log(`   Epoch for block ${exitReceipt.blockNumber}: ${epoch}`);
 
-// Compute the membership witness using the message hash and epoch
-const witness = await computeL2ToL1MembershipWitness(node, epoch, msgLeaf);
 const siblingPathHex = witness!.siblingPath
   .toBufferArray()
   .map((buf: Buffer) => `0x${buf.toString("hex")}` as `0x${string}`);
@@ -329,7 +324,13 @@ const withdrawHash = await l1Client.writeContract({
   address: portalAddress.toString() as `0x${string}`,
   abi: NFTPortal.abi,
   functionName: "withdraw",
-  args: [tokenId, BigInt(epoch), BigInt(witness!.leafIndex), siblingPathHex],
+  args: [
+    tokenId,
+    BigInt(epoch),
+    BigInt(numCheckpointsInEpoch),
+    BigInt(witness!.leafIndex),
+    siblingPathHex,
+  ],
 });
 await l1Client.waitForTransactionReceipt({ hash: withdrawHash });
 console.log("NFT withdrawn to L1\n");

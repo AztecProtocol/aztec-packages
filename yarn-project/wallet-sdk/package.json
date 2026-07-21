@@ -7,14 +7,24 @@
     "./base-wallet": "./dest/base-wallet/index.js",
     "./extension/handlers": "./dest/extension/handlers/index.js",
     "./extension/provider": "./dest/extension/provider/index.js",
+    "./iframe/handlers": "./dest/iframe/handlers/index.js",
+    "./iframe/provider": "./dest/iframe/provider/index.js",
     "./crypto": "./dest/crypto.js",
     "./types": "./dest/types.js",
     "./manager": "./dest/manager/index.js"
   },
   "typedocOptions": {
     "entryPoints": [
-      "./src/index.ts"
+      "./src/base-wallet/index.ts",
+      "./src/extension/handlers/index.ts",
+      "./src/extension/provider/index.ts",
+      "./src/iframe/handlers/index.ts",
+      "./src/iframe/provider/index.ts",
+      "./src/crypto.ts",
+      "./src/types.ts",
+      "./src/manager/index.ts"
     ],
+    "name": "Wallet SDK",
     "tsconfig": "./tsconfig.json"
   },
   "scripts": {

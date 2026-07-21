@@ -1,6 +1,7 @@
 #include "relation_types.hpp"
 #include "barretenberg/common/tuple.hpp"
-#include "barretenberg/flavor/flavor.hpp"
+#include "barretenberg/relations/relation_parameters.hpp"
+#include "barretenberg/relations/relation_tuple_helpers.hpp"
 
 #include <gtest/gtest.h>
 
@@ -70,4 +71,22 @@ TEST(RelationTypes, IsSkippableConcept)
     static_assert(!isSkippable<Relation2, Relation2::AllEntities>);
 
     struct Relation3 {};
+}
+
+TEST(RelationParameters, GetRandomSetsBetaQuartic)
+{
+    const auto params = RelationParameters<fr>::get_random();
+
+    EXPECT_NE(params.beta_quartic, fr(0));
+    EXPECT_EQ(params.beta_quartic, params.beta_cube * params.beta);
+
+    // eccvm_set_permutation_delta uses first_term_tag = FIRST_TERM_TAG (= 1) * beta_quartic.
+    const fr g = params.gamma;
+    const fr b2 = params.beta_sqr;
+    const fr tag = params.beta_quartic;
+    const fr expected = (g + tag) * (g + b2 + tag) * (g + b2 + b2 + tag) * (g + b2 + b2 + b2 + tag);
+    EXPECT_EQ(params.eccvm_set_permutation_delta, expected);
+
+    const fr wrong_zero_tag = g * (g + b2) * (g + b2 + b2) * (g + b2 + b2 + b2);
+    EXPECT_NE(params.eccvm_set_permutation_delta, wrong_zero_tag);
 }

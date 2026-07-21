@@ -20,40 +20,42 @@ The verifier uses SMT (Satisfiability Modulo Theories) solving to formally verif
 
 | Opcode      | Lhs type/size | Rhs type/size | Time/seconds | Memory/GB | Success | SMT Term Type    | Reason | Last Check (D/M/Y) |
 | ----------- | ------------- | ------------- | ------------ | --------- | ------- | ---------------- | ------ | ---------- |
-| Binary::Add | Field         | Field         | 0.024        | -         | &check; | TermType::FFTerm | -      | 01.12.2025 |
-| Binary::Add | Unsigned_128  | Unsigned_128  | 5.9          | 240MiB    | &check; | TermType::BVTerm | -      | 01.12.2025 |
-| Binary::And | Unsigned_32   | Unsigned_32   | 6.7          | -         | &check; | TermType::BVTerm | -      | 01.12.2025 |
-| Binary::And | Unsigned_128  | Unsigned_128  | 176          | 985MB     | &check; | TermType::BVTerm | -      | 01.12.2025 |
-| Binary::Div | Field         | Field         | 0.024        | -         | &check; | TermType::FFTerm | -      | 01.12.2025 |
-| Binary::Div | Unsigned_128  | Unsigned_128  | ???          | 20        | &cross; | TermType::BVTerm | Test takes too long | 01.12.2025 |
-| Binary::Div | Signed_64     | Signed_64     | ????         | 20        | &cross; | TermType::BVTerm | Test takes too long | 01.01.2025 |
-| Binary::Eq  | Field         | Field         | 17ms         | -         | &check; | TermType::FFTerm | -      | 01.12.2025 |
-| Binary::Eq  | Unsigned_128  | Unsigned_128  | 34.4         | -         | &check; | TermType::BVTerm | -      | 01.12.2025 |
-| Binary::Lt  | Unsigned_128  | Unsigned_128  | 87.1         | -         | &check; | TermType::BVTerm | -      | 01.12.2025 |
-| Binary::Mod | Unsigned_127  | Unsigned_127  | >130 days    | 3.2       | &cross; | TermType::BVTerm | Test takes too long | 01.01.2025 |
-| Binary::Mul | Field         | Field         | 0.024        | -         | &check; | TermType::FFTerm | -      | 01.12.2025 |
-| Binary::Mul | Unsigned_128  | Unsigned_128  | 52.3         | -         | &check; | TermType::BVTerm | -      | 01.12.2025 |
-| Binary::Or  | Unsigned_32   | Unsigned_32   | 18.0         | -         | &check; | TermType::BVTerm | -      | 01.12.2025 |
-| Binary::Or  | Unsigned_128  | Unsigned_128  | 7.5          | -         | &check; | TermType::BVTerm | -      | 01.12.2025 |
-| Binary::Shl | Unsigned_64   | Unsigned_8    | 42331.61     | 63.2      | &check; | TermType::BVTerm | -      | 01.01.2025 |
-| Binary::Shl | Unsigned_32   | Unsigned_8    | 4574.0       | 30        | &check; | TermType::BVTerm | -      | 01.01.2025 |
-| Binary::Shr | Unsigned_64   | Unsigned_8    | 3927.88      | 10        | &check; | TermType::BVTerm | -      | 01.01.2025 |
-| Binary::Sub | Unsigned_128  | Unsigned_128  | 5.7          | -         | &check; | TermType::BVTerm | -      | 01.12.2025 |
-| Binary::Xor | Unsigned_32   | Unsigned_32   | 14.7         | -         | &check; | TermType::BVTerm | -      | 01.12.2025 |
-| Binary::Xor | Unsigned_128  | Unsigned_128  | 355.2        | -         | &check; | TermType::BVTerm | -      | 01.12.2025 |
-| Not         | Unsigned_128  | -             | 10.2         | -         | &check; | TermType::BVTerm | -      | 01.12.2025 |
-| Truncate    | Field         | Unsigned_64   | ????         | -         | &cross; | TermType::FFTerm | TO INVESTIGATE (the test fails with SIGKILL after 2 hours) | 01.12.2025|
-| Truncate    | Unsigned_64   | Unsigned_8    | 3.7          | -         | &check; | TermType::BVTerm | -      | 01.12.2025 |
-| Truncate    | Signed_64     | Unsigned_8    | 3.2          | -         | &check; | TermType::BVTerm | -      | 01.12.2025 |
-| Binary::Xor | Signed_64     | Signed_64     | 67.2         | -         | &check; | TermType::BVTerm | -      | 01.12.2025 |
-| Binary::Shr | Signed_8      | Signed_8      | 266          | -         | &check; | TermType::BVTerm | -      | 01.12.2025 |
-| Binary::Shl | Signed_8      | Signed_8      | 50           | -         | &check; | TermType::BVTerm | -      | 01.12.2025 |
-| Not         | Signed_64     | -             | 0.7          | -         | &check; | TermType::BVTerm | -      | 01.12.2025 |
-| Binary::Add | Signed_64     | Signed_64     | 97           | -         | &check; | TermType::BVTerm | -      | 01.12.2025 |
-| Binary::And | Signed_64     | Signed_64     | 97           | -         | &check; | TermType::BVTerm | -      | 01.12.2025 |
-| Binary::Sub | Signed_64     | Signed_64     | 85           | -         | &check; | TermType::BVTerm | -      | 01.12.2025 |
-| Binary::Eq  | Signed_64     | Signed_64     | 34.4         | -         | &check; | TermType::BVTerm | -      | 01.12.2025 |
-| Binary::Mul | Signed_64     | Signed_64     | 95           | -         | &check; | TermType::BVTerm | -      | 01.12.2025 |
+| Binary::Add | Field         | Field         | 0.01         | -         | &check; | TermType::FFTerm | -      | 20.03.2026 |
+| Binary::Add | Unsigned_128  | Unsigned_128  | 4.3          | 0.23      | &check; | TermType::BVTerm | -      | 20.03.2026 |
+| Binary::Add | Signed_64     | Signed_64     | 79           | 2.87      | &check; | TermType::BVTerm | -      | 20.03.2026 |
+| Binary::And | Unsigned_32   | Unsigned_32   | 1.25         | 0.20      | &check; | TermType::BVTerm | -      | 20.03.2026 |
+| Binary::And | Unsigned_128  | Unsigned_128  | 90.6         | 0.87      | &check; | TermType::BVTerm | -      | 20.03.2026 |
+| Binary::And | Signed_64     | Signed_64     | 12.5         | 0.42      | &check; | TermType::BVTerm | -      | 20.03.2026 |
+| Binary::Div | Field         | Field         | 0.01         | -         | &check; | TermType::FFTerm | -      | 20.03.2026 |
+| Binary::Div | Unsigned_128  | Unsigned_128  | TIMEOUT      | -         | &cross; | TermType::BVTerm | Test takes too long | 20.03.2026 |
+| Binary::Div | Signed_64     | Signed_64     | TIMEOUT      | -         | &cross; | TermType::BVTerm | Test takes too long | 20.03.2026 |
+| Binary::Eq  | Field         | Field         | 0.01         | -         | &check; | TermType::FFTerm | -      | 20.03.2026 |
+| Binary::Eq  | Unsigned_128  | Unsigned_128  | 25.2         | 1.20      | &check; | TermType::BVTerm | -      | 20.03.2026 |
+| Binary::Eq  | Signed_64     | Signed_64     | 0.04         | 0.04      | &check; | TermType::BVTerm | -      | 20.03.2026 |
+| Binary::Lt  | Unsigned_128  | Unsigned_128  | 65.9         | 1.17      | &check; | TermType::BVTerm | -      | 20.03.2026 |
+| Binary::Mod | Unsigned_127  | Unsigned_127  | TIMEOUT      | -         | &cross; | TermType::BVTerm | Test takes too long | 20.03.2026 |
+| Binary::Mod | Signed_64     | Signed_64     | TIMEOUT      | -         | &cross; | TermType::BVTerm | Test takes too long | 20.03.2026 |
+| Binary::Mul | Field         | Field         | 0.01         | -         | &check; | TermType::FFTerm | -      | 20.03.2026 |
+| Binary::Mul | Unsigned_128  | Unsigned_128  | 35.1         | 1.09      | &check; | TermType::BVTerm | -      | 20.03.2026 |
+| Binary::Mul | Signed_64     | Signed_64     | 101          | 3.00      | &check; | TermType::BVTerm | -      | 20.03.2026 |
+| Binary::Or  | Unsigned_32   | Unsigned_32   | 5.3          | 0.25      | &check; | TermType::BVTerm | -      | 20.03.2026 |
+| Binary::Or  | Unsigned_128  | Unsigned_128  | 124          | 0.88      | &check; | TermType::BVTerm | -      | 20.03.2026 |
+| Binary::Or  | Signed_64     | Signed_64     | 20.7         | -         | &check; | TermType::BVTerm | -      | 20.03.2026 |
+| Binary::Shl | Unsigned_64   | Unsigned_64   | 5000         | 12        | &check; | TermType::BVTerm | -      | 20.03.2026 |
+| Binary::Shl | Signed_64     | Signed_64     | 1116         | 6         | &cross; | TermType::BVTerm | - | 20.03.2026 |
+| Binary::Shl | Signed_8      | Signed_8      | 49.6         | 2.54      | &check; | TermType::BVTerm | -      | 20.03.2026 |
+| Binary::Shr | Unsigned_64   | Unsigned_64   | 4981         | ~10       | &check; | TermType::BVTerm | -      | 20.03.2026 |
+| Binary::Shr | Signed_8      | Signed_8      | 235          | -         | &check; | TermType::BVTerm | -      | 20.03.2026 |
+| Binary::Sub | Unsigned_128  | Unsigned_128  | 4.1          | 0.23      | &check; | TermType::BVTerm | -      | 20.03.2026 |
+| Binary::Sub | Signed_64     | Signed_64     | 81.6         | 2.86      | &check; | TermType::BVTerm | -      | 20.03.2026 |
+| Binary::Xor | Unsigned_32   | Unsigned_32   | 1.1          | 0.20      | &check; | TermType::BVTerm | -      | 20.03.2026 |
+| Binary::Xor | Unsigned_128  | Unsigned_128  | 137          | 0.89      | &check; | TermType::BVTerm | -      | 20.03.2026 |
+| Binary::Xor | Signed_64     | Signed_64     | 14.9         | 0.43      | &check; | TermType::BVTerm | -      | 20.03.2026 |
+| Not         | Unsigned_128  | -             | 6.6          | 0.11      | &check; | TermType::BVTerm | -      | 20.03.2026 |
+| Not         | Signed_64     | -             | 0.58         | 0.07      | &check; | TermType::BVTerm | -      | 20.03.2026 |
+| Truncate    | Field         | Unsigned_64   | TIMEOUT      | -         | &cross; | TermType::FFTerm | Test takes too long | 20.03.2026 |
+| Truncate    | Unsigned_64   | Unsigned_8    | 1.3          | 0.20      | &check; | TermType::BVTerm | -      | 20.03.2026 |
+| Truncate    | Signed_64     | Unsigned_8    | 1.2          | 0.20      | &check; | TermType::BVTerm | -      | 20.03.2026 |
 
 
 

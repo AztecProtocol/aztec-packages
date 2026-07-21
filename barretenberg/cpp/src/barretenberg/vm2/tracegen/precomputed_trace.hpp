@@ -1,17 +1,18 @@
 #pragma once
 
-#include "barretenberg/vm2/common/avm_io.hpp"
 #include "barretenberg/vm2/common/constants.hpp"
-#include "barretenberg/vm2/common/opcodes.hpp"
 #include "barretenberg/vm2/tracegen/trace_container.hpp"
 
 namespace bb::avm2::tracegen {
+
+// Currently due to the bitwise tables.
+constexpr uint32_t PRECOMPUTED_TRACE_SIZE = (1 << 16);
 
 // This fills the trace for the "general" precomputed columns.
 // See precomputed.pil.
 class PrecomputedTraceBuilder final {
   public:
-    void process_misc(TraceContainer& trace, const uint32_t num_rows = MAX_AVM_TRACE_SIZE);
+    void process_misc(TraceContainer& trace, const uint32_t num_rows = PRECOMPUTED_TRACE_SIZE);
     void process_bitwise(TraceContainer& trace);
     void process_sel_range_8(TraceContainer& trace);
     void process_sel_range_16(TraceContainer& trace);

@@ -1,12 +1,14 @@
+import { chunk } from '@aztec/foundation/collection';
 import { Fr } from '@aztec/foundation/curves/bn254';
 import type { AztecAddress } from '@aztec/stdlib/aztec-address';
-import type { DataInBlock } from '@aztec/stdlib/block';
+import { BlockHash, type DataInBlock } from '@aztec/stdlib/block';
 import { computeUniqueNoteHash, siloNoteHash, siloNullifier } from '@aztec/stdlib/hash';
 import { type AztecNode, MAX_RPC_LEN } from '@aztec/stdlib/interfaces/client';
 import { Note, NoteDao, NoteStatus } from '@aztec/stdlib/note';
 import { MerkleTreeId } from '@aztec/stdlib/trees';
-import type { BlockHeader, TxHash } from '@aztec/stdlib/tx';
+import type { BlockHeader, IndexedTxEffect } from '@aztec/stdlib/tx';
 
+import type { NoteValidationRequest } from '../contract_function_simulator/noir-structs/note_validation_request.js';
 import type { NoteStore } from '../storage/note_store/note_store.js';
 
 export class NoteService {
@@ -31,7 +33,7 @@ export class NoteService {
     owner: AztecAddress | undefined,
     storageSlot: Fr,
     status: NoteStatus,
-    scopes?: AztecAddress[],
+    scopes: AztecAddress[],
   ) {
     const noteDaos = await this.noteStore.getNotes(
       {
@@ -70,34 +72,17 @@ export class NoteService {
    *
    * @param contractAddress - The contract whose notes should be checked and nullified.
    */
-  public async syncNoteNullifiers(contractAddress: AztecAddress): Promise<void> {
+  public async syncNoteNullifiers(contractAddress: AztecAddress, scopes: AztecAddress[]): Promise<void> {
     const anchorBlockHash = await this.anchorBlockHeader.hash();
 
-    const contractNotes = await this.noteStore.getNotes({ contractAddress }, this.jobId);
+    const contractNotes = await this.noteStore.getNotes({ contractAddress, scopes }, this.jobId);
 
     if (contractNotes.length === 0) {
       return;
     }
 
     const nullifiersToCheck = contractNotes.map(note => note.siloedNullifier);
-    const nullifierBatches = nullifiersToCheck.reduce(
-      (acc, nullifier) => {
-        if (acc[acc.length - 1].length < MAX_RPC_LEN) {
-          acc[acc.length - 1].push(nullifier);
-        } else {
-          acc.push([nullifier]);
-        }
-        return acc;
-      },
-      [[]] as Fr[][],
-    );
-    const nullifierIndexes = (
-      await Promise.all(
-        nullifierBatches.map(batch =>
-          this.aztecNode.findLeavesIndexes(anchorBlockHash, MerkleTreeId.NULLIFIER_TREE, batch),
-        ),
-      )
-    ).flat();
+    const nullifierIndexes = await this.#findNullifierIndexes(anchorBlockHash, nullifiersToCheck);
 
     const foundNullifiers = nullifiersToCheck
       .map((nullifier, i) => {
@@ -110,30 +95,34 @@ export class NoteService {
     await this.noteStore.applyNullifiers(foundNullifiers, this.jobId);
   }
 
-  public async validateAndStoreNote(
-    contractAddress: AztecAddress,
-    owner: AztecAddress,
-    storageSlot: Fr,
-    randomness: Fr,
-    noteNonce: Fr,
-    content: Fr[],
-    noteHash: Fr,
-    nullifier: Fr,
-    txHash: TxHash,
-    recipient: AztecAddress,
+  /**
+   * Validates and stores a batch of notes against pre-fetched tx effects.
+   *
+   * For each request we must verify that:
+   *  - the note actually exists in the corresponding tx effect (and thus in the note hash tree), and
+   *  - the note has not already been nullified.
+   *
+   * Failing to do either would result in circuits getting either non-existent notes and failing to produce inclusion
+   * proofs for them, or getting nullified notes and producing duplicate nullifiers, both of which are catastrophic
+   * failure modes.
+   *
+   * Note that adding a note and removing it is *not* equivalent to never adding it in the first place. A nullifier
+   * emitted in a block that comes after note creation might result in the note being de-nullified by a chain reorg,
+   * so we must store both the note hash and nullifier block information.
+   *
+   * @param requests - The notes to validate and store.
+   * @param scope - The scope under which the notes are being stored.
+   * @param txEffects - Pre-fetched tx effects keyed by `TxHash.toString()`. Must contain entries for every request's
+   *                   txHash; missing entries are treated as a node bug and cause an error.
+   */
+  public async validateAndStoreNotes(
+    requests: NoteValidationRequest[],
+    scope: AztecAddress,
+    txEffects: Map<string, IndexedTxEffect>,
   ): Promise<void> {
-    // We are going to store the new note in the NoteStore, which will let us later return it via `getNotes`.
-    // There's two things we need to check before we do this however:
-    //  - we must make sure the note does actually exist in the note hash tree
-    //  - we need to check if the note has already been nullified
-    //
-    // Failing to do either of the above would result in circuits getting either non-existent notes and failing to
-    // produce inclusion proofs for them, or getting nullified notes and producing duplicate nullifiers, both of which
-    // are catastrophic failure modes.
-    //
-    // Note that adding a note and removing it is *not* equivalent to never adding it in the first place. A nullifier
-    // emitted in a block that comes after note creation might result in the note being de-nullified by a chain reorg,
-    // so we must store both the note hash and nullifier block information.
+    if (requests.length === 0) {
+      return;
+    }
 
     // We avoid making node queries at 'latest' since we don't want to process notes or nullifiers that only exist ahead
     // in time of the locally synced state.
@@ -146,50 +135,96 @@ export class NoteService {
 
     // By computing siloed and unique note hashes ourselves we prevent contracts from interfering with the note storage
     // of other contracts, which would constitute a security breach.
-    const uniqueNoteHash = await computeUniqueNoteHash(noteNonce, await siloNoteHash(contractAddress, noteHash));
-    const siloedNullifier = await siloNullifier(contractAddress, nullifier);
-
-    const [txEffect, [nullifierIndex]] = await Promise.all([
-      this.aztecNode.getTxEffect(txHash),
-      this.aztecNode.findLeavesIndexes(anchorBlockHash, MerkleTreeId.NULLIFIER_TREE, [siloedNullifier]),
-    ]);
-    if (!txEffect) {
-      throw new Error(`Could not find tx effect for tx hash ${txHash}`);
-    }
-
-    if (txEffect.l2BlockNumber > anchorBlockNumber) {
-      throw new Error(`Could not find tx effect for tx hash ${txHash} as of block number ${anchorBlockNumber}`);
-    }
-
-    // Find the index of the note hash in the noteHashes array to determine note ordering within the tx
-    const noteIndexInTx = txEffect.data.noteHashes.findIndex(nh => nh.equals(uniqueNoteHash));
-    if (noteIndexInTx === -1) {
-      throw new Error(`Note hash ${noteHash} (uniqued as ${uniqueNoteHash}) is not present in tx ${txHash}`);
-    }
-
-    const noteDao = new NoteDao(
-      new Note(content),
-      contractAddress,
-      owner,
-      storageSlot,
-      randomness,
-      noteNonce,
-      noteHash,
-      siloedNullifier,
-      txHash,
-      txEffect.l2BlockNumber,
-      txEffect.l2BlockHash.toString(),
-      txEffect.txIndexInBlock,
-      noteIndexInTx,
+    const computed = await Promise.all(
+      requests.map(async ({ contractAddress, noteHash, nullifier, noteNonce }) => {
+        const [siloedNoteHash, siloedNullifier] = await Promise.all([
+          siloNoteHash(contractAddress, noteHash),
+          siloNullifier(contractAddress, nullifier),
+        ]);
+        const uniqueNoteHash = await computeUniqueNoteHash(noteNonce, siloedNoteHash);
+        return { uniqueNoteHash, siloedNullifier };
+      }),
     );
 
-    // The note was found by `recipient`, so we use that as the scope when storing the note.
-    await this.noteStore.addNotes([noteDao], recipient, this.jobId);
+    const nullifierIndexes = await this.#findNullifierIndexes(
+      anchorBlockHash,
+      computed.map(c => c.siloedNullifier),
+    );
 
-    if (nullifierIndex !== undefined) {
-      // We found nullifier index which implies that the note has already been nullified.
-      const { data: _, ...blockHashAndNum } = nullifierIndex;
-      await this.noteStore.applyNullifiers([{ data: siloedNullifier, ...blockHashAndNum }], this.jobId);
+    const noteDaos: NoteDao[] = [];
+    const foundNullifiers: DataInBlock<Fr>[] = [];
+
+    for (let i = 0; i < requests.length; i++) {
+      const { contractAddress, owner, storageSlot, randomness, noteNonce, content, noteHash, txHash } = requests[i];
+      const { uniqueNoteHash, siloedNullifier } = computed[i];
+      const nullifierIndex = nullifierIndexes[i];
+
+      const txEffect = txEffects.get(txHash.toString());
+      if (!txEffect) {
+        // We error out instead of just logging a warning and skipping the note because this would indicate a bug. This
+        // is because the node has already served info about this tx either when obtaining the log (LogResult carries
+        // the tx info) or when getting metadata for the offchain message (before the message got passed to
+        // `process_log`).
+        throw new Error(`Could not find tx effect for tx hash ${txHash} when processing a note.`);
+      }
+
+      if (txEffect.l2BlockNumber > anchorBlockNumber) {
+        // If the message was delivered onchain, this would indicate a bug: log sync should never load logs from blocks
+        // newer than the anchor block. If the note came via an offchain message, it would likely also be a bug, since
+        // we sync a new anchor block before calling `process_message`. For this not to be a bug, the message would
+        // need to come from a newer block than the anchor served by the node, implying the node isn't properly synced.
+        //     We therefore error out here rather than assuming the offchain message was constructed by a malicious
+        // sender with the intention of bricking recipient's PXE (if we assumed that we would just ignore the message).
+        throw new Error(
+          `Obtained a newer tx effect for ${txHash} for a note validation request than the anchor block ${anchorBlockNumber}. This is a bug as we should not ever be processing a note from a newer block than the anchor block.`,
+        );
+      }
+
+      // Find the index of the note hash in the noteHashes array to determine note ordering within the tx
+      const noteIndexInTx = txEffect.data.noteHashes.findIndex(nh => nh.equals(uniqueNoteHash));
+      if (noteIndexInTx === -1) {
+        // Similar to the comment above - we error out as this would indicate a bug in nonce discovery.
+        throw new Error(`Note hash ${noteHash} (uniqued as ${uniqueNoteHash}) is not present in tx ${txHash}`);
+      }
+
+      noteDaos.push(
+        new NoteDao(
+          new Note(content),
+          contractAddress,
+          owner,
+          storageSlot,
+          randomness,
+          noteNonce,
+          noteHash,
+          siloedNullifier,
+          txHash,
+          txEffect.l2BlockNumber,
+          txEffect.l2BlockHash.toString(),
+          txEffect.txIndexInBlock,
+          noteIndexInTx,
+        ),
+      );
+
+      if (nullifierIndex !== undefined) {
+        // We found a nullifier index which implies that the note has already been nullified.
+        const { data: _, ...blockHashAndNum } = nullifierIndex;
+        foundNullifiers.push({ data: siloedNullifier, ...blockHashAndNum });
+      }
     }
+
+    await this.noteStore.addNotes(noteDaos, scope, this.jobId);
+
+    if (foundNullifiers.length > 0) {
+      await this.noteStore.applyNullifiers(foundNullifiers, this.jobId);
+    }
+  }
+
+  async #findNullifierIndexes(anchorBlockHash: BlockHash, siloedNullifiers: Fr[]) {
+    const batches = chunk(siloedNullifiers, MAX_RPC_LEN);
+    return (
+      await Promise.all(
+        batches.map(batch => this.aztecNode.findLeavesIndexes(anchorBlockHash, MerkleTreeId.NULLIFIER_TREE, batch)),
+      )
+    ).flat();
   }
 }

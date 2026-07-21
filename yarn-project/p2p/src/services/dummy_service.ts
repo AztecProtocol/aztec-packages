@@ -1,6 +1,6 @@
 import type { EthAddress } from '@aztec/foundation/eth-address';
 import type { PeerInfo } from '@aztec/stdlib/interfaces/server';
-import type { Gossipable, PeerErrorSeverity } from '@aztec/stdlib/p2p';
+import type { Gossipable, PeerErrorSeverity, TopicType } from '@aztec/stdlib/p2p';
 import { Tx, TxHash } from '@aztec/stdlib/tx';
 
 import type { PeerId } from '@libp2p/interface';
@@ -18,14 +18,17 @@ import type {
   ReqRespSubProtocol,
   ReqRespSubProtocolHandler,
   ReqRespSubProtocolHandlers,
-  ReqRespSubProtocolValidators,
   SubProtocolMap,
 } from './reqresp/interface.js';
 import type { GoodByeReason } from './reqresp/protocols/goodbye.js';
 import { ReqRespStatus } from './reqresp/status.js';
 import {
   type P2PBlockReceivedCallback,
+  type P2PCheckpointAttestationCallback,
   type P2PCheckpointReceivedCallback,
+  type P2PDuplicateAttestationCallback,
+  type P2PDuplicateProposalCallback,
+  type P2POversizedProposalCallback,
   type P2PService,
   type PeerDiscoveryService,
   PeerDiscoveryState,
@@ -35,11 +38,17 @@ import {
  * A dummy implementation of the P2P Service.
  */
 export class DummyP2PService implements P2PService {
+  private allNodesCheckpointReceivedCallback?: P2PCheckpointReceivedCallback;
+
   updateConfig(_config: Partial<P2PReqRespConfig>): void {}
 
   /** Returns an empty array for peers. */
   getPeers(): PeerInfo[] {
     return [];
+  }
+
+  getGossipMeshPeerCount(_topicType: TopicType): number {
+    return 0;
   }
 
   /**
@@ -80,7 +89,27 @@ export class DummyP2PService implements P2PService {
   /**
    * Register a callback into the validator client for when a checkpoint proposal is received
    */
-  public registerCheckpointReceivedCallback(_callback: P2PCheckpointReceivedCallback) {}
+  public registerValidatorCheckpointReceivedCallback(_callback: P2PCheckpointReceivedCallback) {}
+  public registerAllNodesCheckpointReceivedCallback(callback: P2PCheckpointReceivedCallback) {
+    this.allNodesCheckpointReceivedCallback = callback;
+  }
+
+  /**
+   * Register a callback for when a duplicate proposal is detected
+   */
+  public registerDuplicateProposalCallback(_callback: P2PDuplicateProposalCallback): void {}
+
+  /**
+   * Register a callback for when an oversized proposal is stored
+   */
+  public registerOversizedProposalCallback(_callback: P2POversizedProposalCallback): void {}
+
+  /**
+   * Register a callback for when a duplicate attestation is detected
+   */
+  public registerDuplicateAttestationCallback(_callback: P2PDuplicateAttestationCallback): void {}
+
+  public registerCheckpointAttestationCallback(_callback: P2PCheckpointAttestationCallback): void {}
 
   /**
    * Sends a request to a peer.
@@ -93,19 +122,6 @@ export class DummyP2PService implements P2PService {
     _request: InstanceType<SubProtocolMap[Protocol]['request']>,
   ): Promise<InstanceType<SubProtocolMap[Protocol]['response']> | undefined> {
     return Promise.resolve(undefined);
-  }
-
-  /**
-   * Sends a batch request to a peer.
-   * @param _protocol - The protocol to send the request on.
-   * @param _requests - The requests to send.
-   * @returns The responses from the peer, otherwise undefined.
-   */
-  public sendBatchRequest<Protocol extends ReqRespSubProtocol>(
-    _protocol: Protocol,
-    _requests: InstanceType<SubProtocolMap[Protocol]['request']>[],
-  ): Promise<InstanceType<SubProtocolMap[Protocol]['response']>[]> {
-    return Promise.resolve([]);
   }
 
   public sendRequestToPeer(
@@ -125,19 +141,11 @@ export class DummyP2PService implements P2PService {
     return undefined;
   }
 
-  validate(_txs: Tx[]): Promise<void> {
+  validateTxsReceivedInBlockProposal(_txs: Tx[]): Promise<void> {
     return Promise.resolve();
   }
 
-  validatePropagatedTx(_tx: Tx, _peerId: PeerId): Promise<boolean> {
-    return Promise.resolve(true);
-  }
-
-  addReqRespSubProtocol(
-    _subProtocol: ReqRespSubProtocol,
-    _handler: ReqRespSubProtocolHandler,
-    _validator?: ReqRespSubProtocolValidators[ReqRespSubProtocol],
-  ): Promise<void> {
+  addReqRespSubProtocol(_subProtocol: ReqRespSubProtocol, _handler: ReqRespSubProtocolHandler): Promise<void> {
     return Promise.resolve();
   }
 
@@ -166,6 +174,7 @@ export class DummyP2PService implements P2PService {
       peerScoring: {
         penalizePeer: (_peerId, _penalty) => {},
       },
+      validateRequestedBlockTxsConsistency: () => Promise.resolve(true),
     };
   }
 }
@@ -270,10 +279,8 @@ export class DummyPeerManager implements PeerManagerInterface {
 
 export class DummyReqResp implements ReqRespInterface {
   updateConfig(_config: Partial<P2PReqRespConfig>): void {}
-  start(
-    _subProtocolHandlers: ReqRespSubProtocolHandlers,
-    _subProtocolValidators: ReqRespSubProtocolValidators,
-  ): Promise<void> {
+  setShouldRejectPeer(): void {}
+  start(_subProtocolHandlers: ReqRespSubProtocolHandlers): Promise<void> {
     return Promise.resolve();
   }
   stop(): Promise<void> {
@@ -284,16 +291,6 @@ export class DummyReqResp implements ReqRespInterface {
     _request: InstanceType<SubProtocolMap[SubProtocol]['request']>,
   ): Promise<InstanceType<SubProtocolMap[SubProtocol]['response']> | undefined> {
     return Promise.resolve(undefined);
-  }
-  sendBatchRequest<SubProtocol extends ReqRespSubProtocol>(
-    _subProtocol: SubProtocol,
-    _requests: InstanceType<SubProtocolMap[SubProtocol]['request']>[],
-    _pinnedPeer: PeerId | undefined,
-    _timeoutMs?: number,
-    _maxPeers?: number,
-    _maxRetryAttempts?: number,
-  ): Promise<InstanceType<SubProtocolMap[SubProtocol]['response']>[]> {
-    return Promise.resolve([]);
   }
   public sendRequestToPeer(
     _peerId: PeerId,
@@ -313,11 +310,7 @@ export class DummyReqResp implements ReqRespInterface {
     };
   }
 
-  addSubProtocol(
-    _subProtocol: ReqRespSubProtocol,
-    _handler: ReqRespSubProtocolHandler,
-    _validator?: ReqRespSubProtocolValidators[ReqRespSubProtocol],
-  ): Promise<void> {
+  addSubProtocol(_subProtocol: ReqRespSubProtocol, _handler: ReqRespSubProtocolHandler): Promise<void> {
     return Promise.resolve();
   }
 }

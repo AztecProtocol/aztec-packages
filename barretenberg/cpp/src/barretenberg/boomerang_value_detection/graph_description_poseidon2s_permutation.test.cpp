@@ -23,10 +23,9 @@ using Builder = UltraCircuitBuilder;
 using Permutation = stdlib::Poseidon2Permutation<Builder>;
 using field_t = stdlib::field_t<Builder>;
 using witness_t = stdlib::witness_t<Builder>;
-using _curve = stdlib::bn254<Builder>;
-using byte_array_ct = _curve::byte_array_ct;
-using fr_ct = typename _curve::ScalarField;
-using witness_ct = typename _curve::witness_ct;
+using byte_array_ct = stdlib::byte_array<Builder>;
+using fr_ct = typename stdlib::bn254<Builder>::ScalarField;
+using witness_ct = stdlib::witness_t<Builder>;
 
 /**
  * @brief Check if a variable index is present in the input vector

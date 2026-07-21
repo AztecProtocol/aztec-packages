@@ -22,7 +22,7 @@
         ASSERT_EQUAL, ASSERT_NOT_EQUAL, SQR_ADD, ASSERT_EQUAL, ASSERT_NOT_EQUAL, SQR_ADD, SUBTRACT_WITH_CONSTRAINT,    \
         DIVIDE_WITH_CONSTRAINTS, SLICE, ASSERT_ZERO, ASSERT_NOT_ZERO, COND_NEGATE, ADD_MULTI, ASSERT_VALID,            \
         COND_SELECT, DOUBLE, RANDOMSEED, SELECT_IF_ZERO, SELECT_IF_EQ, REVERSE, GET_BIT, SET_BIT, SET, INVERT, AND,    \
-        OR, XOR, MODULO, SHL, SHR, ROL, ROR, NOT, BATCH_MUL, COND_ASSIGN
+        OR, XOR, MODULO, SHL, SHR, ROL, ROR, NOT, BATCH_MUL, COND_ASSIGN, VALIDATE_ON_CURVE
 
 struct HavocSettings {
     size_t GEN_LLVM_POST_MUTATION_PROB; // Controls frequency of additional mutation after structural ones
@@ -130,58 +130,6 @@ template <typename... Args> inline void debug_log(Args&&... args)
         (std::cout << ... << std::forward<Args>(args));
     }
 }
-
-#ifdef FUZZING_SHOW_INFORMATION
-/**
- * @brief Formatted strings for debugging output
- * Used to generate readable C++ code showing operation being performed
- */
-struct FormattedArgs {
-    std::string lhs;
-    std::string rhs;
-    std::string out;
-};
-
-/**
- * @brief Format a single-argument operation for debug output
- * @param stack The execution stack
- * @param first_index Index of the input argument
- * @param output_index Index where result will be written
- * @return FormattedArgs with rhs (input) and out (output) populated
- */
-template <typename Stack>
-inline FormattedArgs format_single_arg(const Stack& stack, size_t first_index, size_t output_index)
-{
-    std::string rhs = stack[first_index].cycle_group.is_constant() ? "c" : "w";
-    std::string out = rhs;
-    rhs += std::to_string(first_index);
-    out += std::to_string(output_index >= stack.size() ? stack.size() : output_index);
-    out = (output_index >= stack.size() ? "auto " : "") + out;
-    return FormattedArgs{ .lhs = "", .rhs = rhs, .out = out };
-}
-
-/**
- * @brief Format a two-argument operation for debug output
- * @param stack The execution stack
- * @param first_index Index of the first argument
- * @param second_index Index of the second argument
- * @param output_index Index where result will be written
- * @return FormattedArgs with lhs, rhs (inputs) and out (output) populated
- */
-template <typename Stack>
-inline FormattedArgs format_two_arg(const Stack& stack, size_t first_index, size_t second_index, size_t output_index)
-{
-    std::string lhs = stack[first_index].cycle_group.is_constant() ? "c" : "w";
-    std::string rhs = stack[second_index].cycle_group.is_constant() ? "c" : "w";
-    std::string out =
-        (stack[first_index].cycle_group.is_constant() && stack[second_index].cycle_group.is_constant()) ? "c" : "w";
-    lhs += std::to_string(first_index);
-    rhs += std::to_string(second_index);
-    out += std::to_string(output_index >= stack.size() ? stack.size() : output_index);
-    out = (output_index >= stack.size() ? "auto " : "") + out;
-    return FormattedArgs{ .lhs = lhs, .rhs = rhs, .out = out };
-}
-#endif
 
 /**
  * @brief Concept for a simple PRNG which returns a uint32_t when next is called

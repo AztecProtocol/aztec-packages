@@ -26,12 +26,13 @@ describe('AVM check-circuit – unhappy paths 1', () => {
     tester = await AvmProvingTester.new(worldStateService, /*checkCircuitOnly*/ true);
     avmTestContractInstance = await tester.registerAndDeployContract(
       /*constructorArgs=*/ [],
-      /*deployer=*/ AztecAddress.fromNumber(420),
+      /*deployer=*/ AztecAddress.fromNumberUnsafe(420),
       AvmTestContractArtifact,
     );
   });
 
   afterEach(async () => {
+    await tester.close();
     await worldStateService.close();
   });
 

@@ -7,6 +7,11 @@
 #include "barretenberg/hypernova/hypernova_decider_verifier.hpp"
 #include "barretenberg/commitment_schemes/claim_batcher.hpp"
 #include "barretenberg/commitment_schemes/shplonk/shplemini.hpp"
+#include "barretenberg/flavor/mega_app_flavor.hpp"
+#include "barretenberg/flavor/mega_app_recursive_flavor.hpp"
+#include "barretenberg/flavor/mega_kernel_flavor.hpp"
+#include "barretenberg/flavor/mega_kernel_recursive_flavor.hpp"
+#include "barretenberg/flavor/mega_recursive_flavor.hpp"
 
 namespace bb {
 
@@ -34,21 +39,22 @@ HypernovaDeciderVerifier<Flavor>::PairingPoints HypernovaDeciderVerifier<Flavor>
                                                          RefVector(accumulator.non_shifted_evaluation) },
                                 .shifted = ClaimBatch{ RefVector(accumulator.shifted_commitment),
                                                        RefVector(accumulator.shifted_evaluation) } };
-    std::vector<FF> padding_indicator_array(Flavor::VIRTUAL_LOG_N, 1);
-    auto opening_claim = ShpleminiVerifier::compute_batch_opening_claim(
-                             padding_indicator_array, claim_batcher, accumulator.challenge, generator, transcript)
-                             .batch_opening_claim;
+    auto opening_claim =
+        ShpleminiVerifier::compute_batch_opening_claim(claim_batcher, accumulator.challenge, generator, transcript)
+            .batch_opening_claim;
 
     if constexpr (IsRecursiveFlavor<Flavor>) {
         PairingPoints pairing_points(PCS::reduce_verify_batch_opening_claim(std::move(opening_claim), transcript));
         return pairing_points;
     } else {
         auto pairing_points = PCS::reduce_verify_batch_opening_claim(std::move(opening_claim), transcript);
-        // Native pairing points contain affine elements
-        return { typename Curve::AffineElement(pairing_points[0]), typename Curve::AffineElement(pairing_points[1]) };
+        return { typename Curve::AffineElement(pairing_points.P0()),
+                 typename Curve::AffineElement(pairing_points.P1()) };
     }
 };
 
-template class HypernovaDeciderVerifier<MegaFlavor>;
-template class HypernovaDeciderVerifier<MegaRecursiveFlavor_<MegaCircuitBuilder>>;
+template class HypernovaDeciderVerifier<MegaAppFlavor>;
+template class HypernovaDeciderVerifier<MegaKernelFlavor>;
+template class HypernovaDeciderVerifier<MegaAppRecursiveFlavor>;
+template class HypernovaDeciderVerifier<MegaKernelRecursiveFlavor>;
 }; // namespace bb

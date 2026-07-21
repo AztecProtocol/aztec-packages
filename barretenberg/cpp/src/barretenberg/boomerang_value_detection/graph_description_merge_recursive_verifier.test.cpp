@@ -1,13 +1,9 @@
 #include "barretenberg/boomerang_value_detection/graph.hpp"
-#include "barretenberg/circuit_checker/circuit_checker.hpp"
 #include "barretenberg/common/test.hpp"
-#include "barretenberg/ecc/fields/field_conversion.hpp"
 #include "barretenberg/goblin/merge_prover.hpp"
 #include "barretenberg/goblin/merge_verifier.hpp"
 #include "barretenberg/goblin/mock_circuits.hpp"
 #include "barretenberg/stdlib/primitives/curves/bn254.hpp"
-#include "barretenberg/ultra_honk/ultra_prover.hpp"
-#include "barretenberg/ultra_honk/ultra_verifier.hpp"
 
 using namespace cdg;
 
@@ -45,44 +41,51 @@ template <class RecursiveBuilder> class BoomerangRecursiveMergeVerifierTest : pu
 
     static void analyze_circuit(RecursiveBuilder& outer_circuit)
     {
-        // AUDITTODO: The 8 under-constrained variables are the _is_infinity boolean flags from the 8
-        // commitments created via goblin_element::from_witness (4 t_commitments + 4 T_prev_commitments).
-        // Each boolean is only constrained by a single bool gate (x * (x - 1) = 0) and is not
-        // connected to the point coordinates. This may be a security issue if the infinity flag is not
-        // properly bound to the coordinates via Fiat-Shamir - a malicious prover could potentially
-        // set the flag independently of the actual point value.
-        constexpr size_t EXPECTED_UNCONSTRAINED_INFINITY_FLAGS = 8;
-
-        if constexpr (IsMegaBuilder<RecursiveBuilder>) {
-            MegaStaticAnalyzer tool = MegaStaticAnalyzer(outer_circuit);
-            auto result = tool.analyze_circuit();
-            EXPECT_EQ(result.first.size(), 1);
-            EXPECT_EQ(result.second.size(), EXPECTED_UNCONSTRAINED_INFINITY_FLAGS);
-        }
-        if constexpr (IsUltraBuilder<RecursiveBuilder>) {
-            StaticAnalyzer tool = StaticAnalyzer(outer_circuit);
-            auto result = tool.analyze_circuit();
-            EXPECT_EQ(result.first.size(), 1);
-            EXPECT_EQ(result.second.size(), EXPECTED_UNCONSTRAINED_INFINITY_FLAGS);
-        }
+        auto tool = StaticAnalyzer_<bb::fr, RecursiveBuilder>(outer_circuit);
+        auto result = tool.analyze_circuit();
+        EXPECT_EQ(result.first.size(), 1);
+        EXPECT_EQ(result.second.size(), 0);
     }
 
-    static void prove_and_verify_merge(const std::shared_ptr<ECCOpQueue>& op_queue,
-                                       const MergeSettings settings = MergeSettings::PREPEND,
-                                       const bool run_analyzer = false)
+    static std::shared_ptr<ECCOpQueue> construct_final_merge_op_queue(const size_t num_subtables_up_to_tail)
+    {
+        auto op_queue = std::make_shared<ECCOpQueue>();
+
+        for (size_t idx = 0; idx < num_subtables_up_to_tail; ++idx) {
+            InnerBuilder circuit{ op_queue };
+            GoblinMockCircuits::construct_simple_circuit(circuit);
+            op_queue->merge();
+        }
+
+        op_queue->construct_zk_columns();
+
+        InnerBuilder hiding_circuit{ op_queue };
+        GoblinMockCircuits::construct_simple_circuit(hiding_circuit);
+
+        // The merge protocol is only used for the hiding kernel, whose subtable has a fixed size. The prover and
+        // verifier both rely on this (the verifier hard-codes the shift size from it), so pad the final subtable to
+        // match.
+        BB_ASSERT_LTE(op_queue->get_current_subtable_size(), bb::HIDING_KERNEL_ULTRA_OPS);
+        while (op_queue->get_current_subtable_size() < bb::HIDING_KERNEL_ULTRA_OPS) {
+            op_queue->no_op_ultra_only();
+        }
+        return op_queue;
+    }
+
+    static void prove_and_verify_merge(const std::shared_ptr<ECCOpQueue>& op_queue, const bool run_analyzer = false)
 
     {
         RecursiveBuilder outer_circuit;
 
         auto prover_transcript = std::make_shared<NativeTranscript>();
-        MergeProver merge_prover{ op_queue, prover_transcript, settings };
+        MergeProver merge_prover{ op_queue, prover_transcript };
         auto merge_proof = merge_prover.construct_proof();
 
         // Subtable values and commitments - needed for (Recursive)MergeVerifier
         MergeCommitments merge_commitments;
         RecursiveMergeCommitments recursive_merge_commitments;
         auto t_current = op_queue->construct_current_ultra_ops_subtable_columns();
-        auto T_prev = op_queue->construct_previous_ultra_ops_table_columns();
+        auto T_prev = op_queue->construct_table_columns_up_to_tail();
         for (size_t idx = 0; idx < InnerFlavor::NUM_WIRES; idx++) {
             merge_commitments.t_commitments[idx] = merge_prover.pcs_commitment_key.commit(t_current[idx]);
             merge_commitments.T_prev_commitments[idx] = merge_prover.pcs_commitment_key.commit(T_prev[idx]);
@@ -98,10 +101,16 @@ template <class RecursiveBuilder> class BoomerangRecursiveMergeVerifierTest : pu
 
         // Create a recursive merge verification circuit for the merge proof
         auto merge_transcript = std::make_shared<StdlibTranscript<RecursiveBuilder>>();
-        RecursiveMergeVerifier verifier{ settings, merge_transcript };
+        RecursiveMergeVerifier verifier{ merge_transcript };
         const stdlib::Proof<RecursiveBuilder> stdlib_merge_proof(outer_circuit, merge_proof);
-        [[maybe_unused]] auto [pairing_points, merged_commitments, reduction_succeeded] =
+        auto [pairing_points, merged_commitments, reduction_succeeded] =
             verifier.reduce_to_pairing_check(stdlib_merge_proof, recursive_merge_commitments);
+
+        // The pairing points are public outputs from the recursive verifier that will be verified externally via a
+        // pairing check. Their output coordinate limbs (from goblin batch_mul's queue_ecc_eq) may only appear in a
+        // single ECC op gate. Calling fix_witness() adds explicit constraints on these values so the StaticAnalyzer
+        // does not flag them as under-constrained.
+        pairing_points.fix_witness();
 
         // Check for a failure flag in the recursive verifier circuit
         EXPECT_FALSE(outer_circuit.failed());
@@ -110,38 +119,10 @@ template <class RecursiveBuilder> class BoomerangRecursiveMergeVerifierTest : pu
         }
     }
 
-    static void test_recursive_merge_verification_prepend()
+    static void test_recursive_merge_verification()
     {
-        auto op_queue = std::make_shared<ECCOpQueue>();
-
-        InnerBuilder circuit{ op_queue };
-        GoblinMockCircuits::construct_simple_circuit(circuit);
-        prove_and_verify_merge(op_queue);
-
-        InnerBuilder circuit2{ op_queue };
-        GoblinMockCircuits::construct_simple_circuit(circuit2);
-        prove_and_verify_merge(op_queue);
-
-        InnerBuilder circuit3{ op_queue };
-        GoblinMockCircuits::construct_simple_circuit(circuit3);
-        prove_and_verify_merge(op_queue, MergeSettings::PREPEND, true);
-    }
-
-    static void test_recursive_merge_verification_append()
-    {
-        auto op_queue = std::make_shared<ECCOpQueue>();
-
-        InnerBuilder circuit{ op_queue };
-        GoblinMockCircuits::construct_simple_circuit(circuit);
-        prove_and_verify_merge(op_queue);
-
-        InnerBuilder circuit2{ op_queue };
-        GoblinMockCircuits::construct_simple_circuit(circuit2);
-        prove_and_verify_merge(op_queue);
-
-        InnerBuilder circuit3{ op_queue };
-        GoblinMockCircuits::construct_simple_circuit(circuit3);
-        prove_and_verify_merge(op_queue, MergeSettings::APPEND, true);
+        auto op_queue = construct_final_merge_op_queue(/*num_subtables_up_to_tail=*/3);
+        prove_and_verify_merge(op_queue, /*run_analyzer=*/true);
     }
 };
 
@@ -149,14 +130,9 @@ using Builder = testing::Types<MegaCircuitBuilder>;
 
 TYPED_TEST_SUITE(BoomerangRecursiveMergeVerifierTest, Builder);
 
-TYPED_TEST(BoomerangRecursiveMergeVerifierTest, RecursiveVerificationPrepend)
+TYPED_TEST(BoomerangRecursiveMergeVerifierTest, RecursiveMergeVerification)
 {
-    TestFixture::test_recursive_merge_verification_prepend();
-};
-
-TYPED_TEST(BoomerangRecursiveMergeVerifierTest, RecursiveVerificationAppend)
-{
-    TestFixture::test_recursive_merge_verification_append();
+    TestFixture::test_recursive_merge_verification();
 };
 
 } // namespace bb::stdlib::recursion::goblin

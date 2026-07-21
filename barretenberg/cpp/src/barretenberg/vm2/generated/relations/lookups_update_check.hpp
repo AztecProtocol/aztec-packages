@@ -25,7 +25,7 @@ struct lookup_update_check_timestamp_from_public_inputs_settings_ {
         ColumnAndShifts::update_check_timestamp_pi_offset, ColumnAndShifts::update_check_timestamp
     };
     static constexpr std::array<ColumnAndShifts, LOOKUP_TUPLE_SIZE> DST_COLUMNS = {
-        ColumnAndShifts::precomputed_clk, ColumnAndShifts::public_inputs_cols_0_
+        ColumnAndShifts::precomputed_idx, ColumnAndShifts::public_inputs_cols_0_
     };
 };
 
@@ -72,21 +72,23 @@ using lookup_update_check_delayed_public_mutable_slot_poseidon2_relation =
 struct lookup_update_check_update_hash_public_data_read_settings_ {
     static constexpr std::string_view NAME = "LOOKUP_UPDATE_CHECK_UPDATE_HASH_PUBLIC_DATA_READ";
     static constexpr std::string_view RELATION_NAME = "update_check";
-    static constexpr size_t LOOKUP_TUPLE_SIZE = 4;
+    static constexpr size_t LOOKUP_TUPLE_SIZE = 5;
     static constexpr Column SRC_SELECTOR = Column::update_check_sel;
     static constexpr Column DST_SELECTOR = Column::public_data_check_sel;
     static constexpr Column COUNTS = Column::lookup_update_check_update_hash_public_data_read_counts;
     static constexpr Column INVERSES = Column::lookup_update_check_update_hash_public_data_read_inv;
     static constexpr std::array<ColumnAndShifts, LOOKUP_TUPLE_SIZE> SRC_COLUMNS = {
-        ColumnAndShifts::update_check_deployer_protocol_contract_address,
-        ColumnAndShifts::update_check_delayed_public_mutable_hash_slot,
+        ColumnAndShifts::precomputed_zero,
         ColumnAndShifts::update_check_update_hash,
+        ColumnAndShifts::update_check_contract_instance_registry_address,
+        ColumnAndShifts::update_check_delayed_public_mutable_hash_slot,
         ColumnAndShifts::update_check_public_data_tree_root
     };
     static constexpr std::array<ColumnAndShifts, LOOKUP_TUPLE_SIZE> DST_COLUMNS = {
+        ColumnAndShifts::public_data_check_write,
+        ColumnAndShifts::public_data_check_value,
         ColumnAndShifts::public_data_check_address,
         ColumnAndShifts::public_data_check_slot,
-        ColumnAndShifts::public_data_check_value,
         ColumnAndShifts::public_data_check_root
     };
 };

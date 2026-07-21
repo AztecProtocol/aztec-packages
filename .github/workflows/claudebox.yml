@@ -1,0 +1,266 @@
+name: ClaudeBox
+
+on:
+  issue_comment:
+    types: [created]
+  pull_request:
+    types: [labeled]
+  workflow_dispatch:
+    inputs:
+      prompt:
+        description: 'Prompt / instructions for Claude'
+        required: true
+        type: string
+      link:
+        description: 'Context link (e.g., PR URL, issue URL, external reference)'
+        required: false
+        type: string
+      target_ref:
+        description: 'Git ref the session should work against (e.g., origin/merge-train/barretenberg)'
+        required: false
+        type: string
+      repo:
+        description: 'Repo the work targets (owner/repo). Defaults to this repo. A private target (…-private) makes the session run in private mode.'
+        required: false
+        type: string
+      mode:
+        description: 'ClaudeBox repo-access mode (public|private). Leave empty to infer from the target repo.'
+        required: false
+        type: string
+      slack_channel:
+        description: 'Slack channel ID to thread status into (set by the kickoff script)'
+        required: false
+        type: string
+      slack_thread_ts:
+        description: 'Slack thread timestamp to reply under (set by the kickoff script)'
+        required: false
+        type: string
+
+# ClaudeBox v2 runs as a public service at https://claudebox.work. CI hands a
+# job off by POSTing to its /run webhook (Bearer-authed with
+# CLAUDEBOX_API_SECRET) and returns immediately — the session reports progress
+# back to the bound Slack thread and to any GitHub comment IDs we pass through.
+# The old v1 server lived on a private build instance reached over an SSH
+# tunnel; that path is retired.
+env:
+  CLAUDEBOX_URL: ${{ vars.CLAUDEBOX_URL || 'https://claudebox.work' }}
+
+jobs:
+  claudebox:
+    if: >-
+      github.event_name == 'workflow_dispatch' ||
+      startsWith(github.event.comment.body, '/claudebox')
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - name: Check write access
+        if: github.event_name == 'issue_comment'
+        run: |
+          ASSOCIATION="${{ github.event.comment.author_association }}"
+          echo "Author association: $ASSOCIATION"
+          if [[ "$ASSOCIATION" != "OWNER" && "$ASSOCIATION" != "MEMBER" && "$ASSOCIATION" != "COLLABORATOR" ]]; then
+            echo "ERROR: User does not have write access (association: $ASSOCIATION)"
+            exit 1
+          fi
+          echo "Access granted."
+
+      - name: Add reaction
+        if: github.event_name == 'issue_comment'
+        env:
+          GH_TOKEN: ${{ secrets.AZTEC_BOT_GITHUB_TOKEN }}
+        run: |
+          gh api \
+            repos/${{ github.repository }}/issues/comments/${{ github.event.comment.id }}/reactions \
+            -f content='eyes' || true
+
+      - name: Parse command
+        id: parse
+        env:
+          COMMENT_BODY: ${{ github.event.comment.body || '' }}
+          INPUT_PROMPT: ${{ inputs.prompt || '' }}
+          INPUT_LINK: ${{ inputs.link || '' }}
+          INPUT_TARGET_REF: ${{ inputs.target_ref || '' }}
+        run: |
+          if [ -n "$INPUT_PROMPT" ]; then
+            PROMPT="$INPUT_PROMPT"
+            LINK="$INPUT_LINK"
+          else
+            PROMPT=$(printf '%s' "$COMMENT_BODY" | sed 's|^/claudebox[[:space:]]*||')
+            LINK=""
+          fi
+
+          # ClaudeBox v2 has no separate target_ref input; fold it into the
+          # prompt so the agent fetches and bases its branch on the right ref.
+          if [ -n "$INPUT_TARGET_REF" ]; then
+            PROMPT="$PROMPT
+
+          Work against git ref: $INPUT_TARGET_REF. Fetch it and base your branch on it."
+          fi
+
+          echo "link=$LINK" >> "$GITHUB_OUTPUT"
+          {
+            echo "prompt<<PROMPT_EOF"
+            echo "$PROMPT"
+            echo "PROMPT_EOF"
+          } >> "$GITHUB_OUTPUT"
+          echo "Parsed: prompt=${PROMPT:0:120}"
+
+      - name: Post status comment
+        id: status_comment
+        if: github.event_name == 'issue_comment'
+        env:
+          GH_TOKEN: ${{ secrets.AZTEC_BOT_GITHUB_TOKEN }}
+          PROMPT_TEXT: ${{ steps.parse.outputs.prompt }}
+        run: |
+          ISSUE_NUM="${{ github.event.issue.number }}"
+          RUN_URL="${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}"
+          SHORT_PROMPT=$(printf '%.120s' "$PROMPT_TEXT")
+          BODY="**ClaudeBox**: _${SHORT_PROMPT}_ ... [workflow run]($RUN_URL)"
+
+          COMMENT_ID=$(gh api \
+            repos/${{ github.repository }}/issues/$ISSUE_NUM/comments \
+            -f body="$BODY" \
+            --jq '.id')
+          echo "run_comment_id=$COMMENT_ID" >> "$GITHUB_OUTPUT"
+          echo "Posted status comment: $COMMENT_ID"
+
+      - name: Dispatch ClaudeBox v2
+        env:
+          CLAUDEBOX_API_SECRET: ${{ secrets.CLAUDEBOX_API_SECRET }}
+          CLAUDEBOX_PROMPT: ${{ steps.parse.outputs.prompt }}
+          CLAUDEBOX_LINK: ${{ steps.parse.outputs.link }}
+          COMMENT_ID: ${{ github.event.comment.id || '' }}
+          RUN_COMMENT_ID: ${{ steps.status_comment.outputs.run_comment_id || '' }}
+          REPO: ${{ inputs.repo || github.repository }}
+          RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+          AUTHOR: ${{ github.event.comment.user.login || github.actor }}
+          SLACK_CHANNEL: ${{ inputs.slack_channel || '' }}
+          SLACK_THREAD_TS: ${{ inputs.slack_thread_ts || '' }}
+          # Mode selection, in priority order:
+          #   1. an explicit `mode` input (caller knows best);
+          #   2. private, when the target repo is a private mirror (…-private) —
+          #      e.g. a merge-train dequeue on aztec-packages-private, which a
+          #      public-mode session cannot read or open a fix PR against;
+          #   3. the repo/org default (public) for ordinary /claudebox work on
+          #      aztec-packages.
+          CLAUDEBOX_MODE: ${{ inputs.mode || (endsWith(inputs.repo || github.repository, '-private') && 'private' || vars.CLAUDEBOX_MODE || 'public') }}
+        run: |
+          if [ -z "${CLAUDEBOX_API_SECRET:-}" ]; then
+            echo "ERROR: CLAUDEBOX_API_SECRET is not set; cannot dispatch ClaudeBox v2"
+            exit 1
+          fi
+
+          PAYLOAD=$(jq -n \
+            --arg prompt "$CLAUDEBOX_PROMPT" \
+            --arg user "$AUTHOR" \
+            --arg comment_id "$COMMENT_ID" \
+            --arg run_comment_id "$RUN_COMMENT_ID" \
+            --arg repo "$REPO" \
+            --arg run_url "$RUN_URL" \
+            --arg link "$CLAUDEBOX_LINK" \
+            --arg slack_channel "$SLACK_CHANNEL" \
+            --arg slack_thread_ts "$SLACK_THREAD_TS" \
+            --arg mode "$CLAUDEBOX_MODE" \
+            '{prompt: $prompt, user: $user, repo: $repo, run_url: $run_url, link: $link, slack_channel: $slack_channel, slack_thread_ts: $slack_thread_ts, mode: $mode}
+             + (if $comment_id != "" then {comment_id: ($comment_id | tonumber)} else {} end)
+             + (if $run_comment_id != "" then {run_comment_id: ($run_comment_id | tonumber)} else {} end)')
+
+          # Fire-and-forget: v2 reports progress to Slack / GitHub comments.
+          RESPONSE=$(curl -sS -w "\n%{http_code}" \
+            -H "Authorization: Bearer ${CLAUDEBOX_API_SECRET}" \
+            -H "Content-Type: application/json" \
+            -d "$PAYLOAD" "${CLAUDEBOX_URL}/run")
+
+          HTTP_CODE=$(echo "$RESPONSE" | tail -1)
+          BODY=$(echo "$RESPONSE" | head -n -1)
+
+          if [ "$HTTP_CODE" -ge 400 ] 2>/dev/null; then
+            echo "ClaudeBox v2 returned HTTP $HTTP_CODE: $BODY"
+            exit 1
+          fi
+
+          SESSION_ID=$(echo "$BODY" | jq -r '.session_id // empty')
+          echo "ClaudeBox v2 session: ${CLAUDEBOX_URL}/v2/sessions/${SESSION_ID}"
+          echo "Status: $(echo "$BODY" | jq -r '.status // "unknown"')"
+
+  claude-review:
+    if: >-
+      github.event_name == 'pull_request' &&
+      github.event.action == 'labeled' &&
+      github.event.label.name == 'claude-review'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - name: Post review status comment
+        id: status_comment
+        env:
+          GH_TOKEN: ${{ secrets.AZTEC_BOT_GITHUB_TOKEN }}
+        run: |
+          PR_NUM="${{ github.event.pull_request.number }}"
+          RUN_URL="${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}"
+          BODY="**Claude Review**: Starting automated code review... [workflow run]($RUN_URL)"
+
+          COMMENT_ID=$(gh api \
+            repos/${{ github.repository }}/issues/$PR_NUM/comments \
+            -f body="$BODY" \
+            --jq '.id')
+          echo "run_comment_id=$COMMENT_ID" >> "$GITHUB_OUTPUT"
+          echo "Posted review status comment: $COMMENT_ID"
+
+      - name: Dispatch ClaudeBox v2 review
+        env:
+          CLAUDEBOX_API_SECRET: ${{ secrets.CLAUDEBOX_API_SECRET }}
+          PR_NUMBER: ${{ github.event.pull_request.number }}
+          PR_TITLE: ${{ github.event.pull_request.title }}
+          PR_URL: ${{ github.event.pull_request.html_url }}
+          PR_AUTHOR: ${{ github.event.pull_request.user.login }}
+          HEAD_REF: ${{ github.event.pull_request.head.ref }}
+          RUN_COMMENT_ID: ${{ steps.status_comment.outputs.run_comment_id || '' }}
+          RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+          REPO: ${{ github.repository }}
+          CLAUDEBOX_MODE: ${{ vars.CLAUDEBOX_MODE || 'public' }}
+        run: |
+          if [ -z "${CLAUDEBOX_API_SECRET:-}" ]; then
+            echo "ERROR: CLAUDEBOX_API_SECRET is not set; cannot dispatch ClaudeBox v2"
+            exit 1
+          fi
+
+          PROMPT="Review PR #${PR_NUMBER}: ${PR_TITLE}
+          ${PR_URL}
+
+          Author: ${PR_AUTHOR}
+          Head branch: ${HEAD_REF}
+
+          Thoroughly review this PR. Read the diff, description, linked issues, and recent git history.
+          Focus on non-obvious bugs: edge cases, concurrency, security, correctness, compatibility.
+          If you find a direct fix, create a PR. When done, call manage_review_labels(pr_number=${PR_NUMBER})."
+
+          PAYLOAD=$(jq -n \
+            --arg prompt "$PROMPT" \
+            --arg user "review/${PR_AUTHOR}" \
+            --arg run_comment_id "$RUN_COMMENT_ID" \
+            --arg repo "$REPO" \
+            --arg run_url "$RUN_URL" \
+            --arg link "$PR_URL" \
+            --arg mode "$CLAUDEBOX_MODE" \
+            '{prompt: $prompt, user: $user, repo: $repo, run_url: $run_url, link: $link, mode: $mode}
+             + (if $run_comment_id != "" then {run_comment_id: ($run_comment_id | tonumber)} else {} end)')
+
+          RESPONSE=$(curl -sS -w "\n%{http_code}" \
+            -H "Authorization: Bearer ${CLAUDEBOX_API_SECRET}" \
+            -H "Content-Type: application/json" \
+            -d "$PAYLOAD" "${CLAUDEBOX_URL}/run")
+
+          HTTP_CODE=$(echo "$RESPONSE" | tail -1)
+          BODY=$(echo "$RESPONSE" | head -n -1)
+
+          if [ "$HTTP_CODE" -ge 400 ] 2>/dev/null; then
+            echo "ClaudeBox v2 returned HTTP $HTTP_CODE: $BODY"
+            # Review dispatch failures are informational — don't fail the workflow.
+            exit 0
+          fi
+
+          SESSION_ID=$(echo "$BODY" | jq -r '.session_id // empty')
+          echo "ClaudeBox v2 review session: ${CLAUDEBOX_URL}/v2/sessions/${SESSION_ID}"

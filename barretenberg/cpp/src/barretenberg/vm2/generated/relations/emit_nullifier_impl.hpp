@@ -15,7 +15,11 @@ void emit_nullifierImpl<FF_>::accumulate(ContainerOverSubrelations& evals,
 {
     using C = ColumnAndShifts;
 
+    const auto constants_NULLIFIER_TREE_HEIGHT = FF(42);
     const auto constants_MAX_NULLIFIERS_PER_TX = FF(64);
+    const auto constants_AVM_PUBLIC_INPUTS_AVM_ACCUMULATED_DATA_NULLIFIERS_ROW_IDX = FF(450);
+    const auto constants_DOM_SEP__SILOED_NULLIFIER = FF(57496191);
+    const auto constants_DOM_SEP__NULLIFIER_MERKLE = FF(1157584160);
     const auto execution_REMAINING_NULLIFIER_WRITES =
         (constants_MAX_NULLIFIERS_PER_TX - in.get(C::execution_prev_num_nullifiers_emitted));
     const auto execution_SUCCESSFUL_WRITE =
@@ -53,29 +57,58 @@ void emit_nullifierImpl<FF_>::accumulate(ContainerOverSubrelations& evals,
                    (FF(1) - static_cast<View>(in.get(C::execution_sel_opcode_error)));
         std::get<3>(evals) += (tmp * scaling_factor);
     }
-    { // EMIT_NULLIFIER_TREE_ROOT_NOT_CHANGED
+    {
         using View = typename std::tuple_element_t<4, ContainerOverSubrelations>::View;
+        auto tmp = static_cast<View>(in.get(C::execution_sel_write_nullifier)) *
+                   ((CView(constants_AVM_PUBLIC_INPUTS_AVM_ACCUMULATED_DATA_NULLIFIERS_ROW_IDX) +
+                     static_cast<View>(in.get(C::execution_prev_num_nullifiers_emitted))) -
+                    static_cast<View>(in.get(C::execution_nullifier_pi_offset)));
+        std::get<4>(evals) += (tmp * scaling_factor);
+    }
+    {
+        using View = typename std::tuple_element_t<5, ContainerOverSubrelations>::View;
+        auto tmp =
+            static_cast<View>(in.get(C::execution_sel_write_nullifier)) *
+            (static_cast<View>(in.get(C::execution_nullifier_tree_height)) - CView(constants_NULLIFIER_TREE_HEIGHT));
+        std::get<5>(evals) += (tmp * scaling_factor);
+    }
+    {
+        using View = typename std::tuple_element_t<6, ContainerOverSubrelations>::View;
+        auto tmp = static_cast<View>(in.get(C::execution_sel_write_nullifier)) *
+                   (static_cast<View>(in.get(C::execution_nullifier_siloing_separator)) -
+                    CView(constants_DOM_SEP__SILOED_NULLIFIER));
+        std::get<6>(evals) += (tmp * scaling_factor);
+    }
+    {
+        using View = typename std::tuple_element_t<7, ContainerOverSubrelations>::View;
+        auto tmp = static_cast<View>(in.get(C::execution_sel_write_nullifier)) *
+                   (static_cast<View>(in.get(C::execution_nullifier_merkle_separator)) -
+                    CView(constants_DOM_SEP__NULLIFIER_MERKLE));
+        std::get<7>(evals) += (tmp * scaling_factor);
+    }
+    { // EMIT_NULLIFIER_TREE_ROOT_NOT_CHANGED
+        using View = typename std::tuple_element_t<8, ContainerOverSubrelations>::View;
         auto tmp = static_cast<View>(in.get(C::execution_sel_execute_emit_nullifier)) *
                    static_cast<View>(in.get(C::execution_sel_opcode_error)) *
                    (static_cast<View>(in.get(C::execution_prev_nullifier_tree_root)) -
                     static_cast<View>(in.get(C::execution_nullifier_tree_root)));
-        std::get<4>(evals) += (tmp * scaling_factor);
+        std::get<8>(evals) += (tmp * scaling_factor);
     }
     { // EMIT_NULLIFIER_TREE_SIZE_INCREASE
-        using View = typename std::tuple_element_t<5, ContainerOverSubrelations>::View;
+        using View = typename std::tuple_element_t<9, ContainerOverSubrelations>::View;
         auto tmp =
             static_cast<View>(in.get(C::execution_sel_execute_emit_nullifier)) *
             ((static_cast<View>(in.get(C::execution_prev_nullifier_tree_size)) + CView(execution_SUCCESSFUL_WRITE)) -
              static_cast<View>(in.get(C::execution_nullifier_tree_size)));
-        std::get<5>(evals) += (tmp * scaling_factor);
+        std::get<9>(evals) += (tmp * scaling_factor);
     }
     { // EMIT_NULLIFIER_NUM_NULLIFIERS_EMITTED_INCREASE
-        using View = typename std::tuple_element_t<6, ContainerOverSubrelations>::View;
+        using View = typename std::tuple_element_t<10, ContainerOverSubrelations>::View;
         auto tmp =
             static_cast<View>(in.get(C::execution_sel_execute_emit_nullifier)) *
             ((static_cast<View>(in.get(C::execution_prev_num_nullifiers_emitted)) + CView(execution_SUCCESSFUL_WRITE)) -
              static_cast<View>(in.get(C::execution_num_nullifiers_emitted)));
-        std::get<6>(evals) += (tmp * scaling_factor);
+        std::get<10>(evals) += (tmp * scaling_factor);
     }
 }
 

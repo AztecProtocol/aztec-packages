@@ -4,7 +4,7 @@
 #include <cassert>
 #include <cstdint>
 
-#include "barretenberg/vm2/common/aztec_constants.hpp"
+#include "barretenberg/aztec/aztec_constants.hpp"
 #include "barretenberg/vm2/common/field.hpp"
 #include "barretenberg/vm2/generated/columns.hpp"
 #include "barretenberg/vm2/generated/relations/lookups_data_copy.hpp"
@@ -25,17 +25,16 @@ namespace bb::avm2::tracegen {
  * the calldata column.
  *
  * Error Handling:
- * There is one class of errors that is checked: memory out of range accesses for reads and writes.
- * Both are part of the same temporality group and therefore are checked simultaneously.
+ * Only dst address out of range is an error.
  * If an error occurs, we populate a single row with the error flag set.
+ *
+ * Note on out of range reads:
+ * src addresses are clamped at the memory boundary, any out of range reads return 0.
  *
  * Writing Data:
  * If the copy size is zero, we do not read or write any data.
  * If the copy size is non-zero, we read and write the data to the current context.
  * For each read/write, we populate one row in the trace.
- *
- * Padding Data:
- * If we read past the end of the data, we populate a padding row (value = 0).
  *
  * Precondition: If there is no error, the field copying_data is a vector of size copy_size.
  *
@@ -57,18 +56,25 @@ void DataCopyTraceBuilder::process(
         // we cast to a wider integer type to detect overflows
         const uint64_t copy_size = static_cast<uint64_t>(event.data_copy_size);
         const uint64_t data_offset = static_cast<uint64_t>(event.data_offset);
-        const uint64_t data_index_upper_bound =
+        const uint64_t read_index_upper_bound =
             std::min(data_offset + copy_size, static_cast<uint64_t>(event.src_data_size));
 
-        const uint64_t read_addr_upper_bound = static_cast<uint64_t>(event.src_data_addr) + data_index_upper_bound;
+        const uint64_t read_addr_upper_bound = static_cast<uint64_t>(event.src_data_addr) + read_index_upper_bound;
         const uint64_t write_addr_upper_bound = static_cast<uint64_t>(event.dst_addr) + copy_size;
+
+        // Clamp reads at the memory boundary when src reads exceed memory.
+        const bool read_address_overflow = read_addr_upper_bound > AVM_MEMORY_SIZE;
+        const bool write_address_overflow = write_addr_upper_bound > AVM_MEMORY_SIZE;
+        const uint64_t clamped_read_index_upper_bound =
+            read_address_overflow ? (static_cast<uint64_t>(AVM_MEMORY_SIZE) - event.src_data_addr)
+                                  : read_index_upper_bound;
 
         trace.set(row,
                   { {
                       // Unconditional values
                       { C::data_copy_sel, 1 },
                       { C::data_copy_clk, event.execution_clk },
-                      { C::data_copy_sel_start, 1 },
+                      { C::data_copy_start, 1 },
                       { C::data_copy_sel_cd_copy, is_cd_copy ? 1 : 0 },
                       { C::data_copy_sel_cd_copy_start, is_cd_copy ? 1 : 0 },
                       { C::data_copy_sel_rd_copy_start, is_rd_copy ? 1 : 0 },
@@ -86,34 +92,29 @@ void DataCopyTraceBuilder::process(
                       { C::data_copy_is_top_level, is_top_level ? 1 : 0 },
                       { C::data_copy_parent_id_inv, parent_id_inv }, // Will be inverted in batch later
 
-                      // Compute Data Index Upper Bound
+                      // Compute read index upper bound
                       { C::data_copy_offset_plus_size, data_offset + copy_size },
                       { C::data_copy_offset_plus_size_is_gt, data_offset + copy_size > event.src_data_size ? 1 : 0 },
-                      { C::data_copy_data_index_upper_bound, data_index_upper_bound },
 
-                      // Addresses Upper Bounds
+                      // Src address range clamping
                       { C::data_copy_mem_size, static_cast<uint64_t>(AVM_MEMORY_SIZE) },
                       { C::data_copy_read_addr_upper_bound, read_addr_upper_bound },
+                      { C::data_copy_src_reads_exceed_mem, read_address_overflow ? 1 : 0 },
+                      { C::data_copy_clamped_read_index_upper_bound, clamped_read_index_upper_bound },
+
+                      // Dst address range check
                       { C::data_copy_write_addr_upper_bound, write_addr_upper_bound },
 
                   } });
 
         /////////////////////////////
-        // Memory Address Range Check
+        // Dst Address Range Check (only error type)
         /////////////////////////////
-        // We need to check that the read and write addresses are within the valid memory range.
-        // Note: for enqueued calls, there is no out of bound read since we read from a column.
-
-        bool read_address_overflow = read_addr_upper_bound > AVM_MEMORY_SIZE;
-        bool write_address_overflow = write_addr_upper_bound > AVM_MEMORY_SIZE;
-        if (read_address_overflow || write_address_overflow) {
+        if (write_address_overflow) {
             trace.set(row,
                       { {
-                          { C::data_copy_sel_end, 1 },
-                          // Add error flag - note we can be out of range for both reads and writes
-                          { C::data_copy_src_out_of_range_err, read_address_overflow ? 1 : 0 },
-                          { C::data_copy_dst_out_of_range_err, write_address_overflow ? 1 : 0 },
-                          { C::data_copy_err, 1 },
+                          { C::data_copy_end, 1 },
+                          { C::data_copy_dst_out_of_range_err, 1 },
                       } });
             row++;
             continue; // Go to the next event
@@ -128,14 +129,13 @@ void DataCopyTraceBuilder::process(
         /////////////////////////////
         // This has to happen outside of the next loop since we will not enter it if the copy size is zero
         if (copy_size == 0) {
-            trace.set(
-                row,
-                { {
-                    { C::data_copy_sel_start_no_err, 1 },
-                    { C::data_copy_sel_end, 1 },
-                    { C::data_copy_sel_write_count_is_zero, 1 },
-                    { C::data_copy_data_index_upper_bound_gt_offset, data_index_upper_bound > data_offset ? 1 : 0 },
-                } });
+            trace.set(row,
+                      { {
+                          { C::data_copy_start_no_err, 1 },
+                          { C::data_copy_end, 1 },
+                          { C::data_copy_sel_write_count_is_zero, 1 },
+                          { C::data_copy_sel_has_reads, clamped_read_index_upper_bound > data_offset ? 1 : 0 },
+                      } });
             row++;
             continue; // Go to the next event
         }
@@ -143,8 +143,9 @@ void DataCopyTraceBuilder::process(
         /////////////////////////////
         // Process Data Copy Rows
         /////////////////////////////
-        uint32_t reads_left =
-            data_offset >= data_index_upper_bound ? 0 : static_cast<uint32_t>(data_index_upper_bound - data_offset);
+        uint32_t reads_left = data_offset >= clamped_read_index_upper_bound
+                                  ? 0
+                                  : static_cast<uint32_t>(clamped_read_index_upper_bound - data_offset);
 
         for (uint32_t i = 0; i < copy_size; i++) {
             bool start = i == 0;
@@ -153,7 +154,7 @@ void DataCopyTraceBuilder::process(
 
             bool is_padding_row = reads_left == 0;
 
-            // These are guaranteed not to overflow since we checked the read/write addresses above
+            // These are guaranteed not to overflow since clamped reads stay within memory bounds
             uint64_t read_addr = event.src_data_addr + data_offset + i;
             bool read_cd_col = is_cd_copy && is_top_level && !is_padding_row;
 
@@ -174,8 +175,8 @@ void DataCopyTraceBuilder::process(
                     { C::data_copy_dst_context_id, event.write_context_id },
                     { C::data_copy_dst_addr, event.dst_addr + i },
 
-                    { C::data_copy_sel_start_no_err, start ? 1 : 0 },
-                    { C::data_copy_sel_end, end ? 1 : 0 },
+                    { C::data_copy_start_no_err, start ? 1 : 0 },
+                    { C::data_copy_end, end ? 1 : 0 },
                     { C::data_copy_copy_size, current_copy_size },
                     { C::data_copy_write_count_minus_one_inv,
                       current_copy_size - 1 }, // Will be inverted in batch later
@@ -198,8 +199,7 @@ void DataCopyTraceBuilder::process(
 
                     // Reads Left
                     { C::data_copy_reads_left, reads_left },
-                    { C::data_copy_data_index_upper_bound_gt_offset,
-                      (start && data_index_upper_bound > data_offset) ? 1 : 0 },
+                    { C::data_copy_sel_has_reads, (start && clamped_read_index_upper_bound > data_offset) ? 1 : 0 },
 
                     // Non-zero Copy Size
                     { C::data_copy_write_count_zero_inv, start ? FF(copy_size) : 0 }, // Will be inverted in batch later
@@ -223,11 +223,10 @@ void DataCopyTraceBuilder::process(
 const InteractionDefinition DataCopyTraceBuilder::interactions =
     InteractionDefinition()
         // Enqueued Call Col Read
-        .add<lookup_data_copy_col_read_settings, InteractionType::LookupGeneric>()
+        .add<InteractionType::LookupGeneric, lookup_data_copy_col_read_settings>()
         // GT checks
-        .add<lookup_data_copy_offset_plus_size_is_gt_data_size_settings, InteractionType::LookupGeneric>(Column::gt_sel)
-        .add<lookup_data_copy_check_src_addr_in_range_settings, InteractionType::LookupGeneric>(Column::gt_sel)
-        .add<lookup_data_copy_check_dst_addr_in_range_settings, InteractionType::LookupGeneric>(Column::gt_sel)
-        .add<lookup_data_copy_data_index_upper_bound_gt_offset_settings, InteractionType::LookupGeneric>(
-            Column::gt_sel);
+        .add<InteractionType::LookupGeneric, lookup_data_copy_offset_plus_size_is_gt_data_size_settings>(Column::gt_sel)
+        .add<InteractionType::LookupGeneric, lookup_data_copy_check_src_addr_in_range_settings>(Column::gt_sel)
+        .add<InteractionType::LookupGeneric, lookup_data_copy_check_dst_addr_in_range_settings>(Column::gt_sel)
+        .add<InteractionType::LookupGeneric, lookup_data_copy_sel_has_reads_settings>(Column::gt_sel);
 } // namespace bb::avm2::tracegen

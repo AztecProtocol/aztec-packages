@@ -11,9 +11,6 @@
 #include "barretenberg/crypto/schnorr/schnorr.hpp"
 #include "barretenberg/ecc/curves/grumpkin/grumpkin.hpp"
 #include "barretenberg/serialize/msgpack.hpp"
-#include <array>
-#include <cstdint>
-#include <vector>
 
 namespace bb::bbapi {
 
@@ -27,13 +24,13 @@ struct SchnorrComputePublicKey {
     struct Response {
         static constexpr const char MSGPACK_SCHEMA_NAME[] = "SchnorrComputePublicKeyResponse";
         grumpkin::g1::affine_element public_key;
-        MSGPACK_FIELDS(public_key);
+        SERIALIZATION_FIELDS(public_key);
         bool operator==(const Response&) const = default;
     };
 
     grumpkin::fr private_key;
     Response execute(BBApiRequest& request) &&;
-    MSGPACK_FIELDS(private_key);
+    SERIALIZATION_FIELDS(private_key);
     bool operator==(const SchnorrComputePublicKey&) const = default;
 };
 
@@ -46,16 +43,16 @@ struct SchnorrConstructSignature {
 
     struct Response {
         static constexpr const char MSGPACK_SCHEMA_NAME[] = "SchnorrConstructSignatureResponse";
-        std::array<uint8_t, 32> s;
-        std::array<uint8_t, 32> e;
-        MSGPACK_FIELDS(s, e);
+        grumpkin::fr s;
+        grumpkin::fr e;
+        SERIALIZATION_FIELDS(s, e);
         bool operator==(const Response&) const = default;
     };
 
-    std::vector<uint8_t> message; // Variable length
+    grumpkin::fq message_field;
     grumpkin::fr private_key;
     Response execute(BBApiRequest& request) &&;
-    MSGPACK_FIELDS(message, private_key);
+    SERIALIZATION_FIELDS(message_field, private_key);
     bool operator==(const SchnorrConstructSignature&) const = default;
 };
 
@@ -69,16 +66,16 @@ struct SchnorrVerifySignature {
     struct Response {
         static constexpr const char MSGPACK_SCHEMA_NAME[] = "SchnorrVerifySignatureResponse";
         bool verified;
-        MSGPACK_FIELDS(verified);
+        SERIALIZATION_FIELDS(verified);
         bool operator==(const Response&) const = default;
     };
 
-    std::vector<uint8_t> message;
+    grumpkin::fq message_field;
     grumpkin::g1::affine_element public_key;
-    std::array<uint8_t, 32> s;
-    std::array<uint8_t, 32> e;
+    grumpkin::fr s;
+    grumpkin::fr e;
     Response execute(BBApiRequest& request) &&;
-    MSGPACK_FIELDS(message, public_key, s, e);
+    SERIALIZATION_FIELDS(message_field, public_key, s, e);
     bool operator==(const SchnorrVerifySignature&) const = default;
 };
 

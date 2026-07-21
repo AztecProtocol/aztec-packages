@@ -1,39 +1,42 @@
 // SPDX-License-Identifier: Apache-2.0
-// Copyright 2024 Aztec Labs
-pragma solidity >=0.8.21;
+// Copyright 2024 Aztec Labs.
+pragma solidity >=0.8.27;
 
-import {IVerifier} from "../interfaces/IVerifier.sol";
+import {IVerifier} from "./../interfaces/IVerifier.sol";
+import {CommitmentSchemeLib} from "./CommitmentScheme.sol";
+import {ONE, ZERO, Fr, FrLib} from "./Fr.sol";
 import {
     Honk,
-    WIRE,
     NUMBER_OF_ENTITIES,
-    NUMBER_OF_SUBRELATIONS,
-    NUMBER_OF_ALPHAS,
     NUMBER_UNSHIFTED,
     NUMBER_TO_BE_SHIFTED,
     BATCHED_RELATION_PARTIAL_LENGTH,
     PAIRING_POINTS_SIZE
 } from "./HonkTypes.sol";
-
-import {negateInplace, pairing, validateOnCurve} from "./utils.sol";
-
-// Field arithmetic libraries - prevent littering the code with modmul / addmul
-import {ONE, ZERO, Fr, FrLib} from "./Fr.sol";
-
-import {Transcript, TranscriptLib} from "./Transcript.sol";
-
 import {RelationsLib} from "./Relations.sol";
-
-import {CommitmentSchemeLib} from "./CommitmentScheme.sol";
+import {Transcript, TranscriptLib} from "./Transcript.sol";
+import {negateInplace, pairing, rejectPointAtInfinity, arePairingPointsDefault} from "./utils.sol";
 import {generateRecursionSeparator, convertPairingPointsToG1, mulWithSeperator} from "./utils.sol";
+import {Errors} from "./Errors.sol";
 
 abstract contract BaseHonkVerifier is IVerifier {
     using FrLib for Fr;
 
-    uint256 immutable $N;
-    uint256 immutable $LOG_N;
-    uint256 immutable $VK_HASH;
-    uint256 immutable $NUM_PUBLIC_INPUTS;
+    // Constants for proof length calculation (matching UltraKeccakFlavor)
+    uint256 internal constant NUM_WITNESS_ENTITIES = 8;
+    uint256 internal constant NUM_ELEMENTS_COMM = 2; // uint256 elements for curve points
+    uint256 internal constant NUM_ELEMENTS_FR = 1; // uint256 elements for field elements
+
+    // Number of field elements in a ultra keccak honk proof for log_n = 25, including pairing point object.
+    uint256 internal constant PROOF_SIZE = 350; // Legacy constant - will be replaced by calculateProofSize($LOG_N)
+    uint256 internal constant SHIFTED_COMMITMENTS_START = 29;
+
+    uint256 internal constant PERMUTATION_ARGUMENT_VALUE_SEPARATOR = 1 << 28;
+
+    uint256 internal immutable $N;
+    uint256 internal immutable $LOG_N;
+    uint256 internal immutable $VK_HASH;
+    uint256 internal immutable $NUM_PUBLIC_INPUTS;
 
     constructor(uint256 _N, uint256 _logN, uint256 _vkHash, uint256 _numPublicInputs) {
         $N = _N;
@@ -42,59 +45,19 @@ abstract contract BaseHonkVerifier is IVerifier {
         $NUM_PUBLIC_INPUTS = _numPublicInputs;
     }
 
-    // Errors
-    error ProofLengthWrong();
-    error ProofLengthWrongWithLogN(uint256 logN, uint256 actualLength, uint256 expectedLength);
-    error PublicInputsLengthWrong();
-    error SumcheckFailed();
-    error ShpleminiFailed();
-
-    // Constants for proof length calculation (matching UltraKeccakFlavor)
-    uint256 constant NUM_WITNESS_ENTITIES = 8;
-    uint256 constant NUM_ELEMENTS_COMM = 2; // uint256 elements for curve points
-    uint256 constant NUM_ELEMENTS_FR = 1; // uint256 elements for field elements
-
-    // Calculate proof size based on log_n (matching UltraKeccakFlavor formula)
-    function calculateProofSize(uint256 logN) internal pure returns (uint256) {
-        // Witness commitments
-        uint256 proofLength = NUM_WITNESS_ENTITIES * NUM_ELEMENTS_COMM; // witness commitments
-
-        // Sumcheck
-        proofLength += logN * BATCHED_RELATION_PARTIAL_LENGTH * NUM_ELEMENTS_FR; // sumcheck univariates
-        proofLength += NUMBER_OF_ENTITIES * NUM_ELEMENTS_FR; // sumcheck evaluations
-
-        // Gemini
-        proofLength += (logN - 1) * NUM_ELEMENTS_COMM; // Gemini Fold commitments
-        proofLength += logN * NUM_ELEMENTS_FR; // Gemini evaluations
-
-        // Shplonk and KZG commitments
-        proofLength += NUM_ELEMENTS_COMM * 2; // Shplonk Q and KZG W commitments
-
-        // Pairing points
-        proofLength += PAIRING_POINTS_SIZE; // pairing inputs carried on public inputs
-
-        return proofLength;
-    }
-
-    // Number of field elements in a ultra keccak honk proof for log_n = 25, including pairing point object.
-    uint256 constant PROOF_SIZE = 350; // Legacy constant - will be replaced by calculateProofSize($LOG_N)
-    uint256 constant SHIFTED_COMMITMENTS_START = 29;
-
-    function loadVerificationKey() internal pure virtual returns (Honk.VerificationKey memory);
-
     function verify(bytes calldata proof, bytes32[] calldata publicInputs) public view override returns (bool) {
         // Calculate expected proof size based on $LOG_N
         uint256 expectedProofSize = calculateProofSize($LOG_N);
 
         // Check the received proof is the expected size where each field element is 32 bytes
         if (proof.length != expectedProofSize * 32) {
-            revert ProofLengthWrongWithLogN($LOG_N, proof.length, expectedProofSize * 32);
+            revert Errors.ProofLengthWrongWithLogN($LOG_N, proof.length, expectedProofSize * 32);
         }
 
         Honk.VerificationKey memory vk = loadVerificationKey();
         Honk.Proof memory p = TranscriptLib.loadProof(proof, $LOG_N);
         if (publicInputs.length != vk.publicInputsSize - PAIRING_POINTS_SIZE) {
-            revert PublicInputsLengthWrong();
+            revert Errors.PublicInputsLengthWrong();
         }
 
         // Generate the fiat shamir challenges for the whole protocol
@@ -107,21 +70,19 @@ abstract contract BaseHonkVerifier is IVerifier {
             publicInputs,
             p.pairingPointObject,
             t.relationParameters.beta,
-            t.relationParameters.gamma, /*pubInputsOffset=*/
-            1
+            t.relationParameters.gamma,
+            5 // pubInputsOffset = NUM_DISABLED_ROWS_IN_SUMCHECK + NUM_ZERO_ROWS = 4 + 1
         );
 
         // Sumcheck
         bool sumcheckVerified = verifySumcheck(p, t);
-        if (!sumcheckVerified) revert SumcheckFailed();
+        if (!sumcheckVerified) revert Errors.SumcheckFailed();
 
         bool shpleminiVerified = verifyShplemini(p, vk, t);
-        if (!shpleminiVerified) revert ShpleminiFailed();
+        if (!shpleminiVerified) revert Errors.ShpleminiFailed();
 
         return sumcheckVerified && shpleminiVerified; // Boolean condition not required - nice for vanity :)
     }
-
-    uint256 constant PERMUTATION_ARGUMENT_VALUE_SEPARATOR = 1 << 28;
 
     function computePublicInputDelta(
         bytes32[] memory publicInputs,
@@ -170,7 +131,7 @@ abstract contract BaseHonkVerifier is IVerifier {
         for (uint256 round = 0; round < $LOG_N; ++round) {
             Fr[BATCHED_RELATION_PARTIAL_LENGTH] memory roundUnivariate = proof.sumcheckUnivariates[round];
             bool valid = checkSum(roundUnivariate, roundTarget);
-            if (!valid) revert SumcheckFailed();
+            if (!valid) revert Errors.SumcheckFailed();
 
             Fr roundChallenge = tp.sumCheckUChallenges[round];
 
@@ -184,15 +145,6 @@ abstract contract BaseHonkVerifier is IVerifier {
             proof.sumcheckEvaluations, tp.relationParameters, tp.alphas, powPartialEvaluation
         );
         verified = (grandHonkRelationSum == roundTarget);
-    }
-
-    function checkSum(Fr[BATCHED_RELATION_PARTIAL_LENGTH] memory roundUnivariate, Fr roundTarget)
-        internal
-        pure
-        returns (bool checked)
-    {
-        Fr totalSum = roundUnivariate[0] + roundUnivariate[1];
-        checked = totalSum == roundTarget;
     }
 
     // Return the new target sum for the next sumcheck round
@@ -239,16 +191,6 @@ abstract contract BaseHonkVerifier is IVerifier {
 
         // Scale the sum by the value of B(x)
         targetSum = targetSum * numeratorValue;
-    }
-
-    // Univariate evaluation of the monomial ((1-X_l) + X_l.B_l) at the challenge point X_l=u_l
-    function partiallyEvaluatePOW(Fr gateChallenge, Fr currentEvaluation, Fr roundChallenge)
-        internal
-        pure
-        returns (Fr newEvaluation)
-    {
-        Fr univariateEval = ONE + (roundChallenge * (gateChallenge - ONE));
-        newEvaluation = currentEvaluation * univariateEval;
     }
 
     function verifyShplemini(Honk.Proof memory proof, Honk.VerificationKey memory vk, Transcript memory tp)
@@ -328,34 +270,34 @@ abstract contract BaseHonkVerifier is IVerifier {
             mem.batchingChallenge = mem.batchingChallenge * tp.rho;
         }
 
-        commitments[1] = vk.qm;
-        commitments[2] = vk.qc;
-        commitments[3] = vk.ql;
-        commitments[4] = vk.qr;
-        commitments[5] = vk.qo;
-        commitments[6] = vk.q4;
-        commitments[7] = vk.qLookup;
-        commitments[8] = vk.qArith;
-        commitments[9] = vk.qDeltaRange;
-        commitments[10] = vk.qElliptic;
-        commitments[11] = vk.qMemory;
-        commitments[12] = vk.qNnf;
-        commitments[13] = vk.qPoseidon2External;
-        commitments[14] = vk.qPoseidon2Internal;
-        commitments[15] = vk.s1;
-        commitments[16] = vk.s2;
-        commitments[17] = vk.s3;
-        commitments[18] = vk.s4;
-        commitments[19] = vk.id1;
-        commitments[20] = vk.id2;
-        commitments[21] = vk.id3;
-        commitments[22] = vk.id4;
-        commitments[23] = vk.t1;
-        commitments[24] = vk.t2;
-        commitments[25] = vk.t3;
-        commitments[26] = vk.t4;
-        commitments[27] = vk.lagrangeFirst;
-        commitments[28] = vk.lagrangeLast;
+        commitments[1] = vk.s1;
+        commitments[2] = vk.s2;
+        commitments[3] = vk.s3;
+        commitments[4] = vk.s4;
+        commitments[5] = vk.id1;
+        commitments[6] = vk.id2;
+        commitments[7] = vk.id3;
+        commitments[8] = vk.id4;
+        commitments[9] = vk.lagrangeFirst;
+        commitments[10] = vk.lagrangeLast;
+        commitments[11] = vk.qLookup;
+        commitments[12] = vk.t1;
+        commitments[13] = vk.t2;
+        commitments[14] = vk.t3;
+        commitments[15] = vk.t4;
+        commitments[16] = vk.qm;
+        commitments[17] = vk.qr;
+        commitments[18] = vk.qo;
+        commitments[19] = vk.qc;
+        commitments[20] = vk.ql;
+        commitments[21] = vk.q4;
+        commitments[22] = vk.qArith;
+        commitments[23] = vk.qDeltaRange;
+        commitments[24] = vk.qElliptic;
+        commitments[25] = vk.qMemory;
+        commitments[26] = vk.qNnf;
+        commitments[27] = vk.qPoseidon2External;
+        commitments[28] = vk.qPoseidon2Internal;
 
         // Accumulate proof points
         commitments[29] = proof.w1;
@@ -443,18 +385,20 @@ abstract contract BaseHonkVerifier is IVerifier {
         Honk.G1Point memory P_0_agg = batchMul(commitments, scalars);
         Honk.G1Point memory P_1_agg = negateInplace(quotient_commitment);
 
-        // Aggregate pairing points
-        Fr recursionSeparator = generateRecursionSeparator(proof.pairingPointObject, P_0_agg, P_1_agg);
-        (Honk.G1Point memory P_0_other, Honk.G1Point memory P_1_other) =
-            convertPairingPointsToG1(proof.pairingPointObject);
+        // Aggregate pairing points (skip if default/infinity — no recursive verification occurred)
+        if (!arePairingPointsDefault(proof.pairingPointObject)) {
+            Fr recursionSeparator = generateRecursionSeparator(proof.pairingPointObject, P_0_agg, P_1_agg);
+            (Honk.G1Point memory P_0_other, Honk.G1Point memory P_1_other) =
+                convertPairingPointsToG1(proof.pairingPointObject);
 
-        // Validate the points from the proof are on the curve
-        validateOnCurve(P_0_other);
-        validateOnCurve(P_1_other);
+            // Validate the points from the proof are on the curve
+            rejectPointAtInfinity(P_0_other);
+            rejectPointAtInfinity(P_1_other);
 
-        // accumulate with aggregate points in proof
-        P_0_agg = mulWithSeperator(P_0_agg, P_0_other, recursionSeparator);
-        P_1_agg = mulWithSeperator(P_1_agg, P_1_other, recursionSeparator);
+            // accumulate with aggregate points in proof
+            P_0_agg = mulWithSeperator(P_0_agg, P_0_other, recursionSeparator);
+            P_1_agg = mulWithSeperator(P_1_agg, P_1_other, recursionSeparator);
+        }
 
         return pairing(P_0_agg, P_1_agg);
     }
@@ -466,10 +410,10 @@ abstract contract BaseHonkVerifier is IVerifier {
     {
         uint256 limit = NUMBER_UNSHIFTED + $LOG_N + 2;
 
-        // Validate all points are on the curve
-        for (uint256 i = 0; i < limit; ++i) {
-            validateOnCurve(base[i]);
-        }
+        // Identity bases are accepted: VK selector/table polys may be identically zero,
+        // and the ecAdd/ecMul precompiles treat (0,0) as the additive identity per EIP-196.
+        // Soundness against an attacker substituting (0,0) for a non-zero commitment is
+        // upheld by sumcheck/Shplemini, which would fail on inconsistent evaluations.
 
         bool success = true;
         assembly {
@@ -496,6 +440,49 @@ abstract contract BaseHonkVerifier is IVerifier {
             mstore(add(result, 0x20), mload(add(free, 0x20)))
         }
 
-        require(success, ShpleminiFailed());
+        require(success, Errors.ShpleminiFailed());
     }
+
+    // Calculate proof size based on log_n (matching UltraKeccakFlavor formula)
+    function calculateProofSize(uint256 logN) internal pure returns (uint256) {
+        // Witness commitments
+        uint256 proofLength = NUM_WITNESS_ENTITIES * NUM_ELEMENTS_COMM; // witness commitments
+
+        // Sumcheck
+        proofLength += logN * BATCHED_RELATION_PARTIAL_LENGTH * NUM_ELEMENTS_FR; // sumcheck univariates
+        proofLength += NUMBER_OF_ENTITIES * NUM_ELEMENTS_FR; // sumcheck evaluations
+
+        // Gemini
+        proofLength += (logN - 1) * NUM_ELEMENTS_COMM; // Gemini Fold commitments
+        proofLength += logN * NUM_ELEMENTS_FR; // Gemini evaluations
+
+        // Shplonk and KZG commitments
+        proofLength += NUM_ELEMENTS_COMM * 2; // Shplonk Q and KZG W commitments
+
+        // Pairing points
+        proofLength += PAIRING_POINTS_SIZE; // pairing inputs carried on public inputs
+
+        return proofLength;
+    }
+
+    function checkSum(Fr[BATCHED_RELATION_PARTIAL_LENGTH] memory roundUnivariate, Fr roundTarget)
+        internal
+        pure
+        returns (bool checked)
+    {
+        Fr totalSum = roundUnivariate[0] + roundUnivariate[1];
+        checked = totalSum == roundTarget;
+    }
+
+    // Univariate evaluation of the monomial ((1-X_l) + X_l.B_l) at the challenge point X_l=u_l
+    function partiallyEvaluatePOW(Fr gateChallenge, Fr currentEvaluation, Fr roundChallenge)
+        internal
+        pure
+        returns (Fr newEvaluation)
+    {
+        Fr univariateEval = ONE + (roundChallenge * (gateChallenge - ONE));
+        newEvaluation = currentEvaluation * univariateEval;
+    }
+
+    function loadVerificationKey() internal pure virtual returns (Honk.VerificationKey memory);
 }

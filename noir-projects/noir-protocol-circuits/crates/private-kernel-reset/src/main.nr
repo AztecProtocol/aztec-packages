@@ -1,15 +1,14 @@
-use dep::private_kernel_lib::{
+use private_kernel_lib::{
     PaddedSideEffects, PrivateKernelResetCircuitPrivateInputs, PrivateKernelResetHints,
 };
-use dep::types::{
+use types::abis::private_kernel_data::PrivateKernelDataWithoutPublicInputs;
+use types::{
     constants::{
         MAX_KEY_VALIDATION_REQUESTS_PER_TX, MAX_NOTE_HASH_READ_REQUESTS_PER_TX,
-        MAX_NOTE_HASHES_PER_TX, MAX_NULLIFIER_READ_REQUESTS_PER_TX, MAX_NULLIFIERS_PER_TX,
-        MAX_PRIVATE_LOGS_PER_TX,
+        MAX_NULLIFIER_READ_REQUESTS_PER_TX, MAX_NULLIFIERS_PER_TX,
     },
     PrivateKernelCircuitPublicInputs,
 };
-use types::abis::private_kernel_data::PrivateKernelDataWithoutPublicInputs;
 
 // Note: We generate lots of variants of this reset circuit.
 // The variants are simply re-compilations of this circuit but with different global constants.
@@ -60,12 +59,11 @@ global TRANSIENT_DATA_SQUASHING_HINTS_LEN: u32 = MAX_NULLIFIERS_PER_TX;
 // The actual number of iterations for squashing transient data.
 global TRANSIENT_DATA_SQUASHING_AMOUNT: u32 = MAX_NULLIFIERS_PER_TX;
 
-// The number of note hashes to silo.
-global NOTE_HASH_SILOING_AMOUNT: u32 = MAX_NOTE_HASHES_PER_TX;
-// The number of nullifiers to silo.
-global NULLIFIER_SILOING_AMOUNT: u32 = MAX_NULLIFIERS_PER_TX;
-// The number of private logs to silo.
-global PRIVATE_LOG_SILOING_AMOUNT: u32 = MAX_PRIVATE_LOGS_PER_TX;
+// Siloing is performed by the terminal reset_tail variants only.
+// `execute` asserts these are zero; changing them here will break compilation of every inner variant.
+global NOTE_HASH_SILOING_AMOUNT: u32 = 0;
+global NULLIFIER_SILOING_AMOUNT: u32 = 0;
+global PRIVATE_LOG_SILOING_AMOUNT: u32 = 0;
 
 /*
  * Notice: The previous kernel's public inputs are always returned from that circuit as `return_data` and passed-into

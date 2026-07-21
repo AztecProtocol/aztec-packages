@@ -1,1 +1,1 @@
-export const PXE_DATA_SCHEMA_VERSION = 3;
+export const PXE_DATA_SCHEMA_VERSION = 12;

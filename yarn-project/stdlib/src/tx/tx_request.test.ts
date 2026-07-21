@@ -35,7 +35,7 @@ describe('TxRequest', () => {
   it('compute hash', async () => {
     const gasSettings = new GasSettings(new Gas(2, 2), new Gas(1, 1), new GasFees(4, 4), new GasFees(3, 3));
     const txRequest = TxRequest.from({
-      origin: AztecAddress.fromBigInt(1122n),
+      origin: AztecAddress.fromBigIntUnsafe(1122n),
       argsHash: new Fr(33),
       txContext: new TxContext(new Fr(44), new Fr(55), gasSettings),
       functionData: new FunctionData(FunctionSelector.fromField(new Fr(66n)), /*isPrivate=*/ true),
@@ -45,7 +45,7 @@ describe('TxRequest', () => {
     const hash = await txRequest.hash();
 
     expect(hash.toString()).toMatchInlineSnapshot(
-      '"0x138613b6b771cd17311e8db847cd14f26ad3b466d8530257a59c10e0c6719c59"',
+      `"0x09c2372649f434fc01e3c010792c33b383bfff50f7e6ed7b6ba689d6d7b1f109"`,
     );
 
     // Run with AZTEC_GENERATE_TEST_DATA=1 to update noir test data

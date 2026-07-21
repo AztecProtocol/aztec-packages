@@ -50,16 +50,11 @@ auto& engine = numeric::get_debug_randomness();
  * an in-circuit boolean value which bears witness to whether the signature verification was successfull or not. The
  * boolean is NOT constrained to be equal to bool_t(true).
  *
- * @note The circuit introduces constraints for the following assertions:
- *          1. \f$P = (x,y)\f$, then x < q, y < q
- *          2. \f$P\f$ is on the curve
- *          3. \f$P\f$ is not the point at infinity
- *          4. \f$0 < r < n\f$
- *          5. \f$0 < s < (n+1)/2\f$
- *          6. \f$Q := H(m) s^{-1} G + r s^{-1} P\f$ is not the point at infinity
- * Therefore, if the witnesses passed to this function do not satisfy these constraints, the resulting circuit
- * will be unsatisfied. If a user wants to use the verification inside a in-circuit branch, then they need to supply
- * valid data for \f$P, r, s\f$, even though \f$(r,s)\f$ doesn't need to be a valid signature.
+ * @note For secp256r1 the verification routine uses the "fake GLV" two-2-MSM construction. When the public key is
+ * off-curve the native multiplication T₂ = u₂·pubkey would produce an off-curve witness that `from_witness`
+ * rejects, so we substitute the public key with 2·G in that case; the verifier then reports the signature as
+ * invalid because the substituted MSM result no longer matches the signature's r component, and the original
+ * `is_point_on_curve` bit still flows into the validity output.
  *
  * @tparam Builder
  * @tparam Curve
@@ -76,6 +71,8 @@ bool_t<Builder> ecdsa_verify_signature(const stdlib::byte_array<Builder>& hashed
                                        const G1& public_key,
                                        const ecdsa_signature<Builder>& sig)
 {
+    using bool_ct = stdlib::bool_t<Builder>;
+
     BB_ASSERT_EQ(Fr::modulus.get_msb() + 1, 256UL, "The implementation assumes that the bit-length of Fr is 256 bits.");
 
     // Fetch the context
@@ -90,70 +87,87 @@ bool_t<Builder> ecdsa_verify_signature(const stdlib::byte_array<Builder>& hashed
     Fr z(hashed_message);
 
     // Step 1.
-    public_key.assert_coordinates_in_field(
-        "ECDSA input validation: coordinate(s) of the public key bigger than the base field modulus."); // x < q, y < q
+    bool_ct is_x_less_than_modulus = public_key.x().is_less_than(
+        Fq::modulus, "ECDSA input validation: x coordinate of the public key bigger than the base field modulus.");
+    bool_ct is_y_less_than_modulus = public_key.y().is_less_than(
+        Fq::modulus, "ECDSA input validation: y coordinate of the public key bigger than the base field modulus.");
 
     // Step 2.
-    public_key.validate_on_curve("ECDSA input validation: the public key is not a point on the elliptic curve.");
+    bool_ct is_point_at_infinity = public_key.is_point_at_infinity();
 
     // Step 3.
-    public_key.is_point_at_infinity().assert_equal(bool_t<Builder>(false),
-                                                   "ECDSA input validation: the public key is the point at infinity.");
+    // We conditionally select a public key whose x and y coordinates are smaller than the base field modulus. We need
+    // to do this to avoid circuit failures in the function validate_on_curve. Note that this doesn't allow any attack
+    // as the result of the verification takes into account whether the original point coordinates were valid or not.
+    typename Curve::AffineElementNative native_double_generator(Curve::GroupNative::one + Curve::GroupNative::one);
+    G1 double_generator(Fq(native_double_generator.x), Fq(native_double_generator.y), /*assert_on_curve=*/false);
+    G1 corrected_public_key = G1::conditional_assign(
+        is_point_at_infinity || !is_x_less_than_modulus || !is_y_less_than_modulus, double_generator, public_key);
+    bool_t<Builder> is_point_on_curve =
+        corrected_public_key.validate_on_curve(
+            "ECDSA input validation: the public key is not a point on the elliptic curve.", false) == Fq::zero();
 
     // Step 4.
     Fr r(sig.r);
-    r.assert_is_in_field("ECDSA input validation: the r component of the signature is bigger than the order of the "
-                         "elliptic curve.");                                                                // r < n
-    r.assert_is_not_equal(Fr::zero(), "ECDSA input validation: the r component of the signature is zero."); // 0 < r
+    bool_ct is_r_in_range = r.is_less_than(
+        Fr::modulus, "ECDSA input validation: the r component of the signature is bigger than Fr::modulus.");
+    bool_ct is_r_zero = r == Fr::zero();
 
     // Step 5.
     Fr s(sig.s);
-    s.assert_less_than(
-        (Fr::modulus + 1) / 2,
-        "ECDSA input validation: the s component of the signature is bigger than (Fr::modulus + 1)/2."); // s < (n+1)/2
-    s.assert_is_not_equal(Fr::zero(), "ECDSA input validation: the s component of the signature is zero."); // 0 < s
+    bool_ct is_s_in_range =
+        s.is_less_than((Fr::modulus + 1) / 2,
+                       "ECDSA input validation: the s component of the signature is bigger than (Fr::modulus + 1)/2.");
+    bool_ct is_s_zero = s == Fr::zero();
 
     // Step 6.
-    Fr u1 = z.div_without_denominator_check(s);
-    Fr u2 = r.div_without_denominator_check(s);
+    // We conditionally select a non-zero scalar to perform the verification to avoid circuit failures when s = 0.
+    Fr corrected_s = Fr::conditional_assign(is_s_zero, Fr::one(), s);
+
+    Fr u1 = z.div_without_denominator_check(corrected_s);
+    Fr u2 = r.div_without_denominator_check(corrected_s);
+
+    // Default to true for paths without a u₂ restriction (secp256k1 via real GLV, generic batch_mul).
+    bool_ct is_u2_acceptable = bool_ct(true);
 
     G1 result;
     if constexpr (Curve::type == bb::CurveType::SECP256K1) {
-        result = G1::secp256k1_ecdsa_mul(public_key, u1, u2);
+        result = G1::secp256k1_ecdsa_mul(corrected_public_key, u1, u2);
+    } else if constexpr (Curve::type == bb::CurveType::SECP256R1) {
+        // Substitute off-curve pubkeys with 2·G so `secp256r1_ecdsa_mul`'s `from_witness(u₂·Q)` doesn't fail.
+        // `is_point_on_curve` is already in the validity AND-chain, so rejection is unaffected.
+        G1 fake_glv_pubkey = G1::conditional_assign(!is_point_on_curve, double_generator, corrected_public_key);
+        // `secp256r1_ecdsa_mul` returns a wrong result for u₂ ∈ {0, ±1} (it substitutes internally to keep
+        // witness gen alive). `u2_is_acceptable` flags this and must flow into validity.
+        const auto mul_out = G1::secp256r1_ecdsa_mul(fake_glv_pubkey, u1, u2);
+        result = mul_out.result;
+        is_u2_acceptable = mul_out.u2_is_acceptable;
     } else {
-        // This error comes from the lookup tables used in batch_mul. We could get rid of it by setting with_edgecase =
-        // true. However, this would increase the gate count, and it would handle a case that should not appear in
-        // general: someone using plus or minus the generator as a public key.
-        if ((public_key.get_value().x == Curve::g1::affine_one.x) && (!builder->failed())) {
-            builder->failure("ECDSA input validation: the public key is equal to plus or minus the generator point.");
-        }
-        result = G1::batch_mul({ G1::one(builder), public_key }, { u1, u2 });
+        result = G1::batch_mul(
+            { G1::one(builder), corrected_public_key }, { u1, u2 }, /*max_num_bits=*/0, /*with_edgecases=*/false);
     }
 
     // Step 7.
-    auto result_is_infinity = result.is_point_at_infinity();
-    result_is_infinity.assert_equal(
-        bool_t<Builder>(false), "ECDSA validation: the result of the batch multiplication is the point at infinity.");
+    bool_ct result_is_infinity = result.is_point_at_infinity();
 
     // Step 8.
-    // We reduce result.x() to 2^s, where s is the smallest s.t. 2^s > q. It is cheap in terms of constraints, and
-    // avoids possible edge cases
     result.x().reduce_mod_target_modulus();
 
     // Transfer Fq value result.x() to Fr (this is just moving from a C++ class to another)
-    Fr result_x_mod_r = Fr::unsafe_construct_from_limbs(result.x().binary_basis_limbs[0].element,
-                                                        result.x().binary_basis_limbs[1].element,
-                                                        result.x().binary_basis_limbs[2].element,
-                                                        result.x().binary_basis_limbs[3].element);
+    Fr result_x_mod_r = Fr::unsafe_construct_from_limbs(result.x().get_limb(0).element,
+                                                        result.x().get_limb(1).element,
+                                                        result.x().get_limb(2).element,
+                                                        result.x().get_limb(3).element);
     // Copy maximum limb values from Fq to Fr: this is needed by the subtraction happening in the == operator
     for (size_t idx = 0; idx < 4; idx++) {
-        result_x_mod_r.binary_basis_limbs[idx].maximum_value = result.x().binary_basis_limbs[idx].maximum_value;
+        result_x_mod_r.set_limb_max(idx, result.x().get_limb(idx).maximum_value);
     }
 
-    // Check result.x() = r mod n AND result is not point at infinity
-    bool_t<Builder> x_matches = result_x_mod_r == r;
-    bool_t<Builder> is_not_infinity = !result_is_infinity;
-    bool_t<Builder> is_signature_valid = x_matches && is_not_infinity;
+    // Check result.x() = r mod n AND that no other check failed
+    bool_ct x_matches = result_x_mod_r == r;
+    bool_ct is_signature_valid = x_matches && !is_point_at_infinity && !result_is_infinity && is_r_in_range &&
+                                 !is_r_zero && is_s_in_range && !is_s_zero && is_point_on_curve &&
+                                 is_x_less_than_modulus && is_y_less_than_modulus && is_u2_acceptable;
 
     // Logging
     if (is_signature_valid.get_value()) {
@@ -177,14 +191,14 @@ template <typename Builder> void generate_ecdsa_verification_test_circuit(Builde
     using Curve = stdlib::secp256k1<Builder>;
 
     // Native types
-    using FrNative = typename Curve::fr;
-    using FqNative = typename Curve::fq;
-    using G1Native = typename Curve::g1;
+    using FrNative = typename Curve::ScalarFieldNative;
+    using FqNative = typename Curve::BaseFieldNative;
+    using G1Native = typename Curve::GroupNative;
 
     // Stdlib types
-    using Fr = typename Curve::bigfr_ct;
-    using Fq = typename Curve::fq_ct;
-    using G1 = typename Curve::g1_bigfr_ct;
+    using Fr = typename Curve::ScalarField;
+    using Fq = typename Curve::BaseField;
+    using G1 = typename Curve::Group;
 
     std::string message_string = "Instructions unclear, ask again later.";
 

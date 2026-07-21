@@ -2,7 +2,14 @@
 set -euo pipefail
 mkdir -p ./artifacts
 
-contracts=(schnorr_account_contract-SchnorrAccount ecdsa_k_account_contract-EcdsaKAccount ecdsa_r_account_contract-EcdsaRAccount schnorr_single_key_account_contract-SchnorrSingleKeyAccount simulated_account_contract-SimulatedAccount )
+contracts=(
+  schnorr_account_contract-SchnorrAccount \
+  schnorr_initializerless_account_contract-SchnorrInitializerlessAccount \
+  ecdsa_k_account_contract-EcdsaKAccount \
+  ecdsa_r_account_contract-EcdsaRAccount \
+  simulated_schnorr_account_contract-SimulatedSchnorrAccount \
+  simulated_ecdsa_account_contract-SimulatedEcdsaAccount \
+)
 
 decl=$(cat <<EOF
 import { type NoirCompiledContract } from '@aztec/stdlib/noir';

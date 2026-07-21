@@ -2,8 +2,8 @@
 
 #include "barretenberg/avm_fuzzer/fuzz_lib/constants.hpp"
 #include "barretenberg/avm_fuzzer/mutations/basic_types/field.hpp"
+#include "barretenberg/aztec/aztec_constants.hpp"
 #include "barretenberg/crypto/poseidon2/poseidon2.hpp"
-#include "barretenberg/vm2/common/aztec_constants.hpp"
 #include "barretenberg/vm2/common/aztec_types.hpp"
 #include "barretenberg/vm2/common/field.hpp"
 #include "barretenberg/vm2/simulation/lib/contract_crypto.hpp"
@@ -206,7 +206,7 @@ void mutate_contract_instances(std::vector<ContractInstance>& contract_instances
         break;
     case 3:
         // Mutate nullifier key
-        mutate_point(instance.public_keys.nullifier_key, rng);
+        mutate_field(instance.public_keys.nullifier_key_hash, rng, BASIC_FIELD_MUTATION_CONFIGURATION);
         break;
     case 4:
         // Mutate incoming viewing key
@@ -214,11 +214,11 @@ void mutate_contract_instances(std::vector<ContractInstance>& contract_instances
         break;
     case 5:
         // Mutate outgoing viewing key
-        mutate_point(instance.public_keys.outgoing_viewing_key, rng);
+        mutate_field(instance.public_keys.outgoing_viewing_key_hash, rng, BASIC_FIELD_MUTATION_CONFIGURATION);
         break;
     case 6:
         // Mutate tagging key
-        mutate_point(instance.public_keys.tagging_key, rng);
+        mutate_field(instance.public_keys.tagging_key_hash, rng, BASIC_FIELD_MUTATION_CONFIGURATION);
         break;
     default:
         break;

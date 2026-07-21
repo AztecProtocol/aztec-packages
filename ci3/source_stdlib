@@ -33,6 +33,8 @@ function get_num_cpus {
     else
       echo $((cpu_quota / cpu_period))
     fi
+  elif [[ "$(uname)" == "Darwin" ]]; then
+    sysctl -n hw.ncpu
   else
     nproc
   fi
@@ -48,4 +50,27 @@ function aws_get_meta_data {
   curl -fs -H "X-aws-ec2-metadata-token: $AWS_TOKEN" http://169.254.169.254/latest/meta-data/$1 || true
 }
 
-export -f hash_str hash_str_orig echo_stderr uuid get_num_cpus get_num_cpus_max
+function urlencode {
+  printf '%s' "$1" | python3 -c "import urllib.parse, sys; print(urllib.parse.quote(sys.stdin.read(), safe=''))"
+}
+
+function term_link {
+  echo -e "${yellow}${link_open}$1${link_close}$2${link_open}${link_close}${reset}"
+}
+
+function ci_term_link {
+  term_link "$DASHBOARD_URL/$1" "$1"
+}
+
+function pr_link {
+  local line=$1
+  if [[ $line =~ \(#([0-9]+)\) ]]; then
+    pr_number="${BASH_REMATCH[1]}"
+    link=$(term_link https://github.com/aztecprotocol/aztec-packages/pull/$pr_number $pr_number)
+    echo -e "${line/\(#${pr_number}\)/(#${link})}"
+  else
+    echo -e "$line"
+  fi
+}
+
+export -f hash_str hash_str_orig echo_stderr uuid get_num_cpus get_num_cpus_max urlencode term_link ci_term_link pr_link

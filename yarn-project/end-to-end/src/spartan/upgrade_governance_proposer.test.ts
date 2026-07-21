@@ -4,7 +4,7 @@ import { createEthereumChain } from '@aztec/ethereum/chain';
 import { createExtendedL1Client } from '@aztec/ethereum/client';
 import { GovernanceProposerContract, RollupContract } from '@aztec/ethereum/contracts';
 import { deployL1Contract } from '@aztec/ethereum/deploy-l1-contract';
-import { createL1TxUtilsFromViemWallet } from '@aztec/ethereum/l1-tx-utils';
+import { createL1TxUtils } from '@aztec/ethereum/l1-tx-utils';
 import { createLogger } from '@aztec/foundation/log';
 import { sleep } from '@aztec/foundation/sleep';
 import { NewGovernanceProposerPayloadAbi } from '@aztec/l1-artifacts/NewGovernanceProposerPayloadAbi';
@@ -30,6 +30,9 @@ const config = setupEnvironment(process.env);
 
 const debugLogger = createLogger('e2e:spartan-test:upgrade_governance_proposer');
 
+// Governance proposer upgrade test against a live k8s deployment. Deploys a new GovernanceProposer
+// payload on L1, drives the governance vote to completion, and asserts the rollup contract references
+// the new proposer address.
 describe('spartan_upgrade_governance_proposer', () => {
   let aztecNode: AztecNode;
   let nodeInfo: NodeInfo;
@@ -161,7 +164,7 @@ describe('spartan_upgrade_governance_proposer', () => {
 
       debugLogger.info(`Executing proposal ${info.round}`);
 
-      const l1TxUtils = createL1TxUtilsFromViemWallet(l1Client, { logger: debugLogger });
+      const l1TxUtils = createL1TxUtils(l1Client, { logger: debugLogger });
       const { receipt } = await governanceProposer.submitRoundWinner(executableRound, l1TxUtils);
       expect(receipt).toBeDefined();
       expect(receipt.status).toEqual('success');

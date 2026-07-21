@@ -59,17 +59,22 @@ int32_t __imported_wasi_snapshot_preview1_fd_close(int32_t)
     return 0;
 }
 
-int32_t __imported_wasi_snapshot_preview1_environ_get(int32_t, int32_t)
+int32_t __imported_wasi_snapshot_preview1_environ_get(int32_t environ_ptr, int32_t environ_buf_ptr)
 {
-    // info("environ_get not implemented.");
-    // abort();
+    // No environment variables, so nothing to write. The pointers point to
+    // arrays that would hold the environ entries and the concatenated
+    // key=value strings respectively, but with count == 0 they are empty.
+    (void)environ_ptr;
+    (void)environ_buf_ptr;
     return 0;
 }
 
-int32_t __imported_wasi_snapshot_preview1_environ_sizes_get(int32_t, int32_t)
+int32_t __imported_wasi_snapshot_preview1_environ_sizes_get(int32_t count_ptr, int32_t buf_size_ptr)
 {
-    // info("environ_sizes_get not implemented.");
-    // abort();
+    // WASI requires writing the number of environment variables and the total
+    // buffer size needed to hold them. We have none of either.
+    *(int32_t*)(uintptr_t)count_ptr = 0;
+    *(int32_t*)(uintptr_t)buf_size_ptr = 0;
     return 0;
 }
 

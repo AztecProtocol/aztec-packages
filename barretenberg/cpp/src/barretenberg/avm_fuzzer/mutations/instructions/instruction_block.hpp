@@ -12,7 +12,7 @@ struct InstructionBlock {
     std::vector<FuzzInstruction> instructions;
     uint32_t base_offset = 0;
 
-    MSGPACK_FIELDS(instructions, base_offset);
+    SERIALIZATION_FIELDS(instructions, base_offset);
 };
 
 inline std::ostream& operator<<(std::ostream& os, const InstructionBlock& instruction_block)

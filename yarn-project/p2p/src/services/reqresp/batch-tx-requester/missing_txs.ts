@@ -2,13 +2,13 @@ import { type Tx, TxHash } from '@aztec/stdlib/tx';
 
 import type { PeerId } from '@libp2p/interface';
 
+import type { IRequestTracker } from '../../tx_collection/request_tracker.js';
 import { DEFAULT_BATCH_TX_REQUESTER_TX_BATCH_SIZE } from './config.js';
 import type { ITxMetadataCollection } from './interface.js';
 
-export class MissingTxMetadata {
+class MissingTxMetadata {
   constructor(
-    public readonly txHash: TxHash,
-    public fetched = false,
+    public readonly txHash: string,
     public requestedCount = 0,
     public inFlightCount = 0,
     public tx: Tx | undefined = undefined,
@@ -30,24 +30,6 @@ export class MissingTxMetadata {
   public isInFlight(): boolean {
     return this.inFlightCount > 0;
   }
-
-  //Returns true if this is the first time we mark it as fetched
-  public markAsFetched(peerId: PeerId, tx: Tx): boolean {
-    if (this.fetched) {
-      return false;
-    }
-
-    this.fetched = true;
-    this.tx = tx;
-
-    this.peers.add(peerId.toString());
-
-    return true;
-  }
-
-  public toString() {
-    return this.txHash.toString();
-  }
 }
 
 /*
@@ -55,21 +37,18 @@ export class MissingTxMetadata {
  * This could be better optimized but given expected count of missing txs (N < 100)
  * At the moment there is no need for it. And benefit is that we have everything in single store
  * */
-export class MissingTxMetadataCollection extends Map<string, MissingTxMetadata> implements ITxMetadataCollection {
+export class MissingTxMetadataCollection implements ITxMetadataCollection {
+  private txMetadata = new Map<string, MissingTxMetadata>();
+
   constructor(
-    entries?: readonly (readonly [string, MissingTxMetadata])[] | null,
+    private requestTracker: IRequestTracker,
     private readonly txBatchSize: number = DEFAULT_BATCH_TX_REQUESTER_TX_BATCH_SIZE,
   ) {
-    super(entries);
-  }
-  public getSortedByRequestedCountAsc(txs: string[]): MissingTxMetadata[] {
-    return Array.from(this.values().filter(txMeta => txs.includes(txMeta.txHash.toString()))).sort(
-      (a, b) => a.requestedCount - b.requestedCount,
-    );
+    requestTracker.missingTxHashes.forEach(hash => this.txMetadata.set(hash, new MissingTxMetadata(hash)));
   }
 
   public getPrioritizingNotInFlightAndLowerRequestCount(txs: string[]): MissingTxMetadata[] {
-    const filtered = Array.from(this.values()).filter(txMeta => txs.includes(txMeta.txHash.toString()));
+    const filtered = Array.from(this.txMetadata.values()).filter(txMeta => txs.includes(txMeta.txHash.toString()));
 
     const [notInFlight, inFlight] = filtered.reduce<[MissingTxMetadata[], MissingTxMetadata[]]>(
       (buckets, tx) => {
@@ -85,43 +64,15 @@ export class MissingTxMetadataCollection extends Map<string, MissingTxMetadata> 
     return [...notInFlight, ...inFlight];
   }
 
-  public getFetchedTxHashes(): Set<string> {
-    return new Set(
-      this.values()
-        .filter(t => t.fetched)
-        .map(t => t.txHash.toString()),
-    );
-  }
-
   public getMissingTxHashes(): Set<string> {
-    return new Set(
-      this.values()
-        .filter(t => !t.fetched)
-        .map(t => t.txHash.toString()),
-    );
-  }
-
-  public getInFlightTxHashes(): Set<string> {
-    return new Set(
-      this.values()
-        .filter(t => t.isInFlight())
-        .map(t => t.txHash.toString()),
-    );
-  }
-
-  public getFetchedTxs(): Tx[] {
-    return Array.from(
-      this.values()
-        .map(t => t.tx)
-        .filter(t => !!t),
-    );
+    return this.requestTracker.missingTxHashes;
   }
 
   public getTxsPeerHas(peer: PeerId): Set<string> {
     const peerIdStr = peer.toString();
     const txsPeerHas = new Set<string>();
 
-    this.values().forEach(txMeta => {
+    this.txMetadata.values().forEach(txMeta => {
       if (txMeta.peers.has(peerIdStr)) {
         txsPeerHas.add(txMeta.txHash.toString());
       }
@@ -132,13 +83,13 @@ export class MissingTxMetadataCollection extends Map<string, MissingTxMetadata> 
 
   public getTxsToRequestFromThePeer(peer: PeerId): TxHash[] {
     const txsPeerHas = this.getTxsPeerHas(peer);
-    const fetchedTxs = this.getFetchedTxHashes();
+    const missingTxHashes = this.getMissingTxHashes();
 
-    const txsToRequest = txsPeerHas.difference(fetchedTxs);
+    const txsToRequest = txsPeerHas.intersection(missingTxHashes);
 
     if (txsToRequest.size >= this.txBatchSize) {
       return this.getPrioritizingNotInFlightAndLowerRequestCount(Array.from(txsToRequest))
-        .map(t => t.txHash)
+        .map(t => TxHash.fromString(t.txHash))
         .slice(0, this.txBatchSize);
     }
 
@@ -150,13 +101,13 @@ export class MissingTxMetadataCollection extends Map<string, MissingTxMetadata> 
       Array.from(this.getMissingTxHashes().difference(txsToRequest)),
     )
       .slice(0, countToFill)
-      .map(t => t.txHash);
+      .map(t => TxHash.fromString(t.txHash));
 
     return [...Array.from(txsToRequest).map(t => TxHash.fromString(t)), ...txsToFill];
   }
 
   public markRequested(txHash: TxHash) {
-    this.get(txHash.toString())?.markAsRequested();
+    this.txMetadata.get(txHash.toString())?.markAsRequested();
   }
 
   /*
@@ -165,7 +116,7 @@ export class MissingTxMetadataCollection extends Map<string, MissingTxMetadata> 
    * "dumb" peer might return it, or might not - we don't know
    * */
   public markInFlightBySmartPeer(txHash: TxHash) {
-    this.get(txHash.toString())?.markInFlight();
+    this.txMetadata.get(txHash.toString())?.markInFlight();
   }
 
   /*
@@ -173,16 +124,16 @@ export class MissingTxMetadataCollection extends Map<string, MissingTxMetadata> 
    * Because the smart peer should return this tx, whereas
    * "dumb" peer might return it, or might not - we don't know*/
   public markNotInFlightBySmartPeer(txHash: TxHash) {
-    this.get(txHash.toString())?.markNotInFlight();
+    this.txMetadata.get(txHash.toString())?.markNotInFlight();
   }
 
   public alreadyFetched(txHash: TxHash): boolean {
-    return this.get(txHash.toString())?.fetched ?? false;
+    return !this.requestTracker.isMissing(txHash.toString());
   }
 
   public markFetched(peerId: PeerId, tx: Tx): boolean {
     const txHashStr = tx.txHash.toString();
-    const txMeta = this.get(txHashStr);
+    const txMeta = this.txMetadata.get(txHashStr);
     if (!txMeta) {
       //TODO: what to do about peer which sent txs we didn't request?
       // 1. don't request from it in the scope of this batch request
@@ -192,7 +143,8 @@ export class MissingTxMetadataCollection extends Map<string, MissingTxMetadata> 
       return false;
     }
 
-    return txMeta.markAsFetched(peerId, tx);
+    txMeta.peers.add(peerId.toString());
+    return this.requestTracker.markFetched(tx);
   }
 
   public markPeerHas(peerId: PeerId, txHash: TxHash[]) {
@@ -200,10 +152,17 @@ export class MissingTxMetadataCollection extends Map<string, MissingTxMetadata> 
     txHash
       .map(t => t.toString())
       .forEach(txh => {
-        const txMeta = this.get(txh);
+        const txMeta = this.txMetadata.get(txh);
         if (txMeta) {
           txMeta.peers.add(peerIdStr);
         }
       });
+  }
+
+  public clearPeerData(peerId: PeerId) {
+    const peerIdStr = peerId.toString();
+    for (const txMeta of this.txMetadata.values()) {
+      txMeta.peers.delete(peerIdStr);
+    }
   }
 }

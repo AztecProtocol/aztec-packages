@@ -7,6 +7,7 @@ import { z } from 'zod';
 import { SimulationError } from '../errors/simulation_error.js';
 import { Gas } from '../gas/gas.js';
 import type { GasUsed } from '../gas/gas_used.js';
+import { DebugLog } from '../logs/debug_log.js';
 import { NullishToUndefined } from '../schemas/schemas.js';
 import { TxEffect } from '../tx/tx_effect.js';
 import { GlobalVariables } from './global_variables.js';
@@ -71,6 +72,7 @@ export class PublicSimulationOutput {
     public txEffect: TxEffect,
     public publicReturnValues: NestedProcessReturnValues[],
     public gasUsed: GasUsed,
+    public debugLogs: DebugLog[] = [],
   ) {}
 
   static get schema(): ZodFor<PublicSimulationOutput> {
@@ -86,6 +88,7 @@ export class PublicSimulationOutput {
           publicGas: Gas.schema,
           billedGas: Gas.schema,
         }),
+        debugLogs: z.array(DebugLog.schema).default([]),
       })
       .transform(
         fields =>
@@ -95,6 +98,7 @@ export class PublicSimulationOutput {
             fields.txEffect,
             fields.publicReturnValues,
             fields.gasUsed,
+            fields.debugLogs,
           ),
       );
   }

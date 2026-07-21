@@ -9,7 +9,7 @@ export const DEFAULT_RATE_LIMITS: ReqRespSubProtocolRateLimits = {
     },
     globalLimit: {
       quotaTimeMs: 1000,
-      quotaCount: 10,
+      quotaCount: 50,
     },
   },
   [ReqRespSubProtocol.STATUS]: {
@@ -19,7 +19,7 @@ export const DEFAULT_RATE_LIMITS: ReqRespSubProtocolRateLimits = {
     },
     globalLimit: {
       quotaTimeMs: 1000,
-      quotaCount: 10,
+      quotaCount: 50,
     },
   },
   [ReqRespSubProtocol.AUTH]: {
@@ -42,16 +42,6 @@ export const DEFAULT_RATE_LIMITS: ReqRespSubProtocolRateLimits = {
       quotaCount: 200,
     },
   },
-  [ReqRespSubProtocol.BLOCK]: {
-    peerLimit: {
-      quotaTimeMs: 1000,
-      quotaCount: 2,
-    },
-    globalLimit: {
-      quotaTimeMs: 1000,
-      quotaCount: 5,
-    },
-  },
   [ReqRespSubProtocol.GOODBYE]: {
     peerLimit: {
       quotaTimeMs: 1000,
@@ -59,7 +49,7 @@ export const DEFAULT_RATE_LIMITS: ReqRespSubProtocolRateLimits = {
     },
     globalLimit: {
       quotaTimeMs: 1000,
-      quotaCount: 10,
+      quotaCount: 50,
     },
   },
   [ReqRespSubProtocol.BLOCK_TXS]: {

@@ -3,102 +3,6 @@
 
 using namespace bb;
 
-TEST(fq12, Eq)
-{
-    fq12 a = { { { { 0x01, 0x02, 0x03, 0x04 }, { 0x06, 0x07, 0x08, 0x09 } },
-                 { { 0x01, 0x02, 0x03, 0x04 }, { 0x06, 0x07, 0x08, 0x09 } },
-                 { { 0x01, 0x02, 0x03, 0x04 }, { 0x06, 0x07, 0x08, 0x09 } } },
-               { { { 0x01, 0x02, 0x03, 0x04 }, { 0x06, 0x07, 0x08, 0x09 } },
-                 { { 0x01, 0x02, 0x03, 0x04 }, { 0x06, 0x07, 0x08, 0x09 } },
-                 { { 0x01, 0x02, 0x03, 0x04 }, { 0x06, 0x07, 0x08, 0x09 } } } };
-    fq12 b = { { { { 0x01, 0x02, 0x03, 0x04 }, { 0x06, 0x07, 0x08, 0x09 } },
-                 { { 0x01, 0x02, 0x03, 0x04 }, { 0x06, 0x07, 0x08, 0x09 } },
-                 { { 0x01, 0x02, 0x03, 0x04 }, { 0x06, 0x07, 0x08, 0x09 } } },
-               { { { 0x01, 0x02, 0x03, 0x04 }, { 0x06, 0x07, 0x08, 0x09 } },
-                 { { 0x01, 0x02, 0x03, 0x04 }, { 0x06, 0x07, 0x08, 0x09 } },
-                 { { 0x01, 0x02, 0x03, 0x04 }, { 0x06, 0x07, 0x08, 0x09 } } } };
-    fq12 c = { { { { 0x01, 0x02, 0x03, 0x05 }, { 0x06, 0x07, 0x08, 0x09 } },
-                 { { 0x01, 0x02, 0x03, 0x05 }, { 0x06, 0x07, 0x08, 0x09 } },
-                 { { 0x01, 0x02, 0x03, 0x05 }, { 0x06, 0x07, 0x08, 0x09 } } },
-               { { { 0x01, 0x02, 0x03, 0x05 }, { 0x06, 0x07, 0x08, 0x09 } },
-                 { { 0x01, 0x02, 0x03, 0x05 }, { 0x06, 0x07, 0x08, 0x09 } },
-                 { { 0x01, 0x02, 0x03, 0x05 }, { 0x06, 0x07, 0x08, 0x09 } } } };
-    fq12 d = { { { { 0x01, 0x02, 0x04, 0x04 }, { 0x06, 0x07, 0x08, 0x09 } },
-                 { { 0x01, 0x02, 0x04, 0x04 }, { 0x06, 0x07, 0x08, 0x09 } },
-                 { { 0x01, 0x02, 0x04, 0x04 }, { 0x06, 0x07, 0x08, 0x09 } } },
-               { { { 0x01, 0x02, 0x04, 0x04 }, { 0x06, 0x07, 0x08, 0x09 } },
-                 { { 0x01, 0x02, 0x04, 0x04 }, { 0x06, 0x07, 0x08, 0x09 } },
-                 { { 0x01, 0x02, 0x04, 0x04 }, { 0x06, 0x07, 0x08, 0x09 } } } };
-    fq12 e = { { { { 0x01, 0x03, 0x03, 0x04 }, { 0x06, 0x07, 0x08, 0x09 } },
-                 { { 0x01, 0x03, 0x03, 0x04 }, { 0x06, 0x07, 0x08, 0x09 } },
-                 { { 0x01, 0x03, 0x03, 0x04 }, { 0x06, 0x07, 0x08, 0x09 } } },
-               { { { 0x01, 0x03, 0x03, 0x04 }, { 0x06, 0x07, 0x08, 0x09 } },
-                 { { 0x01, 0x03, 0x03, 0x04 }, { 0x06, 0x07, 0x08, 0x09 } },
-                 { { 0x01, 0x03, 0x03, 0x04 }, { 0x06, 0x07, 0x08, 0x09 } } } };
-    fq12 f = { { { { 0x02, 0x02, 0x03, 0x04 }, { 0x06, 0x07, 0x08, 0x09 } },
-                 { { 0x02, 0x02, 0x03, 0x04 }, { 0x06, 0x07, 0x08, 0x09 } },
-                 { { 0x02, 0x02, 0x03, 0x04 }, { 0x06, 0x07, 0x08, 0x09 } } },
-               { { { 0x02, 0x02, 0x03, 0x04 }, { 0x06, 0x07, 0x08, 0x09 } },
-                 { { 0x02, 0x02, 0x03, 0x04 }, { 0x06, 0x07, 0x08, 0x09 } },
-                 { { 0x02, 0x02, 0x03, 0x04 }, { 0x06, 0x07, 0x08, 0x09 } } } };
-    fq12 g = { { { { 0x01, 0x02, 0x03, 0x04 }, { 0x07, 0x07, 0x08, 0x09 } },
-                 { { 0x01, 0x02, 0x03, 0x04 }, { 0x07, 0x07, 0x08, 0x09 } },
-                 { { 0x01, 0x02, 0x03, 0x04 }, { 0x07, 0x07, 0x08, 0x09 } } },
-               { { { 0x01, 0x02, 0x03, 0x04 }, { 0x07, 0x07, 0x08, 0x09 } },
-                 { { 0x01, 0x02, 0x03, 0x04 }, { 0x07, 0x07, 0x08, 0x09 } },
-                 { { 0x01, 0x02, 0x03, 0x04 }, { 0x07, 0x07, 0x08, 0x09 } } } };
-    fq12 h = { { { { 0x01, 0x02, 0x03, 0x04 }, { 0x06, 0x08, 0x08, 0x09 } },
-                 { { 0x01, 0x02, 0x03, 0x04 }, { 0x06, 0x08, 0x08, 0x09 } },
-                 { { 0x01, 0x02, 0x03, 0x04 }, { 0x06, 0x08, 0x08, 0x09 } } },
-               { { { 0x01, 0x02, 0x03, 0x04 }, { 0x06, 0x08, 0x08, 0x09 } },
-                 { { 0x01, 0x02, 0x03, 0x04 }, { 0x06, 0x08, 0x08, 0x09 } },
-                 { { 0x01, 0x02, 0x03, 0x04 }, { 0x06, 0x08, 0x08, 0x09 } } } };
-    fq12 i = { { { { 0x01, 0x02, 0x03, 0x04 }, { 0x06, 0x07, 0x09, 0x09 } },
-                 { { 0x01, 0x02, 0x03, 0x04 }, { 0x06, 0x07, 0x09, 0x09 } },
-                 { { 0x01, 0x02, 0x03, 0x04 }, { 0x06, 0x07, 0x09, 0x09 } } },
-               { { { 0x01, 0x02, 0x03, 0x04 }, { 0x06, 0x07, 0x09, 0x09 } },
-                 { { 0x01, 0x02, 0x03, 0x04 }, { 0x06, 0x07, 0x09, 0x09 } },
-                 { { 0x01, 0x02, 0x03, 0x04 }, { 0x06, 0x07, 0x09, 0x09 } } } };
-    fq12 j = { { { { 0x01, 0x02, 0x03, 0x04 }, { 0x06, 0x07, 0x08, 0x0a } },
-                 { { 0x01, 0x02, 0x03, 0x04 }, { 0x06, 0x07, 0x08, 0x0a } },
-                 { { 0x01, 0x02, 0x03, 0x04 }, { 0x06, 0x07, 0x08, 0x0a } } },
-               { { { 0x01, 0x02, 0x03, 0x04 }, { 0x06, 0x07, 0x08, 0x0a } },
-                 { { 0x01, 0x02, 0x03, 0x04 }, { 0x06, 0x07, 0x08, 0x0a } },
-                 { { 0x01, 0x02, 0x03, 0x04 }, { 0x06, 0x07, 0x08, 0x0a } } } };
-
-    EXPECT_EQ((a == b), true);
-    EXPECT_EQ((a == c), false);
-    EXPECT_EQ((a == d), false);
-    EXPECT_EQ((a == e), false);
-    EXPECT_EQ((a == f), false);
-    EXPECT_EQ((a == g), false);
-    EXPECT_EQ((a == h), false);
-    EXPECT_EQ((a == i), false);
-    EXPECT_EQ((a == j), false);
-}
-
-TEST(fq12, IsZero)
-{
-    fq12 a = fq12::zero();
-    fq12 b = fq12::zero();
-    fq12 c = fq12::zero();
-    b.c0.c0.c0.data[0] = 1;
-    c.c1.c0.c0.data[0] = 1;
-    EXPECT_EQ(a.is_zero(), true);
-    EXPECT_EQ(b.is_zero(), false);
-    EXPECT_EQ(c.is_zero(), false);
-}
-
-TEST(fq12, RandomElement)
-{
-    fq12 a = fq12::random_element();
-    fq12 b = fq12::random_element();
-
-    EXPECT_EQ(a == b, false);
-    EXPECT_EQ(a.is_zero(), false);
-    EXPECT_EQ(a.is_zero(), false);
-}
-
 TEST(fq12, AddCheckAgainstConstants)
 {
     fq12 a = { { { { 0xe5090b4f4ae647a8, 0xf5d4801f152fdf6c, 0xcdb69d33dba7f562, 0x228f26abab7d6687 },
@@ -273,68 +177,68 @@ TEST(fq12, SparseMulCheckAgainstConstants)
     fq12::ell_coeffs ell;
 
 #if defined(__SIZEOF_INT128__) && !defined(__wasm__)
-    fq12 a = { { { { 0x8860ba0c4eea41a8, 0x71b65207984d47d2, 0x67e55696f8982ba9, 0x18236f03bcec9b00 },
-                   { 0xa69e0f0ce60f64fd, 0x1cf52f3b2335b9b3, 0x45e8ec475fcb1d71, 0x1627ac08d10cebd9 } },
-                 { { 0xc7343ce2fb7b4829, 0xff667dd3e618123b, 0xd03970bcf60881b4, 0x188e0b7acdd0b801 },
-                   { 0x49f0e3920f6b1b15, 0x977066c1663507f0, 0x8f936a1db7d7e941, 0x25bf1ece32f248aa } },
-                 { { 0x8438caab6d1ecf86, 0x2ed52111d1a6b5cf, 0x86df32501be37e2, 0xf1b28b016bf5f80 },
-                   { 0xd44b6c69e9ee39e1, 0x342cd151e96b83cf, 0xaa1636c10ca05d1d, 0x26618a4ff21f4c0c } } },
-               { { { 0x25eb0d146d490133, 0x7aac76625adcb396, 0xbb5453d3b720fe1c, 0x13d15501439e2bb1 },
-                   { 0x229dcb8f53832e4e, 0xfe66f225581821e6, 0x5d62e2d5750a11bd, 0xc0c88e5db4f2686 } },
-                 { { 0x2244c0b1d2914cc1, 0xde2a8091ffc6ebfa, 0x9a93d5013c18da96, 0x1bbf794425605078 },
-                   { 0x5752f0197b67dfa3, 0xb4ff7a53c23b98fd, 0x95dec4882eb275cd, 0x6815e3c55e10152 } },
-                 { { 0x64f434f52a58b19b, 0xcdab64e3ae898031, 0x5d10a474f28b9462, 0x85452691edf6f18 },
-                   { 0x2bb46c10f494b711, 0x66a853baee9e6a00, 0x3b3e0fd932afa021, 0x1ae752d1bbdef131 } } } };
-    ell.o = { { 0xe49c67a74aaf8c22, 0xc5cc428c85da5d5a, 0xc946262e0c99d3d9, 0x2307b236a862e3e9 },
-              { 0x1659aef76f0397ef, 0x32d0c2d00f81d8a5, 0x7e87867d5f0c5ccd, 0x247307a3fd6fece7 } };
-    ell.vv = { { 0x6e6f2db65bdf07bd, 0xc26fa997848fb1e4, 0x13ec10cb6a0cd0ae, 0xf86d8967480301c },
-               { 0xf21de59187942446, 0x276793288a98f5bc, 0xb694797773d6cd4a, 0xad0465ff5d8d6eb } };
-    ell.vw = { { 0xd2656d7ad38190f4, 0x727bf9c43fbc0616, 0x8e46c86249f5d1d8, 0x2e0cdaef67d9f1c7 },
-               { 0xaee8cf13b08c0fd8, 0x1c57393117f6dd41, 0xe2ab0caf53f3f1fd, 0x26dff49d041e0a7 } };
-    fq12 expected = { { { { 0xa138614e32e52b75, 0x36f23cce4b07643d, 0x8c60d007b3418fd7, 0xabfb822e56acf97 },
-                          { 0x89db81e8d93d78f, 0xe5823c60873135ba, 0xbf546b50fcaeb66, 0x6c124b404707e06 } },
-                        { { 0xc5258919e6e0cf0d, 0x919701db293e74b2, 0xd045941d4fff3b96, 0x22534dde281b7418 },
-                          { 0x4f0df00018798b14, 0x6a2b13b3072b6f44, 0x86a6d0c7fb0f0a99, 0xdc5ba43d724139b } },
-                        { { 0x45e1143ac84724d, 0x72fa5399fd3fc5ed, 0xbd40b4eafeb3dc4f, 0x2c991c66c3ccde7d },
-                          { 0xcb624c488f504a6d, 0x5f6b141cc43311e1, 0x5fbc3067fe228695, 0x1f9895620b420936 } } },
-                      { { { 0xede912793f673746, 0x679c963adaa9dec0, 0xbc1eaae42d5af983, 0xc25be9ac14e2d49 },
-                          { 0x69015b5d44cc1e5f, 0xd4f45f5a15acf0bc, 0x262082e7757440f6, 0x1ecf7aacf2385fce } },
-                        { { 0xb77b1ece77cc5b9c, 0x45bc9c63533cdd8, 0x4e449373e98dfa33, 0x9cc3f93849bed65 },
-                          { 0xee892e54b68159d6, 0xe0421cb20d103d69, 0xfe0591fdca60e2e3, 0x1650989fd73116b9 } },
-                        { { 0x475dec6d5f2e2a75, 0xf25390f14ed7106, 0x61a4b571cb15d2fe, 0x1ad83abac0d5bdd7 },
-                          { 0x8f730272c4cfee79, 0x60833c047d98a040, 0xbd1da3dc3fe5ad4a, 0x11bcc8faf5176d94 } } } };
+    fq12 a = { { { { 0x472e65066d5d00e3, 0xd35147f048cc3b15, 0xb7a9aafbfc298c58, 0x3905463add8c9a2f },
+                   { 0xdec4ece2f569ec88, 0x9a081a157e39b6ed, 0xfc51bb6b4b3880c0, 0x2ddceafb16a16476 } },
+                 { { 0x275d05338f5b9a3, 0x727afc5b10a7333f, 0x3b0d7f3e9ebb8e6a, 0x3ab5c561cd99c099 },
+                   { 0x8f2117ff5147917e, 0xcdfaf8cb263e1cd8, 0xa85a504fa7513d5, 0x3dcaf9e370d20258 } },
+                 { { 0xe4106e3fc1e7ac34, 0xe3c36cb15b7c1892, 0x67070534f096dcbf, 0x1e3ef02da60028c3 },
+                   { 0xaa36989b7e7b0e01, 0xe6f6c3526615429f, 0xba6095c16e66a97e, 0x2fb7b3001a00e584 } } },
+               { { { 0x7d4600840fbb809a, 0x1d03db0ea4f77f8, 0xcdc35920853dbeb1, 0x4cff960c5f4a22be },
+                   { 0x928ef2f332ca5cd6, 0xd383a99f620b8168, 0x8428902deeeba70, 0x5ada483adf652e4b } },
+                 { { 0xe3aab2410014dec, 0x38a0846be949b16b, 0x3802c68bfc6acfd4, 0x339a198441966680 },
+                   { 0xfedd77dcff33fbf0, 0x7f1b82292b1e21a9, 0x6e44e3633b491d67, 0x4fb2ff7c4f8f930a } },
+                 { { 0xa87576a50f58782, 0x6782d190e626eb27, 0x81afbe31e6a0d5fb, 0x16cb22fe61b92953 },
+                   { 0x8e9f5a1a369eb503, 0x832fb9ee9a0d227c, 0xc8f5e08b45c26436, 0x4429425509a037b5 } } } };
+    ell.o = { { 0x12a5b2fa59f772bb, 0x73a2a13dd93ccc34, 0x6a1c5c9ccb5f51d4, 0x277c679d506d92d1 },
+              { 0xf0b7bc6cefc16ce2, 0xcfe9a91168fb54c2, 0x10e0446d5b0f14f6, 0x17f4aa9fcfb33c6a } };
+    ell.w = { { 0x2b357e5761e1fc77, 0x76484af65df9a595, 0x628d4aa82f649b7b, 0x3f425d75614ba91b },
+              { 0xa255f54a6fb2dd82, 0x2ca7a56feb20097b, 0x4ab331e2d79b3f27, 0x5867650bd9f7ab81 } };
+    ell.vw = { { 0xf571d10252ecff6a, 0xb8c4b65b8d31eb37, 0x749c8ab2bf7b6542, 0x422b52a14c9f7d04 },
+               { 0x4898da2ca187c0e4, 0xbb8c29391de0d254, 0xfd5049b2c105803c, 0x3399dcb18d329a43 } };
+    fq12 expected = { { { { 0x79efc8e7c0a27aa8, 0x7ac24ff5ecc9394, 0xc58c40b6e363e70, 0x4470129dd36f0e70 },
+                          { 0x23f2393725453587, 0xea302b084071681e, 0x95318e663b181b18, 0x14d9bc2cdaf7e1ed } },
+                        { { 0x1992489299979a4f, 0xf1dd746fa4a5a4ce, 0x6e80aeabc7e819f, 0x4c12049b3a7e6963 },
+                          { 0x4ce92c9594659c28, 0x238b100a24e4f48d, 0x751b6aa6b8745b74, 0x30a34c223cefc39d } },
+                        { { 0x61a56c890121d480, 0x6295f67879d8981c, 0x5885afdee0fd190c, 0x1248b7bb4a120f1e },
+                          { 0x65f95bd269873f97, 0x78e3f50db648e564, 0x4628092ce0179e07, 0xc9c8dac7963da4 } } },
+                      { { { 0x46ffb362ea405947, 0x67cec8b42219ae95, 0x7b26e8192f3b7619, 0x21be4630d07e7743 },
+                          { 0xef90217d55dfdf2b, 0xe1ad2fe98a4121de, 0xf36d24f03210fa31, 0x31b1f2a24ce3b3f3 } },
+                        { { 0xbb9a983325c57c7c, 0x5b9384ca0a384860, 0x8da37d78d55d86de, 0x33097a924217f66f },
+                          { 0x83d2ac92b96e3d59, 0xa86210b27499db4e, 0x2803a767a08e8df8, 0x3dcfb2cbf6cabfd4 } },
+                        { { 0xcf8e0a5f6bbb085f, 0x4bd90884781a1a2c, 0xbfe17a10d901ed53, 0x3661cda6ad4d8742 },
+                          { 0x464986de3c267aa3, 0xebe2b417b64ef133, 0x514763d3f8f819a8, 0x3c3fea7527bb962c } } } };
 #else
-    fq12 a = { { { { 0x862f0c332df55dd7UL, 0x5635026deafe1c0aUL, 0x2ff6bd2d7c7147b2UL, 0x2e8d47bc6baafd9bUL },
-                   { 0x89fa385ceb16c5beUL, 0x55921370b07e22bbUL, 0xa8b9b8f0e450d905UL, 0x1f7936d1d0e6b8e0UL } },
-                 { { 0x247edaf1e79930b0UL, 0x74b911663be59ea5UL, 0x8229bc36a8fab0c6UL, 0xb7c882ba6fcfd9eUL },
-                   { 0x9b0f501da1aba3f8UL, 0xb9eada8afbf600cbUL, 0xaae6ba9ad6dcdf6cUL, 0x2e7c7f0141a21168UL } },
-                 { { 0x69f468a007750941UL, 0x8717631d88d69af9UL, 0x92ebf135aa3ae0fbUL, 0x2fde53f8ed2d4e89UL },
-                   { 0xaa3fdf0219928031UL, 0xb9f6c209fa53b22fUL, 0x42f0094eee6a0282UL, 0x1265a0c64610dd82UL } } },
-               { { { 0xafba8564aac749c5UL, 0xa3fc62e90dcf2998UL, 0xe76f032508e46ceUL, 0x512a45304405419UL },
-                   { 0xaed59d4a84fadccfUL, 0xa8545ab127e7b2e7UL, 0xa22a72b116b8cd30UL, 0x2ed2f79741896fa7UL } },
-                 { { 0xe4e3c9f195fc922UL, 0x1e369406a0dd4156UL, 0x5cd5b95268031c47UL, 0x10e1a470d68ccc24UL },
-                   { 0xf9dbd2d40b07ff44UL, 0x41e9a032a5abf575UL, 0xda977a2bd0495840UL, 0xe9a8dbf3759a9abUL } },
-                 { { 0x71e3e23310a540fdUL, 0xbfe5879ec6f7116aUL, 0x883320dc9ebd285UL, 0x1894c4e575f5c23bUL },
-                   { 0x7864349a324a1069UL, 0xc57263b5e43ecca4UL, 0x2a6d5a07bc5d25f5UL, 0x2641249687928362UL } } } };
-    ell.o = { { 0x2ca05edbe2b6c2dfUL, 0x1ce7be80591278acUL, 0x998e825bf09b8ad0UL, 0x7f33a82d0e71979UL },
-              { 0x2828bcc994bb3f38UL, 0x25f65c6025901765UL, 0x896a468fbd6b50e0UL, 0x4f999ba91569906UL } };
-    ell.vv = { { 0x74a03de706ff12daUL, 0x62e709427d845309UL, 0x4a5f604c328ca230UL, 0xcf00251c415c1e1UL },
-               { 0x9ed8dd9107199bcfUL, 0xc8687b1778022dc1UL, 0xc85d46f0f0503eb5UL, 0x74aa6da92bf7c52UL } };
-    ell.vw = { { 0x40dd44ad118c702eUL, 0x8e54bb7dba2b064dUL, 0x2f70e0e61191e016UL, 0x15da2c76976d740eUL },
-               { 0xa0f9565f3904fdb9UL, 0xf365bb919669dda8UL, 0x9d115033fcfce745UL, 0x1d5b9ac7270a74d2UL } };
+    fq12 a = { { { { 0x35186180618f811dUL, 0x8474970501151c3fUL, 0x519b4c1ecd7fc593UL, 0x222970c125671fefUL },
+                   { 0xcccd31b14e97e2aeUL, 0x7fd8c5a589e1212eUL, 0xf0cf420639e7bd1bUL, 0xfdc2dec705bc9fbUL } },
+                 { { 0x61e53f02fc299bd6UL, 0xd229b9cc940256e9UL, 0x5c58ebc9e3eaf69UL, 0x27d5072c45da4cf6UL },
+                   { 0x7f0d1c58556a9ca8UL, 0x132672ac75fbf500UL, 0x8429bc1b126cac1aUL, 0x29b2fa7aea7f447cUL } },
+                 { { 0xba362462baeba3bUL, 0x39d2ad60af1109e1UL, 0x32eb7a127642090aUL, 0x306c332e09563554UL },
+                   { 0xfee21cab983f1487UL, 0x862c82b11ce0ccdaUL, 0xfa5a47141e2b7c87UL, 0x1ad0e019fb1a4b89UL } } },
+               { { { 0xea64b40baf069b62UL, 0xa2c0e5b6e3b56f79UL, 0xb8bd866b5c7493d8UL, 0x2c5b6f1bed930fb3UL },
+                   { 0x765e1522747d3b63UL, 0x85a1a4692f367e85UL, 0x8dd10f4c0507f088UL, 0x342af2e20635dfc3UL } },
+                 { { 0xcb02c9793f901a12UL, 0xf4e0662d4a19469fUL, 0x85af8f425a2c3e18UL, 0x5f0c5464a358a7cUL },
+                   { 0xa51286fbed1c0b94UL, 0x1d269f9c2ca7108fUL, 0x584e43551addb9edUL, 0x2200003433ddd8d4UL } },
+                 { { 0xcb02b7f36f5e1917UL, 0xfc4f397a632869aUL, 0x6943b08b3d8691f1UL, 0x383c711053cc7feUL },
+                   { 0x7e532f599e5b182cUL, 0x5bb8ecd54e157f4bUL, 0x70f0160a761156baUL, 0x33eacee27f7f6f8dUL } } } };
+    ell.o = { { 0x396824f9423c9e2aUL, 0x112f54f68c0af42aUL, 0x8b647f1044c7410dUL, 0x55cfbff2ea815f0UL },
+              { 0x910f584748dac517UL, 0x1c9fe3a800bfba17UL, 0x4f5477f9cb4e715eUL, 0x28b4bb3ec47f2ad0UL } };
+    ell.w = { { 0xc5795b43903afe81UL, 0x854f4d8204fb4206UL, 0xccce2acb2edc4871UL, 0x283b1e4618827cbdUL },
+              { 0xab5eec20ea0a4e2aUL, 0x41a2890bba394b74UL, 0x943671019c19dfb1UL, 0x1632db7439b726b5UL } };
+    ell.vw = { { 0x94c2987400a16253UL, 0xa5d9e5051b206145UL, 0x9e15a0b02eb2d09eUL, 0x249126ddc099b98cUL },
+               { 0x16c8aa8b705e7912UL, 0x5254ffd3dcfd63c7UL, 0x2f5ff41aed824b29UL, 0x5e92aefbdbc02f5UL } };
     fq12 expected = {
-        { { { 0x82285526713a81afUL, 0xb9bdafcf85cffdd7UL, 0x81e818f8dda89057UL, 0x538df3884fe91cdUL },
-            { 0x2334d3765086fcc4UL, 0x5241e1cb445f8d0cUL, 0x9d67bfc7f3580b66UL, 0x16935cb50949401aUL } },
-          { { 0x79e51946415c1d86UL, 0x2dc112e62e072e35UL, 0x31cc85fadec9dac7UL, 0x21cafde5a92abf84UL },
-            { 0xc499133572cc7b01UL, 0xf1d5b744396dc992UL, 0x5a07a594d45537e2UL, 0x5308670f9c3d1f9UL } },
-          { { 0xbc1249df0a659895UL, 0x35a160c6d314cba0UL, 0xc6feb7b32ad48754UL, 0x17c6a9d4f6fcaafdUL },
-            { 0xb9be974900458414UL, 0x1746303c5d7e6930UL, 0x91409abda635eb5cUL, 0x2b3c8b47d060a389UL } } },
-        { { { 0xdc1dee7128fefe88UL, 0x378772d011ad83b3UL, 0xc1532ed19f546d80UL, 0x1955fc12038a7e9UL },
-            { 0x6da079dfafc00254UL, 0xc86f97e68cba4484UL, 0x5dcaeaac906d378aUL, 0x121934a4af2b7682UL } },
-          { { 0x86a09145e69d83d6UL, 0xfe70b95e33cefbc7UL, 0x76b0cc3628b7342eUL, 0x172e1bbf4c53ebafUL },
-            { 0x875e2156f95560deUL, 0xbf2fc24debce9984UL, 0xac4e6fbe3709875dUL, 0x2496c9b2956c14f7UL } },
-          { { 0xed94402785787ce9UL, 0xd50f0e3aae1fad67UL, 0xf7420d1ac923818aUL, 0x245e21b7266c1826UL },
-            { 0x58fa495d4c9eed13UL, 0x8dd7ec5036305400UL, 0xb8417cb06c26dd46UL, 0x2349c06ef5cbd0ccUL } } }
+        { { { 0xac407cf40656cf85UL, 0x53c4e45c7d91d7bbUL, 0x24fc4059030b458dUL, 0xc608988d828a6acUL },
+            { 0x70a009bbaa4dd445UL, 0x9472f7a5c065ba98UL, 0x4a1e4282cf71e65cUL, 0x261f89c5ef771b94UL } },
+          { { 0x73edb5dcea89d202UL, 0xa467bd8e2e7b0a2dUL, 0xdd53bfb2448cf1b6UL, 0xea940f7541be43aUL },
+            { 0x19140fd77d13dc20UL, 0x8134af178e654002UL, 0x99649e06de6062d1UL, 0x7dfb5eb77c46e77UL } },
+          { { 0x6327000dfe5eb0acUL, 0x38add03e55bd84edUL, 0x6cf2b74e0d92fd29UL, 0x4634a06b3ee61d6UL },
+            { 0xbf2b7a4d30e7f2e0UL, 0x1c7ea1b6c91cac8cUL, 0xc501259c02f3c0efUL, 0x19391b58f2c7b488UL } } },
+        { { { 0xb52a6266ad4d64c6UL, 0xf4b9ee05496e6a85UL, 0x8df70576c6512b21UL, 0xf2a083ab58b24d9UL },
+            { 0x6df2accfac5c3c80UL, 0x4578ab0439eaea36UL, 0x639be73611f43a89UL, 0x29b485ed76427947UL } },
+          { { 0xb320f772d092e959UL, 0xeac1dc82d05defe2UL, 0xf216b293fa0477baUL, 0x244135793b992890UL },
+            { 0x153faec55a401808UL, 0x60096f964173c3bfUL, 0x33ea086fd59bf075UL, 0x2a4a178ba996f400UL } },
+          { { 0xb94e24cdde4a6b2bUL, 0xc46f7eadbbb4944aUL, 0xc935ba276b8e959dUL, 0x2e82fb20dfe802a3UL },
+            { 0xa03b844c89c4be8fUL, 0x679f46cfe0884ae4UL, 0x14b1dbb1644ebedbUL, 0x28b55b24a8e35f2fUL } } }
     };
 #endif
 
@@ -401,22 +305,6 @@ TEST(fq12, SqrCheckAgainstConstants)
 
     fq12 result = a.sqr();
     EXPECT_EQ(result, expected);
-}
-
-TEST(fq12, Inverse)
-{
-    fq12 input = fq12::random_element();
-    fq12 result = input.invert() * input;
-    EXPECT_EQ(result, fq12::one());
-}
-
-TEST(fq12, UnitaryInverse)
-{
-    fq12 input = fq12::random_element();
-    fq12 result = input.unitary_inverse();
-    EXPECT_EQ(input.c0, result.c0);
-    result.c1 += input.c1;
-    EXPECT_EQ(result.c1, fq6::zero());
 }
 
 TEST(fq12, FrobeniusMapThree)
@@ -599,66 +487,61 @@ TEST(fq12, FrobeniusMapOne)
     EXPECT_EQ(result, expected);
 }
 
-TEST(fq12, ToMontgomeryForm)
-{
-    fq12 result = fq12::zero();
-    result.c0.c0.c0.data[0] = 1;
-    fq12 expected = fq12::one();
-    result = result.to_montgomery_form();
-    EXPECT_EQ(result, expected);
-}
-
-TEST(fq12, FromMontgomeryForm)
-{
-    fq12 result = fq12::one();
-    fq12 expected = fq12::zero();
-    expected.c0.c0.c0.data[0] = 1;
-    result = result.from_montgomery_form();
-    EXPECT_EQ(result, expected);
-}
-
-TEST(fq12, MulSqrConsistency)
+TEST(fq12, FrobeniusMapSixIsConjugation)
 {
     fq12 a = fq12::random_element();
-    fq12 b = fq12::random_element();
-    fq12 t1 = a - b;
-    fq12 t2 = a + b;
-    fq12 mul_result = t1 * t2;
-    fq12 sqr_result = a.sqr() - b.sqr();
-    EXPECT_EQ(mul_result, sqr_result);
+    fq12 result = a.frobenius_map_three().frobenius_map_three();
+    EXPECT_EQ(result.c0, a.c0);
+    EXPECT_EQ(result.c1, -a.c1);
 }
 
-TEST(fq12, AddMulConsistency)
+TEST(fq12, UnitaryInverse)
 {
-    fq12 multiplicand = fq12::zero();
-    multiplicand.c0.c0.c0.data[0] = 9;
-    multiplicand = multiplicand.to_montgomery_form();
+    // Unitary elements can be obtained by taking a random element and raising it to the power
+    // (q^12 - 1) / (q^4 - q^2 + 1) = (q^2 + 1) (q^6 - 1)
+    // Note that q^4 - q^2 + 1 is the cyclotomic polynomial of degree 12 evaluated at q
+    fq12 unitary_input = fq12::random_element();
+    unitary_input = unitary_input.frobenius_map_two() * unitary_input;
+    unitary_input = unitary_input.frobenius_map_three().frobenius_map_three() * unitary_input.invert();
+    fq12 result = unitary_input.unitary_inverse();
 
-    fq12 a = fq12::random_element();
-    fq12 result = a + a;
-    result += result;
-    result += result;
-    result += a;
-
-    fq12 expected = a * multiplicand;
-
-    EXPECT_EQ(result, expected);
+    EXPECT_EQ(unitary_input * result, fq12::one());
+    EXPECT_EQ(result.c0, unitary_input.c0);
+    EXPECT_EQ(result.c1, -unitary_input.c1);
 }
 
-TEST(fq12, SubMulConsistency)
+TEST(fq12, FrobeniusCoefficients)
 {
-    fq12 multiplicand = fq12::zero();
-    multiplicand.c0.c0.c0.data[0] = 5;
-    multiplicand = multiplicand.to_montgomery_form();
+    fq2 frobenius_coeff_1{ Bn254Fq12Params::frobenius_coefficients_1 };
+    fq2 frobenius_coeff_2{ Bn254Fq12Params::frobenius_coefficients_2 };
+    fq2 frobenius_coeff_3{ Bn254Fq12Params::frobenius_coefficients_3 };
 
+    // \xi^{(q-1)/6}
+    fq2 expected_frobenius_coeff_1 = fq2{ 0x09, 0x01 }.pow((fq::modulus - 1) / 6);
+    // \xi^{(q^2-1)/6} = \xi^{(q-1)/6}^{q+1}
+    fq2 expected_frobenius_coeff_2 = expected_frobenius_coeff_1.pow(fq::modulus + 1);
+    // \xi^{(q^3-1)/6} = \xi^{(q-1)/6}^{q^2+q+1}
+    fq2 expected_frobenius_coeff_3 = expected_frobenius_coeff_1.pow(fq::modulus).pow(fq::modulus) *
+                                     expected_frobenius_coeff_1.pow(fq::modulus) * expected_frobenius_coeff_1;
+
+    EXPECT_EQ(frobenius_coeff_1, expected_frobenius_coeff_1);
+    EXPECT_EQ(frobenius_coeff_2, expected_frobenius_coeff_2);
+    EXPECT_EQ(frobenius_coeff_3, expected_frobenius_coeff_3);
+}
+
+TEST(fq12, SparseMul)
+{
     fq12 a = fq12::random_element();
-    fq12 result = a + a;
-    result += result;
-    result += result;
-    result -= a;
-    result -= a;
-    result -= a;
+    fq12::ell_coeffs ell;
 
-    fq12 expected = a * multiplicand;
-    EXPECT_EQ(result, expected);
+    ell.o = fq2::random_element();
+    ell.w = fq2::random_element();
+    ell.vw = fq2::random_element();
+
+    fq12 b{ fq6{ ell.o, fq2::zero(), fq2::zero() }, fq6{ ell.w, ell.vw, fq2::zero() } };
+    fq12 expected = a * b;
+
+    a.self_sparse_mul(ell);
+
+    EXPECT_EQ(a, expected);
 }

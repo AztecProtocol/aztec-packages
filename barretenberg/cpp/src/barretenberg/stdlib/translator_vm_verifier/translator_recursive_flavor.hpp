@@ -5,7 +5,6 @@
 // =====================
 
 #pragma once
-#include "barretenberg/commitment_schemes/commitment_key.hpp"
 #include "barretenberg/commitment_schemes/kzg/kzg.hpp"
 #include "barretenberg/flavor/flavor.hpp"
 #include "barretenberg/flavor/flavor_macros.hpp"
@@ -31,8 +30,6 @@ namespace bb {
 class TranslatorRecursiveFlavor {
 
   public:
-    // TODO(https://github.com/AztecProtocol/barretenberg/issues/990): Establish whether mini_circuit_size pattern is
-    // needed
     using CircuitBuilder = UltraCircuitBuilder;
     using Curve = stdlib::bn254<CircuitBuilder>;
     using PCS = KZG<Curve>;
@@ -46,33 +43,37 @@ class TranslatorRecursiveFlavor {
     using NativeFlavor = TranslatorFlavor;
     using NativeVerificationKey = NativeFlavor::VerificationKey;
 
-    using VerifierCommitmentKey = bb::VerifierCommitmentKey<NativeFlavor::Curve>;
-
-    // Indicates that this flavor runs with non-ZK Sumcheck.
+    // Indicates that this flavor runs with ZK Sumcheck.
     static constexpr bool HasZK = true;
-    // Translator proof size and its recursive verifier circuit are genuinely fixed, hence no padding is needed.
-    static constexpr bool USE_PADDING = TranslatorFlavor::USE_PADDING;
-    // None of this parameters can be changed
 
     // Number of bits in a binary limb
-    // This is not a configurable value. Relations are sepcifically designed for it to be 68
+    // This is not a configurable value. Relations are specifically designed for it to be 68
     static constexpr size_t NUM_LIMB_BITS = NativeFlavor::NUM_LIMB_BITS;
 
-    // The number of multivariate polynomials on which a sumcheck prover sumcheck operates (including shifts). We
-    // often need containers of this size to hold related data, so we choose a name more agnostic than
-    // `NUM_POLYNOMIALS`. Note: this number does not include the individual sorted list polynomials.
+    // The number of multivariate polynomials on which a sumcheck prover sumcheck operates (including shifts).
     static constexpr size_t NUM_ALL_ENTITIES = NativeFlavor::NUM_ALL_ENTITIES;
-    // The number of polynomials precomputed to describe a circuit and to aid a prover in constructing a satisfying
-    // assignment of witnesses. We again choose a neutral name.
-    static constexpr size_t NUM_PRECOMPUTED_ENTITIES = NativeFlavor::NUM_PRECOMPUTED_ENTITIES;
-    // The total number of witness entities not including shifts.
-    static constexpr size_t NUM_WITNESS_ENTITIES = NativeFlavor::NUM_WITNESS_ENTITIES;
-
-    // Number of wires representing the op queue whose commitments are going to be checked against those from the
-    // final round of merge
-    static constexpr size_t NUM_OP_QUEUE_WIRES = NativeFlavor::NUM_OP_QUEUE_WIRES;
 
     static constexpr RepeatedCommitmentsData REPEATED_COMMITMENTS = NativeFlavor::REPEATED_COMMITMENTS;
+
+    // Mid-sumcheck minicircuit wire evaluation constants
+    static constexpr size_t NUM_MINICIRCUIT_EVALUATIONS = NativeFlavor::NUM_MINICIRCUIT_EVALUATIONS;
+    static constexpr size_t NUM_FULL_CIRCUIT_EVALUATIONS = NativeFlavor::NUM_FULL_CIRCUIT_EVALUATIONS;
+    static constexpr size_t LOG_MINI_CIRCUIT_SIZE = NativeFlavor::LOG_MINI_CIRCUIT_SIZE;
+
+    template <typename FFType>
+    static void set_minicircuit_evaluations(NativeFlavor::AllEntities<FFType>& evals,
+                                            const std::array<FFType, NUM_MINICIRCUIT_EVALUATIONS>& mid)
+    {
+        NativeFlavor::set_minicircuit_evaluations(evals, mid);
+    }
+
+    template <typename FFType>
+    static void complete_full_circuit_evaluations(NativeFlavor::AllEntities<FFType>& evals,
+                                                  const std::array<FFType, NUM_FULL_CIRCUIT_EVALUATIONS>& full_circuit,
+                                                  std::span<const FFType> challenge)
+    {
+        NativeFlavor::complete_full_circuit_evaluations(evals, full_circuit, challenge);
+    }
 
     using Relations = TranslatorFlavor::Relations_<FF>;
 
@@ -98,7 +99,7 @@ class TranslatorRecursiveFlavor {
      * polynomials used by the verifier.
      */
     using VerificationKey =
-        FixedStdlibVKAndHash_<CircuitBuilder, TranslatorFlavor::PrecomputedEntities<Commitment>, NativeVerificationKey>;
+        FixedStdlibVKAndHash_<CircuitBuilder, TranslatorFlavor::VKEntities<Commitment>, NativeVerificationKey>;
 
     /**
      * @brief A container for the witness commitments.
@@ -108,9 +109,6 @@ class TranslatorRecursiveFlavor {
     using CommitmentLabels = TranslatorFlavor::CommitmentLabels;
     // Reuse the VerifierCommitments from Translator
     using VerifierCommitments = TranslatorFlavor::VerifierCommitments_<Commitment, VerificationKey>;
-    // Reuse the transcript from Translator
     using Transcript = UltraStdlibTranscript;
-
-    using VKAndHash = VKAndHash_<VerificationKey, FF>;
 };
 } // namespace bb

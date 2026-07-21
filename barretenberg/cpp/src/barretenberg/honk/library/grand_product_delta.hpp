@@ -1,5 +1,5 @@
 // === AUDIT STATUS ===
-// internal:    { status: Planned, auditors: [], commit: }
+// internal:    { status: Complete, auditors: [Raju], commit: 21a7e3670e6 }
 // external_1:  { status: not started, auditors: [], commit: }
 // external_2:  { status: not started, auditors: [], commit: }
 // =====================
@@ -53,7 +53,7 @@ typename Flavor::FF compute_public_input_delta(std::span<const typename Flavor::
     // at the end of the loop, add and subtract β to each term respectively to
     // set the expected value for the start of iteration i+1.
     // Note: The public inputs may be offset from the 0th index of the wires, for example due to the inclusion of an
-    // initial zero row or Goblin-stlye ECC op gates. Accordingly, the indices i in the above formulas are given by i =
+    // initial zero row or Goblin-style ECC op gates. Accordingly, the indices i in the above formulas are given by i =
     // [0, m-1] + offset, i.e. i = offset, 1 + offset, …, m - 1 + offset.
 
     // Using n = SEPARATOR ensures that the evaluations of `id_i` (`sigma_i`) and `id_j`(`sigma_j`) polynomials on the

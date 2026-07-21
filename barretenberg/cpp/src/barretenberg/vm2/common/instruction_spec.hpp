@@ -11,7 +11,7 @@
 
 namespace bb::avm2 {
 
-constexpr size_t NUM_OP_DC_SELECTORS = 18;
+constexpr size_t NUM_OP_DC_SELECTORS = 16;
 constexpr uint32_t DECOMPOSE_WINDOW_SIZE = 37; // Max size of instruction in bytes.
 // We do not use a static constant to compute this value from WIRE_INSTRUCTION_SPEC
 // because we do not want it to be changed transparently. Namely, if this constant

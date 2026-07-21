@@ -41,7 +41,7 @@ export class DefaultEntrypoint implements EntrypointInterface {
     );
   }
 
-  async wrapExecutionPayload(exec: ExecutionPayload, _options?: any): Promise<ExecutionPayload> {
+  async wrapExecutionPayload(exec: ExecutionPayload, _chainInfo: ChainInfo, _options?: any): Promise<ExecutionPayload> {
     if (exec.calls.length !== 1) {
       throw new Error(`DefaultEntrypoint can only wrap a single call, got ${exec.calls.length}`);
     }

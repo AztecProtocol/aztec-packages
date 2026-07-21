@@ -36,12 +36,11 @@ template <class Builder_, class Fq, class Fr, class NativeGroup> class element {
     static constexpr size_t PUBLIC_INPUTS_SIZE = BIGGROUP_PUBLIC_INPUTS_SIZE;
 
     element();
-    element(const typename NativeGroup::affine_element& input);
 
     // Construct a biggroup element from its coordinates
+    // The infinity flag is automatically set based on whether both coordinates are zero.
     // By default, we validate that the point is on the curve
     element(const Fq& x, const Fq& y, const bool assert_on_curve = true);
-    element(const Fq& x, const Fq& y, const bool_ct& is_infinity, bool assert_on_curve = true);
 
     element(const element& other);
     element(element&& other) noexcept;
@@ -50,13 +49,16 @@ template <class Builder_, class Fq, class Fr, class NativeGroup> class element {
 
     /**
      * @brief Set the witness indices for the x and y coordinates to public
+     * @details If the point is at infinity, coordinates are set to (0,0), so that it doesn't cause any deserialization
+     * issues in the sebsequent verification steps.
      *
      * @return uint32_t Index at which the representation is stored in the public inputs
      */
     uint32_t set_public() const
     {
-        const uint32_t start_idx = _x.set_public();
-        _y.set_public();
+        auto standard = get_standard_form(); // if point is at infinity, ensure coordinates are (0,0).
+        const uint32_t start_idx = standard._x.set_public();
+        standard._y.set_public();
 
         return start_idx;
     }
@@ -71,54 +73,66 @@ template <class Builder_, class Fq, class Fr, class NativeGroup> class element {
      */
     static element from_witness(Builder* ctx, const typename NativeGroup::affine_element& input)
     {
-        element out;
+        // By convention we set the coordinates of the point at infinity to (0,0).
+        Fq x;
+        Fq y;
         if (input.is_point_at_infinity()) {
-            Fq x = Fq::from_witness(ctx, NativeGroup::affine_one.x);
-            Fq y = Fq::from_witness(ctx, NativeGroup::affine_one.y);
-            out._x = x;
-            out._y = y;
+            x = Fq::from_witness(ctx, typename NativeGroup::Fq(0));
+            y = Fq::from_witness(ctx, typename NativeGroup::Fq(0));
         } else {
-            Fq x = Fq::from_witness(ctx, input.x);
-            Fq y = Fq::from_witness(ctx, input.y);
-            out._x = x;
-            out._y = y;
+            x = Fq::from_witness(ctx, input.x);
+            y = Fq::from_witness(ctx, input.y);
         }
-        out.set_point_at_infinity(witness_ct(ctx, input.is_point_at_infinity()));
+
+        // Create _is_infinity as a witness with the actual infinity status.
+        // Security: Since assert_on_curve is true, validate_on_curve() enforces that if infinity=true, then x = y = 0.
+        bool_ct is_infinity = bool_ct(witness_ct(ctx, input.is_point_at_infinity()));
+
+        // Construct the biggroup element with private constructor to avoid redundant on-curve check
+        element out = element(x, y, is_infinity, /*assert_on_curve=*/true);
 
         // Mark the element as coming out of nowhere
         out.set_free_witness_tag();
-        out.validate_on_curve();
         return out;
     }
 
     /**
      * @brief Check that the point is on the curve
      */
-    void validate_on_curve(std::string const& msg = "biggroup::validate_on_curve") const
+    Fq validate_on_curve(std::string const& msg = "biggroup::validate_on_curve", bool assert_is_on_curve = true) const
     {
+        // Return early for constant inputs
+        if (this->is_constant()) {
+            BB_ASSERT(this->get_value().on_curve(), "biggroup::validate_on_curve: constant point not on curve");
+            return typename Fq::native(this->get_value().on_curve() ? 0 : 1);
+        }
+
+        // If this is a point at infinity, it must have (x, y) = (0, 0)
+        _x.assert_zero_if(is_point_at_infinity(), "biggroup::validate_on_curve: infinity point must have x = 0");
+        _y.assert_zero_if(is_point_at_infinity(), "biggroup::validate_on_curve: infinity point must have y = 0");
+
         bool has_circuit_failed = get_context()->failed();
+        Fq result;
 
         Fq b(get_context(), uint256_t(NativeGroup::curve_b));
         Fq adjusted_b = Fq::conditional_assign(is_point_at_infinity(), Fq::zero(), b);
-        Fq adjusted_x = Fq::conditional_assign(is_point_at_infinity(), Fq::zero(), _x);
-        Fq adjusted_y = Fq::conditional_assign(is_point_at_infinity(), Fq::zero(), _y);
+        // If `assert_is_on_curve` is true, we validate y^2 = x^3 + b by setting "fix_remainder_zero = true" when
+        // calling mult_madd. Otherwise, we return the difference x^3 + ax + b - y^2
         if constexpr (!NativeGroup::has_a) {
-            // we validate y^2 = x^3 + b by setting "fix_remainder_zero = true" when calling mult_madd
-            Fq::mult_madd({ adjusted_x.sqr(), adjusted_y }, { adjusted_x, -adjusted_y }, { adjusted_b }, true);
+            result = Fq::mult_madd({ _x.sqr(), _y }, { _x, -_y }, { adjusted_b }, assert_is_on_curve);
+            ;
         } else {
             Fq a(get_context(), uint256_t(NativeGroup::curve_a));
             Fq adjusted_a = Fq::conditional_assign(is_point_at_infinity(), Fq::zero(), a);
-            // we validate y^2 = x^3 + ax + b by setting "fix_remainder_zero = true" when calling mult_madd
-            Fq::mult_madd({ adjusted_x.sqr(), adjusted_x, adjusted_y },
-                          { adjusted_x, adjusted_a, -adjusted_y },
-                          { adjusted_b },
-                          true);
+            result = Fq::mult_madd({ _x.sqr(), _x, _y }, { _x, adjusted_a, -_y }, { adjusted_b }, assert_is_on_curve);
         }
 
         if ((!has_circuit_failed) && (get_context()->failed())) {
             vinfo("Original bigfield error generated by biggroup::validate_on_curve: ", get_context()->err());
             get_context()->failure(msg);
         }
+
+        return result;
     }
 
     [[nodiscard]] bool is_constant() const
@@ -148,6 +162,7 @@ template <class Builder_, class Fq, class Fr, class NativeGroup> class element {
         // Origin tags should be updated within
         this->_x.fix_witness();
         this->_y.fix_witness();
+        this->_is_infinity.fix_witness();
 
         // This is now effectively a constant
         unset_free_witness_tag();
@@ -162,18 +177,20 @@ template <class Builder_, class Fq, class Fr, class NativeGroup> class element {
         uint256_t y = uint256_t(NativeGroup::one.y);
         Fq x_fq(ctx, x);
         Fq y_fq(ctx, y);
-        return element(x_fq, y_fq, /*assert_on_curve=*/false);
+        // Use private 4-arg constructor with explicit is_infinity=false (the generator is never infinity).
+        // This avoids the expensive bigfield equality checks in the 2-arg constructor's infinity auto-detection.
+        return element(x_fq, y_fq, bool_ct(ctx, false), /*assert_on_curve=*/false);
     }
 
-    static element point_at_infinity(Builder* ctx)
+    /**
+     * @brief Creates a constant point at infinity with canonical (0, 0) coordinates.
+     * @note For witness infinity points, use from_witness(ctx, affine_element::infinity()) instead.
+     */
+    static element constant_infinity(Builder* ctx)
     {
-        Fr zero = Fr::from_witness_index(ctx, ctx->zero_idx());
-        zero.unset_free_witness_tag();
-        Fq x_fq(zero, zero);
-        Fq y_fq(zero, zero);
-        element result(x_fq, y_fq, /*assert_on_curve=*/false);
-        result.set_point_at_infinity(true);
-        return result;
+        Fq x_fq(ctx, uint256_t(0));
+        Fq y_fq(ctx, uint256_t(0));
+        return element(x_fq, y_fq, /*is_infinity=*/bool_ct(ctx, true), /*assert_on_curve=*/false);
     }
 
     element& operator=(const element& other);
@@ -237,6 +254,11 @@ template <class Builder_, class Fq, class Fr, class NativeGroup> class element {
         result._is_infinity =
             bool_ct::conditional_assign(predicate, other.is_point_at_infinity(), result.is_point_at_infinity());
         return result;
+    }
+
+    static element conditional_assign(const bool_t<Builder>& predicate, const element& lhs, const element& rhs)
+    {
+        return rhs.conditional_select(lhs, predicate);
     }
 
     /**
@@ -307,8 +329,14 @@ template <class Builder_, class Fq, class Fr, class NativeGroup> class element {
     };
 
     /**
-     * We can chain repeated point additions together, where we only require 2 non-native field multiplications per
-     * point addition, instead of 3
+     * @brief Optimized chained addition for non-infinity points.
+     *
+     * @pre p1 and p2 must NOT be point at infinity. Use operator+ for general addition.
+     * @pre p1.x ≠ p2.x for all points in the chain (required for the incomplete addition formula used in this method).
+     *
+     * @details We can chain repeated point additions together, where we only require 2 non-native field multiplications
+     * per point addition, instead of 3
+     *
      * NOTE: These must remain public as they are used by nested structs like batch_lookup_table_plookup
      **/
     static chain_add_accumulator chain_add_start(const element& p1, const element& p2);
@@ -330,11 +358,33 @@ template <class Builder_, class Fq, class Fr, class NativeGroup> class element {
     static element batch_mul(const std::vector<element>& points,
                              const std::vector<Fr>& scalars,
                              const size_t max_num_bits = 0,
-                             const bool with_edgecases = false,
-                             const Fr& masking_scalar = Fr(1));
+                             const bool with_edgecases = true);
 
     template <typename X = NativeGroup, typename = typename std::enable_if_t<std::is_same<X, secp256k1::g1>::value>>
     static element secp256k1_ecdsa_mul(const element& pubkey, const Fr& u1, const Fr& u2);
+
+    /**
+     * @brief Output of `secp256r1_ecdsa_mul`: the multiplication result plus a soundness flag.
+     * @details `result` holds `u₁·G + u₂_safe·Q`, where `u₂_safe = u₂` if `u₂ ∉ {0, ±1}` and `u₂_safe = 2`
+     * otherwise (the fake-GLV path cannot compute `u₂·Q` when u₂ ∈ {0, ±1}).
+     */
+    struct Secp256r1EcdsaMulResult {
+        element result;
+        bool_ct u2_is_acceptable;
+    };
+
+    template <typename X = NativeGroup, typename = typename std::enable_if_t<std::is_same<X, secp256r1::g1>::value>>
+    static Secp256r1EcdsaMulResult secp256r1_ecdsa_mul(const element& pubkey, const Fr& u1, const Fr& u2);
+
+    /**
+     * @brief Fixed-base scalar multiplication for the secp256r1 generator using Pedersen-style ROM tables.
+     * @details Computes u·G where G is the secp256r1 generator and u is a full 256-bit scalar. The scalar
+     * is sliced into 8-bit windows; each window is resolved against a precomputed 256-entry ROM table
+     * holding {k · 2^(8i) · G + offset_i}. No accumulator doublings are required — the algorithm is one
+     * ROM read + one chain-add per window, plus a final offset subtraction.
+     */
+    template <typename X = NativeGroup, typename = typename std::enable_if_t<std::is_same<X, secp256r1::g1>::value>>
+    static element secp256r1_fixed_base_mul(const Fr& u);
 
     /**
      * @brief Compute Non-Adjacent Form (NAF) representation of a scalar
@@ -348,7 +398,6 @@ template <class Builder_, class Fq, class Fr, class NativeGroup> class element {
         bool_ct positive_skew;
         bool_ct negative_skew;
         field_t<Builder> least_significant_wnaf_fragment;
-        bool has_wnaf_fragment = false;
     };
 
     // Internal struct to represent a pair of secp256k1 wNAFs
@@ -376,13 +425,6 @@ template <class Builder_, class Fq, class Fr, class NativeGroup> class element {
     const Fq& y() const { return _y; }
 
     bool_ct is_point_at_infinity() const { return _is_infinity; }
-    void set_point_at_infinity(const bool_ct& is_infinity, const bool& add_to_used_witnesses = false)
-    {
-        _is_infinity = is_infinity.normalize();
-        if (add_to_used_witnesses) {
-            mark_witness_as_used(field_t<Builder>(_is_infinity));
-        };
-    }
     element get_standard_form() const;
 
     void set_origin_tag(OriginTag tag) const
@@ -428,9 +470,22 @@ template <class Builder_, class Fq, class Fr, class NativeGroup> class element {
     friend class element_test_accessor;
 
   private:
+    // Private constructor with explicit infinity flag control.
+    // Use public constructors or factory methods instead - they auto-detect infinity from coordinates.
+    element(const Fq& x, const Fq& y, const bool_ct& is_infinity, bool assert_on_curve);
+
     Fq _x;
     Fq _y;
     bool_ct _is_infinity;
+
+    // Internal implementations - may produce non-canonical infinity representation (efficient for chaining)
+    element add_internal(const element& other) const;
+    element subtract_internal(const element& other) const;
+    element dbl_internal() const;
+    static element batch_mul_internal(const std::vector<element>& points,
+                                      const std::vector<Fr>& scalars,
+                                      const size_t max_num_bits = 0,
+                                      const bool with_edgecases = false);
 
     /**
      * @brief Compute both add and subtract (a + b, a - b) results simultaneously
@@ -442,14 +497,13 @@ template <class Builder_, class Fq, class Fr, class NativeGroup> class element {
      * @brief Mask points for batch multiplication to handle edge cases
      * @param _points The points to be masked
      * @param _scalars The corresponding scalars
-     * @param masking_scalar The masking scalar used to randomise the points
-     * @return A pair of vectors containing the masked points and scalars
+     * @return A tuple of (masked points, masked scalars, offset generator element used for masking).
+     *         The offset generator is exposed primarily for testing purposes.
      *
      * @details Only used internally in biggroup_edgecase_handling.hpp
      */
-    static std::pair<std::vector<element>, std::vector<Fr>> mask_points(const std::vector<element>& _points,
-                                                                        const std::vector<Fr>& _scalars,
-                                                                        const Fr& masking_scalar);
+    static std::tuple<std::vector<element>, std::vector<Fr>, element> mask_points(const std::vector<element>& _points,
+                                                                                  const std::vector<Fr>& _scalars);
 
     /**
      * @brief Handle points at infinity in batch operations, replaces (∞, scalar) pairs by (G, 0)
@@ -942,12 +996,32 @@ class element_test_accessor {
         return elem1.checked_unconditional_add_sub(elem2);
     }
 
+    template <typename C, typename Fq, typename Fr, typename G>
+    static auto mask_points(const std::vector<element<C, Fq, Fr, G>>& points, const std::vector<Fr>& scalars)
+    {
+        return element<C, Fq, Fr, G>::mask_points(points, scalars);
+    }
+
     // Overload for goblin_element
     template <typename C, typename Fq, typename Fr, typename G>
     static auto checked_unconditional_add_sub(const element_goblin::goblin_element<C, Fq, Fr, G>& elem1,
                                               const element_goblin::goblin_element<C, Fq, Fr, G>& elem2)
     {
         return elem1.checked_unconditional_add_sub(elem2);
+    }
+
+    /**
+     * @brief Create an element with explicit infinity flag (for testing only).
+     * @details This bypasses the infinity auto-detection of the public constructor.
+     * @warning Use only in tests where you need to control the infinity flag directly.
+     */
+    template <typename C, typename Fq, typename Fr, typename G>
+    static element<C, Fq, Fr, G> create_element_with_explicit_infinity(const Fq& x,
+                                                                       const Fq& y,
+                                                                       const stdlib::bool_t<C>& is_infinity,
+                                                                       bool assert_on_curve = false)
+    {
+        return element<C, Fq, Fr, G>(x, y, is_infinity, assert_on_curve);
     }
 };
 
@@ -982,4 +1056,5 @@ using element = std::conditional_t<IsGoblinBigGroup<C, Fq, Fr, G>,
 #include "biggroup_impl.hpp"
 #include "biggroup_nafs.hpp"
 #include "biggroup_secp256k1.hpp"
+#include "biggroup_secp256r1.hpp"
 #include "biggroup_tables.hpp"

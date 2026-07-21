@@ -1,8 +1,8 @@
-export { type PublicKey, PublicKeys } from '@aztec/stdlib/keys';
+export { type MasterSecretKeys, type PublicKey, PublicKeys } from '@aztec/stdlib/keys';
 export {
   computeAppNullifierHidingKey,
   deriveKeys,
   deriveMasterIncomingViewingSecretKey,
-  deriveMasterNullifierHidingKey,
+  deriveMasterNullifierHidingSecretKey,
 } from '@aztec/stdlib/keys';
 export { generatePublicKey } from '../utils/pub_key.js';

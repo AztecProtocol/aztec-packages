@@ -8,13 +8,9 @@
 import type { BlobClientInterface } from '@aztec/blob-client/client';
 import type { EpochCache } from '@aztec/epoch-cache';
 import { DefaultL1ContractsConfig } from '@aztec/ethereum/config';
-import type {
-  EmpireSlashingProposerContract,
-  GovernanceProposerContract,
-  RollupContract,
-} from '@aztec/ethereum/contracts';
+import type { GovernanceProposerContract, RollupContract, SlashingProposerContract } from '@aztec/ethereum/contracts';
 import { Multicall3 } from '@aztec/ethereum/contracts';
-import type { L1TxUtilsWithBlobs } from '@aztec/ethereum/l1-tx-utils-with-blobs';
+import type { L1TxUtils } from '@aztec/ethereum/l1-tx-utils';
 import { EpochNumber, SlotNumber } from '@aztec/foundation/branded-types';
 import { SecretValue } from '@aztec/foundation/config';
 import { EthAddress } from '@aztec/foundation/eth-address';
@@ -23,7 +19,6 @@ import { TestDateProvider } from '@aztec/foundation/timer';
 import { type KeyStore, KeystoreManager } from '@aztec/node-keystore';
 import type { ProposerSlashAction } from '@aztec/slasher';
 import { AztecAddress } from '@aztec/stdlib/aztec-address';
-import type { SlashFactoryContract } from '@aztec/stdlib/l1-contracts';
 import { getTelemetryClient } from '@aztec/telemetry-client';
 import { HAKeyStore, NodeKeystoreAdapter, type ValidatorClient } from '@aztec/validator-client';
 import type { ValidatorClientConfig } from '@aztec/validator-client/config';
@@ -52,8 +47,8 @@ describe('CheckpointVoter HA Integration', () => {
   // Mock dependencies
   let rollupContract: MockProxy<RollupContract>;
   let governanceProposerContract: MockProxy<GovernanceProposerContract>;
-  let slashingProposerContract: MockProxy<EmpireSlashingProposerContract>;
-  let l1TxUtils: MockProxy<L1TxUtilsWithBlobs>;
+  let slashingProposerContract: MockProxy<SlashingProposerContract>;
+  let l1TxUtils: MockProxy<L1TxUtils>;
   let dateProvider: TestDateProvider;
   let sequencerMetrics: MockProxy<SequencerMetrics>;
   let publisherMetrics: MockProxy<SequencerPublisherMetrics>;
@@ -67,6 +62,8 @@ describe('CheckpointVoter HA Integration', () => {
     l1GenesisTime: 1n,
     slotDuration: 24,
     ethereumSlotDuration: DefaultL1ContractsConfig.ethereumSlotDuration,
+    epochDuration: DefaultL1ContractsConfig.aztecEpochDuration,
+    rollupManaLimit: Number.MAX_SAFE_INTEGER,
   };
 
   /**
@@ -109,55 +106,49 @@ describe('CheckpointVoter HA Integration', () => {
   /**
    * Helper to create mock slashing contract with proper signer invocation
    */
-  function createMockSlashingContract(): MockProxy<EmpireSlashingProposerContract> {
-    const contract = mock<EmpireSlashingProposerContract>();
-    Object.defineProperty(contract, 'type', { value: 'empire', writable: false });
+  function createMockSlashingContract(): MockProxy<SlashingProposerContract> {
+    const contract = mock<SlashingProposerContract>();
     Object.defineProperty(contract, 'address', { value: EthAddress.random(), writable: false });
-    contract.getRoundInfo.mockResolvedValue({
-      lastSignalSlot: SlotNumber(1),
-      payloadWithMostSignals: EthAddress.ZERO.toString(),
-      quorumReached: false,
-      executed: false,
-    });
-    contract.computeRound.mockResolvedValue(1n);
     // Mock must actually call the signer function to trigger HA protection
-    contract.createSignalRequestWithSignature.mockImplementation(
-      async (_payload, _slot, _chainId, _signerAddress, signer) => {
-        const mockTypedData = {
-          domain: { name: 'SlashingProposer', version: '1', chainId: 1 },
-          types: {
-            Signal: [
-              { name: 'payload', type: 'address' },
-              { name: 'slot', type: 'uint256' },
-            ],
-          },
-          primaryType: 'Signal',
-          message: { payload: _payload, slot: _slot.toString() },
-        };
-        await signer(mockTypedData as any);
-        return {
-          to: contract.address.toString(),
-          data: '0x' as any,
-        };
-      },
-    );
+    contract.buildVoteRequestFromSigner.mockImplementation(async (_votes, _slot, signer) => {
+      const mockTypedData = {
+        domain: { name: 'SlashingProposer', version: '1', chainId: 1 },
+        types: {
+          Vote: [
+            { name: 'votes', type: 'bytes' },
+            { name: 'slot', type: 'uint256' },
+          ],
+        },
+        primaryType: 'Vote',
+        message: { votes: _votes, slot: BigInt(_slot) },
+      };
+      await signer(mockTypedData as any);
+      return {
+        to: contract.address.toString(),
+        data: '0x' as any,
+      };
+    });
     return contract;
   }
 
   /**
    * Helper to create mock L1 tx utils
    */
-  function createMockL1TxUtils(validatorAccount: PrivateKeyAccount): MockProxy<L1TxUtilsWithBlobs> {
-    const txUtils = mock<L1TxUtilsWithBlobs>();
+  function createMockL1TxUtils(validatorAccount: PrivateKeyAccount): MockProxy<L1TxUtils> {
+    const txUtils = mock<L1TxUtils>();
     txUtils.client = {
       account: validatorAccount,
       getCode: () => Promise.resolve('0x1234' as `0x${string}`),
+      getGasPrice: () => Promise.resolve(1n),
+      getBlock: () => Promise.resolve({ timestamp: 0n } as any),
     } as any;
     txUtils.getSenderAddress.mockReturnValue(EthAddress.fromString(validatorAccount.address));
+    txUtils.getSenderBalance.mockResolvedValue(10_000_000_000_000_000_000n); // 10 ETH
     txUtils.simulate.mockResolvedValue({
       gasUsed: 100000n,
       result: '0x',
     });
+    (txUtils as any).bumpGasLimit = (val: bigint) => val + (val * 20n) / 100n;
     // Mock getCode to return non-empty bytecode for governance/slashing payloads
     txUtils.getCode.mockResolvedValue('0x1234' as any);
     return txUtils;
@@ -248,14 +239,15 @@ describe('CheckpointVoter HA Integration', () => {
       attestationPollingIntervalMs: 1000,
       disableValidator: false,
       disabledValidators: [],
-      validatorReexecute: false,
       haSigningEnabled: true,
-      l1Contracts: { rollupAddress: EthAddress.fromString(rollupContract.address.toString()) },
+      l1ChainId: 1,
+      rollupAddress: EthAddress.fromString(rollupContract.address.toString()),
       nodeId: config.nodeId || 'ha-node-1',
       pollingIntervalMs: 100,
-      signingTimeoutMs: 3000,
+      peerSigningTimeoutMs: 3000,
       maxStuckDutiesAgeMs: 72000,
-      databaseUrl: 'postgresql://test',
+      databaseUrl: new SecretValue('postgresql://test'),
+      dataStoreMapSizeKb: 128 * 1024 * 1024,
     };
 
     // Create HA signer with pglite pool
@@ -276,6 +268,7 @@ describe('CheckpointVoter HA Integration', () => {
       requiredConfirmations: 1,
       maxL1TxInclusionWaitPulseSeconds: 60,
       ethereumSlotDuration: DefaultL1ContractsConfig.ethereumSlotDuration,
+      aztecSlotDuration: TEST_L1_CONSTANTS.slotDuration,
       fishermanMode: false,
       l1ChainId: 1,
     };
@@ -290,8 +283,8 @@ describe('CheckpointVoter HA Integration', () => {
       ts: BigInt(Math.floor(Date.now() / 1000)),
       nowMs: BigInt(Date.now()),
     });
-
-    const slashFactoryContract = mock<SlashFactoryContract>();
+    epochCache.getSlotNow.mockReturnValue(slot);
+    epochCache.getL1Constants.mockReturnValue(TEST_L1_CONSTANTS as any);
 
     const publisher = new SequencerPublisher(publisherConfig as any, {
       telemetry: getTelemetryClient(),
@@ -300,7 +293,6 @@ describe('CheckpointVoter HA Integration', () => {
       rollupContract,
       slashingProposerContract,
       governanceProposerContract,
-      slashFactoryContract,
       epochCache,
       dateProvider,
       metrics: publisherMetrics,
@@ -470,13 +462,13 @@ describe('CheckpointVoter HA Integration', () => {
   describe('High-Availability slashing vote coordination', () => {
     it('should allow only one sequencer instance to enqueue slashing votes for the same slot', async () => {
       const slot = SlotNumber(200);
-      const slashingPayload = EthAddress.random();
-
       // Create mock slashing actions
       const mockSlashingActions: ProposerSlashAction[] = [
         {
-          type: 'vote-empire-payload',
-          payload: slashingPayload,
+          type: 'vote-offenses',
+          votes: [],
+          committees: [],
+          round: 1n,
         },
       ];
 
@@ -510,13 +502,13 @@ describe('CheckpointVoter HA Integration', () => {
     });
 
     it('should allow different sequencers to vote on slashing for different slots', async () => {
-      const slashingPayload = EthAddress.random();
-
       // Create mock slashing actions
       const mockSlashingActions: ProposerSlashAction[] = [
         {
-          type: 'vote-empire-payload',
-          payload: slashingPayload,
+          type: 'vote-offenses',
+          votes: [],
+          committees: [],
+          round: 1n,
         },
       ];
 
@@ -552,12 +544,12 @@ describe('CheckpointVoter HA Integration', () => {
     it('should coordinate both governance and slashing votes independently and send them correctly', async () => {
       const slot = SlotNumber(300);
       const governancePayload = EthAddress.random();
-      const slashingPayload = EthAddress.random();
-
       const mockSlashingActions: ProposerSlashAction[] = [
         {
-          type: 'vote-empire-payload',
-          payload: slashingPayload,
+          type: 'vote-offenses',
+          votes: [],
+          committees: [],
+          round: 1n,
         },
       ];
 
@@ -614,12 +606,12 @@ describe('CheckpointVoter HA Integration', () => {
       // Test a more realistic scenario: multiple nodes competing for duties across multiple slots
       // This verifies that HA coordination works correctly at scale
       const governancePayload = EthAddress.random();
-      const slashingPayload = EthAddress.random();
-
       const mockSlashingActions: ProposerSlashAction[] = [
         {
-          type: 'vote-empire-payload',
-          payload: slashingPayload,
+          type: 'vote-offenses',
+          votes: [],
+          committees: [],
+          round: 1n,
         },
       ];
 
@@ -673,9 +665,9 @@ describe('CheckpointVoter HA Integration', () => {
       // - Both can independently send their enqueued requests to L1
       const slot = SlotNumber(450);
       const governancePayload = EthAddress.random();
-      const slashingPayload = EthAddress.random();
-
-      const mockSlashingActions: ProposerSlashAction[] = [{ type: 'vote-empire-payload', payload: slashingPayload }];
+      const mockSlashingActions: ProposerSlashAction[] = [
+        { type: 'vote-offenses', votes: [], committees: [], round: 1n },
+      ];
 
       // Node A: only governance (no slashing actions)
       const { voter: voterA, publisher: publisherA } = await createHACheckpointVoterWithSlasher(
@@ -693,7 +685,7 @@ describe('CheckpointVoter HA Integration', () => {
 
       // Clear mock calls before enqueuing to have clean assertions
       governanceProposerContract.createSignalRequestWithSignature.mockClear();
-      slashingProposerContract.createSignalRequestWithSignature.mockClear();
+      slashingProposerContract.buildVoteRequestFromSigner.mockClear();
       forwardSpy.mockClear();
 
       // Mock forwardSpy to simulate successful L1 transaction submission
@@ -703,7 +695,9 @@ describe('CheckpointVoter HA Integration', () => {
           status: 'success',
           logs: [],
         } as any,
-        errorMsg: undefined,
+        stats: undefined,
+        multicallData: '0x',
+        state: {} as any,
       });
 
       // Each node enqueues their respective votes
@@ -750,13 +744,11 @@ describe('CheckpointVoter HA Integration', () => {
       const resultB = await publisherB.sendRequests();
       expect(resultB).toBeDefined();
 
-      // Verify Node B's publisher created the slashing signal with signature
-      expect(slashingProposerContract.createSignalRequestWithSignature).toHaveBeenCalledTimes(1);
-      expect(slashingProposerContract.createSignalRequestWithSignature).toHaveBeenCalledWith(
-        slashingPayload.toString(),
+      // Verify Node B's publisher created the slashing vote request
+      expect(slashingProposerContract.buildVoteRequestFromSigner).toHaveBeenCalledTimes(1);
+      expect(slashingProposerContract.buildVoteRequestFromSigner).toHaveBeenCalledWith(
+        expect.any(String), // encoded votes
         slot,
-        expect.any(Number), // chainId
-        expect.any(String), // signerAddress
         expect.any(Function), // signer function
       );
 

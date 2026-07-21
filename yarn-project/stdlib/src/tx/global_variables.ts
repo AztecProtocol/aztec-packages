@@ -4,13 +4,7 @@ import { randomInt } from '@aztec/foundation/crypto/random';
 import { Fr } from '@aztec/foundation/curves/bn254';
 import { EthAddress } from '@aztec/foundation/eth-address';
 import { jsonStringify } from '@aztec/foundation/json-rpc';
-import {
-  BufferReader,
-  FieldReader,
-  bigintToUInt64BE,
-  serializeToBuffer,
-  serializeToFields,
-} from '@aztec/foundation/serialize';
+import { BufferReader, BufferSink, FieldReader, serializeToFields, serializeToSink } from '@aztec/foundation/serialize';
 import type { FieldsOf } from '@aztec/foundation/types';
 
 import { inspect } from 'util';
@@ -22,10 +16,10 @@ import { schemas } from '../schemas/index.js';
 import type { UInt64 } from '../types/index.js';
 
 /**
- * Global variables that are constant across the entire slot.
- * TODO(palla/mbps): Should timestamp be included here as well?
+ * Global variables that are constant across the entire checkpoint (slot).
+ * Excludes blockNumber since that varies per block within a checkpoint.
  */
-export type CheckpointGlobalVariables = Omit<FieldsOf<GlobalVariables>, 'blockNumber' | 'timestamp'>;
+export type CheckpointGlobalVariables = Omit<FieldsOf<GlobalVariables>, 'blockNumber'>;
 
 /**
  * Global variables of the L2 block.
@@ -131,7 +125,7 @@ export class GlobalVariables {
       SlotNumber(reader.readU32()),
       reader.readField().toBigInt(),
       EthAddress.fromField(reader.readField()),
-      AztecAddress.fromField(reader.readField()),
+      AztecAddress.fromFieldUnsafe(reader.readField()),
       GasFees.fromFields(reader),
     );
   }
@@ -149,17 +143,15 @@ export class GlobalVariables {
     ] as const;
   }
 
-  toBuffer() {
-    return serializeToBuffer([
-      this.chainId,
-      this.version,
-      this.blockNumber,
-      this.slotNumber,
-      bigintToUInt64BE(this.timestamp),
-      this.coinbase,
-      this.feeRecipient,
-      this.gasFees,
-    ]);
+  toBuffer(): Buffer;
+  toBuffer(sink: BufferSink): void;
+  toBuffer(sink?: BufferSink): Buffer | void {
+    if (!sink) {
+      return BufferSink.serialize(this);
+    }
+    serializeToSink(sink, this.chainId, this.version, this.blockNumber, this.slotNumber);
+    sink.writeUInt64(this.timestamp);
+    serializeToSink(sink, this.coinbase, this.feeRecipient, this.gasFees);
   }
 
   toFields() {
@@ -228,7 +220,7 @@ export class GlobalVariables {
       blockNumber: BlockNumber(randomInt(100_000)),
       slotNumber: SlotNumber(randomInt(100_000)),
       coinbase: EthAddress.random(),
-      feeRecipient: AztecAddress.fromField(Fr.random()),
+      feeRecipient: AztecAddress.fromFieldUnsafe(Fr.random()),
       gasFees: GasFees.random(),
       timestamp: BigInt(randomInt(100_000_000)),
       ...overrides,

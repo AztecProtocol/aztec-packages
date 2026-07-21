@@ -5,8 +5,8 @@
 #include <cstddef>
 #include <cstdint>
 
+#include "barretenberg/aztec/aztec_constants.hpp"
 #include "barretenberg/crypto/keccak/keccak.hpp"
-#include "barretenberg/vm2/common/aztec_constants.hpp"
 #include "barretenberg/vm2/common/memory_types.hpp"
 #include "barretenberg/vm2/simulation/events/bitwise_event.hpp"
 #include "barretenberg/vm2/simulation/events/event_emitter.hpp"

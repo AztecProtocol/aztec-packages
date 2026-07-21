@@ -1,19 +1,13 @@
 import { MULTI_CALL_3_ADDRESS, type ViemCommitteeAttestations, type ViemHeader } from '@aztec/ethereum/contracts';
 import type { ViemPublicClient, ViemPublicDebugClient } from '@aztec/ethereum/types';
 import { CheckpointNumber } from '@aztec/foundation/branded-types';
+import { LruSet } from '@aztec/foundation/collection';
 import { Fr } from '@aztec/foundation/curves/bn254';
 import { EthAddress } from '@aztec/foundation/eth-address';
-import type { ViemSignature } from '@aztec/foundation/eth-signature';
 import type { Logger } from '@aztec/foundation/log';
-import {
-  EmpireSlashingProposerAbi,
-  GovernanceProposerAbi,
-  RollupAbi,
-  SlashFactoryAbi,
-  TallySlashingProposerAbi,
-} from '@aztec/l1-artifacts';
+import { RollupAbi } from '@aztec/l1-artifacts';
 import { CommitteeAttestation } from '@aztec/stdlib/block';
-import { ConsensusPayload, SignatureDomainSeparator } from '@aztec/stdlib/p2p';
+import { computeCheckpointPayloadDigest } from '@aztec/stdlib/checkpoint';
 import { CheckpointHeader } from '@aztec/stdlib/rollup';
 
 import {
@@ -30,19 +24,39 @@ import {
 
 import type { ArchiverInstrumentation } from '../modules/instrumentation.js';
 import { getSuccessfulCallsFromDebug } from './debug_tx.js';
-import { getCallFromSpireProposer } from './spire_proposer.js';
+import { getCallsFromSpireProposer } from './spire_proposer.js';
 import { getSuccessfulCallsFromTrace } from './trace_tx.js';
 import type { CallInfo } from './types.js';
 
+/** Decoded checkpoint data from a propose calldata. */
+type CheckpointData = {
+  checkpointNumber: CheckpointNumber;
+  archiveRoot: Fr;
+  header: CheckpointHeader;
+  attestations: CommitteeAttestation[];
+  /**
+   * The exact packed `CommitteeAttestations` tuple as it appears in the propose calldata, preserved
+   * verbatim (never re-derived from {@link attestations}) so invalidation evidence stays byte-faithful to
+   * the on-chain `attestationsHash`.
+   */
+  verbatimAttestations: ViemCommitteeAttestations;
+  blockHash: string;
+  feeAssetPriceModifier: bigint;
+};
+
 /**
  * Extracts calldata to the `propose` method of the rollup contract from an L1 transaction
- * in order to reconstruct an L2 block header.
+ * in order to reconstruct an L2 block header. Uses hash matching against expected hashes
+ * from the CheckpointProposed event to verify the correct propose calldata.
  */
 export class CalldataRetriever {
-  /** Pre-computed valid contract calls for validation */
-  private readonly validContractCalls: ValidContractCall[];
+  /** Tx hashes we've already logged for trace+debug failure (log once per tx per process). */
+  private static readonly traceFailureWarnedTxHashes = new LruSet<string>(1000);
 
-  private readonly rollupAddress: EthAddress;
+  /** Clears the trace-failure warned set. For testing only. */
+  static resetTraceFailureWarnedForTesting(): void {
+    CalldataRetriever.traceFailureWarnedTxHashes.clear();
+  }
 
   constructor(
     private readonly publicClient: ViemPublicClient,
@@ -50,15 +64,14 @@ export class CalldataRetriever {
     private readonly targetCommitteeSize: number,
     private readonly instrumentation: ArchiverInstrumentation | undefined,
     private readonly logger: Logger,
-    contractAddresses: {
-      rollupAddress: EthAddress;
-      governanceProposerAddress: EthAddress;
-      slashingProposerAddress: EthAddress;
-      slashFactoryAddress?: EthAddress;
-    },
-  ) {
-    this.rollupAddress = contractAddresses.rollupAddress;
-    this.validContractCalls = computeValidContractCalls(contractAddresses);
+    private readonly rollupAddress: EthAddress,
+  ) {}
+
+  private getSignatureContext() {
+    return {
+      chainId: this.publicClient.chain.id,
+      rollupAddress: this.rollupAddress,
+    };
   }
 
   /**
@@ -67,7 +80,7 @@ export class CalldataRetriever {
    * @param txHash - Hash of the tx that published it.
    * @param blobHashes - Blob hashes for the checkpoint.
    * @param checkpointNumber - Checkpoint number.
-   * @param expectedHashes - Optional expected hashes from the CheckpointProposed event for validation
+   * @param expectedHashes - Expected hashes from the CheckpointProposed event for validation
    * @returns Checkpoint header and metadata from the calldata, deserialized
    */
   async getCheckpointFromRollupTx(
@@ -75,50 +88,43 @@ export class CalldataRetriever {
     _blobHashes: Buffer[],
     checkpointNumber: CheckpointNumber,
     expectedHashes: {
-      attestationsHash?: Hex;
-      payloadDigest?: Hex;
+      attestationsHash: Hex;
+      payloadDigest: Hex;
     },
-  ): Promise<{
-    checkpointNumber: CheckpointNumber;
-    archiveRoot: Fr;
-    header: CheckpointHeader;
-    attestations: CommitteeAttestation[];
-    blockHash: string;
-  }> {
-    this.logger.trace(`Fetching checkpoint ${checkpointNumber} from rollup tx ${txHash}`, {
-      willValidateHashes: !!expectedHashes.attestationsHash || !!expectedHashes.payloadDigest,
-      hasAttestationsHash: !!expectedHashes.attestationsHash,
-      hasPayloadDigest: !!expectedHashes.payloadDigest,
-    });
+  ): Promise<CheckpointData> {
+    this.logger.trace(`Fetching checkpoint ${checkpointNumber} from rollup tx ${txHash}`);
     const tx = await this.publicClient.getTransaction({ hash: txHash });
-    const proposeCalldata = await this.getProposeCallData(tx, checkpointNumber);
-    return this.decodeAndBuildCheckpoint(proposeCalldata, tx.blockHash!, checkpointNumber, expectedHashes);
+    return this.getCheckpointFromTx(tx, checkpointNumber, expectedHashes);
   }
 
-  /** Gets rollup propose calldata from a transaction */
-  protected async getProposeCallData(tx: Transaction, checkpointNumber: CheckpointNumber): Promise<Hex> {
-    // Try to decode as multicall3 with validation
-    const proposeCalldata = this.tryDecodeMulticall3(tx);
-    if (proposeCalldata) {
+  /** Gets checkpoint data from a transaction by trying decode strategies then falling back to trace. */
+  protected async getCheckpointFromTx(
+    tx: Transaction,
+    checkpointNumber: CheckpointNumber,
+    expectedHashes: { attestationsHash: Hex; payloadDigest: Hex },
+  ): Promise<CheckpointData> {
+    // Try to decode as multicall3 with hash-verified matching
+    const multicall3Result = this.tryDecodeMulticall3(tx, expectedHashes, checkpointNumber, tx.blockHash!);
+    if (multicall3Result) {
       this.logger.trace(`Decoded propose calldata from multicall3 for tx ${tx.hash}`);
       this.instrumentation?.recordBlockProposalTxTarget(tx.to!, false);
-      return proposeCalldata;
+      return multicall3Result;
     }
 
     // Try to decode as direct propose call
-    const directProposeCalldata = this.tryDecodeDirectPropose(tx);
-    if (directProposeCalldata) {
+    const directResult = this.tryDecodeDirectPropose(tx, expectedHashes, checkpointNumber, tx.blockHash!);
+    if (directResult) {
       this.logger.trace(`Decoded propose calldata from direct call for tx ${tx.hash}`);
       this.instrumentation?.recordBlockProposalTxTarget(tx.to!, false);
-      return directProposeCalldata;
+      return directResult;
     }
 
     // Try to decode as Spire Proposer multicall wrapper
-    const spireProposeCalldata = await this.tryDecodeSpireProposer(tx);
-    if (spireProposeCalldata) {
+    const spireResult = await this.tryDecodeSpireProposer(tx, expectedHashes, checkpointNumber, tx.blockHash!);
+    if (spireResult) {
       this.logger.trace(`Decoded propose calldata from Spire Proposer for tx ${tx.hash}`);
       this.instrumentation?.recordBlockProposalTxTarget(tx.to!, false);
-      return spireProposeCalldata;
+      return spireResult;
     }
 
     // Fall back to trace-based extraction
@@ -126,52 +132,82 @@ export class CalldataRetriever {
       `Failed to decode multicall3, direct propose, or Spire proposer for L1 tx ${tx.hash}, falling back to trace for checkpoint ${checkpointNumber}`,
     );
     this.instrumentation?.recordBlockProposalTxTarget(tx.to ?? EthAddress.ZERO.toString(), true);
-    return await this.extractCalldataViaTrace(tx.hash);
+    const tracedCalldata = await this.extractCalldataViaTrace(tx.hash);
+    const tracedResult = this.tryDecodeAndVerifyPropose(
+      tracedCalldata,
+      expectedHashes,
+      checkpointNumber,
+      tx.blockHash!,
+    );
+    if (!tracedResult) {
+      throw new Error(`Hash mismatch for traced propose calldata in tx ${tx.hash} for checkpoint ${checkpointNumber}`);
+    }
+    return tracedResult;
   }
 
   /**
    * Attempts to decode a transaction as a Spire Proposer multicall wrapper.
-   * If successful, extracts the wrapped call and validates it as either multicall3 or direct propose.
+   * If successful, iterates all wrapped calls and validates each as either multicall3
+   * or direct propose, verifying against expected hashes.
    * @param tx - The transaction to decode
-   * @returns The propose calldata if successfully decoded and validated, undefined otherwise
+   * @param expectedHashes - Expected hashes for hash-verified matching
+   * @param checkpointNumber - The checkpoint number
+   * @param blockHash - The L1 block hash
+   * @returns The checkpoint data if successfully decoded and validated, undefined otherwise
    */
-  protected async tryDecodeSpireProposer(tx: Transaction): Promise<Hex | undefined> {
-    // Try to decode as Spire Proposer multicall (extracts the wrapped call)
-    const spireWrappedCall = await getCallFromSpireProposer(tx, this.publicClient, this.logger);
-    if (!spireWrappedCall) {
+  protected async tryDecodeSpireProposer(
+    tx: Transaction,
+    expectedHashes: { attestationsHash: Hex; payloadDigest: Hex },
+    checkpointNumber: CheckpointNumber,
+    blockHash: Hex,
+  ): Promise<CheckpointData | undefined> {
+    // Try to decode as Spire Proposer multicall (extracts all wrapped calls)
+    const spireWrappedCalls = await getCallsFromSpireProposer(tx, this.publicClient, this.logger);
+    if (!spireWrappedCalls) {
       return undefined;
     }
 
-    this.logger.trace(`Decoded Spire Proposer wrapping for tx ${tx.hash}, inner call to ${spireWrappedCall.to}`);
+    this.logger.trace(`Decoded Spire Proposer wrapping for tx ${tx.hash}, ${spireWrappedCalls.length} inner call(s)`);
 
-    // Now try to decode the wrapped call as either multicall3 or direct propose
-    const wrappedTx = { to: spireWrappedCall.to, input: spireWrappedCall.data, hash: tx.hash };
+    // Try each wrapped call as either multicall3 or direct propose
+    for (const spireWrappedCall of spireWrappedCalls) {
+      const wrappedTx = { to: spireWrappedCall.to, input: spireWrappedCall.data, hash: tx.hash };
 
-    const multicall3Calldata = this.tryDecodeMulticall3(wrappedTx);
-    if (multicall3Calldata) {
-      this.logger.trace(`Decoded propose calldata from Spire Proposer to multicall3 for tx ${tx.hash}`);
-      return multicall3Calldata;
-    }
+      const multicall3Result = this.tryDecodeMulticall3(wrappedTx, expectedHashes, checkpointNumber, blockHash);
+      if (multicall3Result) {
+        this.logger.trace(`Decoded propose calldata from Spire Proposer to multicall3 for tx ${tx.hash}`);
+        return multicall3Result;
+      }
 
-    const directProposeCalldata = this.tryDecodeDirectPropose(wrappedTx);
-    if (directProposeCalldata) {
-      this.logger.trace(`Decoded propose calldata from Spire Proposer to direct propose for tx ${tx.hash}`);
-      return directProposeCalldata;
+      const directResult = this.tryDecodeDirectPropose(wrappedTx, expectedHashes, checkpointNumber, blockHash);
+      if (directResult) {
+        this.logger.trace(`Decoded propose calldata from Spire Proposer to direct propose for tx ${tx.hash}`);
+        return directResult;
+      }
     }
 
     this.logger.warn(
-      `Spire Proposer wrapped call could not be decoded as multicall3 or direct propose for tx ${tx.hash}`,
+      `Spire Proposer wrapped calls could not be decoded as multicall3 or direct propose for tx ${tx.hash}`,
     );
     return undefined;
   }
 
   /**
    * Attempts to decode transaction input as multicall3 and extract propose calldata.
-   * Returns undefined if validation fails.
+   * Finds all calls matching the rollup address and propose selector, then decodes
+   * and verifies each candidate against expected hashes from the CheckpointProposed event.
    * @param tx - The transaction-like object with to, input, and hash
-   * @returns The propose calldata if successfully validated, undefined otherwise
+   * @param expectedHashes - Expected hashes from CheckpointProposed event
+   * @param checkpointNumber - The checkpoint number
+   * @param blockHash - The L1 block hash
+   * @returns The checkpoint data if successfully validated, undefined otherwise
    */
-  protected tryDecodeMulticall3(tx: { to: Hex | null | undefined; input: Hex; hash: Hex }): Hex | undefined {
+  protected tryDecodeMulticall3(
+    tx: { to: Hex | null | undefined; input: Hex; hash: Hex },
+    expectedHashes: { attestationsHash: Hex; payloadDigest: Hex },
+    checkpointNumber: CheckpointNumber,
+    blockHash: Hex,
+  ): CheckpointData | undefined {
     const txHash = tx.hash;
 
     try {
@@ -200,59 +236,54 @@ export class CalldataRetriever {
 
       const [calls] = multicall3Args;
 
-      // Validate all calls and find propose calls
+      // Find all calls matching rollup address + propose selector
       const rollupAddressLower = this.rollupAddress.toString().toLowerCase();
-      const proposeCalls: Hex[] = [];
+      const proposeSelectorLower = PROPOSE_SELECTOR.toLowerCase();
+      const candidates: Hex[] = [];
 
-      for (let i = 0; i < calls.length; i++) {
-        const addr = calls[i].target.toLowerCase();
-        const callData = calls[i].callData;
+      for (const call of calls) {
+        const addr = call.target.toLowerCase();
+        const callData = call.callData;
 
-        // Extract function selector (first 4 bytes)
         if (callData.length < 10) {
-          // "0x" + 8 hex chars = 10 chars minimum for a valid function call
-          this.logger.warn(`Invalid calldata length at index ${i} (${callData.length})`, { txHash });
-          return undefined;
+          continue;
         }
-        const functionSelector = callData.slice(0, 10) as Hex;
 
-        // Validate this call is allowed by searching through valid calls
-        const validCall = this.validContractCalls.find(
-          vc => vc.address === addr && vc.functionSelector === functionSelector,
+        const selector = callData.slice(0, 10).toLowerCase();
+        if (addr === rollupAddressLower && selector === proposeSelectorLower) {
+          candidates.push(callData);
+        }
+      }
+
+      if (candidates.length === 0) {
+        this.logger.debug(`No propose candidates found in multicall3`, { txHash });
+        return undefined;
+      }
+
+      // Decode, verify, and build for each candidate
+      const verified: CheckpointData[] = [];
+      for (const candidate of candidates) {
+        const result = this.tryDecodeAndVerifyPropose(candidate, expectedHashes, checkpointNumber, blockHash);
+        if (result) {
+          verified.push(result);
+        }
+      }
+
+      if (verified.length === 1) {
+        this.logger.trace(`Verified single propose candidate via hash matching`, { txHash });
+        return verified[0];
+      }
+
+      if (verified.length > 1) {
+        this.logger.warn(
+          `Multiple propose candidates verified (${verified.length}), returning first (identical data)`,
+          { txHash },
         );
-
-        if (!validCall) {
-          this.logger.warn(`Invalid contract call detected in multicall3`, {
-            index: i,
-            targetAddress: addr,
-            functionSelector,
-            validCalls: this.validContractCalls.map(c => ({ address: c.address, selector: c.functionSelector })),
-            txHash,
-          });
-          return undefined;
-        }
-
-        this.logger.trace(`Valid call found to ${addr}`, { validCall });
-
-        // Collect propose calls specifically
-        if (addr === rollupAddressLower && validCall.functionName === 'propose') {
-          proposeCalls.push(callData);
-        }
+        return verified[0];
       }
 
-      // Validate exactly ONE propose call
-      if (proposeCalls.length === 0) {
-        this.logger.warn(`No propose calls found in multicall3`, { txHash });
-        return undefined;
-      }
-
-      if (proposeCalls.length > 1) {
-        this.logger.warn(`Multiple propose calls found in multicall3 (${proposeCalls.length})`, { txHash });
-        return undefined;
-      }
-
-      // Successfully extracted single propose call
-      return proposeCalls[0];
+      this.logger.debug(`No candidates verified against expected hashes`, { txHash });
+      return undefined;
     } catch (err) {
       // Any decoding error triggers fallback to trace
       this.logger.warn(`Failed to decode multicall3: ${err}`, { txHash });
@@ -262,11 +293,19 @@ export class CalldataRetriever {
 
   /**
    * Attempts to decode transaction as a direct propose call to the rollup contract.
-   * Returns undefined if validation fails.
+   * Decodes, verifies hashes, and builds checkpoint data in a single pass.
    * @param tx - The transaction-like object with to, input, and hash
-   * @returns The propose calldata if successfully validated, undefined otherwise
+   * @param expectedHashes - Expected hashes from CheckpointProposed event
+   * @param checkpointNumber - The checkpoint number
+   * @param blockHash - The L1 block hash
+   * @returns The checkpoint data if successfully validated, undefined otherwise
    */
-  protected tryDecodeDirectPropose(tx: { to: Hex | null | undefined; input: Hex; hash: Hex }): Hex | undefined {
+  protected tryDecodeDirectPropose(
+    tx: { to: Hex | null | undefined; input: Hex; hash: Hex },
+    expectedHashes: { attestationsHash: Hex; payloadDigest: Hex },
+    checkpointNumber: CheckpointNumber,
+    blockHash: Hex,
+  ): CheckpointData | undefined {
     const txHash = tx.hash;
     try {
       // Check if transaction is to the rollup address
@@ -275,18 +314,16 @@ export class CalldataRetriever {
         return undefined;
       }
 
-      // Try to decode as propose call
+      // Validate it's a propose call before full decode+verify
       const { functionName } = decodeFunctionData({ abi: RollupAbi, data: tx.input });
-
-      // If not propose, return undefined
       if (functionName !== 'propose') {
         this.logger.warn(`Transaction to rollup is not propose (got ${functionName})`, { txHash });
         return undefined;
       }
 
-      // Successfully validated direct propose call
+      // Decode, verify hashes, and build checkpoint data
       this.logger.trace(`Validated direct propose call to rollup`, { txHash });
-      return tx.input;
+      return this.tryDecodeAndVerifyPropose(tx.input, expectedHashes, checkpointNumber, blockHash);
     } catch (err) {
       // Any decoding error means it's not a valid propose call
       this.logger.warn(`Failed to decode as direct propose: ${err}`, { txHash });
@@ -313,7 +350,8 @@ export class CalldataRetriever {
       this.logger.debug(`Successfully traced using trace_transaction, found ${calls.length} calls`);
     } catch (err) {
       const traceError = err instanceof Error ? err : new Error(String(err));
-      this.logger.verbose(`Failed trace_transaction for ${txHash}`, { traceError });
+      this.logger.verbose(`Failed trace_transaction for ${txHash}: ${traceError.message}`);
+      this.logger.debug(`Trace failure details for ${txHash}`, { traceError });
 
       try {
         // Fall back to debug_traceTransaction (Geth RPC)
@@ -322,7 +360,16 @@ export class CalldataRetriever {
         this.logger.debug(`Successfully traced using debug_traceTransaction, found ${calls.length} calls`);
       } catch (debugErr) {
         const debugError = debugErr instanceof Error ? debugErr : new Error(String(debugErr));
-        this.logger.warn(`All tracing methods failed for tx ${txHash}`, {
+        // Log once per tx so we don't spam on every sync cycle when sync point doesn't advance
+        if (!CalldataRetriever.traceFailureWarnedTxHashes.has(txHash)) {
+          CalldataRetriever.traceFailureWarnedTxHashes.add(txHash);
+          this.logger.warn(
+            `Cannot decode L1 tx ${txHash}: trace and debug RPC failed or unavailable. ` +
+              `trace_transaction: ${traceError.message}; debug_traceTransaction: ${debugError.message}`,
+          );
+        }
+        // Full error objects can be very long; keep at debug only
+        this.logger.debug(`Trace/debug failure details for tx ${txHash}`, {
           traceError,
           debugError,
           txHash,
@@ -345,9 +392,105 @@ export class CalldataRetriever {
   }
 
   /**
+   * Decodes propose calldata, verifies against expected hashes, and builds checkpoint data.
+   * Returns undefined on decode errors or hash mismatches (soft failure for try-based callers).
+   * @param proposeCalldata - The propose function calldata
+   * @param expectedHashes - Expected hashes from the CheckpointProposed event
+   * @param checkpointNumber - The checkpoint number
+   * @param blockHash - The L1 block hash
+   * @returns The decoded checkpoint data, or undefined on failure
+   */
+  protected tryDecodeAndVerifyPropose(
+    proposeCalldata: Hex,
+    expectedHashes: { attestationsHash: Hex; payloadDigest: Hex },
+    checkpointNumber: CheckpointNumber,
+    blockHash: Hex,
+  ): CheckpointData | undefined {
+    try {
+      const { functionName, args } = decodeFunctionData({ abi: RollupAbi, data: proposeCalldata });
+      if (functionName !== 'propose') {
+        return undefined;
+      }
+
+      const [decodedArgs, verbatimAttestations] = args! as readonly [
+        { archive: Hex; oracleInput: { feeAssetPriceModifier: bigint }; header: ViemHeader },
+        ViemCommitteeAttestations,
+        ...unknown[],
+      ];
+
+      // Verify attestationsHash
+      const computedAttestationsHash = this.computeAttestationsHash(verbatimAttestations);
+      if (
+        !Buffer.from(hexToBytes(computedAttestationsHash)).equals(
+          Buffer.from(hexToBytes(expectedHashes.attestationsHash)),
+        )
+      ) {
+        this.logger.warn(`Attestations hash mismatch during verification`, {
+          computed: computedAttestationsHash,
+          expected: expectedHashes.attestationsHash,
+        });
+        return undefined;
+      }
+
+      // Verify payloadDigest
+      const header = CheckpointHeader.fromViem(decodedArgs.header);
+      const archiveRoot = new Fr(Buffer.from(hexToBytes(decodedArgs.archive)));
+      const feeAssetPriceModifier = decodedArgs.oracleInput.feeAssetPriceModifier;
+      const computedPayloadDigest = this.computePayloadDigest(header, archiveRoot, feeAssetPriceModifier);
+      if (
+        !Buffer.from(hexToBytes(computedPayloadDigest)).equals(Buffer.from(hexToBytes(expectedHashes.payloadDigest)))
+      ) {
+        this.logger.warn(`Payload digest mismatch during verification`, {
+          computed: computedPayloadDigest,
+          expected: expectedHashes.payloadDigest,
+        });
+        return undefined;
+      }
+
+      const attestations = CommitteeAttestation.fromPacked(verbatimAttestations, this.targetCommitteeSize);
+
+      this.logger.trace(`Validated and decoded propose calldata for checkpoint ${checkpointNumber}`, {
+        checkpointNumber,
+        archive: decodedArgs.archive,
+        header: decodedArgs.header,
+        l1BlockHash: blockHash,
+        attestations,
+        verbatimAttestations,
+        targetCommitteeSize: this.targetCommitteeSize,
+      });
+
+      return {
+        checkpointNumber,
+        archiveRoot,
+        header,
+        attestations,
+        verbatimAttestations,
+        blockHash,
+        feeAssetPriceModifier,
+      };
+    } catch {
+      return undefined;
+    }
+  }
+
+  /** Computes the keccak256 hash of ABI-encoded CommitteeAttestations. */
+  private computeAttestationsHash(verbatimAttestations: ViemCommitteeAttestations): Hex {
+    return keccak256(encodeAbiParameters([this.getCommitteeAttestationsStructDef()], [verbatimAttestations]));
+  }
+
+  /** Computes the keccak256 payload digest from the checkpoint header, archive root, and fee asset price modifier. */
+  private computePayloadDigest(header: CheckpointHeader, archiveRoot: Fr, feeAssetPriceModifier: bigint): Hex {
+    return computeCheckpointPayloadDigest({
+      header,
+      archiveRoot,
+      feeAssetPriceModifier,
+      signatureContext: this.getSignatureContext(),
+    }).toString();
+  }
+
+  /**
    * Extracts the CommitteeAttestations struct definition from RollupAbi.
    * Finds the _attestations parameter by name in the propose function.
-   * Lazy-loaded to avoid issues during module initialization.
    */
   private getCommitteeAttestationsStructDef(): AbiParameter {
     const proposeFunction = RollupAbi.find(item => item.type === 'function' && item.name === 'propose') as
@@ -380,262 +523,7 @@ export class CalldataRetriever {
       components: tupleParam.components || [],
     } as AbiParameter;
   }
-
-  /**
-   * Decodes propose calldata and builds the checkpoint header structure.
-   * @param proposeCalldata - The propose function calldata
-   * @param blockHash - The L1 block hash containing this transaction
-   * @param checkpointNumber - The checkpoint number
-   * @param expectedHashes - Optional expected hashes from the CheckpointProposed event for validation
-   * @returns The decoded checkpoint header and metadata
-   */
-  protected decodeAndBuildCheckpoint(
-    proposeCalldata: Hex,
-    blockHash: Hex,
-    checkpointNumber: CheckpointNumber,
-    expectedHashes: {
-      attestationsHash?: Hex;
-      payloadDigest?: Hex;
-    },
-  ): {
-    checkpointNumber: CheckpointNumber;
-    archiveRoot: Fr;
-    header: CheckpointHeader;
-    attestations: CommitteeAttestation[];
-    blockHash: string;
-  } {
-    const { functionName: rollupFunctionName, args: rollupArgs } = decodeFunctionData({
-      abi: RollupAbi,
-      data: proposeCalldata,
-    });
-
-    if (rollupFunctionName !== 'propose') {
-      throw new Error(`Unexpected rollup method called ${rollupFunctionName}`);
-    }
-
-    const [decodedArgs, packedAttestations, _signers, _attestationsAndSignersSignature, _blobInput] =
-      rollupArgs! as readonly [
-        {
-          archive: Hex;
-          oracleInput: { feeAssetPriceModifier: bigint };
-          header: ViemHeader;
-        },
-        ViemCommitteeAttestations,
-        Hex[],
-        ViemSignature,
-        Hex,
-      ];
-
-    const attestations = CommitteeAttestation.fromPacked(packedAttestations, this.targetCommitteeSize);
-    const header = CheckpointHeader.fromViem(decodedArgs.header);
-    const archiveRoot = new Fr(Buffer.from(hexToBytes(decodedArgs.archive)));
-
-    // Validate attestationsHash if provided (skip for backwards compatibility with older events)
-    if (expectedHashes.attestationsHash) {
-      // Compute attestationsHash: keccak256(abi.encode(CommitteeAttestations))
-      const computedAttestationsHash = keccak256(
-        encodeAbiParameters([this.getCommitteeAttestationsStructDef()], [packedAttestations]),
-      );
-
-      // Compare as buffers to avoid case-sensitivity and string comparison issues
-      const computedBuffer = Buffer.from(hexToBytes(computedAttestationsHash));
-      const expectedBuffer = Buffer.from(hexToBytes(expectedHashes.attestationsHash));
-
-      if (!computedBuffer.equals(expectedBuffer)) {
-        throw new Error(
-          `Attestations hash mismatch for checkpoint ${checkpointNumber}: ` +
-            `computed=${computedAttestationsHash}, expected=${expectedHashes.attestationsHash}`,
-        );
-      }
-
-      this.logger.trace(`Validated attestationsHash for checkpoint ${checkpointNumber}`, {
-        computedAttestationsHash,
-        expectedAttestationsHash: expectedHashes.attestationsHash,
-      });
-    }
-
-    // Validate payloadDigest if provided (skip for backwards compatibility with older events)
-    if (expectedHashes.payloadDigest) {
-      // Use ConsensusPayload to compute the digest - this ensures we match the exact logic
-      // used by the network for signing and verification
-      const consensusPayload = new ConsensusPayload(header, archiveRoot);
-      const payloadToSign = consensusPayload.getPayloadToSign(SignatureDomainSeparator.checkpointAttestation);
-      const computedPayloadDigest = keccak256(payloadToSign);
-
-      // Compare as buffers to avoid case-sensitivity and string comparison issues
-      const computedBuffer = Buffer.from(hexToBytes(computedPayloadDigest));
-      const expectedBuffer = Buffer.from(hexToBytes(expectedHashes.payloadDigest));
-
-      if (!computedBuffer.equals(expectedBuffer)) {
-        throw new Error(
-          `Payload digest mismatch for checkpoint ${checkpointNumber}: ` +
-            `computed=${computedPayloadDigest}, expected=${expectedHashes.payloadDigest}`,
-        );
-      }
-
-      this.logger.trace(`Validated payloadDigest for checkpoint ${checkpointNumber}`, {
-        computedPayloadDigest,
-        expectedPayloadDigest: expectedHashes.payloadDigest,
-      });
-    }
-
-    this.logger.trace(`Decoded propose calldata`, {
-      checkpointNumber,
-      archive: decodedArgs.archive,
-      header: decodedArgs.header,
-      l1BlockHash: blockHash,
-      attestations,
-      packedAttestations,
-      targetCommitteeSize: this.targetCommitteeSize,
-    });
-
-    return {
-      checkpointNumber,
-      archiveRoot,
-      header,
-      attestations,
-      blockHash,
-    };
-  }
 }
 
-/**
- * Pre-computed function selectors for all valid contract calls.
- * These are computed once at module load time from the ABIs.
- * Based on analysis of sequencer-client/src/publisher/sequencer-publisher.ts
- */
-
-// Rollup contract function selectors (always valid)
+/** Function selector for the `propose` method of the rollup contract. */
 const PROPOSE_SELECTOR = toFunctionSelector(RollupAbi.find(x => x.type === 'function' && x.name === 'propose')!);
-const INVALIDATE_BAD_ATTESTATION_SELECTOR = toFunctionSelector(
-  RollupAbi.find(x => x.type === 'function' && x.name === 'invalidateBadAttestation')!,
-);
-const INVALIDATE_INSUFFICIENT_ATTESTATIONS_SELECTOR = toFunctionSelector(
-  RollupAbi.find(x => x.type === 'function' && x.name === 'invalidateInsufficientAttestations')!,
-);
-
-// Governance proposer function selectors
-const GOVERNANCE_SIGNAL_WITH_SIG_SELECTOR = toFunctionSelector(
-  GovernanceProposerAbi.find(x => x.type === 'function' && x.name === 'signalWithSig')!,
-);
-
-// Slash factory function selectors
-const CREATE_SLASH_PAYLOAD_SELECTOR = toFunctionSelector(
-  SlashFactoryAbi.find(x => x.type === 'function' && x.name === 'createSlashPayload')!,
-);
-
-// Empire slashing proposer function selectors
-const EMPIRE_SIGNAL_WITH_SIG_SELECTOR = toFunctionSelector(
-  EmpireSlashingProposerAbi.find(x => x.type === 'function' && x.name === 'signalWithSig')!,
-);
-const EMPIRE_SUBMIT_ROUND_WINNER_SELECTOR = toFunctionSelector(
-  EmpireSlashingProposerAbi.find(x => x.type === 'function' && x.name === 'submitRoundWinner')!,
-);
-
-// Tally slashing proposer function selectors
-const TALLY_VOTE_SELECTOR = toFunctionSelector(
-  TallySlashingProposerAbi.find(x => x.type === 'function' && x.name === 'vote')!,
-);
-const TALLY_EXECUTE_ROUND_SELECTOR = toFunctionSelector(
-  TallySlashingProposerAbi.find(x => x.type === 'function' && x.name === 'executeRound')!,
-);
-
-/**
- * Defines a valid contract call that can appear in a sequencer publisher transaction
- */
-interface ValidContractCall {
-  /** Contract address (lowercase for comparison) */
-  address: string;
-  /** Function selector (4 bytes) */
-  functionSelector: Hex;
-  /** Human-readable function name for logging */
-  functionName: string;
-}
-
-/**
- * All valid contract calls that the sequencer publisher can make.
- * Builds the list of valid (address, selector) pairs for validation.
- *
- * Alternatively, if we are absolutely sure that no code path from any of these
- * contracts can eventually land on another call to `propose`, we can remove the
- * function selectors.
- */
-function computeValidContractCalls(addresses: {
-  rollupAddress: EthAddress;
-  governanceProposerAddress?: EthAddress;
-  slashFactoryAddress?: EthAddress;
-  slashingProposerAddress?: EthAddress;
-}): ValidContractCall[] {
-  const { rollupAddress, governanceProposerAddress, slashFactoryAddress, slashingProposerAddress } = addresses;
-  const calls: ValidContractCall[] = [];
-
-  // Rollup contract calls (always present)
-  calls.push(
-    {
-      address: rollupAddress.toString().toLowerCase(),
-      functionSelector: PROPOSE_SELECTOR,
-      functionName: 'propose',
-    },
-    {
-      address: rollupAddress.toString().toLowerCase(),
-      functionSelector: INVALIDATE_BAD_ATTESTATION_SELECTOR,
-      functionName: 'invalidateBadAttestation',
-    },
-    {
-      address: rollupAddress.toString().toLowerCase(),
-      functionSelector: INVALIDATE_INSUFFICIENT_ATTESTATIONS_SELECTOR,
-      functionName: 'invalidateInsufficientAttestations',
-    },
-  );
-
-  // Governance proposer calls (optional)
-  if (governanceProposerAddress && !governanceProposerAddress.isZero()) {
-    calls.push({
-      address: governanceProposerAddress.toString().toLowerCase(),
-      functionSelector: GOVERNANCE_SIGNAL_WITH_SIG_SELECTOR,
-      functionName: 'signalWithSig',
-    });
-  }
-
-  // Slash factory calls (optional)
-  if (slashFactoryAddress && !slashFactoryAddress.isZero()) {
-    calls.push({
-      address: slashFactoryAddress.toString().toLowerCase(),
-      functionSelector: CREATE_SLASH_PAYLOAD_SELECTOR,
-      functionName: 'createSlashPayload',
-    });
-  }
-
-  // Slashing proposer calls (optional, can be either Empire or Tally)
-  if (slashingProposerAddress && !slashingProposerAddress.isZero()) {
-    // Empire calls
-    calls.push(
-      {
-        address: slashingProposerAddress.toString().toLowerCase(),
-        functionSelector: EMPIRE_SIGNAL_WITH_SIG_SELECTOR,
-        functionName: 'signalWithSig (empire)',
-      },
-      {
-        address: slashingProposerAddress.toString().toLowerCase(),
-        functionSelector: EMPIRE_SUBMIT_ROUND_WINNER_SELECTOR,
-        functionName: 'submitRoundWinner',
-      },
-    );
-
-    // Tally calls
-    calls.push(
-      {
-        address: slashingProposerAddress.toString().toLowerCase(),
-        functionSelector: TALLY_VOTE_SELECTOR,
-        functionName: 'vote',
-      },
-      {
-        address: slashingProposerAddress.toString().toLowerCase(),
-        functionSelector: TALLY_EXECUTE_ROUND_SELECTOR,
-        functionName: 'executeRound',
-      },
-    );
-  }
-
-  return calls;
-}

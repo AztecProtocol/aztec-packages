@@ -1,20 +1,22 @@
-import { BlockNumber } from '@aztec/foundation/branded-types';
+import { BlockNumber, SlotNumber } from '@aztec/foundation/branded-types';
 import { Fr } from '@aztec/foundation/curves/bn254';
+import type { Logger } from '@aztec/foundation/log';
 import { openTmpStore } from '@aztec/kv-store/lmdb-v2';
 import { EventSelector } from '@aztec/stdlib/abi';
 import { AztecAddress } from '@aztec/stdlib/aztec-address';
 import { BlockHash } from '@aztec/stdlib/block';
-import { siloNullifier } from '@aztec/stdlib/hash';
+import { computePrivateEventCommitment, siloNullifier } from '@aztec/stdlib/hash';
 import type { AztecNode } from '@aztec/stdlib/interfaces/server';
 import { makeBlockHeader } from '@aztec/stdlib/testing';
 import { type IndexedTxEffect, TxEffect } from '@aztec/stdlib/tx';
 
 import { mock } from 'jest-mock-extended';
 
+import type { EventValidationRequest } from '../contract_function_simulator/noir-structs/event_validation_request.js';
 import { PrivateEventStore } from '../storage/private_event_store/private_event_store.js';
 import { EventService } from './event_service.js';
 
-describe('validateAndStoreEvent', () => {
+describe('validateAndStoreEvents', () => {
   let blockNumber: BlockNumber;
   let eventSelector: EventSelector;
   let randomness: Fr;
@@ -28,6 +30,7 @@ describe('validateAndStoreEvent', () => {
 
   let privateEventStore: PrivateEventStore;
   let aztecNode: ReturnType<typeof mock<AztecNode>>;
+  let logger: ReturnType<typeof mock<Logger>>;
 
   let eventService: EventService;
 
@@ -47,7 +50,7 @@ describe('validateAndStoreEvent', () => {
     randomness = Fr.random();
     eventContent = [Fr.random(), Fr.random()];
 
-    eventCommitment = Fr.random();
+    eventCommitment = await computePrivateEventCommitment(randomness, eventSelector.toField(), eventContent);
     eventNullifier = await siloNullifier(contractAddress, eventCommitment);
 
     txEffect = TxEffect.from({
@@ -60,56 +63,86 @@ describe('validateAndStoreEvent', () => {
       l2BlockHash: BlockHash.random(),
       data: txEffect,
       txIndexInBlock: 0,
+      slotNumber: SlotNumber(Number(blockNumber)),
     };
 
     /* Happy path context conditions:
      ** - PXE is sync'd to _at least_ block including tx
-     ** - Node returns the corresponding tx effect and the tx effect includes the event commitment
+     ** - Caller provides the corresponding tx effect via the prefetched map and the tx effect includes the event
+     **   commitment.
      */
     const anchorBlockHeader = makeBlockHeader(0, { blockNumber });
 
-    aztecNode.getTxEffect.mockImplementation(() => Promise.resolve(indexedTxEffect));
-
-    eventService = new EventService(anchorBlockHeader, aztecNode, privateEventStore, 'test');
+    logger = mock<Logger>();
+    eventService = new EventService(anchorBlockHeader, aztecNode, privateEventStore, 'test', logger);
   });
 
   async function runStoreEvent(
     overrides: {
+      eventContent?: Fr[];
       eventCommitment?: Fr;
+      txEffectsMap?: Map<string, IndexedTxEffect>;
     } = {},
   ) {
-    await eventService.validateAndStoreEvent(
+    const request: EventValidationRequest = {
       contractAddress,
-      eventSelector,
+      eventTypeId: eventSelector,
       randomness,
-      eventContent,
-      overrides.eventCommitment || eventCommitment,
-      txEffect.txHash,
-      recipient,
-    );
+      serializedEvent: overrides.eventContent ?? eventContent,
+      eventCommitment: overrides.eventCommitment ?? eventCommitment,
+      txHash: txEffect.txHash,
+    };
+
+    const map = overrides.txEffectsMap ?? defaultTxEffectsMap();
+    await eventService.validateAndStoreEvents([request], recipient, map);
 
     await privateEventStore.commit('test');
   }
 
   it('should throw when tx does not exist or has no effects', async () => {
-    aztecNode.getTxEffect.mockImplementation(() => Promise.resolve(undefined));
-    await expect(runStoreEvent).rejects.toThrow(/Could not find tx effect for tx hash/);
+    const txEffectsMap = new Map();
+    await expect(() => runStoreEvent({ txEffectsMap })).rejects.toThrow(/Could not find tx effect for tx hash/);
   });
 
   it('should throw when tx block has not yet been synchronized', async () => {
-    indexedTxEffect = {
-      ...indexedTxEffect,
-      l2BlockNumber: BlockNumber(blockNumber + 1),
-    };
-    aztecNode.getTxEffect.mockImplementation(() => Promise.resolve(indexedTxEffect));
-
-    await expect(runStoreEvent).rejects.toThrow(/Could not find tx effect for tx hash .* as of block number/);
+    const laterIndexedTxEffect = { ...indexedTxEffect, l2BlockNumber: BlockNumber(blockNumber + 1) };
+    const txEffectsMap = new Map([[txEffect.txHash.toString(), laterIndexedTxEffect]]);
+    await expect(() => runStoreEvent({ txEffectsMap })).rejects.toThrow(
+      /Obtained a newer tx effect for .* for an event validation request than the anchor block/,
+    );
   });
 
-  it('should throw if event commitment is not in the tx effects', async () => {
-    await expect(runStoreEvent({ eventCommitment: Fr.random() })).rejects.toThrow(
-      /Event commitment .* is not present in tx/,
-    );
+  it('should not store event if event commitment is not in the tx effects', async () => {
+    // Use a valid (content -> commitment) pair that just isn't present in the tx.
+    const otherContent = [Fr.random()];
+    const otherCommitment = await computePrivateEventCommitment(randomness, eventSelector.toField(), otherContent);
+
+    await runStoreEvent({ eventContent: otherContent, eventCommitment: otherCommitment });
+
+    const result = await privateEventStore.getPrivateEvents(eventSelector, {
+      contractAddress,
+      fromBlock: blockNumber,
+      toBlock: blockNumber + 1,
+      scopes: [recipient],
+    });
+
+    expect(result.length).toEqual(0);
+    expect(logger.warn).toHaveBeenCalledWith(expect.stringMatching(/commitment is not present in its tx/));
+  });
+
+  it('should not store event if content does not match the event commitment', async () => {
+    // Commitment is legitimately present in the tx, but the provided content does not hash to it.
+    await runStoreEvent({ eventContent: [Fr.random(), Fr.random()] });
+
+    const result = await privateEventStore.getPrivateEvents(eventSelector, {
+      contractAddress,
+      fromBlock: blockNumber,
+      toBlock: blockNumber + 1,
+      scopes: [recipient],
+    });
+
+    expect(result.length).toEqual(0);
+    expect(logger.warn).toHaveBeenCalledWith(expect.stringMatching(/content does not hash to the provided commitment/));
   });
 
   it('should store event for later retrieval', async () => {
@@ -126,4 +159,8 @@ describe('validateAndStoreEvent', () => {
     expect(result.length).toEqual(1);
     expect(result[0].packedEvent).toEqual(eventContent);
   });
+
+  function defaultTxEffectsMap() {
+    return new Map([[txEffect.txHash.toString(), indexedTxEffect]]);
+  }
 });

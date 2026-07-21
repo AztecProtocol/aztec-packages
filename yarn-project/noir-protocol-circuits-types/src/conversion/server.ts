@@ -6,12 +6,12 @@ import {
   SpongeBlob,
 } from '@aztec/blob-lib/types';
 import {
-  AVM_V2_PROOF_LENGTH_IN_FIELDS_PADDED,
-  AZTEC_MAX_EPOCH_DURATION,
+  AVM_V2_PROOF_LENGTH_IN_FIELDS,
   BLS12_FQ_LIMBS,
   BLS12_FR_LIMBS,
   CONTRACT_CLASS_LOG_SIZE_IN_FIELDS,
   FLAT_PUBLIC_LOGS_PAYLOAD_LENGTH,
+  MAX_CHECKPOINTS_PER_EPOCH,
   type NULLIFIER_TREE_HEIGHT,
   ULTRA_VK_LENGTH_IN_FIELDS,
 } from '@aztec/constants';
@@ -457,7 +457,7 @@ function mapProofDataToNoir<T extends Bufferable, TN, PROOF_LENGTH extends numbe
 
 // Not generic since only one type exists on noir.
 export function mapAvmProofDataToNoir(
-  proofData: ProofDataForFixedVk<AvmCircuitPublicInputs, typeof AVM_V2_PROOF_LENGTH_IN_FIELDS_PADDED>,
+  proofData: ProofDataForFixedVk<AvmCircuitPublicInputs, typeof AVM_V2_PROOF_LENGTH_IN_FIELDS>,
 ): ProofDataForFixedVkNoir {
   return {
     public_inputs: mapAvmCircuitPublicInputsToNoir(proofData.publicInputs),
@@ -470,6 +470,7 @@ function mapParityPublicInputsToNoir(parityPublicInputs: ParityPublicInputs): Pa
     sha_root: mapFieldToNoir(parityPublicInputs.shaRoot),
     converted_root: mapFieldToNoir(parityPublicInputs.convertedRoot),
     vk_tree_root: mapFieldToNoir(parityPublicInputs.vkTreeRoot),
+    prover_id: mapFieldToNoir(parityPublicInputs.proverId),
   };
 }
 
@@ -485,8 +486,8 @@ export function mapRootRollupPublicInputsFromNoir(
     mapFieldFromNoir(rootRollupPublicInputs.previous_archive_root),
     mapFieldFromNoir(rootRollupPublicInputs.new_archive_root),
     mapFieldFromNoir(rootRollupPublicInputs.out_hash),
-    mapTupleFromNoir(rootRollupPublicInputs.checkpoint_header_hashes, AZTEC_MAX_EPOCH_DURATION, mapFieldFromNoir),
-    mapTupleFromNoir(rootRollupPublicInputs.fees, AZTEC_MAX_EPOCH_DURATION, mapFeeRecipientFromNoir),
+    mapTupleFromNoir(rootRollupPublicInputs.checkpoint_header_hashes, MAX_CHECKPOINTS_PER_EPOCH, mapFieldFromNoir),
+    mapTupleFromNoir(rootRollupPublicInputs.fees, MAX_CHECKPOINTS_PER_EPOCH, mapFeeRecipientFromNoir),
     mapEpochConstantDataFromNoir(rootRollupPublicInputs.constants),
     mapFinalBlobAccumulatorFromNoir(rootRollupPublicInputs.blob_public_inputs),
   );
@@ -502,6 +503,7 @@ export function mapParityPublicInputsFromNoir(parityPublicInputs: ParityPublicIn
     mapFieldFromNoir(parityPublicInputs.sha_root),
     mapFieldFromNoir(parityPublicInputs.converted_root),
     mapFieldFromNoir(parityPublicInputs.vk_tree_root),
+    mapFieldFromNoir(parityPublicInputs.prover_id),
   );
 }
 
@@ -638,8 +640,8 @@ export function mapCheckpointRollupPublicInputsFromNoir(inputs: CheckpointRollup
     mapAppendOnlyTreeSnapshotFromNoir(inputs.new_archive),
     mapAppendOnlyTreeSnapshotFromNoir(inputs.previous_out_hash),
     mapAppendOnlyTreeSnapshotFromNoir(inputs.new_out_hash),
-    mapTupleFromNoir(inputs.checkpoint_header_hashes, AZTEC_MAX_EPOCH_DURATION, mapFieldFromNoir),
-    mapTupleFromNoir(inputs.fees, AZTEC_MAX_EPOCH_DURATION, mapFeeRecipientFromNoir),
+    mapTupleFromNoir(inputs.checkpoint_header_hashes, MAX_CHECKPOINTS_PER_EPOCH, mapFieldFromNoir),
+    mapTupleFromNoir(inputs.fees, MAX_CHECKPOINTS_PER_EPOCH, mapFeeRecipientFromNoir),
     mapBlobAccumulatorFromNoir(inputs.start_blob_accumulator),
     mapBlobAccumulatorFromNoir(inputs.end_blob_accumulator),
     mapFinalBlobBatchingChallengesFromNoir(inputs.final_blob_challenges),
@@ -673,7 +675,7 @@ export function mapPrivateToPublicKernelCircuitPublicInputsFromNoir(
     mapPublicCallRequestFromNoir(inputs.public_teardown_call_request),
     mapGasFromNoir(inputs.gas_used),
     mapAztecAddressFromNoir(inputs.fee_payer),
-    mapU64FromNoir(inputs.include_by_timestamp),
+    mapU64FromNoir(inputs.expiration_timestamp),
   );
 }
 
@@ -701,6 +703,7 @@ export function mapParityBasePrivateInputsToNoir(inputs: ParityBasePrivateInputs
   return {
     msgs: mapTuple(inputs.msgs, mapFieldToNoir),
     vk_tree_root: mapFieldToNoir(inputs.vkTreeRoot),
+    prover_id: mapFieldToNoir(inputs.proverId),
   };
 }
 

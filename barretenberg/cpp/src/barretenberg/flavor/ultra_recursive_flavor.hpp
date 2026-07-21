@@ -1,20 +1,11 @@
 // === AUDIT STATUS ===
-// internal:    { status: Planned, auditors: [], commit: }
+// internal:    { status: Completed, auditors: [Sergei], commit: }
 // external_1:  { status: not started, auditors: [], commit: }
 // external_2:  { status: not started, auditors: [], commit: }
 // =====================
 
 #pragma once
 #include "barretenberg/flavor/ultra_flavor.hpp"
-#include "barretenberg/srs/factories/crs_factory.hpp"
-
-#include <array>
-#include <concepts>
-#include <span>
-#include <string>
-#include <type_traits>
-#include <vector>
-
 #include "barretenberg/stdlib/primitives/curves/bn254.hpp"
 #include "barretenberg/stdlib/primitives/field/field.hpp"
 
@@ -51,22 +42,20 @@ template <typename BuilderType> class UltraRecursiveFlavor_ {
     // indicates when evaluating sumcheck, edges can be left as degree-1 monomials
     static constexpr bool USE_SHORT_MONOMIALS = UltraFlavor::USE_SHORT_MONOMIALS;
 
-    // Note(luke): Eventually this may not be needed at all
-    using VerifierCommitmentKey = bb::VerifierCommitmentKey<NativeFlavor::Curve>;
     // Indicates that this flavor runs with non-ZK Sumcheck.
     static constexpr bool HasZK = false;
+    static constexpr bool HasLogDerivLookup = UltraFlavor::HasLogDerivLookup;
+    static constexpr bool HasElliptic = UltraFlavor::HasElliptic;
+    static constexpr bool HasMemory = UltraFlavor::HasMemory;
+    static constexpr bool HasNonNativeField = UltraFlavor::HasNonNativeField;
+    static constexpr bool HasEccOpQueue = UltraFlavor::HasEccOpQueue;
+    static constexpr bool HasDataBus = UltraFlavor::HasDataBus;
     // To achieve fixed proof size and that the recursive verifier circuit is constant, we are using padding in Sumcheck
     // and Shplemini
     static constexpr bool USE_PADDING = UltraFlavor::USE_PADDING;
     static constexpr size_t NUM_WIRES = UltraFlavor::NUM_WIRES;
-    // The number of multivariate polynomials on which a sumcheck prover sumcheck operates (including shifts). We often
-    // need containers of this size to hold related data, so we choose a name more agnostic than `NUM_POLYNOMIALS`.
-    // Note: this number does not include the individual sorted list polynomials.
     static constexpr size_t NUM_ALL_ENTITIES = UltraFlavor::NUM_ALL_ENTITIES;
-    // The number of polynomials precomputed to describe a circuit and to aid a prover in constructing a satisfying
-    // assignment of witnesses. We again choose a neutral name.
     static constexpr size_t NUM_PRECOMPUTED_ENTITIES = UltraFlavor::NUM_PRECOMPUTED_ENTITIES;
-    // The total number of witness entities not including shifts.
     static constexpr size_t NUM_WITNESS_ENTITIES = UltraFlavor::NUM_WITNESS_ENTITIES;
 
     static constexpr size_t FINAL_PCS_MSM_SIZE(size_t log_n = VIRTUAL_LOG_N)
@@ -79,11 +68,6 @@ template <typename BuilderType> class UltraRecursiveFlavor_ {
     using Relations = UltraFlavor::Relations_<FF>;
 
     static constexpr size_t MAX_PARTIAL_RELATION_LENGTH = compute_max_partial_relation_length<Relations>();
-    // static_assert(MAX_PARTIAL_RELATION_LENGTH == 7);
-
-    // BATCHED_RELATION_PARTIAL_LENGTH = algebraic degree of sumcheck relation *after* multiplying by the `pow_zeta`
-    // random polynomial e.g. For \sum(x) [A(x) * B(x) + C(x)] * PowZeta(X), relation length = 2 and random relation
-    // length = 3
     static constexpr size_t BATCHED_RELATION_PARTIAL_LENGTH = MAX_PARTIAL_RELATION_LENGTH + 1;
     static constexpr size_t NUM_RELATIONS = std::tuple_size<Relations>::value;
 
@@ -106,11 +90,9 @@ template <typename BuilderType> class UltraRecursiveFlavor_ {
     };
 
     using CommitmentLabels = UltraFlavor::CommitmentLabels;
+    static const CommitmentLabels& commitment_labels() { return UltraFlavor::commitment_labels(); }
 
     using WitnessCommitments = UltraFlavor::WitnessEntities<Commitment>;
-
-    // Reuse the VerifierCommitments from Ultra
-    using VerifierCommitments = UltraFlavor::VerifierCommitments_<Commitment, VerificationKey>;
 
     using VKAndHash = VKAndHash_<FF, VerificationKey>;
 };

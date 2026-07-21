@@ -1,6 +1,6 @@
 mod update_public_data_tree_leaf;
 
-use dep::types::{
+use types::{
     abis::{
         nullifier_leaf_preimage::NullifierLeafPreimage,
         partial_state_reference::PartialStateReference,
@@ -11,7 +11,9 @@ use dep::types::{
         PUBLIC_DATA_TREE_HEIGHT,
     },
     data::public_data_tree_leaf_preimage::PublicDataTreeLeafPreimage,
-    merkle_tree::{append_only_tree, compute_tree_root, indexed_tree, MembershipWitness},
+    merkle_tree::{
+        append_only_tree, compute_tree_root, indexed_tree, MembershipWitness, nullifier_merkle_hash,
+    },
 };
 use update_public_data_tree_leaf::update_public_data_tree_leaf;
 
@@ -56,6 +58,7 @@ pub fn build_tree_snapshots(
         hints.nullifier_predecessor_preimages,
         hints.nullifier_predecessor_membership_witnesses,
         hints.nullifier_subtree_root_sibling_path,
+        nullifier_merkle_hash,
     );
 
     // Update the public data tree leaf with the fee payer's new balance.

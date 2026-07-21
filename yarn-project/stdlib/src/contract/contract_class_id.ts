@@ -1,4 +1,4 @@
-import { GeneratorIndex, MAX_PACKED_PUBLIC_BYTECODE_SIZE_IN_FIELDS } from '@aztec/constants';
+import { DomainSeparator, MAX_PACKED_PUBLIC_BYTECODE_SIZE_IN_FIELDS } from '@aztec/constants';
 import { poseidon2HashWithSeparator } from '@aztec/foundation/crypto/poseidon';
 import { Fr } from '@aztec/foundation/curves/bn254';
 
@@ -13,10 +13,10 @@ import { computePrivateFunctionsRoot } from './private_function.js';
  *
  * ```
  * version = 1
- * private_function_leaves = private_functions.map(fn => pedersen([fn.function_selector as Field, fn.vk_hash], GENERATOR__PRIVATE_FUNCTION_LEAF))
+ * private_function_leaves = private_functions.map(fn => poseidon2(DOM_SEP__PRIVATE_FUNCTION_LEAF, [fn.function_selector as Field, fn.vk_hash]))
  * private_functions_root = merkleize(private_function_leaves)
  * bytecode_commitment = calculate_commitment(packed_bytecode)
- * contract_class_id = pedersen([version, artifact_hash, private_functions_root, bytecode_commitment], GENERATOR__CLASS_IDENTIFIER)
+ * contract_class_id = poseidon2(DOM_SEP__CONTRACT_CLASS_ID, [version, artifact_hash, private_functions_root, bytecode_commitment])
  * ```
  * @param contractClass - Contract class.
  * @returns The identifier.
@@ -40,7 +40,7 @@ export async function computeContractClassIdWithPreimage(
       : await computePublicBytecodeCommitment(contractClass.packedBytecode);
   const id = await poseidon2HashWithSeparator(
     [artifactHash, privateFunctionsRoot, publicBytecodeCommitment],
-    GeneratorIndex.CONTRACT_CLASS_ID,
+    DomainSeparator.CONTRACT_CLASS_ID,
   );
   return { id, artifactHash, privateFunctionsRoot, publicBytecodeCommitment };
 }
@@ -60,7 +60,7 @@ export type ContractClassIdPreimage = {
 };
 
 export async function computePublicBytecodeCommitment(packedBytecode: Buffer) {
-  // Encode the buffer into field elements (chunked into 32 bytes each)
+  // Encode the buffer into field elements (chunked into 31 bytes each)
   // The first element is the length of the bytecode (in bytes)
   const [bytecodeLengthAsField, ...bytecodeAsFields] = bufferAsFields(
     packedBytecode,
@@ -72,5 +72,6 @@ export async function computePublicBytecodeCommitment(packedBytecode: Buffer) {
 
   // NOTE: hash the bytecode here only up to the actual length of the bytecode.
   // We do not hash the entire max bytecode length!
-  return await poseidon2HashWithSeparator(bytecodeAsFields.slice(0, bytecodeLength), GeneratorIndex.PUBLIC_BYTECODE);
+  const sep = BigInt(DomainSeparator.PUBLIC_BYTECODE) + (bytecodeLengthAsField.toBigInt() << 32n);
+  return await poseidon2HashWithSeparator(bytecodeAsFields.slice(0, bytecodeLength), new Fr(sep).toNumber());
 }

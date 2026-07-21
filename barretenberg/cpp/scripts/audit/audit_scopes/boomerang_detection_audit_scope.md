@@ -1,7 +1,7 @@
 # External Audit Scope: Boomerang Value Detection
 
-Repository: https://github.com/AztecProtocol/aztec-packages
-Commit hash: [5824b41fac25d588f13c08578e179d1c4f37f27d](https://github.com/AztecProtocol/aztec-packages/tree/5824b41fac25d588f13c08578e179d1c4f37f27d)
+Repository: https://github.com/AztecProtocol/aztec-packages-private
+Commit hash: Most recent commit on branch 'next'
 
 ## Files to Audit
 
@@ -14,7 +14,7 @@ Note: Paths relative to `aztec-packages/barretenberg/cpp/src/barretenberg`
 
 The Boomerang Value Detection mechanism performs static analysis on circuit builders to detect under-constrained variables. It constructs a graph representation where variables are vertices and shared gate appearances create edges, then identifies: (1) variables appearing in only one gate (likely under-constrained), and (2) disconnected components in the constraint graph (missing inter-variable constraints). The analyzer includes sophisticated false positive filtering for legitimate auxiliary variables from range checks, lookups, memory operations, and decomposition chains. The name "boomerang" refers to a common circuit bug: taking a value out of the circuit and then returning it without creating an appropriate constraint—like a boomerang that goes out and comes back unchecked.
 
-For detailed documentation, see [`boomerang_value_detection/README.md`](https://github.com/AztecProtocol/aztec-packages/blob/5824b41fac25d588f13c08578e179d1c4f37f27d/barretenberg/cpp/src/barretenberg/boomerang_value_detection/README.md).
+For detailed documentation, see [`boomerang_value_detection/README.md`](https://github.com/AztecProtocol/aztec-packages-private/blob/5824b41fac25d588f13c08578e179d1c4f37f27d/barretenberg/cpp/src/barretenberg/boomerang_value_detection/README.md).
 
 ## Test Files
 

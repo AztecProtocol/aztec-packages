@@ -4,7 +4,9 @@
 #include "barretenberg/ecc/curves/grumpkin/grumpkin.hpp"
 #include "barretenberg/ecc/curves/secp256k1/secp256k1.hpp"
 #include "barretenberg/ecc/curves/secp256r1/secp256r1.hpp"
+#include <cstdlib>
 #include <cxxabi.h>
+#include <memory>
 #include <string>
 
 /**
@@ -21,8 +23,9 @@ template <typename T> std::string msgpack_schema_name(T const&)
     if constexpr (requires { T::MSGPACK_SCHEMA_NAME; }) {
         return T::MSGPACK_SCHEMA_NAME;
     }
-    char* result_cstr = abi::__cxa_demangle(typeid(T).name(), nullptr, nullptr, nullptr);
-    std::string result = result_cstr;
+    std::unique_ptr<char, decltype(&std::free)> demangled(
+        abi::__cxa_demangle(typeid(T).name(), nullptr, nullptr, nullptr), &std::free);
+    std::string result = demangled.get();
     if (result.find("basic_string") != std::string::npos) {
         return "string";
     }
@@ -30,12 +33,11 @@ template <typename T> std::string msgpack_schema_name(T const&)
         return "int";
     }
 
-    if (result.find('<') != static_cast<size_t>(-1)) {
+    if (result.find('<') != std::string::npos) {
         result = result.substr(0, result.find('<'));
     }
-    if (result.rfind(':') != static_cast<size_t>(-1)) {
+    if (result.rfind(':') != std::string::npos) {
         result = result.substr(result.rfind(':') + 1, result.size());
     }
-    std::free(result_cstr); // NOLINT
     return result;
 }

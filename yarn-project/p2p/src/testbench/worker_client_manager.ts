@@ -13,12 +13,7 @@ import { generatePeerIdPrivateKeys } from '../test-helpers/generate-peer-id-priv
 import { getPorts } from '../test-helpers/get-ports.js';
 import { makeEnr, makeEnrs } from '../test-helpers/make-enrs.js';
 import { BENCHMARK_CONSTANTS } from '../test-helpers/testbench-utils.js';
-import type {
-  BenchReqRespCommand,
-  BenchResultMessage,
-  CollectorType,
-  DistributionPattern,
-} from './p2p_client_testbench_worker.js';
+import type { BenchReqRespCommand, BenchResultMessage, DistributionPattern } from './p2p_client_testbench_worker.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const p2pRoot = path.resolve(__dirname, '../..');
@@ -29,15 +24,12 @@ const tsconfigPath = path.join(p2pRoot, 'tsconfig.json');
 const testChainConfig: ChainConfig = {
   l1ChainId: 31337,
   rollupVersion: 1,
-  l1Contracts: {
-    rollupAddress: EthAddress.random(),
-  },
+  rollupAddress: EthAddress.random(),
 };
 
 export interface ReqRespBenchmarkConfig {
   txCount: number;
   distribution: DistributionPattern;
-  collectorType: CollectorType;
   timeoutMs: number;
   pinnedPeerIndex?: number;
   blockNumber?: number;
@@ -47,7 +39,6 @@ export interface ReqRespBenchmarkConfig {
 export interface ReqRespBenchmarkResult {
   txCount: number;
   distribution: DistributionPattern;
-  collector: CollectorType;
   durationMs: number;
   fetchedCount: number;
   success: boolean;
@@ -72,7 +63,6 @@ class WorkerClientManager {
   destroy() {
     this.cleanup().catch((error: Error) => {
       this.logger.error('Failed to cleanup worker client manager', error);
-      process.exit(1);
     });
   }
 
@@ -81,13 +71,15 @@ class WorkerClientManager {
    * Note: We send the raw peerIdPrivateKey string instead of SecretValue
    * because SecretValue.toJSON() returns '[Redacted]', losing the value.
    * The worker must re-wrap it in SecretValue.
+   * We also omit priceBumpPercentage since it's a bigint and can't be
+   * serialized over IPC (which uses JSON under the hood).
    */
   private createClientConfig(
     clientIndex: number,
     port: number,
     otherNodes: string[],
-  ): Omit<P2PConfig, 'peerIdPrivateKey'> & { peerIdPrivateKey: string } & Partial<ChainConfig> {
-    return {
+  ): Omit<P2PConfig, 'peerIdPrivateKey' | 'priceBumpPercentage'> & { peerIdPrivateKey: string } & Partial<ChainConfig> {
+    const { priceBumpPercentage: _, ...config } = {
       ...getP2PDefaultConfig(),
       p2pEnabled: true,
       peerIdPrivateKey: this.peerIdPrivateKeys[clientIndex],
@@ -96,7 +88,10 @@ class WorkerClientManager {
       p2pPort: port,
       bootstrapNodes: [...otherNodes],
       ...this.p2pConfig,
-    } as Omit<P2PConfig, 'peerIdPrivateKey'> & { peerIdPrivateKey: string } & Partial<ChainConfig>;
+    };
+    return config as Omit<P2PConfig, 'peerIdPrivateKey' | 'priceBumpPercentage'> & {
+      peerIdPrivateKey: string;
+    } & Partial<ChainConfig>;
   }
 
   /**
@@ -104,7 +99,9 @@ class WorkerClientManager {
    * Config uses raw string for peerIdPrivateKey (not SecretValue) for IPC serialization.
    */
   private spawnWorkerProcess(
-    config: Omit<P2PConfig, 'peerIdPrivateKey'> & { peerIdPrivateKey: string } & Partial<ChainConfig>,
+    config: Omit<P2PConfig, 'peerIdPrivateKey' | 'priceBumpPercentage'> & {
+      peerIdPrivateKey: string;
+    } & Partial<ChainConfig>,
     clientIndex: number,
   ): [ChildProcess, Promise<void>] {
     const useCompiled = existsSync(workerJsPath);
@@ -419,6 +416,61 @@ class WorkerClientManager {
   }
 
   /**
+   * Checks that the aggregator (client 0) has sufficient peer connections before running a benchmark.
+   * This prevents benchmark cases from starting with degraded connectivity after a previous case
+   * caused connection failures.
+   */
+  async waitForConnectivity(minPeers: number, timeoutMs: number = 15_000): Promise<number> {
+    const waitInterval = 1000;
+    let waited = 0;
+
+    while (waited < timeoutMs) {
+      const count = await this.getPeerCount(0, 5000);
+      if (count >= minPeers) {
+        this.logger.info(`Connectivity check passed: ${count}/${minPeers} peers connected`);
+        return count;
+      }
+      this.logger.debug(`Waiting for connectivity: ${count}/${minPeers} (waited ${waited}ms)`);
+      await sleep(waitInterval);
+      waited += waitInterval;
+    }
+
+    const finalCount = await this.getPeerCount(0, 5000);
+    this.logger.warn(`Connectivity check: only ${finalCount}/${minPeers} peers after ${timeoutMs}ms`);
+    return finalCount;
+  }
+
+  private getPeerCount(clientIndex: number, timeoutMs: number): Promise<number> {
+    return new Promise<number>(resolve => {
+      let resolved = false;
+
+      const handler = (msg: any) => {
+        if (resolved) {
+          return;
+        }
+        if (msg.type === 'PEER_COUNT') {
+          resolved = true;
+          clearTimeout(timeout);
+          this.processes[clientIndex].off('message', handler);
+          resolve(msg.count as number);
+        }
+      };
+
+      const timeout = setTimeout(() => {
+        if (resolved) {
+          return;
+        }
+        resolved = true;
+        this.processes[clientIndex].off('message', handler);
+        resolve(0);
+      }, timeoutMs);
+
+      this.processes[clientIndex].on('message', handler);
+      this.processes[clientIndex].send({ type: 'GET_PEER_COUNT' });
+    });
+  }
+
+  /**
    * Run a req/resp benchmark across all worker clients.
    *
    * This sends a BENCH_REQRESP command to all workers:
@@ -438,9 +490,7 @@ class WorkerClientManager {
     const blockNumber = config.blockNumber ?? 1;
     const pinnedPeerId = config.pinnedPeerIndex !== undefined ? this.peerIds[config.pinnedPeerIndex] : undefined;
 
-    this.logger.info(
-      `Starting req/resp benchmark: txCount=${config.txCount}, distribution=${config.distribution}, collector=${config.collectorType}`,
-    );
+    this.logger.info(`Starting req/resp benchmark: txCount=${config.txCount}, distribution=${config.distribution}`);
 
     const readyPromises: Promise<void>[] = [];
 
@@ -450,7 +500,6 @@ class WorkerClientManager {
         txCount: config.txCount,
         peerCount,
         distribution: config.distribution,
-        collectorType: config.collectorType,
         timeoutMs: config.timeoutMs,
         isAggregator: false,
         peerIndex: i,
@@ -472,7 +521,6 @@ class WorkerClientManager {
       txCount: config.txCount,
       peerCount,
       distribution: config.distribution,
-      collectorType: config.collectorType,
       timeoutMs: config.timeoutMs,
       isAggregator: true,
       peerIndex: 0,
@@ -483,7 +531,8 @@ class WorkerClientManager {
     };
 
     this.processes[0].send(aggregatorCmd);
-    const result = await this.waitForBenchResult(0, config.timeoutMs + 30000);
+    const aggregatorBudgetMs = config.timeoutMs + BENCHMARK_CONSTANTS.MAX_PEER_WAIT_MS + 30000;
+    const result = await this.waitForBenchResult(0, aggregatorBudgetMs);
 
     this.logger.info(
       `Benchmark complete: fetched=${result.fetchedCount}/${config.txCount}, duration=${result.durationMs.toFixed(0)}ms, success=${result.success}`,
@@ -492,7 +541,6 @@ class WorkerClientManager {
     return {
       txCount: config.txCount,
       distribution: config.distribution,
-      collector: config.collectorType,
       durationMs: result.durationMs,
       fetchedCount: result.fetchedCount,
       success: result.success,
@@ -570,5 +618,4 @@ class WorkerClientManager {
 }
 
 export { WorkerClientManager, testChainConfig };
-export type { DistributionPattern, CollectorType } from './p2p_client_testbench_worker.js';
-export { COLLECTOR_DISPLAY_NAMES } from './p2p_client_testbench_worker.js';
+export type { DistributionPattern } from './p2p_client_testbench_worker.js';

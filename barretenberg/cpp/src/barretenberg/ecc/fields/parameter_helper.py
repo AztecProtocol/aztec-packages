@@ -2,6 +2,8 @@
 # A helper script to parse the field parameters from the source code
 
 import os
+import re
+import json
 
 parameter_files = ['src/barretenberg/ecc/curves/bn254/fq.hpp', 'src/barretenberg/ecc/curves/bn254/fr.hpp',
                    'src/barretenberg/ecc/curves/secp256k1/secp256k1.hpp','src/barretenberg/ecc/curves/secp256r1/secp256r1.hpp']
@@ -10,16 +12,14 @@ parameter_files = ['src/barretenberg/ecc/curves/bn254/fq.hpp', 'src/barretenberg
 def get_file_location():
     """
     Returns the current file's location relative to the execution folder.
-    
+
     Returns:
         str: The path to the current file relative to the execution folder.
     """
     return os.path.abspath(__file__)
 full_paths=[os.path.join(os.path.join(os.path.dirname(get_file_location()),'../../../../'), file) for file in parameter_files]
 
-print(full_paths)
 
-import re
 def parse_field_params(s):
     def parse_number(line):
         """Expects a string without whitespaces"""
@@ -29,7 +29,7 @@ def parse_field_params(s):
         else:
             value = int(line)
         return value
-    
+
     def recover_single_value(name):
         """Extract a single value from the source code by finding its name, equals sign, and semicolon"""
         nonlocal s
@@ -38,8 +38,8 @@ def parse_field_params(s):
             raise ValueError("Couldn't find value with name "+name)
         eq_position=s[index:].find('=')
         line_end=s[index:].find(';')
-        return parse_number(s[index+eq_position+1:index+line_end])        
-    
+        return parse_number(s[index+eq_position+1:index+line_end])
+
     def recover_single_value_if_present(name):
         """Same as recover_single_value but returns None if the value is not found"""
         nonlocal s
@@ -48,8 +48,8 @@ def parse_field_params(s):
             return None
         eq_position=s[index:].find('=')
         line_end=s[index:].find(';')
-        return parse_number(s[index+eq_position+1:index+line_end])   
-    
+        return parse_number(s[index+eq_position+1:index+line_end])
+
     def recover_array(name):
         """Extract an array of values from the source code by finding its name and contents between braces"""
         nonlocal s
@@ -60,7 +60,7 @@ def parse_field_params(s):
         all_values=s[index+start_index+1:index+end_index]
         result=[parse_number(x) for (i,x) in enumerate(all_values.split(',')) if i<number_of_elements]
         return result
-    
+
     def recover_multiple_arrays(prefix):
         """Find and extract all arrays with a common prefix (e.g., coset_generators_0, coset_generators_1, etc.)"""
         chunk_names=re.findall(prefix+r'_\d+',s)
@@ -68,7 +68,7 @@ def parse_field_params(s):
         for name in chunk_names:
             recovered[name]=recover_array(name)
         return recovered
-    
+
     def recover_element_from_parts(prefix,shift):
         """Recover a field element from its parts (e.g., modulus_0, modulus_1, etc.)
         Each part is shifted by the appropriate amount and combined"""
@@ -80,7 +80,7 @@ def parse_field_params(s):
         for i in range(len(val_dict)):
             result|=val_dict[i]<<(i*shift)
         return result
-    
+
     def reconstruct_field_from_4_parts(arr):
         """Combine 4 64-bit limbs into a single field element"""
         result=0
@@ -89,23 +89,34 @@ def parse_field_params(s):
         return result
 
     parameter_dictionary=dict()
-    # Recover the modulus
+
+    # Native parameters
     parameter_dictionary['modulus']=recover_element_from_parts('modulus',64)
-    # Recover r_squared
+
     parameter_dictionary['r_squared']=recover_element_from_parts('r_squared',64)
-    # Recover cube_root in montgomery form (2^256   )
-    parameter_dictionary['cube_root']=recover_element_from_parts('cube_root',64)
-    # Recover primitive_root in montgomery form (2^256)
-    parameter_dictionary['primitive_root']=recover_element_from_parts('primitive_root',64)
 
     parameter_dictionary['r_inv_x64']=recover_element_from_parts('r_inv',64)
-    parameter_dictionary['r_inv_wasm']=recover_element_from_parts('r_inv_wasm',29)
+
+    parameter_dictionary['cube_root']=recover_element_from_parts('cube_root',64)
+
+    parameter_dictionary['primitive_root']=recover_element_from_parts('primitive_root',64)
+
+    parameter_dictionary['coset_generator']=recover_element_from_parts('coset_generator',64)
+
+    # WASM parameters
     parameter_dictionary['modulus_wasm']=recover_element_from_parts('modulus_wasm',29)
+
     parameter_dictionary['r_squared_wasm']=recover_element_from_parts('r_squared_wasm',64)
+
+    parameter_dictionary['r_inv_wasm']=recover_element_from_parts('r_inv_wasm',29)
+
     parameter_dictionary['cube_root_wasm']=recover_element_from_parts('cube_root_wasm',64)
+
     parameter_dictionary['primitive_root_wasm']=recover_element_from_parts('primitive_root_wasm',64)
-    parameter_dictionary={**parameter_dictionary,**recover_multiple_arrays('coset_generators')}
-    parameter_dictionary={**parameter_dictionary,**recover_multiple_arrays('coset_generators_wasm')}
+
+    parameter_dictionary['coset_generator_wasm']=recover_element_from_parts('coset_generator_wasm',64)
+
+    # Endomorphism parameters
     parameter_dictionary['endo_g1_lo']=recover_single_value_if_present('endo_g1_lo')
     parameter_dictionary['endo_g1_mid']=recover_single_value_if_present('endo_g1_mid')
     parameter_dictionary['endo_g1_hi']=recover_single_value_if_present('endo_g1_hi')
@@ -130,21 +141,20 @@ def parse_field_params(s):
     assert(parameter_dictionary['primitive_root']*r_wasm_divided_by_r_regular%modulus==parameter_dictionary['primitive_root_wasm']) # Check pritimitve roots are equivalent
     assert(parameter_dictionary['r_inv_x64']*(1<<64)%parameter_dictionary['modulus']==1)
     assert(parameter_dictionary['r_inv_wasm']*(1<<29)%parameter_dictionary['modulus']==1)
-    for i in range(8):
-        regular_coset_generator=reconstruct_field_from_4_parts([parameter_dictionary[f'coset_generators_{j}'][i] for j in range(4)])
-        wasm_coset_generator=reconstruct_field_from_4_parts([parameter_dictionary[f'coset_generators_wasm_{j}'][i] for j in range(4)])
-        assert(regular_coset_generator*r_wasm_divided_by_r_regular%modulus == wasm_coset_generator)
+    regular_coset_generator=parameter_dictionary['coset_generator']
+    wasm_coset_generator=parameter_dictionary['coset_generator_wasm']
+    assert(regular_coset_generator*r_wasm_divided_by_r_regular%modulus == wasm_coset_generator)
 
     return parameter_dictionary
 
 def generate_power_of_2_inverse(parameter_dictionary, limb_size):
     """
     Generate the power of 2 inverse for the field modulus.
-    
+
     Args:
         parameter_dictionary (dict): A dictionary containing field parameters.
         limb_size (int): The size of the limbs in bits.
-    
+
     Returns:
         int: The power of 2 inverse for the field modulus.
     """
@@ -205,4 +215,13 @@ def generate_pow_2_inverse_for_all_files():
         print(f"{short_file} {param_name}:")
         print(header_string)
 
-parse_all_files()
+if __name__=="__main__":
+    print("========== Full paths =========== ")
+    for path in full_paths:
+        print(path)
+    print("========== Parameters =========== ")
+    params = parse_all_files()
+    for (file, param_name, params) in params:
+        curve_name = file.split('/')[-2]
+        print(f"{curve_name} {param_name}:")
+        print(json.dumps(params, indent=4))

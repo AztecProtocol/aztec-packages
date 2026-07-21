@@ -42,7 +42,7 @@ comptime fn get_generics_declarations(s: TypeDefinition) -> Quoted {
                     quote {let $name: $integer_type}
                 } else {
                     // The generic is not numeric, so we return a quote containing the name of the generic (e.g. "T")
-                    quote {$name}
+                    quote { $name }
                 }
             })
             .join(quote {,});
@@ -97,7 +97,7 @@ comptime fn get_where_trait_clause(s: TypeDefinition, trait_name: Quoted) -> Quo
     }
 }
 
-/// Generates a `Packable` trait implementation for a given struct `s`.
+/// Generates a [`Packable`](crate::traits::Packable) trait implementation for a given struct `s`.
 ///
 /// # Arguments
 /// * `s` - The struct type definition to generate the implementation for
@@ -170,7 +170,7 @@ pub comptime fn derive_packable(s: TypeDefinition) -> Quoted {
     // Generates the generic parameter declarations (to be placed after the `impl` keyword) and the `where` clause
     // for the `Packable` trait.
     let generics_declarations = get_generics_declarations(s);
-    let where_packable_clause = get_where_trait_clause(s, quote {Packable});
+    let where_packable_clause = get_where_trait_clause(s, quote { Packable });
 
     // The following will give us:
     // <type_of_struct_member_1 as Packable>::N + <type_of_struct_member_2 as Packable>::N + ...
@@ -184,7 +184,7 @@ pub comptime fn derive_packable(s: TypeDefinition) -> Quoted {
             })
             .join(quote {+})
     } else {
-        quote {0}
+        quote { 0 }
     };
 
     // For structs containing a single member, we can enhance performance by directly returning the packed member,

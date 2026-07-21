@@ -2,13 +2,13 @@ import { BBCircuitVerifier } from '@aztec/bb-prover';
 import { PAIRING_POINTS_SIZE } from '@aztec/constants';
 import { createExtendedL1Client } from '@aztec/ethereum/client';
 import { deployL1Contract } from '@aztec/ethereum/deploy-l1-contract';
+import type { Anvil } from '@aztec/ethereum/test';
 import type { ExtendedViemWalletClient } from '@aztec/ethereum/types';
 import type { Logger } from '@aztec/foundation/log';
 import { HonkVerifierAbi, HonkVerifierBytecode, IVerifierAbi } from '@aztec/l1-artifacts';
 import { Proof } from '@aztec/stdlib/proofs';
 import { RootRollupPublicInputs } from '@aztec/stdlib/rollup';
 
-import type { Anvil } from '@viem/anvil';
 import { readFile } from 'fs/promises';
 import { join } from 'path';
 import { fileURLToPath } from 'url';
@@ -24,6 +24,16 @@ import { getLogger, startAnvil } from '../fixtures/utils.js';
  * Regenerate this test's fixture with
  * AZTEC_GENERATE_TEST_DATA=1 yarn workspace @aztec/prover-client test bb_prover_full_rollup
  */
+// Standalone Honk proof verifier integration test. Starts its own anvil, deploys a HonkVerifier contract,
+// loads a serialised RootRollupPublicInputs fixture, and verifies the proof on-chain via BBCircuitVerifier.
+// No Aztec node.
+//
+// EXCLUDED from every CI test list (see bootstrap.sh) and does NOT run anywhere. The committed
+// fixtures/dumps/epoch_proof_result.json is stale: it was last regenerated in Feb 2026, but the rollup
+// circuits and verification key have changed since, so bb and the on-chain HonkVerifier both reject the
+// proof ("Failed to verify RootRollupArtifact proof!"). Re-enabling it needs the fixture regenerated
+// against the current circuits (see the command above) and is better relocated alongside the bb-prover
+// circuit tests than kept here.
 describe('proof_verification', () => {
   let proof: Proof;
   let publicInputs: RootRollupPublicInputs;

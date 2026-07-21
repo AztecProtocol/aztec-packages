@@ -1,5 +1,5 @@
 import {
-  AVM_V2_PROOF_LENGTH_IN_FIELDS_PADDED,
+  AVM_V2_PROOF_LENGTH_IN_FIELDS,
   NESTED_RECURSIVE_PROOF_LENGTH,
   NESTED_RECURSIVE_ROLLUP_HONK_PROOF_LENGTH,
   PAIRING_POINTS_SIZE,
@@ -9,7 +9,6 @@ import {
 import { Fr } from '@aztec/foundation/curves/bn254';
 import { runInDirectory } from '@aztec/foundation/fs';
 import { createLogger } from '@aztec/foundation/log';
-import { BufferReader } from '@aztec/foundation/serialize';
 import {
   type ServerProtocolArtifact,
   convertBlockMergeRollupOutputsFromWitnessMap,
@@ -88,24 +87,14 @@ import { VerificationKeyData } from '@aztec/stdlib/vks';
 import { Attributes, type TelemetryClient, getTelemetryClient, trackSpan } from '@aztec/telemetry-client';
 
 import { promises as fs } from 'fs';
+import { ungzip } from 'pako';
 import * as path from 'path';
 
-import {
-  type BBFailure,
-  type BBSuccess,
-  BB_RESULT,
-  PROOF_FILENAME,
-  PUBLIC_INPUTS_FILENAME,
-  VK_FILENAME,
-  generateAvmProof,
-  generateProof,
-  verifyAvmProof,
-  verifyProof,
-} from '../../bb/execute.js';
+import { BBJsFactory, type BBJsProofResult } from '../../bb/bb_js_backend.js';
 import type { ACVMConfig, BBConfig } from '../../config.js';
 import { getUltraHonkFlavorForCircuit } from '../../honk.js';
 import { ProverInstrumentation } from '../../instrumentation.js';
-import { readProofsFromOutputDirectory } from '../proof_utils.js';
+import { constructRecursiveProofFromBuffers } from '../proof_utils.js';
 
 const logger = createLogger('bb-prover');
 
@@ -119,12 +108,14 @@ export interface BBProverConfig extends BBConfig, ACVMConfig {
  */
 export class BBNativeRollupProver implements ServerCircuitProver {
   private instrumentation: ProverInstrumentation;
+  private bbJsFactory: BBJsFactory;
 
   constructor(
     private config: BBProverConfig,
     telemetry: TelemetryClient,
   ) {
     this.instrumentation = new ProverInstrumentation(telemetry, 'BBNativeRollupProver');
+    this.bbJsFactory = new BBJsFactory(config.bbBinaryPath, { logger, debugDir: config.bbDebugOutputDir });
   }
 
   get tracer() {
@@ -136,7 +127,7 @@ export class BBNativeRollupProver implements ServerCircuitProver {
     await fs.mkdir(config.acvmWorkingDirectory, { recursive: true });
     await fs.access(config.bbBinaryPath, fs.constants.R_OK);
     await fs.mkdir(config.bbWorkingDirectory, { recursive: true });
-    logger.info(`Using native BB at ${config.bbBinaryPath} and working directory ${config.bbWorkingDirectory}`);
+    logger.info(`Using bb.js API with binary at ${config.bbBinaryPath}`);
     logger.info(`Using native ACVM at ${config.acvmBinaryPath} and working directory ${config.acvmWorkingDirectory}`);
 
     return new BBNativeRollupProver(config, telemetry);
@@ -186,9 +177,7 @@ export class BBNativeRollupProver implements ServerCircuitProver {
   @trackSpan('BBNativeRollupProver.getAvmProof', inputs => ({
     [Attributes.APP_CIRCUIT_NAME]: inputs.hints.tx.hash,
   }))
-  public async getAvmProof(
-    inputs: AvmCircuitInputs,
-  ): Promise<RecursiveProof<typeof AVM_V2_PROOF_LENGTH_IN_FIELDS_PADDED>> {
+  public async getAvmProof(inputs: AvmCircuitInputs): Promise<RecursiveProof<typeof AVM_V2_PROOF_LENGTH_IN_FIELDS>> {
     const proof = await this.createAvmProof(inputs);
     await this.verifyAvmProof(proof.binaryProof, inputs.publicInputs);
     return proof;
@@ -453,12 +442,11 @@ export class BBNativeRollupProver implements ServerCircuitProver {
     convertInput: (input: Input) => WitnessMap,
     convertOutput: (outputWitness: WitnessMap) => Output,
     workingDirectory: string,
-  ): Promise<{ circuitOutput: Output; provingResult: BBSuccess }> {
-    // Have the ACVM write the partial witness here
+  ): Promise<{ circuitOutput: Output; proofResult: BBJsProofResult }> {
+    // Have the ACVM write the partial witness here (still needs a temp directory)
     const outputWitnessFile = path.join(workingDirectory, 'partial-witness.gz');
 
     // Generate the partial witness using the ACVM
-    // A further temp directory will be created beneath ours and then cleaned up after the partial witness has been copied to our specified location
     const simulator = new NativeACVMSimulator(
       this.config.acvmWorkingDirectory,
       this.config.acvmBinaryPath,
@@ -471,7 +459,7 @@ export class BBNativeRollupProver implements ServerCircuitProver {
     logger.debug(`Generating witness data for ${circuitType}`);
 
     const inputWitness = convertInput(input);
-    const foreignCallHandler = undefined; // We don't handle foreign calls in the native ACVM simulator
+    const foreignCallHandler = undefined;
     const witnessResult = await simulator.executeProtocolCircuit(inputWitness, artifact, foreignCallHandler);
     const output = convertOutput(witnessResult.witness);
 
@@ -488,75 +476,72 @@ export class BBNativeRollupProver implements ServerCircuitProver {
       eventName: 'circuit-witness-generation',
     } satisfies CircuitWitnessGenerationStats);
 
-    // Now prove the circuit from the generated witness
-    logger.debug(`Proving ${circuitType}...`);
+    // Read and decompress the witness for bb.js
+    const witnessGz = await fs.readFile(outputWitnessFile);
+    const witness = ungzip(witnessGz);
 
-    const provingResult = await generateProof(
-      this.config.bbBinaryPath,
-      workingDirectory,
-      circuitType,
-      Buffer.from(artifact.bytecode, 'base64'),
-      this.getVerificationKeyDataForCircuit(circuitType).keyAsBytes,
-      outputWitnessFile,
-      getUltraHonkFlavorForCircuit(circuitType),
-      logger,
-    );
+    // Decompress bytecode for bb.js
+    const bytecode = ungzip(Buffer.from(artifact.bytecode, 'base64'));
 
-    if (provingResult.status === BB_RESULT.FAILURE) {
-      logger.error(`Failed to generate proof for ${circuitType}: ${provingResult.reason}`);
-      throw new ProvingError(provingResult.reason, provingResult, provingResult.retry);
+    // Prove the circuit via bb.js API
+    logger.debug(`Proving ${circuitType} via bb.js...`);
+
+    let proofResult: BBJsProofResult;
+    try {
+      await using instance = await this.bbJsFactory.getInstance();
+      proofResult = await instance.generateProof(
+        circuitType,
+        bytecode,
+        this.getVerificationKeyDataForCircuit(circuitType).keyAsBytes,
+        witness,
+        getUltraHonkFlavorForCircuit(circuitType),
+      );
+    } catch (error) {
+      throw new ProvingError(`Failed to generate proof for ${circuitType}: ${error}`);
     }
 
     return {
       circuitOutput: output,
-      provingResult,
+      proofResult,
     };
   }
 
-  private async generateAvmProofWithBB(input: AvmCircuitInputs, workingDirectory: string): Promise<BBSuccess> {
+  private async createAvmProof(input: AvmCircuitInputs): Promise<RecursiveProof<typeof AVM_V2_PROOF_LENGTH_IN_FIELDS>> {
     logger.info(`Proving avm-circuit for TX ${input.hints.tx.hash}...`);
 
-    const provingResult = await generateAvmProof(this.config.bbBinaryPath, workingDirectory, input, logger);
+    const inputsBuffer = input.serializeWithMessagePack();
+    await using instance = await this.bbJsFactory.getInstance();
+    const { proof: proofFieldArrays, durationMs } = await instance.generateAvmProof(inputsBuffer);
 
-    if (provingResult.status === BB_RESULT.FAILURE) {
-      logger.error(`Failed to generate AVM proof for TX ${input.hints.tx.hash}: ${provingResult.reason}`);
-      throw new ProvingError(provingResult.reason, provingResult, provingResult.retry);
+    // Convert Uint8Array[] (32-byte field elements) to Fr[]
+    const proofFields = proofFieldArrays.map(f => Fr.fromBuffer(Buffer.from(f)));
+
+    if (proofFields.length !== AVM_V2_PROOF_LENGTH_IN_FIELDS) {
+      throw new Error(`Proof has ${proofFields.length} fields, expected exactly ${AVM_V2_PROOF_LENGTH_IN_FIELDS}.`);
     }
 
-    return provingResult;
-  }
+    // Build the binary proof from the raw field data
+    const rawProofBuffer = Buffer.concat(proofFieldArrays.map(f => Buffer.from(f)));
+    const binaryProof = new Proof(rawProofBuffer, /*numPublicInputs=*/ 0);
+    const avmProof = new RecursiveProof(proofFields, binaryProof, true, AVM_V2_PROOF_LENGTH_IN_FIELDS);
 
-  private async createAvmProof(
-    input: AvmCircuitInputs,
-  ): Promise<RecursiveProof<typeof AVM_V2_PROOF_LENGTH_IN_FIELDS_PADDED>> {
-    const operation = async (bbWorkingDirectory: string) => {
-      const provingResult = await this.generateAvmProofWithBB(input, bbWorkingDirectory);
+    const circuitType = 'avm-circuit' as const;
+    const appCircuitName = 'unknown' as const;
+    this.instrumentation.recordAvmDuration('provingDuration', appCircuitName, durationMs);
+    this.instrumentation.recordAvmSize('proofSize', appCircuitName, avmProof.binaryProof.buffer.length);
 
-      const avmProof = await this.readAvmProofAsFields(provingResult.proofPath!);
+    logger.info(`Generated proof for ${circuitType}(${input.hints.tx.hash}) in ${Math.ceil(durationMs)} ms`, {
+      circuitName: circuitType,
+      appCircuitName: input.hints.tx.hash,
+      duration: durationMs,
+      proofSize: avmProof.binaryProof.buffer.length,
+      eventName: 'circuit-proving',
+      inputSize: inputsBuffer.length,
+      circuitSize: 1 << 21,
+      numPublicInputs: 0,
+    } satisfies CircuitProvingStats);
 
-      const circuitType = 'avm-circuit' as const;
-      const appCircuitName = 'unknown' as const;
-      this.instrumentation.recordAvmDuration('provingDuration', appCircuitName, provingResult.durationMs);
-      this.instrumentation.recordAvmSize('proofSize', appCircuitName, avmProof.binaryProof.buffer.length);
-
-      logger.info(
-        `Generated proof for ${circuitType}(${input.hints.tx.hash}) in ${Math.ceil(provingResult.durationMs)} ms`,
-        {
-          circuitName: circuitType,
-          appCircuitName: input.hints.tx.hash,
-          // does not include reading the proof from disk
-          duration: provingResult.durationMs,
-          proofSize: avmProof.binaryProof.buffer.length,
-          eventName: 'circuit-proving',
-          inputSize: input.serializeWithMessagePack().length,
-          circuitSize: 1 << 21,
-          numPublicInputs: 0,
-        } satisfies CircuitProvingStats,
-      );
-
-      return avmProof;
-    };
-    return await this.runInDirectory(operation);
+    return avmProof;
   }
 
   /**
@@ -579,33 +564,38 @@ export class BBNativeRollupProver implements ServerCircuitProver {
     convertInput: (input: CircuitInputType) => WitnessMap,
     convertOutput: (outputWitness: WitnessMap) => CircuitOutputType,
   ): Promise<{ circuitOutput: CircuitOutputType; proof: RecursiveProof<PROOF_LENGTH> }> {
-    // this probably is gonna need to call chonk
-    const operation = async (bbWorkingDirectory: string) => {
-      const { provingResult, circuitOutput: output } = await this.generateProofWithBB(
+    // Still need runInDirectory for ACVM witness generation temp files
+    const operation = async (workingDirectory: string) => {
+      const { proofResult, circuitOutput: output } = await this.generateProofWithBB(
         input,
         circuitType,
         convertInput,
         convertOutput,
-        bbWorkingDirectory,
+        workingDirectory,
       );
 
       const vkData = this.getVerificationKeyDataForCircuit(circuitType);
-      // Read the proof as fields
-      const proof = await readProofsFromOutputDirectory(provingResult.proofPath!, vkData, proofLength, logger);
+      // Construct proof from in-memory buffers (no file I/O needed)
+      const proof = constructRecursiveProofFromBuffers(
+        proofResult.proofFields,
+        proofResult.publicInputFields,
+        vkData,
+        proofLength,
+      );
 
       const circuitName = mapProtocolArtifactNameToCircuitName(circuitType);
-      this.instrumentation.recordDuration('provingDuration', circuitName, provingResult.durationMs);
+      this.instrumentation.recordDuration('provingDuration', circuitName, proofResult.durationMs);
       this.instrumentation.recordSize('proofSize', circuitName, proof.binaryProof.buffer.length);
       this.instrumentation.recordSize('circuitPublicInputCount', circuitName, vkData.numPublicInputs);
       this.instrumentation.recordSize('circuitSize', circuitName, vkData.circuitSize);
       logger.info(
-        `Generated proof for ${circuitType} in ${Math.ceil(provingResult.durationMs)} ms, size: ${
+        `Generated proof for ${circuitType} in ${Math.ceil(proofResult.durationMs)} ms, size: ${
           proof.proof.length
         } fields`,
         {
           circuitName,
           circuitSize: vkData.circuitSize,
-          duration: provingResult.durationMs,
+          duration: proofResult.durationMs,
           inputSize: output.toBuffer().length,
           proofSize: proof.binaryProof.buffer.length,
           eventName: 'circuit-proving',
@@ -622,49 +612,58 @@ export class BBNativeRollupProver implements ServerCircuitProver {
   }
 
   /**
-   * Verifies a proof, will generate the verification key if one is not cached internally
+   * Verifies a proof via bb.js API (no temp files needed).
    * @param circuitType - The type of circuit whose proof is to be verified
    * @param proof - The proof to be verified
    */
   public async verifyProof(circuitType: ServerProtocolArtifact, proof: Proof) {
     const verificationKey = this.getVerificationKeyDataForCircuit(circuitType);
-    return await this.verifyInternal(proof, verificationKey, (proofPath, vkPath) =>
-      verifyProof(this.config.bbBinaryPath, proofPath, vkPath, getUltraHonkFlavorForCircuit(circuitType), logger),
-    );
+    const flavor = getUltraHonkFlavorForCircuit(circuitType);
+
+    // Split proof buffer into public input fields and proof fields (32-byte each)
+    const publicInputFields = splitBufferToFieldArrays(proof.buffer.subarray(0, proof.numPublicInputs * 32));
+    const proofFields = splitBufferToFieldArrays(proof.buffer.subarray(proof.numPublicInputs * 32));
+
+    let verified: boolean;
+    let durationMs: number;
+    try {
+      await using instance = await this.bbJsFactory.getInstance();
+      ({ verified, durationMs } = await instance.verifyProof(
+        proofFields,
+        verificationKey.keyAsBytes,
+        publicInputFields,
+        flavor,
+      ));
+    } catch (error) {
+      throw new ProvingError(`Failed to verify proof for ${circuitType}: ${error}`);
+    }
+
+    if (!verified) {
+      throw new ProvingError('Failed to verify proof from key!');
+    }
+
+    logger.info(`Successfully verified proof from key in ${durationMs} ms`);
   }
 
+  /** Verify an AVM proof via bb.js API. */
   public async verifyAvmProof(proof: Proof, publicInputs: AvmCircuitPublicInputs) {
-    return await this.verifyInternal(proof, /*verificationKey=*/ undefined, (proofPath, /*unused*/ _vkPath) =>
-      verifyAvmProof(this.config.bbBinaryPath, this.config.bbWorkingDirectory, proofPath, publicInputs, logger),
-    );
-  }
-  private async verifyInternal(
-    proof: Proof,
-    verificationKey: { keyAsBytes: Buffer } | undefined,
-    verificationFunction: (proofPath: string, vkPath: string) => Promise<BBFailure | BBSuccess>,
-  ) {
-    const operation = async (bbWorkingDirectory: string) => {
-      const publicInputsFileName = path.join(bbWorkingDirectory, PUBLIC_INPUTS_FILENAME);
-      const proofFileName = path.join(bbWorkingDirectory, PROOF_FILENAME);
-      const verificationKeyPath = path.join(bbWorkingDirectory, VK_FILENAME);
-      // TODO(https://github.com/AztecProtocol/aztec-packages/issues/13189): Put this proof parsing logic in the proof class.
-      await fs.writeFile(publicInputsFileName, proof.buffer.subarray(0, proof.numPublicInputs * 32));
-      await fs.writeFile(proofFileName, proof.buffer.subarray(proof.numPublicInputs * 32));
-      if (verificationKey !== undefined) {
-        await fs.writeFile(verificationKeyPath, verificationKey.keyAsBytes);
-      }
+    // For AVM proofs, numPublicInputs is 0, so the full buffer is the proof.
+    const proofBuffer = proof.buffer.subarray(proof.numPublicInputs * 32);
+    // Split the raw proof buffer into 32-byte field element arrays
+    const proofFields: Uint8Array[] = [];
+    for (let i = 0; i < proofBuffer.length; i += Fr.SIZE_IN_BYTES) {
+      proofFields.push(new Uint8Array(proofBuffer.subarray(i, i + Fr.SIZE_IN_BYTES)));
+    }
+    const piBuffer = publicInputs.serializeWithMessagePack();
 
-      const result = await verificationFunction(proofFileName, verificationKeyPath);
+    await using instance = await this.bbJsFactory.getInstance();
+    const { verified, durationMs } = await instance.verifyAvmProof(proofFields, piBuffer);
 
-      if (result.status === BB_RESULT.FAILURE) {
-        const errorMessage = `Failed to verify proof from key!`;
-        throw new ProvingError(errorMessage, result, result.retry);
-      }
+    if (!verified) {
+      throw new ProvingError('Failed to verify AVM proof!');
+    }
 
-      logger.info(`Successfully verified proof from key in ${result.durationMs} ms`);
-    };
-
-    await this.runInDirectory(operation);
+    logger.info(`Successfully verified AVM proof in ${durationMs} ms`);
   }
 
   /**
@@ -680,29 +679,6 @@ export class BBNativeRollupProver implements ServerCircuitProver {
     return vk;
   }
 
-  private async readAvmProofAsFields(
-    proofFilename: string,
-  ): Promise<RecursiveProof<typeof AVM_V2_PROOF_LENGTH_IN_FIELDS_PADDED>> {
-    const rawProofBuffer = await fs.readFile(proofFilename);
-    const reader = BufferReader.asReader(rawProofBuffer);
-    const proofFields = reader.readArray(rawProofBuffer.length / Fr.SIZE_IN_BYTES, Fr);
-
-    // We extend to a fixed-size padded proof as during development any new AVM circuit column changes the
-    // proof length and we do not have a mechanism to feedback a cpp constant to noir/TS.
-    // TODO(#13390): Revive a non-padded AVM proof
-    if (proofFields.length > AVM_V2_PROOF_LENGTH_IN_FIELDS_PADDED) {
-      throw new Error(
-        `Proof has ${proofFields.length} fields, expected no more than ${AVM_V2_PROOF_LENGTH_IN_FIELDS_PADDED}.`,
-      );
-    }
-    const proofFieldsPadded = proofFields.concat(
-      Array(AVM_V2_PROOF_LENGTH_IN_FIELDS_PADDED - proofFields.length).fill(new Fr(0)),
-    );
-
-    const proof = new Proof(rawProofBuffer, /*numPublicInputs=*/ 0);
-    return new RecursiveProof(proofFieldsPadded, proof, true, AVM_V2_PROOF_LENGTH_IN_FIELDS_PADDED);
-  }
-
   private runInDirectory<T>(fn: (dir: string) => Promise<T>) {
     return runInDirectory(
       this.config.bbWorkingDirectory,
@@ -715,4 +691,13 @@ export class BBNativeRollupProver implements ServerCircuitProver {
       logger,
     );
   }
+}
+
+/** Split a buffer into 32-byte Uint8Array field elements. */
+function splitBufferToFieldArrays(buffer: Buffer): Uint8Array[] {
+  const fields: Uint8Array[] = [];
+  for (let i = 0; i < buffer.length; i += 32) {
+    fields.push(new Uint8Array(buffer.subarray(i, i + 32)));
+  }
+  return fields;
 }

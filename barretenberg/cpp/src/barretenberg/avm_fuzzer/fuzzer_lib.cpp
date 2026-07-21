@@ -9,7 +9,6 @@
 #include "barretenberg/avm_fuzzer/common/interfaces/dbs.hpp"
 #include "barretenberg/avm_fuzzer/fuzz_lib/constants.hpp"
 #include "barretenberg/avm_fuzzer/fuzz_lib/control_flow.hpp"
-#include "barretenberg/avm_fuzzer/fuzz_lib/fuzz.hpp"
 #include "barretenberg/avm_fuzzer/fuzzer_comparison_helper.hpp"
 #include "barretenberg/avm_fuzzer/mutations/basic_types/field.hpp"
 #include "barretenberg/avm_fuzzer/mutations/basic_types/uint64_t.hpp"
@@ -61,7 +60,14 @@ void setup_fuzzer_state(FuzzerWorldStateManager& ws_mgr, FuzzerContractDB& contr
             // Find the instance for this derived address and also add it by canonical address
             auto maybe_instance = contract_db.get_contract_instance(derived_address);
             if (maybe_instance.has_value()) {
-                contract_db.add_contract_instance(canonical_address, maybe_instance.value());
+                // Protocol contracts are not upgradeable, so the canonical-address copy must have
+                // current == original. The derived-address instance may have been upgraded by
+                // mutate_bytecode before the protocol-contracts mutation promoted it; that upgrade
+                // is irrelevant for the canonical (protocol) view. Enforces the
+                // PROTOCOL_CONTRACT_CLASS_ID_IS_ORIGINAL relation in contract_instance_retrieval.pil.
+                ContractInstance protocol_instance = maybe_instance.value();
+                protocol_instance.current_contract_class_id = protocol_instance.original_contract_class_id;
+                contract_db.add_contract_instance(canonical_address, protocol_instance);
             }
         }
     }
@@ -89,15 +95,12 @@ void fund_fee_payer(FuzzerWorldStateManager& ws_mgr, const Tx& tx)
     ws_mgr.write_fee_payer_balance(tx.fee_payer, fee_required_da + fee_required_l2);
 }
 
-/// @brief Fuzz CPP vs JS simulator with a full transaction containing multiple enqueued calls
+/// @brief Run the C++ simulator on a full transaction containing multiple enqueued calls
 /// @param tx_data The transaction data containing multiple enqueued calls
-/// @returns The simulator result if the results are the same
-/// @throws An exception if the simulator results are different
+/// @returns The simulation result; a reverted result carrying the message if the simulator throws
 SimulatorResult fuzz_tx(FuzzerWorldStateManager& ws_mgr, FuzzerContractDB& contract_db, FuzzerTxData& tx_data)
 {
-    // Run simulators
     auto cpp_simulator = CppSimulator();
-    JsSimulator* js_simulator = JsSimulator::getInstance();
     SimulatorResult cpp_result;
 
     try {
@@ -122,25 +125,6 @@ SimulatorResult fuzz_tx(FuzzerWorldStateManager& ws_mgr, FuzzerContractDB& contr
         };
         ws_mgr.revert();
     }
-
-    ws_mgr.checkpoint();
-    auto js_result = js_simulator->simulate(ws_mgr,
-                                            contract_db,
-                                            tx_data.tx,
-                                            tx_data.global_variables,
-                                            tx_data.public_data_writes,
-                                            tx_data.note_hashes,
-                                            tx_data.protocol_contracts);
-
-    // If the results do not match
-    if (!compare_simulator_results(cpp_result, js_result)) {
-        fuzz_info("CppSimulator ", cpp_result);
-        fuzz_info("JsSimulator  ", js_result);
-        throw std::runtime_error("Simulator results are different");
-    }
-    fuzz_info("Simulator results match successfully");
-    fuzz_info("CppSimulator ", cpp_result);
-    fuzz_info("JsSimulator  ", js_result);
 
     return cpp_result;
 }
@@ -221,6 +205,11 @@ TxSimulationResult fuzz_prover(FuzzerWorldStateManager& ws_mgr, FuzzerContractDB
     bool check_circuit_result = avm_api.check_circuit(proving_inputs);
     BB_ASSERT(check_circuit_result,
               "check_circuit returned false in fuzzer with no exception, this indicates a failure");
+
+    // 6. Prove and verify
+    auto proof = avm_api.prove(proving_inputs);
+    bool verified = avm_api.verify(proof, proving_inputs.public_inputs);
+    BB_ASSERT(verified, "Proof verification failed");
 #else
     // In coverage builds, run simulate_for_witgen and tracegen instead of check_circuit
     // This gives us coverage the the event and tracegen code paths without the overhead of check_circuit
@@ -294,10 +283,10 @@ ContractArtifacts build_bytecode_and_artifacts(FuzzerData& fuzzer_data)
         .current_contract_class_id = class_id, // Initial and current are the same
         .original_contract_class_id = class_id,
         .public_keys = {
-            .nullifier_key = { 0, 0 },
+            .nullifier_key_hash = 0,
             .incoming_viewing_key = grumpkin::g1::element::one(),
-            .outgoing_viewing_key = { 0, 0 },
-            .tagging_key = { 0, 0 },
+            .outgoing_viewing_key_hash = 0,
+            .tagging_key_hash =  0,
         },
     };
     return { bytecode, contract_class, contract_instance };

@@ -2,88 +2,128 @@ include "constants_gen.pil";
 include "precomputed.pil";
 include "range_check.pil";
 
+/**
+ * Memory subtrace for the AVM.
+ *
+ * This subtrace records all memory read/write events from the AVM execution.
+ * Each active row represents one memory access. The trace is sorted by
+ * (space_id, address, clk, rw) — equivalently by (GLOBAL_ADDR, TIMESTAMP) —
+ * and constraints enforce correct ordering, initialization, and read-write consistency.
+ *
+ * Link to design document:
+ * https://docs.google.com/document/d/1NM5zU39NG5xJReOjSObwWllbpqTCO4flr9v8kdRDK3E
+ *
+ * Trace shape:
+ * - Row 0 is always inactive (sel = 0), reserved for shift constraints.
+ * - One row per memory event, continuous from row 1.
+ * - Row count equals the total number of memory events + 1.
+ *
+ * Assumptions / Preconditions:
+ * - space_id is 16-bit, address is 32-bit, clk is 32-bit.
+ *   (Guaranteed by the source subtraces that emit memory events.)
+ * - These ranges ensure GLOBAL_ADDR fits in 48 bits and diff fits in 48 bits,
+ *   matching the 3x16-bit limb decomposition used for the range check.
+ *
+ * Memory invariants:
+ * - Initialization: First read to any address returns value=0, tag=MEM_TAG_FF.
+ * - Read-Write consistency: A read returns the value/tag of the most recent write
+ *   to the same address (or the initial value if no write has occurred).
+ * - Write range check: Non-FF writes are range-checked against the tag's bit width.
+ *
+ * Interactions (this subtrace as destination):
+ * - Permutations from many source subtraces (addressing, registers, data_copy,
+ *   get_contract_instance, emit_public_log, poseidon2_mem, keccak_memory,
+ *   sha256_mem, ecc_mem, to_radix_mem). Each source uses a dedicated fine-grained
+ *   selector (sel_XXX) listed in #[ACTIVE_ROW_NEEDS_PERM_SELECTOR].
+ *
+ * Usage (example permutation from a source subtrace):
+ *   source_sel {
+ *       source.clk, source.space_id, source.address,
+ *       source.value, source.tag, source.rw
+ *   } is memory.sel_XXX {
+ *       memory.clk, memory.space_id, memory.address,
+ *       memory.value, memory.tag, memory.rw
+ *   };
+ *
+ * Interactions (this subtrace as source):
+ * - RANGE_CHECK_LIMB_0/1/2: lookup into precomputed range-16 table (selector: sel_rng_chk)
+ * - TAG_MAX_BITS: lookup into precomputed tag parameters (selector: sel_rng_write)
+ * - RANGE_CHECK_WRITE_TAGGED_VALUE: lookup into range_check subtrace (selector: sel_rng_write)
+ *
+ * Trace example:
+ * Note: diff is forced to 0 by #[DIFF] when sel_rng_chk = 0 (first inactive row and last active row).
+ * The values shown below reflect the constrained values.
+ *
+ * +-----+-----------+---------+-----+----+---------------+------------+-------------+--------------+-------------+
+ * | sel | space_id  | address | clk | rw | GLOBAL_ADDR   | TIMESTAMP  | last_access |    diff      | sel_rng_chk |
+ * +-----+-----------+---------+-----+----+---------------+------------+-------------+--------------+-------------+
+ * |   0 |        0  |      0  |   0 |  0 |           0   |          0 |           0 |          0   |           0 |
+ * |   1 |        1  |     27  |   5 |  1 |     2^32 + 27 |  5 * 2 + 1 |           1 |         1    |           1 |
+ * |   1 |        1  |     28  |  12 |  1 |     2^32 + 28 | 12 * 2 + 1 |           1 | 2 * 2^32 + 3 |           1 |
+ * |   1 |        3  |     31  |   7 |  0 | 3 * 2^32 + 31 |  7 * 2 + 0 |           0 |         3    |           1 |
+ * |   1 |        3  |     31  |   8 |  1 | 3 * 2^32 + 31 |  8 * 2 + 1 |           1 |    2^32 + 15 |           1 |
+ * |   1 |        4  |     46  |   5 |  0 | 4 * 2^32 + 46 |  5 * 2 + 0 |           0 |         0    |           1 |
+ * |   1 |        4  |     46  |   5 |  0 | 4 * 2^32 + 46 |  5 * 2 + 0 |           0 |         1    |           1 |
+ * |   1 |        4  |     46  |   5 |  1 | 4 * 2^32 + 46 |  5 * 2 + 1 |           0 |         1    |           1 |
+ * |   1 |        4  |     46  |   6 |  1 | 4 * 2^32 + 46 |  6 * 2 + 1 |           1 |         43   |           1 |
+ * |   1 |        4  |     89  |   2 |  1 | 4 * 2^32 + 89 |  2 * 2 + 1 |           1 |          0   |           0 |
+ * +-----+-----------+---------+-----+----+---------------+------------+-------------+--------------+-------------+
+ */
 namespace memory;
 
-// Link to design document: https://docs.google.com/document/d/1NM5zU39NG5xJReOjSObwWllbpqTCO4flr9v8kdRDK3E
-
-// Usage:
-// sel {
-//   clk, space_id, address, value, tag, rw
-// } is memory.sel_XXX {
-//   memory.clk, memory.space_id, memory.address, memory.value, memory.tag, memory.rw
-// };
-//
-// sel_XXX is one of the selectors appearing in #[ACTIVE_ROW_NEEDS_PERM_SELECTOR]
+////////////////////////////////////////////////
+// Column Declarations
+////////////////////////////////////////////////
 
 // Main memory values directly derived from the memory events.
 pol commit value;
 pol commit tag;
-pol commit space_id; // Memory space identifier (16-bit).
-pol commit address; // Memory address (32-bit).
-pol commit clk; // Clock cycle. (32-bit) Row index of corresponding opcode in the execution trace.
+pol commit space_id; // Memory space identifier (16-bit)
+pol commit address; // Memory address (32-bit, range guaranteed by source subtraces).
+pol commit clk; // Clock cycle (32-bit). Row index of corresponding opcode in the execution trace.
 pol commit rw; // @boolean Memory operation type: 0 for read, 1 for write.
 
 // Boolean selectors.
-pol commit sel; // @boolean Main selector to toggle an active row (used by any interaction lookups.).
-pol commit last_access; // @boolean Last memory access for a given global address
-pol commit sel_rng_chk; // @boolean (by definition) Every active row except the last one
-pol commit sel_tag_is_ff; // @boolean Toggles if tag == FF
-pol commit sel_rng_write; // @boolean (by definition) Toggles if rw == 1 and tag != FF (Activate range check for write values.)
+pol commit sel; // @boolean Main selector for active rows. Equals the sum of all fine-grained permutation selectors.
+pol commit last_access; // @boolean 1 iff this is the last access to a given global address.
+pol commit sel_rng_chk; // @boolean (by definition: sel * sel') Active on every row except the last active one.
+pol commit sel_tag_is_ff; // @boolean 1 iff tag == MEM_TAG_FF.
+pol commit sel_rng_write; // @boolean (by definition: rw * (1 - sel_tag_is_ff)) Active for non-FF writes.
 
 // Derived values.
-pol commit global_addr; // Global unique address derived from space_id and address.
-pol commit timestamp; // Timestamp derived from clk and rw.
-pol commit diff; // Difference between timestamp or global_addr values of consecutive rows to prove that memory is correctly sorted.
-pol commit limb[3]; // 16-bit decomposition limbs for diff.
+pol commit diff; // Non-negative difference between consecutive rows, proving correct sort order.
+pol commit limb[3]; // 16-bit LE decomposition limbs for diff.
 
-// Others
-pol commit max_bits; // Number of bits corresponding to the tag. (Retrieved from precomputed subtrace.)
-
-// Trace entries ordering.
-// The memory entries are sorted in ascending order by space_id, address, clk, then rw.
-// Equivalently, they are sorted by global_addr and then timestamp.
-// last_access == 1 iff the last memory access for a given global address.
-
-// Trace shape
-
-// +-----+-----------+-------+-----+-----+---------------+------------+------------+--------------+-------------+
-// | sel | space_id | address | clk | rw | global_addr   | timestamp  | last_access|    diff      | sel_rng_chk |
-// +-----+-----------+-------+-----+-----+---------------+------------+------------+--------------+-------------+
-// |   0 |        0 |     0  |   0 |   0 |           0   |          0 |          0 |         11   |           0 |
-// |   1 |        1 |     27 |   5 |   1 |     2^32 + 27 |  5 * 2 + 1 |          1 |         1    |           1 |
-// |   1 |        1 |     28 |  12 |   1 |     2^32 + 28 | 12 * 2 + 1 |          1 | 2 * 2^32 + 3 |           1 |
-// |   1 |        3 |     31 |   7 |   0 | 3 * 2^32 + 31 |  7 * 2 + 0 |          0 |         3    |           1 |
-// |   1 |        3 |     31 |   8 |   1 | 3 * 2^32 + 31 |  8 * 2 + 1 |          1 |    2^32 + 15 |           1 |
-// |   1 |        4 |     46 |   5 |   0 | 4 * 2^32 + 46 |  5 * 2 + 0 |          0 |         0    |           1 |
-// |   1 |        4 |     46 |   5 |   0 | 4 * 2^32 + 46 |  5 * 2 + 0 |          0 |         1    |           1 |
-// |   1 |        4 |     46 |   5 |   1 | 4 * 2^32 + 46 |  5 * 2 + 1 |          0 |         1    |           1 |
-// |   1 |        4 |     46 |   6 |   1 | 4 * 2^32 + 46 |  6 * 2 + 1 |          1 |         43   |           1 |
-// |   1 |        4 |     89 |   2 |   1 | 4 * 2^32 + 89 |  2 * 2 + 1 |          1 |-4 * 2^32 - 89|           0 |
-// +-----+-----------+-------+-----+-------------+----------------------+----------+--------------+-------------+
+// Others.
+pol commit max_bits; // Bit width for the tag's range check (retrieved from precomputed subtrace).
 
 #[skippable_if]
 sel = 0;
 
+////////////////////////////////////////////////
+// Permutation Selectors and Boolean Constraints
+////////////////////////////////////////////////
+
+// Each source subtrace that interacts with memory has a dedicated fine-grained
+// selector. Exactly one selector is active per row (enforced by ACTIVE_ROW_NEEDS_PERM_SELECTOR
+// combined with the boolean constraint on sel).
+
 // Permutation selectors (execution/addressing.pil).
 pol commit sel_addressing_base; // @boolean
-pol commit sel_addressing_indirect[7]; // @boolean
+pol commit sel_addressing_indirect[5]; // @boolean
 sel_addressing_base * (1 - sel_addressing_base) = 0;
 sel_addressing_indirect[0] * (1 - sel_addressing_indirect[0]) = 0;
 sel_addressing_indirect[1] * (1 - sel_addressing_indirect[1]) = 0;
 sel_addressing_indirect[2] * (1 - sel_addressing_indirect[2]) = 0;
 sel_addressing_indirect[3] * (1 - sel_addressing_indirect[3]) = 0;
 sel_addressing_indirect[4] * (1 - sel_addressing_indirect[4]) = 0;
-sel_addressing_indirect[5] * (1 - sel_addressing_indirect[5]) = 0;
-sel_addressing_indirect[6] * (1 - sel_addressing_indirect[6]) = 0;
 
 // Permutation selectors (execution/registers.pil)
-pol commit sel_register_op[6]; // @boolean
+pol commit sel_register_op[4]; // @boolean
 sel_register_op[0] * (1 - sel_register_op[0]) = 0;
 sel_register_op[1] * (1 - sel_register_op[1]) = 0;
 sel_register_op[2] * (1 - sel_register_op[2]) = 0;
 sel_register_op[3] * (1 - sel_register_op[3]) = 0;
-sel_register_op[4] * (1 - sel_register_op[4]) = 0;
-sel_register_op[5] * (1 - sel_register_op[5]) = 0;
 
 // Permutation selectors (data_copy.pil).
 pol commit sel_data_copy_read; // @boolean
@@ -97,9 +137,9 @@ pol commit sel_get_contract_instance_member_write; // @boolean
 sel_get_contract_instance_exists_write * (1 - sel_get_contract_instance_exists_write) = 0;
 sel_get_contract_instance_member_write * (1 - sel_get_contract_instance_member_write) = 0;
 
-// Permutation selectors (opcodes/emit_unencrypted_log.pil).
-pol commit sel_unencrypted_log_read; // @boolean
-sel_unencrypted_log_read * (1 - sel_unencrypted_log_read) = 0;
+// Permutation selectors (opcodes/emit_public_log.pil).
+pol commit sel_public_log_read; // @boolean
+sel_public_log_read * (1 - sel_public_log_read) = 0;
 
 // Permutation selectors (poseidon2_mem.pil).
 pol commit sel_poseidon2_read[4]; // @boolean
@@ -131,32 +171,31 @@ sel_sha256_op[6] * (1 - sel_sha256_op[6]) = 0;
 sel_sha256_op[7] * (1 - sel_sha256_op[7]) = 0;
 
 // Permutation selectors (ecc_mem.pil).
-pol commit sel_ecc_write[3]; // @boolean
+pol commit sel_ecc_write[2]; // @boolean
 sel_ecc_write[0] * (1 - sel_ecc_write[0]) = 0;
 sel_ecc_write[1] * (1 - sel_ecc_write[1]) = 0;
-sel_ecc_write[2] * (1 - sel_ecc_write[2]) = 0;
 
 // Permutation selectors (to_radix_mem.pil).
 pol commit sel_to_radix_write; // @boolean
 sel_to_radix_write * (1 - sel_to_radix_write) = 0;
 
-// Permutation consistency.
+// Permutation consistency: sel equals the sum of all fine-grained selectors.
+// Combined with sel * (1 - sel) = 0 below, this enforces mutual exclusivity.
 #[ACTIVE_ROW_NEEDS_PERM_SELECTOR]
 sel = // Addressing.
       sel_addressing_base
     + sel_addressing_indirect[0] + sel_addressing_indirect[1] + sel_addressing_indirect[2] + sel_addressing_indirect[3]
-    + sel_addressing_indirect[4] + sel_addressing_indirect[5] + sel_addressing_indirect[6]
+    + sel_addressing_indirect[4]
     // Registers.
-    + sel_register_op[0] + sel_register_op[1] + sel_register_op[2] + sel_register_op[3] + sel_register_op[4]
-    + sel_register_op[5]
+    + sel_register_op[0] + sel_register_op[1] + sel_register_op[2] + sel_register_op[3]
     // Data Copy.
     + sel_data_copy_read
     + sel_data_copy_write
     // Get Contract Instance.
     + sel_get_contract_instance_exists_write
     + sel_get_contract_instance_member_write
-    // Unencrypted Log.
-    + sel_unencrypted_log_read
+    // Public Log.
+    + sel_public_log_read
     // Poseidon2.
     + sel_poseidon2_read[0] + sel_poseidon2_read[1] + sel_poseidon2_read[2] + sel_poseidon2_read[3]
     + sel_poseidon2_write[0] + sel_poseidon2_write[1] + sel_poseidon2_write[2] + sel_poseidon2_write[3]
@@ -167,97 +206,136 @@ sel = // Addressing.
     + sel_sha256_op[0] + sel_sha256_op[1] + sel_sha256_op[2] + sel_sha256_op[3]
     + sel_sha256_op[4] + sel_sha256_op[5] + sel_sha256_op[6] + sel_sha256_op[7]
     // ECC.
-    + sel_ecc_write[0] + sel_ecc_write[1] + sel_ecc_write[2]
+    + sel_ecc_write[0] + sel_ecc_write[1]
     // To Radix.
     + sel_to_radix_write;
 
-// Other boolean constraints.
-sel * (1 - sel) = 0; // Ensure mutual exclusivity of the permutation selectors.
+// Boolean constraints for non-permutation columns.
+sel * (1 - sel) = 0; // Ensures mutual exclusivity of the permutation selectors (sum of booleans = boolean => at most one is 1).
 last_access * (1 - last_access) = 0;
-rw * (1 - rw) = 0; // Some source sub-trace relies on this constraint (e.g., keccak_memory.pil)
+rw * (1 - rw) = 0; // Some source sub-trace relies on this constraint (e.g., keccak_memory.pil).
 sel_tag_is_ff * (1 - sel_tag_is_ff) = 0;
+// Both boolean conditions for `rw` and `sel_tag_is_ff` ensure that `sel_rng_write` is unconditionally
+// boolean which is crucial as a lookup selector.
 
-// Trace must be contiguous.
-// Except on first row: sel == 0 ==> sel' == 0
-// As a consequence, the trace is empty or it starts just after the first row and
-// is contiguous.
-#[MEM_CONTIGUOUS]
-(1 - precomputed.first_row) * (1 - sel) * sel' = 0;
+////////////////////////////////////////////////
+// Trace Continuity and Structure
+////////////////////////////////////////////////
 
-// Boolean toggles at all active rows except the last one.
-// It is boolean by definition.
+// Trace must be continuous: once sel drops to 0, it stays 0.
+// Exception: the first row (precomputed.first_row = 1) is always inactive.
+#[MEM_CONTINUITY]
+(1 - precomputed.first_row - sel) * sel' = 0;
+
+// Boolean toggle for "not the last active row". Boolean by definition (product of two booleans).
 #[SEL_RNG_CHK]
 sel_rng_chk = sel * sel';
 
-// Derived values.
+////////////////////////////////////////////////
+// Derived Values
+////////////////////////////////////////////////
 
-#[GLOBAL_ADDR]
-global_addr = space_id * 2**32 + address;
+// Global unique address: space_id * 2^32 + address (48-bit).
+// GLOBAL_ADDR and GLOBAL_ADDR' defined here for readability
+pol GLOBAL_ADDR = space_id * 2**32 + address;
+pol NEXT_GLOBAL_ADDR = space_id' * 2**32 + address';
 
-#[TIMESTAMP]
-timestamp = 2 * clk + rw;
+// Timestamp: 2 * clk + rw (33-bit).
+// TIMESTAMP and TIMESTAMP' defined here for readability
+pol TIMESTAMP = 2 * clk + rw;
+pol NEXT_TIMESTAMP = 2 * clk' + rw';
 
-// last_access derivation
-// last_access == 0 iff global_addr' == global_addr
-pol GLOB_ADDR_DIFF = global_addr' - global_addr;
-pol commit glob_addr_diff_inv; // Helper column for non zero equality check
+////////////////////////////////////////////////
+// Trace Sorting
+////////////////////////////////////////////////
+
+// last_access derivation via @zero-check pattern:
+// last_access == 1 iff global_addr' != global_addr (i.e., last access to this address).
+// Note: last_access is unconstrained on the last active row (sel_rng_chk = 0 deactivates
+// this constraint). This is safe because:
+// - If set to 1 (the honest value): MEMORY_INIT applies to the next (inactive) row, which
+//   is trivially satisfied since value' = 0 and tag' = MEM_TAG_FF on padding rows.
+// - If set to 0: READ_WRITE_CONSISTENCY applies instead, forcing the last active row's
+//   value = 0 and tag = MEM_TAG_FF (matching the padding row). This is strictly more
+//   constraining than the honest case, so it cannot help a malicious prover.
+pol GLOBAL_ADDR_DIFF = NEXT_GLOBAL_ADDR - GLOBAL_ADDR;
+pol commit glob_addr_diff_inv; // @zero-check Helper column for non-zero equality check
 #[LAST_ACCESS]
-sel_rng_chk * (GLOB_ADDR_DIFF * ((1 - last_access) * (1 - glob_addr_diff_inv) + glob_addr_diff_inv) - last_access) = 0;
+sel_rng_chk * (GLOBAL_ADDR_DIFF * ((1 - last_access) * (1 - glob_addr_diff_inv) + glob_addr_diff_inv) - last_access) = 0;
 
-// diff derivation
+// diff derivation: proves consecutive rows are in ascending order.
 // We alternate between two different diffs:
-// - last_access == 1: diff = global_addr' - global_addr
-// - last_access == 0: diff = timestamp' - timestamp - rw' * rw
-#[DIFF]
-diff = sel_rng_chk * (last_access * GLOB_ADDR_DIFF + (1 - last_access) * (timestamp' - timestamp - rw' * rw));
+// - last_access == 1: diff = GLOBAL_ADDR' - GLOBAL_ADDR (address transition)
+// - last_access == 0: diff = TIMESTAMP' - TIMESTAMP - rw' * rw (same address, time progression)
+// The `- rw' * rw` term subtracts 1 when both the current and next access are writes.
+// This prevents two writes to the same address at the same clock (diff would be -1,
+// failing the 48-bit range check), while still allowing concurrent reads (diff = 0)
+// and a read followed by a write at the same clock (diff = 1).
 
-// Decompose diff into 16-bit limbs.
+pol TIMESTAMP_DIFF = NEXT_TIMESTAMP - TIMESTAMP;
+#[DIFF]
+diff = sel_rng_chk * (last_access * GLOBAL_ADDR_DIFF + (1 - last_access) * (TIMESTAMP_DIFF - rw' * rw));
+
+// Decompose diff into 16-bit limbs (global, applies to all rows).
 #[DIFF_DECOMP]
 diff = limb[0] + limb[1] * 2**16 + limb[2] * 2**32;
 
-// Range check limbs
-
+// Range check each limb to 16 bits, proving diff is in [0, 2^48).
+// Only checked on active non-last rows (sel_rng_chk gating).
 #[RANGE_CHECK_LIMB_0]
-sel_rng_chk { limb[0] } in precomputed.sel_range_16 { precomputed.clk };
+sel_rng_chk { limb[0] } in precomputed.sel_range_16_active { precomputed.idx };
 #[RANGE_CHECK_LIMB_1]
-sel_rng_chk { limb[1] } in precomputed.sel_range_16 { precomputed.clk };
+sel_rng_chk { limb[1] } in precomputed.sel_range_16_active { precomputed.idx };
 #[RANGE_CHECK_LIMB_2]
-sel_rng_chk { limb[2] } in precomputed.sel_range_16 { precomputed.clk };
+sel_rng_chk { limb[2] } in precomputed.sel_range_16_active { precomputed.idx };
 
+////////////////////////////////////////////////
 // Memory Initialization
+////////////////////////////////////////////////
+
+// When the next row is the first access to an address (last_access == 1 on current row,
+// or precomputed.first_row), and the next access is a READ (rw' == 0),
+// the read must return the initial value (0) and initial tag (MEM_TAG_FF).
 #[MEMORY_INIT_VALUE]
 (last_access + precomputed.first_row) * (1 - rw') * value' = 0;
 #[MEMORY_INIT_TAG]
 (last_access + precomputed.first_row) * (1 - rw') * (tag' - constants.MEM_TAG_FF) = 0;
 
+////////////////////////////////////////////////
 // Read-Write Consistency
-// Note that last_access == 0 on the first row with our trace generation. If the first
-// memory entry is a READ, then the following constraints will be satisifed because
-// value == 0 and tag == MEM_TAG_FF == 0 will be set on the first row which corresponds
-// to an initial read.
+////////////////////////////////////////////////
+
+// When the next access is to the same address (last_access == 0) and is a READ (rw' == 0),
+// the read must return the same value and tag as the current row.
+// Note: last_access == 0 on the first row by trace generation. If the first memory entry
+// is a READ, the constraints are satisfied because value == 0 and tag == MEM_TAG_FF == 0
+// on the padding row, which corresponds to the initial values.
 #[READ_WRITE_CONSISTENCY_VALUE]
 (1 - last_access) * (1 - rw') * (value' - value) = 0;
 #[READ_WRITE_CONSISTENCY_TAG]
 (1 - last_access) * (1 - rw') * (tag' - tag) = 0;
 
+////////////////////////////////////////////////
+// Tag-Based Write Range Check
+////////////////////////////////////////////////
 
-// We prove that sel_tag_is_ff == 1 <==> tag == MEM_TAG_FF
+// Prove sel_tag_is_ff == 1 <==> tag == MEM_TAG_FF using @zero-check pattern.
 pol TAG_FF_DIFF = tag - constants.MEM_TAG_FF;
-pol commit tag_ff_diff_inv;
+pol commit tag_ff_diff_inv; // @zero-check
 #[TAG_IS_FF]
 sel * (TAG_FF_DIFF * (sel_tag_is_ff * (1 - tag_ff_diff_inv) + tag_ff_diff_inv) + sel_tag_is_ff - 1) = 0;
 
-// Boolean by definition.
+// Boolean by definition (product of boolean and complement of boolean).
 #[SEL_RNG_WRITE]
 sel_rng_write = rw * (1 - sel_tag_is_ff);
 
-// Retrieve the number of bits for the range check
+// Retrieve the bit width for the tag to use in the range check.
 #[TAG_MAX_BITS]
 sel_rng_write { tag, max_bits }
 in
-precomputed.sel_tag_parameters { precomputed.clk, precomputed.tag_max_bits };
+precomputed.sel_tag_parameters { precomputed.idx, precomputed.tag_max_bits };
 
-// Range check for the tagged value validation
+// Range check the written value against the tag's bit width.
 #[RANGE_CHECK_WRITE_TAGGED_VALUE]
 sel_rng_write {value, max_bits}
 in

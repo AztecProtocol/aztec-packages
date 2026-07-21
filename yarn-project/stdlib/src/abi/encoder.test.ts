@@ -160,6 +160,246 @@ describe('abi/encoder', () => {
     expect(encodeArguments(abi, [{ inner: value }])).toEqual([value]);
   });
 
+  describe('option struct inputs', () => {
+    const optionStructAbi: FunctionAbi = {
+      name: 'test',
+      isInitializer: false,
+      functionType: FunctionType.PRIVATE,
+      isOnlySelf: false,
+      isStatic: false,
+      parameters: [
+        {
+          name: 'value',
+          type: {
+            kind: 'struct',
+            path: 'std::option::Option',
+            fields: [
+              { name: '_is_some', type: { kind: 'boolean' } },
+              {
+                name: '_value',
+                type: {
+                  kind: 'struct',
+                  path: 'Test::CustomStruct',
+                  fields: [
+                    { name: 'w', type: { kind: 'field' } },
+                    { name: 'x', type: { kind: 'boolean' } },
+                    { name: 'y', type: { kind: 'integer', sign: 'unsigned', width: 64 } },
+                    { name: 'z', type: { kind: 'integer', sign: 'signed', width: 64 } },
+                  ],
+                },
+              },
+            ],
+          },
+          visibility: 'private',
+        },
+      ],
+      returnTypes: [],
+      errorTypes: {},
+    };
+
+    const someValue = { w: 1n, x: true, y: 2n, z: -3n };
+
+    it('encodes a direct value as Some', () => {
+      expect(encodeArguments(optionStructAbi, [someValue])).toEqual([
+        new Fr(1n),
+        new Fr(1n),
+        new Fr(1n),
+        new Fr(2n),
+        new Fr((1n << 64n) - 3n),
+      ]);
+    });
+
+    it.each([undefined, null])('encodes %p as None', value => {
+      expect(encodeArguments(optionStructAbi, [value])).toEqual([Fr.ZERO, Fr.ZERO, Fr.ZERO, Fr.ZERO, Fr.ZERO]);
+    });
+
+    it('encodes the lowered ABI shape for Some', () => {
+      // eslint-disable-next-line camelcase
+      expect(encodeArguments(optionStructAbi, [{ _is_some: true, _value: someValue }])).toEqual([
+        new Fr(1n),
+        new Fr(1n),
+        new Fr(1n),
+        new Fr(2n),
+        new Fr((1n << 64n) - 3n),
+      ]);
+    });
+
+    it('encodes the lowered ABI shape for None without requiring _value', () => {
+      // eslint-disable-next-line camelcase
+      expect(encodeArguments(optionStructAbi, [{ _is_some: false }])).toEqual([
+        Fr.ZERO,
+        Fr.ZERO,
+        Fr.ZERO,
+        Fr.ZERO,
+        Fr.ZERO,
+      ]);
+    });
+  });
+
+  it('throws when array is larger than declared fixed size', () => {
+    const abi: FunctionAbi = {
+      name: 'test',
+      isInitializer: false,
+      functionType: FunctionType.PRIVATE,
+      isOnlySelf: false,
+      isStatic: false,
+      parameters: [
+        {
+          name: 'values',
+          type: { kind: 'array', length: 2, type: { kind: 'field' } },
+          visibility: 'private',
+        },
+      ],
+      returnTypes: [],
+      errorTypes: {},
+    };
+
+    expect(() => encodeArguments(abi, [[Fr.random(), Fr.random(), Fr.random()]])).toThrow(
+      "Expected array of length 2 for 'values' but received length 3",
+    );
+  });
+
+  it('throws when array is smaller than declared fixed size', () => {
+    const abi: FunctionAbi = {
+      name: 'test',
+      isInitializer: false,
+      functionType: FunctionType.PRIVATE,
+      isOnlySelf: false,
+      isStatic: false,
+      parameters: [
+        {
+          name: 'values',
+          type: { kind: 'array', length: 3, type: { kind: 'field' } },
+          visibility: 'private',
+        },
+      ],
+      returnTypes: [],
+      errorTypes: {},
+    };
+
+    expect(() => encodeArguments(abi, [[Fr.random()]])).toThrow(
+      "Expected array of length 3 for 'values' but received length 1",
+    );
+  });
+
+  it('throws when too many arguments are provided', () => {
+    const abi: FunctionAbi = {
+      name: 'test',
+      isInitializer: false,
+      functionType: FunctionType.PRIVATE,
+      isOnlySelf: false,
+      isStatic: false,
+      parameters: [
+        {
+          name: 'value',
+          type: { kind: 'field' },
+          visibility: 'private',
+        },
+      ],
+      returnTypes: [],
+      errorTypes: {},
+    };
+
+    expect(() => encodeArguments(abi, [Fr.random(), Fr.random()])).toThrow(
+      "Function 'test' expects 1 argument(s) but received 2",
+    );
+  });
+
+  it('throws when too few arguments are provided', () => {
+    const abi: FunctionAbi = {
+      name: 'test',
+      isInitializer: false,
+      functionType: FunctionType.PRIVATE,
+      isOnlySelf: false,
+      isStatic: false,
+      parameters: [
+        { name: 'a', type: { kind: 'field' }, visibility: 'private' },
+        { name: 'b', type: { kind: 'field' }, visibility: 'private' },
+      ],
+      returnTypes: [],
+      errorTypes: {},
+    };
+
+    expect(() => encodeArguments(abi, [Fr.random()])).toThrow("Function 'test' expects 2 argument(s) but received 1");
+  });
+
+  it('throws when string is longer than declared length', () => {
+    const abi: FunctionAbi = {
+      name: 'test',
+      isInitializer: false,
+      functionType: FunctionType.PRIVATE,
+      isOnlySelf: false,
+      isStatic: false,
+      parameters: [
+        {
+          name: 'label',
+          type: { kind: 'string', length: 3 },
+          visibility: 'private',
+        },
+      ],
+      returnTypes: [],
+      errorTypes: {},
+    };
+
+    expect(() => encodeArguments(abi, ['abcdef'])).toThrow(
+      "Expected string of max length 3 for 'label' but received length 6",
+    );
+  });
+
+  it('throws when unsigned integer overflows declared width', () => {
+    const abi: FunctionAbi = {
+      name: 'test',
+      isInitializer: false,
+      functionType: FunctionType.PRIVATE,
+      isOnlySelf: false,
+      isStatic: false,
+      parameters: [
+        {
+          name: 'count',
+          type: { kind: 'integer', sign: 'unsigned', width: 8 },
+          visibility: 'private',
+        },
+      ],
+      returnTypes: [],
+      errorTypes: {},
+    };
+
+    expect(() => encodeArguments(abi, [256])).toThrow(
+      "Value 256 does not fit in u8 for 'count' (valid range: 0 to 255)",
+    );
+    expect(() => encodeArguments(abi, [-1])).toThrow("Value -1 does not fit in u8 for 'count' (valid range: 0 to 255)");
+    expect(encodeArguments(abi, [255])).toEqual([new Fr(255n)]);
+    expect(encodeArguments(abi, [0])).toEqual([new Fr(0n)]);
+  });
+
+  it('throws when signed integer overflows declared width', () => {
+    const abi: FunctionAbi = {
+      name: 'test',
+      isInitializer: false,
+      functionType: FunctionType.PRIVATE,
+      isOnlySelf: false,
+      isStatic: false,
+      parameters: [
+        {
+          name: 'value',
+          type: { kind: 'integer', sign: 'signed', width: 8 },
+          visibility: 'private',
+        },
+      ],
+      returnTypes: [],
+      errorTypes: {},
+    };
+
+    expect(() => encodeArguments(abi, [128])).toThrow(
+      "Value 128 does not fit in i8 for 'value' (valid range: -128 to 127)",
+    );
+    expect(() => encodeArguments(abi, [-129])).toThrow(
+      "Value -129 does not fit in i8 for 'value' (valid range: -128 to 127)",
+    );
+    expect(encodeArguments(abi, [127])).toEqual([new Fr(127n)]);
+    expect(encodeArguments(abi, [-128])).toEqual([new Fr(128n)]);
+  });
+
   it('throws when passing string argument as field', () => {
     const testFunctionAbi: FunctionAbi = {
       name: 'constructor',
@@ -207,6 +447,33 @@ describe('abi/encoder', () => {
     };
     const args = ['garbage'];
     expect(() => encodeArguments(testFunctionAbi, args)).toThrow(`Cannot convert garbage to a BigInt`);
+  });
+
+  it("encodes negative signed integers as two's complement", () => {
+    const testFunctionAbi: FunctionAbi = {
+      name: 'test',
+      functionType: FunctionType.PRIVATE,
+      isOnlySelf: false,
+      isInitializer: false,
+      isStatic: false,
+      parameters: [
+        {
+          name: 'value',
+          type: { kind: 'integer', sign: 'signed', width: 8 },
+          visibility: 'private',
+        },
+      ],
+      returnTypes: [],
+      errorTypes: {},
+    };
+
+    expect(encodeArguments(testFunctionAbi, [0])).toEqual([new Fr(0n)]);
+    expect(encodeArguments(testFunctionAbi, [-128])).toEqual([new Fr(128n)]);
+    expect(encodeArguments(testFunctionAbi, [127])).toEqual([new Fr(127n)]);
+    expect(encodeArguments(testFunctionAbi, [-1])).toEqual([new Fr(255n)]);
+
+    // Also check strings are properly encoded
+    expect(encodeArguments(testFunctionAbi, ['-1'])).toEqual([new Fr(255n)]);
   });
 
   it('throws when passing object argument as field', () => {

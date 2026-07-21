@@ -3,18 +3,20 @@ import type { FieldsOf } from '@aztec/foundation/types';
 
 import { z } from 'zod';
 
-import { type ContractArtifact, ContractArtifactSchema } from '../abi/abi.js';
 import {
   type ContractInstanceWithAddress,
   ContractInstanceWithAddressSchema,
 } from '../contract/interfaces/contract_instance.js';
 import { Gas } from '../gas/gas.js';
 import type { GasUsed } from '../gas/gas_used.js';
+import { type PublicStorageOverride, PublicStorageOverrideSchema } from '../interfaces/public_storage_override.js';
 import { PrivateKernelTailCircuitPublicInputs } from '../kernel/private_kernel_tail_circuit_public_inputs.js';
 import { ChonkProof } from '../proofs/chonk_proof.js';
+import type { OffchainEffect } from './offchain_effect.js';
 import {
   PrivateCallExecutionResult,
   PrivateExecutionResult,
+  collectOffchainEffects,
   collectSortedContractClassLogs,
 } from './private_execution_result.js';
 import { type SimulationStats, SimulationStatsSchema } from './profiling.js';
@@ -22,35 +24,36 @@ import { NestedProcessReturnValues, PublicSimulationOutput } from './public_simu
 import { Tx } from './tx.js';
 
 /*
- * If passed during the execution of a user circuit, the contract function simulator will replace the instance and class
- * of the contract with the one provided in the overrides for that address. An example use case
- * would be overriding your own account contract so that valid signatures don't have to be provided while simulating.
+ * If passed during the execution of a user circuit, the contract function simulator will replace
+ * the contract instance at that address with the one provided. An example use case would be
+ * overriding your own account contract so that valid signatures don't have to be provided while
+ * simulating. The override's `currentContractClassId` resolves through PXE's locally registered
+ * classes, so pre-register the target artifact via `pxe.registerContractClass(...)`.
  */
-export type ContractOverrides = Record<
-  string /* AztecAddress as string */,
-  { instance: ContractInstanceWithAddress; artifact: ContractArtifact }
->;
+export type ContractOverrides = Record<string /* AztecAddress as string */, { instance: ContractInstanceWithAddress }>;
 
 /*
- * Optional values that can be overridden during simulation. In order to simulate a transaction with these
- * set, it *must* be run without the kernel circuits, or validations will fail
+ * Optional values that can be overridden during simulation. `publicStorage` writes to the public-data
+ * tree fork. `contracts` overrides contract instances in the contract DB.
+ * In order to simulate a transaction with these set, it *must* be run without the kernel circuits,
+ * or validations will fail.
  */
 export class SimulationOverrides {
-  constructor(public contracts?: ContractOverrides) {}
+  public publicStorage?: PublicStorageOverride[];
+  public contracts?: ContractOverrides;
+
+  constructor(args: { publicStorage?: PublicStorageOverride[]; contracts?: ContractOverrides } = {}) {
+    this.publicStorage = args.publicStorage?.length ? args.publicStorage : undefined;
+    this.contracts = args.contracts && Object.keys(args.contracts).length > 0 ? args.contracts : undefined;
+  }
 
   static get schema() {
     return z
       .object({
-        contracts: optional(
-          z.record(
-            z.string(),
-            z.object({ instance: ContractInstanceWithAddressSchema, artifact: ContractArtifactSchema }),
-          ),
-        ),
+        publicStorage: optional(z.array(PublicStorageOverrideSchema)),
+        contracts: optional(z.record(z.string(), z.object({ instance: ContractInstanceWithAddressSchema }))),
       })
-      .transform(({ contracts }) => {
-        return new SimulationOverrides(contracts);
-      });
+      .transform(args => new SimulationOverrides(args));
   }
 }
 
@@ -84,6 +87,11 @@ export class TxSimulationResult {
     public stats?: SimulationStats,
   ) {}
 
+  /** Returns offchain effects collected from private execution. */
+  get offchainEffects(): OffchainEffect[] {
+    return collectOffchainEffects(this.privateExecutionResult);
+  }
+
   get gasUsed(): GasUsed {
     return (
       this.publicOutput?.gasUsed ?? {
@@ -106,7 +114,7 @@ export class TxSimulationResult {
       .transform(TxSimulationResult.from);
   }
 
-  static from(fields: Omit<FieldsOf<TxSimulationResult>, 'gasUsed'>) {
+  static from(fields: Omit<FieldsOf<TxSimulationResult>, 'gasUsed' | 'offchainEffects'>) {
     return new TxSimulationResult(
       fields.privateExecutionResult,
       fields.publicInputs,
@@ -150,7 +158,7 @@ export class TxSimulationResult {
 }
 
 /**
- * Recursively accummulate the return values of a call result and its nested executions,
+ * Recursively accumulate the return values of a call result and its nested executions,
  * so they can be retrieved in order.
  * @param executionResult
  * @returns

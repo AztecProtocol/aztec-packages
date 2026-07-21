@@ -17,7 +17,7 @@ struct lookup_gas_addressing_gas_read_settings_ {
     static constexpr std::string_view NAME = "LOOKUP_GAS_ADDRESSING_GAS_READ";
     static constexpr std::string_view RELATION_NAME = "gas";
     static constexpr size_t LOOKUP_TUPLE_SIZE = 2;
-    static constexpr Column SRC_SELECTOR = Column::execution_sel_should_check_gas;
+    static constexpr Column SRC_SELECTOR = Column::execution_sel_check_gas;
     static constexpr Column DST_SELECTOR = Column::precomputed_sel_addressing_gas;
     static constexpr Column COUNTS = Column::lookup_gas_addressing_gas_read_counts;
     static constexpr Column INVERSES = Column::lookup_gas_addressing_gas_read_inv;
@@ -25,7 +25,7 @@ struct lookup_gas_addressing_gas_read_settings_ {
         ColumnAndShifts::execution_addressing_mode, ColumnAndShifts::execution_addressing_gas
     };
     static constexpr std::array<ColumnAndShifts, LOOKUP_TUPLE_SIZE> DST_COLUMNS = {
-        ColumnAndShifts::precomputed_clk, ColumnAndShifts::precomputed_addressing_gas
+        ColumnAndShifts::precomputed_idx, ColumnAndShifts::precomputed_addressing_gas
     };
 };
 
@@ -39,7 +39,7 @@ struct lookup_gas_is_out_of_gas_l2_settings_ {
     static constexpr std::string_view NAME = "LOOKUP_GAS_IS_OUT_OF_GAS_L2";
     static constexpr std::string_view RELATION_NAME = "gas";
     static constexpr size_t LOOKUP_TUPLE_SIZE = 3;
-    static constexpr Column SRC_SELECTOR = Column::execution_sel_should_check_gas;
+    static constexpr Column SRC_SELECTOR = Column::execution_sel_check_gas;
     static constexpr Column DST_SELECTOR = Column::gt_sel_gas;
     static constexpr Column COUNTS = Column::lookup_gas_is_out_of_gas_l2_counts;
     static constexpr Column INVERSES = Column::lookup_gas_is_out_of_gas_l2_inv;
@@ -63,7 +63,7 @@ struct lookup_gas_is_out_of_gas_da_settings_ {
     static constexpr std::string_view NAME = "LOOKUP_GAS_IS_OUT_OF_GAS_DA";
     static constexpr std::string_view RELATION_NAME = "gas";
     static constexpr size_t LOOKUP_TUPLE_SIZE = 3;
-    static constexpr Column SRC_SELECTOR = Column::execution_sel_should_check_gas;
+    static constexpr Column SRC_SELECTOR = Column::execution_sel_check_gas;
     static constexpr Column DST_SELECTOR = Column::gt_sel_gas;
     static constexpr Column COUNTS = Column::lookup_gas_is_out_of_gas_da_counts;
     static constexpr Column INVERSES = Column::lookup_gas_is_out_of_gas_da_inv;

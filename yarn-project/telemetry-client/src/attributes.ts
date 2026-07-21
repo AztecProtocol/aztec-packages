@@ -45,6 +45,8 @@ export const BLOCK_NUMBER = 'aztec.block.number';
 export const BLOCK_HASH = 'aztec.block.hash';
 /** The slot number */
 export const SLOT_NUMBER = 'aztec.slot.number';
+/** Whether an event happened before or after a slot boundary. */
+export const SLOT_BOUNDARY_SIDE = 'aztec.slot_boundary_side';
 /** The checkpoint number */
 export const CHECKPOINT_NUMBER = 'aztec.checkpoint.number';
 /** The parent's block number */
@@ -61,6 +63,8 @@ export const EPOCH_SIZE = 'aztec.epoch.size';
 export const BLOCK_PROPOSER = 'aztec.block.proposer';
 /** The epoch number */
 export const EPOCH_NUMBER = 'aztec.epoch.number';
+/** Kind of an EpochSession: 'full' or 'partial'. */
+export const EPOCH_SESSION_KIND = 'aztec.epoch_session.kind';
 /** The tx hash */
 export const TX_HASH = 'aztec.tx.hash';
 /** Generic attribute representing whether the action was successful or not */
@@ -69,6 +73,8 @@ export const OK = 'aztec.ok';
 export const STATUS = 'aztec.status';
 /** Generic error type attribute */
 export const ERROR_TYPE = 'aztec.error_type';
+/** The cause of an archiver prune (unproven / uncheckpointed / l1_conflict / orphan / l1_mismatch) */
+export const PRUNE_TYPE = 'aztec.archiver.prune_type';
 /** The type of the transaction */
 export const L1_TX_TYPE = 'aztec.l1.tx_type';
 /** The L1 address of the entity that sent a transaction to L1 */
@@ -94,7 +100,6 @@ export const VALIDATOR_STATUS = 'aztec.validator_status';
 
 export const P2P_ID = 'aztec.p2p.id';
 export const P2P_REQ_RESP_PROTOCOL = 'aztec.p2p.req_resp.protocol';
-export const P2P_REQ_RESP_BATCH_REQUESTS_COUNT = 'aztec.p2p.req_resp.batch_requests_count';
 /** The state of a peer (Healthy, Disconnect, Banned) */
 export const P2P_PEER_SCORE_STATE = 'aztec.p2p.peer_score_state';
 export const POOL_NAME = 'aztec.pool.name';
@@ -128,6 +133,9 @@ export const NODEJS_EVENT_LOOP_STATE = 'nodejs.eventloop.state';
 
 export const TOPIC_NAME = 'aztec.gossip.topic_name';
 
+/** The reason a transaction was evicted from the tx pool */
+export const TX_POOL_EVICTION_REASON = 'aztec.mempool.eviction_reason';
+
 export const TX_COLLECTION_METHOD = 'aztec.tx_collection.method';
 
 /** Scope of L1 transaction (sequencer, prover, or other) */
@@ -139,8 +147,20 @@ export const IS_COMMITTEE_MEMBER = 'aztec.is_committee_member';
 /** Fisherman fee analysis strategy identifier */
 export const FISHERMAN_FEE_STRATEGY_ID = 'aztec.fisherman.strategy_id';
 
+/** Whether the analyzed block reached 100% blob capacity */
+export const BLOCK_FULL = 'aztec.block_full';
+
 /** The L1 transaction target for block proposal */
 export const L1_BLOCK_PROPOSAL_TX_TARGET = 'aztec.l1.block_proposal_tx_target';
 
 /** Whether tracing methods were used to extract block proposal data */
 export const L1_BLOCK_PROPOSAL_USED_TRACE = 'aztec.l1.block_proposal_used_trace';
+
+/** HA signer duty type (e.g., BLOCK_PROPOSAL, CHECKPOINT_ATTESTATION) */
+export const HA_DUTY_TYPE = 'aztec.ha_signer.duty_type';
+
+/** HA signer node identifier */
+export const HA_NODE_ID = 'aztec.ha_signer.node_id';
+
+/** The address of an attester (validator) participating in consensus */
+export const ATTESTER_ADDRESS = 'aztec.attester.address';

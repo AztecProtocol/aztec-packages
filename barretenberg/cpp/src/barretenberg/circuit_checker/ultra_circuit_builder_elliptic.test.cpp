@@ -65,7 +65,7 @@ TEST_F(UltraCircuitBuilderElliptic, Addition)
     auto points = create_add_points(1, 2, true);
 
     auto [x1, y1, x2, y2, x3, y3] = add_add_gate_variables(builder, points);
-    builder.create_ecc_add_gate({ x1, y1, x2, y2, x3, y3, 1 });
+    builder.create_ecc_add_gate({ x1, y1, x2, y2, x3, y3, /*is_addition=*/true });
 
     EXPECT_TRUE(CircuitChecker::check(builder));
 }
@@ -78,7 +78,7 @@ TEST_F(UltraCircuitBuilderElliptic, AdditionFailure)
         auto points = create_add_points(1, 2, true);
         modify_points(points);
         auto [x1, y1, x2, y2, x3, y3] = add_add_gate_variables(builder, points);
-        builder.create_ecc_add_gate({ x1, y1, x2, y2, x3, y3, 1 });
+        builder.create_ecc_add_gate({ x1, y1, x2, y2, x3, y3, /*is_addition=*/true });
         EXPECT_FALSE(CircuitChecker::check(builder));
     };
 
@@ -96,7 +96,7 @@ TEST_F(UltraCircuitBuilderElliptic, Subtraction)
     UltraCircuitBuilder builder;
     auto points = create_add_points(1, 2, false); // false = subtraction
     auto [x1, y1, x2, y2, x3, y3] = add_add_gate_variables(builder, points);
-    builder.create_ecc_add_gate({ x1, y1, x2, y2, x3, y3, -1 });
+    builder.create_ecc_add_gate({ x1, y1, x2, y2, x3, y3, /*is_addition=*/false });
     EXPECT_TRUE(CircuitChecker::check(builder));
 }
 
@@ -108,7 +108,7 @@ TEST_F(UltraCircuitBuilderElliptic, SubtractionFailure)
         auto points = create_add_points(1, 2, /*is_addition=*/false);
         modify_points(points);
         auto [x1, y1, x2, y2, x3, y3] = add_add_gate_variables(builder, points);
-        builder.create_ecc_add_gate({ x1, y1, x2, y2, x3, y3, /*sign_coefficient=*/-1 });
+        builder.create_ecc_add_gate({ x1, y1, x2, y2, x3, y3, /*is_addition=*/false });
         EXPECT_FALSE(CircuitChecker::check(builder));
     };
 
@@ -165,8 +165,8 @@ TEST_F(UltraCircuitBuilderElliptic, MultipleOperationsUnchained)
     auto [sub_x1, sub_y1, sub_x2, sub_y2, sub_x3, sub_y3] = add_add_gate_variables(builder, sub_points);
     auto [dbl_x1, dbl_y1, dbl_x3, dbl_y3] = add_dbl_gate_variables(builder, dbl_points);
 
-    builder.create_ecc_add_gate({ add_x1, add_y1, add_x2, add_y2, add_x3, add_y3, /*sign_coefficient=*/1 });
-    builder.create_ecc_add_gate({ sub_x1, sub_y1, sub_x2, sub_y2, sub_x3, sub_y3, /*sign_coefficient=*/-1 });
+    builder.create_ecc_add_gate({ add_x1, add_y1, add_x2, add_y2, add_x3, add_y3, /*is_addition=*/true });
+    builder.create_ecc_add_gate({ sub_x1, sub_y1, sub_x2, sub_y2, sub_x3, sub_y3, /*is_addition=*/false });
     builder.create_ecc_dbl_gate({ dbl_x1, dbl_y1, dbl_x3, dbl_y3 });
 
     EXPECT_EQ(builder.blocks.elliptic.size(), 6UL); // 3 unchained operations, 2 gates each
@@ -194,8 +194,8 @@ TEST_F(UltraCircuitBuilderElliptic, ChainedOperations)
     uint32_t x_result = builder.add_variable(result.x);
     uint32_t y_result = builder.add_variable(result.y);
 
-    builder.create_ecc_add_gate({ x1, y1, x2, y2, x_temp, y_temp, /*sign_coefficient=*/1 });
-    builder.create_ecc_add_gate({ x_temp, y_temp, x3, y3, x_result, y_result, /*sign_coefficient=*/1 });
+    builder.create_ecc_add_gate({ x1, y1, x2, y2, x_temp, y_temp, /*is_addition=*/true });
+    builder.create_ecc_add_gate({ x_temp, y_temp, x3, y3, x_result, y_result, /*is_addition=*/true });
 
     EXPECT_EQ(builder.blocks.elliptic.size(), 3UL); // 2 chained operations = 2 + (2 - 1) gates
     EXPECT_TRUE(CircuitChecker::check(builder));
@@ -230,9 +230,9 @@ TEST_F(UltraCircuitBuilderElliptic, ChainedOperationsWithDouble)
     uint32_t x_result = builder.add_variable(result.x);
     uint32_t y_result = builder.add_variable(result.y);
 
-    builder.create_ecc_add_gate({ x1, y1, x2, y2, x_temp1, y_temp1, /*sign_coefficient=*/1 });
+    builder.create_ecc_add_gate({ x1, y1, x2, y2, x_temp1, y_temp1, /*is_addition=*/true });
     builder.create_ecc_dbl_gate({ x_temp1, y_temp1, x_temp2, y_temp2 });
-    builder.create_ecc_add_gate({ x_temp2, y_temp2, x3, y3, x_result, y_result, /*sign_coefficient=*/1 });
+    builder.create_ecc_add_gate({ x_temp2, y_temp2, x3, y3, x_result, y_result, /*is_addition=*/true });
 
     EXPECT_EQ(builder.blocks.elliptic.size(), 4UL); // 3 chained operations, 2 + (2 - 1) + (2 - 1) gates
     EXPECT_TRUE(CircuitChecker::check(builder));
@@ -268,11 +268,38 @@ TEST_F(UltraCircuitBuilderElliptic, ChainedOperationsDoubleFailure)
     uint32_t x_result = builder.add_variable(result.x);
     uint32_t y_result = builder.add_variable(result.y);
 
-    builder.create_ecc_add_gate({ x1, y1, x2, y2, x_temp1, y_temp1, /*sign_coefficient=*/1 });
+    builder.create_ecc_add_gate({ x1, y1, x2, y2, x_temp1, y_temp1, /*is_addition=*/true });
     builder.create_ecc_dbl_gate({ x_temp1, y_temp1, x_temp2, y_temp2 });
-    builder.create_ecc_add_gate({ x_temp2, y_temp2, x3, y3, x_result, y_result, /*sign_coefficient=*/1 });
+    builder.create_ecc_add_gate({ x_temp2, y_temp2, x3, y3, x_result, y_result, /*is_addition=*/true });
 
     EXPECT_EQ(builder.blocks.elliptic.size(), 4UL); // 3 chained operations, 2 + (2 - 1) + (2 - 1) gates
     // Should fail because the middle operation (doubling) has an invalid result
     EXPECT_FALSE(CircuitChecker::check(builder));
+}
+
+// Demonstrates that a doubling gate with off-curve input (0,0) does not constrain the output.
+// The elliptic relation substitutes x1^3 = y1^2 - b, which is invalid for off-curve points.
+// When (x1,y1) = (0,0), both the x- and y-coordinate subrelations become 0 = 0 for any output.
+// Production code (cycle_group::dbl) prevents this by substituting y1 = 1 for points at infinity.
+// See CycleGroupTest.TestDblWitnessPoints (cycle_group.test.cpp) for the complementary test
+// that verifies the mitigation works correctly.
+TEST_F(UltraCircuitBuilderElliptic, DoubleOffCurveOriginUnconstrainedOutput)
+{
+    // (0,0) is not on grumpkin (y^2 = x^3 - 17), so this is an off-curve input
+    auto x1_val = bb::fr(0);
+    auto y1_val = bb::fr(0);
+    // Claim an arbitrary output point
+    auto x3_val = bb::fr::random_element();
+    auto y3_val = bb::fr::random_element();
+
+    UltraCircuitBuilder builder;
+    auto x1 = builder.add_variable(x1_val);
+    auto y1 = builder.add_variable(y1_val);
+    auto x3 = builder.add_variable(x3_val);
+    auto y3 = builder.add_variable(y3_val);
+    builder.create_ecc_dbl_gate({ x1, y1, x3, y3 });
+
+    // The circuit checker passes because the relation is trivially satisfied for (0,0) input.
+    // This is NOT a bug — production code never lets (0,0) reach a doubling gate.
+    EXPECT_TRUE(CircuitChecker::check(builder));
 }

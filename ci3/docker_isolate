@@ -55,7 +55,6 @@ fi
 # Launch the container in the background.
 # Don't launch in the foreground or you can't process SIGINT/SIGTERM.
 # Don't use & as we want to block, and be sure it starts before processing any signals.
-# We use --pid=host so that we can rely on $$ in bash scripts being (temporally) unique.
 set -x
 cid=$(docker run -d \
   ${name_arg:-} \
@@ -63,7 +62,6 @@ cid=$(docker run -d \
   ${cpuset_arg:-} \
   --cpus=$CPUS \
   --memory=$MEM \
-  --pid=host \
   --user $(id -u):$(id -g) \
   -v$HOME:$HOME \
   $tmp_mount \
@@ -77,6 +75,9 @@ cid=$(docker run -d \
   -e TMPFS_SIZE \
   -e USE_HOME_TMP \
   -e AVM \
+  -e ELU_MONITOR_FILE \
+  -e TEST_TIMING_FILE \
+  -e RUN_ID \
   "${arg_env_vars[@]}" \
   aztecprotocol/build:3.0 \
   /bin/bash -c "$cmd")

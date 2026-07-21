@@ -1,4 +1,5 @@
 import { type InitialAccountData, getInitialTestAccountsData } from '@aztec/accounts/testing';
+import type { WaitOpts } from '@aztec/aztec.js/contracts';
 import type { Wallet } from '@aztec/aztec.js/wallet';
 import { Fr } from '@aztec/foundation/curves/bn254';
 import type { LogFn } from '@aztec/foundation/log';
@@ -45,19 +46,22 @@ export async function getBananaFPCAddress(initialAccounts: InitialAccountData[])
   return (await getBananaFPCInstance(initialAccounts)).address;
 }
 
-export async function setupBananaFPC(initialAccounts: InitialAccountData[], wallet: Wallet, log: LogFn) {
+export async function setupBananaFPC(
+  initialAccounts: InitialAccountData[],
+  wallet: Wallet,
+  log: LogFn,
+  waitOpts?: WaitOpts,
+) {
   const bananaCoinAddress = await getBananaCoinAddress(initialAccounts);
   const admin = getBananaAdmin(initialAccounts);
-  const [bananaCoin, fpc] = await Promise.all([
-    TokenContract.deploy(wallet, admin, bananaCoinArgs.name, bananaCoinArgs.symbol, bananaCoinArgs.decimal).send({
-      from: admin,
-      contractAddressSalt: BANANA_COIN_SALT,
+  const [{ contract: bananaCoin }, { contract: fpc }] = await Promise.all([
+    TokenContract.deploy(wallet, admin, bananaCoinArgs.name, bananaCoinArgs.symbol, bananaCoinArgs.decimal, {
+      salt: BANANA_COIN_SALT,
       universalDeploy: true,
-    }),
-    FPCContract.deploy(wallet, bananaCoinAddress, admin).send({
+    }).send({ from: admin, wait: waitOpts }),
+    FPCContract.deploy(wallet, bananaCoinAddress, admin, { salt: BANANA_FPC_SALT, universalDeploy: true }).send({
       from: admin,
-      contractAddressSalt: BANANA_FPC_SALT,
-      universalDeploy: true,
+      wait: waitOpts,
     }),
   ]);
 

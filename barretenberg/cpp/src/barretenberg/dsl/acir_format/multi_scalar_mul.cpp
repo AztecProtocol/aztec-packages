@@ -83,32 +83,29 @@ static MsmInputs<Builder> reconstruct_msm_inputs(Builder& builder, const MultiSc
     // Reconstruct expected result
     field_ct input_result_x = field_ct::from_witness_index(&builder, input.out_point_x);
     field_ct input_result_y = field_ct::from_witness_index(&builder, input.out_point_y);
-    bool_ct input_result_infinite = bool_ct(field_ct::from_witness_index(&builder, input.out_point_is_infinite));
 
     // If no valid witness assignments, set result to generator point to avoid errors during circuit construction
     if (builder.is_write_vk_mode()) {
         builder.set_variable(input_result_x.get_witness_index(), bb::grumpkin::g1::affine_one.x);
         builder.set_variable(input_result_y.get_witness_index(), bb::grumpkin::g1::affine_one.y);
-        builder.set_variable(input_result_infinite.get_witness_index(), bb::fr(0));
     }
 
+    // Use public constructor which auto-detects infinity from (0,0) coordinates.
     // Note that input_result is computed by Noir and passed to bb via ACIR. Hence, it is always a valid point on
-    // Grumpkin.
-    cycle_group_ct input_result(input_result_x, input_result_y, input_result_infinite, /*assert_on_curve=*/false);
+    // Grumpkin, so we don't need to assert on curve.
+    cycle_group_ct input_result(input_result_x, input_result_y, /*assert_on_curve=*/false);
 
     // Reconstruct points and scalars
     std::vector<cycle_group_ct> points;
     std::vector<cycle_scalar_ct> scalars;
 
-    // Ensure that the number of points and scalars are consistent (3 field elements per point, 2 per scalar)
-    BB_ASSERT(input.points.size() * 2 == input.scalars.size() * 3, "MultiScalarMul input size mismatch");
+    // Ensure that the number of points and scalars are consistent (2 field elements per point, 2 per scalar)
+    BB_ASSERT_EQ(input.points.size(), input.scalars.size(), "MultiScalarMul input size mismatch");
 
-    for (size_t i = 0; i < input.points.size(); i += 3) {
-        cycle_group_ct input_point =
-            to_grumpkin_point(input.points[i], input.points[i + 1], input.points[i + 2], predicate, builder);
+    for (size_t i = 0; i < input.points.size(); i += 2) {
+        cycle_group_ct input_point = to_grumpkin_point(input.points[i], input.points[i + 1], predicate, builder);
 
-        cycle_scalar_ct scalar =
-            to_grumpkin_scalar(input.scalars[2 * (i / 3)], input.scalars[2 * (i / 3) + 1], predicate, builder);
+        cycle_scalar_ct scalar = to_grumpkin_scalar(input.scalars[i], input.scalars[i + 1], predicate, builder);
 
         points.push_back(input_point);
         scalars.push_back(scalar);

@@ -58,7 +58,7 @@ namespace tx;
     pol commit da_gas_limit;
 
     // Prev side effect states
-    pol commit prev_num_unencrypted_log_fields;
+    pol commit prev_num_public_log_fields;
     pol commit prev_num_l2_to_l1_messages;
 
     // ==== READ START/END STATE FROM PI ====
@@ -77,7 +77,7 @@ namespace tx;
         prev_note_hash_tree_root,
         prev_note_hash_tree_size
     } in public_inputs.sel {
-        precomputed.clk,
+        precomputed.idx,
         public_inputs.cols[0],
         public_inputs.cols[1]
     };
@@ -95,7 +95,7 @@ namespace tx;
         prev_nullifier_tree_root,
         prev_nullifier_tree_size
     } in public_inputs.sel {
-        precomputed.clk,
+        precomputed.idx,
         public_inputs.cols[0],
         public_inputs.cols[1]
     };
@@ -113,7 +113,7 @@ namespace tx;
         prev_public_data_tree_root,
         prev_public_data_tree_size
     } in public_inputs.sel {
-        precomputed.clk,
+        precomputed.idx,
         public_inputs.cols[0],
         public_inputs.cols[1]
     };
@@ -138,7 +138,7 @@ namespace tx;
         l1_l2_tree_root,
         l1_l2_tree_size
     } in public_inputs.sel {
-        precomputed.clk,
+        precomputed.idx,
         public_inputs.cols[0],
         public_inputs.cols[1]
     };
@@ -158,7 +158,7 @@ namespace tx;
         prev_da_gas_used,
         prev_l2_gas_used
     } in public_inputs.sel {
-        precomputed.clk,
+        precomputed.idx,
         public_inputs.cols[0],
         public_inputs.cols[1]
     };
@@ -180,7 +180,7 @@ namespace tx;
         da_gas_limit,
         l2_gas_limit
     } in public_inputs.sel {
-        precomputed.clk,
+        precomputed.idx,
         public_inputs.cols[0],
         public_inputs.cols[1]
     };
@@ -205,12 +205,12 @@ namespace tx;
         reverted_pi_offset,
         tx_reverted
     } in public_inputs.sel {
-        precomputed.clk,
+        precomputed.idx,
         public_inputs.cols[0]
     };
 
     // Reset side effect states on start
-    start_tx * prev_num_unencrypted_log_fields = 0;
+    start_tx * prev_num_public_log_fields = 0;
     start_tx * prev_num_l2_to_l1_messages = 0;
 
     // Next Tree State
@@ -236,7 +236,7 @@ namespace tx;
     pol commit next_da_gas_used;
 
     // Next side effect states
-    pol commit next_num_unencrypted_log_fields;
+    pol commit next_num_public_log_fields;
     pol commit next_num_l2_to_l1_messages;
 
     pol NOT_LAST_ROW = sel * sel';
@@ -271,8 +271,8 @@ namespace tx;
     #[RETRIEVED_BYTECODES_TREE_SIZE_CONTINUITY]
     NOT_LAST_ROW * (next_retrieved_bytecodes_tree_size - prev_retrieved_bytecodes_tree_size') = 0;
 
-    #[NUM_UNENCRYPTED_LOGS_CONTINUITY]
-    NOT_LAST_ROW * (1 - reverted) * (next_num_unencrypted_log_fields - prev_num_unencrypted_log_fields') = 0;
+    #[NUM_PUBLIC_LOGS_CONTINUITY]
+    NOT_LAST_ROW * (1 - reverted) * (next_num_public_log_fields - prev_num_public_log_fields') = 0;
     #[NUM_L2_TO_L1_MESSAGES_CONTINUITY]
     NOT_LAST_ROW * (1 - reverted) * (next_num_l2_to_l1_messages - prev_num_l2_to_l1_messages') = 0;
 
@@ -299,7 +299,7 @@ namespace tx;
         prev_public_data_tree_size',
         prev_written_public_data_slots_tree_root',
         prev_written_public_data_slots_tree_size',
-        prev_num_unencrypted_log_fields',
+        prev_num_public_log_fields',
         prev_num_l2_to_l1_messages'
     } in
     tx.sel {
@@ -315,7 +315,7 @@ namespace tx;
         next_public_data_tree_size,
         next_written_public_data_slots_tree_root,
         next_written_public_data_slots_tree_size,
-        next_num_unencrypted_log_fields,
+        next_num_public_log_fields,
         next_num_l2_to_l1_messages
     };
 
@@ -330,12 +330,12 @@ namespace tx;
     NOT_LAST_ROW * (1 - is_teardown') * (da_gas_limit - da_gas_limit') = 0;
 
     // Selectors to allow prev => next state changes in the different phases
-    pol SEL_CAN_EMIT_NOTE_HASH = is_public_call_request + sel_non_revertible_append_note_hash + sel_revertible_append_note_hash;
-    pol SEL_CAN_EMIT_NULLIFIER = is_public_call_request + sel_non_revertible_append_nullifier + sel_revertible_append_nullifier;
+    pol SEL_CAN_EMIT_NOTE_HASH = is_public_call_request + sel_append_note_hash;
+    pol SEL_CAN_EMIT_NULLIFIER = is_public_call_request + sel_append_nullifier;
     pol SEL_CAN_WRITE_PUBLIC_DATA = is_public_call_request + is_collect_fee;
     pol SEL_CAN_WRITE_WRITTEN_PUBLIC_DATA_SLOTS = is_public_call_request;
-    pol SEL_CAN_EMIT_UNENCRYPTED_LOG = is_public_call_request;
-    pol SEL_CAN_EMIT_L2_L1_MSG = is_public_call_request + sel_non_revertible_append_l2_l1_msg + sel_revertible_append_l2_l1_msg;
+    pol SEL_CAN_EMIT_PUBLIC_LOG = is_public_call_request;
+    pol SEL_CAN_EMIT_L2_L1_MSG = is_public_call_request + sel_append_l2_l1_msg;
     // The 6 above selectors are booleans on active rows due to #[READ_PHASE_SPEC] and
     // mutual exclusivity of the selectors on the right-hand side.
 
@@ -369,16 +369,16 @@ namespace tx;
     #[WRITTEN_PUBLIC_DATA_SLOTS_SIZE_IMMUTABILITY]
     (1 - SEL_CAN_WRITE_WRITTEN_PUBLIC_DATA_SLOTS) * (prev_written_public_data_slots_tree_size - next_written_public_data_slots_tree_size) = 0;
 
-    #[UNENCRYPTED_LOG_COUNT_IMMUTABILITY]
-    (1 - SEL_CAN_EMIT_UNENCRYPTED_LOG) * (prev_num_unencrypted_log_fields - next_num_unencrypted_log_fields) = 0;
+    #[PUBLIC_LOG_COUNT_IMMUTABILITY]
+    (1 - SEL_CAN_EMIT_PUBLIC_LOG) * (prev_num_public_log_fields - next_num_public_log_fields) = 0;
 
     #[L2_TO_L1_MESSAGE_COUNT_IMMUTABILITY]
     (1 - SEL_CAN_EMIT_L2_L1_MSG) * (prev_num_l2_to_l1_messages - next_num_l2_to_l1_messages) = 0;
 
     #[RETRIEVED_BYTECODES_TREE_ROOT_IMMUTABILITY]
-    (1 - should_process_call_request) * (prev_retrieved_bytecodes_tree_root - next_retrieved_bytecodes_tree_root) = 0;
+    (1 - sel_process_call_request) * (prev_retrieved_bytecodes_tree_root - next_retrieved_bytecodes_tree_root) = 0;
     #[RETRIEVED_BYTECODES_TREE_SIZE_IMMUTABILITY]
-    (1 - should_process_call_request) * (prev_retrieved_bytecodes_tree_size - next_retrieved_bytecodes_tree_size) = 0;
+    (1 - sel_process_call_request) * (prev_retrieved_bytecodes_tree_size - next_retrieved_bytecodes_tree_size) = 0;
 
     // Padded rows are not allowed to change the state
     #[NOTE_HASH_ROOT_PADDED_IMMUTABILITY]
@@ -406,15 +406,15 @@ namespace tx;
 
     // The retrieved bytecodes tree is already immutable except for nonpadded call request rows
 
-    #[UNENCRYPTED_LOG_COUNT_PADDED_IMMUTABILITY]
-    is_padded * (prev_num_unencrypted_log_fields - next_num_unencrypted_log_fields) = 0;
+    #[PUBLIC_LOG_COUNT_PADDED_IMMUTABILITY]
+    is_padded * (prev_num_public_log_fields - next_num_public_log_fields) = 0;
     #[L2_TO_L1_MESSAGE_COUNT_PADDED_IMMUTABILITY]
     is_padded * (prev_num_l2_to_l1_messages - next_num_l2_to_l1_messages) = 0;
 
     #[L2_GAS_USED_IMMUTABILITY]
-    (1 - should_process_call_request) * (prev_l2_gas_used - next_l2_gas_used) = 0;
+    (1 - sel_process_call_request) * (prev_l2_gas_used - next_l2_gas_used) = 0;
     #[DA_GAS_USED_IMMUTABILITY]
-    (1 - should_process_call_request) * (prev_da_gas_used - next_da_gas_used) = 0;
+    (1 - sel_process_call_request) * (prev_da_gas_used - next_da_gas_used) = 0;
 
 
     // ===== WRITE END COUNTERS TO PI =====
@@ -429,7 +429,7 @@ namespace tx;
         array_length_note_hashes_pi_offset,
         prev_num_note_hashes_emitted
     } in public_inputs.sel {
-        precomputed.clk,
+        precomputed.idx,
         public_inputs.cols[0]
     };
 
@@ -443,7 +443,7 @@ namespace tx;
         array_length_nullifiers_pi_offset,
         prev_num_nullifiers_emitted
     } in public_inputs.sel {
-        precomputed.clk,
+        precomputed.idx,
         public_inputs.cols[0]
     };
 
@@ -459,22 +459,22 @@ namespace tx;
         array_length_l2_to_l1_messages_pi_offset,
         prev_num_l2_to_l1_messages
     } in public_inputs.sel {
-        precomputed.clk,
+        precomputed.idx,
         public_inputs.cols[0]
     };
 
-    // Write unencrypted log fields count to PI
-    pol commit fields_length_unencrypted_logs_pi_offset;
+    // Write public log fields count to PI
+    pol commit fields_length_public_logs_pi_offset;
 
     // The structure of public logs is [fields_length, ...[log_0_size, log_0_addr, ...log_0_fields, ...]]
-    is_cleanup * (constants.AVM_PUBLIC_INPUTS_AVM_ACCUMULATED_DATA_PUBLIC_LOGS_ROW_IDX - fields_length_unencrypted_logs_pi_offset) = 0;
+    is_cleanup * (constants.AVM_PUBLIC_INPUTS_AVM_ACCUMULATED_DATA_PUBLIC_LOGS_ROW_IDX - fields_length_public_logs_pi_offset) = 0;
 
-    #[PUBLIC_INPUTS_WRITE_UNENCRYPTED_LOG_COUNT]
+    #[PUBLIC_INPUTS_WRITE_PUBLIC_LOG_COUNT]
     is_cleanup {
-        fields_length_unencrypted_logs_pi_offset,
-        prev_num_unencrypted_log_fields
+        fields_length_public_logs_pi_offset,
+        prev_num_public_log_fields
     } in public_inputs.sel {
-        precomputed.clk,
+        precomputed.idx,
         public_inputs.cols[0]
     };
 
@@ -489,4 +489,4 @@ namespace tx;
     // We normally propagate the next context id, unless a call is issued, where the execution trace
     // controls the next row's next context id.
     #[NEXT_CONTEXT_ID_CONTINUITY]
-    NOT_LAST_ROW * (1 - should_process_call_request) * (next_context_id' - next_context_id) = 0;
+    NOT_LAST_ROW * (1 - sel_process_call_request) * (next_context_id' - next_context_id) = 0;

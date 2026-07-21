@@ -1,0 +1,50 @@
+name: Network Healthcheck
+
+on:
+  schedule:
+    - cron: '0 8 * * *'
+  workflow_dispatch:
+    inputs:
+      networks:
+        description: 'Comma-separated list of networks to check (default: all)'
+        required: false
+        type: string
+        default: 'testnet,mainnet,staging-public,staging-internal,next-net'
+
+jobs:
+  healthcheck:
+    if: ${{ github.event_name != 'schedule' || github.repository == 'AztecProtocol/aztec-packages' }}
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@93cb6efe18208431cddfb8368fd83d5badbf9bfd # v5.0.1
+
+      - name: Run healthcheck
+        env:
+          SLACK_BOT_TOKEN: ${{ secrets.SLACK_BOT_TOKEN }}
+          GH_TOKEN: ${{ secrets.AZTEC_BOT_GITHUB_TOKEN }}
+          CI: "1"
+        run: |
+          NETWORKS="${{ inputs.networks || 'next-net,staging-public,staging-internal,testnet,mainnet' }}"
+
+          PROMPT="Run a network healthcheck for: ${NETWORKS}.
+
+          For each network, query Cloud Logging to report:
+          1. Components running
+          2. Latest L2 block and slot numbers
+          3. Peer counts
+          4. Block production cadence (last ~10 checkpoints)
+          5. Any errors (level >= 50) or warnings (level 40) in the last 8 hours
+          6. Bot status if applicable
+
+          Create a gist with the full healthcheck report. Then post a concise summary to the #team-alpha channel via respond_to_user. Flag anything that needs attention (stopped bots, missed slots, errors, low peer counts).
+
+          Format the respond_to_user message as a brief network status overview, e.g.:
+          - testnet: healthy, block 5570, 100 peers
+          - mainnet: healthy, block 1234, 50 peers
+          - devnet: WARNING - bot stopped (insufficient balance)
+          Link to the gist for full details."
+
+          ./ci3/slack_notify_with_claudebox_kickoff "#team-alpha" \
+            "Starting network healthcheck for: ${NETWORKS}" \
+            "$PROMPT"

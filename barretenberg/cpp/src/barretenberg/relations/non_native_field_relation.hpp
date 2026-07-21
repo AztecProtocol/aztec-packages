@@ -40,7 +40,10 @@ template <typename FF_> class NonNativeFieldRelationImpl {
      * @brief Returns true if the contribution from all subrelations for the provided inputs is identically zero
      *
      */
-    template <typename AllEntities> inline static bool skip(const AllEntities& in) { return in.q_nnf.is_zero(); }
+    template <typename AllEntities> inline static bool skip(const AllEntities& in)
+    {
+        return in[AllEntities::EntityId::q_nnf].is_zero();
+    }
 
     /**
      * @brief Accumulates constraints for non-native field multiplication and limb decomposition.
@@ -72,27 +75,27 @@ template <typename FF_> class NonNativeFieldRelationImpl {
         using Accumulator = typename std::tuple_element_t<0, ContainerOverSubrelations>;
         using CoefficientAccumulator = typename Accumulator::CoefficientAccumulator;
 
-        auto w_1_m = CoefficientAccumulator(in.w_l);
-        auto w_2_m = CoefficientAccumulator(in.w_r);
-        auto w_3_m = CoefficientAccumulator(in.w_o);
-        auto w_4_m = CoefficientAccumulator(in.w_4);
-        auto w_1_shift_m = CoefficientAccumulator(in.w_l_shift);
-        auto w_2_shift_m = CoefficientAccumulator(in.w_r_shift);
-        auto w_3_shift_m = CoefficientAccumulator(in.w_o_shift);
-        auto w_4_shift_m = CoefficientAccumulator(in.w_4_shift);
+        auto w_1_m = CoefficientAccumulator(in[AllEntities::EntityId::w_l]);
+        auto w_2_m = CoefficientAccumulator(in[AllEntities::EntityId::w_r]);
+        auto w_3_m = CoefficientAccumulator(in[AllEntities::EntityId::w_o]);
+        auto w_4_m = CoefficientAccumulator(in[AllEntities::EntityId::w_4]);
+        auto w_1_shift_m = CoefficientAccumulator(in[AllEntities::EntityId::w_l_shift]);
+        auto w_2_shift_m = CoefficientAccumulator(in[AllEntities::EntityId::w_r_shift]);
+        auto w_3_shift_m = CoefficientAccumulator(in[AllEntities::EntityId::w_o_shift]);
+        auto w_4_shift_m = CoefficientAccumulator(in[AllEntities::EntityId::w_4_shift]);
 
-        auto q_2_m = CoefficientAccumulator(in.q_r);
-        auto q_3_m = CoefficientAccumulator(in.q_o);
-        auto q_4_m = CoefficientAccumulator(in.q_4);
-        auto q_m_m = CoefficientAccumulator(in.q_m);
+        auto q_2_m = CoefficientAccumulator(in[AllEntities::EntityId::q_r]);
+        auto q_3_m = CoefficientAccumulator(in[AllEntities::EntityId::q_o]);
+        auto q_4_m = CoefficientAccumulator(in[AllEntities::EntityId::q_4]);
+        auto q_m_m = CoefficientAccumulator(in[AllEntities::EntityId::q_m]);
 
-        auto q_nnf_m = CoefficientAccumulator(in.q_nnf);
+        auto q_nnf_m = CoefficientAccumulator(in[AllEntities::EntityId::q_nnf]);
         const FF LIMB_SIZE(uint256_t(1) << 68);
         const FF SUBLIMB_SHIFT(uint256_t(1) << 14);
 
         // Bigfield Product Gate 2 (selected by q_2 * q_4):
         // Computes cross-term contributions in limb multiplication.
-        // Formula: (w_1 * w_2') + (w_1' * w_2) + (w_1 * w_4 + w_2 * w_3 - w_3') * 2^14 - w_3 - w_4' = 0
+        // Formula: (w_1 * w_2') + (w_1' * w_2) + (w_1 * w_4 + w_2 * w_3 - w_3') * 2^68 - w_4' = 0
         // where primed values (') denote shifted wires from the next row.
         auto limb_subproduct = w_1_m * w_2_shift_m + w_1_shift_m * w_2_m;
         auto non_native_field_gate_2_m = (w_1_m * w_4_m + w_2_m * w_3_m - w_3_shift_m);
@@ -103,7 +106,7 @@ template <typename FF_> class NonNativeFieldRelationImpl {
 
         // Bigfield Product Gate 1 (selected by q_2 * q_3):
         // Accumulates limb products with 2^68 scaling for high-order terms.
-        // Formula: (w_1 * w_2') + (w_1' * w_2) * 2^68 + (w_1' * w_2') - w_3 - w_4 = 0
+        // Formula: (w_1 * w_2' + w_1' * w_2) * 2^68 + (w_1' * w_2') - w_3 - w_4 = 0
         limb_subproduct *= LIMB_SIZE;
         limb_subproduct += (w_1_shift_m * w_2_shift_m);
         auto non_native_field_gate_1_m = limb_subproduct;

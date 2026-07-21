@@ -1,4 +1,3 @@
-import { runInDirectory } from '@aztec/foundation/fs';
 import { type Logger, createLogger } from '@aztec/foundation/log';
 import { Timer } from '@aztec/foundation/timer';
 import { ProtocolCircuitVks } from '@aztec/noir-protocol-circuits-types/server/vks';
@@ -15,28 +14,29 @@ import { Tx } from '@aztec/stdlib/tx';
 import type { VerificationKeyData } from '@aztec/stdlib/vks';
 
 import { promises as fs } from 'fs';
-import * as path from 'path';
 
-import {
-  BB_RESULT,
-  PROOF_FILENAME,
-  PUBLIC_INPUTS_FILENAME,
-  VK_FILENAME,
-  verifyChonkProof,
-  verifyProof,
-} from '../bb/execute.js';
+import { BBJsFactory } from '../bb/bb_js_backend.js';
 import type { BBConfig } from '../config.js';
 import { getUltraHonkFlavorForCircuit } from '../honk.js';
-import { writeChonkProofToPath } from '../prover/proof_utils.js';
 
 export class BBCircuitVerifier implements ClientProtocolCircuitVerifier {
+  private bbJsFactory: BBJsFactory;
+
   private constructor(
     private config: BBConfig,
     private logger: Logger,
-  ) {}
+  ) {
+    // BB_NUM_IVC_VERIFIERS bounds the number of long-lived bb processes the pool keeps alive.
+    // If 0, fall back to spawning a fresh bb per verification.
+    this.bbJsFactory = new BBJsFactory(config.bbBinaryPath, {
+      poolSize: config.numConcurrentIVCVerifiers > 0 ? config.numConcurrentIVCVerifiers : undefined,
+      logger,
+      debugDir: config.bbDebugOutputDir,
+    });
+  }
 
   public stop(): Promise<void> {
-    return Promise.resolve();
+    return this.bbJsFactory.destroy();
   }
 
   public static async new(config: BBConfig, logger = createLogger('bb-prover:verifier')) {
@@ -55,87 +55,77 @@ export class BBCircuitVerifier implements ClientProtocolCircuitVerifier {
     return vk;
   }
 
+  /** Verify an UltraHonk proof via bb.js API (no temp files). */
   public async verifyProofForCircuit(circuit: ServerProtocolArtifact, proof: Proof) {
-    const operation = async (bbWorkingDirectory: string) => {
-      const publicInputsFileName = path.join(bbWorkingDirectory, PUBLIC_INPUTS_FILENAME);
-      const proofFileName = path.join(bbWorkingDirectory, PROOF_FILENAME);
-      const verificationKeyPath = path.join(bbWorkingDirectory, VK_FILENAME);
-      const verificationKey = this.getVerificationKeyData(circuit);
+    const verificationKey = this.getVerificationKeyData(circuit);
+    const flavor = getUltraHonkFlavorForCircuit(circuit);
 
-      this.logger.debug(`${circuit} Verifying with key: ${verificationKey.keyAsFields.hash.toString()}`);
+    this.logger.debug(`${circuit} Verifying with key: ${verificationKey.keyAsFields.hash.toString()}`);
 
-      // TODO(https://github.com/AztecProtocol/aztec-packages/issues/13189): Put this proof parsing logic in the proof class.
-      await fs.writeFile(publicInputsFileName, proof.buffer.slice(0, proof.numPublicInputs * 32));
-      await fs.writeFile(proofFileName, proof.buffer.slice(proof.numPublicInputs * 32));
-      await fs.writeFile(verificationKeyPath, verificationKey.keyAsBytes);
+    // Split proof buffer into public input fields and proof fields (32-byte each)
+    const publicInputFields = splitBufferToFieldArrays(proof.buffer.subarray(0, proof.numPublicInputs * 32));
+    const proofFields = splitBufferToFieldArrays(proof.buffer.subarray(proof.numPublicInputs * 32));
 
-      const result = await verifyProof(
-        this.config.bbBinaryPath,
-        proofFileName,
-        verificationKeyPath!,
-        getUltraHonkFlavorForCircuit(circuit),
-        this.logger,
-      );
+    await using instance = await this.bbJsFactory.getInstance();
+    const { verified, durationMs } = await instance.verifyProof(
+      proofFields,
+      verificationKey.keyAsBytes,
+      publicInputFields,
+      flavor,
+    );
 
-      if (result.status === BB_RESULT.FAILURE) {
-        const errorMessage = `Failed to verify ${circuit} proof!`;
-        throw new Error(errorMessage);
-      }
+    if (!verified) {
+      throw new Error(`Failed to verify ${circuit} proof!`);
+    }
 
-      this.logger.debug(`${circuit} verification successful`, {
-        circuitName: mapProtocolArtifactNameToCircuitName(circuit),
-        duration: result.durationMs,
-        eventName: 'circuit-verification',
-        proofType: 'ultra-honk',
-      } satisfies CircuitVerificationStats);
-    };
-    await runInDirectory(this.config.bbWorkingDirectory, operation, this.config.bbSkipCleanup, this.logger);
+    this.logger.debug(`${circuit} verification successful`, {
+      circuitName: mapProtocolArtifactNameToCircuitName(circuit),
+      duration: durationMs,
+      eventName: 'circuit-verification',
+      proofType: 'ultra-honk',
+    } satisfies CircuitVerificationStats);
   }
 
+  /** Verify a Chonk (IVC) proof from a transaction via bb.js API. */
   public async verifyProof(tx: Tx): Promise<IVCProofVerificationResult> {
     const proofType = 'Chonk';
     try {
       const totalTimer = new Timer();
-      let verificationDuration = 0;
 
       const circuit: ClientProtocolArtifact = tx.data.forPublic ? 'HidingKernelToPublic' : 'HidingKernelToRollup';
+      const verificationKey = this.getVerificationKeyData(circuit);
 
-      // Block below is almost copy-pasted from verifyProofForCircuit
-      const operation = async (bbWorkingDirectory: string) => {
-        const proofPath = path.join(bbWorkingDirectory, PROOF_FILENAME);
-        await writeChonkProofToPath(tx.chonkProof.attachPublicInputs(tx.data.publicInputs().toFields()), proofPath);
+      // Reconstruct the full proof with public inputs prepended, then convert Fr[] to Uint8Array[]
+      const proofWithPubInputs = tx.chonkProof.attachPublicInputs(tx.data.publicInputs().toFields());
+      const fieldsAsBuffers = proofWithPubInputs.fieldsWithPublicInputs.map(f => new Uint8Array(f.toBuffer()));
 
-        const verificationKeyPath = path.join(bbWorkingDirectory, VK_FILENAME);
-        const verificationKey = this.getVerificationKeyData(circuit);
-        await fs.writeFile(verificationKeyPath, verificationKey.keyAsBytes);
+      await using instance = await this.bbJsFactory.getInstance();
+      const { verified, durationMs } = await instance.verifyChonkProof(fieldsAsBuffers, verificationKey.keyAsBytes);
 
-        const timer = new Timer();
-        const result = await verifyChonkProof(
-          this.config.bbBinaryPath,
-          proofPath,
-          verificationKeyPath,
-          this.logger,
-          this.config.bbIVCConcurrency,
-        );
-        verificationDuration = timer.ms();
+      if (!verified) {
+        throw new Error(`Failed to verify ${proofType} proof for ${circuit}!`);
+      }
 
-        if (result.status === BB_RESULT.FAILURE) {
-          const errorMessage = `Failed to verify ${proofType} proof for ${circuit}!`;
-          throw new Error(errorMessage);
-        }
+      this.logger.debug(`${proofType} verification successful`, {
+        circuitName: mapProtocolArtifactNameToCircuitName(circuit),
+        duration: durationMs,
+        eventName: 'circuit-verification',
+        proofType: 'chonk',
+      } satisfies CircuitVerificationStats);
 
-        this.logger.debug(`${proofType} verification successful`, {
-          circuitName: mapProtocolArtifactNameToCircuitName(circuit),
-          duration: result.durationMs,
-          eventName: 'circuit-verification',
-          proofType: 'chonk',
-        } satisfies CircuitVerificationStats);
-      };
-      await runInDirectory(this.config.bbWorkingDirectory, operation, this.config.bbSkipCleanup, this.logger);
-      return { valid: true, durationMs: verificationDuration, totalDurationMs: totalTimer.ms() };
+      return { valid: true, durationMs, totalDurationMs: totalTimer.ms() };
     } catch (err) {
       this.logger.warn(`Failed to verify ${proofType} proof for tx ${tx.getTxHash().toString()}: ${String(err)}`);
       return { valid: false, durationMs: 0, totalDurationMs: 0 };
     }
   }
+}
+
+/** Split a buffer into 32-byte Uint8Array field elements. */
+function splitBufferToFieldArrays(buffer: Buffer): Uint8Array[] {
+  const fields: Uint8Array[] = [];
+  for (let i = 0; i < buffer.length; i += 32) {
+    fields.push(new Uint8Array(buffer.subarray(i, i + 32)));
+  }
+  return fields;
 }

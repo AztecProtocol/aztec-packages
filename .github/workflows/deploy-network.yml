@@ -6,44 +6,101 @@ on:
   workflow_call:
     inputs:
       network:
-        description: "Network to deploy (e.g., staging-public, staging-ignition, testnet, next-net)"
+        description: "Network to deploy (e.g., staging, testnet, next-net)"
         required: true
         type: string
       semver:
-        description: "Semver version (e.g., 2.3.4)"
-        required: true
-        type: string
-      docker_image_tag:
-        description: "Full docker image tag (optional, defaults to semver)"
+        description: "Semver version (e.g., 2.3.4). Used to construct docker image if aztec_docker_image is not set."
         required: false
         type: string
+      aztec_docker_image:
+        description: "Full Aztec docker image (e.g., aztecprotocol/aztec:2.3.4). If not set, constructed from semver."
+        required: false
+        type: string
+      prover_docker_image:
+        description: "Full Prover docker image URL. If not set defaults to aztec_docker_image."
+        required: false
+        type: string
+      use_internal_docker_registry:
+        description: "Construct Aztec docker images from INTERNAL_DOCKER_REGISTRY and semver."
+        required: false
+        type: boolean
+        default: false
       ref:
         description: "Git ref to checkout"
         required: false
         type: string
+      namespace:
+        description: "Kubernetes namespace override (optional, defaults to env file value)"
+        required: false
+        type: string
+      deploy_contracts:
+        description: "Whether to deploy contracts fresh (true for first patch, false to read from network config)"
+        required: false
+        type: boolean
+        default: false
+      ha_docker_image:
+        description: "Full docker image for HA validator nodes (optional, defaults to aztec docker image)"
+        required: false
+        type: string
+      source_tag:
+        description: "Source tag that triggered this deploy"
+        required: false
+        type: string
+      skip_notify_on_failure:
+        description: "Whether this workflow should skip its own failure notification"
+        required: false
+        type: boolean
+        default: false
   workflow_dispatch:
     inputs:
       network:
-        description: "Network to deploy (e.g., staging-public, staging-ignition, testnet, next-net)"
+        description: "Network to deploy (e.g., staging, testnet, next-net)"
         required: true
         type: choice
         options:
-          - staging-public
-          - staging-ignition
-          - testnet
           - next-net
-          - devnet
+          - staging-public
+          - staging-internal
+          - testnet
+          - mainnet
       semver:
-        description: "Semver version (e.g., 2.3.4)"
-        required: true
+        description: "Semver version (e.g., 2.3.4). Used to construct docker image if aztec_docker_image is not set."
+        required: false
         type: string
-      docker_image_tag:
-        description: "Full docker image tag (optional, defaults to semver)"
+      aztec_docker_image:
+        description: "Full Aztec docker image (e.g., aztecprotocol/aztec:2.3.4). If not set, constructed from semver."
+        required: false
+        type: string
+      prover_docker_image:
+        description: "Full Prover docker image URL. If not set defaults to aztec_docker_image."
+        required: false
+        type: string
+      use_internal_docker_registry:
+        description: "Construct Aztec docker images from INTERNAL_DOCKER_REGISTRY and semver."
+        required: false
+        type: boolean
+        default: false
+      namespace:
+        description: "Kubernetes namespace override (optional, defaults to env file value)"
+        required: false
+        type: string
+      deploy_contracts:
+        description: "Whether to deploy contracts fresh (true for first patch, false to read from network config)"
+        required: false
+        type: boolean
+        default: false
+      ha_docker_image:
+        description: "Full docker image for HA validator nodes (optional, defaults to aztec docker image)"
+        required: false
+        type: string
+      source_tag:
+        description: "Source tag that triggered this deploy"
         required: false
         type: string
 
 concurrency:
-  group: deploy-network-${{ inputs.network }}-${{ inputs.semver }}-${{ github.ref || github.ref_name }}
+  group: deploy-network-${{ inputs.network }}-${{ inputs.namespace || inputs.network }}-${{ inputs.aztec_docker_image || inputs.semver }}-${{ github.ref || github.ref_name }}
   cancel-in-progress: true
 
 jobs:
@@ -65,14 +122,23 @@ jobs:
           fi
 
       - name: Checkout
-        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+        uses: actions/checkout@93cb6efe18208431cddfb8368fd83d5badbf9bfd # v5.0.1
         with:
           ref: ${{ steps.checkout-ref.outputs.ref }}
-          fetch-depth: 1
+          # Full history so recursive submodules can checkout pinned commits (not only branch tips).
+          fetch-depth: 0
+          lfs: true
           persist-credentials: false
           submodules: recursive # Initialize git submodules for l1-contracts dependencies
 
+      - name: Setup Node
+        uses: actions/setup-node@48b55a011bda9f5d6aeb4c2d9c7362e8dae4041e
+        with:
+          node-version: 22
+
       - name: Validate inputs
+        env:
+          INTERNAL_DOCKER_REGISTRY: ${{ secrets.INTERNAL_DOCKER_REGISTRY }}
         run: |
           # Validate network
           if [[ ! -f "spartan/environments/${{ inputs.network }}.env" ]]; then
@@ -82,16 +148,55 @@ jobs:
             exit 1
           fi
 
-          # Validate semver format
-          if ! echo "${{ inputs.semver }}" | grep -Eq '^[0-9]+\.[0-9]+\.[0-9]+(-.*)?$'; then
-            echo "Error: Invalid semver format '${{ inputs.semver }}'. Expected format: X.Y.Z or X.Y.Z-suffix"
+          # Require at least one of aztec_docker_image or semver
+          if [[ -z "${{ inputs.aztec_docker_image }}" && -z "${{ inputs.semver }}" ]]; then
+            echo "Error: Either 'aztec_docker_image' or 'semver' must be provided"
             exit 1
           fi
 
-          # Extract major version for v2 check
-          major_version="${{ inputs.semver }}"
-          major_version="${major_version%%.*}"
-          echo "MAJOR_VERSION=$major_version" >> $GITHUB_ENV
+          # Validate semver format if provided
+          if [[ -n "${{ inputs.semver }}" ]]; then
+            if ! echo "${{ inputs.semver }}" | grep -Eq '^[0-9]+\.[0-9]+\.[0-9]+(-.*)?$'; then
+              echo "Error: Invalid semver format '${{ inputs.semver }}'. Expected format: X.Y.Z or X.Y.Z-suffix"
+              exit 1
+            fi
+          fi
+
+          if [[ "${{ inputs.use_internal_docker_registry }}" == "true" && -z "${{ inputs.semver }}" ]]; then
+            echo "Error: semver must be provided when use_internal_docker_registry is true"
+            exit 1
+          fi
+
+          # Resolve the docker image
+          AZTEC_DOCKER_IMAGE="${{ inputs.aztec_docker_image }}"
+          PROVER_AGENT_DOCKER_IMAGE="${{ inputs.prover_docker_image }}"
+          INTERNAL_REGISTRY_BASE_URL=""
+
+          if [[ "${{ inputs.use_internal_docker_registry }}" == "true" ]]; then
+            INTERNAL_REGISTRY_BASE_URL="${INTERNAL_DOCKER_REGISTRY%/}"
+            echo "::add-mask::$INTERNAL_REGISTRY_BASE_URL"
+          fi
+
+          if [[ -z "$AZTEC_DOCKER_IMAGE" ]]; then
+            if [[ -n "$INTERNAL_REGISTRY_BASE_URL" ]]; then
+              AZTEC_DOCKER_IMAGE="$INTERNAL_REGISTRY_BASE_URL/aztec:${{ inputs.semver }}"
+              echo "::add-mask::$AZTEC_DOCKER_IMAGE"
+            else
+              AZTEC_DOCKER_IMAGE="aztecprotocol/aztec:${{ inputs.semver }}"
+            fi
+          fi
+
+          if [[ -z "$PROVER_AGENT_DOCKER_IMAGE" ]]; then
+            if [[ -n "$INTERNAL_REGISTRY_BASE_URL" ]]; then
+              PROVER_AGENT_DOCKER_IMAGE="$INTERNAL_REGISTRY_BASE_URL/aztec-prover-agent:${{ inputs.semver }}"
+              echo "::add-mask::$PROVER_AGENT_DOCKER_IMAGE"
+            elif [[ -z "${{ inputs.aztec_docker_image }}" && -n "${{ inputs.semver }}" ]]; then
+              PROVER_AGENT_DOCKER_IMAGE="aztecprotocol/aztec-prover-agent:${{ inputs.semver }}"
+            fi
+          fi
+
+          echo "AZTEC_DOCKER_IMAGE=$AZTEC_DOCKER_IMAGE" >> $GITHUB_ENV
+          echo "PROVER_AGENT_DOCKER_IMAGE=$PROVER_AGENT_DOCKER_IMAGE" >> $GITHUB_ENV
 
       - name: Store the GCP key in a file
         env:
@@ -107,15 +212,25 @@ jobs:
           gcloud auth activate-service-account --key-file="$GOOGLE_APPLICATION_CREDENTIALS"
 
       - name: Setup gcloud and install GKE auth plugin
-        uses: google-github-actions/setup-gcloud@v2
+        uses: google-github-actions/setup-gcloud@aa5489c8933f4cc7a4f7d45035b3b1440c9c10db
         with:
           install_components: "gke-gcloud-auth-plugin"
 
       - name: Setup Terraform
-        uses: hashicorp/setup-terraform@633666f66e0061ca3b725c73b2ec20cd13a8fdd1
+        uses: hashicorp/setup-terraform@dfe3c3f87815947d99a8997f908cb6525fc44e9e
         with:
           terraform_version: "1.7.5"
           terraform_wrapper: false # Disable the wrapper that adds debug output, this messes with reading terraform output
+
+      - name: Setup SSH key for CI Redis
+        env:
+          BUILD_INSTANCE_SSH_KEY: ${{ secrets.BUILD_INSTANCE_SSH_KEY }}
+        run: |
+          if [ -n "${BUILD_INSTANCE_SSH_KEY:-}" ]; then
+            mkdir -p ~/.ssh
+            echo "${BUILD_INSTANCE_SSH_KEY}" | base64 --decode > ~/.ssh/build_instance_key
+            chmod 600 ~/.ssh/build_instance_key
+          fi
 
       - name: Deploy network
         id: deploy-network
@@ -126,12 +241,15 @@ jobs:
           RUN_ID: ${{ github.run_id }}
           SLACK_BOT_TOKEN: ${{ secrets.SLACK_BOT_TOKEN }}
           GOOGLE_APPLICATION_CREDENTIALS: ${{ env.GOOGLE_APPLICATION_CREDENTIALS }}
-          REF_NAME: "v${{ inputs.semver }}"
+          REF_NAME: ${{ inputs.semver && format('v{0}', inputs.semver) || '' }}
           GCP_PROJECT_ID: ${{ secrets.GCP_PROJECT_ID }}
-          AZTEC_DOCKER_IMAGE: "aztecprotocol/aztec:${{ inputs.docker_image_tag || inputs.semver }}"
+          NAMESPACE: ${{ inputs.namespace }}
+          AZTEC_DOCKER_IMAGE: ${{ env.AZTEC_DOCKER_IMAGE }}
+          CREATE_ROLLUP_CONTRACTS: ${{ inputs.deploy_contracts == true && 'true' || '' }}
+          PROVER_AGENT_DOCKER_IMAGE: ${{ env.PROVER_AGENT_DOCKER_IMAGE || env.AZTEC_DOCKER_IMAGE }}
+          VALIDATOR_HA_DOCKER_IMAGE: ${{ inputs.ha_docker_image || '' }}
         run: |
           echo "Deploying network: ${{ inputs.network }}"
-          echo "Using image: $AZTEC_DOCKER_IMAGE"
           echo "Using branch/ref: ${{ steps.checkout-ref.outputs.ref }}"
 
           cd spartan
@@ -147,30 +265,77 @@ jobs:
             echo "cluster=" >> $GITHUB_OUTPUT
           fi
 
-      - name: Notify Slack on failure
-        if: failure()
+      - name: Step summary
+        if: always()
+        run: |
+          {
+            echo "## Deploy Network"
+            echo ""
+            echo "| Item | Value |"
+            echo "|------|-------|"
+            echo "| Network | \`${{ inputs.network }}\` |"
+            echo "| Ref | \`${{ steps.checkout-ref.outputs.ref }}\` |"
+            if [[ -n "${{ inputs.source_tag }}" ]]; then
+              echo "| Source Tag | [\`${{ inputs.source_tag }}\`](https://github.com/${{ github.repository }}/releases/tag/${{ inputs.source_tag }}) |"
+            fi
+          } >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Notify Slack and dispatch ClaudeBox on failure
+        if: failure() && !inputs.skip_notify_on_failure
         env:
           SLACK_BOT_TOKEN: ${{ secrets.SLACK_BOT_TOKEN }}
+          GH_TOKEN: ${{ secrets.AZTEC_BOT_GITHUB_TOKEN }}
         run: |
-          if [ -n "${SLACK_BOT_TOKEN}" ]; then
-            read -r -d '' data <<EOF || true
-            {
-              "channel": "#alerts-${{ inputs.network }}",
-              "text": "Deploy Network workflow FAILED for *${{ inputs.network }}* (version ${{ inputs.semver }}): <https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}|View Run>"
-            }
-          EOF
-            curl -X POST https://slack.com/api/chat.postMessage \
-              -H "Authorization: Bearer $SLACK_BOT_TOKEN" \
-              -H "Content-type: application/json" \
-              --data "$data"
+          if [ -z "${SLACK_BOT_TOKEN:-}" ]; then
+            echo "No SLACK_BOT_TOKEN, skipping notification"
+            exit 0
           fi
+
+          CHANNEL="#alerts-${{ inputs.network }}"
+          # staging-internal deploy failures are routed to the staging-public alerts channel.
+          if [ "${{ inputs.network }}" = "staging-internal" ]; then
+            CHANNEL="#alerts-staging-public"
+          fi
+          RUN_URL="https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}"
+          TEXT="Deploy Network workflow FAILED for *${{ inputs.network }}*: <${RUN_URL}|View Run> (🤖)"
+
+          # Post to Slack and capture timestamp for permalink
+          RESP=$(curl -sS -X POST https://slack.com/api/chat.postMessage \
+            -H "Authorization: Bearer $SLACK_BOT_TOKEN" \
+            -H "Content-type: application/json" \
+            -d "$(jq -n --arg c "$CHANNEL" --arg t "$TEXT" '{channel:$c, text:$t}')")
+          echo "Slack response: $RESP"
+
+          TS=$(echo "$RESP" | jq -r '.ts // empty')
+          CHANNEL_ID=$(echo "$RESP" | jq -r '.channel // empty')
+
+          LINK=""
+          if [[ -n "$TS" && -n "$CHANNEL_ID" ]]; then
+            LINK="https://aztecprotocol.slack.com/archives/$CHANNEL_ID/p${TS//./}"
+          fi
+
+          # Dispatch ClaudeBox to investigate the failure
+          PROMPT="Deployment of ${{ inputs.network }} failed. \
+          Follow .claude/claudebox/deploy-investigation.md to investigate. \
+          GitHub Actions run: ${RUN_URL}. \
+          Network: ${{ inputs.network }}. \
+          Git ref: ${{ steps.checkout-ref.outputs.ref }}. \
+          Namespace: ${{ inputs.namespace || inputs.network }}. \
+          Deploy contracts: ${{ inputs.deploy_contracts }}."
+
+          gh workflow run claudebox.yml \
+            -f prompt="$PROMPT" \
+            -f link="${LINK:-$RUN_URL}" \
+            -f target_ref="${{ steps.checkout-ref.outputs.ref }}" \
+            -f slack_channel="$CHANNEL_ID" \
+            -f slack_thread_ts="$TS" || true
 
   update-irm:
     needs: deploy-network
-    if: contains(inputs.network, 'testnet') && !contains(inputs.semver, '-')
+    if: inputs.network == 'testnet' || inputs.network == 'mainnet'
     uses: ./.github/workflows/deploy-irm.yml
     secrets: inherit
     with:
-      network: testnet
-      l1_network: sepolia
+      network: ${{ inputs.network }}
+      l1_network: ${{ inputs.network == 'mainnet' && 'mainnet' || 'sepolia' }}
       cluster: ${{ needs.deploy-network.outputs.cluster }}

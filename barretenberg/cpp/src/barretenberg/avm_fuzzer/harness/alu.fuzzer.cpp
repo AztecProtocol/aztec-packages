@@ -30,6 +30,7 @@ using namespace bb::avm2::simulation;
 using namespace bb::avm2::tracegen;
 using namespace bb::avm2::constraining;
 
+using bb::avm2::Column;
 using bb::avm2::FF;
 using bb::avm2::MemoryTag;
 using bb::avm2::MemoryValue;
@@ -42,8 +43,9 @@ struct AluFuzzerInput {
     MemoryValue a;
     MemoryValue b;
     MemoryValue c = MemoryValue::from_tag(MemoryTag::FF, 0); // Placeholder for result
-    int op_id = 0;                                           // For execution trace alu_op_id
-
+    uint16_t op_id = 0;                                      // For execution trace alu_op_id
+    // We serialise MemoryValues as FF + 1 byte for tag to save 31 bytes per value:
+    static const size_t size = (3 * (sizeof(FF) + 1)) + sizeof(uint16_t);
     // Serialize to buffer
     void to_buffer(uint8_t* buffer) const
     {
@@ -58,7 +60,7 @@ struct AluFuzzerInput {
         buffer += sizeof(FF) + 1;
         write_mem_value(buffer, c);
         buffer += sizeof(FF) + 1;
-        serialize::write(buffer, static_cast<uint16_t>(op_id));
+        serialize::write(buffer, op_id);
     }
 
     static AluFuzzerInput from_buffer(const uint8_t* buffer)
@@ -88,11 +90,11 @@ struct AluFuzzerInput {
 
 extern "C" size_t LLVMFuzzerCustomMutator(uint8_t* data, size_t size, size_t max_size, unsigned int seed)
 {
-    if (size < sizeof(AluFuzzerInput)) {
+    if (size < AluFuzzerInput::size) {
         // Initialize with default input
         AluFuzzerInput input;
         input.to_buffer(data);
-        return sizeof(AluFuzzerInput);
+        return AluFuzzerInput::size;
     }
 
     std::mt19937_64 rng(seed);
@@ -119,7 +121,6 @@ extern "C" size_t LLVMFuzzerCustomMutator(uint8_t* data, size_t size, size_t max
 
     auto random_mem_value_from_tag = [&rng](MemoryTag tag) -> MemoryValue {
         std::uniform_int_distribution<uint64_t> dist(0, std::numeric_limits<uint64_t>::max());
-        // TODO(MW): Use array?
         FF value = FF(dist(rng), dist(rng), dist(rng), dist(rng));
         // Do we want the option of making "invalid tag" values, where the value is out of range for the tag?
         // These aren't currently possible with this function since MemoryValue::from_tag will throw in that case.
@@ -135,9 +136,9 @@ extern "C" size_t LLVMFuzzerCustomMutator(uint8_t* data, size_t size, size_t max
     // Deserialize current input
     AluFuzzerInput input = AluFuzzerInput::from_buffer(data);
 
-    // Choose random ALU operation
+    // Choose random ALU operation (11 possible operations with op_id = 2^index)
     std::uniform_int_distribution<int> dist(0, 11);
-    input.op_id = 1 << dist(rng);
+    input.op_id = static_cast<uint16_t>(1 << dist(rng));
 
     // Choose test case (TODO(MW): what else do we want here?)
     dist = std::uniform_int_distribution<int>(0, 4);
@@ -187,18 +188,18 @@ extern "C" size_t LLVMFuzzerCustomMutator(uint8_t* data, size_t size, size_t max
     // Serialize mutated input back to buffer
     input.to_buffer(data);
 
-    if (max_size > sizeof(AluFuzzerInput)) {
-        return sizeof(AluFuzzerInput);
+    if (max_size > AluFuzzerInput::size) {
+        return AluFuzzerInput::size;
     }
 
-    return sizeof(AluFuzzerInput);
+    return AluFuzzerInput::size;
 }
 
 extern "C" int LLVMFuzzerTestOneInput(const uint8_t* data, size_t size)
 {
     using bb::avm2::MemoryValue;
 
-    if (size < sizeof(AluFuzzerInput)) {
+    if (size < AluFuzzerInput::size) {
         info("Input size too small");
         return 0;
     }
@@ -298,25 +299,25 @@ extern "C" int LLVMFuzzerTestOneInput(const uint8_t* data, size_t size)
         if (input.op_id == AVM_EXEC_OP_ID_ALU_TRUNCATE) {
             // For truncate we will test using a CAST
             return TestTraceContainer({ {
-                { avm2::Column::execution_register_0_, input.a.as_ff() },                            // = ia
-                { avm2::Column::execution_register_1_, input.c.as_ff() },                            // = ic
-                { avm2::Column::execution_mem_tag_reg_1_, static_cast<uint8_t>(input.b.get_tag()) }, // = ic_tag
-                { avm2::Column::execution_rop_2_, static_cast<uint8_t>(input.b.get_tag()) }, // = truncate to tag
-                { avm2::Column::execution_sel_exec_dispatch_cast, 1 },                       // = sel
-                { avm2::Column::execution_sel_opcode_error, 0 },                             // = sel_err
+                { Column::execution_register_0_, input.a.as_ff() },                            // = ia
+                { Column::execution_register_1_, input.c.as_ff() },                            // = ic
+                { Column::execution_mem_tag_reg_1_, static_cast<uint8_t>(input.b.get_tag()) }, // = ic_tag
+                { Column::execution_rop_2_, static_cast<uint8_t>(input.b.get_tag()) },         // = truncate to tag
+                { Column::execution_sel_exec_dispatch_cast, 1 },                               // = sel
+                { Column::execution_sel_opcode_error, 0 },                                     // = sel_err
             } });
         }
         // Otherwise standard initialization of trace container and execution trace columns
         return TestTraceContainer({ {
-            { avm2::Column::execution_mem_tag_reg_0_, static_cast<uint8_t>(input.a.get_tag()) }, // = ia_tag
-            { avm2::Column::execution_mem_tag_reg_1_, static_cast<uint8_t>(input.b.get_tag()) }, // = ib_tag
-            { avm2::Column::execution_mem_tag_reg_2_, static_cast<uint8_t>(input.c.get_tag()) }, // = ic_tag
-            { avm2::Column::execution_register_0_, input.a.as_ff() },                            // = ia
-            { avm2::Column::execution_register_1_, input.b.as_ff() },                            // = ib
-            { avm2::Column::execution_register_2_, input.c.as_ff() },                            // = ic
-            { avm2::Column::execution_sel_exec_dispatch_alu, 1 },                                // = sel
-            { avm2::Column::execution_sel_opcode_error, error ? 1 : 0 },                         // = sel_err
-            { avm2::Column::execution_subtrace_operation_id, input.op_id },                      // = alu_op_id
+            { Column::execution_mem_tag_reg_0_, static_cast<uint8_t>(input.a.get_tag()) }, // = ia_tag
+            { Column::execution_mem_tag_reg_1_, static_cast<uint8_t>(input.b.get_tag()) }, // = ib_tag
+            { Column::execution_mem_tag_reg_2_, static_cast<uint8_t>(input.c.get_tag()) }, // = ic_tag
+            { Column::execution_register_0_, input.a.as_ff() },                            // = ia
+            { Column::execution_register_1_, input.b.as_ff() },                            // = ib
+            { Column::execution_register_2_, input.c.as_ff() },                            // = ic
+            { Column::execution_sel_exec_dispatch_alu, 1 },                                // = sel
+            { Column::execution_sel_opcode_error, error ? 1 : 0 },                         // = sel_err
+            { Column::execution_subtrace_operation_id, input.op_id },                      // = alu_op_id
         } });
     }();
 

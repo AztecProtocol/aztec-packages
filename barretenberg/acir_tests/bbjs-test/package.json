@@ -1,12 +1,12 @@
 {
   "name": "bbjs-test",
-  "packageManager": "yarn@4.5.2",
+  "packageManager": "yarn@4.13.0",
   "main": "dest/index.js",
   "scripts": {
     "build": "yarn tsgo"
   },
   "dependencies": {
-    "@aztec/bb.js": "portal:../../ts",
+    "@aztec/bb.js": "portal:../../ts/bb.js",
     "commander": "^12.1.0"
   },
   "devDependencies": {

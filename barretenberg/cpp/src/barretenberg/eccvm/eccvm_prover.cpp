@@ -10,12 +10,15 @@
 #include "barretenberg/commitment_schemes/shplonk/shplemini.hpp"
 #include "barretenberg/commitment_schemes/shplonk/shplonk.hpp"
 #include "barretenberg/commitment_schemes/small_subgroup_ipa/small_subgroup_ipa.hpp"
+#include "barretenberg/commitment_schemes/triple_ipa/triple_ipa.hpp"
 #include "barretenberg/common/bb_bench.hpp"
 #include "barretenberg/common/ref_array.hpp"
 #include "barretenberg/honk/library/grand_product_library.hpp"
 #include "barretenberg/honk/proof_system/logderivative_library.hpp"
 #include "barretenberg/relations/permutation_relation.hpp"
 #include "barretenberg/sumcheck/sumcheck.hpp"
+
+#include <iterator>
 
 namespace bb {
 
@@ -31,6 +34,11 @@ ECCVMProver::ECCVMProver(CircuitBuilder& builder, const std::shared_ptr<Transcri
     key = std::make_shared<ProvingKey>(builder);
 
     key->commitment_key = CommitmentKey(key->circuit_size);
+
+    VerificationKey vk;
+    for (auto [commitment, vk_commitment] : zip_view(commitments.get_precomputed(), vk.get_all())) {
+        commitment = vk_commitment;
+    }
 }
 
 /**
@@ -57,18 +65,21 @@ void ECCVMProver::execute_wire_commitments_round()
     BB_BENCH_NAME("ECCVMProver::execute_wire_commitments_round");
 
     const size_t circuit_size = key->circuit_size;
-    unmasked_witness_size = circuit_size - NUM_DISABLED_ROWS_IN_SUMCHECK;
 
     // Create and commit to Gemini masking polynomial (for ZK-PCS)
     key->polynomials.gemini_masking_poly = Polynomial::random(circuit_size);
     auto masking_commitment = key->commitment_key.commit(key->polynomials.gemini_masking_poly);
+    commitments.gemini_masking_poly = masking_commitment;
     transcript->send_to_verifier("Gemini:masking_poly_comm", masking_commitment);
 
     auto batch = key->commitment_key.start_batch();
     for (const auto& [wire, label] : zip_view(key->polynomials.get_wires(), commitment_labels.get_wires())) {
-        batch.add_to_batch(wire, label, /* mask for zk? */ true);
+        batch.add_to_batch(wire, label, Flavor::CommitmentLabels::wire_has_high_duplicate_density(label));
     }
-    batch.commit_and_send_to_verifier(transcript);
+    auto wire_commitments = batch.commit_and_send_to_verifier(transcript);
+    for (auto [commitment, computed_commitment] : zip_view(commitments.get_wires(), wire_commitments)) {
+        commitment = computed_commitment;
+    }
 }
 
 /**
@@ -84,24 +95,32 @@ void ECCVMProver::execute_log_derivative_commitments_round()
 
     // TODO(#583)(@zac-williamson): fix Transcript to be able to generate more than 2 challenges per round! oof.
     auto beta_sqr = beta * beta;
+    auto beta_quartic = beta_sqr * beta_sqr;
     relation_parameters.gamma = gamma;
     relation_parameters.beta = beta;
     relation_parameters.beta_sqr = beta_sqr;
     relation_parameters.beta_cube = beta_sqr * beta;
+    relation_parameters.beta_quartic = beta_quartic;
     // `eccvm_set_permutation_delta` is used in the set membership gadget in eccvm/ecc_set_relation.hpp, specifically to
     // constrain (pc, round, wnaf_slice) to match between the MSM table and the Precomputed table. The number of rows we
     // add per short scalar `mul` is slightly less in the Precomputed table as in the MSM table, so to get the
     // permutation argument to work out, when `precompute_select == 0`, we must implicitly _remove_ (0, 0, 0) as a tuple
-    // on the wNAF side. This corresponds to dividing by (γ)·(γ + β²)·(γ + 2β²)·(γ + 3β²).
-    relation_parameters.eccvm_set_permutation_delta =
-        gamma * (gamma + beta_sqr) * (gamma + beta_sqr + beta_sqr) * (gamma + beta_sqr + beta_sqr + beta_sqr);
+    // on the wNAF side. This corresponds to dividing by
+    // (γ+t·β⁴)·(γ+β²+t·β⁴)·(γ+2β²+t·β⁴)·(γ+3β²+t·β⁴), where t = FIRST_TERM_TAG.
+    auto first_term_tag = beta_quartic; // FIRST_TERM_TAG (= 1) * beta_quartic
+    relation_parameters.eccvm_set_permutation_delta = (gamma + first_term_tag) * (gamma + beta_sqr + first_term_tag) *
+                                                      (gamma + beta_sqr + beta_sqr + first_term_tag) *
+                                                      (gamma + beta_sqr + beta_sqr + beta_sqr + first_term_tag);
     relation_parameters.eccvm_set_permutation_delta = relation_parameters.eccvm_set_permutation_delta.invert();
     // Compute inverse polynomial for our logarithmic-derivative lookup method
+    // Skip the disabled head region to preserve masking values
     compute_logderivative_inverse<typename Flavor::FF,
                                   typename Flavor::LookupRelation,
                                   typename Flavor::ProverPolynomials,
-                                  true>(key->polynomials, relation_parameters, unmasked_witness_size);
-    commit_to_witness_polynomial(key->polynomials.lookup_inverses, commitment_labels.lookup_inverses);
+                                  true>(key->polynomials, relation_parameters, Flavor::TRACE_OFFSET);
+    auto& li = key->polynomials.lookup_inverses;
+    commitments.lookup_inverses = key->commitment_key.commit(li);
+    transcript->send_to_verifier(commitment_labels.lookup_inverses, commitments.lookup_inverses);
 }
 
 /**
@@ -111,9 +130,12 @@ void ECCVMProver::execute_log_derivative_commitments_round()
 void ECCVMProver::execute_grand_product_computation_round()
 {
     BB_BENCH_NAME("ECCVMProver::execute_grand_product_computation_round");
-    // Compute permutation grand product and their commitments
-    compute_grand_products<Flavor>(key->polynomials, relation_parameters, unmasked_witness_size);
-    commit_to_witness_polynomial(key->polynomials.z_perm, commitment_labels.z_perm);
+    // Compute permutation grand product (starts after disabled head region via gp_start)
+    compute_grand_products<Flavor>(key->polynomials, relation_parameters);
+    auto& zp = key->polynomials.z_perm;
+    // set has_duplicates_hint for Z_PERM (empty row = duplicate Z value)
+    commitments.z_perm = key->commitment_key.commit(zp, /*has_duplicates_hint=*/true);
+    transcript->send_to_verifier(commitment_labels.z_perm, commitments.z_perm);
 }
 
 /**
@@ -129,10 +151,8 @@ void ECCVMProver::execute_relation_check_rounds()
     //  i = 0, ..., NUM_SUBRELATIONS- 1.
     FF alpha = transcript->template get_challenge<FF>("Sumcheck:alpha");
 
-    std::vector<FF> gate_challenges(CONST_ECCVM_LOG_N);
-    for (size_t idx = 0; idx < gate_challenges.size(); idx++) {
-        gate_challenges[idx] = transcript->template get_challenge<FF>("Sumcheck:gate_challenge_" + std::to_string(idx));
-    }
+    std::vector<FF> gate_challenges =
+        transcript->template get_dyadic_powers_of_challenge<FF>("Sumcheck:gate_challenge", CONST_ECCVM_LOG_N);
 
     Sumcheck sumcheck(key->circuit_size,
                       key->polynomials,
@@ -148,19 +168,11 @@ void ECCVMProver::execute_relation_check_rounds()
 }
 
 /**
- * @brief Produce a univariate opening claim for the sumcheck multivariate evalutions and a batched univariate claim
- * for the transcript polynomials (for the Translator consistency check). Reduce the two opening claims to a single one
- * via Shplonk and produce an opening proof with the univariate PCS of choice (IPA when operating on Grumpkin).
- *
+ * @brief Add the Libra (sumcheck ZK masking) univariate opening claims, produced via the SmallSubgroupIPA prover.
  */
-void ECCVMProver::execute_pcs_rounds()
+void ECCVMProver::append_libra_opening_claims()
 {
-    BB_BENCH_NAME("ECCVMProver::execute_pcs_rounds");
     using Curve = typename Flavor::Curve;
-    using Shplemini = ShpleminiProver_<Curve>;
-    using Shplonk = ShplonkProver_<Curve>;
-    using OpeningClaim = ProverOpeningClaim<Curve>;
-    using PolynomialBatcher = GeminiProver_<Curve>::PolynomialBatcher;
 
     SmallSubgroupIPA small_subgroup_ipa_prover(zk_sumcheck_data,
                                                sumcheck_output.challenge,
@@ -169,37 +181,127 @@ void ECCVMProver::execute_pcs_rounds()
                                                key->commitment_key);
     small_subgroup_ipa_prover.prove();
 
-    // Execute the Shplemini (Gemini + Shplonk) protocol to produce a univariate opening claim for the multilinear
-    // evaluations produced by Sumcheck
-    PolynomialBatcher polynomial_batcher(key->circuit_size);
-    polynomial_batcher.set_unshifted(key->polynomials.get_unshifted());
-    polynomial_batcher.set_to_be_shifted_by_one(key->polynomials.get_to_be_shifted());
+    const FF libra_evaluation_challenge =
+        transcript->template get_challenge<FF>("Libra:small_ipa_evaluation_challenge");
+    auto libra_opening_claims = make_small_ipa_prover_opening_claims<Curve>(
+        small_subgroup_ipa_prover.get_witness_polynomials(), libra_evaluation_challenge, "Libra:", transcript);
+    const auto libra_commitments = small_subgroup_ipa_prover.get_witness_commitments();
 
-    OpeningClaim multivariate_to_univariate_opening_claim =
-        Shplemini::prove(key->circuit_size,
-                         polynomial_batcher,
-                         sumcheck_output.challenge,
-                         key->commitment_key,
-                         transcript,
-                         small_subgroup_ipa_prover.get_witness_polynomials(),
-                         sumcheck_output.round_univariates,
-                         sumcheck_output.round_univariate_evaluations);
-
-    ECCVMProver::compute_translation_opening_claims();
-
-    opening_claims.back() = std::move(multivariate_to_univariate_opening_claim);
-
-    // Reduce the opening claims to a single opening claim via Shplonk
-    // IPA proving is performed externally
-    batch_opening_claim = Shplonk::prove(key->commitment_key, opening_claims, transcript);
+    for (size_t idx = 0; idx < libra_opening_claims.size(); ++idx) {
+        univariate_claims.add(std::move(libra_opening_claims[idx]),
+                              libra_commitments[SMALL_IPA_CLAIMS[idx].commitment_index]);
+    }
 }
 
-ECCVMProver::Proof ECCVMProver::export_proof()
+/**
+ * @brief Add the committed-sumcheck round univariate opening claims (3 per round: evaluations at 0, 1, and the round
+ * challenge), pairing each prover polynomial with its round commitment.
+ */
+void ECCVMProver::append_sumcheck_round_opening_claims()
+{
+    using Shplemini = ShpleminiProver_<typename Flavor::Curve>;
+    static constexpr size_t NUM_SUMCHECK_CLAIMS_PER_ROUND = 3;
+
+    auto sumcheck_round_claims = Shplemini::compute_sumcheck_round_claims(key->circuit_size,
+                                                                          sumcheck_output.challenge,
+                                                                          sumcheck_output.round_univariates,
+                                                                          sumcheck_output.round_univariate_evaluations);
+
+    for (size_t idx = 0; idx < sumcheck_output.round_univariate_commitments.size(); ++idx) {
+        for (size_t eval_idx = 0; eval_idx < NUM_SUMCHECK_CLAIMS_PER_ROUND; ++eval_idx) {
+            const size_t claim_idx = idx * NUM_SUMCHECK_CLAIMS_PER_ROUND + eval_idx;
+            univariate_claims.add(std::move(sumcheck_round_claims[claim_idx]),
+                                  sumcheck_output.round_univariate_commitments[idx]);
+        }
+    }
+}
+
+/**
+ * @brief Add a small random univariate opening claim that masks the TripleIPA pow tensor.
+ * @details The batched quotient P (pow-tensor witness) is contracted against the eq and shift tensors in the TripleIPA
+ * cross-sums c_{F,P}, c_{sh,P}. Folding one extra random claim into the Shplonk batch injects randomness into P's
+ * low-degree coefficients, blinding those contractions, while P(z)=0 is preserved automatically by the Shplonk
+ * identity. The multilinear opening is already masked by the dense PCS mask, so this mask is tiny.
+ */
+void ECCVMProver::append_pow_masking_opening_claim()
+{
+    static constexpr size_t POW_MASK_SIZE = 8;
+    Polynomial mask = Polynomial::random(POW_MASK_SIZE, key->circuit_size, /*start_index=*/0);
+    Commitment mask_commitment = key->commitment_key.commit(mask);
+    transcript->send_to_verifier("TripleIPA:pow_mask_commitment", mask_commitment);
+    const FF mask_challenge = transcript->template get_challenge<FF>("TripleIPA:pow_mask_challenge");
+    const FF mask_evaluation = mask.evaluate(mask_challenge);
+    transcript->send_to_verifier("TripleIPA:pow_mask_evaluation", mask_evaluation);
+    univariate_claims.add({ std::move(mask), { mask_challenge, mask_evaluation } }, mask_commitment);
+}
+
+/**
+ * @brief Open the sumcheck multilinears together with the single reduced univariate claim via the TripleIPA.
+ */
+void ECCVMProver::prove_triple_ipa(const OpeningClaim& prover_opening, const VerifierOpeningClaim& verifier_opening)
+{
+    using TripleIPA = bb::TripleIPA<Flavor::Curve, CONST_ECCVM_LOG_N>;
+    typename TripleIPA::TripleIpaInput input;
+
+    const FF rho = transcript->template get_challenge<FF>("TripleIPA:rho");
+    input.claim_data = TripleIPA::TripleIpaClaimData::create(commitments.get_unshifted(),
+                                                             sumcheck_output.claimed_evaluations.get_unshifted(),
+                                                             commitments.get_to_be_shifted(),
+                                                             sumcheck_output.claimed_evaluations.get_to_be_shifted(),
+                                                             sumcheck_output.claimed_evaluations.get_shifted(),
+                                                             sumcheck_output.challenge,
+                                                             rho,
+                                                             verifier_opening);
+
+    // Prover-only: share the witness polynomials backing the opening — the unshifted set, the to-be-shifted sources
+    // (for the shift claim's batched witness), and the reduced univariate.
+    auto unshifted_polynomials = key->polynomials.get_unshifted();
+    input.unshifted_polynomials.reserve(unshifted_polynomials.size());
+    for (auto& polynomial : unshifted_polynomials) {
+        input.unshifted_polynomials.emplace_back(polynomial.share());
+    }
+    auto shifted_polynomials = key->polynomials.get_to_be_shifted();
+    input.shifted_polynomials.reserve(shifted_polynomials.size());
+    for (auto& polynomial : shifted_polynomials) {
+        input.shifted_polynomials.emplace_back(polynomial.share());
+    }
+    input.univariate_polynomial = prover_opening.polynomial.share();
+
+    auto ipa_transcript = std::make_shared<Transcript>();
+    TripleIPA::compute_opening_proof(key->commitment_key, input, ipa_transcript);
+    ipa_proof = ipa_transcript->export_proof();
+}
+
+/**
+ * @brief Reduce all univariate opening claims to a single opening claim via one Shplonk.
+ * @details The batched opening claim becomes the univariate (pow-tensor) input to the TripleIPA. The prover
+ * reconstructs the same batched commitment [P] the verifier derives, so the returned claim carries both the prover
+ * witness polynomial and that commitment.
+ */
+std::pair<ECCVMProver::OpeningClaim, ECCVMProver::VerifierOpeningClaim> ECCVMProver::reduce_univariate_opening_claims()
+{
+    using ShplonkProver = ShplonkProver_<Flavor::Curve>;
+    using ShplonkVerifier = ShplonkVerifier_<Flavor::Curve>;
+
+    const auto shplonk_output = ShplonkProver::compute_partially_evaluated_quotient(
+        key->commitment_key, univariate_claims.prover_claims, transcript);
+    const auto verifier_opening = ShplonkVerifier::compute_partially_evaluated_quotient_claim(
+        key->commitment_key.get_monomial_points()[0],
+        univariate_claims.verifier_claims,
+        shplonk_output.quotient_commitment,
+        shplonk_output.batching_challenge,
+        shplonk_output.opening_claim.opening_pair.challenge);
+    BB_ASSERT(verifier_opening.opening_pair == shplonk_output.opening_claim.opening_pair);
+
+    return { shplonk_output.opening_claim, verifier_opening };
+}
+
+typename ECCVMProver::Proof ECCVMProver::export_proof()
 {
     return { transcript->export_proof() };
 }
 
-std::pair<ECCVMProver::Proof, ECCVMProver::OpeningClaim> ECCVMProver::construct_proof()
+typename ECCVMProver::Proof ECCVMProver::construct_proof()
 {
     BB_BENCH_NAME("ECCVMProver::construct_proof");
 
@@ -207,10 +309,21 @@ std::pair<ECCVMProver::Proof, ECCVMProver::OpeningClaim> ECCVMProver::construct_
     execute_wire_commitments_round();
     execute_log_derivative_commitments_round();
     execute_grand_product_computation_round();
-    execute_relation_check_rounds();
-    execute_pcs_rounds();
+    execute_relation_check_rounds(); // sumcheck
 
-    return { export_proof(), batch_opening_claim };
+    // Gather every univariate opening claim into `univariate_claims`. Libra (sumcheck ZK masking) is produced first
+    // since its commitments enter the transcript before translation's; the committed sumcheck round claims follow.
+    // A final random masking claim blinds the TripleIPA pow tensor (see append_pow_masking_opening_claim).
+    append_libra_opening_claims();
+    append_translation_opening_claims();
+    append_sumcheck_round_opening_claims();
+    append_pow_masking_opening_claim();
+
+    // A single Shplonk reduces them to one opening; the TripleIPA opens the sumcheck multilinears with it.
+    auto [prover_opening, verifier_opening] = reduce_univariate_opening_claims();
+    prove_triple_ipa(prover_opening, verifier_opening);
+
+    return export_proof();
 }
 
 /**
@@ -232,41 +345,20 @@ std::pair<ECCVMProver::Proof, ECCVMProver::OpeningClaim> ECCVMProver::construct_
  * \f{align}{ x\cdot A = \sum_{i=0}^4 T_i(x) \cdot v^i, \f}
  * where \f$ x \f$ is an artifact of our implementation of shiftable polynomials.
  *
- * This check gets trickier when the witness wires in ECCVM are masked. Namely, we randomize the last \f$
- * \text{NUM_DISABLED_ROWS_IN_SUMCHECK} \f$ coefficients of \f$ T_i \f$. Let \f$ N = \text{circuit_size} -
- * \text{NUM_DISABLED_ROWS_IN_SUMCHECK}\f$. Denote
- * \f{align}{ \widetilde{T}_i(X) = T_i(X) + X^N \cdot m_i(X). \f}
- *
- * Informally speaking, to preserve ZK, the \ref ECCVMVerifier must never obtain the commitments to \f$ T_i \f$ or
- * the evaluations \f$ T_i(x) \f$ of the unmasked wires.
- *
- * With masking, the identity above becomes
- * \f{align}{ x\cdot A = \sum_i (\widetilde{T}_i - X^N \cdot m_i(X)) v^i =\sum_i \widetilde{T}_i v^i - X^N \cdot \sum_i
- * m_i(X) v^i \f}
- *
- * The prover could send the evals of \f$ \widetilde{T}_i \f$ without revealing witness information. Moreover, the
- * prover could prove the evaluation \f$ x^N \cdot \sum m_i(x) v^i \f$ using SmallSubgroupIPA argument. Namely, before
- * obtaining \f$ x \f$ and \f$ v \f$, the prover sends a commitment to the polynomial \f$ \widetilde{M} = M + Z_H \cdot
- * R\f$, where the coefficients of \f$ M \f$ are given by the concatenation \f{align}{ M = (m_0||m_1||m_2||m_3||m_4 ||
- * \vec{0}) \f} in the Lagrange basis over the small multiplicative subgroup \f$ H \f$, where \f$ Z_H \f$ is the
- * vanishing polynomial \f$ X^{|H|} -1 \f$ and \f$ R(X) \f$ is a random polynomial of degree \f$ 2 \f$. \ref
- * SmallSubgroupIPAProver allows us to prove the inner product of \f$ M \f$ against the `challenge_polynomial`
- * \f{align}{ ( 1, x , x^2 , x^3, v , v\cdot x ,\ldots, ... , v^4, v^4 x , v^4 x^2 , v^4 x^3, \vec{0} )\f}
- * without revealing any other witness information apart from the claimed inner product.
- *
- * @return Ppopulate `opening_claims`.
+ * The translation polynomials \f$ T_i \f$ contain random masking values in their first TRACE_OFFSET coefficients.
+ * Commitments to the masked \f$ T_i \f$ are safe to reveal, but the evaluations \f$ T_i(x) \f$ include the masking
+ * contribution. To preserve ZK, the prover uses SmallSubgroupIPA to prove the masking correction: the masking
+ * terms from all five \f$ T_i \f$ are concatenated into a polynomial \f$ M \f$ over a small subgroup \f$ H \f$,
+ * and the verifier recovers \f$ \sum_i m_i(x) \cdot v^i \f$ via an inner-product argument without learning
+ * the individual masking values.
  *
  */
-void ECCVMProver::compute_translation_opening_claims()
+void ECCVMProver::append_translation_opening_claims()
 {
     // Used to capture the batched evaluation of unmasked `translation_polynomials` while preserving ZK
     using SmallIPA = SmallSubgroupIPAProver<ECCVMFlavor>;
+    using Curve = Flavor::Curve;
 
-    // Initialize SmallSubgroupIPA structures
-    std::array<std::string, NUM_SMALL_IPA_EVALUATIONS> evaluation_labels;
-    std::array<FF, NUM_SMALL_IPA_EVALUATIONS> evaluation_points;
-
-    // Collect the polynomials to be batched
     RefArray translation_polynomials{ key->polynomials.transcript_op,
                                       key->polynomials.transcript_Px,
                                       key->polynomials.transcript_Py,
@@ -298,46 +390,51 @@ void ECCVMProver::compute_translation_opening_claims()
     FF small_ipa_evaluation_challenge =
         transcript->template get_challenge<FF>("Translation:small_ipa_evaluation_challenge");
 
-    // Populate SmallSubgroupIPA opening claims:
-    // 1. Get the evaluation points and labels
-    evaluation_points = translation_masking_term_prover.evaluation_points(small_ipa_evaluation_challenge);
-    evaluation_labels = translation_masking_term_prover.evaluation_labels();
-    // 2. Compute the evaluations of witness polynomials at corresponding points, send them to the verifier, and create
-    // the opening claims
-    for (size_t idx = 0; idx < NUM_SMALL_IPA_EVALUATIONS; idx++) {
-        auto witness_poly = translation_masking_term_prover.get_witness_polynomials()[idx];
-        const FF evaluation = witness_poly.evaluate(evaluation_points[idx]);
-        transcript->send_to_verifier(evaluation_labels[idx], evaluation);
-        opening_claims[idx] = { .polynomial = witness_poly, .opening_pair = { evaluation_points[idx], evaluation } };
+    // Populate the five SmallSubgroupIPA opening claims via the shared helper, which evaluates witness polynomials,
+    // sends transmitted slots to the transcript, and fills boundary slots with 0.
+    const auto small_ipa_claims =
+        make_small_ipa_prover_opening_claims<Curve>(translation_masking_term_prover.get_witness_polynomials(),
+                                                    small_ipa_evaluation_challenge,
+                                                    "Translation:",
+                                                    transcript);
+    const auto small_ipa_commitments = translation_masking_term_prover.get_witness_commitments();
+
+    for (size_t idx = 0; idx < NUM_SMALL_IPA_OPENING_CLAIMS; ++idx) {
+        univariate_claims.add(small_ipa_claims[idx], small_ipa_commitments[SMALL_IPA_CLAIMS[idx].commitment_index]);
     }
 
     // Compute the opening claim for the masked evaluations of `op`, `Px`, `Py`, `z1`, and `z2` at
     // `evaluation_challenge_x` batched by the powers of `batching_challenge_v`.
-    Polynomial batched_translation_univariate{ key->circuit_size };
-    FF batched_translation_evaluation{ 0 };
-    FF batching_scalar = FF(1);
-    for (auto [polynomial, eval] : zip_view(translation_polynomials, translation_evaluations.get_all())) {
-        batched_translation_univariate.add_scaled(polynomial, batching_scalar);
-        batched_translation_evaluation += eval * batching_scalar;
-        batching_scalar *= batching_challenge_v;
+    const std::vector<FF> batching_challenges = batching_scalars(batching_challenge_v, NUM_TRANSLATION_EVALUATIONS);
+    std::vector<PolynomialSpan<const FF>> translation_spans;
+    translation_spans.reserve(NUM_TRANSLATION_EVALUATIONS);
+    for (const auto& polynomial : translation_polynomials) {
+        translation_spans.push_back(static_cast<PolynomialSpan<const FF>>(polynomial));
     }
+    Polynomial batched_translation_univariate{ key->circuit_size };
+    add_scaled_batch(batched_translation_univariate,
+                     std::span<const PolynomialSpan<const FF>>(translation_spans),
+                     std::span<const FF>(batching_challenges));
 
-    // Add the batched claim to the array of SmallSubgroupIPA opening claims.
-    opening_claims[NUM_SMALL_IPA_EVALUATIONS] = { batched_translation_univariate,
-                                                  { evaluation_challenge_x, batched_translation_evaluation } };
+    std::vector<FF> translation_evaluation_values;
+    translation_evaluation_values.reserve(NUM_TRANSLATION_EVALUATIONS);
+    for (const auto& eval : translation_evaluations.get_all()) {
+        translation_evaluation_values.emplace_back(eval);
+    }
+    const FF batched_translation_evaluation = batch_evaluations<Curve>(
+        std::span<const FF>(translation_evaluation_values), std::span<const FF>(batching_challenges));
+
+    std::vector<Commitment> translation_commitments = { commitments.transcript_op,
+                                                        commitments.transcript_Px,
+                                                        commitments.transcript_Py,
+                                                        commitments.transcript_z1,
+                                                        commitments.transcript_z2 };
+
+    // Add the batched translation univariate claim after the SmallSubgroupIPA opening claims.
+    univariate_claims.add(
+        { batched_translation_univariate, { evaluation_challenge_x, batched_translation_evaluation } },
+        batch_commitments<Curve>(std::span<const Commitment>(translation_commitments),
+                                 std::span<const FF>(batching_challenges)));
 }
 
-/**
- * @brief Utility to mask and commit to a witness polynomial and send the commitment to verifier.
- *
- * @param polynomial
- * @param label
- */
-void ECCVMProver::commit_to_witness_polynomial(Polynomial& polynomial, const std::string& label)
-{
-    // We add NUM_DISABLED_ROWS_IN_SUMCHECK-1 random values to the coefficients of each wire polynomial to not leak
-    // information via the commitment and evaluations. -1 is caused by shifts.
-    polynomial.mask();
-    transcript->send_to_verifier(label, key->commitment_key.commit(polynomial));
-}
 } // namespace bb

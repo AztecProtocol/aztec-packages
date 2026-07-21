@@ -29,7 +29,7 @@
 #include "barretenberg/vm2/simulation/testing/mock_dbs.hpp"
 #include "barretenberg/vm2/simulation/testing/mock_debug_log.hpp"
 #include "barretenberg/vm2/simulation/testing/mock_ecc.hpp"
-#include "barretenberg/vm2/simulation/testing/mock_emit_unencrypted_log.hpp"
+#include "barretenberg/vm2/simulation/testing/mock_emit_public_log.hpp"
 #include "barretenberg/vm2/simulation/testing/mock_execution_components.hpp"
 #include "barretenberg/vm2/simulation/testing/mock_execution_id_manager.hpp"
 #include "barretenberg/vm2/simulation/testing/mock_gas_tracker.hpp"
@@ -97,7 +97,7 @@ class ExecutionSimulationTest : public ::testing::Test {
     StrictMock<MockPoseidon2> poseidon2;
     StrictMock<MockEcc> ecc;
     StrictMock<MockToRadix> to_radix;
-    StrictMock<MockEmitUnencryptedLog> emit_unencrypted_log;
+    StrictMock<MockEmitPublicLog> emit_public_log;
     StrictMock<MockBytecodeManager> bytecode_manager;
     StrictMock<MockSha256> sha256;
     StrictMock<MockDebugLog> debug_log;
@@ -119,7 +119,7 @@ class ExecutionSimulationTest : public ::testing::Test {
                                                   keccakf1600,
                                                   greater_than,
                                                   get_contract_instance,
-                                                  emit_unencrypted_log,
+                                                  emit_public_log,
                                                   debug_log,
                                                   merkle_db,
                                                   call_stack_metadata_collector);
@@ -1034,29 +1034,24 @@ TEST_F(ExecutionSimulationTest, EccAdd)
 {
     MemoryAddress p_x_addr = 10;
     MemoryAddress p_y_addr = 15;
-    MemoryAddress p_is_inf_addr = 25;
     MemoryAddress q_x_addr = 20;
     MemoryAddress q_y_addr = 30;
-    MemoryAddress q_is_inf_addr = 35;
     MemoryAddress dst_addr = 40;
 
     MemoryValue p_x = MemoryValue::from<FF>(FF("0x04c95d1b26d63d46918a156cae92db1bcbc4072a27ec81dc82ea959abdbcf16a"));
     MemoryValue p_y = MemoryValue::from<FF>(FF("0x035b6dd9e63c1370462c74775765d07fc21fd1093cc988149d3aa763bb3dbb60"));
-    EmbeddedCurvePoint p(p_x.as_ff(), p_y, false);
+    EmbeddedCurvePoint p(p_x.as_ff(), p_y);
 
     MemoryValue q_x = MemoryValue::from<FF>(FF("0x009242167ec31949c00cbe441cd36757607406e87844fa2c8c4364a4403e66d7"));
     MemoryValue q_y = MemoryValue::from<FF>(FF("0x0fe3016d64cfa8045609f375284b6b739b5fa282e4cbb75cc7f1687ecc7420e3"));
-    EmbeddedCurvePoint q(q_x.as_ff(), q_y.as_ff(), false);
+    EmbeddedCurvePoint q(q_x.as_ff(), q_y.as_ff());
 
     // Mock the context and memory interactions
-    MemoryValue zero = MemoryValue::from<uint1_t>(0);
     EXPECT_CALL(context, get_memory()).WillRepeatedly(ReturnRef(memory));
     EXPECT_CALL(Const(memory), get(p_x_addr)).WillOnce(ReturnRef(p_x));
     EXPECT_CALL(memory, get(p_y_addr)).WillOnce(ReturnRef(p_y));
-    EXPECT_CALL(memory, get(p_is_inf_addr)).WillOnce(ReturnRef(zero)); // p is not infinity
     EXPECT_CALL(memory, get(q_x_addr)).WillOnce(ReturnRef(q_x));
     EXPECT_CALL(memory, get(q_y_addr)).WillOnce(ReturnRef(q_y));
-    EXPECT_CALL(memory, get(q_is_inf_addr)).WillOnce(ReturnRef(zero)); // q is not infinity
 
     EXPECT_CALL(gas_tracker, consume_gas);
 
@@ -1064,7 +1059,7 @@ TEST_F(ExecutionSimulationTest, EccAdd)
     EXPECT_CALL(ecc, add(_, _, _, dst_addr));
 
     // Execute the ECC add operation
-    execution.ecc_add(context, p_x_addr, p_y_addr, p_is_inf_addr, q_x_addr, q_y_addr, q_is_inf_addr, dst_addr);
+    execution.ecc_add(context, p_x_addr, p_y_addr, q_x_addr, q_y_addr, dst_addr);
 }
 
 TEST_F(ExecutionSimulationTest, ToRadixBE)
@@ -1099,7 +1094,7 @@ TEST_F(ExecutionSimulationTest, ToRadixBE)
     execution.to_radix_be(context, value_addr, radix_addr, num_limbs_addr, is_output_bits_addr, dst_addr);
 }
 
-TEST_F(ExecutionSimulationTest, EmitUnencryptedLog)
+TEST_F(ExecutionSimulationTest, EmitPublicLog)
 {
     MemoryAddress log_offset = 10;
     MemoryAddress log_size_offset = 20;
@@ -1111,11 +1106,11 @@ TEST_F(ExecutionSimulationTest, EmitUnencryptedLog)
 
     EXPECT_CALL(context, get_address).WillOnce(ReturnRef(address));
 
-    EXPECT_CALL(emit_unencrypted_log, emit_unencrypted_log(_, _, address, log_offset, log_size.as<uint32_t>()));
+    EXPECT_CALL(emit_public_log, emit_public_log(_, _, address, log_offset, log_size.as<uint32_t>()));
 
     EXPECT_CALL(gas_tracker, consume_gas(Gas{ log_size.as<uint32_t>(), log_size.as<uint32_t>() }));
 
-    execution.emit_unencrypted_log(context, log_size_offset, log_offset);
+    execution.emit_public_log(context, log_size_offset, log_offset);
 }
 
 TEST_F(ExecutionSimulationTest, SendL2ToL1Msg)

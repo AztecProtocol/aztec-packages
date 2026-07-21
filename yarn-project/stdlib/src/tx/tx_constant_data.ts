@@ -1,6 +1,6 @@
 import { TX_CONSTANT_DATA_LENGTH } from '@aztec/constants';
 import { Fr } from '@aztec/foundation/curves/bn254';
-import { BufferReader, FieldReader, serializeToBuffer, serializeToFields } from '@aztec/foundation/serialize';
+import { BufferReader, BufferSink, FieldReader, serializeToFields, serializeToSink } from '@aztec/foundation/serialize';
 import type { FieldsOf } from '@aztec/foundation/types';
 
 import { BlockHeader } from './block_header.js';
@@ -57,8 +57,13 @@ export class TxConstantData {
     );
   }
 
-  toBuffer() {
-    return serializeToBuffer(...TxConstantData.getFields(this));
+  toBuffer(): Buffer;
+  toBuffer(sink: BufferSink): void;
+  toBuffer(sink?: BufferSink): Buffer | void {
+    if (!sink) {
+      return BufferSink.serialize(this);
+    }
+    serializeToSink(sink, ...TxConstantData.getFields(this));
   }
 
   static empty() {

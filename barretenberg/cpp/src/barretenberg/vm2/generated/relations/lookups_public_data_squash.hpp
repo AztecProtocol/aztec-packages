@@ -24,7 +24,7 @@ struct lookup_public_data_squash_leaf_slot_increase_ff_gt_settings_ {
     static constexpr std::array<ColumnAndShifts, LOOKUP_TUPLE_SIZE> SRC_COLUMNS = {
         ColumnAndShifts::public_data_squash_leaf_slot_shift,
         ColumnAndShifts::public_data_squash_leaf_slot,
-        ColumnAndShifts::public_data_squash_sel
+        ColumnAndShifts::public_data_squash_leaf_slot_increase
     };
     static constexpr std::array<ColumnAndShifts, LOOKUP_TUPLE_SIZE> DST_COLUMNS = { ColumnAndShifts::ff_gt_a,
                                                                                     ColumnAndShifts::ff_gt_b,
@@ -44,13 +44,13 @@ struct lookup_public_data_squash_clk_diff_range_lo_settings_ {
     static constexpr std::string_view RELATION_NAME = "public_data_squash";
     static constexpr size_t LOOKUP_TUPLE_SIZE = 1;
     static constexpr Column SRC_SELECTOR = Column::public_data_squash_check_clock;
-    static constexpr Column DST_SELECTOR = Column::precomputed_sel_range_16;
+    static constexpr Column DST_SELECTOR = Column::precomputed_sel_range_16_active;
     static constexpr Column COUNTS = Column::lookup_public_data_squash_clk_diff_range_lo_counts;
     static constexpr Column INVERSES = Column::lookup_public_data_squash_clk_diff_range_lo_inv;
     static constexpr std::array<ColumnAndShifts, LOOKUP_TUPLE_SIZE> SRC_COLUMNS = {
         ColumnAndShifts::public_data_squash_clk_diff_lo
     };
-    static constexpr std::array<ColumnAndShifts, LOOKUP_TUPLE_SIZE> DST_COLUMNS = { ColumnAndShifts::precomputed_clk };
+    static constexpr std::array<ColumnAndShifts, LOOKUP_TUPLE_SIZE> DST_COLUMNS = { ColumnAndShifts::precomputed_idx };
 };
 
 using lookup_public_data_squash_clk_diff_range_lo_settings =
@@ -66,13 +66,13 @@ struct lookup_public_data_squash_clk_diff_range_hi_settings_ {
     static constexpr std::string_view RELATION_NAME = "public_data_squash";
     static constexpr size_t LOOKUP_TUPLE_SIZE = 1;
     static constexpr Column SRC_SELECTOR = Column::public_data_squash_check_clock;
-    static constexpr Column DST_SELECTOR = Column::precomputed_sel_range_16;
+    static constexpr Column DST_SELECTOR = Column::precomputed_sel_range_16_active;
     static constexpr Column COUNTS = Column::lookup_public_data_squash_clk_diff_range_hi_counts;
     static constexpr Column INVERSES = Column::lookup_public_data_squash_clk_diff_range_hi_inv;
     static constexpr std::array<ColumnAndShifts, LOOKUP_TUPLE_SIZE> SRC_COLUMNS = {
         ColumnAndShifts::public_data_squash_clk_diff_hi
     };
-    static constexpr std::array<ColumnAndShifts, LOOKUP_TUPLE_SIZE> DST_COLUMNS = { ColumnAndShifts::precomputed_clk };
+    static constexpr std::array<ColumnAndShifts, LOOKUP_TUPLE_SIZE> DST_COLUMNS = { ColumnAndShifts::precomputed_idx };
 };
 
 using lookup_public_data_squash_clk_diff_range_hi_settings =

@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # Used before releases to write version and rewrite 'workspace:^' URLs.
-NO_CD=1 source $(git rev-parse --show-toplevel)/ci3/source
+set -euo pipefail
 version=$1
 
 tmp=$(mktemp)
@@ -9,7 +9,7 @@ jq --arg v $version '.version = $v' package.json >$tmp && mv $tmp package.json
 
 # We update every category of dependency.
 # While we don't strictly need to update devDependencies, 'workspace:^' is not a valid URL in npm.
-for deps in dependencies devDependencies peerDependencies; do
+for deps in dependencies devDependencies peerDependencies optionalDependencies; do
   # Update each dependency @aztec package version in package.json.
   for pkg in $(jq --raw-output "(.$deps // {}) | keys[] | select(contains(\"@aztec/\"))" package.json); do
     jq --arg v $version ".$deps[\"$pkg\"] = \$v" package.json >$tmp
@@ -22,3 +22,13 @@ for deps in dependencies devDependencies peerDependencies; do
     mv tmp.json package.json
   done
 done
+
+# Stamp aztec_version into any published noir contract artifacts in artifacts/*.json. The build-time stamp in
+# noir-projects/noir-contracts/bootstrap.sh writes "dev"; $version here is the authoritative release version about to
+# be written to package.json. We cannot stamp real version in bootstrap because there we don't have access to it.
+if [ -d artifacts ]; then
+  for f in artifacts/*.json; do
+    [ -e "$f" ] || continue
+    jq --arg v "$version" '.aztec_version = $v' "$f" >$tmp && mv $tmp "$f"
+  done
+fi

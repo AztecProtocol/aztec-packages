@@ -11,7 +11,7 @@ include "constants_gen.pil";
  * keccak_memory.start_read { keccak_memory.val_0_, keccak_memory.val_1_, ... keccak_memory.val_24_,
  *                            keccak_memory.clk, keccak_memory.addr, keccak_memory.space_id, keccak_memory.tag_error };
  *
- * Inputs: state_in_00, state_in_01, ... state_in_44, clk, src_addr, space_id
+ * Inputs: state_in_00, state_in_10, ... state_in_44, clk, src_addr, space_id
  * Output: tag_error
  *
  * Usage for writing a slice (permutation and not lookup):
@@ -26,10 +26,10 @@ include "constants_gen.pil";
  * Parameter: round is fixed to 24.
  *
  * - state_in_00, state_in_10, ... state_in_44 are the 25 U64 keccak state values of the read slice.
- * - state_out_00, state_out_10 ... state_out_44 are the 25 U64 keccak state values of the write slice.
+ * - state_out_00, state_out_10, ... state_out_44 are the 25 U64 keccak state values of the write slice.
  * - dst_addr and src_addr are the first memory offset of the pertaining slice.
  * - space_id serves to propagate the right memory space up to the memory trace.
- * - clk is required for the unicity in the permutation and to propagate to the memory trace
+ * - clk is required for uniqueness in the permutation and to propagate to the memory trace
  *   to unambiguously order the memory operations.
  * - tag_error is set to 1 if any tag error is detected.
  * - Passing the tuple element `round` serves to constrain it to be equal to 24 (see keccakf1600.pil).
@@ -40,10 +40,10 @@ namespace keccak_memory;
 // This gadget is only dedicated to read and write memory slices corresponding
 // to the input and output of keccakf1600. An input and output state for keccakf1600
 // is composed of 25 U64 contiguous memory values. This gadget will read or write
-// 25 such values based on a passed memory offset. It read/writes the 25 values
+// 25 such values based on a passed memory offset. It reads/writes the 25 values
 // and for the read case checks that each tag is U64. Otherwise, we return a tag error.
 //
-// Precondition: We assume the passed offset being such that offset + 24 < 2^32, so
+// Precondition: We assume the passed offset is such that offset + 24 < 2^32, so
 //               that the slice fits into the memory space.
 
 // We use a multi-row computation to shift the read/written values to the row where the lookup
@@ -55,7 +55,7 @@ namespace keccak_memory;
 //#################################################################################################
 //                  High-Level Trace Structure Columns
 //#################################################################################################
-//   ctr   ctr_end  sel   start_read  last   rw  addr  tag   val_0_  val_1_  val_2_  ....  val_24_  single_tag_error  tag_error
+//   ctr   ctr_end  sel   start_read  end    rw  addr  tag   val_0_  val_1_  val_2_  ....  val_24_  single_tag_error  tag_error
 //    1       0      1      1          0      0   38    U64    43     267     17           238          0                 0
 //    2       0      1      0          0      0   39    U64   267      17            238                0                 0
 //    3       0      1      0          0      0   40    U64    17                                       0                 0
@@ -70,17 +70,17 @@ namespace keccak_memory;
 // Each column value val_k_ is shifted to the right going bottom-up and finally is laid out
 // horizontally in the first row.
 // For a read operation, single_tag_error is toggled whenever tag is not U64.
-// When this happens, we toggle `last` and stop the multi-rows computation prematurely.
+// When this happens, we toggle `end` and stop the multi-rows computation prematurely.
 // Therefore, when a tag error occurs the trace looks like:
 
-//   ctr  ctr_end   sel   start_read last   rw  addr  tag   val_0_  val_1_  val_2_  ....  val_24_  single_tag_error  tag_error
+//   ctr  ctr_end   sel   start_read end    rw  addr  tag   val_0_  val_1_  val_2_  ....  val_24_  single_tag_error  tag_error
 //    1       0      1      1         0      0   38    U64    43      267      17            0         0                 1
 //    2       0      1      0         0      0   39    U64   267       17                              0                 1
 //    3       0      1      0         1      0   40    FF     17        0      0    ....     0         1                 1
 
-// The selector `last` is defined to be `ctr_end` OR `single_tag_error`.
+// The selector `end` is defined to be `ctr_end` OR `single_tag_error`.
 // To propagate the single_tag_error value, we use the column `tag_error`.
-// Note that we need a separate column because `single_tag_error` defines `last` which
+// Note that we need a separate column because `single_tag_error` defines `end` which
 // controls when the computation or propagation stops.
 
 pol commit sel; // @boolean
@@ -90,8 +90,22 @@ sel * (1 - sel) = 0;
 #[skippable_if]
 sel = 0;
 
+// ==== MULTI-ROW COMPUTATION SELECTORS ====
+// See recipe: https://github.com/AztecProtocol/aztec-packages/blob/next/barretenberg/cpp/pil/vm2/docs/recipes.md#contiguous-multi-rows-computation-trace
+
+pol LATCH_CONDITION = end + precomputed.first_row;
+
+// If start_read, start_write, or end is active, sel must be active.
+#[SEL_ON_START_OR_END]
+(start_read + start_write + end) * (1 - sel) = 0;
+
+// sel is continuous within a computation block: it cannot change except at a latch.
 #[TRACE_CONTINUITY]
-(1 - precomputed.first_row) * (1 - sel) * sel' = 0;
+(1 - LATCH_CONDITION) * (sel - sel') = 0;
+
+// A new computation block must start immediately after a latch.
+#[START_AFTER_LATCH]
+sel' * (start_read' + start_write' - LATCH_CONDITION) = 0;
 
 pol commit start_read; // @boolean
 start_read * (1 - start_read) = 0;
@@ -112,18 +126,12 @@ pol commit val[25];
 // We enforce the initial ctr to be set to 1.
 #[CTR_INIT]
 (start_read + start_write) * (ctr - 1) = 0;
-// It follows that: `start_read == 1 ==> sel == 1` and `start_write == 1 ==> sel == 1`.
 
 #[RW_READ_INIT]
 start_read * rw = 0;
 #[RW_WRITE_INIT]
 start_write * (1 - rw) = 0;
 // It follows that `start_read` and `start_write` are mutually exclusive.
-
-// sel == 1 <==> ctr != 0
-pol commit ctr_inv;
-#[SEL_CTR_NON_ZERO]
-ctr * ((1 - sel) * (1 - ctr_inv) + ctr_inv) - sel = 0;
 
 // ctr_end is toggled when all slice rows have been processed.
 pol commit ctr_end; // @boolean
@@ -134,22 +142,13 @@ pol commit state_size_min_ctr_inv;
 #[CTR_END]
 sel * ((constants.AVM_KECCAKF1600_STATE_SIZE - ctr) * (ctr_end * (1 - state_size_min_ctr_inv) + state_size_min_ctr_inv) + ctr_end - 1) = 0;
 
-// Last ctr of a multi-rows processing of a slice
-pol commit last; // @boolean (by definition)
+// End of a multi-rows processing of a slice
+pol commit end; // @boolean (by definition)
 
-// last == ctr_end || single_tag_error
-// `last` is boolean by definition
-#[LAST]
-last = 1 - (1 - ctr_end) * (1 - single_tag_error);
-
-#[LAST_HAS_SEL_ON]
-last * (1 - sel) = 0;
-
-// Latch condition is boolean because `last` cannot be activated at first row due to #[LAST_HAS_SEL_ON].
-pol LATCH_CONDITION = last + precomputed.first_row;
-
-#[START_AFTER_LATCH]
-sel' * (start_read' + start_write' - LATCH_CONDITION) = 0;
+// end == ctr_end || single_tag_error
+// `end` is boolean by definition
+#[END]
+end = 1 - (1 - ctr_end) * (1 - single_tag_error);
 
 #[CTR_INCREMENT]
 // Note: sel factor is required for an empty row to satisfy this relation
@@ -166,7 +165,7 @@ single_tag_error * (1 - single_tag_error) = 0;
 rw * single_tag_error = 0;
 
 #[TAG_ERROR_INIT]
-last * (tag_error - single_tag_error) = 0;
+end * (tag_error - single_tag_error) = 0;
 
 #[TAG_ERROR_PROPAGATION]
 (1 - LATCH_CONDITION) * (tag_error - tag_error') = 0;
@@ -206,7 +205,7 @@ val[5] = (1 - LATCH_CONDITION) * val[4]';
 val[6] = (1 - LATCH_CONDITION) * val[5]';
 #[VAL07]
 val[7] = (1 - LATCH_CONDITION) * val[6]';
-#[VAL8]
+#[VAL08]
 val[8] = (1 - LATCH_CONDITION) * val[7]';
 #[VAL09]
 val[9] = (1 - LATCH_CONDITION) * val[8]';
@@ -245,25 +244,24 @@ val[24] = (1 - LATCH_CONDITION) * val[23]';
 sel { clk, space_id, addr, val[0], tag, rw }
 is memory.sel_keccak { memory.clk, memory.space_id, memory.address, memory.value, memory.tag, memory.rw };
 
-// Used to constrain the number of rounds in keccakf1600.pil through the slice_write lookup.
-pol commit num_rounds;
-sel * (num_rounds - constants.AVM_KECCAKF1600_NUM_ROUNDS) = 0; // TODO: Remove once we support constants in lookups
 
 /* Prevention of illegal memory operations:
  *
- * If `sel == 1` (required to trigger a memory operation) we have `ctr != 0` by #[SEL_CTR_NON_ZERO].
+ * If `sel == 1` (required to trigger a memory operation), the multi-row constraints guarantee this row is part of
+ * a legitimate computation block starting with `start_read == 1` or `start_write == 1`.
+ * By #[CTR_INIT], `ctr == 1` on that starting row, and #[CTR_INCREMENT] increments ctr by 1 each row.
  * We consider two cases for the previous row above:
- * 1) LATCH_CONDITION == 1: By #[START_AFTER_LATCH] we have `start_read == 1` or `start_write` == 1 and implies that
+ * 1) LATCH_CONDITION == 1: By #[START_AFTER_LATCH] we have `start_read == 1` or `start_write == 1` which implies that
  *                          `ctr == 1` which is legitimate.
  * 2) LATCH_CONDITION == 0: By #[CTR_INCREMENT] and #[TRACE_CONTINUITY], we have ctr - 1 on the previous row.
  *                          We can continue this propagation bottom-up until we reach a row whose previous row
  *                          has `LATCH_CONDITION == 1`. We know that this exists because at the latest it
  *                          happens at the very first row of the trace (precomputed.first_row == 1). When this happens,
- *                          by #[START_AFTER_LATCH] we have `start_read == 1` or `start_write` == 1 and we must have
+ *                          by #[START_AFTER_LATCH] we have `start_read == 1` or `start_write == 1` and we must have
  *                          `ctr == 1`. This shows that this is a legitimate memory operation.
  *                          Note that if we were to start with a counter larger than AVM_KECCAKF1600_STATE_SIZE, then
  *                          in a bottom-up propagation, we would reach a row with `ctr == AVM_KECCAKF1600_STATE_SIZE`
- *                          and `last` and `LATCH_CONDITION` equal to 1. However, this would contradict that on the
- *                          below row `ctr == AVM_KECCAKF1600_STATE_SIZE + 1` and `start_read == 1` or `start_write == 1`.
+ *                          and `end` and `LATCH_CONDITION` equal to 1. However, this would contradict that on the
+ *                          row below `ctr == AVM_KECCAKF1600_STATE_SIZE + 1` and `start_read == 1` or `start_write == 1`.
  *                          Namely, #[CTR_INIT] enforces `ctr == 1`.
  */

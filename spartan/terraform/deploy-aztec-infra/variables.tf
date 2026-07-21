@@ -24,49 +24,31 @@ variable "GCP_REGION" {
 variable "FULL_NODE_RESOURCE_PROFILE" {
   description = "Resource profile to use for the full node"
   type        = string
-  default     = "prod"
 }
 
 variable "P2P_BOOTSTRAP_RESOURCE_PROFILE" {
   description = "Resource profile to use for the p2p bootstrap"
   type        = string
-  default     = "prod"
 }
 
 variable "VALIDATOR_RESOURCE_PROFILE" {
   description = "Resource profile to use for the validator"
   type        = string
-  default     = "prod"
 }
 
 variable "PROVER_RESOURCE_PROFILE" {
   description = "Resource profile to use for the prover"
   type        = string
-  default     = "prod"
 }
 
 variable "RPC_RESOURCE_PROFILE" {
   description = "Resource profile to use for the rpc"
   type        = string
-  default     = "prod"
 }
 
 variable "BOT_RESOURCE_PROFILE" {
   description = "Resource profile to use for the bots"
   type        = string
-  default     = "prod"
-}
-
-variable "ARCHIVE_RESOURCE_PROFILE" {
-  description = "Resource profile to use for the archive node"
-  type        = string
-  default     = "prod"
-}
-
-variable "BLOB_SINK_RESOURCE_PROFILE" {
-  description = "Resource profile to use for the blob sink"
-  type        = string
-  default     = "prod"
 }
 
 variable "DEBUG_P2P_INSTRUMENT_MESSAGES" {
@@ -79,6 +61,18 @@ variable "PROVER_TEST_VERIFICATION_DELAY_MS" {
   description = "The delay (ms) to inject during fake proof verification"
   type        = number
   default     = 10
+}
+
+variable "BB_CHONK_VERIFY_MAX_BATCH" {
+  description = "Upper bound on proofs per batch for the peer chonk batch verifier"
+  type        = number
+  default     = 16
+}
+
+variable "BB_CHONK_VERIFY_BATCH_CONCURRENCY" {
+  description = "Thread count for the peer batch verifier parallel reduce (0 = auto)"
+  type        = number
+  default     = 6
 }
 
 variable "K8S_CLUSTER_CONTEXT" {
@@ -103,6 +97,18 @@ variable "AZTEC_DOCKER_IMAGE" {
   description = "Docker image to use for the aztec network"
   type        = string
   default     = "aztecprotocol/aztec:staging"
+}
+
+variable "PROVER_AGENT_DOCKER_IMAGE" {
+  description = "Docker image for prover agents (includes baked-in CRS). Defaults to AZTEC_DOCKER_IMAGE."
+  type        = string
+  default     = ""
+}
+
+variable "VALIDATOR_HA_DOCKER_IMAGE" {
+  description = "Docker image for HA validator releases. When set, HA releases (idx > 0) use this image instead of AZTEC_DOCKER_IMAGE."
+  type        = string
+  default     = ""
 }
 
 variable "VALIDATOR_VALUES" {
@@ -157,9 +163,10 @@ variable "REGISTRY_CONTRACT_ADDRESS" {
   type        = string
 }
 
-variable "SLASH_FACTORY_CONTRACT_ADDRESS" {
-  description = "The slash factory contract address"
+variable "ROLLUP_VERSION" {
+  description = "The rollup version to target. Leave empty to follow the canonical rollup"
   type        = string
+  default     = ""
 }
 
 variable "FEE_ASSET_HANDLER_CONTRACT_ADDRESS" {
@@ -185,16 +192,23 @@ variable "VALIDATORS_PER_NODE" {
   default     = 12
 }
 
-variable "VALIDATOR_PUBLISHERS_PER_VALIDATOR_KEY" {
-  description = "Number of publisher EOAs per validator key"
+variable "VALIDATOR_PUBLISHERS_PER_REPLICA" {
+  description = "Number of publisher EOAs per validator replica (pod)"
   type        = number
-  default     = 1
+  default     = 4
 }
 
 variable "VALIDATOR_PUBLISHER_MNEMONIC_START_INDEX" {
   description = "Mnemonic start index for validator publishers"
   type        = number
   default     = 5000
+}
+
+variable "VALIDATOR_COINBASE" {
+  description = "Optional coinbase address for validator sequencers. Defaults to each validator attester address when unset."
+  type        = string
+  nullable    = true
+  default     = null
 }
 
 variable "VALIDATOR_L1_PRIORITY_FEE_BUMP_PERCENTAGE" {
@@ -223,6 +237,24 @@ variable "VALIDATOR_HA_REPLICAS" {
   default     = 0
 }
 
+variable "VALIDATOR_HA_REPLICA_COUNT" {
+  description = "Number of pod replicas per HA validator release. Defaults to VALIDATOR_REPLICAS if not set."
+  type        = number
+  default     = null
+}
+
+variable "VALIDATOR_HA_OLD_DUTIES_MAX_AGE_H" {
+  description = "Clean up old signed HA duties after this many hours (prevents unbounded DB growth)"
+  type        = number
+  default     = 24
+}
+
+variable "ADMIN_API_KEY_HASH" {
+  description = "SHA-256 hex hash of the admin API key. When set, enables admin API authentication on validator nodes. Leave empty to disable admin auth (default)."
+  type        = string
+  default     = ""
+}
+
 variable "PROVER_MNEMONIC" {
   description = "The prover mnemonic"
   type        = string
@@ -233,6 +265,12 @@ variable "PROVER_REPLICAS" {
   description = "The number of prover replicas"
   type        = string
   default     = 4
+}
+
+variable "PROVER_ENABLED" {
+  description = "Whether to deploy the prover stack"
+  type        = bool
+  default     = true
 }
 
 variable "PROVER_TEST_DELAY_TYPE" {
@@ -279,11 +317,6 @@ variable "PROVER_NODE_DISABLE_PROOF_PUBLISH" {
   default     = false
 }
 
-variable "P2P_MAX_TX_POOL_SIZE" {
-  description = "Maximum size of the P2P transaction pool"
-  type        = string
-  default     = "100000000"
-}
 variable "FISHERMAN_MNEMONIC" {
   description = "The fisherman mnemonic for RPC nodes (used when validators are disabled, e.g., fisherman mode)"
   type        = string
@@ -301,6 +334,20 @@ variable "OTEL_COLLECTOR_ENDPOINT" {
   type        = string
   default     = null
   nullable    = true
+}
+
+variable "OTEL_COLLECT_INTERVAL_MS" {
+  description = "Interval in ms at which OTEL metrics are exported from nodes"
+  type        = string
+  nullable    = true
+  default     = null
+}
+
+variable "OTEL_EXPORT_TIMEOUT_MS" {
+  description = "Timeout in ms for OTEL metric exports (must be <= OTEL_COLLECT_INTERVAL_MS)"
+  type        = string
+  nullable    = true
+  default     = null
 }
 
 variable "LOG_LEVEL" {
@@ -328,7 +375,7 @@ variable "TEST_ACCOUNTS" {
 variable "SEQ_MIN_TX_PER_BLOCK" {
   description = "Minimum number of sequencer transactions per block"
   type        = string
-  default     = "0"
+  default     = "1"
 }
 
 variable "SEQ_MAX_TX_PER_BLOCK" {
@@ -337,8 +384,33 @@ variable "SEQ_MAX_TX_PER_BLOCK" {
   default     = "8"
 }
 
+variable "SEQ_MAX_TX_PER_CHECKPOINT" {
+  description = "Maximum number of sequencer transactions per checkpoint"
+  type        = string
+  default     = null
+}
+
+variable "P2P_MAX_PENDING_TX_COUNT" {
+  description = "Maximum number of pending txs the local mempool will hold before evictions kick in"
+  type        = string
+  default     = null
+}
+
+variable "SEQ_SKIP_CHECKPOINT_PUBLISH_PERCENT" {
+  description = "Percentage probability of skipping checkpoint publishing"
+  type        = string
+  default     = "0"
+}
+
 variable "SEQ_BLOCK_DURATION_MS" {
   description = "Duration per block in milliseconds when building multiple blocks per slot"
+  type        = string
+  nullable    = true
+  default     = null
+}
+
+variable "SEQ_L1_PUBLISHING_TIME_ALLOWANCE_IN_SLOT" {
+  description = "Time allocated for publishing to L1, in seconds"
   type        = string
   nullable    = true
   default     = null
@@ -351,22 +423,29 @@ variable "SEQ_BUILD_CHECKPOINT_IF_EMPTY" {
   default     = null
 }
 
+variable "SEQ_PER_BLOCK_ALLOCATION_MULTIPLIER" {
+  description = "Per-block gas budget multiplier for both L2 and DA gas."
+  type        = string
+  default     = null
+}
+
+variable "AZTEC_EPOCHS_LAG" {
+  description = "Epoch lag override for validator nodes"
+  type        = string
+  nullable    = true
+  default     = null
+}
+
 variable "SENTINEL_ENABLED" {
   description = "Whether to enable sentinel"
   type        = string
   default     = true
 }
 
-variable "SLASH_MIN_PENALTY_PERCENTAGE" {
-  description = "The slash min penalty percentage"
+variable "OFFENSE_COLLECTION_ENABLED" {
+  description = "Whether to enable offense collection (watchers + read-only slasher) on non-validator nodes"
   type        = string
-  nullable    = true
-}
-
-variable "SLASH_MAX_PENALTY_PERCENTAGE" {
-  description = "The slash max penalty percentage"
-  type        = string
-  nullable    = true
+  default     = true
 }
 
 variable "SLASH_INACTIVITY_TARGET_PERCENTAGE" {
@@ -381,14 +460,14 @@ variable "SLASH_INACTIVITY_PENALTY" {
   nullable    = true
 }
 
-variable "SLASH_PRUNE_PENALTY" {
-  description = "The slash prune penalty"
+variable "SLASH_DATA_WITHHOLDING_PENALTY" {
+  description = "The slash data withholding penalty"
   type        = string
   nullable    = true
 }
 
-variable "SLASH_DATA_WITHHOLDING_PENALTY" {
-  description = "The slash data withholding penalty"
+variable "SLASH_DATA_WITHHOLDING_TOLERANCE_SLOTS" {
+  description = "L2 slots to wait after a checkpoint slot before slashing for data withholding"
   type        = string
   nullable    = true
 }
@@ -399,8 +478,26 @@ variable "SLASH_PROPOSE_INVALID_ATTESTATIONS_PENALTY" {
   default     = 0.0
 }
 
-variable "SLASH_ATTEST_DESCENDANT_OF_INVALID_PENALTY" {
-  description = "The slash attest descendant of invalid penalty"
+variable "SLASH_DUPLICATE_PROPOSAL_PENALTY" {
+  description = "The slash duplicate proposal penalty"
+  type        = string
+  nullable    = true
+}
+
+variable "SLASH_DUPLICATE_ATTESTATION_PENALTY" {
+  description = "The slash duplicate attestation penalty"
+  type        = string
+  nullable    = true
+}
+
+variable "SLASH_PROPOSE_DESCENDANT_OF_CHECKPOINT_WITH_INVALID_ATTESTATIONS_PENALTY" {
+  description = "The slash propose descendant of invalid penalty"
+  type        = string
+  nullable    = true
+}
+
+variable "SLASH_ATTEST_INVALID_CHECKPOINT_PROPOSAL_PENALTY" {
+  description = "The slash attest invalid checkpoint proposal penalty"
   type        = string
   nullable    = true
 }
@@ -413,6 +510,12 @@ variable "SLASH_UNKNOWN_PENALTY" {
 
 variable "SLASH_INVALID_BLOCK_PENALTY" {
   description = "The slash invalid block penalty"
+  type        = string
+  nullable    = true
+}
+
+variable "SLASH_INVALID_CHECKPOINT_PROPOSAL_PENALTY" {
+  description = "The slash invalid checkpoint proposal penalty"
   type        = string
   nullable    = true
 }
@@ -452,14 +555,26 @@ variable "EXTERNAL_BOOTNODES" {
   default     = []
 }
 
-variable "DEPLOY_ARCHIVAL_NODE" {
-  description = "Whether to deploy the archival node"
-  type        = bool
-  default     = false
-}
-
 variable "NETWORK" {
   description = "One of the existing network names to use default config for"
+  type        = string
+  nullable    = true
+}
+
+variable "ALLOW_OVERRIDING_NETWORK_CONFIG" {
+  description = "Allow consensus-critical env vars to diverge from the generated network defaults for NETWORK"
+  type        = string
+  nullable    = true
+}
+
+variable "AZTEC_SLOT_DURATION" {
+  description = "Aztec slot duration; passed to nodes so they match a rollup deployed with a non-default value"
+  type        = string
+  nullable    = true
+}
+
+variable "AZTEC_EPOCH_DURATION" {
+  description = "Aztec epoch duration; passed to nodes so they match a rollup deployed with a non-default value"
   type        = string
   nullable    = true
 }
@@ -507,6 +622,12 @@ variable "BOT_TRANSFERS_FOLLOW_CHAIN" {
   default     = "PENDING"
 }
 
+variable "BOT_TRANSFERS_PXE_SYNC_CHAIN_TIP" {
+  description = "Transfers bot PXE sync chain tip mode (e.g., checkpointed)"
+  type        = string
+  default     = "checkpointed"
+}
+
 variable "BOT_TRANSFERS_L2_PRIVATE_KEY" {
   description = "Private key for the transfers bot (hex string starting with 0x)"
   nullable    = true
@@ -537,6 +658,12 @@ variable "BOT_SWAPS_FOLLOW_CHAIN" {
   default     = "PENDING"
 }
 
+variable "BOT_SWAPS_PXE_SYNC_CHAIN_TIP" {
+  description = "AMM swaps bot PXE sync chain tip mode (e.g., checkpointed)"
+  type        = string
+  default     = "checkpointed"
+}
+
 variable "BOT_SWAPS_L2_PRIVATE_KEY" {
   description = "Private key for the AMM swaps bot (hex string starting with 0x)"
   type        = string
@@ -544,33 +671,252 @@ variable "BOT_SWAPS_L2_PRIVATE_KEY" {
   default     = null
 }
 
-# RPC ingress configuration (GKE-specific)
-variable "RPC_INGRESS_ENABLED" {
-  description = "Enable GKE ingress for RPC nodes"
-  type        = bool
-  default     = false
-}
-
-variable "RPC_INGRESS_HOSTS" {
-  description = "Hostnames for RPC ingress"
-  type        = list(string)
-  default     = []
-}
-
-variable "RPC_INGRESS_STATIC_IP_NAME" {
-  description = "Name of the GCP static IP resource for the ingress"
+variable "BOT_CROSS_CHAIN_MNEMONIC_START_INDEX" {
+  description = "The cross-chain bot mnemonic start index"
   type        = string
   default     = ""
 }
 
-variable "RPC_INGRESS_SSL_CERT_NAMES" {
-  description = "Names of the GCP managed SSL certificates for the ingress"
+variable "BOT_CROSS_CHAIN_REPLICAS" {
+  description = "Number of cross-chain bot replicas to deploy (0 to disable)"
+  type        = number
+  default     = 0
+}
+
+variable "BOT_CROSS_CHAIN_TX_INTERVAL_SECONDS" {
+  description = "Interval in seconds between cross-chain bot transactions"
+  type        = number
+  default     = 10
+}
+
+variable "BOT_CROSS_CHAIN_FOLLOW_CHAIN" {
+  description = "Cross-chain bot follow-chain mode"
+  type        = string
+  default     = "PENDING"
+}
+
+variable "BOT_CROSS_CHAIN_L2_PRIVATE_KEY" {
+  description = "Private key for the cross-chain bot (hex string starting with 0x)"
+  type        = string
+  nullable    = true
+  default     = null
+}
+
+variable "BOT_CROSS_CHAIN_PXE_SYNC_CHAIN_TIP" {
+  description = "Cross-chain bot PXE sync chain tip mode (e.g., checkpointed)"
+  type        = string
+  default     = "checkpointed"
+}
+
+variable "BOT_DA_GAS_LIMIT" {
+  description = "DA gas limit for bot transactions (empty to use gas estimation)"
+  type        = string
+  default     = ""
+}
+
+variable "BOT_L2_GAS_LIMIT" {
+  description = "L2 gas limit for bot transactions (empty to use gas estimation)"
+  type        = string
+  default     = ""
+}
+
+# RPC gateway configuration (Kong-backed, optional)
+variable "RPC_GATEWAY_ENABLED" {
+  description = "Enable the Kong RPC gateway for the utility RPC service. When false, no Kong/frontend/DNS resources are created."
+  type        = bool
+  default     = false
+}
+
+variable "RPC_GATEWAY_HOSTS" {
+  description = "Hostnames served by the RPC gateway. Required when RPC_GATEWAY_ENABLED=true."
+  type        = list(string)
+  default     = []
+}
+
+variable "RPC_GATEWAY_API_KEY_SECRET_NAMES" {
+  description = "GCP Secret Manager secret names containing API keys allowed by the node RPC gateway."
+  type        = list(string)
+  default     = []
+}
+
+variable "RPC_GATEWAY_ALLOW_ANONYMOUS" {
+  description = "Whether the RPC gateway allows requests without a valid API key. Missing and invalid keys both use the anonymous consumer."
+  type        = bool
+  default     = false
+}
+
+variable "RPC_GATEWAY_ANONYMOUS_RATE_LIMIT_MINUTE" {
+  description = "Per-client-IP anonymous request limit per minute when RPC_GATEWAY_ALLOW_ANONYMOUS=true. Kong local policy makes this per Kong pod."
+  type        = number
+  default     = 300
+}
+
+variable "RPC_GATEWAY_API_KEY_HEADER_NAME" {
+  description = "Header checked by Kong key-auth."
+  type        = string
+  default     = "x-aztec-api-key"
+}
+
+variable "RPC_GATEWAY_KONG_NAMESPACE" {
+  description = "Optional namespace for the Kong Helm release. Defaults to NAMESPACE."
+  type        = string
+  default     = ""
+}
+
+variable "RPC_GATEWAY_KONG_HELM_RELEASE_NAME" {
+  description = "Optional Helm release name for Kong. Defaults to RELEASE_PREFIX-rpc-kong."
+  type        = string
+  default     = ""
+}
+
+variable "RPC_GATEWAY_KONG_HELM_CHART_VERSION" {
+  description = "Kong ingress Helm chart version."
+  type        = string
+  default     = "0.24.0"
+}
+
+variable "RPC_GATEWAY_KONG_INGRESS_CLASS" {
+  description = "Optional ingress class watched by Kong. Defaults to RELEASE_PREFIX-rpc-kong."
+  type        = string
+  default     = ""
+}
+
+variable "RPC_GATEWAY_KONG_PROXY_SERVICE_TYPE" {
+  description = "Kong proxy Service type. With frontend enabled this should normally stay ClusterIP plus NEG annotation."
+  type        = string
+  default     = "ClusterIP"
+}
+
+variable "RPC_GATEWAY_KONG_PROXY_SERVICE_ANNOTATIONS" {
+  description = "Annotations applied to the Kong proxy Service."
+  type        = map(string)
+  default     = {}
+}
+
+variable "RPC_GATEWAY_KONG_EXTRA_HELM_VALUES" {
+  description = "Additional YAML values passed to the Kong Helm chart."
+  type        = list(string)
+  default     = []
+}
+
+variable "RPC_GATEWAY_KONG_SERVICE_MONITOR_ENABLED" {
+  description = "Whether Kong should create a ServiceMonitor."
+  type        = bool
+  default     = false
+}
+
+variable "RPC_GATEWAY_KONG_OTEL_METRICS_GCP_SECRET_NAME" {
+  description = "GCP Secret Manager secret name containing the central OTLP/HTTP collector endpoint. When empty, no local Kong metrics collector is deployed by deploy-aztec-infra."
+  type        = string
+  default     = ""
+}
+
+
+variable "RPC_GATEWAY_EXTERNAL_SECRET_STORE_NAME" {
+  description = "ExternalSecrets SecretStore or ClusterSecretStore name for RPC gateway consumer keys."
+  type        = string
+  default     = "gcp-secret-store"
+}
+
+variable "RPC_GATEWAY_EXTERNAL_SECRET_STORE_KIND" {
+  description = "ExternalSecrets store kind for RPC gateway consumer keys."
+  type        = string
+  default     = "ClusterSecretStore"
+}
+
+variable "RPC_GATEWAY_EXTERNAL_SECRET_REFRESH_INTERVAL" {
+  description = "ExternalSecret refresh interval for RPC gateway consumer keys."
+  type        = string
+  default     = "1m"
+}
+
+variable "RPC_GATEWAY_CREATE_DNS" {
+  description = "Whether to create A records for RPC_GATEWAY_HOSTS."
+  type        = bool
+  default     = true
+}
+
+variable "RPC_GATEWAY_DNS_ZONE_NAME" {
+  description = "Cloud DNS managed zone name for RPC gateway hosts."
+  type        = string
+  default     = "rpc-aztec-labs-com"
+}
+
+variable "RPC_GATEWAY_DNS_TTL" {
+  description = "TTL for RPC gateway DNS A records."
+  type        = number
+  default     = 300
+}
+
+variable "RPC_GATEWAY_FRONTEND_ENABLED" {
+  description = "Whether to create a GKE frontend Ingress in front of Kong."
+  type        = bool
+  default     = true
+}
+
+variable "RPC_GATEWAY_FRONTEND_STATIC_IP_ENABLED" {
+  description = "Whether to allocate a global static IP for the RPC gateway frontend."
+  type        = bool
+  default     = true
+}
+
+variable "RPC_GATEWAY_FRONTEND_STATIC_IP_NAME" {
+  description = "Optional global static IP name for the RPC gateway frontend. Defaults to RELEASE_PREFIX-rpc-frontend."
+  type        = string
+  default     = ""
+}
+
+variable "RPC_GATEWAY_FRONTEND_ALLOW_HTTP" {
+  description = "Whether the RPC gateway frontend should allow HTTP in addition to HTTPS."
+  type        = bool
+  default     = false
+}
+
+variable "RPC_GATEWAY_GCP_MANAGED_CERTIFICATE_ENABLED" {
+  description = "Whether to create a GKE ManagedCertificate for RPC_GATEWAY_HOSTS."
+  type        = bool
+  default     = true
+}
+
+variable "PROVER_NODE_RPC_GATEWAY_ENABLED" {
+  description = "Enable an API-key-only Kong route for the prover-node JSON-RPC service. When RPC_GATEWAY_ENABLED=true, this adds a route to the same gateway."
+  type        = bool
+  default     = false
+}
+
+variable "PROVER_NODE_RPC_GATEWAY_HOSTS" {
+  description = "Hostnames served by the prover-node RPC gateway. Required when PROVER_NODE_RPC_GATEWAY_ENABLED=true."
+  type        = list(string)
+  default     = []
+}
+
+variable "PROVER_NODE_RPC_GATEWAY_PATH" {
+  description = "Path prefix for the prover-node RPC route. Use / for a dedicated host."
+  type        = string
+  default     = "/"
+}
+
+variable "PROVER_NODE_RPC_GATEWAY_STRIP_PATH" {
+  description = "Whether Kong should strip PROVER_NODE_RPC_GATEWAY_PATH before proxying to the prover node."
+  type        = bool
+  default     = false
+}
+
+variable "PROVER_NODE_RPC_GATEWAY_API_KEY_SECRET_NAMES" {
+  description = "GCP Secret Manager secret names containing API keys allowed by the prover-node RPC gateway. Raw key values must not go here."
   type        = list(string)
   default     = []
 }
 
 variable "PROVER_FAILED_PROOF_STORE" {
   description = "Optional GCS/URI to store failed proofs from the prover"
+  type        = string
+  nullable    = false
+  default     = ""
+}
+
+variable "L1_TX_FAILED_STORE" {
+  description = "Optional GCS/URI to store failed L1 transaction inputs (e.g. gs://bucket/path)"
   type        = string
   nullable    = false
   default     = ""
@@ -626,10 +972,80 @@ variable "BLOB_FILE_STORE_UPLOAD_URL" {
   default     = null
 }
 
+variable "BLOB_FILE_STORE_URLS" {
+  description = "Comma-separated URLs for reading blobs from filestore. Set to ',' to disable."
+  type        = string
+  default     = ""
+}
+
+variable "TX_FILE_STORE_ENABLED" {
+  description = "Whether to enable uploading transactions to file storage"
+  type        = bool
+  default     = false
+}
+
+variable "TX_FILE_STORE_URL" {
+  description = "URL for uploading transactions (e.g., s3://bucket/path/, gs://bucket/path/)"
+  type        = string
+  nullable    = true
+  default     = null
+}
+
+variable "TX_COLLECTION_FILE_STORE_URLS" {
+  description = "Comma-separated URLs for reading transactions from file storage"
+  type        = string
+  default     = ""
+}
+
 variable "PROVER_AGENT_POLL_INTERVAL_MS" {
   description = "Interval in milliseconds between prover agent polls"
   type        = number
   default     = 1000
+}
+
+variable "PROVER_AGENT_KEDA_ENABLED" {
+  description = "Whether KEDA should scale prover agent pods from proving queue depth"
+  type        = bool
+  default     = false
+}
+
+variable "PROVER_AGENT_KEDA_MIN_REPLICAS" {
+  description = "Minimum prover agent pods managed by KEDA"
+  type        = number
+  default     = 0
+}
+
+variable "PROVER_AGENT_KEDA_MAX_REPLICAS" {
+  description = "Maximum prover agent pods managed by KEDA"
+  type        = number
+  default     = 1
+}
+
+variable "PROVER_AGENT_KEDA_SCALING_BANDS" {
+  description = "Step scaling bands for prover agents. Each band scales to replicas when total proving queue size is greater than queueSize."
+  type = list(object({
+    queueSize = number
+    replicas  = number
+  }))
+  default = []
+}
+
+variable "PROVER_AGENT_KEDA_PROMETHEUS_SERVER_ADDRESS" {
+  description = "Prometheus server URL queried by KEDA for prover queue depth"
+  type        = string
+  default     = ""
+}
+
+variable "PROVER_AGENT_KEDA_POLLING_INTERVAL_SECONDS" {
+  description = "KEDA polling interval for prover agent queue-depth scaling"
+  type        = number
+  default     = 30
+}
+
+variable "PROVER_AGENT_KEDA_COOLDOWN_PERIOD_SECONDS" {
+  description = "KEDA cooldown period before scaling prover agents back down"
+  type        = number
+  default     = 300
 }
 
 variable "PROVER_AGENT_INCLUDE_METRICS" {
@@ -644,16 +1060,16 @@ variable "FULL_NODE_INCLUDE_METRICS" {
   default     = null
 }
 
-variable "FISHERMAN_MODE" {
-  description = "Whether to run in fisherman mode"
-  type        = bool
-  default     = false
+variable "FISHERMAN_REPLICAS" {
+  description = "Number of dedicated fisherman node replicas (separate from the rpc-node)"
+  type        = number
+  default     = 0
 }
 
 variable "P2P_GOSSIPSUB_D" {
   description = "The P2P Gossipsub D parameter"
   type        = string
-  default     = "6"
+  default     = "8"
 }
 
 variable "P2P_GOSSIPSUB_DLO" {
@@ -668,20 +1084,14 @@ variable "P2P_GOSSIPSUB_DHI" {
   default     = "12"
 }
 
-variable "P2P_DROP_TX" {
-  description = "Whether to randomly drop incoming transactions in the P2P layer (for testing)"
-  type        = bool
-  default     = false
-}
-
 variable "P2P_DROP_TX_CHANCE" {
   description = "The chance (0-1) of dropping an incoming transaction in the P2P layer (for testing)"
   type        = number
   default     = 0
 }
 
-variable "WS_NUM_HISTORIC_BLOCKS" {
-  description = "Number of historic blocks for world state"
+variable "WS_NUM_HISTORIC_CHECKPOINTS" {
+  description = "Number of historic checkpoints for world state"
   type        = string
   nullable    = true
   default     = null
@@ -699,6 +1109,12 @@ variable "P2P_NODEPORT_ENABLED" {
   description = "Enable NodePort for P2P service (true for KIND/local, false for GKE by default)"
   type        = bool
   default     = false
+}
+
+variable "P2P_HOSTPORT_ENABLED" {
+  description = "Enable hostPort for P2P service when NodePort is disabled"
+  type        = bool
+  default     = true
 }
 
 variable "DEBUG_FORCE_TX_PROOF_VERIFICATION" {

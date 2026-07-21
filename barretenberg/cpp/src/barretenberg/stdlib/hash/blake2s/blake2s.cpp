@@ -1,5 +1,5 @@
 // === AUDIT STATUS ===
-// internal:    { status: Complete, auditors: [Nishat], commit: 8fb8b041d4c9179f62da56a9c7bbf22c40db46cc}
+// internal:    { status: Complete, auditors: [Nishat], commit: 66052c96cc754339ac3f2761f341f150130555b3}
 // external_1:  { status: not started, auditors: [], commit: }
 // external_2:  { status: not started, auditors: [], commit: }
 // =====================
@@ -39,15 +39,17 @@ namespace bb::stdlib {
 
 template <typename Builder> void Blake2s<Builder>::increment_counter(blake2s_state& S, const uint32_t inc)
 {
+    // Note that the initial blake2s_state values are circuit constants.
+    BB_ASSERT(S.t[0].is_constant());
+    BB_ASSERT(S.t[1].is_constant());
+
     field_ct inc_scalar(static_cast<uint256_t>(inc));
 
-    // Note that the initial blake2s_state values are circuit constants.
     S.t[0] = S.t[0] + inc_scalar;
-
-    // Note that although blake2s_state is a circuit constant, we use designated functions such as
-    // `ranged_less_than` to enforce constraints as appropriate.
-    bool_ct to_inc = S.t[0].template ranged_less_than<32>(inc_scalar);
-    S.t[1] = S.t[1] + field_ct(to_inc);
+    // Enforced constant state (t[0], t[1]) allows computing the carry out-of-circuit (with correct 32-bit wrap) without
+    // adding constraints.
+    const bool to_inc = uint32_t(uint256_t(S.t[0].get_value())) < inc;
+    S.t[1] = S.t[1] + (to_inc ? field_ct(1) : field_ct(0));
 }
 
 template <typename Builder> void Blake2s<Builder>::compress(blake2s_state& S, byte_array_ct const& in)

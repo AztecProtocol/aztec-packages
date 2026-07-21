@@ -7,10 +7,10 @@
 #pragma once
 
 #include "barretenberg/common/assert.hpp"
+#include "barretenberg/common/type_traits.hpp"
 #include "barretenberg/ecc/curves/bn254/bn254.hpp"
 #include "barretenberg/ecc/curves/bn254/fr.hpp"
 #include "barretenberg/ecc/curves/grumpkin/grumpkin.hpp"
-#include "barretenberg/honk/types/circuit_type.hpp"
 #include "barretenberg/polynomials/univariate.hpp"
 #include "barretenberg/stdlib/primitives/bigfield/constants.hpp" // NUM_LIMB_BITS_IN_FIELD_SIMULATION
 
@@ -133,7 +133,9 @@ class FrCodec {
             T val;
             val.x = deserialize_from_fields<BaseField>(fr_vec.subspan(0, BASE));
             val.y = deserialize_from_fields<BaseField>(fr_vec.subspan(BASE, BASE));
-            BB_ASSERT(val.on_curve());
+            if (!val.on_curve()) {
+                throw_or_abort("Deserialized point is not on the curve");
+            }
             return val;
         } else {
             // Array or Univariate
@@ -205,9 +207,11 @@ class FrCodec {
     }
 
     /**
-     * @brief Convert an `fr` challenge to a target type (fr or fq). Assumes challenge is "short".
+     * @brief Convert a short (≤127-bit limb) challenge to a target type (fr or fq).
+     * @details Input is a single 127-bit limb produced by `split_challenge`. For `fq` (a Grumpkin scalar) the
+     * value must fit in the lower two simulated bigfield limbs, which is what the short width guarantees.
      */
-    template <typename T> static T convert_challenge(const bb::fr& challenge)
+    template <typename T> static T convert_short_challenge(const bb::fr& challenge)
     {
         if constexpr (std::is_same_v<T, bb::fr>) {
             return challenge;
@@ -216,6 +220,22 @@ class FrCodec {
                          2 * stdlib::NUM_LIMB_BITS_IN_FIELD_SIMULATION,
                          "field_conversion: convert challenge");
             return fq(challenge);
+        }
+    }
+
+    /**
+     * @brief Convert a full-width challenge to a target type (fr or fq).
+     * @details For `fq` (a Grumpkin scalar) the conversion is exact and canonical: the BN254 scalar modulus `r`
+     * is smaller than the base modulus `q`, so every challenge value (`< r`) is `< q` and reinterprets directly
+     * as an `fq` element with no reduction. This mirrors the recursive `StdlibCodec::convert_full_challenge`,
+     * which splits the same value into bigfield limbs.
+     */
+    template <typename T> static T convert_full_challenge(const bb::fr& challenge)
+    {
+        if constexpr (std::is_same_v<T, bb::fr>) {
+            return challenge;
+        } else if constexpr (std::is_same_v<T, fq>) {
+            return fq(static_cast<uint256_t>(challenge));
         }
     }
 };
@@ -250,7 +270,14 @@ class U256Codec {
         BB_ASSERT_EQ(vec.size(), calc_num_fields<T>());
         if constexpr (IsAnyOf<T, bool>) {
             return static_cast<bool>(vec[0]);
-        } else if constexpr (IsAnyOf<T, uint32_t, uint64_t, uint256_t, bb::fr, fq>) {
+        } else if constexpr (IsAnyOf<T, bb::fr>) {
+            BB_ASSERT_LT(
+                vec[0], uint256_t(bb::fr::modulus), "Non-canonical scalar field element: value >= fr::modulus");
+            return static_cast<T>(vec[0]);
+        } else if constexpr (IsAnyOf<T, fq>) {
+            BB_ASSERT_LT(vec[0], uint256_t(fq::modulus), "Non-canonical base field element: value >= fq::modulus");
+            return static_cast<T>(vec[0]);
+        } else if constexpr (IsAnyOf<T, uint32_t, uint64_t, uint256_t>) {
             return static_cast<T>(vec[0]);
         } else if constexpr (IsAnyOf<T, bn254_commitment, grumpkin_commitment>) {
             using BaseField = typename T::Fq;
@@ -261,7 +288,9 @@ class U256Codec {
             if (val.x == BaseField::zero() && val.y == BaseField::zero()) {
                 val.self_set_infinity();
             }
-            BB_ASSERT(val.on_curve());
+            if (!val.on_curve()) {
+                throw_or_abort("Deserialized point is not on the curve");
+            }
             return val;
         } else {
             // Array or Univariate
@@ -332,9 +361,9 @@ class U256Codec {
     }
 
     /**
-     * @brief Convert an `fr` challenge to a target type (fr or fq). Assumes challenge is "short".
+     * @brief Convert a short (≤127-bit limb) challenge to a target type (fr or fq).
      */
-    template <typename T> static T convert_challenge(const bb::fr& challenge)
+    template <typename T> static T convert_short_challenge(const bb::fr& challenge)
     {
         if constexpr (std::is_same_v<T, bb::fr>) {
             return challenge;
@@ -343,6 +372,18 @@ class U256Codec {
                          2 * stdlib::NUM_LIMB_BITS_IN_FIELD_SIMULATION,
                          "field_conversion: convert challenge");
             return fq(challenge);
+        }
+    }
+
+    /**
+     * @brief Convert a full-width challenge to a target type (fr or fq); exact since `r < q`.
+     */
+    template <typename T> static T convert_full_challenge(const bb::fr& challenge)
+    {
+        if constexpr (std::is_same_v<T, bb::fr>) {
+            return challenge;
+        } else if constexpr (std::is_same_v<T, fq>) {
+            return fq(static_cast<uint256_t>(challenge));
         }
     }
 };

@@ -11,7 +11,7 @@ template <typename R, typename... Vs> struct func_traits_base {
     using Args = std::tuple<typename std::decay<Vs>::type...>;
     Args args;
     R ret;
-    MSGPACK_FIELDS(args, ret);
+    SERIALIZATION_FIELDS(args, ret);
 
     template <typename Func, typename Tuple> static R apply(Func&& f, Tuple&& t)
     {

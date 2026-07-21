@@ -1,5 +1,5 @@
 // === AUDIT STATUS ===
-// internal:    { status: Planned, auditors: [], commit: }
+// internal:    { status: Completed, auditors: [Sergei], commit: }
 // external_1:  { status: not started, auditors: [], commit: }
 // external_2:  { status: not started, auditors: [], commit: }
 // =====================
@@ -11,59 +11,52 @@
 namespace bb {
 
 /**
- * @brief Verifier class for all the presumcheck rounds, which are shared between the folding verifier and ultra
- * verifier.
- * @details This class contains execute_preamble_round(), execute_wire_commitments_round(),
- * execute_sorted_list_accumulator_round(), execute_log_derivative_inverse_round(), and
- * execute_grand_product_computation_round().
+ * @brief Verifier counterpart to OinkProver: receives witness commitments, computes relation parameters,
+ * and prepares for Sumcheck.
  *
- * Works with both native and recursive flavors. When instantiated with a recursive flavor (IsRecursiveFlavor<Flavor>),
- * automatically handles the differences in VK access and VK hash assertion.
+ * @details The rounds mirror OinkProver::prove() and proceed in order:
+ *   1. receive_vk_hash_and_public_inputs – hash the VK, assert consistency, receive public inputs
+ *   2. (ZK only) receive masking polynomial commitment
+ *   3. receive_wire_commitments – receive w_l, w_r, w_o (plus ECC-op & databus for Mega)
+ *   4. receive_lookup_counts_and_w4_commitments – get eta challenge, receive lookup counts/tags and w_4
+ *   5. receive_logderiv_commitments – get beta/gamma challenges, receive log-derivative inverses
+ *      (plus databus inverses for Mega)
+ *   6. complete_grand_product_round – compute public_input_delta, receive z_perm
+ *   7. get alpha challenge
  *
- * @tparam Flavor Native or recursive flavor
+ * Works with both native and recursive flavors. When instantiated with a recursive flavor
+ * (IsRecursiveFlavor<Flavor>), automatically handles the differences in VK access and VK hash assertion.
  */
 template <typename Flavor> class OinkVerifier {
-    using WitnessCommitments = typename Flavor::WitnessCommitments;
     using Transcript = typename Flavor::Transcript;
     using FF = typename Flavor::FF;
     using Commitment = typename Flavor::Commitment;
-    using SubrelationSeparator = typename Flavor::SubrelationSeparator;
     using Instance = bb::VerifierInstance_<Flavor>;
 
   public:
-    std::shared_ptr<Transcript> transcript;
-    std::shared_ptr<Instance> verifier_instance;
-    std::string domain_separator;
-    typename Flavor::CommitmentLabels comm_labels;
-    bb::RelationParameters<FF> relation_parameters;
-    WitnessCommitments witness_comms;
-
-    // Number of public inputs - provided by caller, not derived from VK.
-    // This avoids .get_value() in recursive contexts and makes the dependency explicit.
-    size_t num_public_inputs;
-
     OinkVerifier(const std::shared_ptr<Instance>& verifier_instance,
                  const std::shared_ptr<Transcript>& transcript,
-                 size_t num_public_inputs,
-                 std::string domain_separator = "")
+                 size_t num_public_inputs)
         : transcript(transcript)
         , verifier_instance(verifier_instance)
-        , domain_separator(std::move(domain_separator))
+        , comm_labels(Flavor::commitment_labels())
         , num_public_inputs(num_public_inputs)
     {}
 
-    void verify();
+    // emit_alpha: when false, skip drawing the "alpha" challenge at the end of Oink.
+    // Used by BatchedHonkTranslatorVerifier, which draws a single joint alpha ("Sumcheck:alpha")
+    // after both circuits' pre-sumcheck phases instead.
+    void verify(bool emit_alpha = true);
 
-    void execute_preamble_round();
-
-    void execute_wire_commitments_round();
-
-    void execute_sorted_list_accumulator_round();
-
-    void execute_log_derivative_inverse_round();
-
-    void execute_grand_product_computation_round();
-
-    SubrelationSeparator generate_alpha_round();
+  private:
+    std::shared_ptr<Transcript> transcript;
+    std::shared_ptr<Instance> verifier_instance;
+    typename Flavor::CommitmentLabels comm_labels;
+    size_t num_public_inputs;
+    void receive_vk_hash_and_public_inputs();
+    void receive_wire_commitments();
+    void receive_lookup_counts_and_w4_commitments();
+    void receive_logderiv_commitments();
+    void complete_grand_product_round();
 };
 } // namespace bb

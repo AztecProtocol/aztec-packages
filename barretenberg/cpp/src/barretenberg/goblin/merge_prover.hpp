@@ -7,6 +7,7 @@
 #pragma once
 
 #include "barretenberg/commitment_schemes/claim.hpp"
+#include "barretenberg/constants.hpp"
 #include "barretenberg/flavor/mega_flavor.hpp"
 #include "barretenberg/flavor/ultra_flavor.hpp"
 #include "barretenberg/honk/proof_system/types/proof.hpp"
@@ -16,8 +17,11 @@
 namespace bb {
 
 /**
- * @brief Prover class for the Goblin ECC op queue transcript merge protocol
- *
+ * @brief Prover for the single-step Goblin ECC op queue merge protocol.
+ * @details Proves that the most recently merged subtable concatenates correctly with the prior aggregate table to
+ * form the new aggregate table. Used in the Chonk flow only for the final merge of the hiding kernel's subtable
+ * (placed at a fixed offset). For the multi-subtable batched merge proven once at the end of an IVC, see
+ * BatchMergeProver.
  */
 class MergeProver {
     using Curve = curve::BN254;
@@ -32,23 +36,21 @@ class MergeProver {
 
   public:
     using MergeProof = std::vector<FF>;
+    static constexpr size_t NUM_WIRES = MegaExecutionTraceBlocks::NUM_WIRES;
 
-    explicit MergeProver(const std::shared_ptr<ECCOpQueue>& op_queue,
-                         std::shared_ptr<Transcript> transcript,
-                         MergeSettings settings = MergeSettings::PREPEND,
-                         const CommitmentKey& commitment_key = CommitmentKey());
+    explicit MergeProver(const std::shared_ptr<ECCOpQueue>& op_queue, std::shared_ptr<Transcript> transcript);
 
     BB_PROFILE MergeProof construct_proof();
 
-    // Public for test access (computing commitments)
+    using Table = std::array<Polynomial, NUM_WIRES>;
+
     CommitmentKey pcs_commitment_key;
 
   private:
     std::shared_ptr<Transcript> transcript;
     std::shared_ptr<ECCOpQueue> op_queue;
-    MergeSettings settings;
+    size_t fixed_append_shift_size = 0;
 
-    static constexpr size_t NUM_WIRES = MegaExecutionTraceBlocks::NUM_WIRES;
     std::vector<std::string> labels_degree_check = { "LEFT_TABLE_DEGREE_CHECK_0",
                                                      "LEFT_TABLE_DEGREE_CHECK_1",
                                                      "LEFT_TABLE_DEGREE_CHECK_2",
@@ -76,8 +78,8 @@ class MergeProver {
      * @param degree_check_challenges
      * @return Polynomial
      */
-    static Polynomial compute_degree_check_polynomial(const std::array<Polynomial, NUM_WIRES>& left_table,
-                                                      const std::vector<FF>& degree_check_challenges);
+    Polynomial compute_degree_check_polynomial(const std::array<Polynomial, NUM_WIRES>& left_table,
+                                               const std::vector<FF>& degree_check_challenges) const;
 
     /**
      * @brief Compute the batched Shplonk quotient polynomial.

@@ -18,9 +18,14 @@ import {
   computeInitializationHash,
   computeInitializationHashFromEncodedArgs,
 } from './contract_address.js';
-import type { ContractInstance, ContractInstanceWithAddress } from './interfaces/contract_instance.js';
+import type {
+  ContractInstance,
+  ContractInstancePreimage,
+  ContractInstancePreimageWithAddress,
+  ContractInstanceWithAddress,
+} from './interfaces/contract_instance.js';
 
-const VERSION = 1 as const;
+const VERSION = 2 as const;
 
 export type ContractInstantiationData = {
   constructorArtifact?: FunctionAbi | string;
@@ -29,6 +34,7 @@ export type ContractInstantiationData = {
   salt: Fr;
   publicKeys?: PublicKeys;
   deployer?: AztecAddress;
+  immutablesHash?: Fr;
 };
 
 export class SerializableContractInstance {
@@ -38,6 +44,7 @@ export class SerializableContractInstance {
   public readonly currentContractClassId: Fr;
   public readonly originalContractClassId: Fr;
   public readonly initializationHash: Fr;
+  public readonly immutablesHash: Fr;
   public readonly publicKeys: PublicKeys;
 
   constructor(instance: ContractInstance) {
@@ -49,6 +56,7 @@ export class SerializableContractInstance {
     this.currentContractClassId = instance.currentContractClassId;
     this.originalContractClassId = instance.originalContractClassId;
     this.initializationHash = instance.initializationHash;
+    this.immutablesHash = instance.immutablesHash;
     this.publicKeys = instance.publicKeys;
   }
 
@@ -60,6 +68,7 @@ export class SerializableContractInstance {
       this.currentContractClassId,
       this.originalContractClassId,
       this.initializationHash,
+      this.immutablesHash,
       this.publicKeys,
     );
   }
@@ -78,6 +87,7 @@ export class SerializableContractInstance {
       currentContractClassId: reader.readObject(Fr),
       originalContractClassId: reader.readObject(Fr),
       initializationHash: reader.readObject(Fr),
+      immutablesHash: reader.readObject(Fr),
       publicKeys: reader.readObject(PublicKeys),
     });
   }
@@ -90,6 +100,7 @@ export class SerializableContractInstance {
       currentContractClassId: Fr.random(),
       originalContractClassId: Fr.random(),
       initializationHash: Fr.random(),
+      immutablesHash: Fr.random(),
       publicKeys: await PublicKeys.random(),
       ...opts,
     });
@@ -103,7 +114,64 @@ export class SerializableContractInstance {
       currentContractClassId: Fr.zero(),
       originalContractClassId: Fr.zero(),
       initializationHash: Fr.zero(),
+      immutablesHash: Fr.zero(),
       publicKeys: PublicKeys.default(),
+    });
+  }
+}
+
+export class SerializableContractInstancePreimage {
+  public readonly version = VERSION;
+  public readonly salt: Fr;
+  public readonly deployer: AztecAddress;
+  public readonly originalContractClassId: Fr;
+  public readonly initializationHash: Fr;
+  public readonly immutablesHash: Fr;
+  public readonly publicKeys: PublicKeys;
+
+  constructor(instance: ContractInstancePreimage) {
+    if (instance.version !== VERSION) {
+      throw new Error(`Unexpected contract class version ${instance.version}`);
+    }
+    this.salt = instance.salt;
+    this.deployer = instance.deployer;
+    this.originalContractClassId = instance.originalContractClassId;
+    this.initializationHash = instance.initializationHash;
+    this.immutablesHash = instance.immutablesHash;
+    this.publicKeys = instance.publicKeys;
+  }
+
+  public toBuffer() {
+    return serializeToBuffer(
+      numToUInt8(this.version),
+      this.salt,
+      this.deployer,
+      this.originalContractClassId,
+      this.initializationHash,
+      this.immutablesHash,
+      this.publicKeys,
+    );
+  }
+
+  /** Returns a copy of this object with its address included. */
+  withAddress(address: AztecAddress): ContractInstancePreimageWithAddress {
+    return { ...this, address };
+  }
+
+  static fromBuffer(bufferOrReader: Buffer | BufferReader): SerializableContractInstancePreimage {
+    const reader = BufferReader.asReader(bufferOrReader);
+    const version = reader.readUInt8();
+    if (version !== VERSION) {
+      throw new Error(`Unexpected contract instance preimage version ${version}`);
+    }
+    return new SerializableContractInstancePreimage({
+      version: VERSION,
+      salt: reader.readObject(Fr),
+      deployer: reader.readObject(AztecAddress),
+      originalContractClassId: reader.readObject(Fr),
+      initializationHash: reader.readObject(Fr),
+      immutablesHash: reader.readObject(Fr),
+      publicKeys: reader.readObject(PublicKeys),
     });
   }
 }
@@ -130,15 +198,17 @@ export async function getContractInstanceFromInstantiationParams(
         )
       : await computeInitializationHash(constructorArtifact, args);
   const publicKeys = opts.publicKeys ?? PublicKeys.default();
+  const immutablesHash = opts.immutablesHash ?? Fr.ZERO;
 
   const instance: ContractInstance = {
     currentContractClassId: contractClass.id,
     originalContractClassId: contractClass.id,
     initializationHash,
+    immutablesHash,
     publicKeys,
     salt: opts.salt,
     deployer,
-    version: 1,
+    version: 2,
   };
 
   return { ...instance, address: await computeContractAddressFromInstance(instance) };

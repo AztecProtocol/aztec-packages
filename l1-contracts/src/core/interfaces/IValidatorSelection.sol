@@ -12,19 +12,20 @@ struct ValidatorSelectionStorage {
   mapping(Epoch => bytes32 committeeCommitment) committeeCommitments;
   // Checkpointed map of epoch -> randao value
   Checkpoints.Trace224 randaos;
-  // The following 3 uint32s + address pack into a single slot (12 + 20 = 32 bytes)
+  // The following 3 uint32s pack into a single slot (12 bytes)
   uint32 targetCommitteeSize;
   uint32 lagInEpochsForValidatorSet;
   uint32 lagInEpochsForRandao;
-  IEscapeHatch escapeHatch;
+  // Checkpointed escape hatch addresses (key = timestamp, value = address as uint160)
+  Checkpoints.Trace160 escapeHatchCheckpoints;
 }
 
 interface IValidatorSelectionCore {
-  event EscapeHatchUpdated(address escapeHatch);
+  event EscapeHatchSet(address escapeHatch);
 
   function setupEpoch() external;
   function checkpointRandao() external;
-  function updateEscapeHatch(address _escapeHatch) external;
+  function setEscapeHatch(address _escapeHatch) external;
 }
 
 interface IValidatorSelection is IValidatorSelectionCore, IEmperor {
@@ -60,4 +61,5 @@ interface IValidatorSelection is IValidatorSelectionCore, IEmperor {
   function getTargetCommitteeSize() external view returns (uint256);
 
   function getEscapeHatch() external view returns (IEscapeHatch);
+  function getEscapeHatchForEpoch(Epoch _epoch) external view returns (IEscapeHatch);
 }

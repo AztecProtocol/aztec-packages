@@ -5,6 +5,8 @@
 #include <mutex>
 #include <string>
 #include <unordered_map>
+#include <utility>
+#include <vector>
 
 // To enable stats tracking, compile in RelWithAssert mode.
 // cmake --preset $PRESET -DCMAKE_BUILD_TYPE=RelWithAssert
@@ -45,6 +47,9 @@ class Stats {
     // That is, prove/logderiv_ms will be shown but
     // prove/logderiv/relation_ms will not be shown.
     std::string to_string(int depth = 2) const;
+
+    // Returns a copy of the stats as (key, value_ms) pairs. Keys retain the "_ms" suffix added by time().
+    std::vector<std::pair<std::string, uint64_t>> snapshot() const;
 
   private:
     Stats() = default;

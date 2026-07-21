@@ -1,13 +1,19 @@
 #include "polynomial_arithmetic.hpp"
+#include "barretenberg/common/assert.hpp"
 #include "barretenberg/common/mem.hpp"
 #include "barretenberg/numeric/bitop/get_msb.hpp"
 #include "barretenberg/numeric/random/engine.hpp"
+#include "barretenberg/polynomials/backing_memory.hpp"
 #include "barretenberg/polynomials/evaluation_domain.hpp"
 #include "polynomial.hpp"
 #include <algorithm>
+#include <array>
 #include <cstddef>
 #include <gtest/gtest.h>
+#include <limits>
+#include <span>
 #include <utility>
+#include <vector>
 
 using namespace bb;
 
@@ -30,307 +36,41 @@ TEST(polynomials, evaluate)
     EXPECT_EQ(eval1, eval2);
 }
 
-TEST(polynomials, fft_with_small_degree)
+TEST(polynomials, ifft_consistency)
 {
     constexpr size_t n = 16;
-    fr fft_transform[n];
-    fr poly[n];
-
-    for (size_t i = 0; i < n; ++i) {
-        poly[i] = fr::random_element();
-        fr::__copy(poly[i], fft_transform[i]);
-    }
-
     auto domain = evaluation_domain(n);
     domain.compute_lookup_table();
-    polynomial_arithmetic::fft(fft_transform, domain);
 
-    fr work_root;
-    work_root = fr::one();
-    fr expected;
-    for (size_t i = 0; i < n; ++i) {
-        expected = polynomial_arithmetic::evaluate(poly, work_root, n);
-        EXPECT_EQ((fft_transform[i] == expected), true);
-        work_root *= domain.root;
-    }
-}
+    std::array<fr, n> coeffs;
+    std::array<fr, n> values;
+    std::array<fr, n> values_copy;
+    std::array<fr, n> recovered;
 
-TEST(polynomials, split_polynomial_fft)
-{
-    constexpr size_t n = 256;
-    fr fft_transform[n];
-    fr poly[n];
-
-    for (size_t i = 0; i < n; ++i) {
-        poly[i] = fr::random_element();
-        fr::__copy(poly[i], fft_transform[i]);
+    for (size_t k = 0; k < n; ++k) {
+        coeffs[k] = fr::random_element();
+        values[k] = fr::zero();
+        recovered[k] = fr::zero();
     }
 
-    constexpr size_t num_poly = 4;
-    constexpr size_t n_poly = n / num_poly;
-    fr fft_transform_[num_poly][n_poly];
-    for (size_t i = 0; i < n; ++i) {
-        fft_transform_[i / n_poly][i % n_poly] = poly[i];
-    }
-
-    auto domain = evaluation_domain(n);
-    domain.compute_lookup_table();
-    polynomial_arithmetic::fft(fft_transform, domain);
-    polynomial_arithmetic::fft({ fft_transform_[0], fft_transform_[1], fft_transform_[2], fft_transform_[3] }, domain);
-
-    fr work_root;
-    work_root = fr::one();
-    fr expected;
-
-    for (size_t i = 0; i < n; ++i) {
-        expected = polynomial_arithmetic::evaluate(poly, work_root, n);
-        EXPECT_EQ((fft_transform[i] == expected), true);
-        EXPECT_EQ(fft_transform_[i / n_poly][i % n_poly], fft_transform[i]);
-        work_root *= domain.root;
-    }
-}
-
-TEST(polynomials, split_polynomial_evaluate)
-{
-    constexpr size_t n = 256;
-    fr fft_transform[n];
-    fr poly[n];
-
-    for (size_t i = 0; i < n; ++i) {
-        poly[i] = fr::random_element();
-        fr::__copy(poly[i], fft_transform[i]);
-    }
-
-    constexpr size_t num_poly = 4;
-    constexpr size_t n_poly = n / num_poly;
-    fr fft_transform_[num_poly][n_poly];
-    for (size_t i = 0; i < n; ++i) {
-        fft_transform_[i / n_poly][i % n_poly] = poly[i];
-    }
-
-    fr z = fr::random_element();
-    EXPECT_EQ(polynomial_arithmetic::evaluate(
-                  { fft_transform_[0], fft_transform_[1], fft_transform_[2], fft_transform_[3] }, z, n),
-              polynomial_arithmetic::evaluate(poly, z, n));
-}
-
-TEST(polynomials, basic_fft)
-{
-    constexpr size_t n = 1 << 14;
-    fr* data = (fr*)aligned_alloc(32, sizeof(fr) * n * 2);
-    fr* result = &data[0];
-    fr* expected = &data[n];
-    for (size_t i = 0; i < n; ++i) {
-        result[i] = fr::random_element();
-        fr::__copy(result[i], expected[i]);
-    }
-
-    auto domain = evaluation_domain(n);
-    domain.compute_lookup_table();
-    polynomial_arithmetic::fft(result, domain);
-    polynomial_arithmetic::ifft(result, domain);
-
-    for (size_t i = 0; i < n; ++i) {
-        EXPECT_EQ((result[i] == expected[i]), true);
-    }
-    aligned_free(data);
-}
-
-TEST(polynomials, fft_ifft_consistency)
-{
-    constexpr size_t n = 256;
-    fr result[n];
-    fr expected[n];
-    for (size_t i = 0; i < n; ++i) {
-        result[i] = fr::random_element();
-        fr::__copy(result[i], expected[i]);
-    }
-
-    auto domain = evaluation_domain(n);
-    domain.compute_lookup_table();
-    polynomial_arithmetic::fft(result, domain);
-    polynomial_arithmetic::ifft(result, domain);
-
-    for (size_t i = 0; i < n; ++i) {
-        EXPECT_EQ((result[i] == expected[i]), true);
-    }
-}
-
-TEST(polynomials, split_polynomial_fft_ifft_consistency)
-{
-    constexpr size_t n = 256;
-    constexpr size_t num_poly = 4;
-    fr result[num_poly][n];
-    fr expected[num_poly][n];
-    for (size_t j = 0; j < num_poly; j++) {
-        for (size_t i = 0; i < n; ++i) {
-            result[j][i] = fr::random_element();
-            fr::__copy(result[j][i], expected[j][i]);
+    // compute values[j] = sum_k coeffs[k] * ω^{j*k}
+    for (size_t j = 0; j < n; ++j) {
+        fr acc = fr::zero();
+        for (size_t k = 0; k < n; ++k) {
+            fr w = domain.root.pow(static_cast<uint64_t>(j * k));
+            acc += coeffs[k] * w;
         }
+        values[j] = acc;
+        values_copy[j] = values[j];
     }
 
-    auto domain = evaluation_domain(num_poly * n);
-    domain.compute_lookup_table();
+    // compute ifft of values, which should recover coeffs
+    polynomial_arithmetic::ifft(values.data(), recovered.data(), domain);
 
-    std::vector<fr*> coeffs_vec;
-    for (size_t j = 0; j < num_poly; j++) {
-        coeffs_vec.push_back(result[j]);
+    for (size_t k = 0; k < n; ++k) {
+        EXPECT_EQ(recovered[k], coeffs[k]);   // check that ifft recovers coeffs
+        EXPECT_EQ(values[k], values_copy[k]); // check that ifft does not modify input values
     }
-    polynomial_arithmetic::fft(coeffs_vec, domain);
-    polynomial_arithmetic::ifft(coeffs_vec, domain);
-
-    for (size_t j = 0; j < num_poly; j++) {
-        for (size_t i = 0; i < n; ++i) {
-            EXPECT_EQ((result[j][i] == expected[j][i]), true);
-        }
-    }
-}
-
-TEST(polynomials, fft_coset_ifft_consistency)
-{
-    constexpr size_t n = 256;
-    fr result[n];
-    fr expected[n];
-    for (size_t i = 0; i < n; ++i) {
-        result[i] = fr::random_element();
-        fr::__copy(result[i], expected[i]);
-    }
-
-    auto domain = evaluation_domain(n);
-    domain.compute_lookup_table();
-    fr T0;
-    T0 = domain.generator * domain.generator_inverse;
-    EXPECT_EQ((T0 == fr::one()), true);
-
-    polynomial_arithmetic::coset_fft(result, domain);
-    polynomial_arithmetic::coset_ifft(result, domain);
-
-    for (size_t i = 0; i < n; ++i) {
-        EXPECT_EQ((result[i] == expected[i]), true);
-    }
-}
-
-TEST(polynomials, split_polynomial_fft_coset_ifft_consistency)
-{
-    constexpr size_t n = 256;
-    constexpr size_t num_poly = 4;
-    fr result[num_poly][n];
-    fr expected[num_poly][n];
-    for (size_t j = 0; j < num_poly; j++) {
-        for (size_t i = 0; i < n; ++i) {
-            result[j][i] = fr::random_element();
-            fr::__copy(result[j][i], expected[j][i]);
-        }
-    }
-
-    auto domain = evaluation_domain(num_poly * n);
-    domain.compute_lookup_table();
-
-    std::vector<fr*> coeffs_vec;
-    for (size_t j = 0; j < num_poly; j++) {
-        coeffs_vec.push_back(result[j]);
-    }
-    polynomial_arithmetic::coset_fft(coeffs_vec, domain);
-    polynomial_arithmetic::coset_ifft(coeffs_vec, domain);
-
-    for (size_t j = 0; j < num_poly; j++) {
-        for (size_t i = 0; i < n; ++i) {
-            EXPECT_EQ((result[j][i] == expected[j][i]), true);
-        }
-    }
-}
-
-TEST(polynomials, fft_coset_ifft_cross_consistency)
-{
-    constexpr size_t n = 2;
-    fr expected[n];
-    fr poly_a[4 * n];
-    fr poly_b[4 * n];
-    fr poly_c[4 * n];
-
-    for (size_t i = 0; i < n; ++i) {
-        poly_a[i] = fr::random_element();
-        fr::__copy(poly_a[i], poly_b[i]);
-        fr::__copy(poly_a[i], poly_c[i]);
-        expected[i] = poly_a[i] + poly_c[i];
-        expected[i] += poly_b[i];
-    }
-
-    for (size_t i = n; i < 4 * n; ++i) {
-        poly_a[i] = fr::zero();
-        poly_b[i] = fr::zero();
-        poly_c[i] = fr::zero();
-    }
-    auto small_domain = evaluation_domain(n);
-    auto mid_domain = evaluation_domain(2 * n);
-    auto large_domain = evaluation_domain(4 * n);
-    small_domain.compute_lookup_table();
-    mid_domain.compute_lookup_table();
-    large_domain.compute_lookup_table();
-    polynomial_arithmetic::coset_fft(poly_a, small_domain);
-    polynomial_arithmetic::coset_fft(poly_b, mid_domain);
-    polynomial_arithmetic::coset_fft(poly_c, large_domain);
-
-    for (size_t i = 0; i < n; ++i) {
-        poly_a[i] = poly_a[i] + poly_c[4 * i];
-        poly_a[i] = poly_a[i] + poly_b[2 * i];
-    }
-
-    polynomial_arithmetic::coset_ifft(poly_a, small_domain);
-
-    for (size_t i = 0; i < n; ++i) {
-        EXPECT_EQ((poly_a[i] == expected[i]), true);
-    }
-}
-
-TEST(polynomials, barycentric_weight_evaluations)
-{
-    constexpr size_t n = 16;
-
-    evaluation_domain domain(n);
-
-    std::vector<fr> poly(n);
-    std::vector<fr> barycentric_poly(n);
-
-    for (size_t i = 0; i < n / 2; ++i) {
-        poly[i] = fr::random_element();
-        barycentric_poly[i] = poly[i];
-    }
-    for (size_t i = n / 2; i < n; ++i) {
-        poly[i] = fr::zero();
-        barycentric_poly[i] = poly[i];
-    }
-    fr evaluation_point = fr{ 2, 0, 0, 0 }.to_montgomery_form();
-
-    fr result =
-        polynomial_arithmetic::compute_barycentric_evaluation(&barycentric_poly[0], n / 2, evaluation_point, domain);
-
-    domain.compute_lookup_table();
-
-    polynomial_arithmetic::ifft(&poly[0], domain);
-
-    fr expected = polynomial_arithmetic::evaluate(&poly[0], evaluation_point, n);
-
-    EXPECT_EQ((result == expected), true);
-}
-
-TEST(polynomials, linear_poly_product)
-{
-    constexpr size_t n = 64;
-    fr roots[n];
-
-    fr z = fr::random_element();
-    fr expected = 1;
-    for (size_t i = 0; i < n; ++i) {
-        roots[i] = fr::random_element();
-        expected *= (z - roots[i]);
-    }
-
-    fr dest[n + 1];
-    polynomial_arithmetic::compute_linear_polynomial_product(roots, dest, n);
-    fr result = polynomial_arithmetic::evaluate(dest, z, n + 1);
-
-    EXPECT_EQ(result, expected);
 }
 
 template <typename FF> class PolynomialTests : public ::testing::Test {};
@@ -338,6 +78,50 @@ template <typename FF> class PolynomialTests : public ::testing::Test {};
 using FieldTypes = ::testing::Types<bb::fr, grumpkin::fr>;
 
 TYPED_TEST_SUITE(PolynomialTests, FieldTypes);
+
+TYPED_TEST(PolynomialTests, linear_poly_product)
+{
+    using FF = TypeParam;
+    // Cover both BN254 and Grumpkin for the production SUBGROUP_SIZE range (87 Grumpkin, 256 BN254).
+    constexpr size_t n = 256;
+    std::array<FF, n> roots;
+
+    FF z = FF::random_element();
+    FF expected = 1;
+    for (size_t i = 0; i < n; ++i) {
+        roots[i] = FF::random_element();
+        expected *= (z - roots[i]);
+    }
+
+    std::array<FF, n + 1> dest{};
+    polynomial_arithmetic::compute_linear_polynomial_product(roots.data(), dest.data(), n);
+    FF result = polynomial_arithmetic::evaluate(dest.data(), z, n + 1);
+
+    EXPECT_EQ(result, expected);
+}
+
+// compute_linear_polynomial_product handles the n=1 and n=2 boundaries of the incremental update.
+TYPED_TEST(PolynomialTests, LinearPolyProductSmallN)
+{
+    using FF = TypeParam;
+    // n=1: dest should represent (X - roots[0]) = [-r0, 1].
+    {
+        std::array<FF, 1> roots = { FF(7) };
+        std::array<FF, 2> dest{};
+        polynomial_arithmetic::compute_linear_polynomial_product(roots.data(), dest.data(), 1);
+        EXPECT_EQ(dest[0], -FF(7));
+        EXPECT_EQ(dest[1], FF(1));
+    }
+    // n=2: (X - 1)(X - 2) = X^2 - 3X + 2 → [2, -3, 1].
+    {
+        std::array<FF, 2> roots = { FF(1), FF(2) };
+        std::array<FF, 3> dest{};
+        polynomial_arithmetic::compute_linear_polynomial_product(roots.data(), dest.data(), 2);
+        EXPECT_EQ(dest[0], FF(2));
+        EXPECT_EQ(dest[1], -FF(3));
+        EXPECT_EQ(dest[2], FF(1));
+    }
+}
 
 TYPED_TEST(PolynomialTests, evaluation_domain)
 {
@@ -347,6 +131,51 @@ TYPED_TEST(PolynomialTests, evaluation_domain)
 
     EXPECT_EQ(domain.size, 256UL);
     EXPECT_EQ(domain.log2_size, 8UL);
+}
+
+// EvaluationDomain::operator=(EvaluationDomain&&) is a no-op under self-assignment and preserves
+// the precomputed round-roots tables.
+TYPED_TEST(PolynomialTests, EvaluationDomainMoveSelfAssign)
+{
+    using FF = TypeParam;
+    auto domain = EvaluationDomain<FF>(256);
+    domain.compute_lookup_table();
+    const size_t round_roots_before = domain.get_round_roots().size();
+    EXPECT_GT(round_roots_before, 0UL);
+
+    domain = std::move(domain);
+
+    EXPECT_EQ(domain.size, 256UL);
+    EXPECT_EQ(domain.get_round_roots().size(), round_roots_before);
+}
+
+// EvaluationDomain::operator=(EvaluationDomain&&) leaves the moved-from object in the empty
+// default-constructed state (size == 0, round-root tables empty), restoring the invariant
+// `size > 0 implies roots tables populated`. Without this, a moved-from domain would report
+// size > 0 with empty round-roots, which is the partial-validity pattern flagged by audit.
+TYPED_TEST(PolynomialTests, EvaluationDomainMoveAssignClearsSource)
+{
+    using FF = TypeParam;
+    constexpr size_t n = 256;
+    auto src = EvaluationDomain<FF>(n);
+    src.compute_lookup_table();
+    EXPECT_GT(src.get_round_roots().size(), 0UL);
+
+    EvaluationDomain<FF> dst;
+    dst = std::move(src);
+
+    EXPECT_EQ(dst.size, n);
+    EXPECT_GT(dst.get_round_roots().size(), 0UL);
+
+    EXPECT_EQ(src.size, 0UL);
+    EXPECT_EQ(src.num_threads, 0UL);
+    EXPECT_EQ(src.thread_size, 0UL);
+    EXPECT_EQ(src.log2_size, 0UL);
+    EXPECT_EQ(src.log2_thread_size, 0UL);
+    EXPECT_EQ(src.log2_num_threads, 0UL);
+    EXPECT_EQ(src.generator_size, 0UL);
+    EXPECT_EQ(src.get_round_roots().size(), 0UL);
+    EXPECT_EQ(src.get_inverse_round_roots().size(), 0UL);
 }
 
 TYPED_TEST(PolynomialTests, domain_roots)
@@ -566,14 +395,21 @@ TYPED_TEST(PolynomialTests, move_construct_and_assign)
     // construct a new poly from the original via the move constructor
     Polynomial<FF> polynomial_b(std::move(polynomial_a));
 
-    // verifiy that source poly is appropriately destroyed
+    // The moved-from polynomial must report itself as empty in every accessor: size() == 0,
+    // virtual_size() == 0, is_empty() == true, data() == nullptr. Failure modes here are the
+    // inconsistent moved-from state flagged by audit (size > 0 with data == nullptr).
     EXPECT_EQ(polynomial_a.data(), nullptr);
+    EXPECT_EQ(polynomial_a.size(), 0UL);
+    EXPECT_EQ(polynomial_a.virtual_size(), 0UL);
+    EXPECT_TRUE(polynomial_a.is_empty());
 
     // construct another poly; this will also use the move constructor!
     auto polynomial_c = std::move(polynomial_b);
 
-    // verifiy that source poly is appropriately destroyed
     EXPECT_EQ(polynomial_b.data(), nullptr);
+    EXPECT_EQ(polynomial_b.size(), 0UL);
+    EXPECT_EQ(polynomial_b.virtual_size(), 0UL);
+    EXPECT_TRUE(polynomial_b.is_empty());
 
     // define a poly with some arbitrary coefficients
     Polynomial<FF> polynomial_d(num_coeffs);
@@ -584,8 +420,10 @@ TYPED_TEST(PolynomialTests, move_construct_and_assign)
     // reset its data using move assignment
     polynomial_d = std::move(polynomial_c);
 
-    // verifiy that source poly is appropriately destroyed
     EXPECT_EQ(polynomial_c.data(), nullptr);
+    EXPECT_EQ(polynomial_c.size(), 0UL);
+    EXPECT_EQ(polynomial_c.virtual_size(), 0UL);
+    EXPECT_TRUE(polynomial_c.is_empty());
 }
 
 TYPED_TEST(PolynomialTests, default_construct_then_assign)
@@ -612,4 +450,79 @@ TYPED_TEST(PolynomialTests, default_construct_then_assign)
         EXPECT_EQ(poly[i], interesting_poly[i]);
     }
     EXPECT_EQ(poly.size(), interesting_poly.size());
+}
+
+// factor_roots produces the correct quotient when (X - r) divides p(X) cleanly.
+TEST(polynomials, FactorRootsExactDivisionRegression)
+{
+    using FF = fr;
+    // p(X) = X^2 - 1 = (X - 1)(X + 1): exact division by (X - 1) produces q(X) = X + 1.
+    std::array<FF, 3> exact_poly = { -FF(1), FF(0), FF(1) };
+    polynomial_arithmetic::factor_roots(std::span<FF>(exact_poly), FF(1));
+    EXPECT_EQ(exact_poly[0], FF(1));
+    EXPECT_EQ(exact_poly[1], FF(1));
+    EXPECT_EQ(exact_poly[2], FF(0));
+}
+
+// factor_roots asserts when the exact-divisibility precondition is violated.
+TEST(polynomials, FactorRootsNonExactDivisionAsserts)
+{
+    GTEST_FLAG_SET(death_test_style, "threadsafe");
+    using FF = fr;
+    std::array<FF, 3> bad_poly = { FF(1), FF(0), FF(1) }; // p(X) = X^2 + 1, p(1) = 2 != 0
+    ASSERT_THROW_OR_ABORT(polynomial_arithmetic::factor_roots(std::span<FF>(bad_poly), FF(1)), ".*");
+}
+
+// Polynomial's interpolation constructor asserts when interpolation_points and evaluations differ in size.
+TEST(polynomials, InterpolationCtorMismatchedSpansAsserts)
+{
+    GTEST_FLAG_SET(death_test_style, "threadsafe");
+    using FF = fr;
+    std::vector<FF> points = { FF(1), FF(2), FF(3), FF(4) };
+    std::vector<FF> evals = { FF(10), FF(20) }; // shorter than points
+    ASSERT_THROW_OR_ABORT(
+        bb::Polynomial<FF>(std::span<const FF>(points), std::span<const FF>(evals), /*virtual_size=*/4), ".*");
+}
+
+// parse_size_string throws when value * multiplier overflows size_t.
+TEST(polynomials, ParseSizeStringOverflowAsserts)
+{
+    // Sanity: well-formed inputs still parse correctly.
+    EXPECT_EQ(parse_size_string("1k"), 1024U);
+    EXPECT_EQ(parse_size_string("2g"), 2UL * 1024 * 1024 * 1024);
+
+    // 2^54 * 1024 == 2^64 wraps to 0 without a guard.
+    ASSERT_THROW_OR_ABORT(parse_size_string("18014398509481984k"), ".*");
+}
+
+// compute_efficient_interpolation asserts (always-on, not _DEBUG) when evaluation points are not all distinct,
+// because batch_invert silently skips zero entries and would otherwise produce wrong output.
+TEST(polynomials, ComputeEfficientInterpolationDuplicatePointsAsserts)
+{
+    GTEST_FLAG_SET(death_test_style, "threadsafe");
+    using FF = fr;
+    constexpr size_t n = 3;
+    std::array<FF, n> src = { FF(10), FF(20), FF(30) };
+    std::array<FF, n> dest{};
+    std::array<FF, n> points = { FF(1), FF(2), FF(2) }; // duplicate
+    ASSERT_THROW_OR_ABORT(
+        polynomial_arithmetic::compute_efficient_interpolation<FF>(src.data(), dest.data(), points.data(), n), ".*");
+}
+
+// fft_inner_parallel asserts when called in-place (coeffs == target).
+TEST(polynomials, FftInnerParallelInPlaceAsserts)
+{
+    GTEST_FLAG_SET(death_test_style, "threadsafe");
+    using FF = fr;
+    constexpr size_t n = 16;
+    auto domain = bb::EvaluationDomain<FF>(n);
+    domain.compute_lookup_table();
+
+    std::array<FF, n> coeffs{};
+    for (size_t i = 0; i < n; ++i) {
+        coeffs[i] = FF(i + 1);
+    }
+    ASSERT_THROW_OR_ABORT(
+        polynomial_arithmetic::fft_inner_parallel(coeffs.data(), coeffs.data(), domain, FF(), domain.get_round_roots()),
+        ".*");
 }

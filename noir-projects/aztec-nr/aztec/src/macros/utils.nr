@@ -1,5 +1,5 @@
 use crate::protocol::meta::derive_serialize;
-use std::meta::{ctstring::AsCtString, unquote};
+use std::meta::{ctstring::AsCtString, type_of, unquote};
 
 pub(crate) comptime fn is_fn_external(f: FunctionDefinition) -> bool {
     f.has_named_attribute("external")
@@ -30,11 +30,13 @@ pub(crate) comptime fn is_fn_initializer(f: FunctionDefinition) -> bool {
 }
 
 pub(crate) comptime fn fn_has_noinitcheck(f: FunctionDefinition) -> bool {
-    f.has_named_attribute("noinitcheck")
+    // #[only_self] functions automatically skip the initialization check as the check is assumed to be done by the
+    // calling external function or explicitly skipped. See only_self function docs for more details.
+    f.has_named_attribute("noinitcheck") | is_fn_only_self(f)
 }
 
-pub(crate) comptime fn fn_has_nophasecheck(f: FunctionDefinition) -> bool {
-    f.has_named_attribute("nophasecheck")
+pub(crate) comptime fn fn_has_allow_phase_change(f: FunctionDefinition) -> bool {
+    f.has_named_attribute("allow_phase_change")
 }
 
 pub(crate) comptime fn fn_has_authorize_once(f: FunctionDefinition) -> bool {
@@ -85,15 +87,15 @@ comptime fn signature_of_type(typ: Type) -> CtString {
     }
 }
 
-pub(crate) comptime fn compute_fn_selector(f: FunctionDefinition) -> Field {
+/// Computes a function selector from a name and parameter list.
+pub(crate) comptime fn compute_fn_selector(fn_name: Quoted, parameters: [(Quoted, Type)]) -> Field {
     // The function selector is computed from the function signature, which is made up of the function name and types
     // of parameters, but not including the return type. For example, given:
     //
     // fn foo(a: Field, b: AztecAddress) -> Field
     //
     // The signature will be "foo(Field,AztecAddress)".
-    let fn_name = f.name();
-    let args_signatures = f.parameters().map(|(_, typ)| signature_of_type(typ)).join(",".as_ctstring());
+    let args_signatures = parameters.map(|(_, typ)| signature_of_type(typ)).join(",".as_ctstring());
     let signature_quote = f"{fn_name}({args_signatures})".as_ctstring();
 
     let computation_quote = quote {
@@ -149,6 +151,44 @@ pub(crate) comptime fn get_trait_impl_method(typ: Type, target_trait: Quoted, ta
         m.name() == target_method
     })[0]
         .as_typed_expr()
+}
+
+/// Asserts that the return type of a contract function implements both `Serialize` and `Deserialize`.
+/// Functions with a `()` return type are skipped since unit values are not serialized.
+pub(crate) comptime fn assert_return_type_serializable(f: FunctionDefinition) {
+    let return_type = f.return_type();
+    if return_type != type_of(()) {
+        let fn_name = f.name();
+        let serialize_constraint = quote { crate::protocol::traits::Serialize }.as_trait_constraint();
+        assert(
+            return_type.implements(serialize_constraint),
+            f"Contract function '{fn_name}' returns a value of type {return_type}, which does not implement the Serialize trait. Add #[derive(Serialize)] to {return_type}'s declaration.",
+        );
+        let deserialize_constraint = quote { crate::protocol::traits::Deserialize }.as_trait_constraint();
+        assert(
+            return_type.implements(deserialize_constraint),
+            f"Contract function '{fn_name}' returns a value of type {return_type}, which does not implement the Deserialize trait. Add #[derive(Deserialize)] to {return_type}'s declaration.",
+        );
+    }
+}
+
+/// Asserts that all parameters of a contract function implement both `Serialize` and `Deserialize`.
+pub(crate) comptime fn assert_params_serializable(f: FunctionDefinition) {
+    let fn_name = f.name();
+
+    for param in f.parameters() {
+        let (name, param_type) = param;
+        let serialize_constraint = quote { crate::protocol::traits::Serialize }.as_trait_constraint();
+        assert(
+            param_type.implements(serialize_constraint),
+            f"Parameter '{name}' of contract function '{fn_name}' has type {param_type}, which does not implement the Serialize trait. Add #[derive(Serialize)] to {param_type}'s declaration.",
+        );
+        let deserialize_constraint = quote { crate::protocol::traits::Deserialize }.as_trait_constraint();
+        assert(
+            param_type.implements(deserialize_constraint),
+            f"Parameter '{name}' of contract function '{fn_name}' has type {param_type}, which does not implement the Deserialize trait. Add #[derive(Deserialize)] to {param_type}'s declaration.",
+        );
+    }
 }
 
 /// Generates a quote that implements `Serialize` for a given struct `s`. If the struct already implements `Serialize`,

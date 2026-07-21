@@ -1,24 +1,29 @@
 import type { Logger } from '@aztec/foundation/log';
 import { elapsed } from '@aztec/foundation/timer';
 import type { TypedEventEmitter } from '@aztec/foundation/types';
-import { Tx, type TxHash } from '@aztec/stdlib/tx';
+import type { L2Block } from '@aztec/stdlib/block';
+import type { BlockHeader, Tx } from '@aztec/stdlib/tx';
 import type { TelemetryClient } from '@aztec/telemetry-client';
 
 import EventEmitter from 'node:events';
 
-import type { TxPool, TxPoolEvents } from '../../mem_pools/tx_pool/tx_pool.js';
+import type { TxPoolV2, TxPoolV2Events } from '../../mem_pools/index.js';
 import { TxCollectionInstrumentation } from './instrumentation.js';
 import type { CollectionMethod } from './tx_collection.js';
+import type { TxSourceCollectionResult } from './tx_source.js';
+
+/** Context determining how collected txs should be added to the pool. */
+export type TxAddContext = { type: 'proposal'; blockHeader: BlockHeader } | { type: 'mined'; block: L2Block };
 
 /**
- * Executes collection requests from the fast and slow collection loops, and handles collected txs
+ * Executes collection requests from fast collection paths, and handles collected txs
  * by adding them to the tx pool and emitting events, as well as handling logging and metrics.
  */
-export class TxCollectionSink extends (EventEmitter as new () => TypedEventEmitter<TxPoolEvents>) {
+export class TxCollectionSink extends (EventEmitter as new () => TypedEventEmitter<TxPoolV2Events>) {
   private readonly instrumentation: TxCollectionInstrumentation;
 
   constructor(
-    private readonly txPool: TxPool,
+    private readonly txPool: TxPoolV2,
     telemetryClient: TelemetryClient,
     private readonly log: Logger,
   ) {
@@ -27,50 +32,36 @@ export class TxCollectionSink extends (EventEmitter as new () => TypedEventEmitt
   }
 
   public async collect(
-    collectValidTxsFn: (txHashes: TxHash[]) => Promise<(Tx | undefined)[]>,
-    requested: TxHash[],
+    collectValidTxsFn: () => Promise<TxSourceCollectionResult>,
+    requested: string[],
     info: Record<string, any> & { description: string; method: CollectionMethod },
+    context: TxAddContext,
   ) {
     this.log.trace(`Requesting ${requested.length} txs via ${info.description}`, {
       ...info,
-      requestedTxs: requested.map(t => t.toString()),
+      requestedTxs: requested,
     });
 
     // Execute collection function and measure the time taken, catching any errors.
-    const [duration, txs] = await elapsed(async () => {
+    const [duration, { validTxs, invalidTxHashes }] = await elapsed(async () => {
       try {
-        const response = await collectValidTxsFn(requested);
-        return response.filter(tx => tx !== undefined);
+        return await collectValidTxsFn();
       } catch (err) {
         this.log.error(`Error collecting txs via ${info.description}`, err, {
           ...info,
-          requestedTxs: requested.map(hash => hash.toString()),
+          requestedTxs: requested,
         });
-        return [] as Tx[];
+        return { validTxs: [] as Tx[], invalidTxHashes: [] as string[] };
       }
     });
 
-    if (txs.length === 0) {
+    if (validTxs.length === 0 && invalidTxHashes.length === 0) {
       this.log.trace(`No txs found via ${info.description}`, {
         ...info,
-        requestedTxs: requested.map(t => t.toString()),
+        requestedTxs: requested,
       });
-      return { txs, requested, duration };
+      return { txs: validTxs, requested, duration };
     }
-
-    // Validate tx hashes for all collected txs from external sources
-    const validTxs: Tx[] = [];
-    const invalidTxHashes: string[] = [];
-    await Promise.all(
-      txs.map(async tx => {
-        const isValid = await tx.validateTxHash();
-        if (isValid) {
-          validTxs.push(tx);
-        } else {
-          invalidTxHashes.push(tx.getTxHash().toString());
-        }
-      }),
-    );
 
     if (invalidTxHashes.length > 0) {
       this.log.warn(`Rejecting ${invalidTxHashes.length} txs with invalid hashes from ${info.description}`, {
@@ -82,7 +73,7 @@ export class TxCollectionSink extends (EventEmitter as new () => TypedEventEmitt
     if (validTxs.length === 0) {
       this.log.trace(`No valid txs found via ${info.description} after validation`, {
         ...info,
-        requestedTxs: requested.map(t => t.toString()),
+        requestedTxs: requested,
         invalidTxHashes,
       });
       return { txs: [], requested, duration };
@@ -94,27 +85,32 @@ export class TxCollectionSink extends (EventEmitter as new () => TypedEventEmitt
         ...info,
         duration,
         txs: validTxs.map(t => t.getTxHash().toString()),
-        requestedTxs: requested.map(t => t.toString()),
+        requestedTxs: requested,
         rejectedCount: invalidTxHashes.length,
       },
     );
 
-    return await this.foundTxs(validTxs, { ...info, duration });
+    return await this.foundTxs(validTxs, { ...info, duration }, context);
   }
 
   private async foundTxs(
     txs: Tx[],
     info: Record<string, any> & { description: string; method: CollectionMethod; duration: number },
+    context: TxAddContext,
   ) {
     // Report metrics for the collection
     this.instrumentation.increaseTxsFor(info.method, txs.length, info.duration);
 
-    // Mark txs as found in the slow missing txs set and all fast requests
+    // Mark txs as found in all in-flight collection requests
     this.emit('txs-added', { txs });
 
-    // Add the txs to the tx pool (should not fail, but we catch it just in case)
+    // Add the txs to the tx pool using the appropriate method based on context
     try {
-      await this.txPool.addTxs(txs, { source: `tx-collection` });
+      if (context.type === 'mined') {
+        await this.txPool.addMinedTxs(txs, context.block.header, { source: 'tx-collection' });
+      } else {
+        await this.txPool.addProtectedTxs(txs, context.blockHeader, { source: 'tx-collection' });
+      }
     } catch (err) {
       this.log.error(`Error adding txs to the pool via ${info.description}`, err, {
         ...info,

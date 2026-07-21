@@ -1,44 +1,60 @@
 include "range_check.pil";
 
-// Important Precondition:
-// Both inputs (input_a and input_b) must be bounded by p - 1 - 2^128
-// and the asbolute difference between them must be less than 2^128. These
-// properties need to be constrained by the caller.
-// In the avm, we will use this gadget with both inputs bounded by 2^128.
-// Note that simulation (gt.cpp) is taking uint128_t input values. Values of
-// types FF use ff_gt gadget.
-//
-// Usage:
-//
-// sel { a, b, result } in gt.sel_XXX { gt.input_a, gt.input_b, gt.res };
-// where gt.res is a boolean value that is true if input_a > input_b, false otherwise.
-// sel_XXX is one of:
-// - sel_sha256
-// - sel_addressing
-// - sel_alu
-// - sel_gas
-// - sel_others
+/**
+ * A gadget that computes whether input_a > input_b for integer values up to 128 bits.
+ * For field element comparisons, use ff_gt instead.
+ *
+ * PRECONDITIONS (must be enforced by the caller):
+ * - Both inputs must be bounded by p - 1 - 2^128.
+ * - The absolute difference between them must be less than 2^128.
+ * In the AVM, both inputs are bounded by 2^128, which satisfies both conditions.
+ *
+ * USAGE:
+ *
+ *     caller_sel { a, b, result }
+ *     in
+ *     gt.sel_XXX { gt.input_a, gt.input_b, gt.res };
+ *
+ * - Inputs: Integer values a and b, each bounded by 2^128.
+ * - Output: `res` is 1 if input_a > input_b, 0 otherwise.
+ * - Selector: sel_XXX is one of: sel_addressing, sel_alu, sel_gas, sel_others.
+ *   All five sub-selectors are functionally identical; they exist solely to decouple
+ *   inverse computation for performance. Each caller trace should use the selector
+ *   assigned to it. If no dedicated selector exists for your trace, use sel_others.
+ *   Note: sub-selectors are set automatically by the lookup builder infrastructure,
+ *   not explicitly in tracegen code.
+ *
+ * TRACE SHAPE: 1 row per computation.
+ *
+ * ERROR HANDLING: This gadget does not have error conditions.
+ *
+ * INTERACTIONS:
+ * - range_check.pil: To prove that abs_diff < 2^128 (i.e., the subtraction didn't underflow).
+ */
 namespace gt;
+
+    #[skippable_if]
+    sel = 0;
 
     pol commit sel; // @boolean
     sel * (1 - sel) = 0;
 
-    // This is used to decouple generation of inverses of lookups into this trace.
-    pol commit sel_sha256; // @boolean
+    // ==== LOOKUP SUB-SELECTORS ====
+
+    // These decouple generation of inverses for lookups into this trace.
     pol commit sel_addressing; // @boolean
     pol commit sel_alu; // @boolean
     pol commit sel_gas; // @boolean
-    pol commit sel_others; // @boolean Any other lookup into this trace.
-    sel_sha256 * (1 - sel_sha256) = 0;
+    // Any other lookup into this trace
+    pol commit sel_others; // @boolean
     sel_addressing * (1 - sel_addressing) = 0;
     sel_alu * (1 - sel_alu) = 0;
     sel_gas * (1 - sel_gas) = 0;
     sel_others * (1 - sel_others) = 0;
     // If any of the above selectors is 1, then sel must be 1.
-    (sel_sha256 + sel_addressing + sel_alu + sel_gas + sel_others) * (1 - sel) = 0;
+    (sel_addressing + sel_alu + sel_gas + sel_others) * (1 - sel) = 0;
 
-    #[skippable_if]
-    sel = 0;
+    // ==== INPUTS AND OUTPUT ====
 
     pol commit input_a;
     pol commit input_b;
@@ -46,23 +62,32 @@ namespace gt;
     pol commit res; // @boolean
     res * (1 - res) = 0;
 
-    pol A_LTE_B = input_b - input_a;
-    pol A_GT_B = input_a - input_b - 1;
-    pol commit abs_diff;
+    // ==== GT COMPUTATION ====
 
-    // In trace generation, we will pick num_bits to be the smallest multiple of 16 such that
-    // 2^num_bits > abs_diff. This deterministic derivation leads to a deduplication of the range_check
-    // event whenever the inputs are the same. In other words, whenever the gt event deduplicates,
-    // the range_check event will also deduplicate.
-    // num_bits is not constrained here but range_check forces that abs_diff < 2^128 no matter what.
-    // A range-check on abs_diff with any number of bits <= 128 therefore asserts that #[GT_RESULT]
-    // is correct (assuming the preconditions are met).
-    // The reason to pick num_bits smaller than 128 is to reduce the number of activated 16-bit range checks
-    // in range_check.pil. This is a performance optimization. Choosing a tighter num_bits being not a
-    // multiple of 16 would not reduce the number of 16-bit range checks.
+    // The absolute difference between the inputs, computed two ways depending on order.
+    // The constraints later in the file ensure the active subtraction didn't underflow.
+    pol A_LTE_B = input_b - input_a; // absolute difference when a <= b
+    pol A_GT_B = input_a - input_b - 1; // absolute difference minus 1 when a > b
+    pol commit abs_diff; // whichever of the above is active on this row
+
+    // The column num_bits is not directly constrained here. The range_check gadget (#[GT_RANGE])
+    // uses it to enforce that abs_diff (either A_LTE_B or A_GT_B) didn't underflow.
+    //
+    // In trace generation, we pick num_bits as the smallest multiple of 16 such that 2^num_bits > abs_diff.
+    // We use a multiple of 16 because range_check decomposes values into 16-bit limbs, so a tighter
+    // non-multiple-of-16 would still activate the same number of limbs. Picking the smallest such multiple
+    // reduces the number of activated limb range checks (performance optimization).
+    //
+    // This deterministic derivation of num_bits from abs_diff also ensures that whenever two identical
+    // gt events deduplicate into one row, their range_check events deduplicate as well.
     pol commit num_bits;
 
+    // When res = 1, GT_RESULT constrains abs_diff = a - b - 1.
+    // When res = 0, GT_RESULT constrains abs_diff = b - a.
     #[GT_RESULT]
     sel * ( (A_GT_B - A_LTE_B) * res + A_LTE_B - abs_diff ) = 0;
+    // Constrains that abs_diff < 2^num_bits with num_bits <= 128, proving it didn't underflow.
     #[GT_RANGE]
     sel { abs_diff, num_bits } in range_check.sel_gt { range_check.value, range_check.rng_chk_bits };
+
+    // Together, GT_RESULT and GT_RANGE constrain res to be 1 iff a > b.

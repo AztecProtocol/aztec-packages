@@ -1,23 +1,20 @@
 #include "barretenberg/vm2/tracegen/memory_trace.hpp"
 
+#include <algorithm>
 #include <array>
 #include <cstdint>
-#include <memory>
-#include <vector>
 
+#include "barretenberg/common/assert.hpp"
 #include "barretenberg/vm2/common/field.hpp"
 #include "barretenberg/vm2/common/memory_types.hpp"
 #include "barretenberg/vm2/common/tagged_value.hpp"
-#include "barretenberg/vm2/generated/columns.hpp"
 #include "barretenberg/vm2/generated/relations/lookups_memory.hpp"
-#include "barretenberg/vm2/simulation/events/memory_event.hpp"
-#include "barretenberg/vm2/tracegen/lib/interaction_def.hpp"
 
 // Permutations.
 #include "barretenberg/vm2/generated/relations/perms_addressing.hpp"
 #include "barretenberg/vm2/generated/relations/perms_data_copy.hpp"
 #include "barretenberg/vm2/generated/relations/perms_ecc_mem.hpp"
-#include "barretenberg/vm2/generated/relations/perms_emit_unencrypted_log.hpp"
+#include "barretenberg/vm2/generated/relations/perms_emit_public_log.hpp"
 #include "barretenberg/vm2/generated/relations/perms_get_contract_instance.hpp"
 #include "barretenberg/vm2/generated/relations/perms_keccak_memory.hpp"
 #include "barretenberg/vm2/generated/relations/perms_poseidon2_mem.hpp"
@@ -27,6 +24,14 @@
 
 namespace bb::avm2::tracegen {
 
+/**
+ * @brief Processes memory events into the memory subtrace.
+ *
+ * Sorts events by (space_id, address, clk, rw) and populates the trace with
+ * derived columns (diff, limbs, etc.). Row 0 is left
+ * empty because shifted columns are used.
+ *
+ */
 void MemoryTraceBuilder::process(const simulation::EventEmitterInterface<simulation::MemoryEvent>::Container& events,
                                  TraceContainer& trace)
 {
@@ -85,6 +90,9 @@ void MemoryTraceBuilder::process(const simulation::EventEmitterInterface<simulat
             global_addr_diff = next_global_addr - global_addr;
             last_access = global_addr != next_global_addr;
             diff = last_access ? global_addr_diff : (next_timestamp - timestamp - two_consecutive_writes);
+
+            // Defensive: diff must fit in 48 bits for the 3x16-bit limb decomposition.
+            BB_ASSERT(diff < (1ULL << 48));
         }
 
         trace.set(row,
@@ -97,8 +105,6 @@ void MemoryTraceBuilder::process(const simulation::EventEmitterInterface<simulat
                       { C::memory_clk, event.execution_clk },
                       { C::memory_rw, event.mode == MemoryMode::WRITE ? 1 : 0 },
                       { C::memory_sel_rng_chk, is_last ? 0 : 1 },
-                      { C::memory_global_addr, global_addr },
-                      { C::memory_timestamp, timestamp },
                       { C::memory_last_access, last_access },
                       { C::memory_glob_addr_diff_inv, global_addr_diff }, // Will be inverted in batch later
                       { C::memory_diff, diff },
@@ -127,23 +133,19 @@ const InteractionDefinition MemoryTraceBuilder::interactions =
              perm_addressing_indirect_from_memory_2_settings,
              perm_addressing_indirect_from_memory_3_settings,
              perm_addressing_indirect_from_memory_4_settings,
-             perm_addressing_indirect_from_memory_5_settings,
-             perm_addressing_indirect_from_memory_6_settings,
              // Registers.
              perm_registers_mem_op_0_settings,
              perm_registers_mem_op_1_settings,
              perm_registers_mem_op_2_settings,
              perm_registers_mem_op_3_settings,
-             perm_registers_mem_op_4_settings,
-             perm_registers_mem_op_5_settings,
              // Data Copy.
              perm_data_copy_mem_read_settings,
              perm_data_copy_mem_write_settings,
              // Get Contract Instance.
              perm_get_contract_instance_mem_write_contract_instance_exists_settings,
              perm_get_contract_instance_mem_write_contract_instance_member_settings,
-             // Unencrypted Log.
-             perm_emit_unencrypted_log_read_mem_settings,
+             // Public Log.
+             perm_emit_public_log_read_mem_settings,
              // Poseidon2.
              perm_poseidon2_mem_pos_read_mem_0_settings,
              perm_poseidon2_mem_pos_read_mem_1_settings,
@@ -168,16 +170,18 @@ const InteractionDefinition MemoryTraceBuilder::interactions =
              // ECADD
              perm_ecc_mem_write_mem_0_settings,
              perm_ecc_mem_write_mem_1_settings,
-             perm_ecc_mem_write_mem_2_settings,
              // To Radix.
              perm_to_radix_mem_write_mem_settings
              // Others.
              >(Column::memory_sel)
-        .add<lookup_memory_range_check_limb_0_settings, InteractionType::LookupIntoIndexedByClk>()
-        .add<lookup_memory_range_check_limb_1_settings, InteractionType::LookupIntoIndexedByClk>()
-        .add<lookup_memory_range_check_limb_2_settings, InteractionType::LookupIntoIndexedByClk>()
-        .add<lookup_memory_tag_max_bits_settings, InteractionType::LookupIntoIndexedByClk>()
-        .add<lookup_memory_range_check_write_tagged_value_settings, InteractionType::LookupGeneric>(
+        .add<InteractionType::LookupIntoIndexedByRow, lookup_memory_range_check_limb_0_settings>(
+            Column::precomputed_sel_range_16)
+        .add<InteractionType::LookupIntoIndexedByRow, lookup_memory_range_check_limb_1_settings>(
+            Column::precomputed_sel_range_16)
+        .add<InteractionType::LookupIntoIndexedByRow, lookup_memory_range_check_limb_2_settings>(
+            Column::precomputed_sel_range_16)
+        .add<InteractionType::LookupIntoIndexedByRow, lookup_memory_tag_max_bits_settings>()
+        .add<InteractionType::LookupGeneric, lookup_memory_range_check_write_tagged_value_settings>(
             Column::range_check_sel);
 
 } // namespace bb::avm2::tracegen

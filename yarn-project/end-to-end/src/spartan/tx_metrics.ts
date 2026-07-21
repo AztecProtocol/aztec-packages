@@ -1,6 +1,6 @@
 import type { AztecNode } from '@aztec/aztec.js/node';
 import type { Logger } from '@aztec/foundation/log';
-import type { L2Block } from '@aztec/stdlib/block';
+import type { BlockResponse } from '@aztec/stdlib/interfaces/client';
 import type { TopicType } from '@aztec/stdlib/p2p';
 import { Tx, type TxReceipt } from '@aztec/stdlib/tx';
 
@@ -134,9 +134,12 @@ export class ProvingMetrics {
 
 export type TxInclusionData = {
   txHash: string;
-  sentAt: number;
-  minedAt: number;
-  attestedAt: number;
+  /** Wall-clock at client when the tx was submitted, in ms (Date.now()). */
+  sentAtMs: number;
+  /** Wall-clock at client when the block containing the tx first became visible, in ms (Date.now()). -1 if never observed. */
+  minedAtMs: number;
+  /** Reserved for future attestation-observed-at signal; -1 today. */
+  attestedAtMs: number;
   blocknumber: number;
   priorityFee: number;
   totalFee: number;
@@ -147,7 +150,7 @@ export type TxInclusionData = {
 export class TxInclusionMetrics {
   private data = new Map<string, TxInclusionData>();
   private groups = new Set<string>();
-  private blocks = new Map<number, Promise<L2Block | undefined>>();
+  private blocks = new Map<number, Promise<BlockResponse<{ includeTransactions: true }> | undefined>>();
 
   private p2pGossipLatencyByTopic: Partial<Record<TopicType, { p50: number; p95: number }>> = {};
 
@@ -158,6 +161,7 @@ export class TxInclusionMetrics {
   private mempoolMinedDelay:
     | { txP50: number; txP95: number; attestationP50: number; attestationP95: number }
     | undefined;
+  private inclusionOutcome: { mined: number; failed: number } | undefined;
 
   constructor(
     private aztecNode: AztecNode,
@@ -174,9 +178,9 @@ export class TxInclusionMetrics {
 
     this.data.set(txHash, {
       txHash,
-      sentAt: Math.trunc(Date.now() / 1000),
-      minedAt: -1,
-      attestedAt: -1,
+      sentAtMs: Date.now(),
+      minedAtMs: -1,
+      attestedAtMs: -1,
       blocknumber: -1,
       priorityFee: Number(priorityFees.feePerDaGas + priorityFees.feePerL2Gas),
       totalFee: -1,
@@ -184,6 +188,28 @@ export class TxInclusionMetrics {
       group,
     });
     this.groups.add(group);
+  }
+
+  /**
+   * Stamp mined-at metadata for any tracked tx contained in this block, using
+   * `observedAtMs` (caller-supplied wall-clock at the moment they first saw the
+   * block). Idempotent: existing minedAtMs is preserved so the first observer
+   * wins (typically the block-watcher; recordMinedTx is a fallback).
+   */
+  observeBlockForMinedTxs(
+    blockNumber: number,
+    txHashes: ReadonlyArray<{ toString(): string }>,
+    observedAtMs: number,
+  ): void {
+    txHashes.forEach((txHash, position) => {
+      const data = this.data.get(txHash.toString());
+      if (!data || data.minedAtMs !== -1) {
+        return;
+      }
+      data.blocknumber = blockNumber;
+      data.minedAtMs = observedAtMs;
+      data.positionInBlock = position;
+    });
   }
 
   async recordMinedTx(txReceipt: TxReceipt): Promise<void> {
@@ -197,26 +223,53 @@ export class TxInclusionMetrics {
       return;
     }
 
-    if (!this.blocks.has(blockNumber)) {
-      this.blocks.set(blockNumber, this.aztecNode.getBlock(blockNumber));
-    }
-
-    const block = await this.blocks.get(blockNumber)!;
-    if (!block) {
-      this.logger?.warn('Failed to load block for mined tx receipt', { txHash: txHash.toString(), blockNumber });
-      return;
-    }
     const data = this.data.get(txHash.toString());
     if (!data) {
       const message = `Missing sent tx record for mined tx ${txHash.toString()}`;
       this.logger?.warn(message, { txHash: txHash.toString(), blockNumber });
       throw new Error(message);
     }
-    data.blocknumber = blockNumber;
-    data.minedAt = Number(block.header.globalVariables.timestamp);
-    data.attestedAt = -1;
     data.totalFee = Number(txReceipt.transactionFee ?? 0n);
-    data.positionInBlock = block.body.txEffects.findIndex(txEffect => txEffect.txHash.equals(txHash));
+
+    // Fallback path for txs the block-watcher missed (e.g. observed only after
+    // the watcher stopped). Stamp with the block's L2 slot timestamp; this is
+    // earlier than the true client-observed time by attestation+propagation
+    // lag, but it's the only deterministic timestamp available post-hoc.
+    if (data.minedAtMs === -1) {
+      if (!this.blocks.has(blockNumber)) {
+        this.blocks.set(blockNumber, this.aztecNode.getBlock(blockNumber, { includeTransactions: true }));
+      }
+      const block = await this.blocks.get(blockNumber)!;
+      if (!block) {
+        this.logger?.warn('Failed to load block for mined tx receipt', { txHash: txHash.toString(), blockNumber });
+        return;
+      }
+      data.blocknumber = blockNumber;
+      data.minedAtMs = Number(block.header.globalVariables.timestamp) * 1000;
+      data.positionInBlock = block.body.txEffects.findIndex(txEffect => txEffect.txHash.equals(txHash));
+    }
+  }
+
+  /**
+   * Whether this tx was ever observed in a block (by the block-watcher or a mined receipt).
+   * Idempotent first-sighting semantics: a later reorg / pool eviction never clears it, so callers
+   * can treat "ever mined" as included regardless of what happens to the tx afterwards.
+   */
+  public wasMined(txHash: string): boolean {
+    const d = this.data.get(txHash);
+    return !!d && d.minedAtMs !== -1;
+  }
+
+  /** Per-tx inclusion records for a group. Used to serialise out for downstream tooling. */
+  getInclusionRecords(group?: string): TxInclusionData[] {
+    const out: TxInclusionData[] = [];
+    for (const tx of this.data.values()) {
+      if (group !== undefined && tx.group !== group) {
+        continue;
+      }
+      out.push({ ...tx });
+    }
+    return out;
   }
 
   public inclusionTimeInSeconds(group: string): {
@@ -229,12 +282,28 @@ export class TxInclusionMetrics {
     p99: number;
   } {
     const histogram = createHistogram({});
+    let nonPositive = 0;
     for (const tx of this.data.values()) {
-      if (!tx.blocknumber || tx.group !== group || tx.minedAt === -1) {
+      if (!tx.blocknumber || tx.group !== group || tx.minedAtMs === -1) {
         continue;
       }
 
-      histogram.record(tx.minedAt - tx.sentAt);
+      // Both timestamps are client wall-clock (ms). A negative delta should be
+      // impossible since the watcher stamps minedAtMs strictly after sentAtMs,
+      // but the fallback path (recordMinedTx via L2 slot timestamp) can stamp
+      // earlier than sentAtMs. perf_hooks.createHistogram rejects <=0; skip
+      // those instead of crashing.
+      const deltaMs = tx.minedAtMs - tx.sentAtMs;
+      if (deltaMs <= 0) {
+        nonPositive++;
+        continue;
+      }
+      // Histogram is recorded in seconds (rounded) to match the existing
+      // toGithubActionBenchmarkJSON output unit; per-tx records carry the raw ms.
+      histogram.record(Math.max(1, Math.round(deltaMs / 1000)));
+    }
+    if (nonPositive > 0) {
+      this.logger?.debug(`Dropped ${nonPositive} tx inclusion samples with non-positive delta`, { group });
     }
 
     if (histogram.count === 0) {
@@ -284,6 +353,11 @@ export class TxInclusionMetrics {
     this.mempoolMinedDelay = { txP50, txP95, attestationP50, attestationP95 };
   }
 
+  /** Mined vs failed counts for the high-value lane — recorded instead of asserting strict 1:1 inclusion. */
+  public recordInclusionOutcome(mined: number, failed: number): void {
+    this.inclusionOutcome = { mined, failed };
+  }
+
   toGithubActionBenchmarkJSON(): Array<{ name: string; unit: string; value: number; range?: number; extra?: string }> {
     const data: Array<{ name: string; unit: string; value: number; range?: number; extra?: string }> = [];
     for (const group of this.groups) {
@@ -296,7 +370,7 @@ export class TxInclusionMetrics {
           value: stats.mean,
         },
         {
-          name: `${group}/median_inclusion`,
+          name: `${group}/p50_inclusion`,
           unit: 's',
           value: stats.median,
         },
@@ -362,6 +436,16 @@ export class TxInclusionMetrics {
         { name: 'mempool/tx_mined_delay_p95', unit: 'ms', value: this.mempoolMinedDelay.txP95 },
         { name: 'mempool/attestation_mined_delay_p50', unit: 'ms', value: this.mempoolMinedDelay.attestationP50 },
         { name: 'mempool/attestation_mined_delay_p95', unit: 'ms', value: this.mempoolMinedDelay.attestationP95 },
+      );
+    }
+
+    if (this.inclusionOutcome) {
+      const { mined, failed } = this.inclusionOutcome;
+      const total = mined + failed;
+      data.push(
+        { name: 'inclusion/mined_count', unit: 'count', value: mined },
+        { name: 'inclusion/failed_count', unit: 'count', value: failed },
+        { name: 'inclusion/success_ratio', unit: 'ratio', value: total > 0 ? mined / total : 0 },
       );
     }
 

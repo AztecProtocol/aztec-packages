@@ -8,15 +8,16 @@ import { type ISemaphore, Semaphore } from '@aztec/foundation/queue';
 import { retryUntil } from '@aztec/foundation/retry';
 import { sleep } from '@aztec/foundation/sleep';
 import { DateProvider } from '@aztec/foundation/timer';
-import type { BlockProposal } from '@aztec/stdlib/p2p';
-import { PeerErrorSeverity } from '@aztec/stdlib/p2p';
+import { type BlockProposal, PeerErrorSeverity } from '@aztec/stdlib/p2p';
 import { makeBlockHeader, makeBlockProposal } from '@aztec/stdlib/testing';
-import { Tx, TxArray, TxHash, type TxValidationResult } from '@aztec/stdlib/tx';
+import { Tx, TxArray, TxHash, type TxValidationResult, type TxValidator } from '@aztec/stdlib/tx';
 
 import { describe, expect, it, jest } from '@jest/globals';
+import type { PeerId } from '@libp2p/interface';
 import { type MockProxy, mock } from 'jest-mock-extended';
 
 import { createSecp256k1PeerId } from '../../../index.js';
+import { RequestTracker } from '../../tx_collection/request_tracker.js';
 import type { ConnectionSampler } from '../connection-sampler/connection_sampler.js';
 import type { ReqRespInterface } from '../interface.js';
 import { BitVector, BlockTxsRequest, BlockTxsResponse } from '../protocols/index.js';
@@ -25,15 +26,11 @@ import { BatchTxRequester } from './batch_tx_requester.js';
 import { DEFAULT_BATCH_TX_REQUESTER_BAD_PEER_THRESHOLD, DEFAULT_BATCH_TX_REQUESTER_TX_BATCH_SIZE } from './config.js';
 import type { BatchTxRequesterLibP2PService, IPeerPenalizer } from './interface.js';
 import { type IPeerCollection, PeerCollection, RATE_LIMIT_EXCEEDED_PEER_CACHE_TTL } from './peer_collection.js';
-import type { IBatchRequestTxValidator } from './tx_validator.js';
 
 /** Mock tx validator for testing that always returns valid */
-class AlwaysValidTxValidator implements IBatchRequestTxValidator {
-  validateRequestedTx(_tx: Tx): Promise<TxValidationResult> {
+class AlwaysValidTxValidator implements TxValidator {
+  validateTx(_tx: Tx): Promise<TxValidationResult> {
     return Promise.resolve({ result: 'valid' });
-  }
-  validateRequestedTxs(txs: Tx[]): Promise<TxValidationResult[]> {
-    return Promise.resolve(txs.map(() => ({ result: 'valid' })));
   }
 }
 
@@ -48,7 +45,7 @@ describe('BatchTxRequester', () => {
   let connectionSampler: MockProxy<ConnectionSampler>;
   let reqResp: MockProxy<ReqRespInterface>;
   let mockP2PService: MockProxy<BatchTxRequesterLibP2PService>;
-  let txValidator: IBatchRequestTxValidator;
+  let txValidator: TxValidator;
 
   beforeEach(async () => {
     logger = createLogger('test');
@@ -60,6 +57,7 @@ describe('BatchTxRequester', () => {
       reqResp,
       peerScoring,
     });
+    mockP2PService.validateRequestedBlockTxsConsistency.mockResolvedValue(true);
     txValidator = new AlwaysValidTxValidator();
 
     const signer = Secp256k1Signer.random();
@@ -71,6 +69,21 @@ describe('BatchTxRequester', () => {
       txHashes: [],
     });
   });
+
+  function sampleAllPeers(sampler: () => PeerId | undefined): string[] | undefined {
+    const seen = new Set<string>();
+    const ordered: string[] = [];
+    let currentPeer = sampler()?.toString();
+    if (currentPeer === undefined) {
+      return undefined;
+    }
+    while (!seen.has(currentPeer)) {
+      seen.add(currentPeer);
+      ordered.push(currentPeer);
+      currentPeer = sampler()!.toString();
+    }
+    return ordered;
+  }
 
   describe('Dumb peers', () => {
     it('should create correct TX_BATCH_SIZE chunks with single dumb worker', async () => {
@@ -94,25 +107,17 @@ describe('BatchTxRequester', () => {
 
       const clock = new TestClock();
 
-      const requester = new BatchTxRequester(
-        missing,
-        blockProposal,
-        undefined,
-        deadline,
-        mockP2PService,
-        logger,
-        clock,
-        {
-          smartParallelWorkerCount: 0,
-          dumbParallelWorkerCount: 1,
-          txValidator,
-        },
-      );
+      const tracker = RequestTracker.create(missing, new Date(Date.now() + deadline));
+      const requester = new BatchTxRequester(tracker, blockProposal, undefined, mockP2PService, logger, clock, {
+        smartParallelWorkerCount: 0,
+        dumbParallelWorkerCount: 1,
+        txValidator,
+      });
 
       const runPromise = BatchTxRequester.collectAllTxs(requester.run());
 
       await retryUntil(() => (requestCount() === rounds ? true : undefined), 'waitFor', 10, 0.01);
-      clock.advanceTo(deadline + 1);
+      tracker.cancel();
 
       await runPromise;
 
@@ -149,25 +154,17 @@ describe('BatchTxRequester', () => {
 
       const clock = new TestClock();
 
-      const requester = new BatchTxRequester(
-        missing,
-        blockProposal,
-        undefined,
-        deadline,
-        mockP2PService,
-        logger,
-        clock,
-        {
-          smartParallelWorkerCount: 0,
-          dumbParallelWorkerCount: 3,
-          txValidator,
-        },
-      );
+      const tracker = RequestTracker.create(missing, new Date(Date.now() + deadline));
+      const requester = new BatchTxRequester(tracker, blockProposal, undefined, mockP2PService, logger, clock, {
+        smartParallelWorkerCount: 0,
+        dumbParallelWorkerCount: 3,
+        txValidator,
+      });
 
       const runPromise = BatchTxRequester.collectAllTxs(requester.run());
 
       await retryUntil(() => (requestCount() == numberOfRounds * peers.length ? true : undefined), 'waitFor', 10, 0.01);
-      clock.advanceTo(deadline + 1);
+      tracker.cancel();
 
       await runPromise;
 
@@ -227,7 +224,9 @@ describe('BatchTxRequester', () => {
 
       const peers = await Promise.all([createSecp256k1PeerId(), createSecp256k1PeerId(), createSecp256k1PeerId()]);
       connectionSampler.getPeerListSortedByConnectionCountAsc.mockReturnValue(peers);
-      const peerCollection = new TestPeerCollection(new PeerCollection(peers, undefined, new DateProvider()));
+      const peerCollection = new TestPeerCollection(
+        new PeerCollection(connectionSampler, undefined, new DateProvider()),
+      );
 
       // Define which transactions each peer has (same as happy path)
       const peerTransactions = new Map([
@@ -264,7 +263,6 @@ describe('BatchTxRequester', () => {
         const availableTxs = availableTxHashes.map(h => makeTx(h));
 
         const response = new BlockTxsResponse(
-          blockProposal.archive,
           new TxArray(...availableTxs),
           BitVector.init(blockProposal.txHashes.length, peerHasIndices),
         );
@@ -276,10 +274,9 @@ describe('BatchTxRequester', () => {
       });
 
       const requester = new BatchTxRequester(
-        missing,
+        RequestTracker.create(missing, new Date(Date.now() + deadline)),
         blockProposal,
         undefined,
-        deadline,
         mockP2PService,
         logger,
         new DateProvider(),
@@ -330,10 +327,9 @@ describe('BatchTxRequester', () => {
       const semaphore = new TestSemaphore(new Semaphore(0));
 
       const requester = new BatchTxRequester(
-        missing,
+        RequestTracker.create(missing, new Date(Date.now() + deadline)),
         blockProposal,
         undefined,
-        deadline,
         mockP2PService,
         logger,
         new DateProvider(),
@@ -372,7 +368,7 @@ describe('BatchTxRequester', () => {
       const peers = await Promise.all([createSecp256k1PeerId(), createSecp256k1PeerId()]);
       connectionSampler.getPeerListSortedByConnectionCountAsc.mockReturnValue(peers);
 
-      const peerCollection = new PeerCollection(peers, pinnedPeer, dateProvider);
+      const peerCollection = new PeerCollection(connectionSampler, pinnedPeer, dateProvider);
       const peerTransactions = new Map([
         [peers[0].toString(), Array.from({ length: 16 }, (_, i) => i)], // peer1 has all transactions, peer2 none
       ]);
@@ -382,10 +378,9 @@ describe('BatchTxRequester', () => {
 
       const semaphore = new TestSemaphore(new Semaphore(0));
       const requester = new BatchTxRequester(
-        missing,
+        RequestTracker.create(missing, new Date(Date.now() + deadline)),
         blockProposal,
         pinnedPeer,
-        deadline,
         mockP2PService,
         logger,
         dateProvider,
@@ -403,9 +398,11 @@ describe('BatchTxRequester', () => {
       expect(result!.length).toBe(txCount);
 
       // Verify peer promotion behavior
-      expect(peerCollection.getSmartPeers().size).toBe(1);
-      expect(peerCollection.getSmartPeers()).toContain(peers[0].toString());
-      expect(peerCollection.getSmartPeers()).not.toContain(peers[1].toString());
+      const smartPeers = sampleAllPeers(peerCollection.nextSmartPeerToQuery.bind(peerCollection));
+      expect(smartPeers).toBeDefined();
+      expect(smartPeers!.length).toBe(1);
+      expect(smartPeers).toContain(peers[0].toString());
+      expect(smartPeers).not.toContain(peers[1].toString());
 
       // The exact release count depends on timing of concurrent async operations.
       // We verify a minimum of 7 releases which accounts for:
@@ -419,7 +416,10 @@ describe('BatchTxRequester', () => {
     });
 
     it('Should track smart peer collection behavior with multiple promotions', async () => {
-      const txCount = 20;
+      // With batch_size=8, 3 workers handle batches 0-7, 8-15, 16-23 in the first round.
+      // Using 30 txs ensures txs 24-29 remain unfetched after the dumb round,
+      // so every peer still has unique missing txs when decideIfPeerIsSmart runs.
+      const txCount = 30;
       const deadline = 3_000;
       const dateProvider = new DateProvider();
       const pinnedPeer = undefined;
@@ -435,13 +435,14 @@ describe('BatchTxRequester', () => {
       const peers = await Promise.all([createSecp256k1PeerId(), createSecp256k1PeerId(), createSecp256k1PeerId()]);
       connectionSampler.getPeerListSortedByConnectionCountAsc.mockReturnValue(peers);
 
-      const peerCollection = new PeerCollection(peers, pinnedPeer, dateProvider);
+      const peerCollection = new PeerCollection(connectionSampler, pinnedPeer, dateProvider);
 
-      // Define which transactions each peer has
+      // Each peer has txs spanning beyond its assigned batch, so after its batch is
+      // processed it still has txs that are missing → gets promoted to smart.
       const peerTransactions = new Map([
-        [peers[0].toString(), Array.from({ length: 10 }, (_, i) => i)], // peer1: txs 0-9
-        [peers[1].toString(), Array.from({ length: 10 }, (_, i) => i + 5)], // peer2: txs 5-14
-        [peers[2].toString(), Array.from({ length: 10 }, (_, i) => i + 10)], // peer3: txs 10-19
+        [peers[0].toString(), Array.from({ length: 15 }, (_, i) => i)], // peer0: txs 0-14
+        [peers[1].toString(), Array.from({ length: 15 }, (_, i) => i + 10)], // peer1: txs 10-24
+        [peers[2].toString(), Array.from({ length: 10 }, (_, i) => i + 20)], // peer2: txs 20-29
       ]);
 
       const { mockImplementation } = createRequestLogger(blockProposal, new Set(), peerTransactions);
@@ -449,10 +450,9 @@ describe('BatchTxRequester', () => {
 
       const semaphore = new TestSemaphore(new Semaphore(0));
       const requester = new BatchTxRequester(
-        missing,
+        RequestTracker.create(missing, new Date(Date.now() + deadline)),
         blockProposal,
         pinnedPeer,
-        deadline,
         mockP2PService,
         logger,
         dateProvider,
@@ -470,7 +470,7 @@ describe('BatchTxRequester', () => {
       expect(result!.length).toBe(txCount);
 
       // Verify all peers were promoted to smart
-      expect(peerCollection.getSmartPeers().size).toBe(peers.length);
+      expect(sampleAllPeers(peerCollection.nextSmartPeerToQuery.bind(peerCollection))!.length).toBe(peers.length);
       expect(semaphore.acquiredCount).toBe(3);
     });
 
@@ -491,7 +491,7 @@ describe('BatchTxRequester', () => {
       const peers = await Promise.all([createSecp256k1PeerId(), createSecp256k1PeerId(), createSecp256k1PeerId()]);
       connectionSampler.getPeerListSortedByConnectionCountAsc.mockReturnValue(peers);
 
-      const peerCollection = new PeerCollection(peers, pinnedPeer, dateProvider);
+      const peerCollection = new PeerCollection(connectionSampler, pinnedPeer, dateProvider);
 
       // Define which transactions each peer has
       const peerTransactions = new Map([
@@ -505,10 +505,9 @@ describe('BatchTxRequester', () => {
 
       const semaphore = new TestSemaphore(new Semaphore(0));
       const requester = new BatchTxRequester(
-        missing,
+        RequestTracker.create(missing, new Date(Date.now() + deadline)),
         blockProposal,
         pinnedPeer,
-        deadline,
         mockP2PService,
         logger,
         dateProvider,
@@ -551,7 +550,7 @@ describe('BatchTxRequester', () => {
 
       connectionSampler.getPeerListSortedByConnectionCountAsc.mockReturnValue(peers);
 
-      const peerCollection = new PeerCollection(peers, pinnedPeer, dateProvider);
+      const peerCollection = new PeerCollection(connectionSampler, pinnedPeer, dateProvider);
 
       // Mock implementation that makes peer0 fail consistently, peer1 succeed
       const { mockImplementation } = createRequestLogger(
@@ -561,10 +560,9 @@ describe('BatchTxRequester', () => {
       );
       reqResp.sendRequestToPeer.mockImplementation(mockImplementation);
       const requester = new BatchTxRequester(
-        missing,
+        RequestTracker.create(missing, new Date(Date.now() + deadline)),
         blockProposal,
         pinnedPeer,
-        deadline,
         mockP2PService,
         logger,
         dateProvider,
@@ -583,8 +581,11 @@ describe('BatchTxRequester', () => {
       expect(peerCollection.getBadPeers()).toContain(peers[0].toString());
       expect(peerCollection.getBadPeers()).not.toContain(peers[1].toString());
 
-      // Verify bad peer is excluded from queries - peer0 should be in bad peers
-      expect(peerCollection.getDumbPeersToQuery()).not.toContain(peers[0].toString());
+      // Verify bad peer is excluded from dumb queries.
+      // The good peer can still be temporarily in-flight when run() returns, so we only assert
+      // that peer0 is never sampled from the currently available dumb peers.
+      const dumbPeersToQuery = sampleAllPeers(peerCollection.nextDumbPeerToQuery.bind(peerCollection)) ?? [];
+      expect(dumbPeersToQuery).not.toContain(peers[0].toString());
     });
 
     it('should recover bad peer after successful response', async () => {
@@ -604,7 +605,7 @@ describe('BatchTxRequester', () => {
       const peers = await Promise.all([createSecp256k1PeerId(), createSecp256k1PeerId()]);
       connectionSampler.getPeerListSortedByConnectionCountAsc.mockReturnValue(peers);
 
-      const peerCollection = new PeerCollection(peers, pinnedPeer, dateProvider);
+      const peerCollection = new PeerCollection(connectionSampler, pinnedPeer, dateProvider);
       let requestCount = 0;
 
       // Mock implementation: first 4 requests fail (exceed threshold), then succeed
@@ -623,7 +624,6 @@ describe('BatchTxRequester', () => {
 
         const someTxs = missing.slice(0, missing.length / 2).map(h => makeTx(h));
         const response = new BlockTxsResponse(
-          blockProposal.archive,
           new TxArray(...someTxs),
           BitVector.init(blockProposal.txHashes.length, []),
         );
@@ -635,10 +635,9 @@ describe('BatchTxRequester', () => {
       });
 
       const requester = new BatchTxRequester(
-        missing,
+        RequestTracker.create(missing, new Date(Date.now() + deadline)),
         blockProposal,
         pinnedPeer,
-        deadline,
         mockP2PService,
         logger,
         dateProvider,
@@ -655,7 +654,7 @@ describe('BatchTxRequester', () => {
       // Verify peer was initially marked bad but then recovered
       // Since peer succeeded in the end, it should not be in bad peers list
       expect(peerCollection.getBadPeers()).not.toContain(peers[0].toString());
-      expect(peerCollection.getDumbPeersToQuery()).toContain(peers[0].toString());
+      expect(sampleAllPeers(peerCollection.nextDumbPeerToQuery.bind(peerCollection))).toContain(peers[0].toString());
     });
 
     it('should handle multiple peers with different bad peer states', async () => {
@@ -686,7 +685,7 @@ describe('BatchTxRequester', () => {
       ]);
 
       const semaphore = new TestSemaphore(new Semaphore(0));
-      const peerCollection = new PeerCollection(peers, pinnedPeer, dateProvider);
+      const peerCollection = new PeerCollection(connectionSampler, pinnedPeer, dateProvider);
       const peerRequestCounts = new Map<string, number>();
 
       // eslint-disable-next-line require-await
@@ -713,7 +712,6 @@ describe('BatchTxRequester', () => {
         // peer1: always succeeds
         if (peerStr === peers[1].toString()) {
           const response = new BlockTxsResponse(
-            blockProposal.archive,
             new TxArray(...availableTxs),
             BitVector.init(blockProposal.txHashes.length, availableIndices),
           );
@@ -732,7 +730,6 @@ describe('BatchTxRequester', () => {
             };
           }
           const response = new BlockTxsResponse(
-            blockProposal.archive,
             new TxArray(...availableTxs),
             BitVector.init(blockProposal.txHashes.length, availableIndices),
           );
@@ -749,10 +746,9 @@ describe('BatchTxRequester', () => {
       });
 
       const requester = new BatchTxRequester(
-        missing,
+        RequestTracker.create(missing, new Date(Date.now() + deadline)),
         blockProposal,
         pinnedPeer,
-        deadline,
         mockP2PService,
         logger,
         dateProvider,
@@ -775,7 +771,7 @@ describe('BatchTxRequester', () => {
       expect(peerCollection.getBadPeers()).not.toContain(peers[2].toString()); // peer2: recovered
 
       // Verify query availability
-      const dumbPeersToQuery = peerCollection.getDumbPeersToQuery();
+      const dumbPeersToQuery = sampleAllPeers(peerCollection.nextDumbPeerToQuery.bind(peerCollection));
       expect(dumbPeersToQuery).not.toContain(peers[0].toString()); // bad peer excluded
       expect(dumbPeersToQuery).toContain(peers[1].toString()); // good peer included
       expect(dumbPeersToQuery).toContain(peers[2].toString()); // recovered peer included
@@ -795,31 +791,35 @@ describe('BatchTxRequester', () => {
       const peers = await Promise.all([createSecp256k1PeerId(), createSecp256k1PeerId()]);
       connectionSampler.getPeerListSortedByConnectionCountAsc.mockReturnValue(peers);
 
-      const peerCollection = new TestPeerCollection(new PeerCollection(peers, pinnedPeer, clock));
+      const peerCollection = new TestPeerCollection(new PeerCollection(connectionSampler, pinnedPeer, clock));
 
       // Manually mark peer as rate limited
       peerCollection.markPeerRateLimitExceeded(peers[0]);
 
       // Verify peer is initially rate limited and excluded
       expect(peerCollection.getRateLimitExceededPeers()).toContain(peers[0].toString());
-      expect(peerCollection.getDumbPeersToQuery()).not.toContain(peers[0].toString());
+      expect(sampleAllPeers(peerCollection.nextDumbPeerToQuery.bind(peerCollection))).not.toContain(
+        peers[0].toString(),
+      );
 
       // Test TTL behavior at different time points
 
       // Just before TTL expiration: still rate limited
       clock.advanceTo(RATE_LIMIT_EXCEEDED_PEER_CACHE_TTL - 1);
       expect(peerCollection.getRateLimitExceededPeers()).toContain(peers[0].toString());
-      expect(peerCollection.getDumbPeersToQuery()).not.toContain(peers[0].toString());
+      expect(sampleAllPeers(peerCollection.nextDumbPeerToQuery.bind(peerCollection))).not.toContain(
+        peers[0].toString(),
+      );
 
       // Right at TTL expiration: not rate limited anymore
       clock.advanceTo(RATE_LIMIT_EXCEEDED_PEER_CACHE_TTL);
       expect(peerCollection.getRateLimitExceededPeers()).not.toContain(peers[0].toString());
-      expect(peerCollection.getDumbPeersToQuery()).toContain(peers[0].toString());
+      expect(sampleAllPeers(peerCollection.nextDumbPeerToQuery.bind(peerCollection))).toContain(peers[0].toString());
 
       // After TTL expiration: not rate limited anymore
       clock.advanceTo(RATE_LIMIT_EXCEEDED_PEER_CACHE_TTL + 1);
       expect(peerCollection.getRateLimitExceededPeers()).not.toContain(peers[0].toString());
-      expect(peerCollection.getDumbPeersToQuery()).toContain(peers[0].toString());
+      expect(sampleAllPeers(peerCollection.nextDumbPeerToQuery.bind(peerCollection))).toContain(peers[0].toString());
 
       // Test multiple rate limit cycles
       peerCollection.markPeerRateLimitExceeded(peers[0]); // Rate limit again
@@ -827,7 +827,7 @@ describe('BatchTxRequester', () => {
 
       clock.advanceTo(clock.now() + RATE_LIMIT_EXCEEDED_PEER_CACHE_TTL + 1);
       expect(peerCollection.getRateLimitExceededPeers()).not.toContain(peers[0].toString());
-      expect(peerCollection.getDumbPeersToQuery()).toContain(peers[0].toString());
+      expect(sampleAllPeers(peerCollection.nextDumbPeerToQuery.bind(peerCollection))).toContain(peers[0].toString());
     });
 
     it('should exclude rate limited peer from queries and recover after TTL expiration', async () => {
@@ -847,7 +847,7 @@ describe('BatchTxRequester', () => {
       const peers = await Promise.all([createSecp256k1PeerId(), createSecp256k1PeerId()]);
       connectionSampler.getPeerListSortedByConnectionCountAsc.mockReturnValue(peers);
 
-      const innerPeerCollection = new PeerCollection(peers, pinnedPeer, clock);
+      const innerPeerCollection = new PeerCollection(connectionSampler, pinnedPeer, clock);
       const peerCollection = new TestPeerCollection(innerPeerCollection);
 
       const peerTransactions = new Map([
@@ -873,7 +873,6 @@ describe('BatchTxRequester', () => {
         const availableTxs = availableTxHashes.map(h => makeTx(h));
 
         const response = new BlockTxsResponse(
-          blockProposal.archive,
           new TxArray(...availableTxs),
           BitVector.init(blockProposal.txHashes.length, peerHasIndices),
         );
@@ -885,10 +884,9 @@ describe('BatchTxRequester', () => {
       });
 
       const requester = new BatchTxRequester(
-        missing,
+        RequestTracker.create(missing, new Date(Date.now() + deadline)),
         blockProposal,
         pinnedPeer,
-        deadline,
         mockP2PService,
         logger,
         clock,
@@ -918,8 +916,8 @@ describe('BatchTxRequester', () => {
 
       // Verify peer0 is no longer rate limited after TTL expiration
       expect(peerCollection.getRateLimitExceededPeers().size).toBe(0);
-      expect(peerCollection.getDumbPeersToQuery()).toContain(peers[0].toString());
-      expect(peerCollection.getDumbPeersToQuery()).toContain(peers[1].toString());
+      expect(sampleAllPeers(peerCollection.nextDumbPeerToQuery.bind(peerCollection))).toContain(peers[0].toString());
+      expect(sampleAllPeers(peerCollection.nextDumbPeerToQuery.bind(peerCollection))).toContain(peers[1].toString());
     });
   });
 
@@ -959,26 +957,18 @@ describe('BatchTxRequester', () => {
 
       const clock = new TestClock();
 
-      const requester = new BatchTxRequester(
-        missing,
-        blockProposal,
-        undefined,
-        shortDeadline,
-        mockP2PService,
-        logger,
-        clock,
-        {
-          smartParallelWorkerCount: 1,
-          dumbParallelWorkerCount: 1,
-          txValidator,
-        },
-      );
+      const tracker = RequestTracker.create(missing, new Date(Date.now() + shortDeadline));
+      const requester = new BatchTxRequester(tracker, blockProposal, undefined, mockP2PService, logger, clock, {
+        smartParallelWorkerCount: 1,
+        dumbParallelWorkerCount: 1,
+        txValidator,
+      });
 
       const runPromise = BatchTxRequester.collectAllTxs(requester.run());
 
-      // Wait for first request, then advance clock past deadline
+      // Wait for first request, then cancel the tracker
       await onFirstRequest;
-      clock.advanceTo(shortDeadline + 1);
+      tracker.cancel();
 
       await runPromise;
 
@@ -1002,15 +992,15 @@ describe('BatchTxRequester', () => {
       const peers = await Promise.all([createSecp256k1PeerId(), createSecp256k1PeerId()]);
       connectionSampler.getPeerListSortedByConnectionCountAsc.mockReturnValue(peers);
 
-      // Create abort controller and immediately abort
-      const abortController = new AbortController();
-      abortController.abort();
+      // Create tracker and immediately cancel
+      const tracker = RequestTracker.create(missing, new Date(Date.now() + deadline));
+      tracker.cancel();
 
       let requestsMade = 0;
       // eslint-disable-next-line require-await
       reqResp.sendRequestToPeer.mockImplementation(async () => {
         requestsMade++;
-        // This should never be called since we abort immediately
+        // This should never be called since we cancel immediately
         return {
           status: ReqRespStatus.SUCCESS,
           data: Buffer.alloc(0),
@@ -1018,17 +1008,15 @@ describe('BatchTxRequester', () => {
       });
 
       const requester = new BatchTxRequester(
-        missing,
+        tracker,
         blockProposal,
         undefined,
-        deadline,
         mockP2PService,
         logger,
         new DateProvider(),
         {
           smartParallelWorkerCount: 2,
           dumbParallelWorkerCount: 2,
-          abortSignal: abortController.signal,
           txValidator,
         },
       );
@@ -1059,12 +1047,12 @@ describe('BatchTxRequester', () => {
         [peers[2].toString(), Array.from({ length: 10 }, (_, i) => i + 20)],
       ]);
 
-      const abortController = new AbortController();
+      const tracker = RequestTracker.create(missing, new Date(Date.now() + deadline));
       let requestCount = 0;
 
       reqResp.sendRequestToPeer.mockImplementation(async (peerId: any) => {
         if (requestCount === 1) {
-          abortController.abort();
+          tracker.cancel();
         }
 
         // Return successful response with transactions
@@ -1074,14 +1062,13 @@ describe('BatchTxRequester', () => {
         const availableTxs = availableTxHashes.map(h => makeTx(h));
 
         const response = new BlockTxsResponse(
-          blockProposal.archive,
           new TxArray(...availableTxs),
           BitVector.init(blockProposal.txHashes.length, peerHasIndices),
         );
 
         requestCount++;
 
-        // Allow event loop to process abort signal
+        // Allow event loop to process cancellation
         await sleep(50);
         return {
           status: ReqRespStatus.SUCCESS,
@@ -1090,25 +1077,23 @@ describe('BatchTxRequester', () => {
       });
 
       const requester = new BatchTxRequester(
-        missing,
+        tracker,
         blockProposal,
         undefined,
-        deadline,
         mockP2PService,
         logger,
         new DateProvider(),
         {
           smartParallelWorkerCount: 0,
           dumbParallelWorkerCount: 2,
-          abortSignal: abortController.signal,
           txValidator,
         },
       );
 
       const result = await BatchTxRequester.collectAllTxs(requester.run());
 
-      // Verify abort was actually triggered
-      expect(abortController.signal.aborted).toBe(true);
+      // Verify cancellation was actually triggered
+      expect(tracker.checkCancelled()).toBe(true);
 
       expect(result).toBeDefined();
       expect(result!.length).toBeGreaterThan(0);
@@ -1132,42 +1117,32 @@ describe('BatchTxRequester', () => {
       const peers = await Promise.all([createSecp256k1PeerId(), createSecp256k1PeerId()]);
       connectionSampler.getPeerListSortedByConnectionCountAsc.mockReturnValue(peers);
 
-      const peerCollection = new TestPeerCollection(new PeerCollection(peers, undefined, clock));
+      const peerCollection = new TestPeerCollection(new PeerCollection(connectionSampler, undefined, clock));
 
       const peerTransactions = new Map([[peers[0].toString(), Array.from({ length: txCount / 2 }, (_, i) => i)]]);
       const { mockImplementation } = createRequestLogger(blockProposal, new Set(), peerTransactions, 100);
       reqResp.sendRequestToPeer.mockImplementation(mockImplementation);
 
-      const abortController = new AbortController();
+      const tracker = RequestTracker.create(missing, new Date(Date.now() + deadline));
 
       // Create semaphore that starts with 0 permits to block smart workers
       const semaphore = new TestSemaphore(new Semaphore(0));
-      const requester = new BatchTxRequester(
-        missing,
-        blockProposal,
-        undefined,
-        deadline,
-        mockP2PService,
-        logger,
-        clock,
-        {
-          semaphore,
-          smartParallelWorkerCount: 2,
-          dumbParallelWorkerCount: 2,
-          peerCollection,
-          abortSignal: abortController.signal,
-          txValidator,
-        },
-      );
+      const requester = new BatchTxRequester(tracker, blockProposal, undefined, mockP2PService, logger, clock, {
+        semaphore,
+        smartParallelWorkerCount: 2,
+        dumbParallelWorkerCount: 2,
+        peerCollection,
+        txValidator,
+      });
 
       const runPromise = BatchTxRequester.collectAllTxs(requester.run());
 
       await sleep(1000); // Allow some time for smart workers to start and block on semaphore
-      abortController.abort(); // Trigger abort while smart workers are blocked
+      tracker.cancel(); // Trigger cancellation while smart workers are blocked
       const result = await runPromise;
 
-      // Verify abort was triggered
-      expect(abortController.signal.aborted).toBe(true);
+      // Verify cancellation was triggered
+      expect(tracker.checkCancelled()).toBe(true);
 
       // Verify peer was promoted to smart
       expect(peerCollection.smartPeersMarked).toContain(peers[0].toString());
@@ -1194,7 +1169,9 @@ describe('BatchTxRequester', () => {
 
       const peers = await Promise.all([createSecp256k1PeerId(), createSecp256k1PeerId()]);
       connectionSampler.getPeerListSortedByConnectionCountAsc.mockReturnValue(peers);
-      const peerCollection = new TestPeerCollection(new PeerCollection(peers, undefined, new DateProvider()));
+      const peerCollection = new TestPeerCollection(
+        new PeerCollection(connectionSampler, undefined, new DateProvider()),
+      );
 
       // Define which transactions each peer has
       const peerTransactions = new Map([
@@ -1204,23 +1181,21 @@ describe('BatchTxRequester', () => {
 
       const invalidTxIndices = new Set([2, 3, 7]); // Mark transactions at indices 2, 3, and 7 as invalid
 
-      const customValidator: IBatchRequestTxValidator = {
-        validateRequestedTx: (tx: Tx) => {
+      const customValidator: TxValidator = {
+        validateTx: (tx: Tx) => {
           const txIndex = missing.findIndex(h => h.equals(tx.txHash));
           const isInvalid = invalidTxIndices.has(txIndex);
           return Promise.resolve(isInvalid ? { result: 'invalid', reason: ['test invalid'] } : { result: 'valid' });
         },
-        validateRequestedTxs: (txs: Tx[]) => Promise.all(txs.map(tx => customValidator.validateRequestedTx(tx))),
       };
 
       const { mockImplementation } = createRequestLogger(blockProposal, new Set(), peerTransactions);
       reqResp.sendRequestToPeer.mockImplementation(mockImplementation);
 
       const requester = new BatchTxRequester(
-        missing,
+        RequestTracker.create(missing, new Date(Date.now() + deadline)),
         blockProposal,
         undefined,
-        deadline,
         mockP2PService,
         logger,
         new DateProvider(),
@@ -1285,23 +1260,21 @@ describe('BatchTxRequester', () => {
       // Validator that rejects transactions at specific indices
       // Even indices are rejected, odd indices are accepted
       const invalidTxIndices = new Set([0, 2, 4, 6, 8, 10]);
-      const mixedValidator: IBatchRequestTxValidator = {
-        validateRequestedTx: (tx: Tx) => {
+      const mixedValidator: TxValidator = {
+        validateTx: (tx: Tx) => {
           const txIndex = missing.findIndex(h => h.equals(tx.txHash));
           const isInvalid = invalidTxIndices.has(txIndex);
           return Promise.resolve(isInvalid ? { result: 'invalid', reason: ['test invalid'] } : { result: 'valid' });
         },
-        validateRequestedTxs: (txs: Tx[]) => Promise.all(txs.map(tx => mixedValidator.validateRequestedTx(tx))),
       };
 
       const { mockImplementation } = createRequestLogger(blockProposal, new Set(), peerTransactions);
       reqResp.sendRequestToPeer.mockImplementation(mockImplementation);
 
       const requester = new BatchTxRequester(
-        missing,
+        RequestTracker.create(missing, new Date(Date.now() + deadline)),
         blockProposal,
         undefined,
-        deadline,
         mockP2PService,
         logger,
         new DateProvider(),
@@ -1344,8 +1317,8 @@ describe('BatchTxRequester', () => {
       connectionSampler.getPeerListSortedByConnectionCountAsc.mockReturnValue([peer]);
 
       // Validator that throws errors for specific transactions
-      const throwingValidator: IBatchRequestTxValidator = {
-        validateRequestedTx: (tx: Tx) => {
+      const throwingValidator: TxValidator = {
+        validateTx: (tx: Tx) => {
           const txIndex = missing.findIndex(h => h.equals(tx.txHash));
 
           // Throw error for transactions at indices 1 and 3
@@ -1360,7 +1333,6 @@ describe('BatchTxRequester', () => {
 
           return Promise.resolve({ result: 'valid' });
         },
-        validateRequestedTxs: (txs: Tx[]) => Promise.all(txs.map(tx => throwingValidator.validateRequestedTx(tx))),
       };
 
       const peerTransactions = new Map([[peer.toString(), Array.from({ length: txCount }, (_, i) => i)]]);
@@ -1369,10 +1341,9 @@ describe('BatchTxRequester', () => {
       reqResp.sendRequestToPeer.mockImplementation(mockImplementation);
 
       const requester = new BatchTxRequester(
-        missing,
+        RequestTracker.create(missing, new Date(Date.now() + deadline)),
         blockProposal,
         undefined,
-        deadline,
         mockP2PService,
         logger,
         new DateProvider(),
@@ -1398,6 +1369,61 @@ describe('BatchTxRequester', () => {
       [0, 2, 4, 6, 7].forEach(validIndex => {
         expect(resultTxHashes.has(missing[validIndex].toString())).toBe(true);
       });
+    });
+  });
+
+  describe('External fetching', () => {
+    it('should not request transactions that were marked as fetched externally', async () => {
+      const txCount = 16;
+      const deadline = 5_000;
+      const missing = Array.from({ length: txCount }, () => TxHash.random());
+
+      blockProposal = await makeBlockProposal({
+        signer: Secp256k1Signer.random(),
+        blockHeader: makeBlockHeader(1, { blockNumber: BlockNumber(1) }),
+        archiveRoot: Fr.random(),
+        txHashes: missing,
+      });
+
+      const peer = await createSecp256k1PeerId();
+      connectionSampler.getPeerListSortedByConnectionCountAsc.mockReturnValue([peer]);
+
+      const tracker = RequestTracker.create(missing, new Date(Date.now() + deadline));
+
+      // Peer has only first half of transactions
+      const peerTransactions = new Map([[peer.toString(), Array.from({ length: TX_BATCH_SIZE }, (_, i) => i)]]);
+      const { requestLog, mockImplementation } = createRequestLogger(blockProposal, new Set(), peerTransactions);
+      reqResp.sendRequestToPeer.mockImplementation(mockImplementation);
+
+      // Create requester first
+      const requester = new BatchTxRequester(
+        tracker,
+        blockProposal,
+        undefined,
+        mockP2PService,
+        logger,
+        new DateProvider(),
+        {
+          smartParallelWorkerCount: 0,
+          dumbParallelWorkerCount: 1,
+          txValidator,
+        },
+      );
+
+      // Mark transactions 8-15 as fetched externally after creating requester
+      for (let i = TX_BATCH_SIZE; i < txCount; i++) {
+        tracker.markFetched(makeTx(missing[i]));
+      }
+
+      // Run and collect results
+      const result = await BatchTxRequester.collectAllTxs(requester.run());
+
+      // Verify only transactions 0-7 were requested (indices 8-15 were marked fetched)
+      const allRequestedIndices = requestLog.get(peer.toString())?.flatMap(r => r.indices) || [];
+      const requestedExternallyFetched = allRequestedIndices.filter(idx => idx >= TX_BATCH_SIZE);
+
+      expect(requestedExternallyFetched).toEqual([]);
+      expect(result.length).toBe(TX_BATCH_SIZE);
     });
   });
 
@@ -1430,10 +1456,9 @@ describe('BatchTxRequester', () => {
       reqResp.sendRequestToPeer.mockImplementation(mockImplementation);
 
       const requester = new BatchTxRequester(
-        missing,
+        RequestTracker.create(missing, new Date(Date.now() + deadline)),
         blockProposal,
         pinnedPeer,
-        deadline,
         mockP2PService,
         logger,
         new DateProvider(),
@@ -1468,7 +1493,9 @@ describe('BatchTxRequester', () => {
       connectionSampler.getPeerListSortedByConnectionCountAsc.mockReturnValue(peers);
 
       const [pinnedPeer, regularPeer] = peers;
-      const peerCollection = new TestPeerCollection(new PeerCollection(peers, pinnedPeer, new DateProvider()));
+      const peerCollection = new TestPeerCollection(
+        new PeerCollection(connectionSampler, pinnedPeer, new DateProvider()),
+      );
 
       // Both peers have all transactions
       const peerTransactions = new Map([
@@ -1480,10 +1507,9 @@ describe('BatchTxRequester', () => {
       reqResp.sendRequestToPeer.mockImplementation(mockImplementation);
 
       const requester = new BatchTxRequester(
-        missing,
+        RequestTracker.create(missing, new Date(Date.now() + deadline)),
         blockProposal,
         pinnedPeer,
-        deadline,
         mockP2PService,
         logger,
         new DateProvider(),
@@ -1498,8 +1524,9 @@ describe('BatchTxRequester', () => {
       await BatchTxRequester.collectAllTxs(requester.run());
 
       // Verify pinned peer was never marked as smart
-      expect(peerCollection.getSmartPeers()).not.toContain(pinnedPeer.toString());
-      expect(peerCollection.getSmartPeersToQuery()).not.toContain(pinnedPeer.toString());
+      expect(sampleAllPeers(peerCollection.nextSmartPeerToQuery.bind(peerCollection))).not.toContain(
+        pinnedPeer.toString(),
+      );
     });
 
     it('should handle pinned peer being rate limited and recover', async () => {
@@ -1517,7 +1544,7 @@ describe('BatchTxRequester', () => {
 
       const peers = await Promise.all([createSecp256k1PeerId(), createSecp256k1PeerId()]);
       const [pinnedPeer, regularPeer] = peers;
-      const peerCollection = new TestPeerCollection(new PeerCollection(peers, pinnedPeer, clock));
+      const peerCollection = new TestPeerCollection(new PeerCollection(connectionSampler, pinnedPeer, clock));
 
       connectionSampler.getPeerListSortedByConnectionCountAsc.mockReturnValue(peers);
 
@@ -1549,7 +1576,6 @@ describe('BatchTxRequester', () => {
         const availableTxs = availableTxHashes.map(h => makeTx(h));
 
         const response = new BlockTxsResponse(
-          blockProposal.archive,
           new TxArray(...availableTxs),
           BitVector.init(blockProposal.txHashes.length, peerHasIndices),
         );
@@ -1561,10 +1587,9 @@ describe('BatchTxRequester', () => {
       });
 
       const requester = new BatchTxRequester(
-        missing,
+        RequestTracker.create(missing, new Date(Date.now() + deadline)),
         blockProposal,
         pinnedPeer,
-        deadline,
         mockP2PService,
         logger,
         clock,
@@ -1603,7 +1628,9 @@ describe('BatchTxRequester', () => {
 
       const peers = await Promise.all([createSecp256k1PeerId(), createSecp256k1PeerId()]);
       const [pinnedPeer, regularPeer] = peers;
-      const peerCollection = new TestPeerCollection(new PeerCollection(peers, pinnedPeer, new DateProvider()));
+      const peerCollection = new TestPeerCollection(
+        new PeerCollection(connectionSampler, pinnedPeer, new DateProvider()),
+      );
 
       connectionSampler.getPeerListSortedByConnectionCountAsc.mockReturnValue(peers);
 
@@ -1615,10 +1642,9 @@ describe('BatchTxRequester', () => {
       reqResp.sendRequestToPeer.mockImplementation(mockImplementation);
 
       const requester = new BatchTxRequester(
-        missing,
+        RequestTracker.create(missing, new Date(Date.now() + deadline)),
         blockProposal,
         pinnedPeer,
-        deadline,
         mockP2PService,
         logger,
         new DateProvider(),
@@ -1658,23 +1684,21 @@ describe('BatchTxRequester', () => {
 
       const invalidTxIndices = new Set([1, 6]); // Mark some transactions as invalid
 
-      const customValidator: IBatchRequestTxValidator = {
-        validateRequestedTx: (tx: Tx) => {
+      const customValidator: TxValidator = {
+        validateTx: (tx: Tx) => {
           const txIndex = missing.findIndex(h => h.equals(tx.txHash));
           const isInvalid = invalidTxIndices.has(txIndex);
           return Promise.resolve(isInvalid ? { result: 'invalid', reason: ['test invalid'] } : { result: 'valid' });
         },
-        validateRequestedTxs: (txs: Tx[]) => Promise.all(txs.map(tx => customValidator.validateRequestedTx(tx))),
       };
 
       const { mockImplementation } = createRequestLogger(blockProposal, new Set(), peerTransactions);
       reqResp.sendRequestToPeer.mockImplementation(mockImplementation);
 
       const requester = new BatchTxRequester(
-        missing,
+        RequestTracker.create(missing, new Date(Date.now() + deadline)),
         blockProposal,
         pinnedPeer,
-        deadline,
         mockP2PService,
         logger,
         new DateProvider(),
@@ -1696,6 +1720,491 @@ describe('BatchTxRequester', () => {
       expect(resultTxHashes.has(missing[6].toString())).toBe(false); // Invalid from regular
     });
   });
+
+  describe('Smart peer demotion', () => {
+    it('should demote a smart peer to dumb (without penalising) when it stops advertising the block', async () => {
+      const txCount = 2 * TX_BATCH_SIZE;
+      const deadline = 5_000;
+      const missing = Array.from({ length: txCount }, () => TxHash.random());
+
+      blockProposal = await makeBlockProposal({
+        signer: Secp256k1Signer.random(),
+        blockHeader: makeBlockHeader(1, { blockNumber: BlockNumber(1) }),
+        archiveRoot: Fr.random(),
+        txHashes: missing,
+      });
+
+      const peers = await Promise.all([createSecp256k1PeerId(), createSecp256k1PeerId()]);
+      connectionSampler.getPeerListSortedByConnectionCountAsc.mockReturnValue(peers);
+
+      const peerCollection = new TestPeerCollection(
+        new PeerCollection(connectionSampler, undefined, new DateProvider()),
+      );
+
+      const allIndices = Array.from({ length: txCount }, (_, i) => i);
+
+      let peer0RequestCount = 0;
+      reqResp.sendRequestToPeer.mockImplementation(async (peerId: any, _sub: any, data: any) => {
+        const peerStr = peerId.toString();
+
+        if (peerStr === peers[0].toString()) {
+          peer0RequestCount++;
+
+          if (peer0RequestCount === 1) {
+            // First dumb request: valid response claiming all txs → promoted to smart
+            const request = BlockTxsRequest.fromBuffer(data);
+            const requestedIndices = request.txIndices.getTrueIndices();
+            const availableTxs = requestedIndices.map(idx => makeTx(blockProposal.txHashes[idx]));
+
+            return {
+              status: ReqRespStatus.SUCCESS,
+              data: new BlockTxsResponse(new TxArray(...availableTxs), BitVector.init(txCount, allIndices)).toBuffer(),
+            };
+          }
+
+          // Subsequent smart requests: a zero-length bitvector signals the peer no longer has the
+          // block (a full-length all-zeros vector would instead mean "has the block, but no txs").
+          return {
+            status: ReqRespStatus.SUCCESS,
+            data: new BlockTxsResponse(new TxArray(), BitVector.init(0, [])).toBuffer(),
+          };
+        }
+
+        // peer1 always succeeds with a delay
+        await sleep(50);
+        const request = BlockTxsRequest.fromBuffer(data);
+        const requestedIndices = request.txIndices.getTrueIndices();
+        const availableTxs = requestedIndices.map(idx => makeTx(blockProposal.txHashes[idx]));
+
+        return {
+          status: ReqRespStatus.SUCCESS,
+          data: new BlockTxsResponse(new TxArray(...availableTxs), BitVector.init(txCount, allIndices)).toBuffer(),
+        };
+      });
+
+      const tracker = RequestTracker.create(missing, new Date(Date.now() + deadline));
+      const requester = new BatchTxRequester(
+        tracker,
+        blockProposal,
+        undefined,
+        mockP2PService,
+        logger,
+        new DateProvider(),
+        {
+          smartParallelWorkerCount: 1,
+          dumbParallelWorkerCount: 1,
+          peerCollection,
+          txValidator,
+        },
+      );
+
+      const results = await BatchTxRequester.collectAllTxs(requester.run());
+      expect(results).toHaveLength(txCount);
+
+      // Verify peer0 was first promoted to smart, then demoted once it stopped advertising the block
+      expect(peerCollection.smartPeersMarked).toContain(peers[0].toString());
+      expect(peerCollection.peersMarkedDumb).toContain(peers[0].toString());
+
+      // A peer that lacks the block is in a legitimate state — it should NOT be penalised
+      const peer0Penalties = peerCollection.peersPenalised.filter(e => e.peerId === peers[0].toString());
+      expect(peer0Penalties).toHaveLength(0);
+    });
+  });
+
+  describe('Response consistency validation', () => {
+    it('marks peer dumb (without penalising) when validateRequestedBlockTxsConsistency rejects the response', async () => {
+      const txCount = TX_BATCH_SIZE;
+      const deadline = 5_000;
+      const missing = Array.from({ length: txCount }, () => TxHash.random());
+
+      blockProposal = await makeBlockProposal({
+        signer: Secp256k1Signer.random(),
+        blockHeader: makeBlockHeader(1, { blockNumber: BlockNumber(1) }),
+        archiveRoot: Fr.random(),
+        txHashes: missing,
+      });
+
+      const peers = await Promise.all([createSecp256k1PeerId(), createSecp256k1PeerId()]);
+      connectionSampler.getPeerListSortedByConnectionCountAsc.mockReturnValue(peers);
+
+      const peerCollection = new TestPeerCollection(
+        new PeerCollection(connectionSampler, undefined, new DateProvider()),
+      );
+
+      // peer0's responses are rejected by consistency validation; peer1's responses pass.
+      const consistencyCallPeerIds: string[] = [];
+      mockP2PService.validateRequestedBlockTxsConsistency.mockImplementation((_req, _resp, peerId) => {
+        consistencyCallPeerIds.push(peerId.toString());
+        return Promise.resolve(peerId.toString() !== peers[0].toString());
+      });
+
+      // Both peers return well-formed responses with the requested txs;
+      // the consistency mock is what decides whether the response is accepted.
+      reqResp.sendRequestToPeer.mockImplementation((_peerId: any, _sub: any, data: any) => {
+        const request = BlockTxsRequest.fromBuffer(data);
+        const requestedIndices = request.txIndices.getTrueIndices();
+        const availableTxs = requestedIndices.map(idx => makeTx(blockProposal.txHashes[idx]));
+
+        return Promise.resolve({
+          status: ReqRespStatus.SUCCESS,
+          data: new BlockTxsResponse(
+            new TxArray(...availableTxs),
+            BitVector.init(txCount, requestedIndices),
+          ).toBuffer(),
+        });
+      });
+
+      const requester = new BatchTxRequester(
+        RequestTracker.create(missing, new Date(Date.now() + deadline)),
+        blockProposal,
+        undefined,
+        mockP2PService,
+        logger,
+        new DateProvider(),
+        {
+          smartParallelWorkerCount: 0,
+          dumbParallelWorkerCount: 2,
+          peerCollection,
+          txValidator,
+        },
+      );
+
+      const results = await BatchTxRequester.collectAllTxs(requester.run());
+
+      // All txs eventually fetched (via peer1).
+      expect(results).toHaveLength(txCount);
+
+      // Consistency validation was invoked for peer0's response.
+      expect(consistencyCallPeerIds).toContain(peers[0].toString());
+
+      // peer0 marked dumb (INTERNAL_ERROR path in handleFailResponseFromPeer)…
+      expect(peerCollection.peersMarkedDumb).toContain(peers[0].toString());
+
+      // …but NOT penalised — failed consistency yields INTERNAL_ERROR, not a penalty cause.
+      const peer0Penalties = peerCollection.peersPenalised.filter(e => e.peerId === peers[0].toString());
+      expect(peer0Penalties).toHaveLength(0);
+    });
+
+    // Regression test for the former bug: a peer that signals it lacks the block (empty bitvector)
+    // but still ships the txs it matched by hash used to have its whole response discarded. The
+    // requester must instead USE those txs and merely mark the peer dumb (it can't serve index-based
+    // smart requests), without penalising it.
+    it('uses the txs from a peer that lacks the block (empty bitvector) and marks it dumb', async () => {
+      const txCount = TX_BATCH_SIZE;
+      const deadline = 5_000;
+      const missing = Array.from({ length: txCount }, () => TxHash.random());
+
+      blockProposal = await makeBlockProposal({
+        signer: Secp256k1Signer.random(),
+        blockHeader: makeBlockHeader(1, { blockNumber: BlockNumber(1) }),
+        archiveRoot: Fr.random(),
+        txHashes: missing,
+      });
+
+      const peers = await Promise.all([createSecp256k1PeerId()]);
+      connectionSampler.getPeerListSortedByConnectionCountAsc.mockReturnValue(peers);
+
+      const peerCollection = new TestPeerCollection(
+        new PeerCollection(connectionSampler, undefined, new DateProvider()),
+      );
+
+      // The validator accepts the response: a valid subset of block txs is fine even when the peer
+      // signals it lacks the block.
+      mockP2PService.validateRequestedBlockTxsConsistency.mockResolvedValue(true);
+
+      // The peer ships the requested txs but with an EMPTY bitvector -> peerHasBlock() === false.
+      reqResp.sendRequestToPeer.mockImplementation((_peerId: any, _sub: any, data: any) => {
+        const request = BlockTxsRequest.fromBuffer(data);
+        const requestedIndices = request.txIndices.getTrueIndices();
+        const availableTxs = requestedIndices.map(idx => makeTx(blockProposal.txHashes[idx]));
+
+        return Promise.resolve({
+          status: ReqRespStatus.SUCCESS,
+          data: new BlockTxsResponse(new TxArray(...availableTxs), BitVector.init(0, [])).toBuffer(),
+        });
+      });
+
+      const requester = new BatchTxRequester(
+        RequestTracker.create(missing, new Date(Date.now() + deadline)),
+        blockProposal,
+        undefined,
+        mockP2PService,
+        logger,
+        new DateProvider(),
+        {
+          smartParallelWorkerCount: 1,
+          dumbParallelWorkerCount: 1,
+          peerCollection,
+          txValidator,
+        },
+      );
+
+      const results = await BatchTxRequester.collectAllTxs(requester.run());
+
+      // The core of the regression: the txs were USED (delivered), not discarded.
+      expect(results).toHaveLength(txCount);
+
+      // The peer is marked dumb (it can't serve smart, index-based requests) but is NOT penalised.
+      expect(peerCollection.peersMarkedDumb).toContain(peers[0].toString());
+      const peerPenalties = peerCollection.peersPenalised.filter(e => e.peerId === peers[0].toString());
+      expect(peerPenalties).toHaveLength(0);
+    });
+  });
+});
+
+describe('PeerCollection - Dynamic peer list', () => {
+  it('should reflect new peers joining', async () => {
+    const connectionSampler = mock<ConnectionSampler>();
+    const dateProvider = new DateProvider();
+
+    const [peer1, peer2, peer3] = await Promise.all([
+      createSecp256k1PeerId(),
+      createSecp256k1PeerId(),
+      createSecp256k1PeerId(),
+    ]);
+
+    // Start with 2 peers
+    connectionSampler.getPeerListSortedByConnectionCountAsc.mockReturnValue([peer1, peer2]);
+    const pc = new PeerCollection(connectionSampler, undefined, dateProvider);
+
+    assertPeerSequence(pc.nextDumbPeerToQuery.bind(pc), [peer1, peer2]);
+
+    // A third peer joins
+    connectionSampler.getPeerListSortedByConnectionCountAsc.mockReturnValue([peer1, peer2, peer3]);
+
+    // peer3 is the first unqueried peer (peer1 and peer2 were already sampled),
+    // then the round resets and continues from peer1.
+    assertPeerSequence(pc.nextDumbPeerToQuery.bind(pc), [peer3, peer1, peer2]);
+  });
+
+  it('should reflect peers leaving', async () => {
+    const connectionSampler = mock<ConnectionSampler>();
+    const dateProvider = new DateProvider();
+
+    const [peer1, peer2, peer3] = await Promise.all([
+      createSecp256k1PeerId(),
+      createSecp256k1PeerId(),
+      createSecp256k1PeerId(),
+    ]);
+
+    connectionSampler.getPeerListSortedByConnectionCountAsc.mockReturnValue([peer1, peer2, peer3]);
+    const pc = new PeerCollection(connectionSampler, undefined, dateProvider);
+
+    // peer2 disconnects
+    connectionSampler.getPeerListSortedByConnectionCountAsc.mockReturnValue([peer1, peer3]);
+
+    assertPeerSequence(pc.nextDumbPeerToQuery.bind(pc), [peer1, peer3]);
+  });
+
+  it('should reflect new smart peers joining', async () => {
+    const connectionSampler = mock<ConnectionSampler>();
+    const dateProvider = new DateProvider();
+
+    const [peer1, peer2, peer3] = await Promise.all([
+      createSecp256k1PeerId(),
+      createSecp256k1PeerId(),
+      createSecp256k1PeerId(),
+    ]);
+
+    // Start with 2 peers, both marked smart
+    connectionSampler.getPeerListSortedByConnectionCountAsc.mockReturnValue([peer1, peer2]);
+    const pc = new PeerCollection(connectionSampler, undefined, dateProvider);
+    pc.markPeerSmart(peer1);
+    pc.markPeerSmart(peer2);
+
+    assertPeerSequence(pc.nextSmartPeerToQuery.bind(pc), [peer1, peer2]);
+
+    // A third smart peer joins
+    connectionSampler.getPeerListSortedByConnectionCountAsc.mockReturnValue([peer1, peer2, peer3]);
+    pc.markPeerSmart(peer3);
+
+    // peer3 is the first unqueried smart peer (peer1 and peer2 were already sampled),
+    // then the round resets and continues from peer1.
+    assertPeerSequence(pc.nextSmartPeerToQuery.bind(pc), [peer3, peer1, peer2]);
+  });
+
+  it('should reflect smart peers leaving', async () => {
+    const connectionSampler = mock<ConnectionSampler>();
+    const dateProvider = new DateProvider();
+
+    const [peer1, peer2, peer3] = await Promise.all([
+      createSecp256k1PeerId(),
+      createSecp256k1PeerId(),
+      createSecp256k1PeerId(),
+    ]);
+
+    connectionSampler.getPeerListSortedByConnectionCountAsc.mockReturnValue([peer1, peer2, peer3]);
+    const pc = new PeerCollection(connectionSampler, undefined, dateProvider);
+    pc.markPeerSmart(peer1);
+    pc.markPeerSmart(peer2);
+    pc.markPeerSmart(peer3);
+
+    assertPeerSequence(pc.nextSmartPeerToQuery.bind(pc), [peer1, peer2, peer3]);
+
+    // peer2 disconnects
+    connectionSampler.getPeerListSortedByConnectionCountAsc.mockReturnValue([peer1, peer3]);
+
+    assertPeerSequence(pc.nextSmartPeerToQuery.bind(pc), [peer1, peer3]);
+  });
+
+  it('should retain smart status after disconnect and reconnect', async () => {
+    const connectionSampler = mock<ConnectionSampler>();
+    const dateProvider = new DateProvider();
+
+    const [peer1, peer2] = await Promise.all([createSecp256k1PeerId(), createSecp256k1PeerId()]);
+
+    connectionSampler.getPeerListSortedByConnectionCountAsc.mockReturnValue([peer1, peer2]);
+    const pc = new PeerCollection(connectionSampler, undefined, dateProvider);
+    pc.markPeerSmart(peer1);
+
+    // peer1 disconnects — no longer available as smart
+    connectionSampler.getPeerListSortedByConnectionCountAsc.mockReturnValue([peer2]);
+
+    expect(pc.nextSmartPeerToQuery()).toBeUndefined();
+
+    // peer1 reconnects — should still be smart
+    connectionSampler.getPeerListSortedByConnectionCountAsc.mockReturnValue([peer1, peer2]);
+
+    expect(pc.nextSmartPeerToQuery()?.toString()).toBe(peer1.toString());
+    // peer2 should still be dumb
+    expect(pc.nextDumbPeerToQuery()?.toString()).toBe(peer2.toString());
+  });
+
+  it('should return undefined when all peers leave', async () => {
+    const connectionSampler = mock<ConnectionSampler>();
+    const dateProvider = new DateProvider();
+
+    const [peer1] = await Promise.all([createSecp256k1PeerId()]);
+
+    connectionSampler.getPeerListSortedByConnectionCountAsc.mockReturnValue([peer1]);
+    const pc = new PeerCollection(connectionSampler, undefined, dateProvider);
+
+    expect(pc.nextDumbPeerToQuery()).not.toBeUndefined();
+
+    // All peers disconnect
+    connectionSampler.getPeerListSortedByConnectionCountAsc.mockReturnValue([]);
+
+    expect(pc.nextDumbPeerToQuery()).toBeUndefined();
+    expect(pc.nextSmartPeerToQuery()).toBeUndefined();
+  });
+
+  it('should recover when all peers disconnect and more peers reconnect', async () => {
+    const connectionSampler = mock<ConnectionSampler>();
+    const dateProvider = new DateProvider();
+
+    const peers = await Promise.all(Array.from({ length: 6 }, () => createSecp256k1PeerId()));
+    const [peer1, peer2, peer3, peer4, peer5, peer6] = peers;
+
+    // Start with 3 peers
+    connectionSampler.getPeerListSortedByConnectionCountAsc.mockReturnValue([peer1, peer2, peer3]);
+    const pc = new PeerCollection(connectionSampler, undefined, dateProvider);
+
+    // Sample one peer before disconnection
+    const firstSampled = pc.nextDumbPeerToQuery();
+    expect(firstSampled).not.toBeUndefined();
+
+    // All peers disconnect
+    connectionSampler.getPeerListSortedByConnectionCountAsc.mockReturnValue([]);
+
+    expect(pc.nextDumbPeerToQuery()).toBeUndefined();
+    expect(pc.nextDumbPeerToQuery()).toBeUndefined();
+
+    // Original 3 plus 3 new peers connect
+    connectionSampler.getPeerListSortedByConnectionCountAsc.mockReturnValue([peer1, peer2, peer3, peer4, peer5, peer6]);
+
+    // peer1 was already sampled before disconnect, so it appears last in the first cycle
+    assertPeerSequence(pc.nextDumbPeerToQuery.bind(pc), [peer2, peer3, peer4, peer5, peer6, peer1]);
+  });
+
+  it('should exclude pinned peer dumb sampling, and smart sampling', async () => {
+    const connectionSampler = mock<ConnectionSampler>();
+    const dateProvider = new DateProvider();
+
+    const [peer1, peer2, pinnedPeer] = await Promise.all([
+      createSecp256k1PeerId(),
+      createSecp256k1PeerId(),
+      createSecp256k1PeerId(),
+    ]);
+
+    // Connection sampler returns all 3 peers including the pinned one
+    connectionSampler.getPeerListSortedByConnectionCountAsc.mockReturnValue([pinnedPeer, peer1, peer2]);
+    const pc = new PeerCollection(connectionSampler, pinnedPeer, dateProvider);
+
+    // Pinned peer is excluded from dumb sampling
+    assertPeerSequence(pc.nextDumbPeerToQuery.bind(pc), [peer1, peer2]);
+
+    // Mark all peers as smart (including pinned)
+    pc.markPeerSmart(peer1);
+    pc.markPeerSmart(peer2);
+    pc.markPeerSmart(pinnedPeer);
+
+    // Pinned peer is excluded from smart sampling
+    assertPeerSequence(pc.nextSmartPeerToQuery.bind(pc), [peer1, peer2]);
+  });
+
+  it('should exclude bad, in-flight, and rate-limited peers from available counts', async () => {
+    const connectionSampler = mock<ConnectionSampler>();
+    const clock = new TestClock();
+
+    const [peer1, peer2, peer3, peer4] = await Promise.all([
+      createSecp256k1PeerId(),
+      createSecp256k1PeerId(),
+      createSecp256k1PeerId(),
+      createSecp256k1PeerId(),
+    ]);
+
+    connectionSampler.getPeerListSortedByConnectionCountAsc.mockReturnValue([peer1, peer2, peer3, peer4]);
+    const pc = new PeerCollection(connectionSampler, undefined, clock, /* badPeerThreshold */ 0);
+
+    // All 4 are dumb initially
+    assertPeerSequence(pc.nextDumbPeerToQuery.bind(pc), [peer1, peer2, peer3, peer4]);
+
+    // Mark peer1 as bad (threshold=0 means first penalty marks as bad)
+    pc.penalisePeer(peer1, PeerErrorSeverity.HighToleranceError);
+    assertPeerSequence(pc.nextDumbPeerToQuery.bind(pc), [peer2, peer3, peer4]);
+
+    // Mark peer2 as in-flight
+    pc.markPeerInFlight(peer2);
+    assertPeerSequence(pc.nextDumbPeerToQuery.bind(pc), [peer3, peer4]);
+
+    // Mark peer3 as rate-limited
+    pc.markPeerRateLimitExceeded(peer3);
+    assertPeerSequence(pc.nextDumbPeerToQuery.bind(pc), [peer4]);
+
+    // Now test smart counts: promote peer1-peer4 to smart
+    pc.markPeerSmart(peer1);
+    pc.markPeerSmart(peer2);
+    pc.markPeerSmart(peer3);
+    pc.markPeerSmart(peer4);
+
+    // peer1 is bad, peer2 is in-flight, peer3 is rate-limited → only peer4 available
+    assertPeerSequence(pc.nextSmartPeerToQuery.bind(pc), [peer4]);
+
+    // Undo exclusions and verify counts recover
+    pc.unMarkPeerAsBad(peer1);
+    pc.unMarkPeerInFlight(peer2);
+    clock.advanceTo(RATE_LIMIT_EXCEEDED_PEER_CACHE_TTL);
+
+    expect(pc.nextDumbPeerToQuery()).toBeUndefined();
+    expect(pc.nextSmartPeerToQuery()?.toString()).toBe(peer1.toString());
+    expect(pc.nextSmartPeerToQuery()?.toString()).toBe(peer2.toString());
+    expect(pc.nextSmartPeerToQuery()?.toString()).toBe(peer3.toString());
+
+    assertPeerSequence(pc.nextSmartPeerToQuery.bind(pc), [peer1, peer2, peer3, peer4]); // all are smart now
+  });
+
+  function assertPeerSequence(sampler: () => PeerId | undefined, expectedPeers: PeerId[] | string[]) {
+    for (let i: number = 0; i < expectedPeers.length; i++) {
+      const currentPeer = sampler()?.toString();
+      expect(currentPeer).toBe(expectedPeers[i].toString());
+    }
+
+    // We need to loop twice to be sure that we don't have any extra peers.
+    for (let i: number = 0; i < expectedPeers.length; i++) {
+      const currentPeer = sampler()?.toString();
+      expect(currentPeer).toBe(expectedPeers[i].toString());
+    }
+  }
 });
 
 const makeTx = (txHash?: string | TxHash) => Tx.random({ txHash }) as Tx;
@@ -1735,7 +2244,6 @@ const createRequestLogger = (
     const availableTxs = availableTxHashes.map(h => makeTx(h));
 
     const response = new BlockTxsResponse(
-      blockProposal.archive,
       new TxArray(...availableTxs),
       BitVector.init(blockProposal.txHashes.length, peerHasIndices),
     );
@@ -1780,6 +2288,7 @@ export class TestSemaphore implements ISemaphore {
 
 export class TestPeerCollection implements IPeerCollection {
   public smartPeersMarked: string[] = [];
+  public peersMarkedDumb: string[] = [];
   public peersPenalised: Array<{ peerId: string; severity: PeerErrorSeverity }> = [];
   public peersMarkedInFlight: string[] = [];
   public peersUnmarkedBad: string[] = [];
@@ -1788,25 +2297,22 @@ export class TestPeerCollection implements IPeerCollection {
 
   constructor(private readonly inner: PeerCollection) {}
 
-  getAllPeers(): Set<string> {
-    return this.inner.getAllPeers();
-  }
-
-  getSmartPeers(): Set<string> {
-    return this.inner.getSmartPeers();
-  }
-
   markPeerSmart(peerId: any): void {
     this.smartPeersMarked.push(peerId.toString());
     return this.inner.markPeerSmart(peerId);
   }
 
-  getSmartPeersToQuery(): Array<string> {
-    return this.inner.getSmartPeersToQuery();
+  markPeerDumb(peerId: any): void {
+    this.peersMarkedDumb.push(peerId.toString());
+    return this.inner.markPeerDumb(peerId);
   }
 
-  getDumbPeersToQuery(): Array<string> {
-    return this.inner.getDumbPeersToQuery();
+  nextSmartPeerToQuery(): PeerId | undefined {
+    return this.inner.nextSmartPeerToQuery();
+  }
+
+  nextDumbPeerToQuery(): PeerId | undefined {
+    return this.inner.nextDumbPeerToQuery();
   }
 
   thereAreSomeDumbRatelimitExceededPeers(): boolean {

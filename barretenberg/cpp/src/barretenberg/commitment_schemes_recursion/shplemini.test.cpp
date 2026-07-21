@@ -6,7 +6,6 @@
 #include "barretenberg/eccvm/eccvm_prover.hpp"
 #include "barretenberg/srs/global_crs.hpp"
 #include "barretenberg/stdlib/primitives/curves/bn254.hpp"
-#include "barretenberg/stdlib/primitives/padding_indicator_array/padding_indicator_array.hpp"
 #include "barretenberg/stdlib/primitives/pairing_points.hpp"
 #include "barretenberg/stdlib/proof/proof.hpp"
 #include <gtest/gtest.h>
@@ -111,9 +110,6 @@ template <class PCS> class ShpleminiRecursionTest : public CommitmentTest<typena
     {
         size_t N = 1 << log_circuit_size;
 
-        const auto padding_indicator_array =
-            stdlib::compute_padding_indicator_array<Curve, log_circuit_size>(log_circuit_size);
-
         CommitmentKey commitment_key(16384);
         std::vector<NativeFr> u_challenge = random_challenge_vector(log_circuit_size);
 
@@ -136,9 +132,9 @@ template <class PCS> class ShpleminiRecursionTest : public CommitmentTest<typena
         if (short_scalars) {
 
             auto unshifted_challenges =
-                prover_transcript->template get_challenges<NativeFr>(unshifted_batching_challenge_labels);
+                prover_transcript->template get_short_challenges<NativeFr>(unshifted_batching_challenge_labels);
             auto shifted_challenges =
-                prover_transcript->template get_challenges<NativeFr>(shifted_batching_challenge_labels);
+                prover_transcript->template get_short_challenges<NativeFr>(shifted_batching_challenge_labels);
 
             squashed_unshifted += mock_claims.polynomial_batcher.unshifted[0];
             for (size_t i = 0; i < unshifted_challenges.size(); ++i) {
@@ -213,11 +209,11 @@ template <class PCS> class ShpleminiRecursionTest : public CommitmentTest<typena
                 // bits.
                 unshifted_challenges[0] = Fr(1);
                 // Get `num_polys - 1` short challenges to batch all unshifted commitments
-                auto tail = stdlib_verifier_transcript->template get_challenges<Fr>(unshifted_labels);
+                auto tail = stdlib_verifier_transcript->template get_short_challenges<Fr>(unshifted_labels);
                 std::copy(tail.begin(), tail.end(), unshifted_challenges.begin() + 1);
 
                 // Get `num_shifted` short challenges to batch all shifted commitments
-                auto shifted_challenges = stdlib_verifier_transcript->template get_challenges<Fr>(shifted_labels);
+                auto shifted_challenges = stdlib_verifier_transcript->template get_short_challenges<Fr>(shifted_labels);
 
                 return std::pair{ std::move(unshifted_challenges), std::move(shifted_challenges) };
             };
@@ -249,12 +245,10 @@ template <class PCS> class ShpleminiRecursionTest : public CommitmentTest<typena
             squashed_claim_batcher = claim_batcher;
         }
 
-        auto opening_claim = ShpleminiVerifier::compute_batch_opening_claim(padding_indicator_array,
-                                                                            squashed_claim_batcher,
-                                                                            u_challenge_in_circuit,
-                                                                            Commitment::one(&builder),
-                                                                            stdlib_verifier_transcript)
-                                 .batch_opening_claim;
+        auto opening_claim =
+            ShpleminiVerifier::compute_batch_opening_claim(
+                squashed_claim_batcher, u_challenge_in_circuit, Commitment::one(&builder), stdlib_verifier_transcript)
+                .batch_opening_claim;
         stdlib::recursion::PairingPoints<stdlib::bn254<Builder>> pairing_points(
             KZG<Curve>::reduce_verify_batch_opening_claim(std::move(opening_claim), stdlib_verifier_transcript));
         EXPECT_TRUE(CircuitChecker::check(builder));

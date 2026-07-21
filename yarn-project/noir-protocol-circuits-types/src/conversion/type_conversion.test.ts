@@ -29,7 +29,7 @@ describe('Noir<>stdlib type conversion test suite', () => {
       expect(mapFieldFromNoir(mapFieldToNoir(field))).toEqual(field);
     });
 
-    const point = new Point(new Fr(27n), new Fr(28n), false);
+    const point = new Point(new Fr(27n), new Fr(28n));
 
     it('should map points', () => {
       expect(mapPointFromNoir(mapPointToNoir(point))).toEqual(point);

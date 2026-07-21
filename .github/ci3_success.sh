@@ -25,40 +25,58 @@ function handle_squash_merge {
     return
   fi
   # If we have passed CI and labelled with ci-squash-and-merge, squash the PR.
-  # This will rerun CI on the squash commit - but is intended to be a no-op due to caching.
   echo "Processing squash and merge..."
   # Reauth the git repo with our GITHUB_TOKEN
   git remote set-url origin https://x-access-token:${GITHUB_TOKEN}@github.com/${github_repository}
-  # Get the base commit (merge-base) for the PR
+  git config --unset-all http.https://github.com/.extraheader || true
+  # Drop the trigger label BEFORE squashing. squash-pr.sh force-pushes, which fires a fresh
+  # `synchronize` event; if the label were still set, that event would re-enter this path and loop.
+  # Use the REST endpoint (needs only the `repo` scope AZTEC_BOT_GITHUB_TOKEN has) rather than
+  # `gh pr edit --remove-label`, which runs an org/team GraphQL query requiring `read:org` — a scope
+  # the token lacks, so it errored here and the label was never cleared. `|| true` stops a transient
+  # failure from aborting the merge; squash-pr.sh's single-commit guard prevents looping regardless.
+  gh api -X DELETE "repos/${github_repository}/issues/${PR_NUMBER}/labels/ci-squash-and-merge" || true
+  # Squash the PR commits into one (no-op when the branch is already a single commit).
   ./scripts/merge-train/squash-pr.sh \
     "${PR_NUMBER}" \
     "${PR_HEAD_REF}" \
     "${PR_BASE_REF}" \
     "${PR_BASE_SHA}"
-  gh pr edit "${PR_NUMBER}" --remove-label "ci-squash-and-merge"
   gh pr merge "${PR_NUMBER}" --auto -m || true
   echo "Squash and merge completed"
 }
 
 function handle_benchmarks {
-  if [ "${SHOULD_UPLOAD_BENCHMARKS:-0}" -eq 0 ]; then
+  if [ "${BENCH_UPLOAD:-0}" -eq 0 ]; then
     return
   fi
   # Handle benchmarks download (internal only)
   echo "Downloading benchmarks..."
   if ./ci.sh gh-bench && [ -f "./bench-out/bench.json" ] && [ "$(cat ./bench-out/bench.json)" != "[]" ]; then
     echo "Benchmarks downloaded successfully"
-    echo "SHOULD_UPLOAD_BENCHMARKS=1" >> $GITHUB_ENV
+    echo "BENCH_UPLOAD=1" >> $GITHUB_ENV
   else
     echo "No benchmarks to upload"
-    echo "SHOULD_UPLOAD_BENCHMARKS=0" >> $GITHUB_ENV
+    echo "BENCH_UPLOAD=0" >> $GITHUB_ENV
   fi
+}
+
+function handle_chonk_input_update {
+  local github_repository="$1"
+  echo_header "Chonk Input Update"
+  export GITHUB_REPOSITORY="${GITHUB_REPOSITORY:-$github_repository}"
+  ./.github/ci3.sh chonk-input-update
 }
 
 function main {
   echo_header "CI3 Post-Actions"
   # Get repository from git remote
   local github_repository=$(git remote get-url origin | sed -E 's|.*github\.com[/:]([^/]+/[^/]+)(\.git)?$|\1|')
+  if [ "${CHONK_INPUT_UPDATE_REQUESTED:-0}" -eq 1 ]; then
+    handle_chonk_input_update "${github_repository}"
+    echo_header "Post-Actions Complete"
+    return
+  fi
   save_cache "${github_repository}"
   handle_squash_merge "${github_repository}"
   handle_benchmarks

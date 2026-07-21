@@ -1,6 +1,6 @@
 // === AUDIT STATUS ===
 // internal:    { status: Complete, auditors: [Raju], commit: 05a381f8b31ae4648e480f1369e911b148216e8b}
-// external_1:  { status: not started, auditors: [], commit: }
+// external_1:  { status: Complete, auditors: [Sherlock], commit: e6694849223 }
 // external_2:  { status: not started, auditors: [], commit: }
 // =====================
 
@@ -18,17 +18,9 @@ twin_rom_table<Builder>::twin_rom_table(const std::vector<std::array<field_pt, 2
     : raw_entries(table_entries)
     , length(raw_entries.size())
 {
-    static_assert(IsUltraOrMegaBuilder<Builder>);
     // get the builder context
     for (const auto& entry : table_entries) {
-        if (entry[0].get_context() != nullptr) {
-            context = entry[0].get_context();
-            break;
-        }
-        if (entry[1].get_context() != nullptr) {
-            context = entry[1].get_context();
-            break;
-        }
+        context = validate_context(context, entry[0].get_context(), entry[1].get_context());
     }
 
     // We do not initialize the table yet. The input entries might all be constant,
@@ -88,37 +80,67 @@ template <typename Builder> void twin_rom_table<Builder>::initialize_table() con
 }
 
 template <typename Builder> twin_rom_table<Builder>::twin_rom_table(const twin_rom_table& other) = default;
-template <typename Builder> twin_rom_table<Builder>::twin_rom_table(twin_rom_table&& other) = default;
+
+template <typename Builder>
+twin_rom_table<Builder>::twin_rom_table(twin_rom_table&& other) noexcept
+    : raw_entries(std::move(other.raw_entries))
+    , entries(std::move(other.entries))
+    , _tags(std::move(other._tags))
+    , length(other.length)
+    , rom_id(other.rom_id)
+    , initialized(other.initialized)
+    , context(other.context)
+{
+    other.length = 0;
+    other.rom_id = 0;
+    other.initialized = false;
+    other.context = nullptr;
+}
+
 template <typename Builder>
 twin_rom_table<Builder>& twin_rom_table<Builder>::operator=(const twin_rom_table& other) = default;
-template <typename Builder>
-twin_rom_table<Builder>& twin_rom_table<Builder>::operator=(twin_rom_table&& other) = default;
+
+template <typename Builder> twin_rom_table<Builder>& twin_rom_table<Builder>::operator=(twin_rom_table&& other) noexcept
+{
+    if (this != &other) {
+        raw_entries = std::move(other.raw_entries);
+        entries = std::move(other.entries);
+        _tags = std::move(other._tags);
+        length = other.length;
+        rom_id = other.rom_id;
+        initialized = other.initialized;
+        context = other.context;
+
+        other.length = 0;
+        other.rom_id = 0;
+        other.initialized = false;
+        other.context = nullptr;
+    }
+    return *this;
+}
 
 template <typename Builder>
 std::array<field_t<Builder>, 2> twin_rom_table<Builder>::operator[](const size_t index) const
 {
-    if (index >= length) {
-        BB_ASSERT(context != nullptr);
-        context->failure("twin_rom_table: ROM array access out of bounds");
-    }
-
-    return entries[index];
+    BB_ASSERT_LT(index, length, "twin_rom_table: ROM array access out of bounds");
+    return raw_entries[index];
 }
 
 template <typename Builder>
 std::array<field_t<Builder>, 2> twin_rom_table<Builder>::operator[](const field_pt& index) const
 {
+    const auto native_index = uint256_t(index.get_value());
+    BB_ASSERT_LT(native_index, length, "twin_rom_table: ROM array access out of bounds");
+
     if (index.is_constant()) {
-        return operator[](static_cast<size_t>(uint256_t(index.get_value()).data[0]));
+        // This cast is safe because native_index is uint64_t (other components are zero) and native_index < length
+        return operator[](static_cast<size_t>(static_cast<uint64_t>(native_index)));
     }
     if (context == nullptr) {
         context = index.get_context();
     }
 
     initialize_table();
-    if (uint256_t(index.get_value()) >= length) {
-        context->failure("twin_rom_table: ROM array access out of bounds");
-    }
 
     auto output_indices = context->read_ROM_array_pair(rom_id, index.get_witness_index());
     auto pair = field_pair_pt{
@@ -126,7 +148,7 @@ std::array<field_t<Builder>, 2> twin_rom_table<Builder>::operator[](const field_
         field_pt::from_witness_index(context, output_indices[1]),
     };
 
-    const auto native_index = uint256_t(index.get_value());
+    // This cast is safe because native_index is uint64_t (other components are zero) and native_index < length
     const size_t cast_index = static_cast<size_t>(static_cast<uint64_t>(native_index));
     // In case of a legitimate lookup, restore the tags of the original entries to the output
     if (native_index < length) {

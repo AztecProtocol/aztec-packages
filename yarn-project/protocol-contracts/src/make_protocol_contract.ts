@@ -1,26 +1,50 @@
+import { Fr } from '@aztec/foundation/curves/bn254';
 import type { ContractArtifact } from '@aztec/stdlib/abi';
-import { getContractClassFromArtifact, getContractInstanceFromInstantiationParams } from '@aztec/stdlib/contract';
+import { PublicKeys } from '@aztec/stdlib/keys';
 
 import type { ProtocolContract } from './protocol_contract.js';
-import { ProtocolContractAddress, type ProtocolContractName, ProtocolContractSalt } from './protocol_contract_data.js';
+import {
+  ProtocolContractAddress,
+  ProtocolContractClassId,
+  ProtocolContractClassIdPreimage,
+  ProtocolContractInitializationHash,
+  type ProtocolContractName,
+  ProtocolContractPrivateFunctions,
+  ProtocolContractSalt,
+} from './protocol_contract_data.js';
 
 /**
- * Returns the canonical deployment given its name and artifact.
- * To be used internally within the protocol-contracts package.
+ * Reconstructs a ProtocolContract from precomputed data without performing any hash computations.
+ * Internal to the protocol-contracts package — not part of the public API.
  */
-export async function makeProtocolContract(
-  name: ProtocolContractName,
-  artifact: ContractArtifact,
-): Promise<ProtocolContract> {
+export function makeProtocolContract(name: ProtocolContractName, artifact: ContractArtifact): ProtocolContract {
   const address = ProtocolContractAddress[name];
   const salt = ProtocolContractSalt[name];
-  // TODO(@spalladino): This computes the contract class from the artifact twice.
-  const contractClass = await getContractClassFromArtifact(artifact);
-  const instance = await getContractInstanceFromInstantiationParams(artifact, { salt });
-  return {
-    instance: { ...instance, address },
-    contractClass,
-    artifact,
+  const classId = ProtocolContractClassId[name];
+  const { artifactHash, privateFunctionsRoot, publicBytecodeCommitment } = ProtocolContractClassIdPreimage[name];
+  const initializationHash = ProtocolContractInitializationHash[name];
+
+  const contractClass = {
+    id: classId,
+    version: 1 as const,
+    artifactHash,
+    privateFunctionsRoot,
+    publicBytecodeCommitment,
+    packedBytecode: artifact.functions.find(f => f.name === 'public_dispatch')?.bytecode ?? Buffer.alloc(0),
+    privateFunctions: ProtocolContractPrivateFunctions[name],
+  };
+
+  const instance = {
+    version: 2 as const,
+    currentContractClassId: classId,
+    originalContractClassId: classId,
+    initializationHash,
+    immutablesHash: Fr.ZERO, // Protocol Contracts Have No Immutables
+    publicKeys: PublicKeys.default(),
+    salt,
+    deployer: address,
     address,
   };
+
+  return { instance, contractClass, artifact, address };
 }

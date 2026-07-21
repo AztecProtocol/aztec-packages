@@ -2,7 +2,17 @@ import { EventEmitter } from 'events';
 
 import { type TransferDescriptor, isTransferDescriptor } from '../interface/transferable.js';
 import type { TransportClient } from '../transport_client.js';
-import type { DispatchMsg } from './create_dispatch_fn.js';
+
+/**
+ * Represents a message object for dispatching function calls.
+ * Contains the function name ('fn') and an array of arguments ('args') required to call the target method.
+ */
+export interface DispatchMsg {
+  /** Name of the target method to be called. */
+  fn: string;
+  /** An array of arguments to be passed to the target method. */
+  args: any[];
+}
 
 /**
  * FilterOutAttributes type filters out all non-method properties of an object, leaving only the attributes

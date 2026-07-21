@@ -1,71 +1,137 @@
 #!/usr/bin/env bash
-# Use ci3 script base.
 source $(git rev-parse --show-toplevel)/ci3/source_bootstrap
 
-# We mix if we're a release into the hash, as releases have all architectures built.
+ROOT=$(git rev-parse --show-toplevel)
+BB_AVM_SIM_BINARY=bb-avm-sim
+BB_AVM_SIM_PACKAGE=@aztec/bb-avm-sim
+
 hash=$(hash_str \
+  $(bb.js/bootstrap.sh hash) \
   $(../cpp/bootstrap.sh hash) \
+  $(../../ipc-codegen/bootstrap.sh hash) \
+  $(../../ipc-runtime/bootstrap.sh hash) \
   $(cache_content_hash .rebuild_patterns) \
   $(semver check $REF_NAME && echo 1 || echo 0))
 
-function build {
-  echo_header "bb.js build"
-  npm_install_deps
+function generate_bb_avm_sim_package {
+  node --experimental-strip-types --experimental-transform-types --no-warnings \
+    "$ROOT/ipc-codegen/src/generate.ts" \
+    --schema "$ROOT/barretenberg/cpp/src/barretenberg/avm/avm_schema.json" \
+    --lang ts \
+    --client \
+    --out "$ROOT/barretenberg/ts/bb-avm-sim/src/generated" \
+    --package "$ROOT/barretenberg/ts/bb-avm-sim" \
+    --package-name "$BB_AVM_SIM_PACKAGE" \
+    --binary-name "$BB_AVM_SIM_BINARY" \
+    --prefix Avm \
+    --strip-method-prefix \
+    --package-transports uds \
+    --package-ipc-path-args 'msgpack,run,--input,{path}'
+}
 
-  if ! cache_download bb.js-$hash.tar.gz; then
-    find . -exec touch -d "@0" {} + 2>/dev/null || true
-    yarn clean
-    yarn generate
-    yarn build:wasm
-    yarn build:native
-    parallel -v --line-buffered --tag 'denoise "yarn {}"' ::: build:esm build:cjs build:browser
-    cache_upload bb.js-$hash.tar.gz dest build
-  fi
+function copy_bb_avm_sim_native {
+  local target_dir="bb-avm-sim/build/$(arch)-$(os)"
+  mkdir -p "$target_dir"
+  cp "$ROOT/barretenberg/cpp/build/bin/$BB_AVM_SIM_BINARY" "$target_dir/$BB_AVM_SIM_BINARY"
+}
 
-  # We copy snapshot dirs to dest so we can run tests from dest.
-  # This is because web-workers run into issues with transpilation.
-  for snapshot_dir in src/**/__snapshots__; do
-    dest_dir="${snapshot_dir/src\//dest\/node\/}"
-    rm -rf "$dest_dir"
-    cp -r "$snapshot_dir" "$dest_dir"
-    for file in $dest_dir/*.test.ts.snap; do
-      mv "$file" "${file/.test.ts.snap/.test.js.snap}"
+function copy_bb_avm_sim_cross {
+  if [ -n "${1:-}" ]; then
+    local cross_arch="$1"
+    mkdir -p "bb-avm-sim/build/$cross_arch"
+    cp "$ROOT/barretenberg/cpp/build-$cross_arch/bin/$BB_AVM_SIM_BINARY" \
+      "bb-avm-sim/build/$cross_arch/$BB_AVM_SIM_BINARY"
+  elif semver check "${REF_NAME:-}" && [ "$(arch)" == "amd64" ]; then
+    for cross_arch in arm64-linux amd64-macos arm64-macos; do
+      mkdir -p "bb-avm-sim/build/$cross_arch"
+      cp "$ROOT/barretenberg/cpp/build-$cross_arch/bin/$BB_AVM_SIM_BINARY" \
+        "bb-avm-sim/build/$cross_arch/$BB_AVM_SIM_BINARY"
     done
-  done
+  else
+    echo "This task is expected to be run with an explicit arch or in an x86 release context."
+  fi
+}
+
+function prepare_bb_avm_sim_arch_packages {
+  (cd bb-avm-sim && ./scripts/prepare_arch_packages.sh "$@")
+}
+
+function build_bb_js {
+  (cd bb.js && ./bootstrap.sh)
+}
+
+function build_bb_avm_sim {
+  echo_header "bb-avm-sim package build"
+  generate_bb_avm_sim_package
+  copy_bb_avm_sim_native
+  npm_install_deps
+  yarn workspace "$BB_AVM_SIM_PACKAGE" build
+  prepare_bb_avm_sim_arch_packages "$(arch)-$(os)=build/$(arch)-$(os)/$BB_AVM_SIM_BINARY"
+}
+
+function build {
+  build_bb_js
+  build_bb_avm_sim
 }
 
 function test_cmds {
-  cd dest/node
-  for test in **/*.test.js; do
-    # Skip benchmarks here.
-    [[ "$test" =~ \.bench\.test\.js$ ]] && continue
-
-    local prefix=$hash
-    # Extra resource.
-    if [[ "$test" =~ ^examples/ ]]; then
-      prefix="$prefix:CPUS=16"
-    fi
-    echo "$prefix barretenberg/ts/scripts/run_test.sh $test"
-  done
+  (cd bb.js && ./bootstrap.sh test_cmds)
 }
 
 function bench_cmds {
-  echo "$hash:CPUS=4 barretenberg/ts/scripts/run_test.sh poseidon.bench.test.js"
+  (cd bb.js && ./bootstrap.sh bench_cmds)
 }
 
 function test {
-  echo_header "bb.js test"
-  test_cmds | filter_test_cmds | parallelize
+  (cd bb.js && ./bootstrap.sh test)
 }
 
-function release {
-  cross_copy
-  retry "deploy_npm $(dist_tag) ${REF_NAME#v}"
+function cross_copy_bb_js {
+  (cd bb.js && ./bootstrap.sh cross_copy "$@")
+}
+
+function cross_copy_bb_avm_sim {
+  generate_bb_avm_sim_package
+  copy_bb_avm_sim_cross "$@"
+  npm_install_deps
+  yarn workspace "$BB_AVM_SIM_PACKAGE" build
+  prepare_bb_avm_sim_arch_packages
 }
 
 function cross_copy {
-  ./scripts/copy_cross.sh
+  cross_copy_bb_js "$@"
 }
+
+function get_projects {
+  echo "$PWD/bb.js"
+  if [ -d bb-avm-sim ]; then
+    for package_dir in bb-avm-sim/packages/*; do
+      [ -d "$package_dir" ] && echo "$PWD/$package_dir"
+    done
+    echo "$PWD/bb-avm-sim"
+  fi
+}
+
+function release_bb_avm_sim {
+  generate_bb_avm_sim_package
+  copy_bb_avm_sim_native
+  copy_bb_avm_sim_cross
+  npm_install_deps
+  yarn workspace "$BB_AVM_SIM_PACKAGE" build
+  prepare_bb_avm_sim_arch_packages
+  for package_dir in bb-avm-sim/packages/*; do
+    (cd "$package_dir" && retry "deploy_npm ${REF_NAME#v}")
+  done
+  (cd bb-avm-sim && retry "deploy_npm ${REF_NAME#v}")
+}
+
+function release {
+  (cd bb.js && ./bootstrap.sh release)
+  release_bb_avm_sim
+}
+
+export -f generate_bb_avm_sim_package copy_bb_avm_sim_native copy_bb_avm_sim_cross
+export -f build_bb_js build_bb_avm_sim build cross_copy_bb_js cross_copy_bb_avm_sim release
 
 case "$cmd" in
   "")

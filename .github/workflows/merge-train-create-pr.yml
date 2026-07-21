@@ -13,7 +13,7 @@ jobs:
       pull-requests: write
 
     steps:
-      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+      - uses: actions/checkout@93cb6efe18208431cddfb8368fd83d5badbf9bfd # v5.0.1
         with:
           fetch-depth: 0
 
@@ -23,16 +23,27 @@ jobs:
         run: |
             branch="${{ github.ref_name }}"
 
-            # Skip if this is a merge commit (check for multiple parents)
+            # Determine base branch. Most trains target next; trains suffixed
+            # with -v<N> (e.g. spartan-v5, fairies-v5) target the matching
+            # release line (v5-next) instead.
+            base_branch="next"
+            if [[ "$branch" =~ -v([0-9]+)$ ]]; then
+              base_branch="v${BASH_REMATCH[1]}-next"
+            fi
+
+            # Skip if this is a merge commit (multiple parents) -- unless its
+            # message references a PR (#123). A feature PR merged into the train
+            # carries that reference ("Merge pull request #123 ..."); our own
+            # mechanical base->train merges ("Merge branch 'next' into ...") do not.
             parent_count=$(git rev-list --parents -n 1 "${{ github.sha }}" | wc -w)
-            if [[ $parent_count -gt 2 ]]; then
-              echo "Skipping: This is a merge commit."
+            if [[ $parent_count -gt 2 ]] && ! git show -s --format=%B "${{ github.sha }}" | grep -qE '#[0-9]+'; then
+              echo "Skipping: This is a merge commit with no PR reference."
               exit 0
             fi
 
-            # Skip if this commit is already in the next branch
-            if git merge-base --is-ancestor "${{ github.sha }}" origin/next; then
-              echo "Skipping: This commit is already in the next branch"
+            # Skip if this commit is already in the base branch
+            if git merge-base --is-ancestor "${{ github.sha }}" "origin/$base_branch"; then
+              echo "Skipping: This commit is already in the $base_branch branch"
               exit 0
             fi
 
@@ -42,14 +53,20 @@ jobs:
             if [[ -z "$existing_pr" ]]; then
               echo "No PR exists for $branch, creating one"
 
-              # Determine base branch (default to next)
-              base_branch="next"
-
               # Create PR with ci-no-squash label
+              labels="ci-no-squash"
+              if [[ "$branch" == "merge-train/spartan" || "$branch" == "merge-train/spartan-v5" || "$branch" == "merge-train/ci" ]]; then
+                labels="$labels,ci-full-no-test-cache"
+              fi
+              # Trains targeting a v<N>-next release line (v5-next) are
+              # forward-ported into their base via the private-port-next driver.
+              if [[ "$base_branch" =~ ^v[0-9]+-next$ ]]; then
+                labels="$labels,private-port-next"
+              fi
               gh pr create --base "$base_branch" --head "$branch" \
                 --title "feat: $branch" \
                 --body "$(echo -e "See [merge-train-readme.md](https://github.com/${{ github.repository }}/blob/next/.github/workflows/merge-train-readme.md).\nThis is a merge-train.")" \
-                --label "ci-no-squash"
+                --label "$labels"
 
               echo "Created PR for $branch"
             else

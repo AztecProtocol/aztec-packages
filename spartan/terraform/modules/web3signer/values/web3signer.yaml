@@ -10,7 +10,15 @@ customCommand:
   - /bin/bash
   - -c
   - |
-    /opt/web3signer/bin/web3signer --config-file /data/config.yaml eth1 
+    trap 'kill $(jobs -p) 2>/dev/null' EXIT
+    (
+      sleep 30 # initial delay to let web3signer start
+      while true; do
+        curl -s -X POST http://localhost:9000/reload > /dev/null 2>&1 || true
+        sleep 60
+      done
+    ) &
+    /opt/web3signer/bin/web3signer --config-file /data/config.yaml eth1
 
 extraEnv:
   - name: K8S_NAMESPACE_NAME
@@ -20,7 +28,7 @@ extraEnv:
 
 config: |
   data-path: "/data"
-  http-host-allowlist: "{{ .Release.Name }}-web3signer.{{ .Release.Namespace }}.svc.cluster.local"
+  http-host-allowlist: "{{ .Release.Name }}-web3signer.{{ .Release.Namespace }}.svc.cluster.local,localhost,127.0.0.1"
   key-store-path: {{ .Values.keystorePath }}
   eth1.chain-id: {{ .Values.chainId }}
 

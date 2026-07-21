@@ -71,7 +71,7 @@ export async function waitForProvenToAdvance(
   // Get current proven block number
   let initialProvenBlock: number;
   try {
-    const tips = await node.getL2Tips();
+    const tips = await node.getChainTips();
     initialProvenBlock = Number(tips.proven.block.number);
     log.info(`Current proven block: ${initialProvenBlock}. Waiting for it to increase...`);
   } catch (err) {
@@ -82,7 +82,7 @@ export async function waitForProvenToAdvance(
   await retryUntil(
     async () => {
       try {
-        const tips = await node.getL2Tips();
+        const tips = await node.getChainTips();
         const currentProvenBlock = Number(tips.proven.block.number);
         const proposedBlock = Number(tips.proposed.number);
 
@@ -173,7 +173,7 @@ export async function withSequencersAdmin<T>(env: TestConfig, fn: (node: AztecNo
           if (statusRes.status !== 200) {
             throw new Error(`Admin endpoint returned status ${statusRes.status}`);
           }
-          const client = createAztecNodeAdminClient(url);
+          const client = createAztecNodeAdminClient(url, {}, undefined, env.AZTEC_ADMIN_API_KEY);
           return { result: await fn(client), process };
         } catch (err) {
           // Kill the port-forward before retrying
@@ -255,21 +255,18 @@ export async function initHADb(namespace: string): Promise<void> {
 }
 
 /**
- * Enables or disables probabilistic transaction dropping on validators and waits for rollout.
- * Wired to env vars P2P_DROP_TX and P2P_DROP_TX_CHANCE via Helm values.
+ * Sets probabilistic transaction dropping on validators and waits for rollout.
+ * Use probability=0 to disable. Wired to env var P2P_DROP_TX_CHANCE via Helm values.
  */
 export async function setValidatorTxDrop({
   namespace,
-  enabled,
   probability,
   logger: log,
 }: {
   namespace: string;
-  enabled: boolean;
   probability: number;
   logger: Logger;
 }) {
-  const drop = enabled ? 'true' : 'false';
   const prob = String(probability);
 
   const selectors = ['app.kubernetes.io/name=validator', 'app.kubernetes.io/component=validator', 'app=validator'];
@@ -284,7 +281,7 @@ export async function setValidatorTxDrop({
       if (names.length === 0) {
         continue;
       }
-      const cmd = `kubectl set env statefulset -l ${selector} -n ${namespace} P2P_DROP_TX=${drop} P2P_DROP_TX_CHANCE=${prob}`;
+      const cmd = `kubectl set env statefulset -l ${selector} -n ${namespace} P2P_DROP_TX_CHANCE=${prob}`;
       log.info(`command: ${cmd}`);
       await execAsync(cmd);
       updated = true;
@@ -366,16 +363,24 @@ export async function enableValidatorDynamicBootNode(
  */
 export async function rollAztecPods(namespace: string, clearState: boolean = false) {
   // Pod components use 'validator', but StatefulSets and PVCs use 'sequencer-node' for validators
+  // RPC nodes have nodeType='rpc-node' in Helm values, so their component label is 'rpc-node' (not 'rpc')
   const podComponents = [
     'p2p-bootstrap',
     'prover-node',
     'prover-broker',
     'prover-agent',
     'sequencer-node',
-    'rpc',
+    'rpc-node',
     'validator-ha-db',
   ];
-  const pvcComponents = ['p2p-bootstrap', 'prover-node', 'prover-broker', 'sequencer-node', 'rpc', 'validator-ha-db'];
+  const pvcComponents = [
+    'p2p-bootstrap',
+    'prover-node',
+    'prover-broker',
+    'sequencer-node',
+    'rpc-node',
+    'validator-ha-db',
+  ];
   // StatefulSet components that need to be scaled down before PVC deletion
   // Note: validators use 'sequencer-node' as component label, not 'validator'
   const statefulSetComponents = [
@@ -383,7 +388,7 @@ export async function rollAztecPods(namespace: string, clearState: boolean = fal
     'prover-node',
     'prover-broker',
     'sequencer-node',
-    'rpc',
+    'rpc-node',
     'validator-ha-db',
   ];
 

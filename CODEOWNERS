@@ -8,33 +8,34 @@
 # Notify the Noir team of divergences to upstream
 /noir/noir-repo.patch @TomAFrench
 
-
 #####################################################
 # Notify the AVM team
 #
 # on changes to PIL code-generator
-/bb-pilcom @Maddiaa0 @jeanmon @IlyasRidhuan @fcarreiro
+/bb-pilcom @MirandaWood @jeanmon @IlyasRidhuan
 # on changes to PIL code (AVM circuit)
-/barretenberg/cpp/pil @Maddiaa0 @jeanmon @IlyasRidhuan @fcarreiro
+/barretenberg/cpp/pil @MirandaWood @jeanmon @IlyasRidhuan
 # on changes to AVM C++ code
-/barretenberg/cpp/src/barretenberg/vm @jeanmon @IlyasRidhuan @fcarreiro
-/barretenberg/cpp/src/barretenberg/vm2 @jeanmon @IlyasRidhuan @fcarreiro
+/barretenberg/cpp/src/barretenberg/vm2 @MirandaWood @jeanmon @IlyasRidhuan
 # on changes to public context in aztec-nr
-/noir-projects/aztec-nr/aztec/src/context/public_context.nr @fcarreiro @dbanks12
+/noir-projects/aztec-nr/aztec/src/context/public_context.nr @MirandaWood @jeanmon @IlyasRidhuan
 # on changes to the AVM simulator and supporting modules
-/yarn-project/simulator/src/public @fcarreiro @dbanks12 @sirasistant
+/yarn-project/simulator/src/public @MirandaWood @jeanmon @IlyasRidhuan
 # on changes to the AVM transpiler
-/avm-transpiler/src @fcarreiro @dbanks12 @sirasistant
+/avm-transpiler/src @MirandaWood @jeanmon @IlyasRidhuan @sirasistant
 #####################################################
 
 # Notify fairies of changes to playground bundler config
 /playground/vite.config.ts @Thunkar
 
 # Notify turtles of changes to L1-contracts
-/l1-contracts/src @LHerskind @Maddiaa0 @just-mitch
+/l1-contracts/src @just-mitch
 
 # Notify the circuit team of changes to the protocol circuits
 /noir-projects/noir-protocol-circuits @LeilaWang
+
+# Notify nventuro of changes to aztec-nr
+/noir-projects/aztec-nr @nventuro
 
 # Notify devrel of changes to docs examples
 /docs/examples @AztecProtocol/devrel

@@ -12,6 +12,8 @@ const config = setupEnvironment(process.env);
 const logger = createLogger('e2e:spartan-test:proving');
 const SLEEP_MS = 1000;
 
+// Verifies that the proven chain tip advances on a live k8s deployment. Polls aztecNode.getBlockNumber('proven')
+// until it surpasses the initial value, confirming at least one epoch was proven end-to-end.
 describe('proving test', () => {
   let aztecNode: AztecNode;
   const endpoints: ServiceEndpoint[] = [];
@@ -31,7 +33,7 @@ describe('proving test', () => {
 
   it('advances the proven chain', async () => {
     let [provenBlockNumber, blockNumber] = await Promise.all([
-      aztecNode.getProvenBlockNumber(),
+      aztecNode.getBlockNumber('proven'),
       aztecNode.getBlockNumber(),
     ]);
     let ok: boolean;
@@ -41,7 +43,7 @@ describe('proving test', () => {
 
     while (true) {
       const [newProvenBlockNumber, newBlockNumber] = await Promise.all([
-        aztecNode.getProvenBlockNumber(),
+        aztecNode.getBlockNumber('proven'),
         aztecNode.getBlockNumber(),
       ]);
 

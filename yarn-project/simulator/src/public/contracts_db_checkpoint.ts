@@ -31,7 +31,7 @@ export class ContractsDbCheckpoint {
     return this.bytecodeCommitments.get(classId.toString());
   }
 
-  public deepCopy(): ContractsDbCheckpoint {
+  public fork(): ContractsDbCheckpoint {
     const copy = new ContractsDbCheckpoint();
     this.instances.forEach((value, key) => copy.instances.set(key, value));
     this.classes.forEach((value, key) => copy.classes.set(key, value));

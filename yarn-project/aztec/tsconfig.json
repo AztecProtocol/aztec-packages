@@ -13,9 +13,6 @@
       "path": "../archiver"
     },
     {
-      "path": "../aztec-faucet"
-    },
-    {
       "path": "../aztec-node"
     },
     {
@@ -52,9 +49,6 @@
       "path": "../kv-store"
     },
     {
-      "path": "../l1-artifacts"
-    },
-    {
       "path": "../node-lib"
     },
     {
@@ -85,19 +79,22 @@
       "path": "../sequencer-client"
     },
     {
+      "path": "../standard-contracts"
+    },
+    {
       "path": "../stdlib"
     },
     {
       "path": "../telemetry-client"
     },
     {
-      "path": "../test-wallet"
-    },
-    {
       "path": "../txe"
     },
     {
       "path": "../validator-ha-signer"
+    },
+    {
+      "path": "../wallets"
     },
     {
       "path": "../world-state"

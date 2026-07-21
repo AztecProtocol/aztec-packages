@@ -3,13 +3,13 @@
 #include "barretenberg/commitment_schemes/commitment_key.hpp"
 #include "barretenberg/common/bb_bench.hpp"
 #include "barretenberg/crypto/ecdsa/ecdsa.hpp"
-#include "barretenberg/crypto/merkle_tree/memory_store.hpp"
-#include "barretenberg/crypto/merkle_tree/merkle_tree.hpp"
 #include "barretenberg/flavor/mega_flavor.hpp"
+#include "barretenberg/flavor/mega_recursive_flavor.hpp"
 #include "barretenberg/goblin/goblin.hpp"
 #include "barretenberg/srs/global_crs.hpp"
 #include "barretenberg/stdlib/encryption/ecdsa/ecdsa.hpp"
 #include "barretenberg/stdlib/hash/keccak/keccak.hpp"
+#include "barretenberg/stdlib/hash/poseidon2/poseidon2.hpp"
 #include "barretenberg/stdlib/hash/sha256/sha256.hpp"
 #include "barretenberg/stdlib/primitives/curves/secp256k1.hpp"
 #include "barretenberg/stdlib/special_public_inputs/special_public_inputs.hpp"
@@ -52,6 +52,24 @@ template <typename Builder> void generate_sha256_test_circuit(Builder& builder, 
     }
 }
 
+/**
+ * @brief Generate a test circuit that computes a single poseidon2 hash over a vector of `num_inputs` field elements.
+ */
+template <typename Builder> void generate_poseidon2_hash_test_circuit(Builder& builder, size_t num_inputs)
+{
+    using field_ct = stdlib::field_t<Builder>;
+    using witness_ct = stdlib::witness_t<Builder>;
+
+    std::vector<field_ct> inputs;
+    inputs.reserve(num_inputs);
+    for (size_t i = 0; i < num_inputs; i++) {
+        inputs.emplace_back(witness_ct(&builder, bb::fr(i + 1)));
+    }
+
+    auto out = stdlib::poseidon2<Builder>::hash(inputs);
+    out.set_public();
+}
+
 class GoblinMockCircuits {
   public:
     using Curve = curve::BN254;
@@ -92,13 +110,6 @@ class GoblinMockCircuits {
             generate_sha256_test_circuit<MegaBuilder>(builder, 8);
             stdlib::generate_ecdsa_verification_test_circuit(builder, 2);
         }
-
-        // TODO(https://github.com/AztecProtocol/barretenberg/issues/911): We require goblin ops to be added to the
-        // function circuit because we cannot support zero commtiments. While the builder handles this at
-        // ProverInstance creation stage via the add_gates_to_ensure_all_polys_are_non_zero function for other
-        // MegaHonk circuits (where we don't explicitly need to add goblin ops), in IVC merge proving happens prior to
-        // folding where the absense of goblin ecc ops will result in zero commitments.
-        MockCircuits::construct_goblin_ecc_op_circuit(builder);
     }
 
     /**
@@ -148,24 +159,21 @@ class GoblinMockCircuits {
 
     static void construct_and_merge_mock_circuits(Goblin& goblin, const size_t num_circuits = 3)
     {
-        using Fq = curve::Grumpkin::ScalarField;
         for (size_t idx = 0; idx < num_circuits - 1; ++idx) {
             MegaCircuitBuilder builder{ goblin.op_queue };
-            if (idx == num_circuits - 2) {
-                // Last circuit appended needs to begin with a no-op for translator to be shiftable
-                builder.queue_ecc_no_op();
-                // Add random ops at START for Translator ZK (lands at beginning of op queue table)
-                randomise_op_queue(builder, TranslatorCircuitBuilder::NUM_RANDOM_OPS_START);
-                // Add hiding op for ECCVM ZK (prepended to ECCVM ops at row 1)
-                builder.queue_ecc_hiding_op(Fq::random_element(), Fq::random_element());
-            }
             construct_simple_circuit(builder);
-            goblin.prove_merge();
-            // Pop the merge proof from the queue, Goblin will be verified at the end
-            goblin.merge_verification_queue.pop_front();
+            goblin.op_queue->merge();
         }
         MegaCircuitBuilder builder{ goblin.op_queue };
         GoblinMockCircuits::construct_simple_circuit(builder);
+        // The final subtable plays the role of the hiding kernel, whose merge subtable has a fixed size that the
+        // merge verifier hard-codes the shift size from. Pad with ecc ops up to that size, leaving room for the
+        // trailing ZK random ops.
+        const size_t target_size = bb::HIDING_KERNEL_ULTRA_OPS - TranslatorCircuitBuilder::NUM_RANDOM_OPS_END;
+        BB_ASSERT_LTE(goblin.op_queue->get_current_subtable_size(), target_size);
+        while (goblin.op_queue->get_current_subtable_size() < target_size) {
+            builder.queue_ecc_add_accum(Point::random_element(&engine));
+        }
         // Add random ops at END for Translator ZK
         randomise_op_queue(builder, TranslatorCircuitBuilder::NUM_RANDOM_OPS_END);
     }

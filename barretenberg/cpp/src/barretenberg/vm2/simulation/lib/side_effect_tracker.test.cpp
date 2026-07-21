@@ -13,13 +13,13 @@ using ::testing::IsEmpty;
 using ::testing::Pair;
 using ::testing::UnorderedElementsAre;
 
-TEST(SideEffectTrackerTest, GetNumUnencryptedLogFields)
+TEST(SideEffectTrackerTest, GetNumPublicLogFields)
 {
     TrackedSideEffects side_effect_states = { .public_logs = {} };
-    EXPECT_EQ(side_effect_states.get_num_unencrypted_log_fields(), 0);
+    EXPECT_EQ(side_effect_states.get_num_public_log_fields(), 0);
 
     side_effect_states.public_logs.add_log(PublicLog{ { 1, 2 }, 0xdeadbeef });
-    EXPECT_EQ(side_effect_states.get_num_unencrypted_log_fields(), 2 + PUBLIC_LOG_HEADER_LENGTH);
+    EXPECT_EQ(side_effect_states.get_num_public_log_fields(), 2 + PUBLIC_LOG_HEADER_LENGTH);
 
     side_effect_states.public_logs.add_log(PublicLog{ {
                                                           1,
@@ -29,7 +29,7 @@ TEST(SideEffectTrackerTest, GetNumUnencryptedLogFields)
                                                           5,
                                                       },
                                                       0xdeadbeef });
-    EXPECT_EQ(side_effect_states.get_num_unencrypted_log_fields(), 5 + 2 + (2 * PUBLIC_LOG_HEADER_LENGTH));
+    EXPECT_EQ(side_effect_states.get_num_public_log_fields(), 5 + 2 + (2 * PUBLIC_LOG_HEADER_LENGTH));
 }
 
 TEST(SideEffectTrackerTest, AddNullifier)

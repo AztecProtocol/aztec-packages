@@ -72,7 +72,7 @@ inline void _msgpack_stream_write_key_value_pairs(std::ostream& os,
 namespace std {
 /**
  * @brief Automatically derived stream operator for any object that defines .msgpack() (implicitly defined by
- * MSGPACK_FIELDS). Note this is duplicated as it must be seen in both std and global namespaces.
+ * SERIALIZATION_FIELDS). Note this is duplicated as it must be seen in both std and global namespaces.
  * @param os The stream to write to.
  * @param obj The object to write.
  */

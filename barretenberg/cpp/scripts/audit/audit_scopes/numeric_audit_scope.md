@@ -1,7 +1,7 @@
 # External Audit Scope: numeric
 
-Repository: https://github.com/AztecProtocol/aztec-packages
-Commit hash: TBD (link)
+Repository: https://github.com/AztecProtocol/aztec-packages-private
+Commit hash: Most recent commit on branch 'next'
 
 ## Files to Audit
 Note: Paths relative to `aztec-packages/barretenberg/cpp/src/barretenberg`
@@ -12,22 +12,23 @@ Note: Paths relative to `aztec-packages/barretenberg/cpp/src/barretenberg`
 3. `numeric/bitop/keep_n_lsb.hpp`
 4. `numeric/bitop/pow.hpp`
 5. `numeric/bitop/rotate.hpp`
+6. `numeric/bitop/sparse_form.hpp`
 
 ### Random Number Generation
-6. `numeric/random/engine.cpp`
-7. `numeric/random/engine.hpp`
+7. `numeric/random/engine.cpp`
+8. `numeric/random/engine.hpp`
 
 ### Unsigned Integer Types
-8. `numeric/uint128/uint128.hpp`
-9. `numeric/uint128/uint128_impl.hpp`
-10. `numeric/uint256/uint256.hpp`
-11. `numeric/uint256/uint256_impl.hpp`
-12. `numeric/uintx/uintx.cpp`
-13. `numeric/uintx/uintx.hpp`
-14. `numeric/uintx/uintx_impl.hpp`
+9. `numeric/uint128/uint128.hpp`
+10. `numeric/uint128/uint128_impl.hpp`
+11. `numeric/uint256/uint256.hpp`
+12. `numeric/uint256/uint256_impl.hpp`
+13. `numeric/uintx/uintx.cpp`
+14. `numeric/uintx/uintx.hpp`
+15. `numeric/uintx/uintx_impl.hpp`
 
 ### General Utilities
-15. `numeric/general/general.hpp`
+16. `numeric/general/general.hpp`
 
 ## Summary of Module
 

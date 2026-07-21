@@ -92,21 +92,34 @@ T deserialize_msgpack_compact(std::vector<uint8_t>&& buf, std::function<T(msgpac
 
 /**
  * @brief Convert an Acir::Circuit into an AcirFormat by processing all the opcodes.
+ *
+ * @param is_mega When true, AssertZero opcodes may be classified into the Mega-only bilinear /
+ * batched-eq gate (see bilinear_or_batched_eq_check_relation.hpp). When false (e.g. building an Ultra circuit),
+ * they always take the standard arithmetic path
  */
-AcirFormat circuit_serde_to_acir_format(Acir::Circuit const& circuit);
+AcirFormat circuit_serde_to_acir_format(Acir::Circuit const& circuit, bool is_mega);
 
 /**
  * @brief Convert from the ACIR-native `WitnessMap` format to Barretenberg's internal `WitnessVector` format.
  *
- * @note This transformation results in all unassigned witnesses within the `WitnessMap` being assigned the value 0.
+ * @note This transformation results in all unassigned witnesses within the `WitnessMap` being assigned a random value.
  * Converting the `WitnessVector` back to a `WitnessMap` is unlikely to return the exact same `WitnessMap`.
  */
 WitnessVector witness_map_to_witness_vector(Witnesses::WitnessMap const& witness_map);
 
 /**
  * @brief Convert a buffer representing a circuit into Barretenberg's internal `AcirFormat` representation.
+ *
+ * @param is_mega Forwarded to `circuit_serde_to_acir_format` to enable the Mega-only bilinear /
+ * batched-eq gate classification when building a Mega circuit.
  */
-AcirFormat circuit_buf_to_acir_format(std::vector<uint8_t>&& buf);
+AcirFormat circuit_buf_to_acir_format(std::vector<uint8_t>&& buf, bool is_mega);
+
+/**
+ * @brief Specialization for Mega constructor
+ *
+ */
+AcirFormat circuit_buf_to_mega_acir_format(std::vector<uint8_t>&& buf);
 
 /**
  * @brief Convert a buffer representing a witness vector into Barretenberg's internal `WitnessVector` format.
@@ -125,12 +138,69 @@ WitnessVector witness_buf_to_witness_vector(std::vector<uint8_t>&& buf);
 std::map<uint32_t, bb::fr> process_linear_terms(Acir::Expression const& expr);
 
 /**
+ * @brief How an AssertZero opcode is lowered to gates.
+ *
+ * @details `assert_zero_to_constraints` classifies each opcode into exactly one of these and then
+ * routes it to the matching handler. `Bilinear` and `BatchedEq` are the Mega-only bilinear / batched-eq
+ * gate (see bilinear_or_batched_eq_check_relation.hpp); `SingleArithmetic` / `MultiArithmetic` are the standard
+ * width-4 arithmetic path.
+ */
+enum class AssertZeroGate : uint8_t { Bilinear, BatchedEq, SingleArithmetic, MultiArithmetic };
+
+/**
+ * @brief Classify an Acir::Expression with its processed linear terms into the gate it lowers to.
+ *
+ * @details By processed linear terms, we mean selector values accumulated per witness index. See
+ * process_linear_terms. `Bilinear` and `BatchedEq` are only returned when `is_mega` is true, since that
+ * gate is committed only in the Mega flavors.
+ */
+AssertZeroGate classify_assert_zero(Acir::Expression const& arg,
+                                    const std::map<uint32_t, bb::fr>& linear_terms,
+                                    bool is_mega);
+
+/**
+ * @brief Given an Arithmetic expression with two multiplication terms, determine whether they share a witness and place
+ * the witness indices in w_l, w_r, w_o
+ *
+ * @details This function takes an Arithmetic expression with two multiplication terms: a * b, c * d and checks whether
+ * the couples (a, b) and (c, d) share at least one value. If so, it returns `true` and puts the shared witness index in
+ * w_l, the other indices in w_r, w_o. Otherwise, it returns `false`.
+ */
+bool resolve_shared_wire_products(Acir::Expression const& arg, uint32_t& w_l, uint32_t& w_r, uint32_t& w_o);
+
+/**
+ * @brief Whether an AssertZero fits a single bilinear-gate row.
+ *
+ * @details The bilinear gate enforces
+ *   q_m·w_l·w_r + q_5·w_l·w_o + q_l·w_l + q_r·w_r + q_o·w_o + q_4·w_4 + q_c = 0
+ * two products sharing the wire w_l, a linear term on each of the four wires, and a constant. It fits
+ * when there are exactly two multiplication terms (≤1 mul-term already fits a single standard arithmetic
+ * row), the two products share exactly one wire, and the linear terms lie on the three product wires plus
+ * at most one extra witness (which becomes the linear-only fourth wire w_4).
+ */
+bool is_bilinear(Acir::Expression const& arg, const std::map<uint32_t, bb::fr>& linear_terms);
+
+/**
+ * @brief Whether an AssertZero is "batched-eq" — a pure linear constraint with 1 or 2 witnesses.
+ *
+ * @details Matches `c₁·w₁ + c₂·w₂ + q_c = 0`. The caller buffers these and pairs two of them into a
+ *  single BATCHED_EQ row via `build_batched_eq_check_constraint`.
+ */
+bool is_batched_eq(Acir::Expression const& arg, const std::map<uint32_t, bb::fr>& linear_terms);
+
+/**
  * @brief Given an Acir::Expression and its processed linear terms, determine whether it can be represented by a single
  * width-4 arithmetic gate.
  *
  * @details By processed linear terms, we mean selector values accumulated per witness index. See process_linear_terms.
  */
 bool is_single_arithmetic_gate(Acir::Expression const& arg, const std::map<uint32_t, bb::fr>& linear_terms);
+
+/**
+ * @brief Build the bilinear-gate constraint for an AssertZero already classified as `Bilinear`.
+ */
+BilinearConstraint build_bilinear_constraint(Acir::Expression const& arg,
+                                             const std::map<uint32_t, bb::fr>& linear_terms);
 
 // clang-format off
 /**
@@ -156,9 +226,9 @@ bool is_single_arithmetic_gate(Acir::Expression const& arg, const std::map<uint3
  * The process of turning an Acir::Expression into a series of gates is split into the following steps:
  * 1. Add as many gates as there are multiplication terms. While adding these gates, attempt to add linear terms if they have the same
  *    witnesses indices of witnesses involved in the multiplication. For example, for w1 * w2 + w1, the first (and only) gate will be:
- *    | a_idx | b_idx | c_idx       | d_idx       | mul_scaling | a_scaling | b_scaling | c_scaling | d_scaling | const_idx   |
+ *    | a_idx | b_idx | c_idx       | d_idx       | mul_scaling | a_scaling | b_scaling | c_scaling | d_scaling | const       |
  *    |-------|-------|-------------|-------------|-------------|-----------|-----------|-----------|-----------|-------------|
- *    | w1    | w2    | IS_CONSTANT | IS_CONSTANT | 1           | 1         | 0         | 0         | 0         | IS_CONSTANT |
+ *    | w1    | w2    | IS_CONSTANT | IS_CONSTANT | 1           | 1         | 0         | 0         | 0         | 0           |
  * 2. Run through the the gates that have been added and add as many linear terms as possible (for the first gate, we can use two witnesses,
  *    while for all the other gates we have only one as the fourth witness is reserved for w4_shift)
  * 3. Run through the remaining linear terms and add as many gates as needed to handle them.
@@ -171,9 +241,9 @@ bool is_single_arithmetic_gate(Acir::Expression const& arg, const std::map<uint3
  * contains only one multiplication term, and there are only 4 distinct witnesses. We turn this expression into the following gate
  * (where w4_shift is toggled off):
  *
- * | a_idx | b_idx | c_idx | d_idx | mul_scaling | a_scaling | b_scaling | c_scaling | d_scaling | const_idx |
+ * | a_idx | b_idx | c_idx | d_idx | mul_scaling | a_scaling | b_scaling | c_scaling | d_scaling | const     |
  * |-------|-------|-------|-------|-------------|-----------|-----------|-----------|-----------|-----------|
- * | w1    | w2    | w5    | w6    | 1           | 1         | 1         | 1         | 1         | const     |
+ * | w1    | w2    | w5    | w6    | 1           | 0         | 0         | 1         | 1         | const     |
  *
  */
 // clang-format on
@@ -181,15 +251,62 @@ std::vector<mul_quad_<fr>> split_into_mul_quad_gates(Acir::Expression const& arg
                                                      std::map<uint32_t, bb::fr>& linear_terms);
 
 /**
- * @brief Single entrypoint for processing arithmetic (AssertZero) opcodes.
+ * @brief Linear AssertZero (≤2 witnesses + constant)
+ */
+struct BatchedEqEntry {
+    uint32_t w1;
+    uint32_t w2;
+    bb::fr c1;
+    bb::fr c2;
+    bb::fr q_c;
+    size_t opcode_index;
+};
+
+/**
+ * @brief Build the batched-eq entry for an AssertZero already classified as `BatchedEq`.
+ */
+BatchedEqEntry build_batched_eq_entry(Acir::Expression const& arg,
+                                      const std::map<uint32_t, bb::fr>& linear_terms,
+                                      size_t opcode_index);
+
+/**
+ * @brief Build a BATCHED_EQ row from batched-eq halves.
  *
- * @details This function processes an Acir::Opcode::AssertZero by converting it into one more more mul_quad_ gates. The
- * function asserts that all the gates produced are non-zero and that the number of gates produced is consistent with
- * expectation (one gate if the opcode is meant to fit in one gate, more than one gate if the opcode is not meant to fit
- * in one gate).
+ * @details The first entry lands on (w_l, w_r, q_l, q_r, q_c), while the second lands on (w_o, w_4, q_o, q_4, q_m).
  *
  */
-void assert_zero_to_quad_constraints(Acir::Opcode::AssertZero const& arg, AcirFormat& af, size_t opcode_index);
+BatchedEqCheckConstraint build_batched_eq_check_constraint(const BatchedEqEntry& entry1,
+                                                           const std::optional<BatchedEqEntry>& entry2);
+
+/**
+ * @brief Single entrypoint for processing arithmetic (AssertZero) opcodes.
+ *
+ * @details Converts an Acir::Opcode::AssertZero into one or more constraint rows. The function tries different
+ * classifications based on `is_mega`:
+ *  - If `true`, then there are three possible classifications:
+ *      1. Bilinear (two mul-terms fitting four wires) → one BILINEAR row in `bilinear_constraints`.
+ *      2. If the opcode is linear with ≤2 witnesses → buffer the entry in a vector. The caller pairs these into
+ *         BATCHED_EQ rows (in `batched_eq_check_constraints`) after the loop via
+ *         `batched_eq_assert_zeros_into_constraints`.
+ *      3. Standard arithmetic gate (single or multi-gate via w_4_shift).
+ *  - If `false`, use standard arithmetic gates
+ *
+ * The function asserts that all the gates produced are non-zero and that the number of gates
+ * produced is consistent with expectation.
+ */
+void assert_zero_to_constraints(Acir::Opcode::AssertZero const& arg,
+                                AcirFormat& af,
+                                size_t opcode_index,
+                                std::vector<BatchedEqEntry>& batched_eq_assert_zeros,
+                                bool is_mega);
+
+/**
+ * @brief Pair buffered batched-eq AssertZeros into BATCHED_EQ rows (and emit any leftover as a single-half row).
+ *
+ * @details Called once after the AssertZero loop in `circuit_serde_to_acir_format`. Greedy FIFO
+ * pairing.
+ */
+void batched_eq_assert_zeros_into_constraints(AcirFormat& af, std::vector<BatchedEqEntry>& pending);
 
 /// ========= MEMORY OPERATIONS ========== ///
 

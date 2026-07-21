@@ -9,7 +9,10 @@ fn main() {
 
         // libbb-external.a contains everything needed: barretenberg + env + vm2_stub
         println!("cargo:rustc-link-lib=static=bb-external");
-        println!("cargo:rustc-link-lib=dylib=stdc++");
+
+        // Link C++ standard library
+        // barretenberg is built with Clang/libc++ on all platforms
+        println!("cargo:rustc-link-lib=dylib=c++");
     }
 }
 
@@ -43,10 +46,25 @@ fn get_lib_dir() -> PathBuf {
 fn download_lib(out_dir: &PathBuf) {
     let target = std::env::var("TARGET").unwrap();
     let arch = match target.as_str() {
+        // Android (must check before linux since android targets contain "linux")
+        t if t.contains("aarch64") && t.contains("android") => "arm64-android",
+        t if t.contains("x86_64") && t.contains("android") => "x86_64-android",
+        // Linux
         t if t.contains("x86_64") && t.contains("linux") => "amd64-linux",
         t if t.contains("aarch64") && t.contains("linux") => "arm64-linux",
+        // macOS
+        t if t.contains("x86_64") && t.contains("apple") && t.contains("darwin") => "amd64-darwin",
+        t if t.contains("aarch64") && t.contains("apple") && t.contains("darwin") => "arm64-darwin",
+        // iOS simulator (must check before ios since "ios-sim" contains "ios")
+        t if t.contains("aarch64") && t.contains("apple") && t.contains("ios-sim") => {
+            "arm64-ios-sim"
+        }
+        // iOS device
+        t if t.contains("aarch64") && t.contains("apple") && t.contains("ios") => "arm64-ios",
         _ => panic!(
-            "Unsupported target for FFI backend: {}. Supported: x86_64-linux, aarch64-linux",
+            "Unsupported target for FFI backend: {}. \
+             Supported: x86_64-linux, aarch64-linux, x86_64-apple-darwin, aarch64-apple-darwin, \
+             aarch64-apple-ios, aarch64-apple-ios-sim, aarch64-linux-android, x86_64-linux-android",
             target
         ),
     };
@@ -67,7 +85,7 @@ fn download_lib(out_dir: &PathBuf) {
     }
 
     let url = format!(
-        "https://github.com/AztecProtocol/aztec-packages/releases/download/v{}/barretenberg-static-{}.tar.gz",
+        "https://github.com/AztecProtocol/barretenberg/releases/download/v{}/barretenberg-static-{}.tar.gz",
         version, arch
     );
 

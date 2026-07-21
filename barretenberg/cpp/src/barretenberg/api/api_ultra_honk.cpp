@@ -121,14 +121,14 @@ bool UltraHonkAPI::verify(const Flags& flags,
     if (auto json = try_parse_json(public_inputs_content)) {
         public_inputs = PublicInputsJson::parse(*json);
     } else {
-        public_inputs = many_from_buffer<uint256_t>(public_inputs_content);
+        public_inputs = many_from_buffer_exact<uint256_t>(public_inputs_content, "UltraHonk public inputs file");
     }
 
     auto proof_content = read_file(proof_path);
     if (auto json = try_parse_json(proof_content)) {
         proof = ProofJson::parse(*json);
     } else {
-        proof = many_from_buffer<uint256_t>(proof_content);
+        proof = many_from_buffer_exact<uint256_t>(proof_content, "UltraHonk proof file");
     }
 
     auto vk_content = read_file(vk_path);
@@ -258,7 +258,9 @@ void UltraHonkAPI::write_solidity_verifier(const Flags& flags,
     if (output_path == "-") {
         std::cout << response.solidity_code;
     } else {
-        write_file(output_path, { response.solidity_code.begin(), response.solidity_code.end() });
+        write_file(output_path,
+                   std::span<const uint8_t>(reinterpret_cast<const uint8_t*>(response.solidity_code.c_str()),
+                                            response.solidity_code.size()));
         if (flags.disable_zk) {
             info("Honk solidity verifier saved to ", output_path);
         } else {

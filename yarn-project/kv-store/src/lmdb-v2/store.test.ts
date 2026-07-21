@@ -1,15 +1,14 @@
 import { promiseWithResolvers } from '@aztec/foundation/promise';
 import { sleep } from '@aztec/foundation/sleep';
 
-import { expect } from 'chai';
 import { mkdtemp } from 'fs/promises';
 import { tmpdir } from 'os';
 import { join } from 'path';
-import { stub } from 'sinon';
+import { vi } from 'vitest';
 
 import { openStoreAt, openTmpStore } from './factory.js';
 import type { ReadTransaction } from './read_transaction.js';
-import type { AztecLMDBStoreV2 } from './store.js';
+import { AztecLMDBStoreV2 } from './store.js';
 
 const testMaxReaders = 4;
 
@@ -27,8 +26,8 @@ describe('AztecLMDBStoreV2', () => {
   it('returns undefined for unset keys', async () => {
     const tx = store.getReadTx();
     try {
-      expect(await tx.get(Buffer.from('foo'))).to.be.undefined;
-      expect(await tx.getIndex(Buffer.from('foo'))).to.deep.eq([]);
+      expect(await tx.get(Buffer.from('foo'))).toBeUndefined();
+      expect(await tx.getIndex(Buffer.from('foo'))).toEqual([]);
     } finally {
       tx.close();
     }
@@ -63,7 +62,7 @@ describe('AztecLMDBStoreV2', () => {
     };
 
     // before doing any writes, we should have an empty db
-    expect(await getValues()).to.deep.eq({
+    expect(await getValues()).toEqual({
       data: undefined,
       index: [],
     });
@@ -74,13 +73,13 @@ describe('AztecLMDBStoreV2', () => {
       await writeTx.setIndex(Buffer.from('foo'), Buffer.from('bar'), Buffer.from('baz'));
 
       // the write tx should make the writes visible immediately
-      expect(await getValues(writeTx)).to.deep.eq({
+      expect(await getValues(writeTx)).toEqual({
         data: Buffer.from('bar'),
         index: [Buffer.from('bar'), Buffer.from('baz')],
       });
 
       // even without access to the tx, the writes should still be visible in this context
-      expect(await getValues()).to.deep.eq({
+      expect(await getValues()).toEqual({
         data: Buffer.from('bar'),
         index: [Buffer.from('bar'), Buffer.from('baz')],
       });
@@ -92,7 +91,7 @@ describe('AztecLMDBStoreV2', () => {
     });
 
     // we don't know a write is happening, so we should get an empty result back
-    expect(await getValues()).to.deep.eq({
+    expect(await getValues()).toEqual({
       data: undefined,
       index: [],
     });
@@ -101,7 +100,7 @@ describe('AztecLMDBStoreV2', () => {
     await writeChecks.promise;
 
     // to batch is ready but uncommmitted, we should still see empty data
-    expect(await getValues()).to.deep.eq({
+    expect(await getValues()).toEqual({
       data: undefined,
       index: [],
     });
@@ -110,7 +109,7 @@ describe('AztecLMDBStoreV2', () => {
     await writeCommitted;
 
     // now we should see the db update
-    expect(await getValues()).to.deep.eq({
+    expect(await getValues()).toEqual({
       data: Buffer.from('bar'),
       index: [Buffer.from('bar'), Buffer.from('baz')],
     });
@@ -132,7 +131,7 @@ describe('AztecLMDBStoreV2', () => {
     }
 
     await Promise.all(promises);
-    expect(Buffer.from((await store.getReadTx().get(key))!).readUint32BE()).to.eq(rounds);
+    expect(Buffer.from((await store.getReadTx().get(key))!).readUint32BE()).toBe(rounds);
   });
 
   it('guards against too many cursors being opened at the same time', async () => {
@@ -151,29 +150,29 @@ describe('AztecLMDBStoreV2', () => {
     }
 
     // the first few iterators should be fine
-    await expect(Promise.all(cursors.slice(0, -1).map(it => it.next()))).eventually.to.deep.eq([
+    await expect(Promise.all(cursors.slice(0, -1).map(it => it.next()))).resolves.toEqual([
       { value: [Buffer.from('1'), Buffer.from('1')], done: false },
       { value: [Buffer.from('1'), Buffer.from('1')], done: false },
       { value: [Buffer.from('1'), Buffer.from('1')], done: false },
     ]);
 
     // this promise should be blocked until we release a cursor
-    const fn = stub();
-    cursors.at(-1)!.next().then(fn, fn);
+    const fn = vi.fn();
+    void cursors.at(-1)!.next().then(fn, fn);
 
-    expect(fn.notCalled).to.be.true;
+    expect(fn).not.toHaveBeenCalled();
     await sleep(100);
-    expect(fn.notCalled).to.be.true;
+    expect(fn).not.toHaveBeenCalled();
 
     // but we can still do regular reads
-    await expect(readTx.get(Buffer.from('99'))).eventually.to.deep.eq(Buffer.from('99'));
+    await expect(readTx.get(Buffer.from('99'))).resolves.toEqual(Buffer.from('99'));
 
     // early-return one of the cursors
     await cursors[0].return!();
 
     // this should have unblocked the last cursor from progressing
     await sleep(10);
-    expect(fn.calledWith({ value: [Buffer.from('1'), Buffer.from('1')], done: false })).to.be.true;
+    expect(fn).toHaveBeenCalledWith({ value: [Buffer.from('1'), Buffer.from('1')], done: false });
 
     for (let i = 1; i < testMaxReaders; i++) {
       await cursors[i].return!();
@@ -186,14 +185,36 @@ describe('AztecLMDBStoreV2', () => {
     const key = Buffer.from('foo');
     const value = Buffer.from('bar');
     await store.transactionAsync(tx => tx.set(key, value));
-    expect(Buffer.from((await store.getReadTx().get(key))!).toString()).to.eq('bar');
+    expect(Buffer.from((await store.getReadTx().get(key))!).toString()).toBe('bar');
 
     const backupDir = await mkdtemp(join(tmpdir(), 'lmdb-store-test-backup'));
     await store.backupTo(backupDir, true);
 
     const store2 = await openStoreAt(backupDir);
-    expect(Buffer.from((await store2.getReadTx().get(key))!).toString()).to.eq('bar');
+    expect(Buffer.from((await store2.getReadTx().get(key))!).toString()).toBe('bar');
     await store2.close();
     await store2.delete();
+  });
+
+  describe('Map size validation', () => {
+    it('rejects zero map size', async () => {
+      const dataDir = await mkdtemp(join(tmpdir(), 'lmdb-map-size-test-'));
+      try {
+        await AztecLMDBStoreV2.new(dataDir, 0);
+        throw new Error('Expected an error for zero map size');
+      } catch (e: any) {
+        expect(e.message).toContain('Map size must be a positive number');
+      }
+    });
+
+    it('rejects negative map size', async () => {
+      const dataDir = await mkdtemp(join(tmpdir(), 'lmdb-map-size-test-'));
+      try {
+        await AztecLMDBStoreV2.new(dataDir, -1);
+        throw new Error('Expected an error for negative map size');
+      } catch (e: any) {
+        expect(e.message).toContain('Map size must be a positive number');
+      }
+    });
   });
 });

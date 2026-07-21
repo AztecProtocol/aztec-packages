@@ -11,8 +11,8 @@
 set -eux
 USER=${1:-$USER}
 BOX=$USER-box
-TARGET=${2:-chonk_bench}
-COMMAND=${3:-./bin/$TARGET --benchmark_filter=ChonkBench/Full/6"\$"}
+TARGET=${2:?usage: profile_tracy_capture_mainframe_view_local.sh <user> <bench_target> [command]}
+COMMAND=${3:-./bin/$TARGET}
 HARDWARE_CONCURRENCY=${HARDWARE_CONCURRENCY:-16}
 # Can also set PRESET=tracy-gates env variable
 PRESET=${PRESET:-tracy-memory}

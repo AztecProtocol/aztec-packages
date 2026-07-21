@@ -43,7 +43,7 @@ describe('invalidate blocks test', () => {
   let node: AztecNode;
   let origMinTxsPerBlock: number | undefined;
   let origSlashProposeInvalidAttestationsPenalty: bigint | undefined;
-  let origSlashAttestDescendantOfInvalidPenalty: bigint | undefined;
+  let origSlashProposeDescendantOfCheckpointWithInvalidAttestationsPenalty: bigint | undefined;
   const health = new ChainHealth(config.NAMESPACE, logger);
 
   const waitForSequencersToApplyConfig = async (expected: Partial<AztecNodeAdminConfig>, description: string) => {
@@ -78,7 +78,8 @@ describe('invalidate blocks test', () => {
       skipCollectingAttestations: false,
       minTxsPerBlock: origMinTxsPerBlock,
       slashProposeInvalidAttestationsPenalty: origSlashProposeInvalidAttestationsPenalty,
-      slashAttestDescendantOfInvalidPenalty: origSlashAttestDescendantOfInvalidPenalty,
+      slashProposeDescendantOfCheckpointWithInvalidAttestationsPenalty:
+        origSlashProposeDescendantOfCheckpointWithInvalidAttestationsPenalty,
     };
     await updateSequencersConfig(config, restoreConfig);
     // Ensure config has actually propagated before the next scenario test starts
@@ -107,7 +108,8 @@ describe('invalidate blocks test', () => {
     const first = configs?.[0];
     origMinTxsPerBlock = first?.minTxsPerBlock ?? origMinTxsPerBlock;
     origSlashProposeInvalidAttestationsPenalty = first?.slashProposeInvalidAttestationsPenalty;
-    origSlashAttestDescendantOfInvalidPenalty = first?.slashAttestDescendantOfInvalidPenalty;
+    origSlashProposeDescendantOfCheckpointWithInvalidAttestationsPenalty =
+      first?.slashProposeDescendantOfCheckpointWithInvalidAttestationsPenalty;
 
     const initialCheckpointNumber = (await monitor.run()).checkpointNumber;
 
@@ -116,12 +118,12 @@ describe('invalidate blocks test', () => {
     await updateSequencersConfig(config, {
       skipCollectingAttestations: true,
       slashProposeInvalidAttestationsPenalty: 0n,
-      slashAttestDescendantOfInvalidPenalty: 0n,
+      slashProposeDescendantOfCheckpointWithInvalidAttestationsPenalty: 0n,
       minTxsPerBlock: 0,
     });
 
-    // Wait for the invalidation to happen (should not take more than 2 slots, but we wait for 4 just in case)
-    await waitForCheckpointInvalidated(constants.slotDuration * 4);
+    // Wait up to 6 slots because proposer pipelining can leave one checkpoint already in flight.
+    await waitForCheckpointInvalidated(constants.slotDuration * 6);
 
     // Restore sequencer configs to normal
     await updateSequencersConfig(config, { skipCollectingAttestations: false });

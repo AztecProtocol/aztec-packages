@@ -1,3 +1,4 @@
+import { toBigIntBE } from '../bigint-buffer/index.js';
 import type { Tuple } from './types.js';
 
 /**
@@ -128,6 +129,20 @@ export class BufferReader {
 
     this.index += 32;
     return result;
+  }
+
+  /**
+   * Reads a 256-bit signed integer (two's complement) from the buffer at the current index position.
+   * Updates the index position by 32 bytes after reading the number.
+   *
+   * @returns The read 256 bit signed value as a bigint.
+   */
+  public readInt256(): bigint {
+    this.#rangeCheck(32);
+    const unsigned = toBigIntBE(this.buffer.subarray(this.index, this.index + 32));
+    this.index += 32;
+    const signBit = 1n << 255n;
+    return unsigned >= signBit ? unsigned - (1n << 256n) : unsigned;
   }
 
   /** Alias for readUInt256 */

@@ -1,6 +1,6 @@
 // === AUDIT STATUS ===
 // internal:    { status: Complete, auditors: [Raju], commit: 05a381f8b31ae4648e480f1369e911b148216e8b}
-// external_1:  { status: not started, auditors: [], commit: }
+// external_1:  { status: Complete, auditors: [Sherlock], commit: e6694849223 }
 // external_2:  { status: not started, auditors: [], commit: }
 // =====================
 
@@ -30,8 +30,6 @@ template <typename ExecutionTrace> size_t RomRamLogic_<ExecutionTrace>::create_R
  * initialized
  *
  * @note This method does not know what the value of `record_witness` will be.
- * @note There is nothing stopping us from running `set_ROM_element` on the same `rom_id` and `index_value` twice, as
- * long as the `value_witness` is the same both times.
  **/
 template <typename ExecutionTrace>
 void RomRamLogic_<ExecutionTrace>::set_ROM_element(CircuitBuilder* builder,
@@ -41,22 +39,30 @@ void RomRamLogic_<ExecutionTrace>::set_ROM_element(CircuitBuilder* builder,
 {
     BB_ASSERT_GT(rom_arrays.size(), rom_id);
     RomTranscript& rom_array = rom_arrays[rom_id];
+    // First single-value op commits this array to the LogUp scheme. If pair ops have already been issued on
+    // this array, the mismatch is a programmer error (the two schemes coexist across arrays, not within one).
+    BB_ASSERT(rom_array.records.empty() || rom_array.use_logup,
+              "ROM array: single-value op issued on an array already using pair gates");
+    rom_array.use_logup = true;
     const uint32_t index_witness =
         (index_value == 0) ? builder->zero_idx() : builder->put_constant_variable((uint64_t)index_value);
     BB_ASSERT_GT(rom_array.state.size(), index_value);
+    // Each index must be initialized exactly once: the LogUp argument relies on at most one table row per
+    // (array, index) key and does not enforce this in-circuit (see memory_relation.hpp).
     BB_ASSERT_EQ(rom_array.state[index_value][0], UNINITIALIZED_MEMORY_RECORD);
 
     RomRecord new_record{
         .index_witness = index_witness,
         .value_column1_witness = value_witness,
-        .value_column2_witness = builder->zero_idx(),
+        .value_column2_witness = builder->zero_idx(), // multiplicity placeholder; replaced at finalize
         .index = static_cast<uint32_t>(index_value),
+        .access_type = RomRecord::AccessType::TABLE_ENTRY,
         .record_witness = 0,
         .gate_index = 0,
     };
     rom_array.state[index_value][0] = value_witness;
     rom_array.state[index_value][1] = builder->zero_idx();
-    create_ROM_gate(builder, new_record);
+    create_ROM_logup_gate(builder, new_record, rom_id, /*is_read=*/false);
     rom_array.records.emplace_back(new_record);
 }
 /**
@@ -70,6 +76,7 @@ void RomRamLogic_<ExecutionTrace>::set_ROM_element_pair(CircuitBuilder* builder,
 {
     BB_ASSERT_GT(rom_arrays.size(), rom_id);
     RomTranscript& rom_array = rom_arrays[rom_id];
+    BB_ASSERT(!rom_array.use_logup, "ROM array: pair op issued on an array already using LogUp single-value gates");
     const uint32_t index_witness = builder->put_constant_variable((uint64_t)index_value);
     BB_ASSERT_GT(rom_array.state.size(), index_value);
     BB_ASSERT_EQ(rom_array.state[index_value][0], UNINITIALIZED_MEMORY_RECORD);
@@ -78,6 +85,7 @@ void RomRamLogic_<ExecutionTrace>::set_ROM_element_pair(CircuitBuilder* builder,
         .value_column1_witness = value_witnesses[0],
         .value_column2_witness = value_witnesses[1],
         .index = static_cast<uint32_t>(index_value),
+        .access_type = RomRecord::AccessType::TABLE_ENTRY,
         .record_witness = 0,
         .gate_index = 0,
     };
@@ -95,6 +103,8 @@ uint32_t RomRamLogic_<ExecutionTrace>::read_ROM_array(CircuitBuilder* builder,
 {
     BB_ASSERT_GT(rom_arrays.size(), rom_id);
     RomTranscript& rom_array = rom_arrays[rom_id];
+    BB_ASSERT(rom_array.use_logup,
+              "ROM array: single-value read issued before any set_ROM_element; or pair-ops already started");
     const uint32_t index = static_cast<uint32_t>(uint256_t(builder->get_variable(index_witness)));
     BB_ASSERT_GT(rom_array.state.size(), index);
     BB_ASSERT(rom_array.state[index][0] != UNINITIALIZED_MEMORY_RECORD);
@@ -105,10 +115,11 @@ uint32_t RomRamLogic_<ExecutionTrace>::read_ROM_array(CircuitBuilder* builder,
         .value_column1_witness = value_witness,
         .value_column2_witness = builder->zero_idx(),
         .index = index,
+        .access_type = RomRecord::AccessType::READ,
         .record_witness = 0,
         .gate_index = 0,
     };
-    create_ROM_gate(builder, new_record);
+    create_ROM_logup_gate(builder, new_record, rom_id, /*is_read=*/true);
     rom_array.records.emplace_back(new_record);
 
     return value_witness;
@@ -124,6 +135,7 @@ std::array<uint32_t, 2> RomRamLogic_<ExecutionTrace>::read_ROM_array_pair(Circui
     const uint32_t index = static_cast<uint32_t>(uint256_t(builder->get_variable(index_witness)));
     BB_ASSERT_GT(rom_arrays.size(), rom_id);
     RomTranscript& rom_array = rom_arrays[rom_id];
+    BB_ASSERT(!rom_array.use_logup, "ROM array: pair read issued on an array already using LogUp single-value gates");
     BB_ASSERT_GT(rom_array.state.size(), index);
     BB_ASSERT(rom_array.state[index][0] != UNINITIALIZED_MEMORY_RECORD);
     BB_ASSERT(rom_array.state[index][1] != UNINITIALIZED_MEMORY_RECORD);
@@ -136,6 +148,7 @@ std::array<uint32_t, 2> RomRamLogic_<ExecutionTrace>::read_ROM_array_pair(Circui
         .value_column1_witness = value_witnesses[0],
         .value_column2_witness = value_witnesses[1],
         .index = index,
+        .access_type = RomRecord::AccessType::READ,
         .record_witness = 0,
         .gate_index = 0,
     };
@@ -154,12 +167,15 @@ void RomRamLogic_<ExecutionTrace>::create_ROM_gate(CircuitBuilder* builder, RomR
 {
     // Record wire value can't yet be computed; it will be filled in later.
     record.record_witness = builder->add_variable(FF(0));
-    builder->apply_memory_selectors(CircuitBuilder::MEMORY_SELECTORS::ROM_READ);
-    builder->blocks.memory.populate_wires(
-        record.index_witness, record.value_column1_witness, record.value_column2_witness, record.record_witness);
+    {
+        auto row = builder->memory_selectors_row(CircuitBuilder::MEMORY_SELECTORS::ROM_READ);
+        row.wires = {
+            record.index_witness, record.value_column1_witness, record.value_column2_witness, record.record_witness
+        };
+        builder->blocks.memory.append_gate(row);
+    }
     // Note: record the index into the memory block that contains the RAM/ROM gates
     record.gate_index = builder->blocks.memory.size() - 1;
-    builder->check_selector_length_consistency();
     builder->increment_num_gates();
 }
 
@@ -169,12 +185,51 @@ void RomRamLogic_<ExecutionTrace>::create_sorted_ROM_gate(CircuitBuilder* builde
     record.record_witness = builder->add_variable(FF(0));
     // record_witness is intentionally used only in a single gate
     builder->update_used_witnesses(record.record_witness);
-    builder->apply_memory_selectors(CircuitBuilder::MEMORY_SELECTORS::ROM_CONSISTENCY_CHECK);
-    builder->blocks.memory.populate_wires(
-        record.index_witness, record.value_column1_witness, record.value_column2_witness, record.record_witness);
+    {
+        auto row = builder->memory_selectors_row(CircuitBuilder::MEMORY_SELECTORS::ROM_CONSISTENCY_CHECK);
+        row.wires = {
+            record.index_witness, record.value_column1_witness, record.value_column2_witness, record.record_witness
+        };
+        builder->blocks.memory.append_gate(row);
+    }
     // Note: record the index into the memory block that contains the RAM/ROM gates
     record.gate_index = builder->blocks.memory.size() - 1;
-    builder->check_selector_length_consistency();
+    builder->increment_num_gates();
+}
+
+// ---- ROM LogUp gate creators ----
+//
+// ROM-LogUp wire layout (table-entry and read-access gates alike):
+//   w_l = index,  w_r = value,  w_o = multiplicity (table) or zero (read),  w_4 = inverse helper.
+// `record_witness` (w_4) is a placeholder filled by the prover in oink once `eta`/`rom_logup_gamma` are known.
+// `value_column2_witness` (w_o) is `zero_idx()` at creation time; on table rows `process_ROM_logup_array`
+// repoints the wire at a witness holding the read count `m_i` during finalization.
+// The q_c selector carries the ROM array id, which the memory relation folds into the LogUp fingerprint so
+// that reads are bound to the array they were issued against (the sum is global across the trace).
+// The gate index is appended to `builder->rom_logup_records` so the prover knows which rows need inverse-fill.
+
+template <typename ExecutionTrace>
+void RomRamLogic_<ExecutionTrace>::create_ROM_logup_gate(CircuitBuilder* builder,
+                                                         RomRecord& record,
+                                                         const size_t rom_id,
+                                                         const bool is_read)
+{
+    // record_witness (w_4) holds the inverse helper, filled by the prover once challenges are known.
+    record.record_witness = builder->add_variable(FF(0));
+    builder->update_used_witnesses(record.record_witness);
+    {
+        auto row = builder->memory_selectors_row(is_read ? CircuitBuilder::MEMORY_SELECTORS::ROM_LOGUP_READ
+                                                         : CircuitBuilder::MEMORY_SELECTORS::ROM_LOGUP_TABLE);
+        row.wires = {
+            record.index_witness, record.value_column1_witness, record.value_column2_witness, record.record_witness
+        };
+        // Tag the row with the array id via q_c. This is a precomputed selector, so the array
+        // separation is committed in the VK.
+        row.q_c = FF(static_cast<uint64_t>(rom_id));
+        builder->blocks.memory.append_gate(row);
+    }
+    record.gate_index = builder->blocks.memory.size() - 1;
+    builder->rom_logup_records.push_back(static_cast<uint32_t>(record.gate_index));
     builder->increment_num_gates();
 }
 
@@ -191,10 +246,8 @@ void RomRamLogic_<ExecutionTrace>::process_ROM_array(CircuitBuilder* builder, co
 
     // Make sure that every cell has been initialized
     for (size_t i = 0; i < rom_array.state.size(); ++i) {
-        if (rom_array.state[i][0] == UNINITIALIZED_MEMORY_RECORD) {
-            set_ROM_element_pair(
-                builder, rom_id, static_cast<uint32_t>(i), { builder->zero_idx(), builder->zero_idx() });
-        }
+        BB_ASSERT_NEQ(rom_array.state[i][0], UNINITIALIZED_MEMORY_RECORD);
+        BB_ASSERT_NEQ(rom_array.state[i][1], UNINITIALIZED_MEMORY_RECORD);
     }
 
 #ifdef NO_PAR_ALGOS
@@ -203,12 +256,35 @@ void RomRamLogic_<ExecutionTrace>::process_ROM_array(CircuitBuilder* builder, co
     std::sort(std::execution::par_unseq, rom_array.records.begin(), rom_array.records.end());
 #endif
 
-    for (const RomRecord& record : rom_array.records) {
+    // The index-delta sub-relation has roots {0,-1} in the field, so a sorted chain starting at
+    // p-1 satisfies the delta=1 check when transitioning to 0.  We symbolically pin the chain at
+    // both ends:
+    //   - first sorted record's index_witness = zero_idx()                  (start of chain)
+    //   - last  sorted record's index_witness = put_constant_variable(N-1)  (end   of chain)
+    // Combined with the index-delta sub-relation, every sorted index is symbolically bounded in
+    // [0, state.size() - 1] without relying on the multiset / Schwartz-Zippel argument.
+    //
+    // We use put_constant_variable rather than emitting a separate big_add_gate so the cost is
+    // amortized: put_constant_variable caches by value, and the wire's value is bound via the
+    // permutation argument's copy constraint to the cached fix_witness gate.  In the typical
+    // case where the constant N-1 is already used elsewhere in the circuit (as a bound, count,
+    // index, etc.), no new gate is emitted at all.
+    for (size_t i = 0; i < rom_array.records.size(); ++i) {
+        const RomRecord& record = rom_array.records[i];
         const auto index = record.index;
         const auto value1 = builder->get_variable(record.value_column1_witness);
         const auto value2 = builder->get_variable(record.value_column2_witness);
-        const auto index_witness = builder->add_variable(FF((uint64_t)index));
-        builder->update_used_witnesses(index_witness);
+        uint32_t index_witness;
+        if (i == 0) {
+            // Start-of-chain pin: bound to the circuit's constant zero.
+            index_witness = builder->zero_idx();
+        } else if (i == rom_array.records.size() - 1) {
+            // End-of-chain pin: bound to the circuit constant state.size() - 1 via copy constraint.
+            index_witness = builder->put_constant_variable(static_cast<uint64_t>(rom_array.state.size()) - 1);
+        } else {
+            index_witness = builder->add_variable(FF((uint64_t)index));
+            builder->update_used_witnesses(index_witness);
+        }
         const auto value1_witness = builder->add_variable(value1);
         const auto value2_witness = builder->add_variable(value2);
         // (the real values in) `sorted_record` will be identical to (those in) `record`, except with a different
@@ -218,6 +294,7 @@ void RomRamLogic_<ExecutionTrace>::process_ROM_array(CircuitBuilder* builder, co
             .value_column1_witness = value1_witness,
             .value_column2_witness = value2_witness,
             .index = index,
+            .access_type = record.access_type,
             .record_witness = 0,
             .gate_index = 0,
         };
@@ -245,6 +322,14 @@ void RomRamLogic_<ExecutionTrace>::process_ROM_array(CircuitBuilder* builder, co
     // sorted list, where we set the first wire to equal `m + 1`, where `m` is the maximum allowed index in the sorted
     // list. Moreover, as `m + 1` is a circuit constant, this ensures that the checks correctly constrain the sorted ROM
     // gate chunks.
+    //
+    // N.B. We deliberately set max_index = state.size() (not state.size() - 1).  The ROM consistency sub-relation
+    //     adjacent_values_match_if_adjacent_indices_match = index_delta_is_zero * record_delta
+    // is gated on the *current* row's q_memory * q_1 * q_2, so it is active for the last sorted record.  When the
+    // delta from last.index (= state.size() - 1, pinned above) to dummy.index (= state.size()) is -1,
+    // index_delta_is_zero evaluates to 0 and the values-match constraint is vacuous, as desired.  If we instead set
+    // max_index = state.size() - 1, the delta would be 0 and the relation would force last.w4 == dummy.w4 = 0, which
+    // fails for any non-trivial ROM read.
     FF max_index_value((uint64_t)rom_array.state.size());
     uint32_t max_index = builder->add_variable(max_index_value);
 
@@ -263,14 +348,49 @@ void RomRamLogic_<ExecutionTrace>::process_ROM_array(CircuitBuilder* builder, co
             -max_index_value,
         },
         false);
-    // N.B. If the above check holds, we know the sorted list begins with an index value of 0,
-    // because the first cell is explicitly initialized using zero_idx as the index field.
+}
+
+template <typename ExecutionTrace>
+void RomRamLogic_<ExecutionTrace>::process_ROM_logup_array(CircuitBuilder* builder, const size_t rom_id)
+{
+    auto& rom_array = rom_arrays[rom_id];
+    BB_ASSERT(rom_array.use_logup);
+
+    // Every cell must have been initialized. An uninitialized cell is a programmer error and would either
+    // leak an arbitrary witness or break the LogUp sum.
+    for (size_t i = 0; i < rom_array.state.size(); ++i) {
+        BB_ASSERT_NEQ(rom_array.state[i][0], UNINITIALIZED_MEMORY_RECORD);
+    }
+
+    // Derive each index's table-row gate and read count from the records.
+    std::vector<size_t> table_row_gate_indices(rom_array.state.size(), 0);
+    std::vector<uint64_t> read_counts(rom_array.state.size(), 0);
+    for (const auto& record : rom_array.records) {
+        if (record.access_type == RomRecord::AccessType::TABLE_ENTRY) {
+            table_row_gate_indices[record.index] = record.gate_index;
+        } else {
+            read_counts[record.index]++;
+        }
+    }
+
+    // Point each table row's w_o wire at a witness holding that row's read count. The wire vectors of the
+    // memory block are still mutable here (finalization has not yet handed them to trace construction), so
+    // this is the same mechanism as any finalize-time gate that adds witnesses with known values.
+    for (size_t i = 0; i < rom_array.state.size(); ++i) {
+        const uint32_t count_witness = builder->add_variable(FF(read_counts[i]));
+        builder->update_used_witnesses(count_witness);
+        builder->blocks.memory.w_o()[table_row_gate_indices[i]] = count_witness;
+    }
 }
 
 template <typename ExecutionTrace> void RomRamLogic_<ExecutionTrace>::process_ROM_arrays(CircuitBuilder* builder)
 {
     for (size_t i = 0; i < rom_arrays.size(); ++i) {
-        process_ROM_array(builder, i);
+        if (rom_arrays[i].use_logup) {
+            process_ROM_logup_array(builder, i);
+        } else {
+            process_ROM_array(builder, i);
+        }
     }
 }
 
@@ -314,11 +434,12 @@ void RomRamLogic_<ExecutionTrace>::init_RAM_element(CircuitBuilder* builder,
                           .timestamp_witness = builder->put_constant_variable((uint64_t)ram_array.access_count),
                           .value_witness = value_witness,
                           .index = static_cast<uint32_t>(index_value),
-                          .timestamp = static_cast<uint32_t>(ram_array.access_count),
+                          .timestamp = ram_array.access_count,
                           .access_type = RamRecord::AccessType::WRITE,
                           .record_witness = 0,
                           .gate_index = 0 };
     ram_array.state[index_value] = value_witness;
+    BB_ASSERT_LT(ram_array.access_count, UINT32_MAX, "RAM access count overflow");
     ram_array.access_count++;
     // mutates the gate_index
     create_RAM_gate(builder, new_record);
@@ -342,7 +463,7 @@ uint32_t RomRamLogic_<ExecutionTrace>::read_RAM_array(CircuitBuilder* builder,
                           .timestamp_witness = builder->put_constant_variable((uint64_t)ram_array.access_count),
                           .value_witness = value_witness,
                           .index = index,
-                          .timestamp = static_cast<uint32_t>(ram_array.access_count),
+                          .timestamp = ram_array.access_count,
                           .access_type = RamRecord::AccessType::READ,
                           .record_witness = 0,
                           .gate_index = 0 };
@@ -352,6 +473,7 @@ uint32_t RomRamLogic_<ExecutionTrace>::read_RAM_array(CircuitBuilder* builder,
     ram_array.records.emplace_back(new_record);
 
     // increment ram array's access count
+    BB_ASSERT_LT(ram_array.access_count, UINT32_MAX, "RAM access count overflow");
     ram_array.access_count++;
 
     // return witness index of the value in the array
@@ -385,7 +507,7 @@ void RomRamLogic_<ExecutionTrace>::write_RAM_array(CircuitBuilder* builder,
                           .timestamp_witness = builder->put_constant_variable((uint64_t)ram_array.access_count),
                           .value_witness = value_witness,
                           .index = index,
-                          .timestamp = static_cast<uint32_t>(ram_array.access_count),
+                          .timestamp = ram_array.access_count,
                           .access_type = RamRecord::AccessType::WRITE,
                           .record_witness = 0,
                           .gate_index = 0 };
@@ -394,6 +516,7 @@ void RomRamLogic_<ExecutionTrace>::write_RAM_array(CircuitBuilder* builder,
     ram_array.records.emplace_back(new_record);
 
     // increment ram array's access count
+    BB_ASSERT_LT(ram_array.access_count, UINT32_MAX, "RAM access count overflow");
     ram_array.access_count++;
 
     // update Composer's current state of RAM array
@@ -408,11 +531,13 @@ void RomRamLogic_<ExecutionTrace>::create_RAM_gate(CircuitBuilder* builder, RamR
     // we will be applying copy constraints + set membership constraints.
     // Later on during proof construction we will compute the record wire value + assign it
     record.record_witness = builder->add_variable(FF(0));
-    builder->apply_memory_selectors(record.access_type == RamRecord::AccessType::READ
-                                        ? CircuitBuilder::MEMORY_SELECTORS::RAM_READ
-                                        : CircuitBuilder::MEMORY_SELECTORS::RAM_WRITE);
-    builder->blocks.memory.populate_wires(
-        record.index_witness, record.timestamp_witness, record.value_witness, record.record_witness);
+    {
+        auto row = builder->memory_selectors_row(record.access_type == RamRecord::AccessType::READ
+                                                     ? CircuitBuilder::MEMORY_SELECTORS::RAM_READ
+                                                     : CircuitBuilder::MEMORY_SELECTORS::RAM_WRITE);
+        row.wires = { record.index_witness, record.timestamp_witness, record.value_witness, record.record_witness };
+        builder->blocks.memory.append_gate(row);
+    }
 
     // Note: record the index into the block that contains the RAM/ROM gates
     record.gate_index = builder->blocks.memory.size() - 1;
@@ -423,12 +548,13 @@ template <typename ExecutionTrace>
 void RomRamLogic_<ExecutionTrace>::create_sorted_RAM_gate(CircuitBuilder* builder, RamRecord& record)
 {
     record.record_witness = builder->add_variable(FF(0));
-    builder->apply_memory_selectors(CircuitBuilder::MEMORY_SELECTORS::RAM_CONSISTENCY_CHECK);
-    builder->blocks.memory.populate_wires(
-        record.index_witness, record.timestamp_witness, record.value_witness, record.record_witness);
+    {
+        auto row = builder->memory_selectors_row(CircuitBuilder::MEMORY_SELECTORS::RAM_CONSISTENCY_CHECK);
+        row.wires = { record.index_witness, record.timestamp_witness, record.value_witness, record.record_witness };
+        builder->blocks.memory.append_gate(row);
+    }
     // Note: record the index into the memory block that contains the RAM/ROM gates
     record.gate_index = builder->blocks.memory.size() - 1;
-    builder->check_selector_length_consistency();
     builder->increment_num_gates();
 }
 
@@ -463,6 +589,19 @@ void RomRamLogic_<ExecutionTrace>::create_final_sorted_RAM_gate(CircuitBuilder* 
     });
 }
 
+// Gate cost of RAM interactions:
+// Currently, a circuit consisting predominantly of RAM interactions with 1 RAM array costs ~3.25 gates per
+// interaction:
+//   1. The memory gate itself (create_RAM_gate)
+//   2. Fixing the witness for the timestamp (put_constant_variable -> fix_witness, 1 gate per unique timestamp)
+//   3. Sorted memory gate (create_sorted_RAM_gate)
+//   4. 0.25 for the range constraint on the timestamp delta in the sorted memory gate
+//
+// Potential optimization: If we delay the creation of memory gates until circuit finalisation, we can eliminate step 2.
+// We would add the relation `timestamp_omega - timestamp - 1 == 0` into the RAM memory gate and fix the first timestamp
+// to 0 or 1. This would reduce the cost to 2.25 gates per interaction + 1 fix_witness + 1 waste gate after the memory
+// gates.
+
 template <typename ExecutionTrace>
 void RomRamLogic_<ExecutionTrace>::process_RAM_array(CircuitBuilder* builder, const size_t ram_id)
 {
@@ -492,12 +631,19 @@ void RomRamLogic_<ExecutionTrace>::process_RAM_array(CircuitBuilder* builder, co
 
     // Iterate over all but final RAM record. This is because one of the checks for the "interior" RAM gates is that the
     // next gate is also a RAM gate. We therfore apply a simplified check for the last gate.
+    //
+    // The index-delta sub-relation has roots {0,-1} in the field, so a sorted chain starting at
+    // p-1 satisfies the delta=1 check when transitioning to 0.  Pin the first sorted gate's
+    // index_witness to zero_idx() so that a malicious prover cannot start the chain at p-1.
     for (size_t i = 0; i < ram_array.records.size(); ++i) {
         const RamRecord& record = ram_array.records[i];
 
         const auto index = record.index;
         const auto value = builder->get_variable(record.value_witness);
-        const auto index_witness = builder->add_variable(FF((uint64_t)index));
+        // For the first sorted record (i==0, index must be 0 after sorting), bind to zero_idx()
+        // rather than a fresh add_variable so the witness is copy-constrained to the constant zero.
+        const uint32_t index_witness =
+            (i == 0) ? builder->zero_idx() : builder->add_variable(FF(static_cast<uint64_t>(index)));
         const auto timestamp_witess = builder->add_variable(FF(record.timestamp));
         const auto value_witness = builder->add_variable(value);
         // (the values in) `sorted_record` will be identical to (the values in) `record`, except with a different
@@ -578,9 +724,13 @@ void RomRamLogic_<ExecutionTrace>::process_RAM_array(CircuitBuilder* builder, co
         // note that the `index_witness` and `timestamp_witness` are taken from `current`. This means that there are
         // copy constraints, which will mean that once we constrain the sorted gates to be in lexicographic order,
         // these gates will _automatically_ be in lexicographic order.
-        builder->apply_memory_selectors(CircuitBuilder::MEMORY_SELECTORS::RAM_TIMESTAMP_CHECK);
-        builder->blocks.memory.populate_wires(
-            current.index_witness, current.timestamp_witness, timestamp_delta_witness, builder->zero_idx());
+        {
+            auto row = builder->memory_selectors_row(CircuitBuilder::MEMORY_SELECTORS::RAM_TIMESTAMP_CHECK);
+            row.wires = {
+                current.index_witness, current.timestamp_witness, timestamp_delta_witness, builder->zero_idx()
+            };
+            builder->blocks.memory.append_gate(row);
+        }
 
         builder->increment_num_gates();
 
@@ -595,11 +745,25 @@ void RomRamLogic_<ExecutionTrace>::process_RAM_array(CircuitBuilder* builder, co
     builder->create_unconstrained_gate(
         builder->blocks.memory, last.index_witness, last.timestamp_witness, builder->zero_idx(), builder->zero_idx());
 
-    // Step 3: validate that the timestamp_deltas (successive difference of timestamps for the same index) are
-    // monotonically increasing. i.e. are <= maximum timestamp. NOTE: we do _not_ check that every possible
-    // timestamp between 0 and `max_timestamp` occurs at least once (which corresponds to an "honest trace," e.g.,
-    // one generated by the code in this file). However, our check nonetheless suffices for correct memory accesses.
-    const size_t max_timestamp = ram_array.access_count - 1;
+    // Step 3: validate that the successive difference of timestamp_witnesses for the same index are
+    // monotonically increasing. We do this as follows:
+    //  - we enforce that each timestamp_delta is <= maximum timestamp.
+    //  - in the relation, we enforce that if two consecutive gates have the same index, then the timestamp_delta is
+    //    equal to the difference between the timestamp_witness of the current gate and the timestamp_witness of the
+    //    next gate
+    // The combination of the above checks implies
+    //      timestamp_witness_i - timestamp_witness_{i+1} = timestamp_delta < max_timestamp
+    // To conclude that timestamp_witness_i - timestamp_witness_{i+1} > 0 we leverage the way our circuits are
+    // constructed: the timestamp_witness in each RAM record is set equal to a fixed witness holding the value
+    // ram_array.access_count. Hence, sorted gates = unsorted gates contain each timestamp value between 0 and
+    // ram_array.access_count - 1 exactly once. This means
+    //      | timestamp_witness_i - timestamp_witness_{i+1} | < 2 * ram_array.access_count << (1 << 256)
+    // and therefore if (timestamp_witness_i - timestamp_witness_{i+1}) < max_timestamp < (1 << 32) then there is no
+    // wraparound because
+    //  (1 << 256) - timestamp_witness_i + timestamp_witness_{i+1} > (1 << 256) - 2 * max_timestamp
+    // Hence, timestamp_witness_i - timestamp_witness_{i+1} >= 0, and as all the timestamp witnesses are different by
+    // construction, we get timestamp_witness_i - timestamp_witness_{i+1} > 0.
+    const uint32_t max_timestamp = ram_array.access_count - 1;
     for (auto& w : timestamp_deltas) {
         builder->create_small_range_constraint(w, max_timestamp);
     }

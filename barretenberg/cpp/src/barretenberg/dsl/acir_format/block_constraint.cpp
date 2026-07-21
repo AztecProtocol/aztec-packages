@@ -94,8 +94,8 @@ void process_ROM_operations(Builder& builder,
 
     rom_table_ct table(&builder, init);
     for (const auto& op : constraint.trace) {
-        field_ct value = to_field_ct(op.value, builder);
-        field_ct index = to_field_ct(op.index, builder);
+        field_ct value = field_ct::from_witness_index(&builder, op.value);
+        field_ct index = field_ct::from_witness_index(&builder, op.index);
 
         switch (op.access_type) {
         case AccessType::Read:
@@ -118,8 +118,8 @@ void process_RAM_operations(Builder& builder,
 
     ram_table_ct table(&builder, init);
     for (const auto& op : constraint.trace) {
-        field_ct value = to_field_ct(op.value, builder);
-        field_ct index = to_field_ct(op.index, builder);
+        field_ct value = field_ct::from_witness_index(&builder, op.value);
+        field_ct index = field_ct::from_witness_index(&builder, op.index);
 
         switch (op.access_type) {
         case AccessType::Read:
@@ -151,8 +151,8 @@ void process_call_data_operations(Builder& builder,
         calldata_array.set_values(init); // Initialize the data in the bus array
 
         for (const auto& op : constraint.trace) {
-            field_ct value = to_field_ct(op.value, builder);
-            field_ct index = to_field_ct(op.index, builder);
+            field_ct value = field_ct::from_witness_index(&builder, op.value);
+            field_ct index = field_ct::from_witness_index(&builder, op.index);
 
             switch (op.access_type) {
             case AccessType::Read:
@@ -165,17 +165,15 @@ void process_call_data_operations(Builder& builder,
         }
     };
 
-    // Process primary or secondary calldata based on calldata_id
-    switch (constraint.calldata_id) {
-    case CallDataType::Primary:
-        process_calldata(databus.calldata);
-        break;
-    case CallDataType::Secondary:
-        process_calldata(databus.secondary_calldata);
-        break;
-    default:
-        bb::assert_failure("Databus only supports two calldata arrays.");
-        break;
+    // Process kernel or app calldata based on the ACIR calldata id. Id 0 is kernel calldata; app calldata ids start at
+    // 1 and map directly onto app_calldata[id - 1].
+    const auto calldata_id = static_cast<uint32_t>(constraint.calldata_id);
+    if (calldata_id == static_cast<uint32_t>(CallDataType::KernelCalldata)) {
+        process_calldata(databus.kernel_calldata);
+    } else {
+        const size_t app_calldata_idx = calldata_id - /*shift by kernel calldata*/ 1;
+        BB_ASSERT_LT(app_calldata_idx, MAX_APPS_PER_KERNEL, "Databus app calldata index out of bounds");
+        process_calldata(databus.app_calldata[app_calldata_idx]);
     }
 }
 
@@ -185,23 +183,13 @@ void process_return_data_operations(Builder& builder,
                                     std::vector<bb::stdlib::field_t<Builder>>& init)
 {
     using databus_ct = stdlib::databus<Builder>;
-    // Return data opcodes simply copy the data from the initialization vector to the return data vector in the databus.
-    // There is no operation happening.
+    // set_values populates the return-data bus column and creates one busread per slot.
     BB_ASSERT_EQ(constraint.trace.size(), 0U, "Return data opcodes should have empty traces");
 
     databus_ct databus;
 
     databus.return_data.set_context(&builder);
-    // Populate the returndata in the databus
     databus.return_data.set_values(init);
-    // For each entry of the return data, explicitly assert equality with the initialization value. This implicitly
-    // creates the return data read gates that are required to connect witness values in the main wires to witness
-    // values in the databus return data column.
-    size_t c = 0;
-    for (const auto& value : init) {
-        value.assert_equal(databus.return_data[c]);
-        c++;
-    }
 }
 
 } // namespace acir_format

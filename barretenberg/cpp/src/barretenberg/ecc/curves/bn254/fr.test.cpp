@@ -4,7 +4,6 @@
  * Other field arithmetic tests (both compile-time and runtime) are in ecc/fields/generic_field.test.cpp and
  * ecc/fields/prime_field.test.cpp. This file contains only BN254 scalar field specific functionality:
  * - Fixed compile-time tests with field-specific expected values
- * - Multiplicative generator (AUDITTODO: delete)
  * - Endomorphism scalar decomposition
  */
 
@@ -76,11 +75,6 @@ TEST(BN254Fr, CompileTimeInversion)
 // ================================
 // BN254 Scalar Field Specific
 // ================================
-// AUDITTODO: delete this (`multiplicative_generator` is misnamed and is no longer used.)
-TEST(BN254Fr, MultiplicativeGenerator)
-{
-    EXPECT_EQ(fr::multiplicative_generator(), fr(5));
-}
 
 TEST(BN254Fr, SplitIntoEndomorphismScalars)
 {
@@ -94,6 +88,9 @@ TEST(BN254Fr, SplitIntoEndomorphismScalars)
 
     k1.self_to_montgomery_form();
     k2.self_to_montgomery_form();
+
+    EXPECT_LT(uint256_t(k1).get_msb(), 128);
+    EXPECT_LT(uint256_t(k2).get_msb(), 128);
 
     fr lambda = fr::cube_root_of_unity();
     result = k2 * lambda;
@@ -112,18 +109,51 @@ TEST(BN254Fr, SplitIntoEndomorphismScalarsSimple)
     fr::__copy(input, k);
 
     fr::split_into_endomorphism_scalars(k, k1, k2);
-
     fr result{ 0, 0, 0, 0 };
-    k1.self_to_montgomery_form();
-    k2.self_to_montgomery_form();
+    k1.self_to_montgomery_form_reduced();
+    k2.self_to_montgomery_form_reduced();
+
+    EXPECT_LT(uint256_t(k1).get_msb(), 128);
+    EXPECT_LT(uint256_t(k2).get_msb(), 128);
 
     fr lambda = fr::cube_root_of_unity();
     result = k2 * lambda;
     result = k1 - result;
 
-    result.self_from_montgomery_form();
+    result.self_from_montgomery_form_reduced();
     for (size_t i = 0; i < 4; ++i) {
         EXPECT_EQ(result.data[i], k.data[i]);
+    }
+}
+
+// Regression: k = ceil(m * 2^256 / endo_g2), for m an integer, previously produced negative k2 in the GLV
+// splitting, causing 128-bit truncation to extract wrong values.
+TEST(BN254Fr, SplitEndomorphismNegativeK2)
+{
+    // clang-format off
+    struct test_case { std::array<uint64_t, 4> limbs; const char* tag; };
+    const std::array<test_case, 3> cases = {{
+        {{ 0x01624731e1195570, 0x3ba491482db4da14, 0x59e26bcea0d48bac, 0x0 }, "m=1"},
+        {{ 0x02c48e63c232aadf, 0x774922905b69b428, 0xb3c4d79d41a91758, 0x0 }, "m=2"},
+        {{ 0x0426d595a34c004e, 0xb2edb3d8891e8e3c, 0x0da7436be27da304, 0x1 }, "m=3"},
+    }};
+    // clang-format on
+
+    fr lambda = fr::cube_root_of_unity();
+
+    for (const auto& tc : cases) {
+        fr k{ tc.limbs[0], tc.limbs[1], tc.limbs[2], tc.limbs[3] };
+        fr k1{ 0, 0, 0, 0 };
+        fr k2{ 0, 0, 0, 0 };
+
+        fr::split_into_endomorphism_scalars(k, k1, k2);
+
+        k1.self_to_montgomery_form();
+        k2.self_to_montgomery_form();
+        fr result = k1 - k2 * lambda;
+        result.self_from_montgomery_form();
+
+        EXPECT_EQ(result, k) << tc.tag;
     }
 }
 

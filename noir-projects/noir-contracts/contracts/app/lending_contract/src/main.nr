@@ -10,27 +10,29 @@ mod helpers;
 // - Update accumulator should be for specific asset, just abusing only 1 asset atm.
 // - A way to repay all debt at once
 // - Liquidations
-use dep::aztec::macros::aztec;
+use aztec::macros::aztec;
 
 #[aztec]
 pub contract Lending {
-    use dep::aztec::{protocol::address::AztecAddress, state_vars::{Map, PublicMutable}};
+    use aztec::{protocol::address::AztecAddress, state_vars::{Map, PublicMutable}};
 
     use crate::asset::Asset;
     use crate::helpers::{compute_identifier, covered_by_collateral, debt_updates, debt_value};
     use crate::interest_math::compute_multiplier;
     use crate::position::Position;
-    use dep::price_feed::PriceFeed;
-    use dep::token::Token;
+    use price_feed::PriceFeed;
+    use token::Token;
 
-    use dep::aztec::macros::{functions::{external, initializer, only_self, view}, storage::storage};
+    use aztec::macros::{functions::{external, initializer, only_self, view}, storage::storage};
 
-    use dep::aztec::protocol::traits::{FromField, ToField};
+    use aztec::protocol::traits::{FromField, ToField};
 
     // Storage structure, containing all storage, and specifying what slots they use.
     #[storage]
     struct Storage<Context> {
+        // docs:start:public_mutable
         collateral_asset: PublicMutable<AztecAddress, Context>,
+        // docs:end:public_mutable
         stable_coin: PublicMutable<AztecAddress, Context>,
         assets: Map<Field, PublicMutable<Asset, Context>, Context>,
         collateral: Map<AztecAddress, PublicMutable<u128, Context>, Context>,
@@ -43,12 +45,7 @@ pub contract Lending {
     fn constructor() {}
 
     #[external("public")]
-    fn init(
-        oracle: AztecAddress,
-        loan_to_value: u128,
-        collateral_asset: AztecAddress,
-        stable_coin: AztecAddress,
-    ) {
+    fn init(oracle: AztecAddress, loan_to_value: u128, collateral_asset: AztecAddress, stable_coin: AztecAddress) {
         let asset_loc = self.storage.assets.at(0);
         let asset: Asset = asset_loc.read();
 
@@ -60,16 +57,10 @@ pub contract Lending {
 
         let last_updated_ts = self.context.timestamp();
 
-        asset_loc.write(
-            Asset {
-                interest_accumulator: 1000000000 as u128,
-                last_updated_ts,
-                loan_to_value,
-                oracle,
-            },
-        );
-
+        asset_loc.write(Asset { interest_accumulator: 1000000000 as u128, last_updated_ts, loan_to_value, oracle });
+        // docs:start:public_mutable_write
         self.storage.collateral_asset.write(collateral_asset);
+        // docs:end:public_mutable_write
         self.storage.stable_coin.write(stable_coin);
     }
 
@@ -109,35 +100,21 @@ pub contract Lending {
         collateral_asset: AztecAddress,
     ) {
         let on_behalf_of = compute_identifier(secret, on_behalf_of, self.msg_sender().to_field());
-        let _res = self.call(Token::at(collateral_asset).transfer_to_public(
-            from,
-            self.address,
-            amount,
-            authwit_nonce,
-        ));
+        let _res = self.call(Token::at(collateral_asset).transfer_to_public(from, self.address, amount, authwit_nonce));
         // docs:start:enqueue_public
         self.enqueue_self._deposit(AztecAddress::from_field(on_behalf_of), amount, collateral_asset);
         // docs:end:enqueue_public
     }
 
     #[external("public")]
-    fn deposit_public(
-        amount: u128,
-        authwit_nonce: Field,
-        on_behalf_of: Field,
-        collateral_asset: AztecAddress,
-    ) {
+    fn deposit_public(amount: u128, authwit_nonce: Field, on_behalf_of: Field, collateral_asset: AztecAddress) {
         let _ = self.call(Token::at(collateral_asset).transfer_in_public(
             self.msg_sender(),
             self.address,
             amount,
             authwit_nonce,
         ));
-        let _ = self.call_self._deposit(
-            AztecAddress::from_field(on_behalf_of),
-            amount,
-            collateral_asset,
-        );
+        let _ = self.call_self._deposit(AztecAddress::from_field(on_behalf_of), amount, collateral_asset);
     }
 
     #[external("public")]
@@ -178,8 +155,7 @@ pub contract Lending {
 
         // debt_covered will revert if decrease would leave insufficient collateral to cover debt.
         // or trying to remove more collateral than available
-        let debt_covered =
-            covered_by_collateral(price, asset.loan_to_value, collateral, 0 as u128, amount);
+        let debt_covered = covered_by_collateral(price, asset.loan_to_value, collateral, 0 as u128, amount);
         let debt_returns = debt_updates(
             asset.interest_accumulator,
             static_debt,
@@ -193,12 +169,7 @@ pub contract Lending {
 
         // @todo @LHerskind Support both shielding and transfers (for now just transfer)
         let collateral_asset = self.storage.collateral_asset.read();
-        let _ = self.call(Token::at(collateral_asset).transfer_in_public(
-            self.address,
-            recipient,
-            amount,
-            0,
-        ));
+        let _ = self.call(Token::at(collateral_asset).transfer_in_public(self.address, recipient, amount, 0));
     }
 
     #[external("private")]
@@ -222,8 +193,7 @@ pub contract Lending {
         let collateral = self.storage.collateral.at(owner).read();
         let static_debt = self.storage.static_debt.at(owner).read();
 
-        let debt_covered =
-            covered_by_collateral(price, asset.loan_to_value, collateral, 0 as u128, 0 as u128);
+        let debt_covered = covered_by_collateral(price, asset.loan_to_value, collateral, 0 as u128, 0 as u128);
         let debt_returns = debt_updates(asset.interest_accumulator, static_debt, amount, 0 as u128);
 
         assert(debt_returns.debt_value < debt_covered);
@@ -252,14 +222,8 @@ pub contract Lending {
     }
 
     #[external("public")]
-    fn repay_public(
-        amount: u128,
-        authwit_nonce: Field,
-        owner: AztecAddress,
-        stable_coin: AztecAddress,
-    ) {
-        let _ =
-            self.call(Token::at(stable_coin).burn_public(self.msg_sender(), amount, authwit_nonce));
+    fn repay_public(amount: u128, authwit_nonce: Field, owner: AztecAddress, stable_coin: AztecAddress) {
+        let _ = self.call(Token::at(stable_coin).burn_public(self.msg_sender(), amount, authwit_nonce));
         let _ = self.call_self._repay(owner, amount, stable_coin);
     }
 
@@ -293,9 +257,11 @@ pub contract Lending {
         Position { collateral, static_debt, debt }
     }
 
+    // docs:start:public_mutable_read
     #[external("public")]
     #[view]
     fn get_assets() -> pub [AztecAddress; 2] {
         [self.storage.collateral_asset.read(), self.storage.stable_coin.read()]
     }
+    // docs:end:public_mutable_read
 }

@@ -1,10 +1,10 @@
 use super::TestBuilder;
+use protocol_test_utils::{assert_array_eq, pad_end};
 use types::{
     abis::{nullifier::Nullifier, private_log::{PrivateLog, PrivateLogData}},
     constants::{MAX_U32_VALUE, SIDE_EFFECT_MASKING_ADDRESS},
     hash::compute_siloed_nullifier,
     side_effect::Counted,
-    tests::utils::{assert_array_eq, pad_end},
 };
 
 #[test]

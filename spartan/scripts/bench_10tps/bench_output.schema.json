@@ -1,0 +1,835 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/AztecProtocol/aztec-packages/benchmark-design/benchmark-output.schema.json",
+  "title": "Aztec 10 TPS benchmark — per-run output",
+  "description": "One JSON per benchmark run, self-contained. Produced by bench_scrape.ts after a run finishes. Two scrape paths, run independently so one failing does not prevent the other from populating: (a) PromQL query_range for continuous time-series; (b) gcloud log scrape for per-block records and discrete events.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schemaVersion",
+    "run",
+    "summary",
+    "timeSeries",
+    "blocks",
+    "events"
+  ],
+  "properties": {
+    "schemaVersion": {
+      "type": "string",
+      "const": "5",
+      "description": "Bump when breaking the schema. Old JSONs keep their previous version so the dashboard can render them side-by-side. v3: timeSeries entries carry `series: [{labels, points}]` instead of bare `points`. v4 (additive): adds optional `provingInfra` (hint-gen + proving-queue-by-job_type series) and `saturation` (per-role ELU/CPU/memory, max + avg) sections, plus `run.sweepId`/`run.sweepLabel` so a night's 1/5/10 TPS points group as one sweep. v5 (additive): adds `run.benchmarkType` so the dashboard can group a day's sweeps by the kind of benchmark (ingress-inclusion, simulated-proving, real-proving, block-capacity). All prior fields retained."
+    },
+    "run": {
+      "$ref": "#/$defs/runMeta"
+    },
+    "summary": {
+      "$ref": "#/$defs/summary",
+      "description": "Scalar reductions — one number per run. Shown on the dashboard trend page and duplicated into index.json so the index can render headline numbers without fetching every run."
+    },
+    "timeSeries": {
+      "$ref": "#/$defs/timeSeriesSection",
+      "description": "PromQL query_range results. Continuous-sampled metrics keyed by unixEpoch; the dashboard normalises to time-within-run via unixEpoch - run.startedAt at render time so multiple runs can overlay on the same x-axis."
+    },
+    "provingInfra": {
+      "$ref": "#/$defs/metricSeriesMap",
+      "description": "v4. Proving-path series for the proving-infra view: prover-node hint-gen / tx re-execution (public_processor.* + prover_node.*_processing.duration scoped to the prover-node pod) and proving-queue behaviour broken down by job_type (aztec_proving_job_type label). Optional — empty/absent on inclusion-only runs."
+    },
+    "saturation": {
+      "$ref": "#/$defs/metricSeriesMap",
+      "description": "v4. Per-role resource saturation: ELU, CPU, memory, and event-loop delay (mean, raw nanoseconds) for each role (validator / rpc / fullNode / proverNode / broker / agent), each emitted as both the hottest pod (max across pods) and the role average (avg across pods). Never a single hand-picked pod. Optional — absent on older runs."
+    },
+    "blocks": {
+      "type": "array",
+      "description": "Per-block records parsed from structured logs (each block emits one `Processed N successful txs and M failed txs ...` info line). Authoritative for per-block facts — Prometheus histograms cannot recover per-block samples.",
+      "items": {
+        "$ref": "#/$defs/blockRecord"
+      }
+    },
+    "events": {
+      "type": "array",
+      "description": "Discrete occurrences during the run (currently just chain prunes). Typically rendered as annotations on charts.",
+      "items": {
+        "$ref": "#/$defs/event"
+      }
+    },
+    "sequencerStateSlots": {
+      "type": "array",
+      "description": "Per-slot sequencer state time budget reconstructed from structured state-transition logs. Optional for older runs and empty when sequencer debug logs were not enabled.",
+      "items": {
+        "$ref": "#/$defs/sequencerStateSlot"
+      }
+    },
+    "notes": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      },
+      "description": "Free-form operator notes (e.g. 'ran with doubled prover agents'). Optional."
+    }
+  },
+  "$defs": {
+    "containerResources": {
+      "type": "object",
+      "additionalProperties": false,
+      "description": "CPU/memory requests and limits of a pod's main aztec container, captured verbatim from the Kubernetes pod spec. Values are Kubernetes quantity strings (e.g. cpu '3500m', memory '12Gi').",
+      "properties": {
+        "requests": {
+          "type": "object",
+          "additionalProperties": {
+            "type": "string"
+          }
+        },
+        "limits": {
+          "type": "object",
+          "additionalProperties": {
+            "type": "string"
+          }
+        }
+      }
+    },
+    "runMeta": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["runId", "startedAt", "endedAt", "namespace"],
+      "properties": {
+        "runId": {
+          "type": "string",
+          "description": "ULID/UUID. Same value stamped on pods as BENCH_RUN_ID label when that instrumentation lands."
+        },
+        "startedAt": {
+          "type": "string",
+          "format": "date-time",
+          "description": "Wall-clock time the load generator started sending txs. Dashboards normalise time-series x-axes against this for cross-run overlay."
+        },
+        "endedAt": {
+          "type": "string",
+          "format": "date-time",
+          "description": "Wall-clock time the load generator stopped sending txs (not the test-teardown time)."
+        },
+        "inclusionEndedAt": {
+          "type": "string",
+          "format": "date-time",
+          "description": "Wall-clock time the scraper considers proposer-visible load fully included. With pending-drain scraping enabled, this is when validator pending TxPool depth first reached zero; otherwise it falls back to the bounded scrape window end. RPC/full-node pending may remain non-zero when load failed to propagate to validators."
+        },
+        "drainEndedAt": {
+          "type": "string",
+          "format": "date-time",
+          "description": "Wall-clock time the scraper began querying Prometheus. Typically endedAt + ~90s to let the OTel batch push (60s default) and one Prom scrape (15s) settle."
+        },
+        "namespace": {
+          "type": "string",
+          "examples": ["bench-10tps"]
+        },
+        "gcpProject": {
+          "type": "string",
+          "description": "GCP project containing the GKE container logs."
+        },
+        "gcpLocation": {
+          "type": "string",
+          "description": "GKE cluster location used by Cloud Logging resource labels."
+        },
+        "gkeCluster": {
+          "type": "string",
+          "description": "GKE cluster name used by Cloud Logging resource labels."
+        },
+        "image": {
+          "type": "string",
+          "description": "Aztec image tag or digest the validators ran."
+        },
+        "targetTps": {
+          "type": "number",
+          "minimum": 0
+        },
+        "sweepId": {
+          "type": "string",
+          "description": "v4. Groups the runs of one sweep (e.g. a night's 1/5/10 TPS points) so the dashboard can plot them together. Shared across the points of a sweep; absent for standalone runs."
+        },
+        "sweepLabel": {
+          "type": "string",
+          "description": "v4. Human-readable label for the sweep this run belongs to (e.g. 'inclusion-sweep' or 'proving-sweep'). Optional."
+        },
+        "benchmarkType": {
+          "type": "string",
+          "enum": [
+            "ingress-inclusion",
+            "simulated-proving",
+            "real-proving",
+            "block-capacity"
+          ],
+          "description": "v5. The kind of benchmark this run measures. Groups a day's sweeps in the dashboard sidebar (Day -> benchmark type). 'real-proving' typically only runs weekly. Optional; absent runs are treated as 'ingress-inclusion'."
+        },
+        "testDurationSeconds": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "workload": {
+          "type": "string",
+          "examples": ["sha256_hash_1024"]
+        },
+        "aztecConfig": {
+          "type": "object",
+          "additionalProperties": {
+            "type": "string"
+          },
+          "description": "Curated subset of Aztec config env vars captured from a running validator pod. Keys include SEQ_MAX_TX_PER_BLOCK, P2P_MAX_PENDING_TX_COUNT, AZTEC_MANA_TARGET, etc. Lets the dashboard show 'pool=20k vs pool=1000' alongside compared runs."
+        },
+        "infrastructure": {
+          "type": "object",
+          "additionalProperties": false,
+          "description": "Benchmark pod placement captured from Kubernetes at scrape time. Lets dashboards show which machine shapes validators, provers, RPC nodes, and full nodes used.",
+          "properties": {
+            "roles": {
+              "type": "object",
+              "additionalProperties": {
+                "type": "object",
+                "additionalProperties": false,
+                "properties": {
+                  "instanceTypes": {
+                    "type": "array",
+                    "items": {
+                      "type": "string"
+                    },
+                    "description": "Distinct Kubernetes node instance types used by this role."
+                  },
+                  "nodePools": {
+                    "type": "array",
+                    "items": {
+                      "type": "string"
+                    },
+                    "description": "Distinct node pools used by this role, when exposed as node labels."
+                  },
+                  "resourceProfiles": {
+                    "type": "array",
+                    "description": "Distinct CPU/memory request+limit profiles of the role's pods (deduped by content). Normally one entry per role; a second entry indicates pods of this role were sized differently. For the bench profiles request==limit (guaranteed QoS).",
+                    "items": {
+                      "$ref": "#/$defs/containerResources"
+                    }
+                  },
+                  "nodes": {
+                    "type": "array",
+                    "items": {
+                      "type": "object",
+                      "additionalProperties": false,
+                      "required": ["role", "podName", "nodeName"],
+                      "properties": {
+                        "role": {
+                          "type": "string"
+                        },
+                        "podName": {
+                          "type": "string"
+                        },
+                        "nodeName": {
+                          "type": "string"
+                        },
+                        "instanceType": {
+                          "type": "string"
+                        },
+                        "nodePool": {
+                          "type": "string"
+                        },
+                        "resources": {
+                          "$ref": "#/$defs/containerResources"
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
+        "chaosMesh": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "enabled": {
+              "type": "boolean"
+            },
+            "profile": {
+              "type": "string",
+              "examples": ["network-requirements"]
+            }
+          }
+        },
+        "scrapeConfig": {
+          "type": "object",
+          "description": "What the scraper itself did. Kept so a future maintainer can tell whether a gappy time-series was caused by too-short drain or too-large step.",
+          "additionalProperties": false,
+          "properties": {
+            "drainSeconds": {
+              "type": "integer",
+              "minimum": 0,
+              "description": "Seconds waited between endedAt and the first Prom query."
+            },
+            "stepSeconds": {
+              "type": "integer",
+              "minimum": 1,
+              "description": "PromQL range-query step."
+            },
+            "promUrl": {
+              "type": "string"
+            },
+            "waitForPendingZero": {
+              "type": "boolean",
+              "description": "Whether live scraping waited for validator pending TxPool depth to reach zero before querying."
+            },
+            "maxPendingWaitSeconds": {
+              "type": "integer",
+              "minimum": 0,
+              "description": "Maximum time the scraper was allowed to wait for validator pending TxPool depth to reach zero."
+            },
+            "pendingAtScrape": {
+              "type": ["number", "null"],
+              "minimum": 0,
+              "description": "Validator pending TxPool depth observed when scraping started, or null when the pending drain gate was disabled."
+            },
+            "pendingByRoleAtScrape": {
+              "type": ["object", "null"],
+              "description": "Pending TxPool depth by pod role at scrape start. RPC/full-node pending can remain non-zero after validators drain, which indicates load that did not propagate to proposers before expiry.",
+              "additionalProperties": false,
+              "properties": {
+                "rpc": {
+                  "type": ["number", "null"],
+                  "minimum": 0
+                },
+                "validator": {
+                  "type": ["number", "null"],
+                  "minimum": 0
+                },
+                "fullNode": {
+                  "type": ["number", "null"],
+                  "minimum": 0
+                }
+              }
+            },
+            "pendingWaitTimedOut": {
+              "type": "boolean",
+              "description": "True if scraping began because the pending-drain timeout expired."
+            }
+          }
+        }
+      }
+    },
+    "summary": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["headlineKpi", "inclusionTpsMean", "targetTps"],
+      "properties": {
+        "headlineKpi": {
+          "type": ["number", "null"],
+          "description": "inclusionTpsMean / targetTps. The single number on the dashboard top strip. ~1.0 on a healthy run; below 1 only when the network cannot keep up with offered load (warmup/drain no longer dilute it)."
+        },
+        "targetTps": {
+          "type": "number"
+        },
+        "inclusionTpsMean": {
+          "type": ["number", "null"],
+          "description": "Steady-state inclusion throughput from the block log: txs mined between the first block that included txs (warmup ramp trimmed) and load stop (drain tail trimmed), divided by that span. Falls back to inclusionTpsWindowMean when block logs are unavailable."
+        },
+        "inclusionTpsWindowMean": {
+          "type": ["number", "null"],
+          "description": "Total txs mined divided by the whole observed window (start to drain end). Diluted by the warmup ramp and post-load drain tail; retained for transparency alongside the steady-state inclusionTpsMean."
+        },
+        "inclusionTpsPeak": {
+          "type": ["number", "null"],
+          "description": "Peak sampled Prometheus rolling inclusion rate over the observed scrape window."
+        },
+        "inclusionLatencyP50Ms": {
+          "type": ["number", "null"]
+        },
+        "inclusionLatencyP95Ms": {
+          "type": ["number", "null"]
+        },
+        "inclusionLatencyP99Ms": {
+          "type": ["number", "null"]
+        },
+        "blockBuildDurationP50Ms": {
+          "type": ["number", "null"]
+        },
+        "blockBuildDurationP95Ms": {
+          "type": ["number", "null"]
+        },
+        "blockBuildAvgTxsPerBlock": {
+          "type": ["number", "null"],
+          "description": "Mean successfulCount over non-empty blocks in the inclusion window. Context for the per-tx build figures below."
+        },
+        "blockBuildPerTxMsAggregate": {
+          "type": ["number", "null"],
+          "description": "Block build cost per tx: sum(buildDurationMs) / sum(txs) over non-empty blocks. Single headline 'build-ms per tx'."
+        },
+        "blockBuildMarginalMsPerTx": {
+          "type": ["number", "null"],
+          "description": "Marginal build cost of one tx: OLS slope of buildDurationMs vs txCount across non-empty blocks (buildMs = fixed + marginal*txCount). Null if < 2 blocks or uniform tx counts."
+        },
+        "blockBuildFixedOverheadMsPerBlock": {
+          "type": ["number", "null"],
+          "description": "Fixed per-block build overhead: OLS intercept of buildDurationMs vs txCount. The load-sensitive component independent of tx count."
+        },
+        "publicProcessorTxDurationP50Ms": {
+          "type": ["number", "null"]
+        },
+        "publicProcessorTxDurationP95Ms": {
+          "type": ["number", "null"]
+        },
+        "mempoolTxMinedDelayP50Ms": {
+          "type": ["number", "null"],
+          "description": "Pool-side pending-to-mined delay (aztec_mempool_tx_mined_delay, now - receivedAt at the mined transition), across all pool txs. Distinct from the client-observed inclusionLatency* (high-value lane only)."
+        },
+        "mempoolTxMinedDelayP95Ms": {
+          "type": ["number", "null"]
+        },
+        "mempoolTxMinedDelayP99Ms": {
+          "type": ["number", "null"]
+        },
+        "attestationFailedNodeIssueCount": {
+          "type": ["number", "null"],
+          "description": "Total attester-side attestation failures over the observed window (aztec_validator_attestation_failed_node_issue_count: timeout / txs_not_available / parent_block_not_found / etc.). The reorg-diagnostic headline — high values mean attesters could not re-execute proposals in time, dragging the committee below quorum. null if the metric was unavailable."
+        },
+        "attestationFailedBadProposalCount": {
+          "type": ["number", "null"],
+          "description": "Total attestations rejected over the window because the proposal was bad (invalid_proposal / state_mismatch / failed_txs / …), distinct from node-side issues."
+        },
+        "attestationSuccessCount": {
+          "type": ["number", "null"],
+          "description": "Total successful attestations over the window. Denominator for an attestation failure ratio against the two failure counts above."
+        },
+        "totalTxsMined": {
+          "type": ["integer", "null"],
+          "description": "Exact sum from per-block logs. Null when block logs were unavailable and inclusionTpsMean came from Prometheus."
+        },
+        "totalTxsFailed": {
+          "type": ["integer", "null"],
+          "description": "Exact sum from per-block logs. Null when block logs were unavailable."
+        },
+        "totalSilentSkipCount": {
+          "type": ["integer", "null"],
+          "description": "Sum of per-block silentlySkippedCount. > 0 means the post-process blob-field revert path fired during the run."
+        },
+        "totalSilentSkipDurationMs": {
+          "type": ["integer", "null"],
+          "description": "Sum of per-block silentlySkippedDurationMs. Wall-clock 'wasted' on silently-skipped txs across the run."
+        },
+        "reorgCount": {
+          "type": ["integer", "null"],
+          "description": "Number of genuine CHAIN reorgs: `Chain pruned` events where ALL following validators rewound to the same block (event.validatorPruneCount >= validatorCount), i.e. the canonical chain reorged. Prunes reported by only a subset of validators are local divergences and are NOT counted — see nodeLocalPruneCount. Log-derived, so accurate regardless of node image; 0 if the validator fleet size could not be determined."
+        },
+        "nodeLocalPruneCount": {
+          "type": ["integer", "null"],
+          "description": "Number of `Chain pruned` events that were NOT chain reorgs: a subset of validators (or non-validator followers) diverged locally and re-synced while the canonical chain held. Informational — does not indicate chain instability or make the headline provisional."
+        },
+        "validatorCount": {
+          "type": ["integer", "null"],
+          "description": "Number of validator pods following the chain during the run (distinct validators that logged l2-block-handled). The denominator for chain-reorg detection — a reorg requires all of them to have pruned to the same block."
+        },
+        "prunesByType": {
+          "type": "object",
+          "additionalProperties": false,
+          "description": "Total archiver prunes over the window by cause, summed across pods. 'unproven' is the proven/epoch prune; the rest are pending-chain prunes. From the prune_type-attributed metric; each value is null when that metric was unavailable (older node images).",
+          "properties": {
+            "unproven": { "type": ["number", "null"] },
+            "uncheckpointed": { "type": ["number", "null"] },
+            "l1_conflict": { "type": ["number", "null"] },
+            "orphan": { "type": ["number", "null"] },
+            "l1_mismatch": { "type": ["number", "null"] }
+          }
+        },
+        "deepestReorgBlocks": {
+          "type": ["integer", "null"],
+          "description": "Max (fromBlock - toBlock) across genuine chain-reorg events (podCount >= 2). 0 when there were no chain reorgs (single-node local prune depths are not counted here; see the chainPruned events for those)."
+        }
+      }
+    },
+    "timeSeriesSection": {
+      "type": "object",
+      "description": "Key = stable slug (used by the dashboard to look up series); value = a series. Slugs decouple the display name from Prometheus metric names (which may be renamed across Aztec versions).",
+      "additionalProperties": {
+        "$ref": "#/$defs/timeSeries"
+      },
+      "properties": {
+        "inclusionTps": {
+          "$ref": "#/$defs/timeSeries"
+        },
+        "ingressTps": {
+          "$ref": "#/$defs/timeSeries"
+        },
+        "throughputTps": {
+          "$ref": "#/$defs/timeSeries",
+          "description": "Tx throughput funnel as three labeled series (source = gossip | rpc_receive | mined) for overlaying on one chart: gossip propagation (per-node accepted tx-topic gossipsub, avg across pods), RPC ingress, and mined (avg across archivers)."
+        },
+        "p2pBandwidthBytesPerSec": {
+          "$ref": "#/$defs/timeSeries",
+          "description": "Gossipsub P2P wire bandwidth (all topics) as four labeled series (source = recv_avg | recv_max | sent_avg | sent_max): per-pod average and hottest-pod receive/send byte rates. From the gossipsub RPC byte counters (no libp2p-level transport metric is exported)."
+        },
+        "mempoolSizeRpc": {
+          "$ref": "#/$defs/timeSeries"
+        },
+        "mempoolSizeValidator": {
+          "$ref": "#/$defs/timeSeries"
+        },
+        "mempoolSizeFullNode": {
+          "$ref": "#/$defs/timeSeries"
+        },
+        "mempoolMinedMax": {
+          "$ref": "#/$defs/timeSeries"
+        },
+        "mempoolEvictedByReasonRate": {
+          "$ref": "#/$defs/timeSeries"
+        },
+        "mempoolRejectedByReasonRate": {
+          "$ref": "#/$defs/timeSeries"
+        },
+        "blockBuildDurationP95": {
+          "$ref": "#/$defs/timeSeries"
+        },
+        "blockBuildDurationP50": {
+          "$ref": "#/$defs/timeSeries"
+        },
+        "publicProcessorTxDurationP95": {
+          "$ref": "#/$defs/timeSeries"
+        },
+        "publicProcessorTxDurationP50": {
+          "$ref": "#/$defs/timeSeries"
+        },
+        "txMinedDelayP50": {
+          "$ref": "#/$defs/timeSeries"
+        },
+        "txMinedDelayP95": {
+          "$ref": "#/$defs/timeSeries"
+        },
+        "txMinedDelayP99": {
+          "$ref": "#/$defs/timeSeries"
+        },
+        "publicProcessorGasRate": {
+          "$ref": "#/$defs/timeSeries"
+        },
+        "checkpointLastBlockToBroadcastP95": {
+          "$ref": "#/$defs/timeSeries"
+        },
+        "checkpointBlockCountMean": {
+          "$ref": "#/$defs/timeSeries"
+        },
+        "checkpointTxCountMean": {
+          "$ref": "#/$defs/timeSeries"
+        },
+        "l1InclusionDelayP95": {
+          "$ref": "#/$defs/timeSeries"
+        },
+        "gossipLatencyP95": {
+          "$ref": "#/$defs/timeSeries"
+        },
+        "peerCountMean": {
+          "$ref": "#/$defs/timeSeries",
+          "description": "Legacy aggregate peer-count series kept for older run JSONs."
+        },
+        "peerCountByRole": {
+          "$ref": "#/$defs/timeSeries"
+        },
+        "peerCountByValidator": {
+          "$ref": "#/$defs/timeSeries"
+        },
+        "attestationsCollectDurationMean": {
+          "$ref": "#/$defs/timeSeries"
+        },
+        "attestationsCollectAllowanceMean": {
+          "$ref": "#/$defs/timeSeries"
+        },
+        "attestationFailedNodeIssueByErrorTypeRate": {
+          "$ref": "#/$defs/timeSeries"
+        },
+        "attestationFailedBadProposalByErrorTypeRate": {
+          "$ref": "#/$defs/timeSeries"
+        },
+        "attestationSuccessRate": {
+          "$ref": "#/$defs/timeSeries"
+        },
+        "pruneCountByType": {
+          "$ref": "#/$defs/timeSeries"
+        },
+        "txCollectorTxsFromMempoolRate": {
+          "$ref": "#/$defs/timeSeries"
+        },
+        "txCollectorTxsFromP2pRate": {
+          "$ref": "#/$defs/timeSeries"
+        },
+        "txCollectorMissingRate": {
+          "$ref": "#/$defs/timeSeries"
+        },
+        "txCollectorRequestedFractionMean": {
+          "$ref": "#/$defs/timeSeries"
+        },
+        "txCollectorRequestDelayP95": {
+          "$ref": "#/$defs/timeSeries"
+        },
+        "sequencerStateDurationP95": {
+          "$ref": "#/$defs/timeSeries"
+        }
+      }
+    },
+    "metricSeriesMap": {
+      "type": "object",
+      "description": "v4. Open map of slug -> timeSeries, same per-series shape as timeSeriesSection but without a fixed slug list. Used for provingInfra and saturation, whose slugs are generated per role / job_type.",
+      "additionalProperties": {
+        "$ref": "#/$defs/timeSeries"
+      }
+    },
+    "timeSeries": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["metric", "source", "series"],
+      "properties": {
+        "metric": {
+          "type": "string",
+          "description": "Prometheus metric name this series was derived from."
+        },
+        "unit": {
+          "type": "string",
+          "examples": ["ms", "tps", "mana/s", "count"]
+        },
+        "source": {
+          "type": "string",
+          "enum": ["promql", "client_observed"],
+          "description": "Provenance: 'promql' = scraped via PromQL from cluster Prometheus; 'client_observed' = computed in this scraper from per-tx records emitted by n_tps.test.ts (e.g. headline tx_mined_delay)."
+        },
+        "query": {
+          "type": "string",
+          "description": "For source=promql: exact PromQL used. For source=client_observed: a human-readable description of the computation. Kept for audit: if a value looks wrong, the query is the first thing to check."
+        },
+        "stepSeconds": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "series": {
+          "type": "array",
+          "description": "One entry per Prometheus series returned by the query. Single-series queries (e.g. inclusionTps) emit one entry with empty labels. Multi-series queries (per-pod, per-topic, per-rejection-reason, etc.) emit one entry per label combination.",
+          "items": {
+            "$ref": "#/$defs/seriesEntry"
+          }
+        }
+      }
+    },
+    "seriesEntry": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["labels", "points"],
+      "properties": {
+        "labels": {
+          "type": "object",
+          "additionalProperties": {
+            "type": "string"
+          },
+          "description": "Prometheus labels that disambiguate this series. Empty {} for single-series queries. Common keys: k8s_pod_name, aztec_gossip_topic_name, rejection_reason, aztec_sequencer_state."
+        },
+        "points": {
+          "type": "array",
+          "description": "Samples ordered by unixEpoch ascending. Missing samples (Prom didn't scrape in that window) are omitted rather than interpolated — consumers decide how to handle gaps.",
+          "items": {
+            "$ref": "#/$defs/tsPoint"
+          }
+        }
+      }
+    },
+    "tsPoint": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["unixEpoch", "value"],
+      "properties": {
+        "unixEpoch": {
+          "type": "integer",
+          "description": "Seconds since unix epoch for this sample. Dashboards normalise to time-within-run via unixEpoch - run.startedAt at render time."
+        },
+        "value": {
+          "type": ["number", "null"],
+          "description": "Metric value. null if Prom returned NaN / no data for this step."
+        }
+      }
+    },
+    "blockRecord": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["blockNumber", "blockNumberInTest", "minedAt"],
+      "properties": {
+        "blockNumber": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "blockNumberInTest": {
+          "type": "integer",
+          "description": "blockNumber - firstBlockInTest. First block mined after run.startedAt is 0."
+        },
+        "minedAt": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "successfulCount": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "failedCount": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "silentlySkippedCount": {
+          "type": "integer",
+          "minimum": 0,
+          "description": "Txs processed to completion then reverted (post-process blob-field limit). Added 2026-04-22."
+        },
+        "silentlySkippedDurationMs": {
+          "type": "integer",
+          "minimum": 0,
+          "description": "Wall-clock time spent on silently-skipped txs in this block. Added 2026-04-22."
+        },
+        "buildDurationSeconds": {
+          "type": "number",
+          "minimum": 0
+        },
+        "totalPublicGas": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "daGas": {
+              "type": "integer"
+            },
+            "l2Gas": {
+              "type": "integer"
+            }
+          }
+        },
+        "totalSizeInBytes": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "source": {
+          "type": "string",
+          "const": "log",
+          "description": "Source of record. Currently all block records come from the structured 'Processed N successful…' info log."
+        }
+      }
+    },
+    "event": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["at", "type"],
+      "properties": {
+        "at": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "type": {
+          "type": "string",
+          "enum": ["chainPruned", "slotSummary"]
+        },
+        "source": {
+          "type": "string",
+          "const": "log"
+        },
+        "fromBlock": {
+          "type": "integer",
+          "description": "For chainPruned: the pre-prune tip."
+        },
+        "toBlock": {
+          "type": "integer",
+          "description": "For chainPruned: the post-prune tip."
+        },
+        "validatorPruneCount": {
+          "type": "integer",
+          "description": "For chainPruned: distinct VALIDATOR pods that logged this prune (same toBlock within the dedupe window). A genuine chain reorg requires this to equal the validator fleet size (summary.validatorCount); fewer means a subset of validators (or non-validator followers) diverged locally and re-synced."
+        },
+        "slotNumber": {
+          "type": "integer",
+          "description": "For slotSummary: L2 slot number."
+        },
+        "buildSlot": {
+          "type": "integer",
+          "description": "For slotSummary: wall-clock slot in which the checkpoint was built."
+        },
+        "checkpointNumber": {
+          "type": "integer"
+        },
+        "sourcePod": {
+          "type": "string"
+        },
+        "proposer": {
+          "type": "string",
+          "description": "Validator/proposer address selected for this slot."
+        },
+        "attestorAddress": {
+          "type": "string"
+        },
+        "publisherAddress": {
+          "type": "string"
+        },
+        "blocksBuilt": {
+          "type": "number",
+          "minimum": 0
+        },
+        "txCount": {
+          "type": "number",
+          "minimum": 0
+        },
+        "totalMana": {
+          "type": "number",
+          "minimum": 0
+        },
+        "blockBuildFailures": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "additionalProperties": true
+          }
+        },
+        "checkpointBuildFailure": {
+          "type": "object",
+          "additionalProperties": true
+        },
+        "attestations": {
+          "type": "object",
+          "additionalProperties": true,
+          "description": "For slotSummary: committee size, required/collected counts, and missing validator addresses when known."
+        },
+        "publish": {
+          "type": "object",
+          "additionalProperties": true,
+          "description": "For slotSummary: checkpoint publish status and L1 publisher action breakdown."
+        }
+      }
+    },
+    "sequencerStateSlot": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["slotNumber", "startedAt", "endedAt", "totalMs", "states"],
+      "properties": {
+        "slotNumber": {
+          "type": "integer",
+          "description": "L2 slot number whose sequencer-state durations are represented."
+        },
+        "startedAt": {
+          "type": "string",
+          "format": "date-time",
+          "description": "Timestamp of the first parsed transition for this pod-slot."
+        },
+        "endedAt": {
+          "type": "string",
+          "format": "date-time",
+          "description": "Timestamp of the last parsed transition for this pod-slot."
+        },
+        "sourcePod": {
+          "type": "string",
+          "description": "Validator pod whose transitions were selected for this slot. The scraper chooses the pod-slot with the strongest proposer-state signal."
+        },
+        "totalMs": {
+          "type": "number",
+          "minimum": 0,
+          "description": "Sum of all state durations in this slot record."
+        },
+        "states": {
+          "type": "object",
+          "additionalProperties": {
+            "type": "number",
+            "minimum": 0
+          },
+          "description": "Map from SequencerState name to total milliseconds spent in that state during this slot."
+        }
+      }
+    }
+  }
+}

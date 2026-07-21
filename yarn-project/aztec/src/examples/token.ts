@@ -2,7 +2,7 @@ import { getInitialTestAccountsData } from '@aztec/accounts/testing';
 import { createAztecNodeClient } from '@aztec/aztec.js/node';
 import { createLogger } from '@aztec/foundation/log';
 import { TokenContract } from '@aztec/noir-contracts.js/Token';
-import { TestWallet } from '@aztec/test-wallet/server';
+import { EmbeddedWallet } from '@aztec/wallets/embedded';
 
 const logger = createLogger('example:token');
 
@@ -19,12 +19,12 @@ const TRANSFER_AMOUNT = 33n;
 async function main() {
   logger.info('Running token contract test on HTTP interface.');
 
-  const wallet = await TestWallet.create(node);
+  const wallet = await EmbeddedWallet.create(node);
 
-  // During local network setup we deploy a few accounts. Below we add them to our wallet.
+  // During local network setup we create a few initializerless accounts. Below we add them to our wallet.
   const [aliceInitialAccountData, bobInitialAccountData] = await getInitialTestAccountsData();
-  await wallet.createSchnorrAccount(aliceInitialAccountData.secret, aliceInitialAccountData.salt);
-  await wallet.createSchnorrAccount(bobInitialAccountData.secret, bobInitialAccountData.salt);
+  await wallet.createSchnorrInitializerlessAccount(aliceInitialAccountData.secret, aliceInitialAccountData.salt);
+  await wallet.createSchnorrInitializerlessAccount(bobInitialAccountData.secret, bobInitialAccountData.salt);
 
   const alice = aliceInitialAccountData.address;
   const bob = bobInitialAccountData.address;
@@ -32,7 +32,9 @@ async function main() {
   logger.info(`Fetched Alice and Bob accounts: ${alice.toString()}, ${bob.toString()}`);
 
   logger.info('Deploying Token...');
-  const token = await TokenContract.deploy(wallet, alice, 'TokenName', 'TokenSymbol', 18).send({ from: alice });
+  const { contract: token } = await TokenContract.deploy(wallet, alice, 'TokenName', 'TokenSymbol', 18).send({
+    from: alice,
+  });
   logger.info('Token deployed');
 
   // Mint tokens to Alice
@@ -41,7 +43,7 @@ async function main() {
 
   logger.info(`${ALICE_MINT_BALANCE} tokens were successfully minted by Alice and transferred to private`);
 
-  const balanceAfterMint = await token.methods.balance_of_private(alice).simulate({ from: alice });
+  const { result: balanceAfterMint } = await token.methods.balance_of_private(alice).simulate({ from: alice });
   logger.info(`Tokens successfully minted. New Alice's balance: ${balanceAfterMint}`);
 
   // We will now transfer tokens from Alice to Bob
@@ -49,10 +51,10 @@ async function main() {
   await token.methods.transfer(bob, TRANSFER_AMOUNT).send({ from: alice });
 
   // Check the new balances
-  const aliceBalance = await token.methods.balance_of_private(alice).simulate({ from: alice });
+  const { result: aliceBalance } = await token.methods.balance_of_private(alice).simulate({ from: alice });
   logger.info(`Alice's balance ${aliceBalance}`);
 
-  const bobBalance = await token.methods.balance_of_private(bob).simulate({ from: bob });
+  const { result: bobBalance } = await token.methods.balance_of_private(bob).simulate({ from: bob });
   logger.info(`Bob's balance ${bobBalance}`);
 }
 

@@ -3,23 +3,31 @@ import { BlockNumber } from '@aztec/foundation/branded-types';
 import { Fr } from '@aztec/foundation/curves/bn254';
 import { type JsonRpcTestContext, createJsonRpcTestSetup } from '@aztec/foundation/json-rpc/test';
 import type { ContractArtifact, EventMetadataDefinition } from '@aztec/stdlib/abi';
-import { EventSelector, FunctionSelector, FunctionType } from '@aztec/stdlib/abi';
+import { EventSelector, FunctionCall, FunctionSelector, FunctionType } from '@aztec/stdlib/abi';
 import { AuthWitness } from '@aztec/stdlib/auth-witness';
 import { AztecAddress } from '@aztec/stdlib/aztec-address';
 import { BlockHash } from '@aztec/stdlib/block';
-import type { ContractInstanceWithAddress } from '@aztec/stdlib/contract';
+import type { ContractInstancePreimageWithAddress } from '@aztec/stdlib/contract';
 import { PublicKeys } from '@aztec/stdlib/keys';
 import {
+  DroppedTxReceipt,
   ExecutionPayload,
+  type OffchainEffect,
   TxHash,
   TxProfileResult,
-  TxReceipt,
   TxSimulationResult,
-  UtilitySimulationResult,
+  UtilityExecutionResult,
 } from '@aztec/stdlib/tx';
+import { DEV_VERSION } from '@aztec/stdlib/update-checker';
 
-import { type InteractionWaitOptions, NO_WAIT, type SendReturn } from '../contract/interaction_options.js';
+import {
+  type InteractionWaitOptions,
+  NO_WAIT,
+  type OffchainMessage,
+  type SendReturn,
+} from '../contract/interaction_options.js';
 import type { AppCapabilities, WalletCapabilities } from './capabilities.js';
+import { TxSimulationResultWithAppOffset } from './tx_simulation_result_with_app_offset.js';
 import type {
   Aliased,
   BatchResults,
@@ -33,7 +41,7 @@ import type {
   SimulateOptions,
   Wallet,
 } from './wallet.js';
-import { WalletSchema } from './wallet.js';
+import { ContractInitializationStatus, WalletSchema } from './wallet.js';
 
 describe('WalletSchema', () => {
   let handler: MockWallet;
@@ -101,7 +109,7 @@ describe('WalletSchema', () => {
     const result = await context.client.getContractMetadata(await AztecAddress.random());
     expect(result).toEqual({
       instance: undefined,
-      isContractInitialized: expect.any(Boolean),
+      initializationStatus: ContractInitializationStatus.UNKNOWN,
       isContractPublished: expect.any(Boolean),
       isContractUpdated: expect.any(Boolean),
       updatedContractClassId: undefined,
@@ -119,33 +127,37 @@ describe('WalletSchema', () => {
   it('registerContract', async () => {
     const mockArtifact: ContractArtifact = {
       name: 'TestContract',
+      aztecVersion: DEV_VERSION,
       functions: [],
       nonDispatchPublicFunctions: [],
       outputs: { structs: {}, globals: {} },
       fileMap: {},
       storageLayout: {},
     };
-    const mockInstance: ContractInstanceWithAddress = {
+    const mockInstance: ContractInstancePreimageWithAddress = {
       address: await AztecAddress.random(),
-      version: 1,
+      version: 2,
       salt: Fr.random(),
       deployer: await AztecAddress.random(),
-      currentContractClassId: Fr.random(),
       originalContractClassId: Fr.random(),
       initializationHash: Fr.random(),
+      immutablesHash: Fr.random(),
       publicKeys: PublicKeys.default(),
     };
-    const result = await context.client.registerContract(mockInstance, mockArtifact, Fr.random());
-    expect(result).toEqual({
-      address: expect.any(AztecAddress),
-      currentContractClassId: expect.any(Fr),
-      deployer: expect.any(AztecAddress),
-      initializationHash: expect.any(Fr),
-      originalContractClassId: expect.any(Fr),
-      publicKeys: expect.any(PublicKeys),
-      salt: expect.any(Fr),
-      version: 1,
-    });
+    await context.client.registerContract(mockInstance, mockArtifact, Fr.random());
+  });
+
+  it('registerContractClass', async () => {
+    const mockArtifact: ContractArtifact = {
+      name: 'TestContract',
+      aztecVersion: DEV_VERSION,
+      functions: [],
+      nonDispatchPublicFunctions: [],
+      outputs: { structs: {}, globals: {} },
+      fileMap: {},
+      storageLayout: {},
+    };
+    await context.client.registerContractClass(mockArtifact);
   });
 
   it('simulateTx', async () => {
@@ -156,26 +168,33 @@ describe('WalletSchema', () => {
       extraHashedArgs: [],
       feePayer: undefined,
     };
+    const sendMessagesAs = await AztecAddress.random();
     const opts: SimulateOptions = {
       from: await AztecAddress.random(),
+      sendMessagesAs,
     };
     const result = await context.client.simulateTx(exec, opts);
-    expect(result).toBeInstanceOf(TxSimulationResult);
+    expect(result).toBeInstanceOf(TxSimulationResultWithAppOffset);
+    expect(handler.lastSimulateOpts?.sendMessagesAs).toBeInstanceOf(AztecAddress);
+    expect(handler.lastSimulateOpts?.sendMessagesAs?.equals(sendMessagesAs)).toBe(true);
   });
 
-  it('simulateUtility', async () => {
-    const call = {
+  it('executeUtility', async () => {
+    const call = FunctionCall.from({
       name: 'testFunction',
       to: await AztecAddress.random(),
       selector: FunctionSelector.fromField(new Fr(1)),
       type: FunctionType.UTILITY,
-      isStatic: false,
       hideMsgSender: false,
+      isStatic: false,
       args: [Fr.random()],
       returnTypes: [],
-    };
-    const result = await context.client.simulateUtility(call, [AuthWitness.random()]);
-    expect(result).toBeInstanceOf(UtilitySimulationResult);
+    });
+    const result = await context.client.executeUtility(call, {
+      scopes: [await AztecAddress.random()],
+      authWitnesses: [AuthWitness.random()],
+    });
+    expect(result).toBeInstanceOf(UtilityExecutionResult);
   });
 
   it('profileTx', async () => {
@@ -186,12 +205,16 @@ describe('WalletSchema', () => {
       extraHashedArgs: [],
       feePayer: undefined,
     };
+    const sendMessagesAs = await AztecAddress.random();
     const opts: ProfileOptions = {
       from: await AztecAddress.random(),
       profileMode: 'gates',
+      sendMessagesAs,
     };
     const result = await context.client.profileTx(exec, opts);
     expect(result).toBeInstanceOf(TxProfileResult);
+    expect(handler.lastProfileOpts?.sendMessagesAs).toBeInstanceOf(AztecAddress);
+    expect(handler.lastProfileOpts?.sendMessagesAs?.equals(sendMessagesAs)).toBe(true);
   });
 
   it('sendTx', async () => {
@@ -203,15 +226,22 @@ describe('WalletSchema', () => {
       feePayer: undefined,
     };
 
+    const sendMessagesAs = await AztecAddress.random();
     const resultWithWait = await context.client.sendTx(exec, {
       from: await AztecAddress.random(),
+      sendMessagesAs,
     });
-    expect(resultWithWait).toBeInstanceOf(TxReceipt);
+    expect(resultWithWait.receipt).toBeInstanceOf(DroppedTxReceipt);
+    expect(resultWithWait.offchainEffects).toEqual([]);
+    expect(handler.lastSendOpts?.sendMessagesAs).toBeInstanceOf(AztecAddress);
+    expect(handler.lastSendOpts?.sendMessagesAs?.equals(sendMessagesAs)).toBe(true);
+
     const resultWithoutWait = await context.client.sendTx(exec, {
       from: await AztecAddress.random(),
       wait: NO_WAIT,
     });
-    expect(resultWithoutWait).toBeInstanceOf(TxHash);
+    expect(resultWithoutWait.txHash).toBeInstanceOf(TxHash);
+    expect(resultWithoutWait.offchainEffects).toEqual([]);
   });
 
   it('createAuthWit', async () => {
@@ -223,6 +253,8 @@ describe('WalletSchema', () => {
   });
 
   it('requestCapabilities', async () => {
+    const someAddress = await AztecAddress.random();
+    const anotherAddress = await AztecAddress.random();
     const manifest: AppCapabilities = {
       version: '1.0',
       metadata: {
@@ -235,6 +267,14 @@ describe('WalletSchema', () => {
           type: 'accounts',
           canGet: true,
           canCreateAuthWit: true,
+        },
+        {
+          type: 'transaction',
+          scope: [
+            { contract: someAddress, function: 'withdraw', additionalScopes: [anotherAddress] },
+            { contract: someAddress, function: 'transfer' },
+            { contract: someAddress, function: 'deposit', additionalScopes: '*' },
+          ],
         },
       ],
     };
@@ -272,30 +312,31 @@ describe('WalletSchema', () => {
       profileMode: 'gates',
     };
 
-    const call = {
+    const call = FunctionCall.from({
       name: 'testFunction',
       to: address3,
       selector: FunctionSelector.fromField(new Fr(1)),
       type: FunctionType.UTILITY,
-      isStatic: false,
       hideMsgSender: false,
+      isStatic: false,
       args: [Fr.random()],
       returnTypes: [],
-    };
+    });
 
-    const mockInstance: ContractInstanceWithAddress = {
+    const mockInstance: ContractInstancePreimageWithAddress = {
       address: address2,
-      version: 1,
+      version: 2,
       salt: Fr.random(),
       deployer: await AztecAddress.random(),
-      currentContractClassId: Fr.random(),
       originalContractClassId: Fr.random(),
       initializationHash: Fr.random(),
+      immutablesHash: Fr.random(),
       publicKeys: PublicKeys.default(),
     };
 
     const mockArtifact: ContractArtifact = {
       name: 'TestContract',
+      aztecVersion: DEV_VERSION,
       functions: [],
       nonDispatchPublicFunctions: [],
       outputs: { structs: {}, globals: {} },
@@ -322,7 +363,7 @@ describe('WalletSchema', () => {
       { name: 'getAccounts', args: [] },
       { name: 'registerContract', args: [mockInstance, mockArtifact, undefined] },
       { name: 'simulateTx', args: [exec, simulateOpts] },
-      { name: 'simulateUtility', args: [call, [AuthWitness.random()]] },
+      { name: 'executeUtility', args: [call, { scopes: [address3], authWitnesses: [AuthWitness.random()] }] },
       { name: 'profileTx', args: [exec, profileOpts] },
       { name: 'sendTx', args: [exec, opts] },
       { name: 'createAuthWit', args: [address1, { consumer: await AztecAddress.random(), innerHash: Fr.random() }] },
@@ -333,7 +374,7 @@ describe('WalletSchema', () => {
     expect(results[0]).toEqual({ name: 'getChainInfo', result: { chainId: expect.any(Fr), version: expect.any(Fr) } });
     expect(results[1]).toEqual({
       name: 'getContractMetadata',
-      result: expect.objectContaining({ isContractInitialized: expect.any(Boolean) }),
+      result: expect.objectContaining({ isContractPublished: expect.any(Boolean) }),
     });
     expect(results[2]).toEqual({
       name: 'getContractClassMetadata',
@@ -343,20 +384,23 @@ describe('WalletSchema', () => {
     expect(results[4]).toEqual({ name: 'registerSender', result: expect.any(AztecAddress) });
     expect(results[5]).toEqual({ name: 'getAddressBook', result: expect.any(Array) });
     expect(results[6]).toEqual({ name: 'getAccounts', result: expect.any(Array) });
-    expect(results[7]).toEqual({
-      name: 'registerContract',
-      result: expect.objectContaining({ address: expect.any(AztecAddress) }),
-    });
-    expect(results[8]).toEqual({ name: 'simulateTx', result: expect.any(TxSimulationResult) });
-    expect(results[9]).toEqual({ name: 'simulateUtility', result: expect.any(UtilitySimulationResult) });
+    expect(results[7]).toEqual({ name: 'registerContract', result: undefined });
+    expect(results[8]).toEqual({ name: 'simulateTx', result: expect.any(TxSimulationResultWithAppOffset) });
+    expect(results[9]).toEqual({ name: 'executeUtility', result: expect.any(UtilityExecutionResult) });
     expect(results[10]).toEqual({ name: 'profileTx', result: expect.any(TxProfileResult) });
-    expect(results[11]).toEqual({ name: 'sendTx', result: expect.any(TxReceipt) });
+    expect(results[11]).toEqual({
+      name: 'sendTx',
+      result: { receipt: expect.any(DroppedTxReceipt), offchainEffects: [], offchainMessages: [] },
+    });
     expect(results[12]).toEqual({ name: 'createAuthWit', result: expect.any(AuthWitness) });
   });
 });
 
-// eslint-disable-next-line jsdoc/require-jsdoc
 class MockWallet implements Wallet {
+  lastSimulateOpts?: SimulateOptions;
+  lastProfileOpts?: ProfileOptions;
+  lastSendOpts?: SendOptions;
+
   getChainInfo(): Promise<ChainInfo> {
     return Promise.resolve({
       chainId: Fr.random(),
@@ -385,7 +429,7 @@ class MockWallet implements Wallet {
   getContractMetadata(_address: AztecAddress): Promise<ContractMetadata> {
     return Promise.resolve({
       instance: undefined,
-      isContractInitialized: false,
+      initializationStatus: ContractInitializationStatus.UNKNOWN,
       isContractPublished: false,
       isContractUpdated: false,
       updatedContractClassId: undefined,
@@ -411,28 +455,24 @@ class MockWallet implements Wallet {
     return [{ alias: 'account1', item: await AztecAddress.random() }];
   }
 
-  async registerContract(_instanceData: any, _artifact?: any, _secretKey?: Fr): Promise<ContractInstanceWithAddress> {
-    return {
-      version: 1,
-      address: await AztecAddress.random(),
-      currentContractClassId: Fr.random(),
-      deployer: await AztecAddress.random(),
-      initializationHash: Fr.random(),
-      originalContractClassId: Fr.random(),
-      publicKeys: await PublicKeys.random(),
-      salt: Fr.random(),
-    };
+  async registerContract(_instanceData: any, _artifact?: any, _secretKey?: Fr): Promise<void> {}
+
+  async registerContractClass(_artifact: any): Promise<void> {}
+
+  async simulateTx(_exec: ExecutionPayload, opts: SimulateOptions): Promise<TxSimulationResultWithAppOffset> {
+    this.lastSimulateOpts = opts;
+    return TxSimulationResultWithAppOffset.fromResultAndOffset(await TxSimulationResult.random(), 0);
   }
 
-  simulateTx(_exec: ExecutionPayload, _opts: SimulateOptions): Promise<TxSimulationResult> {
-    return Promise.resolve(TxSimulationResult.random());
+  executeUtility(
+    _call: any,
+    _opts: { scopes: AztecAddress[]; authWitnesses?: AuthWitness[] },
+  ): Promise<UtilityExecutionResult> {
+    return Promise.resolve(UtilityExecutionResult.random());
   }
 
-  simulateUtility(_call: any, _authwits?: AuthWitness[]): Promise<UtilitySimulationResult> {
-    return Promise.resolve(UtilitySimulationResult.random());
-  }
-
-  profileTx(_exec: ExecutionPayload, _opts: ProfileOptions): Promise<TxProfileResult> {
+  profileTx(_exec: ExecutionPayload, opts: ProfileOptions): Promise<TxProfileResult> {
+    this.lastProfileOpts = opts;
     return Promise.resolve(TxProfileResult.random());
   }
 
@@ -440,10 +480,19 @@ class MockWallet implements Wallet {
     _exec: ExecutionPayload,
     opts: SendOptions<W>,
   ): Promise<SendReturn<W>> {
+    this.lastSendOpts = opts as SendOptions;
     if (opts.wait === NO_WAIT) {
-      return Promise.resolve(TxHash.random()) as Promise<SendReturn<W>>;
+      return Promise.resolve({
+        txHash: TxHash.random(),
+        offchainEffects: [] as OffchainEffect[],
+        offchainMessages: [] as OffchainMessage[],
+      }) as Promise<SendReturn<W>>;
     }
-    return Promise.resolve(TxReceipt.empty()) as Promise<SendReturn<W>>;
+    return Promise.resolve({
+      receipt: DroppedTxReceipt.empty(),
+      offchainEffects: [] as OffchainEffect[],
+      offchainMessages: [] as OffchainMessage[],
+    }) as Promise<SendReturn<W>>;
   }
 
   createAuthWit(_from: AztecAddress, _messageHashOrIntent: any): Promise<AuthWitness> {

@@ -24,16 +24,9 @@ local allMembers = redis.call('ZREVRANGE', key, 0, -1)
 for _, member in ipairs(allMembers) do
   local ok, parsed = pcall(cjson.decode, member)
   if ok then
-    if parsed["status"] == "RUNNING" then
-      local ts = parsed["timestamp"]
-      local hb_key = "hb-" .. tostring(ts)
-      if redis.call("EXISTS", hb_key) == 0 then
-        parsed["status"] = "INACTIVE"
-      end
-    end
-    local include=true
+    local include = true
     if property and pattern and parsed[property] and not matches_any(parsed[property], patterns) then
-      include=false
+      include = false
     end
     if include then
       if skip >= offset then
@@ -43,7 +36,20 @@ for _, member in ipairs(allMembers) do
           run_count = run_count + 1
           if run_count > limit then break end
         end
-        table.insert(result, cjson.encode(parsed))
+        -- Patch status via string replace to avoid cjson number truncation.
+        if parsed["status"] == "RUNNING" then
+          -- Extract timestamp from raw JSON string to avoid Lua double truncation.
+          local ts_str = string.match(member, '"timestamp":(%d+)')
+          local hb_key = "hb-" .. (ts_str or "0")
+          if redis.call("EXISTS", hb_key) == 0 then
+            local patched = string.gsub(member, '"status":"RUNNING"', '"status":"INACTIVE"', 1)
+            table.insert(result, patched)
+          else
+            table.insert(result, member)
+          end
+        else
+          table.insert(result, member)
+        end
       else
         skip = skip + 1
       end

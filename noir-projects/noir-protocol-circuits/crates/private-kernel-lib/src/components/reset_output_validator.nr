@@ -9,7 +9,7 @@ use crate::{
     components::reset_output_composer::SquashedOutputArrayHints,
     reset::{KeyValidationRequestsValidator, ReadRequestValidator, TransientDataValidator},
 };
-use dep::types::{
+use types::{
     abis::{
         kernel_circuit_public_inputs::PrivateKernelCircuitPublicInputs,
         note_hash::NoteHash,
@@ -19,10 +19,10 @@ use dep::types::{
     address::AztecAddress,
     constants::{MAX_U32_VALUE, SIDE_EFFECT_MASKING_ADDRESS},
     hash::{
-        compute_note_nonce_and_unique_note_hash, compute_siloed_note_hash,
-        compute_siloed_private_log_first_field, silo_nullifier,
+        compute_note_nonce_and_unique_note_hash, compute_siloed_note_hash, compute_siloed_nullifier,
+        compute_siloed_private_log_first_field,
     },
-    side_effect::{Counted, Ordered, Scoped},
+    side_effect::{Counted, Scoped},
 };
 use validate_note_logs_linked_to_note_hashes::validate_note_logs_linked_to_note_hashes;
 
@@ -31,31 +31,21 @@ fn assert_correctly_siloed_note_hash(
     out_note_hash: Field,
     prev: Scoped<Counted<NoteHash>>,
     index: u32,
-    claimed_first_nullifier: Field,
+    siloed_first_nullifier: Field,
     is_private_only: bool,
-    min_revertible_side_effect_counter: u32,
+    claimed_revertible_counter: u32,
 ) {
     // We determine which of these two values is appropriate, based on the revertible-ness of the note:
     let (siloed_note_hash, unique_siloed_note_hash) = if prev.contract_address.is_zero() {
-        // Then this is a nullish note, so we don't touch it. (Given earlier checks in this circuit, we know this is not an
-        // already-siloed note, because we can only run a siloing reset circuit once).
-        (prev.innermost(), prev.innermost())
+        // Empty slot: the siloed value is 0.
+        (0, 0)
     } else {
         let siloed = compute_siloed_note_hash(prev.contract_address, prev.innermost());
-        let unique =
-            compute_note_nonce_and_unique_note_hash(siloed, claimed_first_nullifier, index);
+        let unique = compute_note_nonce_and_unique_note_hash(siloed, siloed_first_nullifier, index);
         (siloed, unique)
     };
 
-    // We've already spent constraints checking `prev.counter() < min_revertible_side_effect_counter` in
-    // transient_data.nr (there, it was: `note_hash.counter() >= split_counter`).
-    // I wonder how many extra constraints this is costing?
-    // If it's significant, we could pass a hint for each note hash, to say whether it's revertible or non-revertible,
-    // and just check that hint once, somewhere. In fact, that hint could be checked in the inner kernel
-    // circuit, and propagated as a public input (via the data bus). That would save 3 inequality checks in this
-    // reset circuit. Hmm.. but it would cost inequalities for every note & nullifier in a private call in the inner circuit... I wonder which is best...
-    let is_non_revertible = prev.counter() < min_revertible_side_effect_counter;
-    let computed_note_hash = if is_private_only | is_non_revertible {
+    let computed_note_hash = if prev.is_non_revertible(is_private_only, claimed_revertible_counter) {
         unique_siloed_note_hash
     } else {
         // Revertible note hashes are not siloed with a note_nonce if public execution will occur later
@@ -64,13 +54,27 @@ fn assert_correctly_siloed_note_hash(
         // at this point.
         //
         // Note: padded note hashes have a counter of `MAX_U32_VALUE`, which is always greater than
-        // `min_revertible_side_effect_counter`, so they are also not unique-ified with a note_nonce.
+        // `claimed_revertible_counter`, so they are not uniquified with a note_nonce either.
         siloed_note_hash
     };
     assert_eq(
         out_note_hash,
         computed_note_hash,
         "Output note hash does not match correctly-siloed note hash",
+    );
+}
+
+fn assert_correctly_siloed_nullifier(out_nullifier: Field, prev: Scoped<Counted<Nullifier>>) {
+    let siloed_nullifier = if prev.contract_address.is_zero() {
+        // Empty slot: the siloed value is 0.
+        0
+    } else {
+        compute_siloed_nullifier(prev.contract_address, prev.innermost().value)
+    };
+    assert_eq(
+        out_nullifier,
+        siloed_nullifier,
+        "Output nullifier does not match correctly-siloed nullifier",
     );
 }
 
@@ -81,21 +85,31 @@ fn assert_correctly_siloed_note_hash(
 // Without this check, an app could impersonate another by emitting a log identical to one from a different contract
 // or copying a tag from another contract while using entirely different content, potentially misleading the recipient.
 fn assert_valid_siloed_private_log(out: PrivateLog, prev: Scoped<Counted<PrivateLogData>>) -> () {
-    // Q: is checking `if prev.contract_address.is_zero()` being used to mean "if the prev is empty"?
+    let prev_log_fields = prev.innermost().log.fields;
     let expected_first_field = if prev.contract_address.is_zero() {
-        prev.innermost().log.fields[0]
+        // Empty slot: the siloed first field is 0.
+        0
     } else {
-        compute_siloed_private_log_first_field(
-            prev.contract_address,
-            prev.innermost().log.fields[0],
-        )
+        compute_siloed_private_log_first_field(prev.contract_address, prev_log_fields[0])
     };
-    assert_eq(out.fields[0], expected_first_field);
+    assert_eq(
+        out.fields[0],
+        expected_first_field,
+        "Output private log first field does not match correctly-siloed private log first field",
+    );
     for i in 1..out.fields.len() {
-        assert_eq(out.fields[i], prev.innermost().log.fields[i]);
+        assert_eq(
+            out.fields[i],
+            prev_log_fields[i],
+            "Fields of the private log not copied correctly",
+        );
     }
 
-    assert_eq(out.length, prev.innermost().log.length);
+    assert_eq(
+        out.length,
+        prev.innermost().log.length,
+        "Length of the private log not copied correctly",
+    );
 }
 
 pub struct ResetOutputValidator<let NoteHashPendingReadHintsLen: u32, let NoteHashSettledReadHintsLen: u32, let NullifierPendingReadHintsLen: u32, let NullifierSettledReadHintsLen: u32, let KeyValidationHintsLen: u32, let TransientDataSquashingHintsLen: u32> {
@@ -126,6 +140,15 @@ impl<let NoteHashPendingReadHintsLen: u32, let NoteHashSettledReadHintsLen: u32,
     pub fn validate<let NoteHashPendingReadAmount: u32, let NoteHashSettledReadAmount: u32, let NullifierPendingReadAmount: u32, let NullifierSettledReadAmount: u32, let KeyValidationAmount: u32, let TransientDataSquashingAmount: u32, let NoteHashSiloingAmount: u32, let NullifierSiloingAmount: u32, let PrivateLogSiloingAmount: u32>(
         self,
     ) {
+        // Note-hash uniquification reads the note-nonce base from the settled output
+        // `end.nullifiers[0]`, which is only correctly sorted and siloed when nullifiers are siloed
+        // in this same reset. Enforce at compile time that note-hash siloing implies nullifier
+        // siloing, so the nonce base is always a settled, siloed nullifier.
+        std::static_assert(
+            (NoteHashSiloingAmount == 0) | (NullifierSiloingAmount != 0),
+            "note hash siloing requires nullifier siloing in the same reset",
+        );
+
         self.validate_unchanged_data();
 
         // This is the constraint-heaviest part of the circuit, because of all the merkle membership checks.
@@ -190,15 +213,11 @@ impl<let NoteHashPendingReadHintsLen: u32, let NoteHashSettledReadHintsLen: u32,
 
         assert_eq(self.output.fee_payer, self.previous_kernel.fee_payer);
 
-        // Reset doesn't mutate include_by_timestamp
-        assert_eq(self.output.include_by_timestamp, self.previous_kernel.include_by_timestamp);
+        // Reset doesn't mutate expiration_timestamp
+        assert_eq(self.output.expiration_timestamp, self.previous_kernel.expiration_timestamp);
 
         assert_eq(self.output.is_private_only, self.previous_kernel.is_private_only);
 
-        assert_eq(
-            self.output.claimed_first_nullifier,
-            self.previous_kernel.claimed_first_nullifier,
-        );
         assert_eq(
             self.output.claimed_revertible_counter,
             self.previous_kernel.claimed_revertible_counter,
@@ -219,6 +238,8 @@ impl<let NoteHashPendingReadHintsLen: u32, let NoteHashSettledReadHintsLen: u32,
             tree_root: tree_snapshots.note_hash_tree.root,
             propagated_read_requests: output.note_hash_read_requests,
             hints: self.reset_hints.note_hash_read_request_hints,
+            // Note-hash tree is append-only and shares DOM_SEP__MERKLE_HASH for internal nodes.
+            merkle_hasher: types::merkle_tree::merkle_hash,
         }
             .validate::<NoteHashPendingReadAmount, NoteHashSettledReadAmount>();
 
@@ -229,22 +250,27 @@ impl<let NoteHashPendingReadHintsLen: u32, let NoteHashSettledReadHintsLen: u32,
             tree_root: tree_snapshots.nullifier_tree.root,
             propagated_read_requests: output.nullifier_read_requests,
             hints: self.reset_hints.nullifier_read_request_hints,
+            // Nullifier tree is an indexed tree with a tree-specific merkle separator.
+            merkle_hasher: types::merkle_tree::nullifier_merkle_hash,
         }
             .validate::<NullifierPendingReadAmount, NullifierSettledReadAmount>();
 
         // key_validation_requests
         KeyValidationRequestsValidator {
             key_validation_requests: validation_requests
-                .scoped_key_validation_requests_and_generators,
+                .scoped_key_validation_requests_and_separators,
             propagated_key_validation_requests: output
-                .scoped_key_validation_requests_and_generators,
+                .scoped_key_validation_requests_and_separators,
             hints: self.reset_hints.key_validation_hints,
         }
             .validate::<KeyValidationAmount>();
     }
 
     fn validate_transient_data<let TransientDataSquashingAmount: u32>(self) {
-        // For private-only txs, we squash all transient data.
+        // For private-only txs, all transient data are non-revertible and can be squashed.
+        // Although setting the `split_counter` to 0 might seem to imply that everything is revertible, this does not
+        // affect the logic in `validate_note_hash_nullifier_squashing.nr`. The key point is to ensure that all note
+        // hashes and nullifiers are on the same side of the split counter.
         let split_counter = if self.previous_kernel.is_private_only {
             0
         } else {
@@ -289,6 +315,9 @@ impl<let NoteHashPendingReadHintsLen: u32, let NoteHashSettledReadHintsLen: u32,
     fn validate_sorted_siloed_padded_data<let NoteHashSiloingAmount: u32, let NullifierSiloingAmount: u32, let PrivateLogSiloingAmount: u32>(
         self,
     ) {
+        // We can only run a siloing reset circuit once, and this codepath only triggers if we're running the variant of
+        // the reset circuit which does that one-off siloing.
+
         // Important note:
         // The reason we sort these side-effects by their counter is because we want the values in the output
         // to be in the same order as they were emitted.
@@ -342,23 +371,9 @@ impl<let NoteHashPendingReadHintsLen: u32, let NoteHashSettledReadHintsLen: u32,
     }
 
     fn validate_sorted_siloed_unique_padded_note_hashes<let NoteHashSiloingAmount: u32>(self) {
-        //---------------
-        // Check that the values were not already siloed in a previous reset.
-
         // Note hashes need to be siloed all together because new note hashes added later might affect the ordering and
         // result in wrong note_nonces. I.e. we perform siloing only in the final Reset circuit of a tx, after all Init and
         // Inner and other Reset iterations (if applicable).
-
-        // We only need to check the first item, since we always start siloing from index 0.
-        // The first item should either be empty or not siloed (contract_address != 0).
-        let first_note_hash = self.previous_kernel.end.note_hashes.array[0];
-        assert(
-            (self.previous_kernel.end.note_hashes.length == 0)
-                | !first_note_hash.contract_address.is_zero(),
-            "Note hashes have been siloed in a previous reset",
-        );
-
-        //---------------
 
         // Assign counter and contract address to the padding items.
         let note_hash_padding = self.padded_side_effects.note_hashes;
@@ -373,6 +388,15 @@ impl<let NoteHashPendingReadHintsLen: u32, let NoteHashSettledReadHintsLen: u32,
             };
             Counted::new(value, counter).scope(contract_address)
         });
+
+        // The note-nonce base is the tx's first nullifier, read from the settled output
+        // `end.nullifiers[0]`. `validate_sorted_siloed_padded_nullifiers` constrains
+        // `output.end.nullifiers` to the correctly sorted+siloed survivors, so this value is fully
+        // constrained and already siloed. It must be a surviving nullifier - only survivors are
+        // tree-inserted, where uniqueness is enforced - so the nonce base is globally unique
+        // (preventing Faerie-Gold). `validate_previous_kernel_for_tail` asserts at least one
+        // nullifier survives, so index 0 is always a real leaf.
+        let siloed_first_nullifier = self.output.end.nullifiers.array[0].innermost().value;
 
         //---------------
         // Sort, Silo, Unique-ify, Pad:
@@ -390,30 +414,16 @@ impl<let NoteHashPendingReadHintsLen: u32, let NoteHashSettledReadHintsLen: u32,
                     out.innermost(),
                     prev,
                     index,
-                    self.output.claimed_first_nullifier,
+                    siloed_first_nullifier,
                     self.output.is_private_only,
                     self.output.claimed_revertible_counter,
                 );
-                assert(out.contract_address.is_zero());
                 // counter is checked in assert_sorted_padded_transformed_array_capped_size
             },
         );
     }
 
     fn validate_sorted_siloed_padded_nullifiers<let NullifierSiloingAmount: u32>(self) {
-        // Check that the nullifiers were not already siloed in a previous reset.
-        // We only need to check the first nullifier, since we always start siloing from index 0.
-        // The first nullifier should not be siloed (i.e. contract_address != 0). It won't be empty because a protocol
-        // nullifier will be created in the init circuit if no nullifiers are emitted throughout the private execution.
-        let first_nullifier = self.previous_kernel.end.nullifiers.array[0];
-        assert(
-            (self.previous_kernel.end.nullifiers.length == 0)
-                | !first_nullifier.contract_address.is_zero(),
-            "Nullifiers have been siloed in a previous reset",
-        );
-
-        //---------------
-
         // Assign counter and contract address to the padded nullifiers.
         let nullifier_padding = self.padded_side_effects.nullifiers;
         let siloed_nullifier_padding = nullifier_padding.map(|value| {
@@ -433,19 +443,11 @@ impl<let NoteHashPendingReadHintsLen: u32, let NoteHashSettledReadHintsLen: u32,
             siloed_nullifier_padding,
             self.output.end.nullifiers,
             |prev, out| {
-                assert_eq(
-                    out.innermost().value,
-                    silo_nullifier(prev),
-                    "Output nullifier does not match correctly-siloed nullifier",
-                );
+                assert_correctly_siloed_nullifier(out.innermost().value, prev);
                 assert_eq(
                     out.innermost().note_hash,
                     prev.innermost().note_hash,
                     "Linked note hash not copied correctly",
-                );
-                assert(
-                    out.contract_address.is_zero(),
-                    "The contract_address of a siloed nullified should be set to 0",
                 );
                 // counter is checked in assert_sorted_padded_transformed_array_capped_size
             },
@@ -453,18 +455,6 @@ impl<let NoteHashPendingReadHintsLen: u32, let NoteHashSettledReadHintsLen: u32,
     }
 
     fn validate_sorted_siloed_padded_private_logs<let PrivateLogSiloingAmount: u32>(self) {
-        // Check that the private logs were not already siloed in a previous reset.
-        // We only need to check the first item, since we always start siloing from index 0.
-        // The first item should either be empty or not siloed (contract_address != 0).
-        let first_private_log = self.previous_kernel.end.private_logs.array[0];
-        assert(
-            (self.previous_kernel.end.private_logs.length == 0)
-                | !first_private_log.contract_address.is_zero(),
-            "Private logs have been siloed in a previous reset",
-        );
-
-        //---------------
-
         // Assign counter and contract address to the padded private logs.
         let log_padding = self.padded_side_effects.private_logs;
         let siloed_log_padding = log_padding.map(|log| {
@@ -485,8 +475,11 @@ impl<let NoteHashPendingReadHintsLen: u32, let NoteHashSettledReadHintsLen: u32,
             self.output.end.private_logs,
             |prev, out| {
                 assert_valid_siloed_private_log(out.innermost().log, prev);
-                assert_eq(out.innermost().note_hash_counter, prev.innermost().note_hash_counter);
-                assert(out.contract_address.is_zero());
+                assert_eq(
+                    out.innermost().note_hash_counter,
+                    prev.innermost().note_hash_counter,
+                    "Linked note_hash_counter of the private log not copied correctly",
+                );
                 // counter is checked in assert_sorted_padded_transformed_array_capped_size
             },
         );
@@ -495,7 +488,7 @@ impl<let NoteHashPendingReadHintsLen: u32, let NoteHashSettledReadHintsLen: u32,
 
 mod tests {
     use super::assert_correctly_siloed_note_hash;
-    use dep::types::{
+    use types::{
         abis::note_hash::NoteHash,
         address::AztecAddress,
         hash::{compute_note_nonce_and_unique_note_hash, compute_siloed_note_hash},
@@ -505,7 +498,7 @@ mod tests {
 
     global CONTRACT_ADDRESS: AztecAddress = AztecAddress::from_field(12345);
     global NOTE_HASH_VALUE: Field = 9999;
-    global CLAIMED_FIRST_NULLIFIER: Field = 42;
+    global SILOED_FIRST_NULLIFIER: Field = 42;
 
     fn make_note_hash(value: Field, counter: u32) -> Scoped<Counted<NoteHash>> {
         Counted::new(value, counter).scope(CONTRACT_ADDRESS)
@@ -517,7 +510,7 @@ mod tests {
 
     fn compute_expected_unique(value: Field, index: u32) -> Field {
         let siloed = compute_expected_siloed(value);
-        compute_note_nonce_and_unique_note_hash(siloed, CLAIMED_FIRST_NULLIFIER, index)
+        compute_note_nonce_and_unique_note_hash(siloed, SILOED_FIRST_NULLIFIER, index)
     }
 
     // ==================== Non-revertible tests ====================
@@ -528,14 +521,7 @@ mod tests {
         let prev = make_note_hash(NOTE_HASH_VALUE, 10);
         let expected = compute_expected_unique(NOTE_HASH_VALUE, 0);
 
-        assert_correctly_siloed_note_hash(
-            expected,
-            prev,
-            0, // index
-            CLAIMED_FIRST_NULLIFIER,
-            false, // is_private_only
-            100, // min_revertible_side_effect_counter
-        );
+        assert_correctly_siloed_note_hash(expected, prev, 0, SILOED_FIRST_NULLIFIER, false, 100);
     }
 
     #[test]
@@ -544,7 +530,7 @@ mod tests {
         let prev = make_note_hash(NOTE_HASH_VALUE, 0);
         let expected = compute_expected_unique(NOTE_HASH_VALUE, 5);
 
-        assert_correctly_siloed_note_hash(expected, prev, 5, CLAIMED_FIRST_NULLIFIER, false, 100);
+        assert_correctly_siloed_note_hash(expected, prev, 5, SILOED_FIRST_NULLIFIER, false, 100);
     }
 
     // ==================== Revertible with is_private_only=true ====================
@@ -560,7 +546,7 @@ mod tests {
             expected,
             prev,
             3,
-            CLAIMED_FIRST_NULLIFIER,
+            SILOED_FIRST_NULLIFIER,
             true, // is_private_only
             100,
         );
@@ -579,7 +565,7 @@ mod tests {
             expected,
             prev,
             3,
-            CLAIMED_FIRST_NULLIFIER,
+            SILOED_FIRST_NULLIFIER,
             false, // is_private_only
             100,
         );
@@ -596,7 +582,7 @@ mod tests {
             expected,
             prev,
             0,
-            CLAIMED_FIRST_NULLIFIER,
+            SILOED_FIRST_NULLIFIER,
             false,
             100, // counter == min_revertible
         );
@@ -605,15 +591,15 @@ mod tests {
     // ==================== Zero contract_address (already siloed or empty) ====================
 
     #[test]
-    fn zero_contract_address_passes_through_unchanged() {
-        // When contract_address is zero, the value passes through unchanged
+    fn zero_contract_address_outputs_zero() {
+        // When contract_address is zero, the output should be 0
         let prev = Counted::new(NOTE_HASH_VALUE, 50).scope(AztecAddress::zero());
 
         assert_correctly_siloed_note_hash(
-            NOTE_HASH_VALUE, // unchanged!
+            0, // Output should be 0
             prev,
             0,
-            CLAIMED_FIRST_NULLIFIER,
+            SILOED_FIRST_NULLIFIER,
             true,
             100,
         );
@@ -628,7 +614,7 @@ mod tests {
             0, // unchanged
             prev,
             0,
-            CLAIMED_FIRST_NULLIFIER,
+            SILOED_FIRST_NULLIFIER,
             false,
             100,
         );
@@ -650,7 +636,7 @@ mod tests {
             expected_at_0,
             prev,
             0,
-            CLAIMED_FIRST_NULLIFIER,
+            SILOED_FIRST_NULLIFIER,
             true,
             100,
         );
@@ -659,7 +645,7 @@ mod tests {
             expected_at_1,
             prev,
             1,
-            CLAIMED_FIRST_NULLIFIER,
+            SILOED_FIRST_NULLIFIER,
             true,
             100,
         );
@@ -690,14 +676,7 @@ mod tests {
         let prev = make_note_hash(NOTE_HASH_VALUE, 10);
         let wrong_output = 123456; // Not the correct siloed value
 
-        assert_correctly_siloed_note_hash(
-            wrong_output,
-            prev,
-            0,
-            CLAIMED_FIRST_NULLIFIER,
-            true,
-            100,
-        );
+        assert_correctly_siloed_note_hash(wrong_output, prev, 0, SILOED_FIRST_NULLIFIER, true, 100);
     }
 
     #[test(should_fail_with = "Output note hash does not match correctly-siloed note hash")]
@@ -710,7 +689,7 @@ mod tests {
             siloed_only, // Wrong! Should be unique for non-revertible
             prev,
             0,
-            CLAIMED_FIRST_NULLIFIER,
+            SILOED_FIRST_NULLIFIER,
             false,
             100,
         );
@@ -726,7 +705,7 @@ mod tests {
             unique, // Wrong! Should be siloed-only for revertible with public
             prev,
             0,
-            CLAIMED_FIRST_NULLIFIER,
+            SILOED_FIRST_NULLIFIER,
             false, // is_private_only = false means public execution expected
             100,
         );
@@ -741,7 +720,7 @@ mod tests {
             expected_at_index_5,
             prev,
             0, // Wrong index! Expected was computed with index 5
-            CLAIMED_FIRST_NULLIFIER,
+            SILOED_FIRST_NULLIFIER,
             true,
             100,
         );
@@ -756,7 +735,7 @@ mod tests {
             NOTE_HASH_VALUE, // Wrong! Should be siloed since contract_address != 0
             prev,
             0,
-            CLAIMED_FIRST_NULLIFIER,
+            SILOED_FIRST_NULLIFIER,
             true,
             100,
         );

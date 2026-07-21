@@ -2,8 +2,8 @@
 
 #include <vector>
 
+#include "barretenberg/aztec/aztec_constants.hpp"
 #include "barretenberg/common/log.hpp"
-#include "barretenberg/vm2/common/aztec_constants.hpp"
 #include "barretenberg/vm2/common/field.hpp"
 #include "barretenberg/vm2/common/memory_types.hpp"
 #include "barretenberg/vm2/simulation/interfaces/memory.hpp"
@@ -82,9 +82,12 @@ uint64_t DataCopy::min(uint64_t a, uint64_t b)
  * Notes on DataCopy:
  * The simulation for DataCopy has a lot of subtle complexity due to the requirements of the circuit constraints.
  * The main complexity comes from the need to have the following 32-bit range checks
- * (1) Computing the data_index_upper_bound via min, which is used to determine the final index in the cd/rd to read up
- *to. (2) In error handling to check that reads and writes are within bounds of the memory. (3) In computing the actual
- *number of elements from calldata/returndata to read (i.e. from [offset, data_index_upper_bound])
+ * (1) Computing read_index_upper_bound via min, which is used to determine the final index in the cd/rd
+ *     to read up to.
+ * (2) Clamping reads at the memory boundary when src_addr + read_index_upper_bound exceeds AVM_MEMORY_SIZE.
+ * (3) Checking that writes are within bounds of the memory (only dst out of range is an error).
+ * (4) Checking whether the offset exceeds the clamped read index upper bound to determine the actual number
+ *     of elements from calldata/returndata to read (i.e. from [offset, clamped]).
  **/
 
 /**
@@ -93,7 +96,7 @@ uint64_t DataCopy::min(uint64_t a, uint64_t b)
  * @param copy_size The size of calldata to copy (u32).
  * @param offset The offset in calldata to start copying from (u32).
  * @param dst_addr The address in memory to write the calldata to.
- * @throws DataCopyException if a read or write memory access is out of bounds.
+ * @throws DataCopyException if the write memory access is out of bounds.
  **/
 void DataCopy::cd_copy(ContextInterface& context, uint32_t copy_size, uint32_t offset, MemoryAddress dst_addr)
 {
@@ -103,39 +106,35 @@ void DataCopy::cd_copy(ContextInterface& context, uint32_t copy_size, uint32_t o
     // This section is a bit leaky, but is necessary to ensure the correct gt events are generated.
     // This work is duplicated in context.get_calldata() - but it avoids us having a gt there.
 
-    // Operations are performed over uint64_t in case the addition overflows, but the result in guaranteed to
-    // fit in 32 bits since get_parent_cd_size() returns a u32 (constrained by a CALL or 0 if an enqueued call).
-    uint64_t data_index_upper_bound = min(static_cast<uint64_t>(offset) + copy_size, context.get_parent_cd_size());
+    // Operations are performed over uint64_t in case the addition overflows, but the result is guaranteed to
+    // fit in 32 bits since get_parent_cd_size() returns a u32 (constrained by a CALL or 0 if an enqueued
+    uint64_t read_index_upper_bound = min(static_cast<uint64_t>(offset) + copy_size, context.get_parent_cd_size());
+    uint64_t read_addr_upper_bound = read_index_upper_bound + context.get_parent_cd_addr();
 
-    // Check that we will not access out of bounds memory.
-    uint64_t read_addr_upper_bound = data_index_upper_bound + context.get_parent_cd_addr();
     uint64_t write_addr_upper_bound = static_cast<uint64_t>(dst_addr) + copy_size;
 
-    // Need all of this to happen regardless
-    bool read_out_of_range = gt.gt(read_addr_upper_bound, AVM_MEMORY_SIZE);
+    // Both GT events must be emitted regardless of outcome (circuit requires them).
+    bool src_reads_exceed_mem = gt.gt(read_addr_upper_bound, AVM_MEMORY_SIZE);
     bool write_out_of_range = gt.gt(write_addr_upper_bound, AVM_MEMORY_SIZE);
 
-    if (read_out_of_range || write_out_of_range) {
-        const std::string error_msg = format("Attempting to access out of bounds memory: read_addr_upper_bound = ",
-                                             read_addr_upper_bound,
-                                             " write_addr_upper_bound = ",
-                                             write_addr_upper_bound);
-
+    // Only dst out of range is an error. Src out of range is handled by clamping reads and padding
+    if (write_out_of_range) {
         events.emit(create_cd_event(context, clk, copy_size, offset, dst_addr));
-
-        // Throw something generic that execution will interpret as an opcode error.
-        throw DataCopyException(error_msg);
+        throw DataCopyException(
+            format("Attempting to write out of bounds memory: write_addr_upper_bound = ", write_addr_upper_bound));
     }
 
-    // If we get to this point, we know we will be error free
+    // Clamp reads at the memory boundary.
+    uint64_t clamped_read_index_upper_bound =
+        src_reads_exceed_mem ? (AVM_MEMORY_SIZE - context.get_parent_cd_addr()) : read_index_upper_bound;
+
+    // Read the clamped amount and pad to copy_size with zeros.
     std::vector<MemoryValue> padded_calldata;
-    // Calldata is retrieved from [offset, data_index_upper_bound)
-    // If data_index_upper_bound > offset, we read the data.
-    if (gt.gt(data_index_upper_bound, static_cast<uint64_t>(offset))) {
-        padded_calldata = context.get_calldata(offset, copy_size);
-    } else {
-        padded_calldata.resize(copy_size, MemoryValue::from<FF>(0)); // Initialize with zeros
+    if (gt.gt(clamped_read_index_upper_bound, static_cast<uint64_t>(offset))) {
+        uint32_t effective_reads = static_cast<uint32_t>(clamped_read_index_upper_bound - offset);
+        padded_calldata = context.get_calldata(offset, effective_reads);
     }
+    padded_calldata.resize(copy_size, MemoryValue::from<FF>(0));
 
     // We do not enforce any tag check and upcast to FF transparently.
     for (uint32_t i = 0; i < copy_size; i++) {
@@ -151,7 +150,7 @@ void DataCopy::cd_copy(ContextInterface& context, uint32_t copy_size, uint32_t o
  * @param copy_size The size of returndata to copy (u32).
  * @param offset The offset in returndata to start copying from (u32).
  * @param dst_addr The address in memory to write the returndata to.
- * @throws DataCopyException if a read or write memory access is out of bounds.
+ * @throws DataCopyException if the write memory access is out of bounds.
  **/
 void DataCopy::rd_copy(ContextInterface& context, uint32_t copy_size, uint32_t offset, MemoryAddress dst_addr)
 {
@@ -159,39 +158,33 @@ void DataCopy::rd_copy(ContextInterface& context, uint32_t copy_size, uint32_t o
     uint32_t clk = execution_id_manager.get_execution_id();
 
     // Check cd_copy for why we do this here even though it is in get_returndata()
-    uint64_t data_index_upper_bound = min(static_cast<uint64_t>(offset) + copy_size, context.get_last_rd_size());
+    uint64_t read_index_upper_bound = min(static_cast<uint64_t>(offset) + copy_size, context.get_last_rd_size());
+    uint64_t read_addr_upper_bound = read_index_upper_bound + context.get_last_rd_addr();
 
-    uint64_t read_addr_upper_bound = data_index_upper_bound + context.get_last_rd_addr();
     uint64_t write_addr_upper_bound = static_cast<uint64_t>(dst_addr) + copy_size;
 
-    // Need both of this to happen regardless
-    bool read_out_of_range = gt.gt(read_addr_upper_bound, AVM_MEMORY_SIZE);
+    // Both GT events must be emitted regardless of outcome (circuit requires them).
+    bool src_reads_exceed_mem = gt.gt(read_addr_upper_bound, AVM_MEMORY_SIZE);
     bool write_out_of_range = gt.gt(write_addr_upper_bound, AVM_MEMORY_SIZE);
 
-    if (read_out_of_range || write_out_of_range) {
-        const std::string error_msg = format("Attempting to access out of bounds memory: read_addr_upper_bound = ",
-                                             read_addr_upper_bound,
-                                             " write_addr_upper_bound = ",
-                                             write_addr_upper_bound);
-
+    // Only dst out of range is an error. Src out of range is handled by clamping reads and padding
+    if (write_out_of_range) {
         events.emit(create_rd_event(context, clk, copy_size, offset, dst_addr));
-
-        // Throw something generic that execution will interpret as an opcode error.
-        throw DataCopyException(error_msg);
+        throw DataCopyException(
+            format("Attempting to write out of bounds memory: write_addr_upper_bound = ", write_addr_upper_bound));
     }
 
-    // If we get to this point, we know we will be error free
+    // Clamp reads at the memory boundary.
+    uint64_t clamped_read_index_upper_bound =
+        src_reads_exceed_mem ? (AVM_MEMORY_SIZE - context.get_last_rd_addr()) : read_index_upper_bound;
 
-    // This is typically handled by the loop within get_returndata(), but we need to emit a range check in circuit
-    // so we need to be explicit about it.
-    // Returndata is retrieved from [offset, data_index_upper_bound), if data_index_upper_bound > offset, we will read
-    // the data.
+    // Read the clamped amount and pad to copy_size with zeros.
     std::vector<MemoryValue> padded_returndata;
-    if (gt.gt(data_index_upper_bound, static_cast<uint64_t>(offset))) {
-        padded_returndata = context.get_returndata(offset, copy_size);
-    } else {
-        padded_returndata.resize(copy_size, MemoryValue::from<FF>(0)); // Initialize with zeros
+    if (gt.gt(clamped_read_index_upper_bound, static_cast<uint64_t>(offset))) {
+        uint32_t effective_reads = static_cast<uint32_t>(clamped_read_index_upper_bound - offset);
+        padded_returndata = context.get_returndata(offset, effective_reads);
     }
+    padded_returndata.resize(copy_size, MemoryValue::from<FF>(0));
 
     // We do not enforce any tag check and upcast to FF transparently.
     for (uint32_t i = 0; i < copy_size; i++) {

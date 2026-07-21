@@ -26,9 +26,9 @@ echo "Starting parallel run with max $jobs jobs..."
 export FLAKES_FILE="$root/.logged_test_flakes"
 echo "" > "$FLAKES_FILE"  # Create/clear from previous run
 
-# If we're in a terminal default to a progress bar, and use cache_log to save output to redis.
-# Otherwise use denoise to display dots and save output to redis.
 if [ -t 1 ]; then
+  # If we're in a terminal default to a progress bar, and use cache_log to save output to redis.
+  # Dump output only on failure.
   set +e
   output=$(parallel $parallel_args --bar 'DUMP_FAIL=1 run_test_cmd {}' > >(DUP=1 stdbuf -oL cache_log "Test run"))
   code=$?
@@ -38,7 +38,9 @@ if [ -t 1 ]; then
   fi
   set -e
 else
-  denoise "parallel $parallel_args 'run_test_cmd {}'"
+  # Non interactive environments (like CI) should just stream output.
+  # Caller can denoise if they want to.
+  parallel $parallel_args 'run_test_cmd {}'
 fi
 
 slow_jobs=$(cat joblog.txt | \

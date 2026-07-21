@@ -24,6 +24,25 @@ Prefer native tools over bash equivalents—they don't require permissions and p
 - **Grep** instead of `grep`, `rg` for searching content
 - **Edit/Write** instead of `sed`, `awk`, `echo >` for modifying files
 
+## Bash Command Rules
+
+**NEVER `cd` before running a command.** The working directory is already `yarn-project`. Run commands directly:
+
+```bash
+# GOOD
+yarn build
+yarn workspace @aztec/sequencer-client test src/file.test.ts
+git diff HEAD
+
+# BAD — never do this
+cd /home/santiago/Projects/aztec-3/yarn-project && yarn build
+cd /home/santiago/Projects/aztec-3 && git diff HEAD
+```
+
+Git commands work from any subdirectory of a repo—there is no need to `cd` to the git root. The Bash tool already runs in `yarn-project`, so never prefix commands with `cd` to `yarn-project` or the git root.
+
+**NEVER append `; echo "EXIT: $?"` or similar** to any command. The Bash tool already reports exit codes directly.
+
 ## Essential Workflow
 
 ### When to Run Bootstrap
@@ -35,7 +54,7 @@ Prefer native tools over bash equivalents—they don't require permissions and p
 - Rebasing on a branch that has changes outside `yarn-project`
 
 ```bash
-(cd $(git rev-parse --show-toplevel) && BOOTSTRAP_TO=yarn-project ./bootstrap.sh)
+(cd $(git rev-parse --show-toplevel) && ./bootstrap.sh build yarn-project)
 ```
 
 Bootstrap takes several minutes to run. Be patient.
@@ -99,7 +118,7 @@ yarn workspace @aztec/<package-name> test --runInBand
 
 ```bash
 LOG_LEVEL=verbose yarn workspace @aztec/<package-name> test src/file.test.ts  # Recommended
-LOG_LEVEL=debug yarn workspace @aztec/<package-name> test src/file.test.ts    # More detail
+LOG_LEVEL="debug; info: json-rpc, simulator" yarn workspace @aztec/<package-name> test src/file.test.ts    # More detail
 # Available levels: trace, debug, verbose, info, warn
 
 # Module-specific logging
@@ -109,6 +128,10 @@ LOG_LEVEL='info; debug:sequencer,archiver' yarn workspace @aztec/<package-name> 
 ## Format & Lint
 
 **IMPORTANT**: These commands are run from the root of `yarn-project`, NOT the git root.
+
+### Style
+
+- **Line width**: 120 characters (`printWidth: 120` in `.prettierrc.json`). Wrap **everything** at 120 — code, inline comments, and JSDoc/block comments alike. Do not wrap at 80, 90, or 100 out of habit. Prettier does not reflow comment bodies, so an under-wrapped JSDoc paragraph will sit at ~90 chars forever unless you wrote it at 120 to begin with.
 
 ### Format
 
@@ -126,6 +149,100 @@ yarn lint <pkg1>                        # Single package (faster)
 
 ```
 
+<typescript_style>
+
+<type_safety>
+Avoid `as Type` casts; prefer type guards. Never use `as any`; if a subclass needs access to private members, change visibility to `protected`. Use branded types for common domain types (`SlotNumber`, `BlockNumber`, `EpochNumber`). Type guard functions follow `is<TypeName>` naming.
+</type_safety>
+
+<type_colocation>
+Colocate type definitions with the code that uses them. Do not create new `types.ts` files unless a circular-dependency issue forces it. When adding a type used by exactly one function, declare it next to that function; when adding a type used by one class, declare it above the class. Extract to a package-level module only when at least three unrelated files need the same type.
+</type_colocation>
+
+<data_structures>
+**Plain types** for simple local data with free functions + schema in same file. **Classes** for richer structs with serialization, factory, and utility methods. Avoid classes with only static methods; use free functions instead.
+
+For classes, use these static factory methods: `from(FieldsOf<T>)` for synchronous construction, `create()` for async with validation, `fromBuffer()` / `fromString()` for deserialization, `empty()` / `random()` for testing helpers.
+
+Use Zod for validating untrusted input. For classes, define a static `schema` getter. Use `zodFor<T>()` helper for type-safe schema definitions on plain types.
+
+Use interfaces only when multiple implementations exist, exposing APIs to outside consumers, or needing to depend on a type without creating a runtime dependency.
+</data_structures>
+
+<error_handling>
+Custom errors extend `Error` and set `this.name`. Use error hierarchies with base classes for domains. Include `public readonly` properties for error context.
+</error_handling>
+
+<class_style>
+Be explicit with `private`/`public`/`protected`. Use `readonly` whenever possible. Method organization: static properties/constants → instance properties → constructor → static factory methods (`from`, `create`, `empty`, `random`) → lifecycle (`start`, `stop`) → public API → protected → private.
+</class_style>
+
+<jsdoc>
+Document all classes, types, and interfaces with a JSDoc comment explaining their purpose. Document methods and properties unless meaning is obvious from the name. Skip JSDoc for trivial getters/setters, constructor-injected dependencies, and standard lifecycle methods (`start`, `stop`). Interface methods always require JSDoc.
+
+Use `@param` and `@returns` only when parameter names or return types don't convey meaning. Keep comments concise — single-line format when possible. Avoid redundant "title" lines that repeat the name being documented.
+</jsdoc>
+
+<enums_and_unions>
+Numeric enums for protocol constants that serialize to numbers. String enums for status values and event names. `as const` arrays with derived type for string literal unions. Discriminated unions with `type` field for variant types. Prefer `undefined` over `null`; use `compactArray()` from foundation to filter undefined values.
+</enums_and_unions>
+
+<resource_management>
+Prefer `using`/`await using` over `try`/`finally` for cleanup of disposable resources. Use `using` for `Disposable` resources (`[Symbol.dispose](): void`), `await using` for `AsyncDisposable` resources (`[Symbol.asyncDispose](): Promise<void>`).
+</resource_management>
+
+<kv_store_transactions>
+When working with `AztecAsyncKVStore`, wrap related reads and writes in `store.transactionAsync()` to ensure atomicity. Without transactions, concurrent operations can see inconsistent state (e.g., two callers both pass an `exists` check and both write).
+</kv_store_transactions>
+
+<general_style>
+Prefer `const` over `let`. Prefer `async`/`await` over `.then()`/`.catch()` callbacks. Named exports only (no default exports). Explicit return types on public API methods; inferred types acceptable on private/internal methods. Only export types needed by external consumers. Avoid `const self = this`; use arrow functions.
+
+When you need a promise whose `resolve`/`reject` are called from outside the executor (deferred gates, signals, manual settlement), use `promiseWithResolvers` from `@aztec/foundation/promise` instead of `new Promise(resolve => { outerVar = resolve })` with an escaped `let`. The helper returns `{ promise, resolve, reject }` directly, avoiding the mutable placeholder.
+
+Prefer high-level collection functions (`find`, `filter`, `map`, helpers from `foundation/src/collection/`) over imperative loops, but prefer imperative loops over `forEach` and complex `reduce`. Prefer `sum(items.map(item => item.value))` over `reduce(...)` for addition.
+
+Simplify function arguments to single expressions where possible. Use expression bodies instead of block bodies when the block only contains a `return`. Block bodies are appropriate when the callback has multiple statements.
+</general_style>
+
+<code_duplication>
+Avoid duplicating logic unless clarity benefits from keeping it inline. Same class → `private` helper. Same package → free function in a dedicated helper file. Complex logic → dedicated class. For two classes with similar behavior: if public APIs are nearly identical, use inheritance; if behavior overlaps but APIs differ, use composition.
+
+Check `foundation` for existing utilities before reimplementing. Extract general (non-domain) utilities to `foundation`.
+</code_duplication>
+
+<collections_and_maps>
+Avoid `Set`/`Map` of non-primitive class instances; `has()` checks fail because objects are compared by reference. Use primitive keys (strings, numbers) instead.
+</collections_and_maps>
+
+<logging>
+Always pass a structured context object as the second argument to log calls — not interpolated strings. The log pipeline indexes on these fields for filtering in production.
+
+```typescript
+// correct
+this.log.info(`Preparing checkpoint ${checkpointNumber}`, { slot, checkpointNumber, proposer });
+
+// wrong — context is lost to the log pipeline
+this.log.info(`Preparing checkpoint ${checkpointNumber} for slot ${slot} by ${proposer}`);
+```
+
+Available levels in order: `trace`, `debug`, `verbose`, `info`, `warn`, `error`.
+</logging>
+
+<import_organization>
+Order imports: external `@aztec/*` packages → foundation utilities (`@aztec/foundation/*`) → protocol-specific packages → Node.js built-ins (`node:events`, `node:fs`) → third-party packages (`viem`, `zod`) → relative imports (with `.js` extension). Use `import type` for type-only imports.
+</import_organization>
+
+<event_handling>
+Use `TypedEventEmitter<TEventMap>` interface for typed events.
+</event_handling>
+
+</typescript_style>
+
+<ci_config>
+When a test intermittently fails but shouldn't block CI, edit `.test_patterns.yml` (at the git root, not in yarn-project) and add an entry under `tests:`. Without `error_regex`, the test is always flagged as flaky when it fails. With `error_regex`, only flagged when output matches. `skip: true` disables the test entirely (avoid unless constantly failing). Flaky tests alert owners in #aztec3-ci Slack but don't fail CI.
+</ci_config>
+
 ## Dependency Management
 
 After modifying any `package.json`:
@@ -133,6 +250,8 @@ After modifying any `package.json`:
 ```bash
 yarn && yarn prepare
 ```
+
+`yarn prepare` regenerates the `references` array in every workspace `tsconfig.json` from the `dependencies` field via `@monorepo-utils/workspaces-to-typescript-project-references`. Never hand-edit the `references` array — the next `yarn prepare` will overwrite any manual changes, and forgetting to run it leaves `tsc -b` incremental builds in an inconsistent state.
 
 ## Key Packages
 
@@ -185,37 +304,7 @@ ab/feature-name
 jd/fix-something
 ```
 
-### Commit Messages
-
-Follow [Conventional Commits](https://www.conventionalcommits.org/en/v1.0.0/):
-
-**Supported types**: `fix`, `feat`, `chore`, `refactor`, `docs`, `test`
-
-```
-<type>(<scope>): <description>
-
-[optional body]
-```
-
-### Branch Strategy
-
-- **Primary development**: `next` branch (default PR target)
-- **Production**: `master` branch
-- **Backport**: Fix in release branch -> forward-port to `next`
-- **Forward-port**: Fix in `next` -> backport if needed
-
-### Determining the Base Branch
-
-**Never assume the base branch is `master`**. Most branches are based on `next`, not `master`. When you need to compare commits or understand changes on a branch:
-
-```bash
-# If there's an open PR, check its base branch
-gh pr view --json baseRefName -q '.baseRefName'
-
-# Compare against the correct base
-git log origin/<base-branch>..HEAD   # commits on this branch
-git diff origin/<base-branch>...HEAD  # changes on this branch
-```
+Conventional commit types, branch strategy, merge-train routing, and base-branch detection live in the root `CLAUDE.md` under `<git_workflow>`. The sections below cover only yarn-project-specific additions.
 
 ### Port Commits
 
@@ -232,15 +321,13 @@ For PRs with multiple commits that should be preserved (e.g., porting multiple P
 
 ### Fixing PRs
 
-When fixing an existing PR (CI failures, review feedback, etc.), always amend the existing commit - never create new commits.
+PRs are squashed to a single commit on merge, so during development just create normal commits. Only amend when explicitly asked or when using the `/fix-pr` skill on a PR targeting `next`.
 
 ```bash
 git add .
-git commit --amend --no-edit
-git push --force-with-lease
+git commit -m "fix: address review feedback"
+git push
 ```
-
-This keeps the PR as a single commit. CI enforces PRs have a single commit.
 
 ### Breaking Changes
 

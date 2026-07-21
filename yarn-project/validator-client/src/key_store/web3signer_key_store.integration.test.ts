@@ -1,4 +1,4 @@
-import { BlockNumber, SlotNumber } from '@aztec/foundation/branded-types';
+import { CheckpointNumber, SlotNumber } from '@aztec/foundation/branded-types';
 import { Buffer32 } from '@aztec/foundation/buffer';
 import { makeEthSignDigest, recoverAddress } from '@aztec/foundation/crypto/secp256k1-signer';
 import { EthAddress } from '@aztec/foundation/eth-address';
@@ -15,7 +15,7 @@ import { Web3SignerKeyStore } from './web3signer_key_store.js';
 function createMockContext(): SigningContext {
   return {
     slot: SlotNumber(1),
-    blockNumber: BlockNumber(1),
+    checkpointNumber: CheckpointNumber(0),
     dutyType: DutyType.ATTESTATION,
   };
 }
@@ -161,6 +161,7 @@ describe('Web3SignerKeyStore Integration Tests', () => {
           params: [address.toString(), digest.toString()],
           id: 1,
         }),
+        signal: expect.any(AbortSignal),
       });
     });
 
@@ -226,6 +227,7 @@ describe('Web3SignerKeyStore Integration Tests', () => {
           params: [address.toString(), message.toString()],
           id: 1,
         }),
+        signal: expect.any(AbortSignal),
       });
     });
 
@@ -261,6 +263,7 @@ describe('Web3SignerKeyStore Integration Tests', () => {
             params: [address, JSON.stringify(TEST_TYPED_DATA)],
             id: 1,
           }),
+          signal: expect.any(AbortSignal),
         });
       });
     });
@@ -294,7 +297,28 @@ describe('Web3SignerKeyStore Integration Tests', () => {
           params: [address.toString(), JSON.stringify(TEST_TYPED_DATA)],
           id: 1,
         }),
+        signal: expect.any(AbortSignal),
       });
+    });
+
+    it('should reject with a timeout error when the request hangs', async () => {
+      const store = new Web3SignerKeyStore(
+        TEST_ADDRESSES.map(addr => EthAddress.fromString(addr)),
+        WEB3_SIGNER_URL,
+        50,
+      );
+
+      // Never resolve on its own - only settle when the request's abort signal fires.
+      mockFetch.mockImplementation((_url, options) => {
+        const signal = (options as RequestInit).signal;
+        return new Promise((_resolve, reject) => {
+          signal?.addEventListener('abort', () => reject(signal.reason));
+        });
+      });
+
+      await expect(
+        store.signMessageWithAddress(EthAddress.fromString(TEST_ADDRESSES[0]), Buffer32.random(), createMockContext()),
+      ).rejects.toThrow(/Web3Signer request timed out after 50ms/);
     });
 
     it('should throw error for unknown address when signing typed data', async () => {

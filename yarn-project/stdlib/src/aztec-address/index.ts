@@ -1,18 +1,13 @@
-/* eslint-disable @typescript-eslint/no-unsafe-declaration-merging */
+import { NULL_MSG_SENDER_CONTRACT_ADDRESS } from '@aztec/constants';
 import { Fr, fromBuffer } from '@aztec/foundation/curves/bn254';
 import { Point } from '@aztec/foundation/curves/grumpkin';
 import { type ZodFor, bufferSchemaFor, hexSchemaFor } from '@aztec/foundation/schemas';
-import { type BufferReader, FieldReader, TypeRegistry } from '@aztec/foundation/serialize';
+import { type BufferReader, type BufferSink, FieldReader } from '@aztec/foundation/serialize';
 import { hexToBuffer } from '@aztec/foundation/string';
 
 import { inspect } from 'util';
 import { z } from 'zod';
 
-/** Branding to ensure fields are not interchangeable types. */
-export interface AztecAddress {
-  /** Brand. */
-  _branding: 'AztecAddress';
-}
 /**
  * AztecAddress represents a 32-byte address in the Aztec Protocol. It provides methods to create, manipulate, and
  * compare addresses, as well as conversion to and from strings, buffers, and other formats.
@@ -23,6 +18,9 @@ export interface AztecAddress {
  * wild.
  */
 export class AztecAddress {
+  /** Branding for nominal typing. */
+  declare private readonly _branding: 'AztecAddress';
+
   private xCoord: Fr;
 
   constructor(buffer: Buffer | Fr) {
@@ -44,32 +42,65 @@ export class AztecAddress {
 
   static ZERO = new AztecAddress(Buffer.alloc(32, 0));
 
+  /** Null msg sender address. Not part of the protocol contracts tree. */
+  static NULL_MSG_SENDER = AztecAddress.fromBigIntUnsafe(NULL_MSG_SENDER_CONTRACT_ADDRESS);
+
   static zero(): AztecAddress {
     return AztecAddress.ZERO;
   }
 
-  static fromField(fr: Fr) {
+  /**
+   * Builds an `AztecAddress` from a field **without checking it is a valid address** (the x-coordinate of a point on
+   * the Grumpkin curve, which is what lets it be encrypted to). Use {@link AztecAddress.isValid} to validate an
+   * untrusted one, or {@link AztecAddress.random} for valid test addresses.
+   */
+  static fromFieldUnsafe(fr: Fr) {
     return new AztecAddress(fr);
   }
 
+  /**
+   * Deserializes an `AztecAddress` from a buffer. It does **not** check the value is a valid Grumpkin-curve address
+   * (see {@link AztecAddress.isValid}); it is meant for reading addresses from already-validated serialized data. Use
+   * {@link AztecAddress.random} for valid test addresses.
+   */
   static fromBuffer(buffer: Buffer | BufferReader) {
     return new AztecAddress(fromBuffer(buffer, Fr));
   }
 
+  /**
+   * Deserializes an `AztecAddress` from a field reader. It does **not** check the value is a valid Grumpkin-curve
+   * address (see {@link AztecAddress.isValid}); it is meant for reading addresses from already-validated serialized
+   * data. Use {@link AztecAddress.random} for valid test addresses.
+   */
   static fromFields(fields: Fr[] | FieldReader) {
     const reader = FieldReader.asReader(fields);
     return new AztecAddress(reader.readField());
   }
 
-  static fromBigInt(value: bigint) {
+  /**
+   * Builds an `AztecAddress` from a bigint **without checking it is a valid address** (the x-coordinate of a point on
+   * the Grumpkin curve, which is what lets it be encrypted to). Use {@link AztecAddress.isValid} to validate an
+   * untrusted one, or {@link AztecAddress.random} for valid test addresses.
+   */
+  static fromBigIntUnsafe(value: bigint) {
     return new AztecAddress(new Fr(value));
   }
 
-  static fromNumber(value: number) {
+  /**
+   * Builds an `AztecAddress` from a number **without checking it is a valid address** (the x-coordinate of a point on
+   * the Grumpkin curve, which is what lets it be encrypted to). Use {@link AztecAddress.isValid} to validate an
+   * untrusted one, or {@link AztecAddress.random} for valid test addresses.
+   */
+  static fromNumberUnsafe(value: number) {
     return new AztecAddress(new Fr(value));
   }
 
-  static fromString(buf: string) {
+  /**
+   * Builds an `AztecAddress` from a hex string **without checking it is a valid address** (the x-coordinate of a
+   * point on the Grumpkin curve, which is what lets it be encrypted to). Use {@link AztecAddress.isValid} to
+   * validate an untrusted one, or {@link AztecAddress.random} for valid test addresses.
+   */
+  static fromStringUnsafe(buf: string) {
     return new AztecAddress(hexToBuffer(buf));
   }
 
@@ -88,7 +119,7 @@ export class AztecAddress {
     if (obj instanceof Buffer || Buffer.isBuffer(obj)) {
       return new AztecAddress(obj);
     }
-    return AztecAddress.fromString(obj);
+    return AztecAddress.fromStringUnsafe(obj);
   }
 
   /**
@@ -136,8 +167,13 @@ export class AztecAddress {
     return Point.fromXAndSign(this.xCoord, true);
   }
 
-  toBuffer() {
-    return this.xCoord.toBuffer();
+  toBuffer(): Buffer;
+  toBuffer(sink: BufferSink): void;
+  toBuffer(sink?: BufferSink): Buffer | void {
+    if (!sink) {
+      return this.xCoord.toBuffer();
+    }
+    this.xCoord.toBuffer(sink);
   }
 
   toBigInt() {
@@ -165,6 +201,3 @@ export class AztecAddress {
     ]);
   }
 }
-
-// For deserializing JSON.
-TypeRegistry.register('AztecAddress', AztecAddress);

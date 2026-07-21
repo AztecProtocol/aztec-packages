@@ -9,6 +9,8 @@
 #include "barretenberg/eccvm/eccvm_flavor.hpp"
 #include "barretenberg/eccvm/eccvm_prover.hpp"
 #include "barretenberg/flavor/mega_flavor.hpp"
+#include "barretenberg/goblin/batch_merge_prover.hpp"
+#include "barretenberg/goblin/batch_merge_verifier.hpp"
 #include "barretenberg/goblin/merge_prover.hpp"
 #include "barretenberg/goblin/merge_verifier.hpp"
 #include "barretenberg/goblin/types.hpp"
@@ -38,12 +40,15 @@ class Goblin {
     using ECCVMProvingKey = ECCVMFlavor::ProvingKey;
     using TranslatorBuilder = TranslatorCircuitBuilder;
     using MergeProof = MergeProver::MergeProof;
+    using BatchMergeProof = BatchMergeProver::MergeProof;
     using ECCVMVerificationKey = ECCVMFlavor::VerificationKey;
     using TranslatorVerificationKey = TranslatorFlavor::VerificationKey;
     using MergeRecursiveVerifier = stdlib::recursion::goblin::MergeRecursiveVerifier<MegaBuilder>;
+    using BatchMergeRecursiveVerifier = stdlib::recursion::goblin::BatchMergeRecursiveVerifier<MegaBuilder>;
     using PairingPoints = MergeRecursiveVerifier::PairingPoints;
     using TableCommitments = MergeVerifier::TableCommitments;
     using RecursiveTableCommitments = MergeRecursiveVerifier::TableCommitments;
+    using BatchRecursiveTableCommitments = BatchMergeRecursiveVerifier::TableCommitments;
     using MergeCommitments = MergeVerifier::InputCommitments;
     using RecursiveMergeCommitments = MergeRecursiveVerifier::InputCommitments;
     using RecursiveCommitment = MergeRecursiveVerifier::Commitment;
@@ -52,7 +57,6 @@ class Goblin {
     using IPA_PCS = IPA<ECCVMFlavor::Curve, CONST_ECCVM_LOG_N>;
 
     std::shared_ptr<OpQueue> op_queue = std::make_shared<OpQueue>();
-    CommitmentKey<curve::BN254> commitment_key;
 
     GoblinProof goblin_proof;
 
@@ -60,7 +64,7 @@ class Goblin {
     fq evaluation_challenge_x;              // challenge for evaluating the translation polynomials
     std::shared_ptr<Transcript> transcript; // shared between ECCVM and Translator
 
-    std::deque<MergeProof> merge_verification_queue; // queue of merge proofs to be verified
+    BatchMergeProof batch_merge_proof; // delayed batch merge proof for Chonk
 
     struct VerificationKey {
         std::shared_ptr<ECCVMVerificationKey> eccvm_verification_key = std::make_shared<ECCVMVerificationKey>();
@@ -68,20 +72,17 @@ class Goblin {
             std::make_shared<TranslatorVerificationKey>();
     };
 
-    Goblin(CommitmentKey<curve::BN254> bn254_commitment_key = CommitmentKey<curve::BN254>(),
-           const std::shared_ptr<Transcript>& transcript = std::make_shared<Transcript>());
+    Goblin(const std::shared_ptr<Transcript>& transcript = std::make_shared<Transcript>());
 
     /**
-     * @brief Construct a merge proof for the goblin ECC ops in the provided circuit; append the proof to the
-     * merge_verification_queue.
-     *
-     * @param transcript
+     * @brief Construct a single-step merge proof for the most recently merged subtable.
+     * @details In the Chonk flow this is invoked only for the final fixed-location append of the hiding kernel
+     * subtable; multi-subtable merges are handled by prove_batch_merge().
      */
-    void prove_merge(const std::shared_ptr<Transcript>& transcript = std::make_shared<Transcript>(),
-                     const MergeSettings merge_settings = MergeSettings::PREPEND);
+    MergeProof prove_merge(const std::shared_ptr<Transcript>& transcript = std::make_shared<Transcript>()) const;
 
     /**
-     * @brief Construct an ECCVM proof and IPA opening proof.
+     * @brief Construct an ECCVM proof and TripleIPA opening proof.
      * @details Also computes the translation polynomial evaluation challenges (batching_challenge_v,
      * evaluation_challenge_x) which are passed to the Translator.
      */
@@ -101,20 +102,34 @@ class Goblin {
     GoblinProof prove();
 
     /**
-     * @brief Recursively verify the next merge proof in the merge verification queue.
-     * @details Proofs are verified in a FIFO manner
+     * @brief Recursively verify the most recent single-step merge proof.
+     * @details In Chonk this is invoked once per IVC, recursively verifying the hiding kernel's fixed-location
+     * append against the prior aggregate table.
      *
      * @param builder The circuit in which the recursive verification will be performed.
-     * @param inputs_commitments The commitment used by the Merge verifier
+     * @param inputs_commitments The commitments used by the Merge verifier (subtable + prior aggregate)
      * @param transcript The transcript to be passed to the MergeRecursiveVerifier.
-     * @param merge_settings How the most recent ecc op subtable is going to be merged into the table of ecc ops
      * @return Pair of PairingPoints and commitments to the merged tables as read from the proof by the Merge verifier
      */
     std::pair<PairingPoints, RecursiveTableCommitments> recursively_verify_merge(
         MegaBuilder& builder,
         const RecursiveMergeCommitments& merge_commitments,
-        const std::shared_ptr<RecursiveTranscript>& transcript,
-        const MergeSettings merge_settings = MergeSettings::PREPEND);
+        const std::shared_ptr<RecursiveTranscript>& transcript);
+
+    /**
+     * @brief Construct a batched merge proof for all subtables accumulated during the IVC.
+     * @details Proves in a single shot that the full merged table is the correct concatenation of all per-circuit
+     * subtables. Run once at the end of the IVC.
+     */
+    void prove_batch_merge();
+
+    /**
+     * @brief Recursively verify the batched merge proof inside the hiding kernel.
+     * @details `hash` is the running ECC-op hash chained over all per-circuit subtable commitments observed
+     * during accumulation; the in-circuit verifier checks the proof's column commitments against it.
+     */
+    std::pair<PairingPoints, BatchRecursiveTableCommitments> recursively_verify_batch_merge(
+        MegaBuilder& builder, const BatchMergeRecursiveVerifier::FF& hash) const;
 };
 
 } // namespace bb

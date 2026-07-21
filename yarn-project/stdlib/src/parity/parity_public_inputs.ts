@@ -12,6 +12,8 @@ export class ParityPublicInputs {
     public convertedRoot: Fr,
     /** Root of the VK tree */
     public vkTreeRoot: Fr,
+    /** Prover identity committed to by the circuit, for sybil protection. */
+    public proverId: Fr,
   ) {
     if (shaRoot.toBuffer()[0] != 0) {
       throw new Error(`shaRoot buffer must be 31 bytes. Got 32 bytes`);
@@ -54,7 +56,7 @@ export class ParityPublicInputs {
    * @returns The instance fields.
    */
   static getFields(fields: FieldsOf<ParityPublicInputs>) {
-    return [fields.shaRoot, fields.convertedRoot, fields.vkTreeRoot] as const;
+    return [fields.shaRoot, fields.convertedRoot, fields.vkTreeRoot, fields.proverId] as const;
   }
 
   /**
@@ -64,7 +66,12 @@ export class ParityPublicInputs {
    */
   static fromBuffer(buffer: Buffer | BufferReader) {
     const reader = BufferReader.asReader(buffer);
-    return new ParityPublicInputs(reader.readObject(Fr), reader.readObject(Fr), Fr.fromBuffer(reader));
+    return new ParityPublicInputs(
+      reader.readObject(Fr),
+      reader.readObject(Fr),
+      Fr.fromBuffer(reader),
+      Fr.fromBuffer(reader),
+    );
   }
 
   /**

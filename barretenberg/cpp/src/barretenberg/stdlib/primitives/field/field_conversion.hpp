@@ -34,43 +34,13 @@ template <typename Field> class StdlibCodec {
     using grumpkin_commitment = cycle_group<Builder>;
 
     /**
-     * @brief Check whether a point corresponds to (0, 0), the conventional representation of the point infinity.
-     *
-     * bn254: In the case of a bn254 point, the bigfield limbs (x_lo, x_hi, y_lo, y_hi) are range constrained, and their
-     * sum is a non-negative integer not exceeding 2^138, i.e. it does not overflow the fq modulus, hence all limbs must
-     * be 0.
-     *
-     * Grumpkin: We are using the observation that (x^2 - 5 * y^2 = 0) has no non-trivial solutions in fr.
-     * Rearranging: x^2 = 5y^2, which requires 5 to be a quadratic residue for non-zero solutions.
-     * Since Fr modulus p ≡ 2 mod 5, we have 5 is not a square mod p.
-     */
-    template <typename T> static bool_t<Builder> check_point_at_infinity(std::span<const fr> fr_vec)
-    {
-        if constexpr (IsAnyOf<T, bn254_commitment>) {
-            // Sum the limbs and check whether the sum is 0
-            return (fr::accumulate(std::vector<fr>(fr_vec.begin(), fr_vec.end())).is_zero());
-        } else {
-            // For Grumpkin infinity check: verify that Fr modulus p ≡ 2 or 3 mod 5
-            static_assert(bb::fr::modulus % 5 == 2 || bb::fr::modulus % 5 == 3,
-                          "Grumpkin infinity check requires Fr modulus p ≡ 2 mod 5");
-
-            // Efficiently compute ((x^2 - 5 y^2) == 0)
-            const fr x_sqr = fr_vec[0].sqr();
-            const fr y = fr_vec[1];
-            const fr five_y = y * bb::fr(5);
-            return (y.madd(-five_y, x_sqr).is_zero());
-        }
-    }
-
-    /**
-     * @brief  A stdlib Transcript method needed to convert an `fr` challenge to a `bigfield` one. Assumes that
-     * `challenge` is "short".
+     * @brief  A stdlib Transcript method needed to convert a short `fr` challenge limb to a `bigfield` one.
      *
      * @tparam T fr or fq
      * @param challenge a 127-bit limb of a full challenge
      * @return T
      */
-    template <typename T> static T convert_challenge(const fr& challenge)
+    template <typename T> static T convert_short_challenge(const fr& challenge)
     {
         if constexpr (std::is_same_v<T, fr>) {
             return challenge;
@@ -83,7 +53,29 @@ template <typename Field> class StdlibCodec {
             // All challenges must be circuit witnesses.
             BB_ASSERT(builder);
             BB_ASSERT(!challenge.is_constant());
-            return T(challenge, fr::from_witness_index(builder, builder->zero_idx()));
+            auto high_limb = fr::from_witness_index(builder, builder->zero_idx());
+            high_limb.set_origin_tag(challenge.get_origin_tag());
+            return T(challenge, high_limb);
+        }
+    }
+
+    /**
+     * @brief Convert a full-width challenge to a target type (fr or fq).
+     * @details For `fq` the full challenge is decomposed into the low/high halves expected by the
+     * `bigfield(low_bits, high_bits)` constructor (which range-constrains the limbs), and the decomposition is
+     * bound back to the challenge so the resulting cycle scalar equals the squeezed challenge. This is exact and
+     * canonical: the challenge value is `< r < q`, so it is always a valid `fq` element. Mirrors the native
+     * `FrCodec::convert_full_challenge`, which reinterprets the same value as `fq`.
+     */
+    template <typename T> static T convert_full_challenge(const fr& challenge)
+    {
+        if constexpr (std::is_same_v<T, fr>) {
+            return challenge;
+        } else if constexpr (std::is_same_v<T, fq>) {
+            // Decompose at the bigfield's lower-two-limb boundary; split_unique binds the halves to the challenge.
+            static constexpr size_t LOW_BITS = 2 * T::NUM_LIMB_BITS;
+            const auto [low_bits, high_bits] = split_unique(challenge, LOW_BITS);
+            return T(low_bits, high_bits);
         }
     }
 
@@ -98,8 +90,8 @@ template <typename Field> class StdlibCodec {
 
         static constexpr bb::fr shift(static_cast<uint256_t>(1) << NUM_LIMB_BITS);
         std::vector<fr> result(2);
-        result[0] = input.binary_basis_limbs[0].element + (input.binary_basis_limbs[1].element * shift);
-        result[1] = input.binary_basis_limbs[2].element + (input.binary_basis_limbs[3].element * shift);
+        result[0] = input.get_limb(0).element + (input.get_limb(1).element * shift);
+        result[1] = input.get_limb(2).element + (input.get_limb(3).element * shift);
         return result;
     }
 
@@ -137,9 +129,8 @@ template <typename Field> class StdlibCodec {
      * Specific to \ref MegaCircuitBuilder_ "MegaCircuitBuilder".
      *
      * - \ref bb::stdlib::element_goblin::goblin_element< Builder_, Fq, Fr, NativeGroup > "bn254 goblin point"  — input
-     * vector of size 4 is transformed into a pair of `goblin_field` elements, which are fed into the relevant
-     * constructor with the `point_at_infinity` flag derived by the `check_point_at_infinity` method. Note that
-     * `validate_on_curve` is a vacuous method in this case, as these checks are performed in ECCVM (see \ref
+     * vector of size 4 is transformed into a pair of `goblin_field` elements, which are fed into the 2-arg constructor.
+     * Point-at-infinity is represented as (0, 0) and validated by ECCVM (see \ref
      * bb::ECCVMTranscriptRelationImpl< FF_ > "ECCVM Transcript" relation). Specific to \ref MegaCircuitBuilder_
      * "MegaCircuitBuilder".
      *
@@ -188,11 +179,11 @@ template <typename Field> class StdlibCodec {
             Basefield x = deserialize_from_fields<Basefield>(fr_vec.subspan(0, base_field_frs));
             Basefield y = deserialize_from_fields<Basefield>(fr_vec.subspan(base_field_frs, base_field_frs));
 
-            // Construct the group element, deriving the point_at_infinity flag (validates the point is on curve)
+            // Construct the group element (validates the point is on curve).
+            // The 2-arg constructor auto-detects infinity from (x == 0 && y == 0).
             // For goblin_element (bn254 with Mega arithmetization), the on-curve check is delegated to ECCVM, see
             // `on_curve_check` in `ECCVMTranscriptRelationImpl`.
-            T out = T(x, y, check_point_at_infinity<T>(fr_vec), /*assert_on_curve=*/true);
-            return out;
+            return T(x, y, /*assert_on_curve=*/true);
         } else {
             // Case 6: Array or Univariate
             T val;
@@ -231,8 +222,8 @@ template <typename Field> class StdlibCodec {
      * - \ref bb::stdlib::element_goblin::goblin_element "bn254 goblin point"
      *   (\ref bb::stdlib::element_goblin::goblin_element< Builder_, Fq, Fr, NativeGroup >) — serialize the pair of
      *   coordinates `(x, y)` by concatenating the encodings of each coordinate in the base field (goblin/bigfield
-     * form). The point-at-infinity flag is not emitted here; it is re-derived during deserialization via
-     *   \ref check_point_at_infinity. Specific to \ref MegaCircuitBuilder_ "MegaCircuitBuilder".
+     * form). Point-at-infinity is represented as (0, 0); ECCVM validates this.
+     * Specific to \ref MegaCircuitBuilder_ "MegaCircuitBuilder".
      *
      * - \ref bb::stdlib::element_default::element "bn254 point"
      *   (\ref bb::stdlib::element_default::element< Builder_, Fq, Fr, NativeGroup >) — serialize `(x, y)` by
@@ -240,8 +231,8 @@ template <typename Field> class StdlibCodec {
      *   \ref UltraCircuitBuilder_ "UltraCircuitBuilder".
      *
      * - \ref cycle_group "Grumpkin point" — serialize `(x, y)` in the base field `fr` by concatenating their encodings.
-     *   The point-at-infinity flag is not emitted; it is re-derived during deserialization via
-     *   \ref check_point_at_infinity. Specific to \ref UltraCircuitBuilder_ "UltraCircuitBuilder".
+     *   The point-at-infinity flag is re-derived from coordinates during deserialization.
+     *   Specific to \ref UltraCircuitBuilder_ "UltraCircuitBuilder".
      *
      * - `bb::Univariate<FF, N>` or `std::array<FF, N>` of any of the above — serialize element-wise and concatenate.
      *
@@ -269,12 +260,24 @@ template <typename Field> class StdlibCodec {
             return convert_grumpkin_fr_to_bn254_frs(val);
         } else if constexpr (IsAnyOf<T, goblin_field<Builder>>) {
             return convert_goblin_fr_to_bn254_frs(val);
-        } else if constexpr (IsAnyOf<T, bn254_commitment, grumpkin_commitment>) {
+        } else if constexpr (IsAnyOf<T, grumpkin_commitment>) {
+            // Canonicalize: output (0,0) for infinity points, critical for the IPA accumulation flow.
+            auto is_inf = val.is_point_at_infinity();
+            fr canon_x = fr::conditional_assign(is_inf, fr(0), val.x());
+            fr canon_y = fr::conditional_assign(is_inf, fr(0), val.y());
+            return { canon_x, canon_y };
+        } else if constexpr (IsAnyOf<T, bn254_commitment>) {
+            // bn254_commitment serialization does not standardize infinity (unlike grumpkin_commitment above).
+            // All existing code paths produce canonical (0,0) infinity, so just assert that invariant.
+            if (val.get_value().is_point_at_infinity()) {
+                BB_ASSERT(val.x().get_value() == 0 && val.y().get_value() == 0,
+                          "serialize_to_fields: bn254_commitment point at infinity must be canonical (0,0)");
+            }
             using BaseField = typename T::BaseField;
 
             std::vector<field_ct> fr_vec_x = serialize_to_fields<BaseField>(val.x());
             std::vector<field_ct> fr_vec_y = serialize_to_fields<BaseField>(val.y());
-            std::vector<field_ct> fr_vec(fr_vec_x.begin(), fr_vec_x.end());
+            std::vector<field_ct> fr_vec = std::move(fr_vec_x);
             fr_vec.insert(fr_vec.end(), fr_vec_y.begin(), fr_vec_y.end());
             return fr_vec;
         } else {

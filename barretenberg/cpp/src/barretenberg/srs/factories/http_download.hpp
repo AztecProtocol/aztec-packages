@@ -1,11 +1,15 @@
 #pragma once
+#include "barretenberg/common/log.hpp"
 #include "barretenberg/common/throw_or_abort.hpp"
 #include <cstdint>
 
 #ifdef __clang__
 #pragma clang diagnostic push
+// -Wdeprecated-literal-operator is only available in Clang 18+, ignore unknown warnings for Apple Clang
+#pragma clang diagnostic ignored "-Wunknown-warning-option"
 #pragma clang diagnostic ignored "-Wdeprecated-literal-operator"
 #pragma clang diagnostic ignored "-Wunused-parameter"
+#pragma clang diagnostic ignored "-Wsign-conversion"
 #endif
 #ifdef __GNUC__
 #pragma GCC diagnostic push
@@ -21,14 +25,20 @@
 #pragma clang diagnostic pop
 #endif
 
+#include <chrono>
 #include <string>
+#include <thread>
 #include <vector>
 
 namespace bb::srs {
 
 /**
  * @brief Download data from a URL with optional Range header support
- * @param url Full URL (e.g., "http://crs.aztec.network/g1.dat")
+ *
+ * Retries on transient failures (connection errors, 5xx, 429) with exponential
+ * backoff so a momentary CDN/network blip doesn't propagate as a hard failure.
+ *
+ * @param url Full URL (e.g., "http://crs.aztec-cdn.foundation/g1.dat")
  * @param start_byte Starting byte for range request (0 for no range)
  * @param end_byte Ending byte for range request (0 for no range)
  * @return Downloaded data as bytes
@@ -56,7 +66,7 @@ inline std::vector<uint8_t> http_download([[maybe_unused]] const std::string& ur
     std::string path = url.substr(path_start);
 
     // Create HTTP client (non-SSL)
-    httplib::Client cli(("http://" + host).c_str());
+    httplib::Client cli("http://" + host);
     cli.set_follow_location(true);
     cli.set_connection_timeout(30);
     cli.set_read_timeout(60);
@@ -67,20 +77,48 @@ inline std::vector<uint8_t> http_download([[maybe_unused]] const std::string& ur
         headers.emplace("Range", "bytes=" + std::to_string(start_byte) + "-" + std::to_string(end_byte));
     }
 
-    // Download
-    auto res = cli.Get(path.c_str(), headers);
+    constexpr int max_attempts = 3;
+    // Bound retry-induced latency: each retry attempt uses tighter timeouts than the first try
+    // so the worst-case extra time (backoffs + retry attempts) stays under ~15s.
+    // Math: backoff 1s + 2s + 2 retries * 5s timeout = 13s.
+    constexpr int retry_timeout_seconds = 5;
 
-    if (!res) {
-        throw_or_abort("HTTP request failed for " + url + ": " + httplib::to_string(res.error()));
+    std::chrono::milliseconds backoff{ 1000 };
+    std::string last_error;
+    for (int attempt = 1; attempt <= max_attempts; ++attempt) {
+        if (attempt == 2) {
+            cli.set_connection_timeout(retry_timeout_seconds);
+            cli.set_read_timeout(retry_timeout_seconds);
+        }
+
+        auto res = cli.Get(path.c_str(), headers);
+
+        if (res && (res->status == 200 || res->status == 206)) {
+            const std::string& body = res->body;
+            return std::vector<uint8_t>(body.begin(), body.end());
+        }
+
+        bool retryable = false;
+        if (!res) {
+            last_error = httplib::to_string(res.error());
+            retryable = true;
+        } else {
+            last_error = "status " + std::to_string(res->status);
+            // Retry on 5xx and 429 (rate limit); other 4xx are client errors and won't change with retry.
+            retryable = res->status >= 500 || res->status == 429;
+        }
+
+        if (!retryable || attempt == max_attempts) {
+            throw_or_abort("HTTP request failed for " + url + ": " + last_error + " (after " + std::to_string(attempt) +
+                           " attempt" + (attempt == 1 ? "" : "s") + ")");
+        }
+
+        vinfo("HTTP download of ", url, " failed (", last_error, "), retrying in ", backoff.count(), "ms");
+        std::this_thread::sleep_for(backoff);
+        backoff *= 2;
     }
-
-    if (res->status != 200 && res->status != 206) {
-        throw_or_abort("HTTP request failed for " + url + " with status " + std::to_string(res->status));
-    }
-
-    // Convert string body to vector<uint8_t>
-    const std::string& body = res->body;
-    return std::vector<uint8_t>(body.begin(), body.end());
+    // Unreachable: loop above either returns on success or throws on the final attempt.
+    throw_or_abort("HTTP request failed for " + url + ": " + last_error);
 #endif
 }
 } // namespace bb::srs

@@ -1,75 +1,74 @@
-use dep::aztec::macros::aztec;
+use aztec::macros::aztec;
 
 #[aztec]
 pub contract Claim {
     // docs:start:history_import
-    use dep::aztec::history::note::assert_note_existed_by;
+    use aztec::history::note::assert_note_existed_by;
     // docs:end:history_import
-    use dep::aztec::{
+    use aztec::{
         macros::{functions::{external, initializer}, storage::storage},
-        note::{HintedNote, note_interface::NoteHash, utils::compute_note_hash_for_nullification},
-        protocol::address::AztecAddress,
-        state_vars::PublicImmutable,
+        note::{HintedNote, utils::compute_confirmed_note_hash_for_nullification},
+        protocol::{address::AztecAddress, traits::Packable},
+        state_vars::{Map, Owned, PublicImmutable, SingleUseClaim},
     };
-    use dep::uint_note::UintNote;
     use token::Token;
+    use uint_note::UintNote;
 
-    // TODO: This can be optimized by storing the addresses in Config struct in 1 PublicImmutable (less merkle proofs).
+    #[derive(Eq, Packable)]
+    struct ClaimConfig {
+        // Address of a contract based on whose notes we distribute the rewards
+        target_contract: AztecAddress,
+        // Token to be distributed as a reward when claiming
+        reward_token: AztecAddress,
+    }
+
     #[storage]
     struct Storage<Context> {
-        // Address of a contract based on whose notes we distribute the rewards
-        target_contract: PublicImmutable<AztecAddress, Context>,
-        // Token to be distributed as a reward when claiming
-        reward_token: PublicImmutable<AztecAddress, Context>,
+        config: PublicImmutable<ClaimConfig, Context>,
+        // Maps a note hash to owner-specific single-use claims, preventing double-claiming of rewards.
+        note_hash_claims: Map<Field, Owned<SingleUseClaim<Context>, Context>, Context>,
     }
 
     #[external("public")]
     #[initializer]
     fn constructor(target_contract: AztecAddress, reward_token: AztecAddress) {
-        self.storage.target_contract.initialize(target_contract);
-        self.storage.reward_token.initialize(reward_token);
+        self.storage.config.initialize(ClaimConfig { target_contract, reward_token });
     }
 
     #[external("private")]
     fn claim(hinted_note: HintedNote<UintNote>, recipient: AztecAddress) {
-        // 1) Check that the note corresponds to the target contract
-        let target_address = self.storage.target_contract.read();
+        // 1) Prove that the note exists
+        // docs:start:prove_note_inclusion
+        let header = self.context.get_anchor_block_header();
+        let confirmed_note = assert_note_existed_by(header, hinted_note);
+        // docs:end:prove_note_inclusion
+
+        let config = self.storage.config.read();
+
+        // 2) Check that the note corresponds to the target contract
         assert(
-            target_address == hinted_note.contract_address,
+            config.target_contract == confirmed_note.contract_address,
             "Note does not correspond to the target contract",
         );
 
-        // 2) Check that the note is owned by the msg_sender
-        assert(hinted_note.owner == self.msg_sender(), "Note is not owned by the msg_sender");
+        // 3) Check that the note is owned by the msg_sender
+        assert(confirmed_note.owner == self.msg_sender(), "Note is not owned by the msg_sender");
 
         // Given that there is only 1 state variable in the Crowdfunding contract we don't need to constrain the storage
         // slot of the note as there is no risk of claiming with a note that is not a donation note.
 
-        // 3) Prove that the note hash exists in the note hash tree
-        // docs:start:prove_note_inclusion
-        let header = self.context.get_anchor_block_header();
-        let _ = assert_note_existed_by(header, hinted_note);
-        // docs:end:prove_note_inclusion
+        // 4) Consume the claim of this note, ensuring the reward can be claimed only once with the given note. Each
+        // claim being tied to its owner results in unlinkability of the claim's nullifier and the underlying note
+        // hash via the owner's nullifier hiding key (`nhk`).
+        //
+        // Note: we're using the note's hash as the claim identifier, as it serves as a unique identifier (because we
+        // know the note is settled, and hence its note hash unique). This is not the same thing as nullifying the note
+        // however, which can only be done from the contract that emitted the note. From the point of view of the
+        // Crowdfunding contract, the note is still active.
+        let note_hash_for_nullification = compute_confirmed_note_hash_for_nullification(confirmed_note);
+        self.storage.note_hash_claims.at(note_hash_for_nullification).at(confirmed_note.owner).claim();
 
-        // 4) Compute and emit a nullifier which is unique to the note and this contract to ensure the reward can be
-        // claimed only once with the given note.
-        // Note: Only the owner of the npk_m will be able to produce the nhk_app and compute this nullifier.
-        // The nullifier is unique to the note and THIS contract because the protocol siloes all nullifiers with
-        // the address of a contract it was emitted from.
-        // TODO(#7775): manually computing the hash and passing it to compute_nullifier func is not great as note could
-        // handle it on its own or we could make assert_note_existed_by return note_hash_for_nullification.
-        let note_hash_for_nullification = compute_note_hash_for_nullification(hinted_note);
-        let nullifier = hinted_note.note.compute_nullifier(
-            self.context,
-            hinted_note.owner,
-            note_hash_for_nullification,
-        );
-        self.context.push_nullifier(nullifier);
-
-        // 5) Finally we mint the reward token to the sender of the transaction
-        self.enqueue(Token::at(self.storage.reward_token.read()).mint_to_public(
-            recipient,
-            hinted_note.note.value,
-        ));
+        // 5) Finally we mint the reward token to the requested recipient
+        self.enqueue(Token::at(config.reward_token).mint_to_public(recipient, confirmed_note.note.value));
     }
 }

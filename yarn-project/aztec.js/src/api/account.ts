@@ -1,7 +1,6 @@
 export {
   type Account,
   type AccountContract,
-  AccountWithSecretKey,
   BaseAccount,
   type AuthorizationProvider,
   getAccountContractAddress,
@@ -10,4 +9,4 @@ export {
 export type { AuthWitnessProvider, ChainInfo } from '@aztec/entrypoints/interfaces';
 export { ChainInfoSchema } from '@aztec/entrypoints/interfaces';
 
-export { SignerlessAccount } from '../account/signerless_account.js';
+export { NO_FROM, type NoFrom } from '../contract/interaction_options.js';

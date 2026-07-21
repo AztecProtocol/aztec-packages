@@ -1,0 +1,400 @@
+include "../gt.pil";
+include "../memory.pil";
+include "../constants_gen.pil";
+include "../precomputed.pil";
+
+/**
+ * Dedicated opcode gadget for the EmitPublicLog opcode.
+ * This gadget handles the emission of public logs to public inputs, performing
+ * validation checks and memory reads to check log entries.
+ *
+ * The opcode reads log data from memory starting at log_address for log_size fields,
+ * and writes the log data to public inputs if all checks pass.
+ * The gadget generates a dynamic number of rows based on the actual log size.
+ *
+ * Opcode operands (from execution trace):
+ * - register[0]: log_size (number of fields in the log).
+ * - rop[1]: log_address (memory offset where log data starts).
+ *
+ * From the instruction spec table entry for this opcode: num_addresses == 2 and one register
+ * is declared as U32. Therefore, log_size < 2^32 and log_address < MEMORY_SIZE.
+ *
+ * The interaction with the execution trace is only done on the start row. The subsequent rows are used for reading the log fields from memory and writing to public inputs.
+ *
+ * Assumptions:
+ * - log_size and log_address are checked to be U32 via the execution trace permutation
+ *   (log_size is checked within the registers subtrace while log_address is checked by addressing)
+ * - gt gadget precondition: both inputs must be bounded by p - 1 - 2^128
+ *   and the absolute difference must be less than 2^128.
+ * - PUBLIC_LOG_HEADER_LENGTH >= 2, which guarantees that start and end never
+ *   coincide on the same row (minimum remaining_rows on start is 1).
+ *
+ * Error handling:
+ * - The trace always generates PUBLIC_LOG_HEADER_LENGTH + log_size rows
+ *   regardless of error. This isn't a problem since the user has paid for the execution of those rows.
+ * - Memory reads and public input writes are conditionally
+ *   gated based on error flags.
+ * - The possible errors are
+ *   1) Out of Bounds Memory: Memory reads for log values exceed AVM_HIGHEST_MEM_ADDRESS
+ *   2) Too Many Log Fields: The amount of emitted logs exceeds transaction limit (FLAT_PUBLIC_LOGS_PAYLOAD_LENGTH)
+ *   3) Memory Tag Mismatch: Log values read from memory are not of type FF
+ *   4) Is Static Violation: This function is being called from a static context
+ *
+ * Memory I/O:
+ * - Reads log_size consecutive fields from memory starting at log_address
+ * - Each field is validated to have the correct FF tag
+ * - Disables memory reads if addressing error occurs
+ *
+ * Public inputs interaction:
+ * - Writes log_size (number of fields read from memory), contract_address, and log data to public inputs, in that order.
+ * - Only writes if no errors occur and discard flag is not set
+ * - Updates the count of emitted public logs
+ *
+ * Interactions (this gadget as source):
+ * - CHECK_MEMORY_OUT_OF_BOUNDS: lookup into gt trace (gt.sel_others)
+ * - CHECK_LOG_FIELDS_COUNT: lookup into gt trace (gt.sel_others)
+ * - READ_MEM: permutation into memory trace (memory.sel_public_log_read)
+ * - WRITE_DATA_TO_PUBLIC_INPUTS: lookup into public_inputs trace (public_inputs.sel)
+ *
+ * Interactions (this gadget as destination):
+ * Usage (we omit the emit_public_log within the tuple for readability):
+ *   sel_exec_dispatch_emit_public_log  {
+ *       clk, context_id,
+ *       rop[1], register[0], contract_address,
+ *       prev_num_public_log_fields, num_public_log_fields,
+ *       is_static, sel_opcode_error, discard
+ *   } is
+ *   emit_public_log.start {
+ *       execution_clk, space_id,
+ *       log_address, log_size, contract_address,
+ *       prev_num_public_log_fields, next_num_public_log_fields,
+ *       is_static, error, discard
+ *   };
+ *
+ * Partial trace of the gadget:
+ *
+ * +-----+-----+--------+----------+----------+---------------+------------+------------+-----------+-------+-------+-----+----------+------------+---------------+----------+-----------+----------+-------+-----+------------+
+ * | sel | clk | spc_id | log_addr | log_size | contract_addr | prev_log_f | next_log_f | is_static | error | start | end | rem_rows | tag_msmtch | seen_wrng_tag | IS_W_LEN | is_w_addr | is_w_mem | value | tag |  pi_value  |
+ * +-----+-----+--------+----------+----------+---------------+------------+------------+-----------+-------+-------+-----+----------+------------+---------------+----------+-----------+----------+-------+-----+------------+
+ * |   0 |   0 |      0 |        0 | 0        | 0             | 0          | 0          | 0         | 0     |     0 |   0 |        0 |          0 |             0 |        0 |         0 |        0 |     0 | 0   | 0          |
+ * |   1 |  27 |      4 |       27 | 10       | 0xdeadbeef    | 0          | 10         | 0         | 0     |     1 |   0 |       11 |          0 |             0 |        1 |         0 |        0 |     0 | ff  | 10         |
+ * |   1 |  27 |      4 |       27 | unc      | 0xdeadbeef    | unc        | unc        | unc       | unc   |     0 |   0 |       10 |          0 |             0 |        0 |         1 |        0 |     0 | ff  | 0xdeadbeef |
+ * |   1 |  27 |      4 |       27 | unc      | 0xdeadbeef    | unc        | unc        | unc       | unc   |     0 |   0 |        9 |          0 |             0 |        0 |         0 |        1 |    10 | ff  | 10         |
+ * |   1 |  27 |      4 |       28 | unc      | 0xdeadbeef    | unc        | unc        | unc       | unc   |     0 |   0 |        8 |          0 |             0 |        0 |         0 |        1 |    20 | ff  | 20         |
+ * |   1 |  27 |      4 |       29 | unc      | 0xdeadbeef    | unc        | unc        | unc       | unc   |     0 |   0 |        7 |          0 |             0 |        0 |         0 |        1 |    30 | ff  | 30         |
+ * |   1 |  27 |      4 |       30 | unc      | 0xdeadbeef    | unc        | unc        | unc       | unc   |     0 |   0 |        6 |          0 |             0 |        0 |         0 |        1 |    40 | ff  | 40         |
+ * |   1 |  27 |      4 |       31 | unc      | 0xdeadbeef    | unc        | unc        | unc       | unc   |     0 |   0 |        5 |          0 |             0 |        0 |         0 |        1 |    50 | ff  | 50         |
+ * |   1 |  27 |      4 |       32 | unc      | 0xdeadbeef    | unc        | unc        | unc       | unc   |     0 |   0 |        4 |          0 |             0 |        0 |         0 |        1 |    60 | ff  | 60         |
+ * |   1 |  27 |      4 |       33 | unc      | 0xdeadbeef    | unc        | unc        | unc       | unc   |     0 |   0 |        3 |          0 |             0 |        0 |         0 |        1 |    70 | ff  | 70         |
+ * |   1 |  27 |      4 |       34 | unc      | 0xdeadbeef    | unc        | unc        | unc       | unc   |     0 |   0 |        2 |          0 |             0 |        0 |         0 |        1 |    80 | ff  | 80         |
+ * |   1 |  27 |      4 |       35 | unc      | 0xdeadbeef    | unc        | unc        | unc       | unc   |     0 |   0 |        1 |          0 |             0 |        0 |         0 |        1 |    90 | ff  | 90         |
+ * |   1 |  27 |      4 |       36 | unc      | 0xdeadbeef    | unc        | unc        | unc       | unc   |     0 |   1 |        0 |          0 |             0 |        0 |         0 |        1 |   100 | ff  | 100        |
+ * |   0 |   0 |      0 |        0 | 0        | 0             | 0          | 0          | 0         | 0     |     0 |   0 |        0 |          0 |             0 |        0 |         0 |        0 |     0 | 0   | 0          |
+ * +-----+-----+--------+----------+----------+---------------+------------+------------+-----------+-------+-------+-----+----------+------------+---------------+----------+-----------+----------+-------+-----+------------+
+ * We perform some checks on start and only propagate down relevant columns to constrain the "worker" rows. Worker rows are the ones after start that only perform optional memory
+ * reads and optional writes to public inputs. Columns not propagated down are marked as "unc" in the table above.
+ * In this trace:
+ * - There are three "types" of rows for one log emission:
+ *    - IS_WRITE_LOG_LENGTH: This one processes the log length. This is the first row.
+ *    - is_write_contract_address: This one processes the contract address. This is the second row.
+ *    - is_write_memory_value: These ones process the log body, the values read from memory. These are the rest of rows.
+ * - Rows interact with public inputs conditionally if there is no error or no discard.
+ * - Rows interact with memory conditionally if there is no addressing error. Otherwise they'll read (given they are is_write_memory_value rows).
+ */
+namespace emit_public_log;
+
+    pol commit sel; // @boolean
+    sel * (1 - sel) = 0;
+
+    #[skippable_if]
+    sel = 0;
+
+    // Inputs
+    // The following columns are only constrained on start rows (via start-gated relations)
+    // They are constrained on subsequent rows via propagation constraints
+    pol commit execution_clk; // Propagated via EXEC_CLK_CONSISTENCY
+    pol commit space_id; // Propagated via SPACE_ID_CONSISTENCY
+    pol commit contract_address; // Propagated via CONTRACT_ADDRESS_CONSISTENCY.
+    // The following column is constrained on start rows and by an increment constraint
+    pol commit log_address; // Constrained by LOG_ADDRESS_INCREMENT
+    // The following columns are only constrained on start rows (via start-gated relations)
+    // and are unconstrained on worker rows.
+    pol commit log_size; // (from execution trace: register[0] is tag checked to be U32)
+    pol commit prev_num_public_log_fields;
+    pol commit next_num_public_log_fields;
+    pol commit is_static; // @boolean
+    pol commit discard; // @boolean
+
+    // error is constrained to be boolean on start rows via the execution permutation.
+    // It is only used in start-gated relations; sel_write_to_public_inputs absorbs
+    // the error value on the start row and propagates it to worker rows.
+    // No propagation or explicit boolean constraint is needed for error itself.
+    pol commit error; // @boolean (on start rows, via execution permutation). Unconstrained on worker rows.
+
+    ////////////////////////////////////////////////
+    // Multi-row Computation Selectors
+    ////////////////////////////////////////////////
+    // We follow the recipe documented in:
+    // https://github.com/AztecProtocol/aztec-packages/blob/next/barretenberg/cpp/pil/vm2/docs/recipes.md#contiguous-multi-rows-computation-trace
+
+    // The start of the computation, used as selector for the permutation with execution trace.
+    pol commit start; // @boolean
+    start * (1 - start) = 0;
+    // The end of the computation
+    pol commit end; // @boolean
+    end * (1 - end) = 0;
+
+    pol LATCH_CONDITION = end + precomputed.first_row;
+
+    // (start == 1) or (end == 1) implies sel == 1.
+    #[SEL_ON_START_OR_END]
+    (start + end) * (1 - sel) = 0;
+
+    // Trace is contiguous: once sel = 0, it cannot be set to 1, can only be set to 0 at LATCH_CONDITION
+    #[TRACE_CONTINUITY]
+    (1 - LATCH_CONDITION) * (sel - sel') =0;
+
+    #[START_AFTER_LATCH]
+    sel' * (start' - LATCH_CONDITION) = 0;
+
+    pol NOT_END = sel - end;
+
+    // Implicity bounded since log_size is checked to be U32 in the registers subtrace
+    // Given that PUBLIC_LOG_HEADER_LENGTH > 0 the value of remaining_rows does not underflow
+    pol commit remaining_rows;
+    start * ((constants.PUBLIC_LOG_HEADER_LENGTH + log_size - 1) - remaining_rows) = 0;
+    // Since start and end cannot be on the same row, this constraint relies on
+    // PUBLIC_LOG_HEADER_LENGTH >= 2 otherwise remaining_rows' will underflow
+    #[REMAINING_ROWS_DECREMENT]
+    NOT_END * ((remaining_rows - 1) - remaining_rows') = 0;
+
+    // remaining_rows == 0 => end == 1
+    pol commit remaining_rows_inv;
+    sel * (remaining_rows * (end * (1 - remaining_rows_inv) + remaining_rows_inv) - 1 + end) = 0;
+
+    ////////////////////////////////////////////////
+    // Error Handling
+    ////////////////////////////////////////////////
+
+    /* Memory Bounds Check */
+    // Implicitly boolean by lookup into gt.res on start rows via CHECK_MEMORY_OUT_OF_BOUNDS,
+    // then propagated (preserving boolean-ness) via ERROR_OUT_OF_BOUNDS_CONSISTENCY.
+    pol commit error_out_of_bounds; // @boolean (only on active rows)
+
+    // Lookup constant support: Remove this column once constants in lookup columns are supported.
+    pol commit max_mem_size;
+    start * (max_mem_size - constants.AVM_MEMORY_SIZE) = 0;
+
+    // `log_address` guaranteed to be U32 so addition cannot overflow the field
+    pol commit end_log_address_upper_bound;
+    start * (log_address + log_size - end_log_address_upper_bound) = 0;
+
+    // Preconditions to `gt` gadget require both inputs to be bounded by 2^128.
+    // `end_log_address_upper_bound` = log_address + log_size, both U32, so < 2^33.
+    // `max_mem_size` = AVM_MEMORY_SIZE = 2^32.
+    #[CHECK_MEMORY_OUT_OF_BOUNDS]
+    start { end_log_address_upper_bound, max_mem_size, error_out_of_bounds }
+    in
+    gt.sel_others { gt.input_a, gt.input_b, gt.res };
+
+    // Error out of bounds is propagated down to disable memory reads
+    #[ERROR_OUT_OF_BOUNDS_CONSISTENCY]
+    NOT_END * (error_out_of_bounds' - error_out_of_bounds) = 0;
+
+    /* Log Fields Count Within Tx Limit Check */
+    // Implicitly boolean by lookup into gt.res on start = 1 rows via CHECK_LOG_FIELDS_COUNT
+    // Does not need an explicity boolean constraint since not used on start = 0 rows
+    pol commit error_too_many_log_fields; // @boolean
+
+    pol TOTAL_LOG_FIELDS_SIZE = constants.PUBLIC_LOG_HEADER_LENGTH + log_size;
+    pol commit expected_next_log_fields;
+    // All values guaranteed to be <U32 so addition does not overflow
+    start * (prev_num_public_log_fields + TOTAL_LOG_FIELDS_SIZE - expected_next_log_fields) = 0;
+
+    // Lookup constant support: Remove this column once constants in lookup columns are supported.
+    pol commit max_public_logs_payload_length;
+    start * (max_public_logs_payload_length - constants.FLAT_PUBLIC_LOGS_PAYLOAD_LENGTH) = 0;
+
+    // Preconditions to `gt` gadget require both inputs to be bounded by 2^128.
+    // `expected_next_log_fields` = prev_num_public_log_fields + PUBLIC_LOG_HEADER_LENGTH + log_size,
+    // all values are < 2^33, so the sum is < 2^35.
+    // Note that prev_num_public_log_fields is enforced to be 0 at transaction start (tx_context.pil)
+    // and then incremented by TOTAL_LOG_FIELDS_SIZE on each log emission but bounded by
+    // `max_public_logs_payload_length` = FLAT_PUBLIC_LOGS_PAYLOAD_LENGTH, a protocol constant (< 2^32).
+    #[CHECK_LOG_FIELDS_COUNT]
+    start { expected_next_log_fields, max_public_logs_payload_length, error_too_many_log_fields }
+    in
+    gt.sel_others { gt.input_a, gt.input_b, gt.res };
+
+    /* Tag Check */
+    // In order to constrain tag mismatch, we use a hinted column `seen_wrong_tag`.
+    // While the computation has not ended, `seen_wrong_tag` tracks if we have seen at least 1 tag mismatch error (via WRONG_TAG_CHECK)
+    // At end == 1, CHECK_END_TAG_MISMATCH sets `error_tag_mismatch` = `seen_wrong_tag`.
+    // `error_tag_mismatch` has a propagation constraint (ERROR_TAG_MISMATCH_CONSISTENCY) which forces its value at start == 1
+    // to match its value at end == 1.
+    // In this way the tag check error is propagated "up" to the start row
+
+    // Implicitly boolean constrained for the following reasons:
+    // 1) At each non-end row, ERROR_TAG_MISMATCH_CONSISTENCY propagates the value between rows
+    // 2) At end row, CHECK_END_TAG_MISMATCH enforces `error_tag_mismatch` is boolean since `seen_wrong_tag` is boolean
+    pol commit error_tag_mismatch; // @boolean
+
+    #[ERROR_TAG_MISMATCH_CONSISTENCY]
+    NOT_END * (error_tag_mismatch' - error_tag_mismatch) = 0;
+
+    // `seen_wrong_tag` is implicitly a boolean from two relations
+    // 1) INITIAL_SEEN_WRONG_TAG: At start == 1, `seen_wrong_tag` == 0
+    // 2) WRONG_TAG_CHECK: Sets and propagates `seen_wrong_tag`
+    //    a) if WRONG_NEXT_TAG == 1 && `seen_wrong_tag` == 0, `seen_wrong_tag` = 1
+    //    b) otherwise the boolean from (1) or (2a) is propagated
+    pol commit seen_wrong_tag; // @boolean
+    // Initial value of `seen_wrong_tag` is false because we don't do any memory reads at the start
+    #[INITIAL_SEEN_WRONG_TAG]
+    start * seen_wrong_tag = 0;
+
+    // The WRONG_NEXT_TAG boolean variable, defined in the memory section below,
+    // indicates whether a tag is wrong for the next row.
+    // The conditional assignment either sets `seen_wrong_tag'` = WRONG_NEXT_TAG
+    // or propagates its value down the trace. Note that once `seen_wrong_tag` == 1, it cannot
+    // be reset to 0.
+    // Conditional assignment: WRONG_NEXT_TAG ? `seen_wrong_tag' = 1` :  `seen_wrong_tag'` = `seen_wrong_tag`
+    #[WRONG_TAG_CHECK]
+    NOT_END * ((1 - seen_wrong_tag) * WRONG_NEXT_TAG + seen_wrong_tag - seen_wrong_tag') = 0;
+
+    // At end, `seen_wrong_tag` == `error_tag_mismatch`
+    #[CHECK_END_TAG_MISMATCH]
+    end * (error_tag_mismatch - seen_wrong_tag) = 0;
+
+    /* Union Error Handling */
+    // error = `error_out_of_bounds` | `error_too_many_log_fields` | `error_tag_mismatch` | `is_static`
+    // Unconstrained on non-start rows (only used in start-gated relations).
+    start * ((1 - error_out_of_bounds) * (1 - error_too_many_log_fields) * (1 - error_tag_mismatch) * (1 - is_static) - (1 - error)) = 0;
+
+    // Increase next num logs emitted if error is off. We increase even in the discard case, since discard only implies not writing to public inputs.
+    start * (prev_num_public_log_fields + (1 - error) * TOTAL_LOG_FIELDS_SIZE - next_num_public_log_fields) = 0;
+
+    ////////////////////////////////////////////////
+    // Constraining Public Inputs Write Sequence
+    ////////////////////////////////////////////////
+    // Write the log length to the public inputs at the start row
+    pol IS_WRITE_LOG_LENGTH = start;
+    // `is_write_contract_address` == 1 in the row after start, which must always exist (given PUBLIC_LOG_HEADER_LENGTH >= 2).
+    // Implicitly this means `is_write_contract_address == 0` at the start row
+    pol commit is_write_contract_address; // @boolean since constrained with start
+    #[WRITE_CONTRACT_ADDRESS_AFTER_START]
+    is_write_contract_address' = start;
+
+    // `is_write_memory_value == 0` at the start row, it is active after `is_write_contract_address`
+    pol commit is_write_memory_value; // @boolean
+    is_write_memory_value * (1 - is_write_memory_value) = 0;
+    start * is_write_memory_value = 0;
+    // If the computation has not ended, `is_write_memory_value'` = `is_write_memory_value` xor `is_write_contract_address`
+    // `is_write_contract_address` and `is_write_memory_value` are mutually exclusive because:
+    //  1) At start = 1, both are zero
+    //  2) At the row after start, `is_write_contract_address` = 1 (WRITE_CONTRACT_ADDRESS_AFTER_START) and `is_write_memory_value` = 0 (SET_AND_PROGATE_VALUE_WRITE)
+    //  3) SET_AND_PROGATE_VALUE_WRITE then gurantees that `is_write_memory_value` = 1 until end.
+    #[SET_AND_PROGATE_VALUE_WRITE]
+    NOT_END * (is_write_memory_value + is_write_contract_address - is_write_memory_value') = 0;
+
+    ////////////////////////////////////////////////
+    // Memory Read
+    ////////////////////////////////////////////////
+    // For simplicity, we always generate all rows necessary to process a log, even in error cases.
+    // We have the following error cases:
+    //  - `error_out_of_bounds`: which means we cannot read mem
+    //  - `error_tag_mismatch`: we need to read mem
+    //  - 2 others (`error_too_many_log_fields`, `is_static`): doesn't impact memory reads
+    // We can't gate memory reads by error due to the second case, and we can't unconditionally read due to the first.
+    // So we always read memory unless `error_out_of_bounds` is set.
+    pol commit sel_read_memory; // @boolean
+    // Gate by sel to avoid ghost rows triggering memory reads.
+    #[SEL_SHOULD_READ_MEMORY_IS_SEL_AND_WRITE_MEM_AND_NO_ERR]
+    sel_read_memory = sel * is_write_memory_value * (1 - error_out_of_bounds);
+
+    #[LOG_ADDRESS_INCREMENT]
+    NOT_END * ((log_address + is_write_memory_value) - log_address') = 0;
+
+    pol commit value;
+    pol commit tag;
+
+    #[EXEC_CLK_CONSISTENCY]
+    NOT_END * (execution_clk - execution_clk') = 0;
+    #[SPACE_ID_CONSISTENCY]
+    NOT_END * (space_id - space_id') = 0;
+
+    #[READ_MEM]
+    sel_read_memory {
+        execution_clk,  space_id,
+        log_address,    value,
+        tag,            /*rw=0*/ precomputed.zero
+    } is
+    memory.sel_public_log_read {
+        memory.clk,     memory.space_id,
+        memory.address, memory.value,
+        memory.tag,     memory.rw
+    };
+
+    // If memory read is disabled, value is zero and tag is FF
+    // sel_read_memory = sel * is_write_memory_value * (1 - error_out_of_bounds)
+    // therefore we can simplify sel * (1 - sel_read_memory) into the following
+    #[DISABLED_MEM_READ_VALUE_ZERO]
+    (sel - sel_read_memory) * value = 0;
+    #[DISABLED_MEM_READ_TAG_FF]
+    (sel - sel_read_memory) * (constants.MEM_TAG_FF - tag) = 0;
+
+    // Tag should be zero since that's the FF tag.
+    pol commit correct_tag; // @boolean
+    correct_tag * (1 - correct_tag) = 0;
+    pol WRONG_NEXT_TAG = 1 - correct_tag'; // @boolean
+
+    pol commit tag_inv;
+    sel * (tag * (correct_tag * (1 - tag_inv) + tag_inv) - 1 + correct_tag) = 0;
+
+    ////////////////////////////////////////////////
+    // Writing to Public Inputs
+    ////////////////////////////////////////////////
+
+    // We write to public inputs if we don't have an error at all and if discard is off.
+    // Remember that we will always generate all rows necessary to process a log, it's just that we'll
+    // gate the writes to public inputs based on the error and discard flags.
+    // Boolean on start rows by definition: (1 - error) * (1 - discard).
+    // Propagated on active rows by #[SEL_SHOULD_WRITE_TO_PUBLIC_INPUTS_CONSISTENCY].
+    // Forced to zero on inactive rows by #[SEL_WRITE_TO_PI_ON_SEL].
+    // Therefore, unconditionally boolean — required as a lookup source selector.
+    pol commit sel_write_to_public_inputs; // @boolean
+    start * ((1 - error) * (1 - discard) - sel_write_to_public_inputs) = 0;
+    #[SEL_SHOULD_WRITE_TO_PUBLIC_INPUTS_CONSISTENCY]
+    NOT_END * (sel_write_to_public_inputs' - sel_write_to_public_inputs) = 0;
+    #[SEL_WRITE_TO_PI_ON_SEL]
+    sel_write_to_public_inputs * (1 - sel) = 0;
+
+    // The starting offset that this set of public logs should be written to in the public inputs
+    pol START_PUBLIC_INDEX = constants.AVM_PUBLIC_INPUTS_AVM_ACCUMULATED_DATA_PUBLIC_LOGS_ROW_IDX + constants.FLAT_PUBLIC_LOGS_HEADER_LENGTH + prev_num_public_log_fields;
+    pol commit public_inputs_index;
+    start * (START_PUBLIC_INDEX - public_inputs_index) = 0;
+    // Increment public inputs index until end
+    NOT_END * (public_inputs_index + 1 - public_inputs_index') = 0;
+
+    #[CONTRACT_ADDRESS_CONSISTENCY]
+    NOT_END * (contract_address - contract_address') = 0;
+
+    pol commit public_inputs_value;
+    // First write the log size to PI
+    IS_WRITE_LOG_LENGTH * (log_size - public_inputs_value) = 0;
+    // Then write the contract address to PI
+    is_write_contract_address * (contract_address - public_inputs_value) = 0;
+    // Write the log value
+    is_write_memory_value * (value - public_inputs_value) = 0;
+
+    // ONE-WAY write: only the active rows [0, length) are constrained. Rows [length, MAX) are left
+    // free by the AVM and are defensively zero-checked by the public base rollup
+    // (validate_avm_accumulated_data_padding). See public_inputs.pil's NOTE ON NON-MALLEABILITY.
+    #[WRITE_DATA_TO_PUBLIC_INPUTS]
+    sel_write_to_public_inputs {
+        public_inputs_index,
+        public_inputs_value
+    } in
+    public_inputs.sel {
+        precomputed.idx,
+        public_inputs.cols[0]
+    };

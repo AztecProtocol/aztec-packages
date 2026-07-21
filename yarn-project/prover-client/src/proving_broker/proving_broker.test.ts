@@ -29,9 +29,7 @@ describe.each([
       proverBrokerPollIntervalMs: 1000,
       proverBrokerBatchIntervalMs: 10,
       proverBrokerBatchSize: 1,
-      l1Contracts: {
-        rollupAddress: EthAddress.random(),
-      } as any,
+      rollupAddress: EthAddress.random(),
     };
     const database = await KVBrokerDatabase.new(config);
     const cleanup = () => {
@@ -65,6 +63,7 @@ describe.each([
   });
 
   afterEach(async () => {
+    await broker.stop();
     if (cleanup) {
       await cleanup();
     }
@@ -857,7 +856,7 @@ describe.each([
       await assertJobTransition(id, 'in-progress', 'in-queue');
     });
 
-    it('cancel stale jobs that time out', async () => {
+    it('cleans up stale in-progress jobs before deleting their epoch database', async () => {
       const id = makeRandomProvingJobId();
       await broker.enqueueProvingJob({
         id,
@@ -888,9 +887,61 @@ describe.each([
         inputsUri: makeInputsUri(),
       });
 
-      // advance time again so job times out. This time it should be not-found as it will have been removed
-      await sleep(jobTimeoutMs + brokerIntervalMs);
+      // the epoch-1 database is old enough to delete, so the broker closes any remaining epoch-1 jobs
+      await (broker as any).cleanupPass();
       await assertJobStatus(id, 'not-found');
+    });
+
+    it('rejects jobs that time out more than maxRetries times', async () => {
+      const id = makeRandomProvingJobId();
+      await broker.enqueueProvingJob({
+        id,
+        type: ProvingRequestType.PARITY_BASE,
+        epochNumber: EpochNumber(1),
+        inputsUri: makeInputsUri(),
+      });
+
+      for (let i = 0; i < maxRetries; i++) {
+        await assertJobStatus(id, 'in-queue');
+        await getAndAssertNextJobId(id);
+        await assertJobStatus(id, 'in-progress');
+
+        await sleep(jobTimeoutMs);
+        await assertJobTransition(id, 'in-progress', i + 1 < maxRetries ? 'in-queue' : 'rejected');
+      }
+
+      await expect(broker.getProvingJobStatus(id)).resolves.toEqual({
+        status: 'rejected',
+        reason: 'Timed out',
+      });
+    });
+
+    it('settles pending promises with a rejected status when a stale job is cleaned up', async () => {
+      const id = makeRandomProvingJobId();
+      await broker.enqueueProvingJob({
+        id,
+        type: ProvingRequestType.PARITY_BASE,
+        epochNumber: EpochNumber(1),
+        inputsUri: makeInputsUri(),
+      });
+
+      const jobPromise = (broker as any).promises.get(id)?.promise;
+      expect(jobPromise).toBeDefined();
+
+      // Advance the epoch height so epoch 1 becomes stale (oldestEpochToKeep = 3 - 1 = 2)
+      await broker.enqueueProvingJob({
+        id: makeRandomProvingJobId(),
+        type: ProvingRequestType.PARITY_BASE,
+        epochNumber: EpochNumber(3),
+        inputsUri: makeInputsUri(),
+      });
+
+      // Wait for the cleanup pass to run and clean up the stale job
+      await sleep(brokerIntervalMs * 2);
+      await assertJobStatus(id, 'not-found');
+
+      // The promise must have been settled (resolved with a rejected status) rather than left pending
+      await expect(jobPromise).resolves.toEqual({ status: 'rejected', reason: 'Proving job cleaned up' });
     });
 
     it('keeps the jobs in progress while it is alive', async () => {
@@ -1018,10 +1069,13 @@ describe.each([
         inputsUri: makeInputsUri(),
       });
 
-      await sleep(brokerIntervalMs);
+      await (broker as any).cleanupPass();
+      await assertJobStatus(id, 'not-found');
 
-      // job will have been removed
+      // the epoch-1 database has been deleted, so late worker reports are ignored
+      jest.spyOn(database, 'setProvingJobError');
       await broker.reportProvingJobError(id, 'test error', true);
+      expect(database.setProvingJobError).not.toHaveBeenCalled();
       await expect(broker.getProvingJobStatus(id)).resolves.toEqual({
         status: 'not-found',
       });

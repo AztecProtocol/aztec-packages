@@ -1,19 +1,34 @@
 nodeSelector:
   local-ssd: "false"
   node-type: "network"
-  cores: "2"
 
 affinity:
-  podAntiAffinity:
+  nodeAffinity:
     requiredDuringSchedulingIgnoredDuringExecution:
-      - labelSelector:
+      nodeSelectorTerms:
+        - matchExpressions:
+            - key: cores
+              operator: NotIn
+              values:
+                - "32"
+    preferredDuringSchedulingIgnoredDuringExecution:
+      - weight: 100
+        preference:
           matchExpressions:
-            - key: app
+            - key: cores
               operator: In
               values:
-                - node
-        topologyKey: "kubernetes.io/hostname"
-        namespaceSelector: {}
+                - "2"
+            - key: pool
+              operator: In
+              values:
+                - spot
+
+tolerations:
+  - key: "cloud.google.com/gke-spot"
+    operator: "Equal"
+    value: "true"
+    effect: "NoSchedule"
 
 replicaCount: 1
 

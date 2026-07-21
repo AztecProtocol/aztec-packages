@@ -4,6 +4,7 @@
 #include <cmath>
 #include <cstdint>
 
+#include "barretenberg/aztec/aztec_constants.hpp"
 #include "barretenberg/crypto/poseidon2/poseidon2.hpp"
 #include "barretenberg/vm2/common/avm_io.hpp"
 #include "barretenberg/vm2/common/aztec_types.hpp"
@@ -13,6 +14,7 @@
 #include "barretenberg/vm2/generated/relations/note_hash_tree_check.hpp"
 #include "barretenberg/vm2/simulation/events/event_emitter.hpp"
 #include "barretenberg/vm2/simulation/events/note_hash_tree_check_event.hpp"
+#include "barretenberg/vm2/simulation/gadgets/merkle_check.hpp"
 #include "barretenberg/vm2/simulation/gadgets/note_hash_tree_check.hpp"
 #include "barretenberg/vm2/simulation/gadgets/poseidon2.hpp"
 #include "barretenberg/vm2/simulation/lib/merkle.hpp"
@@ -86,7 +88,7 @@ TEST(NoteHashTreeCheckConstrainingTests, PositiveExists)
     for (size_t i = 0; i < NOTE_HASH_TREE_HEIGHT; ++i) {
         sibling_path.emplace_back(i);
     }
-    FF root = unconstrained_root_from_path(note_hash, leaf_index, sibling_path);
+    FF root = unconstrained_root_from_path(DOM_SEP__MERKLE_HASH, note_hash, leaf_index, sibling_path);
 
     EXPECT_TRUE(note_hash_tree_check_simulator.note_hash_exists(
         note_hash,
@@ -137,7 +139,7 @@ TEST(NoteHashTreeCheckConstrainingTests, PositiveNotExists)
     for (size_t i = 0; i < NOTE_HASH_TREE_HEIGHT; ++i) {
         sibling_path.emplace_back(i);
     }
-    FF root = unconstrained_root_from_path(actual_leaf_value, leaf_index, sibling_path);
+    FF root = unconstrained_root_from_path(DOM_SEP__MERKLE_HASH, actual_leaf_value, leaf_index, sibling_path);
 
     EXPECT_FALSE(note_hash_tree_check_simulator.note_hash_exists(
         requested_note_hash,
@@ -190,7 +192,8 @@ TEST(NoteHashTreeCheckConstrainingTests, PositiveWrite)
         sibling_path.emplace_back(i);
     }
 
-    AppendOnlyTreeSnapshot prev_snapshot{ .root = unconstrained_root_from_path(0, 128, sibling_path),
+    AppendOnlyTreeSnapshot prev_snapshot{ .root =
+                                              unconstrained_root_from_path(DOM_SEP__MERKLE_HASH, 0, 128, sibling_path),
                                           .next_available_leaf_index = 128 };
 
     note_hash_tree_check_simulator.append_note_hash(raw_note_hash, AztecAddress(7), 10, sibling_path, prev_snapshot);
@@ -225,13 +228,13 @@ TEST(NoteHashTreeCheckConstrainingTests, NegativeSiloingOnRead)
     TestTraceContainer trace({ {
         { C::note_hash_tree_check_sel, 1 },
         { C::note_hash_tree_check_write, 0 },
-        { C::note_hash_tree_check_should_silo, 1 },
+        { C::note_hash_tree_check_sel_silo, 1 },
         { C::note_hash_tree_check_note_hash, 27 },
     } });
 
     EXPECT_THROW_WITH_MESSAGE(
         check_relation<note_hash_tree_check>(trace, note_hash_tree_check::SR_DISABLE_SILOING_ON_READ),
-        "DISABLE_SILOING_ON_READ");
+        note_hash_tree_check::get_subrelation_label(note_hash_tree_check::SR_DISABLE_SILOING_ON_READ));
 }
 
 TEST(NoteHashTreeCheckConstrainingTests, NegativePassthroughSiloing)
@@ -239,7 +242,7 @@ TEST(NoteHashTreeCheckConstrainingTests, NegativePassthroughSiloing)
     TestTraceContainer trace({ {
         { C::note_hash_tree_check_sel, 1 },
         { C::note_hash_tree_check_write, 0 },
-        { C::note_hash_tree_check_should_silo, 0 },
+        { C::note_hash_tree_check_sel_silo, 0 },
         { C::note_hash_tree_check_note_hash, 27 },
         { C::note_hash_tree_check_siloed_note_hash, 27 },
     } });
@@ -248,8 +251,9 @@ TEST(NoteHashTreeCheckConstrainingTests, NegativePassthroughSiloing)
 
     trace.set(C::note_hash_tree_check_siloed_note_hash, 0, 28);
 
-    EXPECT_THROW_WITH_MESSAGE(check_relation<note_hash_tree_check>(trace, note_hash_tree_check::SR_PASSTHROUGH_SILOING),
-                              "PASSTHROUGH_SILOING");
+    EXPECT_THROW_WITH_MESSAGE(
+        check_relation<note_hash_tree_check>(trace, note_hash_tree_check::SR_PASSTHROUGH_SILOING),
+        note_hash_tree_check::get_subrelation_label(note_hash_tree_check::SR_PASSTHROUGH_SILOING));
 }
 
 TEST(NoteHashTreeCheckConstrainingTests, NegativeUniquenessOnRead)
@@ -257,13 +261,13 @@ TEST(NoteHashTreeCheckConstrainingTests, NegativeUniquenessOnRead)
     TestTraceContainer trace({ {
         { C::note_hash_tree_check_sel, 1 },
         { C::note_hash_tree_check_write, 0 },
-        { C::note_hash_tree_check_should_unique, 1 },
+        { C::note_hash_tree_check_sel_unique, 1 },
         { C::note_hash_tree_check_note_hash, 27 },
     } });
 
     EXPECT_THROW_WITH_MESSAGE(
         check_relation<note_hash_tree_check>(trace, note_hash_tree_check::SR_DISABLE_UNIQUENESS_ON_READ),
-        "DISABLE_UNIQUENESS_ON_READ");
+        note_hash_tree_check::get_subrelation_label(note_hash_tree_check::SR_DISABLE_UNIQUENESS_ON_READ));
 }
 
 TEST(NoteHashTreeCheckConstrainingTests, NegativePassthroughUniqueness)
@@ -271,7 +275,7 @@ TEST(NoteHashTreeCheckConstrainingTests, NegativePassthroughUniqueness)
     TestTraceContainer trace({ {
         { C::note_hash_tree_check_sel, 1 },
         { C::note_hash_tree_check_write, 0 },
-        { C::note_hash_tree_check_should_unique, 0 },
+        { C::note_hash_tree_check_sel_unique, 0 },
         { C::note_hash_tree_check_note_hash, 27 },
         { C::note_hash_tree_check_siloed_note_hash, 27 },
         { C::note_hash_tree_check_unique_note_hash, 27 },
@@ -283,7 +287,24 @@ TEST(NoteHashTreeCheckConstrainingTests, NegativePassthroughUniqueness)
 
     EXPECT_THROW_WITH_MESSAGE(
         check_relation<note_hash_tree_check>(trace, note_hash_tree_check::SR_PASSTHROUGH_UNIQUENESS),
-        "PASSTHROUGH_UNIQUENESS");
+        note_hash_tree_check::get_subrelation_label(note_hash_tree_check::SR_PASSTHROUGH_UNIQUENESS));
+}
+
+TEST(NoteHashTreeCheckConstrainingTests, NegativeWrongMerkleHashSeparator)
+{
+    TestTraceContainer trace({ {
+        { C::note_hash_tree_check_sel, 1 },
+        { C::note_hash_tree_check_merkle_hash_separator, DOM_SEP__MERKLE_HASH },
+    } });
+
+    check_relation<note_hash_tree_check>(trace, note_hash_tree_check::SR_MERKLE_HASH_SEPARATOR_CONSTANT);
+
+    // A malicious prover picking any other value must be rejected.
+    trace.set(C::note_hash_tree_check_merkle_hash_separator, 0, DOM_SEP__NULLIFIER_MERKLE);
+
+    EXPECT_THROW_WITH_MESSAGE(
+        check_relation<note_hash_tree_check>(trace, note_hash_tree_check::SR_MERKLE_HASH_SEPARATOR_CONSTANT),
+        note_hash_tree_check::get_subrelation_label(note_hash_tree_check::SR_MERKLE_HASH_SEPARATOR_CONSTANT));
 }
 
 } // namespace

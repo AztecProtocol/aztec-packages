@@ -11,15 +11,19 @@ podManagementPolicy: Parallel
 
 # global config for all Aztec nodes in an instalation
 global:
-  # Which rollup contract we want to follow from the registry
-  aztecRollupVersion: "canonical"
+  # -- Environment variables shared by all Aztec nodes. Overridden by node.env.
+  aztecEnv: {}
   # -- Network name - this is a predefined network - alpha-testnet, devnet
   aztecNetwork: ""
+  # -- Allow this deployment's consensus-critical env vars to diverge from the generated defaults for aztecNetwork
+  allowOverridingNetworkConfig: ""
+  # -- Slot/epoch durations to pass through when a network's deployed rollup diverges from the generated defaults
+  aztecSlotDuration: ""
+  aztecEpochDuration: ""
   # -- Custom network - (not recommended) - Only for custom testnet usecases, (must have deployed your own protocol contracts first)
   customAztecNetwork:
     l1ChainId:
     registryContractAddress:
-    slashFactoryContractAddress:
     feeAssetHandlerContractAddress:
 
   # -- Ethereum configuration
@@ -29,9 +33,9 @@ global:
   l1ConsensusUrls: []
   ## Only when api key is required via header, otherwise just provide in l1ConsensusHostUrls
   ## Example: "1234abcd"
-  l1ConsensusHostApiKeys: []
+  l1ConsensusHostApiKeys: ""
   ## Example: "X-API-KEY"
-  l1ConsensusHostApiKeyHeaders: []
+  l1ConsensusHostApiKeyHeaders: ""
 
   aztecImage:
     repository: aztecprotocol/aztec
@@ -51,6 +55,9 @@ hostNetwork: false
 
 # -- Number of replicas
 replicaCount: 1
+
+# -- Deployment strategy. Only used when statefulSet.enabled is false.
+deploymentStrategy: {}
 
 statefulSet:
   enabled: false
@@ -79,13 +86,19 @@ node:
 
   startCmd:
     - --node
-    - --archiver
+
+  image:
+    repository: ""
+    tag: ""
 
   env: {}
+  podAnnotations: {}
 
   envFrom:
     configMapEnabled: false
     secretEnabled: false
+    configMaps: []
+    secrets: []
 
   configMap:
     envEnabled: false
@@ -94,6 +107,15 @@ node:
   secret:
     envEnabled: false
     filesEnabled: false
+
+  # -- SHA-256 hex hash of a pre-generated admin API key.
+  # When set, the node uses this hash for authentication instead of auto-generating a key.
+  # Generate with: echo -n "your-api-key" | sha256sum | cut -d' ' -f1
+  adminApiKeyHash: ""
+
+  # -- Disable admin API key authentication.
+  # Set to false in production to enable API key auth.
+  disableAdminApiKey: true
 
   # the address that will receive block or proof rewards
   coinbase:
@@ -125,27 +147,43 @@ node:
     # 20 minutes default but this might not be enough if the node has to download a lot of blocks.
     failureThreshold: 40
 
+  readinessProbe:
+    enabled: true
+    exec:
+      command:
+        - /bin/sh
+        - -ec
+        - |
+          curl -sf -H 'content-type: application/json' --data '{"jsonrpc":"2.0","id":1,"method":"node_getWorldStateSyncStatus","params":[]}' "http://127.0.0.1:${AZTEC_PORT:-8080}" | jq -e '.result.treesAreSynched == true' > /dev/null
+    httpGet: null
+    periodSeconds: 15
+    timeoutSeconds: 2
+    initialDelaySeconds: 0
+    failureThreshold: 1
+    successThreshold: 1
+
   resources: {}
 
   proverRealProofs: true
 
   sentinel:
     enabled: true
+  offenseCollection:
+    enabled: true
   slash:
-    # Penalty percentages for slashing offenses
-    minPenaltyPercentage: ""
-    maxPenaltyPercentage: ""
     # Validator allowlists/denylists
     validatorsAlways: []
     validatorsNever: []
     # Penalty amounts for different offense types
-    prunePenalty: ""
     dataWithholdingPenalty: ""
+    dataWithholdingToleranceSlots: ""
     inactivityPenalty: ""
     inactivityTargetPercentage: ""
     invalidBlockPenalty: ""
+    invalidCheckpointProposalPenalty: ""
     proposeInvalidAttestationsPenalty: ""
-    attestDescendantOfInvalidPenalty: ""
+    proposeDescendantOfCheckpointWithInvalidAttestationsPenalty: ""
+    attestInvalidCheckpointProposalPenalty: ""
     unknownPenalty: ""
     # Slasher behavior configuration
     gracePeriodL2Slots: ""
@@ -194,6 +232,7 @@ service:
     enabled: true
     nodePortEnabled: false
     publicIP: true
+    hostPortEnabled: true
     port: 40400
     announcePort: 40400
 
@@ -229,6 +268,10 @@ rbac:
         - "list"
         - "watch"
 
+podDisruptionBudget:
+  enabled: false
+  minAvailable: 1
+
 serviceAccount:
   # -- Create a service account
   create: true
@@ -236,3 +279,6 @@ serviceAccount:
   name: ""
   # -- Annotations for the service account
   annotations: {}
+
+# -- Additional Kubernetes objects to render with this chart.
+extraObjects: []

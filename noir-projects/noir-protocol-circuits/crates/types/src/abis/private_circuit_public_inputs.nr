@@ -3,7 +3,7 @@ use crate::{
         block_header::BlockHeader, call_context::CallContext, log_hash::LogHash,
         note_hash::NoteHash, nullifier::Nullifier, private_call_request::PrivateCallRequest,
         private_log::PrivateLogData, public_call_request::PublicCallRequest,
-        transaction::tx_context::TxContext, validation_requests::KeyValidationRequestAndGenerator,
+        transaction::tx_context::TxContext, validation_requests::KeyValidationRequestAndSeparator,
     },
     constants::{
         MAX_CONTRACT_CLASS_LOGS_PER_CALL, MAX_ENQUEUED_CALLS_PER_CALL,
@@ -43,7 +43,7 @@ pub struct PrivateCircuitPublicInputs {
     // before the upgrade took place but be using the updated protocol to execute and prove the transaction.
     pub tx_context: TxContext,
 
-    // The counter after which all side effects are non-revertible.
+    // The counter after which all side effects are revertible.
     // @dev: This can only be set at most once during the private execution.
     pub min_revertible_side_effect_counter: u32,
 
@@ -52,7 +52,7 @@ pub struct PrivateCircuitPublicInputs {
     pub is_fee_payer: bool,
 
     // The timestamp by which the tx must be included in a block.
-    pub include_by_timestamp: u64,
+    pub expiration_timestamp: u64,
 
     // The side effect counter at the start of this function call.
     // All counted items emitted from this function call must have a counter greater than this value.
@@ -79,7 +79,7 @@ pub struct PrivateCircuitPublicInputs {
     // Note: the `Scoped` contract address is not necessarily that of this function: contracts can read other contracts' state.
     pub nullifier_read_requests: ClaimedLengthArray<Scoped<Counted<Field>>, MAX_NULLIFIER_READ_REQUESTS_PER_CALL>,
     // Requests for the kernel circuit to validate the keys being used in this function call.
-    pub key_validation_requests_and_generators: ClaimedLengthArray<KeyValidationRequestAndGenerator, MAX_KEY_VALIDATION_REQUESTS_PER_CALL>,
+    pub key_validation_requests_and_separators: ClaimedLengthArray<KeyValidationRequestAndSeparator, MAX_KEY_VALIDATION_REQUESTS_PER_CALL>,
 
     ///////////////////////////////////
     // Call Requests
@@ -105,6 +105,12 @@ pub struct PrivateCircuitPublicInputs {
     pub private_logs: ClaimedLengthArray<Counted<PrivateLogData>, MAX_PRIVATE_LOGS_PER_CALL>,
     // The hashes of the contract class logs created in this function call.
     pub contract_class_logs_hashes: ClaimedLengthArray<Counted<LogHash>, MAX_CONTRACT_CLASS_LOGS_PER_CALL>,
+
+    // The tx request's salt. Set by the framework, it serves two purposes. (1) It makes `tx_request.hash()`
+    // (the protocol nullifier `P`) unpredictable, preventing a dictionary attack that guesses the tx request
+    // preimage to recompute `P`. (2) The init kernel asserts it equals `tx_request.salt`, binding this proof
+    // to a specific tx request so a third party cannot rebind it to a different one (and thus a different `P`).
+    pub tx_request_salt: Field,
 }
 
 impl Empty for PrivateCircuitPublicInputs {
@@ -115,10 +121,10 @@ impl Empty for PrivateCircuitPublicInputs {
             returns_hash: 0,
             min_revertible_side_effect_counter: 0,
             is_fee_payer: false,
-            include_by_timestamp: 0,
+            expiration_timestamp: 0,
             note_hash_read_requests: ClaimedLengthArray::empty(),
             nullifier_read_requests: ClaimedLengthArray::empty(),
-            key_validation_requests_and_generators: ClaimedLengthArray::empty(),
+            key_validation_requests_and_separators: ClaimedLengthArray::empty(),
             note_hashes: ClaimedLengthArray::empty(),
             nullifiers: ClaimedLengthArray::empty(),
             private_call_requests: ClaimedLengthArray::empty(),
@@ -133,6 +139,7 @@ impl Empty for PrivateCircuitPublicInputs {
             expected_revertible_side_effect_counter: 0,
             anchor_block_header: BlockHeader::empty(),
             tx_context: TxContext::empty(),
+            tx_request_salt: 0,
         }
     }
 }

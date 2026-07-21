@@ -8,49 +8,61 @@ tags: [local_network, testnet]
 import Tabs from '@theme/Tabs';
 import TabItem from '@theme/TabItem';
 
-Get started on your local environment using a local network. If you'd rather jump into devnet, read the [getting started on devnet guide](./getting_started_on_devnet.md).
+Get started on your local environment using a local network. If you'd rather deploy to a live network, read the [getting started on testnet guide](./getting_started_on_testnet.md).
 
 The local network is a local development Aztec network running fully on your machine, and interacting with a development Ethereum node. You can develop and deploy on it just like on a testnet or mainnet (when the time comes). The local network makes it faster and easier to develop and test your Aztec applications.
+
+The local network always owns the local chain it starts. It deploys its own Aztec protocol contracts to the local Ethereum node and is not a mode for connecting to an existing Aztec network.
 
 What's included in the local network:
 
 - Local Ethereum network (Anvil)
 - Deployed Aztec protocol contracts (for L1 and L2)
 - A set of test accounts with some test tokens to pay fees
+- On-demand block production via the automine sequencer
 - Development tools to compile contracts and interact with the network (`aztec` and `aztec-wallet`)
 
-All of this comes packaged in a Docker container to make it easy to install and run.
-
 This guide will teach you how to install the Aztec local network, run it using the Aztec CLI, and interact with contracts using the wallet CLI. To jump right into the testnet instead, click the `Testnet` tab.
+
+import YouTubeEmbed from '@site/src/components/YouTubeEmbed';
+
+To see the whole flow before you start, watch this one-minute walkthrough (find more on the [video lessons](./docs/resources/video_lessons.mdx) page):
+
+<YouTubeEmbed videoId="_jgHNdNgFOg" title="Get Started on Aztec in Under 60 Seconds" />
 
 ## Prerequisites
 
 import { General, Fees } from '@site/src/components/Snippets/general_snippets';
 
-You need two global dependencies on your machine:
-
 - <General.node_ver />
-- Docker (visit [this page of the Docker docs](https://docs.docker.com/get-docker/) on how to install it)
+
+### macOS-specific requirements
+
+- **Homebrew**: [Homebrew](https://brew.sh/) is required for installing dependencies on macOS.
+- **Bash**: macOS ships with an outdated version of Bash (v3.2) that is known to cause issues with the Aztec installer. Install a modern version with `brew install bash`. Even if you use zsh as your default shell, the installer explicitly invokes `bash`. If the installer still picks up the old version, add the Homebrew `bash` to your `$PATH` or [set it as your default shell](https://support.apple.com/en-gb/guide/terminal/trml113/mac).
 
 ## Install and run the local network
 
-### Start Docker
-
-Docker needs to be running in order to install the local network. Find instructions on the [Docker website](https://docs.docker.com/get-started/).
-
-### Install the local network
+### Install the Aztec toolchain
 
 Run:
 
 ```bash
-bash -i <(curl -sL https://install.aztec.network/#include_version_without_prefix/)
+VERSION=#include_version_without_prefix bash -i <(curl -sL https://install.aztec.network)
 ```
 
-This will install the following tools:
+This will install the following tools and add them to your `PATH`:
 
-- **aztec** - compiles and tests aztec contracts and launches various infrastructure subsystems (full local network, sequencer, prover, pxe, etc) and provides utility commands to interact with the network
-- **aztec-up** - a tool to upgrade the aztec toolchain to the latest, or specific versions.
-- **aztec-wallet** - a tool for interacting with the aztec network
+- **aztec** - compiles and tests Aztec contracts and launches various infrastructure subsystems (full local network, sequencer, prover, PXE, etc.) and provides utility commands to interact with the network
+- **aztec-up** - a version manager for the Aztec toolchain. Use `aztec-up install <version>` to install a new version, `aztec-up use <version>` to switch between installed versions, or `aztec-up list` to see installed versions.
+- **aztec-wallet** - a tool for interacting with the Aztec network
+- **aztec-bb** - the Barretenberg proving backend
+- **aztec-nargo** - the Noir compiler and simulator
+- **aztec-forge**, **aztec-cast**, **aztec-anvil**, **aztec-chisel** - the bundled Foundry tools
+
+Foundry, Noir, and Barretenberg are bundled at the versions `aztec` needs. Your own `forge` / `nargo` / `bb` installs still work under their bare names.
+
+For syntax highlighting and LSP support while editing contracts, see the [Noir VSCode Extension guide](./docs/aztec-nr/installation.md).
 
 ### Start the local network
 
@@ -261,4 +273,9 @@ Simulation result:  25n
 Want to build something cool on Aztec?
 
 - Check out the [Token Contract Tutorial](./docs/tutorials/contract_tutorials/token_contract.md) for a beginner tutorial, or jump into more advanced ones
+- Ready for a live network? Try [deploying on testnet](./getting_started_on_testnet.md)
 - Start on your own thing and check out the How To Guides to help you!
+
+:::tip Need help?
+If something does not work, see the [support guide](./support.md). It tells you when to ask in [Discord](https://discord.gg/aztec) or the [forum](https://forum.aztec.network), when to [open a GitHub issue](https://github.com/AztecProtocol/aztec-packages/issues/new?template=bug_report.yml), and how to disclose security issues responsibly.
+:::

@@ -12,7 +12,6 @@ import type { ScopedNullifier } from '../nullifier.js';
 import { NullifierReadRequestHintsBuilder } from './nullifier_read_request_hints.js';
 import { ScopedReadRequest } from './read_request.js';
 import { PendingReadHint, ReadRequestActionEnum, ReadRequestResetActions } from './read_request_hints.js';
-import { ScopedValueCache } from './scoped_value_cache.js';
 
 export function isValidNullifierReadRequest(readRequest: ScopedReadRequest, nullifier: ScopedNullifier) {
   return (
@@ -30,7 +29,6 @@ interface NullifierMembershipWitnessWithPreimage {
 export function getNullifierReadRequestResetActions(
   nullifierReadRequests: ClaimedLengthArray<ScopedReadRequest, typeof MAX_NULLIFIER_READ_REQUESTS_PER_TX>,
   nullifiers: ClaimedLengthArray<ScopedNullifier, typeof MAX_NULLIFIERS_PER_TX>,
-  futureNullifiers: ScopedNullifier[],
 ): ReadRequestResetActions<typeof MAX_NULLIFIER_READ_REQUESTS_PER_TX> {
   const resetActions = ReadRequestResetActions.empty(MAX_NULLIFIER_READ_REQUESTS_PER_TX);
 
@@ -42,23 +40,23 @@ export function getNullifierReadRequestResetActions(
     nullifierMap.set(value, arr);
   });
 
-  const futureNullifiersMap = new ScopedValueCache(futureNullifiers);
-
   for (let i = 0; i < nullifierReadRequests.claimedLength; ++i) {
     const readRequest = nullifierReadRequests.array[i];
-    const pendingNullifier = nullifierMap
-      .get(readRequest.value.toBigInt())
-      ?.find(({ nullifier }) => isValidNullifierReadRequest(readRequest, nullifier));
 
-    if (pendingNullifier !== undefined) {
-      resetActions.actions[i] = ReadRequestActionEnum.READ_AS_PENDING;
-      resetActions.pendingReadHints.push(new PendingReadHint(i, pendingNullifier.index));
-    } else if (
-      !futureNullifiersMap
-        .get(readRequest)
-        .some(futureNullifier => isValidNullifierReadRequest(readRequest, futureNullifier))
-    ) {
+    if (readRequest.contractAddress.isZero()) {
+      // Settled read: empty contract address means resolve against the nullifier tree.
       resetActions.actions[i] = ReadRequestActionEnum.READ_AS_SETTLED;
+    } else {
+      // Pending read: non-empty contract address means match against a pending nullifier.
+      const pendingNullifier = nullifierMap
+        .get(readRequest.value.toBigInt())
+        ?.find(({ nullifier }) => isValidNullifierReadRequest(readRequest, nullifier));
+
+      if (pendingNullifier) {
+        resetActions.actions[i] = ReadRequestActionEnum.READ_AS_PENDING;
+        resetActions.pendingReadHints.push(new PendingReadHint(i, pendingNullifier.index));
+      }
+      // Otherwise, the read request may be resolved by a future nullifier. Leave as NOOP.
     }
   }
 
@@ -111,11 +109,10 @@ export async function buildNullifierReadRequestHints<PENDING extends number, SET
   },
   nullifierReadRequests: ClaimedLengthArray<ScopedReadRequest, typeof MAX_NULLIFIER_READ_REQUESTS_PER_TX>,
   nullifiers: ClaimedLengthArray<ScopedNullifier, typeof MAX_NULLIFIERS_PER_TX>,
-  futureNullifiers: ScopedNullifier[],
   maxPending: PENDING = MAX_NULLIFIER_READ_REQUESTS_PER_TX as PENDING,
   maxSettled: SETTLED = MAX_NULLIFIER_READ_REQUESTS_PER_TX as SETTLED,
 ) {
-  const resetActions = getNullifierReadRequestResetActions(nullifierReadRequests, nullifiers, futureNullifiers);
+  const resetActions = getNullifierReadRequestResetActions(nullifierReadRequests, nullifiers);
   return await buildNullifierReadRequestHintsFromResetActions(
     oracle,
     nullifierReadRequests,

@@ -1,10 +1,11 @@
 // === AUDIT STATUS ===
-// internal:    { status: Completed, auditors: [Federico], commit: }
+// internal:    { status: Completed, auditors: [Federico], commit: 0e37cb8}
 // external_1:  { status: not started, auditors: [], commit: }
 // external_2:  { status: not started, auditors: [], commit: }
 // =====================
 #include "barretenberg/vm2/constraining/verifier.hpp"
 
+#include "barretenberg/aztec/aztec_constants.hpp"
 #include "barretenberg/commitment_schemes/shplonk/shplemini.hpp"
 #include "barretenberg/common/log.hpp"
 #include "barretenberg/numeric/bitop/get_msb.hpp"
@@ -57,10 +58,17 @@ bool AvmVerifier::verify_proof(const HonkProof& proof, const std::vector<std::ve
     using Shplemini = ShpleminiVerifier_<Curve, Flavor::HasZK>;
     using ClaimBatcher = ClaimBatcher_<Curve>;
     using ClaimBatch = ClaimBatcher::Batch;
-    using VerifierCommitmentKey = typename Flavor::VerifierCommitmentKey;
     using Challenges = Flavor::AllEntities<FF>;
 
     RelationParameters<FF> relation_parameters;
+
+    if (proof.size() != static_cast<size_t>(AVM_V2_PROOF_LENGTH_IN_FIELDS)) {
+        vinfo("Proof length mismatch: got ",
+              proof.size(),
+              " fields, expected ",
+              static_cast<size_t>(AVM_V2_PROOF_LENGTH_IN_FIELDS));
+        return false;
+    }
 
     transcript->load_proof(proof);
 
@@ -83,7 +91,7 @@ bool AvmVerifier::verify_proof(const HonkProof& proof, const std::vector<std::ve
     // in the clear and on the committed columns.
     for (size_t i = 0; i < AVM_NUM_PUBLIC_INPUT_COLUMNS; i++) {
         // Validate public input column size
-        if (public_inputs[i].size() != AVM_PUBLIC_INPUTS_COLUMNS_MAX_LENGTH) {
+        if (public_inputs[i].size() != AVM_PUBLIC_INPUTS_COLUMN_LENGTHS[i]) {
             vinfo("Public input size mismatch");
             return false;
         }
@@ -115,10 +123,6 @@ bool AvmVerifier::verify_proof(const HonkProof& proof, const std::vector<std::ve
 
     // ========== Execute relation check rounds ==========
 
-    // Construct padding indicator array: it is a vector of constant ones as the AVM verifier performs verification of
-    // the AVM circuit, so the number of rounds is fixed.
-    std::vector<FF> padding_indicator_array(MAX_AVM_TRACE_LOG_SIZE, 1);
-
     // Multiply each linearly independent subrelation contribution by `alpha^i` for i = 0, ..., NUM_SUBRELATIONS - 1.
     const FF alpha = transcript->template get_challenge<FF>("Sumcheck:alpha");
 
@@ -127,7 +131,7 @@ bool AvmVerifier::verify_proof(const HonkProof& proof, const std::vector<std::ve
     // Get the gate challenges for sumcheck computation
     std::vector<FF> gate_challenges =
         transcript->template get_dyadic_powers_of_challenge<FF>("Sumcheck:gate_challenge", MAX_AVM_TRACE_LOG_SIZE);
-    SumcheckOutput<Flavor> output = sumcheck.verify(relation_parameters, gate_challenges, padding_indicator_array);
+    SumcheckOutput<Flavor> output = sumcheck.verify(relation_parameters, gate_challenges);
 
     // If Sumcheck did not verify, return false
     if (!output.verified) {
@@ -163,20 +167,16 @@ bool AvmVerifier::verify_proof(const HonkProof& proof, const std::vector<std::ve
     std::span<const FF> shifted_evals = output.claimed_evaluations.get_shifted();
 
     // Get short batching challenges from transcript
-    // Note: the challenge for ColumnAndShifts::precomputed_clk is not used for batching, but to maintain the code
-    // cleaner, we generate it nonetheless
     Challenges challenges;
-    auto unshifted_challenges_vec = transcript->template get_challenges<FF>(challenges.get_unshifted_labels());
+    auto unshifted_challenges_vec = transcript->template get_short_challenges<FF>(challenges.get_unshifted_labels());
     std::ranges::move(unshifted_challenges_vec, challenges.get_unshifted().begin());
-    challenges.get(ColumnAndShifts::precomputed_clk) = FF(1); // Challenge for this column is 1
     auto unshifted_challenges = challenges.get_unshifted();
     auto shifted_challenges = challenges.get_to_be_shifted();
 
     // Batch shifted commitments
     Commitment batched_shifted = Commitment::batch_mul(shifted_comms, shifted_challenges);
 
-    // Batch unshifted commitments: ColumnAndShifts::precomputed_clk has coefficient 1, rest are batched with
-    // challenges. We reuse the calculation performed for shifted commitments.
+    // Batch unshifted commitments: We reuse the calculation performed for shifted commitments.
     Commitment batched_unshifted =
         batched_shifted +
         Commitment::batch_mul(unshifted_comms.subspan(0, WIRES_TO_BE_SHIFTED_START_IDX),
@@ -197,13 +197,11 @@ bool AvmVerifier::verify_proof(const HonkProof& proof, const std::vector<std::ve
                                         .shifted = ClaimBatch{ .commitments = RefVector(batched_shifted),
                                                                .evaluations = RefVector(batched_shifted_eval) } };
     auto opening_claim =
-        Shplemini::compute_batch_opening_claim(
-            padding_indicator_array, batched_claim_batcher, output.challenge, Commitment::one(), transcript)
+        Shplemini::compute_batch_opening_claim(batched_claim_batcher, output.challenge, Commitment::one(), transcript)
             .batch_opening_claim;
 
     const auto pairing_points = PCS::reduce_verify_batch_opening_claim(std::move(opening_claim), transcript);
-    VerifierCommitmentKey pcs_vkey{};
-    const auto shplemini_verified = pcs_vkey.pairing_check(pairing_points[0], pairing_points[1]);
+    const auto shplemini_verified = pairing_points.check();
 
     if (!shplemini_verified) {
         vinfo("Shplemini verification failed");

@@ -1,6 +1,7 @@
 export {
   type Aliased,
   type SimulateOptions,
+  type ExecuteUtilityOptions,
   type ProfileOptions,
   type SendOptions,
   type BatchableMethods,
@@ -11,14 +12,15 @@ export {
   type Wallet,
   type PrivateEvent,
   type PrivateEventFilter,
+  type PublicEvent,
+  type PublicEventFilter,
   type ContractMetadata,
+  ContractInitializationStatus,
   type ContractClassMetadata,
   AppCapabilitiesSchema,
   WalletCapabilitiesSchema,
-  FunctionCallSchema,
   ExecutionPayloadSchema,
   GasSettingsOptionSchema,
-  WalletSimulationFeeOptionSchema,
   WaitOptsSchema,
   SendOptionsSchema,
   SimulateOptionsSchema,
@@ -28,6 +30,8 @@ export {
   EventMetadataDefinitionSchema,
   PrivateEventSchema,
   PrivateEventFilterSchema,
+  PublicEventSchema,
+  PublicEventFilterSchema,
   ContractClassMetadataSchema,
   ContractMetadataSchema,
   WalletSchema,
@@ -70,5 +74,10 @@ export {
 } from '../wallet/capabilities.js';
 
 export { AccountManager } from '../wallet/account_manager.js';
+
+export { TxSimulationResultWithAppOffset } from '../wallet/tx_simulation_result_with_app_offset.js';
+
+export { type PublicStorageOverride, PublicStorageOverrideSchema } from '@aztec/stdlib/interfaces/client';
+export { SimulationOverrides } from '@aztec/stdlib/tx';
 
 export { type DeployAccountOptions, DeployAccountMethod } from '../wallet/deploy_account_method.js';

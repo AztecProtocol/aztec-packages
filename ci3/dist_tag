@@ -1,6 +1,7 @@
 #!/usr/bin/env bash
-# Used by docker and NPM. By default, push to our latest tag (i.e., for master).
-# For prerelease-tagged commits, use that as the dist tag, minus any point version at the end.
+# Returns the release channel name from a semver tag (e.g. "nightly" from "5.0.0-nightly.20260415").
+# Used for S3 aliases (aztec-up, playground), git branch pushes (boxes, l1-contracts), and docker tags.
+# NOT used for npm dist-tags — deploy_npm computes those independently.
 source $(git rev-parse --show-toplevel)/ci3/source
 version=$REF_NAME
 if [ -n "${DIST_TAG:-}" ]; then

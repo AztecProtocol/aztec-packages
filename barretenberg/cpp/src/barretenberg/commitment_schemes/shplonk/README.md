@@ -79,8 +79,7 @@ The `ShpleminiVerifier::compute_batch_opening_claim()` method orchestrates the f
 
 3. Compute scalars for polynomial batches (via ClaimBatcher)
    ├─ Unshifted:    s₀ = (1/(z−r) + ν/(z+r))
-   ├─ Shifted:      s₁ = r⁻¹ ⋅ (1/(z−r) − ν/(z+r))
-   └─ Interleaved:  special handling for Translator
+   └─ Shifted:      s₁ = r⁻¹ ⋅ (1/(z−r) − ν/(z+r))
 
 4. Accumulate commitments and scalars
    ├─ Unshifted commitments with scalar: -ρⁱ ⋅ s₀
@@ -114,33 +113,10 @@ When a polynomial $ g $ is the "shift" of another polynomial $ f $ (i.e., $ g(X)
 
 The shifted scalar differs by a factor of $ r^{-1} $ and uses subtraction instead of addition, which comes from the Gemini relation for $ A_0 = F + G/X $.
 
-### Handling Interleaved Polynomials (Translator)
-
-For the Translator flavor, a group of polynomials $ P_0, P_1, \ldots, P_{s-1} $ (where $ s $ is the group size) are combined via **interleaving** rather than standard batching.
-
-**note:**  Our implemententation only supports $s$ values that are powers of 2.
-
-**Definitions:**
-- $ P_+(X) = \sum_{i=0}^{s-1} r^i \cdot P_i(X) $ (partial evaluation with positive powers of $ r $)
-- $ P_-(X) = \sum_{i=0}^{s-1} (-r)^i \cdot P_i(X) $ (partial evaluation with alternating sign powers)
-
-The full Gemini identity $ A_0(r) $ and $ A_0(-r) $ include contributions from these interleaved polynomials:
-- $ A_0(r) = A_{0+}(r) + P_+(r^s) $
-- $ A_0(-r) = A_{0-}(-r) + P_-((-r)^s) $
-
-**Prover sends:** The evaluations $ P_+(r^s) $ and $ P_-((-r)^s) $ via transcript labels `"Gemini:P_pos"` and `"Gemini:P_neg"`, where $s$ is the grouping size.
-
-**Scalar contribution:** These evaluations contribute to the constant term accumulator in Shplonk:
-
-$$\theta_{\text{interleaved}} = \frac{1}{z - r^s} \cdot \left( \nu^{2d} \cdot P_+(r^s) + \nu^{2d+1} \cdot P_-((-r)^s) \right)$$
-
-where $ d = \text{virtual\_log\_n} $ and the interleaved claims use batching powers $ \nu^{2d} $ and $ \nu^{2d+1} $ (placed after all Gemini fold claims in the batching order)
-
 ### Key Features
 
 - **Batch Opening**: Combines multiple polynomial commitments into one claim
 - **ZK Support**: When `HasZK=true`, handles Libra masking polynomials
-- **Padding Support**: Supports circuits smaller than the maximum size via `padding_indicator_array`
 - **Repeated Commitment Optimization**: Combines scalars for duplicate commitments
 
 ### Output Structure
@@ -190,7 +166,6 @@ auto opening_claim = ShpleminiProver::prove(
 ```cpp
 auto [batch_opening_claim, consistency_checked /* only for ZK flavors*/ ] =
     ShpleminiVerifier::compute_batch_opening_claim(
-        padding_indicator_array,
         claim_batcher,
         multilinear_challenge,
         g1_identity,

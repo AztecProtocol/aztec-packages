@@ -80,8 +80,14 @@ Accumulator ECCVMSetRelationImpl<FF>::compute_grand_product_numerator(const AllE
     const auto& beta = params.beta;
     const auto& beta_sqr = params.beta_sqr;
     const auto& beta_cube = params.beta_cube;
+    const auto& beta_quartic = params.beta_quartic;
     const auto& precompute_pc = View(in.precompute_pc);
     const auto& precompute_select = View(in.precompute_select);
+
+    // Domain separation: each tuple family includes a distinct tag * beta^4 term to prevent cross-family collisions.
+    const auto first_term_tag = beta_quartic * FIRST_TERM_TAG;
+    const auto second_term_tag = beta_quartic * SECOND_TERM_TAG;
+    const auto third_term_tag = beta_quartic * THIRD_TERM_TAG;
 
     /**
      * @brief First term: tuple of (pc, round, wnaf_slice), computed when slicing scalar multipliers into slices, as
@@ -106,7 +112,8 @@ Accumulator ECCVMSetRelationImpl<FF>::compute_grand_product_numerator(const AllE
         wnaf_slice += wnaf_slice;
         wnaf_slice += s1;
 
-        const auto wnaf_slice_input0 = wnaf_slice + gamma + precompute_pc * beta + precompute_round4 * beta_sqr;
+        const auto wnaf_slice_input0 =
+            wnaf_slice + gamma + precompute_pc * beta + precompute_round4 * beta_sqr + first_term_tag;
         numerator *= wnaf_slice_input0; // degree-1
     }
     {
@@ -117,7 +124,8 @@ Accumulator ECCVMSetRelationImpl<FF>::compute_grand_product_numerator(const AllE
         wnaf_slice += wnaf_slice;
         wnaf_slice += s1;
 
-        const auto wnaf_slice_input1 = wnaf_slice + gamma + precompute_pc * beta + (precompute_round4 + 1) * beta_sqr;
+        const auto wnaf_slice_input1 =
+            wnaf_slice + gamma + precompute_pc * beta + (precompute_round4 + 1) * beta_sqr + first_term_tag;
         numerator *= wnaf_slice_input1; // degree-2
     }
     {
@@ -128,7 +136,8 @@ Accumulator ECCVMSetRelationImpl<FF>::compute_grand_product_numerator(const AllE
         wnaf_slice += wnaf_slice;
         wnaf_slice += s1;
 
-        const auto wnaf_slice_input2 = wnaf_slice + gamma + precompute_pc * beta + (precompute_round4 + 2) * beta_sqr;
+        const auto wnaf_slice_input2 =
+            wnaf_slice + gamma + precompute_pc * beta + (precompute_round4 + 2) * beta_sqr + first_term_tag;
         numerator *= wnaf_slice_input2; // degree-3
     }
     {
@@ -138,23 +147,22 @@ Accumulator ECCVMSetRelationImpl<FF>::compute_grand_product_numerator(const AllE
         auto wnaf_slice = s0 + s0;
         wnaf_slice += wnaf_slice;
         wnaf_slice += s1;
-        const auto wnaf_slice_input3 = wnaf_slice + gamma + precompute_pc * beta + (precompute_round4 + 3) * beta_sqr;
+        const auto wnaf_slice_input3 =
+            wnaf_slice + gamma + precompute_pc * beta + (precompute_round4 + 3) * beta_sqr + first_term_tag;
         numerator *= wnaf_slice_input3; // degree-4
     }
     {
         // skew product if relevant
         const auto& skew = View(in.precompute_skew);
         const auto& precompute_point_transition = View(in.precompute_point_transition);
-        const auto skew_input =
-            precompute_point_transition * (skew + gamma + precompute_pc * beta + (precompute_round4 + 4) * beta_sqr) +
-            (-precompute_point_transition + 1);
-        numerator *= skew_input; // degree-5
+        const auto skew_input = precompute_point_transition * (skew + gamma + precompute_pc * beta +
+                                                               (precompute_round4 + 4) * beta_sqr + first_term_tag) +
+                                (-precompute_point_transition + 1);
+        numerator *= skew_input; // degree-6
     }
     {
         // in `EccvmProver` and `ECCVMVerifier`, we see that `eccvm_set_permutation_delta` is initially computed as
-        // (γ)·(γ + β²)·(γ + 2β²)·(γ + 3β²) and _then_ inverted. Therefore, `eccvm_set_permutation_delta` == 1 / (γ)·(γ
-        // + β²)·(γ + 2β²)·(γ
-        // + 3β²)
+        // (γ+t·β⁴)·(γ+β²+t·β⁴)·(γ+2β²+t·β⁴)·(γ+3β²+t·β⁴) (where t = FIRST_TERM_TAG) and _then_ inverted.
         const auto& eccvm_set_permutation_delta = params.eccvm_set_permutation_delta;
         // if `precompute_select == 1`, don't change the numerator. if it is 0, then to get the grand product argument
         // to work (as we have zero-padded the rows of the MSM table), we must multiply by the inverse of the
@@ -237,7 +245,7 @@ Accumulator ECCVMSetRelationImpl<FF>::compute_grand_product_numerator(const AllE
         auto precompute_point_transition = View(in.precompute_point_transition);
 
         auto point_table_init_read =
-            (precompute_pc + table_x * beta + table_y * beta_sqr + scalar_sum_full * beta_cube);
+            (precompute_pc + table_x * beta + table_y * beta_sqr + scalar_sum_full * beta_cube + second_term_tag);
         point_table_init_read =
             precompute_point_transition * (point_table_init_read + gamma) + (-precompute_point_transition + 1);
 
@@ -282,7 +290,8 @@ Accumulator ECCVMSetRelationImpl<FF>::compute_grand_product_numerator(const AllE
         // at row i + 1 we have updated `pc` to be `(pc at start of msm) + msm_count`
         // at row i + 1 q_msm_transtiion = 1
 
-        auto msm_result_write = msm_pc_shift + msm_x_shift * beta + msm_y_shift * beta_sqr + msm_size * beta_cube;
+        auto msm_result_write =
+            msm_pc_shift + msm_x_shift * beta + msm_y_shift * beta_sqr + msm_size * beta_cube + third_term_tag;
 
         // msm_result_write = degree 2
         msm_result_write = msm_transition_shift * (msm_result_write + gamma) + (-msm_transition_shift + 1);
@@ -303,9 +312,15 @@ Accumulator ECCVMSetRelationImpl<FF>::compute_grand_product_denominator(const Al
     const auto& beta = params.beta;
     const auto& beta_sqr = params.beta_sqr;
     const auto& beta_cube = params.beta_cube;
+    const auto& beta_quartic = params.beta_quartic;
     const auto& msm_pc = View(in.msm_pc);
     const auto& msm_count = View(in.msm_count);
     const auto& msm_round = View(in.msm_round);
+
+    // Domain separation: must match the tags used in the numerator.
+    const auto first_term_tag = beta_quartic * FIRST_TERM_TAG;
+    const auto second_term_tag = beta_quartic * SECOND_TERM_TAG;
+    const auto third_term_tag = beta_quartic * THIRD_TERM_TAG;
 
     /**
      * @brief First term: tuple of (pc, round, wnaf_slice), used to determine which points we extract from lookup tables
@@ -318,7 +333,8 @@ Accumulator ECCVMSetRelationImpl<FF>::compute_grand_product_denominator(const Al
         const auto& msm_slice1 = View(in.msm_slice1);
 
         auto wnaf_slice_output1 =
-            add1 * (msm_slice1 + gamma + (msm_pc - msm_count) * beta + msm_round * beta_sqr) + (-add1 + 1);
+            add1 * (msm_slice1 + gamma + (msm_pc - msm_count) * beta + msm_round * beta_sqr + first_term_tag) +
+            (-add1 + 1);
         denominator *= wnaf_slice_output1; // degree-2
     }
     {
@@ -326,7 +342,8 @@ Accumulator ECCVMSetRelationImpl<FF>::compute_grand_product_denominator(const Al
         const auto& msm_slice2 = View(in.msm_slice2);
 
         auto wnaf_slice_output2 =
-            add2 * (msm_slice2 + gamma + (msm_pc - msm_count - 1) * beta + msm_round * beta_sqr) + (-add2 + 1);
+            add2 * (msm_slice2 + gamma + (msm_pc - msm_count - 1) * beta + msm_round * beta_sqr + first_term_tag) +
+            (-add2 + 1);
         denominator *= wnaf_slice_output2; // degree-4
     }
     {
@@ -334,14 +351,16 @@ Accumulator ECCVMSetRelationImpl<FF>::compute_grand_product_denominator(const Al
         const auto& msm_slice3 = View(in.msm_slice3);
 
         auto wnaf_slice_output3 =
-            add3 * (msm_slice3 + gamma + (msm_pc - msm_count - 2) * beta + msm_round * beta_sqr) + (-add3 + 1);
+            add3 * (msm_slice3 + gamma + (msm_pc - msm_count - 2) * beta + msm_round * beta_sqr + first_term_tag) +
+            (-add3 + 1);
         denominator *= wnaf_slice_output3; // degree-6
     }
     {
         const auto& add4 = View(in.msm_add4);
         const auto& msm_slice4 = View(in.msm_slice4);
         auto wnaf_slice_output4 =
-            add4 * (msm_slice4 + gamma + (msm_pc - msm_count - 3) * beta + msm_round * beta_sqr) + (-add4 + 1);
+            add4 * (msm_slice4 + gamma + (msm_pc - msm_count - 3) * beta + msm_round * beta_sqr + first_term_tag) +
+            (-add4 + 1);
         denominator *= wnaf_slice_output4; // degree-8
     }
 
@@ -371,10 +390,10 @@ Accumulator ECCVMSetRelationImpl<FF>::compute_grand_product_denominator(const Al
         const auto& lookup_second = (-z2_zero + 1);
         FF cube_root_unity = FF(bb::fq::cube_root_of_unity());
 
-        auto transcript_input1 =
-            transcript_pc + transcript_Px * beta + transcript_Py * beta_sqr + z1 * beta_cube; // degree = 1
-        auto transcript_input2 = (transcript_pc - 1) + transcript_Px * cube_root_unity * beta -
-                                 transcript_Py * beta_sqr + z2 * beta_cube; // degree = 2
+        auto transcript_input1 = transcript_pc + transcript_Px * beta + transcript_Py * beta_sqr + z1 * beta_cube +
+                                 second_term_tag; // degree = 1
+        auto transcript_input2 = (transcript_pc - lookup_first) + transcript_Px * cube_root_unity * beta -
+                                 transcript_Py * beta_sqr + z2 * beta_cube + second_term_tag; // degree = 2
 
         // The following diagram expresses a fingerprint of part of the tuple. It does not include `transcript_pc` and
         // has not weighted the X and Y with beta and beta_sqr respectively. The point is nonetheless to show exactly
@@ -432,8 +451,8 @@ Accumulator ECCVMSetRelationImpl<FF>::compute_grand_product_denominator(const Al
         auto full_msm_count =
             transcript_msm_count + transcript_mul * ((-z1_zero + 1) + (-z2_zero + 1)) * (-base_infinity + 1);
         // msm_result_read = degree 2
-        auto msm_result_read =
-            transcript_pc_shift + transcript_msm_x * beta + transcript_msm_y * beta_sqr + full_msm_count * beta_cube;
+        auto msm_result_read = transcript_pc_shift + transcript_msm_x * beta + transcript_msm_y * beta_sqr +
+                               full_msm_count * beta_cube + third_term_tag;
         msm_result_read = transcript_msm_transition * (msm_result_read + gamma) + (-transcript_msm_transition + 1);
         denominator *= msm_result_read; // degree-20
     }
@@ -476,11 +495,14 @@ void ECCVMSetRelationImpl<FF>::accumulate(ContainerOverSubrelations& accumulator
     const auto& z_perm_shift_short = ShortView(in.z_perm_shift);
 
     // degree-21
-    std::get<0>(accumulator) +=
+    std::get<GRAND_PRODUCT>(accumulator) +=
         ((z_perm + lagrange_first) * numerator_evaluation - (z_perm_shift + lagrange_last) * denominator_evaluation) *
         scaling_factor;
 
     // Contribution (2)
-    std::get<1>(accumulator) += lagrange_last_short * z_perm_shift_short * scaling_factor;
+    std::get<LEFT_SHIFTABLE>(accumulator) += lagrange_last_short * z_perm_shift_short * scaling_factor;
+
+    // The `z_perm[lagrange_first row] = 0` initialization the grand product depends on is now
+    // enforced by Z_PERM_INIT inside ECCVMShiftableInitRelation.
 }
 } // namespace bb

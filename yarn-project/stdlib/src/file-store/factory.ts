@@ -1,9 +1,10 @@
 import { type Logger, createLogger } from '@aztec/foundation/log';
 
 import { GoogleCloudFileStore } from './gcs.js';
-import { HttpFileStore } from './http.js';
+import { HttpFileStore, type HttpFileStoreOptions } from './http.js';
 import type { FileStore, ReadOnlyFileStore } from './interface.js';
 import { LocalFileStore } from './local.js';
+import { InMemoryFileStore } from './memory.js';
 import { S3FileStore } from './s3.js';
 
 const supportedExamples = [
@@ -21,6 +22,12 @@ export async function createFileStore(
 ): Promise<FileStore | undefined> {
   if (config === undefined) {
     return undefined;
+  } else if (config.startsWith('mem://')) {
+    // In-memory store for tests (see InMemoryFileStore). The namespace is everything after the
+    // scheme, so `mem://X` and a later `mem://X` share data, like two file:// stores over one dir.
+    const namespace = config.slice('mem://'.length).replace(/\/+$/, '');
+    logger.info(`Creating in-memory file store at ${namespace}`);
+    return new InMemoryFileStore(namespace);
   } else if (config.startsWith('file://')) {
     const url = new URL(config);
     if (url.host) {
@@ -59,17 +66,26 @@ export async function createFileStore(
   }
 }
 
-export async function createReadOnlyFileStore(config: string, logger?: Logger): Promise<ReadOnlyFileStore>;
-export async function createReadOnlyFileStore(config: undefined, logger?: Logger): Promise<undefined>;
+export async function createReadOnlyFileStore(
+  config: string,
+  logger?: Logger,
+  options?: HttpFileStoreOptions,
+): Promise<ReadOnlyFileStore>;
+export async function createReadOnlyFileStore(
+  config: undefined,
+  logger?: Logger,
+  options?: HttpFileStoreOptions,
+): Promise<undefined>;
 export async function createReadOnlyFileStore(
   config: string | undefined,
   logger = createLogger('stdlib:file-store'),
+  options?: HttpFileStoreOptions,
 ): Promise<ReadOnlyFileStore | undefined> {
   if (config === undefined) {
     return undefined;
   } else if (config.startsWith('http://') || config.startsWith('https://')) {
     logger.info(`Creating read-only HTTP file store at ${config}`);
-    return new HttpFileStore(config, logger);
+    return new HttpFileStore(config, logger, options);
   } else {
     return await createFileStore(config, logger);
   }

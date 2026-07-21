@@ -5,14 +5,14 @@ import type { Wallet } from '@aztec/aztec.js/wallet';
 import { AMMContract } from '@aztec/noir-contracts.js/AMM';
 import { FPCContract } from '@aztec/noir-contracts.js/FPC';
 import { SponsoredFPCContract } from '@aztec/noir-contracts.js/SponsoredFPC';
-import { TokenContract } from '@aztec/noir-contracts.js/Token';
+import { TestTokenContract } from '@aztec/noir-test-contracts.js/TestToken';
 import type { RoundTripStats } from '@aztec/stdlib/tx';
-import type { TestWallet } from '@aztec/test-wallet/server';
 
 import { jest } from '@jest/globals';
 
 import { mintNotes } from '../../fixtures/token_utils.js';
-import { captureProfile } from './benchmark.js';
+import type { TestWallet } from '../../test-wallet/test_wallet.js';
+import { captureProfile, expectedExecutionSteps } from './benchmark.js';
 import { type AccountType, type BenchmarkingFeePaymentMethod, ClientFlowsBenchmark } from './client_flows_benchmark.js';
 
 jest.setTimeout(900_000);
@@ -38,6 +38,8 @@ interface RoundTripData {
   roundTrips: RoundTripStats | undefined;
 }
 
+// AMM interaction round-trip benchmark. Uses ClientFlowsBenchmark with BENCHMARK_CONFIG; profiles
+// add-liquidity and swap flows across account types and fee-payment methods; emits BENCH_OUTPUT JSON.
 describe('AMM benchmark', () => {
   const roundTripData: RoundTripData[] = [];
   const t = new ClientFlowsBenchmark('amm');
@@ -50,10 +52,10 @@ describe('AMM benchmark', () => {
   // FPC that accepts bananas
   let bananaFPCInstance: ContractInstanceWithAddress;
   // BananaCoin Token contract, just used to pay fees in this scenario
-  let bananaCoin: TokenContract;
+  let bananaCoin: TestTokenContract;
   let bananaCoinInstance: ContractInstanceWithAddress;
   // CandyBarCoin Token contract, which we want to amm
-  let candyBarCoin: TokenContract;
+  let candyBarCoin: TestTokenContract;
   let candyBarCoinInstance: ContractInstanceWithAddress;
   // AMM contract
   let amm: AMMContract;
@@ -114,7 +116,7 @@ describe('AMM benchmark', () => {
         await userWallet.registerSender(adminAddress);
         // Register both FPC and BananCoin on the user's Wallet so we can simulate and prove
         await userWallet.registerContract(bananaFPCInstance, FPCContract.artifact);
-        await userWallet.registerContract(bananaCoinInstance, TokenContract.artifact);
+        await userWallet.registerContract(bananaCoinInstance, TestTokenContract.artifact);
         // Register the CandyBarCoin on the user's Wallet so we can simulate and prove
         await userWallet.registerContract(candyBarCoinInstance);
         // Register the AMM and liquidity token on the user's Wallet so we can simulate and prove
@@ -184,22 +186,20 @@ describe('AMM benchmark', () => {
               `${accountType}+amm_add_liquidity_1_recursions+${benchmarkingPaymentMethod}`,
               addLiquidityInteraction,
               options,
-              1 + // Account entrypoint
-                1 + // Kernel init
-                paymentMethod.circuits + // Payment method circuits
-                2 + // AMM add_liquidity + kernel inner
-                2 + // Token transfer_to_public_and_prepare_private_balance_increase + kernel inner (token0)
-                2 + // Account verify_private_authwit + kernel inner
-                2 + // Token transfer_to_public_and_prepare_private_balance_increase + kernel inner (token1)
-                2 + // Account verify_private_authwit + kernel inner
-                2 + // Token prepare_private_balance_increase + kernel inner (liquidity token mint)
-                1 + // Kernel reset
-                1 + // Kernel tail
-                1, // Kernel hiding
+              expectedExecutionSteps(
+                1 + // Account entrypoint
+                  paymentMethod.apps + // Payment method apps
+                  1 + // AMM add_liquidity
+                  1 + // Token transfer_to_public_and_prepare_private_balance_increase (token0)
+                  1 + // Account verify_private_authwit
+                  1 + // Token transfer_to_public_and_prepare_private_balance_increase (token1)
+                  1 + // Account verify_private_authwit
+                  1, // Token prepare_private_balance_increase (liquidity token mint)
+              ),
             );
 
             if (process.env.SANITY_CHECKS) {
-              const tx = await addLiquidityInteraction.send({ from: benchysAddress });
+              const { receipt: tx } = await addLiquidityInteraction.send({ from: benchysAddress });
               expect(tx.transactionFee!).toBeGreaterThan(0n);
             }
 

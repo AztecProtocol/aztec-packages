@@ -2,6 +2,7 @@
 
 #include <filesystem>
 
+#include "barretenberg/api/api_avm.hpp"
 #include "barretenberg/api/file_io.hpp"
 #include "barretenberg/common/map.hpp"
 #include "barretenberg/vm2/avm_api.hpp"
@@ -92,6 +93,41 @@ void avm_write_verification_key(const std::filesystem::path& output_path)
     auto vk = avm.get_verification_key();
     info("Writing AVM verification key to: ", output_path / "vk");
     write_file(output_path / "vk", vk);
+}
+
+AvmProveResult avm_prove_from_bytes(std::vector<uint8_t> inputs)
+{
+    avm2::AvmAPI avm;
+    auto proving_inputs = avm2::AvmAPI::ProvingInputs::from(inputs);
+    auto proof = avm.prove(proving_inputs);
+
+    print_avm_stats();
+
+    return AvmProveResult{ .proof = std::move(proof) };
+}
+
+bool avm_verify_from_bytes(std::vector<bb::fr> proof, std::vector<uint8_t> public_inputs)
+{
+    auto pi = avm2::PublicInputs::from(public_inputs);
+
+    avm2::AvmAPI avm;
+    bool res = avm.verify(proof, pi);
+    info("verification: ", res ? "success" : "failure");
+
+    print_avm_stats();
+    return res;
+}
+
+bool avm_check_circuit_from_bytes(std::vector<uint8_t> inputs)
+{
+    avm2::AvmAPI avm;
+    auto proving_inputs = avm2::AvmAPI::ProvingInputs::from(inputs);
+
+    bool res = avm.check_circuit(proving_inputs);
+    info("circuit check: ", res ? "success" : "failure");
+
+    print_avm_stats();
+    return res;
 }
 
 } // namespace bb

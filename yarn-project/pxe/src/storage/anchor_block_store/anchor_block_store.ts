@@ -1,6 +1,10 @@
 import type { AztecAsyncKVStore, AztecAsyncSingleton } from '@aztec/kv-store';
 import { BlockHeader } from '@aztec/stdlib/tx';
 
+/**
+ * Holds the block header that PXE's private execution is anchored to. Updated by the BlockSynchronizer as the chain
+ * advances or reorgs.
+ */
 export class AnchorBlockStore {
   #store: AztecAsyncKVStore;
   #synchronizedHeader: AztecAsyncSingleton<Buffer>;
@@ -11,23 +15,21 @@ export class AnchorBlockStore {
   }
 
   /**
-   * Sets the currently synchronized block
+   * Sets the currently synchronized block header.
    *
-   * Important: this method is only called from BlockSynchronizer, and since we need it to run atomically with other
-   * stores in the case of a reorg, it MUST NOT be wrapped in a `transactionAsync` call. Doing so would result in a
-   * deadlock when the backend is IndexedDB, because `transactionAsync` is not designed to support reentrancy.
-   *
+   * Important: only called from BlockSynchronizer, and since it must run atomically with other stores in a reorg, it
+   * MUST NOT be wrapped in `transactionAsync`: doing so deadlocks when the kv-store backend is IndexedDB (no
+   * support for reentrancy).
    */
   async setHeader(header: BlockHeader): Promise<void> {
     await this.#synchronizedHeader.set(header.toBuffer());
   }
 
   async getBlockHeader(): Promise<BlockHeader> {
-    const headerBuffer = await this.#synchronizedHeader.getAsync();
+    const headerBuffer = await this.#store.transactionAsync(() => this.#synchronizedHeader.getAsync());
     if (!headerBuffer) {
       throw new Error(`Trying to get block header with a not-yet-synchronized PXE - this should never happen`);
     }
-
     return BlockHeader.fromBuffer(headerBuffer);
   }
 }

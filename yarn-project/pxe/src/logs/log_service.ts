@@ -1,23 +1,40 @@
-import type { Fr } from '@aztec/foundation/curves/bn254';
+import { PRIVATE_LOG_CIPHERTEXT_LEN } from '@aztec/constants';
+import type { BlockNumber } from '@aztec/foundation/branded-types';
+import type { GrumpkinScalar, Point } from '@aztec/foundation/curves/grumpkin';
 import { type Logger, type LoggerBindings, createLogger } from '@aztec/foundation/log';
 import type { KeyStore } from '@aztec/key-store';
 import { AztecAddress } from '@aztec/stdlib/aztec-address';
+import type { BlockHash, L2TipsProvider } from '@aztec/stdlib/block';
 import type { CompleteAddress } from '@aztec/stdlib/contract';
 import type { AztecNode } from '@aztec/stdlib/interfaces/server';
-import { DirectionalAppTaggingSecret, PendingTaggedLog, SiloedTag, Tag, TxScopedL2Log } from '@aztec/stdlib/logs';
+import {
+  AppTaggingSecret,
+  AppTaggingSecretKind,
+  type LogResult,
+  SiloedTag,
+  computeSharedTaggingSecret,
+} from '@aztec/stdlib/logs';
 import type { BlockHeader } from '@aztec/stdlib/tx';
 
-import type { LogRetrievalRequest } from '../contract_function_simulator/noir-structs/log_retrieval_request.js';
-import { LogRetrievalResponse } from '../contract_function_simulator/noir-structs/log_retrieval_response.js';
+import {
+  type LogRetrievalRequest,
+  LogSource,
+} from '../contract_function_simulator/noir-structs/log_retrieval_request.js';
+import type { LogRetrievalResponse } from '../contract_function_simulator/noir-structs/log_retrieval_response.js';
+import type { PendingTaggedLog } from '../contract_function_simulator/noir-structs/pending_tagged_log.js';
+import { ResolvedTx } from '../contract_function_simulator/noir-structs/resolved_tx.js';
 import { AddressStore } from '../storage/address_store/address_store.js';
-import { CapsuleStore } from '../storage/capsule_store/capsule_store.js';
 import type { RecipientTaggingStore } from '../storage/tagging_store/recipient_tagging_store.js';
-import type { SenderAddressBookStore } from '../storage/tagging_store/sender_address_book_store.js';
+import type { TaggingSecretSourcesStore } from '../storage/tagging_store/tagging_secret_sources_store.js';
 import {
   getAllPrivateLogsByTags,
   getAllPublicLogsByTagsFromContract,
-  loadPrivateLogsForSenderRecipientPair,
+  syncTaggedPrivateLogs,
 } from '../tagging/index.js';
+
+/** Key used to group requests by their (fromBlock, toBlock) range so each group becomes a single node call. */
+type RangeKey = string;
+const rangeKey = (fromBlock?: BlockNumber, toBlock?: BlockNumber): RangeKey => `${fromBlock ?? ''}-${toBlock ?? ''}`;
 
 export class LogService {
   private log: Logger;
@@ -25,10 +42,10 @@ export class LogService {
   constructor(
     private readonly aztecNode: AztecNode,
     private readonly anchorBlockHeader: BlockHeader,
+    private readonly l2TipsStore: L2TipsProvider,
     private readonly keyStore: KeyStore,
-    private readonly capsuleStore: CapsuleStore,
     private readonly recipientTaggingStore: RecipientTaggingStore,
-    private readonly senderAddressBookStore: SenderAddressBookStore,
+    private readonly taggingSecretSourcesStore: TaggingSecretSourcesStore,
     private readonly addressStore: AddressStore,
     private readonly jobId: string,
     bindings?: LoggerBindings,
@@ -36,185 +53,239 @@ export class LogService {
     this.log = createLogger('pxe:log_service', bindings);
   }
 
-  public async bulkRetrieveLogs(logRetrievalRequests: LogRetrievalRequest[]): Promise<(LogRetrievalResponse | null)[]> {
-    return await Promise.all(
-      logRetrievalRequests.map(async request => {
-        const [publicLog, privateLog] = await Promise.all([
-          this.#getPublicLogByTag(request.tag, request.contractAddress),
-          this.#getPrivateLogByTag(await SiloedTag.compute(request.tag, request.contractAddress)),
-        ]);
+  /** Fetches all logs matching each request's tag, returning an array of log arrays (one per request). */
+  public async fetchLogsByTag(
+    contractAddress: AztecAddress,
+    logRetrievalRequests: LogRetrievalRequest[],
+  ): Promise<LogRetrievalResponse[][]> {
+    for (const request of logRetrievalRequests) {
+      if (!contractAddress.equals(request.contractAddress)) {
+        throw new Error(`Got a log retrieval request from ${request.contractAddress}, expected ${contractAddress}`);
+      }
+    }
 
-        if (publicLog !== null && privateLog !== null) {
-          throw new Error(
-            `Found both a public and private log when searching for tag ${request.tag} from contract ${request.contractAddress}`,
-          );
-        }
+    if (logRetrievalRequests.length === 0) {
+      return [];
+    }
 
-        return publicLog ?? privateLog;
+    const anchorBlockHash = await this.anchorBlockHeader.hash();
+
+    const [publicLogsPerRequest, privateLogsPerRequest] = await Promise.all([
+      this.#fetchPublicLogs(contractAddress, logRetrievalRequests, anchorBlockHash),
+      this.#fetchPrivateLogs(logRetrievalRequests, anchorBlockHash),
+    ]);
+
+    return logRetrievalRequests.map((_request, i) => [
+      ...publicLogsPerRequest[i].map(LogService.#toLogRetrievalResponse),
+      ...privateLogsPerRequest[i].map(LogService.#toLogRetrievalResponse),
+    ]);
+  }
+
+  async #fetchPublicLogs(
+    contractAddress: AztecAddress,
+    requests: LogRetrievalRequest[],
+    anchorBlockHash: BlockHash,
+  ): Promise<LogResult[][]> {
+    const indices = requests.flatMap((r, i) => (r.source !== LogSource.PRIVATE ? [i] : []));
+    if (indices.length === 0) {
+      return requests.map(() => []);
+    }
+
+    const resultsPerRequest: LogResult[][] = requests.map(() => []);
+    const groups = LogService.#groupByRange(indices.map(i => ({ index: i, request: requests[i] })));
+
+    await Promise.all(
+      Array.from(groups.values()).map(async group => {
+        const tags = group.entries.map(e => e.request.tag);
+        const results = await getAllPublicLogsByTagsFromContract(
+          this.aztecNode,
+          contractAddress,
+          tags,
+          anchorBlockHash,
+          { fromBlock: group.fromBlock, toBlock: group.toBlock, includeEffects: true },
+        );
+        group.entries.forEach((entry, i) => {
+          resultsPerRequest[entry.index] = results[i];
+        });
       }),
     );
+
+    return resultsPerRequest;
   }
 
-  async #getPublicLogByTag(tag: Tag, contractAddress: AztecAddress): Promise<LogRetrievalResponse | null> {
-    const anchorBlockHash = await this.anchorBlockHeader.hash();
-    const allLogsPerTag = await getAllPublicLogsByTagsFromContract(
-      this.aztecNode,
-      contractAddress,
-      [tag],
-      anchorBlockHash,
-    );
-    const logsForTag = allLogsPerTag[0];
-
-    if (logsForTag.length === 0) {
-      return null;
-    } else if (logsForTag.length > 1) {
-      // TODO(#11627): handle this case
-      throw new Error(
-        `Got ${logsForTag.length} logs for tag ${tag} and contract ${contractAddress.toString()}. getPublicLogByTag currently only supports a single log per tag`,
-      );
+  async #fetchPrivateLogs(requests: LogRetrievalRequest[], anchorBlockHash: BlockHash): Promise<LogResult[][]> {
+    const indices = requests.flatMap((r, i) => (r.source !== LogSource.PUBLIC ? [i] : []));
+    if (indices.length === 0) {
+      return requests.map(() => []);
     }
 
-    const scopedLog = logsForTag[0];
+    const resultsPerRequest: LogResult[][] = requests.map(() => []);
+    const groups = LogService.#groupByRange(indices.map(i => ({ index: i, request: requests[i] })));
 
-    return new LogRetrievalResponse(
-      scopedLog.logData.slice(1), // Skip the tag
-      scopedLog.txHash,
-      scopedLog.noteHashes,
-      scopedLog.firstNullifier,
+    await Promise.all(
+      Array.from(groups.values()).map(async group => {
+        const siloedTags = await Promise.all(
+          group.entries.map(e => SiloedTag.computeFromTagAndApp(e.request.tag, e.request.contractAddress)),
+        );
+        const results = await getAllPrivateLogsByTags(this.aztecNode, siloedTags, anchorBlockHash, {
+          fromBlock: group.fromBlock,
+          toBlock: group.toBlock,
+          includeEffects: true,
+        });
+        group.entries.forEach((entry, i) => {
+          resultsPerRequest[entry.index] = results[i];
+        });
+      }),
     );
+
+    return resultsPerRequest;
   }
 
-  async #getPrivateLogByTag(siloedTag: SiloedTag): Promise<LogRetrievalResponse | null> {
-    const anchorBlockHash = await this.anchorBlockHeader.hash();
-    const allLogsPerTag = await getAllPrivateLogsByTags(this.aztecNode, [siloedTag], anchorBlockHash);
-    const logsForTag = allLogsPerTag[0];
-
-    if (logsForTag.length === 0) {
-      return null;
-    } else if (logsForTag.length > 1) {
-      // TODO(#11627): handle this case
-      throw new Error(
-        `Got ${logsForTag.length} logs for tag ${siloedTag}. getPrivateLogByTag currently only supports a single log per tag`,
-      );
+  /**
+   * Groups requests by their (fromBlock, toBlock) range so each distinct range becomes a single node call with
+   * the range pushed down into the query (no in-memory filter).
+   */
+  static #groupByRange(
+    entries: Array<{ index: number; request: LogRetrievalRequest }>,
+  ): Map<RangeKey, { fromBlock?: BlockNumber; toBlock?: BlockNumber; entries: typeof entries }> {
+    const groups = new Map<RangeKey, { fromBlock?: BlockNumber; toBlock?: BlockNumber; entries: typeof entries }>();
+    for (const entry of entries) {
+      const fromBlock = entry.request.fromBlock.value;
+      const toBlock = entry.request.toBlock.value;
+      const key = rangeKey(fromBlock, toBlock);
+      const existing = groups.get(key);
+      if (existing) {
+        existing.entries.push(entry);
+      } else {
+        groups.set(key, { fromBlock, toBlock, entries: [entry] });
+      }
     }
+    return groups;
+  }
 
-    const scopedLog = logsForTag[0];
-
-    return new LogRetrievalResponse(
-      scopedLog.logData.slice(1), // Skip the tag
-      scopedLog.txHash,
-      scopedLog.noteHashes,
-      scopedLog.firstNullifier,
-    );
+  static #toLogRetrievalResponse(log: LogResult): LogRetrievalResponse {
+    // includeEffects: true was used, so noteHashes and nullifiers are populated. Every tx has at least one nullifier
+    // (the first nullifier derived from the tx hash); empty here would indicate a buggy node.
+    const noteHashes = log.noteHashes!;
+    const nullifiers = log.nullifiers!;
+    if (nullifiers.length === 0) {
+      throw new Error(`Log for tx ${log.txHash} returned no nullifiers from the node`);
+    }
+    return {
+      // Skip the tag, and clip to the wire cap: public logs can exceed PRIVATE_LOG_CIPHERTEXT_LEN, which is the fixed
+      // size of the oracle's BoundedVec slot. A no-op for private logs, which are already within the cap.
+      logPayload: log.logData.slice(1, 1 + PRIVATE_LOG_CIPHERTEXT_LEN),
+      txHash: log.txHash,
+      uniqueNoteHashesInTx: noteHashes,
+      firstNullifierInTx: nullifiers[0],
+      blockNumber: log.blockNumber,
+      blockTimestamp: log.blockTimestamp,
+      blockHash: log.blockHash,
+    };
   }
 
   public async fetchTaggedLogs(
     contractAddress: AztecAddress,
-    pendingTaggedLogArrayBaseSlot: Fr,
-    scopes?: AztecAddress[],
-  ) {
-    this.log.verbose(`Fetching tagged logs for ${contractAddress.toString()}`);
+    recipient: AztecAddress,
+    providedSecrets: AppTaggingSecret[],
+  ): Promise<PendingTaggedLog[]> {
+    this.log.verbose(
+      `Fetching tagged logs for contract ${contractAddress.toString()} and recipient ${recipient.toString()}`,
+    );
 
-    // We only load logs from block up to and including the anchor block number
-    const anchorBlockNumber = this.anchorBlockHeader.getBlockNumber();
-    const anchorBlockHash = await this.anchorBlockHeader.hash();
+    const l2Tips = await this.l2TipsStore.getL2Tips();
 
-    // Determine recipients: use scopes if provided, otherwise get all accounts
-    const recipients = scopes && scopes.length > 0 ? scopes : await this.keyStore.getAccounts();
+    // Secrets PXE can enumerate for this recipient (senders via ECDH + pre-shared store secrets), plus any the app
+    // supplies explicitly for secrets PXE cannot enumerate itself (e.g. handshake-derived ones). The latter arrive
+    // already computed and are searched even when the recipient's account is unknown locally, since they need no ECDH.
+    const combinedSecrets = [...(await this.#getPointDerivedSecrets(contractAddress, recipient)), ...providedSecrets];
 
-    // For each recipient, fetch secrets, load logs, and store them.
-    // We run these per-recipient tasks in parallel so that logs are loaded for all recipients concurrently.
-    await Promise.all(
-      recipients.map(async recipient => {
-        // Get all secrets for this recipient (one per sender)
-        const secrets = await this.#getSecretsForSenders(contractAddress, recipient);
+    // These sources can overlap (a sender that is also a PXE account, or a pre-shared secret that coincides with a
+    // sender-derived one), so we deduplicate the combined set.
+    const secrets = Array.from(new Map(combinedSecrets.map(secret => [secret.toString(), secret])).values());
 
-        // Load logs for all sender-recipient pairs in parallel
-        const logArrays = await Promise.all(
-          secrets.map(secret =>
-            loadPrivateLogsForSenderRecipientPair(
-              secret,
-              contractAddress,
-              this.aztecNode,
-              this.recipientTaggingStore,
-              anchorBlockNumber,
-              anchorBlockHash,
-              this.jobId,
-            ),
-          ),
-        );
+    const logs = await syncTaggedPrivateLogs(
+      secrets,
+      this.aztecNode,
+      this.recipientTaggingStore,
+      this.anchorBlockHeader,
+      l2Tips.finalized.block.number,
+      this.jobId,
+    );
 
-        // Flatten all logs from all secrets
-        const allLogs = logArrays.flat();
+    return logs.map(log => {
+      const noteHashes = log.noteHashes!;
+      const nullifiers = log.nullifiers!;
+      if (nullifiers.length === 0) {
+        throw new Error(`Log for tx ${log.txHash} returned no nullifiers from the node`);
+      }
+      return {
+        log: log.logData,
+        context: new ResolvedTx(log.txHash, noteHashes, nullifiers[0], log.blockNumber, log.blockHash.toFr()),
+      };
+    });
+  }
 
-        // Store the logs for this recipient
-        if (allLogs.length > 0) {
-          await this.#storePendingTaggedLogs(contractAddress, pendingTaggedLogArrayBaseSlot, recipient, allLogs);
+  /**
+   * Computes the tagging secrets PXE can enumerate for a recipient: one per known sender (via ECDH) plus any
+   * pre-shared secrets registered directly for the recipient. Each registered secret is scanned under the tag
+   * streams its kind can back. Deriving the sender-based secrets requires the recipient's address preimage and keys,
+   * so returns an empty array when those are unavailable. App-supplied secrets (e.g. derived from discovered
+   * handshakes) are handled separately by the caller and do not go through here.
+   */
+  async #getPointDerivedSecrets(contractAddress: AztecAddress, recipient: AztecAddress): Promise<AppTaggingSecret[]> {
+    const recipientCompleteAddress = await this.addressStore.getCompleteAddress(recipient);
+    if (!recipientCompleteAddress || !(await this.keyStore.hasAccount(recipient))) {
+      this.log.warn(
+        `Skipping sender-derived tag retrieval for ${recipient.toString()} due to unknown address preimage`,
+      );
+      return [];
+    }
+    const recipientIvsk = await this.keyStore.getMasterIncomingViewingSecretKey(recipient);
+
+    const [senderPoints, registeredSecrets] = await Promise.all([
+      this.#getSecretsForSenders(recipientCompleteAddress, recipientIvsk),
+      this.taggingSecretSourcesStore.getSharedSecretsForRecipient(recipient),
+    ]);
+    return Promise.all([
+      ...senderPoints.map(secret => AppTaggingSecret.computeDirectional(secret, contractAddress, recipient)),
+      ...registeredSecrets.flatMap(({ kind, secret }) => {
+        switch (kind) {
+          case 'arbitrary-secret':
+            return [AppTaggingSecret.computeDirectional(secret, contractAddress, recipient)];
+          case 'handshake':
+            // A handshake-backed sender tags messages with the bare app-siloed secret, one tag domain per delivery
+            // mode.
+            return [
+              AppTaggingSecret.computeAppSiloed(secret, contractAddress, AppTaggingSecretKind.UNCONSTRAINED),
+              AppTaggingSecret.computeAppSiloed(secret, contractAddress, AppTaggingSecretKind.CONSTRAINED),
+            ];
         }
       }),
-    );
+    ]);
   }
 
   async #getSecretsForSenders(
-    contractAddress: AztecAddress,
-    recipient: AztecAddress,
-  ): Promise<DirectionalAppTaggingSecret[]> {
-    const recipientCompleteAddress = await this.#getCompleteAddress(recipient);
-    const recipientIvsk = await this.keyStore.getMasterIncomingViewingSecretKey(recipient);
-
+    recipientCompleteAddress: CompleteAddress,
+    recipientIvsk: GrumpkinScalar,
+  ): Promise<Point[]> {
     // We implicitly add all PXE accounts as senders, this helps us decrypt tags on notes that we send to ourselves
-    // (recipient = us, sender = us)
-    const allSenders = [...(await this.senderAddressBookStore.getSenders()), ...(await this.keyStore.getAccounts())];
-
-    // We deduplicate the senders by adding them to a set and then converting the set back to an array
-    const deduplicatedSenders = Array.from(new Set(allSenders.map(sender => sender.toString()))).map(sender =>
-      AztecAddress.fromString(sender),
-    );
+    // (recipient = us, sender = us).
+    const allSenders = [...(await this.taggingSecretSourcesStore.getSenders()), ...(await this.keyStore.getAccounts())];
 
     return Promise.all(
-      deduplicatedSenders.map(sender => {
-        return DirectionalAppTaggingSecret.compute(
-          recipientCompleteAddress,
-          recipientIvsk,
-          sender,
-          contractAddress,
-          recipient,
-        );
+      allSenders.map(async sender => {
+        const taggingSecretPoint = await computeSharedTaggingSecret(recipientCompleteAddress, recipientIvsk, sender);
+
+        if (!taggingSecretPoint) {
+          // Note that all senders originate from either the TaggingSecretSourcesStore or the KeyStore.
+          throw new Error(
+            `Failed to compute a tagging secret for sender ${sender} - this implies this is an invalid address, which should not happen as they have been previously registered in PXE.`,
+          );
+        }
+
+        return taggingSecretPoint;
       }),
     );
-  }
-
-  #storePendingTaggedLogs(
-    contractAddress: AztecAddress,
-    capsuleArrayBaseSlot: Fr,
-    recipient: AztecAddress,
-    privateLogs: TxScopedL2Log[],
-  ) {
-    // Build all pending tagged logs from the scoped logs
-    const pendingTaggedLogs = privateLogs.map(scopedLog => {
-      const pendingTaggedLog = new PendingTaggedLog(
-        scopedLog.logData,
-        scopedLog.txHash,
-        scopedLog.noteHashes,
-        scopedLog.firstNullifier,
-        recipient,
-      );
-
-      return pendingTaggedLog.toFields();
-    });
-
-    // TODO: This looks like it could belong more at the oracle interface level
-    return this.capsuleStore.appendToCapsuleArray(contractAddress, capsuleArrayBaseSlot, pendingTaggedLogs, this.jobId);
-  }
-
-  async #getCompleteAddress(account: AztecAddress): Promise<CompleteAddress> {
-    const completeAddress = await this.addressStore.getCompleteAddress(account);
-    if (!completeAddress) {
-      throw new Error(
-        `No public key registered for address ${account}.
-				Register it by calling pxe.addAccount(...).\nSee docs for context: https://docs.aztec.network/developers/resources/debugging/aztecnr-errors#simulation-error-no-public-key-registered-for-address-0x0-register-it-by-calling-pxeregisterrecipient-or-pxeregisteraccount`,
-      );
-    }
-    return completeAddress;
   }
 }

@@ -3,11 +3,12 @@ import type { AztecNode } from '@aztec/aztec.js/node';
 import { readFieldCompressedString } from '@aztec/aztec.js/utils';
 import { createLogger } from '@aztec/foundation/log';
 import { TokenContract } from '@aztec/noir-contracts.js/Token';
-import { TestWallet, proveInteraction } from '@aztec/test-wallet/server';
 
 import { jest } from '@jest/globals';
 
 import { getSponsoredFPCAddress } from '../fixtures/utils.js';
+import { TestWallet } from '../test-wallet/test_wallet.js';
+import { proveInteraction } from '../test-wallet/utils.js';
 import {
   type TestAccounts,
   createWalletAndAztecNodeClient,
@@ -17,6 +18,8 @@ import { ChainHealth, type ServiceEndpoint, getRPCEndpoint, setupEnvironment } f
 
 const config = setupEnvironment(process.env);
 
+// Basic token transfer test against a live k8s deployment. Deploys a sponsored FPC and token contract
+// via the cluster's RPC endpoint, then executes private and public transfers between test accounts.
 describe('token transfer test', () => {
   jest.setTimeout(10 * 60 * 2000); // 20 minutes
 
@@ -51,7 +54,8 @@ describe('token transfer test', () => {
 
   it('can get info', async () => {
     const name = readFieldCompressedString(
-      await testAccounts.tokenContract.methods.private_get_name().simulate({ from: testAccounts.tokenAdminAddress }),
+      (await testAccounts.tokenContract.methods.private_get_name().simulate({ from: testAccounts.tokenAdminAddress }))
+        .result,
     );
     expect(name).toBe(testAccounts.tokenName);
   });
@@ -62,16 +66,20 @@ describe('token transfer test', () => {
 
     for (const a of testAccounts.accounts) {
       expect(MINT_AMOUNT).toBe(
-        await testAccounts.tokenContract.methods
-          .balance_of_public(a)
-          .simulate({ from: testAccounts.tokenAdminAddress }),
+        (
+          await testAccounts.tokenContract.methods
+            .balance_of_public(a)
+            .simulate({ from: testAccounts.tokenAdminAddress })
+        ).result,
       );
     }
 
     expect(0n).toBe(
-      await testAccounts.tokenContract.methods
-        .balance_of_public(recipient)
-        .simulate({ from: testAccounts.tokenAdminAddress }),
+      (
+        await testAccounts.tokenContract.methods
+          .balance_of_public(recipient)
+          .simulate({ from: testAccounts.tokenAdminAddress })
+      ).result,
     );
 
     // For each round, make both private and public transfers
@@ -93,14 +101,16 @@ describe('token transfer test', () => {
 
     for (const a of testAccounts.accounts) {
       expect(MINT_AMOUNT - ROUNDS * transferAmount).toBe(
-        await testAccounts.tokenContract.methods.balance_of_public(a).simulate({ from: a }),
+        (await testAccounts.tokenContract.methods.balance_of_public(a).simulate({ from: a })).result,
       );
     }
 
     expect(ROUNDS * transferAmount * BigInt(testAccounts.accounts.length)).toBe(
-      await testAccounts.tokenContract.methods
-        .balance_of_public(recipient)
-        .simulate({ from: testAccounts.tokenAdminAddress }),
+      (
+        await testAccounts.tokenContract.methods
+          .balance_of_public(recipient)
+          .simulate({ from: testAccounts.tokenAdminAddress })
+      ).result,
     );
   });
 });

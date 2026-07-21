@@ -3,19 +3,33 @@ import { NoCommitteeError } from '@aztec/ethereum/contracts';
 import { type Logger, createLogger } from '@aztec/foundation/log';
 import {
   type CheckpointAttestation,
+  type CoordinationSignatureContext,
   type P2PValidator,
   PeerErrorSeverity,
   type ValidationResult,
+  hasValidSignatureContext,
 } from '@aztec/stdlib/p2p';
-
-import { isWithinClockTolerance } from '../clock_tolerance.js';
+import type { ConsensusTimetable } from '@aztec/stdlib/timetable';
 
 export class CheckpointAttestationValidator implements P2PValidator<CheckpointAttestation> {
   protected epochCache: EpochCacheInterface;
   protected logger: Logger;
+  private readonly timetable: ConsensusTimetable;
+  protected readonly signatureContext: CoordinationSignatureContext;
+  private readonly clockDisparityMs: number;
 
-  constructor(epochCache: EpochCacheInterface) {
+  constructor(
+    epochCache: EpochCacheInterface,
+    timetable: ConsensusTimetable,
+    opts: {
+      signatureContext: CoordinationSignatureContext;
+      clockDisparityMs: number;
+    },
+  ) {
     this.epochCache = epochCache;
+    this.timetable = timetable;
+    this.signatureContext = opts.signatureContext;
+    this.clockDisparityMs = opts.clockDisparityMs;
     this.logger = createLogger('p2p:checkpoint-attestation-validator');
   }
 
@@ -23,18 +37,36 @@ export class CheckpointAttestationValidator implements P2PValidator<CheckpointAt
     const slotNumber = message.payload.header.slotNumber;
 
     try {
-      const { currentSlot, nextSlot } = this.epochCache.getCurrentAndNextSlot();
+      // Cross-chain replay check: reject attestations that carry a foreign signing domain.
+      if (!hasValidSignatureContext(message.payload, this.signatureContext)) {
+        this.logger.warn(`Rejecting checkpoint attestation with foreign signature context for slot ${slotNumber}`, {
+          chainId: message.payload.signatureContext.chainId,
+          rollupAddress: message.payload.signatureContext.rollupAddress.toString(),
+          expectedChainId: this.signatureContext.chainId,
+          expectedRollupAddress: this.signatureContext.rollupAddress.toString(),
+        });
+        return { result: 'reject', severity: PeerErrorSeverity.LowToleranceError };
+      }
 
-      if (slotNumber !== currentSlot && slotNumber !== nextSlot) {
-        // Check if message is for previous slot and within clock tolerance
-        if (!isWithinClockTolerance(slotNumber, currentSlot, this.epochCache)) {
-          this.logger.warn(
-            `Checkpoint attestation slot ${slotNumber} is not current (${currentSlot}) or next (${nextSlot}) slot`,
-          );
-          return { result: 'reject', severity: PeerErrorSeverity.HighToleranceError };
-        }
-        this.logger.debug(`Ignoring checkpoint attestation for previous slot ${slotNumber} within clock tolerance`);
-        return { result: 'ignore' };
+      // Accept attestations whose explicit per-slot receive window contains the current wall-clock time.
+      // The window spans the build-frame start (attestation_receive_start) to the attestation deadline
+      // (target_slot_start + S - 2E), widened by the configured clock-disparity tolerance on both ends, so
+      // it covers the build slot, the target slot, and clock-disparity grace. This is the sole arrival
+      // gate; attestations are otherwise attributed by content, not by current/next slot.
+      const startSeconds = this.timetable.getAttestationReceiveStart(slotNumber);
+      const deadlineSeconds = this.timetable.getAttestationDeadline(slotNumber);
+      const nowMs = Number(this.epochCache.getEpochAndSlotNow().nowMs);
+      if (
+        nowMs < startSeconds * 1000 - this.clockDisparityMs ||
+        nowMs > deadlineSeconds * 1000 + this.clockDisparityMs
+      ) {
+        this.logger.warn(`Checkpoint attestation slot ${slotNumber} is outside its receive window`, {
+          slotNumber,
+          nowMs,
+          windowStartSeconds: startSeconds,
+          windowDeadlineSeconds: deadlineSeconds,
+        });
+        return { result: 'reject', severity: PeerErrorSeverity.HighToleranceError };
       }
 
       // Verify the signature is valid

@@ -1,0 +1,36 @@
+{
+  "name": "@aztec/l1-artifacts",
+  "version": "0.1.0",
+  "type": "module",
+  "exports": {
+    "./network-defaults.json": "./l1-contracts/scripts/network-defaults.json",
+    "./*": "./dest/*.js",
+    ".": "./dest/index.js"
+  },
+  "typedocOptions": {
+    "entryPoints": "./src/index.ts",
+    "displayName": "L1 Contracts",
+    "tsconfig": "./tsconfig.json"
+  },
+  "scripts": {
+    "build": "yarn clean && yarn generate && tsc -p tsconfig.json",
+    "clean": "rm -rf ./dest ./src .tsbuildinfo",
+    "copy-artifacts": "bash scripts/copy-foundry-artifacts.sh",
+    "generate": "yarn copy-artifacts && yarn generate:l1-contracts",
+    "generate:l1-contracts": "bash scripts/generate-artifacts.sh"
+  },
+  "dependencies": {
+    "tslib": "^2.4.0"
+  },
+  "devDependencies": {
+    "@types/node": "^22.15.17",
+    "@typescript/native-preview": "7.0.0-dev.20260113.1",
+    "ts-node": "^10.9.1",
+    "typescript": "^5.3.3"
+  },
+  "files": [
+    "dest",
+    "l1-contracts"
+  ],
+  "types": "./dest/index.d.ts"
+}

@@ -189,10 +189,10 @@ Click on an opcode name to view its detailed documentation.
     ```javascript
     M[dstOffset] = contractInstance.exists ? 1 : 0; M[dstOffset+1] = contractInstance[memberEnum]
     ```
-* **[🔗EMITUNENCRYPTEDLOG](opcodes/emitunencryptedlog.md)**: Emit public log
+* **[🔗EMITPUBLICLOG](opcodes/emitpubliclog.md)**: Emit public log
     * Opcode `0x37`
     ```javascript
-    unencryptedLogs.append(M[logOffset:logOffset+M[logSizeOffset]])
+    publicLogs.append(M[logOffset:logOffset+M[logSizeOffset]])
     ```
 * **[🔗SENDL2TOL1MSG](opcodes/sendl2tol1msg.md)**: Send L2-to-L1 message
     * Opcode `0x38`
@@ -250,9 +250,9 @@ Click on an opcode name to view its detailed documentation.
 * **[🔗ECADD](opcodes/ecadd.md)**: Grumpkin elliptic curve addition
     * Opcode `0x42`
     ```javascript
-    M[dstOffset:dstOffset+3] = grumpkinAdd(
-        /*point1=*/{x: M[p1XOffset], y: M[p1YOffset], isInfinite: M[p1IsInfiniteOffset]},
-        /*point2=*/{x: M[p2XOffset], y: M[p2YOffset], isInfinite: M[p2IsInfiniteOffset]}
+    M[dstOffset:dstOffset+1] = grumpkinAdd(
+        /*point1=*/{x: M[p1XOffset], y: M[p1YOffset]},
+        /*point2=*/{x: M[p2XOffset], y: M[p2YOffset]}
     )
     ```
 * **[🔗TORADIXBE](opcodes/toradixbe.md)**: Convert to radix (big-endian)

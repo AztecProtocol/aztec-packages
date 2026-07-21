@@ -9,10 +9,18 @@ resource "google_container_cluster" "primary" {
   deletion_protection      = true
 
   # Kubernetes version
-  min_master_version = var.node_version
+  min_master_version = "1.30.5-gke.1713000"
 
   release_channel {
     channel = "UNSPECIFIED"
+  }
+
+  # NOTE: Enabling workload identity at the cluster level means new node pools may default to GKE_METADATA mode.
+  dynamic "workload_identity_config" {
+    for_each = var.enable_workload_identity ? [1] : []
+    content {
+      workload_pool = "${var.project}.svc.id.goog"
+    }
   }
 
   # Network configuration
@@ -183,6 +191,12 @@ resource "google_container_node_pool" "aztec_nodes-8core-hi-mem" {
       hi-mem    = "true"
     }
     tags = ["aztec-gke-node", "aztec"]
+
+    taint {
+      key    = "hi-mem"
+      value  = "true"
+      effect = "NO_SCHEDULE"
+    }
   }
 
   # Management configuration
@@ -330,6 +344,52 @@ resource "google_container_node_pool" "spot_nodes_2core" {
   }
 }
 
+# Create 4 core spot instance node pool with autoscaling
+resource "google_container_node_pool" "spot_nodes_4core" {
+  name     = "${var.cluster_name}-4core-spot"
+  location = var.zone
+  cluster  = var.cluster_name
+  version  = var.node_version
+  # Enable autoscaling
+  autoscaling {
+    min_node_count = 0
+    max_node_count = 1500
+  }
+
+  # Node configuration
+  node_config {
+    machine_type = "t2d-standard-4"
+    spot         = true
+
+    service_account = var.service_account
+    oauth_scopes = [
+      "https://www.googleapis.com/auth/cloud-platform"
+    ]
+
+    labels = {
+      env       = "production"
+      pool      = "spot"
+      local-ssd = "false"
+      node-type = "network"
+      cores     = "4"
+    }
+    tags = ["aztec-gke-node", "spot"]
+
+    # Spot instance termination handler
+    taint {
+      key    = "cloud.google.com/gke-spot"
+      value  = "true"
+      effect = "NO_SCHEDULE"
+    }
+  }
+
+  # Management configuration
+  management {
+    auto_repair  = true
+    auto_upgrade = false
+  }
+}
+
 # Create 8 core high memory (64 GB) node pool with autoscaling, used for metrics
 resource "google_container_node_pool" "infra_nodes_8core_highmem" {
   name     = "${var.cluster_name}-infra-8core-hi-mem"
@@ -338,8 +398,8 @@ resource "google_container_node_pool" "infra_nodes_8core_highmem" {
   version  = var.node_version
   # Enable autoscaling
   autoscaling {
-    min_node_count = 0
-    max_node_count = 4
+    min_node_count = var.infra_8core_pool_size.min
+    max_node_count = var.infra_8core_pool_size.max
   }
 
   # Node configuration
@@ -350,6 +410,13 @@ resource "google_container_node_pool" "infra_nodes_8core_highmem" {
     oauth_scopes = [
       "https://www.googleapis.com/auth/cloud-platform"
     ]
+
+    dynamic "workload_metadata_config" {
+      for_each = var.enable_workload_identity ? [1] : []
+      content {
+        mode = "GKE_METADATA"
+      }
+    }
 
     labels = {
       env       = "production"
@@ -374,8 +441,8 @@ resource "google_container_node_pool" "infra_nodes_16core_highmem" {
   version  = var.node_version
   # Enable autoscaling
   autoscaling {
-    min_node_count = 0
-    max_node_count = 4
+    min_node_count = var.infra_16core_pool_size.min
+    max_node_count = var.infra_16core_pool_size.max
   }
 
   # Node configuration
@@ -386,6 +453,13 @@ resource "google_container_node_pool" "infra_nodes_16core_highmem" {
     oauth_scopes = [
       "https://www.googleapis.com/auth/cloud-platform"
     ]
+
+    dynamic "workload_metadata_config" {
+      for_each = var.enable_workload_identity ? [1] : []
+      content {
+        mode = "GKE_METADATA"
+      }
+    }
 
     labels = {
       env       = "production"

@@ -1,24 +1,29 @@
 include "../constants_gen.pil";
 
- /**
- * This virtual gadget implements the NullifierExists opcode, which checks if a siloed nullifier exists
- * in the nullifier tree.
+/**
+ * This virtual gadget implements the NullifierExists opcode, which checks whether
+ * a given siloed nullifier exists in the nullifier tree.
+ * The result is a boolean written to the output register.
  *
- * The opcode is gated by the `sel_execute_nullifier_exists` selector, which is set to 1 if the
- * NullifierExists opcode has reached dispatch (there are no earlier errors).
+ * The opcode is gated by the `sel_execute_nullifier_exists` selector, which is set to 1
+ * if the NullifierExists opcode has reached opcode dispatch (there are no earlier errors).
  *
- * This opcode uses:
- * - register[0] as the siloed nullifier input register (FF)
- * - register[1] as the output register (boolean result to be tagged as u1)
+ * This opcode also uses:
+ * - register[0]: the siloed nullifier to check for existence (FF)                (from execution.pil)
+ * - register[1]: boolean output indicating whether the nullifier exists (U1)     (from execution.pil)
+ * - prev_nullifier_tree_root: the nullifier tree root                            (from context.pil)
  *
- * Memory reads and writes are handled by standard execution logic.
+ * Interactions:
+ * - A lookup into indexed_tree_check determines whether the siloed nullifier exists
+ *   in the nullifier tree. The nullifier is already siloed by the caller (no siloing
+ *   happens in this opcode, sel_silo = 0).
  *
- * The gadget performs a lookup into the nullifier_check gadget to determine if the nullifier
- * exists. The nullifier is already siloed by the caller (no siloing happens in this opcode).
- * The result is written to the output register.
+ * Errors:
+ * - This opcode is infallible and sel_opcode_error is constrained to be zero
+ *   in execution.pil (see #[INFALLIBLE_OPCODES_SUCCESS]).
  *
- * If there are errors in earlier temporality groups (e.g. address resolution or out-of-gas errors),
- * all selectors should be 0 and output register & intermediate values should be 0.
+ * If there are errors in earlier temporality groups (i.e. the opcode is not dispatched),
+ * all columns in this trace should be 0 (gated by sel_execute_nullifier_exists).
  */
 
 namespace execution; // this is a virtual gadget that shares rows with the execution trace
@@ -27,23 +32,32 @@ namespace execution; // this is a virtual gadget that shares rows with the execu
     #[skippable_if]
     sel_execute_nullifier_exists = 0; // from execution.pil.
 
+    // From execution.pil.
+    sel_execute_nullifier_exists * (nullifier_tree_height - constants.NULLIFIER_TREE_HEIGHT) = 0;
+
+    // nullifier_merkle_separator is declared in execution.pil
+    sel_execute_nullifier_exists * (nullifier_merkle_separator - constants.DOM_SEP__NULLIFIER_MERKLE) = 0;
 
     // Lookup into nullifier tree check to determine existence
     #[NULLIFIER_EXISTS_CHECK]
     sel_execute_nullifier_exists {
         // Outputs
-        /*exists=*/ register[1],                         // output: whether nullifier exists
+        /*exists=*/ register[1],          // output: whether nullifier exists
         // Inputs
-        /*nullifier=*/ register[0],                      // input: siloed nullifier to check
-        prev_nullifier_tree_root,                        // input: tree root from context
-        /*should_silo=0*/ precomputed.zero              // input: should_silo = 0 (nullifier is already siloed, address also omitted)
-    } in nullifier_check.sel {
+        /*value=*/ register[0],           // input: siloed nullifier to check
+        prev_nullifier_tree_root,         // input: tree root from context
+        nullifier_tree_height,            // input: tree height
+        nullifier_merkle_separator,       // input: per-tree merkle node separator
+        /*sel_silo=0*/ precomputed.zero   // input: sel_silo = 0 (nullifier is already siloed, address and separator omitted)
+    } in indexed_tree_check.sel {
         // Outputs
-        nullifier_check.exists,
+        indexed_tree_check.exists,
         // Inputs
-        nullifier_check.nullifier,
-        nullifier_check.root,
-        nullifier_check.should_silo
+        indexed_tree_check.value,
+        indexed_tree_check.root,
+        indexed_tree_check.tree_height,
+        indexed_tree_check.merkle_hash_separator,
+        indexed_tree_check.sel_silo
     };
 
     // Tag result (`exists`) as u1 (via mem_tag_reg[1]).

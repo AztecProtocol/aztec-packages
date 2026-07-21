@@ -58,7 +58,7 @@ uint256 constant MAX_ETH_PER_FEE_ASSET = 1e14;
 uint256 constant MAX_FEE_ASSET_PRICE_MODIFIER_BPS = 100;
 
 uint256 constant L1_GAS_PER_CHECKPOINT_PROPOSED = 300_000;
-uint256 constant L1_GAS_PER_EPOCH_VERIFIED = 1_000_000;
+uint256 constant L1_GAS_PER_EPOCH_VERIFIED = 3_600_000;
 
 uint256 constant MINIMUM_CONGESTION_MULTIPLIER = 1e9;
 
@@ -70,6 +70,29 @@ uint256 constant MAGIC_CONGESTION_VALUE_MULTIPLIER = 854_700_854;
 
 uint256 constant BLOB_GAS_PER_BLOB = 2 ** 17;
 uint256 constant BLOBS_PER_CHECKPOINT = 3;
+
+/*
+ * Proving-cost rate limit
+ *
+ * `setProvingCostPerMana` can move the rollup's fee model materially, so the value is
+ * constrained to a bounded multiplicative step per cooldown instead of unconstrained writes.
+ *
+ *   - PROVING_COST_UPDATE_INTERVAL: minimum time between updates (acts as the anti-multicall guard).
+ *   - PROVING_COST_STEP_NUM / _DEN: multiplicative step cap applied against the live value.
+ *   - MIN_PROVING_COST_PER_MANA: floor that keeps the ratio algebra useful (0 and 1 freeze).
+ *
+ * With 3/2 per 30 days, the value requires ~170 days to move 10x and ~340 days to move 100x.
+ * `provingCostLastUpdate == 0` after `initialize`, so the first post-init update is not gated
+ * by the cooldown; the 30-day cadence engages after that.
+ */
+uint256 constant PROVING_COST_UPDATE_INTERVAL = 30 days;
+uint256 constant PROVING_COST_STEP_NUM = 3;
+uint256 constant PROVING_COST_STEP_DEN = 2;
+uint256 constant MIN_PROVING_COST_PER_MANA = 2;
+// Initial-only ceiling. Prevents a mistaken deployment from setting a value that will take a long
+// time to correct from. At the time of this writing, deployed value is 2.5e7, and it is expected
+// that proving costs will go down.
+uint256 constant MAX_INITIAL_PROVING_COST_PER_MANA = 2e8;
 
 struct OracleInput {
   int256 feeAssetPriceModifier;
@@ -85,7 +108,7 @@ struct ManaMinFeeComponents {
 struct FeeStore {
   CompressedFeeConfig config;
   L1GasOracleValues l1GasOracleValues;
-  mapping(uint256 checkpointNumber => CompressedFeeHeader feeHeader) feeHeaders;
+  uint64 provingCostLastUpdate;
 }
 
 library FeeLib {
@@ -119,6 +142,21 @@ library FeeLib {
 
     // Computes and ensures that limit is within sane bounds
     computeManaLimit(_manaTarget);
+
+    // The rate-limit algebra in updateProvingCostPerMana assumes `current >= 2`; initializing
+    // below the floor would permanently freeze the proving-cost update path.
+    uint256 provingCost = EthValue.unwrap(_provingCostPerMana);
+    require(
+      provingCost >= MIN_PROVING_COST_PER_MANA,
+      Errors.FeeLib__ProvingCostBelowFloor(provingCost, MIN_PROVING_COST_PER_MANA)
+    );
+    // The uint64 cap inside FeeConfigLib.compress is a storage-shape bound, not an economic
+    // bound. Enforce a separate initial ceiling so a deploy cannot strand the rollup at a value
+    // that takes years to drift back to normal operating ranges via the rate-limited updater.
+    require(
+      provingCost <= MAX_INITIAL_PROVING_COST_PER_MANA,
+      Errors.FeeLib__ProvingCostAboveCeiling(provingCost, MAX_INITIAL_PROVING_COST_PER_MANA)
+    );
 
     // Validate initial ETH per fee asset is within bounds
     uint256 initialPrice = EthPerFeeAssetE12.unwrap(_initialEthPerFeeAsset);
@@ -159,8 +197,27 @@ library FeeLib {
   function updateProvingCostPerMana(EthValue _provingCostPerMana) internal {
     FeeStore storage feeStore = getStorage();
     FeeConfig memory config = feeStore.config.decompress();
+
+    uint256 current = EthValue.unwrap(config.provingCostPerMana);
+    uint256 newV = EthValue.unwrap(_provingCostPerMana);
+
+    require(newV >= MIN_PROVING_COST_PER_MANA, Errors.FeeLib__ProvingCostBelowFloor(newV, MIN_PROVING_COST_PER_MANA));
+
+    uint256 nextAllowed = uint256(feeStore.provingCostLastUpdate) + PROVING_COST_UPDATE_INTERVAL;
+    require(
+      feeStore.provingCostLastUpdate == 0 || block.timestamp >= nextAllowed,
+      Errors.FeeLib__ProvingCostCooldown(nextAllowed)
+    );
+
+    require(
+      newV * PROVING_COST_STEP_DEN <= current * PROVING_COST_STEP_NUM
+        && newV * PROVING_COST_STEP_NUM >= current * PROVING_COST_STEP_DEN,
+      Errors.FeeLib__ProvingCostStepExceeded(current, newV)
+    );
+
     config.provingCostPerMana = _provingCostPerMana;
     feeStore.config = config.compress();
+    feeStore.provingCostLastUpdate = uint64(block.timestamp);
   }
 
   function updateL1GasFeeOracle() internal {
@@ -193,11 +250,9 @@ library FeeLib {
       Errors.FeeLib__InvalidFeeAssetPriceModifier()
     );
     CompressedFeeHeader parentFeeHeader = STFLib.getFeeHeader(_checkpointNumber - 1);
-    // Use Math.max to handle checkpoints from ignition where ethPerFeeAsset may be 0
-    uint256 parentEthPerFeeAsset = Math.max(parentFeeHeader.getEthPerFeeAsset(), MIN_ETH_PER_FEE_ASSET);
     return FeeHeader({
       excessMana: FeeLib.computeExcessMana(parentFeeHeader),
-      ethPerFeeAsset: FeeLib.computeNewEthPerFeeAsset(parentEthPerFeeAsset, _feeAssetPriceModifierBps),
+      ethPerFeeAsset: FeeLib.computeNewEthPerFeeAsset(parentFeeHeader.getEthPerFeeAsset(), _feeAssetPriceModifierBps),
       manaUsed: _manaUsed,
       congestionCost: _congestionCost,
       proverCost: _proverCost
@@ -219,10 +274,6 @@ library FeeLib {
     FeeStore storage feeStore = getStorage();
 
     uint256 manaTarget = feeStore.config.getManaTarget();
-
-    if (manaTarget == 0) {
-      return ManaMinFeeComponents({sequencerCost: 0, proverCost: 0, congestionCost: 0, congestionMultiplier: 0});
-    }
 
     EthValue sequencerCostPerMana;
     EthValue proverCostPerMana;
@@ -278,11 +329,6 @@ library FeeLib {
     });
   }
 
-  function isTxsEnabled() internal view returns (bool) {
-    // If the target is 0, the limit is 0. And no transactions can enter
-    return getManaTarget() > 0;
-  }
-
   function getManaTarget() internal view returns (uint256) {
     return getStorage().config.getManaTarget();
   }
@@ -297,9 +343,7 @@ library FeeLib {
   }
 
   function getEthPerFeeAssetAtCheckpoint(uint256 _checkpointNumber) internal view returns (EthPerFeeAssetE12) {
-    uint256 value = STFLib.getFeeHeader(_checkpointNumber).getEthPerFeeAsset();
-    // Ensure we never return 0 (e.g., from checkpoints proposed during ignition with manaTarget = 0)
-    return EthPerFeeAssetE12.wrap(Math.max(value, MIN_ETH_PER_FEE_ASSET));
+    return EthPerFeeAssetE12.wrap(STFLib.getFeeHeader(_checkpointNumber).getEthPerFeeAsset());
   }
 
   function computeExcessMana(CompressedFeeHeader _feeHeader) internal view returns (uint256) {
@@ -309,10 +353,15 @@ library FeeLib {
 
   function congestionMultiplier(uint256 _numerator) internal view returns (uint256) {
     FeeStore storage feeStore = getStorage();
-    return fakeExponential(MINIMUM_CONGESTION_MULTIPLIER, _numerator, feeStore.config.getCongestionUpdateFraction());
+    uint256 denominator = feeStore.config.getCongestionUpdateFraction();
+    // Cap the exponent to prevent overflow in the Taylor series.
+    // At e^100, the multiplier is ~2.69e43 * MINIMUM_CONGESTION_MULTIPLIER, more than enough
+    uint256 cappedNumerator = Math.min(_numerator, denominator * 100);
+    return fakeExponential(MINIMUM_CONGESTION_MULTIPLIER, cappedNumerator, denominator);
   }
 
   function computeManaLimit(uint256 _manaTarget) internal pure returns (uint256) {
+    require(_manaTarget > 0, Errors.FeeLib__InvalidManaTarget(1, _manaTarget));
     uint256 manaLimit = _manaTarget * 2;
 
     // Ensure that the maximum spent mana can fit in the fee header
@@ -342,7 +391,10 @@ library FeeLib {
   }
 
   function summedMinFee(ManaMinFeeComponents memory _components) internal pure returns (uint256) {
-    return _components.sequencerCost + _components.proverCost + _components.congestionCost;
+    // Cap at uint128 max to ensure the fee can always be represented in the proposal header's
+    // feePerL2Gas field (uint128). Without this cap, extreme congestion or parameter combinations
+    // could produce fees that no valid header can represent, causing a liveness failure.
+    return Math.min(_components.sequencerCost + _components.proverCost + _components.congestionCost, type(uint128).max);
   }
 
   function getStorage() internal pure returns (FeeStore storage storageStruct) {

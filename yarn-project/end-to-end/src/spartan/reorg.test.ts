@@ -6,10 +6,10 @@ import { createLogger } from '@aztec/foundation/log';
 import { retryUntil } from '@aztec/foundation/retry';
 import { sleep } from '@aztec/foundation/sleep';
 import { DateProvider } from '@aztec/foundation/timer';
-import { TestWallet } from '@aztec/test-wallet/server';
 
 import { expect, jest } from '@jest/globals';
 
+import { TestWallet } from '../test-wallet/test_wallet.js';
 import {
   type TestAccounts,
   createWalletAndAztecNodeClient,
@@ -32,19 +32,26 @@ const debugLogger = createLogger('e2e:spartan-test:reorg');
 async function checkBalances(testAccounts: TestAccounts, mintAmount: bigint, totalAmountTransferred: bigint) {
   for (const acc of testAccounts.accounts) {
     expect(
-      await testAccounts.tokenContract.methods
-        .balance_of_public(acc)
-        .simulate({ from: testAccounts.tokenAdminAddress }),
+      (
+        await testAccounts.tokenContract.methods
+          .balance_of_public(acc)
+          .simulate({ from: testAccounts.tokenAdminAddress })
+      ).result,
     ).toBe(mintAmount - totalAmountTransferred);
   }
 
   expect(
-    await testAccounts.tokenContract.methods
-      .balance_of_public(testAccounts.recipientAddress)
-      .simulate({ from: testAccounts.tokenAdminAddress }),
+    (
+      await testAccounts.tokenContract.methods
+        .balance_of_public(testAccounts.recipientAddress)
+        .simulate({ from: testAccounts.tokenAdminAddress })
+    ).result,
   ).toBe(totalAmountTransferred * BigInt(testAccounts.accounts.length));
 }
 
+// Reorg resilience test against a live k8s deployment. Runs transfers across multiple epochs, injects a
+// prover failure via Chaos Mesh (CREATE_CHAOS_MESH), waits for chain recovery, and asserts token balances
+// remain consistent after the reorg.
 describe('reorg test', () => {
   jest.setTimeout(210 * 60 * 1000); // 210 minutes
 

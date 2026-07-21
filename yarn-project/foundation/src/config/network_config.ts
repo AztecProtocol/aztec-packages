@@ -5,10 +5,13 @@ export const NetworkConfigSchema = z
     bootnodes: z.array(z.string()),
     snapshots: z.array(z.string()),
     blobFileStoreUrls: z.array(z.string()).optional(),
+    txCollectionFileStoreUrls: z.array(z.string()).optional(),
     registryAddress: z.string(),
     feeAssetHandlerAddress: z.string().optional(),
     l1ChainId: z.number(),
     blockDurationMs: z.number().positive().optional(),
+    txPublicSetupAllowListExtend: z.string().optional(),
+    nodeVersion: z.string().optional(),
   })
   .passthrough(); // Allow additional unknown fields to pass through
 

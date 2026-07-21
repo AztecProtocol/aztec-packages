@@ -15,19 +15,17 @@ export function useContract() {
     setWait(true);
     const wallet = await deployerEnv.getWallet();
     const defaultAccountAddress = deployerEnv.getDefaultAccountAddress();
-    const salt = Fr.random();
 
     const { BoxReactContract } = await import('../../artifacts/BoxReact');
 
     const deploymentPromise = BoxReactContract.deploy(wallet, Fr.random(), defaultAccountAddress).send({
       from: defaultAccountAddress,
-      contractAddressSalt: salt,
     });
 
-    const contract = await toast.promise(deploymentPromise, {
+    const { contract } = await toast.promise(deploymentPromise, {
       pending: 'Deploying contract...',
       success: {
-        render: ({ data }) => `Address: ${data.address}`,
+        render: ({ data }) => `Address: ${data.contract.address}`,
       },
       error: 'Error deploying contract',
     });

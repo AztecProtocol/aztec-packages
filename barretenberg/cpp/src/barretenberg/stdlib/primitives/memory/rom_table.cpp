@@ -1,6 +1,6 @@
 // === AUDIT STATUS ===
 // internal:    { status: Complete, auditors: [Raju], commit: 05a381f8b31ae4648e480f1369e911b148216e8b}
-// external_1:  { status: not started, auditors: [], commit: }
+// external_1:  { status: Complete, auditors: [Sherlock], commit: e6694849223 }
 // external_2:  { status: not started, auditors: [], commit: }
 // =====================
 
@@ -20,7 +20,7 @@ namespace bb::stdlib {
  * which a read operation happens before the context has been set.
  *
  */
-template <IsUltraOrMegaBuilder Builder>
+template <typename Builder>
 rom_table<Builder>::rom_table(Builder* builder, const std::vector<field_pt>& table_entries)
     : raw_entries(table_entries)
     , length(raw_entries.size())
@@ -44,7 +44,7 @@ rom_table<Builder>::rom_table(Builder* builder, const std::vector<field_pt>& tab
  * don't know whether they are constant or witnesses.
  *
  */
-template <IsUltraOrMegaBuilder Builder>
+template <typename Builder>
 rom_table<Builder>::rom_table(const std::vector<field_pt>& table_entries)
     : raw_entries(table_entries)
     , length(raw_entries.size())
@@ -77,7 +77,7 @@ rom_table<Builder>::rom_table(const std::vector<field_pt>& table_entries)
  * desired value from `raw_entries`. In particular, we simply _don't use_ the ROM table mechanism under the hood.
  * @note using this API, ROM tables are always fully initialized.
  */
-template <IsUltraOrMegaBuilder Builder> void rom_table<Builder>::initialize_table() const
+template <typename Builder> void rom_table<Builder>::initialize_table() const
 {
     if (initialized) {
         return;
@@ -109,23 +109,52 @@ template <IsUltraOrMegaBuilder Builder> void rom_table<Builder>::initialize_tabl
     initialized = true;
 }
 
-template <IsUltraOrMegaBuilder Builder> rom_table<Builder>::rom_table(const rom_table& other) = default;
-template <IsUltraOrMegaBuilder Builder> rom_table<Builder>::rom_table(rom_table&& other) = default;
-template <IsUltraOrMegaBuilder Builder>
-rom_table<Builder>& rom_table<Builder>::operator=(const rom_table& other) = default;
-template <IsUltraOrMegaBuilder Builder> rom_table<Builder>& rom_table<Builder>::operator=(rom_table&& other) = default;
+template <typename Builder> rom_table<Builder>::rom_table(const rom_table& other) = default;
 
-template <IsUltraOrMegaBuilder Builder> field_t<Builder> rom_table<Builder>::operator[](const size_t index) const
+template <typename Builder>
+rom_table<Builder>::rom_table(rom_table&& other) noexcept
+    : raw_entries(std::move(other.raw_entries))
+    , entries(std::move(other.entries))
+    , _tags(std::move(other._tags))
+    , length(other.length)
+    , rom_id(other.rom_id)
+    , initialized(other.initialized)
+    , context(other.context)
 {
-    if (index >= length) {
-        BB_ASSERT(context != nullptr);
-        context->failure("rom_rable: ROM array access out of bounds");
-    }
-
-    return entries[index];
+    other.length = 0;
+    other.rom_id = 0;
+    other.initialized = false;
+    other.context = nullptr;
 }
 
-template <IsUltraOrMegaBuilder Builder> field_t<Builder> rom_table<Builder>::operator[](const field_pt& index) const
+template <typename Builder> rom_table<Builder>& rom_table<Builder>::operator=(const rom_table& other) = default;
+
+template <typename Builder> rom_table<Builder>& rom_table<Builder>::operator=(rom_table&& other) noexcept
+{
+    if (this != &other) {
+        raw_entries = std::move(other.raw_entries);
+        entries = std::move(other.entries);
+        _tags = std::move(other._tags);
+        length = other.length;
+        rom_id = other.rom_id;
+        initialized = other.initialized;
+        context = other.context;
+
+        other.length = 0;
+        other.rom_id = 0;
+        other.initialized = false;
+        other.context = nullptr;
+    }
+    return *this;
+}
+
+template <typename Builder> field_t<Builder> rom_table<Builder>::operator[](const size_t index) const
+{
+    BB_ASSERT_LT(index, length, "rom_table: ROM array access out of bounds");
+    return raw_entries[index];
+}
+
+template <typename Builder> field_t<Builder> rom_table<Builder>::operator[](const field_pt& index) const
 {
     if (context == nullptr) {
         context = index.get_context();
@@ -135,26 +164,25 @@ template <IsUltraOrMegaBuilder Builder> field_t<Builder> rom_table<Builder>::ope
             "rom_table: Performing a read operation without providing a context. We cannot initialize the table.");
     }
 
+    const auto native_index = uint256_t(index.get_value());
+    BB_ASSERT_LT(native_index, length, "rom_table: ROM array access out of bounds");
+
     // When we perform the first read operation, we initialize the table
     initialize_table();
 
     if (index.is_constant()) {
-        return operator[](static_cast<size_t>(uint256_t(index.get_value()).data[0]));
-    }
-
-    const auto native_index = uint256_t(index.get_value());
-    if (native_index >= length) {
-        context->failure("rom_table: ROM array access out of bounds");
+        // This cast is safe because native_index is uint64_t (other components are zero) and native_index < length
+        return operator[](static_cast<size_t>(static_cast<uint64_t>(native_index)));
     }
 
     uint32_t output_idx = context->read_ROM_array(rom_id, index.get_witness_index());
     auto element = field_pt::from_witness_index(context, output_idx);
 
+    // This cast is safe because native_index is uint64_t (other components are zero) and native_index < length
     const size_t cast_index = static_cast<size_t>(static_cast<uint64_t>(native_index));
 
     // If the index is legitimate, restore the tag
     if (native_index < length) {
-
         element.set_origin_tag(_tags[cast_index]);
     }
     return element;

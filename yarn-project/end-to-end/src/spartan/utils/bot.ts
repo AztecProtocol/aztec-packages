@@ -34,7 +34,8 @@ export async function installTransferBot({
   logger: log,
   replicas = 1,
   txIntervalSeconds = 10,
-  followChain = 'PENDING',
+  followChain = 'CHECKPOINTED',
+  pxeSyncChainTip = 'proposed',
   mnemonic = process.env.LABS_INFRA_MNEMONIC ?? 'test test test test test test test test test test test junk',
   mnemonicStartIndex,
   botPrivateKey = process.env.BOT_TRANSFERS_L2_PRIVATE_KEY ?? '0xcafe01',
@@ -49,6 +50,7 @@ export async function installTransferBot({
   replicas?: number;
   txIntervalSeconds?: number;
   followChain?: string;
+  pxeSyncChainTip?: string;
   mnemonic?: string;
   mnemonicStartIndex?: number | string;
   botPrivateKey?: string;
@@ -67,6 +69,7 @@ export async function installTransferBot({
     'bot.replicaCount': replicas,
     'bot.txIntervalSeconds': txIntervalSeconds,
     'bot.followChain': followChain,
+    'bot.pxeSyncChainTip': pxeSyncChainTip,
     'bot.botPrivateKey': botPrivateKey,
     'bot.nodeUrl': resolvedNodeUrl,
     'bot.mnemonic': mnemonic,

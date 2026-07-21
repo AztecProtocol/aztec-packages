@@ -1,4 +1,4 @@
-export { ExtensionWallet, type DisconnectCallback } from './extension_wallet.js';
+export { ExtensionWallet } from './extension_wallet.js';
 export {
   ExtensionProvider,
   type DiscoveredWallet,

@@ -1,60 +1,165 @@
 #include "barretenberg/hypernova/hypernova_verifier.hpp"
 #include "barretenberg/circuit_checker/circuit_checker.hpp"
+#include "barretenberg/flavor/mega_app_flavor.hpp"
+#include "barretenberg/flavor/mega_app_recursive_flavor.hpp"
+#include "barretenberg/flavor/mega_kernel_flavor.hpp"
+#include "barretenberg/flavor/mega_kernel_recursive_flavor.hpp"
 #include "barretenberg/hypernova/hypernova_prover.hpp"
+#include "barretenberg/hypernova/test_utils.hpp"
 #include "barretenberg/stdlib_circuit_builders/mega_circuit_builder.hpp"
 #include "barretenberg/stdlib_circuit_builders/mock_circuits.hpp"
+#include "barretenberg/transcript/transcript_manifest.hpp"
 #include "gtest/gtest.h"
+
+#include <optional>
+#include <vector>
 
 using namespace bb;
 
-// TODO(https://github.com/AztecProtocol/barretenberg/issues/1553): improve testing
+/**
+ * @brief Build the expected HyperNova folding transcript manifest for a "previous accumulator + one instance" fold.
+ * @details This is the 2-claim folding session: one incoming instance's Oink + Sumcheck + batching challenges,
+ * followed by the 2-claim multilinear batching (the previous accumulator is held in memory, not in the transcript).
+ * The two slim flavors differ only in which databus columns are committed (from Flavor::BUILDER_BUS_INDICES) and
+ * whether LogDerivLookup is present (apps keep it, kernels drop it). Rounds: oink (0-2), instance sumcheck, batching
+ * challenges + MLB alpha, MLB sumcheck, MLB final evaluations + merge challenge.
+ */
+template <typename Flavor> TranscriptManifest build_expected_folding_manifest()
+{
+    static_assert(std::is_same_v<Flavor, bb::MegaKernelFlavor> || std::is_same_v<Flavor, bb::MegaAppFlavor>,
+                  "expected manifest only defined for MegaKernelFlavor / MegaAppFlavor");
+    // Apps keep LogDerivLookup; kernels drop it.
+    constexpr bool has_lookup = std::is_same_v<Flavor, bb::MegaAppFlavor>;
+
+    // Databus columns this flavor commits, in builder order, derived from the flavor's bus indices.
+    constexpr std::array<const char*, 7> ALL_BUSES = { "KERNEL_CALLDATA",     "FIRST_APP_CALLDATA",
+                                                       "SECOND_APP_CALLDATA", "THIRD_APP_CALLDATA",
+                                                       "FOURTH_APP_CALLDATA", "FIFTH_APP_CALLDATA",
+                                                       "RETURN_DATA" };
+    std::vector<std::string> buses;
+    for (size_t builder_idx : Flavor::BUILDER_BUS_INDICES) {
+        buses.emplace_back(ALL_BUSES[builder_idx]);
+    }
+
+    TranscriptManifest manifest;
+    constexpr size_t frs_per_G = FrCodec::calc_num_fields<curve::BN254::AffineElement>();
+    constexpr size_t NUM_SUMCHECK_UNIVARIATES = Flavor::VIRTUAL_LOG_N;
+
+    size_t round = 0;
+
+    // Round 0: Oink preamble + wires + ECC ops + databus -> eta + rom_logup_gamma challenges
+    manifest.add_challenge(round, std::array{ "eta", "rom_logup_gamma" });
+    manifest.add_entry(round, "vk_hash", 1);
+    for (size_t i = 0; i < 4; ++i) {
+        manifest.add_entry(round, "public_input_" + std::to_string(i), 1);
+    }
+    for (const auto& wire : { "W_L", "W_R", "W_O" }) {
+        manifest.add_entry(round, wire, frs_per_G);
+    }
+    for (const auto& wire : { "ECC_OP_WIRE_1", "ECC_OP_WIRE_2", "ECC_OP_WIRE_3", "ECC_OP_WIRE_4" }) {
+        manifest.add_entry(round, wire, frs_per_G);
+    }
+    for (const auto& bus : buses) {
+        manifest.add_entry(round, bus, frs_per_G);
+        manifest.add_entry(round, bus + "_READ_COUNTS", frs_per_G);
+    }
+    round++;
+
+    // Round 1: (lookup read columns) + w_4 -> beta, gamma challenges
+    manifest.add_challenge(round, std::array{ "beta", "gamma" });
+    if constexpr (has_lookup) {
+        manifest.add_entry(round, "LOOKUP_READ_COUNTS", frs_per_G);
+        manifest.add_entry(round, "LOOKUP_READ_TAGS", frs_per_G);
+    }
+    manifest.add_entry(round, "W_4", frs_per_G);
+    round++;
+
+    // Round 2: (lookup inverses) + databus inverses + z_perm -> alpha + gate_challenge
+    manifest.add_challenge(round, "alpha");
+    manifest.add_challenge(round, "HypernovaFoldingProver:gate_challenge");
+    if constexpr (has_lookup) {
+        manifest.add_entry(round, "LOOKUP_INVERSES", frs_per_G);
+    }
+    for (const auto& bus : buses) {
+        manifest.add_entry(round, bus + "_INVERSES", frs_per_G);
+    }
+    manifest.add_entry(round, "Z_PERM", frs_per_G);
+    round++;
+
+    // Instance sumcheck univariates
+    for (size_t i = 0; i < NUM_SUMCHECK_UNIVARIATES; ++i) {
+        manifest.add_challenge(round, "Sumcheck:u_" + std::to_string(i));
+        manifest.add_entry(round, "Sumcheck:univariate_" + std::to_string(i), 8);
+        round++;
+    }
+
+    // Unshifted + shifted batching challenges (accumulate_instance), then the batching challenge + MLB alpha
+    // (finalize). All consecutive challenges since no new prover data is added in between.
+    for (size_t i = 0; i < Flavor::NUM_UNSHIFTED_ENTITIES - 1; ++i) {
+        manifest.add_challenge(round, "unshifted_challenge_" + std::to_string(i));
+    }
+    for (size_t i = 0; i < Flavor::NUM_SHIFTED_ENTITIES - 1; ++i) {
+        manifest.add_challenge(round, "shifted_challenge_" + std::to_string(i));
+    }
+    manifest.add_challenge(round, "claim_batching_challenge");
+    manifest.add_challenge(round, "Sumcheck:alpha");
+    manifest.add_entry(round, "Sumcheck:evaluations", Flavor::NUM_ALL_ENTITIES);
+    round++;
+
+    // MLB sumcheck univariates
+    for (size_t i = 0; i < NUM_SUMCHECK_UNIVARIATES; ++i) {
+        manifest.add_challenge(round, "Sumcheck:u_" + std::to_string(i));
+        manifest.add_entry(round, "Sumcheck:univariate_" + std::to_string(i), 3);
+        round++;
+    }
+
+    // Final batched evaluations of the original polynomials (6 = 3 entities * 2 claims), then the merge challenge.
+    manifest.add_entry(round, "Sumcheck:evaluations", MultilinearBatchingFlavor_</*NumClaims*/ 2>::NUM_ALL_ENTITIES);
+    manifest.add_challenge(round, "claim_merge_challenge");
+
+    return manifest;
+}
+
+// Exercises the stateful folding scheme end to end: a prover folds a variable number of instances (optionally
+// against a previous accumulator), then the native and recursive verifiers fold the same group from the produced
+// proofs. The verifiers' accumulators are cross-checked against the prover's. Failure modes specific to HyperNova
+// (instance-to-accumulator sumcheck failure) are tested here; the multilinear batching faults (eq-consistency,
+// merge-binding, commitment binding) live in multilinear_batching.test.cpp and are not duplicated.
 class HypernovaFoldingVerifierTests : public ::testing::Test {
   protected:
     static void SetUpTestSuite() { bb::srs::init_file_crs_factory(bb::srs::bb_crs_path()); }
 
   public:
-    // Recursive verifier
-    using RecursiveHypernovaVerifier = HypernovaFoldingVerifier<bb::MegaRecursiveFlavor_<bb::MegaCircuitBuilder>>;
-    using RecursiveFlavor = RecursiveHypernovaVerifier::Flavor;
-    using RecursiveVerifierInstance = RecursiveHypernovaVerifier::VerifierInstance;
-    using Builder = RecursiveFlavor::CircuitBuilder;
-    using RecursiveTranscript = RecursiveHypernovaVerifier::Transcript;
-    using RecursiveProof = RecursiveHypernovaVerifier::Proof;
+    using KernelFlavor = bb::MegaKernelFlavor;
+    using KernelRecursiveFlavor = bb::MegaKernelRecursiveFlavor;
+    using AppFlavor = bb::MegaAppFlavor;
+    using AppRecursiveFlavor = bb::MegaAppRecursiveFlavor;
+    using Builder = KernelRecursiveFlavor::CircuitBuilder;
+    using FF = KernelFlavor::FF;
 
-    // Native verifier
-    using NativeHypernovaVerifier = HypernovaFoldingVerifier<bb::MegaFlavor>;
-    using NativeFlavor = NativeHypernovaVerifier::Flavor;
-    using NativeFF = NativeFlavor::FF;
-    using NativeVerifierAccumulator = NativeHypernovaVerifier::Accumulator;
-    using NativeVerificationKey = NativeFlavor::VerificationKey;
-    using NativeVerifierInstance = NativeHypernovaVerifier::VerifierInstance;
-    using NativeTranscript = NativeHypernovaVerifier::Transcript;
+    using FoldingProver = bb::HypernovaFoldingProver;
+    using ProverAccumulator = FoldingProver::Accumulator;
+    using NativeVerifier = bb::HypernovaFoldingNativeVerifier;
+    using RecursiveVerifier = bb::HypernovaFoldingRecursiveVerifier;
+    using NativeVerifierAccumulator = NativeVerifier::Accumulator;
+    using NativeTranscript = NativeVerifier::Transcript;
+    using RecursiveTranscript = RecursiveVerifier::Transcript;
 
-    // Prover
-    using HypernovaFoldingProver = bb::HypernovaFoldingProver;
-    using NativeProverAccumulator = HypernovaFoldingProver::Accumulator;
-    using ProverInstance = HypernovaFoldingProver::ProverInstance;
+    static constexpr size_t LOG_NUM_GATES = 4;
 
-    enum class TamperingMode : uint8_t {
-        None,
-        Instance,
-    };
+    enum class TamperingMode : uint8_t { None, Instance };
 
-    static std::shared_ptr<ProverInstance> generate_new_instance(size_t log_num_gates = 4)
+    template <typename Flavor>
+    static std::shared_ptr<ProverInstance_<Flavor>> generate_instance(size_t log_num_gates = LOG_NUM_GATES)
     {
         Builder builder;
-
         bb::MockCircuits::add_arithmetic_gates(builder, log_num_gates);
         bb::MockCircuits::add_arithmetic_gates_with_public_inputs(builder);
         bb::MockCircuits::add_lookup_gates(builder);
-
-        auto instance = std::make_shared<ProverInstance>(builder);
-
-        return instance;
+        return std::make_shared<ProverInstance_<Flavor>>(builder);
     }
 
-    static bool compare_prover_verifier_accumulators(const NativeProverAccumulator& lhs,
-                                                     const NativeVerifierAccumulator& rhs)
+    static bool compare_prover_verifier_accumulators(const ProverAccumulator& lhs, const NativeVerifierAccumulator& rhs)
     {
         for (size_t idx = 0; auto [challenge_lhs, challenge_rhs] : zip_view(lhs.challenge, rhs.challenge)) {
             if (challenge_lhs != challenge_rhs) {
@@ -82,43 +187,36 @@ class HypernovaFoldingVerifierTests : public ::testing::Test {
     }
 
     /**
-     * @brief Test helper to create a recursive verifier instance from a native one
-     * @details Converts all fields from native to stdlib types for recursive verification testing
+     * @brief Build a recursive verifier instance from a native one (already populated by the native verifier).
      */
-    static std::shared_ptr<RecursiveVerifierInstance> create_recursive_verifier_instance(
-        Builder* builder, const std::shared_ptr<NativeVerifierInstance>& native_instance)
+    template <typename NativeFlavor, typename RecursiveFlavor>
+    static std::shared_ptr<VerifierInstance_<RecursiveFlavor>> make_recursive_verifier_instance(
+        Builder* builder, const std::shared_ptr<VerifierInstance_<NativeFlavor>>& native_instance)
     {
-        using FF = RecursiveFlavor::FF;
-        using Commitment = RecursiveFlavor::Commitment;
-        using VerificationKey = RecursiveFlavor::VerificationKey;
-        using VKAndHash = RecursiveFlavor::VKAndHash;
+        using FF = typename RecursiveFlavor::FF;
+        using Commitment = typename RecursiveFlavor::Commitment;
+        using VerificationKey = typename RecursiveFlavor::VerificationKey;
+        using VKAndHash = typename RecursiveFlavor::VKAndHash;
 
-        // Create recursive VK from native VK
         auto recursive_vk =
             std::make_shared<VKAndHash>(std::make_shared<VerificationKey>(builder, native_instance->get_vk()),
                                         FF::from_witness(builder, native_instance->get_vk()->hash()));
+        auto recursive_instance = std::make_shared<VerifierInstance_<RecursiveFlavor>>(recursive_vk);
 
-        // Create recursive instance with the recursive VK
-        auto recursive_instance = std::make_shared<RecursiveVerifierInstance>(recursive_vk);
-
-        // Convert alpha
         recursive_instance->alpha = FF::from_witness(builder, native_instance->alpha);
 
-        // Convert witness commitments
         auto native_comms = native_instance->witness_commitments.get_all();
         for (auto [native_comm, recursive_comm] :
              zip_view(native_comms, recursive_instance->witness_commitments.get_all())) {
             recursive_comm = Commitment::from_witness(builder, native_comm);
         }
 
-        // Convert gate challenges
         recursive_instance->gate_challenges = std::vector<FF>(native_instance->gate_challenges.size());
         for (auto [native_challenge, recursive_challenge] :
              zip_view(native_instance->gate_challenges, recursive_instance->gate_challenges)) {
             recursive_challenge = FF::from_witness(builder, native_challenge);
         }
 
-        // Convert relation parameters
         recursive_instance->relation_parameters.eta =
             FF::from_witness(builder, native_instance->relation_parameters.eta);
         recursive_instance->relation_parameters.eta_two =
@@ -132,7 +230,6 @@ class HypernovaFoldingVerifierTests : public ::testing::Test {
         recursive_instance->relation_parameters.public_input_delta =
             FF::from_witness(builder, native_instance->relation_parameters.public_input_delta);
 
-        // For ZK flavors: convert gemini_masking_commitment
         if constexpr (NativeFlavor::HasZK) {
             recursive_instance->gemini_masking_commitment =
                 Commitment::from_witness(builder, native_instance->gemini_masking_commitment);
@@ -141,177 +238,266 @@ class HypernovaFoldingVerifierTests : public ::testing::Test {
         return recursive_instance;
     }
 
-    static void tampering(std::shared_ptr<ProverInstance>& instance, const TamperingMode& mode)
+    template <typename Flavor> static void tamper_instance(const std::shared_ptr<ProverInstance_<Flavor>>& instance)
     {
-        switch (mode) {
-        case TamperingMode::None:
-            break;
-        case TamperingMode::Instance:
-            // Tamper with the instance by changing w_l. This should invalidate the first sumcheck
-            instance->polynomials.w_l.at(1) = NativeFF::random_element();
-            break;
+        // Tamper with w_l at the first row where q_arith is non-zero (an active arithmetic gate).
+        auto& q_arith = instance->polynomials.q_arith();
+        for (size_t i = ProverInstance_<Flavor>::TRACE_OFFSET; i < q_arith.end_index(); i++) {
+            if (!q_arith[i].is_zero()) {
+                instance->polynomials.w_l().at(i) = FF::random_element();
+                break;
+            }
         }
-    };
-
-    /**
-     * @brief Build the expected transcript manifest for HyperNova folding
-     * @details The manifest has 48 rounds total:
-     * - Oink (rounds 0-2): vk_hash, public inputs, wires, ECC ops, databus, lookup, inverses
-     * - Main sumcheck (rounds 3-23): gate_challenge, univariates
-     * - Main sumcheck batching (round 24): unshifted/shifted batching challenges + evaluations
-     * - MLB data (round 25): accumulator commitments/challenges/evaluations
-     * - MLB sumcheck (rounds 26-46): univariates
-     * - MLB final (round 47): final evaluations + claim_batching_challenge
-     */
-    static TranscriptManifest build_expected_folding_manifest()
-    {
-        TranscriptManifest manifest;
-        constexpr size_t frs_per_G = FrCodec::calc_num_fields<curve::BN254::AffineElement>();
-        constexpr size_t NUM_SUMCHECK_UNIVARIATES = NativeFlavor::VIRTUAL_LOG_N; // 21
-
-        size_t round = 0;
-
-        // Round 0: Oink preamble + wires + ECC ops + databus -> eta challenge
-        manifest.add_challenge(round, "eta");
-        manifest.add_entry(round, "vk_hash", 1);
-        for (size_t i = 0; i < 4; ++i) {
-            manifest.add_entry(round, "public_input_" + std::to_string(i), 1);
-        }
-        for (const auto& wire : { "W_L", "W_R", "W_O" }) {
-            manifest.add_entry(round, wire, frs_per_G);
-        }
-        for (const auto& wire : { "ECC_OP_WIRE_1", "ECC_OP_WIRE_2", "ECC_OP_WIRE_3", "ECC_OP_WIRE_4" }) {
-            manifest.add_entry(round, wire, frs_per_G);
-        }
-        for (const auto& bus : { "CALLDATA", "SECONDARY_CALLDATA", "RETURN_DATA" }) {
-            manifest.add_entry(round, bus, frs_per_G);
-            manifest.add_entry(round, std::string(bus) + "_READ_COUNTS", frs_per_G);
-            manifest.add_entry(round, std::string(bus) + "_READ_TAGS", frs_per_G);
-        }
-        round++;
-
-        // Round 1: lookup + w_4 -> beta, gamma challenges
-        manifest.add_challenge(round, std::array{ "beta", "gamma" });
-        manifest.add_entry(round, "LOOKUP_READ_COUNTS", frs_per_G);
-        manifest.add_entry(round, "LOOKUP_READ_TAGS", frs_per_G);
-        manifest.add_entry(round, "W_4", frs_per_G);
-        round++;
-
-        // Round 2: inverses + z_perm -> alpha + gate_challenge (consecutive challenges in same round)
-        manifest.add_challenge(round, "alpha");
-        manifest.add_challenge(round, "HypernovaFoldingProver:gate_challenge");
-        manifest.add_entry(round, "LOOKUP_INVERSES", frs_per_G);
-        manifest.add_entry(round, "CALLDATA_INVERSES", frs_per_G);
-        manifest.add_entry(round, "SECONDARY_CALLDATA_INVERSES", frs_per_G);
-        manifest.add_entry(round, "RETURN_DATA_INVERSES", frs_per_G);
-        manifest.add_entry(round, "Z_PERM", frs_per_G);
-        round++;
-
-        // Rounds 3-23: main sumcheck univariates (21 rounds)
-        for (size_t i = 0; i < NUM_SUMCHECK_UNIVARIATES; ++i) {
-            manifest.add_challenge(round, "Sumcheck:u_" + std::to_string(i));
-            manifest.add_entry(round, "Sumcheck:univariate_" + std::to_string(i), 8);
-            round++;
-        }
-
-        // Round 24: unshifted batching challenges + shifted batching challenges + evaluations
-        for (size_t i = 0; i < MegaFlavor::NUM_UNSHIFTED_ENTITIES - 1; ++i) {
-            manifest.add_challenge(round, "unshifted_challenge_" + std::to_string(i));
-        }
-        for (size_t i = 0; i < MegaFlavor::NUM_SHIFTED_ENTITIES - 1; ++i) {
-            manifest.add_challenge(round, "shifted_challenge_" + std::to_string(i));
-        }
-        manifest.add_entry(round, "Sumcheck:evaluations", 60);
-        round++;
-
-        // Round 25: Sumcheck:alpha + MLB accumulator data (Sumcheck:alpha is consecutive challenge)
-        manifest.add_challenge(round, "Sumcheck:alpha");
-        manifest.add_entry(round, "non_shifted_accumulator_commitment", frs_per_G);
-        manifest.add_entry(round, "shifted_accumulator_commitment", frs_per_G);
-        for (size_t i = 0; i < NUM_SUMCHECK_UNIVARIATES; ++i) {
-            manifest.add_entry(round, "accumulator_challenge_" + std::to_string(i), 1);
-        }
-        manifest.add_entry(round, "accumulator_evaluation_0", 1);
-        manifest.add_entry(round, "accumulator_evaluation_1", 1);
-        round++;
-
-        // Rounds 26-46: MLB sumcheck univariates (21 rounds)
-        for (size_t i = 0; i < NUM_SUMCHECK_UNIVARIATES; ++i) {
-            manifest.add_challenge(round, "Sumcheck:u_" + std::to_string(i));
-            manifest.add_entry(round, "Sumcheck:univariate_" + std::to_string(i), 4);
-            round++;
-        }
-
-        // Round 47: final evaluations + claim_batching_challenge
-        manifest.add_challenge(round, "claim_batching_challenge");
-        manifest.add_entry(round, "Sumcheck:evaluations", 6);
-
-        return manifest;
     }
 
-    static void test_folding(const TamperingMode& mode)
+    /**
+     * @brief Build a valid previous accumulator (a single-instance fold) for the prover and verifiers.
+     */
+    static ProverAccumulator make_previous_accumulator()
     {
-        // Generate accumulator
-        auto instance = generate_new_instance();
         auto transcript = std::make_shared<NativeTranscript>();
+        FoldingProver prover(transcript);
+        prover.accumulate_instance<KernelFlavor>(generate_instance<KernelFlavor>());
+        auto [_proof, accumulator] = prover.finalize();
+        return accumulator;
+    }
 
-        bb::HypernovaFoldingProver prover(transcript);
-        auto accumulator = prover.instance_to_accumulator(instance);
+    /**
+     * @brief Fold `num_instances` kernel instances with the prover, then verify the group natively and recursively.
+     * @param use_previous_accumulator whether to start from a (valid) previous accumulator.
+     * @param mode whether to tamper the last instance.
+     */
+    static void test_folding(size_t num_instances, bool use_previous_accumulator, TamperingMode mode)
+    {
+        std::vector<std::shared_ptr<ProverInstance_<KernelFlavor>>> prover_instances;
+        std::vector<std::shared_ptr<KernelFlavor::VerificationKey>> vks;
+        prover_instances.reserve(num_instances);
+        vks.reserve(num_instances);
+        for (size_t i = 0; i < num_instances; ++i) {
+            prover_instances.push_back(generate_instance<KernelFlavor>(LOG_NUM_GATES + i));
+            vks.push_back(std::make_shared<KernelFlavor::VerificationKey>(prover_instances.back()->get_precomputed()));
+        }
+        if (mode == TamperingMode::Instance) {
+            tamper_instance<KernelFlavor>(prover_instances.back());
+        }
 
-        // Folding
-        auto incoming_instance = generate_new_instance(5);
-        tampering(incoming_instance, mode);
-        auto incoming_vk = std::make_shared<NativeVerificationKey>(incoming_instance->get_precomputed());
-        auto incoming_verifier_instance =
-            std::make_shared<NativeVerifierInstance>(std::make_shared<NativeFlavor::VKAndHash>(incoming_vk));
+        std::optional<ProverAccumulator> previous_prover_accumulator;
+        std::optional<NativeVerifierAccumulator> previous_native_accumulator;
+        if (use_previous_accumulator) {
+            previous_prover_accumulator = make_previous_accumulator();
+            previous_native_accumulator = previous_prover_accumulator->to_verifier_claim_for_testing();
+        }
 
-        auto folding_transcript = std::make_shared<NativeTranscript>();
-        HypernovaFoldingProver folding_prover(folding_transcript);
-        auto [folding_proof, folded_accumulator] = folding_prover.fold(std::move(accumulator), incoming_instance);
+        // ---- Prover ----
+        auto prover_transcript = std::make_shared<NativeTranscript>();
+        FoldingProver prover(prover_transcript);
+        std::vector<HonkProof> proofs;
+        proofs.reserve(num_instances);
+        for (size_t i = 0; i < num_instances; ++i) {
+            proofs.push_back(prover.accumulate_instance<KernelFlavor>(prover_instances[i], vks[i]));
+        }
+        auto [batch_proof, prover_accumulator] =
+            prover.finalize(previous_prover_accumulator.has_value() ? previous_prover_accumulator : std::nullopt);
 
-        // Natively verify the folding (with manifest tracking)
-        auto native_verifier_transcript = std::make_shared<NativeTranscript>();
-        native_verifier_transcript->enable_manifest();
-        NativeHypernovaVerifier native_verifier(native_verifier_transcript);
-        auto [first_sumcheck_native, second_sumcheck_native, folded_verifier_accumulator_native] =
-            native_verifier.verify_folding_proof(incoming_verifier_instance, folding_proof);
+        // ---- Native verifier ----
+        std::vector<std::shared_ptr<VerifierInstance_<KernelFlavor>>> native_verifier_instances;
+        native_verifier_instances.reserve(num_instances);
+        for (size_t i = 0; i < num_instances; ++i) {
+            native_verifier_instances.push_back(
+                std::make_shared<VerifierInstance_<KernelFlavor>>(std::make_shared<KernelFlavor::VKAndHash>(vks[i])));
+        }
+        auto native_transcript = std::make_shared<NativeTranscript>();
+        NativeVerifier native_verifier(native_transcript);
+        std::vector<bool> native_sumchecks;
+        native_sumchecks.reserve(num_instances);
+        for (size_t i = 0; i < num_instances; ++i) {
+            native_sumchecks.push_back(
+                native_verifier.accumulate_instance<KernelFlavor>(native_verifier_instances[i], proofs[i]));
+        }
+        auto [native_verified, native_accumulator] = native_verifier.finalize(
+            batch_proof, previous_native_accumulator.has_value() ? previous_native_accumulator : std::nullopt);
 
-        // Recursively verify the folding
+        // ---- Recursive verifier (native instances are now populated) ----
         Builder builder;
+        std::vector<std::shared_ptr<VerifierInstance_<KernelRecursiveFlavor>>> recursiver_verifier_instances;
+        recursiver_verifier_instances.reserve(num_instances);
+        for (size_t i = 0; i < num_instances; ++i) {
+            recursiver_verifier_instances.push_back(
+                make_recursive_verifier_instance<KernelFlavor, KernelRecursiveFlavor>(&builder,
+                                                                                      native_verifier_instances[i]));
+        }
+        std::optional<RecursiveVerifier::Accumulator> previous_recursive_accumulator;
+        if (previous_native_accumulator.has_value()) {
+            previous_recursive_accumulator =
+                create_recursive_verifier_accumulator(&builder, *previous_native_accumulator);
+        }
+        auto recursive_transcript = std::make_shared<RecursiveTranscript>();
+        RecursiveVerifier recursive_verifier(recursive_transcript);
+        std::vector<bool> recursive_sumchecks;
+        recursive_sumchecks.reserve(num_instances);
+        for (size_t i = 0; i < num_instances; ++i) {
+            stdlib::Proof<Builder> stdlib_proof(builder, proofs[i]);
+            recursive_sumchecks.push_back(recursive_verifier.accumulate_instance<KernelRecursiveFlavor>(
+                recursiver_verifier_instances[i], stdlib_proof));
+        }
+        stdlib::Proof<Builder> stdlib_batch_proof(builder, batch_proof);
+        auto [recursive_verified, recursive_accumulator] = recursive_verifier.finalize(
+            stdlib_batch_proof,
+            previous_recursive_accumulator.has_value() ? previous_recursive_accumulator : std::nullopt);
 
-        auto stdlib_incoming_instance = create_recursive_verifier_instance(&builder, incoming_verifier_instance);
-        auto recursive_verifier_transcript = std::make_shared<RecursiveTranscript>();
-        RecursiveHypernovaVerifier recursive_verifier(recursive_verifier_transcript);
-        RecursiveProof proof(builder, folding_proof);
-        auto [first_sumcheck_recursive, second_sumcheck_recursive, folded_verifier_accumulator] =
-            recursive_verifier.verify_folding_proof(stdlib_incoming_instance, proof);
-
-        // If the instance has been tampered with, then the first sumcheck should fail (hence the circuit is not
-        // satisfied), but the second should pass
-        EXPECT_EQ(bb::CircuitChecker::check(builder), mode == TamperingMode::None);
-        EXPECT_EQ(first_sumcheck_recursive, mode == TamperingMode::None);
-        EXPECT_EQ(first_sumcheck_recursive, first_sumcheck_native);
-        EXPECT_TRUE(second_sumcheck_recursive);
-        EXPECT_EQ(second_sumcheck_recursive, second_sumcheck_native);
+        // ---- Assertions ----
+        const bool tampered = (mode == TamperingMode::Instance);
+        for (size_t i = 0; i < num_instances; ++i) {
+            const bool expected = !tampered || i != num_instances - 1;
+            EXPECT_EQ(native_sumchecks[i], expected) << "native instance " << i;
+            EXPECT_EQ(recursive_sumchecks[i], native_sumchecks[i]) << "recursive instance " << i;
+        }
+        EXPECT_EQ(bb::CircuitChecker::check(builder), !tampered);
+        EXPECT_TRUE(native_verified);
+        EXPECT_EQ(recursive_verified, native_verified);
+        EXPECT_TRUE(compare_prover_verifier_accumulators(prover_accumulator, native_accumulator));
         EXPECT_TRUE(compare_prover_verifier_accumulators(
-            folded_accumulator, folded_verifier_accumulator.get_value<NativeVerifierAccumulator>()));
+            prover_accumulator, recursive_accumulator.template get_value<NativeVerifierAccumulator>()));
+    }
 
-        // Pin the folding transcript manifest (only check when not tampering)
-        if (mode == TamperingMode::None) {
-            auto expected_manifest = build_expected_folding_manifest();
-            auto verifier_manifest = native_verifier_transcript->get_manifest();
-            EXPECT_EQ(verifier_manifest, expected_manifest);
+    /**
+     * @brief Drive a "previous accumulator + one instance" folding session through the native verifier with manifest
+     * tracking enabled, and assert the transcript matches the expected manifest. Flavor-general (kernel and app).
+     */
+    template <typename Flavor> void expect_folding_manifest()
+    {
+        using NativeTranscript = bb::HypernovaFoldingProver::Transcript;
+        using ProverAccumulator = bb::HypernovaFoldingProver::Accumulator;
+
+        // Build a (valid) previous accumulator from a single instance on a separate, discarded transcript.
+        ProverAccumulator previous_prover_accumulator = [&] {
+            auto transcript = std::make_shared<NativeTranscript>();
+            bb::HypernovaFoldingProver prover(transcript);
+            prover.accumulate_instance<Flavor>(generate_instance<Flavor>());
+            auto [_proof, accumulator] = prover.finalize();
+            return accumulator;
+        }();
+        auto previous_verifier_accumulator = previous_prover_accumulator.to_verifier_claim_for_testing();
+
+        // Prover folds one incoming instance against the previous accumulator -> a 2-claim batch.
+        auto incoming_instance = generate_instance<Flavor>(LOG_NUM_GATES + 1);
+        auto incoming_vk = std::make_shared<typename Flavor::VerificationKey>(incoming_instance->get_precomputed());
+        auto folding_transcript = std::make_shared<NativeTranscript>();
+        bb::HypernovaFoldingProver folding_prover(folding_transcript);
+        HonkProof instance_proof = folding_prover.accumulate_instance<Flavor>(incoming_instance, incoming_vk);
+        auto [batch_proof, _folded] = folding_prover.finalize(previous_prover_accumulator);
+
+        // Verifier replays the same session with manifest tracking enabled.
+        auto incoming_verifier_instance =
+            std::make_shared<VerifierInstance_<Flavor>>(std::make_shared<typename Flavor::VKAndHash>(incoming_vk));
+        auto verifier_transcript = std::make_shared<NativeTranscript>();
+        verifier_transcript->enable_manifest();
+        bb::HypernovaFoldingNativeVerifier verifier(verifier_transcript);
+        verifier.accumulate_instance<Flavor>(incoming_verifier_instance, instance_proof);
+        verifier.finalize(batch_proof, previous_verifier_accumulator);
+
+        auto actual_manifest = verifier_transcript->get_manifest();
+        auto expected_manifest = build_expected_folding_manifest<Flavor>();
+        ASSERT_EQ(actual_manifest.size(), expected_manifest.size());
+        for (size_t round = 0; round < actual_manifest.size(); ++round) {
+            EXPECT_EQ(actual_manifest[round], expected_manifest[round])
+                << "folding manifest discrepancy in round " << round;
         }
     }
 };
 
-TEST_F(HypernovaFoldingVerifierTests, Fold)
+// Completeness across widths, with and without a previous accumulator.
+TEST_F(HypernovaFoldingVerifierTests, FoldVariableWidth)
 {
-    test_folding(TamperingMode::None);
+    for (size_t num_instances = 1; num_instances <= CHONK_MAX_CLAIMS_PER_KERNEL; ++num_instances) {
+        test_folding(num_instances, /*use_previous_accumulator=*/false, TamperingMode::None);
+    }
 }
 
+TEST_F(HypernovaFoldingVerifierTests, FoldWithPreviousAccumulator)
+{
+    for (size_t num_instances = 1; num_instances < CHONK_MAX_CLAIMS_PER_KERNEL; ++num_instances) {
+        test_folding(num_instances, /*use_previous_accumulator=*/true, TamperingMode::None);
+    }
+}
+
+// Folding a group that mixes flavors (a kernel instance and several app instances), as a real inner-kernel group
+// does. A single flavor-agnostic verifier folds all of them into one accumulator, cross-checked native vs recursive
+// vs prover.
+TEST_F(HypernovaFoldingVerifierTests, FoldMixedFlavors)
+{
+    auto kernel_instance = generate_instance<KernelFlavor>();
+    auto app_instance_0 = generate_instance<AppFlavor>(LOG_NUM_GATES + 1);
+    auto app_instance_1 = generate_instance<AppFlavor>(LOG_NUM_GATES + 2);
+    auto kernel_vk = std::make_shared<KernelFlavor::VerificationKey>(kernel_instance->get_precomputed());
+    auto app_vk_0 = std::make_shared<AppFlavor::VerificationKey>(app_instance_0->get_precomputed());
+    auto app_vk_1 = std::make_shared<AppFlavor::VerificationKey>(app_instance_1->get_precomputed());
+
+    // ---- Prover: fold [kernel, app, app] into one accumulator ----
+    auto prover_transcript = std::make_shared<NativeTranscript>();
+    FoldingProver prover(prover_transcript);
+    HonkProof kernel_proof = prover.accumulate_instance<KernelFlavor>(kernel_instance, kernel_vk);
+    HonkProof app_proof_0 = prover.accumulate_instance<AppFlavor>(app_instance_0, app_vk_0);
+    HonkProof app_proof_1 = prover.accumulate_instance<AppFlavor>(app_instance_1, app_vk_1);
+    auto [batch_proof, prover_accumulator] = prover.finalize();
+
+    // ---- Native verifier ----
+    auto kernel_verifier_instance =
+        std::make_shared<VerifierInstance_<KernelFlavor>>(std::make_shared<KernelFlavor::VKAndHash>(kernel_vk));
+    auto app_verifier_instance_0 =
+        std::make_shared<VerifierInstance_<AppFlavor>>(std::make_shared<AppFlavor::VKAndHash>(app_vk_0));
+    auto app_verifier_instance_1 =
+        std::make_shared<VerifierInstance_<AppFlavor>>(std::make_shared<AppFlavor::VKAndHash>(app_vk_1));
+    auto native_transcript = std::make_shared<NativeTranscript>();
+    NativeVerifier native_verifier(native_transcript);
+    EXPECT_TRUE(native_verifier.accumulate_instance<KernelFlavor>(kernel_verifier_instance, kernel_proof));
+    EXPECT_TRUE(native_verifier.accumulate_instance<AppFlavor>(app_verifier_instance_0, app_proof_0));
+    EXPECT_TRUE(native_verifier.accumulate_instance<AppFlavor>(app_verifier_instance_1, app_proof_1));
+    auto [native_verified, native_accumulator] = native_verifier.finalize(batch_proof);
+
+    // ---- Recursive verifier ----
+    Builder builder;
+    auto kernel_recursive_instance =
+        make_recursive_verifier_instance<KernelFlavor, KernelRecursiveFlavor>(&builder, kernel_verifier_instance);
+    auto app_recursive_instance_0 =
+        make_recursive_verifier_instance<AppFlavor, AppRecursiveFlavor>(&builder, app_verifier_instance_0);
+    auto app_recursive_instance_1 =
+        make_recursive_verifier_instance<AppFlavor, AppRecursiveFlavor>(&builder, app_verifier_instance_1);
+    auto recursive_transcript = std::make_shared<RecursiveTranscript>();
+    RecursiveVerifier recursive_verifier(recursive_transcript);
+    stdlib::Proof<Builder> stdlib_kernel_proof(builder, kernel_proof);
+    recursive_verifier.accumulate_instance<KernelRecursiveFlavor>(kernel_recursive_instance, stdlib_kernel_proof);
+    stdlib::Proof<Builder> stdlib_app_proof_0(builder, app_proof_0);
+    recursive_verifier.accumulate_instance<AppRecursiveFlavor>(app_recursive_instance_0, stdlib_app_proof_0);
+    stdlib::Proof<Builder> stdlib_app_proof_1(builder, app_proof_1);
+    recursive_verifier.accumulate_instance<AppRecursiveFlavor>(app_recursive_instance_1, stdlib_app_proof_1);
+    stdlib::Proof<Builder> stdlib_batch_proof(builder, batch_proof);
+    auto [recursive_verified, recursive_accumulator] = recursive_verifier.finalize(stdlib_batch_proof);
+
+    EXPECT_TRUE(bb::CircuitChecker::check(builder));
+    EXPECT_TRUE(native_verified);
+    EXPECT_EQ(recursive_verified, native_verified);
+    EXPECT_TRUE(compare_prover_verifier_accumulators(prover_accumulator, native_accumulator));
+    EXPECT_TRUE(compare_prover_verifier_accumulators(
+        prover_accumulator, recursive_accumulator.template get_value<NativeVerifierAccumulator>()));
+}
+
+// Tampering an incoming instance's witness makes its instance-to-accumulator sumcheck fail (and the recursive
+// circuit unsatisfiable), while the other instances and the batching are unaffected.
 TEST_F(HypernovaFoldingVerifierTests, TamperInstance)
 {
     BB_DISABLE_ASSERTS();
-    test_folding(TamperingMode::Instance);
+    test_folding(/*num_instances=*/3, /*use_previous_accumulator=*/false, TamperingMode::Instance);
+}
+
+// Pin the folding transcript manifest for a previous-accumulator + one-instance (2-claim) fold, for both the kernel
+// and app instance flavors (they commit different databus columns and differ on LogDerivLookup).
+TEST_F(HypernovaFoldingVerifierTests, KernelFoldingManifestMatchesExpected)
+{
+    expect_folding_manifest<bb::MegaKernelFlavor>();
+}
+
+TEST_F(HypernovaFoldingVerifierTests, AppFoldingManifestMatchesExpected)
+{
+    expect_folding_manifest<bb::MegaAppFlavor>();
 }

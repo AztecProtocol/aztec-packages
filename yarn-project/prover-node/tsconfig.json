@@ -34,7 +34,7 @@
       "path": "../kv-store"
     },
     {
-      "path": "../l1-artifacts"
+      "path": "../native"
     },
     {
       "path": "../node-keystore"

@@ -5,15 +5,15 @@ import { sleep } from '@aztec/foundation/sleep';
 import { DateProvider, TestDateProvider } from '@aztec/foundation/timer';
 import { TestERC20Abi, TestERC20Bytecode } from '@aztec/l1-artifacts';
 
-import type { Anvil } from '@viem/anvil';
 import { type PrivateKeyAccount, createWalletClient, fallback, getContract, http, publicActions } from 'viem';
 import { privateKeyToAccount } from 'viem/accounts';
 import { foundry } from 'viem/chains';
 
+import { Delayer, createDelayer, waitUntilBlock, wrapClientWithDelayer } from '../l1_tx_utils/tx_delayer.js';
 import type { ExtendedViemWalletClient } from '../types.js';
 import { EthCheatCodes } from './eth_cheat_codes.js';
+import type { Anvil } from './start_anvil.js';
 import { startAnvil } from './start_anvil.js';
-import { type Delayer, waitUntilBlock, withDelayer } from './tx_delayer.js';
 
 describe('tx_delayer', () => {
   let anvil: Anvil;
@@ -41,7 +41,8 @@ describe('tx_delayer', () => {
       chain: foundry,
       account,
     }).extend(publicActions);
-    ({ client, delayer } = withDelayer(_client, dateProvider, { ethereumSlotDuration: ETHEREUM_SLOT_DURATION }));
+    delayer = createDelayer(dateProvider, { ethereumSlotDuration: ETHEREUM_SLOT_DURATION }, {});
+    client = wrapClientWithDelayer(_client, delayer);
   });
 
   const receiptNotFound = expect.objectContaining({ name: 'TransactionReceiptNotFoundError' });

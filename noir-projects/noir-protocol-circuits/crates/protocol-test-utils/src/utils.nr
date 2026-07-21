@@ -1,0 +1,59 @@
+use types::{traits::{Deserialize, Empty}, utils::arrays::ClaimedLengthArray};
+
+pub fn pad_end_with<T, let N: u32, let M: u32>(items: [T; N], padded_item: T) -> [T; M] {
+    let mut output = [padded_item; M];
+    for i in 0..N {
+        output[i] = items[i];
+    }
+    output
+}
+
+pub fn pad_end<T, let N: u32, let M: u32>(items: [T; N]) -> [T; M]
+where
+    T: Empty,
+{
+    pad_end_with(items, T::empty())
+}
+
+pub fn make_fixture<T>(seed: Field) -> T
+where
+    T: Deserialize,
+{
+    let mut fields = [0; <T as Deserialize>::N];
+    for i in 0..<T as Deserialize>::N {
+        fields[i] = seed + i as Field;
+    }
+    T::deserialize(fields)
+}
+
+pub fn assert_array_eq<T, let N: u32, let M: u32>(array: [T; N], expected: [T; M])
+where
+    T: Empty,
+{
+    assert(expected.all(|elem: T| !elem.is_empty()), "cannot expect empty element in the result");
+    for i in 0..M {
+        assert_eq(array[i], expected[i], "mismatch array elements");
+    }
+    for i in M..N {
+        assert(array[i].is_empty(), "unexpected non-empty element in the result");
+    }
+}
+
+pub fn assert_claimed_length_array_eq<T, let N: u32, let M: u32>(
+    array: ClaimedLengthArray<T, N>,
+    expected: [T; M],
+)
+where
+    T: Empty,
+{
+    assert_eq(array.length, M, "incorrect claimed length");
+    assert_array_eq(array.array, expected);
+}
+
+// Swap two items in a BoundedVec.
+// Useful when we want to shuffle side effects, which by default are ordered by counters when we add mock data to FixtureBuilder.
+pub fn swap_items<T, let N: u32>(vec: &mut BoundedVec<T, N>, from_index: u32, to_index: u32) {
+    let tmp = vec.get(from_index);
+    vec.set(from_index, vec.get(to_index));
+    vec.set(to_index, tmp);
+}

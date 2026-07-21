@@ -4,9 +4,22 @@ import { fileURLToPath } from 'url';
 
 const NOIR_CONSTANTS_FILE = '../../../../noir-projects/noir-protocol-circuits/crates/types/src/constants.nr';
 const TS_CONSTANTS_FILE = '../constants.gen.ts';
-const CPP_AZTEC_CONSTANTS_FILE = '../../../../barretenberg/cpp/src/barretenberg/vm2/common/aztec_constants.hpp';
+const CPP_AZTEC_CONSTANTS_FILE = '../../../../barretenberg/cpp/src/barretenberg/aztec/aztec_constants.hpp';
 const PIL_AZTEC_CONSTANTS_FILE = '../../../../barretenberg/cpp/pil/vm2/constants_gen.pil';
 const SOLIDITY_CONSTANTS_FILE = '../../../../l1-contracts/src/core/libraries/ConstantsGen.sol';
+
+// Additional Noir source files (outside constants.nr) to extract specific constants from, keyed by
+// file path (relative to this script) and the exact constant names to pull from each. Used for
+// constants that are defined alongside circuit code rather than in constants.nr, so they can be
+// exported to the generated TS constants without duplicating their definition. The referenced
+// constants may depend on constants.nr values, which are in scope because they are evaluated after
+// the main file's constants.
+const ADDITIONAL_NOIR_CONSTANT_FILES: { file: string; constants: string[] }[] = [
+  {
+    file: '../../../../noir-projects/noir-protocol-circuits/crates/types/src/blob_data/tx_blob_data.nr',
+    constants: ['MAX_TX_BLOB_DATA_SIZE_IN_FIELDS'],
+  },
+];
 
 // Whitelist of constants that will be copied to aztec_constants.hpp.
 // We don't copy everything as just a handful are needed, and updating them breaks the cache and triggers expensive bb builds.
@@ -23,12 +36,10 @@ const CPP_CONSTANTS = [
   'MEM_TAG_U128',
   'MEM_TAG_FF',
   'MAX_PACKED_PUBLIC_BYTECODE_SIZE_IN_FIELDS',
-  'CANONICAL_AUTH_REGISTRY_ADDRESS',
   'CONTRACT_INSTANCE_REGISTRY_CONTRACT_ADDRESS',
   'CONTRACT_CLASS_REGISTRY_CONTRACT_ADDRESS',
-  'MULTI_CALL_ENTRYPOINT_ADDRESS',
   'FEE_JUICE_ADDRESS',
-  'PUBLIC_CHECKS_ADDRESS',
+  'TX_DA_GAS_OVERHEAD',
   'FEE_JUICE_BALANCES_SLOT',
   'UPDATED_CLASS_IDS_SLOT',
   'UPDATES_DELAYED_PUBLIC_MUTABLE_VALUES_LEN',
@@ -44,6 +55,7 @@ const CPP_CONSTANTS = [
   'MAX_NOTE_HASHES_PER_TX',
   'MAX_NULLIFIERS_PER_TX',
   'MAX_L2_TO_L1_MSGS_PER_TX',
+  'MAX_PROCESSABLE_L2_GAS',
   'MAX_PUBLIC_LOGS_PER_TX',
   'MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX',
   'MAX_PUBLIC_CALLS_TO_UNIQUE_CONTRACT_CLASS_IDS',
@@ -101,6 +113,10 @@ const CPP_CONSTANTS = [
   'AVM_PUBLIC_INPUTS_REVERTED_ROW_IDX',
   'AVM_PUBLIC_INPUTS_COLUMNS_MAX_LENGTH',
   'AVM_NUM_PUBLIC_INPUT_COLUMNS',
+  'AVM_PUBLIC_INPUTS_COLUMN_0_LENGTH',
+  'AVM_PUBLIC_INPUTS_COLUMN_1_LENGTH',
+  'AVM_PUBLIC_INPUTS_COLUMN_2_LENGTH',
+  'AVM_PUBLIC_INPUTS_COLUMN_3_LENGTH',
   'AVM_PUBLIC_INPUTS_COLUMNS_COMBINED_LENGTH',
   'AVM_WRITTEN_PUBLIC_DATA_SLOTS_TREE_HEIGHT',
   'AVM_WRITTEN_PUBLIC_DATA_SLOTS_TREE_INITIAL_ROOT',
@@ -111,16 +127,20 @@ const CPP_CONSTANTS = [
   'FLAT_PUBLIC_LOGS_PAYLOAD_LENGTH',
   'PUBLIC_LOGS_LENGTH',
   'PUBLIC_LOG_HEADER_LENGTH',
+  'MAX_PUBLIC_LOG_SIZE_IN_FIELDS',
+  'PUBLIC_TX_L2_GAS_OVERHEAD',
   'MAX_PROTOCOL_CONTRACTS',
   'DEFAULT_MAX_DEBUG_LOG_MEMORY_READS',
 ];
 
 const CPP_GENERATORS: string[] = [
   'BLOCK_HEADER_HASH',
+  'SALTED_INITIALIZATION_HASH',
   'PARTIAL_ADDRESS',
-  'CONTRACT_ADDRESS_V1',
+  'CONTRACT_ADDRESS_V2',
   'CONTRACT_CLASS_ID',
   'PUBLIC_KEYS_HASH',
+  'SINGLE_PUBLIC_KEY_HASH',
   'NOTE_HASH_NONCE',
   'UNIQUE_NOTE_HASH',
   'SILOED_NOTE_HASH',
@@ -129,6 +149,11 @@ const CPP_GENERATORS: string[] = [
   'PUBLIC_STORAGE_MAP_SLOT',
   'PUBLIC_CALLDATA',
   'PUBLIC_BYTECODE',
+  'MERKLE_HASH',
+  'NULLIFIER_MERKLE',
+  'PUBLIC_DATA_MERKLE',
+  'WRITTEN_SLOTS_MERKLE',
+  'RETRIEVED_BYTECODES_MERKLE',
 ];
 
 const PIL_CONSTANTS = [
@@ -163,12 +188,9 @@ const PIL_CONSTANTS = [
   'L1_TO_L2_MSG_TREE_HEIGHT',
   'UPDATED_CLASS_IDS_SLOT',
   'UPDATES_DELAYED_PUBLIC_MUTABLE_VALUES_LEN',
-  'CANONICAL_AUTH_REGISTRY_ADDRESS',
   'CONTRACT_INSTANCE_REGISTRY_CONTRACT_ADDRESS',
   'CONTRACT_CLASS_REGISTRY_CONTRACT_ADDRESS',
-  'MULTI_CALL_ENTRYPOINT_ADDRESS',
   'FEE_JUICE_ADDRESS',
-  'PUBLIC_CHECKS_ADDRESS',
   'FEE_JUICE_BALANCES_SLOT',
   'TIMESTAMP_OF_CHANGE_BIT_SIZE',
   'UPDATES_DELAYED_PUBLIC_MUTABLE_METADATA_BIT_SIZE',
@@ -235,7 +257,6 @@ const PIL_CONSTANTS = [
   'AVM_PUBLIC_INPUTS_REVERTED_ROW_IDX',
   'AVM_PUBLIC_INPUTS_COLUMNS_MAX_LENGTH',
   'AVM_NUM_PUBLIC_INPUT_COLUMNS',
-  'AVM_PUBLIC_INPUTS_COLUMNS_COMBINED_LENGTH',
   'AVM_SUBTRACE_ID_EXECUTION',
   'AVM_SUBTRACE_ID_ALU',
   'AVM_SUBTRACE_ID_CAST',
@@ -252,10 +273,10 @@ const PIL_CONSTANTS = [
   'AVM_DYN_GAS_ID_RETURNDATACOPY',
   'AVM_DYN_GAS_ID_TORADIX',
   'AVM_DYN_GAS_ID_BITWISE',
-  'AVM_DYN_GAS_ID_EMITUNENCRYPTEDLOG',
+  'AVM_DYN_GAS_ID_EMITPUBLICLOG',
   'AVM_DYN_GAS_ID_SSTORE',
   'AVM_SUBTRACE_ID_GETCONTRACTINSTANCE',
-  'AVM_SUBTRACE_ID_EMITUNENCRYPTEDLOG',
+  'AVM_SUBTRACE_ID_EMITPUBLICLOG',
   'AVM_EXEC_OP_ID_GETENVVAR',
   'AVM_EXEC_OP_ID_MOV',
   'AVM_EXEC_OP_ID_JUMP',
@@ -305,10 +326,12 @@ const PIL_CONSTANTS = [
 ];
 
 const PIL_GENERATORS: string[] = [
+  'SALTED_INITIALIZATION_HASH',
   'PARTIAL_ADDRESS',
-  'CONTRACT_ADDRESS_V1',
+  'CONTRACT_ADDRESS_V2',
   'CONTRACT_CLASS_ID',
   'PUBLIC_KEYS_HASH',
+  'SINGLE_PUBLIC_KEY_HASH',
   'NOTE_HASH_NONCE',
   'UNIQUE_NOTE_HASH',
   'SILOED_NOTE_HASH',
@@ -317,6 +340,11 @@ const PIL_GENERATORS: string[] = [
   'PUBLIC_STORAGE_MAP_SLOT',
   'PUBLIC_CALLDATA',
   'PUBLIC_BYTECODE',
+  'MERKLE_HASH',
+  'NULLIFIER_MERKLE',
+  'PUBLIC_DATA_MERKLE',
+  'WRITTEN_SLOTS_MERKLE',
+  'RETRIEVED_BYTECODES_MERKLE',
 ];
 
 const SOLIDITY_CONSTANTS = [
@@ -331,7 +359,7 @@ const SOLIDITY_CONSTANTS = [
   'INITIAL_CHECKPOINT_NUMBER',
   'GENESIS_ARCHIVE_ROOT',
   'FEE_JUICE_ADDRESS',
-  'AZTEC_MAX_EPOCH_DURATION',
+  'MAX_CHECKPOINTS_PER_EPOCH',
 ];
 
 /**
@@ -343,9 +371,24 @@ interface ParsedContent {
    */
   constants: { [key: string]: string };
   /**
-   * GeneratorIndexEnum.
+   * DomainSeparatorEnum.
    */
-  generatorIndexEnum: { [key: string]: number };
+  domainSeparatorEnum: { [key: string]: number };
+}
+
+/**
+ * Raw expressions parsed from a Noir file, prior to evaluation. Keeping expressions unevaluated lets
+ * us merge constants from multiple files and resolve cross-file references in a single evaluation pass.
+ */
+interface ParsedExpressions {
+  /**
+   * Ordered list of "CONSTANT_NAME: expression" pairs.
+   */
+  constantsExpressions: [string, string][];
+  /**
+   * DomainSeparatorEnum.
+   */
+  domainSeparatorEnum: { [key: string]: number };
 }
 
 /**
@@ -459,11 +502,11 @@ function processConstantsSolidity(constants: { [key: string]: string }, prefix =
 /**
  * Generate the constants file in Typescript.
  */
-function generateTypescriptConstants({ constants, generatorIndexEnum }: ParsedContent, targetPath: string) {
+function generateTypescriptConstants({ constants, domainSeparatorEnum }: ParsedContent, targetPath: string) {
   const result = [
     '// GENERATED FILE - DO NOT EDIT, RUN yarn remake-constants',
     processConstantsTS(constants),
-    processEnumTS('GeneratorIndex', generatorIndexEnum),
+    processEnumTS('DomainSeparator', domainSeparatorEnum),
   ].join('\n');
 
   fs.writeFileSync(targetPath, result);
@@ -472,11 +515,11 @@ function generateTypescriptConstants({ constants, generatorIndexEnum }: ParsedCo
 /**
  * Generate the constants file in C++.
  */
-function generateCppConstants({ constants, generatorIndexEnum }: ParsedContent, targetPath: string) {
+function generateCppConstants({ constants, domainSeparatorEnum }: ParsedContent, targetPath: string) {
   const resultCpp: string = `// GENERATED FILE - DO NOT EDIT, RUN yarn remake-constants in yarn-project/constants
 #pragma once
 
-${processConstantsCpp(constants, generatorIndexEnum)}
+${processConstantsCpp(constants, domainSeparatorEnum)}
 `;
 
   fs.writeFileSync(targetPath, resultCpp);
@@ -485,10 +528,10 @@ ${processConstantsCpp(constants, generatorIndexEnum)}
 /**
  * Generate the constants file in PIL.
  */
-function generatePilConstants({ constants, generatorIndexEnum }: ParsedContent, targetPath: string) {
+function generatePilConstants({ constants, domainSeparatorEnum }: ParsedContent, targetPath: string) {
   const resultPil: string = `// GENERATED FILE - DO NOT EDIT, RUN yarn remake-constants in yarn-project/constants
 namespace constants;
-${processConstantsPil(constants, generatorIndexEnum)}
+${processConstantsPil(constants, domainSeparatorEnum)}
 \n`;
 
   fs.writeFileSync(targetPath, resultPil);
@@ -522,14 +565,20 @@ ${processConstantsSolidity(constants)}
 /**
  * Parse the content of the constants file in Noir.
  */
-function parseNoirFile(fileContent: string): ParsedContent {
+function parseNoirFile(
+  fileContent: string,
+  { stripLineComments = false }: { stripLineComments?: boolean } = {},
+): ParsedExpressions {
   const constantsExpressions: [string, string][] = [];
-  const generatorIndexEnum: { [key: string]: number } = {};
+  const domainSeparatorEnum: { [key: string]: number } = {};
 
   const emptyExpression = (): { name: string; content: string[] } => ({ name: '', content: [] });
   let expression = emptyExpression();
   fileContent.split('\n').forEach(l => {
-    const line = l.trim();
+    // Strip trailing `//` line comments so multi-line expressions with inline comments (e.g.
+    // MAX_TX_BLOB_DATA_SIZE_IN_FIELDS) parse correctly. Disabled for constants.nr to keep its
+    // existing parsing behavior byte-for-byte unchanged.
+    const line = (stripLineComments ? l.replace(/\/\/.*$/, '') : l).trim();
 
     if (!line) {
       // Empty line.
@@ -547,7 +596,7 @@ function parseNoirFile(fileContent: string): ParsedContent {
         const [, indexName] = name.match(/DOM_SEP__(\w+)/) || [];
         if (indexName) {
           // Generator index.
-          generatorIndexEnum[indexName] = +value;
+          domainSeparatorEnum[indexName] = +value;
         } else if (end) {
           // A single line of expression.
           constantsExpressions.push([name, value]);
@@ -581,9 +630,7 @@ function parseNoirFile(fileContent: string): ParsedContent {
     }
   });
 
-  const constants = evaluateExpressions(constantsExpressions);
-
-  return { constants, generatorIndexEnum };
+  return { constantsExpressions, domainSeparatorEnum };
 }
 
 /**
@@ -621,7 +668,11 @@ function evaluateExpressions(expressions: [string, string][]): { [key: string]: 
         // We split the expression into terms...
         .split(/\s+/)
         // ...and then we convert each term to a BigInt if it is a number.
-        .map(term => (isNaN(+term) ? term : `BigInt('${term}')`))
+        .map(term => {
+          // Remove underscores from numeric literals (e.g., 6_000_000 -> 6000000)
+          const termWithoutUnderscores = term.replace(/_/g, '');
+          return isNaN(+termWithoutUnderscores) ? term : `BigInt('${termWithoutUnderscores}')`;
+        })
         // .. also, we convert the known bigints to BigInts.
         .map(term => (knownBigInts.includes(term) ? `BigInt(${term})` : term))
         // We join the terms back together.
@@ -647,7 +698,28 @@ function main(): void {
 
   const noirConstantsFile = join(__dirname, NOIR_CONSTANTS_FILE);
   const noirConstants = fs.readFileSync(noirConstantsFile, 'utf-8');
-  const parsedContent = parseNoirFile(noirConstants);
+  const { constantsExpressions, domainSeparatorEnum } = parseNoirFile(noirConstants);
+
+  // Pull in explicitly-listed constants defined outside constants.nr (e.g. alongside circuit code).
+  // They are appended after the main constants so they can reference them when evaluated together.
+  for (const { file, constants: names } of ADDITIONAL_NOIR_CONSTANT_FILES) {
+    const additionalContent = fs.readFileSync(join(__dirname, file), 'utf-8');
+    const { constantsExpressions: additionalExpressions } = parseNoirFile(additionalContent, {
+      stripLineComments: true,
+    });
+    for (const name of names) {
+      const expression = additionalExpressions.find(([exprName]) => exprName === name);
+      if (!expression) {
+        throw new Error(`Constant ${name} not found in ${file}`);
+      }
+      constantsExpressions.push(expression);
+    }
+  }
+
+  const parsedContent: ParsedContent = {
+    constants: evaluateExpressions(constantsExpressions),
+    domainSeparatorEnum,
+  };
 
   // Typescript
   const tsTargetPath = join(__dirname, TS_CONSTANTS_FILE);

@@ -119,9 +119,19 @@ async function writeProcessedFiles(docsDir, destDir, cachedDestDir, content) {
 }
 
 async function run() {
-  // await generateInstructionSet(); // Removed with protocol-specs
-
   const rootDir = path.join(__dirname, "../../../");
+  const docsRoot = path.join(rootDir, "docs");
+
+  // Generate Docusaurus-compatible array file from developer version config.
+  // This must happen early (before validate:redirects runs) so that
+  // developer_versions.json reflects the current config, not stale data.
+  const devConfigPath = path.join(docsRoot, "developer_version_config.json");
+  const devArrayPath = path.join(docsRoot, "developer_versions.json");
+  if (fs.existsSync(devConfigPath)) {
+    const config = JSON.parse(fs.readFileSync(devConfigPath, "utf-8"));
+    const versions = Object.values(config).filter(Boolean);
+    fs.writeFileSync(devArrayPath, JSON.stringify(versions, null, 2) + "\n");
+  }
   const baseDestDir = path.join(rootDir, "docs", "processed-docs");
   const baseCachedDestDir = path.join(rootDir, "docs", "processed-docs-cache");
 
@@ -129,7 +139,8 @@ async function run() {
   const docsDirs = [
     path.join(rootDir, "docs", "docs"),
     path.join(rootDir, "docs", "docs-developers"),
-    path.join(rootDir, "docs", "docs-network"),
+    path.join(rootDir, "docs", "docs-operate"),
+    path.join(rootDir, "docs", "docs-participate"),
   ];
 
   for (const docsDir of docsDirs) {

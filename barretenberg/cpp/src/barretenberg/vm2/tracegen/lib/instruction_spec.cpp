@@ -4,7 +4,7 @@
 #include <cstdint>
 #include <unordered_map>
 
-#include "barretenberg/vm2/common/aztec_constants.hpp"
+#include "barretenberg/aztec/aztec_constants.hpp"
 #include "barretenberg/vm2/common/opcodes.hpp"
 
 namespace bb::avm2::tracegen {
@@ -80,8 +80,8 @@ const std::unordered_map<ExecutionOpCode, SubtraceInfo>& get_subtrace_info_map()
             .subtrace_operation_id = AVM_EXEC_OP_ID_L1_TO_L2_MESSAGE_EXISTS } },
         { ExecutionOpCode::GETCONTRACTINSTANCE,
           { .subtrace_selector = SubtraceSel::GETCONTRACTINSTANCE, .subtrace_operation_id = 0 } },
-        { ExecutionOpCode::EMITUNENCRYPTEDLOG,
-          { .subtrace_selector = SubtraceSel::EMITUNENCRYPTEDLOG, .subtrace_operation_id = 0 } },
+        { ExecutionOpCode::EMITPUBLICLOG,
+          { .subtrace_selector = SubtraceSel::EMITPUBLICLOG, .subtrace_operation_id = 0 } },
         { ExecutionOpCode::SENDL2TOL1MSG,
           { .subtrace_selector = SubtraceSel::EXECUTION, .subtrace_operation_id = AVM_EXEC_OP_ID_SENDL2TOL1MSG } },
         { ExecutionOpCode::CALL,
@@ -124,8 +124,8 @@ FF get_subtrace_id(SubtraceSel subtrace_sel)
         return AVM_SUBTRACE_ID_SET;
     case SubtraceSel::GETCONTRACTINSTANCE:
         return AVM_SUBTRACE_ID_GETCONTRACTINSTANCE;
-    case SubtraceSel::EMITUNENCRYPTEDLOG:
-        return AVM_SUBTRACE_ID_EMITUNENCRYPTEDLOG;
+    case SubtraceSel::EMITPUBLICLOG:
+        return AVM_SUBTRACE_ID_EMITPUBLICLOG;
     case SubtraceSel::POSEIDON2PERM:
         return AVM_SUBTRACE_ID_POSEIDON2_PERM;
     case SubtraceSel::SHA256COMPRESSION:
@@ -164,8 +164,8 @@ Column get_subtrace_selector(SubtraceSel subtrace_sel)
         return C::execution_sel_exec_dispatch_set;
     case SubtraceSel::GETCONTRACTINSTANCE:
         return C::execution_sel_exec_dispatch_get_contract_instance;
-    case SubtraceSel::EMITUNENCRYPTEDLOG:
-        return C::execution_sel_exec_dispatch_emit_unencrypted_log;
+    case SubtraceSel::EMITPUBLICLOG:
+        return C::execution_sel_exec_dispatch_emit_public_log;
     case SubtraceSel::POSEIDON2PERM:
         return C::execution_sel_exec_dispatch_poseidon2_perm;
     case SubtraceSel::SHA256COMPRESSION:
@@ -194,10 +194,8 @@ Column get_dyn_gas_selector(uint32_t dyn_gas_id)
         return C::execution_sel_gas_returndata_copy;
     case AVM_DYN_GAS_ID_TORADIX:
         return C::execution_sel_gas_to_radix;
-    case AVM_DYN_GAS_ID_BITWISE:
-        return C::execution_sel_gas_bitwise;
-    case AVM_DYN_GAS_ID_EMITUNENCRYPTEDLOG:
-        return C::execution_sel_gas_emit_unencrypted_log;
+    case AVM_DYN_GAS_ID_EMITPUBLICLOG:
+        return C::execution_sel_gas_emit_public_log;
     case AVM_DYN_GAS_ID_SSTORE:
         return C::execution_sel_gas_sstore;
     default:

@@ -21,8 +21,11 @@ bool ECCVMTraceChecker::check(Builder& builder,
     const FF beta = FF::random_element(engine_ptr);
     const FF beta_sqr = beta.sqr();
     const FF beta_cube = beta_sqr * beta;
-    auto eccvm_set_permutation_delta =
-        gamma * (gamma + beta_sqr) * (gamma + beta_sqr + beta_sqr) * (gamma + beta_sqr + beta_sqr + beta_sqr);
+    const FF beta_quartic = beta_sqr * beta_sqr;
+    auto first_term_tag = beta_quartic; // FIRST_TERM_TAG (= 1) * beta_quartic
+    auto eccvm_set_permutation_delta = (gamma + first_term_tag) * (gamma + beta_sqr + first_term_tag) *
+                                       (gamma + beta_sqr + beta_sqr + first_term_tag) *
+                                       (gamma + beta_sqr + beta_sqr + beta_sqr + first_term_tag);
     eccvm_set_permutation_delta = eccvm_set_permutation_delta.invert();
     bb::RelationParameters<typename Flavor::FF> params{
         .eta = 0,
@@ -31,6 +34,7 @@ bool ECCVMTraceChecker::check(Builder& builder,
         .public_input_delta = 0,
         .beta_sqr = beta_sqr,
         .beta_cube = beta_cube,
+        .beta_quartic = beta_quartic,
         .eccvm_set_permutation_delta = eccvm_set_permutation_delta,
     };
 
@@ -40,9 +44,9 @@ bool ECCVMTraceChecker::check(Builder& builder,
     ProverPolynomials polynomials(builder);
 #endif
     const size_t num_rows = polynomials.get_polynomial_size();
-    const size_t unmasked_witness_size = num_rows - NUM_DISABLED_ROWS_IN_SUMCHECK;
-    compute_logderivative_inverse<FF, ECCVMLookupRelation<FF>>(polynomials, params, unmasked_witness_size);
-    compute_grand_product<Flavor, ECCVMSetRelation<FF>>(polynomials, params, unmasked_witness_size);
+    // Skip the disabled head region to preserve masking values
+    compute_logderivative_inverse<FF, ECCVMLookupRelation<FF>>(polynomials, params, Flavor::TRACE_OFFSET);
+    compute_grand_product<Flavor, ECCVMSetRelation<FF>>(polynomials, params);
 
     polynomials.z_perm_shift = Polynomial(polynomials.z_perm.shifted());
 
@@ -53,7 +57,8 @@ bool ECCVMTraceChecker::check(Builder& builder,
         }
         constexpr size_t NUM_SUBRELATIONS = result.size();
 
-        for (size_t i = 0; i < num_rows; ++i) {
+        // Skip the disabled head rows (masking region) — relations are zeroed there by row-disabling polynomial
+        for (size_t i = Flavor::TRACE_OFFSET; i < num_rows; ++i) {
             auto row = polynomials.get_row(i);
 #ifdef FUZZING
             // Check if the relation is skippable and should be skipped (only in fuzzing builds)
@@ -98,7 +103,8 @@ bool ECCVMTraceChecker::check(Builder& builder,
     for (auto& r : lookup_result) {
         r = 0;
     }
-    for (size_t i = 0; i < num_rows; ++i) {
+    // Skip the disabled head rows (masking region) — row-disabling polynomial zeroes them in sumcheck
+    for (size_t i = Flavor::TRACE_OFFSET; i < num_rows; ++i) {
         LookupRelation::accumulate(lookup_result, polynomials.get_row(i), params, 1);
     }
     for (auto r : lookup_result) {

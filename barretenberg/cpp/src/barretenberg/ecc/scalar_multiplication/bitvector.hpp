@@ -17,6 +17,8 @@
  * @brief Custom class to handle packed vectors of bits
  * @details The cpp std::vector<bool> does not guarantee memory adjacency of values, and has no fast primitive for
  * clearing all bits in the vector. This is to avoid needing to clear all Pippenger buckets every round
+ * @note NOT THREAD-SAFE. Concurrent set() calls on indices sharing the same 64-bit word will race.
+ *       Current usage is safe because each BucketAccumulators instance is per-thread.
  */
 class BitVector {
   public:

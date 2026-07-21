@@ -19,7 +19,16 @@ const sidebars = {
     },
     {
       type: "doc",
-      id: "getting_started_on_devnet",
+      id: "getting_started_on_testnet",
+    },
+    {
+      type: "doc",
+      id: "ai_tooling",
+    },
+    {
+      type: "doc",
+      id: "support",
+      label: "Support",
     },
     {
       type: "link",

@@ -11,12 +11,15 @@ pub mod with_hash;
 
 pub fn compute_delayed_public_mutable_time_horizon<T, let INITIAL_DELAY: u64>(
     delayed_public_mutable_values: DelayedPublicMutableValues<T, INITIAL_DELAY>,
-    anchor_timestamp: u64,
+    anchor_block_timestamp: u64,
 ) -> u64
 where
     T: ToField + Eq + FromField,
 {
     let effective_minimum_delay =
-        delayed_public_mutable_values.sdc.get_effective_minimum_delay_at(anchor_timestamp);
-    delayed_public_mutable_values.svc.get_time_horizon(anchor_timestamp, effective_minimum_delay)
+        delayed_public_mutable_values.sdc.get_effective_minimum_delay_at(anchor_block_timestamp);
+    delayed_public_mutable_values.svc.get_time_horizon(
+        anchor_block_timestamp,
+        effective_minimum_delay,
+    )
 }

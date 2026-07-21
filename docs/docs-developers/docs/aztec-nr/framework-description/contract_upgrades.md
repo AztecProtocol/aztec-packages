@@ -5,6 +5,17 @@ tags: [contracts]
 description: Understand contract upgrade patterns in Aztec and how to implement upgradeable contracts.
 ---
 
+:::warning[Upgrades are not yet well supported by the framework]
+Contract upgrades are currently a low-level protocol feature with minimal framework support. Before relying on them, be aware that:
+
+- Upgrades are hard to execute correctly, and need lots of careful testing.
+- State migrations are non-trivial and also require extensive testing. The new implementation must be compatible with all existing state, including public storage, private notes, and initialization status.
+- The `#[aztec]` macros are not at the moment built with upgrades in mind. Macro-generated code makes assumptions that upgrades can violate (for example, initialization checks in the new implementation can make all functions of already-deployed instances permanently uncallable), so users may need to drop the macros until support is added.
+- There is no additional tooling at the moment to help with upgrades, such as detection of storage layout compatibility between the old and new implementations.
+
+All in all, this feature is not well supported by the framework as of now, and should only be used with extreme care.
+:::
+
 Each contract instance refers to a contract class ID for its code. Upgrading a contract's implementation involves updating its current class ID to a new class ID, while retaining the original class ID for address verification.
 
 ## Original class ID
@@ -40,6 +51,13 @@ fn update_to(new_class_id: ContractClassId) {
     );
 }
 ```
+
+:::info
+To use the `ContractInstanceRegistry`, add this dependency to your `Nargo.toml`:
+```toml
+contract_instance_registry = { git="https://github.com/AztecProtocol/aztec-packages/", tag="#include_aztec_version", directory="noir-projects/noir-contracts/contracts/protocol_interface/contract_instance_registry_interface" }
+```
+:::
 
 The `update` function in the registry is a public function, so you can enqueue it from a private function (as shown above) or call it directly from a public function.
 
@@ -127,11 +145,3 @@ const updatedContract = UpdatedContract.at(contract.address, wallet);
 ```
 
 If you try to register a contract artifact that doesn't match the current contract class, the registration will fail.
-
-### Security considerations
-
-1. **Access control**: Implement proper access controls for upgrade functions. Consider using `set_update_delay` to customize the delay for your security requirements.
-
-2. **State compatibility**: Ensure the new implementation is compatible with existing state. Maintain the same storage layout to prevent data corruption.
-
-3. **Testing**: Test upgrades thoroughly in a development environment. Verify all existing functionality works with the new implementation.

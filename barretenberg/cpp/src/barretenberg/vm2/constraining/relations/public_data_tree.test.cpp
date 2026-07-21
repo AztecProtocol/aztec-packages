@@ -4,12 +4,16 @@
 #include <cmath>
 #include <cstdint>
 
+#include "barretenberg/aztec/aztec_hash_policy.hpp"
 #include "barretenberg/crypto/poseidon2/poseidon2.hpp"
 #include "barretenberg/vm2/common/avm_io.hpp"
 #include "barretenberg/vm2/constraining/flavor_settings.hpp"
 #include "barretenberg/vm2/constraining/testing/check_relation.hpp"
 #include "barretenberg/vm2/generated/relations/lookups_public_data_check.hpp"
+#include "barretenberg/vm2/generated/relations/lookups_sload.hpp"
 #include "barretenberg/vm2/generated/relations/merkle_check.hpp"
+#include "barretenberg/vm2/generated/relations/perms_sstore.hpp"
+#include "barretenberg/vm2/generated/relations/perms_tx.hpp"
 #include "barretenberg/vm2/generated/relations/public_data_check.hpp"
 #include "barretenberg/vm2/simulation/events/event_emitter.hpp"
 #include "barretenberg/vm2/simulation/events/public_data_tree_check_event.hpp"
@@ -22,6 +26,7 @@
 #include "barretenberg/vm2/testing/macros.hpp"
 #include "barretenberg/vm2/testing/public_inputs_builder.hpp"
 #include "barretenberg/vm2/testing/test_tree.hpp"
+#include "barretenberg/vm2/tracegen/execution_trace.hpp"
 #include "barretenberg/vm2/tracegen/field_gt_trace.hpp"
 #include "barretenberg/vm2/tracegen/lib/lookup_builder.hpp"
 #include "barretenberg/vm2/tracegen/merkle_check_trace.hpp"
@@ -36,7 +41,6 @@ namespace bb::avm2::constraining {
 namespace {
 
 using ::testing::NiceMock;
-using ::testing::TestWithParam;
 
 using testing::TestMemoryTree;
 
@@ -60,6 +64,7 @@ using simulation::RangeCheckEvent;
 using simulation::unconstrained_compute_leaf_slot;
 using simulation::unconstrained_root_from_path;
 
+using tracegen::ExecutionTraceBuilder;
 using tracegen::FieldGreaterThanTraceBuilder;
 using tracegen::MerkleCheckTraceBuilder;
 using tracegen::Poseidon2TraceBuilder;
@@ -155,7 +160,7 @@ TEST_P(PublicDataReadPositiveTests, Positive)
     for (size_t i = 0; i < PUBLIC_DATA_TREE_HEIGHT; ++i) {
         sibling_path.emplace_back(i);
     }
-    FF root = unconstrained_root_from_path(low_leaf_hash, leaf_index, sibling_path);
+    FF root = unconstrained_root_from_path(DOM_SEP__PUBLIC_DATA_MERKLE, low_leaf_hash, leaf_index, sibling_path);
 
     public_data_tree_check_simulator.assert_read(param.slot,
                                                  contract_address,
@@ -202,13 +207,13 @@ TEST(PublicDataTreeConstrainingTest, NegativeStartCondition)
                                    { C::public_data_check_sel, 1 },
                                } });
 
-    check_relation<public_data_check>(trace, public_data_check::SR_START_CONDITION);
+    check_relation<public_data_check>(trace, public_data_check::SR_TRACE_CONTINUITY);
 
     // Invalid: sel can't be activated if prev is not the first row
     trace.set(C::precomputed_first_row, 0, 0);
 
-    EXPECT_THROW_WITH_MESSAGE(check_relation<public_data_check>(trace, public_data_check::SR_START_CONDITION),
-                              "START_CONDITION");
+    EXPECT_THROW_WITH_MESSAGE(check_relation<public_data_check>(trace, public_data_check::SR_TRACE_CONTINUITY),
+                              public_data_check::get_subrelation_label(public_data_check::SR_TRACE_CONTINUITY));
 }
 
 TEST(PublicDataTreeConstrainingTest, NegativeExistsFlagCheck)
@@ -233,13 +238,13 @@ TEST(PublicDataTreeConstrainingTest, NegativeExistsFlagCheck)
     trace.set(C::public_data_check_leaf_not_exists, 0, 1);
 
     EXPECT_THROW_WITH_MESSAGE(check_relation<public_data_check>(trace, public_data_check::SR_EXISTS_FLAG_CHECK),
-                              "EXISTS_FLAG_CHECK");
+                              public_data_check::get_subrelation_label(public_data_check::SR_EXISTS_FLAG_CHECK));
 
     trace.set(C::public_data_check_leaf_not_exists, 0, 0);
     trace.set(C::public_data_check_leaf_not_exists, 1, 0);
 
     EXPECT_THROW_WITH_MESSAGE(check_relation<public_data_check>(trace, public_data_check::SR_EXISTS_FLAG_CHECK),
-                              "EXISTS_FLAG_CHECK");
+                              public_data_check::get_subrelation_label(public_data_check::SR_EXISTS_FLAG_CHECK));
 }
 
 TEST(PublicDataTreeConstrainingTest, NegativeNextSlotIsZero)
@@ -266,13 +271,13 @@ TEST(PublicDataTreeConstrainingTest, NegativeNextSlotIsZero)
     trace.set(C::public_data_check_next_slot_is_nonzero, 0, 1);
 
     EXPECT_THROW_WITH_MESSAGE(check_relation<public_data_check>(trace, public_data_check::SR_NEXT_SLOT_IS_ZERO_CHECK),
-                              "NEXT_SLOT_IS_ZERO_CHECK");
+                              public_data_check::get_subrelation_label(public_data_check::SR_NEXT_SLOT_IS_ZERO_CHECK));
 
     trace.set(C::public_data_check_next_slot_is_nonzero, 0, 0);
     trace.set(C::public_data_check_next_slot_is_nonzero, 1, 0);
 
     EXPECT_THROW_WITH_MESSAGE(check_relation<public_data_check>(trace, public_data_check::SR_NEXT_SLOT_IS_ZERO_CHECK),
-                              "NEXT_SLOT_IS_ZERO_CHECK");
+                              public_data_check::get_subrelation_label(public_data_check::SR_NEXT_SLOT_IS_ZERO_CHECK));
 }
 
 TEST(PublicDataTreeConstrainingTest, NegativeValueIsCorrect)
@@ -298,14 +303,14 @@ TEST(PublicDataTreeConstrainingTest, NegativeValueIsCorrect)
     trace.set(C::public_data_check_value, 0, 0);
 
     EXPECT_THROW_WITH_MESSAGE(check_relation<public_data_check>(trace, public_data_check::SR_VALUE_IS_CORRECT),
-                              "VALUE_IS_CORRECT");
+                              public_data_check::get_subrelation_label(public_data_check::SR_VALUE_IS_CORRECT));
 
     trace.set(C::public_data_check_value, 0, 27);
     // Invalid, if leaf does not exists, the value should be zero
     trace.set(C::public_data_check_value, 1, 27);
 
     EXPECT_THROW_WITH_MESSAGE(check_relation<public_data_check>(trace, public_data_check::SR_VALUE_IS_CORRECT),
-                              "VALUE_IS_CORRECT");
+                              public_data_check::get_subrelation_label(public_data_check::SR_VALUE_IS_CORRECT));
 }
 
 TEST_F(PublicDataTreeCheckConstrainingTest, PositiveWriteExists)
@@ -313,7 +318,7 @@ TEST_F(PublicDataTreeCheckConstrainingTest, PositiveWriteExists)
     FF slot = 40;
     FF leaf_slot = unconstrained_compute_leaf_slot(contract_address, slot);
     FF new_value = 27;
-    TestMemoryTree<Poseidon2HashPolicy> public_data_tree(8, PUBLIC_DATA_TREE_HEIGHT);
+    TestMemoryTree<aztec::PublicDataMerkleHashPolicy> public_data_tree(8, PUBLIC_DATA_TREE_HEIGHT);
 
     AvmAccumulatedData accumulated_data = {};
     accumulated_data.public_data_writes[0] = PublicDataWrite{
@@ -438,7 +443,7 @@ TEST_F(PublicDataTreeCheckConstrainingTest, PositiveSquashing)
     ASSERT_GT(dummy_leaf_slot, leaf_slot + 1);
 
     FF low_leaf_slot = 40;
-    TestMemoryTree<Poseidon2HashPolicy> public_data_tree(8, PUBLIC_DATA_TREE_HEIGHT);
+    TestMemoryTree<aztec::PublicDataMerkleHashPolicy> public_data_tree(8, PUBLIC_DATA_TREE_HEIGHT);
 
     AvmAccumulatedData accumulated_data = {};
     accumulated_data.public_data_writes[0] = PublicDataWrite{
@@ -645,14 +650,14 @@ TEST(PublicDataTreeConstrainingTest, NegativeLowLeafValueUpdate)
     trace.set(C::public_data_check_leaf_not_exists, 0, 1);
 
     EXPECT_THROW_WITH_MESSAGE(check_relation<public_data_check>(trace, public_data_check::SR_LOW_LEAF_VALUE_UPDATE),
-                              "LOW_LEAF_VALUE_UPDATE");
+                              public_data_check::get_subrelation_label(public_data_check::SR_LOW_LEAF_VALUE_UPDATE));
 
     trace.set(C::public_data_check_leaf_not_exists, 0, 0);
     // Invalid, if leaf does not exist, updated_low_leaf_value should be the low leaf value
     trace.set(C::public_data_check_leaf_not_exists, 1, 0);
 
     EXPECT_THROW_WITH_MESSAGE(check_relation<public_data_check>(trace, public_data_check::SR_LOW_LEAF_VALUE_UPDATE),
-                              "LOW_LEAF_VALUE_UPDATE");
+                              public_data_check::get_subrelation_label(public_data_check::SR_LOW_LEAF_VALUE_UPDATE));
 }
 
 TEST(PublicDataTreeConstrainingTest, NegativeLowLeafNextIndexUpdate)
@@ -683,7 +688,7 @@ TEST(PublicDataTreeConstrainingTest, NegativeLowLeafNextIndexUpdate)
 
     EXPECT_THROW_WITH_MESSAGE(
         check_relation<public_data_check>(trace, public_data_check::SR_LOW_LEAF_NEXT_INDEX_UPDATE),
-        "LOW_LEAF_NEXT_INDEX_UPDATE");
+        public_data_check::get_subrelation_label(public_data_check::SR_LOW_LEAF_NEXT_INDEX_UPDATE));
 
     trace.set(C::public_data_check_leaf_not_exists, 0, 0);
     // Invalid, if leaf exists, the updated_low_leaf_next_index should be untouched
@@ -691,7 +696,7 @@ TEST(PublicDataTreeConstrainingTest, NegativeLowLeafNextIndexUpdate)
 
     EXPECT_THROW_WITH_MESSAGE(
         check_relation<public_data_check>(trace, public_data_check::SR_LOW_LEAF_NEXT_INDEX_UPDATE),
-        "LOW_LEAF_NEXT_INDEX_UPDATE");
+        public_data_check::get_subrelation_label(public_data_check::SR_LOW_LEAF_NEXT_INDEX_UPDATE));
 }
 
 TEST(PublicDataTreeConstrainingTest, NegativeLowLeafNextSlotUpdate)
@@ -720,15 +725,17 @@ TEST(PublicDataTreeConstrainingTest, NegativeLowLeafNextSlotUpdate)
     // Invalid, if leaf not exists, the updated_low_leaf_next_slot should be the newly inserted leaf slot
     trace.set(C::public_data_check_leaf_not_exists, 0, 1);
 
-    EXPECT_THROW_WITH_MESSAGE(check_relation<public_data_check>(trace, public_data_check::SR_LOW_LEAF_NEXT_SLOT_UPDATE),
-                              "LOW_LEAF_NEXT_SLOT_UPDATE");
+    EXPECT_THROW_WITH_MESSAGE(
+        check_relation<public_data_check>(trace, public_data_check::SR_LOW_LEAF_NEXT_SLOT_UPDATE),
+        public_data_check::get_subrelation_label(public_data_check::SR_LOW_LEAF_NEXT_SLOT_UPDATE));
 
     trace.set(C::public_data_check_leaf_not_exists, 0, 0);
     // Invalid, if leaf exists, the updated_low_leaf_next_slot should be untouched
     trace.set(C::public_data_check_leaf_not_exists, 1, 0);
 
-    EXPECT_THROW_WITH_MESSAGE(check_relation<public_data_check>(trace, public_data_check::SR_LOW_LEAF_NEXT_SLOT_UPDATE),
-                              "LOW_LEAF_NEXT_SLOT_UPDATE");
+    EXPECT_THROW_WITH_MESSAGE(
+        check_relation<public_data_check>(trace, public_data_check::SR_LOW_LEAF_NEXT_SLOT_UPDATE),
+        public_data_check::get_subrelation_label(public_data_check::SR_LOW_LEAF_NEXT_SLOT_UPDATE));
 }
 
 TEST(PublicDataTreeConstrainingTest, NegativeUpdateRootValidation)
@@ -755,7 +762,7 @@ TEST(PublicDataTreeConstrainingTest, NegativeUpdateRootValidation)
     trace.set(C::public_data_check_write_root, 0, 30);
 
     EXPECT_THROW_WITH_MESSAGE(check_relation<public_data_check>(trace, public_data_check::SR_UPDATE_ROOT_VALIDATION),
-                              "UPDATE_ROOT_VALIDATION");
+                              public_data_check::get_subrelation_label(public_data_check::SR_UPDATE_ROOT_VALIDATION));
 }
 
 TEST(PublicDataTreeConstrainingTest, NegativeSetProtocolWrite)
@@ -773,7 +780,7 @@ TEST(PublicDataTreeConstrainingTest, NegativeSetProtocolWrite)
     trace.set(C::public_data_check_protocol_write, 0, 0);
 
     EXPECT_THROW_WITH_MESSAGE(check_relation<public_data_check>(trace, public_data_check::SR_PROTOCOL_WRITE_CHECK),
-                              "PROTOCOL_WRITE_CHECK");
+                              public_data_check::get_subrelation_label(public_data_check::SR_PROTOCOL_WRITE_CHECK));
 
     trace.set(C::public_data_check_non_protocol_write, 0, 1);
     check_relation<public_data_check>(trace, public_data_check::SR_PROTOCOL_WRITE_CHECK);
@@ -781,7 +788,104 @@ TEST(PublicDataTreeConstrainingTest, NegativeSetProtocolWrite)
     // Invalid, cannot both be a protocol and non protocol write
     trace.set(C::public_data_check_protocol_write, 0, 1);
     EXPECT_THROW_WITH_MESSAGE(check_relation<public_data_check>(trace, public_data_check::SR_PROTOCOL_WRITE_CHECK),
-                              "PROTOCOL_WRITE_CHECK");
+                              public_data_check::get_subrelation_label(public_data_check::SR_PROTOCOL_WRITE_CHECK));
+}
+
+// A read interaction (e.g. sload -> public_data_check.sel) must hit a destination row
+// where public_data_check.write = 0. Mutating write to 1 on the matching row breaks the lookup.
+TEST(PublicDataTreeConstrainingTest, NegativeReadInteractionRequiresWriteZero)
+{
+    FF slot = 42;
+    FF address = 1;
+    FF value = 27;
+    FF root = 100;
+
+    TestTraceContainer trace({
+        // Source row: sload caller.
+        {
+            { C::execution_sel_execute_sload, 1 },
+            { C::execution_register_0_, slot },
+            { C::execution_register_1_, address },
+            { C::execution_register_2_, value },
+            { C::execution_prev_public_data_tree_root, root },
+        },
+        // Destination row: matching read row in public_data_check.
+        {
+            { C::public_data_check_sel, 1 },
+            { C::public_data_check_slot, slot },
+            { C::public_data_check_address, address },
+            { C::public_data_check_value, value },
+            { C::public_data_check_root, root },
+            { C::public_data_check_write, 0 },
+        },
+    });
+
+    check_interaction<ExecutionTraceBuilder, lookup_sload_storage_read_settings>(trace);
+
+    // Mutate the destination row to write=1 and the lookup must fail to find a match.
+    trace.set(C::public_data_check_write, 1, 1);
+
+    EXPECT_THROW_WITH_MESSAGE((check_interaction<ExecutionTraceBuilder, lookup_sload_storage_read_settings>(trace)),
+                              "Failed.*LOOKUP_SLOAD_STORAGE_READ. Could not find tuple in destination.");
+}
+
+// A write interaction (sstore -> public_data_check.non_protocol_write, via the multi-permutation
+// keyed by public_data_check.write) must hit a destination row where public_data_check.write = 1.
+// Mutating write to 0 removes the row from the multi-permutation candidate set.
+TEST(PublicDataTreeConstrainingTest, NegativeWriteInteractionRequiresWriteOne)
+{
+    FF slot = 42;
+    FF address = 1;
+    FF value = 27;
+    FF root_before = 100;
+    FF root_after = 200;
+    FF size_before = 128;
+    FF size_after = 129;
+    FF clk = 5;
+
+    TestTraceContainer trace({
+        // Source row: sstore caller.
+        {
+            { C::execution_sel_write_public_data, 1 },
+            { C::execution_register_0_, value },
+            { C::execution_contract_address, address },
+            { C::execution_register_1_, slot },
+            { C::execution_discard, 0 },
+            { C::execution_prev_public_data_tree_root, root_before },
+            { C::execution_public_data_tree_root, root_after },
+            { C::execution_prev_public_data_tree_size, size_before },
+            { C::execution_public_data_tree_size, size_after },
+            { C::execution_clk, clk },
+        },
+        // Destination row: matching non_protocol_write row in public_data_check.
+        {
+            { C::public_data_check_sel, 1 },
+            { C::public_data_check_write, 1 },
+            { C::public_data_check_non_protocol_write, 1 },
+            { C::public_data_check_value, value },
+            { C::public_data_check_address, address },
+            { C::public_data_check_slot, slot },
+            { C::public_data_check_discard, 0 },
+            { C::public_data_check_root, root_before },
+            { C::public_data_check_write_root, root_after },
+            { C::public_data_check_tree_size_before_write, size_before },
+            { C::public_data_check_tree_size_after_write, size_after },
+            { C::public_data_check_clk, clk },
+        },
+    });
+
+    check_multipermutation_interaction<PublicDataTreeTraceBuilder,
+                                       perm_sstore_storage_write_settings,
+                                       perm_tx_balance_update_settings>(trace);
+
+    // Mutate the destination row to write=0: the multi-permutation indexes only rows where
+    // public_data_check.write = 1, so the source can no longer find its match.
+    trace.set(C::public_data_check_write, 1, 0);
+
+    EXPECT_THROW_WITH_MESSAGE((check_multipermutation_interaction<PublicDataTreeTraceBuilder,
+                                                                  perm_sstore_storage_write_settings,
+                                                                  perm_tx_balance_update_settings>(trace)),
+                              "Failed setting selectors for PERM_SSTORE_STORAGE_WRITE");
 }
 
 TEST(PublicDataTreeConstrainingTest, NegativeWriteIdxInitialValue)
@@ -803,22 +907,22 @@ TEST(PublicDataTreeConstrainingTest, NegativeWriteIdxInitialValue)
     trace.set(C::public_data_check_write_idx, 1, 27);
 
     EXPECT_THROW_WITH_MESSAGE(check_relation<public_data_check>(trace, public_data_check::SR_WRITE_IDX_INITIAL_VALUE),
-                              "WRITE_IDX_INITIAL_VALUE");
+                              public_data_check::get_subrelation_label(public_data_check::SR_WRITE_IDX_INITIAL_VALUE));
 }
 
 TEST(PublicDataTreeConstrainingTest, NegativeWriteIdxIncrement)
 {
-    // Test constraint: not_end * (write_idx + should_write_to_public_inputs - write_idx') = 0
+    // Test constraint: not_end * (write_idx + sel_write_to_public_inputs - write_idx') = 0
     TestTraceContainer trace({
         {
             { C::public_data_check_not_end, 1 },
             { C::public_data_check_write_idx, 5 },
-            { C::public_data_check_should_write_to_public_inputs, 1 },
+            { C::public_data_check_sel_write_to_public_inputs, 1 },
         },
         {
             { C::public_data_check_not_end, 1 },
             { C::public_data_check_write_idx, 6 },
-            { C::public_data_check_should_write_to_public_inputs, 0 },
+            { C::public_data_check_sel_write_to_public_inputs, 0 },
         },
         {
             { C::public_data_check_write_idx, 6 },
@@ -827,18 +931,18 @@ TEST(PublicDataTreeConstrainingTest, NegativeWriteIdxIncrement)
 
     check_relation<public_data_check>(trace, public_data_check::SR_WRITE_IDX_INCREMENT);
 
-    // Invalid, if should_write_to_public_inputs is 0, the write_idx should not increment
-    trace.set(C::public_data_check_should_write_to_public_inputs, 0, 0);
+    // Invalid, if sel_write_to_public_inputs is 0, the write_idx should not increment
+    trace.set(C::public_data_check_sel_write_to_public_inputs, 0, 0);
 
     EXPECT_THROW_WITH_MESSAGE(check_relation<public_data_check>(trace, public_data_check::SR_WRITE_IDX_INCREMENT),
-                              "WRITE_IDX_INCREMENT");
+                              public_data_check::get_subrelation_label(public_data_check::SR_WRITE_IDX_INCREMENT));
 
-    // Invalid, if should_write_to_public_inputs is 1, the write_idx should increment
-    trace.set(C::public_data_check_should_write_to_public_inputs, 0, 1);
-    trace.set(C::public_data_check_should_write_to_public_inputs, 1, 1);
+    // Invalid, if sel_write_to_public_inputs is 1, the write_idx should increment
+    trace.set(C::public_data_check_sel_write_to_public_inputs, 0, 1);
+    trace.set(C::public_data_check_sel_write_to_public_inputs, 1, 1);
 
     EXPECT_THROW_WITH_MESSAGE(check_relation<public_data_check>(trace, public_data_check::SR_WRITE_IDX_INCREMENT),
-                              "WRITE_IDX_INCREMENT");
+                              public_data_check::get_subrelation_label(public_data_check::SR_WRITE_IDX_INCREMENT));
 }
 
 // Negative clock diff decompostion
@@ -863,7 +967,7 @@ TEST(PublicDataTreeConstrainingTest, NegativeClockDiffDecomposition)
     trace.set(C::public_data_check_clk_diff_lo, 0, trace.get(C::public_data_check_clk_diff_lo, 0) + 1);
 
     EXPECT_THROW_WITH_MESSAGE(check_relation<public_data_check>(trace, public_data_check::SR_CLK_DIFF_DECOMP),
-                              "CLK_DIFF_DECOMP");
+                              public_data_check::get_subrelation_label(public_data_check::SR_CLK_DIFF_DECOMP));
 
     // Reset
     trace.set(C::public_data_check_clk_diff_lo, 0, trace.get(C::public_data_check_clk_diff_lo, 0) - 1);
@@ -872,7 +976,7 @@ TEST(PublicDataTreeConstrainingTest, NegativeClockDiffDecomposition)
     trace.set(C::public_data_check_clk_diff_hi, 0, trace.get(C::public_data_check_clk_diff_hi, 0) + 1);
 
     EXPECT_THROW_WITH_MESSAGE(check_relation<public_data_check>(trace, public_data_check::SR_CLK_DIFF_DECOMP),
-                              "CLK_DIFF_DECOMP");
+                              public_data_check::get_subrelation_label(public_data_check::SR_CLK_DIFF_DECOMP));
 }
 
 // Out of range clock diff
@@ -925,36 +1029,77 @@ TEST(PublicDataTreeConstrainingTest, SquashingNegativeStartCondition)
                                    { C::public_data_squash_sel, 1 },
                                } });
 
-    check_relation<public_data_squash>(trace, public_data_squash::SR_START_CONDITION);
+    check_relation<public_data_squash>(trace, public_data_squash::SR_TRACE_CONTINUITY);
 
     // Invalid: sel can't be activated if prev is not the first row
     trace.set(C::precomputed_first_row, 0, 0);
 
-    EXPECT_THROW_WITH_MESSAGE(check_relation<public_data_squash>(trace, public_data_squash::SR_START_CONDITION),
-                              "START_CONDITION");
+    EXPECT_THROW_WITH_MESSAGE(check_relation<public_data_squash>(trace, public_data_squash::SR_TRACE_CONTINUITY),
+                              public_data_squash::get_subrelation_label(public_data_squash::SR_TRACE_CONTINUITY));
+}
+
+TEST(PublicDataTreeConstrainingTest, SquashingNegativeCheckClockCondition)
+{
+    // Test constraint: check_clock = NOT_END * (1 - leaf_slot_increase)
+    // where NOT_END = sel * sel'
+    // So check_clock = sel * sel' * (1 - leaf_slot_increase)
+
+    // Valid: check_clock=1 when sel=1, sel'=1, leaf_slot_increase=0
+    TestTraceContainer trace({ {
+                                   { C::public_data_squash_sel, 1 },
+                                   { C::public_data_squash_check_clock, 1 },
+                                   { C::public_data_squash_leaf_slot_increase, 0 },
+                               },
+                               {
+                                   { C::public_data_squash_sel, 1 },
+                                   { C::public_data_squash_check_clock, 0 },
+                                   { C::public_data_squash_leaf_slot_increase, 0 },
+                               } });
+
+    check_relation<public_data_squash>(trace, public_data_squash::SR_CHECK_CLOCK_CONDITION);
+
+    // Invalid: check_clock=0 but NOT_END=1 and leaf_slot_increase=0 (should be 1)
+    trace.set(C::public_data_squash_check_clock, 0, 0);
+
+    EXPECT_THROW_WITH_MESSAGE(check_relation<public_data_squash>(trace, public_data_squash::SR_CHECK_CLOCK_CONDITION),
+                              public_data_squash::get_subrelation_label(public_data_squash::SR_CHECK_CLOCK_CONDITION));
+
+    trace.set(C::public_data_squash_check_clock, 0, 1);
+
+    // Invalid: check_clock=1 but leaf_slot_increase=1 (should be 0)
+    trace.set(C::public_data_squash_leaf_slot_increase, 0, 1);
+
+    EXPECT_THROW_WITH_MESSAGE(check_relation<public_data_squash>(trace, public_data_squash::SR_CHECK_CLOCK_CONDITION),
+                              public_data_squash::get_subrelation_label(public_data_squash::SR_CHECK_CLOCK_CONDITION));
+
+    trace.set(C::public_data_squash_leaf_slot_increase, 0, 0);
+
+    // Invalid: check_clock=1 but sel'=0 (NOT_END=0, should be 0)
+    trace.set(C::public_data_squash_sel, 1, 0);
+
+    EXPECT_THROW_WITH_MESSAGE(check_relation<public_data_squash>(trace, public_data_squash::SR_CHECK_CLOCK_CONDITION),
+                              public_data_squash::get_subrelation_label(public_data_squash::SR_CHECK_CLOCK_CONDITION));
 }
 
 TEST(PublicDataTreeConstrainingTest, SquashingNegativeCheckSameLeafSlot)
 {
-    // Test constraint: (sel * sel') * (1 - leaf_slot_increase) * (leaf_slot - leaf_slot') = 0
+    // Test constraint: check_clock * (leaf_slot - leaf_slot') = 0
     TestTraceContainer trace({ {
-                                   { C::public_data_squash_sel, 1 },
-                                   { C::public_data_squash_leaf_slot_increase, 1 },
+                                   { C::public_data_squash_check_clock, 0 },
                                    { C::public_data_squash_leaf_slot, 27 },
                                },
                                {
-                                   { C::public_data_squash_sel, 1 },
-                                   { C::public_data_squash_leaf_slot_increase, 0 },
+                                   { C::public_data_squash_check_clock, 0 },
                                    { C::public_data_squash_leaf_slot, 40 },
                                } });
 
     check_relation<public_data_squash>(trace, public_data_squash::SR_CHECK_SAME_LEAF_SLOT);
 
     // Invalid: if leaf_slot_increase is 0, the leaf_slot should not be different from the previous leaf_slot
-    trace.set(C::public_data_squash_leaf_slot_increase, 0, 0);
+    trace.set(C::public_data_squash_check_clock, 0, 1);
 
     EXPECT_THROW_WITH_MESSAGE(check_relation<public_data_squash>(trace, public_data_squash::SR_CHECK_SAME_LEAF_SLOT),
-                              "CHECK_SAME_LEAF_SLOT");
+                              public_data_squash::get_subrelation_label(public_data_squash::SR_CHECK_SAME_LEAF_SLOT));
 }
 
 TEST(PublicDataTreeConstrainingTest, SquashingNegativeFinalValuePropagation)
@@ -976,8 +1121,9 @@ TEST(PublicDataTreeConstrainingTest, SquashingNegativeFinalValuePropagation)
     // Invalid: if final value changes, check_clk must be 0
     trace.set(C::public_data_squash_final_value, 1, 28);
 
-    EXPECT_THROW_WITH_MESSAGE(check_relation<public_data_squash>(trace, public_data_squash::SR_FINAL_VALUE_PROPAGATION),
-                              "FINAL_VALUE_PROPAGATION");
+    EXPECT_THROW_WITH_MESSAGE(
+        check_relation<public_data_squash>(trace, public_data_squash::SR_FINAL_VALUE_PROPAGATION),
+        public_data_squash::get_subrelation_label(public_data_squash::SR_FINAL_VALUE_PROPAGATION));
 }
 
 TEST(PublicDataTreeConstrainingTest, SquashingNegativeFinalValueCheck)
@@ -1007,7 +1153,7 @@ TEST(PublicDataTreeConstrainingTest, SquashingNegativeFinalValueCheck)
     trace.set(C::public_data_squash_value, 2, 99);
 
     EXPECT_THROW_WITH_MESSAGE(check_relation<public_data_squash>(trace, public_data_squash::SR_FINAL_VALUE_CHECK),
-                              "FINAL_VALUE_CHECK");
+                              public_data_squash::get_subrelation_label(public_data_squash::SR_FINAL_VALUE_CHECK));
 
     trace.set(C::public_data_squash_value, 2, 42);
 
@@ -1015,7 +1161,7 @@ TEST(PublicDataTreeConstrainingTest, SquashingNegativeFinalValueCheck)
     trace.set(C::public_data_squash_value, 1, 99);
 
     EXPECT_THROW_WITH_MESSAGE(check_relation<public_data_squash>(trace, public_data_squash::SR_FINAL_VALUE_CHECK),
-                              "FINAL_VALUE_CHECK");
+                              public_data_squash::get_subrelation_label(public_data_squash::SR_FINAL_VALUE_CHECK));
     trace.set(C::public_data_squash_value, 1, 27);
 }
 
@@ -1091,7 +1237,7 @@ TEST(PublicDataTreeConstrainingTest, SquashingNegativeClockDecomposition)
         },
         {
             { C::public_data_squash_sel, 1 },
-            { C::public_data_squash_clk, (1 << 25) + (12 << 16) + 37 },
+            { C::public_data_squash_clk, (1 << 25) + (12 << 16) + 38 },
         },
     });
 
@@ -1101,7 +1247,7 @@ TEST(PublicDataTreeConstrainingTest, SquashingNegativeClockDecomposition)
     trace.set(C::public_data_squash_clk_diff_lo, 0, trace.get(C::public_data_squash_clk_diff_lo, 0) + 1);
 
     EXPECT_THROW_WITH_MESSAGE(check_relation<public_data_squash>(trace, public_data_squash::SR_CLK_DIFF_DECOMP),
-                              "CLK_DIFF_DECOMP");
+                              public_data_squash::get_subrelation_label(public_data_squash::SR_CLK_DIFF_DECOMP));
 
     // Reset
     trace.set(C::public_data_squash_clk_diff_lo, 0, trace.get(C::public_data_squash_clk_diff_lo, 0) - 1);
@@ -1110,7 +1256,7 @@ TEST(PublicDataTreeConstrainingTest, SquashingNegativeClockDecomposition)
     trace.set(C::public_data_squash_clk_diff_hi, 0, trace.get(C::public_data_squash_clk_diff_hi, 0) + 1);
 
     EXPECT_THROW_WITH_MESSAGE(check_relation<public_data_squash>(trace, public_data_squash::SR_CLK_DIFF_DECOMP),
-                              "CLK_DIFF_DECOMP");
+                              public_data_squash::get_subrelation_label(public_data_squash::SR_CLK_DIFF_DECOMP));
 }
 
 // Out of range clk diff

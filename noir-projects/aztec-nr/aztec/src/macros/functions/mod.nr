@@ -5,10 +5,11 @@ pub(crate) mod auth_registry;
 
 use crate::macros::{
     internals_functions_generation::{external_functions_registry, internal_functions_registry},
-    utils::{is_fn_external, module_has_initializer},
+    utils::{assert_params_serializable, assert_return_type_serializable, is_fn_external, module_has_initializer},
 };
-use super::utils::{fn_has_noinitcheck, fn_has_nophasecheck, is_fn_initializer, is_fn_only_self, is_fn_view};
+use super::utils::{fn_has_allow_phase_change, fn_has_noinitcheck, is_fn_initializer, is_fn_only_self, is_fn_view};
 use auth_registry::AUTHORIZE_ONCE_REGISTRY;
+use initialization_utils::EMIT_PUBLIC_INIT_NULLIFIER_FN_NAME;
 
 // Functions can have multiple attributes applied to them, e.g. a single function can have #[external("public")],
 // #[view] and #[only_self]. However. the order in which this will be evaluated is unknown, which makes combining them
@@ -29,7 +30,7 @@ use auth_registry::AUTHORIZE_ONCE_REGISTRY;
 ///
 /// Initializer functions are similar to constructors:
 /// - can only be called once
-/// - [`external`] non-initializer functions cannot be called until one of the initializers has ben called
+/// - [`external`] non-initializer functions cannot be called until one of the initializers has been called
 ///
 /// The only exception are [`noinitcheck`] functions, which can be called even if none of the initializers has been
 /// called.
@@ -63,17 +64,31 @@ use auth_registry::AUTHORIZE_ONCE_REGISTRY;
 /// initialization by marking them with the `#[noinitcheck]` attribute - though any contract state initialization will
 /// of course not have taken place.
 ///
-/// ## Cost
+/// ## How It Works
 ///
-/// The initialization process emits a nullifier which marks the contract as initialized. All other [`external`]
-/// functions are automatically made to check that this nullifier exists, ensuring initialization.
+/// Initializers emit nullifiers to mark the contract as initialized. Two separate nullifiers are used (a private
+/// initialization nullifier and a public initialization nullifier) because private nullifiers are committed before
+/// public execution begins: if a single nullifier were used, public functions enqueued by the initializer would see
+/// it as existing *before* the public initialization code had a chance to run.
 ///
-/// For private non-initializer functions, the cost of this check is equivalent to that of a call to
+/// The private initialization nullifier is computed from the contract address and the contract's `init_hash`. This
+/// means that address knowledge alone is insufficient to check whether a contract has been initialized, preventing
+/// a privacy leak for fully private contracts.
+///
+/// - **Private initializers** emit the private initialization nullifier. For contracts that also have external
+///   public functions, they auto-enqueue a call to an auto-generated public function that emits the public
+///   initialization nullifier during public execution. This function name is reserved and cannot be used by
+///   contract developers.
+/// - **Public initializers** emit both nullifiers directly.
+/// - **Private external functions** check the private initialization nullifier.
+/// - **Public external functions** check the public initialization nullifier.
+///
+/// For private non-initializer functions, the cost of this check is equivalent to a call to
 /// [`PrivateContext::assert_nullifier_exists`](crate::context::PrivateContext::assert_nullifier_exists). For public
 /// ones, it is equivalent to a call to
 /// [`PublicContext::nullifier_exists_unsafe`](crate::context::PublicContext::nullifier_exists_unsafe).
 ///
-/// The [`noinitcheck`] attribute can be used to skip the initialization nullifer checks.
+/// The [`noinitcheck`] attribute can be used to skip these checks. [`only_self`] functions also implicitly skip them.
 pub comptime fn initializer(f: FunctionDefinition) {
     // Marker attribute - see the comment at the top of this file
 
@@ -122,12 +137,26 @@ pub comptime fn noinitcheck(f: FunctionDefinition) {
     }
 }
 
-/// A no-phase-check function will allow transitioning from the non-revertible to the revertible phase during its
-/// execution.
+/// An `allow_phase_change` function will allow transitioning from the non-revertible to the revertible phase
+/// during its execution.
 ///
 /// This is an advanced feature that is typically only required for account contract entrypoints that handle
 /// transaction fee payment.
-pub comptime fn nophasecheck(f: FunctionDefinition) {
+///
+/// ## Note Retrieval
+///
+/// When notes are read e.g. via [`crate::note::note_getter::get_notes`], a
+/// [`ConfirmedNote`](crate::note::ConfirmedNote) value is returned which includes note metadata, notably whether the
+/// note was created in a previous transaction (a settled note) or in the current one (a pending note), either in the
+/// current or previous phase. Because `allow_phase_change` functions can change phases, this metadata can be left
+/// stale, e.g. it is possible to read a pending current phase note and then change phases, resulting in the note being
+/// [`PENDING_PREVIOUS_PHASE`](crate::note::note_metadata::NoteStageEnum::PENDING_PREVIOUS_PHASE) instead.
+///
+/// Such a note would be rejected by the kernels if it was tried to be nullified, as the metadata is incorrect. It is
+/// therefore important to not allow [`ConfirmedNote`](crate::note::ConfirmedNote),
+/// [`HintedNote`](crate::note::HintedNote) or [`NoteMetadata`](crate::note::note_metadata::NoteMetadata) values to
+/// cross the phase barrier caused by [`crate::context::PrivateContext::end_setup`].
+pub comptime fn allow_phase_change(f: FunctionDefinition) {
     // Marker attribute - see the comment at the top of this file
     if !is_fn_external(f) {
         // Unfortunately we cannot check if we are dealing with a utility or public function here as Noir does not
@@ -135,7 +164,7 @@ pub comptime fn nophasecheck(f: FunctionDefinition) {
         // public macro functions are run.
         let name = f.name();
         panic(
-            f"The #[nophasecheck] attribute can only be applied to #[external(\"private\")] functions - {name} is not",
+            f"The #[allow_phase_change] attribute can only be applied to #[external(\"private\")] functions - {name} is not",
         );
     }
 }
@@ -185,6 +214,25 @@ pub comptime fn nophasecheck(f: FunctionDefinition) {
 ///
 /// A classic example is a private mint function in a token, which would require an enqueued public call in which the
 /// total supply is incremented.
+///
+/// ## Initialization Checks
+///
+/// `only_self` functions implicitly skip initialization checks (as if they had [`noinitcheck`]). We want
+/// `only_self` functions to be callable during initialization, so we can't have them check the initialization
+/// nullifier since it would fail.
+///
+/// This is safe because `only_self` functions can be called only by the contract the function is in, meaning
+/// execution must start with another external function in the same contract. Eventually the call stack reaches the
+/// `only_self` function, but let's focus on that external entry point:
+///  - If it already performed an initialization check, then we are safe.
+///  - If it skipped the initialization check (via [`noinitcheck`]), then the contract developer is explicitly
+///    choosing to not check for initialization, and so will our `only_self` function. That's a design choice by
+///    the developer. If we didn't skip the initialization check on `only_self`, the developer would just add
+///    `noinitcheck` to it anyway.
+///  - If it was the initializer, note that initialization nullifiers are emitted at the end of initialization:
+///    the private initialization nullifier after all private execution, and the public one after all public
+///    execution. So in terms of initialization checking, everything behaves as if the contract hasn't been
+///    initialized yet, and the same two points above still apply.
 pub comptime fn only_self(f: FunctionDefinition) {
     // Marker attribute - see the comment at the top of this file
 
@@ -220,7 +268,7 @@ pub comptime fn only_self(f: FunctionDefinition) {
 /// ## Guarantees
 ///
 /// [`view`] functions can *only* be called in a static execution context, which is typically achieved by calling the
-/// [`crate::contract_self::ContractSelf::view`] method on `self`.
+/// [`crate::contract_self::ContractSelfPublic::view`] method on `self`.
 ///
 /// No compile time checks are performed on whether a function can be made [`view`]. If a function marked as view
 /// attempts to modify state, that will result in *runtime* failures.
@@ -293,6 +341,9 @@ pub comptime fn authorize_once(f: FunctionDefinition, from_arg_name: CtString, n
 pub comptime fn external(f: FunctionDefinition, f_type: CtString) {
     // In this function we perform basic checks on the function to ensure it is valid and then we add the function to
     // the external functions registry for later processing by the `#[aztec]` macro.
+
+    assert_return_type_serializable(f);
+    assert_params_serializable(f);
 
     if f_type.eq("private") {
         assert_valid_private(f);
@@ -373,10 +424,22 @@ comptime fn assert_valid_public(f: FunctionDefinition) {
         );
     }
 
-    if fn_has_nophasecheck(f) {
+    if fn_has_allow_phase_change(f) {
         let name = f.name();
         panic(
-            f"The #[nophasecheck] attribute cannot be applied to #[external(\"public\")] functions - {name}",
+            f"The #[allow_phase_change] attribute cannot be applied to #[external(\"public\")] functions - {name}",
+        );
+    }
+
+    if f.name() == EMIT_PUBLIC_INIT_NULLIFIER_FN_NAME {
+        panic(
+            f"Function name '{EMIT_PUBLIC_INIT_NULLIFIER_FN_NAME}' is reserved for internal use",
+        );
+    }
+
+    if f.name() == quote { public_dispatch } {
+        panic(
+            f"Function name 'public_dispatch' is reserved for internal use",
         );
     }
 }
@@ -398,9 +461,9 @@ comptime fn assert_valid_utility(f: FunctionDefinition) {
     }
 
     // Utility functions cannot be used with the following modifiers: #[authorize_once], #[only_self], #[view],
-    // #[initializer], #[nophasecheck], and #[noinitcheck]. Since we cannot enforce a specific ordering between these
-    // modifiers and #[external(...)], and we cannot access the #[external(...)] argument from within these modifiers'
-    // implementations (as accessing EXTERNAL_REGISTRY would require enforcing ordering), we perform these
+    // #[initializer], #[allow_phase_change], and #[noinitcheck]. Since we cannot enforce a specific ordering between
+    // these modifiers and #[external(...)], and we cannot access the #[external(...)] argument from within these
+    // modifiers' implementations (as accessing EXTERNAL_REGISTRY would require enforcing ordering), we perform these
     // compatibility checks here in the utility macro.
     if AUTHORIZE_ONCE_REGISTRY.get(f).is_some() {
         let name = f.name();
@@ -437,10 +500,10 @@ comptime fn assert_valid_utility(f: FunctionDefinition) {
         );
     }
 
-    if fn_has_nophasecheck(f) {
+    if fn_has_allow_phase_change(f) {
         let name = f.name();
         panic(
-            f"The #[nophasecheck] attribute cannot be applied to #[external(\"utility\")] functions - {name}",
+            f"The #[allow_phase_change] attribute cannot be applied to #[external(\"utility\")] functions - {name}",
         );
     }
 }

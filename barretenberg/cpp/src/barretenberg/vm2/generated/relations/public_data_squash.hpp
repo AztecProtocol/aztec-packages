@@ -3,7 +3,6 @@
 
 #include <string_view>
 
-#include "barretenberg/common/bb_bench.hpp"
 #include "barretenberg/relations/relation_parameters.hpp"
 #include "barretenberg/relations/relation_types.hpp"
 #include "barretenberg/vm2/generated/columns.hpp"
@@ -14,7 +13,7 @@ template <typename FF_> class public_data_squashImpl {
   public:
     using FF = FF_;
 
-    static constexpr std::array<size_t, 10> SUBRELATION_PARTIAL_LENGTHS = { 3, 4, 3, 3, 5, 4, 3, 3, 3, 4 };
+    static constexpr std::array<size_t, 11> SUBRELATION_PARTIAL_LENGTHS = { 3, 3, 3, 3, 4, 4, 3, 3, 3, 3, 4 };
 
     template <typename AllEntities> inline static bool skip(const AllEntities& in)
     {
@@ -35,17 +34,21 @@ template <typename FF> class public_data_squash : public Relation<public_data_sq
     static constexpr const std::string_view NAME = "public_data_squash";
 
     // Subrelation indices constants, to be used in tests.
-    static constexpr size_t SR_START_CONDITION = 1;
-    static constexpr size_t SR_CHECK_SAME_LEAF_SLOT = 4;
-    static constexpr size_t SR_CLK_DIFF_DECOMP = 6;
-    static constexpr size_t SR_FINAL_VALUE_PROPAGATION = 8;
-    static constexpr size_t SR_FINAL_VALUE_CHECK = 9;
+    static constexpr size_t SR_TRACE_CONTINUITY = 1;
+    static constexpr size_t SR_CHECK_CLOCK_CONDITION = 5;
+    static constexpr size_t SR_CHECK_SAME_LEAF_SLOT = 6;
+    static constexpr size_t SR_CLK_DIFF_DECOMP = 7;
+    static constexpr size_t SR_FINAL_VALUE_PROPAGATION = 9;
+    static constexpr size_t SR_FINAL_VALUE_CHECK = 10;
 
     static std::string get_subrelation_label(size_t index)
     {
+#ifdef AVM_INCLUDE_COLUMN_INFORMATION
         switch (index) {
-        case SR_START_CONDITION:
-            return "START_CONDITION";
+        case SR_TRACE_CONTINUITY:
+            return "TRACE_CONTINUITY";
+        case SR_CHECK_CLOCK_CONDITION:
+            return "CHECK_CLOCK_CONDITION";
         case SR_CHECK_SAME_LEAF_SLOT:
             return "CHECK_SAME_LEAF_SLOT";
         case SR_CLK_DIFF_DECOMP:
@@ -55,6 +58,7 @@ template <typename FF> class public_data_squash : public Relation<public_data_sq
         case SR_FINAL_VALUE_CHECK:
             return "FINAL_VALUE_CHECK";
         }
+#endif
         return std::to_string(index);
     }
 };

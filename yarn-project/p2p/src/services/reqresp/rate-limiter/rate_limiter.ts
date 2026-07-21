@@ -97,9 +97,10 @@ export function prettyPrintRateLimitStatus(status: RateLimitStatus) {
  * 2. Individual rate limits for each peer.
  *
  * How it works:
- * - When a request comes in, it first checks against the global rate limit.
- * - If the global limit allows, it then checks against the specific peer's rate limit.
- * - The request is only allowed if both the global and peer-specific limits allow it.
+ * - When a request comes in, it first checks against the peer's individual rate limit.
+ * - If the peer limit allows, it then checks against the global rate limit.
+ * - The request is only allowed if both the peer-specific and global limits allow it.
+ * - Checking peer limit first ensures a rate-limited peer cannot exhaust the global quota.
  * - It automatically creates and manages rate limiters for new peers as they make requests.
  * - It periodically cleans up rate limiters for inactive peers to conserve memory.
  *
@@ -119,10 +120,6 @@ export class SubProtocolRateLimiter {
   }
 
   allow(peerId: PeerId): RateLimitStatus {
-    if (!this.globalLimiter.allow()) {
-      return RateLimitStatus.DeniedGlobal;
-    }
-
     const peerIdStr = peerId.toString();
     let peerLimiter: PeerRateLimiter | undefined = this.peerLimiters.get(peerIdStr);
     if (!peerLimiter) {
@@ -135,10 +132,17 @@ export class SubProtocolRateLimiter {
     } else {
       peerLimiter.lastAccess = Date.now();
     }
-    const peerLimitAllowed = peerLimiter.limiter.allow();
-    if (!peerLimitAllowed) {
+
+    // Check peer limit first: a rate-limited peer must not consume global quota,
+    // otherwise one spamming peer can starve all others by exhausting the global bucket.
+    if (!peerLimiter.limiter.allow()) {
       return RateLimitStatus.DeniedPeer;
     }
+
+    if (!this.globalLimiter.allow()) {
+      return RateLimitStatus.DeniedGlobal;
+    }
+
     return RateLimitStatus.Allowed;
   }
 

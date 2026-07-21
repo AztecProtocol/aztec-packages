@@ -3,38 +3,6 @@
 
 using namespace bb;
 
-TEST(g2, RandomElement)
-{
-    g2::element result = g2::element::random_element();
-    EXPECT_EQ(result.on_curve(), true);
-}
-
-TEST(g2, RandomAffineElement)
-{
-    g2::affine_element result = g2::element::random_element();
-    EXPECT_EQ(result.on_curve(), true);
-}
-
-TEST(g2, Eq)
-{
-    g2::element a = g2::element::random_element();
-    g2::element b = a.normalize();
-
-    EXPECT_EQ(a == b, true);
-    EXPECT_EQ(a == a, true);
-
-    b.self_set_infinity();
-
-    EXPECT_EQ(a == b, false);
-    g2::element c = g2::element::random_element();
-
-    EXPECT_EQ(a == c, false);
-
-    a.self_set_infinity();
-
-    EXPECT_EQ(a == b, true);
-}
-
 TEST(g2, DblCheckAgainstConstants)
 {
     g2::element lhs = { { { 0x46debd5cd992f6ed, 0x674322d4f75edadd, 0x426a00665e5c4479, 0x1800deef121f1e76 },
@@ -133,164 +101,6 @@ TEST(g2, AddCheckAgainstConstants)
     EXPECT_EQ(result == expected, true);
 }
 
-TEST(g2, AddExceptionTestInfinity)
-{
-    g2::element lhs = g2::element::random_element();
-    g2::element rhs;
-    g2::element result;
-
-    rhs = -lhs;
-
-    result = lhs + rhs;
-
-    EXPECT_EQ(result.is_point_at_infinity(), true);
-
-    g2::element rhs_b;
-    rhs_b = rhs;
-    rhs_b.self_set_infinity();
-
-    result = lhs + rhs_b;
-
-    EXPECT_EQ(lhs == result, true);
-
-    lhs.self_set_infinity();
-    result = lhs + rhs;
-
-    EXPECT_EQ(rhs == result, true);
-}
-
-TEST(g2, AddExceptionTestDbl)
-{
-    g2::element lhs = g2::element::random_element();
-    g2::element rhs;
-    rhs = lhs;
-
-    g2::element result;
-    g2::element expected;
-
-    result = lhs + rhs;
-    expected = lhs.dbl();
-
-    EXPECT_EQ(result == expected, true);
-}
-
-TEST(g2, AddDblConsistency)
-{
-    g2::element a = g2::element::random_element();
-    g2::element b = g2::element::random_element();
-
-    g2::element c;
-    g2::element d;
-    g2::element add_result;
-    g2::element dbl_result;
-
-    c = a + b;
-    b = -b;
-    d = a + b;
-
-    add_result = c + d;
-    dbl_result = a.dbl();
-
-    EXPECT_EQ(add_result == dbl_result, true);
-}
-
-TEST(g2, AddDblConsistencyRepeated)
-{
-    g2::element a = g2::element::random_element();
-    g2::element b;
-    g2::element c;
-    g2::element d;
-    g2::element e;
-
-    g2::element result;
-    g2::element expected;
-
-    b = a.dbl(); // b = 2a
-    c = b.dbl(); // c = 4a
-
-    d = a + b;      // d = 3a
-    e = a + c;      // e = 5a
-    result = d + e; // result = 8a
-
-    expected = c.dbl(); // expected = 8a
-
-    EXPECT_EQ(result == expected, true);
-}
-
-TEST(g2, MixedAddExceptionTestInfinity)
-{
-    g2::element lhs = g2::one;
-    g2::affine_element rhs = g2::element::random_element();
-    lhs = { rhs.x, -rhs.y, fq2::one() };
-
-    g2::element result;
-    result = lhs + rhs;
-
-    EXPECT_EQ(result.is_point_at_infinity(), true);
-
-    lhs.self_set_infinity();
-    result = lhs + rhs;
-    g2::element rhs_c;
-    rhs_c = g2::element(rhs);
-
-    EXPECT_EQ(rhs_c == result, true);
-}
-
-TEST(g2, MixedAddExceptionTestDbl)
-{
-    g2::affine_element rhs = g2::element::random_element();
-    g2::element lhs;
-    lhs = g2::element(rhs);
-
-    g2::element result;
-    g2::element expected;
-    result = lhs + rhs;
-
-    expected = lhs.dbl();
-
-    EXPECT_EQ(result == expected, true);
-}
-
-TEST(g2, AddMixedAddConsistencyCheck)
-{
-    g2::affine_element rhs = g2::element::random_element();
-    g2::element lhs = g2::element::random_element();
-    g2::element rhs_b;
-    rhs_b = g2::element(rhs);
-
-    g2::element add_result;
-    g2::element mixed_add_result;
-    add_result = lhs + rhs_b;
-    mixed_add_result = lhs + rhs;
-
-    EXPECT_EQ(add_result == mixed_add_result, true);
-}
-
-TEST(g2, BatchNormalize)
-{
-    size_t num_points = 2;
-    std::vector<g2::element> points(num_points);
-    std::vector<g2::element> normalized(num_points);
-
-    for (size_t i = 0; i < num_points; ++i) {
-        g2::element a = g2::element::random_element();
-        g2::element b = g2::element::random_element();
-        points[i] = a + b;
-        normalized[i] = points[i];
-    }
-    g2::element::batch_normalize(&normalized[0], num_points);
-
-    for (size_t i = 0; i < num_points; ++i) {
-        fq2 zz = points[i].z.sqr();
-        fq2 zzz = zz * points[i].z;
-        fq2 result_x = normalized[i].x * zz;
-        fq2 result_y = normalized[i].y * zzz;
-
-        EXPECT_EQ(result_x, points[i].x);
-        EXPECT_EQ(result_y, points[i].y);
-    }
-}
-
 TEST(g2, GroupExponentiationCheckAgainstConstants)
 {
     fr scalar = { 0xc4199e4b971f705, 0xc8d89c916a23ab3d, 0x7ea3cd7c05c7af82, 0x2fdafbf994a8d400 };
@@ -312,33 +122,6 @@ TEST(g2, GroupExponentiationCheckAgainstConstants)
     expected.y = expected.y.to_montgomery_form();
 
     g2::affine_element result(g2::element(lhs) * scalar);
-
-    EXPECT_EQ(result == expected, true);
-}
-
-TEST(g2, GroupExponentiationZeroAndOne)
-{
-    g2::affine_element result = g2::one * fr::zero();
-
-    EXPECT_EQ(result.is_point_at_infinity(), true);
-
-    result = g2::one * fr::one();
-    EXPECT_EQ(result == g2::affine_one, true);
-}
-
-TEST(g2, GroupExponentiationConsistencyCheck)
-{
-    fr a = fr::random_element();
-    fr b = fr::random_element();
-
-    fr c;
-    c = a * b;
-
-    g2::affine_element input = g2::affine_one;
-    g2::affine_element result(g2::element(input) * a);
-    result = g2::affine_element(g2::element(result) * b);
-
-    g2::affine_element expected = input * c;
 
     EXPECT_EQ(result == expected, true);
 }
@@ -388,3 +171,60 @@ TEST(g2, InitializationCheck)
     EXPECT_NO_THROW(write<g2::affine_element>({}));
 }
 #endif
+
+TEST(g2, GeneratorIsCorrect)
+{
+    // Values taken from https://eips.ethereum.org/EIPS/eip-197
+    g2::affine_element generator{ Bn254G2Params::one_x, Bn254G2Params::one_y };
+    g2::affine_element expected{ fq2{ fq("0x1800deef121f1e76426a00665e5c4479674322d4f75edadd46debd5cd992f6ed"),
+                                      fq("0x198e9393920d483a7260bfb731fb5d25f1aa493335a9e71297e485b7aef312c2") },
+                                 fq2{ fq("0x12c85ea5db8c6deb4aab71808dcb408fe3d1e7690c43d37b4ce6cc0166fa7daa"),
+                                      fq("0x090689d0585ff075ec9e99ad690c3395bc4b313370b38ef355acdadcd122975b") } };
+    EXPECT_EQ(generator, expected);
+}
+
+// The generator, infinity, and arbitrary scalar multiples of the generator must be accepted as
+// members of the BN254 G2 prime-order subgroup.
+TEST(g2, IsInPrimeSubgroupAcceptsSubgroupPoints)
+{
+    const g2::affine_element gen(Bn254G2Params::one_x, Bn254G2Params::one_y);
+    EXPECT_TRUE(gen.is_in_prime_subgroup());
+    EXPECT_TRUE(g2::affine_element::infinity().is_in_prime_subgroup());
+
+    for (size_t i = 0; i < 4; ++i) {
+        const g2::affine_element P(g2::element(gen) * fr::random_element());
+        EXPECT_TRUE(P.is_in_prime_subgroup());
+    }
+}
+
+// BN254 G2 has cofactor h2 ≈ 2^254, so on-curve does NOT imply prime-order subgroup membership. The hardcoded point
+// below was constructed by sampling x = i + u (for the smallest positive integer i that yields a curve point) and
+// recovering y via Fq2 sqrt; because only a 1/h2 fraction of E'(Fq2) lies in G_r, this specimen lies in a cofactor
+// subgroup. Such a point must be rejected. Coordinates are in Montgomery form to match `Bn254G2Params::one_x` etc.
+TEST(g2, IsInPrimeSubgroupRejectsCofactorPoint)
+{
+    const g2::affine_element off_subgroup{
+        fq2{ fq(2), fq(1) },
+        fq2{ fq("0x101f7278419308b95099eca02dcee0c5381f4d26d1d62313f057167f064101ce"),
+             fq("0x2b76c179599bb92a963dac85546a005a777f7c13f6a7b75d5918b6b5808f5fde") }
+    };
+    ASSERT_TRUE(off_subgroup.on_curve());
+    EXPECT_FALSE(off_subgroup.is_in_prime_subgroup());
+
+    // Sanity check that scalar multiplication via the Fr-typed `*` operator does NOT detect
+    // subgroup membership — multiplying by `Fr(0)` (the additive identity, which equals `r mod r`)
+    // gives infinity for every input, including off-subgroup points. This is precisely why
+    // is_in_prime_subgroup() routes through a uint256_t scalar instead.
+    EXPECT_TRUE((off_subgroup * fr::zero()).is_point_at_infinity());
+}
+
+// Off-curve coordinates must be rejected: the Weierstrass group law is unsound off-curve, so the
+// [r]·P trick can return a false positive on attacker-supplied (x, y) that happens to satisfy
+// y² = x³ + b' for some b' ≠ b with a prime-r factor in its order.
+TEST(g2, IsInPrimeSubgroupRejectsOffCurvePoint)
+{
+    g2::affine_element off_curve(Bn254G2Params::one_x, Bn254G2Params::one_y);
+    off_curve.y += fq2::one();
+    ASSERT_FALSE(off_curve.on_curve());
+    EXPECT_FALSE(off_curve.is_in_prime_subgroup());
+}

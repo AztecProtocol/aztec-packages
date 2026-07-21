@@ -1,11 +1,12 @@
 use aztec::macros::aztec;
 
-/// A contract that can be updated to a new contract class. Used to test contract updates in e2e_contract_updates.test.ts.
+/// A contract that can be updated to a new contract class. Used to test contract updates in
+/// e2e_contract_updates.test.ts.
 #[aztec]
 contract Updatable {
     use aztec::{
-        macros::{functions::{external, initializer}, storage::storage},
-        messages::message_delivery::MessageDelivery,
+        macros::{functions::{external, initializer, internal, only_self}, storage::storage},
+        messages::delivery::MessageDelivery,
         protocol::{
             address::AztecAddress, constants::CONTRACT_INSTANCE_REGISTRY_CONTRACT_ADDRESS,
             contract_class_id::ContractClassId,
@@ -26,33 +27,41 @@ contract Updatable {
     fn initialize(initial_value: Field) {
         let owner = self.msg_sender();
         let note = FieldNote { value: initial_value };
-        self.storage.private_value.at(owner).initialize(note).deliver(
-            MessageDelivery.ONCHAIN_CONSTRAINED,
-        );
-        self.enqueue_self.set_public_value(initial_value);
+        self.storage.private_value.at(owner).initialize(note).deliver(MessageDelivery::onchain_unconstrained());
+        self.enqueue_self._initialize_public_value(initial_value);
     }
 
     #[external("public")]
     fn set_public_value(new_value: Field) {
-        self.storage.public_value.write(new_value);
+        self.internal.write_public_value(new_value);
+    }
+
+    #[external("public")]
+    #[only_self]
+    fn _initialize_public_value(new_value: Field) {
+        self.internal.write_public_value(new_value);
     }
 
     #[external("private")]
     fn update_to(new_class_id: ContractClassId) {
-        self.enqueue(ContractInstanceRegistry::at(CONTRACT_INSTANCE_REGISTRY_CONTRACT_ADDRESS)
-            .update(new_class_id));
+        self.enqueue(ContractInstanceRegistry::at(CONTRACT_INSTANCE_REGISTRY_CONTRACT_ADDRESS).update(new_class_id));
     }
 
     #[external("private")]
     fn set_update_delay(new_delay: u64) {
-        self.enqueue(ContractInstanceRegistry::at(CONTRACT_INSTANCE_REGISTRY_CONTRACT_ADDRESS)
-            .set_update_delay(new_delay));
+        self.enqueue(ContractInstanceRegistry::at(CONTRACT_INSTANCE_REGISTRY_CONTRACT_ADDRESS).set_update_delay(
+            new_delay,
+        ));
     }
 
     #[external("public")]
     fn get_update_delay() -> u64 {
-        self.view(ContractInstanceRegistry::at(CONTRACT_INSTANCE_REGISTRY_CONTRACT_ADDRESS)
-            .get_update_delay())
+        self.view(ContractInstanceRegistry::at(CONTRACT_INSTANCE_REGISTRY_CONTRACT_ADDRESS).get_update_delay())
+    }
+
+    #[internal("public")]
+    fn write_public_value(new_value: Field) {
+        self.storage.public_value.write(new_value);
     }
 
     #[external("utility")]

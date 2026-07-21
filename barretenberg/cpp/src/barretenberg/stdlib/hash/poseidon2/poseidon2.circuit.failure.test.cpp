@@ -1,7 +1,7 @@
 #include "barretenberg/flavor/ultra_flavor.hpp"
 #include "barretenberg/relations/relation_parameters.hpp"
 #include "barretenberg/sumcheck/sumcheck.hpp"
-#include "barretenberg/ultra_honk/witness_computation.hpp"
+#include "barretenberg/ultra_honk/witness_computation_test_utils.hpp"
 
 #include <gtest/gtest.h>
 
@@ -69,18 +69,15 @@ class Poseidon2FailureTests : public ::testing::Test {
         const size_t virtual_log_n = Flavor::VIRTUAL_LOG_N;
 
         // Complete the prover instance (compute selectors, relation parameters, etc.)
-        WitnessComputation<Flavor>::complete_prover_instance_for_test(prover_instance);
+        complete_prover_instance_for_test<Flavor>(prover_instance);
 
         auto prover_transcript = Transcript::test_prover_init_empty();
 
         // Generate challenges via transcript for Fiat-Shamir
         SubrelationSeparator subrelation_separator = prover_transcript->template get_challenge<FF>("Sumcheck:alpha");
 
-        std::vector<FF> gate_challenges(virtual_log_n);
-        for (size_t idx = 0; idx < virtual_log_n; idx++) {
-            gate_challenges[idx] =
-                prover_transcript->template get_challenge<FF>("Sumcheck:gate_challenge_" + std::to_string(idx));
-        }
+        std::vector<FF> gate_challenges =
+            prover_transcript->template get_dyadic_powers_of_challenge<FF>("Sumcheck:gate_challenge", virtual_log_n);
 
         // Set gate challenges on prover instance
         prover_instance->gate_challenges = gate_challenges;
@@ -98,16 +95,12 @@ class Poseidon2FailureTests : public ::testing::Test {
 
         SubrelationSeparator verifier_subrelation_separator =
             verifier_transcript->template get_challenge<FF>("Sumcheck:alpha");
-        std::vector<FF> verifier_gate_challenges(virtual_log_n);
-        for (size_t idx = 0; idx < virtual_log_n; idx++) {
-            verifier_gate_challenges[idx] =
-                verifier_transcript->template get_challenge<FF>("Sumcheck:gate_challenge_" + std::to_string(idx));
-        }
+        std::vector<FF> verifier_gate_challenges =
+            verifier_transcript->template get_dyadic_powers_of_challenge<FF>("Sumcheck:gate_challenge", virtual_log_n);
 
         // Run sumcheck verifier
         SumcheckVerifier verifier(verifier_transcript, verifier_subrelation_separator, virtual_log_n);
-        auto result = verifier.verify(
-            prover_instance->relation_parameters, verifier_gate_challenges, std::vector<FF>(virtual_log_n, 1));
+        auto result = verifier.verify(prover_instance->relation_parameters, verifier_gate_challenges);
         EXPECT_EQ(result.verified, expected_result);
     };
 };
@@ -134,11 +127,11 @@ TEST_F(Poseidon2FailureTests, WrongWitnessValues)
 
     auto prover_instance = std::make_shared<ProverInstance_<Flavor>>(builder);
     {
-        modify_witness(prover_instance->polynomials.q_poseidon2_external, prover_instance->polynomials.w_l);
+        modify_witness(prover_instance->polynomials.q_poseidon2_external(), prover_instance->polynomials.w_l());
         prove_and_verify(prover_instance, false);
     }
     {
-        modify_witness(prover_instance->polynomials.q_poseidon2_internal, prover_instance->polynomials.w_r);
+        modify_witness(prover_instance->polynomials.q_poseidon2_internal(), prover_instance->polynomials.w_r());
         prove_and_verify(prover_instance, false);
     }
 }
@@ -153,14 +146,14 @@ TEST_F(Poseidon2FailureTests, TamperingWithShifts)
     {
         bool external_round = true;
         tamper_with_shifts(
-            prover_instance->polynomials.q_poseidon2_external, prover_instance->polynomials.w_l, external_round);
+            prover_instance->polynomials.q_poseidon2_external(), prover_instance->polynomials.w_l(), external_round);
         prove_and_verify(prover_instance, false);
     }
 
     {
         bool external_round = false;
         tamper_with_shifts(
-            prover_instance->polynomials.q_poseidon2_internal, prover_instance->polynomials.w_l, external_round);
+            prover_instance->polynomials.q_poseidon2_internal(), prover_instance->polynomials.w_l(), external_round);
         prove_and_verify(prover_instance, false);
     }
 }

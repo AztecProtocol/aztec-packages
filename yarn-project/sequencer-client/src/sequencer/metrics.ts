@@ -18,7 +18,6 @@ import { type Hex, formatUnits } from 'viem';
 
 import type { SequencerState } from './utils.js';
 
-// TODO(palla/mbps): Review all metrics and add any missing ones per checkpoint
 export class SequencerMetrics {
   public readonly tracer: Tracer;
   private meter: Meter;
@@ -27,6 +26,7 @@ export class SequencerMetrics {
   private blockBuildDuration: Histogram;
   private blockBuildManaPerSecond: Gauge;
   private stateTransitionBufferDuration: Histogram;
+  private stateDuration: Histogram;
 
   // these are gauges because for individual sequencers building a block is not something that happens often enough to warrant a histogram
   private timeToCollectAttestations: Gauge;
@@ -40,23 +40,34 @@ export class SequencerMetrics {
   private filledSlots: UpDownCounter;
 
   private blockProposalFailed: UpDownCounter;
-  private blockProposalSuccess: UpDownCounter;
-  private blockProposalPrecheckFailed: UpDownCounter;
+  private checkpointProposalSuccess: UpDownCounter;
+  private checkpointPrecheckFailed: UpDownCounter;
+  private checkpointProposalFailed: UpDownCounter;
   private checkpointSuccess: UpDownCounter;
   private slashingAttempts: UpDownCounter;
-  private checkpointAttestationDelay: Histogram;
+  private pipelineDepth: Gauge;
+  private pipelineDiscards: UpDownCounter;
+  private pipelineParentCheckpointMismatches: UpDownCounter;
 
   // Fisherman fee analysis metrics
   private fishermanWouldBeIncluded: UpDownCounter;
   private fishermanTimeBeforeBlock: Histogram;
   private fishermanPendingBlobTxCount: Histogram;
   private fishermanIncludedBlobTxCount: Histogram;
+  private fishermanPendingBlobCount: Histogram;
+  private fishermanIncludedBlobCount: Histogram;
+  private fishermanBlockBlobsFull: UpDownCounter;
+  private fishermanMaxBlobCapacity: Histogram;
   private fishermanCalculatedPriorityFee: Histogram;
   private fishermanPriorityFeeDelta: Histogram;
   private fishermanEstimatedCost: Histogram;
   private fishermanEstimatedOverpayment: Histogram;
   private fishermanMinedBlobTxPriorityFee: Histogram;
   private fishermanMinedBlobTxTotalCost: Histogram;
+
+  private blockInterBlockTime: Histogram;
+  private lastBlockBuiltTimestamp?: number;
+  private lastBlockBuiltSlot?: SlotNumber;
 
   private lastSeenSlot?: SlotNumber;
 
@@ -76,11 +87,13 @@ export class SequencerMetrics {
 
     this.blockBuildManaPerSecond = this.meter.createGauge(Metrics.SEQUENCER_BLOCK_BUILD_MANA_PER_SECOND);
 
+    this.blockInterBlockTime = this.meter.createHistogram(Metrics.SEQUENCER_BLOCK_INTER_BLOCK_TIME);
+
     this.stateTransitionBufferDuration = this.meter.createHistogram(Metrics.SEQUENCER_STATE_TRANSITION_BUFFER_DURATION);
 
-    this.checkpointAttestationDelay = this.meter.createHistogram(Metrics.SEQUENCER_CHECKPOINT_ATTESTATION_DELAY);
+    this.stateDuration = this.meter.createHistogram(Metrics.SEQUENCER_STATE_DURATION);
 
-    this.rewards = this.meter.createGauge(Metrics.SEQUENCER_CURRENT_BLOCK_REWARDS);
+    this.rewards = this.meter.createGauge(Metrics.SEQUENCER_CURRENT_SLOT_REWARDS);
 
     this.slots = createUpDownCounterWithDefault(this.meter, Metrics.SEQUENCER_SLOT_COUNT);
 
@@ -103,16 +116,16 @@ export class SequencerMetrics {
       Metrics.SEQUENCER_BLOCK_PROPOSAL_FAILED_COUNT,
     );
 
-    this.blockProposalSuccess = createUpDownCounterWithDefault(
+    this.checkpointProposalSuccess = createUpDownCounterWithDefault(
       this.meter,
-      Metrics.SEQUENCER_BLOCK_PROPOSAL_SUCCESS_COUNT,
+      Metrics.SEQUENCER_CHECKPOINT_PROPOSAL_SUCCESS_COUNT,
     );
 
     this.checkpointSuccess = createUpDownCounterWithDefault(this.meter, Metrics.SEQUENCER_CHECKPOINT_SUCCESS_COUNT);
 
-    this.blockProposalPrecheckFailed = createUpDownCounterWithDefault(
+    this.checkpointPrecheckFailed = createUpDownCounterWithDefault(
       this.meter,
-      Metrics.SEQUENCER_BLOCK_PROPOSAL_PRECHECK_FAILED_COUNT,
+      Metrics.SEQUENCER_CHECKPOINT_PRECHECK_FAILED_COUNT,
       {
         [Attributes.ERROR_TYPE]: [
           'slot_already_taken',
@@ -123,7 +136,29 @@ export class SequencerMetrics {
       },
     );
 
+    this.checkpointProposalFailed = createUpDownCounterWithDefault(
+      this.meter,
+      Metrics.SEQUENCER_CHECKPOINT_PROPOSAL_FAILED_COUNT,
+    );
+
     this.slashingAttempts = createUpDownCounterWithDefault(this.meter, Metrics.SEQUENCER_SLASHING_ATTEMPTS_COUNT);
+
+    this.pipelineDepth = this.meter.createGauge(Metrics.SEQUENCER_PIPELINE_DEPTH);
+    this.pipelineDiscards = createUpDownCounterWithDefault(this.meter, Metrics.SEQUENCER_PIPELINE_DISCARDS_COUNT);
+    this.pipelineParentCheckpointMismatches = createUpDownCounterWithDefault(
+      this.meter,
+      Metrics.SEQUENCER_PIPELINE_PARENT_CHECKPOINT_MISMATCH_COUNT,
+      {
+        [Attributes.ERROR_TYPE]: [
+          'archiver-sync-timeout',
+          'parent-not-on-l1',
+          'parent-hash-mismatch',
+          'parent-invalid-attestations',
+          'unexpected-parent-appeared',
+        ],
+      },
+    );
+    this.pipelineDepth.record(0);
 
     // Fisherman fee analysis metrics
     this.fishermanWouldBeIncluded = createUpDownCounterWithDefault(
@@ -131,6 +166,7 @@ export class SequencerMetrics {
       Metrics.FISHERMAN_FEE_ANALYSIS_WOULD_BE_INCLUDED,
       {
         [Attributes.OK]: [true, false],
+        [Attributes.BLOCK_FULL]: ['true', 'false'],
       },
     );
 
@@ -161,6 +197,20 @@ export class SequencerMetrics {
     this.fishermanMinedBlobTxTotalCost = this.meter.createHistogram(
       Metrics.FISHERMAN_FEE_ANALYSIS_MINED_BLOB_TX_TOTAL_COST,
     );
+
+    this.fishermanPendingBlobCount = this.meter.createHistogram(Metrics.FISHERMAN_FEE_ANALYSIS_PENDING_BLOB_COUNT);
+
+    this.fishermanIncludedBlobCount = this.meter.createHistogram(Metrics.FISHERMAN_FEE_ANALYSIS_INCLUDED_BLOB_COUNT);
+
+    this.fishermanBlockBlobsFull = createUpDownCounterWithDefault(
+      this.meter,
+      Metrics.FISHERMAN_FEE_ANALYSIS_BLOCK_BLOBS_FULL,
+      {
+        [Attributes.OK]: [true, false],
+      },
+    );
+
+    this.fishermanMaxBlobCapacity = this.meter.createHistogram(Metrics.FISHERMAN_FEE_ANALYSIS_MAX_BLOB_CAPACITY);
   }
 
   public recordRequiredAttestations(requiredAttestationsCount: number, allowanceMs: number) {
@@ -172,21 +222,25 @@ export class SequencerMetrics {
     this.timeToCollectAttestations.record(0);
   }
 
-  public recordCheckpointAttestationDelay(duration: number) {
-    this.checkpointAttestationDelay.record(duration);
-  }
-
   public recordCollectedAttestations(count: number, durationMs: number) {
     this.collectedAttestions.record(count);
     this.timeToCollectAttestations.record(Math.ceil(durationMs));
   }
 
-  recordBuiltBlock(buildDurationMs: number, totalMana: number) {
+  recordBuiltBlock(buildDurationMs: number, totalMana: number, slot: SlotNumber) {
     this.blockCounter.add(1, {
       [Attributes.STATUS]: 'built',
     });
     this.blockBuildDuration.record(Math.ceil(buildDurationMs));
     this.blockBuildManaPerSecond.record(Math.ceil((totalMana * 1000) / buildDurationMs));
+
+    // Only record inter-block time between blocks built within the same slot.
+    const now = Date.now();
+    if (this.lastBlockBuiltTimestamp !== undefined && this.lastBlockBuiltSlot === slot) {
+      this.blockInterBlockTime.record(now - this.lastBlockBuiltTimestamp);
+    }
+    this.lastBlockBuiltTimestamp = now;
+    this.lastBlockBuiltSlot = slot;
   }
 
   recordFailedBlock() {
@@ -198,6 +252,26 @@ export class SequencerMetrics {
   recordStateTransitionBufferMs(durationMs: number, state: SequencerState) {
     this.stateTransitionBufferDuration.record(durationMs, {
       [Attributes.SEQUENCER_STATE]: state,
+    });
+  }
+
+  recordStateDuration(durationMs: number, state: SequencerState) {
+    this.stateDuration.record(Math.ceil(durationMs), {
+      [Attributes.SEQUENCER_STATE]: state,
+    });
+  }
+
+  recordPipelineDepth(depth: number) {
+    this.pipelineDepth.record(depth);
+  }
+
+  recordPipelineDiscard(count = 1) {
+    this.pipelineDiscards.add(count);
+  }
+
+  recordPipelineParentCheckpointMismatch(reason: string) {
+    this.pipelineParentCheckpointMismatches.add(1, {
+      [Attributes.ERROR_TYPE]: reason,
     });
   }
 
@@ -243,15 +317,19 @@ export class SequencerMetrics {
     });
   }
 
-  recordBlockProposalSuccess() {
-    this.blockProposalSuccess.add(1);
+  recordCheckpointProposalSuccess() {
+    this.checkpointProposalSuccess.add(1);
   }
 
-  recordBlockProposalPrecheckFailed(
+  recordCheckpointPrecheckFailed(
     checkType: 'slot_already_taken' | 'rollup_contract_check_failed' | 'slot_mismatch' | 'block_number_mismatch',
   ) {
-    this.blockProposalPrecheckFailed.add(1, {
-      [Attributes.ERROR_TYPE]: checkType,
+    this.checkpointPrecheckFailed.add(1, { [Attributes.ERROR_TYPE]: checkType });
+  }
+
+  recordCheckpointProposalFailed(reason?: string) {
+    this.checkpointProposalFailed.add(1, {
+      ...(reason && { [Attributes.ERROR_TYPE]: reason }),
     });
   }
 
@@ -281,10 +359,12 @@ export class SequencerMetrics {
 
       // Record pending block snapshot data (once per strategy for comparison)
       this.fishermanPendingBlobTxCount.record(analysis.pendingSnapshot.pendingBlobTxCount, strategyAttributes);
+      this.fishermanPendingBlobCount.record(analysis.pendingSnapshot.pendingBlobCount, strategyAttributes);
 
       // Record mined block data if available
       if (analysis.minedBlock) {
         this.fishermanIncludedBlobTxCount.record(analysis.minedBlock.includedBlobTxCount, strategyAttributes);
+        this.fishermanIncludedBlobCount.record(analysis.minedBlock.includedBlobCount, strategyAttributes);
 
         // Record actual fees from blob transactions in the mined block
         for (const blobTx of analysis.minedBlock.includedBlobTxs) {
@@ -318,13 +398,28 @@ export class SequencerMetrics {
       if (analysis.analysis) {
         this.fishermanTimeBeforeBlock.record(Math.ceil(analysis.analysis.timeBeforeBlockMs), strategyAttributes);
 
+        // Record whether the block reached 100% blob capacity
+        if (analysis.analysis.blockBlobsFull) {
+          this.fishermanBlockBlobsFull.add(1, { ...strategyAttributes, [Attributes.OK]: true });
+        } else {
+          this.fishermanBlockBlobsFull.add(1, { ...strategyAttributes, [Attributes.OK]: false });
+        }
+
+        // Record the max blob capacity for this block
+        this.fishermanMaxBlobCapacity.record(analysis.analysis.maxBlobCapacity, strategyAttributes);
+
         // Record strategy-specific inclusion result
         if (strategyResult.wouldBeIncluded !== undefined) {
+          const inclusionAttributes = {
+            ...strategyAttributes,
+            [Attributes.BLOCK_FULL]: analysis.analysis.blockBlobsFull ? 'true' : 'false',
+          };
+
           if (strategyResult.wouldBeIncluded) {
-            this.fishermanWouldBeIncluded.add(1, { ...strategyAttributes, [Attributes.OK]: true });
+            this.fishermanWouldBeIncluded.add(1, { ...inclusionAttributes, [Attributes.OK]: true });
           } else {
             this.fishermanWouldBeIncluded.add(1, {
-              ...strategyAttributes,
+              ...inclusionAttributes,
               [Attributes.OK]: false,
               ...(strategyResult.exclusionReason && { [Attributes.ERROR_TYPE]: strategyResult.exclusionReason }),
             });
@@ -334,17 +429,29 @@ export class SequencerMetrics {
         // Record strategy-specific priority fee delta
         if (strategyResult.priorityFeeDelta !== undefined) {
           const priorityFeeDeltaGwei = Number(strategyResult.priorityFeeDelta) / 1e9;
-          this.fishermanPriorityFeeDelta.record(priorityFeeDeltaGwei, strategyAttributes);
+          const deltaAttributes = {
+            ...strategyAttributes,
+            [Attributes.BLOCK_FULL]: analysis.analysis.blockBlobsFull ? 'true' : 'false',
+          };
+          this.fishermanPriorityFeeDelta.record(priorityFeeDeltaGwei, deltaAttributes);
         }
 
         // Record estimated cost if available
         if (strategyResult.estimatedCostEth !== undefined) {
-          this.fishermanEstimatedCost.record(strategyResult.estimatedCostEth, strategyAttributes);
+          const costAttributes = {
+            ...strategyAttributes,
+            [Attributes.BLOCK_FULL]: analysis.analysis.blockBlobsFull ? 'true' : 'false',
+          };
+          this.fishermanEstimatedCost.record(strategyResult.estimatedCostEth, costAttributes);
         }
 
         // Record estimated overpayment if available
         if (strategyResult.estimatedOverpaymentEth !== undefined) {
-          this.fishermanEstimatedOverpayment.record(strategyResult.estimatedOverpaymentEth, strategyAttributes);
+          const overpaymentAttributes = {
+            ...strategyAttributes,
+            [Attributes.BLOCK_FULL]: analysis.analysis.blockBlobsFull ? 'true' : 'false',
+          };
+          this.fishermanEstimatedOverpayment.record(strategyResult.estimatedOverpaymentEth, overpaymentAttributes);
         }
       }
     }

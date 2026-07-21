@@ -2,11 +2,10 @@
 
 #include <algorithm>
 #include <cstdint>
-#include <vector>
 
+#include "barretenberg/aztec/aztec_constants.hpp"
 #include "barretenberg/common/bb_bench.hpp"
 #include "barretenberg/numeric/uint256/uint256.hpp"
-#include "barretenberg/vm2/common/to_radix.hpp"
 #include "barretenberg/vm2/simulation/interfaces/memory.hpp"
 
 namespace bb::avm2::simulation {
@@ -17,13 +16,12 @@ std::pair<std::vector<uint8_t>, /* truncated */ bool> PureToRadix::to_le_radix(c
 {
     BB_BENCH_NAME("PureToRadix::to_le_radix");
 
-    uint256_t radix_integer = static_cast<uint256_t>(radix);
     uint256_t value_integer = static_cast<uint256_t>(value);
     std::vector<uint8_t> limbs;
     limbs.reserve(num_limbs);
 
     for (uint32_t i = 0; i < num_limbs; i++) {
-        auto [quotient, remainder] = value_integer.divmod(radix_integer);
+        auto [quotient, remainder] = value_integer.divmod(static_cast<uint64_t>(radix));
         limbs.push_back(static_cast<uint8_t>(remainder));
         value_integer = quotient;
     }

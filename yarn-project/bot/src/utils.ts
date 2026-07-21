@@ -15,8 +15,8 @@ export async function getBalances(
   who: AztecAddress,
   from?: AztecAddress,
 ): Promise<{ privateBalance: bigint; publicBalance: bigint }> {
-  const privateBalance = await token.methods.balance_of_private(who).simulate({ from: from ?? who });
-  const publicBalance = await token.methods.balance_of_public(who).simulate({ from: from ?? who });
+  const { result: privateBalance } = await token.methods.balance_of_private(who).simulate({ from: from ?? who });
+  const { result: publicBalance } = await token.methods.balance_of_public(who).simulate({ from: from ?? who });
   return { privateBalance, publicBalance };
 }
 
@@ -25,7 +25,7 @@ export async function getPrivateBalance(
   who: AztecAddress,
   from?: AztecAddress,
 ): Promise<bigint> {
-  const privateBalance = await token.methods.get_balance(who).simulate({ from: from ?? who });
+  const { result: privateBalance } = await token.methods.get_balance(who).simulate({ from: from ?? who });
   return privateBalance;
 }
 

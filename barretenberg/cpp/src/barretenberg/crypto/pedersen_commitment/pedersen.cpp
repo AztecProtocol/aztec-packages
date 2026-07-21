@@ -1,3 +1,9 @@
+// === AUDIT STATUS ===
+// internal:    { status: Complete, auditors: [Nishat], commit: 8c1bc925461f1ed6f3f53824646c6e971b8c6af6 }
+// external_1:  { status: not started, auditors: [], commit: }
+// external_2:  { status: not started, auditors: [], commit: }
+// =====================
+
 #include "./pedersen.hpp"
 #include "barretenberg/common/serialize.hpp"
 #include "barretenberg/common/throw_or_abort.hpp"
@@ -16,7 +22,7 @@ namespace bb::crypto {
  */
 template <typename Curve>
 typename Curve::AffineElement pedersen_commitment_base<Curve>::commit_native(const std::vector<Fq>& inputs,
-                                                                             const GeneratorContext context)
+                                                                             const GeneratorContext& context)
 {
     const auto generators = context.generators->get(inputs.size(), context.offset, context.domain_separator);
     Element result = Group::point_at_infinity;

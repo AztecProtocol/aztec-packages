@@ -3,7 +3,6 @@
 
 #include <string_view>
 
-#include "barretenberg/common/bb_bench.hpp"
 #include "barretenberg/relations/relation_parameters.hpp"
 #include "barretenberg/relations/relation_types.hpp"
 #include "barretenberg/vm2/generated/columns.hpp"
@@ -14,8 +13,8 @@ template <typename FF_> class eccImpl {
   public:
     using FF = FF_;
 
-    static constexpr std::array<size_t, 20> SUBRELATION_PARTIAL_LENGTHS = { 3, 3, 3, 3, 3, 3, 3, 3, 5, 3,
-                                                                            5, 3, 3, 5, 6, 6, 5, 6, 6, 3 };
+    static constexpr std::array<size_t, 18> SUBRELATION_PARTIAL_LENGTHS = { 3, 3, 3, 3, 3, 3, 3, 5, 3,
+                                                                            5, 3, 3, 5, 6, 6, 5, 6, 6 };
 
     template <typename AllEntities> inline static bool skip(const AllEntities& in)
     {
@@ -37,17 +36,17 @@ template <typename FF> class ecc : public Relation<eccImpl<FF>> {
 
     // Subrelation indices constants, to be used in tests.
     static constexpr size_t SR_OP_CHECK = 3;
-    static constexpr size_t SR_X_MATCH = 8;
-    static constexpr size_t SR_Y_MATCH = 10;
-    static constexpr size_t SR_DOUBLE_PRED = 11;
-    static constexpr size_t SR_COMPUTED_LAMBDA = 14;
-    static constexpr size_t SR_INFINITY_RESULT = 16;
-    static constexpr size_t SR_OUTPUT_X_COORD = 17;
-    static constexpr size_t SR_OUTPUT_Y_COORD = 18;
-    static constexpr size_t SR_OUTPUT_INF_FLAG = 19;
+    static constexpr size_t SR_X_MATCH = 7;
+    static constexpr size_t SR_Y_MATCH = 9;
+    static constexpr size_t SR_DOUBLE_PRED = 10;
+    static constexpr size_t SR_COMPUTED_LAMBDA = 13;
+    static constexpr size_t SR_INFINITY_RESULT = 15;
+    static constexpr size_t SR_OUTPUT_X_COORD = 16;
+    static constexpr size_t SR_OUTPUT_Y_COORD = 17;
 
     static std::string get_subrelation_label(size_t index)
     {
+#ifdef AVM_INCLUDE_COLUMN_INFORMATION
         switch (index) {
         case SR_OP_CHECK:
             return "OP_CHECK";
@@ -65,9 +64,8 @@ template <typename FF> class ecc : public Relation<eccImpl<FF>> {
             return "OUTPUT_X_COORD";
         case SR_OUTPUT_Y_COORD:
             return "OUTPUT_Y_COORD";
-        case SR_OUTPUT_INF_FLAG:
-            return "OUTPUT_INF_FLAG";
         }
+#endif
         return std::to_string(index);
     }
 };

@@ -58,10 +58,7 @@ unconstrained fn burn_public_failure_on_behalf_of_self_non_zero_nonce() {
     // Burn on behalf of self with non-zero nonce
     let burn_amount = mint_amount / (10 as u128);
     // Try to burn
-    env.call_public(
-        owner,
-        Token::at(token_contract_address).burn_public(owner, burn_amount, random()),
-    );
+    env.call_public(owner, Token::at(token_contract_address).burn_public(owner, burn_amount, random()));
 }
 
 #[test(should_fail_with = "unauthorized")]

@@ -103,10 +103,12 @@ EnqueuedCallResult HybridExecution::execute(std::unique_ptr<ContextInterface> en
         }
     }
 
-    ExecutionResult result = get_execution_result();
-    return {
+    const ExecutionResult& result = get_execution_result();
+    return EnqueuedCallResult{
         .success = result.success,
         .gas_used = result.gas_used,
+        .halting_mode = result.halting_mode,
+        .halting_message = result.halting_message,
     };
 }
 

@@ -1,8 +1,15 @@
+// === AUDIT STATUS ===
+// internal:    { status: not started, auditors: [], commit: dd03c4a23ab067274b4964cacb36d1545f73fb14}
+// external_1:  { status: not started, auditors: [], commit: }
+// external_2:  { status: not started, auditors: [], commit: }
+// =====================
+
 /**
  * @file bbapi_crypto.cpp
  * @brief Implementation of cryptographic command execution for the Barretenberg RPC API
  */
 #include "barretenberg/bbapi/bbapi_crypto.hpp"
+#include "barretenberg/common/assert.hpp"
 #include "barretenberg/common/throw_or_abort.hpp"
 #include "barretenberg/crypto/aes128/aes128.hpp"
 #include "barretenberg/crypto/blake2s/blake2s.hpp"
@@ -60,6 +67,9 @@ Blake2sToField::Response Blake2sToField::execute(BB_UNUSED BBApiRequest& request
 
 AesEncrypt::Response AesEncrypt::execute(BB_UNUSED BBApiRequest& request) &&
 {
+    BB_ASSERT(length == plaintext.size(), "AesEncrypt: length must equal plaintext.size()");
+    BB_ASSERT(length % 16 == 0, "AesEncrypt: length must be a multiple of 16");
+
     // Copy plaintext as AES encrypts in-place
     std::vector<uint8_t> result = plaintext;
     result.resize(length);
@@ -71,6 +81,9 @@ AesEncrypt::Response AesEncrypt::execute(BB_UNUSED BBApiRequest& request) &&
 
 AesDecrypt::Response AesDecrypt::execute(BB_UNUSED BBApiRequest& request) &&
 {
+    BB_ASSERT(length == ciphertext.size(), "AesDecrypt: length must equal ciphertext.size()");
+    BB_ASSERT(length % 16 == 0, "AesDecrypt: length must be a multiple of 16");
+
     // Copy ciphertext as AES decrypts in-place
     std::vector<uint8_t> result = ciphertext;
     result.resize(length);

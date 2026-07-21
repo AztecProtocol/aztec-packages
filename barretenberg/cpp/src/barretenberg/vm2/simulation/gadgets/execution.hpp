@@ -3,34 +3,23 @@
 #include <cstdint>
 #include <memory>
 #include <stack>
+#include <string>
+#include <utility>
 #include <vector>
 
 #include "barretenberg/vm2/common/aztec_types.hpp"
 #include "barretenberg/vm2/common/field.hpp"
 #include "barretenberg/vm2/common/memory_types.hpp"
 #include "barretenberg/vm2/common/opcodes.hpp"
-#include "barretenberg/vm2/common/tagged_value.hpp"
 #include "barretenberg/vm2/simulation/events/context_events.hpp"
 #include "barretenberg/vm2/simulation/events/event_emitter.hpp"
 #include "barretenberg/vm2/simulation/events/execution_event.hpp"
-#include "barretenberg/vm2/simulation/interfaces/alu.hpp"
-#include "barretenberg/vm2/simulation/interfaces/bitwise.hpp"
+// Note: many interface headers are NOT included here because the corresponding types are
+// forward-declared below and used only as references/pointers. The full definitions are
+// included in execution.cpp instead.
 #include "barretenberg/vm2/simulation/interfaces/context.hpp"
-#include "barretenberg/vm2/simulation/interfaces/context_provider.hpp"
-#include "barretenberg/vm2/simulation/interfaces/data_copy.hpp"
-#include "barretenberg/vm2/simulation/interfaces/db.hpp"
-#include "barretenberg/vm2/simulation/interfaces/debug_log.hpp"
-#include "barretenberg/vm2/simulation/interfaces/ecc.hpp"
-#include "barretenberg/vm2/simulation/interfaces/emit_unencrypted_log.hpp"
 #include "barretenberg/vm2/simulation/interfaces/execution.hpp"
-#include "barretenberg/vm2/simulation/interfaces/execution_components.hpp"
 #include "barretenberg/vm2/simulation/interfaces/gas_tracker.hpp"
-#include "barretenberg/vm2/simulation/interfaces/get_contract_instance.hpp"
-#include "barretenberg/vm2/simulation/interfaces/gt.hpp"
-#include "barretenberg/vm2/simulation/interfaces/keccakf1600.hpp"
-#include "barretenberg/vm2/simulation/interfaces/poseidon2.hpp"
-#include "barretenberg/vm2/simulation/interfaces/sha256.hpp"
-#include "barretenberg/vm2/simulation/interfaces/to_radix.hpp"
 #include "barretenberg/vm2/simulation/lib/cancellation_token.hpp"
 #include "barretenberg/vm2/simulation/lib/execution_id_manager.hpp"
 #include "barretenberg/vm2/simulation/lib/instruction_info.hpp"
@@ -38,7 +27,8 @@
 
 namespace bb::avm2::simulation {
 
-// Forward declaration.
+// Forward declarations for interface types that are only used as references in this header.
+// Their full definitions are included in execution.cpp.
 class CallStackMetadataCollectorInterface;
 class AluInterface;
 class BitwiseInterface;
@@ -49,15 +39,12 @@ class ToRadixInterface;
 class Sha256Interface;
 class ExecutionComponentsProviderInterface;
 class ContextProviderInterface;
-class InstructionInfoDBInterface;
-class ExecutionIdManagerInterface;
 class KeccakF1600Interface;
 class GreaterThanInterface;
 class GetContractInstanceInterface;
-class EmitUnencryptedLogInterface;
+class EmitPublicLogInterface;
 class DebugLoggerInterface;
 class HighLevelMerkleDBInterface;
-class GasTrackerInterface;
 
 // In charge of executing a single enqueued call.
 class Execution : public ExecutionInterface {
@@ -78,7 +65,7 @@ class Execution : public ExecutionInterface {
               KeccakF1600Interface& keccakf1600,
               GreaterThanInterface& greater_than,
               GetContractInstanceInterface& get_contract_instance_component,
-              EmitUnencryptedLogInterface& emit_unencrypted_log_component,
+              EmitPublicLogInterface& emit_public_log_component,
               DebugLoggerInterface& debug_log_component,
               HighLevelMerkleDBInterface& merkle_db,
               CallStackMetadataCollectorInterface& call_stack_metadata_collector,
@@ -97,7 +84,7 @@ class Execution : public ExecutionInterface {
         , keccakf1600(keccakf1600)
         , greater_than(greater_than)
         , get_contract_instance_component(get_contract_instance_component)
-        , emit_unencrypted_log_component(emit_unencrypted_log_component)
+        , emit_public_log_component(emit_public_log_component)
         , debug_log_component(debug_log_component)
         , merkle_db(merkle_db)
         , events(event_emitter)
@@ -128,14 +115,14 @@ class Execution : public ExecutionInterface {
               MemoryAddress l2_gas_offset,
               MemoryAddress da_gas_offset,
               MemoryAddress addr,
-              MemoryAddress cd_size_offset,
-              MemoryAddress cd_offset);
+              MemoryAddress args_size_offset,
+              MemoryAddress args_offset);
     void static_call(ContextInterface& context,
                      MemoryAddress l2_gas_offset,
                      MemoryAddress da_gas_offset,
                      MemoryAddress addr,
-                     MemoryAddress cd_size_offset,
-                     MemoryAddress cd_offset);
+                     MemoryAddress args_size_offset,
+                     MemoryAddress args_offset);
     void ret(ContextInterface& context, MemoryAddress ret_size_offset, MemoryAddress ret_offset);
     void revert(ContextInterface& context, MemoryAddress rev_size_offset, MemoryAddress rev_offset);
     void cd_copy(ContextInterface& context,
@@ -186,10 +173,8 @@ class Execution : public ExecutionInterface {
     void ecc_add(ContextInterface& context,
                  MemoryAddress p_x_addr,
                  MemoryAddress p_y_addr,
-                 MemoryAddress p_inf_addr,
                  MemoryAddress q_x_addr,
                  MemoryAddress q_y_addr,
-                 MemoryAddress q_inf_addr,
                  MemoryAddress dst_addr);
     void to_radix_be(ContextInterface& context,
                      MemoryAddress value_addr,
@@ -197,7 +182,7 @@ class Execution : public ExecutionInterface {
                      MemoryAddress num_limbs_addr,
                      MemoryAddress is_output_bits_addr,
                      MemoryAddress dst_addr);
-    void emit_unencrypted_log(ContextInterface& context, MemoryAddress log_size_offset, MemoryAddress log_offset);
+    void emit_public_log(ContextInterface& context, MemoryAddress log_size_offset, MemoryAddress log_offset);
     void send_l2_to_l1_msg(ContextInterface& context, MemoryAddress recipient_addr, MemoryAddress content_addr);
     void sha256_compression(ContextInterface& context,
                             MemoryAddress output_addr,
@@ -213,11 +198,11 @@ class Execution : public ExecutionInterface {
         MemoryAddress rd_size;
         Gas gas_used;
         bool success;
-        PC halting_pc = 0;                          // PC at which the context halted.
+        PC halting_pc = 0; // PC at which the context halted.
+        HaltingMode halting_mode = HaltingMode::UNDEFINED;
         std::optional<std::string> halting_message; // If reverted.
     };
 
-    // Only here for testing. TODO(fcarreiro): try to improve.
     virtual GasTrackerInterface& get_gas_tracker() { return *gas_tracker; }
 
     void set_execution_result(const ExecutionResult& exec_result) { this->exec_result = exec_result; }
@@ -235,8 +220,8 @@ class Execution : public ExecutionInterface {
     void handle_exit_call();
     void handle_exceptional_halt(ContextInterface& context, const std::string& halting_message);
 
-    // TODO(#13683): This is leaking circuit implementation details. We should have a better way to do this.
-    // Setters for inputs and output for gadgets/subtraces. These are used for register allocation.
+    // Improvement candidate #13683: This is leaking circuit implementation details. We should have a better way to do
+    // this. Setters for inputs and output for gadgets/subtraces. These are used for register allocation.
     void set_and_validate_inputs(ExecutionOpCode opcode, const std::vector<MemoryValue>& inputs);
     void set_output(ExecutionOpCode opcode, const MemoryValue& output);
     const std::vector<MemoryValue>& get_inputs() const { return inputs; }
@@ -257,7 +242,7 @@ class Execution : public ExecutionInterface {
     KeccakF1600Interface& keccakf1600;
     GreaterThanInterface& greater_than;
     GetContractInstanceInterface& get_contract_instance_component;
-    EmitUnencryptedLogInterface& emit_unencrypted_log_component;
+    EmitPublicLogInterface& emit_public_log_component;
     DebugLoggerInterface& debug_log_component;
     HighLevelMerkleDBInterface& merkle_db;
 

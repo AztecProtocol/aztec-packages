@@ -1,46 +1,126 @@
-include "../poseidon2_hash.pil";
-include "../range_check.pil";
-include "../public_inputs.pil";
 include "../constants_gen.pil";
+include "../gt.pil";
+include "../poseidon2_hash.pil";
+include "../precomputed.pil";
+include "../public_inputs.pil";
+include "../range_check.pil";
 
 include "../trees/public_data_check.pil";
 
-// Validates current class id taking into account contract updates.
-// Contract updates are written to the public data tree using the `delayed public mutable` structure.
-// The delayed public mutable structure looks like this:
-// +-------+-----------------------------+-------------------------------+-------------------------------+---------------------------------+
-// | slot  | delayed_public_mutable_slot | delayed_public_mutable_slot+1 | delayed_public_mutable_slot+2 |  delayed_public_mutable_slot+3  |
-// +-------+-----------------------------+-------------------------------+-------------------------------+---------------------------------+
-// | value | metadata                    | pre                           | post                          | hash(metadata,pre,post)         |
-// +-------+-----------------------------+-------------------------------+-------------------------------+---------------------------------+
-// The metadata field includes some information about the delay that we don't care about in the AVM,
-// but the timestamp of change is the last 32 bits of the metadata.
-//
-// This gadget reads the delayed public mutable hash, and requires the metadata, pre and post to be passed as hints.
-// NOTE: if hash is zero, then the delayed public mutable has never been written to. In that case no update applies (current_class_id = original_class_id)
-// Once we constrain the read, we truncate the metadata to 32 bits and compare it with the timestamp.
-// If the timestamp is less than the timestamp of change, then the update is a future update.
-// NOTE: zeroes can appear in pre and post. In those cases, zero means original_class_id.
-//
-// Usage:
-// sel { address, current_class_id, original_class_id, public_data_tree_root, timestamp }
-// in update_check.sel { update_check.address, update_check.current_class_id, update_check.original_class_id, update_check.public_data_tree_root, update_check.timestamp };
-//
+/**
+ * Validates current class id taking into account contract updates.
+ *
+ * BACKGROUND — CONTRACT UPGRADES:
+ *
+ * Contracts on Aztec can upgrade their class id (and therefore their bytecode) via a delayed update
+ * mechanism. The upgrade flow works as follows:
+ *
+ * 1. A contract owner calls `ContractInstanceRegistry.update(address, new_class_id)`,
+ *    which schedules a class id change to take effect after a configurable delay.
+ *    See: noir-projects/noir-contracts/contracts/protocol/contract_instance_registry_contract/src/main.nr
+ *
+ * 2. The scheduled change is stored as a `DelayedPublicMutable<ContractClassId>` state variable,
+ *    which internally wraps a `ScheduledValueChange<ContractClassId>` struct containing:
+ *      - `pre`:  the class id that applies BEFORE the scheduled timestamp.
+ *      - `post`: the class id that applies AFTER the scheduled timestamp.
+ *      - `timestamp_of_change` (packed into the metadata): the block timestamp at which
+ *        the transition from `pre` to `post` takes effect.
+ *    See: noir-projects/noir-protocol-circuits/crates/types/src/delayed_public_mutable/scheduled_value_change.nr
+ *    See: noir-projects/aztec-nr/aztec/src/utils/with_hash.nr (WithHash wrapper)
+ *
+ * 3. The `pre` and `post` fields are CONTRACT CLASS IDS. A zero value in
+ *    either field means "no explicit override" — the contract has never had its class id set for
+ *    that direction, so the original_class_id (from the contract instance deployment) applies.
+ *    For example:
+ *      - A contract that has never been upgraded has hash = 0 (never written).
+ *      - A contract upgraded once has pre = 0 (original) and post = new_class_id.
+ *      - A contract upgraded twice has pre = first_upgrade_class_id and post = second_upgrade_class_id.
+ *      - A contract upgraded any number of times CAN have post = 0 which represents an explicit reset to 0 (which functionally resets to original_class_id)
+ *
+ * 4. The delayed public mutable is stored across 4 consecutive public data tree slots:
+ *
+ * +-------+-----------------------------+-------------------------------+-------------------------------+---------------------------------+
+ * | slot  | delayed_public_mutable_slot | delayed_public_mutable_slot+1 | delayed_public_mutable_slot+2 |  delayed_public_mutable_slot+3  |
+ * +-------+-----------------------------+-------------------------------+-------------------------------+---------------------------------+
+ * | value | metadata                    | pre                           | post                          | hash(metadata,pre,post)         |
+ * +-------+-----------------------------+-------------------------------+-------------------------------+---------------------------------+
+ *
+ *    The hash at slot+3 is a `WithHash` optimization: the AVM performs a single constrained read
+ *    of hash(metadata, pre, post), and receives the preimage (metadata, pre, post) as unconstrained
+ *    hints that are verified against the hash.
+ *    See: noir-projects/noir-protocol-circuits/crates/types/src/delayed_public_mutable/delayed_public_mutable_values.nr
+ *
+ * 5. The metadata field packs delay configuration and the timestamp of change. Only the last
+ *    32 bits (the timestamp of change) are relevant to the AVM. The remaining upper bits encode
+ *    delay parameters managed by the protocol.
+ *
+ * GADGET LOGIC:
+ *
+ * This gadget reads the delayed public mutable hash and requires the metadata, pre, and post
+ * to be passed as hints. If hash is zero, the delayed public mutable has never been written to,
+ * so no update applies (current_class_id = original_class_id). Otherwise, the gadget:
+ *   - Verifies hash(metadata, pre, post) = stored hash.
+ *   - Extracts timestamp_of_change from the metadata (last 32 bits).
+ *   - Compares the current block timestamp against timestamp_of_change; did the change take place yet?
+ *   - If timestamp < timestamp_of_change: the update is pending, use `pre` (or original_class_id if pre = 0).
+ *   - If timestamp >= timestamp_of_change: the update has taken effect, use `post` (or original_class_id if post = 0).
+ *
+ * PRECONDITIONS:
+ * - None. All inputs are field elements with no range requirements.
+ *
+ * USAGE:
+ *
+ *     caller_sel {
+ *         address,
+ *         current_class_id,
+ *         original_class_id,
+ *         public_data_tree_root
+ *     } in update_check.sel {
+ *         update_check.address,
+ *         update_check.current_class_id,
+ *         update_check.original_class_id,
+ *         update_check.public_data_tree_root
+ *     };
+ *
+ *     - Inputs: address, original_class_id, public_data_tree_root must be provided by the caller.
+ *     - Output: current_class_id is the resolved class id after applying any pending update.
+ *     - Selector: Use `sel`.
+ *     - Trace size: 1 row per lookup.
+ *     - The timestamp is fetched internally from public inputs, not provided by the caller.
+ *
+ * TRACE SHAPE:
+ * - 1 single row per computation.
+ *
+ * ERROR HANDLING:
+ * - No error conditions affect the trace. All errors in simulation are fatal (std::runtime_error),
+ *   which abort execution and discard the entire trace.
+ *
+ * INTERACTIONS:
+ * - poseidon2_hash.pil: To compute the delayed public mutable storage slot (#[DELAYED_PUBLIC_MUTABLE_SLOT_POSEIDON2])
+ *                       and to verify the update hash preimage (#[UPDATE_HASH_POSEIDON2]).
+ * - public_data_check.pil: To read the update hash from the public data tree (#[UPDATE_HASH_PUBLIC_DATA_READ]).
+ * - public_inputs.pil: To fetch the current timestamp from public inputs (#[TIMESTAMP_FROM_PUBLIC_INPUTS]).
+ * - range_check.pil: To range-check the hi (#[UPDATE_HI_METADATA_RANGE]) and lo (#[UPDATE_LO_METADATA_RANGE])
+ *                    parts of the metadata decomposition.
+ * - gt.pil: To compare the current timestamp against the timestamp of change (#[TIMESTAMP_IS_LT_TIMESTAMP_OF_CHANGE]).
+ */
 namespace update_check;
-    pol commit sel; // @boolean
-    sel * (1 - sel) = 0;
 
     #[skippable_if]
     sel = 0;
 
-    // Inputs to update check
+    pol commit sel; // @boolean
+    sel * (1 - sel) = 0;
+
+    // ==== INPUTS AND OUTPUTS ====
+
     pol commit address;
     pol commit current_class_id;
     pol commit original_class_id;
     pol commit public_data_tree_root;
-    pol commit timestamp;
+    pol commit timestamp; // retrieved below from public inputs
 
-    // Get timestamp from public inputs
+    // Get timestamp from public inputs.
     // Lookup constant support: Can be removed when we support constants in lookups.
     pol commit timestamp_pi_offset;
     timestamp_pi_offset = sel * constants.AVM_PUBLIC_INPUTS_GLOBAL_VARIABLES_TIMESTAMP_ROW_IDX;
@@ -48,12 +128,13 @@ namespace update_check;
     sel {
         timestamp_pi_offset, timestamp
     } in public_inputs.sel {
-        precomputed.clk, public_inputs.cols[0]
+        precomputed.idx, public_inputs.cols[0]
     };
 
-    // ======== DELAYED PUBLIC MUTABLE HASH READ ========
+    // ==== DELAYED PUBLIC MUTABLE HASH READ ====
 
     pol commit update_hash;
+
     // Lookup constant support: Can be removed when we support constants in lookups.
     pol commit updated_class_ids_slot;
     sel * (constants.UPDATED_CLASS_IDS_SLOT - updated_class_ids_slot) = 0;
@@ -62,72 +143,98 @@ namespace update_check;
     pol commit const_three;
     sel * (const_three - 3) = 0;
 
+    // Compute the storage slot: poseidon2(dom_sep, updated_class_ids_slot, address).
     pol commit delayed_public_mutable_slot;
-
     #[DELAYED_PUBLIC_MUTABLE_SLOT_POSEIDON2]
     sel {
-         dom_sep_public_storage_map_slot, updated_class_ids_slot, address,
-         delayed_public_mutable_slot, const_three
+        dom_sep_public_storage_map_slot,
+        updated_class_ids_slot,
+        address,
+        delayed_public_mutable_slot,
+        const_three
     } in poseidon2_hash.start {
-         poseidon2_hash.input_0, poseidon2_hash.input_1, poseidon2_hash.input_2,
-         poseidon2_hash.output, poseidon2_hash.input_len
+        poseidon2_hash.input_0,
+        poseidon2_hash.input_1,
+        poseidon2_hash.input_2,
+        poseidon2_hash.output,
+        poseidon2_hash.input_len
     };
 
+    // The hash is stored at slot + UPDATES_DELAYED_PUBLIC_MUTABLE_VALUES_LEN (i.e., slot+3).
+    // Cannot overflow: delayed_public_mutable_slot is a Poseidon2 output, so landing near the field modulus (within 3) has negligible probability (~2^{-252}).
     pol commit delayed_public_mutable_hash_slot;
     sel * (delayed_public_mutable_slot + constants.UPDATES_DELAYED_PUBLIC_MUTABLE_VALUES_LEN - delayed_public_mutable_hash_slot) = 0;
 
     // Lookup constant support: Can be removed when we support constants in lookups.
-    pol commit deployer_protocol_contract_address;
-    sel * (constants.CONTRACT_INSTANCE_REGISTRY_CONTRACT_ADDRESS - deployer_protocol_contract_address) = 0;
+    pol commit contract_instance_registry_address;
+    sel * (constants.CONTRACT_INSTANCE_REGISTRY_CONTRACT_ADDRESS - contract_instance_registry_address) = 0;
 
+    // Read the update hash from the public data tree.
     #[UPDATE_HASH_PUBLIC_DATA_READ]
     sel {
-        deployer_protocol_contract_address,
-        delayed_public_mutable_hash_slot,
+        precomputed.zero, // write = 0 (read)
         update_hash,
+        contract_instance_registry_address,
+        delayed_public_mutable_hash_slot,
         public_data_tree_root
     } in public_data_check.sel {
+        public_data_check.write,
+        public_data_check.value,
         public_data_check.address,
         public_data_check.slot,
-        public_data_check.value,
         public_data_check.root
     };
 
-    // ======== DELAYED PUBLIC MUTABLE PREIMAGE CONSTRAINING ========
+    // ==== DELAYED PUBLIC MUTABLE PREIMAGE CONSTRAINING ====
 
+    // Determine whether the update hash is zero (never written) or nonzero (update exists).
+    // Uses the zero check recipe: hash_not_zero = 1 iff update_hash != 0.
     pol commit update_hash_inv;
     pol commit hash_not_zero; // @boolean
     hash_not_zero * (1 - hash_not_zero) = 0;
     pol HASH_IS_ZERO = 1 - hash_not_zero;
 
+    // See https://hackmd.io/moq6viBpRJeLpWrHAogCZw#With-Error-Support.
     #[HASH_IS_ZERO_CHECK]
     update_hash * (HASH_IS_ZERO * (1 - update_hash_inv) + update_hash_inv) - 1 + HASH_IS_ZERO = 0;
 
-    // Early return: If update hash is zero, then current_class_id must be original_class_id
-    // Everything after this can be skipped if update hash is zero
+    // Early return: if update hash is zero, then no update has been written,
+    // so current_class_id must equal original_class_id.
+    // Everything after this is gated by hash_not_zero and can be skipped when hash is zero.
     #[NEVER_UPDATED_CHECK]
     (1 - hash_not_zero) * (current_class_id - original_class_id) = 0;
 
+    // The update preimage consists of (metadata, pre_class_id, post_class_id).
+    // These are passed as hints and verified against the hash below.
     pol commit update_preimage_metadata;
     pol commit update_preimage_pre_class_id;
     pol commit update_preimage_post_class_id;
 
+    // Verify that hash(metadata, pre, post) = update_hash.
+    // Only active when hash_not_zero = 1 (otherwise the preimage fields are unconstrained).
     #[UPDATE_HASH_POSEIDON2]
     hash_not_zero {
-         update_preimage_metadata, update_preimage_pre_class_id, update_preimage_post_class_id,
-         update_hash, const_three
+        update_preimage_metadata,
+        update_preimage_pre_class_id,
+        update_preimage_post_class_id,
+        update_hash,
+        const_three
     } in poseidon2_hash.start {
-         poseidon2_hash.input_0, poseidon2_hash.input_1, poseidon2_hash.input_2,
-         poseidon2_hash.output, poseidon2_hash.input_len
+        poseidon2_hash.input_0,
+        poseidon2_hash.input_1,
+        poseidon2_hash.input_2,
+        poseidon2_hash.output,
+        poseidon2_hash.input_len
     };
 
-    // ======== TIMESTAMP OF CHANGE READ ========
+    // ==== TIMESTAMP OF CHANGE DECOMPOSITION ====
 
     // Timestamp of change is the last 32 bits of the update metadata
     // update_metadata = (update_hi_metadata: u112 << 32) + timestamp_of_change: u32
     pol commit timestamp_of_change;
     pol commit update_hi_metadata;
     pol TWO_POW_32 = 2**32;
+
     // Lookup constant support: Can be removed when we support constants in lookups.
     pol commit update_hi_metadata_bit_size;
     hash_not_zero * (constants.UPDATES_DELAYED_PUBLIC_MUTABLE_METADATA_BIT_SIZE - constants.TIMESTAMP_OF_CHANGE_BIT_SIZE - update_hi_metadata_bit_size) = 0;
@@ -135,6 +242,7 @@ namespace update_check;
     pol commit timestamp_of_change_bit_size; // 32
     hash_not_zero * (constants.TIMESTAMP_OF_CHANGE_BIT_SIZE - timestamp_of_change_bit_size) = 0;
 
+    // Range-check the hi and lo parts to ensure the decomposition is canonical.
     #[UPDATE_HI_METADATA_RANGE]
     hash_not_zero { update_hi_metadata, update_hi_metadata_bit_size }
     in range_check.sel { range_check.value, range_check.rng_chk_bits };
@@ -143,36 +251,50 @@ namespace update_check;
     hash_not_zero { timestamp_of_change, timestamp_of_change_bit_size }
     in range_check.sel { range_check.value, range_check.rng_chk_bits };
 
-    // Overflow safe since update_hi_metadata_bit_size + timestamp_of_change_bit_size < field bit size (254)
+    // Doesn't overflow since update_hi_metadata_bit_size + timestamp_of_change_bit_size < field bit size (254).
     #[UPDATE_METADATA_DECOMPOSITION]
     update_hi_metadata * TWO_POW_32 + timestamp_of_change - update_preimage_metadata = 0;
 
-    // ======== CLASS ID CHECK ========
-    // We are going to use the gt gadget to compare `timestamp` and `timestamp_of_change` and derive
-    // the boolean value of `timestamp_is_lt_timestamp_of_change`.
-    pol commit timestamp_is_lt_timestamp_of_change; // @boolean (by lookup) Boolean value enforced by gt gadget (under condition hash_not_zero == 1).
+    // ==== CLASS ID CHECK ====
 
-    // Equivalent to "timestamp_of_change > timestamp"
+    // Use the gt gadget to determine whether timestamp < timestamp_of_change.
+    // If so, the update hasn't taken effect yet (it's a future update).
+    pol commit timestamp_is_lt_timestamp_of_change; // @boolean (by lookup into gt when hash_not_zero == 1)
+
+    // Equivalent to "timestamp_of_change > timestamp".
+    // Preconditions to `gt` gadget require both inputs to be bounded by 2^128.
+    // `timestamp_of_change` is range-checked to 32 bits in #[UPDATE_LO_METADATA_RANGE].
+    // `timestamp` is a block timestamp retrieved from public inputs (64 bits and enforced
+    // by the public base rollup).
     #[TIMESTAMP_IS_LT_TIMESTAMP_OF_CHANGE]
     hash_not_zero { timestamp_of_change, timestamp, timestamp_is_lt_timestamp_of_change }
     in gt.sel_others { gt.input_a, gt.input_b, gt.res };
 
+    // Determine whether pre_class_id and post_class_id are zero.
+    // Zero means "use original_class_id" (no override for that direction).
+    // Uses the zero check recipe for each.
     pol commit update_pre_class_id_is_zero; // @boolean
     update_pre_class_id_is_zero * (1 - update_pre_class_id_is_zero) = 0;
     pol commit update_pre_class_inv;
+    // See https://hackmd.io/moq6viBpRJeLpWrHAogCZw#With-Error-Support.
+    // When hash_not_zero = 1: update_preimage_pre_class_id == 0 <==> update_pre_class_id_is_zero = 1
     #[UPDATE_PRE_CLASS_IS_ZERO]
     hash_not_zero * (update_preimage_pre_class_id * (update_pre_class_id_is_zero * (1 - update_pre_class_inv) + update_pre_class_inv) - 1 + update_pre_class_id_is_zero) = 0;
 
     pol commit update_post_class_id_is_zero; // @boolean
     update_post_class_id_is_zero * (1 - update_post_class_id_is_zero) = 0;
     pol commit update_post_class_inv;
+    // See https://hackmd.io/moq6viBpRJeLpWrHAogCZw#With-Error-Support.
+    // When hash_not_zero = 1: update_preimage_post_class_id == 0 <==> update_post_class_id_is_zero = 1
     #[UPDATE_POST_CLASS_IS_ZERO]
     hash_not_zero * (update_preimage_post_class_id * (update_post_class_id_is_zero * (1 - update_post_class_inv) + update_post_class_inv) - 1 + update_post_class_id_is_zero) = 0;
 
-    // If update hasn't applied yet, then the class id should be the pre_class_id == 0 ? original_class_id : pre_class_id
+    // When timestamp < timestamp_of_change (future update - hasn't been applied yet), use pre_class_id.
+    // If pre_class_id is zero, fall back to original_class_id.
     #[FUTURE_UPDATE_CLASS_ID_ASSIGNMENT]
     hash_not_zero * timestamp_is_lt_timestamp_of_change * (original_class_id * update_pre_class_id_is_zero + update_preimage_pre_class_id - current_class_id) = 0;
 
-    // Else, the post_class_id == 0 ? original_class_id : post_class_id
+    // When timestamp >= timestamp_of_change (past/current update), use post_class_id.
+    // If post_class_id is zero, fall back to original_class_id.
     #[PAST_UPDATE_CLASS_ID_ASSIGNMENT]
     hash_not_zero * (1 - timestamp_is_lt_timestamp_of_change) * (original_class_id * update_post_class_id_is_zero + update_preimage_post_class_id - current_class_id) = 0;

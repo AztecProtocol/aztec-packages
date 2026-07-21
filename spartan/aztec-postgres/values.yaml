@@ -23,8 +23,18 @@ resources:
 
 persistence:
   enabled: true
-  size: 1Gi
+  size: 10Gi
   storageClass: ""  # Use default
 
 service:
   port: 5432
+
+nodeSelector: {}
+
+# Block cluster-autoscaler scale-down evictions (single-replica HA signing DB).
+podAnnotations:
+  cluster-autoscaler.kubernetes.io/safe-to-evict: "false"
+
+podDisruptionBudget:
+  enabled: true
+  minAvailable: 1

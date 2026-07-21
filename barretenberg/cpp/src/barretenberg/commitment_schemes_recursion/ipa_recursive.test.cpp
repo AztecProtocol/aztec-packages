@@ -147,7 +147,7 @@ class IPARecursiveTests : public CommitmentTest<NativeCurve> {
 
         RecursiveIPA::reduce_verify(stdlib_claim, stdlib_transcript);
         stdlib::recursion::honk::DefaultIO<Builder>::add_default(builder);
-        builder.finalize_circuit(/*ensure_nonzero=*/true);
+        builder.finalize_circuit();
         return builder;
     }
     // flag to determine what type of polynomial to generate
@@ -224,7 +224,7 @@ class IPARecursiveTests : public CommitmentTest<NativeCurve> {
             RecursiveIPA::accumulate(this->ck(), transcript_1, claim_1, transcript_2, claim_2);
         output_claim.set_public();
         builder.ipa_proof = ipa_proof;
-        builder.finalize_circuit(/*ensure_nonzero=*/false);
+        builder.finalize_circuit();
         info("Circuit with 2 IPA Recursive Verifiers and IPA Accumulation num finalized gates = ",
              builder.get_num_finalized_gates());
 
@@ -375,7 +375,7 @@ TEST_F(IPARecursiveTests, FullRecursiveVerifierMediumZeroPoly)
     VerifierCommitmentKey<Curve> stdlib_pcs_vkey(&builder, poly_length, this->vk());
     auto result = RecursiveIPA::full_verify_recursive(stdlib_pcs_vkey, stdlib_claim, stdlib_transcript);
     EXPECT_TRUE(result);
-    builder.finalize_circuit(/*ensure_nonzero=*/true);
+    builder.finalize_circuit();
     info("Full IPA Recursive Verifier num finalized gates for length ",
          1UL << log_poly_length,
          " = ",
@@ -397,7 +397,7 @@ TEST_F(IPARecursiveTests, FullRecursiveVerifierMediumRandom)
     VerifierCommitmentKey<Curve> stdlib_pcs_vkey(&builder, poly_length, this->vk());
     auto result = RecursiveIPA::full_verify_recursive(stdlib_pcs_vkey, stdlib_claim, stdlib_transcript);
     EXPECT_TRUE(result);
-    builder.finalize_circuit(/*ensure_nonzero=*/true);
+    builder.finalize_circuit();
     info("Full IPA Recursive Verifier num finalized gates for length ",
          1UL << log_poly_length,
          " = ",
@@ -427,7 +427,7 @@ TEST_F(IPARecursiveTests, AccumulationAndFullRecursiveVerifierMediumRandom)
     auto [output_claim, ipa_proof] = RecursiveIPA::accumulate(this->ck(), transcript_1, claim_1, transcript_2, claim_2);
     output_claim.set_public();
     builder.ipa_proof = ipa_proof;
-    builder.finalize_circuit(/*ensure_nonzero=*/false);
+    builder.finalize_circuit();
     info("Circuit with 2 IPA Recursive Verifiers and IPA Accumulation num finalized gates = ",
          builder.get_num_finalized_gates());
 
@@ -444,10 +444,11 @@ TEST_F(IPARecursiveTests, AccumulationAndFullRecursiveVerifierMediumRandom)
         Curve::ScalarField::create_from_u512_as_witness(&root_rollup, output_claim.opening_pair.evaluation.get_value());
     ipa_claim.commitment = Curve::AffineElement::from_witness(&root_rollup, output_claim.commitment.get_value());
     auto result = RecursiveIPA::full_verify_recursive(stdlib_pcs_vkey, ipa_claim, stdlib_verifier_transcript);
-    root_rollup.finalize_circuit(/*ensure_nonzero=*/true);
+    root_rollup.finalize_circuit();
     EXPECT_TRUE(result);
     info("Full IPA Recursive Verifier num finalized gates for length ",
          1UL << log_poly_length,
          " = ",
          root_rollup.get_num_finalized_gates());
+    EXPECT_TRUE(CircuitChecker::check(root_rollup));
 }

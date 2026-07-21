@@ -1,0 +1,24 @@
+---
+source: tests/snapshots.rs
+expression: stderr
+---
+error: event's serialized length exceeds the maximum allowed for private events
+   ┌─ <repo>/noir-projects/aztec-nr/aztec/src/messages/logs/event.nr:<line>:<col>
+   │  
+   │ ╭     std::static_assert(
+   │ │         <Event as Serialize>::N <= MAX_EVENT_SERIALIZED_LEN,
+   │ │         "event's serialized length exceeds the maximum allowed for private events",
+   │ │     );
+   │ ╰─────'
+   │  
+   = Call stack:
+     1: remove_constraints
+             at <repo>/noir-projects/aztec-nr/aztec/src/utils/remove_constraints.nr:<line>:<col>
+     2: do_onchain_private_message_delivery
+             at <repo>/noir-projects/aztec-nr/aztec/src/messages/delivery/mod.nr:<line>:<col>
+     3: EventMessage<Event>::deliver_to
+             at <repo>/noir-projects/aztec-nr/aztec/src/event/event_message.nr:<line>:<col>
+     4: encode_private_event_message
+             at <repo>/noir-projects/aztec-nr/aztec/src/messages/logs/event.nr:<line>:<col>
+
+Aborting due to 1 previous error

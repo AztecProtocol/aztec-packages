@@ -15,12 +15,12 @@ void calldata_hashingImpl<FF_>::accumulate(ContainerOverSubrelations& evals,
 {
     using C = ColumnAndShifts;
 
-    const auto constants_DOM_SEP__PUBLIC_CALLDATA = FF(388853507);
-    const auto calldata_hashing_LATCH_CONDITION = in.get(C::calldata_hashing_latch) + in.get(C::precomputed_first_row);
+    const auto constants_DOM_SEP__PUBLIC_CALLDATA = FF(2760353947UL);
+    const auto calldata_hashing_LATCH_CONDITION = in.get(C::calldata_hashing_end) + in.get(C::precomputed_first_row);
     const auto calldata_hashing_PADDING_1 =
-        in.get(C::calldata_hashing_sel) * (FF(1) - in.get(C::calldata_hashing_sel_not_padding_1));
+        (in.get(C::calldata_hashing_sel) - in.get(C::calldata_hashing_sel_not_padding_1));
     const auto calldata_hashing_PADDING_2 =
-        in.get(C::calldata_hashing_sel) * (FF(1) - in.get(C::calldata_hashing_sel_not_padding_2));
+        (in.get(C::calldata_hashing_sel) - in.get(C::calldata_hashing_sel_not_padding_2));
 
     {
         using View = typename std::tuple_element_t<0, ContainerOverSubrelations>::View;
@@ -28,57 +28,58 @@ void calldata_hashingImpl<FF_>::accumulate(ContainerOverSubrelations& evals,
                    (FF(1) - static_cast<View>(in.get(C::calldata_hashing_sel)));
         std::get<0>(evals) += (tmp * scaling_factor);
     }
-    { // TRACE_CONTINUITY
+    {
         using View = typename std::tuple_element_t<1, ContainerOverSubrelations>::View;
-        auto tmp = (FF(1) - static_cast<View>(in.get(C::precomputed_first_row))) *
-                   (FF(1) - static_cast<View>(in.get(C::calldata_hashing_sel))) *
-                   static_cast<View>(in.get(C::calldata_hashing_sel_shift));
+        auto tmp = static_cast<View>(in.get(C::calldata_hashing_start)) *
+                   (FF(1) - static_cast<View>(in.get(C::calldata_hashing_start)));
         std::get<1>(evals) += (tmp * scaling_factor);
     }
     {
         using View = typename std::tuple_element_t<2, ContainerOverSubrelations>::View;
-        auto tmp = static_cast<View>(in.get(C::calldata_hashing_latch)) *
-                   (FF(1) - static_cast<View>(in.get(C::calldata_hashing_latch)));
+        auto tmp = static_cast<View>(in.get(C::calldata_hashing_end)) *
+                   (FF(1) - static_cast<View>(in.get(C::calldata_hashing_end)));
         std::get<2>(evals) += (tmp * scaling_factor);
     }
-    { // SEL_TOGGLED_AT_LATCH
+    { // SEL_ON_START_OR_END
         using View = typename std::tuple_element_t<3, ContainerOverSubrelations>::View;
-        auto tmp = static_cast<View>(in.get(C::calldata_hashing_latch)) *
+        auto tmp = (static_cast<View>(in.get(C::calldata_hashing_start)) +
+                    static_cast<View>(in.get(C::calldata_hashing_end))) *
                    (FF(1) - static_cast<View>(in.get(C::calldata_hashing_sel)));
         std::get<3>(evals) += (tmp * scaling_factor);
     }
-    { // ID_CONSISTENCY
+    { // TRACE_CONTINUITY
         using View = typename std::tuple_element_t<4, ContainerOverSubrelations>::View;
         auto tmp = (FF(1) - CView(calldata_hashing_LATCH_CONDITION)) *
-                   (static_cast<View>(in.get(C::calldata_hashing_context_id_shift)) -
-                    static_cast<View>(in.get(C::calldata_hashing_context_id)));
+                   (static_cast<View>(in.get(C::calldata_hashing_sel)) -
+                    static_cast<View>(in.get(C::calldata_hashing_sel_shift)));
         std::get<4>(evals) += (tmp * scaling_factor);
     }
-    { // SIZE_CONSISTENCY
+    { // START_AFTER_LATCH
         using View = typename std::tuple_element_t<5, ContainerOverSubrelations>::View;
-        auto tmp = (FF(1) - CView(calldata_hashing_LATCH_CONDITION)) *
-                   (static_cast<View>(in.get(C::calldata_hashing_calldata_size_shift)) -
-                    static_cast<View>(in.get(C::calldata_hashing_calldata_size)));
+        auto tmp =
+            static_cast<View>(in.get(C::calldata_hashing_sel_shift)) *
+            (static_cast<View>(in.get(C::calldata_hashing_start_shift)) - CView(calldata_hashing_LATCH_CONDITION));
         std::get<5>(evals) += (tmp * scaling_factor);
     }
     {
         using View = typename std::tuple_element_t<6, ContainerOverSubrelations>::View;
-        auto tmp = static_cast<View>(in.get(C::calldata_hashing_start)) *
-                   (FF(1) - static_cast<View>(in.get(C::calldata_hashing_start)));
+        auto tmp = (static_cast<View>(in.get(C::calldata_hashing_sel_not_start)) -
+                    (static_cast<View>(in.get(C::calldata_hashing_sel)) -
+                     static_cast<View>(in.get(C::calldata_hashing_start))));
         std::get<6>(evals) += (tmp * scaling_factor);
     }
-    {
+    { // ID_CONSISTENCY
         using View = typename std::tuple_element_t<7, ContainerOverSubrelations>::View;
-        auto tmp = (static_cast<View>(in.get(C::calldata_hashing_sel_not_start)) -
-                    static_cast<View>(in.get(C::calldata_hashing_sel)) *
-                        (FF(1) - static_cast<View>(in.get(C::calldata_hashing_start))));
+        auto tmp = (FF(1) - CView(calldata_hashing_LATCH_CONDITION)) *
+                   (static_cast<View>(in.get(C::calldata_hashing_context_id_shift)) -
+                    static_cast<View>(in.get(C::calldata_hashing_context_id)));
         std::get<7>(evals) += (tmp * scaling_factor);
     }
-    { // START_AFTER_LATCH
+    { // SIZE_CONSISTENCY
         using View = typename std::tuple_element_t<8, ContainerOverSubrelations>::View;
-        auto tmp =
-            static_cast<View>(in.get(C::calldata_hashing_sel_shift)) *
-            (static_cast<View>(in.get(C::calldata_hashing_start_shift)) - CView(calldata_hashing_LATCH_CONDITION));
+        auto tmp = (FF(1) - CView(calldata_hashing_LATCH_CONDITION)) *
+                   (static_cast<View>(in.get(C::calldata_hashing_calldata_size_shift)) -
+                    static_cast<View>(in.get(C::calldata_hashing_calldata_size)));
         std::get<8>(evals) += (tmp * scaling_factor);
     }
     { // START_INDEX_IS_ZERO
@@ -96,10 +97,10 @@ void calldata_hashingImpl<FF_>::accumulate(ContainerOverSubrelations& evals,
     }
     { // INDEX_INCREMENTS
         using View = typename std::tuple_element_t<11, ContainerOverSubrelations>::View;
-        auto tmp = static_cast<View>(in.get(C::calldata_hashing_sel)) *
-                   (FF(1) - CView(calldata_hashing_LATCH_CONDITION)) *
-                   (static_cast<View>(in.get(C::calldata_hashing_index_0__shift)) -
-                    (static_cast<View>(in.get(C::calldata_hashing_index_0_)) + FF(3)));
+        auto tmp =
+            (static_cast<View>(in.get(C::calldata_hashing_sel)) - static_cast<View>(in.get(C::calldata_hashing_end))) *
+            (static_cast<View>(in.get(C::calldata_hashing_index_0__shift)) -
+             (static_cast<View>(in.get(C::calldata_hashing_index_0_)) + FF(3)));
         std::get<11>(evals) += (tmp * scaling_factor);
     }
     { // INDEX_INCREMENTS_1
@@ -145,12 +146,12 @@ void calldata_hashingImpl<FF_>::accumulate(ContainerOverSubrelations& evals,
     }
     { // PADDING_END
         using View = typename std::tuple_element_t<19, ContainerOverSubrelations>::View;
-        auto tmp = CView(calldata_hashing_PADDING_2) * (FF(1) - static_cast<View>(in.get(C::calldata_hashing_latch)));
+        auto tmp = CView(calldata_hashing_PADDING_2) * (FF(1) - static_cast<View>(in.get(C::calldata_hashing_end)));
         std::get<19>(evals) += (tmp * scaling_factor);
     }
     { // CHECK_FINAL_INDEX
         using View = typename std::tuple_element_t<20, ContainerOverSubrelations>::View;
-        auto tmp = static_cast<View>(in.get(C::calldata_hashing_latch)) *
+        auto tmp = static_cast<View>(in.get(C::calldata_hashing_end)) *
                    (static_cast<View>(in.get(C::calldata_hashing_calldata_size)) -
                     (CView(calldata_hashing_PADDING_1) * static_cast<View>(in.get(C::calldata_hashing_index_0_)) +
                      (CView(calldata_hashing_PADDING_2) - CView(calldata_hashing_PADDING_1)) *
@@ -159,30 +160,38 @@ void calldata_hashingImpl<FF_>::accumulate(ContainerOverSubrelations& evals,
                          static_cast<View>(in.get(C::calldata_hashing_index_2_))));
         std::get<20>(evals) += (tmp * scaling_factor);
     }
-    { // HASH_CONSISTENCY
+    {
         using View = typename std::tuple_element_t<21, ContainerOverSubrelations>::View;
+        auto tmp =
+            (static_cast<View>(in.get(C::calldata_hashing_sel_end_not_empty)) -
+             static_cast<View>(in.get(C::calldata_hashing_end)) *
+                 (FF(1) - static_cast<View>(in.get(C::calldata_hashing_start)) * CView(calldata_hashing_PADDING_1)));
+        std::get<21>(evals) += (tmp * scaling_factor);
+    }
+    { // HASH_CONSISTENCY
+        using View = typename std::tuple_element_t<22, ContainerOverSubrelations>::View;
         auto tmp = (FF(1) - CView(calldata_hashing_LATCH_CONDITION)) *
                    (static_cast<View>(in.get(C::calldata_hashing_output_hash_shift)) -
                     static_cast<View>(in.get(C::calldata_hashing_output_hash)));
-        std::get<21>(evals) += (tmp * scaling_factor);
+        std::get<22>(evals) += (tmp * scaling_factor);
     }
     { // CALLDATA_HASH_INPUT_LENGTH_FIELDS
-        using View = typename std::tuple_element_t<22, ContainerOverSubrelations>::View;
+        using View = typename std::tuple_element_t<23, ContainerOverSubrelations>::View;
         auto tmp = static_cast<View>(in.get(C::calldata_hashing_sel)) *
                    (static_cast<View>(in.get(C::calldata_hashing_input_len)) -
                     (static_cast<View>(in.get(C::calldata_hashing_calldata_size)) + FF(1)));
-        std::get<22>(evals) += (tmp * scaling_factor);
+        std::get<23>(evals) += (tmp * scaling_factor);
     }
     { // ROUNDS_DECREMENT
-        using View = typename std::tuple_element_t<23, ContainerOverSubrelations>::View;
-        auto tmp = static_cast<View>(in.get(C::calldata_hashing_sel)) *
-                   ((FF(1) - CView(calldata_hashing_LATCH_CONDITION)) *
-                        ((static_cast<View>(in.get(C::calldata_hashing_rounds_rem_shift)) -
-                          static_cast<View>(in.get(C::calldata_hashing_rounds_rem))) +
-                         FF(1)) +
-                    static_cast<View>(in.get(C::calldata_hashing_latch)) *
-                        (static_cast<View>(in.get(C::calldata_hashing_rounds_rem)) - FF(1)));
-        std::get<23>(evals) += (tmp * scaling_factor);
+        using View = typename std::tuple_element_t<24, ContainerOverSubrelations>::View;
+        auto tmp =
+            ((static_cast<View>(in.get(C::calldata_hashing_sel)) - static_cast<View>(in.get(C::calldata_hashing_end))) *
+                 ((static_cast<View>(in.get(C::calldata_hashing_rounds_rem_shift)) -
+                   static_cast<View>(in.get(C::calldata_hashing_rounds_rem))) +
+                  FF(1)) +
+             static_cast<View>(in.get(C::calldata_hashing_end)) *
+                 (static_cast<View>(in.get(C::calldata_hashing_rounds_rem)) - FF(1)));
+        std::get<24>(evals) += (tmp * scaling_factor);
     }
 }
 

@@ -5,7 +5,7 @@ use super::{
     validate_settled_read_requests::validate_settled_read_requests,
 };
 
-use dep::types::{
+use types::{
     merkle_tree::LeafPreimage,
     side_effect::{Counted, Readable, Scoped},
     utils::arrays::ClaimedLengthArray,
@@ -17,6 +17,9 @@ pub struct ReadRequestValidator<let ReadRequestLen: u32, Value, let PendingValue
     pub tree_root: Field,
     pub propagated_read_requests: ClaimedLengthArray<Scoped<Counted<Field>>, ReadRequestLen>,
     pub hints: ReadRequestHints<ReadRequestLen, PendingReadHintsLen, SettledReadHintsLen, TreeHeight, SettledReadLeafPreimage>,
+    /// Tree-specific sibling-pair hasher (e.g. `nullifier_merkle_hash` for the nullifier tree,
+    /// `merkle_hash` for the note-hash tree).
+    pub merkle_hasher: fn(Field, Field) -> Field,
 }
 
 impl<let ReadRequestLen: u32, Value, let PendingValueLen: u32, let PendingReadHintsLen: u32, let SettledReadHintsLen: u32, let TreeHeight: u32, SettledReadLeafPreimage> ReadRequestValidator<ReadRequestLen, Value, PendingValueLen, PendingReadHintsLen, SettledReadHintsLen, TreeHeight, SettledReadLeafPreimage>
@@ -87,6 +90,7 @@ where
                 self.read_requests,
                 self.hints.settled_read_hints,
                 self.tree_root,
+                self.merkle_hasher,
             );
         } else {
             // Validate unused hints: Ensure that all index hints are set to `ReadRequestLen`.

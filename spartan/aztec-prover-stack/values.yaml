@@ -1,13 +1,14 @@
 global:
-  aztecRollupVersion: "canonical"
+  aztecEnv:
+    ROLLUP_VERSION: "canonical"
   aztecNetwork: ""
   customAztecNetwork:
     enabled: false
 
   l1ExecutionUrls: []
   l1ConsensusUrls: []
-  l1ConsensusHostApiKeys: []
-  l1ConsensusHostApiKeyHeaders: []
+  l1ConsensusHostApiKeys: ""
+  l1ConsensusHostApiKeyHeaders: ""
 
 node:
   nodeType: "prover-node"
@@ -39,7 +40,6 @@ node:
 
     startCmd:
       - --prover-node
-      - --archiver
 
     configMap:
       envEnabled: true
@@ -69,6 +69,8 @@ broker:
       RPC_MAX_BODY_SIZE: "50mb"
     startCmd:
       - --prover-broker
+    readinessProbe:
+      enabled: false
 
   hostNetwork: false
 
@@ -85,6 +87,17 @@ agent:
   nodeType: "prover-agent"
   replicaCount: 1
 
+  autoscaling:
+    keda:
+      enabled: false
+      pollingInterval: 30
+      cooldownPeriod: 300
+      minReplicaCount: 0
+      maxReplicaCount: 1
+      scalingBands: []
+      prometheus:
+        serverAddress: ""
+
   persistence:
     enabled: false
 
@@ -100,6 +113,8 @@ agent:
       source /scripts/wait-for-broker.sh
     startCmd:
       - --prover-agent
+    readinessProbe:
+      enabled: false
 
   service:
     p2p:

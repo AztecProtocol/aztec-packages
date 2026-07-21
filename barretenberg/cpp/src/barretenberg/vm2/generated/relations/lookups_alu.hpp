@@ -25,7 +25,7 @@ struct lookup_alu_tag_max_bits_value_settings_ {
                                                                                     ColumnAndShifts::alu_max_bits,
                                                                                     ColumnAndShifts::alu_max_value };
     static constexpr std::array<ColumnAndShifts, LOOKUP_TUPLE_SIZE> DST_COLUMNS = {
-        ColumnAndShifts::precomputed_clk,
+        ColumnAndShifts::precomputed_idx,
         ColumnAndShifts::precomputed_tag_max_bits,
         ColumnAndShifts::precomputed_tag_max_value
     };
@@ -148,6 +148,28 @@ using lookup_alu_range_check_mul_c_hi_settings = lookup_settings<lookup_alu_rang
 template <typename FF_>
 using lookup_alu_range_check_mul_c_hi_relation = lookup_relation_base<FF_, lookup_alu_range_check_mul_c_hi_settings>;
 
+/////////////////// lookup_alu_range_check_div_remainder ///////////////////
+
+struct lookup_alu_range_check_div_remainder_settings_ {
+    static constexpr std::string_view NAME = "LOOKUP_ALU_RANGE_CHECK_DIV_REMAINDER";
+    static constexpr std::string_view RELATION_NAME = "alu";
+    static constexpr size_t LOOKUP_TUPLE_SIZE = 2;
+    static constexpr Column SRC_SELECTOR = Column::alu_sel_div_no_err;
+    static constexpr Column DST_SELECTOR = Column::range_check_sel_alu;
+    static constexpr Column COUNTS = Column::lookup_alu_range_check_div_remainder_counts;
+    static constexpr Column INVERSES = Column::lookup_alu_range_check_div_remainder_inv;
+    static constexpr std::array<ColumnAndShifts, LOOKUP_TUPLE_SIZE> SRC_COLUMNS = { ColumnAndShifts::alu_helper1,
+                                                                                    ColumnAndShifts::alu_max_bits };
+    static constexpr std::array<ColumnAndShifts, LOOKUP_TUPLE_SIZE> DST_COLUMNS = {
+        ColumnAndShifts::range_check_value, ColumnAndShifts::range_check_rng_chk_bits
+    };
+};
+
+using lookup_alu_range_check_div_remainder_settings = lookup_settings<lookup_alu_range_check_div_remainder_settings_>;
+template <typename FF_>
+using lookup_alu_range_check_div_remainder_relation =
+    lookup_relation_base<FF_, lookup_alu_range_check_div_remainder_settings>;
+
 /////////////////// lookup_alu_ff_gt ///////////////////
 
 struct lookup_alu_ff_gt_settings_ {
@@ -204,7 +226,7 @@ struct lookup_alu_shifts_two_pow_settings_ {
         ColumnAndShifts::alu_shift_lo_bits, ColumnAndShifts::alu_two_pow_shift_lo_bits
     };
     static constexpr std::array<ColumnAndShifts, LOOKUP_TUPLE_SIZE> DST_COLUMNS = {
-        ColumnAndShifts::precomputed_clk, ColumnAndShifts::precomputed_power_of_2
+        ColumnAndShifts::precomputed_idx, ColumnAndShifts::precomputed_power_of_2
     };
 };
 

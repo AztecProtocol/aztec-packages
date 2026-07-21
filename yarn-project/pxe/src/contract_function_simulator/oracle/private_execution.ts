@@ -21,7 +21,7 @@ import { PrivateCircuitPublicInputs } from '@aztec/stdlib/kernel';
 import type { CircuitWitnessGenerationStats } from '@aztec/stdlib/stats';
 import { PrivateCallExecutionResult } from '@aztec/stdlib/tx';
 
-import { Oracle } from './oracle.js';
+import { buildACIRCallback } from './acir_callback.js';
 import type { PrivateExecutionOracle } from './private_execution_oracle.js';
 
 /**
@@ -43,10 +43,9 @@ export async function executePrivateFunction(
   const functionName = await privateExecutionOracle.getDebugFunctionName();
   log.verbose(`Executing private function ${functionName}`, { contract: contractAddress });
   const initialWitness = privateExecutionOracle.getInitialWitness(artifact);
-  const acvmCallback = new Oracle(privateExecutionOracle);
   const timer = new Timer();
   const acirExecutionResult = await simulator
-    .executeUserCircuit(initialWitness, artifact, acvmCallback.toACIRCallback())
+    .executeUserCircuit(initialWitness, artifact, buildACIRCallback(privateExecutionOracle))
     .catch((err: Error) => {
       err.message = resolveAssertionMessageFromError(err, artifact);
       throw new ExecutionError(
@@ -76,12 +75,12 @@ export async function executePrivateFunction(
 
   const contractClassLogs = privateExecutionOracle.getContractClassLogs();
 
-  const rawReturnValues = await privateExecutionOracle.privateLoadFromExecutionCache(publicInputs.returnsHash);
+  const rawReturnValues = await privateExecutionOracle.getHashPreimage(publicInputs.returnsHash);
 
   const newNotes = privateExecutionOracle.getNewNotes();
   const noteHashNullifierCounterMap = privateExecutionOracle.getNoteHashNullifierCounterMap();
   const offchainEffects = privateExecutionOracle.getOffchainEffects();
-  const preTags = privateExecutionOracle.getUsedPreTags();
+  const taggingIndexRanges = privateExecutionOracle.getUsedTaggingIndexRanges();
   const nestedExecutionResults = privateExecutionOracle.getNestedExecutionResults();
 
   let timerSubtractionList = nestedExecutionResults;
@@ -103,8 +102,8 @@ export async function executePrivateFunction(
     newNotes,
     noteHashNullifierCounterMap,
     rawReturnValues,
-    offchainEffects,
-    preTags,
+    offchainEffects.map(e => ({ data: e.data })),
+    taggingIndexRanges,
     nestedExecutionResults,
     contractClassLogs,
     {

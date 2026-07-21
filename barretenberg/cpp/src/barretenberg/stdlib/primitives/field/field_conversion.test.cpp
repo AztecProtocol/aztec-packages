@@ -48,15 +48,14 @@ template <typename Builder> class stdlib_field_conversion : public ::testing::Te
     }
 
     // Serialize and deserialize
-    template <typename T> void check_conversion(T in, bool valid_circuit = true, bool point_at_infinity = false)
+    template <typename T> void check_conversion(T in, bool valid_circuit = true)
     {
         size_t len = Codec::template calc_num_fields<T>();
         auto frs = Codec::serialize_to_fields(in);
         EXPECT_EQ(len, frs.size());
         auto out = Codec::template deserialize_from_fields<T>(frs);
-        bool expected = std::is_same_v<Builder, UltraCircuitBuilder> ? !point_at_infinity : true;
 
-        EXPECT_EQ(in.get_value() == out.get_value(), expected);
+        EXPECT_EQ(in.get_value(), out.get_value());
 
         auto ctx = in.get_context();
 
@@ -116,6 +115,44 @@ TYPED_TEST(stdlib_field_conversion, FieldConversionGrumpkinFr)
 }
 
 /**
+ * @brief convert_short_challenge maps a short (≤ 2 bigfield limbs) challenge to field_t or bigfield.
+ */
+TYPED_TEST(stdlib_field_conversion, ConvertShortChallenge)
+{
+    using Builder = TypeParam;
+    using Codec = StdlibCodec<field_t<Builder>>;
+    constexpr size_t SHORT_BITS = 2 * fq<Builder>::NUM_LIMB_BITS;
+    const uint256_t raw(std::string("9a807b615c4d3e2fa0b1c2d3e4f56789fedcba9876543210abcdef0123456789"));
+
+    Builder builder;
+    const uint256_t val = raw.slice(0, SHORT_BITS);
+    const auto chal = fr<Builder>::from_witness(&builder, bb::fr(val));
+
+    EXPECT_EQ(uint256_t(Codec::template convert_short_challenge<fr<Builder>>(chal).get_value()), val);
+    EXPECT_EQ(Codec::template convert_short_challenge<fq<Builder>>(chal).get_value(), uint512_t(val));
+    EXPECT_TRUE(CircuitChecker::check(builder));
+}
+
+/**
+ * @brief convert_full_challenge maps a full-width challenge to field_t or bigfield, preserving its value.
+ * @details The cross-field (bigfield) result is built by decomposing the full challenge into limbs; the circuit
+ * must be valid and the value exact (the scalar modulus r is smaller than the base modulus q).
+ */
+TYPED_TEST(stdlib_field_conversion, ConvertFullChallenge)
+{
+    using Builder = TypeParam;
+    using Codec = StdlibCodec<field_t<Builder>>;
+
+    Builder builder;
+    const bb::fr val = bb::fr::random_element();
+    const auto chal = fr<Builder>::from_witness(&builder, val);
+
+    EXPECT_EQ(uint256_t(Codec::template convert_full_challenge<fr<Builder>>(chal).get_value()), uint256_t(val));
+    EXPECT_EQ(Codec::template convert_full_challenge<fq<Builder>>(chal).get_value(), uint512_t(uint256_t(val)));
+    EXPECT_TRUE(CircuitChecker::check(builder));
+}
+
+/**
  * @brief Field conversion test for bn254_element<Builder>
  *
  */
@@ -149,15 +186,12 @@ TYPED_TEST(stdlib_field_conversion, FieldConversionBN254AffineElement)
             this->check_conversion(group_element);
         }
     }
-    // TODO(https://github.com/AztecProtocol/barretenberg/issues/1527): Remove `point_at_infinity` flag when point at
-    // infinity is consistently represented.
-    { // Serialize and deserialize the point at infinity
+    { // Serialize and deserialize the point at infinity (canonical (0,0) form)
         Builder builder;
 
         bn254_element<Builder> group_element =
             bn254_element<Builder>::from_witness(&builder, curve::BN254::AffineElement::infinity());
-        // The circuit is valid, because the point at infinity is set to `one`.
-        this->check_conversion(group_element, /* valid circuit */ true, /* point at infinity */ true);
+        this->check_conversion(group_element);
     }
 
     { // Serialize and deserialize "coordinates" that do not correspond to any point on the curve
@@ -214,6 +248,8 @@ TYPED_TEST(stdlib_field_conversion, FieldConversionGrumpkinAffineElement)
     { // Serialize and deserialize the point at infinity
         Builder builder;
 
+        // from_witness handles infinity: coordinates are set to (0,0), and the 2-arg constructor
+        // auto-detects infinity from x^2 + 5*y^2 == 0.
         grumpkin_element<Builder> group_element =
             grumpkin_element<Builder>::from_witness(&builder, curve::Grumpkin::AffineElement::infinity());
         this->check_conversion(group_element);
@@ -233,7 +269,7 @@ TYPED_TEST(stdlib_field_conversion, DeserializePointAtInfinity)
         bn254_element<Builder> point_at_infinity =
             Codec::template deserialize_from_fields<bn254_element<Builder>>(zeros);
 
-        EXPECT_TRUE(point_at_infinity.is_point_at_infinity().get_value());
+        EXPECT_TRUE(point_at_infinity.get_value().is_point_at_infinity());
         EXPECT_TRUE(CircuitChecker::check(builder));
     }
     {
@@ -242,7 +278,7 @@ TYPED_TEST(stdlib_field_conversion, DeserializePointAtInfinity)
         grumpkin_element<Builder> point_at_infinity =
             Codec::template deserialize_from_fields<grumpkin_element<Builder>>(zeros);
 
-        EXPECT_TRUE(point_at_infinity.is_point_at_infinity().get_value());
+        EXPECT_TRUE(point_at_infinity.get_value().is_point_at_infinity());
         EXPECT_TRUE(CircuitChecker::check(builder));
     }
 }
@@ -358,7 +394,7 @@ TYPED_TEST(stdlib_field_conversion, GateCountScalarDeserialization)
 TYPED_TEST(stdlib_field_conversion, GateCountBigfieldDeserialization)
 {
     // Deserializing a single bigfield element is expensive due to creating new ranges for range constraints
-    this->template check_deserialization_gate_count<fq<TypeParam>>([] { return bb::fq::random_element(); }, 3515);
+    this->template check_deserialization_gate_count<fq<TypeParam>>([] { return bb::fq::random_element(); }, 3513);
 }
 
 /**
@@ -367,7 +403,7 @@ TYPED_TEST(stdlib_field_conversion, GateCountBigfieldDeserialization)
  */
 TYPED_TEST(stdlib_field_conversion, GateCountMultipleBigfieldDeserialization)
 {
-    this->template check_deserialization_gate_count<fq<TypeParam>>([] { return bb::fq::random_element(); }, 3914, 10);
+    this->template check_deserialization_gate_count<fq<TypeParam>>([] { return bb::fq::random_element(); }, 3913, 10);
 }
 
 /**
@@ -378,8 +414,8 @@ TYPED_TEST(stdlib_field_conversion, GateCountBN254PointDeserialization)
 {
     using Builder = TypeParam;
     // Ultra: full bigfield construction + on-curve validation + assert_is_in_field for x and y
-    // Mega: only is_infinity check, range constraint and on_curve validation deferred to ECCVM and Translator
-    constexpr uint32_t expected = std::is_same_v<Builder, bb::UltraCircuitBuilder> ? 3850 : 5;
+    // Mega: no in-circuit checks; range constraint and on_curve validation deferred to ECCVM and Translator
+    constexpr uint32_t expected = std::is_same_v<Builder, bb::UltraCircuitBuilder> ? 3865 : 0;
     this->template check_deserialization_gate_count<bn254_element<Builder>>(
         [] { return curve::BN254::AffineElement::random_element(); }, expected);
 }
@@ -391,7 +427,7 @@ TYPED_TEST(stdlib_field_conversion, GateCountMultipleBN254PointDeserialization)
 {
     using Builder = TypeParam;
 
-    constexpr uint32_t expected = std::is_same_v<Builder, bb::UltraCircuitBuilder> ? 5601 : 50;
+    constexpr uint32_t expected = std::is_same_v<Builder, bb::UltraCircuitBuilder> ? 5746 : 0;
     this->template check_deserialization_gate_count<bn254_element<Builder>>(
         [] { return curve::BN254::AffineElement::random_element(); }, expected, 10);
 }

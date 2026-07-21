@@ -16,10 +16,13 @@ claimAmount=$(retrieve claimAmount)
 claimSecret=$(retrieve claimSecret)
 messageLeafIndex=$(retrieve messageLeafIndex)
 
-# The following produces two blocks, allowing the claim to be used in the next block.
+# The bridged claim is only consumable inboxLag (2) checkpoints after the L1->L2 message is inserted.
+# deploy_token.sh produces two blocks; the extra set_minter below produces a third, so the claim is
+# available by the time we consume it.
 source $flows/shared/deploy_token.sh $TOKEN_ALIAS test1
+aztec-wallet send set_minter -ca $TOKEN_ALIAS --args accounts:test0 true -f test0
 
-# Claim the fee juice by calling the fee juice contract directly (address = 5).
-feeJuice=0x0000000000000000000000000000000000000000000000000000000000000005
+# Claim the fee juice by calling the fee juice contract directly. Reference it via the registered
+# protocol-contract alias rather than a hardcoded address, which moves when protocol addresses are renumbered.
 # Using a pre-funded test account because SponsoredFPC is not an account contract and can't be used to send a tx.
-aztec-wallet send claim -ca $feeJuice -c fee_juice_contract@FeeJuice --args contracts:$FPC_ALIAS $claimAmount $claimSecret $messageLeafIndex -f test0
+aztec-wallet send claim -ca contracts:FeeJuice -c fee_juice_contract@FeeJuice --args contracts:$FPC_ALIAS $claimAmount $claimSecret $messageLeafIndex -f test0

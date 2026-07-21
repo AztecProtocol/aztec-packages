@@ -1,5 +1,5 @@
 import type { AztecAsyncKVStore, AztecAsyncMap } from '@aztec/kv-store';
-import type { DirectionalAppTaggingSecret } from '@aztec/stdlib/logs';
+import type { AppTaggingSecret } from '@aztec/stdlib/logs';
 
 import type { StagedStore } from '../../job_coordinator/job_coordinator.js';
 
@@ -106,11 +106,11 @@ export class RecipientTaggingStore implements StagedStore {
     return Promise.resolve();
   }
 
-  getHighestAgedIndex(secret: DirectionalAppTaggingSecret, jobId: string): Promise<number | undefined> {
+  getHighestAgedIndex(secret: AppTaggingSecret, jobId: string): Promise<number | undefined> {
     return this.#store.transactionAsync(() => this.#readHighestAgedIndex(jobId, secret.toString()));
   }
 
-  updateHighestAgedIndex(secret: DirectionalAppTaggingSecret, index: number, jobId: string): Promise<void> {
+  updateHighestAgedIndex(secret: AppTaggingSecret, index: number, jobId: string): Promise<void> {
     return this.#store.transactionAsync(async () => {
       const currentIndex = await this.#readHighestAgedIndex(jobId, secret.toString());
       if (currentIndex !== undefined && index <= currentIndex) {
@@ -121,11 +121,11 @@ export class RecipientTaggingStore implements StagedStore {
     });
   }
 
-  getHighestFinalizedIndex(secret: DirectionalAppTaggingSecret, jobId: string): Promise<number | undefined> {
+  getHighestFinalizedIndex(secret: AppTaggingSecret, jobId: string): Promise<number | undefined> {
     return this.#store.transactionAsync(() => this.#readHighestFinalizedIndex(jobId, secret.toString()));
   }
 
-  updateHighestFinalizedIndex(secret: DirectionalAppTaggingSecret, index: number, jobId: string): Promise<void> {
+  updateHighestFinalizedIndex(secret: AppTaggingSecret, index: number, jobId: string): Promise<void> {
     return this.#store.transactionAsync(async () => {
       const currentIndex = await this.#readHighestFinalizedIndex(jobId, secret.toString());
       if (currentIndex !== undefined && index < currentIndex) {

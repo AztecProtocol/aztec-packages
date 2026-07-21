@@ -35,7 +35,6 @@ void create_dummy_vkey_and_proof(UltraCircuitBuilder& builder,
     using IO = stdlib::recursion::honk::HidingKernelIO<Builder>;
 
     BB_ASSERT_EQ(proof_size, ChonkProof::PROOF_LENGTH_WITHOUT_PUB_INPUTS);
-
     size_t num_inner_public_inputs = public_inputs_size - IO::PUBLIC_INPUTS_SIZE;
 
     // Generate mock honk vk
@@ -63,8 +62,7 @@ void create_dummy_vkey_and_proof(UltraCircuitBuilder& builder,
  * @param has_valid_witness_assignments
  * @return HonkRecursionConstraintOutput {pairing agg object, ipa claim, ipa proof}
  */
-[[nodiscard(
-    "IPA claim and Pairing points should be accumulated")]] HonkRecursionConstraintOutput<bb::UltraCircuitBuilder>
+[[nodiscard("IPA claim and Pairing points should be accumulated")]] ChonkRecursionConstraintOutput
 create_chonk_recursion_constraints(bb::UltraCircuitBuilder& builder, const RecursionConstraint& input)
 {
     using Builder = bb::UltraCircuitBuilder;
@@ -104,15 +102,14 @@ create_chonk_recursion_constraints(bb::UltraCircuitBuilder& builder, const Recur
 
     ChonkRecursiveVerifier verifier(mega_vk_and_hash);
     ChonkRecursiveVerifier::Output verification_output = verifier.verify(stdlib_proof);
+    if (!verification_output.all_checks_passed && !builder.failed() && !builder.is_write_vk_mode()) {
+        builder.failure("Chonk recursion verification failed");
+    }
 
     // Construct output
     // Note: ChonkVerifier aggregates all pairing points (PI + PCS + Merge + Translator)
-    HonkRecursionConstraintOutput<Builder> output;
-    output.points_accumulator = verification_output.pairing_points;
-    output.ipa_claim = verification_output.ipa_claim;
-    output.ipa_proof = verification_output.ipa_proof;
-
-    return output;
+    return { .points_accumulator = std::move(verification_output.pairing_points),
+             .triple_ipa_opening = std::move(verification_output.triple_ipa_opening) };
 }
 
 } // namespace acir_format

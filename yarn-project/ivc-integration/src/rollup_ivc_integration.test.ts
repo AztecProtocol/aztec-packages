@@ -70,11 +70,11 @@ describe('Rollup IVC Integration', () => {
     );
 
     // Create a client IVC proof using the new AztecClientBackend API
-    const [bytecodes, witnessStack, tailPublicInputs, vks] = await generateTestingIVCStack(1, 0);
+    const [bytecodes, witnessStack, tailPublicInputs, vks, circuitKinds] = await generateTestingIVCStack(1, 0);
     clientIVCPublicInputs = tailPublicInputs;
 
-    const backend = new AztecClientBackend(bytecodes, barretenberg);
-    const [proofAsFields, , vkBytes] = await backend.prove(witnessStack, vks);
+    const backend = new AztecClientBackend(bytecodes, barretenberg, [], circuitKinds);
+    const { proofFields: proofAsFields, vk: vkBytes } = await backend.prove(witnessStack, vks);
     chonkProof = await proofBytesToRecursiveProof(proofAsFields, vkBytes);
 
     // Create an AVM proof
@@ -85,10 +85,10 @@ describe('Rollup IVC Integration', () => {
       worldStateService,
       /*globals=*/ undefined, // default
       /*metrics=*/ undefined,
-      /*useCppSimulator=*/ true,
       simConfig,
     );
     const avmSimulationResult = await bulkTest(simTester, logger, AvmTestContractArtifact);
+    await simTester.close();
     await worldStateService.close();
     expect(avmSimulationResult.revertCode.isOK()).toBe(true);
 

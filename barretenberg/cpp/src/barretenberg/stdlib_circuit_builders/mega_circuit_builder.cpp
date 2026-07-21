@@ -8,6 +8,8 @@
 #include "barretenberg/common/assert.hpp"
 #include "barretenberg/crypto/poseidon2/poseidon2_params.hpp"
 #include "barretenberg/flavor/mega_flavor.hpp"
+#include <array>
+#include <tuple>
 #include <unordered_map>
 #include <unordered_set>
 
@@ -16,67 +18,9 @@ using namespace bb::crypto;
 
 namespace bb {
 
-template <typename FF> void MegaCircuitBuilder_<FF>::finalize_circuit(const bool ensure_nonzero)
+template <typename FF> void MegaCircuitBuilder_<FF>::finalize_circuit()
 {
-    if (ensure_nonzero && !this->circuit_finalized) {
-        // do the mega part of ensuring all polynomials are nonzero; ultra part will be done inside of
-        // Ultra::finalize_circuit
-        add_mega_gates_to_ensure_all_polys_are_non_zero();
-    }
-    // All of the gates involved in finalization are part of the Ultra arithmetization
-    UltraCircuitBuilder_<MegaExecutionTraceBlocks>::finalize_circuit(ensure_nonzero);
-}
-
-/**
- * @brief Ensure all polynomials have at least one non-zero coefficient to avoid commiting to the zero-polynomial.
- *        This only adds gates for the Goblin polynomials. Most polynomials are handled via the Ultra method,
- *        which should be done by a separate call to the Ultra builder's non zero polynomial gates method.
- *
- * @param in Structure containing variables and witness selectors
- */
-template <typename FF> void MegaCircuitBuilder_<FF>::add_mega_gates_to_ensure_all_polys_are_non_zero()
-{
-    // Add a single default value to all databus columns. Note: This value must be equal across all columns in order for
-    // inter-circuit databus commitment checks to pass in IVC settings.
-
-    // Create an arbitrary calldata read gate
-    add_public_calldata(this->add_variable(BusVector::DEFAULT_VALUE));    // add one entry in calldata
-    auto raw_read_idx = static_cast<uint32_t>(get_calldata().size()) - 1; // read data that was just added
-    auto read_idx = this->add_variable(FF(raw_read_idx));
-    update_finalize_witnesses({ read_idx, read_calldata(read_idx) });
-
-    // Create an arbitrary secondary_calldata read gate
-    add_public_secondary_calldata(this->add_variable(BusVector::DEFAULT_VALUE)); // add one entry in secondary_calldata
-    raw_read_idx = static_cast<uint32_t>(get_secondary_calldata().size()) - 1;   // read data that was just added
-    read_idx = this->add_variable(FF(raw_read_idx));
-    update_finalize_witnesses({ read_idx, read_secondary_calldata(read_idx) });
-
-    // Create an arbitrary return data read gate
-    add_public_return_data(this->add_variable(BusVector::DEFAULT_VALUE)); // add one entry in return data
-    raw_read_idx = static_cast<uint32_t>(get_return_data().size()) - 1;   // read data that was just added
-    read_idx = this->add_variable(FF(raw_read_idx));
-    update_finalize_witnesses({ read_idx, read_return_data(read_idx) });
-
-    if (op_queue->get_current_subtable_size() == 0) {
-        // Add a mul dummy op in the subtable to avoid column polynomial being zero (it has to be a mul rather than an
-        // add to ensure all 4 column polynomials contain some data)
-        this->queue_ecc_mul_accum(bb::g1::affine_element::one(), 2, /*in_finalize=*/true);
-        this->queue_ecc_eq(/*in_finalize=*/true);
-    }
-}
-
-/**
- * @brief Ensure all polynomials have at least one non-zero coefficient to avoid commiting to the zero-polynomial.
- *        This only adds gates for the Goblin polynomials. Most polynomials are handled via the Ultra method,
- *        which should be done by a separate call to the Ultra builder's non zero polynomial gates method.
- *
- * @param in Structure containing variables and witness selectors
- */
-template <typename FF> void MegaCircuitBuilder_<FF>::add_ultra_and_mega_gates_to_ensure_all_polys_are_non_zero()
-{
-    // Most polynomials are handled via the conventional Ultra method
-    UltraCircuitBuilder_<MegaExecutionTraceBlocks>::add_gates_to_ensure_all_polys_are_non_zero();
-    add_mega_gates_to_ensure_all_polys_are_non_zero();
+    UltraCircuitBuilder_<MegaExecutionTraceBlocks>::finalize_circuit();
 }
 
 /**
@@ -136,8 +80,9 @@ template <typename FF> ecc_op_tuple MegaCircuitBuilder_<FF>::queue_ecc_eq(bool i
 }
 
 /**
- * @brief Logic for a no-op operation.
- *
+ * @brief Add a no-op to the op queue and populate two zero rows in the ecc_op block.
+ * @details Used by the tail kernel to give the Translator's op queue wires two leading zero rows (shiftability).
+ * The no-op does not generate any ECCVM operation.
  * @return ecc_op_tuple with all its fields set to zero
  */
 template <typename FF> ecc_op_tuple MegaCircuitBuilder_<FF>::queue_ecc_no_op()
@@ -185,14 +130,8 @@ ecc_op_tuple MegaCircuitBuilder_<FF>::populate_ecc_op_wires(const UltraOp& ultra
     // Populate the ecc_op block with TWO rows (matching Ultra format)
     // Row 1: OP   | x_lo | x_hi | y_lo
     // Row 2: 0    | y_hi | z_1  | z_2
-    this->blocks.ecc_op.populate_wires(op_val_idx_1, op_tuple.x_lo, op_tuple.x_hi, op_tuple.y_lo);
-    for (auto& selector : this->blocks.ecc_op.get_selectors()) {
-        selector.emplace_back(0);
-    }
-    this->blocks.ecc_op.populate_wires(op_val_idx_2, op_tuple.y_hi, op_tuple.z_1, op_tuple.z_2);
-    for (auto& selector : this->blocks.ecc_op.get_selectors()) {
-        selector.emplace_back(0);
-    }
+    this->blocks.ecc_op.append_gate({ .wires = { op_val_idx_1, op_tuple.x_lo, op_tuple.x_hi, op_tuple.y_lo } });
+    this->blocks.ecc_op.append_gate({ .wires = { op_val_idx_2, op_tuple.y_hi, op_tuple.z_1, op_tuple.z_2 } });
 
     if (in_finalize) {
         update_used_witnesses(
@@ -277,6 +216,18 @@ uint32_t MegaCircuitBuilder_<FF>::read_bus_vector(BusId bus_idx, const uint32_t&
     return value_witness_idx;
 }
 
+template <typename FF> void MegaCircuitBuilder_<FF>::create_databus_init_read_gate(BusId bus_idx, size_t slot_idx)
+{
+    auto& bus_vector = databus[static_cast<size_t>(bus_idx)];
+    BB_ASSERT_LT(slot_idx, bus_vector.size());
+
+    const uint32_t value_witness_idx = bus_vector[slot_idx];
+    const uint32_t index_witness_idx = this->put_constant_variable(FF(static_cast<uint64_t>(slot_idx)));
+
+    create_databus_read_gate({ index_witness_idx, value_witness_idx }, bus_idx);
+    bus_vector.increment_read_count(slot_idx);
+}
+
 /**
  * @brief Create a databus lookup/read gate
  *
@@ -287,40 +238,113 @@ template <typename FF>
 void MegaCircuitBuilder_<FF>::create_databus_read_gate(const databus_lookup_gate_<FF>& in, const BusId bus_idx)
 {
     auto& block = this->blocks.busread;
-    block.populate_wires(in.value, in.index, this->zero_idx(), this->zero_idx());
-    apply_databus_selectors(bus_idx);
-
-    this->check_selector_length_consistency();
+    GateRowT row{};
+    row.wires = { in.value, in.index, this->zero_idx(), this->zero_idx() };
+    // Bus column k (0 <= k < NUM_BUS_COLUMNS) is selected by one of these selectors. The order here
+    // must match BusData<bus_idx>::selector in databus_lookup_relation.hpp and the bus selector
+    // order in flavor-codegen mega.ts / mega_kernel.ts.
+    const std::array<FF*, NUM_BUS_COLUMNS> databus_selectors{ &row.q_1, &row.q_2, &row.q_3, &row.q_4,
+                                                              &row.q_5, &row.q_c, &row.q_m };
+    const size_t idx = static_cast<size_t>(bus_idx);
+    BB_ASSERT_LT(idx, databus_selectors.size());
+    *databus_selectors[idx] = 1;
+    row.gate_kind = GateKind::BusRead;
+    row.gate_value = 1;
+    block.append_gate(row);
     this->increment_num_gates();
 }
 
-template <typename FF> void MegaCircuitBuilder_<FF>::apply_databus_selectors(const BusId bus_idx)
+/**
+ * @brief Poseidon2 external-round gate. Mega routes it into the shared `poseidon2` block (Ultra instead uses a
+ * dedicated external block) so every permutation's rows are contiguous and the external/terminal round relations
+ * bind across the external<->internal boundary via `w_shift`.
+ */
+template <typename FF>
+void MegaCircuitBuilder_<FF>::create_poseidon2_external_gate(const poseidon2_external_gate_<FF>& in)
 {
-    auto& block = this->blocks.busread;
-    switch (bus_idx) {
-    case BusId::CALLDATA: {
-        block.q_1().emplace_back(1);
-        block.q_2().emplace_back(0);
-        block.q_3().emplace_back(0);
-        break;
+    auto& block = this->blocks.poseidon2;
+    block.append_gate({ .wires = { in.a, in.b, in.c, in.d },
+                        .q_1 = crypto::Poseidon2Bn254ScalarFieldParams::round_constants[in.round_idx][0],
+                        .q_2 = crypto::Poseidon2Bn254ScalarFieldParams::round_constants[in.round_idx][1],
+                        .q_3 = crypto::Poseidon2Bn254ScalarFieldParams::round_constants[in.round_idx][2],
+                        .q_4 = crypto::Poseidon2Bn254ScalarFieldParams::round_constants[in.round_idx][3],
+                        .gate_kind = GateKind::Poseidon2Ext,
+                        .gate_value = 1 });
+    this->increment_num_gates();
+}
+
+/**
+ * @brief Poseidon2 initial linear layer gate, activates the q_poseidon2_external_initial selector and relation.
+ * @details Constrains the whole initial linear layer with a bespoke row.
+ */
+template <typename FF>
+void MegaCircuitBuilder_<FF>::create_poseidon2_initial_external_gate(const poseidon2_initial_external_gate_<FF>& in)
+{
+    auto& block = this->blocks.poseidon2;
+    block.append_gate(
+        { .wires = { in.a, in.b, in.c, in.d }, .gate_kind = GateKind::Poseidon2ExtInitial, .gate_value = 1 });
+    this->increment_num_gates();
+}
+
+/**
+ * @brief Poseidon2 K=4 compressed internal-round gate: processes FOUR consecutive internal rounds per row.
+ * @details
+ *   Wires:     a, b, c, d = state[0] at rounds 4i+0, 4i+1, 4i+2, 4i+3
+ *   Selectors: q_1, q_2, q_3, q_4 = c_{4i}, c_{4i+1}, c_{4i+2}, c_{4i+3}   (this quad's 4 constants)
+ *              q_m, q_c, q_5      = c_{4(i+1)}, c_{4(i+1)+1}, c_{4(i+1)+2} (next quad's first 3, for
+ *                                                                           the shifted Vandermonde check)
+ *   Terminal rows use q_poseidon2_quad_internal_terminal and set q_m, q_c, q_5 = 0 (no next quad).
+ */
+template <typename FF>
+void MegaCircuitBuilder_<FF>::create_poseidon2_quad_internal_gate(const poseidon2_quad_internal_gate_<FF>& in)
+{
+    auto& block = this->blocks.poseidon2;
+    const auto& rc = crypto::Poseidon2Bn254ScalarFieldParams::round_constants;
+    {
+        auto& block_for_row = block;
+        GateRowT row{};
+        row.wires = { in.a, in.b, in.c, in.d };
+        row.q_1 = rc[in.round_idx_start + 0][0];
+        row.q_2 = rc[in.round_idx_start + 1][0];
+        row.q_3 = rc[in.round_idx_start + 2][0];
+        row.q_4 = rc[in.round_idx_start + 3][0];
+        if (in.is_terminal) {
+            row.gate_kind = GateKind::Poseidon2QuadIntTerminal;
+            row.gate_value = 1;
+        } else {
+            row.q_m = rc[in.next_pair_start + 0][0];
+            row.q_c = rc[in.next_pair_start + 1][0];
+            row.q_5 = rc[in.next_pair_start + 2][0];
+            row.gate_kind = GateKind::Poseidon2QuadInt;
+            row.gate_value = 1;
+        }
+        block_for_row.append_gate(row);
     }
-    case BusId::SECONDARY_CALLDATA: {
-        block.q_1().emplace_back(0);
-        block.q_2().emplace_back(1);
-        block.q_3().emplace_back(0);
-        break;
-    }
-    case BusId::RETURNDATA: {
-        block.q_1().emplace_back(0);
-        block.q_2().emplace_back(0);
-        block.q_3().emplace_back(1);
-        break;
-    }
-    }
-    block.q_4().emplace_back(0);
-    block.q_m().emplace_back(0);
-    block.q_c().emplace_back(0);
-    block.set_gate_selector(1);
+    this->increment_num_gates();
+}
+
+/**
+ * @brief Poseidon2 transition-entry gate: standard → K=4 compressed encoding boundary.
+ * @details Placed immediately before the first compressed row.
+ *   Wires:     a, b, c, d = (s_0, s_1, s_2, s_3) at round `round_idx_start` (standard encoding)
+ *   Selectors: q_1, q_2, q_3 = c_{start}, c_{start+1}, c_{start+2}
+ *              q_4, q_m, q_c, q_5 = 0 (unused)
+ *
+ * Enforces the successor's (w_r_shift, w_o_shift, w_4_shift) equal state[0] at rounds
+ * `start+1, start+2, start+3` respectively, via 3 degree-7 subrelations.
+ */
+template <typename FF>
+void MegaCircuitBuilder_<FF>::create_poseidon2_transition_entry_gate(const poseidon2_transition_entry_gate_<FF>& in)
+{
+    auto& block = this->blocks.poseidon2;
+    const auto& rc = crypto::Poseidon2Bn254ScalarFieldParams::round_constants;
+    block.append_gate({ .wires = { in.a, in.b, in.c, in.d },
+                        .q_1 = rc[in.round_idx_start + 0][0],
+                        .q_2 = rc[in.round_idx_start + 1][0],
+                        .q_3 = rc[in.round_idx_start + 2][0],
+                        .gate_kind = GateKind::Poseidon2TransitionEntry,
+                        .gate_value = 1 });
+    this->increment_num_gates();
 }
 
 template class MegaCircuitBuilder_<bb::fr>;

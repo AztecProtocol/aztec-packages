@@ -1,13 +1,9 @@
-// === AUDIT STATUS ===
-// internal:    { status: Complete, auditors: [Nishat], commit: 8fb8b041d4c9179f62da56a9c7bbf22c40db46cc}
-// external_1:  { status: not started, auditors: [], commit: }
-// external_2:  { status: not started, auditors: [], commit: }
-// =====================
-
 #include "barretenberg/crypto/blake2s/blake2s.hpp"
 #include "barretenberg/circuit_checker/circuit_checker.hpp"
 #include "barretenberg/flavor/ultra_flavor.hpp"
 #include "barretenberg/numeric/uint256/uint256.hpp"
+#include "barretenberg/stdlib_circuit_builders/mega_circuit_builder.hpp"
+#include "barretenberg/stdlib_circuit_builders/ultra_circuit_builder.hpp"
 #include "barretenberg/ultra_honk/prover_instance.hpp"
 #include "blake2s.hpp"
 #include <gtest/gtest.h>
@@ -15,13 +11,12 @@
 using namespace bb;
 using namespace bb::stdlib;
 
-using Builder = UltraCircuitBuilder;
+template <class Builder> class StdlibBlake2s : public ::testing::Test {};
 
-using field_ct = field_t<Builder>;
-using witness_ct = witness_t<Builder>;
-using byte_array_ct = byte_array<Builder>;
-using public_witness_t = public_witness_t<Builder>;
+using BuilderTypes = ::testing::Types<bb::UltraCircuitBuilder, bb::MegaCircuitBuilder>;
+TYPED_TEST_SUITE(StdlibBlake2s, BuilderTypes);
 
+namespace {
 std::vector<std::string> test_vectors = { "",
                                           "a",
                                           "ab",
@@ -36,9 +31,13 @@ std::vector<std::string> test_vectors = { "",
                                           "abcdefghijklmnopqrstuvwxyz0123456789abcdefghijklmnopqrstuvwxyz01",
                                           "abcdefghijklmnopqrstuvwxyz0123456789abcdefghijklmnopqrstuvwxyz012",
                                           "abcdefghijklmnopqrstuvwxyz0123456789abcdefghijklmnopqrstuvwxyz0123456789" };
+} // namespace
 
-TEST(stdlib_blake2s, test_single_block)
+TYPED_TEST(StdlibBlake2s, test_single_block)
 {
+    using Builder = TypeParam;
+    using byte_array_ct = byte_array<Builder>;
+
     Builder builder;
     std::string input = "abcdefghijklmnopqrstuvwxyz0123456789abcdefghijklmnopqrstuvwxyz01";
     std::vector<uint8_t> input_v(input.begin(), input.end());
@@ -56,8 +55,11 @@ TEST(stdlib_blake2s, test_single_block)
     EXPECT_EQ(proof_result, true);
 }
 
-TEST(stdlib_blake2s, test_double_block)
+TYPED_TEST(StdlibBlake2s, test_double_block)
 {
+    using Builder = TypeParam;
+    using byte_array_ct = byte_array<Builder>;
+
     Builder builder;
     std::string input = "abcdefghijklmnopqrstuvwxyz0123456789abcdefghijklmnopqrstuvwxyz0123456789";
     std::vector<uint8_t> input_v(input.begin(), input.end());
@@ -75,8 +77,11 @@ TEST(stdlib_blake2s, test_double_block)
     EXPECT_EQ(proof_result, true);
 }
 
-TEST(stdlib_blake2s, test_witness_and_constant)
+TYPED_TEST(StdlibBlake2s, test_witness_and_constant)
 {
+    using Builder = TypeParam;
+    using byte_array_ct = byte_array<Builder>;
+
     Builder builder;
 
     // create a byte array that is a circuit witness
@@ -114,8 +119,11 @@ TEST(stdlib_blake2s, test_witness_and_constant)
     EXPECT_EQ(proof_result, true);
 }
 
-TEST(stdlib_blake2s, test_constant_only)
+TYPED_TEST(StdlibBlake2s, test_constant_only)
 {
+    using Builder = TypeParam;
+    using byte_array_ct = byte_array<Builder>;
+
     Builder builder;
     size_t len = 65;
 
@@ -142,8 +150,10 @@ TEST(stdlib_blake2s, test_constant_only)
     EXPECT_EQ(proof_result, true);
 }
 
-TEST(stdlib_blake2s, test_multiple_sized_blocks)
+TYPED_TEST(StdlibBlake2s, test_multiple_sized_blocks)
 {
+    using Builder = TypeParam;
+    using byte_array_ct = byte_array<Builder>;
 
     int i = 0;
 
@@ -171,8 +181,11 @@ TEST(stdlib_blake2s, test_multiple_sized_blocks)
 // second half of every call to `g` to ensure that the overflow doesn't go beyond 3 bits. The edge case that caused
 // addition overflow issues in Blake is tested here. See https://hackmd.io/@aztec-network/SyTHLkAWZx for a detailed
 // description of the addition overflow issue.
-TEST(stdlib_blake2s, test_edge_case_addition_overflow)
+TYPED_TEST(StdlibBlake2s, test_edge_case_addition_overflow)
 {
+    using Builder = TypeParam;
+    using byte_array_ct = byte_array<Builder>;
+
     std::array<uint8_t, 62> v = { 0x0E, 0xF6, 0xF6, 0xF6, 0xF6, 0xF6, 0xF6, 0xF6, 0xF6, 0xF6, 0xF6, 0xF6, 0xF6,
                                   0xF6, 0xF6, 0xF6, 0xF6, 0xF6, 0xF6, 0xF6, 0xF6, 0xF6, 0xF6, 0xF6, 0xF6, 0xF6,
                                   0xF6, 0xF6, 0xF6, 0xF6, 0xF6, 0xF6, 0xF6, 0xF6, 0xF6, 0xF6, 0xF6, 0xF6, 0xFF,

@@ -1,21 +1,21 @@
 mod cards;
 mod game;
 
-use dep::aztec::macros::aztec;
+use aztec::macros::aztec;
 
 #[aztec]
 pub contract CardGame {
-    use dep::aztec::protocol::address::AztecAddress;
-    use dep::aztec::protocol::hash::poseidon2_hash;
-    use dep::aztec::state_vars::{Map, PublicMutable};
+    use aztec::protocol::address::AztecAddress;
+    use aztec::protocol::hash::poseidon2_hash;
+    use aztec::state_vars::{Map, PublicMutable};
 
-    use dep::aztec::note::constants::MAX_NOTES_PER_PAGE;
+    use aztec::note::constants::MAX_NOTES_PER_PAGE;
 
     use crate::cards::{Card, compute_deck_strength, Deck, get_pack_cards};
     use crate::game::{Game, PLAYABLE_CARDS, PlayerEntry};
-    use dep::aztec::macros::{functions::{external, only_self}, storage::storage};
+    use aztec::macros::{functions::{external, only_self}, storage::storage};
 
-    use dep::aztec::protocol::traits::{FromField, ToField};
+    use aztec::protocol::traits::{FromField, ToField};
 
     #[storage]
     struct Storage<Context> {
@@ -29,7 +29,7 @@ pub contract CardGame {
         seed: Field, // The randomness used to generate the cards. Passed in for now.
     ) {
         let buyer = self.msg_sender();
-        let mut cards = get_pack_cards(seed, buyer, self.context);
+        let cards = get_pack_cards(seed, buyer, self.context);
 
         let mut collection = self.storage.collections;
         let _inserted_cards = collection.add_cards(cards, buyer);
@@ -55,10 +55,7 @@ pub contract CardGame {
         let game_storage = self.storage.games.at(game as Field);
 
         let mut game_data = game_storage.read();
-        assert(
-            game_data.add_player(PlayerEntry { address: player, deck_strength, points: 0 }),
-            "Game full",
-        );
+        assert(game_data.add_player(PlayerEntry { address: player, deck_strength, points: 0 }), "Game full");
 
         game_storage.write(game_data);
     }
@@ -116,10 +113,7 @@ pub contract CardGame {
         assert(!game_data.claimed, "Already claimed");
         game_data.claimed = true;
 
-        assert_eq(
-            cards_hash,
-            poseidon2_hash(game_data.rounds_cards.map(|card: Card| card.to_field())),
-        );
+        assert_eq(cards_hash, poseidon2_hash(game_data.rounds_cards.map(|card: Card| card.to_field())));
 
         let winner = game_data.winner();
         assert(player.eq(winner.address), "Not the winner");
@@ -128,10 +122,7 @@ pub contract CardGame {
     }
 
     #[external("utility")]
-    unconstrained fn view_collection_cards(
-        owner: AztecAddress,
-        offset: u32,
-    ) -> BoundedVec<Card, MAX_NOTES_PER_PAGE> {
+    unconstrained fn view_collection_cards(owner: AztecAddress, offset: u32) -> BoundedVec<Card, MAX_NOTES_PER_PAGE> {
         let collection = self.storage.collections;
         collection.view_cards(owner, offset)
     }

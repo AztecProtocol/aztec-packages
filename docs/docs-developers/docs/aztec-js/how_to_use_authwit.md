@@ -7,28 +7,43 @@ description: Step-by-step guide to implementing authentication witnesses in Azte
 
 This guide shows you how to create and use authentication witnesses (authwits) to authorize other accounts to perform actions on your behalf.
 
+:::tip Automatic private authwits with EmbeddedWallet
+
+When using `EmbeddedWallet`, **private authwits are created automatically**. The wallet simulates your transaction before sending and detects which private authwits are needed, then generates them on the fly. You don't need to create them manually.
+
+Public authwits still need to be set explicitly, as they require a separate onchain transaction before use. The manual approach described below is also relevant if you're building a custom wallet implementation.
+
+:::
+
 :::warning aztec-nr
 
 Using AuthWitnesses is always a two-part process. This guide shows how to generate and use them, but you still need to set up your contract to accept and authenticate them.
 
-Therefore it is recommended to read the `aztec-nr` [guide on authwitnesses](../aztec-nr/framework-description/how_to_use_authwit.md) before this one.
+Therefore it is recommended to read the `aztec-nr` [guide on authwitnesses](../aztec-nr/framework-description/authentication_witnesses.md) before this one.
 
 :::
 
+import { General } from '@site/src/components/Snippets/general_snippets';
+
 ## Prerequisites
 
-- [Connected to a network](./how_to_connect_to_local_network.md) with a `TestWallet` instance and funded accounts
-- Contract with authwit validation (see [smart contract authwits](../aztec-nr/framework-description/how_to_use_authwit.md))
+- <General.AztecJSPrerequisites />
+- Contract with authwit validation (see [smart contract authwits](../aztec-nr/framework-description/authentication_witnesses.md))
 - Understanding of [authwit concepts](../foundational-topics/advanced/authwit.md)
 
 ## Intent types
 
 The authwit system supports different intent types depending on your use case:
 
-- **`CallIntent`**: Use when authorizing a specific contract function call. Contains `{ caller, action }` where `action` is a `ContractFunctionInteraction`.
+- **`CallIntent`**: Use when authorizing a specific contract function call. Contains `{ caller, call }` where `call` is a `FunctionCall`, typically obtained with `await interaction.getFunctionCall()`.
+- **`ContractFunctionInteractionCallIntent`**: Convenience form that takes the interaction directly. Contains `{ caller, action }` where `action` is a `ContractFunctionInteraction`; internally resolved to a `FunctionCall` before signing.
 - **`IntentInnerHash`**: Use when authorizing arbitrary data. Contains `{ consumer, innerHash }` where `consumer` is the contract that will verify the authwit.
 
 ## Create private authwits
+
+:::note
+If you're using `EmbeddedWallet`, this section is handled for you automatically. See the tip above.
+:::
 
 Private authwits authorize actions in the private domain. The authorization is included directly in the transaction that uses it.
 
@@ -62,6 +77,6 @@ Public authwits can be revoked by setting `authorized` to `false`:
 
 ## Next steps
 
-- Learn about [authwits in smart contracts](../aztec-nr/framework-description/how_to_use_authwit.md)
+- Learn about [authwits in smart contracts](../aztec-nr/framework-description/authentication_witnesses.md)
 - Understand [authwit concepts](../foundational-topics/advanced/authwit.md)
 - Explore [account abstraction](../foundational-topics/accounts/index.md)

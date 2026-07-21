@@ -1,11 +1,17 @@
+import { NULL_MSG_SENDER_CONTRACT_ADDRESS } from '@aztec/constants';
 import { type Logger, type LoggerBindings, createLogger } from '@aztec/foundation/log';
 import { PublicContractsDB, getCallRequestsWithCalldataByPhase } from '@aztec/simulator/server';
+import { AztecAddress } from '@aztec/stdlib/aztec-address';
 import type { ContractDataSource } from '@aztec/stdlib/contract';
 import type { AllowedElement } from '@aztec/stdlib/interfaces/server';
 import {
   type PublicCallRequestWithCalldata,
   TX_ERROR_DURING_VALIDATION,
   TX_ERROR_SETUP_FUNCTION_NOT_ALLOWED,
+  TX_ERROR_SETUP_FUNCTION_UNKNOWN_CONTRACT,
+  TX_ERROR_SETUP_NULL_MSG_SENDER,
+  TX_ERROR_SETUP_ONLY_SELF_WRONG_SENDER,
+  TX_ERROR_SETUP_WRONG_CALLDATA_LENGTH,
   Tx,
   TxExecutionPhase,
   type TxValidationResult,
@@ -34,7 +40,7 @@ export class PhasesTxValidator implements TxValidator<Tx> {
       // which are needed for public FPC flows, but fail if the account contract hasnt been deployed yet,
       // which is what we're trying to do as part of the current txs.
       // We only need to create/revert checkpoint here because of this addNewContracts call.
-      await this.contractsDB.addNewContracts(tx);
+      this.contractsDB.addNewContracts(tx);
 
       if (!tx.data.forPublic) {
         this.#log.debug(
@@ -45,7 +51,8 @@ export class PhasesTxValidator implements TxValidator<Tx> {
 
       const setupFns = getCallRequestsWithCalldataByPhase(tx, TxExecutionPhase.SETUP);
       for (const setupFn of setupFns) {
-        if (!(await this.isOnAllowList(setupFn, this.setupAllowList))) {
+        const rejectionReason = await this.checkAllowList(setupFn, this.setupAllowList);
+        if (rejectionReason) {
           this.#log.verbose(
             `Rejecting tx ${tx.getTxHash().toString()} because it calls setup function not on allow list: ${
               setupFn.request.contractAddress
@@ -53,7 +60,7 @@ export class PhasesTxValidator implements TxValidator<Tx> {
             { allowList: this.setupAllowList },
           );
 
-          return { result: 'invalid', reason: [TX_ERROR_SETUP_FUNCTION_NOT_ALLOWED] };
+          return { result: 'invalid', reason: [rejectionReason] };
         }
       }
 
@@ -66,53 +73,101 @@ export class PhasesTxValidator implements TxValidator<Tx> {
     }
   }
 
-  private async isOnAllowList(
+  /** Returns a rejection reason if the call is not on the allow list, or undefined if it is allowed. */
+  private async checkAllowList(
     publicCall: PublicCallRequestWithCalldata,
     allowList: AllowedElement[],
-  ): Promise<boolean> {
+  ): Promise<string | undefined> {
     if (publicCall.isEmpty()) {
-      return true;
+      return undefined;
     }
 
     const contractAddress = publicCall.request.contractAddress;
     const functionSelector = publicCall.functionSelector;
 
-    // do these checks first since they don't require the contract class
+    // Check address-based entries first since they don't require the contract class.
     for (const entry of allowList) {
-      if ('address' in entry && !('selector' in entry)) {
-        if (contractAddress.equals(entry.address)) {
-          return true;
-        }
-      }
-
-      if ('address' in entry && 'selector' in entry) {
+      if ('address' in entry) {
         if (contractAddress.equals(entry.address) && entry.selector.equals(functionSelector)) {
-          return true;
-        }
-      }
-
-      const contractClass = await this.contractsDB.getContractInstance(contractAddress, this.timestamp);
-
-      if (!contractClass) {
-        throw new Error(`Contract not found: ${contractAddress}`);
-      }
-
-      if ('classId' in entry && !('selector' in entry)) {
-        if (contractClass.currentContractClassId.equals(entry.classId)) {
-          return true;
-        }
-      }
-
-      if ('classId' in entry && 'selector' in entry) {
-        if (
-          contractClass.currentContractClassId.equals(entry.classId) &&
-          (entry.selector === undefined || entry.selector.equals(functionSelector))
-        ) {
-          return true;
+          if (entry.calldataLength !== undefined && publicCall.calldata.length !== entry.calldataLength) {
+            return TX_ERROR_SETUP_WRONG_CALLDATA_LENGTH;
+          }
+          if (entry.onlySelf && !publicCall.request.msgSender.equals(contractAddress)) {
+            return TX_ERROR_SETUP_ONLY_SELF_WRONG_SENDER;
+          }
+          if (
+            entry.rejectNullMsgSender &&
+            publicCall.request.msgSender.equals(AztecAddress.fromBigIntUnsafe(NULL_MSG_SENDER_CONTRACT_ADDRESS))
+          ) {
+            return TX_ERROR_SETUP_NULL_MSG_SENDER;
+          }
+          return undefined;
         }
       }
     }
 
-    return false;
+    // Check class-based entries. Fetch the contract instance lazily (only once).
+    let contractClassId: undefined | { value: string | undefined };
+    for (const entry of allowList) {
+      if (!('classId' in entry)) {
+        continue;
+      }
+
+      if (contractClassId === undefined) {
+        const instance = await this.contractsDB.getContractInstance(contractAddress, this.timestamp);
+        contractClassId = { value: instance?.currentContractClassId.toString() };
+        if (!contractClassId.value) {
+          return TX_ERROR_SETUP_FUNCTION_UNKNOWN_CONTRACT;
+        }
+      }
+
+      if (contractClassId.value === entry.classId.toString() && entry.selector.equals(functionSelector)) {
+        if (entry.calldataLength !== undefined && publicCall.calldata.length !== entry.calldataLength) {
+          return TX_ERROR_SETUP_WRONG_CALLDATA_LENGTH;
+        }
+        if (entry.onlySelf && !publicCall.request.msgSender.equals(contractAddress)) {
+          return TX_ERROR_SETUP_ONLY_SELF_WRONG_SENDER;
+        }
+        if (
+          entry.rejectNullMsgSender &&
+          publicCall.request.msgSender.equals(AztecAddress.fromBigIntUnsafe(NULL_MSG_SENDER_CONTRACT_ADDRESS))
+        ) {
+          return TX_ERROR_SETUP_NULL_MSG_SENDER;
+        }
+        return undefined;
+      }
+    }
+
+    return TX_ERROR_SETUP_FUNCTION_NOT_ALLOWED;
+  }
+}
+
+/** Structural interface for the allowed-setup-calls flag check. */
+export interface HasAllowedSetupCallsData {
+  txHash: { toString(): string };
+  allowedSetupCalls: boolean;
+}
+
+/**
+ * Validates that a transaction's setup-phase calls were allowed at receipt time.
+ *
+ * Checks the precomputed `allowedSetupCalls` flag on TxMetaData. The flag is
+ * computed by running the PhasesTxValidator on the full Tx when it first enters
+ * the pool. This lightweight validator is used during pending pool migration to
+ * reject txs whose setup calls are not on the allow list.
+ */
+export class AllowedSetupCallsMetaValidator<T extends HasAllowedSetupCallsData> implements TxValidator<T> {
+  #log: Logger;
+
+  constructor(bindings?: LoggerBindings) {
+    this.#log = createLogger('sequencer:tx_validator:tx_phases_meta', bindings);
+  }
+
+  validateTx(tx: T): Promise<TxValidationResult> {
+    if (!tx.allowedSetupCalls) {
+      this.#log.verbose(`Rejecting tx ${tx.txHash} because its setup calls are not on the allow list`);
+      return Promise.resolve({ result: 'invalid', reason: [TX_ERROR_SETUP_FUNCTION_NOT_ALLOWED] });
+    }
+    return Promise.resolve({ result: 'valid' });
   }
 }

@@ -2,17 +2,38 @@
 set -u # not -e
 [ "${BUILD_SYSTEM_DEBUG:-}" = 1 ] && set -x
 
+# By default retries any non-zero exit. With "-p <regex>" only failures whose (combined) output
+# matches the extended regex are retried; any other failure exits immediately so genuine errors
+# (e.g. a real compile error) are not masked by retries.
+# The attempt count and the inter-attempt sleep are tunable via RETRY_ATTEMPTS (default 3) and
+# RETRY_SLEEP (default 5s), e.g. RETRY_ATTEMPTS=30 RETRY_SLEEP=10 retries every 10s for ~5 min.
+# Usage: retry [-p <retry-on-regex>] "<command>"
+pattern=
+if [ "${1:-}" = "-p" ]; then
+  pattern=$2
+  shift 2
+fi
+
 if [ -n "${RETRY_DISABLED:-}" ]; then
   set -e
   eval "$1"
   exit
 fi
 
-ATTEMPTS=3
-# Retries up to 3 times with 5 second intervals
-trap 'kill -SIGTERM $pid &>/dev/null || true' SIGTERM
+ATTEMPTS=${RETRY_ATTEMPTS:-3}
+out=
+[ -n "$pattern" ] && out=$(mktemp)
+# Retries up to $ATTEMPTS times, sleeping ${RETRY_SLEEP:-5}s between attempts.
+trap 'kill -SIGTERM $pid &>/dev/null || true; [ -n "$out" ] && rm -f "$out"' SIGTERM EXIT
 for i in $(seq 1 $ATTEMPTS); do
-  bash -c "$1" &
+  if [ -n "$pattern" ]; then
+    # Capture combined output (while still streaming it) so we can decide whether the failure is
+    # retryable. pipefail makes the subshell exit with the command's code, not tee's, and the tee
+    # finishes before the subshell exits so the captured file is complete before we inspect it.
+    ( set -o pipefail; bash -c "$1" 2>&1 | tee "$out" ) &
+  else
+    bash -c "$1" &
+  fi
   pid=$!
   # First wait might be SIGTERM received by this script.
   # Second should be the actual exit status.
@@ -20,7 +41,11 @@ for i in $(seq 1 $ATTEMPTS); do
   wait $pid
   code=$?
   [ $code -eq 0 ] || [ $code -eq 143 ] && exit 0
-  [ "$i" != "$ATTEMPTS" ] && sleep 5
+  if [ -n "$pattern" ] && ! grep -Eq "$pattern" "$out"; then
+    >&2 echo "Not retrying: failure (code $code) did not match retry pattern: $pattern"
+    exit $code
+  fi
+  [ "$i" != "$ATTEMPTS" ] && sleep ${RETRY_SLEEP:-5}
 done
 
 >&2 echo "Failed after $ATTEMPTS attempts: $1"

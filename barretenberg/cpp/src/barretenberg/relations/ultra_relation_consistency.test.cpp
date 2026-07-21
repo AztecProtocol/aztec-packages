@@ -13,6 +13,7 @@
  */
 #include "barretenberg/ecc/curves/bn254/fr.hpp"
 #include "barretenberg/ecc/curves/grumpkin/grumpkin.hpp"
+#include "barretenberg/flavor/generated/ultra_flavor_generated.hpp"
 #include "barretenberg/relations/delta_range_constraint_relation.hpp"
 #include "barretenberg/relations/elliptic_relation.hpp"
 #include "barretenberg/relations/memory_relation.hpp"
@@ -27,71 +28,31 @@
 using namespace bb;
 
 using FF = fr;
-struct InputElements {
-    static constexpr size_t NUM_ELEMENTS = 45;
-    std::array<FF, NUM_ELEMENTS> _data;
 
-    static InputElements get_random()
-    {
-        InputElements result;
-        std::generate(result._data.begin(), result._data.end(), [] { return FF::random_element(); });
-        return result;
+// Test inputs: the generator-emitted AllEntities<FF> for UltraFlavor — std::array<FF,
+// NUM_ALL_ENTITIES> storage with EntityId-keyed access and named-method accessors. Replaces a
+// hand-written 45-tuple mock that pre-dated the logderiv-lookup arithmetisation.
+using InputElements = UltraFlavor_Generated::AllEntities<FF>;
+
+static InputElements get_random_inputs()
+{
+    InputElements result;
+    for (FF& slot : result.data) {
+        slot = FF::random_element();
     }
+    return result;
+}
 
-    static InputElements get_special() // use non-random values
-    {
-        InputElements result;
-        FF idx = 0;
-        std::generate(result._data.begin(), result._data.end(), [&] {
-            idx += FF(1);
-            return idx;
-        });
-        return result;
+static InputElements get_special_inputs() // use non-random values: data[i] = i + 1
+{
+    InputElements result;
+    FF idx = 0;
+    for (FF& slot : result.data) {
+        idx += FF(1);
+        slot = idx;
     }
-
-    FF& q_c = std::get<0>(_data);
-    FF& q_l = std::get<1>(_data);
-    FF& q_r = std::get<2>(_data);
-    FF& q_o = std::get<3>(_data);
-    FF& q_4 = std::get<4>(_data);
-    FF& q_m = std::get<5>(_data);
-    FF& q_arith = std::get<6>(_data);
-    FF& q_delta_range = std::get<7>(_data);
-    FF& q_elliptic = std::get<8>(_data);
-    FF& q_memory = std::get<9>(_data);
-    FF& q_nnf = std::get<10>(_data);
-    FF& q_lookup = std::get<11>(_data);
-    FF& q_poseidon2_external = std::get<12>(_data);
-    FF& q_poseidon2_internal = std::get<13>(_data);
-    FF& sigma_1 = std::get<14>(_data);
-    FF& sigma_2 = std::get<15>(_data);
-    FF& sigma_3 = std::get<16>(_data);
-    FF& sigma_4 = std::get<17>(_data);
-    FF& id_1 = std::get<18>(_data);
-    FF& id_2 = std::get<19>(_data);
-    FF& id_3 = std::get<20>(_data);
-    FF& id_4 = std::get<21>(_data);
-    FF& table_1 = std::get<22>(_data);
-    FF& table_2 = std::get<23>(_data);
-    FF& table_3 = std::get<24>(_data);
-    FF& table_4 = std::get<25>(_data);
-    FF& lagrange_first = std::get<26>(_data);
-    FF& lagrange_last = std::get<27>(_data);
-    FF& w_l = std::get<28>(_data);
-    FF& w_r = std::get<29>(_data);
-    FF& w_o = std::get<30>(_data);
-    FF& w_4 = std::get<31>(_data);
-    FF& sorted_accum = std::get<32>(_data);
-    FF& z_perm = std::get<33>(_data);
-    FF& z_lookup = std::get<34>(_data);
-    FF& w_l_shift = std::get<35>(_data);
-    FF& w_r_shift = std::get<36>(_data);
-    FF& w_o_shift = std::get<37>(_data);
-    FF& w_4_shift = std::get<38>(_data);
-    FF& sorted_accum_shift = std::get<39>(_data);
-    FF& z_perm_shift = std::get<40>(_data);
-    FF& z_lookup_shift = std::get<41>(_data);
-};
+    return result;
+}
 
 class UltraRelationConsistency : public testing::Test {
   public:
@@ -114,23 +75,23 @@ TEST_F(UltraRelationConsistency, ArithmeticRelation)
         using Relation = ArithmeticRelation<FF>;
         using SumcheckArrayOfValuesOverSubrelations = typename Relation::SumcheckArrayOfValuesOverSubrelations;
 
-        InputElements input_elements = random_inputs ? InputElements::get_random() : InputElements::get_special();
-        const auto& w_1 = input_elements.w_l;
-        const auto& w_1_shift = input_elements.w_l_shift;
-        const auto& w_2 = input_elements.w_r;
-        const auto& w_3 = input_elements.w_o;
-        const auto& w_4 = input_elements.w_4;
-        const auto& w_4_shift = input_elements.w_4_shift;
-        const auto& q_m = input_elements.q_m;
-        const auto& q_l = input_elements.q_l;
-        const auto& q_r = input_elements.q_r;
-        const auto& q_o = input_elements.q_o;
-        const auto& q_4 = input_elements.q_4;
-        const auto& q_c = input_elements.q_c;
+        InputElements input_elements = random_inputs ? get_random_inputs() : get_special_inputs();
+        const auto& w_1 = input_elements.w_l();
+        const auto& w_1_shift = input_elements.w_l_shift();
+        const auto& w_2 = input_elements.w_r();
+        const auto& w_3 = input_elements.w_o();
+        const auto& w_4 = input_elements.w_4();
+        const auto& w_4_shift = input_elements.w_4_shift();
+        const auto& q_m = input_elements.q_m();
+        const auto& q_l = input_elements.q_l();
+        const auto& q_r = input_elements.q_r();
+        const auto& q_o = input_elements.q_o();
+        const auto& q_4 = input_elements.q_4();
+        const auto& q_c = input_elements.q_c();
 
         // Set specific q_arith value to enable testing different modes of the arithmetic relation
-        input_elements.q_arith = q_arith_value;
-        const auto& q_arith = input_elements.q_arith;
+        input_elements[InputElements::EntityId::q_arith] = q_arith_value;
+        const auto& q_arith = input_elements.q_arith();
 
         SumcheckArrayOfValuesOverSubrelations expected_values;
         static const FF neg_half = FF(-2).invert();
@@ -188,23 +149,23 @@ TEST_F(UltraRelationConsistency, UltraPermutationRelation)
         using Relation = UltraPermutationRelation<FF>;
         using SumcheckArrayOfValuesOverSubrelations = typename Relation::SumcheckArrayOfValuesOverSubrelations;
 
-        const InputElements input_elements = random_inputs ? InputElements::get_random() : InputElements::get_special();
-        const auto& w_1 = input_elements.w_l;
-        const auto& w_2 = input_elements.w_r;
-        const auto& w_3 = input_elements.w_o;
-        const auto& w_4 = input_elements.w_4;
-        const auto& sigma_1 = input_elements.sigma_1;
-        const auto& sigma_2 = input_elements.sigma_2;
-        const auto& sigma_3 = input_elements.sigma_3;
-        const auto& sigma_4 = input_elements.sigma_4;
-        const auto& id_1 = input_elements.id_1;
-        const auto& id_2 = input_elements.id_2;
-        const auto& id_3 = input_elements.id_3;
-        const auto& id_4 = input_elements.id_4;
-        const auto& z_perm = input_elements.z_perm;
-        const auto& z_perm_shift = input_elements.z_perm_shift;
-        const auto& lagrange_first = input_elements.lagrange_first;
-        const auto& lagrange_last = input_elements.lagrange_last;
+        const InputElements input_elements = random_inputs ? get_random_inputs() : get_special_inputs();
+        const auto& w_1 = input_elements.w_l();
+        const auto& w_2 = input_elements.w_r();
+        const auto& w_3 = input_elements.w_o();
+        const auto& w_4 = input_elements.w_4();
+        const auto& sigma_1 = input_elements.sigma_1();
+        const auto& sigma_2 = input_elements.sigma_2();
+        const auto& sigma_3 = input_elements.sigma_3();
+        const auto& sigma_4 = input_elements.sigma_4();
+        const auto& id_1 = input_elements.id_1();
+        const auto& id_2 = input_elements.id_2();
+        const auto& id_3 = input_elements.id_3();
+        const auto& id_4 = input_elements.id_4();
+        const auto& z_perm = input_elements.z_perm();
+        const auto& z_perm_shift = input_elements.z_perm_shift();
+        const auto& lagrange_first = input_elements.lagrange_first();
+        const auto& lagrange_last = input_elements.lagrange_last();
 
         SumcheckArrayOfValuesOverSubrelations expected_values;
 
@@ -225,6 +186,10 @@ TEST_F(UltraRelationConsistency, UltraPermutationRelation)
         auto contribution_2 = z_perm_shift * lagrange_last;
         expected_values[1] = contribution_2;
 
+        // Contribution 3
+        auto contribution_3 = lagrange_first * z_perm;
+        expected_values[2] = contribution_3;
+
         validate_relation_execution<Relation>(expected_values, input_elements, parameters);
     };
     run_test(/*random_inputs=*/false);
@@ -237,13 +202,13 @@ TEST_F(UltraRelationConsistency, DeltaRangeConstraintRelation)
         using Relation = DeltaRangeConstraintRelation<FF>;
         using SumcheckArrayOfValuesOverSubrelations = typename Relation::SumcheckArrayOfValuesOverSubrelations;
 
-        const InputElements input_elements = random_inputs ? InputElements::get_random() : InputElements::get_special();
-        const auto& w_1 = input_elements.w_l;
-        const auto& w_2 = input_elements.w_r;
-        const auto& w_3 = input_elements.w_o;
-        const auto& w_4 = input_elements.w_4;
-        const auto& w_1_shift = input_elements.w_l_shift;
-        const auto& q_delta_range = input_elements.q_delta_range;
+        const InputElements input_elements = random_inputs ? get_random_inputs() : get_special_inputs();
+        const auto& w_1 = input_elements.w_l();
+        const auto& w_2 = input_elements.w_r();
+        const auto& w_3 = input_elements.w_o();
+        const auto& w_4 = input_elements.w_4();
+        const auto& w_1_shift = input_elements.w_l_shift();
+        const auto& q_delta_range = input_elements.q_delta_range();
 
         auto delta_1 = w_2 - w_1;
         auto delta_2 = w_3 - w_2;
@@ -276,23 +241,24 @@ TEST_F(UltraRelationConsistency, EllipticRelation)
         using Relation = EllipticRelation<FF>;
         using SumcheckArrayOfValuesOverSubrelations = typename Relation::SumcheckArrayOfValuesOverSubrelations;
 
-        const InputElements input_elements = random_inputs ? InputElements::get_random() : InputElements::get_special();
+        // Non-const: the test writes `q_l = -1` below to set q_sign explicitly.
+        InputElements input_elements = random_inputs ? get_random_inputs() : get_special_inputs();
 
-        const auto& x_1 = input_elements.w_r;
-        const auto& y_1 = input_elements.w_o;
+        const auto& x_1 = input_elements.w_r();
+        const auto& y_1 = input_elements.w_o();
 
-        const auto& x_2 = input_elements.w_l_shift;
-        const auto& y_2 = input_elements.w_4_shift;
-        const auto& x_3 = input_elements.w_r_shift;
-        const auto& y_3 = input_elements.w_o_shift;
+        const auto& x_2 = input_elements.w_l_shift();
+        const auto& y_2 = input_elements.w_4_shift();
+        const auto& x_3 = input_elements.w_r_shift();
+        const auto& y_3 = input_elements.w_o_shift();
 
         // In the EllipticRelation, q_l is interpreted as q_sign and can be +1 or -1. Here we explicitly set it to -1
         // (arbitrary, could also be +1) because the relation algebra makes use of the assumption that q_sign^2 = 1.
         // This allows writing the simplified constraint algebra in this test in a more straightforward way.
-        input_elements.q_l = FF(-1);
-        const auto& q_sign = input_elements.q_l;
-        const auto& q_elliptic = input_elements.q_elliptic;
-        const auto& q_is_double = input_elements.q_m;
+        input_elements[InputElements::EntityId::q_l] = FF(-1);
+        const auto& q_sign = input_elements.q_l();
+        const auto& q_elliptic = input_elements.q_elliptic();
+        const auto& q_is_double = input_elements.q_m();
 
         SumcheckArrayOfValuesOverSubrelations expected_values;
         // Compute x/y coordinate identities
@@ -353,21 +319,21 @@ TEST_F(UltraRelationConsistency, NonNativeFieldRelation)
         using Relation = NonNativeFieldRelation<FF>;
         using SumcheckArrayOfValuesOverSubrelations = typename Relation::SumcheckArrayOfValuesOverSubrelations;
 
-        const InputElements input_elements = random_inputs ? InputElements::get_random() : InputElements::get_special();
-        const auto& w_1 = input_elements.w_l;
-        const auto& w_2 = input_elements.w_r;
-        const auto& w_3 = input_elements.w_o;
-        const auto& w_4 = input_elements.w_4;
-        const auto& w_1_shift = input_elements.w_l_shift;
-        const auto& w_2_shift = input_elements.w_r_shift;
-        const auto& w_3_shift = input_elements.w_o_shift;
-        const auto& w_4_shift = input_elements.w_4_shift;
+        const InputElements input_elements = random_inputs ? get_random_inputs() : get_special_inputs();
+        const auto& w_1 = input_elements.w_l();
+        const auto& w_2 = input_elements.w_r();
+        const auto& w_3 = input_elements.w_o();
+        const auto& w_4 = input_elements.w_4();
+        const auto& w_1_shift = input_elements.w_l_shift();
+        const auto& w_2_shift = input_elements.w_r_shift();
+        const auto& w_3_shift = input_elements.w_o_shift();
+        const auto& w_4_shift = input_elements.w_4_shift();
 
-        const auto& q_2 = input_elements.q_r;
-        const auto& q_3 = input_elements.q_o;
-        const auto& q_4 = input_elements.q_4;
-        const auto& q_m = input_elements.q_m;
-        const auto& q_nnf = input_elements.q_nnf;
+        const auto& q_2 = input_elements.q_r();
+        const auto& q_3 = input_elements.q_o();
+        const auto& q_4 = input_elements.q_4();
+        const auto& q_m = input_elements.q_m();
+        const auto& q_nnf = input_elements.q_nnf();
 
         constexpr FF LIMB_SIZE(uint256_t(1) << 68);
         constexpr FF SUBLIMB_SHIFT(uint256_t(1) << 14);
@@ -426,28 +392,29 @@ TEST_F(UltraRelationConsistency, MemoryRelation)
         using Relation = MemoryRelation<FF>;
         using SumcheckArrayOfValuesOverSubrelations = typename Relation::SumcheckArrayOfValuesOverSubrelations;
 
-        const InputElements input_elements = random_inputs ? InputElements::get_random() : InputElements::get_special();
-        const auto& w_1 = input_elements.w_l;
-        const auto& w_2 = input_elements.w_r;
-        const auto& w_3 = input_elements.w_o;
-        const auto& w_4 = input_elements.w_4;
-        const auto& w_1_shift = input_elements.w_l_shift;
-        const auto& w_2_shift = input_elements.w_r_shift;
-        const auto& w_3_shift = input_elements.w_o_shift;
-        const auto& w_4_shift = input_elements.w_4_shift;
+        const InputElements input_elements = random_inputs ? get_random_inputs() : get_special_inputs();
+        const auto& w_1 = input_elements.w_l();
+        const auto& w_2 = input_elements.w_r();
+        const auto& w_3 = input_elements.w_o();
+        const auto& w_4 = input_elements.w_4();
+        const auto& w_1_shift = input_elements.w_l_shift();
+        const auto& w_2_shift = input_elements.w_r_shift();
+        const auto& w_3_shift = input_elements.w_o_shift();
+        const auto& w_4_shift = input_elements.w_4_shift();
 
-        const auto& q_1 = input_elements.q_l;
-        const auto& q_2 = input_elements.q_r;
-        const auto& q_3 = input_elements.q_o;
-        const auto& q_4 = input_elements.q_4;
-        const auto& q_m = input_elements.q_m;
-        const auto& q_c = input_elements.q_c;
-        const auto& q_memory = input_elements.q_memory;
+        const auto& q_1 = input_elements.q_l();
+        const auto& q_2 = input_elements.q_r();
+        const auto& q_3 = input_elements.q_o();
+        const auto& q_4 = input_elements.q_4();
+        const auto& q_m = input_elements.q_m();
+        const auto& q_c = input_elements.q_c();
+        const auto& q_memory = input_elements.q_memory();
 
         const auto parameters = RelationParameters<FF>::get_random();
         const auto& eta = parameters.eta;
         const auto& eta_two = parameters.eta_two;
         const auto& eta_three = parameters.eta_three;
+        const auto& rom_logup_gamma = parameters.rom_logup_gamma;
 
         SumcheckArrayOfValuesOverSubrelations expected_values;
 
@@ -532,6 +499,17 @@ TEST_F(UltraRelationConsistency, MemoryRelation)
         expected_values[4] *= q_memory;
         expected_values[5] *= q_memory;
 
+        /**
+         * ROM LogUp Sub-Relations
+         */
+        auto q_logup_table = q_2 * (q_1 * FF(-1) + FF(1));
+        auto q_logup_read = q_4 * (q_1 * FF(-1) + FF(1));
+        auto denom = rom_logup_gamma + w_1 + w_2 * eta + q_c * eta_two;
+        // Subrelation 6: inverse correctness (per-row).
+        expected_values[6] = q_memory * (q_logup_table + q_logup_read) * (w_4 * denom - FF(1));
+        // Subrelation 7: LogUp sum (linearly dependent, no scaling factor).
+        expected_values[7] = q_memory * (q_logup_read - q_logup_table * w_3) * w_4;
+
         validate_relation_execution<Relation>(expected_values, input_elements, parameters);
     };
     run_test(/*random_inputs=*/false);
@@ -543,21 +521,21 @@ TEST_F(UltraRelationConsistency, Poseidon2ExternalRelation)
     const auto run_test = []([[maybe_unused]] bool random_inputs) {
         using Relation = Poseidon2ExternalRelation<FF>;
         using SumcheckArrayOfValuesOverSubrelations = typename Relation::SumcheckArrayOfValuesOverSubrelations;
-        const InputElements input_elements = random_inputs ? InputElements::get_random() : InputElements::get_special();
+        const InputElements input_elements = random_inputs ? get_random_inputs() : get_special_inputs();
 
-        const auto& w_1 = input_elements.w_l;
-        const auto& w_2 = input_elements.w_r;
-        const auto& w_3 = input_elements.w_o;
-        const auto& w_4 = input_elements.w_4;
-        const auto& w_1_shift = input_elements.w_l_shift;
-        const auto& w_2_shift = input_elements.w_r_shift;
-        const auto& w_3_shift = input_elements.w_o_shift;
-        const auto& w_4_shift = input_elements.w_4_shift;
-        const auto& q_1 = input_elements.q_l;
-        const auto& q_2 = input_elements.q_r;
-        const auto& q_3 = input_elements.q_o;
-        const auto& q_4 = input_elements.q_4;
-        const auto& q_poseidon2_external = input_elements.q_poseidon2_external;
+        const auto& w_1 = input_elements.w_l();
+        const auto& w_2 = input_elements.w_r();
+        const auto& w_3 = input_elements.w_o();
+        const auto& w_4 = input_elements.w_4();
+        const auto& w_1_shift = input_elements.w_l_shift();
+        const auto& w_2_shift = input_elements.w_r_shift();
+        const auto& w_3_shift = input_elements.w_o_shift();
+        const auto& w_4_shift = input_elements.w_4_shift();
+        const auto& q_1 = input_elements.q_l();
+        const auto& q_2 = input_elements.q_r();
+        const auto& q_3 = input_elements.q_o();
+        const auto& q_4 = input_elements.q_4();
+        const auto& q_poseidon2_external = input_elements.q_poseidon2_external();
         SumcheckArrayOfValuesOverSubrelations expected_values;
 
         // add round constants
@@ -617,18 +595,18 @@ TEST_F(UltraRelationConsistency, Poseidon2InternalRelation)
     const auto run_test = []([[maybe_unused]] bool random_inputs) {
         using Relation = Poseidon2InternalRelation<FF>;
         using SumcheckArrayOfValuesOverSubrelations = typename Relation::SumcheckArrayOfValuesOverSubrelations;
-        const InputElements input_elements = random_inputs ? InputElements::get_random() : InputElements::get_special();
+        const InputElements input_elements = random_inputs ? get_random_inputs() : get_special_inputs();
 
-        const auto& w_1 = input_elements.w_l;
-        const auto& w_2 = input_elements.w_r;
-        const auto& w_3 = input_elements.w_o;
-        const auto& w_4 = input_elements.w_4;
-        const auto& w_1_shift = input_elements.w_l_shift;
-        const auto& w_2_shift = input_elements.w_r_shift;
-        const auto& w_3_shift = input_elements.w_o_shift;
-        const auto& w_4_shift = input_elements.w_4_shift;
-        const auto& q_1 = input_elements.q_l;
-        const auto& q_poseidon2_internal = input_elements.q_poseidon2_internal;
+        const auto& w_1 = input_elements.w_l();
+        const auto& w_2 = input_elements.w_r();
+        const auto& w_3 = input_elements.w_o();
+        const auto& w_4 = input_elements.w_4();
+        const auto& w_1_shift = input_elements.w_l_shift();
+        const auto& w_2_shift = input_elements.w_r_shift();
+        const auto& w_3_shift = input_elements.w_o_shift();
+        const auto& w_4_shift = input_elements.w_4_shift();
+        const auto& q_1 = input_elements.q_l();
+        const auto& q_poseidon2_internal = input_elements.q_poseidon2_internal();
         SumcheckArrayOfValuesOverSubrelations expected_values;
 
         // add round constants on only first element

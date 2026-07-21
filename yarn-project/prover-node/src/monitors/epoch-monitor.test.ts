@@ -34,21 +34,21 @@ describe('EpochMonitor', () => {
       isEpochComplete(epochNumber) {
         return Promise.resolve(epochNumber <= lastEpochComplete);
       },
-      getBlockHeader(blockNumber: BlockNumber | 'latest') {
-        if (blockNumber === 'latest') {
+      getBlockData(query) {
+        if (!('number' in query)) {
           return Promise.resolve(undefined);
         }
-        const slot = blockToSlot[blockNumber];
+        const slot = blockToSlot[query.number];
         return Promise.resolve(
           slot === undefined
             ? undefined
-            : mock<BlockHeader>({
-                getSlot: () => SlotNumber.fromBigInt(slot),
-                toString: () => `0x${slot.toString(16)}`,
-              }),
+            : ({ header: { getSlot: () => SlotNumber.fromBigInt(slot) } as unknown as BlockHeader } as any),
         );
       },
-      getProvenBlockNumber() {
+      getBlockNumber(query?: any) {
+        if (query && 'tag' in query && query.tag === 'proven') {
+          return Promise.resolve(BlockNumber(provenBlockNumber));
+        }
         return Promise.resolve(BlockNumber(provenBlockNumber));
       },
     });

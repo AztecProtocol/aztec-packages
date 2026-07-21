@@ -11,10 +11,10 @@ export function useNumber({ contract }: { contract: Contract }) {
 
     setWait(true);
     const defaultAccountAddress = deployerEnv.getDefaultAccountAddress();
-    const viewTxReceipt = await contract!.methods
+    const { result } = await contract!.methods
       .getNumber(defaultAccountAddress)
       .simulate({ from: defaultAccountAddress });
-    toast(`Number is: ${viewTxReceipt.value}`);
+    toast(`Number is: ${result}`);
     setWait(false);
   };
 

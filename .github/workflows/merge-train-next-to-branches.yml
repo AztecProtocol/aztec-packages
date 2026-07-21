@@ -4,21 +4,15 @@ on:
   push:
     branches:
       - next
+      - v5-next
 
 jobs:
-  merge-to-train:
-    name: Merge next to ${{ matrix.train-branch }}
+  merge-to-trains:
+    name: Merge base branch into merge-train branches
     runs-on: ubuntu-latest
-    strategy:
-      matrix:
-        train-branch:
-          - merge-train/barretenberg
-          - merge-train/spartan
-          - merge-train/docs
-          - merge-train/avm
     steps:
       - name: Checkout
-        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+        uses: actions/checkout@93cb6efe18208431cddfb8368fd83d5badbf9bfd # v5.0.1
         with:
           fetch-depth: 0
           token: ${{ secrets.AZTEC_BOT_GITHUB_TOKEN }}
@@ -28,8 +22,21 @@ jobs:
           git config --global user.name AztecBot
           git config --global user.email tech@aztecprotocol.com
 
-      - name: Run merge-next script
-        continue-on-error: true
+      - name: Run merge-next script for all branches
+        env:
+          GH_TOKEN: ${{ secrets.AZTEC_BOT_GITHUB_TOKEN }}
+          COMMIT_SHA: ${{ github.sha }}
         run: |
-          GH_TOKEN=${{ secrets.AZTEC_BOT_GITHUB_TOKEN }} ./scripts/merge-train/merge-next.sh "${{ matrix.train-branch }}"
+          # The -v<N> trains track the matching release line (v5-next); every
+          # other train tracks next. Sync only the trains fed by the branch
+          # that was just pushed.
+          if [[ "${{ github.ref_name }}" == "v5-next" ]]; then
+            for branch in merge-train/spartan-v5 merge-train/fairies-v5; do
+              ./scripts/merge-train/merge-next.sh "$branch" v5-next || true
+            done
+          else
+            for branch in merge-train/avm merge-train/barretenberg merge-train/ci merge-train/docs merge-train/fairies merge-train/spartan; do
+              ./scripts/merge-train/merge-next.sh "$branch" || true
+            done
+          fi
 

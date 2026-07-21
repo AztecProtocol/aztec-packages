@@ -26,7 +26,7 @@ void msgpack(auto ar) {
 pairing_point_accumulator_public_input_indices));
 }
 or
-MSGPACK_FIELDS(circuit_type, circuit_size, num_public_inputs, commitments, contains_pairing_point_accumulator,
+SERIALIZATION_FIELDS(circuit_type, circuit_size, num_public_inputs, commitments, contains_pairing_point_accumulator,
 pairing_point_accumulator_public_input_indices);
 ```
 
@@ -118,7 +118,7 @@ to the object itself, do break up the above to keep a reference to the handle, f
 // Helper for above documented syntax
 // Define a macro that takes any amount of parameters and expands to a msgpack method definition
 // __VA__ARGS__ expands to the parmeters, comma separated.
-#define MSGPACK_FIELDS(...)                                                                                            \
+#define SERIALIZATION_FIELDS(...)                                                                                      \
     void msgpack(auto pack_fn)                                                                                         \
     {                                                                                                                  \
         pack_fn(NVP(__VA_ARGS__));                                                                                     \
@@ -159,7 +159,7 @@ template <typename T> constexpr decltype(auto) unwrap_ref(T& t)
 
 } // namespace msgpack_detail
 
-// Same as MSGPACK_FIELDS but expecting the serialized names to be in camelCase.
+// Same as SERIALIZATION_FIELDS but expecting the serialized names to be in camelCase.
 // NOTE: We use std::ref for fields to preserve references, store strings as values,
 // then unwrap reference_wrappers to get actual references while keeping strings as-is.
 #define MSGPACK_CAMEL_CASE_FIELDS(...)                                                                                 \

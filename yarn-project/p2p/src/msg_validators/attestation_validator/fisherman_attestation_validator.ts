@@ -1,8 +1,14 @@
 import type { EpochCacheInterface } from '@aztec/epoch-cache';
-import { type CheckpointAttestation, PeerErrorSeverity, type ValidationResult } from '@aztec/stdlib/p2p';
+import {
+  type CheckpointAttestation,
+  type CoordinationSignatureContext,
+  PeerErrorSeverity,
+  type ValidationResult,
+} from '@aztec/stdlib/p2p';
+import type { ConsensusTimetable } from '@aztec/stdlib/timetable';
 import { Attributes, Metrics, type TelemetryClient, createUpDownCounterWithDefault } from '@aztec/telemetry-client';
 
-import type { AttestationPool } from '../../mem_pools/attestation_pool/attestation_pool.js';
+import type { AttestationPoolApi } from '../../mem_pools/attestation_pool/attestation_pool.js';
 import { CheckpointAttestationValidator } from './attestation_validator.js';
 
 /**
@@ -18,10 +24,15 @@ export class FishermanAttestationValidator extends CheckpointAttestationValidato
 
   constructor(
     epochCache: EpochCacheInterface,
-    private attestationPool: AttestationPool,
+    timetable: ConsensusTimetable,
+    private attestationPool: AttestationPoolApi,
     telemetryClient: TelemetryClient,
+    opts: {
+      signatureContext: CoordinationSignatureContext;
+      clockDisparityMs: number;
+    },
   ) {
-    super(epochCache);
+    super(epochCache, timetable, opts);
     this.logger = this.logger.createChild('[FISHERMAN]');
 
     const meter = telemetryClient.getMeter('FishermanAttestationValidator');
@@ -54,8 +65,7 @@ export class FishermanAttestationValidator extends CheckpointAttestationValidato
       return { result: 'accept' };
     }
 
-    const proposalId = message.archive.toString();
-    const proposal = await this.attestationPool.getCheckpointProposal(proposalId);
+    const proposal = await this.attestationPool.getCheckpointProposal(message.payload.header.slotNumber);
 
     if (proposal) {
       // Compare the attestation payload with the proposal payload
@@ -84,9 +94,7 @@ export class FishermanAttestationValidator extends CheckpointAttestationValidato
       }
     } else {
       // We might receive attestations before proposals in some cases
-      this.logger.debug(
-        `Received attestation for slot ${slotNumberBigInt} but proposal not found yet. ` + `Proposal ID: ${proposalId}`,
-      );
+      this.logger.debug(`Received attestation for slot ${slotNumberBigInt} but proposal not found yet.`);
     }
 
     return { result: 'accept' };

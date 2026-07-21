@@ -26,12 +26,13 @@ The archiver runs a periodic sync loop with two phases:
 
 ```
 sync()
-├── processQueuedBlocks()       # Handle blocks pushed via addBlock()
+├── processQueuedBlocks()         # Handle blocks pushed via addBlock()
+├── pruneOrphanProposedBlocks()   # Wall-clock prune of orphan block-only tips
 └── syncFromL1()
-    ├── handleL1ToL2Messages()  # Sync messages from Inbox contract
-    ├── handleCheckpoints()     # Sync checkpoints from Rollup contract
+    ├── handleL1ToL2Messages()    # Sync messages from Inbox contract
+    ├── handleCheckpoints()       # Sync checkpoints from Rollup contract
     ├── pruneUncheckpointedBlocks()  # Prune provisional blocks from expired slots
-    ├── handleEpochPrune()      # Proactive unwind before proof window expires
+    ├── handleEpochPrune()        # Proactive unwind before proof window expires
     └── checkForNewCheckpointsBeforeL1SyncPoint()  # Handle L1 reorg edge case
 ```
 
@@ -43,14 +44,18 @@ Two independent syncpoints track progress on L1:
 
 ### L1-to-L2 Messages
 
-Messages are synced from the Inbox contract via `handleL1ToL2Messages()`:
+Messages are synced from the Inbox contract. The sync compares local state (message count and rolling hash) against the Inbox contract state on L1, downloads any missing messages, and verifies consistency afterwards. On success, the syncpoint advances to the current L1 block. On failure (L1 reorg or inconsistency), the syncpoint rolls back to the last known-good message and the operation retries (up to 3 times within the same sync iteration).
 
 1. Query Inbox state at the current L1 block (message count + rolling hash)
-2. Compare local vs remote state
-3. If they match, nothing to do
-4. If mismatch, validate the local last message still exists on L1 with the same rolling hash
-   - If not found or hash differs, an L1 reorg occurred: find the last common message, delete everything after, and rollback the syncpoint
-5. Fetch `MessageSent` events in batches and store
+2. Compare local state against remote
+3. If they match, advance syncpoint and return
+4. If mismatch, fetch `MessageSent` events in batches and store them
+   - If storing fails due to a rolling hash mismatch (indicating an L1 reorg changed or removed messages), find the last common message with L1, delete everything after, reset the syncpoint, and retry
+5. After storing, verify local state matches the remote state queried in step 1
+   - If still mismatched (e.g., messages missed due to a concurrent L1 reorg), rollback and retry
+6. On success, advance the syncpoint
+
+The syncpoint and the `inboxTreeInProgress` marker (which tracks which checkpoint's messages are currently being filled on L1) are updated atomically. The marker is only advanced after messages are stored, so concurrent reads don't see an unsealed checkpoint as readable before its messages are available.
 
 ### Checkpoints
 
@@ -81,6 +86,8 @@ The `blocksSynchedTo` syncpoint is updated:
 
 Note that the `blocksSynchedTo` pointer is NOT updated during normal sync when there are no new checkpoints. This protects against small L1 reorgs that could add a checkpoint on an L1 block we have flagged as already synced.
 
+The `messagesSynchedTo` pointer is always advanced to the current L1 block on success. If a rolling hash mismatch or post-download inconsistency is detected, the pointer rolls back to the last common message and the operation retries. The rolling hash chain and pre/post-sync consistency checks provide the primary reorg protection.
+
 ### Block Queue
 
 The archiver implements `L2BlockSink`, allowing other subsystems to push blocks before they appear on L1:
@@ -94,8 +101,9 @@ Queued blocks are processed at the start of each sync iteration. This allows the
 Blocks added via `addBlock()` are considered "provisional" until they appear in an L1 checkpoint. These provisional blocks may need to be reconciled when:
 - **Checkpoint mismatch**: A checkpoint lands on L1 with different blocks than stored locally (e.g., a different proposer won the slot)
 - **Slot expiration**: An L2 slot ends without any checkpoint being mined on L1
+- **Orphan proposed block**: Under proposer pipelining, a proposer can broadcast a block-only proposal but never the matching `CheckpointProposal` (e.g. it crashes before assembling the checkpoint). The provisional block then has no proposed checkpoint backing it.
 
-When `handleCheckpoints()` processes incoming checkpoints, it compares archive roots of local blocks against the checkpoint's blocks. If they differ, local blocks are pruned and replaced with the checkpoint's blocks. After checkpoint sync, `pruneUncheckpointedBlocks()` removes any remaining provisional blocks from slots that have ended. Both cases emit `L2PruneUncheckpointed`.
+When `handleCheckpoints()` processes incoming checkpoints, it compares archive roots of local blocks against the checkpoint's blocks. If they differ, local blocks are pruned and replaced with the checkpoint's blocks. After checkpoint sync, `pruneUncheckpointedBlocks()` removes any remaining provisional blocks from slots that have ended. Independently, `pruneOrphanProposedBlocks()` runs on wall-clock time (so it fires during quiet L1 periods) and removes a block-only tip once its build slot ended without a matching proposed checkpoint, plus a grace window configured via `orphanProposedBlockPruneGraceSeconds`. All three cases emit `L2PruneUncheckpointed`.
 
 ### Querying Block Data
 

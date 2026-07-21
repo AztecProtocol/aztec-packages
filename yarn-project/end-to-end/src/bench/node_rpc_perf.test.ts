@@ -15,17 +15,20 @@ import { BlockNumber, EpochNumber } from '@aztec/foundation/branded-types';
 import { Timer } from '@aztec/foundation/timer';
 import { TokenContract } from '@aztec/noir-contracts.js/Token';
 import { BlockHash } from '@aztec/stdlib/block';
+import type { AztecNodeDebug } from '@aztec/stdlib/interfaces/client';
 import { SiloedTag, Tag } from '@aztec/stdlib/logs';
 import { MerkleTreeId } from '@aztec/stdlib/trees';
 import type { Tx, TxHash } from '@aztec/stdlib/tx';
-import { type TestWallet, proveInteraction } from '@aztec/test-wallet/server';
 
 import { jest } from '@jest/globals';
 import { mkdir, writeFile } from 'fs/promises';
 import 'jest-extended';
 import * as path from 'path';
 
+import { PIPELINING_SETUP_OPTS } from '../fixtures/fixtures.js';
 import { setup } from '../fixtures/utils.js';
+import type { TestWallet } from '../test-wallet/test_wallet.js';
+import { proveInteraction } from '../test-wallet/utils.js';
 
 /** Number of iterations for fast RPC calls */
 const BENCHMARK_ITERATIONS_FAST = 20;
@@ -92,11 +95,14 @@ async function benchmark<T>(
   };
 }
 
+// Node RPC performance benchmark. Uses setup() with PIPELINING_SETUP_OPTS, builds BLOCKS_TO_BUILD blocks,
+// then iterates all RPC endpoints measuring avg/min/max latency; emits BENCH_OUTPUT JSON for the bench
+// pipeline. Not in test_cmds; runs via bench_cmds.
 describe('e2e_node_rpc_perf', () => {
   jest.setTimeout(10 * 60 * 1000); // 10 minutes
 
   let logger: Logger;
-  let aztecNode: AztecNode;
+  let aztecNode: AztecNode & AztecNodeDebug;
   let wallet: TestWallet;
   let ownerAddress: AztecAddress;
   let rollupCheatCodes: RollupCheatCodes;
@@ -147,13 +153,14 @@ describe('e2e_node_rpc_perf', () => {
       sequencerPollingIntervalMS: 200,
       worldStateBlockCheckIntervalMS: 200,
       blockCheckIntervalMS: 200,
+      ...PIPELINING_SETUP_OPTS,
       minTxsPerBlock: 1,
     }));
 
     logger.info('Deploying token contract...');
-    tokenContract = await TokenContract.deploy(wallet, ownerAddress, 'TestToken', 'TST', 18n).send({
+    ({ contract: tokenContract } = await TokenContract.deploy(wallet, ownerAddress, 'TestToken', 'TST', 18n).send({
       from: ownerAddress,
-    });
+    }));
     contractAddress = tokenContract.address;
     logger.info(`Token contract deployed at ${contractAddress}`);
 
@@ -279,15 +286,21 @@ describe('e2e_node_rpc_perf', () => {
       expect(stats.avg).toBeLessThan(1000);
     });
 
+    it('benchmarks getCheckpointNumber', async () => {
+      const { stats } = await benchmark('getCheckpointNumber', () => aztecNode.getCheckpointNumber());
+      addResult('getCheckpointNumber', stats);
+      expect(stats.avg).toBeLessThan(1000);
+    });
+
     it('benchmarks getProvenBlockNumber', async () => {
-      const { stats } = await benchmark('getProvenBlockNumber', () => aztecNode.getProvenBlockNumber());
+      const { stats } = await benchmark('getProvenBlockNumber', () => aztecNode.getBlockNumber('proven'));
       addResult('getProvenBlockNumber', stats);
       expect(stats.avg).toBeLessThan(1000);
     });
 
-    it('benchmarks getL2Tips', async () => {
-      const { stats } = await benchmark('getL2Tips', () => aztecNode.getL2Tips());
-      addResult('getL2Tips', stats);
+    it('benchmarks getChainTips', async () => {
+      const { stats } = await benchmark('getChainTips', () => aztecNode.getChainTips());
+      addResult('getChainTips', stats);
       expect(stats.avg).toBeLessThan(1000);
     });
 
@@ -297,9 +310,9 @@ describe('e2e_node_rpc_perf', () => {
       expect(stats.avg).toBeLessThan(3000);
     });
 
-    it('benchmarks getBlockHeader', async () => {
-      const { stats } = await benchmark('getBlockHeader', () => aztecNode.getBlockHeader(BlockNumber(blockNumber)));
-      addResult('getBlockHeader', stats);
+    it('benchmarks getBlockData', async () => {
+      const { stats } = await benchmark('getBlockData', () => aztecNode.getBlockData(BlockNumber(blockNumber)));
+      addResult('getBlockData', stats);
       expect(stats.avg).toBeLessThan(2000);
     });
 
@@ -310,24 +323,32 @@ describe('e2e_node_rpc_perf', () => {
       expect(stats.avg).toBeLessThan(5000);
     });
 
-    it('benchmarks getCheckpointedBlocks (5 blocks)', async () => {
+    it('benchmarks getBlocks_checkpointed (5 blocks)', async () => {
       const fromBlock = BlockNumber(Math.max(1, blockNumber - 4));
-      const { stats } = await benchmark('getCheckpointedBlocks', () => aztecNode.getCheckpointedBlocks(fromBlock, 5));
-      addResult('getCheckpointedBlocks_5', stats);
+      const { stats } = await benchmark('getBlocks_checkpointed', () =>
+        aztecNode.getBlocks(fromBlock, 5, {
+          includeL1PublishInfo: true,
+          includeAttestations: true,
+          onlyCheckpointed: true,
+        }),
+      );
+      addResult('getBlocks_checkpointed_5', stats);
       expect(stats.avg).toBeLessThan(5000);
     });
 
-    it('benchmarks getBlockByArchive', async () => {
-      const { stats } = await benchmark('getBlockByArchive', () => aztecNode.getBlockByArchive(blockArchive));
+    it('benchmarks getBlock by archive', async () => {
+      const { stats } = await benchmark('getBlockByArchive', () =>
+        aztecNode.getBlock({ archive: blockArchive }, { includeTransactions: true }),
+      );
       addResult('getBlockByArchive', stats);
       expect(stats.avg).toBeLessThan(3000);
     });
 
-    it('benchmarks getBlockHeaderByArchive', async () => {
-      const { stats } = await benchmark('getBlockHeaderByArchive', () =>
-        aztecNode.getBlockHeaderByArchive(blockArchive),
+    it('benchmarks getBlockData by archive', async () => {
+      const { stats } = await benchmark('getBlockData_byArchive', () =>
+        aztecNode.getBlockData({ archive: blockArchive }),
       );
-      addResult('getBlockHeaderByArchive', stats);
+      addResult('getBlockData_byArchive', stats);
       expect(stats.avg).toBeLessThan(2000);
     });
   });
@@ -413,10 +434,12 @@ describe('e2e_node_rpc_perf', () => {
   });
 
   describe('message APIs', () => {
-    it('benchmarks getL1ToL2MessageBlock', async () => {
+    it('benchmarks getL1ToL2MessageCheckpoint', async () => {
       const l1ToL2Message = Fr.random();
-      const { stats } = await benchmark('getL1ToL2MessageBlock', () => aztecNode.getL1ToL2MessageBlock(l1ToL2Message));
-      addResult('getL1ToL2MessageBlock', stats);
+      const { stats } = await benchmark('getL1ToL2MessageCheckpoint', () =>
+        aztecNode.getL1ToL2MessageCheckpoint(l1ToL2Message),
+      );
+      addResult('getL1ToL2MessageCheckpoint', stats);
       expect(stats.avg).toBeLessThan(2000);
     });
 
@@ -541,31 +564,19 @@ describe('e2e_node_rpc_perf', () => {
   });
 
   describe('log APIs', () => {
-    it('benchmarks getPublicLogs', async () => {
-      const { stats } = await benchmark('getPublicLogs', () => aztecNode.getPublicLogs({}));
-      addResult('getPublicLogs', stats);
-      expect(stats.avg).toBeLessThan(3000);
-    });
-
-    it('benchmarks getContractClassLogs', async () => {
-      const { stats } = await benchmark('getContractClassLogs', () => aztecNode.getContractClassLogs({}));
-      addResult('getContractClassLogs', stats);
-      expect(stats.avg).toBeLessThan(3000);
-    });
-
     it('benchmarks getPrivateLogsByTags', async () => {
-      const tags = [new SiloedTag(Fr.random())];
-      const { stats } = await benchmark('getPrivateLogsByTags', () => aztecNode.getPrivateLogsByTags(tags));
+      const tags = [SiloedTag.random()];
+      const { stats } = await benchmark('getPrivateLogsByTags', () => aztecNode.getPrivateLogsByTags({ tags }));
       addResult('getPrivateLogsByTags', stats);
       expect(stats.avg).toBeLessThan(3000);
     });
 
-    it('benchmarks getPublicLogsByTagsFromContract', async () => {
-      const tags = [new Tag(Fr.random())];
-      const { stats } = await benchmark('getPublicLogsByTagsFromContract', () =>
-        aztecNode.getPublicLogsByTagsFromContract(contractAddress, tags),
+    it('benchmarks getPublicLogsByTags', async () => {
+      const tags = [Tag.random()];
+      const { stats } = await benchmark('getPublicLogsByTags', () =>
+        aztecNode.getPublicLogsByTags({ contractAddress, tags }),
       );
-      addResult('getPublicLogsByTagsFromContract', stats);
+      addResult('getPublicLogsByTags', stats);
       expect(stats.avg).toBeLessThan(3000);
     });
   });

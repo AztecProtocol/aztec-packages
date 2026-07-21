@@ -65,8 +65,9 @@ where
 }
 
 mod tests {
+    use crate::accumulated_data::test_value::TestValue;
     use super::{get_split_order_hints, SplitOrderHints};
-    use types::tests::{types::TestValue, utils::pad_end};
+    use protocol_test_utils::pad_end;
 
     global default_values: [TestValue; 5] = [
         TestValue { value: 1, counter: 33 },

@@ -21,7 +21,7 @@ import {
 } from '@aztec/foundation/serialize';
 import type { FieldsOf } from '@aztec/foundation/types';
 
-import { KeyValidationRequestAndGenerator } from '../kernel/hints/key_validation_request_and_generator.js';
+import { KeyValidationRequestAndSeparator } from '../kernel/hints/key_validation_request_and_separator.js';
 import { CountedLogHash } from '../kernel/log_hash.js';
 import { PrivateCallRequest } from '../kernel/private_call_request.js';
 import { PrivateLogData } from '../kernel/private_log_data.js';
@@ -80,7 +80,7 @@ export class PrivateCircuitPublicInputs {
     /**
      * The highest timestamp of a block in which the transaction can still be included.
      */
-    public includeByTimestamp: UInt64,
+    public expirationTimestamp: UInt64,
     /**
      * The side effect counter at the start of this call.
      */
@@ -106,10 +106,10 @@ export class PrivateCircuitPublicInputs {
      */
     public nullifierReadRequests: ClaimedLengthArray<ScopedReadRequest, typeof MAX_NULLIFIER_READ_REQUESTS_PER_CALL>,
     /**
-     * Key validation requests and generators created by the corresponding function call.
+     * Key validation requests and separators created by the corresponding function call.
      */
-    public keyValidationRequestsAndGenerators: ClaimedLengthArray<
-      KeyValidationRequestAndGenerator,
+    public keyValidationRequestsAndSeparators: ClaimedLengthArray<
+      KeyValidationRequestAndSeparator,
       typeof MAX_KEY_VALIDATION_REQUESTS_PER_CALL
     >,
     /**
@@ -144,6 +144,11 @@ export class PrivateCircuitPublicInputs {
      * Hash of the contract class logs emitted in this function call.
      */
     public contractClassLogsHashes: ClaimedLengthArray<CountedLogHash, typeof MAX_CONTRACT_CLASS_LOGS_PER_CALL>,
+    /**
+     * The tx request's salt. Keeps `tx_request.hash()` (the protocol nullifier) unpredictable, and lets the init
+     * kernel bind this proof to a specific tx request (it asserts this equals `tx_request.salt`).
+     */
+    public txRequestSalt: Fr,
   ) {}
 
   /**
@@ -178,7 +183,7 @@ export class PrivateCircuitPublicInputs {
       reader.readObject(ClaimedLengthArrayFromBuffer(ScopedReadRequest, MAX_NOTE_HASH_READ_REQUESTS_PER_CALL)),
       reader.readObject(ClaimedLengthArrayFromBuffer(ScopedReadRequest, MAX_NULLIFIER_READ_REQUESTS_PER_CALL)),
       reader.readObject(
-        ClaimedLengthArrayFromBuffer(KeyValidationRequestAndGenerator, MAX_KEY_VALIDATION_REQUESTS_PER_CALL),
+        ClaimedLengthArrayFromBuffer(KeyValidationRequestAndSeparator, MAX_KEY_VALIDATION_REQUESTS_PER_CALL),
       ),
       reader.readObject(ClaimedLengthArrayFromBuffer(PrivateCallRequest, MAX_PRIVATE_CALL_STACK_LENGTH_PER_CALL)),
       reader.readObject(ClaimedLengthArrayFromBuffer(CountedPublicCallRequest, MAX_ENQUEUED_CALLS_PER_CALL)),
@@ -188,6 +193,7 @@ export class PrivateCircuitPublicInputs {
       reader.readObject(ClaimedLengthArrayFromBuffer(CountedL2ToL1Message, MAX_L2_TO_L1_MSGS_PER_CALL)),
       reader.readObject(ClaimedLengthArrayFromBuffer(PrivateLogData, MAX_PRIVATE_LOGS_PER_CALL)),
       reader.readObject(ClaimedLengthArrayFromBuffer(CountedLogHash, MAX_CONTRACT_CLASS_LOGS_PER_CALL)),
+      reader.readObject(Fr),
     );
   }
 
@@ -209,7 +215,7 @@ export class PrivateCircuitPublicInputs {
       reader.readObject(ClaimedLengthArrayFromFields(ScopedReadRequest, MAX_NOTE_HASH_READ_REQUESTS_PER_CALL)),
       reader.readObject(ClaimedLengthArrayFromFields(ScopedReadRequest, MAX_NULLIFIER_READ_REQUESTS_PER_CALL)),
       reader.readObject(
-        ClaimedLengthArrayFromFields(KeyValidationRequestAndGenerator, MAX_KEY_VALIDATION_REQUESTS_PER_CALL),
+        ClaimedLengthArrayFromFields(KeyValidationRequestAndSeparator, MAX_KEY_VALIDATION_REQUESTS_PER_CALL),
       ),
       reader.readObject(ClaimedLengthArrayFromFields(PrivateCallRequest, MAX_PRIVATE_CALL_STACK_LENGTH_PER_CALL)),
       reader.readObject(ClaimedLengthArrayFromFields(CountedPublicCallRequest, MAX_ENQUEUED_CALLS_PER_CALL)),
@@ -219,6 +225,7 @@ export class PrivateCircuitPublicInputs {
       reader.readObject(ClaimedLengthArrayFromFields(CountedL2ToL1Message, MAX_L2_TO_L1_MSGS_PER_CALL)),
       reader.readObject(ClaimedLengthArrayFromFields(PrivateLogData, MAX_PRIVATE_LOGS_PER_CALL)),
       reader.readObject(ClaimedLengthArrayFromFields(CountedLogHash, MAX_CONTRACT_CLASS_LOGS_PER_CALL)),
+      reader.readField(),
     );
   }
 
@@ -242,7 +249,7 @@ export class PrivateCircuitPublicInputs {
       Fr.ZERO,
       ClaimedLengthArray.empty(ScopedReadRequest, MAX_NOTE_HASH_READ_REQUESTS_PER_CALL),
       ClaimedLengthArray.empty(ScopedReadRequest, MAX_NULLIFIER_READ_REQUESTS_PER_CALL),
-      ClaimedLengthArray.empty(KeyValidationRequestAndGenerator, MAX_KEY_VALIDATION_REQUESTS_PER_CALL),
+      ClaimedLengthArray.empty(KeyValidationRequestAndSeparator, MAX_KEY_VALIDATION_REQUESTS_PER_CALL),
       ClaimedLengthArray.empty(PrivateCallRequest, MAX_PRIVATE_CALL_STACK_LENGTH_PER_CALL),
       ClaimedLengthArray.empty(CountedPublicCallRequest, MAX_ENQUEUED_CALLS_PER_CALL),
       PublicCallRequest.empty(),
@@ -251,6 +258,7 @@ export class PrivateCircuitPublicInputs {
       ClaimedLengthArray.empty(CountedL2ToL1Message, MAX_L2_TO_L1_MSGS_PER_CALL),
       ClaimedLengthArray.empty(PrivateLogData, MAX_PRIVATE_LOGS_PER_CALL),
       ClaimedLengthArray.empty(CountedLogHash, MAX_CONTRACT_CLASS_LOGS_PER_CALL),
+      Fr.ZERO,
     );
   }
 
@@ -263,14 +271,14 @@ export class PrivateCircuitPublicInputs {
       this.txContext.isEmpty() &&
       this.minRevertibleSideEffectCounter.isZero() &&
       !this.isFeePayer &&
-      !this.includeByTimestamp &&
+      !this.expirationTimestamp &&
       this.startSideEffectCounter.isZero() &&
       this.endSideEffectCounter.isZero() &&
       this.expectedNonRevertibleSideEffectCounter.isZero() &&
       this.expectedRevertibleSideEffectCounter.isZero() &&
       this.noteHashReadRequests.isEmpty() &&
       this.nullifierReadRequests.isEmpty() &&
-      this.keyValidationRequestsAndGenerators.isEmpty() &&
+      this.keyValidationRequestsAndSeparators.isEmpty() &&
       this.privateCallRequests.isEmpty() &&
       this.publicCallRequests.isEmpty() &&
       this.publicTeardownCallRequest.isEmpty() &&
@@ -278,7 +286,8 @@ export class PrivateCircuitPublicInputs {
       this.nullifiers.isEmpty() &&
       this.l2ToL1Msgs.isEmpty() &&
       this.privateLogs.isEmpty() &&
-      this.contractClassLogsHashes.isEmpty()
+      this.contractClassLogsHashes.isEmpty() &&
+      this.txRequestSalt.isZero()
     );
   }
 
@@ -296,14 +305,14 @@ export class PrivateCircuitPublicInputs {
       fields.txContext,
       fields.minRevertibleSideEffectCounter,
       fields.isFeePayer,
-      fields.includeByTimestamp,
+      fields.expirationTimestamp,
       fields.startSideEffectCounter,
       fields.endSideEffectCounter,
       fields.expectedNonRevertibleSideEffectCounter,
       fields.expectedRevertibleSideEffectCounter,
       fields.noteHashReadRequests,
       fields.nullifierReadRequests,
-      fields.keyValidationRequestsAndGenerators,
+      fields.keyValidationRequestsAndSeparators,
       fields.privateCallRequests,
       fields.publicCallRequests,
       fields.publicTeardownCallRequest,
@@ -312,6 +321,7 @@ export class PrivateCircuitPublicInputs {
       fields.l2ToL1Msgs,
       fields.privateLogs,
       fields.contractClassLogsHashes,
+      fields.txRequestSalt,
     ] as const;
   }
 
@@ -330,14 +340,14 @@ export class PrivateCircuitPublicInputs {
       this.txContext,
       this.minRevertibleSideEffectCounter,
       this.isFeePayer,
-      bigintToUInt64BE(this.includeByTimestamp),
+      bigintToUInt64BE(this.expirationTimestamp),
       this.startSideEffectCounter,
       this.endSideEffectCounter,
       this.expectedNonRevertibleSideEffectCounter,
       this.expectedRevertibleSideEffectCounter,
       this.noteHashReadRequests,
       this.nullifierReadRequests,
-      this.keyValidationRequestsAndGenerators,
+      this.keyValidationRequestsAndSeparators,
       this.privateCallRequests,
       this.publicCallRequests,
       this.publicTeardownCallRequest,
@@ -346,6 +356,7 @@ export class PrivateCircuitPublicInputs {
       this.l2ToL1Msgs,
       this.privateLogs,
       this.contractClassLogsHashes,
+      this.txRequestSalt,
     ]);
   }
 

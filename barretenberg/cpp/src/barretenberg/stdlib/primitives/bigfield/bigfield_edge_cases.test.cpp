@@ -125,7 +125,7 @@ template <typename BigField> class stdlib_bigfield_edge_cases : public testing::
 
         // Create a bigfield from them (without range constraints on limbs)
         fq_ct combined_a = fq_ct::unsafe_construct_from_limbs(limb_0, limb_1, limb_2, limb_3, true);
-        combined_a.binary_basis_limbs[3].maximum_value = other_mask;
+        combined_a.set_limb_max(3, other_mask);
 
         // Check that individual limbs are ≤ than maximum unreduced limb value
         const bool limbs_less_than_max = (limb_0_native <= fq_ct::get_maximum_unreduced_limb_value()) &&
@@ -173,8 +173,7 @@ template <typename BigField> class stdlib_bigfield_edge_cases : public testing::
         fq_ct combined_a = fq_ct::unsafe_construct_from_limbs(limb_0, limb_1, limb_2, limb_3);
 
         // Increase the max value of the first limb to cause overflow, this should trigger reduction
-        combined_a.binary_basis_limbs[0].maximum_value =
-            (uint256_t(1) << fq_ct::MAX_UNREDUCED_LIMB_BITS) + 1000; // > 2^78
+        combined_a.set_limb_max(0, (uint256_t(1) << fq_ct::MAX_UNREDUCED_LIMB_BITS) + 1000); // > 2^78
 
         // Check that the combined max value is less than the maximum unreduced bigfield value
         EXPECT_EQ(combined_a.get_maximum_value() <= fq_ct::get_maximum_unreduced_value(), true);
@@ -214,24 +213,24 @@ template <typename BigField> class stdlib_bigfield_edge_cases : public testing::
         // Create a bigfield from them (without range constraints on limbs)
         // The max values are set to defaults values of (2^68 - 1) for first three limbs and (2^40 - 1) for last limb
         fq_ct combined_a = fq_ct::unsafe_construct_from_limbs(limb_0, limb_1, limb_2, limb_3);
-        combined_a.binary_basis_limbs[3].maximum_value = other_mask;
+        combined_a.set_limb_max(3, other_mask);
 
         // Add this value to itself before any reduction is triggered
         // 11 doublings should be possible before exceeding the max unreduced value
         for (size_t i = 0; i < 11; ++i) {
-            const uint64_t msb_index_before = combined_a.binary_basis_limbs[0].maximum_value.get_msb();
+            const uint64_t msb_index_before = combined_a.get_limb(0).maximum_value.get_msb();
             combined_a = combined_a + combined_a;
-            const uint64_t msb_index_after = combined_a.binary_basis_limbs[0].maximum_value.get_msb();
+            const uint64_t msb_index_after = combined_a.get_limb(0).maximum_value.get_msb();
 
             // should increase max value by 1 bit for each doubling
             EXPECT_EQ(msb_index_after, msb_index_before + 1ULL);
         }
-        EXPECT_EQ(combined_a.binary_basis_limbs[0].maximum_value.get_msb(), fq_ct::MAX_UNREDUCED_LIMB_BITS);
-        EXPECT_EQ(combined_a.binary_basis_limbs[0].maximum_value > fq_ct::get_maximum_unreduced_limb_value(), true);
+        EXPECT_EQ(combined_a.get_limb(0).maximum_value.get_msb(), fq_ct::MAX_UNREDUCED_LIMB_BITS);
+        EXPECT_EQ(combined_a.get_limb(0).maximum_value > fq_ct::get_maximum_unreduced_limb_value(), true);
 
         // If we perform one more doubling, reduction should be triggered
         combined_a = combined_a + combined_a;
-        EXPECT_EQ(combined_a.binary_basis_limbs[0].maximum_value.get_msb(), fq_ct::NUM_LIMB_BITS);
+        EXPECT_EQ(combined_a.get_limb(0).maximum_value.get_msb(), fq_ct::NUM_LIMB_BITS);
 
         // Check the circuit
         bool result = CircuitChecker::check(builder);
@@ -255,8 +254,8 @@ template <typename BigField> class stdlib_bigfield_edge_cases : public testing::
     {
         // Invariant 1: Limb maximum values should be >= actual witness values
         for (size_t i = 0; i < 4; ++i) {
-            uint256_t witness_value = uint256_t(field_element.binary_basis_limbs[i].element.get_value());
-            uint256_t max_value = field_element.binary_basis_limbs[i].maximum_value;
+            uint256_t witness_value = uint256_t(field_element.get_limb(i).element.get_value());
+            uint256_t max_value = field_element.get_limb(i).maximum_value;
 
             EXPECT_GE(max_value, witness_value)
                 << "invariant violation in " << operation_name << ":\n  limb[" << i << "] max_value:\n  " << max_value
@@ -264,11 +263,11 @@ template <typename BigField> class stdlib_bigfield_edge_cases : public testing::
         }
 
         // Invariant 2: Prime limb should be consistent with binary limbs
-        uint256_t computed_prime = field_element.binary_basis_limbs[0].element.get_value();
-        computed_prime += field_element.binary_basis_limbs[1].element.get_value() * fq_ct::shift_1;
-        computed_prime += field_element.binary_basis_limbs[2].element.get_value() * fq_ct::shift_2;
-        computed_prime += field_element.binary_basis_limbs[3].element.get_value() * fq_ct::shift_3;
-        uint256_t actual_prime = field_element.prime_basis_limb.get_value();
+        uint256_t computed_prime = field_element.get_limb(0).element.get_value();
+        computed_prime += field_element.get_limb(1).element.get_value() * fq_ct::shift_1;
+        computed_prime += field_element.get_limb(2).element.get_value() * fq_ct::shift_2;
+        computed_prime += field_element.get_limb(3).element.get_value() * fq_ct::shift_3;
+        uint256_t actual_prime = field_element.get_prime_basis_limb().get_value();
 
         EXPECT_EQ(fr(computed_prime), fr(actual_prime))
             << "invariant violation in " << operation_name << ":\n  computed prime:\n  " << fr(computed_prime)
@@ -276,7 +275,7 @@ template <typename BigField> class stdlib_bigfield_edge_cases : public testing::
 
         // Invariant 3: Maximum values should have fewer bits than PROHIBITED_LIMB_BITS
         for (size_t i = 0; i < 4; ++i) {
-            uint64_t max_bits = field_element.binary_basis_limbs[i].maximum_value.get_msb() + 1;
+            uint64_t max_bits = field_element.get_limb(i).maximum_value.get_msb() + 1;
 
             EXPECT_LT(max_bits, fq_ct::PROHIBITED_LIMB_BITS)
                 << "invariant violation in " << operation_name << ":\n  limb[" << i << "] has " << max_bits
@@ -608,10 +607,10 @@ template <typename BigField> class stdlib_bigfield_edge_cases : public testing::
 
 // Define types for which the above tests will be constructed.
 using CircuitTypes = testing::Types<typename bb::stdlib::bn254<UltraCircuitBuilder>::BaseField,
-                                    typename bb::stdlib::secp256k1<UltraCircuitBuilder>::fq_ct,
-                                    typename bb::stdlib::secp256k1<UltraCircuitBuilder>::bigfr_ct,
-                                    typename bb::stdlib::secp256r1<UltraCircuitBuilder>::fq_ct,
-                                    typename bb::stdlib::secp256r1<UltraCircuitBuilder>::bigfr_ct>;
+                                    typename bb::stdlib::secp256k1<UltraCircuitBuilder>::BaseField,
+                                    typename bb::stdlib::secp256k1<UltraCircuitBuilder>::ScalarField,
+                                    typename bb::stdlib::secp256r1<UltraCircuitBuilder>::BaseField,
+                                    typename bb::stdlib::secp256r1<UltraCircuitBuilder>::ScalarField>;
 
 // Define the suite of tests.
 TYPED_TEST_SUITE(stdlib_bigfield_edge_cases, CircuitTypes);

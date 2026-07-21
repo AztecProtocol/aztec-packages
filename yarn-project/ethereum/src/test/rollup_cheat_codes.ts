@@ -4,6 +4,7 @@ import type { ViemPublicClient } from '@aztec/ethereum/types';
 import { CheckpointNumber, EpochNumber, SlotNumber } from '@aztec/foundation/branded-types';
 import { EthAddress } from '@aztec/foundation/eth-address';
 import { createLogger } from '@aztec/foundation/log';
+import { retryUntil } from '@aztec/foundation/retry';
 import type { DateProvider } from '@aztec/foundation/timer';
 import { RollupAbi } from '@aztec/l1-artifacts/RollupAbi';
 
@@ -15,6 +16,7 @@ import {
   getContract,
   hexToBigInt,
   http,
+  keccak256,
 } from 'viem';
 
 import { EthCheatCodes } from './eth_cheat_codes.js';
@@ -53,7 +55,17 @@ export class RollupCheatCodes {
   /** Returns the current slot */
   public async getSlot(): Promise<SlotNumber> {
     const ts = BigInt((await this.client.getBlock()).timestamp);
-    return SlotNumber.fromBigInt(await this.rollup.read.getSlotAt([ts]));
+    return this.getSlotAt(ts);
+  }
+
+  /** Returns the slot number at a given timestamp. */
+  public async getSlotAt(timestamp: bigint): Promise<SlotNumber> {
+    return SlotNumber.fromBigInt(await this.rollup.read.getSlotAt([timestamp]));
+  }
+
+  /** Returns the timestamp for the start of a given slot. */
+  public async getTimestampForSlot(slot: SlotNumber): Promise<bigint> {
+    return await this.rollup.read.getTimestampForSlot([BigInt(slot)]);
   }
 
   /** Returns the number of seconds until the start of the given slot based on L1 block timestamp. */
@@ -169,6 +181,21 @@ export class RollupCheatCodes {
   }
 
   /**
+   * Warps L1 time to the start of an explicit absolute slot. Unlike `advanceSlots(N)` which is
+   * relative to the current L1 timestamp at call time and therefore races with real-time
+   * progression between query and warp, this lands at the slot regardless of latency.
+   *
+   * Throws if the requested slot is in the past relative to current L1 time (anvil cannot
+   * rewind).
+   */
+  public async advanceToSlot(slot: SlotNumber) {
+    const timestamp = await this.rollup.read.getTimestampForSlot([BigInt(slot)]);
+    await this.ethCheatCodes.warp(Number(timestamp), { silent: true, resetBlockInterval: true });
+    this.logger.warn(`Advanced to slot ${slot}`, { timestamp });
+    return timestamp;
+  }
+
+  /**
    * Warps time in L1 equivalent to however many slots.
    * @param howMany - The number of slots to advance.
    */
@@ -219,6 +246,56 @@ export class RollupCheatCodes {
   }
 
   /**
+   * Polls the rollup until its current epoch reaches `epoch`. Unlike {@link advanceToEpoch} this does
+   * not warp the L1 clock; it only waits for the chain to reach `epoch` through external activity.
+   */
+  public async waitForEpoch(epoch: EpochNumber, opts: { timeout?: number; interval?: number } = {}): Promise<void> {
+    await retryUntil(
+      async () => (await this.getEpoch()) >= epoch || undefined,
+      `rollup epoch >= ${epoch}`,
+      opts.timeout ?? 60,
+      opts.interval ?? 1,
+    );
+  }
+
+  /**
+   * Polls the rollup until its current slot reaches `slot`. Unlike {@link advanceToSlot} this does not
+   * warp the L1 clock; it only waits for the chain to reach `slot` through external activity.
+   */
+  public async waitForSlot(slot: SlotNumber, opts: { timeout?: number; interval?: number } = {}): Promise<void> {
+    await retryUntil(
+      async () => (await this.getSlot()) >= slot || undefined,
+      `rollup slot >= ${slot}`,
+      opts.timeout ?? 60,
+      opts.interval ?? 1,
+    );
+  }
+
+  /**
+   * Polls the rollup until its pending checkpoint settles below `checkpoint` on a freshly mined, non-zero
+   * checkpoint, and returns that new pending checkpoint number. Reads the L1 rollup contract directly
+   * rather than a node, since a rollback lands on L1 first.
+   *
+   * A prune can momentarily drop the pending checkpoint to 0 before the post-deadline propose mines its
+   * replacement, so a caller detecting a rollback wants the new lower checkpoint, not that transient
+   * empty state — hence the non-zero guard.
+   */
+  public async waitForCheckpointBelow(
+    checkpoint: CheckpointNumber,
+    opts: { timeout?: number; interval?: number } = {},
+  ): Promise<CheckpointNumber> {
+    return await retryUntil(
+      async () => {
+        const { pending } = await this.getTips();
+        return pending > 0 && pending < checkpoint ? pending : undefined;
+      },
+      `rollup checkpoint in (0, ${checkpoint})`,
+      opts.timeout ?? 60,
+      opts.interval ?? 1,
+    );
+  }
+
+  /**
    * Overrides the inProgress field of the Inbox contract state
    * @param howMuch - How many checkpoints to move it forward
    */
@@ -259,12 +336,14 @@ export class RollupCheatCodes {
     });
   }
 
-  public insertOutbox(epoch: EpochNumber, outHash: bigint) {
+  public insertOutbox(epoch: EpochNumber, numCheckpointsInEpoch: number, outHash: bigint) {
     return this.ethCheatCodes.execWithPausedAnvil(async () => {
       const outboxAddress = await this.rollup.read.getOutbox();
-      const epochRootSlot = OutboxContract.getEpochRootStorageSlot(epoch);
+      const epochRootSlot = OutboxContract.getEpochRootStorageSlot(epoch, numCheckpointsInEpoch);
       await this.ethCheatCodes.store(EthAddress.fromString(outboxAddress), epochRootSlot, outHash);
-      this.logger.warn(`Advanced outbox to epoch ${epoch} with out hash ${outHash}`);
+      this.logger.warn(
+        `Advanced outbox to epoch ${epoch} numCheckpointsInEpoch ${numCheckpointsInEpoch} with out hash ${outHash}`,
+      );
     });
   }
 
@@ -313,7 +392,8 @@ export class RollupCheatCodes {
   }
 
   /**
-   * Directly updates proving cost per mana.
+   * Directly updates proving cost per mana. Throws if the on-chain tx reverts
+   * (e.g. rate-limit cooldown, step cap, or floor) instead of silently succeeding.
    * @param ethValue - The new proving cost per mana in ETH
    */
   public async setProvingCostPerMana(ethValue: bigint) {
@@ -323,8 +403,37 @@ export class RollupCheatCodes {
         chain: this.client.chain,
         gasLimit: 1000000n,
       });
-      await this.client.waitForTransactionReceipt({ hash });
+      const receipt = await this.client.waitForTransactionReceipt({ hash });
+      if (receipt.status !== 'success') {
+        throw new Error(
+          `setProvingCostPerMana(${ethValue}) reverted on L1 (tx ${hash}). ` +
+            `Likely FeeLib rate-limit (30-day cooldown or 1.5x step cap); ` +
+            `use clearProvingCostCooldown() between successive updates.`,
+        );
+      }
       this.logger.warn(`Updated proving cost per mana to ${ethValue}`);
     });
+  }
+
+  /**
+   * Resets the 30-day proving-cost update cooldown enforced by FeeLib.updateProvingCostPerMana
+   * by zeroing `FeeStore.provingCostLastUpdate` directly in contract storage. Use between
+   * successive setProvingCostPerMana / bumpProvingCostPerMana calls so the later update can
+   * land instead of reverting. Does not touch L1 time, so PXE/tx-expiration state stays intact.
+   *
+   * @note This is tightly coupled to the `FeeStore` layout in
+   * l1-contracts/src/core/libraries/rollup/FeeLib.sol:
+   *   slot + 0: CompressedFeeConfig config          (uint256)
+   *   slot + 1: L1GasOracleValues l1GasOracleValues (14+14+4 bytes, packed)
+   *   slot + 2: uint64 provingCostLastUpdate        (only member — zeroing the slot is safe)
+   * If the struct layout changes, update the offset below.
+   */
+  public async clearProvingCostCooldown() {
+    const feeStoreBaseSlot = hexToBigInt(keccak256(Buffer.from('aztec.fee.storage', 'utf-8')));
+    const provingCostLastUpdateSlot = feeStoreBaseSlot + 2n;
+    await this.ethCheatCodes.store(EthAddress.fromString(this.rollup.address), provingCostLastUpdateSlot, 0n, {
+      silent: true,
+    });
+    this.logger.warn(`Cleared proving-cost update cooldown`);
   }
 }

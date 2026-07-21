@@ -8,28 +8,29 @@ include "precomputed.pil";
  * This handles the memory writes when the ECADD opcode is executed by user code.
  * Given two points, P & Q, this trace constrains that both exist on the Grumpkin curve
  * and the claimed result point, R = P + Q, is written to memory addresses within range.
+ * A point exists on the curve if it satisfies the curve equation (SW form: Y^2 = X^3 − 17)
+ * or is the point at infinity, represented by (X, Y) = (INFINITY_X, INFINITY_Y) = (0, 0).
  * The reads of P and Q are handled by the registers in the execution trace. The correctness
  * of point addition is handled by the ECC subtrace.
  *
  * This trace writes the resulting embedded curve point to the addresses {dst,
- * dst + 1, and dst + 2 }. Embedded curve points consist of the tuple of types
- * {x: FF, y: FF, is_inf: U1 }.
+ * dst + 1 }. Embedded curve points consist of the tuple of types {x: FF, y: FF }.
  *
- * PRECONDITIONS: Input point coordinates have tag checked FF coordinates and U1 is_inf
- * flag (see Memory I/O below for details).
+ * PRECONDITIONS: Input point coordinates have tag checked FF coordinates (see Memory I/O
+ * below for details).
  *
  * USAGE: Dispatching lookup defined in execution.pil:
  *        #[DISPATCH_TO_ECC_ADD]
  *        sel_exec_dispatch_ecc_add {
- *          precomputed.clk, context_id,
- *          register[0], register[1], register[2], // Point P
- *          register[3], register[4], register[5], // Point Q
- *          rop[6], // Dst address
+ *          clk, context_id,
+ *          register[0], register[1], // Point P
+ *          register[2], register[3], // Point Q
+ *          rop[4], // Dst address
  *          sel_opcode_error // Error
  *        } is ecc_add_mem.sel {
  *          ecc_add_mem.execution_clk, ecc_add_mem.space_id,
- *          ecc_add_mem.p_x, ecc_add_mem.p_y, ecc_add_mem.p_is_inf, // Point P
- *          ecc_add_mem.q_x, ecc_add_mem.q_y, ecc_add_mem.q_is_inf, // Point Q
+ *          ecc_add_mem.p_x, ecc_add_mem.p_y, // Point P
+ *          ecc_add_mem.q_x, ecc_add_mem.q_y, // Point Q
  *          ecc_add_mem.dst_addr[0], // Dst address
  *          ecc_add_mem.err // Error
  *        };
@@ -37,38 +38,30 @@ include "precomputed.pil";
  * Opcode operands (relevant in EXECUTION when interacting with this gadget):
  * - rop[0]: p_x_addr
  * - rop[1]: p_y_addr
- * - rop[2]: p_is_inf_addr
- * - rop[3]: q_x_addr
- * - rop[4]: q_y_addr
- * - rop[5]: q_is_inf_addr
- * - rop[6]: dst_addr
+ * - rop[2]: q_x_addr
+ * - rop[3]: q_y_addr
+ * - rop[4]: dst_addr
  *
  * Memory I/O:
  * - register[0]: M[p_x_addr] aka p_x (x coordinate of point P - read from memory by EXECUTION)
  *     - p_x is tagged-checked by execution/registers to be FF based on instruction spec.
  * - register[1]: M[p_y_addr] aka p_y (y coordinate of point P - read from memory by EXECUTION)
  *     - p_y is tagged-checked by execution/registers to be FF based on instruction spec.
- * - register[2]: M[p_is_inf_addr] aka p_is_inf (boolean flag if P is the point at infinity - read from memory by EXECUTION)
- *     - p_is_inf is tagged-checked by execution/registers to be U1 based on instruction spec.
- * - register[3]: M[q_x_addr] aka q_x (x coordinate of point Q - read from memory by EXECUTION)
+ * - register[2]: M[q_x_addr] aka q_x (x coordinate of point Q - read from memory by EXECUTION)
  *     - q_x is tagged-checked by execution/registers to be FF based on instruction spec.
- * - register[4]: M[q_y_addr] aka q_y (y coordinate of point Q - read from memory by EXECUTION)
+ * - register[3]: M[q_y_addr] aka q_y (y coordinate of point Q - read from memory by EXECUTION)
  *     - q_y is tagged-checked by execution/registers to be FF based on instruction spec.
- * - register[5]: M[q_is_inf_addr] aka q_is_inf (boolean flag if Q is the point at infinity - read from memory by EXECUTION)
- *     - q_is_inf is tagged-checked by execution/registers to be U1 based on instruction spec.
- * - M[rop[6]]: M[dst_addr] aka res_x (x coordinate of the resulting point RES - written by this gadget)
+ * - M[rop[4]]: M[dst_addr] aka res_x (x coordinate of the resulting point RES - written by this gadget)
  *     - guaranteed by this gadget to be FF.
- * - M[rop[6]+1]: M[dst_offset+1] aka res_y (y coordinate of the resulting point RES - written by this gadget)
+ * - M[rop[4]+1]: M[dst_offset+1] aka res_y (y coordinate of the resulting point RES - written by this gadget)
  *     - guaranteed by this gadget to be FF.
- * - M[rop[6]+2]: M[dst_offset+2] aka res_is_inf (boolean flag if RES is the point at infinity - written by this gadget)
- *     - guaranteed by this gadget to be U1.
-*
+ *
  * ERROR HANDLING:
- * Two errors needs to be handled as part of this trace,
+ * Two errors need to be handled as part of this trace,
  * (1) DST_OUT_OF_BOUNDS_ACCESS: If the writes would access a memory address outside
  *     of the max AVM memory address (AVM_HIGHEST_MEM_ADDRESS).
  * (2) POINT_NOT_ON_CURVE: If either of the inputs (embedded curve points) do not
- *     satisfy the Grumpkin curve equation (SW form: Y^2 = X^3 − 17)
+ *     exist on the Grumpkin curve.
  *
  * TRACE SHAPE: This subtrace writes the values within 1 single row (i.e. 3 output columns)
  *
@@ -78,19 +71,27 @@ include "precomputed.pil";
  *                                --> gt.pil
  * This subtrace is looked up by:
  * - execution.pil: To constrain the dispatch permutation for the ECADD opcode (#[DISPATCH_TO_ECC_ADD]). Includes memory
- *                  reads (register[0] to register[5]), the initial write address (rop[6]), and error flag (sel_opcode_error).
+ *                  reads (register[0] to register[3]), the initial write address (rop[4]), and error flag (sel_opcode_error).
  *
  * This subtrace looks up:
- * - memory.pil: To write the output point values (res_x, res_y, res_is_inf) to memory with standard write permutations
- *               (#[WRITE_MEM_i] for i = 0, 1, 2).
+ * - memory.pil: To write the output point values (res_x, res_y) to memory with standard write permutations
+ *               (#[WRITE_MEM_i] for i = 0, 1).
  * - ecc.pil: To retrieve the output point R as the result of adding the points P and Q read from memory
  *            (#[INPUT_OUTPUT_ECC_ADD]). See below for details on infinity points.
  * - gt.pil: To constrain that the maximum written memory address is within range (#[CHECK_DST_ADDR_IN_RANGE]).
  *
- * This subtrace is connected to the ECC subtrace via a lookup. ECC is used by
- * other subtraces internally (e.g., address derivation). We re-map any input infinity points to (0, 0)
- * so ECC correctly manages edge cases. Resulting infinity points are guaranteed to be (0, 0) by the
- * ECC subtrace (see #[OUTPUT_X_COORD] and #[OUTPUT_Y_COORD]).
+ * This subtrace is connected to the ECC subtrace via a lookup. ECC is used by other subtraces internally
+ * (e.g. address derivation). Now that the is_inf flag has been removed from noir (noir-lang/noir/#11926/) we consider
+ * a point to be infinity iff its coordinates are (0, 0); the noir standard representation (see relations #[P/Q_INF_X/Y_CHECK]).
+ *
+ * Note that the point at infinity, O, does not have valid coordinates (a property of SW curves like Grumpkin). We represent it
+ * as (0, 0) but any (ecc.INFINITY_X, ecc.INFINITY_Y) not satisfying the curve equation will be correctly handled in this trace.
+ *
+ * The ECC subtrace requires a correctly constrained is_inf flag for each point. We derive it within this circuit by enforcing
+ * (0, 0) <==> is_inf for input points P and Q:
+ *  - (0, 0) ==> is_inf by #[P/Q_NOT_INF_CHECK] (zero coordinates will fail this relation unless is_inf is set correctly).
+ *  - is_inf ==> (0, 0) by #[P/Q_INF_X/Y_CHECK].
+ * Resulting infinity points are guaranteed to be (0, 0) by the ECC subtrace (see #[OUTPUT_X_COORD] and #[OUTPUT_Y_COORD]).
  */
 
 namespace ecc_add_mem;
@@ -103,16 +104,17 @@ namespace ecc_add_mem;
 
     pol commit execution_clk;
     pol commit space_id;
-    pol commit dst_addr[3];
+    pol commit dst_addr[2];
 
     // dst_addr[0] constrained by the permutation to execution
     #[WRITE_INCR_DST_ADDR]
     dst_addr[1] = sel * (dst_addr[0] + 1);
-    dst_addr[2] = sel * (dst_addr[0] + 2);
 
-    // p_is_inf, q_is_inf are constrained to be @boolean in the ecc subtrace (see #[INPUT_OUTPUT_ECC_ADD])
-    pol commit p_x, p_y, p_is_inf;
-    pol commit q_x, q_y, q_is_inf;
+    pol commit p_x, p_y;
+    pol commit q_x, q_y;
+
+    // Needs to be committed columns as they are used in the lookups
+    pol commit p_is_inf, q_is_inf; // constrained to be @boolean in the ecc subtrace (see #[INPUT_OUTPUT_ECC_ADD])
 
     ////////////////////////////////////////////////
     // Error Handling - Out of Range Memory Access
@@ -121,12 +123,15 @@ namespace ecc_add_mem;
 
     // Use the comparison gadget to check that the max addresses are within range
     // The comparison gadget provides the ability to test GreaterThan so we check
-    // dst_addr[2] > max_mem_addr
+    // dst_addr[1] > max_mem_addr
     pol commit max_mem_addr; // Column needed until we support constants in lookups
     sel * (max_mem_addr - constants.AVM_HIGHEST_MEM_ADDRESS) = 0;
 
+    // Preconditions to `gt` gadget require both inputs to be bounded by 2^128.
+    // `dst_addr[1]` = dst_addr[0] + 1 where dst_addr[0] is an address (< 2^32), so dst_addr[1] < 2^33.
+    // `max_mem_addr` = AVM_HIGHEST_MEM_ADDRESS which is < 2^32.
     #[CHECK_DST_ADDR_IN_RANGE]
-    sel { dst_addr[2], max_mem_addr, sel_dst_out_of_range_err }
+    sel { dst_addr[1], max_mem_addr, sel_dst_out_of_range_err }
     in
     gt.sel_others { gt.input_a, gt.input_b, gt.res };
 
@@ -167,32 +172,44 @@ namespace ecc_add_mem;
     ///////////////////////////////////////////////////////////////////////
     // Dispatch inputs to ecc add and retrieve outputs
     ///////////////////////////////////////////////////////////////////////
-    pol commit res_x, res_y, res_is_inf; // res_is_inf is constrained to be @boolean in the ecc subtrace (see #[INPUT_OUTPUT_ECC_ADD])
+    pol commit res_x, res_y;
     pol commit sel_should_exec; // @boolean (by definition)
     sel_should_exec = sel * (1 - err);
 
-    // Needs to be committed columns as they are used in the lookups
-    pol commit p_x_n, p_y_n;
-    pol commit q_x_n, q_y_n;
+    // Constrains that the infinity flags required for the ecc trace have been set correctly.
+    // is_inf ==> X, Y) == (INFINITY_X, INFINITY_Y):
+    #[P_INF_X_CHECK]
+    sel * p_is_inf * (p_x - ecc.INFINITY_X) = 0;
+    #[P_INF_Y_CHECK]
+    sel * p_is_inf * (p_y - ecc.INFINITY_Y) = 0;
+    #[Q_INF_X_CHECK]
+    sel * q_is_inf * (q_x - ecc.INFINITY_X) = 0;
+    #[Q_INF_Y_CHECK]
+    sel * q_is_inf * (q_y - ecc.INFINITY_Y) = 0;
 
-    // We re-map input infinity points to (0, 0) for ecc.pil. Output infinities are already constrained to be (0, 0) in the subtrace.
-    // Note that we cannot use p_x, p_y, etc. because they are read from memory in execution's #[DISPATCH_TO_ECC_ADD].
-    sel_should_exec * (p_x_n - (1 - p_is_inf) * p_x - p_is_inf * ecc.INFINITY_X) = 0;
-    sel_should_exec * (p_y_n - (1 - p_is_inf) * p_y - p_is_inf * ecc.INFINITY_Y) = 0;
-    sel_should_exec * (q_x_n - (1 - q_is_inf) * q_x - q_is_inf * ecc.INFINITY_X) = 0;
-    sel_should_exec * (q_y_n - (1 - q_is_inf) * q_y - q_is_inf * ecc.INFINITY_Y) = 0;
+    // (X, Y) == (INFINITY_X, INFINITY_Y) ==> is_inf:
+    // Required in addition to #[P/Q_INF_X/Y_CHECK] and #[P/Q_ON_CURVE_CHECK] so a legitimate infinity
+    // cannot be processed with is_inf == false to force an incorrect POINT_NOT_ON_CURVE error.
+    pol commit p_x_inf_diff_inv; // @zero-check
+    pol commit p_y_inf_diff_inv; // @zero-check
+    #[P_NOT_INF_CHECK]
+    sel * (p_is_inf - (1 - (p_x - ecc.INFINITY_X) * p_x_inf_diff_inv) * (1 - (p_y - ecc.INFINITY_Y) * p_y_inf_diff_inv)) = 0;
 
+    pol commit q_x_inf_diff_inv; // @zero-check
+    pol commit q_y_inf_diff_inv; // @zero-check
+    #[Q_NOT_INF_CHECK]
+    sel * (q_is_inf - (1 - (q_x - ecc.INFINITY_X) * q_x_inf_diff_inv) * (1 - (q_y - ecc.INFINITY_Y) * q_y_inf_diff_inv)) = 0;
 
     #[INPUT_OUTPUT_ECC_ADD]
     sel_should_exec {
-        p_x_n, p_y_n, p_is_inf,
-        q_x_n, q_y_n, q_is_inf,
-        res_x, res_y, res_is_inf
+        p_x, p_y, p_is_inf,
+        q_x, q_y, q_is_inf,
+        res_x, res_y
     } in
     ecc.sel {
         ecc.p_x, ecc.p_y, ecc.p_is_inf,
         ecc.q_x, ecc.q_y, ecc.q_is_inf,
-        ecc.r_x, ecc.r_y, ecc.r_is_inf
+        ecc.r_x, ecc.r_y
     };
 
     ////////////////////////////////////////////////
@@ -213,12 +230,3 @@ namespace ecc_add_mem;
     memory.sel_ecc_write[1] {
         memory.clk, memory.space_id, memory.address, memory.value, memory.tag, memory.rw
     };
-
-    #[WRITE_MEM_2]
-    sel_should_exec {
-        execution_clk, space_id, dst_addr[2], res_is_inf, /*U1_mem_tag=1*/ sel_should_exec, /*rw=1*/ sel_should_exec
-    } is
-    memory.sel_ecc_write[2] {
-        memory.clk, memory.space_id, memory.address, memory.value, memory.tag, memory.rw
-    };
-

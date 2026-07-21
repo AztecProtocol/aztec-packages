@@ -4,10 +4,11 @@ import {
   booleanConfigHelper,
   getDefaultConfig,
   numberConfigHelper,
+  optionalNumberConfigHelper,
 } from '@aztec/foundation/config';
 import { pickConfigMappings } from '@aztec/foundation/config';
-import { type DataStoreConfig, dataConfigMappings } from '@aztec/kv-store/config';
 import { type ChainConfig, chainConfigMappings } from '@aztec/stdlib/config';
+import { type DataStoreConfig, dataConfigMappings } from '@aztec/stdlib/kv-store';
 import { ProvingRequestType } from '@aztec/stdlib/proofs';
 
 import { z } from 'zod';
@@ -73,7 +74,7 @@ export const proverBrokerConfigMappings: ConfigMappingsType<ProverBrokerConfig> 
   },
   proverBrokerStoreMapSizeKb: {
     env: 'PROVER_BROKER_STORE_MAP_SIZE_KB',
-    parseEnv: (val: string | undefined) => (val ? +val : undefined),
+    ...optionalNumberConfigHelper(),
     description: "The size of the prover broker's database. Will override the dataStoreMapSizeKb if set.",
   },
   proverBrokerDebugReplayEnabled: {

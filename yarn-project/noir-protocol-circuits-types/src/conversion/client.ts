@@ -1,11 +1,15 @@
-import { MEGA_VK_LENGTH_IN_FIELDS, UPDATES_DELAYED_PUBLIC_MUTABLE_VALUES_LEN } from '@aztec/constants';
+import {
+  MEGA_APP_VK_LENGTH_IN_FIELDS,
+  MEGA_KERNEL_VK_LENGTH_IN_FIELDS,
+  UPDATES_DELAYED_PUBLIC_MUTABLE_VALUES_LEN,
+} from '@aztec/constants';
 import { Fr } from '@aztec/foundation/curves/bn254';
 import { type Bufferable, assertLength, mapTuple } from '@aztec/foundation/serialize';
 import {
   CountedPublicCallRequest,
   KeyValidationHint,
   KeyValidationRequest,
-  KeyValidationRequestAndGenerator,
+  KeyValidationRequestAndSeparator,
   NoteHash,
   Nullifier,
   PaddedSideEffectAmounts,
@@ -27,7 +31,7 @@ import {
   ReadRequest,
   ReadRequestAction,
   ReadRequestResetHints,
-  ScopedKeyValidationRequestAndGenerator,
+  ScopedKeyValidationRequestAndSeparator,
   ScopedNoteHash,
   ScopedNullifier,
   ScopedPrivateLogData,
@@ -44,7 +48,7 @@ import type {
   FixedLengthArray,
   FunctionData as FunctionDataNoir,
   KeyValidationHint as KeyValidationHintNoir,
-  KeyValidationRequestAndGenerator as KeyValidationRequestAndGeneratorNoir,
+  KeyValidationRequestAndSeparator as KeyValidationRequestAndSeparatorNoir,
   KeyValidationRequest as KeyValidationRequestsNoir,
   Field as NoirField,
   NoteHashLeafPreimage as NoteHashLeafPreimageNoir,
@@ -92,7 +96,6 @@ import {
   mapNullifierLeafPreimageToNoir,
   mapNumberFromNoir,
   mapNumberToNoir,
-  mapPointFromNoir,
   mapPointToNoir,
   mapPrivateLogFromNoir,
   mapPrivateLogToNoir,
@@ -260,17 +263,17 @@ function mapScopedReadRequestFromNoir(scoped: Scoped<Counted<NoirField>>): Scope
  */
 export function mapKeyValidationRequestToNoir(request: KeyValidationRequest): KeyValidationRequestsNoir {
   return {
-    pk_m: mapPointToNoir(request.pkM),
+    pk_m_hash: mapFieldToNoir(request.pkMHash),
     sk_app: mapFieldToNoir(request.skApp),
   };
 }
 
-export function mapKeyValidationRequestAndGeneratorToNoir(
-  request: KeyValidationRequestAndGenerator,
-): KeyValidationRequestAndGeneratorNoir {
+export function mapKeyValidationRequestAndSeparatorToNoir(
+  request: KeyValidationRequestAndSeparator,
+): KeyValidationRequestAndSeparatorNoir {
   return {
     request: mapKeyValidationRequestToNoir(request.request),
-    sk_app_generator: mapFieldToNoir(request.skAppGenerator),
+    key_type_domain_separator: mapFieldToNoir(request.keyTypeDomainSeparator),
   };
 }
 
@@ -280,32 +283,32 @@ export function mapKeyValidationRequestAndGeneratorToNoir(
  * @returns The TS KeyValidationRequest.
  */
 function mapKeyValidationRequestFromNoir(request: KeyValidationRequestsNoir): KeyValidationRequest {
-  return new KeyValidationRequest(mapPointFromNoir(request.pk_m), mapFieldFromNoir(request.sk_app));
+  return new KeyValidationRequest(mapFieldFromNoir(request.pk_m_hash), mapFieldFromNoir(request.sk_app));
 }
 
-function mapKeyValidationRequestAndGeneratorFromNoir(
-  request: KeyValidationRequestAndGeneratorNoir,
-): KeyValidationRequestAndGenerator {
-  return new KeyValidationRequestAndGenerator(
+function mapKeyValidationRequestAndSeparatorFromNoir(
+  request: KeyValidationRequestAndSeparatorNoir,
+): KeyValidationRequestAndSeparator {
+  return new KeyValidationRequestAndSeparator(
     mapKeyValidationRequestFromNoir(request.request),
-    mapFieldFromNoir(request.sk_app_generator),
+    mapFieldFromNoir(request.key_type_domain_separator),
   );
 }
 
-function mapScopedKeyValidationRequestAndGeneratorToNoir(
-  request: ScopedKeyValidationRequestAndGenerator,
-): Scoped<KeyValidationRequestAndGeneratorNoir> {
+function mapScopedKeyValidationRequestAndSeparatorToNoir(
+  request: ScopedKeyValidationRequestAndSeparator,
+): Scoped<KeyValidationRequestAndSeparatorNoir> {
   return {
-    inner: mapKeyValidationRequestAndGeneratorToNoir(request.request),
+    inner: mapKeyValidationRequestAndSeparatorToNoir(request.request),
     contract_address: mapAztecAddressToNoir(request.contractAddress),
   };
 }
 
-function mapScopedKeyValidationRequestAndGeneratorFromNoir(
-  request: Scoped<KeyValidationRequestAndGeneratorNoir>,
-): ScopedKeyValidationRequestAndGenerator {
-  return new ScopedKeyValidationRequestAndGenerator(
-    mapKeyValidationRequestAndGeneratorFromNoir(request.inner),
+function mapScopedKeyValidationRequestAndSeparatorFromNoir(
+  request: Scoped<KeyValidationRequestAndSeparatorNoir>,
+): ScopedKeyValidationRequestAndSeparator {
+  return new ScopedKeyValidationRequestAndSeparator(
+    mapKeyValidationRequestAndSeparatorFromNoir(request.inner),
     mapAztecAddressFromNoir(request.contract_address),
   );
 }
@@ -373,9 +376,9 @@ function mapPrivateValidationRequestsToNoir(requests: PrivateValidationRequests)
   return {
     note_hash_read_requests: mapClaimedLengthArrayToNoir(requests.noteHashReadRequests, mapScopedReadRequestToNoir),
     nullifier_read_requests: mapClaimedLengthArrayToNoir(requests.nullifierReadRequests, mapScopedReadRequestToNoir),
-    scoped_key_validation_requests_and_generators: mapClaimedLengthArrayToNoir(
-      requests.scopedKeyValidationRequestsAndGenerators,
-      mapScopedKeyValidationRequestAndGeneratorToNoir,
+    scoped_key_validation_requests_and_separators: mapClaimedLengthArrayToNoir(
+      requests.scopedKeyValidationRequestsAndSeparators,
+      mapScopedKeyValidationRequestAndSeparatorToNoir,
     ),
   };
 }
@@ -385,8 +388,8 @@ function mapPrivateValidationRequestsFromNoir(requests: PrivateValidationRequest
     mapClaimedLengthArrayFromNoir(requests.note_hash_read_requests, mapScopedReadRequestFromNoir),
     mapClaimedLengthArrayFromNoir(requests.nullifier_read_requests, mapScopedReadRequestFromNoir),
     mapClaimedLengthArrayFromNoir(
-      requests.scoped_key_validation_requests_and_generators,
-      mapScopedKeyValidationRequestAndGeneratorFromNoir,
+      requests.scoped_key_validation_requests_and_separators,
+      mapScopedKeyValidationRequestAndSeparatorFromNoir,
     ),
   );
 }
@@ -440,9 +443,9 @@ export function mapPrivateCircuitPublicInputsToNoir(
       privateCircuitPublicInputs.nullifierReadRequests,
       mapScopedReadRequestToNoir,
     ),
-    key_validation_requests_and_generators: mapClaimedLengthArrayToNoir(
-      privateCircuitPublicInputs.keyValidationRequestsAndGenerators,
-      mapKeyValidationRequestAndGeneratorToNoir,
+    key_validation_requests_and_separators: mapClaimedLengthArrayToNoir(
+      privateCircuitPublicInputs.keyValidationRequestsAndSeparators,
+      mapKeyValidationRequestAndSeparatorToNoir,
     ),
     note_hashes: mapClaimedLengthArrayToNoir(privateCircuitPublicInputs.noteHashes, mapNoteHashToNoir),
     nullifiers: mapClaimedLengthArrayToNoir(privateCircuitPublicInputs.nullifiers, mapNullifierToNoir),
@@ -473,24 +476,21 @@ export function mapPrivateCircuitPublicInputsToNoir(
     tx_context: mapTxContextToNoir(privateCircuitPublicInputs.txContext),
     min_revertible_side_effect_counter: mapFieldToNoir(privateCircuitPublicInputs.minRevertibleSideEffectCounter),
     is_fee_payer: privateCircuitPublicInputs.isFeePayer,
-    include_by_timestamp: mapU64ToNoir(privateCircuitPublicInputs.includeByTimestamp),
+    expiration_timestamp: mapU64ToNoir(privateCircuitPublicInputs.expirationTimestamp),
+    tx_request_salt: mapFieldToNoir(privateCircuitPublicInputs.txRequestSalt),
   };
 }
 
 export function mapPublicKeysToNoir(publicKeys: PublicKeys): PublicKeysNoir {
   return {
-    npk_m: {
-      inner: mapPointToNoir(publicKeys.masterNullifierPublicKey),
-    },
+    npk_m_hash: mapFieldToNoir(publicKeys.npkMHash),
     ivpk_m: {
-      inner: mapPointToNoir(publicKeys.masterIncomingViewingPublicKey),
+      inner: mapPointToNoir(publicKeys.ivpkM),
     },
-    ovpk_m: {
-      inner: mapPointToNoir(publicKeys.masterOutgoingViewingPublicKey),
-    },
-    tpk_m: {
-      inner: mapPointToNoir(publicKeys.masterTaggingPublicKey),
-    },
+    ovpk_m_hash: mapFieldToNoir(publicKeys.ovpkMHash),
+    tpk_m_hash: mapFieldToNoir(publicKeys.tpkMHash),
+    mspk_m_hash: mapFieldToNoir(publicKeys.mspkMHash),
+    fbpk_m_hash: mapFieldToNoir(publicKeys.fbpkMHash),
   };
 }
 
@@ -541,7 +541,7 @@ export function mapPrivateVerificationKeyHintsToNoir(
  */
 export function mapPrivateCallDataToNoir(privateCallData: PrivateCallData): PrivateCallDataWithoutPublicInputsNoir {
   return {
-    vk: mapVerificationKeyToNoir(privateCallData.vk, MEGA_VK_LENGTH_IN_FIELDS),
+    vk: mapVerificationKeyToNoir(privateCallData.vk, MEGA_APP_VK_LENGTH_IN_FIELDS),
     verification_key_hints: mapPrivateVerificationKeyHintsToNoir(privateCallData.verificationKeyHints),
   };
 }
@@ -556,9 +556,8 @@ export function mapPrivateKernelCircuitPublicInputsFromNoir(
     mapPrivateAccumulatedDataFromNoir(inputs.end),
     mapPublicCallRequestFromNoir(inputs.public_teardown_call_request),
     mapAztecAddressFromNoir(inputs.fee_payer),
-    mapU64FromNoir(inputs.include_by_timestamp),
+    mapU64FromNoir(inputs.expiration_timestamp),
     inputs.is_private_only,
-    mapFieldFromNoir(inputs.claimed_first_nullifier),
     mapNumberFromNoir(inputs.claimed_revertible_counter),
   );
 }
@@ -573,9 +572,8 @@ export function mapPrivateKernelCircuitPublicInputsToNoir(
     min_revertible_side_effect_counter: mapFieldToNoir(inputs.minRevertibleSideEffectCounter),
     public_teardown_call_request: mapPublicCallRequestToNoir(inputs.publicTeardownCallRequest),
     fee_payer: mapAztecAddressToNoir(inputs.feePayer),
-    include_by_timestamp: mapU64ToNoir(inputs.includeByTimestamp),
+    expiration_timestamp: mapU64ToNoir(inputs.expirationTimestamp),
     is_private_only: inputs.isPrivateOnly,
-    claimed_first_nullifier: mapFieldToNoir(inputs.claimedFirstNullifier),
     claimed_revertible_counter: mapNumberToNoir(inputs.claimedRevertibleCounter),
   };
 }
@@ -589,7 +587,7 @@ export function mapPrivateKernelDataToNoir(
   privateKernelInnerData: PrivateKernelData,
 ): PrivateKernelDataWithoutPublicInputsNoir {
   return {
-    vk_data: mapVkDataToNoir(privateKernelInnerData.vkData, MEGA_VK_LENGTH_IN_FIELDS),
+    vk_data: mapVkDataToNoir(privateKernelInnerData.vkData, MEGA_KERNEL_VK_LENGTH_IN_FIELDS),
   };
 }
 
@@ -601,7 +599,7 @@ export function mapPrivateKernelTailCircuitPublicInputsForRollupFromNoir(
     mapTxConstantDataFromNoir(inputs.constants),
     mapGasFromNoir(inputs.gas_used),
     mapAztecAddressFromNoir(inputs.fee_payer),
-    mapBigIntFromNoir(inputs.include_by_timestamp),
+    mapBigIntFromNoir(inputs.expiration_timestamp),
     undefined,
     forRollup,
   );
@@ -619,7 +617,7 @@ export function mapPrivateKernelTailCircuitPublicInputsForPublicFromNoir(
     mapTxConstantDataFromNoir(inputs.constants),
     mapGasFromNoir(inputs.gas_used),
     mapAztecAddressFromNoir(inputs.fee_payer),
-    mapBigIntFromNoir(inputs.include_by_timestamp),
+    mapBigIntFromNoir(inputs.expiration_timestamp),
     forPublic,
   );
 }

@@ -21,7 +21,7 @@ namespace bb::stdlib::test_utils {
 template <typename Builder> void check_circuit_and_gate_count(Builder& builder, uint32_t expected_gates_without_base)
 {
     if (!builder.circuit_finalized) {
-        builder.finalize_circuit(/*ensure_nonzero=*/false);
+        builder.finalize_circuit();
     }
 
     // Add base gates: Ultra adds 1, Mega adds 4

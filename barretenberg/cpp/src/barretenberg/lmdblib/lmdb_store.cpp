@@ -5,15 +5,17 @@
 #include "barretenberg/lmdblib/lmdb_write_transaction.hpp"
 #include "barretenberg/lmdblib/types.hpp"
 #include "lmdb.h"
+#include <algorithm>
 #include <cstdint>
 #include <memory>
 #include <mutex>
 #include <optional>
+#include <set>
 #include <stdexcept>
 
 namespace bb::lmdblib {
-LMDBStore::LMDBStore(std::string directory, uint64_t mapSizeKb, uint64_t maxNumReaders, uint64_t maxDbs)
-    : LMDBStoreBase(std::move(directory), mapSizeKb, maxNumReaders, maxDbs)
+LMDBStore::LMDBStore(std::string directory, uint64_t mapSizeKb, uint64_t maxNumReaders, uint64_t maxDbs, bool ephemeral)
+    : LMDBStoreBase(std::move(directory), mapSizeKb, maxNumReaders, maxDbs, ephemeral)
 {}
 
 void LMDBStore::open_database(const std::string& name, bool duplicateKeysPermitted)
@@ -173,6 +175,51 @@ void LMDBStore::get(KeysVector& keys, OptionalValuesVector& values, LMDBDatabase
             OptionalValues optionalValues = retrievedValues;
             values.emplace_back(optionalValues);
         }
+    }
+}
+
+void LMDBStore::has(const KeyOptionalValuesVector& entries, std::vector<bool>& results, const std::string& name)
+{
+    auto string_cmp = [](const Key& a, const Key& b) {
+        return std::lexicographical_compare(a.begin(), a.end(), b.begin(), b.end());
+    };
+
+    std::set<Key, decltype(string_cmp)> key_set(string_cmp);
+    for (const auto& entry : entries) {
+        key_set.insert(entry.first);
+    }
+
+    KeysVector keys(key_set.begin(), key_set.end());
+    OptionalValuesVector vals;
+    get(keys, vals, name);
+
+    results.reserve(entries.size());
+
+    for (const auto& entry : entries) {
+        const auto& key = entry.first;
+        const auto& requested_values = entry.second;
+
+        const auto key_it = std::find(keys.begin(), keys.end(), key);
+        if (key_it == keys.end()) {
+            results.push_back(false);
+            continue;
+        }
+
+        const auto& values = vals[static_cast<size_t>(key_it - keys.begin())];
+
+        if (!values.has_value()) {
+            results.push_back(false);
+            continue;
+        }
+
+        if (!requested_values.has_value()) {
+            results.push_back(true);
+            continue;
+        }
+
+        results.push_back(std::all_of(requested_values->begin(), requested_values->end(), [&](const auto& val) {
+            return std::find(values->begin(), values->end(), val) != values->end();
+        }));
     }
 }
 

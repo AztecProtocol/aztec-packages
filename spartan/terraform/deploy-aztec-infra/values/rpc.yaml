@@ -1,9 +1,10 @@
+nodeType: "rpc-node"
 node:
-  nodeType: "rpc-node"
   env:
     OTEL_SERVICE_NAME: "node"
     AWS_ACCESS_KEY_ID: ""
     AWS_SECRET_ACCESS_KEY: ""
+    RPC_MAX_BODY_SIZE: "50mb"
 
   preStartScript: |
     if [ -n "${BOOT_NODE_HOST:-}" ]; then
@@ -18,4 +19,3 @@ node:
 
   startCmd:
     - --node
-    - --archiver

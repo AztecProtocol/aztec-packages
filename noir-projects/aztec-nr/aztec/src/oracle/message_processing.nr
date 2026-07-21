@@ -1,50 +1,68 @@
+use crate::ephemeral::EphemeralArray;
+use crate::messages::processing::{
+    event_validation_request::EventValidationRequest, log_retrieval_request::LogRetrievalRequest,
+    log_retrieval_response::LogRetrievalResponse, NoteValidationRequest, pending_tagged_log::PendingTaggedLog,
+    provided_secret::ProvidedSecret,
+};
 use crate::protocol::address::AztecAddress;
+use crate::protocol::blob_data::TxEffect;
 
-/// Finds new private logs that may have been sent to all registered accounts in PXE in the current contract and makes
-/// them available for later processing in Noir by storing them in a capsule array.
-pub unconstrained fn fetch_tagged_logs(pending_tagged_log_array_base_slot: Field) {
-    fetch_tagged_logs_oracle(pending_tagged_log_array_base_slot);
+/// Finds new private logs that may have been sent to all registered accounts in PXE in the current contract and
+/// returns them in an ephemeral array with an oracle-allocated base slot.
+///
+/// # Arguments
+///
+/// * `scope` - The account scope to search under.
+/// * `provided_secrets` - Tagging secrets the app supplies explicitly, searched alongside the secrets PXE manages
+///   internally. Used for secrets PXE cannot derive itself (e.g. handshake-derived ones).
+pub(crate) unconstrained fn get_pending_tagged_logs(
+    scope: AztecAddress,
+    provided_secrets: EphemeralArray<ProvidedSecret>,
+) -> EphemeralArray<PendingTaggedLog> {
+    get_pending_tagged_logs_oracle(scope, provided_secrets)
 }
 
-#[oracle(utilityFetchTaggedLogs)]
-unconstrained fn fetch_tagged_logs_oracle(pending_tagged_log_array_base_slot: Field) {}
+#[oracle(aztec_utl_getPendingTaggedLogsV2)]
+unconstrained fn get_pending_tagged_logs_oracle(
+    scope: AztecAddress,
+    provided_secrets: EphemeralArray<ProvidedSecret>,
+) -> EphemeralArray<PendingTaggedLog> {}
 
-// This must be a single oracle and not one for notes and one for events because the entire point is to validate all
-// notes and events in one go, minimizing node round-trips.
+/// Validates note/event requests stored in ephemeral arrays.
 pub(crate) unconstrained fn validate_and_store_enqueued_notes_and_events(
-    contract_address: AztecAddress,
-    note_validation_requests_array_base_slot: Field,
-    event_validation_requests_array_base_slot: Field,
+    note_validation_requests: EphemeralArray<NoteValidationRequest>,
+    event_validation_requests: EphemeralArray<EventValidationRequest>,
+    scope: AztecAddress,
 ) {
-    validate_and_store_enqueued_notes_and_events_oracle(
-        contract_address,
-        note_validation_requests_array_base_slot,
-        event_validation_requests_array_base_slot,
-    );
+    validate_and_store_enqueued_notes_and_events_oracle(note_validation_requests, event_validation_requests, scope);
 }
 
-#[oracle(utilityValidateAndStoreEnqueuedNotesAndEvents)]
+#[oracle(aztec_utl_validateAndStoreEnqueuedNotesAndEvents)]
 unconstrained fn validate_and_store_enqueued_notes_and_events_oracle(
-    contract_address: AztecAddress,
-    note_validation_requests_array_base_slot: Field,
-    event_validation_requests_array_base_slot: Field,
+    note_validation_requests: EphemeralArray<NoteValidationRequest>,
+    event_validation_requests: EphemeralArray<EventValidationRequest>,
+    scope: AztecAddress,
 ) {}
 
-pub(crate) unconstrained fn bulk_retrieve_logs(
-    contract_address: AztecAddress,
-    log_retrieval_requests_array_base_slot: Field,
-    log_retrieval_responses_array_base_slot: Field,
-) {
-    bulk_retrieve_logs_oracle(
-        contract_address,
-        log_retrieval_requests_array_base_slot,
-        log_retrieval_responses_array_base_slot,
-    );
+/// Fetches all logs matching each request's tag and returns a nested ephemeral array.
+///
+/// Each element in the outer array is an inner `EphemeralArray<LogRetrievalResponse>` containing all matching logs for
+/// the request at the same index (which may be empty if no logs were found).
+pub unconstrained fn get_logs_by_tag(
+    requests: EphemeralArray<LogRetrievalRequest>,
+) -> EphemeralArray<EphemeralArray<LogRetrievalResponse>> {
+    get_logs_by_tag_oracle(requests)
 }
 
-#[oracle(utilityBulkRetrieveLogs)]
-unconstrained fn bulk_retrieve_logs_oracle(
-    contract_address: AztecAddress,
-    log_retrieval_requests_array_base_slot: Field,
-    log_retrieval_responses_array_base_slot: Field,
-) {}
+#[oracle(aztec_utl_getLogsByTagV2)]
+unconstrained fn get_logs_by_tag_oracle(
+    requests: EphemeralArray<LogRetrievalRequest>,
+) -> EphemeralArray<EphemeralArray<LogRetrievalResponse>> {}
+
+/// Fetches all effects of a settled transaction by its hash.
+pub unconstrained fn get_tx_effect(tx_hash: Field) -> Option<TxEffect> {
+    get_tx_effect_oracle(tx_hash)
+}
+
+#[oracle(aztec_utl_getTxEffect)]
+unconstrained fn get_tx_effect_oracle(tx_hash: Field) -> Option<TxEffect> {}

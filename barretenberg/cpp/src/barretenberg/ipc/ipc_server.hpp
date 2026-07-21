@@ -194,6 +194,10 @@ class IpcServer {
     static std::unique_ptr<IpcServer> create_shm(const std::string& base_name,
                                                  size_t request_ring_size = static_cast<size_t>(1024 * 1024),
                                                  size_t response_ring_size = static_cast<size_t>(1024 * 1024));
+    static std::unique_ptr<IpcServer> create_mpsc_shm(const std::string& base_name,
+                                                      size_t max_clients,
+                                                      size_t request_ring_size = static_cast<size_t>(1024 * 1024),
+                                                      size_t response_ring_size = static_cast<size_t>(1024 * 1024));
 
   protected:
     std::atomic<bool> shutdown_requested_{ false };

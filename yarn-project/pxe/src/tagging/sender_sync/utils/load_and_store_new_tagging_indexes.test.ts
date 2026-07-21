@@ -1,63 +1,63 @@
-import { Fr } from '@aztec/foundation/curves/bn254';
-import { openTmpStore } from '@aztec/kv-store/lmdb-v2';
-import { AztecAddress } from '@aztec/stdlib/aztec-address';
+import type { Fr } from '@aztec/foundation/curves/bn254';
 import { BlockHash } from '@aztec/stdlib/block';
 import type { AztecNode } from '@aztec/stdlib/interfaces/server';
-import { DirectionalAppTaggingSecret, SiloedTag, Tag } from '@aztec/stdlib/logs';
-import { randomTxScopedPrivateL2Log } from '@aztec/stdlib/testing';
+import {
+  type AppTaggingSecret,
+  AppTaggingSecretKind,
+  type PrivateLogsQuery,
+  SiloedTag,
+  type TagQuery,
+  randomLogResult,
+} from '@aztec/stdlib/logs';
+import { randomAppTaggingSecret } from '@aztec/stdlib/testing';
 import { TxHash } from '@aztec/stdlib/tx';
 
 import { type MockProxy, mock } from 'jest-mock-extended';
 
-import { SenderTaggingStore } from '../../../storage/tagging_store/sender_tagging_store.js';
+import type { SenderTaggingStore } from '../../../storage/tagging_store/sender_tagging_store.js';
 import { loadAndStoreNewTaggingIndexes } from './load_and_store_new_tagging_indexes.js';
 
 const MOCK_ANCHOR_BLOCK_HASH = BlockHash.random();
 
 describe('loadAndStoreNewTaggingIndexes', () => {
-  // App contract address and secret to be used on the input of the loadAndStoreNewTaggingIndexes function.
-  let secret: DirectionalAppTaggingSecret;
-  let app: AztecAddress;
-
+  let secret: AppTaggingSecret;
   let aztecNode: MockProxy<AztecNode>;
-  let taggingStore: SenderTaggingStore;
+  let taggingStore: MockProxy<SenderTaggingStore>;
 
-  async function computeSiloedTagForIndex(index: number) {
-    const tag = await Tag.compute({ secret, index });
-    return SiloedTag.compute(tag, app);
+  function computeSiloedTagForIndex(index: number) {
+    return SiloedTag.compute({ extendedSecret: secret, index });
   }
 
-  function makeLog(txHash: TxHash, tag: Fr) {
-    return randomTxScopedPrivateL2Log({ txHash, tag });
+  function makeLog(txHash: TxHash, _tag: Fr) {
+    return { ...randomLogResult(), txHash };
+  }
+
+  /**
+   * Extracts the bare-tag set from a query, defaulting `afterLog`-wrapped entries to their inner tag. Sender sync
+   * never paginates within a tag (one log per index), so the bare-tag path is the only one exercised here.
+   */
+  function extractTags(query: PrivateLogsQuery): SiloedTag[] {
+    return query.tags.map((entry: TagQuery<SiloedTag>) => (entry instanceof SiloedTag ? entry : entry.tag));
   }
 
   beforeAll(async () => {
-    secret = DirectionalAppTaggingSecret.fromString(Fr.random().toString());
-    app = await AztecAddress.random();
-    aztecNode = mock<AztecNode>();
+    secret = await randomAppTaggingSecret(AppTaggingSecretKind.UNCONSTRAINED);
   });
 
-  // Unlike for secret, app address and aztecNode we need a fresh instance of the tagging data provider for each test.
-  beforeEach(async () => {
-    aztecNode.getPrivateLogsByTags.mockReset();
-    taggingStore = new SenderTaggingStore(await openTmpStore('test'));
+  beforeEach(() => {
+    aztecNode = mock<AztecNode>();
+    taggingStore = mock<SenderTaggingStore>();
   });
 
   it('no logs found for the given window', async () => {
-    aztecNode.getPrivateLogsByTags.mockImplementation((tags: SiloedTag[]) => {
-      // No log found for any tag
-      return Promise.resolve(tags.map((_tag: SiloedTag) => []));
+    aztecNode.getPrivateLogsByTags.mockImplementation((query: PrivateLogsQuery) => {
+      const tags = extractTags(query);
+      return Promise.resolve(tags.map(() => []));
     });
 
-    await loadAndStoreNewTaggingIndexes(secret, app, 0, 10, aztecNode, taggingStore, MOCK_ANCHOR_BLOCK_HASH, 'test');
+    await loadAndStoreNewTaggingIndexes(secret, 0, 10, aztecNode, taggingStore, MOCK_ANCHOR_BLOCK_HASH, 'test');
 
-    // Verify that no pending indexes were stored
-    expect(await taggingStore.getLastUsedIndex(secret, 'test')).toBeUndefined();
-    expect(await taggingStore.getLastFinalizedIndex(secret, 'test')).toBeUndefined();
-
-    // Verify the entire window has no pending tx hashes
-    const txHashesInWindow = await taggingStore.getTxHashesOfPendingIndexes(secret, 0, 10, 'test');
-    expect(txHashesInWindow).toHaveLength(0);
+    expect(taggingStore.storePendingIndexes).not.toHaveBeenCalled();
   });
 
   it('single log found at a specific index', async () => {
@@ -65,29 +65,30 @@ describe('loadAndStoreNewTaggingIndexes', () => {
     const index = 5;
     const tag = await computeSiloedTagForIndex(index);
 
-    aztecNode.getPrivateLogsByTags.mockImplementation((tags: SiloedTag[]) => {
+    aztecNode.getPrivateLogsByTags.mockImplementation((query: PrivateLogsQuery) => {
+      const tags = extractTags(query);
       return Promise.resolve(tags.map((t: SiloedTag) => (t.equals(tag) ? [makeLog(txHash, tag.value)] : [])));
     });
 
-    await loadAndStoreNewTaggingIndexes(secret, app, 0, 10, aztecNode, taggingStore, MOCK_ANCHOR_BLOCK_HASH, 'test');
+    await loadAndStoreNewTaggingIndexes(secret, 0, 10, aztecNode, taggingStore, MOCK_ANCHOR_BLOCK_HASH, 'test');
 
-    // Verify that the pending index was stored for this txHash
-    const txHashesInRange = await taggingStore.getTxHashesOfPendingIndexes(secret, index, index + 1, 'test');
-    expect(txHashesInRange).toHaveLength(1);
-    expect(txHashesInRange[0].equals(txHash)).toBe(true);
-
-    // Verify the last used index is correct
-    expect(await taggingStore.getLastUsedIndex(secret, 'test')).toBe(index);
+    expect(taggingStore.storePendingIndexes).toHaveBeenCalledTimes(1);
+    expect(taggingStore.storePendingIndexes).toHaveBeenCalledWith(
+      [{ extendedSecret: secret, lowestIndex: index, highestIndex: index }],
+      txHash,
+      'test',
+    );
   });
 
-  it('for multiple logs with same txHash stores the highest index', async () => {
+  it('for multiple logs with same txHash stores full index range', async () => {
     const txHash = TxHash.random();
     const index1 = 3;
     const index2 = 7;
     const tag1 = await computeSiloedTagForIndex(index1);
     const tag2 = await computeSiloedTagForIndex(index2);
 
-    aztecNode.getPrivateLogsByTags.mockImplementation((tags: SiloedTag[]) => {
+    aztecNode.getPrivateLogsByTags.mockImplementation((query: PrivateLogsQuery) => {
+      const tags = extractTags(query);
       return Promise.resolve(
         tags.map((t: SiloedTag) => {
           if (t.equals(tag1)) {
@@ -100,19 +101,14 @@ describe('loadAndStoreNewTaggingIndexes', () => {
       );
     });
 
-    await loadAndStoreNewTaggingIndexes(secret, app, 0, 10, aztecNode, taggingStore, MOCK_ANCHOR_BLOCK_HASH, 'test');
+    await loadAndStoreNewTaggingIndexes(secret, 0, 10, aztecNode, taggingStore, MOCK_ANCHOR_BLOCK_HASH, 'test');
 
-    // Verify that only the highest index (7) was stored for this txHash and secret
-    const txHashesAtIndex2 = await taggingStore.getTxHashesOfPendingIndexes(secret, index2, index2 + 1, 'test');
-    expect(txHashesAtIndex2).toHaveLength(1);
-    expect(txHashesAtIndex2[0].equals(txHash)).toBe(true);
-
-    // Verify the lower index is not stored separately
-    const txHashesAtIndex1 = await taggingStore.getTxHashesOfPendingIndexes(secret, index1, index1 + 1, 'test');
-    expect(txHashesAtIndex1).toHaveLength(0);
-
-    // Verify the last used index is the highest
-    expect(await taggingStore.getLastUsedIndex(secret, 'test')).toBe(index2);
+    expect(taggingStore.storePendingIndexes).toHaveBeenCalledTimes(1);
+    expect(taggingStore.storePendingIndexes).toHaveBeenCalledWith(
+      [{ extendedSecret: secret, lowestIndex: index1, highestIndex: index2 }],
+      txHash,
+      'test',
+    );
   });
 
   it('multiple logs with different txHashes', async () => {
@@ -123,7 +119,8 @@ describe('loadAndStoreNewTaggingIndexes', () => {
     const tag1 = await computeSiloedTagForIndex(index1);
     const tag2 = await computeSiloedTagForIndex(index2);
 
-    aztecNode.getPrivateLogsByTags.mockImplementation((tags: SiloedTag[]) => {
+    aztecNode.getPrivateLogsByTags.mockImplementation((query: PrivateLogsQuery) => {
+      const tags = extractTags(query);
       return Promise.resolve(
         tags.map((t: SiloedTag) => {
           if (t.equals(tag1)) {
@@ -136,19 +133,19 @@ describe('loadAndStoreNewTaggingIndexes', () => {
       );
     });
 
-    await loadAndStoreNewTaggingIndexes(secret, app, 0, 10, aztecNode, taggingStore, MOCK_ANCHOR_BLOCK_HASH, 'test');
+    await loadAndStoreNewTaggingIndexes(secret, 0, 10, aztecNode, taggingStore, MOCK_ANCHOR_BLOCK_HASH, 'test');
 
-    // Verify that both txHashes have their respective indexes stored
-    const txHashesAtIndex1 = await taggingStore.getTxHashesOfPendingIndexes(secret, index1, index1 + 1, 'test');
-    expect(txHashesAtIndex1).toHaveLength(1);
-    expect(txHashesAtIndex1[0].equals(txHash1)).toBe(true);
-
-    const txHashesAtIndex2 = await taggingStore.getTxHashesOfPendingIndexes(secret, index2, index2 + 1, 'test');
-    expect(txHashesAtIndex2).toHaveLength(1);
-    expect(txHashesAtIndex2[0].equals(txHash2)).toBe(true);
-
-    // Verify the last used index is the highest
-    expect(await taggingStore.getLastUsedIndex(secret, 'test')).toBe(index2);
+    expect(taggingStore.storePendingIndexes).toHaveBeenCalledTimes(2);
+    expect(taggingStore.storePendingIndexes).toHaveBeenCalledWith(
+      [{ extendedSecret: secret, lowestIndex: index1, highestIndex: index1 }],
+      txHash1,
+      'test',
+    );
+    expect(taggingStore.storePendingIndexes).toHaveBeenCalledWith(
+      [{ extendedSecret: secret, lowestIndex: index2, highestIndex: index2 }],
+      txHash2,
+      'test',
+    );
   });
 
   // Expected to happen if sending logs from multiple PXEs at a similar time.
@@ -158,23 +155,26 @@ describe('loadAndStoreNewTaggingIndexes', () => {
     const index = 4;
     const tag = await computeSiloedTagForIndex(index);
 
-    aztecNode.getPrivateLogsByTags.mockImplementation((tags: SiloedTag[]) => {
+    aztecNode.getPrivateLogsByTags.mockImplementation((query: PrivateLogsQuery) => {
+      const tags = extractTags(query);
       return Promise.resolve(
         tags.map((t: SiloedTag) => (t.equals(tag) ? [makeLog(txHash1, tag.value), makeLog(txHash2, tag.value)] : [])),
       );
     });
 
-    await loadAndStoreNewTaggingIndexes(secret, app, 0, 10, aztecNode, taggingStore, MOCK_ANCHOR_BLOCK_HASH, 'test');
+    await loadAndStoreNewTaggingIndexes(secret, 0, 10, aztecNode, taggingStore, MOCK_ANCHOR_BLOCK_HASH, 'test');
 
-    // Verify that both txHashes have the same index stored
-    const txHashesAtIndex = await taggingStore.getTxHashesOfPendingIndexes(secret, index, index + 1, 'test');
-    expect(txHashesAtIndex).toHaveLength(2);
-    const txHashStrings = txHashesAtIndex.map(h => h.toString());
-    expect(txHashStrings).toContain(txHash1.toString());
-    expect(txHashStrings).toContain(txHash2.toString());
-
-    // Verify the last used index is correct
-    expect(await taggingStore.getLastUsedIndex(secret, 'test')).toBe(index);
+    expect(taggingStore.storePendingIndexes).toHaveBeenCalledTimes(2);
+    expect(taggingStore.storePendingIndexes).toHaveBeenCalledWith(
+      [{ extendedSecret: secret, lowestIndex: index, highestIndex: index }],
+      txHash1,
+      'test',
+    );
+    expect(taggingStore.storePendingIndexes).toHaveBeenCalledWith(
+      [{ extendedSecret: secret, lowestIndex: index, highestIndex: index }],
+      txHash2,
+      'test',
+    );
   });
 
   it('complex scenario: multiple txHashes with multiple indexes', async () => {
@@ -182,19 +182,23 @@ describe('loadAndStoreNewTaggingIndexes', () => {
     const txHash2 = TxHash.random();
     const txHash3 = TxHash.random();
 
-    // txHash1 has logs at index 1 and 8 (should store 8)
-    // txHash2 has logs at index 3 and 5 (should store 5)
-    // txHash3 has a log at index 9 (should store 9)
+    // txHash1 has logs at index 1, 2 and 8 → range [1, 8]
+    // txHash2 has logs at index 3 and 5 → range [3, 5]
+    // txHash3 has a log at index 9 → range [9, 9]
     const tag1 = await computeSiloedTagForIndex(1);
+    const tag2 = await computeSiloedTagForIndex(2);
     const tag3 = await computeSiloedTagForIndex(3);
     const tag5 = await computeSiloedTagForIndex(5);
     const tag8 = await computeSiloedTagForIndex(8);
     const tag9 = await computeSiloedTagForIndex(9);
 
-    aztecNode.getPrivateLogsByTags.mockImplementation((tags: SiloedTag[]) => {
+    aztecNode.getPrivateLogsByTags.mockImplementation((query: PrivateLogsQuery) => {
+      const tags = extractTags(query);
       return Promise.resolve(
         tags.map((t: SiloedTag) => {
           if (t.equals(tag1)) {
+            return [makeLog(txHash1, tag1.value)];
+          } else if (t.equals(tag2)) {
             return [makeLog(txHash1, tag1.value)];
           } else if (t.equals(tag3)) {
             return [makeLog(txHash2, tag3.value)];
@@ -210,29 +214,24 @@ describe('loadAndStoreNewTaggingIndexes', () => {
       );
     });
 
-    await loadAndStoreNewTaggingIndexes(secret, app, 0, 10, aztecNode, taggingStore, MOCK_ANCHOR_BLOCK_HASH, 'test');
+    await loadAndStoreNewTaggingIndexes(secret, 0, 10, aztecNode, taggingStore, MOCK_ANCHOR_BLOCK_HASH, 'test');
 
-    // Verify txHash1 has highest index 8 (should not be at index 1)
-    const txHashesAtIndex1 = await taggingStore.getTxHashesOfPendingIndexes(secret, 1, 2, 'test');
-    expect(txHashesAtIndex1).toHaveLength(0);
-    const txHashesAtIndex8 = await taggingStore.getTxHashesOfPendingIndexes(secret, 8, 9, 'test');
-    expect(txHashesAtIndex8).toHaveLength(1);
-    expect(txHashesAtIndex8[0].equals(txHash1)).toBe(true);
-
-    // Verify txHash2 has highest index 5 (should not be at index 3)
-    const txHashesAtIndex3 = await taggingStore.getTxHashesOfPendingIndexes(secret, 3, 4, 'test');
-    expect(txHashesAtIndex3).toHaveLength(0);
-    const txHashesAtIndex5 = await taggingStore.getTxHashesOfPendingIndexes(secret, 5, 6, 'test');
-    expect(txHashesAtIndex5).toHaveLength(1);
-    expect(txHashesAtIndex5[0].equals(txHash2)).toBe(true);
-
-    // Verify txHash3 has index 9
-    const txHashesAtIndex9 = await taggingStore.getTxHashesOfPendingIndexes(secret, 9, 10, 'test');
-    expect(txHashesAtIndex9).toHaveLength(1);
-    expect(txHashesAtIndex9[0].equals(txHash3)).toBe(true);
-
-    // Verify the last used index is the highest
-    expect(await taggingStore.getLastUsedIndex(secret, 'test')).toBe(9);
+    expect(taggingStore.storePendingIndexes).toHaveBeenCalledTimes(3);
+    expect(taggingStore.storePendingIndexes).toHaveBeenCalledWith(
+      [{ extendedSecret: secret, lowestIndex: 1, highestIndex: 8 }],
+      txHash1,
+      'test',
+    );
+    expect(taggingStore.storePendingIndexes).toHaveBeenCalledWith(
+      [{ extendedSecret: secret, lowestIndex: 3, highestIndex: 5 }],
+      txHash2,
+      'test',
+    );
+    expect(taggingStore.storePendingIndexes).toHaveBeenCalledWith(
+      [{ extendedSecret: secret, lowestIndex: 9, highestIndex: 9 }],
+      txHash3,
+      'test',
+    );
   });
 
   it('start is inclusive and end is exclusive', async () => {
@@ -245,7 +244,8 @@ describe('loadAndStoreNewTaggingIndexes', () => {
     const tagAtStart = await computeSiloedTagForIndex(start);
     const tagAtEnd = await computeSiloedTagForIndex(end);
 
-    aztecNode.getPrivateLogsByTags.mockImplementation((tags: SiloedTag[]) => {
+    aztecNode.getPrivateLogsByTags.mockImplementation((query: PrivateLogsQuery) => {
+      const tags = extractTags(query);
       return Promise.resolve(
         tags.map((t: SiloedTag) => {
           if (t.equals(tagAtStart)) {
@@ -258,27 +258,14 @@ describe('loadAndStoreNewTaggingIndexes', () => {
       );
     });
 
-    await loadAndStoreNewTaggingIndexes(
-      secret,
-      app,
-      start,
-      end,
-      aztecNode,
-      taggingStore,
-      MOCK_ANCHOR_BLOCK_HASH,
+    await loadAndStoreNewTaggingIndexes(secret, start, end, aztecNode, taggingStore, MOCK_ANCHOR_BLOCK_HASH, 'test');
+
+    // Only the log at start should be stored; end is exclusive
+    expect(taggingStore.storePendingIndexes).toHaveBeenCalledTimes(1);
+    expect(taggingStore.storePendingIndexes).toHaveBeenCalledWith(
+      [{ extendedSecret: secret, lowestIndex: start, highestIndex: start }],
+      txHashAtStart,
       'test',
     );
-
-    // Verify that the log at start (inclusive) was processed
-    const txHashesAtStart = await taggingStore.getTxHashesOfPendingIndexes(secret, start, start + 1, 'test');
-    expect(txHashesAtStart).toHaveLength(1);
-    expect(txHashesAtStart[0].equals(txHashAtStart)).toBe(true);
-
-    // Verify that the log at end (exclusive) was NOT processed
-    const txHashesAtEnd = await taggingStore.getTxHashesOfPendingIndexes(secret, end, end + 1, 'test');
-    expect(txHashesAtEnd).toHaveLength(0);
-
-    // Verify the last used index is the start index (since end was not processed)
-    expect(await taggingStore.getLastUsedIndex(secret, 'test')).toBe(start);
   });
 });

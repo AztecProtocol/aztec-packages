@@ -18,14 +18,16 @@ class MerkleCheck : public MerkleCheckInterface {
         , poseidon2(poseidon2)
     {}
 
-    void assert_membership(const FF& leaf_value,
-                           const uint64_t leaf_index,
+    void assert_membership(uint64_t domain_separator,
+                           const FF& leaf_value,
+                           uint64_t leaf_index,
                            std::span<const FF> sibling_path,
                            const FF& root) override;
 
-    FF write(const FF& current_value,
+    FF write(uint64_t domain_separator,
+             const FF& current_value,
              const FF& new_value,
-             const uint64_t leaf_index,
+             uint64_t leaf_index,
              std::span<const FF> sibling_path,
              const FF& current_root) override;
 

@@ -253,8 +253,8 @@ export function getPublicChonkVerifierPrivateInputsFromTx(tx: Tx | ProcessedTx, 
 // Build "hints" as the private inputs for the checkpoint root rollup circuit.
 // The `blobCommitments` will be accumulated and checked in the root rollup against the `finalBlobChallenges`.
 // The `blobsHash` will be validated on L1 against the submitted blob data.
-export const buildBlobHints = (blobFields: Fr[]) => {
-  const blobs = getBlobsPerL1Block(blobFields);
+export const buildBlobHints = async (blobFields: Fr[]) => {
+  const blobs = await getBlobsPerL1Block(blobFields);
   const blobCommitments = getBlobCommitmentsFromBlobs(blobs);
   const blobsHash = computeBlobsHashFromBlobs(blobs);
   return { blobCommitments, blobs, blobsHash };

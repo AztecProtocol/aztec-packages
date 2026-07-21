@@ -3,18 +3,18 @@ import { BlockNumber, CheckpointNumber, SlotNumber } from '@aztec/foundation/bra
 import { timesAsync } from '@aztec/foundation/collection';
 import { Fr } from '@aztec/foundation/curves/bn254';
 import { getVKTreeRoot } from '@aztec/noir-protocol-circuits-types/vk-tree';
-import { ProtocolContractsList, protocolContractsHash } from '@aztec/protocol-contracts';
+import { ProtocolContractsList } from '@aztec/protocol-contracts';
 import { computeFeePayerBalanceLeafSlot } from '@aztec/protocol-contracts/fee-juice';
 import { PublicDataWrite } from '@aztec/stdlib/avm';
 import { AztecAddress } from '@aztec/stdlib/aztec-address';
 import { EthAddress } from '@aztec/stdlib/block';
 import { GasFees } from '@aztec/stdlib/gas';
 import { accumulateCheckpointOutHashes } from '@aztec/stdlib/messaging';
-import { CheckpointConstantData } from '@aztec/stdlib/rollup';
 import { mockProcessedTx } from '@aztec/stdlib/testing';
 import { PublicDataTreeLeaf } from '@aztec/stdlib/trees';
-import type { ProcessedTx } from '@aztec/stdlib/tx';
+import type { CheckpointGlobalVariables, ProcessedTx } from '@aztec/stdlib/tx';
 import { GlobalVariables } from '@aztec/stdlib/tx';
+import type { GenesisData } from '@aztec/stdlib/world-state';
 import { NativeWorldStateService } from '@aztec/world-state/native';
 
 import { afterEach, beforeEach, describe, expect, it } from '@jest/globals';
@@ -28,31 +28,32 @@ describe('LightweightCheckpointBuilder', () => {
 
   beforeEach(async () => {
     // Set up fee payer with balance
-    feePayer = AztecAddress.fromNumber(42222);
+    feePayer = AztecAddress.fromNumberUnsafe(42222);
     feePayerBalance = new Fr(10n ** 20n);
     const feePayerSlot = await computeFeePayerBalanceLeafSlot(feePayer);
-    const prefilledPublicData = [new PublicDataTreeLeaf(feePayerSlot, feePayerBalance)];
+    const genesis: GenesisData = {
+      prefilledPublicData: [new PublicDataTreeLeaf(feePayerSlot, feePayerBalance)],
+      genesisTimestamp: 0n,
+    };
 
     // Create world state with fee payer balance
-    worldState = await NativeWorldStateService.tmp(undefined, true, prefilledPublicData);
+    worldState = await NativeWorldStateService.tmp(true, genesis);
   });
 
   afterEach(async () => {
     await worldState.close();
   });
 
-  const makeCheckpointConstants = (slotNumber: SlotNumber): CheckpointConstantData => {
-    return CheckpointConstantData.from({
+  const makeCheckpointConstants = (slotNumber: SlotNumber): CheckpointGlobalVariables => {
+    return {
       chainId: Fr.ZERO,
       version: Fr.ZERO,
-      vkTreeRoot: getVKTreeRoot(),
-      protocolContractsHash,
-      proverId: Fr.ZERO,
       slotNumber,
+      timestamp: BigInt(slotNumber) * 123n,
       coinbase: EthAddress.ZERO,
       feeRecipient: AztecAddress.ZERO,
       gasFees: GasFees.empty(),
-    });
+    };
   };
 
   const makeGlobalVariables = (blockNumber: BlockNumber, slotNumber: SlotNumber): GlobalVariables => {
@@ -112,7 +113,7 @@ describe('LightweightCheckpointBuilder', () => {
 
       // Build empty block
       const globalVariables = makeGlobalVariables(blockNumber, slotNumber);
-      const block = await checkpointBuilder.addBlock(globalVariables, [], { insertTxsEffects: true });
+      const { block } = await checkpointBuilder.addBlock(globalVariables, [], { insertTxsEffects: true });
 
       expect(block.header.globalVariables.blockNumber).toEqual(blockNumber);
 
@@ -158,7 +159,7 @@ describe('LightweightCheckpointBuilder', () => {
       tx.txEffect.l2ToL1Msgs.push(...msgs);
 
       // Build block with tx - insertTxsEffects will handle inserting side effects
-      const block = await checkpointBuilder.addBlock(globalVariables, [tx], {
+      const { block } = await checkpointBuilder.addBlock(globalVariables, [tx], {
         insertTxsEffects: true,
       });
 
@@ -205,7 +206,7 @@ describe('LightweightCheckpointBuilder', () => {
       const txs = await timesAsync(3, i => makeProcessedTx(globalVariables, 1000 + i));
 
       // Build block with txs - insertTxsEffects will handle inserting side effects
-      const block = await checkpointBuilder.addBlock(globalVariables, txs, {
+      const { block } = await checkpointBuilder.addBlock(globalVariables, txs, {
         insertTxsEffects: true,
       });
 
@@ -251,7 +252,7 @@ describe('LightweightCheckpointBuilder', () => {
         const txs = await timesAsync(txsPerBlock, j => makeProcessedTx(globalVariables, 2000 + i * 10 + j));
 
         // Build block - insertTxsEffects will handle inserting side effects
-        const block = await checkpointBuilder.addBlock(globalVariables, txs, {
+        const { block } = await checkpointBuilder.addBlock(globalVariables, txs, {
           insertTxsEffects: true,
         });
 
@@ -327,6 +328,36 @@ describe('LightweightCheckpointBuilder', () => {
       const globalVariables2 = makeGlobalVariables(BlockNumber(2), slotNumber);
       await expect(checkpointBuilder.addBlock(globalVariables2, [], { insertTxsEffects: true })).rejects.toThrow(
         /first block/,
+      );
+
+      await fork.close();
+    });
+
+    it('adding a block with a mismatched block number fails with archive tree leaf index mismatch', async () => {
+      const checkpointNumber = CheckpointNumber(1);
+      const slotNumber = SlotNumber(15);
+
+      const constants = makeCheckpointConstants(slotNumber);
+      const l1ToL2Messages: Fr[] = [];
+      const previousCheckpointOutHashes: Fr[] = [];
+
+      const fork = await worldState.fork();
+
+      const checkpointBuilder = await LightweightCheckpointBuilder.startNewCheckpoint(
+        checkpointNumber,
+        constants,
+        l1ToL2Messages,
+        previousCheckpointOutHashes,
+        fork,
+      );
+
+      // Pass block number 5 when the archive tree expects block 1.
+      // After updateArchive, nextAvailableLeafIndex will be 2 but expectedNextLeafIndex will be 6.
+      const wrongBlockNumber = BlockNumber(5);
+      const globalVariables = makeGlobalVariables(wrongBlockNumber, slotNumber);
+
+      await expect(checkpointBuilder.addBlock(globalVariables, [], { insertTxsEffects: true })).rejects.toThrow(
+        /Archive tree next leaf index mismatch/,
       );
 
       await fork.close();

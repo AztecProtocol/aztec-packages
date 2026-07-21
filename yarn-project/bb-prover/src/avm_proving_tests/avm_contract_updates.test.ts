@@ -17,18 +17,21 @@ import { AvmProvingTester } from './avm_proving_tester.js';
 const TIMEOUT = 60_000;
 
 describe('AVM check-circuit - contract updates', () => {
-  const sender = AztecAddress.fromNumber(42);
+  const sender = AztecAddress.fromNumberUnsafe(42);
 
   const avmTestContractClassSeed = 0;
   let avmTestContractInstance: ContractInstanceWithAddress;
 
   let worldStateService: NativeWorldStateService;
+  let tester: AvmProvingTester | undefined;
 
   beforeEach(async () => {
     worldStateService = await NativeWorldStateService.tmp();
   });
 
   afterEach(async () => {
+    await tester?.close();
+    tester = undefined;
     await worldStateService.close();
   });
 
@@ -59,7 +62,7 @@ describe('AVM check-circuit - contract updates', () => {
       // Contract was not originally the avmTestContract
       const originalClassId = new Fr(27);
       const globals = defaultGlobals();
-      const tester = await AvmProvingTester.new(worldStateService, /*checkCircuitOnly*/ true, globals);
+      tester = await AvmProvingTester.new(worldStateService, /*checkCircuitOnly*/ true, globals);
 
       avmTestContractInstance = await tester.registerAndDeployContract(
         /*constructorArgs=*/ [],
@@ -98,7 +101,7 @@ describe('AVM check-circuit - contract updates', () => {
       // Contract was not originally the avmTestContract
       const originalClassId = new Fr(27);
       const globals = defaultGlobals();
-      const tester = await AvmProvingTester.new(worldStateService, /*checkCircuitOnly*/ true, globals);
+      tester = await AvmProvingTester.new(worldStateService, /*checkCircuitOnly*/ true, globals);
       avmTestContractInstance = await tester.registerAndDeployContract(
         /*constructorArgs=*/ [],
         sender,
@@ -139,7 +142,7 @@ describe('AVM check-circuit - contract updates', () => {
       const newClassId = new Fr(27);
 
       const globals = defaultGlobals();
-      const tester = await AvmProvingTester.new(worldStateService, /*checkCircuitOnly*/ true, globals);
+      tester = await AvmProvingTester.new(worldStateService, /*checkCircuitOnly*/ true, globals);
       avmTestContractInstance = await tester.registerAndDeployContract(
         /*constructorArgs=*/ [],
         sender,
@@ -176,7 +179,7 @@ describe('AVM check-circuit - contract updates', () => {
       const newClassId = new Fr(27);
 
       const globals = defaultGlobals();
-      const tester = await AvmProvingTester.new(worldStateService, /*checkCircuitOnly*/ true, globals);
+      tester = await AvmProvingTester.new(worldStateService, /*checkCircuitOnly*/ true, globals);
       avmTestContractInstance = await tester.registerAndDeployContract(
         /*constructorArgs=*/ [],
         sender,

@@ -3,7 +3,6 @@
 
 #include <string_view>
 
-#include "barretenberg/common/bb_bench.hpp"
 #include "barretenberg/relations/relation_parameters.hpp"
 #include "barretenberg/relations/relation_types.hpp"
 #include "barretenberg/vm2/generated/columns.hpp"
@@ -14,9 +13,9 @@ template <typename FF_> class to_radixImpl {
   public:
     using FF = FF_;
 
-    static constexpr std::array<size_t, 40> SUBRELATION_PARTIAL_LENGTHS = { 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 5, 3, 4,
-                                                                            3, 3, 3, 3, 3, 3, 4, 5, 4, 3, 3, 3, 3, 5,
-                                                                            3, 3, 3, 3, 3, 5, 3, 4, 3, 3, 3, 3 };
+    static constexpr std::array<size_t, 37> SUBRELATION_PARTIAL_LENGTHS = { 3, 3, 3, 3, 3, 3, 3, 3, 3, 4, 3, 5, 3,
+                                                                            3, 3, 3, 3, 4, 5, 4, 3, 3, 5, 3, 3, 3,
+                                                                            3, 3, 3, 3, 5, 3, 4, 3, 3, 3, 3 };
 
     template <typename AllEntities> inline static bool skip(const AllEntities& in)
     {
@@ -37,32 +36,34 @@ template <typename FF> class to_radix : public Relation<to_radixImpl<FF>> {
     static constexpr const std::string_view NAME = "to_radix";
 
     // Subrelation indices constants, to be used in tests.
-    static constexpr size_t SR_START_AFTER_LATCH = 4;
-    static constexpr size_t SR_SELECTOR_ON_START = 5;
-    static constexpr size_t SR_SELECTOR_CONSISTENCY = 6;
-    static constexpr size_t SR_OVERFLOW_CHECK = 36;
-    static constexpr size_t SR_CONSTANT_CONSISTENCY_RADIX = 37;
-    static constexpr size_t SR_CONSTANT_CONSISTENCY_VALUE = 38;
-    static constexpr size_t SR_CONSTANT_CONSISTENCY_SAFE_LIMBS = 39;
+    static constexpr size_t SR_SEL_ON_START_OR_END = 4;
+    static constexpr size_t SR_TRACE_CONTINUITY = 5;
+    static constexpr size_t SR_START_AFTER_LATCH = 6;
+    static constexpr size_t SR_OVERFLOW_CHECK = 33;
+    static constexpr size_t SR_RADIX_CONTINUITY = 34;
+    static constexpr size_t SR_VALUE_CONTINUITY = 35;
+    static constexpr size_t SR_SAFE_LIMBS_CONTINUITY = 36;
 
     static std::string get_subrelation_label(size_t index)
     {
+#ifdef AVM_INCLUDE_COLUMN_INFORMATION
         switch (index) {
+        case SR_SEL_ON_START_OR_END:
+            return "SEL_ON_START_OR_END";
+        case SR_TRACE_CONTINUITY:
+            return "TRACE_CONTINUITY";
         case SR_START_AFTER_LATCH:
             return "START_AFTER_LATCH";
-        case SR_SELECTOR_ON_START:
-            return "SELECTOR_ON_START";
-        case SR_SELECTOR_CONSISTENCY:
-            return "SELECTOR_CONSISTENCY";
         case SR_OVERFLOW_CHECK:
             return "OVERFLOW_CHECK";
-        case SR_CONSTANT_CONSISTENCY_RADIX:
-            return "CONSTANT_CONSISTENCY_RADIX";
-        case SR_CONSTANT_CONSISTENCY_VALUE:
-            return "CONSTANT_CONSISTENCY_VALUE";
-        case SR_CONSTANT_CONSISTENCY_SAFE_LIMBS:
-            return "CONSTANT_CONSISTENCY_SAFE_LIMBS";
+        case SR_RADIX_CONTINUITY:
+            return "RADIX_CONTINUITY";
+        case SR_VALUE_CONTINUITY:
+            return "VALUE_CONTINUITY";
+        case SR_SAFE_LIMBS_CONTINUITY:
+            return "SAFE_LIMBS_CONTINUITY";
         }
+#endif
         return std::to_string(index);
     }
 };

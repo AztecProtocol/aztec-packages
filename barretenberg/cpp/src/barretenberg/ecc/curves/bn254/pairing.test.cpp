@@ -3,6 +3,8 @@
 
 using namespace bb;
 
+static constexpr uint256_t Z = 4965661367192848881UL;
+
 TEST(pairing, ReducedAtePairingCheckAgainstConstants)
 {
     constexpr g1::affine_element P = {
@@ -184,4 +186,138 @@ TEST(pairing, ReducedAtePairingPrecomputeConsistencyCheckBatch)
     fq12 expected = pairing::reduced_ate_pairing_batch(&P_b[0], &Q_b[0], num_points).from_montgomery_form();
 
     EXPECT_EQ(result, expected);
+}
+
+TEST(pairing, DoublingStep)
+{
+    fq2 scalar = fq2::random_element();
+    g2::affine_element Q_affine = g2::element::random_element();
+    pairing::g2Projective Q{ scalar * Q_affine.x, scalar * Q_affine.y, scalar };
+    pairing::g2Projective work_point = Q;
+    fq12::ell_coeffs line;
+
+    bb::pairing::doubling_step_for_miller_loop(work_point, line);
+
+    EXPECT_EQ(work_point.x,
+              Q.x * Q.y.mul_by_fq(fq(2).invert()) * (Q.y.sqr() - g2::curve_b.mul_by_fq(fq(9)) * Q.z.sqr()));
+    EXPECT_EQ(work_point.y,
+              (Q.y.sqr() + g2::curve_b.mul_by_fq(fq(9)) * Q.z.sqr()).mul_by_fq(fq(2).invert()).sqr() -
+                  g2::curve_b.sqr().mul_by_fq(fq(27)) * Q.z.sqr().sqr());
+    EXPECT_EQ(work_point.z, Q.y.sqr() * Q.y * Q.z.mul_by_fq(fq(2)));
+    EXPECT_EQ(line.o, Q.y * Q.z.mul_by_fq(fq(2)));
+    EXPECT_EQ(line.w, Q.x.sqr().mul_by_fq(fq(3)));
+    EXPECT_EQ(line.vw, g2::curve_b.mul_by_fq(fq(3)) * Q.z.sqr() - Q.y.sqr());
+
+    // Check correctness by comparing against the rescaling of the affine calculation
+    fq2 gradient = Q.x.sqr().mul_by_fq(fq(3)) * (Q.z * Q.y.mul_by_fq(fq(2))).invert();
+    fq2 multiplier = Q.y * Q.z.mul_by_fq(fq(2));
+    EXPECT_EQ(line.o, multiplier);
+    EXPECT_EQ(line.w, gradient * multiplier);
+    EXPECT_EQ(line.vw, -(gradient * Q.x * Q.z.invert() - Q.y * Q.z.invert()) * multiplier);
+}
+
+TEST(pairing, AdditionStep)
+{
+    fq2 scalar_current = fq2::random_element();
+    g2::affine_element Q_affine = g2::element::random_element();
+    g2::affine_element current_affine = g2::element::random_element();
+    pairing::g2Projective Q{ Q_affine.x, Q_affine.y, fq2::one() };
+    pairing::g2Projective current{ scalar_current * current_affine.x,
+                                   scalar_current * current_affine.y,
+                                   scalar_current };
+    pairing::g2Projective work_point = current;
+    fq12::ell_coeffs line;
+
+    bb::pairing::mixed_addition_step_for_miller_loop(Q, work_point, line);
+
+    fq2 lambda = current.x - Q.x * current.z;
+    fq2 theta = current.y - Q.y * current.z;
+    fq2 E = lambda.sqr() * lambda;
+    fq2 F = current.z * theta.sqr();
+    fq2 G = current.x * lambda.sqr();
+    fq2 H = E + F - G.mul_by_fq(2);
+
+    EXPECT_EQ(work_point.x, lambda * H);
+    EXPECT_EQ(work_point.y, theta * (G - H) - current.y * E);
+    EXPECT_EQ(work_point.z, current.z * E);
+    EXPECT_EQ(line.o, lambda);
+    EXPECT_EQ(line.w, theta);
+    EXPECT_EQ(line.vw, theta * Q.x - lambda * Q.y);
+
+    // Check correctness by comparing against the rescaling of the affine calculation
+    fq2 gradient = (Q.y - current.y * current.z.invert()) * (Q.x - current.x * current.z.invert()).invert();
+    fq2 multiplier = current.x - current.z * Q.x;
+    EXPECT_EQ(line.o, multiplier);
+    EXPECT_EQ(line.w, gradient * multiplier);
+    EXPECT_EQ(line.vw, (gradient * Q.x * Q.z.invert() - Q.y * Q.z.invert()) * multiplier);
+}
+
+TEST(pairing, PairingLinearityCheck)
+{
+    g1::affine_element P = g1::affine_element::random_element();
+    g2::affine_element Q = g2::element::random_element();
+
+    fq12 result = pairing::reduced_ate_pairing(P, Q);
+    fq12 result_pow = pairing::reduced_ate_pairing(P + P, Q);
+    fq12 result_pow_2 = pairing::reduced_ate_pairing(P, Q + Q);
+
+    EXPECT_EQ(result_pow, result.sqr());
+    EXPECT_EQ(result_pow_2, result.sqr());
+}
+
+TEST(pairing, FinalExponentiation)
+{
+    auto pow = [](const fq12& a, const fq& b) {
+        const uint256_t exponent(b);
+        fq12 result = fq12::one();
+        fq12 base = a;
+        for (size_t i = 0; i < 256; ++i) {
+            if (exponent.get_bit(i)) {
+                result *= base;
+            }
+            base = base.sqr();
+        }
+        return result;
+    };
+
+    fq z = fq(Z);
+    fq z2 = z.sqr();
+    fq z3 = z * z2;
+    fq mu0 = z3 * fq(12) + z2 * fq(12) + z * fq(6) + fq(1);
+    fq mu1 = z3 * fq(12) + z2 * fq(6) + z * fq(4);
+    fq mu2 = z3 * fq(12) + z2 * fq(6) + z * fq(6);
+    fq mu3 = z3 * fq(12) + z2 * fq(6) + z * fq(4) - fq(1);
+    fq12 element = fq12::random_element();
+
+    fq12 result = pairing::final_exponentiation_easy_part(element);
+    result = pairing::final_exponentiation_tricky_part(result);
+
+    fq12 expected = pairing::final_exponentiation_easy_part(element);
+    expected = pow(expected, mu0) * pow(expected, mu1).frobenius_map_one() * pow(expected, mu2).frobenius_map_two() *
+               pow(expected, mu3).frobenius_map_three();
+
+    EXPECT_EQ(result, expected);
+}
+
+TEST(pairing, Constants)
+{
+    uint256_t six_z_plus_two = uint256_t(1);
+    for (const uint8_t& bit : pairing::loop_bits) {
+        six_z_plus_two = six_z_plus_two + six_z_plus_two;
+        if (bit == 1) {
+            six_z_plus_two = six_z_plus_two + uint256_t(1);
+        } else if (bit == 3) {
+            six_z_plus_two = six_z_plus_two - uint256_t(1);
+        }
+    }
+    EXPECT_EQ(six_z_plus_two, uint256_t(6) * Z + uint256_t(2));
+
+    uint256_t z_check = uint256_t(1);
+    for (const bool& bit : pairing::z_loop_bits) {
+        z_check = z_check + z_check;
+        if (bit) {
+            z_check = z_check + uint256_t(1);
+        }
+    }
+    EXPECT_EQ(z_check, Z);
 }

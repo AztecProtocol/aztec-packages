@@ -8,10 +8,12 @@ import {
   mean,
   median,
   partition,
+  partitionAsync,
   removeArrayPaddingEnd,
   stdDev,
   times,
   unique,
+  uniqueBy,
   variance,
 } from './array.js';
 
@@ -139,6 +141,24 @@ describe('compactArray', () => {
 describe('unique', () => {
   it('works with bigints', () => {
     expect(unique([1n, 2n, 1n])).toEqual([1n, 2n]);
+  });
+});
+
+describe('uniqueBy', () => {
+  it('keeps the first occurrence per key', () => {
+    const items = [
+      { id: 'a', n: 1 },
+      { id: 'b', n: 2 },
+      { id: 'a', n: 3 },
+    ];
+    expect(uniqueBy(items, x => x.id)).toEqual([
+      { id: 'a', n: 1 },
+      { id: 'b', n: 2 },
+    ]);
+  });
+
+  it('returns an empty array for an empty input', () => {
+    expect(uniqueBy([], x => x)).toEqual([]);
   });
 });
 
@@ -376,6 +396,43 @@ describe('partition', () => {
   it('works with objects and custom predicates', () => {
     const input = [{ a: 1 }, { a: 2 }, { a: 3 }];
     const [even, odd] = partition(input, obj => obj.a % 2 === 0);
+    expect(even).toEqual([{ a: 2 }]);
+    expect(odd).toEqual([{ a: 1 }, { a: 3 }]);
+  });
+});
+
+describe('partitionAsync', () => {
+  it('partitions an array into pass and fail arrays based on the predicate', async () => {
+    const input = [1, 2, 3, 4, 5];
+    const [even, odd] = await partitionAsync(input, x => Promise.resolve(x % 2 === 0));
+    expect(even).toEqual([2, 4]);
+    expect(odd).toEqual([1, 3, 5]);
+  });
+
+  it('returns all items in the first array if all pass the predicate', async () => {
+    const input = [2, 4, 6];
+    const [pass, fail] = await partitionAsync(input, x => Promise.resolve(x % 2 === 0));
+    expect(pass).toEqual([2, 4, 6]);
+    expect(fail).toEqual([]);
+  });
+
+  it('returns all items in the second array if none pass the predicate', async () => {
+    const input = [1, 3, 5];
+    const [pass, fail] = await partitionAsync(input, x => Promise.resolve(x % 2 === 0));
+    expect(pass).toEqual([]);
+    expect(fail).toEqual([1, 3, 5]);
+  });
+
+  it('handles an empty array', async () => {
+    const input: number[] = [];
+    const [pass, fail] = await partitionAsync(input, x => Promise.resolve(x > 0));
+    expect(pass).toEqual([]);
+    expect(fail).toEqual([]);
+  });
+
+  it('works with objects and custom predicates', async () => {
+    const input = [{ a: 1 }, { a: 2 }, { a: 3 }];
+    const [even, odd] = await partitionAsync(input, obj => Promise.resolve(obj.a % 2 === 0));
     expect(even).toEqual([{ a: 2 }]);
     expect(odd).toEqual([{ a: 1 }, { a: 3 }]);
   });

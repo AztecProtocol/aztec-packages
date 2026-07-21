@@ -9,7 +9,7 @@ import { AvmProvingTester } from './avm_proving_tester.js';
 const TIMEOUT = 300_000;
 
 describe('AVM check-circuit - contract class limits', () => {
-  const deployer = AztecAddress.fromNumber(42);
+  const deployer = AztecAddress.fromNumberUnsafe(42);
   let instances: ContractInstanceWithAddress[];
   let tester: AvmProvingTester;
   let avmTestContractAddress: AztecAddress;
@@ -34,6 +34,7 @@ describe('AVM check-circuit - contract class limits', () => {
   });
 
   afterEach(async () => {
+    await tester.close();
     await worldStateService.close();
   });
 

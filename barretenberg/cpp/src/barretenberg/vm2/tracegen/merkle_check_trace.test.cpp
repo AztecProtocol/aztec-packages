@@ -4,6 +4,7 @@
 #include <cstdint>
 #include <vector>
 
+#include "barretenberg/aztec/aztec_constants.hpp"
 #include "barretenberg/crypto/poseidon2/poseidon2.hpp"
 #include "barretenberg/vm2/common/field.hpp"
 #include "barretenberg/vm2/constraining/flavor_settings.hpp"
@@ -36,7 +37,7 @@ TEST(MerkleCheckTraceGenTest, MerkleRead)
     // Compute hash for level 1
     FF left_node_1 = sibling_value_1; // For odd index, sibling is left
     FF right_node_1 = leaf_value;     // For odd index, leaf is right
-    FF output_hash_1 = Poseidon2::hash({ left_node_1, right_node_1 });
+    FF output_hash_1 = Poseidon2::hash({ FF(DOM_SEP__MERKLE_HASH), left_node_1, right_node_1 });
 
     // Level 2 sibling
     FF sibling_value_2 = FF(789);
@@ -44,14 +45,16 @@ TEST(MerkleCheckTraceGenTest, MerkleRead)
     // Compute hash for level 2
     FF left_node_2 = output_hash_1; // For odd index 1 in level 1, parent is at index 0 (even) in level 2
     FF right_node_2 = sibling_value_2;
-    FF output_hash_2 = Poseidon2::hash({ left_node_2, right_node_2 });
+    FF output_hash_2 = Poseidon2::hash({ FF(DOM_SEP__MERKLE_HASH), left_node_2, right_node_2 });
 
     std::vector<FF> sibling_path = { sibling_value_1, sibling_value_2 };
     FF root = output_hash_2; // Root is the final output hash
 
-    MerkleCheckEvent event = {
-        .leaf_value = leaf_value, .leaf_index = leaf_index, .sibling_path = sibling_path, .root = root
-    };
+    MerkleCheckEvent event = { .merkle_hash_domain_separator = DOM_SEP__MERKLE_HASH,
+                               .leaf_value = leaf_value,
+                               .leaf_index = leaf_index,
+                               .sibling_path = sibling_path,
+                               .root = root };
 
     builder.process({ event }, trace);
 
@@ -105,22 +108,23 @@ TEST(MerkleCheckTraceGenTest, MerkleWrite)
 
     // Compute hash for level 1
     // For odd index, sibling is left, leaf is right
-    FF read_output_hash_1 = Poseidon2::hash({ sibling_value_1, leaf_value });
-    FF write_output_hash_1 = Poseidon2::hash({ sibling_value_1, new_leaf_value });
+    FF read_output_hash_1 = Poseidon2::hash({ FF(DOM_SEP__MERKLE_HASH), sibling_value_1, leaf_value });
+    FF write_output_hash_1 = Poseidon2::hash({ FF(DOM_SEP__MERKLE_HASH), sibling_value_1, new_leaf_value });
 
     // Level 2 sibling
     FF sibling_value_2 = FF(789);
 
     // Compute hash for level 2
     // For odd index 1 in level 1, parent is at index 0 (even) in level 2
-    FF read_output_hash_2 = Poseidon2::hash({ read_output_hash_1, sibling_value_2 });
-    FF write_output_hash_2 = Poseidon2::hash({ write_output_hash_1, sibling_value_2 });
+    FF read_output_hash_2 = Poseidon2::hash({ FF(DOM_SEP__MERKLE_HASH), read_output_hash_1, sibling_value_2 });
+    FF write_output_hash_2 = Poseidon2::hash({ FF(DOM_SEP__MERKLE_HASH), write_output_hash_1, sibling_value_2 });
 
     std::vector<FF> sibling_path = { sibling_value_1, sibling_value_2 };
     FF read_root = read_output_hash_2;
     FF write_root = write_output_hash_2;
 
-    MerkleCheckEvent event = { .leaf_value = leaf_value,
+    MerkleCheckEvent event = { .merkle_hash_domain_separator = DOM_SEP__MERKLE_HASH,
+                               .leaf_value = leaf_value,
                                .new_leaf_value = new_leaf_value,
                                .leaf_index = leaf_index,
                                .sibling_path = sibling_path,
@@ -189,13 +193,14 @@ TEST(MerkleCheckTraceGenTest, MixedEvents)
     FF sibling_1_level_2 = FF(444);
 
     // Level 0: index 6 (even), so leaf is left, sibling is right
-    FF hash_1_level_0 = Poseidon2::hash({ leaf_value_1, sibling_1_level_0 });
+    FF hash_1_level_0 = Poseidon2::hash({ FF(DOM_SEP__MERKLE_HASH), leaf_value_1, sibling_1_level_0 });
     // Level 1: index 3 (odd), so hash is right, sibling is left
-    FF hash_1_level_1 = Poseidon2::hash({ sibling_1_level_1, hash_1_level_0 });
+    FF hash_1_level_1 = Poseidon2::hash({ FF(DOM_SEP__MERKLE_HASH), sibling_1_level_1, hash_1_level_0 });
     // Level 2: index 1 (odd), so hash is right, sibling is left
-    FF root_1 = Poseidon2::hash({ sibling_1_level_2, hash_1_level_1 });
+    FF root_1 = Poseidon2::hash({ FF(DOM_SEP__MERKLE_HASH), sibling_1_level_2, hash_1_level_1 });
 
-    MerkleCheckEvent event1 = { .leaf_value = leaf_value_1,
+    MerkleCheckEvent event1 = { .merkle_hash_domain_separator = DOM_SEP__MERKLE_HASH,
+                                .leaf_value = leaf_value_1,
                                 .leaf_index = leaf_index_1,
                                 .sibling_path = { sibling_1_level_0, sibling_1_level_1, sibling_1_level_2 },
                                 .root = root_1 };
@@ -212,21 +217,22 @@ TEST(MerkleCheckTraceGenTest, MixedEvents)
 
     // Read path
     // Level 0: index 11 (odd), so sibling is left, leaf is right
-    FF read_hash_2_level_0 = Poseidon2::hash({ sibling_2_level_0, leaf_value_2 });
+    FF read_hash_2_level_0 = Poseidon2::hash({ FF(DOM_SEP__MERKLE_HASH), sibling_2_level_0, leaf_value_2 });
     // Level 1: index 5 (odd), so sibling is left, hash is right
-    FF read_hash_2_level_1 = Poseidon2::hash({ sibling_2_level_1, read_hash_2_level_0 });
+    FF read_hash_2_level_1 = Poseidon2::hash({ FF(DOM_SEP__MERKLE_HASH), sibling_2_level_1, read_hash_2_level_0 });
     // Level 2: index 2 (even), so hash is left, sibling is right
-    FF read_hash_2_level_2 = Poseidon2::hash({ read_hash_2_level_1, sibling_2_level_2 });
+    FF read_hash_2_level_2 = Poseidon2::hash({ FF(DOM_SEP__MERKLE_HASH), read_hash_2_level_1, sibling_2_level_2 });
     // Level 3: index 1 (odd), so sibling is left, hash is right
-    FF read_root_2 = Poseidon2::hash({ sibling_2_level_3, read_hash_2_level_2 });
+    FF read_root_2 = Poseidon2::hash({ FF(DOM_SEP__MERKLE_HASH), sibling_2_level_3, read_hash_2_level_2 });
 
     // Write path
-    FF write_hash_2_level_0 = Poseidon2::hash({ sibling_2_level_0, new_leaf_value_2 });
-    FF write_hash_2_level_1 = Poseidon2::hash({ sibling_2_level_1, write_hash_2_level_0 });
-    FF write_hash_2_level_2 = Poseidon2::hash({ write_hash_2_level_1, sibling_2_level_2 });
-    FF write_root_2 = Poseidon2::hash({ sibling_2_level_3, write_hash_2_level_2 });
+    FF write_hash_2_level_0 = Poseidon2::hash({ FF(DOM_SEP__MERKLE_HASH), sibling_2_level_0, new_leaf_value_2 });
+    FF write_hash_2_level_1 = Poseidon2::hash({ FF(DOM_SEP__MERKLE_HASH), sibling_2_level_1, write_hash_2_level_0 });
+    FF write_hash_2_level_2 = Poseidon2::hash({ FF(DOM_SEP__MERKLE_HASH), write_hash_2_level_1, sibling_2_level_2 });
+    FF write_root_2 = Poseidon2::hash({ FF(DOM_SEP__MERKLE_HASH), sibling_2_level_3, write_hash_2_level_2 });
 
     MerkleCheckEvent event2 = {
+        .merkle_hash_domain_separator = DOM_SEP__MERKLE_HASH,
         .leaf_value = leaf_value_2,
         .new_leaf_value = new_leaf_value_2,
         .leaf_index = leaf_index_2,

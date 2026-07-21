@@ -1,0 +1,131 @@
+#!/usr/bin/env bash
+# Regression test for the layout rule: every subdir that owns its own .claude/
+# must symlink agents/ to the repository root's .claude/agents/. Without the
+# symlink, Claude Code's upward-walk stops at the subdir .claude/ and silently
+# shadows every root agent.
+#
+# Only agents/ is checked — not skills/. Skills are intentionally per-subdir
+# (the root has repo-wide workflow skills, yarn-project has TS-specific ones,
+# etc.), and letting a subdir shadow root skills/ is the designed behavior.
+# Agents, by contrast, are universal and need to be visible from every cwd.
+#
+# Runs from any cwd.
+
+set -uo pipefail
+
+ROOT=$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd -P)
+
+RED=$'\033[0;31m'
+GREEN=$'\033[0;32m'
+NC=$'\033[0m'
+
+FAIL=0
+CHECKED=0
+
+fail() { echo "${RED}✗${NC} $1"; ((FAIL++)) || true; }
+pass() { echo "${GREEN}✓${NC} $1"; ((CHECKED++)) || true; }
+
+ROOT_AGENTS="$ROOT/.claude/agents"
+[[ -d "$ROOT_AGENTS" ]] || { fail "root .claude/agents missing at $ROOT_AGENTS"; exit 1; }
+
+ROOT_AGENTS_MD="$ROOT/AGENTS.md"
+if [[ ! -L "$ROOT_AGENTS_MD" ]]; then
+  fail "AGENTS.md is not a symlink to CLAUDE.md"
+elif [[ "$(readlink "$ROOT_AGENTS_MD")" != "CLAUDE.md" ]]; then
+  fail "AGENTS.md points at $(readlink "$ROOT_AGENTS_MD"), expected CLAUDE.md"
+else
+  pass "AGENTS.md -> CLAUDE.md"
+fi
+
+# Every subdir .claude/ (excluding the root one) must expose an agents entry
+# that resolves to the same inode as the root agents/ directory.
+while IFS= read -r dir; do
+  [[ "$dir" == "$ROOT/.claude" ]] && continue
+  case "$dir" in
+    "$ROOT"/node_modules/*|*"/node_modules/"*) continue;;
+    "$ROOT"/noir/noir-repo/*) continue;;
+  esac
+  agents="$dir/agents"
+  if [[ ! -e "$agents" ]]; then
+    # Build the relative target (e.g. ../../.claude/agents) with POSIX tools
+    # so the hint is correct on macOS + Linux alike.
+    rel_root=${dir#$ROOT/}
+    depth=$(awk -F/ '{print NF}' <<<"$rel_root")
+    up=$(printf '../%.0s' $(seq 1 "$depth"))
+    fail "${dir#$ROOT/} has no agents/ — add symlink: (cd ${dir#$ROOT/} && ln -s ${up}.claude/agents agents)"
+    continue
+  fi
+  if [[ ! -L "$agents" ]]; then
+    fail "${dir#$ROOT/}/agents is not a symlink (must point at root .claude/agents/)"
+    continue
+  fi
+  # Resolve the symlink target and confirm it matches root agents.
+  resolved=$(cd "$(dirname "$agents")" && cd "$(readlink "$agents")" 2>/dev/null && pwd -P) || resolved=""
+  if [[ "$resolved" != "$ROOT_AGENTS" ]]; then
+    fail "${dir#$ROOT/}/agents resolves to $resolved, expected $ROOT_AGENTS"
+    continue
+  fi
+  pass "${dir#$ROOT/}/agents"
+done < <(find "$ROOT" -type d -name .claude -not -path "$ROOT/noir/*" -not -path "$ROOT/**/node_modules/*")
+
+echo
+if (( FAIL == 0 )); then
+  echo "${GREEN}All $CHECKED subdir .claude/ directories expose agents/ correctly.${NC}"
+else
+  echo "${RED}$FAIL subdir .claude/ directories are missing or have broken agents symlinks.${NC}"
+  exit 1
+fi
+
+while IFS= read -r dir; do
+  case "$dir" in
+    "$ROOT"/node_modules/*|*"/node_modules/"*) continue;;
+    "$ROOT"/noir/noir-repo/*) continue;;
+  esac
+  codex="$(dirname "$dir")/.codex"
+  rel=${codex#$ROOT/}
+  # A .codex may either be a symlink to its sibling .claude (the repo root keeps this form), or a
+  # real directory whose immediate children symlink into .claude (the per-package form, required
+  # because a sandbox cannot bind-mount a path that is itself a symlink). Either way Codex must see
+  # exactly the same contents as .claude.
+  if [[ -L "$codex" ]]; then
+    resolved=$(cd "$(dirname "$codex")" && cd "$(readlink "$codex")" 2>/dev/null && pwd -P) || resolved=""
+    claude_resolved=$(cd "$dir" && pwd -P)
+    if [[ "$resolved" != "$claude_resolved" ]]; then
+      fail "$rel is a symlink to ${resolved:-?}, expected its sibling .claude ($claude_resolved)"
+    else
+      pass "$rel -> .claude"
+    fi
+    continue
+  fi
+  if [[ ! -d "$codex" ]]; then
+    fail "$rel is missing (expected a directory mirroring .claude via child symlinks)"
+    continue
+  fi
+  codex_ok=1
+  # Forward: every entry in .claude must have a matching symlink in .codex.
+  while IFS= read -r child; do
+    name=$(basename "$child")
+    if [[ ! -L "$codex/$name" || ! "$codex/$name" -ef "$child" ]]; then
+      fail "$rel/$name should be a symlink to ../.claude/$name"
+      codex_ok=0
+    fi
+  done < <(find "$dir" -mindepth 1 -maxdepth 1)
+  # Reverse: every entry in .codex must correspond to a .claude entry (no stale or dangling links).
+  while IFS= read -r entry; do
+    name=$(basename "$entry")
+    if [[ ! -e "$dir/$name" && ! -L "$dir/$name" ]]; then
+      fail "$rel/$name is stale; no matching .claude/$name"
+      codex_ok=0
+    fi
+  done < <(find "$codex" -mindepth 1 -maxdepth 1)
+  (( codex_ok )) && pass "$rel"
+done < <(find "$ROOT" -type d -name .claude -not -path "$ROOT/noir/*" -not -path "$ROOT/**/node_modules/*")
+
+echo
+if (( FAIL == 0 )); then
+  echo "${GREEN}All checked .codex symlinks point at their sibling .claude directories.${NC}"
+  exit 0
+else
+  echo "${RED}$FAIL .claude/.codex layout checks failed.${NC}"
+  exit 1
+fi

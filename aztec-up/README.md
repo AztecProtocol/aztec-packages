@@ -9,20 +9,25 @@ That is all.
 This will install into `~/.aztec/bin` a collection of scripts to help with running aztec containers, and will update
 the user's `PATH` variable in their shell startup script so they can be found.
 
-- `aztec` - a collection of tools to compile and test contracts, to launch subsystems and interact with the aztec network."
-- `aztec-up` - a tool to upgrade the aztec toolchain to the latest, or specific versions."
-- `aztec-wallet` - our minimalistic CLI wallet"
+- `aztec` - compiles and tests contracts, launches infrastructure subsystems, interacts with the network.
+- `aztec-up` - a version manager for the Aztec toolchain.
+- `aztec-wallet` - a tool for interacting with the Aztec network.
+- `aztec-bb` - the Barretenberg proving backend.
+- `aztec-nargo` - the Noir compiler and simulator.
+- `aztec-forge`, `aztec-cast`, `aztec-anvil`, `aztec-chisel` - the bundled Foundry tools.
 
-After installed, you can use `aztec-up` to upgrade or install specific versions.
+Foundry, Noir, and Barretenberg are bundled at the versions `aztec` needs. Your own `forge` / `nargo` / `bb` installs still work under their bare names.
+
+After installed, you can use `aztec-up` to install specific versions.
 
 ```
-VERSION=nightly aztec-up
+aztec-up install nightly
 ```
 
 This will install the nightly build.
 
 ```
-VERSION=1.2.3 aztec-up
+aztec-up install 1.2.3
 ```
 
 This will install the tagged release version 1.2.3.

@@ -1,25 +1,34 @@
-import type { SlotNumber } from '@aztec/foundation/branded-types';
+import type { CheckpointProposalHash, SlotNumber } from '@aztec/foundation/branded-types';
 import type {
   AuthRequest,
   ENR,
   P2P,
   P2PBlockReceivedCallback,
+  P2PCheckpointAttestationCallback,
   P2PCheckpointReceivedCallback,
   P2PConfig,
+  P2PDuplicateAttestationCallback,
+  P2PDuplicateProposalCallback,
+  P2POversizedProposalCallback,
   P2PSyncState,
   PeerId,
   ReqRespSubProtocol,
   ReqRespSubProtocolHandler,
-  ReqRespSubProtocolValidators,
   StatusMessage,
 } from '@aztec/p2p';
 import type { EthAddress, L2BlockStreamEvent, L2Tips } from '@aztec/stdlib/block';
-import type { PeerInfo } from '@aztec/stdlib/interfaces/server';
-import type { BlockProposal, CheckpointAttestation, CheckpointProposal } from '@aztec/stdlib/p2p';
-import type { Tx, TxHash } from '@aztec/stdlib/tx';
+import type { ITxProvider, PeerInfo } from '@aztec/stdlib/interfaces/server';
+import type {
+  BlockProposal,
+  CheckpointAttestation,
+  CheckpointProposal,
+  CheckpointProposalCore,
+  TopicType,
+} from '@aztec/stdlib/p2p';
+import type { BlockHeader, Tx, TxHash } from '@aztec/stdlib/tx';
 
 export class DummyP2P implements P2P {
-  public validate(_txs: Tx[]): Promise<void> {
+  public validateTxsReceivedInBlockProposal(_txs: Tx[]): Promise<void> {
     return Promise.resolve();
   }
 
@@ -39,6 +48,10 @@ export class DummyP2P implements P2P {
     throw new Error('DummyP2P does not implement "getPeers"');
   }
 
+  public getGossipMeshPeerCount(_topicType: TopicType): Promise<number> {
+    return Promise.resolve(0);
+  }
+
   public broadcastProposal(_proposal: BlockProposal): Promise<void> {
     throw new Error('DummyP2P does not implement "broadcastProposal"');
   }
@@ -55,8 +68,12 @@ export class DummyP2P implements P2P {
     throw new Error('DummyP2P does not implement "registerBlockProposalHandler"');
   }
 
-  public registerCheckpointProposalHandler(_handler: P2PCheckpointReceivedCallback): void {
-    throw new Error('DummyP2P does not implement "registerCheckpointProposalHandler"');
+  public registerValidatorCheckpointProposalHandler(_handler: P2PCheckpointReceivedCallback): void {
+    throw new Error('DummyP2P does not implement "registerValidatorCheckpointProposalHandler"');
+  }
+
+  public registerAllNodesCheckpointProposalHandler(_handler: P2PCheckpointReceivedCallback): void {
+    throw new Error('DummyP2P does not implement "registerAllNodesCheckpointProposalHandler"');
   }
 
   public requestTxs(_txHashes: TxHash[]): Promise<(Tx | undefined)[]> {
@@ -71,8 +88,8 @@ export class DummyP2P implements P2P {
     throw new Error('DummyP2P does not implement "sendTx"');
   }
 
-  public deleteTxs(_txHashes: TxHash[]): Promise<void> {
-    throw new Error('DummyP2P does not implement "deleteTxs"');
+  public handleFailedExecution(_txHashes: TxHash[]): Promise<void> {
+    throw new Error('DummyP2P does not implement "handleFailedExecution"');
   }
 
   public getTxByHashFromPool(_txHash: TxHash): Promise<Tx | undefined> {
@@ -97,8 +114,16 @@ export class DummyP2P implements P2P {
     throw new Error('DummyP2P does not implement "iteratePendingTxs"');
   }
 
+  public iterateEligiblePendingTxs(): AsyncIterableIterator<Tx> {
+    throw new Error('DummyP2P does not implement "iterateEligiblePendingTxs"');
+  }
+
   public getPendingTxCount(): Promise<number> {
     throw new Error('DummyP2P does not implement "getPendingTxCount"');
+  }
+
+  public hasEligiblePendingTxs(_minCount: number): Promise<boolean> {
+    throw new Error('DummyP2P does not implement "hasEligiblePendingTxs"');
   }
 
   public start(): Promise<void> {
@@ -125,16 +150,34 @@ export class DummyP2P implements P2P {
     throw new Error('DummyP2P does not implement "isP2PClient"');
   }
 
+  public getTxProvider(): ITxProvider {
+    throw new Error('DummyP2P does not implement "getTxProvider"');
+  }
+
   public getTxsByHash(_txHashes: TxHash[]): Promise<Tx[]> {
     throw new Error('DummyP2P does not implement "getTxsByHash"');
   }
 
-  public getCheckpointAttestationsForSlot(_slot: SlotNumber, _proposalId?: string): Promise<CheckpointAttestation[]> {
+  public getCheckpointAttestationsForSlot(
+    _slot: SlotNumber,
+    _proposalPayloadHash?: CheckpointProposalHash,
+  ): Promise<CheckpointAttestation[]> {
     throw new Error('DummyP2P does not implement "getCheckpointAttestationsForSlot"');
   }
 
-  public addCheckpointAttestations(_attestations: CheckpointAttestation[]): Promise<void> {
-    throw new Error('DummyP2P does not implement "addCheckpointAttestations"');
+  public addOwnCheckpointAttestations(_attestations: CheckpointAttestation[]): Promise<void> {
+    throw new Error('DummyP2P does not implement "addOwnCheckpointAttestations"');
+  }
+
+  public getProposalsForSlot(_slot: SlotNumber): Promise<{
+    blockProposals: BlockProposal[];
+    checkpointProposals: CheckpointProposalCore[];
+  }> {
+    return Promise.resolve({ blockProposals: [], checkpointProposals: [] });
+  }
+
+  public hasCheckpointProposalForSlot(_slot: SlotNumber): Promise<boolean> {
+    return Promise.resolve(false);
   }
 
   public getL2BlockHash(_number: number): Promise<string | undefined> {
@@ -157,24 +200,12 @@ export class DummyP2P implements P2P {
     throw new Error('DummyP2P does not implement "sync"');
   }
 
-  public requestTxsByHash(_txHashes: TxHash[]): Promise<Tx[]> {
-    throw new Error('DummyP2P does not implement "requestTxsByHash"');
-  }
-
-  public getTxs(_filter: 'all' | 'pending' | 'mined'): Promise<Tx[]> {
-    throw new Error('DummyP2P does not implement "getTxs"');
-  }
-
   public getTxsByHashFromPool(_txHashes: TxHash[]): Promise<(Tx | undefined)[]> {
     throw new Error('DummyP2P does not implement "getTxsByHashFromPool"');
   }
 
   public hasTxsInPool(_txHashes: TxHash[]): Promise<boolean[]> {
     throw new Error('DummyP2P does not implement "hasTxsInPool"');
-  }
-
-  public addTxsToPool(_txs: Tx[]): Promise<number> {
-    throw new Error('DummyP2P does not implement "addTxs"');
   }
 
   public getSyncedLatestBlockNum(): Promise<number> {
@@ -189,15 +220,15 @@ export class DummyP2P implements P2P {
     throw new Error('DummyP2P does not implement "getSyncedLatestSlot"');
   }
 
-  markTxsAsNonEvictable(_: TxHash[]): Promise<void> {
-    throw new Error('DummyP2P does not implement "markTxsAsNonEvictable".');
+  protectTxs(_txHashes: TxHash[], _blockHeader: BlockHeader): Promise<TxHash[]> {
+    throw new Error('DummyP2P does not implement "protectTxs".');
   }
 
-  addReqRespSubProtocol(
-    _subProtocol: ReqRespSubProtocol,
-    _handler: ReqRespSubProtocolHandler,
-    _validator?: ReqRespSubProtocolValidators[ReqRespSubProtocol],
-  ): Promise<void> {
+  prepareForSlot(_slotNumber: SlotNumber): Promise<void> {
+    return Promise.resolve();
+  }
+
+  addReqRespSubProtocol(_subProtocol: ReqRespSubProtocol, _handler: ReqRespSubProtocolHandler): Promise<void> {
     throw new Error('DummyP2P does not implement "addReqRespSubProtocol".');
   }
   handleAuthRequestFromPeer(_authRequest: AuthRequest, _peerId: PeerId): Promise<StatusMessage> {
@@ -206,4 +237,24 @@ export class DummyP2P implements P2P {
 
   //This is no-op
   public registerThisValidatorAddresses(_address: EthAddress[]): void {}
+
+  public registerDuplicateProposalCallback(_callback: P2PDuplicateProposalCallback): void {
+    throw new Error('DummyP2P does not implement "registerDuplicateProposalCallback"');
+  }
+
+  public registerOversizedProposalCallback(_callback: P2POversizedProposalCallback): void {
+    throw new Error('DummyP2P does not implement "registerOversizedProposalCallback"');
+  }
+
+  public registerDuplicateAttestationCallback(_callback: P2PDuplicateAttestationCallback): void {
+    throw new Error('DummyP2P does not implement "registerDuplicateAttestationCallback"');
+  }
+
+  public registerCheckpointAttestationCallback(_callback: P2PCheckpointAttestationCallback): void {
+    throw new Error('DummyP2P does not implement "registerCheckpointAttestationCallback"');
+  }
+
+  public hasBlockProposalsForSlot(_slot: SlotNumber): Promise<boolean> {
+    throw new Error('DummyP2P does not implement "hasBlockProposalsForSlot"');
+  }
 }

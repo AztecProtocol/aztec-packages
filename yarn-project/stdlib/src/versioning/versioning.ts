@@ -26,7 +26,7 @@ export function getComponentsVersionsFromConfig(
 ): ComponentsVersions {
   return {
     l1ChainId: config.l1ChainId,
-    l1RollupAddress: config.l1Contracts?.rollupAddress, // This should not be undefined, but sometimes the config lies to us and it is...
+    l1RollupAddress: config.rollupAddress,
     rollupVersion: config.rollupVersion,
     l2ProtocolContractsHash: l2ProtocolContractsHash.toString(),
     l2CircuitsVkTreeRoot: l2CircuitsVkTreeRoot.toString(),
@@ -115,7 +115,7 @@ export function validatePartialComponentVersionsMatch(
 }
 
 /** Returns a Koa middleware that injects the versioning info as headers. */
-export function getVersioningMiddleware(versions: Partial<ComponentsVersions>) {
+export function getVersioningMiddleware(versions: Partial<ComponentsVersions>, opts?: { packageVersion?: string }) {
   return async (ctx: Koa.Context, next: () => Promise<void>) => {
     try {
       await next();
@@ -127,6 +127,9 @@ export function getVersioningMiddleware(versions: Partial<ComponentsVersions>) {
         if (value !== undefined) {
           ctx.set(`x-aztec-${key}`, value.toString());
         }
+      }
+      if (opts?.packageVersion) {
+        ctx.set('x-aztec-packageVersion', opts.packageVersion);
       }
     }
   };

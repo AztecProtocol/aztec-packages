@@ -17,10 +17,3 @@ export interface PrivateKernelSimulateOutput<
   verificationKey: VerificationKeyData;
   bytecode: Buffer;
 }
-
-/**
- * Represents the output of the circuit simulation process for init and inner private kernel circuit.
- */
-export type AppCircuitSimulateOutput = {
-  verificationKey: VerificationKeyData;
-};

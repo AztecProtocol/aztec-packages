@@ -42,7 +42,9 @@ pub(crate) comptime fn generate_private_internal(f: FunctionDefinition) -> Quote
                 let call_self_static: CallSelfStatic<&mut aztec::context::PrivateContext> = CallSelfStatic { address: self_address, context };
                 let enqueue_self_static: EnqueueSelfStatic<&mut aztec::context::PrivateContext> = EnqueueSelfStatic { address: self_address, context };
                 let internal: CallInternal<&mut aztec::context::PrivateContext> = CallInternal { context };
-                aztec::ContractSelf::new_private(context, storage, call_self, enqueue_self, call_self_static, enqueue_self_static, internal)
+                let call_self_utility = CallSelfUtility { address: self_address };
+                let utility: aztec::contract_self::PrivateUtilityCalls<CallSelfUtility> = aztec::contract_self::PrivateUtilityCalls { call_self: call_self_utility };
+                aztec::contract_self::ContractSelfPrivate::new(context, storage, call_self, enqueue_self, call_self_static, enqueue_self_static, internal, utility)
             };
             
             $body
@@ -66,16 +68,6 @@ pub(crate) comptime fn generate_public_internal(f: FunctionDefinition) -> Quoted
         $original_params
     };
 
-    let storage_init = if module_has_storage(f.module()) {
-        quote {
-            let storage = Storage::init(context);
-        }
-    } else {
-        quote {
-            let storage = ();
-        }
-    };
-
     let body = f.body();
 
     // Internal public functions are marked as unconstrained because they are inlined within external public functions,
@@ -86,14 +78,7 @@ pub(crate) comptime fn generate_public_internal(f: FunctionDefinition) -> Quoted
         #[contract_library_method]
         unconstrained fn $fn_name($params) -> $return_type {
             #[allow(unused_variables)]
-            let mut self = {
-                $storage_init
-                let self_address = context.this_address();
-                let call_self: CallSelf<aztec::context::PublicContext> = CallSelf { address: self_address, context };
-                let call_self_static: CallSelfStatic<aztec::context::PublicContext> = CallSelfStatic { address: self_address, context };
-                let internal: CallInternal<aztec::context::PublicContext> = CallInternal { context };
-                aztec::ContractSelf::new_public(context, storage, call_self, call_self_static, internal)
-            };
+            let mut self = __aztec_nr_internals__create_public_self_from_context(context);
 
             $body
         }

@@ -3,7 +3,6 @@
 
 #include <string_view>
 
-#include "barretenberg/common/bb_bench.hpp"
 #include "barretenberg/relations/relation_parameters.hpp"
 #include "barretenberg/relations/relation_types.hpp"
 #include "barretenberg/vm2/generated/columns.hpp"
@@ -14,7 +13,7 @@ template <typename FF_> class emit_nullifierImpl {
   public:
     using FF = FF_;
 
-    static constexpr std::array<size_t, 7> SUBRELATION_PARTIAL_LENGTHS = { 3, 5, 4, 4, 4, 4, 4 };
+    static constexpr std::array<size_t, 11> SUBRELATION_PARTIAL_LENGTHS = { 3, 5, 4, 4, 3, 3, 3, 3, 4, 4, 4 };
 
     template <typename AllEntities> inline static bool skip(const AllEntities& in)
     {
@@ -38,12 +37,13 @@ template <typename FF> class emit_nullifier : public Relation<emit_nullifierImpl
     static constexpr size_t SR_MAX_NULLIFIER_WRITES_REACHED = 1;
     static constexpr size_t SR_VALIDATION_ERROR_DISABLE_WRITE = 2;
     static constexpr size_t SR_OPCODE_ERROR_IF_VALIDATION_ERROR = 3;
-    static constexpr size_t SR_EMIT_NULLIFIER_TREE_ROOT_NOT_CHANGED = 4;
-    static constexpr size_t SR_EMIT_NULLIFIER_TREE_SIZE_INCREASE = 5;
-    static constexpr size_t SR_EMIT_NULLIFIER_NUM_NULLIFIERS_EMITTED_INCREASE = 6;
+    static constexpr size_t SR_EMIT_NULLIFIER_TREE_ROOT_NOT_CHANGED = 8;
+    static constexpr size_t SR_EMIT_NULLIFIER_TREE_SIZE_INCREASE = 9;
+    static constexpr size_t SR_EMIT_NULLIFIER_NUM_NULLIFIERS_EMITTED_INCREASE = 10;
 
     static std::string get_subrelation_label(size_t index)
     {
+#ifdef AVM_INCLUDE_COLUMN_INFORMATION
         switch (index) {
         case SR_MAX_NULLIFIER_WRITES_REACHED:
             return "MAX_NULLIFIER_WRITES_REACHED";
@@ -58,6 +58,7 @@ template <typename FF> class emit_nullifier : public Relation<emit_nullifierImpl
         case SR_EMIT_NULLIFIER_NUM_NULLIFIERS_EMITTED_INCREASE:
             return "EMIT_NULLIFIER_NUM_NULLIFIERS_EMITTED_INCREASE";
         }
+#endif
         return std::to_string(index);
     }
 };

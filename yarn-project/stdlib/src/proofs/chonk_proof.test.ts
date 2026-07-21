@@ -1,5 +1,6 @@
 import { CHONK_PROOF_LENGTH } from '@aztec/constants';
 import { Fr } from '@aztec/foundation/curves/bn254';
+import { numToUInt32BE } from '@aztec/foundation/serialize';
 
 import { ChonkProof, ChonkProofWithPublicInputs } from './chonk_proof.js';
 
@@ -9,9 +10,20 @@ describe('ChonkProof', () => {
     expect(() => new ChonkProof(fields)).toThrow(`Invalid ChonkProof length: ${CHONK_PROOF_LENGTH + 1}`);
   });
 
+  it('empty proof holds an empty fields array', () => {
+    const proof = ChonkProof.empty();
+    expect(proof.fields).toEqual([]);
+  });
+
   it('isEmpty should return true for empty proof', () => {
     const proof = ChonkProof.empty();
     expect(proof.isEmpty()).toBe(true);
+  });
+
+  it('serializes empty proof as a single zero length', () => {
+    const buffer = ChonkProof.empty().toBuffer();
+    expect(buffer).toEqual(numToUInt32BE(0));
+    expect(buffer.length).toBe(4);
   });
 
   it('should serialize and deserialize empty proof', () => {
@@ -42,6 +54,49 @@ describe('ChonkProof', () => {
     expect(withPublicInputs.fieldsWithPublicInputs[0]).toEqual(publicInput);
     expect(withPublicInputs.fieldsWithPublicInputs.slice(1)).toEqual(proof.fields);
   });
+
+  describe('compressed serialization format', () => {
+    const fakeCompressedBytes = Buffer.from([0xde, 0xad, 0xbe, 0xef, 0x01, 0x02, 0x03]);
+
+    it('serializes in compressed format when compressedProof is set', () => {
+      const proof = ChonkProof.random();
+      proof.compressedProof = fakeCompressedBytes;
+
+      const buf = proof.toBuffer();
+      // First uint32 should be the compressed byte count (not CHONK_PROOF_LENGTH)
+      expect(buf.readUInt32BE(0)).toBe(fakeCompressedBytes.length);
+      // Then the compressed bytes themselves
+      expect(buf.subarray(4)).toEqual(fakeCompressedBytes);
+    });
+
+    it('serializes in uncompressed format when compressedProof is undefined', () => {
+      const proof = ChonkProof.random();
+      expect(proof.compressedProof).toBeUndefined();
+
+      const buf = proof.toBuffer();
+      expect(buf.readUInt32BE(0)).toBe(CHONK_PROOF_LENGTH);
+    });
+
+    it('stripping compressedProof switches to uncompressed format', () => {
+      const proof = ChonkProof.random();
+      proof.compressedProof = fakeCompressedBytes;
+
+      proof.compressedProof = undefined;
+      const buf = proof.toBuffer();
+      expect(buf.readUInt32BE(0)).toBe(CHONK_PROOF_LENGTH);
+    });
+
+    it('detects compressed format by size (first uint32 != CHONK_PROOF_LENGTH)', () => {
+      // Construct a buffer with compressed format: [byte_count: uint32] [compressed_bytes]
+      const compressedPayload = Buffer.from([0x01, 0x02, 0x03]);
+      const buf = Buffer.concat([numToUInt32BE(compressedPayload.length), compressedPayload]);
+
+      // fromBuffer should detect this as compressed format (first uint32 != 1632)
+      // and attempt decompression. Since we're using fake bytes, BarretenbergSync
+      // will throw, but the format detection itself works.
+      expect(() => ChonkProof.fromBuffer(buf)).toThrow();
+    });
+  });
 });
 
 describe('ChonkProofWithPublicInputs', () => {
@@ -55,6 +110,15 @@ describe('ChonkProofWithPublicInputs', () => {
   it('isEmpty should return true for empty proof', () => {
     const proof = ChonkProofWithPublicInputs.empty();
     expect(proof.isEmpty()).toBe(true);
+  });
+
+  it('empty proof round-trips with an empty fields array', () => {
+    const original = ChonkProofWithPublicInputs.empty();
+    expect(original.fieldsWithPublicInputs).toEqual([]);
+
+    const deserialized = ChonkProofWithPublicInputs.fromBuffer(original.toBuffer());
+    expect(deserialized.fieldsWithPublicInputs).toEqual([]);
+    expect(deserialized.isEmpty()).toBe(true);
   });
 
   it('should serialize and deserialize proof with public inputs', () => {

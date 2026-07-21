@@ -1,14 +1,14 @@
-import { MAX_INCLUDE_BY_TIMESTAMP_DURATION } from '@aztec/constants';
-import { TxScopedL2Log } from '@aztec/stdlib/logs';
-import { randomTxScopedPrivateL2Log } from '@aztec/stdlib/testing';
+import { MAX_TX_LIFETIME } from '@aztec/constants';
+import { BlockNumber } from '@aztec/foundation/branded-types';
+import { type LogResult, randomLogResult } from '@aztec/stdlib/logs';
 
 import { findHighestIndexes } from './find_highest_indexes.js';
 
 describe('findHighestIndexes', () => {
   const currentTimestamp = BigInt(Math.floor(Date.now() / 1000));
 
-  function makeLog(blockNumber: number, blockTimestamp: bigint): TxScopedL2Log {
-    return randomTxScopedPrivateL2Log({ blockNumber, blockTimestamp });
+  function makeLog(blockNumber: number, blockTimestamp: bigint): LogResult {
+    return { ...randomLogResult(/* includeEffects */ true), blockNumber: BlockNumber(blockNumber), blockTimestamp };
   }
 
   it('returns undefined for highestAgedIndex when no logs are at least 24 hours old', () => {
@@ -24,7 +24,7 @@ describe('findHighestIndexes', () => {
 
   it('returns undefined for highestFinalizedIndex when no logs are in finalized blocks', () => {
     const finalizedBlockNumber = 5;
-    const blockTimestamp = currentTimestamp - BigInt(MAX_INCLUDE_BY_TIMESTAMP_DURATION);
+    const blockTimestamp = currentTimestamp - BigInt(MAX_TX_LIFETIME);
     const log = makeLog(10, blockTimestamp); // block 10 > finalizedBlockNumber 5
 
     const result = findHighestIndexes([{ log, taggingIndex: 3 }], currentTimestamp, finalizedBlockNumber);
@@ -35,8 +35,8 @@ describe('findHighestIndexes', () => {
 
   it('selects the highest index from multiple aged logs', () => {
     const finalizedBlockNumber = 10;
-    const blockTimestamp1 = currentTimestamp - BigInt(MAX_INCLUDE_BY_TIMESTAMP_DURATION) - 1000n; // aged
-    const blockTimestamp2 = currentTimestamp - BigInt(MAX_INCLUDE_BY_TIMESTAMP_DURATION) - 500n; // aged
+    const blockTimestamp1 = currentTimestamp - BigInt(MAX_TX_LIFETIME) - 1000n; // aged
+    const blockTimestamp2 = currentTimestamp - BigInt(MAX_TX_LIFETIME) - 500n; // aged
     const log1 = makeLog(5, blockTimestamp1);
     const log2 = makeLog(6, blockTimestamp2);
 
@@ -77,8 +77,8 @@ describe('findHighestIndexes', () => {
 
   it('handles mixed scenarios with multiple logs of different types', () => {
     const finalizedBlockNumber = 10;
-    const veryOldTimestamp = currentTimestamp - BigInt(MAX_INCLUDE_BY_TIMESTAMP_DURATION) * 2n - 1000n; // Aged
-    const oldTimestamp = currentTimestamp - BigInt(MAX_INCLUDE_BY_TIMESTAMP_DURATION) - 1000n; // Aged
+    const veryOldTimestamp = currentTimestamp - BigInt(MAX_TX_LIFETIME) * 2n - 1000n; // Aged
+    const oldTimestamp = currentTimestamp - BigInt(MAX_TX_LIFETIME) - 1000n; // Aged
     const recentTimestamp = currentTimestamp - 5000n; // Not aged
 
     const logs = [

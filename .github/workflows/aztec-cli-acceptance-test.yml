@@ -1,0 +1,89 @@
+# Validates that a published Aztec CLI release can be installed and used end-to-end.
+# Runs after CI3 completes a tag release (via workflow_run), or manually via workflow_dispatch.
+name: Aztec CLI Acceptance Test
+
+on:
+  workflow_dispatch:
+    inputs:
+      version:
+        description: "Version to install (e.g. latest, nightly, 4.3.0, 4.3.0-nightly.20260420)"
+        required: true
+        type: string
+  workflow_run:
+    workflows: ["CI3"]
+    types:
+      - completed
+    branches:
+      - "v*"
+
+jobs:
+  release-acceptance:
+    strategy:
+      fail-fast: false # Don't cancel the other OS if one fails.
+      matrix:
+        os: [ubuntu-latest, macos-latest]
+    runs-on: ${{ matrix.os }}
+    # The auto acceptance test validates published releases, which are only cut from the
+    # public aztec-packages repo. Don't let the workflow_run trigger fire in the private
+    # mirror, where it runs against non-release branches (e.g. v5-next) and always fails.
+    if: >-
+      github.event_name == 'workflow_dispatch' ||
+      (github.event_name == 'workflow_run'
+       && github.event.workflow_run.conclusion == 'success'
+       && !contains(github.event.workflow_run.head_branch, '-commit.')
+       && github.repository != 'AztecProtocol/aztec-packages-private')
+    env:
+      VERSION: ${{ github.event.inputs.version || github.event.workflow_run.head_branch }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@93cb6efe18208431cddfb8368fd83d5badbf9bfd # v5.0.1
+        with:
+          ref: ${{ github.event.workflow_run.head_sha || github.sha }}
+
+      - name: Run Aztec CLI acceptance test
+        timeout-minutes: 30
+        run: ./aztec-up/test/aztec-cli-acceptance-test/run-test.sh
+
+      - name: Upload diagnostics on failure
+        if: failure()
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
+        with:
+          name: acceptance-test-diagnostics-${{ matrix.os }}
+          path: ${{ runner.temp }}/aztec-cli-acceptance-test-*/**
+          if-no-files-found: warn
+          retention-days: 7
+
+  notify:
+    needs: release-acceptance
+    if: (success() || failure()) && github.event_name != 'workflow_dispatch'
+    runs-on: ubuntu-latest
+    env:
+      VERSION: ${{ github.event.inputs.version || github.event.workflow_run.head_branch }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@93cb6efe18208431cddfb8368fd83d5badbf9bfd # v5.0.1
+        with:
+          ref: ${{ github.event.workflow_run.head_sha || github.sha }}
+
+      - name: Notify Slack on success
+        if: needs.release-acceptance.result == 'success'
+        env:
+          SLACK_BOT_TOKEN: ${{ secrets.SLACK_BOT_TOKEN }}
+        run: |
+          export CI=1
+          ./ci3/slack_notify \
+            "Aztec CLI Acceptance Test passed for version ${VERSION} :white_check_mark:" \
+            "#team-fairies"
+
+      - name: Notify Slack and dispatch ClaudeBox on failure
+        if: needs.release-acceptance.result == 'failure'
+        env:
+          SLACK_BOT_TOKEN: ${{ secrets.SLACK_BOT_TOKEN }}
+          GITHUB_TOKEN: ${{ secrets.AZTEC_BOT_GITHUB_TOKEN }}
+        run: |
+          RUN_URL="https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}"
+          export CI=1
+          ./ci3/slack_notify_with_claudebox_kickoff "#team-fairies" \
+            "Aztec CLI Acceptance Test FAILED (version ${VERSION}): <${RUN_URL}|View Run>" \
+            "Aztec CLI acceptance test failed for version ${VERSION}. CI run: ${RUN_URL}. Investigate the failure and explain the root cause." \
+            --link "$RUN_URL"

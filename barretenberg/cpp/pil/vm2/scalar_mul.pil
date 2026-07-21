@@ -17,12 +17,17 @@ include "precomputed.pil";
  *
  * The correctness of point addition (res + temp and temp + temp above) is constrained by a lookup into ecc.pil.
  *
- * PRECONDITIONS: Input P is a valid point on the Grumpkin curve, input s is FF (see below note).
+ * PRECONDITIONS: Input P is a valid point on the Grumpkin curve, either satisfying the curve equation or the point
+ * at infinity representation (such that is_inf <==> (X, Y) == (ecc.INFINITY_X, ecc.INFINITY_Y)), and input s is FF.
  * Note: Grumpkin forms a 2-cycle with BN254, i.e the base field of one is the scalar field of the other and vice-versa,
  * so the scalar is actually a Fq value. We treat it as a Fr (FF tagged) value in circuit. Since r < q, we cannot use an
  * invalid scalar here.
  *
- * USAGE: This is a non-memory aware subtrace used to constrain scalar point multiplicationas defined above. Each point can
+ * Note that once TODO(#AVM-266) is complete, is_inf will no longer be part of our point representation and we must either:
+ *  - continue to rely on the 'calling' trace to inject a constrained is_inf, or
+ *  - derive is_inf (<==> (X, Y) == (ecc.INFINITY_X, ecc.INFINITY_Y)) within this trace.
+ *
+ * USAGE: This is a non-memory aware subtrace used to constrain scalar point multiplication as defined above. Each point can
  *        be looked up by coordinates (lookup as defined in address_derivation.pil):
  *        #[PREADDRESS_SCALAR_MUL]
  *        sel {
@@ -87,26 +92,24 @@ namespace scalar_mul;
     ///////////////////////////////
     // Trace Shape
     ///////////////////////////////
+    // Multi-row computation selectors.
+    // See recipe: https://github.com/AztecProtocol/aztec-packages/blob/next/barretenberg/cpp/pil/vm2/docs/recipes.md#contiguous-multi-rows-computation-trace
 
     pol commit start; // @boolean
     start * (1 - start) = 0;
     pol commit end; // @boolean
     end * (1 - end) = 0;
 
-    // LATCH_CONDITION is @boolean because both end and first_row are boolean and mutually exclusive
     pol LATCH_CONDITION = end + precomputed.first_row;
 
-    // start can be 1 only after an end or the first row
-    #[START_AFTER_LATCH]
-    sel' * (start' - LATCH_CONDITION) = 0;
-
-    // Selector must be 1 in a start or end row
-    #[SELECTOR_ON_START_OR_END]
+    #[SEL_ON_START_OR_END]
     (start + end) * (1 - sel) = 0;
 
-    // Next selector must be current selector unless LATCH_CONDITION
-    #[SELECTOR_CONSISTENCY]
-    (sel' - sel) * (1 - LATCH_CONDITION) = 0;
+    #[TRACE_CONTINUITY]
+    (1 - LATCH_CONDITION) * (sel - sel') = 0;
+
+    #[START_AFTER_LATCH]
+    sel' * (start' - LATCH_CONDITION) = 0;
 
     // Needs to be committed because it's used in the #[DOUBLE] lookup
     pol commit sel_not_end; // @boolean (since end and sel are boolean)
@@ -118,6 +121,7 @@ namespace scalar_mul;
     sel_not_end * (point_x - point_x') = 0;
     #[INPUT_CONSISTENCY_Y]
     sel_not_end * (point_y - point_y') = 0;
+    // TODO(MW): remove/rework below? only used at end
     #[INPUT_CONSISTENCY_INF]
     sel_not_end * (point_inf - point_inf') = 0;
     #[INPUT_CONSISTENCY_SCALAR]
@@ -170,16 +174,11 @@ namespace scalar_mul;
     end * (temp_y - point_y) = 0;
     end * (temp_inf - point_inf) = 0;
 
-    // TODO(#AVM-212) Hack for bb-pilcom to see shifted temp columns
-    temp_x' - temp_x' = 0;
-    temp_y' - temp_y' = 0;
-    temp_inf' - temp_inf' = 0;
-
     #[DOUBLE]
     sel_not_end { temp_x, temp_y, temp_inf, temp_x', temp_y', temp_inf', sel_not_end /* = 1 */ }
     in
     ecc.sel
-        { ecc.r_x, ecc.r_y, ecc.r_is_inf, ecc.p_x, ecc.p_y, ecc.p_is_inf, ecc.double_op };
+        { ecc.r_x, ecc.r_y, ecc.result_infinity, ecc.p_x, ecc.p_y, ecc.p_is_inf, ecc.double_op };
 
     ///////////////////////////////
     // Result Computation
@@ -207,7 +206,7 @@ namespace scalar_mul;
     should_add { res_x, res_y, res_inf, res_x', res_y', res_inf', temp_x, temp_y, temp_inf }
     in
     ecc.sel
-        { ecc.r_x, ecc.r_y, ecc.r_is_inf, ecc.p_x, ecc.p_y, ecc.p_is_inf, ecc.q_x, ecc.q_y, ecc.q_is_inf };
+        { ecc.r_x, ecc.r_y, ecc.result_infinity, ecc.p_x, ecc.p_y, ecc.p_is_inf, ecc.q_x, ecc.q_y, ecc.q_is_inf };
 
 
 

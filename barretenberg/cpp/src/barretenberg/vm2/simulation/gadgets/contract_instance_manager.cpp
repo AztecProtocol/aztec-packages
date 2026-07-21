@@ -1,11 +1,20 @@
 #include "barretenberg/vm2/simulation/gadgets/contract_instance_manager.hpp"
 
+#include "barretenberg/aztec/aztec_constants.hpp"
 #include "barretenberg/common/assert.hpp"
-#include "barretenberg/vm2/common/aztec_constants.hpp"
-#include "barretenberg/vm2/simulation/interfaces/field_gt.hpp"
 
 namespace bb::avm2::simulation {
 
+/**
+ * @brief Construct a ContractInstanceManager.
+ *
+ * @param contract_db The contract database for retrieving contract instances.
+ * @param merkle_db The merkle database for nullifier existence checks and tree state.
+ * @param update_check The update check interface for validating current class IDs.
+ * @param ff_gt The field greater-than comparator for protocol contract range checks.
+ * @param protocol_contracts The set of known protocol contract addresses.
+ * @param event_emitter The event emitter for contract instance retrieval events.
+ */
 ContractInstanceManager::ContractInstanceManager(ContractDBInterface& contract_db,
                                                  HighLevelMerkleDBInterface& merkle_db,
                                                  UpdateCheckInterface& update_check,
@@ -29,6 +38,11 @@ ContractInstanceManager::ContractInstanceManager(ContractDBInterface& contract_d
  * @param contract_address The address of the contract to retrieve. Also the nullifier to check.
  * @return The contract instance if it exists, otherwise std::nullopt.
  *
+ * @throws std::runtime_error If derived address presence is inconsistent with instance presence (protocol contracts).
+ * @throws std::runtime_error If instance is not found but nullifier exists (non-protocol contracts).
+ *
+ * @note Asserts that derived_address.has_value() == maybe_instance.has_value() for protocol contracts.
+ * @note Asserts that the contract instance is found when the nullifier exists.
  * @note Emits a ContractInstanceRetrievalEvent for this contract address at the current roots.
  */
 std::optional<ContractInstance> ContractInstanceManager::get_contract_instance(const FF& contract_address)
@@ -54,6 +68,10 @@ std::optional<ContractInstance> ContractInstanceManager::get_contract_instance(c
         BB_ASSERT_EQ(derived_address.has_value(),
                      maybe_instance.has_value(),
                      "Derived address should be found if the instance was retrieved and vice versa");
+
+        BB_ASSERT_EQ(maybe_instance.value_or(ContractInstance()).current_contract_class_id,
+                     maybe_instance.value_or(ContractInstance()).original_contract_class_id,
+                     "Protocol contracts must have a matching current and original class ID");
 
         event_emitter.emit({
             .address = contract_address,

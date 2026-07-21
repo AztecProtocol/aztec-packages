@@ -12,7 +12,8 @@
     "compile": "cd contracts && ${AZTEC:-aztec} compile && cp target/*.json ../artifacts",
     "codegen": "cd contracts && ${AZTEC:-aztec} codegen ./target -o ./target && cp target/*.ts ../artifacts",
     "serve": "webpack serve --mode production --port ${PORT:-3000}",
-    "test": "PROVER_ENABLED=false node --experimental-transform-types scripts/deploy.ts && yarn playwright test",
+    "deploy": "node --experimental-transform-types scripts/deploy.ts",
+    "test": "yarn deploy && yarn playwright test",
     "lint": "prettier --check ./src"
   },
   "dependencies": {
@@ -25,10 +26,10 @@
     "@aztec/noir-contracts.js": "latest",
     "@aztec/pxe": "latest",
     "@aztec/stdlib": "latest",
-    "@aztec/wallet-sdk": "latest"
+    "@aztec/wallet-sdk": "latest",
+    "@aztec/wallets": "latest"
   },
   "devDependencies": {
-    "@aztec/test-wallet": "latest",
     "@playwright/test": "1.49.0",
     "@types/node": "^22.15.17",
     "buffer": "^6.0.3",

@@ -7,6 +7,7 @@
 #pragma once
 
 #include "barretenberg/ecc/curves/bn254/bn254.hpp"
+#include "barretenberg/polynomials/polynomial.hpp"
 #include "barretenberg/transcript/origin_tag.hpp"
 
 namespace bb {
@@ -35,6 +36,7 @@ template <typename Curve> struct MultilinearBatchingVerifierClaim {
         requires Curve::is_stdlib_type
     {
         MultilinearBatchingVerifierClaim<RecursiveCurve> result;
+        result.challenge.reserve(native_claim.challenge.size());
 
         for (auto& element : native_claim.challenge) {
             result.challenge.emplace_back(FF::from_witness(builder, element));
@@ -88,6 +90,7 @@ template <typename Curve> struct MultilinearBatchingVerifierClaim {
 
         append_tagged(non_shifted_evaluation);
         append_tagged(shifted_evaluation);
+        // Note that commitments have been already deserialized and the point at infinity is constrained to (0,0)).
         append_tagged(non_shifted_commitment);
         append_tagged(shifted_commitment);
 
@@ -104,6 +107,45 @@ template <typename Curve> struct MultilinearBatchingVerifierClaim {
         const OriginTag tag = bb::extract_transcript_tag(transcript);
         return hash_with_origin_tagging<typename TranscriptType::Codec, typename TranscriptType::HashFunction>(tag);
     }
+};
+
+/**
+ * @brief Prover's claim for multilinear batching - contains polynomials and their evaluation claims.
+ * @details Each claim represents: "polynomial P evaluated at challenge r equals evaluation v". Shared by HyperNova
+ * folding (per-circuit) and the per-kernel batching prover.
+ */
+struct MultilinearBatchingProverClaim {
+    using FF = curve::BN254::ScalarField;
+    using Commitment = curve::BN254::AffineElement;
+    using Polynomial = bb::Polynomial<FF>;
+
+    std::vector<FF> challenge;         // Evaluation point r
+    FF non_shifted_evaluation;         // Claimed value P(r)
+    FF shifted_evaluation;             // Claimed value P_shifted(r)
+    Polynomial non_shifted_polynomial; // The polynomial P
+    Polynomial shifted_polynomial;     // The shiftable polynomial (pre-shift form)
+    Commitment non_shifted_commitment; // Commitment [P]
+    Commitment shifted_commitment;     // Commitment [P_shifted]
+    size_t dyadic_size;                // Size of the polynomial domain
+
+    MultilinearBatchingVerifierClaim<curve::BN254> to_verifier_claim_for_testing() const
+    {
+        MultilinearBatchingVerifierClaim<curve::BN254> verifier_claim;
+        verifier_claim.challenge = challenge;
+        verifier_claim.non_shifted_evaluation = non_shifted_evaluation;
+        verifier_claim.shifted_evaluation = shifted_evaluation;
+        verifier_claim.non_shifted_commitment = non_shifted_commitment;
+        verifier_claim.shifted_commitment = shifted_commitment;
+        return verifier_claim;
+    }
+
+#ifndef NDEBUG
+    /**
+     * @brief Debug helper to compare prover claim against verifier claim.
+     * @details Recomputes commitments and evaluations to verify consistency.
+     */
+    bool compare_with_verifier_claim(const MultilinearBatchingVerifierClaim<curve::BN254>& verifier_claim) const;
+#endif
 };
 
 } // namespace bb

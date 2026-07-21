@@ -1,0 +1,19 @@
+#!/usr/bin/env bash
+# Check if a port is free. If taken, print the process tree of the holder.
+# Usage: check_port <port>
+# Exit code: 0 if free, 1 if taken.
+set -eu
+
+port="${1:?Usage: check_port <port>}"
+
+pid=$(lsof -ti :"$port" 2>/dev/null | head -1 || true)
+if [ -z "$pid" ]; then
+  exit 0
+fi
+
+echo "Port $port is taken by PID $pid:" >&2
+# Show the command line of the process.
+ps -p "$pid" -o pid,ppid,user,args --no-headers >&2 || true
+# Show the process tree rooted at this PID.
+pstree -apls "$pid" >&2 2>/dev/null || pstree -p "$pid" >&2 2>/dev/null || true
+exit 1

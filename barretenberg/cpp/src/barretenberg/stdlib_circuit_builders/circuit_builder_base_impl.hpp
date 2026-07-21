@@ -76,12 +76,6 @@ template <typename FF_> size_t CircuitBuilderBase<FF_>::get_circuit_subgroup_siz
     return 1UL << log2_n;
 }
 
-template <typename FF_> msgpack::sbuffer CircuitBuilderBase<FF_>::export_circuit()
-{
-    info("not implemented");
-    return { 0 };
-}
-
 template <typename FF_> uint32_t CircuitBuilderBase<FF_>::add_public_variable(const FF& in)
 {
     const uint32_t index = add_variable(in);
@@ -92,6 +86,7 @@ template <typename FF_> uint32_t CircuitBuilderBase<FF_>::add_public_variable(co
 
 template <typename FF_> uint32_t CircuitBuilderBase<FF_>::set_public_input(const uint32_t witness_index)
 {
+    BB_ASSERT_LT(witness_index, get_num_variables(), "set_public_input: witness_index out of range");
     for (const uint32_t public_input : public_inputs()) {
         if (public_input == witness_index) {
             if (!failed()) {
@@ -150,13 +145,18 @@ void CircuitBuilderBase<FF>::assert_equal(const uint32_t a_variable_idx,
 }
 
 template <typename FF_>
-void CircuitBuilderBase<FF_>::assert_valid_variables([[maybe_unused]] const std::vector<uint32_t>& variable_indices)
+void CircuitBuilderBase<FF_>::assert_valid_variables(std::initializer_list<uint32_t> variable_indices)
 {
-#ifndef NDEBUG
     for (const auto& variable_index : variable_indices) {
         BB_ASSERT_LT(variable_index, variables.size());
     }
-#endif
+}
+
+template <typename FF_> void CircuitBuilderBase<FF_>::assert_valid_variables(std::span<const uint32_t> variable_indices)
+{
+    for (const auto& variable_index : variable_indices) {
+        BB_ASSERT_LT(variable_index, variables.size());
+    }
 }
 
 template <typename FF_> bool CircuitBuilderBase<FF_>::failed() const

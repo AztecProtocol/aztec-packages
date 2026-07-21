@@ -39,7 +39,7 @@ public execution requests.
 The AVM:
 * Executes specified public bytecode, instruction by instruction, given some arguments.
 * Meters execution by tracking gas costs per-executed-instruction.
-* Tracks both "mana" (aka L2 gas) and "data availability" gas.
+* Tracks both L2 gas (computation) and DA gas (data availability).
 * Supports nested contract calls and conditional error recovery.
 * Manages access to public state, L1↔L2 messages, public logs, and some limited private state.
 * Finalizes state updates initiated during private execution.

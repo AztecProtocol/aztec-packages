@@ -13,7 +13,6 @@ import {STFLib} from "@aztec/core/libraries/rollup/STFLib.sol";
 import {Timestamp, Slot, Epoch, TimeLib} from "@aztec/core/libraries/TimeLib.sol";
 import {SignatureLib, Signature} from "@aztec/shared/libraries/SignatureLib.sol";
 import {ECDSA} from "@oz/utils/cryptography/ECDSA.sol";
-import {MessageHashUtils} from "@oz/utils/cryptography/MessageHashUtils.sol";
 import {SafeCast} from "@oz/utils/math/SafeCast.sol";
 import {SlotDerivation} from "@oz/utils/SlotDerivation.sol";
 import {Checkpoints} from "@oz/utils/structs/Checkpoints.sol";
@@ -94,12 +93,12 @@ import {TransientSlot} from "@oz/utils/TransientSlot.sol";
  */
 library ValidatorSelectionLib {
   using EnumerableSet for EnumerableSet.AddressSet;
-  using MessageHashUtils for bytes32;
   using SignatureLib for Signature;
   using TimeLib for Timestamp;
   using TimeLib for Epoch;
   using TimeLib for Slot;
   using Checkpoints for Checkpoints.Trace224;
+  using Checkpoints for Checkpoints.Trace160;
   using SafeCast for *;
   using TransientSlot for *;
   using SlotDerivation for string;
@@ -109,14 +108,12 @@ library ValidatorSelectionLib {
   /**
    * @dev Stack struct used in verifyAttestations to avoid stack too deep errors
    *      Used when reconstructing the committee commitment from the attestations
-   * @param proposerIndex Index of the proposer within the committee
    * @param index Working index for iteration (unused in current implementation)
    * @param needed Number of signatures required (2/3 + 1 of committee size)
    * @param signaturesRecovered Number of valid signatures found
    * @param reconstructedCommittee Array of committee member addresses reconstructed from attestations
    */
   struct VerifyStack {
-    uint256 proposerIndex;
     uint256 index;
     uint256 needed;
     uint256 signaturesRecovered;
@@ -151,13 +148,34 @@ library ValidatorSelectionLib {
   }
 
   /**
-   * @notice Sets the escape hatch contract address
-   * @dev Only callable through RollupCore.setEscapeHatch (governance-controlled).
-   *      Set to address(0) to disable escape hatch functionality.
-   * @param _escapeHatch The address of the EscapeHatch contract, or address(0) to disable
+   * @notice Sets the escape hatch contract address. One-shot: can only be called once per rollup.
+   * @dev Only callable through RollupCore.setEscapeHatch (owner-gated). Once set, the rollup's
+   *      escape hatch is immutable for the life of the rollup -- there is no replacement path.
+   *      Callers who want no escape hatch should simply never call this function.
+   * @param _escapeHatch The address of the EscapeHatch contract (must be non-zero)
    */
-  function updateEscapeHatch(address _escapeHatch) internal {
-    getStorage().escapeHatch = IEscapeHatch(_escapeHatch);
+  function setEscapeHatch(address _escapeHatch) internal {
+    require(_escapeHatch != address(0), Errors.ValidatorSelection__EscapeHatchCannotBeZero());
+
+    // The registration is one-shot and ungoverned after setup, and an open escape hatch can act
+    // as an alternate proposal route (ProposeLib.propose authorizes the registered escape
+    // hatch's designated proposer during escape-hatch epochs). Pointing at a stranger contract
+    // -- including a hatch wired to a different rollup -- would create a permanent foreign
+    // proposal authority that cannot be replaced. Require the hatch to point back here.
+    address hatchRollup = IEscapeHatch(_escapeHatch).getRollup();
+    require(
+      hatchRollup == address(this), Errors.ValidatorSelection__EscapeHatchRollupMismatch(address(this), hatchRollup)
+    );
+
+    ValidatorSelectionStorage storage store = getStorage();
+    require(store.escapeHatchCheckpoints.length() == 0, Errors.ValidatorSelection__EscapeHatchAlreadySet());
+
+    // Key the checkpoint to the START of the next epoch so the registration never affects
+    // the current epoch. This prevents a same-block action from retroactively classifying
+    // an in-flight epoch as an escape-hatch epoch.
+    Epoch nextEpoch = Timestamp.wrap(block.timestamp).epochFromTimestamp() + Epoch.wrap(1);
+    uint96 nextEpochTs = uint96(Timestamp.unwrap(nextEpoch.toTimestamp()));
+    store.escapeHatchCheckpoints.push(nextEpochTs, uint160(_escapeHatch));
   }
 
   /**
@@ -269,14 +287,12 @@ library ValidatorSelectionLib {
     }
 
     // Check if the signature is correct
-    bytes32 digest = _digest.toEthSignedMessageHash();
     Signature memory signature = _attestations.getSignature(proposerIndex);
-    SignatureLib.verify(signature, proposer, digest);
+    SignatureLib.verify(signature, proposer, _digest);
 
     // Check that the proposer have signed the `_attestations|_signers` data such that invalid `_attestations|_signers`
     // data can be attributed to the `proposer` specifically.
-    bytes32 attestationsAndSignersDigest =
-      _attestations.getAttestationsAndSignersDigest(_signers).toEthSignedMessageHash();
+    bytes32 attestationsAndSignersDigest = _attestations.getAttestationsAndSignersDigest(_signers);
     SignatureLib.verify(_attestationsAndSignersSignature, proposer, attestationsAndSignersDigest);
 
     if (_updateCache) {
@@ -302,7 +318,6 @@ library ValidatorSelectionLib {
    *      directly from calldata.
    *
    *      Skips validation entirely if target committee size is 0 (test configurations).
-   * @param _slot The slot of the checkpoint
    * @param _epochNumber The epoch of the checkpoint
    * @param _attestations The packed signatures and addresses of committee members
    * @param _digest The digest of the checkpoint that attestations are signed over
@@ -311,12 +326,9 @@ library ValidatorSelectionLib {
    * stored commitment
    * @custom:reverts Errors.ValidatorSelection__EpochNotStable if the requested epoch is not stable
    */
-  function verifyAttestations(
-    Slot _slot,
-    Epoch _epochNumber,
-    CommitteeAttestations memory _attestations,
-    bytes32 _digest
-  ) internal {
+  function verifyAttestations(Epoch _epochNumber, CommitteeAttestations memory _attestations, bytes32 _digest)
+    internal
+  {
     (bytes32 committeeCommitment, uint256 targetCommitteeSize) = getCommitteeCommitmentAt(_epochNumber);
 
     // If the rollup is *deployed* with a target committee size of 0, we skip the validation.
@@ -327,14 +339,11 @@ library ValidatorSelectionLib {
     }
 
     VerifyStack memory stack = VerifyStack({
-      proposerIndex: computeProposerIndex(_epochNumber, _slot, getSampleSeed(_epochNumber), targetCommitteeSize),
       needed: (targetCommitteeSize << 1) / 3 + 1, // targetCommitteeSize * 2 / 3 + 1, but cheaper
       index: 0,
       signaturesRecovered: 0,
       reconstructedCommittee: new address[](targetCommitteeSize)
     });
-
-    bytes32 digest = _digest.toEthSignedMessageHash();
 
     bytes memory signaturesOrAddresses = _attestations.signaturesOrAddresses;
     uint256 dataPtr;
@@ -361,7 +370,7 @@ library ValidatorSelectionLib {
           }
 
           ++stack.signaturesRecovered;
-          stack.reconstructedCommittee[i] = ECDSA.recover(digest, v, r, s);
+          stack.reconstructedCommittee[i] = ECDSA.recover(_digest, v, r, s);
         } else {
           address addr;
           assembly {
@@ -589,12 +598,26 @@ library ValidatorSelectionLib {
   }
 
   /**
-   * @notice Gets the escape hatch contract
-   * @dev Returns the configured escape hatch, or a zero-address IEscapeHatch if disabled
+   * @notice Gets the current escape hatch contract (latest checkpoint)
+   * @dev Returns the most recently configured escape hatch, or a zero-address IEscapeHatch if none set
    * @return The escape hatch contract interface
    */
   function getEscapeHatch() internal view returns (IEscapeHatch) {
-    return getStorage().escapeHatch;
+    return IEscapeHatch(address(getStorage().escapeHatchCheckpoints.latest()));
+  }
+
+  /**
+   * @notice Gets the escape hatch contract that was active at the start of a given epoch
+   * @dev Uses `upperLookupRecent` to find the most recent checkpoint with key <= epoch start timestamp.
+   *      Changes pushed with `block.timestamp` during epoch N take effect for epoch N+1 (since epoch
+   *      N+1's start timestamp > the push timestamp > epoch N's start timestamp), providing implicit
+   *      epoch-boundary activation.
+   * @param _epoch The epoch to look up the escape hatch for
+   * @return The escape hatch contract interface that was active at the start of the epoch
+   */
+  function getEscapeHatchForEpoch(Epoch _epoch) internal view returns (IEscapeHatch) {
+    uint96 ts = uint96(Timestamp.unwrap(TimeLib.toTimestamp(_epoch)));
+    return IEscapeHatch(address(getStorage().escapeHatchCheckpoints.upperLookupRecent(ts)));
   }
 
   /**

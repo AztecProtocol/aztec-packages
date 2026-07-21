@@ -43,6 +43,7 @@ describe('PeerManager', () => {
     off: jest.fn(),
     isBootstrapPeer: jest.fn().mockReturnValue(false),
     runRandomNodesQuery: jest.fn(),
+    getKadValues: jest.fn().mockReturnValue([]),
   };
 
   const mockEpochCache = mock<EpochCache>();
@@ -275,6 +276,37 @@ describe('PeerManager', () => {
       const timedOutPeer = peers.find(p => p.id === peerId.toString());
       expect(timedOutPeer).toBeDefined();
       expect(timedOutPeer?.status).toBe('cached');
+    });
+
+    it('should not dial a discovered peer that has exceeded auth failure threshold', async () => {
+      const enr = await createMockENR();
+      const peerId = await enr.peerId();
+      const peerIdStr = peerId.toString();
+
+      const mockConnection = {
+        remoteAddr: {
+          nodeAddress: () => ({ address: '192.168.1.100' }),
+        },
+      };
+      mockLibP2PNode.getConnections.mockReturnValue([mockConnection]);
+
+      const pm = createMockPeerManager('test', mockLibP2PNode, 3, [], [], [], {
+        p2pMaxFailedAuthAttemptsAllowed: 2,
+      });
+      // Re-capture the discoveredPeerCallback for this new peer manager
+      const onCalls = mockPeerDiscoveryService.on.mock.calls;
+      const lastPeerCb = onCalls[onCalls.length - 1][1];
+
+      // Mark auth handshake as failed 3 times (exceeding threshold of 2)
+      for (let i = 0; i < 3; i++) {
+        (pm as any).markAuthHandshakeFailed(peerId);
+      }
+
+      expect(pm.isPeerAllowedToConnect(peerIdStr)).toBe(false);
+
+      mockLibP2PNode.dial.mockClear();
+      await lastPeerCb(enr);
+      expect(mockLibP2PNode.dial).not.toHaveBeenCalled();
     });
 
     it('should handle multiple peer discoveries and timeouts', async () => {
@@ -1718,8 +1750,8 @@ describe('PeerManager', () => {
       // Mark auth handshake as failed once (should be below threshold)
       (peerManager as any).markAuthHandshakeFailed(peerId);
 
-      expect(peerManager.isNodeAllowedToConnect(peerIdStr)).toBe(true);
-      expect(peerManager.isNodeAllowedToConnect('192.168.1.100')).toBe(true);
+      expect(peerManager.isPeerAllowedToConnect(peerIdStr)).toBe(true);
+      expect(peerManager.isAddressAllowedToConnect('192.168.1.100')).toBe(true);
     });
 
     it('should deny connection when failed attempts exceed threshold', async () => {
@@ -1742,8 +1774,40 @@ describe('PeerManager', () => {
         (peerManager as any).markAuthHandshakeFailed(peerId);
       }
 
-      expect(peerManager.isNodeAllowedToConnect(peerIdStr)).toBe(false);
-      expect(peerManager.isNodeAllowedToConnect(ipAddress)).toBe(false);
+      expect(peerManager.isPeerAllowedToConnect(peerIdStr)).toBe(false);
+      expect(peerManager.isAddressAllowedToConnect(ipAddress)).toBe(false);
+    });
+
+    it('should deny connection from a banned peer', async () => {
+      const peerId = await createSecp256k1PeerId();
+      const peerIdStr = peerId.toString();
+
+      // A peer with no penalties is allowed to connect.
+      expect(peerManager.isPeerAllowedToConnect(peerIdStr)).toBe(true);
+
+      // Drive the peer's score below the ban threshold (2 × LowTolerance + 1 × HighTolerance = -102).
+      peerManager.penalizePeer(peerId, PeerErrorSeverity.LowToleranceError);
+      peerManager.penalizePeer(peerId, PeerErrorSeverity.LowToleranceError);
+      peerManager.penalizePeer(peerId, PeerErrorSeverity.HighToleranceError);
+
+      // The connection gater (via isPeerAllowedToConnect) now refuses the banned peer, so it cannot
+      // reconnect for the ban duration.
+      expect(peerManager.isPeerAllowedToConnect(peerIdStr)).toBe(false);
+    });
+
+    it('allows the address but denies the banned peer id', async () => {
+      const peerId = await createSecp256k1PeerId();
+      const ipAddress = '192.168.1.123';
+
+      // Ban the peer (2 × LowTolerance + 1 × HighTolerance = -102).
+      peerManager.penalizePeer(peerId, PeerErrorSeverity.LowToleranceError);
+      peerManager.penalizePeer(peerId, PeerErrorSeverity.LowToleranceError);
+      peerManager.penalizePeer(peerId, PeerErrorSeverity.HighToleranceError);
+
+      // The raw-inbound gate has only the address (no peer id to match a ban), so it allows the
+      // connection; the encrypted-inbound gate then denies the banned peer once its id is known.
+      expect(peerManager.isAddressAllowedToConnect(ipAddress)).toBe(true);
+      expect(peerManager.isPeerAllowedToConnect(peerId.toString())).toBe(false);
     });
 
     it('should increment failure counters on subsequent failures', async () => {
@@ -1816,15 +1880,15 @@ describe('PeerManager', () => {
       }
 
       // Should be denied
-      expect(configuredPeerManager.isNodeAllowedToConnect(peerIdStr)).toBe(false);
-      expect(configuredPeerManager.isNodeAllowedToConnect(ipAddress)).toBe(false);
+      expect(configuredPeerManager.isPeerAllowedToConnect(peerIdStr)).toBe(false);
+      expect(configuredPeerManager.isAddressAllowedToConnect(ipAddress)).toBe(false);
 
       // Advance time past expiry (1 hour + 1 minute)
       jest.advanceTimersByTime(61 * 60 * 1000);
 
       // Should now be allowed again
-      expect(configuredPeerManager.isNodeAllowedToConnect(peerIdStr)).toBe(true);
-      expect(configuredPeerManager.isNodeAllowedToConnect(ipAddress)).toBe(true);
+      expect(configuredPeerManager.isPeerAllowedToConnect(peerIdStr)).toBe(true);
+      expect(configuredPeerManager.isAddressAllowedToConnect(ipAddress)).toBe(true);
 
       // Verify entries were cleaned up
       const failedHandshakes = (configuredPeerManager as any).failedAuthHandshakes;
@@ -1887,6 +1951,90 @@ describe('PeerManager', () => {
       expect(failedHandshakes.get(peerIdStr).count).toBe(2);
     });
 
+    it('should clean up expired failed-auth entries during heartbeat', async () => {
+      const peerId = await createSecp256k1PeerId();
+      const peerIdStr = peerId.toString();
+      const ipAddress = '10.0.0.1';
+
+      const mockConnection = {
+        remotePeer: peerId,
+        remoteAddr: {
+          nodeAddress: () => ({ address: ipAddress }),
+        },
+      };
+      mockLibP2PNode.getConnections.mockReturnValue([mockConnection]);
+
+      // Exceed the threshold so the peer is blocked
+      for (let i = 0; i < 4; i++) {
+        (peerManager as any).markAuthHandshakeFailed(peerId);
+      }
+
+      expect(peerManager.isPeerAllowedToConnect(peerIdStr)).toBe(false);
+      expect(peerManager.isAddressAllowedToConnect(ipAddress)).toBe(false);
+
+      // Advance time past expiry (1 hour + 1 minute)
+      jest.advanceTimersByTime(61 * 60 * 1000);
+
+      // Trigger heartbeat — should proactively clean up stale entries without needing a
+      // connection-allowed check (isPeerAllowedToConnect / isAddressAllowedToConnect) first
+      await peerManager.heartbeat();
+
+      const failedHandshakes = (peerManager as any).failedAuthHandshakes;
+      expect(failedHandshakes.has(peerIdStr)).toBe(false);
+      expect(failedHandshakes.has(ipAddress)).toBe(false);
+    });
+
+    it('should add peer to timedOutPeers with exponential backoff on auth failure', async () => {
+      const peerId = await createSecp256k1PeerId();
+      const peerIdStr = peerId.toString();
+
+      const mockConnection = {
+        remoteAddr: {
+          nodeAddress: () => ({ address: '192.168.1.100' }),
+        },
+      };
+      mockLibP2PNode.getConnections.mockReturnValue([mockConnection]);
+
+      // First failure: ban time should be 5 minutes (base)
+      (peerManager as any).markAuthHandshakeFailed(peerId);
+      const timedOutPeers = (peerManager as any).timedOutPeers;
+      expect(timedOutPeers.has(peerIdStr)).toBe(true);
+
+      const firstTimeout = timedOutPeers.get(peerIdStr).timeoutUntilMs;
+      const now = Date.now();
+      // 5 min base * 2^0 = 5 min
+      expect(firstTimeout - now).toBeGreaterThanOrEqual(4 * 60 * 1000);
+      expect(firstTimeout - now).toBeLessThanOrEqual(6 * 60 * 1000);
+
+      // Second failure: ban time should double
+      jest.advanceTimersByTime(10000);
+      (peerManager as any).markAuthHandshakeFailed(peerId);
+      const secondTimeout = timedOutPeers.get(peerIdStr).timeoutUntilMs;
+      const now2 = Date.now();
+      // 5 min base * 2^1 = 10 min
+      expect(secondTimeout - now2).toBeGreaterThanOrEqual(9 * 60 * 1000);
+      expect(secondTimeout - now2).toBeLessThanOrEqual(11 * 60 * 1000);
+    });
+
+    it('should remove peer from cachedPeers on auth failure', async () => {
+      const peerId = await createSecp256k1PeerId();
+      const peerIdStr = peerId.toString();
+
+      const mockConnection = {
+        remoteAddr: {
+          nodeAddress: () => ({ address: '192.168.1.100' }),
+        },
+      };
+      mockLibP2PNode.getConnections.mockReturnValue([mockConnection]);
+
+      // Manually add peer to cached peers
+      (peerManager as any).cachedPeers.set(peerIdStr, { peerId });
+
+      (peerManager as any).markAuthHandshakeFailed(peerId);
+
+      expect((peerManager as any).cachedPeers.has(peerIdStr)).toBe(false);
+    });
+
     it('should handle auth failure during actual handshake process', async () => {
       jest.useRealTimers(); // needed here to allow sleep couple of lines below
       const peerId = await createSecp256k1PeerId();
@@ -1933,8 +2081,8 @@ describe('PeerManager', () => {
       }
 
       // Should now be blocked
-      expect(peerManager.isNodeAllowedToConnect(peerId)).toBe(false);
-      expect(peerManager.isNodeAllowedToConnect(ipAddress)).toBe(false);
+      expect(peerManager.isPeerAllowedToConnect(peerId)).toBe(false);
+      expect(peerManager.isAddressAllowedToConnect(ipAddress)).toBe(false);
 
       // Peer should not be authenticated
       expect(peerManager.isAuthenticatedPeer(peerId)).toBe(false);

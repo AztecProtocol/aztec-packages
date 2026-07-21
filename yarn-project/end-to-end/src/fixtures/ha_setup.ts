@@ -11,15 +11,15 @@ import { privateKeyToAccount } from 'viem/accounts';
  */
 export interface HADatabaseConfig {
   /** PostgreSQL connection URL */
-  databaseUrl: string;
+  databaseUrl: SecretValue<string>;
   /** Node ID for HA coordination */
   nodeId: string;
   /** Enable HA signing */
   haSigningEnabled: boolean;
   /** Polling interval in ms */
   pollingIntervalMs: number;
-  /** Signing timeout in ms */
-  signingTimeoutMs: number;
+  /** How long to wait for a peer node's in-progress signing in ms */
+  peerSigningTimeoutMs: number;
   /** Max stuck duties age in ms */
   maxStuckDutiesAgeMs: number;
 }
@@ -28,14 +28,16 @@ export interface HADatabaseConfig {
  * Get database configuration from environment variables
  */
 export function createHADatabaseConfig(nodeId: string): HADatabaseConfig {
-  const databaseUrl = process.env.DATABASE_URL || 'postgresql://aztec:aztec@localhost:5432/aztec_ha_test';
+  const databaseUrl = new SecretValue(
+    process.env.DATABASE_URL || 'postgresql://aztec:aztec@localhost:5432/aztec_ha_test',
+  );
 
   return {
     databaseUrl,
     nodeId,
     haSigningEnabled: true,
     pollingIntervalMs: 100,
-    signingTimeoutMs: 3000,
+    peerSigningTimeoutMs: 3000,
     maxStuckDutiesAgeMs: 72000,
   };
 }
@@ -51,6 +53,10 @@ export function setupHADatabase(databaseUrl: string, logger?: Logger): Pool {
     // Create connection pool for test usage
     // Migrations are already run by docker-compose entrypoint before tests start
     const pool = new Pool({ connectionString: databaseUrl });
+
+    // pg-pool re-emits idle-client errors on the pool; with no listener the emit throws - in production this crashes
+    // the validator process.
+    pool.on('error', (err: Error) => logger?.warn(`HA database pool error: ${err.message}`));
 
     logger?.info('Connected to HA database (migrations should already be applied)');
 
@@ -69,8 +75,10 @@ export async function cleanupHADatabase(pool: Pool, logger?: Logger): Promise<vo
   try {
     // Drop all HA tables
     await pool.query('DROP TABLE IF EXISTS validator_duties CASCADE');
-    await pool.query('DROP TABLE IF EXISTS slashing_protection CASCADE');
     await pool.query('DROP TABLE IF EXISTS schema_version CASCADE');
+    // Drop migration tracking table (node-pg-migrate uses 'pgmigrations' by default)
+    // This ensures migrations will run fresh on next startup
+    await pool.query('DROP TABLE IF EXISTS pgmigrations CASCADE');
 
     logger?.info('HA database cleaned up successfully');
   } catch (error) {

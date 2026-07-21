@@ -84,17 +84,11 @@ pub contract Orderbook {
         let maker = self.msg_sender();
 
         // Transfer tokens from maker to the public balance of this contract.
-        self.call(Token::at(bid_token).transfer_to_public(
-            maker,
-            self.address,
-            bid_amount,
-            authwit_nonce,
-        ));
+        self.call(Token::at(bid_token).transfer_to_public(maker, self.address, bid_amount, authwit_nonce));
 
         // Prepare a partial note that will get completed once the order is fulfilled. Note that only the Orderbook
         // contract can complete the partial note.
-        let maker_partial_note =
-            self.call(Token::at(ask_token).prepare_private_balance_increase(maker));
+        let maker_partial_note = self.call(Token::at(ask_token).prepare_private_balance_increase(maker));
 
         // We use the partial note as the order ID. Because partial notes emit a nullifier when created they are
         // unique, and so this guarantees that our order IDs are also unique without having to keep track of past
@@ -140,15 +134,14 @@ pub contract Orderbook {
         ));
 
         // Prepare partial note for taker to receive bid_token
-        let taker_partial_note =
-            self.call(Token::at(bid_token).prepare_private_balance_increase(taker));
+        let taker_partial_note = self.call(Token::at(bid_token).prepare_private_balance_increase(taker));
 
         // Nullify the order such that it cannot be fulfilled again. We emit a nullifier instead of deleting the order
         // from public storage because we get no refund for resetting public storage to zero and just emitting
-        // a nullifier is cheaper (1 Field in DA instead of multiple Fields for the order). We use the `order_id`
-        // itself as the nullifier because this contract does not work with notes and hence there is no risk of
-        // colliding with a real note nullifier.
-        self.context.push_nullifier(order_id);
+        // a nullifier is cheaper (1 Field in DA instead of multiple Fields for the order).
+        // TODO(F-399): pushing a raw nullifier with no domain separator like we do here is unsafe: we should instead
+        // use something like a singleton `SingleUseClaim`.
+        self.context.push_nullifier_unsafe(order_id);
 
         // Enqueue the fulfillment to finalize both partial notes
         self.enqueue_self._fulfill_order(order_id, taker_partial_note, bid_token, order.bid_amount);
@@ -156,16 +149,9 @@ pub contract Orderbook {
 
     #[external("public")]
     #[only_self]
-    fn _fulfill_order(
-        order_id: Field,
-        taker_partial_note: PartialUintNote,
-        bid_token: AztecAddress,
-        bid_amount: u128,
-    ) {
+    fn _fulfill_order(order_id: Field, taker_partial_note: PartialUintNote, bid_token: AztecAddress, bid_amount: u128) {
         // Finalize transfer of bid_amount of bid_token to taker
-        Token::at(bid_token).finalize_transfer_to_private(bid_amount, taker_partial_note).call(
-            self.context,
-        );
+        Token::at(bid_token).finalize_transfer_to_private(bid_amount, taker_partial_note).call(self.context);
 
         self.emit(OrderFulfilled { order_id });
     }

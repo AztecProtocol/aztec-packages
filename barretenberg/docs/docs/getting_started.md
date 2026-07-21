@@ -1,7 +1,7 @@
 ---
 title: Getting Started
 hide_title: true
-description: Barretenberg is a high-performance zero-knowledge proof system implementation written in C++. It serves as the cryptographic engine powering Aztec's privacy-focused blockchain solutions. The system includes efficient implementations of key cryptographic primitives, constraint system construction, and proof generation optimized for modern hardware.
+description: "Install Barretenberg and generate your first zero-knowledge proof using the bb CLI with Noir."
 keywords:
     [zero-knowledge proofs, ZK proofs, cryptography, blockchain, privacy, Aztec, C++, PLONK, arithmetic circuits, constraint systems, elliptic curves, performance optimization, zkSNARKs, zero-knowledge]
 sidebar_position: 1
@@ -15,14 +15,44 @@ Although it is a standalone prover, Barretenberg is designed to be used with [No
 
 ## Installation
 
-Inspired by `rustup`, `noirup` and similar tools, you can use the `bbup` installation script to quickly install and update Barretenberg's CLI tool:
+### Prerequisites: Install Noir
+
+Barretenberg is designed to work with [Noir](https://noir-lang.org). Install the Noir compiler (`nargo`) first using [noirup](https://github.com/noir-lang/noirup):
+
+```bash
+curl -L https://raw.githubusercontent.com/noir-lang/noirup/refs/heads/main/install | bash
+noirup
+```
+
+Verify the installation:
+
+```bash
+nargo --version
+```
+
+### Install Barretenberg
+
+With `nargo` installed, use `bbup` to install the matching version of `bb`:
 
 ```bash
 curl -L https://raw.githubusercontent.com/AztecProtocol/aztec-packages/refs/heads/next/barretenberg/bbup/install | bash
 bbup
 ```
 
-Following these prompts, you should be able to see `bb` binary in `$HOME/.bb/bb`.
+Running `bbup` without arguments auto-detects your installed `nargo` version and installs the compatible `bb` binary to `$HOME/.bb/bb`. You can verify with:
+
+```bash
+bb --version
+```
+
+### Version Compatibility
+
+`bbup` automatically resolves the correct Barretenberg version for your installed Noir version using a [version mapping file](https://github.com/AztecProtocol/aztec-packages/blob/next/barretenberg/bbup/bb-versions.json). You can also install a specific version:
+
+```bash
+bbup -v 0.87.0              # Install a specific BB version
+bbup -nv 1.0.0-beta.19      # Install BB matching a specific Noir version
+```
 
 ## Usage
 
@@ -51,7 +81,7 @@ bb prove -b ./target/hello_world.json -w ./target/hello_world.gz --verifier_targ
 # For recursive verification in Noir circuits (uses poseidon2 hash)
 bb prove -b ./target/hello_world.json -w ./target/hello_world.gz --verifier_target noir-recursive -o target
 
-# For Starknet verification via Garaga
+# For Starknet verification via Garaga (reserved for future use — disabled in default builds)
 bb prove -b ./target/hello_world.json -w ./target/hello_world.gz --verifier_target starknet -o target
 ```
 
@@ -59,7 +89,9 @@ Available targets:
 - `evm` / `evm-no-zk`: Ethereum/Solidity verification (keccak)
 - `noir-recursive` / `noir-recursive-no-zk`: Recursive verification in Noir circuits (poseidon2)
 - `noir-rollup` / `noir-rollup-no-zk`: Rollup circuits with IPA accumulation (poseidon2)
-- `starknet` / `starknet-no-zk`: Starknet verification via Garaga
+- `starknet` / `starknet-no-zk`: Starknet verification via Garaga (reserved for future use)
+
+For a detailed explanation of each target, see the [CLI Options guide](./cli_options.md).
 
 The `-no-zk` variants disable zero-knowledge, which can be useful when privacy isn't required and you want slightly faster proving.
 

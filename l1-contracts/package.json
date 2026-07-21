@@ -1,8 +1,12 @@
 {
   "name": "@aztec/l1-contracts",
   "version": "0.1.0",
+  "type": "module",
   "license": "Apache-2.0",
   "description": "Aztec contracts for the Ethereum mainnet and testnets",
+  "workspaces": [
+    "l1-artifacts"
+  ],
   "devDependencies": {
     "@openzeppelin/merkle-tree": "^1.0.8",
     "ox": "^0.8.3",
@@ -13,7 +17,8 @@
     "lint": "solhint --config ./.solhint.json \"src/**/*.sol\"",
     "lint:fix": "solhint --config ./.solhint.json --fix --noPrompt \"src/**/*.sol\"; forge fmt",
     "slither": "forge clean && forge build --build-info --skip '*/test/**' --force && slither . --checklist --ignore-compile --show-ignored-findings --config-file ./slither.config.json | tee slither_output.md",
-    "slither-has-diff": "./slither_has_diff.sh"
+    "slither-has-diff": "./slither_has_diff.sh",
+    "build:artifacts": "yarn workspace @aztec/l1-artifacts build"
   },
-  "packageManager": "yarn@4.5.2"
+  "packageManager": "yarn@4.13.0"
 }

@@ -108,7 +108,9 @@ export class L1TokenManager {
     const mintAmount = await this.getMintAmount();
     this.logger.info(`Minting ${mintAmount} tokens for ${stringifyEthAddress(address, addressName)}`);
     // NOTE: the handler mints a fixed amount.
-    await this.handler.write.mint([address]);
+    await this.extendedClient.waitForTransactionReceipt({
+      hash: await this.handler.write.mint([address]),
+    });
   }
 
   /**
@@ -410,6 +412,7 @@ export class L1TokenPortalManager extends L1ToL2TokenPortalManager {
    * @param amount - Amount to withdraw.
    * @param recipient - Who will receive the funds.
    * @param epochNumber - Epoch number of the message.
+   * @param numCheckpointsInEpoch - The partial-proof depth (1-indexed) the witness was built against.
    * @param messageIndex - Index of the message.
    * @param siblingPath - Sibling path of the message.
    */
@@ -417,11 +420,12 @@ export class L1TokenPortalManager extends L1ToL2TokenPortalManager {
     amount: bigint,
     recipient: EthAddress,
     epochNumber: EpochNumber,
+    numCheckpointsInEpoch: number,
     messageIndex: bigint,
     siblingPath: SiblingPath<number>,
   ) {
     this.logger.info(
-      `Sending L1 tx to consume message at epoch ${epochNumber} index ${messageIndex} to withdraw ${amount}`,
+      `Sending L1 tx to consume message at epoch ${epochNumber} numCheckpointsInEpoch ${numCheckpointsInEpoch} index ${messageIndex} to withdraw ${amount}`,
     );
 
     const messageLeafId = getL2ToL1MessageLeafId({ leafIndex: messageIndex, siblingPath });
@@ -438,6 +442,7 @@ export class L1TokenPortalManager extends L1ToL2TokenPortalManager {
       amount,
       false,
       BigInt(epochNumber),
+      BigInt(numCheckpointsInEpoch),
       messageIndex,
       siblingPath.toBufferArray().map((buf: Buffer): Hex => `0x${buf.toString('hex')}`),
     ]);

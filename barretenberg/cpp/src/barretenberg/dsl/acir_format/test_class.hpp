@@ -1,5 +1,6 @@
 #pragma once
 
+#include "barretenberg/common/assert.hpp"
 #include "barretenberg/dsl/acir_format/acir_format.hpp"
 #include "barretenberg/dsl/acir_format/acir_to_constraint_buf.hpp"
 #include "barretenberg/dsl/acir_format/serde/index.hpp"
@@ -19,6 +20,13 @@ template <typename T> struct is_std_vector : std::false_type {};
 template <typename T, typename Alloc> struct is_std_vector<std::vector<T, Alloc>> : std::true_type {};
 
 template <typename T> inline constexpr bool is_std_vector_v = is_std_vector<T>::value;
+
+// True if the constraint is Bilinear or BatchedEq, in which case the circuit construction needs to go
+// down the Mega path
+template <typename T> inline constexpr bool needs_mega_classification = false;
+template <> inline constexpr bool needs_mega_classification<BilinearConstraint> = true;
+template <> inline constexpr bool needs_mega_classification<BatchedEqCheckConstraint> = true;
+template <typename T> inline constexpr bool needs_mega_classification<std::vector<T>> = needs_mega_classification<T>;
 
 /**
  * @brief Convert a WitnessOrConstant back to an Acir::FunctionInput.
@@ -67,30 +75,15 @@ inline Acir::Expression witness_or_constant_to_expression(const WitnessOrConstan
 }
 
 /**
- * @brief Convert an AccessType to an Acir::Expression representing the operation type.
- *
- * @details Read operations are represented by Expression with constant 0,
- * Write operations are represented by Expression with constant 1.
- */
-inline Acir::Expression access_type_to_expression(AccessType access_type)
-{
-    bb::fr value = (access_type == AccessType::Write) ? bb::fr::one() : bb::fr::zero();
-    return Acir::Expression{
-        .mul_terms = {},
-        .linear_combinations = {},
-        .q_c = value.to_buffer(),
-    };
-}
-
-/**
  * @brief Convert an acir_format::MemOp to an Acir::MemOp.
  */
 inline Acir::MemOp mem_op_to_acir_mem_op(const MemOp& mem_op)
 {
     return Acir::MemOp{
-        .operation = access_type_to_expression(mem_op.access_type),
-        .index = witness_or_constant_to_expression(mem_op.index),
-        .value = witness_or_constant_to_expression(mem_op.value),
+        // Acir::MemOp::read is the serialized MemOpKind bool: false = Read, true = Write.
+        .read = (mem_op.access_type == AccessType::Write),
+        .index = Acir::Witness{ .value = mem_op.index },
+        .value = Acir::Witness{ .value = mem_op.value },
     };
 }
 
@@ -105,7 +98,7 @@ inline Acir::BlockType block_type_to_acir_block_type(BlockType type, CallDataTyp
         // ROM and RAM both map to Memory in ACIR
         return Acir::BlockType{ .value = Acir::BlockType::Memory{} };
     case BlockType::CallData: {
-        uint32_t id = (calldata_id == CallDataType::Primary) ? 0 : 1;
+        uint32_t id = static_cast<uint32_t>(calldata_id);
         return Acir::BlockType{ .value = Acir::BlockType::CallData{ .value = id } };
     }
     case BlockType::ReturnData:
@@ -379,10 +372,9 @@ template <typename ConstraintType> std::vector<Acir::Opcode> constraint_to_acir_
         for (const auto& sc : constraint.scalars) {
             scalars.push_back(witness_or_constant_to_function_input(sc));
         }
-        auto outputs = std::make_shared<std::array<Acir::Witness, 3>>();
+        auto outputs = std::make_shared<std::array<Acir::Witness, 2>>();
         (*outputs)[0] = Acir::Witness{ .value = constraint.out_point_x };
         (*outputs)[1] = Acir::Witness{ .value = constraint.out_point_y };
-        (*outputs)[2] = Acir::Witness{ .value = constraint.out_point_is_infinite };
         return { Acir::Opcode{ .value = Acir::Opcode::BlackBoxFuncCall{
                                    .value = Acir::BlackBoxFuncCall{
                                        .value = Acir::BlackBoxFuncCall::MultiScalarMul{
@@ -392,18 +384,15 @@ template <typename ConstraintType> std::vector<Acir::Opcode> constraint_to_acir_
                                            .outputs = outputs,
                                        } } } } };
     } else if constexpr (std::is_same_v<ConstraintType, EcAdd>) {
-        auto input1 = std::make_shared<std::array<Acir::FunctionInput, 3>>();
+        auto input1 = std::make_shared<std::array<Acir::FunctionInput, 2>>();
         (*input1)[0] = witness_or_constant_to_function_input(constraint.input1_x);
         (*input1)[1] = witness_or_constant_to_function_input(constraint.input1_y);
-        (*input1)[2] = witness_or_constant_to_function_input(constraint.input1_infinite);
-        auto input2 = std::make_shared<std::array<Acir::FunctionInput, 3>>();
+        auto input2 = std::make_shared<std::array<Acir::FunctionInput, 2>>();
         (*input2)[0] = witness_or_constant_to_function_input(constraint.input2_x);
         (*input2)[1] = witness_or_constant_to_function_input(constraint.input2_y);
-        (*input2)[2] = witness_or_constant_to_function_input(constraint.input2_infinite);
-        auto outputs = std::make_shared<std::array<Acir::Witness, 3>>();
+        auto outputs = std::make_shared<std::array<Acir::Witness, 2>>();
         (*outputs)[0] = Acir::Witness{ .value = constraint.result_x };
         (*outputs)[1] = Acir::Witness{ .value = constraint.result_y };
-        (*outputs)[2] = Acir::Witness{ .value = constraint.result_infinite };
         return { Acir::Opcode{ .value = Acir::Opcode::BlackBoxFuncCall{
                                    .value = Acir::BlackBoxFuncCall{
                                        .value = Acir::BlackBoxFuncCall::EmbeddedCurveAdd{
@@ -461,6 +450,58 @@ template <typename ConstraintType> std::vector<Acir::Opcode> constraint_to_acir_
         }
 
         return { Acir::Opcode{ .value = Acir::Opcode::AssertZero{ .value = expr } } };
+    } else if constexpr (std::is_same_v<ConstraintType, BilinearConstraint>) {
+        // Rewind a BILINEAR row back to the single AssertZero opcode it was classified from:
+        //   q_m·a·b + q_5·a·c + q_l·a + q_r·b + q_o·c + q_4·d + q_c = 0
+        // The two products share wire a. Zero coefficients are dropped so the re-classification sees the
+        // same shape.
+        auto push_linear = [](Acir::Expression& expr, const bb::fr& coeff, uint32_t witness) {
+            if (!coeff.is_zero()) {
+                expr.linear_combinations.push_back(
+                    std::make_tuple(coeff.to_buffer(), Acir::Witness{ .value = witness }));
+            }
+        };
+
+        Acir::Expression expr{ .mul_terms = {}, .linear_combinations = {}, .q_c = constraint.q_c.to_buffer() };
+        if (!constraint.q_m.is_zero()) {
+            expr.mul_terms.push_back(std::make_tuple(constraint.q_m.to_buffer(),
+                                                     Acir::Witness{ .value = constraint.a },
+                                                     Acir::Witness{ .value = constraint.b }));
+        }
+        if (!constraint.q_5.is_zero()) {
+            expr.mul_terms.push_back(std::make_tuple(constraint.q_5.to_buffer(),
+                                                     Acir::Witness{ .value = constraint.a },
+                                                     Acir::Witness{ .value = constraint.c }));
+        }
+        push_linear(expr, constraint.q_l, constraint.a);
+        push_linear(expr, constraint.q_r, constraint.b);
+        push_linear(expr, constraint.q_o, constraint.c);
+        push_linear(expr, constraint.q_4, constraint.d);
+        return { Acir::Opcode{ .value = Acir::Opcode::AssertZero{ .value = expr } } };
+    } else if constexpr (std::is_same_v<ConstraintType, BatchedEqCheckConstraint>) {
+        // Rewind a BATCHED_EQ row back to its two independent linear AssertZeros — batched-eq-half-1
+        // (q_l·a + q_r·b + q_c) and, unless it is the zeroed leftover of a single-half batched-eq, batched-eq-half-2
+        // (q_o·c + q_4·d + q_m). Zero coefficients are dropped so the re-classification sees the same shape.
+        auto push_linear = [](Acir::Expression& expr, const bb::fr& coeff, uint32_t witness) {
+            if (!coeff.is_zero()) {
+                expr.linear_combinations.push_back(
+                    std::make_tuple(coeff.to_buffer(), Acir::Witness{ .value = witness }));
+            }
+        };
+
+        std::vector<Acir::Opcode> opcodes;
+        Acir::Expression half_1{ .mul_terms = {}, .linear_combinations = {}, .q_c = constraint.q_c.to_buffer() };
+        push_linear(half_1, constraint.q_l, constraint.a);
+        push_linear(half_1, constraint.q_r, constraint.b);
+        opcodes.push_back(Acir::Opcode{ .value = Acir::Opcode::AssertZero{ .value = half_1 } });
+
+        if (!(constraint.q_o.is_zero() && constraint.q_4.is_zero() && constraint.q_m.is_zero())) {
+            Acir::Expression half_2{ .mul_terms = {}, .linear_combinations = {}, .q_c = constraint.q_m.to_buffer() };
+            push_linear(half_2, constraint.q_o, constraint.c);
+            push_linear(half_2, constraint.q_4, constraint.d);
+            opcodes.push_back(Acir::Opcode{ .value = Acir::Opcode::AssertZero{ .value = half_2 } });
+        }
+        return opcodes;
     } else {
         throw_or_abort("Unsupported constraint type");
     }
@@ -515,8 +556,10 @@ template <typename ConstraintType> AcirFormat constraint_to_acir_format(const Co
         opcodes = constraint_to_acir_opcode(constraint);
     }
 
+    // The bilinear / batched-eq gate is Mega-only
+    constexpr bool is_mega = needs_mega_classification<ConstraintType>;
     Acir::Circuit circuit = build_acir_circuit(opcodes);
-    return circuit_serde_to_acir_format(circuit);
+    return circuit_serde_to_acir_format(circuit, is_mega);
 }
 
 /**

@@ -6,11 +6,12 @@ import { getL1ContractsConfigEnvVars } from '@aztec/ethereum/config';
 import { EthCheatCodesWithState } from '@aztec/ethereum/test';
 import { createLogger } from '@aztec/foundation/log';
 import { DateProvider } from '@aztec/foundation/timer';
-import { TestWallet, proveInteraction } from '@aztec/test-wallet/server';
 
 import { jest } from '@jest/globals';
 
 import { getSponsoredFPCAddress } from '../fixtures/utils.js';
+import { TestWallet } from '../test-wallet/test_wallet.js';
+import { proveInteraction } from '../test-wallet/utils.js';
 import {
   type TestAccounts,
   createWalletAndAztecNodeClient,
@@ -20,6 +21,9 @@ import { ChainHealth, type ServiceEndpoint, getEthereumEndpoint, getRPCEndpoint,
 
 const config = { ...setupEnvironment(process.env) };
 
+// Sustained token transfer load across 4 full epochs against a live k8s deployment. Verifies that
+// the cluster can advance through multiple epoch boundaries while continuously processing transfers,
+// and that the proven chain advances past the 4-epoch mark.
 describe('token transfer test', () => {
   jest.setTimeout(10 * 60 * 4000); // 40 minutes
 
@@ -67,7 +71,8 @@ describe('token transfer test', () => {
 
   it('can get info', async () => {
     const name = readFieldCompressedString(
-      await testAccounts.tokenContract.methods.private_get_name().simulate({ from: testAccounts.tokenAdminAddress }),
+      (await testAccounts.tokenContract.methods.private_get_name().simulate({ from: testAccounts.tokenAdminAddress }))
+        .result,
     );
     expect(name).toBe(testAccounts.tokenName);
     logger.info(`Token name verified: ${name}`);
@@ -84,18 +89,22 @@ describe('token transfer test', () => {
 
     for (const acc of testAccounts.accounts) {
       expect(MINT_AMOUNT).toBe(
-        await testAccounts.tokenContract.methods
-          .balance_of_public(acc)
-          .simulate({ from: testAccounts.tokenAdminAddress }),
+        (
+          await testAccounts.tokenContract.methods
+            .balance_of_public(acc)
+            .simulate({ from: testAccounts.tokenAdminAddress })
+        ).result,
       );
     }
 
     logger.info('Minted tokens');
 
     expect(0n).toBe(
-      await testAccounts.tokenContract.methods
-        .balance_of_public(recipient)
-        .simulate({ from: testAccounts.tokenAdminAddress }),
+      (
+        await testAccounts.tokenContract.methods
+          .balance_of_public(recipient)
+          .simulate({ from: testAccounts.tokenAdminAddress })
+      ).result,
     );
 
     // For each round, make both private and public transfers
@@ -131,16 +140,20 @@ describe('token transfer test', () => {
 
     for (const acc of testAccounts.accounts) {
       expect(MINT_AMOUNT - ROUNDS * transferAmount).toBe(
-        await testAccounts.tokenContract.methods
-          .balance_of_public(acc)
-          .simulate({ from: testAccounts.tokenAdminAddress }),
+        (
+          await testAccounts.tokenContract.methods
+            .balance_of_public(acc)
+            .simulate({ from: testAccounts.tokenAdminAddress })
+        ).result,
       );
     }
 
     expect(ROUNDS * transferAmount * BigInt(testAccounts.accounts.length)).toBe(
-      await testAccounts.tokenContract.methods
-        .balance_of_public(recipient)
-        .simulate({ from: testAccounts.tokenAdminAddress }),
+      (
+        await testAccounts.tokenContract.methods
+          .balance_of_public(recipient)
+          .simulate({ from: testAccounts.tokenAdminAddress })
+      ).result,
     );
   });
 });

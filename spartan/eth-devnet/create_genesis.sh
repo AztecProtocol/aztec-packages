@@ -135,7 +135,7 @@ function create_beacon_genesis {
   docker run --rm \
     -v "$tmp_dir:/tmp" \
     -v "$beacon_genesis_path:/out" \
-    maddiaa/eth-beacon-genesis devnet \
+    ethpandaops/eth-beacon-genesis:master-f57c0fb devnet \
       --config="/tmp/config.yaml" \
       --eth1-config="/tmp/genesis.json" \
       --mnemonics="/tmp/mnemonics.yaml" \

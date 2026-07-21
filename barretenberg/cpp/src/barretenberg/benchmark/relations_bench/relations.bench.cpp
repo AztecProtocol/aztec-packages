@@ -59,9 +59,19 @@ BENCHMARK(execute_relation_for_univariates<UltraFlavor, UltraPermutationRelation
 
 // Goblin-Ultra only relations (Sumcheck prover work)
 BENCHMARK(execute_relation_for_univariates<MegaFlavor, EccOpQueueRelation<Fr>>);
-BENCHMARK(execute_relation_for_univariates<MegaFlavor, DatabusLookupRelation<Fr>>);
+// All three Mega bus columns instantiate the same per-bus lookup relation shape, so benching
+// kernel_calldata (the first SingleBusLookupRelation in the tuple) covers them all.
+using MegaKernelCalldataRelation = bb::SingleBusLookupRelation<Fr,
+                                                               MegaFlavor::EntityId::kernel_calldata,
+                                                               MegaFlavor::EntityId::kernel_calldata_read_counts,
+                                                               MegaFlavor::EntityId::kernel_calldata_inverses,
+                                                               MegaFlavor::EntityId::kernel_calldata_indicator,
+                                                               MegaFlavor::EntityId::q_l>;
+BENCHMARK(execute_relation_for_univariates<MegaFlavor, MegaKernelCalldataRelation>);
 BENCHMARK(execute_relation_for_univariates<MegaFlavor, Poseidon2ExternalRelation<Fr>>);
-BENCHMARK(execute_relation_for_univariates<MegaFlavor, Poseidon2InternalRelation<Fr>>);
+BENCHMARK(execute_relation_for_univariates<MegaFlavor, Poseidon2QuadInternalRelation<Fr>>);
+BENCHMARK(execute_relation_for_univariates<MegaFlavor, Poseidon2QuadInternalTerminalRelation<Fr>>);
+BENCHMARK(execute_relation_for_univariates<MegaFlavor, Poseidon2TransitionEntryRelation<Fr>>);
 
 // Ultra relations (verifier work)
 BENCHMARK(execute_relation_for_values<UltraFlavor, ArithmeticRelation<Fr>>);
@@ -74,9 +84,11 @@ BENCHMARK(execute_relation_for_values<UltraFlavor, UltraPermutationRelation<Fr>>
 
 // Goblin-Ultra only relations (verifier work)
 BENCHMARK(execute_relation_for_values<MegaFlavor, EccOpQueueRelation<Fr>>);
-BENCHMARK(execute_relation_for_values<MegaFlavor, DatabusLookupRelation<Fr>>);
+BENCHMARK(execute_relation_for_values<MegaFlavor, MegaKernelCalldataRelation>);
 BENCHMARK(execute_relation_for_values<MegaFlavor, Poseidon2ExternalRelation<Fr>>);
-BENCHMARK(execute_relation_for_values<MegaFlavor, Poseidon2InternalRelation<Fr>>);
+BENCHMARK(execute_relation_for_values<MegaFlavor, Poseidon2QuadInternalRelation<Fr>>);
+BENCHMARK(execute_relation_for_values<MegaFlavor, Poseidon2QuadInternalTerminalRelation<Fr>>);
+BENCHMARK(execute_relation_for_values<MegaFlavor, Poseidon2TransitionEntryRelation<Fr>>);
 
 // Translator VM
 BENCHMARK(execute_relation_for_values<TranslatorFlavor, TranslatorDecompositionRelation<Fr>>);

@@ -81,7 +81,6 @@ contract Inbox is IInbox {
     require(_recipient.version == VERSION, Errors.Inbox__VersionMismatch(_recipient.version, VERSION));
     require(uint256(_content) <= Constants.MAX_FIELD_VALUE, Errors.Inbox__ContentTooLarge(_content));
     require(uint256(_secretHash) <= Constants.MAX_FIELD_VALUE, Errors.Inbox__SecretHashTooLarge(_secretHash));
-    require(IRollup(ROLLUP).getManaTarget() > 0, Errors.Inbox__Ignition());
 
     // Is this the best way to read a packed struct into local variables in a single SLOAD
     // without having to use assembly and manual unpacking?
@@ -150,27 +149,13 @@ contract Inbox is IInbox {
       root = trees[_toConsume].root(forest, HEIGHT, SIZE);
     }
 
-    // If we are "catching up" we skip the tree creation as it is already there
+    // Once consumption reaches the current lag boundary, open the next checkpoint
+    // so new inserts keep a full LAG-sized buffer ahead of the rollup.
     if (_toConsume + LAG == inProgress) {
       state.inProgress = inProgress + 1;
     }
 
     return root;
-  }
-
-  /**
-   * @notice Catch up the inbox to the pending checkpoint number
-   *
-   * @dev Only callable by the rollup contract
-   *      Will only be called WHEN a change is made from 0 to non-zero mana limits
-   *
-   * @param _pendingCheckpointNumber - The pending checkpoint number to catch up to
-   */
-  function catchUp(uint256 _pendingCheckpointNumber) external override(IInbox) {
-    require(msg.sender == ROLLUP, Errors.Inbox__Unauthorized());
-    // The next expected will be LAG ahead of the next checkpoint, e.g., + LAG + 1 from current.
-    state.inProgress = SafeCast.toUint64(_pendingCheckpointNumber + LAG + 1);
-    emit InboxSynchronized(state.inProgress);
   }
 
   function getFeeAssetPortal() external view override(IInbox) returns (address) {

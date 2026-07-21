@@ -1,14 +1,14 @@
-import { type BlockNumber, CheckpointNumber } from '@aztec/foundation/branded-types';
+import { type BlockNumber, CheckpointNumber, IndexWithinCheckpoint } from '@aztec/foundation/branded-types';
 import { Fr } from '@aztec/foundation/curves/bn254';
+import { unfreeze } from '@aztec/foundation/types';
 import { L2Block } from '@aztec/stdlib/block';
 import { Checkpoint } from '@aztec/stdlib/checkpoint';
-import { Gas } from '@aztec/stdlib/gas';
 import type {
+  BlockBuilderOptions,
   FullNodeBlockBuilderConfig,
   ICheckpointBlockBuilder,
   ICheckpointsBuilder,
   MerkleTreeWriteOperations,
-  PublicProcessorLimits,
 } from '@aztec/stdlib/interfaces/server';
 import { CheckpointHeader } from '@aztec/stdlib/rollup';
 import { makeAppendOnlyTreeSnapshot } from '@aztec/stdlib/testing';
@@ -32,7 +32,7 @@ export class MockCheckpointBuilder implements ICheckpointBlockBuilder {
   public buildBlockCalls: Array<{
     blockNumber: BlockNumber;
     timestamp: bigint;
-    opts: PublicProcessorLimits;
+    opts: BlockBuilderOptions;
   }> = [];
   /** Track all consumed transaction hashes across buildBlock calls */
   public consumedTxHashes: Set<string> = new Set();
@@ -74,7 +74,7 @@ export class MockCheckpointBuilder implements ICheckpointBlockBuilder {
     pendingTxs: Iterable<Tx> | AsyncIterable<Tx>,
     blockNumber: BlockNumber,
     timestamp: bigint,
-    opts: PublicProcessorLimits,
+    opts: BlockBuilderOptions,
   ): Promise<BuildBlockInCheckpointResult> {
     this.buildBlockCalls.push({ blockNumber, timestamp, opts });
 
@@ -86,8 +86,10 @@ export class MockCheckpointBuilder implements ICheckpointBlockBuilder {
     let usedTxs: Tx[];
 
     if (this.blockProvider) {
-      // Dynamic mode: get block from provider
-      block = this.blockProvider();
+      // Dynamic mode: get block from provider, cloning to avoid shared references across multiple buildBlock calls
+      block = L2Block.fromBuffer(this.blockProvider().toBuffer());
+      block.header.globalVariables.blockNumber = blockNumber;
+      await block.header.recomputeHash();
       usedTxs = [];
       this.builtBlocks.push(block);
     } else {
@@ -113,81 +115,79 @@ export class MockCheckpointBuilder implements ICheckpointBlockBuilder {
 
     return {
       block,
-      publicGas: Gas.empty(),
       publicProcessorDuration: 0,
       numTxs: block?.body?.txEffects?.length ?? usedTxs.length,
       usedTxs,
       failedTxs: [],
-      usedTxBlobFields: block?.body?.txEffects?.reduce((sum, tx) => sum + tx.getNumBlobFields(), 0) ?? 0,
     };
   }
 
   completeCheckpoint(): Promise<Checkpoint> {
     this.completeCheckpointCalled = true;
     const allBlocks = this.blockProvider ? this.builtBlocks : this.blocks;
-    const lastBlock = allBlocks[allBlocks.length - 1];
-    // Create a CheckpointHeader from the last block's header for testing
-    const checkpointHeader = this.createCheckpointHeader(lastBlock);
-    return Promise.resolve(
-      new Checkpoint(
-        makeAppendOnlyTreeSnapshot(lastBlock.header.globalVariables.blockNumber + 1),
-        checkpointHeader,
-        allBlocks,
-        this.checkpointNumber,
-      ),
-    );
+    return this.buildCheckpoint(allBlocks);
   }
 
   getCheckpoint(): Promise<Checkpoint> {
     this.getCheckpointCalled = true;
     const builtBlocks = this.blockProvider ? this.builtBlocks : this.blocks.slice(0, this.blockIndex);
-    const lastBlock = builtBlocks[builtBlocks.length - 1];
-    if (!lastBlock) {
+    if (builtBlocks.length === 0) {
       throw new Error('No blocks built yet');
     }
-    // Create a CheckpointHeader from the last block's header for testing
-    const checkpointHeader = this.createCheckpointHeader(lastBlock);
-    return Promise.resolve(
-      new Checkpoint(
-        makeAppendOnlyTreeSnapshot(lastBlock.header.globalVariables.blockNumber + 1),
-        checkpointHeader,
-        builtBlocks,
-        this.checkpointNumber,
-      ),
-    );
+    return this.buildCheckpoint(builtBlocks);
   }
 
-  /**
-   * Creates a CheckpointHeader from a block's header for testing.
-   * This is a simplified version that creates a minimal CheckpointHeader.
-   */
-  private createCheckpointHeader(block: L2Block): CheckpointHeader {
-    const header = block.header;
-    const gv = header.globalVariables;
-    return CheckpointHeader.empty({
-      lastArchiveRoot: header.lastArchive.root,
-      blockHeadersHash: Fr.random(), // Use random for testing
+  /** Builds a structurally valid Checkpoint from a list of blocks, fixing up indexes and archive chaining. */
+  private async buildCheckpoint(blocks: L2Block[]): Promise<Checkpoint> {
+    // Fix up indexWithinCheckpoint and archive chaining so the checkpoint passes structural validation.
+    for (let i = 0; i < blocks.length; i++) {
+      blocks[i].indexWithinCheckpoint = IndexWithinCheckpoint(i);
+      if (i > 0) {
+        unfreeze(blocks[i].header).lastArchive = blocks[i - 1].archive;
+        await blocks[i].header.recomputeHash();
+      }
+    }
+
+    const firstBlock = blocks[0];
+    const lastBlock = blocks[blocks.length - 1];
+    const gv = firstBlock.header.globalVariables;
+
+    const checkpointHeader = CheckpointHeader.empty({
+      lastArchiveRoot: firstBlock.header.lastArchive.root,
+      blockHeadersHash: Fr.random(),
       slotNumber: gv.slotNumber,
       timestamp: gv.timestamp,
       coinbase: gv.coinbase,
       feeRecipient: gv.feeRecipient,
       gasFees: gv.gasFees,
-      totalManaUsed: header.totalManaUsed,
+      totalManaUsed: lastBlock.header.totalManaUsed,
     });
+
+    return new Checkpoint(
+      makeAppendOnlyTreeSnapshot(lastBlock.header.globalVariables.blockNumber + 1),
+      checkpointHeader,
+      blocks,
+      this.checkpointNumber,
+    );
+  }
+
+  /** Resets per-checkpoint state (built blocks, consumed txs) while preserving config (blockProvider, seeded blocks). */
+  resetCheckpointState(): void {
+    this.builtBlocks = [];
+    this.blockIndex = 0;
+    this.consumedTxHashes.clear();
+    this.completeCheckpointCalled = false;
+    this.getCheckpointCalled = false;
   }
 
   /** Reset for reuse in another test */
   reset(): void {
     this.blocks = [];
-    this.builtBlocks = [];
     this.usedTxsPerBlock = [];
-    this.blockIndex = 0;
     this.buildBlockCalls = [];
-    this.consumedTxHashes.clear();
-    this.completeCheckpointCalled = false;
-    this.getCheckpointCalled = false;
     this.errorOnBuild = undefined;
     this.blockProvider = undefined;
+    this.resetCheckpointState();
   }
 }
 
@@ -205,6 +205,7 @@ export class MockCheckpointsBuilder implements ICheckpointsBuilder {
     constants: CheckpointGlobalVariables;
     l1ToL2Messages: Fr[];
     previousCheckpointOutHashes: Fr[];
+    feeAssetPriceModifier: bigint;
   }> = [];
   public openCheckpointCalls: Array<{
     checkpointNumber: CheckpointNumber;
@@ -212,6 +213,7 @@ export class MockCheckpointsBuilder implements ICheckpointsBuilder {
     l1ToL2Messages: Fr[];
     previousCheckpointOutHashes: Fr[];
     existingBlocks: L2Block[];
+    feeAssetPriceModifier: bigint;
   }> = [];
   public updateConfigCalls: Array<Partial<FullNodeBlockBuilderConfig>> = [];
 
@@ -247,6 +249,7 @@ export class MockCheckpointsBuilder implements ICheckpointsBuilder {
       slotDuration: 24,
       l1ChainId: 1,
       rollupVersion: 1,
+      rollupManaLimit: 200_000_000,
     };
   }
 
@@ -257,15 +260,24 @@ export class MockCheckpointsBuilder implements ICheckpointsBuilder {
   startCheckpoint(
     checkpointNumber: CheckpointNumber,
     constants: CheckpointGlobalVariables,
+    feeAssetPriceModifier: bigint,
     l1ToL2Messages: Fr[],
     previousCheckpointOutHashes: Fr[],
     _fork: MerkleTreeWriteOperations,
   ): Promise<ICheckpointBlockBuilder> {
-    this.startCheckpointCalls.push({ checkpointNumber, constants, l1ToL2Messages, previousCheckpointOutHashes });
+    this.startCheckpointCalls.push({
+      checkpointNumber,
+      constants,
+      l1ToL2Messages,
+      previousCheckpointOutHashes,
+      feeAssetPriceModifier,
+    });
 
     if (!this.checkpointBuilder) {
       // Auto-create a builder if none was set
       this.checkpointBuilder = new MockCheckpointBuilder(constants, checkpointNumber);
+    } else {
+      this.checkpointBuilder.resetCheckpointState();
     }
 
     return Promise.resolve(this.checkpointBuilder);
@@ -274,6 +286,7 @@ export class MockCheckpointsBuilder implements ICheckpointsBuilder {
   openCheckpoint(
     checkpointNumber: CheckpointNumber,
     constants: CheckpointGlobalVariables,
+    feeAssetPriceModifier: bigint,
     l1ToL2Messages: Fr[],
     previousCheckpointOutHashes: Fr[],
     _fork: MerkleTreeWriteOperations,
@@ -285,6 +298,7 @@ export class MockCheckpointsBuilder implements ICheckpointsBuilder {
       l1ToL2Messages,
       previousCheckpointOutHashes,
       existingBlocks,
+      feeAssetPriceModifier,
     });
 
     if (!this.checkpointBuilder) {

@@ -1,8 +1,8 @@
 # External Audit Scope: Ultra + MegaCircuitBuilder
 
-Repository: https://github.com/AztecProtocol/aztec-packages
+Repository: https://github.com/AztecProtocol/aztec-packages-private
 
-Commit hash: [6d14241271ad07c72937498b66f28df630662c2c](https://github.com/AztecProtocol/aztec-packages/tree/6d14241271ad07c72937498b66f28df630662c2c)
+Commit hash: Most recent commit on branch 'next'
 
 Status: Planned, [Luke, Raju]
 
@@ -90,7 +90,7 @@ CircuitBuilderBase<FF>
 - **UltraCircuitBuilder**: Implements Ultra arithmetization with arithmetic gates, ROM/RAM memory operations, range constraints, table lookups, elliptic curve operations, non-native field arithmetic, and poseidon2 hashing
 - **MegaCircuitBuilder**: Extends Ultra with "Goblinized" (deferred) ECC operations and databus functionality for efficient inter-circuit communication (calldata/returndata)
 
-**Reference:** [stdlib_circuit_builders/README.md](https://github.com/AztecProtocol/aztec-packages/blob/next/barretenberg/cpp/src/barretenberg/stdlib_circuit_builders/README.md)
+**Reference:** [stdlib_circuit_builders/README.md](https://github.com/AztecProtocol/aztec-packages-private/blob/next/barretenberg/cpp/src/barretenberg/stdlib_circuit_builders/README.md)
 
 ## Test Files
 

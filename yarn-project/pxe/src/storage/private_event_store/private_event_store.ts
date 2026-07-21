@@ -28,25 +28,35 @@ type PrivateEventMetadata = InTx & {
   eventIndexInTx: number;
 };
 
+/// Alias types for kv map readability
+type EventId = string; // the siloedEventCommitment, stringified
+type JobId = string;
+type ContractAndSelectorKey = string;
+type BlockNum = number;
+type StoredEventBuffer = Buffer;
+
 /**
  * Stores decrypted private event logs.
+ *
+ * Append-only: events are never deleted during normal operation. Reorgs are handled by delete-on-prune, which removes
+ * every event originating on a reorg'd block.
  */
 export class PrivateEventStore implements StagedStore {
   readonly storeName: string = 'private_event';
 
   #store: AztecAsyncKVStore;
   /** Actual private event log entries, keyed by siloedEventCommitment */
-  #events: AztecAsyncMap<string, Buffer>;
+  #events: AztecAsyncMap<EventId, StoredEventBuffer>;
   /** Multi-map from contractAddress_eventSelector to siloedEventCommitment for efficient lookup */
-  #eventsByContractAndEventSelector: AztecAsyncMultiMap<string, string>;
-  /** Multi-map from block number to siloedEventCommitment for rollback support */
-  #eventsByBlockNumber: AztecAsyncMultiMap<number, string>;
+  #eventsByContractAndEventSelector: AztecAsyncMultiMap<ContractAndSelectorKey, EventId>;
+  /** Multi-map from block number to siloedEventCommitment, for delete-on-prune. */
+  #eventsByBlockNumber: AztecAsyncMultiMap<BlockNum, EventId>;
 
   /** jobId => eventId (event siloed nullifier) => StoredPrivateEvent */
-  #eventsForJob: Map<string, Map<string, StoredPrivateEvent>>;
+  #eventsForJob: Map<JobId, Map<EventId, StoredPrivateEvent>>;
 
   /** Per-job locks to prevent concurrent writes from affecting each other. */
-  #jobLocks: Map<string, Semaphore>;
+  #jobLocks: Map<JobId, Semaphore>;
 
   logger = createLogger('private_event_store');
 
@@ -216,61 +226,49 @@ export class PrivateEventStore implements StagedStore {
     });
   }
 
+  /** Returns the ids (siloed event commitments) of all events emitted at the given block number. Used by delete-on-prune. */
+  public async eventIdsAtBlock(blockNumber: number): Promise<string[]> {
+    const eventIds: string[] = [];
+    for await (const eventId of this.#eventsByBlockNumber.getValuesAsync(blockNumber)) {
+      eventIds.push(eventId);
+    }
+    return eventIds;
+  }
+
   /**
-   * Rolls back private events that were stored after a given `blockNumber` and up to `synchedBlockNumber` (the block
-   * number up to which PXE managed to sync before the reorg happened).
+   * Rolls the store back to `toBlock`: deletes every event anchored to a block strictly above it, as if nothing past
+   * that block height ever happened. Used by the reorg (`chain-pruned`) path to truncate the orphaned tail. Scanning
+   * from `toBlock + 1` upward covers everything above the rollback target without needing to know the chain tip.
    *
-   * We don't need staged writes for a rollback since it's handled in the context of a blockchain rewind.
-   *
-   * Rollbacks are handled by the BlockSynchronizer, which runs a DB transaction across stores when it detects a
-   * re-org, including setting the new anchor block after rolling back.
-   *
-   * So if anything fails in the process of rolling back any store, all DB changes occurring during rollbacks will be
-   * lost and the anchor block will not be updated; which means this code will eventually need to run again
-   * (i.e.: PXE will detect it's basing it work on an invalid block hash, then which re-triggers rewind).
-   *
-   * For further details, refer to `BlockSynchronizer#handleBlockStreamEvent`.
-   *
-   * IMPORTANT: This method must be called within a transaction to ensure atomicity.
+   * Must be called inside a transaction owned by the caller (it issues no `transactionAsync` of its own, the reorg
+   * path wraps it together with the anchor update, and IndexedDB has no nested transactions). Throws if any job has
+   * uncommitted staged writes, since rolling back mid-job could later re-introduce events anchored to deleted blocks.
    */
-  public async rollback(blockNumber: number, synchedBlockNumber: number): Promise<void> {
-    // First pass: collect all event IDs for all blocks, starting reads during iteration to keep tx alive.
-    const eventsByBlock: Map<number, { eventId: string; eventReadPromise: Promise<Buffer | undefined> }[]> = new Map();
-
-    for (let block = blockNumber + 1; block <= synchedBlockNumber; block++) {
-      const blockEvents: { eventId: string; eventReadPromise: Promise<Buffer | undefined> }[] = [];
-      for await (const eventId of this.#eventsByBlockNumber.getValuesAsync(block)) {
-        // Start read immediately during iteration to keep IndexedDB transaction alive
-        blockEvents.push({ eventId, eventReadPromise: this.#events.getAsync(eventId) });
-      }
-      if (blockEvents.length > 0) {
-        eventsByBlock.set(block, blockEvents);
-      }
+  public async rollback(toBlock: number): Promise<void> {
+    if (this.#eventsForJob.size > 0) {
+      throw new Error('PXE private event store rollback is not allowed while jobs are running');
     }
-
-    // Second pass: await reads and perform deletes
+    // Snapshot before mutating so we never delete from the multimap we are iterating.
+    const orphaned: { block: number; eventId: string }[] = [];
+    for await (const [block, eventId] of this.#eventsByBlockNumber.entriesAsync({ start: toBlock + 1 })) {
+      orphaned.push({ block, eventId });
+    }
     let removedCount = 0;
-    for (const [block, events] of eventsByBlock) {
-      await this.#eventsByBlockNumber.delete(block);
-
-      for (const { eventId, eventReadPromise } of events) {
-        const buffer = await eventReadPromise;
-        if (!buffer) {
-          throw new Error(`Event not found for eventId ${eventId}`);
-        }
-
-        const entry = StoredPrivateEvent.fromBuffer(buffer);
-        await this.#events.delete(eventId);
-        await this.#eventsByContractAndEventSelector.deleteValue(
-          this.#keyFor(entry.contractAddress, entry.eventSelector),
-          eventId,
-        );
-
-        removedCount++;
+    for (const { block, eventId } of orphaned) {
+      const buf = await this.#events.getAsync(eventId);
+      if (!buf) {
+        throw new Error(`Event not found for eventId ${eventId}`);
       }
+      const stored = StoredPrivateEvent.fromBuffer(buf);
+      await this.#events.delete(eventId);
+      await this.#eventsByContractAndEventSelector.deleteValue(
+        this.#keyFor(stored.contractAddress, stored.eventSelector),
+        eventId,
+      );
+      await this.#eventsByBlockNumber.deleteValue(block, eventId);
+      removedCount++;
     }
-
-    this.logger.verbose(`Rolled back ${removedCount} private events after block ${blockNumber}`);
+    this.logger.verbose('rolled back private events', { removedCount, toBlock });
   }
 
   /**

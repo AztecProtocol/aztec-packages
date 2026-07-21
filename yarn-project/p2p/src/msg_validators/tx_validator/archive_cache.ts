@@ -15,7 +15,7 @@ export class ArchiveCache implements ArchiveSource {
   }
 
   public async getArchiveIndices(archives: BlockHash[]): Promise<(bigint | undefined)[]> {
-    const toCheckDb = archives.filter(n => !this.archives.has(n.toString())).map(n => n.toFr());
+    const toCheckDb = archives.filter(n => !this.archives.has(n.toString()));
     const dbHits = await this.db.findLeafIndices(MerkleTreeId.ARCHIVE, toCheckDb);
     dbHits.forEach((x, index) => {
       if (x !== undefined) {

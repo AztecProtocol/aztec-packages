@@ -22,9 +22,17 @@ if [[ -z "${S3_FORCE_UPLOAD:-}" && "${CI:-0}" -eq 0 ]]; then
   exit 0
 fi
 
-if [[ -z "${AWS_ACCESS_KEY_ID:-}" || -z "${AWS_SECRET_ACCESS_KEY:-}" ]] && ! aws configure get aws_access_key_id &>/dev/null; then
-  echo_stderr "Skipping upload, no AWS credentials found."
+if [[ "${NO_CACHE_UPLOAD:-0}" -eq 1 ]]; then
+  echo_stderr "Skipping upload because NO_CACHE_UPLOAD=1."
   exit 0
+fi
+
+# In SSM/instance-profile mode, AWS CLI falls back to IMDS for credentials.
+if [[ "${CI_SSM_MODE:-0}" -eq 0 ]]; then
+  if [[ -z "${AWS_ACCESS_KEY_ID:-}" || -z "${AWS_SECRET_ACCESS_KEY:-}" ]] && ! aws configure get aws_access_key_id &>/dev/null; then
+    echo_stderr "Skipping upload, no AWS credentials found."
+    exit 0
+  fi
 fi
 
 if [ -z "${S3_FORCE_UPLOAD:-}" ] && \
@@ -40,6 +48,16 @@ if [[ "$name" == *.zst ]]; then
   tar --use-compress-program="zstd -T0" -cf $out_tar "$@"
 else
   tar -czf $out_tar "$@"
+fi
+
+# Save to local cache if enabled.
+if [[ -n "${CACHE_LOCAL_DIR:-}" ]]; then
+  if mkdir -p "$CACHE_LOCAL_DIR" 2>/dev/null; then
+    cp "$out_tar" "$CACHE_LOCAL_DIR/$name"
+    echo_stderr "Saved $name to local cache."
+  else
+    echo_stderr "Warning: Cannot create local cache dir $CACHE_LOCAL_DIR, skipping local cache."
+  fi
 fi
 
 # Pipe tar directly to AWS S3 cp

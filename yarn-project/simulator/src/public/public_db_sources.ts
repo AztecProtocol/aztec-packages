@@ -55,10 +55,11 @@ export class PublicContractsDB implements PublicContractsDBInterface {
     this.log = createLogger('simulator:contracts-data-source', bindings);
   }
 
-  public async addContracts(contractDeploymentData: ContractDeploymentData): Promise<void> {
+  /** Parses raw contract deployment data and inserts the resulting contracts into the current checkpoint. */
+  public addContractsFromLogs(contractDeploymentData: ContractDeploymentData): void {
     const currentState = this.getCurrentState();
 
-    await this.addContractClassesFromEvents(
+    this.addContractClassesFromEvents(
       ContractClassPublishedEvent.extractContractClassEvents(contractDeploymentData.getContractClassLogs()),
       currentState,
     );
@@ -69,10 +70,18 @@ export class PublicContractsDB implements PublicContractsDBInterface {
     );
   }
 
-  public async addNewContracts(tx: Tx): Promise<void> {
+  public addNewContracts(tx: Tx): void {
     const contractDeploymentData = AllContractDeploymentData.fromTx(tx);
-    await this.addContracts(contractDeploymentData.getNonRevertibleContractDeploymentData());
-    await this.addContracts(contractDeploymentData.getRevertibleContractDeploymentData());
+    this.addContractsFromLogs(contractDeploymentData.getNonRevertibleContractDeploymentData());
+    this.addContractsFromLogs(contractDeploymentData.getRevertibleContractDeploymentData());
+  }
+
+  /** Inserts typed contract instances directly into the current checkpoint. */
+  public addContracts(contractInstances?: ContractInstanceWithAddress[]): void {
+    const currentState = this.getCurrentState();
+    for (const instance of contractInstances ?? []) {
+      currentState.addInstance(instance.address, instance);
+    }
   }
 
   /**
@@ -81,7 +90,7 @@ export class PublicContractsDB implements PublicContractsDBInterface {
    */
   public createCheckpoint(): void {
     const currentState = this.getCurrentState();
-    const newState = currentState.deepCopy();
+    const newState = currentState.fork();
     this.contractStateStack.push(newState);
   }
 
@@ -174,17 +183,15 @@ export class PublicContractsDB implements PublicContractsDBInterface {
     return await this.dataSource.getDebugFunctionName(address, selector);
   }
 
-  private async addContractClassesFromEvents(
+  private addContractClassesFromEvents(
     contractClassEvents: ContractClassPublishedEvent[],
     state: ContractsDbCheckpoint,
   ) {
-    await Promise.all(
-      contractClassEvents.map(async (event: ContractClassPublishedEvent) => {
-        this.log.debug(`Adding class ${event.contractClassId.toString()} to contract state`);
-        const contractClass = await event.toContractClassPublic();
-        state.addClass(event.contractClassId, contractClass);
-      }),
-    );
+    for (const event of contractClassEvents) {
+      this.log.debug(`Adding class ${event.contractClassId.toString()} to contract state`);
+      const contractClass = event.toContractClassPublic();
+      state.addClass(event.contractClassId, contractClass);
+    }
   }
 
   private addContractInstancesFromEvents(

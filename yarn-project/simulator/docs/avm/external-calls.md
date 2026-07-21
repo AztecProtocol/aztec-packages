@@ -137,7 +137,7 @@ This is not a comprehensive list. See individual opcode docs for more details.
 - Storage writes ([SSTORE](opcodes/sstore.md))
 - Nullifier emissions ([EMITNULLIFIER](opcodes/emitnullifier.md))
 - Note hash emissions ([EMITNOTEHASH](opcodes/emitnotehash.md))
-- Log emissions ([EMITUNENCRYPTEDLOG](opcodes/emitunencryptedlog.md))
+- Log emissions ([EMITPUBLICLOG](opcodes/emitpubliclog.md))
 - L2-to-L1 messages ([SENDL2TOL1MSG](opcodes/sendl2tol1msg.md))
 
 **Allowed operations**:

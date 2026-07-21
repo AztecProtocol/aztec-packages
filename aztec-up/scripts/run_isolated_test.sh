@@ -93,14 +93,14 @@ EOF
   else
     export NON_INTERACTIVE=1
   fi
-  bash ${bash_args:-} <(curl -s $INSTALL_URI/aztec-install)
+  VERSION=0.0.1 INFRA_VERSION=0.0.1 bash ${bash_args:-} <(curl -s $INSTALL_URI/0.0.1/aztec-install)
 
   echo "Version information:"
 
   bash -i -c -e '
-    forge --version
+    aztec-forge --version
     echo
-    nargo --version
+    aztec-nargo --version
     echo
     echo -n "aztec version: "
     aztec --version

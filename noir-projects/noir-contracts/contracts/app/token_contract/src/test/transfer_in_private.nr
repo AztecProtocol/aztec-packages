@@ -1,19 +1,27 @@
 use crate::test::utils;
 use crate::Token;
 use aztec::test::helpers::authwit::add_private_authwit_from_call;
+use generic_proxy_contract::GenericProxy;
 
 #[test]
 unconstrained fn transfer_private_on_behalf_of_other() {
     // Setup with account contracts. Slower since we actually deploy them, but needed for authwits.
-    let (env, token_contract_address, owner, recipient, mint_amount) =
-        utils::setup_and_mint_to_private(/* with_account_contracts */ true);
+    let (env, token_contract_address, owner, recipient, mint_amount, proxy) =
+        utils::setup_and_mint_to_private_with_proxy();
     // Add authwit
     let transfer_amount = 1000 as u128;
     let transfer_private_from_call =
         Token::at(token_contract_address).transfer_in_private(owner, recipient, transfer_amount, 1);
-    add_private_authwit_from_call(env, owner, recipient, transfer_private_from_call);
+    add_private_authwit_from_call(env, owner, proxy, transfer_private_from_call);
     // Transfer tokens
-    env.call_private(recipient, transfer_private_from_call);
+    env.call_private(
+        owner,
+        GenericProxy::at(proxy).forward_private_4(
+            transfer_private_from_call.target_contract,
+            transfer_private_from_call.selector,
+            transfer_private_from_call.args,
+        ),
+    );
     // Check balances
     utils::check_private_balance(
         env,
@@ -41,40 +49,59 @@ unconstrained fn transfer_private_failure_on_behalf_of_self_non_zero_nonce() {
 #[test(should_fail_with = "Balance too low")]
 unconstrained fn transfer_private_failure_on_behalf_of_more_than_balance() {
     // Setup with account contracts. Slower since we actually deploy them, but needed for authwits.
-    let (env, token_contract_address, owner, recipient, mint_amount) =
-        utils::setup_and_mint_to_private(/* with_account_contracts */ true);
+    let (env, token_contract_address, owner, recipient, mint_amount, proxy) =
+        utils::setup_and_mint_to_private_with_proxy();
     // Add authwit
     let transfer_amount = mint_amount + (1 as u128);
     let transfer_private_from_call =
         Token::at(token_contract_address).transfer_in_private(owner, recipient, transfer_amount, 1);
-    add_private_authwit_from_call(env, owner, recipient, transfer_private_from_call);
+    add_private_authwit_from_call(env, owner, proxy, transfer_private_from_call);
     // Transfer tokens
-    env.call_private(recipient, transfer_private_from_call);
+    env.call_private(
+        owner,
+        GenericProxy::at(proxy).forward_private_4(
+            transfer_private_from_call.target_contract,
+            transfer_private_from_call.selector,
+            transfer_private_from_call.args,
+        ),
+    );
 }
 
 #[test(should_fail_with = "Unknown auth witness for message hash")]
 unconstrained fn transfer_private_failure_on_behalf_of_other_without_approval() {
     // Setup with account contracts. Slower since we actually deploy them, but needed for authwits.
-    let (env, token_contract_address, owner, recipient, _) =
-        utils::setup_and_mint_to_private(/* with_account_contracts */ true);
+    let (env, token_contract_address, owner, recipient, _, proxy) = utils::setup_and_mint_to_private_with_proxy();
     // Add authwit
     let transfer_amount = 1000 as u128;
     let transfer_private_from_call =
         Token::at(token_contract_address).transfer_in_private(owner, recipient, transfer_amount, 1);
     // Transfer tokens
-    env.call_private(recipient, transfer_private_from_call);
+    env.call_private(
+        owner,
+        GenericProxy::at(proxy).forward_private_4(
+            transfer_private_from_call.target_contract,
+            transfer_private_from_call.selector,
+            transfer_private_from_call.args,
+        ),
+    );
 }
 
 #[test(should_fail_with = "Unknown auth witness for message hash")]
 unconstrained fn transfer_private_failure_on_behalf_of_other_wrong_caller() {
     // Setup with account contracts. Slower since we actually deploy them, but needed for authwits.
-    let (env, token_contract_address, owner, recipient, _) =
-        utils::setup_and_mint_to_private(/* with_account_contracts */ true);
+    let (env, token_contract_address, owner, recipient, _, proxy) = utils::setup_and_mint_to_private_with_proxy();
     // Add authwit
     let transfer_amount = 1000 as u128;
     let transfer_private_from_call =
         Token::at(token_contract_address).transfer_in_private(owner, recipient, transfer_amount, 1);
     add_private_authwit_from_call(env, owner, owner, transfer_private_from_call);
     // Transfer tokens
-    env.call_private(recipient, transfer_private_from_call);
+    env.call_private(
+        owner,
+        GenericProxy::at(proxy).forward_private_4(
+            transfer_private_from_call.target_contract,
+            transfer_private_from_call.selector,
+            transfer_private_from_call.args,
+        ),
+    );
 }

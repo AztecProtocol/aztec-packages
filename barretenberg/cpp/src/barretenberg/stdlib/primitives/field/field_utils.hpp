@@ -43,6 +43,9 @@ std::pair<field_t<Builder>, field_t<Builder>> split_unique(const field_t<Builder
  * - lo < 2^lo_bits
  * - hi < 2^hi_bits (where hi_bits = field_modulus.get_msb() + 1 - lo_bits)
  *
+ * @pre The low lo_bits of field_modulus must be nonzero. If they are zero, the borrow arithmetic has
+ * undefined behaviour.
+ *
  * @param lo The low limb
  * @param hi The high limb
  * @param lo_bits The bit position at which the split occurred

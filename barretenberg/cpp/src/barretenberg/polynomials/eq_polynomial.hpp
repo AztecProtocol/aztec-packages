@@ -1,5 +1,5 @@
 // === AUDIT STATUS ===
-// internal:    { status: Planned, auditors: [], commit: }
+// internal:    { status: Complete, auditors: [Nishat], commit: 94f596f8b3bbbc216f9ad7dc33253256141156b2 }
 // external_1:  { status: not started, auditors: [], commit: }
 // external_2:  { status: not started, auditors: [], commit: }
 // =====================
@@ -49,12 +49,30 @@ template <typename FF> class ProverEqPolynomial {
      * - If all r_i ≠ 1: uses optimal method (~2^d muls) via GateSeparatorPolynomial
      * - If any r_i = 1: uses fallback method (~2^(d+1) muls) via direct construction
      *
-     * @param challenges The evaluation point r = (r_0, ..., r_{d-1})
-     * @param log_num_monomials The dimension d (must equal challenges.size())
-     * @return Polynomial<FF> Coefficient table of size 2^d indexed by Boolean masks
+     * @param challenges The challenge vector r = (r_0, ..., r_{|challenges|-1}). May be strictly longer than
+     * `log_num_monomials`: trailing entries (index ≥ log_num_monomials) do not add Boolean dimensions to the table;
+     * each one instead multiplies every table entry by an extra (1 − r_i) factor. Used by virtual sumcheck rounds,
+     * which expect that trailing factor to be pre-baked into the table rather than multiplied back in per round.
+     * Must satisfy `challenges.size() >= log_num_monomials`.
+     * @param log_num_monomials The Boolean-hypercube dimension d that determines the table size 2^d.
+     * @return Polynomial<FF> Coefficient table of size 2^d indexed by Boolean masks; equal to
+     * `eq(X, r[0..d]) · ∏_{i ≥ d}(1 − r_i)`.
      */
     static Polynomial<FF> construct(std::span<const FF> challenges, size_t log_num_monomials)
     {
+        // Prevent OOB read: compute_beta_products below (and construct_eq_with_edge_cases on the fallback path) read
+        // challenges[0..log_num_monomials).
+        BB_ASSERT_GTE(challenges.size(),
+                      log_num_monomials,
+                      "ProverEqPolynomial::construct: challenges.size() must be >= log_num_monomials");
+
+        // eq over 0 variables is the empty product 1.
+        if (log_num_monomials == 0) {
+            Polynomial<FF> result(/*size=*/1, /*virtual_size=*/1);
+            result.at(0) = FF(1);
+            return result;
+        }
+
         // Compute scaling factor C = ∏_i (1 - r_i)
         FF scaling_factor = compute_scaling_factor(challenges);
 
@@ -102,6 +120,8 @@ template <typename FF> class ProverEqPolynomial {
     {
         std::vector<FF> result;
         std::vector<FF> denominators;
+        denominators.reserve(challenges.size());
+        result.reserve(challenges.size());
         for (const auto& challenge : challenges) {
             denominators.push_back((FF(1) - challenge));
         }
@@ -223,7 +243,7 @@ template <typename FF> struct VerifierEqPolynomial {
     // ---- Evaluate eq(X, r) at u ----
     FF evaluate(std::span<const FF> u) const
     {
-        assert(u.size() == r.size());
+        BB_ASSERT_EQ(u.size(), r.size(), "expect u.size() == r.size()");
         FF acc = FF(1);
         for (size_t i = 0; i < u.size(); ++i) {
             // term_i = b_i + u_i * a_i
@@ -235,7 +255,7 @@ template <typename FF> struct VerifierEqPolynomial {
     // ---- Compute eq(r, u) without constructing the object ----
     static FF eval(std::span<const FF> r_in, std::span<const FF> u)
     {
-        assert(r_in.size() == u.size());
+        BB_ASSERT_EQ(r_in.size(), u.size(), "expect r_in.size() == u.size()");
         FF acc = FF(1);
         for (size_t i = 0; i < r_in.size(); ++i) {
             const FF ai = r_in[i] + r_in[i] - FF(1);

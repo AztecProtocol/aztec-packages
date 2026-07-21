@@ -7,6 +7,7 @@
 #include "aes128_constraint.hpp"
 #include "acir_format.hpp"
 #include "barretenberg/circuit_checker/circuit_checker.hpp"
+#include "barretenberg/common/assert.hpp"
 #include "barretenberg/crypto/aes128/aes128.hpp"
 #include "barretenberg/dsl/acir_format/test_class.hpp"
 #include "barretenberg/dsl/acir_format/utils.hpp"
@@ -358,112 +359,368 @@ TYPED_TEST(AES128TestAllConstant, Tampering)
 }
 
 // =============================================================================
-// PKCS#7 Padding Bug Documentation Test
+// Range Constraint Regression Tests
 // =============================================================================
-// This test documents a known bug: the circuit does NOT add a full padding block
-// when the input is block-aligned (multiple of 16 bytes).
-//
-// Per PKCS#7 specification:
-// - Input of N bytes should produce output of N + 16 - (N % 16) bytes
-// - When N % 16 == 0, output should be N + 16 bytes (full padding block added)
-//
-// Current buggy behavior:
-// - Input of 32 bytes produces 32 bytes output (no padding block)
-// - Should produce 48 bytes output (32 + 16 padding block)
-//
-// This matches the Noir stdlib signature: fn aes128_encrypt<let N: u32>(...) -> [u8; N + 16 - N % 16]
-// And the ACVM solver which uses libaes with proper PKCS#7 padding.
+// These tests verify that the AES128 constraint properly enforces that all byte
+// values (input, key, IV, output) are in the range [0, 255]. Values outside this
+// range should cause circuit verification to fail.
 // =============================================================================
 
-/**
- * @brief Test that documents the PKCS#7 padding bug for block-aligned inputs.
- *
- * This test will need to be updated when the bug is fixed:
- * - Change EXPECT_EQ(constraint.outputs.size(), 32) to EXPECT_EQ(constraint.outputs.size(), 48)
- * - Update the ciphertext computation to include the padding block
- */
-TEST(AES128PaddingBug, BlockAlignedInputMissingPaddingBlock)
-{
-    // Initialize SRS for plookup tables
-    bb::srs::init_file_crs_factory(bb::srs::bb_crs_path());
+class AES128RangeConstraintTest : public ::testing::Test {
+  protected:
+    static void SetUpTestSuite() { bb::srs::init_file_crs_factory(bb::srs::bb_crs_path()); }
 
     using Builder = UltraCircuitBuilder;
     using FF = Builder::FF;
 
-    // 32 bytes of plaintext (exactly 2 blocks - block aligned)
-    std::vector<uint8_t> plaintext = { 0x6b, 0xc1, 0xbe, 0xe2, 0x2e, 0x40, 0x9f, 0x96, 0xe9, 0x3d, 0x7e,
-                                       0x11, 0x73, 0x93, 0x17, 0x2a, 0xae, 0x2d, 0x8a, 0x57, 0x1e, 0x03,
-                                       0xac, 0x9c, 0x9e, 0xb7, 0x6f, 0xac, 0x45, 0xaf, 0x8e, 0x51 };
+    // Valid test vectors for AES-128-CBC (16 bytes = 1 block)
+    static constexpr std::array<FF, 16> valid_plaintext = { 0x6b, 0xc1, 0xbe, 0xe2, 0x2e, 0x40, 0x9f, 0x96,
+                                                            0xe9, 0x3d, 0x7e, 0x11, 0x73, 0x93, 0x17, 0x2a };
 
-    std::array<uint8_t, 16> key = { 0x2b, 0x7e, 0x15, 0x16, 0x28, 0xae, 0xd2, 0xa6,
-                                    0xab, 0xf7, 0x15, 0x88, 0x09, 0xcf, 0x4f, 0x3c };
+    static constexpr std::array<FF, 16> valid_key = { 0x2b, 0x7e, 0x15, 0x16, 0x28, 0xae, 0xd2, 0xa6,
+                                                      0xab, 0xf7, 0x15, 0x88, 0x09, 0xcf, 0x4f, 0x3c };
 
-    std::array<uint8_t, 16> iv = { 0x00, 0x01, 0x02, 0x03, 0x04, 0x05, 0x06, 0x07,
-                                   0x08, 0x09, 0x0a, 0x0b, 0x0c, 0x0d, 0x0e, 0x0f };
+    static constexpr std::array<FF, 16> valid_iv = { 0x00, 0x01, 0x02, 0x03, 0x04, 0x05, 0x06, 0x07,
+                                                     0x08, 0x09, 0x0a, 0x0b, 0x0c, 0x0d, 0x0e, 0x0f };
 
-    // Compute ciphertext WITHOUT padding (to match current buggy circuit behavior)
-    std::vector<uint8_t> ciphertext_no_padding = plaintext;
-    std::array<uint8_t, 16> iv_copy = iv;
-    crypto::aes128_encrypt_buffer_cbc(ciphertext_no_padding.data(), iv_copy.data(), key.data(), plaintext.size());
+    /**
+     * @brief Compute valid ciphertext for the test vectors.
+     */
+    static std::array<FF, 16> compute_ciphertext()
+    {
+        std::vector<uint8_t> buffer(16);
+        std::array<uint8_t, 16> key_bytes{};
+        std::array<uint8_t, 16> iv_bytes{};
 
-    // Create builder and add witnesses directly
-    Builder builder;
+        for (size_t i = 0; i < 16; ++i) {
+            buffer[i] = static_cast<uint8_t>(uint256_t(valid_plaintext[i]));
+            key_bytes[i] = static_cast<uint8_t>(uint256_t(valid_key[i]));
+            iv_bytes[i] = static_cast<uint8_t>(uint256_t(valid_iv[i]));
+        }
 
-    // Helper to add witness to builder and return index
-    auto add_witness = [&builder](FF value) -> uint32_t { return builder.add_variable(value); };
+        crypto::aes128_encrypt_buffer_cbc(buffer.data(), iv_bytes.data(), key_bytes.data(), buffer.size());
 
-    // Add plaintext to builder as witnesses
-    std::vector<WitnessOrConstant<FF>> input_witnesses;
-    for (const auto& byte : plaintext) {
-        uint32_t idx = add_witness(FF(byte));
-        input_witnesses.push_back(WitnessOrConstant<FF>::from_index(idx));
+        std::array<FF, 16> result{};
+        for (size_t i = 0; i < 16; ++i) {
+            result[i] = FF(buffer[i]);
+        }
+        return result;
     }
 
-    // Add key to builder as witnesses
-    std::array<WitnessOrConstant<FF>, 16> key_witnesses{};
+    /**
+     * @brief Build an AES128 constraint with specified values.
+     *
+     * @param plaintext_vals 16 field elements for plaintext (can include out-of-range values)
+     * @param key_vals 16 field elements for key
+     * @param iv_vals 16 field elements for IV
+     * @param output_vals 16 field elements for expected output
+     */
+    static std::pair<Builder, AES128Constraint> create_constraint(const std::array<FF, 16>& plaintext_vals,
+                                                                  const std::array<FF, 16>& key_vals,
+                                                                  const std::array<FF, 16>& iv_vals,
+                                                                  const std::array<FF, 16>& output_vals)
+    {
+        Builder builder;
+
+        auto add_witness = [&builder](FF value) -> uint32_t { return builder.add_variable(value); };
+
+        // Add plaintext witnesses
+        std::vector<WitnessOrConstant<FF>> input_witnesses;
+        for (const auto& val : plaintext_vals) {
+            input_witnesses.push_back(WitnessOrConstant<FF>::from_index(add_witness(val)));
+        }
+
+        // Add key witnesses
+        std::array<WitnessOrConstant<FF>, 16> key_witnesses{};
+        for (size_t i = 0; i < 16; ++i) {
+            key_witnesses[i] = WitnessOrConstant<FF>::from_index(add_witness(key_vals[i]));
+        }
+
+        // Add IV witnesses
+        std::array<WitnessOrConstant<FF>, 16> iv_witnesses{};
+        for (size_t i = 0; i < 16; ++i) {
+            iv_witnesses[i] = WitnessOrConstant<FF>::from_index(add_witness(iv_vals[i]));
+        }
+
+        // Add output witnesses
+        std::vector<uint32_t> output_indices;
+        for (const auto& val : output_vals) {
+            output_indices.push_back(add_witness(val));
+        }
+
+        AES128Constraint constraint{
+            .inputs = std::move(input_witnesses),
+            .iv = iv_witnesses,
+            .key = key_witnesses,
+            .outputs = std::move(output_indices),
+        };
+
+        return { std::move(builder), std::move(constraint) };
+    }
+
+    /**
+     * @brief Helper to test that out-of-range bytes are rejected BY THE CIRCUIT, not by native checks.
+     *
+     * This helper does NOT catch exceptions - if a native check throws, the test will fail.
+     * This ensures we're testing circuit soundness, not native validation.
+     */
+    static bool circuit_rejects_bad_input(Builder& builder, AES128Constraint& constraint)
+    {
+        // Don't catch exceptions - we want to verify CIRCUIT constraints catch the issue,
+        // not native checks that could be bypassed by a malicious prover
+        create_aes128_constraints(builder, constraint);
+        return !CircuitChecker::check(builder);
+    }
+};
+
+/**
+ * @brief Test that plaintext byte values > 255 cause circuit failure at the RANGE CONSTRAINT,
+ * not at the lookup tables.
+ *
+ * This tests the "overflow attack" scenario with correct byte ordering:
+ * - Packing is big-endian: byte[0] is MSB (×256^15), byte[15] is LSB (×256^0)
+ * - Attacker provides plaintext [..., 0, 256] (256 in LSB position 15)
+ * - packed = 256 * 256^0 = 256
+ * - When sliced: 256 % 256 = 0, 256 / 256 = 1 → slices = [0, 1, 0, ...]
+ * - This corresponds to valid plaintext [..., 1, 0] (1 in position 14)
+ *
+ * The range constraint should catch this attack.
+ */
+TEST_F(AES128RangeConstraintTest, PlaintextOutOfRangeFails)
+{
+    // The "overflowed" plaintext that AES would actually see after slicing
+    // attacker [..., 0, 256] becomes [..., 1, 0] when packed (256) and sliced
+    std::array<FF, 16> overflowed_plaintext = {};
+    overflowed_plaintext[14] = FF(1); // Carry from position 15
+    overflowed_plaintext[15] = FF(0); // 256 % 256 = 0
+    // rest are 0
+
+    // Compute the ciphertext for the OVERFLOWED plaintext
+    std::vector<uint8_t> buffer(16, 0);
+    buffer[14] = 1;
+    buffer[15] = 0;
+    std::array<uint8_t, 16> key_bytes{};
+    std::array<uint8_t, 16> iv_bytes{};
     for (size_t i = 0; i < 16; ++i) {
-        uint32_t idx = add_witness(FF(key[i]));
-        key_witnesses[i] = WitnessOrConstant<FF>::from_index(idx);
+        key_bytes[i] = static_cast<uint8_t>(uint256_t(valid_key[i]));
+        iv_bytes[i] = static_cast<uint8_t>(uint256_t(valid_iv[i]));
     }
+    crypto::aes128_encrypt_buffer_cbc(buffer.data(), iv_bytes.data(), key_bytes.data(), buffer.size());
 
-    // Add IV to builder as witnesses
-    std::array<WitnessOrConstant<FF>, 16> iv_witnesses{};
+    std::array<FF, 16> overflowed_ciphertext{};
     for (size_t i = 0; i < 16; ++i) {
-        uint32_t idx = add_witness(FF(iv[i]));
-        iv_witnesses[i] = WitnessOrConstant<FF>::from_index(idx);
+        overflowed_ciphertext[i] = FF(buffer[i]);
     }
 
-    // Add output (ciphertext without padding) to builder as witnesses
-    std::vector<uint32_t> output_indices;
-    for (const auto& byte : ciphertext_no_padding) {
-        uint32_t idx = add_witness(FF(byte));
-        output_indices.push_back(idx);
+    // PART 1: Verify that [..., 1, 0] with matching ciphertext PASSES
+    // This proves the lookups work fine - there's no issue with the data itself
+    {
+        auto [builder, constraint] =
+            create_constraint(overflowed_plaintext, valid_key, valid_iv, overflowed_ciphertext);
+        create_aes128_constraints(builder, constraint);
+        EXPECT_TRUE(CircuitChecker::check(builder))
+            << "Sanity check: [..., 1, 0] with correct ciphertext should pass (lookups work)";
     }
 
-    // Build the constraint with 32 bytes output (matching buggy behavior)
-    AES128Constraint constraint{
-        .inputs = std::move(input_witnesses),
-        .iv = iv_witnesses,
-        .key = key_witnesses,
-        .outputs = std::move(output_indices),
-    };
+    // PART 2: Verify that [..., 0, 256] FAILS due to range constraint
+    // The attacker's plaintext has 256 in LSB position, overflows to [..., 1, 0]
+    std::array<FF, 16> attacker_plaintext = {};
+    attacker_plaintext[15] = FF(256); // Out of range in LSB position!
+    // rest are 0
 
-    // Per PKCS#7, a 32-byte input should produce 48-byte output (32 + 16 padding block)
-    // But the current circuit only produces 32 bytes.
-
-    // Document the bug: output size equals input size (no padding block added)
-    EXPECT_EQ(constraint.inputs.size(), 32u) << "Input should be 32 bytes (block-aligned)";
-    EXPECT_EQ(constraint.outputs.size(), 32u) << "BUG: Output is 32 bytes, should be 48 bytes per PKCS#7";
-
-    // The correct PKCS#7 output size would be:
-    constexpr size_t correct_pkcs7_output_size = 32 + 16; // = 48 bytes
-    EXPECT_NE(constraint.outputs.size(), correct_pkcs7_output_size)
-        << "When this fails, the PKCS#7 padding bug has been fixed!";
-
-    // Create the AES constraints in the builder
+    // Attacker provides the ciphertext that matches the overflowed interpretation
+    auto [builder, constraint] = create_constraint(attacker_plaintext, valid_key, valid_iv, overflowed_ciphertext);
     create_aes128_constraints(builder, constraint);
+    EXPECT_TRUE(builder.failed()) << "Circuit should fail when plaintext has byte > 255";
+    EXPECT_FALSE(CircuitChecker::check(builder));
+}
 
-    // The circuit should pass with the buggy 32-byte output
-    bool circuit_valid = CircuitChecker::check(builder);
-    EXPECT_TRUE(circuit_valid) << "Circuit should pass with buggy 32-byte output";
+/**
+ * @brief Test that key byte values > 255 cause circuit failure at the RANGE CONSTRAINT.
+ *
+ * Same logic as PlaintextOutOfRangeFails with correct byte ordering:
+ * - 256 in LSB position (index 15) overflows to 1 in position 14
+ */
+TEST_F(AES128RangeConstraintTest, KeyOutOfRangeFails)
+{
+    // The "overflowed" key that AES would see: [..., 1, 0]
+    std::array<FF, 16> overflowed_key = {};
+    overflowed_key[14] = FF(1); // Carry from position 15
+    overflowed_key[15] = FF(0); // 256 % 256 = 0
+
+    // Compute ciphertext with the overflowed key
+    std::vector<uint8_t> buffer(16);
+    std::array<uint8_t, 16> key_bytes = { 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0 };
+    std::array<uint8_t, 16> iv_bytes{};
+    for (size_t i = 0; i < 16; ++i) {
+        buffer[i] = static_cast<uint8_t>(uint256_t(valid_plaintext[i]));
+        iv_bytes[i] = static_cast<uint8_t>(uint256_t(valid_iv[i]));
+    }
+    crypto::aes128_encrypt_buffer_cbc(buffer.data(), iv_bytes.data(), key_bytes.data(), buffer.size());
+
+    std::array<FF, 16> overflowed_ciphertext{};
+    for (size_t i = 0; i < 16; ++i) {
+        overflowed_ciphertext[i] = FF(buffer[i]);
+    }
+
+    // PART 1: Verify lookups work with valid key [..., 1, 0]
+    {
+        auto [builder, constraint] =
+            create_constraint(valid_plaintext, overflowed_key, valid_iv, overflowed_ciphertext);
+        create_aes128_constraints(builder, constraint);
+        EXPECT_TRUE(CircuitChecker::check(builder)) << "Sanity check: key [..., 1, 0] should pass (lookups work)";
+    }
+
+    // PART 2: Verify [..., 0, 256] key FAILS due to range constraint
+    std::array<FF, 16> attacker_key = {};
+    attacker_key[15] = FF(256); // Out of range in LSB position!
+
+    auto [builder, constraint] = create_constraint(valid_plaintext, attacker_key, valid_iv, overflowed_ciphertext);
+    create_aes128_constraints(builder, constraint);
+    EXPECT_TRUE(builder.failed()) << "Circuit should fail when key has byte > 255";
+    EXPECT_FALSE(CircuitChecker::check(builder));
+}
+
+/**
+ * @brief Test that IV byte values > 255 cause circuit failure at the RANGE CONSTRAINT.
+ *
+ * Same logic with correct byte ordering: 256 in LSB position overflows to adjacent byte.
+ */
+TEST_F(AES128RangeConstraintTest, IVOutOfRangeFails)
+{
+    // The "overflowed" IV that AES would see: [..., 1, 0]
+    std::array<FF, 16> overflowed_iv = {};
+    overflowed_iv[14] = FF(1); // Carry from position 15
+    overflowed_iv[15] = FF(0); // 256 % 256 = 0
+
+    // Compute ciphertext with the overflowed IV
+    std::vector<uint8_t> buffer(16);
+    std::array<uint8_t, 16> key_bytes{};
+    std::array<uint8_t, 16> iv_bytes = { 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0 };
+    for (size_t i = 0; i < 16; ++i) {
+        buffer[i] = static_cast<uint8_t>(uint256_t(valid_plaintext[i]));
+        key_bytes[i] = static_cast<uint8_t>(uint256_t(valid_key[i]));
+    }
+    crypto::aes128_encrypt_buffer_cbc(buffer.data(), iv_bytes.data(), key_bytes.data(), buffer.size());
+
+    std::array<FF, 16> overflowed_ciphertext{};
+    for (size_t i = 0; i < 16; ++i) {
+        overflowed_ciphertext[i] = FF(buffer[i]);
+    }
+
+    // PART 1: Verify lookups work with valid IV [..., 1, 0]
+    {
+        auto [builder, constraint] =
+            create_constraint(valid_plaintext, valid_key, overflowed_iv, overflowed_ciphertext);
+        create_aes128_constraints(builder, constraint);
+        EXPECT_TRUE(CircuitChecker::check(builder)) << "Sanity check: IV [..., 1, 0] should pass (lookups work)";
+    }
+
+    // PART 2: Verify [..., 0, 256] IV FAILS due to range constraint
+    std::array<FF, 16> attacker_iv = {};
+    attacker_iv[15] = FF(256); // Out of range in LSB position!
+
+    auto [builder, constraint] = create_constraint(valid_plaintext, valid_key, attacker_iv, overflowed_ciphertext);
+    create_aes128_constraints(builder, constraint);
+    EXPECT_TRUE(builder.failed()) << "Circuit should fail when IV has byte > 255";
+    EXPECT_FALSE(CircuitChecker::check(builder));
+}
+
+/**
+ * @brief Test that output byte values > 255 cause circuit failure at the RANGE CONSTRAINT.
+ *
+ * For outputs, we provide witnesses that pack to the same value using LSB overflow:
+ * If valid output is [..., X, Y], then [..., X-1, Y+256] packs to the same value:
+ *   (X-1)*256^1 + (Y+256)*256^0 = X*256 - 256 + Y + 256 = X*256 + Y
+ */
+TEST_F(AES128RangeConstraintTest, OutputOutOfRangeFails)
+{
+    // Compute the valid ciphertext
+    auto valid_ciphertext = compute_ciphertext();
+
+    // PART 1: Verify circuit passes with valid output
+    {
+        auto [builder, constraint] = create_constraint(valid_plaintext, valid_key, valid_iv, valid_ciphertext);
+        create_aes128_constraints(builder, constraint);
+        EXPECT_TRUE(CircuitChecker::check(builder)) << "Sanity check: valid ciphertext should pass";
+    }
+
+    // PART 2: Create attacker output that packs to the same value using LSB positions
+    // [..., X-1, Y+256] packs same as [..., X, Y] due to overflow
+    std::array<FF, 16> attacker_output = valid_ciphertext;
+    uint64_t second_last_byte = static_cast<uint64_t>(uint256_t(valid_ciphertext[14])); // X
+    uint64_t last_byte = static_cast<uint64_t>(uint256_t(valid_ciphertext[15]));        // Y
+
+    // Need second_last_byte >= 1 to subtract 1 from it
+    ASSERT_GE(second_last_byte, 1u) << "Test requires ciphertext[14] >= 1";
+
+    attacker_output[14] = FF(second_last_byte - 1); // X - 1
+    attacker_output[15] = FF(last_byte + 256);      // Y + 256 (out of range!)
+
+    auto [builder, constraint] = create_constraint(valid_plaintext, valid_key, valid_iv, attacker_output);
+    create_aes128_constraints(builder, constraint);
+    EXPECT_TRUE(builder.failed()) << "Circuit should fail when output has byte > 255";
+    EXPECT_FALSE(CircuitChecker::check(builder));
+}
+
+// =============================================================================
+// Shape Validation Regression Tests
+// =============================================================================
+// Guards in create_aes128_constraints enforce:
+//   - inputs.size() % 16 == 0
+//   - outputs.size() == inputs.size()
+// Malformed ACIR violating either invariant would otherwise produce circuits
+// with undefined behaviour (span OOB) or under-constrained output witnesses.
+// =============================================================================
+
+class AES128ShapeValidationTest : public ::testing::Test {
+  protected:
+    using Builder = UltraCircuitBuilder;
+    using FF = Builder::FF;
+
+    // Build a well-formed AES128Constraint with `num_input_bytes` input and
+    // `num_output_bytes` output witnesses. Values are zero; we only exercise
+    // the shape guards, which run before any AES math.
+    static std::pair<Builder, AES128Constraint> make_constraint(size_t num_input_bytes, size_t num_output_bytes)
+    {
+        Builder builder;
+        auto add_witness = [&builder](FF value) { return builder.add_variable(value); };
+
+        std::vector<WitnessOrConstant<FF>> input_witnesses;
+        for (size_t i = 0; i < num_input_bytes; ++i) {
+            input_witnesses.push_back(WitnessOrConstant<FF>::from_index(add_witness(FF(0))));
+        }
+
+        std::array<WitnessOrConstant<FF>, 16> key_witnesses{};
+        std::array<WitnessOrConstant<FF>, 16> iv_witnesses{};
+        for (size_t i = 0; i < 16; ++i) {
+            key_witnesses[i] = WitnessOrConstant<FF>::from_index(add_witness(FF(0)));
+            iv_witnesses[i] = WitnessOrConstant<FF>::from_index(add_witness(FF(0)));
+        }
+
+        std::vector<uint32_t> output_indices;
+        for (size_t i = 0; i < num_output_bytes; ++i) {
+            output_indices.push_back(add_witness(FF(0)));
+        }
+
+        AES128Constraint constraint{
+            .inputs = std::move(input_witnesses),
+            .iv = iv_witnesses,
+            .key = key_witnesses,
+            .outputs = std::move(output_indices),
+        };
+        return { std::move(builder), std::move(constraint) };
+    }
+};
+
+TEST_F(AES128ShapeValidationTest, InputsNotBlockAlignedRejected)
+{
+    auto [builder, constraint] = make_constraint(/*num_input_bytes=*/17, /*num_output_bytes=*/17);
+    EXPECT_THROW_OR_ABORT(create_aes128_constraints(builder, constraint), ".*multiple of 16.*");
+}
+
+TEST_F(AES128ShapeValidationTest, OutputsSizeMismatchRejected)
+{
+    auto [builder, constraint] = make_constraint(/*num_input_bytes=*/16, /*num_output_bytes=*/32);
+    EXPECT_THROW_OR_ABORT(create_aes128_constraints(builder, constraint), ".*same length as inputs.*");
 }

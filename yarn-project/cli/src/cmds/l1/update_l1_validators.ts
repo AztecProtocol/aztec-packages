@@ -2,7 +2,7 @@ import { createEthereumChain, isAnvilTestChain } from '@aztec/ethereum/chain';
 import { createExtendedL1Client, getPublicClient } from '@aztec/ethereum/client';
 import { getL1ContractsConfigEnvVars } from '@aztec/ethereum/config';
 import { GSEContract, RollupContract } from '@aztec/ethereum/contracts';
-import { createL1TxUtilsFromViemWallet } from '@aztec/ethereum/l1-tx-utils';
+import { createL1TxUtils } from '@aztec/ethereum/l1-tx-utils';
 import { EthCheatCodes } from '@aztec/ethereum/test';
 import type { EthAddress } from '@aztec/foundation/eth-address';
 import type { LogFn, Logger } from '@aztec/foundation/log';
@@ -38,7 +38,6 @@ export interface LoggerArgs {
 export function generateL1Account() {
   const privateKey = generatePrivateKey();
   const account = privateKeyToAccount(privateKey);
-  account.address;
   return {
     privateKey,
     address: account.address,
@@ -88,7 +87,7 @@ export async function addL1Validator({
   const gse = new GSEContract(l1Client, gseAddress);
   const registrationTuple = await gse.makeRegistrationTuple(blsSecretKey);
 
-  const l1TxUtils = createL1TxUtilsFromViemWallet(l1Client, { logger: debugLogger });
+  const l1TxUtils = createL1TxUtils(l1Client, { logger: debugLogger });
   const proofParamsObj = ZkPassportProofParams.fromBuffer(proofParams);
 
   // Step 1: Claim STK tokens from the faucet
@@ -194,7 +193,7 @@ export async function addL1ValidatorViaRollup({
 
   const registrationTuple = await gse.makeRegistrationTuple(blsSecretKey);
 
-  const l1TxUtils = createL1TxUtilsFromViemWallet(l1Client, { logger: debugLogger });
+  const l1TxUtils = createL1TxUtils(l1Client, { logger: debugLogger });
 
   const { receipt } = await l1TxUtils.sendAndMonitorTransaction({
     to: rollupAddress.toString(),
@@ -241,7 +240,7 @@ export async function removeL1Validator({
   const account = getAccount(privateKey, mnemonic);
   const chain = createEthereumChain(rpcUrls, chainId);
   const l1Client = createExtendedL1Client(rpcUrls, account, chain.chainInfo);
-  const l1TxUtils = createL1TxUtilsFromViemWallet(l1Client, { logger: debugLogger });
+  const l1TxUtils = createL1TxUtils(l1Client, { logger: debugLogger });
 
   dualLog(`Removing validator ${validatorAddress.toString()} from rollup ${rollupAddress.toString()}`);
   const { receipt } = await l1TxUtils.sendAndMonitorTransaction({
@@ -268,7 +267,7 @@ export async function pruneRollup({
   const account = getAccount(privateKey, mnemonic);
   const chain = createEthereumChain(rpcUrls, chainId);
   const l1Client = createExtendedL1Client(rpcUrls, account, chain.chainInfo);
-  const l1TxUtils = createL1TxUtilsFromViemWallet(l1Client, { logger: debugLogger });
+  const l1TxUtils = createL1TxUtils(l1Client, { logger: debugLogger });
 
   dualLog(`Trying prune`);
   const { receipt } = await l1TxUtils.sendAndMonitorTransaction({

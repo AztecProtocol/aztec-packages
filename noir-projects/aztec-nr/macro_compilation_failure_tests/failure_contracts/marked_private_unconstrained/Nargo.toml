@@ -1,7 +1,0 @@
-[package]
-name = "marked_private_unconstrained"
-type = "contract"
-authors = [""]
-
-[dependencies]
-aztec = { path = "../../../aztec" }

@@ -12,42 +12,40 @@ import { Fr } from '@aztec/foundation/curves/bn254';
 import { type Logger, createLogger } from '@aztec/foundation/log';
 import { sleep } from '@aztec/foundation/sleep';
 import { DateProvider, Timer } from '@aztec/foundation/timer';
-import type { DataStoreConfig } from '@aztec/kv-store/config';
 import { openTmpStore } from '@aztec/kv-store/lmdb-v2';
 import { getVKTreeRoot } from '@aztec/noir-protocol-circuits-types/vk-tree';
 import { protocolContractsHash } from '@aztec/protocol-contracts';
 import type { L2BlockSource } from '@aztec/stdlib/block';
 import type { ContractDataSource } from '@aztec/stdlib/contract';
+import { EmptyL1RollupConstants, type L1RollupConstants } from '@aztec/stdlib/epoch-helpers';
+import { GasFees } from '@aztec/stdlib/gas';
 import type { ClientProtocolCircuitVerifier, WorldStateSynchronizer } from '@aztec/stdlib/interfaces/server';
-import { type BlockProposal, P2PClientType, P2PMessage } from '@aztec/stdlib/p2p';
+import type { DataStoreConfig } from '@aztec/stdlib/kv-store';
+import { type BlockProposal, P2PMessage } from '@aztec/stdlib/p2p';
 import { ChonkProof } from '@aztec/stdlib/proofs';
 import { makeAztecAddress, makeBlockHeader, makeBlockProposal, mockTx } from '@aztec/stdlib/testing';
-import { Tx, TxHash, type TxValidationResult } from '@aztec/stdlib/tx';
+import { Tx, TxHash, type TxValidationResult, type TxValidator } from '@aztec/stdlib/tx';
 import { type TelemetryClient, getTelemetryClient } from '@aztec/telemetry-client';
 
 import type { Message, PeerId } from '@libp2p/interface';
 import { TopicValidatorResult } from '@libp2p/interface';
 import { peerIdFromString } from '@libp2p/peer-id';
 
-import type { P2PClient } from '../client/p2p_client.js';
+import type { P2PClient } from '../client/index.js';
 import type { P2PConfig } from '../config.js';
 import { createP2PClient } from '../index.js';
-import type { MemPools } from '../mem_pools/interface.js';
-import { LibP2PService } from '../services/libp2p/libp2p_service.js';
+import type { MemPools } from '../mem_pools/index.js';
+import { LibP2PService } from '../services/index.js';
 import type { PeerManager } from '../services/peer-manager/peer_manager.js';
+import { BatchTxRequester } from '../services/reqresp/batch-tx-requester/batch_tx_requester.js';
 import type { BatchTxRequesterLibP2PService } from '../services/reqresp/batch-tx-requester/interface.js';
-import type { IBatchRequestTxValidator } from '../services/reqresp/batch-tx-requester/tx_validator.js';
 import { RateLimitStatus } from '../services/reqresp/rate-limiter/rate_limiter.js';
 import type { ReqResp } from '../services/reqresp/reqresp.js';
 import type { PeerDiscoveryService } from '../services/service.js';
-import {
-  BatchTxRequesterCollector,
-  SendBatchRequestCollector,
-} from '../services/tx_collection/proposal_tx_collector.js';
-import { AlwaysTrueCircuitVerifier } from '../test-helpers/reqresp-nodes.js';
+import { RequestTracker } from '../services/tx_collection/request_tracker.js';
+import { AlwaysTrueCircuitVerifier } from '../test-helpers/index.js';
 import {
   BENCHMARK_CONSTANTS,
-  type CollectorType,
   type DistributionPattern,
   InMemoryAttestationPool,
   InMemoryTxPool,
@@ -55,18 +53,16 @@ import {
   createMockEpochCache,
   createMockWorldStateSynchronizer,
   filterTxsByDistribution,
-} from '../test-helpers/testbench-utils.js';
+} from '../test-helpers/index.js';
 import type { PubSubLibp2p } from '../util.js';
 
-export type { DistributionPattern, CollectorType } from '../test-helpers/testbench-utils.js';
-export { COLLECTOR_DISPLAY_NAMES } from '../test-helpers/testbench-utils.js';
+export type { DistributionPattern } from '../test-helpers/testbench-utils.js';
 
 export interface BenchReqRespCommand {
   type: 'BENCH_REQRESP';
   txCount: number;
   peerCount: number;
   distribution: DistributionPattern;
-  collectorType: CollectorType;
   timeoutMs: number;
   isAggregator: boolean;
   peerIndex: number;
@@ -89,12 +85,30 @@ export interface BenchReadyMessage {
 }
 const txCache = new Map<number, Tx[]>();
 
-class TestLibP2PService<T extends P2PClientType = P2PClientType.Full> extends LibP2PService<T> {
+const BENCH_L1_CONSTANTS: L1RollupConstants = {
+  ...EmptyL1RollupConstants,
+  slotDuration: 12,
+  ethereumSlotDuration: 4,
+};
+
+class TestbenchL2BlockSource extends MockL2BlockSource {
+  public override getL1Constants(): Promise<L1RollupConstants> {
+    return Promise.resolve(BENCH_L1_CONSTANTS);
+  }
+}
+
+function createBenchmarkEpochCache(): EpochCacheInterface {
+  return {
+    ...createMockEpochCache(),
+    getL1Constants: () => BENCH_L1_CONSTANTS,
+  };
+}
+
+class TestLibP2PService extends LibP2PService {
   private disableTxValidation: boolean;
   private gossipMessageCount = 0;
 
   constructor(
-    clientType: T,
     config: P2PConfig,
     node: PubSubLibp2p,
     peerDiscoveryService: PeerDiscoveryService,
@@ -110,7 +124,6 @@ class TestLibP2PService<T extends P2PClientType = P2PClientType.Full> extends Li
     disableTxValidation = true,
   ) {
     super(
-      clientType,
       config,
       node,
       peerDiscoveryService,
@@ -121,6 +134,7 @@ class TestLibP2PService<T extends P2PClientType = P2PClientType.Full> extends Li
       epochCache,
       proofVerifier,
       worldStateSynchronizer,
+      { getCurrentMinFees: () => Promise.resolve(GasFees.empty()) },
       telemetry,
       logger,
     );
@@ -144,7 +158,7 @@ class TestLibP2PService<T extends P2PClientType = P2PClientType.Full> extends Li
       const txHash = tx.getTxHash();
       const txHashString = txHash.toString();
       this.logger.verbose(`Received tx ${txHashString} from external peer ${source.toString()}.`);
-      await this.mempools.txPool.addTxs([tx]);
+      await this.mempools.txPool.addPendingTxs([tx]);
     } else {
       await super.handleGossipedTx(payload, msgId, source);
     }
@@ -166,7 +180,7 @@ async function generateDeterministicTxs(txCount: number, seed: number, config: P
     return cached.slice(0, txCount);
   }
 
-  const includeByTimestampBase = BigInt(seed);
+  const expirationTimestampBase = BigInt(seed);
   for (let i = cached.length; i < txCount; i++) {
     const txSeed = seed * 10000 + i;
     const tx = await mockTx(txSeed, {
@@ -182,7 +196,7 @@ async function generateDeterministicTxs(txCount: number, seed: number, config: P
       hasPublicTeardownCallRequest: false,
       publicCalldataSize: 0,
     });
-    tx.data.includeByTimestamp = includeByTimestampBase + BigInt(i);
+    tx.data.expirationTimestamp = expirationTimestampBase + BigInt(i);
     await tx.recomputeHash();
     cached.push(tx);
   }
@@ -209,10 +223,28 @@ function installUnlimitedRateLimits(client: P2PClient): void {
   rateLimiter.allow = () => RateLimitStatus.Allowed;
 }
 
+/** Resets peer scores to prevent cross-case contamination in benchmarks. */
+function resetPeerScores(client: P2PClient): void {
+  const peerManager = (client as any).p2pService.peerManager;
+  const peerScoring = peerManager?.peerScoring;
+  if (peerScoring?.resetAllScores) {
+    peerScoring.resetAllScores();
+  }
+}
+
+/** Returns the number of connected peers for connectivity checks. */
+function getConnectedPeerCount(client: P2PClient): number {
+  const p2pService = (client as any).p2pService;
+  const connectionSampler = p2pService?.reqresp?.getConnectionSampler?.();
+  if (connectionSampler?.getPeerListSortedByConnectionCountAsc) {
+    return connectionSampler.getPeerListSortedByConnectionCountAsc().length;
+  }
+  return 0;
+}
+
 async function runAggregatorBenchmark(
   client: P2PClient,
   blockProposal: BlockProposal,
-  collectorType: CollectorType,
   timeoutMs: number,
   pinnedPeerId: string | undefined,
   pinnedPeerIndex: number | undefined,
@@ -263,36 +295,22 @@ async function runAggregatorBenchmark(
       }
     }
 
-    const noopTxValidator: IBatchRequestTxValidator = {
-      validateRequestedTx: (_tx: Tx): Promise<TxValidationResult> => Promise.resolve({ result: 'valid' }),
-      validateRequestedTxs: (txs: Tx[]): Promise<TxValidationResult[]> =>
-        Promise.resolve(txs.map(() => ({ result: 'valid' }))),
+    const noopTxValidator: TxValidator = {
+      validateTx: (_tx: Tx): Promise<TxValidationResult> => Promise.resolve({ result: 'valid' }),
     };
 
     timer = new Timer();
-    if (collectorType === 'batch-requester') {
-      const collector = new BatchTxRequesterCollector(
-        batchTxRequesterService,
-        logger,
-        new DateProvider(),
-        noopTxValidator,
-      );
-      const fetchedTxs = await collector.collectTxs(txHashes, blockProposal, pinnedPeer, timeoutMs);
-      const durationMs = timer.ms();
-      return {
-        type: 'BENCH_RESULT',
-        durationMs,
-        fetchedCount: fetchedTxs.length,
-        success: fetchedTxs.length === txHashes.length,
-      };
-    }
-
-    const collector = new SendBatchRequestCollector(
+    const tracker = RequestTracker.create(txHashes, new Date(Date.now() + timeoutMs));
+    const batchRequester = new BatchTxRequester(
+      tracker,
+      blockProposal,
+      pinnedPeer,
       batchTxRequesterService,
-      BENCHMARK_CONSTANTS.FIXED_MAX_PEERS,
-      BENCHMARK_CONSTANTS.FIXED_MAX_RETRY_ATTEMPTS,
+      logger,
+      new DateProvider(),
+      { txValidator: noopTxValidator },
     );
-    const fetchedTxs = await collector.collectTxs(txHashes, blockProposal, pinnedPeer, timeoutMs);
+    const fetchedTxs = await BatchTxRequester.collectAllTxs(batchRequester.run());
     const durationMs = timer.ms();
     return {
       type: 'BENCH_RESULT',
@@ -318,6 +336,37 @@ let workerConfig: P2PConfig | null = null;
 let workerLogger: Logger | null = null;
 let kvStore: Awaited<ReturnType<typeof openTmpStore>> | null = null;
 
+async function stopWorker() {
+  try {
+    if (workerClient) {
+      await workerClient.stop();
+      workerClient = null;
+    }
+  } catch (e) {
+    workerLogger?.error('Error stopping worker client', e);
+  }
+  try {
+    if (kvStore?.close) {
+      await kvStore.close();
+      kvStore = null;
+    }
+  } catch (e) {
+    workerLogger?.error('Error closing kv store', e);
+  }
+}
+
+function gracefulExit(code: number = 0) {
+  try {
+    if (process.connected) {
+      process.disconnect();
+    }
+  } catch {
+    // IPC channel already closed
+  }
+  // Safety fallback if lingering handles prevent the event loop from draining
+  setTimeout(() => process.exit(code), 5000).unref();
+}
+
 // eslint-disable-next-line @typescript-eslint/no-misused-promises
 process.on('message', async msg => {
   const {
@@ -335,14 +384,15 @@ process.on('message', async msg => {
       const config: P2PConfig = {
         ...rawConfig,
         peerIdPrivateKey: rawConfig.peerIdPrivateKey ? new SecretValue(rawConfig.peerIdPrivateKey) : undefined,
+        priceBumpPercentage: 10n,
       } as P2PConfig;
 
       workerConfig = config;
       workerTxPool = new InMemoryTxPool();
       workerAttestationPool = new InMemoryAttestationPool();
-      const epochCache = createMockEpochCache();
+      const epochCache = createBenchmarkEpochCache();
       const worldState = createMockWorldStateSynchronizer();
-      const l2BlockSource = new MockL2BlockSource();
+      const l2BlockSource = new TestbenchL2BlockSource();
 
       const proofVerifier = new AlwaysTrueCircuitVerifier();
       kvStore = await openTmpStore(`test-${clientIndex}`, true, BENCHMARK_CONSTANTS.KV_STORE_MAP_SIZE_KB);
@@ -358,20 +408,20 @@ process.on('message', async msg => {
       };
 
       const client = await createP2PClient(
-        P2PClientType.Full,
         config as P2PConfig & DataStoreConfig,
         l2BlockSource,
         proofVerifier as ClientProtocolCircuitVerifier,
         worldState,
         epochCache,
+        { getCurrentMinFees: () => Promise.resolve(GasFees.empty()) },
         'test-p2p-bench-worker',
         undefined,
         telemetry as TelemetryClient,
         deps,
+        await l2BlockSource.getInitialHeader().hash(),
       );
 
       const testService = new TestLibP2PService(
-        P2PClientType.Full,
         config,
         (client as any).p2pService.node,
         (client as any).p2pService.peerDiscoveryService,
@@ -408,13 +458,8 @@ process.on('message', async msg => {
     const cmd = msg as any;
     switch (cmd.type) {
       case 'STOP':
-        if (workerClient) {
-          await workerClient.stop();
-        }
-        if (kvStore?.close) {
-          await kvStore.close();
-        }
-        process.exit(0);
+        await stopWorker();
+        gracefulExit(0);
         break;
 
       case 'SEND_TX':
@@ -422,6 +467,13 @@ process.on('message', async msg => {
           await workerClient.sendTx(Tx.fromBuffer(Buffer.from(cmd.tx)));
           process.send!({ type: 'TX_SENT' });
         }
+        break;
+
+      case 'GET_PEER_COUNT':
+        process.send!({
+          type: 'PEER_COUNT',
+          count: workerClient ? getConnectedPeerCount(workerClient) : 0,
+        });
         break;
 
       case 'BENCH_REQRESP': {
@@ -440,6 +492,7 @@ process.on('message', async msg => {
         // Reset state before each benchmark run to avoid cross-run contamination
         workerTxPool.resetState();
         workerAttestationPool.resetState();
+        resetPeerScores(workerClient);
 
         installUnlimitedRateLimits(workerClient);
 
@@ -447,7 +500,7 @@ process.on('message', async msg => {
         const txHashes = allTxs.map(tx => tx.getTxHash());
         const blockProposal = await createBlockProposal(benchCmd.blockNumber, txHashes, benchCmd.seed);
 
-        await workerAttestationPool.addBlockProposal(blockProposal);
+        await workerAttestationPool.tryAddBlockProposal(blockProposal);
         workerLogger.debug(
           `[BENCH] Added block proposal with archive ${blockProposal.archive.toString().slice(0, 10)}...`,
         );
@@ -456,13 +509,12 @@ process.on('message', async msg => {
           workerTxPool.clearTxs();
 
           workerLogger.info(
-            `[BENCH] Aggregator starting benchmark: txCount=${benchCmd.txCount}, collector=${benchCmd.collectorType}, distribution=${benchCmd.distribution}`,
+            `[BENCH] Aggregator starting benchmark: txCount=${benchCmd.txCount}, distribution=${benchCmd.distribution}`,
           );
 
           const result = await runAggregatorBenchmark(
             workerClient,
             blockProposal,
-            benchCmd.collectorType,
             benchCmd.timeoutMs,
             benchCmd.pinnedPeerId,
             benchCmd.pinnedPeerIndex,
@@ -491,7 +543,12 @@ process.on('message', async msg => {
       }
     }
   } catch (err: any) {
-    process.send!({ type: 'ERROR', error: err.message });
-    process.exit(1);
+    try {
+      process.send!({ type: 'ERROR', error: err.message });
+    } catch {
+      // IPC channel may be closed
+    }
+    await stopWorker();
+    gracefulExit(1);
   }
 });

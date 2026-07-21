@@ -1,4 +1,4 @@
-import { GeneratorIndex } from '@aztec/constants';
+import { DomainSeparator } from '@aztec/constants';
 import { poseidon2HashWithSeparator } from '@aztec/foundation/crypto/poseidon';
 import { Fr } from '@aztec/foundation/curves/bn254';
 import type { Logger } from '@aztec/foundation/log';
@@ -25,8 +25,8 @@ export async function ammTest(
 ) {
   const timer = new Timer();
 
-  const admin = AztecAddress.fromNumber(42);
-  const sender = AztecAddress.fromNumber(111);
+  const admin = AztecAddress.fromNumberUnsafe(42);
+  const sender = AztecAddress.fromNumberUnsafe(111);
 
   logger.debug(`Deploying tokens`);
   const token0 = await setUpToken(tester, tokenArtifact, admin, expectToBeTrue, /*seed=*/ 0);
@@ -326,6 +326,6 @@ async function removeLiquidity(
 async function computePartialNoteValidityCommitment(partialNote: { commitment: Fr }, completer: AztecAddress) {
   return await poseidon2HashWithSeparator(
     [partialNote.commitment, completer],
-    GeneratorIndex.PARTIAL_NOTE_VALIDITY_COMMITMENT,
+    DomainSeparator.PARTIAL_NOTE_VALIDITY_COMMITMENT,
   );
 }

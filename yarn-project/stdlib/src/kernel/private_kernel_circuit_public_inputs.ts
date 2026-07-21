@@ -41,15 +41,11 @@ export class PrivateKernelCircuitPublicInputs {
     /**
      * The timestamp by which the transaction must be included in a block.
      */
-    public includeByTimestamp: UInt64,
+    public expirationTimestamp: UInt64,
     /**
      * Wether this is a private only tx or not
      */
     public isPrivateOnly: boolean,
-    /**
-     * The nullifier that will be used for nonce generation
-     */
-    public claimedFirstNullifier: Fr,
     /**
      * A claim to the final min revertible side effect counter of a tx.
      */
@@ -72,9 +68,8 @@ export class PrivateKernelCircuitPublicInputs {
       this.end,
       this.publicTeardownCallRequest,
       this.feePayer,
-      bigintToUInt64BE(this.includeByTimestamp),
+      bigintToUInt64BE(this.expirationTimestamp),
       this.isPrivateOnly,
-      this.claimedFirstNullifier,
       this.claimedRevertibleCounter,
     );
   }
@@ -95,7 +90,6 @@ export class PrivateKernelCircuitPublicInputs {
       reader.readObject(AztecAddress),
       reader.readUInt64(),
       reader.readBoolean(),
-      reader.readObject(Fr),
       reader.readNumber(),
     );
   }
@@ -110,8 +104,16 @@ export class PrivateKernelCircuitPublicInputs {
       AztecAddress.ZERO,
       0n,
       false,
-      Fr.zero(),
       0,
     );
   }
+}
+
+/**
+ * Returns true iff the tx requires the public-bound terminal path: it has either un-processed
+ * public-call requests in the side-effect stream or a pending public-teardown call request. Every
+ * site picking between the rollup-bound and public-bound terminal artifact must route through this.
+ */
+export function kernelStateIsForPublic(publicInputs: PrivateKernelCircuitPublicInputs): boolean {
+  return publicInputs.end.publicCallRequests.claimedLength > 0 || !publicInputs.publicTeardownCallRequest.isEmpty();
 }

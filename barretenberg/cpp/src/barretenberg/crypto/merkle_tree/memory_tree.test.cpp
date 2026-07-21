@@ -4,7 +4,7 @@
 using namespace bb;
 using namespace bb::crypto::merkle_tree;
 
-using HashPolicy = PedersenHashPolicy;
+using HashPolicy = Poseidon2HashPolicy;
 
 static std::vector<fr> VALUES = []() {
     std::vector<fr> values(4);

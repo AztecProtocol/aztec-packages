@@ -14,7 +14,6 @@
 **/*.result
 accounts/artifacts
 aztec.js/src/contract/protocol_contracts
-aztec-faucet/data*
 aztec-node/data*
 aztec/log
 stdlib/fixtures/*.json
@@ -48,6 +47,7 @@ ivc-integration/artifacts
 ivc-integration/src/types/
 protocol-contracts/artifacts
 protocol-contracts/src/protocol_contract_data.ts
+standard-contracts/artifacts
 scripts/tmp
 noir-contracts.js/src
 noir-contracts.js/artifacts/
@@ -61,6 +61,7 @@ cli-wallet/test/data
 cli/src/config/generated
 ethereum/src/generated
 slasher/src/generated
+simulator/src/public/cdb/generated
 
 .claude/settings.local.json
 .yarn/*

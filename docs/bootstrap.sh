@@ -4,7 +4,6 @@ source $(git rev-parse --show-toplevel)/ci3/source_bootstrap
 repo_root=$(git rev-parse --show-toplevel)
 export BB=${BB:-$repo_root/barretenberg/cpp/build/bin/bb}
 export NARGO=${NARGO:-$repo_root/noir/noir-repo/target/release/nargo}
-export TRANSPILER=${TRANSPILER:-$repo_root/avm-transpiler/target/release/avm-transpiler}
 export BB_HASH=${BB_HASH:-$($repo_root/barretenberg/cpp/bootstrap.sh hash)}
 
 # We search the docs/*.md files to find included code, and use those as our rebuild dependencies.
@@ -12,7 +11,7 @@ export BB_HASH=${BB_HASH:-$($repo_root/barretenberg/cpp/bootstrap.sh hash)}
 hash=$(
   cache_content_hash \
     .rebuild_patterns \
-    $(find docs docs-developers docs-network developer_versioned_docs network_versioned_docs -type f -name "*.md*" -exec grep '^#include_code' {} \; | \
+    $(find docs docs-developers docs-operate docs-participate developer_versioned_docs network_versioned_docs -type f -name "*.md*" -exec grep '^#include_code' {} \; | \
       awk '{ gsub("^/", "", $3); print "^" $3 }' | sort -u)
 )
 
@@ -44,6 +43,9 @@ function test_cmds {
 
   local test_hash=$hash
   echo "$test_hash cd docs && yarn spellcheck"
+
+  # Delegate to examples for their test commands
+  (cd examples && ./bootstrap.sh test_cmds)
 }
 
 function test {
@@ -51,19 +53,71 @@ function test {
   test_cmds | parallelize
 }
 
-function check_references {
-  echo_header "Check doc references"
-  ./scripts/check_doc_references.sh docs
+function check_orphaned_urls {
+  echo_header "Check orphaned URLs"
+  # Source the baseline from the base branch, not the working tree, so a PR
+  # cannot weaken its own gate by deleting URLs from the snapshot in the same
+  # diff. The committed snapshot only grows the protected set for future PRs;
+  # the check a PR must satisfy is the base-branch version it cannot edit.
+  local snapshot=snapshots/published-urls.txt
+  local base_ref="${GITHUB_BASE_REF:-${MERGE_GROUP_BASE_REF:-next}}"
+  base_ref="${base_ref#refs/heads/}"
+  local tmp
+  tmp=$(mktemp)
+  # shellcheck disable=SC2064
+  trap "rm -f '$tmp'" RETURN
+
+  # Resolve the base branch first, distinguishing "base unreachable" from "base
+  # reachable but snapshot absent". Only the latter is a legitimate fallback (it
+  # happens for the PR that first introduces the snapshot). Treating an
+  # unreachable base as a fallback would silently reopen the bypass.
+  local base_obj=""
+  if git rev-parse --verify -q "refs/remotes/origin/${base_ref}" >/dev/null; then
+    base_obj="refs/remotes/origin/${base_ref}"
+  elif git fetch -q --depth=1 origin "refs/heads/${base_ref}:refs/remotes/origin/${base_ref}" 2>/dev/null &&
+    git rev-parse --verify -q "refs/remotes/origin/${base_ref}" >/dev/null; then
+    base_obj="refs/remotes/origin/${base_ref}"
+  fi
+
+  local baseline
+  if [[ -n "$base_obj" ]]; then
+    if git show "${base_obj}:docs/${snapshot}" >"$tmp" 2>/dev/null; then
+      echo "Using base-branch baseline (${base_obj})."
+      baseline="$tmp"
+    else
+      echo "Base branch ${base_ref} has no snapshot yet; using working-tree snapshot (introducing PR)."
+      baseline="$snapshot"
+    fi
+  elif [[ "${CI:-0}" -eq 1 ]]; then
+    # In CI the base must be reachable; downgrading to the PR's own editable
+    # snapshot would reopen the bypass this gate exists to close.
+    echo "ERROR: cannot resolve base branch origin/${base_ref} to source the orphan-check baseline." >&2
+    return 1
+  else
+    echo "Base branch origin/${base_ref} unavailable; using working-tree snapshot (local run)."
+    baseline="$snapshot"
+  fi
+
+  local rc=0
+  FAIL_ON_ORPHAN=1 ./scripts/check_orphaned_urls.sh "$baseline" || rc=$?
+  return $rc
 }
 
-function update_doc_references {
-  echo_header "Auto-update doc references"
-  # Only run if Claude Code CLI is available
-  if command -v claude &> /dev/null; then
-    ./scripts/update_doc_references.sh docs
-  else
-    echo "Claude Code CLI not available. Skipping automatic doc updates."
-    echo "To enable automatic doc updates, install Claude Code: npm install -g @anthropic-ai/claude-code"
+function check_references {
+  if [[ "${GITHUB_EVENT_NAME:-}" != "merge_group" ]]; then
+    echo "Skipping doc reference check (only runs in merge queue)."
+    return
+  fi
+  echo_header "Check doc references"
+  if ! ./scripts/check_doc_references.sh docs; then
+    echo "⚠ Doc reference check failed (non-blocking)."
+    if [[ -n "${AZTEC_FOUNDATION_CI_SLACK_BOT_TOKEN:-}" ]]; then
+      curl -s -X POST https://slack.com/api/chat.postMessage \
+        -H "Authorization: Bearer $AZTEC_FOUNDATION_CI_SLACK_BOT_TOKEN" \
+        -H "Content-type: application/json" \
+        -d "{\"channel\": \"#docs-alerts\", \"text\": \"⚠️ Doc reference check script failed for ref \`${GITHUB_REF_NAME:-unknown}\`. Check CI logs.\"}" \
+        > /dev/null 2>&1 || true
+    fi
   fi
 }
 
@@ -77,12 +131,13 @@ case "$cmd" in
     build_examples
     build_docs
     test
+    check_orphaned_urls
     check_references
-    update_doc_references
     ;;
   "")
     build_examples
     build_docs
+    check_orphaned_urls
     check_references
     ;;
   "hash")

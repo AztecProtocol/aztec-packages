@@ -35,15 +35,15 @@ struct FuzzerTxData {
     std::vector<bb::crypto::merkle_tree::PublicDataLeafValue> public_data_writes;
     std::vector<FF> note_hashes;
 
-    MSGPACK_FIELDS(input_programs,
-                   contract_classes,
-                   contract_instances,
-                   contract_addresses,
-                   tx,
-                   global_variables,
-                   protocol_contracts,
-                   public_data_writes,
-                   note_hashes);
+    SERIALIZATION_FIELDS(input_programs,
+                         contract_classes,
+                         contract_instances,
+                         contract_addresses,
+                         tx,
+                         global_variables,
+                         protocol_contracts,
+                         public_data_writes,
+                         note_hashes);
 };
 
 inline std::ostream& operator<<(std::ostream& os, const FuzzerTxData& data)
@@ -97,12 +97,12 @@ void setup_fuzzer_state(bb::avm2::fuzzer::FuzzerWorldStateManager& ws_mgr,
 // Fund the fee payer with enough balance for the transaction
 void fund_fee_payer(bb::avm2::fuzzer::FuzzerWorldStateManager& ws_mgr, const Tx& tx);
 
-// Run the differential fuzzer comparing CPP vs JS simulator
+// Run the C++ simulator on a full transaction with multiple enqueued calls
 SimulatorResult fuzz_tx(bb::avm2::fuzzer::FuzzerWorldStateManager& ws_mgr,
                         bb::avm2::fuzzer::FuzzerContractDB& contract_db,
                         FuzzerTxData& tx_data);
 
-// Run the prover fuzzer: fast simulation, hint collection, comparison, and check_circuit
+// Run the prover fuzzer: fast simulation, hint collection, comparison, check_circuit, prove, and verify
 // Returns simulation result on success, throws if the input should be rejected
 TxSimulationResult fuzz_prover(bb::avm2::fuzzer::FuzzerWorldStateManager& ws_mgr,
                                bb::avm2::fuzzer::FuzzerContractDB& contract_db,

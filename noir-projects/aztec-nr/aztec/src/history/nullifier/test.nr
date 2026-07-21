@@ -79,7 +79,7 @@ unconstrained fn note_not_nullified_succeeds_in_blocks_before_note_nullification
     );
 }
 
-#[test(should_fail_with = "Proving nullifier non-inclusion failed")]
+#[test(should_fail_with = "Cannot prove nullifier non-inclusion")]
 unconstrained fn note_not_nullified_fails_in_blocks_after_note_nullification_fails() {
     let (env, hinted_note) = test::create_note_and_nullify_it();
 
@@ -100,7 +100,7 @@ unconstrained fn nullifier_non_inclusion_succeeds_in_blocks_before_nullifier_cre
     });
 }
 
-#[test(should_fail_with = "Proving nullifier non-inclusion failed")]
+#[test(should_fail_with = "Cannot prove nullifier non-inclusion")]
 unconstrained fn nullifier_non_inclusion_fails_in_blocks_after_nullifier_creation() {
     let env = TestEnvironment::new();
 

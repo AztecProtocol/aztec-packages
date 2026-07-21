@@ -20,58 +20,52 @@ namespace {
 auto& engine = numeric::get_debug_randomness();
 } // namespace
 
-/**
- * @brief Utility method to add read/write operations with constant indices/values
- */
-template <AccessType access_type>
-void add_constant_ops(const size_t table_size,
-                      const std::vector<bb::fr>& table_values,
-                      WitnessVector& witness_values,
-                      std::vector<MemOp>& trace)
+TEST(BlockConstraintMemOpEncoding, ReadFlagFalseDecodesAsRead)
 {
-    const size_t table_index = static_cast<size_t>(engine.get_random_uint32() % table_size);
-    bb::fr value_fr =
-        access_type == AccessType::Read ? table_values[table_index] : table_values[table_index] + bb::fr(1);
+    Acir::Opcode::MemoryInit mem_init{
+        .block_id = Acir::BlockId{ .value = 0 },
+        .init = { Acir::Witness{ .value = 0 } },
+        .block_type = Acir::BlockType{ .value = Acir::BlockType::CallData{ .value = 0 } },
+    };
+    BlockConstraint block = memory_init_to_block_constraint(mem_init);
 
-    // Index constant, value witness
-    {
-        WitnessOrConstant<bb::fr> index = WitnessOrConstant<bb::fr>::from_constant(table_index);
-        WitnessOrConstant<bb::fr> value =
-            WitnessOrConstant<bb::fr>::from_index(add_to_witness_and_track_indices(witness_values, value_fr));
+    Acir::Opcode::MemoryOp mem_op{
+        .block_id = Acir::BlockId{ .value = 0 },
+        .op = Acir::MemOp{ .read = false, .index = Acir::Witness{ .value = 1 }, .value = Acir::Witness{ .value = 2 } },
+    };
 
-        const MemOp read_op = { .access_type = access_type, .index = index, .value = value };
+    EXPECT_NO_THROW(add_memory_op_to_block_constraint(mem_op, block));
 
-        trace.push_back(read_op);
-    }
-    // Index witness, value constant
-    {
-        WitnessOrConstant<bb::fr> index = WitnessOrConstant<bb::fr>::from_index(
-            add_to_witness_and_track_indices(witness_values, bb::fr(table_index)));
-        WitnessOrConstant<bb::fr> value = WitnessOrConstant<bb::fr>::from_constant(value_fr);
-
-        const MemOp read_op = { .access_type = access_type, .index = index, .value = value };
-
-        trace.push_back(read_op);
-    }
-    // Index constant, value constant
-    {
-        WitnessOrConstant<bb::fr> index = WitnessOrConstant<bb::fr>::from_constant(table_index);
-        WitnessOrConstant<bb::fr> value = WitnessOrConstant<bb::fr>::from_constant(value_fr);
-
-        const MemOp read_op = { .access_type = access_type, .index = index, .value = value };
-
-        trace.push_back(read_op);
-    }
+    ASSERT_EQ(block.trace.size(), 1);
+    EXPECT_EQ(block.trace[0].access_type, AccessType::Read);
+    EXPECT_EQ(block.trace[0].index, 1);
+    EXPECT_EQ(block.trace[0].value, 2);
 }
 
-template <typename Builder_, size_t TableSize_, size_t NumReads_, bool PerformConstantOps_> struct ROMTestParams {
+TEST(BlockConstraintMemOpEncoding, AccessTypeEncodesToReadFlag)
+{
+    const MemOp read_op{
+        .access_type = AccessType::Read,
+        .index = 1,
+        .value = 2,
+    };
+    const MemOp write_op{
+        .access_type = AccessType::Write,
+        .index = 3,
+        .value = 4,
+    };
+
+    EXPECT_FALSE(mem_op_to_acir_mem_op(read_op).read);
+    EXPECT_TRUE(mem_op_to_acir_mem_op(write_op).read);
+}
+
+template <typename Builder_, size_t TableSize_, size_t NumReads_> struct ROMTestParams {
     using Builder = Builder_;
     static constexpr size_t table_size = TableSize_;
     static constexpr size_t num_reads = NumReads_;
-    static constexpr bool perform_constant_ops = PerformConstantOps_;
 };
 
-template <typename Builder_, size_t table_size, size_t num_reads, bool perform_constant_ops> class ROMTestingFunctions {
+template <typename Builder_, size_t table_size, size_t num_reads> class ROMTestingFunctions {
   public:
     using AcirConstraint = BlockConstraint;
     using Builder = Builder_;
@@ -125,19 +119,15 @@ template <typename Builder_, size_t table_size, size_t num_reads, bool perform_c
                 // Add value witness
                 bb::fr read_value = table_values[rom_index_to_read];
 
-                WitnessOrConstant<bb::fr> index_for_read = WitnessOrConstant<bb::fr>::from_index(
-                    add_to_witness_and_track_indices(witness_values, bb::fr(rom_index_to_read)));
-                WitnessOrConstant<bb::fr> value_for_read =
-                    WitnessOrConstant<bb::fr>::from_index(add_to_witness_and_track_indices(witness_values, read_value));
+                const uint32_t index_for_read =
+                    add_to_witness_and_track_indices(witness_values, bb::fr(rom_index_to_read));
+                const uint32_t value_for_read = add_to_witness_and_track_indices(witness_values, read_value);
 
                 const MemOp read_op = { .access_type = AccessType::Read,
                                         .index = index_for_read,
                                         .value = value_for_read };
 
                 trace.push_back(read_op);
-            }
-            if constexpr (perform_constant_ops) {
-                add_constant_ops<AccessType::Read>(table_size, table_values, witness_values, trace);
             }
         }
         // Create the MemoryConstraint
@@ -169,26 +159,17 @@ template <typename Builder_, size_t table_size, size_t num_reads, bool perform_c
 };
 template <typename Params>
 class ROMTest : public ::testing::Test,
-                public TestClass<ROMTestingFunctions<typename Params::Builder,
-                                                     Params::table_size,
-                                                     Params::num_reads,
-                                                     Params::perform_constant_ops>> {
+                public TestClass<ROMTestingFunctions<typename Params::Builder, Params::table_size, Params::num_reads>> {
   protected:
     static void SetUpTestSuite() { bb::srs::init_file_crs_factory(bb::srs::bb_crs_path()); }
 };
 
-using ROMTestConfigs = testing::Types<ROMTestParams<UltraCircuitBuilder, 0, 0, false>,
-                                      ROMTestParams<UltraCircuitBuilder, 10, 0, false>,
-                                      ROMTestParams<UltraCircuitBuilder, 10, 0, true>, // Test the case in which there
-                                                                                       // are only constant operations
-                                      ROMTestParams<UltraCircuitBuilder, 10, 20, false>,
-                                      ROMTestParams<UltraCircuitBuilder, 10, 20, true>,
-                                      ROMTestParams<MegaCircuitBuilder, 0, 0, false>,
-                                      ROMTestParams<MegaCircuitBuilder, 10, 0, false>,
-                                      ROMTestParams<MegaCircuitBuilder, 10, 0, true>, // Test the case in which there
-                                                                                      // are only constant operations
-                                      ROMTestParams<MegaCircuitBuilder, 10, 20, false>,
-                                      ROMTestParams<MegaCircuitBuilder, 10, 20, true>>;
+using ROMTestConfigs = testing::Types<ROMTestParams<UltraCircuitBuilder, 0, 0>,
+                                      ROMTestParams<UltraCircuitBuilder, 10, 0>,
+                                      ROMTestParams<UltraCircuitBuilder, 10, 20>,
+                                      ROMTestParams<MegaCircuitBuilder, 0, 0>,
+                                      ROMTestParams<MegaCircuitBuilder, 10, 0>,
+                                      ROMTestParams<MegaCircuitBuilder, 10, 20>>;
 TYPED_TEST_SUITE(ROMTest, ROMTestConfigs);
 
 TYPED_TEST(ROMTest, GenerateVKFromConstraints)
@@ -203,17 +184,14 @@ TYPED_TEST(ROMTest, Tampering)
     TestFixture::test_tampering();
 }
 
-template <typename Builder_, size_t TableSize_, size_t NumReads_, size_t NumWrites_, bool PerformConstantOps_>
-struct RAMTestParams {
+template <typename Builder_, size_t TableSize_, size_t NumReads_, size_t NumWrites_> struct RAMTestParams {
     using Builder = Builder_;
     static constexpr size_t table_size = TableSize_;
     static constexpr size_t num_reads = NumReads_;
     static constexpr size_t num_writes = NumWrites_;
-    static constexpr bool perform_constant_ops = PerformConstantOps_;
 };
 
-template <typename Builder_, size_t table_size, size_t num_reads, size_t num_writes, bool perform_constant_ops>
-class RAMTestingFunctions {
+template <typename Builder_, size_t table_size, size_t num_reads, size_t num_writes> class RAMTestingFunctions {
   public:
     using AcirConstraint = BlockConstraint;
     using Builder = Builder_;
@@ -299,9 +277,7 @@ class RAMTestingFunctions {
                     bb::fr read_value = table_values[ram_index_to_read];
                     const uint32_t value_for_read = add_to_witness_and_track_indices(witness_values, read_value);
 
-                    mem_op = { .access_type = AccessType::Read,
-                               .index = WitnessOrConstant<bb::fr>::from_index(index_for_read),
-                               .value = WitnessOrConstant<bb::fr>::from_index(value_for_read) };
+                    mem_op = { .access_type = AccessType::Read, .index = index_for_read, .value = value_for_read };
                     trace.push_back(mem_op);
                     break;
                 }
@@ -315,17 +291,11 @@ class RAMTestingFunctions {
                     // Update the table_values to reflect this write
                     table_values[ram_index_to_write] = write_value;
 
-                    mem_op = { .access_type = AccessType::Write,
-                               .index = WitnessOrConstant<bb::fr>::from_index(index_to_write),
-                               .value = WitnessOrConstant<bb::fr>::from_index(value_to_write) };
+                    mem_op = { .access_type = AccessType::Write, .index = index_to_write, .value = value_to_write };
                     trace.push_back(mem_op);
                     break;
                 }
                 }
-            }
-            if constexpr (perform_constant_ops) {
-                add_constant_ops<AccessType::Read>(table_size, table_values, witness_values, trace);
-                add_constant_ops<AccessType::Write>(table_size, table_values, witness_values, trace);
             }
         }
 
@@ -349,7 +319,7 @@ class RAMTestingFunctions {
                     // Find a read operation
                     random_read_idx = static_cast<size_t>(engine.get_random_uint32() % (num_reads + num_writes));
                 }
-                const uint32_t witness_idx = memory_constraint.trace[random_read_idx].value.index;
+                const uint32_t witness_idx = memory_constraint.trace[random_read_idx].value;
                 witness_values[witness_idx] += bb::fr(1);
             }
             break;
@@ -360,36 +330,23 @@ class RAMTestingFunctions {
 };
 
 template <typename Params>
-class RAMTest : public ::testing::Test,
-                public TestClass<RAMTestingFunctions<typename Params::Builder,
-                                                     Params::table_size,
-                                                     Params::num_reads,
-                                                     Params::num_writes,
-                                                     Params::perform_constant_ops>> {
+class RAMTest
+    : public ::testing::Test,
+      public TestClass<
+          RAMTestingFunctions<typename Params::Builder, Params::table_size, Params::num_reads, Params::num_writes>> {
   protected:
     static void SetUpTestSuite() { bb::srs::init_file_crs_factory(bb::srs::bb_crs_path()); }
 };
 
 // Failure tests are impossible in the scenario with only writes.
-using RAMTestConfigs =
-    testing::Types<RAMTestParams<UltraCircuitBuilder, 0, 0, 0, false>,
-                   RAMTestParams<UltraCircuitBuilder, 10, 0, 0, false>,
-                   RAMTestParams<UltraCircuitBuilder, 10, 0, 0, true>, // Test the case in which there are only
-                                                                       // constant operations
-                   RAMTestParams<UltraCircuitBuilder, 10, 0, 10, false>,
-                   RAMTestParams<UltraCircuitBuilder, 10, 0, 10, true>,
-                   RAMTestParams<UltraCircuitBuilder, 10, 10, 0, false>,
-                   RAMTestParams<UltraCircuitBuilder, 10, 10, 0, true>,
-                   RAMTestParams<UltraCircuitBuilder, 10, 20, 10, true>,
-                   RAMTestParams<MegaCircuitBuilder, 0, 0, 0, false>,
-                   RAMTestParams<MegaCircuitBuilder, 10, 0, 0, false>,
-                   RAMTestParams<MegaCircuitBuilder, 10, 0, 0, true>, // Test the case in which there are only
-                                                                      // constant operations
-                   RAMTestParams<MegaCircuitBuilder, 10, 0, 10, false>,
-                   RAMTestParams<MegaCircuitBuilder, 10, 0, 10, true>,
-                   RAMTestParams<MegaCircuitBuilder, 10, 10, 0, false>,
-                   RAMTestParams<MegaCircuitBuilder, 10, 10, 0, true>,
-                   RAMTestParams<MegaCircuitBuilder, 10, 20, 10, true>>;
+using RAMTestConfigs = testing::Types<RAMTestParams<UltraCircuitBuilder, 0, 0, 0>,
+                                      RAMTestParams<UltraCircuitBuilder, 10, 0, 0>,
+                                      RAMTestParams<UltraCircuitBuilder, 10, 0, 10>,
+                                      RAMTestParams<UltraCircuitBuilder, 10, 10, 0>,
+                                      RAMTestParams<MegaCircuitBuilder, 0, 0, 0>,
+                                      RAMTestParams<MegaCircuitBuilder, 10, 0, 0>,
+                                      RAMTestParams<MegaCircuitBuilder, 10, 0, 10>,
+                                      RAMTestParams<MegaCircuitBuilder, 10, 10, 0>>;
 
 TYPED_TEST_SUITE(RAMTest, RAMTestConfigs);
 
@@ -405,16 +362,13 @@ TYPED_TEST(RAMTest, Tampering)
     TestFixture::test_tampering();
 }
 
-template <CallDataType CallDataType_, size_t CallDataSize_, size_t NumReads_, bool PerformConstantOps_>
-struct CallDataTestParams {
+template <CallDataType CallDataType_, size_t CallDataSize_, size_t NumReads_> struct CallDataTestParams {
     static constexpr CallDataType calldata_type = CallDataType_;
     static constexpr size_t calldata_size = CallDataSize_;
     static constexpr size_t num_reads = NumReads_;
-    static constexpr bool perform_constant_ops = PerformConstantOps_;
 };
 
-template <CallDataType calldata_type, size_t calldata_size, size_t num_reads, bool perform_constant_ops>
-class CallDataTestingFunctions {
+template <CallDataType calldata_type, size_t calldata_size, size_t num_reads> class CallDataTestingFunctions {
   public:
     using AcirConstraint = BlockConstraint;
     using Builder = MegaCircuitBuilder;
@@ -471,14 +425,9 @@ class CallDataTestingFunctions {
                 bb::fr read_value = calldata_values[calldata_idx_to_read];
                 const uint32_t value_for_read = add_to_witness_and_track_indices(witness_values, read_value);
 
-                mem_op = { .access_type = AccessType::Read,
-                           .index = WitnessOrConstant<bb::fr>::from_index(index_for_read),
-                           .value = WitnessOrConstant<bb::fr>::from_index(value_for_read) };
+                mem_op = { .access_type = AccessType::Read, .index = index_for_read, .value = value_for_read };
                 trace.push_back(mem_op);
             }
-        }
-        if constexpr (perform_constant_ops) {
-            add_constant_ops<AccessType::Read>(calldata_size, calldata_values, witness_values, trace);
         }
 
         // Create the MemoryConstraint
@@ -499,7 +448,7 @@ class CallDataTestingFunctions {
             // Tamper with a random read value using the recorded witness index
             if constexpr (num_reads > 0) {
                 const size_t random_read_idx = static_cast<size_t>(engine.get_random_uint32() % num_reads);
-                const uint32_t witness_idx = memory_constraint.trace[random_read_idx].index.index;
+                const uint32_t witness_idx = memory_constraint.trace[random_read_idx].index;
                 witness_values[witness_idx] += bb::fr(1);
             }
             break;
@@ -509,19 +458,17 @@ class CallDataTestingFunctions {
     }
 };
 
-using CallDataTestConfigs = testing::Types<CallDataTestParams<CallDataType::Primary, 0, 0, false>,
-                                           CallDataTestParams<CallDataType::Primary, 10, 5, false>,
-                                           CallDataTestParams<CallDataType::Primary, 10, 5, true>,
-                                           CallDataTestParams<CallDataType::Secondary, 0, 0, false>,
-                                           CallDataTestParams<CallDataType::Secondary, 10, 5, false>,
-                                           CallDataTestParams<CallDataType::Secondary, 10, 5, true>>;
+using CallDataTestConfigs = testing::Types<CallDataTestParams<CallDataType::KernelCalldata, 0, 0>,
+                                           CallDataTestParams<CallDataType::KernelCalldata, 10, 5>,
+                                           CallDataTestParams<CallDataType::FirstAppCalldata, 0, 0>,
+                                           CallDataTestParams<CallDataType::FirstAppCalldata, 10, 5>,
+                                           CallDataTestParams<CallDataType::SecondAppCalldata, 10, 5>,
+                                           CallDataTestParams<CallDataType::ThirdAppCalldata, 10, 5>>;
 
 template <typename Params>
-class CallDataTests : public ::testing::Test,
-                      public TestClass<CallDataTestingFunctions<Params::calldata_type,
-                                                                Params::calldata_size,
-                                                                Params::num_reads,
-                                                                Params::perform_constant_ops>> {
+class CallDataTests
+    : public ::testing::Test,
+      public TestClass<CallDataTestingFunctions<Params::calldata_type, Params::calldata_size, Params::num_reads>> {
   protected:
     static void SetUpTestSuite() { bb::srs::init_file_crs_factory(bb::srs::bb_crs_path()); }
 };

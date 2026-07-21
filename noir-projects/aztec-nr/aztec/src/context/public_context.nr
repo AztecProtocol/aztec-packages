@@ -11,6 +11,7 @@ use crate::protocol::{
     address::{AztecAddress, EthAddress},
     constants::{MAX_U32_VALUE, NULL_MSG_SENDER_CONTRACT_ADDRESS},
     traits::{Empty, FromField, Packable, Serialize, ToField},
+    utils::writer::Writer,
 };
 
 /// # PublicContext
@@ -66,8 +67,8 @@ use crate::protocol::{
 /// fundamentally different from optimising a public function.
 ///
 pub struct PublicContext {
-    pub args_hash: Option<Field>,
-    pub compute_args_hash: fn() -> Field,
+    args_hash: Option<Field>,
+    compute_args_hash: fn() -> Field,
 }
 
 impl Eq for PublicContext {
@@ -96,14 +97,27 @@ impl PublicContext {
     /// Emits a _public_ log that will be visible onchain to everyone.
     ///
     /// # Arguments
-    /// * `log` - The data to log, must implement Serialize trait
+    /// * `tag` - A tag placed at `fields[0]` of the emitted log. Nodes index logs by this value, allowing
+    /// clients to efficiently query for matching logs without scanning all of them.
+    /// * `log` - The data to log, must implement Serialize trait.
     ///
-    pub fn emit_public_log<T>(_self: Self, log: T)
+    /// ## Safety
+    ///
+    /// The `tag` should be domain-separated (e.g. via [`crate::protocol::hash::compute_log_tag`]) to prevent
+    /// collisions between logs from different sources. Without domain separation, two unrelated log types that
+    /// happen to share a raw tag value become indistinguishable. Prefer `self.emit(event)` for events, which
+    /// handles tagging automatically.
+    pub fn emit_public_log_unsafe<T>(_self: Self, tag: Field, log: T)
     where
         T: Serialize,
     {
+        // We use a Writer to serialize the log directly after the tag, avoiding an extra O(n) copy that would
+        // result from serializing first and then prepending the tag.
+        let mut writer: Writer<1 + <T as Serialize>::N> = Writer::new();
+        writer.write(tag);
+        Serialize::stream_serialize(log, &mut writer);
         // Safety: AVM opcodes are constrained by the AVM itself
-        unsafe { avm::emit_public_log(Serialize::serialize(log).as_vector()) };
+        unsafe { avm::emit_public_log(writer.finish().as_vector()) };
     }
 
     /// Checks if a given note hash exists in the note hash tree at a particular leaf_index.
@@ -117,7 +131,9 @@ impl PublicContext {
     ///
     pub fn note_hash_exists(_self: Self, note_hash: Field, leaf_index: u64) -> bool {
         // Safety: AVM opcodes are constrained by the AVM itself
-        unsafe { avm::note_hash_exists(note_hash, leaf_index) } == 1
+        unsafe {
+            avm::note_hash_exists(note_hash, leaf_index)
+        }
     }
 
     /// Checks if a specific L1-to-L2 message exists in the L1-to-L2 message tree at a particular leaf index.
@@ -139,7 +155,9 @@ impl PublicContext {
     ///
     pub fn l1_to_l2_msg_exists(_self: Self, msg_hash: Field, msg_leaf_index: Field) -> bool {
         // Safety: AVM opcodes are constrained by the AVM itself TODO(alvaro): Make l1l2msg leaf index a u64 upstream
-        unsafe { avm::l1_to_l2_msg_exists(msg_hash, msg_leaf_index as u64) } == 1
+        unsafe {
+            avm::l1_to_l2_msg_exists(msg_hash, msg_leaf_index as u64)
+        }
     }
 
     /// Returns `true` if an `unsiloed_nullifier` has been emitted by `contract_address`.
@@ -158,15 +176,15 @@ impl PublicContext {
     ///
     /// ## Public vs Private
     ///
-    /// In general, it is unsafe to check for nullifier non-existence in private, as that will not consider the
+    /// In general, one should not attempt to prove nullifier non-existence in private, as that will not consider the
     /// possibility of the nullifier having been emitted in any transaction between the anchor block and the inclusion
     /// block. Private functions instead prove existence via
     /// [`crate::context::PrivateContext::assert_nullifier_exists`]
     /// and 'prove' non-existence by _emitting_ the nullifer, which would cause the transaction to fail if the
     /// nullifier existed.
     ///
-    /// This is not the case in public functions, which do have access to the tip of the blockchain and so can reliably
-    /// prove whether a nullifier exists or not.
+    /// This is not the case in public functions, which **do** have access to the tip of the blockchain and so can
+    /// reliably prove whether a nullifier exists or not.
     ///
     /// ## Safety
     ///
@@ -175,7 +193,11 @@ impl PublicContext {
     /// existence of a nullifier emitted from a private function implies that all other side-effects of said private
     /// execution have been completed, more concretely that any enqueued public calls have been executed.
     ///
-    /// This is because all private transaction effects are committed _before_ enqueued public functions are run (in
+    /// For example, if a function in contract `A` privately emits nullifier `X` and then enqueues public function `Y`,
+    /// then it is **unsafe** for a contract `B` to infer that `Y` has alredy executed simply because `X` exists.
+    ///
+    /// This is because **all** private transaction effects are committed _before_ enqueued public functions are run
+    /// (in
     /// order to not reveal detailed timing information about the transaction), so it is possible to observe a
     /// nullifier that was emitted alongside the enqueuing of a public call **before** said call has been completed.
     ///
@@ -186,7 +208,9 @@ impl PublicContext {
     pub fn nullifier_exists_unsafe(_self: Self, unsiloed_nullifier: Field, contract_address: AztecAddress) -> bool {
         let siloed_nullifier = compute_siloed_nullifier(contract_address, unsiloed_nullifier);
         // Safety: AVM opcodes are constrained by the AVM itself
-        unsafe { avm::nullifier_exists(siloed_nullifier) } == 1
+        unsafe {
+            avm::nullifier_exists(siloed_nullifier)
+        }
     }
 
     /// Consumes a message sent from Ethereum (L1) to Aztec (L2) -- effectively marking it as "read".
@@ -229,7 +253,7 @@ impl PublicContext {
         assert(!self.nullifier_exists_unsafe(nullifier, self.this_address()), "L1-to-L2 message is already nullified");
         assert(self.l1_to_l2_msg_exists(message_hash, leaf_index), "Tried to consume nonexistent L1-to-L2 message");
 
-        self.push_nullifier(nullifier);
+        self.push_nullifier_unsafe(nullifier);
     }
 
     /// Sends an "L2 -> L1 message" from this function (Aztec, L2) to a smart contract on Ethereum (L1). L1 contracts
@@ -362,23 +386,27 @@ impl PublicContext {
         unsafe { avm::emit_note_hash(note_hash) };
     }
 
-    /// Adds a new nullifier to the Aztec blockchain's global Nullifier Tree.
+    /// Creates a new [nullifier](crate::nullifier).
     ///
-    /// Whilst nullifiers are primarily intended as a _privacy-preserving_ record of a one-time action, they can also
-    /// be used to efficiently record _public_ one-time actions too. Hence why you're seeing this function within the
-    /// PublicContext. An example is to check whether a contract has been published: we emit a nullifier that is
-    /// deterministic, but whose preimage is _not_ private.
+    /// While nullifiers are primarily intended as a _privacy-preserving_ record of a one-time action, they can also
+    /// be used to efficiently record _public_ one-time actions. This function allows creating nullifiers from public
+    /// contract functions, which behave just like those created from private functions.
     ///
-    /// # Arguments
-    /// * `nullifier` - A unique field element that represents the consumed state
+    /// ## Safety
     ///
-    /// # Advanced
-    /// * Nullifier is immediately added to the global nullifier tree
-    /// * Emitted nullifiers are immediately visible to all subsequent transactions in the same block
-    /// * Automatically siloed with the contract address by the protocol
-    /// * Used for preventing double-spending and ensuring one-time actions
+    /// This is a low-level function that must be used with great care to avoid subtle corruption of contract state.
     ///
-    pub fn push_nullifier(_self: Self, nullifier: Field) {
+    /// In particular, callers must ensure all nullifiers created by a contract are properly domain-separated, so that
+    /// unrelated components don't interfere with one another (e.g. a transaction nullifier accidentally marking a
+    /// variable as initialized). Note nullifiers should only be created via
+    /// [`crate::context::PrivateContext::push_nullifier_for_note_hash`].
+    ///
+    /// ## Advanced
+    ///
+    /// The raw `nullifier` is not what is inserted into the Aztec state tree: it will be first siloed by contract
+    /// address via [`crate::protocol::hash::compute_siloed_nullifier`] in order to prevent accidental or malicious
+    /// interference of nullifiers from different contracts.
+    pub fn push_nullifier_unsafe(_self: Self, nullifier: Field) {
         // Safety: AVM opcodes are constrained by the AVM itself
         unsafe { avm::emit_nullifier(nullifier) };
     }
@@ -640,7 +668,9 @@ impl PublicContext {
     ///
     pub fn is_static_call(_self: Self) -> bool {
         // Safety: AVM opcodes are constrained by the AVM itself
-        unsafe { avm::is_static_call() } == 1
+        unsafe {
+            avm::is_static_call()
+        }
     }
 
     /// Reads raw field values from public storage. Reads N consecutive storage slots starting from the given slot.

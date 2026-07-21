@@ -1,37 +1,9 @@
-import type { ContractInstanceWithAddress } from '@aztec/aztec.js/contracts';
-import { Fr, Point } from '@aztec/aztec.js/fields';
-import { MAX_NOTE_HASHES_PER_TX, MAX_NULLIFIERS_PER_TX } from '@aztec/constants';
-import { BlockNumber } from '@aztec/foundation/branded-types';
-import {
-  type IMiscOracle,
-  type IPrivateExecutionOracle,
-  type IUtilityExecutionOracle,
-  packAsHintedNote,
-} from '@aztec/pxe/simulator';
-import { type ContractArtifact, EventSelector, FunctionSelector, NoteSelector } from '@aztec/stdlib/abi';
-import { AztecAddress } from '@aztec/stdlib/aztec-address';
-import { BlockHash } from '@aztec/stdlib/block';
+import type { IMiscOracle, IPrivateExecutionOracle, IUtilityExecutionOracle } from '@aztec/pxe/simulator';
 
 import type { IAvmExecutionOracle, ITxeExecutionOracle } from './oracle/interfaces.js';
+import { callTxeHandler } from './oracle/txe_oracle_registry.js';
 import type { TXESessionStateHandler } from './txe_session.js';
-import {
-  type ForeignCallArray,
-  type ForeignCallSingle,
-  addressFromSingle,
-  arrayOfArraysToBoundedVecOfArrays,
-  arrayToBoundedVec,
-  bufferToU8Array,
-  fromArray,
-  fromSingle,
-  fromUintArray,
-  fromUintBoundedVec,
-  toArray,
-  toForeignCallResult,
-  toSingle,
-} from './util/encoding.js';
-
-const MAX_EVENT_LEN = 12; // This is MAX_MESSAGE_CONTENT_LEN - PRIVATE_EVENT_RESERVED_FIELDS
-const MAX_PRIVATE_EVENTS_PER_TXE_QUERY = 5;
+import type { ForeignCallArgs } from './utils/encoding.js';
 
 export class UnavailableOracleError extends Error {
   constructor(oracleName: string) {
@@ -102,1008 +74,1117 @@ export class RPCTranslator {
     return this.oracleHandler;
   }
 
+  // eslint-disable-next-line camelcase
+  aztec_txe_assertCompatibleOracleVersion(...inputs: ForeignCallArgs) {
+    return callTxeHandler({
+      oracle: 'aztec_txe_assertCompatibleOracleVersion',
+      inputs,
+      handler: ([major, minor]) => {
+        this.stateHandler.setTxeOracleVersion(major, minor);
+      },
+    });
+  }
+
   // TXE session state transition functions - these get handled by the state handler
 
-  async txeSetTopLevelTXEContext() {
-    await this.stateHandler.enterTopLevelState();
-
-    return toForeignCallResult([]);
+  // eslint-disable-next-line camelcase
+  aztec_txe_setTopLevelTXEContext() {
+    return callTxeHandler({
+      oracle: 'aztec_txe_setTopLevelTXEContext',
+      inputs: [],
+      handler: () => this.stateHandler.enterTopLevelState(),
+    });
   }
 
-  async txeSetPrivateTXEContext(
-    foreignContractAddressIsSome: ForeignCallSingle,
-    foreignContractAddressValue: ForeignCallSingle,
-    foreignAnchorBlockNumberIsSome: ForeignCallSingle,
-    foreignAnchorBlockNumberValue: ForeignCallSingle,
-  ) {
-    const contractAddress = fromSingle(foreignContractAddressIsSome).toBool()
-      ? AztecAddress.fromField(fromSingle(foreignContractAddressValue))
-      : undefined;
-
-    const anchorBlockNumber = fromSingle(foreignAnchorBlockNumberIsSome).toBool()
-      ? BlockNumber(fromSingle(foreignAnchorBlockNumberValue).toNumber())
-      : undefined;
-
-    const privateContextInputs = await this.stateHandler.enterPrivateState(contractAddress, anchorBlockNumber);
-
-    return toForeignCallResult(privateContextInputs.toFields().map(toSingle));
+  // eslint-disable-next-line camelcase
+  aztec_txe_setPrivateTXEContext(...inputs: ForeignCallArgs) {
+    return callTxeHandler({
+      oracle: 'aztec_txe_setPrivateTXEContext',
+      inputs,
+      handler: ([contractAddress, anchorBlockNumber, gasSettings]) =>
+        this.stateHandler.enterPrivateState(contractAddress, anchorBlockNumber, gasSettings),
+    });
   }
 
-  async txeSetPublicTXEContext(
-    foreignContractAddressIsSome: ForeignCallSingle,
-    foreignContractAddressValue: ForeignCallSingle,
-  ) {
-    const contractAddress = fromSingle(foreignContractAddressIsSome).toBool()
-      ? AztecAddress.fromField(fromSingle(foreignContractAddressValue))
-      : undefined;
-
-    await this.stateHandler.enterPublicState(contractAddress);
-
-    return toForeignCallResult([]);
+  // eslint-disable-next-line camelcase
+  aztec_txe_setPublicTXEContext(...inputs: ForeignCallArgs) {
+    return callTxeHandler({
+      oracle: 'aztec_txe_setPublicTXEContext',
+      inputs,
+      handler: ([contractAddress]) => this.stateHandler.enterPublicState(contractAddress),
+    });
   }
 
-  async txeSetUtilityTXEContext(
-    foreignContractAddressIsSome: ForeignCallSingle,
-    foreignContractAddressValue: ForeignCallSingle,
-  ) {
-    const contractAddress = fromSingle(foreignContractAddressIsSome).toBool()
-      ? AztecAddress.fromField(fromSingle(foreignContractAddressValue))
-      : undefined;
-
-    await this.stateHandler.enterUtilityState(contractAddress);
-
-    return toForeignCallResult([]);
+  // eslint-disable-next-line camelcase
+  aztec_txe_setUtilityTXEContext(...inputs: ForeignCallArgs) {
+    return callTxeHandler({
+      oracle: 'aztec_txe_setUtilityTXEContext',
+      inputs,
+      handler: ([contractAddress]) => this.stateHandler.enterUtilityState(contractAddress),
+    });
   }
 
   // Other oracles - these get handled by the oracle handler
 
   // TXE-specific oracles
 
-  txeGetDefaultAddress() {
-    const defaultAddress = this.handlerAsTxe().txeGetDefaultAddress();
-
-    return toForeignCallResult([toSingle(defaultAddress)]);
+  // eslint-disable-next-line camelcase
+  aztec_txe_getDefaultAddress() {
+    return callTxeHandler({
+      oracle: 'aztec_txe_getDefaultAddress',
+      inputs: [],
+      handler: () => this.handlerAsTxe().getDefaultAddress(),
+    });
   }
 
-  async txeGetNextBlockNumber() {
-    const nextBlockNumber = await this.handlerAsTxe().txeGetNextBlockNumber();
-
-    return toForeignCallResult([toSingle(nextBlockNumber)]);
+  // eslint-disable-next-line camelcase
+  aztec_txe_getNextBlockNumber() {
+    return callTxeHandler({
+      oracle: 'aztec_txe_getNextBlockNumber',
+      inputs: [],
+      handler: () => this.handlerAsTxe().getNextBlockNumber(),
+    });
   }
 
-  async txeGetNextBlockTimestamp() {
-    const nextBlockTimestamp = await this.handlerAsTxe().txeGetNextBlockTimestamp();
-
-    return toForeignCallResult([toSingle(nextBlockTimestamp)]);
+  // eslint-disable-next-line camelcase
+  aztec_txe_getNextBlockTimestamp() {
+    return callTxeHandler({
+      oracle: 'aztec_txe_getNextBlockTimestamp',
+      inputs: [],
+      handler: () => this.handlerAsTxe().getNextBlockTimestamp(),
+    });
   }
 
-  async txeAdvanceBlocksBy(foreignBlocks: ForeignCallSingle) {
-    const blocks = fromSingle(foreignBlocks).toNumber();
-
-    await this.handlerAsTxe().txeAdvanceBlocksBy(blocks);
-
-    return toForeignCallResult([]);
+  // eslint-disable-next-line camelcase
+  aztec_txe_advanceBlocksBy(...inputs: ForeignCallArgs) {
+    return callTxeHandler({
+      oracle: 'aztec_txe_advanceBlocksBy',
+      inputs,
+      handler: ([blocks]) => this.handlerAsTxe().advanceBlocksBy(blocks),
+    });
   }
 
-  txeAdvanceTimestampBy(foreignDuration: ForeignCallSingle) {
-    const duration = fromSingle(foreignDuration).toBigInt();
-
-    this.handlerAsTxe().txeAdvanceTimestampBy(duration);
-
-    return toForeignCallResult([]);
+  // eslint-disable-next-line camelcase
+  aztec_txe_advanceTimestampBy(...inputs: ForeignCallArgs) {
+    return callTxeHandler({
+      oracle: 'aztec_txe_advanceTimestampBy',
+      inputs,
+      handler: ([duration]) => this.handlerAsTxe().advanceTimestampBy(duration),
+    });
   }
 
-  async txeDeploy(artifact: ContractArtifact, instance: ContractInstanceWithAddress, foreignSecret: ForeignCallSingle) {
-    const secret = fromSingle(foreignSecret);
-
-    await this.handlerAsTxe().txeDeploy(artifact, instance, secret);
-
-    return toForeignCallResult([
-      toArray([
-        instance.salt,
-        instance.deployer.toField(),
-        instance.currentContractClassId,
-        instance.initializationHash,
-        ...instance.publicKeys.toFields(),
-      ]),
-    ]);
+  // eslint-disable-next-line camelcase
+  aztec_txe_deploy(...inputs: ForeignCallArgs) {
+    return callTxeHandler({
+      oracle: 'aztec_txe_deploy',
+      inputs,
+      handler: ([contractPath, initializer, _, args, secret, salt, deployer]) =>
+        this.handlerAsTxe().deploy(contractPath, initializer, args, secret, salt, deployer),
+    });
   }
 
-  async txeCreateAccount(foreignSecret: ForeignCallSingle) {
-    const secret = fromSingle(foreignSecret);
-
-    const completeAddress = await this.handlerAsTxe().txeCreateAccount(secret);
-
-    return toForeignCallResult([
-      toSingle(completeAddress.address),
-      ...completeAddress.publicKeys.toFields().map(toSingle),
-    ]);
+  // eslint-disable-next-line camelcase
+  aztec_txe_createAccount(...inputs: ForeignCallArgs) {
+    return callTxeHandler({
+      oracle: 'aztec_txe_createAccount',
+      inputs,
+      handler: ([secret]) => this.handlerAsTxe().createAccount(secret),
+    });
   }
 
-  async txeAddAccount(
-    artifact: ContractArtifact,
-    instance: ContractInstanceWithAddress,
-    foreignSecret: ForeignCallSingle,
-  ) {
-    const secret = fromSingle(foreignSecret);
-
-    const completeAddress = await this.handlerAsTxe().txeAddAccount(artifact, instance, secret);
-
-    return toForeignCallResult([
-      toSingle(completeAddress.address),
-      ...completeAddress.publicKeys.toFields().map(toSingle),
-    ]);
+  // eslint-disable-next-line camelcase
+  aztec_txe_addAccount(...inputs: ForeignCallArgs) {
+    return callTxeHandler({
+      oracle: 'aztec_txe_addAccount',
+      inputs,
+      handler: ([secret]) => this.handlerAsTxe().addAccount(secret),
+    });
   }
 
-  async txeAddAuthWitness(foreignAddress: ForeignCallSingle, foreignMessageHash: ForeignCallSingle) {
-    const address = addressFromSingle(foreignAddress);
-    const messageHash = fromSingle(foreignMessageHash);
+  // eslint-disable-next-line camelcase
+  aztec_txe_addAuthWitness(...inputs: ForeignCallArgs) {
+    return callTxeHandler({
+      oracle: 'aztec_txe_addAuthWitness',
+      inputs,
+      handler: ([address, messageHash]) => this.handlerAsTxe().addAuthWitness(address, messageHash),
+    });
+  }
 
-    await this.handlerAsTxe().txeAddAuthWitness(address, messageHash);
+  // eslint-disable-next-line camelcase
+  aztec_txe_sendL1ToL2Message(...inputs: ForeignCallArgs) {
+    return callTxeHandler({
+      oracle: 'aztec_txe_sendL1ToL2Message',
+      inputs,
+      handler: ([content, secretHash, sender, recipient]) =>
+        this.handlerAsTxe().sendL1ToL2Message(content, secretHash, sender, recipient),
+    });
+  }
 
-    return toForeignCallResult([]);
+  // eslint-disable-next-line camelcase
+  aztec_txe_setTaggingSecretStrategy(...inputs: ForeignCallArgs) {
+    return callTxeHandler({
+      oracle: 'aztec_txe_setTaggingSecretStrategy',
+      inputs,
+      handler: ([strategy]) => this.handlerAsTxe().setTaggingSecretStrategy(strategy),
+    });
   }
 
   // PXE oracles
 
-  utilityAssertCompatibleOracleVersion(foreignVersion: ForeignCallSingle) {
-    const version = fromSingle(foreignVersion).toNumber();
-
-    this.handlerAsMisc().utilityAssertCompatibleOracleVersion(version);
-
-    return toForeignCallResult([]);
+  // eslint-disable-next-line camelcase
+  aztec_misc_assertCompatibleOracleVersion(...inputs: ForeignCallArgs) {
+    return callTxeHandler({
+      oracle: 'aztec_misc_assertCompatibleOracleVersion',
+      inputs,
+      handler: ([major, minor]) => this.handlerAsMisc().assertCompatibleOracleVersion(major, minor),
+    });
   }
 
-  utilityGetRandomField() {
-    const randomField = this.handlerAsMisc().utilityGetRandomField();
-
-    return toForeignCallResult([toSingle(randomField)]);
+  // eslint-disable-next-line camelcase
+  aztec_misc_getRandomField() {
+    return callTxeHandler({
+      oracle: 'aztec_misc_getRandomField',
+      inputs: [],
+      handler: () => this.handlerAsMisc().getRandomField(),
+    });
   }
 
-  async txeGetLastBlockTimestamp() {
-    const timestamp = await this.handlerAsTxe().txeGetLastBlockTimestamp();
-
-    return toForeignCallResult([toSingle(new Fr(timestamp))]);
+  // eslint-disable-next-line camelcase
+  aztec_txe_getLastBlockTimestamp() {
+    return callTxeHandler({
+      oracle: 'aztec_txe_getLastBlockTimestamp',
+      inputs: [],
+      handler: () => this.handlerAsTxe().getLastBlockTimestamp(),
+    });
   }
 
-  async txeGetLastTxEffects() {
-    const { txHash, noteHashes, nullifiers } = await this.handlerAsTxe().txeGetLastTxEffects();
-
-    return toForeignCallResult([
-      toSingle(txHash.hash),
-      ...arrayToBoundedVec(toArray(noteHashes), MAX_NOTE_HASHES_PER_TX),
-      ...arrayToBoundedVec(toArray(nullifiers), MAX_NULLIFIERS_PER_TX),
-    ]);
+  // eslint-disable-next-line camelcase
+  aztec_txe_getLastTxEffects() {
+    return callTxeHandler({
+      oracle: 'aztec_txe_getLastTxEffects',
+      inputs: [],
+      handler: () => this.handlerAsTxe().getLastTxEffects(),
+    });
   }
 
-  async txeGetPrivateEvents(
-    foreignSelector: ForeignCallSingle,
-    foreignContractAddress: ForeignCallSingle,
-    foreignScope: ForeignCallSingle,
-  ) {
-    const selector = EventSelector.fromField(fromSingle(foreignSelector));
-    const contractAddress = addressFromSingle(foreignContractAddress);
-    const scope = addressFromSingle(foreignScope);
-
-    const events = await this.handlerAsTxe().txeGetPrivateEvents(selector, contractAddress, scope);
-
-    if (events.length > MAX_PRIVATE_EVENTS_PER_TXE_QUERY) {
-      throw new Error(`Array of length ${events.length} larger than maxLen ${MAX_PRIVATE_EVENTS_PER_TXE_QUERY}`);
-    }
-
-    if (events.some(e => e.length > MAX_EVENT_LEN)) {
-      throw new Error(`Some private event has length larger than maxLen ${MAX_EVENT_LEN}`);
-    }
-
-    // This is a workaround as Noir does not currently let us return nested structs with arrays. We instead return a raw
-    // multidimensional array in get_private_events_oracle and create the BoundedVecs here.
-    const rawArrayStorage = events
-      .map(e => e.concat(Array(MAX_EVENT_LEN - e.length).fill(new Fr(0))))
-      .concat(Array(MAX_PRIVATE_EVENTS_PER_TXE_QUERY - events.length).fill(Array(MAX_EVENT_LEN).fill(new Fr(0))))
-      .flat();
-    const eventLengths = events
-      .map(e => new Fr(e.length))
-      .concat(Array(MAX_PRIVATE_EVENTS_PER_TXE_QUERY - events.length).fill(new Fr(0)));
-    const queryLength = new Fr(events.length);
-
-    return toForeignCallResult([toArray(rawArrayStorage), toArray(eventLengths), toSingle(queryLength)]);
+  // eslint-disable-next-line camelcase
+  aztec_txe_getLastCallOffchainEffects() {
+    return callTxeHandler({
+      oracle: 'aztec_txe_getLastCallOffchainEffects',
+      inputs: [],
+      handler: () => this.stateHandler.getLastCallOffchainEffects(),
+    });
   }
 
-  privateStoreInExecutionCache(foreignValues: ForeignCallArray, foreignHash: ForeignCallSingle) {
-    const values = fromArray(foreignValues);
-    const hash = fromSingle(foreignHash);
-
-    this.handlerAsPrivate().privateStoreInExecutionCache(values, hash);
-
-    return toForeignCallResult([]);
+  // eslint-disable-next-line camelcase
+  aztec_txe_getLastCallContext() {
+    return callTxeHandler({
+      oracle: 'aztec_txe_getLastCallContext',
+      inputs: [],
+      handler: () => this.stateHandler.getLastCallContext(),
+    });
   }
 
-  async privateLoadFromExecutionCache(foreignHash: ForeignCallSingle) {
-    const hash = fromSingle(foreignHash);
-
-    const returns = await this.handlerAsPrivate().privateLoadFromExecutionCache(hash);
-
-    return toForeignCallResult([toArray(returns)]);
+  // eslint-disable-next-line camelcase
+  aztec_txe_getPrivateEvents(...inputs: ForeignCallArgs) {
+    return callTxeHandler({
+      oracle: 'aztec_txe_getPrivateEvents',
+      inputs,
+      handler: ([selector, contractAddress, scope]) =>
+        this.stateHandler.getPrivateEvents(selector, contractAddress, scope),
+    });
   }
 
-  // When the argument is a slice, noir automatically adds a length field to oracle call.
-  // When the argument is an array, we add the field length manually to the signature.
-  utilityDebugLog(
-    foreignLevel: ForeignCallSingle,
-    foreignMessage: ForeignCallArray,
-    _foreignLength: ForeignCallSingle,
-    foreignFields: ForeignCallArray,
-  ) {
-    const level = fromSingle(foreignLevel).toNumber();
-    const message = fromArray(foreignMessage)
-      .map(field => String.fromCharCode(field.toNumber()))
-      .join('');
-    const fields = fromArray(foreignFields);
-
-    this.handlerAsMisc().utilityDebugLog(level, message, fields);
-
-    return toForeignCallResult([]);
+  // eslint-disable-next-line camelcase
+  aztec_prv_setHashPreimage(...inputs: ForeignCallArgs) {
+    return callTxeHandler({
+      oracle: 'aztec_prv_setHashPreimage',
+      inputs,
+      handler: ([values, hash]) => this.handlerAsPrivate().setHashPreimage(values, hash),
+    });
   }
 
-  async utilityStorageRead(
-    foreignBlockHash: ForeignCallSingle,
-    foreignContractAddress: ForeignCallSingle,
-    foreignStartStorageSlot: ForeignCallSingle,
-    foreignNumberOfElements: ForeignCallSingle,
-  ) {
-    const blockHash = new BlockHash(fromSingle(foreignBlockHash));
-    const contractAddress = addressFromSingle(foreignContractAddress);
-    const startStorageSlot = fromSingle(foreignStartStorageSlot);
-    const numberOfElements = fromSingle(foreignNumberOfElements).toNumber();
-
-    const values = await this.handlerAsUtility().utilityStorageRead(
-      blockHash,
-      contractAddress,
-      startStorageSlot,
-      numberOfElements,
-    );
-
-    return toForeignCallResult([toArray(values)]);
+  // eslint-disable-next-line camelcase
+  aztec_prv_getHashPreimage(...inputs: ForeignCallArgs) {
+    return callTxeHandler({
+      oracle: 'aztec_prv_getHashPreimage',
+      inputs,
+      handler: ([hash]) => this.handlerAsPrivate().getHashPreimage(hash),
+    });
   }
 
-  async utilityGetPublicDataWitness(foreignBlockHash: ForeignCallSingle, foreignLeafSlot: ForeignCallSingle) {
-    const blockHash = new BlockHash(fromSingle(foreignBlockHash));
-    const leafSlot = fromSingle(foreignLeafSlot);
-
-    const witness = await this.handlerAsUtility().utilityGetPublicDataWitness(blockHash, leafSlot);
-
-    if (!witness) {
-      throw new Error(`Public data witness not found for slot ${leafSlot} at block ${blockHash.toString()}.`);
-    }
-    return toForeignCallResult(witness.toNoirRepresentation());
+  // eslint-disable-next-line camelcase
+  aztec_misc_log(...inputs: ForeignCallArgs) {
+    return callTxeHandler({
+      oracle: 'aztec_misc_log',
+      inputs,
+      handler: ([level, message, fieldsSize, fields]) => this.handlerAsMisc().log(level, message, fieldsSize, fields),
+    });
   }
 
-  async utilityGetNotes(
-    foreignOwnerIsSome: ForeignCallSingle,
-    foreignOwnerValue: ForeignCallSingle,
-    foreignStorageSlot: ForeignCallSingle,
-    foreignNumSelects: ForeignCallSingle,
-    foreignSelectByIndexes: ForeignCallArray,
-    foreignSelectByOffsets: ForeignCallArray,
-    foreignSelectByLengths: ForeignCallArray,
-    foreignSelectValues: ForeignCallArray,
-    foreignSelectComparators: ForeignCallArray,
-    foreignSortByIndexes: ForeignCallArray,
-    foreignSortByOffsets: ForeignCallArray,
-    foreignSortByLengths: ForeignCallArray,
-    foreignSortOrder: ForeignCallArray,
-    foreignLimit: ForeignCallSingle,
-    foreignOffset: ForeignCallSingle,
-    foreignStatus: ForeignCallSingle,
-    foreignMaxNotes: ForeignCallSingle,
-    foreignPackedHintedNoteLength: ForeignCallSingle,
-  ) {
-    // Parse Option<AztecAddress>: ownerIsSome is 0 for None, 1 for Some
-    const owner = fromSingle(foreignOwnerIsSome).toBool()
-      ? AztecAddress.fromField(fromSingle(foreignOwnerValue))
-      : undefined;
-    const storageSlot = fromSingle(foreignStorageSlot);
-    const numSelects = fromSingle(foreignNumSelects).toNumber();
-    const selectByIndexes = fromArray(foreignSelectByIndexes).map(fr => fr.toNumber());
-    const selectByOffsets = fromArray(foreignSelectByOffsets).map(fr => fr.toNumber());
-    const selectByLengths = fromArray(foreignSelectByLengths).map(fr => fr.toNumber());
-    const selectValues = fromArray(foreignSelectValues);
-    const selectComparators = fromArray(foreignSelectComparators).map(fr => fr.toNumber());
-    const sortByIndexes = fromArray(foreignSortByIndexes).map(fr => fr.toNumber());
-    const sortByOffsets = fromArray(foreignSortByOffsets).map(fr => fr.toNumber());
-    const sortByLengths = fromArray(foreignSortByLengths).map(fr => fr.toNumber());
-    const sortOrder = fromArray(foreignSortOrder).map(fr => fr.toNumber());
-    const limit = fromSingle(foreignLimit).toNumber();
-    const offset = fromSingle(foreignOffset).toNumber();
-    const status = fromSingle(foreignStatus).toNumber();
-    const maxNotes = fromSingle(foreignMaxNotes).toNumber();
-    const packedHintedNoteLength = fromSingle(foreignPackedHintedNoteLength).toNumber();
-
-    const noteDatas = await this.handlerAsUtility().utilityGetNotes(
-      owner,
-      storageSlot,
-      numSelects,
-      selectByIndexes,
-      selectByOffsets,
-      selectByLengths,
-      selectValues,
-      selectComparators,
-      sortByIndexes,
-      sortByOffsets,
-      sortByLengths,
-      sortOrder,
-      limit,
-      offset,
-      status,
-    );
-
-    const returnDataAsArrayOfArrays = noteDatas.map(noteData =>
-      packAsHintedNote({
-        contractAddress: noteData.contractAddress,
-        owner: noteData.owner,
-        randomness: noteData.randomness,
-        storageSlot: noteData.storageSlot,
-        noteNonce: noteData.noteNonce,
-        isPending: noteData.isPending,
-        note: noteData.note,
-      }),
-    );
-
-    // Now we convert each sub-array to an array of ForeignCallSingles
-    const returnDataAsArrayOfForeignCallSingleArrays = returnDataAsArrayOfArrays.map(subArray =>
-      subArray.map(toSingle),
-    );
-
-    // At last we convert the array of arrays to a bounded vec of arrays
-    return toForeignCallResult(
-      arrayOfArraysToBoundedVecOfArrays(returnDataAsArrayOfForeignCallSingleArrays, maxNotes, packedHintedNoteLength),
-    );
+  // eslint-disable-next-line camelcase
+  aztec_utl_getFromPublicStorage(...inputs: ForeignCallArgs) {
+    return callTxeHandler({
+      oracle: 'aztec_utl_getFromPublicStorage',
+      inputs,
+      handler: ([blockHash, contractAddress, startStorageSlot, numberOfElements]) =>
+        this.handlerAsUtility().getFromPublicStorage(blockHash, contractAddress, startStorageSlot, numberOfElements),
+    });
   }
 
-  privateNotifyCreatedNote(
-    foreignOwner: ForeignCallSingle,
-    foreignStorageSlot: ForeignCallSingle,
-    foreignRandomness: ForeignCallSingle,
-    foreignNoteTypeId: ForeignCallSingle,
-    foreignNote: ForeignCallArray,
-    foreignNoteHash: ForeignCallSingle,
-    foreignCounter: ForeignCallSingle,
-  ) {
-    const owner = addressFromSingle(foreignOwner);
-    const storageSlot = fromSingle(foreignStorageSlot);
-    const randomness = fromSingle(foreignRandomness);
-    const noteTypeId = NoteSelector.fromField(fromSingle(foreignNoteTypeId));
-    const note = fromArray(foreignNote);
-    const noteHash = fromSingle(foreignNoteHash);
-    const counter = fromSingle(foreignCounter).toNumber();
-
-    this.handlerAsPrivate().privateNotifyCreatedNote(
-      owner,
-      storageSlot,
-      randomness,
-      noteTypeId,
-      note,
-      noteHash,
-      counter,
-    );
-
-    return toForeignCallResult([]);
+  // eslint-disable-next-line camelcase
+  aztec_utl_getPublicDataWitness(...inputs: ForeignCallArgs) {
+    return callTxeHandler({
+      oracle: 'aztec_utl_getPublicDataWitness',
+      inputs,
+      handler: ([blockHash, leafSlot]) => this.handlerAsUtility().getPublicDataWitness(blockHash, leafSlot),
+    });
   }
 
-  async privateNotifyNullifiedNote(
-    foreignInnerNullifier: ForeignCallSingle,
-    foreignNoteHash: ForeignCallSingle,
-    foreignCounter: ForeignCallSingle,
-  ) {
-    const innerNullifier = fromSingle(foreignInnerNullifier);
-    const noteHash = fromSingle(foreignNoteHash);
-    const counter = fromSingle(foreignCounter).toNumber();
-
-    await this.handlerAsPrivate().privateNotifyNullifiedNote(innerNullifier, noteHash, counter);
-
-    return toForeignCallResult([]);
+  // eslint-disable-next-line camelcase
+  aztec_utl_getNotes(...inputs: ForeignCallArgs) {
+    return callTxeHandler({
+      oracle: 'aztec_utl_getNotes',
+      inputs,
+      handler: ([
+        owner,
+        storageSlot,
+        numSelects,
+        selectByIndexes,
+        selectByOffsets,
+        selectByLengths,
+        selectValues,
+        selectComparators,
+        sortByIndexes,
+        sortByOffsets,
+        sortByLengths,
+        sortOrder,
+        limit,
+        offset,
+        status,
+        maxNotes,
+        packedHintedNoteLength,
+      ]) =>
+        this.handlerAsUtility().getNotes(
+          owner,
+          storageSlot,
+          numSelects,
+          selectByIndexes,
+          selectByOffsets,
+          selectByLengths,
+          selectValues,
+          selectComparators,
+          sortByIndexes,
+          sortByOffsets,
+          sortByLengths,
+          sortOrder,
+          limit,
+          offset,
+          status,
+          maxNotes,
+          packedHintedNoteLength,
+        ),
+    });
   }
 
-  async privateNotifyCreatedNullifier(foreignInnerNullifier: ForeignCallSingle) {
-    const innerNullifier = fromSingle(foreignInnerNullifier);
-
-    await this.handlerAsPrivate().privateNotifyCreatedNullifier(innerNullifier);
-
-    return toForeignCallResult([]);
+  // eslint-disable-next-line camelcase
+  aztec_prv_notifyCreatedNote(...inputs: ForeignCallArgs) {
+    return callTxeHandler({
+      oracle: 'aztec_prv_notifyCreatedNote',
+      inputs,
+      handler: ([owner, storageSlot, randomness, noteTypeId, note, noteHash, counter]) =>
+        this.handlerAsPrivate().notifyCreatedNote(owner, storageSlot, randomness, noteTypeId, note, noteHash, counter),
+    });
   }
 
-  async privateIsNullifierPending(foreignInnerNullifier: ForeignCallSingle, foreignContractAddress: ForeignCallSingle) {
-    const innerNullifier = fromSingle(foreignInnerNullifier);
-    const contractAddress = addressFromSingle(foreignContractAddress);
-
-    const isPending = await this.handlerAsPrivate().privateIsNullifierPending(innerNullifier, contractAddress);
-
-    return toForeignCallResult([toSingle(new Fr(isPending))]);
+  // eslint-disable-next-line camelcase
+  aztec_prv_notifyNullifiedNote(...inputs: ForeignCallArgs) {
+    return callTxeHandler({
+      oracle: 'aztec_prv_notifyNullifiedNote',
+      inputs,
+      handler: ([innerNullifier, noteHash, counter]) =>
+        this.handlerAsPrivate().notifyNullifiedNote(innerNullifier, noteHash, counter),
+    });
   }
 
-  async utilityCheckNullifierExists(foreignInnerNullifier: ForeignCallSingle) {
-    const innerNullifier = fromSingle(foreignInnerNullifier);
-
-    const exists = await this.handlerAsUtility().utilityCheckNullifierExists(innerNullifier);
-
-    return toForeignCallResult([toSingle(new Fr(exists))]);
+  // eslint-disable-next-line camelcase
+  aztec_prv_notifyCreatedNullifier(...inputs: ForeignCallArgs) {
+    return callTxeHandler({
+      oracle: 'aztec_prv_notifyCreatedNullifier',
+      inputs,
+      handler: ([innerNullifier]) => this.handlerAsPrivate().notifyCreatedNullifier(innerNullifier),
+    });
   }
 
-  async utilityGetContractInstance(foreignAddress: ForeignCallSingle) {
-    const address = addressFromSingle(foreignAddress);
-
-    const instance = await this.handlerAsUtility().utilityGetContractInstance(address);
-
-    return toForeignCallResult(
-      [
-        instance.salt,
-        instance.deployer.toField(),
-        instance.currentContractClassId,
-        instance.initializationHash,
-        ...instance.publicKeys.toFields(),
-      ].map(toSingle),
-    );
+  // eslint-disable-next-line camelcase
+  aztec_prv_isNullifierPending(...inputs: ForeignCallArgs) {
+    return callTxeHandler({
+      oracle: 'aztec_prv_isNullifierPending',
+      inputs,
+      handler: ([innerNullifier, contractAddress]) =>
+        this.handlerAsPrivate().isNullifierPending(innerNullifier, contractAddress),
+    });
   }
 
-  async utilityTryGetPublicKeysAndPartialAddress(foreignAddress: ForeignCallSingle) {
-    const address = addressFromSingle(foreignAddress);
-
-    const result = await this.handlerAsUtility().utilityTryGetPublicKeysAndPartialAddress(address);
-
-    // We are going to return a Noir Option struct to represent the possibility of null values. Options are a struct
-    // with two fields: `some` (a boolean) and `value` (a field array in this case).
-    if (result === undefined) {
-      // No data was found so we set `some` to 0 and pad `value` with zeros get the correct return size.
-      return toForeignCallResult([toSingle(new Fr(0)), toArray(Array(13).fill(new Fr(0)))]);
-    } else {
-      // Data was found so we set `some` to 1 and return it along with `value`.
-      return toForeignCallResult([
-        toSingle(new Fr(1)),
-        toArray([...result.publicKeys.toFields(), result.partialAddress]),
-      ]);
-    }
+  // eslint-disable-next-line camelcase
+  aztec_utl_doesNullifierExist(...inputs: ForeignCallArgs) {
+    return callTxeHandler({
+      oracle: 'aztec_utl_doesNullifierExist',
+      inputs,
+      handler: ([innerNullifier]) => this.handlerAsUtility().doesNullifierExist(innerNullifier),
+    });
   }
 
-  async utilityGetKeyValidationRequest(foreignPkMHash: ForeignCallSingle) {
-    const pkMHash = fromSingle(foreignPkMHash);
-
-    const keyValidationRequest = await this.handlerAsUtility().utilityGetKeyValidationRequest(pkMHash);
-
-    return toForeignCallResult(keyValidationRequest.toFields().map(toSingle));
+  // eslint-disable-next-line camelcase
+  aztec_utl_getContractInstance(...inputs: ForeignCallArgs) {
+    return callTxeHandler({
+      oracle: 'aztec_utl_getContractInstance',
+      inputs,
+      handler: ([address]) => this.handlerAsUtility().getContractInstance(address),
+    });
   }
 
-  privateCallPrivateFunction(
-    _foreignTargetContractAddress: ForeignCallSingle,
-    _foreignFunctionSelector: ForeignCallSingle,
-    _foreignArgsHash: ForeignCallSingle,
-    _foreignSideEffectCounter: ForeignCallSingle,
-    _foreignIsStaticCall: ForeignCallSingle,
-  ) {
-    throw new Error(
-      'Contract calls are forbidden inside a `TestEnvironment::private_context`, use `private_call` instead',
-    );
+  // eslint-disable-next-line camelcase
+  aztec_utl_getPublicKeysAndPartialAddress(...inputs: ForeignCallArgs) {
+    return callTxeHandler({
+      oracle: 'aztec_utl_getPublicKeysAndPartialAddress',
+      inputs,
+      handler: ([address]) => this.handlerAsUtility().getPublicKeysAndPartialAddress(address),
+    });
   }
 
-  async utilityGetNullifierMembershipWitness(foreignBlockHash: ForeignCallSingle, foreignNullifier: ForeignCallSingle) {
-    const blockHash = new BlockHash(fromSingle(foreignBlockHash));
-    const nullifier = fromSingle(foreignNullifier);
-
-    const witness = await this.handlerAsUtility().utilityGetNullifierMembershipWitness(blockHash, nullifier);
-
-    if (!witness) {
-      throw new Error(`Nullifier membership witness not found at block ${blockHash}.`);
-    }
-    return toForeignCallResult(witness.toNoirRepresentation());
+  // eslint-disable-next-line camelcase
+  aztec_utl_getKeyValidationRequest(...inputs: ForeignCallArgs) {
+    return callTxeHandler({
+      oracle: 'aztec_utl_getKeyValidationRequest',
+      inputs,
+      handler: ([pkMHash, keyIndex]) => this.handlerAsUtility().getKeyValidationRequest(pkMHash, keyIndex),
+    });
   }
 
-  async utilityGetAuthWitness(foreignMessageHash: ForeignCallSingle) {
-    const messageHash = fromSingle(foreignMessageHash);
-
-    const authWitness = await this.handlerAsUtility().utilityGetAuthWitness(messageHash);
-
-    if (!authWitness) {
-      throw new Error(`Auth witness not found for message hash ${messageHash}.`);
-    }
-    return toForeignCallResult([toArray(authWitness)]);
+  // eslint-disable-next-line camelcase
+  aztec_prv_callPrivateFunction(...inputs: ForeignCallArgs) {
+    return callTxeHandler({
+      oracle: 'aztec_prv_callPrivateFunction',
+      inputs,
+      handler: ([contractAddress, functionSelector, argsHash, sideEffectCounter, isStaticCall]) =>
+        this.handlerAsPrivate().callPrivateFunction(
+          contractAddress,
+          functionSelector,
+          argsHash,
+          sideEffectCounter,
+          isStaticCall,
+        ),
+    });
   }
 
-  public privateNotifyEnqueuedPublicFunctionCall(
-    _foreignTargetContractAddress: ForeignCallSingle,
-    _foreignCalldataHash: ForeignCallSingle,
-    _foreignSideEffectCounter: ForeignCallSingle,
-    _foreignIsStaticCall: ForeignCallSingle,
-  ) {
-    throw new Error('Enqueueing public calls is not supported in TestEnvironment::private_context');
+  // eslint-disable-next-line camelcase
+  aztec_utl_getNullifierMembershipWitness(...inputs: ForeignCallArgs) {
+    return callTxeHandler({
+      oracle: 'aztec_utl_getNullifierMembershipWitness',
+      inputs,
+      handler: ([blockHash, nullifier]) => this.handlerAsUtility().getNullifierMembershipWitness(blockHash, nullifier),
+    });
   }
 
-  public privateNotifySetPublicTeardownFunctionCall(
-    _foreignTargetContractAddress: ForeignCallSingle,
-    _foreignCalldataHash: ForeignCallSingle,
-    _foreignSideEffectCounter: ForeignCallSingle,
-    _foreignIsStaticCall: ForeignCallSingle,
-  ) {
-    throw new Error('Enqueueing public calls is not supported in TestEnvironment::private_context');
+  // eslint-disable-next-line camelcase
+  aztec_utl_getL1ToL2MembershipWitness(...inputs: ForeignCallArgs) {
+    return callTxeHandler({
+      oracle: 'aztec_utl_getL1ToL2MembershipWitness',
+      inputs,
+      handler: ([contractAddress, messageHash, secret]) =>
+        this.handlerAsUtility().getL1ToL2MembershipWitness(contractAddress, messageHash, secret),
+    });
   }
 
-  public privateNotifySetMinRevertibleSideEffectCounter(_foreignMinRevertibleSideEffectCounter: ForeignCallSingle) {
-    throw new Error('Enqueueing public calls is not supported in TestEnvironment::private_context');
+  // eslint-disable-next-line camelcase
+  aztec_utl_getAuthWitness(...inputs: ForeignCallArgs) {
+    return callTxeHandler({
+      oracle: 'aztec_utl_getAuthWitness',
+      inputs,
+      handler: ([messageHash]) => this.handlerAsUtility().getAuthWitness(messageHash),
+    });
   }
 
-  public async privateIsSideEffectCounterRevertible(foreignSideEffectCounter: ForeignCallSingle) {
-    const sideEffectCounter = fromSingle(foreignSideEffectCounter).toNumber();
-    const isRevertible = await this.handlerAsPrivate().privateIsSideEffectCounterRevertible(sideEffectCounter);
-    return toForeignCallResult([toSingle(new Fr(isRevertible))]);
+  // eslint-disable-next-line camelcase
+  aztec_prv_assertValidPublicCalldata(...inputs: ForeignCallArgs) {
+    return callTxeHandler({
+      oracle: 'aztec_prv_assertValidPublicCalldata',
+      inputs,
+      handler: ([calldataHash]) => this.handlerAsPrivate().assertValidPublicCalldata(calldataHash),
+    });
   }
 
-  utilityGetUtilityContext() {
-    const context = this.handlerAsUtility().utilityGetUtilityContext();
-
-    return toForeignCallResult(context.toNoirRepresentation());
+  // eslint-disable-next-line camelcase
+  aztec_prv_notifyRevertiblePhaseStart(...inputs: ForeignCallArgs) {
+    return callTxeHandler({
+      oracle: 'aztec_prv_notifyRevertiblePhaseStart',
+      inputs,
+      handler: ([minRevertibleSideEffectCounter]) =>
+        this.handlerAsPrivate().notifyRevertiblePhaseStart(minRevertibleSideEffectCounter),
+    });
   }
 
-  async utilityGetBlockHeader(foreignBlockNumber: ForeignCallSingle) {
-    const blockNumber = BlockNumber(fromSingle(foreignBlockNumber).toNumber());
-
-    const header = await this.handlerAsUtility().utilityGetBlockHeader(blockNumber);
-
-    if (!header) {
-      throw new Error(`Block header not found for block ${blockNumber}.`);
-    }
-    return toForeignCallResult(header.toFields().map(toSingle));
+  // eslint-disable-next-line camelcase
+  aztec_prv_isExecutionInRevertiblePhase(...inputs: ForeignCallArgs) {
+    return callTxeHandler({
+      oracle: 'aztec_prv_isExecutionInRevertiblePhase',
+      inputs,
+      handler: ([sideEffectCounter]) => this.handlerAsPrivate().isExecutionInRevertiblePhase(sideEffectCounter),
+    });
   }
 
-  async utilityGetNoteHashMembershipWitness(
-    foreignAnchorBlockHash: ForeignCallSingle,
-    foreignNoteHash: ForeignCallSingle,
-  ) {
-    const blockHash = new BlockHash(fromSingle(foreignAnchorBlockHash));
-    const noteHash = fromSingle(foreignNoteHash);
-
-    const witness = await this.handlerAsUtility().utilityGetNoteHashMembershipWitness(blockHash, noteHash);
-
-    if (!witness) {
-      throw new Error(`Note hash ${noteHash} not found in the note hash tree at block ${blockHash.toString()}.`);
-    }
-    return toForeignCallResult(witness.toNoirRepresentation());
+  // eslint-disable-next-line camelcase
+  aztec_utl_getUtilityContext() {
+    return callTxeHandler({
+      oracle: 'aztec_utl_getUtilityContext',
+      inputs: [],
+      handler: () => this.handlerAsUtility().getUtilityContext(),
+    });
   }
 
-  async utilityGetBlockHashMembershipWitness(
-    foreignAnchorBlockHash: ForeignCallSingle,
-    foreignBlockHash: ForeignCallSingle,
-  ) {
-    const anchorBlockHash = new BlockHash(fromSingle(foreignAnchorBlockHash));
-    const blockHash = new BlockHash(fromSingle(foreignBlockHash));
-
-    const witness = await this.handlerAsUtility().utilityGetBlockHashMembershipWitness(anchorBlockHash, blockHash);
-
-    if (!witness) {
-      throw new Error(
-        `Block hash ${blockHash.toString()} not found in the archive tree at anchor block ${anchorBlockHash.toString()}.`,
-      );
-    }
-    return toForeignCallResult(witness.toNoirRepresentation());
+  // eslint-disable-next-line camelcase
+  aztec_utl_getBlockHeader(...inputs: ForeignCallArgs) {
+    return callTxeHandler({
+      oracle: 'aztec_utl_getBlockHeader',
+      inputs,
+      handler: ([blockNumber]) => this.handlerAsUtility().getBlockHeader(blockNumber),
+    });
   }
 
-  async utilityGetLowNullifierMembershipWitness(
-    foreignBlockHash: ForeignCallSingle,
-    foreignNullifier: ForeignCallSingle,
-  ) {
-    const blockHash = new BlockHash(fromSingle(foreignBlockHash));
-    const nullifier = fromSingle(foreignNullifier);
-
-    const witness = await this.handlerAsUtility().utilityGetLowNullifierMembershipWitness(blockHash, nullifier);
-
-    if (!witness) {
-      throw new Error(`Low nullifier witness not found for nullifier ${nullifier} at block ${blockHash}.`);
-    }
-    return toForeignCallResult(witness.toNoirRepresentation());
+  // eslint-disable-next-line camelcase
+  aztec_utl_getNoteHashMembershipWitness(...inputs: ForeignCallArgs) {
+    return callTxeHandler({
+      oracle: 'aztec_utl_getNoteHashMembershipWitness',
+      inputs,
+      handler: ([blockHash, noteHash]) => this.handlerAsUtility().getNoteHashMembershipWitness(blockHash, noteHash),
+    });
   }
 
-  async utilityFetchTaggedLogs(foreignPendingTaggedLogArrayBaseSlot: ForeignCallSingle) {
-    const pendingTaggedLogArrayBaseSlot = fromSingle(foreignPendingTaggedLogArrayBaseSlot);
-
-    await this.handlerAsUtility().utilityFetchTaggedLogs(pendingTaggedLogArrayBaseSlot);
-
-    return toForeignCallResult([]);
+  // eslint-disable-next-line camelcase
+  aztec_utl_getBlockHashMembershipWitness(...inputs: ForeignCallArgs) {
+    return callTxeHandler({
+      oracle: 'aztec_utl_getBlockHashMembershipWitness',
+      inputs,
+      handler: ([anchorBlockHash, blockHash]) =>
+        this.handlerAsUtility().getBlockHashMembershipWitness(anchorBlockHash, blockHash),
+    });
   }
 
-  public async utilityValidateAndStoreEnqueuedNotesAndEvents(
-    foreignContractAddress: ForeignCallSingle,
-    foreignNoteValidationRequestsArrayBaseSlot: ForeignCallSingle,
-    foreignEventValidationRequestsArrayBaseSlot: ForeignCallSingle,
-  ) {
-    const contractAddress = AztecAddress.fromField(fromSingle(foreignContractAddress));
-    const noteValidationRequestsArrayBaseSlot = fromSingle(foreignNoteValidationRequestsArrayBaseSlot);
-    const eventValidationRequestsArrayBaseSlot = fromSingle(foreignEventValidationRequestsArrayBaseSlot);
-
-    await this.handlerAsUtility().utilityValidateAndStoreEnqueuedNotesAndEvents(
-      contractAddress,
-      noteValidationRequestsArrayBaseSlot,
-      eventValidationRequestsArrayBaseSlot,
-    );
-
-    return toForeignCallResult([]);
+  // eslint-disable-next-line camelcase
+  aztec_utl_getLowNullifierMembershipWitness(...inputs: ForeignCallArgs) {
+    return callTxeHandler({
+      oracle: 'aztec_utl_getLowNullifierMembershipWitness',
+      inputs,
+      handler: ([blockHash, nullifier]) =>
+        this.handlerAsUtility().getLowNullifierMembershipWitness(blockHash, nullifier),
+    });
   }
 
-  public async utilityBulkRetrieveLogs(
-    foreignContractAddress: ForeignCallSingle,
-    foreignLogRetrievalRequestsArrayBaseSlot: ForeignCallSingle,
-    foreignLogRetrievalResponsesArrayBaseSlot: ForeignCallSingle,
-  ) {
-    const contractAddress = AztecAddress.fromField(fromSingle(foreignContractAddress));
-    const logRetrievalRequestsArrayBaseSlot = fromSingle(foreignLogRetrievalRequestsArrayBaseSlot);
-    const logRetrievalResponsesArrayBaseSlot = fromSingle(foreignLogRetrievalResponsesArrayBaseSlot);
-
-    await this.handlerAsUtility().utilityBulkRetrieveLogs(
-      contractAddress,
-      logRetrievalRequestsArrayBaseSlot,
-      logRetrievalResponsesArrayBaseSlot,
-    );
-
-    return toForeignCallResult([]);
+  // eslint-disable-next-line camelcase
+  aztec_utl_getPendingTaggedLogsV2(...inputs: ForeignCallArgs) {
+    return callTxeHandler({
+      oracle: 'aztec_utl_getPendingTaggedLogsV2',
+      inputs,
+      handler: ([scope, providedSecrets]) => this.handlerAsUtility().getPendingTaggedLogsV2(scope, providedSecrets),
+    });
   }
 
-  async utilityStoreCapsule(
-    foreignContractAddress: ForeignCallSingle,
-    foreignSlot: ForeignCallSingle,
-    foreignCapsule: ForeignCallArray,
-  ) {
-    const contractAddress = AztecAddress.fromField(fromSingle(foreignContractAddress));
-    const slot = fromSingle(foreignSlot);
-    const capsule = fromArray(foreignCapsule);
-
-    await this.handlerAsUtility().utilityStoreCapsule(contractAddress, slot, capsule);
-
-    return toForeignCallResult([]);
+  // eslint-disable-next-line camelcase
+  aztec_utl_validateAndStoreEnqueuedNotesAndEvents(...inputs: ForeignCallArgs) {
+    return callTxeHandler({
+      oracle: 'aztec_utl_validateAndStoreEnqueuedNotesAndEvents',
+      inputs,
+      handler: ([noteValidationRequests, eventValidationRequests, scope]) =>
+        this.handlerAsUtility().validateAndStoreEnqueuedNotesAndEvents(
+          noteValidationRequests,
+          eventValidationRequests,
+          scope,
+        ),
+    });
   }
 
-  async utilityLoadCapsule(
-    foreignContractAddress: ForeignCallSingle,
-    foreignSlot: ForeignCallSingle,
-    foreignTSize: ForeignCallSingle,
-  ) {
-    const contractAddress = AztecAddress.fromField(fromSingle(foreignContractAddress));
-    const slot = fromSingle(foreignSlot);
-    const tSize = fromSingle(foreignTSize).toNumber();
-
-    const values = await this.handlerAsUtility().utilityLoadCapsule(contractAddress, slot);
-
-    // We are going to return a Noir Option struct to represent the possibility of null values. Options are a struct
-    // with two fields: `some` (a boolean) and `value` (a field array in this case).
-    if (values === null) {
-      // No data was found so we set `some` to 0 and pad `value` with zeros get the correct return size.
-      return toForeignCallResult([toSingle(new Fr(0)), toArray(Array(tSize).fill(new Fr(0)))]);
-    } else {
-      // Data was found so we set `some` to 1 and return it along with `value`.
-      return toForeignCallResult([toSingle(new Fr(1)), toArray(values)]);
-    }
+  // eslint-disable-next-line camelcase
+  aztec_utl_getLogsByTagV2(...inputs: ForeignCallArgs) {
+    return callTxeHandler({
+      oracle: 'aztec_utl_getLogsByTagV2',
+      inputs,
+      handler: ([requestArrayBaseSlot]) => this.handlerAsUtility().getLogsByTagV2(requestArrayBaseSlot),
+    });
   }
 
-  async utilityDeleteCapsule(foreignContractAddress: ForeignCallSingle, foreignSlot: ForeignCallSingle) {
-    const contractAddress = AztecAddress.fromField(fromSingle(foreignContractAddress));
-    const slot = fromSingle(foreignSlot);
-
-    await this.handlerAsUtility().utilityDeleteCapsule(contractAddress, slot);
-
-    return toForeignCallResult([]);
+  // eslint-disable-next-line camelcase
+  aztec_utl_getResolvedTxs(...inputs: ForeignCallArgs) {
+    return callTxeHandler({
+      oracle: 'aztec_utl_getResolvedTxs',
+      inputs,
+      handler: ([requestArrayBaseSlot]) => this.handlerAsUtility().getResolvedTxs(requestArrayBaseSlot),
+    });
   }
 
-  async utilityCopyCapsule(
-    foreignContractAddress: ForeignCallSingle,
-    foreignSrcSlot: ForeignCallSingle,
-    foreignDstSlot: ForeignCallSingle,
-    foreignNumEntries: ForeignCallSingle,
-  ) {
-    const contractAddress = AztecAddress.fromField(fromSingle(foreignContractAddress));
-    const srcSlot = fromSingle(foreignSrcSlot);
-    const dstSlot = fromSingle(foreignDstSlot);
-    const numEntries = fromSingle(foreignNumEntries).toNumber();
+  // eslint-disable-next-line camelcase
+  aztec_utl_setCapsule(...inputs: ForeignCallArgs) {
+    return callTxeHandler({
+      oracle: 'aztec_utl_setCapsule',
+      inputs,
+      handler: ([contractAddress, slot, capsule, scope]) =>
+        this.handlerAsUtility().setCapsule(contractAddress, slot, capsule, scope),
+    });
+  }
 
-    await this.handlerAsUtility().utilityCopyCapsule(contractAddress, srcSlot, dstSlot, numEntries);
+  // eslint-disable-next-line camelcase
+  aztec_utl_getCapsule(...inputs: ForeignCallArgs) {
+    return callTxeHandler({
+      oracle: 'aztec_utl_getCapsule',
+      inputs,
+      handler: ([contractAddress, slot, tSize, scope]) =>
+        this.handlerAsUtility().getCapsule(contractAddress, slot, tSize, scope),
+    });
+  }
 
-    return toForeignCallResult([]);
+  // eslint-disable-next-line camelcase
+  aztec_utl_deleteCapsule(...inputs: ForeignCallArgs) {
+    return callTxeHandler({
+      oracle: 'aztec_utl_deleteCapsule',
+      inputs,
+      handler: ([contractAddress, slot, scope]) => this.handlerAsUtility().deleteCapsule(contractAddress, slot, scope),
+    });
+  }
+
+  // eslint-disable-next-line camelcase
+  aztec_utl_copyCapsule(...inputs: ForeignCallArgs) {
+    return callTxeHandler({
+      oracle: 'aztec_utl_copyCapsule',
+      inputs,
+      handler: ([contractAddress, srcSlot, dstSlot, numEntries, scope]) =>
+        this.handlerAsUtility().copyCapsule(contractAddress, srcSlot, dstSlot, numEntries, scope),
+    });
+  }
+
+  // eslint-disable-next-line camelcase
+  aztec_utl_pushEphemeral(...inputs: ForeignCallArgs) {
+    return callTxeHandler({
+      oracle: 'aztec_utl_pushEphemeral',
+      inputs,
+      handler: ([slot, elements]) => this.handlerAsUtility().pushEphemeral(slot, elements),
+    });
+  }
+
+  // eslint-disable-next-line camelcase
+  aztec_utl_popEphemeral(...inputs: ForeignCallArgs) {
+    return callTxeHandler({
+      oracle: 'aztec_utl_popEphemeral',
+      inputs,
+      handler: ([slot]) => this.handlerAsUtility().popEphemeral(slot),
+    });
+  }
+
+  // eslint-disable-next-line camelcase
+  aztec_utl_getEphemeral(...inputs: ForeignCallArgs) {
+    return callTxeHandler({
+      oracle: 'aztec_utl_getEphemeral',
+      inputs,
+      handler: ([slot, index]) => this.handlerAsUtility().getEphemeral(slot, index),
+    });
+  }
+
+  // eslint-disable-next-line camelcase
+  aztec_utl_setEphemeral(...inputs: ForeignCallArgs) {
+    return callTxeHandler({
+      oracle: 'aztec_utl_setEphemeral',
+      inputs,
+      handler: ([slot, index, elements]) => this.handlerAsUtility().setEphemeral(slot, index, elements),
+    });
+  }
+
+  // eslint-disable-next-line camelcase
+  aztec_utl_getEphemeralLen(...inputs: ForeignCallArgs) {
+    return callTxeHandler({
+      oracle: 'aztec_utl_getEphemeralLen',
+      inputs,
+      handler: ([slot]) => this.handlerAsUtility().getEphemeralLen(slot),
+    });
+  }
+
+  // eslint-disable-next-line camelcase
+  aztec_utl_removeEphemeral(...inputs: ForeignCallArgs) {
+    return callTxeHandler({
+      oracle: 'aztec_utl_removeEphemeral',
+      inputs,
+      handler: ([slot, index]) => this.handlerAsUtility().removeEphemeral(slot, index),
+    });
+  }
+
+  // eslint-disable-next-line camelcase
+  aztec_utl_clearEphemeral(...inputs: ForeignCallArgs) {
+    return callTxeHandler({
+      oracle: 'aztec_utl_clearEphemeral',
+      inputs,
+      handler: ([slot]) => this.handlerAsUtility().clearEphemeral(slot),
+    });
+  }
+
+  // eslint-disable-next-line camelcase
+  aztec_utl_pushTransient(...inputs: ForeignCallArgs) {
+    return callTxeHandler({
+      oracle: 'aztec_utl_pushTransient',
+      inputs,
+      handler: ([slot, elements]) => this.handlerAsUtility().pushTransient(slot, elements),
+    });
+  }
+
+  // eslint-disable-next-line camelcase
+  aztec_utl_popTransient(...inputs: ForeignCallArgs) {
+    return callTxeHandler({
+      oracle: 'aztec_utl_popTransient',
+      inputs,
+      handler: ([slot]) => this.handlerAsUtility().popTransient(slot),
+    });
+  }
+
+  // eslint-disable-next-line camelcase
+  aztec_utl_getTransient(...inputs: ForeignCallArgs) {
+    return callTxeHandler({
+      oracle: 'aztec_utl_getTransient',
+      inputs,
+      handler: ([slot, index]) => this.handlerAsUtility().getTransient(slot, index),
+    });
+  }
+
+  // eslint-disable-next-line camelcase
+  aztec_utl_setTransient(...inputs: ForeignCallArgs) {
+    return callTxeHandler({
+      oracle: 'aztec_utl_setTransient',
+      inputs,
+      handler: ([slot, index, elements]) => this.handlerAsUtility().setTransient(slot, index, elements),
+    });
+  }
+
+  // eslint-disable-next-line camelcase
+  aztec_utl_getTransientLen(...inputs: ForeignCallArgs) {
+    return callTxeHandler({
+      oracle: 'aztec_utl_getTransientLen',
+      inputs,
+      handler: ([slot]) => this.handlerAsUtility().getTransientLen(slot),
+    });
+  }
+
+  // eslint-disable-next-line camelcase
+  aztec_utl_removeTransient(...inputs: ForeignCallArgs) {
+    return callTxeHandler({
+      oracle: 'aztec_utl_removeTransient',
+      inputs,
+      handler: ([slot, index]) => this.handlerAsUtility().removeTransient(slot, index),
+    });
+  }
+
+  // eslint-disable-next-line camelcase
+  aztec_utl_clearTransient(...inputs: ForeignCallArgs) {
+    return callTxeHandler({
+      oracle: 'aztec_utl_clearTransient',
+      inputs,
+      handler: ([slot]) => this.handlerAsUtility().clearTransient(slot),
+    });
   }
 
   // TODO: I forgot to add a corresponding function here, when I introduced an oracle method to txe_oracle.ts.
   // The compiler didn't throw an error, so it took me a while to learn of the existence of this file, and that I need
   // to implement this function here. Isn't there a way to programmatically identify that this is missing, given the
   // existence of a txe_oracle method?
-  async utilityAes128Decrypt(
-    foreignCiphertextBVecStorage: ForeignCallArray,
-    foreignCiphertextLength: ForeignCallSingle,
-    foreignIv: ForeignCallArray,
-    foreignSymKey: ForeignCallArray,
-  ) {
-    const ciphertext = fromUintBoundedVec(foreignCiphertextBVecStorage, foreignCiphertextLength, 8);
-    const iv = fromUintArray(foreignIv, 8);
-    const symKey = fromUintArray(foreignSymKey, 8);
-
-    const plaintextBuffer = await this.handlerAsUtility().utilityAes128Decrypt(ciphertext, iv, symKey);
-
-    return toForeignCallResult(
-      arrayToBoundedVec(bufferToU8Array(plaintextBuffer), foreignCiphertextBVecStorage.length),
-    );
+  // eslint-disable-next-line camelcase
+  aztec_utl_decryptAes128(...inputs: ForeignCallArgs) {
+    return callTxeHandler({
+      oracle: 'aztec_utl_decryptAes128',
+      inputs,
+      handler: ([ciphertext, iv, symKey]) => this.handlerAsUtility().decryptAes128(ciphertext, iv, symKey),
+    });
   }
 
-  async utilityGetSharedSecret(
-    foreignAddress: ForeignCallSingle,
-    foreignEphPKField0: ForeignCallSingle,
-    foreignEphPKField1: ForeignCallSingle,
-    foreignEphPKField2: ForeignCallSingle,
-  ) {
-    const address = AztecAddress.fromField(fromSingle(foreignAddress));
-    const ephPK = Point.fromFields([
-      fromSingle(foreignEphPKField0),
-      fromSingle(foreignEphPKField1),
-      fromSingle(foreignEphPKField2),
-    ]);
-
-    const secret = await this.handlerAsUtility().utilityGetSharedSecret(address, ephPK);
-
-    return toForeignCallResult(secret.toFields().map(toSingle));
+  // eslint-disable-next-line camelcase
+  aztec_utl_getSharedSecrets(...inputs: ForeignCallArgs) {
+    return callTxeHandler({
+      oracle: 'aztec_utl_getSharedSecrets',
+      inputs,
+      handler: ([address, ephPksSlot, contractAddress]) =>
+        this.handlerAsUtility().getSharedSecrets(address, ephPksSlot, contractAddress),
+    });
   }
 
-  emitOffchainEffect(_foreignData: ForeignCallArray) {
-    throw new Error('Offchain effects are not yet supported in the TestEnvironment');
+  // eslint-disable-next-line camelcase
+  aztec_utl_setContractSyncCacheInvalid(...inputs: ForeignCallArgs) {
+    return callTxeHandler({
+      oracle: 'aztec_utl_setContractSyncCacheInvalid',
+      inputs,
+      handler: ([contractAddress, scopes]) =>
+        this.handlerAsUtility().setContractSyncCacheInvalid(contractAddress, scopes),
+    });
+  }
+
+  // eslint-disable-next-line camelcase
+  aztec_utl_emitOffchainEffect(...inputs: ForeignCallArgs) {
+    return callTxeHandler({
+      oracle: 'aztec_utl_emitOffchainEffect',
+      inputs,
+      handler: ([data]) => {
+        // Record the raw payload against the currently-executing top-level call. The Noir side
+        // (via `env.offchain_messages()`) is responsible for decoding the protocol-reserved prefix
+        // (`OFFCHAIN_MESSAGE_IDENTIFIER`, recipient) and turning each payload into an `OffchainMessage` struct suitable
+        // for `offchain_receive`.
+        this.stateHandler.recordOffchainEffect(data);
+      },
+    });
+  }
+
+  // eslint-disable-next-line camelcase
+  aztec_utl_recordFact(...inputs: ForeignCallArgs) {
+    return callTxeHandler({
+      oracle: 'aztec_utl_recordFact',
+      inputs,
+      handler: ([contractAddress, scope, factCollectionTypeId, factCollectionId, factTypeId, payload, originBlock]) =>
+        this.handlerAsUtility().recordFact(
+          contractAddress,
+          scope,
+          factCollectionTypeId,
+          factCollectionId,
+          factTypeId,
+          payload,
+          originBlock,
+        ),
+    });
+  }
+
+  // eslint-disable-next-line camelcase
+  aztec_utl_deleteFactCollection(...inputs: ForeignCallArgs) {
+    return callTxeHandler({
+      oracle: 'aztec_utl_deleteFactCollection',
+      inputs,
+      handler: ([contractAddress, scope, factCollectionTypeId, factCollectionId]) =>
+        this.handlerAsUtility().deleteFactCollection(contractAddress, scope, factCollectionTypeId, factCollectionId),
+    });
+  }
+
+  // eslint-disable-next-line camelcase
+  aztec_utl_getFactCollection(...inputs: ForeignCallArgs) {
+    return callTxeHandler({
+      oracle: 'aztec_utl_getFactCollection',
+      inputs,
+      handler: ([contractAddress, scope, factCollectionTypeId, factCollectionId]) =>
+        this.handlerAsUtility().getFactCollection(contractAddress, scope, factCollectionTypeId, factCollectionId),
+    });
+  }
+
+  // eslint-disable-next-line camelcase
+  aztec_utl_getFactCollectionsByType(...inputs: ForeignCallArgs) {
+    return callTxeHandler({
+      oracle: 'aztec_utl_getFactCollectionsByType',
+      inputs,
+      handler: ([contractAddress, scope, factCollectionTypeId]) =>
+        this.handlerAsUtility().getFactCollectionsByType(contractAddress, scope, factCollectionTypeId),
+    });
   }
 
   // AVM opcodes
 
-  avmOpcodeEmitUnencryptedLog(_foreignMessage: ForeignCallArray) {
-    // TODO(#8811): Implement
-    return toForeignCallResult([]);
+  // eslint-disable-next-line camelcase
+  aztec_avm_emitPublicLog() {
+    return callTxeHandler({
+      oracle: 'aztec_avm_emitPublicLog',
+      inputs: [],
+      // TODO(#8811): Implement
+      handler: () => {},
+    });
   }
 
-  async avmOpcodeStorageRead(foreignSlot: ForeignCallSingle, foreignContractAddress: ForeignCallSingle) {
-    const slot = fromSingle(foreignSlot);
-    const contractAddress = AztecAddress.fromField(fromSingle(foreignContractAddress));
-
-    const value = (await this.handlerAsAvm().avmOpcodeStorageRead(slot, contractAddress)).value;
-
-    return toForeignCallResult([toSingle(new Fr(value))]);
+  // eslint-disable-next-line camelcase
+  aztec_avm_storageRead(...inputs: ForeignCallArgs) {
+    return callTxeHandler({
+      oracle: 'aztec_avm_storageRead',
+      inputs,
+      handler: ([slot, contractAddress]) => this.handlerAsAvm().storageRead(slot, contractAddress),
+    });
   }
 
-  async avmOpcodeStorageWrite(foreignSlot: ForeignCallSingle, foreignValue: ForeignCallSingle) {
-    const slot = fromSingle(foreignSlot);
-    const value = fromSingle(foreignValue);
-
-    await this.handlerAsAvm().avmOpcodeStorageWrite(slot, value);
-
-    return toForeignCallResult([]);
+  // eslint-disable-next-line camelcase
+  aztec_avm_storageWrite(...inputs: ForeignCallArgs) {
+    return callTxeHandler({
+      oracle: 'aztec_avm_storageWrite',
+      inputs,
+      handler: ([slot, value]) => this.handlerAsAvm().storageWrite(slot, value),
+    });
   }
 
-  async avmOpcodeGetContractInstanceDeployer(foreignAddress: ForeignCallSingle) {
-    const address = addressFromSingle(foreignAddress);
-
-    const instance = await this.handlerAsUtility().utilityGetContractInstance(address);
-
-    return toForeignCallResult([
-      toSingle(instance.deployer),
-      // AVM requires an extra boolean indicating the instance was found
-      toSingle(new Fr(1)),
-    ]);
+  // eslint-disable-next-line camelcase
+  aztec_avm_getContractInstanceDeployer(...inputs: ForeignCallArgs) {
+    return callTxeHandler({
+      oracle: 'aztec_avm_getContractInstanceDeployer',
+      inputs,
+      handler: ([address]) => this.handlerAsAvm().getContractInstanceDeployer(address),
+    });
   }
 
-  async avmOpcodeGetContractInstanceClassId(foreignAddress: ForeignCallSingle) {
-    const address = addressFromSingle(foreignAddress);
-
-    const instance = await this.handlerAsUtility().utilityGetContractInstance(address);
-
-    return toForeignCallResult([
-      toSingle(instance.currentContractClassId),
-      // AVM requires an extra boolean indicating the instance was found
-      toSingle(new Fr(1)),
-    ]);
+  // eslint-disable-next-line camelcase
+  aztec_avm_getContractInstanceClassId(...inputs: ForeignCallArgs) {
+    return callTxeHandler({
+      oracle: 'aztec_avm_getContractInstanceClassId',
+      inputs,
+      handler: ([address]) => this.handlerAsAvm().getContractInstanceClassId(address),
+    });
   }
 
-  async avmOpcodeGetContractInstanceInitializationHash(foreignAddress: ForeignCallSingle) {
-    const address = addressFromSingle(foreignAddress);
-
-    const instance = await this.handlerAsUtility().utilityGetContractInstance(address);
-
-    return toForeignCallResult([
-      toSingle(instance.initializationHash),
-      // AVM requires an extra boolean indicating the instance was found
-      toSingle(new Fr(1)),
-    ]);
+  // eslint-disable-next-line camelcase
+  aztec_avm_getContractInstanceInitializationHash(...inputs: ForeignCallArgs) {
+    return callTxeHandler({
+      oracle: 'aztec_avm_getContractInstanceInitializationHash',
+      inputs,
+      handler: ([address]) => this.handlerAsAvm().getContractInstanceInitializationHash(address),
+    });
   }
 
-  async avmOpcodeSender() {
-    const sender = await this.handlerAsAvm().avmOpcodeSender();
-
-    return toForeignCallResult([toSingle(sender)]);
+  // eslint-disable-next-line camelcase
+  aztec_avm_getContractInstanceImmutablesHash(...inputs: ForeignCallArgs) {
+    return callTxeHandler({
+      oracle: 'aztec_avm_getContractInstanceImmutablesHash',
+      inputs,
+      handler: ([address]) => this.handlerAsAvm().getContractInstanceImmutablesHash(address),
+    });
   }
 
-  async avmOpcodeEmitNullifier(foreignNullifier: ForeignCallSingle) {
-    const nullifier = fromSingle(foreignNullifier);
-
-    await this.handlerAsAvm().avmOpcodeEmitNullifier(nullifier);
-
-    return toForeignCallResult([]);
+  // eslint-disable-next-line camelcase
+  aztec_avm_sender() {
+    return callTxeHandler({
+      oracle: 'aztec_avm_sender',
+      inputs: [],
+      handler: () => this.handlerAsAvm().sender(),
+    });
   }
 
-  async avmOpcodeEmitNoteHash(foreignNoteHash: ForeignCallSingle) {
-    const noteHash = fromSingle(foreignNoteHash);
-
-    await this.handlerAsAvm().avmOpcodeEmitNoteHash(noteHash);
-
-    return toForeignCallResult([]);
+  // eslint-disable-next-line camelcase
+  aztec_avm_emitNullifier(...inputs: ForeignCallArgs) {
+    return callTxeHandler({
+      oracle: 'aztec_avm_emitNullifier',
+      inputs,
+      handler: ([nullifier]) => this.handlerAsAvm().emitNullifier(nullifier),
+    });
   }
 
-  async avmOpcodeNullifierExists(foreignSiloedNullifier: ForeignCallSingle) {
-    const siloedNullifier = fromSingle(foreignSiloedNullifier);
-
-    const exists = await this.handlerAsAvm().avmOpcodeNullifierExists(siloedNullifier);
-
-    return toForeignCallResult([toSingle(new Fr(exists))]);
+  // eslint-disable-next-line camelcase
+  aztec_avm_emitNoteHash(...inputs: ForeignCallArgs) {
+    return callTxeHandler({
+      oracle: 'aztec_avm_emitNoteHash',
+      inputs,
+      handler: ([noteHash]) => this.handlerAsAvm().emitNoteHash(noteHash),
+    });
   }
 
-  async avmOpcodeAddress() {
-    const contractAddress = await this.handlerAsAvm().avmOpcodeAddress();
-
-    return toForeignCallResult([toSingle(contractAddress.toField())]);
+  // eslint-disable-next-line camelcase
+  aztec_avm_nullifierExists(...inputs: ForeignCallArgs) {
+    return callTxeHandler({
+      oracle: 'aztec_avm_nullifierExists',
+      inputs,
+      handler: ([siloedNullifier]) => this.handlerAsAvm().nullifierExists(siloedNullifier),
+    });
   }
 
-  async avmOpcodeBlockNumber() {
-    const blockNumber = await this.handlerAsAvm().avmOpcodeBlockNumber();
-
-    return toForeignCallResult([toSingle(new Fr(blockNumber))]);
+  // eslint-disable-next-line camelcase
+  aztec_avm_address() {
+    return callTxeHandler({
+      oracle: 'aztec_avm_address',
+      inputs: [],
+      handler: () => this.handlerAsAvm().address(),
+    });
   }
 
-  async avmOpcodeTimestamp() {
-    const timestamp = await this.handlerAsAvm().avmOpcodeTimestamp();
-
-    return toForeignCallResult([toSingle(new Fr(timestamp))]);
+  // eslint-disable-next-line camelcase
+  aztec_avm_blockNumber() {
+    return callTxeHandler({
+      oracle: 'aztec_avm_blockNumber',
+      inputs: [],
+      handler: () => this.handlerAsAvm().blockNumber(),
+    });
   }
 
-  async avmOpcodeIsStaticCall() {
-    const isStaticCall = await this.handlerAsAvm().avmOpcodeIsStaticCall();
-
-    return toForeignCallResult([toSingle(new Fr(isStaticCall ? 1 : 0))]);
+  // eslint-disable-next-line camelcase
+  aztec_avm_timestamp() {
+    return callTxeHandler({
+      oracle: 'aztec_avm_timestamp',
+      inputs: [],
+      handler: () => this.handlerAsAvm().timestamp(),
+    });
   }
 
-  async avmOpcodeChainId() {
-    const chainId = await this.handlerAsAvm().avmOpcodeChainId();
-
-    return toForeignCallResult([toSingle(chainId)]);
+  // eslint-disable-next-line camelcase
+  aztec_avm_isStaticCall() {
+    return callTxeHandler({
+      oracle: 'aztec_avm_isStaticCall',
+      inputs: [],
+      handler: () => this.handlerAsAvm().isStaticCall(),
+    });
   }
 
-  async avmOpcodeVersion() {
-    const version = await this.handlerAsAvm().avmOpcodeVersion();
-
-    return toForeignCallResult([toSingle(version)]);
+  // eslint-disable-next-line camelcase
+  aztec_avm_chainId() {
+    return callTxeHandler({
+      oracle: 'aztec_avm_chainId',
+      inputs: [],
+      handler: () => this.handlerAsAvm().chainId(),
+    });
   }
 
-  avmOpcodeReturndataSize() {
-    throw new Error(
-      'Contract calls are forbidden inside a `TestEnvironment::public_context`, use `public_call` instead',
-    );
+  // eslint-disable-next-line camelcase
+  aztec_avm_version() {
+    return callTxeHandler({
+      oracle: 'aztec_avm_version',
+      inputs: [],
+      handler: () => this.handlerAsAvm().version(),
+    });
   }
 
-  avmOpcodeReturndataCopy(_foreignRdOffset: ForeignCallSingle, _foreignCopySize: ForeignCallSingle) {
-    throw new Error(
-      'Contract calls are forbidden inside a `TestEnvironment::public_context`, use `public_call` instead',
-    );
+  // eslint-disable-next-line camelcase
+  aztec_avm_returndataSize() {
+    return callTxeHandler({
+      oracle: 'aztec_avm_returndataSize',
+      inputs: [],
+      handler: () => this.handlerAsAvm().returndataSize(),
+    });
   }
 
-  avmOpcodeCall(
-    _foreignL2Gas: ForeignCallSingle,
-    _foreignDaGas: ForeignCallSingle,
-    _foreignAddress: ForeignCallSingle,
-    _foreignLength: ForeignCallSingle,
-    _foreignArgs: ForeignCallArray,
-  ) {
-    throw new Error(
-      'Contract calls are forbidden inside a `TestEnvironment::public_context`, use `public_call` instead',
-    );
+  // eslint-disable-next-line camelcase
+  aztec_avm_returndataCopy(...inputs: ForeignCallArgs) {
+    return callTxeHandler({
+      oracle: 'aztec_avm_returndataCopy',
+      inputs,
+      handler: ([rdOffset, copySize]) => this.handlerAsAvm().returndataCopy(rdOffset, copySize),
+    });
   }
 
-  avmOpcodeStaticCall(
-    _foreignL2Gas: ForeignCallSingle,
-    _foreignDaGas: ForeignCallSingle,
-    _foreignAddress: ForeignCallSingle,
-    _foreignLength: ForeignCallSingle,
-    _foreignArgs: ForeignCallArray,
-  ) {
-    throw new Error(
-      'Contract calls are forbidden inside a `TestEnvironment::public_context`, use `public_call` instead',
-    );
+  // eslint-disable-next-line camelcase
+  aztec_avm_call(...inputs: ForeignCallArgs) {
+    return callTxeHandler({
+      oracle: 'aztec_avm_call',
+      inputs,
+      handler: ([l2Gas, daGas, address, argsLength, args]) =>
+        this.handlerAsAvm().call(l2Gas, daGas, address, argsLength, args),
+    });
   }
 
-  avmOpcodeSuccessCopy() {
-    throw new Error(
-      'Contract calls are forbidden inside a `TestEnvironment::public_context`, use `public_call` instead',
-    );
+  // eslint-disable-next-line camelcase
+  aztec_avm_staticCall(...inputs: ForeignCallArgs) {
+    return callTxeHandler({
+      oracle: 'aztec_avm_staticCall',
+      inputs,
+      handler: ([l2Gas, daGas, address, argsLength, args]) =>
+        this.handlerAsAvm().staticCall(l2Gas, daGas, address, argsLength, args),
+    });
   }
 
-  async txePrivateCallNewFlow(
-    foreignFrom: ForeignCallSingle,
-    foreignTargetContractAddress: ForeignCallSingle,
-    foreignFunctionSelector: ForeignCallSingle,
-    foreignArgs: ForeignCallArray,
-    foreignArgsHash: ForeignCallSingle,
-    foreignIsStaticCall: ForeignCallSingle,
-  ) {
-    const from = addressFromSingle(foreignFrom);
-    const targetContractAddress = addressFromSingle(foreignTargetContractAddress);
-    const functionSelector = FunctionSelector.fromField(fromSingle(foreignFunctionSelector));
-    const args = fromArray(foreignArgs);
-    const argsHash = fromSingle(foreignArgsHash);
-    const isStaticCall = fromSingle(foreignIsStaticCall).toBool();
-
-    const returnValues = await this.handlerAsTxe().txePrivateCallNewFlow(
-      from,
-      targetContractAddress,
-      functionSelector,
-      args,
-      argsHash,
-      isStaticCall,
-    );
-
-    return toForeignCallResult([toArray(returnValues)]);
+  // eslint-disable-next-line camelcase
+  aztec_avm_successCopy() {
+    return callTxeHandler({
+      oracle: 'aztec_avm_successCopy',
+      inputs: [],
+      handler: () => this.handlerAsAvm().successCopy(),
+    });
   }
 
-  async txeSimulateUtilityFunction(
-    foreignTargetContractAddress: ForeignCallSingle,
-    foreignFunctionSelector: ForeignCallSingle,
-    foreignArgs: ForeignCallArray,
-  ) {
-    const targetContractAddress = addressFromSingle(foreignTargetContractAddress);
-    const functionSelector = FunctionSelector.fromField(fromSingle(foreignFunctionSelector));
-    const args = fromArray(foreignArgs);
-
-    const returnValues = await this.handlerAsTxe().txeSimulateUtilityFunction(
-      targetContractAddress,
-      functionSelector,
-      args,
-    );
-
-    return toForeignCallResult([toArray(returnValues)]);
+  // eslint-disable-next-line camelcase
+  aztec_txe_privateCallNewFlow(...inputs: ForeignCallArgs) {
+    return callTxeHandler({
+      oracle: 'aztec_txe_privateCallNewFlow',
+      inputs,
+      handler: ([
+        from,
+        targetContractAddress,
+        functionSelector,
+        args,
+        argsHash,
+        isStaticCall,
+        additionalScopes,
+        authorizedUtilityCallTargets,
+        gasSettings,
+      ]) =>
+        this.stateHandler.executePrivateCall(
+          from,
+          targetContractAddress,
+          functionSelector,
+          args,
+          argsHash,
+          isStaticCall,
+          additionalScopes,
+          authorizedUtilityCallTargets,
+          gasSettings,
+        ),
+    });
   }
 
-  async txePublicCallNewFlow(
-    foreignFrom: ForeignCallSingle,
-    foreignAddress: ForeignCallSingle,
-    foreignCalldata: ForeignCallArray,
-    foreignIsStaticCall: ForeignCallSingle,
-  ) {
-    const from = addressFromSingle(foreignFrom);
-    const address = addressFromSingle(foreignAddress);
-    const calldata = fromArray(foreignCalldata);
-    const isStaticCall = fromSingle(foreignIsStaticCall).toBool();
-
-    const returnValues = await this.handlerAsTxe().txePublicCallNewFlow(from, address, calldata, isStaticCall);
-
-    return toForeignCallResult([toArray(returnValues)]);
+  // eslint-disable-next-line camelcase
+  aztec_txe_executeUtilityFunction(...inputs: ForeignCallArgs) {
+    return callTxeHandler({
+      oracle: 'aztec_txe_executeUtilityFunction',
+      inputs,
+      handler: ([from, targetContractAddress, functionSelector, args, authorizedUtilityCallTargets]) =>
+        this.stateHandler.executeUtilityFunction(
+          from,
+          targetContractAddress,
+          functionSelector,
+          args,
+          authorizedUtilityCallTargets,
+        ),
+    });
   }
 
-  async privateGetSenderForTags() {
-    const sender = await this.handlerAsPrivate().privateGetSenderForTags();
-
-    // Return a Noir Option struct with `some` and `value` fields
-    if (sender === undefined) {
-      // No sender found, return Option with some=0 and value=0
-      return toForeignCallResult([toSingle(0), toSingle(0)]);
-    } else {
-      // Sender found, return Option with some=1 and value=sender address
-      return toForeignCallResult([toSingle(1), toSingle(sender)]);
-    }
+  // eslint-disable-next-line camelcase
+  aztec_txe_publicCallNewFlow(...inputs: ForeignCallArgs) {
+    return callTxeHandler({
+      oracle: 'aztec_txe_publicCallNewFlow',
+      inputs,
+      handler: ([from, address, calldata, isStaticCall, gasSettings]) =>
+        this.stateHandler.executePublicCall(from, address, calldata, isStaticCall, gasSettings),
+    });
   }
 
-  async privateSetSenderForTags(foreignSenderForTags: ForeignCallSingle) {
-    const senderForTags = AztecAddress.fromField(fromSingle(foreignSenderForTags));
-
-    await this.handlerAsPrivate().privateSetSenderForTags(senderForTags);
-
-    return toForeignCallResult([]);
+  // eslint-disable-next-line camelcase
+  aztec_prv_getSenderForTags() {
+    return callTxeHandler({
+      oracle: 'aztec_prv_getSenderForTags',
+      inputs: [],
+      handler: () => this.handlerAsPrivate().getSenderForTags(),
+    });
   }
 
-  async privateGetNextAppTagAsSender(foreignSender: ForeignCallSingle, foreignRecipient: ForeignCallSingle) {
-    const sender = AztecAddress.fromField(fromSingle(foreignSender));
-    const recipient = AztecAddress.fromField(fromSingle(foreignRecipient));
+  // eslint-disable-next-line camelcase
+  aztec_prv_resolveTaggingStrategy(...inputs: ForeignCallArgs) {
+    return callTxeHandler({
+      oracle: 'aztec_prv_resolveTaggingStrategy',
+      inputs,
+      handler: ([sender, recipient, deliveryMode]) =>
+        this.handlerAsPrivate().resolveTaggingStrategy(sender, recipient, deliveryMode),
+    });
+  }
 
-    const nextAppTag = await this.handlerAsPrivate().privateGetNextAppTagAsSender(sender, recipient);
+  // eslint-disable-next-line camelcase
+  aztec_prv_resolveCustomRequest(...inputs: ForeignCallArgs) {
+    return callTxeHandler({
+      oracle: 'aztec_prv_resolveCustomRequest',
+      inputs,
+      handler: ([kind, payload]) => this.handlerAsPrivate().resolveCustomRequest(kind, payload),
+    });
+  }
 
-    return toForeignCallResult([toSingle(nextAppTag.value)]);
+  // eslint-disable-next-line camelcase
+  aztec_prv_getAppTaggingSecret(...inputs: ForeignCallArgs) {
+    return callTxeHandler({
+      oracle: 'aztec_prv_getAppTaggingSecret',
+      inputs,
+      handler: ([sender, recipient]) => this.handlerAsPrivate().getAppTaggingSecret(sender, recipient),
+    });
+  }
+
+  // eslint-disable-next-line camelcase
+  aztec_prv_getNextTaggingIndex(...inputs: ForeignCallArgs) {
+    return callTxeHandler({
+      oracle: 'aztec_prv_getNextTaggingIndex',
+      inputs,
+      handler: ([secret, deliveryMode]) => this.handlerAsPrivate().getNextTaggingIndex(secret, deliveryMode),
+    });
   }
 }

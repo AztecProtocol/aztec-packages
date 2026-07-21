@@ -107,7 +107,7 @@ struct VariableRef {
 
     AddressingModeWrapper mode = AddressingMode::Direct;
 
-    MSGPACK_FIELDS(tag, index, pointer_address_seed, mode);
+    SERIALIZATION_FIELDS(tag, index, pointer_address_seed, mode);
 };
 
 struct AddressRef {
@@ -118,7 +118,7 @@ struct AddressRef {
     uint16_t pointer_address_seed = 0;
 
     AddressingModeWrapper mode = AddressingMode::Direct;
-    MSGPACK_FIELDS(address, pointer_address_seed, mode);
+    SERIALIZATION_FIELDS(address, pointer_address_seed, mode);
 };
 
 using ParamRef = std::variant<VariableRef, AddressRef>;
@@ -150,7 +150,7 @@ struct ADD_8_Instruction {
     ParamRef a_address;
     ParamRef b_address;
     AddressRef result_address;
-    MSGPACK_FIELDS(a_address, b_address, result_address);
+    SERIALIZATION_FIELDS(a_address, b_address, result_address);
 };
 
 /// @brief mem[result_offset] = mem[a_address] - mem[b_address]
@@ -158,7 +158,7 @@ struct SUB_8_Instruction {
     ParamRef a_address;
     ParamRef b_address;
     AddressRef result_address;
-    MSGPACK_FIELDS(a_address, b_address, result_address);
+    SERIALIZATION_FIELDS(a_address, b_address, result_address);
 };
 
 /// @brief mem[result_offset] = mem[a_address] * mem[b_address]
@@ -166,7 +166,7 @@ struct MUL_8_Instruction {
     ParamRef a_address;
     ParamRef b_address;
     AddressRef result_address;
-    MSGPACK_FIELDS(a_address, b_address, result_address);
+    SERIALIZATION_FIELDS(a_address, b_address, result_address);
 };
 
 /// @brief mem[result_offset] = mem[a_address] / mem[b_address]
@@ -174,14 +174,14 @@ struct DIV_8_Instruction {
     ParamRef a_address;
     ParamRef b_address;
     AddressRef result_address;
-    MSGPACK_FIELDS(a_address, b_address, result_address);
+    SERIALIZATION_FIELDS(a_address, b_address, result_address);
 };
 
 struct FDIV_8_Instruction {
     ParamRef a_address;
     ParamRef b_address;
     AddressRef result_address;
-    MSGPACK_FIELDS(a_address, b_address, result_address);
+    SERIALIZATION_FIELDS(a_address, b_address, result_address);
 };
 
 /// @brief mem[result_offset] = mem[a_address] == mem[b_address]
@@ -189,7 +189,7 @@ struct EQ_8_Instruction {
     ParamRef a_address;
     ParamRef b_address;
     AddressRef result_address;
-    MSGPACK_FIELDS(a_address, b_address, result_address);
+    SERIALIZATION_FIELDS(a_address, b_address, result_address);
 };
 
 /// @brief mem[result_offset] = mem[a_address] < mem[b_address]
@@ -197,7 +197,7 @@ struct LT_8_Instruction {
     ParamRef a_address;
     ParamRef b_address;
     AddressRef result_address;
-    MSGPACK_FIELDS(a_address, b_address, result_address);
+    SERIALIZATION_FIELDS(a_address, b_address, result_address);
 };
 
 /// @brief mem[result_offset] = mem[a_address] <= mem[b_address]
@@ -205,7 +205,7 @@ struct LTE_8_Instruction {
     ParamRef a_address;
     ParamRef b_address;
     AddressRef result_address;
-    MSGPACK_FIELDS(a_address, b_address, result_address);
+    SERIALIZATION_FIELDS(a_address, b_address, result_address);
 };
 
 /// @brief mem[result_offset] = mem[a_address] & mem[b_address]
@@ -213,7 +213,7 @@ struct AND_8_Instruction {
     ParamRef a_address;
     ParamRef b_address;
     AddressRef result_address;
-    MSGPACK_FIELDS(a_address, b_address, result_address);
+    SERIALIZATION_FIELDS(a_address, b_address, result_address);
 };
 
 /// @brief mem[result_offset] = mem[a_address] | mem[b_address]
@@ -221,7 +221,7 @@ struct OR_8_Instruction {
     ParamRef a_address;
     ParamRef b_address;
     AddressRef result_address;
-    MSGPACK_FIELDS(a_address, b_address, result_address);
+    SERIALIZATION_FIELDS(a_address, b_address, result_address);
 };
 
 /// @brief mem[result_offset] = mem[a_address] ^ mem[b_address]
@@ -229,13 +229,13 @@ struct XOR_8_Instruction {
     ParamRef a_address;
     ParamRef b_address;
     AddressRef result_address;
-    MSGPACK_FIELDS(a_address, b_address, result_address);
+    SERIALIZATION_FIELDS(a_address, b_address, result_address);
 };
 
 struct NOT_8_Instruction {
     ParamRef a_address;
     AddressRef result_address;
-    MSGPACK_FIELDS(a_address, result_address);
+    SERIALIZATION_FIELDS(a_address, result_address);
 };
 
 /// @brief mem[result_offset] = mem[a_address] << mem[b_address]
@@ -243,7 +243,7 @@ struct SHL_8_Instruction {
     ParamRef a_address;
     ParamRef b_address;
     AddressRef result_address;
-    MSGPACK_FIELDS(a_address, b_address, result_address);
+    SERIALIZATION_FIELDS(a_address, b_address, result_address);
 };
 
 /// @brief mem[result_offset] = mem[a_address] >> mem[b_address]
@@ -251,7 +251,7 @@ struct SHR_8_Instruction {
     ParamRef a_address;
     ParamRef b_address;
     AddressRef result_address;
-    MSGPACK_FIELDS(a_address, b_address, result_address);
+    SERIALIZATION_FIELDS(a_address, b_address, result_address);
 };
 
 /// @brief SET_8 instruction
@@ -259,7 +259,7 @@ struct SET_8_Instruction {
     MemoryTagWrapper value_tag;
     AddressRef result_address;
     uint8_t value;
-    MSGPACK_FIELDS(value_tag, result_address, value);
+    SERIALIZATION_FIELDS(value_tag, result_address, value);
 };
 
 /// @brief SET_16 instruction
@@ -267,7 +267,7 @@ struct SET_16_Instruction {
     MemoryTagWrapper value_tag;
     AddressRef result_address;
     uint16_t value;
-    MSGPACK_FIELDS(value_tag, result_address, value);
+    SERIALIZATION_FIELDS(value_tag, result_address, value);
 };
 
 /// @brief SET_32 instruction
@@ -275,7 +275,7 @@ struct SET_32_Instruction {
     MemoryTagWrapper value_tag;
     AddressRef result_address;
     uint32_t value;
-    MSGPACK_FIELDS(value_tag, result_address, value);
+    SERIALIZATION_FIELDS(value_tag, result_address, value);
 };
 
 /// @brief SET_64 instruction
@@ -283,7 +283,7 @@ struct SET_64_Instruction {
     MemoryTagWrapper value_tag;
     AddressRef result_address;
     uint64_t value;
-    MSGPACK_FIELDS(value_tag, result_address, value);
+    SERIALIZATION_FIELDS(value_tag, result_address, value);
 };
 
 /// @brief SET_128 instruction
@@ -292,7 +292,7 @@ struct SET_128_Instruction {
     AddressRef result_address;
     uint64_t value_low;
     uint64_t value_high;
-    MSGPACK_FIELDS(value_tag, result_address, value_low, value_high);
+    SERIALIZATION_FIELDS(value_tag, result_address, value_low, value_high);
 };
 
 /// @brief SET_FF instruction
@@ -300,7 +300,7 @@ struct SET_FF_Instruction {
     MemoryTagWrapper value_tag;
     AddressRef result_address;
     bb::avm2::FF value;
-    MSGPACK_FIELDS(value_tag, result_address, value);
+    SERIALIZATION_FIELDS(value_tag, result_address, value);
 };
 
 /// @brief MOV_8 instruction: mem[dst_offset] = mem[src_offset]
@@ -308,7 +308,7 @@ struct MOV_8_Instruction {
     MemoryTagWrapper value_tag;
     ParamRef src_address;
     AddressRef result_address;
-    MSGPACK_FIELDS(value_tag, src_address, result_address);
+    SERIALIZATION_FIELDS(value_tag, src_address, result_address);
 };
 
 /// @brief MOV_16 instruction: mem[dst_offset] = mem[src_offset]
@@ -316,7 +316,7 @@ struct MOV_16_Instruction {
     MemoryTagWrapper value_tag;
     ParamRef src_address;
     AddressRef result_address;
-    MSGPACK_FIELDS(value_tag, src_address, result_address);
+    SERIALIZATION_FIELDS(value_tag, src_address, result_address);
 };
 
 /// @brief mem[result_offset] = mem[a_address] + mem[b_address] (16-bit)
@@ -324,7 +324,7 @@ struct ADD_16_Instruction {
     ParamRef a_address;
     ParamRef b_address;
     AddressRef result_address;
-    MSGPACK_FIELDS(a_address, b_address, result_address);
+    SERIALIZATION_FIELDS(a_address, b_address, result_address);
 };
 
 /// @brief mem[result_offset] = mem[a_address] - mem[b_address] (16-bit)
@@ -332,7 +332,7 @@ struct SUB_16_Instruction {
     ParamRef a_address;
     ParamRef b_address;
     AddressRef result_address;
-    MSGPACK_FIELDS(a_address, b_address, result_address);
+    SERIALIZATION_FIELDS(a_address, b_address, result_address);
 };
 
 /// @brief mem[result_offset] = mem[a_address] * mem[b_address] (16-bit)
@@ -340,7 +340,7 @@ struct MUL_16_Instruction {
     ParamRef a_address;
     ParamRef b_address;
     AddressRef result_address;
-    MSGPACK_FIELDS(a_address, b_address, result_address);
+    SERIALIZATION_FIELDS(a_address, b_address, result_address);
 };
 
 /// @brief mem[result_offset] = mem[a_address] / mem[b_address] (16-bit)
@@ -348,14 +348,14 @@ struct DIV_16_Instruction {
     ParamRef a_address;
     ParamRef b_address;
     AddressRef result_address;
-    MSGPACK_FIELDS(a_address, b_address, result_address);
+    SERIALIZATION_FIELDS(a_address, b_address, result_address);
 };
 
 struct FDIV_16_Instruction {
     ParamRef a_address;
     ParamRef b_address;
     AddressRef result_address;
-    MSGPACK_FIELDS(a_address, b_address, result_address);
+    SERIALIZATION_FIELDS(a_address, b_address, result_address);
 };
 
 /// @brief mem[result_offset] = mem[a_address] == mem[b_address] (16-bit)
@@ -363,7 +363,7 @@ struct EQ_16_Instruction {
     ParamRef a_address;
     ParamRef b_address;
     AddressRef result_address;
-    MSGPACK_FIELDS(a_address, b_address, result_address);
+    SERIALIZATION_FIELDS(a_address, b_address, result_address);
 };
 
 /// @brief mem[result_offset] = mem[a_address] < mem[b_address] (16-bit)
@@ -371,7 +371,7 @@ struct LT_16_Instruction {
     ParamRef a_address;
     ParamRef b_address;
     AddressRef result_address;
-    MSGPACK_FIELDS(a_address, b_address, result_address);
+    SERIALIZATION_FIELDS(a_address, b_address, result_address);
 };
 
 /// @brief mem[result_offset] = mem[a_address] <= mem[b_address] (16-bit)
@@ -379,7 +379,7 @@ struct LTE_16_Instruction {
     ParamRef a_address;
     ParamRef b_address;
     AddressRef result_address;
-    MSGPACK_FIELDS(a_address, b_address, result_address);
+    SERIALIZATION_FIELDS(a_address, b_address, result_address);
 };
 
 /// @brief mem[result_offset] = mem[a_address] & mem[b_address] (16-bit)
@@ -387,7 +387,7 @@ struct AND_16_Instruction {
     ParamRef a_address;
     ParamRef b_address;
     AddressRef result_address;
-    MSGPACK_FIELDS(a_address, b_address, result_address);
+    SERIALIZATION_FIELDS(a_address, b_address, result_address);
 };
 
 /// @brief mem[result_offset] = mem[a_address] | mem[b_address] (16-bit)
@@ -395,7 +395,7 @@ struct OR_16_Instruction {
     ParamRef a_address;
     ParamRef b_address;
     AddressRef result_address;
-    MSGPACK_FIELDS(a_address, b_address, result_address);
+    SERIALIZATION_FIELDS(a_address, b_address, result_address);
 };
 
 /// @brief mem[result_offset] = mem[a_address] ^ mem[b_address] (16-bit)
@@ -403,13 +403,13 @@ struct XOR_16_Instruction {
     ParamRef a_address;
     ParamRef b_address;
     AddressRef result_address;
-    MSGPACK_FIELDS(a_address, b_address, result_address);
+    SERIALIZATION_FIELDS(a_address, b_address, result_address);
 };
 
 struct NOT_16_Instruction {
     ParamRef a_address;
     AddressRef result_address;
-    MSGPACK_FIELDS(a_address, result_address);
+    SERIALIZATION_FIELDS(a_address, result_address);
 };
 
 /// @brief mem[result_offset] = mem[a_address] << mem[b_address] (16-bit)
@@ -417,7 +417,7 @@ struct SHL_16_Instruction {
     ParamRef a_address;
     ParamRef b_address;
     AddressRef result_address;
-    MSGPACK_FIELDS(a_address, b_address, result_address);
+    SERIALIZATION_FIELDS(a_address, b_address, result_address);
 };
 
 /// @brief mem[result_offset] = mem[a_address] >> mem[b_address] (16-bit)
@@ -425,7 +425,7 @@ struct SHR_16_Instruction {
     ParamRef a_address;
     ParamRef b_address;
     AddressRef result_address;
-    MSGPACK_FIELDS(a_address, b_address, result_address);
+    SERIALIZATION_FIELDS(a_address, b_address, result_address);
 };
 
 /// @brief CAST_8: cast mem[src_offset_index] to target_tag and store at dst_offset
@@ -434,7 +434,7 @@ struct CAST_8_Instruction {
     ParamRef src_address;
     AddressRef result_address;
     MemoryTagWrapper target_tag;
-    MSGPACK_FIELDS(src_tag, src_address, result_address, target_tag);
+    SERIALIZATION_FIELDS(src_tag, src_address, result_address, target_tag);
 };
 
 /// @brief CAST_16: cast mem[src_offset_index] to target_tag and store at dst_offset
@@ -443,7 +443,7 @@ struct CAST_16_Instruction {
     ParamRef src_address;
     AddressRef result_address;
     MemoryTagWrapper target_tag;
-    MSGPACK_FIELDS(src_tag, src_address, result_address, target_tag);
+    SERIALIZATION_FIELDS(src_tag, src_address, result_address, target_tag);
 };
 
 /// @brief SSTORE: M[slot_offset_index] = slot; S[M[slotOffset]] = M[srcOffset]
@@ -451,7 +451,7 @@ struct SSTORE_Instruction {
     ParamRef src_address;
     AddressRef result_address;
     bb::avm2::FF slot;
-    MSGPACK_FIELDS(src_address, result_address, slot);
+    SERIALIZATION_FIELDS(src_address, result_address, slot);
 };
 
 /// @brief SLOAD: M[slot_offset] = slot; M[result_offset] = S[M[slotOffset]]
@@ -460,20 +460,20 @@ struct SLOAD_Instruction {
     AddressRef slot_address;           // address where we set slot value
     ParamRef contract_address_address; // address where the contract address will be stored
     AddressRef result_address;
-    MSGPACK_FIELDS(slot_index, slot_address, contract_address_address, result_address);
+    SERIALIZATION_FIELDS(slot_index, slot_address, contract_address_address, result_address);
 };
 
 /// @brief GETENVVAR: M[result_offset] = getenvvar(type)
 struct GETENVVAR_Instruction {
     AddressRef result_address;
     uint8_t type;
-    MSGPACK_FIELDS(result_address, type);
+    SERIALIZATION_FIELDS(result_address, type);
 };
 
 /// @brief EMITNULIFIER: inserts new nullifier to the nullifier tree
 struct EMITNULLIFIER_Instruction {
     ParamRef nullifier_address;
-    MSGPACK_FIELDS(nullifier_address);
+    SERIALIZATION_FIELDS(nullifier_address);
 };
 
 /// @brief NULLIFIEREXISTS: checks if a siloed nullifier exists in the nullifier tree
@@ -481,7 +481,7 @@ struct EMITNULLIFIER_Instruction {
 struct NULLIFIEREXISTS_Instruction {
     ParamRef siloed_nullifier_address; // The already-siloed nullifier to check
     AddressRef result_address;
-    MSGPACK_FIELDS(siloed_nullifier_address, result_address);
+    SERIALIZATION_FIELDS(siloed_nullifier_address, result_address);
 };
 
 /// @brief L1TOL2MSGEXISTS: Check if a L1 to L2 message exists
@@ -490,40 +490,40 @@ struct L1TOL2MSGEXISTS_Instruction {
     ParamRef msg_hash_address;   // FF: the message hash
     ParamRef leaf_index_address; // U64: leaf index in the message tree
     AddressRef result_address;   // result (U1)
-    MSGPACK_FIELDS(msg_hash_address, leaf_index_address, result_address);
+    SERIALIZATION_FIELDS(msg_hash_address, leaf_index_address, result_address);
 };
 
 /// @brief EMITNOTEHASH: M[note_hash_offset] = note_hash; emit note hash to the note hash tree
 struct EMITNOTEHASH_Instruction {
     AddressRef note_hash_address; // absolute address where the note hash will be stored
     bb::avm2::FF note_hash;
-    MSGPACK_FIELDS(note_hash_address, note_hash);
+    SERIALIZATION_FIELDS(note_hash_address, note_hash);
 };
 
 struct NOTEHASHEXISTS_Instruction {
     ParamRef notehash_address;
     ParamRef leaf_index_address;
     AddressRef result_address;
-    MSGPACK_FIELDS(notehash_address, leaf_index_address, result_address);
+    SERIALIZATION_FIELDS(notehash_address, leaf_index_address, result_address);
 };
 
 struct CALLDATACOPY_Instruction {
     ParamRef copy_size_address;
     ParamRef cd_offset_address;
     AddressRef dst_address;
-    MSGPACK_FIELDS(copy_size_address, cd_offset_address, dst_address);
+    SERIALIZATION_FIELDS(copy_size_address, cd_offset_address, dst_address);
 };
 
 struct SENDL2TOL1MSG_Instruction {
     ParamRef recipient_address;
     ParamRef content_address;
-    MSGPACK_FIELDS(recipient_address, content_address);
+    SERIALIZATION_FIELDS(recipient_address, content_address);
 };
 
-struct EMITUNENCRYPTEDLOG_Instruction {
+struct EMITPUBLICLOG_Instruction {
     ParamRef log_size_address;
     ParamRef log_values_address;
-    MSGPACK_FIELDS(log_size_address, log_values_address);
+    SERIALIZATION_FIELDS(log_size_address, log_values_address);
 };
 
 struct CALL_Instruction {
@@ -536,18 +536,18 @@ struct CALL_Instruction {
     uint16_t calldata_size;
     bool is_static_call;
 
-    MSGPACK_FIELDS(l2_gas_address,
-                   da_gas_address,
-                   contract_address_address,
-                   calldata_address,
-                   calldata_size_address,
-                   calldata_size,
-                   is_static_call);
+    SERIALIZATION_FIELDS(l2_gas_address,
+                         da_gas_address,
+                         contract_address_address,
+                         calldata_address,
+                         calldata_size_address,
+                         calldata_size,
+                         is_static_call);
 };
 
 struct RETURNDATASIZE_Instruction {
     AddressRef dst_address;
-    MSGPACK_FIELDS(dst_address);
+    SERIALIZATION_FIELDS(dst_address);
 };
 
 struct RETURNDATACOPY_Instruction {
@@ -555,30 +555,28 @@ struct RETURNDATACOPY_Instruction {
     ParamRef rd_offset_address;
     AddressRef dst_address;
 
-    MSGPACK_FIELDS(copy_size_address, rd_offset_address, dst_address);
+    SERIALIZATION_FIELDS(copy_size_address, rd_offset_address, dst_address);
 };
 
 struct GETCONTRACTINSTANCE_Instruction {
     ParamRef contract_address_address; // where the contract address will be stored
     uint8_t member_enum;
     AddressRef dst_address;
-    MSGPACK_FIELDS(contract_address_address, member_enum, dst_address);
+    SERIALIZATION_FIELDS(contract_address_address, member_enum, dst_address);
 };
 
 struct SUCCESSCOPY_Instruction {
     AddressRef dst_address;
-    MSGPACK_FIELDS(dst_address);
+    SERIALIZATION_FIELDS(dst_address);
 };
 
 struct ECADD_Instruction {
     ParamRef p1_x;
     ParamRef p1_y;
-    ParamRef p1_infinite;
     ParamRef p2_x;
     ParamRef p2_y;
-    ParamRef p2_infinite;
     AddressRef result;
-    MSGPACK_FIELDS(p1_x, p1_y, p1_infinite, p2_x, p2_y, p2_infinite, result);
+    SERIALIZATION_FIELDS(p1_x, p1_y, p2_x, p2_y, result);
 };
 
 /// @brief POSEIDON2PERM: Perform Poseidon2 permutation on 4 FF values
@@ -586,7 +584,7 @@ struct ECADD_Instruction {
 struct POSEIDON2PERM_Instruction {
     ParamRef src_address;
     AddressRef dst_address;
-    MSGPACK_FIELDS(src_address, dst_address);
+    SERIALIZATION_FIELDS(src_address, dst_address);
 };
 
 /// @brief KECCAKF1600: Perform Keccak-f[1600] permutation on 25 U64 values
@@ -594,7 +592,7 @@ struct POSEIDON2PERM_Instruction {
 struct KECCAKF1600_Instruction {
     ParamRef src_address;
     AddressRef dst_address;
-    MSGPACK_FIELDS(src_address, dst_address);
+    SERIALIZATION_FIELDS(src_address, dst_address);
 };
 
 /// @brief SHA256COMPRESSION: Perform SHA256 compression
@@ -604,7 +602,7 @@ struct SHA256COMPRESSION_Instruction {
     ParamRef state_address;
     ParamRef input_address;
     AddressRef dst_address;
-    MSGPACK_FIELDS(state_address, input_address, dst_address);
+    SERIALIZATION_FIELDS(state_address, input_address, dst_address);
 };
 
 /// @brief TORADIXBE: Convert a field element to a vector of limbs in big-endian radix representation
@@ -616,7 +614,8 @@ struct TORADIXBE_Instruction {
     ParamRef output_bits_address; // U1: whether output is bits
     AddressRef dst_address;       // destination for limbs
     bool is_output_bits;          // known at generation time for memory tracking (U1 if true, U8 if false)
-    MSGPACK_FIELDS(value_address, radix_address, num_limbs_address, output_bits_address, dst_address, is_output_bits);
+    SERIALIZATION_FIELDS(
+        value_address, radix_address, num_limbs_address, output_bits_address, dst_address, is_output_bits);
 };
 
 struct DEBUGLOG_Instruction {
@@ -625,7 +624,7 @@ struct DEBUGLOG_Instruction {
     ParamRef fields_offset;
     ParamRef fields_size_offset;
     uint16_t message_size;
-    MSGPACK_FIELDS(level_offset, message_offset, fields_offset, fields_size_offset, message_size);
+    SERIALIZATION_FIELDS(level_offset, message_offset, fields_offset, fields_size_offset, message_size);
 };
 
 using FuzzInstruction = std::variant<ADD_8_Instruction,
@@ -676,7 +675,7 @@ using FuzzInstruction = std::variant<ADD_8_Instruction,
                                      NOTEHASHEXISTS_Instruction,
                                      CALLDATACOPY_Instruction,
                                      SENDL2TOL1MSG_Instruction,
-                                     EMITUNENCRYPTEDLOG_Instruction,
+                                     EMITPUBLICLOG_Instruction,
                                      CALL_Instruction,
                                      RETURNDATASIZE_Instruction,
                                      RETURNDATACOPY_Instruction,
@@ -866,8 +865,8 @@ inline std::ostream& operator<<(std::ostream& os, const FuzzInstruction& instruc
             [&](SENDL2TOL1MSG_Instruction arg) {
                 os << "SENDL2TOL1MSG_Instruction " << arg.recipient_address << " " << arg.content_address;
             },
-            [&](EMITUNENCRYPTEDLOG_Instruction arg) {
-                os << "EMITUNENCRYPTEDLOG_Instruction " << arg.log_size_address << " " << arg.log_values_address;
+            [&](EMITPUBLICLOG_Instruction arg) {
+                os << "EMITPUBLICLOG_Instruction " << arg.log_size_address << " " << arg.log_values_address;
             },
             [&](CALL_Instruction arg) {
                 os << "CALL_Instruction " << arg.l2_gas_address << " " << arg.da_gas_address << " "
@@ -880,8 +879,8 @@ inline std::ostream& operator<<(std::ostream& os, const FuzzInstruction& instruc
                    << arg.dst_address;
             },
             [&](ECADD_Instruction arg) {
-                os << "ECADD_Instruction " << arg.p1_x << " " << arg.p1_y << " " << arg.p1_infinite << " " << arg.p2_x
-                   << " " << arg.p2_y << " " << arg.p2_infinite << " " << arg.result;
+                os << "ECADD_Instruction " << arg.p1_x << " " << arg.p1_y << " " << arg.p2_x << " " << arg.p2_y << " "
+                   << arg.result;
             },
             [&](POSEIDON2PERM_Instruction arg) {
                 os << "POSEIDON2PERM_Instruction " << arg.src_address << " " << arg.dst_address;

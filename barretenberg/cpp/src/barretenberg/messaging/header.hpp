@@ -14,7 +14,7 @@ struct MsgHeader {
     uint32_t messageId; // Unique Id for the message
     uint32_t requestId; // Id of the message this is responding too (may not be used)
 
-    MSGPACK_FIELDS(messageId, requestId);
+    SERIALIZATION_FIELDS(messageId, requestId);
 
     MsgHeader() = default;
 
@@ -39,7 +39,7 @@ struct HeaderOnlyMessage {
 
     HeaderOnlyMessage() = default;
 
-    MSGPACK_FIELDS(msgType, header);
+    SERIALIZATION_FIELDS(msgType, header);
 };
 
 template <class T> struct TypedMessage {
@@ -55,7 +55,7 @@ template <class T> struct TypedMessage {
 
     TypedMessage() = default;
 
-    MSGPACK_FIELDS(msgType, header, value);
+    SERIALIZATION_FIELDS(msgType, header, value);
 };
 
 // #pragma pack(pop)

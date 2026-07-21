@@ -1,14 +1,14 @@
 import { SpongeBlob, computeBlobsHashFromBlobs, encodeCheckpointEndMarker, getBlobsPerL1Block } from '@aztec/blob-lib';
-import { NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP } from '@aztec/constants';
 import { type CheckpointNumber, IndexWithinCheckpoint } from '@aztec/foundation/branded-types';
-import { padArrayEnd } from '@aztec/foundation/collection';
 import { Fr } from '@aztec/foundation/curves/bn254';
 import { type Logger, type LoggerBindings, createLogger } from '@aztec/foundation/log';
+import { elapsed } from '@aztec/foundation/timer';
 import { L2Block } from '@aztec/stdlib/block';
 import { Checkpoint } from '@aztec/stdlib/checkpoint';
 import type { MerkleTreeWriteOperations } from '@aztec/stdlib/interfaces/server';
 import {
   accumulateCheckpointOutHashes,
+  appendL1ToL2MessagesToTree,
   computeCheckpointOutHash,
   computeInHashFromL1ToL2Messages,
 } from '@aztec/stdlib/messaging';
@@ -44,6 +44,7 @@ export class LightweightCheckpointBuilder {
   constructor(
     public readonly checkpointNumber: CheckpointNumber,
     public readonly constants: CheckpointGlobalVariables,
+    public feeAssetPriceModifier: bigint,
     public readonly l1ToL2Messages: Fr[],
     private readonly previousCheckpointOutHashes: Fr[],
     public readonly db: MerkleTreeWriteOperations,
@@ -54,7 +55,7 @@ export class LightweightCheckpointBuilder {
       instanceId: `checkpoint-${checkpointNumber}`,
     });
     this.spongeBlob = SpongeBlob.init();
-    this.logger.debug('Starting new checkpoint', { constants, l1ToL2Messages });
+    this.logger.debug('Starting new checkpoint', { constants, l1ToL2Messages, feeAssetPriceModifier });
   }
 
   static async startNewCheckpoint(
@@ -64,16 +65,15 @@ export class LightweightCheckpointBuilder {
     previousCheckpointOutHashes: Fr[],
     db: MerkleTreeWriteOperations,
     bindings?: LoggerBindings,
+    feeAssetPriceModifier: bigint = 0n,
   ): Promise<LightweightCheckpointBuilder> {
     // Insert l1-to-l2 messages into the tree.
-    await db.appendLeaves(
-      MerkleTreeId.L1_TO_L2_MESSAGE_TREE,
-      padArrayEnd<Fr, number>(l1ToL2Messages, Fr.ZERO, NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP),
-    );
+    await appendL1ToL2MessagesToTree(db, l1ToL2Messages);
 
     return new LightweightCheckpointBuilder(
       checkpointNumber,
       constants,
+      feeAssetPriceModifier,
       l1ToL2Messages,
       previousCheckpointOutHashes,
       db,
@@ -90,6 +90,7 @@ export class LightweightCheckpointBuilder {
   static async resumeCheckpoint(
     checkpointNumber: CheckpointNumber,
     constants: CheckpointGlobalVariables,
+    feeAssetPriceModifier: bigint,
     l1ToL2Messages: Fr[],
     previousCheckpointOutHashes: Fr[],
     db: MerkleTreeWriteOperations,
@@ -99,6 +100,7 @@ export class LightweightCheckpointBuilder {
     const builder = new LightweightCheckpointBuilder(
       checkpointNumber,
       constants,
+      feeAssetPriceModifier,
       l1ToL2Messages,
       previousCheckpointOutHashes,
       db,
@@ -110,6 +112,10 @@ export class LightweightCheckpointBuilder {
       numExistingBlocks: existingBlocks.length,
       blockNumbers: existingBlocks.map(b => b.header.getBlockNumber()),
     });
+
+    if (existingBlocks.length === 0) {
+      throw new Error(`Cannot resume checkpoint ${checkpointNumber} with no existing blocks`);
+    }
 
     // Validate block order and consistency
     for (let i = 1; i < existingBlocks.length; i++) {
@@ -148,6 +154,10 @@ export class LightweightCheckpointBuilder {
     return this.blocks.length;
   }
 
+  public getBlocks() {
+    return this.blocks;
+  }
+
   /**
    * Adds a new block to the checkpoint. The tx effects must have already been inserted into the db if
    * this is called after tx processing, if that's not the case, then set `insertTxsEffects` to true.
@@ -156,7 +166,8 @@ export class LightweightCheckpointBuilder {
     globalVariables: GlobalVariables,
     txs: ProcessedTx[],
     opts: { insertTxsEffects?: boolean; expectedEndState?: StateReference } = {},
-  ): Promise<L2Block> {
+  ): Promise<{ block: L2Block; timings: Record<string, number> }> {
+    const timings: Record<string, number> = {};
     const isFirstBlock = this.blocks.length === 0;
 
     // Empty blocks are only allowed as the first block in a checkpoint
@@ -165,7 +176,9 @@ export class LightweightCheckpointBuilder {
     }
 
     if (isFirstBlock) {
-      this.lastArchives.push(await getTreeSnapshot(MerkleTreeId.ARCHIVE, this.db));
+      const [msGetInitialArchive, initialArchive] = await elapsed(() => getTreeSnapshot(MerkleTreeId.ARCHIVE, this.db));
+      this.lastArchives.push(initialArchive);
+      timings.getInitialArchive = msGetInitialArchive;
     }
 
     const lastArchive = this.lastArchives.at(-1)!;
@@ -175,12 +188,17 @@ export class LightweightCheckpointBuilder {
         `Inserting side effects for ${txs.length} txs for block ${globalVariables.blockNumber} into db`,
         { txs: txs.map(tx => tx.hash.toString()) },
       );
+      let msInsertSideEffects = 0;
       for (const tx of txs) {
-        await insertSideEffects(tx, this.db);
+        const [ms] = await elapsed(() => insertSideEffects(tx, this.db));
+        msInsertSideEffects += ms;
       }
+      timings.insertSideEffects = msInsertSideEffects;
     }
 
-    const endState = await this.db.getStateReference();
+    const [msGetEndState, endState] = await elapsed(() => this.db.getStateReference());
+    timings.getEndState = msGetEndState;
+
     if (opts.expectedEndState && !endState.equals(opts.expectedEndState)) {
       this.logger.error('End state after processing txs does not match expected end state', {
         globalVariables: globalVariables.toInspect(),
@@ -190,26 +208,31 @@ export class LightweightCheckpointBuilder {
       throw new Error(`End state does not match expected end state when building block ${globalVariables.blockNumber}`);
     }
 
-    const { header, body, blockBlobFields } = await buildHeaderAndBodyFromTxs(
-      txs,
-      lastArchive,
-      endState,
-      globalVariables,
-      this.spongeBlob,
-      isFirstBlock,
+    const [msBuildHeaderAndBody, { header, body, blockBlobFields }] = await elapsed(() =>
+      buildHeaderAndBodyFromTxs(txs, lastArchive, endState, globalVariables, this.spongeBlob, isFirstBlock),
     );
+    timings.buildHeaderAndBody = msBuildHeaderAndBody;
 
     header.state.validate();
 
     await this.db.updateArchive(header);
-    const newArchive = await getTreeSnapshot(MerkleTreeId.ARCHIVE, this.db);
+    const [msUpdateArchive, newArchive] = await elapsed(() => getTreeSnapshot(MerkleTreeId.ARCHIVE, this.db));
+    timings.updateArchive = msUpdateArchive;
     this.lastArchives.push(newArchive);
+
+    const expectedNextLeafIndex = Number(globalVariables.blockNumber) + 1;
+    if (newArchive.nextAvailableLeafIndex !== expectedNextLeafIndex) {
+      throw new Error(
+        `Archive tree next leaf index mismatch after building block ${globalVariables.blockNumber} (expected ${expectedNextLeafIndex} but got ${newArchive.nextAvailableLeafIndex})`,
+      );
+    }
 
     const indexWithinCheckpoint = IndexWithinCheckpoint(this.blocks.length);
     const block = new L2Block(newArchive, header, body, this.checkpointNumber, indexWithinCheckpoint);
     this.blocks.push(block);
 
-    await this.spongeBlob.absorb(blockBlobFields);
+    const [msSpongeAbsorb] = await elapsed(() => this.spongeBlob.absorb(blockBlobFields));
+    timings.spongeAbsorb = msSpongeAbsorb;
     this.blobFields.push(...blockBlobFields);
 
     this.logger.debug(`Built block ${header.getBlockNumber()}`, {
@@ -220,7 +243,7 @@ export class LightweightCheckpointBuilder {
       txs: block.body.txEffects.map(tx => tx.txHash.toString()),
     });
 
-    return block;
+    return { block, timings };
   }
 
   async completeCheckpoint(): Promise<Checkpoint> {
@@ -237,7 +260,7 @@ export class LightweightCheckpointBuilder {
 
     const newArchive = this.lastArchives[this.lastArchives.length - 1];
 
-    const blobs = getBlobsPerL1Block(this.blobFields);
+    const blobs = await getBlobsPerL1Block(this.blobFields);
     const blobsHash = computeBlobsHashFromBlobs(blobs);
 
     const inHash = computeInHashFromL1ToL2Messages(this.l1ToL2Messages);
@@ -248,11 +271,11 @@ export class LightweightCheckpointBuilder {
     );
     const epochOutHash = accumulateCheckpointOutHashes([...this.previousCheckpointOutHashes, checkpointOutHash]);
 
-    // TODO(palla/mbps): Should we source this from the constants instead?
-    // timestamp of a checkpoint is the timestamp of the last block in the checkpoint.
+    // All blocks in the checkpoint have the same timestamp
     const timestamp = blocks[blocks.length - 1].timestamp;
 
     const totalManaUsed = blocks.reduce((acc, block) => acc.add(block.header.totalManaUsed), Fr.ZERO);
+    const accumulatedFees = blocks.reduce((acc, block) => acc.add(block.header.totalFees), Fr.ZERO);
 
     const header = CheckpointHeader.from({
       lastArchiveRoot: this.lastArchives[0].root,
@@ -266,15 +289,25 @@ export class LightweightCheckpointBuilder {
       feeRecipient,
       gasFees,
       totalManaUsed,
+      accumulatedFees,
     });
 
-    return new Checkpoint(newArchive, header, blocks, this.checkpointNumber);
+    this.logger.debug(`Completed checkpoint ${this.checkpointNumber}`, {
+      checkpointNumber: this.checkpointNumber,
+      headerHash: header.hash().toString(),
+      checkpointOutHash: checkpointOutHash.toString(),
+      numPreviousCheckpointOutHashes: this.previousCheckpointOutHashes.length,
+      ...header.toInspect(),
+    });
+
+    return new Checkpoint(newArchive, header, blocks, this.checkpointNumber, this.feeAssetPriceModifier);
   }
 
   clone() {
     const clone = new LightweightCheckpointBuilder(
       this.checkpointNumber,
       this.constants,
+      this.feeAssetPriceModifier,
       [...this.l1ToL2Messages],
       [...this.previousCheckpointOutHashes],
       this.db,

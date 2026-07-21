@@ -67,9 +67,6 @@ This noir workspace contains multiple packages. You can import these packages in
 > `CompressedString`
 > `EasyPrivateUint`
 
-> To be relocated from the top-level workspace libraries:
-> `macro_compilation_failure_tests`
-
 
 ## Importing `aztec-nr`
 

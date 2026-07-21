@@ -17,11 +17,12 @@
 #elif defined(_WIN32)
 #define NOMINMAX
 #define PSAPI_VERSION 1
-#include <psapi.h>
+// clang-format off
 #include <windows.h>
+#include <psapi.h>
+// clang-format on
 #endif
 
-namespace {
 //---------------------------------------------------------------------
 // peak_rss_bytes()
 //---------------------------------------------------------------------
@@ -51,8 +52,6 @@ std::size_t peak_rss_bytes()
     return 0; // fallback on error / unknown OS
 }
 
-} // namespace
-
 //---------------------------------------------------------------------
 // C-linkage wrapper: log_with_mem_usage()
 //---------------------------------------------------------------------
@@ -63,7 +62,9 @@ std::size_t peak_rss_bytes()
 //     interleave if multiple threads call concurrently (as with any
 //     stderr logging).
 //---------------------------------------------------------------------
-extern "C" void logstr(char const* msg)
+// WASM_EXPORT ensures this symbol stays visible when compiling with -fvisibility=hidden.
+#include <barretenberg/common/wasm_export.hpp>
+WASM_EXPORT void logstr(char const* msg)
 {
 #ifndef NO_MULTITHREADING
     static std::mutex log_mutex;

@@ -1,8 +1,11 @@
 #include "ultra_honk.test.hpp"
 #include "barretenberg/honk/proof_length.hpp"
 #include "barretenberg/honk/relation_checker.hpp"
+#include "barretenberg/honk/utils/honk_key_gen.hpp"
+#include "barretenberg/ultra_honk/oink_prover.hpp"
 
 #include <gtest/gtest.h>
+#include <sstream>
 
 using namespace bb;
 
@@ -46,45 +49,6 @@ TYPED_TEST(UltraHonkTests, ProofLengthCheck)
     size_t expected_proof_length =
         ProofLength::Honk<Flavor>::LENGTH_WITHOUT_PUB_INPUTS(virtual_log_n) + IO::PUBLIC_INPUTS_SIZE;
     EXPECT_EQ(ultra_proof.size(), expected_proof_length);
-}
-
-/**
- * @brief A quick test to ensure that none of our polynomials are identically zero
- *
- * @note This test assumes that gates have been added by default in the composer
- * to achieve non-zero polynomials
- *
- */
-TYPED_TEST(UltraHonkTests, ANonZeroPolynomialIsAGoodPolynomial)
-{
-    auto circuit_builder = UltraCircuitBuilder();
-    TestFixture::set_default_pairing_points_and_ipa_claim_and_proof(circuit_builder);
-
-    auto prover_instance = std::make_shared<typename TestFixture::ProverInstance>(circuit_builder);
-    auto verification_key = std::make_shared<typename TypeParam::VerificationKey>(prover_instance->get_precomputed());
-    typename TestFixture::Prover prover(prover_instance, verification_key);
-    auto proof = prover.construct_proof();
-    auto& polynomials = prover_instance->polynomials;
-
-    auto ensure_non_zero = [](auto& polynomial) {
-        bool has_non_zero_coefficient = false;
-        for (auto& coeff : polynomial.coeffs()) {
-            has_non_zero_coefficient |= !coeff.is_zero();
-        }
-        ASSERT_TRUE(has_non_zero_coefficient);
-    };
-
-    for (auto& poly : polynomials.get_selectors()) {
-        ensure_non_zero(poly);
-    }
-
-    for (auto& poly : polynomials.get_tables()) {
-        ensure_non_zero(poly);
-    }
-
-    for (auto& poly : polynomials.get_wires()) {
-        ensure_non_zero(poly);
-    }
 }
 
 /**
@@ -144,17 +108,17 @@ TYPED_TEST(UltraHonkTests, TestEllipticGate)
     uint32_t x3 = circuit_builder.add_variable(p3.x);
     uint32_t y3 = circuit_builder.add_variable(p3.y);
 
-    circuit_builder.create_ecc_add_gate({ x1, y1, x2, y2, x3, y3, 1 });
+    circuit_builder.create_ecc_add_gate({ x1, y1, x2, y2, x3, y3, /*is_addition=*/true });
 
     p3 = affine_element(element(p1) + element(p2));
     x3 = circuit_builder.add_variable(p3.x);
     y3 = circuit_builder.add_variable(p3.y);
-    circuit_builder.create_ecc_add_gate({ x1, y1, x2, y2, x3, y3, 1 });
+    circuit_builder.create_ecc_add_gate({ x1, y1, x2, y2, x3, y3, /*is_addition=*/true });
 
     p3 = affine_element(element(p1) - element(p2));
     x3 = circuit_builder.add_variable(p3.x);
     y3 = circuit_builder.add_variable(p3.y);
-    circuit_builder.create_ecc_add_gate({ x1, y1, x2, y2, x3, y3, -1 });
+    circuit_builder.create_ecc_add_gate({ x1, y1, x2, y2, x3, y3, /*is_addition=*/false });
 
     TestFixture::set_default_pairing_points_and_ipa_claim_and_proof(circuit_builder);
 
@@ -327,4 +291,293 @@ TYPED_TEST(UltraHonkTests, NativeVKHashMismatchDetected)
     // Verification should fail with BB_ASSERT_EQ detecting the mismatch
     Verifier verifier(vk_and_hash);
     EXPECT_THROW_WITH_MESSAGE(verifier.verify_proof(proof), "VK Hash Mismatch");
+}
+
+/**
+ * @brief Test that a truncated proof is rejected with a clear error message
+ * @details When a proof is too short, the verifier should detect this before
+ *          unsigned integer underflow occurs in derive_num_public_inputs.
+ */
+TYPED_TEST(UltraHonkTests, TooShortProofRejected)
+{
+    using Flavor = TypeParam;
+    using IO = typename TestFixture::IO;
+    using Builder = typename Flavor::CircuitBuilder;
+    using Prover = UltraProver_<Flavor>;
+    using ProverInstance = ProverInstance_<Flavor>;
+    using VerificationKey = typename Flavor::VerificationKey;
+    using VKAndHash = typename Flavor::VKAndHash;
+    using Verifier = UltraVerifier_<Flavor, IO>;
+    using Proof = typename Flavor::Transcript::Proof;
+
+    // Create a simple circuit and produce a valid proof
+    Builder builder;
+    MockCircuits::add_arithmetic_gates(builder);
+    this->set_default_pairing_points_and_ipa_claim_and_proof(builder);
+
+    auto prover_instance = std::make_shared<ProverInstance>(builder);
+    auto vk = std::make_shared<VerificationKey>(prover_instance->get_precomputed());
+
+    Prover prover(prover_instance, vk);
+    auto proof = prover.construct_proof();
+
+    // Truncate the proof by removing the last 10 elements
+    Proof truncated_proof(proof.begin(), proof.end() - 10);
+
+    auto vk_and_hash = std::make_shared<VKAndHash>(vk);
+    Verifier verifier(vk_and_hash);
+    EXPECT_THROW_WITH_MESSAGE(verifier.verify_proof(truncated_proof), "Proof size too small");
+}
+
+/**
+ * @brief Test that a proof with extra elements appended is rejected
+ * @details When a proof is too long, the derived num_public_inputs will be wrong,
+ *          causing a mismatch with the VK's expected value.
+ */
+TYPED_TEST(UltraHonkTests, TooLongProofRejected)
+{
+    using Flavor = TypeParam;
+    using IO = typename TestFixture::IO;
+    using Builder = typename Flavor::CircuitBuilder;
+    using Prover = UltraProver_<Flavor>;
+    using ProverInstance = ProverInstance_<Flavor>;
+    using VerificationKey = typename Flavor::VerificationKey;
+    using VKAndHash = typename Flavor::VKAndHash;
+    using Verifier = UltraVerifier_<Flavor, IO>;
+    using Proof = typename Flavor::Transcript::Proof;
+    using FF = typename Flavor::FF;
+
+    // Create a simple circuit and produce a valid proof
+    Builder builder;
+    MockCircuits::add_arithmetic_gates(builder);
+    this->set_default_pairing_points_and_ipa_claim_and_proof(builder);
+
+    auto prover_instance = std::make_shared<ProverInstance>(builder);
+    auto vk = std::make_shared<VerificationKey>(prover_instance->get_precomputed());
+
+    Prover prover(prover_instance, vk);
+    auto proof = prover.construct_proof();
+
+    // Append extra elements to the proof
+    Proof extended_proof(proof);
+    for (size_t i = 0; i < 10; i++) {
+        extended_proof.push_back(FF::random_element());
+    }
+
+    auto vk_and_hash = std::make_shared<VKAndHash>(vk);
+    Verifier verifier(vk_and_hash);
+    EXPECT_THROW_WITH_MESSAGE(verifier.verify_proof(extended_proof), "num_public_inputs mismatch");
+}
+
+/**
+ * @brief Test that the dyadic size correctly jumps to the next power of 2 when the trace would otherwise
+ * place lagrange_last in the ZK masking region.
+ * @details For ZK flavors, the first NUM_MASKED_ROWS rows are overwritten with random values for zero-knowledge.
+ * We incrementally add gates until the dyadic size doubles, verifying at each step that:
+ *   (1) lagrange_last (at final_active_wire_idx) does not overlap the masking area
+ *   (2) sufficient headroom exists for disabled rows
+ *   (3) at the boundary, the dyadic size doubles because the previous power of 2 was too small
+ * At the tightest packing (right before the jump), we also prove-and-verify.
+ */
+TYPED_TEST(UltraHonkTests, DyadicSizeJumpsToProtectMaskingArea)
+{
+    using Flavor = TypeParam;
+    if constexpr (!Flavor::HasZK) {
+        GTEST_SKIP() << "Masking area only exists for ZK flavors";
+    } else {
+        using Builder = typename Flavor::CircuitBuilder;
+        using ProverInstance = ProverInstance_<Flavor>;
+
+        // Determine the baseline dyadic size (pairing points + finalization overhead, no user gates)
+        Builder baseline_builder;
+        this->set_default_pairing_points_and_ipa_claim_and_proof(baseline_builder);
+        auto baseline_instance = std::make_shared<ProverInstance>(baseline_builder);
+        const size_t baseline_dyadic = baseline_instance->dyadic_size();
+
+        // The disabled head region (rows 0..TRACE_OFFSET-1)
+        // is always present. Verify that the active trace starts after the disabled region and that
+        // the dyadic size doubles when the trace gets tightly packed.
+        size_t prev_dyadic = 0;
+        bool found_jump = false;
+        for (size_t num_extra_gates = 0; num_extra_gates <= baseline_dyadic; num_extra_gates++) {
+            Builder builder;
+            if (num_extra_gates > 0) {
+                MockCircuits::add_arithmetic_gates(builder, num_extra_gates);
+            }
+            this->set_default_pairing_points_and_ipa_claim_and_proof(builder);
+
+            auto prover_instance = std::make_shared<ProverInstance>(builder);
+
+            const size_t dyadic_size = prover_instance->dyadic_size();
+            const size_t final_active_idx = prover_instance->get_final_active_wire_idx();
+
+            // Invariant: active trace doesn't overlap the disabled head region
+            ASSERT_GE(final_active_idx, ProverInstance::TRACE_OFFSET)
+                << "final_active_idx (" << final_active_idx << ") is within the disabled head region";
+
+            if (prev_dyadic != 0 && dyadic_size > prev_dyadic) {
+                // Dyadic size should exactly double
+                EXPECT_EQ(dyadic_size, 2 * prev_dyadic);
+
+                // Prove and verify at the tightest packing (right before the jump)
+                Builder tight_builder;
+                MockCircuits::add_arithmetic_gates(tight_builder, num_extra_gates - 1);
+                this->set_default_pairing_points_and_ipa_claim_and_proof(tight_builder);
+                auto tight_instance = std::make_shared<ProverInstance>(tight_builder);
+                this->prove_and_verify(tight_instance, /*expected_result=*/true);
+
+                found_jump = true;
+                break;
+            }
+
+            prev_dyadic = dyadic_size;
+        }
+
+        EXPECT_TRUE(found_jump) << "should have found a dyadic size jump within " << baseline_dyadic << " extra gates";
+    }
+}
+
+/**
+ * @brief Verify that dyadic circuit size accounts for lookup tables placed at the lookup block's trace offset.
+ * @details Tables are allocated starting at lookup.trace_offset() (>= TRACE_OFFSET). The dyadic size must be large
+ * enough to contain them. This test populates a XOR lookup table and checks that the offset is past the disabled
+ * region and the dyadic size accommodates tables_end = table_offset + tables_size.
+ */
+TYPED_TEST(UltraHonkTests, DyadicSizeAccountsForTableOffset)
+{
+    using Flavor = TypeParam;
+    using Builder = typename Flavor::CircuitBuilder;
+    using IO = typename TestFixture::IO;
+
+    // Test with several lookup table types of varying sizes
+    for (auto table_id : { plookup::MultiTableId::UINT32_XOR,
+                           plookup::MultiTableId::UINT32_AND,
+                           plookup::MultiTableId::SHA256_CH_INPUT }) {
+        auto builder = Builder{};
+        uint32_t left_idx = builder.add_variable(fr(engine.get_random_uint32()));
+        uint32_t right_idx = builder.add_variable(fr(engine.get_random_uint32()));
+        auto accumulators = plookup::get_lookup_accumulators(
+            table_id, builder.get_variable(left_idx), builder.get_variable(right_idx), true);
+        builder.create_gates_from_plookup_accumulators(table_id, accumulators, left_idx, right_idx);
+        IO::add_default(builder);
+
+        auto prover_instance = std::make_shared<ProverInstance_<Flavor>>(builder);
+
+        const size_t tables_size = builder.get_tables_size();
+        ASSERT_GT(tables_size, 0) << "expected non-empty lookup tables";
+
+        const size_t table_offset = builder.blocks.lookup.trace_offset();
+        const size_t tables_end = table_offset + tables_size;
+
+        EXPECT_GE(table_offset, ProverInstance_<Flavor>::TRACE_OFFSET)
+            << "lookup block should be past the disabled region";
+        EXPECT_GE(prover_instance->dyadic_size(), tables_end)
+            << "dyadic size (" << prover_instance->dyadic_size() << ") must accommodate tables_end (" << tables_end
+            << ") for table_offset=" << table_offset << " tables_size=" << tables_size;
+    }
+}
+
+/**
+ * @brief Verify that witness polynomials have masking values in the reserved head region.
+ * @details Wires, z_perm, and lookup polynomials should have non-zero random values at rows 1..NUM_MASKED_ROWS.
+ */
+TYPED_TEST(UltraHonkTests, WitnessPolynomialsMasked)
+{
+    using Flavor = TypeParam;
+    if constexpr (!Flavor::HasZK) {
+        GTEST_SKIP() << "Masking only applies to ZK flavors";
+    } else {
+        using Builder = typename Flavor::CircuitBuilder;
+        using IO = typename TestFixture::IO;
+
+        auto builder = Builder{};
+        IO::add_default(builder);
+        auto prover_instance = std::make_shared<ProverInstance_<Flavor>>(builder);
+
+        auto check_masked = [](const auto& poly, const std::string& label) {
+            bool has_masking = false;
+            for (size_t j = 0; j < NUM_MASKED_ROWS; j++) {
+                has_masking |= !poly[NUM_ZERO_ROWS + j].is_zero();
+            }
+            EXPECT_TRUE(has_masking) << label << " should be masked";
+        };
+
+        auto& polys = prover_instance->polynomials;
+        check_masked(polys.w_l(), "w_l");
+        check_masked(polys.w_r(), "w_r");
+        check_masked(polys.w_o(), "w_o");
+        check_masked(polys.w_4(), "w_4");
+        check_masked(polys.z_perm(), "z_perm");
+        check_masked(polys.lookup_read_counts(), "lookup_read_counts");
+        check_masked(polys.lookup_read_tags(), "lookup_read_tags");
+        check_masked(polys.lookup_inverses(), "lookup_inverses");
+    }
+}
+
+/**
+ * @brief Verify that REPEATED_COMMITMENTS indices correctly pair to-be-shifted and shifted commitments.
+ * @details Mirrors the Shplemini vector construction: [Q, unshifted..., to_be_shifted...] with
+ * offset = HasZK ? 2 : 1, then checks the same index pairs that remove_repeated_commitments asserts.
+ */
+TYPED_TEST(UltraHonkTests, RepeatedCommitmentsIndicesCorrect)
+{
+    using Flavor = TypeParam;
+    using Builder = typename Flavor::CircuitBuilder;
+    using IO = typename TestFixture::IO;
+    using CommitmentKey = typename Flavor::CommitmentKey;
+    using Commitment = typename Flavor::Commitment;
+
+    auto builder = Builder{};
+    IO::add_default(builder);
+    auto prover_instance = std::make_shared<ProverInstance_<Flavor>>(builder);
+    CommitmentKey ck(prover_instance->dyadic_size());
+
+    auto unshifted = prover_instance->polynomials.get_unshifted();
+    auto to_be_shifted = prover_instance->polynomials.get_to_be_shifted();
+
+    constexpr auto repeated = Flavor::REPEATED_COMMITMENTS;
+    ASSERT_EQ(to_be_shifted.size(), repeated.first.count);
+
+    // Build the commitment vector exactly as Shplemini does: [Q, unshifted..., to_be_shifted...]
+    std::vector<Commitment> commitments;
+    commitments.push_back(Commitment::one()); // dummy Q
+    for (auto& poly : unshifted) {
+        commitments.push_back(ck.commit(poly));
+    }
+    for (auto& poly : to_be_shifted) {
+        commitments.push_back(ck.commit(poly));
+    }
+
+    // Same offset logic as remove_repeated_commitments
+    constexpr size_t offset = Flavor::HasZK ? 2 : 1;
+    for (size_t i = 0; i < repeated.first.count; i++) {
+        EXPECT_EQ(commitments[repeated.first.original_start + offset + i],
+                  commitments[repeated.first.duplicate_start + offset + i])
+            << "REPEATED_COMMITMENTS commitment mismatch at index " << i;
+    }
+}
+
+namespace {
+size_t count_occurrences(const std::string& haystack, const std::string& needle)
+{
+    size_t count = 0;
+    for (size_t pos = haystack.find(needle); pos != std::string::npos;
+         pos = haystack.find(needle, pos + needle.size())) {
+        ++count;
+    }
+    return count;
+}
+} // namespace
+
+// Finding #1: the Solidity VK generator hand-codes the G1 emission list. Couple the number of
+// emitted G1 points to the flavor's precomputed entity count so the list cannot silently drift.
+TEST(HonkKeyGen, EmittedG1CountMatchesPrecomputedEntities)
+{
+    using VerificationKey = UltraKeccakFlavor::VerificationKey;
+    auto vk = std::make_shared<VerificationKey>();
+
+    std::ostringstream os;
+    output_vk_sol_ultra_honk(os, vk, "TestHonkVerificationKey", /*include_types_import=*/true);
+
+    EXPECT_EQ(count_occurrences(os.str(), "Honk.G1Point"), VerificationKey::size());
 }

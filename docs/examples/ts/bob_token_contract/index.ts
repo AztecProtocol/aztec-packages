@@ -3,7 +3,7 @@ import { BobTokenContract } from "./artifacts/BobToken.js";
 import { AztecAddress } from "@aztec/aztec.js/addresses";
 import { createAztecNodeClient } from "@aztec/aztec.js/node";
 import { getInitialTestAccountsData } from "@aztec/accounts/testing";
-import { TestWallet } from "@aztec/test-wallet/server";
+import { EmbeddedWallet } from "@aztec/wallets/embedded";
 // docs:end:imports
 
 // docs:start:get_balances
@@ -15,16 +15,20 @@ async function getBalances(
   await Promise.all([
     contract.methods
       .public_balance_of(aliceAddress)
-      .simulate({ from: aliceAddress }),
+      .simulate({ from: aliceAddress })
+      .then(({ result }) => result),
     contract.methods
       .private_balance_of(aliceAddress)
-      .simulate({ from: aliceAddress }),
+      .simulate({ from: aliceAddress })
+      .then(({ result }) => result),
     contract.methods
       .public_balance_of(bobAddress)
-      .simulate({ from: bobAddress }),
+      .simulate({ from: bobAddress })
+      .then(({ result }) => result),
     contract.methods
       .private_balance_of(bobAddress)
-      .simulate({ from: bobAddress }),
+      .simulate({ from: bobAddress })
+      .then(({ result }) => result),
   ]).then(
     ([
       alicePublicBalance,
@@ -48,28 +52,31 @@ async function main() {
   // Connect to local network
   const node = createAztecNodeClient("http://localhost:8080");
 
-  const wallet = await TestWallet.create(node);
+  // `ephemeral: true` keeps PXE state in memory, so restarting the local
+  // network won't leave this script pointing at stale block hashes.
+  const wallet = await EmbeddedWallet.create(node, { ephemeral: true });
 
   const [giggleWalletData, aliceWalletData, bobClinicWalletData] =
     await getInitialTestAccountsData();
-  const giggleAccountManager = await wallet.createSchnorrAccount(
+  const giggleAccountManager = await wallet.createSchnorrInitializerlessAccount(
     giggleWalletData.secret,
     giggleWalletData.salt,
   );
-  const aliceAccountManager = await wallet.createSchnorrAccount(
+  const aliceAccountManager = await wallet.createSchnorrInitializerlessAccount(
     aliceWalletData.secret,
     aliceWalletData.salt,
   );
-  const bobClinicAccountManager = await wallet.createSchnorrAccount(
-    bobClinicWalletData.secret,
-    bobClinicWalletData.salt,
-  );
+  const bobClinicAccountManager =
+    await wallet.createSchnorrInitializerlessAccount(
+      bobClinicWalletData.secret,
+      bobClinicWalletData.salt,
+    );
 
   const giggleAddress = giggleAccountManager.address;
   const aliceAddress = aliceAccountManager.address;
   const bobClinicAddress = bobClinicAccountManager.address;
 
-  const bobToken = await BobTokenContract.deploy(wallet).send({
+  const { contract: bobToken } = await BobTokenContract.deploy(wallet).send({
     from: giggleAddress,
   });
 

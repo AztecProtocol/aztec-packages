@@ -8,6 +8,8 @@ import { Secp256k1Signer } from './secp256k1_signer.js';
 import {
   Secp256k1Error,
   flipSignature,
+  generateRecoverableSignature,
+  generateUnrecoverableSignature,
   makeEthSignDigest,
   normalizeSignature,
   recoverAddress,
@@ -137,5 +139,23 @@ describe('ecdsa malleability', () => {
     expect(() => recoverAddress(digest, signature)).toThrow(Secp256k1Error);
     const recoveredAddress = recoverAddress(digest, signature, { allowYParityAsV: true });
     expect(recoveredAddress.toString()).toEqual(expectedAddress.toString());
+  });
+});
+
+describe('generateRecoverableSignature', () => {
+  it('produces a signature from which an address can be recovered', () => {
+    const sig = generateRecoverableSignature();
+    const hash = Buffer32.random();
+    const recovered = tryRecoverAddress(hash, sig);
+    expect(recovered).toBeDefined();
+  });
+});
+
+describe('generateUnrecoverableSignature', () => {
+  it('produces a signature from which no address can be recovered', () => {
+    const sig = generateUnrecoverableSignature();
+    const hash = Buffer32.random();
+    const recovered = tryRecoverAddress(hash, sig);
+    expect(recovered).toBeUndefined();
   });
 });

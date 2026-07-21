@@ -1,15 +1,14 @@
 #include "barretenberg/vm2/tracegen/precomputed_trace.hpp"
 
 #include <array>
-#include <cstddef>
 #include <cstdint>
 #include <vector>
 
-#include "barretenberg/vm2/common/aztec_constants.hpp"
+#include "barretenberg/aztec/aztec_constants.hpp"
 #include "barretenberg/vm2/common/aztec_types.hpp"
 #include "barretenberg/vm2/common/gas.hpp"
 #include "barretenberg/vm2/common/instruction_spec.hpp"
-#include "barretenberg/vm2/common/memory_types.hpp"
+#include "barretenberg/vm2/common/opcodes.hpp"
 #include "barretenberg/vm2/common/tagged_value.hpp"
 #include "barretenberg/vm2/common/to_radix.hpp"
 #include "barretenberg/vm2/simulation/gadgets/keccakf1600.hpp"
@@ -22,77 +21,73 @@ namespace bb::avm2::tracegen {
 
 using C = Column;
 
+/**
+ * @brief Populate miscellaneous precomputed columns: first_row selector and idx (row index).
+ * @details `precomputed_first_row` is 1 only at row 0. `precomputed_idx` holds the row index (0..num_rows-1)
+ * and is used as the key for most precomputed lookups. `precomputed_zero` is intentionally left unset
+ * (the trace container defaults to 0).
+ */
 void PrecomputedTraceBuilder::process_misc(TraceContainer& trace, const uint32_t num_rows)
 {
     // First row.
     trace.set(C::precomputed_first_row, 0, 1);
 
-    // Clk
-    // TODO: What a waste of 64MB. Can we elegantly have a flag for this?
-    trace.reserve_column(C::precomputed_clk, num_rows);
+    // Note: precomputed_zero is intentionally not populated.
+    // The trace container defaults unset values to FF(0), which is the desired value.
+
+    // Idx
+    trace.reserve_column(C::precomputed_idx, num_rows);
     for (uint32_t i = 0; i < num_rows; i++) {
-        trace.set(C::precomputed_clk, i, i);
+        trace.set(C::precomputed_idx, i, i);
     }
 }
 
+/**
+ * @brief Populate the 8-bit bitwise lookup table (AND, OR, XOR).
+ * @details Generates 256×256 = 65536 rows covering all pairs of 8-bit inputs (a, b).
+ * Row index is derived as (a << 8) | b.
+ */
 void PrecomputedTraceBuilder::process_bitwise(TraceContainer& trace)
 {
     // 256 per input (a and b), and 3 different bitwise ops
-    constexpr auto num_rows = 256 * 256 * 3;
-    trace.reserve_column(C::precomputed_sel_bitwise, num_rows);
+    constexpr auto num_rows = 256 * 256;
+    static_assert(num_rows <= PRECOMPUTED_TRACE_SIZE);
+    static_assert(num_rows == (1U << 16),
+                  "bitwise table must span 2^16 rows for sel_range_16 to be a sound outer selector for "
+                  "the committed sel_bitwise granular selector (see precomputed.pil)");
     trace.reserve_column(C::precomputed_bitwise_input_a, num_rows);
     trace.reserve_column(C::precomputed_bitwise_input_b, num_rows);
-    trace.reserve_column(C::precomputed_bitwise_output, num_rows);
+    trace.reserve_column(C::precomputed_bitwise_output_and, num_rows);
+    trace.reserve_column(C::precomputed_bitwise_output_or, num_rows);
+    trace.reserve_column(C::precomputed_bitwise_output_xor, num_rows);
 
     // row # is derived as:
     //     - input_b: bits 0...7 (0 being LSB)
     //     - input_a: bits 8...15
-    //     - op_id: bits 16...
-    // In other words, the first 256*256 rows are for op_id 0. Next are for op_id 1, followed by op_id 2.
-    auto row_from_inputs = [](BitwiseOperation op_id, uint32_t input_a, uint32_t input_b) -> uint32_t {
-        return (static_cast<uint32_t>(op_id) << 16) | (input_a << 8) | input_b;
-    };
-    auto compute_operation = [](BitwiseOperation op_id, uint32_t a, uint32_t b) -> uint32_t {
-        switch (op_id) {
-        case BitwiseOperation::AND:
-            return a & b;
-        case BitwiseOperation::OR:
-            return a | b;
-        case BitwiseOperation::XOR:
-            return a ^ b;
-        }
-
-        BB_ASSERT(false, "This should not happen");
-        __builtin_unreachable();
-    };
-
-    for (const auto op_id : { BitwiseOperation::AND, BitwiseOperation::OR, BitwiseOperation::XOR }) {
-        for (uint32_t a = 0; a < 256; a++) {
-            for (uint32_t b = 0; b < 256; b++) {
-                trace.set(row_from_inputs(op_id, a, b),
-                          { {
-                              { C::precomputed_sel_bitwise, 1 },
-                              { C::precomputed_bitwise_op_id, static_cast<uint8_t>(op_id) },
-                              { C::precomputed_bitwise_input_a, FF(a) },
-                              { C::precomputed_bitwise_input_b, FF(b) },
-                              { C::precomputed_bitwise_output, FF(compute_operation(op_id, a, b)) },
-                          } });
-            }
+    for (uint32_t a = 0; a < 256; a++) {
+        for (uint32_t b = 0; b < 256; b++) {
+            trace.set((a << 8) | b,
+                      { {
+                          { C::precomputed_bitwise_input_a, FF(a) },
+                          { C::precomputed_bitwise_input_b, FF(b) },
+                          { C::precomputed_bitwise_output_and, FF(a & b) },
+                          { C::precomputed_bitwise_output_or, FF(a | b) },
+                          { C::precomputed_bitwise_output_xor, FF(a ^ b) },
+                      } });
         }
     }
 }
 
 /**
- * Generate a selector column that activates the first 2^8 (256) rows.
- * We can enforce that a value X is <= 8 bits via a lookup that checks
- * whether the selector (sel_range_8) is high at the corresponding
- * clk's row (X==clk).
+ * @brief Generate a selector column that activates the first 2^8 (256) rows.
+ * @details Enables 8-bit range checks: a value X is in [0, 255] iff sel_range_8 is 1
+ * at the row where idx == X.
  */
 void PrecomputedTraceBuilder::process_sel_range_8(TraceContainer& trace)
 {
     constexpr auto num_rows = 1 << 8; // 256
     // Set this selector high for the first 2^8 rows
-    // For these rows, clk will be 0...255
+    // For these rows, idx will be 0...255
     trace.reserve_column(C::precomputed_sel_range_8, num_rows);
     for (uint32_t i = 0; i < num_rows; i++) {
         trace.set(C::precomputed_sel_range_8, i, 1);
@@ -100,16 +95,15 @@ void PrecomputedTraceBuilder::process_sel_range_8(TraceContainer& trace)
 }
 
 /**
- * Generate a selector column that activates the first 2^16 rows.
- * We can enforce that a value X is <= 16 bits via a lookup that checks
- * whether the selector (sel_range_16) is high at the corresponding
- * clk's row (X==clk).
+ * @brief Generate a selector column that activates the first 2^16 (65536) rows.
+ * @details Enables 16-bit range checks: a value X is in [0, 65535] iff sel_range_16 is 1
+ * at the row where idx == X.
  */
 void PrecomputedTraceBuilder::process_sel_range_16(TraceContainer& trace)
 {
     constexpr auto num_rows = 1 << 16; // 2^16
     // Set this selector high for the first 2^16 rows
-    // For these rows, clk will be 0...2^16-1
+    // For these rows, idx will be 0...2^16-1
     trace.reserve_column(C::precomputed_sel_range_16, num_rows);
     for (uint32_t i = 0; i < num_rows; i++) {
         trace.set(C::precomputed_sel_range_16, i, 1);
@@ -117,11 +111,12 @@ void PrecomputedTraceBuilder::process_sel_range_16(TraceContainer& trace)
 }
 
 /**
- * Generate a column where each row is a power of 2 (2^clk).
- * Populate the first 256 rows.
+ * @brief Generate a column where row i holds 2^i, for i in [0, 255], for the values of 254 and 255 the values are
+ * modulo reduced by the field modulus (i.e. 2^254 and 2^255 mod p) since the trace operates over a finite field.
  */
 void PrecomputedTraceBuilder::process_power_of_2(TraceContainer& trace)
 {
+    // This corresponds to the fact that sel_range_8 is used as the dst selector for lookups involving powers of 2.
     constexpr auto num_rows = 1 << 8; // 2^8 = 256
     trace.reserve_column(C::precomputed_power_of_2, num_rows);
     for (uint32_t i = 0; i < num_rows; i++) {
@@ -129,6 +124,10 @@ void PrecomputedTraceBuilder::process_power_of_2(TraceContainer& trace)
     }
 }
 
+/**
+ * @brief Populate the 64 SHA-256 round constants (K_0 .. K_63) and their selector.
+ * The sel_sha256_compression selector is set high on these rows.
+ */
 void PrecomputedTraceBuilder::process_sha256_round_constants(TraceContainer& trace)
 {
     constexpr std::array<uint32_t, 64> round_constants{
@@ -151,6 +150,10 @@ void PrecomputedTraceBuilder::process_sha256_round_constants(TraceContainer& tra
     }
 }
 
+/**
+ * @brief Populate the memory tag parameters table (byte length, max bits, max value per tag).
+ * @details One row per MemoryTag variant (FF=0, U1=1, U8=2, ..., U128=6).
+ */
 void PrecomputedTraceBuilder::process_tag_parameters(TraceContainer& trace)
 {
     using bb::avm2::MemoryTag;
@@ -168,6 +171,13 @@ void PrecomputedTraceBuilder::process_tag_parameters(TraceContainer& trace)
     }
 }
 
+/**
+ * @brief Populate the wire-level instruction specification table.
+ * @details One row per WireOpCode (0..67). Each row holds the operand decomposition selectors
+ * (sel_op_dc_0..16), the corresponding ExecutionOpCode, instruction size in bytes, and tag
+ * operand metadata. Rows beyond the last valid opcode are flagged with opcode_out_of_range.
+ * Used by the instruction-fetch subtrace to decode bytecode.
+ */
 void PrecomputedTraceBuilder::process_wire_instruction_spec(TraceContainer& trace)
 {
     const std::array<Column, NUM_OP_DC_SELECTORS> sel_op_dc_columns = {
@@ -176,7 +186,7 @@ void PrecomputedTraceBuilder::process_wire_instruction_spec(TraceContainer& trac
         C::precomputed_sel_op_dc_6,  C::precomputed_sel_op_dc_7,  C::precomputed_sel_op_dc_8,
         C::precomputed_sel_op_dc_9,  C::precomputed_sel_op_dc_10, C::precomputed_sel_op_dc_11,
         C::precomputed_sel_op_dc_12, C::precomputed_sel_op_dc_13, C::precomputed_sel_op_dc_14,
-        C::precomputed_sel_op_dc_15, C::precomputed_sel_op_dc_16, C::precomputed_sel_op_dc_17,
+        C::precomputed_sel_op_dc_15,
     };
 
     // First set the selector for this table lookup.
@@ -215,33 +225,46 @@ void PrecomputedTraceBuilder::process_wire_instruction_spec(TraceContainer& trac
     }
 }
 
+/**
+ * @brief Populate the execution-level instruction specification table.
+ * @details One row per ExecutionOpCode (0..45). Each row holds gas costs (opcode L2, base DA,
+ * dynamic L2, dynamic DA), register info (mem_op, rw, tag_check, expected_tag for each of 6
+ * registers), operand-is-address flags, and subtrace dispatch info (subtrace_id,
+ * subtrace_operation_id, dyn_gas_id). Used by the execution and gas subtraces.
+ */
 void PrecomputedTraceBuilder::process_exec_instruction_spec(TraceContainer& trace)
 {
     constexpr std::array<Column, AVM_MAX_REGISTERS> MEM_OP_REG_COLUMNS = {
-        Column::precomputed_sel_mem_op_reg_0_, Column::precomputed_sel_mem_op_reg_1_,
-        Column::precomputed_sel_mem_op_reg_2_, Column::precomputed_sel_mem_op_reg_3_,
-        Column::precomputed_sel_mem_op_reg_4_, Column::precomputed_sel_mem_op_reg_5_,
+        Column::precomputed_sel_mem_op_reg_0_,
+        Column::precomputed_sel_mem_op_reg_1_,
+        Column::precomputed_sel_mem_op_reg_2_,
+        Column::precomputed_sel_mem_op_reg_3_,
     };
     constexpr std::array<Column, AVM_MAX_REGISTERS> RW_COLUMNS = {
-        Column::precomputed_rw_reg_0_, Column::precomputed_rw_reg_1_, Column::precomputed_rw_reg_2_,
-        Column::precomputed_rw_reg_3_, Column::precomputed_rw_reg_4_, Column::precomputed_rw_reg_5_,
+        Column::precomputed_rw_reg_0_,
+        Column::precomputed_rw_reg_1_,
+        Column::precomputed_rw_reg_2_,
+        Column::precomputed_rw_reg_3_,
     };
     constexpr std::array<Column, AVM_MAX_REGISTERS> DO_TAG_CHECK_COLUMNS = {
-        Column::precomputed_sel_tag_check_reg_0_, Column::precomputed_sel_tag_check_reg_1_,
-        Column::precomputed_sel_tag_check_reg_2_, Column::precomputed_sel_tag_check_reg_3_,
-        Column::precomputed_sel_tag_check_reg_4_, Column::precomputed_sel_tag_check_reg_5_,
+        Column::precomputed_sel_tag_check_reg_0_,
+        Column::precomputed_sel_tag_check_reg_1_,
+        Column::precomputed_sel_tag_check_reg_2_,
+        Column::precomputed_sel_tag_check_reg_3_,
     };
     constexpr std::array<Column, AVM_MAX_REGISTERS> EXPECTED_TAG_COLUMNS = {
-        Column::precomputed_expected_tag_reg_0_, Column::precomputed_expected_tag_reg_1_,
-        Column::precomputed_expected_tag_reg_2_, Column::precomputed_expected_tag_reg_3_,
-        Column::precomputed_expected_tag_reg_4_, Column::precomputed_expected_tag_reg_5_,
+        Column::precomputed_expected_tag_reg_0_,
+        Column::precomputed_expected_tag_reg_1_,
+        Column::precomputed_expected_tag_reg_2_,
+        Column::precomputed_expected_tag_reg_3_,
     };
 
     constexpr std::array<Column, AVM_MAX_OPERANDS> SEL_OP_IS_ADDRESS_COLUMNS = {
-        Column::precomputed_sel_op_is_address_0_, Column::precomputed_sel_op_is_address_1_,
-        Column::precomputed_sel_op_is_address_2_, Column::precomputed_sel_op_is_address_3_,
-        Column::precomputed_sel_op_is_address_4_, Column::precomputed_sel_op_is_address_5_,
-        Column::precomputed_sel_op_is_address_6_,
+        Column::precomputed_sel_op_is_address_0_,
+        Column::precomputed_sel_op_is_address_1_,
+        Column::precomputed_sel_op_is_address_2_,
+        Column::precomputed_sel_op_is_address_3_,
+        Column::precomputed_sel_op_is_address_4_
     };
 
     for (const auto& [exec_opcode, exec_instruction_spec] : get_exec_instruction_spec()) {
@@ -256,7 +279,7 @@ void PrecomputedTraceBuilder::process_exec_instruction_spec(TraceContainer& trac
                   } });
 
         // Register information.
-        const auto& register_info = get_exec_instruction_spec().at(exec_opcode).register_info;
+        const auto& register_info = exec_instruction_spec.register_info;
         for (size_t i = 0; i < AVM_MAX_REGISTERS; i++) {
             trace.set(MEM_OP_REG_COLUMNS.at(i), static_cast<uint32_t>(exec_opcode), register_info.is_active(i) ? 1 : 0);
             trace.set(RW_COLUMNS.at(i), static_cast<uint32_t>(exec_opcode), register_info.is_write(i) ? 1 : 0);
@@ -284,6 +307,12 @@ void PrecomputedTraceBuilder::process_exec_instruction_spec(TraceContainer& trac
     }
 }
 
+/**
+ * @brief Populate the TORADIXBE safe-limbs table (one row per radix 0..255).
+ * @details For each radix r, stores the number of limbs needed to represent the BN254 scalar
+ * field modulus p in base r, and the "safe limbs" count (num_limbs - 1). Radices 0 and 1 have
+ * no valid decomposition and default to 0.
+ */
 void PrecomputedTraceBuilder::process_to_radix_safe_limbs(TraceContainer& trace)
 {
     const auto& p_limbs_per_radix = get_p_limbs_per_radix();
@@ -302,6 +331,13 @@ void PrecomputedTraceBuilder::process_to_radix_safe_limbs(TraceContainer& trace)
     }
 }
 
+/**
+ * @brief Populate the TORADIXBE p-decomposition table.
+ * @details Stores the limb-by-limb decomposition of the BN254 field modulus p in every radix
+ * r ∈ [2, 255]. Rows are laid out sequentially: all limbs for radix 2, then radix 3, etc.
+ * Each row records (radix, limb_index, limb_value). Used to verify that TORADIXBE output
+ * does not exceed p.
+ */
 void PrecomputedTraceBuilder::process_to_radix_p_decompositions(TraceContainer& trace)
 {
     const auto& p_limbs_per_radix = get_p_limbs_per_radix();
@@ -319,6 +355,11 @@ void PrecomputedTraceBuilder::process_to_radix_p_decompositions(TraceContainer& 
     }
 }
 
+/**
+ * @brief Populate the memory tag out-of-range selector.
+ * @details Flags rows where idx > MemoryTag::MAX (i.e., idx ∈ [7, 255]) with
+ * sel_mem_tag_out_of_range = 1. Used to detect invalid memory tags via lookup.
+ */
 void PrecomputedTraceBuilder::process_memory_tag_range(TraceContainer& trace)
 {
     constexpr uint32_t num_rows = 1 << 8; // 256
@@ -328,22 +369,35 @@ void PrecomputedTraceBuilder::process_memory_tag_range(TraceContainer& trace)
     }
 }
 
+/**
+ * @brief Populate the addressing-mode gas lookup table (65536 rows).
+ * @details For every possible 16-bit addressing mode bitfield, precomputes the L2 gas cost
+ * of address resolution (indirect dereferences + relative offsets).
+ */
 void PrecomputedTraceBuilder::process_addressing_gas(TraceContainer& trace)
 {
     constexpr uint32_t num_rows = 1 << 16; // 65536
-    trace.reserve_column(C::precomputed_sel_addressing_gas, num_rows);
+
+    static_assert(num_rows == (1U << 16),
+                  "addressing-gas table must span 2^16 rows for sel_range_16 to be a sound outer selector for "
+                  "the committed sel_addressing_gas granular selector (see precomputed.pil)");
+    // sel_addressing_gas is committed and populated by the lookup builder (toggled on used rows), not here.
     trace.reserve_column(C::precomputed_addressing_gas, num_rows);
 
     for (uint32_t i = 0; i < num_rows; i++) {
-        trace.set(C::precomputed_sel_addressing_gas, i, 1);
         trace.set(C::precomputed_addressing_gas, i, compute_addressing_gas(static_cast<uint16_t>(i)));
     }
 }
 
+/**
+ * @brief Populate the transaction phase specification table.
+ * @details One row per TransactionPhase (0..11). Each row holds boolean flags
+ * (is_public_call_request, is_teardown, is_revertible, etc.), public-input read offsets,
+ * side-effect append selectors, and the next_phase_on_revert value. Used by the tx subtrace
+ * via the #[READ_PHASE_SPEC] lookup.
+ */
 void PrecomputedTraceBuilder::process_phase_table(TraceContainer& trace)
 {
-    using C = Column;
-
     for (const auto& [phase_value, spec] : get_tx_phase_spec_map()) {
 
         const uint32_t row = static_cast<uint32_t>(phase_value);
@@ -358,12 +412,9 @@ void PrecomputedTraceBuilder::process_phase_table(TraceContainer& trace)
             { C::precomputed_is_revertible, spec.is_revertible ? 1 : 0 },
             { C::precomputed_read_pi_start_offset, spec.read_pi_start_offset },
             { C::precomputed_read_pi_length_offset, spec.read_pi_length_offset },
-            { C::precomputed_sel_non_revertible_append_note_hash, spec.non_revertible_append_note_hash ? 1 : 0 },
-            { C::precomputed_sel_non_revertible_append_nullifier, spec.non_revertible_append_nullifier ? 1 : 0 },
-            { C::precomputed_sel_non_revertible_append_l2_l1_msg, spec.non_revertible_append_l2_l1_msg ? 1 : 0 },
-            { C::precomputed_sel_revertible_append_note_hash, spec.revertible_append_note_hash ? 1 : 0 },
-            { C::precomputed_sel_revertible_append_nullifier, spec.revertible_append_nullifier ? 1 : 0 },
-            { C::precomputed_sel_revertible_append_l2_l1_msg, spec.revertible_append_l2_l1_msg ? 1 : 0 },
+            { C::precomputed_sel_append_note_hash, spec.append_note_hash ? 1 : 0 },
+            { C::precomputed_sel_append_nullifier, spec.append_nullifier ? 1 : 0 },
+            { C::precomputed_sel_append_l2_l1_msg, spec.append_l2_l1_msg ? 1 : 0 },
             { C::precomputed_next_phase_on_revert, spec.next_phase_on_revert },
         };
 
@@ -371,6 +422,10 @@ void PrecomputedTraceBuilder::process_phase_table(TraceContainer& trace)
     }
 }
 
+/**
+ * @brief Populate the 24 Keccak-f[1600] round constants and their selector.
+ * Row 0 is intentionally left empty (round constants are 1-indexed in the Keccak subtrace).
+ */
 void PrecomputedTraceBuilder::process_keccak_round_constants(TraceContainer& trace)
 {
     uint32_t row = 1;
@@ -385,23 +440,22 @@ void PrecomputedTraceBuilder::process_keccak_round_constants(TraceContainer& tra
 }
 
 /**
+ * @brief Populate the GETENVVAR lookup table.
+ * @details One row per EnvironmentVariable enum value (0..11). Each row maps the variable to
+ * its public-input column/row indices, type selectors (is_address, is_sender, etc.), and
+ * output tag. Rows beyond the valid enum range are flagged with invalid_envvar_enum = 1.
  * See `opcodes/get_env_var.pil` for an ascii version of this table.
  */
 void PrecomputedTraceBuilder::process_get_env_var_table(TraceContainer& trace)
 {
     constexpr uint32_t NUM_ROWS = 1 << 8;
 
-    // Start by flagging `invalid_envvar_enum` as 1 for all rows.
-    // "valid" rows will be reset manually to 0 below.
-    for (uint32_t i = 0; i < NUM_ROWS; i++) {
-        trace.set(C::precomputed_invalid_envvar_enum, i, 1);
-    }
+    constexpr uint8_t NUM_VALID_ENV_VARS = static_cast<uint8_t>(EnvironmentVariable::MAX) + 1;
 
-    for (uint8_t enum_value = 0; enum_value <= static_cast<uint8_t>(EnvironmentVariable::MAX); enum_value++) {
+    for (uint8_t enum_value = 0; enum_value < NUM_VALID_ENV_VARS; enum_value++) {
         const auto& envvar_spec = GetEnvVarSpec::get_table(enum_value);
         trace.set(static_cast<uint32_t>(enum_value),
                   { {
-                      { C::precomputed_invalid_envvar_enum, 0 }, // Reset the invalid enum flag for valid rows
                       { C::precomputed_sel_envvar_pi_lookup_col0, envvar_spec.envvar_pi_lookup_col0 },
                       { C::precomputed_sel_envvar_pi_lookup_col1, envvar_spec.envvar_pi_lookup_col1 },
                       { C::precomputed_envvar_pi_row_idx, envvar_spec.envvar_pi_row_idx },
@@ -414,10 +468,19 @@ void PrecomputedTraceBuilder::process_get_env_var_table(TraceContainer& trace)
                       { C::precomputed_out_tag, envvar_spec.out_tag },
                   } });
     }
+
+    // Flag invalid enum values (those beyond the valid range) as out-of-range.
+    // Valid rows default to 0 (the trace container's default).
+    for (uint32_t i = NUM_VALID_ENV_VARS; i < NUM_ROWS; i++) {
+        trace.set(C::precomputed_invalid_envvar_enum, i, 1);
+    }
 }
 
 /**
- * See `opcodes/get_contract_instance.pil` for an ascii version of this table.
+ * @brief Populate the GETCONTRACTINSTANCE lookup table.
+ * @details One row per ContractInstanceMember enum value (DEPLOYER=0, CLASS_ID=1, INIT_HASH=2, IMMUTABLES_HASH=3).
+ * Each row holds a validity flag and one-hot member selectors. See
+ * `opcodes/get_contract_instance.pil` for an ascii version of this table.
  */
 void PrecomputedTraceBuilder::process_get_contract_instance_table(TraceContainer& trace)
 {
@@ -431,6 +494,7 @@ void PrecomputedTraceBuilder::process_get_contract_instance_table(TraceContainer
                       { C::precomputed_is_deployer, spec.is_deployer ? 1 : 0 },
                       { C::precomputed_is_class_id, spec.is_class_id ? 1 : 0 },
                       { C::precomputed_is_init_hash, spec.is_init_hash ? 1 : 0 },
+                      { C::precomputed_is_immutables_hash, spec.is_immutables_hash ? 1 : 0 },
                   } });
     }
 }

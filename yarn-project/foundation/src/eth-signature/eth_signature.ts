@@ -1,8 +1,10 @@
 import { Buffer32 } from '@aztec/foundation/buffer';
 import { BufferReader, serializeToBuffer } from '@aztec/foundation/serialize';
 
+import { secp256k1 } from '@noble/curves/secp256k1';
 import { z } from 'zod';
 
+import { randomBytes } from '../crypto/random/index.js';
 import { hasHexPrefix, hexToBuffer } from '../string/index.js';
 
 /**
@@ -77,8 +79,12 @@ export class Signature {
     return new Signature(Buffer32.fromBuffer(hexToBuffer(sig.r)), Buffer32.fromBuffer(hexToBuffer(sig.s)), sig.yParity);
   }
 
+  /** Generates a random valid ECDSA signature with a low s-value by signing a random message with a random key. */
   static random(): Signature {
-    return new Signature(Buffer32.random(), Buffer32.random(), 1);
+    const privateKey = randomBytes(32);
+    const message = randomBytes(32);
+    const { r, s, recovery } = secp256k1.sign(message, privateKey);
+    return new Signature(Buffer32.fromBigInt(r), Buffer32.fromBigInt(s), recovery ? 28 : 27);
   }
 
   static empty(): Signature {

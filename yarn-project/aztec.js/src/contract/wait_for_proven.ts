@@ -28,7 +28,7 @@ export async function waitForProven(node: AztecNode, receipt: TxReceipt, opts?: 
   }
   return await retryUntil(
     async () => {
-      const provenBlock = await node.getProvenBlockNumber();
+      const provenBlock = await node.getBlockNumber('proven');
       return provenBlock >= receipt.blockNumber! ? provenBlock : undefined;
     },
     'isProven',

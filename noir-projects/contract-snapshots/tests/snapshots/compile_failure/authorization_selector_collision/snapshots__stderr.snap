@@ -1,0 +1,67 @@
+---
+source: tests/snapshots.rs
+expression: stderr
+---
+error: Trait crate::authwit::authorization_interface::AuthorizationInterface not found
+   ┌─ <repo>/noir-projects/aztec-nr/aztec/src/macros/authorization.nr:<line>:<col>
+   │
+   │     let authorization_interface = quote { crate::authwit::authorization_interface::AuthorizationInterface };
+   │                                           ---------------------------------------------------------------
+   │
+   ┌─ src/main.nr:24:5
+   │
+24 │     #[authorization]
+   │     ---------------- While running this function attribute
+   │
+
+error: Could not resolve 'authwit' in path
+   ┌─ <repo>/noir-projects/aztec-nr/aztec/src/macros/authorization.nr:<line>:<col>
+   │
+   │     let authorization_selector_type = quote { crate::authwit::AuthorizationSelector };
+   │                                                      -------
+   │
+   ┌─ src/main.nr:24:5
+   │
+24 │     #[authorization]
+   │     ---------------- While running this function attribute
+   │
+
+error: check_trait_impl_where_clause_matches_trait_where_clause: missing trait ID
+   ┌─ <repo>/noir-projects/aztec-nr/aztec/src/macros/authorization.nr:<line>:<col>
+   │
+   │     let name = s.name();
+   │                --------
+   │
+   ┌─ src/main.nr:24:5
+   │
+24 │     #[authorization]
+   │     ---------------- While running this function attribute
+   │
+
+error: check_trait_impl_method_matches_declaration: missing trait impl
+   ┌─ <repo>/noir-projects/aztec-nr/aztec/src/macros/authorization.nr:<line>:<col>
+   │
+   │                 fn get_authorization_selector(self) -> $authorization_selector_type {
+   │                    --------------------------
+   │
+   ┌─ src/main.nr:24:5
+   │
+24 │     #[authorization]
+   │     ---------------- While running this function attribute
+   │
+
+error: Selector collision detected between authorizations 'EventCollision8370082250' and 'EventCollision'
+  ┌─ std/panic.nr:8:12
+  │
+8 │     assert(false, message);
+  │            ----- Assertion failed
+  │
+  = Call stack:
+    1: AuthorizationSelectorCollision::#[authorization]
+            at src/main.nr:27:5
+    2: authorization
+            at <repo>/noir-projects/aztec-nr/aztec/src/macros/authorization.nr:<line>:<col>
+    3: register_authorization
+            at <repo>/noir-projects/aztec-nr/aztec/src/macros/authorization.nr:<line>:<col>
+
+Aborting due to 5 previous errors

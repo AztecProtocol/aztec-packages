@@ -34,8 +34,6 @@
 #include "barretenberg/hypernova/hypernova_decider_verifier.hpp"
 #include "barretenberg/hypernova/hypernova_prover.hpp"
 #include "barretenberg/hypernova/hypernova_verifier.hpp"
-#include "barretenberg/multilinear_batching/multilinear_batching_prover.hpp"
-#include "barretenberg/multilinear_batching/multilinear_batching_verifier.hpp"
 #include "barretenberg/stdlib_circuit_builders/mega_circuit_builder.hpp"
 #include "barretenberg/stdlib_circuit_builders/mock_circuits.hpp"
 #include "barretenberg/transcript/transcript_manifest.hpp"
@@ -58,26 +56,40 @@ class ChonkTranscriptInvariantTests : public ::testing::Test {
  * Any change to this count indicates a structural change in how transcripts are managed, which
  * could have security implications (e.g., unexpected transcript isolation or sharing).
  *
- * The 2-app IVC flow creates 7 circuits: app0 -> kernel0 -> app1 -> kernel1 -> reset -> tail -> hiding
+ * We use MAX_APPS_PER_KERNEL + 1 app circuits so the flow contains a full app group (one init kernel) plus a
+ * single-app remainder group (one intermediate kernel), followed by the reset-tail and hiding kernels. With
+ * MAX_APPS_PER_KERNEL = 5 this is 6 apps -> 10 circuits:
+ * app0 .. app4 -> init kernel -> app5 -> intermediate kernel -> reset-tail -> hiding
  *
- * Per-circuit transcript breakdown (from complete_kernel_circuit_logic):
- * - App circuits (0, 2): 0 transcripts - use native HN folding prover
- * - Non-hiding kernels (1, 3, 4, 5): 3 transcripts each:
- *     1. accumulation_recursive_transcript - shared across HN/Merge recursive verification
+ * Per-circuit transcript breakdown (from complete_kernel_circuit_logic). The per-kernel multilinear batching (and the
+ * hiding kernel's decider) continue on the shared accumulation transcript, so they create no additional transcripts:
+ * - App circuits (0-4, 6): 0 transcripts - use native HN folding prover
+ * - Init kernel (5): 3 transcripts:
+ *     1. accumulation_recursive_transcript
  *     2. PairingPoints::aggregate_multiple - for batching pairing points with Fiat-Shamir separator
  *     3. hash_transcript - for computing accumulator hash to propagate in public inputs
- * - Hiding kernel (6): 2 transcripts (no hash_transcript since it doesn't propagate an accumulator):
+ * - Intermediate kernel (7): 3 transcripts:
+ *     1. accumulation_recursive_transcript - shared across recursive verification
+ *     2. PairingPoints::aggregate_multiple - for batching pairing points with Fiat-Shamir separator
+ *     3. hash_transcript - for computing accumulator hash to propagate in public inputs
+ * - Reset-tail kernel (8): 2 transcripts:
  *     1. accumulation_recursive_transcript
- *     2. PairingPoints::aggregate_multiple
+ *     2. hash_transcript - for computing accumulator hash to propagate in public inputs
+ * - Hiding kernel (9): 3 transcripts:
+ *     1. accumulation_recursive_transcript
+ *     2. batch_merge_transcript - for final batch merge verification
+ *     3. PairingPoints::aggregate_multiple
  *
- * Total: 0 + 3 + 0 + 3 + 3 + 3 + 2 = 14 transcripts
+ * Total: 0*5 + 3 + 0 + 3 + 2 + 3 = 11 transcripts
  */
 TEST_F(ChonkTranscriptInvariantTests, AccumulationTranscriptCount)
 {
-    // Pinned expected transcript count for 2 app circuits
-    constexpr size_t EXPECTED_TOTAL_TRANSCRIPTS = 14;
-    constexpr size_t EXPECTED_NUM_CIRCUITS = 7;
-    constexpr std::array<size_t, EXPECTED_NUM_CIRCUITS> EXPECTED_CIRCUIT_TRANSCRIPTS = { 0, 3, 0, 3, 3, 3, 2 };
+    // Pinned expected transcript count for a MAX_APPS_PER_KERNEL + 1 app IVC (one full app group + a one-app
+    // remainder group, then the reset-tail and hiding kernels). Values below assume MAX_APPS_PER_KERNEL == 5.
+    static_assert(MAX_APPS_PER_KERNEL == 5, "Update pinned transcript counts if MAX_APPS_PER_KERNEL changes");
+    constexpr size_t EXPECTED_TOTAL_TRANSCRIPTS = 11;
+    constexpr size_t EXPECTED_NUM_CIRCUITS = 10;
+    constexpr std::array<size_t, EXPECTED_NUM_CIRCUITS> EXPECTED_CIRCUIT_TRANSCRIPTS = { 0, 0, 0, 0, 0, 3, 0, 3, 2, 3 };
 
     // Record transcript index before IVC
     size_t index_before_ivc = bb::unique_transcript_index.load();
@@ -86,13 +98,13 @@ TEST_F(ChonkTranscriptInvariantTests, AccumulationTranscriptCount)
     std::vector<size_t> indices_before_accumulation;
     std::vector<size_t> indices_after_accumulation;
 
-    // Create IVC with 2 app circuits
-    constexpr size_t NUM_APP_CIRCUITS = 2;
+    // Create IVC with MAX_APPS_PER_KERNEL + 1 app circuits to force a full app group plus a one-app remainder group.
+    constexpr size_t NUM_APP_CIRCUITS = MAX_APPS_PER_KERNEL + 1;
     PrivateFunctionExecutionMockCircuitProducer circuit_producer(NUM_APP_CIRCUITS);
     const size_t num_circuits = circuit_producer.total_num_circuits;
     ASSERT_EQ(num_circuits, EXPECTED_NUM_CIRCUITS) << "Circuit count mismatch - test assumptions invalid";
 
-    Chonk ivc{ num_circuits };
+    Chonk ivc{ circuit_producer.circuit_kinds() };
 
     for (size_t j = 0; j < num_circuits; ++j) {
         indices_before_accumulation.push_back(bb::unique_transcript_index.load());
@@ -105,7 +117,7 @@ TEST_F(ChonkTranscriptInvariantTests, AccumulationTranscriptCount)
 
     // Pin the total number of transcripts created during accumulation
     EXPECT_EQ(total_transcripts, EXPECTED_TOTAL_TRANSCRIPTS)
-        << "Total transcript count during 2-app IVC accumulation changed. "
+        << "Total transcript count during 4-app IVC accumulation changed. "
         << "If intentional, update EXPECTED_TOTAL_TRANSCRIPTS. "
         << "Unexpected changes may indicate security-relevant transcript isolation issues.";
 
@@ -143,7 +155,7 @@ TEST_F(ChonkTranscriptInvariantTests, RecursiveVerificationTranscriptCount)
     constexpr size_t NUM_APP_CIRCUITS = 1;
     PrivateFunctionExecutionMockCircuitProducer circuit_producer(NUM_APP_CIRCUITS);
     const size_t num_circuits = circuit_producer.total_num_circuits;
-    Chonk ivc{ num_circuits };
+    Chonk ivc{ circuit_producer.circuit_kinds() };
 
     for (size_t j = 0; j < num_circuits; ++j) {
         circuit_producer.construct_and_accumulate_next_circuit(ivc);

@@ -8,6 +8,7 @@
 #include "barretenberg/dsl/acir_format/gate_count_constants.hpp"
 #include "barretenberg/dsl/acir_format/utils.hpp"
 #include "barretenberg/op_queue/ecc_op_queue.hpp"
+#include "test_class.hpp"
 
 #include "barretenberg/serialize/test_helper.hpp"
 
@@ -65,13 +66,9 @@ TYPED_TEST(OpcodeGateCountTests, Quad)
 
     WitnessVector witness(4, 0);
 
-    AcirFormat constraint_system{
-        .max_witness_index = static_cast<uint32_t>(witness.size()) - 1,
-        .num_acir_opcodes = 2,
-        .public_inputs = {},
-        .quad_constraints = { quad, quad }, // Test that gate counting works for multiple constraints
-        .original_opcode_indices = AcirFormatOriginalOpcodeIndices{ .quad_constraints = { 0, 1 } },
-    };
+    // Test that gate counting works for multiple constraints
+    std::vector<bb::mul_quad_<fr>> constraints = { quad, quad };
+    AcirFormat constraint_system = constraint_to_acir_format(constraints);
 
     AcirProgram program{ constraint_system, witness };
     const ProgramMetadata metadata{ .collect_gates_per_opcode = true };
@@ -94,13 +91,7 @@ TYPED_TEST(OpcodeGateCountTests, LogicXor32)
 
     WitnessVector witness{ 5, 10, 15 };
 
-    AcirFormat constraint_system{
-        .max_witness_index = static_cast<uint32_t>(witness.size()) - 1,
-        .num_acir_opcodes = 1,
-        .public_inputs = {},
-        .logic_constraints = { logic_constraint },
-        .original_opcode_indices = AcirFormatOriginalOpcodeIndices{ .logic_constraints = { 0 } },
-    };
+    AcirFormat constraint_system = constraint_to_acir_format(logic_constraint);
 
     AcirProgram program{ constraint_system, witness };
     const ProgramMetadata metadata{ .collect_gates_per_opcode = true };
@@ -125,13 +116,7 @@ TYPED_TEST(OpcodeGateCountTests, LogicAnd32)
 
     WitnessVector witness{ 5, 10, 0 };
 
-    AcirFormat constraint_system{
-        .max_witness_index = static_cast<uint32_t>(witness.size()) - 1,
-        .num_acir_opcodes = 1,
-        .public_inputs = {},
-        .logic_constraints = { logic_constraint },
-        .original_opcode_indices = AcirFormatOriginalOpcodeIndices{ .logic_constraints = { 0 } },
-    };
+    AcirFormat constraint_system = constraint_to_acir_format(logic_constraint);
 
     AcirProgram program{ constraint_system, witness };
     const ProgramMetadata metadata{ .collect_gates_per_opcode = true };
@@ -153,13 +138,7 @@ TYPED_TEST(OpcodeGateCountTests, Range32)
 
     WitnessVector witness{ 100 };
 
-    AcirFormat constraint_system{
-        .max_witness_index = static_cast<uint32_t>(witness.size()) - 1,
-        .num_acir_opcodes = 1,
-        .public_inputs = {},
-        .range_constraints = { range_constraint },
-        .original_opcode_indices = AcirFormatOriginalOpcodeIndices{ .range_constraints = { 0 } },
-    };
+    AcirFormat constraint_system = constraint_to_acir_format(range_constraint);
 
     AcirProgram program{ constraint_system, witness };
     const ProgramMetadata metadata{ .collect_gates_per_opcode = true };
@@ -187,13 +166,7 @@ TYPED_TEST(OpcodeGateCountTests, KeccakPermutation)
         witness.emplace_back(state);
     }
 
-    AcirFormat constraint_system{
-        .max_witness_index = static_cast<uint32_t>(witness.size()) - 1,
-        .num_acir_opcodes = 1,
-        .public_inputs = {},
-        .keccak_permutations = { keccak_permutation },
-        .original_opcode_indices = AcirFormatOriginalOpcodeIndices{ .keccak_permutations = { 0 } },
-    };
+    AcirFormat constraint_system = constraint_to_acir_format(keccak_permutation);
 
     AcirProgram program{ constraint_system, witness };
     const ProgramMetadata metadata{ .collect_gates_per_opcode = true };
@@ -211,18 +184,12 @@ TYPED_TEST(OpcodeGateCountTests, Poseidon2Permutation)
 
     for (size_t idx = 0; idx < 4; idx++) {
         poseidon2_constraint.state.emplace_back(WitnessOrConstant<bb::fr>::from_index(static_cast<uint32_t>(idx)));
-        poseidon2_constraint.result.emplace_back(static_cast<uint32_t>(idx) + 5);
+        poseidon2_constraint.result.emplace_back(static_cast<uint32_t>(idx) + 4);
     }
 
     WitnessVector witness(8, 0);
 
-    AcirFormat constraint_system{
-        .max_witness_index = static_cast<uint32_t>(witness.size()) - 1,
-        .num_acir_opcodes = 1,
-        .public_inputs = {},
-        .poseidon2_constraints = { poseidon2_constraint },
-        .original_opcode_indices = AcirFormatOriginalOpcodeIndices{ .poseidon2_constraints = { 0 } },
-    };
+    AcirFormat constraint_system = constraint_to_acir_format(poseidon2_constraint);
 
     AcirProgram program{ constraint_system, witness };
     const ProgramMetadata metadata{ .collect_gates_per_opcode = true };
@@ -247,13 +214,7 @@ TYPED_TEST(OpcodeGateCountTests, Sha256Compression)
 
     WitnessVector witness(32, 0);
 
-    AcirFormat constraint_system{
-        .max_witness_index = static_cast<uint32_t>(witness.size()) - 1,
-        .num_acir_opcodes = 1,
-        .public_inputs = {},
-        .sha256_compression = { sha256_compression },
-        .original_opcode_indices = AcirFormatOriginalOpcodeIndices{ .sha256_compression = { 0 } },
-    };
+    AcirFormat constraint_system = constraint_to_acir_format(sha256_compression);
 
     AcirProgram program{ constraint_system, witness };
     const ProgramMetadata metadata{ .collect_gates_per_opcode = true };
@@ -285,13 +246,7 @@ TYPED_TEST(OpcodeGateCountTests, Aes128Encryption)
 
     WitnessVector witness(64, fr(0));
 
-    AcirFormat constraint_system{
-        .max_witness_index = static_cast<uint32_t>(witness.size()) - 1,
-        .num_acir_opcodes = 1,
-        .public_inputs = {},
-        .aes128_constraints = { aes128_constraint },
-        .original_opcode_indices = AcirFormatOriginalOpcodeIndices{ .aes128_constraints = { 0 } },
-    };
+    AcirFormat constraint_system = constraint_to_acir_format(aes128_constraint);
 
     AcirProgram program{ constraint_system, witness };
     const ProgramMetadata metadata{ .collect_gates_per_opcode = true };
@@ -322,7 +277,7 @@ TYPED_TEST(OpcodeGateCountTests, EcdsaSecp256k1)
     ecdsa_constraint.predicate = WitnessOrConstant<bb::fr>::from_index(static_cast<uint32_t>(160));
     ecdsa_constraint.result = static_cast<uint32_t>(161);
 
-    WitnessVector witness(163, fr(0));
+    WitnessVector witness(162, fr(0));
     // Override public key values to avoid failures
     auto point = bb::curve::SECP256K1::AffineElement::one();
     auto x_buffer = point.x.to_buffer();
@@ -332,13 +287,7 @@ TYPED_TEST(OpcodeGateCountTests, EcdsaSecp256k1)
         witness[idx + 128] = y_buffer[idx];
     }
 
-    AcirFormat constraint_system{
-        .max_witness_index = static_cast<uint32_t>(witness.size()) - 1,
-        .num_acir_opcodes = 1,
-        .public_inputs = {},
-        .ecdsa_k1_constraints = { ecdsa_constraint },
-        .original_opcode_indices = AcirFormatOriginalOpcodeIndices{ .ecdsa_k1_constraints = { 0 } },
-    };
+    AcirFormat constraint_system = constraint_to_acir_format(ecdsa_constraint);
 
     AcirProgram program{ constraint_system, witness };
     const ProgramMetadata metadata{ .collect_gates_per_opcode = true };
@@ -369,7 +318,7 @@ TYPED_TEST(OpcodeGateCountTests, EcdsaSecp256r1)
     ecdsa_constraint.predicate = WitnessOrConstant<bb::fr>::from_index(static_cast<uint32_t>(160));
     ecdsa_constraint.result = static_cast<uint32_t>(161);
 
-    WitnessVector witness(163, fr(0));
+    WitnessVector witness(162, fr(0));
     // Override public key values to avoid failures
     auto point = bb::curve::SECP256K1::AffineElement::one();
     auto x_buffer = point.x.to_buffer();
@@ -379,13 +328,7 @@ TYPED_TEST(OpcodeGateCountTests, EcdsaSecp256r1)
         witness[idx + 128] = y_buffer[idx];
     }
 
-    AcirFormat constraint_system{
-        .max_witness_index = static_cast<uint32_t>(witness.size()) - 1,
-        .num_acir_opcodes = 1,
-        .public_inputs = {},
-        .ecdsa_r1_constraints = { ecdsa_constraint },
-        .original_opcode_indices = AcirFormatOriginalOpcodeIndices{ .ecdsa_r1_constraints = { 0 } },
-    };
+    AcirFormat constraint_system = constraint_to_acir_format(ecdsa_constraint);
 
     AcirProgram program{ constraint_system, witness };
     const ProgramMetadata metadata{ .collect_gates_per_opcode = true };
@@ -406,13 +349,7 @@ TYPED_TEST(OpcodeGateCountTests, Blake2s)
 
     WitnessVector witness(33, fr(0));
 
-    AcirFormat constraint_system{
-        .max_witness_index = static_cast<uint32_t>(witness.size()) - 1,
-        .num_acir_opcodes = 1,
-        .public_inputs = {},
-        .blake2s_constraints = { blake2s_constraint },
-        .original_opcode_indices = AcirFormatOriginalOpcodeIndices{ .blake2s_constraints = { 0 } },
-    };
+    AcirFormat constraint_system = constraint_to_acir_format(blake2s_constraint);
 
     AcirProgram program{ constraint_system, witness };
     const ProgramMetadata metadata{ .collect_gates_per_opcode = true };
@@ -433,13 +370,7 @@ TYPED_TEST(OpcodeGateCountTests, Blake3)
 
     WitnessVector witness(33, fr(0));
 
-    AcirFormat constraint_system{
-        .max_witness_index = static_cast<uint32_t>(witness.size()) - 1,
-        .num_acir_opcodes = 1,
-        .public_inputs = {},
-        .blake3_constraints = { blake3_constraint },
-        .original_opcode_indices = AcirFormatOriginalOpcodeIndices{ .blake3_constraints = { 0 } },
-    };
+    AcirFormat constraint_system = constraint_to_acir_format(blake3_constraint);
 
     AcirProgram program{ constraint_system, witness };
     const ProgramMetadata metadata{ .collect_gates_per_opcode = true };
@@ -460,33 +391,23 @@ TYPED_TEST(OpcodeGateCountTests, MultiScalarMul)
     // Create a minimal MSM with one point and one scalar
     msm_constraint.points.push_back(WitnessOrConstant<bb::fr>::from_index(0)); // x
     msm_constraint.points.push_back(WitnessOrConstant<bb::fr>::from_index(1)); // y
-    msm_constraint.points.push_back(WitnessOrConstant<bb::fr>::from_index(2)); // is_infinite
 
-    msm_constraint.scalars.push_back(WitnessOrConstant<bb::fr>::from_index(3)); // scalar_lo
-    msm_constraint.scalars.push_back(WitnessOrConstant<bb::fr>::from_index(4)); // scalar_hi
+    msm_constraint.scalars.push_back(WitnessOrConstant<bb::fr>::from_index(2)); // scalar_lo
+    msm_constraint.scalars.push_back(WitnessOrConstant<bb::fr>::from_index(3)); // scalar_hi
 
-    msm_constraint.predicate = WitnessOrConstant<bb::fr>::from_index(5);
+    msm_constraint.predicate = WitnessOrConstant<bb::fr>::from_index(4);
 
-    msm_constraint.out_point_x = 6;
-    msm_constraint.out_point_y = 7;
-    msm_constraint.out_point_is_infinite = 8;
+    msm_constraint.out_point_x = 5;
+    msm_constraint.out_point_y = 6;
 
-    WitnessVector witness(9, fr(0));
+    WitnessVector witness(7, fr(0));
     // Set valid point coordinates
     witness[0] = point.x;
     witness[1] = point.y;
-    witness[2] = fr(0);
-    witness[6] = point.x;
-    witness[7] = point.y;
-    witness[8] = fr(0);
+    witness[5] = point.x;
+    witness[6] = point.y;
 
-    AcirFormat constraint_system{
-        .max_witness_index = static_cast<uint32_t>(witness.size()) - 1,
-        .num_acir_opcodes = 1,
-        .public_inputs = {},
-        .multi_scalar_mul_constraints = { msm_constraint },
-        .original_opcode_indices = AcirFormatOriginalOpcodeIndices{ .multi_scalar_mul_constraints = { 0 } },
-    };
+    AcirFormat constraint_system = constraint_to_acir_format(msm_constraint);
 
     AcirProgram program{ constraint_system, witness };
     const ProgramMetadata metadata{ .collect_gates_per_opcode = true };
@@ -506,37 +427,25 @@ TYPED_TEST(OpcodeGateCountTests, EcAdd)
     EcAdd ec_add_constraint{
         .input1_x = WitnessOrConstant<bb::fr>::from_index(0),
         .input1_y = WitnessOrConstant<bb::fr>::from_index(1),
-        .input1_infinite = WitnessOrConstant<bb::fr>::from_index(2),
-        .input2_x = WitnessOrConstant<bb::fr>::from_index(3),
-        .input2_y = WitnessOrConstant<bb::fr>::from_index(4),
-        .input2_infinite = WitnessOrConstant<bb::fr>::from_index(5),
-        .predicate = WitnessOrConstant<bb::fr>::from_index(6),
-        .result_x = 7,
-        .result_y = 8,
-        .result_infinite = 9,
+        .input2_x = WitnessOrConstant<bb::fr>::from_index(2),
+        .input2_y = WitnessOrConstant<bb::fr>::from_index(3),
+        .predicate = WitnessOrConstant<bb::fr>::from_index(4),
+        .result_x = 5,
+        .result_y = 6,
     };
 
-    WitnessVector witness(10, fr(0));
+    WitnessVector witness(7, fr(0));
     // Set valid point1 coordinates
     witness[0] = point1.x;
     witness[1] = point1.y;
-    witness[2] = fr(0);
     // Set valid point2 coordinates
-    witness[3] = point2.x;
-    witness[4] = point2.y;
-    witness[5] = fr(0);
+    witness[2] = point2.x;
+    witness[3] = point2.y;
     // Set valid result coordinates
-    witness[7] = point1.x;
-    witness[8] = point1.y;
-    witness[9] = fr(0);
+    witness[5] = point1.x;
+    witness[6] = point1.y;
 
-    AcirFormat constraint_system{
-        .max_witness_index = static_cast<uint32_t>(witness.size()) - 1,
-        .num_acir_opcodes = 1,
-        .public_inputs = {},
-        .ec_add_constraints = { ec_add_constraint },
-        .original_opcode_indices = AcirFormatOriginalOpcodeIndices{ .ec_add_constraints = { 0 } },
-    };
+    AcirFormat constraint_system = constraint_to_acir_format(ec_add_constraint);
 
     AcirProgram program{ constraint_system, witness };
     const ProgramMetadata metadata{ .collect_gates_per_opcode = true };
@@ -557,8 +466,8 @@ TYPED_TEST(OpcodeGateCountTests, BlockRomRead)
     std::vector<MemOp> trace;
     trace.push_back(MemOp{
         .access_type = AccessType::Read,
-        .index = WitnessOrConstant<bb::fr>::from_index(2), // 0
-        .value = WitnessOrConstant<bb::fr>::from_index(3), // 10
+        .index = 2, // 0
+        .value = 3, // 10
     });
 
     BlockConstraint block_constraint{
@@ -568,14 +477,11 @@ TYPED_TEST(OpcodeGateCountTests, BlockRomRead)
         .calldata_id = CallDataType::None,
     };
 
-    AcirFormat constraint_system{
-        .max_witness_index = static_cast<uint32_t>(witness.size()) - 1,
-        .num_acir_opcodes = 1, // The block constraint creates 2 opcodes, but the first one doesn't add any gate, so we
-                               // set num_acir_opcodes to 1 to track only the contribution from the second one
-        .public_inputs = {},
-        .block_constraints = { block_constraint },
-        .original_opcode_indices = AcirFormatOriginalOpcodeIndices{ .block_constraints = { { 0 } } },
-    };
+    AcirFormat constraint_system = constraint_to_acir_format(block_constraint);
+    // The block constraint creates 2 opcodes (MemoryInit + MemoryOp), but MemoryInit doesn't add gates, so we
+    // adjust num_acir_opcodes to track only the MemoryOp gates
+    constraint_system.num_acir_opcodes = 1;
+    constraint_system.original_opcode_indices = AcirFormatOriginalOpcodeIndices{ .block_constraints = { { 0 } } };
 
     AcirProgram program{ constraint_system, witness };
     const ProgramMetadata metadata{ .collect_gates_per_opcode = true };
@@ -596,8 +502,8 @@ TYPED_TEST(OpcodeGateCountTests, BlockRamRead)
     std::vector<MemOp> trace;
     trace.push_back(MemOp{
         .access_type = AccessType::Read,
-        .index = WitnessOrConstant<bb::fr>::from_index(2), // 0
-        .value = WitnessOrConstant<bb::fr>::from_index(3), // 10
+        .index = 2, // 0
+        .value = 3, // 10
     });
 
     BlockConstraint block_constraint{
@@ -607,19 +513,18 @@ TYPED_TEST(OpcodeGateCountTests, BlockRamRead)
         .calldata_id = CallDataType::None,
     };
 
-    AcirFormat constraint_system{
-        .max_witness_index = static_cast<uint32_t>(witness.size()) - 1,
-        .num_acir_opcodes = 1, // The block constraint creates 2 opcodes, but the first one doesn't add any gate, so we
-                               // set num_acir_opcodes to 1 to track only the contribution from the second one
-        .public_inputs = {},
-        .block_constraints = { block_constraint },
-        .original_opcode_indices = AcirFormatOriginalOpcodeIndices{ .block_constraints = { { 0 } } },
-    };
+    AcirFormat constraint_system = constraint_to_acir_format(block_constraint);
+    // The block constraint creates 2 opcodes (MemoryInit + MemoryOp), but MemoryInit doesn't add gates, so we
+    // adjust num_acir_opcodes to track only the MemoryOp gates
+    constraint_system.num_acir_opcodes = 1;
+    constraint_system.original_opcode_indices = AcirFormatOriginalOpcodeIndices{ .block_constraints = { { 0 } } };
 
     AcirProgram program{ constraint_system, witness };
     const ProgramMetadata metadata{ .collect_gates_per_opcode = true };
     auto builder = create_circuit<TypeParam>(program, metadata);
-};
+
+    EXPECT_EQ(program.constraints.gates_per_opcode, std::vector<size_t>({ BLOCK_RAM_READ<TypeParam> }));
+}
 
 TYPED_TEST(OpcodeGateCountTests, BlockRamWrite)
 {
@@ -633,8 +538,8 @@ TYPED_TEST(OpcodeGateCountTests, BlockRamWrite)
     std::vector<MemOp> trace;
     trace.push_back(MemOp{
         .access_type = AccessType::Write,
-        .index = WitnessOrConstant<bb::fr>::from_index(2), // 0
-        .value = WitnessOrConstant<bb::fr>::from_index(3), // 10
+        .index = 2, // 0
+        .value = 3, // 10
     });
 
     BlockConstraint block_constraint{
@@ -644,14 +549,11 @@ TYPED_TEST(OpcodeGateCountTests, BlockRamWrite)
         .calldata_id = CallDataType::None,
     };
 
-    AcirFormat constraint_system{
-        .max_witness_index = static_cast<uint32_t>(witness.size()) - 1,
-        .num_acir_opcodes = 1, // The block constraint creates 2 opcodes, but the first one doesn't add any gate, so we
-                               // set num_acir_opcodes to 1 to track only the contribution from the second one
-        .public_inputs = {},
-        .block_constraints = { block_constraint },
-        .original_opcode_indices = AcirFormatOriginalOpcodeIndices{ .block_constraints = { { 0 } } },
-    };
+    AcirFormat constraint_system = constraint_to_acir_format(block_constraint);
+    // The block constraint creates 2 opcodes (MemoryInit + MemoryOp), but MemoryInit doesn't add gates, so we
+    // adjust num_acir_opcodes to track only the MemoryOp gates
+    constraint_system.num_acir_opcodes = 1;
+    constraint_system.original_opcode_indices = AcirFormatOriginalOpcodeIndices{ .block_constraints = { { 0 } } };
 
     AcirProgram program{ constraint_system, witness };
     const ProgramMetadata metadata{ .collect_gates_per_opcode = true };
@@ -676,27 +578,24 @@ TYPED_TEST(OpcodeGateCountTests, BlockCallData)
     std::vector<MemOp> trace;
     trace.push_back(MemOp{
         .access_type = AccessType::Read,
-        .index = WitnessOrConstant<bb::fr>::from_index(2), // 0
-        .value = WitnessOrConstant<bb::fr>::from_index(3), // 10
+        .index = 2, // 0
+        .value = 3, // 10
     });
 
-    // Primary calldata
+    // Kernel calldata
     {
         BlockConstraint block_constraint{
             .init = init,
             .trace = trace,
             .type = BlockType::CallData,
-            .calldata_id = CallDataType::Primary,
+            .calldata_id = CallDataType::KernelCalldata,
         };
 
-        AcirFormat constraint_system{
-            .max_witness_index = static_cast<uint32_t>(witness.size()) - 1,
-            .num_acir_opcodes = 1, // The block constraint creates 2 opcodes, but the first one doesn't add any gate, so
-                                   // we set num_acir_opcodes to 1 to track only the contribution from the second one
-            .public_inputs = {},
-            .block_constraints = { block_constraint },
-            .original_opcode_indices = AcirFormatOriginalOpcodeIndices{ .block_constraints = { { 0 } } },
-        };
+        AcirFormat constraint_system = constraint_to_acir_format(block_constraint);
+        // The block constraint creates 2 opcodes (MemoryInit + MemoryOp), but MemoryInit doesn't add gates, so we
+        // adjust num_acir_opcodes to track only the MemoryOp gates
+        constraint_system.num_acir_opcodes = 1;
+        constraint_system.original_opcode_indices = AcirFormatOriginalOpcodeIndices{ .block_constraints = { { 0 } } };
 
         AcirProgram program{ constraint_system, witness };
         const ProgramMetadata metadata{ .collect_gates_per_opcode = true };
@@ -705,23 +604,20 @@ TYPED_TEST(OpcodeGateCountTests, BlockCallData)
         EXPECT_EQ(program.constraints.gates_per_opcode, std::vector<size_t>({ BLOCK_CALLDATA<TypeParam> }));
     }
 
-    // Secondary calldata
+    // App calldata
     {
         BlockConstraint block_constraint{
             .init = init,
             .trace = trace,
             .type = BlockType::CallData,
-            .calldata_id = CallDataType::Secondary,
+            .calldata_id = CallDataType::FirstAppCalldata,
         };
 
-        AcirFormat constraint_system{
-            .max_witness_index = static_cast<uint32_t>(witness.size()) - 1,
-            .num_acir_opcodes = 1, // The block constraint creates 2 opcodes, but the first one doesn't add any gate, so
-                                   // we set num_acir_opcodes to 1 to track only the contribution from the second one
-            .public_inputs = {},
-            .block_constraints = { block_constraint },
-            .original_opcode_indices = AcirFormatOriginalOpcodeIndices{ .block_constraints = { { 0 } } },
-        };
+        AcirFormat constraint_system = constraint_to_acir_format(block_constraint);
+        // The block constraint creates 2 opcodes (MemoryInit + MemoryOp), but MemoryInit doesn't add gates, so we
+        // adjust num_acir_opcodes to track only the MemoryOp gates
+        constraint_system.num_acir_opcodes = 1;
+        constraint_system.original_opcode_indices = AcirFormatOriginalOpcodeIndices{ .block_constraints = { { 0 } } };
 
         AcirProgram program{ constraint_system, witness };
         const ProgramMetadata metadata{ .collect_gates_per_opcode = true };
@@ -751,14 +647,11 @@ TYPED_TEST(OpcodeGateCountTests, BlockReturnData)
         .calldata_id = CallDataType::None,
     };
 
-    AcirFormat constraint_system{
-        .max_witness_index = static_cast<uint32_t>(witness.size()) - 1,
-        .num_acir_opcodes = 1, // The block constraint creates 2 opcodes, but the first one doesn't add any gate, so we
-                               // set num_acir_opcodes to 1 to track only the contribution from the second one
-        .public_inputs = {},
-        .block_constraints = { block_constraint },
-        .original_opcode_indices = AcirFormatOriginalOpcodeIndices{ .block_constraints = { { 0 } } },
-    };
+    AcirFormat constraint_system = constraint_to_acir_format(block_constraint);
+    // The block constraint creates 2 opcodes (MemoryInit + MemoryOp), but MemoryInit doesn't add gates, so we
+    // adjust num_acir_opcodes to track only the MemoryOp gates
+    constraint_system.num_acir_opcodes = 1;
+    constraint_system.original_opcode_indices = AcirFormatOriginalOpcodeIndices{ .block_constraints = { { 0 } } };
 
     AcirProgram program{ constraint_system, witness };
     const ProgramMetadata metadata{
@@ -767,5 +660,5 @@ TYPED_TEST(OpcodeGateCountTests, BlockReturnData)
        // by zero, and this would throw an error.
     auto builder = create_circuit<TypeParam>(program, metadata);
 
-    EXPECT_EQ(builder.get_num_finalized_gates_inefficient(/*ensure_nonzero=*/false), BLOCK_RETURNDATA<TypeParam>);
+    EXPECT_EQ(builder.get_num_finalized_gates_inefficient(), BLOCK_RETURNDATA<TypeParam>);
 }

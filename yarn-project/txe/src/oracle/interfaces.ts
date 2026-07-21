@@ -1,11 +1,14 @@
-import type { ContractArtifact } from '@aztec/aztec.js/abi';
 import { CompleteAddress } from '@aztec/aztec.js/addresses';
-import type { ContractInstanceWithAddress } from '@aztec/aztec.js/contracts';
 import { TxHash } from '@aztec/aztec.js/tx';
 import { BlockNumber } from '@aztec/foundation/branded-types';
 import type { Fr } from '@aztec/foundation/curves/bn254';
+import type { EthAddress } from '@aztec/foundation/eth-address';
+import type { TaggingSecretStrategy } from '@aztec/pxe/server';
+import type { Option } from '@aztec/pxe/simulator';
 import type { EventSelector, FunctionSelector } from '@aztec/stdlib/abi';
 import type { AztecAddress } from '@aztec/stdlib/aztec-address';
+import type { GasSettings } from '@aztec/stdlib/gas';
+import type { PrivateLog } from '@aztec/stdlib/logs';
 import type { UInt64 } from '@aztec/stdlib/types';
 
 // These interfaces complement the ones defined in PXE, and combined with those contain the full list of oracles used by
@@ -24,18 +27,27 @@ import type { UInt64 } from '@aztec/stdlib/types';
 export interface IAvmExecutionOracle {
   isAvm: true;
 
-  avmOpcodeAddress(): Promise<AztecAddress>;
-  avmOpcodeSender(): Promise<AztecAddress>;
-  avmOpcodeBlockNumber(): Promise<BlockNumber>;
-  avmOpcodeTimestamp(): Promise<bigint>;
-  avmOpcodeIsStaticCall(): Promise<boolean>;
-  avmOpcodeChainId(): Promise<Fr>;
-  avmOpcodeVersion(): Promise<Fr>;
-  avmOpcodeEmitNullifier(nullifier: Fr): Promise<void>;
-  avmOpcodeEmitNoteHash(noteHash: Fr): Promise<void>;
-  avmOpcodeNullifierExists(siloedNullifier: Fr): Promise<boolean>;
-  avmOpcodeStorageWrite(slot: Fr, value: Fr): Promise<void>;
-  avmOpcodeStorageRead(slot: Fr, contractAddress: AztecAddress): Promise<Fr>;
+  address(): Promise<AztecAddress>;
+  sender(): Promise<AztecAddress>;
+  blockNumber(): Promise<BlockNumber>;
+  timestamp(): Promise<bigint>;
+  isStaticCall(): Promise<boolean>;
+  chainId(): Promise<Fr>;
+  version(): Promise<Fr>;
+  emitNullifier(nullifier: Fr): Promise<void>;
+  emitNoteHash(noteHash: Fr): Promise<void>;
+  nullifierExists(siloedNullifier: Fr): Promise<boolean>;
+  storageWrite(slot: Fr, value: Fr): Promise<void>;
+  storageRead(slot: Fr, contractAddress: AztecAddress): Promise<Fr>;
+  getContractInstanceDeployer(address: AztecAddress): Promise<{ member: Fr; exists: boolean }[]>;
+  getContractInstanceClassId(address: AztecAddress): Promise<{ member: Fr; exists: boolean }[]>;
+  getContractInstanceInitializationHash(address: AztecAddress): Promise<{ member: Fr; exists: boolean }[]>;
+  getContractInstanceImmutablesHash(address: AztecAddress): Promise<{ member: Fr; exists: boolean }[]>;
+  returndataSize(): Promise<number>;
+  returndataCopy(rdOffset: number, copySize: number): Promise<Fr[]>;
+  call(l2Gas: number, daGas: number, address: AztecAddress, argsLength: number, args: Fr[]): Promise<void>;
+  staticCall(l2Gas: number, daGas: number, address: AztecAddress, argsLength: number, args: Fr[]): Promise<void>;
+  successCopy(): Promise<boolean>;
 }
 
 /**
@@ -44,43 +56,60 @@ export interface IAvmExecutionOracle {
 export interface ITxeExecutionOracle {
   isTxe: true;
 
-  txeGetDefaultAddress(): AztecAddress;
-  txeGetNextBlockNumber(): Promise<BlockNumber>;
-  txeGetNextBlockTimestamp(): Promise<UInt64>;
-  txeAdvanceBlocksBy(blocks: number): Promise<void>;
-  txeAdvanceTimestampBy(duration: UInt64): void;
-  txeDeploy(artifact: ContractArtifact, instance: ContractInstanceWithAddress, foreignSecret: Fr): Promise<void>;
-  txeCreateAccount(secret: Fr): Promise<CompleteAddress>;
-  txeAddAccount(
-    artifact: ContractArtifact,
-    instance: ContractInstanceWithAddress,
+  getDefaultAddress(): AztecAddress;
+  getNextBlockNumber(): Promise<BlockNumber>;
+  getNextBlockTimestamp(): Promise<UInt64>;
+  advanceBlocksBy(blocks: number): Promise<void>;
+  advanceTimestampBy(duration: UInt64): void;
+  deploy(
+    contractPath: string,
+    initializer: string,
+    args: Fr[],
     secret: Fr,
-  ): Promise<CompleteAddress>;
-  txeAddAuthWitness(address: AztecAddress, messageHash: Fr): Promise<void>;
-  txeGetLastBlockTimestamp(): Promise<bigint>;
-  txeGetLastTxEffects(): Promise<{
+    salt: Fr,
+    deployer: AztecAddress,
+  ): Promise<Fr[]>;
+  createAccount(secret: Fr): Promise<CompleteAddress>;
+  addAccount(secret: Fr): Promise<CompleteAddress>;
+  addAuthWitness(address: AztecAddress, messageHash: Fr): Promise<void>;
+  sendL1ToL2Message(content: Fr, secretHash: Fr, sender: EthAddress, recipient: AztecAddress): Promise<Fr>;
+  setTaggingSecretStrategy(strategy: Option<TaggingSecretStrategy>): void;
+  getLastBlockTimestamp(): Promise<bigint>;
+  getLastTxEffects(): Promise<{
     txHash: TxHash;
     noteHashes: Fr[];
     nullifiers: Fr[];
+    privateLogs: PrivateLog[];
   }>;
-  txeGetPrivateEvents(selector: EventSelector, contractAddress: AztecAddress, scope: AztecAddress): Promise<Fr[][]>;
-  txePrivateCallNewFlow(
-    from: AztecAddress,
+  getPrivateEvents(selector: EventSelector, contractAddress: AztecAddress, scope: AztecAddress): Promise<Fr[][]>;
+  privateCallNewFlow(
+    from: AztecAddress | undefined,
     targetContractAddress: AztecAddress,
     functionSelector: FunctionSelector,
     args: Fr[],
     argsHash: Fr,
     isStaticCall: boolean,
-  ): Promise<Fr[]>;
-  txeSimulateUtilityFunction(
+    additionalScopes: AztecAddress[],
+    jobId: string,
+    authorizedUtilityCallTargets: AztecAddress[],
+    gasSettings: GasSettings,
+  ): Promise<{ returnValues: Fr[]; offchainEffects: Fr[][] }>;
+  executeUtilityFunction(
+    from: AztecAddress | undefined,
     targetContractAddress: AztecAddress,
     functionSelector: FunctionSelector,
     args: Fr[],
+    jobId: string,
+    authorizedUtilityCallTargets: AztecAddress[],
   ): Promise<Fr[]>;
-  txePublicCallNewFlow(
-    from: AztecAddress,
+  publicCallNewFlow(
+    from: AztecAddress | undefined,
     targetContractAddress: AztecAddress,
     calldata: Fr[],
     isStaticCall: boolean,
+    gasSettings: GasSettings,
   ): Promise<Fr[]>;
+  // TODO(F-335): Drop this from here as it's not a real oracle handler - it's only called from
+  // RPCTranslator::txeGetPrivateEvents and never from Noir.
+  syncContractNonOracleMethod(contractAddress: AztecAddress, scope: AztecAddress, jobId: string): Promise<void>;
 }

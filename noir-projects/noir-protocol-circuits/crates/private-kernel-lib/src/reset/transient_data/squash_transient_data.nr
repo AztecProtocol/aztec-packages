@@ -1,8 +1,10 @@
 use crate::reset::transient_data::{
-    derived_hints::get_num_active_squashing_hints,
+    derived_hints::{
+        build_note_hash_squash_flags, build_nullifier_squash_flags, get_num_active_squashing_hints,
+    },
     transient_data_squashing_hint::TransientDataSquashingHint,
 };
-use dep::types::{
+use types::{
     abis::{note_hash::NoteHash, nullifier::Nullifier, private_log::PrivateLogData},
     side_effect::{Counted, Ordered, Scoped},
     traits::Empty,
@@ -65,17 +67,15 @@ pub unconstrained fn squash_transient_data<let NoteHashesLen: u32, let Nullifier
     //     - log:               [ l0,  l3,  l4,  l5,  l6,  l7 |  0  0]
     //
 
-    // Create a flag for each note_hash and nullifier, indicating whether it is squashed.
-    let mut note_hash_squash_flags = [false; NoteHashesLen];
-    let mut nullifier_squash_flags = [false; NullifiersLen];
-
+    // Get the number of hints that are actually used to squash note hashes and nullifiers.
     let num_active_squashing_hints =
         get_num_active_squashing_hints(transient_data_squashing_hints, previous_kernel_nullifiers);
-    for i in 0..num_active_squashing_hints {
-        let hint = transient_data_squashing_hints[i];
-        note_hash_squash_flags[hint.note_hash_index] = true;
-        nullifier_squash_flags[hint.nullifier_index] = true;
-    }
+
+    // Get the arrays of flags for note_hashes and nullifiers, indicating whether they are squashed.
+    let note_hash_squash_flags: [bool; NoteHashesLen] =
+        build_note_hash_squash_flags(transient_data_squashing_hints, num_active_squashing_hints);
+    let nullifier_squash_flags: [bool; NullifiersLen] =
+        build_nullifier_squash_flags(transient_data_squashing_hints, num_active_squashing_hints);
 
     // Propagate note hashes that are not squashed:
     let mut kept_note_hashes = ClaimedLengthArray::empty();
@@ -120,11 +120,8 @@ pub unconstrained fn squash_transient_data<let NoteHashesLen: u32, let Nullifier
 mod tests {
     use crate::reset::transient_data::tests::{mock_log, TransientDataFixtureBuilder};
     use super::squash_transient_data;
-    use dep::types::{
-        abis::{nullifier::Nullifier, private_log::PrivateLogData},
-        side_effect::Counted,
-        tests::utils::assert_array_eq,
-    };
+    use protocol_test_utils::assert_array_eq;
+    use types::{abis::{nullifier::Nullifier, private_log::PrivateLogData}, side_effect::Counted};
 
     #[test]
     unconstrained fn squash_transient_data_squash_some() {

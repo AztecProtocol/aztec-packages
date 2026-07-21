@@ -195,6 +195,9 @@ describe('ConnectionSampler', () => {
 
   describe('samplePeersBatch', () => {
     beforeEach(async () => {
+      // Stop the sampler created by the outer beforeEach before replacing it.
+      await sampler.stop();
+
       // Create test peers
       peers = await Promise.all(new Array(5).fill(0).map(() => createSecp256k1PeerId()));
 

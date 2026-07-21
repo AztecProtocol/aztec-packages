@@ -8,8 +8,16 @@
 #include "barretenberg/commitment_schemes/claim.hpp"
 #include "barretenberg/commitment_schemes/commitment_key.hpp"
 #include "barretenberg/commitment_schemes/shplonk/shplemini.hpp"
+#include "barretenberg/commitment_schemes/shplonk/sparse_masking_poly.hpp"
 #include "barretenberg/commitment_schemes/small_subgroup_ipa/small_subgroup_ipa.hpp"
 #include "barretenberg/honk/library/grand_product_library.hpp"
+#include "barretenberg/numeric/bitop/get_msb.hpp"
+#include "barretenberg/relations/translator_vm/translator_decomposition_short_relation_impl.hpp"
+#include "barretenberg/relations/translator_vm/translator_delta_range_constraint_short_relation_impl.hpp"
+#include "barretenberg/relations/translator_vm/translator_extra_short_relations_impl.hpp"
+#include "barretenberg/relations/translator_vm/translator_non_native_field_short_relation_impl.hpp"
+#include "barretenberg/relations/translator_vm/translator_permutation_short_relation_impl.hpp"
+#include "barretenberg/relations/translator_vm/translator_shiftable_first_coeff_zero_short_relation_impl.hpp"
 #include "barretenberg/sumcheck/sumcheck.hpp"
 
 namespace bb {
@@ -20,9 +28,7 @@ TranslatorProver::TranslatorProver(const std::shared_ptr<TranslatorProvingKey>& 
     , key(key)
 {
     BB_BENCH();
-    if (!key->proving_key->commitment_key.initialized()) {
-        key->proving_key->commitment_key = CommitmentKey(key->proving_key->circuit_size);
-    }
+    key->proving_key->commitment_key = CommitmentKey(key->proving_key->circuit_size);
 }
 
 /**
@@ -32,7 +38,7 @@ TranslatorProver::TranslatorProver(const std::shared_ptr<TranslatorProvingKey>& 
 void TranslatorProver::execute_preamble_round()
 {
     // Fiat-Shamir the vk hash
-    Flavor::VerificationKey vk;
+    typename Flavor::VerificationKey vk;
     typename Flavor::FF vk_hash = vk.get_hash();
     transcript->add_to_hash_buffer("vk_hash", vk_hash);
     vinfo("Translator vk hash in prover: ", vk_hash);
@@ -53,9 +59,11 @@ void TranslatorProver::execute_preamble_round()
  * @param polynomial
  * @param label
  */
-void TranslatorProver::commit_to_witness_polynomial(Polynomial& polynomial, const std::string& label)
+void TranslatorProver::commit_to_witness_polynomial(Polynomial& polynomial,
+                                                    const std::string& label,
+                                                    bool has_duplicates_hint)
 {
-    transcript->send_to_verifier(label, key->proving_key->commitment_key.commit(polynomial));
+    transcript->send_to_verifier(label, key->proving_key->commitment_key.commit(polynomial, has_duplicates_hint));
 }
 
 /**
@@ -66,11 +74,16 @@ void TranslatorProver::execute_wire_and_sorted_constraints_commitments_round()
 {
     BB_BENCH_NAME("TranslatorProver::execute_wire_and_sorted_constraints_commitments_round");
 
-    // Create and commit to Gemini masking polynomial (for ZK-PCS)
+    // Sparse 2d-coefficient Gemini masking polynomial on the tail-halving support.
+    // See SHPLEMINI_ZK_MASKING.md for the rank / ZK argument.
     const size_t circuit_size = key->proving_key->circuit_size;
-    key->proving_key->polynomials.gemini_masking_poly = Polynomial::random(circuit_size);
-    auto masking_commitment =
-        key->proving_key->commitment_key.commit(key->proving_key->polynomials.gemini_masking_poly);
+    const size_t d = numeric::get_msb(circuit_size);
+    key->proving_key->polynomials.gemini_masking_poly = build_gemini_masking_poly<FF>(d, circuit_size, circuit_size);
+    Flavor::Commitment masking_commitment;
+    {
+        BB_BENCH_NAME("Translator::commit_masking_poly_msm");
+        masking_commitment = key->proving_key->commitment_key.commit(key->proving_key->polynomials.gemini_masking_poly);
+    }
     transcript->send_to_verifier("Gemini:masking_poly_comm", masking_commitment);
 
     // Commit to non-op-queue wires and ordered range constraints
@@ -80,7 +93,7 @@ void TranslatorProver::execute_wire_and_sorted_constraints_commitments_round()
     for (const auto& [wire, label] :
          zip_view(key->proving_key->polynomials.get_non_opqueue_wires_and_ordered_range_constraints(),
                   commitment_labels.get_non_opqueue_wires_and_ordered_range_constraints())) {
-        batch.add_to_batch(wire, label, /*mask for zk?*/ false);
+        batch.add_to_batch(wire, label);
     }
     batch.commit_and_send_to_verifier(transcript);
 }
@@ -126,7 +139,8 @@ void TranslatorProver::execute_grand_product_computation_round()
     // Compute constraint permutation grand product
     compute_grand_products<Flavor>(key->proving_key->polynomials, relation_parameters);
 
-    commit_to_witness_polynomial(key->proving_key->polynomials.z_perm, commitment_labels.z_perm);
+    // set has_duplicates_hint for Z_PERM (empty row = duplicate Z value)
+    commit_to_witness_polynomial(key->proving_key->polynomials.z_perm, commitment_labels.z_perm, true);
 }
 
 /**
@@ -141,10 +155,8 @@ void TranslatorProver::execute_relation_check_rounds()
     //  i = 0, ..., NUM_SUBRELATIONS- 1.
     const FF alpha = transcript->template get_challenge<FF>("Sumcheck:alpha");
 
-    std::vector<FF> gate_challenges(Flavor::CONST_TRANSLATOR_LOG_N);
-    for (size_t idx = 0; idx < gate_challenges.size(); idx++) {
-        gate_challenges[idx] = transcript->template get_challenge<FF>("Sumcheck:gate_challenge_" + std::to_string(idx));
-    }
+    std::vector<FF> gate_challenges = transcript->template get_dyadic_powers_of_challenge<FF>(
+        "Sumcheck:gate_challenge", Flavor::CONST_TRANSLATOR_LOG_N);
 
     const size_t circuit_size = key->proving_key->circuit_size;
 
@@ -180,21 +192,18 @@ void TranslatorProver::execute_pcs_rounds()
     using SmallSubgroupIPA = SmallSubgroupIPAProver<Flavor>;
     using PolynomialBatcher = GeminiProver_<Curve>::PolynomialBatcher;
 
-    // Check whether the commitment key has been deallocated and reinitialize it if necessary
     auto& ck = key->proving_key->commitment_key;
-    if (!ck.initialized()) {
-        ck = CommitmentKey(key->proving_key->circuit_size);
-    }
 
     SmallSubgroupIPA small_subgroup_ipa_prover(
         zk_sumcheck_data, sumcheck_output.challenge, sumcheck_output.claimed_libra_evaluation, transcript, ck);
     small_subgroup_ipa_prover.prove();
 
     PolynomialBatcher polynomial_batcher(key->proving_key->circuit_size);
-    polynomial_batcher.set_unshifted(key->proving_key->polynomials.get_unshifted_without_interleaved());
-    polynomial_batcher.set_to_be_shifted_by_one(key->proving_key->polynomials.get_to_be_shifted());
-    polynomial_batcher.set_interleaved(key->proving_key->polynomials.get_interleaved(),
-                                       key->proving_key->polynomials.get_groups_to_be_interleaved());
+
+    // Unshifted for PCS (excludes computable precomputed — verifier computes them locally)
+    polynomial_batcher.set_unshifted(key->proving_key->polynomials.get_pcs_unshifted());
+    // Shifted for PCS (base to-be-shifted + concatenated)
+    polynomial_batcher.set_to_be_shifted_by_one(key->proving_key->polynomials.get_pcs_to_be_shifted());
 
     const OpeningClaim prover_opening_claim =
         ShpleminiProver_<Curve>::prove(key->proving_key->circuit_size,
@@ -225,11 +234,6 @@ HonkProof TranslatorProver::construct_proof()
     // Fiat-Shamir: gamma
     // Compute grand product(s) and commitments.
     execute_grand_product_computation_round();
-
-    // #ifndef __wasm__
-    // Free the commitment key
-    key->proving_key->commitment_key = CommitmentKey();
-    // #endif
 
     // Fiat-Shamir: alpha
     // Run sumcheck subprotocol.

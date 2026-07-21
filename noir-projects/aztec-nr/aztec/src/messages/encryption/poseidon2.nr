@@ -1,7 +1,7 @@
 use std::hash::poseidon2_permutation;
 use std::option::Option;
 
-use crate::protocol::point::Point;
+use crate::protocol::point::EmbeddedCurvePoint;
 
 global TWO_POW_128: Field = 0x100000000000000000000000000000000;
 
@@ -27,7 +27,7 @@ global TWO_POW_128: Field = 0x100000000000000000000000000000000;
 /// @param encryption_nonce is only needed if your use case needs to protect against replay attacks.
 pub fn poseidon2_encrypt<let L: u32>(
     msg: [Field; L],
-    shared_secret: Point,
+    shared_secret: EmbeddedCurvePoint,
     encryption_nonce: Field,
 ) -> [Field; ((L + 2) / 3) * 3 + 1] {
     // TODO: assert(encryption_nonce < 2^128), assert(L < 2^120);
@@ -53,7 +53,7 @@ pub fn poseidon2_encrypt<let L: u32>(
     }
 
     for i in 0..CEIL {
-        s = poseidon2_permutation(s, 4);
+        s = poseidon2_permutation(s);
 
         // Absorb 3 elements of the message:
         let j = 3 * i;
@@ -68,7 +68,7 @@ pub fn poseidon2_encrypt<let L: u32>(
     }
 
     // Iterate Poseidon2 on the state, one last time:
-    s = poseidon2_permutation(s, 4);
+    s = poseidon2_permutation(s);
 
     // Release the last ciphertext element:
     c[L_UPPER_BOUND] = s[1];
@@ -78,7 +78,7 @@ pub fn poseidon2_encrypt<let L: u32>(
 
 pub fn poseidon2_decrypt<let L: u32>(
     ciphertext: [Field; ((L + 3 - 1) / 3) * 3 + 1],
-    shared_secret: Point,
+    shared_secret: EmbeddedCurvePoint,
     encryption_nonce: Field,
 ) -> Option<[Field; L]> {
     let mut s = [0, shared_secret.x, shared_secret.y, encryption_nonce + (L as Field) * TWO_POW_128];
@@ -91,7 +91,7 @@ pub fn poseidon2_decrypt<let L: u32>(
     let c = ciphertext;
 
     for i in 0..CEIL {
-        s = poseidon2_permutation(s, 4);
+        s = poseidon2_permutation(s);
 
         // Release 3 elements of message:
         let j = 3 * i;
@@ -108,7 +108,7 @@ pub fn poseidon2_decrypt<let L: u32>(
     }
 
     // Iterate Poseidon2 on the state, one last time:
-    s = poseidon2_permutation(s, 4);
+    s = poseidon2_permutation(s);
 
     let mut msg: [Field; L] = [0; L];
     for i in 0..L {

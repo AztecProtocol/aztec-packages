@@ -48,7 +48,7 @@ export function createBlobClient(config?: BlobClientConfig, deps?: CreateBlobCli
 export interface BlobClientWithFileStoresConfig extends BlobClientConfig {
   l1ChainId: number;
   rollupVersion: number;
-  l1Contracts: { rollupAddress: { toString(): string } };
+  rollupAddress: { toString(): string };
 }
 
 /**
@@ -73,11 +73,18 @@ export async function createBlobClientWithFileStores(
   const fileStoreMetadata: BlobFileStoreMetadata = {
     l1ChainId: config.l1ChainId,
     rollupVersion: config.rollupVersion,
-    rollupAddress: config.l1Contracts.rollupAddress.toString(),
+    rollupAddress: config.rollupAddress.toString(),
+  };
+
+  // Disable internal retries for blob file stores — retry logic is handled by HttpBlobClient.
+  // Set a configurable timeout (default 10s) to avoid hanging on slow stores.
+  const httpOptions = {
+    retryBackoff: [] as number[],
+    timeoutMs: config.blobFileStoreTimeoutMs ?? 10_000,
   };
 
   const [fileStoreClients, fileStoreUploadClient] = await Promise.all([
-    createReadOnlyFileStoreBlobClients(config.blobFileStoreUrls, fileStoreMetadata, log),
+    createReadOnlyFileStoreBlobClients(config.blobFileStoreUrls, fileStoreMetadata, log, httpOptions),
     createWritableFileStoreBlobClient(config.blobFileStoreUploadUrl, fileStoreMetadata, log),
   ]);
 

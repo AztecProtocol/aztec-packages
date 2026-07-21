@@ -25,7 +25,7 @@ template <> struct curve_for_element<fr, fq, grumpkin::G1Params> {
 template <class Fq, class Fr, class Params>
 affine_element<Fq, Fr, Params> affine_element<Fq, Fr, Params>::batch_mul(
     std::span<const affine_element<Fq, Fr, Params>> points,
-    std::span<const Fr> scalars,
+    std::span<Fr> scalars,
     [[maybe_unused]] size_t max_num_bits,
     bool with_edgecases,
     [[maybe_unused]] const Fr& masking_scalar) noexcept
@@ -42,14 +42,14 @@ affine_element<Fq, Fr, Params> affine_element<Fq, Fr, Params>::batch_mul(
 // Explicit instantiations for supported curves
 template affine_element<fq, fr, Bn254G1Params> affine_element<fq, fr, Bn254G1Params>::batch_mul(
     std::span<const affine_element<fq, fr, Bn254G1Params>> points,
-    std::span<const fr> scalars,
+    std::span<fr> scalars,
     size_t max_num_bits,
     bool with_edgecases,
     const fr& masking_scalar) noexcept;
 
 template affine_element<fr, fq, grumpkin::G1Params> affine_element<fr, fq, grumpkin::G1Params>::batch_mul(
     std::span<const affine_element<fr, fq, grumpkin::G1Params>> points,
-    std::span<const fq> scalars,
+    std::span<fq> scalars,
     size_t max_num_bits,
     bool with_edgecases,
     const fq& masking_scalar) noexcept;

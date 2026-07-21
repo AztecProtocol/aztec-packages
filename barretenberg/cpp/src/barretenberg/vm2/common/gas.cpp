@@ -2,8 +2,8 @@
 
 #include <cstddef>
 
+#include "barretenberg/aztec/aztec_constants.hpp"
 #include "barretenberg/vm2/common/addressing.hpp"
-#include "barretenberg/vm2/common/aztec_constants.hpp"
 
 namespace bb::avm2 {
 

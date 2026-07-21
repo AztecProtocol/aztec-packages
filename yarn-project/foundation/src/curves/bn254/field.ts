@@ -6,9 +6,7 @@ import { toBigIntBE, toBufferBE } from '../../bigint-buffer/index.js';
 import { randomBytes } from '../../crypto/random/index.js';
 import { hexSchemaFor } from '../../schemas/utils.js';
 import { BufferReader } from '../../serialize/buffer_reader.js';
-import { TypeRegistry } from '../../serialize/type_registry.js';
-
-/* eslint-disable @typescript-eslint/no-unsafe-declaration-merging */
+import type { BufferSink } from '../../serialize/buffer_sink.js';
 
 /**
  * Represents a field derived from BaseField.
@@ -67,10 +65,16 @@ abstract class BaseField {
   protected abstract modulus(): bigint;
 
   /**
-   * Converts the bigint to a Buffer.
+   * Converts the bigint to a Buffer. With a sink, streams the 32 big-endian bytes straight in (no allocation)
+   * and returns undefined; without one, returns a freshly allocated buffer.
    */
-  toBuffer(): Buffer {
-    return toBufferBE(this.asBigInt, 32);
+  toBuffer(): Buffer;
+  toBuffer(sink: BufferSink): void;
+  toBuffer(sink?: BufferSink): Buffer | void {
+    if (!sink) {
+      return toBufferBE(this.asBigInt, BaseField.SIZE_IN_BYTES);
+    }
+    sink.writeField(this.asBigInt);
   }
 
   toString(): `0x${string}` {
@@ -118,12 +122,16 @@ abstract class BaseField {
   }
 
   cmp(rhs: BaseField): -1 | 0 | 1 {
-    const rhsBigInt = rhs.asBigInt;
-    return this.asBigInt === rhsBigInt ? 0 : this.asBigInt < rhsBigInt ? -1 : 1;
+    return BaseField.cmpAsBigInt(this.asBigInt, rhs.asBigInt);
   }
 
   static cmp(lhs: BaseField, rhs: BaseField): -1 | 0 | 1 {
     return lhs.cmp(rhs);
+  }
+
+  // Actual bigint comparison. Arguments must have been validated previously.
+  static cmpAsBigInt(lhs: bigint, rhs: bigint): -1 | 0 | 1 {
+    return lhs === rhs ? 0 : lhs < rhs ? -1 : 1;
   }
 
   isZero(): boolean {
@@ -183,10 +191,25 @@ function fromHexString<T extends BaseField>(buf: string, f: DerivedField<T>) {
   return new f(toBigIntBE(buffer));
 }
 
-/** Branding to ensure fields are not interchangeable types. */
-export interface Fr {
-  /** Brand. */
-  _branding: 'Fr';
+/**
+ * Abstract unbranded base class for BN254 scalar field elements.
+ * Extend this instead of Fr when defining a branded subtype (e.g. BlockHash)
+ * to avoid inheriting Fr's `_branding`.
+ */
+export abstract class BaseFr extends BaseField {
+  static MODULUS = 0x30644e72e131a029b85045b68181585d2833e84879b9709143e1f593f0000001n;
+
+  constructor(value: number | bigint | boolean | BaseField | Buffer) {
+    super(value);
+  }
+
+  protected modulus() {
+    return BaseFr.MODULUS;
+  }
+
+  toJSON() {
+    return this.toString();
+  }
 }
 
 /**
@@ -194,10 +217,12 @@ export interface Fr {
  * @dev This class is used to represent elements of BN254 scalar field or elements in the base field of Grumpkin.
  * (Grumpkin's scalar field corresponds to BN254's base field and vice versa.)
  */
-export class Fr extends BaseField {
+export class Fr extends BaseFr {
+  /** Branding for nominal typing. */
+  declare private readonly _branding: 'Fr';
+  static override MODULUS = 0x30644e72e131a029b85045b68181585d2833e84879b9709143e1f593f0000001n;
   static ZERO = new Fr(0n);
   static ONE = new Fr(1n);
-  static MODULUS = 0x30644e72e131a029b85045b68181585d2833e84879b9709143e1f593f0000001n;
   static MAX_FIELD_VALUE = new Fr(this.MODULUS - 1n);
 
   constructor(value: number | bigint | boolean | Fr | Buffer) {
@@ -206,10 +231,6 @@ export class Fr extends BaseField {
 
   [inspect.custom]() {
     return `Fr<${this.toString()}>`;
-  }
-
-  protected modulus() {
-    return Fr.MODULUS;
   }
 
   static random() {
@@ -316,10 +337,6 @@ export class Fr extends BaseField {
     return Fr.fromBuffer(Buffer.from(response.value));
   }
 
-  toJSON() {
-    return this.toString();
-  }
-
   /**
    * Creates an Fr instance from a plain object without Zod validation.
    * This method is optimized for performance and skips validation, making it suitable
@@ -341,23 +358,14 @@ export class Fr extends BaseField {
   }
 }
 
-// For deserializing JSON.
-TypeRegistry.register('Fr', Fr);
-
-/**
- * Branding to ensure fields are not interchangeable types.
- */
-export interface Fq {
-  /** Brand. */
-  _branding: 'Fq';
-}
-
 /**
  * Fq field class.
  * @dev This class is used to represent elements of BN254 base field or elements in the scalar field of Grumpkin.
  * (Grumpkin's scalar field corresponds to BN254's base field and vice versa.)
  */
 export class Fq extends BaseField {
+  /** Branding for nominal typing. */
+  declare private readonly _branding: 'Fq';
   static ZERO = new Fq(0n);
   static MODULUS = 0x30644e72e131a029b85045b68181585d97816a916871ca8d3c208c16d87cfd47n;
   private static HIGH_SHIFT = BigInt((BaseField.SIZE_IN_BYTES / 2) * 8);
@@ -465,9 +473,6 @@ export class Fq extends BaseField {
     return hexSchemaFor(Fq);
   }
 }
-
-// For deserializing JSON.
-TypeRegistry.register('Fq', Fq);
 
 // Beware: Performance bottleneck below
 

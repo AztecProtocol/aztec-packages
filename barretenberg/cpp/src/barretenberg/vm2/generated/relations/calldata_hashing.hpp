@@ -3,7 +3,6 @@
 
 #include <string_view>
 
-#include "barretenberg/common/bb_bench.hpp"
 #include "barretenberg/relations/relation_parameters.hpp"
 #include "barretenberg/relations/relation_types.hpp"
 #include "barretenberg/vm2/generated/columns.hpp"
@@ -14,8 +13,8 @@ template <typename FF_> class calldata_hashingImpl {
   public:
     using FF = FF_;
 
-    static constexpr std::array<size_t, 24> SUBRELATION_PARTIAL_LENGTHS = { 3, 4, 3, 3, 3, 3, 3, 3, 3, 3, 3, 4,
-                                                                            3, 3, 3, 3, 4, 4, 4, 4, 5, 3, 3, 4 };
+    static constexpr std::array<size_t, 25> SUBRELATION_PARTIAL_LENGTHS = { 3, 3, 3, 3, 3, 3, 2, 3, 3, 3, 3, 3, 3,
+                                                                            3, 3, 3, 3, 3, 3, 3, 4, 4, 3, 3, 3 };
 
     template <typename AllEntities> inline static bool skip(const AllEntities& in)
     {
@@ -36,11 +35,11 @@ template <typename FF> class calldata_hashing : public Relation<calldata_hashing
     static constexpr const std::string_view NAME = "calldata_hashing";
 
     // Subrelation indices constants, to be used in tests.
-    static constexpr size_t SR_TRACE_CONTINUITY = 1;
-    static constexpr size_t SR_SEL_TOGGLED_AT_LATCH = 3;
-    static constexpr size_t SR_ID_CONSISTENCY = 4;
-    static constexpr size_t SR_SIZE_CONSISTENCY = 5;
-    static constexpr size_t SR_START_AFTER_LATCH = 8;
+    static constexpr size_t SR_SEL_ON_START_OR_END = 3;
+    static constexpr size_t SR_TRACE_CONTINUITY = 4;
+    static constexpr size_t SR_START_AFTER_LATCH = 5;
+    static constexpr size_t SR_ID_CONSISTENCY = 7;
+    static constexpr size_t SR_SIZE_CONSISTENCY = 8;
     static constexpr size_t SR_START_INDEX_IS_ZERO = 9;
     static constexpr size_t SR_START_IS_SEPARATOR = 10;
     static constexpr size_t SR_INDEX_INCREMENTS = 11;
@@ -51,23 +50,24 @@ template <typename FF> class calldata_hashing : public Relation<calldata_hashing
     static constexpr size_t SR_PADDING_CONSISTENCY = 18;
     static constexpr size_t SR_PADDING_END = 19;
     static constexpr size_t SR_CHECK_FINAL_INDEX = 20;
-    static constexpr size_t SR_HASH_CONSISTENCY = 21;
-    static constexpr size_t SR_CALLDATA_HASH_INPUT_LENGTH_FIELDS = 22;
-    static constexpr size_t SR_ROUNDS_DECREMENT = 23;
+    static constexpr size_t SR_HASH_CONSISTENCY = 22;
+    static constexpr size_t SR_CALLDATA_HASH_INPUT_LENGTH_FIELDS = 23;
+    static constexpr size_t SR_ROUNDS_DECREMENT = 24;
 
     static std::string get_subrelation_label(size_t index)
     {
+#ifdef AVM_INCLUDE_COLUMN_INFORMATION
         switch (index) {
+        case SR_SEL_ON_START_OR_END:
+            return "SEL_ON_START_OR_END";
         case SR_TRACE_CONTINUITY:
             return "TRACE_CONTINUITY";
-        case SR_SEL_TOGGLED_AT_LATCH:
-            return "SEL_TOGGLED_AT_LATCH";
+        case SR_START_AFTER_LATCH:
+            return "START_AFTER_LATCH";
         case SR_ID_CONSISTENCY:
             return "ID_CONSISTENCY";
         case SR_SIZE_CONSISTENCY:
             return "SIZE_CONSISTENCY";
-        case SR_START_AFTER_LATCH:
-            return "START_AFTER_LATCH";
         case SR_START_INDEX_IS_ZERO:
             return "START_INDEX_IS_ZERO";
         case SR_START_IS_SEPARATOR:
@@ -95,6 +95,7 @@ template <typename FF> class calldata_hashing : public Relation<calldata_hashing
         case SR_ROUNDS_DECREMENT:
             return "ROUNDS_DECREMENT";
         }
+#endif
         return std::to_string(index);
     }
 };

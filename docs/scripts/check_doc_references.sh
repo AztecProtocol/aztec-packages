@@ -1,14 +1,15 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-# check_doc_references - Request devrel review when referenced source files change
+# check_doc_references - Request devrel review and dispatch ClaudeBox when referenced source files change
 #
 # This script:
 # 1. Extracts all 'references' fields from documentation markdown frontmatter
 # 2. Checks if any referenced files were changed in the current PR
 # 3. Requests AztecProtocol/devrel team as reviewers if files changed and PR is not draft
-# 4. Sends a Slack message to #devrel-docs-updates showing which changed files are referenced by which docs
-# 5. Skips reviewer request if devrel team is already requested or a member has approved
+# 4. Sends a Slack message to #docs-alerts showing which changed files are referenced by which docs
+# 5. Dispatches ClaudeBox to analyze changes and update documentation
+# 6. Skips reviewer request if devrel team is already requested or a member has approved
 #
 # Usage: check_doc_references.sh [pr_number] [docs_dir]
 #
@@ -24,7 +25,7 @@ set -euo pipefail
 #   GITHUB_REF - May contain PR number in format refs/pull/123/merge
 #   GITHUB_BASE_REF - Base branch name (set by GitHub Actions)
 #   GITHUB_TOKEN - GitHub token for gh CLI (set by GitHub Actions)
-#   SLACK_BOT_TOKEN - Required for sending Slack messages
+#   AZTEC_FOUNDATION_CI_SLACK_BOT_TOKEN - Required for sending Slack messages (has #docs-alerts access)
 #   CI - Set to 1 in CI environment
 
 # Only run in CI environment to avoid accidental local execution
@@ -36,21 +37,21 @@ fi
 # Function to send Slack message
 send_slack_message() {
   local message=$1
-  if [[ -z "${SLACK_BOT_TOKEN:-}" ]]; then
-    echo "SLACK_BOT_TOKEN not set, skipping Slack notification"
+  if [[ -z "${AZTEC_FOUNDATION_CI_SLACK_BOT_TOKEN:-}" ]]; then
+    echo "AZTEC_FOUNDATION_CI_SLACK_BOT_TOKEN not set, skipping Slack notification"
     return 0
   fi
 
   local data=$(cat <<EOF
 {
-  "channel": "#devrel-docs-updates",
+  "channel": "#docs-alerts",
   "text": "$message"
 }
 EOF
 )
   local response
   if ! response=$(curl -s --fail-with-body -X POST https://slack.com/api/chat.postMessage \
-    -H "Authorization: Bearer $SLACK_BOT_TOKEN" \
+    -H "Authorization: Bearer $AZTEC_FOUNDATION_CI_SLACK_BOT_TOKEN" \
     -H "Content-type: application/json" \
     --data "$data"); then
     echo "Slack API request failed (curl error)" >&2
@@ -74,8 +75,14 @@ EOF
   return 0
 }
 
+# Compute SCRIPT_DIR before cd so relative BASH_SOURCE resolves correctly
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+
 REPO_ROOT=$(git rev-parse --show-toplevel)
 cd "$REPO_ROOT"
+
+# Source shared library for reference extraction
+source "$SCRIPT_DIR/lib/extract_doc_references.sh"
 
 # Parse arguments
 PR_NUMBER_ARG=""
@@ -90,11 +97,13 @@ elif [[ $# -ge 1 ]]; then
   DOCS_DIR="$1"
 fi
 
-# Check if gh CLI is available
-if ! command -v gh &> /dev/null; then
-  echo "gh CLI not found. Skipping devrel review check."
-  exit 0
-fi
+# Check required tools
+for tool in gh jq; do
+  if ! command -v "$tool" &> /dev/null; then
+    echo "$tool not found. Skipping devrel review check."
+    exit 0
+  fi
+done
 
 # Get the PR number from various sources
 PR_NUMBER=""
@@ -104,7 +113,14 @@ BRANCH="${GITHUB_HEAD_REF:-$(git rev-parse --abbrev-ref HEAD 2>/dev/null || echo
 if [[ -n "$PR_NUMBER_ARG" ]]; then
   PR_NUMBER="$PR_NUMBER_ARG"
   echo "Using provided PR #$PR_NUMBER"
-# Method 2: Use branch to find PR (same pattern as ci.sh)
+# Method 2: Extract PR number from merge queue ref name (gh-readonly-queue/next/pr-XXX-SHA)
+elif [[ -n "${GITHUB_REF_NAME:-}" ]]; then
+  MERGE_QUEUE_PR=$(echo "$GITHUB_REF_NAME" | sed -n 's|gh-readonly-queue/.*/pr-\([0-9]*\)-.*|\1|p')
+  if [[ -n "$MERGE_QUEUE_PR" ]]; then
+    PR_NUMBER="$MERGE_QUEUE_PR"
+    echo "Detected PR #$PR_NUMBER from merge queue ref $GITHUB_REF_NAME"
+  fi
+# Method 3: Use branch to find PR (same pattern as ci.sh)
 elif [[ -n "$BRANCH" ]] && [[ "$BRANCH" != "HEAD" ]]; then
   PR_NUMBER=$(gh pr list --head "$BRANCH" --json number --jq '.[0].number' 2>/dev/null || echo "")
   [[ -n "$PR_NUMBER" ]] && echo "Detected PR #$PR_NUMBER from branch $BRANCH"
@@ -124,80 +140,19 @@ if [[ "$IS_DRAFT" == "true" ]]; then
   exit 0
 fi
 
-# Check if AztecProtocol/devrel team is already a requested reviewer
-echo "Checking if devrel team is already a requested reviewer..."
-
-# Get full review requests data for debugging
-REVIEW_REQUESTS_JSON=$(gh pr view "$PR_NUMBER" --json reviewRequests 2>/dev/null || echo "")
-
-# Extract both team slugs and user logins
-REQUESTED_TEAMS=$(echo "$REVIEW_REQUESTS_JSON" | jq -r '.reviewRequests[]? | select(.slug != null) | .slug' 2>/dev/null || echo "")
-REQUESTED_USERS=$(echo "$REVIEW_REQUESTS_JSON" | jq -r '.reviewRequests[]? | select(.login != null) | .login' 2>/dev/null || echo "")
-
-echo "Requested teams: ${REQUESTED_TEAMS:-none}"
-echo "Requested users: ${REQUESTED_USERS:-none}"
-
-# Check if devrel team is in the requested teams
-if [[ -n "$REQUESTED_TEAMS" ]] && echo "$REQUESTED_TEAMS" | grep -q "devrel"; then
-  echo "AztecProtocol/devrel team is already a requested reviewer for PR #$PR_NUMBER. Skipping."
-  exit 0
-fi
-
-# Check if any devrel team member has already approved
-# Note: GitHub's onBehalfOf field is broken, so we check team membership directly
-echo "Checking if devrel team member has already approved..."
-DEVREL_MEMBERS=$(gh api orgs/AztecProtocol/teams/devrel/members --jq '.[].login' 2>/dev/null || echo "")
-if [[ -n "$DEVREL_MEMBERS" ]]; then
-  APPROVERS=$(gh pr view "$PR_NUMBER" --json reviews -q '.reviews[] | select(.state == "APPROVED") | .author.login' 2>/dev/null || echo "")
-  if [[ -n "$APPROVERS" ]]; then
-    while IFS= read -r approver; do
-      if echo "$DEVREL_MEMBERS" | grep -qx "$approver"; then
-        echo "PR #$PR_NUMBER already approved by devrel team member: $approver. Skipping team review request."
-        exit 0
-      fi
-    done <<< "$APPROVERS"
-  fi
-fi
-
 # Extract all reference file paths from markdown frontmatter
 # Expected format: references: ["path/from/repo/root/file.ts", "another/file.ts"]
 # Paths should be absolute from repository root (not relative with ../)
 # Also create a mapping of source files to documentation files
-# Note: We only scan docs/docs/ (current docs), not versioned_docs/
+# Note: We only scan docs-developers, docs-operate, docs-participate (current docs), not versioned_docs/
 # Versioned docs are historical snapshots and should not be modified when references change
-echo "Extracting references from markdown files in $DOCS_DIR/docs..."
+echo "Extracting references from markdown files in $DOCS_DIR..."
 
 # Create a temporary file to store the mapping
 MAPPING_FILE=$(mktemp)
 trap "rm -f $MAPPING_FILE" EXIT
 
-find "$DOCS_DIR/docs" -type f -name "*.md" -print0 | while IFS= read -r -d '' doc_file; do
-  awk -v doc="$doc_file" '
-    BEGIN { in_frontmatter = 0 }
-    /^---$/ {
-      if (NR == 1) {
-        in_frontmatter = 1
-      } else if (in_frontmatter) {
-        in_frontmatter = 0
-      }
-      next
-    }
-    in_frontmatter && /^references:/ {
-      # Extract array: references: ["file1", "file2"]
-      if (match($0, /\[.*\]/)) {
-        refs = substr($0, RSTART, RLENGTH)
-        gsub(/[\[\]"'\'']/, "", refs)
-        split(refs, arr, /,[ ]*/)
-        for (i in arr) {
-          if (arr[i] != "") {
-            # Output format: source_file|doc_file
-            print arr[i] "|" doc
-          }
-        }
-      }
-    }
-  ' "$doc_file"
-done > "$MAPPING_FILE"
+extract_references_mapping "$DOCS_DIR" "$MAPPING_FILE"
 # Validate all referenced paths exist (can be files or directories)
 # Directory references use /* suffix (e.g., "src/context/*" means all files in that directory)
 echo "Validating referenced paths exist..."
@@ -212,10 +167,10 @@ done < "$MAPPING_FILE"
 
 if [[ -n "$MISSING_PATHS" ]]; then
   echo ""
-  echo "ERROR: The following referenced paths do not exist:"
+  echo "WARNING: The following referenced paths do not exist:"
   echo -e "$MISSING_PATHS"
   echo "Please update the 'references' frontmatter in the affected documentation files."
-  exit 1
+  send_slack_message "⚠️ *Stale doc references detected*\\nThe following paths in \`references\` frontmatter do not exist:\\n$(echo -e "$MISSING_PATHS" | sed 's/$/\\n/g')"
 fi
 # Extract unique referenced files
 REFERENCE_FILES=$(cut -d'|' -f1 "$MAPPING_FILE" | sort -u)
@@ -287,7 +242,7 @@ while IFS= read -r ref_file; do
     while IFS='|' read -r src_file doc_file; do
       if [[ "$src_file" == "$ref_file" ]]; then
         # Store in associative array (append to existing value if key exists)
-        if [[ -n "${FILE_TO_DOCS_MAP[$ref_file]}" ]]; then
+        if [[ -n "${FILE_TO_DOCS_MAP[$ref_file]:-}" ]]; then
           FILE_TO_DOCS_MAP[$ref_file]="${FILE_TO_DOCS_MAP[$ref_file]}|${doc_file}"
         else
           FILE_TO_DOCS_MAP[$ref_file]="$doc_file"
@@ -307,65 +262,176 @@ echo "The following referenced files were changed in this PR:"
 echo -e "$CHANGED_REFERENCES"
 echo ""
 
-# Build Slack message with file-to-docs mapping
-# Get PR URL for linking
+# Check if AztecProtocol/devrel team is already a requested reviewer
+echo "Checking if devrel team is already a requested reviewer..."
+
+REVIEW_REQUESTS_JSON=$(gh pr view "$PR_NUMBER" --json reviewRequests 2>/dev/null || echo "")
+REQUESTED_TEAMS=$(echo "$REVIEW_REQUESTS_JSON" | jq -r '.reviewRequests[]? | select(.slug != null) | .slug' 2>/dev/null || echo "")
+
+echo "Requested teams: ${REQUESTED_TEAMS:-none}"
+
+# Determine if devrel review request and Slack notification should be skipped
+SKIP_REVIEW=false
+
+if [[ -n "$REQUESTED_TEAMS" ]] && echo "$REQUESTED_TEAMS" | grep -q "devrel"; then
+  echo "AztecProtocol/devrel team is already a requested reviewer for PR #$PR_NUMBER."
+  SKIP_REVIEW=true
+fi
+
+if [[ "$SKIP_REVIEW" != "true" ]]; then
+  # Check if any devrel team member has already approved
+  echo "Checking if devrel team member has already approved..."
+  DEVREL_MEMBERS=$(gh api orgs/AztecProtocol/teams/devrel/members --jq '.[].login' 2>/dev/null || echo "")
+  if [[ -n "$DEVREL_MEMBERS" ]]; then
+    APPROVERS=$(gh pr view "$PR_NUMBER" --json reviews -q '.reviews[] | select(.state == "APPROVED") | .author.login' 2>/dev/null || echo "")
+    if [[ -n "$APPROVERS" ]]; then
+      while IFS= read -r approver; do
+        if echo "$DEVREL_MEMBERS" | grep -qx "$approver"; then
+          echo "PR #$PR_NUMBER already approved by devrel team member: $approver."
+          SKIP_REVIEW=true
+          break
+        fi
+      done <<< "$APPROVERS"
+    fi
+  fi
+fi
+
+# Get PR URL and title (needed for both Slack and ClaudeBox)
 PR_URL=$(gh pr view "$PR_NUMBER" --json url -q .url 2>/dev/null || echo "https://github.com/AztecProtocol/aztec-packages/pull/$PR_NUMBER")
+PR_TITLE=$(gh pr view "$PR_NUMBER" --json title -q .title 2>/dev/null || echo "")
 
-SLACK_MESSAGE="📚 *Documentation References Updated*\\n\\nThe following source files changed in <$PR_URL|PR #$PR_NUMBER> are referenced by documentation:\\n"
+# Request devrel review (only if not already done)
+if [[ "$SKIP_REVIEW" != "true" ]]; then
+  echo "Requesting AztecProtocol/devrel team as a reviewer for PR #$PR_NUMBER..."
+  if gh pr edit "$PR_NUMBER" --add-reviewer AztecProtocol/devrel 2>/dev/null; then
+    echo "✓ Successfully requested AztecProtocol/devrel team as a reviewer."
+  else
+    echo "⚠ Failed to request AztecProtocol/devrel team as a reviewer."
+  fi
+else
+  echo "Skipping reviewer request (already handled)."
+fi
 
-# Get unique doc files count
+# Build changed references summary (used for both Slack and ClaudeBox)
+CHANGED_SUMMARY=""
 ALL_DOCS=""
 CHANGED_FILE_COUNT=0
-
-# Sort the keys for consistent output
 SORTED_KEYS=$(for key in "${!FILE_TO_DOCS_MAP[@]}"; do echo "$key"; done | sort)
 
 while IFS= read -r changed_file; do
   [[ -z "$changed_file" ]] && continue
   CHANGED_FILE_COUNT=$((CHANGED_FILE_COUNT + 1))
 
-  SLACK_MESSAGE="${SLACK_MESSAGE}\\n*\`${changed_file}\`*"
-
-  # Get docs for this file and split by pipe
   docs="${FILE_TO_DOCS_MAP[$changed_file]}"
-
-  # Convert pipe-separated list to array and iterate
   IFS='|' read -ra DOC_ARRAY <<< "$docs"
+  DOC_LIST=$(printf ", %s" "${DOC_ARRAY[@]}")
+  DOC_LIST="${DOC_LIST:2}"
+  CHANGED_SUMMARY="${CHANGED_SUMMARY}${changed_file} -> ${DOC_LIST}; "
   for doc_file in "${DOC_ARRAY[@]}"; do
-    SLACK_MESSAGE="${SLACK_MESSAGE}\\n  • \`${doc_file}\`"
-
-    # Track all unique docs
     if ! echo "$ALL_DOCS" | grep -qF "$doc_file"; then
       ALL_DOCS="${ALL_DOCS}${doc_file}\n"
     fi
   done
 done <<< "$SORTED_KEYS"
-
-# Count unique docs
+CHANGED_SUMMARY="${CHANGED_SUMMARY%%; }"
 DOC_FILE_COUNT=$(echo -e "$ALL_DOCS" | grep -v '^$' | sort -u | wc -l)
 
-SLACK_MESSAGE="${SLACK_MESSAGE}\\n\\n*Summary:* ${CHANGED_FILE_COUNT} changed file(s) referenced by ${DOC_FILE_COUNT} documentation file(s)"
+# Dispatch ClaudeBox
+echo "Dispatching ClaudeBox workflow..."
+CLAUDEBOX_RUNS_URL="https://github.com/AztecProtocol/aztec-packages/actions/workflows/claudebox.yml"
+CLAUDEBOX_STATUS=""
 
-echo "Requesting AztecProtocol/devrel team as a reviewer for PR #$PR_NUMBER..."
-
-# Request AztecProtocol/devrel team as a reviewer
-REVIEWER_REQUESTED=false
-if gh pr edit "$PR_NUMBER" --add-reviewer AztecProtocol/devrel 2>/dev/null; then
-  echo "✓ Successfully requested AztecProtocol/devrel team as a reviewer."
-  REVIEWER_REQUESTED=true
-  SLACK_MESSAGE="${SLACK_MESSAGE}\\n\\n@AztecProtocol/devrel team has been requested for review."
+if gh workflow run claudebox.yml \
+  -f prompt="PR #$PR_NUMBER ($PR_TITLE) changed source files referenced by documentation. Analyze the changes and update the affected documentation. Changed references: $CHANGED_SUMMARY. Follow the update-doc-references skill (.claude/skills/update-doc-references/SKILL.md)." \
+  -f link="$PR_URL"; then
+  echo "✓ ClaudeBox dispatched for PR #$PR_NUMBER."
+  CLAUDEBOX_STATUS="dispatched"
 else
-  echo "⚠ Failed to request AztecProtocol/devrel team as a reviewer. They may need to be added manually."
-  SLACK_MESSAGE="${SLACK_MESSAGE}\\n\\n⚠️ Failed to automatically add @AztecProtocol/devrel as reviewers. Please add them manually."
+  echo "⚠ Failed to dispatch ClaudeBox workflow. Manual review may be needed."
+  CLAUDEBOX_STATUS="failed"
 fi
 
-# Send Slack notification
-echo "Sending Slack notification to #devrel-docs-updates..."
-if send_slack_message "$SLACK_MESSAGE"; then
-  echo "✓ Successfully sent Slack notification."
-else
-  echo "⚠ Failed to send Slack notification." >&2
-fi
+# Send or update Slack notification (one message per PR, updated on each run)
+SLACK_CHANNEL="${SLACK_DOC_UPDATE_CHANNEL:-docs-alerts}"
+TS=""
+CHANNEL_ID=""
 
-# Exit successfully even if Slack notification fails (don't block builds)
-exit 0
+if [[ -n "${AZTEC_FOUNDATION_CI_SLACK_BOT_TOKEN:-}" ]]; then
+  # Build the Slack message
+  NOW=$(date -u '+%Y-%m-%d %H:%M UTC')
+  SLACK_MESSAGE="📚 *Documentation References Updated*\\n\\nThe following source files changed in <$PR_URL|PR #$PR_NUMBER> are referenced by documentation:\\n"
+
+  while IFS= read -r changed_file; do
+    [[ -z "$changed_file" ]] && continue
+    SLACK_MESSAGE="${SLACK_MESSAGE}\\n*\`${changed_file}\`*"
+    docs="${FILE_TO_DOCS_MAP[$changed_file]}"
+    IFS='|' read -ra DOC_ARRAY <<< "$docs"
+    for doc_file in "${DOC_ARRAY[@]}"; do
+      SLACK_MESSAGE="${SLACK_MESSAGE}\\n  • \`${doc_file}\`"
+    done
+  done <<< "$SORTED_KEYS"
+
+  SLACK_MESSAGE="${SLACK_MESSAGE}\\n\\n*Summary:* ${CHANGED_FILE_COUNT} changed file(s) referenced by ${DOC_FILE_COUNT} documentation file(s)"
+
+  if [[ "$CLAUDEBOX_STATUS" == "dispatched" ]]; then
+    SLACK_MESSAGE="${SLACK_MESSAGE}\\n\\n:robot_face: *ClaudeBox dispatched* — <$CLAUDEBOX_RUNS_URL|view workflow runs>\\n_Last updated: ${NOW}_"
+  else
+    SLACK_MESSAGE="${SLACK_MESSAGE}\\n\\n:warning: *ClaudeBox dispatch failed* — manual review needed\\n_Last updated: ${NOW}_"
+  fi
+
+  # Look up channel ID
+  CHANNEL_ID=$(curl -sS "https://slack.com/api/conversations.list?types=public_channel&limit=200" \
+    -H "Authorization: Bearer $AZTEC_FOUNDATION_CI_SLACK_BOT_TOKEN" | jq -r ".channels[] | select(.name==\"$SLACK_CHANNEL\") | .id" 2>/dev/null || echo "")
+
+  if [[ -n "$CHANNEL_ID" ]]; then
+    # Search channel history for an existing message about this PR (paginate up to 1000 messages)
+    EXISTING_TS=""
+    CURSOR=""
+    PAGES=0
+    while [[ $PAGES -lt 5 ]]; do
+      PAGES=$((PAGES + 1))
+      HISTORY_URL="https://slack.com/api/conversations.history?channel=$CHANNEL_ID&limit=200"
+      [[ -n "$CURSOR" ]] && HISTORY_URL="${HISTORY_URL}&cursor=$CURSOR"
+
+      HISTORY_RESP=$(curl -sS "$HISTORY_URL" -H "Authorization: Bearer $AZTEC_FOUNDATION_CI_SLACK_BOT_TOKEN")
+
+      EXISTING_TS=$(echo "$HISTORY_RESP" | \
+        jq -r ".messages[]? | select(.text != null and .bot_id != null and (.text | contains(\"PR #$PR_NUMBER\"))) | .ts" 2>/dev/null | head -1 || echo "")
+      [[ -n "$EXISTING_TS" ]] && break
+
+      CURSOR=$(echo "$HISTORY_RESP" | jq -r '.response_metadata.next_cursor // empty' 2>/dev/null)
+      [[ -z "$CURSOR" ]] && break
+    done
+
+    if [[ -n "$EXISTING_TS" ]]; then
+      # Update existing message
+      echo "Updating existing Slack message for PR #$PR_NUMBER..."
+      RESP=$(curl -sS -X POST https://slack.com/api/chat.update \
+        -H "Authorization: Bearer $AZTEC_FOUNDATION_CI_SLACK_BOT_TOKEN" \
+        -H "Content-type: application/json" \
+        -d "$(jq -n --arg c "$CHANNEL_ID" --arg ts "$EXISTING_TS" --arg t "$SLACK_MESSAGE" \
+          '{channel:$c, ts:$ts, text:$t}')")
+      TS="$EXISTING_TS"
+    else
+      # Post new message
+      echo "Sending Slack notification to #${SLACK_CHANNEL}..."
+      RESP=$(curl -sS -X POST https://slack.com/api/chat.postMessage \
+        -H "Authorization: Bearer $AZTEC_FOUNDATION_CI_SLACK_BOT_TOKEN" \
+        -H "Content-type: application/json" \
+        -d "$(jq -n --arg c "$CHANNEL_ID" --arg t "$SLACK_MESSAGE" '{channel:$c, text:$t}')")
+      TS=$(echo "$RESP" | jq -r '.ts // empty')
+    fi
+
+    SLACK_OK=$(echo "$RESP" | jq -r '.ok // empty')
+    if [[ "$SLACK_OK" == "true" ]]; then
+      echo "✓ Slack notification sent/updated successfully."
+    else
+      SLACK_ERR=$(echo "$RESP" | jq -r '.error // "unknown error"' 2>/dev/null)
+      echo "⚠ Slack API error: $SLACK_ERR" >&2
+    fi
+  else
+    echo "⚠ Could not find Slack channel #$SLACK_CHANNEL"
+  fi
+else
+  echo "AZTEC_FOUNDATION_CI_SLACK_BOT_TOKEN not set, skipping Slack notification"
+fi

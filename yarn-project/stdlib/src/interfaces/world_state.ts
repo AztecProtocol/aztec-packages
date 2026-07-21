@@ -3,6 +3,7 @@ import type { PromiseWithResolvers } from '@aztec/foundation/promise';
 
 import { z } from 'zod';
 
+import type { BlockHash } from '../block/block_hash.js';
 import type { SnapshotDataKeys } from '../snapshots/types.js';
 import type { MerkleTreeReadOperations, MerkleTreeWriteOperations } from './merkle_tree_operations.js';
 
@@ -64,6 +65,20 @@ export interface ReadonlyWorldStateAccess {
 
 /** Defines the interface for a world state synchronizer. */
 export interface WorldStateSynchronizer extends ReadonlyWorldStateAccess, ForkMerkleTreeOperations {
+  /**
+   * Returns a read handle to the world state at `blockNumber`, but only after verifying that the block at that
+   * height is on the fork identified by `blockHash`. This pins the returned view to a specific fork so a reorg
+   * that replaced the block at `blockNumber` cannot be served silently, closing the gap between resolving a query
+   * and reading its snapshot.
+   *
+   * Rejects if the block at `blockNumber` does not match `blockHash` (a reorg), or if the block's hash cannot be
+   * read from the requested view. Both are transient from a caller's perspective: re-resolving the query against
+   * the current chain and retrying may succeed or produce a more precise error. However, if the block's history
+   * has been pruned away (it predates the oldest historical block kept by world state), the rejection is terminal:
+   * retrying cannot bring the data back.
+   */
+  getVerifiedSnapshot(blockNumber: BlockNumber, blockHash: BlockHash): Promise<MerkleTreeReadOperations>;
+
   /** Starts the synchronizer. */
   start(): Promise<void | PromiseWithResolvers<void>>;
 
@@ -80,18 +95,18 @@ export interface WorldStateSynchronizer extends ReadonlyWorldStateAccess, ForkMe
   resumeSync(): void;
 
   /**
-   * Forces an immediate sync to an optionally provided minimum block number
+   * Forces an immediate sync to an optionally provided minimum block number.
    * @param targetBlockNumber - The target block number that we must sync to. Will download unproven blocks if needed to reach it.
-   * @param skipThrowIfTargetNotReached - Whether to skip throwing if the target block number is not reached.
+   * @param blockHash - If provided, verifies the block at targetBlockNumber matches this hash. On mismatch, triggers a resync (reorg detection).
    * @returns A promise that resolves with the block number the world state was synced to
    */
-  syncImmediate(minBlockNumber?: BlockNumber, skipThrowIfTargetNotReached?: boolean): Promise<BlockNumber>;
+  syncImmediate(minBlockNumber?: BlockNumber, blockHash?: BlockHash): Promise<BlockNumber>;
 
   /** Deletes the db */
   clear(): Promise<void>;
 }
 
-export const WorldStateSyncStatusSchema: z.ZodType<WorldStateSyncStatus, z.ZodTypeDef, any> = z.object({
+export const WorldStateSyncStatusSchema: z.ZodType<WorldStateSyncStatus, any> = z.object({
   finalizedBlockNumber: BlockNumberSchema,
   latestBlockNumber: BlockNumberSchema,
   latestBlockHash: z.string(),

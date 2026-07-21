@@ -35,7 +35,7 @@ Use `#[external("private")]` to create functions that execute privately on user 
 
 #include_code increment /docs/examples/contracts/counter_contract/src/main.nr rust
 
-Private functions run in a private context, can access private state, and can read certain public values through storage types like [`DelayedPublicMutable`](../how_to_define_storage.md#delayedpublicmutable).
+Private functions run in a private context, can access private state, and can read certain public values through storage types like [`DelayedPublicMutable`](../state_variables.md#delayedpublicmutable).
 
 ## Define public functions
 
@@ -49,7 +49,7 @@ Public functions operate on public state, similar to EVM contracts. They can wri
 
 Create offchain query functions using the `#[external("utility")]` annotation with `unconstrained`.
 
-Utility functions are standalone unconstrained functions that cannot be called from private or public functions. They are meant to be called by _applications_ to perform auxiliary tasks like querying contract state or processing offchain messages. Example:
+Utility functions are unconstrained functions that applications call to perform auxiliary tasks, like querying contract state or processing offchain messages. Their execution is never proven, so no guarantees are made on the correctness of their results. They can also be called from other utility functions and from private functions. See [utility calls](../calling_contracts.md#utility-calls). Public functions cannot call them. Example:
 
 #include_code get_counter /docs/examples/contracts/counter_contract/src/main.nr rust
 

@@ -1,11 +1,12 @@
+import { NO_FROM } from '@aztec/aztec.js/account';
 import { AztecAddress } from '@aztec/aztec.js/addresses';
 import { NO_WAIT } from '@aztec/aztec.js/contracts';
-import type { AztecNode } from '@aztec/aztec.js/node';
+import { type AztecNode, waitForTx } from '@aztec/aztec.js/node';
 import type { DeployAccountOptions } from '@aztec/aztec.js/wallet';
 import { prettyPrintJSON } from '@aztec/cli/cli-utils';
 import { Fr } from '@aztec/foundation/curves/bn254';
 import type { LogFn, Logger } from '@aztec/foundation/log';
-import type { TxHash, TxReceipt } from '@aztec/stdlib/tx';
+import { type TxHash, type TxReceipt, TxStatus } from '@aztec/stdlib/tx';
 
 import { DEFAULT_TX_TIMEOUT_S } from '../utils/cli_wallet_and_node_wrapper.js';
 import type { AccountType } from '../utils/constants.js';
@@ -18,6 +19,7 @@ export async function createAccount(
   aztecNode: AztecNode,
   accountType: AccountType,
   secretKey: Fr | undefined,
+  salt: Fr | undefined,
   publicKey: string | undefined,
   alias: string | undefined,
   deployer: AztecAddress | undefined,
@@ -27,6 +29,7 @@ export async function createAccount(
   registerClass: boolean,
   wait: boolean,
   feeOpts: CLIFeeArgs,
+  waitForStatus: TxStatus,
   json: boolean,
   verbose: boolean,
   debugLogger: Logger,
@@ -38,10 +41,10 @@ export async function createAccount(
     undefined /* address, we don't have it yet */,
     secretKey,
     accountType,
-    Fr.ZERO,
+    salt,
     publicKey,
   );
-  const { salt } = account.getInstance();
+  const instanceSalt = account.getInstance().salt;
   const { address, publicKeys, partialAddress } = await account.getCompleteAddress();
 
   const out: Record<string, any> = {};
@@ -52,7 +55,7 @@ export async function createAccount(
       out.secretKey = secretKey;
     }
     out.partialAddress = partialAddress;
-    out.salt = salt;
+    out.salt = instanceSalt;
     out.initHash = account.getInstance().initializationHash;
   } else {
     log(`\nNew account:\n`);
@@ -62,17 +65,19 @@ export async function createAccount(
       log(`Secret key:     ${secretKey.toString()}`);
     }
     log(`Partial address: ${partialAddress.toString()}`);
-    log(`Salt:            ${salt.toString()}`);
+    log(`Salt:            ${instanceSalt.toString()}`);
     log(`Init hash:       ${account.getInstance().initializationHash.toString()}`);
   }
 
   let txHash: TxHash | undefined;
   let txReceipt: TxReceipt | undefined;
-  if (!registerOnly) {
+  // Initializerless accounts have no deployment tx — creating one only registers it locally — so there is
+  // nothing to deploy on-chain.
+  if (!registerOnly && accountType !== 'schnorr_initializerless') {
     const { paymentMethod, gasSettings } = await feeOpts.toUserFeeOptions(aztecNode, wallet, address);
 
     const delegatedDeployment = deployer && !account.address.equals(deployer);
-    const from = delegatedDeployment ? deployer : AztecAddress.ZERO;
+    const from = delegatedDeployment ? deployer : NO_FROM;
 
     const deployAccountOpts: DeployAccountOptions = {
       skipClassPublication: !registerClass,
@@ -82,11 +87,15 @@ export async function createAccount(
       fee: { paymentMethod, gasSettings },
     };
 
+    const localStart = performance.now();
     const deployMethod = await account.getDeployMethod();
-    const { estimatedGas, stats } = await deployMethod.simulate({
+    const sim = await deployMethod.simulate({
       ...deployAccountOpts,
-      fee: { ...deployAccountOpts.fee, estimateGas: true },
+      includeMetadata: true,
     });
+    // includeMetadata: true guarantees these fields are present
+    const estimatedGas = await wallet.estimateGasLimits(sim.gasUsed!);
+    const stats = sim.stats!;
 
     if (feeOpts.estimateOnly) {
       if (json) {
@@ -109,7 +118,7 @@ export async function createAccount(
       if (!json) {
         log(`\nWaiting for account contract deployment...`);
       }
-      const result = await deployMethod.send({
+      const sendOpts = {
         ...deployAccountOpts,
         fee: deployAccountOpts.fee
           ? {
@@ -117,18 +126,25 @@ export async function createAccount(
               gasSettings: estimatedGas,
             }
           : undefined,
-        wait: wait ? { timeout: DEFAULT_TX_TIMEOUT_S, returnReceipt: true } : NO_WAIT,
-      });
-      const isReceipt = (data: TxReceipt | TxHash): data is TxReceipt => 'txHash' in data;
-      if (isReceipt(result)) {
-        txReceipt = result;
-        txHash = result.txHash;
+      };
+
+      ({ txHash } = await deployMethod.send({ ...sendOpts, wait: NO_WAIT }));
+      const localTimeMs = performance.now() - localStart;
+
+      if (wait) {
+        const nodeStart = performance.now();
+        txReceipt = await waitForTx(aztecNode, txHash, { timeout: DEFAULT_TX_TIMEOUT_S, waitForStatus });
+        const nodeTimeMs = performance.now() - nodeStart;
+
         out.txReceipt = {
           status: txReceipt.status,
           transactionFee: txReceipt.transactionFee,
         };
-      } else {
-        txHash = result;
+
+        if (!json) {
+          log(` Local processing time: ${(localTimeMs / 1000).toFixed(1)}s`);
+          log(` Node inclusion time: ${(nodeTimeMs / 1000).toFixed(1)}s`);
+        }
       }
       debugLogger.debug(`Account contract tx sent with hash ${txHash.toString()}`);
       out.txHash = txHash;
@@ -146,5 +162,5 @@ export async function createAccount(
     }
   }
 
-  return { alias, address, secretKey, salt };
+  return { alias, address, secretKey, salt: instanceSalt };
 }

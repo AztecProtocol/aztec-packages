@@ -6,8 +6,8 @@
 #include "barretenberg/vm2/common/memory_types.hpp"
 #include "barretenberg/vm2/simulation/events/event_emitter.hpp"
 #include "barretenberg/vm2/simulation/events/memory_event.hpp"
-#include "barretenberg/vm2/simulation/gadgets/range_check.hpp"
 #include "barretenberg/vm2/simulation/interfaces/memory.hpp"
+#include "barretenberg/vm2/simulation/interfaces/range_check.hpp"
 #include "barretenberg/vm2/simulation/lib/execution_id_manager.hpp"
 
 namespace bb::avm2::simulation {
@@ -38,7 +38,7 @@ class Memory : public MemoryInterface {
 
     RangeCheckInterface& range_check;
     ExecutionIdGetterInterface& execution_id_manager;
-    // TODO: consider a deduplicating event emitter (within the same clk).
+    // Improvement: consider a deduplicating event emitter (within the same clk).
     EventEmitterInterface<MemoryEvent>& events;
 
     void validate_tag(const MemoryValue& value) const;

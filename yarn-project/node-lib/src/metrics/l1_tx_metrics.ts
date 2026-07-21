@@ -92,17 +92,19 @@ export class L1TxMetrics implements IL1TxMetrics {
     const attempts = isCancelTx ? state.cancelTxHashes.length : state.txHashes.length;
     this.txAttemptsUntilMined.record(attempts, attributes);
 
-    // Record gas prices at end state (in wei as integers)
-    const maxPriorityFeeWei = Number(state.gasPrice.maxPriorityFeePerGas);
-    const maxFeeWei = Number(state.gasPrice.maxFeePerGas);
-    const blobFeeWei = state.gasPrice.maxFeePerBlobGas ? Number(state.gasPrice.maxFeePerBlobGas) : undefined;
+    // Record gas prices at end state, converted from wei to gwei to match metric unit definitions
+    const weiToGwei = 1e9;
+    const maxPriorityFeeGwei = Number(state.gasPrice.maxPriorityFeePerGas) / weiToGwei;
+    const maxFeeGwei = Number(state.gasPrice.maxFeePerGas) / weiToGwei;
+    const blobFeeGwei = state.gasPrice.maxFeePerBlobGas
+      ? Number(state.gasPrice.maxFeePerBlobGas) / weiToGwei
+      : undefined;
 
-    this.maxPriorityFeeHistogram.record(maxPriorityFeeWei, attributes);
-    this.maxFeeHistogram.record(maxFeeWei, attributes);
+    this.maxPriorityFeeHistogram.record(maxPriorityFeeGwei, attributes);
+    this.maxFeeHistogram.record(maxFeeGwei, attributes);
 
-    // Record blob fee if present (in wei as integer)
-    if (blobFeeWei !== undefined) {
-      this.blobFeeHistogram.record(blobFeeWei, attributes);
+    if (blobFeeGwei !== undefined) {
+      this.blobFeeHistogram.record(blobFeeGwei, attributes);
     }
 
     this.logger.debug(`Recorded tx end state metrics`, {
@@ -111,9 +113,9 @@ export class L1TxMetrics implements IL1TxMetrics {
       isCancelTx,
       isReverted,
       scope: this.scope,
-      maxPriorityFeeWei,
-      maxFeeWei,
-      blobFeeWei,
+      maxPriorityFeeGwei,
+      maxFeeGwei,
+      blobFeeGwei,
     });
   }
 

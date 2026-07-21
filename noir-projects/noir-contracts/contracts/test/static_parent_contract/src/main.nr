@@ -1,37 +1,24 @@
 // A contract used along with `StaticChild` contract to test static calls.
-use dep::aztec::macros::aztec;
+use aztec::macros::aztec;
 
 #[aztec]
 pub contract StaticParent {
-    use dep::aztec::{context::gas::GasOpts, macros::functions::{external, view}};
-    use dep::aztec::protocol::{
-        abis::function_selector::FunctionSelector, address::AztecAddress, traits::ToField,
-    };
-    use dep::static_child_contract::StaticChild;
+    use aztec::{context::gas::GasOpts, macros::functions::{external, view}};
+    use aztec::protocol::{abis::function_selector::FunctionSelector, address::AztecAddress, traits::ToField};
+    use static_child_contract::StaticChild;
 
-    // Public function to directly call another public function to the target_contract using the selector and value provided
+    // Public function to directly call another public function to the target_contract using the selector and value
+    // provided
     #[external("public")]
     #[view]
-    fn public_call(
-        target_contract: AztecAddress,
-        target_selector: FunctionSelector,
-        arg: Field,
-    ) -> Field {
-        self.context.call_public_function(
-            target_contract,
-            target_selector,
-            [arg],
-            GasOpts::default(),
-        )[0]
+    fn public_call(target_contract: AztecAddress, target_selector: FunctionSelector, arg: Field) -> Field {
+        self.context.call_public_function(target_contract, target_selector, [arg], GasOpts::default())[0]
     }
 
-    // Private function to directly call another private function to the target_contract using the selector and args provided
+    // Private function to directly call another private function to the target_contract using the selector and args
+    // provided
     #[external("private")]
-    fn private_call(
-        target_contract: AztecAddress,
-        target_selector: FunctionSelector,
-        args: [Field; 2],
-    ) -> Field {
+    fn private_call(target_contract: AztecAddress, target_selector: FunctionSelector, args: [Field; 2]) -> Field {
         self.context.call_private_function(target_contract, target_selector, args).get_preimage()
     }
 
@@ -46,13 +33,10 @@ pub contract StaticParent {
         self.context.call_private_function(target_contract, target_selector, args).get_preimage()
     }
 
-    // Private function to enqueue a call to a public function of another contract, passing the target arguments provided
+    // Private function to enqueue a call to a public function of another contract, passing the target arguments
+    // provided
     #[external("private")]
-    fn enqueue_call(
-        target_contract: AztecAddress,
-        target_selector: FunctionSelector,
-        args: [Field; 1],
-    ) {
+    fn enqueue_call(target_contract: AztecAddress, target_selector: FunctionSelector, args: [Field; 1]) {
         self.context.call_public_function(target_contract, target_selector, args, false);
     }
 
@@ -62,32 +46,23 @@ pub contract StaticParent {
         target_selector: FunctionSelector,
         args: [Field; 2],
     ) -> Field {
-        self
-            .context
-            .static_call_private_function(target_contract, target_selector, args)
-            .get_preimage()
+        self.context.static_call_private_function(target_contract, target_selector, args).get_preimage()
     }
 
-    // Private function to statically call another private function to the target_contract using the selector and values provided
+    // Private function to statically call another private function to the target_contract using the selector and values
+    // provided
     #[external("private")]
     fn private_static_call_3_args(
         target_contract: AztecAddress,
         target_selector: FunctionSelector,
         args: [Field; 3],
     ) -> Field {
-        self
-            .context
-            .static_call_private_function(target_contract, target_selector, args)
-            .get_preimage()
+        self.context.static_call_private_function(target_contract, target_selector, args).get_preimage()
     }
 
     // Same as above but using a specific function from the interface
     #[external("private")]
-    fn private_get_value_from_child(
-        target_contract: AztecAddress,
-        value: Field,
-        owner: AztecAddress,
-    ) -> Field {
+    fn private_get_value_from_child(target_contract: AztecAddress, value: Field, owner: AztecAddress) -> Field {
         self.view(StaticChild::at(target_contract).private_get_value(value, owner))
     }
 
@@ -100,8 +75,7 @@ pub contract StaticParent {
     ) -> Field {
         // Not using the high-level self.view(...) API because that doesn't allow for static calls to non-static
         // functions which this test seems to relies on.
-        let private_call_selector =
-            FunctionSelector::from_signature("private_call((Field),(u32),[Field;2])");
+        let private_call_selector = FunctionSelector::from_signature("private_call((Field),(u32),[Field;2])");
         self
             .context
             .static_call_private_function(
@@ -119,26 +93,14 @@ pub contract StaticParent {
         target_selector: FunctionSelector,
         args: [Field; 3],
     ) -> Field {
-        self.view(StaticParent::at(self.address).private_call_3_args(
-            target_contract,
-            target_selector,
-            args,
-        ))
+        self.view(StaticParent::at(self.address).private_call_3_args(target_contract, target_selector, args))
     }
 
-    // Public function to statically call another public function to the target_contract using the selector and value provided
+    // Public function to statically call another public function to the target_contract using the selector and value
+    // provided
     #[external("public")]
-    fn public_static_call(
-        target_contract: AztecAddress,
-        target_selector: FunctionSelector,
-        args: [Field; 1],
-    ) -> Field {
-        self.context.static_call_public_function(
-            target_contract,
-            target_selector,
-            args,
-            GasOpts::default(),
-        )[0]
+    fn public_static_call(target_contract: AztecAddress, target_selector: FunctionSelector, args: [Field; 1]) -> Field {
+        self.context.static_call_public_function(target_contract, target_selector, args, GasOpts::default())[0]
     }
 
     // Same as above but using a specific function from the interface
@@ -155,12 +117,11 @@ pub contract StaticParent {
         args: [Field; 1],
     ) -> Field {
         // Call the target public function through the pub entrypoint statically
-        StaticParent::at(self.address).public_call(target_contract, target_selector, args[0]).view(
-            self.context,
-        )
+        StaticParent::at(self.address).public_call(target_contract, target_selector, args[0]).view(self.context)
     }
 
-    // Private function to enqueue a static call to a public function of another contract, passing the target arguments provided
+    // Private function to enqueue a static call to a public function of another contract, passing the target arguments
+    // provided
     #[external("private")]
     fn enqueue_static_call_to_pub_function(
         target_contract: AztecAddress,
@@ -184,10 +145,6 @@ pub contract StaticParent {
         args: [Field; 1],
     ) {
         // Call the target public function through the pub entrypoint statically
-        self.enqueue_view(StaticParent::at(self.address).public_call(
-            target_contract,
-            target_selector,
-            args[0],
-        ))
+        self.enqueue_view(StaticParent::at(self.address).public_call(target_contract, target_selector, args[0]))
     }
 }

@@ -1,8 +1,8 @@
-import { GeneratorIndex, PRIVATE_TO_ROLLUP_KERNEL_CIRCUIT_PUBLIC_INPUTS_LENGTH } from '@aztec/constants';
+import { DomainSeparator, PRIVATE_TO_ROLLUP_KERNEL_CIRCUIT_PUBLIC_INPUTS_LENGTH } from '@aztec/constants';
 import { poseidon2HashWithSeparator } from '@aztec/foundation/crypto/poseidon';
 import type { Fr } from '@aztec/foundation/curves/bn254';
 import { bufferSchemaFor } from '@aztec/foundation/schemas';
-import { BufferReader, bigintToUInt64BE, serializeToBuffer, serializeToFields } from '@aztec/foundation/serialize';
+import { BufferReader, BufferSink, serializeToFields, serializeToSink } from '@aztec/foundation/serialize';
 import { bufferToHex, hexToBuffer } from '@aztec/foundation/string';
 import type { FieldsOf } from '@aztec/foundation/types';
 
@@ -37,21 +37,21 @@ export class PrivateToRollupKernelCircuitPublicInputs {
     /**
      * The timestamp by which the transaction must be included in a block.
      */
-    public includeByTimestamp: UInt64,
+    public expirationTimestamp: UInt64,
   ) {}
 
   getNonEmptyNullifiers() {
     return this.end.nullifiers.filter(n => !n.isZero());
   }
 
-  toBuffer() {
-    return serializeToBuffer(
-      this.constants,
-      this.end,
-      this.gasUsed,
-      this.feePayer,
-      bigintToUInt64BE(this.includeByTimestamp),
-    );
+  toBuffer(): Buffer;
+  toBuffer(sink: BufferSink): void;
+  toBuffer(sink?: BufferSink): Buffer | void {
+    if (!sink) {
+      return BufferSink.serialize(this);
+    }
+    serializeToSink(sink, this.constants, this.end, this.gasUsed, this.feePayer);
+    sink.writeUInt64(this.expirationTimestamp);
   }
 
   /**
@@ -94,7 +94,7 @@ export class PrivateToRollupKernelCircuitPublicInputs {
   }
 
   static getFields(fields: FieldsOf<PrivateToRollupKernelCircuitPublicInputs>) {
-    return [fields.constants, fields.end, fields.gasUsed, fields.feePayer, fields.includeByTimestamp] as const;
+    return [fields.constants, fields.end, fields.gasUsed, fields.feePayer, fields.expirationTimestamp] as const;
   }
 
   /** Creates an instance from a hex string. */
@@ -113,6 +113,6 @@ export class PrivateToRollupKernelCircuitPublicInputs {
   }
 
   hash() {
-    return poseidon2HashWithSeparator(this.toFields(), GeneratorIndex.PRIVATE_TX_HASH);
+    return poseidon2HashWithSeparator(this.toFields(), DomainSeparator.PRIVATE_TX_HASH);
   }
 }

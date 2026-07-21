@@ -1,12 +1,11 @@
 mod test;
-use dep::aztec::macros::aztec;
+use aztec::macros::aztec;
 
 #[aztec]
 pub contract PrivateVoting {
-    // docs:start:imports
-    use dep::aztec::macros::{functions::{external, initializer, only_self}, storage::storage};
-    use dep::aztec::protocol::{address::AztecAddress, traits::{Deserialize, Serialize, ToField}};
-    use dep::aztec::state_vars::{Map, Owned, PublicImmutable, PublicMutable, SingleUseClaim};
+    use aztec::macros::{functions::{external, initializer, only_self, view}, storage::storage};
+    use aztec::protocol::{address::AztecAddress, traits::{Deserialize, Serialize, ToField}};
+    use aztec::state_vars::{Map, Owned, PublicImmutable, PublicMutable, SingleUseClaim};
 
     #[derive(Serialize, Deserialize)]
     pub struct ElectionId {
@@ -25,8 +24,6 @@ pub contract PrivateVoting {
         }
     }
 
-    // docs:end:imports
-    // docs:start:storage_struct
     #[storage]
     struct Storage<Context> {
         // admin can start and end elections
@@ -40,15 +37,12 @@ pub contract PrivateVoting {
         // election => voter => single use claim that ensures voter can at most vote once per election
         vote_claims: Map<ElectionId, Owned<SingleUseClaim<Context>, Context>, Context>,
     }
-    // docs:end:storage_struct
 
-    // docs:start:constructor
     #[external("public")]
     #[initializer]
     fn constructor(admin: AztecAddress) {
         self.storage.admin.write(admin);
     }
-    // docs:end:constructor
 
     #[external("private")]
     fn cast_vote(election_id: ElectionId, candidate: Field) {
@@ -60,26 +54,30 @@ pub contract PrivateVoting {
     #[only_self]
     fn add_to_tally_public(election_id: ElectionId, candidate: Field) {
         assert(self.storage.active_at_block.at(election_id).read() <= self.context.block_number());
-        assert(self.storage.vote_ended.at(election_id).read() == false, "Vote has ended"); // assert that vote has not ended
+        assert(self.storage.vote_ended.at(election_id).read() == false, "Vote has ended"); // assert that vote has not
+        // ended
         let new_tally = self.storage.tally.at(election_id).at(candidate).read() + 1;
         self.storage.tally.at(election_id).at(candidate).write(new_tally);
     }
 
     #[external("public")]
     fn start_vote(election_id: ElectionId) {
-        assert(self.storage.admin.read().eq(self.msg_sender()), "Only admin can start votes"); // assert that caller is admin
+        assert(self.storage.admin.read().eq(self.msg_sender()), "Only admin can start votes"); // assert that caller is
+        // admin
         self.storage.vote_ended.at(election_id).write(false);
         self.storage.active_at_block.at(election_id).initialize(self.context.block_number());
     }
 
     #[external("public")]
     fn end_vote(election_id: ElectionId) {
-        assert(self.storage.admin.read().eq(self.msg_sender()), "Only admin can end votes"); // assert that caller is admin
+        assert(self.storage.admin.read().eq(self.msg_sender()), "Only admin can end votes"); // assert that caller is
+        // admin
         self.storage.vote_ended.at(election_id).write(true);
     }
 
-    #[external("utility")]
-    unconstrained fn get_tally(election_id: ElectionId, candidate: Field) -> Field {
+    #[external("public")]
+    #[view]
+    fn get_tally(election_id: ElectionId, candidate: Field) -> Field {
         self.storage.tally.at(election_id).at(candidate).read()
     }
 }

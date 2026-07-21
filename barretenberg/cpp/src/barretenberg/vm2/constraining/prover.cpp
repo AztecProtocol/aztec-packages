@@ -1,5 +1,5 @@
 // === AUDIT STATUS ===
-// internal:    { status: Completed, auditors: [Federico], commit: }
+// internal:    { status: Completed, auditors: [Federico], commit: 0e37cb8}
 // external_1:  { status: not started, auditors: [], commit: }
 // external_2:  { status: not started, auditors: [], commit: }
 // =====================
@@ -15,6 +15,7 @@
 #include "barretenberg/common/thread.hpp"
 #include "barretenberg/honk/library/grand_product_library.hpp"
 #include "barretenberg/honk/proof_system/logderivative_library.hpp"
+#include "barretenberg/numeric/bitop/get_msb.hpp"
 #include "barretenberg/relations/permutation_relation.hpp"
 #include "barretenberg/sumcheck/sumcheck.hpp"
 #include "barretenberg/vm2/common/constants.hpp"
@@ -22,10 +23,6 @@
 #include "barretenberg/vm2/tooling/stats.hpp"
 
 namespace bb::avm2 {
-
-// Maximum number of polynomials to batch commit at once.
-const size_t AVM_MAX_MSM_BATCH_SIZE =
-    getenv("AVM_MAX_MSM_BATCH_SIZE") != nullptr ? std::stoul(getenv("AVM_MAX_MSM_BATCH_SIZE")) : 32;
 
 using Flavor = AvmFlavor;
 using FF = Flavor::FF;
@@ -82,7 +79,11 @@ void AvmProver::execute_public_inputs_round()
     for (size_t i = 0; i < public_input_columns.size(); ++i) {
         const Polynomial& public_input_col = prover_polynomials.get(public_input_columns[i]);
         size_t public_input_col_size = public_input_col.size();
-        for (size_t j = 0; j < AVM_PUBLIC_INPUTS_COLUMNS_MAX_LENGTH; ++j) {
+        // Only hash each column's used rows; the trailing rows are zero and would only add hashing/MLE
+        // cost. They stay pinned to zero by the public-input consistency check (evaluate_public_input_column
+        // in verifier.cpp / recursive_verifier.cpp binds each committed column to the cleartext zero-padded
+        // to the full trace size).
+        for (size_t j = 0; j < AVM_PUBLIC_INPUTS_COLUMN_LENGTHS[i]; ++j) {
             // The public inputs are added to the hash buffer, but do not increase the size of the proof
             transcript->add_to_hash_buffer("public_input_" + std::to_string(i) + "_" + std::to_string(j),
                                            j < public_input_col_size ? public_input_col.at(j) : FF(0));
@@ -100,9 +101,9 @@ void AvmProver::execute_wire_commitments_round()
     // logderivative phase)
     auto batch = commitment_key.start_batch();
     for (const auto& [poly, label] : zip_view(prover_polynomials.get_wires(), prover_polynomials.get_wires_labels())) {
-        batch.add_to_batch(poly, label, /*mask=*/false);
+        batch.add_to_batch(poly, label);
     }
-    batch.commit_and_send_to_verifier(transcript, AVM_MAX_MSM_BATCH_SIZE);
+    batch.commit_and_send_to_verifier(transcript);
 }
 
 void AvmProver::execute_log_derivative_inverse_round()
@@ -127,8 +128,8 @@ void AvmProver::execute_log_derivative_inverse_round()
                                           Relation::Settings::DST_SELECTOR);
 
             AVM_TRACK_TIME(std::string("prove/log_derivative_inverse_round/") + std::string(Relation::NAME),
-                           (compute_logderivative_inverse<FF, Relation>(
-                               prover_polynomials, relation_parameters, ProvingKey::circuit_size)));
+                           (compute_logderivative_inverse<FF, Relation, Flavor::ProverPolynomials, false>(
+                               prover_polynomials, relation_parameters)));
         });
     });
 
@@ -144,9 +145,9 @@ void AvmProver::execute_log_derivative_inverse_commitments_round()
     for (auto [derived_poly, label] :
          zip_view(prover_polynomials.get_derived(), prover_polynomials.get_derived_labels())) {
 
-        batch.add_to_batch(derived_poly, label, /*mask=*/false);
+        batch.add_to_batch(derived_poly, label);
     }
-    batch.commit_and_send_to_verifier(transcript, AVM_MAX_MSM_BATCH_SIZE);
+    batch.commit_and_send_to_verifier(transcript);
 }
 
 /**
@@ -179,7 +180,7 @@ void AvmProver::execute_relation_check_rounds()
 /**
  * @brief Run the PCS to prove that the claimed evaluations are correct.
  *
- * @details To optimize the usage of the ECCVM, we batch the polynomials using short scalars before executing Shplemini.
+ * @details To optimize performance time, we batch the polynomials using short scalars before executing Shplemini.
  * The batching proceeds in two phases (note that the unshifted polynomials contain copies of the shifted polynomials
  * that have not been shifted yet; this allows us to save some work by batching the shifted polynomials in their
  * to_be_shifted form and later shift them):
@@ -195,61 +196,116 @@ void AvmProver::execute_pcs_rounds()
     using PolynomialBatcher = GeminiProver_<Curve>::PolynomialBatcher;
     using Challenges = Flavor::AllEntities<FF>;
 
-    // Batch polynomials using short scalars to reduce ECCVM circuit size
+    // Batch polynomials using short scalars
     auto unshifted_polys = prover_polynomials.get_unshifted();
     auto shifted_polys = prover_polynomials.get_to_be_shifted();
 
     // Get short batching challenges from transcript
-    // Note: the challenge for ColumnAndShifts::precomputed_clk is not used for batching, but to maintain the code
-    // cleaner, we generate it nonetheless
     Challenges challenges;
-    auto unshifted_challenges_vec = transcript->template get_challenges<FF>(challenges.get_unshifted_labels());
+    auto unshifted_challenges_vec = transcript->template get_short_challenges<FF>(challenges.get_unshifted_labels());
     std::ranges::move(unshifted_challenges_vec, challenges.get_unshifted().begin());
     auto unshifted_challenges = challenges.get_unshifted();
     auto shifted_challenges = challenges.get_to_be_shifted();
 
+    auto index_of_max_end_index = [](const auto& polys) {
+        // this assumes non-empty, returns an iterator
+        auto it = std::ranges::max_element(
+            polys.begin(), polys.end(), [](const auto& a, const auto& b) { return a.end_index() < b.end_index(); });
+
+        // retrieves the index of the max element
+        return static_cast<size_t>(std::distance(polys.begin(), it));
+    };
+
+    auto add_scaled_batched =
+        [](Polynomial& dst, const std::span<Polynomial>& sources, const std::span<FF>& scalars, const size_t skip_idx) {
+            const size_t num_slots = bb::get_num_cpus();
+            std::vector<Polynomial> batched_polys(num_slots);
+            for (auto& poly : batched_polys) {
+                poly = Polynomial(dst.size(), dst.virtual_size(), dst.start_index());
+            }
+
+            // Chunks are consumed dynamically via an atomic counter: faster threads naturally pick up
+            // more chunks while the slot they write to stays fixed for the life of their outer task.
+            std::atomic<size_t> next_poly(0);
+
+            // Accumulate polynomials: each thread picks up the next available polynomial
+            parallel_for(num_slots, [&](size_t slot_id) {
+                while (true) {
+                    const size_t poly_id = next_poly.fetch_add(1, std::memory_order_relaxed);
+                    if (poly_id >= sources.size()) {
+                        break;
+                    }
+                    if (poly_id == skip_idx) {
+                        continue;
+                    }
+
+                    const size_t start_idx = sources[poly_id].start_index();
+                    const size_t end_idx = sources[poly_id].end_index();
+                    for (size_t idx = start_idx; idx < end_idx; idx++) {
+                        batched_polys[slot_id].at(idx) += scalars[poly_id] * sources[poly_id][idx];
+                    }
+                }
+            });
+
+            for (const auto& poly : batched_polys) {
+                dst += poly;
+            }
+        };
+
     // Batch to be shifted polys in their to_be_shifted form
     // Search for poly with largest end index to avoid allocating a zero polynomial of circuit size
-    size_t max_idx = 0;
-    size_t max_end_idx = shifted_polys[0].end_index();
-    for (size_t idx = 0; const auto& poly : shifted_polys) {
-        if (poly.end_index() > max_end_idx) {
-            max_idx = idx;
-            max_end_idx = poly.end_index();
-        }
-        idx++;
+    size_t max_idx_shifted = index_of_max_end_index(shifted_polys);
+
+    Polynomial batched_shifted = std::move(shifted_polys[max_idx_shifted]);
+    batched_shifted *= shifted_challenges[max_idx_shifted];
+    add_scaled_batched(batched_shifted, shifted_polys, shifted_challenges, max_idx_shifted);
+
+    // Batch unshifted polys
+    // Search the not to be shifted poly of max size to avoid allocating a zero polynomial of circuit size
+    // The not to be shifted polys are in the ranges [0, WIRES_TO_BE_SHIFTED_START_IDX) and
+    // [WIRES_TO_BE_SHIFTED_END_IDX, end]
+    size_t max_idx_left_side = index_of_max_end_index(unshifted_polys.subspan(0, WIRES_TO_BE_SHIFTED_START_IDX));
+    size_t max_idx_right_side = index_of_max_end_index(unshifted_polys.subspan(WIRES_TO_BE_SHIFTED_END_IDX));
+    size_t max_idx_unshifted = unshifted_polys[max_idx_left_side].end_index() >
+                                       unshifted_polys[max_idx_right_side + WIRES_TO_BE_SHIFTED_END_IDX].end_index()
+                                   ? max_idx_left_side
+                                   : max_idx_right_side + WIRES_TO_BE_SHIFTED_END_IDX;
+
+    // Assign the batched unshifted polynomial according to whether the largest poly was among the to be shifted polys
+    // or not
+    Polynomial batched_unshifted;
+    if (unshifted_polys[max_idx_unshifted].end_index() > batched_shifted.end_index()) {
+        batched_unshifted = std::move(unshifted_polys[max_idx_unshifted]);
+        batched_unshifted *= unshifted_challenges[max_idx_unshifted];
+        batched_unshifted += batched_shifted;
+    } else {
+        // batched_shifted has a start_index == 1 which would assert if we directly call
+        // batched_shifted.add_scaled(unshifted_polys[..]..). We therefore first initialize
+        // a zero polynomial with start_index == 0 and size = end_index.
+        batched_unshifted = Polynomial(batched_shifted.end_index());
+        batched_unshifted += batched_shifted;
+        batched_unshifted.add_scaled(unshifted_polys[max_idx_unshifted], unshifted_challenges[max_idx_unshifted]);
     }
 
-    Polynomial batched_shifted = std::move(shifted_polys[max_idx]);
-    batched_shifted *= shifted_challenges[max_idx];
-    for (size_t idx = 0; const auto [poly, challenge] : zip_view(shifted_polys, shifted_challenges)) {
-        if (idx != max_idx) {
-            batched_shifted.add_scaled(poly, challenge);
-        }
-        idx++;
-    }
+    add_scaled_batched(batched_unshifted,
+                       unshifted_polys.subspan(0, WIRES_TO_BE_SHIFTED_START_IDX),
+                       unshifted_challenges.subspan(0, WIRES_TO_BE_SHIFTED_START_IDX),
+                       max_idx_unshifted);
+    add_scaled_batched(batched_unshifted,
+                       unshifted_polys.subspan(WIRES_TO_BE_SHIFTED_END_IDX),
+                       unshifted_challenges.subspan(WIRES_TO_BE_SHIFTED_END_IDX),
+                       max_idx_unshifted >= WIRES_TO_BE_SHIFTED_END_IDX
+                           ? max_idx_unshifted - WIRES_TO_BE_SHIFTED_END_IDX
+                           : unshifted_polys.size());
 
-    // Batch unshifted polys (to avoid allocating a zero polynomial of circuit size, we initialize the batched
-    // polynomial with precomputed_clk, which is always of circuit size)
-    Polynomial batched_unshifted =
-        prover_polynomials.get(ColumnAndShifts::precomputed_clk); // Initial poly has coefficient 1
-    batched_unshifted += batched_shifted;
-    for (size_t idx = 0; const auto [poly, challenge] : zip_view(unshifted_polys, unshifted_challenges)) {
-        // Only operate in the range of not to be shifted polys, as the contribution for those has already been added
-        if (idx < WIRES_TO_BE_SHIFTED_START_IDX || idx >= WIRES_TO_BE_SHIFTED_END_IDX) {
-            if (idx != static_cast<size_t>(ColumnAndShifts::precomputed_clk)) {
-                batched_unshifted.add_scaled(poly, challenge);
-            }
-        }
-        idx++;
-    }
+    const size_t circuit_dyadic_size = numeric::round_up_power_2(batched_unshifted.end_index());
 
-    PolynomialBatcher polynomial_batcher(ProvingKey::circuit_size);
+    PolynomialBatcher polynomial_batcher(circuit_dyadic_size);
     polynomial_batcher.set_unshifted(RefVector{ batched_unshifted });
     polynomial_batcher.set_to_be_shifted_by_one(RefVector{ batched_shifted });
 
     const OpeningClaim prover_opening_claim = ShpleminiProver_<Curve>::prove(
-        ProvingKey::circuit_size, polynomial_batcher, sumcheck_output.challenge, commitment_key, transcript);
+        circuit_dyadic_size, polynomial_batcher, sumcheck_output.challenge, commitment_key, transcript);
 
     PCS::compute_opening_proof(commitment_key, prover_opening_claim, transcript);
 }
@@ -285,5 +341,4 @@ HonkProof AvmProver::construct_proof()
 
     return export_proof();
 }
-
 } // namespace bb::avm2

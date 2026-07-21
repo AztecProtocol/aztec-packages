@@ -5,7 +5,6 @@ import { z } from 'zod';
 
 import { schemas, zodFor } from '../schemas/index.js';
 import type { TxHash } from '../tx/tx_hash.js';
-import type { EpochProver } from './epoch-prover.js';
 import type { ProvingJobConsumer } from './prover-broker.js';
 
 export type ActualProverConfig = {
@@ -23,6 +22,8 @@ export type ActualProverConfig = {
    * When true, jobs are explicitly cancelled with the broker, which prevents reuse.
    */
   cancelJobsOnStop: boolean;
+  /** Max concurrent jobs the orchestrator serializes and enqueues to the broker. */
+  enqueueConcurrency: number;
 };
 
 /**
@@ -53,6 +54,7 @@ export const ProverConfigSchema = zodFor<ProverConfig>()(
     proofStore: z.string().optional(),
     failedProofStore: z.string().optional(),
     cancelJobsOnStop: z.boolean(),
+    enqueueConcurrency: z.number(),
   }),
 );
 
@@ -68,7 +70,7 @@ export const proverConfigMappings: ConfigMappingsType<ProverConfig> = {
   },
   proverId: {
     env: 'PROVER_ID',
-    parseEnv: (val?: string) => parseProverId(val),
+    parseEnv: (val: string) => parseProverId(val),
     description: 'Hex value that identifies the prover. Defaults to the address used for submitting proofs if not set.',
   },
   proverTestDelayType: {
@@ -107,22 +109,23 @@ export const proverConfigMappings: ConfigMappingsType<ProverConfig> = {
       'When true, jobs are explicitly cancelled with the broker, which prevents reuse.',
     ...booleanConfigHelper(false),
   },
+  enqueueConcurrency: {
+    env: 'PROVER_ENQUEUE_CONCURRENCY',
+    description: 'Max concurrent jobs the orchestrator serializes and enqueues to the broker.',
+    ...numberConfigHelper(50),
+  },
 };
 
-function parseProverId(str?: string) {
-  if (!str) {
-    return undefined;
-  }
+function parseProverId(str: string) {
   return EthAddress.fromString(str);
 }
 
 /**
  * The interface to the prover client.
  * Provides the ability to generate proofs and build rollups.
+ *
  */
 export interface EpochProverManager {
-  createEpochProver(): EpochProver;
-
   start(): Promise<void>;
 
   stop(): Promise<void>;

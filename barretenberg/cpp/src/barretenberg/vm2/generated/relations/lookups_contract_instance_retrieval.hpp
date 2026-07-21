@@ -55,7 +55,7 @@ struct lookup_contract_instance_retrieval_read_derived_address_from_public_input
         ColumnAndShifts::contract_instance_retrieval_derived_address
     };
     static constexpr std::array<ColumnAndShifts, LOOKUP_TUPLE_SIZE> DST_COLUMNS = {
-        ColumnAndShifts::precomputed_clk, ColumnAndShifts::public_inputs_cols_0_
+        ColumnAndShifts::precomputed_idx, ColumnAndShifts::public_inputs_cols_0_
     };
 };
 
@@ -70,24 +70,30 @@ using lookup_contract_instance_retrieval_read_derived_address_from_public_inputs
 struct lookup_contract_instance_retrieval_deployment_nullifier_read_settings_ {
     static constexpr std::string_view NAME = "LOOKUP_CONTRACT_INSTANCE_RETRIEVAL_DEPLOYMENT_NULLIFIER_READ";
     static constexpr std::string_view RELATION_NAME = "contract_instance_retrieval";
-    static constexpr size_t LOOKUP_TUPLE_SIZE = 5;
+    static constexpr size_t LOOKUP_TUPLE_SIZE = 8;
     static constexpr Column SRC_SELECTOR = Column::contract_instance_retrieval_should_check_nullifier;
-    static constexpr Column DST_SELECTOR = Column::nullifier_check_sel;
+    static constexpr Column DST_SELECTOR = Column::indexed_tree_check_sel;
     static constexpr Column COUNTS = Column::lookup_contract_instance_retrieval_deployment_nullifier_read_counts;
     static constexpr Column INVERSES = Column::lookup_contract_instance_retrieval_deployment_nullifier_read_inv;
     static constexpr std::array<ColumnAndShifts, LOOKUP_TUPLE_SIZE> SRC_COLUMNS = {
         ColumnAndShifts::contract_instance_retrieval_exists,
         ColumnAndShifts::contract_instance_retrieval_address,
         ColumnAndShifts::contract_instance_retrieval_nullifier_tree_root,
-        ColumnAndShifts::contract_instance_retrieval_deployer_protocol_contract_address,
-        ColumnAndShifts::contract_instance_retrieval_sel
+        ColumnAndShifts::contract_instance_retrieval_nullifier_tree_height,
+        ColumnAndShifts::contract_instance_retrieval_nullifier_merkle_separator,
+        ColumnAndShifts::contract_instance_retrieval_sel,
+        ColumnAndShifts::contract_instance_retrieval_siloing_separator,
+        ColumnAndShifts::contract_instance_retrieval_deployer_protocol_contract_address
     };
     static constexpr std::array<ColumnAndShifts, LOOKUP_TUPLE_SIZE> DST_COLUMNS = {
-        ColumnAndShifts::nullifier_check_exists,
-        ColumnAndShifts::nullifier_check_nullifier,
-        ColumnAndShifts::nullifier_check_root,
-        ColumnAndShifts::nullifier_check_address,
-        ColumnAndShifts::nullifier_check_should_silo
+        ColumnAndShifts::indexed_tree_check_exists,
+        ColumnAndShifts::indexed_tree_check_value,
+        ColumnAndShifts::indexed_tree_check_root,
+        ColumnAndShifts::indexed_tree_check_tree_height,
+        ColumnAndShifts::indexed_tree_check_merkle_hash_separator,
+        ColumnAndShifts::indexed_tree_check_sel_silo,
+        ColumnAndShifts::indexed_tree_check_siloing_separator,
+        ColumnAndShifts::indexed_tree_check_address
     };
 };
 
@@ -113,14 +119,14 @@ struct lookup_contract_instance_retrieval_address_derivation_settings_ {
         ColumnAndShifts::contract_instance_retrieval_deployer_addr,
         ColumnAndShifts::contract_instance_retrieval_original_class_id,
         ColumnAndShifts::contract_instance_retrieval_init_hash,
-        ColumnAndShifts::contract_instance_retrieval_nullifier_key_x,
-        ColumnAndShifts::contract_instance_retrieval_nullifier_key_y,
+        ColumnAndShifts::contract_instance_retrieval_immutables_hash,
+        ColumnAndShifts::contract_instance_retrieval_nullifier_key_hash,
         ColumnAndShifts::contract_instance_retrieval_incoming_viewing_key_x,
         ColumnAndShifts::contract_instance_retrieval_incoming_viewing_key_y,
-        ColumnAndShifts::contract_instance_retrieval_outgoing_viewing_key_x,
-        ColumnAndShifts::contract_instance_retrieval_outgoing_viewing_key_y,
-        ColumnAndShifts::contract_instance_retrieval_tagging_key_x,
-        ColumnAndShifts::contract_instance_retrieval_tagging_key_y
+        ColumnAndShifts::contract_instance_retrieval_outgoing_viewing_key_hash,
+        ColumnAndShifts::contract_instance_retrieval_tagging_key_hash,
+        ColumnAndShifts::contract_instance_retrieval_message_signing_key_hash,
+        ColumnAndShifts::contract_instance_retrieval_fallback_key_hash
     };
     static constexpr std::array<ColumnAndShifts, LOOKUP_TUPLE_SIZE> DST_COLUMNS = {
         ColumnAndShifts::address_derivation_address,
@@ -128,14 +134,14 @@ struct lookup_contract_instance_retrieval_address_derivation_settings_ {
         ColumnAndShifts::address_derivation_deployer_addr,
         ColumnAndShifts::address_derivation_class_id,
         ColumnAndShifts::address_derivation_init_hash,
-        ColumnAndShifts::address_derivation_nullifier_key_x,
-        ColumnAndShifts::address_derivation_nullifier_key_y,
+        ColumnAndShifts::address_derivation_immutables_hash,
+        ColumnAndShifts::address_derivation_nullifier_key_hash,
         ColumnAndShifts::address_derivation_incoming_viewing_key_x,
         ColumnAndShifts::address_derivation_incoming_viewing_key_y,
-        ColumnAndShifts::address_derivation_outgoing_viewing_key_x,
-        ColumnAndShifts::address_derivation_outgoing_viewing_key_y,
-        ColumnAndShifts::address_derivation_tagging_key_x,
-        ColumnAndShifts::address_derivation_tagging_key_y
+        ColumnAndShifts::address_derivation_outgoing_viewing_key_hash,
+        ColumnAndShifts::address_derivation_tagging_key_hash,
+        ColumnAndShifts::address_derivation_message_signing_key_hash,
+        ColumnAndShifts::address_derivation_fallback_key_hash
     };
 };
 

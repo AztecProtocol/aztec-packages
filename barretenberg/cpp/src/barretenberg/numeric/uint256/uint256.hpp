@@ -1,5 +1,5 @@
 // === AUDIT STATUS ===
-// internal:    { status: Planned, auditors: [], commit: }
+// internal:    { status: Complete, auditors: [Luke], commit: }
 // external_1:  { status: not started, auditors: [], commit: }
 // external_2:  { status: not started, auditors: [], commit: }
 // =====================
@@ -63,7 +63,7 @@ class alignas(32) uint256_t {
     {}
     constexpr uint256_t(uint256_t&& other) noexcept = default;
 
-    explicit constexpr uint256_t(const std::string& input) noexcept
+    explicit constexpr uint256_t(const std::string& input)
     {
         /* Quick and dirty conversion from a single character to its hex equivelent */
         constexpr auto HexCharToInt = [](uint8_t Input) {
@@ -109,9 +109,12 @@ class alignas(32) uint256_t {
     constexpr uint256_t& operator=(uint256_t&& other) noexcept = default;
     constexpr ~uint256_t() noexcept = default;
 
-    explicit constexpr operator bool() const { return static_cast<bool>(data[0]); };
+    explicit constexpr operator bool() const
+    {
+        return (data[0] != 0) || (data[1] != 0) || (data[2] != 0) || (data[3] != 0);
+    };
 
-    constexpr explicit operator uint128_t() { return (static_cast<uint128_t>(data[1]) << 64) + data[0]; }
+    constexpr explicit operator uint128_t() const { return (static_cast<uint128_t>(data[1]) << 64) + data[0]; }
     template <std::integral T> explicit constexpr operator T() const { return static_cast<T>(data[0]); };
 
     [[nodiscard]] constexpr bool get_bit(uint64_t bit_index) const;
@@ -216,6 +219,7 @@ class alignas(32) uint256_t {
     uint64_t data[4]; // NOLINT
 
     [[nodiscard]] constexpr std::pair<uint256_t, uint256_t> divmod(const uint256_t& b) const;
+    [[nodiscard]] constexpr std::pair<uint256_t, uint64_t> divmod(uint64_t b) const;
 
     size_t hash() const noexcept { return utils::hash_as_tuple(data[0], data[1], data[2], data[3]); }
 

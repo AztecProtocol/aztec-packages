@@ -44,13 +44,16 @@ resource "helm_release" "keystore_setup" {
         }
       }
       publishers = {
-        perValidatorKey    = var.VALIDATOR_PUBLISHERS_PER_VALIDATOR_KEY
+        perReplica         = var.VALIDATOR_PUBLISHERS_PER_REPLICA
         mnemonicStartIndex = var.VALIDATOR_PUBLISHER_MNEMONIC_START_INDEX
       }
       provers = {
         proverCount         = var.PROVER_COUNT
         publishersPerProver = var.PUBLISHERS_PER_PROVER
         mnemonicStartIndex  = var.PROVER_PUBLISHER_MNEMONIC_START_INDEX
+      }
+      nodeSelector = {
+        "node-type" = "network"
       }
     })
   ]
@@ -62,12 +65,12 @@ resource "helm_release" "keystore_setup" {
 
 resource "helm_release" "web3signer" {
   name             = "${var.RELEASE_NAME}-signer"
-  repository       = "https://ethpandaops.github.io/ethereum-helm-charts"
-  chart            = "web3signer"
-  version          = "1.0.6"
+  chart            = "${path.module}/web3signer-1.0.6.tgz"
   namespace        = var.NAMESPACE
   create_namespace = true
   upgrade_install  = true
+
+  depends_on = [helm_release.keystore_setup]
 
   values = [
     file("${path.module}/values/web3signer.yaml"),
@@ -76,6 +79,19 @@ resource "helm_release" "web3signer" {
       image = {
         repository = split(":", var.WEB3SIGNER_DOCKER_IMAGE)[0]
         tag        = split(":", var.WEB3SIGNER_DOCKER_IMAGE)[1]
+      }
+      nodeSelector = {
+        "node-type" = "network"
+      }
+      resources = {
+        requests = {
+          cpu    = "100m"
+          memory = "512Mi"
+        }
+        limits = {
+          cpu    = "1"
+          memory = "2Gi"
+        }
       }
       extraVolumes = [
         {

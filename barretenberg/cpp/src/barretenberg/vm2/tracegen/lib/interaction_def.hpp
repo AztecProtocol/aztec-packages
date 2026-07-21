@@ -1,14 +1,16 @@
 #pragma once
 
+#include <cstdint>
 #include <memory>
 #include <string>
 #include <unordered_map>
 #include <vector>
 
+#include "barretenberg/common/assert.hpp"
 #include "barretenberg/vm2/tracegen/lib/interaction_builder.hpp"
 #include "barretenberg/vm2/tracegen/lib/lookup_builder.hpp"
 #include "barretenberg/vm2/tracegen/lib/lookup_into_bitwise.hpp"
-#include "barretenberg/vm2/tracegen/lib/lookup_into_indexed_by_clk.hpp"
+#include "barretenberg/vm2/tracegen/lib/lookup_into_indexed_by_row.hpp"
 #include "barretenberg/vm2/tracegen/lib/lookup_into_p_decomposition.hpp"
 #include "barretenberg/vm2/tracegen/lib/multi_permutation_builder.hpp"
 #include "barretenberg/vm2/tracegen/lib/permutation_builder.hpp"
@@ -17,11 +19,11 @@
 
 namespace bb::avm2::tracegen {
 
-enum class InteractionType {
+enum class InteractionType : uint8_t {
     LookupGeneric,
     LookupSequential,
     LookupIntoBitwise,
-    LookupIntoIndexedByClk,
+    LookupIntoIndexedByRow,
     LookupIntoPDecomposition,
     Permutation,
     MultiPermutation,
@@ -31,19 +33,15 @@ class InteractionDefinition {
   public:
     InteractionDefinition() = default;
 
-    // Old format with InteractionSettings first. TODO: Migrate.
-    template <typename InteractionSettings, InteractionType type> InteractionDefinition& add(auto&&... args)
-    {
-        std::string name = std::string(InteractionSettings::NAME);
-        interactions[name] = get_interaction_factory<type, InteractionSettings>(std::forward<decltype(args)>(args)...);
-        return *this;
-    }
-
     template <InteractionType type, typename... InteractionSettings> InteractionDefinition& add(auto&&... args)
     {
         std::string name = (std::string(InteractionSettings::NAME) + ...);
-        interactions[name] =
-            get_interaction_factory<type, InteractionSettings...>(std::forward<decltype(args)>(args)...);
+        auto [_, inserted] = interactions.emplace(
+            name, get_interaction_factory<type, InteractionSettings...>(std::forward<decltype(args)>(args)...));
+
+        // Safeguard detecting a collision in the interaction names (we do not use separators to have an injective
+        // serialization).
+        BB_ASSERT_DEBUG(inserted, "InteractionDefinition::add: collision in interaction name: " + name);
         return *this;
     }
 
@@ -80,11 +78,11 @@ class InteractionDefinition {
                 return strict ? std::make_unique<AddChecksToBuilder<LookupIntoBitwise<InteractionSettings...>>>(args...)
                               : std::make_unique<LookupIntoBitwise<InteractionSettings...>>(args...);
             };
-        } else if constexpr (type == InteractionType::LookupIntoIndexedByClk) {
+        } else if constexpr (type == InteractionType::LookupIntoIndexedByRow) {
             return [args...](bool strict, SharedIndexCache&) {
-                return strict ? std::make_unique<AddChecksToBuilder<LookupIntoIndexedByClk<InteractionSettings...>>>(
+                return strict ? std::make_unique<AddChecksToBuilder<LookupIntoIndexedByRow<InteractionSettings...>>>(
                                     args...)
-                              : std::make_unique<LookupIntoIndexedByClk<InteractionSettings...>>(args...);
+                              : std::make_unique<LookupIntoIndexedByRow<InteractionSettings...>>(args...);
             };
         } else if constexpr (type == InteractionType::LookupIntoPDecomposition) {
             return [args...](bool strict, SharedIndexCache&) {

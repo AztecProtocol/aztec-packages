@@ -1,9 +1,10 @@
-import { poseidon2Hash } from '@aztec/foundation/crypto/poseidon';
+import { DomainSeparator } from '@aztec/constants';
+import { poseidon2HashWithSeparator } from '@aztec/foundation/crypto/poseidon';
 import { sha256, sha256ToField } from '@aztec/foundation/crypto/sha256';
 import { BLS12Fr } from '@aztec/foundation/curves/bls12';
 import { Fr } from '@aztec/foundation/curves/bn254';
 
-import { BYTES_PER_BLOB, BYTES_PER_COMMITMENT, getKzg } from './kzg_context.js';
+import { getBytesPerBlob, getBytesPerCommitment, getKzg } from './kzg_context.js';
 import { SpongeBlob } from './sponge_blob.js';
 
 const VERSIONED_HASH_VERSION_KZG = 0x01;
@@ -44,12 +45,12 @@ export async function computeBlobFieldsHash(fields: Fr[]): Promise<Fr> {
   return sponge.squeeze();
 }
 
-export function computeBlobCommitment(data: Uint8Array): Buffer {
-  if (data.length !== BYTES_PER_BLOB) {
-    throw new Error(`Expected ${BYTES_PER_BLOB} bytes per blob. Got ${data.length}.`);
+export async function computeBlobCommitment(data: Uint8Array): Promise<Buffer> {
+  if (data.length !== getBytesPerBlob()) {
+    throw new Error(`Expected ${getBytesPerBlob()} bytes per blob. Got ${data.length}.`);
   }
 
-  return Buffer.from(getKzg().blobToKzgCommitment(data));
+  return Buffer.from(await getKzg().asyncBlobToKzgCommitment(data));
 }
 
 /**
@@ -67,23 +68,27 @@ export function computeBlobCommitment(data: Uint8Array): Buffer {
  * @returns The fields representing the commitment buffer.
  */
 export function commitmentToFields(commitment: Buffer): [Fr, Fr] {
-  if (commitment.length !== BYTES_PER_COMMITMENT) {
-    throw new Error(`Expected ${BYTES_PER_COMMITMENT} bytes for blob commitment. Got ${commitment.length}.`);
+  if (commitment.length !== getBytesPerCommitment()) {
+    throw new Error(`Expected ${getBytesPerCommitment()} bytes for blob commitment. Got ${commitment.length}.`);
   }
 
-  return [new Fr(commitment.subarray(0, 31)), new Fr(commitment.subarray(31, BYTES_PER_COMMITMENT))];
+  return [new Fr(commitment.subarray(0, 31)), new Fr(commitment.subarray(31, getBytesPerCommitment()))];
 }
 
 export async function computeChallengeZ(blobFieldsHash: Fr, commitment: Buffer): Promise<Fr> {
   const commitmentFields = commitmentToFields(commitment);
-  return await poseidon2Hash([blobFieldsHash, commitmentFields[0], commitmentFields[1]]);
+  return await poseidon2HashWithSeparator(
+    [blobFieldsHash, commitmentFields[0], commitmentFields[1]],
+    DomainSeparator.BLOB_CHALLENGE_Z,
+  );
 }
 
 /**
- * Hash each u128 limb of the noir bignum struct representing the BLS field, to mimic the hash accumulation in the
- * rollup circuits.
+ * Hash the u128 limbs of a BLS field's noir bignum representation under the `BLOB_HASHED_Y_LIMBS` separator.
+ * Used to commit to blob evaluation values `y_i` before folding them into the gamma accumulator; mirrors the
+ * hash accumulation performed in the rollup circuits.
  */
-export async function hashNoirBigNumLimbs(field: BLS12Fr): Promise<Fr> {
+export async function hashBlobYLimbs(field: BLS12Fr): Promise<Fr> {
   const num = field.toNoirBigNum();
-  return await poseidon2Hash(num.limbs.map(Fr.fromHexString));
+  return await poseidon2HashWithSeparator(num.limbs.map(Fr.fromHexString), DomainSeparator.BLOB_HASHED_Y_LIMBS);
 }

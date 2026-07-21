@@ -3,7 +3,6 @@
 
 #include <string_view>
 
-#include "barretenberg/common/bb_bench.hpp"
 #include "barretenberg/relations/relation_parameters.hpp"
 #include "barretenberg/relations/relation_types.hpp"
 #include "barretenberg/vm2/generated/columns.hpp"
@@ -14,10 +13,10 @@ template <typename FF_> class sha256Impl {
   public:
     using FF = FF_;
 
-    static constexpr std::array<size_t, 98> SUBRELATION_PARTIAL_LENGTHS = {
-        3, 2, 4, 4, 3, 4, 6, 4, 4, 4, 4, 4, 4, 4, 4, 4, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3,
-        3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3,
-        3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3
+    static constexpr std::array<size_t, 95> SUBRELATION_PARTIAL_LENGTHS = {
+        4, 3, 3, 3, 3, 3, 4, 6, 4, 4, 4, 4, 4, 4, 4, 4, 4, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3,
+        3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3,
+        3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3
     };
 
     template <typename AllEntities> inline static bool skip(const AllEntities& in)
@@ -39,18 +38,25 @@ template <typename FF> class sha256 : public Relation<sha256Impl<FF>> {
     static constexpr const std::string_view NAME = "sha256";
 
     // Subrelation indices constants, to be used in tests.
-    static constexpr size_t SR_PROPAGATE_INIT_A = 16;
-    static constexpr size_t SR_PROPAGATE_INIT_B = 17;
-    static constexpr size_t SR_PROPAGATE_INIT_C = 18;
-    static constexpr size_t SR_PROPAGATE_INIT_D = 19;
-    static constexpr size_t SR_PROPAGATE_INIT_E = 20;
-    static constexpr size_t SR_PROPAGATE_INIT_F = 21;
-    static constexpr size_t SR_PROPAGATE_INIT_G = 22;
-    static constexpr size_t SR_PROPAGATE_INIT_H = 23;
+    static constexpr size_t SR_ROUNDS_REM_INIT = 4;
+    static constexpr size_t SR_ROUNDS_REM_DECREMENT = 5;
+    static constexpr size_t SR_PROPAGATE_INIT_A = 17;
+    static constexpr size_t SR_PROPAGATE_INIT_B = 18;
+    static constexpr size_t SR_PROPAGATE_INIT_C = 19;
+    static constexpr size_t SR_PROPAGATE_INIT_D = 20;
+    static constexpr size_t SR_PROPAGATE_INIT_E = 21;
+    static constexpr size_t SR_PROPAGATE_INIT_F = 22;
+    static constexpr size_t SR_PROPAGATE_INIT_G = 23;
+    static constexpr size_t SR_PROPAGATE_INIT_H = 24;
 
     static std::string get_subrelation_label(size_t index)
     {
+#ifdef AVM_INCLUDE_COLUMN_INFORMATION
         switch (index) {
+        case SR_ROUNDS_REM_INIT:
+            return "ROUNDS_REM_INIT";
+        case SR_ROUNDS_REM_DECREMENT:
+            return "ROUNDS_REM_DECREMENT";
         case SR_PROPAGATE_INIT_A:
             return "PROPAGATE_INIT_A";
         case SR_PROPAGATE_INIT_B:
@@ -68,6 +74,7 @@ template <typename FF> class sha256 : public Relation<sha256Impl<FF>> {
         case SR_PROPAGATE_INIT_H:
             return "PROPAGATE_INIT_H";
         }
+#endif
         return std::to_string(index);
     }
 };

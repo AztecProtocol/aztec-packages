@@ -1,0 +1,9 @@
+[package]
+name = "logging_example_test"
+authors = [""]
+compiler_version = ">=0.25.0"
+type = "lib"
+
+[dependencies]
+aztec = { path = "../../../../noir-projects/aztec-nr/aztec" }
+logging_example = { path = "../logging_example" }

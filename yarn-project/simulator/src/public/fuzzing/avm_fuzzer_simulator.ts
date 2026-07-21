@@ -33,7 +33,8 @@ import {
 } from '@aztec/stdlib/tx';
 import type { NativeWorldStateService } from '@aztec/world-state';
 
-import { BaseAvmSimulationTester } from '../avm/fixtures/base_avm_simulation_tester.js';
+import { BaseAvmSimulationTester } from '../avm/testing/base_avm_simulation_tester.js';
+import { AvmSimulatorPool } from '../avm_simulator_pool.js';
 import { SimpleContractDataSource } from '../fixtures/simple_contract_data_source.js';
 import { PublicContractsDB } from '../public_db_sources.js';
 import { PublicTxSimulator } from '../public_tx_simulator/public_tx_simulator.js';
@@ -75,7 +76,7 @@ export class FuzzerSimulationRequest {
 
 /**
  * Creates a TypeScript Tx object from a deserialized C++ Tx (AvmTxHint-like structure).
- * This allows using PublicTxSimulator.simulate() with fuzzer-generated transactions.
+ * This allows simulating fuzzer-generated transactions with the C++ public tx simulator.
  */
 async function createTxFromHint(cppTx: AvmTxHint): Promise<Tx> {
   // Create TxHash from the C++ tx hash string
@@ -146,7 +147,7 @@ async function createTxFromHint(cppTx: AvmTxHint): Promise<Tx> {
     constants,
     cppTx.gasUsedByPrivate,
     cppTx.feePayer,
-    0n, // includeByTimestamp
+    0n, // expirationTimestamp
     forPublic,
     undefined, // forRollup - not needed for public simulation
   );
@@ -189,6 +190,8 @@ async function createTxFromHint(cppTx: AvmTxHint): Promise<Tx> {
 /**
  * A simulator class for the AVM fuzzer that extends BaseAvmSimulationTester.
  * It provides methods for registering contracts from C++ msgpack data and simulating transactions.
+ * The simulation itself runs on the production C++ AVM simulator, so the fuzzer compares brillig
+ * execution against the real AVM rather than a TS reference.
  */
 export class AvmFuzzerSimulator extends BaseAvmSimulationTester {
   private simulator: PublicTxSimulator;
@@ -197,22 +200,27 @@ export class AvmFuzzerSimulator extends BaseAvmSimulationTester {
     merkleTrees: MerkleTreeWriteOperations,
     contractDataSource: SimpleContractDataSource,
     globals: GlobalVariables,
-    protocolContracts: ProtocolContracts,
+    private avmSimulator: AvmSimulatorPool,
+    contractsDB: PublicContractsDB,
+    forkId: number,
   ) {
     super(contractDataSource, merkleTrees);
-    const contractsDb = new PublicContractsDB(contractDataSource);
+    // collectPublicInputs and collectCallMetadata are required so the C++ result carries the end
+    // tree snapshots and app-logic return values that the fuzzer bin reports back to the harness.
     this.simulator = new PublicTxSimulator(
-      merkleTrees,
-      contractsDb,
+      avmSimulator,
       globals,
+      contractsDB,
+      forkId,
       {
         skipFeeEnforcement: false,
         collectDebugLogs: false,
         collectHints: false,
+        collectPublicInputs: true,
         collectStatistics: false,
-        collectCallMetadata: false,
+        collectCallMetadata: true,
       },
-      protocolContracts,
+      undefined,
     );
   }
 
@@ -222,11 +230,18 @@ export class AvmFuzzerSimulator extends BaseAvmSimulationTester {
   public static async create(
     worldStateService: NativeWorldStateService,
     globals: GlobalVariables,
-    protocolContracts: ProtocolContracts,
   ): Promise<AvmFuzzerSimulator> {
     const contractDataSource = new SimpleContractDataSource();
     const merkleTrees = await worldStateService.fork();
-    return new AvmFuzzerSimulator(merkleTrees, contractDataSource, globals, protocolContracts);
+    const forkId = merkleTrees.getRevision().forkId;
+    const avmSimulator = await AvmSimulatorPool.spawn({ wsdbIpcPath: worldStateService.getIpcPath() });
+    const contractsDB = new PublicContractsDB(contractDataSource);
+    return new AvmFuzzerSimulator(merkleTrees, contractDataSource, globals, avmSimulator, contractsDB, forkId);
+  }
+
+  /** Tear down the AVM simulator pool (AVM processes and CDB server). */
+  public async close(): Promise<void> {
+    await this.avmSimulator[Symbol.asyncDispose]();
   }
 
   /**

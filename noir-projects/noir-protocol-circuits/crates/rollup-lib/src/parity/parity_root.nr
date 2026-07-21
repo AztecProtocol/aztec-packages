@@ -1,5 +1,5 @@
 use crate::abis::ParityPublicInputs;
-use dep::types::{
+use types::{
     constants::{NUM_BASE_PARITY_PER_ROOT_PARITY, PARITY_BASE_VK_INDEX},
     merkle_tree::MerkleTree,
     proof::proof_data::UltraHonkProofData,
@@ -17,6 +17,7 @@ pub struct ParityRootPrivateInputs {
 /// This circuit:
 /// - Verifies proofs from multiple Parity Base circuits (the children)
 /// - Validates that all children use the same vk_tree_root
+/// - Validates that all children use the same prover_id
 /// - Validates that all children use the same verification key (consistent vk hash, index, and path)
 /// - Validates the verification key exists in the vk tree
 /// - Computes the final SHA256 merkle root by merging the children's SHA roots
@@ -37,6 +38,15 @@ pub fn execute(inputs: ParityRootPrivateInputs) -> ParityPublicInputs {
         );
     }
 
+    let prover_id = inputs.children[0].public_inputs.prover_id;
+    for i in 1..NUM_BASE_PARITY_PER_ROOT_PARITY {
+        assert_eq(
+            inputs.children[i].public_inputs.prover_id,
+            prover_id,
+            "Inconsistent prover ids across parity base circuits",
+        );
+    }
+
     verify_child_proofs(inputs);
 
     let mut sha_roots = [0; NUM_BASE_PARITY_PER_ROOT_PARITY];
@@ -53,6 +63,7 @@ pub fn execute(inputs: ParityRootPrivateInputs) -> ParityPublicInputs {
         sha_root: sha_tree.get_root(),
         converted_root: poseidon_tree.get_root(),
         vk_tree_root,
+        prover_id,
     }
 }
 

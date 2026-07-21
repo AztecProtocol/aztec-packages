@@ -13,18 +13,20 @@ import type { AztecNode } from '@aztec/aztec.js/node';
 import type { SiblingPath } from '@aztec/aztec.js/trees';
 import type { TxReceipt } from '@aztec/aztec.js/tx';
 import type { Wallet } from '@aztec/aztec.js/wallet';
+import { OutboxContract } from '@aztec/ethereum/contracts';
 import { deployL1Contract } from '@aztec/ethereum/deploy-l1-contract';
 import type { L1ContractAddresses } from '@aztec/ethereum/l1-contract-addresses';
 import type { ExtendedViemWalletClient } from '@aztec/ethereum/types';
 import { EpochNumber } from '@aztec/foundation/branded-types';
-import { retryUntil } from '@aztec/foundation/retry';
 import { TestERC20Abi, TokenPortalAbi, TokenPortalBytecode } from '@aztec/l1-artifacts';
 import { TokenContract } from '@aztec/noir-contracts.js/Token';
 import { TokenBridgeContract } from '@aztec/noir-contracts.js/TokenBridge';
 
 import { type Hex, getContract } from 'viem';
 
+import { testSpan } from '../fixtures/timing.js';
 import { mintTokensToPrivate } from '../fixtures/token_utils.js';
+import { waitForL1ToL2MessageSeen } from './wait_for_l1_to_l2_message.js';
 
 /**
  * Deploy L1 token and portal, initialize portal, deploy a non native l2 token contract, its L2 bridge contract and attach is to the portal.
@@ -42,6 +44,7 @@ export async function deployAndInitializeTokenAndBridgeContracts(
   rollupRegistryAddress: EthAddress,
   owner: AztecAddress,
   underlyingERC20Address: EthAddress,
+  predeployedTokenPortalAddress?: EthAddress,
 ): Promise<{
   /**
    * The L2 token contract instance.
@@ -64,8 +67,9 @@ export async function deployAndInitializeTokenAndBridgeContracts(
    */
   underlyingERC20: any;
 }> {
-  // deploy the token portal
-  const { address: tokenPortalAddress } = await deployL1Contract(l1Client, TokenPortalAbi, TokenPortalBytecode);
+  // Deploy the token portal, unless it was already deployed before the node started (under automine).
+  const tokenPortalAddress =
+    predeployedTokenPortalAddress ?? (await deployL1Contract(l1Client, TokenPortalAbi, TokenPortalBytecode)).address;
   const tokenPortal = getContract({
     address: tokenPortalAddress.toString(),
     abi: TokenPortalAbi,
@@ -73,22 +77,30 @@ export async function deployAndInitializeTokenAndBridgeContracts(
   });
 
   // deploy l2 token
-  const token = await TokenContract.deploy(wallet, owner, 'TokenName', 'TokenSymbol', 18).send({ from: owner });
+  const { contract: token } = await testSpan('deploy:token', () =>
+    TokenContract.deploy(wallet, owner, 'TokenName', 'TokenSymbol', 18).send({
+      from: owner,
+    }),
+  );
 
   // deploy l2 token bridge and attach to the portal
-  const bridge = await TokenBridgeContract.deploy(wallet, token.address, tokenPortalAddress).send({ from: owner });
+  const { contract: bridge } = await testSpan('deploy:bridge', () =>
+    TokenBridgeContract.deploy(wallet, token.address, tokenPortalAddress).send({
+      from: owner,
+    }),
+  );
 
-  if ((await token.methods.get_admin().simulate({ from: owner })) !== owner.toBigInt()) {
+  if ((await token.methods.get_admin().simulate({ from: owner })).result !== owner.toBigInt()) {
     throw new Error(`Token admin is not ${owner}`);
   }
 
-  if (!(await bridge.methods.get_config().simulate({ from: owner })).token.equals(token.address)) {
+  if (!(await bridge.methods.get_config().simulate({ from: owner })).result.token.equals(token.address)) {
     throw new Error(`Bridge token is not ${token.address}`);
   }
 
   // make the bridge a minter on the token:
   await token.methods.set_minter(bridge.address, true).send({ from: owner });
-  if ((await token.methods.is_minter(bridge.address).simulate({ from: owner })) === 1n) {
+  if ((await token.methods.is_minter(bridge.address).simulate({ from: owner })).result === 1n) {
     throw new Error(`Bridge is not a minter`);
   }
 
@@ -130,6 +142,7 @@ export class CrossChainTestHarness {
     ownerAddress: AztecAddress,
     logger: Logger,
     underlyingERC20Address: EthAddress,
+    predeployedTokenPortalAddress?: EthAddress,
   ): Promise<CrossChainTestHarness> {
     const ethAccount = EthAddress.fromString((await l1Client.getAddresses())[0]);
     const l1ContractAddresses = (await aztecNode.getNodeInfo()).l1ContractAddresses;
@@ -142,6 +155,7 @@ export class CrossChainTestHarness {
       l1ContractAddresses.registryAddress,
       ownerAddress,
       underlyingERC20Address,
+      predeployedTokenPortalAddress,
     );
     logger.info('Deployed and initialized token, portal and its bridge.');
 
@@ -162,6 +176,7 @@ export class CrossChainTestHarness {
 
   private readonly l1TokenManager: L1TokenManager;
   private readonly l1TokenPortalManager: L1TokenPortalManager;
+  public readonly outboxContract: OutboxContract;
 
   constructor(
     /** Aztec node instance. */
@@ -202,6 +217,7 @@ export class CrossChainTestHarness {
       this.logger,
     );
     this.l1TokenManager = this.l1TokenPortalManager.getTokenManager();
+    this.outboxContract = new OutboxContract(this.l1Client, this.l1ContractAddresses.outboxAddress);
   }
 
   async mintTokensOnL1(amount: bigint) {
@@ -230,11 +246,13 @@ export class CrossChainTestHarness {
 
   async mintTokensPublicOnL2(amount: bigint) {
     this.logger.info('Minting tokens on L2 publicly');
-    await this.l2Token.methods.mint_to_public(this.ownerAddress, amount).send({ from: this.ownerAddress });
+    await testSpan('tx:mint', () =>
+      this.l2Token.methods.mint_to_public(this.ownerAddress, amount).send({ from: this.ownerAddress }),
+    );
   }
 
   async mintTokensPrivateOnL2(amount: bigint) {
-    await mintTokensToPrivate(this.l2Token, this.ownerAddress, this.ownerAddress, amount);
+    await testSpan('tx:mint', () => mintTokensToPrivate(this.l2Token, this.ownerAddress, this.ownerAddress, amount));
   }
 
   async sendL2PublicTransfer(transferAmount: bigint, receiverAddress: AztecAddress) {
@@ -269,7 +287,7 @@ export class CrossChainTestHarness {
     authwitNonce: Fr = Fr.ZERO,
     authWitness: AuthWitness,
   ): Promise<TxReceipt> {
-    const withdrawReceipt = await this.l2Bridge.methods
+    const { receipt: withdrawReceipt } = await this.l2Bridge.methods
       .exit_to_l1_private(this.l2Token.address, this.ethAccount, withdrawAmount, EthAddress.ZERO, authwitNonce)
       .send({ authWitnesses: [authWitness], from: this.ownerAddress });
 
@@ -277,7 +295,7 @@ export class CrossChainTestHarness {
   }
 
   async withdrawPublicFromAztecToL1(withdrawAmount: bigint, authwitNonce: Fr = Fr.ZERO): Promise<TxReceipt> {
-    const withdrawReceipt = await this.l2Bridge.methods
+    const { receipt: withdrawReceipt } = await this.l2Bridge.methods
       .exit_to_l1_public(this.ethAccount, withdrawAmount, EthAddress.ZERO, authwitNonce)
       .send({ from: this.ownerAddress });
 
@@ -285,7 +303,7 @@ export class CrossChainTestHarness {
   }
 
   async getL2PrivateBalanceOf(owner: AztecAddress) {
-    return await this.l2Token.methods.balance_of_private(owner).simulate({ from: owner });
+    return (await this.l2Token.methods.balance_of_private(owner).simulate({ from: owner })).result;
   }
 
   async expectPrivateBalanceOnL2(owner: AztecAddress, expectedBalance: bigint) {
@@ -295,7 +313,7 @@ export class CrossChainTestHarness {
   }
 
   async getL2PublicBalanceOf(owner: AztecAddress) {
-    return await this.l2Token.methods.balance_of_public(owner).simulate({ from: this.ownerAddress });
+    return (await this.l2Token.methods.balance_of_public(owner).simulate({ from: this.ownerAddress })).result;
   }
 
   async expectPublicBalanceOnL2(owner: AztecAddress, expectedBalance: bigint) {
@@ -315,10 +333,18 @@ export class CrossChainTestHarness {
   withdrawFundsFromBridgeOnL1(
     amount: bigint,
     epochNumber: EpochNumber,
+    numCheckpointsInEpoch: number,
     messageIndex: bigint,
     siblingPath: SiblingPath<number>,
   ) {
-    return this.l1TokenPortalManager.withdrawFunds(amount, this.ethAccount, epochNumber, messageIndex, siblingPath);
+    return this.l1TokenPortalManager.withdrawFunds(
+      amount,
+      this.ethAccount,
+      epochNumber,
+      numCheckpointsInEpoch,
+      messageIndex,
+      siblingPath,
+    );
   }
 
   async transferToPrivateOnL2(shieldAmount: bigint) {
@@ -342,8 +368,7 @@ export class CrossChainTestHarness {
    */
   async makeMessageConsumable(msgHash: Fr | Hex) {
     const frMsgHash = typeof msgHash === 'string' ? Fr.fromHexString(msgHash) : msgHash;
-    // We poll isL1ToL2MessageSynced endpoint until the message is available
-    await retryUntil(async () => await this.aztecNode.isL1ToL2MessageSynced(frMsgHash), 'message sync', 10);
+    await waitForL1ToL2MessageSeen(this.aztecNode, frMsgHash, { timeoutSeconds: 10 });
 
     await this.mintTokensPublicOnL2(0n);
     await this.mintTokensPublicOnL2(0n);

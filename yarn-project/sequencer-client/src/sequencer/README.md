@@ -1,531 +1,243 @@
 # Sequencer Timing Model
 
-The Aztec sequencer divides each slot into **fixed-duration sub-slots**. Each sub-slot has a pre-defined start and end time based on an initialization offset (how much time we expect syncing the previous slot will take), a finalization time (how much time we need for closing a checkpoint and publishing it to L1), and the configured block duration.
+This document covers how the sequencer schedules its work within a slot. See the [package README](../../README.md) for the high-level architecture; this one focuses on the timing math and the state-machine deadlines.
 
-**Example: 72-second slot with 8-second sub-slots**
-
-```
-0s:  Slot starts
-0-2s: Sync + proposer check (fixed 2s offset)
-
-Sub-slot 1:  2s-10s  → Build Block 1, deadline at 10s
-Sub-slot 2:  10s-18s → Build Block 2, deadline at 18s
-Sub-slot 3:  18s-26s → Build Block 3, deadline at 26s
-Sub-slot 4:  26s-34s → Build Block 4, deadline at 34s
-Sub-slot 5:  34s-42s → Build Block 5 (last block), deadline at 42s
-Sub-slot 6:  42s-50s → Reserved for validators to re-execute Block 5
-
-42s:  Broadcast checkpoint with Block 5
-44s:  Validators receive proposal (2s propagation)
-44-52s: Validators re-execute Block 5 (8s)
-52s:  Validators send attestations
-54s:  Proposer receives attestations (2s propagation)
-54-55s: Finalize checkpoint (1s)
-55-67s: Publish to L1 (12s)
-72s:  Slot ends
-```
-
-Deadlines are fixed relative to slot start, not relative to when work actually completes. If you finish initialization at 1s instead of 2s, you get bonus time for Block 1. If you finish at 3s, you have less time. If you finish at 9s, you skip the first sub-slot altogether and start building for the second one.
-
----
+The model described here is for **proposer pipelining**, the only mode the production sequencer runs in (the proposer always builds for `slot + 1`). The deterministic single-sequencer `AutomineSequencer` used in some e2e tests publishes synchronously in-slot and does not use this timing model.
 
 ## Overview
 
-The Aztec sequencer operates in fixed-duration **slots** (typically 72 seconds). During each slot, a designated proposer builds multiple **blocks** containing transactions over multiple **sub-slots**, then collects a single round of attestations for the entire **checkpoint** from validators, and finally publishes the resulting checkpoint to L1 Ethereum.
+Block production runs on three nested clocks:
 
-## Key Concepts
+- A **slot** is a fixed window (e.g. 72 s) during which one elected proposer is allowed to build.
+- A slot contains several equal-length **sub-slots** (e.g. 8 s). Each sub-slot owns the budget for one L2 block and has a deadline fixed relative to the slot start.
+- All blocks built within one slot make up one **checkpoint**, which is what eventually goes on L1.
 
-### Slot vs Block vs Checkpoint vs Sub-Slot
+Under pipelining, the proposer for slot `N` does its building inside slot `N - 1` ("build slot"). Slot `N` ("target slot") is only used to mine the L1 transaction. This shifts work like this:
 
-- **Slot**: A fixed time window (e.g., 72 seconds) during which a proposer can build blocks
-- **Block**: A single batch of transactions, executed and validated
-- **Checkpoint**: The collection of all blocks built in a slot, attested by validators and published to L1
-- **Sub-slot**: A fixed-duration time window within a slot (e.g., 8 seconds) during which a block should be built
+| Phase                          | When           |
+| ------------------------------ | -------------- |
+| Initialization                 | slot `N - 1`   |
+| Block building                 | slot `N - 1`   |
+| Checkpoint proposal broadcast  | slot `N - 1`   |
+| Last-block re-execution        | slot `N - 1`   |
+| Attestation collection         | slot `N - 1`   |
+| L1 submission                  | slot `N`       |
 
-In a typical configuration, a 72-second slot contains:
-- 1 initialization period (2 seconds)
-- 5 block-building sub-slots (8 seconds each = 40 seconds)
-- 1 last validator re-execution sub-slot (8 seconds)
-- 1 attestation and publishing period (17 seconds)
+The wall-clock slot the sequencer is reasoning about ("build slot") and the slot the checkpoint commits to ("target slot") are always `N - 1` and `N` respectively.
 
-### The Fixed Sub-Slot Model
+## Sub-slots
 
-Building multiple blocks per slot uses **fixed sub-slots** with predictable deadlines:
-
-1. **Equal-duration sub-slots**: All sub-slots have the same duration (`BLOCK_DURATION`)
-2. **Fixed deadlines**: Block N deadline = `initializationOffset + N * BLOCK_DURATION`
-3. **Last sub-slot reserved**: The final sub-slot is reserved for validators to re-execute the last block (no block is built during this sub-slot)
-4. **Skip if too late**: If we can't start a block with at least `MIN_EXECUTION_TIME` remaining before its deadline, we immediately start building in the next sub-slot
-
-## Timing Components
-
-Understanding slot timing requires knowing these time constants:
-
-| Component | Example Value | Purpose |
-|-----------|---------------|---------|
-| **Slot Duration** | 72s | Total time available for the entire checkpoint |
-| **Block Duration** | 8s | Duration of each sub-slot (time budget for building one block) |
-| **Initialization Offset** | 2s | Fixed estimate for sync + proposer check |
-| **Propagation Time** | 2s | Time for messages to travel across the P2P network (one-way) |
-| **Finalization Time** | 1s | Time to finalize checkpoint and prepare proposal message |
-| **L1 Publishing Time** | 12s | Time reserved for L1 transaction to land in an Ethereum block |
-| **Min Execution Time** | 3s | Minimum time needed to meaningfully build a block |
-
-These values are configurable but must satisfy certain constraints (explained below). Example values may differ from the ones in the source code.
-
-## Calculating Sub-Slots and Blocks
-
-Given a slot configuration, we calculate how many blocks fit using this formula:
+Each sub-slot has a fixed start time and a fixed deadline, both relative to the slot start:
 
 ```
-timeReservedAtEnd = blockDuration                              (last sub-slot for reexecution)
-                  + propagationTime                            (validators receive proposal)
-                  + propagationTime                            (attestations come back)
-                  + finalizationTime                           (checkpoint finalization)
-                  + l1PublishingTime                           (L1 transaction)
-
-timeAvailableForBlocks = slotDuration - initializationOffset - timeReservedAtEnd
-
-numberOfBlocks = floor(timeAvailableForBlocks / blockDuration)
+subSlotStart[k]    = initializationOffset + (k - 1) * blockDuration
+subSlotDeadline[k] = initializationOffset + k * blockDuration
 ```
 
-**Example with typical values:**
-```
-timeReservedAtEnd = 8s + 2s + 2s + 1s + 12s = 25s
-timeAvailableForBlocks = 72s - 2s - 25s = 45s
-numberOfBlocks = floor(45s / 8s) = 5 blocks
-```
+with `k = 1, 2, ..., maxNumberOfBlocks`. Deadlines do **not** shift based on when the previous block finished. If a block finishes early, the sequencer waits for the next sub-slot to begin (so validators see a regular cadence). If it finishes late, the next block has correspondingly less time.
 
-This means:
-- Sub-slots 1-5: Build blocks 1-5
-- Sub-slot 6: Reserved for validator re-execution of block 5
-- After sub-slot 6: Attestation collection, finalization, and L1 publishing
+`canStartNextBlock(secondsIntoSlot)` walks the sub-slot list and returns the first one with at least `minExecutionTime` left before its deadline. Sub-slots that no longer have enough headroom are skipped entirely.
 
-## The Sequencer's Work
+### Number of sub-slots
 
-When elected as proposer for a slot, the sequencer performs these tasks:
-
-### 1. Initialization Phase
-
-Before building any blocks, the sequencer must:
-- Verify it's the designated proposer
-- Check all subsystems are synced
-- Initialize checkpoint state
-- Prepare global variables
-
-Note that the initialization phase has a **fixed time budget** (`initializationOffset`, typically 2s). This is an *estimate*, not a deadline. The sequencer will take as long as it needs for initialization, but the sub-slot deadlines remain fixed regardless.
-
-### 2. Block Building Loop
-
-The sequencer builds blocks in **fixed sub-slots** based on the configured block duration.
-
-#### Sub-slot deadline calculation
-
-Each sub-slot has a fixed start time and deadline:
+The maximum number of buildable blocks per slot is:
 
 ```
-subSlotStart[N] = initializationOffset + (N - 1) * blockDuration
-subSlotDeadline[N] = initializationOffset + N * blockDuration
+timeReservedAtEnd      = checkpointAssembleTime
+                       + 2 * p2pPropagationTime    // proposal out + attestations back
+                       + blockDuration             // last-block re-execution
+
+timeAvailableForBlocks = aztecSlotDuration
+                       - checkpointInitializationTime
+                       - timeReservedAtEnd
+
+maxNumberOfBlocks      = floor(timeAvailableForBlocks / blockDuration)
 ```
 
-Where N is the sub-slot number (1-indexed).
+The reservation at the end of the slot is sized so that, on the happy path, attestations are in hand by the time the target slot starts. The enforced `COLLECTING_ATTESTATIONS` and `PUBLISHING_CHECKPOINT` deadlines are softer (see the deadline table below) and let a late attestation spill into the target slot. L1 publishing is **not** included in `timeReservedAtEnd` — that is paid for by the target slot.
 
-**Example with 2s offset and 8s block duration:**
-```
-Sub-slot 1: starts at 2s,  deadline at 10s
-Sub-slot 2: starts at 10s, deadline at 18s
-Sub-slot 3: starts at 18s, deadline at 26s
-Sub-slot 4: starts at 26s, deadline at 34s
-Sub-slot 5: starts at 34s, deadline at 42s
-```
+### Cooldown after the last sub-slot
 
-#### Building a block
+All `maxNumberOfBlocks` sub-slots build a block. The cooldown lives in the `timeReservedAtEnd` window that follows the last sub-slot:
 
-For each sub-slot, the sequencer:
+- 1 × `checkpointAssembleTime` to assemble and sign the checkpoint,
+- 1 × `p2pPropagationTime` for the `CheckpointProposal` to reach the committee,
+- 1 × `blockDuration` for the committee to re-execute the last block,
+- 1 × `p2pPropagationTime` for attestations to come back.
 
-1. **Checks if we can start**: If current time is past `deadline - MIN_EXECUTION_TIME`, skip this sub-slot, and start building the block as if it were on the next sub-slot
-2. **Waits for transactions** (if needed): Wait up to the deadline for minimum number of transactions
-3. **Builds block**: Execute transactions until the deadline of the sub-slot
-4. **Signs and broadcasts**: Finalize block and broadcast proposal to validators
+These four windows total `checkpointAssembleTime + blockDuration + 2 * p2pPropagationTime`, exactly the `timeReservedAtEnd` formula above. The block built in the last sub-slot is *not* broadcast as a regular `BlockProposal`; the proposer holds it as `blockPendingBroadcast` so it travels bundled inside the `CheckpointProposal`.
 
-**Key point:** The deadline is **fixed** based on the sub-slot number, not based on when the previous block finished.
+## Timing constants
 
-Note that if a block finishes early, then the sequencer waits until the next sub-slot starts to maintain the regular interval. This prevents "rushing ahead" and keeps the timing predictable. Conversely, if the block finishes later than expected, this "eats into" the time budget for the next block.
+These constants come from `@aztec/stdlib/timetable` (see `stdlib/src/timetable/index.ts`). Some are fixed across the network, some are inputs from configuration.
 
-#### Waiting for minimum transactions
+| Constant                          | Source                                  | Typical value | Purpose                                              |
+| --------------------------------- | --------------------------------------- | ------------- | ---------------------------------------------------- |
+| `aztecSlotDuration`               | L1 rollup contract                      | 72 s          | Length of one Aztec slot.                            |
+| `ethereumSlotDuration`            | L1 rollup contract                      | 12 s          | Length of one Ethereum slot.                         |
+| `blockDuration`                   | `blockDurationMs` config                | 6–8 s         | Sub-slot length.                                     |
+| `checkpointInitializationTime`    | constant (`CHECKPOINT_INITIALIZATION_TIME`) | 1 s       | Estimated sync + proposer check time.                |
+| `checkpointAssembleTime`          | constant (`CHECKPOINT_ASSEMBLE_TIME`)   | 1 s           | Time to assemble and sign the checkpoint after the last block. |
+| `p2pPropagationTime`              | `attestationPropagationTime` config     | 2 s           | One-way p2p estimate (proposals, attestations).      |
+| `l1PublishingTime`                | `l1PublishingTime` config               | 12 s          | Time reserved for the L1 tx to land. Used by the target slot, not the build slot. |
+| `minExecutionTime`                | constant (`MIN_EXECUTION_TIME`)         | 2 s           | Minimum headroom to start a block.                   |
+| `initializationOffset`            | `=checkpointInitializationTime`         | 1 s           | Where sub-slot 1 starts.                             |
 
-Before building a block, the sequencer must ensure there are enough transactions in the mempool. This waiting phase has its own timing constraints:
+## Deadlines
 
-**Configuration:**
-- `minTxsPerBlock`: Minimum number of transactions required (configurable, e.g., 1-4)
-- Polling interval: 500ms (checks mempool every half-second)
-- Deadline: `blockDeadline - 1000ms` (must start building at least 1 second before the block deadline)
+`SequencerTimetable.getMaxAllowedTime(state)` returns the latest second-into-slot a given state is allowed to be entered. `assertTimeLeft()` throws `SequencerTooSlowError` if the slot has already advanced past that deadline. Sub-slot scheduling is measured against the build slot (`slotNow`); state assertions, however, are measured against whichever slot `setState` was called with — for the publishing path that is the target slot, which is why the publishing deadline is allowed to exceed `aztecSlotDuration`.
 
-**Behavior:**
-1. Check current pending transaction count
-2. If count >= `minTxsPerBlock`, proceed to build immediately
-3. If count < `minTxsPerBlock`, poll every 500ms until either:
-   - Enough transactions arrive (proceed to build)
-   - Deadline is reached (skip building this block)
+| State                       | Max allowed time (seconds into build slot)                                  |
+| --------------------------- | --------------------------------------------------------------------------- |
+| `PROPOSER_CHECK`            | `initializeDeadline = aztecSlotDuration - (checkpointInitializationTime + 2*minExecutionTime)` |
+| `INITIALIZING_CHECKPOINT`   | same as `PROPOSER_CHECK`                                                    |
+| `WAITING_FOR_TXS`           | `initializeDeadline + checkpointInitializationTime`                         |
+| `CREATING_BLOCK`            | same as `WAITING_FOR_TXS`                                                   |
+| `WAITING_UNTIL_NEXT_BLOCK`  | same as `WAITING_FOR_TXS`                                                   |
+| `ASSEMBLING_CHECKPOINT`     | `aztecSlotDuration + pipeliningAttestationGracePeriod`                      |
+| `COLLECTING_ATTESTATIONS`   | same as `ASSEMBLING_CHECKPOINT`                                             |
+| `PUBLISHING_CHECKPOINT`     | `2 * aztecSlotDuration - ethereumSlotDuration` (extends into the target slot) |
 
-**Special cases:**
-- **Last block with empty checkpoint allowed**: If `buildCheckpointIfEmpty` is true and this is the last block, skip waiting and force build with 0+ transactions
-- **Non-enforced timetable**: If enforcement is disabled, exit immediately if not enough transactions (don't wait)
+In production-like timing, `pipeliningAttestationGracePeriod` is zero, so `ASSEMBLING_CHECKPOINT` and
+`COLLECTING_ATTESTATIONS` must be *entered* before the build-slot boundary. Local networks with
+`l1PublishingTime < ethereumSlotDuration` can use the target-slot attestation window as grace while preserving the
+L1-geometry publishing cutoff. Once entered, attestation collection itself has its own
+`checkpointAttestationDeadline = 2 * aztecSlotDuration - ethereumSlotDuration`, so a late attestation arriving after
+the boundary is still accepted. The publishing deadline extends into the target slot because that is when the L1 tx is
+actually submitted.
 
-**Example:**
-```
-Sub-slot 3 deadline: 26s
-Transaction wait deadline: 25s (26s - 1s)
-Current time: 20s
+## Example: 72 s slot, 8 s sub-slots
 
-20.0s: Check mempool → 2 txs (need 4)
-20.5s: Check mempool → 2 txs (need 4)
-21.0s: Check mempool → 4 txs (need 4) ✓ Start building!
-21-26s: Build block with those 4+ transactions
-```
-
-If the deadline (25s) is reached with only 2 transactions, the block is skipped and the sequencer moves to the next sub-slot.
-
-### 3. Last Block and Validator Re-execution
-
-The **last block** is built during the **penultimate sub-slot**. The final sub-slot is reserved for validators to re-execute the last block.
-
-**Why the last sub-slot is reserved:**
-
-Validators execute blocks **sequentially**. While the proposer builds Block N+1, validators are re-executing Block N (with a ~2s delay due to propagation). However, for the **last block**, there's no "Block N+1" to build while validators re-execute. We must wait for them to finish so they can attest.
-
-**Timeline for the last block:**
+With typical pipelining values:
 
 ```
-T:      Last block finishes building, checkpoint proposal broadcast
-        Last sub-slot begins (duration: blockDuration)
-T+2s:   Validators receive proposal (propagation delay)
-T+2s to T+2s+blockDuration: Validators re-execute last block
-T+2s+blockDuration: Validators finish re-execution, send attestations
-T+4s+blockDuration: Proposer receives attestations (propagation delay)
+checkpointInitializationTime = 1s
+blockDuration               = 8s
+checkpointAssembleTime      = 1s
+p2pPropagationTime          = 2s
+l1PublishingTime            = 12s
+
+timeReservedAtEnd      = 1 + 2*2 + 8       = 13s
+timeAvailableForBlocks = 72 - 1 - 13       = 58s
+maxNumberOfBlocks      = floor(58 / 8)     = 7
 ```
 
-**Example with 8s block duration:**
-```
-42s:    Block 5 finishes, checkpoint broadcast, sub-slot 6 starts
-44s:    Validators receive checkpoint (42s + 2s)
-44-52s: Validators re-execute Block 5 (8s)
-52s:    Validators send attestations
-54s:    Proposer receives attestations (52s + 2s)
-```
-
-Note that validators finish at `52s`, which is `2s` after the last sub-slot ends at `50s`. This is expected and accounted for in the `timeReservedAtEnd` calculation.
-
-### 4. Attestation Collection and L1 Publishing
-
-After the last block is built and validators have re-executed it:
-
-1. **Collect attestations**: Wait for validators to send their signatures (arrive at T+4s+blockDuration)
-2. **Finalize checkpoint**: Sign over attestations, assemble final checkpoint (1s)
-3. **Publish to L1**: Submit transaction to Ethereum (needs 12s to land)
-
-**Time reserved:** `2*propagationTime + finalizationTime + l1PublishingTime = 2s + 2s + 1s + 12s = 17s`
-
-This 17s comes after the last sub-slot, ensuring we have enough time to complete the checkpoint. If the sequencer receives the necessary attestations before the reserved time, the L1 tx is submitted earlier.
-
-## Handling Timing Variations
-
-How does the sequencer timetable handle deviations from the expected times.
-
-### Fast Initialization
-
-**Scenario:** Initialization completes at 1s instead of 2s
+Seven sub-slots, all of which build a block:
 
 ```
-0-1s:   SYNCHRONIZING, PROPOSER_CHECK (1s actual, vs 2s estimate)
-1s:     Ready to build Block 1
-1-10s:  Build Block 1 (9s available vs 8s budgeted)
-10s:    Block 1 deadline
-10-18s: Build Block 2
+Sub-slot 1: starts 1s,  deadline 9s    (Block 1)
+Sub-slot 2: starts 9s,  deadline 17s   (Block 2)
+Sub-slot 3: starts 17s, deadline 25s   (Block 3)
+Sub-slot 4: starts 25s, deadline 33s   (Block 4)
+Sub-slot 5: starts 33s, deadline 41s   (Block 5)
+Sub-slot 6: starts 41s, deadline 49s   (Block 6)
+Sub-slot 7: starts 49s, deadline 57s   (Block 7 — held for the checkpoint proposal)
+
+57s:  Block 7 done, ASSEMBLING_CHECKPOINT (1s)
+58s:  CheckpointProposal broadcast
+60s:  Committee receives proposal (+2s p2p)
+60-68s: Committee re-executes Block 7
+68s:  Committee sends attestations
+70s:  Proposer has the quorum (+2s p2p)
+
+70-72s: Slack
+72s:  Build slot ends → L1 submission starts (target slot begins)
+84s:  L1 tx mined inside the target slot (+12s)
+```
+
+## Parallel execution: proposer vs committee
+
+While the proposer builds block `k+1`, the committee is re-executing block `k`. The pipeline keeps both sides busy except for the cooldown sub-slot.
+
+```
+Time | Proposer                     | Committee
+-----|------------------------------|--------------------------------------
+1s   | Start Block 1                | (idle)
+9s   | Finish Block 1, broadcast    |
+9s   | Start Block 2                |
+11s  |                              | Receive Block 1 (9s + 2s)
+     |                              | Re-execute Block 1
+17s  | Finish Block 2, broadcast    |
+17s  | Start Block 3                |
+19s  |                              | Finish Block 1 (11s + 8s)
+     |                              | Receive Block 2 (17s + 2s)
+     |                              | Re-execute Block 2
 ...
+49s  | Finish Block 6, broadcast    |
+49s  | Start Block 7 (last)         |
+51s  |                              | Receive Block 6 (49s + 2s)
+     |                              | Re-execute Block 6
+57s  | Finish Block 7 (held)        |
+     | ASSEMBLING_CHECKPOINT (1s)   |
+58s  | Broadcast CheckpointProposal |
+59s  |                              | Finish Block 6 (51s + 8s)
+60s  |                              | Receive Block 7 + Checkpoint (58s + 2s)
+     |                              | Re-execute Block 7
+68s  |                              | Send attestations (60s + 8s)
+70s  | Receive attestations         |
+70-72s| Slack                       |
+72s  | L1 tx submitted              |
+84s  | L1 tx mined                  |
 ```
 
-**Result:** Block 1 gets a bonus 1s of execution time. The extra time allows for more transactions or more complex execution.
+**Observations**:
 
-### Slow Initialization
+- Validators always lag the proposer by ~2 s (one p2p hop).
+- For the last block there is no `k+1` to build alongside; once the proposer broadcasts the `CheckpointProposal`, it just waits while the committee re-executes.
+- L1 publishing happens entirely inside the next slot and does not steal time from block building.
 
-**Scenario:** Initialization completes at 3s instead of 2s
+## Handling timing variations
 
-This may happen if the sequencer has a slow L1 RPC endpoint and syncing the previous checkpoint from L1 takes longer than expected.
+### Fast initialization (0.5 s instead of 1 s)
 
-```
-0-3s:   SYNCHRONIZING, PROPOSER_CHECK (3s actual, vs 2s estimate)
-3s:     Ready to build Block 1
-3-10s:  Build Block 1 (7s available vs 8s budgeted)
-10s:    Block 1 deadline
-10-18s: Build Block 2
-...
-```
+Sub-slot 1's deadline is still 9 s, so Block 1 gets a 0.5 s bonus before hitting its deadline. No structural change.
 
-**Result:** Block 1 has 1s less time (7s instead of 8s). Still enough time to build a block, just with fewer transactions or simpler execution.
+### Slow initialization (2 s instead of 1 s)
 
-### Very Slow Initialization
+Block 1 has 7 s of build time instead of 8 s. Still well above `minExecutionTime`, so the block still gets built. No sub-slots are skipped.
 
-**Scenario:** Initialization completes at 9s instead of 2s
+### Very slow initialization (8 s)
 
-While extremely unlikely, we still account for this scenario. We'd expect it to be related to faults to syncing blob data.
+Sub-slot 1's deadline (9 s) is closer than `minExecutionTime` (2 s), so it is skipped entirely. The first attempted block runs in sub-slot 2 with the usual budget. The checkpoint will have one fewer block.
 
-```
-0-9s:   SYNCHRONIZING, PROPOSER_CHECK (9s actual, vs 2s estimate)
-9s:     Ready to build Block 1
-        Check: Can we start Block 1 in sub-slot 1?
-        - Sub-slot 1 deadline: 10s
-        - Current time: 9s
-        - Time available: 1s
-        - MIN_EXECUTION_TIME: 3s
-        - 1s < 3s, so CANNOT use sub-slot 1
+### Block takes longer than its budget
 
-        Use sub-slot 2 instead:
-9s:     Start building Block 1 using sub-slot 2
-9-18s:  Build Block 1 (9s available vs 8s budgeted)
-18s:    Block 1 deadline (sub-slot 2)
-18-26s: Build Block 2 using sub-slot 3
-...
-```
+`CheckpointBuilder` enforces the deadline by stopping public-tx execution; in practice a block can only overrun by the time it takes to finalize the block (typically < 1 s). The next sub-slot starts as scheduled but with proportionally less headroom. If that headroom drops below `minExecutionTime`, the next sub-slot is skipped.
 
-**Result:** Sub-slot 1 is skipped entirely. We build 4 blocks instead of 5 (using sub-slots 2-5). Block 1 gets a bonus 1s of time.
+### Block finishes early
 
-### Block Takes Longer Than Expected
+The sequencer transitions to `WAITING_UNTIL_NEXT_BLOCK` and sleeps until the next sub-slot start. This keeps the cadence regular and gives validators predictable arrival times for re-execution.
 
-**Scenario:** Block 2 takes 9s instead of 8s
+### Block proposal returns insufficient txs
 
-This scenario should not happen since the sequencer forcefully stops the block builder at the given deadline, but we still consider it.
+The current sub-slot is dropped without committing anything. The loop retries on the next sub-slot. If `buildCheckpointIfEmpty` is true, the last sub-slot is forced through with whatever is available, including zero txs.
+
+### Build slot ends before attestations arrive
+
+`assertTimeLeft` will reject `PUBLISHING_CHECKPOINT` if the attestation deadline has passed; the slot is abandoned, and
+`checkpoint-publish-failed` is emitted. The `PUBLISHING_CHECKPOINT` deadline allows spillover into the target slot
+(`2 * aztecSlotDuration - ethereumSlotDuration`) precisely to absorb a small overrun.
+
+### Pipelined parent fails on L1
+
+Before submitting, the job calls `waitForValidParentCheckpointOnL1`. If the parent we built on top of did not land cleanly (wrong archive, missing attestations, etc.) the job discards its checkpoint, emits `pipelined-checkpoint-discarded`, and enqueues an invalidation for the parent so the next proposer doesn't get stuck on the same bad ancestor.
+
+## Configuration constraints
+
+`initializeDeadline` must be positive, so `aztecSlotDuration > checkpointInitializationTime + 2 * minExecutionTime`. With defaults that lower bound is 5 s, far below any realistic slot length.
+
+For multi-block production to make sense, `maxNumberOfBlocks ≥ 2`:
 
 ```
-10s:    Start building Block 2
-19s:    Block 2 finishes (1s late, deadline was 18s)
-19s:    Broadcast Block 2
-        Check: Can we start Block 3?
-        - Block 3 deadline: 26s
-        - Current time: 19s
-        - Time available: 7s
-        - MIN_EXECUTION_TIME: 3s
-        - 7s >= 3s, so CAN start Block 3
-
-19-26s: Build Block 3 (7s available vs 8s budgeted)
-26s:    Block 3 deadline
+aztecSlotDuration ≥ checkpointInitializationTime
+                  + 2 * blockDuration                // two blocks
+                  + checkpointAssembleTime
+                  + 2 * p2pPropagationTime
+                  + blockDuration                    // last-block re-execution window
 ```
 
-**Result:** Block 3 has less time (7s instead of 8s), but we still build it. The delay propagates but doesn't cascade uncontrollably.
+Block duration should be ≥ `minExecutionTime` (otherwise no sub-slot ever has enough headroom). `p2pPropagationTime` should be measured against the deployment's actual p2p latency: it directly determines how much of each slot is spent on the cooldown.
 
-**Extreme case:** If Block 2 finishes at 24s (6s late):
-```
-24s:    Block 2 finishes (6s late)
-        Check: Can we start Block 3 in sub-slot 3?
-        - Sub-slot 3 deadline: 26s
-        - Current time: 24s
-        - Time available: 2s
-        - MIN_EXECUTION_TIME: 3s
-        - 2s < 3s, so CANNOT use sub-slot 3
-
-        Use sub-slot 4 instead:
-24-34s: Build Block 3 using sub-slot 4 (10s available vs 8s budgeted)
-```
-
-**Result:** Sub-slot 3 is skipped, we build Block 3 using sub-slot 4 instead with bonus time.
-
-### Block Finishes Early
-
-**Scenario:** Block 2 finishes at 15s instead of 18s
-
-This can happen if the sequencer hits a block limit (number of txs, gas, size, etc) or runs out of available txs before the sub-slot deadline:
-
-```
-10-15s: Build Block 2 (5s used vs 8s budgeted)
-15s:    Block 2 finished
-15s:    Broadcast Block 2
-        Check: Should we start Block 3 now or wait?
-        - Next sub-slot starts at 18s
-        - Wait until 18s to maintain regular intervals
-
-15-18s: WAITING_UNTIL_NEXT_BLOCK
-18s:    Start building Block 3
-18-26s: Build Block 3
-```
-
-**Result:** We wait until the next sub-slot starts. This prevents "rushing ahead" and maintains consistent block intervals, which is better for validators who are re-executing blocks in parallel.
-
-## Parallel execution between Proposers and Validators
-
-A key aspect of this design is **parallel execution** between proposer and validators.
-
-### Timeline Example (8-second sub-slots)
-
-```
-Time | Proposer                    | Validators
------|----------------------------|---------------------------
-2s   | Start building Block 1     | (idle)
-10s  | Finish Block 1, broadcast  | (idle)
-10s  | Start building Block 2     |
-12s  |                            | Receive Block 1 (10s + 2s)
-     |                            | Start re-executing Block 1
-18s  | Finish Block 2, broadcast  |
-20s  |                            | Finish re-executing Block 1 (12s + 8s)
-     |                            | Receive Block 2 (18s + 2s)
-     |                            | Start re-executing Block 2
-18s  | Start building Block 3     |
-26s  | Finish Block 3, broadcast  |
-28s  |                            | Finish re-executing Block 2 (20s + 8s)
-     |                            | Receive Block 3 (26s + 2s)
-     |                            | Start re-executing Block 3
-...
-42s  | Finish Block 5, broadcast  |
-     | checkpoint proposal        |
-44s  |                            | Finish re-executing Block 4 (36s + 8s)
-     |                            | Receive Block 5 + checkpoint (42s + 2s)
-     |                            | Start re-executing Block 5
-42-54s| COLLECTING_ATTESTATIONS   |
-52s  |                            | Finish re-executing Block 5 (44s + 8s)
-     |                            | Send attestations
-54s  | Receive attestations       | (done)
-54-55s| ASSEMBLING_CHECKPOINT     |
-55s  | PUBLISHING_CHECKPOINT      |
-```
-
-**Key observations:**
-- Validators lag by ~2s (propagation delay)
-- While proposer builds Block N+1, validators re-execute Block N (parallel work)
-- For the last block, proposer waits while validators re-execute
-- The last sub-slot provides the time budget for this waiting period
-
-## Configuration Guidelines
-
-When configuring timing parameters, ensure these constraints are satisfied:
-
-### Minimum Slot Duration
-
-For a valid configuration:
-```
-slotDuration >= initializationOffset
-              + blockDuration * 2                          (at least 2 blocks)
-              + blockDuration                              (last sub-slot)
-              + 2 * propagationTime                        (round-trip)
-              + finalizationTime                           (checkpoint finalization)
-              + l1PublishingTime                           (L1 publishing)
-```
-
-Simplified:
-```
-slotDuration >= initializationOffset + 3*blockDuration + 2*propagationTime + finalizationTime + l1PublishingTime
-```
-
-**Example:**
-```
-slotDuration >= 2s + 3*8s + 2*2s + 1s + 12s = 2s + 24s + 4s + 1s + 12s = 43s
-```
-
-For a 72s slot, this leaves `72s - 43s = 29s` of slack, allowing for about 3-4 additional blocks (29s / 8s ≈ 3.6).
-
-### Block Duration Constraints
-
-Block duration should be greater than the min execution time, and ideally a divisor of the time available for building.
-
-```
-blockDuration >= MIN_EXECUTION_TIME (3s practical minimum for meaningful execution)
-```
-
-### Initialization Offset
-
-The initialization offset should be set based on empirical measurements of how long initialization typically takes, with typical values being 1-3 seconds.
-
-**Key point:** This is an *estimate*, not a hard deadline. The sequencer will take as long as needed for initialization. If it takes longer than the offset, the first block just has less time. If it takes less, the first block has bonus time.
-
-### Propagation Time
-
-Should be measured empirically on the actual P2P network, accounting for:
-- Network latency between geographically distributed validators
-- Gossip network propagation (not direct communication)
-- Block/checkpoint size (larger messages take longer)
-
-Typical values: 1-3 seconds
-
-### L1 Publishing Time
-
-Must account for Ethereum slot duration (12s) and blob propagation time:
-- Bare minimum: 8s (Ethereum allows txs up to 4s into the slot)
-- Recommended minimum: 12s (full Ethereum slot)
-- With high blob congestion: 24s (two slots)
-
-## State Machine
-
-The sequencer transitions through these states during a slot:
-
-| State | Time Budget | Purpose |
-|-------|-------------|---------|
-| **SYNCHRONIZING** | No limit | Wait for all subsystems to sync |
-| **PROPOSER_CHECK** | Part of init offset | Verify we're the proposer |
-| **INITIALIZING_CHECKPOINT** | Part of init offset | Set up checkpoint state |
-| **WAITING_FOR_TXS** | Until block deadline | Wait for enough transactions |
-| **CREATING_BLOCK** | Until block deadline | Execute transactions and build block |
-| **WAITING_UNTIL_NEXT_BLOCK** | Until next sub-slot start | Sleep between blocks to maintain intervals |
-| **ASSEMBLING_CHECKPOINT** | assembleTime (1s) | Assemble final checkpoint |
-| **COLLECTING_ATTESTATIONS** | Until L1 publish deadline | Wait for validator signatures |
-| **PUBLISHING_CHECKPOINT** | Until slot end | Submit to L1 |
-
-## Complete Example: 72-Second Slot with 8-Second Sub-Slots
-
-Let's walk through a complete slot with the happy path:
-
-```
-T=0s    Slot begins for slot N
-
-T=0-2s  SYNCHRONIZING, PROPOSER_CHECK, INITIALIZING_CHECKPOINT
-        Actual time: 1.8s (slightly faster than 2s estimate)
-
-T=2s    Sub-slot 1 deadline calculation: 2s + 1*8s = 10s
-T=1.8s  Ready to build, start Block 1 immediately
-        Available time: 10s - 1.8s = 8.2s (bonus 0.2s!)
-T=1.8-9.5s  CREATING_BLOCK 1
-T=9.5s  Block 1 complete, broadcast
-T=9.5-10s  Wait for next sub-slot
-
-T=10s   Sub-slot 2 starts, deadline: 2s + 2*8s = 18s
-T=10-17.5s  CREATING_BLOCK 2
-T=17.5s Block 2 complete, broadcast
-T=17.5-18s Wait for next sub-slot
-
-T=18s   Sub-slot 3 starts, deadline: 2s + 3*8s = 26s
-T=18-25s  CREATING_BLOCK 3
-T=25s   Block 3 complete, broadcast
-T=25-26s Wait for next sub-slot
-
-T=26s   Sub-slot 4 starts, deadline: 2s + 4*8s = 34s
-T=26-33.5s  CREATING_BLOCK 4
-T=33.5s Block 4 complete, broadcast
-T=33.5-34s Wait for next sub-slot
-
-T=34s   Sub-slot 5 starts, deadline: 2s + 5*8s = 42s
-T=34-41s  CREATING_BLOCK 5 (last block)
-T=41s   Block 5 complete
-
-T=41s   ASSEMBLING_CHECKPOINT (1s)
-T=42s   Checkpoint proposal broadcast
-        Sub-slot 6 starts (last sub-slot, reserved for validator reexec)
-
-T=44s   Validators receive checkpoint (42s + 2s propagation)
-        Validators start re-executing Block 5
-
-T=52s   Validators finish re-executing Block 5 (44s + 8s)
-        Validators send attestations
-
-T=54s   COLLECTING_ATTESTATIONS
-        Proposer receives attestations (52s + 2s propagation)
-
-T=55s   PUBLISHING_CHECKPOINT
-        Sign over attestations, submit L1 transaction
-
-T=67s   L1 transaction lands in Ethereum block (12s)
-
-T=72s   Slot ends (5s buffer remaining)
-```
-
-**Summary:**
-- Built 5 blocks (sub-slots 1-5)
-- Last sub-slot (6) reserved for validator re-execution
-- Total time: 72s
-- Buffer: 5s (72s - 67s)
+`l1PublishingTime` should fit inside the Ethereum slot the target slot maps to. The default of 12 s lines up with one
+Ethereum slot; fast local networks may reduce it to use the target-slot attestation window as assembly and attestation
+grace.

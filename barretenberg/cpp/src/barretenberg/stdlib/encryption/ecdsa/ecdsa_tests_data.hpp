@@ -45,11 +45,9 @@ const std::vector<WycherproofSecp256k1> secp256k1_tests{
         .message = { 0x31, 0x32, 0x33, 0x34, 0x30, 0x30 },
         .r = WycherproofSecp256k1::Fr("0x0000000000000000000000000000000000000000000000000000000000000101"),
         .s = WycherproofSecp256k1::Fr("0xc58b162c58b162c58b162c58b162c58a1b242973853e16db75c8a1a71da4d39d"),
-        .is_valid_signature = true,
-        .is_circuit_satisfied = false,
+        .is_valid_signature = false,
+        .is_circuit_satisfied = true,
         .comment = "Arithmetic error, s is larger than (n+1)/2",
-        .failure_msg =
-            "ECDSA input validation: the s component of the signature is bigger than (Fr::modulus + 1)/2.: hi limb.",
     },
     WycherproofSecp256k1{
         .x = WycherproofSecp256k1::Fq("0xd6ef20be66c893f741a9bf90d9b74675d1c2a31296397acb3ef174fd0b300c65"),
@@ -60,7 +58,6 @@ const std::vector<WycherproofSecp256k1> secp256k1_tests{
         .is_valid_signature = true,
         .is_circuit_satisfied = true,
         .comment = "Arithmetic error, r component is small",
-        .failure_msg = "",
     },
     // Point duplication tests
     WycherproofSecp256k1{
@@ -72,7 +69,6 @@ const std::vector<WycherproofSecp256k1> secp256k1_tests{
         .is_valid_signature = false,
         .is_circuit_satisfied = true,
         .comment = "Point duplication, public key shares x-coordinates with generator",
-        .failure_msg = "",
     },
     // Edge case public key tests
     WycherproofSecp256k1{
@@ -84,7 +80,17 @@ const std::vector<WycherproofSecp256k1> secp256k1_tests{
         .is_valid_signature = true,
         .is_circuit_satisfied = true,
         .comment = "Edge case public key, y coordinate is small",
-        .failure_msg = "",
+    },
+    // Modular inverse edge case
+    WycherproofSecp256k1{
+        .x = WycherproofSecp256k1::Fq("0x9171fec3ca20806bc084f12f0760911b60990bd80e5b2a71ca03a048b20f837e"),
+        .y = WycherproofSecp256k1::Fq("0x634fd17863761b2958d2be4e149f8d3d7abbdc18be03f451ab6c17fa0a1f8330"),
+        .message = { 0x31, 0x32, 0x33, 0x34, 0x30, 0x30 },
+        .r = WycherproofSecp256k1::Fr("0x55555555555555555555555555555554e8e4f44ce51835693ff0ca2ef01215c1"),
+        .s = WycherproofSecp256k1::Fr("0x2736d76e412246e097148e2bf62915614eb7c428913a58eb5e9cd4674a9423de"),
+        .is_valid_signature = true,
+        .is_circuit_satisfied = true,
+        .comment = "Modular inverse edge case",
     },
 };
 
@@ -103,7 +109,6 @@ const std::vector<WycherproofSecp256r1> secp256r1_tests{
         .is_valid_signature = true,
         .is_circuit_satisfied = true,
         .comment = "Arithmetic error",
-        .failure_msg = "",
     },
     // Point duplication test
     WycherproofSecp256r1{
@@ -113,10 +118,11 @@ const std::vector<WycherproofSecp256r1> secp256r1_tests{
         .r = WycherproofSecp256r1::Fr("0xbb5a52f42f9c9261ed4361f59422a1e30036e7c32b270c8807a419feca605023"),
         .s = WycherproofSecp256r1::Fr("0x249249246db6db6ddb6db6db6db6db6dad4591868595a8ee6bf5f864ff7be0c2"),
         .is_valid_signature = false,
-        .is_circuit_satisfied =
-            false, // When the public key is equal to ±G, the circuit fails because of the generation of lookup tables
+        // The fake-GLV two-2-MSM path handles pubkey = ±G natively: each MSM operates on independent input pairs
+        // {G, ±T₁} or {Q, ±T₂}, none of which collide for honest signatures, so the circuit is satisfiable. The
+        // verifier still reports invalid because this Wycherproof vector is independently a malformed signature.
+        .is_circuit_satisfied = true,
         .comment = "Point duplication, public key shares x-coordinates with generator",
-        .failure_msg = "ECDSA input validation: the public key is equal to plus or minus the generator point.",
     },
     // Edge case public key test
     WycherproofSecp256r1{
@@ -128,7 +134,17 @@ const std::vector<WycherproofSecp256r1> secp256r1_tests{
         .is_valid_signature = true,
         .is_circuit_satisfied = true,
         .comment = "Edge case public key, x-coordinate has many trailing zeros",
-        .failure_msg = "",
+    },
+    // Edge case public key test
+    WycherproofSecp256r1{
+        .x = WycherproofSecp256r1::Fq("0x2927b10512bae3eddcfe467828128bad2903269919f7086069c8c4df6c732838"),
+        .y = WycherproofSecp256r1::Fq("0xc7787964eaac00e5921fb1498a60f4606766b3d9685001558d1a974e7341513e"),
+        .message = { 0x4d, 0x65, 0x73, 0x73, 0x61, 0x67, 0x65 },
+        .r = WycherproofSecp256r1::Fr("0xffffffff00000000ffffffffffffffffbce6faada7179e84f3b9cac2fc632551"),
+        .s = WycherproofSecp256r1::Fr("0xffffffff00000000ffffffffffffffffbce6faada7179e84f3b9cac2fc632550"),
+        .is_valid_signature = false,
+        .is_circuit_satisfied = true,
+        .comment = "Signature with special case values r=n and s=n - 1",
     },
 };
 } // namespace bb::stdlib

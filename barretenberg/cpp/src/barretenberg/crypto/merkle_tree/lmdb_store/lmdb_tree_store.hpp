@@ -1,5 +1,5 @@
 // === AUDIT STATUS ===
-// internal:    { status: Planned, auditors: [Raju], commit: }
+// internal:    { status: Complete, auditors: [Nishat], commit: 22d6fc368da0fbe5412f4f7b2890a052aa48d803 }
 // external_1:  { status: not started, auditors: [], commit: }
 // external_2:  { status: not started, auditors: [], commit: }
 // =====================
@@ -38,7 +38,7 @@ struct BlockPayload {
     block_number_t blockNumber;
     fr root;
 
-    MSGPACK_FIELDS(size, blockNumber, root)
+    SERIALIZATION_FIELDS(size, blockNumber, root)
 
     bool operator==(const BlockPayload& other) const
     {
@@ -58,7 +58,7 @@ struct NodePayload {
     std::optional<fr> right;
     uint64_t ref;
 
-    MSGPACK_FIELDS(left, right, ref)
+    SERIALIZATION_FIELDS(left, right, ref)
 
     bool operator==(const NodePayload& other) const
     {
@@ -69,24 +69,13 @@ struct NodePayload {
 struct BlockIndexPayload {
     std::vector<block_number_t> blockNumbers;
 
-    MSGPACK_FIELDS(blockNumbers)
+    SERIALIZATION_FIELDS(blockNumbers)
 
     bool operator==(const BlockIndexPayload& other) const { return blockNumbers == other.blockNumbers; }
 
     bool is_empty() const { return blockNumbers.empty(); }
 
     block_number_t get_min_block_number() { return blockNumbers[0]; }
-
-    bool contains(const block_number_t& blockNumber)
-    {
-        if (is_empty()) {
-            return false;
-        }
-        if (blockNumbers.size() == 1) {
-            return blockNumbers[0] == blockNumber;
-        }
-        return blockNumber >= blockNumbers[0] && blockNumber <= blockNumbers[1];
-    }
 
     void delete_block(const block_number_t& blockNumber)
     {
@@ -170,7 +159,8 @@ class LMDBTreeStore : public LMDBStoreBase {
     using SharedPtr = std::shared_ptr<LMDBTreeStore>;
     using ReadTransaction = LMDBReadTransaction;
     using WriteTransaction = LMDBWriteTransaction;
-    LMDBTreeStore(std::string directory, std::string name, uint64_t mapSizeKb, uint64_t maxNumReaders);
+    LMDBTreeStore(
+        std::string directory, std::string name, uint64_t mapSizeKb, uint64_t maxNumReaders, bool ephemeral = false);
     LMDBTreeStore(const LMDBTreeStore& other) = delete;
     LMDBTreeStore(LMDBTreeStore&& other) = delete;
     LMDBTreeStore& operator=(const LMDBTreeStore& other) = delete;
@@ -223,20 +213,6 @@ class LMDBTreeStore : public LMDBStoreBase {
     void write_leaf_by_hash(const fr& leafHash, const LeafType& leafData, WriteTransaction& tx);
 
     void delete_leaf_by_hash(const fr& leafHash, WriteTransaction& tx);
-
-    void write_leaf_key_by_index(const fr& leafKey, const index_t& index, WriteTransaction& tx);
-
-    template <typename TxType> bool read_leaf_key_by_index(const index_t& index, fr& leafKey, TxType& tx);
-
-    template <typename TxType>
-    void read_all_leaf_keys_after_or_equal_index(const index_t& index, std::vector<bb::fr>& leafKeys, TxType& tx);
-
-    void delete_all_leaf_keys_after_or_equal_index(const index_t& index, WriteTransaction& tx);
-
-    template <typename TxType>
-    void read_all_leaf_keys_before_or_equal_index(const index_t& index, std::vector<bb::fr>& leafKeys, TxType& tx);
-
-    void delete_all_leaf_keys_before_or_equal_index(const index_t& index, WriteTransaction& tx);
 
   private:
     std::string _name;

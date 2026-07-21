@@ -1,5 +1,5 @@
 // === AUDIT STATUS ===
-// internal:    { status: Completed, auditors: [Federico], commit: }
+// internal:    { status: Completed, auditors: [Federico], commit: 0e37cb8}
 // external_1:  { status: not started, auditors: [], commit: }
 // external_2:  { status: not started, auditors: [], commit: }
 // =====================
@@ -147,7 +147,7 @@ class AvmRecursiveFlavor {
                 transcript->template receive_from_prover<std::array<FF, NUM_ALL_ENTITIES>>("Sumcheck:evaluations");
 
             [[maybe_unused]] auto _unshifted_challenges =
-                transcript->template get_challenges<FF>(challenges.get_unshifted_labels());
+                transcript->template get_short_challenges<FF>(challenges.get_unshifted_labels());
 
             [[maybe_unused]] const FF _gemini_batching_challenge = transcript->template get_challenge<FF>("rho");
 
@@ -172,32 +172,7 @@ class AvmRecursiveFlavor {
 
             [[maybe_unused]] auto _kzg_w = transcript->template receive_from_prover<StdlibCommitment>("KZG:W");
 
-            [[maybe_unused]] const FF _masking_challenge =
-                transcript->template get_challenge<FF>("KZG:masking_challenge");
-
             return transcript;
-        };
-
-        /**
-         * @brief Hash a transcript that has recorded the operations performed during AVM proof verification.
-         *
-         * @details Before hashing, if the proof is padded, add to the transcript the padding values.
-         *
-         */
-        static stdlib::field_t<Builder> pad_and_hash_avm_transcript(
-            const std::shared_ptr<TemplatedTranscript<Builder>>& transcript, const stdlib::Proof<Builder>& stdlib_proof)
-        {
-            if (stdlib_proof.size() == AVM_V2_PROOF_LENGTH_IN_FIELDS_PADDED) {
-                // If the proof is padded, we need to add the padding values to the transcript because recursive
-                // verification doesn't do that
-                transcript->add_element_frs_to_hash_buffer(
-                    "proof_padding",
-                    std::span(stdlib_proof)
-                        .subspan(AvmFlavor::COMPUTED_AVM_PROOF_LENGTH_IN_FIELDS,
-                                 AVM_V2_PROOF_LENGTH_IN_FIELDS_PADDED -
-                                     AvmFlavor::COMPUTED_AVM_PROOF_LENGTH_IN_FIELDS));
-            }
-            return transcript->template get_challenge<stdlib::field_t<Builder>>("final_transcript_state");
         };
 
       public:
@@ -212,18 +187,8 @@ class AvmRecursiveFlavor {
             const std::vector<std::vector<stdlib::field_t<Builder>>>& public_inputs)
         {
             auto transcript = perform_avm_transcript_operations(builder, stdlib_proof, public_inputs);
-            return pad_and_hash_avm_transcript(transcript, stdlib_proof);
-        }
-
-        /**
-         * @brief Hash the AVM verifier transcript after having performed proof verification. Then, hash the transcript
-         * to obtain the final state.
-         *
-         */
-        static stdlib::field_t<Builder> hash_avm_transcript(
-            const std::shared_ptr<TemplatedTranscript<Builder>>& transcript, const stdlib::Proof<Builder>& stdlib_proof)
-        {
-            return pad_and_hash_avm_transcript(transcript, stdlib_proof);
+            // Finalise AVM transcript
+            return transcript->template get_challenge<stdlib::field_t<Builder>>("final_transcript_state");
         }
 
         /**
@@ -238,7 +203,9 @@ class AvmRecursiveFlavor {
         {
             auto transcript = perform_avm_transcript_operations(builder, stdlib_proof, public_inputs, true);
 
-            return { pad_and_hash_avm_transcript(transcript, stdlib_proof), transcript };
+            // Finalise AVM transcript
+            return { transcript->template get_challenge<stdlib::field_t<Builder>>("final_transcript_state"),
+                     transcript };
         }
     };
 

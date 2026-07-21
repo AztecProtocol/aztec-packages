@@ -1,10 +1,9 @@
-import { Fr } from '@aztec/aztec.js/fields';
 import { type EthCheatCodes, RollupCheatCodes } from '@aztec/ethereum/test';
-import { type EpochNumber, SlotNumber } from '@aztec/foundation/branded-types';
+import type { EpochNumber } from '@aztec/foundation/branded-types';
 import type { Logger } from '@aztec/foundation/log';
+import { settleEpochOutbox } from '@aztec/prover-client/test';
 import { EpochMonitor } from '@aztec/prover-node';
 import type { EthAddress, L2BlockSource } from '@aztec/stdlib/block';
-import { computeL2ToL1MembershipWitnessFromMessagesInEpoch } from '@aztec/stdlib/messaging';
 
 export class EpochTestSettler {
   private rollupCheatCodes: RollupCheatCodes;
@@ -31,35 +30,12 @@ export class EpochTestSettler {
   }
 
   async handleEpochReadyToProve(epoch: EpochNumber): Promise<boolean> {
-    const checkpointedBlocks = await this.l2BlockSource.getCheckpointedBlocksForEpoch(epoch);
-    const blocks = checkpointedBlocks.map(b => b.block);
-    this.log.info(
-      `Settling epoch ${epoch} with blocks ${blocks[0]?.header.getBlockNumber()} to ${blocks.at(-1)?.header.getBlockNumber()}`,
-      { blocks: blocks.map(b => b.toBlockInfo()) },
-    );
-    const messagesInEpoch: Fr[][][][] = [];
-    let previousSlotNumber = SlotNumber.ZERO;
-    let checkpointIndex = -1;
-
-    for (const block of blocks) {
-      const slotNumber = block.header.globalVariables.slotNumber;
-      if (slotNumber !== previousSlotNumber) {
-        checkpointIndex++;
-        messagesInEpoch[checkpointIndex] = [];
-        previousSlotNumber = slotNumber;
-      }
-      messagesInEpoch[checkpointIndex].push(block.body.txEffects.map(txEffect => txEffect.l2ToL1Msgs));
-    }
-
-    const [firstMessage] = messagesInEpoch.flat(3);
-    if (firstMessage) {
-      const { root: outHash } = computeL2ToL1MembershipWitnessFromMessagesInEpoch(messagesInEpoch, firstMessage);
-      await this.rollupCheatCodes.insertOutbox(epoch, outHash.toBigInt());
-    } else {
-      this.log.info(`No L2 to L1 messages in epoch ${epoch}`);
-    }
-
-    const lastCheckpoint = checkpointedBlocks.at(-1)?.checkpointNumber;
+    const lastCheckpoint = await settleEpochOutbox({
+      rollupCheatCodes: this.rollupCheatCodes,
+      l2BlockSource: this.l2BlockSource,
+      epoch,
+      log: this.log,
+    });
     if (lastCheckpoint !== undefined) {
       await this.rollupCheatCodes.markAsProven(lastCheckpoint);
     } else {

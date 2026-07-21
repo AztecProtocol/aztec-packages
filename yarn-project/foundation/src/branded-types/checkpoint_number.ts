@@ -1,5 +1,6 @@
 import { z } from 'zod';
 
+import { isDefined } from '../types/index.js';
 import type { BlockNumber } from './block_number.js';
 import type { Branded } from './types.js';
 
@@ -85,6 +86,20 @@ CheckpointNumber.isValid = function (value: unknown): value is CheckpointNumber 
   return typeof value === 'number' && Number.isInteger(value) && value >= 0;
 };
 
+/** Increments a CheckpointNumber by a given value. */
+CheckpointNumber.add = function (n: CheckpointNumber, increment: number): CheckpointNumber {
+  return CheckpointNumber(n + increment);
+};
+
+/** Computes max of a set of checkpoint numbers, ignoring undefined values. */
+CheckpointNumber.max = function (...values: (CheckpointNumber | undefined)[]): CheckpointNumber | undefined {
+  const filtered = values.filter(isDefined);
+  if (filtered.length === 0) {
+    return undefined;
+  }
+  return CheckpointNumber(Math.max(...filtered));
+};
+
 /** The zero checkpoint value. */
 CheckpointNumber.ZERO = CheckpointNumber(0);
 
@@ -98,7 +113,7 @@ CheckpointNumber.INITIAL = CheckpointNumber(1);
 function makeCheckpointNumberSchema(minValue: number) {
   return z
     .union([z.number(), z.bigint(), z.string()])
-    .pipe(z.coerce.number().int().min(minValue))
+    .pipe(z.coerce.number<string | number | bigint>().int().min(minValue))
     .transform(value => CheckpointNumber(value));
 }
 

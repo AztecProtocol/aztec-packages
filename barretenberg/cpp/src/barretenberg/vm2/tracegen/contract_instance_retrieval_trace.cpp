@@ -1,19 +1,28 @@
 #include "barretenberg/vm2/tracegen/contract_instance_retrieval_trace.hpp"
 
-#include <memory>
-
-#include "barretenberg/vm2/common/aztec_constants.hpp"
+#include "barretenberg/aztec/aztec_constants.hpp"
 #include "barretenberg/vm2/common/aztec_types.hpp"
 #include "barretenberg/vm2/common/field.hpp"
+#include "barretenberg/vm2/generated/columns.hpp"
 #include "barretenberg/vm2/generated/relations/lookups_contract_instance_retrieval.hpp"
-#include "barretenberg/vm2/simulation/events/contract_instance_retrieval_event.hpp"
-#include "barretenberg/vm2/simulation/events/event_emitter.hpp"
 #include "barretenberg/vm2/simulation/lib/contract_crypto.hpp"
-#include "barretenberg/vm2/tracegen/lib/interaction_def.hpp"
-#include "barretenberg/vm2/tracegen/trace_container.hpp"
 
 namespace bb::avm2::tracegen {
 
+/**
+ * @brief Process the contract instance retrieval events and populate the relevant columns in the trace.
+ *
+ * Events are emitted in the following flavors:
+ * - Protocol contract: is_protocol_contract=true, exists depends on derived address lookup,
+ *   deployment_nullifier is not set (default 0).
+ * - Non-existent contract: exists=false, is_protocol_contract=false, empty contract instance,
+ *   deployment_nullifier=contract_address.
+ * - Existing contract: exists=true, is_protocol_contract=false, full contract instance populated,
+ *   deployment_nullifier=contract_address.
+ *
+ * @param events Container of ContractInstanceRetrievalEvent to process.
+ * @param trace The trace container to populate.
+ */
 void ContractInstanceRetrievalTraceBuilder::process(
     const simulation::EventEmitterInterface<simulation::ContractInstanceRetrievalEvent>::Container& events,
     TraceContainer& trace)
@@ -53,20 +62,24 @@ void ContractInstanceRetrievalTraceBuilder::process(
                 { C::contract_instance_retrieval_original_class_id,
                   event.contract_instance.original_contract_class_id },
                 { C::contract_instance_retrieval_init_hash, event.contract_instance.initialization_hash },
+                { C::contract_instance_retrieval_immutables_hash, event.contract_instance.immutables_hash },
 
-                // Public keys (hinted)
-                { C::contract_instance_retrieval_nullifier_key_x, event.contract_instance.public_keys.nullifier_key.x },
-                { C::contract_instance_retrieval_nullifier_key_y, event.contract_instance.public_keys.nullifier_key.y },
+                // Public keys (hinted). Only ivpk_m is held as a Grumpkin point;
+                // the others are field-element hashes computed off-circuit by the PXE.
+                { C::contract_instance_retrieval_nullifier_key_hash,
+                  event.contract_instance.public_keys.nullifier_key_hash },
                 { C::contract_instance_retrieval_incoming_viewing_key_x,
                   event.contract_instance.public_keys.incoming_viewing_key.x },
                 { C::contract_instance_retrieval_incoming_viewing_key_y,
                   event.contract_instance.public_keys.incoming_viewing_key.y },
-                { C::contract_instance_retrieval_outgoing_viewing_key_x,
-                  event.contract_instance.public_keys.outgoing_viewing_key.x },
-                { C::contract_instance_retrieval_outgoing_viewing_key_y,
-                  event.contract_instance.public_keys.outgoing_viewing_key.y },
-                { C::contract_instance_retrieval_tagging_key_x, event.contract_instance.public_keys.tagging_key.x },
-                { C::contract_instance_retrieval_tagging_key_y, event.contract_instance.public_keys.tagging_key.y },
+                { C::contract_instance_retrieval_outgoing_viewing_key_hash,
+                  event.contract_instance.public_keys.outgoing_viewing_key_hash },
+                { C::contract_instance_retrieval_tagging_key_hash,
+                  event.contract_instance.public_keys.tagging_key_hash },
+                { C::contract_instance_retrieval_message_signing_key_hash,
+                  event.contract_instance.public_keys.message_signing_key_hash },
+                { C::contract_instance_retrieval_fallback_key_hash,
+                  event.contract_instance.public_keys.fallback_key_hash },
 
                 // Tree context
                 { C::contract_instance_retrieval_public_data_tree_root, event.public_data_tree_root },
@@ -85,6 +98,9 @@ void ContractInstanceRetrievalTraceBuilder::process(
                 { C::contract_instance_retrieval_derived_address, derived_address },
                 { C::contract_instance_retrieval_is_protocol_contract, event.is_protocol_contract ? 1 : 0 },
                 { C::contract_instance_retrieval_should_check_nullifier, !event.is_protocol_contract ? 1 : 0 },
+                { C::contract_instance_retrieval_nullifier_tree_height, NULLIFIER_TREE_HEIGHT },
+                { C::contract_instance_retrieval_nullifier_merkle_separator, DOM_SEP__NULLIFIER_MERKLE },
+                { C::contract_instance_retrieval_siloing_separator, DOM_SEP__SILOED_NULLIFIER },
                 { C::contract_instance_retrieval_should_check_for_update, check_update ? 1 : 0 },
             } });
         row++;
@@ -96,11 +112,11 @@ void ContractInstanceRetrievalTraceBuilder::process(
 
 const InteractionDefinition ContractInstanceRetrievalTraceBuilder::interactions =
     InteractionDefinition()
-        .add<lookup_contract_instance_retrieval_deployment_nullifier_read_settings, InteractionType::LookupSequential>()
-        .add<lookup_contract_instance_retrieval_address_derivation_settings, InteractionType::LookupGeneric>()
-        .add<lookup_contract_instance_retrieval_update_check_settings, InteractionType::LookupSequential>()
-        .add<lookup_contract_instance_retrieval_check_protocol_address_range_settings, InteractionType::LookupGeneric>()
-        .add<lookup_contract_instance_retrieval_read_derived_address_from_public_inputs_settings,
-             InteractionType::LookupIntoIndexedByClk>();
+        .add<InteractionType::LookupSequential, lookup_contract_instance_retrieval_deployment_nullifier_read_settings>()
+        .add<InteractionType::LookupGeneric, lookup_contract_instance_retrieval_address_derivation_settings>()
+        .add<InteractionType::LookupSequential, lookup_contract_instance_retrieval_update_check_settings>()
+        .add<InteractionType::LookupGeneric, lookup_contract_instance_retrieval_check_protocol_address_range_settings>()
+        .add<InteractionType::LookupIntoIndexedByRow,
+             lookup_contract_instance_retrieval_read_derived_address_from_public_inputs_settings>();
 
 } // namespace bb::avm2::tracegen

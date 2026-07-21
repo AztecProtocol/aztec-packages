@@ -1,5 +1,5 @@
 // === AUDIT STATUS ===
-// internal:    { status: Planned, auditors: [Raju], commit: }
+// internal:    { status: Complete, auditors: [Nishat], commit: 22d6fc368da0fbe5412f4f7b2890a052aa48d803 }
 // external_1:  { status: not started, auditors: [], commit: }
 // external_2:  { status: not started, auditors: [], commit: }
 // =====================
@@ -54,8 +54,9 @@ int index_key_cmp(const MDB_val* a, const MDB_val* b)
     return value_cmp<uint64_t>(a, b);
 }
 
-LMDBTreeStore::LMDBTreeStore(std::string directory, std::string name, uint64_t mapSizeKb, uint64_t maxNumReaders)
-    : LMDBStoreBase(directory, mapSizeKb, maxNumReaders, 5)
+LMDBTreeStore::LMDBTreeStore(
+    std::string directory, std::string name, uint64_t mapSizeKb, uint64_t maxNumReaders, bool ephemeral)
+    : LMDBStoreBase(directory, mapSizeKb, maxNumReaders, 5, ephemeral)
     , _name(std::move(name))
 {
 
@@ -161,7 +162,7 @@ void LMDBTreeStore::write_block_index_data(const block_number_t& blockNumber,
     msgpack::sbuffer buffer;
     msgpack::pack(buffer, payload);
     std::vector<uint8_t> encoded(buffer.data(), buffer.data() + buffer.size());
-    tx.put_value<BlockMetaKeyType>(key, encoded, *_indexToBlockDatabase);
+    tx.put_value<LeafIndexKeyType>(key, encoded, *_indexToBlockDatabase);
 }
 
 bool LMDBTreeStore::find_block_for_index(const index_t& index, block_number_t& blockNumber, ReadTransaction& tx)
@@ -211,7 +212,7 @@ void LMDBTreeStore::delete_block_index(const index_t& sizeAtBlock,
     msgpack::sbuffer buffer;
     msgpack::pack(buffer, payload);
     std::vector<uint8_t> encoded(buffer.data(), buffer.data() + buffer.size());
-    tx.put_value<BlockMetaKeyType>(key, encoded, *_indexToBlockDatabase);
+    tx.put_value<LeafIndexKeyType>(key, encoded, *_indexToBlockDatabase);
 }
 
 void LMDBTreeStore::write_meta_data(const TreeMeta& metaData, LMDBTreeStore::WriteTransaction& tx)

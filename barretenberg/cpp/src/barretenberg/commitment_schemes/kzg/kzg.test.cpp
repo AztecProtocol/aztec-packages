@@ -48,7 +48,7 @@ class KZGTest : public CommitmentTest<Curve> {
         auto verifier_transcript = NativeTranscript::test_verifier_init_empty(prover_transcript);
         const auto pairing_points = PCS::reduce_verify(opening_claim, verifier_transcript);
 
-        EXPECT_EQ(vk.pairing_check(pairing_points[0], pairing_points[1]), true);
+        EXPECT_EQ(pairing_points.check(), true);
     }
 };
 
@@ -77,6 +77,11 @@ TEST_F(KZGTest, ZeroEvaluation)
 
 TEST_F(KZGTest, WrongEvaluationFails)
 {
+    // compute_opening_proof internally divides (p(X) - claimed_eval) by (X - challenge) via factor_roots,
+    // which asserts exact divisibility. This test deliberately passes a wrong evaluation to exercise the
+    // verifier's rejection path, so downgrade that assert to a warning for the duration of the test.
+    BB_DISABLE_ASSERTS();
+
     auto witness = bb::Polynomial<Fr>::random(n);
     const Fr challenge = Fr::random_element();
     const Fr evaluation = witness.evaluate(challenge);
@@ -91,7 +96,7 @@ TEST_F(KZGTest, WrongEvaluationFails)
     auto verifier_transcript = NativeTranscript::test_verifier_init_empty(prover_transcript);
     auto pairing_point = PCS::reduce_verify(opening_claim, verifier_transcript);
     // Make sure that the pairing check fails
-    EXPECT_EQ(vk.pairing_check(pairing_point[0], pairing_point[1]), false);
+    EXPECT_EQ(pairing_point.check(), false);
 }
 
 TEST_F(KZGTest, ZeroPolynomial)
@@ -169,7 +174,7 @@ TEST_F(KZGTest, SingleInLagrangeBasis)
     auto verifier_transcript = NativeTranscript::test_verifier_init_empty(prover_transcript);
     auto pairing_points = PCS::reduce_verify(opening_claim, verifier_transcript);
 
-    EXPECT_EQ(vk.pairing_check(pairing_points[0], pairing_points[1]), true);
+    EXPECT_EQ(pairing_points.check(), true);
 }
 TEST_F(KZGTest, ShpleminiKzgWithShift)
 {
@@ -208,21 +213,16 @@ TEST_F(KZGTest, ShpleminiKzgWithShift)
 
     // Gemini verifier output:
     // - claim: d+1 commitments to Fold_{r}^(0), Fold_{-r}^(0), Fold^(l), d+1 evaluations a_0_pos, a_l, l = 0:d-1
-    std::array<Fr, log_n> padding_indicator_array;
-    std::ranges::fill(padding_indicator_array, Fr{ 1 });
-
-    auto batch_opening_claim = ShpleminiVerifier::compute_batch_opening_claim(padding_indicator_array,
-                                                                              mock_claims.claim_batcher,
-                                                                              mle_opening_point,
-                                                                              vk.get_g1_identity(),
-                                                                              verifier_transcript)
-                                   .batch_opening_claim;
+    auto batch_opening_claim =
+        ShpleminiVerifier::compute_batch_opening_claim(
+            mock_claims.claim_batcher, mle_opening_point, vk.get_g1_identity(), verifier_transcript)
+            .batch_opening_claim;
 
     const auto pairing_points =
         PCS::reduce_verify_batch_opening_claim(std::move(batch_opening_claim), verifier_transcript);
     // Final pairing check: e([Q] - [Q_z] + z[W], [1]_2) = e([W], [x]_2)
 
-    EXPECT_EQ(vk.pairing_check(pairing_points[0], pairing_points[1]), true);
+    EXPECT_EQ(pairing_points.check(), true);
 }
 
 TEST_F(KZGTest, ShpleminiKzgWithShiftAndInterleaving)
@@ -234,9 +234,7 @@ TEST_F(KZGTest, ShpleminiKzgWithShiftAndInterleaving)
                                    /*num_polynomials*/ 4,
                                    /*num_to_be_shifted*/ 2,
                                    mle_opening_point,
-                                   ck,
-                                   /*num_interleaved*/ 3,
-                                   /*num_to_be_interleaved*/ 2);
+                                   ck);
 
     auto prover_transcript = NativeTranscript::test_prover_init_empty();
 
@@ -263,11 +261,7 @@ TEST_F(KZGTest, ShpleminiKzgWithShiftAndInterleaving)
 
     // Gemini verifier output:
     // - claim: d+1 commitments to Fold_{r}^(0), Fold_{-r}^(0), Fold^(l), d+1 evaluations a_0_pos, a_l, l = 0:d-1
-    std::array<Fr, log_n> padding_indicator_array;
-    std::ranges::fill(padding_indicator_array, Fr{ 1 });
-
-    auto batch_opening_claim = ShpleminiVerifier::compute_batch_opening_claim(padding_indicator_array,
-                                                                              mock_claims.claim_batcher,
+    auto batch_opening_claim = ShpleminiVerifier::compute_batch_opening_claim(mock_claims.claim_batcher,
                                                                               mle_opening_point,
                                                                               vk.get_g1_identity(),
                                                                               verifier_transcript,
@@ -281,7 +275,7 @@ TEST_F(KZGTest, ShpleminiKzgWithShiftAndInterleaving)
         PCS::reduce_verify_batch_opening_claim(std::move(batch_opening_claim), verifier_transcript);
     // Final pairing check: e([Q] - [Q_z] + z[W], [1]_2) = e([W], [x]_2)
 
-    EXPECT_EQ(vk.pairing_check(pairing_points[0], pairing_points[1]), true);
+    EXPECT_EQ(pairing_points.check(), true);
 }
 TEST_F(KZGTest, ShpleminiKzgShiftsRemoval)
 {
@@ -332,11 +326,7 @@ TEST_F(KZGTest, ShpleminiKzgShiftsRemoval)
 
     // Gemini verifier output:
     // - claim: d+1 commitments to Fold_{r}^(0), Fold_{-r}^(0), Fold^(l), d+1 evaluations a_0_pos, a_l, l = 0:d-1
-    std::array<Fr, log_n> padding_indicator_array;
-    std::ranges::fill(padding_indicator_array, Fr{ 1 });
-
-    auto batch_opening_claim = ShpleminiVerifier::compute_batch_opening_claim(padding_indicator_array,
-                                                                              mock_claims.claim_batcher,
+    auto batch_opening_claim = ShpleminiVerifier::compute_batch_opening_claim(mock_claims.claim_batcher,
                                                                               mle_opening_point,
                                                                               vk.get_g1_identity(),
                                                                               verifier_transcript,
@@ -347,7 +337,7 @@ TEST_F(KZGTest, ShpleminiKzgShiftsRemoval)
         PCS::reduce_verify_batch_opening_claim(std::move(batch_opening_claim), verifier_transcript);
 
     // Final pairing check: e([Q] - [Q_z] + z[W], [1]_2) = e([W], [x]_2)
-    EXPECT_EQ(vk.pairing_check(pairing_points[0], pairing_points[1]), true);
+    EXPECT_EQ(pairing_points.check(), true);
 }
 
 } // namespace bb

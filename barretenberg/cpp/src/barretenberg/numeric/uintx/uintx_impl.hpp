@@ -1,5 +1,5 @@
 // === AUDIT STATUS ===
-// internal:    { status: Planned, auditors: [], commit: }
+// internal:    { status: Complete, auditors: [Luke], commit: }
 // external_1:  { status: not started, auditors: [], commit: }
 // external_2:  { status: not started, auditors: [], commit: }
 // =====================
@@ -13,7 +13,7 @@ template <class base_uint>
 std::pair<uintx<base_uint>, uintx<base_uint>> uintx<base_uint>::divmod_base(const uintx& b) const
 
 {
-    BB_ASSERT_DEBUG(b != 0);
+    BB_ASSERT(b != 0);
     if (*this == 0) {
         return { uintx(0), uintx(0) };
     }
@@ -63,7 +63,8 @@ std::pair<uintx<base_uint>, uintx<base_uint>> uintx<base_uint>::divmod_base(cons
 /**
  * Computes invmod. Only for internal usage within the class.
  * This is an insecure version of the algorithm that doesn't take into account the 0 case and cases when modulus is
- *close to the top margin.
+ * close to the top margin. The result is only meaningful when *this and modulus are coprime; non-coprime inputs
+ * return an unspecified value (callers must guarantee coprimality or guard against the result being used).
  *
  * @param modulus The modulus of the ring
  *
@@ -104,9 +105,7 @@ template <class base_uint> uintx<base_uint> uintx<base_uint>::unsafe_invmod(cons
 template <class base_uint> uintx<base_uint> uintx<base_uint>::invmod(const uintx& modulus) const
 {
     BB_ASSERT((*this) != 0);
-    if (modulus == 0) {
-        return 0;
-    }
+    BB_ASSERT(modulus != 0);
     if (modulus.get_msb() >= (2 * base_uint::length() - 1)) {
         uintx<uintx<base_uint>> a_expanded(*this);
         uintx<uintx<base_uint>> modulus_expanded(modulus);
@@ -303,9 +302,9 @@ std::pair<uintx<base_uint>, uintx<base_uint>> uintx<base_uint>::barrett_reductio
     }
     uintx remainder = x - qm_lo;
 
-    // because redc_parameter is an imperfect representation of 2^{2k} / n (might be too small),
-    // the computed quotient may be off by up to 4 (classic algorithm should be up to 1,
-    // TODO(https://github.com/AztecProtocol/barretenberg/issues/1051): investigate, why)
+    // The quotient estimate can be off by up to 4. Classic Barrett guarantees at most 1 correction
+    // when k = ceil(log2(modulus)) and x < modulus^2. Here k = base_uint::length() - 1 (a fixed,
+    // conservative choice), so x / 2^{2k} can be up to 3, giving an error bound of 4.
     size_t i = 0;
     while (remainder >= uintx(modulus)) {
         BB_ASSERT_LT(i, 4U);

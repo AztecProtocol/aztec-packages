@@ -4,7 +4,7 @@ import { FieldReader } from '@aztec/foundation/serialize';
 import { bufferFromFields } from '@aztec/stdlib/abi';
 import {
   type ContractClassPublic,
-  computeContractClassId,
+  type ContractClassPublicWithCommitment,
   computePublicBytecodeCommitment,
 } from '@aztec/stdlib/contract';
 import type { ContractClassLog } from '@aztec/stdlib/logs';
@@ -36,7 +36,12 @@ export class ContractClassPublishedEvent {
     const version = reader.readField().toNumber();
     const artifactHash = reader.readField();
     const privateFunctionsRoot = reader.readField();
-    const packedPublicBytecode = bufferFromFields(reader.readFieldArray(fieldsWithoutTag.length - reader.cursor));
+    const bytecodeFields = reader.readFieldArray(fieldsWithoutTag.length - reader.cursor);
+    // The fixed-size class log can hold at most this many packed-bytecode bytes (every payload field
+    // carries 31 bytes). Bound the declared length to it so a malformed log can't declare a multi-MiB
+    // length backed by a tiny payload and force a large allocation during early (pre-proof) validation.
+    const maxByteLength = (bytecodeFields.length - 1) * (Fr.SIZE_IN_BYTES - 1);
+    const packedPublicBytecode = bufferFromFields(bytecodeFields, maxByteLength);
 
     return new ContractClassPublishedEvent(
       contractClassId,
@@ -47,32 +52,21 @@ export class ContractClassPublishedEvent {
     );
   }
 
-  async toContractClassPublic(): Promise<ContractClassPublic> {
-    const computedClassId = await computeContractClassId({
-      artifactHash: this.artifactHash,
-      privateFunctionsRoot: this.privateFunctionsRoot,
-      publicBytecodeCommitment: await computePublicBytecodeCommitment(this.packedPublicBytecode),
-    });
-
-    if (!computedClassId.equals(this.contractClassId)) {
-      throw new Error(
-        `Invalid contract class id: computed ${computedClassId.toString()} but event broadcasted ${this.contractClassId.toString()}`,
-      );
-    }
-
-    if (this.version !== 1) {
-      throw new Error(`Unexpected contract class version ${this.version}`);
-    }
-
+  /** Converts the event to a contract class, without computing or validating the bytecode commitment. */
+  toContractClassPublic(): ContractClassPublic {
     return {
       id: this.contractClassId,
       artifactHash: this.artifactHash,
       packedBytecode: this.packedPublicBytecode,
       privateFunctionsRoot: this.privateFunctionsRoot,
-      version: this.version,
-      privateFunctions: [],
-      utilityFunctions: [],
+      version: this.version as 1,
     };
+  }
+
+  /** Converts the event to a contract class with its bytecode commitment (expensive). */
+  async toContractClassPublicWithBytecodeCommitment(): Promise<ContractClassPublicWithCommitment> {
+    const publicBytecodeCommitment = await computePublicBytecodeCommitment(this.packedPublicBytecode);
+    return { ...this.toContractClassPublic(), publicBytecodeCommitment };
   }
 
   public static extractContractClassEvents(logs: ContractClassLog[]): ContractClassPublishedEvent[] {

@@ -34,6 +34,7 @@ privacy, check out the [foundational topics](/developers/docs/foundational-topic
       <path d="M7 11V7a5 5 0 0110 0v4" />
     </svg>
   }
+  link="/developers/docs/aztec-nr/framework-description/functions/visibility"
 />
 
 <FeatureCard
@@ -45,6 +46,7 @@ privacy, check out the [foundational topics](/developers/docs/foundational-topic
       <path d="M12 6v6l4 2" />
     </svg>
   }
+  link="/developers/docs/foundational-topics/advanced/circuits/public_execution"
 />
 
 <FeatureCard
@@ -55,17 +57,19 @@ privacy, check out the [foundational topics](/developers/docs/foundational-topic
       <path d="M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5" />
     </svg>
   }
+  link="/developers/docs/foundational-topics/pxe"
 />
 
 <FeatureCard
   title="Public State"
-  description="Maintain transparent state in a public merkle tree when required by your application."
+  description="Maintain transparent state in a public Merkle tree when required by your application."
   icon={
     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
       <path d="M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
       <path d="M9 12l2 2 4-4" />
     </svg>
   }
+  link="/developers/docs/foundational-topics/state_management"
 />
 
 <FeatureCard
@@ -80,6 +84,7 @@ privacy, check out the [foundational topics](/developers/docs/foundational-topic
       <path d="M10 6h4M10 18h4M6 10v4M18 10v4" />
     </svg>
   }
+  link="/developers/docs/aztec-nr/framework-description/calling_contracts"
 />
 
 <FeatureCard
@@ -90,6 +95,7 @@ privacy, check out the [foundational topics](/developers/docs/foundational-topic
       <path d="M7 17l-4-4 4-4M17 7l4 4-4 4M14 3l-4 18" />
     </svg>
   }
+  link="/developers/docs/foundational-topics/ethereum-aztec-messaging"
 />
 
 </div>
@@ -101,10 +107,22 @@ privacy, check out the [foundational topics](/developers/docs/foundational-topic
 <QuickLink
   title="Quickstart"
   description="Deploy your first contract in minutes"
-  link="/developers/getting_started_on_devnet"
+  link="/developers/getting_started_on_local_network"
   icon={
     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
       <polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2" />
+    </svg>
+  }
+/>
+
+<QuickLink
+  title="AI Tooling"
+  description="Set up Claude Code, Cursor, and Codex for Aztec development"
+  link="/developers/ai_tooling"
+  icon={
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+      <path d="M12 2l1.9 5.8L20 9.5l-5.8 1.9L12 17l-1.9-5.6L4 9.5l6.1-1.7L12 2z" />
+      <path d="M19 14l.8 2.2L22 17l-2.2.8L19 20l-.8-2.2L16 17l2.2-.8L19 14z" />
     </svg>
   }
 />
@@ -148,22 +166,11 @@ privacy, check out the [foundational topics](/developers/docs/foundational-topic
 <QuickLink
   title="Run a Sequencer"
   description="Set up and operate a sequencer node"
-  link="/network/setup/sequencer_management"
+  link="/operate/operators/setup/sequencer_management"
   icon={
     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
       <rect x="2" y="3" width="20" height="14" rx="2" />
       <path d="M8 21h8M12 17v4" />
-    </svg>
-  }
-/>
-
-<QuickLink
-  title="Run a Prover"
-  description="Contribute computational power to the network"
-  link="/network/setup/running_a_prover"
-  icon={
-    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-      <path d="M22 12h-4l-3 9L9 3l-3 9H2" />
     </svg>
   }
 />
@@ -173,6 +180,18 @@ privacy, check out the [foundational topics](/developers/docs/foundational-topic
 <h2 className={styles.sectionHeading}>Resources</h2>
 
 <div className={styles.quickLinksGrid}>
+
+<QuickLink
+  title="Video Lessons"
+  description="Prefer video? Learn Aztec through short explainers"
+  link="/developers/docs/resources/video_lessons"
+  icon={
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+      <circle cx="12" cy="12" r="10" />
+      <polygon points="10 8 16 12 10 16 10 8" />
+    </svg>
+  }
+/>
 
 <QuickLink
   title="Aztec Starter Repo"
@@ -197,14 +216,14 @@ privacy, check out the [foundational topics](/developers/docs/foundational-topic
 />
 
 <QuickLink
-  title="Join the Community"
-  description="Connect with other builders"
-  link="https://airtable.com/appMhZd7lsZS3v27R/pagxWYAHYYrnrrXmm/form"
+  title="Support"
+  description="Where to ask questions, file bugs, and disclose security issues"
+  link="/developers/support"
   icon={
     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-      <path d="M17 21v-2a4 4 0 00-4-4H5a4 4 0 00-4 4v2" />
-      <circle cx="9" cy="7" r="4" />
-      <path d="M23 21v-2a4 4 0 00-3-3.87M16 3.13a4 4 0 010 7.75" />
+      <circle cx="12" cy="12" r="10" />
+      <path d="M9.09 9a3 3 0 015.83 1c0 2-3 3-3 3" />
+      <line x1="12" y1="17" x2="12.01" y2="17" />
     </svg>
   }
 />

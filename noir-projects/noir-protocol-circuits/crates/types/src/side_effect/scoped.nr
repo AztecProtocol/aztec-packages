@@ -1,7 +1,6 @@
 use crate::{
     address::AztecAddress,
     side_effect::{counted::Counted, Ordered},
-    tests::types::TestValue,
     traits::{Deserialize, Empty, Serialize},
 };
 
@@ -45,6 +44,10 @@ impl<T> Scoped<Counted<T>> {
     pub fn innermost(self) -> T {
         self.inner.inner
     }
+
+    pub fn is_non_revertible(self, is_private_only: bool, claimed_revertible_counter: u32) -> bool {
+        self.inner.is_non_revertible(is_private_only, claimed_revertible_counter)
+    }
 }
 
 impl Scoped<Counted<Field>> {
@@ -55,8 +58,8 @@ impl Scoped<Counted<Field>> {
 
 #[test]
 fn serialization_of_empty_scoped() {
-    let item: Scoped<TestValue> = Scoped::empty();
+    let item: Scoped<Field> = Scoped::empty();
     let serialized = item.serialize();
-    let deserialized: Scoped<TestValue> = Scoped::deserialize(serialized);
+    let deserialized: Scoped<Field> = Scoped::deserialize(serialized);
     assert(item.eq(deserialized));
 }

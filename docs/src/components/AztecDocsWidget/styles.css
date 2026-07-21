@@ -1,0 +1,59 @@
+/* ============================================================
+   Aztec Docs Widget — scoped tokens + component styles.
+   Ported from the design bundle's colors_and_type.css, narrowed
+   to the widget so site-wide tokens remain untouched.
+   ============================================================ */
+
+@import url('https://fonts.googleapis.com/css2?family=Martel:wght@300;400;700&family=Geist:wght@400;500;600;700&family=Geist+Mono:wght@400;500;700&display=swap');
+
+.azw {
+  /* Neutrals */
+  --azw-parchment: #F2EEE1;
+  --azw-parchment-tint-1: #FCFBFA;
+  --azw-parchment-tint-2: #F6F3EC;
+  --azw-parchment-shade-1: #564D3F;
+  --azw-ink: #1A1400;
+  --azw-ink-tint-1: #CCCABF;
+  --azw-ink-tint-2: #918B7F;
+
+  /* Brand accents */
+  --azw-chartreuse: #D4FF28;
+  --azw-chartreuse-shade-2: #A9CC1F;
+  --azw-chartreuse-tint-2: #E8FFBF;
+  --azw-orchid: #FF2DF4;
+  --azw-aqua: #2BFAE9;
+
+  /* Typography */
+  --azw-font-display: 'Martel', 'Arizona Serif', Georgia, serif;
+  --azw-font-sans: 'Geist', 'Oracle', 'Inter', system-ui, -apple-system, sans-serif;
+  --azw-font-mono: 'Geist Mono', 'MD Thermochrome', ui-monospace, monospace;
+
+  /* Motion */
+  --azw-ease: cubic-bezier(0.2, 0.0, 0.0, 1.0);
+
+  font-family: var(--azw-font-sans);
+  letter-spacing: -0.01em;
+}
+
+/* Streaming cursor blink + thinking dots */
+@keyframes azw-blink { 0%, 100% { opacity: 1; } 50% { opacity: 0; } }
+@keyframes azw-pulse { 0%, 80%, 100% { opacity: 0.3; } 40% { opacity: 1; } }
+.azw-dots span {
+  display: inline-block; opacity: 0.3; animation: azw-pulse 1.4s infinite;
+}
+.azw-dots span:nth-child(2) { animation-delay: 0.2s; }
+.azw-dots span:nth-child(3) { animation-delay: 0.4s; }
+
+.azw input::placeholder { color: inherit; opacity: 0.5; }
+.azw button { font-family: inherit; }
+
+/* Share button state overrides. The base styling is inline in Panel.jsx
+   so it can read the active theme tokens at render. */
+.azw-share-btn.is-ok {
+  background: var(--azw-chartreuse-tint-2) !important;
+  color: var(--azw-ink) !important;
+  border-color: var(--azw-ink) !important;
+}
+.azw-share-btn.is-fail {
+  border-color: var(--azw-ink) !important;
+}

@@ -10,7 +10,7 @@ function build {
 
   if ! cache_download barretenberg-rs-$hash.tar.gz; then
     # Generate Rust bindings from msgpack schema (uses ts-node, no build needed)
-    (cd ../ts && yarn generate)
+    (cd ../ts/bb.js && yarn generate)
 
     # Build all targets
     # BB_LIB_DIR tells build.rs to use local lib instead of downloading (ffi feature is on by default)
@@ -46,6 +46,36 @@ function test {
   BB_LIB_DIR="$(cd ../cpp/build/lib && pwd)" RUSTFLAGS="-C link-arg=-Wl,--allow-multiple-definition" denoise "cargo test --release --features ffi"
 }
 
+function release {
+  echo_header "barretenberg-rs release"
+
+  local version=${REF_NAME#v}
+
+  # Set the workspace version to match the release tag
+  sed -i "s/^version = \".*\"/version = \"$version\"/" Cargo.toml
+
+  # Generated files must exist (created during build step, or generate now)
+  if [ ! -f barretenberg-rs/src/api.rs ] || [ ! -f barretenberg-rs/src/generated_types.rs ]; then
+    echo "Generated files not found, running yarn generate..."
+    (cd ../ts/bb.js && yarn generate)
+  fi
+
+  # Check if this version is already published on crates.io (idempotent re-runs).
+  if curl -sf -H "User-Agent: aztec-packages-ci (tech@aztec-labs.com)" "https://crates.io/api/v1/crates/barretenberg-rs/$version" | jq -e '.version.num' &>/dev/null; then
+    echo "barretenberg-rs@$version already published on crates.io. Skipping."
+    return 0
+  fi
+
+  # Publish to crates.io (--allow-dirty because version was just set and generated files are gitignored)
+  local extra_flags=""
+  if ! gh release view "v$version" --repo AztecProtocol/barretenberg &>/dev/null; then
+    # No matching GitHub release yet — skip verification build (which would try to download libbb-external.a)
+    echo "No GitHub release found for v$version, adding --no-verify (pass REF_NAME matching a release for full verification)"
+    extra_flags="--no-verify"
+  fi
+  BB_LIB_DIR="$(cd ../cpp/build/lib && pwd)" retry "denoise 'do_or_dryrun cargo publish --allow-dirty $extra_flags -p barretenberg-rs'"
+}
+
 function test_download {
   echo_header "barretenberg-rs download test"
 
@@ -66,7 +96,7 @@ function test_download {
   cargo clean -p barretenberg-rs 2>/dev/null || true
 
   # Build with a known release version
-  local version=${BARRETENBERG_VERSION:-$(gh release list --repo AztecProtocol/aztec-packages --limit 1 --json tagName --jq '.[0].tagName' | sed 's/^v//')}
+  local version=${BARRETENBERG_VERSION:-$(gh release list --repo AztecProtocol/barretenberg --limit 1 --json tagName --jq '.[0].tagName' | sed 's/^v//')}
   echo "Testing download with version: $version"
 
   # Retry logic for network flakiness (GitHub releases can be flaky)
@@ -121,6 +151,5 @@ case "$cmd" in
     $cmd
     ;;
   *)
-    echo "Unknown command: $cmd"
-    exit 1
+    default_cmd_handler "$@"
 esac

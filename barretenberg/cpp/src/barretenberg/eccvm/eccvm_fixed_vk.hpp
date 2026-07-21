@@ -25,25 +25,25 @@ class ECCVMHardcodedVKAndHash {
     using BF = curve::Grumpkin::BaseField;
 
     // Precomputed VK hash (hash of all commitments below). Update via ECCVMTests::FixedVK if commitments change.
-    static BF vk_hash() { return BF(uint256_t("0x129bcf94e91edaa6c74121e0d9c44154e87c332e5deef9d6d60c54bdd1186c6c")); }
+    static BF vk_hash() { return BF(uint256_t("0x032ece6c493f6e74ca8847127f189f8e759021e53df9820a88985e41e400fde2")); }
 
-    static constexpr std::vector<Commitment> get_all()
+    static std::vector<Commitment> get_all()
     {
-        return { // lagrange_first
-                 Commitment(uint256_t("0x1b38d3ca76ed177424415672027d98459a875ed1aa43bb969ecffd9e4428c0d1"),
-                            uint256_t("0x1ee6866622f6e654361830d9f545e0943d26876e03aafa0c4cc6772d1c277d46")),
+        return { // lagrange_first (at row NUM_DISABLED_ROWS_IN_SUMCHECK)
+                 Commitment(uint256_t("0x1227d829cc03e51a2cc68ca0e08381c02b78c484f4092a10584ef78381a31968"),
+                            uint256_t("0x10b233eb875fed8834f6235ed737946b68c0c7ed258053cd943dcc69212d90d6")),
 
                  // lagrange_second (hiding op row)
-                 Commitment(uint256_t("0x28cc5109376bdec7cdea99ea99cd0b14151f735ed8cd1687f5154cafc5718900"),
-                            uint256_t("0x13df90d6be58ebcfb1b767db72f4c3fe3b98afd7a0094d69cdea854128819bc9")),
+                 Commitment(uint256_t("0x1976c760e4bde34db58394888baeda91f57bcdddf60aec28b721b10aac55f555"),
+                            uint256_t("0x26eec8e50bdb2cfc3956e90bd72c9098d4a5de28c1c1c236955d14884a8f498d")),
 
                  // lagrange_third (first real op row, after hiding op row)
-                 Commitment(uint256_t("0x08dc1a9a11a3c8dbc14b6a2e4f796a73eb08934ed806781c68df84429941826a"),
-                            uint256_t("0x26f2c37372adb5b781a94193f3b1ce2be85f20c504f2c11b8ae5c31aa997f141")),
+                 Commitment(uint256_t("0x1a96c5eae61aba7353221e65adf123d30255415db00b8063157f2764a3034e26"),
+                            uint256_t("0x0d04425c0f370a7aaace3cf41f9b2380079c95fa26f9f83b5fd5e26813dbd289")),
 
-                 // lagrange_last
-                 Commitment(uint256_t("0x250f60e47845ded40a7821ccd614187f99e12df72b578d1ff222a61c62f0ace9"),
-                            uint256_t("0x0957036d9fbae4aff11fd9a76828a3292a3e58d30e9a93fe2bbfb2525d522a14"))
+                 // lagrange_last (at dyadic_size - 1)
+                 Commitment(uint256_t("0x23a271e0e1d99d2a526cc8c06df7edf7c86e9cb985e577affb5a64b9daf24401"),
+                            uint256_t("0x12a74c457ae1f9bd6076c308f47a006deb82adfd576be1266cde1cdc0d008cd1"))
         };
     }
 };

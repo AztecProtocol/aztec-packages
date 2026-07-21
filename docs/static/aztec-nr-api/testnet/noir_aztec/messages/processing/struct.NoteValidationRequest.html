@@ -1,0 +1,88 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="UTF-8">
+<link rel="stylesheet" href="../../../styles.css">
+<script defer src="../../../nargo_doc.js"></script>
+<title>Struct NoteValidationRequest documentation</title>
+</head>
+<body>
+<div id="sidebar-toggle">
+<button id="sidebar-toggle-button"></button>
+<div id="sidebar-toggle-title">NoteValidationRequest</div>
+</div>
+<span id="main-contents">
+<nav class="sidebar">
+<h1><a href="../../../index.html">aztec-nr</a></h1>
+<div><a href="../../../all.html">All items</a></div>
+<h2 id="crate-name"><a href="../../index.html">noir_aztec</a></h2>
+<div id="crate-version">0.0.0</div>
+<h2><a href="#struct">Struct NoteValidationRequest</a></h2>
+<h3>Methods</h3>
+<ul class="sidebar-list">
+<li><a href="#new">new</a></li>
+</ul>
+<h3>Trait implementations</h3>
+<ul class="sidebar-list">
+<li><a href="#impl-Deserialize-for-NoteValidationRequest">Deserialize</a></li>
+<li><a href="#impl-Serialize-for-NoteValidationRequest">Serialize</a></li>
+</ul>
+<h2>In module processing</h2>
+<h3>Modules</h3><ul class="item-list">
+<li><a href="log_retrieval_request/index.html">log_retrieval_request</a></div></li>
+<li><a href="log_retrieval_response/index.html">log_retrieval_response</a></div></li>
+<li><a href="offchain/index.html">offchain</a></div></li>
+</ul>
+<h3>Structs</h3><ul class="item-list">
+<li><a href="struct.NoteValidationRequest.html">NoteValidationRequest</a></div></li>
+<li><a href="struct.OffchainMessageWithTx.html">OffchainMessageWithTx</a></div></li>
+</ul>
+<h3>Functions</h3><ul class="item-list">
+<li><a href="fn.enqueue_event_for_validation.html">enqueue_event_for_validation</a></div></li>
+<li><a href="fn.enqueue_note_for_validation.html">enqueue_note_for_validation</a></div></li>
+<li><a href="fn.validate_and_store_enqueued_notes_and_events.html">validate_and_store_enqueued_notes_and_events</a></div></li>
+</ul>
+</nav>
+<main>
+<div><a href="../../../index.html">aztec-nr</a> - <a href="../../index.html">noir_aztec</a>::<a href="../index.html">messages</a>::<a href="index.html">processing</a></div>
+<h1>Struct <span id="struct" class="struct">NoteValidationRequest</span></h1>
+<pre><code>pub struct NoteValidationRequest
+{ <span class="comment">/* private fields */</span> }
+</code></pre>
+<div class="comments">
+<p>Intermediate struct used to perform batch note validation by PXE. The
+<code>aztec_utl_validateAndStoreEnqueuedNotesAndEvents</code> oracle expects for values of this type to be stored in a
+<code>EphemeralArray</code>.</p>
+</div>
+<h2>Implementations</h2>
+<h3><code class="code-header">impl <a href="../../../noir_aztec/messages/processing/struct.NoteValidationRequest.html" class="struct">NoteValidationRequest</a></code></h3>
+
+<div class="padded-methods"><code id="new" class="code-header">pub fn <a href="#new"><span class="fn">new</span></a>(
+    contract_address: <a href="../../../protocol_types/address/aztec_address/struct.AztecAddress.html" class="struct">AztecAddress</a>,
+    owner: <a href="../../../protocol_types/address/aztec_address/struct.AztecAddress.html" class="struct">AztecAddress</a>,
+    storage_slot: <a href="../../../std/primitive.Field.html" class="primitive">Field</a>,
+    randomness: <a href="../../../std/primitive.Field.html" class="primitive">Field</a>,
+    note_nonce: <a href="../../../std/primitive.Field.html" class="primitive">Field</a>,
+    packed_note: <a href="../../../std/collections/bounded_vec/struct.BoundedVec.html" class="struct">BoundedVec</a>&lt;<a href="../../../std/primitive.Field.html" class="primitive">Field</a>, 8&gt;,
+    note_hash: <a href="../../../std/primitive.Field.html" class="primitive">Field</a>,
+    nullifier: <a href="../../../std/primitive.Field.html" class="primitive">Field</a>,
+    tx_hash: <a href="../../../std/primitive.Field.html" class="primitive">Field</a>,
+) -> Self</code>
+
+</div><h2>Trait implementations</h2>
+<h3 id="impl-Deserialize-for-NoteValidationRequest"><code class="code-header">impl <a href="../../../serde/serialization/trait.Deserialize.html" class="trait">Deserialize</a> for <a href="../../../noir_aztec/messages/processing/struct.NoteValidationRequest.html" class="struct">NoteValidationRequest</a></code></h3>
+
+<div class="padded-methods"><code class="code-header">pub fn <span class="fn">deserialize</span>(fields: [<a href="../../../std/primitive.Field.html" class="primitive">Field</a>; 18]) -> Self</code>
+
+<code class="code-header">pub fn <span class="fn">stream_deserialize</span>&lt;let K: <a href="../../../std/primitive.u32.html" class="primitive">u32</a>&gt;(reader: &mut <a href="../../../serde/reader/struct.Reader.html" class="struct">Reader</a>&lt;K&gt;) -> Self</code>
+
+</div><h3 id="impl-Serialize-for-NoteValidationRequest"><code class="code-header">impl <a href="../../../serde/serialization/trait.Serialize.html" class="trait">Serialize</a> for <a href="../../../noir_aztec/messages/processing/struct.NoteValidationRequest.html" class="struct">NoteValidationRequest</a></code></h3>
+
+<div class="padded-methods"><code class="code-header">pub fn <span class="fn">serialize</span>(self) -> [<a href="../../../std/primitive.Field.html" class="primitive">Field</a>; 18]</code>
+
+<code class="code-header">pub fn <span class="fn">stream_serialize</span>&lt;let K: <a href="../../../std/primitive.u32.html" class="primitive">u32</a>&gt;(self, writer: &mut <a href="../../../serde/writer/struct.Writer.html" class="struct">Writer</a>&lt;K&gt;)</code>
+
+</div></main>
+</span>
+</body>
+</html>

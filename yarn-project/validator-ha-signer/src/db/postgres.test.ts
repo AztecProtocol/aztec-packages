@@ -1,15 +1,16 @@
-import { BlockNumber, IndexWithinCheckpoint, SlotNumber } from '@aztec/foundation/branded-types';
+import { BlockNumber, CheckpointNumber, IndexWithinCheckpoint, SlotNumber } from '@aztec/foundation/branded-types';
 import { Buffer32 } from '@aztec/foundation/buffer';
 import { EthAddress } from '@aztec/foundation/eth-address';
 
 import { PGlite } from '@electric-sql/pglite';
 import { afterEach, beforeEach, describe, expect, it, jest } from '@jest/globals';
 import { mkdtemp, rm } from 'fs/promises';
+import { runner } from 'node-pg-migrate';
 import { tmpdir } from 'os';
 import { join } from 'path';
 import type { QueryResult } from 'pg';
 
-import { Pool } from '../test/pglite_pool.js';
+import { Client, Pool } from '../test/pglite_pool.js';
 import { PostgresSlashingProtectionDatabase } from './postgres.js';
 import {
   DELETE_DUTY,
@@ -59,6 +60,7 @@ describe('PostgreSQL Queries', () => {
         VALIDATOR_ADDRESS,
         SLOT.toString(),
         BLOCK_NUMBER.toString(),
+        '0',
         BLOCK_INDEX_WITHIN_CHECKPOINT,
         DUTY_TYPE,
         MESSAGE_HASH,
@@ -84,6 +86,7 @@ describe('PostgreSQL Queries', () => {
         VALIDATOR_ADDRESS,
         SLOT.toString(),
         BLOCK_NUMBER.toString(),
+        '0',
         BLOCK_INDEX_WITHIN_CHECKPOINT,
         DUTY_TYPE,
         MESSAGE_HASH,
@@ -97,6 +100,7 @@ describe('PostgreSQL Queries', () => {
         VALIDATOR_ADDRESS,
         SLOT.toString(),
         BLOCK_NUMBER.toString(),
+        '0',
         BLOCK_INDEX_WITHIN_CHECKPOINT,
         DUTY_TYPE,
         MESSAGE_HASH,
@@ -117,6 +121,7 @@ describe('PostgreSQL Queries', () => {
         VALIDATOR_ADDRESS,
         SLOT.toString(),
         BLOCK_NUMBER.toString(),
+        '0',
         BLOCK_INDEX_WITHIN_CHECKPOINT,
         DUTY_TYPE,
         MESSAGE_HASH,
@@ -132,6 +137,7 @@ describe('PostgreSQL Queries', () => {
         VALIDATOR_ADDRESS,
         SLOT.toString(),
         BLOCK_NUMBER.toString(),
+        '0',
         BLOCK_INDEX_WITHIN_CHECKPOINT,
         DUTY_TYPE,
         MESSAGE_HASH,
@@ -149,6 +155,7 @@ describe('PostgreSQL Queries', () => {
         VALIDATOR_ADDRESS,
         SLOT.toString(),
         BLOCK_NUMBER.toString(),
+        '0',
         BLOCK_INDEX_WITHIN_CHECKPOINT,
         DutyType.BLOCK_PROPOSAL,
         MESSAGE_HASH,
@@ -162,6 +169,7 @@ describe('PostgreSQL Queries', () => {
         VALIDATOR_ADDRESS,
         SLOT.toString(),
         BLOCK_NUMBER.toString(),
+        '0',
         -1,
         DutyType.ATTESTATION,
         MESSAGE_HASH,
@@ -179,6 +187,7 @@ describe('PostgreSQL Queries', () => {
         VALIDATOR_ADDRESS,
         '100',
         BLOCK_NUMBER.toString(),
+        '0',
         BLOCK_INDEX_WITHIN_CHECKPOINT,
         DUTY_TYPE,
         MESSAGE_HASH,
@@ -191,6 +200,7 @@ describe('PostgreSQL Queries', () => {
         VALIDATOR_ADDRESS,
         '101',
         BLOCK_NUMBER.toString(),
+        '0',
         BLOCK_INDEX_WITHIN_CHECKPOINT,
         DUTY_TYPE,
         MESSAGE_HASH,
@@ -211,6 +221,7 @@ describe('PostgreSQL Queries', () => {
         VALIDATOR_ADDRESS,
         SLOT.toString(),
         BLOCK_NUMBER.toString(),
+        '0',
         BLOCK_INDEX_WITHIN_CHECKPOINT,
         DUTY_TYPE,
         MESSAGE_HASH,
@@ -250,6 +261,7 @@ describe('PostgreSQL Queries', () => {
         VALIDATOR_ADDRESS,
         SLOT.toString(),
         BLOCK_NUMBER.toString(),
+        '0',
         BLOCK_INDEX_WITHIN_CHECKPOINT,
         DUTY_TYPE,
         MESSAGE_HASH,
@@ -285,6 +297,7 @@ describe('PostgreSQL Queries', () => {
         VALIDATOR_ADDRESS,
         SLOT.toString(),
         BLOCK_NUMBER.toString(),
+        '0',
         BLOCK_INDEX_WITHIN_CHECKPOINT,
         DUTY_TYPE,
         MESSAGE_HASH,
@@ -330,6 +343,7 @@ describe('PostgreSQL Queries', () => {
         VALIDATOR_ADDRESS,
         SLOT.toString(),
         BLOCK_NUMBER.toString(),
+        '0',
         BLOCK_INDEX_WITHIN_CHECKPOINT,
         DUTY_TYPE,
         MESSAGE_HASH,
@@ -362,6 +376,7 @@ describe('PostgreSQL Queries', () => {
         VALIDATOR_ADDRESS,
         SLOT.toString(),
         BLOCK_NUMBER.toString(),
+        '0',
         BLOCK_INDEX_WITHIN_CHECKPOINT,
         DUTY_TYPE,
         MESSAGE_HASH,
@@ -394,6 +409,7 @@ describe('PostgreSQL Queries', () => {
         VALIDATOR_ADDRESS,
         SLOT.toString(),
         BLOCK_NUMBER.toString(),
+        '0',
         BLOCK_INDEX_WITHIN_CHECKPOINT,
         DUTY_TYPE,
         MESSAGE_HASH,
@@ -438,6 +454,7 @@ describe('PostgreSQL Queries', () => {
         VALIDATOR_ADDRESS,
         SLOT.toString(),
         BLOCK_NUMBER.toString(),
+        '0',
         BLOCK_INDEX_WITHIN_CHECKPOINT,
         DUTY_TYPE,
         MESSAGE_HASH,
@@ -626,6 +643,7 @@ describe('PostgresSlashingProtectionDatabase', () => {
         validatorAddress: VALIDATOR_ADDRESS,
         slot: SLOT,
         blockNumber: BLOCK_NUMBER,
+        checkpointNumber: CheckpointNumber(1),
         blockIndexWithinCheckpoint: IndexWithinCheckpoint(0),
         dutyType: DutyType.BLOCK_PROPOSAL,
         messageHash: MESSAGE_HASH,
@@ -657,6 +675,7 @@ describe('PostgresSlashingProtectionDatabase', () => {
           validatorAddress: VALIDATOR_ADDRESS,
           slot: SLOT,
           blockNumber: BLOCK_NUMBER,
+          checkpointNumber: CheckpointNumber(1),
           blockIndexWithinCheckpoint: IndexWithinCheckpoint(0),
           dutyType: DutyType.BLOCK_PROPOSAL,
           messageHash: MESSAGE_HASH,
@@ -724,6 +743,7 @@ describe('PostgresSlashingProtectionDatabase', () => {
           validatorAddress: VALIDATOR_ADDRESS,
           slot: SLOT,
           blockNumber: BLOCK_NUMBER,
+          checkpointNumber: CheckpointNumber(1),
           blockIndexWithinCheckpoint: IndexWithinCheckpoint(0),
           dutyType: DutyType.BLOCK_PROPOSAL,
           messageHash: MESSAGE_HASH,
@@ -760,6 +780,7 @@ describe('PostgresSlashingProtectionDatabase', () => {
         validatorAddress: VALIDATOR_ADDRESS,
         slot: largeSlot,
         blockNumber: BLOCK_NUMBER,
+        checkpointNumber: CheckpointNumber(1),
         blockIndexWithinCheckpoint: IndexWithinCheckpoint(0),
         dutyType: DutyType.BLOCK_PROPOSAL,
         messageHash: MESSAGE_HASH,
@@ -779,6 +800,7 @@ describe('PostgresSlashingProtectionDatabase', () => {
         validatorAddress: VALIDATOR_ADDRESS,
         slot: SLOT,
         blockNumber: largeBlockNumber,
+        checkpointNumber: CheckpointNumber(1),
         blockIndexWithinCheckpoint: IndexWithinCheckpoint(0),
         dutyType: DutyType.BLOCK_PROPOSAL,
         messageHash: MESSAGE_HASH,
@@ -815,6 +837,7 @@ describe('PostgresSlashingProtectionDatabase', () => {
         validatorAddress: VALIDATOR_ADDRESS,
         slot: SLOT,
         blockNumber: BLOCK_NUMBER,
+        checkpointNumber: CheckpointNumber(1),
         blockIndexWithinCheckpoint: IndexWithinCheckpoint(0),
         dutyType: DutyType.BLOCK_PROPOSAL,
         messageHash: MESSAGE_HASH,
@@ -859,6 +882,7 @@ describe('PostgresSlashingProtectionDatabase', () => {
         validatorAddress: VALIDATOR_ADDRESS,
         slot: SLOT,
         blockNumber: BLOCK_NUMBER,
+        checkpointNumber: CheckpointNumber(1),
         blockIndexWithinCheckpoint: IndexWithinCheckpoint(0),
         dutyType: DutyType.BLOCK_PROPOSAL,
         messageHash: MESSAGE_HASH,
@@ -913,6 +937,7 @@ describe('PostgresSlashingProtectionDatabase', () => {
         validatorAddress: VALIDATOR_ADDRESS,
         slot: SLOT,
         blockNumber: BLOCK_NUMBER,
+        checkpointNumber: CheckpointNumber(1),
         blockIndexWithinCheckpoint: IndexWithinCheckpoint(0),
         dutyType: DutyType.BLOCK_PROPOSAL,
         messageHash: MESSAGE_HASH,
@@ -959,7 +984,8 @@ describe('PostgresSlashingProtectionDatabase', () => {
         rollupAddress: ROLLUP_ADDRESS,
         validatorAddress: VALIDATOR_ADDRESS,
         slot: SLOT,
-        blockNumber: BLOCK_NUMBER,
+        blockNumber: BlockNumber(0),
+        checkpointNumber: CheckpointNumber(0),
         dutyType: DutyType.ATTESTATION,
         messageHash: MESSAGE_HASH,
         nodeId: NODE_ID,
@@ -1020,6 +1046,7 @@ describe('PostgresSlashingProtectionDatabase', () => {
         validatorAddress: VALIDATOR_ADDRESS,
         slot: SLOT,
         blockNumber: BLOCK_NUMBER,
+        checkpointNumber: CheckpointNumber(1),
         blockIndexWithinCheckpoint: IndexWithinCheckpoint(0),
         dutyType: DutyType.BLOCK_PROPOSAL,
         messageHash: MESSAGE_HASH,
@@ -1058,6 +1085,7 @@ describe('PostgresSlashingProtectionDatabase', () => {
         validatorAddress: VALIDATOR_ADDRESS,
         slot: SLOT,
         blockNumber: BLOCK_NUMBER,
+        checkpointNumber: CheckpointNumber(1),
         blockIndexWithinCheckpoint: IndexWithinCheckpoint(0),
         dutyType: DutyType.BLOCK_PROPOSAL,
         messageHash: MESSAGE_HASH,
@@ -1108,6 +1136,7 @@ describe('PostgresSlashingProtectionDatabase', () => {
         validatorAddress: VALIDATOR_ADDRESS,
         slot: SLOT,
         blockNumber: BLOCK_NUMBER,
+        checkpointNumber: CheckpointNumber(1),
         blockIndexWithinCheckpoint: IndexWithinCheckpoint(0),
         dutyType: DutyType.BLOCK_PROPOSAL,
         messageHash: MESSAGE_HASH,
@@ -1153,7 +1182,8 @@ describe('PostgresSlashingProtectionDatabase', () => {
         rollupAddress: ROLLUP_ADDRESS,
         validatorAddress: VALIDATOR_ADDRESS,
         slot: SLOT,
-        blockNumber: BLOCK_NUMBER,
+        blockNumber: BlockNumber(0),
+        checkpointNumber: CheckpointNumber(0),
         dutyType: DutyType.ATTESTATION,
         messageHash: MESSAGE_HASH,
         nodeId: NODE_ID,
@@ -1208,6 +1238,7 @@ describe('PostgresSlashingProtectionDatabase', () => {
         validatorAddress: VALIDATOR_ADDRESS,
         slot: SLOT,
         blockNumber: BLOCK_NUMBER,
+        checkpointNumber: CheckpointNumber(1),
         blockIndexWithinCheckpoint: IndexWithinCheckpoint(0),
         dutyType: DutyType.BLOCK_PROPOSAL,
         messageHash: MESSAGE_HASH,
@@ -1220,6 +1251,7 @@ describe('PostgresSlashingProtectionDatabase', () => {
         validatorAddress: VALIDATOR_ADDRESS,
         slot: SLOT, // Same slot!
         blockNumber: BLOCK_NUMBER,
+        checkpointNumber: CheckpointNumber(1),
         blockIndexWithinCheckpoint: IndexWithinCheckpoint(0),
         dutyType: DutyType.BLOCK_PROPOSAL,
         messageHash: MESSAGE_HASH,
@@ -1243,6 +1275,7 @@ describe('PostgresSlashingProtectionDatabase', () => {
         validatorAddress: VALIDATOR_ADDRESS,
         slot: SLOT,
         blockNumber: BLOCK_NUMBER,
+        checkpointNumber: CheckpointNumber(1),
         blockIndexWithinCheckpoint: IndexWithinCheckpoint(0),
         dutyType: DutyType.BLOCK_PROPOSAL,
         messageHash: MESSAGE_HASH,
@@ -1275,6 +1308,7 @@ describe('PostgresSlashingProtectionDatabase', () => {
         validatorAddress: VALIDATOR_ADDRESS,
         slot: SLOT,
         blockNumber: BLOCK_NUMBER,
+        checkpointNumber: CheckpointNumber(1),
         blockIndexWithinCheckpoint: IndexWithinCheckpoint(0),
         dutyType: DutyType.BLOCK_PROPOSAL,
         messageHash: MESSAGE_HASH,
@@ -1302,6 +1336,7 @@ describe('PostgresSlashingProtectionDatabase', () => {
         validatorAddress: VALIDATOR_ADDRESS,
         slot: SLOT,
         blockNumber: BLOCK_NUMBER,
+        checkpointNumber: CheckpointNumber(1),
         blockIndexWithinCheckpoint: IndexWithinCheckpoint(0),
         dutyType: DutyType.BLOCK_PROPOSAL,
         messageHash: MESSAGE_HASH,
@@ -1337,6 +1372,7 @@ describe('PostgresSlashingProtectionDatabase', () => {
           validatorAddress: VALIDATOR_ADDRESS,
           slot,
           blockNumber,
+          checkpointNumber: CheckpointNumber(1),
           blockIndexWithinCheckpoint: IndexWithinCheckpoint(blockIdx),
           dutyType: DutyType.BLOCK_PROPOSAL,
           messageHash: Buffer32.random().toString(),
@@ -1352,6 +1388,7 @@ describe('PostgresSlashingProtectionDatabase', () => {
           validatorAddress: VALIDATOR_ADDRESS,
           slot, // Same slot!
           blockNumber,
+          checkpointNumber: CheckpointNumber(1),
           blockIndexWithinCheckpoint: IndexWithinCheckpoint(blockIdx), // Same index!
           dutyType: DutyType.BLOCK_PROPOSAL,
           messageHash: Buffer32.random().toString(),
@@ -1360,6 +1397,51 @@ describe('PostgresSlashingProtectionDatabase', () => {
         expect(result.isNew).toBe(true);
         expect(result.record.rollupAddress).toEqual(newRollupAddress);
       }
+    });
+  });
+
+  describe('cleanupOwnStuckDuties', () => {
+    const ROLLUP_ADDRESS = EthAddress.random();
+    const VALIDATOR_ADDRESS = EthAddress.random();
+    const NODE_ID = 'node-1';
+
+    beforeEach(async () => {
+      for (const statement of SCHEMA_SETUP) {
+        await pglite.query(statement);
+      }
+      await pglite.query(INSERT_SCHEMA_VERSION, [SCHEMA_VERSION]);
+    });
+
+    const insertStuckDuty = async (slot: number, lockToken: string) => {
+      const oldStartedAt = new Date(Date.now() - 10 * 60 * 1000);
+      await pglite.query(
+        `INSERT INTO validator_duties (
+           rollup_address, validator_address, slot, block_number,
+           block_index_within_checkpoint, duty_type, status, message_hash,
+           node_id, lock_token, started_at
+         ) VALUES ($1, $2, $3, $4, $5, $6, 'signing', $7, $8, $9, $10)`,
+        [
+          ROLLUP_ADDRESS.toString(),
+          VALIDATOR_ADDRESS.toString(),
+          slot,
+          50,
+          0,
+          DutyType.BLOCK_PROPOSAL,
+          Buffer32.random().toString(),
+          NODE_ID,
+          lockToken,
+          oldStartedAt,
+        ],
+      );
+    };
+
+    it('removes stuck SIGNING duties older than maxAgeMs', async () => {
+      const spDb = new PostgresSlashingProtectionDatabase(pool);
+      await insertStuckDuty(100, 'token-a');
+      await insertStuckDuty(200, 'token-b');
+
+      const cleaned = await spDb.cleanupOwnStuckDuties(NODE_ID, 60_000);
+      expect(cleaned).toBe(2);
     });
   });
 
@@ -1387,6 +1469,7 @@ describe('PostgresSlashingProtectionDatabase', () => {
           validatorAddress: VALIDATOR_ADDRESS,
           slot: SlotNumber(100 + i),
           blockNumber: BlockNumber(50 + i),
+          checkpointNumber: CheckpointNumber(1),
           blockIndexWithinCheckpoint: IndexWithinCheckpoint(0),
           dutyType: DutyType.BLOCK_PROPOSAL,
           messageHash: Buffer32.random().toString(),
@@ -1400,6 +1483,7 @@ describe('PostgresSlashingProtectionDatabase', () => {
           validatorAddress: VALIDATOR_ADDRESS,
           slot: SlotNumber(200 + i),
           blockNumber: BlockNumber(150 + i),
+          checkpointNumber: CheckpointNumber(1),
           blockIndexWithinCheckpoint: IndexWithinCheckpoint(0),
           dutyType: DutyType.BLOCK_PROPOSAL,
           messageHash: Buffer32.random().toString(),
@@ -1414,6 +1498,7 @@ describe('PostgresSlashingProtectionDatabase', () => {
           validatorAddress: VALIDATOR_ADDRESS,
           slot: SlotNumber(300 + i),
           blockNumber: BlockNumber(250 + i),
+          checkpointNumber: CheckpointNumber(1),
           blockIndexWithinCheckpoint: IndexWithinCheckpoint(0),
           dutyType: DutyType.BLOCK_PROPOSAL,
           messageHash: Buffer32.random().toString(),
@@ -1447,6 +1532,7 @@ describe('PostgresSlashingProtectionDatabase', () => {
         validatorAddress: VALIDATOR_ADDRESS,
         slot: SlotNumber(100),
         blockNumber: BlockNumber(50),
+        checkpointNumber: CheckpointNumber(1),
         blockIndexWithinCheckpoint: IndexWithinCheckpoint(0),
         dutyType: DutyType.BLOCK_PROPOSAL,
         messageHash: Buffer32.random().toString(),
@@ -1476,15 +1562,16 @@ describe('PostgresSlashingProtectionDatabase', () => {
 
     it('should only clean up old signed duties, not signing or recent duties', async () => {
       const spDb = new PostgresSlashingProtectionDatabase(pool);
-      const oldTimestamp = new Date(Date.now() - 2 * 60 * 60 * 1000); // 2 hours ago
 
-      // Insert old signed duties (should be cleaned up)
+      // Insert old signed duties (should be cleaned up) - 2 hours old
       for (let i = 0; i < 2; i++) {
         await pglite.query(
           `INSERT INTO validator_duties (
             rollup_address, validator_address, slot, block_number, block_index_within_checkpoint,
             duty_type, status, message_hash, signature, node_id, lock_token, started_at, completed_at
-          ) VALUES ($1, $2, $3, $4, $5, $6, 'signed', $7, '0xsignature', $8, 'token', $9, $9)`,
+          ) VALUES ($1, $2, $3, $4, $5, $6, 'signed', $7, '0xsignature', $8, 'token',
+            CURRENT_TIMESTAMP - INTERVAL '2 hours',
+            CURRENT_TIMESTAMP - INTERVAL '2 hours')`,
           [
             ROLLUP_ADDRESS.toString(),
             VALIDATOR_ADDRESS.toString(),
@@ -1494,18 +1581,18 @@ describe('PostgresSlashingProtectionDatabase', () => {
             DutyType.BLOCK_PROPOSAL,
             Buffer32.random().toString(),
             NODE_ID,
-            oldTimestamp,
           ],
         );
       }
 
-      // Insert old signing duties (should NOT be cleaned up)
+      // Insert old signing duties (should NOT be cleaned up) - 2 hours old but still signing
       for (let i = 0; i < 2; i++) {
         await pglite.query(
           `INSERT INTO validator_duties (
             rollup_address, validator_address, slot, block_number, block_index_within_checkpoint,
             duty_type, status, message_hash, node_id, lock_token, started_at
-          ) VALUES ($1, $2, $3, $4, $5, $6, 'signing', $7, $8, 'token', $9)`,
+          ) VALUES ($1, $2, $3, $4, $5, $6, 'signing', $7, $8, 'token',
+            CURRENT_TIMESTAMP - INTERVAL '2 hours')`,
           [
             ROLLUP_ADDRESS.toString(),
             VALIDATOR_ADDRESS.toString(),
@@ -1515,7 +1602,6 @@ describe('PostgresSlashingProtectionDatabase', () => {
             DutyType.BLOCK_PROPOSAL,
             Buffer32.random().toString(),
             NODE_ID,
-            oldTimestamp,
           ],
         );
       }
@@ -1526,6 +1612,7 @@ describe('PostgresSlashingProtectionDatabase', () => {
         validatorAddress: VALIDATOR_ADDRESS,
         slot: SlotNumber(300),
         blockNumber: BlockNumber(250),
+        checkpointNumber: CheckpointNumber(1),
         blockIndexWithinCheckpoint: IndexWithinCheckpoint(0),
         dutyType: DutyType.BLOCK_PROPOSAL,
         messageHash: Buffer32.random().toString(),
@@ -1565,5 +1652,99 @@ describe('PostgresSlashingProtectionDatabase', () => {
       const numCleaned = await spDb.cleanupOldDuties(60 * 60 * 1000);
       expect(numCleaned).toBe(0);
     });
+  });
+});
+
+/** Query the columns and primary key constraints for the validator_duties table. */
+async function dumpValidatorDutiesSchema(db: PGlite): Promise<{
+  columns: Array<{ column_name: string; data_type: string; is_nullable: string; column_default: string | null }>;
+  primaryKey: string[];
+}> {
+  const columnsResult = await db.query<{
+    column_name: string;
+    data_type: string;
+    is_nullable: string;
+    column_default: string | null;
+  }>(
+    `SELECT column_name, data_type, is_nullable, column_default
+     FROM information_schema.columns
+     WHERE table_name = 'validator_duties'
+     ORDER BY ordinal_position`,
+  );
+
+  const pkResult = await db.query<{ column_name: string }>(
+    `SELECT kcu.column_name
+     FROM information_schema.table_constraints tc
+     JOIN information_schema.key_column_usage kcu
+       ON tc.constraint_name = kcu.constraint_name
+      AND tc.table_name = kcu.table_name
+     WHERE tc.constraint_type = 'PRIMARY KEY'
+       AND tc.table_name = 'validator_duties'
+     ORDER BY kcu.ordinal_position`,
+  );
+
+  return {
+    columns: columnsResult.rows,
+    primaryKey: pkResult.rows.map(r => r.column_name),
+  };
+}
+
+describe('migrations', () => {
+  let db: PGlite;
+  let tmpDir: string;
+
+  // Compiled migrations are in dest/db/migrations relative to the package root.
+  // process.cwd() is the package root when running jest.
+  const migrationsDir = join(process.cwd(), 'dest/db/migrations');
+
+  beforeEach(async () => {
+    tmpDir = await mkdtemp(join(tmpdir(), 'pglite-migrations-'));
+    db = await PGlite.create(tmpDir);
+  });
+
+  afterEach(async () => {
+    await db.close();
+    await rm(tmpDir, { force: true, recursive: true, maxRetries: 3, retryDelay: 100 });
+  });
+
+  it('should produce the same schema after running migrations down and up again', async () => {
+    const client = new Client({ pglite: db });
+    await client.connect();
+
+    const runnerOptions = {
+      dbClient: client as any,
+      dir: migrationsDir,
+      migrationsTable: 'pgmigrations',
+      noLock: true,
+      singleTransaction: true,
+      ignorePattern: '.*\\.d\\.(ts|js)$|.*\\.d\\.ts\\.map$',
+    };
+
+    // Step 1: run all migrations up and capture the resulting schema.
+    await runner({ ...runnerOptions, direction: 'up' });
+    const schemaAfterFirstUp = await dumpValidatorDutiesSchema(db);
+
+    expect(schemaAfterFirstUp.columns.length).toBeGreaterThan(0);
+    expect(schemaAfterFirstUp.primaryKey.length).toBeGreaterThan(0);
+
+    // Step 2: roll back all migrations one at a time.
+    await runner({ ...runnerOptions, direction: 'down', count: 1 });
+    await runner({ ...runnerOptions, direction: 'down', count: 1 });
+
+    // validator_duties table should no longer exist.
+    const tablesResult = await db.query<{ table_name: string }>(
+      `SELECT table_name FROM information_schema.tables WHERE table_name = 'validator_duties'`,
+    );
+    expect(tablesResult.rows.length).toBe(0);
+
+    // Step 3: run all migrations up again.
+    await runner({ ...runnerOptions, direction: 'up' });
+    const schemaAfterSecondUp = await dumpValidatorDutiesSchema(db);
+
+    // Step 4: assert the schema matches.
+    expect(schemaAfterSecondUp.columns).toEqual(schemaAfterFirstUp.columns);
+    expect(schemaAfterSecondUp.primaryKey).toEqual(schemaAfterFirstUp.primaryKey);
+
+    await client.end();
   });
 });

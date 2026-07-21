@@ -1,6 +1,15 @@
+import { PRIVATE_LOG_SIZE_IN_FIELDS } from '@aztec/constants';
+import { makeTuple } from '@aztec/foundation/array';
 import { randomBytes } from '@aztec/foundation/crypto/random';
+import { Fr } from '@aztec/foundation/curves/bn254';
+import { EthAddress } from '@aztec/foundation/eth-address';
 import { jsonStringify } from '@aztec/foundation/json-rpc';
 
+import { AztecAddress } from '../aztec-address/index.js';
+import { LogHash, ScopedLogHash } from '../kernel/log_hash.js';
+import { PrivateKernelTailCircuitPublicInputs } from '../kernel/private_kernel_tail_circuit_public_inputs.js';
+import { PrivateLog } from '../logs/private_log.js';
+import { L2ToL1Message, ScopedL2ToL1Message } from '../messaging/l2_to_l1_message.js';
 import { mockTx } from '../tests/mocks.js';
 import { Tx, TxArray } from './tx.js';
 
@@ -11,10 +20,116 @@ describe('Tx', () => {
     expect(Tx.fromBuffer(buf)).toEqual(tx);
   });
 
+  it('convert to and from separate tx and proof buffers', async () => {
+    const tx = await mockTx();
+    const restored = Tx.fromBuffers(tx.withoutProof().toBuffer(), tx.chonkProof.toBuffer());
+    expect(restored).toEqual(tx);
+    expect(restored.chonkProof.isEmpty()).toBe(false);
+  });
+
   it('convert to and from json', async () => {
     const tx = await mockTx();
     const json = jsonStringify(tx);
     expect(await Tx.schema.parseAsync(JSON.parse(json))).toEqual(tx);
+  });
+
+  describe('getPrivateTxEffectsSizeInFields', () => {
+    function makePrivateOnlyTx() {
+      const data = PrivateKernelTailCircuitPublicInputs.emptyWithNullifier();
+      return Tx.from({
+        txHash: Tx.random().txHash,
+        data,
+        chonkProof: Tx.random().chonkProof,
+        contractClassLogFields: [],
+        publicFunctionCalldata: [],
+      });
+    }
+
+    const someAddress = AztecAddress.fromFieldUnsafe(new Fr(27));
+
+    it('returns overhead only for tx with just a nullifier', () => {
+      const tx = makePrivateOnlyTx();
+      // 3 fields overhead + 1 nullifier (from emptyWithNullifier)
+      expect(tx.getPrivateTxEffectsSizeInFields()).toBe(3 + 1);
+    });
+
+    it('counts note hashes', () => {
+      const tx = makePrivateOnlyTx();
+      const end = tx.data.forRollup!.end;
+      end.noteHashes[0] = Fr.random();
+      end.noteHashes[1] = Fr.random();
+      // 3 overhead + 1 nullifier + 2 note hashes
+      expect(tx.getPrivateTxEffectsSizeInFields()).toBe(3 + 1 + 2);
+    });
+
+    it('counts nullifiers', () => {
+      const tx = makePrivateOnlyTx();
+      const end = tx.data.forRollup!.end;
+      end.nullifiers[1] = Fr.random();
+      end.nullifiers[2] = Fr.random();
+      // 3 overhead + 3 nullifiers (1 from emptyWithNullifier + 2 new)
+      expect(tx.getPrivateTxEffectsSizeInFields()).toBe(3 + 3);
+    });
+
+    it('counts L2 to L1 messages', () => {
+      const tx = makePrivateOnlyTx();
+      const end = tx.data.forRollup!.end;
+      end.l2ToL1Msgs[0] = new ScopedL2ToL1Message(new L2ToL1Message(EthAddress.random(), Fr.random()), someAddress);
+      // 3 overhead + 1 nullifier + 1 L2-to-L1 message
+      expect(tx.getPrivateTxEffectsSizeInFields()).toBe(3 + 1 + 1);
+    });
+
+    it('counts private logs with length field', () => {
+      const tx = makePrivateOnlyTx();
+      const end = tx.data.forRollup!.end;
+      const emittedLength = 5;
+      end.privateLogs[0] = new PrivateLog(makeTuple(PRIVATE_LOG_SIZE_IN_FIELDS, Fr.random), emittedLength);
+      // 3 overhead + 1 nullifier + (5 content + 1 length field)
+      expect(tx.getPrivateTxEffectsSizeInFields()).toBe(3 + 1 + 6);
+    });
+
+    it('counts contract class logs with contract address field', () => {
+      const tx = makePrivateOnlyTx();
+      const end = tx.data.forRollup!.end;
+      const logLength = 10;
+      end.contractClassLogsHashes[0] = new ScopedLogHash(new LogHash(Fr.random(), logLength), someAddress);
+      // 3 overhead + 1 nullifier + (10 content + 1 contract address)
+      expect(tx.getPrivateTxEffectsSizeInFields()).toBe(3 + 1 + 11);
+    });
+
+    it('counts all side effects together', () => {
+      const tx = makePrivateOnlyTx();
+      const end = tx.data.forRollup!.end;
+
+      // 2 additional nullifiers (1 already from emptyWithNullifier)
+      end.nullifiers[1] = Fr.random();
+      end.nullifiers[2] = Fr.random();
+
+      // 3 note hashes
+      end.noteHashes[0] = Fr.random();
+      end.noteHashes[1] = Fr.random();
+      end.noteHashes[2] = Fr.random();
+
+      // 1 L2-to-L1 message
+      end.l2ToL1Msgs[0] = new ScopedL2ToL1Message(new L2ToL1Message(EthAddress.random(), Fr.random()), someAddress);
+
+      // 2 private logs with different lengths
+      end.privateLogs[0] = new PrivateLog(makeTuple(PRIVATE_LOG_SIZE_IN_FIELDS, Fr.random), 4);
+      end.privateLogs[1] = new PrivateLog(makeTuple(PRIVATE_LOG_SIZE_IN_FIELDS, Fr.random), 7);
+
+      // 1 contract class log
+      end.contractClassLogsHashes[0] = new ScopedLogHash(new LogHash(Fr.random(), 12), someAddress);
+
+      const expected =
+        3 + // overhead
+        3 + // note hashes
+        3 + // nullifiers
+        1 + // L2-to-L1 messages
+        (4 + 1) + // first private log (content + length)
+        (7 + 1) + // second private log (content + length)
+        (12 + 1); // contract class log (content + contract address)
+      expect(tx.getPrivateTxEffectsSizeInFields()).toBe(expected);
+    });
   });
 });
 

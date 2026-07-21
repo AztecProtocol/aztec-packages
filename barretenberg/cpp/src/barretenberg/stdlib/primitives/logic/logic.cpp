@@ -1,5 +1,5 @@
 // === AUDIT STATUS ===
-// internal:    { status: Planned, auditors: [], commit: }
+// internal:    { status: Complete, auditors: [Suyash], commit: e4712cda8def49d75fbba2d361625fc5e21945f5 }
 // external_1:  { status: not started, auditors: [], commit: }
 // external_2:  { status: not started, auditors: [], commit: }
 // =====================
@@ -58,6 +58,7 @@ field_t<Builder> logic<Builder>::create_logic_constraint(
         Builder* ctx = b.get_context();
         uint256_t a_native(a.get_value());
         field_pt a_witness = field_pt::from_witness_index(ctx, ctx->put_constant_variable(a_native));
+        a_witness.set_origin_tag(a.get_origin_tag());
         return create_logic_constraint(a_witness, b, num_bits, is_xor_gate, get_chunk);
     }
 
@@ -65,10 +66,11 @@ field_t<Builder> logic<Builder>::create_logic_constraint(
         Builder* ctx = a.get_context();
         uint256_t b_native(b.get_value());
         field_pt b_witness = field_pt::from_witness_index(ctx, ctx->put_constant_variable(b_native));
+        b_witness.set_origin_tag(b.get_origin_tag());
         return create_logic_constraint(a, b_witness, num_bits, is_xor_gate, get_chunk);
     }
 
-    Builder* ctx = a.get_context();
+    Builder* ctx = validate_context<Builder>(a.get_context(), b.get_context());
 
     // We slice the input values into 32-bit chunks, and then use a multi-table lookup to compute the AND or XOR
     // of each chunk. Since we perform the lookup from 32-bit multi-tables, the lookup operation implicitly enforces a
@@ -111,6 +113,7 @@ field_t<Builder> logic<Builder>::create_logic_constraint(
     a.assert_equal(a_accumulator, "stdlib logic: failed to reconstruct left operand");
     b.assert_equal(b_accumulator, "stdlib logic: failed to reconstruct right operand");
 
+    res.set_origin_tag(OriginTag(a.get_origin_tag(), b.get_origin_tag()));
     return res;
 }
 template class logic<bb::UltraCircuitBuilder>;

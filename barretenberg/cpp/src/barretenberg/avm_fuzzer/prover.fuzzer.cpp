@@ -99,6 +99,7 @@ extern "C" int LLVMFuzzerInitialize(int*, char***)
     memset(l2_to_l1_msgs_counter, 0, sizeof(l2_to_l1_msgs_counter));
     memset(public_logs_counter, 0, sizeof(public_logs_counter));
 
+    bb::srs::init_file_crs_factory(bb::srs::bb_crs_path());
     FuzzerWorldStateManager::initialize();
     return 0;
 }

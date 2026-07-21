@@ -1,5 +1,3 @@
-import { Fr } from '@aztec/foundation/curves/bn254';
-
 import { FunctionSelector, FunctionType } from '../abi/index.js';
 import { getBenchmarkContractArtifact } from '../tests/fixtures.js';
 import { getContractClassFromArtifact } from './contract_class.js';
@@ -7,10 +5,7 @@ import { getContractClassFromArtifact } from './contract_class.js';
 describe('ContractClass', () => {
   it('creates a contract class from a contract compilation artifact', async () => {
     const artifact = getBenchmarkContractArtifact();
-    const contractClass = await getContractClassFromArtifact({
-      ...artifact,
-      artifactHash: Fr.fromHexString('0x1234'),
-    });
+    const contractClass = await getContractClassFromArtifact(artifact);
 
     // Assert bytecode has a reasonable length
     expect(contractClass.packedBytecode.length).toBeGreaterThan(100);

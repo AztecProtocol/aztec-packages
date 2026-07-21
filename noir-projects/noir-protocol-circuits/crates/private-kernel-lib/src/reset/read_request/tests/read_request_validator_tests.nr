@@ -1,5 +1,5 @@
 use super::{PENDING_READ_HINTS_LEN, SETTLED_READ_HINTS_LEN, TestBuilder};
-use dep::types::tests::utils::assert_array_eq;
+use protocol_test_utils::assert_array_eq;
 
 impl TestBuilder {
     pub fn new_mixed() -> Self {
@@ -113,14 +113,14 @@ fn validate_with_zero_pending_read_amount_hints_non_empty() {
 
 #[test(should_fail_with = "SettledReadAmount should match the length of the hints array")]
 fn validate_with_fewer_settled_read_amount_fails() {
-    let mut builder = TestBuilder::new_mixed();
+    let builder = TestBuilder::new_mixed();
     // Validate 1 less than the `settled_read_hints` array length.
     builder.validate_with_amount::<PENDING_READ_HINTS_LEN, SETTLED_READ_HINTS_LEN - 1>();
 }
 
 #[test(should_fail_with = "SettledReadAmount should match the length of the hints array")]
 fn validate_with_more_settled_read_amount_fails() {
-    let mut builder = TestBuilder::new_mixed();
+    let builder = TestBuilder::new_mixed();
     // Validate 1 more than the `settled_read_hints` array length.
     builder.validate_with_amount::<PENDING_READ_HINTS_LEN, SETTLED_READ_HINTS_LEN + 1>();
 }

@@ -1,0 +1,95 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="UTF-8">
+<link rel="stylesheet" href="../../styles.css">
+<script defer src="../../nargo_doc.js"></script>
+<title>Struct ConfirmedNote documentation</title>
+</head>
+<body>
+<div id="sidebar-toggle">
+<button id="sidebar-toggle-button"></button>
+<div id="sidebar-toggle-title">ConfirmedNote</div>
+</div>
+<span id="main-contents">
+<nav class="sidebar">
+<h1><a href="../../index.html">aztec-nr</a></h1>
+<div><a href="../../all.html">All items</a></div>
+<h2 id="crate-name"><a href="../index.html">noir_aztec</a></h2>
+<div id="crate-version">0.0.0</div>
+<h2><a href="#struct">Struct ConfirmedNote</a></h2>
+<h3>Fields</h3>
+<ul class="sidebar-list">
+<li><a href="#structfield.contract_address">contract_address</a></li>
+<li><a href="#structfield.metadata">metadata</a></li>
+<li><a href="#structfield.note">note</a></li>
+<li><a href="#structfield.owner">owner</a></li>
+<li><a href="#structfield.proven_note_hash">proven_note_hash</a></li>
+<li><a href="#structfield.randomness">randomness</a></li>
+<li><a href="#structfield.storage_slot">storage_slot</a></li>
+</ul>
+<h2>In module note</h2>
+<h3>Modules</h3><ul class="item-list">
+<li><a href="constants/index.html">constants</a></div></li>
+<li><a href="lifecycle/index.html">lifecycle</a></div></li>
+<li><a href="note_getter/index.html">note_getter</a></div></li>
+<li><a href="note_getter_options/index.html">note_getter_options</a></div></li>
+<li><a href="note_interface/index.html">note_interface</a></div></li>
+<li><a href="note_metadata/index.html">note_metadata</a></div></li>
+<li><a href="note_viewer_options/index.html">note_viewer_options</a></div></li>
+<li><a href="utils/index.html">utils</a></div></li>
+</ul>
+<h3>Structs</h3><ul class="item-list">
+<li><a href="struct.ConfirmedNote.html">ConfirmedNote</a></div></li>
+<li><a href="struct.HintedNote.html">HintedNote</a></div></li>
+<li><a href="struct.MaybeNoteMessage.html">MaybeNoteMessage</a></div></li>
+<li><a href="struct.NoteMessage.html">NoteMessage</a></div></li>
+</ul>
+</nav>
+<main>
+<div><a href="../../index.html">aztec-nr</a> - <a href="../index.html">noir_aztec</a>::<a href="index.html">note</a></div>
+<h1>Struct <span id="struct" class="struct">ConfirmedNote</span></h1>
+<pre><code>pub struct ConfirmedNote&lt;Note&gt; {
+    pub note: Note,
+    pub contract_address: <a href="../../protocol_types/address/aztec_address/struct.AztecAddress.html" class="struct">AztecAddress</a>,
+    pub owner: <a href="../../protocol_types/address/aztec_address/struct.AztecAddress.html" class="struct">AztecAddress</a>,
+    pub randomness: <a href="../../std/primitive.Field.html" class="primitive">Field</a>,
+    pub storage_slot: <a href="../../std/primitive.Field.html" class="primitive">Field</a>,
+    pub metadata: <a href="../../noir_aztec/note/note_metadata/struct.NoteMetadata.html" class="struct">NoteMetadata</a>,
+    pub proven_note_hash: <a href="../../std/primitive.Field.html" class="primitive">Field</a>,
+}
+</code></pre>
+<div class="comments">
+<p>A note that has been confirmed to exist.</p>
+<p>This struct contains the actual note content and all associated data related to it, including the note's metadata
+and the note hash that was used to prove its existence.</p>
+<p>Only <code>ConfirmedNote</code>s can be nullified, since emitting a nullifier for a note that does not exist is a meaningless
+action, and in the vast majority of cases an error.</p>
+<p><code>ConfirmedNote</code>s can be obtained by reading notes from PXE via <a href="../../noir_aztec/note/note_getter/fn.get_note.html"><code>crate::note::note_getter::get_note</code></a> and
+<a href="../../noir_aztec/note/note_getter/fn.get_notes.html"><code>crate::note::note_getter::get_notes</code></a>, or by confirming a <a href="../../noir_aztec/note/struct.HintedNote.html"><code>crate::note::hinted_note::HintedNote</code></a> via
+<a href="../../noir_aztec/history/note/fn.assert_note_existed_by.html"><code>crate::history::note::assert_note_existed_by</code></a>.</p>
+<h2>Pending Notes</h2>
+<p>A pending <code>ConfirmedNote</code> (i.e. one of [<code>crate::note::note_metadata::NoteStageEnum::PENDING_SAME_PHASE</code>] or
+[<code>crate::note::note_metadata::NoteStageEnum::PENDING_PREVIOUS_PHASE</code>]) will <strong>not</strong> necessarily be inserted into
+the
+note hash tree: if it is nullified in the same transaction, both note hash and nullifier will be squashed (deleted)
+by the kernel, resulting in a <em>transient note</em>.</p></div>
+<h2>Fields</h2>
+<div id="structfield.note" class="struct-field"><code class="code-header">note: Note</code></div>
+<div class="padded-description"></div><div id="structfield.contract_address" class="struct-field"><code class="code-header">contract_address: <a href="../../protocol_types/address/aztec_address/struct.AztecAddress.html" class="struct">AztecAddress</a></code></div>
+<div class="padded-description"></div><div id="structfield.owner" class="struct-field"><code class="code-header">owner: <a href="../../protocol_types/address/aztec_address/struct.AztecAddress.html" class="struct">AztecAddress</a></code></div>
+<div class="padded-description"></div><div id="structfield.randomness" class="struct-field"><code class="code-header">randomness: <a href="../../std/primitive.Field.html" class="primitive">Field</a></code></div>
+<div class="padded-description"></div><div id="structfield.storage_slot" class="struct-field"><code class="code-header">storage_slot: <a href="../../std/primitive.Field.html" class="primitive">Field</a></code></div>
+<div class="padded-description"></div><div id="structfield.metadata" class="struct-field"><code class="code-header">metadata: <a href="../../noir_aztec/note/note_metadata/struct.NoteMetadata.html" class="struct">NoteMetadata</a></code></div>
+<div class="padded-description"></div><div id="structfield.proven_note_hash" class="struct-field"><code class="code-header">proven_note_hash: <a href="../../std/primitive.Field.html" class="primitive">Field</a></code></div>
+<div class="padded-description"><div class="comments">
+<p>The note hash used to prove existence.</p>
+<p>Whether this note hash is unsiloed or unique depends on the note's metadata.</p>
+</div>
+</div><h2>Implementations</h2>
+<h3><code class="code-header">impl&lt;Note&gt; <a href="../../noir_aztec/note/struct.ConfirmedNote.html" class="struct">ConfirmedNote</a>&lt;Note&gt;</code></h3>
+
+<div class="padded-methods"></div></main>
+</span>
+</body>
+</html>

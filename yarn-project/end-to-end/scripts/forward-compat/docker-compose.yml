@@ -1,0 +1,60 @@
+# Forward-compatibility test infrastructure.
+#
+# Runs an OLD release of the Aztec stack (node + wallet) alongside NEW tests compiled from the current tree. The test
+# suite sends new contract artifacts to the old wallet/PXE/simulator over RPC, verifying that old runtime code can
+# still parse, simulate, and prove contracts compiled with the latest `aztec` command.
+#
+# Usage:
+#   OLD_STACK_VERSION=0.4.2 docker compose -f docker-compose.yml up --abort-on-container-exit
+#
+services:
+  fork:
+    image: aztecprotocol/build:3.0
+    cpus: 1
+    cpuset: ${CPU_LIST:-}
+    mem_limit: 2G
+    entrypoint: 'anvil --silent -p 8545 --host 0.0.0.0 --chain-id 31337'
+
+  old-stack:
+    image: aztecprotocol/end-to-end:${OLD_STACK_VERSION:?set OLD_STACK_VERSION}
+    cpus: 4
+    cpuset: ${CPU_LIST:-}
+    mem_limit: 8G
+    stop_grace_period: 60s
+    entrypoint:
+      - /bin/bash
+      - -c
+      - |
+        node --no-warnings /usr/src/yarn-project/end-to-end/dest/forward-compatibility/wallet_service.js
+    environment:
+      LOG_LEVEL: ${LOG_LEVEL:-verbose}
+      ETHEREUM_HOSTS: http://fork:8545
+      L1_CHAIN_ID: 31337
+      TEST_ACCOUNTS: 'true'
+      NODE_PORT: 8080
+      WALLET_PORT: 8081
+      FORCE_COLOR: ${FORCE_COLOR:-1}
+    depends_on:
+      - fork
+
+  end-to-end:
+    extends:
+      file: ../docker-compose.yml
+      service: end-to-end
+    environment:
+      AZTEC_NODE_URL: http://old-stack:8080
+      REMOTE_WALLET_URL: http://old-stack:8081
+    # Override entrypoint to wait for old-stack wallet service instead of local-network.
+    entrypoint: >
+      bash -c '
+        while ! nc -z old-stack 8081; do sleep 1; done;
+        setsid ./scripts/test_simple.sh $${TEST:-./src/forward-compatibility/} &
+        pid=$$!
+        pgid=$$(($$(ps -o pgid= -p $$pid)))
+        trap "kill -SIGTERM -$$pgid" SIGTERM
+        while kill -0 -$$pgid 2>/dev/null; do sleep 0.1; done
+        wait $$pid
+      '
+    depends_on:
+      - old-stack
+      - fork

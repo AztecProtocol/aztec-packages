@@ -1,6 +1,6 @@
 .npsWidget {
   position: fixed;
-  bottom: 20px;
+  bottom: 110px;
   right: 20px;
   background: white;
   box-shadow: 0 2px 4px #0000000f;
@@ -270,7 +270,7 @@
 /* Mobile responsiveness */
 @media (max-width: 768px) {
   .npsWidget {
-    bottom: 16px;
+    bottom: 100px;
     right: 16px;
     left: 16px;
     max-width: none;

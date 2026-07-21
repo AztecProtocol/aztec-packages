@@ -1,5 +1,5 @@
 // === AUDIT STATUS ===
-// internal:    { status: Planned, auditors: [Raju], commit: }
+// internal:    { status: Complete, auditors: [Nishat], commit: 22d6fc368da0fbe5412f4f7b2890a052aa48d803 }
 // external_1:  { status: not started, auditors: [], commit: }
 // external_2:  { status: not started, auditors: [], commit: }
 // =====================
@@ -17,7 +17,7 @@ namespace bb::crypto::merkle_tree {
 struct NullifierLeafValue {
     fr nullifier;
 
-    MSGPACK_FIELDS(nullifier)
+    SERIALIZATION_FIELDS(nullifier)
 
     NullifierLeafValue() = default;
     NullifierLeafValue(const fr& n)
@@ -67,16 +67,16 @@ struct NullifierLeafValue {
 
     static NullifierLeafValue padding(index_t i) { return { i }; }
 
-    static std::string name() { return "NullifierLeafValue"; };
-
     size_t hash() const noexcept { return std::hash<fr>{}(nullifier); }
+
+    static std::string name() { return "NullifierLeafValue"; };
 };
 
 struct PublicDataLeafValue {
     fr slot;
     fr value;
 
-    MSGPACK_FIELDS(slot, value)
+    SERIALIZATION_FIELDS(slot, value)
 
     PublicDataLeafValue() = default;
     PublicDataLeafValue(const fr& s, const fr& v)
@@ -118,9 +118,9 @@ struct PublicDataLeafValue {
 
     bool is_empty() const { return slot == fr::zero() && value == fr::zero(); }
 
-    std::vector<fr> get_hash_inputs(fr nextValue, fr nextIndex) const
+    std::vector<fr> get_hash_inputs(fr nextSlot, fr nextIndex) const
     {
-        return std::vector<fr>({ slot, value, nextIndex, nextValue });
+        return std::vector<fr>({ slot, value, nextSlot, nextIndex });
     }
 
     operator uint256_t() const { return get_key(); }
@@ -129,9 +129,9 @@ struct PublicDataLeafValue {
 
     static PublicDataLeafValue padding(index_t i) { return { i, fr::zero() }; }
 
-    static std::string name() { return "PublicDataLeafValue"; };
-
     size_t hash() const noexcept { return utils::hash_as_tuple(value, slot); }
+
+    static std::string name() { return "PublicDataLeafValue"; };
 };
 
 template <typename LeafType> struct IndexedLeaf {
@@ -139,7 +139,7 @@ template <typename LeafType> struct IndexedLeaf {
     index_t nextIndex;
     fr nextKey;
 
-    MSGPACK_FIELDS(leaf, nextIndex, nextKey)
+    SERIALIZATION_FIELDS(leaf, nextIndex, nextKey)
 
     IndexedLeaf() = default;
 
@@ -190,7 +190,10 @@ template <typename LeafType> struct IndexedLeaf {
 
     std::vector<fr> get_hash_inputs() const { return leaf.get_hash_inputs(nextKey, nextIndex); }
 
-    bool is_empty() { return leaf.is_empty(); }
+    // A leaf hashes to zero only when it is the true padding leaf: an empty value with null next pointers.
+    // This matches the Noir definition (e.g. nullifier_leaf_preimage.nr) and prevents a real low leaf whose
+    // value happens to be zero (e.g. the head of the list) from being mistaken for padding.
+    bool is_empty() const { return leaf.is_empty() && nextKey.is_zero() && nextIndex == 0; }
 
     static IndexedLeaf<LeafType> empty() { return { LeafType::empty(), 0, 0 }; }
 

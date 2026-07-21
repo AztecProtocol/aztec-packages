@@ -73,6 +73,11 @@ SlotNumber.isValid = function (value: unknown): value is SlotNumber {
   return typeof value === 'number' && Number.isInteger(value) && value >= 0;
 };
 
+/** Increments a SlotNumber by a given value. */
+SlotNumber.add = function (sn: SlotNumber, increment: number): SlotNumber {
+  return SlotNumber(sn + increment);
+};
+
 /**
  * The zero slot value.
  */
@@ -84,5 +89,5 @@ SlotNumber.ZERO = SlotNumber(0);
  */
 export const SlotNumberSchema = z
   .union([z.number(), z.bigint(), z.string()])
-  .pipe(z.coerce.number().int().min(0))
+  .pipe(z.coerce.number<string | number | bigint>().int().min(0))
   .transform(value => SlotNumber(value));

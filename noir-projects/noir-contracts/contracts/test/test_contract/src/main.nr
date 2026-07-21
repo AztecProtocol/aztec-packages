@@ -23,19 +23,16 @@ pub contract Test {
             HintedNote,
         },
         // State variable types
-        state_vars::{
-            DelayedPublicMutable, Map, Owned, PrivateImmutable, PrivateMutable, PrivateSet,
-            PublicImmutable,
-        },
+        state_vars::{DelayedPublicMutable, Map, Owned, PrivateImmutable, PrivateMutable, PrivateSet, PublicImmutable},
         // Protocol types and constants
         protocol::{
             abis::function_selector::FunctionSelector,
             address::{AztecAddress, EthAddress},
-            constants::PRIVATE_LOG_SIZE_IN_FIELDS,
+            constants::MAX_PUBLIC_LOG_SIZE_IN_FIELDS,
             traits::{Hash, Packable, Serialize},
         },
         // Event related
-        messages::message_delivery::MessageDelivery,
+        messages::delivery::MessageDelivery,
         // History and inclusion proofs
         history::note::assert_note_existed_by,
         // Key management
@@ -43,13 +40,12 @@ pub contract Test {
         // Macros
         macros::{
             events::event,
-            functions::{initializer, only_self, noinitcheck, external, nophasecheck},
+            functions::{initializer, only_self, noinitcheck, external, allow_phase_change},
             storage::storage,
         },
         // Contract instance management
         publish_contract_instance::publish_contract_instance_for_public_execution,
     };
-    use std::hash::pedersen_hash_with_separator;
     use std::meta::derive;
     use token_portal_content_hash_lib::get_mint_to_private_content_hash;
 
@@ -82,7 +78,9 @@ pub contract Test {
     // test function must also be updated accordingly.
     #[storage]
     struct Storage<Context> {
+        // docs:start:private_immutable
         note_in_private_immutable: Owned<PrivateImmutable<TestNote, Context>, Context>,
+        // docs:end:private_immutable
         struct_in_private_immutable: Owned<PrivateImmutable<ExampleStruct, Context>, Context>,
         note_in_private_mutable: Owned<PrivateMutable<TestNote, Context>, Context>,
         struct_in_private_mutable: Owned<PrivateMutable<ExampleStruct, Context>, Context>,
@@ -119,8 +117,8 @@ pub contract Test {
     }
 
     #[external("private")]
-    fn set_include_by_timestamp(include_by_timestamp: u64, make_tx_hybrid: bool) {
-        self.context.set_include_by_timestamp(include_by_timestamp);
+    fn set_expiration_timestamp(expiration_timestamp: u64, make_tx_hybrid: bool) {
+        self.context.set_expiration_timestamp(expiration_timestamp);
 
         if make_tx_hybrid {
             self.enqueue_self.dummy_public_call()
@@ -132,16 +130,9 @@ pub contract Test {
     fn dummy_public_call() {}
 
     #[external("private")]
-    fn call_create_note(
-        value: u128,
-        owner: AztecAddress,
-        storage_slot: Field,
-        make_tx_hybrid: bool,
-    ) {
+    fn call_create_note(value: u128, owner: AztecAddress, storage_slot: Field, make_tx_hybrid: bool) {
         let note = UintNote { value };
-        create_note(self.context, owner, storage_slot, note).deliver(
-            MessageDelivery.ONCHAIN_CONSTRAINED,
-        );
+        create_note(self.context, owner, storage_slot, note).deliver(MessageDelivery::onchain_unconstrained());
 
         if make_tx_hybrid {
             self.enqueue_self.dummy_public_call();
@@ -149,25 +140,20 @@ pub contract Test {
     }
 
     #[external("private")]
-    fn call_create_partial_note(owner: AztecAddress, storage_slot: Field) -> PartialUintNote {
-        UintNote::partial(owner, storage_slot, self.context, owner, self.address)
+    fn call_create_partial_note(owner: AztecAddress) -> PartialUintNote {
+        UintNote::partial(owner, self.context, owner, self.address)
     }
 
     #[external("public")]
-    fn call_complete_partial_note(partial_note: PartialUintNote, value: u128) {
-        partial_note.complete(self.context, self.address, value);
+    fn call_complete_partial_note(partial_note: PartialUintNote, storage_slot: Field, value: u128) {
+        partial_note.complete(self.context, self.address, storage_slot, value);
     }
 
     #[external("private")]
-    fn call_create_and_complete_partial_note(
-        owner: AztecAddress,
-        storage_slot: Field,
-        value: u128,
-    ) {
-        let partial_note =
-            UintNote::partial(owner, storage_slot, self.context, owner, self.address);
+    fn call_create_and_complete_partial_note(owner: AztecAddress, storage_slot: Field, value: u128) {
+        let partial_note = UintNote::partial(owner, self.context, owner, self.address);
 
-        self.enqueue_self.call_complete_partial_note(partial_note, value);
+        self.enqueue_self.call_complete_partial_note(partial_note, storage_slot, value);
     }
 
     #[external("private")]
@@ -177,35 +163,25 @@ pub contract Test {
             options = options.set_status(NoteStatus.ACTIVE_OR_NULLIFIED);
         }
 
-        let confirmed_notes: BoundedVec<ConfirmedNote<UintNote>, _> =
-            get_notes(self.context, storage_slot, options);
+        let confirmed_notes: BoundedVec<ConfirmedNote<UintNote>, _> = get_notes(self.context, storage_slot, options);
 
         confirmed_notes.get(0).note.value
     }
 
     #[external("private")]
-    fn call_get_notes_many(
-        owner: AztecAddress,
-        storage_slot: Field,
-        active_or_nullified: bool,
-    ) -> [u128; 2] {
+    fn call_get_notes_many(owner: AztecAddress, storage_slot: Field, active_or_nullified: bool) -> [u128; 2] {
         let mut options = NoteGetterOptions::new().set_owner(owner);
         if (active_or_nullified) {
             options = options.set_status(NoteStatus.ACTIVE_OR_NULLIFIED);
         }
 
-        let confirmed_notes: BoundedVec<ConfirmedNote<UintNote>, _> =
-            get_notes(self.context, storage_slot, options);
+        let confirmed_notes: BoundedVec<ConfirmedNote<UintNote>, _> = get_notes(self.context, storage_slot, options);
 
         [confirmed_notes.get(0).note.value, confirmed_notes.get(1).note.value]
     }
 
     #[external("utility")]
-    unconstrained fn call_view_notes(
-        owner: AztecAddress,
-        storage_slot: Field,
-        active_or_nullified: bool,
-    ) -> u128 {
+    unconstrained fn call_view_notes(owner: AztecAddress, storage_slot: Field, active_or_nullified: bool) -> u128 {
         let mut options = NoteViewerOptions::new().set_owner(owner);
         if (active_or_nullified) {
             options = options.set_status(NoteStatus.ACTIVE_OR_NULLIFIED);
@@ -235,8 +211,7 @@ pub contract Test {
     #[external("private")]
     fn call_destroy_note(owner: AztecAddress, storage_slot: Field) {
         let options = NoteGetterOptions::new().set_owner(owner);
-        let confirmed_notes: BoundedVec<ConfirmedNote<UintNote>, _> =
-            get_notes(self.context, storage_slot, options);
+        let confirmed_notes: BoundedVec<ConfirmedNote<UintNote>, _> = get_notes(self.context, storage_slot, options);
 
         destroy_note(self.context, confirmed_notes.get(0));
     }
@@ -249,8 +224,7 @@ pub contract Test {
         // instead manually construct the value from a `ConfirmedNote` (which doesn't make sense, since `get_note`
         // already proves note inclusion).
         // TODO(F-255).
-        let confirmed_note: ConfirmedNote<UintNote> =
-            get_notes(self.context, storage_slot, options).get(0);
+        let confirmed_note: ConfirmedNote<UintNote> = get_notes(self.context, storage_slot, options).get(0);
         let hinted_note = HintedNote {
             note: confirmed_note.note,
             contract_address: confirmed_note.contract_address,
@@ -280,7 +254,7 @@ pub contract Test {
     }
 
     #[external("private")]
-    #[nophasecheck]
+    #[allow_phase_change]
     fn end_setup_checking_phases() {
         assert(!self.context.in_revertible_phase());
         self.context.end_setup();
@@ -294,7 +268,7 @@ pub contract Test {
     }
 
     #[external("private")]
-    #[nophasecheck]
+    #[allow_phase_change]
     fn call_function_that_ends_setup_without_phase_check() {
         self.call_self.end_setup_checking_phases();
     }
@@ -313,18 +287,18 @@ pub contract Test {
 
     #[external("public")]
     fn emit_nullifier_public(nullifier: Field) {
-        self.context.push_nullifier(nullifier);
+        self.context.push_nullifier_unsafe(nullifier);
     }
 
     #[external("private")]
     #[noinitcheck]
     fn emit_nullifier(nullifier: Field) {
-        self.context.push_nullifier(nullifier);
+        self.context.push_nullifier_unsafe(nullifier);
     }
 
     // For testing non-note encrypted logs
     #[external("private")]
-    fn emit_array_as_encrypted_log(fields: [Field; 5], owner: AztecAddress, nest: bool) {
+    fn emit_array_as_encrypted_log(tag: Field, fields: [Field; 5], owner: AztecAddress, nest: bool) {
         let event = ExampleEvent {
             value0: fields[0],
             value1: fields[1],
@@ -333,24 +307,31 @@ pub contract Test {
             value4: fields[4],
         };
 
-        self.emit(event).deliver_to(owner, MessageDelivery.ONCHAIN_UNCONSTRAINED);
+        self.emit(event).deliver_to(owner, MessageDelivery::onchain_unconstrained());
 
         // this contract has reached max number of functions, so using this one fn
         // to test nested and non nested encrypted logs
         if nest {
-            self.call_self.emit_array_as_encrypted_log([0, 0, 0, 0, 0], owner, false);
+            self.call_self.emit_array_as_encrypted_log(tag, [0, 0, 0, 0, 0], owner, false);
 
             // Emit a log with non-encrypted content for testing purpose.
-            let leaky_log = event.serialize().concat([0; PRIVATE_LOG_SIZE_IN_FIELDS - 5]);
-            self.context.emit_private_log(leaky_log, 5);
+            let leaky_log = BoundedVec::from_array(event.serialize());
+            self.context.emit_private_log_unsafe(tag, leaky_log);
         }
     }
 
     #[external("public")]
     fn emit_public(value: Field) {
-        self.context.emit_public_log(/*message=*/ value);
-        self.context.emit_public_log(/*message=*/ [10, 20, 30]);
-        self.context.emit_public_log(/*message=*/ "Hello, world!");
+        self.context.emit_public_log_unsafe(0, /*message=*/ value);
+        self.context.emit_public_log_unsafe(0, /*message=*/ [10, 20, 30]);
+        self.context.emit_public_log_unsafe(0, /*message=*/ "Hello, world!");
+    }
+
+    #[external("public")]
+    fn emit_full_size_public_log(value_offset: Field) {
+        // -1 because emit_public_log_unsafe prepends the tag, so the emitted log is N + 1 fields.
+        let log_fields = [0; MAX_PUBLIC_LOG_SIZE_IN_FIELDS - 1].mapi(|i, _| value_offset + i as Field);
+        self.context.emit_public_log_unsafe(0, log_fields);
     }
 
     #[external("private")]
@@ -400,7 +381,7 @@ pub contract Test {
 
     #[external("private")]
     fn assert_header_private(header_hash: Field) {
-        assert(self.context.anchor_block_header.hash() == header_hash, "Invalid header hash");
+        assert(self.context.get_anchor_block_header().hash() == header_hash, "Invalid header hash");
     }
 
     // TODO(4840): add AVM opcodes for getting header (members)
@@ -418,16 +399,6 @@ pub contract Test {
     pub struct DummyNote {
         pub amount: Field,
         pub secret_hash: Field,
-    }
-
-    impl DummyNote {
-        fn new(amount: Field, secret_hash: Field) -> Self {
-            Self { amount, secret_hash }
-        }
-
-        fn get_commitment(self) -> Field {
-            pedersen_hash_with_separator([self.amount, self.secret_hash], 0)
-        }
     }
 
     #[derive(Serialize)]

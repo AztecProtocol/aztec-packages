@@ -5,6 +5,7 @@ pragma solidity >=0.8.27;
 import {
   MAGIC_CONGESTION_VALUE_MULTIPLIER,
   MAGIC_CONGESTION_VALUE_DIVISOR,
+  MAX_INITIAL_PROVING_COST_PER_MANA,
   EthValue,
   EthPerFeeAssetE12
 } from "@aztec/core/libraries/rollup/FeeLib.sol";
@@ -26,6 +27,50 @@ contract InitializeTest is TestBase {
 
   FeeLibWrapper private feeLibWrapper = new FeeLibWrapper();
 
+  function test_WhenManaTargetIsZero() external {
+    vm.expectRevert(abi.encodeWithSelector(Errors.FeeLib__InvalidManaTarget.selector, 1, 0));
+    feeLibWrapper.initialize(0, TestConstants.AZTEC_INITIAL_ETH_PER_FEE_ASSET);
+  }
+
+  function test_WhenProvingCostBelowFloor(uint256 _provingCost) external {
+    // it reverts with {FeeLib__ProvingCostBelowFloor}
+    // Without enforcement here, a deploy with provingCost < 2 would permanently freeze the
+    // rate limiter (the step-cap algebra in updateProvingCostPerMana requires current >= 2).
+    uint256 provingCost = bound(_provingCost, 0, 1);
+
+    vm.expectRevert(abi.encodeWithSelector(Errors.FeeLib__ProvingCostBelowFloor.selector, provingCost, 2));
+    feeLibWrapper.initialize(1, EthValue.wrap(provingCost), TestConstants.AZTEC_INITIAL_ETH_PER_FEE_ASSET);
+  }
+
+  function test_WhenProvingCostAtFloor() external {
+    // it initializes successfully at the floor
+    feeLibWrapper.initialize(1, EthValue.wrap(2), TestConstants.AZTEC_INITIAL_ETH_PER_FEE_ASSET);
+    assertEq(EthValue.unwrap(feeLibWrapper.getConfig().provingCostPerMana), 2);
+  }
+
+  function test_WhenProvingCostAboveCeiling(uint256 _provingCost) external {
+    // it reverts with {FeeLib__ProvingCostAboveCeiling}
+    // The uint64 storage cap inside compress() is not a safe economic bound: a deploy near
+    // uint64.max would need many years of (3/2)-per-cooldown corrections before the value
+    // returned to a normal operating range.
+    uint256 provingCost = bound(_provingCost, MAX_INITIAL_PROVING_COST_PER_MANA + 1, type(uint256).max);
+
+    vm.expectRevert(
+      abi.encodeWithSelector(
+        Errors.FeeLib__ProvingCostAboveCeiling.selector, provingCost, MAX_INITIAL_PROVING_COST_PER_MANA
+      )
+    );
+    feeLibWrapper.initialize(1, EthValue.wrap(provingCost), TestConstants.AZTEC_INITIAL_ETH_PER_FEE_ASSET);
+  }
+
+  function test_WhenProvingCostAtCeiling() external {
+    // it initializes successfully at the ceiling
+    feeLibWrapper.initialize(
+      1, EthValue.wrap(MAX_INITIAL_PROVING_COST_PER_MANA), TestConstants.AZTEC_INITIAL_ETH_PER_FEE_ASSET
+    );
+    assertEq(EthValue.unwrap(feeLibWrapper.getConfig().provingCostPerMana), MAX_INITIAL_PROVING_COST_PER_MANA);
+  }
+
   function test_WhenManaLimitGTUint32(uint256 _manaTarget) external {
     // it reverts with {FeeLib__InvalidManaLimit}
 
@@ -40,7 +85,7 @@ contract InitializeTest is TestBase {
     // it store the config
     // it store the l1 gas oracle values
 
-    uint256 manaTarget = bound(_manaTarget, 0, type(uint32).max / 2);
+    uint256 manaTarget = bound(_manaTarget, 1, type(uint32).max / 2);
 
     feeLibWrapper.initialize(manaTarget, TestConstants.AZTEC_INITIAL_ETH_PER_FEE_ASSET);
 

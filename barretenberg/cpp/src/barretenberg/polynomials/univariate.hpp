@@ -38,7 +38,6 @@ template <class Fr, size_t domain_end> class Univariate {
 
     using value_type = Fr; // used to get the type of the elements consistently with std::array
 
-    // TODO(https://github.com/AztecProtocol/barretenberg/issues/714) Try out std::valarray?
     std::array<Fr, LENGTH> evaluations;
 
     Univariate() = default;
@@ -67,6 +66,10 @@ template <class Fr, size_t domain_end> class Univariate {
     // Compute Lagrange coefficients of a given linear polynomial represented in monomial basis.
     template <bool has_a0_plus_a1> Univariate(const UnivariateCoefficientBasis<Fr, 2, has_a0_plus_a1>& monomial)
     {
+        // For domain_end == 1 the loop below never runs and the linear coefficient a1 would be silently
+        // discarded, so this constructor cannot represent a linear polynomial on a single point.
+        static_assert(domain_end >= 2);
+
         Fr to_add = monomial.coefficients[1];
         evaluations[0] = monomial.coefficients[0];
         auto prev = evaluations[0];
@@ -120,6 +123,8 @@ template <class Fr, size_t domain_end> class Univariate {
     bool is_zero() const
     {
         for (size_t i = 0; i < LENGTH; ++i) {
+            // Fr::is_zero() returns bool for both scalar Fr and VectorField (the new VectorField::is_zero
+            // returns true only when ALL lanes are zero — see VectorField for rationale and is_zero_mask).
             if (!evaluations[i].is_zero()) {
                 return false;
             }
@@ -359,7 +364,6 @@ template <class Fr, size_t domain_end> class Univariate {
 
         std::copy(evaluations.begin(), evaluations.end(), result.evaluations.begin());
 
-        static constexpr Fr inverse_two = Fr(2).invert();
         if constexpr (LENGTH == 2) {
             // f = b x + c
             // f(0) = c
@@ -372,8 +376,7 @@ template <class Fr, size_t domain_end> class Univariate {
                 result.value_at(idx + 1) = result.value_at(idx) + delta;
             }
         } else if constexpr (LENGTH == 3) {
-            // Based off https://hackmd.io/@aztec-network/SyR45cmOq?type=view
-            // The technique used here is the same as the length == 3 case below.
+            static constexpr Fr inverse_two = Fr(2).invert();
             // f = a x^2 + b x + c
             // f(0) = c
             // f(1) = a + b + c
@@ -382,11 +385,13 @@ template <class Fr, size_t domain_end> class Univariate {
             // Hence, a = (f(2) + f(0) - 2f(1)) / 2
             // b = f(1) - a - f(0)
             // f(i+1) = f(i) + 2a * i + b + a
+            // Cost note: after computing a,b, extending several points costs a few adds per point (no
+            // inversions), vs the generic barycentric path.
             Fr a = (value_at(2) + value_at(0)) * inverse_two - value_at(1);
             Fr b = value_at(1) - a - value_at(0);
             Fr a2 = a + a;
             Fr a_mul = a2;
-            // compute 2a * domain_end - 2
+            // compute 2a * (domain_end - 1)
             for (size_t i = 0; i < domain_end - 2; i++) {
                 a_mul += a2;
             }
@@ -592,7 +597,11 @@ template <class Fr, size_t domain_end> class UnivariateView {
 
     template <size_t full_domain_end>
     explicit UnivariateView(const Univariate<Fr, full_domain_end>& univariate_in)
-        : evaluations(std::span<const Fr>(univariate_in.evaluations.data(), LENGTH)){};
+        : evaluations(std::span<const Fr>(univariate_in.evaluations.data(), LENGTH))
+    {
+        // Viewing more evaluations than the source holds would span out-of-bounds memory.
+        static_assert(LENGTH <= full_domain_end);
+    };
 
     explicit operator UnivariateCoefficientBasis<Fr, 2, true>() const
         requires(LENGTH > 1)

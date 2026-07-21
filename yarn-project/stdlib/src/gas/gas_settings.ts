@@ -1,18 +1,20 @@
-import {
-  DEFAULT_DA_GAS_LIMIT,
-  DEFAULT_L2_GAS_LIMIT,
-  DEFAULT_TEARDOWN_DA_GAS_LIMIT,
-  DEFAULT_TEARDOWN_L2_GAS_LIMIT,
-  GAS_SETTINGS_LENGTH,
-} from '@aztec/constants';
+import { GAS_SETTINGS_LENGTH, MAX_PROCESSABLE_DA_GAS_PER_CHECKPOINT, MAX_PROCESSABLE_L2_GAS } from '@aztec/constants';
 import { Fr } from '@aztec/foundation/curves/bn254';
-import { BufferReader, FieldReader, serializeToBuffer, serializeToFields } from '@aztec/foundation/serialize';
+import { BufferReader, BufferSink, FieldReader, serializeToFields, serializeToSink } from '@aztec/foundation/serialize';
 import type { FieldsOf } from '@aztec/foundation/types';
 
 import { z } from 'zod';
 
 import { Gas, GasDimensions } from './gas.js';
 import { GasFees } from './gas_fees.js';
+
+// For gas estimation, we use intentionally high limits above what the network can process,
+// so the simulation runs without hitting gas caps. Since teardown gas is counted towards total,
+// the total estimation limit is teardown + max processable.
+export const GAS_ESTIMATION_TEARDOWN_L2_GAS_LIMIT = MAX_PROCESSABLE_L2_GAS;
+export const GAS_ESTIMATION_L2_GAS_LIMIT = GAS_ESTIMATION_TEARDOWN_L2_GAS_LIMIT + MAX_PROCESSABLE_L2_GAS;
+export const GAS_ESTIMATION_TEARDOWN_DA_GAS_LIMIT = MAX_PROCESSABLE_DA_GAS_PER_CHECKPOINT;
+export const GAS_ESTIMATION_DA_GAS_LIMIT = GAS_ESTIMATION_TEARDOWN_DA_GAS_LIMIT + MAX_PROCESSABLE_DA_GAS_PER_CHECKPOINT;
 
 // docs:start:gas_settings_vars
 /** Gas usage and fees limits set by the transaction sender for different dimensions and phases. */
@@ -95,18 +97,59 @@ export class GasSettings {
     return new GasSettings(Gas.empty(), Gas.empty(), GasFees.empty(), GasFees.empty());
   }
 
-  /** Default gas settings to use when user has not provided them. Requires explicit max fees per gas. */
-  static default(overrides: {
+  /**
+   * Fills in gas limits high enough for transactions to be included in most cases.
+   * Callers must supply `gasLimits` — typically the most a single tx may declare on the network
+   * (`min(per-tx max, per-block allocation)`), i.e. a node's advertised `txsLimits.gas`. Since teardown gas
+   * is reserved from gasLimits during private execution (see gas_meter.nr), the effective gas available for
+   * app logic is gasLimits - teardownGasLimits - privateOverhead; the teardown default is derived from the
+   * effective total so it always stays below it.
+   * These values won't work if:
+   *  - Teardown consumes more than the arbitrarily assigned fallback limits
+   *  - The rest of the transaction consumes more than the remaining gas after teardown
+   *  - The DA gas limit is too low for the transaction, while still within the checkpoint limit
+   */
+  static fallback(overrides: {
+    gasLimits: Gas;
+    teardownGasLimits?: Gas;
+    maxFeesPerGas: GasFees;
+    maxPriorityFeesPerGas?: GasFees;
+  }) {
+    const gasLimits = overrides.gasLimits;
+    const teardownGasLimits =
+      overrides.teardownGasLimits ?? new Gas(Math.floor(gasLimits.daGas / 2), Math.floor(gasLimits.l2Gas / 8));
+    return GasSettings.from({
+      gasLimits,
+      teardownGasLimits,
+      maxFeesPerGas: overrides.maxFeesPerGas,
+      maxPriorityFeesPerGas: overrides.maxPriorityFeesPerGas ?? GasFees.empty(),
+    });
+  }
+
+  /**
+   * Gas settings for simulation/estimation only.
+   * Since teardown gas is reserved upfront from gasLimits during private execution (see gas_meter.nr),
+   * the effective gas available for app logic is gasLimits - teardownGasLimits - privateOverhead.
+   * To ensure estimation never hits gas caps, we set both limits above what the protocol allows:
+   * teardown gets MAX_PROCESSABLE and gasLimits gets teardown + MAX_PROCESSABLE, so the full
+   * processable amount remains available for each phase independently. To be used in conjunction
+   * with skipTxValidation: true during public simulation, or the node would reject the transaction
+   * outright due to gas limits being above protocol max.
+   */
+  static forEstimation(overrides: {
     gasLimits?: Gas;
     teardownGasLimits?: Gas;
     maxFeesPerGas: GasFees;
     maxPriorityFeesPerGas?: GasFees;
   }) {
     return GasSettings.from({
-      gasLimits: overrides.gasLimits ?? { l2Gas: DEFAULT_L2_GAS_LIMIT, daGas: DEFAULT_DA_GAS_LIMIT },
+      gasLimits: overrides.gasLimits ?? {
+        l2Gas: GAS_ESTIMATION_L2_GAS_LIMIT,
+        daGas: GAS_ESTIMATION_DA_GAS_LIMIT,
+      },
       teardownGasLimits: overrides.teardownGasLimits ?? {
-        l2Gas: DEFAULT_TEARDOWN_L2_GAS_LIMIT,
-        daGas: DEFAULT_TEARDOWN_DA_GAS_LIMIT,
+        l2Gas: GAS_ESTIMATION_TEARDOWN_L2_GAS_LIMIT,
+        daGas: GAS_ESTIMATION_TEARDOWN_DA_GAS_LIMIT,
       },
       maxFeesPerGas: overrides.maxFeesPerGas,
       maxPriorityFeesPerGas: overrides.maxPriorityFeesPerGas ?? GasFees.empty(),
@@ -141,8 +184,13 @@ export class GasSettings {
     );
   }
 
-  toBuffer() {
-    return serializeToBuffer(...GasSettings.getFields(this));
+  toBuffer(): Buffer;
+  toBuffer(sink: BufferSink): void;
+  toBuffer(sink?: BufferSink): Buffer | void {
+    if (!sink) {
+      return BufferSink.serialize(this);
+    }
+    serializeToSink(sink, ...GasSettings.getFields(this));
   }
 
   static fromFields(fields: Fr[] | FieldReader): GasSettings {

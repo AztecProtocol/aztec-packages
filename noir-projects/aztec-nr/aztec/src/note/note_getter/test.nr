@@ -2,15 +2,22 @@ use crate::{
     note::{
         ConfirmedNote,
         HintedNote,
-        note_getter::{confirm_hinted_note, confirm_hinted_notes},
-        note_getter_options::{NoteGetterOptions, PropertySelector, SortOrder},
+        note_getter::{
+            assert_notes_order, confirm_hinted_note, confirm_hinted_notes, extract_property_value_from_selector,
+        },
+        note_getter_options::{NoteGetterOptions, PropertySelector, Sort, SortOrder},
     },
     oracle::random::random,
+    protocol::{address::AztecAddress, traits::FromField},
     test::{helpers::test_environment::TestEnvironment, mocks::mock_note::MockNote},
     utils::comparison::Comparator,
 };
 
-use crate::protocol::{address::AztecAddress, traits::FromField};
+fn sort_criterion(index: u8, order: u8) -> Option<Sort> {
+    Option::some(
+        Sort::new(PropertySelector { index, offset: 0, length: 32 }, order),
+    )
+}
 
 global storage_slot: Field = 42;
 global owner: AztecAddress = AztecAddress::from_field(50);
@@ -322,4 +329,129 @@ unconstrained fn constrain_view_note_rejects_mismatched_owner() {
 
         let _ = confirm_hinted_note(context, note, Option::some(owner), storage_slot);
     });
+}
+#[test]
+unconstrained fn extract_property_value_full_field_is_identity() {
+    let packed = [12345 as Field];
+    let selector = PropertySelector { index: 0, offset: 0, length: 32 };
+    let result = extract_property_value_from_selector(packed, selector);
+    assert_eq(result, 12345);
+}
+
+#[test]
+unconstrained fn extract_property_value_zero_length_returns_zero() {
+    let packed = [12345 as Field];
+    let selector = PropertySelector { index: 0, offset: 0, length: 0 };
+    let result = extract_property_value_from_selector(packed, selector);
+    assert_eq(result, 0);
+}
+
+#[test]
+unconstrained fn extract_property_value_with_zero_offset() {
+    // 0x030201 = [..., 0x03, 0x02, 0x01]. offset=0, length=2 reads [0x01, 0x02] -> 0x0201.
+    let packed = [0x030201 as Field];
+    let selector = PropertySelector { index: 0, offset: 0, length: 2 };
+    let result = extract_property_value_from_selector(packed, selector);
+    assert_eq(result, 0x0201);
+}
+
+#[test]
+unconstrained fn extract_property_value_with_nonzero_offset() {
+    // 0x0100 = [..., 0x01, 0x00]. offset=1 skips 0x00, length=1 reads 0x01.
+    let packed = [0x0100 as Field];
+    let selector = PropertySelector { index: 0, offset: 1, length: 1 };
+    let result = extract_property_value_from_selector(packed, selector);
+    assert_eq(result, 1);
+}
+
+#[test]
+unconstrained fn extract_property_value_nonzero_index() {
+    // index=1 skips the first Field (999) and reads from the second one (0x030201).
+    let packed = [999 as Field, 0x030201 as Field];
+    let selector = PropertySelector { index: 1, offset: 1, length: 2 };
+    let result = extract_property_value_from_selector(packed, selector);
+    assert_eq(result, 0x0302);
+}
+
+#[test]
+unconstrained fn extract_property_value_max_offset_reads_first_byte() {
+    // 256^31 = byte[0]=1, rest=0. offset=31, length=1 reads byte[0].
+    let packed = [Field::pow_32(256, 31)];
+    let selector = PropertySelector { index: 0, offset: 31, length: 1 };
+    let result = extract_property_value_from_selector(packed, selector);
+    assert_eq(result, 1);
+}
+
+#[test(should_fail_with = "PropertySelector offset + length exceeds field byte width")]
+unconstrained fn extract_property_value_rejects_offset_plus_length_exceeding_32() {
+    let packed = [1 as Field];
+    let selector = PropertySelector { index: 0, offset: 31, length: 2 };
+    let _ = extract_property_value_from_selector(packed, selector);
+}
+
+#[test(should_fail_with = "Index out of bounds")]
+unconstrained fn extract_property_value_fails_on_oob_index() {
+    let packed = [1 as Field];
+    let selector = PropertySelector { index: 1, offset: 0, length: 1 };
+    let _ = extract_property_value_from_selector(packed, selector);
+}
+
+global ASC_DESC_CRITERIA: BoundedVec<Option<Sort>, 2> = BoundedVec::from_array([
+    sort_criterion(0, SortOrder.ASC),
+    sort_criterion(1, SortOrder.DESC),
+]);
+
+#[test]
+unconstrained fn assert_notes_order_passes_when_first_criterion_satisfied() {
+    assert_notes_order([1, 10], [2, 999], ASC_DESC_CRITERIA);
+}
+
+#[test]
+unconstrained fn assert_notes_order_passes_when_second_criterion_satisfied_after_tie() {
+    assert_notes_order([1, 10], [1, 5], ASC_DESC_CRITERIA);
+}
+
+#[test(should_fail_with = "Return notes not sorted in descending order.")]
+unconstrained fn assert_notes_order_fails_when_second_criterion_violated_after_tie() {
+    assert_notes_order([1, 5], [1, 10], ASC_DESC_CRITERIA);
+}
+
+#[test]
+unconstrained fn assert_notes_order_passes_when_all_fields_equal() {
+    assert_notes_order([1, 10], [1, 10], ASC_DESC_CRITERIA);
+}
+
+global DESC_ONLY_CRITERIA: BoundedVec<Option<Sort>, 2> = BoundedVec::from_array([sort_criterion(0, SortOrder.DESC)]);
+
+#[test]
+unconstrained fn assert_notes_order_passes_with_single_criterion() {
+    assert_notes_order([10, 1], [5, 20], DESC_ONLY_CRITERIA);
+}
+
+#[test]
+unconstrained fn assert_notes_order_passes_with_single_criterion_when_field_ties() {
+    assert_notes_order([5, 1], [5, 20], DESC_ONLY_CRITERIA);
+}
+
+global REVERSED_CRITERIA: BoundedVec<Option<Sort>, 2> = BoundedVec::from_array([
+    sort_criterion(1, SortOrder.ASC),
+    sort_criterion(0, SortOrder.DESC),
+]);
+
+#[test]
+unconstrained fn assert_notes_order_uses_criterion_order_not_field_order() {
+    // field_0 is 10 > 5 (would fail ASC), but the first criterion targets field_1
+    assert_notes_order([10, 1], [5, 2], REVERSED_CRITERIA);
+}
+
+#[test(should_fail_with = "Return notes not sorted in ascending order.")]
+unconstrained fn assert_notes_order_fails_when_criterion_order_not_field_order() {
+    // First criterion is field_1 ASC: 5 > 2 violates ASC
+    assert_notes_order([1, 5], [2, 2], REVERSED_CRITERIA);
+}
+
+#[test]
+unconstrained fn assert_notes_order_passes_with_no_criteria() {
+    let criteria: BoundedVec<Option<Sort>, 2> = BoundedVec::new();
+    assert_notes_order([2, 5], [1, 10], criteria);
 }

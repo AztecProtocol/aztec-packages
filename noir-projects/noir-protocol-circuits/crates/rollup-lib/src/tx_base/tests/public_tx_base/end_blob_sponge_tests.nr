@@ -1,4 +1,5 @@
 use super::TestBuilder;
+use protocol_test_utils::{FixtureBuilder, pad_end};
 use types::{
     blob_data::{create_tx_start_marker, MAX_TX_BLOB_DATA_SIZE_IN_FIELDS, TxEffectArrayLengths},
     constants::{
@@ -7,9 +8,8 @@ use types::{
         MAX_NULLIFIERS_PER_TX, MAX_PRIVATE_LOGS_PER_TX,
         MAX_TOTAL_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX, PRIVATE_LOG_SIZE_IN_FIELDS,
     },
-    tests::{FixtureBuilder, utils::pad_end},
     traits::{Hash, ToField},
-    utils::arrays::array_merge,
+    utils::arrays::subarray,
 };
 
 #[test]
@@ -100,10 +100,15 @@ unconstrained fn full_tx_effects() {
     }
     offset += MAX_TOTAL_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX * 2;
 
-    let private_logs = array_merge(
+    // Concatenate the 2 non-revertible and (MAX_PRIVATE_LOGS_PER_TX - 2) revertible private logs.
+    let private_logs = subarray::<_, _, 2>(
         builder.private_tail.non_revertible_accumulated_data.private_logs,
-        builder.private_tail.revertible_accumulated_data.private_logs,
-    );
+        0,
+    )
+        .concat(subarray::<_, _, MAX_PRIVATE_LOGS_PER_TX - 2>(
+            builder.private_tail.revertible_accumulated_data.private_logs,
+            0,
+        ));
     for i in 0..MAX_PRIVATE_LOGS_PER_TX {
         expected_blob_fields[offset] = PRIVATE_LOG_SIZE_IN_FIELDS as Field;
         offset += 1;

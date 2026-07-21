@@ -87,17 +87,17 @@ export async function verifyProxyImplementation(
 /**
  * Attempts to decode transaction as a Spire Proposer Multicall.
  * Spire Proposer is a proxy contract that wraps multiple calls.
- * Returns the target address and calldata of the wrapped call if validation succeeds and there is a single call.
+ * Returns all wrapped calls if validation succeeds (caller handles hash matching to find the propose call).
  * @param tx - The transaction to decode
  * @param publicClient - The viem public client for proxy verification
  * @param logger - Logger instance
- * @returns Object with 'to' and 'data' of the wrapped call, or undefined if validation fails
+ * @returns Array of wrapped calls with 'to' and 'data', or undefined if not a valid Spire Proposer tx
  */
-export async function getCallFromSpireProposer(
+export async function getCallsFromSpireProposer(
   tx: Transaction,
   publicClient: { getStorageAt: (params: { address: Hex; slot: Hex }) => Promise<Hex | undefined> },
   logger: Logger,
-): Promise<{ to: Hex; data: Hex } | undefined> {
+): Promise<{ to: Hex; data: Hex }[] | undefined> {
   const txHash = tx.hash;
 
   try {
@@ -141,17 +141,9 @@ export async function getCallFromSpireProposer(
 
     const [calls] = spireArgs;
 
-    // Validate exactly ONE call (see ./README.md for rationale)
-    if (calls.length !== 1) {
-      logger.warn(`Spire Proposer multicall must contain exactly one call (got ${calls.length})`, { txHash });
-      return undefined;
-    }
-
-    const call = calls[0];
-
-    // Successfully extracted the single wrapped call
-    logger.trace(`Decoded Spire Proposer with single call to ${call.target}`, { txHash });
-    return { to: call.target, data: call.data };
+    // Return all wrapped calls (hash matching in the caller determines which is the propose call)
+    logger.trace(`Decoded Spire Proposer with ${calls.length} call(s)`, { txHash });
+    return calls.map(call => ({ to: call.target, data: call.data }));
   } catch (err) {
     // Any decoding error triggers fallback to trace
     logger.warn(`Failed to decode Spire Proposer: ${err}`, { txHash });

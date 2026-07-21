@@ -1,4 +1,10 @@
 #include "barretenberg/dsl/acir_format/mock_verifier_inputs.hpp"
+#include "barretenberg/aztec/aztec_constants.hpp"
+#include "barretenberg/chonk/chonk_proof.hpp"
+#include "barretenberg/flavor/mega_app_flavor.hpp"
+#include "barretenberg/flavor/mega_kernel_flavor.hpp"
+#include "barretenberg/flavor/mega_zk_flavor.hpp"
+#include "barretenberg/flavor/multilinear_batching_flavor.hpp"
 #include "barretenberg/honk/proof_length.hpp"
 
 #include <gtest/gtest.h>
@@ -21,18 +27,35 @@ static_assert(HIDING_KERNEL_PUBLIC_INPUTS_SIZE == 28,
               "HIDING_KERNEL_IO_PUBLIC_INPUTS_SIZE changed - update constants.nr");
 
 // Component proof lengths (used in Noir)
-static_assert(MERGE_PROOF_SIZE == 42, "MERGE_PROOF_SIZE changed - update constants.nr");
-static_assert(ECCVMFlavor::PROOF_LENGTH == 608, "ECCVM proof size changed - update constants.nr");
+static_assert(MERGE_PROOF_SIZE == 41,
+              "MERGE_PROOF_SIZE changed - update CHONK_MERGE_PROOF_SIZE in constants.nr "
+              "and run `yarn remake-constants`");
+static_assert(ECCVMFlavor::PROOF_LENGTH == 556,
+              "ECCVM proof size changed - update CHONK_ECCVM_PROOF_LENGTH in constants.nr "
+              "and run `yarn remake-constants`");
+static_assert(ECCVMFlavor::TRIPLE_IPA_PROOF_LENGTH == 70, "TripleIPA proof size changed - update constants.nr");
 static_assert(IPA_PROOF_LENGTH == 64, "IPA_PROOF_LENGTH changed - update constants.nr");
-static_assert(TranslatorFlavor::PROOF_LENGTH == 786, "Translator proof size changed - update constants.nr");
+static_assert(TranslatorFlavor::PROOF_LENGTH == 483, "Translator proof size changed - update constants.nr");
 
 // Full proof lengths (used in Noir)
 static_assert(
     ProofLength::Honk<UltraFlavor>::expected_proof_size<stdlib::recursion::honk::DefaultIO<UltraCircuitBuilder>>(
-        UltraFlavor::VIRTUAL_LOG_N) == 449,
+        UltraFlavor::VIRTUAL_LOG_N) == 410,
     "RECURSIVE_PROOF_LENGTH changed - update constants.nr");
-static_assert(ChonkProof::PROOF_LENGTH == 1935, "CHONK_PROOF_LENGTH changed - update constants.nr");
-static_assert(ProofLength::MultilinearBatching<MultilinearBatchingFlavor>::LENGTH == 121,
+static_assert(ChonkProof::PROOF_LENGTH == 1221, "CHONK_PROOF_LENGTH changed - update constants.nr");
+static_assert(ChonkProof::HIDING_OINK_LENGTH == 48,
+              "ChonkProof::HIDING_OINK_LENGTH changed - update CHONK_HIDING_OINK_LENGTH in constants.nr "
+              "and run `yarn remake-constants`");
+static_assert(ChonkProof::JOINT_PROOF_LENGTH == 478,
+              "ChonkProof::JOINT_PROOF_LENGTH changed - update CHONK_JOINT_PROOF_LENGTH in constants.nr "
+              "and run `yarn remake-constants`");
+static_assert(MegaAppFlavor::VerificationKey::calc_num_data_types() == 151,
+              "MEGA_APP_VK_LENGTH_IN_FIELDS changed - update constants.nr");
+static_assert(MegaKernelFlavor::VerificationKey::calc_num_data_types() == 151,
+              "MEGA_KERNEL_VK_LENGTH_IN_FIELDS changed - update constants.nr");
+static_assert(MegaZKFlavor::VerificationKey::calc_num_data_types() == 119,
+              "MEGA_ZK_VK_LENGTH_IN_FIELDS changed - update constants.nr");
+static_assert(ProofLength::MultilinearBatching<MultilinearBatchingFlavor_<2>>::LENGTH == 78,
               "MultilinearBatching proof size changed - update constants.nr");
 
 /**
@@ -42,6 +65,15 @@ TEST_F(MockVerifierInputsTest, MockMergeProofSize)
 {
     Goblin::MergeProof merge_proof = create_mock_merge_proof();
     EXPECT_EQ(merge_proof.size(), MERGE_PROOF_SIZE);
+}
+
+/**
+ * @brief Check that mock batch merge proof has the expected size
+ */
+TEST_F(MockVerifierInputsTest, MockBatchMergeProofSize)
+{
+    HonkProof batch_merge_proof = create_mock_batch_merge_proof();
+    EXPECT_EQ(batch_merge_proof.size(), BATCH_MERGE_PROOF_SIZE);
 }
 
 /**
@@ -164,17 +196,10 @@ TEST_F(MockVerifierInputsTest, MockUltraHonkProofSize)
     }
 }
 
-// TODO(@fcarreiro): Re-enable this test once proof size is fixed.
-TEST_F(MockVerifierInputsTest, DISABLED_MockAVMProofSize)
+TEST_F(MockVerifierInputsTest, MockAVMProofSize)
 {
-    const HonkProof avm_proof = create_mock_avm_proof_without_pub_inputs(/*add_padding=*/false);
-    EXPECT_EQ(avm_proof.size(), 16040);
-}
-
-TEST_F(MockVerifierInputsTest, MockAVMProofSizePadded)
-{
-    const HonkProof padded_avm_proof = create_mock_avm_proof_without_pub_inputs(/*add_padding=*/true);
-    EXPECT_EQ(padded_avm_proof.size(), 16200);
+    const HonkProof avm_proof = create_mock_avm_proof_without_pub_inputs();
+    EXPECT_EQ(avm_proof.size(), AVM_V2_PROOF_LENGTH_IN_FIELDS);
 }
 
 /**
@@ -192,7 +217,7 @@ TEST_F(MockVerifierInputsTest, MockChonkProofSize)
  */
 TEST_F(MockVerifierInputsTest, MockMultilinearBatchingProofSize)
 {
-    using Flavor = MultilinearBatchingFlavor;
-    HonkProof batching_proof = create_mock_multilinear_batch_proof();
+    using Flavor = MultilinearBatchingFlavor_<2>;
+    HonkProof batching_proof = create_mock_multilinear_batch_proof(/*num_claims=*/2);
     EXPECT_EQ(batching_proof.size(), ProofLength::MultilinearBatching<Flavor>::LENGTH);
 }

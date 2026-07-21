@@ -19,10 +19,12 @@ pub(crate) global PRIVATE_NOTE_MSG_PLAINTEXT_RANDOMNESS_INDEX: u32 = 2;
 /// encryption overhead and extra fields in the message (e.g. message type id, storage slot, randomness, etc.).
 pub global MAX_NOTE_PACKED_LEN: u32 = MAX_MESSAGE_CONTENT_LEN - PRIVATE_NOTE_MSG_PLAINTEXT_RESERVED_FIELDS_LEN;
 
-/// Creates the plaintext for a private note message (i.e. one of type [`PRIVATE_NOTE_MSG_TYPE_ID`]).
+/// Creates the plaintext for a private note message with the given `msg_type_id`.
 ///
-/// This plaintext is meant to be decoded via [`decode_private_note_message`].
-pub fn encode_private_note_message<Note>(
+/// Shared encoder used by [`encode_private_note_message`] and by custom message handlers that use the same format as
+/// standard private note message but perform additional validation logic.
+pub fn encode_private_note_message_with_msg_type_id<Note>(
+    msg_type_id: u64,
     note: Note,
     owner: AztecAddress,
     storage_slot: Field,
@@ -49,12 +51,34 @@ where
     }
 
     // Notes use the note type id for metadata
-    encode_message(PRIVATE_NOTE_MSG_TYPE_ID, Note::get_id() as u64, msg_content)
+    encode_message(msg_type_id, Note::get_id() as u64, msg_content)
+}
+
+/// Creates the plaintext for a private note message (i.e. one of type [`PRIVATE_NOTE_MSG_TYPE_ID`]).
+///
+/// This plaintext is meant to be decoded via [`decode_private_note_message`].
+pub fn encode_private_note_message<Note>(
+    note: Note,
+    owner: AztecAddress,
+    storage_slot: Field,
+    randomness: Field,
+) -> [Field; PRIVATE_NOTE_MSG_PLAINTEXT_RESERVED_FIELDS_LEN + <Note as Packable>::N + MESSAGE_EXPANDED_METADATA_LEN]
+where
+    Note: NoteType + Packable,
+{
+    encode_private_note_message_with_msg_type_id(
+        PRIVATE_NOTE_MSG_TYPE_ID,
+        note,
+        owner,
+        storage_slot,
+        randomness,
+    )
 }
 
 /// Decodes the plaintext from a private note message (i.e. one of type [`PRIVATE_NOTE_MSG_TYPE_ID`]).
 ///
-/// This plaintext is meant to have originated from [`encode_private_note_message`].
+/// Returns `None` if `msg_content` is too short to contain the reserved fields. This plaintext is meant to have
+/// originated from [`encode_private_note_message`].
 ///
 /// Note that while [`encode_private_note_message`] returns a fixed-size array, this function takes a [`BoundedVec`]
 /// instead. This is because when decoding we're typically processing runtime-sized plaintexts, more specifically,
@@ -62,39 +86,38 @@ where
 pub(crate) unconstrained fn decode_private_note_message(
     msg_metadata: u64,
     msg_content: BoundedVec<Field, MAX_MESSAGE_CONTENT_LEN>,
-) -> (Field, AztecAddress, Field, Field, BoundedVec<Field, MAX_NOTE_PACKED_LEN>) {
-    let note_type_id = msg_metadata as Field; // TODO: make note type id not be a full field
+) -> Option<(Field, AztecAddress, Field, Field, BoundedVec<Field, MAX_NOTE_PACKED_LEN>)> {
+    if msg_content.len() < PRIVATE_NOTE_MSG_PLAINTEXT_RESERVED_FIELDS_LEN {
+        Option::none()
+    } else {
+        let note_type_id = msg_metadata as Field; // TODO: make note type id not be a full field
 
-    assert(
-        msg_content.len() > PRIVATE_NOTE_MSG_PLAINTEXT_RESERVED_FIELDS_LEN,
-        f"Invalid private note message: all private note messages must have at least {PRIVATE_NOTE_MSG_PLAINTEXT_RESERVED_FIELDS_LEN} fields",
-    );
+        // If PRIVATE_NOTE_MSG_PLAINTEXT_RESERVED_FIELDS_LEN is changed, causing the assertion below to fail, then the
+        // decoding below must be updated as well.
+        std::static_assert(
+            PRIVATE_NOTE_MSG_PLAINTEXT_RESERVED_FIELDS_LEN == 3,
+            "unexpected value for PRIVATE_NOTE_MSG_PLAINTEXT_RESERVED_FIELDS_LEN",
+        );
 
-    // If PRIVATE_NOTE_MSG_PLAINTEXT_RESERVED_FIELDS_LEN is changed, causing the assertion below to fail, then the
-    // decoding below must be updated as well.
-    std::static_assert(
-        PRIVATE_NOTE_MSG_PLAINTEXT_RESERVED_FIELDS_LEN == 3,
-        "unexpected value for PRIVATE_NOTE_MSG_PLAINTEXT_RESERVED_FIELDS_LEN",
-    );
+        let owner = AztecAddress::from_field(msg_content.get(PRIVATE_NOTE_MSG_PLAINTEXT_OWNER_INDEX));
+        let storage_slot = msg_content.get(PRIVATE_NOTE_MSG_PLAINTEXT_STORAGE_SLOT_INDEX);
+        let randomness = msg_content.get(PRIVATE_NOTE_MSG_PLAINTEXT_RANDOMNESS_INDEX);
+        let packed_note = array::subbvec(msg_content, PRIVATE_NOTE_MSG_PLAINTEXT_RESERVED_FIELDS_LEN);
 
-    let owner = AztecAddress::from_field(msg_content.get(PRIVATE_NOTE_MSG_PLAINTEXT_OWNER_INDEX));
-    let storage_slot = msg_content.get(PRIVATE_NOTE_MSG_PLAINTEXT_STORAGE_SLOT_INDEX);
-    let randomness = msg_content.get(PRIVATE_NOTE_MSG_PLAINTEXT_RANDOMNESS_INDEX);
-    let packed_note = array::subbvec(msg_content, PRIVATE_NOTE_MSG_PLAINTEXT_RESERVED_FIELDS_LEN);
-
-    (note_type_id, owner, storage_slot, randomness, packed_note)
+        Option::some((note_type_id, owner, storage_slot, randomness, packed_note))
+    }
 }
 
 mod test {
     use crate::{
         messages::{
             encoding::decode_message,
-            logs::note::{decode_private_note_message, encode_private_note_message},
+            logs::note::{decode_private_note_message, encode_private_note_message, MAX_NOTE_PACKED_LEN},
             msg_type::PRIVATE_NOTE_MSG_TYPE_ID,
         },
         note::note_interface::NoteType,
     };
-    use crate::protocol::{address::AztecAddress, traits::{FromField, Packable}};
+    use crate::protocol::{address::AztecAddress, traits::{FromField, Packable, ToField}};
     use crate::test::mocks::mock_note::MockNote;
 
     global VALUE: Field = 7;
@@ -108,17 +131,119 @@ mod test {
 
         let message_plaintext = encode_private_note_message(note, OWNER, STORAGE_SLOT, RANDOMNESS);
 
-        let (msg_type_id, msg_metadata, msg_content) = decode_message(BoundedVec::from_array(message_plaintext));
+        let (msg_type_id, msg_metadata, msg_content) =
+            decode_message(BoundedVec::from_array(message_plaintext)).unwrap();
 
         assert_eq(msg_type_id, PRIVATE_NOTE_MSG_TYPE_ID);
 
         let (note_type_id, owner, storage_slot, randomness, packed_note) =
-            decode_private_note_message(msg_metadata, msg_content);
+            decode_private_note_message(msg_metadata, msg_content).unwrap();
 
         assert_eq(note_type_id, MockNote::get_id());
         assert_eq(owner, OWNER);
         assert_eq(storage_slot, STORAGE_SLOT);
         assert_eq(randomness, RANDOMNESS);
         assert_eq(packed_note, BoundedVec::from_array(note.pack()));
+    }
+
+    #[derive(Packable)]
+    struct MaxSizeNote {
+        data: [Field; MAX_NOTE_PACKED_LEN],
+    }
+
+    impl NoteType for MaxSizeNote {
+        fn get_id() -> Field {
+            0
+        }
+    }
+
+    #[test]
+    unconstrained fn encode_decode_max_size_note() {
+        let mut data = [0; MAX_NOTE_PACKED_LEN];
+        for i in 0..MAX_NOTE_PACKED_LEN {
+            data[i] = i as Field;
+        }
+        let note = MaxSizeNote { data };
+
+        let encoded = encode_private_note_message(note, OWNER, STORAGE_SLOT, RANDOMNESS);
+        let (msg_type_id, msg_metadata, msg_content) = decode_message(BoundedVec::from_array(encoded)).unwrap();
+
+        assert_eq(msg_type_id, PRIVATE_NOTE_MSG_TYPE_ID);
+
+        let (note_type_id, owner, storage_slot, randomness, packed_note) =
+            decode_private_note_message(msg_metadata, msg_content).unwrap();
+
+        assert_eq(note_type_id, MaxSizeNote::get_id());
+        assert_eq(owner, OWNER);
+        assert_eq(storage_slot, STORAGE_SLOT);
+        assert_eq(randomness, RANDOMNESS);
+        assert_eq(packed_note, BoundedVec::from_array(data));
+    }
+
+    #[derive(Packable)]
+    struct OversizedNote {
+        data: [Field; MAX_NOTE_PACKED_LEN + 1],
+    }
+
+    impl NoteType for OversizedNote {
+        fn get_id() -> Field {
+            0
+        }
+    }
+
+    #[test(should_fail_with = "Invalid message content: it must have a length of at most MAX_MESSAGE_CONTENT_LEN")]
+    fn encode_oversized_note_fails() {
+        let note = OversizedNote { data: [0; MAX_NOTE_PACKED_LEN + 1] };
+        let _ = encode_private_note_message(note, OWNER, STORAGE_SLOT, RANDOMNESS);
+    }
+
+    #[derive(Packable)]
+    struct EmptyNote {}
+
+    impl NoteType for EmptyNote {
+        fn get_id() -> Field {
+            0
+        }
+    }
+
+    #[test]
+    unconstrained fn encode_decode_empty_note() {
+        let encoded = encode_private_note_message(EmptyNote {}, OWNER, STORAGE_SLOT, RANDOMNESS);
+        let (msg_type_id, msg_metadata, msg_content) = decode_message(BoundedVec::from_array(encoded)).unwrap();
+
+        assert_eq(msg_type_id, PRIVATE_NOTE_MSG_TYPE_ID);
+
+        let (note_type_id, owner, storage_slot, randomness, packed_note) =
+            decode_private_note_message(msg_metadata, msg_content).unwrap();
+
+        assert_eq(note_type_id, EmptyNote::get_id());
+        assert_eq(owner, OWNER);
+        assert_eq(storage_slot, STORAGE_SLOT);
+        assert_eq(randomness, RANDOMNESS);
+        assert_eq(packed_note.len(), 0);
+    }
+
+    #[test]
+    unconstrained fn decode_empty_content_returns_none() {
+        let empty = BoundedVec::new();
+        assert(decode_private_note_message(0, empty).is_none());
+    }
+
+    #[test]
+    unconstrained fn decode_with_fewer_than_reserved_fields_returns_none() {
+        let content = BoundedVec::from_array([0, 0]);
+        assert(decode_private_note_message(0, content).is_none());
+    }
+
+    #[test]
+    unconstrained fn decode_succeeds_with_only_reserved_fields() {
+        let content = BoundedVec::from_array([OWNER.to_field(), STORAGE_SLOT, RANDOMNESS]);
+
+        let (_, owner, storage_slot, randomness, packed_note) = decode_private_note_message(0, content).unwrap();
+
+        assert_eq(owner, OWNER);
+        assert_eq(storage_slot, STORAGE_SLOT);
+        assert_eq(randomness, RANDOMNESS);
+        assert_eq(packed_note.len(), 0);
     }
 }

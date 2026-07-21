@@ -1,5 +1,5 @@
 // === AUDIT STATUS ===
-// internal:    { status: Planned, auditors: [], commit: }
+// internal:    { status: Completed, auditors: [Federico], commit: 158dd845c99f8f702979c20f1625730d126c4b20}
 // external_1:  { status: not started, auditors: [], commit: }
 // external_2:  { status: not started, auditors: [], commit: }
 // =====================
@@ -16,10 +16,7 @@ namespace bb::stdlib {
 
 template <typename CircuitType> struct secp256k1 {
     static constexpr bb::CurveType type = bb::CurveType::SECP256K1;
-
-    using fq = ::bb::secp256k1::fq;
-    using fr = ::bb::secp256k1::fr;
-    using g1 = ::bb::secp256k1::g1;
+    static constexpr bool is_stdlib_type = true;
 
     // Native types
     using ScalarFieldNative = ::bb::secp256k1::fr;
@@ -36,15 +33,5 @@ template <typename CircuitType> struct secp256k1 {
     using AffineElement = Group;
 
     using Builder = CircuitType;
-    using witness_ct = witness_t<Builder>;
-    using public_witness_ct = public_witness_t<Builder>;
-    using fr_ct = field_t<Builder>;
-    using byte_array_ct = byte_array<Builder>;
-    using bool_ct = bool_t<Builder>;
-
-    using fq_ct = bigfield<Builder, typename ::bb::secp256k1::FqParams>;
-    using bigfr_ct = bigfield<Builder, typename ::bb::secp256k1::FrParams>;
-    using g1_ct = element<Builder, fq_ct, fr_ct, g1>;
-    using g1_bigfr_ct = element<Builder, fq_ct, bigfr_ct, g1>;
 };
 } // namespace bb::stdlib

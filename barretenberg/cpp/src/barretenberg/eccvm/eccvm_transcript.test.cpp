@@ -104,6 +104,7 @@ class ECCVMTranscriptTests : public ::testing::Test {
         manifest_expected.add_entry(round, "TRANSCRIPT_MSM_X_INVERSE", frs_per_G);
         manifest_expected.add_entry(round, "TRANSCRIPT_MSM_COUNT_ZERO_AT_TRANSITION", frs_per_G);
         manifest_expected.add_entry(round, "TRANSCRIPT_MSM_COUNT_AT_TRANSITION_INVERSE", frs_per_G);
+        manifest_expected.add_entry(round, "MSM_ROUND_MINUS_31_INV", frs_per_G);
         manifest_expected.add_entry(round, "TRANSCRIPT_MUL", frs_per_G);
         manifest_expected.add_entry(round, "TRANSCRIPT_MSM_COUNT", frs_per_G);
         manifest_expected.add_entry(round, "PRECOMPUTE_SCALAR_SUM", frs_per_G);
@@ -136,10 +137,7 @@ class ECCVMTranscriptTests : public ::testing::Test {
         manifest_expected.add_entry(round, "Z_PERM", frs_per_G);
         manifest_expected.add_challenge(round, "Sumcheck:alpha");
 
-        for (size_t i = 0; i < CONST_ECCVM_LOG_N; i++) {
-            std::string label = "Sumcheck:gate_challenge_" + std::to_string(i);
-            manifest_expected.add_challenge(round, label);
-        }
+        manifest_expected.add_challenge(round, "Sumcheck:gate_challenge");
         round++;
 
         manifest_expected.add_entry(round, "Libra:concatenation_commitment", frs_per_G);
@@ -163,30 +161,13 @@ class ECCVMTranscriptTests : public ::testing::Test {
         manifest_expected.add_entry(round, "Libra:claimed_evaluation", frs_per_Fq);
         manifest_expected.add_entry(round, "Libra:grand_sum_commitment", frs_per_G);
         manifest_expected.add_entry(round, "Libra:quotient_commitment", frs_per_G);
-
-        manifest_expected.add_challenge(round, "rho");
+        manifest_expected.add_challenge(round, "Libra:small_ipa_evaluation_challenge");
 
         round++;
-        for (size_t i = 1; i < CONST_ECCVM_LOG_N; ++i) {
-            std::string idx = std::to_string(i);
-            manifest_expected.add_entry(round, "Gemini:FOLD_" + idx, frs_per_G);
-        }
-        manifest_expected.add_challenge(round, "Gemini:r");
-        round++;
-        for (size_t i = 1; i <= CONST_ECCVM_LOG_N; ++i) {
-            std::string idx = std::to_string(i);
-            manifest_expected.add_entry(round, "Gemini:a_" + idx, frs_per_Fq);
-        }
         manifest_expected.add_entry(round, "Libra:concatenation_eval", frs_per_Fq);
         manifest_expected.add_entry(round, "Libra:shifted_grand_sum_eval", frs_per_Fq);
         manifest_expected.add_entry(round, "Libra:grand_sum_eval", frs_per_Fq);
         manifest_expected.add_entry(round, "Libra:quotient_eval", frs_per_Fq);
-        manifest_expected.add_challenge(round, "Shplonk:nu");
-        round++;
-        manifest_expected.add_entry(round, "Shplonk:Q", frs_per_G);
-        manifest_expected.add_challenge(round, "Shplonk:z");
-
-        round++;
         manifest_expected.add_entry(round, "Translation:concatenated_masking_term_commitment", frs_per_G);
         manifest_expected.add_challenge(round, "Translation:evaluation_challenge_x");
 
@@ -206,43 +187,21 @@ class ECCVMTranscriptTests : public ::testing::Test {
 
         round++;
         manifest_expected.add_entry(round, "Translation:concatenation_eval", frs_per_Fq);
-        manifest_expected.add_entry(round, "Translation:grand_sum_shift_eval", frs_per_Fq);
+        manifest_expected.add_entry(round, "Translation:shifted_grand_sum_eval", frs_per_Fq);
         manifest_expected.add_entry(round, "Translation:grand_sum_eval", frs_per_Fq);
         manifest_expected.add_entry(round, "Translation:quotient_eval", frs_per_Fq);
+        manifest_expected.add_entry(round, "TripleIPA:pow_mask_commitment", frs_per_G);
+        manifest_expected.add_challenge(round, "TripleIPA:pow_mask_challenge");
+
+        round++;
+        manifest_expected.add_entry(round, "TripleIPA:pow_mask_evaluation", frs_per_Fq);
         manifest_expected.add_challenge(round, "Shplonk:nu");
 
         round++;
         manifest_expected.add_entry(round, "Shplonk:Q", frs_per_G);
         manifest_expected.add_challenge(round, "Shplonk:z");
+        manifest_expected.add_challenge(round, "TripleIPA:rho");
 
-        return manifest_expected;
-    }
-
-    TranscriptManifest construct_eccvm_ipa_manifest()
-    {
-        TranscriptManifest manifest_expected;
-        // Size of types is number of bb::frs needed to represent the type
-        size_t frs_per_Fq = FrCodec::calc_num_fields<FF>();
-        size_t frs_per_G = FrCodec::calc_num_fields<Flavor::Commitment>();
-        size_t round = 0;
-
-        manifest_expected.add_entry(round, "IPA:commitment", frs_per_G);
-        manifest_expected.add_entry(round, "IPA:challenge", frs_per_Fq);
-        manifest_expected.add_entry(round, "IPA:evaluation", frs_per_Fq);
-        manifest_expected.add_challenge(round, "IPA:generator_challenge");
-
-        for (size_t i = 0; i < CONST_ECCVM_LOG_N; ++i) {
-            round++;
-            std::string idx = std::to_string(CONST_ECCVM_LOG_N - i - 1);
-            manifest_expected.add_entry(round, "IPA:L_" + idx, frs_per_G);
-            manifest_expected.add_entry(round, "IPA:R_" + idx, frs_per_G);
-            std::string label = "IPA:round_challenge_" + idx;
-            manifest_expected.add_challenge(round, label);
-        }
-
-        round++;
-        manifest_expected.add_entry(round, "IPA:G_0", frs_per_G);
-        manifest_expected.add_entry(round, "IPA:a_0", frs_per_Fq);
         return manifest_expected;
     }
 
@@ -297,12 +256,7 @@ TEST_F(ECCVMTranscriptTests, ProverManifestConsistency)
     std::shared_ptr<Transcript> prover_transcript = std::make_shared<Transcript>();
     ECCVMProver prover(builder, prover_transcript);
     prover.transcript->enable_manifest();
-    auto [proof, opening_claim] = prover.construct_proof();
-
-    // Compute IPA proof with manifest enabled
-    auto ipa_transcript = std::make_shared<Transcript>();
-    ipa_transcript->enable_manifest();
-    PCS::compute_opening_proof(prover.key->commitment_key, opening_claim, ipa_transcript);
+    auto proof = prover.construct_proof();
 
     // Check that the prover generated manifest agrees with the manifest hard coded in this suite
     auto manifest_expected = this->construct_eccvm_honk_manifest();
@@ -312,16 +266,6 @@ TEST_F(ECCVMTranscriptTests, ProverManifestConsistency)
     ASSERT_GT(manifest_expected.size(), 0);
     for (size_t round = 0; round < manifest_expected.size(); ++round) {
         ASSERT_EQ(prover_manifest[round], manifest_expected[round]) << "Prover manifest discrepency in round " << round;
-    }
-
-    auto ipa_manifest_expected = this->construct_eccvm_ipa_manifest();
-    auto prover_ipa_manifest = ipa_transcript->get_manifest();
-
-    // Note: a manifest can be printed using manifest.print()
-    ASSERT_GT(ipa_manifest_expected.size(), 0);
-    for (size_t round = 0; round < ipa_manifest_expected.size(); ++round) {
-        ASSERT_EQ(prover_ipa_manifest[round], ipa_manifest_expected[round])
-            << "IPA prover manifest discrepency in round " << round;
     }
 }
 
@@ -339,24 +283,15 @@ TEST_F(ECCVMTranscriptTests, VerifierManifestConsistency)
     std::shared_ptr<Transcript> prover_transcript = std::make_shared<Transcript>();
     ECCVMProver prover(builder, prover_transcript);
     prover_transcript->enable_manifest();
-    auto [proof, opening_claim] = prover.construct_proof();
-
-    // Compute IPA proof with manifest enabled
-    auto prover_ipa_transcript = std::make_shared<Transcript>();
-    prover_ipa_transcript->enable_manifest();
-    PCS::compute_opening_proof(prover.key->commitment_key, opening_claim, prover_ipa_transcript);
+    auto proof = prover.construct_proof();
 
     // Automatically generate a transcript manifest in the verifier by verifying a proof
     std::shared_ptr<Transcript> verifier_transcript = std::make_shared<Transcript>();
     verifier_transcript->enable_manifest();
     ECCVMVerifier verifier(verifier_transcript, proof);
-    auto verification_result = verifier.reduce_to_ipa_opening();
+    auto verification_result = verifier.reduce_to_triple_ipa_claim();
 
-    // Verify IPA with manifest enabled
-    auto verifier_ipa_transcript = std::make_shared<Transcript>(prover_ipa_transcript->export_proof());
-    verifier_ipa_transcript->enable_manifest();
-    auto ipa_vk = VerifierCommitmentKey<curve::Grumpkin>{ ECCVMFlavor::ECCVM_FIXED_SIZE };
-    IPA<curve::Grumpkin>::reduce_verify(ipa_vk, verification_result.ipa_claim, verifier_ipa_transcript);
+    ASSERT_TRUE(verification_result.reduction_succeeded);
 
     // Check consistency between the manifests generated by the prover and verifier
     auto prover_manifest = prover.transcript->get_manifest();
@@ -370,15 +305,6 @@ TEST_F(ECCVMTranscriptTests, VerifierManifestConsistency)
     for (size_t round = 0; round < prover_manifest.size() - 1; ++round) {
         ASSERT_EQ(prover_manifest[round], verifier_manifest[round])
             << "Prover/Verifier manifest discrepency in round " << round;
-    }
-
-    // Check consistency of IPA transcripts
-    auto prover_ipa_manifest = prover_ipa_transcript->get_manifest();
-    auto verifier_ipa_manifest = verifier_ipa_transcript->get_manifest();
-    ASSERT_GT(prover_ipa_manifest.size(), 0);
-    for (size_t round = 0; round < prover_ipa_manifest.size(); ++round) {
-        ASSERT_EQ(prover_ipa_manifest[round], verifier_ipa_manifest[round])
-            << "Prover/Verifier IPA manifest discrepency in round " << round;
     }
 }
 

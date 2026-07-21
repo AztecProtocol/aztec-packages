@@ -10,6 +10,7 @@
 #include <cstdint>
 
 #include "barretenberg/crypto/poseidon2/poseidon2_permutation.hpp"
+#include "barretenberg/stdlib/primitives/circuit_builders/circuit_builders.hpp"
 #include "barretenberg/stdlib/primitives/field/field.hpp"
 
 namespace bb::stdlib {
@@ -19,12 +20,14 @@ namespace bb::stdlib {
  * @details The permutation consists of one initial linear layer, then a set of external rounds, a set of internal
  * rounds, and a set of external rounds.
  *
- * Note that except for the inital linear layer, we compute the round results natively and record them into Poseidon2
- * custom gates. This allows us to heavily reduce the number of arithmetic gates, that would have been otherwise
- * required to perform expensive non-linear S-box operations in-circuit.
+ * Note that we compute the round results natively and record them into Poseidon2 custom gates. This allows us to
+ * heavily reduce the number of arithmetic gates that would have been otherwise required to perform expensive
+ * non-linear S-box operations in-circuit.
  *
- * The external rounds are constrained via `Poseidon2ExternalRelationImpl`.
- * The internal rounds are constrained via `Poseidon2InternalRelationImpl`.
+ * The external rounds are constrained via `Poseidon2ExternalRelationImpl`; Mega also uses
+ * `Poseidon2InitialExternalRelationImpl` for the initial external linear layer. Mega constrains the internal rounds via
+ * a K=4 compressed block (`Poseidon2TransitionEntryRelationImpl`, `Poseidon2QuadInternalRelationImpl`, and
+ * `Poseidon2QuadInternalTerminalRelationImpl`); Ultra uses `Poseidon2InternalRelationImpl`.
  *
  */
 template <typename Builder> class Poseidon2Permutation {
@@ -61,10 +64,13 @@ template <typename Builder> class Poseidon2Permutation {
     static State permutation(Builder* builder, const State& input);
 
     /**
-     * @brief In-circuit method to efficiently multiply the inital state by the external matrix \f$ M_E \f$. Uses 6
-     * aritmetic gates.
+     * @brief In-circuit method to efficiently multiply the initial state by the external matrix \f$ M_E \f$.
      */
-    static void matrix_multiplication_external(State& state);
+    static void matrix_multiplication_external(State& state)
+        requires IsMegaBuilder<Builder>;
+
+    static void matrix_multiplication_external(State& state)
+        requires(!IsMegaBuilder<Builder>);
 
     /**
      * @brief  The result of applying a round of Poseidon2 is stored in the next row and is accessed by Poseidon2

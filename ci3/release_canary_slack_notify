@@ -35,26 +35,10 @@ fi
 
 ci_log_id=${1:-}
 
-send_slack_message() {
-  local message=$1
-  if [[ -z "${SLACK_BOT_TOKEN:-}" ]]; then
-    echo "SLACK_BOT_TOKEN not set, skipping notification"
-    return 0
-  fi
-
-  local data=$(cat <<EOF
-{
-  "channel": "#alpha-team",
-  "text": "$message"
-}
-EOF
-)
-  curl -s -X POST https://slack.com/api/chat.postMessage \
-    -H "Authorization: Bearer $SLACK_BOT_TOKEN" \
-    -H "Content-type: application/json" \
-    --data "$data"
-}
-
 set -x
 
-send_slack_message "CI failed on alpha team canary (ci-release-pr): http://ci.aztec-labs.com/$ci_log_id"
+TOPDIR=$(git rev-parse --show-toplevel)
+"$TOPDIR/ci3/slack_notify_with_claudebox_kickoff" "#alpha-team" \
+  "CI failed on alpha team canary (ci-release-pr): http://ci.aztec-labs.com/$ci_log_id (🤖)" \
+  "Alpha team canary CI failed. Log: http://ci.aztec-labs.com/$ci_log_id. Investigate the failure, identify the root cause, and create a fix PR." \
+  --link "http://ci.aztec-labs.com/$ci_log_id"

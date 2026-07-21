@@ -28,7 +28,7 @@ namespace bb::avm2 {
 INSTANTIATE_LOOKUP(lookup_data_copy_offset_plus_size_is_gt_data_size_relation);
 INSTANTIATE_LOOKUP(lookup_data_copy_check_src_addr_in_range_relation);
 INSTANTIATE_LOOKUP(lookup_data_copy_check_dst_addr_in_range_relation);
-INSTANTIATE_LOOKUP(lookup_data_copy_data_index_upper_bound_gt_offset_relation);
+INSTANTIATE_LOOKUP(lookup_data_copy_sel_has_reads_relation);
 INSTANTIATE_LOOKUP(lookup_data_copy_col_read_relation);
 
 } // namespace bb::avm2

@@ -11,6 +11,7 @@ import {
   isBoundedVecStruct,
   isEthAddressStruct,
   isFunctionSelectorStruct,
+  isOptionStruct,
   isPublicKeysStruct,
   isWrappedFieldStruct,
 } from '@aztec/stdlib/abi';
@@ -55,6 +56,9 @@ function abiTypeToTypescript(type: ABIParameter['type']): string {
         // as a BoundedVec in the ArgumentsEncoder.
         return `${abiTypeToTypescript(type.fields[0].type)}`;
       }
+      if (isOptionStruct(type)) {
+        return `OptionLike<${abiTypeToTypescript(type.fields[1].type)}>`;
+      }
       return `{ ${type.fields.map(f => `${f.name}: ${abiTypeToTypescript(f.type)}`).join(', ')} }`;
     default:
       throw new Error(`Unknown type ${type.kind}`);
@@ -89,39 +93,47 @@ function generateMethod(entry: FunctionAbi) {
  */
 function generateDeploy(input: ContractArtifact) {
   const ctor = getDefaultInitializer(input);
-  const args = (ctor?.parameters ?? []).map(generateParameter).join(', ');
+  const ctorParams = ctor?.parameters ?? [];
+  const args = ctorParams.map(generateParameter).join(', ');
+  const argNames = ctorParams.map(p => p.name).join(', ');
+  const argsForwarding = argNames ? `[${argNames}]` : '[]';
   const contractName = `${input.name}Contract`;
   const artifactName = `${contractName}Artifact`;
 
   return `
   /**
    * Creates a tx to deploy a new instance of this contract.
+   * @param instantiation - Optional address-affecting parameters (salt, deployer / universalDeploy, publicKeys).
+   *                       Salt defaults to a random value; the deployer is locked lazily from the first send-time \`from\`.
    */
-  public static deploy(wallet: Wallet, ${args}) {
-    return new DeployMethod<${contractName}>(PublicKeys.default(), wallet, ${artifactName}, (instance, wallet) => ${contractName}.at(instance.address, wallet), Array.from(arguments).slice(1));
-  }
-
-  /**
-   * Creates a tx to deploy a new instance of this contract using the specified public keys hash to derive the address.
-   */
-  public static deployWithPublicKeys(publicKeys: PublicKeys, wallet: Wallet, ${args}) {
-    return new DeployMethod<${contractName}>(publicKeys, wallet, ${artifactName}, (instance, wallet) => ${contractName}.at(instance.address, wallet), Array.from(arguments).slice(2));
+  public static deploy(wallet: Wallet, ${args ? `${args}, ` : ''}instantiation?: DeployInstantiationOptions) {
+    return DeployMethod.create<${contractName}>(
+      wallet,
+      {
+        artifact: ${artifactName},
+        postDeployCtor: (instance, wallet) => ${contractName}.at(instance.address, wallet),
+        args: ${argsForwarding},
+      },
+      instantiation,
+    );
   }
 
   /**
    * Creates a tx to deploy a new instance of this contract using the specified constructor method.
    */
   public static deployWithOpts<M extends keyof ${contractName}['methods']>(
-    opts: { publicKeys?: PublicKeys; method?: M; wallet: Wallet },
+    opts: { method?: M; wallet: Wallet; instantiation?: DeployInstantiationOptions },
     ...args: Parameters<${contractName}['methods'][M]>
   ) {
-    return new DeployMethod<${contractName}>(
-      opts.publicKeys ?? PublicKeys.default(),
+    return DeployMethod.create<${contractName}>(
       opts.wallet,
-      ${artifactName},
-      (instance, wallet) => ${contractName}.at(instance.address, wallet),
-      Array.from(arguments).slice(1),
-      opts.method ?? 'constructor',
+      {
+        artifact: ${artifactName},
+        postDeployCtor: (instance, wallet) => ${contractName}.at(instance.address, wallet),
+        args,
+        constructorNameOrArtifact: opts.method ?? 'constructor',
+      },
+      opts.instantiation,
     );
   }
   `;
@@ -305,8 +317,8 @@ export async function generateTypescriptContractInterface(input: ContractArtifac
 
 /* eslint-disable */
 import { AztecAddress, CompleteAddress } from '@aztec/aztec.js/addresses';
-import { type AbiType, type AztecAddressLike, type ContractArtifact, EventSelector, decodeFromAbi, type EthAddressLike, type FieldLike, type FunctionSelectorLike, loadContractArtifact, loadContractArtifactForPublic, type NoirCompiledContract, type U128Like, type WrappedFieldLike } from '@aztec/aztec.js/abi';
-import { Contract, ContractBase, ContractFunctionInteraction, type ContractMethod, type ContractStorageLayout, DeployMethod } from '@aztec/aztec.js/contracts';
+import { type AbiType, type AztecAddressLike, type ContractArtifact, EventSelector, decodeFromAbi, type EthAddressLike, type FieldLike, type FunctionSelectorLike, loadContractArtifact, loadContractArtifactForPublic, type NoirCompiledContract, type OptionLike, type U128Like, type WrappedFieldLike } from '@aztec/aztec.js/abi';
+import { Contract, ContractBase, ContractFunctionInteraction, type ContractMethod, type ContractStorageLayout, type DeployInstantiationOptions, DeployMethod } from '@aztec/aztec.js/contracts';
 import { EthAddress } from '@aztec/aztec.js/addresses';
 import { Fr, Point } from '@aztec/aztec.js/fields';
 import { type PublicKey, PublicKeys } from '@aztec/aztec.js/keys';

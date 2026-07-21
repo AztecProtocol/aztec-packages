@@ -2,17 +2,51 @@ import type { EpochCache } from '@aztec/epoch-cache';
 import { CheckpointNumber, EpochNumber, SlotNumber } from '@aztec/foundation/branded-types';
 import { Buffer32 } from '@aztec/foundation/buffer';
 import { times } from '@aztec/foundation/collection';
-import { Secp256k1Signer } from '@aztec/foundation/crypto/secp256k1-signer';
+import { Secp256k1Signer, flipSignature } from '@aztec/foundation/crypto/secp256k1-signer';
 import { Signature } from '@aztec/foundation/eth-signature';
 import { type Logger, createLogger } from '@aztec/foundation/log';
-import { CommitteeAttestation, EthAddress } from '@aztec/stdlib/block';
-import { Checkpoint } from '@aztec/stdlib/checkpoint';
+import {
+  CommitteeAttestation,
+  CommitteeAttestationsAndSigners,
+  EthAddress,
+  type ValidateCheckpointResult,
+} from '@aztec/stdlib/block';
+import { Checkpoint, type PublishedCheckpoint } from '@aztec/stdlib/checkpoint';
+import type { L1RollupConstants } from '@aztec/stdlib/epoch-helpers';
+import { ConsensusPayload, type CoordinationSignatureContext } from '@aztec/stdlib/p2p';
+import { TEST_COORDINATION_SIGNATURE_CONTEXT } from '@aztec/stdlib/testing';
 
 import { type MockProxy, mock } from 'jest-mock-extended';
 import assert from 'node:assert';
 
 import { makeSignedPublishedCheckpoint } from '../test/mock_structs.js';
-import { getAttestationInfoFromPublishedCheckpoint, validateCheckpointAttestations } from './validation.js';
+import { getAttestationInfoFromPublishedCheckpoint, validateAttestations } from './validation.js';
+
+/**
+ * Blob-path wrapper over the shared attestation validator, used only by these tests. Production
+ * invalidation always originates from the calldata path (validateCheckpointAttestationsFromCalldata);
+ * this repacks a fully decoded checkpoint's attestations to supply the verbatimAttestations field.
+ */
+function validateCheckpointAttestations(
+  publishedCheckpoint: PublishedCheckpoint,
+  epochCache: EpochCache,
+  constants: Pick<L1RollupConstants, 'epochDuration'>,
+  signatureContext: CoordinationSignatureContext,
+  logger?: Logger,
+): Promise<ValidateCheckpointResult> {
+  const { checkpoint, attestations } = publishedCheckpoint;
+  const payload = ConsensusPayload.fromCheckpoint(checkpoint, signatureContext);
+  const verbatimAttestations = CommitteeAttestationsAndSigners.packAttestations(attestations);
+  return validateAttestations(
+    payload,
+    attestations,
+    verbatimAttestations,
+    checkpoint.toCheckpointInfo(),
+    epochCache,
+    constants,
+    logger,
+  );
+}
 
 describe('validateCheckpointAttestations', () => {
   let epochCache: MockProxy<EpochCache>;
@@ -22,8 +56,16 @@ describe('validateCheckpointAttestations', () => {
 
   const constants = { epochDuration: 10 };
 
-  const makeCheckpoint = async (signers: Secp256k1Signer[], committee: EthAddress[], slot?: number) => {
-    const checkpoint = await Checkpoint.random(CheckpointNumber(1), { slotNumber: SlotNumber(slot ?? 1) });
+  const makeCheckpoint = async (
+    signers: Secp256k1Signer[],
+    committee: EthAddress[],
+    slot?: number,
+    feeAssetPriceModifier?: bigint,
+  ) => {
+    const checkpoint = await Checkpoint.random(CheckpointNumber(1), {
+      slotNumber: SlotNumber(slot ?? 1),
+      feeAssetPriceModifier,
+    });
     return makeSignedPublishedCheckpoint(checkpoint, signers, committee);
   };
 
@@ -50,7 +92,13 @@ describe('validateCheckpointAttestations', () => {
 
     it('validates a checkpoint if no committee is found', async () => {
       const checkpoint = await makeCheckpoint([], []);
-      const result = await validateCheckpointAttestations(checkpoint, epochCache, constants, logger);
+      const result = await validateCheckpointAttestations(
+        checkpoint,
+        epochCache,
+        constants,
+        TEST_COORDINATION_SIGNATURE_CONTEXT,
+        logger,
+      );
 
       expect(result.valid).toBe(true);
       expect(epochCache.getCommitteeForEpoch).toHaveBeenCalledWith(EpochNumber(0));
@@ -58,7 +106,13 @@ describe('validateCheckpointAttestations', () => {
 
     it('validates a checkpoint with no attestations if no committee is found', async () => {
       const checkpoint = await makeCheckpoint(signers, committee);
-      const result = await validateCheckpointAttestations(checkpoint, epochCache, constants, logger);
+      const result = await validateCheckpointAttestations(
+        checkpoint,
+        epochCache,
+        constants,
+        TEST_COORDINATION_SIGNATURE_CONTEXT,
+        logger,
+      );
 
       expect(result.valid).toBe(true);
       expect(epochCache.getCommitteeForEpoch).toHaveBeenCalledWith(EpochNumber(0));
@@ -68,7 +122,13 @@ describe('validateCheckpointAttestations', () => {
       // This should already be covered by the case of empty committee
       epochCache.isEscapeHatchOpen.mockResolvedValue(true);
       const checkpoint = await makeCheckpoint(signers, committee);
-      const result = await validateCheckpointAttestations(checkpoint, epochCache, constants, logger);
+      const result = await validateCheckpointAttestations(
+        checkpoint,
+        epochCache,
+        constants,
+        TEST_COORDINATION_SIGNATURE_CONTEXT,
+        logger,
+      );
       expect(result.valid).toBe(true);
       expect(epochCache.isEscapeHatchOpen).not.toHaveBeenCalled();
     });
@@ -79,16 +139,47 @@ describe('validateCheckpointAttestations', () => {
       setCommittee(committee);
     });
 
+    it('uses feeAssetPriceModifier when recovering attestors', async () => {
+      const checkpoint = await makeCheckpoint(signers.slice(0, 4), committee, 1, 1n);
+
+      const attestationInfos = getAttestationInfoFromPublishedCheckpoint(
+        checkpoint,
+        TEST_COORDINATION_SIGNATURE_CONTEXT,
+      );
+      expect(attestationInfos.filter(a => a.status === 'recovered-from-signature').length).toBe(4);
+
+      const result = await validateCheckpointAttestations(
+        checkpoint,
+        epochCache,
+        constants,
+        TEST_COORDINATION_SIGNATURE_CONTEXT,
+        logger,
+      );
+      expect(result.valid).toBe(true);
+    });
+
     it('requests committee for the correct epoch', async () => {
       const checkpoint = await makeCheckpoint(signers, committee, 28);
-      await validateCheckpointAttestations(checkpoint, epochCache, constants, logger);
+      await validateCheckpointAttestations(
+        checkpoint,
+        epochCache,
+        constants,
+        TEST_COORDINATION_SIGNATURE_CONTEXT,
+        logger,
+      );
       expect(epochCache.getCommitteeForEpoch).toHaveBeenCalledWith(EpochNumber(2));
     });
 
     it('fails if there is an attestation from a non-committee member', async () => {
       const badSigner = Secp256k1Signer.random();
       const checkpoint = await makeCheckpoint([...signers, badSigner], [...committee, badSigner.address]);
-      const result = await validateCheckpointAttestations(checkpoint, epochCache, constants, logger);
+      const result = await validateCheckpointAttestations(
+        checkpoint,
+        epochCache,
+        constants,
+        TEST_COORDINATION_SIGNATURE_CONTEXT,
+        logger,
+      );
       assert(!result.valid);
       assert(result.reason === 'invalid-attestation');
       expect(result.checkpoint.checkpointNumber).toEqual(checkpoint.checkpoint.number);
@@ -100,7 +191,13 @@ describe('validateCheckpointAttestations', () => {
     it('fails if there is an empty attestation', async () => {
       const checkpoint = await makeCheckpoint(signers.slice(0, 4), committee);
       checkpoint.attestations[1] = new CommitteeAttestation(EthAddress.ZERO, Signature.empty());
-      const result = await validateCheckpointAttestations(checkpoint, epochCache, constants, logger);
+      const result = await validateCheckpointAttestations(
+        checkpoint,
+        epochCache,
+        constants,
+        TEST_COORDINATION_SIGNATURE_CONTEXT,
+        logger,
+      );
       assert(!result.valid);
       assert(result.reason === 'invalid-attestation');
       expect(result.checkpoint.checkpointNumber).toEqual(checkpoint.checkpoint.number);
@@ -123,16 +220,73 @@ describe('validateCheckpointAttestations', () => {
       checkpoint.attestations[0] = new CommitteeAttestation(EthAddress.ZERO, invalidSig);
 
       // Verify that the invalid signature is detected
-      const attestations = getAttestationInfoFromPublishedCheckpoint(checkpoint);
+      const attestations = getAttestationInfoFromPublishedCheckpoint(checkpoint, TEST_COORDINATION_SIGNATURE_CONTEXT);
       expect(attestations[0].status).toBe('invalid-signature');
 
-      const result = await validateCheckpointAttestations(checkpoint, epochCache, constants, logger);
+      const result = await validateCheckpointAttestations(
+        checkpoint,
+        epochCache,
+        constants,
+        TEST_COORDINATION_SIGNATURE_CONTEXT,
+        logger,
+      );
       assert(!result.valid);
       assert(result.reason === 'invalid-attestation');
       expect(result.checkpoint.checkpointNumber).toEqual(checkpoint.checkpoint.number);
       expect(result.checkpoint.archive.toString()).toEqual(checkpoint.checkpoint.archive.root.toString());
       expect(result.committee).toEqual(committee);
       expect(result.invalidIndex).toBe(0);
+    });
+
+    it('fails if an attestation signature has a high-s value (malleable signature)', async () => {
+      const checkpoint = await makeCheckpoint(signers.slice(0, 4), committee);
+
+      // Flip the signature at index 2 to give it a high-s value
+      const original = checkpoint.attestations[2];
+      const flipped = flipSignature(original.signature);
+      checkpoint.attestations[2] = new CommitteeAttestation(original.address, flipped);
+
+      // Verify the flipped signature is detected as invalid
+      const attestations = getAttestationInfoFromPublishedCheckpoint(checkpoint, TEST_COORDINATION_SIGNATURE_CONTEXT);
+      expect(attestations[2].status).toBe('invalid-signature');
+
+      const result = await validateCheckpointAttestations(
+        checkpoint,
+        epochCache,
+        constants,
+        TEST_COORDINATION_SIGNATURE_CONTEXT,
+        logger,
+      );
+      assert(!result.valid);
+      assert(result.reason === 'invalid-attestation');
+      expect(result.checkpoint.checkpointNumber).toEqual(checkpoint.checkpoint.number);
+      expect(result.checkpoint.archive.toString()).toEqual(checkpoint.checkpoint.archive.root.toString());
+      expect(result.committee).toEqual(committee);
+      expect(result.invalidIndex).toBe(2);
+    });
+
+    it('fails if an attestation is in yParity (v in {0, 1}) form even though it recovers to the right member', async () => {
+      const checkpoint = await makeCheckpoint(signers.slice(0, 4), committee);
+
+      // Rewrite index 2's canonical signature to its yParity form: same (r, s), recovery byte 0/1. It still
+      // recovers to the same committee member off-chain, but L1 ECDSA.recover rejects v not in {27, 28}.
+      const original = checkpoint.attestations[2];
+      const yParity = new Signature(original.signature.r, original.signature.s, original.signature.v - 27);
+      checkpoint.attestations[2] = new CommitteeAttestation(original.address, yParity);
+
+      const attestations = getAttestationInfoFromPublishedCheckpoint(checkpoint, TEST_COORDINATION_SIGNATURE_CONTEXT);
+      expect(attestations[2].status).toBe('invalid-signature');
+
+      const result = await validateCheckpointAttestations(
+        checkpoint,
+        epochCache,
+        constants,
+        TEST_COORDINATION_SIGNATURE_CONTEXT,
+        logger,
+      );
+      assert(!result.valid);
+      assert(result.reason === 'invalid-attestation');
+      expect(result.invalidIndex).toBe(2);
     });
 
     it('reports correct index when invalid attestation follows provided address', async () => {
@@ -146,7 +300,13 @@ describe('validateCheckpointAttestations', () => {
 
       // Index 2 is a valid attestation from signers[2]
 
-      const result = await validateCheckpointAttestations(checkpoint, epochCache, constants, logger);
+      const result = await validateCheckpointAttestations(
+        checkpoint,
+        epochCache,
+        constants,
+        TEST_COORDINATION_SIGNATURE_CONTEXT,
+        logger,
+      );
       assert(!result.valid);
       assert(result.reason === 'invalid-attestation');
       expect(result.invalidIndex).toBe(1); // Should be 1 (the original index), not 0
@@ -154,7 +314,13 @@ describe('validateCheckpointAttestations', () => {
 
     it('returns false if insufficient attestations', async () => {
       const checkpoint = await makeCheckpoint(signers.slice(0, 2), committee);
-      const result = await validateCheckpointAttestations(checkpoint, epochCache, constants, logger);
+      const result = await validateCheckpointAttestations(
+        checkpoint,
+        epochCache,
+        constants,
+        TEST_COORDINATION_SIGNATURE_CONTEXT,
+        logger,
+      );
       assert(!result.valid);
       expect(result.reason).toBe('insufficient-attestations');
       expect(result.checkpoint.checkpointNumber).toEqual(checkpoint.checkpoint.number);
@@ -164,7 +330,13 @@ describe('validateCheckpointAttestations', () => {
 
     it('returns true if all attestations are valid and sufficient', async () => {
       const checkpoint = await makeCheckpoint(signers.slice(0, 4), committee);
-      const result = await validateCheckpointAttestations(checkpoint, epochCache, constants, logger);
+      const result = await validateCheckpointAttestations(
+        checkpoint,
+        epochCache,
+        constants,
+        TEST_COORDINATION_SIGNATURE_CONTEXT,
+        logger,
+      );
       expect(result.valid).toBe(true);
     });
 
@@ -178,7 +350,13 @@ describe('validateCheckpointAttestations', () => {
       checkpoint.attestations[1] = checkpoint.attestations[2];
       checkpoint.attestations[2] = temp;
 
-      const result = await validateCheckpointAttestations(checkpoint, epochCache, constants, logger);
+      const result = await validateCheckpointAttestations(
+        checkpoint,
+        epochCache,
+        constants,
+        TEST_COORDINATION_SIGNATURE_CONTEXT,
+        logger,
+      );
       assert(!result.valid);
       assert(result.reason === 'invalid-attestation');
       expect(result.checkpoint.checkpointNumber).toEqual(checkpoint.checkpoint.number);
@@ -191,7 +369,13 @@ describe('validateCheckpointAttestations', () => {
     it('validates a checkpoint if escape hatch is open', async () => {
       epochCache.isEscapeHatchOpen.mockResolvedValue(true);
       const checkpoint = await makeCheckpoint(signers, committee);
-      const result = await validateCheckpointAttestations(checkpoint, epochCache, constants, logger);
+      const result = await validateCheckpointAttestations(
+        checkpoint,
+        epochCache,
+        constants,
+        TEST_COORDINATION_SIGNATURE_CONTEXT,
+        logger,
+      );
       expect(result.valid).toBe(true);
       expect(epochCache.isEscapeHatchOpen).toHaveBeenCalledWith(EpochNumber(0));
     });

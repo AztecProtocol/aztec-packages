@@ -1,0 +1,9 @@
+[package]
+name = "transient_parent_contract"
+authors = [""]
+compiler_version = ">=0.25.0"
+type = "contract"
+
+[dependencies]
+aztec = { path = "../../../../aztec-nr/aztec" }
+transient_child_contract = { path = "../transient_child_contract" }

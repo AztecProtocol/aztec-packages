@@ -159,11 +159,12 @@ TEST(MemoryConstrainingTest, ContiguousTrace)
         { { C::memory_sel, 0 } },
     });
 
-    check_relation<memory>(trace, memory::SR_MEM_CONTIGUOUS);
+    check_relation<memory>(trace, memory::SR_MEM_CONTINUITY);
 
     // Mutate the trace to make it non-contiguous.
     trace.set(C::memory_sel, 2, 0);
-    EXPECT_THROW_WITH_MESSAGE(check_relation<memory>(trace, memory::SR_MEM_CONTIGUOUS), "MEM_CONTIGUOUS");
+    EXPECT_THROW_WITH_MESSAGE(check_relation<memory>(trace, memory::SR_MEM_CONTINUITY),
+                              memory::get_subrelation_label(memory::SR_MEM_CONTINUITY));
 }
 
 // Boolean selector for range check is active at all active rows except the last one.
@@ -180,104 +181,43 @@ TEST(MemoryConstrainingTest, SelRngChk)
 
     // Disable the range check for the penultimate row.
     trace.set(C::memory_sel_rng_chk, 1, 0);
-    EXPECT_THROW_WITH_MESSAGE(check_relation<memory>(trace, memory::SR_SEL_RNG_CHK), "SEL_RNG_CHK");
+    EXPECT_THROW_WITH_MESSAGE(check_relation<memory>(trace, memory::SR_SEL_RNG_CHK),
+                              memory::get_subrelation_label(memory::SR_SEL_RNG_CHK));
 
     // Reset
     trace.set(C::memory_sel_rng_chk, 1, 1);
 
     // Disable the range check at the first row.
     trace.set(C::memory_sel_rng_chk, 0, 0);
-    EXPECT_THROW_WITH_MESSAGE(check_relation<memory>(trace, memory::SR_SEL_RNG_CHK), "SEL_RNG_CHK");
+    EXPECT_THROW_WITH_MESSAGE(check_relation<memory>(trace, memory::SR_SEL_RNG_CHK),
+                              memory::get_subrelation_label(memory::SR_SEL_RNG_CHK));
 
     // Reset
     trace.set(C::memory_sel_rng_chk, 0, 1);
 
     // Enable the range check at the last active row.
     trace.set(C::memory_sel_rng_chk, 2, 1);
-    EXPECT_THROW_WITH_MESSAGE(check_relation<memory>(trace, memory::SR_SEL_RNG_CHK), "SEL_RNG_CHK");
+    EXPECT_THROW_WITH_MESSAGE(check_relation<memory>(trace, memory::SR_SEL_RNG_CHK),
+                              memory::get_subrelation_label(memory::SR_SEL_RNG_CHK));
 }
 
-// Global address is derived from space_id and address.
-TEST(MemoryConstrainingTest, GlobalAddr)
-{
-    TestTraceContainer trace({
-        { { C::memory_sel, 1 },
-          { C::memory_space_id, 12345 },
-          { C::memory_address, 6789 },
-          { C::memory_global_addr, (12345LLU << 32) + 6789 } },
-        { { C::memory_sel, 1 },
-          { C::memory_space_id, UINT16_MAX },
-          { C::memory_address, UINT32_MAX },
-          { C::memory_global_addr, UINT64_MAX >> 16 } },
-        { { C::memory_sel, 1 },
-          { C::memory_space_id, 0 },
-          { C::memory_address, 987654321 },
-          { C::memory_global_addr, 987654321 } },
-        { { C::memory_sel, 1 },
-          { C::memory_space_id, 1LLU << 12 },
-          { C::memory_address, 0 },
-          { C::memory_global_addr, 1LLU << 44 } },
-    });
-
-    check_relation<memory>(trace, memory::SR_GLOBAL_ADDR);
-
-    // Mutate the trace to make the global address incorrect.
-    trace.set(C::memory_global_addr, 1, trace.get(C::memory_global_addr, 1) + 1);
-    EXPECT_THROW_WITH_MESSAGE(check_relation<memory>(trace, memory::SR_GLOBAL_ADDR), "GLOBAL_ADDR");
-
-    // Reset
-    trace.set(C::memory_global_addr, 1, trace.get(C::memory_global_addr, 1) - 1);
-    check_relation<memory>(trace, memory::SR_GLOBAL_ADDR);
-
-    // Mutate the trace to make the global address == address. (No space_id.)
-    trace.set(C::memory_global_addr, 2, UINT32_MAX);
-    EXPECT_THROW_WITH_MESSAGE(check_relation<memory>(trace, memory::SR_GLOBAL_ADDR), "GLOBAL_ADDR");
-}
-
-// Timestamp is derived from clk and rw.
-TEST(MemoryConstrainingTest, Timestamp)
-{
-    TestTraceContainer trace({
-        { { C::memory_sel, 1 }, { C::memory_clk, 1 }, { C::memory_rw, 0 }, { C::memory_timestamp, 2 } },
-        { { C::memory_sel, 1 }, { C::memory_clk, 2 }, { C::memory_rw, 1 }, { C::memory_timestamp, 5 } },
-        { { C::memory_sel, 1 }, { C::memory_clk, 3 }, { C::memory_rw, 0 }, { C::memory_timestamp, 6 } },
-        { { C::memory_sel, 1 },
-          { C::memory_clk, UINT32_MAX },
-          { C::memory_rw, 1 },
-          { C::memory_timestamp, (1LLU << 33) - 1 } },
-    });
-
-    check_relation<memory>(trace, memory::SR_TIMESTAMP);
-
-    // Mutate the trace to make the timestamp incorrect.
-    trace.set(C::memory_timestamp, 1, trace.get(C::memory_timestamp, 1) + 1);
-    EXPECT_THROW_WITH_MESSAGE(check_relation<memory>(trace, memory::SR_TIMESTAMP), "TIMESTAMP");
-
-    // Reset
-    trace.set(C::memory_timestamp, 1, trace.get(C::memory_timestamp, 1) - 1);
-    check_relation<memory>(trace, memory::SR_TIMESTAMP);
-
-    // Mutate the trace to make the timestamp == clk. (No rw.)
-    trace.set(C::memory_timestamp, 3, UINT32_MAX);
-    EXPECT_THROW_WITH_MESSAGE(check_relation<memory>(trace, memory::SR_TIMESTAMP), "TIMESTAMP");
-}
-
-// last_access is derived from global_addr and global_addr'
+// last_access is derived from whether the next row has the same (space_id, address).
 TEST(MemoryConstrainingTest, LastAccess)
 {
+    // global_addr = space_id * 2^32 + address. Using space_id=0 so global_addr == address.
     TestTraceContainer trace({
         { { C::memory_sel_rng_chk, 1 },
-          { C::memory_global_addr, 12345 },
+          { C::memory_address, 12345 },
           { C::memory_last_access, 1 },
           { C::memory_glob_addr_diff_inv, 1 } },
-        { { C::memory_sel_rng_chk, 1 }, { C::memory_global_addr, 12346 }, { C::memory_last_access, 0 } },
-        { { C::memory_sel_rng_chk, 1 }, { C::memory_global_addr, 12346 }, { C::memory_last_access, 0 } },
+        { { C::memory_sel_rng_chk, 1 }, { C::memory_address, 12346 }, { C::memory_last_access, 0 } },
+        { { C::memory_sel_rng_chk, 1 }, { C::memory_address, 12346 }, { C::memory_last_access, 0 } },
         { { C::memory_sel_rng_chk, 1 },
-          { C::memory_global_addr, 12346 },
+          { C::memory_address, 12346 },
           { C::memory_last_access, 1 },
           { C::memory_glob_addr_diff_inv, 1 } },
         { { C::memory_sel_rng_chk, 0 },
-          { C::memory_global_addr, 12347 },
+          { C::memory_address, 12347 },
           { C::memory_last_access, 1 },
           { C::memory_glob_addr_diff_inv, 1 } },
     });
@@ -286,7 +226,8 @@ TEST(MemoryConstrainingTest, LastAccess)
 
     // Mutate the trace to make the last access incorrect (last_access == 0 instead of 1).
     trace.set(C::memory_last_access, 0, 0);
-    EXPECT_THROW_WITH_MESSAGE(check_relation<memory>(trace, memory::SR_LAST_ACCESS), "LAST_ACCESS");
+    EXPECT_THROW_WITH_MESSAGE(check_relation<memory>(trace, memory::SR_LAST_ACCESS),
+                              memory::get_subrelation_label(memory::SR_LAST_ACCESS));
 
     // Reset
     trace.set(C::memory_last_access, 0, 1);
@@ -294,7 +235,8 @@ TEST(MemoryConstrainingTest, LastAccess)
 
     // Mutate glob_addr_diff_inv == 0.
     trace.set(C::memory_glob_addr_diff_inv, 0, 0);
-    EXPECT_THROW_WITH_MESSAGE(check_relation<memory>(trace, memory::SR_LAST_ACCESS), "LAST_ACCESS");
+    EXPECT_THROW_WITH_MESSAGE(check_relation<memory>(trace, memory::SR_LAST_ACCESS),
+                              memory::get_subrelation_label(memory::SR_LAST_ACCESS));
 
     // Reset
     trace.set(C::memory_glob_addr_diff_inv, 0, 1);
@@ -302,31 +244,33 @@ TEST(MemoryConstrainingTest, LastAccess)
 
     // Mutate the trace to make the last access == 1, instead of 0.
     trace.set(C::memory_last_access, 2, 1);
-    EXPECT_THROW_WITH_MESSAGE(check_relation<memory>(trace, memory::SR_LAST_ACCESS), "LAST_ACCESS");
+    EXPECT_THROW_WITH_MESSAGE(check_relation<memory>(trace, memory::SR_LAST_ACCESS),
+                              memory::get_subrelation_label(memory::SR_LAST_ACCESS));
 }
 
-// diff is derived as global_addr' - global_addr when last_access == 1.
+// diff is derived as GLOBAL_ADDR_DIFF when last_access == 1.
 TEST(MemoryConstrainingTest, DiffWithLastAccess)
 {
-    // We set some dummy values for timestamp and rw to ensure that they do not interfer with diff derivation.
+    // We set some dummy values for clk and rw to ensure that they do not interfere with diff derivation.
+    // global_addr = space_id * 2^32 + address. Using space_id=0 so global_addr == address.
     TestTraceContainer trace({
         { { C::memory_sel_rng_chk, 1 },
-          { C::memory_global_addr, 12345 },
+          { C::memory_address, 12345 },
           { C::memory_last_access, 1 },
           { C::memory_diff, 10000 },
-          { C::memory_timestamp, 76 },
+          { C::memory_clk, 38 },
           { C::memory_rw, 1 } },
         { { C::memory_sel_rng_chk, 1 },
-          { C::memory_global_addr, 22345 },
+          { C::memory_address, 22345 },
           { C::memory_last_access, 1 },
           { C::memory_diff, 12 },
-          { C::memory_timestamp, 254 },
+          { C::memory_clk, 127 },
           { C::memory_rw, 1 } },
         { { C::memory_sel_rng_chk, 1 },
-          { C::memory_global_addr, 22357 },
+          { C::memory_address, 22357 },
           { C::memory_last_access, 1 },
           { C::memory_diff, FF(-22357) },
-          { C::memory_timestamp, 259 },
+          { C::memory_clk, 130 },
           { C::memory_rw, 1 } },
         { { C::memory_sel_rng_chk, 0 }, { C::memory_last_access, 0 } },
     });
@@ -335,21 +279,26 @@ TEST(MemoryConstrainingTest, DiffWithLastAccess)
 
     // Mutate the trace to make the diff incorrect.
     trace.set(C::memory_diff, 1, trace.get(C::memory_diff, 1) + 1);
-    EXPECT_THROW_WITH_MESSAGE(check_relation<memory>(trace, memory::SR_DIFF), "DIFF");
+    EXPECT_THROW_WITH_MESSAGE(check_relation<memory>(trace, memory::SR_DIFF),
+                              memory::get_subrelation_label(memory::SR_DIFF));
 }
 
-// diff is derived as timestamp' - timestamp - rw' * rw when last_access == 0.
+// diff is derived as TIMESTAMP_DIFF - rw' * rw when last_access == 0.
+// TIMESTAMP_DIFF = 2*(clk' - clk) + (rw' - rw).
 TEST(MemoryConstrainingTest, DiffWithoutLastAccess)
 {
+    // Choose clk/rw such that timestamps are consistent:
+    // Row 0: clk=38, rw=1 -> ts=77.  diff = (79-77) - 1*1 = 1
+    // Row 1: clk=39, rw=1 -> ts=79.  diff = (8780-79) - 0*1 = 8701
+    // Row 2: clk=4390, rw=0 -> ts=8780.  diff = (18780-8780) - 0*0 = 10000
+    // Row 3: clk=9390, rw=0 -> ts=18780.  diff = (18781-18780) - 1*0 = 1
+    // Row 4: clk=9390, rw=1 -> ts=18781.  diff = (0-18781) - 0*1 = -18781
     TestTraceContainer trace({
-        { { C::memory_sel_rng_chk, 1 }, { C::memory_timestamp, 77 }, { C::memory_rw, 1 }, { C::memory_diff, 1 } },
-        { { C::memory_sel_rng_chk, 1 }, { C::memory_timestamp, 79 }, { C::memory_rw, 1 }, { C::memory_diff, 8700 } },
-        { { C::memory_sel_rng_chk, 1 }, { C::memory_timestamp, 8779 }, { C::memory_rw, 0 }, { C::memory_diff, 10000 } },
-        { { C::memory_sel_rng_chk, 1 }, { C::memory_timestamp, 18779 }, { C::memory_rw, 0 }, { C::memory_diff, 2 } },
-        { { C::memory_sel_rng_chk, 1 },
-          { C::memory_timestamp, 18781 },
-          { C::memory_rw, 1 },
-          { C::memory_diff, FF(-18781) } },
+        { { C::memory_sel_rng_chk, 1 }, { C::memory_clk, 38 }, { C::memory_rw, 1 }, { C::memory_diff, 1 } },
+        { { C::memory_sel_rng_chk, 1 }, { C::memory_clk, 39 }, { C::memory_rw, 1 }, { C::memory_diff, 8701 } },
+        { { C::memory_sel_rng_chk, 1 }, { C::memory_clk, 4390 }, { C::memory_rw, 0 }, { C::memory_diff, 10000 } },
+        { { C::memory_sel_rng_chk, 1 }, { C::memory_clk, 9390 }, { C::memory_rw, 0 }, { C::memory_diff, 1 } },
+        { { C::memory_sel_rng_chk, 1 }, { C::memory_clk, 9390 }, { C::memory_rw, 1 }, { C::memory_diff, FF(-18781) } },
         { { C::memory_sel_rng_chk, 0 }, { C::memory_last_access, 0 } },
     });
 
@@ -357,7 +306,8 @@ TEST(MemoryConstrainingTest, DiffWithoutLastAccess)
 
     // Mutate the trace to make the diff incorrect.
     trace.set(C::memory_diff, 0, trace.get(C::memory_diff, 0) + 1);
-    EXPECT_THROW_WITH_MESSAGE(check_relation<memory>(trace, memory::SR_DIFF), "DIFF");
+    EXPECT_THROW_WITH_MESSAGE(check_relation<memory>(trace, memory::SR_DIFF),
+                              memory::get_subrelation_label(memory::SR_DIFF));
 
     // Reset
     trace.set(C::memory_diff, 0, trace.get(C::memory_diff, 0) - 1);
@@ -365,7 +315,8 @@ TEST(MemoryConstrainingTest, DiffWithoutLastAccess)
 
     // Mutate the trace to make the diff incorrect.
     trace.set(C::memory_diff, 1, trace.get(C::memory_diff, 1) + 1);
-    EXPECT_THROW_WITH_MESSAGE(check_relation<memory>(trace, memory::SR_DIFF), "DIFF");
+    EXPECT_THROW_WITH_MESSAGE(check_relation<memory>(trace, memory::SR_DIFF),
+                              memory::get_subrelation_label(memory::SR_DIFF));
 }
 
 // diff correct decomposition into 3 16-bit limbs.
@@ -391,7 +342,8 @@ TEST(MemoryConstrainingTest, DiffDecomp)
 
     // Mutate the trace to make the diff decomposition incorrect.
     trace.set(C::memory_limb_0_, 0, trace.get(C::memory_limb_0_, 0) + 1);
-    EXPECT_THROW_WITH_MESSAGE(check_relation<memory>(trace, memory::SR_DIFF_DECOMP), "DIFF_DECOMP");
+    EXPECT_THROW_WITH_MESSAGE(check_relation<memory>(trace, memory::SR_DIFF_DECOMP),
+                              memory::get_subrelation_label(memory::SR_DIFF_DECOMP));
 
     // Reset
     trace.set(C::memory_limb_0_, 0, trace.get(C::memory_limb_0_, 0) - 1);
@@ -399,7 +351,8 @@ TEST(MemoryConstrainingTest, DiffDecomp)
 
     // Mutate the trace to make the diff decomposition incorrect.
     trace.set(C::memory_limb_1_, 1, trace.get(C::memory_limb_1_, 1) + 1);
-    EXPECT_THROW_WITH_MESSAGE(check_relation<memory>(trace, memory::SR_DIFF_DECOMP), "DIFF_DECOMP");
+    EXPECT_THROW_WITH_MESSAGE(check_relation<memory>(trace, memory::SR_DIFF_DECOMP),
+                              memory::get_subrelation_label(memory::SR_DIFF_DECOMP));
 
     // Reset
     trace.set(C::memory_limb_1_, 1, trace.get(C::memory_limb_1_, 1) - 1);
@@ -407,7 +360,8 @@ TEST(MemoryConstrainingTest, DiffDecomp)
 
     // Mutate the trace to make the diff decomposition incorrect.
     trace.set(C::memory_limb_2_, 2, trace.get(C::memory_limb_2_, 2) + 1);
-    EXPECT_THROW_WITH_MESSAGE(check_relation<memory>(trace, memory::SR_DIFF_DECOMP), "DIFF_DECOMP");
+    EXPECT_THROW_WITH_MESSAGE(check_relation<memory>(trace, memory::SR_DIFF_DECOMP),
+                              memory::get_subrelation_label(memory::SR_DIFF_DECOMP));
 }
 
 // Correct memory value (and tag) initialization after first row.
@@ -422,7 +376,8 @@ TEST(MemoryConstrainingTest, MemoryInitValueFirstRow)
 
     // Mutate the trace to make the memory value incorrect.
     trace.set(C::memory_value, 1, trace.get(C::memory_value, 1) + 1);
-    EXPECT_THROW_WITH_MESSAGE(check_relation<memory>(trace, memory::SR_MEMORY_INIT_VALUE), "MEMORY_INIT_VALUE");
+    EXPECT_THROW_WITH_MESSAGE(check_relation<memory>(trace, memory::SR_MEMORY_INIT_VALUE),
+                              memory::get_subrelation_label(memory::SR_MEMORY_INIT_VALUE));
 
     // Reset
     trace.set(C::memory_value, 1, trace.get(C::memory_value, 1) - 1);
@@ -430,7 +385,8 @@ TEST(MemoryConstrainingTest, MemoryInitValueFirstRow)
 
     // Mutate the trace to make the memory tag incorrect.
     trace.set(C::memory_tag, 1, static_cast<uint8_t>(MemoryTag::U16));
-    EXPECT_THROW_WITH_MESSAGE(check_relation<memory>(trace, memory::SR_MEMORY_INIT_TAG), "MEMORY_INIT_TAG");
+    EXPECT_THROW_WITH_MESSAGE(check_relation<memory>(trace, memory::SR_MEMORY_INIT_TAG),
+                              memory::get_subrelation_label(memory::SR_MEMORY_INIT_TAG));
 }
 
 // Correct memory value (and tag) initialization after last_access == 1.
@@ -445,7 +401,8 @@ TEST(MemoryConstrainingTest, MemoryInitValueLastAccess)
 
     // Mutate the trace to make the memory value incorrect.
     trace.set(C::memory_value, 1, trace.get(C::memory_value, 1) + 1);
-    EXPECT_THROW_WITH_MESSAGE(check_relation<memory>(trace, memory::SR_MEMORY_INIT_VALUE), "MEMORY_INIT_VALUE");
+    EXPECT_THROW_WITH_MESSAGE(check_relation<memory>(trace, memory::SR_MEMORY_INIT_VALUE),
+                              memory::get_subrelation_label(memory::SR_MEMORY_INIT_VALUE));
 
     // Reset
     trace.set(C::memory_value, 1, trace.get(C::memory_value, 1) - 1);
@@ -453,7 +410,8 @@ TEST(MemoryConstrainingTest, MemoryInitValueLastAccess)
 
     // Mutate the trace to make the memory tag incorrect.
     trace.set(C::memory_tag, 1, static_cast<uint8_t>(MemoryTag::U1));
-    EXPECT_THROW_WITH_MESSAGE(check_relation<memory>(trace, memory::SR_MEMORY_INIT_TAG), "MEMORY_INIT_TAG");
+    EXPECT_THROW_WITH_MESSAGE(check_relation<memory>(trace, memory::SR_MEMORY_INIT_TAG),
+                              memory::get_subrelation_label(memory::SR_MEMORY_INIT_TAG));
 }
 
 // Correct read-write consistency for memory value (and tag).
@@ -489,10 +447,10 @@ TEST(MemoryConstrainingTest, ReadWriteConsistency)
 
     check_relation<memory>(trace, memory::SR_READ_WRITE_CONSISTENCY_VALUE, memory::SR_READ_WRITE_CONSISTENCY_TAG);
 
-    // Mutate the trace to make teh first read value (row 1) incorrect.
+    // Mutate the trace to make the first read value (row 1) incorrect.
     trace.set(C::memory_value, 1, trace.get(C::memory_value, 1) + 1);
     EXPECT_THROW_WITH_MESSAGE(check_relation<memory>(trace, memory::SR_READ_WRITE_CONSISTENCY_VALUE),
-                              "READ_WRITE_CONSISTENCY_VALUE");
+                              memory::get_subrelation_label(memory::SR_READ_WRITE_CONSISTENCY_VALUE));
 
     // Reset
     trace.set(C::memory_value, 1, trace.get(C::memory_value, 1) - 1);
@@ -501,7 +459,7 @@ TEST(MemoryConstrainingTest, ReadWriteConsistency)
     // Mutate the trace to make the first read tag (row 1) incorrect.
     trace.set(C::memory_tag, 1, static_cast<uint8_t>(MemoryTag::U16));
     EXPECT_THROW_WITH_MESSAGE(check_relation<memory>(trace, memory::SR_READ_WRITE_CONSISTENCY_TAG),
-                              "READ_WRITE_CONSISTENCY_TAG");
+                              memory::get_subrelation_label(memory::SR_READ_WRITE_CONSISTENCY_TAG));
 }
 
 // Selector on tag == FF.
@@ -547,11 +505,13 @@ TEST(MemoryConstrainingTest, TagIsFF)
 
     // Attempt to de-activate sel_tag_is_ff when tag == FF.
     trace.set(C::memory_sel_tag_is_ff, 0, 0);
-    EXPECT_THROW_WITH_MESSAGE(check_relation<memory>(trace, memory::SR_TAG_IS_FF), "TAG_IS_FF");
+    EXPECT_THROW_WITH_MESSAGE(check_relation<memory>(trace, memory::SR_TAG_IS_FF),
+                              memory::get_subrelation_label(memory::SR_TAG_IS_FF));
 
     // Try to change value for diff_inv
     trace.set(C::memory_tag_ff_diff_inv, 0, 1);
-    EXPECT_THROW_WITH_MESSAGE(check_relation<memory>(trace, memory::SR_TAG_IS_FF), "TAG_IS_FF");
+    EXPECT_THROW_WITH_MESSAGE(check_relation<memory>(trace, memory::SR_TAG_IS_FF),
+                              memory::get_subrelation_label(memory::SR_TAG_IS_FF));
 
     // Reset
     trace.set(C::memory_sel_tag_is_ff, 0, 1);
@@ -560,11 +520,13 @@ TEST(MemoryConstrainingTest, TagIsFF)
 
     // Attempt to activate sel_tag_is_ff when tag != FF.
     trace.set(C::memory_sel_tag_is_ff, 1, 1);
-    EXPECT_THROW_WITH_MESSAGE(check_relation<memory>(trace, memory::SR_TAG_IS_FF), "TAG_IS_FF");
+    EXPECT_THROW_WITH_MESSAGE(check_relation<memory>(trace, memory::SR_TAG_IS_FF),
+                              memory::get_subrelation_label(memory::SR_TAG_IS_FF));
 
     // Try to modify value for tag_ff_diff_inv
     trace.set(C::memory_tag_ff_diff_inv, 1, 0);
-    EXPECT_THROW_WITH_MESSAGE(check_relation<memory>(trace, memory::SR_TAG_IS_FF), "TAG_IS_FF");
+    EXPECT_THROW_WITH_MESSAGE(check_relation<memory>(trace, memory::SR_TAG_IS_FF),
+                              memory::get_subrelation_label(memory::SR_TAG_IS_FF));
 }
 
 // Boolean selector sel_rng_write is active for write operations and tag != FF.

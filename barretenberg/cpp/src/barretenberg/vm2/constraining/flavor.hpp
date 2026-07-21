@@ -1,5 +1,5 @@
 // === AUDIT STATUS ===
-// internal:    { status: Completed, auditors: [Federico], commit: }
+// internal:    { status: Completed, auditors: [Federico], commit: 0e37cb8}
 // external_1:  { status: not started, auditors: [], commit: }
 // external_2:  { status: not started, auditors: [], commit: }
 // =====================
@@ -17,9 +17,10 @@
 
 #include "barretenberg/flavor/flavor.hpp"
 #include "barretenberg/polynomials/evaluation_domain.hpp"
+#include "barretenberg/relations/relation_tuple_helpers.hpp"
 #include "barretenberg/transcript/transcript.hpp"
 
-#include "barretenberg/vm2/common/aztec_constants.hpp"
+#include "barretenberg/aztec/aztec_constants.hpp"
 #include "barretenberg/vm2/common/constants.hpp"
 #include "barretenberg/vm2/constraining/avm_fixed_vk.hpp"
 #include "barretenberg/vm2/constraining/flavor_macros.hpp"
@@ -54,6 +55,7 @@ class AvmFlavor {
     static constexpr bool USE_SHORT_MONOMIALS = false;
     // This flavor would not be used with ZK Sumcheck
     static constexpr bool HasZK = false;
+    static constexpr size_t TRACE_OFFSET = 0;
     // Padding in Sumcheck and Shplemini
     static constexpr bool USE_PADDING = true;
 
@@ -62,16 +64,6 @@ class AvmFlavor {
     static constexpr size_t NUM_SHIFTED_ENTITIES = AvmFlavorVariables::NUM_SHIFTED_ENTITIES;
     static constexpr size_t NUM_WIRES = AvmFlavorVariables::NUM_WIRES;
     static constexpr size_t NUM_ALL_ENTITIES = AvmFlavorVariables::NUM_ALL_ENTITIES;
-
-    // In the sumcheck univariate computation, we divide the trace in chunks and each chunk is
-    // evenly processed by all the threads. This constant defines the maximum number of rows
-    // that a given thread will process per chunk. This constant is assumed to be a power of 2
-    // greater or equal to 2.
-    // The current constant 32 is the result of time measurements using 16 threads and against
-    // bulk test v2. It was performed at a stage where the trace was not large.
-    // We note that all the experiments with constants below 256 did not exhibit any significant differences.
-    // TODO: Fine-tune the following constant when avm is close to completion.
-    static constexpr size_t MAX_CHUNK_THREAD_PORTION_SIZE = 32;
 
     // Need to be templated for recursive verifier
     template <typename FF_> using MainRelations_ = AvmFlavorVariables::MainRelations_<FF_>;
@@ -102,9 +94,9 @@ class AvmFlavor {
     static constexpr size_t NUM_FRS_COM = FrCodec::calc_num_fields<Commitment>();
     static constexpr size_t NUM_FRS_FR = FrCodec::calc_num_fields<FF>();
 
-    // After any circuit changes, hover `COMPUTED_AVM_PROOF_LENGTH_IN_FIELDS` in your IDE
-    // to see its value and then update `AVM_V2_PROOF_LENGTH_IN_FIELDS` in constants.nr.
-    // This formula must match the serialization in Transcript::serialize_full_transcript().
+    // The formula must match the serialization in Transcript::serialize_full_transcript(). The static_assert below
+    // catches drift between AVM_V2_PROOF_LENGTH_IN_FIELDS (the protocol-shared mirror in constants.nr) and the
+    // computed length. When it fires, follow the diagnostic and run scripts/bump_avm_proof_length.sh.
     static constexpr size_t COMPUTED_AVM_PROOF_LENGTH_IN_FIELDS =
         NUM_WITNESS_ENTITIES * NUM_FRS_COM +                                    // witness commitments
         NUM_ALL_ENTITIES * NUM_FRS_FR +                                         // sumcheck evaluations
@@ -113,24 +105,10 @@ class AvmFlavor {
         MAX_AVM_TRACE_LOG_SIZE * NUM_FRS_FR +                                   // gemini fold evals
         2 * NUM_FRS_COM;                                                        // shplonk + kzg
 
-    static_assert(AVM_V2_PROOF_LENGTH_IN_FIELDS_PADDED >= COMPUTED_AVM_PROOF_LENGTH_IN_FIELDS,
-                  "\n The constant AVM_V2_PROOF_LENGTH_IN_FIELDS_PADDED is now too short\n"
-                  "as is smaller than the real AVM v2 proof. Increase the padded constant \n"
-                  "in constants.nr accordingly.");
-
-    // TODO(#13390): Revive the following code once we freeze the number of colums in AVM.
-    // static_assert(AVM_V2_PROOF_LENGTH_IN_FIELDS == COMPUTED_AVM_PROOF_LENGTH_IN_FIELDS,
-    //               "\nUnexpected AVM V2 proof length. This might be due to some changes in the\n"
-    //               "AVM circuit layout. In this case, modify AVM_V2_PROOF_LENGTH_IN_FIELDS \n"
-    //               "in constants.nr accordingly.");
-
-    // VK is composed of
-    // - NUM_PRECOMPUTED_ENTITIES commitments
-    // TODO(#13390): Revive the following code once we freeze the number of colums in AVM.
-    // static_assert(AVM_V2_VERIFICATION_KEY_LENGTH_IN_FIELDS == NUM_PRECOMPUTED_ENTITIES * NUM_FRS_COM,
-    //               "\nUnexpected AVM V2 VK length. This might be due to some changes in the\n"
-    //               "AVM circuit. In this case, modify AVM_V2_VERIFICATION_KEY_LENGTH_IN_FIELDS \n"
-    //               "in constants.nr accordingly.");
+    static_assert(AVM_V2_PROOF_LENGTH_IN_FIELDS == COMPUTED_AVM_PROOF_LENGTH_IN_FIELDS,
+                  "AVM_V2_PROOF_LENGTH_IN_FIELDS (constants.nr) != COMPUTED_AVM_PROOF_LENGTH_IN_FIELDS. "
+                  "Update AVM_V2_PROOF_LENGTH_IN_FIELDS in constants.nr to the computed value and "
+                  "run barretenberg/cpp/scripts/bump_avm_proof_length.sh.");
 
   public:
     template <typename DataType_> class AllEntities {

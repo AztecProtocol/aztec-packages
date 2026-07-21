@@ -1,0 +1,86 @@
+#!/usr/bin/env bash
+# Execute a test command with proper resource limits and logging.
+# Usage: exec_test <full_cmd>
+#
+# full_cmd format: <hash>[:VAR=val]... <test_command>
+# Output goes to stdout - caller handles redirection.
+#
+# Handles:
+# - Variable extraction (CPUS, TIMEOUT, ISOLATE, etc.)
+# - Log header (Command, Commit, Resources, etc.)
+# - Test execution with taskset/docker_isolate
+# - Timestamps on output
+#
+# Returns: exit code from test
+
+NO_CD=1 source $(git rev-parse --show-toplevel)/ci3/source
+
+full_cmd="$1"
+
+[ -z "$full_cmd" ] && exit 0
+
+# Extract test parameters (hash_prefix, test_cmd, CPUS, TIMEOUT, MEM, etc.)
+source $ci3/source_test_params
+
+# Compute test hash for history tracking
+test_hash=$(hash_str_orig "$test_cmd")
+
+# Print log header
+if [ -n "${PARENT_LOG_ID:-}" ]; then
+  echo -e "Parent Log: $(ci_term_link $PARENT_LOG_ID)"
+fi
+cat <<EOF
+Command: $full_cmd
+Commit: https://github.com/AztecProtocol/aztec-packages/commit/${COMMIT_HASH:-HEAD}
+Env: REF_NAME=${REF_NAME:-} CURRENT_VERSION=${CURRENT_VERSION:-} CI_FULL=${CI_FULL:-} NO_FLAKE=${NO_FLAKE:-}
+Date: $(date)
+System: ARCH=$(arch) CPUS=$(nproc --all) MEM=$(free -h | awk '/^Mem:/{print $2}') HOSTNAME=$(hostname)
+Resources: CPU_LIST=$CPU_LIST CPUS=$CPUS MEM=$MEM TIMEOUT=$TIMEOUT
+History: $DASHBOARD_URL/list/history_$test_hash${TARGET_BRANCH:+_$TARGET_BRANCH}
+
+EOF
+
+# If the test has a verbose mode, we want it enabled.
+export VERBOSE=1
+
+# ELU monitor file path (e2e tests write event loop data here, uploaded after test finishes).
+export ELU_MONITOR_FILE=$HOME/.elu_monitor_$$.log
+
+# Per-test timing file (e2e tests write JSONL here, uploaded to S3 after test finishes).
+# $$ is this exec_test pid, so it is unique per parallel test command.
+export TEST_TIMING_FILE=$HOME/.test_timing_$$.log
+
+# Run the test with timestamps via process substitution (preserves exit code)
+set +e
+if [ "${ISOLATE:-0}" -eq 1 ]; then
+  docker_isolate "timeout -v $TIMEOUT bash -c '$test_cmd'" &> >(add_timestamps)
+else
+  [ "${ONLY_TERM_PARENT:-0}" -eq 1 ] && fg_arg="--foreground"
+  taskset -c $CPU_LIST timeout ${fg_arg:-} -v $TIMEOUT bash -c "$test_cmd" &> >(add_timestamps)
+fi
+code=$?
+set -e
+
+# Upload ELU data if present (written by e2e tests, absent for C++/Rust/Noir).
+if [ -s "$ELU_MONITOR_FILE" ]; then
+  echo "ELU file: $ELU_MONITOR_FILE ($(wc -l < "$ELU_MONITOR_FILE") lines, $(wc -c < "$ELU_MONITOR_FILE") bytes)"
+  cat "$ELU_MONITOR_FILE" | cache_log "elufile:${NAME:-unknown}"
+  rm -f "$ELU_MONITOR_FILE"
+fi
+
+# Upload per-test timing data to S3 if present (written by e2e tests, absent for C++/Rust/Noir).
+# Keyed by the job's CI_LOG_ID (the decimal id in a job's dashboard URL) and the individual test's
+# log id (LOG_ID, passed by run_test_cmd; same id as the test's log at ci.aztec-labs.com/<id>),
+# so a test log maps directly to its timing file.
+# Object lands at s3://aztec-ci-artifacts/logs/test-timings/<CI_LOG_ID>/<LOG_ID>.log.gz (gzipped JSONL).
+if [ -s "$TEST_TIMING_FILE" ]; then
+  if [ -z "${CI_LOG_ID:-}" ] || [ -z "${LOG_ID:-}" ]; then
+    echo "Warning: not uploading test timings; CI_LOG_ID or LOG_ID missing (CI_LOG_ID='${CI_LOG_ID:-}' LOG_ID='${LOG_ID:-}')."
+  else
+    echo "Test timing file: $TEST_TIMING_FILE ($(wc -l <"$TEST_TIMING_FILE") lines, $(wc -c <"$TEST_TIMING_FILE") bytes)"
+    cat "$TEST_TIMING_FILE" | gzip | cache_s3_transfer_to test-timings "${CI_LOG_ID}/${LOG_ID}"
+  fi
+  rm -f "$TEST_TIMING_FILE"
+fi
+
+exit $code

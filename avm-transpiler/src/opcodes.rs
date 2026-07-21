@@ -63,7 +63,7 @@ pub enum AvmOpcode {
     EMITNULLIFIER,
     L1TOL2MSGEXISTS,
     GETCONTRACTINSTANCE,
-    EMITUNENCRYPTEDLOG,
+    EMITPUBLICLOG,
     SENDL2TOL1MSG,
     // External calls
     CALL,
@@ -155,7 +155,7 @@ impl AvmOpcode {
             AvmOpcode::L1TOL2MSGEXISTS => "L1TOL2MSGEXISTS", // Messages
 
             // Accrued Substate
-            AvmOpcode::EMITUNENCRYPTEDLOG => "EMITUNENCRYPTEDLOG",
+            AvmOpcode::EMITPUBLICLOG => "EMITPUBLICLOG",
             AvmOpcode::SENDL2TOL1MSG => "SENDL2TOL1MSG",
             AvmOpcode::GETCONTRACTINSTANCE => "GETCONTRACTINSTANCE",
 

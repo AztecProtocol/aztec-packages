@@ -324,27 +324,19 @@ pub fn brillig_to_avm(brillig_bytecode: &[BrilligOpcode<FieldElement>]) -> (Vec<
                 ));
             }
             BrilligOpcode::ConditionalMov { destination, source_a, source_b, condition } => {
-                // Move source_a to destination, if condition is true jump to the next brillig opcode, else move source_b to destination
-                avm_instrs.push(generate_mov_instruction(
-                    Some(
-                        AddressingModeBuilder::default()
-                            .direct_operand(source_a)
-                            .direct_operand(destination)
-                            .build(),
-                    ),
-                    source_a.to_u32(),
-                    destination.to_u32(),
-                ));
+                // Alias-safe lowering of the atomic `destination = condition ? source_a : source_b`.
+                //
+                //         JUMPI condition, then
+                //         MOV   source_b -> destination   ; false branch
+                //         JUMP  end
+                //   then: MOV   source_a -> destination   ; true branch
+                //   end:  (next brillig opcode)
+                //
+                // `destination` is written exactly once, on the branch actually taken, after
+                // `condition` has been read.
 
-                unresolved_jumps.insert(
-                    UnresolvedPCLocation {
-                        instruction_index: avm_instrs.len(),
-                        immediate_index: 0,
-                    },
-                    Label::BrilligPC { pc: brillig_pcs_to_avm_pcs.len() as u32 }, // We want to jump to the next brillig opcode
-                );
-
-                avm_instrs.push(AvmInstruction {
+                // JUMPI condition, then
+                let mut jumpi = AvmInstruction {
                     opcode: AvmOpcode::JUMPI_32,
                     addressing_mode: Some(
                         AddressingModeBuilder::default().direct_operand(condition).build(),
@@ -352,9 +344,9 @@ pub fn brillig_to_avm(brillig_bytecode: &[BrilligOpcode<FieldElement>]) -> (Vec<
                     operands: vec![make_operand(16, &condition.to_u32())],
                     immediates: vec![make_unresolved_pc()],
                     ..Default::default()
-                });
-
-                avm_instrs.push(generate_mov_instruction(
+                };
+                // MOV source_b -> destination
+                let mov_b = generate_mov_instruction(
                     Some(
                         AddressingModeBuilder::default()
                             .direct_operand(source_b)
@@ -363,7 +355,36 @@ pub fn brillig_to_avm(brillig_bytecode: &[BrilligOpcode<FieldElement>]) -> (Vec<
                     ),
                     source_b.to_u32(),
                     destination.to_u32(),
-                ));
+                );
+                // JUMP end
+                let mut jump_end = AvmInstruction {
+                    opcode: AvmOpcode::JUMP_32,
+                    immediates: vec![make_unresolved_pc()],
+                    ..Default::default()
+                };
+                // MOV source_a -> destination
+                let mov_a = generate_mov_instruction(
+                    Some(
+                        AddressingModeBuilder::default()
+                            .direct_operand(source_a)
+                            .direct_operand(destination)
+                            .build(),
+                    ),
+                    source_a.to_u32(),
+                    destination.to_u32(),
+                );
+
+                // Calculate jump pc targets
+                let then_pc = current_avm_pc + jumpi.size() + mov_b.size() + jump_end.size();
+                let end_pc = then_pc + mov_a.size();
+                // Update immediates with correct jump targets
+                jumpi.immediates = vec![AvmOperand::U32 { value: then_pc as u32 }];
+                jump_end.immediates = vec![AvmOperand::U32 { value: end_pc as u32 }];
+
+                avm_instrs.push(jumpi);
+                avm_instrs.push(mov_b);
+                avm_instrs.push(jump_end);
+                avm_instrs.push(mov_a);
             }
             BrilligOpcode::Load { destination, source_pointer } => {
                 avm_instrs.push(generate_mov_instruction(
@@ -405,7 +426,7 @@ pub fn brillig_to_avm(brillig_bytecode: &[BrilligOpcode<FieldElement>]) -> (Vec<
                     ..Default::default()
                 });
             }
-            BrilligOpcode::Return {} => avm_instrs
+            BrilligOpcode::Return => avm_instrs
                 .push(AvmInstruction { opcode: AvmOpcode::INTERNALRETURN, ..Default::default() }),
             BrilligOpcode::Stop { return_data } => {
                 generate_return_instruction(
@@ -538,38 +559,38 @@ fn handle_foreign_call(
     inputs: &[ValueOrArray],
 ) {
     match function {
-        "avmOpcodeCall" => handle_external_call(avm_instrs, destinations, inputs, AvmOpcode::CALL),
-        "avmOpcodeStaticCall" => {
+        "aztec_avm_call" => handle_external_call(avm_instrs, destinations, inputs, AvmOpcode::CALL),
+        "aztec_avm_staticCall" => {
             handle_external_call(avm_instrs, destinations, inputs, AvmOpcode::STATICCALL);
         }
-        "avmOpcodeEmitUnencryptedLog" => {
-            handle_emit_unencrypted_log(avm_instrs, destinations, inputs);
+        "aztec_avm_emitPublicLog" => {
+            handle_emit_public_log(avm_instrs, destinations, inputs);
         }
-        "avmOpcodeNoteHashExists" => handle_note_hash_exists(avm_instrs, destinations, inputs),
-        "avmOpcodeEmitNoteHash" | "avmOpcodeEmitNullifier" => handle_emit_note_hash_or_nullifier(
-            function == "avmOpcodeEmitNullifier",
+        "aztec_avm_noteHashExists" => handle_note_hash_exists(avm_instrs, destinations, inputs),
+        "aztec_avm_emitNoteHash" | "aztec_avm_emitNullifier" => handle_emit_note_hash_or_nullifier(
+            function == "aztec_avm_emitNullifier",
             avm_instrs,
             destinations,
             inputs,
         ),
-        "avmOpcodeNullifierExists" => handle_nullifier_exists(avm_instrs, destinations, inputs),
-        "avmOpcodeL1ToL2MsgExists" => handle_l1_to_l2_msg_exists(avm_instrs, destinations, inputs),
-        "avmOpcodeSendL2ToL1Msg" => handle_send_l2_to_l1_msg(avm_instrs, destinations, inputs),
-        "avmOpcodeCalldataCopy" => handle_calldata_copy(avm_instrs, destinations, inputs),
-        "avmOpcodeSuccessCopy" => handle_success_copy(avm_instrs, destinations, inputs),
-        "avmOpcodeReturndataSize" => handle_returndata_size(avm_instrs, destinations, inputs),
-        "avmOpcodeReturndataCopy" => handle_returndata_copy(avm_instrs, destinations, inputs),
-        "avmOpcodeReturn" => handle_return(avm_instrs, destinations, inputs),
-        "avmOpcodeRevert" => handle_revert(avm_instrs, destinations, inputs),
-        "avmOpcodeStorageRead" => handle_storage_read(avm_instrs, destinations, inputs),
-        "avmOpcodeStorageWrite" => handle_storage_write(avm_instrs, destinations, inputs),
-        "utilityDebugLog" => handle_debug_log(avm_instrs, destinations, inputs),
+        "aztec_avm_nullifierExists" => handle_nullifier_exists(avm_instrs, destinations, inputs),
+        "aztec_avm_l1ToL2MsgExists" => handle_l1_to_l2_msg_exists(avm_instrs, destinations, inputs),
+        "aztec_avm_sendL2ToL1Msg" => handle_send_l2_to_l1_msg(avm_instrs, destinations, inputs),
+        "aztec_avm_calldataCopy" => handle_calldata_copy(avm_instrs, destinations, inputs),
+        "aztec_avm_successCopy" => handle_success_copy(avm_instrs, destinations, inputs),
+        "aztec_avm_returndataSize" => handle_returndata_size(avm_instrs, destinations, inputs),
+        "aztec_avm_returndataCopy" => handle_returndata_copy(avm_instrs, destinations, inputs),
+        "aztec_avm_return" => handle_return(avm_instrs, destinations, inputs),
+        "aztec_avm_revert" => handle_revert(avm_instrs, destinations, inputs),
+        "aztec_avm_storageRead" => handle_storage_read(avm_instrs, destinations, inputs),
+        "aztec_avm_storageWrite" => handle_storage_write(avm_instrs, destinations, inputs),
+        "aztec_misc_log" => handle_debug_log(avm_instrs, destinations, inputs),
         // Getters.
         _ if inputs.is_empty() && destinations.len() == 1 => {
             handle_getter_instruction(avm_instrs, function, destinations, inputs);
         }
         // Get contract instance variations.
-        _ if function.starts_with("avmOpcodeGetContractInstance") => {
+        _ if function.starts_with("aztec_avm_getContractInstance") => {
             handle_get_contract_instance(avm_instrs, function, destinations, inputs);
         }
         // Anything else.
@@ -580,7 +601,7 @@ fn handle_foreign_call(
 /// Handle an AVM CALL
 /// (an external 'call' brillig foreign call was encountered)
 /// Adds the new instruction to the avm instructions list.
-// #[oracle(avmOpcodeCall)]
+// #[oracle(aztec_avm_call)]
 // unconstrained fn call_opcode<let N: u32>(
 //     l2_gas_allocation: u32,
 //     da_gas_allocation: u32,
@@ -697,14 +718,14 @@ fn handle_note_hash_exists(
     });
 }
 
-fn handle_emit_unencrypted_log(
+fn handle_emit_public_log(
     avm_instrs: &mut Vec<AvmInstruction>,
     destinations: &[ValueOrArray],
     inputs: &[ValueOrArray],
 ) {
     if !destinations.is_empty() || inputs.len() != 2 {
         panic!(
-            "Transpiler expects ForeignCall::EMITUNENCRYPTEDLOG to have 0 destinations and 2 inputs, got {} and {}",
+            "Transpiler expects ForeignCall::EMITPUBLICLOG to have 0 destinations and 2 inputs, got {} and {}",
             destinations.len(),
             inputs.len()
         );
@@ -714,10 +735,10 @@ fn handle_emit_unencrypted_log(
     // The length field is redundant and we skipt it.
     let (message_offset, message_size_offset) = match &inputs[1] {
         ValueOrArray::HeapVector(vec) => (vec.pointer, vec.size),
-        _ => panic!("Unexpected inputs for ForeignCall::EMITUNENCRYPTEDLOG: {:?}", inputs),
+        _ => panic!("Unexpected inputs for ForeignCall::EMITPUBLICLOG: {:?}", inputs),
     };
     avm_instrs.push(AvmInstruction {
-        opcode: AvmOpcode::EMITUNENCRYPTEDLOG,
+        opcode: AvmOpcode::EMITPUBLICLOG,
         // The message array from Brillig is indirect (addressing mode).
         addressing_mode: Some(
             AddressingModeBuilder::default()
@@ -947,18 +968,18 @@ fn handle_getter_instruction(
     };
 
     let var_idx = match function {
-        "avmOpcodeAddress" => EnvironmentVariable::ADDRESS,
-        "avmOpcodeSender" => EnvironmentVariable::SENDER,
-        "avmOpcodeMinFeePerL2Gas" => EnvironmentVariable::MINFEEPERL2GAS,
-        "avmOpcodeMinFeePerDaGas" => EnvironmentVariable::MINFEEPERDAGAS,
-        "avmOpcodeTransactionFee" => EnvironmentVariable::TRANSACTIONFEE,
-        "avmOpcodeChainId" => EnvironmentVariable::CHAINID,
-        "avmOpcodeVersion" => EnvironmentVariable::VERSION,
-        "avmOpcodeBlockNumber" => EnvironmentVariable::BLOCKNUMBER,
-        "avmOpcodeTimestamp" => EnvironmentVariable::TIMESTAMP,
-        "avmOpcodeL2GasLeft" => EnvironmentVariable::L2GASLEFT,
-        "avmOpcodeDaGasLeft" => EnvironmentVariable::DAGASLEFT,
-        "avmOpcodeIsStaticCall" => EnvironmentVariable::ISSTATICCALL,
+        "aztec_avm_address" => EnvironmentVariable::ADDRESS,
+        "aztec_avm_sender" => EnvironmentVariable::SENDER,
+        "aztec_avm_minFeePerL2Gas" => EnvironmentVariable::MINFEEPERL2GAS,
+        "aztec_avm_minFeePerDaGas" => EnvironmentVariable::MINFEEPERDAGAS,
+        "aztec_avm_transactionFee" => EnvironmentVariable::TRANSACTIONFEE,
+        "aztec_avm_chainId" => EnvironmentVariable::CHAINID,
+        "aztec_avm_version" => EnvironmentVariable::VERSION,
+        "aztec_avm_blockNumber" => EnvironmentVariable::BLOCKNUMBER,
+        "aztec_avm_timestamp" => EnvironmentVariable::TIMESTAMP,
+        "aztec_avm_l2GasLeft" => EnvironmentVariable::L2GASLEFT,
+        "aztec_avm_daGasLeft" => EnvironmentVariable::DAGASLEFT,
+        "aztec_avm_isStaticCall" => EnvironmentVariable::ISSTATICCALL,
         _ => panic!("Transpiler doesn't know how to process getter {:?}", function),
     };
 
@@ -1280,32 +1301,26 @@ fn handle_black_box_function(
         BlackBoxOp::EmbeddedCurveAdd {
             input1_x: p1_x_offset,
             input1_y: p1_y_offset,
-            input1_infinite: p1_infinite_offset,
             input2_x: p2_x_offset,
             input2_y: p2_y_offset,
-            input2_infinite: p2_infinite_offset,
             result,
         } => avm_instrs.push(AvmInstruction {
             opcode: AvmOpcode::ECADD,
-            // The result (SIXTH operand) is indirect (addressing mode).
+            // The result (FOURTH operand) is indirect (addressing mode).
             addressing_mode: Some(
                 AddressingModeBuilder::default()
                     .direct_operand(p1_x_offset)
                     .direct_operand(p1_y_offset)
-                    .direct_operand(p1_infinite_offset)
                     .direct_operand(p2_x_offset)
                     .direct_operand(p2_y_offset)
-                    .direct_operand(p2_infinite_offset)
                     .indirect_operand(&result.pointer)
                     .build(),
             ),
             operands: vec![
                 AvmOperand::U16 { value: p1_x_offset.to_u32() as u16 },
                 AvmOperand::U16 { value: p1_y_offset.to_u32() as u16 },
-                AvmOperand::U16 { value: p1_infinite_offset.to_u32() as u16 },
                 AvmOperand::U16 { value: p2_x_offset.to_u32() as u16 },
                 AvmOperand::U16 { value: p2_y_offset.to_u32() as u16 },
-                AvmOperand::U16 { value: p2_infinite_offset.to_u32() as u16 },
                 AvmOperand::U16 { value: result.pointer.to_u32() as u16 },
             ],
             ..Default::default()
@@ -1313,20 +1328,19 @@ fn handle_black_box_function(
 
         BlackBoxOp::MultiScalarMul { points, scalars, outputs } => {
             // The length of the scalars vector is 2x the length of the points vector due to limb
-            // decomposition
-            // Output array is fixed to 3
+            // decomposition. Points are (x, y); the point at infinity is encoded as (0, 0).
             assert_eq!(
                 outputs.size,
-                SemiFlattenedLength(3),
-                "Output array size must be equal to 3"
+                SemiFlattenedLength(2),
+                "Output array size must be equal to 2"
             );
-            assert_eq!(points.size.0 % 3, 0, "Points array size must be divisible by 3");
+            assert_eq!(points.size.0 % 2, 0, "Points array size must be divisible by 2");
 
             avm_instrs.push(generate_mov_to_procedure(&points.pointer, 0));
             avm_instrs.push(generate_mov_to_procedure(&scalars.pointer, 1));
             avm_instrs.push(generate_set_to_procedure(
                 AvmTypeTag::UINT32,
-                &FieldElement::from(points.size.0 / 3),
+                &FieldElement::from(points.size.0 / 2),
                 2,
             ));
             avm_instrs.push(generate_mov_to_procedure(&outputs.pointer, 3));
@@ -1348,8 +1362,8 @@ fn handle_debug_log(
 ) {
     // We need to handle two flavors here:
     //
-    // #[oracle(utilityDebugLog)]
-    // unconstrained fn debug_log_array_oracle<let M: u32, let N: u32>(
+    // #[oracle(aztec_misc_log)]
+    // unconstrained fn log_oracle<let M: u32, let N: u32>(
     //     log_level: u8,
     //     msg: str<M>,
     //     length: u32,
@@ -1358,8 +1372,8 @@ fn handle_debug_log(
     //
     // and
     //
-    //#[oracle(utilityDebugLog)]
-    // unconstrained fn debug_log_slice_oracle<let M: u32>(log_level: u8, msg: str<M>, args: [Field]) {}
+    //#[oracle(aztec_misc_log)]
+    // unconstrained fn log_slice_oracle<let M: u32>(log_level: u8, msg: str<M>, args: [Field]) {}
     //
     // Luckily, these two flavors have both 4 arguments, since noir inserts a length field for slices before the slice.
     // So we can handle both cases with mostly the same code.
@@ -1420,7 +1434,7 @@ fn handle_debug_log(
     });
 }
 
-// #[oracle(avmOpcodeCalldataCopy)]
+// #[oracle(aztec_avm_calldataCopy)]
 // unconstrained fn calldata_copy_opcode<let N: u32>(cdoffset: Field) -> [Field; N] {}
 fn handle_calldata_copy(
     avm_instrs: &mut Vec<AvmInstruction>,
@@ -1463,7 +1477,7 @@ fn handle_calldata_copy(
     });
 }
 
-// #[oracle(avmOpcodeReturndataSize)]
+// #[oracle(aztec_avm_returndataSize)]
 // unconstrained fn returndata_size_opcode() -> u32 {}
 fn handle_returndata_size(
     avm_instrs: &mut Vec<AvmInstruction>,
@@ -1488,7 +1502,7 @@ fn handle_returndata_size(
     });
 }
 
-// #[oracle(avmOpcodeReturndataCopy)]
+// #[oracle(aztec_avm_returndataCopy)]
 // unconstrained fn returndata_copy_opcode(rdoffset: u32, copy_size: u32) -> [Field] {}
 fn handle_returndata_copy(
     avm_instrs: &mut Vec<AvmInstruction>,
@@ -1546,7 +1560,7 @@ fn handle_returndata_copy(
     ]);
 }
 
-// #[oracle(avmOpcodeReturn)]
+// #[oracle(aztec_avm_return)]
 // unconstrained fn return_opcode<let N: u32>(returndata: [Field; N]) {}
 fn handle_return(
     avm_instrs: &mut Vec<AvmInstruction>,
@@ -1565,7 +1579,7 @@ fn handle_return(
     generate_return_instruction(avm_instrs, &return_data_offset, &return_data_size);
 }
 
-// #[oracle(avmOpcodeRevert)]
+// #[oracle(aztec_avm_revert)]
 // unconstrained fn revert_opcode(revertdata: [Field]) {}
 fn handle_revert(
     avm_instrs: &mut Vec<AvmInstruction>,
@@ -1634,15 +1648,17 @@ fn handle_get_contract_instance(
         DEPLOYER,
         CLASS_ID,
         INIT_HASH,
+        IMMUTABLES_HASH,
     }
 
     assert_eq!(inputs.len(), 1);
     assert_eq!(destinations.len(), 1);
 
     let member_idx = match function {
-        "avmOpcodeGetContractInstanceDeployer" => ContractInstanceMember::DEPLOYER,
-        "avmOpcodeGetContractInstanceClassId" => ContractInstanceMember::CLASS_ID,
-        "avmOpcodeGetContractInstanceInitializationHash" => ContractInstanceMember::INIT_HASH,
+        "aztec_avm_getContractInstanceDeployer" => ContractInstanceMember::DEPLOYER,
+        "aztec_avm_getContractInstanceClassId" => ContractInstanceMember::CLASS_ID,
+        "aztec_avm_getContractInstanceInitializationHash" => ContractInstanceMember::INIT_HASH,
+        "aztec_avm_getContractInstanceImmutablesHash" => ContractInstanceMember::IMMUTABLES_HASH,
         _ => panic!("Transpiler doesn't know how to process function {:?}", function),
     };
 
@@ -1767,7 +1783,7 @@ fn tag_from_bit_size(bit_size: BitSize) -> AvmTypeTag {
     }
 }
 
-/// #[oracle(avmOpcodeSuccessCopy)]
+/// #[oracle(aztec_avm_successCopy)]
 /// unconstrained fn success_copy_opcode() -> bool {}
 fn handle_success_copy(
     avm_instrs: &mut Vec<AvmInstruction>,

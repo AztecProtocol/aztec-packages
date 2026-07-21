@@ -1,5 +1,6 @@
 import { build as buildPrettyStream } from 'pino-pretty';
 import { Writable } from 'stream';
+import { inspect } from 'util';
 
 import {
   createLogger,
@@ -188,6 +189,120 @@ describe('pino-logger', () => {
     });
   });
 
+  it('converts bigints to strings recursively ', () => {
+    const testLogger = createLogger('bigint-test');
+    capturingStream.clear();
+
+    testLogger.info('comprehensive bigint conversion', {
+      // Top-level bigints
+      amount: 123456789012345678901234n,
+      slot: 42n,
+      // Nested objects
+      nested: {
+        value: 999999999999999999n,
+        deepNested: {
+          id: 12345678901234567890n,
+        },
+      },
+      // Arrays with bigints
+      array: [1n, 2n, 3n],
+      mixedArray: [{ id: 999n }, { id: 888n }],
+      // Mixed types
+      numberValue: 123,
+      stringValue: 'test',
+      boolValue: true,
+      nullValue: null,
+    });
+
+    const entries = capturingStream.getJsonLines();
+    expect(entries).toHaveLength(1);
+    expect(entries[0]).toMatchObject({
+      module: 'bigint-test',
+      msg: 'comprehensive bigint conversion',
+      // All bigints converted to strings
+      amount: '123456789012345678901234',
+      slot: '42',
+      nested: {
+        value: '999999999999999999',
+        deepNested: {
+          id: '12345678901234567890',
+        },
+      },
+      array: ['1', '2', '3'],
+      mixedArray: [{ id: '999' }, { id: '888' }],
+      // Other types preserved
+      numberValue: 123,
+      stringValue: 'test',
+      boolValue: true,
+      nullValue: null,
+    });
+  });
+
+  it('does not mutate the original log data object', () => {
+    const testLogger = createLogger('mutation-test');
+    capturingStream.clear();
+
+    const originalData = {
+      amount: 123456789012345678901234n,
+      nested: {
+        value: 999n,
+      },
+      array: [1n, 2n, 3n],
+    };
+
+    // Keep references to verify mutation
+    const originalAmount = originalData.amount;
+    const originalNestedValue = originalData.nested.value;
+    const originalArrayItem = originalData.array[0];
+
+    testLogger.info('mutation test', originalData);
+
+    // Verify the original object was NOT mutated
+    expect(originalData.amount).toBe(originalAmount);
+    expect(typeof originalData.amount).toBe('bigint');
+    expect(originalData.nested.value).toBe(originalNestedValue);
+    expect(typeof originalData.nested.value).toBe('bigint');
+    expect(originalData.array[0]).toBe(originalArrayItem);
+    expect(typeof originalData.array[0]).toBe('bigint');
+
+    // But the logged version should have strings
+    const entries = capturingStream.getJsonLines();
+    expect(entries[0]).toMatchObject({
+      amount: '123456789012345678901234',
+      nested: { value: '999' },
+      array: ['1', '2', '3'],
+    });
+  });
+
+  it('serializes objects with toJSON() instead of dumping raw properties', () => {
+    const testLogger = createLogger('tojson-test');
+    capturingStream.clear();
+
+    // Simulate an EthAddress-like object with an internal buffer and a toJSON method
+    const addressLike = {
+      buffer: Buffer.from('1234567890abcdef1234567890abcdef12345678', 'hex'),
+      toJSON() {
+        return '0x1234567890abcdef1234567890abcdef12345678';
+      },
+    };
+
+    testLogger.info('address logging test', {
+      validator: addressLike,
+      nested: { addr: addressLike },
+      array: [addressLike],
+      plainString: 'hello',
+    });
+
+    const entries = capturingStream.getJsonLines();
+    expect(entries).toHaveLength(1);
+    expect(entries[0]).toMatchObject({
+      validator: '0x1234567890abcdef1234567890abcdef12345678',
+      nested: { addr: '0x1234567890abcdef1234567890abcdef12345678' },
+      array: ['0x1234567890abcdef1234567890abcdef12345678'],
+      plainString: 'hello',
+    });
+  });
+
   it('returns bindings via getBindings', () => {
     const testLogger = createLogger('bindings-test', { actor: 'main', instanceId: 'id-123' });
     const bindings = testLogger.getBindings();
@@ -195,6 +310,63 @@ describe('pino-logger', () => {
     expect(bindings).toEqual({
       actor: 'main',
       instanceId: 'id-123',
+    });
+  });
+
+  describe('formatErr via error logging', () => {
+    it('formats error using inspect by default', () => {
+      const testLogger = createLogger('format-err-default');
+      capturingStream.clear();
+
+      const err = new Error('something broke');
+      testLogger.error('operation failed', err);
+
+      const entries = capturingStream.getJsonLines();
+      expect(entries).toHaveLength(1);
+      const msg = (entries[0] as { msg: string }).msg;
+      // inspect formats errors with full stack trace
+      expect(msg).toMatch(/^operation failed: Error: something broke\n\s+at/);
+    });
+
+    it('falls back to Error name and message when inspect throws', () => {
+      const testLogger = createLogger('format-err-test');
+      capturingStream.clear();
+
+      // An Error with a custom inspect that throws triggers the first catch
+      const err = new Error('original message');
+      (err as unknown as Record<symbol, () => void>)[inspect.custom] = () => {
+        throw new Error('custom inspect broke');
+      };
+
+      testLogger.error('something failed', err);
+
+      const entries = capturingStream.getJsonLines();
+      expect(entries).toHaveLength(1);
+      expect((entries[0] as { msg: string }).msg).toBe('something failed: Error: original message');
+    });
+
+    it('returns unserializable error when both inspect and String throw', () => {
+      const testLogger = createLogger('unserializable-test');
+      capturingStream.clear();
+
+      // An object where inspect(), toString(), and String() all throw
+      const unserializable = {
+        [inspect.custom]() {
+          throw new Error('custom inspect broke');
+        },
+        toString() {
+          throw new Error('toString broke');
+        },
+        [Symbol.toPrimitive]() {
+          throw new Error('toPrimitive broke');
+        },
+      };
+
+      testLogger.error('total failure', unserializable);
+
+      const entries = capturingStream.getJsonLines();
+      expect(entries).toHaveLength(1);
+      expect((entries[0] as { msg: string }).msg).toBe('total failure: [unserializable error]');
     });
   });
 

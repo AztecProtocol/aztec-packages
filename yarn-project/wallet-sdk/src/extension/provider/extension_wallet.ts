@@ -2,11 +2,21 @@ import type { ChainInfo } from '@aztec/aztec.js/account';
 import { type Wallet, WalletSchema } from '@aztec/aztec.js/wallet';
 import { jsonStringify } from '@aztec/foundation/json-rpc';
 import { type PromiseWithResolvers, promiseWithResolvers } from '@aztec/foundation/promise';
-import { schemaHasMethod } from '@aztec/foundation/schemas';
+import { getSchemaReturnType, schemaHasMethod } from '@aztec/foundation/schemas';
 import type { FunctionsOf } from '@aztec/foundation/types';
 
 import { type EncryptedPayload, decrypt, encrypt } from '../../crypto.js';
-import { type WalletMessage, WalletMessageType, type WalletResponse } from '../../types.js';
+import {
+  DEFAULT_HEARTBEAT_DEAD_AFTER_MS,
+  DEFAULT_HEARTBEAT_INTERVAL_MS,
+  type DisconnectCallback,
+  type HeartbeatOptions,
+  NOOP_LOGGER,
+  type WalletMessage,
+  WalletMessageType,
+  type WalletResponse,
+  type WalletSdkLogger,
+} from '../../types.js';
 
 /**
  * Internal type representing a wallet method call before encryption.
@@ -18,11 +28,6 @@ type WalletMethodCall = {
   /** Arguments to pass to the wallet method */
   args: unknown[];
 };
-
-/**
- * Callback type for wallet disconnect events.
- */
-export type DisconnectCallback = () => void;
 
 /**
  * A wallet implementation that communicates with browser extension wallets
@@ -60,6 +65,11 @@ export class ExtensionWallet {
   private inFlight = new Map<string, PromiseWithResolvers<unknown>>();
   private disconnected = false;
   private disconnectCallbacks: DisconnectCallback[] = [];
+  private heartbeatTimer: ReturnType<typeof setInterval> | null = null;
+  private lastInboundAt = 0;
+  private log: WalletSdkLogger;
+  private heartbeatIntervalMs: number;
+  private heartbeatDeadAfterMs: number;
 
   /**
    * Private constructor - use {@link ExtensionWallet.create} to instantiate.
@@ -68,6 +78,8 @@ export class ExtensionWallet {
    * @param extensionId - The unique identifier of the target wallet extension
    * @param port - The MessagePort for private communication with the wallet
    * @param sharedKey - The derived AES-256-GCM shared key for encryption
+   * @param logger - Optional logger; defaults to a no-op logger
+   * @param heartbeatOptions - Optional heartbeat tuning (mostly useful for tests)
    */
   private constructor(
     private chainInfo: ChainInfo,
@@ -75,7 +87,13 @@ export class ExtensionWallet {
     private extensionId: string,
     private port: MessagePort,
     private sharedKey: CryptoKey,
-  ) {}
+    logger?: WalletSdkLogger,
+    heartbeatOptions?: HeartbeatOptions,
+  ) {
+    this.log = logger ?? NOOP_LOGGER;
+    this.heartbeatIntervalMs = heartbeatOptions?.intervalMs ?? DEFAULT_HEARTBEAT_INTERVAL_MS;
+    this.heartbeatDeadAfterMs = heartbeatOptions?.deadAfterMs ?? DEFAULT_HEARTBEAT_DEAD_AFTER_MS;
+  }
 
   /**
    * Creates a Wallet that communicates with a browser extension
@@ -86,6 +104,8 @@ export class ExtensionWallet {
    * @param sharedKey - The derived AES-256-GCM shared key for encryption
    * @param chainInfo - The chain information (chainId and version) for request context
    * @param appId - Application identifier used to identify the requesting dApp to the wallet
+   * @param logger - Optional logger; defaults to a no-op logger to keep extension/page bundles small
+   * @param heartbeatOptions - Optional override for heartbeat tuning (mostly useful for tests)
    * @returns A Wallet interface where all method calls are encrypted
    *
    * @example
@@ -109,13 +129,17 @@ export class ExtensionWallet {
     sharedKey: CryptoKey,
     chainInfo: ChainInfo,
     appId: string,
-  ): Wallet {
-    const wallet = new ExtensionWallet(chainInfo, appId, extensionId, port, sharedKey);
+    logger?: WalletSdkLogger,
+    heartbeatOptions?: HeartbeatOptions,
+  ): ExtensionWallet {
+    const wallet = new ExtensionWallet(chainInfo, appId, extensionId, port, sharedKey, logger, heartbeatOptions);
 
     // Set up message handler for encrypted responses and unencrypted control messages
     wallet.port.onmessage = (event: MessageEvent) => {
       const data = event.data;
-      // Check for unencrypted disconnect notification
+      // Any inbound traffic counts as proof of liveness.
+      wallet.lastInboundAt = Date.now();
+
       if (data && typeof data === 'object' && 'type' in data && data.type === WalletMessageType.DISCONNECT) {
         wallet.handleDisconnect();
         return;
@@ -127,20 +151,28 @@ export class ExtensionWallet {
     wallet.port.start();
 
     return new Proxy(wallet, {
-      get: (target, prop) => {
-        if (schemaHasMethod(WalletSchema, prop.toString())) {
+      get: (target, prop, receiver) => {
+        if (prop === 'asWallet') {
+          return () => receiver as unknown as Wallet;
+        } else if (schemaHasMethod(WalletSchema, prop.toString())) {
           return async (...args: unknown[]) => {
             const result = await target.postMessage({
               type: prop.toString() as keyof FunctionsOf<Wallet>,
               args,
             });
-            return WalletSchema[prop.toString() as keyof typeof WalletSchema].returnType().parseAsync(result);
+            return getSchemaReturnType(WalletSchema[prop.toString() as keyof typeof WalletSchema]).parseAsync(result);
           };
         } else {
           return target[prop as keyof ExtensionWallet];
         }
       },
-    }) as unknown as Wallet;
+    });
+  }
+
+  asWallet(): Wallet {
+    // Overridden by the proxy in create() to return the proxy itself.
+    // This body is never reached when accessed through create().
+    return this as unknown as Wallet;
   }
 
   /**
@@ -181,8 +213,10 @@ export class ExtensionWallet {
         resolve(result);
       }
       this.inFlight.delete(messageId);
-      // eslint-disable-next-line no-empty
-    } catch {}
+      this.maybeStopHeartbeat();
+    } catch (err) {
+      this.log.warn('Failed to decrypt wallet response', { err });
+    }
   }
 
   /**
@@ -220,7 +254,57 @@ export class ExtensionWallet {
 
     const { promise, resolve, reject } = promiseWithResolvers<unknown>();
     this.inFlight.set(messageId, { promise, resolve, reject });
+    this.startHeartbeat();
     return promise;
+  }
+
+  /**
+   * Start the heartbeat probe loop while at least one request is in flight.
+   * Idempotent — calling while already running is a no-op.
+   *
+   * Heartbeat is opt-in via wire protocol: PINGs are unencrypted control messages
+   * (like DISCONNECT). Older wallets that do not understand PING simply drop it,
+   * which is safe — we only declare disconnect when **no** inbound traffic of any
+   * kind (PONG, encrypted response, DISCONNECT) arrives within the dead window.
+   * A wallet that is processing a slow request will reset the timer when it
+   * eventually responds, so this never causes false disconnects on legacy peers.
+   */
+  private startHeartbeat(): void {
+    if (this.heartbeatTimer !== null || this.disconnected) {
+      return;
+    }
+    this.lastInboundAt = Date.now();
+    this.heartbeatTimer = setInterval(() => this.heartbeatTick(), this.heartbeatIntervalMs);
+  }
+
+  private maybeStopHeartbeat(): void {
+    if (this.inFlight.size === 0 && this.heartbeatTimer !== null) {
+      clearInterval(this.heartbeatTimer);
+      this.heartbeatTimer = null;
+    }
+  }
+
+  private heartbeatTick(): void {
+    if (this.disconnected || this.inFlight.size === 0) {
+      this.maybeStopHeartbeat();
+      return;
+    }
+
+    const idleMs = Date.now() - this.lastInboundAt;
+    if (idleMs >= this.heartbeatDeadAfterMs) {
+      this.log.warn('Wallet channel unresponsive — declaring disconnect', {
+        idleMs,
+        inFlight: this.inFlight.size,
+      });
+      this.handleDisconnect();
+      return;
+    }
+
+    try {
+      this.port.postMessage({ type: WalletMessageType.PING });
+    } catch (err) {
+      this.log.warn('Failed to send heartbeat PING', { err });
+    }
   }
 
   /**
@@ -233,6 +317,11 @@ export class ExtensionWallet {
       return;
     }
     this.disconnected = true;
+
+    if (this.heartbeatTimer !== null) {
+      clearInterval(this.heartbeatTimer);
+      this.heartbeatTimer = null;
+    }
 
     if (this.port) {
       this.port.onmessage = null;

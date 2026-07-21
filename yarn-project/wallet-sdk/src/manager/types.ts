@@ -96,6 +96,7 @@ export interface WalletProvider {
    * matches their wallet before calling `confirm()`.
    *
    * @param appId - Application identifier for the requesting dapp
+   * @param options - Optional provider-specific options (e.g. container element for iframe wallets)
    * @returns A pending connection with verification hash and confirm/cancel methods
    *
    * @example
@@ -110,24 +111,24 @@ export interface WalletProvider {
    * const wallet = await pending.confirm();
    * ```
    */
-  establishSecureChannel(appId: string): Promise<PendingConnection>;
+  establishSecureChannel(appId: string, options?: Record<string, unknown>): Promise<PendingConnection>;
   /**
    * Disconnects the current wallet and cleans up resources.
    * After calling this, the wallet returned from confirm() should no longer be used.
    * @returns A promise that resolves when disconnection is complete
    */
-  disconnect?(): Promise<void>;
+  disconnect(): Promise<void>;
   /**
    * Registers a callback to be invoked when the wallet disconnects unexpectedly.
    * @param callback - Function to call when wallet disconnects
    * @returns A function to unregister the callback
    */
-  onDisconnect?(callback: ProviderDisconnectionCallback): () => void;
+  onDisconnect(callback: ProviderDisconnectionCallback): () => void;
   /**
    * Returns whether the provider's wallet connection has been disconnected.
    * @returns true if the wallet is no longer connected
    */
-  isDisconnected?(): boolean;
+  isDisconnected(): boolean;
 }
 
 /**

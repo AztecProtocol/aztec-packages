@@ -63,6 +63,7 @@ function generateProtocolContractArtifact(input: ContractArtifact): string {
 
   return `{
   name: '${input.name}',
+  aztecVersion: '${input.aztecVersion}',
   functions: [
     ${functionsArray}
   ],
@@ -99,7 +100,7 @@ import { FunctionType } from '@aztec/stdlib/abi';
 
 import type { ContractArtifact } from '../../api/abi.js';
 import { PublicKeys } from '../../api/keys.js';
-import type { AztecAddressLike, EthAddressLike, FieldLike, FunctionSelectorLike, WrappedFieldLike } from '../../utils/abi_types.js';
+import type { AztecAddressLike, EthAddressLike, FieldLike, FunctionSelectorLike, OptionLike, WrappedFieldLike } from '../../utils/abi_types.js';
 import { ContractBase, type ContractMethod } from '../contract_base.js';
 import { ContractFunctionInteraction } from '../contract_function_interaction.js';
 import type { Wallet } from '../../wallet/wallet.js';

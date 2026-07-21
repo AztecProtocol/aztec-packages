@@ -14,6 +14,7 @@
  * @param argv The argument values array
  * @return int Status code: 0 for success, non-zero for errors or verification failure
  */
+#include "barretenberg/api/api_acir.hpp"
 #include "barretenberg/api/api_avm.hpp"
 #include "barretenberg/api/api_chonk.hpp"
 #include "barretenberg/api/api_msgpack.hpp"
@@ -26,8 +27,11 @@
 #include "barretenberg/bbapi/bbapi_ultra_honk.hpp"
 #include "barretenberg/bbapi/c_bind.hpp"
 #include "barretenberg/common/bb_bench.hpp"
+#include "barretenberg/common/get_bytecode.hpp"
+#include "barretenberg/common/memory_profile.hpp"
 #include "barretenberg/common/thread.hpp"
 #include "barretenberg/common/version.hpp"
+#include "barretenberg/dsl/acir_format/serde/index.hpp"
 #include "barretenberg/srs/factories/native_crs_factory.hpp"
 #include "barretenberg/srs/global_crs.hpp"
 #include "barretenberg/vm2/api_avm.hpp"
@@ -340,6 +344,18 @@ int parse_and_run_cli_command(int argc, char* argv[])
             ->group(advanced_group);
     };
 
+    const auto add_circuit_kind_option = [&](CLI::App* subcommand) {
+        return subcommand
+            ->add_option("--circuit_kind",
+                         flags.circuit_kind,
+                         "Chonk-only: which Mega flavor to derive the VK against. One of: "
+                         "'app' (MegaAppFlavor), 'kernel' (MegaKernelFlavor), 'hiding' (MegaZKFlavor "
+                         "for the IVC hiding kernel). Required for `bb write_vk --scheme chonk` — the "
+                         "caller must know the kind because it determines the VK shape.")
+            ->check(CLI::IsMember({ "app", "kernel", "hiding" }).name("is_member"))
+            ->group(advanced_group);
+    };
+
     const auto add_optimized_solidity_verifier_flag = [&](CLI::App* subcommand) {
         return subcommand->add_flag(
             "--optimized", flags.optimized_solidity_verifier, "Use the optimized Solidity verifier.");
@@ -376,6 +392,36 @@ int parse_and_run_cli_command(int argc, char* argv[])
                          "parent-child relationships) as json.")
             ->group(advanced_group);
     };
+    std::string memory_profile_out;
+    const auto add_memory_profile_out_option = [&](CLI::App* subcommand) {
+        return subcommand
+            ->add_option("--memory_profile_out",
+                         memory_profile_out,
+                         "Path to write memory profile data (polynomial breakdown by category, RSS "
+                         "checkpoints, CRS size) as json.")
+            ->group(advanced_group);
+    };
+
+    std::string trace_out_perfetto;
+    const auto add_trace_out_perfetto_option = [&](CLI::App* subcommand) {
+        return subcommand
+            ->add_option("--trace_out_perfetto",
+                         trace_out_perfetto,
+                         "Path to write a Chrome Trace Event Format JSON of every instrumented "
+                         "BB_BENCH scope (per-call timeline). Drop the file into ui.perfetto.dev "
+                         "or chrome://tracing.")
+            ->group(advanced_group);
+    };
+    std::string trace_out_perfetto_aggregate;
+    const auto add_trace_out_perfetto_aggregate_option = [&](CLI::App* subcommand) {
+        return subcommand
+            ->add_option("--trace_out_perfetto_aggregate",
+                         trace_out_perfetto_aggregate,
+                         "Path to write a synthesized Chrome Trace Event Format JSON derived from the "
+                         "aggregate stats. Smaller than --trace_out_perfetto but lossy about individual "
+                         "call timing.")
+            ->group(advanced_group);
+    };
 
     /***************************************************************************************************************
      * Top-level flags
@@ -393,6 +439,23 @@ int parse_and_run_cli_command(int argc, char* argv[])
      * Flag: --help-extended (register with CLI11)
      ***************************************************************************************************************/
     app.add_flag("--help-extended", "Show all options including advanced and Aztec-specific commands.");
+
+    /***************************************************************************************************************
+     * Subcommand: acir_roundtrip
+     ***************************************************************************************************************/
+    std::filesystem::path acir_roundtrip_output_path;
+    CLI::App* acir_roundtrip_cmd =
+        app.add_subcommand("acir_roundtrip",
+                           "[Internal testing] Deserialize an ACIR program from bytecode (msgpack), "
+                           "re-serialize it back to msgpack, and write it to an output JSON file "
+                           "in nargo-compatible format. Functional equivalence should then be verified "
+                           "externally (e.g. by proving with the roundtripped bytecode).");
+
+    acir_roundtrip_cmd->group(aztec_internal_group);
+    add_bytecode_path_option(acir_roundtrip_cmd);
+    acir_roundtrip_cmd
+        ->add_option("--output_path,-o", acir_roundtrip_output_path, "Output path for the roundtripped bytecode JSON.")
+        ->required();
 
     /***************************************************************************************************************
      * Subcommand: check
@@ -451,6 +514,9 @@ int parse_and_run_cli_command(int argc, char* argv[])
     add_print_bench_flag(prove);
     add_bench_out_option(prove);
     add_bench_out_hierarchical_option(prove);
+    add_memory_profile_out_option(prove);
+    add_trace_out_perfetto_option(prove);
+    add_trace_out_perfetto_aggregate_option(prove);
     add_storage_budget_option(prove);
     add_output_format_option(prove);
 
@@ -479,6 +545,7 @@ int parse_and_run_cli_command(int argc, char* argv[])
     add_ipa_accumulation_flag(write_vk);
     remove_zk_option(write_vk);
     add_output_format_option(write_vk);
+    add_circuit_kind_option(write_vk);
 
     /***************************************************************************************************************
      * Subcommand: verify
@@ -498,6 +565,32 @@ int parse_and_run_cli_command(int argc, char* argv[])
     add_oracle_hash_option(verify);
     remove_zk_option(verify);
     add_ipa_accumulation_flag(verify);
+
+    /***************************************************************************************************************
+     * Subcommand: batch_verify
+     ***************************************************************************************************************/
+    std::filesystem::path batch_verify_proofs_dir{ "./proofs" };
+    CLI::App* batch_verify =
+        app.add_subcommand("batch_verify", "Batch-verify multiple Chonk proofs with batched IPA SRS MSMs.");
+
+    add_help_extended_flag(batch_verify);
+    add_scheme_option(batch_verify);
+    batch_verify->add_option("--proofs_dir", batch_verify_proofs_dir, "Directory containing proof_N/vk_N pairs.");
+    add_verbose_flag(batch_verify);
+    add_debug_flag(batch_verify);
+    add_crs_path_option(batch_verify);
+
+    /***************************************************************************************************************
+     * Subcommand: proof_stats
+     ***************************************************************************************************************/
+    CLI::App* proof_stats =
+        app.add_subcommand("proof_stats", "Output proof statistics (compressed size, number of public inputs).");
+
+    add_help_extended_flag(proof_stats);
+    add_scheme_option(proof_stats);
+    add_proof_path_option(proof_stats);
+    add_output_path_option(proof_stats, output_path);
+    add_verbose_flag(proof_stats);
 
     /***************************************************************************************************************
      * Subcommand: write_solidity_verifier
@@ -754,9 +847,18 @@ int parse_and_run_cli_command(int argc, char* argv[])
     if (!flags.storage_budget.empty()) {
         storage_budget = parse_size_string(flags.storage_budget);
     }
-    if (print_bench || !bench_out.empty() || !bench_out_hierarchical.empty()) {
+    if (!memory_profile_out.empty()) {
+        bb::detail::use_memory_profile = true;
+        vinfo("Memory profiling enabled via --memory_profile_out");
+    }
+    if (print_bench || !bench_out.empty() || !bench_out_hierarchical.empty() || !trace_out_perfetto.empty() ||
+        !trace_out_perfetto_aggregate.empty()) {
         bb::detail::use_bb_bench = true;
-        vinfo("BB_BENCH enabled via --print_bench or --bench_out");
+        vinfo("BB_BENCH enabled via --print_bench / --bench_out / --trace_out_perfetto");
+    }
+    if (!trace_out_perfetto.empty()) {
+        bb::detail::capture_per_call_events.store(true);
+        vinfo("Per-call BB_BENCH event capture enabled via --trace_out_perfetto");
     }
 #endif
 
@@ -803,6 +905,12 @@ int parse_and_run_cli_command(int argc, char* argv[])
     };
 
     try {
+        // ACIR roundtrip (internal testing)
+        if (acir_roundtrip_cmd->parsed()) {
+            acir_roundtrip(bytecode_path, acir_roundtrip_output_path);
+            return 0;
+        }
+
         // MSGPACK
         if (msgpack_schema_command->parsed()) {
             std::cout << bbapi::get_msgpack_schema_as_json() << std::endl;
@@ -918,7 +1026,22 @@ int parse_and_run_cli_command(int argc, char* argv[])
                     std::ofstream file(bench_out_hierarchical);
                     bb::detail::GLOBAL_BENCH_STATS.serialize_aggregate_data_json(file);
                 }
+                if (!trace_out_perfetto.empty()) {
+                    std::ofstream file(trace_out_perfetto);
+                    bb::detail::GLOBAL_BENCH_STATS.serialize_trace_events_json(file);
+                    vinfo("Perfetto per-call trace written to ", trace_out_perfetto);
+                }
+                if (!trace_out_perfetto_aggregate.empty()) {
+                    std::ofstream file(trace_out_perfetto_aggregate);
+                    bb::detail::GLOBAL_BENCH_STATS.serialize_aggregate_trace_json(file);
+                    vinfo("Perfetto aggregate trace written to ", trace_out_perfetto_aggregate);
+                }
 #endif
+                if (!memory_profile_out.empty()) {
+                    std::ofstream file(memory_profile_out);
+                    bb::detail::GLOBAL_MEMORY_PROFILE.serialize_json(file);
+                    vinfo("Memory profile written to ", memory_profile_out);
+                }
                 return 0;
             }
             if (check->parsed()) {
@@ -927,6 +1050,15 @@ int parse_and_run_cli_command(int argc, char* argv[])
                                    "<ivc-inputs.msgpack> (default ./ivc-inputs.msgpack)");
                 }
                 return api.check_precomputed_vks(flags, ivc_inputs_path) ? 0 : 1;
+            }
+            if (batch_verify->parsed()) {
+                const bool verified = api.batch_verify(flags, batch_verify_proofs_dir);
+                vinfo("batch verified: ", verified);
+                return verified ? 0 : 1;
+            }
+            if (proof_stats->parsed()) {
+                api.proof_stats(proof_path, output_path);
+                return 0;
             }
             return execute_non_prove_command(api);
         } else if (flags.scheme == "ultra_honk") {
@@ -944,6 +1076,16 @@ int parse_and_run_cli_command(int argc, char* argv[])
                 if (!bench_out_hierarchical.empty()) {
                     std::ofstream file(bench_out_hierarchical);
                     bb::detail::GLOBAL_BENCH_STATS.serialize_aggregate_data_json(file);
+                }
+                if (!trace_out_perfetto.empty()) {
+                    std::ofstream file(trace_out_perfetto);
+                    bb::detail::GLOBAL_BENCH_STATS.serialize_trace_events_json(file);
+                    vinfo("Perfetto per-call trace written to ", trace_out_perfetto);
+                }
+                if (!trace_out_perfetto_aggregate.empty()) {
+                    std::ofstream file(trace_out_perfetto_aggregate);
+                    bb::detail::GLOBAL_BENCH_STATS.serialize_aggregate_trace_json(file);
+                    vinfo("Perfetto aggregate trace written to ", trace_out_perfetto_aggregate);
                 }
 #endif
                 return 0;

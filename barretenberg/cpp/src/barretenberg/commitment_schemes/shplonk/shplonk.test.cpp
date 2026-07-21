@@ -74,24 +74,25 @@ TYPED_TEST(ShplonkTest, ExportBatchClaimAndVerify)
     // Shplonk verification
     auto verifier_transcript = NativeTranscript::test_verifier_init_empty(prover_transcript);
 
-    // Execute the shplonk verifier functionality
     auto verifier_opening_claims = ClaimData::verifier_opening_claims(setup);
-    auto verifier = ShplonkVerifier::reduce_verification_no_finalize(verifier_opening_claims, verifier_transcript);
-
-    // Export batch opening claim
-    auto batched_verifier_claim = verifier.export_batch_opening_claim(this->vk().get_g1_identity());
 
     if constexpr (std::is_same_v<TypeParam, curve::BN254>) {
+        // Execute the shplonk verifier functionality lazily and export the batch opening claim
+        auto verifier = ShplonkVerifier::reduce_verification_no_finalize(verifier_opening_claims, verifier_transcript);
+        auto batched_verifier_claim = verifier.export_batch_opening_claim(this->vk().get_g1_identity());
+
         // KZG verifier
         auto final_proof_points = KZG<curve::BN254>::reduce_verify_batch_opening_claim(
             std::move(batched_verifier_claim), verifier_transcript);
-        ASSERT_TRUE(this->vk().pairing_check(final_proof_points[0], final_proof_points[1]));
+        ASSERT_TRUE(final_proof_points.check());
     } else {
-        // Verify IPA proof
+        // Reduce the claims to a single opening claim and verify it via IPA, mirroring the ECCVM univariate flow
+        const auto batched_verifier_claim = ShplonkVerifier::reduce_verification(
+            this->vk().get_g1_identity(), verifier_opening_claims, verifier_transcript);
         auto vk = create_verifier_commitment_key<VerifierCommitmentKey<curve::Grumpkin>>();
-        bool result = IPA<curve::Grumpkin, LOG_DEGREE>::reduce_verify_batch_opening_claim(
-            batched_verifier_claim, vk, verifier_transcript);
-        EXPECT_TRUE(result);
+        const bool verified =
+            IPA<curve::Grumpkin, LOG_DEGREE>::reduce_verify(vk, batched_verifier_claim, verifier_transcript);
+        EXPECT_TRUE(verified);
     }
 }
 } // namespace bb

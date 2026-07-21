@@ -3,19 +3,11 @@
 pragma solidity ^0.8.27;
 
 import {Errors} from "@aztec/core/libraries/Errors.sol";
+import {CoordinationSignatureLib} from "@aztec/core/libraries/rollup/CoordinationSignatureLib.sol";
 import {Signature, SignatureLib} from "@aztec/shared/libraries/SignatureLib.sol";
 
 uint256 constant SIGNATURE_LENGTH = 65; // v (1) + r (32) + s (32)
 uint256 constant ADDRESS_LENGTH = 20;
-
-/**
- * @notice The domain separator for the signatures
- */
-enum SignatureDomainSeparator {
-  checkpointProposal,
-  checkpointAttestation,
-  attestationsAndSigners
-}
 
 // A committee attestation can be made up of a signature and an address.
 // Committee members that have attested will produce a signature, and if they have not attested, the signature will be
@@ -34,6 +26,24 @@ struct CommitteeAttestations {
 
 library AttestationLib {
   using SignatureLib for Signature;
+
+  function getAttestationsAndSignersDigest(CommitteeAttestations memory _attestations, address[] memory _signers)
+    internal
+    view
+    returns (bytes32)
+  {
+    return getAttestationsAndSignersDigest(_attestations, _signers, address(this));
+  }
+
+  function getAttestationsAndSignersDigest(
+    CommitteeAttestations memory _attestations,
+    address[] memory _signers,
+    address _verifyingContract
+  ) internal view returns (bytes32) {
+    return CoordinationSignatureLib.attestationsAndSignersDigest(
+      keccak256(abi.encode(_attestations, _signers)), _verifyingContract
+    );
+  }
 
   /**
    * @notice Checks if the given CommitteeAttestations is empty
@@ -216,13 +226,5 @@ library AttestationLib {
     require(dataPtr == upperLimit, Errors.AttestationLib__InvalidDataSize(dataPtr - offset, upperLimit - offset));
 
     return addresses;
-  }
-
-  function getAttestationsAndSignersDigest(CommitteeAttestations memory _attestations, address[] memory _signers)
-    internal
-    pure
-    returns (bytes32)
-  {
-    return keccak256(abi.encode(SignatureDomainSeparator.attestationsAndSigners, _attestations, _signers));
   }
 }

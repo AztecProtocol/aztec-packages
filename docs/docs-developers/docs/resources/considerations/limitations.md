@@ -29,19 +29,20 @@ Help shape and define:
 
 ## Limitations developers need to know about
 
-- It is a testing environment, insecure and unaudited. It is only for testing purposes.
-- `msg_sender` is currently leaked when making private -> public calls.
-  - The `msg_sender` is always set. If you call a public function from the private world, the `msg_sender` is set to the private caller's address.
-  - There are patterns that can mitigate this.
+- The Aztec stack is unaudited and under active development. See the [Alpha Network](/participate/alpha) page for details on what this means.
+- `msg_sender` is leaked by default when making private -> public calls.
+  - `self.enqueue(...)` sets `msg_sender` to the private caller's address, which is publicly visible.
+  - Use `self.enqueue_incognito(...)` to hide the sender. The called public function must use `maybe_msg_sender()` instead of `msg_sender()` to handle the null sender.
 - The initial `msg_sender` is `-1`, which can be problematic for some contracts.
-- The number of side-effects attached to a transaction (when sending the transaction to the mempool) is leaky. At this stage of development, this is _intentional_, so that we can gauge appropriate choices for privacy sets. We have clear plans to implement privacy sets so that side effects are much less leaky, and these will be in place for mainnet.
+- Some side-effect counts are still visible in a transaction. Note hashes, nullifiers, and private logs are padded to hide their true counts, but the number of public function calls and L2->L1 messages remains visible. Privacy sets to further reduce leakage are still under development.
 - A transaction can only emit a limited number of side-effects (notes, nullifiers, logs, L2->L1 messages). See [circuit limitations](#circuit-limitations).
   - We have not settled on the final constants, since we are still in a testing phase. You could find that certain compositions of nested private function calls (for example, call stacks that are dynamic in size, based on runtime data) could accumulate so many side-effects as to exceed transaction limits. Such transactions would then be unprovable. Please open an issue if you encounter this, as it will help us decide on adequate sizes for our constants.
+- Not all Noir cryptographic primitives work in public (AVM) functions. Signature verification (ECDSA secp256k1/r1), AES-128, Blake2s, and Blake3 are not supported. See [AVM Cryptographic Compatibility](../../foundational-topics/advanced/circuits/avm_compatibility.md) for details and workarounds.
 - There are many features that we still want to implement. Check out GitHub and the forum for details. If you would like a feature, please open an issue on GitHub.
 
 ## WARNING
 
-Do not use real, meaningful secrets in Aztec testnets. Some privacy features are still in development, including ensuring a secure "zk" property. Since the Aztec stack is still being developed, there are no guarantees that real secrets will remain secret.
+Do not use real, meaningful secrets on Aztec networks. Some privacy features are still in development, including ensuring a secure "zk" property. Since the Aztec stack is still being developed, there are no guarantees that real secrets will remain secret.
 
 ## Limitations
 
@@ -59,15 +60,11 @@ Some of our more complex circuits are still in development, so they are still un
 
 Sound proofs are really only needed as a protection against malicious behavior, which we are not testing for at this stage.
 
-### Keys and addresses are subject to change
+### Keys and addresses may change in future rollup versions
 
-The way in which keypairs and addresses are derived is still being iterated on as we receive feedback.
+The key derivation scheme is documented and stable within the current rollup version, but it may change in future rollup upgrades. Applications should not hardcode assumptions about the specific derivation algorithm.
 
-#### What are the consequences?
-
-This will impact the kinds of apps that you can build with the local network as it is today.
-
-Please open new discussions on [Discourse](https://discourse.aztec.network) or open issues on [GitHub](https://github.com/AztecProtocol/aztec-packages) if you have requirements that are not yet being met by the local network's current key derivation scheme.
+Please open new discussions on [Discourse](https://discourse.aztec.network) or open issues on [GitHub](https://github.com/AztecProtocol/aztec-packages) if you have requirements that are not being met by the current key derivation scheme.
 
 ### No privacy-preserving queries to nodes
 
@@ -75,25 +72,17 @@ Ethereum has a notion of a "full node" which keeps up with the blockchain and st
 
 This pattern is likely to develop in Aztec as well, except there is a problem: privacy. If a privacy-seeking user makes a query to a third-party full node, that user might leak data about who they are, about their historical network activity, or about their future intentions. One solution to this problem is "always run a full node", but pragmatically, not everyone will. To protect less-advanced users' privacy, research is underway to explore how a privacy-seeking user may request and receive data from a third-party node without revealing what that data is, nor who is making the request.
 
-### No private data authentication
+### Limited private data authentication
 
-Private data should not be returned to an app unless the user authorizes such access to the app. An authorization layer is not yet in place.
+The PXE supports a `scopes` parameter that restricts which accounts' notes a function call can access. However, this is caller-specified: the app chooses its own scopes. There is no mandatory, protocol-enforced authorization layer where the PXE denies an app access to another app's private data. A wallet can restrict scope on behalf of the user, but this is not yet standardized or enforced by default.
 
-#### What are the consequences?
+### No client-side bytecode validation
 
-Any app can request and receive any private user data relating to any other private app. This sounds problematic, but the local network is a sandbox, and no meaningful value or credentials should be stored there - only test values and test credentials.
-
-An authorization layer will be added in due course.
-
-### No bytecode validation
-
-For safety reasons, bytecode should not be executed unless the PXE (Private eXecution Environment) or wallet has validated that the user's intentions (the function signature and contract address) match the bytecode.
+Public bytecode is validated at the protocol level when contract classes are registered (the Contract Class Registry verifies encoding and commitments). However, the PXE and wallets do not yet validate that the bytecode a user is about to execute matches their stated intentions (function signature and contract address).
 
 #### What are the consequences?
 
-Without bytecode validation, if incorrect bytecode is executed and that bytecode is malicious, it could read private data from some other contract and emit that private data to the world. This would be problematic in production, but the local network is a sandbox, and no meaningful value or credentials should be stored there - only test values and test credentials.
-
-There are plans to add bytecode validation soon.
+If incorrect or malicious bytecode is executed, it could read private data from another contract and emit it publicly. Client-side bytecode validation is planned to close this gap.
 
 ### Insecure hashes
 
@@ -101,11 +90,7 @@ We are planning a full assessment of the protocol's hashes, including rigorous d
 
 #### What are the consequences?
 
-Collisions and other hash-related attacks might be possible in the local network. This would be problematic in production, but it is unlikely to cause problems at this early stage of testing.
-
-### `msg_sender` is leaked when making a private -> public call
-
-There are ongoing discussions [here](https://forum.aztec.network/t/what-is-msg-sender-when-calling-private-public-plus-a-big-foray-into-stealth-addresses/7527) (and some more recent discussions that need to be documented) around how to address this.
+Collisions and other hash-related attacks might be possible. This is unlikely to cause problems at this early stage, but is a known area of ongoing work.
 
 ### New privacy standards are required
 

@@ -9,8 +9,10 @@ import {TempCheckpointLog} from "@aztec/core/libraries/compressed-data/Checkpoin
 import {FeeHeader} from "@aztec/core/libraries/compressed-data/fees/FeeStructs.sol";
 import {ChainTipsLib, CompressedChainTips} from "@aztec/core/libraries/compressed-data/Tips.sol";
 import {Errors} from "@aztec/core/libraries/Errors.sol";
-import {SignatureDomainSeparator, CommitteeAttestations} from "@aztec/core/libraries/rollup/AttestationLib.sol";
+import {CommitteeAttestations} from "@aztec/core/libraries/rollup/AttestationLib.sol";
+import {CoordinationSignatureLib} from "@aztec/core/libraries/rollup/CoordinationSignatureLib.sol";
 import {OracleInput, FeeLib, ManaMinFeeComponents} from "@aztec/core/libraries/rollup/FeeLib.sol";
+import {FieldLib} from "@aztec/core/libraries/rollup/FieldLib.sol";
 import {ValidatorSelectionLib} from "@aztec/core/libraries/rollup/ValidatorSelectionLib.sol";
 import {Timestamp, Slot, Epoch, TimeLib} from "@aztec/core/libraries/TimeLib.sol";
 import {CompressedSlot, CompressedTimeMath} from "@aztec/shared/libraries/CompressedTimeMath.sol";
@@ -41,7 +43,6 @@ struct InterimProposeValues {
   bytes32 payloadDigest;
   Epoch currentEpoch;
   bool isFirstCheckpointOfEpoch;
-  bool isTxsEnabled;
   bool isEscapeHatch;
   address escapeHatchProposer;
   IEscapeHatch escapeHatch;
@@ -118,18 +119,14 @@ library ProposeLib {
    *          Orchestrates blob validation, header validation, proposer verification, fee calculations, and state
    *          transitions. Automatically prunes unproven checkpoints if the proof submission window has passed.
    *
-   *          Note that some validations and processes are disabled if the chain is configured to run without
-   *          transactions, such as during ignition phase:
-   *          - No fee header computation or L1 gas fee oracle update
-   *          - No inbox message consumption
-   *
    *          Validations performed:
    *          - Blob commitments against provided blob data: Errors.Rollup__InvalidBlobHash,
    *            Errors.Rollup__InvalidBlobProof
    *          - Checkpoint header validations (see validateHeader function for details)
    *          - Proposer signature is valid for designated slot proposer:
    *            Errors.ValidatorSelection__MissingProposerSignature
-   *          - Inbox hash matches expected value (when txs enabled): Errors.Rollup__InvalidInHash
+   *          - Inbox hash matches expected value: Errors.Rollup__InvalidInHash
+   *          - Archive root is within the scalar field: Errors.Rollup__FieldElementOutOfRange
    *
    *          Validations NOT performed:
    *          - Committee attestations (only proposer signature verified)
@@ -139,8 +136,8 @@ library ProposeLib {
    *          - Increment pending checkpoint number
    *          - Store archive root for the new checkpoint number
    *          - Store checkpoint metadata in circular storage (TempCheckpointLog)
-   *          - Update L1 gas fee oracle (when txs enabled)
-   *          - Consume inbox messages (when txs enabled)
+   *          - Update L1 gas fee oracle
+   *          - Consume inbox messages
    *          - Setup epoch for validator selection (first block of the epoch)
    *
    * @param _args - The arguments to propose the checkpoint
@@ -180,13 +177,7 @@ library ProposeLib {
     // Keep intermediate values in memory to avoid stack too deep errors
     InterimProposeValues memory v;
 
-    // Transactions are disabled during ignition phase
-    v.isTxsEnabled = FeeLib.isTxsEnabled();
-
-    // Since ignition have no transactions, we need not waste gas updating pricing oracle.
-    if (v.isTxsEnabled) {
-      FeeLib.updateL1GasFeeOracle();
-    }
+    FeeLib.updateL1GasFeeOracle();
 
     // Validate blob commitments against actual blob data and extract hashes
     // TODO(#13430): The below blobsHashesCommitment known as blobsHash elsewhere in the code. The name is confusingly
@@ -195,12 +186,17 @@ library ProposeLib {
 
     v.header = _args.header;
 
+    // The new checkpoint archive root is not part of the header, so it is range-checked here rather than in
+    // validateHeader.
+    FieldLib.requireValidFieldElement(_args.archive);
+
     // Compute header hash for computing the payload digest
     v.headerHash = ProposedHeaderLib.hash(v.header);
 
     // Compute current epoch and check escape hatch BEFORE setupEpoch.
+    // Uses epoch-stable lookup so mid-epoch governance changes don't affect current epoch proposals.
     v.currentEpoch = Timestamp.wrap(block.timestamp).epochFromTimestamp();
-    v.escapeHatch = ValidatorSelectionLib.getEscapeHatch();
+    v.escapeHatch = ValidatorSelectionLib.getEscapeHatchForEpoch(v.currentEpoch);
     if (address(v.escapeHatch) != address(0)) {
       (v.isEscapeHatch, v.escapeHatchProposer) = v.escapeHatch.isHatchOpen(v.currentEpoch);
     }
@@ -213,11 +209,7 @@ library ProposeLib {
     }
 
     // Calculate mana min fee components for header validation
-    ManaMinFeeComponents memory components;
-    if (v.isTxsEnabled) {
-      // Since ignition have no transactions, we need not waste gas computing the fee components
-      components = getManaMinFeeComponentsAt(Timestamp.wrap(block.timestamp), true);
-    }
+    ManaMinFeeComponents memory components = getManaMinFeeComponentsAt(Timestamp.wrap(block.timestamp), true);
 
     // Create payload digest signed by the committee members
     v.payloadDigest =
@@ -270,17 +262,13 @@ library ProposeLib {
     );
 
     // Compute fee header for checkpoint metadata
-    FeeHeader memory feeHeader;
-    if (v.isTxsEnabled) {
-      // Since ignition have no transactions, we need not waste gas deriving the fee header
-      feeHeader = FeeLib.computeFeeHeader(
-        checkpointNumber,
-        _args.oracleInput.feeAssetPriceModifier,
-        v.header.totalManaUsed,
-        components.congestionCost,
-        components.proverCost
-      );
-    }
+    FeeHeader memory feeHeader = FeeLib.computeFeeHeader(
+      checkpointNumber,
+      _args.oracleInput.feeAssetPriceModifier,
+      v.header.totalManaUsed,
+      components.congestionCost,
+      components.proverCost
+    );
 
     // Hash attestations for storage in checkpoint log
     // Compute attestationsHash from the attestations
@@ -301,17 +289,10 @@ library ProposeLib {
       })
     );
 
-    // Handle L1->L2 message processing (only when transactions are enabled)
-    if (v.isTxsEnabled) {
-      // Since ignition will have no transactions there will be no method to consume messages.
-      // Therefore we can ignore it as long as mana target is zero.
-      // Since the inbox is async, it must enforce its own check to not try to insert if ignition.
-
-      // Consume pending L1->L2 messages and validate against header commitment
-      // @note  The checkpoint number here will always be >=1 as the genesis checkpoint is at 0
-      v.inHash = rollupStore.config.inbox.consume(checkpointNumber);
-      require(v.header.inHash == v.inHash, Errors.Rollup__InvalidInHash(v.inHash, v.header.inHash));
-    }
+    // Consume pending L1->L2 messages and validate against header commitment
+    // @note  The checkpoint number here will always be >=1 as the genesis checkpoint is at 0
+    v.inHash = rollupStore.config.inbox.consume(checkpointNumber);
+    require(v.header.inHash == v.inHash, Errors.Rollup__InvalidInHash(v.inHash, v.header.inHash));
 
     {
       bytes32 archive = _args.archive;
@@ -330,6 +311,7 @@ library ProposeLib {
    *      for proposers to check header validity before submitting transactions
    *
    *      Header validations performed:
+   *      - Fr-encoded header fields are within the scalar field: Errors.Rollup__FieldElementOutOfRange
    *      - Coinbase address is non-zero: Errors.Rollup__InvalidCoinbase
    *      - Mana usage within limits: Errors.Rollup__ManaLimitExceeded
    *      - Builds on correct parent checkpoint (archive root check): Errors.Rollup__InvalidArchive
@@ -344,6 +326,12 @@ library ProposeLib {
    * @param _args Validation arguments including header, digest, mana min fee, and flags
    */
   function validateHeader(ValidateHeaderArgs memory _args) internal view {
+    // Check that header fields that map to an Fr are within range.
+    FieldLib.requireValidFieldElement(_args.header.blockHeadersHash);
+    FieldLib.requireValidFieldElement(_args.header.outHash);
+    FieldLib.requireValidFieldElement(_args.header.feeRecipient);
+    FieldLib.requireValidFieldElement(bytes32(_args.header.accumulatedFees));
+
     require(_args.header.coinbase != address(0), Errors.Rollup__InvalidCoinbase());
     require(_args.header.totalManaUsed <= FeeLib.getManaLimit(), Errors.Rollup__ManaLimitExceeded());
 
@@ -401,7 +389,11 @@ library ProposeLib {
     return FeeLib.getManaMinFeeComponentsAt(checkpointOfInterest, _timestamp, _inFeeAsset);
   }
 
-  function digest(ProposePayload memory _args) internal pure returns (bytes32) {
-    return keccak256(abi.encode(SignatureDomainSeparator.checkpointAttestation, _args));
+  function digest(ProposePayload memory _args) internal view returns (bytes32) {
+    return digest(_args, address(this));
+  }
+
+  function digest(ProposePayload memory _args, address _verifyingContract) internal view returns (bytes32) {
+    return CoordinationSignatureLib.checkpointAttestationDigest(keccak256(abi.encode(_args)), _verifyingContract);
   }
 }

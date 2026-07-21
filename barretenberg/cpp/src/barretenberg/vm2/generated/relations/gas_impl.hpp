@@ -25,14 +25,14 @@ void gasImpl<FF_>::accumulate(ContainerOverSubrelations& evals,
 
     {
         using View = typename std::tuple_element_t<0, ContainerOverSubrelations>::View;
-        auto tmp = static_cast<View>(in.get(C::execution_sel_should_check_gas)) *
+        auto tmp = static_cast<View>(in.get(C::execution_sel_check_gas)) *
                    ((static_cast<View>(in.get(C::execution_prev_l2_gas_used)) + CView(execution_L2_GAS_USED)) -
                     static_cast<View>(in.get(C::execution_total_gas_l2)));
         std::get<0>(evals) += (tmp * scaling_factor);
     }
     {
         using View = typename std::tuple_element_t<1, ContainerOverSubrelations>::View;
-        auto tmp = static_cast<View>(in.get(C::execution_sel_should_check_gas)) *
+        auto tmp = static_cast<View>(in.get(C::execution_sel_check_gas)) *
                    ((static_cast<View>(in.get(C::execution_prev_da_gas_used)) + CView(execution_DA_GAS_USED)) -
                     static_cast<View>(in.get(C::execution_total_gas_da)));
         std::get<1>(evals) += (tmp * scaling_factor);
@@ -44,9 +44,9 @@ void gasImpl<FF_>::accumulate(ContainerOverSubrelations& evals,
                                  (FF(1) - static_cast<View>(in.get(C::execution_out_of_gas_da)))));
         std::get<2>(evals) += (tmp * scaling_factor);
     }
-    {
+    { // NO_OOG_IF_NO_GAS_CHECK
         using View = typename std::tuple_element_t<3, ContainerOverSubrelations>::View;
-        auto tmp = (FF(1) - static_cast<View>(in.get(C::execution_sel_should_check_gas))) *
+        auto tmp = (FF(1) - static_cast<View>(in.get(C::execution_sel_check_gas))) *
                    static_cast<View>(in.get(C::execution_sel_out_of_gas));
         std::get<3>(evals) += (tmp * scaling_factor);
     }

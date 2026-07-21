@@ -26,13 +26,20 @@ project_name=$(basename "$PWD")
 export circuits_hash=$(hash_str "$NOIR_HASH" $(cache_content_hash "^noir-projects/$project_name/crates/" "^noir-projects/noir-protocol-circuits/bootstrap.sh"))
 
 # Circuits matching these patterns we have chonk keys computed, rather than ultra-honk.
-readarray -t ivc_patterns < <(jq -r '.[]' "../chonk_circuits.json")
+# Each entry is `{ pattern, kind }` where kind ∈ {app, kernel, hiding}. The kind is forwarded to
+# `bb write_vk --scheme chonk --circuit_kind <kind>` because each kind selects a distinct
+# Mega flavor (MegaAppFlavor / MegaKernelFlavor / MegaZKFlavor) with a distinct VK shape.
+readarray -t ivc_kernel_patterns < <(jq -r '.[] | select(.kind == "kernel") | .pattern' "../chonk_circuits.json")
+readarray -t ivc_app_patterns < <(jq -r '.[] | select(.kind == "app") | .pattern' "../chonk_circuits.json")
 ivc_hiding_pattern=("hiding")
 readarray -t rollup_honk_patterns < <(jq -r '.[]' "../rollup_honk_circuits.json")
-# Convert to regex string here and export for use in exported functions.
-export ivc_regex=$(IFS="|"; echo "${ivc_patterns[*]}")
+# Convert to regex strings here and export for use in exported functions.
+export ivc_kernel_regex=$(IFS="|"; echo "${ivc_kernel_patterns[*]}")
+export ivc_app_regex=$(IFS="|"; echo "${ivc_app_patterns[*]}")
 export hiding_kernel_regex=$(IFS="|"; echo "${ivc_hiding_pattern[*]}")
 export rollup_honk_regex=$(IFS="|"; echo "${rollup_honk_patterns[*]}")
+# Combined ivc regex (kernel + app) kept for callers that just want "is this a chonk circuit?".
+export ivc_regex="${ivc_kernel_regex}|${ivc_app_regex}"
 
 function on_exit {
   rm -f joblog.txt
@@ -57,6 +64,12 @@ function compile {
   local program_hash=$(dump_fail "$program_hash_cmd")
   echo_stderr "Hash preimage: $NOIR_HASH-$program_hash"
   local hash=$(hash_str "$NOIR_HASH-$program_hash" $(cache_content_hash "^noir-projects/noir-protocol-circuits/bootstrap.sh"))
+  # Note: an edge case: If you change the name of a circuit public input, but don't change any of the
+  # circuit's bytecode, then this bootstrap script will not re-compile the circuits. You can force a
+  # re-compilation by temporarily replacing $NOIR_HASH on the above two lines with:
+  # `$NOIR_HASH-$program_hash-$circuits_hash"`
+  # We don't want to include `-$circuits_hash"` ordinarily, because it would force unnecessary
+  # rebuilds when tests / comments are changed.
 
   if ! cache_download circuit-$hash.tar.gz 1>&2; then
     SECONDS=0
@@ -76,6 +89,14 @@ function compile {
     cache_upload circuit-$hash.tar.gz $json_path &> /dev/null
   fi
 
+  generate_vk "$name"
+}
+
+function generate_vk {
+  set -euo pipefail
+  local name=$1
+  local json_path="./target/$name.json"
+
   # No vks needed for simulated circuits.
   [[ "$name" == *"simulated"* ]] && return
 
@@ -90,9 +111,11 @@ function compile {
     trap "rm -rf $outdir" EXIT
     function write_vk {
       if echo "$name" | grep -qE "${hiding_kernel_regex}"; then
-        $BB write_vk --scheme chonk -b - -o $outdir
-      elif echo "$name" | grep -qE "${ivc_regex}"; then
-        $BB write_vk --scheme chonk -b - -o $outdir
+        $BB write_vk --scheme chonk --circuit_kind hiding -b - -o $outdir
+      elif echo "$name" | grep -qE "${ivc_kernel_regex}"; then
+        $BB write_vk --scheme chonk --circuit_kind kernel -b - -o $outdir
+      elif echo "$name" | grep -qE "${ivc_app_regex}"; then
+        $BB write_vk --scheme chonk --circuit_kind app -b - -o $outdir
       elif echo "$name" | grep -qE "${rollup_honk_regex}"; then
         $BB write_vk --scheme ultra_honk --ipa_accumulation -b - -o $outdir
       elif echo "$name" | grep -qE "rollup_root"; then
@@ -124,8 +147,7 @@ function compile {
       SECONDS=0
       # Generate solidity verifier for this contract.
       # TODO(AD) ensure this passes.
-      #echo "$vk_bytes" | xxd -r -p | $BB write_solidity_verifier --scheme ultra_honk --disable_zk -k - -o $verifier_path --optimized
-      echo "$vk_bytes" | xxd -r -p | $BB write_solidity_verifier --scheme ultra_honk --disable_zk -k - -o $verifier_path
+      echo "$vk_bytes" | xxd -r -p | $BB write_solidity_verifier --scheme ultra_honk --disable_zk -k - -o $verifier_path --optimized
       echo_stderr "Root rollup verifier at: $verifier_path (${SECONDS}s)"
       # Include the verifier path if we create it.
       cache_upload vk-$hash.tar.gz $key_path $verifier_path &> /dev/null
@@ -139,10 +161,50 @@ function compile {
   # Remove temporary json file
   rm $key_path
 }
-export -f hex_to_fields_json compile
+function check_pinned_vk {
+  set -euo pipefail
+  local name=$1
+  local json_path="./target/$name.json"
+  local before=$(jq -r '.verificationKey.bytes // empty' "$json_path")
+  generate_vk "$name"
+  local after=$(jq -r '.verificationKey.bytes // empty' "$json_path")
+  if [[ "$before" != "$after" ]]; then
+    if [[ "${NOIR_PROTOCOL_CIRCUITS_REGEN_STALE_VKS:-0}" == "1" ]]; then
+      echo_stderr "WARNING: pinned VK for $name does not match the current bb; building with the regenerated VK."
+    else
+      echo_stderr "ERROR: pinned VK for $name does not match the VK the current bb computes from its pinned bytecode."
+      echo_stderr "A bb proof-system change invalidates pinned VKs even when the bytecode is unchanged."
+      echo_stderr "Refresh and commit the pin with './bootstrap.sh pin-build', or set NOIR_PROTOCOL_CIRCUITS_REGEN_STALE_VKS=1 to build with regenerated VKs locally."
+      return 1
+    fi
+  fi
+}
+
+export -f hex_to_fields_json compile generate_vk check_pinned_vk
 
 function build {
   set -eu
+
+  # If pinned-build.tar.gz exists, use it instead of compiling.
+  if [ -f pinned-build.tar.gz ]; then
+    echo_stderr "Using pinned-build.tar.gz instead of compiling."
+    rm -rf target
+    mkdir -p target
+    tar xzf pinned-build.tar.gz -C target
+    mkdir -p $key_dir
+    # The pin freezes bytecode AND VKs, but VKs depend on the current bb: a proof-system change can
+    # alter the VK for unchanged bytecode, and a stale pinned VK makes proofs fail self-verification
+    # at proving time. Recompute each VK against the current bb (cached by BB_HASH and bytecode, so
+    # this is cheap until bb changes) and fail the build on any mismatch, forcing an explicit pin refresh.
+    set +e
+    ls target/*.json | xargs -n1 basename -s .json | grep -v simulated | \
+      parallel -v --line-buffer --tag --halt now,fail=1 --memsuspend $(memsuspend_limit) \
+        --joblog joblog.txt check_pinned_vk {}
+    local code=$?
+    cat joblog.txt
+    set -e
+    return $code
+  fi
 
   if [[ -z NOIR_PROTOCOL_CIRCUITS_SKIP_CHECK_WARNINGS ]]; then
     echo_stderr "Checking libraries for warnings..."
@@ -171,7 +233,20 @@ function build {
       --joblog joblog.txt compile {}
   code=$?
   cat joblog.txt
-  return $code
+  [ "$code" -eq 0 ] || return $code
+
+  check_reset_costs
+}
+
+# Fails if any `cost` in private_kernel_reset_config.json no longer matches the gate count
+# `bb gates` reports for that variant's freshly-compiled artifact. Keeps the catalog the variant
+# selector reads in sync with the current bb + reset circuits. Run after the variants are compiled.
+function check_reset_costs {
+  set -euo pipefail
+  # The mock circuits reuse this script but have no reset variant catalog to check.
+  [ -f ./scripts/refresh_reset_costs.js ] || return 0
+  echo_stderr "Checking reset variant costs are up to date..."
+  denoise "BB=$BB node ./scripts/refresh_reset_costs.js --check"
 }
 
 function test_cmds {
@@ -187,8 +262,8 @@ function test_cmds {
     private-kernel-init
     private-kernel-inner
     private-kernel-reset
-    private-kernel-tail-to-public
-    private-kernel-tail
+    private-kernel-reset-tail-to-public
+    private-kernel-reset-tail
     rollup-tx-base-private
     rollup-tx-base-public
     rollup-tx-merge
@@ -236,6 +311,15 @@ function bench {
   rm -rf bench-out && mkdir -p bench-out
 
   bench_cmds | STRICT_SCHEDULING=1 parallelize
+}
+
+function pin-build {
+  # Force a real build by removing any existing pinned archive.
+  rm -f pinned-build.tar.gz
+  build
+  echo_stderr "Creating pinned-build.tar.gz from target..."
+  tar czf pinned-build.tar.gz -C target .
+  echo_stderr "Done. pinned-build.tar.gz created. Commit it to pin these artifacts."
 }
 
 case "$cmd" in

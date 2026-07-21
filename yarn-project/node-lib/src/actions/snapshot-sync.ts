@@ -1,15 +1,22 @@
-import { ARCHIVER_DB_VERSION, ARCHIVER_STORE_NAME, type ArchiverConfig, createArchiverStore } from '@aztec/archiver';
+import {
+  ARCHIVER_DB_VERSION,
+  ARCHIVER_STORE_NAME,
+  type ArchiverConfig,
+  createArchiverStore,
+  getArchiverSynchPoint,
+} from '@aztec/archiver';
 import { INITIAL_L2_BLOCK_NUM } from '@aztec/constants';
 import { type EthereumClientConfig, getPublicClient } from '@aztec/ethereum/client';
 import type { L1ContractsConfig } from '@aztec/ethereum/config';
 import type { EthAddress } from '@aztec/foundation/eth-address';
 import { tryRmDir } from '@aztec/foundation/fs';
 import type { Logger } from '@aztec/foundation/log';
-import type { DataStoreConfig } from '@aztec/kv-store/config';
 import { P2P_STORE_NAME } from '@aztec/p2p';
+import { GENESIS_BLOCK_HEADER_HASH } from '@aztec/stdlib/block';
 import type { ChainConfig } from '@aztec/stdlib/config';
 import { DatabaseVersionManager } from '@aztec/stdlib/database-version/manager';
 import { type ReadOnlyFileStore, createReadOnlyFileStore } from '@aztec/stdlib/file-store';
+import type { DataStoreConfig } from '@aztec/stdlib/kv-store';
 import {
   type SnapshotMetadata,
   type SnapshotsIndexMetadata,
@@ -30,8 +37,9 @@ const MIN_L1_BLOCKS_TO_TRIGGER_REPLACE = 86400 / 2 / 12;
 type SnapshotSyncConfig = Pick<SharedNodeConfig, 'syncMode'> &
   Pick<ChainConfig, 'l1ChainId' | 'rollupVersion'> &
   Pick<L1ContractsConfig, 'aztecEpochDuration'> &
-  Pick<ArchiverConfig, 'archiverStoreMapSizeKb' | 'maxLogs'> &
-  Required<DataStoreConfig> &
+  Pick<ArchiverConfig, 'archiverStoreMapSizeKb'> &
+  DataStoreConfig &
+  Required<Pick<DataStoreConfig, 'rollupAddress'>> &
   EthereumClientConfig & {
     snapshotsUrls?: string[];
     minL1BlocksToTriggerReplace?: number;
@@ -42,7 +50,7 @@ type SnapshotSyncConfig = Pick<SharedNodeConfig, 'syncMode'> &
  * Behaviour depends on syncing mode.
  */
 export async function trySnapshotSync(config: SnapshotSyncConfig, log: Logger) {
-  const { syncMode, snapshotsUrls, dataDirectory, l1ChainId, rollupVersion, l1Contracts } = config;
+  const { syncMode, snapshotsUrls, dataDirectory, l1ChainId, rollupVersion, rollupAddress } = config;
   if (syncMode === 'full') {
     log.debug('Snapshot sync is disabled. Running full sync.', { syncMode: syncMode });
     return false;
@@ -58,19 +66,21 @@ export async function trySnapshotSync(config: SnapshotSyncConfig, log: Logger) {
     return false;
   }
 
-  // Create an archiver store to check the current state (do this only once)
+  // Create an archiver store to check the current state (do this only once). This temporary store is only
+  // read for its sync point and never serves tagged-log queries, so the genesis block hash it carries is
+  // immaterial — pass the protocol constant.
   log.verbose(`Creating temporary archiver data store`);
-  const archiverStore = await createArchiverStore(config, { epochDuration: config.aztecEpochDuration });
+  const archiverStore = await createArchiverStore(config, GENESIS_BLOCK_HEADER_HASH);
   let archiverL1BlockNumber: bigint | undefined;
   let archiverL2BlockNumber: number | undefined;
   try {
     [archiverL1BlockNumber, archiverL2BlockNumber] = await Promise.all([
-      archiverStore.getSynchPoint().then(s => s.blocksSynchedTo),
-      archiverStore.getLatestBlockNumber(),
+      getArchiverSynchPoint(archiverStore).then(s => s.blocksSynchedTo),
+      archiverStore.blocks.getLatestL2BlockNumber(),
     ] as const);
   } finally {
     log.verbose(`Closing temporary archiver data store`, { archiverL1BlockNumber, archiverL2BlockNumber });
-    await archiverStore.close();
+    await archiverStore.db.close();
   }
 
   const minL1BlocksToTriggerReplace = config.minL1BlocksToTriggerReplace ?? MIN_L1_BLOCKS_TO_TRIGGER_REPLACE;
@@ -82,7 +92,11 @@ export async function trySnapshotSync(config: SnapshotSyncConfig, log: Logger) {
   }
 
   const currentL1BlockNumber = await getPublicClient(config).getBlockNumber();
-  if (archiverL1BlockNumber && currentL1BlockNumber - archiverL1BlockNumber < minL1BlocksToTriggerReplace) {
+  if (
+    archiverL1BlockNumber &&
+    currentL1BlockNumber >= archiverL1BlockNumber &&
+    currentL1BlockNumber - archiverL1BlockNumber < minL1BlocksToTriggerReplace
+  ) {
     log.verbose(
       `Skipping snapshot sync as archiver is less than ${
         currentL1BlockNumber - archiverL1BlockNumber
@@ -95,7 +109,7 @@ export async function trySnapshotSync(config: SnapshotSyncConfig, log: Logger) {
   const indexMetadata: SnapshotsIndexMetadata = {
     l1ChainId,
     rollupVersion,
-    rollupAddress: l1Contracts.rollupAddress,
+    rollupAddress,
   };
 
   // Fetch latest snapshot from each URL
@@ -173,7 +187,7 @@ export async function trySnapshotSync(config: SnapshotSyncConfig, log: Logger) {
   snapshotCandidates.sort((a, b) => b.snapshot.l1BlockNumber - a.snapshot.l1BlockNumber);
 
   // Try each candidate in order until one succeeds
-  for (const { snapshot, url } of snapshotCandidates) {
+  for (const { snapshot, url, fileStore } of snapshotCandidates) {
     const { l1BlockNumber, l2BlockNumber } = snapshot;
     log.info(`Attempting to sync from snapshot at L1 block ${l1BlockNumber} L2 block ${l2BlockNumber}`, {
       snapshot,
@@ -183,8 +197,8 @@ export async function trySnapshotSync(config: SnapshotSyncConfig, log: Logger) {
     try {
       await snapshotSync(snapshot, log, {
         dataDirectory: config.dataDirectory!,
-        rollupAddress: config.l1Contracts.rollupAddress,
-        snapshotsUrl: url,
+        rollupAddress: config.rollupAddress,
+        fileStore,
       });
       log.info(`Snapshot synced to L1 block ${l1BlockNumber} L2 block ${l2BlockNumber}`, {
         snapshot,
@@ -210,14 +224,12 @@ export async function trySnapshotSync(config: SnapshotSyncConfig, log: Logger) {
 export async function snapshotSync(
   snapshot: Pick<SnapshotMetadata, 'dataUrls'>,
   log: Logger,
-  config: { dataDirectory: string; rollupAddress: EthAddress; snapshotsUrl: string },
+  config: { dataDirectory: string; rollupAddress: EthAddress; fileStore: ReadOnlyFileStore },
 ) {
-  const { dataDirectory, rollupAddress } = config;
+  const { dataDirectory, rollupAddress, fileStore } = config;
   if (!dataDirectory) {
     throw new Error(`No local data directory defined. Cannot sync snapshot.`);
   }
-
-  const fileStore = await createReadOnlyFileStore(config.snapshotsUrl, log);
 
   let downloadDir: string | undefined;
 

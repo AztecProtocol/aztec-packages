@@ -59,10 +59,11 @@ import {MinimalFeeModel} from "./MinimalFeeModel.sol";
 import {RollupBuilder} from "../builder/RollupBuilder.sol";
 import {AttestationLibHelper} from "@test/helper_libraries/AttestationLibHelper.sol";
 import {Signature} from "@aztec/shared/libraries/SignatureLib.sol";
+import {TestConstants} from "../harnesses/TestConstants.sol";
 
 // solhint-disable comprehensive-interface
 
-uint256 constant MANA_TARGET = 100_000_000;
+uint256 constant MANA_TARGET = TestConstants.AZTEC_MANA_TARGET;
 
 contract FeeRollupTest is FeeModelTestPoints, DecoderBase {
   using stdStorage for StdStorage;
@@ -131,6 +132,8 @@ contract FeeRollupTest is FeeModelTestPoints, DecoderBase {
   /**
    * @notice Constructs a fake checkpoint that is not possible to prove, but passes the L1 checks.
    */
+  mapping(uint256 => ProposedHeader) internal checkpointHeaders;
+
   function getCheckpoint() internal view returns (Checkpoint memory) {
     // We will be using the genesis for both before and after. This will be impossible
     // to prove, but we don't need to prove anything here.
@@ -168,6 +171,7 @@ contract FeeRollupTest is FeeModelTestPoints, DecoderBase {
     header.feeRecipient = bytes32(0);
     header.gasFees.feePerL2Gas = manaMinFee;
     header.totalManaUsed = manaSpent;
+    header.accumulatedFees = uint256(manaMinFee) * manaSpent;
 
     return Checkpoint({
       archive: archiveRoot,
@@ -178,6 +182,79 @@ contract FeeRollupTest is FeeModelTestPoints, DecoderBase {
       signers: signers,
       attestationsAndSignersSignature: Signature({v: 0, r: 0, s: 0})
     });
+  }
+
+  function _getUsedCheckpointsInEpoch(uint256 _epochStartCheckpointNumber, uint256 _lastPendingCheckpointNumber)
+    internal
+    view
+    returns (uint256 usedCheckpointsInEpoch)
+  {
+    // Count only checkpoints currently present in this epoch because the pending epoch can end
+    // before the configured epoch duration.
+    while (
+      _epochStartCheckpointNumber + usedCheckpointsInEpoch <= _lastPendingCheckpointNumber
+        && rollup.getEpochForCheckpoint(_epochStartCheckpointNumber)
+          == rollup.getEpochForCheckpoint(_epochStartCheckpointNumber + usedCheckpointsInEpoch)
+    ) {
+      usedCheckpointsInEpoch++;
+    }
+  }
+
+  function _getExpectedCheckpointFees(uint256 _checkpointNumber)
+    internal
+    view
+    returns (uint256 fee, uint256 burn, uint256 proverFee)
+  {
+    TestPoint memory point = points[_checkpointNumber - 1];
+    uint256 minFee =
+      point.outputs.mana_min_fee_components_in_fee_asset.sequencer_cost
+      + point.outputs.mana_min_fee_components_in_fee_asset.prover_cost
+      + point.outputs.mana_min_fee_components_in_fee_asset.congestion_cost;
+    uint256 manaUsed = rollup.getFeeHeader(_checkpointNumber).manaUsed;
+
+    fee = manaUsed * minFee;
+    burn = manaUsed * point.outputs.mana_min_fee_components_in_fee_asset.congestion_cost;
+    proverFee = Math.min(manaUsed * point.outputs.mana_min_fee_components_in_fee_asset.prover_cost, fee - burn);
+  }
+
+  function _buildEpochFees(uint256 _start, uint256 _epochSize)
+    internal
+    view
+    returns (uint256 burnSum, uint256 proverFees, uint256 sequencerFees)
+  {
+    for (uint256 feeIndex = 0; feeIndex < _epochSize; feeIndex++) {
+      (uint256 fee, uint256 burn, uint256 proverFee) = _getExpectedCheckpointFees(_start + feeIndex);
+      burnSum += burn;
+      proverFees += proverFee;
+      sequencerFees += (fee - burn - proverFee);
+    }
+  }
+
+  function _submitEpochProof(uint256 _start, uint256 _epochSize) internal {
+    CheckpointLog memory endCheckpoint = rollup.getCheckpoint(_start + _epochSize - 1);
+    PublicInputArgs memory args = PublicInputArgs({
+      previousArchive: rollup.getCheckpoint(_start).archive,
+      endArchive: endCheckpoint.archive,
+      outHash: endCheckpoint.outHash,
+      proverId: address(0)
+    });
+
+    ProposedHeader[] memory headers = new ProposedHeader[](_epochSize);
+    for (uint256 i = 0; i < _epochSize; i++) {
+      headers[i] = checkpointHeaders[_start + i];
+    }
+
+    rollup.submitEpochRootProof(
+      SubmitEpochRootProofArgs({
+        start: _start,
+        end: _start + _epochSize - 1,
+        args: args,
+        headers: headers,
+        attestations: CommitteeAttestations({signatureIndices: "", signaturesOrAddresses: ""}),
+        blobInputs: full.checkpoint.batchedBlobInputs,
+        proof: ""
+      })
+    );
   }
 
   function test__FeeModelPrune() public {
@@ -191,6 +268,7 @@ contract FeeRollupTest is FeeModelTestPoints, DecoderBase {
         TestPoint memory point = points[Slot.unwrap(nextSlot) - 1];
         Checkpoint memory b = getCheckpoint();
         skipBlobCheck(address(rollup));
+        checkpointHeaders[rollup.getPendingCheckpointNumber() + 1] = b.header;
         rollup.propose(
           ProposeArgs({
             header: b.header,
@@ -206,13 +284,15 @@ contract FeeRollupTest is FeeModelTestPoints, DecoderBase {
       }
     }
 
+    int256 negativeManaTarget = -int256(MANA_TARGET);
+
     FeeHeader memory parentFeeHeaderNoPrune = rollup.getFeeHeader(rollup.getPendingCheckpointNumber());
     uint256 excessManaNoPrune =
-      (parentFeeHeaderNoPrune.excessMana + parentFeeHeaderNoPrune.manaUsed).clampedAdd(-int256(MANA_TARGET));
+      (parentFeeHeaderNoPrune.excessMana + parentFeeHeaderNoPrune.manaUsed).clampedAdd(negativeManaTarget);
 
     FeeHeader memory parentFeeHeaderPrune = rollup.getFeeHeader(rollup.getProvenCheckpointNumber());
     uint256 excessManaPrune =
-      (parentFeeHeaderPrune.excessMana + parentFeeHeaderPrune.manaUsed).clampedAdd(-int256(MANA_TARGET));
+      (parentFeeHeaderPrune.excessMana + parentFeeHeaderPrune.manaUsed).clampedAdd(negativeManaTarget);
 
     assertGt(excessManaNoPrune, excessManaPrune, "excess mana should be lower if we prune");
 
@@ -280,6 +360,7 @@ contract FeeRollupTest is FeeModelTestPoints, DecoderBase {
         Checkpoint memory b = getCheckpoint();
 
         skipBlobCheck(address(rollup));
+        checkpointHeaders[rollup.getPendingCheckpointNumber() + 1] = b.header;
         rollup.propose(
           ProposeArgs({
             header: b.header,
@@ -324,81 +405,25 @@ contract FeeRollupTest is FeeModelTestPoints, DecoderBase {
         nextEpoch = nextEpoch + Epoch.wrap(1);
         uint256 pendingCheckpointNumber = rollup.getPendingCheckpointNumber();
         uint256 start = rollup.getProvenCheckpointNumber() + 1;
-        uint256 epochSize = 0;
-        while (
-          start + epochSize <= pendingCheckpointNumber
-            && rollup.getEpochForCheckpoint(start) == rollup.getEpochForCheckpoint(start + epochSize)
-        ) {
-          epochSize++;
-        }
-
-        uint256 proverFees = 0;
-        uint256 sequencerFees = 0;
-        uint256 burnSum = 0;
-        bytes32[] memory fees = new bytes32[](Constants.AZTEC_MAX_EPOCH_DURATION * 2);
-
-        for (uint256 feeIndex = 0; feeIndex < epochSize; feeIndex++) {
-          TestPoint memory point = points[start + feeIndex - 1];
-
-          // We assume that everyone PERFECTLY pays their fees with 0 priority fees and no
-          // overpaying on teardown.
-          uint256 minFee =
-            point.outputs.mana_min_fee_components_in_fee_asset.sequencer_cost
-            + point.outputs.mana_min_fee_components_in_fee_asset.prover_cost
-            + point.outputs.mana_min_fee_components_in_fee_asset.congestion_cost;
-
-          uint256 manaUsed = rollup.getFeeHeader(start + feeIndex).manaUsed;
-          uint256 fee = manaUsed * minFee;
-          uint256 burn = manaUsed * point.outputs.mana_min_fee_components_in_fee_asset.congestion_cost;
-          burnSum += burn;
-
-          uint256 proverFee =
-            Math.min(manaUsed * point.outputs.mana_min_fee_components_in_fee_asset.prover_cost, fee - burn);
-          proverFees += proverFee;
-          sequencerFees += (fee - burn - proverFee);
-
-          fees[feeIndex * 2] = bytes32(uint256(uint160(bytes20(coinbase))));
-          fees[feeIndex * 2 + 1] = bytes32(fee);
-        }
+        uint256 usedCheckpointsInEpoch = _getUsedCheckpointsInEpoch(start, pendingCheckpointNumber);
+        (uint256 burnSum, uint256 proverFees, uint256 sequencerFees) = _buildEpochFees(start, usedCheckpointsInEpoch);
 
         uint256 burnAddressBalanceBefore = asset.balanceOf(rollup.getBurnAddress());
         uint256 sequencerRewardsBefore = rollup.getSequencerRewards(coinbase);
-
-        CheckpointLog memory endCheckpoint = rollup.getCheckpoint(start + epochSize - 1);
-
-        PublicInputArgs memory args = PublicInputArgs({
-          previousArchive: rollup.getCheckpoint(start).archive,
-          endArchive: endCheckpoint.archive,
-          outHash: endCheckpoint.outHash,
-          proverId: address(0)
-        });
-
-        {
-          rollup.submitEpochRootProof(
-            SubmitEpochRootProofArgs({
-              start: start,
-              end: start + epochSize - 1,
-              args: args,
-              fees: fees,
-              attestations: CommitteeAttestations({signatureIndices: "", signaturesOrAddresses: ""}),
-              blobInputs: full.checkpoint.batchedBlobInputs,
-              proof: ""
-            })
-          );
-        }
+        _submitEpochProof(start, usedCheckpointsInEpoch);
 
         uint256 burned = asset.balanceOf(rollup.getBurnAddress()) - burnAddressBalanceBefore;
         assertEq(burnSum, burned, "Sum of burned does not match");
 
         // The reward is not yet distributed, but only accumulated.
         {
-          uint256 newFees = rollup.getCheckpointReward() * epochSize / 2 + sequencerFees;
+          uint256 newFees = rollup.getCheckpointReward() * usedCheckpointsInEpoch / 2 + sequencerFees;
           assertEq(rollup.getSequencerRewards(coinbase), sequencerRewardsBefore + newFees, "sequencer rewards");
         }
         {
           assertEq(
             rollup.getCollectiveProverRewardsForEpoch(rollup.getEpochForCheckpoint(start)),
-            rollup.getCheckpointReward() * epochSize / 2 + proverFees,
+            rollup.getCheckpointReward() * usedCheckpointsInEpoch / 2 + proverFees,
             "prover rewards"
           );
         }

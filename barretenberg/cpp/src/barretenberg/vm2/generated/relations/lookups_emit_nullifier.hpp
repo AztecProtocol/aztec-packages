@@ -16,9 +16,9 @@ namespace bb::avm2 {
 struct lookup_emit_nullifier_write_nullifier_settings_ {
     static constexpr std::string_view NAME = "LOOKUP_EMIT_NULLIFIER_WRITE_NULLIFIER";
     static constexpr std::string_view RELATION_NAME = "emit_nullifier";
-    static constexpr size_t LOOKUP_TUPLE_SIZE = 9;
+    static constexpr size_t LOOKUP_TUPLE_SIZE = 12;
     static constexpr Column SRC_SELECTOR = Column::execution_sel_write_nullifier;
-    static constexpr Column DST_SELECTOR = Column::nullifier_check_write;
+    static constexpr Column DST_SELECTOR = Column::indexed_tree_check_write;
     static constexpr Column COUNTS = Column::lookup_emit_nullifier_write_nullifier_counts;
     static constexpr Column INVERSES = Column::lookup_emit_nullifier_write_nullifier_inv;
     static constexpr std::array<ColumnAndShifts, LOOKUP_TUPLE_SIZE> SRC_COLUMNS = {
@@ -28,20 +28,26 @@ struct lookup_emit_nullifier_write_nullifier_settings_ {
         ColumnAndShifts::execution_nullifier_tree_root,
         ColumnAndShifts::execution_prev_nullifier_tree_size,
         ColumnAndShifts::execution_discard,
-        ColumnAndShifts::execution_prev_num_nullifiers_emitted,
+        ColumnAndShifts::execution_nullifier_pi_offset,
+        ColumnAndShifts::execution_nullifier_tree_height,
+        ColumnAndShifts::execution_nullifier_merkle_separator,
         ColumnAndShifts::execution_sel_write_nullifier,
+        ColumnAndShifts::execution_nullifier_siloing_separator,
         ColumnAndShifts::execution_contract_address
     };
     static constexpr std::array<ColumnAndShifts, LOOKUP_TUPLE_SIZE> DST_COLUMNS = {
-        ColumnAndShifts::nullifier_check_nullifier,
-        ColumnAndShifts::nullifier_check_root,
-        ColumnAndShifts::nullifier_check_exists,
-        ColumnAndShifts::nullifier_check_write_root,
-        ColumnAndShifts::nullifier_check_tree_size_before_write,
-        ColumnAndShifts::nullifier_check_discard,
-        ColumnAndShifts::nullifier_check_nullifier_index,
-        ColumnAndShifts::nullifier_check_should_silo,
-        ColumnAndShifts::nullifier_check_address
+        ColumnAndShifts::indexed_tree_check_value,
+        ColumnAndShifts::indexed_tree_check_root,
+        ColumnAndShifts::indexed_tree_check_exists,
+        ColumnAndShifts::indexed_tree_check_write_root,
+        ColumnAndShifts::indexed_tree_check_tree_size_before_write,
+        ColumnAndShifts::indexed_tree_check_discard,
+        ColumnAndShifts::indexed_tree_check_public_inputs_index,
+        ColumnAndShifts::indexed_tree_check_tree_height,
+        ColumnAndShifts::indexed_tree_check_merkle_hash_separator,
+        ColumnAndShifts::indexed_tree_check_sel_silo,
+        ColumnAndShifts::indexed_tree_check_siloing_separator,
+        ColumnAndShifts::indexed_tree_check_address
     };
 };
 

@@ -9,11 +9,12 @@ import {
   NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP,
   PUBLIC_DATA_TREE_HEIGHT,
 } from '@aztec/constants';
-import { BlockNumber } from '@aztec/foundation/branded-types';
+import { BlockNumber, SlotNumber } from '@aztec/foundation/branded-types';
 import { timesAsync } from '@aztec/foundation/collection';
 import { randomBytes } from '@aztec/foundation/crypto/random';
 import { Fr } from '@aztec/foundation/curves/bn254';
 import { EthAddress } from '@aztec/foundation/eth-address';
+import { retryUntil } from '@aztec/foundation/retry';
 import type { SiblingPath } from '@aztec/foundation/trees';
 import { PublicDataWrite } from '@aztec/stdlib/avm';
 import { L2Block } from '@aztec/stdlib/block';
@@ -23,6 +24,7 @@ import type { MerkleTreeLeafType, MerkleTreeWriteOperations } from '@aztec/stdli
 import { makeGlobalVariables } from '@aztec/stdlib/testing';
 import { AppendOnlyTreeSnapshot, MerkleTreeId, PublicDataTreeLeaf } from '@aztec/stdlib/trees';
 import { BlockHeader } from '@aztec/stdlib/tx';
+import type { GenesisData } from '@aztec/stdlib/world-state';
 
 import { jest } from '@jest/globals';
 import { copyFile, lstat, mkdir, mkdtemp, readFile, readdir, rm, writeFile } from 'fs/promises';
@@ -30,7 +32,7 @@ import { tmpdir } from 'os';
 import { join } from 'path';
 
 import type { WorldStateTreeMapSizes } from '../synchronizer/factory.js';
-import { assertSameState, compareChains, mockBlock, mockEmptyBlock } from '../test/utils.js';
+import { assertSameState, compareChains, mockBlock, mockEmptyBlock, updateBlockState } from '../test/utils.js';
 import { INITIAL_NULLIFIER_TREE_SIZE, INITIAL_PUBLIC_DATA_TREE_SIZE } from '../world-state-db/merkle_tree_db.js';
 import type { WorldStateStatusSummary } from './message.js';
 import { NativeWorldStateService, WORLD_STATE_DB_VERSION, WORLD_STATE_DIR } from './native_world_state.js';
@@ -336,7 +338,7 @@ describe('NativeWorldState', () => {
     });
 
     it('manually clears the database', async () => {
-      const ws = await NativeWorldStateService.new(EthAddress.random(), dataDir, wsTreeMapSizes);
+      await using ws = await NativeWorldStateService.new(EthAddress.random(), dataDir, wsTreeMapSizes);
       const initialStatus = await ws.getStatusSummary();
       expect(initialStatus.unfinalizedBlockNumber).toBe(0);
 
@@ -804,8 +806,8 @@ describe('NativeWorldState', () => {
         (blockNumber: number, fork: MerkleTreeWriteOperations) => mockEmptyBlock(BlockNumber(blockNumber), fork),
       ],
     ])('can re-org %s', async (_, genBlock) => {
-      const nonReorgState = await NativeWorldStateService.tmp();
-      const sequentialReorgState = await NativeWorldStateService.tmp();
+      await using nonReorgState = await NativeWorldStateService.tmp();
+      await using sequentialReorgState = await NativeWorldStateService.tmp();
       let fork = await ws.fork();
 
       const blockForks = [];
@@ -936,6 +938,35 @@ describe('NativeWorldState', () => {
         }
       }
     });
+
+    // Regression test for A-1055: a delayed-close fork that the C++ side has already destroyed (via
+    // remove_forks_for_block on an unwind or historical prune) must dispose silently rather than logging a
+    // warning.
+    it('does not fail when a delayed-close fork is destroyed by a reorg before its close fires', async () => {
+      const baseFork = await ws.fork();
+      for (let i = 0; i < 3; i++) {
+        const { block, messages } = await mockBlock(BlockNumber(i + 1), 1, baseFork);
+        await ws.handleL2BlockAndMessages(block, messages);
+      }
+      await baseFork.close();
+
+      const closeDelayMs = 1000;
+      const delayedFork = await ws.fork(undefined, { closeDelayMs });
+      const warnSpy = jest.spyOn((delayedFork as any).log, 'warn');
+
+      await (delayedFork as any)[Symbol.asyncDispose]();
+
+      await ws.unwindBlocks(BlockNumber.fromBigInt(2n));
+      await expect(delayedFork.getSiblingPath(MerkleTreeId.NULLIFIER_TREE, 0n)).rejects.toThrow('Fork not found');
+
+      // The fork was disposed with a closeDelayMs, so its close fires asynchronously after the delay. Wait for
+      // that delayed close to be scheduled and to settle so the "Fork not found" swallow path has actually run
+      // before asserting it did not warn.
+      await retryUntil(() => (delayedFork as any).closePromise !== undefined, 'delayed fork close scheduled', 30, 0.1);
+      await (delayedFork as any).closePromise.catch(() => {});
+
+      expect(warnSpy).not.toHaveBeenCalled();
+    });
   });
 
   describe('Invalid Blocks', () => {
@@ -1012,12 +1043,99 @@ describe('NativeWorldState', () => {
     });
   });
 
+  describe('Archive root divergence on empty blocks', () => {
+    let ws: NativeWorldStateService;
+
+    beforeEach(async () => {
+      ws = await NativeWorldStateService.new(EthAddress.random(), dataDir, wsTreeMapSizes);
+    });
+
+    afterEach(async () => {
+      await ws.close();
+    });
+
+    const emptyMessages = () => Array(16).fill(0).map(Fr.zero);
+
+    // A *different* empty block at height 1: the same (empty) contents as the canonical block, but a different slot,
+    // so a different block-header hash — the proposer-race orphan from A-1235, not a tampered block.
+    const buildDifferentBlockOne = async (slotNumber: number) => {
+      const fork = await ws.fork();
+      const block = L2Block.empty();
+      block.header.globalVariables.blockNumber = BlockNumber(1);
+      block.header.globalVariables.slotNumber = SlotNumber(slotNumber);
+      const messages = emptyMessages();
+      await updateBlockState(block, messages, fork);
+      await fork.close();
+      return { block, messages };
+    };
+
+    // The canonical chain L1 finalized: block 1, then block 2 chained onto it (block 2's lastArchive == block 1's
+    // archive root). Built on a throwaway fork so it never touches the world state under test.
+    const buildCanonicalChain = async () => {
+      const fork = await ws.fork();
+      const { block: canonicalOne } = await mockEmptyBlock(BlockNumber(1), fork);
+      const { block: canonicalTwo, messages: canonicalTwoMessages } = await mockEmptyBlock(BlockNumber(2), fork);
+      await fork.close();
+      return { canonicalOne, canonicalTwo, canonicalTwoMessages };
+    };
+
+    // The core blind spot: two empty blocks at the same height with different headers are indistinguishable to the
+    // four-tree state reference, yet they are different blocks with different archive roots.
+    it('two empty blocks at the same height with different headers share a state reference but not an archive root', async () => {
+      const { canonicalOne } = await buildCanonicalChain();
+      const { block: orphanOne } = await buildDifferentBlockOne(99);
+
+      // The four non-archive trees are identical (empty blocks insert no leaves), so is_same_state_reference cannot
+      // tell the two blocks apart...
+      expect(orphanOne.header.state).toEqual(canonicalOne.header.state);
+      // ...yet they are genuinely different blocks, with different header hashes and different archive roots.
+      expect((await orphanOne.hash()).equals(await canonicalOne.hash())).toBe(false);
+      expect(orphanOne.archive.root.equals(canonicalOne.archive.root)).toBe(false);
+    });
+
+    // The seeding step: a self-consistent orphan block passes every check, so world state takes the wrong block and
+    // ends up on the orphan fork — it has no way, from this block alone, to know it is not the canonical block 1.
+    it('silently accepts a different empty block at the same height (how the wrong block gets in)', async () => {
+      const { canonicalOne } = await buildCanonicalChain();
+      const { block: orphanOne, messages: orphanMessages } = await buildDifferentBlockOne(99);
+
+      await expect(ws.handleL2BlockAndMessages(orphanOne, orphanMessages)).resolves.toBeDefined();
+
+      // World state is now on the orphan fork: its committed archive root is the orphan's, not canonical block 1's.
+      const archive = await ws.getCommitted().getTreeInfo(MerkleTreeId.ARCHIVE);
+      expect(Fr.fromBuffer(archive.root).equals(orphanOne.archive.root)).toBe(true);
+      expect(Fr.fromBuffer(archive.root).equals(canonicalOne.archive.root)).toBe(false);
+    });
+
+    // The fix: once world state has taken the orphan, the canonical successor (which chains off the real block 1)
+    // no longer matches world state's committed archive root, and the pre-append guard rejects it before committing.
+    it('rejects the canonical successor of a wrongly-synced orphan, catching the archive divergence (the fix)', async () => {
+      const { canonicalTwo, canonicalTwoMessages } = await buildCanonicalChain();
+      const { block: orphanOne, messages: orphanMessages } = await buildDifferentBlockOne(99);
+
+      // The orphan commits cleanly (it is a self-consistent block 1).
+      await expect(ws.handleL2BlockAndMessages(orphanOne, orphanMessages)).resolves.toBeDefined();
+      const archiveBefore = await ws.getCommitted().getTreeInfo(MerkleTreeId.ARCHIVE);
+
+      // canonicalTwo.lastArchive == canonicalOne's archive root, which no longer matches world state's committed
+      // (orphan) archive root, so the pre-append guard throws before committing.
+      await expect(ws.handleL2BlockAndMessages(canonicalTwo, canonicalTwoMessages)).rejects.toThrow(
+        /diverged from the canonical chain/,
+      );
+
+      // Clean rollback: the archive tree is untouched.
+      const archiveAfter = await ws.getCommitted().getTreeInfo(MerkleTreeId.ARCHIVE);
+      expect(archiveAfter.root).toEqual(archiveBefore.root);
+      expect(archiveAfter.size).toEqual(archiveBefore.size);
+    });
+  });
+
   describe('Finding leaves', () => {
     let block: L2Block;
     let messages: Fr[];
 
     it('retrieves leaf indices', async () => {
-      const ws = await NativeWorldStateService.new(rollupAddress, dataDir, wsTreeMapSizes);
+      await using ws = await NativeWorldStateService.new(rollupAddress, dataDir, wsTreeMapSizes);
       const numBlocks = 2;
       const txsPerBlock = 2;
       const noteHashes: Fr[] = [];
@@ -1079,7 +1197,7 @@ describe('NativeWorldState', () => {
     let messages: Fr[];
 
     it('retrieves leaf sibling paths', async () => {
-      const ws = await NativeWorldStateService.new(rollupAddress, dataDir, wsTreeMapSizes);
+      await using ws = await NativeWorldStateService.new(rollupAddress, dataDir, wsTreeMapSizes);
       const numBlocks = 2;
       const txsPerBlock = 2;
       const noteHashes: Fr[] = [];
@@ -1144,7 +1262,7 @@ describe('NativeWorldState', () => {
     });
 
     it('correctly reports block numbers', async () => {
-      const ws = await NativeWorldStateService.new(rollupAddress, dataDir, wsTreeMapSizes);
+      await using ws = await NativeWorldStateService.new(rollupAddress, dataDir, wsTreeMapSizes);
       const statuses = [];
       const numBlocks = 2;
       const txsPerBlock = 2;
@@ -1321,16 +1439,14 @@ describe('NativeWorldState', () => {
       const { state: initialState, ...initialRest } = ws.getInitialHeader();
 
       // With prefilled.
-      const prefilledPublicData = [
-        new PublicDataTreeLeaf(new Fr(1000), new Fr(2000)),
-        new PublicDataTreeLeaf(new Fr(3000), new Fr(4000)),
-      ];
-      const wsPrefilled = await NativeWorldStateService.new(
-        EthAddress.random(),
-        dataDir,
-        wsTreeMapSizes,
-        prefilledPublicData,
-      );
+      const genesis: GenesisData = {
+        prefilledPublicData: [
+          new PublicDataTreeLeaf(new Fr(1000), new Fr(2000)),
+          new PublicDataTreeLeaf(new Fr(3000), new Fr(4000)),
+        ],
+        genesisTimestamp: 0n,
+      };
+      const wsPrefilled = await NativeWorldStateService.new(EthAddress.random(), dataDir, wsTreeMapSizes, genesis);
       const { state: prefilledState, ...prefilledRest } = wsPrefilled.getInitialHeader();
 
       // The root of the public data tree has changed.
@@ -1347,6 +1463,34 @@ describe('NativeWorldState', () => {
 
       await ws.close();
       await wsPrefilled.close();
+    });
+  });
+
+  describe('Map size validation', () => {
+    it('rejects zero map size', async () => {
+      const invalidSizes: WorldStateTreeMapSizes = {
+        archiveTreeMapSizeKb: 0,
+        nullifierTreeMapSizeKb: 1024,
+        noteHashTreeMapSizeKb: 1024,
+        messageTreeMapSizeKb: 1024,
+        publicDataTreeMapSizeKb: 1024,
+      };
+      await expect(NativeWorldStateService.new(EthAddress.random(), dataDir, invalidSizes)).rejects.toThrow(
+        'Map size must be a positive number',
+      );
+    });
+
+    it('rejects negative map size', async () => {
+      const invalidSizes: WorldStateTreeMapSizes = {
+        archiveTreeMapSizeKb: 1024,
+        nullifierTreeMapSizeKb: -1,
+        noteHashTreeMapSizeKb: 1024,
+        messageTreeMapSizeKb: 1024,
+        publicDataTreeMapSizeKb: 1024,
+      };
+      await expect(NativeWorldStateService.new(EthAddress.random(), dataDir, invalidSizes)).rejects.toThrow(
+        'Map size must be a positive number',
+      );
     });
   });
 
@@ -1578,7 +1722,8 @@ describe('NativeWorldState', () => {
       const fork = await ws.fork();
       await advanceState(fork);
       const siblingPathsBefore = await getSiblingPaths(fork);
-      await fork.createCheckpoint();
+      const checkpointDepth = await fork.createCheckpoint();
+      expect(checkpointDepth).toEqual(1);
 
       await compareState(fork, siblingPathsBefore, true);
 
@@ -1593,7 +1738,7 @@ describe('NativeWorldState', () => {
       await compareState(fork, siblingPathsAfter, true);
       await compareState(fork, siblingPathsBefore, false);
 
-      await fork.commitAllCheckpoints();
+      await fork.commitAllCheckpointsTo(checkpointDepth - 1);
       await compareState(fork, siblingPathsAfter, true);
       await compareState(fork, siblingPathsBefore, false);
 
@@ -1604,7 +1749,8 @@ describe('NativeWorldState', () => {
       const fork = await ws.fork();
       await advanceState(fork);
       const siblingPathsBefore = await getSiblingPaths(fork);
-      await fork.createCheckpoint();
+      const checkpointDepth = await fork.createCheckpoint();
+      expect(checkpointDepth).toEqual(1);
 
       await compareState(fork, siblingPathsBefore, true);
 
@@ -1612,14 +1758,15 @@ describe('NativeWorldState', () => {
       let siblingPathsAfter: SiblingPath<number>[] = [];
 
       for (let i = 0; i < numCommits; i++) {
-        await fork.createCheckpoint();
+        const newCheckpointDepth = await fork.createCheckpoint();
+        expect(newCheckpointDepth).toEqual(checkpointDepth + i + 1);
         siblingPathsAfter = await advanceState(fork);
       }
 
       await compareState(fork, siblingPathsAfter, true);
       await compareState(fork, siblingPathsBefore, false);
 
-      await fork.revertAllCheckpoints();
+      await fork.revertAllCheckpointsTo(checkpointDepth - 1);
       await compareState(fork, siblingPathsAfter, false);
       await compareState(fork, siblingPathsBefore, true);
 
@@ -1832,6 +1979,162 @@ describe('NativeWorldState', () => {
       expect(size).toBe(initialSize);
       expect(await getLeaf(size - 1n)).toEqual(initialLeaf);
       expect(await getPath(size - 1n)).toEqual(initialPath);
+
+      await fork.close();
+    });
+
+    it('createCheckpoint returns depth', async () => {
+      const fork = await ws.fork();
+      expect(await fork.createCheckpoint()).toBe(1);
+      expect(await fork.createCheckpoint()).toBe(2);
+      expect(await fork.createCheckpoint()).toBe(3);
+      await fork.close();
+    });
+
+    it('can commit all to depth', async () => {
+      const fork = await ws.fork();
+
+      // Create 3 checkpoints with state changes between each
+      const initialPaths = await getSiblingPaths(fork);
+
+      await fork.createCheckpoint(); // depth 1
+      await advanceState(fork);
+
+      await fork.createCheckpoint(); // depth 2
+      await advanceState(fork);
+
+      await fork.createCheckpoint(); // depth 3
+      const afterDepth3Paths = await advanceState(fork);
+
+      // Commit depths 3 and 2 into depth 1, leaving depth at 1
+      await fork.commitAllCheckpointsTo(1);
+
+      // State should reflect all changes
+      await compareState(fork, afterDepth3Paths, true);
+
+      // Revert depth 1 — should go back to initial state
+      await fork.revertCheckpoint();
+      await compareState(fork, initialPaths, true);
+
+      await fork.close();
+    });
+
+    it('can revert all to depth', async () => {
+      const fork = await ws.fork();
+
+      await fork.createCheckpoint(); // depth 1
+      const afterDepth1Paths = await advanceState(fork);
+
+      await fork.createCheckpoint(); // depth 2
+      await advanceState(fork);
+
+      await fork.createCheckpoint(); // depth 3
+      await advanceState(fork);
+
+      // Revert depths 3 and 2, leaving depth at 1
+      await fork.revertAllCheckpointsTo(1);
+
+      // Should be back to after depth 1 state
+      await compareState(fork, afterDepth1Paths, true);
+
+      // Depth 1 still active — commit it
+      await fork.commitCheckpoint();
+      await compareState(fork, afterDepth1Paths, true);
+
+      await fork.close();
+    });
+
+    it('revert to depth preserves lower checkpoints', async () => {
+      const fork = await ws.fork();
+
+      await fork.createCheckpoint(); // depth 1
+      await advanceState(fork);
+
+      await fork.createCheckpoint(); // depth 2
+      await advanceState(fork);
+
+      // Revert depth 2 only, leaving depth at 1
+      await fork.revertAllCheckpointsTo(1);
+
+      // Create new checkpoint at depth 2 with different changes
+      await fork.createCheckpoint(); // depth 2 again
+      const newDepth2Paths = await advanceState(fork);
+
+      // Commit depth 2
+      await fork.commitCheckpoint();
+
+      // Commit depth 1
+      await fork.commitCheckpoint();
+
+      // Final state should include the new depth 2 changes
+      await compareState(fork, newDepth2Paths, true);
+
+      await fork.close();
+    });
+
+    it('commit all with depth 0 commits everything', async () => {
+      const fork = await ws.fork();
+
+      await fork.createCheckpoint(); // depth 1
+      await advanceState(fork);
+
+      await fork.createCheckpoint(); // depth 2
+      const finalPaths = await advanceState(fork);
+
+      // depth 0 commits all checkpoints
+      await fork.commitAllCheckpointsTo(0);
+
+      // State should reflect all changes
+      await compareState(fork, finalPaths, true);
+
+      await fork.close();
+    });
+
+    it('revert all with depth 0 reverts everything', async () => {
+      const fork = await ws.fork();
+      const initialPaths = await getSiblingPaths(fork);
+
+      await fork.createCheckpoint(); // depth 1
+      await advanceState(fork);
+
+      await fork.createCheckpoint(); // depth 2
+      await advanceState(fork);
+
+      // depth 0 reverts all checkpoints
+      await fork.revertAllCheckpointsTo(0);
+
+      // Should be back to initial state
+      await compareState(fork, initialPaths, true);
+
+      await fork.close();
+    });
+
+    it('depth is consistent across multiple checkpoint cycles', async () => {
+      const fork = await ws.fork();
+
+      // Create checkpoint depth 1
+      expect(await fork.createCheckpoint()).toBe(1);
+      const afterDepth1Paths = await advanceState(fork);
+
+      // Create checkpoint depth 2
+      expect(await fork.createCheckpoint()).toBe(2);
+      await advanceState(fork);
+
+      // Revert depth 2, leaving depth at 1
+      await fork.revertAllCheckpointsTo(1);
+      await compareState(fork, afterDepth1Paths, true);
+
+      // Create new depth 2
+      expect(await fork.createCheckpoint()).toBe(2);
+      const newDepth2Paths = await advanceState(fork);
+
+      // Commit depth 2
+      await fork.commitCheckpoint();
+      await compareState(fork, newDepth2Paths, true);
+
+      // Commit depth 1
+      await fork.commitCheckpoint();
+      await compareState(fork, newDepth2Paths, true);
 
       await fork.close();
     });

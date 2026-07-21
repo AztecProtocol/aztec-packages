@@ -7,9 +7,10 @@ import { Fr, GrumpkinScalar } from '@aztec/aztec.js/fields';
 import { Schnorr } from '@aztec/foundation/crypto/schnorr';
 import { SchnorrHardcodedAccountContractArtifact } from '@aztec/noir-contracts.js/SchnorrHardcodedAccount';
 import { TokenContract } from '@aztec/noir-contracts.js/Token';
-import { TestWallet } from '@aztec/test-wallet/server';
 
+import { AUTOMINE_E2E_OPTS } from '../fixtures/fixtures.js';
 import { setup } from '../fixtures/utils.js';
+import { TestWallet } from '../test-wallet/test_wallet.js';
 
 const PRIVATE_KEY = GrumpkinScalar.fromHexString('0xd35d743ac0dfe3d6dbe6be8c877cb524a00ab1e3d52d7bada095dfc8894ccfa');
 
@@ -33,18 +34,21 @@ class SchnorrHardcodedKeyAccountContract extends DefaultAccountContract {
     return {
       async createAuthWit(messageHash: Fr): Promise<AuthWitness> {
         const signer = new Schnorr();
-        const signature = await signer.constructSignature(messageHash.toBuffer(), privateKey);
-        return Promise.resolve(new AuthWitness(messageHash, [...signature.toBuffer()]));
+        const signature = await signer.constructSignature(messageHash, privateKey);
+        return Promise.resolve(new AuthWitness(messageHash, signature.toLimbFields()));
       },
     };
   }
 }
 
+// Guide-level test demonstrating a custom Schnorr account contract implementation. Uses setup() with
+// AUTOMINE_E2E_OPTS; runs fully in-proc. Sits in the compose suite by glob inclusion, not by need —
+// migrate-later candidate for the single-node category.
 describe('guides/writing_an_account_contract', () => {
   let context: Awaited<ReturnType<typeof setup>>;
 
   beforeEach(async () => {
-    context = await setup(1);
+    context = await setup(1, { ...AUTOMINE_E2E_OPTS });
   });
 
   afterEach(() => context.teardown());
@@ -73,7 +77,7 @@ describe('guides/writing_an_account_contract', () => {
     const address = account.address;
     logger.info(`Deployed account contract at ${address}`);
 
-    const token = await TokenContract.deploy(wallet, fundedAccount, 'TokenName', 'TokenSymbol', 18).send({
+    const { contract: token } = await TokenContract.deploy(wallet, fundedAccount, 'TokenName', 'TokenSymbol', 18).send({
       from: fundedAccount,
     });
     logger.info(`Deployed token contract at ${token.address}`);
@@ -81,7 +85,7 @@ describe('guides/writing_an_account_contract', () => {
     const mintAmount = 50n;
     await token.methods.mint_to_private(address, mintAmount).send({ from: fundedAccount });
 
-    const balance = await token.methods.balance_of_private(address).simulate({ from: address });
+    const { result: balance } = await token.methods.balance_of_private(address).simulate({ from: address });
     logger.info(`Balance of wallet is now ${balance}`);
     expect(balance).toEqual(50n);
 

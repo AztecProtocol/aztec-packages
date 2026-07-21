@@ -40,7 +40,6 @@ node:
 
   startCmd:
     - --node
-    - --archiver
 
   startupProbe:
     # -- Period seconds
@@ -91,7 +90,6 @@ node:
 
   startCmd:
     - --node
-    - --archiver
     - --sequencer
 
   startupProbe:
@@ -132,7 +130,6 @@ service:
 | network | - | Network name - predefined network (alpha-testnet, devnet) |
 | customNetwork.l1ChainId | - | L1 chain ID for custom network |
 | customNetwork.registryContractAddress | - | Registry contract address for custom network |
-| customNetwork.slashFactoryAddress | - | Slash factory address for custom network |
 | customNetwork.feeAssetHandlerContractAddress | - | Fee asset handler contract address for custom network |
 | rollupVersion | "canonical" | Which rollup contract to follow from the registry |
 | hostNetwork | false | Use host network (disables nodePort service) |
@@ -145,7 +142,7 @@ service:
 | node.l1ConsensusUrls | [] | L1 consensus host URLs (comma-separated list) |
 | node.l1ConsensusHostApiKeys | [] | API keys for L1 consensus hosts |
 | node.l1ConsensusHostApiKeyHeaders | [] | API key headers for L1 consensus hosts |
-| node.startCmd | ["--node", "--archiver"] | Startup command for the node |
+| node.startCmd | ["--node"] | Startup command for the node |
 | node.remoteUrl.archiver | - | Remote URL for archiver |
 | node.remoteUrl.proverBroker | - | Remote URL for prover broker |
 | node.remoteUrl.proverCoordinationNodes | [] | Remote URLs for prover coordination nodes |
@@ -162,6 +159,14 @@ service:
 | node.nodeJsOptions | ["--no-warnings", "--max-old-space-size=4096"] | Node.js options |
 | node.startupProbe.periodSeconds | 30 | Period seconds for startup probe |
 | node.startupProbe.failureThreshold | 3 | Failure threshold for startup probe |
+| node.readinessProbe.enabled | true | Enable readiness probe rendering |
+| node.readinessProbe.exec | sync status check | Exec readiness probe config |
+| node.readinessProbe.httpGet | null | HTTP readiness probe config |
+| node.readinessProbe.periodSeconds | 15 | Period seconds for readiness probe |
+| node.readinessProbe.timeoutSeconds | 2 | Timeout seconds for readiness probe |
+| node.readinessProbe.initialDelaySeconds | 0 | Initial delay before readiness probes |
+| node.readinessProbe.failureThreshold | 1 | Failure threshold for readiness probe |
+| node.readinessProbe.successThreshold | 1 | Success threshold for readiness probe |
 | persistence.enabled | false | Enable persistence (uses emptyDir when disabled) |
 | persistence.existingClaim | null | Use an existing PVC |
 | persistence.accessModes | ["ReadWriteOnce"] | Access modes for persistence |
@@ -176,6 +181,7 @@ service:
 | service.ingress.hosts | [] | Ingress hosts |
 | service.p2p.enabled | true | Enable P2P service |
 | service.p2p.nodePortEnabled | true | Enable node port for P2P service |
+| service.p2p.hostPortEnabled | true | Enable hostPort for P2P service when NodePort is disabled |
 | service.p2p.port | 40400 | P2P port |
 | service.p2p.announcePort | 40400 | P2P announce port |
 | service.admin.enabled | true | Enable admin service |

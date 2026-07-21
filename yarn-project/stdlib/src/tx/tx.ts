@@ -1,14 +1,19 @@
-import { Buffer32 } from '@aztec/foundation/buffer';
+import { DA_GAS_PER_FIELD, TX_DA_GAS_OVERHEAD } from '@aztec/constants';
+import { type BaseBuffer32, Buffer32 } from '@aztec/foundation/buffer';
 import { Fr } from '@aztec/foundation/curves/bn254';
 import type { ZodFor } from '@aztec/foundation/schemas';
-import { BufferReader, serializeArrayOfBufferableToVector, serializeToBuffer } from '@aztec/foundation/serialize';
-import type { FieldsOf } from '@aztec/foundation/types';
+import {
+  BufferReader,
+  BufferSink,
+  serializeArrayOfBufferableToVector,
+  serializeArrayToSink,
+  serializeToSink,
+} from '@aztec/foundation/serialize';
+import { type FieldsOf, unfreeze } from '@aztec/foundation/types';
 
 import { z } from 'zod';
 
 import type { GasSettings } from '../gas/gas_settings.js';
-import type { GetPublicLogsResponse } from '../interfaces/get_logs_response.js';
-import type { L2LogsSource } from '../interfaces/l2_logs_source.js';
 import type { PublicCallRequest } from '../kernel/index.js';
 import { PrivateKernelTailCircuitPublicInputs } from '../kernel/private_kernel_tail_circuit_public_inputs.js';
 import { ContractClassLog, ContractClassLogFields } from '../logs/contract_class_log.js';
@@ -19,6 +24,14 @@ import type { TxStats } from '../stats/stats.js';
 import { HashedValues } from './hashed_values.js';
 import { PublicCallRequestWithCalldata } from './public_call_request_with_calldata.js';
 import { TxHash } from './tx_hash.js';
+
+// Static presize hint for the BufferSink the no-sink Tx.toBuffer() path allocates. Empirically a
+// public-with-enqueued-calls Tx serialized by the bootstrapped bench (yarn-project/stdlib/src/tx/
+// tx_bench.test.ts) is ~129128 bytes; a private-only Tx is ~81763 bytes. 128 KiB covers both shapes
+// without a single doubling-growth `ensure()` resize on the cold path. Real-world Txs that happen to
+// exceed this still serialize correctly — the sink falls back to its standard doubling growth — just
+// with the existing cost.
+const TX_SINK_PRESIZE_BYTES = 131072;
 
 /**
  * The interface of an L2 transaction.
@@ -63,7 +76,7 @@ export class Tx extends Gossipable {
   // docs:end:tx_class
 
   // Gossipable method
-  override generateP2PMessageIdentifier(): Promise<Buffer32> {
+  override generateP2PMessageIdentifier(): Promise<BaseBuffer32> {
     return Promise.resolve(new Buffer32(this.getTxHash().toBuffer()));
   }
 
@@ -123,17 +136,35 @@ export class Tx extends Gossipable {
   }
 
   /**
+   * Deserializes a Tx from separately-stored tx and proof buffers. The tx buffer is expected to carry an empty
+   * proof placeholder (as produced by `withoutProof().toBuffer()`), which is skipped in favor of the given proof.
+   * @param txBuffer - Serialized tx with an empty proof placeholder.
+   * @param proofBuffer - Serialized proof to attach.
+   * @returns An instance of Tx carrying the given proof.
+   */
+  static fromBuffers(txBuffer: Buffer | BufferReader, proofBuffer: Buffer | BufferReader): Tx {
+    const reader = BufferReader.asReader(txBuffer);
+    const txHash = reader.readObject(TxHash);
+    const data = reader.readObject(PrivateKernelTailCircuitPublicInputs);
+    reader.readObject(ChonkProof);
+    const contractClassLogFields = reader.readVectorUint8Prefix(ContractClassLogFields);
+    const publicFunctionCalldata = reader.readVectorUint8Prefix(HashedValues);
+    return new Tx(txHash, data, ChonkProof.fromBuffer(proofBuffer), contractClassLogFields, publicFunctionCalldata);
+  }
+
+  /**
    * Serializes the Tx object into a Buffer.
    * @returns Buffer representation of the Tx object.
    */
-  toBuffer() {
-    return serializeToBuffer([
-      this.txHash,
-      this.data,
-      this.chonkProof,
-      serializeArrayOfBufferableToVector(this.contractClassLogFields, 1),
-      serializeArrayOfBufferableToVector(this.publicFunctionCalldata, 1),
-    ]);
+  toBuffer(): Buffer;
+  toBuffer(sink: BufferSink): void;
+  toBuffer(sink?: BufferSink): Buffer | void {
+    if (!sink) {
+      return BufferSink.serialize(this, TX_SINK_PRESIZE_BYTES);
+    }
+    serializeToSink(sink, this.txHash, this.data, this.chonkProof);
+    serializeArrayToSink(sink, this.contractClassLogFields, 1);
+    serializeArrayToSink(sink, this.publicFunctionCalldata, 1);
   }
 
   static get schema(): ZodFor<Tx> {
@@ -177,15 +208,6 @@ export class Tx extends Gossipable {
   async validateTxHash(): Promise<boolean> {
     const expectedHash = await Tx.computeTxHash(this);
     return this.txHash.equals(expectedHash);
-  }
-
-  /**
-   * Gets public logs emitted by this tx.
-   * @param logsSource - An instance of `L2LogsSource` which can be used to obtain the logs.
-   * @returns The requested logs.
-   */
-  public getPublicLogs(logsSource: L2LogsSource): Promise<GetPublicLogsResponse> {
-    return logsSource.getPublicLogs({ txHash: this.getTxHash() });
   }
 
   getContractClassLogs(): ContractClassLog[] {
@@ -264,16 +286,24 @@ export class Tx extends Gossipable {
   }
 
   /**
-   * Estimates the tx size based on its private effects. Note that the actual size of the tx
-   * after processing will probably be larger, as public execution would generate more data.
+   * Returns the number of fields this tx's effects will occupy in the blob,
+   * based on its private side effects only. Accurate for txs without public calls.
+   * For txs with public calls, the actual size will be larger due to public execution outputs.
    */
-  getEstimatedPrivateTxEffectsSize() {
-    return (
-      this.data.getNonEmptyNoteHashes().length * Fr.SIZE_IN_BYTES +
-      this.data.getNonEmptyNullifiers().length * Fr.SIZE_IN_BYTES +
-      this.data.getEmittedPrivateLogsLength() * Fr.SIZE_IN_BYTES +
-      this.data.getEmittedContractClassLogsLength() * Fr.SIZE_IN_BYTES
-    );
+  getPrivateTxEffectsSizeInFields(): number {
+    // 3 fields overhead: tx_start_marker, tx_hash, tx_fee.
+    // TX_DA_GAS_OVERHEAD is defined as N * DA_GAS_PER_FIELD, so this division is always exact.
+    const overheadFields = TX_DA_GAS_OVERHEAD / DA_GAS_PER_FIELD;
+    const noteHashes = this.data.getNonEmptyNoteHashes().length;
+    const nullifiers = this.data.getNonEmptyNullifiers().length;
+    const l2ToL1Msgs = this.data.getNonEmptyL2ToL1Msgs().length;
+    // Each private log occupies (emittedLength + 1) fields: content + length field
+    const privateLogFields = this.data.getNonEmptyPrivateLogs().reduce((acc, log) => acc + log.emittedLength + 1, 0);
+    // Each contract class log occupies (length + 1) fields: content + contract address
+    const contractClassLogFields = this.data
+      .getNonEmptyContractClassLogsHashes()
+      .reduce((acc, log) => acc + log.logHash.length + 1, 0);
+    return overheadFields + noteHashes + nullifiers + l2ToL1Msgs + privateLogFields + contractClassLogFields;
   }
 
   /**
@@ -293,6 +323,16 @@ export class Tx extends Gossipable {
   }
 
   /**
+   * Returns a copy of this tx with its proof stripped (replaced by an empty {@link ChonkProof}). Used when archiving
+   * txs or shipping a pending tx over RPC where the proof is not needed. Note that {@link Tx.clone} with
+   * `cloneProof = false` does not strip the proof; it shares the original.
+   * @returns A new tx with an empty proof.
+   */
+  withoutProof(): Tx {
+    return new Tx(this.txHash, this.data, ChonkProof.empty(), this.contractClassLogFields, this.publicFunctionCalldata);
+  }
+
+  /**
    * Creates a random tx.
    * @param randomProof - Whether to create a random proof - this will be random bytes of the full size.
    * @returns A random tx.
@@ -309,7 +349,7 @@ export class Tx extends Gossipable {
 
   /** Recomputes the tx hash. Used for testing purposes only when a property of the tx was mutated. */
   public async recomputeHash(): Promise<TxHash> {
-    (this as any).txHash = await Tx.computeTxHash(this);
+    unfreeze(this).txHash = await Tx.computeTxHash(this);
     return this.txHash;
   }
 
@@ -336,7 +376,12 @@ export class TxArray extends Array<Tx> {
     }
   }
 
-  public toBuffer(): Buffer {
-    return serializeArrayOfBufferableToVector(this);
+  public toBuffer(): Buffer;
+  public toBuffer(sink: BufferSink): void;
+  public toBuffer(sink?: BufferSink): Buffer | void {
+    if (!sink) {
+      return serializeArrayOfBufferableToVector(this);
+    }
+    serializeArrayToSink(sink, [...this]);
   }
 }

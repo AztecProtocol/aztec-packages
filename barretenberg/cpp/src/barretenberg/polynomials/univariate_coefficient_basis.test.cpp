@@ -1,6 +1,7 @@
 #include "univariate_coefficient_basis.hpp"
 #include "barretenberg/ecc/curves/bn254/fr.hpp"
 #include "univariate.hpp"
+#include <bitset>
 #include <gtest/gtest.h>
 
 using namespace bb;
@@ -49,26 +50,73 @@ TYPED_TEST(UnivariateCoefficientBasisTest, Multiplication)
     EXPECT_EQ(result, expected);
 }
 
-TYPED_TEST(UnivariateCoefficientBasisTest, Serialization)
+// `VectorField::is_zero()` (bool form) and `UnivariateCoefficientBasis<Vec>::is_zero()` must both mean
+// "every lane of every coefficient is zero". Selector-gated prover relations use these as the skip
+// predicate; a partial-zero lane pattern reading as "is_zero == true" would drop a subrelation whose
+// selector fires on at least one of the rows packed into the lanes.
+#include "barretenberg/ecc/fields/vector_field.hpp"
+
+namespace {
+
+using Vec = bb::VectorField<bb::Bn254FrParams>;
+
+bb::fr fr_from_lane(size_t lane, bool nonzero)
 {
-    const size_t LENGTH = 2;
-    std::array<fr, LENGTH> evaluations;
+    // Distinct nonzero value per lane so a lane-mixing bug surfaces as a wrong value, not just a non-zero one.
+    return nonzero ? bb::fr(static_cast<uint64_t>(0x100 + lane)) : bb::fr::zero();
+}
 
-    for (size_t i = 0; i < LENGTH; ++i) {
-        evaluations[i] = fr::random_element();
+Vec vec_lane_pattern(uint32_t nonzero_mask)
+{
+    std::array<bb::fr, 5> lanes{};
+    for (size_t i = 0; i < 5; ++i) {
+        lanes[i] = fr_from_lane(i, (nonzero_mask >> i) & 1u);
     }
+    return Vec(lanes);
+}
 
-    // Instantiate a Univariate from the evaluations
-    auto univariate = Univariate<fr, LENGTH>(evaluations);
-    UnivariateCoefficientBasis<fr, LENGTH, true> univariate_m(univariate);
-    // Serialize univariate to buffer
-    std::vector<uint8_t> buffer = univariate_m.to_buffer();
+} // namespace
 
-    // Deserialize
-    auto deserialized_univariate =
-        Univariate<fr, LENGTH>(UnivariateCoefficientBasis<fr, LENGTH, true>::serialize_from_buffer(&buffer[0]));
+TEST(VectorFieldIsZeroBool, AllZeroLanesIsZero)
+{
+    EXPECT_TRUE(vec_lane_pattern(0b00000).is_zero());
+    EXPECT_EQ(vec_lane_pattern(0b00000).is_zero_mask(), 0b11111u);
+}
 
-    for (size_t i = 0; i < LENGTH; ++i) {
-        EXPECT_EQ(univariate.value_at(i), deserialized_univariate.value_at(i));
+TEST(VectorFieldIsZeroBool, AllNonZeroLanesIsNotZero)
+{
+    EXPECT_FALSE(vec_lane_pattern(0b11111).is_zero());
+    EXPECT_EQ(vec_lane_pattern(0b11111).is_zero_mask(), 0u);
+}
+
+// Mixed lane patterns (e.g. one row carries `lagrange_first = 1`, the other lanes hold rows where it's
+// zero). Each must read as not-zero so the relation gate fires on the row that needs it.
+TEST(VectorFieldIsZeroBool, PartiallyNonZeroLanesIsNotZero)
+{
+    for (uint32_t pattern : { 0b00001u, 0b00010u, 0b00100u, 0b01000u, 0b10000u, 0b01010u, 0b11110u, 0b10101u }) {
+        EXPECT_FALSE(vec_lane_pattern(pattern).is_zero()) << "pattern=0b" << std::bitset<5>(pattern);
     }
+}
+
+// `UnivariateCoefficientBasis<Vec>::is_zero()` is the actual call site for the relation gate
+// (`gate.is_zero()` where `gate` is a `CoefficientAccumulator`); a non-zero lane anywhere in any
+// coefficient must read as not-zero.
+TEST(UnivariateCoefficientBasisVec, IsZeroFalseWhenSingleLaneIsNonZero)
+{
+    using UCB = bb::UnivariateCoefficientBasis<Vec, 2, true>;
+    UCB gate;
+    gate.coefficients[0] = vec_lane_pattern(0b00001);
+    gate.coefficients[1] = vec_lane_pattern(0b00000);
+    gate.coefficients[2] = gate.coefficients[0];
+    EXPECT_FALSE(gate.is_zero());
+}
+
+TEST(UnivariateCoefficientBasisVec, IsZeroTrueOnlyWhenAllLanesZero)
+{
+    using UCB = bb::UnivariateCoefficientBasis<Vec, 2, true>;
+    UCB gate;
+    gate.coefficients[0] = vec_lane_pattern(0b00000);
+    gate.coefficients[1] = vec_lane_pattern(0b00000);
+    gate.coefficients[2] = vec_lane_pattern(0b00000);
+    EXPECT_TRUE(gate.is_zero());
 }

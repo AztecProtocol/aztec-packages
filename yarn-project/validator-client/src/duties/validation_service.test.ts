@@ -1,9 +1,14 @@
 import { getAddressFromPrivateKey } from '@aztec/ethereum/account';
-import { IndexWithinCheckpoint } from '@aztec/foundation/branded-types';
+import { CheckpointNumber, IndexWithinCheckpoint } from '@aztec/foundation/branded-types';
 import { Buffer32 } from '@aztec/foundation/buffer';
 import { Fr } from '@aztec/foundation/curves/bn254';
 import { EthAddress } from '@aztec/foundation/eth-address';
-import { makeBlockHeader, makeCheckpointHeader, makeCheckpointProposal } from '@aztec/stdlib/testing';
+import {
+  TEST_COORDINATION_SIGNATURE_CONTEXT,
+  makeBlockHeader,
+  makeCheckpointHeader,
+  makeCheckpointProposal,
+} from '@aztec/stdlib/testing';
 import { Tx } from '@aztec/stdlib/tx';
 import { DutyType } from '@aztec/validator-ha-signer/types';
 
@@ -22,7 +27,7 @@ describe('ValidationService', () => {
     keys = [generatePrivateKey(), generatePrivateKey()];
     addresses = keys.map(key => EthAddress.fromString(getAddressFromPrivateKey(key)));
     store = new LocalKeyStore(keys.map(key => Buffer32.fromString(key)));
-    service = new ValidationService(store);
+    service = new ValidationService(store, TEST_COORDINATION_SIGNATURE_CONTEXT);
   });
 
   it('creates a block proposal with txs appended', async () => {
@@ -34,6 +39,7 @@ describe('ValidationService', () => {
 
     const proposal = await service.createBlockProposal(
       blockHeader,
+      CheckpointNumber(1),
       indexWithinCheckpoint,
       inHash,
       archive,
@@ -55,6 +61,7 @@ describe('ValidationService', () => {
 
     const proposal = await service.createBlockProposal(
       blockHeader,
+      CheckpointNumber(1),
       indexWithinCheckpoint,
       inHash,
       archive,
@@ -69,80 +76,66 @@ describe('ValidationService', () => {
   it('attests to checkpoint proposal', async () => {
     const txs = await Promise.all([Tx.random(), Tx.random()]);
     const proposal = await makeCheckpointProposal({ lastBlock: { txs } });
-    const attestations = await service.attestToCheckpointProposal(proposal, addresses);
+    const attestations = await service.attestToCheckpointProposal(proposal, addresses, CheckpointNumber(1));
     expect(attestations.length).toBe(2);
     expect(attestations[0].getSender()).toEqual(addresses[0]);
     expect(attestations[1].getSender()).toEqual(addresses[1]);
   });
 
-  it('creates checkpoint proposal with different duty types for checkpoint and block', async () => {
-    // This test verifies the fix for HA double-signing issue where both checkpoint
-    // and block were incorrectly using the same CHECKPOINT_PROPOSAL duty type.
-    // Now they should use CHECKPOINT_PROPOSAL and BLOCK_PROPOSAL respectively.
-
+  it('creates checkpoint proposal with an already-signed block proposal', async () => {
     const txs = await Promise.all([Tx.random(), Tx.random()]);
     const blockHeader = makeBlockHeader(1);
     const indexWithinCheckpoint = IndexWithinCheckpoint(0);
     const archive = Fr.random();
+    const checkpointHeader = makeCheckpointHeader(1);
+
+    // Create the block proposal first (as the sequencer would), using the checkpoint's inHash
+    // so that getSender() can verify the block proposal sender matches
+    const blockProposal = await service.createBlockProposal(
+      blockHeader,
+      CheckpointNumber(1),
+      indexWithinCheckpoint,
+      checkpointHeader.inHash,
+      archive,
+      txs,
+      addresses[0],
+      { publishFullTxs: true },
+    );
 
     // Create a spy keystore to capture signing contexts
     const capturedContexts: Array<{ dutyType: DutyType; blockIndexWithinCheckpoint?: number }> = [];
     const spyStore = {
       ...store,
-      signMessageWithAddress: (address: EthAddress, message: Buffer32, context: any) => {
+      signTypedDataWithAddress: (address: EthAddress, typedData: any, context: any) => {
         capturedContexts.push({
           dutyType: context.dutyType,
           blockIndexWithinCheckpoint: context.blockIndexWithinCheckpoint,
         });
-        return store.signMessageWithAddress(address, message, context);
+        return store.signTypedDataWithAddress(address, typedData, context);
       },
       getAddress: (index: number) => store.getAddress(index),
       getAddresses: () => store.getAddresses(),
     };
-    const spyService = new ValidationService(spyStore as any);
+    const spyService = new ValidationService(spyStore as any, TEST_COORDINATION_SIGNATURE_CONTEXT);
 
-    // Create checkpoint header
-    const checkpointHeader = makeCheckpointHeader(1);
-
-    // Create checkpoint proposal with lastBlock
+    // Create checkpoint proposal with the already-signed block proposal
     const proposal = await spyService.createCheckpointProposal(
       checkpointHeader,
       archive,
-      {
-        blockHeader,
-        indexWithinCheckpoint,
-        txs,
-      },
+      CheckpointNumber(1),
+      0n,
+      blockProposal,
       addresses[0],
-      { publishFullTxs: true },
+      {},
     );
 
     // Verify proposal was created successfully
     expect(proposal.getSender()).toEqual(addresses[0]);
     expect(proposal.lastBlock).toBeDefined();
+    expect(proposal.lastBlock!.signature).toEqual(blockProposal.signature);
 
-    // Verify we captured signing operations:
-    // 1. CHECKPOINT_PROPOSAL for the checkpoint itself
-    // 2. BLOCK_PROPOSAL for the block itself
-    // 3. TXS for the SignedTxs
-    expect(capturedContexts.length).toBe(3);
-
-    // Find the checkpoint and block signatures
-    const checkpointSigs = capturedContexts.filter(c => c.dutyType === DutyType.CHECKPOINT_PROPOSAL);
-    const blockSigs = capturedContexts.filter(c => c.dutyType === DutyType.BLOCK_PROPOSAL);
-    const txsSigs = capturedContexts.filter(c => c.dutyType === DutyType.TXS);
-
-    // Should have exactly 1 checkpoint signature (no blockIndexWithinCheckpoint)
-    expect(checkpointSigs.length).toBe(1);
-    expect(checkpointSigs[0].blockIndexWithinCheckpoint).toBeUndefined();
-
-    // Should have exactly 2 block signatures (both with blockIndexWithinCheckpoint)
-    // One for the block proposal, one for the SignedTxs
-    expect(blockSigs.length).toBe(1);
-    expect(blockSigs[0].blockIndexWithinCheckpoint).toBe(indexWithinCheckpoint);
-
-    // Should have exactly 1 txs signature
-    expect(txsSigs.length).toBe(1);
-    expect(txsSigs[0].blockIndexWithinCheckpoint).toBeUndefined();
+    // Only the checkpoint signing should happen — the block was already signed
+    expect(capturedContexts.length).toBe(1);
+    expect(capturedContexts[0].dutyType).toBe(DutyType.CHECKPOINT_PROPOSAL);
   });
 });

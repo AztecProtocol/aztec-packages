@@ -1,5 +1,5 @@
 // === AUDIT STATUS ===
-// internal:    { status: Planned, auditors: [], commit: }
+// internal:    { status: Complete, auditors: [Suyash], commit: e4712cda8def49d75fbba2d361625fc5e21945f5 }
 // external_1:  { status: not started, auditors: [], commit: }
 // external_2:  { status: not started, auditors: [], commit: }
 // =====================
@@ -23,6 +23,15 @@ void create_logic_gate(Builder& builder,
     field_ct right = to_field_ct(b, builder);
 
     field_ct computed_result = bb::stdlib::logic<Builder>::create_logic_constraint(left, right, num_bits, is_xor_gate);
+
+    // In write-VK mode the result witness holds a dummy zero. In certain cases, the computed result is non-zero so the
+    // assert_equal would spuriously fail. Patch the witness value so the downstream assertion sees the correct value.
+    // Eg. for an XOR gate, if the inputs are constants such that the result is a non-zero constant, the assert_equal
+    // will fail in write-VK mode since the result witness is initialized to zero.
+    if (builder.is_write_vk_mode()) {
+        builder.set_variable(result, computed_result.get_value());
+    }
+
     field_ct acir_result = field_ct::from_witness_index(&builder, result);
     computed_result.assert_equal(acir_result);
 }

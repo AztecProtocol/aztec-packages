@@ -9,10 +9,11 @@ on:
 jobs:
   auto-merge-inactive:
     name: Auto-merge inactive PRs
+    if: ${{ github.event_name != 'schedule' || github.repository == 'AztecProtocol/aztec-packages' }}
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
-        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+        uses: actions/checkout@93cb6efe18208431cddfb8368fd83d5badbf9bfd # v5.0.1
         with:
           token: ${{ secrets.GITHUB_TOKEN }}
 
@@ -25,8 +26,17 @@ jobs:
       - name: Run auto-merge script (backport-train)
         run: |
           GH_TOKEN=${{ secrets.AZTEC_BOT_GITHUB_TOKEN }} \
-          MERGE_TRAIN_GITHUB_TOKEN=${{ secrets.AZTEC_BOT_GITHUB_TOKEN }} \
+          MERGE_TRAIN_GITHUB_TOKEN=${{ secrets.MERGE_TRAIN_GITHUB_TOKEN }} \
           BRANCH_PATTERN=backport-to- \
+          MERGE_STRATEGY=merge \
+          INACTIVITY_HOURS=8 \
+          ./scripts/merge-train/auto-merge.sh
+
+      - name: Run auto-merge script (port-to-next)
+        run: |
+          GH_TOKEN=${{ secrets.AZTEC_BOT_GITHUB_TOKEN }} \
+          MERGE_TRAIN_GITHUB_TOKEN=${{ secrets.MERGE_TRAIN_GITHUB_TOKEN }} \
+          BRANCH_PATTERN=port-to-next \
           MERGE_STRATEGY=merge \
           INACTIVITY_HOURS=8 \
           ./scripts/merge-train/auto-merge.sh

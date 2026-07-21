@@ -1,4 +1,9 @@
-import { type ConfigMappingsType, booleanConfigHelper, getConfigFromMappings } from '@aztec/foundation/config';
+import {
+  type ConfigMappingsType,
+  booleanConfigHelper,
+  getConfigFromMappings,
+  numberConfigHelper,
+} from '@aztec/foundation/config';
 
 export interface TelemetryClientConfig {
   metricsCollectorUrl?: URL;
@@ -12,35 +17,35 @@ export interface TelemetryClientConfig {
   otelExportTimeoutMs: number;
   otelExcludeMetrics: string[];
   otelIncludeMetrics: string[];
+  otelMinTraceDurationMs: number;
+  otelBspMaxQueueSize: number;
 }
 
 export const telemetryClientConfigMappings: ConfigMappingsType<TelemetryClientConfig> = {
   metricsCollectorUrl: {
     env: 'OTEL_EXPORTER_OTLP_METRICS_ENDPOINT',
     description: 'The URL of the telemetry collector for metrics',
-    parseEnv: (val: string) => val && new URL(val),
+    parseEnv: (val: string) => new URL(val),
   },
   tracesCollectorUrl: {
     env: 'OTEL_EXPORTER_OTLP_TRACES_ENDPOINT',
     description: 'The URL of the telemetry collector for traces',
-    parseEnv: (val: string) => val && new URL(val),
+    parseEnv: (val: string) => new URL(val),
   },
   logsCollectorUrl: {
     env: 'OTEL_EXPORTER_OTLP_LOGS_ENDPOINT',
     description: 'The URL of the telemetry collector for logs',
-    parseEnv: (val: string) => val && new URL(val),
+    parseEnv: (val: string) => new URL(val),
   },
   otelCollectIntervalMs: {
     env: 'OTEL_COLLECT_INTERVAL_MS',
     description: 'The interval at which to collect metrics',
-    defaultValue: 60000, // Default extracted from otel client
-    parseEnv: (val: string) => parseInt(val),
+    ...numberConfigHelper(60000),
   },
   otelExportTimeoutMs: {
     env: 'OTEL_EXPORT_TIMEOUT_MS',
     description: 'The timeout for exporting metrics',
-    defaultValue: 30000, // Default extracted from otel client
-    parseEnv: (val: string) => parseInt(val),
+    ...numberConfigHelper(30000),
   },
   otelExcludeMetrics: {
     env: 'OTEL_EXCLUDE_METRICS',
@@ -53,6 +58,16 @@ export const telemetryClientConfigMappings: ConfigMappingsType<TelemetryClientCo
             .filter(s => s.length > 0)
         : [],
     defaultValue: [],
+  },
+  otelMinTraceDurationMs: {
+    env: 'OTEL_MIN_TRACE_DURATION_MS',
+    description: 'The minimum successful trace duration to export in milliseconds. Set to 0 to export all traces.',
+    ...numberConfigHelper(10),
+  },
+  otelBspMaxQueueSize: {
+    env: 'OTEL_BSP_MAX_QUEUE_SIZE',
+    description: 'The maximum number of completed spans to queue before export.',
+    ...numberConfigHelper(16384),
   },
   otelIncludeMetrics: {
     env: 'OTEL_INCLUDE_METRICS',
@@ -70,7 +85,7 @@ export const telemetryClientConfigMappings: ConfigMappingsType<TelemetryClientCo
   publicMetricsCollectorUrl: {
     env: 'PUBLIC_OTEL_EXPORTER_OTLP_METRICS_ENDPOINT',
     description: 'A URL to publish a subset of metrics for public consumption',
-    parseEnv: (val: string) => val && new URL(val),
+    parseEnv: (val: string) => new URL(val),
   },
   publicMetricsCollectFrom: {
     env: 'PUBLIC_OTEL_COLLECT_FROM',

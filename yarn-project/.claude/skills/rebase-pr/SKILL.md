@@ -16,28 +16,26 @@ Simple workflow to rebase a PR on its base branch, resolve conflicts, and push.
 
 ## Workflow
 
-### Step 1: Get PR Info
+### Step 1: Validate PR
 
 ```bash
-gh pr view <PR> --repo AztecProtocol/aztec-packages --json headRefName,baseRefName
+gh pr view <PR> --repo AztecProtocol/aztec-packages --json state,headRefName,baseRefName
 ```
 
-Note the `baseRefName` (usually `next` or `master`).
+**Abort if:**
+- `state` is not `OPEN` → "PR #\<N> is \<state>, nothing to rebase."
 
-### Step 2: Checkout PR
+Note the `baseRefName` (usually `next` or `merge-train/*`).
+
+### Step 2: Checkout and Rebase
 
 ```bash
 gh pr checkout <PR>
-```
-
-### Step 3: Rebase on Base Branch
-
-```bash
 git fetch origin <base-branch>
 git rebase origin/<base-branch>
 ```
 
-### Step 4: Resolve Conflicts (if any)
+### Step 3: Resolve Conflicts (if any)
 
 If there are conflicts:
 
@@ -62,7 +60,7 @@ If there are conflicts:
 
 **Important**: Always REBASE, never merge.
 
-### Step 5: Bootstrap (if needed)
+### Step 4: Bootstrap (if needed)
 
 Check if changes exist outside `yarn-project`:
 ```bash
@@ -71,10 +69,10 @@ git diff origin/<base-branch>...HEAD --name-only | grep -v '^yarn-project/'
 
 If yes, run bootstrap from repo root:
 ```bash
-(cd $(git rev-parse --show-toplevel) && BOOTSTRAP_TO=yarn-project ./bootstrap.sh)
+(cd $(git rev-parse --show-toplevel) && ./bootstrap.sh build yarn-project)
 ```
 
-### Step 6: Verify Build
+### Step 5: Verify Build
 
 Run from `yarn-project`:
 
@@ -84,16 +82,20 @@ yarn build
 
 If there are build errors from the rebase, fix them.
 
-### Step 7: Quality Checklist
+### Step 6: Quality Checklist
 
 Format and lint ALL packages:
 
 ```bash
 yarn format
-yarn lint 
+yarn lint
 ```
 
-### Step 8: Amend and Push
+### Step 7: Commit and Push
+
+If there are changes from build fixes or conflict resolution, commit and push.
+
+If the PR targets `next`, amend to keep it as a single commit:
 
 ```bash
 git add .
@@ -101,10 +103,18 @@ git commit --amend --no-edit
 git push --force-with-lease
 ```
 
+Otherwise, create a normal commit:
+
+```bash
+git add .
+git commit -m "fix: resolve rebase conflicts"
+git push --force-with-lease
+```
+
 ## Key Points
 
 - **Rebase, don't merge**: Always use `git rebase`, never `git merge`
-- **Amend, don't create new commits**: PRs should be single commits
+- **Amend only for PRs targeting `next`**: Other PRs use normal commits
 - **Bootstrap when needed**: Only if there are changes outside yarn-project
 - **Verify build**: Always run `yarn build` after rebase
 - **Force push with lease**: Use `--force-with-lease` for safety

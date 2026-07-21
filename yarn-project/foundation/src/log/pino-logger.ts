@@ -7,8 +7,9 @@ import { inspect } from 'util';
 import { compactArray } from '../collection/array.js';
 import type { EnvVar } from '../config/index.js';
 import { parseBooleanEnv } from '../config/parse-env.js';
+import { convertBigintsToStrings } from './bigint-utils.js';
 import { GoogleCloudLoggerConfig } from './gcloud-logger-config.js';
-import { getLogLevelFromFilters, parseEnv } from './log-filters.js';
+import { getLogLevelFromFilters, parseLogLevelEnvVar } from './log-filters.js';
 import type { LogLevel } from './log-levels.js';
 import type { LogData, LogFn } from './log_fn.js';
 
@@ -19,6 +20,8 @@ export type LoggerBindings = {
   /** Instance identifier for distinguishing multiple instances of the same component. */
   instanceId?: string;
 };
+
+const MAX_MODULE_NAME_LENGTH = 256;
 
 // Allow global hooks for providing default bindings.
 // Used by withLoggerBindings in pino-logger-server to propagate bindings via AsyncLocalStorage.
@@ -47,7 +50,7 @@ function getBindingsFromHandlers(): LoggerBindings | undefined {
 }
 
 export function createLogger(module: string, bindings?: LoggerBindings): Logger {
-  module = module.replace(/^aztec:/, '');
+  module = module.slice(0, MAX_MODULE_NAME_LENGTH).replace(/^aztec:/, '');
 
   const resolvedBindings = { ...getBindingsFromHandlers(), ...bindings };
   const actor = resolvedBindings?.actor;
@@ -126,7 +129,7 @@ function isLevelEnabled(logger: pino.Logger<'verbose', boolean>, level: LogLevel
 
 // Load log levels from environment variables.
 const defaultLogLevel = process.env.NODE_ENV === 'test' ? 'silent' : 'info';
-export const [logLevel, logFilters] = parseEnv(process.env.LOG_LEVEL, defaultLogLevel);
+export const [logLevel, logFilters] = parseLogLevelEnvVar(process.env.LOG_LEVEL, defaultLogLevel);
 
 // Define custom logging levels for pino.
 const customLevels = { verbose: 25 };
@@ -164,6 +167,9 @@ const pinoOpts: pino.LoggerOptions<keyof typeof customLevels> = {
       ...redactedPaths.map(p => `options.${p}`),
       ...redactedPaths.map(p => `opts.${p}`),
     ],
+  },
+  formatters: {
+    log: obj => convertBigintsToStrings(obj) as Record<string, unknown>,
   },
   ...(useGcloudLogging ? GoogleCloudLoggerConfig : {}),
 };
@@ -371,5 +377,20 @@ export type Logger = { [K in LogLevel]: LogFn } & { /** Error log function */ er
  * @returns A string with both the log message and the error message.
  */
 function formatErr(msg: string, err?: unknown): string {
-  return err ? `${msg}: ${inspect(err)}` : msg;
+  if (!err) {
+    return msg;
+  }
+
+  try {
+    return `${msg}: ${inspect(err)}`;
+  } catch {
+    // inspect can crash on error objects with broken property descriptors
+    try {
+      // eslint-disable-next-line @typescript-eslint/no-base-to-string
+      return `${msg}: ${err instanceof Error ? `${err.name}: ${err.message}` : String(err)}`;
+    } catch {
+      // if even String(err) fails, return the original message with a note about the error
+      return `${msg}: [unserializable error]`;
+    }
+  }
 }

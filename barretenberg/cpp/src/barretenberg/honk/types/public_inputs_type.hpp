@@ -1,11 +1,12 @@
 // === AUDIT STATUS ===
-// internal:    { status: Planned, auditors: [], commit: }
+// internal:    { status: Completed, auditors: [Sergei], commit: }
 // external_1:  { status: not started, auditors: [], commit: }
 // external_2:  { status: not started, auditors: [], commit: }
 // =====================
 
 #pragma once
 
+#include "barretenberg/constants.hpp"
 #include <cstdint>
 
 namespace bb {
@@ -32,6 +33,10 @@ static constexpr std::size_t BIGGROUP_PUBLIC_INPUTS_SIZE = 2 * BIGFIELD_PUBLIC_I
 // Number of bb::fr elements used to represent a goblin biggroup element in the public inputs
 static constexpr std::size_t GOBLIN_GROUP_PUBLIC_INPUTS_SIZE = 2 * GOBLIN_FIELD_PUBLIC_INPUTS_SIZE;
 
+static_assert(BIGGROUP_PUBLIC_INPUTS_SIZE == GOBLIN_GROUP_PUBLIC_INPUTS_SIZE,
+              "BIGGROUP_PUBLIC_INPUTS_SIZE is different from GOBLIN_GROUP_PUBLIC_INPUTS_SIZE, but PAIRING_POINTS_SIZE "
+              "assumes they are the same. Update PAIRING_POINTS_SIZE and any constants depending on it accordingly.");
+
 /**
  * Number of bb::fr elements used to represent a pair {P0, P1} of points in the public inputs
  * The formula assumes BIGGROUP_PUBLIC_INPUTS_SIZE == GOBLIN_GROUP_PUBLIC_INPUTS_SIZE, if this assumption
@@ -44,33 +49,30 @@ static constexpr std::size_t PAIRING_POINTS_SIZE = 2 * GOBLIN_GROUP_PUBLIC_INPUT
 // Formula: challenge (fq) + evaluation (fq) + commitment (2 fr coordinates)
 static constexpr std::size_t GRUMPKIN_OPENING_CLAIM_SIZE =
     /*challenge*/ BIGFIELD_PUBLIC_INPUTS_SIZE + /*evaluation*/ BIGFIELD_PUBLIC_INPUTS_SIZE +
-    /*commitment*/ 2 * FR_PUBLIC_INPUTS_SIZE;
+    /*commitment*/ (2 * FR_PUBLIC_INPUTS_SIZE);
 
 // Invalid public input size, used in OpeningClaim<Curve> when Curve is not Grumpkin
 static constexpr std::size_t INVALID_PUBLIC_INPUTS_SIZE = 0;
 
-// Number of wires in the Mega execution trace, they must be re-defined to avoid circular dependencies
-static constexpr std::size_t MEGA_EXECUTION_TRACE_NUM_WIRES = 4;
-
 // Number of bb::fr elements used to represent the public inputs of an INIT/INNER/RESET/TAIL kernel
-static constexpr std::size_t KERNEL_PUBLIC_INPUTS_SIZE =
-    /*pairing_inputs*/ PAIRING_POINTS_SIZE +
-    /*kernel_return_data*/ GOBLIN_GROUP_PUBLIC_INPUTS_SIZE +
-    /*app_return_data*/ GOBLIN_GROUP_PUBLIC_INPUTS_SIZE +
-    /*table_commitments*/ (MEGA_EXECUTION_TRACE_NUM_WIRES * GOBLIN_GROUP_PUBLIC_INPUTS_SIZE) +
-    /*output_hn_accum_hash*/ FR_PUBLIC_INPUTS_SIZE;
+// verifying num_apps application circuits in its accumulation group.
+constexpr std::size_t kernel_public_inputs_size(std::size_t num_apps)
+{
+    return /*pairing_inputs*/ PAIRING_POINTS_SIZE +
+           /*kernel_return_data*/ GOBLIN_GROUP_PUBLIC_INPUTS_SIZE +
+           /*app_return_data[num_apps]*/ (num_apps * GOBLIN_GROUP_PUBLIC_INPUTS_SIZE) +
+           /*ecc_op_hash*/ FR_PUBLIC_INPUTS_SIZE +
+           /*output_hn_accum_hash*/ FR_PUBLIC_INPUTS_SIZE;
+}
 
 // Number of bb::fr elements used to represent the default public inputs, i.e., the pairing points
 static constexpr std::size_t DEFAULT_PUBLIC_INPUTS_SIZE = PAIRING_POINTS_SIZE;
-
-// Number of bb::fr elements used to represent the public inputs of an App circuit
-static constexpr std::size_t APP_PUBLIC_INPUTS_SIZE = PAIRING_POINTS_SIZE;
 
 // Number of bb::fr elements used to represent the public inputs of the HIDING kernel
 static constexpr std::size_t HIDING_KERNEL_PUBLIC_INPUTS_SIZE =
     /*pairing_inputs*/ PAIRING_POINTS_SIZE +
     /*kernel_return_data*/ GOBLIN_GROUP_PUBLIC_INPUTS_SIZE +
-    /*table_commitments*/ (MEGA_EXECUTION_TRACE_NUM_WIRES * GOBLIN_GROUP_PUBLIC_INPUTS_SIZE);
+    /*table_commitments*/ (NUM_WIRES * GOBLIN_GROUP_PUBLIC_INPUTS_SIZE);
 
 // Number of bb::fr elements used to represent the public inputs of a ROLLUP circuit
 static constexpr std::size_t ROLLUP_PUBLIC_INPUTS_SIZE =

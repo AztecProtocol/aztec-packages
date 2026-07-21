@@ -70,9 +70,12 @@ TEST(ClassIdDerivationConstrainingTest, Basic)
     auto klass = generate_contract_class();
     FF class_id =
         compute_contract_class_id(klass.artifact_hash, klass.private_functions_root, klass.public_bytecode_commitment);
-    klass.id = class_id;
 
-    builder.process({ { .klass = klass } }, trace);
+    builder.process({ { .class_id = class_id,
+                        .artifact_hash = klass.artifact_hash,
+                        .private_functions_root = klass.private_functions_root,
+                        .public_bytecode_commitment = klass.public_bytecode_commitment } },
+                    trace);
 
     check_relation<class_id_derivation_relation>(trace);
 }
@@ -105,52 +108,15 @@ TEST(ClassIdDerivationPoseidonTest, WithHashInteraction)
     class_id_derivation.assert_derivation(klass);
 
     poseidon2_builder.process_hash(hash_event_emitter.dump_events(), trace);
-    builder.process({ { .klass = klass } }, trace);
+    builder.process({ { .class_id = klass.id,
+                        .artifact_hash = klass.artifact_hash,
+                        .private_functions_root = klass.private_functions_root,
+                        .public_bytecode_commitment = klass.public_bytecode_commitment } },
+                    trace);
 
     check_interaction<ClassIdDerivationTraceBuilder,
                       lookup_class_id_derivation_class_id_poseidon2_0_settings,
                       lookup_class_id_derivation_class_id_poseidon2_1_settings>(trace);
-}
-
-// TODO: This should probably be refined and moved to bc_retrieval test file once that exists
-TEST(ClassIdDerivationPoseidonTest, WithRetrievalInteraction)
-{
-    PurePoseidon2 poseidon2 = PurePoseidon2();
-
-    EventEmitter<ClassIdDerivationEvent> event_emitter;
-    ClassIdDerivation class_id_derivation(poseidon2, event_emitter);
-
-    auto klass = generate_contract_class();
-    FF class_id =
-        compute_contract_class_id(klass.artifact_hash, klass.private_functions_root, klass.public_bytecode_commitment);
-    klass.id = class_id;
-
-    TestTraceContainer trace({
-        { { C::precomputed_first_row, 1 } },
-    });
-
-    ClassIdDerivationTraceBuilder builder;
-    BytecodeTraceBuilder bc_trace_builder;
-
-    class_id_derivation.assert_derivation(klass);
-    builder.process({ { .klass = klass } }, trace);
-
-    // Create a basic ContractClass without commitment for the retrieval event
-    ContractClass klass_without_commitment = {
-        .id = klass.id,
-        .artifact_hash = klass.artifact_hash,
-        .private_functions_root = klass.private_functions_root,
-        .packed_bytecode = klass.packed_bytecode,
-    };
-
-    bc_trace_builder.process_retrieval({ { .bytecode_id = klass.public_bytecode_commitment,
-                                           .address = 1,
-                                           .current_class_id = klass.id,
-                                           .contract_class = klass_without_commitment,
-                                           .nullifier_root = 3 } },
-                                       trace);
-
-    check_interaction<BytecodeTraceBuilder, lookup_bc_retrieval_class_id_derivation_settings>(trace);
 }
 
 } // namespace

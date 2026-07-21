@@ -1,111 +1,173 @@
+include "../constants_gen.pil";
+include "../ff_gt.pil";
+include "../precomputed.pil";
+include "../public_inputs.pil";
+include "../trees/indexed_tree_check.pil";
 include "address_derivation.pil";
 include "update_check.pil";
-include "../ff_gt.pil";
 
 /**
  * Contract Instance Retrieval gadget.
  * For use by execution (GetContractInstance opcode) and by bytecode retrieval.
- *
  * Proves the existence of a deployed contract instance for the provided address,
  * along with its derivation from its parts (deployer, class id, init hash).
- * Does so via interactions with the following auxiliary gadgets:
- *     - Nullifier check: check (non)existence of the contract address nullifier.
- *     - Address derivation: constrain the derivation of the address from its parts (deployer, class id, init hash).
- *     - Update checking: enforce that the class id provided is the _current_ one.
  *
- * Usage (as from opcode or bytecode retrieval):
- * sel {
- *     // inputs
- *     execution_or_bc_retrieval.address,
- *     execution_or_bc_retrieval.nullifier_tree_root,
- *     execution_or_bc_retrieval.public_data_tree_root
- *     // outputs
- *     execution_or_bc_retrieval.exists
- *     execution_or_bc_retrieval.deployer_addr, // situational
- *     execution_or_bc_retrieval.current_class_id,
- *     execution_or_bc_retrieval.init_hash // situational
- * } in contract_instance_retrieval.sel {
- *     // inputs
- *     contract_instance_retrieval.address,
- *     contract_instance_retrieval.nullifier_tree_root,
- *     contract_instance_retrieval.public_data_tree_root,
- *     // outputs
- *     contract_instance_retrieval.exists,
- *     contract_instance_retrieval.deployer_addr, // situational
- *     contract_instance_retrieval.current_class_id,
- *     contract_instance_retrieval.init_hash // situational
- * };
+ * GADGET LOGIC:
+ *     The gadget first classifies the address as protocol or non-protocol, then follows
+ *     one of two paths to determine existence and validate the instance.
  *
- * Note: the missing instance member "salt" is not needed in the lookup and can instead just be hinted to the instance retrieval gadget.
+ *     For all addresses:
+ *     - Classify via range check: address in [1, MAX_PROTOCOL_CONTRACTS] => protocol contract.
+ *     - Force all instance members to 0 if the contract does not exist.
+ *     - If the contract exists, constrain address derivation from instance parts (salt, deployer,
+ *       original class id, init hash, public keys). Salt and public keys are hinted.
  *
- * Note: Forces instance members to 0 if the instance doesn't exist.
+ *     For protocol contracts:
+ *     - Read derived address from the public inputs column at a computed index.
+ *     - Existence is determined by whether the derived address is non-zero.
+ *     - No nullifier check or update check is performed.
+ *
+ *     For non-protocol contracts:
+ *     - Check (non)existence of the deployment nullifier (the contract address itself) in the
+ *       nullifier tree, siloed under the deployer protocol contract address.
+ *     - If the contract exists, enforce that the current class id is up-to-date via update check.
+ *
+ * PRECONDITIONS:
+ *     - The caller must constrain nullifier_tree_root and public_data_tree_root to the correct
+ *       tree roots for the current context.
+ *     - The contract database must be consistent with the nullifier tree: if a deployment nullifier
+ *       exists for a non-protocol address, the contract instance must be present in the DB.
+ *     - The contract database must be consistent with the protocol contracts table: a protocol
+ *       contract slot has a derived address if and only if the instance is present in the DB.
+ *
+ * USAGE:
+ *     This gadget is a lookup destination for get_contract_instance.pil and bc_retrieval.pil.
+ *     The "salt" member is not needed in the lookup — it is hinted to the retrieval gadget.
+ *
+ *     sel {
+ *         // inputs
+ *         caller.address,
+ *         caller.nullifier_tree_root,
+ *         caller.public_data_tree_root
+ *         // outputs
+ *         caller.exists,
+ *         caller.deployer_addr,   // situational - only if caller needs it
+ *         caller.current_class_id,
+ *         caller.init_hash,       // situational - only if caller needs it
+ *         caller.immutables_hash  // situational - only if caller needs it
+ *     } in contract_instance_retrieval.sel {
+ *         contract_instance_retrieval.address,
+ *         contract_instance_retrieval.nullifier_tree_root,
+ *         contract_instance_retrieval.public_data_tree_root,
+ *         contract_instance_retrieval.exists,
+ *         contract_instance_retrieval.deployer_addr,
+ *         contract_instance_retrieval.current_class_id,
+ *         contract_instance_retrieval.init_hash,
+ *         contract_instance_retrieval.immutables_hash
+ *     };
+ *
+ *     Situational columns (deployer_addr, init_hash, immutables_hash) can be omitted if the caller doesn't need
+ *     them. When omitted, they are only hinted for address derivation. This is secure because
+ *     incorrect values would break derivation of the given address.
+ *
+ * TRACE SHAPE:
+ *     1 row per retrieval.
+ *
+ * ERROR HANDLING:
+ *     This gadget does not have error conditions. Errors (invalid enum, out-of-bounds writes)
+ *     are handled by the calling opcode gadget (get_contract_instance.pil).
+ *
+ * INTERACTIONS:
+ *     - ff_gt.pil: Determine if address is in protocol contract range. (#[CHECK_PROTOCOL_ADDRESS_RANGE])
+ *     - public_inputs.pil: Read derived address for protocol contracts. (#[READ_DERIVED_ADDRESS_FROM_PUBLIC_INPUTS])
+ *     - indexed_tree_check.pil: Check (non)existence of deployment nullifier. (#[DEPLOYMENT_NULLIFIER_READ])
+ *     - address_derivation.pil: Constrain address derivation from instance parts. (#[ADDRESS_DERIVATION])
+ *     - update_check.pil: Enforce current class id is up-to-date. (#[UPDATE_CHECK])
  */
 namespace contract_instance_retrieval;
+
+    #[skippable_if]
+    sel = 0;
 
     pol commit sel; // @boolean
     sel * (1 - sel) = 0;
 
-    // No relations will be checked if this identity is satisfied.
-    #[skippable_if]
-    sel = 0;
+    // ==== Inputs and Outputs ====
 
-    ////////////////////////////////////////////////////////////////////////////
-    // I/O
-    pol commit address; // contract address.
-    pol commit exists; // @boolean the contract instance exists (its address nullifier exists)
+    pol commit address; // Contract address.
+    pol commit exists; // @boolean — the contract instance exists (its address nullifier exists, or for protocol contracts, its derived address in PI is nonzero).
     exists * (1 - exists) = 0;
 
-    // address instance members.
+    // Address instance members.
     // See barretenberg/cpp/src/barretenberg/vm2/common/aztec_types.hpp
     pol commit salt; // HINTED!
     pol commit deployer_addr;
     pol commit current_class_id;
     pol commit original_class_id; // HINTED!
     pol commit init_hash;
+    pol commit immutables_hash;
 
-    // current state
-    // These should be looked up and constrained by the caller.
+    // Current state — these should be looked up and constrained by the caller.
     pol commit nullifier_tree_root;
     pol commit public_data_tree_root;
-    // end I/O
-    ////////////////////////////////////////////////////////////////////////////
+
+    // ==== Hinted and Internal Columns ====
 
     // The address that is checked in address derivation.
+    // This comes from public inputs for protocol contracts,
+    // or is just assigned "address" (from input) for non-protocol contracts.
     pol commit derived_address;
 
-    // public keys (all hinted)
-    pol commit nullifier_key_x;
-    pol commit nullifier_key_y;
+    // Public keys (all hinted). Only the incoming viewing key is exchanged with the
+    // address derivation circuit as a Grumpkin point; the other five are hashes computed
+    // off-circuit by the PXE.
+    pol commit nullifier_key_hash;
     pol commit incoming_viewing_key_x;
     pol commit incoming_viewing_key_y;
-    pol commit outgoing_viewing_key_x;
-    pol commit outgoing_viewing_key_y;
-    pol commit tagging_key_x;
-    pol commit tagging_key_y;
+    pol commit outgoing_viewing_key_hash;
+    pol commit tagging_key_hash;
+    pol commit message_signing_key_hash;
+    pol commit fallback_key_hash;
 
-    // TODO: Remove this as a column when we can lookup with constants
+    // ==== Determine if It Is a Protocol Contract (<= max) ====
+
+    // Lookup constant support: Can be removed when we support constants in lookups.
     pol commit deployer_protocol_contract_address;
+    #[DEPLOYER_PROTOCOL_CONTRACT_ADDRESS_CONSTANT]
     sel * (constants.CONTRACT_INSTANCE_REGISTRY_CONTRACT_ADDRESS - deployer_protocol_contract_address) = 0;
 
-    // Indicates if the instance belongs to a protocol contract
-    pol commit is_protocol_contract; // @boolean (by lookup on active rows)
-    // TODO: review safety of is_protocol_contract being underconstrained on inactive rows
+    // Indicates if the instance belongs to a protocol contract.
+    // Boolean by lookup into ff_gt on active rows.
+    // Forced to zero on inactive rows by #[IS_PROTOCOL_CONTRACT_ON_SEL].
+    // Therefore, unconditionally boolean — required as a lookup source selector.
+    pol commit is_protocol_contract; // @boolean
 
-    // Canonical Addresses can be in the range of 1 <= address <= MAX_PROTOCOL_CONTRACTS
+    #[IS_PROTOCOL_CONTRACT_ON_SEL]
+    (1 - sel) * is_protocol_contract = 0;
+
+    // Canonical addresses can be in the range of 1 <= address <= MAX_PROTOCOL_CONTRACTS.
     pol commit max_protocol_contracts;
     max_protocol_contracts = sel * constants.MAX_PROTOCOL_CONTRACTS;
 
     pol commit address_sub_one;
     address_sub_one = sel * (address - 1);
+
+    // Checks whether address is in the protocol contract range by looking up a > b comparison.
+    // When sel = 1: is_protocol_contract = 1 iff MAX_PROTOCOL_CONTRACTS > (address - 1),
+    // i.e., address <= MAX_PROTOCOL_CONTRACTS.
     #[CHECK_PROTOCOL_ADDRESS_RANGE]
     sel { max_protocol_contracts, address_sub_one, is_protocol_contract }
     in
-    ff_gt.sel_gt { ff_gt.a, ff_gt.b, ff_gt.result};
+    ff_gt.sel_gt { ff_gt.a, ff_gt.b, ff_gt.result };
 
-    // Constrain exists and derived address for protocol contracts
+    // ==== Constrain "exists" and "derived_address" via Public Inputs (Protocol Contracts) ====
 
-    // Compute the protocol contract derived address index in the PI column as `base_offset + contract_index = base_offset + protocol_address - 1`
+    // Compute the protocol contract derived address index in the PI column as:
+    // base_offset + contract_index = base_offset + protocol_address - 1.
+    // Only constrained when is_protocol_contract=1; free otherwise — should be secure because
+    // it is only used in the PI lookup which is also gated by is_protocol_contract.
     pol commit derived_address_pi_index;
+    #[DERIVED_ADDRESS_PI_INDEX]
     is_protocol_contract * (constants.AVM_PUBLIC_INPUTS_PROTOCOL_CONTRACTS_ROW_IDX + address_sub_one - derived_address_pi_index) = 0;
 
     #[READ_DERIVED_ADDRESS_FROM_PUBLIC_INPUTS]
@@ -113,43 +175,69 @@ namespace contract_instance_retrieval;
         derived_address_pi_index,
         derived_address
     } in public_inputs.sel {
-        precomputed.clk,
+        precomputed.idx,
         public_inputs.cols[0]
     };
 
-    pol commit protocol_contract_derived_address_inv;
+    // Only constrained when is_protocol_contract=1; free otherwise — should be secure because
+    // it is only used in the zero-check which is also gated by is_protocol_contract.
+    pol commit protocol_contract_derived_address_inv; // @zero-check
     pol NOT_EXISTS = 1 - exists;
 
-    // If the protocol contract derived address is zero, the protocol contract does not exist. Otherwise, it exists.
+    // Zero-check with error support: exists iff derived_address != 0.
+    // See https://github.com/AztecProtocol/aztec-packages/blob/next/barretenberg/cpp/pil/vm2/docs/recipes.md#with-error-support.
+    #[PROTOCOL_CONTRACT_EXISTS_CHECK]
     is_protocol_contract * (derived_address * (NOT_EXISTS * (1 - protocol_contract_derived_address_inv) + protocol_contract_derived_address_inv) - 1 + NOT_EXISTS) = 0;
 
-    // Constrain exists and derived address for non-protocol contracts via nullifier check
+    // ==== Constrain "exists" and "derived_address" via Nullifier Check (Non-protocol Contracts) ====
 
     pol commit should_check_nullifier; // @boolean (by definition)
     // Protocol contracts do not have an address nullifier in the nullifier tree.
     should_check_nullifier = sel * (1 - is_protocol_contract);
 
-    // Nullifier existence check (deployment nullifier read)
+    // Lookup constant support: Can be removed when we support constants in lookups.
+    pol commit nullifier_tree_height;
+    #[NULLIFIER_TREE_HEIGHT_CONSTANT]
+    should_check_nullifier * (nullifier_tree_height - constants.NULLIFIER_TREE_HEIGHT) = 0;
+
+    // Lookup constant support: Can be removed when we support constants in lookups.
+    pol commit siloing_separator;
+    #[SILOING_SEPARATOR_CONSTANT]
+    should_check_nullifier * (siloing_separator - constants.DOM_SEP__SILOED_NULLIFIER) = 0;
+
+    pol commit nullifier_merkle_separator;
+    should_check_nullifier * (nullifier_merkle_separator - constants.DOM_SEP__NULLIFIER_MERKLE) = 0;
+
+    // Nullifier existence check (deployment nullifier read).
     #[DEPLOYMENT_NULLIFIER_READ]
     should_check_nullifier {
-        exists, // does the contract address nullifier exist? gates later lookups....
+        exists, // does the contract address nullifier exist?
         address, // the deployment nullifier
         nullifier_tree_root,
-        deployer_protocol_contract_address,
-        sel // 1 (yes silo)
-    } in nullifier_check.sel {
-        nullifier_check.exists,
-        nullifier_check.nullifier,
-        nullifier_check.root,
-        nullifier_check.address,
-        nullifier_check.should_silo
+        nullifier_tree_height,
+        nullifier_merkle_separator,
+        sel, // 1 (yes silo)
+        siloing_separator,
+        deployer_protocol_contract_address
+    } in indexed_tree_check.sel {
+        indexed_tree_check.exists,
+        indexed_tree_check.value,
+        indexed_tree_check.root,
+        indexed_tree_check.tree_height,
+        indexed_tree_check.merkle_hash_separator,
+        indexed_tree_check.sel_silo,
+        indexed_tree_check.siloing_separator,
+        indexed_tree_check.address
     };
 
-    // For protocol contracts we retrieve the derived address from the protocol contract trace, else use the input address
+    // For non-protocol contracts, derived address just comes from this gadget's `address` input,
+    // unlike protocol contracts where it is looked up from public inputs above.
     #[UNCHANGED_ADDRESS_NON_PROTOCOL]
     sel * (1 - is_protocol_contract) * (derived_address - address) = 0;
 
-    // Force members to 0 if the instance doesn't exist
+    // ==== If Exists, Constrain Address Derivation ====
+
+    // Force members to 0 if the instance doesn't exist.
     #[INSTANCE_MEMBER_SALT_IS_ZERO_IF_DNE]
     sel * (1 - exists) * salt = 0; // technically not needed since salt is hinted, but good for consistency
     #[INSTANCE_MEMBER_DEPLOYER_IS_ZERO_IF_DNE]
@@ -160,8 +248,10 @@ namespace contract_instance_retrieval;
     sel * (1 - exists) * original_class_id = 0; // technically not needed since original_class_id is hinted, but good for consistency
     #[INSTANCE_MEMBER_INIT_HASH_IS_ZERO_IF_DNE]
     sel * (1 - exists) * init_hash = 0;
+    #[INSTANCE_MEMBER_IMMUTABLES_HASH_IS_ZERO_IF_DNE]
+    sel * (1 - exists) * immutables_hash = 0;
 
-    // Address derivation lookup (only if the nullifier exists or for protocol contract instances)
+    // Address derivation lookup (only if the nullifier exists or for protocol contract instances).
     #[ADDRESS_DERIVATION]
     exists {
         derived_address,
@@ -169,34 +259,45 @@ namespace contract_instance_retrieval;
         deployer_addr,
         original_class_id,
         init_hash,
-        nullifier_key_x,
-        nullifier_key_y,
+        immutables_hash,
+        nullifier_key_hash,
         incoming_viewing_key_x,
         incoming_viewing_key_y,
-        outgoing_viewing_key_x,
-        outgoing_viewing_key_y,
-        tagging_key_x,
-        tagging_key_y
+        outgoing_viewing_key_hash,
+        tagging_key_hash,
+        message_signing_key_hash,
+        fallback_key_hash
     } in address_derivation.sel {
         address_derivation.address,
         address_derivation.salt,
         address_derivation.deployer_addr,
         address_derivation.class_id,
         address_derivation.init_hash,
-        address_derivation.nullifier_key_x,
-        address_derivation.nullifier_key_y,
+        address_derivation.immutables_hash,
+        address_derivation.nullifier_key_hash,
         address_derivation.incoming_viewing_key_x,
         address_derivation.incoming_viewing_key_y,
-        address_derivation.outgoing_viewing_key_x,
-        address_derivation.outgoing_viewing_key_y,
-        address_derivation.tagging_key_x,
-        address_derivation.tagging_key_y
+        address_derivation.outgoing_viewing_key_hash,
+        address_derivation.tagging_key_hash,
+        address_derivation.message_signing_key_hash,
+        address_derivation.fallback_key_hash
     };
 
-    // Enforce that the class id provided is the _current_ one (only when nullifier exists)
-    // If the address nullifier doesn't exist (which excludes protocol contract instances), there is no need to check!
+    // ==== Constrain "current" Class ID (Protocol Contracts) ====
+
+    // Protocol contracts are not upgradeable; enforce current == original.
+    // This is critical because current_class_id is an output of this gadget,
+    // but only original is used in address derivation.
+    #[PROTOCOL_CONTRACT_CLASS_ID_IS_ORIGINAL]
+    is_protocol_contract * (current_class_id - original_class_id) = 0;
+
+    // ==== Constrain That "current" Class ID Truly Is Current (Non-protocol Contracts That Exist) ====
+
+    // Enforce that the class id provided is the _current_/active one. Only check when nullifier exists.
+    // If the address nullifier doesn't exist (which excludes protocol contract instances), there is no need to check.
     pol commit should_check_for_update; // @boolean (by definition)
     should_check_for_update = should_check_nullifier * exists;
+
     #[UPDATE_CHECK]
     should_check_for_update {
         address,

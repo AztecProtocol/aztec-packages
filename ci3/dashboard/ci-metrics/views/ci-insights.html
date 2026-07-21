@@ -1,0 +1,1221 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8" />
+  <title>ACI - CI Insights</title>
+  <style>
+    * { box-sizing: border-box; }
+    body { background:#000; color:#ccc; font-family:monospace; padding:10px; font-size:14px; margin:0; }
+    a { color:#58a6ff; text-decoration:none; }
+    a:hover { text-decoration:underline; }
+    .nav { margin:8px 0; display:flex; gap:8px; align-items:center; flex-wrap:wrap; }
+    .nav a { color:#58a6ff; font-size:13px; }
+    .nav a.active { color:#fff; border-bottom:1px solid #58a6ff; }
+    .sep { color:#333; }
+    .controls { margin:10px 0; display:flex; gap:12px; align-items:center; flex-wrap:wrap; }
+    .controls label { color:#888; }
+    input, select { background:#111; border:1px solid #333; color:#ccc; font-family:monospace; font-size:13px; padding:4px 8px; }
+    input:focus, select:focus { outline:none; border-color:#58a6ff; }
+    button { background:#222; border:1px solid #444; color:#ccc; font-family:monospace; font-size:13px; padding:4px 12px; cursor:pointer; }
+    button:hover { background:#333; }
+    button.active { background:#238636; border-color:#238636; color:#fff; }
+    .msg { color:#888; padding:8px 0; }
+    .msg.err { color:#f85149; }
+
+    /* Tabs */
+    .tabs { display:flex; gap:0; margin:12px 0 0 0; }
+    .tab { background:#111; border:1px solid #333; border-bottom:none; color:#888;
+      font-family:monospace; font-size:13px; padding:6px 16px; cursor:pointer; }
+    .tab:hover { color:#ccc; }
+    .tab.active { background:#0a0a0a; color:#fff; border-color:#58a6ff; border-bottom:1px solid #0a0a0a; position:relative; z-index:1; }
+    .tab-content { display:none; border:1px solid #333; border-top:1px solid #333; padding:12px; background:#0a0a0a; margin-top:-1px; }
+    .tab-content.active { display:block; }
+
+    /* KPI strip */
+    .kpi-strip { display:flex; gap:12px; margin:16px 0; flex-wrap:wrap; }
+    .kpi { background:#0a0a0a; border:1px solid #222; padding:12px 16px; flex:1; min-width:180px; max-height:120px; overflow:hidden; }
+    .kpi .label { color:#666; font-size:11px; text-transform:uppercase; margin-bottom:4px; }
+    .kpi .value { color:#fff; font-size:22px; font-weight:bold; }
+    .kpi .delta { font-size:11px; margin-left:6px; }
+    .kpi .delta.up { color:#f85149; }
+    .kpi .delta.down { color:#3fb950; }
+    .kpi .delta.neutral { color:#888; }
+    .kpi .spark { height:30px; max-height:30px; margin-top:6px; }
+
+    /* Charts */
+    .charts { display:grid; grid-template-columns:1fr 1fr; gap:16px; margin:16px 0; }
+    .charts .full { grid-column:1 / -1; }
+    @media (max-width:1000px) { .charts { grid-template-columns:1fr; } }
+    .chart-box { background:#0a0a0a; border:1px solid #222; padding:12px; }
+    .chart-box h3 { color:#888; font-size:12px; font-weight:normal; text-transform:uppercase; margin:0 0 8px 0; }
+    .chart-wrap { position:relative; height:250px; }
+    .chart-wrap.tall { height:300px; }
+    .chart-wrap.med { height:250px; }
+
+    /* Tables */
+    .section-title { color:#888; font-size:12px; text-transform:uppercase; margin:24px 0 8px 0; }
+    table { width:100%; border-collapse:collapse; font-size:13px; }
+    th { text-align:left; padding:6px 8px; border-bottom:1px solid #333; color:#888; cursor:pointer; white-space:nowrap; }
+    th:hover { color:#ccc; }
+    td { padding:6px 8px; border-bottom:1px solid #111; }
+    tr:hover td { background:#111; }
+    .amt { font-variant-numeric:tabular-nums; text-align:right; }
+    th.amt { text-align:right; }
+    .detail-scroll { max-height:500px; overflow:auto; }
+    .detail-table { width:100%; border-collapse:collapse; font-size:12px; }
+    .detail-table th { text-align:left; padding:4px 6px; border-bottom:1px solid #333; color:#888; white-space:nowrap; position:sticky; top:0; background:#0a0a0a; }
+    .detail-table td { padding:4px 6px; border-bottom:1px solid #111; white-space:nowrap; }
+    .detail-table .amt { text-align:right; font-variant-numeric:tabular-nums; }
+    .detail-table th.amt { text-align:right; }
+    .stats { margin:12px 0; color:#888; }
+    .stats span { color:#ccc; }
+
+    /* Test details */
+    .cmd { max-width:500px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+    .pass { color:#3fb950; }
+    .fail { color:#f85149; }
+    .flake { color:#d29922; }
+  </style>
+</head>
+<body>
+  <div class="nav" id="nav">
+    <a href="/">&lt; CI</a> <span class="sep">|</span>
+    <a href="/cost-overview">cost overview</a> <span class="sep">|</span>
+    <a href="/namespace-billing">namespace billing</a> <span class="sep">|</span>
+    <a href="/ci-insights" class="active">ci insights</a> <span class="sep">|</span>
+    <a href="/flake-prs">flake prs</a> <span class="sep">|</span>
+    <a href="/commits">commits</a>
+  </div>
+
+  <h2 style="margin:8px 0;color:#ccc;">ci insights <span id="period-label" style="font-size:12px;color:#666;font-weight:normal"></span></h2>
+
+  <div class="controls">
+    <button data-range="365">1y</button>
+    <button data-range="180">6m</button>
+    <button data-range="30">1m</button>
+    <button data-range="14">2w</button>
+    <button data-range="7">1w</button>
+    <button data-range="2">2d</button>
+    <button data-range="1">1d</button>
+    <span style="color:#333">|</span>
+    <label>from</label> <input type="date" id="dateFrom" />
+    <label>to</label> <input type="date" id="dateTo" />
+    <span style="color:#333">|</span>
+    <button data-g="daily" class="active">daily</button>
+    <button data-g="weekly">weekly</button>
+    <button data-g="monthly">monthly</button>
+    <span style="color:#333">|</span>
+    <button id="refreshBtn">refresh</button>
+  </div>
+
+  <div id="msg" class="msg"></div>
+
+  <div class="tabs">
+    <div class="tab active" data-tab="overview">Overview</div>
+    <div class="tab" data-tab="attribution">Attribution</div>
+  </div>
+
+  <!-- ============ TAB: Overview ============ -->
+  <div class="tab-content active" id="tab-overview">
+    <div id="pipeline-filter" style="display:none; margin:8px 0; padding:6px 12px; background:#1a1a2e; border:1px solid #58a6ff; align-items:center; gap:8px; font-size:13px;">
+      filtered to pipeline: <span id="pf-name" style="color:#fff;font-weight:bold"></span>
+      <span id="pf-clear" style="cursor:pointer;color:#888;margin-left:8px">[clear]</span>
+    </div>
+
+    <div class="kpi-strip" id="kpis">
+      <div class="kpi"><div class="label">mq success rate</div><div class="value" id="kv-mq">--</div><canvas class="spark" id="ks-mq"></canvas></div>
+      <div class="kpi"><div class="label">flakes / day</div><div class="value" id="kv-flakes">--</div><canvas class="spark" id="ks-flakes"></canvas></div>
+      <div class="kpi"><div class="label">prs merged / day</div><div class="value" id="kv-prs">--</div><canvas class="spark" id="ks-prs"></canvas></div>
+      <div class="kpi"><div class="label">avg mq duration</div><div class="value" id="kv-citime">--</div><canvas class="spark" id="ks-citime"></canvas></div>
+    </div>
+
+    <div class="charts">
+      <div class="chart-box">
+        <h3>merge queue: daily outcomes + success rate</h3>
+        <div class="chart-wrap med"><canvas id="mqChart"></canvas></div>
+      </div>
+      <div class="chart-box">
+        <h3>test outcomes per day</h3>
+        <div class="chart-wrap med"><canvas id="flakeChart"></canvas></div>
+      </div>
+      <div class="chart-box full">
+        <h3>ci run duration by pipeline (avg mins)</h3>
+        <div class="chart-wrap med"><canvas id="ciDurPipeChart"></canvas></div>
+      </div>
+      <div class="chart-box full">
+        <h3>total ci time by pipeline (hours)</h3>
+        <div class="chart-wrap med"><canvas id="ciTotalTimeChart"></canvas></div>
+      </div>
+      <div class="chart-box full">
+        <h3>P95 build time by pipeline &amp; phase (secs)</h3>
+        <div class="chart-wrap med"><canvas id="phaseChart"></canvas></div>
+      </div>
+    </div>
+
+    <div style="display:flex; gap:16px; flex-wrap:wrap;">
+      <div style="flex:1; min-width:300px;">
+        <div class="section-title">top flaky tests</div>
+        <div class="detail-scroll" style="max-height:320px;">
+          <table>
+            <thead><tr><th>test</th><th class="amt">flakes</th><th>affected</th></tr></thead>
+            <tbody id="top-flake-tbody"></tbody>
+          </table>
+        </div>
+      </div>
+      <div style="flex:1; min-width:300px;">
+        <div class="section-title">top failing tests</div>
+        <div class="detail-scroll" style="max-height:320px;">
+          <table>
+            <thead><tr><th>test</th><th class="amt">failures</th><th>affected</th></tr></thead>
+            <tbody id="top-fail-tbody"></tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+
+    <div class="section-title">flakes by pipeline</div>
+    <div class="detail-scroll">
+      <table>
+        <thead id="flake-thead"><tr></tr></thead>
+        <tbody id="flake-tbody"></tbody>
+      </table>
+    </div>
+
+    <!-- Test Details (inline) -->
+    <div style="margin:24px 0 8px 0; border-top:1px solid #333; padding-top:16px;">
+      <div style="display:flex; gap:12px; align-items:center; flex-wrap:wrap;">
+        <span style="color:#888; font-size:12px; text-transform:uppercase;">test details</span>
+        <span style="color:#333">|</span>
+        <label style="color:#888">pipeline</label>
+        <select id="ttDashboard">
+          <option value="">all</option>
+          <option value="prs">prs</option>
+          <option value="next">next</option>
+          <option value="master">master</option>
+        </select>
+        <label style="color:#888">status</label>
+        <select id="ttStatus">
+          <option value="">all</option>
+          <option value="passed">passed</option>
+          <option value="failed">failed</option>
+          <option value="flaked">flaked</option>
+        </select>
+      </div>
+    </div>
+    <div id="ttMsg" class="msg"></div>
+    <div class="kpi-strip" id="ttKpis"></div>
+    <div class="charts">
+      <div class="chart-box full">
+        <h3>avg duration by day</h3>
+        <div class="chart-wrap" id="ttChartDuration"></div>
+      </div>
+      <div class="chart-box full">
+        <h3>test run count by day</h3>
+        <div class="chart-wrap" id="ttChartCount"></div>
+      </div>
+    </div>
+    <h3 style="color:#888;font-size:12px;text-transform:uppercase;margin:24px 0 8px 0;">tests by duration</h3>
+    <div class="detail-scroll">
+      <table id="ttTestTable">
+        <thead>
+          <tr>
+            <th>test command</th>
+            <th class="amt">runs</th>
+            <th class="amt">avg (s)</th>
+            <th class="amt">min (s)</th>
+            <th class="amt">max (s)</th>
+            <th class="amt">total (h)</th>
+            <th class="amt">pass %</th>
+            <th class="amt">passed</th>
+            <th class="amt">failed</th>
+            <th class="amt">flaked</th>
+          </tr>
+        </thead>
+        <tbody></tbody>
+      </table>
+    </div>
+    <h3 style="color:#888;font-size:12px;text-transform:uppercase;margin:24px 0 8px 0;">slowest individual runs</h3>
+    <div class="detail-scroll">
+      <table id="ttSlowestTable">
+        <thead>
+          <tr>
+            <th>test command</th>
+            <th class="amt">duration (s)</th>
+            <th>status</th>
+            <th>date</th>
+            <th>author</th>
+            <th>pipeline</th>
+            <th>log</th>
+          </tr>
+        </thead>
+        <tbody></tbody>
+      </table>
+    </div>
+  </div>
+
+  <!-- ============ TAB: Attribution ============ -->
+  <div class="tab-content" id="tab-attribution">
+    <div class="stats" id="attr-stats"></div>
+    <div id="attr-user-filter" style="display:none; margin:8px 0; padding:6px 12px; background:#1a1a2e; border:1px solid #58a6ff; align-items:center; gap:8px; font-size:13px;">
+      filtered to user: <span id="attr-uf-name" style="color:#fff;font-weight:bold"></span>
+      <span id="attr-uf-clear" style="cursor:pointer;color:#888;margin-left:8px">[clear]</span>
+    </div>
+    <div id="attr-msg" class="msg"></div>
+    <div class="charts">
+      <div class="chart-box full">
+        <h3>ci cost by run type (time series)</h3>
+        <div class="chart-wrap tall"><canvas id="attrTimeSeries"></canvas></div>
+      </div>
+      <div class="chart-box">
+        <h3>cost by user (AWS + GCP)</h3>
+        <div class="chart-wrap" style="height:400px"><canvas id="userBar"></canvas></div>
+      </div>
+      <div class="chart-box">
+        <h3>cost by run type</h3>
+        <div class="chart-wrap med"><canvas id="typeDonut"></canvas></div>
+      </div>
+    </div>
+
+    <div class="section-title">author ci profile</div>
+    <div class="detail-scroll">
+      <table>
+        <thead id="author-thead"><tr></tr></thead>
+        <tbody id="author-tbody"></tbody>
+      </table>
+    </div>
+
+    <div class="section-title">instances</div>
+    <div class="detail-scroll" style="max-height:500px">
+      <table class="detail-table">
+        <thead id="attr-thead"><tr></tr></thead>
+        <tbody id="attr-tbody"></tbody>
+      </table>
+    </div>
+  </div>
+
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4"></script>
+  <script>
+    Chart.defaults.color = '#888';
+    Chart.defaults.font.family = 'monospace';
+
+    // ---- Shared state ----
+    let charts = {};
+    let sparkCharts = {};
+    let pipelineFilter = '';
+
+    function granularity() { return document.querySelector('[data-g].active').dataset.g; }
+    const fmt = v => v == null ? '--' : v >= 1000 ? '$' + v.toFixed(0).replace(/\B(?=(\d{3})+(?!\d))/g, ',') : v >= 1 ? '$' + v.toFixed(2) : '$' + v.toFixed(4);
+    const MONTHS = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+    const fmtDate = s => { const d = new Date(s + 'T00:00:00'); return MONTHS[d.getMonth()] + ' ' + d.getDate(); };
+    const fmtDateFull = s => { const d = new Date(s + 'T00:00:00'); return MONTHS[d.getMonth()] + ' ' + d.getDate() + ', ' + d.getFullYear(); };
+    const escapeHtml = s => { const d = document.createElement('div'); d.textContent = s; return d.innerHTML; };
+
+    function delta(values) {
+      if (!values || values.length < 3) return { pct: 0, cls: 'neutral' };
+      const third = Math.max(1, Math.floor(values.length / 3));
+      const first = values.slice(0, third).reduce((s, v) => s + v, 0) / third;
+      const last = values.slice(-third).reduce((s, v) => s + v, 0) / third;
+      if (first === 0) return { pct: 0, cls: 'neutral' };
+      const pct = ((last - first) / first) * 100;
+      return { pct, cls: pct > 5 ? 'up' : pct < -5 ? 'down' : 'neutral' };
+    }
+
+    function deltaHtml(values, invertColor) {
+      const d = delta(values);
+      let cls = d.cls;
+      if (invertColor) cls = cls === 'up' ? 'down' : cls === 'down' ? 'up' : cls;
+      const sign = d.pct >= 0 ? '+' : '';
+      return `<span class="delta ${cls}">${sign}${d.pct.toFixed(0)}%</span>`;
+    }
+
+    function spark(canvasId, values, color) {
+      if (sparkCharts[canvasId]) sparkCharts[canvasId].destroy();
+      const ctx = document.getElementById(canvasId);
+      if (!ctx) return;
+      sparkCharts[canvasId] = new Chart(ctx.getContext('2d'), {
+        type: 'line',
+        data: {
+          labels: values.map((_, i) => i),
+          datasets: [{ data: values, borderColor: color || '#58a6ff', borderWidth: 1.5, pointRadius: 0, fill: false, tension: 0.3 }]
+        },
+        options: {
+          responsive: true, maintainAspectRatio: false,
+          scales: { x: { display: false }, y: { display: false } },
+          plugins: { legend: { display: false }, tooltip: { enabled: false } },
+          animation: false
+        }
+      });
+    }
+
+    // ==================================================================
+    //  TAB 1: Overview
+    // ==================================================================
+    let mqData = null, perfData = null, flakeData = null, prData = null, phaseData = null;
+    let flakeSort = { col: 'count', dir: 'desc' };
+    let authorSort = { col: 'total_cost', dir: 'desc' };
+
+    async function loadOverview() {
+      const el = document.getElementById('msg');
+      el.className = 'msg'; el.textContent = 'loading...';
+      const f = document.getElementById('dateFrom').value;
+      const t = document.getElementById('dateTo').value;
+      const g = granularity();
+      const pf = pipelineFilter ? `&dashboard=${encodeURIComponent(pipelineFilter)}` : '';
+
+      const pfEl = document.getElementById('pipeline-filter');
+      if (pipelineFilter) {
+        pfEl.style.display = 'inline-flex';
+        document.getElementById('pf-name').textContent = pipelineFilter;
+      } else {
+        pfEl.style.display = 'none';
+      }
+
+      try {
+        const ttP = new URLSearchParams({
+          from: f, to: t,
+          dashboard: document.getElementById('ttDashboard').value,
+          status: document.getElementById('ttStatus').value,
+        });
+        const [mqResp, perfResp, flakeResp, prResp, ttResp, phaseResp] = await Promise.all([
+          fetch(`/api/merge-queue/stats?from=${f}&to=${t}`),
+          fetch(`/api/ci/performance?from=${f}&to=${t}&granularity=${g}${pf}`),
+          fetch(`/api/ci/flakes-by-command?from=${f}&to=${t}${pf}`),
+          fetch(`/api/prs/metrics?from=${f}&to=${t}`),
+          fetch('/api/tests/timings?' + ttP),
+          fetch(`/api/ci/phases?from=${f}&to=${t}${pf}`),
+        ]);
+        [mqData, perfData, flakeData, prData, ttData, phaseData] = await Promise.all([
+          mqResp.json(), perfResp.json(), flakeResp.json(), prResp.json(), ttResp.json(), phaseResp.json()
+        ]);
+        el.textContent = '';
+        renderOverview();
+        ttRender();
+      } catch (e) {
+        el.className = 'msg err'; el.textContent = 'error: ' + e.message;
+      }
+    }
+
+    function renderOverview() {
+      // Destroy overview charts
+      ['mq', 'flake', 'ciDurPipe', 'ciTotalTime', 'phase'].forEach(k => { if (charts[k]) { charts[k].destroy(); delete charts[k]; } });
+
+      const period = perfData?.period;
+      if (period) document.getElementById('period-label').textContent = `(${period.from} to ${period.to})`;
+
+      renderKPIs();
+      renderMQChart();
+      renderFlakeChart();
+      renderCIDurPipeChart();
+      renderCITotalTimeChart();
+      renderPhaseChart();
+      renderTopFlakes();
+      renderTopFailures();
+      renderFlakeTable();
+    }
+
+    function renderKPIs() {
+      const mqByDate = mqData?.by_date || [];
+      const perfByDate = perfData?.by_date || [];
+      const prByDate = prData?.by_date || [];
+      const days = perfByDate.length || 1;
+
+      // MQ success rate
+      const mqRates = mqByDate.map(d => d.total > 0 ? 100 * d.success / d.total : null).filter(v => v !== null);
+      const mqTotal = mqByDate.reduce((s, d) => s + (d.total || 0), 0);
+      const mqSuccess = mqByDate.reduce((s, d) => s + (d.success || 0), 0);
+      const mqRate = mqTotal > 0 ? (100 * mqSuccess / mqTotal).toFixed(1) : '--';
+      document.getElementById('kv-mq').innerHTML = mqRate + '%' + (mqRates.length > 2 ? deltaHtml(mqRates, true) : '');
+      spark('ks-mq', mqRates, '#3fb950');
+
+      // Flakes per day
+      const flakeCounts = perfByDate.map(d => d.flake_count || 0);
+      const totalFlakes = flakeCounts.reduce((s, v) => s + v, 0);
+      document.getElementById('kv-flakes').innerHTML = (totalFlakes / days).toFixed(1) + deltaHtml(flakeCounts);
+      spark('ks-flakes', flakeCounts, '#f0883e');
+
+      // PRs merged per day
+      const prCounts = prByDate.map(d => d.pr_count || 0);
+      const totalPRs = prCounts.reduce((s, v) => s + v, 0);
+      document.getElementById('kv-prs').innerHTML = (totalPRs / days).toFixed(1) + (prCounts.length > 2 ? deltaHtml(prCounts, true) : '');
+      spark('ks-prs', prCounts, '#56d364');
+
+      // Avg merge-queue duration (from duration_by_dashboard)
+      const mqDurData = (perfData?.duration_by_dashboard || {})['merge-queue'] || [];
+      const mqDurations = mqDurData.map(d => d.avg_duration_mins).filter(v => v != null);
+      const mqAvgDur = mqDurations.length ? mqDurations.reduce((s, v) => s + v, 0) / mqDurations.length : null;
+      document.getElementById('kv-citime').innerHTML = (mqAvgDur != null ? mqAvgDur.toFixed(0) + 'm' : '--') + (mqDurations.length > 2 ? deltaHtml(mqDurations) : '');
+      spark('ks-citime', mqDurations, '#d2a8ff');
+    }
+
+    function renderMQChart() {
+      const byDate = mqData?.by_date || [];
+      const dates = byDate.map(d => d.date);
+      const successRate = byDate.map(d => d.total > 0 ? 100 * d.success / d.total : null);
+      charts.mq = new Chart(document.getElementById('mqChart').getContext('2d'), {
+        data: {
+          labels: dates.map(fmtDate),
+          datasets: [
+            { type: 'bar', label: 'Success', data: byDate.map(d => d.success || 0), backgroundColor: '#3fb950', stack: 'mq', borderWidth: 0, order: 3 },
+            { type: 'bar', label: 'Failure', data: byDate.map(d => d.failure || 0), backgroundColor: '#f85149', stack: 'mq', borderWidth: 0, order: 3 },
+            { type: 'bar', label: 'Cancelled', data: byDate.map(d => d.cancelled || 0), backgroundColor: '#888', stack: 'mq', borderWidth: 0, order: 3 },
+            { type: 'line', label: 'Success %', data: successRate, borderColor: '#56d364', borderWidth: 2, pointRadius: 0, tension: 0.3, yAxisID: 'y1', order: 1, spanGaps: true },
+            { type: 'line', label: 'Avg Queue Depth', data: byDate.map(d => d.avg_depth || 0), borderColor: '#d2a8ff', borderWidth: 1.5, pointRadius: 0, tension: 0.3, yAxisID: 'y2', order: 2 },
+            { type: 'line', label: 'Peak Queue Depth', data: byDate.map(d => d.peak_depth || 0), borderColor: '#d2a8ff44', borderWidth: 1, borderDash: [4, 3], pointRadius: 0, tension: 0.3, yAxisID: 'y2', order: 2 },
+          ]
+        },
+        options: {
+          responsive: true, maintainAspectRatio: false,
+          interaction: { mode: 'index', intersect: false },
+          scales: {
+            x: { stacked: true, ticks: { color: '#555', maxRotation: 45 }, grid: { color: '#181818' } },
+            y: { stacked: true, position: 'left', title: { display: true, text: 'runs', color: '#555', font: { size: 10 } }, ticks: { color: '#555' }, grid: { color: '#181818' } },
+            y1: { position: 'right', min: 0, max: 100, ticks: { color: '#56d364', callback: v => v + '%' }, grid: { display: false } },
+            y2: { position: 'right', title: { display: true, text: 'queue depth', color: '#d2a8ff', font: { size: 10 } }, ticks: { color: '#d2a8ff' }, grid: { display: false }, min: 0 }
+          },
+          plugins: {
+            legend: { position: 'bottom', labels: { color: '#888', boxWidth: 10, padding: 8, font: { size: 10, family: 'monospace' } } },
+            tooltip: { callbacks: { label: c => c.dataset.label === 'Success %' ? `${c.dataset.label}: ${c.raw != null ? c.raw.toFixed(1) + '%' : '--'}` : `${c.dataset.label}: ${c.raw}` } }
+          }
+        }
+      });
+    }
+
+    function renderFlakeChart() {
+      const byDate = perfData?.by_date || [];
+      const dates = byDate.map(d => d.date);
+      charts.flake = new Chart(document.getElementById('flakeChart').getContext('2d'), {
+        data: {
+          labels: dates.map(fmtDate),
+          datasets: [
+            { type: 'bar', label: 'Flakes', data: byDate.map(d => d.flake_count || 0), backgroundColor: '#f0883e', borderWidth: 0, stack: 'issues', yAxisID: 'y', order: 3 },
+            { type: 'bar', label: 'Test Failures', data: byDate.map(d => d.test_failure_count || 0), backgroundColor: '#f85149', borderWidth: 0, stack: 'issues', yAxisID: 'y', order: 3 },
+            { type: 'line', label: 'Successes', data: byDate.map(d => d.test_success_count || 0), borderColor: '#3fb950', backgroundColor: 'rgba(63,185,80,0.08)', fill: true, borderWidth: 1.5, pointRadius: 0, tension: 0.3, yAxisID: 'y1', order: 2 },
+            { type: 'line', label: 'CI Failure Rate %', data: byDate.map(d => d.failure_rate || 0), borderColor: '#ff7b72', borderWidth: 2, pointRadius: 0, tension: 0.3, yAxisID: 'y2', order: 1 },
+          ]
+        },
+        options: {
+          responsive: true, maintainAspectRatio: false,
+          interaction: { mode: 'index', intersect: false },
+          scales: {
+            x: { stacked: true, ticks: { color: '#555', maxRotation: 45 }, grid: { color: '#181818' } },
+            y: { stacked: true, position: 'left', title: { display: true, text: 'failures + flakes', color: '#555', font: { size: 10 } }, ticks: { color: '#555' }, grid: { color: '#181818' } },
+            y1: { position: 'right', title: { display: true, text: 'successes', color: '#3fb950', font: { size: 10 } }, ticks: { color: '#3fb950' }, grid: { display: false } },
+            y2: { position: 'right', display: false, min: 0, ticks: { display: false }, grid: { display: false } }
+          },
+          plugins: {
+            legend: { position: 'bottom', labels: { color: '#888', boxWidth: 10, padding: 8, font: { size: 10, family: 'monospace' } } },
+            tooltip: {
+              callbacks: {
+                title: items => items.length ? fmtDateFull(dates[items[0].dataIndex]) : '',
+                label: c => c.dataset.label === 'CI Failure Rate %' ? `${c.dataset.label}: ${c.raw != null ? c.raw.toFixed(1) + '%' : '--'}`
+                  : c.dataset.label === 'Successes' ? `${c.dataset.label}: ${(c.raw || 0).toLocaleString()}`
+                  : `${c.dataset.label}: ${c.raw}`
+              }
+            }
+          }
+        }
+      });
+    }
+
+    function renderCIDurPipeChart() {
+      const dbd = perfData?.duration_by_dashboard || {};
+      const pipelines = Object.keys(dbd).sort();
+      if (!pipelines.length) return;
+      const pipeColors = { 'prs': '#3fb950', 'next': '#58a6ff', 'master': '#d2a8ff', 'nightly': '#f0883e', 'releases': '#f85149', 'deflake': '#a5d6ff' };
+      const defaultColors = ['#56d364', '#79c0ff', '#d2a8ff', '#f0883e', '#ff7b72', '#a5d6ff', '#e3b341', '#8b949e'];
+      // Collect all dates across pipelines
+      const allDates = new Set();
+      pipelines.forEach(p => (dbd[p] || []).forEach(d => allDates.add(d.date)));
+      const dates = [...allDates].sort();
+
+      const datasets = pipelines.map((p, i) => {
+        const dateMap = {};
+        (dbd[p] || []).forEach(d => { dateMap[d.date] = d.avg_duration_mins; });
+        return {
+          label: p,
+          data: dates.map(d => dateMap[d] ?? null),
+          borderColor: pipeColors[p] || defaultColors[i % defaultColors.length],
+          borderWidth: 2,
+          pointRadius: 1,
+          tension: 0.3,
+          spanGaps: true,
+        };
+      });
+
+      charts.ciDurPipe = new Chart(document.getElementById('ciDurPipeChart').getContext('2d'), {
+        type: 'line',
+        data: { labels: dates.map(fmtDate), datasets },
+        options: {
+          responsive: true, maintainAspectRatio: false,
+          interaction: { mode: 'index', intersect: false },
+          scales: {
+            x: { ticks: { color: '#555', maxRotation: 45 }, grid: { color: '#181818' } },
+            y: { title: { display: true, text: 'minutes', color: '#555', font: { size: 10 } }, ticks: { color: '#555' }, grid: { color: '#181818' } }
+          },
+          plugins: {
+            legend: { position: 'bottom', labels: { color: '#888', boxWidth: 10, padding: 8, font: { size: 10, family: 'monospace' } } },
+            tooltip: {
+              callbacks: {
+                title: items => items.length ? fmtDateFull(dates[items[0].dataIndex]) : '',
+                label: c => `${c.dataset.label}: ${c.raw != null ? c.raw.toFixed(1) + 'm' : '--'}`
+              }
+            }
+          }
+        }
+      });
+    }
+
+    function renderCITotalTimeChart() {
+      const dbd = perfData?.duration_by_dashboard || {};
+      const pipelines = Object.keys(dbd).sort();
+      if (!pipelines.length) return;
+      const pipeColors = { 'prs': '#3fb950', 'next': '#58a6ff', 'master': '#d2a8ff', 'nightly': '#f0883e', 'releases': '#f85149', 'deflake': '#a5d6ff' };
+      const defaultColors = ['#56d364', '#79c0ff', '#d2a8ff', '#f0883e', '#ff7b72', '#a5d6ff', '#e3b341', '#8b949e'];
+      const allDates = new Set();
+      pipelines.forEach(p => (dbd[p] || []).forEach(d => allDates.add(d.date)));
+      const dates = [...allDates].sort();
+
+      const datasets = pipelines.map((p, i) => {
+        const dateMap = {};
+        (dbd[p] || []).forEach(d => { dateMap[d.date] = d.total_duration_mins ? round(d.total_duration_mins / 60, 1) : null; });
+        return {
+          label: p, fill: true,
+          data: dates.map(d => dateMap[d] ?? null),
+          backgroundColor: (pipeColors[p] || defaultColors[i % defaultColors.length]) + '40',
+          borderColor: pipeColors[p] || defaultColors[i % defaultColors.length],
+          borderWidth: 2, pointRadius: 1, tension: 0.3, spanGaps: true,
+        };
+      });
+
+      function round(v, d) { const m = Math.pow(10, d); return Math.round(v * m) / m; }
+
+      charts.ciTotalTime = new Chart(document.getElementById('ciTotalTimeChart').getContext('2d'), {
+        type: 'line',
+        data: { labels: dates.map(fmtDate), datasets },
+        options: {
+          responsive: true, maintainAspectRatio: false,
+          interaction: { mode: 'index', intersect: false },
+          scales: {
+            x: { stacked: true, ticks: { color: '#555', maxRotation: 45 }, grid: { color: '#181818' } },
+            y: { stacked: true, title: { display: true, text: 'hours', color: '#555', font: { size: 10 } }, ticks: { color: '#555' }, grid: { color: '#181818' } }
+          },
+          plugins: {
+            legend: { position: 'bottom', labels: { color: '#888', boxWidth: 10, padding: 8, font: { size: 10, family: 'monospace' } } },
+            tooltip: {
+              callbacks: {
+                title: items => items.length ? fmtDateFull(dates[items[0].dataIndex]) : '',
+                label: c => `${c.dataset.label}: ${c.raw != null ? c.raw.toFixed(1) + 'h' : '--'}`,
+                footer: items => `total: ${items.reduce((s, i) => s + (i.raw || 0), 0).toFixed(1)}h`
+              }
+            }
+          }
+        }
+      });
+    }
+
+    function renderPhaseChart() {
+      const byDash = phaseData?.by_dashboard || [];
+      if (!byDash.length) return;
+
+      // Collect all unique phase names (no grouping — each artifact is its own phase)
+      const allPhases = new Set();
+      byDash.forEach(d => {
+        for (const p of Object.keys(d.phases || {})) allPhases.add(p);
+      });
+
+      const dashboards = byDash.map(d => d.dashboard).sort();
+      const dashData = {};
+      byDash.forEach(d => { dashData[d.dashboard] = d.phases || {}; });
+
+      // Sort phases by total time descending for nice stacking
+      const phaseTotals = {};
+      for (const p of allPhases) {
+        phaseTotals[p] = dashboards.reduce((s, d) => s + (dashData[d]?.[p] || 0), 0);
+      }
+      const phases = [...allPhases].sort((a, b) => phaseTotals[b] - phaseTotals[a]);
+
+      const phaseColors = {
+        'build': '#58a6ff', 'test': '#3fb950', 'bench': '#d2a8ff',
+        'noir': '#e3b341', 'avm-transpiler': '#a5d6ff', 'barretenberg': '#f0883e',
+        'noir-projects': '#ff7b72', 'l1-contracts': '#79c0ff', 'yarn-project': '#56d364',
+        'release-image': '#8b949e', 'parallel-builds': '#d2a8ff',
+      };
+      const defaultColors = ['#388bfd', '#f85149', '#56d364', '#79c0ff', '#d2a8ff', '#f0883e', '#ff7b72', '#a5d6ff', '#e3b341', '#8b949e', '#da3633', '#a371f7'];
+
+      // Sum of P95 values per dashboard (for stacked bar totals in tooltip)
+      const totals = dashboards.map(d => phases.reduce((s, p) => s + (dashData[d]?.[p] || 0), 0));
+
+      const datasets = phases.map((p, i) => ({
+        label: p,
+        data: dashboards.map(d => dashData[d]?.[p] || 0),
+        backgroundColor: phaseColors[p] || defaultColors[i % defaultColors.length],
+        borderWidth: 0,
+      }));
+
+      charts.phase = new Chart(document.getElementById('phaseChart').getContext('2d'), {
+        type: 'bar',
+        data: { labels: dashboards, datasets },
+        options: {
+          responsive: true, maintainAspectRatio: false,
+          interaction: { mode: 'index', intersect: false },
+          scales: {
+            x: { stacked: true, ticks: { color: '#ccc', font: { family: 'monospace', size: 12 } }, grid: { color: '#181818' } },
+            y: { stacked: true, title: { display: true, text: 'P95 secs', color: '#555', font: { size: 10 } }, ticks: { color: '#555', callback: v => v >= 3600 ? (v / 3600).toFixed(0) + 'h' : v >= 60 ? (v / 60).toFixed(0) + 'm' : v + 's' }, grid: { color: '#181818' } }
+          },
+          plugins: {
+            legend: { position: 'bottom', labels: { color: '#888', boxWidth: 10, padding: 8, font: { size: 10, family: 'monospace' } } },
+            tooltip: {
+              itemSort: (a, b) => b.raw - a.raw,
+              filter: c => c.raw > 0,
+              callbacks: {
+                label: c => `${c.dataset.label}: ${c.raw >= 3600 ? (c.raw / 3600).toFixed(1) + 'h' : c.raw >= 60 ? (c.raw / 60).toFixed(1) + 'm' : Math.round(c.raw) + 's'}`,
+                footer: items => `total: ${(items.reduce((s, i) => s + i.raw, 0) / 3600).toFixed(1)}h`
+              }
+            },
+            datalabels: false,
+          },
+          animation: {
+            onComplete: function() {
+              const ctx = this.ctx;
+              ctx.save();
+              ctx.font = '11px monospace';
+              ctx.fillStyle = '#ccc';
+              ctx.textAlign = 'center';
+              const meta = this.getDatasetMeta(datasets.length - 1);
+              if (!meta) { ctx.restore(); return; }
+              dashboards.forEach((d, i) => {
+                const total = totals[i];
+                if (!total) return;
+                const bar = meta.data[i];
+                if (!bar) return;
+                const label = total >= 3600 ? (total / 3600).toFixed(1) + 'h' : (total / 60).toFixed(0) + 'm';
+                ctx.fillText(label, bar.x, bar.y - 6);
+              });
+              ctx.restore();
+            }
+          }
+        }
+      });
+    }
+
+    function avatarHtml(authorsStr) {
+      if (!authorsStr) return '';
+      const authors = authorsStr.split(',').filter(a => a && a !== 'unknown');
+      if (!authors.length) return '';
+      return authors.slice(0, 6).map(a =>
+        `<img src="https://github.com/${encodeURIComponent(a)}.png?size=24" title="${escapeHtml(a)}" style="width:20px;height:20px;border-radius:50%;border:1px solid #333;vertical-align:middle;margin-right:2px" onerror="this.style.display='none'">`
+      ).join('') + (authors.length > 6 ? `<span style="color:#888;font-size:11px;vertical-align:middle">+${authors.length - 6}</span>` : '');
+    }
+
+    function renderTopFlakes() {
+      const flakes = perfData?.top_flakes || [];
+      const tbody = document.getElementById('top-flake-tbody');
+      if (!flakes.length) {
+        tbody.innerHTML = '<tr><td colspan="3" style="color:#888">no flake data</td></tr>';
+        return;
+      }
+      tbody.innerHTML = flakes.map(f => {
+        const cmd = escapeHtml(f.test_cmd || '');
+        const short = cmd.length > 80 ? cmd.slice(0, 77) + '...' : cmd;
+        return `<tr><td title="${cmd}" style="max-width:400px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${short}</td><td class="amt" style="color:#f0883e">${f.count}</td><td style="white-space:nowrap">${avatarHtml(f.authors)}</td></tr>`;
+      }).join('');
+    }
+
+    function renderTopFailures() {
+      const failures = perfData?.top_failures || [];
+      const tbody = document.getElementById('top-fail-tbody');
+      if (!failures.length) {
+        tbody.innerHTML = '<tr><td colspan="3" style="color:#888">no failure data</td></tr>';
+        return;
+      }
+      tbody.innerHTML = failures.map(f => {
+        const cmd = escapeHtml(f.test_cmd || '');
+        const short = cmd.length > 80 ? cmd.slice(0, 77) + '...' : cmd;
+        return `<tr><td title="${cmd}" style="max-width:400px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${short}</td><td class="amt" style="color:#f85149">${f.count}</td><td style="white-space:nowrap">${avatarHtml(f.authors)}</td></tr>`;
+      }).join('');
+    }
+
+    function renderFlakeTable() {
+      const cmds = flakeData?.by_command || [];
+      if (!cmds.length) {
+        document.getElementById('flake-tbody').innerHTML = '<tr><td colspan="3" style="color:#888">no flake data</td></tr>';
+        document.querySelector('#flake-thead tr').innerHTML = '';
+        return;
+      }
+      if (pipelineFilter) {
+        const allTests = cmds.flatMap(c => (c.top_tests || []).map(t => ({ test_cmd: t.test_cmd || '', count: t.count || 0 })));
+        const hdrs = [{ k: 'test_cmd', l: 'Test Command' }, { k: 'count', l: 'Flakes', cls: 'amt' }];
+        const tr = document.querySelector('#flake-thead tr'); tr.innerHTML = '';
+        hdrs.forEach(h => { const th = document.createElement('th'); th.textContent = h.l; if (h.cls) th.className = h.cls; th.onclick = () => { flakeSort = flakeSort.col === h.k ? { col: h.k, dir: flakeSort.dir === 'asc' ? 'desc' : 'asc' } : { col: h.k, dir: 'desc' }; renderTestRows(allTests); }; tr.appendChild(th); });
+        renderTestRows(allTests);
+      } else {
+        const rows = cmds.map(c => ({ pipeline: c.command || '', count: c.total_flakes || 0, failures: c.total_failures || 0 }));
+        const hdrs = [{ k: 'pipeline', l: 'Pipeline' }, { k: 'count', l: 'Flakes', cls: 'amt' }, { k: 'failures', l: 'Failures', cls: 'amt' }];
+        const tr = document.querySelector('#flake-thead tr'); tr.innerHTML = '';
+        hdrs.forEach(h => { const th = document.createElement('th'); th.textContent = h.l; if (h.cls) th.className = h.cls; th.onclick = () => { flakeSort = flakeSort.col === h.k ? { col: h.k, dir: flakeSort.dir === 'asc' ? 'desc' : 'asc' } : { col: h.k, dir: 'desc' }; renderPipelineRows(rows); }; tr.appendChild(th); });
+        renderPipelineRows(rows);
+      }
+    }
+
+    function renderPipelineRows(rows) {
+      rows.sort((a, b) => { const col = flakeSort.col; let av = a[col], bv = b[col]; if (typeof av === 'string') return flakeSort.dir === 'asc' ? av.localeCompare(bv) : bv.localeCompare(av); return flakeSort.dir === 'asc' ? (av||0)-(bv||0) : (bv||0)-(av||0); });
+      document.getElementById('flake-tbody').innerHTML = rows.map((r, i) =>
+        `<tr style="cursor:pointer" data-idx="${i}"><td>${escapeHtml(r.pipeline)}</td><td class="amt" style="color:#f0883e">${r.count}</td><td class="amt" style="color:#f85149">${r.failures}</td></tr>`
+      ).join('');
+      document.querySelectorAll('#flake-tbody tr').forEach(tr => {
+        tr.onclick = () => { const row = rows[parseInt(tr.dataset.idx)]; if (row.pipeline) { pipelineFilter = row.pipeline; loadOverview(); } };
+      });
+    }
+
+    function renderTestRows(rows) {
+      rows.sort((a, b) => { const col = flakeSort.col; let av = a[col], bv = b[col]; if (typeof av === 'string') return flakeSort.dir === 'asc' ? av.localeCompare(bv) : bv.localeCompare(av); return flakeSort.dir === 'asc' ? (av||0)-(bv||0) : (bv||0)-(av||0); });
+      document.getElementById('flake-tbody').innerHTML = rows.map(r =>
+        `<tr><td>${escapeHtml(r.test_cmd)}</td><td class="amt" style="color:#f0883e">${r.count}</td></tr>`
+      ).join('');
+    }
+
+    // ==================================================================
+    //  TAB 2: Test Details (from test-timings)
+    // ==================================================================
+    let ttData = null;
+
+    async function ttLoad() {
+      const el = document.getElementById('ttMsg');
+      el.className = 'msg'; el.textContent = 'loading...';
+      const p = new URLSearchParams({
+        from: document.getElementById('dateFrom').value,
+        to: document.getElementById('dateTo').value,
+        dashboard: document.getElementById('ttDashboard').value,
+        status: document.getElementById('ttStatus').value,
+      });
+      try {
+        const r = await fetch('/api/tests/timings?' + p);
+        if (!r.ok) throw new Error(r.statusText);
+        ttData = await r.json();
+        el.textContent = '';
+        ttRender();
+      } catch (e) {
+        el.className = 'msg err'; el.textContent = 'error: ' + e.message;
+      }
+    }
+
+    function ttRender() {
+      if (!ttData) return;
+      // Destroy old charts
+      ['ttDuration', 'ttCount'].forEach(k => { if (charts[k]) { charts[k].destroy(); delete charts[k]; } });
+
+      const s = ttData.summary;
+      const fmtN = v => v == null ? '-' : v.toLocaleString();
+      const fmtH = secs => secs == null ? '-' : (secs / 3600).toFixed(1);
+      const kpi = (label, value) => `<div class="kpi"><div class="label">${label}</div><div class="value">${value}</div></div>`;
+
+      document.getElementById('ttKpis').innerHTML = [
+        kpi('total runs', fmtN(s.total_runs)),
+        kpi('avg duration', s.avg_duration_secs != null ? s.avg_duration_secs + 's' : '-'),
+        kpi('max duration', s.max_duration_secs != null ? s.max_duration_secs + 's' : '-'),
+        kpi('total compute', fmtH(s.total_compute_secs) + 'h'),
+        kpi('passed', `<span class="pass">${fmtN(s.passed)}</span>`),
+        kpi('failed', `<span class="fail">${fmtN(s.failed)}</span>`),
+        kpi('flaked', `<span class="flake">${fmtN(s.flaked)}</span>`),
+      ].join('');
+
+      const dates = ttData.by_date.map(r => r.date);
+
+      // Duration chart
+      const durEl = document.getElementById('ttChartDuration');
+      durEl.innerHTML = '';
+      const durCanvas = document.createElement('canvas');
+      durEl.appendChild(durCanvas);
+      charts.ttDuration = new Chart(durCanvas, {
+        type: 'line',
+        data: {
+          labels: dates.map(fmtDate),
+          datasets: [
+            { label: 'avg (s)', data: ttData.by_date.map(r => r.avg_secs), borderColor: '#58a6ff', backgroundColor: 'rgba(88,166,255,0.1)', fill: true, tension: 0.3, pointRadius: 1 },
+            { label: 'max (s)', data: ttData.by_date.map(r => r.max_secs), borderColor: '#f8514966', borderDash: [4, 4], tension: 0.3, pointRadius: 0 },
+          ]
+        },
+        options: {
+          responsive: true, maintainAspectRatio: false,
+          plugins: {
+            legend: { display: true, labels: { color: '#888', font: { family: 'monospace', size: 11 } } },
+            tooltip: { callbacks: { title: items => items.length ? fmtDateFull(dates[items[0].dataIndex]) : '' } }
+          },
+          scales: { x: { ticks: { color: '#555' }, grid: { color: '#111' } }, y: { ticks: { color: '#555' }, grid: { color: '#111' } } },
+        }
+      });
+
+      // Count chart
+      const cntEl = document.getElementById('ttChartCount');
+      cntEl.innerHTML = '';
+      const cntCanvas = document.createElement('canvas');
+      cntEl.appendChild(cntCanvas);
+      charts.ttCount = new Chart(cntCanvas, {
+        data: {
+          labels: dates.map(fmtDate),
+          datasets: [
+            { type: 'bar', label: 'failed', data: ttData.by_date.map(r => r.failed), backgroundColor: '#da3633', stack: 'issues', yAxisID: 'y', order: 3 },
+            { type: 'bar', label: 'flaked', data: ttData.by_date.map(r => r.flaked), backgroundColor: '#9e6a03', stack: 'issues', yAxisID: 'y', order: 3 },
+            { type: 'line', label: 'passed', data: ttData.by_date.map(r => r.passed), borderColor: '#3fb950', backgroundColor: 'rgba(35,134,54,0.08)', fill: true, borderWidth: 1.5, pointRadius: 0, tension: 0.3, yAxisID: 'y1', order: 2 },
+          ]
+        },
+        options: {
+          responsive: true, maintainAspectRatio: false,
+          interaction: { mode: 'index', intersect: false },
+          plugins: {
+            legend: { display: true, labels: { color: '#888', font: { family: 'monospace', size: 11 } } },
+            tooltip: {
+              callbacks: {
+                title: items => items.length ? fmtDateFull(dates[items[0].dataIndex]) : '',
+                label: c => `${c.dataset.label}: ${(c.raw || 0).toLocaleString()}`
+              }
+            }
+          },
+          scales: {
+            x: { stacked: true, ticks: { color: '#555' }, grid: { color: '#111' } },
+            y: { stacked: true, position: 'left', title: { display: true, text: 'failed + flaked', color: '#555', font: { size: 10 } }, ticks: { color: '#555' }, grid: { color: '#111' } },
+            y1: { position: 'right', title: { display: true, text: 'passed', color: '#3fb950', font: { size: 10 } }, ticks: { color: '#3fb950' }, grid: { display: false } },
+          },
+        }
+      });
+
+      // Test table
+      const tb = document.querySelector('#ttTestTable tbody');
+      tb.innerHTML = ttData.by_test.map(t => `<tr>
+        <td class="cmd" title="${escapeHtml(t.test_cmd)}">${escapeHtml(t.test_cmd)}</td>
+        <td class="amt">${t.count}</td><td class="amt">${t.avg_secs}</td><td class="amt">${t.min_secs}</td><td class="amt">${t.max_secs}</td>
+        <td class="amt">${fmtH(t.total_time_secs)}</td><td class="amt">${t.pass_rate}%</td>
+        <td class="amt pass">${t.passed}</td><td class="amt fail">${t.failed}</td><td class="amt flake">${t.flaked}</td>
+      </tr>`).join('');
+
+      // Slowest table
+      const sb = document.querySelector('#ttSlowestTable tbody');
+      sb.innerHTML = ttData.slowest.map(t => `<tr>
+        <td class="cmd" title="${escapeHtml(t.test_cmd)}">${escapeHtml(t.test_cmd)}</td>
+        <td class="amt">${t.duration_secs}</td>
+        <td class="${t.status === 'passed' ? 'pass' : t.status === 'failed' ? 'fail' : 'flake'}">${t.status}</td>
+        <td>${t.date}</td><td>${escapeHtml(t.commit_author || '')}</td><td>${escapeHtml(t.dashboard || '')}</td>
+        <td>${t.log_url ? '<a href="' + escapeHtml(t.log_url) + '" target="_blank">log</a>' : ''}</td>
+      </tr>`).join('');
+
+      // Sort by clicking headers
+      [document.getElementById('ttTestTable'), document.getElementById('ttSlowestTable')].forEach(table => {
+        table.querySelectorAll('th').forEach((th, i) => {
+          if (th._sortBound) return;
+          th._sortBound = true;
+          th.addEventListener('click', () => {
+            const rows = [...table.querySelectorAll('tbody tr')];
+            const asc = th.dataset.sort !== 'asc';
+            th.dataset.sort = asc ? 'asc' : 'desc';
+            rows.sort((a, b) => {
+              let va = a.cells[i].textContent.replace(/[%h]/g, '');
+              let vb = b.cells[i].textContent.replace(/[%h]/g, '');
+              const na = parseFloat(va), nb = parseFloat(vb);
+              if (!isNaN(na) && !isNaN(nb)) return asc ? na - nb : nb - na;
+              return asc ? va.localeCompare(vb) : vb.localeCompare(va);
+            });
+            table.querySelector('tbody').append(...rows);
+          });
+        });
+      });
+    }
+
+    // ==================================================================
+    //  TAB 3: Attribution (from cost-overview)
+    // ==================================================================
+    let attrData = null;
+    let attrSort = { col: 'cost_usd', dir: 'desc' };
+    let attrUserFilter = '';
+
+    function setAttrUserFilter(user) {
+      attrUserFilter = user;
+      const el = document.getElementById('attr-user-filter');
+      if (user) { el.style.display = 'inline-flex'; document.getElementById('attr-uf-name').textContent = user; }
+      else { el.style.display = 'none'; }
+      renderAttribution();
+    }
+
+    async function loadAttribution() {
+      const msg = document.getElementById('attr-msg');
+      msg.className = 'msg'; msg.textContent = 'loading...';
+      try {
+        const f = document.getElementById('dateFrom').value;
+        const t = document.getElementById('dateTo').value;
+        const g = granularity();
+        const [attrResp, prResp] = await Promise.all([
+          fetch(`/api/costs/attribution?from=${f}&to=${t}&granularity=${g}`),
+          prData ? Promise.resolve(null) : fetch(`/api/prs/metrics?from=${f}&to=${t}`),
+        ]);
+        attrData = await attrResp.json();
+        if (prResp) prData = await prResp.json();
+        msg.textContent = '';
+        renderAttribution();
+        renderAuthorTable();
+      } catch (e) {
+        msg.className = 'msg err'; msg.textContent = 'error: ' + e.message;
+      }
+    }
+
+    function renderAttribution() {
+      if (!attrData) return;
+      const { by_user, by_type, totals } = attrData;
+
+      const filteredInstances = attrUserFilter ? attrData.instances.filter(i => i.author === attrUserFilter) : attrData.instances;
+      const filteredByType = {};
+      filteredInstances.forEach(i => {
+        if (!filteredByType[i.type]) filteredByType[i.type] = { type: i.type, cost: 0, runs: 0 };
+        filteredByType[i.type].cost += i.cost_usd || 0;
+        filteredByType[i.type].runs += 1;
+      });
+      const displayByType = attrUserFilter ? Object.values(filteredByType).sort((a, b) => b.cost - a.cost) : by_type;
+
+      const filteredByDate = {};
+      filteredInstances.forEach(i => {
+        if (!filteredByDate[i.date]) filteredByDate[i.date] = {};
+        filteredByDate[i.date][i.type] = (filteredByDate[i.date][i.type] || 0) + (i.cost_usd || 0);
+      });
+
+      const filteredAws = filteredInstances.reduce((s, i) => s + (i.cost_usd || 0), 0);
+      const filteredUser = attrUserFilter ? by_user.find(u => u.author === attrUserFilter) : null;
+      const filteredGcp = filteredUser ? filteredUser.gcp_cost : 0;
+      const unattr = totals.gcp_unattributed || 0;
+
+      if (attrUserFilter) {
+        document.getElementById('attr-stats').innerHTML =
+          `<span style="color:#fff">${attrUserFilter}</span>: aws: <span>${fmt(filteredAws)}</span> &middot; gcp: <span>${fmt(filteredGcp)}</span> &middot; runs: <span>${filteredInstances.length}</span>`;
+      } else {
+        document.getElementById('attr-stats').innerHTML =
+          `ci compute (aws): <span>${fmt(totals.aws)}</span> &middot; ` +
+          `gke namespaces (gcp): <span>${fmt(totals.gcp)}</span>` +
+          (unattr > 0 ? ` <span style="color:#888">(${fmt(unattr)} unattributed)</span>` : '') + ` &middot; ` +
+          `combined: <span style="color:#fff">${fmt(totals.combined)}</span> &middot; ` +
+          `users: <span>${by_user.length}</span> &middot; instances: <span>${attrData.instances.length}</span>`;
+      }
+
+      // Destroy old attribution charts
+      ['attrTimeSeries', 'userBar', 'typeDonut'].forEach(k => { if (charts[k]) { charts[k].destroy(); delete charts[k]; } });
+
+      // Time series
+      const allRunTypes = attrData.run_types || [];
+      const byDateSorted = Object.keys(filteredByDate).sort();
+      const byDate = byDateSorted.map(d => ({ date: d, ...filteredByDate[d] }));
+      const runTypes = attrUserFilter ? [...new Set(filteredInstances.map(i => i.type))].sort() : allRunTypes;
+      const typeColors = { 'merge-queue': '#58a6ff', 'pr': '#3fb950', 'nightly': '#d2a8ff', 'releases': '#f0883e', 'network': '#f85149', 'deflake': '#a5d6ff', 'other': '#555' };
+
+      if (byDate.length > 0) {
+        charts.attrTimeSeries = new Chart(document.getElementById('attrTimeSeries').getContext('2d'), {
+          type: 'bar',
+          data: { labels: byDate.map(d => fmtDate(d.date)), datasets: runTypes.map(rt => ({ label: rt, data: byDate.map(d => d[rt] || 0), backgroundColor: typeColors[rt] || '#555', borderWidth: 0 })) },
+          options: {
+            responsive: true, maintainAspectRatio: false, interaction: { mode: 'index', intersect: false },
+            scales: {
+              x: { stacked: true, ticks: { color: '#555', maxRotation: 45 }, grid: { color: '#181818' } },
+              y: { stacked: true, ticks: { color: '#555', callback: v => '$' + v }, grid: { color: '#181818' } }
+            },
+            plugins: {
+              legend: { position: 'bottom', labels: { color: '#888', boxWidth: 10, padding: 8, font: { size: 10, family: 'monospace' } } },
+              tooltip: { itemSort: (a, b) => b.raw - a.raw, filter: c => c.raw > 0, callbacks: { label: c => `${c.dataset.label}: ${fmt(c.raw)}`, footer: items => `total: ${fmt(items.reduce((s, i) => s + i.raw, 0))}` } }
+            }
+          }
+        });
+      }
+
+      // User bar
+      const topUsers = by_user.slice(0, 15);
+      charts.userBar = new Chart(document.getElementById('userBar').getContext('2d'), {
+        type: 'bar',
+        data: {
+          labels: topUsers.map(u => u.author),
+          datasets: [
+            { label: 'AWS (compute)', data: topUsers.map(u => u.aws_cost), backgroundColor: topUsers.map(u => u.author === attrUserFilter ? '#8cc9ff' : '#58a6ff'), barPercentage: 0.6 },
+            { label: 'GCP (namespace)', data: topUsers.map(u => u.gcp_cost), backgroundColor: topUsers.map(u => u.author === attrUserFilter ? '#6fdb7a' : '#3fb950'), barPercentage: 0.6 },
+          ]
+        },
+        options: {
+          responsive: true, maintainAspectRatio: false, indexAxis: 'y',
+          onClick: (e, elements) => { if (elements.length > 0) { const user = topUsers[elements[0].index].author; setAttrUserFilter(attrUserFilter === user ? '' : user); } },
+          scales: {
+            x: { stacked: true, ticks: { color: '#555', callback: v => '$' + v }, grid: { color: '#181818' } },
+            y: { stacked: true, ticks: { color: '#ccc', font: { family: 'monospace' } }, grid: { display: false } }
+          },
+          plugins: {
+            legend: { position: 'bottom', labels: { color: '#888', boxWidth: 10, padding: 8, font: { size: 10, family: 'monospace' } } },
+            tooltip: { callbacks: { label: c => `${c.dataset.label}: ${fmt(c.raw)}`, footer: items => `total: ${fmt(items.reduce((s, i) => s + i.raw, 0))}` } }
+          }
+        }
+      });
+
+      // Type donut
+      charts.typeDonut = new Chart(document.getElementById('typeDonut').getContext('2d'), {
+        type: 'doughnut',
+        data: {
+          labels: displayByType.map(t => t.type),
+          datasets: [{ data: displayByType.map(t => t.cost), backgroundColor: displayByType.map(t => typeColors[t.type] || '#555'), borderColor: '#0a0a0a', borderWidth: 2 }]
+        },
+        options: {
+          responsive: true, maintainAspectRatio: false,
+          plugins: {
+            legend: { position: 'right', labels: { color: '#888', boxWidth: 10, padding: 6, font: { size: 10, family: 'monospace' } } },
+            tooltip: { callbacks: { label: c => `${c.label}: ${fmt(c.raw)} (${c.dataset.data.reduce((s,v) => s+v, 0) > 0 ? ((c.raw / c.dataset.data.reduce((s,v) => s+v, 0)) * 100).toFixed(1) : 0}%)` } }
+          }
+        }
+      });
+
+      renderAttrTable();
+    }
+
+    function renderAttrTable() {
+      if (!attrData) return;
+      const hdrs = [
+        { k: 'instance_name', l: 'Instance' }, { k: 'author', l: 'Author' }, { k: 'type', l: 'Type' },
+        { k: 'branch', l: 'Branch' }, { k: 'cost_usd', l: 'Cost', cls: 'amt' }, { k: 'duration_mins', l: 'Mins', cls: 'amt' },
+        { k: 'instance_type', l: 'EC2 Type' }, { k: 'spot', l: 'Spot' }, { k: 'date', l: 'Date' },
+      ];
+      const tr = document.querySelector('#attr-thead tr'); tr.innerHTML = '';
+      hdrs.forEach(h => {
+        const th = document.createElement('th'); th.textContent = h.l;
+        if (h.cls) th.className = h.cls; th.style.cursor = 'pointer';
+        th.onclick = () => { attrSort = attrSort.col === h.k ? { col: h.k, dir: attrSort.dir === 'asc' ? 'desc' : 'asc' } : { col: h.k, dir: 'desc' }; renderAttrTable(); };
+        tr.appendChild(th);
+      });
+
+      const items = attrUserFilter ? attrData.instances.filter(i => i.author === attrUserFilter) : attrData.instances.slice();
+      items.sort((a, b) => { const col = attrSort.col; let av = a[col], bv = b[col]; if (av == null) av = col === 'cost_usd' ? 0 : ''; if (bv == null) bv = col === 'cost_usd' ? 0 : ''; if (typeof av === 'string') return attrSort.dir === 'asc' ? av.localeCompare(bv) : bv.localeCompare(av); return attrSort.dir === 'asc' ? av - bv : bv - av; });
+
+      const typeBadge = t => { const colors = { 'merge-queue': '#58a6ff', 'pr': '#3fb950', 'nightly': '#d2a8ff', 'releases': '#f0883e', 'network': '#f85149', 'deflake': '#a5d6ff' }; return `<span style="color:${colors[t] || '#888'}">${t}</span>`; };
+
+      document.getElementById('attr-tbody').innerHTML = items.map(i =>
+        `<tr>` +
+        `<td style="color:#ccc">${escapeHtml(i.instance_name)}</td>` +
+        `<td><span class="attr-user-link" style="cursor:pointer;color:#58a6ff" data-user="${escapeHtml(i.author)}">${escapeHtml(i.author)}</span></td>` +
+        `<td>${typeBadge(i.type)}</td>` +
+        `<td style="color:#888;max-width:200px;overflow:hidden;text-overflow:ellipsis">${escapeHtml(i.branch)}</td>` +
+        `<td class="amt" style="color:#fff">${fmt(i.cost_usd)}</td>` +
+        `<td class="amt">${i.duration_mins != null ? i.duration_mins.toFixed(1) : ''}</td>` +
+        `<td style="color:#888">${escapeHtml(i.instance_type || '')}</td>` +
+        `<td>${i.spot ? '<span style="color:#3fb950">spot</span>' : '<span style="color:#f0883e">OD</span>'}</td>` +
+        `<td style="color:#888">${fmtDate(i.date)}</td>` +
+        `</tr>`
+      ).join('');
+      document.querySelectorAll('.attr-user-link').forEach(el => { el.onclick = () => setAttrUserFilter(el.dataset.user); });
+    }
+
+    function renderAuthorTable() {
+      const authors = prData?.by_author || [];
+      if (!authors.length) { document.getElementById('author-tbody').innerHTML = '<tr><td colspan="6" style="color:#888">no PR data</td></tr>'; return; }
+      const hdrs = [
+        { k: 'author', l: 'Author' }, { k: 'pr_count', l: 'PRs', cls: 'amt' }, { k: 'total_cost', l: 'CI Cost', cls: 'amt' },
+        { k: 'avg_runs', l: 'Runs/PR', cls: 'amt' }, { k: 'avg_ci_time', l: 'CI Time/PR', cls: 'amt' }, { k: 'avg_merge_time', l: 'Merge Time', cls: 'amt' },
+      ];
+      const tr = document.querySelector('#author-thead tr'); tr.innerHTML = '';
+      hdrs.forEach(h => { const th = document.createElement('th'); th.textContent = h.l; if (h.cls) th.className = h.cls; th.onclick = () => { authorSort = authorSort.col === h.k ? { col: h.k, dir: authorSort.dir === 'asc' ? 'desc' : 'asc' } : { col: h.k, dir: 'desc' }; renderAuthorRows(authors); }; tr.appendChild(th); });
+      renderAuthorRows(authors);
+    }
+
+    function renderAuthorRows(authors) {
+      const rows = authors.slice();
+      rows.sort((a, b) => {
+        const col = authorSort.col; let av = a[col], bv = b[col];
+        if (col === 'avg_runs') { av = a.avg_runs_per_pr || 0; bv = b.avg_runs_per_pr || 0; }
+        if (col === 'avg_ci_time') { av = a.avg_ci_time_hrs || 0; bv = b.avg_ci_time_hrs || 0; }
+        if (col === 'avg_merge_time') { av = a.avg_merge_time_hrs || 0; bv = b.avg_merge_time_hrs || 0; }
+        if (typeof av === 'string') return authorSort.dir === 'asc' ? av.localeCompare(bv) : bv.localeCompare(av);
+        return authorSort.dir === 'asc' ? (av||0)-(bv||0) : (bv||0)-(av||0);
+      });
+      document.getElementById('author-tbody').innerHTML = rows.map(a => {
+        const runs = a.avg_runs_per_pr != null ? a.avg_runs_per_pr.toFixed(1) : '--';
+        const ciTime = a.avg_ci_time_hrs != null ? a.avg_ci_time_hrs.toFixed(1) + 'h' : '--';
+        const mergeTime = a.avg_merge_time_hrs != null ? a.avg_merge_time_hrs.toFixed(1) + 'h' : '--';
+        return `<tr><td>${escapeHtml(a.author)}</td><td class="amt">${a.pr_count}</td><td class="amt" style="color:#fff">${fmt(a.total_cost)}</td><td class="amt">${runs}</td><td class="amt">${ciTime}</td><td class="amt">${mergeTime}</td></tr>`;
+      }).join('');
+    }
+
+    // ==================================================================
+    //  Tab switching + URL state + Init
+    // ==================================================================
+    let activeTab = 'overview';
+
+    function switchTab(name) {
+      activeTab = name;
+      document.querySelectorAll('.tab').forEach(t => t.classList.toggle('active', t.dataset.tab === name));
+      document.querySelectorAll('.tab-content').forEach(c => c.classList.toggle('active', c.id === 'tab-' + name));
+      if (name === 'overview' && !perfData) loadOverview();
+      if (name === 'attribution' && !attrData) loadAttribution();
+      saveUrl();
+    }
+
+    function saveUrl() {
+      const p = new URLSearchParams();
+      p.set('from', document.getElementById('dateFrom').value);
+      p.set('to', document.getElementById('dateTo').value);
+      p.set('g', granularity());
+      if (activeTab !== 'overview') p.set('tab', activeTab);
+      if (pipelineFilter) p.set('pipeline', pipelineFilter);
+      history.replaceState({}, '', '?' + p);
+      const shared = new URLSearchParams();
+      shared.set('from', p.get('from')); shared.set('to', p.get('to')); shared.set('g', p.get('g'));
+      document.querySelectorAll('#nav a[href]').forEach(a => {
+        const base = a.getAttribute('href').split('?')[0];
+        if (base !== '/') a.href = base + '?' + shared;
+      });
+    }
+
+    function loadUrl() {
+      const p = new URLSearchParams(location.search);
+      if (p.get('from')) document.getElementById('dateFrom').value = p.get('from');
+      if (p.get('to')) document.getElementById('dateTo').value = p.get('to');
+      if (p.get('g')) document.querySelectorAll('[data-g]').forEach(b => b.classList.toggle('active', b.dataset.g === p.get('g')));
+      if (p.get('pipeline')) pipelineFilter = p.get('pipeline');
+      if (p.get('tab')) switchTab(p.get('tab'));
+    }
+
+    function clearAndReload() {
+      mqData = null; perfData = null; flakeData = null; prData = null; ttData = null; attrData = null; phaseData = null;
+      attrUserFilter = ''; document.getElementById('attr-user-filter').style.display = 'none';
+      if (activeTab === 'overview') loadOverview();
+      else if (activeTab === 'attribution') loadAttribution();
+    }
+
+    window.addEventListener('DOMContentLoaded', () => {
+      const now = new Date(), from = new Date();
+      from.setDate(from.getDate() - 30);
+      document.getElementById('dateFrom').value = from.toISOString().split('T')[0];
+      document.getElementById('dateTo').value = now.toISOString().split('T')[0];
+
+      loadUrl();
+
+      // Tab switching
+      document.querySelectorAll('.tab').forEach(t => t.onclick = () => switchTab(t.dataset.tab));
+
+      // Controls
+      document.getElementById('pf-clear').onclick = () => { pipelineFilter = ''; loadOverview(); };
+      document.getElementById('attr-uf-clear').onclick = () => setAttrUserFilter('');
+      document.getElementById('refreshBtn').onclick = clearAndReload;
+      document.querySelectorAll('[data-g]').forEach(b => b.onclick = () => {
+        document.querySelectorAll('[data-g]').forEach(x => x.classList.remove('active'));
+        b.classList.add('active');
+        clearAndReload();
+      });
+      document.querySelectorAll('[data-range]').forEach(b => b.onclick = () => {
+        document.querySelectorAll('[data-range]').forEach(x => x.classList.remove('active'));
+        b.classList.add('active');
+        const days = parseInt(b.dataset.range);
+        const to = new Date(), fr = new Date();
+        fr.setDate(fr.getDate() - days);
+        document.getElementById('dateFrom').value = fr.toISOString().split('T')[0];
+        document.getElementById('dateTo').value = to.toISOString().split('T')[0];
+        clearAndReload();
+      });
+      document.getElementById('dateFrom').onchange = () => { document.querySelectorAll('[data-range]').forEach(x => x.classList.remove('active')); clearAndReload(); };
+      document.getElementById('dateTo').onchange = () => { document.querySelectorAll('[data-range]').forEach(x => x.classList.remove('active')); clearAndReload(); };
+
+      // Test details filters (reload just test timings)
+      document.getElementById('ttDashboard').onchange = () => { ttData = null; ttLoad(); };
+      document.getElementById('ttStatus').onchange = () => { ttData = null; ttLoad(); };
+
+      // Load default tab
+      loadOverview();
+    });
+  </script>
+</body>
+</html>

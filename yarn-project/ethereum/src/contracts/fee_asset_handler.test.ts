@@ -3,8 +3,6 @@ import { EthAddress } from '@aztec/foundation/eth-address';
 import { type Logger, createLogger } from '@aztec/foundation/log';
 import { TestERC20Abi as FeeAssetAbi } from '@aztec/l1-artifacts/TestERC20Abi';
 
-import type { Anvil } from '@viem/anvil';
-import omit from 'lodash.omit';
 import { type GetContractReturnType, getContract } from 'viem';
 import { type PrivateKeyAccount, privateKeyToAccount } from 'viem/accounts';
 import { foundry } from 'viem/chains';
@@ -12,7 +10,8 @@ import { foundry } from 'viem/chains';
 import { createExtendedL1Client } from '../client.js';
 import { DefaultL1ContractsConfig } from '../config.js';
 import { deployAztecL1Contracts } from '../deploy_aztec_l1_contracts.js';
-import { L1TxUtils, createL1TxUtilsFromViemWallet } from '../l1_tx_utils/index.js';
+import { L1TxUtils, createL1TxUtils } from '../l1_tx_utils/index.js';
+import type { Anvil } from '../test/start_anvil.js';
 import { startAnvil } from '../test/start_anvil.js';
 import type { ExtendedViemWalletClient } from '../types.js';
 import { FeeAssetHandlerContract } from './fee_asset_handler.js';
@@ -46,9 +45,8 @@ describe('FeeAssetHandler', () => {
       genesisArchiveRoot: Fr.random(),
       realVerifier: false,
     });
-    // Since the registry cannot "see" the slash factory, we omit it from the addresses for this test
-    const deployedAddresses = omit(deployed.l1ContractAddresses, 'slashFactoryAddress');
-    txUtils = createL1TxUtilsFromViemWallet(l1Client, { logger });
+    const deployedAddresses = deployed.l1ContractAddresses;
+    txUtils = createL1TxUtils(l1Client, { logger });
     feeAssetHandler = new FeeAssetHandlerContract(l1Client, deployedAddresses.feeAssetHandlerAddress!);
     feeAsset = getContract({
       address: deployedAddresses.feeJuiceAddress!.toString(),

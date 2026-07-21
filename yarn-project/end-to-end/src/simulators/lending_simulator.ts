@@ -7,6 +7,7 @@ import { SlotNumber } from '@aztec/foundation/branded-types';
 import { poseidon2Hash } from '@aztec/foundation/crypto/poseidon';
 import type { TestDateProvider } from '@aztec/foundation/timer';
 import type { LendingContract } from '@aztec/noir-contracts.js/Lending';
+import type { AztecNode, AztecNodeDebug } from '@aztec/stdlib/interfaces/client';
 
 import type { TokenSimulator } from './token_simulator.js';
 
@@ -92,30 +93,45 @@ export class LendingSimulator {
     public stableCoin: TokenSimulator,
   ) {}
 
-  async prepare() {
+  prepare() {
     this.accumulator = BASE;
-    const slot = await this.rollup.getSlotAt(BigInt(await this.cc.eth.timestamp()) + BigInt(this.ethereumSlotDuration));
-    this.time = Number(await this.rollup.getTimestampForSlot(slot));
+    this.time = 0;
   }
 
-  async progressSlots(diff: number, dateProvider?: TestDateProvider) {
+  /**
+   * Advances the simulator's accumulator and clock to match a block timestamp observed on chain.
+   * Call this BEFORE applying any accumulator-sensitive mutation (borrow/repay) so the mutation
+   * sees the same accumulator as the contract did during execution.
+   */
+  observeBlockTimestamp(ts: number) {
+    const diff = ts - this.time;
+    if (diff > 0) {
+      this.accumulator = muldivDown(this.accumulator, computeMultiplier(this.rate, BigInt(diff)), BASE);
+    }
+    this.time = ts;
+  }
+
+  async progressSlots(diff: number, _dateProvider?: TestDateProvider, node?: AztecNode & AztecNodeDebug) {
     if (diff <= 1) {
       return;
     }
 
-    const slot = await this.rollup.getSlotAt(BigInt(await this.cc.eth.timestamp()));
+    const slot = await this.rollup.getSlotAt(BigInt(await this.cc.eth.lastBlockTimestamp()));
     const targetSlot = SlotNumber(slot + diff);
     const ts = Number(await this.rollup.getTimestampForSlot(targetSlot));
-    const timeDiff = ts - this.time;
-    this.time = ts;
 
-    // Mine ethereum blocks such that the next block will be in a new slot
-    await this.cc.eth.warp(this.time - this.ethereumSlotDuration);
-    if (dateProvider) {
-      dateProvider.setTime(this.time * 1000);
+    // Queue-aware warp under AutomineSequencer: atomic warp + mineBlock that advances L2 time to the
+    // target slot. The cheat code routes through the AutomineSequencer queue when one is installed,
+    // and otherwise falls back to a manual warp + mineBlock loop.
+    if (node) {
+      await this.cc.warpL2TimeAtLeastTo(node, ts);
+    } else {
+      await this.cc.eth.warp(ts - this.ethereumSlotDuration);
     }
+
+    // Mark the latest checkpoint as proven so the rollup does not reorg pending checkpoints when
+    // time jumps far enough forward to cross an unproven epoch boundary.
     await this.cc.rollup.markAsProven(await this.rollup.getCheckpointNumber());
-    this.accumulator = muldivDown(this.accumulator, computeMultiplier(this.rate, BigInt(timeDiff)), BASE);
   }
 
   depositPrivate(from: AztecAddress, onBehalfOf: Fr, amount: bigint) {
@@ -186,14 +202,16 @@ export class LendingSimulator {
 
     expect(this.borrowed).toEqual(this.stableCoin.totalSupply - this.mintedOutside);
 
-    const asset = await this.lendingContract.methods.get_asset(0).simulate({ from: this.account.address });
+    const { result: asset } = await this.lendingContract.methods.get_asset(0).simulate({ from: this.account.address });
 
     const interestAccumulator = asset['interest_accumulator'];
     expect(interestAccumulator).toEqual(this.accumulator);
     expect(asset['last_updated_ts']).toEqual(BigInt(this.time));
 
-    for (const key of [this.account.address, AztecAddress.fromField(await this.account.key())]) {
-      const privatePos = await this.lendingContract.methods.get_position(key).simulate({ from: this.account.address });
+    for (const key of [this.account.address, AztecAddress.fromFieldUnsafe(await this.account.key())]) {
+      const { result: privatePos } = await this.lendingContract.methods
+        .get_position(key)
+        .simulate({ from: this.account.address });
       expect(new Fr(privatePos['collateral'])).toEqual(this.collateral[key.toString()] ?? Fr.ZERO);
       expect(new Fr(privatePos['static_debt'])).toEqual(this.staticDebt[key.toString()] ?? Fr.ZERO);
       expect(privatePos['debt']).toEqual(

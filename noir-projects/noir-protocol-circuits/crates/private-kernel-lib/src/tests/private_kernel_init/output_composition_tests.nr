@@ -1,32 +1,30 @@
 use super::TestBuilder;
-use dep::types::{
-    address::AztecAddress,
-    constants::DEFAULT_UPDATE_DELAY,
-    hash::{create_protocol_nullifier, silo_nullifier},
-    tests::utils::assert_claimed_length_array_eq,
+use protocol_test_utils::assert_claimed_length_array_eq;
+use types::{
+    address::AztecAddress, constants::DEFAULT_UPDATE_DELAY, hash::create_protocol_nullifier,
     traits::Empty,
 };
 
 #[test]
-fn with_everything_empty_except_for_first_nullifier_hint() {
+fn with_everything_empty() {
     let mut builder = TestBuilder::new();
 
-    builder.private_call.include_by_timestamp = 0;
-    builder.first_nullifier_hint = 1234;
+    builder.private_call.expiration_timestamp = 0;
+
+    let scoped_protocol_nullifier = create_protocol_nullifier(builder.tx_request);
 
     let pi = builder.execute();
     builder.assert_expected_public_inputs(pi);
 
     assert_eq(pi.min_revertible_side_effect_counter, 0);
     assert_eq(pi.fee_payer, AztecAddress::empty());
-    assert_eq(pi.include_by_timestamp, 0);
+    assert_eq(pi.expiration_timestamp, 0);
     assert_eq(pi.is_private_only, false);
-    assert_eq(pi.claimed_first_nullifier, 1234);
     assert_eq(pi.claimed_revertible_counter, 0);
 
     assert_claimed_length_array_eq(pi.end.note_hashes, []);
-    // The nullifiers array is empty because the protocol nullifier is not injected.
-    assert_claimed_length_array_eq(pi.end.nullifiers, []);
+    // Only the protocol nullifier is present.
+    assert_claimed_length_array_eq(pi.end.nullifiers, [scoped_protocol_nullifier]);
     assert_claimed_length_array_eq(pi.end.l2_to_l1_msgs, []);
     assert_claimed_length_array_eq(pi.end.private_logs, []);
     assert_claimed_length_array_eq(pi.end.contract_class_logs_hashes, []);
@@ -36,27 +34,9 @@ fn with_everything_empty_except_for_first_nullifier_hint() {
     assert_claimed_length_array_eq(pi.validation_requests.note_hash_read_requests, []);
     assert_claimed_length_array_eq(pi.validation_requests.nullifier_read_requests, []);
     assert_claimed_length_array_eq(
-        pi.validation_requests.scoped_key_validation_requests_and_generators,
+        pi.validation_requests.scoped_key_validation_requests_and_separators,
         [],
     );
-}
-
-#[test]
-fn with_protocol_nullifier_injected() {
-    let mut builder = TestBuilder::new();
-
-    let scoped_protocol_nullifier = create_protocol_nullifier(builder.tx_request);
-    let protocol_nullifier = silo_nullifier(scoped_protocol_nullifier);
-    builder.first_nullifier_hint = protocol_nullifier;
-
-    let pi = builder.execute();
-    builder.assert_expected_public_inputs(pi);
-
-    // The claimed value is propagated from the hint.
-    assert_eq(pi.claimed_first_nullifier, protocol_nullifier);
-
-    // The nullifiers array contains the protocol nullifier.
-    assert_claimed_length_array_eq(pi.end.nullifiers, [scoped_protocol_nullifier]);
 }
 
 #[test]
@@ -64,16 +44,11 @@ fn with_nullifiers_emitted_and_protocol_nullifier_injected() {
     let mut builder = TestBuilder::new();
 
     let scoped_protocol_nullifier = create_protocol_nullifier(builder.tx_request);
-    let protocol_nullifier = silo_nullifier(scoped_protocol_nullifier);
-    builder.first_nullifier_hint = protocol_nullifier;
 
     builder.private_call.append_nullifiers(1);
     let private_call_nullifiers = builder.private_call.nullifiers.storage();
 
     let pi = builder.execute();
-
-    // The claimed value is propagated from the hint.
-    assert_eq(pi.claimed_first_nullifier, protocol_nullifier);
 
     // The nullifiers array contains the protocol nullifier and the private call's nullifier.
     assert_claimed_length_array_eq(
@@ -83,21 +58,22 @@ fn with_nullifiers_emitted_and_protocol_nullifier_injected() {
 }
 
 #[test]
-fn include_by_timestamp_constrained_by_contract_updates() {
+fn expiration_timestamp_constrained_by_contract_updates() {
     let mut builder = TestBuilder::new();
 
-    // Set the private call's include_by_timestamp to a large value
+    // Set the private call's expiration_timestamp to a large value
     // that exceeds the contract update time horizon
-    let anchor_timestamp = builder.private_call.anchor_block_header.global_variables.timestamp;
-    let contract_update_horizon = anchor_timestamp + DEFAULT_UPDATE_DELAY;
+    let anchor_block_timestamp =
+        builder.private_call.anchor_block_header.global_variables.timestamp;
+    let contract_update_horizon = anchor_block_timestamp + DEFAULT_UPDATE_DELAY - 1;
 
-    // Set include_by_timestamp larger than the contract update horizon
-    builder.private_call.include_by_timestamp = contract_update_horizon + 1000;
+    // Set expiration_timestamp larger than the contract update horizon
+    builder.private_call.expiration_timestamp = contract_update_horizon + 1000;
 
     let pi = builder.execute();
 
     // Verify the output uses the smaller contract update timestamp, not the private call's value
-    assert_eq(pi.include_by_timestamp, contract_update_horizon);
+    assert_eq(pi.expiration_timestamp, contract_update_horizon);
 }
 
 #[test]
@@ -105,9 +81,8 @@ fn with_everything_non_empty() {
     let mut builder = TestBuilder::new();
 
     builder.is_private_only = true;
-    builder.first_nullifier_hint = 1234;
     builder.revertible_counter_hint = 567;
-    builder.private_call.include_by_timestamp = 7890;
+    builder.private_call.expiration_timestamp = 7890;
     builder.private_call.is_fee_payer = true;
 
     builder.private_call.append_note_hashes(2);
@@ -129,11 +104,12 @@ fn with_everything_non_empty() {
     let pi = builder.execute();
     builder.assert_expected_public_inputs(pi);
 
+    let scoped_protocol_nullifier = create_protocol_nullifier(builder.tx_request);
+
     assert_eq(pi.min_revertible_side_effect_counter, 98765);
     assert_eq(pi.fee_payer, builder.private_call.contract_address);
-    assert_eq(pi.include_by_timestamp, 7890);
+    assert_eq(pi.expiration_timestamp, 7890);
     assert_eq(pi.is_private_only, true);
-    assert_eq(pi.claimed_first_nullifier, 1234);
     assert_eq(pi.claimed_revertible_counter, 567);
 
     let note_hashes = builder.private_call.note_hashes.storage();
@@ -142,7 +118,7 @@ fn with_everything_non_empty() {
     let nullifiers = builder.private_call.nullifiers.storage();
     assert_claimed_length_array_eq(
         pi.end.nullifiers,
-        [nullifiers[0], nullifiers[1], nullifiers[2]],
+        [scoped_protocol_nullifier, nullifiers[0], nullifiers[1], nullifiers[2]],
     );
 
     let l2_to_l1_msgs = builder.private_call.l2_to_l1_msgs.storage();
@@ -185,9 +161,9 @@ fn with_everything_non_empty() {
     );
 
     let key_validation_requests =
-        builder.private_call.scoped_key_validation_requests_and_generators.storage();
+        builder.private_call.scoped_key_validation_requests_and_separators.storage();
     assert_claimed_length_array_eq(
-        pi.validation_requests.scoped_key_validation_requests_and_generators,
+        pi.validation_requests.scoped_key_validation_requests_and_separators,
         [key_validation_requests[0], key_validation_requests[1]],
     );
 }

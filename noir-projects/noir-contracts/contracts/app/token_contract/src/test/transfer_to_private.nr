@@ -1,6 +1,6 @@
 use crate::{test::utils, Token};
-use dep::aztec::{oracle::random::random, protocol::traits::Deserialize};
-use dep::uint_note::PartialUintNote;
+use aztec::{oracle::random::random, protocol::traits::Deserialize};
+use uint_note::PartialUintNote;
 
 /// Internal orchestration means that the calls to `prepare_private_balance_increase`
 /// and `finalize_transfer_to_private` are done by the TOKEN contract itself.
@@ -27,16 +27,11 @@ unconstrained fn transfer_to_private_external_orchestration() {
         utils::setup_and_mint_to_public(/* with_account_contracts */ false);
 
     // We prepare the transfer
-    let partial_uint_note = env.call_private(
-        owner,
-        Token::at(token_contract_address).prepare_private_balance_increase(recipient),
-    );
+    let partial_uint_note =
+        env.call_private(owner, Token::at(token_contract_address).prepare_private_balance_increase(recipient));
 
     // Finalize the transfer of the tokens (message sender owns the tokens in public)
-    env.call_public(
-        owner,
-        Token::at(token_contract_address).finalize_transfer_to_private(amount, partial_uint_note),
-    );
+    env.call_public(owner, Token::at(token_contract_address).finalize_transfer_to_private(amount, partial_uint_note));
 
     // Recipient's private balance should be equal to the amount
     utils::check_private_balance(env, token_contract_address, recipient, amount);
@@ -51,24 +46,40 @@ unconstrained fn transfer_to_private_from_private_external_orchestration() {
         utils::setup_and_mint_to_private(/* with_account_contracts */ false);
 
     // We prepare the transfer
-    let partial_uint_note = env.call_private(
-        owner,
-        Token::at(token_contract_address).prepare_private_balance_increase(recipient),
-    );
+    let partial_uint_note =
+        env.call_private(owner, Token::at(token_contract_address).prepare_private_balance_increase(recipient));
     // Finalize the transfer of the tokens (message sender owns the tokens in public)
     env.call_private(
         owner,
-        Token::at(token_contract_address).finalize_transfer_to_private_from_private(
-            owner,
-            partial_uint_note,
-            amount,
-            0,
-        ),
+        Token::at(token_contract_address).finalize_transfer_to_private_from_private(owner, partial_uint_note, amount, 0),
     );
 
     // Recipient's private balance should be equal to the amount
     utils::check_private_balance(env, token_contract_address, recipient, amount);
     utils::check_private_balance(env, token_contract_address, owner, 0);
+}
+
+/// Completes multiple partial notes in a single message-discovery sync: the recipient does not sync until both
+/// completion logs have been emitted, so both pending partial notes are processed together.
+#[test]
+unconstrained fn transfer_to_private_external_orchestration_multiple_notes() {
+    // Setup without account contracts. We are not using authwits here, so dummy accounts are enough
+    let (env, token_contract_address, owner, recipient, amount) =
+        utils::setup_and_mint_to_public(/* with_account_contracts */ false);
+
+    let partial_uint_note_a =
+        env.call_private(owner, Token::at(token_contract_address).prepare_private_balance_increase(recipient));
+    let partial_uint_note_b =
+        env.call_private(owner, Token::at(token_contract_address).prepare_private_balance_increase(recipient));
+
+    env.call_public(
+        owner,
+        Token::at(token_contract_address).finalize_transfer_to_private(amount - 3, partial_uint_note_a),
+    );
+    env.call_public(owner, Token::at(token_contract_address).finalize_transfer_to_private(3, partial_uint_note_b));
+
+    // Recipient's private balance should be equal to the sum of both finalized amounts
+    utils::check_private_balance(env, token_contract_address, recipient, amount);
 }
 
 #[test(should_fail_with = "Invalid partial note or completer")]
@@ -84,10 +95,7 @@ unconstrained fn transfer_to_private_transfer_not_prepared() {
     let partial_uint_note = PartialUintNote::deserialize([commitment]);
 
     // Try finalizing the transfer without preparing it
-    env.call_public(
-        owner,
-        Token::at(token_contract_address).finalize_transfer_to_private(amount, partial_uint_note),
-    );
+    env.call_public(owner, Token::at(token_contract_address).finalize_transfer_to_private(amount, partial_uint_note));
 }
 
 #[test(should_fail_with = "Assertion failed: attempt to subtract with overflow")]
@@ -99,16 +107,11 @@ unconstrained fn transfer_to_private_failure_not_an_owner() {
     // (For this specific test we could set a random value for the commitment and not do the call to `prepare...`
     // as the token balance check is before we use the value but that would made the test less robust against changes
     // in the contract.)
-    let partial_uint_note = env.call_private(
-        owner,
-        Token::at(token_contract_address).prepare_private_balance_increase(not_owner),
-    );
+    let partial_uint_note =
+        env.call_private(owner, Token::at(token_contract_address).prepare_private_balance_increase(not_owner));
 
     // Try transferring someone else's token balance
-    env.call_public(
-        not_owner,
-        Token::at(token_contract_address).finalize_transfer_to_private(amount, partial_uint_note),
-    );
+    env.call_public(not_owner, Token::at(token_contract_address).finalize_transfer_to_private(amount, partial_uint_note));
 }
 
 #[test(should_fail_with = "Invalid partial note or completer")]
@@ -121,15 +124,10 @@ unconstrained fn incorrect_completer_cannot_complete_partial_note() {
     let completer = env.create_light_account();
 
     // We prepare the partial note as a completer
-    let partial_uint_note = env.call_private(
-        completer,
-        Token::at(token_contract_address).prepare_private_balance_increase(recipient),
-    );
+    let partial_uint_note =
+        env.call_private(completer, Token::at(token_contract_address).prepare_private_balance_increase(recipient));
 
     // Now we try to complete the partial note as another completer. Note that the caller here owns the tokens - this is
     // so that we pass the balance check and fail on the partial note completer check.
-    env.call_public(
-        owner,
-        Token::at(token_contract_address).finalize_transfer_to_private(amount, partial_uint_note),
-    );
+    env.call_public(owner, Token::at(token_contract_address).finalize_transfer_to_private(amount, partial_uint_note));
 }

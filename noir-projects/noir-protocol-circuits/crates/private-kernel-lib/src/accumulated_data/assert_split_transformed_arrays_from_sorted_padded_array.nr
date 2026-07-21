@@ -21,7 +21,7 @@ use types::{
 ///   - Items within `original_array.length` must not be nullish.
 ///   - Items beyond `original_array.length` must be nullish.
 /// - Items within `original_array.length` in `original_array` must have been sorted by counter in ascending order.
-/// - Items beyond `original_array.length` in `original_array` can have any counter value.
+/// - Items beyond `original_array.length` in `original_array` must have a counter value of 0.
 /// - `num_padded_lt` must not be larger than the total number of padded items and empty items in `sorted_padded_array`.
 ///
 /// This function checks that:
@@ -221,16 +221,13 @@ where
 }
 
 mod tests {
+    use crate::accumulated_data::test_value::TestValue;
     use super::{
         assert_split_transformed_arrays_from_sorted_padded_array,
         assert_split_transformed_arrays_from_sorted_padded_array_with_hint,
     };
-    use types::{
-        constants::MAX_U32_VALUE,
-        tests::{types::TestValue, utils::pad_end},
-        traits::Empty,
-        utils::arrays::ClaimedLengthArray,
-    };
+    use protocol_test_utils::pad_end;
+    use types::{constants::MAX_U32_VALUE, traits::Empty, utils::arrays::ClaimedLengthArray};
 
     global NUM_TEST_ITEMS: u32 = 8;
 

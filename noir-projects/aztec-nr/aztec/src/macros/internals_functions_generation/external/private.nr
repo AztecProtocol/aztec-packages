@@ -1,8 +1,9 @@
 use crate::macros::{
+    functions::initialization_utils::has_public_init_checked_functions,
     internals_functions_generation::external::helpers::{create_authorize_once_check, get_abi_relevant_attributes},
     utils::{
-        fn_has_authorize_once, fn_has_noinitcheck, fn_has_nophasecheck, is_fn_initializer, is_fn_only_self, is_fn_view,
-        module_has_initializer, module_has_storage,
+        fn_has_allow_phase_change, fn_has_authorize_once, fn_has_noinitcheck, is_fn_initializer, is_fn_only_self,
+        is_fn_view, module_has_initializer, module_has_storage,
     },
 };
 use crate::protocol::meta::utils::derive_serialization_quotes;
@@ -34,9 +35,9 @@ pub(crate) comptime fn generate_private_external(f: FunctionDefinition) -> Quote
             let storage = Storage::init(&mut context);
         }
     } else {
-        // Contract does not have Storage defined, so we set storage to the unit type `()`. ContractSelf requires a
-        // storage struct in its constructor. Using an Option type would lead to worse developer experience and higher
-        // constraint counts so we use the unit type `()` instead.
+        // Contract does not have Storage defined, so we set storage to the unit type `()`. ContractSelfPrivate
+        // requires a storage struct in its constructor. Using an Option type would lead to worse developer experience
+        // and higher constraint counts so we use the unit type `()` instead.
         quote {
             let storage = ();
         }
@@ -55,7 +56,9 @@ pub(crate) comptime fn generate_private_external(f: FunctionDefinition) -> Quote
             let call_self_static: CallSelfStatic<&mut aztec::context::PrivateContext> = CallSelfStatic { address: self_address, context: &mut context };
             let enqueue_self_static: EnqueueSelfStatic<&mut aztec::context::PrivateContext> = EnqueueSelfStatic { address: self_address, context: &mut context };
             let internal: CallInternal<&mut aztec::context::PrivateContext> = CallInternal { context: &mut context };
-            aztec::ContractSelf::new_private(&mut context, storage, call_self, enqueue_self, call_self_static, enqueue_self_static, internal)
+            let call_self_utility = CallSelfUtility { address: self_address };
+            let utility: aztec::contract_self::PrivateUtilityCalls<CallSelfUtility> = aztec::contract_self::PrivateUtilityCalls { call_self: call_self_utility };
+            aztec::contract_self::ContractSelfPrivate::new(&mut context, storage, call_self, enqueue_self, call_self_static, enqueue_self_static, internal, utility)
         };
     };
 
@@ -71,15 +74,18 @@ pub(crate) comptime fn generate_private_external(f: FunctionDefinition) -> Quote
 
     let view_check = if is_fn_view(f) {
         let assertion_message = f"Function {original_function_name} can only be called statically".as_quoted_str();
-        quote { assert(self.context.inputs.call_context.is_static_call, $assertion_message); }
+        quote { assert(self.context.is_static_call(), $assertion_message); }
     } else {
         quote {}
     };
 
     let (assert_initializer, mark_as_initialized) = if is_fn_initializer(f) {
+        let has_public_fns_with_init_check = has_public_init_checked_functions(f.module());
         (
-            quote { aztec::macros::functions::initialization_utils::assert_initialization_matches_address_preimage_private(*self.context); },
-            quote { aztec::macros::functions::initialization_utils::mark_as_initialized_private(self.context); },
+            quote {
+                aztec::macros::functions::initialization_utils::assert_initialization_matches_address_preimage_private(*self.context);
+            },
+            quote { aztec::macros::functions::initialization_utils::mark_as_initialized_from_private_initializer(self.context, $has_public_fns_with_init_check); },
         )
     } else {
         (quote {}, quote {})
@@ -93,21 +99,21 @@ pub(crate) comptime fn generate_private_external(f: FunctionDefinition) -> Quote
     };
 
     // Phase checks are skipped in functions that request to manually handle phases
-    let initial_phase_store = if fn_has_nophasecheck(f) {
+    let initial_phase_store = if fn_has_allow_phase_change(f) {
         quote {}
     } else {
         quote { let within_revertible_phase: bool = self.context.in_revertible_phase(); }
     };
 
-    let no_phase_change_check = if fn_has_nophasecheck(f) {
+    let no_phase_change_check = if fn_has_allow_phase_change(f) {
         quote {}
     } else {
-        quote {   
+        quote {
             assert_eq(
                 within_revertible_phase,
                 self.context.in_revertible_phase(),
-                f"Phase change detected on function with phase check. If this is expected, use #[nophasecheck]",
-            ); 
+                f"Phase change detected on function with phase check. If this is expected, use #[allow_phase_change]",
+            );
         }
     };
 
@@ -177,6 +183,9 @@ pub(crate) comptime fn generate_private_external(f: FunctionDefinition) -> Quote
 
     let body_quote = body.map(|expr| expr.quoted()).join(quote { });
 
+    // `mark_as_initialized` is placed after the user's function body. If it ran at the beginning, the contract
+    // would appear initialized while the initializer is still running, allowing contracts called by the initializer
+    // to re-enter into a half-initialized contract.
     let to_append = quote {
         $return_value
         $mark_as_initialized

@@ -1,13 +1,16 @@
 use crate::{abis::PublicChonkVerifierPublicInputs, tx_base::components::private_tail_validator};
 use super::fees::compute_effective_gas_fees;
-use dep::types::{
+use types::{
     abis::{
         avm_circuit_public_inputs::AvmCircuitPublicInputs, block_constant_data::BlockConstantData,
+        public_data_write::PublicDataWrite,
     },
     constants::{ARCHIVE_HEIGHT, PUBLIC_CHONK_VERIFIER_VK_INDEX},
+    messaging::l2_to_l1_message::L2ToL1Message,
     proof::proof_data::{AvmV2ProofData, RollupHonkProofData},
+    side_effect::Scoped,
     traits::Empty,
-    utils::arrays::array_length,
+    utils::arrays::{array_length, array_padded_with},
 };
 
 fn assert_eq_array_and_length<T, let N: u32, let M: u32>(
@@ -56,10 +59,11 @@ impl PublicTxBaseInputsValidator {
         // executed correctly and that the data from private is passed to the AVM properly.
         self.validate_private_tail();
         self.validate_public_chonk_verifier_against_avm();
+        self.validate_avm_accumulated_data_padding();
     }
 
     fn validate_public_chonk_verifier_proof_and_vk(self) {
-        if !dep::std::runtime::is_unconstrained() {
+        if !::std::runtime::is_unconstrained() {
             self.public_chonk_verifier_proof_data.verify_proof();
         }
 
@@ -74,7 +78,7 @@ impl PublicTxBaseInputsValidator {
     }
 
     fn validate_avm_proof(self) {
-        if !dep::std::runtime::is_unconstrained() {
+        if !::std::runtime::is_unconstrained() {
             self.avm_proof_data.verify_proof_with_columns();
         }
     }
@@ -92,8 +96,8 @@ impl PublicTxBaseInputsValidator {
         // revertible accumulated data are merged, or after the revertible data is discarded, depending on the revert
         // flag.
 
-        private_tail_validator::validate_include_by_timestamp(
-            private_tail.include_by_timestamp,
+        private_tail_validator::validate_expiration_timestamp(
+            private_tail.expiration_timestamp,
             self.constants.global_variables,
         );
     }
@@ -239,5 +243,44 @@ impl PublicTxBaseInputsValidator {
         // or `block_root` to ensure they match the previous tx's `end_tree_snapshots`.
         // For the first tx in a checkpoint, `checkpoint_root` validates that they match the snapshots from the last
         // block of the previous checkpoint.
+    }
+
+    // Defensive: the AVM PIL doesn't constrain the accumulated_data cells past `length` (one-way lookups
+    // gated by sel_write_to_public_inputs), so the prover is free to place arbitrary values in that tail.
+    // Downstream consumers do not, and should not ever, read values past `length`, but we assert the tail
+    // is zero-padded anyway to make that invariant structural rather than rely on every current and future
+    // consumer honoring it.
+    fn validate_avm_accumulated_data_padding(self) {
+        let avm_acc = self.avm_proof_data.public_inputs.accumulated_data;
+        let avm_lens = self.avm_proof_data.public_inputs.accumulated_data_array_lengths;
+
+        assert(
+            array_padded_with(avm_acc.note_hashes, avm_lens.note_hashes, 0),
+            "AVM note_hashes not zero-padded past length",
+        );
+        assert(
+            array_padded_with(avm_acc.nullifiers, avm_lens.nullifiers, 0),
+            "AVM nullifiers not zero-padded past length",
+        );
+        assert(
+            array_padded_with(
+                avm_acc.l2_to_l1_msgs,
+                avm_lens.l2_to_l1_msgs,
+                Scoped::<L2ToL1Message>::empty(),
+            ),
+            "AVM l2_to_l1_msgs not zero-padded past length",
+        );
+        assert(
+            array_padded_with(
+                avm_acc.public_data_writes,
+                avm_lens.public_data_writes,
+                PublicDataWrite::empty(),
+            ),
+            "AVM public_data_writes not zero-padded past length",
+        );
+        assert(
+            array_padded_with(avm_acc.public_logs.payload, avm_acc.public_logs.length, 0),
+            "AVM public_logs payload not zero-padded past length",
+        );
     }
 }

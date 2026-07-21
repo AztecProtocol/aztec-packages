@@ -1,7 +1,9 @@
+import { Blob } from '@aztec/blob-lib';
 import { getAddressFromPrivateKey } from '@aztec/ethereum/account';
 import type { ViemClient } from '@aztec/ethereum/types';
 import { times } from '@aztec/foundation/collection';
 import { EthAddress } from '@aztec/foundation/eth-address';
+import type { DateProvider } from '@aztec/foundation/timer';
 import type { AztecAsyncKVStore } from '@aztec/kv-store';
 import { openTmpStore } from '@aztec/kv-store/lmdb-v2';
 import { KeystoreManager } from '@aztec/node-keystore';
@@ -11,12 +13,13 @@ import type { TelemetryClient } from '@aztec/telemetry-client';
 
 import { generatePrivateKey } from 'viem/accounts';
 
-import { createL1TxUtilsWithBlobsFromEthSigner } from './l1_tx_utils.js';
+import { createL1TxUtilsFromSigners } from './l1_tx_utils.js';
 
 describe('L1TxUtils Integration - Publisher Deduplication', () => {
   let kvStore: AztecAsyncKVStore;
   let mockClient: ViemClient;
   let mockTelemetry: TelemetryClient;
+  let mockDateProvider: DateProvider;
   let count = 0;
 
   const mockConfig = {
@@ -44,6 +47,9 @@ describe('L1TxUtils Integration - Publisher Deduplication', () => {
         createUpDownCounter: () => ({ add: () => {} }),
       }),
     } as any;
+
+    // Mock DateProvider
+    mockDateProvider = { now: () => Date.now(), nowInSeconds: () => Math.floor(Date.now() / 1000) } as DateProvider;
   });
 
   afterEach(async () => {
@@ -80,8 +86,10 @@ describe('L1TxUtils Integration - Publisher Deduplication', () => {
     // we should have publishers for each validator
     expect(allPublisherSigners).toHaveLength(keystore.validators!.length);
 
-    const l1TxUtils = await createL1TxUtilsWithBlobsFromEthSigner(mockClient, allPublisherSigners, mockConfig, {
+    const l1TxUtils = await createL1TxUtilsFromSigners(mockClient, allPublisherSigners, mockConfig, {
       telemetry: mockTelemetry,
+      dateProvider: mockDateProvider,
+      kzg: Blob.getViemKzgInstance(),
     });
 
     // all of the publisherSigners should deduplicate to one L1TxUtils instance
@@ -139,8 +147,10 @@ describe('L1TxUtils Integration - Publisher Deduplication', () => {
 
     expect(allPublisherSigners).toHaveLength(keystore.validators!.length);
 
-    const l1TxUtils = await createL1TxUtilsWithBlobsFromEthSigner(mockClient, allPublisherSigners, mockConfig, {
+    const l1TxUtils = await createL1TxUtilsFromSigners(mockClient, allPublisherSigners, mockConfig, {
       telemetry: mockTelemetry,
+      dateProvider: mockDateProvider,
+      kzg: Blob.getViemKzgInstance(),
     });
 
     expect(l1TxUtils).toHaveLength(3);

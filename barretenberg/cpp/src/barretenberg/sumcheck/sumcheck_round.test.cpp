@@ -1,9 +1,13 @@
 #include "sumcheck_round.hpp"
 #include "barretenberg/circuit_checker/circuit_checker.hpp"
 #include "barretenberg/common/tuple.hpp"
+#include "barretenberg/flavor/mega_flavor.hpp"
+#include "barretenberg/flavor/mega_zk_flavor.hpp"
 #include "barretenberg/flavor/multilinear_batching_flavor.hpp"
 #include "barretenberg/flavor/sumcheck_test_flavor.hpp"
+#include "barretenberg/flavor/ultra_flavor.hpp"
 #include "barretenberg/flavor/ultra_recursive_flavor.hpp"
+#include "barretenberg/flavor/ultra_zk_flavor.hpp"
 #include "barretenberg/relations/utils.hpp"
 
 #include <gtest/gtest.h>
@@ -308,8 +312,9 @@ TEST(SumcheckRound, ComputeEffectiveRoundSize)
 }
 
 /**
- * @brief Test that compute_effective_round_size returns full size for ZK flavors
- * @details For ZK flavors, we must always iterate over the full round_size including masked rows
+ * @brief Test that compute_effective_round_size excludes disabled rows for ZK flavors
+ * @details For ZK flavors, we always cap at round_size - 2 (disabled rows are handled separately
+ * via compute_offset_area_contribution)
  */
 TEST(SumcheckRound, ComputeEffectiveRoundSizeZK)
 {
@@ -321,10 +326,9 @@ TEST(SumcheckRound, ComputeEffectiveRoundSizeZK)
     const size_t round_size = full_size;
     SumcheckProverRound<Flavor> round(round_size);
 
-    // Create polynomials - ZK flavor always uses full size
+    // Create polynomials for ZK flavor
     std::vector<bb::Polynomial<FF>> random_polynomials(Flavor::NUM_ALL_ENTITIES);
     for (auto& poly : random_polynomials) {
-        // For ZK flavor, all polynomials (including witnesses) are allocated at full size
         poly = bb::Polynomial<FF>(full_size);
     }
 
@@ -334,7 +338,9 @@ TEST(SumcheckRound, ComputeEffectiveRoundSizeZK)
     }
 
     size_t effective_size = round.compute_effective_round_size(prover_polynomials);
-    // For ZK flavors, should always return full round_size regardless of witness sizes
+    // compute_effective_round_size returns the extent of non-zero polynomial data (capped at round_size).
+    // The excluded_head_size is applied separately in compute_univariate, not here.
+    // Since all polynomials span the full round_size, effective_size == round_size.
     EXPECT_EQ(effective_size, round_size);
 }
 
@@ -399,7 +405,7 @@ TEST(SumcheckRound, ExtendEdgesShortMonomial)
 
 /**
  * @brief Test extend_edges with full barycentric extension (non-short-monomial flavor)
- * @details Uses MultilinearBatchingFlavor which has USE_SHORT_MONOMIALS=false to test that
+ * @details Uses a flavor with USE_SHORT_MONOMIALS=false to test that
  * the barycentric extension to MAX_PARTIAL_RELATION_LENGTH works correctly.
  */
 TEST(SumcheckRound, ExtendEdges)
@@ -701,7 +707,7 @@ TEST(SumcheckRound, CheckSumFieldArithmetic)
         univariate.value_at(1) = large_val_2;
 
         SumcheckVerifierRound verifier_round(target);
-        verifier_round.check_sum(univariate, FF(1));
+        verifier_round.check_sum(univariate);
 
         EXPECT_TRUE(!verifier_round.round_failed)
             << "check_sum should handle large field elements correctly with wraparound";
@@ -716,7 +722,7 @@ TEST(SumcheckRound, CheckSumFieldArithmetic)
         univariate.value_at(1) = zero;
 
         SumcheckVerifierRound verifier_round(zero);
-        verifier_round.check_sum(univariate, FF(1));
+        verifier_round.check_sum(univariate);
         bool result = !verifier_round.round_failed;
 
         EXPECT_TRUE(result) << "check_sum should handle zero case correctly";
@@ -734,87 +740,12 @@ TEST(SumcheckRound, CheckSumFieldArithmetic)
         univariate.value_at(1) = negative;
 
         SumcheckVerifierRound verifier_round(target);
-        verifier_round.check_sum(univariate, FF(1));
+        verifier_round.check_sum(univariate);
         bool result = !verifier_round.round_failed;
 
         EXPECT_TRUE(result) << "check_sum should handle mixed signs correctly";
         EXPECT_EQ(target, FF(0)) << "Positive + negative should equal zero";
         info("Mixed signs: check_sum correctly handles positive + negative = 0");
-    }
-}
-
-/**
- * @brief Test check_sum with padding indicator
- * @details Verifies that padding rounds (indicator=0) bypass the check, while non-padding rounds (indicator=1) perform
- * the check
- */
-TEST(SumcheckRound, CheckSumPaddingIndicator)
-{
-    using Flavor = SumcheckTestFlavorZK;
-    using FF = typename Flavor::FF;
-    using SumcheckVerifierRound = bb::SumcheckVerifierRound<Flavor>;
-    constexpr size_t BATCHED_RELATION_PARTIAL_LENGTH = Flavor::BATCHED_RELATION_PARTIAL_LENGTH;
-
-    info("Test: Padding indicator behavior in check_sum");
-
-    // Create a univariate with mismatched sum (should fail in normal round)
-    FF val_0 = FF(10);
-    FF val_1 = FF(20);
-    FF correct_sum = val_0 + val_1; // 30
-    FF wrong_target = FF(100);      // Intentionally wrong
-
-    bb::Univariate<FF, BATCHED_RELATION_PARTIAL_LENGTH> univariate;
-    univariate.value_at(0) = val_0;
-    univariate.value_at(1) = val_1;
-
-    // Test 1: Non-padding round (indicator = 1) - should enforce the check
-    {
-        info("Test 1: Non-padding round (indicator=1) with wrong target - should FAIL");
-
-        SumcheckVerifierRound verifier_round(wrong_target);
-        verifier_round.check_sum(univariate, FF(1)); // indicator = 1
-        bool result = !verifier_round.round_failed;
-
-        EXPECT_FALSE(result) << "With indicator=1, check_sum should fail when target is wrong";
-        EXPECT_TRUE(verifier_round.round_failed) << "round_failed flag should be set";
-        info("Non-padding round: check_sum correctly enforces check and fails with wrong target");
-    }
-
-    // Test 2: Padding round (indicator = 0) - should bypass check even with wrong target
-    {
-        info("Test 3: Padding round (indicator=0) with wrong target - should PASS (bypassed)");
-
-        SumcheckVerifierRound verifier_round(wrong_target);
-        verifier_round.check_sum(univariate, FF(0)); // indicator = 0
-        bool result = !verifier_round.round_failed;
-
-        EXPECT_TRUE(result) << "With indicator=0, check_sum should pass even when target is wrong (padding round)";
-        EXPECT_FALSE(verifier_round.round_failed) << "round_failed flag should not be set in padding round";
-        info("Padding round: check_sum correctly bypasses verification");
-    }
-
-    // Test 5: Transition from padding to non-padding
-    {
-        info("Test 4: Multiple rounds with mixed padding/non-padding");
-
-        SumcheckVerifierRound verifier_round(wrong_target);
-
-        // First round: padding (indicator = 0) - should pass
-        verifier_round.check_sum(univariate, FF(0));
-        bool result1 = !verifier_round.round_failed;
-        EXPECT_TRUE(result1) << "First padding round should pass";
-        EXPECT_FALSE(verifier_round.round_failed) << "round_failed should still be false after padding round";
-
-        // Update target to correct value for next check
-        verifier_round.target_total_sum = correct_sum;
-
-        // Second round: non-padding (indicator = 1) with correct target - should pass
-        verifier_round.check_sum(univariate, FF(1));
-        bool result2 = !verifier_round.round_failed;
-        EXPECT_TRUE(result2) << "Non-padding round with correct target should pass";
-        EXPECT_FALSE(verifier_round.round_failed) << "round_failed should remain false";
-
-        info("Mixed rounds: check_sum correctly handles transition from padding to non-padding");
     }
 }
 
@@ -844,7 +775,7 @@ TEST(SumcheckRound, CheckSumRoundFailurePersistence)
 
         EXPECT_FALSE(verifier_round.round_failed) << "round_failed should initially be false";
 
-        verifier_round.check_sum(univariate, FF(1));
+        verifier_round.check_sum(univariate);
         bool result = !verifier_round.round_failed;
 
         EXPECT_FALSE(result) << "check_sum should return false for wrong target";
@@ -867,13 +798,13 @@ TEST(SumcheckRound, CheckSumRoundFailurePersistence)
         univariate2.value_at(0) = FF(5);
         univariate2.value_at(1) = FF(15);
 
-        verifier_round.check_sum(univariate1, FF(1));
+        verifier_round.check_sum(univariate1);
         bool result1 = !verifier_round.round_failed;
         EXPECT_TRUE(result1) << "First check should pass";
         EXPECT_FALSE(verifier_round.round_failed) << "round_failed should be false after first pass";
 
         verifier_round.target_total_sum = FF(20); // Update target for second check
-        verifier_round.check_sum(univariate2, FF(1));
+        verifier_round.check_sum(univariate2);
         bool result2 = !verifier_round.round_failed;
         EXPECT_TRUE(result2) << "Second check should pass";
         EXPECT_FALSE(verifier_round.round_failed) << "round_failed should remain false after second pass";
@@ -923,8 +854,7 @@ TEST(SumcheckRound, CheckSumRecursiveUnsatisfiableWitness)
 
         // Call check_sum - this adds constraints to the circuit
         // In recursive flavor, assert_equal is called which adds a constraint
-        FF indicator = FF(1); // Non-padding round
-        verifier_round.check_sum(univariate, indicator);
+        verifier_round.check_sum(univariate);
         bool check_result = !verifier_round.round_failed;
 
         // The check_sum itself should return false (based on witness values)
@@ -961,8 +891,7 @@ TEST(SumcheckRound, CheckSumRecursiveUnsatisfiableWitness)
         SumcheckVerifierRound verifier_round(correct_target);
 
         // Call check_sum
-        FF indicator = FF(1);
-        verifier_round.check_sum(univariate, indicator);
+        verifier_round.check_sum(univariate);
         bool check_result = !verifier_round.round_failed;
 
         // Check should pass
@@ -977,45 +906,7 @@ TEST(SumcheckRound, CheckSumRecursiveUnsatisfiableWitness)
         info("Satisfiable witness: Builder correctly validates constraint satisfaction");
     }
 
-    // Test 3: Padding round with wrong values - should still pass (bypassed)
-    {
-        info("Test 3: Padding round (indicator=0) with wrong values - should not fail");
-
-        InnerBuilder builder;
-
-        // Create mismatched values
-        auto native_val_0 = bb::fr(10);
-        auto native_val_1 = bb::fr(20);
-        auto native_wrong_target = bb::fr(999); // Wrong
-
-        FF val_0 = FF::from_witness(&builder, native_val_0);
-        FF val_1 = FF::from_witness(&builder, native_val_1);
-        FF wrong_target = FF::from_witness(&builder, native_wrong_target);
-
-        bb::Univariate<FF, BATCHED_RELATION_PARTIAL_LENGTH> univariate;
-        univariate.value_at(0) = val_0;
-        univariate.value_at(1) = val_1;
-
-        SumcheckVerifierRound verifier_round(wrong_target);
-
-        // Padding round - indicator = 0
-        FF indicator = FF(0);
-        verifier_round.check_sum(univariate, indicator);
-        bool check_result = !verifier_round.round_failed;
-
-        // Should pass because check is bypassed
-        EXPECT_TRUE(check_result) << "check_sum should return true for padding round";
-
-        // Builder should NOT fail (no constraint violation in padding round)
-        EXPECT_FALSE(builder.failed()) << "Builder should not fail for padding round (check bypassed)";
-
-        // Circuit should be valid
-        EXPECT_TRUE(CircuitChecker::check(builder)) << "Padding round circuit should pass CircuitChecker";
-
-        info("Padding round: Builder correctly bypasses check (no constraint added)");
-    }
-
-    // Test 4: Multiple rounds with one failure
+    // Test 3: Multiple rounds with one failure
     {
         info("Test 4: Multiple rounds where one has unsatisfiable witness");
 
@@ -1031,9 +922,8 @@ TEST(SumcheckRound, CheckSumRecursiveUnsatisfiableWitness)
         univariate_1.value_at(1) = val_1_round1;
 
         SumcheckVerifierRound verifier_round(target_round1);
-        FF indicator = FF(1);
 
-        verifier_round.check_sum(univariate_1, indicator);
+        verifier_round.check_sum(univariate_1);
         bool result_1 = !verifier_round.round_failed;
         EXPECT_TRUE(result_1);
         EXPECT_FALSE(builder.failed()) << "First round should not fail";
@@ -1047,7 +937,7 @@ TEST(SumcheckRound, CheckSumRecursiveUnsatisfiableWitness)
         univariate_2.value_at(0) = val_0_round2;
         univariate_2.value_at(1) = val_1_round2;
 
-        verifier_round.check_sum(univariate_2, indicator);
+        verifier_round.check_sum(univariate_2);
         bool result_2 = !verifier_round.round_failed;
         EXPECT_FALSE(result_2) << "Second round should fail";
 
@@ -1056,4 +946,100 @@ TEST(SumcheckRound, CheckSumRecursiveUnsatisfiableWitness)
 
         info("Multiple rounds: Builder correctly detects failure in one of multiple rounds");
     }
+}
+
+/**
+ * @brief The row-parallel main-loop contribution must equal the scalar path bit-for-bit.
+ *
+ * @details Runs `compute_univariate<FF>` and `compute_univariate<VectorField<FF::Params>>` over the same
+ * random prover polynomials and asserts equal `SumcheckRoundUnivariate`. On native, `VectorField` is the scalar
+ * fallback, so this exercises only the lane orchestration (stride-2 gather, per-lane gate-separator gather,
+ * horizontal reduce, scalar tail); the SIMD arithmetic itself is covered by `VectorFieldTest` on WASM and
+ * end-to-end by the WASM proving tests.
+ *
+ * ZK flavors: the ZK offset-area / Libra contributions are added on top by `sumcheck.hpp`, so they sit outside
+ * `compute_univariate`'s return value. Both lanes honour `excluded_head_size`, so main-loop contributions must
+ * match for ZK too.
+ *
+ * `round_size = 32` covers multiple full 10-row SIMD batches plus a non-empty scalar tail.
+ *
+ * @param zero_entity_indices entities to zero instead of randomizing. Zeroing a relation's gating selector
+ * makes its `skip()` fire on every batch (row-parallel) and every row (scalar); the two must still agree.
+ */
+template <typename Flavor> void check_row_parallel_matches_scalar(const std::vector<size_t>& zero_entity_indices = {})
+{
+    using FF = typename Flavor::FF;
+    using ProverPolynomials = typename Flavor::ProverPolynomials;
+
+    static_assert(SupportsSimdSumcheck<Flavor>, "flavor should support the row-parallel path");
+    // The SIMD element path doesn't implement row-skipping; locking the absence of `skip_entire_row` here
+    // keeps future flavors honest -- adding it must come with a row-parallel implementation.
+    static_assert(!isRowSkippable<Flavor, typename Flavor::ProverPolynomials, size_t>,
+                  "row-parallel target must not be row-skippable");
+
+    const size_t log_n = 5;
+    const size_t round_size = size_t{ 1 } << log_n; // 32
+
+    // Random full-size polynomials per entity. Parity only cares that the two paths read the same inputs;
+    // proof validity is irrelevant.
+    std::vector<bb::Polynomial<FF>> random_polynomials(Flavor::NUM_ALL_ENTITIES);
+    for (size_t entity = 0; entity < random_polynomials.size(); ++entity) {
+        auto& poly = random_polynomials[entity];
+        poly = bb::Polynomial<FF>(round_size);
+        const bool zero_this =
+            std::find(zero_entity_indices.begin(), zero_entity_indices.end(), entity) != zero_entity_indices.end();
+        if (!zero_this) {
+            for (size_t i = 0; i < round_size; ++i) {
+                poly.at(i) = FF::random_element();
+            }
+        }
+    }
+    ProverPolynomials prover_polynomials;
+    for (auto [prover_poly, random_poly] : zip_view(prover_polynomials.get_all(), random_polynomials)) {
+        prover_poly = random_poly.share();
+    }
+
+    const auto relation_parameters = bb::RelationParameters<FF>::get_random();
+
+    std::vector<FF> betas(log_n);
+    for (auto& beta : betas) {
+        beta = FF::random_element();
+    }
+    GateSeparatorPolynomial<FF> gate_separators(betas, log_n);
+
+    std::array<FF, Flavor::NUM_SUBRELATIONS - 1> alphas;
+    for (auto& alpha : alphas) {
+        alpha = FF::random_element();
+    }
+
+    using Round = SumcheckProverRound<Flavor>;
+
+    Round round_scalar(round_size);
+    const auto result_scalar =
+        round_scalar.template compute_univariate<FF>(prover_polynomials, relation_parameters, gate_separators, alphas);
+
+    Round round_vec(round_size);
+    const auto result_vec = round_vec.template compute_univariate<bb::VectorField<typename FF::Params>>(
+        prover_polynomials, relation_parameters, gate_separators, alphas);
+
+    EXPECT_EQ(result_scalar, result_vec);
+}
+
+// Non-row-skipping flavors that expose `Relations_` (Ultra/Mega family) dispatch to `VectorField` under
+// WASM; each must be bit-identical to the scalar (`FF`) path. Add follow-up short-monomial flavors here.
+template <typename Flavor> class RowParallelParity : public ::testing::Test {};
+using RowParallelFlavors = ::testing::Types<MegaFlavor, MegaZKFlavor, UltraFlavor, UltraZKFlavor>;
+TYPED_TEST_SUITE(RowParallelParity, RowParallelFlavors);
+
+TYPED_TEST(RowParallelParity, MatchesScalar)
+{
+    check_row_parallel_matches_scalar<TypeParam>();
+}
+
+// Standalone (not in the typed suite) because it names `MegaFlavor::EntityId::q_arith`. Zeroing `q_arith`
+// makes `ArithmeticRelation::skip()` fire on every batch / row, exercising the batched-skip branch on the
+// row-parallel side and the per-row skip on the scalar side -- they must still agree.
+TEST(SumcheckRound, RowParallelSkipFiresMatchesScalarMega)
+{
+    check_row_parallel_matches_scalar<MegaFlavor>({ static_cast<size_t>(MegaFlavor::EntityId::q_arith) });
 }

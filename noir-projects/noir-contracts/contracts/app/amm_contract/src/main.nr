@@ -2,7 +2,7 @@ mod lib;
 mod config;
 mod test;
 
-use dep::aztec::macros::aztec;
+use aztec::macros::aztec;
 
 /// ## Overview
 /// This contract demonstrates how to implement an **Automated Market Maker (AMM)** that maintains **public state**
@@ -35,18 +35,15 @@ use dep::aztec::macros::aztec;
 ///   `AMM.private_fn --> AMM.public_fn --> ExternalContract.fn --> AMM.public_fn`.
 #[aztec]
 pub contract AMM {
-    use crate::{
-        config::Config,
-        lib::{get_amount_in, get_amount_out, get_amounts_on_remove, get_amounts_to_add},
-    };
-    use dep::aztec::{
+    use crate::{config::Config, lib::{get_amount_in, get_amount_out, get_amounts_on_remove, get_amounts_to_add}};
+    use aztec::{
         macros::{functions::{external, initializer, only_self}, storage::storage},
         protocol::address::AztecAddress,
         state_vars::PublicImmutable,
     };
 
-    use dep::token::Token;
-    use dep::uint_note::PartialUintNote;
+    use token::Token;
+    use uint_note::PartialUintNote;
 
     #[storage]
     struct Storage<Context> {
@@ -76,21 +73,9 @@ pub contract AMM {
     ///
     /// The identity of the liquidity provider is not revealed, but the action and amounts are.
     #[external("private")]
-    fn add_liquidity(
-        amount0_max: u128,
-        amount1_max: u128,
-        amount0_min: u128,
-        amount1_min: u128,
-        authwit_nonce: Field,
-    ) {
-        assert(
-            (amount0_min < amount0_max) | (amount0_min == amount0_max),
-            "INCORRECT_TOKEN0_LIMITS",
-        );
-        assert(
-            (amount1_min < amount1_max) | (amount1_min == amount1_max),
-            "INCORRECT_TOKEN1_LIMITS",
-        );
+    fn add_liquidity(amount0_max: u128, amount1_max: u128, amount0_min: u128, amount1_min: u128, authwit_nonce: Field) {
+        assert((amount0_min < amount0_max) | (amount0_min == amount0_max), "INCORRECT_TOKEN0_LIMITS");
+        assert((amount1_min < amount1_max) | (amount1_min == amount1_max), "INCORRECT_TOKEN1_LIMITS");
         assert((0 as u128 < amount0_max) & (0 as u128 < amount1_max), "INSUFFICIENT_INPUT_AMOUNTS");
 
         let config = self.storage.config.read();
@@ -104,27 +89,24 @@ pub contract AMM {
         // We don't yet know how many tokens the sender will actually supply - that can only be computed during public
         // execution since the amounts supplied must have the same ratio as the live balances. We therefore transfer the
         // maximum amounts here, and prepare partial notes that return the change to the sender (if any).
-        let refund_token0_partial_note = self.call(token0
-            .transfer_to_public_and_prepare_private_balance_increase(
-                sender,
-                self.address,
-                amount0_max,
-                authwit_nonce,
-            ));
+        let refund_token0_partial_note = self.call(token0.transfer_to_public_and_prepare_private_balance_increase(
+            sender,
+            self.address,
+            amount0_max,
+            authwit_nonce,
+        ));
 
-        let refund_token1_partial_note = self.call(token1
-            .transfer_to_public_and_prepare_private_balance_increase(
-                sender,
-                self.address,
-                amount1_max,
-                authwit_nonce,
-            ));
+        let refund_token1_partial_note = self.call(token1.transfer_to_public_and_prepare_private_balance_increase(
+            sender,
+            self.address,
+            amount1_max,
+            authwit_nonce,
+        ));
 
         // The number of liquidity tokens to mint for the caller depends on both the live balances and the amount
         // supplied, both of which can only be known during public execution. We therefore prepare a partial note that
         // will get completed via minting.
-        let liquidity_partial_note =
-            self.call(liquidity_token.prepare_private_balance_increase(sender));
+        let liquidity_partial_note = self.call(liquidity_token.prepare_private_balance_increase(sender));
 
         // We then complete the flow in public. Note that the type of operation and amounts will all be publicly known,
         // but the identity of the caller is not revealed despite us being able to send tokens to them by completing the
@@ -184,16 +166,10 @@ pub contract AMM {
         // We can simply skip the refund if the amount to return is 0 in order to save gas: the partial note will
         // simply stay in public storage and not be completed, but this is not an issue.
         if (refund_amount_token0 > 0 as u128) {
-            self.call(token0.finalize_transfer_to_private(
-                refund_amount_token0,
-                refund_token0_partial_note,
-            ));
+            self.call(token0.finalize_transfer_to_private(refund_amount_token0, refund_token0_partial_note));
         }
         if (refund_amount_token1 > 0 as u128) {
-            self.call(token1.finalize_transfer_to_private(
-                refund_amount_token1,
-                refund_token1_partial_note,
-            ));
+            self.call(token1.finalize_transfer_to_private(refund_amount_token1, refund_token1_partial_note));
         }
 
         // With the deposit amounts known, we can compute the number of liquidity tokens to mint and finalize the
@@ -215,17 +191,13 @@ pub contract AMM {
 
             // As part of initialization, we mint some tokens to the zero address to 'lock' them (i.e. make them
             // impossible to redeem), guaranteeing total supply will never be zero again.
-            liquidity_token.mint_to_public(AztecAddress::zero(), MINIMUM_LIQUIDITY).call(
-                self.context,
-            );
+            liquidity_token.mint_to_public(AztecAddress::zero(), MINIMUM_LIQUIDITY).call(self.context);
 
             INITIAL_LIQUIDITY
         };
 
         assert(liquidity_amount > 0 as u128, "INSUFFICIENT_LIQUIDITY_MINTED");
-        liquidity_token.finalize_mint_to_private(liquidity_amount, liquidity_partial_note).call(
-            self.context,
-        );
+        liquidity_token.finalize_mint_to_private(liquidity_amount, liquidity_partial_note).call(self.context);
     }
 
     /// Privately removes liquidity from the pool. This function receives how many liquidity tokens to burn, and the
@@ -236,12 +208,7 @@ pub contract AMM {
     ///
     /// The identity of the liquidity provider is not revealed, but the action and amounts are.
     #[external("private")]
-    fn remove_liquidity(
-        liquidity: u128,
-        amount0_min: u128,
-        amount1_min: u128,
-        authwit_nonce: Field,
-    ) {
+    fn remove_liquidity(liquidity: u128, amount0_min: u128, amount1_min: u128, authwit_nonce: Field) {
         let config = self.storage.config.read();
 
         let liquidity_token = Token::at(config.liquidity_token);
@@ -331,14 +298,8 @@ pub contract AMM {
 
         // We transfer the full amount in, since it is an exact amount, and prepare a partial note for the amount out,
         // which will only be known during public execution as it depends on the live balances.
-        self.call(Token::at(token_in).transfer_to_public(
-            sender,
-            self.address,
-            amount_in,
-            authwit_nonce,
-        ));
-        let token_out_partial_note =
-            self.call(Token::at(token_out).prepare_private_balance_increase(sender));
+        self.call(Token::at(token_in).transfer_to_public(sender, self.address, amount_in, authwit_nonce));
+        let token_out_partial_note = self.call(Token::at(token_out).prepare_private_balance_increase(sender));
 
         self.enqueue_self._swap_exact_tokens_for_tokens(
             token_in,
@@ -361,8 +322,7 @@ pub contract AMM {
         // In order to compute the amount to swap we need the live token balances. Note that at this state the token in
         // transfer has already been completed as that function call was enqueued before this one. We therefore need to
         // subtract the amount in to get the pre-swap balances.
-        let balance_in_plus_amount_in =
-            self.view(Token::at(token_in).balance_of_public(self.address));
+        let balance_in_plus_amount_in = self.view(Token::at(token_in).balance_of_public(self.address));
         let balance_in = balance_in_plus_amount_in - amount_in;
 
         let balance_out = self.view(Token::at(token_out).balance_of_public(self.address));
@@ -371,9 +331,7 @@ pub contract AMM {
         let amount_out = get_amount_out(amount_in, balance_in, balance_out);
         assert(amount_out >= amount_out_min, "INSUFFICIENT_OUTPUT_AMOUNT");
 
-        Token::at(token_out).finalize_transfer_to_private(amount_out, token_out_partial_note).call(
-            self.context,
-        );
+        Token::at(token_out).finalize_transfer_to_private(amount_out, token_out_partial_note).call(self.context);
     }
 
     /// Privately swaps at most `amount_in_max` `token_in` tokens for `amount_out` `token_out` tokens with the pool.
@@ -405,15 +363,9 @@ pub contract AMM {
         // to wait until the swap has been completed before committing the note to the tree to avoid it being spent too
         // early.
         let change_token_in_partial_note = self.call(Token::at(token_in)
-            .transfer_to_public_and_prepare_private_balance_increase(
-                sender,
-                self.address,
-                amount_in_max,
-                authwit_nonce,
-            ));
+            .transfer_to_public_and_prepare_private_balance_increase(sender, self.address, amount_in_max, authwit_nonce));
 
-        let token_out_partial_note =
-            self.call(Token::at(token_out).prepare_private_balance_increase(sender));
+        let token_out_partial_note = self.call(Token::at(token_out).prepare_private_balance_increase(sender));
 
         self.enqueue_self._swap_tokens_for_exact_tokens(
             token_in,
@@ -438,8 +390,7 @@ pub contract AMM {
         // In order to compute the amount to swap we need the live token balances. Note that at this state the token in
         // transfer has already been completed as that function call was enqueued before this one. We therefore need to
         // subtract the amount in to get the pre-swap balances.
-        let balance_in_plus_amount_in_max =
-            self.view(Token::at(token_in).balance_of_public(self.address));
+        let balance_in_plus_amount_in_max = self.view(Token::at(token_in).balance_of_public(self.address));
         let balance_in = balance_in_plus_amount_in_max - amount_in_max;
 
         let balance_out = self.view(Token::at(token_out).balance_of_public(self.address));
@@ -450,35 +401,22 @@ pub contract AMM {
 
         let change = amount_in_max - amount_in;
         if (change > 0 as u128) {
-            self.call(Token::at(token_in).finalize_transfer_to_private(
-                change,
-                change_token_in_partial_note,
-            ));
+            self.call(Token::at(token_in).finalize_transfer_to_private(change, change_token_in_partial_note));
         }
 
         // Note again that we already knew the amount out, but for consistency we want to only commit this note once
         // all other steps have been performed.
-        Token::at(token_out).finalize_transfer_to_private(amount_out, token_out_partial_note).call(
-            self.context,
-        );
+        Token::at(token_out).finalize_transfer_to_private(amount_out, token_out_partial_note).call(self.context);
     }
 
     #[external("utility")]
-    unconstrained fn get_amount_out_for_exact_in(
-        balance_in: u128,
-        balance_out: u128,
-        amount_in: u128,
-    ) -> u128 {
+    unconstrained fn get_amount_out_for_exact_in(balance_in: u128, balance_out: u128, amount_in: u128) -> u128 {
         // Ideally we'd call the token contract in order to read the current balance, but we can't due to #7524.
         get_amount_out(amount_in, balance_in, balance_out)
     }
 
     #[external("utility")]
-    unconstrained fn get_amount_in_for_exact_out(
-        balance_in: u128,
-        balance_out: u128,
-        amount_out: u128,
-    ) -> u128 {
+    unconstrained fn get_amount_in_for_exact_out(balance_in: u128, balance_out: u128, amount_out: u128) -> u128 {
         // Ideally we'd call the token contract in order to read the current balance, but we can't due to #7524.
         get_amount_in(amount_out, balance_in, balance_out)
     }

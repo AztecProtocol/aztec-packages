@@ -5,40 +5,50 @@
  * rather than mocks to verify the HA coordination works correctly.
  */
 import type { BlobClientInterface } from '@aztec/blob-client/client';
-import type { EpochCache } from '@aztec/epoch-cache';
-import { IndexWithinCheckpoint } from '@aztec/foundation/branded-types';
+import { EpochCache } from '@aztec/epoch-cache';
+import { CheckpointNumber, IndexWithinCheckpoint } from '@aztec/foundation/branded-types';
 import { SecretValue } from '@aztec/foundation/config';
 import { Fr } from '@aztec/foundation/curves/bn254';
 import { EthAddress } from '@aztec/foundation/eth-address';
 import type { Hex } from '@aztec/foundation/string';
-import { TestDateProvider } from '@aztec/foundation/timer';
+import { DateProvider, TestDateProvider } from '@aztec/foundation/timer';
 import { type KeyStore, KeystoreManager } from '@aztec/node-keystore';
 import type { P2P, TxProvider } from '@aztec/p2p';
 import { BlockProposalValidator } from '@aztec/p2p';
 import { AztecAddress } from '@aztec/stdlib/aztec-address';
 import type { L2BlockSink, L2BlockSource } from '@aztec/stdlib/block';
-import type { SlasherConfig, WorldStateSynchronizer } from '@aztec/stdlib/interfaces/server';
+import { CheckpointReexecutionTracker } from '@aztec/stdlib/checkpoint';
+import type { SlasherConfig, ValidatorClientFullConfig, WorldStateSynchronizer } from '@aztec/stdlib/interfaces/server';
 import { computeInHashFromL1ToL2Messages } from '@aztec/stdlib/messaging';
 import type { L1ToL2MessageSource } from '@aztec/stdlib/messaging';
-import { makeBlockHeader, makeCheckpointHeader, makeCheckpointProposal, mockTx } from '@aztec/stdlib/testing';
+import {
+  TEST_COORDINATION_SIGNATURE_CONTEXT,
+  makeBlockHeader,
+  makeCheckpointHeader,
+  makeCheckpointProposal,
+  mockTx,
+} from '@aztec/stdlib/testing';
+import { ConsensusTimetable } from '@aztec/stdlib/timetable';
 import { TxHash } from '@aztec/stdlib/tx';
-import { getTelemetryClient } from '@aztec/telemetry-client';
+import { type TelemetryClient, getTelemetryClient } from '@aztec/telemetry-client';
 import { INSERT_SCHEMA_VERSION, SCHEMA_SETUP, SCHEMA_VERSION } from '@aztec/validator-ha-signer/db';
 import { DutyAlreadySignedError } from '@aztec/validator-ha-signer/errors';
 import { createHASigner } from '@aztec/validator-ha-signer/factory';
 import { Pool } from '@aztec/validator-ha-signer/test';
+import type { ValidatorHASigner } from '@aztec/validator-ha-signer/validator-ha-signer';
 
 import { PGlite } from '@electric-sql/pglite';
 import { afterEach, beforeEach, describe, expect, it } from '@jest/globals';
 import { type MockProxy, mock } from 'jest-mock-extended';
 import { type PrivateKeyAccount, generatePrivateKey, privateKeyToAccount } from 'viem/accounts';
 
-import { BlockProposalHandler } from './block_proposal_handler.js';
 import type { FullNodeCheckpointsBuilder } from './checkpoint_builder.js';
 import type { ValidatorClientConfig } from './config.js';
 import { HAKeyStore } from './key_store/ha_key_store.js';
+import type { ExtendedValidatorKeyStore } from './key_store/interface.js';
 import { NodeKeystoreAdapter } from './key_store/node_keystore_adapter.js';
 import { ValidatorMetrics } from './metrics.js';
+import { ProposalHandler } from './proposal_handler.js';
 import { ValidatorClient } from './validator.js';
 
 describe('ValidatorClient HA Integration', () => {
@@ -82,17 +92,24 @@ describe('ValidatorClient HA Integration', () => {
     // Set up mocks
     p2pClient = mock<P2P>();
     p2pClient.getCheckpointAttestationsForSlot.mockImplementation(() => Promise.resolve([]));
-    p2pClient.addCheckpointAttestations.mockResolvedValue();
+    p2pClient.addOwnCheckpointAttestations.mockResolvedValue();
     p2pClient.broadcastCheckpointAttestations.mockResolvedValue();
+    const slotDuration = 24;
     checkpointsBuilder = mock<FullNodeCheckpointsBuilder>();
     checkpointsBuilder.getConfig.mockReturnValue({
       l1GenesisTime: 1n,
       slotDuration: 24,
       l1ChainId: 1,
       rollupVersion: 1,
+      rollupManaLimit: 200_000_000,
     });
     worldState = mock<WorldStateSynchronizer>();
     epochCache = mock<EpochCache>();
+    epochCache.getL1Constants.mockReturnValue({
+      l1GenesisTime: 0n,
+      slotDuration,
+      ethereumSlotDuration: 4,
+    } as any);
     // Default mock: return all addresses passed (all are in committee)
     epochCache.filterInCommittee.mockImplementation((_slot, addresses) => Promise.resolve(addresses));
     blockSource = mock<L2BlockSource & L2BlockSink>();
@@ -116,23 +133,37 @@ describe('ValidatorClient HA Integration', () => {
     };
     keyStoreManager = new KeystoreManager(keyStore);
 
-    rollupAddress = EthAddress.random();
+    rollupAddress = TEST_COORDINATION_SIGNATURE_CONTEXT.rollupAddress;
 
     // Create 5 HA validator instances for use across all tests
-    const baseConfig: ValidatorClientConfig & Pick<SlasherConfig, 'slashBroadcastedInvalidBlockPenalty'> = {
+    const baseConfig: ValidatorClientConfig &
+      Pick<
+        SlasherConfig,
+        | 'slashBroadcastedInvalidBlockPenalty'
+        | 'slashBroadcastedInvalidCheckpointProposalPenalty'
+        | 'slashDuplicateProposalPenalty'
+        | 'slashDuplicateAttestationPenalty'
+        | 'slashAttestInvalidCheckpointProposalPenalty'
+      > & { blockDurationMs: number } = {
       validatorPrivateKeys: new SecretValue(validatorPrivateKeys),
       attestationPollingIntervalMs: 1000,
+      blockDurationMs: 3000,
       disableValidator: false,
       disabledValidators: [],
-      validatorReexecute: false,
       slashBroadcastedInvalidBlockPenalty: 1n,
-      l1Contracts: { rollupAddress },
+      slashBroadcastedInvalidCheckpointProposalPenalty: 1n,
+      rollupAddress,
+      l1ChainId: TEST_COORDINATION_SIGNATURE_CONTEXT.chainId,
+      slashDuplicateProposalPenalty: 1n,
+      slashDuplicateAttestationPenalty: 1n,
+      slashAttestInvalidCheckpointProposalPenalty: 1n,
       haSigningEnabled: true,
       nodeId: 'ha-node-1', // temporary
       pollingIntervalMs: 100,
-      signingTimeoutMs: 3000,
+      peerSigningTimeoutMs: 3000,
       maxStuckDutiesAgeMs: 72000,
-      databaseUrl: 'postgresql://test',
+      databaseUrl: new SecretValue('postgresql://test'),
+      dataStoreMapSizeKb: 128 * 1024 * 1024,
     };
 
     // Create 5 validator nodes with unique node IDs
@@ -165,7 +196,15 @@ describe('ValidatorClient HA Integration', () => {
    */
   async function createHAValidator(
     pool: Pool,
-    config: ValidatorClientConfig & Pick<SlasherConfig, 'slashBroadcastedInvalidBlockPenalty'>,
+    config: ValidatorClientConfig &
+      Pick<
+        SlasherConfig,
+        | 'slashBroadcastedInvalidBlockPenalty'
+        | 'slashBroadcastedInvalidCheckpointProposalPenalty'
+        | 'slashDuplicateProposalPenalty'
+        | 'slashDuplicateAttestationPenalty'
+        | 'slashAttestInvalidCheckpointProposalPenalty'
+      > & { blockDurationMs: number },
   ): Promise<ValidatorClient> {
     // Track pool for cleanup
     pools.push(pool);
@@ -180,10 +219,17 @@ describe('ValidatorClient HA Integration', () => {
 
     // Create block proposal handler
     const metrics = new ValidatorMetrics(getTelemetryClient());
-    const blockProposalValidator = new BlockProposalValidator(epochCache, {
-      txsPermitted: true,
+    const consensusTimetable = new ConsensusTimetable({
+      l1Constants: epochCache.getL1Constants(),
+      blockDuration: 3,
     });
-    const blockProposalHandler = new BlockProposalHandler(
+    const blockProposalValidator = new BlockProposalValidator(epochCache, consensusTimetable, {
+      txsPermitted: true,
+      maxTxsPerBlock: undefined,
+      signatureContext: TEST_COORDINATION_SIGNATURE_CONTEXT,
+      clockDisparityMs: 500,
+    });
+    const proposalHandler = new ProposalHandler(
       checkpointsBuilder,
       worldState,
       blockSource,
@@ -191,31 +237,68 @@ describe('ValidatorClient HA Integration', () => {
       txProvider,
       blockProposalValidator,
       epochCache,
+      consensusTimetable,
       config,
+      blobClient,
+      new CheckpointReexecutionTracker(),
       metrics,
       dateProvider,
       getTelemetryClient(),
     );
 
-    // Create validator using protected constructor via type assertion
-    // This is necessary to test HA coordination with real services
-    const validator = new (ValidatorClient as any)(
+    const validator = new TestValidatorClient(
       haKeyStore,
       epochCache,
       p2pClient,
-      blockProposalHandler,
+      proposalHandler,
       blockSource,
       checkpointsBuilder,
       worldState,
       l1ToL2MessageSource,
       config,
       blobClient,
+      undefined as unknown as ValidatorHASigner,
       dateProvider,
       getTelemetryClient(),
     ) as ValidatorClient;
 
     // Note: Validator is tracked in the calling code (beforeEach)
     return validator;
+  }
+
+  // Allow access to the constructor
+  class TestValidatorClient extends ValidatorClient {
+    constructor(
+      keyStore: ExtendedValidatorKeyStore,
+      epochCache: EpochCache,
+      p2pClient: P2P,
+      proposalHandler: ProposalHandler,
+      blockSource: L2BlockSource,
+      checkpointsBuilder: FullNodeCheckpointsBuilder,
+      worldState: WorldStateSynchronizer,
+      l1ToL2MessageSource: L1ToL2MessageSource,
+      config: ValidatorClientFullConfig,
+      blobClient: BlobClientInterface,
+      slashingProtectionSigner: ValidatorHASigner,
+      dateProvider: DateProvider = new DateProvider(),
+      telemetry: TelemetryClient = getTelemetryClient(),
+    ) {
+      super(
+        keyStore,
+        epochCache,
+        p2pClient,
+        proposalHandler,
+        blockSource,
+        checkpointsBuilder,
+        worldState,
+        l1ToL2MessageSource,
+        config,
+        blobClient,
+        slashingProtectionSigner,
+        dateProvider,
+        telemetry,
+      );
+    }
   }
 
   describe('High-Availability signing coordination', () => {
@@ -231,9 +314,18 @@ describe('ValidatorClient HA Integration', () => {
       // All 5 validators try to create a block proposal for the same slot simultaneously
       const results = await Promise.allSettled(
         validators.map(v =>
-          v.createBlockProposal(blockHeader, indexWithinCheckpoint, inHash, archive, txs, proposerAddress, {
-            publishFullTxs: false,
-          }),
+          v.createBlockProposal(
+            blockHeader,
+            CheckpointNumber(1),
+            indexWithinCheckpoint,
+            inHash,
+            archive,
+            txs,
+            proposerAddress,
+            {
+              publishFullTxs: false,
+            },
+          ),
         ),
       );
 
@@ -263,9 +355,16 @@ describe('ValidatorClient HA Integration', () => {
         validators.map((v, i) => {
           const blockHeader = makeBlockHeader(i + 1);
           const archive = Fr.random();
-          return v.createBlockProposal(blockHeader, IndexWithinCheckpoint(0), inHash, archive, txs, proposerAddress, {
-            publishFullTxs: false,
-          });
+          return v.createBlockProposal(
+            blockHeader,
+            CheckpointNumber(1),
+            IndexWithinCheckpoint(0),
+            inHash,
+            archive,
+            txs,
+            proposerAddress,
+            { publishFullTxs: false },
+          );
         }),
       );
 
@@ -291,7 +390,9 @@ describe('ValidatorClient HA Integration', () => {
       });
 
       // All 5 validators try to attest to the same checkpoint proposal simultaneously
-      const results = await Promise.allSettled(validators.map(v => v.collectOwnAttestations(checkpointProposal)));
+      const results = await Promise.allSettled(
+        validators.map(v => v.collectOwnAttestations(checkpointProposal, CheckpointNumber(1))),
+      );
 
       // Check for errors - if all fail, at least one should have a meaningful error
       const allFailed = results.every(r => r.status === 'rejected');

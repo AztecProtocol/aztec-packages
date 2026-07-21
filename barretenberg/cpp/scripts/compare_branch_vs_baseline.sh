@@ -10,7 +10,7 @@
 # it is up to date with local master, and run the script.
 
 # Specify the benchmark suite and the "baseline" branch against which to compare
-BENCHMARK=${1:-chonk_bench}
+BENCHMARK=${1:?usage: compare_branch_vs_baseline.sh <bench_target> [filter] [preset] [build_dir]}
 FILTER=${2:-""}
 PRESET=${3:-clang20}
 BUILD_DIR=${4:-build}

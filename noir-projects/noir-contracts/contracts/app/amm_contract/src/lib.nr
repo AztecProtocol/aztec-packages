@@ -32,7 +32,8 @@ pub fn get_amount_in(amount_out: u128, balance_in: u128, balance_out: u128) -> u
     (numerator / denominator) + 1 as u128
 }
 
-/// Given the desired amounts and balances of token0 and token1 returns the optimal amount of token0 and token1 to be added to the pool.
+/// Given the desired amounts and balances of token0 and token1 returns the optimal amount of token0 and token1 to be
+/// added to the pool.
 pub fn get_amounts_to_add(
     amount0_max: u128,
     amount1_max: u128,
@@ -74,12 +75,7 @@ pub fn get_amounts_to_add(
 }
 
 /// Returns the amount of tokens to return to a liquidity provider when they remove liquidity from the pool.
-pub fn get_amounts_on_remove(
-    to_burn: u128,
-    total_supply: u128,
-    balance0: u128,
-    balance1: u128,
-) -> (u128, u128) {
+pub fn get_amounts_on_remove(to_burn: u128, total_supply: u128, balance0: u128, balance1: u128) -> (u128, u128) {
     // Since the liquidity token tracks ownership of the pool, the liquidity provider gets a proportional share of each
     // token.
     (to_burn * balance0 / total_supply, to_burn * balance1 / total_supply)

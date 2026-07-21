@@ -6,7 +6,7 @@ use aztec::macros::aztec;
 pub contract NoConstructor {
     use aztec::{
         macros::{functions::external, storage::storage},
-        messages::message_delivery::MessageDelivery,
+        messages::delivery::MessageDelivery,
         protocol::address::AztecAddress,
         state_vars::{Owned, PrivateMutable},
     };
@@ -18,10 +18,11 @@ pub contract NoConstructor {
         private_mutable: Owned<PrivateMutable<FieldNote, Context>, Context>,
     }
 
-    /// Arbitrary public method used to test that publishing for public execution works for a contract with no constructor.
+    /// Arbitrary public method used to test that publishing for public execution works for a contract with no
+    /// constructor.
     #[external("public")]
-    fn emit_public(value: Field) {
-        self.context.emit_public_log(/*message=*/ value);
+    fn emit_public(tag: Field, value: Field) {
+        self.context.emit_public_log_unsafe(tag, /*message=*/ value);
     }
 
     /// Arbitrary function used to test that we can call private functions on a contract with
@@ -31,9 +32,7 @@ pub contract NoConstructor {
         let owner = self.msg_sender();
         let note = FieldNote { value };
 
-        self.storage.private_mutable.at(owner).initialize(note).deliver(
-            MessageDelivery.ONCHAIN_CONSTRAINED,
-        );
+        self.storage.private_mutable.at(owner).initialize(note).deliver(MessageDelivery::onchain_unconstrained());
     }
 
     /// Helper function used to test that call to `initialize_private_mutable` was successful or not yet performed.

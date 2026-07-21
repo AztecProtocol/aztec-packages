@@ -2,6 +2,7 @@
 
 #include "barretenberg/avm_fuzzer/fuzz_lib/constants.hpp"
 #include "barretenberg/avm_fuzzer/fuzz_lib/simulator.hpp"
+#include "barretenberg/aztec/aztec_constants.hpp"
 #include "barretenberg/vm2/common/aztec_types.hpp"
 #include "barretenberg/vm2/simulation/events/update_check.hpp"
 #include "barretenberg/vm2/simulation/gadgets/bytecode_manager.hpp"
@@ -25,13 +26,12 @@ GadgetFuzzerContextHelper::GadgetFuzzerContextHelper(AztecAddress contract_addre
     , memory_provider(range_check, execution_id_manager, memory_emitter)
     , merkle_check(poseidon2, merkle_check_emitter)
     , poseidon2(execution_id_manager, greater_than, hash_event_emitter, perm_event_emitter, perm_mem_event_emitter)
-    , written_public_data_slots_tree_check(poseidon2,
-                                           merkle_check,
-                                           field_gt,
-                                           build_public_data_slots_tree(),
-                                           written_public_data_slots_tree_check_emitter)
-    , retrieved_bytecodes_tree_check(
-          poseidon2, merkle_check, field_gt, build_retrieved_bytecodes_tree(), retrieved_bytecodes_tree_check_emitter)
+    , indexed_tree_check_written_slots(
+          poseidon2, merkle_check, field_gt, DOM_SEP__WRITTEN_SLOTS_MERKLE, indexed_tree_check_emitter)
+    , indexed_tree_check_retrieved_bytecodes(
+          poseidon2, merkle_check, field_gt, DOM_SEP__RETRIEVED_BYTECODES_MERKLE, indexed_tree_check_emitter)
+    , written_public_data_slots_tree_check(indexed_tree_check_written_slots, build_public_data_slots_tree())
+    , retrieved_bytecodes_tree_check(indexed_tree_check_retrieved_bytecodes, build_retrieved_bytecodes_tree())
 
 {
     global_variables = create_default_globals();
@@ -46,8 +46,6 @@ GadgetFuzzerContextHelper::GadgetFuzzerContextHelper(AztecAddress contract_addre
 
     UpdateCheck update_check(
         poseidon2, range_check, greater_than, merkle_db, update_check_emitter, hints.global_variables);
-    RetrievedBytecodesTreeCheck retrieved_bytecodes_tree_check(
-        poseidon2, merkle_check, field_gt, build_retrieved_bytecodes_tree(), retrieved_bytecodes_tree_check_emitter);
     ContractInstanceManager contract_instance_manager(
         contract_db, merkle_db, update_check, field_gt, hints.protocol_contracts, contract_instance_retrieval_emitter);
     InternalCallStackManagerProvider internal_call_stack_manager_provider(internal_call_stack_emitter);

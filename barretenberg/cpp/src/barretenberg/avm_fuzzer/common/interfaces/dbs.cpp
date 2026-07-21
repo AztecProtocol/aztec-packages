@@ -4,10 +4,10 @@
 #include <vector>
 
 #include "barretenberg/avm_fuzzer/fuzz_lib/constants.hpp"
+#include "barretenberg/aztec/aztec_constants.hpp"
 #include "barretenberg/common/throw_or_abort.hpp"
 #include "barretenberg/crypto/merkle_tree/indexed_tree/indexed_leaf.hpp"
 #include "barretenberg/crypto/poseidon2/poseidon2.hpp"
-#include "barretenberg/vm2/common/aztec_constants.hpp"
 #include "barretenberg/vm2/common/aztec_types.hpp"
 #include "barretenberg/vm2/simulation/lib/contract_crypto.hpp"
 #include "barretenberg/vm2/simulation/lib/merkle.hpp"
@@ -136,10 +136,10 @@ ContractInstance FuzzerContractDB::from_logs(const PrivateLog& log) const
     FF contract_class_id = log.fields[offset++];
     FF initialization_hash = log.fields[offset++];
     PublicKeys public_keys = {
-        .nullifier_key = { log.fields[offset++], log.fields[offset++] },
+        .nullifier_key_hash = log.fields[offset++],
         .incoming_viewing_key = { log.fields[offset++], log.fields[offset++] },
-        .outgoing_viewing_key = { log.fields[offset++], log.fields[offset++] },
-        .tagging_key = { log.fields[offset++], log.fields[offset++] },
+        .outgoing_viewing_key_hash = log.fields[offset++],
+        .tagging_key_hash = log.fields[offset++],
     };
     auto deployer = AztecAddress(log.fields[offset++]);
     return ContractInstance{
@@ -196,7 +196,7 @@ void FuzzerWorldStateManager::initialize_world_state()
         { simulation::MerkleTreeId::NULLIFIER_TREE, 128 },
         { simulation::MerkleTreeId::PUBLIC_DATA_TREE, 128 },
     };
-    uint32_t initial_header_generator_point = 2064783670; // GeneratorIndex.BLOCK_HEADER_HASH
+    uint32_t initial_header_generator_point = 2064783670; // DomainSeparator.BLOCK_HEADER_HASH
     ws = std::make_unique<world_state::WorldState>(
         /*thread_pool_size=*/4, DATA_DIR, MAP_SIZE_KB, tree_heights, tree_prefill, initial_header_generator_point);
 
@@ -205,14 +205,14 @@ void FuzzerWorldStateManager::initialize_world_state()
 
 WorldStateRevision FuzzerWorldStateManager::get_current_revision() const
 {
-    return WorldStateRevision{ .forkId = fork_ids.top(), .blockNumber = 0, .includeUncommitted = true };
+    return WorldStateRevision{ .forkId = fork_ids.top(), .includeUncommitted = true };
 }
 
 WorldStateRevision FuzzerWorldStateManager::fork()
 {
     auto fork_id = ws->create_fork(std::nullopt);
     fork_ids.push(fork_id);
-    return WorldStateRevision{ .forkId = fork_id, .blockNumber = 0, .includeUncommitted = true };
+    return WorldStateRevision{ .forkId = fork_id, .includeUncommitted = true };
 }
 void FuzzerWorldStateManager::reset_world_state()
 {

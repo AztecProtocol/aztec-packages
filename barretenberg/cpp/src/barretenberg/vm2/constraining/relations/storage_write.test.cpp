@@ -3,11 +3,13 @@
 
 #include <cstdint>
 
+#include "barretenberg/aztec/aztec_constants.hpp"
 #include "barretenberg/vm2/common/memory_types.hpp"
 #include "barretenberg/vm2/constraining/flavor_settings.hpp"
 #include "barretenberg/vm2/constraining/testing/check_relation.hpp"
 #include "barretenberg/vm2/generated/relations/execution.hpp"
 #include "barretenberg/vm2/generated/relations/lookups_sstore.hpp"
+#include "barretenberg/vm2/simulation/events/indexed_tree_check_event.hpp"
 #include "barretenberg/vm2/simulation/events/public_data_tree_check_event.hpp"
 #include "barretenberg/vm2/simulation/gadgets/concrete_dbs.hpp"
 #include "barretenberg/vm2/simulation/gadgets/public_data_tree_check.hpp"
@@ -15,27 +17,29 @@
 #include "barretenberg/vm2/simulation/testing/mock_dbs.hpp"
 #include "barretenberg/vm2/simulation/testing/mock_execution_id_manager.hpp"
 #include "barretenberg/vm2/simulation/testing/mock_field_gt.hpp"
+#include "barretenberg/vm2/simulation/testing/mock_indexed_tree_check.hpp"
 #include "barretenberg/vm2/simulation/testing/mock_merkle_check.hpp"
 #include "barretenberg/vm2/simulation/testing/mock_note_hash_tree_check.hpp"
-#include "barretenberg/vm2/simulation/testing/mock_nullifier_tree_check.hpp"
 #include "barretenberg/vm2/simulation/testing/mock_poseidon2.hpp"
 #include "barretenberg/vm2/simulation/testing/mock_written_public_data_slots_tree_check.hpp"
 #include "barretenberg/vm2/testing/macros.hpp"
 #include "barretenberg/vm2/tracegen/execution_trace.hpp"
+#include "barretenberg/vm2/tracegen/indexed_tree_check_trace.hpp"
 #include "barretenberg/vm2/tracegen/public_data_tree_trace.hpp"
 #include "barretenberg/vm2/tracegen/test_trace_container.hpp"
-#include "barretenberg/vm2/tracegen/written_public_data_slots_tree_check_trace.hpp"
 
 namespace bb::avm2::constraining {
 namespace {
 
 using tracegen::ExecutionTraceBuilder;
+using tracegen::IndexedTreeCheckTraceBuilder;
 using tracegen::PublicDataTreeTraceBuilder;
 using tracegen::TestTraceContainer;
-using tracegen::WrittenPublicDataSlotsTreeCheckTraceBuilder;
 
 using simulation::build_public_data_slots_tree;
 using simulation::EventEmitter;
+using simulation::IndexedTreeCheck;
+using simulation::IndexedTreeCheckEvent;
 using simulation::MockExecutionIdManager;
 using simulation::MockFieldGreaterThan;
 using simulation::MockMerkleCheck;
@@ -46,7 +50,6 @@ using simulation::PublicDataTreeLeafPreimage;
 using simulation::unconstrained_compute_leaf_slot;
 using simulation::unconstrained_root_from_path;
 using simulation::WrittenPublicDataSlotsTreeCheck;
-using simulation::WrittenPublicDataSlotsTreeCheckEvent;
 
 using testing::_;
 using testing::NiceMock;
@@ -81,7 +84,8 @@ TEST(SStoreConstrainingTest, NegativeDynamicL2GasIsZero)
         { C::execution_sel_execute_sstore, 1 },
         { C::execution_dynamic_l2_gas_factor, 1 },
     } });
-    EXPECT_THROW_WITH_MESSAGE(check_relation<execution>(trace, execution::SR_DYN_L2_GAS_IS_ZERO), "DYN_L2_GAS_IS_ZERO");
+    EXPECT_THROW_WITH_MESSAGE(check_relation<execution>(trace, execution::SR_DYN_L2_GAS_IS_ZERO),
+                              execution::get_subrelation_label(execution::SR_DYN_L2_GAS_IS_ZERO));
 }
 
 TEST(SStoreConstrainingTest, MaxDataWritesReached)
@@ -100,7 +104,7 @@ TEST(SStoreConstrainingTest, MaxDataWritesReached)
     trace.set(C::execution_max_data_writes_reached, 0, 0);
 
     EXPECT_THROW_WITH_MESSAGE(check_relation<sstore>(trace, sstore::SR_SSTORE_MAX_DATA_WRITES_REACHED),
-                              "SSTORE_MAX_DATA_WRITES_REACHED");
+                              sstore::get_subrelation_label(sstore::SR_SSTORE_MAX_DATA_WRITES_REACHED));
 }
 
 TEST(SStoreConstrainingTest, OpcodeError)
@@ -131,14 +135,14 @@ TEST(SStoreConstrainingTest, OpcodeError)
     trace.set(C::execution_dynamic_da_gas_factor, 0, 0);
 
     EXPECT_THROW_WITH_MESSAGE(check_relation<sstore>(trace, sstore::SR_OPCODE_ERROR_IF_OVERFLOW_OR_STATIC),
-                              "OPCODE_ERROR_IF_OVERFLOW_OR_STATIC");
+                              sstore::get_subrelation_label(sstore::SR_OPCODE_ERROR_IF_OVERFLOW_OR_STATIC));
 
     trace.set(C::execution_dynamic_da_gas_factor, 0, 1);
 
     trace.set(C::execution_is_static, 1, 0);
 
     EXPECT_THROW_WITH_MESSAGE(check_relation<sstore>(trace, sstore::SR_OPCODE_ERROR_IF_OVERFLOW_OR_STATIC),
-                              "OPCODE_ERROR_IF_OVERFLOW_OR_STATIC");
+                              sstore::get_subrelation_label(sstore::SR_OPCODE_ERROR_IF_OVERFLOW_OR_STATIC));
 }
 
 TEST(SStoreConstrainingTest, TreeStateNotChangedOnError)
@@ -165,22 +169,22 @@ TEST(SStoreConstrainingTest, TreeStateNotChangedOnError)
     // Negative test: written slots tree root must be the same
     trace.set(C::execution_written_public_data_slots_tree_root, 0, 29);
     EXPECT_THROW_WITH_MESSAGE(check_relation<sstore>(trace, sstore::SR_SSTORE_WRITTEN_SLOTS_ROOT_NOT_CHANGED),
-                              "SSTORE_WRITTEN_SLOTS_ROOT_NOT_CHANGED");
+                              sstore::get_subrelation_label(sstore::SR_SSTORE_WRITTEN_SLOTS_ROOT_NOT_CHANGED));
 
     // Negative test: written slots tree size must be the same
     trace.set(C::execution_written_public_data_slots_tree_size, 0, 7);
     EXPECT_THROW_WITH_MESSAGE(check_relation<sstore>(trace, sstore::SR_SSTORE_WRITTEN_SLOTS_SIZE_NOT_CHANGED),
-                              "SSTORE_WRITTEN_SLOTS_SIZE_NOT_CHANGED");
+                              sstore::get_subrelation_label(sstore::SR_SSTORE_WRITTEN_SLOTS_SIZE_NOT_CHANGED));
 
     // Negative test: public data tree root must be the same
     trace.set(C::execution_public_data_tree_root, 0, 29);
     EXPECT_THROW_WITH_MESSAGE(check_relation<sstore>(trace, sstore::SR_SSTORE_PUBLIC_DATA_TREE_ROOT_NOT_CHANGED),
-                              "SSTORE_PUBLIC_DATA_TREE_ROOT_NOT_CHANGED");
+                              sstore::get_subrelation_label(sstore::SR_SSTORE_PUBLIC_DATA_TREE_ROOT_NOT_CHANGED));
 
     // Negative test: public data tree size must be the same
     trace.set(C::execution_public_data_tree_size, 0, 7);
     EXPECT_THROW_WITH_MESSAGE(check_relation<sstore>(trace, sstore::SR_SSTORE_PUBLIC_DATA_TREE_SIZE_NOT_CHANGED),
-                              "SSTORE_PUBLIC_DATA_TREE_SIZE_NOT_CHANGED");
+                              sstore::get_subrelation_label(sstore::SR_SSTORE_PUBLIC_DATA_TREE_SIZE_NOT_CHANGED));
 }
 
 // Test that ghost rows (sel_execute_sstore=0) cannot set sel_write_public_data=1
@@ -201,7 +205,8 @@ TEST(SStoreConstrainingTest, NegativeGhostRowStorageWrite_RelationsOnly)
 
     // The fix: sel_write_public_data = sel_execute_sstore * (1 - sel_opcode_error)
     // When sel_execute_sstore=0 and sel_write_public_data=1: 1 * (1-0) = 1 != 0 -> FAILS
-    EXPECT_THROW_WITH_MESSAGE(check_relation<sstore>(trace), "SEL_WRITE_PUBLIC_DATA_IS_EXECUTE_AND_NOT_ERROR");
+    EXPECT_THROW_WITH_MESSAGE(check_relation<sstore>(trace),
+                              sstore::get_subrelation_label(sstore::SR_SEL_WRITE_PUBLIC_DATA_IS_EXECUTE_AND_NOT_ERROR));
 }
 
 TEST(SStoreConstrainingTest, Interactions)
@@ -211,9 +216,12 @@ TEST(SStoreConstrainingTest, Interactions)
     NiceMock<MockMerkleCheck> merkle_check;
     NiceMock<MockExecutionIdManager> execution_id_manager;
 
-    EventEmitter<WrittenPublicDataSlotsTreeCheckEvent> written_public_data_slots_emitter;
-    WrittenPublicDataSlotsTreeCheck written_public_data_slots_tree_check(
-        poseidon2, merkle_check, field_gt, build_public_data_slots_tree(), written_public_data_slots_emitter);
+    EventEmitter<IndexedTreeCheckEvent> indexed_tree_check_emitter;
+    IndexedTreeCheck indexed_tree_check(
+        poseidon2, merkle_check, field_gt, DOM_SEP__WRITTEN_SLOTS_MERKLE, indexed_tree_check_emitter);
+
+    WrittenPublicDataSlotsTreeCheck written_public_data_slots_tree_check(indexed_tree_check,
+                                                                         build_public_data_slots_tree());
 
     EventEmitter<PublicDataTreeCheckEvent> public_data_tree_check_event_emitter;
     PublicDataTreeCheck public_data_tree_check(
@@ -242,12 +250,13 @@ TEST(SStoreConstrainingTest, Interactions)
     });
 
     EXPECT_CALL(merkle_check, write)
-        .WillRepeatedly([]([[maybe_unused]] FF current_leaf,
+        .WillRepeatedly([]([[maybe_unused]] uint64_t domain_separator,
+                           [[maybe_unused]] FF current_leaf,
                            FF new_leaf,
                            uint64_t leaf_index,
                            std::span<const FF> sibling_path,
                            [[maybe_unused]] FF prev_root) {
-            return unconstrained_root_from_path(new_leaf, leaf_index, sibling_path);
+            return unconstrained_root_from_path(DOM_SEP__WRITTEN_SLOTS_MERKLE, new_leaf, leaf_index, sibling_path);
         });
 
     written_public_data_slots_tree_check.contains(contract_address, slot);
@@ -269,6 +278,9 @@ TEST(SStoreConstrainingTest, Interactions)
             { C::execution_sel_execute_sstore, 1 },
             { C::execution_contract_address, contract_address },
             { C::execution_sel_gas_sstore, 1 },
+            { C::execution_written_slots_tree_height, AVM_WRITTEN_PUBLIC_DATA_SLOTS_TREE_HEIGHT },
+            { C::execution_written_slots_merkle_separator, DOM_SEP__WRITTEN_SLOTS_MERKLE },
+            { C::execution_written_slots_tree_siloing_separator, DOM_SEP__PUBLIC_LEAF_SLOT },
             { C::execution_dynamic_da_gas_factor, 1 },
             { C::execution_register_0_, value },
             { C::execution_register_1_, slot },
@@ -294,8 +306,8 @@ TEST(SStoreConstrainingTest, Interactions)
     PublicDataTreeTraceBuilder public_data_tree_trace_builder;
     public_data_tree_trace_builder.process(public_data_tree_check_event_emitter.dump_events(), trace);
 
-    WrittenPublicDataSlotsTreeCheckTraceBuilder written_slots_tree_trace_builder;
-    written_slots_tree_trace_builder.process(written_public_data_slots_emitter.dump_events(), trace);
+    IndexedTreeCheckTraceBuilder written_slots_tree_trace_builder;
+    written_slots_tree_trace_builder.process(indexed_tree_check_emitter.dump_events(), trace);
 
     check_relation<sstore>(trace);
     check_interaction<ExecutionTraceBuilder,
@@ -322,9 +334,11 @@ TEST(SStoreConstrainingTest, NegativeFullAttackWithAllTraces)
     NiceMock<MockMerkleCheck> merkle_check;
     NiceMock<MockExecutionIdManager> execution_id_manager;
 
-    EventEmitter<WrittenPublicDataSlotsTreeCheckEvent> written_public_data_slots_emitter;
-    WrittenPublicDataSlotsTreeCheck written_public_data_slots_tree_check(
-        poseidon2, merkle_check, field_gt, build_public_data_slots_tree(), written_public_data_slots_emitter);
+    EventEmitter<IndexedTreeCheckEvent> indexed_tree_check_emitter;
+    IndexedTreeCheck indexed_tree_check(
+        poseidon2, merkle_check, field_gt, DOM_SEP__WRITTEN_SLOTS_MERKLE, indexed_tree_check_emitter);
+    WrittenPublicDataSlotsTreeCheck written_public_data_slots_tree_check(indexed_tree_check,
+                                                                         build_public_data_slots_tree());
 
     EventEmitter<PublicDataTreeCheckEvent> public_data_tree_check_event_emitter;
     PublicDataTreeCheck public_data_tree_check(
@@ -353,12 +367,13 @@ TEST(SStoreConstrainingTest, NegativeFullAttackWithAllTraces)
         return static_cast<uint256_t>(a) > static_cast<uint256_t>(b);
     });
     EXPECT_CALL(merkle_check, write)
-        .WillRepeatedly([]([[maybe_unused]] FF current_leaf,
+        .WillRepeatedly([]([[maybe_unused]] uint64_t domain_separator,
+                           [[maybe_unused]] FF current_leaf,
                            FF new_leaf,
                            uint64_t leaf_index,
                            std::span<const FF> sibling_path,
                            [[maybe_unused]] FF prev_root) {
-            return unconstrained_root_from_path(new_leaf, leaf_index, sibling_path);
+            return unconstrained_root_from_path(DOM_SEP__WRITTEN_SLOTS_MERKLE, new_leaf, leaf_index, sibling_path);
         });
 
     // Generate cryptographically valid events via simulation (same as legitimate operation)
@@ -380,16 +395,16 @@ TEST(SStoreConstrainingTest, NegativeFullAttackWithAllTraces)
     PublicDataTreeTraceBuilder public_data_tree_trace_builder;
     public_data_tree_trace_builder.process(public_data_tree_check_event_emitter.dump_events(), trace);
 
-    WrittenPublicDataSlotsTreeCheckTraceBuilder written_slots_tree_trace_builder;
-    written_slots_tree_trace_builder.process(written_public_data_slots_emitter.dump_events(), trace);
+    IndexedTreeCheckTraceBuilder written_slots_tree_trace_builder;
+    written_slots_tree_trace_builder.process(indexed_tree_check_emitter.dump_events(), trace);
 
-    // Inject ghost sstore at row 0 where precomputed_clk matches public_data_check.clk.
+    // Inject ghost sstore at row 0 where precomputed_idx matches public_data_check.clk.
     // The mock execution_id_manager returns 0, so public_data_check.clk=0.
     // Ghost row: sel_execute_sstore=0 but sel_write_public_data=1
     trace.set(
         0,
         std::vector<std::pair<Column, FF>>{
-            { C::precomputed_clk, 0 },
+            { C::execution_clk, 0 },
             { C::precomputed_first_row, 1 },
             { C::execution_sel_execute_sstore, 0 },
             { C::execution_sel_write_public_data, 1 },
@@ -411,7 +426,8 @@ TEST(SStoreConstrainingTest, NegativeFullAttackWithAllTraces)
 
     // The fix blocks ghost rows: sel_write_public_data = sel_execute_sstore * (1 - sel_opcode_error)
     // When sel_execute_sstore=0 and sel_write_public_data=1: 1 * 1 = 1 != 0
-    EXPECT_THROW_WITH_MESSAGE(check_relation<sstore>(trace), "SEL_WRITE_PUBLIC_DATA_IS_EXECUTE_AND_NOT_ERROR");
+    EXPECT_THROW_WITH_MESSAGE(check_relation<sstore>(trace),
+                              sstore::get_subrelation_label(sstore::SR_SEL_WRITE_PUBLIC_DATA_IS_EXECUTE_AND_NOT_ERROR));
 }
 
 } // namespace

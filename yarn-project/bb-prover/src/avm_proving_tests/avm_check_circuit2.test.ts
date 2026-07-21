@@ -1,3 +1,4 @@
+import { MAX_NULLIFIERS_PER_TX } from '@aztec/constants';
 import { Fr } from '@aztec/foundation/curves/bn254';
 import { AvmTestContractArtifact } from '@aztec/noir-test-contracts.js/AvmTest';
 import { AztecAddress } from '@aztec/stdlib/aztec-address';
@@ -9,7 +10,7 @@ import { AvmProvingTester } from './avm_proving_tester.js';
 const TIMEOUT = 30_000;
 
 describe('AVM check-circuit – unhappy paths 2', () => {
-  const sender = AztecAddress.fromNumber(42);
+  const sender = AztecAddress.fromNumberUnsafe(42);
   let avmTestContractInstance: ContractInstanceWithAddress;
   let tester: AvmProvingTester;
   let worldStateService: NativeWorldStateService;
@@ -19,12 +20,13 @@ describe('AVM check-circuit – unhappy paths 2', () => {
     tester = await AvmProvingTester.new(worldStateService, /*checkCircuitOnly*/ true);
     avmTestContractInstance = await tester.registerAndDeployContract(
       /*constructorArgs=*/ [],
-      /*deployer=*/ AztecAddress.fromNumber(420),
+      /*deployer=*/ AztecAddress.fromNumberUnsafe(420),
       AvmTestContractArtifact,
     );
   });
 
   afterEach(async () => {
+    await tester.close();
     await worldStateService.close();
   });
 
@@ -52,31 +54,39 @@ describe('AVM check-circuit – unhappy paths 2', () => {
 
   it('top-level exceptional halts due to a non-existent contract in app-logic and teardown', async () => {
     // don't insert contracts into trees, and make sure retrieval fails
-    const tester = await AvmProvingTester.new(worldStateService, /*checkCircuitOnly=*/ true);
-    // Note: we need to specify the contract artifacts here because we intentionally skip registration,
-    // so the tester can't retrieve them on its own.
-    await tester.simProveVerify(
-      sender,
-      /*setupCalls=*/ [],
-      /*appCalls=*/ [
-        {
+    const noContractsTester = await AvmProvingTester.new(worldStateService, /*checkCircuitOnly=*/ true);
+    try {
+      // Note: we need to specify the contract artifacts here because we intentionally skip registration,
+      // so the tester can't retrieve them on its own.
+      await noContractsTester.simProveVerify(
+        sender,
+        /*setupCalls=*/ [],
+        /*appCalls=*/ [
+          {
+            address: avmTestContractInstance.address,
+            fnName: 'add_args_return',
+            args: [new Fr(1), new Fr(2)],
+            contractArtifact: AvmTestContractArtifact,
+          },
+        ],
+        /*teardownCall=*/ {
           address: avmTestContractInstance.address,
           fnName: 'add_args_return',
           args: [new Fr(1), new Fr(2)],
           contractArtifact: AvmTestContractArtifact,
         },
-      ],
-      /*teardownCall=*/ {
-        address: avmTestContractInstance.address,
-        fnName: 'add_args_return',
-        args: [new Fr(1), new Fr(2)],
-        contractArtifact: AvmTestContractArtifact,
-      },
-      /*expectRevert=*/ true,
-    );
+        /*expectRevert=*/ true,
+      );
+    } finally {
+      await noContractsTester.close();
+    }
   });
 
   it('error during revertible insertions - skips to teardown', async () => {
+    // Exceed MAX_NULLIFIERS_PER_TX during revertible insertions so that the revertible phase
+    // errors out and the tx skips to teardown. Note: nullifier *collisions* during revertible
+    // insertions are unprovable (not revertible), so we use the side-effect limit path instead.
+    const revertibleNullifiers = Array.from({ length: MAX_NULLIFIERS_PER_TX }, (_, i) => new Fr(100_000 + i));
     await tester.simProveVerify(
       sender,
       /*setupCalls=*/ [],
@@ -96,9 +106,9 @@ describe('AVM check-circuit – unhappy paths 2', () => {
       },
       /*expectRevert=*/ true,
       /*feePayer=*/ sender,
-      // duplicate nullifiers during revertible insertions!
       /*privateInsertions=*/ {
-        revertible: { nullifiers: [new Fr(100_000), /*duplicate*/ new Fr(100_000)] },
+        // Total nullifiers = 1 non-revertible + MAX_NULLIFIERS_PER_TX revertible = over the limit.
+        revertible: { nullifiers: revertibleNullifiers },
         nonRevertible: { nullifiers: [/*firstNullifier=*/ new Fr(66000)] },
       },
     );

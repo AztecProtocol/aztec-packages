@@ -14,7 +14,7 @@ struct TxContextEvent {
     AppendOnlyTreeSnapshot retrieved_bytecodes_tree_snapshot;
 
     // Side Effect States
-    uint32_t numUnencryptedLogFields = 0;
+    uint32_t numPublicLogFields = 0;
     uint32_t numL2ToL1Messages = 0;
 
     // Execution context

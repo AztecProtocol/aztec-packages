@@ -1,0 +1,51 @@
+name: Auto-Close Stale ClaudeBox Drafts
+
+on:
+  schedule:
+    # Run daily at 06:00 UTC
+    - cron: "0 6 * * *"
+  workflow_dispatch:
+
+jobs:
+  close-stale-drafts:
+    if: ${{ github.event_name != 'schedule' || github.repository == 'AztecProtocol/aztec-packages' }}
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      pull-requests: write
+    steps:
+      - name: Close stale claudebox draft PRs
+        env:
+          GH_TOKEN: ${{ secrets.AZTEC_BOT_GITHUB_TOKEN }}
+        run: |
+          CUTOFF=$(date -u -d '5 days ago' +%Y-%m-%dT%H:%M:%SZ)
+          echo "Closing claudebox draft PRs not updated since $CUTOFF"
+
+          # Search for open draft PRs with claudebox label, updated before cutoff
+          QUERY="repo:${{ github.repository }} is:pr is:open is:draft label:claudebox updated:<${CUTOFF}"
+
+          NUMBERS=$(gh api "search/issues?per_page=100" --method GET -f q="$QUERY" \
+            --jq '.items[].number' 2>/dev/null || true)
+
+          if [ -z "$NUMBERS" ]; then
+            echo "No stale claudebox drafts found."
+            exit 0
+          fi
+
+          CLOSED=0
+          for NUM in $NUMBERS; do
+            TITLE=$(gh api "repos/${{ github.repository }}/pulls/$NUM" --jq '.title')
+            echo "Closing #$NUM: $TITLE"
+
+            gh api "repos/${{ github.repository }}/issues/$NUM/comments" \
+              -f body="Automatically closing this stale claudebox draft PR (no updates for 5+ days). Re-open if still needed." \
+              --silent || true
+
+            gh api -X PATCH "repos/${{ github.repository }}/pulls/$NUM" \
+              -f state=closed \
+              --silent || true
+
+            CLOSED=$((CLOSED + 1))
+          done
+
+          echo "Done. Closed $CLOSED stale claudebox draft(s)."

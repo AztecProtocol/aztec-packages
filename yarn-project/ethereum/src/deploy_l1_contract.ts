@@ -24,7 +24,7 @@ import {
 } from './deploy_aztec_l1_contracts.js';
 import { RegisterNewRollupVersionPayloadArtifact } from './l1_artifacts.js';
 import { type L1TxUtilsConfig, getL1TxUtilsConfigEnvVars } from './l1_tx_utils/config.js';
-import { createL1TxUtilsFromViemWallet } from './l1_tx_utils/factory.js';
+import { createL1TxUtils } from './l1_tx_utils/factory.js';
 import type { L1TxUtils } from './l1_tx_utils/l1_tx_utils.js';
 import type { GasPrice, L1TxConfig, L1TxRequest } from './l1_tx_utils/types.js';
 import type { ExtendedViemWalletClient } from './types.js';
@@ -46,7 +46,7 @@ export class L1Deployer {
     private createVerificationJson: boolean = false,
   ) {
     this.salt = maybeSalt ? padHex(numberToHex(maybeSalt), { size: 32 }) : undefined;
-    this.l1TxUtils = createL1TxUtilsFromViemWallet(
+    this.l1TxUtils = createL1TxUtils(
       this.client,
       { logger: this.logger, dateProvider },
       { ...this.txUtilsConfig, debugMaxGasLimit: acceleratedTestDeployments },
@@ -179,7 +179,7 @@ export async function deployL1Contract(
 
   if (!l1TxUtils) {
     const config = getL1TxUtilsConfigEnvVars();
-    l1TxUtils = createL1TxUtilsFromViemWallet(
+    l1TxUtils = createL1TxUtils(
       extendedClient,
       { logger },
       { ...config, debugMaxGasLimit: acceleratedTestDeployments },

@@ -37,11 +37,13 @@ locals {
   # Environment variables for the container (omit keys with null values)
   env_vars = { for k, v in {
     NETWORK                                  = var.NETWORK
+    ALLOW_OVERRIDING_NETWORK_CONFIG          = var.ALLOW_OVERRIDING_NETWORK_CONFIG
     AZTEC_LAG_IN_EPOCHS_FOR_VALIDATOR_SET    = var.AZTEC_LAG_IN_EPOCHS_FOR_VALIDATOR_SET
     AZTEC_LAG_IN_EPOCHS_FOR_RANDAO           = var.AZTEC_LAG_IN_EPOCHS_FOR_RANDAO
     AZTEC_SLOT_DURATION                      = var.AZTEC_SLOT_DURATION
     AZTEC_EPOCH_DURATION                     = var.AZTEC_EPOCH_DURATION
     AZTEC_TARGET_COMMITTEE_SIZE              = var.AZTEC_TARGET_COMMITTEE_SIZE
+    AZTEC_INBOX_LAG                          = var.AZTEC_INBOX_LAG
     AZTEC_PROOF_SUBMISSION_EPOCHS            = var.AZTEC_PROOF_SUBMISSION_EPOCHS
     AZTEC_ACTIVATION_THRESHOLD               = var.AZTEC_ACTIVATION_THRESHOLD
     AZTEC_EJECTION_THRESHOLD                 = var.AZTEC_EJECTION_THRESHOLD
@@ -56,7 +58,7 @@ locals {
     AZTEC_SLASH_AMOUNT_SMALL                 = var.AZTEC_SLASH_AMOUNT_SMALL
     AZTEC_SLASH_AMOUNT_MEDIUM                = var.AZTEC_SLASH_AMOUNT_MEDIUM
     AZTEC_SLASH_AMOUNT_LARGE                 = var.AZTEC_SLASH_AMOUNT_LARGE
-    AZTEC_SLASHER_FLAVOR                     = var.AZTEC_SLASHER_FLAVOR
+    AZTEC_SLASHER_ENABLED                    = var.AZTEC_SLASHER_ENABLED
     AZTEC_GOVERNANCE_PROPOSER_QUORUM         = var.AZTEC_GOVERNANCE_PROPOSER_QUORUM
     AZTEC_GOVERNANCE_PROPOSER_ROUND_SIZE     = var.AZTEC_GOVERNANCE_PROPOSER_ROUND_SIZE
     AZTEC_GOVERNANCE_VOTING_DURATION         = var.AZTEC_GOVERNANCE_VOTING_DURATION
@@ -98,6 +100,9 @@ resource "kubernetes_job_v1" "deploy_rollup_contracts" {
 
       spec {
         restart_policy = "Never"
+        node_selector = {
+          "node-type" = "network"
+        }
 
         container {
           name              = "deploy-rollup-contracts"

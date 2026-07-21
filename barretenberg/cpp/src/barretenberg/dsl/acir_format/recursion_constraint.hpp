@@ -1,12 +1,11 @@
 // === AUDIT STATUS ===
-// internal:    { status: Planned, auditors: [], commit: }
+// internal:    { status: Completed, auditors: [Federico], commit: }
 // external_1:  { status: not started, auditors: [], commit: }
 // external_2:  { status: not started, auditors: [], commit: }
 // =====================
 
 #pragma once
 #include "barretenberg/chonk/chonk.hpp"
-#include "barretenberg/chonk/chonk_base.hpp"
 #include "barretenberg/commitment_schemes/claim.hpp"
 #include "barretenberg/common/serialize.hpp"
 #include "barretenberg/dsl/acir_format/gate_counter.hpp"
@@ -30,65 +29,43 @@ using namespace stdlib;
 // ACIR
 // Keep this enum values in sync with their noir counterpart constants defined in
 // noir-projects/noir-protocol-circuits/crates/types/src/constants.nr
-enum PROOF_TYPE : uint8_t { HONK, OINK, HN, AVM, ROLLUP_HONK, ROOT_ROLLUP_HONK, HONK_ZK, HN_FINAL, HN_TAIL, CHONK };
+enum PROOF_TYPE : uint8_t { HONK, OINK, HN, AVM, ROLLUP_HONK, ROOT_ROLLUP_HONK, HONK_ZK, HN_FINAL, CHONK };
 
-// Check if a PROOF_TYPE is a HyperNova variant (OINK, HN, HN_TAIL, HN_FINAL)
+// Check if a PROOF_TYPE is a HyperNova variant (OINK, HN, HN_FINAL)
 constexpr bool is_hypernova_proof_type(uint32_t proof_type)
 {
-    return proof_type == PROOF_TYPE::OINK || proof_type == PROOF_TYPE::HN || proof_type == PROOF_TYPE::HN_TAIL ||
-           proof_type == PROOF_TYPE::HN_FINAL;
+    return proof_type == PROOF_TYPE::OINK || proof_type == PROOF_TYPE::HN || proof_type == PROOF_TYPE::HN_FINAL;
 }
 
-// Convert ACIR PROOF_TYPE to Chonk::QUEUE_TYPE. Throws for non-HyperNova types.
-// Note: QUEUE_TYPE::MEGA is internal to Chonk and has no ACIR equivalent.
-inline Chonk::QUEUE_TYPE proof_type_to_chonk_queue_type(uint32_t proof_type)
+// The ACIR proof_type expected for the group entry at `group_index` of the kernel currently being completed,
+// derived from the IVC's circuit-kinds-based state. The init kernel's first app is verified via an OINK proof,
+// the hiding kernel verifies the tail kernel via an HN_FINAL proof, and every other proof is a plain HN proof.
+// Used as a defense-in-depth cross-check that the ACIR proof_type agrees with the IVC state (the IVC's circuit
+// kinds, not the proof_type, drive the actual verification logic).
+inline PROOF_TYPE expected_proof_type(const Chonk& ivc, size_t group_index)
 {
-    switch (proof_type) {
-    case PROOF_TYPE::OINK:
-        return Chonk::QUEUE_TYPE::OINK;
-    case PROOF_TYPE::HN:
-        return Chonk::QUEUE_TYPE::HN;
-    case PROOF_TYPE::HN_TAIL:
-        return Chonk::QUEUE_TYPE::HN_TAIL;
-    case PROOF_TYPE::HN_FINAL:
-        return Chonk::QUEUE_TYPE::HN_FINAL;
-    default:
-        throw_or_abort("proof_type_to_chonk_queue_type: invalid type " + std::to_string(proof_type));
-    }
-}
-
-// Inverse of proof_type_to_chonk_queue_type. Throws for MEGA (no ACIR equivalent).
-inline PROOF_TYPE queue_type_to_proof_type(Chonk::QUEUE_TYPE queue_type)
-{
-    switch (queue_type) {
-    case Chonk::QUEUE_TYPE::OINK:
-        return PROOF_TYPE::OINK;
-    case Chonk::QUEUE_TYPE::HN:
-        return PROOF_TYPE::HN;
-    case Chonk::QUEUE_TYPE::HN_TAIL:
-        return PROOF_TYPE::HN_TAIL;
-    case Chonk::QUEUE_TYPE::HN_FINAL:
+    if (ivc.is_hiding_kernel()) {
         return PROOF_TYPE::HN_FINAL;
-    case Chonk::QUEUE_TYPE::MEGA:
-        throw_or_abort("queue_type_to_proof_type: MEGA has no ACIR equivalent");
     }
-    throw_or_abort("queue_type_to_proof_type: unknown type");
+    if (ivc.is_init_kernel() && group_index == 0) {
+        return PROOF_TYPE::OINK;
+    }
+    return PROOF_TYPE::HN;
 }
 
-// Static assertions to catch PROOF_TYPE/QUEUE_TYPE enum desync at compile time
+// The circuit kind expected for the group entry at `group_index`: every kernel except the init kernel verifies
+// the carried previous kernel as its first proof; all other entries are apps.
+inline bb::CircuitKind expected_group_entry_kind(const Chonk& ivc, size_t group_index)
+{
+    return (group_index == 0 && !ivc.is_init_kernel()) ? bb::CircuitKind::Kernel : bb::CircuitKind::App;
+}
+
+// Static assertions to catch PROOF_TYPE desync with the Noir constants at compile time
 namespace detail {
-// PROOF_TYPE values must match Noir constants
 static_assert(PROOF_TYPE::OINK == 1);
 static_assert(PROOF_TYPE::HN == 2);
 static_assert(PROOF_TYPE::HN_FINAL == 7);
-static_assert(PROOF_TYPE::HN_TAIL == 8);
-
-// QUEUE_TYPE ordering (internal, but catch unexpected changes)
-static_assert(static_cast<uint8_t>(Chonk::QUEUE_TYPE::OINK) == 0);
-static_assert(static_cast<uint8_t>(Chonk::QUEUE_TYPE::HN) == 1);
-static_assert(static_cast<uint8_t>(Chonk::QUEUE_TYPE::HN_TAIL) == 2);
-static_assert(static_cast<uint8_t>(Chonk::QUEUE_TYPE::HN_FINAL) == 3);
-static_assert(static_cast<uint8_t>(Chonk::QUEUE_TYPE::MEGA) == 4);
+static_assert(PROOF_TYPE::CHONK == 8);
 } // namespace detail
 
 /**
@@ -155,11 +132,12 @@ struct RecursionConstraint {
  * @param chonk_recursion_data pair of (ChonkRecursionConstraints, ChonkRecursionConstraintsOriginalOpcodeIndices)
  */
 template <typename Builder>
-HonkRecursionConstraintsOutput<Builder> create_recursion_constraints(
+[[nodiscard("pairing points and IPA claim must be accumulated")]] HonkRecursionConstraintsOutput<Builder>
+create_recursion_constraints(
     Builder& builder,
     GateCounter<Builder>& gate_counter,
     std::vector<size_t>& gates_per_opcode,
-    [[maybe_unused]] const std::shared_ptr<IVCBase>& ivc_base,
+    [[maybe_unused]] const std::shared_ptr<Chonk>& ivc_base,
     const std::pair<std::vector<RecursionConstraint>, std::vector<size_t>>& honk_recursion_data,
     const std::pair<std::vector<RecursionConstraint>, std::vector<size_t>>& avm_recursion_data,
     const std::pair<std::vector<RecursionConstraint>, std::vector<size_t>>& hn_recursion_data,
@@ -179,6 +157,6 @@ void process_hn_recursion_constraints(
     GateCounter<MegaCircuitBuilder>& gate_counter,
     std::vector<size_t>& gates_per_opcode,
     const std::pair<std::vector<RecursionConstraint>, std::vector<size_t>>& hn_recursion_data,
-    const std::shared_ptr<IVCBase>& ivc_base);
+    const std::shared_ptr<Chonk>& ivc_base);
 
 } // namespace acir_format

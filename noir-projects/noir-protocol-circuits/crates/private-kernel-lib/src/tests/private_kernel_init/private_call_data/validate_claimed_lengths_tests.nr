@@ -2,7 +2,7 @@ use crate::{
     private_kernel_init::{self, PrivateKernelInitCircuitPrivateInputs},
     tests::private_kernel_init::TestBuilder,
 };
-use dep::types::{
+use types::{
     abis::private_circuit_public_inputs::PrivateCircuitPublicInputs,
     constants::{
         MAX_CONTRACT_CLASS_LOGS_PER_CALL, MAX_ENQUEUED_CALLS_PER_CALL,
@@ -27,7 +27,6 @@ impl TestBuilder {
             vk_tree_root: self.private_call.vk_tree_root,
             protocol_contracts: self.private_call.protocol_contracts,
             is_private_only: self.is_private_only,
-            first_nullifier_hint: self.first_nullifier_hint,
             revertible_counter_hint: self.revertible_counter_hint,
         };
 
@@ -53,7 +52,7 @@ fn nullifier_read_requests_out_of_bounds() {
     builder.execute_and_fail();
 }
 
-#[test(should_fail_with = "key_validation_requests_and_generators length out of bounds")]
+#[test(should_fail_with = "key_validation_requests_and_separators length out of bounds")]
 fn key_validation_requests_and_generators_out_of_bounds() {
     let mut builder = TestBuilder::new();
 

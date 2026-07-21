@@ -1,0 +1,17 @@
+#!/usr/bin/env bash
+# Starts a little engine that pipes the commands in the given file into parallelize.
+# Will keep running until the command file is fed STOP.
+NO_CD=1 source $(git rev-parse --show-toplevel)/ci3/source
+
+test_cmds_file=$1
+
+# This trickery is to overcome an oddity in parallel.
+# Turns out when we hold an open pipe to parallel, like we do using tail below,
+# parallel will only process the result of job N when it receives a new job *after* job N has completed.
+# This can prevent a "fail fast" situation, or prevent the results from the first batch of commands from showing up.
+# Empty commands fed to run_test_cmd are no-ops, so we keep parallel processing results in timely fashion with this.
+while ! grep -Eq '^STOP$' $test_cmds_file; do sleep 5; echo | atomic_append $test_cmds_file; done &>/dev/null &
+# Continuously stream the test cmds into parallelize.
+# Close inherited stderr in the process substitution to prevent tail -f from holding
+# the outer pipeline's pipe fd open (which would prevent denoise/redact from seeing EOF).
+parallelize < <(exec 2>/dev/null; tail -n+0 -f $test_cmds_file) 2>/dev/null

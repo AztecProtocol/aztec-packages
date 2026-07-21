@@ -80,7 +80,7 @@ template <typename Flavor> class TranslatorVerifier_ {
         // Translator VK is constant
         auto native_vk = std::make_shared<TranslatorFlavor::VerificationKey>();
         if constexpr (IsRecursive) {
-            builder = proof.back().get_context();
+            builder = proof.get_context();
             key = std::make_shared<VerificationKey>(builder, native_vk);
             vk_hash = key->get_hash();
         } else {
@@ -88,6 +88,14 @@ template <typename Flavor> class TranslatorVerifier_ {
             vk_hash = native_vk->get_hash();
         }
     }
+
+    /**
+     * @brief Load translator proof and run the pre-sumcheck (Oink-like) phase on the shared transcript.
+     * @details Hashes the VK, sets relation parameters from ECCVM inputs, and receives wire/z_perm
+     * commitments and beta/gamma challenges. After this call, `relation_parameters` is populated.
+     * @return VerifierCommitments populated with the received commitments.
+     */
+    VerifierCommitments receive_pre_sumcheck();
 
     /**
      * @brief Reduce the translator proof to a pairing check
@@ -110,12 +118,14 @@ template <typename Flavor> class TranslatorVerifier_ {
      */
     std::shared_ptr<VerificationKey> get_verification_key() const { return key; }
 
+    // Relation parameters populated by receive_pre_sumcheck(); public for use by batched verifier.
+    RelationParams relation_parameters;
+
   private:
     std::shared_ptr<VerificationKey> key;
     FF vk_hash;
     std::shared_ptr<Transcript> transcript;
     Proof proof;
-    RelationParams relation_parameters;
 
     // Translation inputs from ECCVM verifier
     BF evaluation_input_x;

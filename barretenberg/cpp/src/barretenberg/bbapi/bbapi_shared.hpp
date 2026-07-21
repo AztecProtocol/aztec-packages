@@ -7,7 +7,7 @@
  * including circuit input types and proof system settings.
  */
 
-#include "barretenberg/chonk/chonk.hpp"
+#include "barretenberg/chonk/chonk_step_processor.hpp"
 #include "barretenberg/common/throw_or_abort.hpp"
 #include "barretenberg/dsl/acir_format/acir_format.hpp"
 #include "barretenberg/flavor/ultra_flavor.hpp"
@@ -24,6 +24,14 @@
 #include <cstdint>
 #include <string>
 #include <vector>
+
+// The FIFO-streaming Chonk batch verifier service relies on POSIX named pipes and signals
+// (open/lstat/SIGPIPE), which are unavailable on wasm and on Windows (MinGW). Those platforms
+// compile throwing stubs instead. This macro guards the service across bbapi_shared.hpp,
+// bbapi_chonk.hpp, and bbapi_chonk.cpp.
+#if !defined(__wasm__) && !defined(_WIN32)
+#define BB_HAS_BATCH_VERIFIER_SERVICE
+#endif
 
 namespace bb::bbapi {
 
@@ -74,7 +82,7 @@ struct CircuitInputNoVK {
      */
     std::vector<uint8_t> bytecode;
 
-    MSGPACK_FIELDS(name, bytecode);
+    SERIALIZATION_FIELDS(name, bytecode);
     bool operator==(const CircuitInputNoVK& other) const = default;
 };
 
@@ -105,7 +113,7 @@ struct CircuitInput {
      */
     std::vector<uint8_t> verification_key;
 
-    MSGPACK_FIELDS(name, bytecode, verification_key);
+    SERIALIZATION_FIELDS(name, bytecode, verification_key);
     bool operator==(const CircuitInput& other) const = default;
 };
 
@@ -133,7 +141,7 @@ struct ProofSystemSettings {
     // TODO(md): remove this once considered stable
     bool optimized_solidity_verifier = false;
 
-    MSGPACK_FIELDS(ipa_accumulation, oracle_hash_type, disable_zk, optimized_solidity_verifier);
+    SERIALIZATION_FIELDS(ipa_accumulation, oracle_hash_type, disable_zk, optimized_solidity_verifier);
     bool operator==(const ProofSystemSettings& other) const = default;
 };
 
@@ -170,20 +178,28 @@ inline VkPolicy parse_vk_policy(const std::string& policy)
     return VkPolicy::DEFAULT; // default
 }
 
+#ifdef BB_HAS_BATCH_VERIFIER_SERVICE
+// Forward declaration — defined in bbapi_chonk.hpp
+class ChonkBatchVerifierService;
+#endif
+
 struct BBApiRequest {
-    // Current depth of the IVC stack for this request
-    uint32_t ivc_stack_depth = 0;
-    std::shared_ptr<IVCBase> ivc_in_progress;
+    std::shared_ptr<ChonkStepProcessor> ivc_in_progress;
     // Name of the last loaded circuit
     std::string loaded_circuit_name;
     // Store the parsed constraint system to get ahead of parsing before accumulate
     std::optional<acir_format::AcirFormat> loaded_circuit_constraints;
     // Store the verification key passed with the circuit
     std::vector<uint8_t> loaded_circuit_vk;
+    CircuitKind loaded_circuit_kind = CircuitKind::None;
     // Policy for handling verification keys during accumulation
     VkPolicy vk_policy = VkPolicy::DEFAULT;
     // Error message - empty string means no error
     std::string error_message;
+#ifdef BB_HAS_BATCH_VERIFIER_SERVICE
+    // Batch verifier service instance (persists across RPC calls)
+    std::shared_ptr<ChonkBatchVerifierService> batch_verifier_service;
+#endif
 };
 
 /**
@@ -192,7 +208,7 @@ struct BBApiRequest {
 struct ErrorResponse {
     static constexpr const char MSGPACK_SCHEMA_NAME[] = "ErrorResponse";
     std::string message;
-    MSGPACK_FIELDS(message);
+    SERIALIZATION_FIELDS(message);
     bool operator==(const ErrorResponse&) const = default;
 };
 
@@ -234,6 +250,19 @@ template <typename Flavor>
 inline typename Flavor::Transcript::Proof concatenate_proof(const std::vector<uint256_t>& public_inputs,
                                                             const std::vector<uint256_t>& proof)
 {
+    using FF = typename Flavor::FF;
+    // Reject non-canonical field encodings (values >= field modulus) to ensure consistent
+    // verifier behavior across native and Solidity targets.
+    for (const auto& val : public_inputs) {
+        if (val >= FF::modulus) {
+            throw_or_abort("Non-canonical public input: value >= field modulus");
+        }
+    }
+    for (const auto& val : proof) {
+        if (val >= FF::modulus) {
+            throw_or_abort("Non-canonical proof element: value >= field modulus");
+        }
+    }
     typename Flavor::Transcript::Proof result;
     result.reserve(public_inputs.size() + proof.size());
     result.insert(result.end(), public_inputs.begin(), public_inputs.end());

@@ -3,10 +3,10 @@ pub(crate) mod low_leaf;
 use crate::{
     abis::append_only_tree_snapshot::AppendOnlyTreeSnapshot,
     merkle_tree::{
-        append_only_tree::insert_subtree_root_to_snapshot,
+        append_only_tree::insert_subtree_root_to_snapshot_with_hasher,
         leaf_preimage::{IndexedTreeLeafPreimage, IndexedTreeLeafValue},
-        membership::{check_membership, MembershipWitness},
-        root::{compute_tree_root, root_from_sibling_path},
+        membership::{check_membership_with_hasher, MembershipWitness},
+        root::{compute_tree_root_with_hasher, root_from_sibling_path_with_hasher},
     },
     traits::Empty,
     utils::arrays::check_permutation,
@@ -16,6 +16,9 @@ pub use low_leaf::is_valid_low_leaf;
 
 /// Batch insert values into the indexed tree by creating a subtree of the values and inserting the subtree root.
 /// This function does not allow updating the values of existing leaves.
+///
+/// `merkle_hasher` must be the tree-specific sibling-pair hasher for the target indexed tree
+/// (e.g. `nullifier_merkle_hash` for the nullifier tree).
 pub fn batch_insert_no_update<Value, Leaf, let TreeHeight: u32, let SubtreeWidth: u32, let SubtreeHeight: u32>(
     start_snapshot: AppendOnlyTreeSnapshot,
     values_to_insert: [Value; SubtreeWidth],
@@ -24,6 +27,7 @@ pub fn batch_insert_no_update<Value, Leaf, let TreeHeight: u32, let SubtreeWidth
     low_leaf_preimages: [Leaf; SubtreeWidth],
     low_leaf_membership_witnesses: [MembershipWitness<TreeHeight>; SubtreeWidth],
     new_subtree_sibling_path: [Field; TreeHeight - SubtreeHeight],
+    merkle_hasher: fn(Field, Field) -> Field,
 ) -> AppendOnlyTreeSnapshot
 where
     Value: IndexedTreeLeafValue,
@@ -66,7 +70,12 @@ where
 
             // Validate that the low leaf exists in the tree.
             assert(
-                check_membership(low_leaf_preimage.as_leaf(), witness, current_tree_root),
+                check_membership_with_hasher(
+                    low_leaf_preimage.as_leaf(),
+                    witness,
+                    current_tree_root,
+                    merkle_hasher,
+                ),
                 "Membership check failed: low leaf does not exist in tree",
             );
 
@@ -81,16 +90,20 @@ where
             let new_leaf_insertion_index = start_insertion_index + value_index as Field;
             let updated_low_leaf =
                 low_leaf_preimage.update_pointers(value_key, new_leaf_insertion_index);
-            current_tree_root = root_from_sibling_path(
+            current_tree_root = root_from_sibling_path_with_hasher(
                 updated_low_leaf.as_leaf(),
                 witness.leaf_index,
                 witness.sibling_path,
+                merkle_hasher,
             );
         }
     }
 
     // Compute the root of the subtree form by the new leaves to be appended.
-    let subtree_root = compute_tree_root(leaves_to_append.map(|leaf: Leaf| leaf.as_leaf()));
+    let subtree_root = compute_tree_root_with_hasher(
+        leaves_to_append.map(|leaf: Leaf| leaf.as_leaf()),
+        merkle_hasher,
+    );
     // Since low leaves were updated, the tree root has changed.
     // Insert the new subtree root against the updated tree root.
     let current_snapshot = AppendOnlyTreeSnapshot {
@@ -98,9 +111,10 @@ where
         next_available_leaf_index: start_insertion_index,
     };
     // Insert the subtree root into the tree and return the new snapshot.
-    insert_subtree_root_to_snapshot::<TreeHeight, SubtreeHeight>(
+    insert_subtree_root_to_snapshot_with_hasher::<TreeHeight, SubtreeHeight>(
         current_snapshot,
         new_subtree_sibling_path,
         subtree_root,
+        merkle_hasher,
     )
 }

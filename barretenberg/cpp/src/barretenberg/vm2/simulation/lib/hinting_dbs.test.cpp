@@ -1,13 +1,14 @@
 #include "barretenberg/vm2/simulation/lib/hinting_dbs.hpp"
 #include "barretenberg/api/file_io.hpp"
+#include "barretenberg/aztec/aztec_constants.hpp"
 #include "barretenberg/vm2/avm_api.hpp"
 #include "barretenberg/vm2/common/avm_io.hpp"
-#include "barretenberg/vm2/common/aztec_constants.hpp"
 #include "barretenberg/vm2/common/aztec_types.hpp"
 #include "barretenberg/vm2/simulation/interfaces/db.hpp"
 #include "barretenberg/vm2/simulation/lib/raw_data_dbs.hpp"
 #include "barretenberg/vm2/simulation/testing/mock_dbs.hpp"
 #include "barretenberg/vm2/simulation_helper.hpp"
+#include "barretenberg/vm2/testing/fixtures.hpp"
 
 #include <algorithm>
 #include <cstddef>
@@ -52,7 +53,7 @@ class HintingDBsTest : public ::testing::Test {
 class HintingDBsMinimalTest : public HintingDBsTest {
   protected:
     HintingDBsMinimalTest()
-        : HintingDBsTest(AvmProvingInputs::from(read_file("../src/barretenberg/vm2/testing/minimal_tx.testdata.bin")))
+        : HintingDBsTest(testing::get_minimal_proving_inputs())
     {}
 };
 
@@ -191,9 +192,9 @@ TEST_F(HintingDBsMinimalTest, MerkleDBCheckpoints)
 
 class MockedHintingDBsTest : public ::testing::Test {
   protected:
-    MockedHintingDBsTest() { ON_CALL(base_merkle_db, get_tree_roots).WillByDefault(testing::Return(mock_tree_info)); }
-    testing::StrictMock<MockContractDB> base_contract_db;
-    testing::StrictMock<MockLowLevelMerkleDB> base_merkle_db;
+    MockedHintingDBsTest() { ON_CALL(base_merkle_db, get_tree_roots).WillByDefault(::testing::Return(mock_tree_info)); }
+    ::testing::StrictMock<MockContractDB> base_contract_db;
+    ::testing::StrictMock<MockLowLevelMerkleDB> base_merkle_db;
     HintingContractsDB hinting_contract_db = HintingContractsDB(base_contract_db);
     HintingRawDB hinting_merkle_db = HintingRawDB(base_merkle_db);
 
@@ -211,7 +212,7 @@ TEST_F(MockedHintingDBsTest, GetLowLeaf)
     std::vector<FF> update_preimage_slots = { 1, 2, 4 };
     // get_low_indexed_leaf will call get_tree_roots:
     EXPECT_CALL(base_merkle_db, get_tree_roots).Times(static_cast<int>(update_preimage_slots.size()));
-    EXPECT_CALL(base_merkle_db, get_low_indexed_leaf(world_state::MerkleTreeId::PUBLIC_DATA_TREE, testing::_))
+    EXPECT_CALL(base_merkle_db, get_low_indexed_leaf(world_state::MerkleTreeId::PUBLIC_DATA_TREE, ::testing::_))
         .WillRepeatedly([&](world_state::MerkleTreeId, const FF& leaf_slot) {
             for (size_t i = 0; i < update_preimage_slots.size(); ++i) {
                 if (leaf_slot == update_preimage_slots[i]) {
@@ -232,21 +233,21 @@ TEST_F(MockedHintingDBsTest, GetLowLeaf)
     EXPECT_EQ(collected_hints.get_previous_value_index_hints.size(), update_preimage_slots.size());
     EXPECT_THAT(
         collected_hints.get_previous_value_index_hints,
-        testing::ElementsAreArray({ GetPreviousValueIndexHint{ .hint_key = mock_tree_info.public_data_tree,
-                                                               .tree_id = world_state::MerkleTreeId::PUBLIC_DATA_TREE,
-                                                               .value = update_preimage_slots[0],
-                                                               .index = 0,
-                                                               .already_present = true },
-                                    GetPreviousValueIndexHint{ .hint_key = mock_tree_info.public_data_tree,
-                                                               .tree_id = world_state::MerkleTreeId::PUBLIC_DATA_TREE,
-                                                               .value = update_preimage_slots[1],
-                                                               .index = 1,
-                                                               .already_present = true },
-                                    GetPreviousValueIndexHint{ .hint_key = mock_tree_info.public_data_tree,
-                                                               .tree_id = world_state::MerkleTreeId::PUBLIC_DATA_TREE,
-                                                               .value = update_preimage_slots[2],
-                                                               .index = 2,
-                                                               .already_present = true } }));
+        ::testing::ElementsAreArray({ GetPreviousValueIndexHint{ .hint_key = mock_tree_info.public_data_tree,
+                                                                 .tree_id = world_state::MerkleTreeId::PUBLIC_DATA_TREE,
+                                                                 .value = update_preimage_slots[0],
+                                                                 .index = 0,
+                                                                 .already_present = true },
+                                      GetPreviousValueIndexHint{ .hint_key = mock_tree_info.public_data_tree,
+                                                                 .tree_id = world_state::MerkleTreeId::PUBLIC_DATA_TREE,
+                                                                 .value = update_preimage_slots[1],
+                                                                 .index = 1,
+                                                                 .already_present = true },
+                                      GetPreviousValueIndexHint{ .hint_key = mock_tree_info.public_data_tree,
+                                                                 .tree_id = world_state::MerkleTreeId::PUBLIC_DATA_TREE,
+                                                                 .value = update_preimage_slots[2],
+                                                                 .index = 2,
+                                                                 .already_present = true } }));
 }
 
 TEST_F(MockedHintingDBsTest, GetLeafValue)
@@ -255,7 +256,7 @@ TEST_F(MockedHintingDBsTest, GetLeafValue)
     std::vector<FF> note_hash_leaf_values = { 11, 22, 44, 88 };
     // get_leaf_value will call get_tree_roots:
     EXPECT_CALL(base_merkle_db, get_tree_roots).Times(static_cast<int>(note_hash_leaf_values.size()));
-    EXPECT_CALL(base_merkle_db, get_leaf_value(world_state::MerkleTreeId::NOTE_HASH_TREE, testing::_))
+    EXPECT_CALL(base_merkle_db, get_leaf_value(world_state::MerkleTreeId::NOTE_HASH_TREE, ::testing::_))
         .WillRepeatedly([&](world_state::MerkleTreeId, index_t index) {
             if (index < note_hash_leaf_values.size()) {
                 return note_hash_leaf_values[index];
@@ -273,7 +274,7 @@ TEST_F(MockedHintingDBsTest, GetLeafValue)
     // Check the collected hints:
     EXPECT_EQ(collected_hints.get_leaf_value_hints.size(), note_hash_leaf_values.size());
     EXPECT_THAT(collected_hints.get_leaf_value_hints,
-                testing::ElementsAreArray({
+                ::testing::ElementsAreArray({
                     GetLeafValueHint{ .hint_key = mock_tree_info.note_hash_tree,
                                       .tree_id = world_state::MerkleTreeId::NOTE_HASH_TREE,
                                       .index = 0,
@@ -302,7 +303,7 @@ TEST_F(MockedHintingDBsTest, GetLeafPreimagePublicDataTree)
                                                                             { public_leaf_values[2], 0, 3 } };
     // get_leaf_preimage_public_data_tree will call get_tree_roots:
     EXPECT_CALL(base_merkle_db, get_tree_roots).Times(static_cast<int>(public_leaf_preimages.size()));
-    EXPECT_CALL(base_merkle_db, get_leaf_preimage_public_data_tree(testing::_)).WillRepeatedly([&](index_t index) {
+    EXPECT_CALL(base_merkle_db, get_leaf_preimage_public_data_tree(::testing::_)).WillRepeatedly([&](index_t index) {
         if (index < public_leaf_preimages.size()) {
             return public_leaf_preimages[index];
         }
@@ -320,7 +321,7 @@ TEST_F(MockedHintingDBsTest, GetLeafPreimagePublicDataTree)
     EXPECT_EQ(collected_hints.get_leaf_preimage_hints_public_data_tree.size(), public_leaf_preimages.size());
     EXPECT_THAT(
         collected_hints.get_leaf_preimage_hints_public_data_tree,
-        testing::ElementsAreArray(
+        ::testing::ElementsAreArray(
             { GetLeafPreimageHint<PublicDataTreeLeafPreimage>{
                   .hint_key = mock_tree_info.public_data_tree, .index = 0, .leaf_preimage = public_leaf_preimages[0] },
               GetLeafPreimageHint<PublicDataTreeLeafPreimage>{
@@ -339,7 +340,7 @@ TEST_F(MockedHintingDBsTest, GetLeafPreimageNullifierTree)
                                                                               { nullifier_leaf_values[2], 0, 3 } };
     // get_leaf_preimage_nullifier_tree will call get_tree_roots:
     EXPECT_CALL(base_merkle_db, get_tree_roots).Times(static_cast<int>(nullifier_leaf_preimages.size()));
-    EXPECT_CALL(base_merkle_db, get_leaf_preimage_nullifier_tree(testing::_)).WillRepeatedly([&](index_t index) {
+    EXPECT_CALL(base_merkle_db, get_leaf_preimage_nullifier_tree(::testing::_)).WillRepeatedly([&](index_t index) {
         if (index < nullifier_leaf_preimages.size()) {
             return nullifier_leaf_preimages[index];
         }
@@ -357,7 +358,7 @@ TEST_F(MockedHintingDBsTest, GetLeafPreimageNullifierTree)
     EXPECT_EQ(collected_hints.get_leaf_preimage_hints_nullifier_tree.size(), nullifier_leaf_preimages.size());
     EXPECT_THAT(
         collected_hints.get_leaf_preimage_hints_nullifier_tree,
-        testing::ElementsAreArray(
+        ::testing::ElementsAreArray(
             { GetLeafPreimageHint<NullifierTreeLeafPreimage>{
                   .hint_key = mock_tree_info.nullifier_tree, .index = 0, .leaf_preimage = nullifier_leaf_preimages[0] },
               GetLeafPreimageHint<NullifierTreeLeafPreimage>{
@@ -381,7 +382,7 @@ TEST_F(MockedHintingDBsTest, InsertIndexedLeavesPublicDataTree)
     // insert_indexed_leaves_public_data_tree will call get_tree_roots and get_tree_info (which itself will call
     // get_tree_roots):
     EXPECT_CALL(base_merkle_db, get_tree_roots).Times(2);
-    EXPECT_CALL(base_merkle_db, insert_indexed_leaves_public_data_tree(testing::_))
+    EXPECT_CALL(base_merkle_db, insert_indexed_leaves_public_data_tree(::testing::_))
         .WillOnce([&](PublicDataLeafValue value) {
             SequentialInsertionResult<PublicDataLeafValue> result = {
                 .low_leaf_witness_data = { mock_low_witness_data },
@@ -399,7 +400,7 @@ TEST_F(MockedHintingDBsTest, InsertIndexedLeavesPublicDataTree)
     // Check the collected hints:
     EXPECT_EQ(collected_hints.sequential_insert_hints_public_data_tree.size(), 1);
     EXPECT_THAT(collected_hints.sequential_insert_hints_public_data_tree,
-                testing::ElementsAre(SequentialInsertHint<PublicDataLeafValue>{
+                ::testing::ElementsAre(SequentialInsertHint<PublicDataLeafValue>{
                     .hint_key = state_before,
                     .tree_id = world_state::MerkleTreeId::PUBLIC_DATA_TREE,
                     .leaf = public_leaf_value,
@@ -422,7 +423,7 @@ TEST_F(MockedHintingDBsTest, InsertIndexedLeavesNullifierTree)
     // insert_indexed_leaves_nullifier_tree will call get_tree_roots and get_tree_info (which itself will call
     // get_tree_roots):
     EXPECT_CALL(base_merkle_db, get_tree_roots).Times(2);
-    EXPECT_CALL(base_merkle_db, insert_indexed_leaves_nullifier_tree(testing::_))
+    EXPECT_CALL(base_merkle_db, insert_indexed_leaves_nullifier_tree(::testing::_))
         .WillOnce([&](NullifierLeafValue value) {
             SequentialInsertionResult<NullifierLeafValue> result = { .low_leaf_witness_data = { mock_low_witness_data },
                                                                      .insertion_witness_data = {
@@ -439,7 +440,7 @@ TEST_F(MockedHintingDBsTest, InsertIndexedLeavesNullifierTree)
     // Check the collected hints:
     EXPECT_EQ(collected_hints.sequential_insert_hints_nullifier_tree.size(), 1);
     EXPECT_THAT(collected_hints.sequential_insert_hints_nullifier_tree,
-                testing::ElementsAre(SequentialInsertHint<NullifierLeafValue>{
+                ::testing::ElementsAre(SequentialInsertHint<NullifierLeafValue>{
                     .hint_key = state_before,
                     .tree_id = world_state::MerkleTreeId::NULLIFIER_TREE,
                     .leaf = nullifier,
@@ -460,9 +461,9 @@ TEST_F(MockedHintingDBsTest, AppendLeaves)
     expected_tree_info_after.note_hash_tree = expected_end_state;
     // append_leaves will call get_tree_info at the beginning and end of appending leaves:
     EXPECT_CALL(base_merkle_db, get_tree_roots)
-        .WillOnce(testing::Return(mock_tree_info))
-        .WillOnce(testing::Return(expected_tree_info_after));
-    EXPECT_CALL(base_merkle_db, append_leaves(world_state::MerkleTreeId::NOTE_HASH_TREE, testing::_)).Times(1);
+        .WillOnce(::testing::Return(mock_tree_info))
+        .WillOnce(::testing::Return(expected_tree_info_after));
+    EXPECT_CALL(base_merkle_db, append_leaves(world_state::MerkleTreeId::NOTE_HASH_TREE, ::testing::_)).Times(1);
 
     // Call the db:
     hinting_merkle_db.append_leaves(world_state::MerkleTreeId::NOTE_HASH_TREE, note_hash_leaf_values);
@@ -472,20 +473,20 @@ TEST_F(MockedHintingDBsTest, AppendLeaves)
     // Check the collected hints - one hint for all leaves:
     EXPECT_EQ(collected_hints.append_leaves_hints.size(), 1);
     EXPECT_THAT(collected_hints.append_leaves_hints,
-                testing::ElementsAre(AppendLeavesHint{ .hint_key = initial_state,
-                                                       .state_after = expected_end_state,
-                                                       .tree_id = world_state::MerkleTreeId::NOTE_HASH_TREE,
-                                                       .leaves = note_hash_leaf_values }));
+                ::testing::ElementsAre(AppendLeavesHint{ .hint_key = initial_state,
+                                                         .state_after = expected_end_state,
+                                                         .tree_id = world_state::MerkleTreeId::NOTE_HASH_TREE,
+                                                         .leaves = note_hash_leaf_values }));
 }
 
 TEST_F(MockedHintingDBsTest, MerkleDBCheckpoints)
 {
     uint32_t mock_checkpoint_id = 0;
     EXPECT_CALL(base_merkle_db, get_checkpoint_id)
-        .WillOnce(testing::Invoke([&]() { return mock_checkpoint_id; }))
-        .WillOnce(testing::Invoke([&]() { return ++mock_checkpoint_id; }))
-        .WillOnce(testing::Invoke([&]() { return mock_checkpoint_id; }))
-        .WillOnce(testing::Invoke([&]() { return ++mock_checkpoint_id; }));
+        .WillOnce(::testing::Invoke([&]() { return mock_checkpoint_id; }))
+        .WillOnce(::testing::Invoke([&]() { return ++mock_checkpoint_id; }))
+        .WillOnce(::testing::Invoke([&]() { return mock_checkpoint_id; }))
+        .WillOnce(::testing::Invoke([&]() { return ++mock_checkpoint_id; }));
     ;
     EXPECT_CALL(base_merkle_db, create_checkpoint).Times(2);
     // Call the db:
@@ -493,8 +494,8 @@ TEST_F(MockedHintingDBsTest, MerkleDBCheckpoints)
     hinting_merkle_db.create_checkpoint();
 
     EXPECT_CALL(base_merkle_db, get_checkpoint_id)
-        .WillOnce(testing::Invoke([&]() { return mock_checkpoint_id; }))
-        .WillOnce(testing::Invoke([&]() { return --mock_checkpoint_id; }));
+        .WillOnce(::testing::Invoke([&]() { return mock_checkpoint_id; }))
+        .WillOnce(::testing::Invoke([&]() { return --mock_checkpoint_id; }));
     EXPECT_CALL(base_merkle_db, commit_checkpoint).Times(1);
     hinting_merkle_db.commit_checkpoint();
 
@@ -502,8 +503,8 @@ TEST_F(MockedHintingDBsTest, MerkleDBCheckpoints)
     EXPECT_CALL(base_merkle_db, get_tree_roots).Times(2);
 
     EXPECT_CALL(base_merkle_db, get_checkpoint_id)
-        .WillOnce(testing::Invoke([&]() { return mock_checkpoint_id; }))
-        .WillOnce(testing::Invoke([&]() { return --mock_checkpoint_id; }));
+        .WillOnce(::testing::Invoke([&]() { return mock_checkpoint_id; }))
+        .WillOnce(::testing::Invoke([&]() { return --mock_checkpoint_id; }));
     EXPECT_CALL(base_merkle_db, revert_checkpoint).Times(1);
     hinting_merkle_db.revert_checkpoint();
     ExecutionHints collected_hints;
@@ -516,24 +517,24 @@ TEST_F(MockedHintingDBsTest, MerkleDBCheckpoints)
     mock_checkpoint_id = 0;
     uint32_t mock_action_counter = 0;
     EXPECT_THAT(collected_hints.create_checkpoint_hints,
-                testing::ElementsAreArray({ CreateCheckpointHint{
-                                                .action_counter = mock_action_counter++,
-                                                .old_checkpoint_id = mock_checkpoint_id,
-                                                .new_checkpoint_id = ++mock_checkpoint_id,
-                                            },
-                                            CreateCheckpointHint{
-                                                .action_counter = mock_action_counter++,
-                                                .old_checkpoint_id = mock_checkpoint_id,
-                                                .new_checkpoint_id = ++mock_checkpoint_id,
-                                            } }));
+                ::testing::ElementsAreArray({ CreateCheckpointHint{
+                                                  .action_counter = mock_action_counter++,
+                                                  .old_checkpoint_id = mock_checkpoint_id,
+                                                  .new_checkpoint_id = ++mock_checkpoint_id,
+                                              },
+                                              CreateCheckpointHint{
+                                                  .action_counter = mock_action_counter++,
+                                                  .old_checkpoint_id = mock_checkpoint_id,
+                                                  .new_checkpoint_id = ++mock_checkpoint_id,
+                                              } }));
     EXPECT_THAT(collected_hints.commit_checkpoint_hints,
-                testing::ElementsAre(CommitCheckpointHint{
+                ::testing::ElementsAre(CommitCheckpointHint{
                     .action_counter = mock_action_counter++,
                     .old_checkpoint_id = mock_checkpoint_id,
                     .new_checkpoint_id = --mock_checkpoint_id,
                 }));
     EXPECT_THAT(collected_hints.revert_checkpoint_hints,
-                testing::ElementsAre(RevertCheckpointHint{
+                ::testing::ElementsAre(RevertCheckpointHint{
                     .action_counter = mock_action_counter++,
                     .old_checkpoint_id = mock_checkpoint_id,
                     .new_checkpoint_id = --mock_checkpoint_id,

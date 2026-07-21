@@ -69,9 +69,8 @@ export class EpochMonitor implements Traceable {
 
   public async work() {
     const { epochToProve, blockNumber, slotNumber } = await this.getEpochNumberToProve();
-    this.log.debug(`Epoch to prove: ${epochToProve}`, { blockNumber, slotNumber });
     if (epochToProve === undefined) {
-      this.log.trace(`Next block to prove ${blockNumber} not yet mined`, { blockNumber });
+      this.log.trace(`Next block to prove ${blockNumber} not yet mined`, { epochToProve, blockNumber, slotNumber });
       return;
     }
     if (this.latestEpochNumber !== undefined && epochToProve <= this.latestEpochNumber) {
@@ -86,20 +85,20 @@ export class EpochMonitor implements Traceable {
     }
 
     if (this.options.provingDelayMs) {
-      this.log.debug(`Waiting ${this.options.provingDelayMs}ms before proving epoch ${epochToProve}`);
+      this.log.warn(`Waiting ${this.options.provingDelayMs}ms before proving epoch ${epochToProve}`);
       await sleep(this.options.provingDelayMs);
     }
 
-    this.log.debug(`Epoch ${epochToProve} is ready to be proven`);
+    this.log.verbose(`Epoch ${epochToProve} is ready to be proven`);
     if (await this.handler?.handleEpochReadyToProve(epochToProve)) {
       this.latestEpochNumber = epochToProve;
     }
   }
 
   private async getEpochNumberToProve() {
-    const lastBlockProven = await this.l2BlockSource.getProvenBlockNumber();
+    const lastBlockProven = (await this.l2BlockSource.getBlockNumber({ tag: 'proven' })) ?? BlockNumber.ZERO;
     const firstBlockToProve = BlockNumber(lastBlockProven + 1);
-    const firstBlockHeaderToProve = await this.l2BlockSource.getBlockHeader(firstBlockToProve);
+    const firstBlockHeaderToProve = (await this.l2BlockSource.getBlockData({ number: firstBlockToProve }))?.header;
     if (!firstBlockHeaderToProve) {
       return { epochToProve: undefined, blockNumber: firstBlockToProve };
     }

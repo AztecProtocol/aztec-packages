@@ -4,7 +4,7 @@
 #include <gtest/gtest.h>
 #include <optional>
 
-#include "barretenberg/vm2/common/aztec_constants.hpp"
+#include "barretenberg/aztec/aztec_constants.hpp"
 #include "barretenberg/vm2/common/aztec_types.hpp"
 #include "barretenberg/vm2/simulation/events/contract_instance_retrieval_event.hpp"
 #include "barretenberg/vm2/simulation/events/event_emitter.hpp"
@@ -88,7 +88,7 @@ TEST_F(ContractInstanceManagerTest, ValidProtocolContractReturnsInstance)
     AztecAddress protocol_address = AztecAddress(1);
 
     // Create a contract instance
-    ContractInstance instance = testing::random_contract_instance();
+    ContractInstance instance = testing::random_protocol_contract_instance();
 
     // Setup mocks
     TreeStates tree_states = {};

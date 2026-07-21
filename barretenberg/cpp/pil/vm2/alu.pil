@@ -126,6 +126,12 @@ op_id = sel_op_add * constants.AVM_EXEC_OP_ID_ALU_ADD
       + sel_op_shr * constants.AVM_EXEC_OP_ID_ALU_SHR
       + sel_op_truncate * constants.AVM_EXEC_OP_ID_ALU_TRUNCATE;
 
+#[EXACTLY_ONE_OPERATION_ACTIVE]
+sel = sel_op_add + sel_op_sub + sel_op_mul + sel_op_div + sel_op_fdiv + sel_op_eq + sel_op_lt
+    + sel_op_lte + sel_op_not + sel_op_shl + sel_op_shr + sel_op_truncate;
+// Unconditional mutual exclusiveness of the operations selectors follow.
+// Enforces that no operation is active on an inactive portion of the trace.
+
 /******************************************************************************
 * Inputs and outputs and common helper selectors.
 ******************************************************************************/
@@ -204,6 +210,8 @@ sel_tag_err = sel_ab_tag_mismatch + FF_TAG_ERR - sel_ab_tag_mismatch * FF_TAG_ER
 // ------------------------------------------------------------
 // Error case 1: FF_TAG_ERR
 // ------------------------------------------------------------
+// FF_TAG_ERR is boolean by definition: sel_op_div, sel_op_not, SHIFT_OPS are unconditionally mutually exclusive
+// and sel_is_ff is boolean as well as IS_NOT_FF == (1 - sel_is_ff).
 pol FF_TAG_ERR = (sel_op_div + sel_op_not + SHIFT_OPS) * sel_is_ff + sel_op_fdiv * IS_NOT_FF;
 
 // ------------------------------------------------------------
@@ -254,7 +262,7 @@ pol commit max_bits;
 pol commit max_value;
 
 #[TAG_MAX_BITS_VALUE]
-sel { ia_tag, max_bits, max_value } in precomputed.sel_tag_parameters { precomputed.clk, precomputed.tag_max_bits, precomputed.tag_max_value };
+sel { ia_tag, max_bits, max_value } in precomputed.sel_tag_parameters { precomputed.idx, precomputed.tag_max_bits, precomputed.tag_max_value };
 
 // OUTPUT TAG CHECKING
 
@@ -434,6 +442,12 @@ pol DIV_OPS_NON_U128 = (1 - sel_err) * sel_op_fdiv + sel_div_no_err * IS_NOT_U12
 #[ALU_FDIV_DIV_NON_U128]
 DIV_OPS_NON_U128 * (ib * ic - ia + sel_op_div * helper1) = 0;
 
+// Range check that the remainder (helper1) fits within max_bits (and importantly, always within 128 bits).
+// Without this, a malicious prover could set helper1 to an arbitrary field element that satisfies
+// the division relation. The GT gadget has a precondition that inputs must fit wiithin 128 bits.
+#[RANGE_CHECK_DIV_REMAINDER]
+sel_div_no_err { helper1, max_bits } in range_check.sel_alu { range_check.value, range_check.rng_chk_bits };
+
 // ------------------------------------------------------------
 // EQ
 // ------------------------------------------------------------
@@ -482,6 +496,13 @@ gt_input_b = sel_op_lt * ia + sel_op_lte * ib + sel_div_no_err * helper1;
 sel_ff_gt { gt_input_a, gt_input_b, gt_result_c }
 in ff_gt.sel_gt { ff_gt.a, ff_gt.b, ff_gt.result };
 
+// Preconditions to `gt` gadget require both inputs to be bounded by 2^128.
+// - LT: gt_input_a = ib, gt_input_b = ia
+// - LTE: gt_input_a = ia, gt_input_b = ib
+// - DIV: gt_input_a = ib, gt_input_b = helper1
+// For LT/LTE/DIV, `sel_int_gt` is active only for non-FF values.
+// By preconditions of alu.pil (see above), `ia` and `ib` are bounded by 2^128 for non-FF values.
+// helper1 is constrained to be < 2^max_bits <= 2^128 as part of the lookup #[RANGE_CHECK_DIV_REMAINDER].
 #[INT_GT]
 sel_int_gt { gt_input_a, gt_input_b, gt_result_c }
 in gt.sel_alu { gt.input_a, gt.input_b, gt.res };
@@ -576,7 +597,7 @@ shift_lo_bits = (1 - sel_err) * (
 pol SHIFT_HI_BITS = (1 - sel_err) * (max_bits - sel_shift_ops_no_overflow * shift_lo_bits);
 
 #[SHIFTS_TWO_POW]
-sel_shift_ops_no_overflow { shift_lo_bits, two_pow_shift_lo_bits } in precomputed.sel_range_8 { precomputed.clk, precomputed.power_of_2 };
+sel_shift_ops_no_overflow { shift_lo_bits, two_pow_shift_lo_bits } in precomputed.sel_range_8 { precomputed.idx, precomputed.power_of_2 };
 
 // Note on why sel_shift_ops_no_overflow is correctly constrained:
 // 1) If ib < max_bits and we maliciously set sel_shift_ops_no_overflow == 0,
@@ -635,6 +656,12 @@ sel_op_truncate = sel_trunc_non_trivial + sel_trunc_trivial;
 #[TRUNC_TRIVIAL_CASE]
 sel_trunc_trivial * (ia - ic) = 0;
 
+// If the destination is FF, then the truncation is trivial.
+// This is important to ensure in #[TRUNC_LO_128_DECOMPOSITION] that max_value + 1
+// is a power of two and not zero (for field elements).
+#[DEST_FF_IS_TRIVIAL]
+sel_op_truncate * sel_is_ff * (1 - sel_trunc_trivial) = 0;
+
 // NOTE: reusing a_lo column from MUL in TRUNC:
 // For truncate, a_lo = 128-bit low limb of ia.
 // mid is a limb of `128 - max_bits` bits.
@@ -652,6 +679,9 @@ ff_gt.sel_dec { ff_gt.a, ff_gt.a_lo };
 sel_trunc_lt_128 * (a_lo - ia) = 0;
 
 // a_lo = ic + mid * 2^ia_tag_bits, where 2^ia_tag_bits is max_value + 1.
+// For the above to hold, `sel_trunc_non_trivial` must be zero when the destination is FF
+// which is enforced by #[DEST_FF_IS_TRIVIAL] and the mutual exclusion of `sel_trunc_non_trivial`
+// and `sel_trunc_trivial`.
 #[TRUNC_LO_128_DECOMPOSITION]
 sel_trunc_non_trivial * (ic + mid * (max_value + 1) - a_lo) = 0;
 

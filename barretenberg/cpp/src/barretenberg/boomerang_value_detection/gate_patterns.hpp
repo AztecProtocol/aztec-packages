@@ -5,6 +5,7 @@
 // =====================
 
 #pragma once
+#include "barretenberg/honk/execution_trace/execution_trace_block.hpp"
 #include <cstddef>
 #include <cstdint>
 #include <functional>
@@ -12,6 +13,9 @@
 #include <vector>
 
 namespace bb::gate_patterns {
+
+using bb::GateKind;
+using bb::read_gate_selector;
 
 enum class Wire : uint8_t {
     W_L,
@@ -41,6 +45,7 @@ struct Selectors {
     bool q_2_nz = false;
     bool q_3_nz = false;
     bool q_4_nz = false;
+    bool q_5_nz = false;
     bool q_c_nz = false;
 };
 
@@ -323,6 +328,81 @@ inline const GatePattern POSEIDON2_EXTERNAL = { .name = "poseidon2_external",
                                                 } };
 
 // ============================================================================
+// Poseidon2 Initial External Pattern (from poseidon2_initial_external_relation.hpp)
+//
+// All 4 current wires and all 4 shifted wires are constrained
+//
+// gate_selector = q_poseidon2_external_initial
+// ============================================================================
+
+inline const GatePattern POSEIDON2_INITIAL_EXTERNAL = { .name = "poseidon2_initial_external",
+                                                        .wires = {
+                                                            { Wire::W_L, [](const Selectors&) { return true; } },
+                                                            { Wire::W_R, [](const Selectors&) { return true; } },
+                                                            { Wire::W_O, [](const Selectors&) { return true; } },
+                                                            { Wire::W_4, [](const Selectors&) { return true; } },
+                                                            { Wire::W_L_SHIFT, [](const Selectors&) { return true; } },
+                                                            { Wire::W_R_SHIFT, [](const Selectors&) { return true; } },
+                                                            { Wire::W_O_SHIFT, [](const Selectors&) { return true; } },
+                                                            { Wire::W_4_SHIFT, [](const Selectors&) { return true; } },
+                                                        } };
+
+// ============================================================================
+// Poseidon2 Quad-Internal Pattern (from poseidon2_quad_internal_relation.hpp)
+//
+// gate_selector = q_poseidon2_quad_internal
+// ============================================================================
+
+inline const GatePattern POSEIDON2_QUAD_INTERNAL = { .name = "poseidon2_quad_internal",
+                                                     .wires = {
+                                                         { Wire::W_L, [](const Selectors&) { return true; } },
+                                                         { Wire::W_R, [](const Selectors&) { return true; } },
+                                                         { Wire::W_O, [](const Selectors&) { return true; } },
+                                                         { Wire::W_4, [](const Selectors&) { return true; } },
+                                                         { Wire::W_L_SHIFT, [](const Selectors&) { return true; } },
+                                                         { Wire::W_R_SHIFT, [](const Selectors&) { return true; } },
+                                                         { Wire::W_O_SHIFT, [](const Selectors&) { return true; } },
+                                                         { Wire::W_4_SHIFT, [](const Selectors&) { return true; } },
+                                                     } };
+
+// ============================================================================
+// Poseidon2 Quad-Internal Terminal Pattern
+// (from poseidon2_quad_internal_terminal_relation.hpp)
+//
+// gate_selector = q_poseidon2_quad_internal_terminal
+// ============================================================================
+
+inline const GatePattern
+    POSEIDON2_QUAD_INTERNAL_TERMINAL = { .name = "poseidon2_quad_internal_terminal",
+                                         .wires = {
+                                             { Wire::W_L, [](const Selectors&) { return true; } },
+                                             { Wire::W_R, [](const Selectors&) { return true; } },
+                                             { Wire::W_O, [](const Selectors&) { return true; } },
+                                             { Wire::W_4, [](const Selectors&) { return true; } },
+                                             { Wire::W_L_SHIFT, [](const Selectors&) { return true; } },
+                                             { Wire::W_R_SHIFT, [](const Selectors&) { return true; } },
+                                             { Wire::W_O_SHIFT, [](const Selectors&) { return true; } },
+                                             { Wire::W_4_SHIFT, [](const Selectors&) { return true; } },
+                                         } };
+
+// ============================================================================
+// Poseidon2 Transition Entry Pattern (from poseidon2_transition_entry_relation.hpp)
+//
+// gate_selector = q_poseidon2_transition_entry
+// ============================================================================
+
+inline const GatePattern POSEIDON2_TRANSITION_ENTRY = { .name = "poseidon2_transition_entry",
+                                                        .wires = {
+                                                            { Wire::W_L, [](const Selectors&) { return true; } },
+                                                            { Wire::W_R, [](const Selectors&) { return true; } },
+                                                            { Wire::W_O, [](const Selectors&) { return true; } },
+                                                            { Wire::W_4, [](const Selectors&) { return true; } },
+                                                            { Wire::W_R_SHIFT, [](const Selectors&) { return true; } },
+                                                            { Wire::W_O_SHIFT, [](const Selectors&) { return true; } },
+                                                            { Wire::W_4_SHIFT, [](const Selectors&) { return true; } },
+                                                        } };
+
+// ============================================================================
 // Databus Pattern (from databus_lookup_relation.hpp)
 //
 // Read term uses: w_l (value), w_r (index)
@@ -337,19 +417,65 @@ inline const GatePattern DATABUS = { .name = "databus",
                                      } };
 
 // ============================================================================
+// Bilinear / batched-eq patterns (from bilinear_or_batched_eq_check_relation.hpp; Mega-only)
+//
+// The shared arithmetic-block selector q_bilinear_batched_eq multiplexes two row-modes:
+//   gate_selector == 1 (BILINEAR): a single equation over all four wires
+//       q_m·w_l·w_r + q_5·w_l·w_o + q_l·w_l + q_r·w_r + q_o·w_o + q_4·w_4 + q_c = 0
+//     The two products share wire w_l, so w_l is constrained by either product selector (q_m, q_5) or
+//     its linear selector q_1. w_4 appears only in its linear term q_4. A wire is constrained iff any
+//     of its selectors is non-zero.
+//   gate_selector == 2 (BATCHED_EQ): two INDEPENDENT equalities
+//       batched-eq-half-1: q_l·w_l + q_r·w_r + q_c = 0   (selectors q_1, q_2)
+//       batched-eq-half-2: q_o·w_o + q_4·w_4 + q_m = 0   (selectors q_3, q_4)
+//     The two halves share no witnesses by construction, so they are modelled as two patterns and
+//     connected separately — connecting all four wires would hide an under-constrained witness.
+//
+// gate_selector = q_bilinear_batched_eq
+// ============================================================================
+
+inline const GatePattern
+    BILINEAR = { .name = "bilinear",
+                 .wires = {
+                     { Wire::W_L,
+                       [](const Selectors& sel) {
+                           return sel.gate_selector == 1 && (sel.q_m_nz || sel.q_5_nz || sel.q_1_nz);
+                       } },
+                     { Wire::W_R,
+                       [](const Selectors& sel) { return sel.gate_selector == 1 && (sel.q_m_nz || sel.q_2_nz); } },
+                     { Wire::W_O,
+                       [](const Selectors& sel) { return sel.gate_selector == 1 && (sel.q_5_nz || sel.q_3_nz); } },
+                     { Wire::W_4, [](const Selectors& sel) { return sel.gate_selector == 1 && sel.q_4_nz; } },
+                 } };
+
+inline const GatePattern
+    BATCHED_EQ_HALF_1 = { .name = "batched_eq_half_1",
+                          .wires = {
+                              { Wire::W_L, [](const Selectors& sel) { return sel.gate_selector == 2 && sel.q_1_nz; } },
+                              { Wire::W_R, [](const Selectors& sel) { return sel.gate_selector == 2 && sel.q_2_nz; } },
+                          } };
+
+inline const GatePattern
+    BATCHED_EQ_HALF_2 = { .name = "batched_eq_half_2",
+                          .wires = {
+                              { Wire::W_O, [](const Selectors& sel) { return sel.gate_selector == 2 && sel.q_3_nz; } },
+                              { Wire::W_4, [](const Selectors& sel) { return sel.gate_selector == 2 && sel.q_4_nz; } },
+                          } };
+
+// ============================================================================
 // Helper functions
 // ============================================================================
 
-template <typename Block, typename GateSelectorColumn>
-Selectors read_selectors(Block& block, size_t gate_index, const GateSelectorColumn& gate_selector_column)
+template <typename Block> Selectors read_selectors(Block& block, size_t gate_index, GateKind kind)
 {
     return Selectors{
-        .gate_selector = static_cast<int64_t>(static_cast<uint64_t>(gate_selector_column[gate_index])),
+        .gate_selector = static_cast<int64_t>(static_cast<uint64_t>(read_gate_selector(block, kind, gate_index))),
         .q_m_nz = !block.q_m()[gate_index].is_zero(),
         .q_1_nz = !block.q_1()[gate_index].is_zero(),
         .q_2_nz = !block.q_2()[gate_index].is_zero(),
         .q_3_nz = !block.q_3()[gate_index].is_zero(),
         .q_4_nz = !block.q_4()[gate_index].is_zero(),
+        .q_5_nz = !block.q_5()[gate_index].is_zero(),
         .q_c_nz = !block.q_c()[gate_index].is_zero(),
     };
 }

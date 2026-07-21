@@ -1,11 +1,12 @@
 mod validate_contract_address;
 pub(crate) mod validate_side_effect_counters;
 
-use dep::types::{
+use types::{
     abis::{
         kernel_circuit_public_inputs::PrivateKernelCircuitPublicInputs,
         private_call_request::PrivateCallRequest,
-        private_kernel::private_call_data::PrivateCallData, protocol_contracts::ProtocolContracts,
+        private_kernel::private_call_data::PrivateCallData,
+        private_tx_constant_data::PrivateTxConstantData, protocol_contracts::ProtocolContracts,
         transaction::tx_request::TxRequest,
     },
     constants::NULL_MSG_SENDER_CONTRACT_ADDRESS,
@@ -38,7 +39,6 @@ impl PrivateCallDataValidator {
         self,
         tx_request: TxRequest,
         protocol_contracts: ProtocolContracts,
-        first_nullifier_hint: Field,
         claimed_revertible_counter: u32,
     ) {
         self.validate_common(
@@ -46,9 +46,6 @@ impl PrivateCallDataValidator {
             protocol_contracts,
             claimed_revertible_counter,
         );
-
-        // There must be at least one nullifier for the private execution, which is used to compute note hash nonces.
-        assert(!first_nullifier_hint.is_empty(), "first_nullifier_hint cannot be empty");
 
         self.validate_against_tx_request(tx_request);
 
@@ -96,6 +93,41 @@ impl PrivateCallDataValidator {
         let private_call_stack_length = previous_kernel.end.private_call_stack.length;
         let call_request =
             previous_kernel.end.private_call_stack.array[private_call_stack_length - 1];
+        self.validate_against_call_request(call_request);
+    }
+
+    /// For batched Init and Inner.
+    /// Run every check that depends only on the shared tx constants (proof verification,
+    /// contract address, side-effect counters, msg_senders, expected counters, claimed-lengths bounds,
+    /// anchor_block_header, tx_context).
+    /// Must run BEFORE the unconstrained composer; the composer may otherwise index past
+    /// claimed array lengths.
+    ///
+    /// Note: This function should only be used to validate function calls AFTER the first
+    /// function call.
+    pub fn validate_against_constants(
+        self,
+        constants: PrivateTxConstantData,
+        claimed_revertible_counter: u32,
+    ) {
+        self.validate_common(
+            false /* is_first_function_call */,
+            constants.protocol_contracts,
+            claimed_revertible_counter,
+        );
+
+        let this_call = self.data.public_inputs;
+        assert_eq(
+            this_call.anchor_block_header,
+            constants.anchor_block_header,
+            "anchor block header mismatch",
+        );
+        assert_eq(this_call.tx_context, constants.tx_context, "mismatch tx context");
+        assert_eq(this_call.tx_request_salt, constants.tx_request_salt, "mismatch tx_request_salt");
+    }
+
+    /// Validate that the call_request matched the current call.
+    pub fn validate_against_request(self, call_request: PrivateCallRequest) {
         self.validate_against_call_request(call_request);
     }
 
@@ -151,6 +183,14 @@ impl PrivateCallDataValidator {
             this_call.tx_context,
             "tx_context in private call does not match the value in tx_request",
         );
+        // Binds the entry-point proof to the tx request's salt. The salt feeds the protocol nullifier
+        // (`P = H(tx_request)`), so without this a third party could rebind the same proof to a
+        // different salt, yielding a different `P` and replaying the transaction.
+        assert_eq(
+            tx_request.salt,
+            this_call.tx_request_salt,
+            "tx_request_salt in private call does not match the salt in tx_request",
+        );
     }
 
     /// For Inner only.
@@ -167,6 +207,7 @@ impl PrivateCallDataValidator {
             "anchor block header mismatch",
         );
         assert_eq(this_call.tx_context, constants.tx_context, "mismatch tx context");
+        assert_eq(this_call.tx_request_salt, constants.tx_request_salt, "mismatch tx_request_salt");
     }
 
     /// For Inner only.
@@ -248,6 +289,19 @@ impl PrivateCallDataValidator {
                 "static call cannot make non-static public teardown call",
             );
         }
+
+        // A static call cannot nominate itself as fee payer, because that directly results in the fee payer's FeeJuice
+        // balance being decremented by the AVM or the Private Tx Base Rollup circuit, which is technically a state
+        // change that violates the notion of "static call".
+        assert_eq(this_call.is_fee_payer, false, "static call cannot nominate itself as fee payer");
+
+        // A static call cannot set the min revertible side effect counter, which would affect whether a side effect
+        // should be retained or discarded if the tx reverts.
+        assert_eq(
+            this_call.min_revertible_side_effect_counter,
+            0,
+            "static call cannot set the min revertible side effect counter",
+        );
     }
 
     /// For Init and Inner.
@@ -263,8 +317,8 @@ impl PrivateCallDataValidator {
         self.data.public_inputs.nullifier_read_requests.assert_length_within_bounds(
             "nullifier_read_requests length out of bounds",
         );
-        self.data.public_inputs.key_validation_requests_and_generators.assert_length_within_bounds(
-            "key_validation_requests_and_generators length out of bounds",
+        self.data.public_inputs.key_validation_requests_and_separators.assert_length_within_bounds(
+            "key_validation_requests_and_separators length out of bounds",
         );
         self.data.public_inputs.private_call_requests.assert_length_within_bounds(
             "private_call_requests length out of bounds",

@@ -20,11 +20,12 @@ Here are the most relevant files you should be aware of:
 - `.env.template` - Template for environment variables required for Netlify functions (copy to `.env` and update with your API keys).
 - `netlify.toml` - Configuration for Netlify deployment and functions.
 
-This site uses **Docusaurus multi-instance docs** with two separate documentation areas:
+This site uses **Docusaurus multi-instance docs** with separate documentation areas:
 
 - `docs/` - Root-level documentation (landing page, shared content)
 - `docs-developers/` - Developer documentation source files (tutorials, references, guides)
-- `docs-network/` - Network/node operator documentation source files
+- `docs-operate/` - Operator documentation source files
+- `docs-participate/` - Participation / educational documentation source files
 
 See the [Docusaurus website](https://docusaurus.io/docs/docs-introduction) for the full documentation on how to create docs and to manage the metadata.
 
@@ -37,10 +38,11 @@ Aztec Docs use **multi-instance versioning** with separate version tracks for de
 
 Each versioned docs folder is a complete copy of the documentation at that point in time, which allows you to hot-fix previous versions.
 
-When you look at the published docs site, you will see version dropdowns for each docs instance. Developer docs show versions like `nightly` and `devnet`, while network docs show versions like `testnet` and `ignition`.
+When you look at the published docs site, you will see version dropdowns for each docs instance. Developer docs show versions like `mainnet`, `testnet`, `devnet`, and `nightly`, while network docs show versions like `mainnet` and `testnet`.
 
 - Updating files in `docs-developers/` updates the "next" developer version
-- Updating files in `docs-network/` updates the "next" network version
+- Updating files in `docs-operate/` updates the "next" operate version
+- Updating files in `docs-participate/` updates the unversioned participate docs
 - Updating files in versioned folders like `developer_versioned_docs/version-v3.0.0-devnet.5/` updates that specific version
 
 Note that you cannot use the macros (`#include_aztec_version` and `#include_code`) in versioned folders, since those docs have already been processed and built. Instead, drop the code snippets, version numbers or links directly in the docs as you'd like them to be rendered.
@@ -63,53 +65,38 @@ The legacy `#include_aztec_version` macro uses `COMMIT_TAG`, while `#include_ver
 
 ### How do I change the versions that show in the website
 
-When Docusaurus builds, it looks for the version files for each docs instance:
+Both developer and network docs use **version config files** that map release types to version strings:
 
-- `developer_versions.json` - Controls which versions appear in the developer docs dropdown
-- `network_versions.json` - Controls which versions appear in the network docs dropdown
+- **Developer docs**: `developer_version_config.json` (e.g., `{"mainnet": "v4.2.0-aztecnr-rc.2", "testnet": "v4.1.0-rc.2", ...}`)
+- **Network docs**: `network_version_config.json` (e.g., `{"mainnet": "v4.1.2", "testnet": "v4.1.0-rc.2"}`)
 
-You can update these files manually, or use the `scripts/update_docs_versions.sh` script:
+The `docusaurus.config.js` reads these configs and auto-generates the Docusaurus-compatible `*_versions.json` arrays at startup, including only versions that have matching versioned docs directories. Any extra directories not in the config are also included (to preserve newly cut versions before the config is updated).
+
+Use `scripts/update_docs_versions.sh` to update configs and reconcile with versioned docs directories:
 
 ```bash
-./scripts/update_docs_versions.sh developer  # Updates developer_versions.json
-./scripts/update_docs_versions.sh network    # Updates network_versions.json
+./scripts/update_docs_versions.sh developer                        # Reconcile developer config
+./scripts/update_docs_versions.sh network mainnet v4.2.0           # Set mainnet=v4.2.0, then reconcile
+./scripts/update_docs_versions.sh developer nightly v5.0.0-nightly # Set nightly version, then reconcile
 ```
 
 To create a new versioned snapshot of the docs:
 
 ```bash
-yarn docusaurus docs:version:developers v3.0.0-devnet.6  # New developer version
-yarn docusaurus docs:version:network v2.1.6-ignition     # New network version
+yarn docusaurus docs:version:developer v3.0.0-devnet.6  # New developer version
+yarn docusaurus docs:version:network v4.2.0              # New network version
 ```
 
 ### Version Configuration
 
-The `docusaurus.config.js` file uses dynamic version lookup instead of hard-coded array indices to gracefully handle version changes. This is critical for the nightly docs cleanup workflow, which removes old nightly versions.
-
-Each docs instance has its own version file and lookup logic:
-
-**Developer docs** (from `developer_versions.json`):
-
-```javascript
-const nightlyVersion = developerVersions.find((v) => v.includes("nightly"));
-const devnetVersion = developerVersions.find((v) => v.includes("devnet"));
-```
-
-**Network docs** (from `network_versions.json`):
-
-```javascript
-const ignitionVersion = networkVersions.find((v) => v.includes("ignition"));
-const testnetVersion = networkVersions.find((v) => !v.includes("ignition"));
-```
+The `docusaurus.config.js` file reads both config files to determine version labels, paths, and defaults. The config-based approach replaces fragile substring matching on version strings.
 
 This ensures that:
 
+- Version types are always correct regardless of the version string format
 - When nightly versions are removed by the cleanup script, the build doesn't break
 - Version configurations are conditionally included only if they exist
-- Array index shifts don't cause mismatched version configurations
-- The llms.txt plugin always points to the correct version (devnet)
-
-**Why this matters:** The [nightly docs workflow](../.github/workflows/nightly-docs-release.yml) runs `cleanup_nightly_versions.sh` before creating new versioned docs. Without dynamic lookup, removing versions would cause array indices to point to wrong versions, breaking the build.
+- The llms.txt plugin always points to the correct version (mainnet or testnet)
 
 ## Releases
 
@@ -232,6 +219,95 @@ yarn generate:aztec-nr-api v1.0.0
 
 The generated docs are stored in `static/aztec-nr-api/<version>/` and linked from the [Aztec.nr API Reference](/developers/docs/aztec-nr/api) page.
 
+### TypeScript API Documentation
+
+The TypeScript API reference is auto-generated from the `yarn-project/` packages using TypeDoc. This generates LLM-optimized markdown documentation served from `static/typescript-api/`.
+
+**Documented packages:**
+
+- **Client SDKs:** `@aztec/aztec.js`, `@aztec/accounts`, `@aztec/pxe`, `@aztec/wallet-sdk`, `@aztec/wallets`, `@aztec/entrypoints`
+- **Core Libraries:** `@aztec/stdlib`, `@aztec/foundation`, `@aztec/constants`
+
+**Prerequisites:** You need `yarn-project` to be built first (the bootstrap process handles this).
+
+**Generate docs for the "next" version:**
+
+```bash
+yarn generate:typescript-api
+```
+
+**Generate docs for a specific version:**
+
+```bash
+yarn generate:typescript-api v3.0.0-devnet.6
+```
+
+**How it works:**
+
+1. Reads package configuration from `scripts/typescript_api_generation/config.json`
+2. Runs TypeDoc on each package's entry points defined in their `package.json` `typedocOptions`
+3. Transforms the TypeDoc JSON output to LLM-optimized markdown via `transform_for_llm.ts`
+4. Generates `llm-summary.txt` with an overview of all packages
+
+**Output files:**
+
+- `static/typescript-api/<version>/*.md` - Per-package markdown documentation
+- `static/typescript-api/<version>/llm-summary.txt` - Human/LLM-readable summary
+
+**Version mapping:**
+
+- Versions containing "nightly" → `nightly/` folder
+- Versions containing "devnet" → `devnet/` folder
+- Versions containing "testnet" → `testnet/` folder
+- Versions for mainnet → `mainnet/` folder (set via `RELEASE_TYPE=mainnet`)
+- Other versions → version-specific folder (e.g., `v1.0.0/`)
+
+**When to regenerate:**
+
+- When TypeScript package APIs change (new exports, updated JSDoc comments, etc.)
+- The `next` version docs should be committed to the repo
+- Versioned docs are automatically generated by CI during release workflows
+
+The generated docs are linked from the [TypeScript API Reference](/developers/docs/aztec-js/typescript_api_reference) page.
+
+### Node JSON-RPC API Reference
+
+The Node JSON-RPC API reference is auto-generated from the TypeScript interface definitions and Zod schemas in `yarn-project/stdlib/src/interfaces/`. The generator parses the source AST to extract method names, JSDoc comments, and parameter/return types.
+
+**Source files:**
+
+- `yarn-project/stdlib/src/interfaces/aztec-node.ts` — `AztecNode` interface (`aztec_` methods)
+- `yarn-project/stdlib/src/interfaces/aztec-node-admin.ts` — `AztecNodeAdmin` interface (`aztecAdmin_` methods)
+- `yarn-project/stdlib/src/block/l2_block_source.ts` — `L2BlockSource` interface (JSDoc for inherited methods)
+
+**Prerequisites:** `yarn-project` must have `node_modules/` installed so `npx tsx` can resolve `typescript`. Run `yarn install` from `yarn-project` if needed. No build is required — the generator parses source `.ts` files via the TypeScript Compiler API, not compiled output.
+
+**Generate the reference doc:**
+
+```bash
+yarn generate:node-api-reference
+```
+
+This writes to `docs-operate/operators/reference/node-api-reference.md`.
+
+**Generate for a specific versioned docs directory:**
+
+```bash
+yarn generate:node-api-reference --target-dir network_versioned_docs/version-v4.1.3/operators/reference
+```
+
+**How it works:**
+
+1. Parses TypeScript interfaces with the TS Compiler API to extract JSDoc comments
+2. Parses Zod schema object literals from source AST to enumerate methods and extract types
+3. Generates markdown with method grouping, curl examples, and admin API security warnings
+
+**When to regenerate:**
+
+- When interface methods or Zod schemas change in `yarn-project/stdlib/src/interfaces/`
+- When cutting a new versioned snapshot of network docs (pass `--target-dir` to write into the versioned directory)
+- The source doc (`docs-operate/`) should be kept in sync with the latest code
+
 ## Macros
 
 As mentioned above, Aztec docs pull code from the source files. This makes it easy to include sections of the source code in tutorials and other examples.
@@ -322,20 +398,19 @@ This value may be different from both `#include_aztec_version` and `#include_tes
 
 ### `#include_mainnet_version`
 
-This macro will be replaced inline with the provided mainnet version. This value is sourced from the `MAINNET_TAG` environment variable when running `yarn build` (e.g. `MAINNET_TAG=2.1.9 yarn build`). If not specified, it defaults to `2.1.9`.
-This value is used for mainnet and ignition releases.
+This macro will be replaced inline with the provided mainnet version. This value is sourced from the `MAINNET_TAG` environment variable when running `yarn build` (e.g. `MAINNET_TAG=2.1.11 yarn build`). If not specified, it defaults to `2.1.11`.
+This value is used for mainnet releases.
 
 ### `#release_version`
 
 This macro is release-type-aware and automatically resolves to the appropriate version based on the `RELEASE_TYPE` environment variable:
 
-| RELEASE_TYPE | Resolves to | Example |
-|--------------|-------------|---------|
-| nightly | `NIGHTLY_TAG` (falls back to `COMMIT_TAG`) | `3.0.0-nightly.20251218` |
-| devnet | `DEVNET_TAG` | `3.0.0-devnet.5` |
-| testnet | `TESTNET_TAG` | `2.1.9` |
-| mainnet | `MAINNET_TAG` | `2.1.9` |
-| ignition | `MAINNET_TAG` | `2.1.9` |
+| RELEASE_TYPE | Resolves to                                | Example                  |
+| ------------ | ------------------------------------------ | ------------------------ |
+| nightly      | `NIGHTLY_TAG` (falls back to `COMMIT_TAG`) | `3.0.0-nightly.20251218` |
+| devnet       | `DEVNET_TAG`                               | `3.0.0-devnet.5`         |
+| testnet      | `TESTNET_TAG`                              | `2.1.11`                 |
+| mainnet      | `MAINNET_TAG`                              | `2.1.11`                 |
 
 Usage: `aztecprotocol/aztec:#release_version`
 
@@ -343,13 +418,12 @@ Usage: `aztecprotocol/aztec:#release_version`
 
 This macro resolves to the network name for use with the `--network` CLI flag:
 
-| RELEASE_TYPE | Resolves to |
-|--------------|-------------|
-| nightly | `local-network` |
-| devnet | `devnet` |
-| testnet | `testnet` |
-| mainnet | `mainnet` |
-| ignition | `mainnet` |
+| RELEASE_TYPE | Resolves to     |
+| ------------ | --------------- |
+| nightly      | `local-network` |
+| devnet       | `devnet`        |
+| testnet      | `testnet`       |
+| mainnet      | `mainnet`       |
 
 Usage: `--network #release_network`
 
@@ -361,9 +435,9 @@ The `RELEASE_TYPE` environment variable controls which release type the document
 - `devnet` - For devnet releases
 - `testnet` - For testnet releases
 - `mainnet` - For mainnet releases
-- `ignition` - For ignition releases (treated as mainnet)
 
 Example build commands:
+
 ```bash
 # Build for nightly (default)
 NIGHTLY_TAG=v3.0.0-nightly.20251218 yarn build
@@ -372,10 +446,10 @@ NIGHTLY_TAG=v3.0.0-nightly.20251218 yarn build
 RELEASE_TYPE=devnet DEVNET_TAG=3.0.0-devnet.5 yarn build
 
 # Build for testnet
-RELEASE_TYPE=testnet TESTNET_TAG=2.1.9 yarn build
+RELEASE_TYPE=testnet TESTNET_TAG=2.1.11 yarn build
 
-# Build for ignition/mainnet
-RELEASE_TYPE=ignition MAINNET_TAG=2.1.9 yarn build
+# Build for mainnet
+RELEASE_TYPE=mainnet MAINNET_TAG=4.2.0-aztecnr-rc.2 yarn build
 ```
 
 ### Conditional Content
@@ -390,20 +464,21 @@ Content that only appears in devnet docs
 #elif(testnet)
 Content that only appears in testnet docs
 #elif(mainnet)
-Content that only appears in mainnet/ignition docs
+Content that only appears in mainnet docs
 #else
 Default content if no condition matches
 #endif
 ```
 
 **Supported conditions** (matching `RELEASE_TYPE` values):
+
 - `nightly` - True when `RELEASE_TYPE=nightly`
 - `devnet` - True when `RELEASE_TYPE=devnet`
 - `testnet` - True when `RELEASE_TYPE=testnet`
-- `mainnet` - True when `RELEASE_TYPE=mainnet` or `RELEASE_TYPE=ignition`
-- `ignition` - Alias for `mainnet`
+- `mainnet` - True when `RELEASE_TYPE=mainnet`
 
 **Notes:**
+
 - Conditional blocks are processed before version macro substitution, so you can use version macros inside conditionals
 - Nested conditionals are not supported
 - The `else` block is optional
@@ -467,7 +542,6 @@ When documentation references source code files, the CI system can automatically
    ```
 
 2. **Automatic Detection**: During CI builds (`bootstrap.sh`), the system:
-
    - Extracts all referenced paths from documentation frontmatter
    - Checks if any referenced files (or files within referenced directories) changed in the current PR
    - Automatically requests `@AztecProtocol/devrel` as reviewers if:
@@ -483,6 +557,7 @@ When documentation references source code files, the CI system can automatically
 **Implementation**: The automation is handled by `scripts/check_doc_references.sh`, which runs as part of the docs CI pipeline.
 
 **Path Format**:
+
 - Paths must be absolute from the repository root (e.g., `yarn-project/...`, not `../../../../yarn-project/...`)
 - For individual files: `"path/to/file.ts"`
 - For directories (all files within): `"path/to/directory/*"`
@@ -502,39 +577,33 @@ Building on the DevRel review automation, the docs CI can analyze PRs and notify
    - Generate suggested documentation changes
 
 3. **Slack Notification**: If documentation updates are suggested:
-   - A message is sent to the configured Slack channel (default: `#devrel`)
+   - A message is sent to the configured Slack channel (default: `#docs-alerts`)
    - The message includes the PR details, affected docs, and suggested changes
    - The DevRel team can review and apply the changes manually
 
 **Requirements**:
+
 - `ANTHROPIC_API_KEY` must be set in CI secrets
-- `SLACK_BOT_TOKEN` must be set for Slack notifications
+- `AZTEC_FOUNDATION_CI_SLACK_BOT_TOKEN` must be set for Slack notifications (this bot has access to `#docs-alerts`)
 - Claude Code CLI must be installed (`@anthropic-ai/claude-code`)
 - The PR must not be a draft
 
 **Environment Variables**:
-- `SLACK_DOC_UPDATE_CHANNEL` - Slack channel for notifications (default: `#devrel`)
+
+- `SLACK_DOC_UPDATE_CHANNEL` - Slack channel for notifications (default: `#docs-alerts`)
 - `DRY_RUN=1` - Skip Slack notification, just print what would be sent
 
-**Implementation**: The automation is handled by `scripts/update_doc_references.sh`, which runs as part of the docs CI pipeline after `check_doc_references.sh`.
+**Implementation**: The automation is handled by `scripts/check_doc_references.sh`, which detects changed references, requests devrel review, sends a Slack notification, and dispatches ClaudeBox — all in a single pass.
 
 **Script Architecture**:
-- `scripts/update_doc_references.sh` - Main script that orchestrates the workflow
+
+- `scripts/check_doc_references.sh` - Main script that handles detection, review requests, Slack, and ClaudeBox dispatch
 - `scripts/lib/extract_doc_references.sh` - Shared library for parsing frontmatter references
 - `scripts/lib/create_doc_update_pr.sh` - (Reserved for future use) PR creation logic
-- `scripts/test_update_doc_references.sh` - Local testing helper
-
-**Local Testing**:
-```bash
-# Find a PR with referenced file changes and test
-./scripts/test_update_doc_references.sh
-
-# Test against a specific PR
-LOCAL_TEST=1 DRY_RUN=1 ./scripts/update_doc_references.sh 19803
-```
 
 **Limitations**:
-- Only analyzes documentation in the source folders (`docs-developers/`, `docs-network/`), not versioned docs
+
+- Only analyzes documentation in the source folders (`docs-developers/`, `docs-operate/`, `docs-participate/`), not versioned docs
 - Suggested changes should always be reviewed by a human before applying
 - The AI may occasionally suggest unnecessary or incorrect changes
 

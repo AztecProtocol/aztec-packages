@@ -9,38 +9,37 @@ mod reset_output_validator;
 
 use crate::{
     abis::{PaddedSideEffects, PrivateKernelResetHints},
+    components::reset_output_composer::{
+        silo_note_hash, silo_nullifier, silo_private_log, uniquify_siloed_note_hash,
+    },
     private_kernel_reset::PrivateKernelResetCircuitPrivateInputs,
     reset::{KeyValidationHint, ReadRequestHintsBuilder, TransientDataSquashingHint},
 };
-use dep::types::{
+use protocol_test_utils::{FixtureBuilder, pad_end, pad_end_with};
+use std::embedded_curve_ops::{EmbeddedCurveScalar, fixed_base_scalar_mul as derive_public_key};
+use types::{
     abis::{
         kernel_circuit_public_inputs::PrivateKernelCircuitPublicInputs, note_hash::NoteHash,
         note_hash_leaf_preimage::NoteHashLeafPreimage, nullifier::Nullifier,
         nullifier_leaf_preimage::NullifierLeafPreimage,
         private_kernel_data::PrivateKernelDataWithoutPublicInputs, private_log::PrivateLogData,
     },
-    address::AztecAddress,
     constants::{
         MAX_NOTE_HASH_READ_REQUESTS_PER_TX, MAX_NOTE_HASHES_PER_TX,
         MAX_NULLIFIER_READ_REQUESTS_PER_TX, MAX_NULLIFIERS_PER_TX, NOTE_HASH_SUBTREE_HEIGHT,
         NOTE_HASH_TREE_HEIGHT, NULLIFIER_SUBTREE_HEIGHT, NULLIFIER_TREE_HEIGHT,
         PRIVATE_KERNEL_INNER_VK_INDEX,
     },
-    hash::{
-        compute_app_siloed_secret_key, compute_siloed_nullifier, compute_unique_siloed_note_hash,
-        silo_note_hash, silo_nullifier, silo_private_log,
+    hash::{compute_app_siloed_secret_key, compute_siloed_nullifier},
+    merkle_tree::{
+        LeafPreimage, MembershipWitness, nullifier_merkle_hash, test_utils::SingleSubtreeMerkleTree,
     },
-    merkle_tree::{LeafPreimage, MembershipWitness},
-    side_effect::{Counted, Ordered, Scoped},
-    tests::{
-        fixture_builder::FixtureBuilder,
-        merkle_tree_utils::SingleSubtreeMerkleTree,
-        utils::{pad_end, pad_end_with},
-    },
+    point::EmbeddedCurvePoint,
+    public_keys::hash_public_key,
+    side_effect::{Counted, Scoped},
     traits::Empty,
     utils::arrays::find_first_index,
 };
-use std::embedded_curve_ops::{EmbeddedCurveScalar, fixed_base_scalar_mul as derive_public_key};
 
 global NOTE_HASH_PENDING_READ_HINTS_LEN: u32 = 8;
 global NOTE_HASH_SETTLED_READ_HINTS_LEN: u32 = 5;
@@ -60,7 +59,6 @@ struct TestBuilder {
     pub note_hash_read_request_hints: ReadRequestHintsBuilder<MAX_NOTE_HASH_READ_REQUESTS_PER_TX, NOTE_HASH_PENDING_READ_HINTS_LEN, NOTE_HASH_SETTLED_READ_HINTS_LEN, NOTE_HASH_TREE_HEIGHT, NoteHashLeafPreimage>,
     pub nullifier_read_request_hints: ReadRequestHintsBuilder<MAX_NULLIFIER_READ_REQUESTS_PER_TX, NULLIFIER_PENDING_READ_HINTS_LEN, NULLIFIER_SETTLED_READ_HINTS_LEN, NULLIFIER_TREE_HEIGHT, NullifierLeafPreimage>,
     pub key_validation_hints: BoundedVec<KeyValidationHint, KEY_VALIDATION_HINTS_LEN>,
-    pub min_revertible_side_effect_counter: u32,
     // `output` is used in tests for ResetOutputValidator.
     pub output: FixtureBuilder,
     note_hash_preimages: [NoteHashLeafPreimage; MAX_NOTE_HASHES_PER_TX],
@@ -108,16 +106,16 @@ impl TestBuilder {
                 next_index: 0,
             },
         ]);
-        let nullifier_tree = SingleSubtreeMerkleTree::new(nullifier_preimages.map(|n| n.as_leaf()));
+        let nullifier_tree = SingleSubtreeMerkleTree::new_with_hasher(
+            nullifier_preimages.map(|n| n.as_leaf()),
+            nullifier_merkle_hash,
+        );
         previous_kernel.anchor_block_header.state.partial.nullifier_tree.root =
             nullifier_tree.get_root();
         previous_kernel.anchor_block_header.state.partial.nullifier_tree.next_available_leaf_index =
             nullifier_tree.get_next_available_index();
 
-        let min_revertible_side_effect_counter = 0;
-
-        let mut output = previous_kernel;
-        output.claimed_revertible_counter = min_revertible_side_effect_counter;
+        let output = previous_kernel;
 
         Self {
             previous_kernel,
@@ -129,7 +127,6 @@ impl TestBuilder {
             note_hash_read_request_hints: ReadRequestHintsBuilder::new(),
             nullifier_read_request_hints: ReadRequestHintsBuilder::new(),
             key_validation_hints: BoundedVec::new(),
-            min_revertible_side_effect_counter,
             output,
             note_hash_preimages,
             note_hash_tree,
@@ -204,12 +201,18 @@ impl TestBuilder {
     pub fn add_key_validation_request(&mut self, sk: Field) {
         let sk_m = EmbeddedCurveScalar::from_field(sk);
         let pk_m = derive_public_key(sk_m);
+        let pk_m_hash = hash_public_key(pk_m);
 
-        let sk_app_generator = 123321;
+        let key_type_domain_separator = 123321;
         let contract_address = self.previous_kernel.contract_address;
-        let sk_app = compute_app_siloed_secret_key(sk_m, contract_address, sk_app_generator);
+        let sk_app =
+            compute_app_siloed_secret_key(sk_m, contract_address, key_type_domain_separator);
 
-        self.previous_kernel.add_request_for_key_validation(pk_m, sk_app, sk_app_generator);
+        self.previous_kernel.add_request_for_key_validation(
+            pk_m_hash,
+            sk_app,
+            key_type_domain_separator,
+        );
     }
 
     pub fn add_key_validation_request_and_hint(&mut self, sk: Field) {
@@ -220,74 +223,101 @@ impl TestBuilder {
     }
 
     pub fn compute_output_note_hashes<let N: u32>(
-        self: Self,
+        self,
         note_hashes: [Scoped<Counted<NoteHash>>; N],
     ) -> [Scoped<Counted<NoteHash>>; N] {
         let is_private_only = self.previous_kernel.is_private_only;
-        let min_revertible_side_effect_counter =
-            self.previous_kernel.min_revertible_side_effect_counter;
+        let claimed_revertible_counter = self.previous_kernel.claimed_revertible_counter;
 
         let mut output = note_hashes;
         for i in 0..N {
             let note_hash = note_hashes[i];
-            let siloed_note_hash = silo_note_hash(note_hash);
-            let unique_note_hash = compute_unique_siloed_note_hash(
-                siloed_note_hash,
-                self.previous_kernel.claimed_first_nullifier,
-                i,
-            );
-            // We don't silo with nonce revertible note hashes, since we don't know their final position in the tx
-            output[i].inner.inner = if is_private_only
-                | (note_hash.counter() < min_revertible_side_effect_counter) {
-                unique_note_hash
+            // We don't silo revertible note hashes with nonces, since we don't know their final position in the tx
+            output[i] = if note_hash.is_non_revertible(is_private_only, claimed_revertible_counter) {
+                self.compute_output_unique_siloed_note_hash(note_hash, i)
             } else {
-                siloed_note_hash
+                self.compute_output_siloed_note_hash(note_hash)
             };
-            output[i].contract_address = AztecAddress::zero();
         }
         output
+    }
+
+    pub fn compute_output_siloed_note_hash(
+        _self: Self,
+        note_hash: Scoped<Counted<NoteHash>>,
+    ) -> Scoped<Counted<NoteHash>> {
+        silo_note_hash(note_hash)
+    }
+
+    pub fn compute_output_unique_siloed_note_hash(
+        self,
+        note_hash: Scoped<Counted<NoteHash>>,
+        note_hash_index: u32,
+    ) -> Scoped<Counted<NoteHash>> {
+        // The note-nonce base is the tx's first *surviving* nullifier. For setups that don't squash
+        // the first nullifier, that is the input's first nullifier.
+        let first_nullifier = self.previous_kernel.nullifiers.get_unchecked(0);
+        self.compute_output_unique_siloed_note_hash_with_first_nullifier(
+            note_hash,
+            note_hash_index,
+            first_nullifier,
+        )
+    }
+
+    /// Like `compute_output_unique_siloed_note_hash`, but lets a test name the first nullifier
+    /// explicitly. Needed when the input's first nullifier is squashed, so the surviving first
+    /// nullifier (the real note-nonce base, i.e. the output's `end.nullifiers[0]`) is a different one.
+    pub fn compute_output_unique_siloed_note_hash_with_first_nullifier(
+        self,
+        note_hash: Scoped<Counted<NoteHash>>,
+        note_hash_index: u32,
+        first_nullifier: Scoped<Counted<Nullifier>>,
+    ) -> Scoped<Counted<NoteHash>> {
+        let siloed_note_hash = self.compute_output_siloed_note_hash(note_hash);
+        // Mirror the circuit: an empty first nullifier siloes to 0 (see `assert_correctly_siloed_nullifier`).
+        let siloed_first_nullifier = if first_nullifier.contract_address.is_zero() {
+            0
+        } else {
+            compute_siloed_nullifier(
+                first_nullifier.contract_address,
+                first_nullifier.innermost().value,
+            )
+        };
+        uniquify_siloed_note_hash(siloed_note_hash, siloed_first_nullifier, note_hash_index)
     }
 
     pub fn compute_output_nullifiers<let N: u32>(
         _self: Self,
         nullifiers: [Scoped<Counted<Nullifier>>; N],
     ) -> [Scoped<Counted<Nullifier>>; N] {
-        let mut output = nullifiers;
-        for i in 0..N {
-            output[i].inner.inner.value = silo_nullifier(nullifiers[i]);
-            output[i].contract_address = AztecAddress::zero();
-        }
-        output
+        nullifiers.map(|n| silo_nullifier(n))
     }
 
     pub fn compute_output_private_logs<let N: u32>(
         _self: Self,
         private_logs: [Scoped<Counted<PrivateLogData>>; N],
     ) -> [Scoped<Counted<PrivateLogData>>; N] {
-        private_logs.map(|l| {
-            PrivateLogData {
-                log: silo_private_log(l),
-                note_hash_counter: l.innermost().note_hash_counter,
-            }
-                .count(l.inner.counter)
-                .scope(AztecAddress::zero())
-        })
+        private_logs.map(|n| silo_private_log(n))
     }
 
-    /// No siloing.
+    /// No siloing. Routes through `execute` (inner reset).
     pub fn execute(self) -> PrivateKernelCircuitPublicInputs {
-        self
-            .execute_with_amounts::<NOTE_HASH_PENDING_READ_HINTS_LEN, NOTE_HASH_SETTLED_READ_HINTS_LEN, NULLIFIER_PENDING_READ_HINTS_LEN, NULLIFIER_SETTLED_READ_HINTS_LEN, KEY_VALIDATION_HINTS_LEN, TRANSIENT_DATA_SQUASHING_HINTS_LEN, 0, 0, 0>()
+        let inputs = self.to_private_inputs();
+        inputs
+            .execute::<NOTE_HASH_PENDING_READ_HINTS_LEN, NOTE_HASH_SETTLED_READ_HINTS_LEN, NULLIFIER_PENDING_READ_HINTS_LEN, NULLIFIER_SETTLED_READ_HINTS_LEN, KEY_VALIDATION_HINTS_LEN, TRANSIENT_DATA_SQUASHING_HINTS_LEN, 0, 0, 0>()
     }
 
+    /// With siloing. Routes through `execute_as_terminal` (the terminal reset+tail path), since
+    /// `execute` asserts the siloing amounts are zero.
     pub fn execute_with_siloing(self) -> PrivateKernelCircuitPublicInputs {
-        self
-            .execute_with_amounts::<NOTE_HASH_PENDING_READ_HINTS_LEN, NOTE_HASH_SETTLED_READ_HINTS_LEN, NULLIFIER_PENDING_READ_HINTS_LEN, NULLIFIER_SETTLED_READ_HINTS_LEN, KEY_VALIDATION_HINTS_LEN, TRANSIENT_DATA_SQUASHING_HINTS_LEN, NOTE_HASH_SILOING_AMOUNT, NULLIFIER_SILOING_AMOUNT, PRIVATE_LOG_SILOING_AMOUNT>()
+        let inputs = self.to_private_inputs();
+        inputs
+            .execute_as_terminal::<NOTE_HASH_PENDING_READ_HINTS_LEN, NOTE_HASH_SETTLED_READ_HINTS_LEN, NULLIFIER_PENDING_READ_HINTS_LEN, NULLIFIER_SETTLED_READ_HINTS_LEN, KEY_VALIDATION_HINTS_LEN, TRANSIENT_DATA_SQUASHING_HINTS_LEN, NOTE_HASH_SILOING_AMOUNT, NULLIFIER_SILOING_AMOUNT, PRIVATE_LOG_SILOING_AMOUNT>()
     }
 
-    pub fn execute_with_amounts<let NoteHashPendingReadAmount: u32, let NoteHashSettledReadAmount: u32, let NullifierPendingReadAmount: u32, let NullifierSettledReadAmount: u32, let KeyValidationAmount: u32, let TransientDataSquashingAmount: u32, let NoteHashSiloingAmount: u32, let NullifierSiloingAmount: u32, let PrivateLogSiloingAmount: u32>(
+    fn to_private_inputs(
         self,
-    ) -> PrivateKernelCircuitPublicInputs {
+    ) -> PrivateKernelResetCircuitPrivateInputs<NOTE_HASH_PENDING_READ_HINTS_LEN, NOTE_HASH_SETTLED_READ_HINTS_LEN, NULLIFIER_PENDING_READ_HINTS_LEN, NULLIFIER_SETTLED_READ_HINTS_LEN, KEY_VALIDATION_HINTS_LEN, TRANSIENT_DATA_SQUASHING_HINTS_LEN> {
         let hints = PrivateKernelResetHints {
             note_hash_read_request_hints: self.note_hash_read_request_hints.to_hints(),
             nullifier_read_request_hints: self.nullifier_read_request_hints.to_hints(),
@@ -303,7 +333,6 @@ impl TestBuilder {
             self.padded_side_effects,
             hints,
         )
-            .execute::<NoteHashPendingReadAmount, NoteHashSettledReadAmount, NullifierPendingReadAmount, NullifierSettledReadAmount, KeyValidationAmount, TransientDataSquashingAmount, NoteHashSiloingAmount, NullifierSiloingAmount, PrivateLogSiloingAmount>()
     }
 
     pub fn failed(self) {

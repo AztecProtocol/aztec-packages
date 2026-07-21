@@ -2,14 +2,16 @@ import { createLogger } from '@aztec/aztec.js/log';
 import type { AztecNode } from '@aztec/aztec.js/node';
 import { omit } from '@aztec/foundation/collection';
 import { RunningPromise } from '@aztec/foundation/running-promise';
+import type { BlockTag } from '@aztec/stdlib/block';
 import type { AztecNodeAdmin } from '@aztec/stdlib/interfaces/client';
 import { type TelemetryClient, type Traceable, type Tracer, trackSpan } from '@aztec/telemetry-client';
-import type { TestWallet } from '@aztec/test-wallet/server';
+import type { EmbeddedWallet } from '@aztec/wallets/embedded';
 
 import { AmmBot } from './amm_bot.js';
 import type { BaseBot } from './base_bot.js';
 import { Bot } from './bot.js';
 import type { BotConfig } from './config.js';
+import { CrossChainBot } from './cross_chain_bot.js';
 import type { BotInfo, BotRunnerApi } from './interface.js';
 import { BotStore } from './store/index.js';
 
@@ -24,11 +26,12 @@ export class BotRunner implements BotRunnerApi, Traceable {
 
   public constructor(
     private config: BotConfig,
-    private readonly wallet: TestWallet,
+    private readonly wallet: EmbeddedWallet,
     private readonly aztecNode: AztecNode,
     private readonly telemetry: TelemetryClient,
     private readonly aztecNodeAdmin: AztecNodeAdmin | undefined,
     private readonly store: BotStore,
+    private readonly syncChainTip?: BlockTag,
   ) {
     this.tracer = telemetry.getTracer('Bot');
 
@@ -146,9 +149,42 @@ export class BotRunner implements BotRunnerApi, Traceable {
 
   async #createBot() {
     try {
-      this.bot = this.config.ammTxs
-        ? AmmBot.create(this.config, this.wallet, this.aztecNode, this.aztecNodeAdmin, this.store)
-        : Bot.create(this.config, this.wallet, this.aztecNode, this.aztecNodeAdmin, this.store);
+      switch (this.config.botMode) {
+        case 'crosschain':
+          this.bot = CrossChainBot.create(
+            this.config,
+            this.wallet,
+            this.aztecNode,
+            this.aztecNodeAdmin,
+            this.store,
+            this.syncChainTip,
+          );
+          break;
+        case 'amm':
+          this.bot = AmmBot.create(
+            this.config,
+            this.wallet,
+            this.aztecNode,
+            this.aztecNodeAdmin,
+            this.store,
+            this.syncChainTip,
+          );
+          break;
+        case 'transfer':
+          this.bot = Bot.create(
+            this.config,
+            this.wallet,
+            this.aztecNode,
+            this.aztecNodeAdmin,
+            this.store,
+            this.syncChainTip,
+          );
+          break;
+        default: {
+          const _exhaustive: never = this.config.botMode;
+          throw new Error(`Unsupported bot mode: [${_exhaustive}]`);
+        }
+      }
       await this.bot;
     } catch (err) {
       this.log.error(`Error setting up bot: ${err}`);

@@ -22,14 +22,7 @@ struct MsgpackSchemaPacker : msgpack::packer<msgpack::sbuffer> {
     // For tracking emitted types
     std::set<std::string> emitted_types;
     // Returns if already was emitted
-    bool set_emitted(const std::string& type)
-    {
-        if (emitted_types.find(type) == emitted_types.end()) {
-            emitted_types.insert(type);
-            return false;
-        }
-        return true;
-    }
+    bool set_emitted(const std::string& type) { return !emitted_types.insert(type).second; }
 
     /**
      * Pack a type indicating it is an alias of a certain msgpack type
@@ -65,7 +58,7 @@ struct MsgpackSchemaPacker : msgpack::packer<msgpack::sbuffer> {
         pack_array(sizeof...(Args));
 
         // Note: if this fails to compile, check first in list of template Arg's
-        // it may need a msgpack_schema_pack specialization (particularly if it doesn't define MSGPACK_FIELDS).
+        // it may need a msgpack_schema_pack specialization (particularly if it doesn't define SERIALIZATION_FIELDS).
         (_msgpack_schema_pack(*this, *std::make_unique<Args>()), ...); /* pack schemas of all template Args */
     }
     /**
@@ -109,7 +102,7 @@ concept SchemaPackable = requires(T value, MsgpackSchemaPacker packer) { msgpack
 // Helper for packing (key, value, key, value, ...) arguments
 template <typename Value, typename... Rest>
 inline void _schema_pack_map_content(MsgpackSchemaPacker& packer,
-                                     std::string key,
+                                     const std::string& key,
                                      const Value& value,
                                      const Rest&... rest)
 {

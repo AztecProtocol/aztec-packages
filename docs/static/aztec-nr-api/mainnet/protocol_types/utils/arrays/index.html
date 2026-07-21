@@ -1,0 +1,72 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="UTF-8">
+<link rel="stylesheet" href="../../../styles.css">
+<script defer src="../../../nargo_doc.js"></script>
+<title>Module arrays documentation</title>
+</head>
+<body>
+<div id="sidebar-toggle">
+<button id="sidebar-toggle-button"></button>
+<div id="sidebar-toggle-title">arrays</div>
+</div>
+<span id="main-contents">
+<nav class="sidebar">
+<h1><a href="../../../index.html">aztec-nr</a></h1>
+<div><a href="../../../all.html">All items</a></div>
+<h2 id="crate-name"><a href="../../index.html">protocol_types</a></h2>
+<div id="crate-version">0.0.0</div>
+<h2><a href="#mod">Module arrays</a></h2>
+<h3>Module items</h3>
+<ul class="sidebar-list">
+<li><a href="#structs">Structs</a></li>
+<li><a href="#functions">Functions</a></li>
+</ul>
+<h2>In module utils</h2>
+<h3>Modules</h3><ul class="item-list">
+<li><a href="../arrays/index.html">arrays</a></div></li>
+<li><a href="../field/index.html">field</a></div></li>
+<li><a href="../for_loop/index.html">for_loop</a></div></li>
+<li><a href="../math/index.html">math</a></div></li>
+</ul>
+</nav>
+<main>
+<div><a href="../../../index.html">aztec-nr</a> - <a href="../../index.html">protocol_types</a>::<a href="../index.html">utils</a>::arrays</div>
+<h1>Module <span id="mod" class="module">arrays</span></h1>
+<h2 id="structs">Structs</h2><ul class="item-list">
+<li><div class="item-name"><a href="struct.ClaimedLengthArray.html" class="struct">ClaimedLengthArray</a></div><div class="item-description">ClaimedLengthArray - An array interpreted by Kernel circuits.
+Its <code>length</code> is merely a claim that must eventually be validated.
+Validation must include:</p>
+<ul>
+<li>Asserting all items to the LHS of the length are nonempty (dense).</li>
+<li>Asserting all items to the RHS of the length are empty.</li>
+</ul></div></li>
+<li><div class="item-name"><a href="struct.SortedTuple.html" class="struct">SortedTuple</a></div><div class="item-description"></div></li>
+</ul>
+<h2 id="functions">Functions</h2><ul class="item-list">
+<li><div class="item-name"><a href="fn.array_length.html" class="fn">array_length</a></div><div class="item-description">Helper function to count the number of non-empty elements in a validated array.
+Danger: This is only safe to call if the input arrays have been &quot;validated&quot; (dense lhs, empty rhs).</p>
+<ol>
+<li>All elements before the first empty element are non-empty</li>
+<li>All elements after and including the first empty element are empty</li>
+<li>The array forms a contiguous sequence of non-empty elements followed by empty elements</li>
+</ol></div></li>
+<li><div class="item-name"><a href="fn.array_length_until.html" class="fn">array_length_until</a></div><div class="item-description"></div></li>
+<li><div class="item-name"><a href="fn.array_padded_with.html" class="fn">array_padded_with</a></div><div class="item-description">Returns true iff every element of <code>array</code> at index <code>&gt;= from_index</code> equals <code>padded_with</code>.</div></li>
+<li><div class="item-name"><a href="fn.assert_trailing_zeros.html" class="fn">assert_trailing_zeros</a></div><div class="item-description">Asserts that all fields in <code>input</code> after the first <code>in_len</code> fields are zero.</div></li>
+<li><div class="item-name"><a href="fn.check_permutation.html" class="fn">check_permutation</a></div><div class="item-description"></div></li>
+<li><div class="item-name"><a href="fn.find_first_index.html" class="fn">find_first_index</a></div><div class="item-description">Helper function to find the index of the first element in an array that satisfies a given predicate.
+If the element is not found, the function returns the length of the array <code>N</code></div></li>
+<li><div class="item-name"><a href="fn.find_last_index.html" class="fn">find_last_index</a></div><div class="item-description">Helper function to find the index of the last element in an array that satisfies a given predicate.
+If the element is not found, the function returns the length of the array <code>N</code></div></li>
+<li><div class="item-name"><a href="fn.get_sorted_tuples.html" class="fn">get_sorted_tuples</a></div><div class="item-description">Sorts the input <code>array</code>, but also outputs an <code>original_index</code> field for each sorted
+item, so that you know where it came from.</div></li>
+<li><div class="item-name"><a href="fn.splice_at_count.html" class="fn">splice_at_count</a></div><div class="item-description">Splices two fixed-size arrays at <code>count</code>.</div></li>
+<li><div class="item-name"><a href="fn.subarray.html" class="fn">subarray</a></div><div class="item-description">Helper fn to create a subarray from a given array.</div></li>
+<li><div class="item-name"><a href="fn.trimmed_array_length_hint.html" class="fn">trimmed_array_length_hint</a></div><div class="item-description"></div></li>
+</ul>
+</main>
+</span>
+</body>
+</html>

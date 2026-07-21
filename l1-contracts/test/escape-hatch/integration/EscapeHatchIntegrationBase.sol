@@ -20,7 +20,6 @@ import {
 import {CheckpointLog, SubmitEpochRootProofArgs, PublicInputArgs} from "@aztec/core/interfaces/IRollup.sol";
 import {IValidatorSelectionCore} from "@aztec/core/interfaces/IValidatorSelection.sol";
 import {Strings} from "@oz/utils/Strings.sol";
-import {MessageHashUtils} from "@oz/utils/cryptography/MessageHashUtils.sol";
 import {SafeCast} from "@oz/utils/math/SafeCast.sol";
 import {AttestationLibHelper} from "@test/helper_libraries/AttestationLibHelper.sol";
 
@@ -30,7 +29,6 @@ import {AttestationLibHelper} from "@test/helper_libraries/AttestationLibHelper.
  * @dev Provides common setup, configuration, and helper functions for integration tests
  */
 abstract contract EscapeHatchIntegrationBase is ValidatorSelectionTestBase {
-  using MessageHashUtils for bytes32;
   // ============ Escape Hatch Configuration ============
   uint96 internal constant DEFAULT_BOND_SIZE = 100e18;
   uint96 internal constant DEFAULT_WITHDRAWAL_TAX = 1e18;
@@ -44,6 +42,8 @@ abstract contract EscapeHatchIntegrationBase is ValidatorSelectionTestBase {
   EscapeHatch internal escapeHatch;
   Hatch internal targetHatch;
   DecoderBase.Full internal full;
+
+  mapping(uint256 => ProposedHeader) internal proposedHeaders;
 
   // Test addresses
   address internal CANDIDATE1 = makeAddr("CANDIDATE1");
@@ -85,9 +85,9 @@ abstract contract EscapeHatchIntegrationBase is ValidatorSelectionTestBase {
 
     address rollupOwner = Ownable(address(rollup)).owner();
     vm.expectEmit(true, true, true, true, address(rollup));
-    emit IValidatorSelectionCore.EscapeHatchUpdated(address(escapeHatch));
+    emit IValidatorSelectionCore.EscapeHatchSet(address(escapeHatch));
     vm.prank(rollupOwner);
-    rollup.updateEscapeHatch(address(escapeHatch));
+    rollup.setEscapeHatch(address(escapeHatch));
   }
 
   /**
@@ -150,7 +150,8 @@ abstract contract EscapeHatchIntegrationBase is ValidatorSelectionTestBase {
       gasFees: GasFees({
         feePerDaGas: 0, feePerL2Gas: uint128(rollup.getManaMinFeeAt(Timestamp.wrap(block.timestamp), true))
       }),
-      totalManaUsed: 0
+      totalManaUsed: 0,
+      accumulatedFees: 0
     });
 
     args = ProposeArgs({header: header, archive: archive, oracleInput: OracleInput({feeAssetPriceModifier: 0})});
@@ -167,6 +168,8 @@ abstract contract EscapeHatchIntegrationBase is ValidatorSelectionTestBase {
     (ProposeArgs memory args, bytes memory blobs) = _buildProposeArgs(_proposer);
 
     skipBlobCheck(address(rollup));
+
+    proposedHeaders[rollup.getPendingCheckpointNumber() + 1] = args.header;
 
     vm.prank(_proposer);
     rollup.propose(
@@ -215,7 +218,7 @@ abstract contract EscapeHatchIntegrationBase is ValidatorSelectionTestBase {
     uint256 committeeSize = committee.length;
     attestations = new CommitteeAttestation[](committeeSize);
     address[] memory signers = new address[](committeeSize);
-    bytes32 digest = ProposeLib.digest(proposePayload);
+    bytes32 digest = ProposeLib.digest(proposePayload, address(rollup));
 
     for (uint256 i = 0; i < committeeSize; i++) {
       attestations[i] = _createAttestation(committee[i], digest);
@@ -226,10 +229,14 @@ abstract contract EscapeHatchIntegrationBase is ValidatorSelectionTestBase {
     Signature memory attestationsAndSignersSignature =
     _createAttestation(
       proposer,
-      AttestationLib.getAttestationsAndSignersDigest(AttestationLibHelper.packAttestations(attestations), signers)
+      AttestationLib.getAttestationsAndSignersDigest(
+        AttestationLibHelper.packAttestations(attestations), signers, address(rollup)
+      )
     ).signature;
 
     // Propose the checkpoint
+    proposedHeaders[rollup.getPendingCheckpointNumber() + 1] = proposeArgs.header;
+
     vm.prank(proposer);
     rollup.propose(
       proposeArgs,
@@ -248,8 +255,7 @@ abstract contract EscapeHatchIntegrationBase is ValidatorSelectionTestBase {
   function _createAttestation(address _signer, bytes32 _digest) internal view returns (CommitteeAttestation memory) {
     uint256 privateKey = attesterPrivateKeys[_signer];
 
-    bytes32 digest = _digest.toEthSignedMessageHash();
-    (uint8 v, bytes32 r, bytes32 s) = vm.sign(privateKey, digest);
+    (uint8 v, bytes32 r, bytes32 s) = vm.sign(privateKey, _digest);
 
     Signature memory signature = Signature({v: v, r: r, s: s});
     return CommitteeAttestation({addr: _signer, signature: signature});
@@ -321,11 +327,10 @@ abstract contract EscapeHatchIntegrationBase is ValidatorSelectionTestBase {
       proverId: _prover
     });
 
-    bytes32[] memory fees = new bytes32[](Constants.AZTEC_MAX_EPOCH_DURATION * 2);
     uint256 size = _end - _start + 1;
+    ProposedHeader[] memory headers = new ProposedHeader[](size);
     for (uint256 i = 0; i < size; i++) {
-      fees[i * 2] = bytes32(uint256(uint160(bytes20(("sequencer")))));
-      fees[i * 2 + 1] = bytes32(0);
+      headers[i] = proposedHeaders[_start + i];
     }
 
     rollup.submitEpochRootProof(
@@ -333,7 +338,7 @@ abstract contract EscapeHatchIntegrationBase is ValidatorSelectionTestBase {
         start: _start,
         end: _end,
         args: args,
-        fees: fees,
+        headers: headers,
         attestations: CommitteeAttestations({signatureIndices: "", signaturesOrAddresses: ""}),
         blobInputs: endFull.checkpoint.batchedBlobInputs,
         proof: ""

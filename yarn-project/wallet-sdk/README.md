@@ -319,3 +319,128 @@ function useWalletDiscovery(chainInfo: ChainInfo, appId: string) {
   return { providers, isDiscovering, cancel: () => discoveryRef.current?.cancel() };
 }
 ```
+
+## Storage backends
+
+Your wallet and the PXE it embeds persist state through a pluggable key-value store (`@aztec/kv-store`). In the browser there are two backends:
+
+- **IndexedDB** (`@aztec/kv-store/deprecated/indexeddb`): the default in browser environments up to Aztec Alpha v4, now moved to a deprecated subpath. We plan to remove this backend, so new browser code should use the SQLite backend below.
+- **SQLite-OPFS** (`@aztec/kv-store/sqlite-opfs`): the default KV store backend from Aztec Alpha v5 on. It's backed by the durable Origin Private File System web standard, and it offers a number of advantages over IndexedDB: a sane transaction model (IDB transactions auto-close the moment the event loop yields, which constrains the store layer), support for encryption at rest, and better performance in the access patterns we exercise the most from both wallet and PXE.
+
+The backend is chosen by *which store you construct and hand to the wallet* there is no runtime flag or environment variable.
+
+> **Data migration is not supported between backends, by design.** The v4→v5 protocol upgrade discards all local state regardless, so switching to SQLite-OPFS simply means starting from a fresh store.
+
+### Quick start: embedded wallet with an encrypted SQLite store
+
+If you build on `@aztec/wallets`' `EmbeddedWallet`, open its two stores (PXE state + the wallet DB) with `openEncryptedEmbeddedStores`, then pass them in:
+
+```typescript
+import { EmbeddedWallet } from '@aztec/wallets/embedded';
+import { openEncryptedEmbeddedStores } from '@aztec/wallets/embedded/store-encryption';
+import { createLogger } from '@aztec/foundation/log';
+
+const log = createLogger('wallet:storage');
+
+// Your wallet derives a 32-byte key (see "Key management" below).
+// IMPORTANT: return a *fresh* Uint8Array each call. Opening a store consumes (empties)
+// the key, so a reused array would be empty on the second open (see "important" below).
+const getEncryptionKey = async () => new Uint8Array(myDerivedKey);
+
+const { pxeStore, walletStore } = await openEncryptedEmbeddedStores(
+  {
+    pxe: { name: `pxe-${rollupAddress}`, poolDirectory: '/pxe' },
+    wallet: { name: `wallet-${rollupAddress}`, poolDirectory: '/wallet' },
+  },
+  getEncryptionKey,
+  log,
+);
+
+const wallet = await EmbeddedWallet.create(nodeUrl, {
+  pxe: { store: pxeStore },
+  walletDb: { store: walletStore },
+});
+```
+
+If the supplied key cannot decrypt an existing store, `openEncryptedEmbeddedStores` throws `EmbeddedWalletEncryptionError` with `storeName: 'pxe' | 'wallet'`, which you can then surface as a "wrong password" error in your UI:
+
+```typescript
+import { EmbeddedWalletEncryptionError } from '@aztec/wallets/embedded/store-encryption';
+
+try {
+  await openEncryptedEmbeddedStores(/* ... */);
+} catch (err) {
+  if (err instanceof EmbeddedWalletEncryptionError) {
+    showWrongPasswordError(); // err.storeName tells you which store failed
+  } else {
+    throw err;
+  }
+}
+```
+
+### Important 
+
+1. **Opening a store consumes the key, it does not copy it.** So that raw key material does not linger in page memory, the SDK moves your key into the storage worker and detaches the buffer on your side. The `Uint8Array` you passed comes back empty, so the same array cannot be reused to open a second store. To open more than one store with the same key, hand each open a fresh copy (`new Uint8Array(key)`). `openEncryptedEmbeddedStores` does this for you by invoking your `getEncryptionKey` callback once per store.
+2. **Each coexisting store needs its own `poolDirectory`.** The OPFS SAH Pool holds an *exclusive* lock on its directory, so two stores sharing the default pool fail with "Access Handles cannot be created if there is another open Access Handle…". Give every store a distinct, stable `poolDirectory` (stable so the same files re-open next session).
+
+### No multi-tab access: assume one tab at a time
+
+A store can be opened by **one browser tab at a time per origin**. If the user opens your wallet in a second tab of the same origin pointing at the same store, the second open contends for that lock.
+
+Thanks to the lock, the data is never corrupted, but the second open fails or hangs rather than succeeding, and there is no graceful "already open elsewhere" signal yet.
+
+Until it does, design for a single active tab: detect a second instance (e.g. with the [Web Locks API](https://developer.mozilla.org/en-US/docs/Web/API/Web_Locks_API) or a `BroadcastChannel`) and steer the user back to the existing tab, or open the store read-only there.
+
+If you need genuine concurrent multi-tab access, route all storage access through a single `SharedWorker` that you own and that holds the one connection.
+
+### Opting out of encryption
+
+If you do not need at-rest encryption (you rely on full-disk encryption, or the device is trusted), an *unencrypted* SQLite-OPFS store is still a better default than IndexedDB.
+
+The `createStore` convenience helper always uses the default OPFS pool directory and does not currently let you change it, so it only works for a single store per tab. The embedded wallet runs two stores (PXE + walletDB), so open them directly from `AztecSQLiteOPFSStore` with a distinct `poolDirectory` each:
+
+```typescript
+import { EmbeddedWallet } from '@aztec/wallets/embedded';
+import { AztecSQLiteOPFSStore } from '@aztec/kv-store/sqlite-opfs';
+import { createLogger } from '@aztec/foundation/log';
+
+const log = createLogger('wallet:storage');
+
+// No key; just name, ephemeral=false, and a distinct poolDirectory per store.
+const pxeStore = await AztecSQLiteOPFSStore.open(log, `pxe-${rollupAddress}`, false, '/pxe');
+const walletStore = await AztecSQLiteOPFSStore.open(log, `wallet-${rollupAddress}`, false, '/wallet');
+
+const wallet = await EmbeddedWallet.create(nodeUrl, {
+  pxe: { store: pxeStore },
+  walletDb: { store: walletStore },
+});
+```
+
+### Building your own wallet (lower-level API)
+
+If you are not using `EmbeddedWallet`, construct stores directly from `@aztec/kv-store/sqlite-opfs` and pass them wherever a store is accepted (e.g. `PXECreationOptions.store`):
+
+```typescript
+import { openEncryptedStore, createStore, SqliteEncryptionError } from '@aztec/kv-store/sqlite-opfs';
+
+// Encrypted, persistent:
+const store = await openEncryptedStore(new Uint8Array(myDerivedKey), 'my-store', '/my-pool');
+
+// Or unencrypted:
+const plain = await createStore('my-store', { dataStoreMapSizeKb: 2e10 });
+```
+
+Note: `dataStoreMapSizeKb` is an LMDB-specific ceiling (the maximum memory-map size). SQLite-OPFS grows its file dynamically and ignores the value, but it is a required field of the shared `DataStoreConfig` type, so you must still pass something (any number is fine). We will fix this implementation leak in coming versions.
+
+Note: `openEncryptedStore` throws `SqliteEncryptionError` (with a typed `code`, e.g. `'decrypt_failed'`) on a bad key.
+
+### Using SQLite-OPFS in a browser extension (MV3)
+
+SQLite-OPFS needs OPFS, a Web Worker, and cross-origin isolation (SharedArrayBuffer). In a Chrome MV3 extension:
+
+- **Run it in an offscreen document, not the background service worker.** The service worker is ephemeral and does not reliably provide OPFS/SharedArrayBuffer; an offscreen document does, and it is where your PXE and stores should live.
+- **No COOP/COEP header setup is needed inside the extension.** Extension pages are cross-origin-isolated by default. (A plain web page hosting the wallet *does* need those headers.)
+
+### Key management is your responsibility
+
+The store encrypts data at rest given a 32-byte key, but deriving and safeguarding that key is the wallet's job. A common pattern is to derive the key from a user password with a memory-hard KDF (e.g. Argon2id) and hold it only in memory while the wallet is unlocked. Adapt this to your own security model.

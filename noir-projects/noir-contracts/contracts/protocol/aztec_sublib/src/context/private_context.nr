@@ -4,10 +4,8 @@ use crate::{
     messaging::process_l1_to_l2_message,
     oracle::{
         call_private_function::call_private_function_internal,
-        enqueue_public_function_call::{
-            is_side_effect_counter_revertible_oracle_wrapper, notify_enqueued_public_function_call,
-            notify_set_min_revertible_side_effect_counter,
-        },
+        public_call::validate_public_calldata,
+        tx_phase::{in_revertible_phase, notify_revertible_phase_start},
         execution_cache,
         logs::notify_created_contract_class_log,
         nullifiers::notify_created_nullifier,
@@ -29,7 +27,7 @@ use crate::protocol::{
     address::{AztecAddress, EthAddress},
     constants::{
         CONTRACT_CLASS_LOG_SIZE_IN_FIELDS, MAX_CONTRACT_CLASS_LOGS_PER_CALL,
-        MAX_ENQUEUED_CALLS_PER_CALL, MAX_INCLUDE_BY_TIMESTAMP_DURATION, MAX_L2_TO_L1_MSGS_PER_CALL,
+        MAX_ENQUEUED_CALLS_PER_CALL, MAX_TX_LIFETIME, MAX_L2_TO_L1_MSGS_PER_CALL,
         MAX_NULLIFIER_READ_REQUESTS_PER_CALL, MAX_NULLIFIERS_PER_CALL,
         MAX_PRIVATE_CALL_STACK_LENGTH_PER_CALL, MAX_PRIVATE_LOGS_PER_CALL,
         NULL_MSG_SENDER_CONTRACT_ADDRESS, PRIVATE_LOG_SIZE_IN_FIELDS,
@@ -54,7 +52,7 @@ pub struct PrivateContext {
     pub args_hash: Field,
     pub return_hash: Field,
 
-    pub include_by_timestamp: u64,
+    pub expiration_timestamp: u64,
 
     pub nullifier_read_requests: BoundedVec<Scoped<Counted<Field>>, MAX_NULLIFIER_READ_REQUESTS_PER_CALL>,
 
@@ -77,8 +75,6 @@ pub struct PrivateContext {
 
 impl PrivateContext {
     pub fn new(inputs: PrivateContextInputs, args_hash: Field) -> PrivateContext {
-        let max_allowed_include_by_timestamp = inputs.anchor_block_header.global_variables.timestamp
-            + MAX_INCLUDE_BY_TIMESTAMP_DURATION;
         PrivateContext {
             inputs,
             side_effect_counter: inputs.start_side_effect_counter + 1,
@@ -86,7 +82,8 @@ impl PrivateContext {
             is_fee_payer: false,
             args_hash,
             return_hash: 0,
-            include_by_timestamp: max_allowed_include_by_timestamp,
+            expiration_timestamp: inputs.anchor_block_header.global_variables.timestamp
+            + MAX_TX_LIFETIME,
             nullifier_read_requests: BoundedVec::new(),
             nullifiers: BoundedVec::new(),
             anchor_block_header: inputs.anchor_block_header,
@@ -161,12 +158,12 @@ impl PrivateContext {
             returns_hash: self.return_hash,
             min_revertible_side_effect_counter: self.min_revertible_side_effect_counter,
             is_fee_payer: self.is_fee_payer,
-            include_by_timestamp: self.include_by_timestamp,
+            expiration_timestamp: self.expiration_timestamp,
             note_hash_read_requests: ClaimedLengthArray::empty(), // Not used by protocol contracts
             nullifier_read_requests: ClaimedLengthArray::from_bounded_vec(
                 self.nullifier_read_requests,
             ),
-            key_validation_requests_and_generators: ClaimedLengthArray::empty(), // Not used by protocol contracts
+            key_validation_requests_and_separators: ClaimedLengthArray::empty(), // Not used by protocol contracts
             note_hashes: ClaimedLengthArray::empty(), // Not used by protocol contracts
             nullifiers: ClaimedLengthArray::from_bounded_vec(self.nullifiers),
             private_call_requests: ClaimedLengthArray::from_bounded_vec(self.private_call_requests),
@@ -184,6 +181,7 @@ impl PrivateContext {
             expected_non_revertible_side_effect_counter: self
                 .expected_non_revertible_side_effect_counter,
             expected_revertible_side_effect_counter: self.expected_revertible_side_effect_counter,
+            tx_request_salt: self.inputs.tx_request_salt,
         }
     }
 
@@ -191,7 +189,7 @@ impl PrivateContext {
     pub fn end_setup(&mut self) {
         self.side_effect_counter += 1;
         self.min_revertible_side_effect_counter = self.next_counter();
-        notify_set_min_revertible_side_effect_counter(self.min_revertible_side_effect_counter);
+        notify_revertible_phase_start(self.min_revertible_side_effect_counter);
     }
 
     pub fn in_revertible_phase(&mut self) -> bool {
@@ -199,7 +197,7 @@ impl PrivateContext {
 
         // Safety: Kernel will validate that the claim is correct by validating the expected counters.
         let is_revertible =
-            unsafe { is_side_effect_counter_revertible_oracle_wrapper(current_counter) };
+            unsafe { in_revertible_phase(current_counter) };
 
         if is_revertible {
             if (self.expected_revertible_side_effect_counter == 0)
@@ -214,8 +212,8 @@ impl PrivateContext {
     }
 
     /// Sets a deadline for when this transaction must be included in a block.
-    pub fn set_include_by_timestamp(&mut self, include_by_timestamp: u64) {
-        self.include_by_timestamp = std::cmp::min(self.include_by_timestamp, include_by_timestamp);
+    pub fn set_expiration_timestamp(&mut self, expiration_timestamp: u64) {
+        self.expiration_timestamp = std::cmp::min(self.expiration_timestamp, expiration_timestamp);
     }
 
     /// Pushes a new nullifier. Used by class_registry and instance_registry.
@@ -365,14 +363,9 @@ impl PrivateContext {
     ) {
         let counter = self.next_counter();
 
-        let mut is_static_call = is_static_call | self.inputs.call_context.is_static_call;
+        let is_static_call = is_static_call | self.inputs.call_context.is_static_call;
 
-        notify_enqueued_public_function_call(
-            contract_address,
-            calldata_hash,
-            counter,
-            is_static_call,
-        );
+        validate_public_calldata(calldata_hash);
 
         let msg_sender = if hide_msg_sender {
             NULL_MSG_SENDER_CONTRACT_ADDRESS
@@ -402,7 +395,7 @@ impl Empty for PrivateContext {
             is_fee_payer: false,
             args_hash: 0,
             return_hash: 0,
-            include_by_timestamp: 0,
+            expiration_timestamp: 0,
             nullifier_read_requests: BoundedVec::new(),
             nullifiers: BoundedVec::new(),
             private_call_requests: BoundedVec::new(),

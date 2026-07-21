@@ -32,7 +32,7 @@ const std::vector<ScopedL2ToL1Message> REVERTIBLE_ACCUMULATED_DATA_L2_TO_L1_MESS
 const std::vector<PublicCallRequestWithCalldata> SETUP_ENQUEUED_CALLS = {};
 const FF MSG_SENDER = 100;
 const std::optional<PublicCallRequestWithCalldata> TEARDOWN_ENQUEUED_CALLS = std::nullopt;
-const Gas GAS_USED_BY_PRIVATE = Gas{ .l2_gas = 0, .da_gas = 0 };
+const Gas GAS_USED_BY_PRIVATE = Gas{ .l2_gas = PUBLIC_TX_L2_GAS_OVERHEAD, .da_gas = TX_DA_GAS_OVERHEAD };
 const AztecAddress FEE_PAYER = AztecAddress{ 0 };
 const FF CONTRACT_ADDRESS = 42;
 const FF TRANSACTION_FEE = 0;

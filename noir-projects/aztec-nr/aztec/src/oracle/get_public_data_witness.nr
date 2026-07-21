@@ -12,7 +12,7 @@ pub struct PublicDataWitness {
     pub path: [Field; PUBLIC_DATA_TREE_HEIGHT],
 }
 
-#[oracle(utilityGetPublicDataWitness)]
+#[oracle(aztec_utl_getPublicDataWitness)]
 unconstrained fn get_public_data_witness_oracle(
     _block_hash: Field,
     _public_data_tree_index: Field,

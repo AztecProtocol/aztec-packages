@@ -8,8 +8,8 @@
 #include "barretenberg/avm_fuzzer/mutations/tx_types/accumulated_data.hpp"
 #include "barretenberg/avm_fuzzer/mutations/tx_types/gas.hpp"
 #include "barretenberg/avm_fuzzer/mutations/tx_types/public_call_request.hpp"
+#include "barretenberg/aztec/aztec_constants.hpp"
 #include "barretenberg/vm2/common/avm_io.hpp"
-#include "barretenberg/vm2/common/aztec_constants.hpp"
 #include "barretenberg/vm2/common/aztec_types.hpp"
 #include "barretenberg/vm2/common/tagged_value.hpp"
 #include "barretenberg/vm2/simulation/lib/contract_crypto.hpp"
@@ -112,7 +112,7 @@ void mutate_tx(Tx& tx, std::vector<AztecAddress>& contract_addresses, std::mt199
     case TxMutationOptions::GasUsedByPrivate:
         // Mutate gas_used_by_private
         fuzz_info("Mutating gas used by private");
-        mutate_gas(tx.gas_used_by_private, rng, tx.gas_settings.gas_limits);
+        mutate_gas(tx.gas_used_by_private, rng, GAS_USED_BY_PRIVATE, tx.gas_settings.gas_limits);
         break;
     case TxMutationOptions::FeePayer:
         // Mutate fee_payer

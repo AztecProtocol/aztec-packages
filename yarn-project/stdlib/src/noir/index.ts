@@ -19,7 +19,7 @@ export const AZTEC_VIEW_ATTRIBUTE = 'abi_view';
 export interface NoirFunctionAbi {
   /** The parameters of the function. */
   parameters: ABIParameter[];
-  /** The return type of the function. */
+  /** The return type of the function, or null for void functions. */
   return_type: {
     /**
      * The type of the return value.
@@ -29,7 +29,7 @@ export interface NoirFunctionAbi {
      * The visibility of the return value.
      */
     visibility: ABIParameterVisibility;
-  };
+  } | null;
   /** Mapping of error selector => error type */
   error_types: Partial<Record<string, AbiErrorType>>;
 }
@@ -64,6 +64,8 @@ interface NoirFunctionEntry {
 export interface NoirCompiledContract {
   /** The name of the contract. */
   name: string;
+  /** The version of the Aztec stack that compiled this contract. */
+  aztec_version: string;
   /** Is the contract's public bytecode transpiled? */
   transpiled?: boolean;
   /** The functions of the contract. */

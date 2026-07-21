@@ -1,3 +1,4 @@
+import { FifoSet } from '@aztec/foundation/fifo-set';
 import { type Logger, createLogger } from '@aztec/foundation/log';
 import { RunningPromise } from '@aztec/foundation/promise';
 import { makeBackoff, retry } from '@aztec/foundation/retry';
@@ -6,9 +7,11 @@ import { type FileStore, createFileStore } from '@aztec/stdlib/file-store';
 import type { Tx } from '@aztec/stdlib/tx';
 import { type TelemetryClient, getTelemetryClient } from '@aztec/telemetry-client';
 
-import type { TxPool, TxPoolEvents } from '../../mem_pools/tx_pool/index.js';
+import type { TxPoolV2 } from '../../mem_pools/index.js';
 import type { TxFileStoreConfig } from './config.js';
 import { TxFileStoreInstrumentation } from './instrumentation.js';
+
+const MAX_RECENT_UPLOADS = 1000;
 
 /**
  * Uploads validated transactions to a file store as a fallback retrieval mechanism.
@@ -18,19 +21,18 @@ export class TxFileStore {
   private uploadQueue: Tx[] = [];
   private activeUploads = 0;
   private readonly queueProcessor: RunningPromise;
-  private readonly handleTxsAdded: TxPoolEvents['txs-added'];
+  private readonly handleTxsAdded: (args: { txs: Tx[]; source?: string }) => void;
 
   /** Recently uploaded tx hashes for deduplication. */
-  private recentUploads: Set<string> = new Set();
-  private recentUploadsOrder: string[] = [];
-  private readonly maxRecentUploads = 1000;
+  private recentUploads = FifoSet.withLimit<string>(MAX_RECENT_UPLOADS);
 
   private constructor(
     private readonly fileStore: FileStore,
-    private readonly txPool: TxPool,
+    private readonly txPool: TxPoolV2,
     private readonly config: TxFileStoreConfig,
     private readonly instrumentation: TxFileStoreInstrumentation,
     private readonly log: Logger,
+    private readonly basePath: string,
   ) {
     this.handleTxsAdded = (args: { txs: Tx[]; source?: string }) => {
       this.enqueueTxs(args.txs);
@@ -48,8 +50,9 @@ export class TxFileStore {
    * @returns The file store instance, or undefined if not configured/enabled.
    */
   static async create(
-    txPool: TxPool,
+    txPool: TxPoolV2,
     config: TxFileStoreConfig,
+    basePath: string,
     log: Logger = createLogger('p2p:tx_file_store'),
     telemetry: TelemetryClient = getTelemetryClient(),
     fileStoreOverride?: FileStore,
@@ -71,8 +74,8 @@ export class TxFileStore {
     }
 
     const instrumentation = new TxFileStoreInstrumentation(telemetry, 'TxFileStore');
-    log.info('Created tx file store', { url: config.txFileStoreUrl });
-    return new TxFileStore(fileStore, txPool, config, instrumentation, log);
+    log.info('Created tx file store', { url: config.txFileStoreUrl, basePath });
+    return new TxFileStore(fileStore, txPool, config, instrumentation, log, basePath);
   }
 
   /** Starts listening to TxPool events and uploading txs. */
@@ -122,29 +125,16 @@ export class TxFileStore {
 
   private async uploadTx(tx: Tx): Promise<void> {
     const txHash = tx.getTxHash().toString();
-    const path = `txs/${txHash}.bin`;
+    const path = `${this.basePath}/txs/${txHash}.bin`;
     const timer = new Timer();
 
-    if (this.recentUploads.has(txHash)) {
+    if (!this.recentUploads.addIfAbsent(txHash)) {
       return;
     }
 
     try {
-      this.recentUploads.add(txHash);
-      this.recentUploadsOrder.push(txHash);
-
-      if (this.recentUploadsOrder.length > this.maxRecentUploads) {
-        // delete old entries in recentUploads
-        for (const txHashToRemove of this.recentUploadsOrder.splice(
-          0,
-          this.recentUploadsOrder.length - this.maxRecentUploads,
-        )) {
-          this.recentUploads.delete(txHashToRemove);
-        }
-      }
-
       await retry(
-        () => this.fileStore.save(path, tx.toBuffer(), { compress: false }),
+        () => this.fileStore.save(path, tx.toBuffer(), { compress: true }),
         `Uploading tx ${txHash}`,
         makeBackoff([0.1, 0.5, 2]),
         this.log,

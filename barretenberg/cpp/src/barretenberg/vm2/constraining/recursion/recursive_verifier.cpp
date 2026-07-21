@@ -1,5 +1,5 @@
 // === AUDIT STATUS ===
-// internal:    { status: Completed, auditors: [Federico], commit: }
+// internal:    { status: Completed, auditors: [Federico], commit: 0e37cb8}
 // external_1:  { status: not started, auditors: [], commit: }
 // external_2:  { status: not started, auditors: [], commit: }
 // =====================
@@ -11,14 +11,14 @@
 #include <memory>
 #include <numeric>
 
+#include "barretenberg/aztec/aztec_constants.hpp"
 #include "barretenberg/commitment_schemes/shplonk/shplemini.hpp"
+#include "barretenberg/common/assert.hpp"
 #include "barretenberg/honk/proof_system/types/proof.hpp"
 #include "barretenberg/polynomials/polynomial.hpp"
 #include "barretenberg/polynomials/shared_shifted_virtual_zeroes_array.hpp"
 #include "barretenberg/stdlib/primitives/field/field.hpp"
-#include "barretenberg/stdlib/primitives/padding_indicator_array/padding_indicator_array.hpp"
 #include "barretenberg/transcript/transcript.hpp"
-#include "barretenberg/vm2/common/aztec_constants.hpp"
 #include "barretenberg/vm2/common/constants.hpp"
 #include "barretenberg/vm2/constraining/avm_fixed_vk.hpp"
 
@@ -92,6 +92,10 @@ AvmRecursiveVerifier::PairingPoints AvmRecursiveVerifier::verify_proof(
 
     RelationParams relation_parameters;
 
+    BB_ASSERT_EQ(stdlib_proof.size(),
+                 static_cast<size_t>(AVM_V2_PROOF_LENGTH_IN_FIELDS),
+                 "AVM recursive verifier proof length mismatch");
+
     transcript->load_proof(stdlib_proof);
 
     // ========== Execute preamble round ==========
@@ -111,7 +115,7 @@ AvmRecursiveVerifier::PairingPoints AvmRecursiveVerifier::verify_proof(
     // Add public inputs to transcript. This ensures that the Sumcheck challenge depends both on the public inputs sent
     // in the clear and on the committed columns.
     for (size_t i = 0; i < AVM_NUM_PUBLIC_INPUT_COLUMNS; i++) {
-        if (public_inputs[i].size() != AVM_PUBLIC_INPUTS_COLUMNS_MAX_LENGTH) {
+        if (public_inputs[i].size() != AVM_PUBLIC_INPUTS_COLUMN_LENGTHS[i]) {
             throw_or_abort("AvmRecursiveVerifier::verify_proof: public input size mismatch");
         }
         for (size_t j = 0; j < public_inputs[i].size(); j++) {
@@ -142,10 +146,6 @@ AvmRecursiveVerifier::PairingPoints AvmRecursiveVerifier::verify_proof(
 
     // ========== Execute relation check rounds ==========
 
-    // Construct padding indicator array: it is a vector of constant ones as the AVM verifier performs verification of
-    // the AVM circuit, so the number of rounds is fixed.
-    std::vector<FF> padding_indicator_array(MAX_AVM_TRACE_LOG_SIZE, FF(1));
-
     // Multiply each linearly independent subrelation contribution by `alpha^i` for i = 0, ..., NUM_SUBRELATIONS - 1.
     const FF alpha = transcript->template get_challenge<FF>("Sumcheck:alpha");
 
@@ -154,7 +154,7 @@ AvmRecursiveVerifier::PairingPoints AvmRecursiveVerifier::verify_proof(
     std::vector<FF> gate_challenges =
         transcript->template get_dyadic_powers_of_challenge<FF>("Sumcheck:gate_challenge", MAX_AVM_TRACE_LOG_SIZE);
 
-    SumcheckOutput<Flavor> output = sumcheck.verify(relation_parameters, gate_challenges, padding_indicator_array);
+    SumcheckOutput<Flavor> output = sumcheck.verify(relation_parameters, gate_challenges);
     vinfo("verified sumcheck: ", (output.verified));
 
     // Validate that the public inputs committed in the public input columns match the public inputs sent in the clear
@@ -185,12 +185,9 @@ AvmRecursiveVerifier::PairingPoints AvmRecursiveVerifier::verify_proof(
     auto shifted_evals = output.claimed_evaluations.get_shifted();
 
     // Get short batching challenges from transcript
-    // Note: the challenge for ColumnAndShifts::precomputed_clk is not used for batching, but to maintain the code
-    // cleaner, we generate it nonetheless
     Challenges challenges;
-    auto unshifted_challenges_vec = transcript->template get_challenges<FF>(challenges.get_unshifted_labels());
+    auto unshifted_challenges_vec = transcript->template get_short_challenges<FF>(challenges.get_unshifted_labels());
     std::ranges::move(unshifted_challenges_vec, challenges.get_unshifted().begin());
-    challenges.get(ColumnAndShifts::precomputed_clk) = FF(1);
     auto unshifted_challenges = challenges.get_unshifted();
     auto shifted_challenges = challenges.get_to_be_shifted();
 
@@ -200,8 +197,7 @@ AvmRecursiveVerifier::PairingPoints AvmRecursiveVerifier::verify_proof(
                               std::vector<FF>(shifted_challenges.begin(), shifted_challenges.end()),
                               128);
 
-    // Batch unshifted commitments: ColumnAndShifts::precomputed_clk has coefficient 1, rest are batched with
-    // challenges. We reuse the calculation performed for shifted commitments.
+    // Batch unshifted commitments: We reuse the calculation performed for shifted commitments.
     Commitment batched_unshifted =
         Commitment::batch_mul(
             std::vector<Commitment>(unshifted_comms.begin(), unshifted_comms.begin() + WIRES_TO_BE_SHIFTED_START_IDX),
@@ -225,10 +221,9 @@ AvmRecursiveVerifier::PairingPoints AvmRecursiveVerifier::verify_proof(
                                                                  .evaluations = RefVector(batched_unshifted_eval) },
                                         .shifted = ClaimBatch{ .commitments = RefVector(batched_shifted),
                                                                .evaluations = RefVector(batched_shifted_eval) } };
-    auto opening_claim =
-        Shplemini::compute_batch_opening_claim(
-            padding_indicator_array, batched_claim_batcher, output.challenge, Commitment::one(&builder), transcript)
-            .batch_opening_claim;
+    auto opening_claim = Shplemini::compute_batch_opening_claim(
+                             batched_claim_batcher, output.challenge, Commitment::one(&builder), transcript)
+                             .batch_opening_claim;
 
     PairingPoints pairing_points(PCS::reduce_verify_batch_opening_claim(std::move(opening_claim), transcript));
 
@@ -241,12 +236,13 @@ AvmRecursiveVerifier::PairingPoints AvmRecursiveVerifier::verify_proof(
     return pairing_points;
 }
 
-AvmRecursiveVerifier::FF AvmRecursiveVerifier::hash_avm_transcript(const stdlib::Proof<Builder>& stdlib_proof)
+AvmRecursiveVerifier::FF AvmRecursiveVerifier::hash_avm_transcript()
 {
     if (!is_verification_complete) {
         throw_or_abort("Transcript can only be hashed after verification is complete");
     }
-    return Transcript::hash_avm_transcript(transcript, stdlib_proof);
+    // Finalise AVM transcript
+    return transcript->template get_challenge<FF>("final_transcript_state");
 };
 
 } // namespace bb::avm2

@@ -38,14 +38,14 @@ template <typename LeafValueType> struct BatchInsertionResult {
     std::vector<std::pair<LeafValueType, index_t>> sorted_leaves;
     crypto::merkle_tree::fr_sibling_path subtree_path;
 
-    MSGPACK_FIELDS(low_leaf_witness_data, sorted_leaves, subtree_path);
+    SERIALIZATION_FIELDS(low_leaf_witness_data, sorted_leaves, subtree_path);
 };
 
 template <typename LeafValueType> struct SequentialInsertionResult {
     std::vector<crypto::merkle_tree::LeafUpdateWitnessData<LeafValueType>> low_leaf_witness_data;
     std::vector<crypto::merkle_tree::LeafUpdateWitnessData<LeafValueType>> insertion_witness_data;
 
-    MSGPACK_FIELDS(low_leaf_witness_data, insertion_witness_data);
+    SERIALIZATION_FIELDS(low_leaf_witness_data, insertion_witness_data);
 };
 
 const uint64_t DEFAULT_MIN_NUMBER_OF_READERS = 128;
@@ -63,14 +63,18 @@ class WorldState {
                uint64_t map_size,
                const std::unordered_map<MerkleTreeId, uint32_t>& tree_heights,
                const std::unordered_map<MerkleTreeId, index_t>& tree_prefill,
-               uint32_t initial_header_generator_point);
+               uint32_t initial_header_generator_point,
+               uint64_t genesis_timestamp = 0,
+               bool ephemeral = false);
 
     WorldState(uint64_t thread_pool_size,
                const std::string& data_dir,
                const std::unordered_map<MerkleTreeId, uint64_t>& map_size,
                const std::unordered_map<MerkleTreeId, uint32_t>& tree_heights,
                const std::unordered_map<MerkleTreeId, index_t>& tree_prefill,
-               uint32_t initial_header_generator_point);
+               uint32_t initial_header_generator_point,
+               uint64_t genesis_timestamp = 0,
+               bool ephemeral = false);
 
     WorldState(uint64_t thread_pool_size,
                const std::string& data_dir,
@@ -78,15 +82,26 @@ class WorldState {
                const std::unordered_map<MerkleTreeId, uint32_t>& tree_heights,
                const std::unordered_map<MerkleTreeId, index_t>& tree_prefill,
                const std::vector<PublicDataLeafValue>& prefilled_public_data,
-               uint32_t initial_header_generator_point);
+               uint32_t initial_header_generator_point,
+               uint64_t genesis_timestamp = 0,
+               bool ephemeral = false);
 
+    /**
+     * @param ephemeral When true, every underlying LMDB env opens with `MDB_NOSYNC |
+     *                  MDB_NOMETASYNC`. Commits return without waiting for fsync; the kernel
+     *                  flushes lazily, files stay sparse. Intended for throwaway scratch
+     *                  state. A crash mid-write yields an unrecoverable
+     *                  env, so never enable on a node that needs to survive a restart.
+     */
     WorldState(uint64_t thread_pool_size,
                const std::string& data_dir,
                const std::unordered_map<MerkleTreeId, uint64_t>& map_size,
                const std::unordered_map<MerkleTreeId, uint32_t>& tree_heights,
                const std::unordered_map<MerkleTreeId, index_t>& tree_prefill,
                const std::vector<PublicDataLeafValue>& prefilled_public_data,
-               uint32_t initial_header_generator_point);
+               uint32_t initial_header_generator_point,
+               uint64_t genesis_timestamp = 0,
+               bool ephemeral = false);
 
     /**
      * @brief Copies all underlying LMDB stores to the target directory while acquiring a write lock
@@ -285,13 +300,15 @@ class WorldState {
                                     const std::vector<bb::fr>& notes,
                                     const std::vector<bb::fr>& l1_to_l2_messages,
                                     const std::vector<crypto::merkle_tree::NullifierLeafValue>& nullifiers,
-                                    const std::vector<crypto::merkle_tree::PublicDataLeafValue>& public_writes);
+                                    const std::vector<crypto::merkle_tree::PublicDataLeafValue>& public_writes,
+                                    const std::optional<bb::fr>& expected_archive_root = std::nullopt,
+                                    const std::optional<bb::fr>& expected_previous_archive_root = std::nullopt);
 
-    void checkpoint(const uint64_t& forkId);
+    uint32_t checkpoint(const uint64_t& forkId);
     void commit_checkpoint(const uint64_t& forkId);
     void revert_checkpoint(const uint64_t& forkId);
-    void commit_all_checkpoints(const uint64_t& forkId);
-    void revert_all_checkpoints(const uint64_t& forkId);
+    void commit_all_checkpoints_to(const uint64_t& forkId, uint32_t depth);
+    void revert_all_checkpoints_to(const uint64_t& forkId, uint32_t depth);
 
   private:
     std::shared_ptr<bb::ThreadPool> _workers;
@@ -303,12 +320,14 @@ class WorldState {
     std::unordered_map<uint64_t, Fork::SharedPtr> _forks;
     uint64_t _forkId = 0;
     uint32_t _initial_header_generator_point;
+    uint64_t _genesis_timestamp;
 
     TreeStateReference get_tree_snapshot(MerkleTreeId id);
     void create_canonical_fork(const std::string& dataDir,
                                const std::unordered_map<MerkleTreeId, uint64_t>& dbSize,
                                const std::vector<PublicDataLeafValue>& prefilled_public_data,
-                               uint64_t maxReaders);
+                               uint64_t maxReaders,
+                               bool ephemeral);
 
     Fork::SharedPtr retrieve_fork(const uint64_t& forkId) const;
     Fork::SharedPtr create_new_fork(const block_number_t& blockNumber);
@@ -330,7 +349,9 @@ class WorldState {
     bool is_archive_tip(const WorldStateRevision& revision, const bb::fr& block_header_hash) const;
 
     bool is_same_state_reference(const WorldStateRevision& revision, const StateReference& state_ref) const;
-    static bb::fr compute_initial_block_header_hash(const StateReference& initial_state_ref, uint32_t generator_point);
+    static bb::fr compute_initial_block_header_hash(const StateReference& initial_state_ref,
+                                                    uint32_t generator_point,
+                                                    uint64_t genesis_timestamp = 0);
 
     static StateReference get_state_reference(const WorldStateRevision& revision,
                                               Fork::SharedPtr fork,
@@ -435,7 +456,7 @@ std::optional<crypto::merkle_tree::IndexedLeaf<T>> WorldState::get_indexed_leaf(
                                                                                 index_t leaf) const
 {
     using Store = ContentAddressedCachedTreeStore<T>;
-    using Tree = ContentAddressedIndexedTree<Store, HashPolicy>;
+    using Tree = ContentAddressedIndexedTree<Store, aztec::MerkleHashPolicyForT<T>>;
 
     Fork::SharedPtr fork = retrieve_fork(rev.forkId);
     TypedResponse<GetIndexedLeafResponse<T>> local;
@@ -448,7 +469,7 @@ std::optional<crypto::merkle_tree::IndexedLeaf<T>> WorldState::get_indexed_leaf(
             signal.signal_level(0);
         };
 
-        if (rev.blockNumber) {
+        if (rev.is_historical()) {
             wrapper->tree->get_leaf(leaf, rev.blockNumber, rev.includeUncommitted, callback);
         } else {
             wrapper->tree->get_leaf(leaf, rev.includeUncommitted, callback);
@@ -492,14 +513,14 @@ std::optional<T> WorldState::get_leaf(const WorldStateRevision& revision,
             signal.signal_level();
         };
 
-        if (revision.blockNumber) {
+        if (revision.is_historical()) {
             wrapper.tree->get_leaf(leaf_index, revision.blockNumber, revision.includeUncommitted, callback);
         } else {
             wrapper.tree->get_leaf(leaf_index, revision.includeUncommitted, callback);
         }
     } else {
         using Store = ContentAddressedCachedTreeStore<T>;
-        using Tree = ContentAddressedIndexedTree<Store, HashPolicy>;
+        using Tree = ContentAddressedIndexedTree<Store, aztec::MerkleHashPolicyForT<T>>;
 
         auto& wrapper = std::get<TreeWithStore<Tree>>(fork->_trees.at(tree_id));
         auto callback =
@@ -513,7 +534,7 @@ std::optional<T> WorldState::get_leaf(const WorldStateRevision& revision,
                 signal.signal_level();
             };
 
-        if (revision.blockNumber) {
+        if (revision.is_historical()) {
             wrapper.tree->get_leaf(leaf_index, revision.blockNumber, revision.includeUncommitted, callback);
         } else {
             wrapper.tree->get_leaf(leaf_index, revision.includeUncommitted, callback);
@@ -544,7 +565,7 @@ void WorldState::find_leaf_indices(const WorldStateRevision& rev,
     };
     if constexpr (std::is_same_v<bb::fr, T>) {
         const auto& wrapper = std::get<TreeWithStore<FrTree>>(fork->_trees.at(id));
-        if (rev.blockNumber) {
+        if (rev.is_historical()) {
             wrapper.tree->find_leaf_indices_from(
                 leaves, start_index, rev.blockNumber, rev.includeUncommitted, callback);
         } else {
@@ -553,10 +574,10 @@ void WorldState::find_leaf_indices(const WorldStateRevision& rev,
 
     } else {
         using Store = ContentAddressedCachedTreeStore<T>;
-        using Tree = ContentAddressedIndexedTree<Store, HashPolicy>;
+        using Tree = ContentAddressedIndexedTree<Store, aztec::MerkleHashPolicyForT<T>>;
 
         auto& wrapper = std::get<TreeWithStore<Tree>>(fork->_trees.at(id));
-        if (rev.blockNumber) {
+        if (rev.is_historical()) {
             wrapper.tree->find_leaf_indices_from(
                 leaves, start_index, rev.blockNumber, rev.includeUncommitted, callback);
         } else {
@@ -591,7 +612,7 @@ void WorldState::find_sibling_paths(const WorldStateRevision& rev,
     };
     if constexpr (std::is_same_v<bb::fr, T>) {
         const auto& wrapper = std::get<TreeWithStore<FrTree>>(fork->_trees.at(id));
-        if (rev.blockNumber) {
+        if (rev.is_historical()) {
             wrapper.tree->find_leaf_sibling_paths(leaves, rev.blockNumber, rev.includeUncommitted, callback);
         } else {
             wrapper.tree->find_leaf_sibling_paths(leaves, rev.includeUncommitted, callback);
@@ -599,10 +620,10 @@ void WorldState::find_sibling_paths(const WorldStateRevision& rev,
 
     } else {
         using Store = ContentAddressedCachedTreeStore<T>;
-        using Tree = ContentAddressedIndexedTree<Store, HashPolicy>;
+        using Tree = ContentAddressedIndexedTree<Store, aztec::MerkleHashPolicyForT<T>>;
 
         auto& wrapper = std::get<TreeWithStore<Tree>>(fork->_trees.at(id));
-        if (rev.blockNumber) {
+        if (rev.is_historical()) {
             wrapper.tree->find_leaf_sibling_paths(leaves, rev.blockNumber, rev.includeUncommitted, callback);
         } else {
             wrapper.tree->find_leaf_sibling_paths(leaves, rev.includeUncommitted, callback);
@@ -641,7 +662,7 @@ template <typename T> void WorldState::append_leaves(MerkleTreeId id, const std:
         wrapper.tree->add_values(leaves, callback);
     } else {
         using Store = ContentAddressedCachedTreeStore<T>;
-        using Tree = ContentAddressedIndexedTree<Store, HashPolicy>;
+        using Tree = ContentAddressedIndexedTree<Store, aztec::MerkleHashPolicyForT<T>>;
         auto& wrapper = std::get<TreeWithStore<Tree>>(fork->_trees.at(id));
         typename Tree::AddCompletionCallback callback = [&](const auto& resp) {
             if (!resp.success) {
@@ -668,7 +689,7 @@ BatchInsertionResult<T> WorldState::batch_insert_indexed_leaves(MerkleTreeId id,
 {
     using namespace crypto::merkle_tree;
     using Store = ContentAddressedCachedTreeStore<T>;
-    using Tree = ContentAddressedIndexedTree<Store, HashPolicy>;
+    using Tree = ContentAddressedIndexedTree<Store, aztec::MerkleHashPolicyForT<T>>;
 
     Fork::SharedPtr fork = retrieve_fork(fork_id);
 
@@ -708,7 +729,7 @@ SequentialInsertionResult<T> WorldState::insert_indexed_leaves(MerkleTreeId id,
 {
     using namespace crypto::merkle_tree;
     using Store = ContentAddressedCachedTreeStore<T>;
-    using Tree = ContentAddressedIndexedTree<Store, HashPolicy>;
+    using Tree = ContentAddressedIndexedTree<Store, aztec::MerkleHashPolicyForT<T>>;
 
     Fork::SharedPtr fork = retrieve_fork(fork_id);
 

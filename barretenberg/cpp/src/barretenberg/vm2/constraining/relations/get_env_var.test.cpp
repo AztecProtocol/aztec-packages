@@ -59,7 +59,7 @@ TEST(GetEnvVarConstrainingTest, AddressContextVariable)
     // Negative test: getting ADDRESS but register != contract_address
     trace.set(C::execution_register_0_, 1, FF(0xDEADBEEF));
     EXPECT_THROW_WITH_MESSAGE(check_relation<get_env_var>(trace, get_env_var::SR_ADDRESS_FROM_CONTEXT),
-                              "ADDRESS_FROM_CONTEXT");
+                              get_env_var::get_subrelation_label(get_env_var::SR_ADDRESS_FROM_CONTEXT));
 }
 
 TEST(GetEnvVarConstrainingTest, SenderContextVariable)
@@ -88,7 +88,7 @@ TEST(GetEnvVarConstrainingTest, SenderContextVariable)
     // Negative test: getting SENDER but register != msg_sender
     trace.set(C::execution_register_0_, 1, FF(0xDEADBEEF));
     EXPECT_THROW_WITH_MESSAGE(check_relation<get_env_var>(trace, get_env_var::SR_SENDER_FROM_CONTEXT),
-                              "SENDER_FROM_CONTEXT");
+                              get_env_var::get_subrelation_label(get_env_var::SR_SENDER_FROM_CONTEXT));
 }
 
 TEST(GetEnvVarConstrainingTest, TransactionFeeContextVariable)
@@ -117,7 +117,7 @@ TEST(GetEnvVarConstrainingTest, TransactionFeeContextVariable)
     // Negative test: getting TRANSACTIONFEE but register != transaction_fee
     trace.set(C::execution_register_0_, 1, 2000);
     EXPECT_THROW_WITH_MESSAGE(check_relation<get_env_var>(trace, get_env_var::SR_TRANSACTION_FEE_FROM_CONTEXT),
-                              "TRANSACTION_FEE_FROM_CONTEXT");
+                              get_env_var::get_subrelation_label(get_env_var::SR_TRANSACTION_FEE_FROM_CONTEXT));
 }
 
 TEST(GetEnvVarConstrainingTest, IsStaticCallContextVariable)
@@ -153,7 +153,7 @@ TEST(GetEnvVarConstrainingTest, IsStaticCallContextVariable)
     // Negative test: getting ISSTATICCALL but register != is_static
     trace.set(C::execution_register_0_, 1, 0);
     EXPECT_THROW_WITH_MESSAGE(check_relation<get_env_var>(trace, get_env_var::SR_ISSTATICCALL_FROM_CONTEXT),
-                              "ISSTATICCALL_FROM_CONTEXT");
+                              get_env_var::get_subrelation_label(get_env_var::SR_ISSTATICCALL_FROM_CONTEXT));
 }
 
 TEST(GetEnvVarConstrainingTest, L2GasLeftGasVariable)
@@ -184,7 +184,7 @@ TEST(GetEnvVarConstrainingTest, L2GasLeftGasVariable)
     // Negative test: getting L2GASLEFT but register != (limit - used)
     trace.set(C::execution_register_0_, 1, 5000);
     EXPECT_THROW_WITH_MESSAGE(check_relation<get_env_var>(trace, get_env_var::SR_L2GASLEFT_FROM_GAS),
-                              "L2GASLEFT_FROM_GAS");
+                              get_env_var::get_subrelation_label(get_env_var::SR_L2GASLEFT_FROM_GAS));
 }
 
 TEST(GetEnvVarConstrainingTest, DaGasLeftGasVariable)
@@ -215,7 +215,7 @@ TEST(GetEnvVarConstrainingTest, DaGasLeftGasVariable)
     // Negative test: getting DAGASLEFT but register != (limit - used)
     trace.set(C::execution_register_0_, 1, 1000);
     EXPECT_THROW_WITH_MESSAGE(check_relation<get_env_var>(trace, get_env_var::SR_DAGASLEFT_FROM_GAS),
-                              "DAGASLEFT_FROM_GAS");
+                              get_env_var::get_subrelation_label(get_env_var::SR_DAGASLEFT_FROM_GAS));
 }
 
 TEST(GetEnvVarConstrainingTest, NoSideEffectsWhenNotGettingEnvVar)
@@ -259,7 +259,7 @@ TEST(GetEnvVarConstrainingTest, ComplexTraceWithAllEnumsAndInteractions)
         { { C::execution_sel, 1 },
           { C::execution_contract_address, contract_address },
           { C::execution_rop_1_, static_cast<uint8_t>(EnvironmentVariable::ADDRESS) },
-          { C::execution_sel_should_execute_opcode, 1 },
+          { C::execution_sel_execute_opcode, 1 },
           // Do it! No prior error
           { C::execution_sel_execute_get_env_var, 1 },
           // from precomputed table
@@ -282,7 +282,7 @@ TEST(GetEnvVarConstrainingTest, ComplexTraceWithAllEnumsAndInteractions)
         { { C::execution_sel, 1 },
           { C::execution_msg_sender, sender },
           { C::execution_rop_1_, static_cast<uint8_t>(EnvironmentVariable::SENDER) },
-          { C::execution_sel_should_execute_opcode, 1 },
+          { C::execution_sel_execute_opcode, 1 },
           // Do it! No prior error
           { C::execution_sel_execute_get_env_var, 1 },
           // from precomputed table
@@ -305,7 +305,7 @@ TEST(GetEnvVarConstrainingTest, ComplexTraceWithAllEnumsAndInteractions)
         { { C::execution_sel, 1 },
           { C::execution_transaction_fee, transaction_fee },
           { C::execution_rop_1_, static_cast<uint8_t>(EnvironmentVariable::TRANSACTIONFEE) },
-          { C::execution_sel_should_execute_opcode, 1 },
+          { C::execution_sel_execute_opcode, 1 },
           // Do it! No prior error
           { C::execution_sel_execute_get_env_var, 1 },
           // from precomputed table
@@ -327,7 +327,7 @@ TEST(GetEnvVarConstrainingTest, ComplexTraceWithAllEnumsAndInteractions)
         // chain id
         { { C::execution_sel, 1 },
           { C::execution_rop_1_, static_cast<uint8_t>(EnvironmentVariable::CHAINID) },
-          { C::execution_sel_should_execute_opcode, 1 },
+          { C::execution_sel_execute_opcode, 1 },
           // Do it! No prior error
           { C::execution_sel_execute_get_env_var, 1 },
           // from precomputed table
@@ -349,7 +349,7 @@ TEST(GetEnvVarConstrainingTest, ComplexTraceWithAllEnumsAndInteractions)
         // version
         { { C::execution_sel, 1 },
           { C::execution_rop_1_, static_cast<uint8_t>(EnvironmentVariable::VERSION) },
-          { C::execution_sel_should_execute_opcode, 1 },
+          { C::execution_sel_execute_opcode, 1 },
           // Do it! No prior error
           { C::execution_sel_execute_get_env_var, 1 },
           // from precomputed table
@@ -371,7 +371,7 @@ TEST(GetEnvVarConstrainingTest, ComplexTraceWithAllEnumsAndInteractions)
         // block number
         { { C::execution_sel, 1 },
           { C::execution_rop_1_, static_cast<uint8_t>(EnvironmentVariable::BLOCKNUMBER) },
-          { C::execution_sel_should_execute_opcode, 1 },
+          { C::execution_sel_execute_opcode, 1 },
           // Do it! No prior error
           { C::execution_sel_execute_get_env_var, 1 },
           // from precomputed table
@@ -393,7 +393,7 @@ TEST(GetEnvVarConstrainingTest, ComplexTraceWithAllEnumsAndInteractions)
         // timestamp
         { { C::execution_sel, 1 },
           { C::execution_rop_1_, static_cast<uint8_t>(EnvironmentVariable::TIMESTAMP) },
-          { C::execution_sel_should_execute_opcode, 1 },
+          { C::execution_sel_execute_opcode, 1 },
           // Do it! No prior error
           { C::execution_sel_execute_get_env_var, 1 },
           // from precomputed table
@@ -415,7 +415,7 @@ TEST(GetEnvVarConstrainingTest, ComplexTraceWithAllEnumsAndInteractions)
         // fee_per_l2_gas
         { { C::execution_sel, 1 },
           { C::execution_rop_1_, static_cast<uint8_t>(EnvironmentVariable::MINFEEPERL2GAS) },
-          { C::execution_sel_should_execute_opcode, 1 },
+          { C::execution_sel_execute_opcode, 1 },
           // Do it! No prior error
           { C::execution_sel_execute_get_env_var, 1 },
           // from precomputed table
@@ -437,7 +437,7 @@ TEST(GetEnvVarConstrainingTest, ComplexTraceWithAllEnumsAndInteractions)
         // fee_per_da_gas
         { { C::execution_sel, 1 },
           { C::execution_rop_1_, static_cast<uint8_t>(EnvironmentVariable::MINFEEPERDAGAS) },
-          { C::execution_sel_should_execute_opcode, 1 },
+          { C::execution_sel_execute_opcode, 1 },
           // Do it! No prior error
           { C::execution_sel_execute_get_env_var, 1 },
           // from precomputed table
@@ -460,7 +460,7 @@ TEST(GetEnvVarConstrainingTest, ComplexTraceWithAllEnumsAndInteractions)
         { { C::execution_sel, 1 },
           { C::execution_is_static, is_static_call },
           { C::execution_rop_1_, static_cast<uint8_t>(EnvironmentVariable::ISSTATICCALL) },
-          { C::execution_sel_should_execute_opcode, 1 },
+          { C::execution_sel_execute_opcode, 1 },
           // Do it! No prior error
           { C::execution_sel_execute_get_env_var, 1 },
           // from precomputed table
@@ -484,7 +484,7 @@ TEST(GetEnvVarConstrainingTest, ComplexTraceWithAllEnumsAndInteractions)
           { C::execution_l2_gas_limit, l2_gas_limit },
           { C::execution_l2_gas_used, l2_gas_used },
           { C::execution_rop_1_, static_cast<uint8_t>(EnvironmentVariable::L2GASLEFT) },
-          { C::execution_sel_should_execute_opcode, 1 },
+          { C::execution_sel_execute_opcode, 1 },
           // Do it! No prior error
           { C::execution_sel_execute_get_env_var, 1 },
           // from precomputed table
@@ -508,7 +508,7 @@ TEST(GetEnvVarConstrainingTest, ComplexTraceWithAllEnumsAndInteractions)
           { C::execution_da_gas_limit, da_gas_limit },
           { C::execution_da_gas_used, da_gas_used },
           { C::execution_rop_1_, static_cast<uint8_t>(EnvironmentVariable::DAGASLEFT) },
-          { C::execution_sel_should_execute_opcode, 1 },
+          { C::execution_sel_execute_opcode, 1 },
           // Do it! No prior error
           { C::execution_sel_execute_get_env_var, 1 },
           // from precomputed table
@@ -530,7 +530,7 @@ TEST(GetEnvVarConstrainingTest, ComplexTraceWithAllEnumsAndInteractions)
         // invalid enum
         { { C::execution_sel, 1 },
           { C::execution_rop_1_, 42 },
-          { C::execution_sel_should_execute_opcode, 1 },
+          { C::execution_sel_execute_opcode, 1 },
           // Do it! No prior error, although enum will later prove to be invalid.
           { C::execution_sel_execute_get_env_var, 1 },
           // from precomputed table
@@ -580,7 +580,7 @@ TEST(GetEnvVarConstrainingTest, NegativeInteractionTests)
     TestTraceContainer trace({
         { { C::execution_sel, 1 },
           { C::execution_rop_1_, static_cast<uint8_t>(EnvironmentVariable::CHAINID) },
-          { C::execution_sel_should_execute_opcode, 1 },
+          { C::execution_sel_execute_opcode, 1 },
           // from precomputed table
           { C::execution_sel_opcode_error, 0 }, // valid enum
           { C::execution_sel_envvar_pi_lookup_col0, 1 },
@@ -638,7 +638,7 @@ TEST(GetEnvVarConstrainingTest, NegativeInteractionTestsPICol1)
     TestTraceContainer trace({
         { { C::execution_sel, 1 },
           { C::execution_rop_1_, static_cast<uint8_t>(EnvironmentVariable::MINFEEPERL2GAS) },
-          { C::execution_sel_should_execute_opcode, 1 },
+          { C::execution_sel_execute_opcode, 1 },
           // from precomputed table
           { C::execution_sel_opcode_error, 0 }, // valid enum
           { C::execution_sel_envvar_pi_lookup_col0, 0 },

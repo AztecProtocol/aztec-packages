@@ -1,16 +1,12 @@
 import { AztecAddress } from '@aztec/aztec.js/addresses';
-import {
-  BatchCall,
-  ContractFunctionInteraction,
-  type SendInteractionOptions,
-  waitForProven,
-} from '@aztec/aztec.js/contracts';
+import type { SendInteractionOptions } from '@aztec/aztec.js/contracts';
 import { createLogger } from '@aztec/aztec.js/log';
 import { waitForTx } from '@aztec/aztec.js/node';
-import { TxHash, TxReceipt } from '@aztec/aztec.js/tx';
+import { TxStatus } from '@aztec/aztec.js/tx';
+import type { TxHash, TxReceipt } from '@aztec/aztec.js/tx';
 import { Gas } from '@aztec/stdlib/gas';
 import type { AztecNode } from '@aztec/stdlib/interfaces/client';
-import type { TestWallet } from '@aztec/test-wallet/server';
+import type { EmbeddedWallet } from '@aztec/wallets/embedded';
 
 import type { BotConfig } from './config.js';
 
@@ -22,15 +18,15 @@ export abstract class BaseBot {
 
   protected constructor(
     public readonly node: AztecNode,
-    public readonly wallet: TestWallet,
+    public readonly wallet: EmbeddedWallet,
     public readonly defaultAccountAddress: AztecAddress,
     public config: BotConfig,
   ) {}
 
   public async run(): Promise<TxReceipt | TxHash> {
     this.attempts++;
-    const logCtx = { runId: Date.now() * 1000 + Math.floor(Math.random() * 1000) };
     const { followChain, txMinedWaitSeconds } = this.config;
+    const logCtx = { runId: Date.now() * 1000 + Math.floor(Math.random() * 1000), followChain, txMinedWaitSeconds };
 
     this.log.verbose(`Creating tx`, logCtx);
     const txHash = await this.createAndSendTx(logCtx);
@@ -40,14 +36,9 @@ export abstract class BaseBot {
       return txHash;
     }
 
-    this.log.verbose(
-      `Awaiting tx ${txHash.toString()} to be on the ${followChain} chain (timeout ${txMinedWaitSeconds}s)`,
-      logCtx,
-    );
-    const receipt = await waitForTx(this.node, txHash, { timeout: txMinedWaitSeconds });
-    if (followChain === 'PROVEN') {
-      await waitForProven(this.node, receipt, { provenTimeout: txMinedWaitSeconds });
-    }
+    const waitForStatus = TxStatus[followChain];
+    this.log.verbose(`Awaiting tx ${txHash.toString()} to be on the ${followChain} chain`, logCtx);
+    const receipt = await waitForTx(this.node, txHash, { timeout: txMinedWaitSeconds, waitForStatus });
     this.successes++;
     this.log.info(
       `Tx #${this.attempts} ${receipt.txHash} successfully mined in block ${receipt.blockNumber} (stats: ${this.successes}/${this.attempts} success)`,
@@ -66,27 +57,19 @@ export abstract class BaseBot {
     return Promise.resolve();
   }
 
-  protected async getSendMethodOpts(
-    interaction: ContractFunctionInteraction | BatchCall,
-  ): Promise<SendInteractionOptions> {
+  protected getSendMethodOpts(): SendInteractionOptions {
     const { l2GasLimit, daGasLimit, minFeePadding } = this.config;
 
     this.wallet.setMinFeePadding(minFeePadding);
 
-    let gasSettings;
-    if (l2GasLimit !== undefined && l2GasLimit > 0 && daGasLimit !== undefined && daGasLimit > 0) {
-      gasSettings = { gasLimits: Gas.from({ l2Gas: l2GasLimit, daGas: daGasLimit }) };
-      this.log.verbose(`Using gas limits ${l2GasLimit} L2 gas ${daGasLimit} DA gas`);
-    } else {
-      this.log.verbose(`Estimating gas for transaction`);
-      ({ estimatedGas: gasSettings } = await interaction.simulate({
-        fee: { estimateGas: true },
-        from: this.defaultAccountAddress,
-      }));
-    }
+    const gasSettings =
+      l2GasLimit !== undefined && l2GasLimit > 0 && daGasLimit !== undefined && daGasLimit > 0
+        ? { gasLimits: Gas.from({ l2Gas: l2GasLimit, daGas: daGasLimit }) }
+        : undefined;
+
     return {
       from: this.defaultAccountAddress,
-      fee: { gasSettings },
+      ...(gasSettings ? { fee: { gasSettings } } : {}),
     };
   }
 }

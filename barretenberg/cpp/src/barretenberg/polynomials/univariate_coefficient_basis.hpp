@@ -1,5 +1,5 @@
 // === AUDIT STATUS ===
-// internal:    { status: Planned, auditors: [], commit: }
+// internal:    { status: Complete, auditors: [Nishat], commit: 94f596f8b3bbbc216f9ad7dc33253256141156b2 }
 // external_1:  { status: not started, auditors: [], commit: }
 // external_2:  { status: not started, auditors: [], commit: }
 // =====================
@@ -43,11 +43,15 @@ template <class Fr, size_t domain_end, bool has_a0_plus_a1> class UnivariateCoef
     using value_type = Fr; // used to get the type of the elements consistently with std::array
 
     /**
-     * @brief coefficients is a length-3 array with the following representation:
-     * @details This class represents a polynomial P(X) = a0 + a1.X + a2.X^2
-     *          We define `coefficients[0] = a0` and `coefficients[1] = a1`
-     *          If LENGTH == 2 AND `has_a0_plus_a1 = true` then `coefficients[2] = a0 + a1`
-     *          If LENGTH == 3 then `coefficients[3] = a2`
+     * @brief Storage for polynomial coefficients (always 3 elements for uniform layout).
+     * @details This class represents a polynomial P(X) = a0 + a1.X + a2.X^2. `coefficients[0] = a0` in all
+     *          cases; the meaning of `coefficients[1]` and `coefficients[2]` depends on the template parameters:
+     *            - LENGTH == 2 AND has_a0_plus_a1 == true:  coefficients[1] = a1, coefficients[2] = a0 + a1
+     *              (coefficients[2] precomputed for Karatsuba multiplication; NOT a polynomial coefficient)
+     *            - LENGTH == 2 AND has_a0_plus_a1 == false: coefficients[1] = a1, coefficients[2] is unused
+     *            - LENGTH == 3:                             coefficients[1] = a1 + a2, coefficients[2] = a2
+     *              (coefficients[1] holds the first forward difference P(1) - P(0) = a1 + a2, not the bare
+     *              linear coefficient, so the Lagrange reconstruction can extend by repeated addition)
      */
     std::array<Fr, 3> coefficients;
 
@@ -80,57 +84,12 @@ template <class Fr, size_t domain_end, bool has_a0_plus_a1> class UnivariateCoef
         }
     };
 
-    size_t size() { return coefficients.size(); };
-
-    // Check if the UnivariateCoefficientBasis is identically zero
-    bool is_zero() const
-        requires(LENGTH == 2)
-    {
-        return coefficients[0].is_zero() || coefficients[1].is_zero();
-    }
-
-    // Check if the UnivariateCoefficientBasis is identically zero
-    bool is_zero() const
-        requires(LENGTH == 3)
-    {
-        return coefficients[2].is_zero() || coefficients[0].is_zero() || coefficients[1].is_zero();
-    }
-
-    // Write the Univariate coefficients to a buffer
-    [[nodiscard]] std::vector<uint8_t> to_buffer() const { return ::to_buffer(coefficients); }
-
-    // Static method for creating a Univariate from a buffer
-    // IMPROVEMENT: Could be made to identically match equivalent methods in e.g. field.hpp. Currently bypasses
-    // unnecessary ::from_buffer call
-    static UnivariateCoefficientBasis serialize_from_buffer(uint8_t const* buffer)
-    {
-        UnivariateCoefficientBasis result;
-        std::read(buffer, result.coefficients);
-        return result;
-    }
-
-    static UnivariateCoefficientBasis get_random()
-    {
-        auto output = UnivariateCoefficientBasis<Fr, domain_end, has_a0_plus_a1>();
-        for (size_t i = 0; i < LENGTH; ++i) {
-            output.value_at(i) = Fr::random_element();
-        }
-        return output;
-    };
-
-    static UnivariateCoefficientBasis zero()
-    {
-        auto output = UnivariateCoefficientBasis<Fr, domain_end, has_a0_plus_a1>();
-        for (size_t i = 0; i != LENGTH; ++i) {
-            output.coefficients[i] = Fr::zero();
-        }
-        return output;
-    }
-
-    static UnivariateCoefficientBasis random_element() { return get_random(); };
-
-    // Operations between UnivariateCoefficientBasis and other UnivariateCoefficientBasis
-    bool operator==(const UnivariateCoefficientBasis& other) const = default;
+    // operator== is deleted. If an equality is needed, care must be taken to define the semantics correctly. The
+    // semantic meaning of coefficients[2] depends on template parameters (unused for domain_end=2,
+    // has_a0_plus_a1=false; a0+a1 Karatsuba precomputation for has_a0_plus_a1=true; the x^2 coefficient for
+    // domain_end=3), so a defaulted comparison can produce false negatives between construction paths that represent
+    // the same polynomial.
+    bool operator==(const UnivariateCoefficientBasis& other) const = delete;
 
     template <size_t other_domain_end, bool other_has_a0_plus_a1>
     UnivariateCoefficientBasis<Fr, domain_end, false>& operator+=(
@@ -168,8 +127,8 @@ template <class Fr, size_t domain_end, bool has_a0_plus_a1> class UnivariateCoef
         requires(LENGTH == 2)
     {
         UnivariateCoefficientBasis<Fr, 3, false> result;
-        // result.coefficients[0] = a0 * a0;
-        // result.coefficients[1] = a1 * a1
+        // result.coefficients[0] = a0 * b0;
+        // result.coefficients[2] = a1 * b1
         result.coefficients[0] = coefficients[0] * other.coefficients[0];
         result.coefficients[2] = coefficients[1] * other.coefficients[1];
 
@@ -239,6 +198,10 @@ template <class Fr, size_t domain_end, bool has_a0_plus_a1> class UnivariateCoef
         return res;
     }
 
+    /**
+     * @brief Square a degree-1 monomial to degree 2 in the coefficient basis.
+     * @details Fewer muls than promoting to a Lagrange Univariate and squaring pointwise.
+     */
     UnivariateCoefficientBasis<Fr, 3, false> sqr() const
         requires(LENGTH == 2)
     {
@@ -259,6 +222,20 @@ template <class Fr, size_t domain_end, bool has_a0_plus_a1> class UnivariateCoef
             result.coefficients[1] += result.coefficients[2];
         }
         return result;
+    }
+
+    // True iff the represented polynomial is identically zero. Checks the genuine coefficients
+    // a0, a1 (and a2 for LENGTH 3); for has_a0_plus_a1 layouts coefficients[2] = a0 + a1 is then
+    // also zero, so it need not be checked separately.
+    bool is_zero() const
+    {
+        if (!coefficients[0].is_zero() || !coefficients[1].is_zero()) {
+            return false;
+        }
+        if constexpr (domain_end == 3) {
+            return coefficients[2].is_zero();
+        }
+        return true;
     }
 
     // Operations between Univariate and scalar
@@ -326,13 +303,6 @@ template <class Fr, size_t domain_end, bool has_a0_plus_a1> class UnivariateCoef
         }
         return os;
     }
-
-    // Begin iterators
-    auto begin() { return coefficients.begin(); }
-    auto begin() const { return coefficients.begin(); }
-    // End iterators
-    auto end() { return coefficients.end(); }
-    auto end() const { return coefficients.end(); }
 };
 
 template <typename B, class Fr, size_t domain_end, bool has_a0_plus_a1>

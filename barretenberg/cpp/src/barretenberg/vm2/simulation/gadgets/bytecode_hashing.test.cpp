@@ -46,7 +46,7 @@ class BytecodeHashingTest : public ::testing::Test {
 TEST_F(BytecodeHashingTest, SimpleHash)
 {
     // The hardcoded value is taken from noir-projects/aztec-nr/aztec/src/hash.nr:
-    FF hash = FF("0x2c5e4c67ad5e1e4d840a6c4db4cee765fe09fbb6dfbb89ab649c295bb01f206e");
+    FF hash = FF("0x09348974e76c3602893d7a4b4bb52c2ec746f1ade5004ac471d0fbb4587a81a6");
 
     std::vector<FF> bytecode_fields = {};
     for (uint32_t i = 1; i < 100; i++) {
@@ -60,16 +60,16 @@ TEST_F(BytecodeHashingTest, SimpleHash)
         bytecode.insert(bytecode.end(), bytes.begin() + 1, bytes.end());
     }
 
-    bytecode_fields.insert(bytecode_fields.begin(), DOM_SEP__PUBLIC_BYTECODE);
+    bytecode_fields.insert(bytecode_fields.begin(), compute_public_bytecode_first_field(bytecode.size()));
 
     EXPECT_CALL(poseidon2, hash(bytecode_fields)).WillOnce(Return(hash));
 
-    bytecode_hasher.assert_public_bytecode_commitment(FF(0xc0ffee), bytecode, hash);
+    bytecode_hasher.assert_public_bytecode_commitment(hash, bytecode);
 
     EXPECT_THAT(hashing_events.dump_events(),
                 AllOf(SizeIs(1),
-                      ElementsAre(AllOf(Field(&BytecodeHashingEvent::bytecode_id, 0xc0ffee),
-                                        Field(&BytecodeHashingEvent::bytecode_length, 3069),
+                      ElementsAre(AllOf(Field(&BytecodeHashingEvent::bytecode_id, hash),
+                                        Field(&BytecodeHashingEvent::bytecode_length_in_bytes, 3069),
                                         Field(&BytecodeHashingEvent::bytecode_fields, SizeIs(99))))));
 }
 
@@ -77,19 +77,19 @@ TEST_F(BytecodeHashingTest, Hash)
 {
     std::vector<uint8_t> bytecode = testing::random_bytes(500);
     std::vector<FF> bytecode_fields = encode_bytecode(bytecode);
-    std::vector<FF> prepended_bytecode_fields = { DOM_SEP__PUBLIC_BYTECODE };
+    std::vector<FF> prepended_bytecode_fields = { compute_public_bytecode_first_field(bytecode.size()) };
     prepended_bytecode_fields.reserve(1 + bytecode_fields.size());
     prepended_bytecode_fields.insert(prepended_bytecode_fields.end(), bytecode_fields.begin(), bytecode_fields.end());
 
     auto hash = RawPoseidon2::hash(prepended_bytecode_fields);
     EXPECT_CALL(poseidon2, hash(prepended_bytecode_fields)).WillOnce(Return(hash));
 
-    bytecode_hasher.assert_public_bytecode_commitment(FF(0xc0ffee), bytecode, hash);
+    bytecode_hasher.assert_public_bytecode_commitment(hash, bytecode);
 
     EXPECT_THAT(hashing_events.dump_events(),
                 AllOf(SizeIs(1),
-                      ElementsAre(AllOf(Field(&BytecodeHashingEvent::bytecode_id, 0xc0ffee),
-                                        Field(&BytecodeHashingEvent::bytecode_length, 500),
+                      ElementsAre(AllOf(Field(&BytecodeHashingEvent::bytecode_id, hash),
+                                        Field(&BytecodeHashingEvent::bytecode_length_in_bytes, 500),
                                         Field(&BytecodeHashingEvent::bytecode_fields, bytecode_fields)))));
 }
 

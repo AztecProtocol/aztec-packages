@@ -127,6 +127,25 @@ export function makeL1PublishedData(l1BlockNumber: number): L1PublishedData {
   return new L1PublishedData(BigInt(l1BlockNumber), BigInt(l1BlockNumber * 1000), makeBlockHash(l1BlockNumber));
 }
 
+/** Creates a Checkpoint from a list of blocks with a header that matches the blocks' structure. */
+export function makeCheckpoint(blocks: L2Block[], checkpointNumber = CheckpointNumber(1)): Checkpoint {
+  const firstBlock = blocks[0];
+  const { slotNumber, timestamp, coinbase, feeRecipient, gasFees } = firstBlock.header.globalVariables;
+  return new Checkpoint(
+    blocks.at(-1)!.archive,
+    CheckpointHeader.random({
+      lastArchiveRoot: firstBlock.header.lastArchive.root,
+      slotNumber,
+      timestamp,
+      coinbase,
+      feeRecipient,
+      gasFees,
+    }),
+    blocks,
+    checkpointNumber,
+  );
+}
+
 /** Wraps a Checkpoint with L1 published data and random attestations. */
 export function makePublishedCheckpoint(
   checkpoint: Checkpoint,
@@ -250,7 +269,10 @@ export function makePublicLogTag(blockNumber: number, txIndex: number, logIndex:
 }
 
 /** Creates a PublicLog with fields derived from the tag. */
-export function makePublicLog(tag: Tag, contractAddress: AztecAddress = AztecAddress.fromNumber(543254)): PublicLog {
+export function makePublicLog(
+  tag: Tag,
+  contractAddress: AztecAddress = AztecAddress.fromNumberUnsafe(543254),
+): PublicLog {
   return PublicLog.from({
     contractAddress,
     fields: new Array(10).fill(null).map((_, i) => (!i ? tag.value : new Fr(tag.value.toBigInt() + BigInt(i)))),
@@ -262,7 +284,7 @@ export function makePublicLogs(
   blockNumber: number,
   txIndex: number,
   numLogsPerTx: number,
-  contractAddress: AztecAddress = AztecAddress.fromNumber(543254),
+  contractAddress: AztecAddress = AztecAddress.fromNumberUnsafe(543254),
 ): PublicLog[] {
   return times(numLogsPerTx, logIndex => {
     const tag = makePublicLogTag(blockNumber, txIndex, logIndex);
@@ -301,11 +323,6 @@ export async function makeCheckpointWithLogs(
     return txEffect;
   });
 
-  const checkpoint = new Checkpoint(
-    AppendOnlyTreeSnapshot.random(),
-    CheckpointHeader.random(),
-    [block],
-    CheckpointNumber.fromBlockNumber(BlockNumber(blockNumber)),
-  );
+  const checkpoint = makeCheckpoint([block], CheckpointNumber.fromBlockNumber(BlockNumber(blockNumber)));
   return makePublishedCheckpoint(checkpoint, blockNumber);
 }

@@ -8,7 +8,11 @@
 #include "barretenberg/vm2/generated/relations/lookups_sha256.hpp"
 #include "barretenberg/vm2/generated/relations/sha256.hpp"
 #include "barretenberg/vm2/simulation/events/event_emitter.hpp"
+#include "barretenberg/vm2/simulation/gadgets/bitwise.hpp"
+#include "barretenberg/vm2/simulation/gadgets/field_gt.hpp"
+#include "barretenberg/vm2/simulation/gadgets/gt.hpp"
 #include "barretenberg/vm2/simulation/gadgets/memory.hpp"
+#include "barretenberg/vm2/simulation/gadgets/range_check.hpp"
 #include "barretenberg/vm2/simulation/lib/sha256_compression.hpp"
 #include "barretenberg/vm2/simulation/standalone/pure_bitwise.hpp"
 #include "barretenberg/vm2/simulation/standalone/pure_gt.hpp"
@@ -20,6 +24,7 @@
 #include "barretenberg/vm2/tracegen/bitwise_trace.hpp"
 #include "barretenberg/vm2/tracegen/gt_trace.hpp"
 #include "barretenberg/vm2/tracegen/precomputed_trace.hpp"
+#include "barretenberg/vm2/tracegen/range_check_trace.hpp"
 #include "barretenberg/vm2/tracegen/sha256_trace.hpp"
 // Temporary imports, see comment in test.
 #include "barretenberg/vm2/common/memory_types.hpp"
@@ -56,6 +61,7 @@ using simulation::Sha256CompressionEvent;
 using tracegen::BitwiseTraceBuilder;
 using tracegen::GreaterThanTraceBuilder;
 using tracegen::PrecomputedTraceBuilder;
+using tracegen::RangeCheckTraceBuilder;
 using tracegen::Sha256TraceBuilder;
 using tracegen::TestTraceContainer;
 
@@ -80,9 +86,11 @@ TEST(Sha256ConstrainingTest, Basic)
     EXPECT_CALL(execution_id_manager, get_execution_id()).WillRepeatedly(Return(1));
     PureGreaterThan gt;
     PureBitwise bitwise;
+    EventEmitter<RangeCheckEvent> range_check_event_emitter;
+    RangeCheck range_check(range_check_event_emitter);
 
     EventEmitter<Sha256CompressionEvent> sha256_event_emitter;
-    Sha256 sha256_gadget(execution_id_manager, bitwise, gt, sha256_event_emitter);
+    Sha256 sha256_gadget(execution_id_manager, bitwise, gt, range_check, sha256_event_emitter);
 
     std::array<uint32_t, 8> state = { 0, 1, 2, 3, 4, 5, 6, 7 };
     MemoryAddress state_addr = 0;
@@ -126,7 +134,7 @@ TEST(Sha256ConstrainingTest, Interaction)
     Bitwise bitwise(bitwise_event_emitter);
 
     EventEmitter<Sha256CompressionEvent> sha256_event_emitter;
-    Sha256 sha256_gadget(execution_id_manager, bitwise, gt, sha256_event_emitter);
+    Sha256 sha256_gadget(execution_id_manager, bitwise, gt, range_check, sha256_event_emitter);
 
     std::array<uint32_t, 8> state = { 0, 1, 2, 3, 4, 5, 6, 7 };
     MemoryAddress state_addr = 0;
@@ -155,6 +163,9 @@ TEST(Sha256ConstrainingTest, Interaction)
 
     GreaterThanTraceBuilder gt_builder;
     gt_builder.process(gt_event_emitter.dump_events(), trace);
+
+    RangeCheckTraceBuilder range_check_builder;
+    range_check_builder.process(range_check_event_emitter.dump_events(), trace);
 
     builder.process(sha256_event_emitter.get_events(), trace);
 
@@ -195,21 +206,13 @@ TEST(Sha256ConstrainingTest, Interaction)
                       lookup_sha256_range_comp_next_a_rhs_settings,
                       lookup_sha256_range_comp_next_e_lhs_settings,
                       lookup_sha256_range_comp_next_e_rhs_settings,
-                      lookup_sha256_range_comp_a_lhs_settings,
                       lookup_sha256_range_comp_a_rhs_settings,
-                      lookup_sha256_range_comp_b_lhs_settings,
                       lookup_sha256_range_comp_b_rhs_settings,
-                      lookup_sha256_range_comp_c_lhs_settings,
                       lookup_sha256_range_comp_c_rhs_settings,
-                      lookup_sha256_range_comp_d_lhs_settings,
                       lookup_sha256_range_comp_d_rhs_settings,
-                      lookup_sha256_range_comp_e_lhs_settings,
                       lookup_sha256_range_comp_e_rhs_settings,
-                      lookup_sha256_range_comp_f_lhs_settings,
                       lookup_sha256_range_comp_f_rhs_settings,
-                      lookup_sha256_range_comp_g_lhs_settings,
                       lookup_sha256_range_comp_g_rhs_settings,
-                      lookup_sha256_range_comp_h_lhs_settings,
                       lookup_sha256_range_comp_h_rhs_settings>(trace);
 
     check_relation<sha256>(trace);
@@ -235,7 +238,7 @@ TEST(Sha256MemoryConstrainingTest, Basic)
     PureBitwise bitwise;
 
     EventEmitter<Sha256CompressionEvent> sha256_event_emitter;
-    Sha256 sha256_gadget(execution_id_manager, bitwise, gt, sha256_event_emitter);
+    Sha256 sha256_gadget(execution_id_manager, bitwise, gt, range_check, sha256_event_emitter);
 
     std::array<uint32_t, 8> state = { 0, 1, 2, 3, 4, 5, 6, 7 };
     MemoryAddress state_addr = 0;
@@ -286,7 +289,7 @@ TEST(Sha256MemoryConstrainingTest, SimpleOutOfRangeMemoryAddresses)
     PureBitwise bitwise;
 
     EventEmitter<Sha256CompressionEvent> sha256_event_emitter;
-    Sha256 sha256_gadget(execution_id_manager, bitwise, gt, sha256_event_emitter);
+    Sha256 sha256_gadget(execution_id_manager, bitwise, gt, range_check, sha256_event_emitter);
 
     MemoryAddress state_addr = static_cast<MemoryAddress>(AVM_HIGHEST_MEM_ADDRESS - 6); // This will be out of range
     MemoryAddress input_addr = 8;
@@ -327,7 +330,7 @@ TEST(Sha256MemoryConstrainingTest, MultiOutOfRangeMemoryAddresses)
     PureBitwise bitwise;
 
     EventEmitter<Sha256CompressionEvent> sha256_event_emitter;
-    Sha256 sha256_gadget(execution_id_manager, bitwise, gt, sha256_event_emitter);
+    Sha256 sha256_gadget(execution_id_manager, bitwise, gt, range_check, sha256_event_emitter);
 
     MemoryAddress state_addr = static_cast<MemoryAddress>(AVM_HIGHEST_MEM_ADDRESS - 6);   // This will be out of range
     MemoryAddress input_addr = static_cast<MemoryAddress>(AVM_HIGHEST_MEM_ADDRESS - 2);   // This will be out of range
@@ -368,7 +371,7 @@ TEST(Sha256MemoryConstrainingTest, InvalidStateTagErr)
     PureBitwise bitwise;
 
     EventEmitter<Sha256CompressionEvent> sha256_event_emitter;
-    Sha256 sha256_gadget(execution_id_manager, bitwise, gt, sha256_event_emitter);
+    Sha256 sha256_gadget(execution_id_manager, bitwise, gt, range_check, sha256_event_emitter);
 
     std::array<uint32_t, 7> state = { 0, 1, 2, 3, 4, 5, 6 };
     MemoryAddress state_addr = 0;
@@ -416,7 +419,7 @@ TEST(Sha256MemoryConstrainingTest, InvalidInputTagErr)
     PureBitwise bitwise;
 
     EventEmitter<Sha256CompressionEvent> sha256_event_emitter;
-    Sha256 sha256_gadget(execution_id_manager, bitwise, gt, sha256_event_emitter);
+    Sha256 sha256_gadget(execution_id_manager, bitwise, gt, range_check, sha256_event_emitter);
 
     std::array<uint32_t, 8> state = { 0, 1, 2, 3, 4, 5, 6, 7 };
     MemoryAddress state_addr = 0;
@@ -472,7 +475,7 @@ TEST(Sha256MemoryConstrainingTest, PropagateError)
     GreaterThan gt(field_gt, range_check, gt_event_emitter);
     PureBitwise bitwise;
 
-    Sha256 sha256_gadget(execution_id_manager, bitwise, gt, sha256_event_emitter);
+    Sha256 sha256_gadget(execution_id_manager, bitwise, gt, range_check, sha256_event_emitter);
 
     MemoryAddress state_addr = 0;
     MemoryAddress input_addr = 8;
@@ -572,7 +575,7 @@ TEST(Sha256MemoryConstrainingTest, Complex)
     GreaterThan gt(field_gt, range_check, gt_event_emitter);
     Bitwise bitwise(bitwise_event_emitter);
 
-    Sha256 sha256_gadget(execution_id_manager, bitwise, gt, sha256_event_emitter);
+    Sha256 sha256_gadget(execution_id_manager, bitwise, gt, range_check, sha256_event_emitter);
 
     MemoryAddress state_addr = 0;
     MemoryAddress input_addr = 8;
@@ -659,6 +662,9 @@ TEST(Sha256MemoryConstrainingTest, Complex)
     GreaterThanTraceBuilder gt_builder;
     gt_builder.process(gt_event_emitter.dump_events(), trace);
 
+    RangeCheckTraceBuilder range_check_builder;
+    range_check_builder.process(range_check_event_emitter.dump_events(), trace);
+
     PrecomputedTraceBuilder precomputed_builder;
     precomputed_builder.process_misc(trace, 65); // Enough for round constants
     precomputed_builder.process_sha256_round_constants(trace);
@@ -697,9 +703,11 @@ TEST(Sha256MemoryConstrainingTest, InputAddrTamperingIsCaughtByConstraint)
     EXPECT_CALL(execution_id_manager, get_execution_id()).WillRepeatedly(Return(1));
     PureGreaterThan gt;
     PureBitwise bitwise;
+    EventEmitter<RangeCheckEvent> range_check_event_emitter;
+    RangeCheck range_check(range_check_event_emitter);
 
     EventEmitter<Sha256CompressionEvent> sha256_event_emitter;
-    Sha256 sha256_gadget(execution_id_manager, bitwise, gt, sha256_event_emitter);
+    Sha256 sha256_gadget(execution_id_manager, bitwise, gt, range_check, sha256_event_emitter);
 
     // Set up valid memory for state and input
     std::array<uint32_t, 8> state = { 0, 1, 2, 3, 4, 5, 6, 7 };
@@ -735,7 +743,7 @@ TEST(Sha256MemoryConstrainingTest, InputAddrTamperingIsCaughtByConstraint)
     // Step 4: Verify the CONTINUITY_INPUT_ADDR constraint catches the tampering
     // The constraint enforces: input_addr' = input_addr + sel_is_input_round
     EXPECT_THROW_WITH_MESSAGE(check_relation<sha256_mem>(trace, sha256_mem::SR_CONTINUITY_INPUT_ADDR),
-                              "CONTINUITY_INPUT_ADDR");
+                              sha256_mem::get_subrelation_label(sha256_mem::SR_CONTINUITY_INPUT_ADDR));
 }
 
 //////////////////////////////////////////
@@ -762,9 +770,11 @@ TEST(Sha256ConstrainingTest, InitStateTamperingIsCaughtByPropagationConstraint)
     EXPECT_CALL(execution_id_manager, get_execution_id()).WillRepeatedly(Return(1));
     PureGreaterThan gt;
     PureBitwise bitwise;
+    EventEmitter<RangeCheckEvent> range_check_event_emitter;
+    RangeCheck range_check(range_check_event_emitter);
 
     EventEmitter<Sha256CompressionEvent> sha256_event_emitter;
-    Sha256 sha256_gadget(execution_id_manager, bitwise, gt, sha256_event_emitter);
+    Sha256 sha256_gadget(execution_id_manager, bitwise, gt, range_check, sha256_event_emitter);
 
     // Set up valid memory for state and input
     std::array<uint32_t, 8> state = { 0x6a09e667, 0xbb67ae85, 0x3c6ef372, 0xa54ff53a,
@@ -804,7 +814,112 @@ TEST(Sha256ConstrainingTest, InitStateTamperingIsCaughtByPropagationConstraint)
     // The PROPAGATE_INIT_A constraint should catch this:
     // perform_round * (init_a' - init_a) = 0
     // On row 0: perform_round=1, init_a'=tampered, init_a=original -> constraint violated
-    EXPECT_THROW_WITH_MESSAGE(check_relation<sha256>(trace, sha256::SR_PROPAGATE_INIT_A), "PROPAGATE_INIT_A");
+    EXPECT_THROW_WITH_MESSAGE(check_relation<sha256>(trace, sha256::SR_PROPAGATE_INIT_A),
+                              sha256::get_subrelation_label(sha256::SR_PROPAGATE_INIT_A));
+}
+
+//////////////////////////////////////////
+/// Negative Tests - rounds_remaining constraints
+//////////////////////////////////////////
+
+// Verifies that ROUNDS_REM_INIT (start * (rounds_remaining - 64) = 0) catches a malicious prover
+// that tries to start the round counter at a value other than 64 on the start row.
+TEST(Sha256ConstrainingTest, RoundsRemainingInitTamperingIsCaught)
+{
+    MemoryStore mem;
+    StrictMock<MockExecutionIdManager> execution_id_manager;
+    EXPECT_CALL(execution_id_manager, get_execution_id()).WillRepeatedly(Return(1));
+    PureGreaterThan gt;
+    PureBitwise bitwise;
+    EventEmitter<RangeCheckEvent> range_check_event_emitter;
+    RangeCheck range_check(range_check_event_emitter);
+
+    EventEmitter<Sha256CompressionEvent> sha256_event_emitter;
+    Sha256 sha256_gadget(execution_id_manager, bitwise, gt, range_check, sha256_event_emitter);
+
+    std::array<uint32_t, 8> state = { 0, 1, 2, 3, 4, 5, 6, 7 };
+    MemoryAddress state_addr = 0;
+    for (uint32_t i = 0; i < 8; ++i) {
+        mem.set(state_addr + i, MemoryValue::from<uint32_t>(state[i]));
+    }
+
+    std::array<uint32_t, 16> input = { 0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15 };
+    MemoryAddress input_addr = 8;
+    for (uint32_t i = 0; i < 16; ++i) {
+        mem.set(input_addr + i, MemoryValue::from<uint32_t>(input[i]));
+    }
+    MemoryAddress output_addr = 25;
+
+    sha256_gadget.compression(mem, state_addr, input_addr, output_addr);
+
+    TestTraceContainer trace;
+    trace.set(C::precomputed_first_row, 0, 1);
+    Sha256TraceBuilder builder;
+    builder.process(sha256_event_emitter.dump_events(), trace);
+
+    // Original trace must satisfy all sha256 relations.
+    ASSERT_NO_THROW(check_relation<sha256>(trace));
+    // Row 0 is the precomputed first row latch; the sha256 start row is row 1.
+    constexpr uint32_t START_ROW = 1;
+    ASSERT_EQ(trace.get(C::sha256_start, START_ROW), FF(1)) << "Row 1 should be the sha256 start row";
+    ASSERT_EQ(trace.get(C::sha256_rounds_remaining, START_ROW), FF(64))
+        << "rounds_remaining should be 64 on the start row";
+
+    // Tamper with rounds_remaining on the start row: set it to 50 instead of 64.
+    trace.set(C::sha256_rounds_remaining, START_ROW, FF(50));
+
+    EXPECT_THROW_WITH_MESSAGE(check_relation<sha256>(trace, sha256::SR_ROUNDS_REM_INIT),
+                              sha256::get_subrelation_label(sha256::SR_ROUNDS_REM_INIT));
+}
+
+// Verifies that ROUNDS_REM_DECREMENT (perform_round * (rounds_remaining - rounds_remaining' - 1) = 0)
+// catches a malicious prover that tries to skip ahead or stall the round counter on a perform_round row.
+TEST(Sha256ConstrainingTest, RoundsRemainingDecrementTamperingIsCaught)
+{
+    MemoryStore mem;
+    StrictMock<MockExecutionIdManager> execution_id_manager;
+    EXPECT_CALL(execution_id_manager, get_execution_id()).WillRepeatedly(Return(1));
+    PureGreaterThan gt;
+    PureBitwise bitwise;
+    EventEmitter<RangeCheckEvent> range_check_event_emitter;
+    RangeCheck range_check(range_check_event_emitter);
+
+    EventEmitter<Sha256CompressionEvent> sha256_event_emitter;
+    Sha256 sha256_gadget(execution_id_manager, bitwise, gt, range_check, sha256_event_emitter);
+
+    std::array<uint32_t, 8> state = { 0, 1, 2, 3, 4, 5, 6, 7 };
+    MemoryAddress state_addr = 0;
+    for (uint32_t i = 0; i < 8; ++i) {
+        mem.set(state_addr + i, MemoryValue::from<uint32_t>(state[i]));
+    }
+
+    std::array<uint32_t, 16> input = { 0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15 };
+    MemoryAddress input_addr = 8;
+    for (uint32_t i = 0; i < 16; ++i) {
+        mem.set(input_addr + i, MemoryValue::from<uint32_t>(input[i]));
+    }
+    MemoryAddress output_addr = 25;
+
+    sha256_gadget.compression(mem, state_addr, input_addr, output_addr);
+
+    TestTraceContainer trace;
+    trace.set(C::precomputed_first_row, 0, 1);
+    Sha256TraceBuilder builder;
+    builder.process(sha256_event_emitter.dump_events(), trace);
+
+    // Original trace must satisfy all sha256 relations.
+    ASSERT_NO_THROW(check_relation<sha256>(trace));
+
+    // Pick a perform_round row and tamper with rounds_remaining so the row->row+1 delta is no longer 1.
+    // The decrement constraint at row TAMPER_ROW - 1 (also a perform_round row) checks
+    // (rounds_remaining[TAMPER_ROW-1] - rounds_remaining[TAMPER_ROW] - 1) = 0, which now fails.
+    constexpr uint32_t TAMPER_ROW = 5;
+    ASSERT_EQ(trace.get(C::sha256_perform_round, TAMPER_ROW), FF(1));
+    FF original = trace.get(C::sha256_rounds_remaining, TAMPER_ROW);
+    trace.set(C::sha256_rounds_remaining, TAMPER_ROW, original - FF(1));
+
+    EXPECT_THROW_WITH_MESSAGE(check_relation<sha256>(trace, sha256::SR_ROUNDS_REM_DECREMENT),
+                              sha256::get_subrelation_label(sha256::SR_ROUNDS_REM_DECREMENT));
 }
 
 } // namespace

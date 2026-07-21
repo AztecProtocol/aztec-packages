@@ -19,7 +19,7 @@
           "uid": "${data_source}"
         },
         "enable": false,
-        "expr": "max(increase(aztec_archiver_prune_count{k8s_namespace_name=\"$namespace\"}[5m])) > 1",
+        "expr": "max(increase(aztec_archiver_prune_count{k8s_namespace_name=\"$namespace\",aztec_archiver_prune_type=\"unproven\"}[5m])) > 1",
         "hide": false,
         "iconColor": "yellow",
         "name": "Reorg",
@@ -834,7 +834,7 @@
           },
           "disableTextWrap": false,
           "editorMode": "builder",
-          "expr": "max by(service_name, aztec_status) (label_replace(aztec_archiver_block_height{service_namespace=\"$namespace\"}, \"aztec_status\", \"pending\", \"aztec_status\", \"^$\"))",
+          "expr": "max by(service_name, aztec_status) (aztec_archiver_block_height{service_namespace=\"$namespace\", aztec_status=~\"proposed|proven\"})",
           "fullMetaSearch": false,
           "includeNullMetadata": true,
           "instant": false,

@@ -3,7 +3,6 @@
 
 #include <string_view>
 
-#include "barretenberg/common/bb_bench.hpp"
 #include "barretenberg/relations/relation_parameters.hpp"
 #include "barretenberg/relations/relation_types.hpp"
 #include "barretenberg/vm2/generated/columns.hpp"
@@ -14,9 +13,9 @@ template <typename FF_> class txImpl {
   public:
     using FF = FF_;
 
-    static constexpr std::array<size_t, 62> SUBRELATION_PARTIAL_LENGTHS = {
-        3, 4, 2, 3, 5, 3, 3, 3, 3, 7, 3, 3, 4, 3, 3, 4, 5, 3, 3, 3, 4, 3, 4, 3, 4, 4, 4, 4, 4, 2, 4,
-        5, 3, 3, 3, 4, 3, 5, 4, 3, 4, 4, 4, 5, 4, 3, 4, 3, 2, 4, 4, 4, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3
+    static constexpr std::array<size_t, 65> SUBRELATION_PARTIAL_LENGTHS = {
+        3, 3, 3, 3, 3, 3, 2, 3, 5, 3, 3, 3, 5, 4, 3, 3, 5, 3, 3, 3, 3, 3, 3, 3, 3, 3, 4, 4, 4, 4, 2, 3, 3,
+        5, 3, 3, 3, 3, 5, 3, 3, 3, 3, 3, 3, 3, 5, 4, 3, 4, 3, 2, 4, 4, 4, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3
     };
 
     template <typename AllEntities> inline static bool skip(const AllEntities& in)
@@ -38,14 +37,14 @@ template <typename FF> class tx : public Relation<txImpl<FF>> {
     static constexpr const std::string_view NAME = "tx";
 
     // Subrelation indices constants, to be used in tests.
-    static constexpr size_t SR_TRACE_CONTINUITY = 1;
-    static constexpr size_t SR_START_WITH_SEL = 2;
-    static constexpr size_t SR_REM_COUNT_IS_ZERO = 4;
-    static constexpr size_t SR_REM_COUNT_IS_ONE = 9;
-    static constexpr size_t SR_IS_PADDED_OR_REVERTED_END_PHASE = 10;
-    static constexpr size_t SR_SEL_ACTIVE_ON_SOME_VARIOUS_SELECTORS = 11;
-    static constexpr size_t SR_NO_EARLY_END = 12;
-    static constexpr size_t SR_START_FOLLOWS_END = 13;
+    static constexpr size_t SR_SEL_ACTIVE_ON_SOME_VARIOUS_SELECTORS = 3;
+    static constexpr size_t SR_TRACE_CONTINUITY = 4;
+    static constexpr size_t SR_START_AFTER_LATCH = 5;
+    static constexpr size_t SR_START_WITH_SEL = 6;
+    static constexpr size_t SR_REM_COUNT_IS_ZERO = 8;
+    static constexpr size_t SR_IS_PADDED_OR_REVERTED_END_PHASE = 11;
+    static constexpr size_t SR_REM_COUNT_IS_ONE = 12;
+    static constexpr size_t SR_NO_EARLY_END = 13;
     static constexpr size_t SR_START_PHASE_VALUE_INITIALIZATION = 14;
     static constexpr size_t SR_PHASE_VALUE_CONTINUITY = 15;
     static constexpr size_t SR_INCR_PHASE_VALUE_ON_END = 16;
@@ -55,37 +54,42 @@ template <typename FF> class tx : public Relation<txImpl<FF>> {
     static constexpr size_t SR_DECR_REM_PHASE_EVENTS = 20;
     static constexpr size_t SR_READ_PI_OFFSET_INIT = 21;
     static constexpr size_t SR_INCR_READ_PI_OFFSET = 22;
-    static constexpr size_t SR_MAX_NOTE_HASH_WRITES_REACHED = 31;
-    static constexpr size_t SR_MAX_NULLIFIER_WRITES_REACHED = 37;
-    static constexpr size_t SR_MAX_L2_L1_MSG_WRITES_REACHED = 43;
-    static constexpr size_t SR_UPDATE_NUM_L2_TO_L1_MSGS = 46;
-    static constexpr size_t SR_SEL_ACTIVE_ON_COLLECT_FEE = 47;
-    static constexpr size_t SR_COMPUTE_FEE = 49;
-    static constexpr size_t SR_TEARDOWN_GETS_FEE = 50;
-    static constexpr size_t SR_FEE_ZERO_UNLESS_COLLECT_FEE_OR_TEARDOWN = 51;
-    static constexpr size_t SR_PAD_NOTE_HASH_TREE = 59;
-    static constexpr size_t SR_PAD_NULLIFIER_TREE = 60;
-    static constexpr size_t SR_SEL_ACTIVE_ON_CLEANUP = 61;
+    static constexpr size_t SR_TEARDOWN_ON_SEL = 25;
+    static constexpr size_t SR_IS_TREE_INSERT_PHASE_ON_SEL = 31;
+    static constexpr size_t SR_MAX_NOTE_HASH_WRITES_REACHED = 33;
+    static constexpr size_t SR_MAX_NULLIFIER_WRITES_REACHED = 38;
+    static constexpr size_t SR_NULLIFIER_TREE_SIZE_INCREMENT = 43;
+    static constexpr size_t SR_NULLIFIER_EMITTED_COUNT_INCREMENT = 44;
+    static constexpr size_t SR_MAX_L2_L1_MSG_WRITES_REACHED = 46;
+    static constexpr size_t SR_UPDATE_NUM_L2_TO_L1_MSGS = 49;
+    static constexpr size_t SR_SEL_ACTIVE_ON_COLLECT_FEE = 50;
+    static constexpr size_t SR_COMPUTE_FEE = 52;
+    static constexpr size_t SR_TEARDOWN_GETS_FEE = 53;
+    static constexpr size_t SR_FEE_ZERO_UNLESS_COLLECT_FEE_OR_TEARDOWN = 54;
+    static constexpr size_t SR_PAD_NOTE_HASH_TREE = 62;
+    static constexpr size_t SR_PAD_NULLIFIER_TREE = 63;
+    static constexpr size_t SR_SEL_ACTIVE_ON_CLEANUP = 64;
 
     static std::string get_subrelation_label(size_t index)
     {
+#ifdef AVM_INCLUDE_COLUMN_INFORMATION
         switch (index) {
+        case SR_SEL_ACTIVE_ON_SOME_VARIOUS_SELECTORS:
+            return "SEL_ACTIVE_ON_SOME_VARIOUS_SELECTORS";
         case SR_TRACE_CONTINUITY:
             return "TRACE_CONTINUITY";
+        case SR_START_AFTER_LATCH:
+            return "START_AFTER_LATCH";
         case SR_START_WITH_SEL:
             return "START_WITH_SEL";
         case SR_REM_COUNT_IS_ZERO:
             return "REM_COUNT_IS_ZERO";
-        case SR_REM_COUNT_IS_ONE:
-            return "REM_COUNT_IS_ONE";
         case SR_IS_PADDED_OR_REVERTED_END_PHASE:
             return "IS_PADDED_OR_REVERTED_END_PHASE";
-        case SR_SEL_ACTIVE_ON_SOME_VARIOUS_SELECTORS:
-            return "SEL_ACTIVE_ON_SOME_VARIOUS_SELECTORS";
+        case SR_REM_COUNT_IS_ONE:
+            return "REM_COUNT_IS_ONE";
         case SR_NO_EARLY_END:
             return "NO_EARLY_END";
-        case SR_START_FOLLOWS_END:
-            return "START_FOLLOWS_END";
         case SR_START_PHASE_VALUE_INITIALIZATION:
             return "START_PHASE_VALUE_INITIALIZATION";
         case SR_PHASE_VALUE_CONTINUITY:
@@ -104,10 +108,18 @@ template <typename FF> class tx : public Relation<txImpl<FF>> {
             return "READ_PI_OFFSET_INIT";
         case SR_INCR_READ_PI_OFFSET:
             return "INCR_READ_PI_OFFSET";
+        case SR_TEARDOWN_ON_SEL:
+            return "TEARDOWN_ON_SEL";
+        case SR_IS_TREE_INSERT_PHASE_ON_SEL:
+            return "IS_TREE_INSERT_PHASE_ON_SEL";
         case SR_MAX_NOTE_HASH_WRITES_REACHED:
             return "MAX_NOTE_HASH_WRITES_REACHED";
         case SR_MAX_NULLIFIER_WRITES_REACHED:
             return "MAX_NULLIFIER_WRITES_REACHED";
+        case SR_NULLIFIER_TREE_SIZE_INCREMENT:
+            return "NULLIFIER_TREE_SIZE_INCREMENT";
+        case SR_NULLIFIER_EMITTED_COUNT_INCREMENT:
+            return "NULLIFIER_EMITTED_COUNT_INCREMENT";
         case SR_MAX_L2_L1_MSG_WRITES_REACHED:
             return "MAX_L2_L1_MSG_WRITES_REACHED";
         case SR_UPDATE_NUM_L2_TO_L1_MSGS:
@@ -127,6 +139,7 @@ template <typename FF> class tx : public Relation<txImpl<FF>> {
         case SR_SEL_ACTIVE_ON_CLEANUP:
             return "SEL_ACTIVE_ON_CLEANUP";
         }
+#endif
         return std::to_string(index);
     }
 };

@@ -1,5 +1,5 @@
 pub(crate) mod assert_trailing_zeros;
-pub(crate) mod copy_items_into_array;
+pub(crate) mod splice_at_count;
 pub(crate) mod find_index;
 pub(crate) mod get_sorted_tuples;
 pub(crate) mod claimed_length_array;
@@ -7,9 +7,9 @@ pub(crate) mod claimed_length_array;
 // Re-exports.
 pub use assert_trailing_zeros::assert_trailing_zeros;
 pub use claimed_length_array::ClaimedLengthArray;
-pub use copy_items_into_array::copy_items_into_array;
 pub use find_index::{find_first_index, find_last_index};
 pub use get_sorted_tuples::{get_sorted_tuples, SortedTuple};
+pub use splice_at_count::splice_at_count;
 
 use crate::traits::Empty;
 
@@ -91,69 +91,12 @@ pub fn array_length_until<T, let N: u32, Env>(array: [T; N], predicate: fn[Env](
         } else {
             assert(
                 stop == false,
-                "matching element found after already encountering a non-matching element",
+                "non-matching element found after already encountering a matching element",
             );
             length += 1;
         }
     }
     length
-}
-
-/// This function assumes that `array1` and `array2` contain no more than N non-empty elements between them,
-/// if this is not the case then elements from the end of `array2` will be dropped.
-/// Danger: This is only safe to call if the input arrays have been "validated" (dense lhs, empty rhs).
-pub fn array_merge<T, let N: u32>(array1: [T; N], array2: [T; N]) -> [T; N]
-where
-    T: Empty,
-{
-    // Safety: we constrain this array below
-    let result = unsafe { array_merge_helper(array1, array2) };
-
-    validate_array_merge_hint(array1, array2, result);
-
-    result
-}
-
-// Danger: assumes the array's length has already been validated.
-unconstrained fn array_merge_helper<T, let N: u32>(array1: [T; N], array2: [T; N]) -> [T; N]
-where
-    T: Empty,
-{
-    let mut result: [T; N] = [T::empty(); N];
-    let mut i = 0;
-    for elem in array1 {
-        // This function should only be used with validated arrays, so it's fine to simply skip empty elements here.
-        if !elem.is_empty() {
-            result[i] = elem;
-            i += 1;
-        }
-    }
-    for elem in array2 {
-        if !elem.is_empty() {
-            result[i] = elem;
-            i += 1;
-        }
-    }
-    result
-}
-
-/// Extracted into a standalone function to enable testing of bad hints.
-/// Danger: This is only safe to call if the input arrays have been "validated" (dense lhs, empty rhs).
-fn validate_array_merge_hint<T, let N: u32>(array1: [T; N], array2: [T; N], result: [T; N])
-where
-    T: Empty,
-{
-    // We assume the array length has been validated. The only use cases so far are with previously validated arrays.
-    let array1_len = array_length(array1);
-    let mut add_from_left = true;
-    for i in 0..N {
-        add_from_left &= i != array1_len;
-        if add_from_left {
-            assert_eq(result[i], array1[i], "Incorrect array merge hint");
-        } else {
-            assert_eq(result[i], array2[i - array1_len], "Incorrect array merge hint");
-        }
-    }
 }
 
 pub fn check_permutation<T, let N: u32>(
@@ -174,11 +117,18 @@ where
     }
 }
 
-// Helper function to check if an array is padded with a given value from a given index.
+/// Returns true iff every element of `array` at index `>= from_index` equals `padded_with`.
+///
+/// `from_index` must be a valid index into the array, i.e. `from_index <= N` (the boundary
+/// `from_index == N` denotes a full prefix with no padding). Passing `from_index > N` is rejected:
+/// otherwise this check would pass vacuously (the loop never reaches `from_index`), letting a caller
+/// believe the array holds a `from_index`-length prefix followed by padding even though the array is
+/// shorter than `from_index`.
 pub fn array_padded_with<T, let N: u32>(array: [T; N], from_index: u32, padded_with: T) -> bool
 where
     T: Eq,
 {
+    assert(from_index <= N, "from_index out of bounds");
     let mut is_valid = true;
     let mut should_check = false;
     for i in 0..N {
@@ -308,104 +258,16 @@ fn test_array_length_until() {
     assert_eq(array_length_until(array, |x| x > 10), 0);
 }
 
-#[test(should_fail_with = "matching element found after already encountering a non-matching element")]
+#[test(should_fail_with = "non-matching element found after already encountering a matching element")]
 fn test_array_length_until_non_consecutive_fails() {
     let array = [1, 1, 0, 1, 0];
     let _ = array_length_until(array, |x| x == 0);
 }
 
-#[test(should_fail_with = "matching element found after already encountering a non-matching element")]
+#[test(should_fail_with = "non-matching element found after already encountering a matching element")]
 fn test_array_length_until_first_non_matching_fails() {
     let array = [1, 0, 0, 0, 0];
     let _ = array_length_until(array, |x| x == 1);
-}
-
-// ==================== array_merge tests ====================
-
-#[test]
-fn test_array_merge() {
-    assert_eq(array_merge([10, 20, 0, 0, 0], [30, 40, 50, 0, 0]), [10, 20, 30, 40, 50]);
-    assert_eq(array_merge([0, 0, 0], [10, 20, 0]), [10, 20, 0]);
-    assert_eq(array_merge([10, 20, 0], [0, 0, 0]), [10, 20, 0]);
-    assert_eq(array_merge::<Field, 3>([0, 0, 0], [0, 0, 0]), [0, 0, 0]);
-}
-
-#[test(should_fail_with = "out of bounds")]
-fn test_array_merge_combined_exceeds_capacity() {
-    let _ = array_merge([10, 20, 30, 0, 0], [40, 50, 60, 0, 0]);
-}
-
-#[test(should_fail_with = "Incorrect array merge hint")]
-fn test_array_merge_rejects_array1_with_gaps() {
-    // array_merge assumes validated arrays (no gaps). The helper compacts empties,
-    // but the validation expects array1's structure to be preserved, causing failure.
-    let _ = array_merge([10, 0, 20, 0, 0], [30, 0, 0, 0, 0]);
-}
-
-#[test(should_fail_with = "Incorrect array merge hint")]
-fn test_array_merge_rejects_array2_with_gaps() {
-    // array_merge assumes validated arrays (no gaps). The helper compacts empties,
-    // but the validation expects array2's structure to be preserved, causing failure.
-    let _ = array_merge([10, 0, 0, 0, 0], [0, 20, 0, 30, 0]);
-}
-
-// ==================== validate_array_merge_hint tests ====================
-
-#[test]
-fn test_validate_array_merge_hint_valid() {
-    validate_array_merge_hint([10, 20, 0], [30, 0, 0], [10, 20, 30]);
-    validate_array_merge_hint([0, 0, 0], [10, 20, 0], [10, 20, 0]);
-    validate_array_merge_hint([10, 20, 0], [0, 0, 0], [10, 20, 0]);
-    validate_array_merge_hint([0, 0, 0], [0, 0, 0], [0, 0, 0]);
-    validate_array_merge_hint([10, 20, 0, 0], [30, 40, 0, 0], [10, 20, 30, 40]);
-}
-
-#[test(should_fail_with = "Incorrect array merge hint")]
-fn test_validate_array_merge_hint_wrong_result_from_array1() {
-    // Invalid: result doesn't match array1 elements
-    validate_array_merge_hint([10, 20, 0], [30, 0, 0], [99, 20, 30]);
-}
-
-#[test(should_fail_with = "Incorrect array merge hint")]
-fn test_validate_array_merge_hint_wrong_result_from_array2() {
-    // Invalid: result doesn't match array2 elements
-    validate_array_merge_hint([10, 20, 0], [30, 0, 0], [10, 20, 99]);
-}
-
-#[test(should_fail_with = "Incorrect array merge hint")]
-fn test_validate_array_merge_hint_swapped_order() {
-    // Invalid: result has array2 elements before array1 elements
-    validate_array_merge_hint([10, 20, 0], [30, 0, 0], [30, 10, 20]);
-}
-
-#[test(should_fail_with = "Incorrect array merge hint")]
-fn test_validate_array_merge_hint_missing_element_from_array1() {
-    // Invalid: result is missing an element from array1
-    validate_array_merge_hint([10, 20, 0], [30, 0, 0], [10, 30, 0]);
-}
-
-#[test(should_fail_with = "Incorrect array merge hint")]
-fn test_validate_array_merge_hint_missing_element_from_array2() {
-    // Invalid: result is missing an element from array2 (truncated)
-    validate_array_merge_hint([10, 20, 0, 0], [30, 40, 0, 0], [10, 20, 30, 0]);
-}
-
-#[test(should_fail_with = "Incorrect array merge hint")]
-fn test_validate_array_merge_hint_extra_element_in_padding() {
-    // Invalid: result has garbage where array2's empties should be
-    validate_array_merge_hint([10, 0, 0], [20, 0, 0], [10, 20, 99]);
-}
-
-#[test(should_fail_with = "Incorrect array merge hint")]
-fn test_validate_array_merge_hint_rejects_compacted_result_for_array1_with_gaps() {
-    // If array1 has gaps, a compacted result won't match the expected structure
-    validate_array_merge_hint([10, 0, 20, 0, 0], [30, 0, 0, 0, 0], [10, 20, 30, 0, 0]);
-}
-
-#[test(should_fail_with = "Incorrect array merge hint")]
-fn test_validate_array_merge_hint_rejects_compacted_result_for_array2_with_gaps() {
-    // If array2 has gaps, a compacted result won't match the expected structure
-    validate_array_merge_hint([10, 0, 0, 0, 0], [0, 20, 0, 30, 0], [10, 20, 30, 0, 0]);
 }
 
 // ==================== check_permutation tests ====================
@@ -445,6 +307,39 @@ fn test_array_padded_with() {
     assert_eq(array_padded_with(array, 3, 44), true);
     assert_eq(array_padded_with(array, 4, 44), true);
     assert_eq(array_padded_with(array, 4, 33), false);
-    assert_eq(array_padded_with(array, 5, 44), true); // Index out of bounds.
+    assert_eq(array_padded_with(array, 5, 44), true); // from_index == N: full prefix, no padding.
     assert_eq(array_padded_with(array, 0, 11), false);
+}
+
+#[test(should_fail_with = "from_index out of bounds")]
+fn test_array_padded_with_from_index_out_of_bounds() {
+    let array = [11, 22, 33, 44, 44];
+    let _ = array_padded_with(array, 6, 44);
+}
+
+#[test]
+fn test_array_padded_with_single_element() {
+    // N == 1: from_index 0 checks the whole array; from_index 1 (== N) is the no-padding boundary.
+    assert_eq(array_padded_with([7], 0, 7), true);
+    assert_eq(array_padded_with([7], 0, 8), false);
+    assert_eq(array_padded_with([7], 1, 8), true);
+}
+
+#[test]
+fn test_array_padded_with_requires_all_tail_padded() {
+    // Padding must hold for every index >= from_index, not just the first one.
+    let array = [1, 2, 9, 9, 9];
+    assert_eq(array_padded_with(array, 2, 9), true);
+    assert_eq(array_padded_with(array, 1, 9), false); // index 1 (value 2) != 9
+    let broken_tail = [1, 2, 9, 8, 9];
+    assert_eq(array_padded_with(broken_tail, 2, 9), false); // index 3 (value 8) != 9
+    // from_index == 0 requires the whole array to equal the pad value.
+    assert_eq(array_padded_with([9, 9, 9], 0, 9), true);
+    assert_eq(array_padded_with([9, 9, 8], 0, 9), false);
+}
+
+#[test(should_fail_with = "from_index out of bounds")]
+fn test_array_padded_with_from_index_far_out_of_bounds() {
+    let array = [11, 22, 33, 44, 44];
+    let _ = array_padded_with(array, 100, 44);
 }

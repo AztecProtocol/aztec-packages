@@ -1,6 +1,6 @@
 #include "barretenberg/avm_fuzzer/mutations/protocol_contracts.hpp"
 
-#include "barretenberg/vm2/common/aztec_constants.hpp"
+#include "barretenberg/aztec/aztec_constants.hpp"
 #include "barretenberg/vm2/common/aztec_types.hpp"
 
 namespace bb::avm2::fuzzer {

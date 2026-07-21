@@ -104,12 +104,16 @@ fn test_schnorr_sign_and_verify() {
         .schnorr_compute_public_key(&private_key)
         .expect("schnorr_compute_public_key failed");
 
-    // Message (arbitrary bytes)
-    let message = b"Test message for Schnorr signature";
+    // Message: a 32-byte big-endian serialized grumpkin base-field element (bbapi asserts size == 32).
+    let message: [u8; 32] = [
+        0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+        0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+        0x02, 0xbc,
+    ];
 
     // Sign
     let sign_response = api
-        .schnorr_construct_signature(message, &private_key)
+        .schnorr_construct_signature(&message, &private_key)
         .expect("schnorr_construct_signature failed");
 
     // Signature should have s and e components (32 bytes each)
@@ -118,7 +122,12 @@ fn test_schnorr_sign_and_verify() {
 
     // Verify
     let verify_response = api
-        .schnorr_verify_signature(message, pub_key_response.public_key.clone(), &sign_response.s, &sign_response.e)
+        .schnorr_verify_signature(
+            &message,
+            pub_key_response.public_key.clone(),
+            &sign_response.s,
+            &sign_response.e,
+        )
         .expect("schnorr_verify_signature failed");
 
     assert!(verify_response.verified, "Signature should be valid");
@@ -141,20 +150,37 @@ fn test_schnorr_verify_wrong_message() {
         .schnorr_compute_public_key(&private_key)
         .expect("schnorr_compute_public_key failed");
 
-    let message1 = b"Original message";
-    let message2 = b"Different message";
+    // Two distinct 32-byte serialized field elements (bbapi asserts size == 32).
+    let message1: [u8; 32] = [
+        0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+        0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+        0x00, 0x11,
+    ];
+    let message2: [u8; 32] = [
+        0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+        0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+        0x00, 0x22,
+    ];
 
     // Sign with message1
     let sign_response = api
-        .schnorr_construct_signature(message1, &private_key)
+        .schnorr_construct_signature(&message1, &private_key)
         .expect("schnorr_construct_signature failed");
 
     // Verify with message2 - should fail
     let verify_response = api
-        .schnorr_verify_signature(message2, pub_key_response.public_key.clone(), &sign_response.s, &sign_response.e)
+        .schnorr_verify_signature(
+            &message2,
+            pub_key_response.public_key.clone(),
+            &sign_response.s,
+            &sign_response.e,
+        )
         .expect("schnorr_verify_signature failed");
 
-    assert!(!verify_response.verified, "Signature should be invalid for wrong message");
+    assert!(
+        !verify_response.verified,
+        "Signature should be invalid for wrong message"
+    );
 
     api.destroy().expect("Failed to destroy backend");
 }

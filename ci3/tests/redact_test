@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/usr/bin/env bash
 # Comprehensive Redaction Test Suite
 set -euo pipefail
 
@@ -81,14 +81,18 @@ TM "Unicode Secret" "This is ***" $'::add-mask::🚀\nThis is 🚀'
 
 echo "--- 5. Edge Cases ---"
 T "Empty var ignored" "x here" "x here" "API_KEY="
-TM "Short secret redacted via add-mask" "x ***" $'::add-mask::abc\nx abc'
-TM "Single char redacted via add-mask" "x ***" $'::add-mask::Z\nx Z'
+TM "Short add-mask still works (>1 char)" "x ***" $'::add-mask::abc\nx abc'
+TM "Single char add-mask ignored" "x Z" $'::add-mask::Z\nx Z'
+TM "add-mask brace ignored" '{"key":"val"}' $'::add-mask::{\n::add-mask::}\n{"key":"val"}'
 T "No vars set" "plain text" "plain text"
 T "No secrets in text" "hello world" "hello world" "KEY_1=secret99"
 
 echo "--- 6. Multiline Support ---"
 T "Multiline Secret (Line 1)" "x ***" "x firstline" $'MULTI_SECRET=firstline\nsecondline'
 T "Multiline Secret (Line 2)" "x ***" "x secondline" $'MULTI_SECRET=firstline\nsecondline'
+T "Multiline JSON braces not redacted" '{"timestamp":12345}' '{"timestamp":12345}' $'GCP_SA_KEY={\n  "type": "service_account",\n  "project_id": "my-project"\n}'
+T "Multiline JSON short lines ignored" '{ } end' '{ } end' $'MY_SECRET={\n  "longvalue": "something_secret_here",\n}'
+T "Multiline JSON long lines still redacted" 'x ***' 'x   "type": "service_account",' $'GCP_SA_KEY={\n  "type": "service_account",\n  "project_id": "my-project"\n}'
 
 echo "--- 7. GitHub Actions ::add-mask:: Syntax ---"
 TM "add-mask stripped from output" "hello" $'::add-mask::secret123\nhello'

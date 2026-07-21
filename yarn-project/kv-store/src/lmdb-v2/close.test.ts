@@ -1,7 +1,5 @@
 import { randomBytes } from '@aztec/foundation/crypto/random';
 
-import { expect } from 'chai';
-
 import type { AztecAsyncMap } from '../interfaces/map.js';
 import { openTmpStore } from './factory.js';
 import { AztecLMDBStoreV2 } from './store.js';
@@ -51,8 +49,8 @@ describe('Clean shutdown', () => {
     const closeSuccess = await close;
 
     // The fact that we are here suggests that everything completed success fully. There were no unrecoverable errors within the NAPI module
-    expect(numSuccessfulReads).greaterThanOrEqual(0);
-    expect(numSuccessfulReads).lessThanOrEqual(reads.length + reads2.length);
-    expect(closeSuccess).to.equal(true);
+    expect(numSuccessfulReads).toBeGreaterThanOrEqual(0);
+    expect(numSuccessfulReads).toBeLessThanOrEqual(reads.length + reads2.length);
+    expect(closeSuccess).toBe(true);
   });
 });

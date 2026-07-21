@@ -1,13 +1,15 @@
-import { AztecAddress } from '@aztec/aztec.js/addresses';
+import { NO_FROM } from '@aztec/aztec.js/account';
+import type { AztecAddress } from '@aztec/aztec.js/addresses';
 import type { DeployOptions } from '@aztec/aztec.js/contracts';
 import { NO_WAIT } from '@aztec/aztec.js/contracts';
 import { ContractDeployer } from '@aztec/aztec.js/deployment';
 import { Fr } from '@aztec/aztec.js/fields';
-import type { AztecNode } from '@aztec/aztec.js/node';
+import { type AztecNode, waitForTx } from '@aztec/aztec.js/node';
 import { encodeArgs, getContractArtifact, prettyPrintJSON } from '@aztec/cli/utils';
 import type { LogFn, Logger } from '@aztec/foundation/log';
 import { getAllFunctionAbis, getInitializer } from '@aztec/stdlib/abi';
 import { PublicKeys } from '@aztec/stdlib/keys';
+import type { TxStatus } from '@aztec/stdlib/tx';
 
 import { DEFAULT_TX_TIMEOUT_S } from '../utils/cli_wallet_and_node_wrapper.js';
 import { CLIFeeArgs } from '../utils/options/fees.js';
@@ -29,10 +31,12 @@ export async function deploy(
   skipInitialization: boolean | undefined,
   wait: boolean,
   feeOpts: CLIFeeArgs,
+  waitForStatus: TxStatus,
   verbose: boolean,
   timeout: number = DEFAULT_TX_TIMEOUT_S,
   debugLogger: Logger,
   log: LogFn,
+  universal?: boolean,
 ) {
   const out: Record<string, any> = {};
   salt ??= Fr.random();
@@ -42,12 +46,7 @@ export async function deploy(
 
   // TODO(#12081): Add contractArtifact.noirVersion and check here (via Noir.lock)?
 
-  const contractDeployer = new ContractDeployer(
-    contractArtifact,
-    wallet,
-    publicKeys ?? PublicKeys.default(),
-    initializer,
-  );
+  const contractDeployer = new ContractDeployer(contractArtifact, wallet, initializer);
 
   let args = [];
   if (rawArgs.length > 0) {
@@ -59,22 +58,28 @@ export async function deploy(
     debugLogger.debug(`Encoded arguments: ${args.join(', ')}`);
   }
 
-  const deploy = contractDeployer.deploy(...args);
+  const deployInteraction = contractDeployer.deploy(args, {
+    salt,
+    publicKeys: publicKeys ?? PublicKeys.default(),
+    ...(universal ? { universalDeploy: true as const } : {}),
+  });
   const { paymentMethod, gasSettings } = await feeOpts.toUserFeeOptions(node, wallet, deployer);
   const deployOpts: DeployOptions = {
     fee: { gasSettings, paymentMethod },
-    from: deployer ?? AztecAddress.ZERO,
-    contractAddressSalt: salt,
-    universalDeploy: !deployer,
+    from: deployer ?? NO_FROM,
     skipClassPublication,
     skipInitialization,
     skipInstancePublication,
   };
 
-  const { estimatedGas, stats } = await deploy.simulate({
+  const localStart = performance.now();
+  const sim = await deployInteraction.simulate({
     ...deployOpts,
-    fee: { ...deployOpts.fee, estimateGas: true },
+    includeMetadata: true,
   });
+  // includeMetadata: true guarantees these fields are present
+  const estimatedGas = await wallet.estimateGasLimits(sim.gasUsed!);
+  const stats = sim.stats!;
 
   if (feeOpts.estimateOnly) {
     if (json) {
@@ -94,48 +99,51 @@ export async function deploy(
       printProfileResult(stats, log);
     }
 
-    const { address, partialAddress } = deploy;
-    const instance = await deploy.getInstance();
+    const instance = await deployInteraction.getInstance();
+    const address = instance.address;
+    const partialAddress = await deployInteraction.getPartialAddress();
+
+    const { txHash } = await deployInteraction.send({ ...deployOpts, wait: NO_WAIT });
+    const localTimeMs = performance.now() - localStart;
+    debugLogger.debug(`Deploy tx sent with hash ${txHash.toString()}`);
+    out.hash = txHash;
 
     if (wait) {
-      const receipt = await deploy.send({ ...deployOpts, wait: { timeout, returnReceipt: true } });
-      const txHash = receipt.txHash;
-      debugLogger.debug(`Deploy tx sent with hash ${txHash.toString()}`);
-      out.hash = txHash;
+      const nodeStart = performance.now();
+      const receipt = await waitForTx(node, txHash, { timeout, waitForStatus });
+      const nodeTimeMs = performance.now() - nodeStart;
 
       if (!json) {
-        log(`Contract deployed at ${address?.toString()}`);
-        log(`Contract partial address ${(await partialAddress)?.toString()}`);
+        log(`Contract deployed at ${address.toString()}`);
+        log(`Contract partial address ${partialAddress.toString()}`);
         log(`Contract init hash ${instance.initializationHash.toString()}`);
         log(`Deployment tx hash: ${txHash.toString()}`);
         log(`Deployment salt: ${salt.toString()}`);
         log(`Deployer: ${instance.deployer.toString()}`);
         log(`Transaction fee: ${receipt.transactionFee?.toString()}`);
+        log(` Local processing time: ${(localTimeMs / 1000).toFixed(1)}s`);
+        log(` Node inclusion time: ${(nodeTimeMs / 1000).toFixed(1)}s`);
       } else {
         out.contract = {
-          address: address?.toString(),
-          partialAddress: (await partialAddress)?.toString(),
+          address: address.toString(),
+          partialAddress: partialAddress.toString(),
           initializationHash: instance.initializationHash.toString(),
           salt: salt.toString(),
           transactionFee: receipt.transactionFee?.toString(),
         };
       }
     } else {
-      const txHash = await deploy.send({ ...deployOpts, wait: NO_WAIT });
-      debugLogger.debug(`Deploy tx sent with hash ${txHash.toString()}`);
-      out.hash = txHash;
-
       if (!json) {
-        log(`Contract deployed at ${address?.toString()}`);
-        log(`Contract partial address ${(await partialAddress)?.toString()}`);
+        log(`Contract deployed at ${address.toString()}`);
+        log(`Contract partial address ${partialAddress.toString()}`);
         log(`Contract init hash ${instance.initializationHash.toString()}`);
         log(`Deployment tx hash: ${txHash.toString()}`);
         log(`Deployment salt: ${salt.toString()}`);
         log(`Deployer: ${instance.deployer.toString()}`);
       } else {
         out.contract = {
-          address: address?.toString(),
-          partialAddress: (await partialAddress)?.toString(),
+          address: address.toString(),
+          partialAddress: partialAddress.toString(),
           initializationHash: instance.initializationHash.toString(),
           salt: salt.toString(),
         };
@@ -145,5 +153,5 @@ export async function deploy(
   if (json) {
     log(prettyPrintJSON(out));
   }
-  return deploy.address;
+  return await deployInteraction.getAddress();
 }

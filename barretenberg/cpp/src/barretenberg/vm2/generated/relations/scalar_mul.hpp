@@ -3,7 +3,6 @@
 
 #include <string_view>
 
-#include "barretenberg/common/bb_bench.hpp"
 #include "barretenberg/relations/relation_parameters.hpp"
 #include "barretenberg/relations/relation_types.hpp"
 #include "barretenberg/vm2/generated/columns.hpp"
@@ -14,8 +13,8 @@ template <typename FF_> class scalar_mulImpl {
   public:
     using FF = FF_;
 
-    static constexpr std::array<size_t, 29> SUBRELATION_PARTIAL_LENGTHS = { 3, 3, 3, 3, 3, 3, 3, 2, 3, 3, 3, 3, 3, 3, 3,
-                                                                            3, 3, 3, 3, 2, 2, 2, 4, 4, 4, 3, 4, 4, 4 };
+    static constexpr std::array<size_t, 26> SUBRELATION_PARTIAL_LENGTHS = { 3, 3, 3, 3, 3, 3, 3, 2, 3, 3, 3, 3, 3,
+                                                                            3, 3, 3, 3, 3, 3, 4, 4, 4, 3, 4, 4, 4 };
 
     template <typename AllEntities> inline static bool skip(const AllEntities& in)
     {
@@ -36,9 +35,9 @@ template <typename FF> class scalar_mul : public Relation<scalar_mulImpl<FF>> {
     static constexpr const std::string_view NAME = "scalar_mul";
 
     // Subrelation indices constants, to be used in tests.
-    static constexpr size_t SR_START_AFTER_LATCH = 4;
-    static constexpr size_t SR_SELECTOR_ON_START_OR_END = 5;
-    static constexpr size_t SR_SELECTOR_CONSISTENCY = 6;
+    static constexpr size_t SR_SEL_ON_START_OR_END = 4;
+    static constexpr size_t SR_TRACE_CONTINUITY = 5;
+    static constexpr size_t SR_START_AFTER_LATCH = 6;
     static constexpr size_t SR_INPUT_CONSISTENCY_X = 8;
     static constexpr size_t SR_INPUT_CONSISTENCY_Y = 9;
     static constexpr size_t SR_INPUT_CONSISTENCY_INF = 10;
@@ -47,13 +46,14 @@ template <typename FF> class scalar_mul : public Relation<scalar_mulImpl<FF>> {
 
     static std::string get_subrelation_label(size_t index)
     {
+#ifdef AVM_INCLUDE_COLUMN_INFORMATION
         switch (index) {
+        case SR_SEL_ON_START_OR_END:
+            return "SEL_ON_START_OR_END";
+        case SR_TRACE_CONTINUITY:
+            return "TRACE_CONTINUITY";
         case SR_START_AFTER_LATCH:
             return "START_AFTER_LATCH";
-        case SR_SELECTOR_ON_START_OR_END:
-            return "SELECTOR_ON_START_OR_END";
-        case SR_SELECTOR_CONSISTENCY:
-            return "SELECTOR_CONSISTENCY";
         case SR_INPUT_CONSISTENCY_X:
             return "INPUT_CONSISTENCY_X";
         case SR_INPUT_CONSISTENCY_Y:
@@ -65,6 +65,7 @@ template <typename FF> class scalar_mul : public Relation<scalar_mulImpl<FF>> {
         case SR_DECREMENT_INDEX:
             return "DECREMENT_INDEX";
         }
+#endif
         return std::to_string(index);
     }
 };

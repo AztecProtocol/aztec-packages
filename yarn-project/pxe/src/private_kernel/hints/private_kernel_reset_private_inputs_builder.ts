@@ -10,7 +10,7 @@ import {
 import { makeTuple } from '@aztec/foundation/array';
 import { padArrayEnd } from '@aztec/foundation/collection';
 import type { Fr } from '@aztec/foundation/curves/bn254';
-import { type Tuple, assertLength } from '@aztec/foundation/serialize';
+import { assertLength } from '@aztec/foundation/serialize';
 import { MembershipWitness } from '@aztec/foundation/trees';
 import { privateKernelResetDimensionsConfig } from '@aztec/noir-protocol-circuits-types/client';
 import {
@@ -26,32 +26,22 @@ import {
   type PrivateKernelSimulateOutput,
   ReadRequestActionEnum,
   ReadRequestResetActions,
-  type ScopedKeyValidationRequestAndGenerator,
-  ScopedNoteHash,
-  ScopedNullifier,
-  ScopedReadRequest,
+  type ScopedKeyValidationRequestAndSeparator,
   TransientDataSquashingHint,
   buildNoteHashReadRequestHintsFromResetActions,
   buildNullifierReadRequestHintsFromResetActions,
   buildTransientDataHints,
+  countSquashedLogs,
   findPrivateKernelResetDimensions,
   getNoteHashReadRequestResetActions,
   getNullifierReadRequestResetActions,
+  kernelStateIsForPublic,
   privateKernelResetDimensionNames,
 } from '@aztec/stdlib/kernel';
 import { type PrivateCallExecutionResult, collectNested } from '@aztec/stdlib/tx';
 import { VkData } from '@aztec/stdlib/vks';
 
 import type { PrivateKernelOracle } from '../private_kernel_oracle.js';
-
-function collectNestedReadRequests<N extends number>(
-  executionStack: PrivateCallExecutionResult[],
-  extractReadRequests: (execution: PrivateCallExecutionResult) => ClaimedLengthArray<ScopedReadRequest, N>,
-): ScopedReadRequest[] {
-  return collectNested(executionStack, executionResult => {
-    return extractReadRequests(executionResult).getActiveItems();
-  });
-}
 
 function getNullifierMembershipWitnessResolver(oracle: PrivateKernelOracle) {
   return async (nullifier: Fr) => {
@@ -68,9 +58,9 @@ function getNullifierMembershipWitnessResolver(oracle: PrivateKernelOracle) {
   };
 }
 
-async function getMasterSecretKeysAndAppKeyGenerators(
+async function getMasterSecretKeysAndKeyTypeDomainSeparators(
   keyValidationRequests: ClaimedLengthArray<
-    ScopedKeyValidationRequestAndGenerator,
+    ScopedKeyValidationRequestAndSeparator,
     typeof MAX_KEY_VALIDATION_REQUESTS_PER_TX
   >,
   numRequestsToVerify: number,
@@ -79,7 +69,7 @@ async function getMasterSecretKeysAndAppKeyGenerators(
   const numRequestsToProcess = Math.min(keyValidationRequests.claimedLength, numRequestsToVerify);
   const keysHints = await Promise.all(
     keyValidationRequests.array.slice(0, numRequestsToProcess).map(async ({ request }) => {
-      const secretKeys = await oracle.getMasterSecretKey(request.request.pkM);
+      const secretKeys = await oracle.getMasterSecretKey(request.request.pkMHash);
       return new KeyValidationHint(secretKeys);
     }),
   );
@@ -91,11 +81,14 @@ export class PrivateKernelResetPrivateInputsBuilder {
   // If there's no next iteration, it's the final reset.
   private nextIteration?: PrivateCircuitPublicInputs;
 
-  private noteHashResetActions: ReadRequestResetActions<typeof MAX_NOTE_HASH_READ_REQUESTS_PER_TX>;
-  private nullifierResetActions: ReadRequestResetActions<typeof MAX_NULLIFIER_READ_REQUESTS_PER_TX>;
+  private noteHashResetActions = ReadRequestResetActions.empty(MAX_NOTE_HASH_READ_REQUESTS_PER_TX);
+  private nullifierResetActions = ReadRequestResetActions.empty(MAX_NULLIFIER_READ_REQUESTS_PER_TX);
   private numTransientData?: number;
-  private transientDataSquashingHints: Tuple<TransientDataSquashingHint, typeof MAX_NULLIFIERS_PER_TX>;
-  private requestedDimensions: PrivateKernelResetDimensions;
+  private transientDataSquashingHints = makeTuple(
+    MAX_NULLIFIERS_PER_TX,
+    () => new TransientDataSquashingHint(MAX_NULLIFIERS_PER_TX, MAX_NOTE_HASHES_PER_TX),
+  );
+  private requestedDimensions = PrivateKernelResetDimensions.empty();
 
   constructor(
     private previousKernelOutput: PrivateKernelSimulateOutput<PrivateKernelCircuitPublicInputs>,
@@ -104,21 +97,18 @@ export class PrivateKernelResetPrivateInputsBuilder {
     private splitCounter: number,
   ) {
     this.previousKernel = previousKernelOutput.publicInputs;
-    this.requestedDimensions = PrivateKernelResetDimensions.empty();
-    this.noteHashResetActions = ReadRequestResetActions.empty(MAX_NOTE_HASH_READ_REQUESTS_PER_TX);
-    this.nullifierResetActions = ReadRequestResetActions.empty(MAX_NULLIFIER_READ_REQUESTS_PER_TX);
-    this.transientDataSquashingHints = makeTuple(
-      MAX_NULLIFIERS_PER_TX,
-      () => new TransientDataSquashingHint(MAX_NULLIFIERS_PER_TX, MAX_NOTE_HASHES_PER_TX),
-    );
     this.nextIteration = executionStack[this.executionStack.length - 1]?.publicInputs;
+  }
+
+  getRequestedDimensions(): PrivateKernelResetDimensions {
+    return this.requestedDimensions;
   }
 
   needsReset(): boolean {
     const fns: (() => boolean)[] = [
       () => this.needsResetNoteHashReadRequests(),
       () => this.needsResetNullifierReadRequests(),
-      () => this.needsResetNullifierKeys(),
+      () => this.needsResetKeyValidationRequests(),
       () => this.needsResetTransientData(),
     ];
 
@@ -145,15 +135,23 @@ export class PrivateKernelResetPrivateInputsBuilder {
 
     const isInner = !!this.nextIteration;
 
-    // "final" reset must be done at most once.
-    // Because the code that silo note hashes can't be run repeatedly.
+    // "final" reset must be done exactly once, because siloing can't be run repeatedly.
     // The dimensions found must be big enough to reset all values, i.e. empty remainder.
     const allowRemainder = isInner;
+
+    // Terminal reset picks from the finalTail / finalTailToPublic catalogs; mid-tx resets always
+    // use the inner catalog. The public/private decision must match `kernelStateIsForPublic` - the
+    // same predicate the circuit inputs and the orchestrator use.
+    const mode = isInner
+      ? ('inner' as const)
+      : kernelStateIsForPublic(this.previousKernel)
+        ? ('finalTailToPublic' as const)
+        : ('finalTail' as const);
 
     const dimensions = findPrivateKernelResetDimensions(
       this.requestedDimensions,
       privateKernelResetDimensionsConfig,
-      isInner,
+      mode,
       allowRemainder,
     );
 
@@ -189,8 +187,8 @@ export class PrivateKernelResetPrivateInputsBuilder {
           this.previousKernel.validationRequests.nullifierReadRequests,
           this.nullifierResetActions,
         ),
-        getMasterSecretKeysAndAppKeyGenerators(
-          this.previousKernel.validationRequests.scopedKeyValidationRequestsAndGenerators,
+        getMasterSecretKeysAndKeyTypeDomainSeparators(
+          this.previousKernel.validationRequests.scopedKeyValidationRequestsAndSeparators,
           dimensions.KEY_VALIDATION,
           oracle,
         ),
@@ -246,24 +244,17 @@ export class PrivateKernelResetPrivateInputsBuilder {
     resetActions.pendingReadHints = resetActions.pendingReadHints.slice(0, maxPending);
   }
 
-  private needsResetNoteHashReadRequests(forceResetAll = false) {
+  private needsResetNoteHashReadRequests(forceReset = false) {
     const numCurr = this.previousKernel.validationRequests.noteHashReadRequests.claimedLength;
     const numNext = this.nextIteration ? this.nextIteration.noteHashReadRequests.claimedLength : 0;
-    const maxAmountToKeep = !this.nextIteration || forceResetAll ? 0 : MAX_NOTE_HASH_READ_REQUESTS_PER_TX;
+    const maxAmountToKeep = !this.nextIteration || forceReset ? 0 : MAX_NOTE_HASH_READ_REQUESTS_PER_TX;
     if (numCurr + numNext <= maxAmountToKeep) {
       return false;
     }
-
-    const futureNoteHashes = collectNested(this.executionStack, executionResult => {
-      return executionResult.publicInputs.noteHashes
-        .getActiveItems()
-        .map(noteHash => new ScopedNoteHash(noteHash, executionResult.publicInputs.callContext.contractAddress));
-    });
 
     const resetActions = getNoteHashReadRequestResetActions(
       this.previousKernel.validationRequests.noteHashReadRequests,
       this.previousKernel.end.noteHashes,
-      futureNoteHashes,
     );
 
     const numPendingReads = resetActions.pendingReadHints.length;
@@ -272,53 +263,72 @@ export class PrivateKernelResetPrivateInputsBuilder {
       0,
     );
 
+    const totalReadsToReset = numPendingReads + numSettledReads;
+    const minResetNeeded = numCurr + numNext - maxAmountToKeep;
+    if (totalReadsToReset < minResetNeeded) {
+      if (!this.nextIteration) {
+        // In the final reset, all note hashes have been emitted. So if we can't reset all requests, at least one
+        // pending read request doesn't match any of them.
+        throw new Error('No matching note hash found for note hash read request.');
+      } else if (!forceReset) {
+        // A pending read request can only be reset if its note hash has already been included (e.g. a parent call might
+        // be reading a note hash emitted by a child call. The read request of the parent call is included before the note
+        // hash of the child call).
+        // If we can't clear enough read requests to make room for the next iteration's reads, we're stuck.
+        throw new Error('Number of note hash read requests exceeds the limit.');
+      } else if (totalReadsToReset == 0) {
+        // It's transient data squashing asking for the read requests to be reset first (forceReset == true), and
+        // there's nothing to reset, returns false and let needsResetTransientData throw a more descriptive error.
+        return false;
+      }
+      // Otherwise, forceReset is true, we should proceed to reset as many as we can.
+    }
+
     if (!this.nextIteration) {
+      // If there's no next iteration, we need to reset all the read requests.
       this.noteHashResetActions = resetActions;
       this.requestedDimensions.NOTE_HASH_PENDING_READ = numPendingReads;
       this.requestedDimensions.NOTE_HASH_SETTLED_READ = numSettledReads;
     } else {
-      // Pick only one dimension to reset if next iteration is not empty.
+      // If there's a next iteration, only one dimension can be reset at a time.
+      // So we pick the dimension that has more read requests to reset.
       if (numPendingReads > numSettledReads) {
-        this.requestedDimensions.NOTE_HASH_PENDING_READ = numPendingReads;
-        this.noteHashResetActions.actions = assertLength(
+        // Reset the pending read requests.
+        const pendingOnlyActions = assertLength(
           resetActions.actions.map(action =>
             action === ReadRequestActionEnum.READ_AS_PENDING ? action : ReadRequestActionEnum.SKIP,
           ),
           MAX_NOTE_HASH_READ_REQUESTS_PER_TX,
         );
-        this.noteHashResetActions.pendingReadHints = resetActions.pendingReadHints;
+        this.noteHashResetActions = new ReadRequestResetActions(pendingOnlyActions, resetActions.pendingReadHints);
+        this.requestedDimensions.NOTE_HASH_PENDING_READ = numPendingReads;
       } else {
-        this.requestedDimensions.NOTE_HASH_SETTLED_READ = numSettledReads;
-        this.noteHashResetActions.actions = assertLength(
+        // Reset the settled read requests.
+        const settledOnlyActions = assertLength(
           resetActions.actions.map(action =>
             action === ReadRequestActionEnum.READ_AS_SETTLED ? action : ReadRequestActionEnum.SKIP,
           ),
           MAX_NOTE_HASH_READ_REQUESTS_PER_TX,
         );
+        this.noteHashResetActions = new ReadRequestResetActions(settledOnlyActions, []);
+        this.requestedDimensions.NOTE_HASH_SETTLED_READ = numSettledReads;
       }
     }
 
     return true;
   }
 
-  private needsResetNullifierReadRequests(forceResetAll = false) {
+  private needsResetNullifierReadRequests(forceReset = false) {
     const numCurr = this.previousKernel.validationRequests.nullifierReadRequests.claimedLength;
     const numNext = this.nextIteration ? this.nextIteration.nullifierReadRequests.claimedLength : 0;
-    const maxAmountToKeep = !this.nextIteration || forceResetAll ? 0 : MAX_NULLIFIER_READ_REQUESTS_PER_TX;
+    const maxAmountToKeep = !this.nextIteration || forceReset ? 0 : MAX_NULLIFIER_READ_REQUESTS_PER_TX;
     if (numCurr + numNext <= maxAmountToKeep) {
       return false;
     }
 
-    const futureNullifiers = collectNested(this.executionStack, executionResult => {
-      return executionResult.publicInputs.nullifiers
-        .getActiveItems()
-        .map(nullifier => new ScopedNullifier(nullifier, executionResult.publicInputs.callContext.contractAddress));
-    });
-
     const resetActions = getNullifierReadRequestResetActions(
       this.previousKernel.validationRequests.nullifierReadRequests,
       this.previousKernel.end.nullifiers,
-      futureNullifiers,
     );
 
     const numPendingReads = resetActions.pendingReadHints.length;
@@ -327,38 +337,63 @@ export class PrivateKernelResetPrivateInputsBuilder {
       0,
     );
 
+    const totalReadsToReset = numPendingReads + numSettledReads;
+    const minResetNeeded = numCurr + numNext - maxAmountToKeep;
+    if (totalReadsToReset < minResetNeeded) {
+      if (!this.nextIteration) {
+        // In the final reset, all nullifiers have been emitted. So if we can't reset all requests, at least one pending
+        // read request doesn't match any of them.
+        throw new Error('No matching nullifier found for nullifier read request.');
+      } else if (!forceReset) {
+        // A pending read request can only be reset if its nullifier has already been included (e.g. a parent call might
+        // be reading a nullifier emitted by a child call. The read request of the parent call is included before the
+        // nullifier of the child call).
+        // If we can't clear enough read requests to make room for the next iteration's reads, we're stuck.
+        throw new Error('Number of nullifier read requests exceeds the limit.');
+      } else if (totalReadsToReset == 0) {
+        // It's transient data squashing asking for the read requests to be reset first (forceReset == true), and
+        // there's nothing to reset, returns false and let needsResetTransientData throw a more descriptive error.
+        return false;
+      }
+      // Otherwise, forceReset is true, we should proceed to reset as many as we can.
+    }
+
     if (!this.nextIteration) {
+      // If there's no next iteration, we need to reset all the read requests.
       this.nullifierResetActions = resetActions;
       this.requestedDimensions.NULLIFIER_PENDING_READ = numPendingReads;
       this.requestedDimensions.NULLIFIER_SETTLED_READ = numSettledReads;
     } else {
-      // Pick only one dimension to reset if next iteration is not empty.
+      // If there's a next iteration, we can only reset one dimension at a time.
       if (numPendingReads > numSettledReads) {
-        this.requestedDimensions.NULLIFIER_PENDING_READ = numPendingReads;
-        this.nullifierResetActions.actions = assertLength(
+        // Reset the pending read requests.
+        const pendingOnlyActions = assertLength(
           resetActions.actions.map(action =>
             action === ReadRequestActionEnum.READ_AS_PENDING ? action : ReadRequestActionEnum.SKIP,
           ),
           MAX_NULLIFIER_READ_REQUESTS_PER_TX,
         );
-        this.nullifierResetActions.pendingReadHints = resetActions.pendingReadHints;
+        this.nullifierResetActions = new ReadRequestResetActions(pendingOnlyActions, resetActions.pendingReadHints);
+        this.requestedDimensions.NULLIFIER_PENDING_READ = numPendingReads;
       } else {
-        this.requestedDimensions.NULLIFIER_SETTLED_READ = numSettledReads;
-        this.nullifierResetActions.actions = assertLength(
+        // Reset the settled read requests.
+        const settledOnlyActions = assertLength(
           resetActions.actions.map(action =>
             action === ReadRequestActionEnum.READ_AS_SETTLED ? action : ReadRequestActionEnum.SKIP,
           ),
           MAX_NULLIFIER_READ_REQUESTS_PER_TX,
         );
+        this.nullifierResetActions = new ReadRequestResetActions(settledOnlyActions, []);
+        this.requestedDimensions.NULLIFIER_SETTLED_READ = numSettledReads;
       }
     }
 
     return true;
   }
 
-  private needsResetNullifierKeys() {
-    const numCurr = this.previousKernel.validationRequests.scopedKeyValidationRequestsAndGenerators.claimedLength;
-    const numNext = this.nextIteration ? this.nextIteration.keyValidationRequestsAndGenerators.claimedLength : 0;
+  private needsResetKeyValidationRequests() {
+    const numCurr = this.previousKernel.validationRequests.scopedKeyValidationRequestsAndSeparators.claimedLength;
+    const numNext = this.nextIteration ? this.nextIteration.keyValidationRequestsAndSeparators.claimedLength : 0;
     const maxAmountToKeep = !this.nextIteration ? 0 : MAX_KEY_VALIDATION_REQUESTS_PER_TX;
     if (numCurr + numNext <= maxAmountToKeep) {
       return false;
@@ -370,9 +405,6 @@ export class PrivateKernelResetPrivateInputsBuilder {
   }
 
   private needsResetTransientData() {
-    // Initialize this to 0 so that needsSilo can be run.
-    this.numTransientData = 0;
-
     const nextAccumNoteHashes =
       this.previousKernel.end.noteHashes.claimedLength + (this.nextIteration?.noteHashes.claimedLength ?? 0);
     const noteHashWillOverflow = nextAccumNoteHashes > MAX_NOTE_HASHES_PER_TX;
@@ -387,19 +419,19 @@ export class PrivateKernelResetPrivateInputsBuilder {
       return false;
     }
 
-    const futureNoteHashReads = collectNestedReadRequests(
-      this.executionStack,
-      executionResult => executionResult.publicInputs.noteHashReadRequests,
+    const futureNoteHashReads = collectNested(this.executionStack, executionResult =>
+      executionResult.publicInputs.noteHashReadRequests.getActiveItems(),
     );
-    const futureNullifierReads = collectNestedReadRequests(
-      this.executionStack,
-      executionResult => executionResult.publicInputs.nullifierReadRequests,
+    const futureNullifierReads = collectNested(this.executionStack, executionResult =>
+      executionResult.publicInputs.nullifierReadRequests.getActiveItems(),
     );
-    // TODO(#15902): Collect future logs and only allow squashing a note hash when all its logs have been emitted
-    // (i.e. none of the future logs are linked to the to-be-squashed note hashes).
+    const futureLogs = collectNested(this.executionStack, executionResult =>
+      executionResult.publicInputs.privateLogs.getActiveItems(),
+    );
     if (this.nextIteration) {
-      // If it's not the final reset, only one dimension will be reset at a time.
-      // The note hashes and nullifiers for the remaining read requests can't be squashed.
+      // If it's not the final reset, only one dimension will be reset at a time. Since we are resetting the transient
+      // data, the note hash and nullifier read requests in the previous kernel won't be squashed and need to be
+      // included in the future read requests.
       futureNoteHashReads.push(...this.previousKernel.validationRequests.noteHashReadRequests.getActiveItems());
       futureNullifierReads.push(...this.previousKernel.validationRequests.nullifierReadRequests.getActiveItems());
     }
@@ -409,27 +441,50 @@ export class PrivateKernelResetPrivateInputsBuilder {
       this.previousKernel.end.nullifiers,
       futureNoteHashReads,
       futureNullifierReads,
+      futureLogs,
       this.noteHashNullifierCounterMap,
       this.splitCounter,
     );
 
-    if (this.nextIteration && !numTransientData) {
-      const forceResetAll = true;
-      const canClearReadRequests =
-        (noteHashWillOverflow && this.needsResetNoteHashReadRequests(forceResetAll)) ||
-        (nullifierWillOverflow && this.needsResetNullifierReadRequests(forceResetAll)) ||
-        (logsWillOverflow && this.needsResetNoteHashReadRequests(forceResetAll));
-      if (!canClearReadRequests) {
-        const overflownData = noteHashWillOverflow
-          ? 'note hashes'
-          : nullifierWillOverflow
-            ? 'nullifiers'
-            : 'private logs';
-        throw new Error(`Number of ${overflownData} exceeds the limit.`);
+    if (this.nextIteration) {
+      const noteHashOverflowBy = noteHashWillOverflow
+        ? nextAccumNoteHashes - MAX_NOTE_HASHES_PER_TX - numTransientData
+        : 0;
+      const nullifierOverflowBy = nullifierWillOverflow
+        ? nextAccumNullifiers - MAX_NULLIFIERS_PER_TX - numTransientData
+        : 0;
+      const numSquashedLogs = logsWillOverflow
+        ? countSquashedLogs(
+            this.previousKernel.end.noteHashes,
+            this.previousKernel.end.privateLogs,
+            transientDataSquashingHints.slice(0, numTransientData),
+          )
+        : 0;
+      const logsOverflowBy = logsWillOverflow ? nextAccumLogs - MAX_PRIVATE_LOGS_PER_TX - numSquashedLogs : 0;
+
+      if (noteHashOverflowBy > 0 || nullifierOverflowBy > 0 || logsOverflowBy > 0) {
+        // There's not enough transient data to squash to clear space for the overflow. It may be because some data is
+        // still required for read requests. Force a reset of the read requests first, and return to transient data
+        // squashing in the next round of reset.
+        // Note that clearing the read requests might not be enough to clear more space for the overflow. In this case,
+        // running the next reset will fail at the following check.
+        // Only one dimension can be reset at a time for an inner reset, so we try the note hash read requests first
+        // (which also helps with log overflow), then fall back to nullifier read requests.
+        const forceReset = true;
+        if ((noteHashOverflowBy > 0 || logsOverflowBy > 0) && this.needsResetNoteHashReadRequests(forceReset)) {
+          return true;
+        }
+        if (nullifierOverflowBy > 0 && this.needsResetNullifierReadRequests(forceReset)) {
+          return true;
+        }
+        if (noteHashWillOverflow) {
+          throw new Error('Number of note hashes exceeds the limit.');
+        }
+        if (nullifierWillOverflow) {
+          throw new Error('Number of nullifiers exceeds the limit.');
+        }
+        throw new Error('Number of private logs exceeds the limit.');
       }
-      // Clearing the read requests might not be enough to squash the overflown data.
-      // In this case, the next iteration will fail at the above check.
-      return true;
     }
 
     this.numTransientData = numTransientData;
@@ -444,10 +499,13 @@ export class PrivateKernelResetPrivateInputsBuilder {
       throw new Error('`needsResetTransientData` must be run before `needsSiloNoteHashes`.');
     }
 
-    const numNoteHashes = this.previousKernel.end.noteHashes
-      .getActiveItems()
-      .filter(n => !n.contractAddress.isZero()).length;
-    const numToSilo = Math.max(0, numNoteHashes - this.numTransientData);
+    const noteHashes = this.previousKernel.end.noteHashes;
+    if (noteHashes.claimedLength > 0 && noteHashes.array[0].contractAddress.isZero()) {
+      // Already siloed.
+      return false;
+    }
+
+    const numToSilo = noteHashes.claimedLength - this.numTransientData;
     this.requestedDimensions.NOTE_HASH_SILOING = numToSilo;
 
     return numToSilo > 0;
@@ -458,15 +516,14 @@ export class PrivateKernelResetPrivateInputsBuilder {
       throw new Error('`needsResetTransientData` must be run before `needsSiloNullifiers`.');
     }
 
-    const numNullifiers = this.previousKernel.end.nullifiers
-      .getActiveItems()
-      .filter(n => !n.contractAddress.isZero()).length;
-    const numToSilo = Math.max(0, numNullifiers - this.numTransientData);
-    // Include the first nullifier if there's something to silo.
-    // The reset circuit checks that capped_size must be greater than or equal to all non-empty nullifiers.
-    // Which includes the first nullifier, even though its contract address is always zero and doesn't need siloing.
-    const cappedSize = numToSilo ? numToSilo + 1 : 0;
-    this.requestedDimensions.NULLIFIER_SILOING = cappedSize;
+    const nullifiers = this.previousKernel.end.nullifiers;
+    if (nullifiers.claimedLength > 0 && nullifiers.array[0].contractAddress.isZero()) {
+      // Already siloed.
+      return false;
+    }
+
+    const numToSilo = nullifiers.claimedLength - this.numTransientData;
+    this.requestedDimensions.NULLIFIER_SILOING = numToSilo;
 
     return numToSilo > 0;
   }
@@ -477,17 +534,17 @@ export class PrivateKernelResetPrivateInputsBuilder {
     }
 
     const privateLogs = this.previousKernel.end.privateLogs;
-    const numLogs = privateLogs.getActiveItems().filter(l => !l.contractAddress.isZero()).length;
+    if (privateLogs.claimedLength > 0 && privateLogs.array[0].contractAddress.isZero()) {
+      // Already siloed.
+      return false;
+    }
 
-    const noteHashes = this.previousKernel.end.noteHashes;
-    const squashedNoteHashCounters = this.transientDataSquashingHints
-      .filter(h => h.noteHashIndex < noteHashes.claimedLength)
-      .map(h => noteHashes.array[h.noteHashIndex].counter);
-    const numSquashedLogs = privateLogs
-      .getActiveItems()
-      .filter(l => squashedNoteHashCounters.includes(l.inner.noteHashCounter)).length;
-
-    const numToSilo = numLogs - numSquashedLogs;
+    const numSquashedLogs = countSquashedLogs(
+      this.previousKernel.end.noteHashes,
+      privateLogs,
+      this.transientDataSquashingHints.slice(0, this.numTransientData),
+    );
+    const numToSilo = privateLogs.claimedLength - numSquashedLogs;
     this.requestedDimensions.PRIVATE_LOG_SILOING = numToSilo;
 
     return numToSilo > 0;

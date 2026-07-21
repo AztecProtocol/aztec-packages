@@ -23,11 +23,15 @@ template <typename Builder> class databus {
         using field_pt = field_t<Builder>;
 
       public:
+        bus_vector() = default;
+
         bus_vector(const BusId bus_idx)
             : bus_idx(bus_idx) {};
 
         /**
          * @brief Set the entries of the bus vector from possibly unnormalized or constant inputs
+         * @details Creates a databus read gate for each slot to bind the bus entry to its corresponding witness in the
+         * main wires.
          * @note A builder/context is assumed to be known at this stage, otherwise the first read will fail if index is
          * constant
          *
@@ -52,15 +56,22 @@ template <typename Builder> class databus {
 
       private:
         mutable std::vector<field_pt> entries; // bus vector entries
+        std::vector<OriginTag> _tags;          // origin tags for each entry (restored on read)
         size_t length = 0;
         BusId bus_idx; // Idx of column in bus
         mutable Builder* context = nullptr;
     };
 
   public:
-    // The columns of the DataBus
-    bus_vector calldata{ BusId::CALLDATA };
-    bus_vector secondary_calldata{ BusId::SECONDARY_CALLDATA };
+    // The columns of the DataBus.
+    bus_vector kernel_calldata{ BusId::KERNEL_CALLDATA };
+    std::array<bus_vector, MAX_APPS_PER_KERNEL> app_calldata = []() {
+        std::array<bus_vector, MAX_APPS_PER_KERNEL> result{};
+        for (uint8_t idx = 0; idx < MAX_APPS_PER_KERNEL; ++idx) {
+            result[idx] = bus_vector{ static_cast<BusId>(idx + 1) };
+        }
+        return result;
+    }();
     bus_vector return_data{ BusId::RETURNDATA };
 };
 
@@ -72,13 +83,12 @@ template <typename Builder> class databus {
  * \pi_i, and it has access to [C_i] directly from \pi_i. The consistency checks in circuit (i+1) are thus of the
  * form \pi_i.public_inputs.[R_{i-1}] = \pi_i.[C_i].
  *
- * For consistent behavior across kernels, every kernel propagates two return data commitments via its
- * public inputs. If one of either the app or kernel return data does not exist, it is populated with a default
- * value that will satisfy the consistency check on the next cycle. For example, the first kernel has no previous
- * kernel to verify and thus neither receives a previous kernel return data commitment nor a calldata input
- * corresponding to a previous kernel. The "empty" calldata will be populated with a default value, resulting in a
- * default commitment value. We set the same value for the missing return data herein so that the commitments agree
- * and the corresponding consistency check will be satisfied in the kernel in which it's performed.
+ * For consistent behavior across kernels, every kernel propagates `MAX_APPS_PER_KERNEL + 1` return-data commitments
+ * via its public inputs: one for the previous kernel and one per app slot. If any of these does not exist (e.g., the
+ * first kernel has no previous kernel; a kernel with fewer than MAX apps leaves the trailing app slots unset), it is
+ * populated with a default commitment value that will satisfy the consistency check on the next cycle. The "empty"
+ * calldata column on the next kernel side will commit to the same default value, so the commitments agree and the
+ * consistency check passes trivially.
  *
  * @tparam Builder
  */
@@ -90,11 +100,15 @@ template <class Builder> class DataBusDepot {
     using FrNative = typename Curve::ScalarFieldNative;
 
     // Storage for the return data commitments to be propagated via the public inputs
-    Commitment app_return_data_commitment;
+    std::array<Commitment, MAX_APPS_PER_KERNEL> app_return_data_commitments;
     Commitment kernel_return_data_commitment;
 
     // Existence flags indicating whether each return data commitment has been set
-    bool app_return_data_commitment_exists = false;
+    std::array<bool, MAX_APPS_PER_KERNEL> app_return_data_commitment_exists = []() {
+        std::array<bool, MAX_APPS_PER_KERNEL> result{};
+        result.fill(false);
+        return result;
+    }();
     bool kernel_return_data_commitment_exists = false;
 
     void set_kernel_return_data_commitment(const Commitment& commitment)
@@ -103,21 +117,49 @@ template <class Builder> class DataBusDepot {
         kernel_return_data_commitment_exists = true;
     }
 
+    /**
+     * @brief Whether all app return-data slots are currently empty.
+     * @details Used to assert the kernel-boundary invariant: at the start of each kernel completion, every slot must
+     * have been drained by the prior kernel's get-loop so that `set_app_return_data_commitment` begins filling from
+     * slot 0.
+     */
+    bool app_return_data_slots_are_empty() const
+    {
+        for (size_t idx = 0; idx < MAX_APPS_PER_KERNEL; ++idx) {
+            if (app_return_data_commitment_exists[idx]) {
+                return false;
+            }
+        }
+        return true;
+    }
+
+    /**
+     * @brief Record an app return-data commitment in the next available slot.
+     * @details Slot assignment is implicit: the depot fills slot 0 first, then slot 1, etc., as apps are processed in
+     * the kernel's verification queue. Slots are released by `get_app_return_data_commitment`; each kernel-completion
+     * pass drains every slot via the get-loop in `Chonk::complete_kernel_circuit_logic`, so the next kernel begins
+     * filling from slot 0 again.
+     */
     void set_app_return_data_commitment(const Commitment& commitment)
     {
-        app_return_data_commitment = commitment;
-        app_return_data_commitment_exists = true;
+        for (size_t idx = 0; idx < MAX_APPS_PER_KERNEL; ++idx) {
+            if (!app_return_data_commitment_exists[idx]) {
+                app_return_data_commitments[idx] = commitment;
+                app_return_data_commitment_exists[idx] = true;
+                return;
+            }
+        }
+        BB_ASSERT(false, "DataBusDepot has no free app return-data slot");
     }
 
     /**
      * @brief Construct a default commitment for the databus return data
-     * @details This commitment is used when no genuine return data commitment exists for either the kernel or app
-     *
+     * @details Returns the point at infinity. This matches the commitment to a databus column containing only
+     * zero-valued entries (DEFAULT_VALUE = 0), regardless of the polynomial offset used for disabled rows.
      */
     static Commitment construct_default_commitment(Builder& builder)
     {
-        CommitmentNative DEFAULT_COMMITMENT_VALUE = CommitmentNative::one() * FrNative(BusVector::DEFAULT_VALUE);
-        auto default_commitment = Commitment(DEFAULT_COMMITMENT_VALUE);
+        auto default_commitment = Commitment(CommitmentNative::infinity());
         default_commitment.convert_constant_to_fixed_witness(&builder);
         return default_commitment;
     }
@@ -139,13 +181,14 @@ template <class Builder> class DataBusDepot {
      * @brief Get the previously set app return data commitment if it exists, else a default one
      *
      */
-    Commitment get_app_return_data_commitment(Builder& builder)
+    Commitment get_app_return_data_commitment(Builder& builder, const size_t idx)
     {
-        if (!app_return_data_commitment_exists) {
+        BB_ASSERT_LT(idx, MAX_APPS_PER_KERNEL, "DataBusDepot app return-data index out of bounds");
+        if (!app_return_data_commitment_exists[idx]) {
             return construct_default_commitment(builder);
         }
-        app_return_data_commitment_exists = false; // Reset the existence flag after retrieval
-        return app_return_data_commitment;
+        app_return_data_commitment_exists[idx] = false; // Reset the existence flag after retrieval
+        return app_return_data_commitments[idx];
     }
 };
 

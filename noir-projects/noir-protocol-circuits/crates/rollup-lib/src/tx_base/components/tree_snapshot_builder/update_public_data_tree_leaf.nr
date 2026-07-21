@@ -1,10 +1,10 @@
-use dep::types::{
+use types::{
     abis::append_only_tree_snapshot::AppendOnlyTreeSnapshot,
     constants::PUBLIC_DATA_TREE_HEIGHT,
     data::{PublicDataTreeLeaf, PublicDataTreeLeafPreimage},
     merkle_tree::{
-        check_membership, IndexedTreeLeafPreimage, LeafPreimage, MembershipWitness,
-        root_from_sibling_path,
+        check_membership_with_hasher, IndexedTreeLeafPreimage, LeafPreimage, MembershipWitness,
+        public_data_merkle_hash, root_from_sibling_path_with_hasher,
     },
 };
 
@@ -17,10 +17,11 @@ pub fn update_public_data_tree_leaf(
 ) -> AppendOnlyTreeSnapshot {
     // Ensure that the `existing_leaf_preimage` does exist in the tree.
     assert(
-        check_membership(
+        check_membership_with_hasher(
             existing_leaf_preimage.as_leaf(),
             existing_leaf_membership_witness,
             snapshot.root,
+            public_data_merkle_hash,
         ),
         "Membership check failed: public data leaf preimage does not exist in tree",
     );
@@ -31,10 +32,11 @@ pub fn update_public_data_tree_leaf(
     );
 
     // Recompute the tree root with the updated leaf.
-    let new_root = root_from_sibling_path(
+    let new_root = root_from_sibling_path_with_hasher(
         updated_leaf.as_leaf(),
         existing_leaf_membership_witness.leaf_index,
         existing_leaf_membership_witness.sibling_path,
+        public_data_merkle_hash,
     );
 
     AppendOnlyTreeSnapshot {

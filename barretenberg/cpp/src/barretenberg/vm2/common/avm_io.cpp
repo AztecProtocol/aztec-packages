@@ -2,8 +2,8 @@
 
 #include <vector>
 
+#include "barretenberg/aztec/aztec_constants.hpp"
 #include "barretenberg/serialize/msgpack.hpp"
-#include "barretenberg/vm2/common/aztec_constants.hpp"
 
 namespace bb::avm2 {
 namespace {
@@ -141,8 +141,11 @@ AvmFastSimulationInputs AvmFastSimulationInputs::from(const std::vector<uint8_t>
 // in the Noir `AvmCircuitPublicInputs` struct in avm_circuit_public_inputs.nr
 std::vector<std::vector<FF>> PublicInputs::to_columns() const
 {
-    std::vector<std::vector<FF>> cols(AVM_NUM_PUBLIC_INPUT_COLUMNS,
-                                      std::vector<FF>(AVM_PUBLIC_INPUTS_COLUMNS_MAX_LENGTH, FF(0)));
+    std::vector<std::vector<FF>> cols;
+    cols.reserve(AVM_NUM_PUBLIC_INPUT_COLUMNS);
+    for (size_t i = 0; i < AVM_NUM_PUBLIC_INPUT_COLUMNS; ++i) {
+        cols.emplace_back(AVM_PUBLIC_INPUTS_COLUMN_LENGTHS[i], FF(0));
+    }
 
     // Global variables
     cols[0][AVM_PUBLIC_INPUTS_GLOBAL_VARIABLES_CHAIN_ID_ROW_IDX] = global_variables.chain_id;
@@ -288,12 +291,16 @@ std::vector<std::vector<FF>> PublicInputs::to_columns() const
 
 std::vector<FF> PublicInputs::columns_to_flat(std::vector<std::vector<FF>> const& columns)
 {
+    if (columns.size() != AVM_NUM_PUBLIC_INPUT_COLUMNS) {
+        throw std::invalid_argument("Public inputs columns count does not match the expected number of columns.");
+    }
     std::vector<FF> flat;
-    for (const auto& col : columns) {
-        if (col.size() != AVM_PUBLIC_INPUTS_COLUMNS_MAX_LENGTH) {
-            throw std::invalid_argument("Public inputs column size does not match the expected max length.");
+    flat.reserve(AVM_PUBLIC_INPUTS_COLUMNS_COMBINED_LENGTH);
+    for (size_t i = 0; i < AVM_NUM_PUBLIC_INPUT_COLUMNS; ++i) {
+        if (columns[i].size() != AVM_PUBLIC_INPUTS_COLUMN_LENGTHS[i]) {
+            throw std::invalid_argument("Public inputs column size does not match the expected per-column length.");
         }
-        flat.insert(flat.end(), col.begin(), col.end());
+        flat.insert(flat.end(), columns[i].begin(), columns[i].end());
     }
     return flat;
 }

@@ -2,15 +2,15 @@ import {
   type ConfigMappingsType,
   bigintConfigHelper,
   booleanConfigHelper,
-  enumConfigHelper,
   getConfigFromMappings,
   getDefaultConfig,
   numberConfigHelper,
+  omitConfigMappings,
   optionalNumberConfigHelper,
 } from '@aztec/foundation/config';
 import { EthAddress } from '@aztec/foundation/eth-address';
+import l1ContractsDefaultEnv from '@aztec/l1-artifacts/network-defaults.json' with { type: 'json' };
 
-import { l1ContractsDefaultEnv } from './generated/l1-contracts-defaults.js';
 import { type L1TxUtilsConfig, l1TxUtilsConfigMappings } from './l1_tx_utils/config.js';
 
 export type GenesisStateConfig = {
@@ -18,6 +18,8 @@ export type GenesisStateConfig = {
   testAccounts: boolean;
   /** Whether to populate the genesis state with initial fee juice for the sponsored FPC */
   sponsoredFPC: boolean;
+  /** Additional addresses to prefund with fee juice at genesis */
+  prefundAddresses: string[];
 };
 
 export type L1ContractsConfig = {
@@ -57,13 +59,13 @@ export type L1ContractsConfig = {
   slashingOffsetInRounds: number;
   /** How long slashing can be disabled for in seconds when vetoer disables it */
   slashingDisableDuration: number;
-  /** Type of slasher proposer */
-  slasherFlavor: 'empire' | 'tally' | 'none';
-  /** Minimum amount that can be slashed in tally slashing */
+  /** Whether to deploy a slasher proposer */
+  slasherEnabled: boolean;
+  /** Minimum amount that can be slashed */
   slashAmountSmall: bigint;
-  /** Medium amount to slash in tally slashing */
+  /** Medium amount to slash */
   slashAmountMedium: bigint;
-  /** Largest amount that can be slashed per round in tally slashing */
+  /** Largest amount that can be slashed per round */
   slashAmountLarge: bigint;
   /** Governance proposing quorum (defaults to roundSize/2 + 1) */
   governanceProposerQuorum?: number;
@@ -79,11 +81,21 @@ export type L1ContractsConfig = {
   initialEthPerFeeAsset: bigint;
   /** The number of seconds to wait for an exit */
   exitDelaySeconds: number;
+  /** Validator set size at or below which the entry queue uses the bootstrap flush size. */
+  entryQueueBootstrapValidatorSetSize: number;
+  /** Number of validators admitted from the entry queue per flush during the bootstrap phase. */
+  entryQueueBootstrapFlushSize: number;
+  /** Minimum number of validators admitted from the entry queue per flush. */
+  entryQueueFlushSizeMin: number;
+  /** Divisor applied to the queue size to derive the normal per-flush admission count. */
+  entryQueueFlushSizeQuotient: number;
+  /** Maximum number of validators admitted from the entry queue per flush. */
+  entryQueueMaxFlushSize: number;
 } & L1TxUtilsConfig;
 
 /**
  * Config mappings for L1ContractsConfig.
- * Default values come from generated l1-contracts-defaults.json (source: defaults.yml).
+ * Default values come from l1-contracts/scripts/network-defaults.json (published via @aztec/l1-artifacts).
  * Real deployments use forge scripts which require explicit env vars (vm.envUint).
  */
 export const l1ContractsConfigMappings: ConfigMappingsType<L1ContractsConfig> = {
@@ -99,7 +111,7 @@ export const l1ContractsConfigMappings: ConfigMappingsType<L1ContractsConfig> = 
   },
   aztecEpochDuration: {
     env: 'AZTEC_EPOCH_DURATION',
-    description: `How many L2 slots an epoch lasts (maximum AZTEC_MAX_EPOCH_DURATION).`,
+    description: `How many L2 slots an epoch lasts (maximum MAX_CHECKPOINTS_PER_EPOCH).`,
     ...numberConfigHelper(l1ContractsDefaultEnv.AZTEC_EPOCH_DURATION),
   },
   aztecTargetCommitteeSize: {
@@ -149,13 +161,10 @@ export const l1ContractsConfigMappings: ConfigMappingsType<L1ContractsConfig> = 
       'How many slashing rounds back we slash (ie when slashing in round N, we slash for offenses committed during epochs of round N-offset)',
     ...numberConfigHelper(l1ContractsDefaultEnv.AZTEC_SLASHING_OFFSET_IN_ROUNDS),
   },
-  slasherFlavor: {
-    env: 'AZTEC_SLASHER_FLAVOR',
-    description: 'Type of slasher proposer (empire, tally, or none)',
-    ...enumConfigHelper(
-      ['empire', 'tally', 'none'] as const,
-      l1ContractsDefaultEnv.AZTEC_SLASHER_FLAVOR as 'empire' | 'tally' | 'none',
-    ),
+  slasherEnabled: {
+    env: 'AZTEC_SLASHER_ENABLED',
+    description: 'Whether to deploy a slasher proposer',
+    ...booleanConfigHelper(true),
   },
   slashAmountSmall: {
     env: 'AZTEC_SLASH_AMOUNT_SMALL',
@@ -238,14 +247,74 @@ export const l1ContractsConfigMappings: ConfigMappingsType<L1ContractsConfig> = 
     description: 'The delay before a validator can exit the set',
     ...numberConfigHelper(l1ContractsDefaultEnv.AZTEC_EXIT_DELAY_SECONDS),
   },
-  ...l1TxUtilsConfigMappings,
+  entryQueueBootstrapValidatorSetSize: {
+    env: 'AZTEC_ENTRY_QUEUE_BOOTSTRAP_VALIDATOR_SET_SIZE',
+    description: 'Validator set size at or below which the entry queue uses the bootstrap flush size.',
+    ...numberConfigHelper(l1ContractsDefaultEnv.AZTEC_ENTRY_QUEUE_BOOTSTRAP_VALIDATOR_SET_SIZE),
+  },
+  entryQueueBootstrapFlushSize: {
+    env: 'AZTEC_ENTRY_QUEUE_BOOTSTRAP_FLUSH_SIZE',
+    description: 'Number of validators admitted from the entry queue per flush during the bootstrap phase.',
+    ...numberConfigHelper(l1ContractsDefaultEnv.AZTEC_ENTRY_QUEUE_BOOTSTRAP_FLUSH_SIZE),
+  },
+  entryQueueFlushSizeMin: {
+    env: 'AZTEC_ENTRY_QUEUE_FLUSH_SIZE_MIN',
+    description: 'Minimum number of validators admitted from the entry queue per flush.',
+    ...numberConfigHelper(l1ContractsDefaultEnv.AZTEC_ENTRY_QUEUE_FLUSH_SIZE_MIN),
+  },
+  entryQueueFlushSizeQuotient: {
+    env: 'AZTEC_ENTRY_QUEUE_FLUSH_SIZE_QUOTIENT',
+    description: 'Divisor applied to the queue size to derive the normal per-flush admission count.',
+    ...numberConfigHelper(l1ContractsDefaultEnv.AZTEC_ENTRY_QUEUE_FLUSH_SIZE_QUOTIENT),
+  },
+  entryQueueMaxFlushSize: {
+    env: 'AZTEC_ENTRY_QUEUE_MAX_FLUSH_SIZE',
+    description: 'Maximum number of validators admitted from the entry queue per flush.',
+    ...numberConfigHelper(l1ContractsDefaultEnv.AZTEC_ENTRY_QUEUE_MAX_FLUSH_SIZE),
+  },
+  ...omitConfigMappings(l1TxUtilsConfigMappings, ['ethereumSlotDuration']),
 };
 
 /**
  * Default L1 contracts configuration derived from l1ContractsConfigMappings.
- * Source of truth: spartan/environments/defaults.yml -> defaults.l1-contracts
+ * Source of truth: l1-contracts/scripts/network-defaults.json (published via @aztec/l1-artifacts).
  */
 export const DefaultL1ContractsConfig = getDefaultConfig(l1ContractsConfigMappings);
+
+/**
+ * Validates that `ethereumSlotDuration` and `aztecSlotDuration` are positive and that the L2 slot is an exact
+ * multiple of the L1 slot. Every L2 slot boundary must land on an L1 slot boundary; a non-multiple pairing
+ * desyncs the epoch/checkpoint timing math throughout the sequencer, validator client, and timetables. Returns
+ * a list of error messages (empty when valid).
+ */
+export function validateSlotDurations(
+  config: Pick<L1ContractsConfig, 'ethereumSlotDuration' | 'aztecSlotDuration'>,
+): string[] {
+  const errors: string[] = [];
+  if (config.ethereumSlotDuration <= 0) {
+    errors.push(`ethereumSlotDuration must be positive (got ${config.ethereumSlotDuration})`);
+  }
+  if (config.aztecSlotDuration <= 0) {
+    errors.push(`aztecSlotDuration must be positive (got ${config.aztecSlotDuration})`);
+  }
+  if (config.ethereumSlotDuration > 0 && config.aztecSlotDuration % config.ethereumSlotDuration !== 0) {
+    errors.push(
+      `aztecSlotDuration (${config.aztecSlotDuration}s) must be a multiple of ethereumSlotDuration ` +
+        `(${config.ethereumSlotDuration}s)`,
+    );
+  }
+  return errors;
+}
+
+/** Throws if {@link validateSlotDurations} reports any errors. */
+export function assertValidSlotDurations(
+  config: Pick<L1ContractsConfig, 'ethereumSlotDuration' | 'aztecSlotDuration'>,
+): void {
+  const errors = validateSlotDurations(config);
+  if (errors.length > 0) {
+    throw new Error(`Invalid slot duration configuration:\n${errors.map(e => `  - ${e}`).join('\n')}`);
+  }
+}
 
 export const genesisStateConfigMappings: ConfigMappingsType<GenesisStateConfig> = {
   testAccounts: {
@@ -257,6 +326,16 @@ export const genesisStateConfigMappings: ConfigMappingsType<GenesisStateConfig> 
     env: 'SPONSORED_FPC',
     description: 'Whether to populate the genesis state with initial fee juice for the sponsored FPC.',
     ...booleanConfigHelper(false),
+  },
+  prefundAddresses: {
+    env: 'PREFUND_ADDRESSES',
+    description: 'Comma-separated list of Aztec addresses to prefund with fee juice at genesis (local network only).',
+    parseEnv: (val: string) =>
+      val
+        .split(',')
+        .map(a => a.trim())
+        .filter(a => a.length > 0),
+    defaultValue: [],
   },
 };
 

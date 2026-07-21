@@ -39,7 +39,7 @@ RUN cp -r ./aztec-packages aztec-packages-src && rm -rf ./aztec-packages-src/.gi
 
 # Download crs
 WORKDIR /home/fuzzer/aztec-packages/barretenberg
-RUN ./crs/bootstrap.sh
+RUN CRS_FORMAT=uncompressed ./crs/bootstrap.sh
 
 WORKDIR /home/fuzzer/aztec-packages/barretenberg/cpp
 
@@ -64,6 +64,19 @@ RUN cmake --build build-fuzzing-cov
 # Build avm fuzzers
 RUN cmake -DCMAKE_C_COMPILER=clang-18 -DCMAKE_CXX_COMPILER=clang++-18 --preset fuzzing-avm
 RUN cmake --build build-fuzzing-avm && mv build-fuzzing-avm/bin bin-fuzzing-avm && rm -rf build-fuzzing-avm
+
+# Flatten variant binaries into /targets/<name>[_suffix] and generate v2 manifest.
+# Positional manifests = scheduled as independent fuzz jobs by the platform.
+# --copy-only = companion binaries (asan for crash repro, cov for coverage collection).
+# AVM fuzzers use a singleton LMDB world state (/tmp/avm_fuzzer_ws/) that
+# cannot handle concurrent writers, so they must run single-threaded (cpus=1).
+RUN python3 scripts/flatten_and_manifest.py /targets /tmp/fuzzer_manifest.json \
+    bin-fuzzing/fuzzer_manifest.json \
+    bin-fuzzing-noasm/fuzzer_manifest.json \
+    bin-fuzzing-avm/fuzzer_manifest.json \
+    --copy-only bin-fuzzing-asan/fuzzer_manifest.json \
+    --copy-only build-fuzzing-cov/bin/fuzzer_manifest.json \
+    --preset-resources fuzzing-avm:1:8
 
 # Runtime stage
 FROM ubuntu:noble AS runtime
@@ -91,17 +104,25 @@ COPY --from=builder /home/fuzzer/aztec-packages-src /home/fuzzer/aztec-packages
 
 WORKDIR /home/fuzzer/aztec-packages/barretenberg/cpp
 
-# Copy binaries from build stage
-COPY --from=builder /home/fuzzer/aztec-packages/barretenberg/cpp/bin-fuzzing ./build-fuzzing/bin
-COPY --from=builder /home/fuzzer/aztec-packages/barretenberg/cpp/bin-fuzzing-noasm ./build-fuzzing-noasm/bin
-COPY --from=builder /home/fuzzer/aztec-packages/barretenberg/cpp/bin-fuzzing-asan ./build-fuzzing-asan/bin
-COPY --from=builder /home/fuzzer/aztec-packages/barretenberg/cpp/bin-fuzzing-avm ./build-fuzzing-avm/bin
-
 # Copy full cov-build to keep LLVM links and external dependencies for coverage report
 COPY --from=builder /home/fuzzer/aztec-packages/barretenberg/cpp/build-fuzzing-cov/ ./build-fuzzing-cov/
 
-# Copy CRS
-COPY --from=builder /root/.bb-crs /root/.bb-crs
+# Copy CRS into the source tree so one chmod covers everything
+COPY --from=builder /root/.bb-crs /home/fuzzer/aztec-packages/.bb-crs
+ENV CRS_PATH=/home/fuzzer/aztec-packages/.bb-crs
+
+# The container runs as a non-root UID (65534/nobody) on the fuzzing platform.
+# Source files, build artifacts, and CRS must be world-readable so llvm-cov
+# can read them when generating HTML coverage reports.  Without this, llvm-cov
+# emits "Permission denied" for every source file and produces empty reports.
+RUN chmod a+rx /home/fuzzer && chmod -R a+rX /home/fuzzer/aztec-packages/
+
+# Copy flattened target binaries
+COPY --from=builder /targets/ /targets/
+
+# Copy fuzzer manifest
+COPY --from=builder /tmp/fuzzer_manifest.json ./fuzzer_manifest.json
 
 # Copy entrypoint script
 COPY entrypoint.sh .
+ENTRYPOINT ["./entrypoint.sh"]

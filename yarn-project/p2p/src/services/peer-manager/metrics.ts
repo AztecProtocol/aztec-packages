@@ -18,6 +18,7 @@ export class PeerManagerMetrics {
   private sentGoodbyes: UpDownCounter;
   private receivedGoodbyes: UpDownCounter;
   private peerCount: Gauge;
+  private healthyPeerCount: Gauge;
   private lowScoreDisconnects: UpDownCounter;
   private peerConnectionDuration: Histogram;
 
@@ -49,6 +50,7 @@ export class PeerManagerMetrics {
       goodbyeReasonAttrs,
     );
     this.peerCount = meter.createGauge(Metrics.PEER_MANAGER_PEER_COUNT);
+    this.healthyPeerCount = meter.createGauge(Metrics.PEER_MANAGER_HEALTHY_PEER_COUNT);
     this.lowScoreDisconnects = createUpDownCounterWithDefault(meter, Metrics.PEER_MANAGER_LOW_SCORE_DISCONNECTS, {
       [Attributes.P2P_PEER_SCORE_STATE]: ['Banned', 'Disconnect'],
     });
@@ -67,6 +69,10 @@ export class PeerManagerMetrics {
     this.peerCount.record(count);
   }
 
+  public recordHealthyPeerCount(count: number) {
+    this.healthyPeerCount.record(count);
+  }
+
   public recordLowScoreDisconnect(scoreState: 'Banned' | 'Disconnect') {
     this.lowScoreDisconnects.add(1, { [Attributes.P2P_PEER_SCORE_STATE]: scoreState });
   }
@@ -79,6 +85,7 @@ export class PeerManagerMetrics {
     const connectedAt = this.peerConnectedAt.get(id.toString());
     if (connectedAt) {
       this.peerConnectionDuration.record(Date.now() - connectedAt);
+      this.peerConnectedAt.delete(id.toString());
     }
   }
 }

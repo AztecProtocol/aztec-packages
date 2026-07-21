@@ -1,5 +1,5 @@
 // === AUDIT STATUS ===
-// internal:    { status: Complete, auditors: [Nishat], commit: 8fb8b041d4c9179f62da56a9c7bbf22c40db46cc}
+// internal:    { status: Complete, auditors: [Nishat], commit: 66052c96cc754339ac3f2761f341f150130555b3}
 // external_1:  { status: not started, auditors: [], commit: }
 // external_2:  { status: not started, auditors: [], commit: }
 // =====================
@@ -16,6 +16,9 @@ template <typename Builder> void create_blake3_constraints(Builder& builder, con
     using byte_array_ct = bb::stdlib::byte_array<Builder>;
     using field_ct = bb::stdlib::field_t<Builder>;
 
+    BB_ASSERT_LTE(
+        constraint.inputs.size(), 1024U, "Barretenberg does not support blake3 inputs with more than 1024 bytes");
+
     // Build input byte array by appending constrained byte_arrays
     byte_array_ct arr = byte_array_ct::constant_padding(&builder, 0); // Start with empty array
 
@@ -30,7 +33,6 @@ template <typename Builder> void create_blake3_constraints(Builder& builder, con
         // Safe write: both arr and element_bytes are constrained
         arr.write(element_bytes);
     }
-    BB_ASSERT_LTE(arr.size(), 1024U, "Barretenberg does not support blake3 inputs with more than 1024 bytes");
     byte_array_ct output_bytes = bb::stdlib::Blake3s<Builder>::hash(arr);
 
     for (const auto& [output_byte, result_byte_idx] : zip_view(output_bytes.bytes(), constraint.result)) {

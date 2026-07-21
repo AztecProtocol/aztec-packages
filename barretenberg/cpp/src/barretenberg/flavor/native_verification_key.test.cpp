@@ -40,15 +40,11 @@ template <typename Params> class NativeVerificationKeyTests : public ::testing::
 
     VerificationKey create_vk()
     {
-        if constexpr (IsUltraOrMegaHonk<Flavor>) {
-            using ProverInstance = ProverInstance_<Flavor>;
-            Builder builder;
-            IO::add_default(builder);
-            auto prover_instance = std::make_shared<ProverInstance>(builder);
-            return VerificationKey{ prover_instance->get_precomputed() };
-        } else {
-            return VerificationKey();
-        }
+        using ProverInstance = ProverInstance_<Flavor>;
+        Builder builder;
+        IO::add_default(builder);
+        auto prover_instance = std::make_shared<ProverInstance>(builder);
+        return VerificationKey{ prover_instance->get_precomputed() };
     }
 
   protected:
@@ -91,4 +87,22 @@ TYPED_TEST(NativeVerificationKeyTests, VKSizeCheck)
 
     VerificationKey vk(TestFixture::create_vk());
     EXPECT_EQ(vk.to_field_elements().size(), VerificationKey::calc_num_data_types());
+}
+
+// from_field_elements must require an exact field count, not just enough fields.
+TYPED_TEST(NativeVerificationKeyTests, FromFieldElementsRejectsWrongSize)
+{
+    using Flavor = typename TypeParam::Flavor;
+    using VerificationKey = typename Flavor::VerificationKey;
+
+    VerificationKey vk(TestFixture::create_vk());
+    const auto fields = vk.to_field_elements();
+
+    VerificationKey roundtrip;
+    EXPECT_NO_THROW(roundtrip.from_field_elements(fields));
+
+    auto oversize = fields;
+    oversize.push_back(fields.back());
+    VerificationKey bad;
+    EXPECT_ANY_THROW(bad.from_field_elements(oversize));
 }

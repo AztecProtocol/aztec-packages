@@ -9,7 +9,8 @@ use aztec::macros::aztec;
 //
 // For context, this is the interface I am talking about:
 // ```noir
-// let update_delay = self.view(ContractInstanceRegistry::at(CONTRACT_INSTANCE_REGISTRY_CONTRACT_ADDRESS).get_update_delay());
+// let update_delay =
+// self.view(ContractInstanceRegistry::at(CONTRACT_INSTANCE_REGISTRY_CONTRACT_ADDRESS).get_update_delay());
 // ```
 // where the macros generate the `ContractInstanceRegistry` struct.
 #[aztec]
@@ -24,6 +25,7 @@ pub contract ContractInstanceRegistry {
         salt: Field,
         contract_class_id: ContractClassId,
         initialization_hash: Field,
+        immutables_hash: Field,
         public_keys: PublicKeys,
         universal_deploy: bool,
     ) {}

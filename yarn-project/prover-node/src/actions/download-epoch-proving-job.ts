@@ -30,7 +30,7 @@ export async function downloadEpochProvingJob(
 
   const dataUrls = makeSnapshotPaths(location);
   log.info(`Downloading state snapshot from ${location} to local data directory`, { metadata, dataUrls });
-  await snapshotSync({ dataUrls }, log, { ...config, ...metadata, snapshotsUrl: location });
+  await snapshotSync({ dataUrls }, log, { ...config, ...metadata, fileStore });
 
   const dataPath = urlJoin(location, 'data.bin');
   const localPath = config.jobDataDownloadPath;

@@ -3,11 +3,12 @@ import type { Secp256k1Signer } from '@aztec/foundation/crypto/secp256k1-signer'
 import { Fr } from '@aztec/foundation/curves/bn254';
 import {
   CheckpointAttestation,
+  CheckpointProposal,
   ConsensusPayload,
-  SignatureDomainSeparator,
-  getHashedSignaturePayloadEthSignedMessage,
+  getHashedSignaturePayloadTypedData,
 } from '@aztec/stdlib/p2p';
 import { CheckpointHeader } from '@aztec/stdlib/rollup';
+import { TEST_COORDINATION_SIGNATURE_CONTEXT } from '@aztec/stdlib/testing';
 
 import { type LocalAccount, generatePrivateKey, privateKeyToAccount } from 'viem/accounts';
 
@@ -34,17 +35,22 @@ export const mockCheckpointAttestation = (
   slot: number = 0,
   archive: Fr = Fr.random(),
   header?: CheckpointHeader,
+  feeAssetPriceModifier: bigint = 0n,
 ): CheckpointAttestation => {
   header = header ?? CheckpointHeader.random({ slotNumber: SlotNumber(slot) });
-  const payload = new ConsensusPayload(header, archive);
+  const payload = new ConsensusPayload(header, archive, feeAssetPriceModifier, TEST_COORDINATION_SIGNATURE_CONTEXT);
 
-  const attestationHash = getHashedSignaturePayloadEthSignedMessage(
-    payload,
-    SignatureDomainSeparator.checkpointAttestation,
-  );
+  const attestationHash = getHashedSignaturePayloadTypedData(payload);
   const attestationSignature = signer.sign(attestationHash);
 
-  const proposalHash = getHashedSignaturePayloadEthSignedMessage(payload, SignatureDomainSeparator.checkpointProposal);
+  const proposal = new CheckpointProposal(
+    header,
+    archive,
+    feeAssetPriceModifier,
+    attestationSignature,
+    TEST_COORDINATION_SIGNATURE_CONTEXT,
+  );
+  const proposalHash = getHashedSignaturePayloadTypedData(proposal);
   const proposerSignature = signer.sign(proposalHash);
 
   return new CheckpointAttestation(payload, attestationSignature, proposerSignature);

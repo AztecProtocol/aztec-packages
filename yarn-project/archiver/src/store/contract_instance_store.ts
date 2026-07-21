@@ -1,5 +1,6 @@
 import type { Fr } from '@aztec/foundation/curves/bn254';
 import type { AztecAsyncKVStore, AztecAsyncMap } from '@aztec/kv-store';
+import { isProtocolContract } from '@aztec/protocol-contracts';
 import type { AztecAddress } from '@aztec/stdlib/aztec-address';
 import {
   type ContractInstanceUpdateWithAddress,
@@ -25,17 +26,79 @@ export class ContractInstanceStore {
     this.#contractInstanceUpdates = db.openMap('archiver_contract_instance_updates');
   }
 
+  /**
+   * Adds multiple contract instances to the store.
+   * @param data - Contract instances to add.
+   * @param blockNumber - L2 block number where the instances were deployed.
+   * @returns True if every insert succeeded.
+   */
+  async addContractInstances(data: ContractInstanceWithAddress[], blockNumber: number): Promise<boolean> {
+    return (await Promise.all(data.map(c => this.addContractInstance(c, blockNumber)))).every(Boolean);
+  }
+
+  /**
+   * Removes multiple contract instances from the store.
+   * @param data - Contract instances to delete.
+   * @returns True if every delete succeeded.
+   */
+  async deleteContractInstances(data: ContractInstanceWithAddress[]): Promise<boolean> {
+    return (await Promise.all(data.map(c => this.deleteContractInstance(c)))).every(Boolean);
+  }
+
+  /**
+   * Adds multiple contract instance updates to the store.
+   * @param data - Contract instance updates to add.
+   * @param timestamp - Timestamp at which the updates were scheduled.
+   * @returns True if every insert succeeded.
+   */
+  async addContractInstanceUpdates(data: ContractInstanceUpdateWithAddress[], timestamp: UInt64): Promise<boolean> {
+    return (
+      await Promise.all(data.map((update, logIndex) => this.addContractInstanceUpdate(update, timestamp, logIndex)))
+    ).every(Boolean);
+  }
+
+  /**
+   * Removes multiple contract instance updates from the store.
+   * @param data - Contract instance updates to delete.
+   * @param timestamp - Timestamp at which the updates were scheduled.
+   * @returns True if every delete succeeded.
+   */
+  async deleteContractInstanceUpdates(data: ContractInstanceUpdateWithAddress[], timestamp: UInt64): Promise<boolean> {
+    return (
+      await Promise.all(data.map((update, logIndex) => this.deleteContractInstanceUpdate(update, timestamp, logIndex)))
+    ).every(Boolean);
+  }
+
   addContractInstance(contractInstance: ContractInstanceWithAddress, blockNumber: number): Promise<void> {
     return this.db.transactionAsync(async () => {
-      await this.#contractInstances.set(
-        contractInstance.address.toString(),
-        new SerializableContractInstance(contractInstance).toBuffer(),
-      );
-      await this.#contractInstancePublishedAt.set(contractInstance.address.toString(), blockNumber);
+      const key = contractInstance.address.toString();
+      if (await this.#contractInstances.hasAsync(key)) {
+        // Protocol contracts are preloaded at block 0, so a later on-chain (re-)publish of a bundled
+        // protocol instance is valid and must be a no-op. Keep the existing block-0 entry untouched.
+        if (isProtocolContract(contractInstance.address)) {
+          return;
+        }
+        const existingBlockNumber = await this.#contractInstancePublishedAt.getAsync(key);
+        // An L1 reorg can re-present an already-stored checkpoint, replaying this instance at the same
+        // block; treat that as a no-op. A duplicate at a different block still signals double-processing.
+        if (existingBlockNumber === blockNumber) {
+          return;
+        }
+        throw new Error(
+          `Contract instance at ${key} already exists (deployed at block ${existingBlockNumber}), cannot add again at block ${blockNumber}`,
+        );
+      }
+      await this.#contractInstances.set(key, new SerializableContractInstance(contractInstance).toBuffer());
+      await this.#contractInstancePublishedAt.set(key, blockNumber);
     });
   }
 
   deleteContractInstance(contractInstance: ContractInstanceWithAddress): Promise<void> {
+    // Protocol contracts are preloaded at block 0 and must never be deleted, even when the block that
+    // (re-)published them on-chain is unwound by a reorg.
+    if (isProtocolContract(contractInstance.address)) {
+      return Promise.resolve();
+    }
     return this.db.transactionAsync(async () => {
       await this.#contractInstances.delete(contractInstance.address.toString());
       await this.#contractInstancePublishedAt.delete(contractInstance.address.toString());

@@ -2,6 +2,9 @@ CompileFlags: # Tweak the parse settings
   Remove:
     - "-fconstexpr-ops-limit=*"
     - "-Wfatal-errors"
+Diagnostics:
+  Suppress:
+    - drv_triple_version_invalid
 ---
 # Applies all barretenberg source files
 If:

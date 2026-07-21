@@ -12,25 +12,18 @@ export const General = {
   ),
   InstallationInstructions: () => (
     <p>
-      To use Aztec's suite of tools you'll need to:
-      <ul>
-        <li>
-          <a href="https://docs.docker.com/engine/install/">Get docker</a>{" "}
-          (engine or desktop)
-        </li>
-        <li>
-          Run <code>bash -i &lt;(curl -sL https://install.aztec.network)</code>
-        </li>
-      </ul>
+      To use Aztec's suite of tools, run:{" "}
+      <code>VERSION=&lt;version&gt; bash -i &lt;(curl -sL https://install.aztec.network/&lt;version&gt;)</code>
     </p>
   ),
 
   node_ver: () => (
     <p>
-      Aztec libraries use Node.js version v24.12.x (lts/krypton), and backwards
-      compatible from version 20. You can use{" "}
-      <a href="https://github.com/nvm-sh/nvm">nvm</a> to help manage node
-      versions.
+      Aztec libraries require Node.js version 24. If you have an older version
+      installed, the installer will try to upgrade via{" "}
+      <a href="https://github.com/nvm-sh/nvm">nvm</a> if available. If nvm is
+      not installed, you will need to upgrade Node.js manually (e.g.{" "}
+      <code>nvm install 24</code> after installing nvm).
     </p>
   ),
 
@@ -72,6 +65,13 @@ export const General = {
       authentication and a method of payment, allowing it to be used by the
       protocol to perform a transaction.
     </p>
+  ),
+
+  AztecJSPrerequisites: ({ href = "how_to_connect_to_local_network" }) => (
+    <>
+      <a href={href}>Connected to a network</a>{" "}
+      with an <code>EmbeddedWallet</code> instance and funded accounts
+    </>
   ),
 };
 

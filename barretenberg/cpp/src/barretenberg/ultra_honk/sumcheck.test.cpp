@@ -10,7 +10,7 @@
 #include "barretenberg/stdlib/special_public_inputs/special_public_inputs.hpp"
 #include "barretenberg/stdlib_circuit_builders/plookup_tables/fixed_base/fixed_base.hpp"
 #include "barretenberg/transcript/transcript.hpp"
-#include "barretenberg/ultra_honk/witness_computation.hpp"
+#include "barretenberg/ultra_honk/witness_computation_test_utils.hpp"
 
 #include <gtest/gtest.h>
 
@@ -99,7 +99,7 @@ TEST_F(SumcheckTestsRealCircuit, Ultra)
     uint32_t x3 = builder.add_variable(p3.x);
     uint32_t y3 = builder.add_variable(p3.y);
 
-    builder.create_ecc_add_gate({ x1, y1, x2, y2, x3, y3, 1 });
+    builder.create_ecc_add_gate({ x1, y1, x2, y2, x3, y3, /*is_addition=*/true });
 
     // Add some RAM gates
     uint32_t ram_values[8]{
@@ -150,7 +150,7 @@ TEST_F(SumcheckTestsRealCircuit, Ultra)
     // Create a prover (it will compute proving key and witness)
     auto prover_inst = std::make_shared<ProverInstance_<Flavor>>(builder);
 
-    WitnessComputation<Flavor>::complete_prover_instance_for_test(prover_inst);
+    complete_prover_instance_for_test<Flavor>(prover_inst);
 
     auto prover_transcript = Transcript::test_prover_init_empty();
     auto circuit_size = prover_inst->dyadic_size();
@@ -186,12 +186,7 @@ TEST_F(SumcheckTestsRealCircuit, Ultra)
         verifier_gate_challenges[idx] =
             verifier_transcript->template get_challenge<FF>("Sumcheck:gate_challenge_" + std::to_string(idx));
     }
-    std::vector<FF> padding_indicator_array(virtual_log_n);
-    for (size_t idx = 0; idx < padding_indicator_array.size(); idx++) {
-        padding_indicator_array[idx] = 1;
-    }
-    auto verifier_output =
-        sumcheck_verifier.verify(prover_inst->relation_parameters, verifier_gate_challenges, padding_indicator_array);
+    auto verifier_output = sumcheck_verifier.verify(prover_inst->relation_parameters, verifier_gate_challenges);
 
     auto verified = verifier_output.verified;
 

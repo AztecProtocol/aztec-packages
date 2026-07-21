@@ -39,8 +39,7 @@ template <typename C, class Fq, class Fr, class G>
 goblin_element<C, Fq, Fr, G> goblin_element<C, Fq, Fr, G>::batch_mul(const std::vector<goblin_element>& points,
                                                                      const std::vector<Fr>& scalars,
                                                                      [[maybe_unused]] const size_t max_num_bits,
-                                                                     [[maybe_unused]] const bool handle_edge_cases,
-                                                                     [[maybe_unused]] const Fr& masking_scalar)
+                                                                     [[maybe_unused]] const bool handle_edge_cases)
 {
     auto builder = validate_context<C>(validate_context<C>(points), validate_context<C>(scalars));
 
@@ -59,7 +58,6 @@ goblin_element<C, Fq, Fr, G> goblin_element<C, Fq, Fr, G>::batch_mul(const std::
         auto& scalar = scalars[i];
 
         // Merge tags
-
         tag_union = OriginTag(tag_union, OriginTag(point.get_origin_tag(), scalar.get_origin_tag()));
         // Populate the goblin-style ecc op gates for the given mul inputs
         ecc_op_tuple op_tuple;
@@ -119,14 +117,9 @@ goblin_element<C, Fq, Fr, G> goblin_element<C, Fq, Fr, G>::batch_mul(const std::
     auto y_hi = Fr::from_witness_index(builder, op_tuple.y_hi);
     Fq point_x(x_lo, x_hi);
     Fq point_y(y_lo, y_hi);
-    goblin_element result = goblin_element(point_x, point_y);
 
-    // NOTE: this used to be set as a circuit constant from `op_tuple.return_is_infinity
-    // I do not see how this was secure as it meant a circuit constant could change depending on witness values
-    // e.g. x*[P] + y*[Q] where `x = y` and `[P] = -[Q]`
-    // TODO(@zac-williamson) what is op_queue.return_is_infinity actually used for? I don't see its value
-    auto op2_is_infinity = (x_lo.add_two(x_hi, y_lo) + y_hi).is_zero();
-    result.set_point_at_infinity(op2_is_infinity);
+    // Point-at-infinity is represented by (0, 0) coordinates; ECCVM enforces this.
+    goblin_element result(point_x, point_y);
 
     // Set the tag of the result
     result.set_origin_tag(tag_union);

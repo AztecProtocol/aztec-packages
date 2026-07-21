@@ -152,16 +152,28 @@ TEST_F(FieldConversionTest, FieldConversionUnivariateGrumpkinFr)
 }
 
 /**
- * @brief Convert challenge test for grumpkin::fr
- *
+ * @brief convert_short_challenge maps a short (≤ 2 bigfield limbs) challenge to fr or fq, preserving its value.
  */
-TEST_F(FieldConversionTest, ConvertChallengeGrumpkinFr)
+TEST_F(FieldConversionTest, ConvertShortChallenge)
 {
-    uint256_t chal_raw(std::string("9a807b615c4d3e2fa0b1c2d3e4f56789fedcba9876543210abcdef0123456789")); // 256 bits
-    bb::fr chal(chal_raw.slice(0, 136));
-    auto result = FrCodec::convert_challenge<grumpkin::fr>(chal);
-    auto expected = uint256_t(chal);
-    EXPECT_EQ(uint256_t(result), expected);
+    constexpr size_t SHORT_BITS = 2 * stdlib::NUM_LIMB_BITS_IN_FIELD_SIMULATION;
+    const uint256_t raw(std::string("9a807b615c4d3e2fa0b1c2d3e4f56789fedcba9876543210abcdef0123456789"));
+    const bb::fr chal(raw.slice(0, SHORT_BITS));
+
+    EXPECT_EQ(FrCodec::convert_short_challenge<bb::fr>(chal), chal);
+    EXPECT_EQ(uint256_t(FrCodec::convert_short_challenge<grumpkin::fr>(chal)), uint256_t(chal));
+}
+
+/**
+ * @brief convert_full_challenge maps a full-width challenge to fr or fq, preserving its value.
+ * @details fr → fq is exact (no reduction) because the scalar modulus r is smaller than the base modulus q.
+ */
+TEST_F(FieldConversionTest, ConvertFullChallenge)
+{
+    const bb::fr chal = bb::fr::random_element();
+
+    EXPECT_EQ(FrCodec::convert_full_challenge<bb::fr>(chal), chal);
+    EXPECT_EQ(uint256_t(FrCodec::convert_full_challenge<grumpkin::fr>(chal)), uint256_t(chal));
 }
 
 // ============================================================================
@@ -192,6 +204,65 @@ TEST_F(FieldConversionTest, AcceptCanonicalPointAtInfinity)
 }
 
 /**
+ * @brief Test that non-canonical field elements are rejected at deserialization boundaries.
+ * @details Security-critical: prevents attackers from using aliased encodings (e.g., modulus instead of 0).
+ * @note Skipped in WASM builds because death tests aren't supported.
+ */
+#ifndef __wasm__
+TEST_F(FieldConversionTest, RejectNonCanonicalFieldElements)
+{
+    using BN254Point = curve::BN254::AffineElement;
+    using GrumpkinPoint = curve::Grumpkin::AffineElement;
+    using fq = curve::BN254::BaseField;
+    using gq = curve::Grumpkin::BaseField;
+
+    // BN254: Reject x-coordinate >= modulus
+    {
+        std::vector<bb::fr> vec = { bb::fr(fq::modulus.data[0]), bb::fr(fq::modulus.data[1]), bb::fr(0), bb::fr(0) };
+        EXPECT_THROW_OR_ABORT(FrCodec::deserialize_from_fields<BN254Point>(vec), "canonical");
+    }
+
+    // BN254: Reject y-coordinate >= modulus
+    {
+        std::vector<bb::fr> vec = { bb::fr(0), bb::fr(0), bb::fr(fq::modulus.data[0]), bb::fr(fq::modulus.data[1]) };
+        EXPECT_THROW_OR_ABORT(FrCodec::deserialize_from_fields<BN254Point>(vec), "canonical");
+    }
+
+    // BN254: Reject both coordinates >= modulus
+    {
+        std::vector<bb::fr> vec = { bb::fr(fq::modulus.data[0]),
+                                    bb::fr(fq::modulus.data[1]),
+                                    bb::fr(fq::modulus.data[0]),
+                                    bb::fr(fq::modulus.data[1]) };
+        EXPECT_THROW_OR_ABORT(FrCodec::deserialize_from_fields<BN254Point>(vec), "canonical");
+    }
+
+    // Grumpkin: Reject coordinate >= modulus (uses 2-limb encoding: 136-bit + 118-bit)
+    {
+        constexpr uint64_t LIMB_BITS = 68;
+        uint256_t gq_lo = gq::modulus & ((uint256_t(1) << (LIMB_BITS * 2)) - 1);
+        uint256_t gq_hi = gq::modulus >> (LIMB_BITS * 2);
+        std::vector<bb::fr> vec = { bb::fr(gq_lo), bb::fr(gq_hi) };
+        EXPECT_THROW_OR_ABORT(FrCodec::deserialize_from_fields<GrumpkinPoint>(vec), "canonical");
+    }
+
+    // Grumpkin: Reject limb overflow (lower limb must be < 2^136)
+    {
+        constexpr uint64_t LIMB_BITS = 68;
+        std::vector<bb::fr> vec = { bb::fr(uint256_t(1) << (LIMB_BITS * 2)), bb::fr(0) };
+        EXPECT_THROW_OR_ABORT(FrCodec::deserialize_from_fields<GrumpkinPoint>(vec), "Conversion error");
+    }
+
+    // Grumpkin: Reject limb overflow (upper limb must be < 2^118)
+    {
+        constexpr uint64_t LIMB_BITS = 68;
+        std::vector<bb::fr> vec = { bb::fr(0), bb::fr(uint256_t(1) << (254 - LIMB_BITS * 2)) };
+        EXPECT_THROW_OR_ABORT(FrCodec::deserialize_from_fields<GrumpkinPoint>(vec), "Conversion error");
+    }
+}
+#endif
+
+/**
  * @brief Test that points not on the curve are rejected.
  * @note Skipped in WASM builds because death tests (EXPECT_DEATH) aren't supported.
  */
@@ -208,6 +279,90 @@ TEST_F(FieldConversionTest, RejectPointNotOnCurve)
     {
         std::vector<bb::fr> fr_vec = { bb::fr(12), bb::fr(100) };
         EXPECT_THROW_OR_ABORT(FrCodec::deserialize_from_fields<curve::Grumpkin::AffineElement>(fr_vec), "on_curve");
+    }
+}
+#endif
+
+// ============================================================================
+// U256Codec canonical checks
+// ============================================================================
+
+/**
+ * @brief Test that U256Codec accepts canonical field elements.
+ */
+TEST_F(FieldConversionTest, U256CodecAcceptsCanonicalFr)
+{
+    // Zero
+    {
+        std::vector<uint256_t> vec = { uint256_t(0) };
+        auto result = U256Codec::deserialize_from_fields<bb::fr>(vec);
+        EXPECT_EQ(result, bb::fr(0));
+    }
+    // One
+    {
+        std::vector<uint256_t> vec = { uint256_t(1) };
+        auto result = U256Codec::deserialize_from_fields<bb::fr>(vec);
+        EXPECT_EQ(result, bb::fr(1));
+    }
+    // modulus - 1 (largest canonical value)
+    {
+        std::vector<uint256_t> vec = { uint256_t(bb::fr::modulus) - 1 };
+        auto result = U256Codec::deserialize_from_fields<bb::fr>(vec);
+        EXPECT_EQ(result, bb::fr(bb::fr::modulus - 1));
+    }
+}
+
+/**
+ * @brief Test that U256Codec accepts canonical fq elements.
+ */
+TEST_F(FieldConversionTest, U256CodecAcceptsCanonicalFq)
+{
+    using fq = grumpkin::fr;
+    std::vector<uint256_t> vec = { uint256_t(0) };
+    auto result = U256Codec::deserialize_from_fields<fq>(vec);
+    EXPECT_EQ(result, fq(0));
+
+    vec = { uint256_t(fq::modulus) - 1 };
+    result = U256Codec::deserialize_from_fields<fq>(vec);
+    EXPECT_EQ(result, fq(fq::modulus - 1));
+}
+
+/**
+ * @brief Test that U256Codec rejects non-canonical field elements (>= modulus).
+ * @details Security-critical: prevents Fiat-Shamir challenge grinding in Keccak transcript.
+ */
+#ifndef __wasm__
+TEST_F(FieldConversionTest, U256CodecRejectsNonCanonicalFr)
+{
+    // fr::modulus itself (v + 0*p where v=0 but encoded as p)
+    {
+        std::vector<uint256_t> vec = { uint256_t(bb::fr::modulus) };
+        EXPECT_THROW_OR_ABORT(U256Codec::deserialize_from_fields<bb::fr>(vec), "Non-canonical");
+    }
+    // fr::modulus + 1
+    {
+        std::vector<uint256_t> vec = { uint256_t(bb::fr::modulus) + 1 };
+        EXPECT_THROW_OR_ABORT(U256Codec::deserialize_from_fields<bb::fr>(vec), "Non-canonical");
+    }
+    // 2 * fr::modulus (another alias for 0)
+    {
+        std::vector<uint256_t> vec = { uint256_t(bb::fr::modulus) * 2 };
+        EXPECT_THROW_OR_ABORT(U256Codec::deserialize_from_fields<bb::fr>(vec), "Non-canonical");
+    }
+}
+
+TEST_F(FieldConversionTest, U256CodecRejectsNonCanonicalFq)
+{
+    using fq = grumpkin::fr;
+    // fq::modulus itself
+    {
+        std::vector<uint256_t> vec = { uint256_t(fq::modulus) };
+        EXPECT_THROW_OR_ABORT(U256Codec::deserialize_from_fields<fq>(vec), "Non-canonical");
+    }
+    // fq::modulus + 1
+    {
+        std::vector<uint256_t> vec = { uint256_t(fq::modulus) + 1 };
+        EXPECT_THROW_OR_ABORT(U256Codec::deserialize_from_fields<fq>(vec), "Non-canonical");
     }
 }
 #endif

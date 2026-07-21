@@ -3,12 +3,9 @@ import { FieldReader } from '@aztec/foundation/serialize';
 import { AztecAddress } from '@aztec/stdlib/aztec-address';
 import { TxHash } from '@aztec/stdlib/tx';
 
-// TODO(#14617): should we compute this from constants? This value is aztec-nr specific.
-export const MAX_NOTE_PACKED_LEN = 10;
-
 /**
  * Intermediate struct used to perform batch note validation by PXE. The `utilityValidateAndStoreEnqueuedNotesAndEvents` oracle
- * expects for values of this type to be stored in a `CapsuleArray`.
+ * expects for values of this type to be stored in a `EphemeralArray`.
  */
 export class NoteValidationRequest {
   constructor(
@@ -21,30 +18,29 @@ export class NoteValidationRequest {
     public noteHash: Fr,
     public nullifier: Fr,
     public txHash: TxHash,
-    public recipient: AztecAddress,
   ) {}
 
   static fromFields(fields: Fr[] | FieldReader): NoteValidationRequest {
     const reader = FieldReader.asReader(fields);
 
-    const contractAddress = AztecAddress.fromField(reader.readField());
-    const owner = AztecAddress.fromField(reader.readField());
+    const contractAddress = AztecAddress.fromFieldUnsafe(reader.readField());
+    const owner = AztecAddress.fromFieldUnsafe(reader.readField());
     const storageSlot = reader.readField();
     const randomness = reader.readField();
     const noteNonce = reader.readField();
 
-    const contentStorage = reader.readFieldArray(MAX_NOTE_PACKED_LEN);
+    const maxNotePackedLen = reader.readField().toNumber();
+    const contentStorage = reader.readFieldArray(maxNotePackedLen);
     const contentLen = reader.readField().toNumber();
     const content = contentStorage.slice(0, contentLen);
 
     const noteHash = reader.readField();
     const nullifier = reader.readField();
     const txHash = TxHash.fromField(reader.readField());
-    const recipient = AztecAddress.fromField(reader.readField());
 
     if (reader.remainingFields() !== 0) {
       throw new Error(
-        `Error converting array of fields to NoteValidationRequest. Hint: check that MAX_NOTE_PACKED_LEN is consistent with private_notes::MAX_NOTE_PACKED_LEN in Aztec-nr.`,
+        `Error converting array of fields to NoteValidationRequest: expected ${reader.cursor} fields but received ${reader.cursor + reader.remainingFields()} (maxNotePackedLen=${maxNotePackedLen}).`,
       );
     }
 
@@ -58,7 +54,6 @@ export class NoteValidationRequest {
       noteHash,
       nullifier,
       txHash,
-      recipient,
     );
   }
 }

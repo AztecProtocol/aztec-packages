@@ -70,6 +70,20 @@ export class WalletDB {
     return { amount: BigInt(amountStr), secret: secretStr, leafIndex: BigInt(leafIndexStr) };
   }
 
+  async peekBridgedFeeJuice(recipient: AztecAddress, log: LogFn) {
+    const stackPointer =
+      (await this.#bridgedFeeJuice.getAsync(`${recipient.toString()}:stackPointer`))?.readInt8() || 0;
+    const result = await this.#bridgedFeeJuice.getAsync(`${recipient.toString()}:${stackPointer}`);
+    if (!result) {
+      throw new Error(
+        `No stored fee juice available for recipient ${recipient.toString()}. Please provide claim amount and secret. Stack pointer ${stackPointer}`,
+      );
+    }
+    const [amountStr, secretStr, leafIndexStr] = result.toString().split(':');
+    log(`Peeked ${amountStr} fee juice for recipient ${recipient.toString()}. Stack pointer ${stackPointer}`);
+    return { amount: BigInt(amountStr), secret: secretStr, leafIndex: BigInt(leafIndexStr) };
+  }
+
   async storeAccount(
     address: AztecAddress,
     {

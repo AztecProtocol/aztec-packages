@@ -11,7 +11,7 @@ if [ -z "${CI_REDIS_AVAILABLE:-}" ]; then
   if nc -z $CI_REDIS 6379 &>/dev/null; then
     # Redis is found at given host, we're done.
     export CI_REDIS_AVAILABLE=1
-  elif [ -f ~/.ssh/build_instance_key ]; then
+  elif [ -f ~/.ssh/build_instance_key ] && [ "${CI_SSM_MODE:-0}" -eq 0 ]; then
     # We have the build_instance_key.
     # Attempt to open a port to the remote redis cache via ssh through the bastion.
     echo_stderr "Opening port to remote redis..."
@@ -23,35 +23,60 @@ if [ -z "${CI_REDIS_AVAILABLE:-}" ]; then
     else
       echo_stderr -e "${yellow}Failed to establish connection to remote redis. Log and test cache will be disabled.${reset}"
     fi
-  elif command -v docker &> /dev/null; then
+  elif docker ps &> /dev/null && [ "$CI" -eq 0 ]; then
     echo_stderr "Starting local redis container..."
-    docker run -d --rm --name ci-redis -p 6379:6379 redis:latest &>/dev/null && true
+    docker network create ci-network &>/dev/null || true
+    docker run -d --rm --name ci-redis -p 6379:6379 --network ci-network redis:latest redis-server --save "" --appendonly no &>/dev/null || true
     if nc -z $CI_REDIS 6379 &>/dev/null; then
       export CI_REDIS_AVAILABLE=1
     else
       echo_stderr -e "${yellow}Failed to start a local redis. Log and test cache will be disabled.${reset}"
     fi
+  elif [ "$CI" -eq 0 ]; then
+    echo_stderr -e "${yellow}Cannot connect to remote redis, and no docker available for local redis. Log and test cache will be disabled.${reset}"
+  fi
+fi
+
+# If we haven't yet checked for dashboard availability.
+if [ -z "${DASHBOARD_URL:-}" ]; then
+  # By default, log links will go to the labs ci dashboard.
+  # We override to localhost if we're running local redis.
+  export DASHBOARD_URL="http://ci.aztec-labs.com"
+
+  if command -v docker &>/dev/null && docker ps | grep -q "ci-redis"; then
+    if [ -z "$(docker ps -q --filter "name=^/ci-dashboard$")" ]; then
+      echo_stderr "Building local ci dashboard..."
+      (cd $ci3/dashboard && docker build -t aztecprotocol/ci-dashboard:latest .) &>/dev/null
+      echo_stderr "Starting local ci dashboard..."
+      docker network create ci-network &>/dev/null || true
+      docker run -d --rm --name ci-dashboard -p 4273:8080 \
+        -e REDIS_HOST=ci-redis \
+        -e REDIS_PORT=6379 \
+        -e DASHBOARD_PORT=4273 \
+        --network ci-network \
+        aztecprotocol/ci-dashboard:latest &>/dev/null
+    fi
+    export DASHBOARD_URL="http://localhost:4273"
   fi
 fi
 
 # If redis isn't available, neither is the test cache.
 if [ "$CI_REDIS_AVAILABLE" -eq 0 ]; then
-  echo_stderr -e "${yellow}Redis unavailable. Disabling test cache.${reset}"
   export USE_TEST_CACHE=0
 fi
 
-# Will set log expiry to 2 weeks in CI, and 8 hours for local runs.
+# Will set log expiry to 2 weeks in CI, and 2 days for local runs.
 if [ "${CI:-0}" -eq 1 ]; then
   CI_REDIS_EXPIRE=$((60 * 60 * 24 * 14))
 else
-  CI_REDIS_EXPIRE=$((60 * 60 * 8))
+  CI_REDIS_EXPIRE=$((60 * 60 * 24 * 2))
 fi
 
 # Help function to avoid having to constantly specify args.
 # Noop when redis is unavailable.
 function redis_cli {
   if [ "$CI_REDIS_AVAILABLE" -eq 1 ]; then
-    redis-cli --raw -h $CI_REDIS "$@" || true
+    timeout 30 redis-cli --raw -h $CI_REDIS "$@" || true
   fi
 }
 

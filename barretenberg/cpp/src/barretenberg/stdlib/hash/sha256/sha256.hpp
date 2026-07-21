@@ -1,5 +1,5 @@
 // === AUDIT STATUS ===
-// internal:    { status: Complete, auditors: [Luke], commit: }
+// internal:    { status: Complete, auditors: [Luke], commit: dd03c4a23ab067274b4964cacb36d1545f73fb14}
 // external_1:  { status: not started, auditors: [], commit: }
 // external_2:  { status: not started, auditors: [], commit: }
 // =====================
@@ -8,7 +8,6 @@
 #include "barretenberg/stdlib_circuit_builders/plookup_tables/plookup_tables.hpp"
 #include <array>
 
-#include "barretenberg/numeric/bitop/sparse_form.hpp"
 #include "barretenberg/stdlib/hash/hash_utils.hpp"
 #include "barretenberg/stdlib/primitives/circuit_builders/circuit_builders_fwd.hpp"
 
@@ -120,12 +119,7 @@ template <typename Builder> class SHA256 {
     struct sparse_value {
         sparse_value(const field_ct& in = 0)
             : normal(in)
-        {
-            if (normal.is_constant()) {
-                sparse = field_ct(in.get_context(),
-                                  bb::fr(numeric::map_into_sparse_form<16>(uint256_t(in.get_value()).data[0])));
-            }
-        }
+        {}
 
         sparse_value(const sparse_value& other) = default;
         sparse_value(sparse_value&& other) = default;

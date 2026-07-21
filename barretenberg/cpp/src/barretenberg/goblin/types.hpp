@@ -18,18 +18,17 @@ struct GoblinAccumulationOutput {
 };
 
 struct GoblinProof {
-
-    HonkProof merge_proof;
-    HonkProof eccvm_proof;
-    HonkProof ipa_proof;
-    HonkProof translator_proof;
+    HonkProof merge_proof;      // Merge proof on the shared Goblin transcript
+    HonkProof eccvm_proof;      // ECCVM proof on the shared Goblin transcript
+    HonkProof ipa_proof;        // TripleIPA proof on a separate transcript
+    HonkProof translator_proof; // Translator proof on the shared Goblin transcript
 
     size_t size() const
     {
         return merge_proof.size() + eccvm_proof.size() + ipa_proof.size() + translator_proof.size();
     };
 
-    MSGPACK_FIELDS(merge_proof, eccvm_proof, ipa_proof, translator_proof);
+    SERIALIZATION_FIELDS(merge_proof, eccvm_proof, ipa_proof, translator_proof);
     bool operator==(const GoblinProof& other) const = default;
 };
 

@@ -12,12 +12,14 @@ on:
         default: ""
 jobs:
   build:
+    if: github.repository == 'AztecProtocol/aztec-packages'
     runs-on: ubuntu-latest
     permissions:
       packages: write
+      id-token: write
 
     steps:
-      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+      - uses: actions/checkout@93cb6efe18208431cddfb8368fd83d5badbf9bfd # v5.0.1
 
       - name: Free up disk space on runner
         uses: jlumbroso/free-disk-space@54081f138730dfa15788a46383842cd2f914a1be
@@ -25,14 +27,15 @@ jobs:
           large-packages: false
 
       - name: Log in to GitHub Container Registry
-        uses: docker/login-action@74a5d142397b4f367a81961eba4e8cd7edddf772
+        uses: docker/login-action@4907a6ddec9925e35a0a9e82d7399ccc52663121
         with:
           registry: ghcr.io
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Build and push
-        uses: docker/build-push-action@ca052bb54ab0790a636c9b5f226502c73d547a25
+        id: build
+        uses: docker/build-push-action@bcafcacb16a39f128d818304e6c9c0c18556b85f
         with:
           context: container-builds/avm-fuzzing-container/src/
           push: true
@@ -41,3 +44,18 @@ jobs:
             ghcr.io/aztecprotocol/avm-fuzzing-container:${{ github.sha }}
           build-args: |
             COMMIT=${{ github.event_name == 'workflow_dispatch' && github.event.inputs.commit || github.sha }}
+          labels: |
+            org.opencontainers.image.source=https://github.com/${{ github.repository }}
+            org.opencontainers.image.revision=${{ github.sha }}
+            org.opencontainers.image.revision.branch=${{ github.ref_name }}
+            com.aztec.visibility=public
+
+      - name: Install cosign
+        uses: sigstore/cosign-installer@ba7bc0a3fef59531c69a25acd34668d6d3fe6f22 # v4.1.0
+        with:
+          cosign-release: 'v3.0.5'
+
+      - name: Sign image
+        run: |
+          cosign sign --yes \
+            ghcr.io/aztecprotocol/avm-fuzzing-container@${{ steps.build.outputs.digest }}

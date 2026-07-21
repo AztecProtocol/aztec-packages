@@ -21,6 +21,7 @@ lighthouse bn \
     --disable-enr-auto-update \
     --staking \
     --http \
+    --supernode \
     --http-address=0.0.0.0 \
     --http-port=${BEACON_HTTP_PORT} \
     --validator-monitor-auto \

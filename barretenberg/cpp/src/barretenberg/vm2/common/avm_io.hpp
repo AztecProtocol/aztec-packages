@@ -4,15 +4,16 @@
 #include <ostream>
 #include <vector>
 
-#include "barretenberg/common/streams.hpp" // Derives operator<< from MSGPACK_FIELDS.
+#include "barretenberg/common/streams.hpp" // Derives operator<< from SERIALIZATION_FIELDS.
 #include "barretenberg/common/utils.hpp"
 #include "barretenberg/crypto/merkle_tree/indexed_tree/indexed_leaf.hpp"
 #include "barretenberg/crypto/merkle_tree/response.hpp"
 #include "barretenberg/serialize/msgpack.hpp"
-#include "barretenberg/world_state/world_state.hpp"
+#include "barretenberg/world_state/world_state.hpp" // For MSGPACK_ADD_ENUM(MerkleTreeId)
 
-#include "barretenberg/vm2/common/aztec_constants.hpp"
+#include "barretenberg/aztec/aztec_constants.hpp"
 #include "barretenberg/vm2/common/aztec_types.hpp"
+#include "barretenberg/vm2/common/constants.hpp"
 #include "barretenberg/vm2/common/field.hpp"
 #include "barretenberg/world_state/types.hpp"
 #include "msgpack/adaptor/define_decl.hpp"
@@ -71,14 +72,14 @@ struct PublicInputs {
 
         std::vector<std::vector<FF_>> cols(AVM_NUM_PUBLIC_INPUT_COLUMNS);
 
+        // Columns are concatenated back-to-back with per-column lengths (not a uniform stride).
+        size_t offset = 0;
         for (size_t i = 0; i < AVM_NUM_PUBLIC_INPUT_COLUMNS; ++i) {
-            typename std::vector<FF_>::const_iterator start =
-                input.begin() +
-                static_cast<typename std::vector<FF_>::difference_type>(i * AVM_PUBLIC_INPUTS_COLUMNS_MAX_LENGTH);
-            typename std::vector<FF_>::const_iterator end =
-                input.begin() +
-                static_cast<typename std::vector<FF_>::difference_type>((i + 1) * AVM_PUBLIC_INPUTS_COLUMNS_MAX_LENGTH);
+            const size_t col_length = AVM_PUBLIC_INPUTS_COLUMN_LENGTHS[i];
+            auto start = input.begin() + static_cast<typename std::vector<FF_>::difference_type>(offset);
+            auto end = start + static_cast<typename std::vector<FF_>::difference_type>(col_length);
             cols[i] = std::vector<FF_>(start, end);
+            offset += col_length;
         }
 
         return cols;
@@ -113,18 +114,18 @@ struct PublicInputs {
 ////////////////////////////////////////////////////////////////////////////
 // Hints (contracts)
 ////////////////////////////////////////////////////////////////////////////
+// Only ivpk_m is sent as a point; the others are field-element hashes.
 struct PublicKeysHint {
-    AffinePoint master_nullifier_public_key;
-    AffinePoint master_incoming_viewing_public_key;
-    AffinePoint master_outgoing_viewing_public_key;
-    AffinePoint master_tagging_public_key;
+    FF npk_m_hash;
+    AffinePoint ivpk_m;
+    FF ovpk_m_hash;
+    FF tpk_m_hash;
+    FF mspk_m_hash;
+    FF fbpk_m_hash;
 
     bool operator==(const PublicKeysHint& other) const = default;
 
-    MSGPACK_CAMEL_CASE_FIELDS(master_nullifier_public_key,
-                              master_incoming_viewing_public_key,
-                              master_outgoing_viewing_public_key,
-                              master_tagging_public_key);
+    MSGPACK_CAMEL_CASE_FIELDS(npk_m_hash, ivpk_m, ovpk_m_hash, tpk_m_hash, mspk_m_hash, fbpk_m_hash);
 };
 
 struct ContractInstanceHint {
@@ -135,6 +136,7 @@ struct ContractInstanceHint {
     ContractClassId current_contract_class_id;
     ContractClassId original_contract_class_id;
     FF initialization_hash;
+    FF immutables_hash;
     PublicKeysHint public_keys;
 
     bool operator==(const ContractInstanceHint& other) const = default;
@@ -146,6 +148,7 @@ struct ContractInstanceHint {
                               current_contract_class_id,
                               original_contract_class_id,
                               initialization_hash,
+                              immutables_hash,
                               public_keys);
 };
 
@@ -178,7 +181,7 @@ struct DebugFunctionNameHint {
 
     bool operator==(const DebugFunctionNameHint& other) const = default;
 
-    MSGPACK_FIELDS(address, selector, name);
+    SERIALIZATION_FIELDS(address, selector, name);
 };
 
 ////////////////////////////////////////////////////////////////////////////
@@ -310,7 +313,7 @@ struct PublicCallRequestWithCalldata {
 
     bool operator==(const PublicCallRequestWithCalldata& other) const = default;
 
-    MSGPACK_FIELDS(request, calldata);
+    SERIALIZATION_FIELDS(request, calldata);
 };
 
 struct AccumulatedData {

@@ -4,10 +4,10 @@ use crate::{
         leaf_preimage::IndexedTreeLeafPreimage,
         root::{root_from_sibling_path, root_from_sibling_path_with_hasher},
     },
-    traits::Empty,
+    traits::{Deserialize, Empty, Serialize},
 };
 
-#[derive(Eq)]
+#[derive(Deserialize, Eq, Serialize)]
 pub struct MembershipWitness<let N: u32> {
     pub leaf_index: Field,
     pub sibling_path: [Field; N],
@@ -89,6 +89,33 @@ where
     (non_existence, is_valid_low_leaf_to_key, low_leaf_exists)
 }
 
+/// Same as `check_non_membership` but uses a custom hasher.
+/// Use this variant for indexed trees whose internal nodes use a tree-specific separator
+/// (e.g. `nullifier_merkle_hash`).
+pub fn check_non_membership_with_hasher<let TREE_HEIGHT: u32, LEAF_PREIMAGE, VALUE>(
+    key: Field,
+    low_leaf_preimage: LEAF_PREIMAGE,
+    low_leaf_membership_witness: MembershipWitness<TREE_HEIGHT>,
+    tree_root: Field,
+    hasher: fn(Field, Field) -> Field,
+) -> (bool, bool, bool)
+where
+    LEAF_PREIMAGE: IndexedTreeLeafPreimage<VALUE>,
+{
+    let (is_valid_low_leaf_to_key, _, _) = is_valid_low_leaf(key, low_leaf_preimage);
+
+    let low_leaf_exists = check_membership_with_hasher(
+        low_leaf_preimage.as_leaf(),
+        low_leaf_membership_witness,
+        tree_root,
+        hasher,
+    );
+
+    let non_existence = is_valid_low_leaf_to_key & low_leaf_exists;
+
+    (non_existence, is_valid_low_leaf_to_key, low_leaf_exists)
+}
+
 /// Check either membership or non-membership depending on the value of `exists`:
 /// - If `exists` == true, `key` is in the tree. `leaf_preimage` is for the key itself.
 /// - If `exists` == false, `key` is not in the tree. `leaf_preimage` is for the low leaf of the key.
@@ -125,13 +152,44 @@ where
     (is_valid, is_expected_leaf, is_leaf_in_tree)
 }
 
+/// Same as `conditionally_check_membership` but uses a custom hasher.
+/// Use this variant for indexed trees whose internal nodes use a tree-specific separator
+/// (e.g. `public_data_merkle_hash`).
+pub fn conditionally_check_membership_with_hasher<let TREE_HEIGHT: u32, LEAF_PREIMAGE, VALUE>(
+    key: Field,
+    exists: bool,
+    leaf_preimage: LEAF_PREIMAGE,
+    membership_witness: MembershipWitness<TREE_HEIGHT>,
+    tree_root: Field,
+    hasher: fn(Field, Field) -> Field,
+) -> (bool, bool, bool)
+where
+    LEAF_PREIMAGE: IndexedTreeLeafPreimage<VALUE>,
+{
+    let is_matching_leaf = key == leaf_preimage.get_key();
+    let (is_low_leaf, _, _) = is_valid_low_leaf(key, leaf_preimage);
+    let is_expected_leaf = if exists {
+        is_matching_leaf
+    } else {
+        is_low_leaf
+    };
+
+    let is_leaf_in_tree = check_membership_with_hasher(
+        leaf_preimage.as_leaf(),
+        membership_witness,
+        tree_root,
+        hasher,
+    );
+
+    let is_valid = is_expected_leaf & is_leaf_in_tree;
+
+    (is_valid, is_expected_leaf, is_leaf_in_tree)
+}
+
 mod tests {
-    use crate::{
-        merkle_tree::leaf_preimage::LeafPreimage,
-        tests::{
-            merkle_tree_utils::single_subtree_merkle_tree::SingleSubtreeMerkleTree,
-            types::test_leaf_preimage::TestLeafPreimage,
-        },
+    use crate::merkle_tree::{
+        leaf_preimage::LeafPreimage,
+        test_utils::{SingleSubtreeMerkleTree, TestLeafPreimage},
     };
     use super::{
         check_membership, check_non_membership, conditionally_check_membership, MembershipWitness,

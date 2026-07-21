@@ -47,13 +47,13 @@ describe('SlasherOffensesStore', () => {
     epochOrSlot,
   });
 
-  describe('addPendingOffense', () => {
+  describe('addOffense', () => {
     it('should add and retrieve a single offense', async () => {
       const offense = createOffense();
 
-      await store.addPendingOffense(offense);
+      await expect(store.addOffense(offense)).resolves.toBe(true);
 
-      const pendingOffenses = await store.getPendingOffenses();
+      const pendingOffenses = await store.getOffenses();
       expect(pendingOffenses).toHaveLength(1);
       expect(pendingOffenses[0]).toEqual(offense);
     });
@@ -63,11 +63,11 @@ describe('SlasherOffensesStore', () => {
       const offense2 = createOffense(EthAddress.random(), 750n, OffenseType.INACTIVITY, 15n);
       const offense3 = createOffense(EthAddress.random(), 1000n, OffenseType.PROPOSED_INSUFFICIENT_ATTESTATIONS, 25n);
 
-      await store.addPendingOffense(offense1);
-      await store.addPendingOffense(offense2);
-      await store.addPendingOffense(offense3);
+      await store.addOffense(offense1);
+      await store.addOffense(offense2);
+      await store.addOffense(offense3);
 
-      const pendingOffenses = await store.getPendingOffenses();
+      const pendingOffenses = await store.getOffenses();
       expect(pendingOffenses).toHaveLength(3);
       expect(pendingOffenses).toContainEqual(offense1);
       expect(pendingOffenses).toContainEqual(offense2);
@@ -81,10 +81,10 @@ describe('SlasherOffensesStore', () => {
       for (let i = 0; i < offenseTypes.length; i++) {
         const offense = createOffense(EthAddress.random(), BigInt(1000 + i), offenseTypes[i], BigInt(10 + i));
         offenses.push(offense);
-        await store.addPendingOffense(offense);
+        await store.addOffense(offense);
       }
 
-      const pendingOffenses = await store.getPendingOffenses();
+      const pendingOffenses = await store.getOffenses();
       expect(pendingOffenses).toHaveLength(offenseTypes.length);
 
       // Verify all offense types are present
@@ -96,9 +96,9 @@ describe('SlasherOffensesStore', () => {
     it('should handle zero amount and epoch/slot values', async () => {
       const offense = createOffense(EthAddress.random(), 0n, OffenseType.UNKNOWN, 0n);
 
-      await store.addPendingOffense(offense);
+      await store.addOffense(offense);
 
-      const pendingOffenses = await store.getPendingOffenses();
+      const pendingOffenses = await store.getOffenses();
       expect(pendingOffenses).toHaveLength(1);
       expect(pendingOffenses[0].amount).toBe(0n);
       expect(pendingOffenses[0].epochOrSlot).toBe(0n);
@@ -107,11 +107,11 @@ describe('SlasherOffensesStore', () => {
     it('should handle large amounts and epoch/slot values', async () => {
       const largeAmount = BigInt('0xFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF'); // Max uint128
       const largeEpochOrSlot = BigInt(1_000_000_000);
-      const offense = createOffense(EthAddress.random(), largeAmount, OffenseType.VALID_EPOCH_PRUNED, largeEpochOrSlot);
+      const offense = createOffense(EthAddress.random(), largeAmount, OffenseType.INACTIVITY, largeEpochOrSlot);
 
-      await store.addPendingOffense(offense);
+      await store.addOffense(offense);
 
-      const pendingOffenses = await store.getPendingOffenses();
+      const pendingOffenses = await store.getOffenses();
       expect(pendingOffenses).toHaveLength(1);
       expect(pendingOffenses[0].amount).toBe(largeAmount);
       expect(pendingOffenses[0].epochOrSlot).toBe(largeEpochOrSlot);
@@ -119,15 +119,22 @@ describe('SlasherOffensesStore', () => {
 
     it('should preserve offense data across store operations', async () => {
       const validator = EthAddress.fromString('0x1234567890abcdef1234567890abcdef12345678');
-      const offense = createOffense(validator, 12345n, OffenseType.ATTESTED_DESCENDANT_OF_INVALID, 54321n);
+      const offense = createOffense(
+        validator,
+        12345n,
+        OffenseType.PROPOSED_DESCENDANT_OF_CHECKPOINT_WITH_INVALID_ATTESTATIONS,
+        54321n,
+      );
 
-      await store.addPendingOffense(offense);
+      await store.addOffense(offense);
 
-      const pendingOffenses = await store.getPendingOffenses();
+      const pendingOffenses = await store.getOffenses();
       expect(pendingOffenses).toHaveLength(1);
       expect(pendingOffenses[0].validator.toString()).toBe(validator.toString());
       expect(pendingOffenses[0].amount).toBe(12345n);
-      expect(pendingOffenses[0].offenseType).toBe(OffenseType.ATTESTED_DESCENDANT_OF_INVALID);
+      expect(pendingOffenses[0].offenseType).toBe(
+        OffenseType.PROPOSED_DESCENDANT_OF_CHECKPOINT_WITH_INVALID_ATTESTATIONS,
+      );
       expect(pendingOffenses[0].epochOrSlot).toBe(54321n);
     });
 
@@ -139,9 +146,9 @@ describe('SlasherOffensesStore', () => {
       const offense2 = createOffense(EthAddress.random(), 1000n, OffenseType.PROPOSED_INSUFFICIENT_ATTESTATIONS, 199n); // slot 199 -> round 1
       const offense3 = createOffense(EthAddress.random(), 1000n, OffenseType.PROPOSED_INSUFFICIENT_ATTESTATIONS, 200n); // slot 200 -> round 2
 
-      await store.addPendingOffense(offense1);
-      await store.addPendingOffense(offense2);
-      await store.addPendingOffense(offense3);
+      await store.addOffense(offense1);
+      await store.addOffense(offense2);
+      await store.addOffense(offense3);
 
       const offenses = await store.getOffensesForRound(round);
       expect(offenses).toHaveLength(2);
@@ -150,31 +157,18 @@ describe('SlasherOffensesStore', () => {
     });
   });
 
-  describe('hasPendingOffense', () => {
-    it('should return true for pending offenses', async () => {
+  describe('hasOffense', () => {
+    it('should return true for added offenses', async () => {
       const offense = createOffense();
-      await store.addPendingOffense(offense);
+      await store.addOffense(offense);
 
-      const hasPending = await store.hasPendingOffense(offense);
-      expect(hasPending).toBe(true);
+      expect(await store.hasOffense(offense)).toBe(true);
     });
 
     it('should return false for non-existent offenses', async () => {
       const offense = createOffenseIdentifier();
 
-      const hasPending = await store.hasPendingOffense(offense);
-      expect(hasPending).toBe(false);
-    });
-
-    it('should return false for slashed offenses', async () => {
-      const offense = createOffense();
-      await store.addPendingOffense(offense);
-
-      // Mark as slashed
-      await store.markAsSlashed([offense]);
-
-      const hasPending = await store.hasPendingOffense(offense);
-      expect(hasPending).toBe(false);
+      expect(await store.hasOffense(offense)).toBe(false);
     });
 
     it('should work with different validators for same offense type', async () => {
@@ -183,10 +177,10 @@ describe('SlasherOffensesStore', () => {
       const offense1 = createOffense(validator1, 1000n, OffenseType.INACTIVITY, 10n);
       const offense2 = createOffense(validator2, 1000n, OffenseType.INACTIVITY, 10n);
 
-      await store.addPendingOffense(offense1);
+      await store.addOffense(offense1);
 
-      expect(await store.hasPendingOffense(offense1)).toBe(true);
-      expect(await store.hasPendingOffense(offense2)).toBe(false);
+      expect(await store.hasOffense(offense1)).toBe(true);
+      expect(await store.hasOffense(offense2)).toBe(false);
     });
 
     it('should differentiate by epochOrSlot', async () => {
@@ -194,30 +188,10 @@ describe('SlasherOffensesStore', () => {
       const offense1 = createOffense(validator, 1000n, OffenseType.INACTIVITY, 10n);
       const offense2 = createOffense(validator, 1000n, OffenseType.INACTIVITY, 11n);
 
-      await store.addPendingOffense(offense1);
+      await store.addOffense(offense1);
 
-      expect(await store.hasPendingOffense(offense1)).toBe(true);
-      expect(await store.hasPendingOffense(offense2)).toBe(false);
-    });
-  });
-
-  describe('hasOffense', () => {
-    it('should return true for any offense (pending or slashed)', async () => {
-      const offense = createOffense();
-      await store.addPendingOffense(offense);
-
-      expect(await store.hasOffense(offense)).toBe(true);
-
-      // Mark as slashed
-      await store.markAsSlashed([offense]);
-
-      expect(await store.hasOffense(offense)).toBe(true); // Still exists, just not pending
-    });
-
-    it('should return false for non-existent offenses', async () => {
-      const offense = createOffenseIdentifier();
-
-      expect(await store.hasOffense(offense)).toBe(false);
+      expect(await store.hasOffense(offense1)).toBe(true);
+      expect(await store.hasOffense(offense2)).toBe(false);
     });
 
     it('should work after adding multiple offenses', async () => {
@@ -225,91 +199,12 @@ describe('SlasherOffensesStore', () => {
       const offense2 = createOffense();
       const nonExistentOffense = createOffenseIdentifier();
 
-      await store.addPendingOffense(offense1);
-      await store.addPendingOffense(offense2);
+      await store.addOffense(offense1);
+      await store.addOffense(offense2);
 
       expect(await store.hasOffense(offense1)).toBe(true);
       expect(await store.hasOffense(offense2)).toBe(true);
       expect(await store.hasOffense(nonExistentOffense)).toBe(false);
-    });
-  });
-
-  describe('markAsSlashed', () => {
-    it('should mark single offense as slashed', async () => {
-      const offense = createOffense();
-      await store.addPendingOffense(offense);
-
-      expect(await store.hasPendingOffense(offense)).toBe(true);
-
-      await store.markAsSlashed([offense]);
-
-      expect(await store.hasPendingOffense(offense)).toBe(false);
-      expect(await store.hasOffense(offense)).toBe(true); // Still exists, just marked as slashed
-    });
-
-    it('should mark multiple offenses as slashed', async () => {
-      const offense1 = createOffense();
-      const offense2 = createOffense();
-      const offense3 = createOffense();
-
-      await store.addPendingOffense(offense1);
-      await store.addPendingOffense(offense2);
-      await store.addPendingOffense(offense3);
-
-      await store.markAsSlashed([offense1, offense2]);
-
-      expect(await store.hasPendingOffense(offense1)).toBe(false);
-      expect(await store.hasPendingOffense(offense2)).toBe(false);
-      expect(await store.hasPendingOffense(offense3)).toBe(true); // Not marked as slashed
-
-      // Verify they still exist
-      expect(await store.hasOffense(offense1)).toBe(true);
-      expect(await store.hasOffense(offense2)).toBe(true);
-      expect(await store.hasOffense(offense3)).toBe(true);
-    });
-
-    it('should handle marking non-existent offenses gracefully', async () => {
-      const nonExistentOffense = createOffenseIdentifier();
-
-      // Should not throw
-      await expect(store.markAsSlashed([nonExistentOffense])).resolves.toBeUndefined();
-      expect(await store.hasPendingOffense(nonExistentOffense)).toBe(false);
-      expect(await store.hasOffense(nonExistentOffense)).toBe(false);
-    });
-
-    it('should flag offense as slashed and then add the offense', async () => {
-      const offense = createOffense();
-      await store.markAsSlashed([offense]);
-
-      expect(await store.hasOffense(offense)).toBe(false);
-
-      await store.addPendingOffense(offense);
-
-      expect(await store.hasPendingOffense(offense)).toBe(false);
-      expect(await store.hasOffense(offense)).toBe(true);
-    });
-
-    it('should exclude slashed offenses from pending offenses list', async () => {
-      const offense1 = createOffense();
-      const offense2 = createOffense();
-      const offense3 = createOffense();
-
-      await store.addPendingOffense(offense1);
-      await store.addPendingOffense(offense2);
-      await store.addPendingOffense(offense3);
-
-      let pendingOffenses = await store.getPendingOffenses();
-      expect(pendingOffenses).toHaveLength(3);
-
-      await store.markAsSlashed([offense1, offense3]);
-
-      pendingOffenses = await store.getPendingOffenses();
-      expect(pendingOffenses).toHaveLength(1);
-      expect(pendingOffenses[0]).toEqual(offense2);
-    });
-
-    it('should handle empty array', async () => {
-      await expect(store.markAsSlashed([])).resolves.toBeUndefined();
     });
   });
 
@@ -322,9 +217,9 @@ describe('SlasherOffensesStore', () => {
       const expiredOffense1 = createOffense(EthAddress.random(), 1000n, OffenseType.INACTIVITY, 150n / 32n); // Round 1, should expire
       const expiredOffense2 = createOffense(EthAddress.random(), 1000n, OffenseType.INACTIVITY, 50n / 32n); // Round 0, should expire
 
-      await store.addPendingOffense(recentOffense);
-      await store.addPendingOffense(expiredOffense1);
-      await store.addPendingOffense(expiredOffense2);
+      await store.addOffense(recentOffense);
+      await store.addOffense(expiredOffense1);
+      await store.addOffense(expiredOffense2);
 
       // Verify all offenses are present
       expect(await store.hasOffense(recentOffense)).toBe(true);
@@ -347,7 +242,7 @@ describe('SlasherOffensesStore', () => {
       });
 
       const offense = createOffense(EthAddress.random(), 1000n, OffenseType.INACTIVITY, 10n);
-      await storeWithNoExpiration.addPendingOffense(offense);
+      await storeWithNoExpiration.addOffense(offense);
 
       await storeWithNoExpiration.clearExpiredOffenses(100n);
 
@@ -358,7 +253,7 @@ describe('SlasherOffensesStore', () => {
       const currentRound = 2n; // Less than expiration rounds
 
       const offense = createOffense(EthAddress.random(), 1000n, OffenseType.INACTIVITY, 10n);
-      await store.addPendingOffense(offense);
+      await store.addOffense(offense);
 
       await store.clearExpiredOffenses(currentRound);
 
@@ -366,14 +261,65 @@ describe('SlasherOffensesStore', () => {
     });
   });
 
+  describe('clearOffenses', () => {
+    it('clears matching offenses and keeps unrelated offenses', async () => {
+      const validator1 = EthAddress.random();
+      const validator2 = EthAddress.random();
+      const matching1 = createOffense(validator1, 1000n, OffenseType.ATTESTED_TO_INVALID_CHECKPOINT_PROPOSAL, 150n);
+      const matching2 = createOffense(validator2, 1000n, OffenseType.ATTESTED_TO_INVALID_CHECKPOINT_PROPOSAL, 150n);
+      const otherSlot = createOffense(validator1, 1000n, OffenseType.ATTESTED_TO_INVALID_CHECKPOINT_PROPOSAL, 151n);
+      const otherType = createOffense(validator1, 1000n, OffenseType.DUPLICATE_PROPOSAL, 150n);
+
+      await store.addOffense(matching1);
+      await store.addOffense(matching2);
+      await store.addOffense(otherSlot);
+      await store.addOffense(otherType);
+
+      const cleared = await store.clearOffenses({
+        offenseType: OffenseType.ATTESTED_TO_INVALID_CHECKPOINT_PROPOSAL,
+        epochOrSlot: 150n,
+      });
+
+      expect(cleared).toBe(2);
+      expect(await store.hasOffense(matching1)).toBe(false);
+      expect(await store.hasOffense(matching2)).toBe(false);
+      expect(await store.hasOffense(otherSlot)).toBe(true);
+      expect(await store.hasOffense(otherType)).toBe(true);
+      const roundOffenses = await store.getOffensesForRound(1n);
+      expect(roundOffenses).toHaveLength(2);
+      expect(roundOffenses).toContainEqual(otherSlot);
+      expect(roundOffenses).toContainEqual(otherType);
+    });
+
+    it('can clear only selected validators', async () => {
+      const validator1 = EthAddress.random();
+      const validator2 = EthAddress.random();
+      const matching1 = createOffense(validator1, 1000n, OffenseType.ATTESTED_TO_INVALID_CHECKPOINT_PROPOSAL, 150n);
+      const matching2 = createOffense(validator2, 1000n, OffenseType.ATTESTED_TO_INVALID_CHECKPOINT_PROPOSAL, 150n);
+
+      await store.addOffense(matching1);
+      await store.addOffense(matching2);
+
+      const cleared = await store.clearOffenses({
+        offenseType: OffenseType.ATTESTED_TO_INVALID_CHECKPOINT_PROPOSAL,
+        epochOrSlot: 150n,
+        validators: [validator1],
+      });
+
+      expect(cleared).toBe(1);
+      expect(await store.hasOffense(matching1)).toBe(false);
+      expect(await store.hasOffense(matching2)).toBe(true);
+    });
+  });
+
   describe('edge cases', () => {
     it('should handle duplicate offense additions', async () => {
       const offense = createOffense();
 
-      await store.addPendingOffense(offense);
-      await store.addPendingOffense(offense); // Duplicate
+      await expect(store.addOffense(offense)).resolves.toBe(true);
+      await expect(store.addOffense(offense)).resolves.toBe(false);
 
-      const pendingOffenses = await store.getPendingOffenses();
+      const pendingOffenses = await store.getOffenses();
       expect(pendingOffenses).toHaveLength(1);
       expect(pendingOffenses[0]).toEqual(offense);
     });
@@ -384,61 +330,25 @@ describe('SlasherOffensesStore', () => {
       const offense1 = createOffense(validator1, 1000n, OffenseType.INACTIVITY, 10n);
       const offense2 = createOffense(validator2, 1000n, OffenseType.INACTIVITY, 10n);
 
-      await store.addPendingOffense(offense1);
-      await store.addPendingOffense(offense2);
+      await store.addOffense(offense1);
+      await store.addOffense(offense2);
 
-      const pendingOffenses = await store.getPendingOffenses();
+      const pendingOffenses = await store.getOffenses();
       expect(pendingOffenses).toHaveLength(2);
       expect(pendingOffenses).toContainEqual(offense1);
       expect(pendingOffenses).toContainEqual(offense2);
     });
 
     it('should handle large number of offenses', async () => {
-      const offenses: Offense[] = [];
       const numOffenses = 100;
 
       for (let i = 0; i < numOffenses; i++) {
         const offense = createOffense(EthAddress.random(), BigInt(1000 + i), OffenseType.UNKNOWN, BigInt(10 + i));
-        offenses.push(offense);
-        await store.addPendingOffense(offense);
+        await store.addOffense(offense);
       }
 
-      const pendingOffenses = await store.getPendingOffenses();
+      const pendingOffenses = await store.getOffenses();
       expect(pendingOffenses).toHaveLength(numOffenses);
-
-      // Mark half as slashed
-      const toSlash = offenses.slice(0, numOffenses / 2);
-      await store.markAsSlashed(toSlash);
-
-      const remainingPending = await store.getPendingOffenses();
-      expect(remainingPending).toHaveLength(numOffenses / 2);
-    });
-
-    it('should maintain data integrity across multiple operations', async () => {
-      const offense1 = createOffense(EthAddress.random(), 500n, OffenseType.DATA_WITHHOLDING, 5n);
-      const offense2 = createOffense(EthAddress.random(), 750n, OffenseType.VALID_EPOCH_PRUNED, 15n);
-
-      // Add offenses
-      await store.addPendingOffense(offense1);
-      await store.addPendingOffense(offense2);
-
-      // Verify both are pending
-      expect(await store.hasPendingOffense(offense1)).toBe(true);
-      expect(await store.hasPendingOffense(offense2)).toBe(true);
-
-      // Mark one as slashed
-      await store.markAsSlashed([offense1]);
-
-      // Verify states
-      expect(await store.hasPendingOffense(offense1)).toBe(false);
-      expect(await store.hasPendingOffense(offense2)).toBe(true);
-      expect(await store.hasOffense(offense1)).toBe(true);
-      expect(await store.hasOffense(offense2)).toBe(true);
-
-      // Verify pending list
-      const pendingOffenses = await store.getPendingOffenses();
-      expect(pendingOffenses).toHaveLength(1);
-      expect(pendingOffenses[0]).toEqual(offense2);
     });
   });
 
@@ -449,15 +359,15 @@ describe('SlasherOffensesStore', () => {
       const offense2 = createOffense(validator, 1000n, OffenseType.DATA_WITHHOLDING, 10n); // Different type
       const offense3 = createOffense(validator, 1000n, OffenseType.INACTIVITY, 11n); // Different epoch/slot
 
-      await store.addPendingOffense(offense1);
-      await store.addPendingOffense(offense2);
-      await store.addPendingOffense(offense3);
+      await store.addOffense(offense1);
+      await store.addOffense(offense2);
+      await store.addOffense(offense3);
 
-      expect(await store.hasPendingOffense(offense1)).toBe(true);
-      expect(await store.hasPendingOffense(offense2)).toBe(true);
-      expect(await store.hasPendingOffense(offense3)).toBe(true);
+      expect(await store.hasOffense(offense1)).toBe(true);
+      expect(await store.hasOffense(offense2)).toBe(true);
+      expect(await store.hasOffense(offense3)).toBe(true);
 
-      const pendingOffenses = await store.getPendingOffenses();
+      const pendingOffenses = await store.getOffenses();
       expect(pendingOffenses).toHaveLength(3);
     });
   });

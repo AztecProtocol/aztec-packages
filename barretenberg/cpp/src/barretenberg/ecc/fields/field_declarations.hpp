@@ -1,5 +1,5 @@
 // === AUDIT STATUS ===
-// internal:    { status: Planned, auditors: [Raju], commit: }
+// internal:    { status: Completed, auditors: [Raju], commit: }
 // external_1:  { status: not started, auditors: [], commit: }
 // external_2:  { status: not started, auditors: [], commit: }
 // =====================
@@ -28,6 +28,30 @@
 #endif
 
 namespace bb {
+
+// Threshold for "large" moduli (>= 2^254). When the top limb of the modulus is >= 2^62,
+// intermediate arithmetic results can overflow 256 bits, requiring different reduction strategies (enacted via
+// constexpr branching).
+//
+// There is a further difference: internally, when limb[3] <MODULUS_TOP_LIMB_LARGE_THRESHOLD, we allow for coarse
+// representation of the elements; this means that we assume the underlying unsigned integer to be in the range [0, 2p).
+//
+// On the other hand, for moduli with limb[3] > MODULUS_TOP_LIMB_LARGE_THRESHOLD, the uint256_t element
+// derived from the limbs is arbitrary (and is in particular NOT guaranteed to be in the range [0, p)). In particular
+// one sees this in the `add` functionality.
+
+// To speed up multiplication, we internally represent all elements in MONTGOMERY form. This means that the underlying 4
+// limbs represent a * R modulo p. (See the documentation in \ref field_docs["field documentation"]).
+//
+// In Barretenberg, the main workhorse fields are the base and scalar fields of BN-254, which are "small" moduli: they
+// are each 254 bits. The field algorithms for them are constant-time.
+//
+// NOTE: For the 254-bit fields in Barretenberg, namely BN254 base and scalar fields, we also
+// use this constexpr branching to capture another (conceptually unrelated) property: that
+// the short basis of the lattice from the endomorphism is shorter than expected. See endomorphism_scalars.py for more
+// information.
+static constexpr uint64_t MODULUS_TOP_LIMB_LARGE_THRESHOLD = 0x4000000000000000ULL; // 2^62
+
 /**
  * @brief General class for prime fields see \ref field_docs["field documentation"] for general implementation reference
  *
@@ -111,7 +135,13 @@ template <class Params_> struct alignas(32) field {
             self_to_montgomery_form();
         }
     }
-
+    /**
+     * @brief cast four uint64_t as a field
+     *
+     * @warning this DOES NOT convert to montgomery form, in particular it is assumed that the element "is already" in
+     * Montgomery form.
+     *
+     */
     constexpr field(const uint64_t a, const uint64_t b, const uint64_t c, const uint64_t d) noexcept
         : data{ a, b, c, d } {};
 
@@ -137,10 +167,15 @@ template <class Params_> struct alignas(32) field {
         *this = field(value);
     }
 
+    // Conversion operators to primitive types.
+    // Note: from_montgomery_form() may return values bigger than p (in the range of [0, 2p) for 254-bit fields,
+    // arbitrary 256-bit number for 256-bit fields.)
+    // We call reduce_once() to ensure canonical [0, p) representation.
+
     constexpr explicit operator bool() const
     {
-        field out = from_montgomery_form();
-        if (out.data[0] != 0 && out.data[0] != 1) {
+        field out = from_montgomery_form_reduced();
+        if ((out.data[0] != 0 && out.data[0] != 1) || out.data[1] != 0 || out.data[2] != 0 || out.data[3] != 0) {
             bb::assert_failure("Cannot convert field element to bool unless it is 0 or 1");
         }
         return static_cast<bool>(out.data[0]);
@@ -148,31 +183,31 @@ template <class Params_> struct alignas(32) field {
 
     constexpr explicit operator uint8_t() const
     {
-        field out = from_montgomery_form();
+        field out = from_montgomery_form_reduced();
         return static_cast<uint8_t>(out.data[0]);
     }
 
     constexpr explicit operator uint16_t() const
     {
-        field out = from_montgomery_form();
+        field out = from_montgomery_form_reduced();
         return static_cast<uint16_t>(out.data[0]);
     }
 
     constexpr explicit operator uint32_t() const
     {
-        field out = from_montgomery_form();
+        field out = from_montgomery_form_reduced();
         return static_cast<uint32_t>(out.data[0]);
     }
 
     constexpr explicit operator uint64_t() const
     {
-        field out = from_montgomery_form();
+        field out = from_montgomery_form_reduced();
         return out.data[0];
     }
 
     constexpr explicit operator uint128_t() const
     {
-        field out = from_montgomery_form();
+        field out = from_montgomery_form_reduced();
         uint128_t lo = out.data[0];
         uint128_t hi = out.data[1];
         return (hi << 64) | lo;
@@ -180,7 +215,7 @@ template <class Params_> struct alignas(32) field {
 
     constexpr operator uint256_t() const noexcept
     {
-        field out = from_montgomery_form();
+        field out = from_montgomery_form_reduced();
         return uint256_t(out.data[0], out.data[1], out.data[2], out.data[3]);
     }
 
@@ -243,64 +278,21 @@ template <class Params_> struct alignas(32) field {
     static constexpr field neg_one() { return -field(1); }
     static constexpr field one() { return field(1); }
 
-    static constexpr field external_coset_generator()
+    static constexpr field coset_generator()
     {
 #if defined(__SIZEOF_INT128__) && !defined(__wasm__)
         const field result{
-            Params::coset_generators_0[7],
-            Params::coset_generators_1[7],
-            Params::coset_generators_2[7],
-            Params::coset_generators_3[7],
+            Params::coset_generator_0,
+            Params::coset_generator_1,
+            Params::coset_generator_2,
+            Params::coset_generator_3,
         };
 #else
         const field result{
-            Params::coset_generators_wasm_0[7],
-            Params::coset_generators_wasm_1[7],
-            Params::coset_generators_wasm_2[7],
-            Params::coset_generators_wasm_3[7],
-        };
-#endif
-
-        return result;
-    }
-
-    static constexpr field tag_coset_generator()
-    {
-#if defined(__SIZEOF_INT128__) && !defined(__wasm__)
-        const field result{
-            Params::coset_generators_0[6],
-            Params::coset_generators_1[6],
-            Params::coset_generators_2[6],
-            Params::coset_generators_3[6],
-        };
-#else
-        const field result{
-            Params::coset_generators_wasm_0[6],
-            Params::coset_generators_wasm_1[6],
-            Params::coset_generators_wasm_2[6],
-            Params::coset_generators_wasm_3[6],
-        };
-#endif
-
-        return result;
-    }
-
-    template <size_t idx> static constexpr field coset_generator()
-    {
-        static_assert(idx < 7);
-#if defined(__SIZEOF_INT128__) && !defined(__wasm__)
-        const field result{
-            Params::coset_generators_0[idx],
-            Params::coset_generators_1[idx],
-            Params::coset_generators_2[idx],
-            Params::coset_generators_3[idx],
-        };
-#else
-        const field result{
-            Params::coset_generators_wasm_0[idx],
-            Params::coset_generators_wasm_1[idx],
-            Params::coset_generators_wasm_2[idx],
-            Params::coset_generators_wasm_3[idx],
+            Params::coset_generator_0,
+            Params::coset_generator_1,
+            Params::coset_generator_2,
+            Params::coset_generator_3,
         };
 #endif
 
@@ -334,9 +326,20 @@ template <class Params_> struct alignas(32) field {
 
     BB_INLINE constexpr field to_montgomery_form() const noexcept;
     BB_INLINE constexpr field from_montgomery_form() const noexcept;
+    // Reduced versions guarantee output is in canonical form [0, p)
+    BB_INLINE constexpr field to_montgomery_form_reduced() const noexcept;
+    BB_INLINE constexpr field from_montgomery_form_reduced() const noexcept;
 
     BB_INLINE constexpr field sqr() const noexcept;
     BB_INLINE constexpr void self_sqr() & noexcept;
+
+    // Reducing a scalar field's single lane returns itself. Lets `field` substitute for `VectorField` as a
+    // lane element type so per-lane reduction code (e.g. sumcheck's `reduce_accumulator`) needs no branch.
+    BB_INLINE constexpr field horizontal_sum() const noexcept { return *this; }
+
+    // Width-1 counterpart of `VectorField::from_lanes`: a scalar field has one lane, so it just evaluates
+    // `value_at` at lane 0. Lets `field` be gathered through the same lane-generic edge code as `VectorField`.
+    template <typename Fn> BB_INLINE static field from_lanes(const Fn& value_at) noexcept { return value_at(0); }
 
     BB_INLINE constexpr field pow(const uint256_t& exponent) const noexcept;
     BB_INLINE constexpr field pow(uint64_t exponent) const noexcept;
@@ -345,6 +348,7 @@ template <class Params_> struct alignas(32) field {
     static constexpr uint256_t modulus_minus_two =
         uint256_t(Params::modulus_0 - 2ULL, Params::modulus_1, Params::modulus_2, Params::modulus_3);
     constexpr field invert() const noexcept;
+    constexpr field invert_const_time() const noexcept;
     template <typename C>
     // has size() and operator[].
         requires requires(C& c) {
@@ -367,6 +371,9 @@ template <class Params_> struct alignas(32) field {
 
     BB_INLINE constexpr void self_to_montgomery_form() & noexcept;
     BB_INLINE constexpr void self_from_montgomery_form() & noexcept;
+    // Reduced versions guarantee output is in canonical form [0, p)
+    BB_INLINE constexpr void self_to_montgomery_form_reduced() & noexcept;
+    BB_INLINE constexpr void self_from_montgomery_form_reduced() & noexcept;
 
     BB_INLINE constexpr void self_conditional_negate(uint64_t predicate) & noexcept;
 
@@ -393,18 +400,6 @@ template <class Params_> struct alignas(32) field {
         uint64_t data[8]; // NOLINT
     };
     BB_INLINE constexpr wide_array mul_512(const field& other) const noexcept;
-    BB_INLINE constexpr wide_array sqr_512() const noexcept;
-
-    BB_INLINE constexpr field conditionally_subtract_from_double_modulus(const uint64_t predicate) const noexcept
-    {
-        if (predicate != 0) {
-            constexpr field p{
-                twice_modulus.data[0], twice_modulus.data[1], twice_modulus.data[2], twice_modulus.data[3]
-            };
-            return p - *this;
-        }
-        return *this;
-    }
 
     /**
      * For short Weierstrass curves y^2 = x^3 + b mod r, if there exists a cube root of unity mod r,
@@ -430,133 +425,122 @@ template <class Params_> struct alignas(32) field {
      * We pre-compute scalars g1 = (2^256 * b1) / n, g2 = (2^256 * b2) / n, to avoid having to perform long division
      * on 512-bit scalars
      **/
-    static void split_into_endomorphism_scalars(const field& k, field& k1, field& k2)
+    /**
+     * @brief Shared core of the endomorphism scalar decomposition.
+     *
+     * Computes k2 = round(b2·k/r)·(-b1) + round((-b1)·k/r)·b2, using the
+     * 256-bit-shift approximation g = floor(b·2^256/r) for both BN254 and
+     * secp256k1. See endomorphism_scalars.py §0 for the proof that the
+     * approximation error is bounded to {0, -1} for any r < 2^256.
+     *
+     * The result is a raw (non-Montgomery) `field` whose low 128-or-129 bits
+     * hold k2. This function will be called in either the BN254 base/scalar field
+     * or the generic, secp256k1 branch.
+     */
+    static field compute_endomorphism_k2(const field& k)
     {
-        // if the modulus is a >= 255-bit integer, we need to use a basis where g1, g2 have been shifted by 2^384
-        if constexpr (Params::modulus_3 >= 0x4000000000000000ULL) {
-            split_into_endomorphism_scalars_384(k, k1, k2);
-        } else {
-            std::pair<std::array<uint64_t, 2>, std::array<uint64_t, 2>> ret = split_into_endomorphism_scalars(k);
-            k1.data[0] = ret.first[0];
-            k1.data[1] = ret.first[1];
-
-            // TODO(https://github.com/AztecProtocol/barretenberg/issues/851): We should move away from this hack by
-            // returning pair of uint64_t[2] instead of a half-set field
-#if !defined(__clang__) && defined(__GNUC__)
-#pragma GCC diagnostic push
-#pragma GCC diagnostic ignored "-Warray-bounds"
-#endif
-            k2.data[0] = ret.second[0]; // NOLINT
-            k2.data[1] = ret.second[1];
-#if !defined(__clang__) && defined(__GNUC__)
-#pragma GCC diagnostic pop
-#endif
-        }
-    }
-
-    // NOTE: this form is only usable if the modulus is 254 bits or less, otherwise see
-    // split_into_endomorphism_scalars_384.
-    // TODO(https://github.com/AztecProtocol/barretenberg/issues/851): Unify these APIs.
-    static std::pair<std::array<uint64_t, 2>, std::array<uint64_t, 2>> split_into_endomorphism_scalars(const field& k)
-    {
-        static_assert(Params::modulus_3 < 0x4000000000000000ULL);
+        // force into strict form.
         field input = k.reduce_once();
 
         constexpr field endo_g1 = { Params::endo_g1_lo, Params::endo_g1_mid, Params::endo_g1_hi, 0 };
-
         constexpr field endo_g2 = { Params::endo_g2_lo, Params::endo_g2_mid, 0, 0 };
-
         constexpr field endo_minus_b1 = { Params::endo_minus_b1_lo, Params::endo_minus_b1_mid, 0, 0 };
-
         constexpr field endo_b2 = { Params::endo_b2_lo, Params::endo_b2_mid, 0, 0 };
 
-        // compute c1 = (g2 * k) >> 256
+        // c1 = (g2 * k) >> 256,  c2 = (g1 * k) >> 256
         wide_array c1 = endo_g2.mul_512(input);
-        // compute c2 = (g1 * k) >> 256
         wide_array c2 = endo_g1.mul_512(input);
 
-        // (the bit shifts are implicit, as we only utilize the high limbs of c1, c2
+        // extract high halves
+        field c1_hi{ c1.data[4], c1.data[5], c1.data[6], c1.data[7] };
+        field c2_hi{ c2.data[4], c2.data[5], c2.data[6], c2.data[7] };
 
-        field c1_hi = {
-            c1.data[4], c1.data[5], c1.data[6], c1.data[7]
-        }; // *(field*)((uintptr_t)(&c1) + (4 * sizeof(uint64_t)));
-        field c2_hi = {
-            c2.data[4], c2.data[5], c2.data[6], c2.data[7]
-        }; // *(field*)((uintptr_t)(&c2) + (4 * sizeof(uint64_t)));
-
-        // compute q1 = c1 * -b1
+        // q1 = c1 * (-b1),  q2 = c2 * b2
         wide_array q1 = c1_hi.mul_512(endo_minus_b1);
-        // compute q2 = c2 * b2
         wide_array q2 = c2_hi.mul_512(endo_b2);
 
-        // FIX: Avoid using 512-bit multiplication as its not necessary.
-        // c1_hi, c2_hi can be uint256_t's and the final result (without montgomery reduction)
-        // could be casted to a field.
         field q1_lo{ q1.data[0], q1.data[1], q1.data[2], q1.data[3] };
         field q2_lo{ q2.data[0], q2.data[1], q2.data[2], q2.data[3] };
 
-        field t1 = (q2_lo - q1_lo).reduce_once();
-        field beta = cube_root_of_unity();
-        field t2 = (t1 * beta + input).reduce_once();
+        return (q2_lo - q1_lo).reduce_once();
+    }
+
+    /**
+     * @brief Full-width endomorphism decomposition: k ≡ k1 - k2·λ (mod r).
+     * Modifies the field elements k1 and k2.
+     *
+     * For BN254 base/scalar fields, delegates to the 128-bit pair
+     * overload, which applies the negative-k2 fix. Returns k1, k2 in the low
+     * 2 limbs (upper limbs zeroed). Both fit in 128 bits.
+     *
+     * For generic 256-bit fields: returns k1, k2 as full field elements
+     * elements (non-Montgomery). k1 fits in ~128 bits; k2 fits in ~129 bits.
+     * No negative-k2 fix — the caller (biggroup_nafs.hpp) handles signs by
+     * inspecting the MSB of k2.
+     */
+    static void split_into_endomorphism_scalars(const field& k, field& k1, field& k2)
+    {
+        if constexpr (Params::modulus_3 < MODULUS_TOP_LIMB_LARGE_THRESHOLD) {
+            // BN254 base or scalar field: use path that corresponds to 128-bit outputs.
+            auto ret = split_into_endomorphism_scalars(k);
+            k1 = { ret.first[0], ret.first[1], 0, 0 };
+            k2 = { ret.second[0], ret.second[1], 0, 0 };
+        } else {
+            // Large modulus (secp256k1): full-width path.
+            field t1 = compute_endomorphism_k2(k);
+            k2 = t1;
+            k1 = ((t1 * cube_root_of_unity()) + k).reduce_once();
+        }
+    }
+
+    /**
+     * @brief 128-bit endomorphism decomposition: k ≡ k1 - k2·λ (mod r).
+     *
+     * Returns { {k1_lo, k1_hi}, {k2_lo, k2_hi} } — each scalar as a pair of
+     * uint64_t representing its low 128 bits. Both k1 and k2 are guaranteed to
+     * fit in 128 bits (the negative-k2 fix ensures this for the ~2^{-64} of
+     * inputs where k2 would otherwise be slightly negative).
+     *
+     * Only valid for fields such that the splitting_scalars algorithm produces 128 bit outputs. In Barretenberg, these
+     * are just the base and scalar fields of BN254. These are the only "small modulus" fields, so we use a static
+     * assert to force this.
+     *
+     * Does NOT assume that the input is reduced
+     */
+    static std::pair<std::array<uint64_t, 2>, std::array<uint64_t, 2>> split_into_endomorphism_scalars(const field& k)
+    {
+        static_assert(Params::modulus_3 < MODULUS_TOP_LIMB_LARGE_THRESHOLD);
+
+        // short-circuit the split if k is already small
+        if (k.data[2] == 0 && k.data[3] == 0 && (k.data[1] >> 63) == 0) {
+            return {
+                { k.data[0], k.data[1] },
+                { 0, 0 },
+            };
+        }
+
+        field t1 = compute_endomorphism_k2(k);
+
+        // k2 (= t1) can be slightly negative for ~2^{-64} of inputs.
+        // When negative, t1 = k2 + r is 254 bits (upper limbs nonzero).
+        // Fix: decrement c1 by 1, equivalent to adding |b1| to k2.
+        // This shifts k2 by +|b1| (~127 bits, now positive) and k1 by -a1 (~64 bits),
+        // keeping both within 128 bits. See endomorphism_scalars.py for more details.
+        if (t1.data[2] != 0 || t1.data[3] != 0) {
+            constexpr field endo_minus_b1 = { Params::endo_minus_b1_lo, Params::endo_minus_b1_mid, 0, 0 };
+            t1 = (t1 + endo_minus_b1).reduce_once();
+        }
+
+        field t2 = ((t1 * cube_root_of_unity()) + k).reduce_once();
         return {
             { t2.data[0], t2.data[1] },
             { t1.data[0], t1.data[1] },
         };
     }
 
-    static void split_into_endomorphism_scalars_384(const field& input, field& k1_out, field& k2_out)
-    {
-        constexpr field minus_b1f{
-            Params::endo_minus_b1_lo,
-            Params::endo_minus_b1_mid,
-            0,
-            0,
-        };
-        constexpr field b2f{
-            Params::endo_b2_lo,
-            Params::endo_b2_mid,
-            0,
-            0,
-        };
-        constexpr uint256_t g1{
-            Params::endo_g1_lo,
-            Params::endo_g1_mid,
-            Params::endo_g1_hi,
-            Params::endo_g1_hihi,
-        };
-        constexpr uint256_t g2{
-            Params::endo_g2_lo,
-            Params::endo_g2_mid,
-            Params::endo_g2_hi,
-            Params::endo_g2_hihi,
-        };
-
-        field kf = input.reduce_once();
-        uint256_t k{ kf.data[0], kf.data[1], kf.data[2], kf.data[3] };
-
-        uint512_t c1 = (uint512_t(k) * static_cast<uint512_t>(g1)) >> 384;
-        uint512_t c2 = (uint512_t(k) * static_cast<uint512_t>(g2)) >> 384;
-
-        field c1f{ c1.lo.data[0], c1.lo.data[1], c1.lo.data[2], c1.lo.data[3] };
-        field c2f{ c2.lo.data[0], c2.lo.data[1], c2.lo.data[2], c2.lo.data[3] };
-
-        c1f.self_to_montgomery_form();
-        c2f.self_to_montgomery_form();
-        c1f = c1f * minus_b1f;
-        c2f = c2f * b2f;
-        field r2f = c1f - c2f;
-        field beta = cube_root_of_unity();
-        field r1f = input.reduce_once() - r2f * beta;
-        k1_out = r1f;
-        k2_out = -r2f;
-    }
-
-    // static constexpr auto coset_generators = compute_coset_generators();
-    // static constexpr std::array<field, 15> coset_generators = compute_coset_generators((1 << 30U));
-
     friend std::ostream& operator<<(std::ostream& os, const field& a)
     {
-        field out = a.from_montgomery_form();
+        field out = a.from_montgomery_form_reduced();
         std::ios_base::fmtflags f(os.flags());
         os << std::hex << "0x" << std::setfill('0') << std::setw(16) << out.data[3] << std::setw(16) << out.data[2]
            << std::setw(16) << out.data[1] << std::setw(16) << out.data[0];
@@ -565,16 +549,7 @@ template <class Params_> struct alignas(32) field {
     }
 
     BB_INLINE static void __copy(const field& a, field& r) noexcept { r = a; } // NOLINT
-    BB_INLINE static void __swap(field& src, field& dest) noexcept             // NOLINT
-    {
-        field T = dest;
-        dest = src;
-        src = T;
-    }
-
     static field random_element(numeric::RNG* engine = nullptr) noexcept;
-
-    static constexpr field multiplicative_generator() noexcept;
 
     // For serialization
     void msgpack_pack(auto& packer) const;
@@ -584,47 +559,6 @@ template <class Params_> struct alignas(32) field {
     static constexpr uint256_t twice_modulus = modulus + modulus;
     static constexpr uint256_t not_modulus = -modulus;
     static constexpr uint256_t twice_not_modulus = -twice_modulus;
-
-    struct wnaf_table {
-        uint8_t windows[64]; // NOLINT
-
-        constexpr wnaf_table(const uint256_t& target)
-            : windows{
-                static_cast<uint8_t>(target.data[0] & 15),         static_cast<uint8_t>((target.data[0] >> 4) & 15),
-                static_cast<uint8_t>((target.data[0] >> 8) & 15),  static_cast<uint8_t>((target.data[0] >> 12) & 15),
-                static_cast<uint8_t>((target.data[0] >> 16) & 15), static_cast<uint8_t>((target.data[0] >> 20) & 15),
-                static_cast<uint8_t>((target.data[0] >> 24) & 15), static_cast<uint8_t>((target.data[0] >> 28) & 15),
-                static_cast<uint8_t>((target.data[0] >> 32) & 15), static_cast<uint8_t>((target.data[0] >> 36) & 15),
-                static_cast<uint8_t>((target.data[0] >> 40) & 15), static_cast<uint8_t>((target.data[0] >> 44) & 15),
-                static_cast<uint8_t>((target.data[0] >> 48) & 15), static_cast<uint8_t>((target.data[0] >> 52) & 15),
-                static_cast<uint8_t>((target.data[0] >> 56) & 15), static_cast<uint8_t>((target.data[0] >> 60) & 15),
-                static_cast<uint8_t>(target.data[1] & 15),         static_cast<uint8_t>((target.data[1] >> 4) & 15),
-                static_cast<uint8_t>((target.data[1] >> 8) & 15),  static_cast<uint8_t>((target.data[1] >> 12) & 15),
-                static_cast<uint8_t>((target.data[1] >> 16) & 15), static_cast<uint8_t>((target.data[1] >> 20) & 15),
-                static_cast<uint8_t>((target.data[1] >> 24) & 15), static_cast<uint8_t>((target.data[1] >> 28) & 15),
-                static_cast<uint8_t>((target.data[1] >> 32) & 15), static_cast<uint8_t>((target.data[1] >> 36) & 15),
-                static_cast<uint8_t>((target.data[1] >> 40) & 15), static_cast<uint8_t>((target.data[1] >> 44) & 15),
-                static_cast<uint8_t>((target.data[1] >> 48) & 15), static_cast<uint8_t>((target.data[1] >> 52) & 15),
-                static_cast<uint8_t>((target.data[1] >> 56) & 15), static_cast<uint8_t>((target.data[1] >> 60) & 15),
-                static_cast<uint8_t>(target.data[2] & 15),         static_cast<uint8_t>((target.data[2] >> 4) & 15),
-                static_cast<uint8_t>((target.data[2] >> 8) & 15),  static_cast<uint8_t>((target.data[2] >> 12) & 15),
-                static_cast<uint8_t>((target.data[2] >> 16) & 15), static_cast<uint8_t>((target.data[2] >> 20) & 15),
-                static_cast<uint8_t>((target.data[2] >> 24) & 15), static_cast<uint8_t>((target.data[2] >> 28) & 15),
-                static_cast<uint8_t>((target.data[2] >> 32) & 15), static_cast<uint8_t>((target.data[2] >> 36) & 15),
-                static_cast<uint8_t>((target.data[2] >> 40) & 15), static_cast<uint8_t>((target.data[2] >> 44) & 15),
-                static_cast<uint8_t>((target.data[2] >> 48) & 15), static_cast<uint8_t>((target.data[2] >> 52) & 15),
-                static_cast<uint8_t>((target.data[2] >> 56) & 15), static_cast<uint8_t>((target.data[2] >> 60) & 15),
-                static_cast<uint8_t>(target.data[3] & 15),         static_cast<uint8_t>((target.data[3] >> 4) & 15),
-                static_cast<uint8_t>((target.data[3] >> 8) & 15),  static_cast<uint8_t>((target.data[3] >> 12) & 15),
-                static_cast<uint8_t>((target.data[3] >> 16) & 15), static_cast<uint8_t>((target.data[3] >> 20) & 15),
-                static_cast<uint8_t>((target.data[3] >> 24) & 15), static_cast<uint8_t>((target.data[3] >> 28) & 15),
-                static_cast<uint8_t>((target.data[3] >> 32) & 15), static_cast<uint8_t>((target.data[3] >> 36) & 15),
-                static_cast<uint8_t>((target.data[3] >> 40) & 15), static_cast<uint8_t>((target.data[3] >> 44) & 15),
-                static_cast<uint8_t>((target.data[3] >> 48) & 15), static_cast<uint8_t>((target.data[3] >> 52) & 15),
-                static_cast<uint8_t>((target.data[3] >> 56) & 15), static_cast<uint8_t>((target.data[3] >> 60) & 15)
-            }
-        {}
-    };
 
 #if defined(__wasm__) || !defined(__SIZEOF_INT128__)
     BB_INLINE static constexpr void wasm_madd(uint64_t& left_limb,
@@ -688,39 +622,43 @@ template <class Params_> struct alignas(32) field {
     BB_INLINE constexpr field reduce() const noexcept;
     BB_INLINE constexpr field add(const field& other) const noexcept;
     BB_INLINE constexpr field subtract(const field& other) const noexcept;
-    BB_INLINE constexpr field subtract_coarse(const field& other) const noexcept;
+
+    // Debug-only assertion: checks that the field element is in the strict coarse form [0, 2p).
+    // Only meaningful for "small" moduli (<=254 bits) which use the coarse representation.
+    // Not constexpr in debug builds (BB_ASSERT_DEBUG uses std::ostringstream).
+    // Callers must guard with `if (!std::is_constant_evaluated())` in constexpr functions.
+#ifdef NDEBUG
+    constexpr void assert_coarse_form() const noexcept {}
+#else
+    void assert_coarse_form() const noexcept
+    {
+        if constexpr (modulus.data[3] < MODULUS_TOP_LIMB_LARGE_THRESHOLD) {
+            uint256_t val{ data[0], data[1], data[2], data[3] };
+            BB_ASSERT_DEBUG(val < twice_modulus, "field element exceeds coarse form [0, 2p)");
+        }
+    }
+#endif
     BB_INLINE constexpr field montgomery_mul(const field& other) const noexcept;
     BB_INLINE constexpr field montgomery_mul_big(const field& other) const noexcept;
     BB_INLINE constexpr field montgomery_square() const noexcept;
 
 #if (BBERG_NO_ASM == 0)
-    BB_INLINE static field asm_mul(const field& a, const field& b) noexcept;
-    BB_INLINE static field asm_sqr(const field& a) noexcept;
-    BB_INLINE static field asm_add(const field& a, const field& b) noexcept;
-    BB_INLINE static field asm_sub(const field& a, const field& b) noexcept;
     BB_INLINE static field asm_mul_with_coarse_reduction(const field& a, const field& b) noexcept;
     BB_INLINE static field asm_sqr_with_coarse_reduction(const field& a) noexcept;
     BB_INLINE static field asm_add_with_coarse_reduction(const field& a, const field& b) noexcept;
     BB_INLINE static field asm_sub_with_coarse_reduction(const field& a, const field& b) noexcept;
-    BB_INLINE static field asm_add_without_reduction(const field& a, const field& b) noexcept;
-    BB_INLINE static void asm_self_sqr(const field& a) noexcept;
-    BB_INLINE static void asm_self_add(const field& a, const field& b) noexcept;
-    BB_INLINE static void asm_self_sub(const field& a, const field& b) noexcept;
-    BB_INLINE static void asm_self_mul_with_coarse_reduction(const field& a, const field& b) noexcept;
-    BB_INLINE static void asm_self_sqr_with_coarse_reduction(const field& a) noexcept;
-    BB_INLINE static void asm_self_add_with_coarse_reduction(const field& a, const field& b) noexcept;
-    BB_INLINE static void asm_self_sub_with_coarse_reduction(const field& a, const field& b) noexcept;
-    BB_INLINE static void asm_self_add_without_reduction(const field& a, const field& b) noexcept;
+    BB_INLINE static void asm_self_mul_with_coarse_reduction(field& a, const field& b) noexcept;
+    BB_INLINE static void asm_self_sqr_with_coarse_reduction(field& a) noexcept;
+    BB_INLINE static void asm_self_add_with_coarse_reduction(field& a, const field& b) noexcept;
+    BB_INLINE static void asm_self_sub_with_coarse_reduction(field& a, const field& b) noexcept;
 
     BB_INLINE static void asm_conditional_negate(field& r, uint64_t predicate) noexcept;
     BB_INLINE static field asm_reduce_once(const field& a) noexcept;
-    BB_INLINE static void asm_self_reduce_once(const field& a) noexcept;
+    BB_INLINE static void asm_self_reduce_once(field& a) noexcept;
     static constexpr uint64_t zero_reference = 0x00ULL;
 #endif
-    static constexpr size_t COSET_GENERATOR_SIZE = 15;
     constexpr field tonelli_shanks_sqrt() const noexcept;
     static constexpr size_t primitive_root_log_size() noexcept;
-    static constexpr std::array<field, COSET_GENERATOR_SIZE> compute_coset_generators() noexcept;
 
 #if defined(__SIZEOF_INT128__) && !defined(__wasm__)
     static constexpr uint128_t lo_mask = 0xffffffffffffffffUL;
@@ -740,7 +678,7 @@ template <typename B, typename Params> void read(B& it, field<Params>& value)
 template <typename B, typename Params> void write(B& buf, field<Params> const& value)
 {
     using serialize::write;
-    const field input = value.from_montgomery_form();
+    const field input = value.from_montgomery_form_reduced();
     write(buf, input.data[3]);
     write(buf, input.data[2]);
     write(buf, input.data[1]);

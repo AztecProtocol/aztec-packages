@@ -3,14 +3,13 @@
 # CI mode is passed as first argument.
 set -euo pipefail
 
-: "${AWS_ACCESS_KEY_ID:?required}"
-: "${AWS_SECRET_ACCESS_KEY:?required}"
+# AWS credentials are handled by instance profiles on all paths.
 : "${GITHUB_TOKEN:?required}"
 
 CI_MODE="${1:?CI_MODE must be provided as first argument}"
 shift
 
-NO_CD=1 source $(git rev-parse --show-toplevel)/ci3/source
+NO_CD=1 source $(git rev-parse --show-toplevel)/ci3/source_base
 
 function setup_environment {
   echo_header "Setup"
@@ -29,13 +28,17 @@ function setup_environment {
     echo "INSTANCE_POSTFIX=$INSTANCE_POSTFIX" >> $GITHUB_ENV
     echo "Instance postfix set to: $INSTANCE_POSTFIX"
   fi
-  # Setup SSH key for connecting to EC2 instances
-  # Note: The key is used to SSH into instances but is only copied INTO instances when CI_USE_BUILD_INSTANCE_KEY=1 (internal CI only)
+  # Setup SSH key — needed for the Redis tunnel (denoise logs) even in SSM mode,
+  # and for direct SSH bootstrap when CI_USE_SSH=1.
   if [ -n "${BUILD_INSTANCE_SSH_KEY:-}" ]; then
     mkdir -p ~/.ssh
     echo "${BUILD_INSTANCE_SSH_KEY}" | base64 --decode > ~/.ssh/build_instance_key
     chmod 600 ~/.ssh/build_instance_key
     echo "SSH key configured"
+  fi
+  # Log SSM mode settings (defaults are baked into aws_request_instance_type).
+  if [ "${CI_USE_SSH:-0}" -eq 0 ]; then
+    echo "SSM mode: instance profile ${CI3_INSTANCE_PROFILE_NAME:-ci3-build-instance-profile}, SG ${CI3_SECURITY_GROUP_ID:-sg-01fe61a1c1aaeb393}"
   fi
 }
 
@@ -56,7 +59,7 @@ function check_cache {
     "ci-release-pr"
   )
   # Check if CI_MODE is in cached_ci_modes
-  if [[ " ${cached_ci_modes[@]} " =~ " ${CI_MODE} " ]]; then
+  if [[ " ${cached_ci_modes[@]} " =~ " ${CI_MODE} " && "$GITHUB_RUN_ATTEMPT" -eq 1 ]]; then
     if cache_download "$cache_name" . 2>/dev/null && [ -f ".ci-success.txt" ]; then
       echo "Cache hit in .github/ci3.sh! Previous run: $(cat ".ci-success.txt")"
       exit 0
@@ -74,6 +77,7 @@ function handle_release_pr {
   github_repository=$(git remote get-url origin | sed -E 's|.*github\.com[/:]([^/]+/[^/]+)(\.git)?$|\1|')
   git remote set-url origin "https://x-access-token:${GITHUB_TOKEN}@github.com/${github_repository}"
   local tag_name="v0.0.1-commit.$(git rev-parse --short HEAD)"
+  git config --unset-all http.https://github.com/.extraheader || true
   git tag "${tag_name}"
   git push origin "${tag_name}"
   echo "Created and pushed tag: ${tag_name}"

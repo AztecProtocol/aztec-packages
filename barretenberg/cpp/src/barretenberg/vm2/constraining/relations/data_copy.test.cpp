@@ -4,7 +4,7 @@
 #include <gmock/gmock.h>
 #include <gtest/gtest.h>
 
-#include "barretenberg/vm2/common/aztec_constants.hpp"
+#include "barretenberg/aztec/aztec_constants.hpp"
 #include "barretenberg/vm2/common/memory_types.hpp"
 #include "barretenberg/vm2/constraining/flavor_settings.hpp"
 #include "barretenberg/vm2/constraining/testing/check_relation.hpp"
@@ -102,7 +102,7 @@ TEST_F(NestedCdConstrainingBuilderTest, CdZeroCopy)
     check_relation<data_copy>(trace);
     check_interaction<DataCopyTraceBuilder,
                       lookup_data_copy_offset_plus_size_is_gt_data_size_settings,
-                      lookup_data_copy_data_index_upper_bound_gt_offset_settings,
+                      lookup_data_copy_sel_has_reads_settings,
                       lookup_data_copy_check_src_addr_in_range_settings,
                       lookup_data_copy_check_dst_addr_in_range_settings>(trace);
 }
@@ -125,13 +125,13 @@ TEST_F(NestedCdConstrainingBuilderTest, SimpleNestedCdCopy)
     check_relation<data_copy>(trace);
     check_interaction<DataCopyTraceBuilder,
                       lookup_data_copy_offset_plus_size_is_gt_data_size_settings,
-                      lookup_data_copy_data_index_upper_bound_gt_offset_settings,
+                      lookup_data_copy_sel_has_reads_settings,
                       lookup_data_copy_check_src_addr_in_range_settings,
                       lookup_data_copy_check_dst_addr_in_range_settings>(trace);
 }
 
 // Copying one element tests the case where the trace populates a single row
-// where both sel_start and sel_end are toggled on but is a different code path
+// where both start and end are toggled on but is a different code path
 // in tracegen than with copy_size == 0.
 TEST_F(NestedCdConstrainingBuilderTest, SimpleNestedCdCopySizeOneNoPadding)
 {
@@ -153,7 +153,7 @@ TEST_F(NestedCdConstrainingBuilderTest, SimpleNestedCdCopySizeOneNoPadding)
     check_relation<data_copy>(trace);
     check_interaction<DataCopyTraceBuilder,
                       lookup_data_copy_offset_plus_size_is_gt_data_size_settings,
-                      lookup_data_copy_data_index_upper_bound_gt_offset_settings,
+                      lookup_data_copy_sel_has_reads_settings,
                       lookup_data_copy_check_src_addr_in_range_settings,
                       lookup_data_copy_check_dst_addr_in_range_settings>(trace);
 }
@@ -174,7 +174,7 @@ TEST_F(NestedCdConstrainingBuilderTest, SimpleNestedCdCopySizeOneWithPadding)
     check_relation<data_copy>(trace);
     check_interaction<DataCopyTraceBuilder,
                       lookup_data_copy_offset_plus_size_is_gt_data_size_settings,
-                      lookup_data_copy_data_index_upper_bound_gt_offset_settings,
+                      lookup_data_copy_sel_has_reads_settings,
                       lookup_data_copy_check_src_addr_in_range_settings,
                       lookup_data_copy_check_dst_addr_in_range_settings>(trace);
 }
@@ -182,13 +182,12 @@ TEST_F(NestedCdConstrainingBuilderTest, SimpleNestedCdCopySizeOneWithPadding)
 TEST_F(NestedCdConstrainingBuilderTest, NestedCdCopyPadded)
 {
     uint32_t cd_offset = 0;
+    uint32_t copy_size = 10; // Request more than available
 
-    std::vector<MemoryValue> result_cd = data;
-    ASSERT_LT(result_cd.size(), 10);                              // Ensure we have less than 10 elements  so we can pad
-    result_cd.resize(10, MemoryValue::from<FF>(0));               // Pad with zeros to 10 elements
-    uint32_t copy_size = static_cast<uint32_t>(result_cd.size()); // Request more than available
+    // effective_reads = min(0+10, 8) - 0 = 8 (clamped by src_data_size)
+    uint32_t effective_reads = static_cast<uint32_t>(data.size());
 
-    EXPECT_CALL(context, get_calldata(cd_offset, copy_size)).WillOnce(Return(result_cd));
+    EXPECT_CALL(context, get_calldata(cd_offset, effective_reads)).WillOnce(Return(data));
 
     copy_data.cd_copy(context, copy_size, cd_offset, dst_addr);
 
@@ -201,7 +200,7 @@ TEST_F(NestedCdConstrainingBuilderTest, NestedCdCopyPadded)
     check_relation<data_copy>(trace);
     check_interaction<DataCopyTraceBuilder,
                       lookup_data_copy_offset_plus_size_is_gt_data_size_settings,
-                      lookup_data_copy_data_index_upper_bound_gt_offset_settings,
+                      lookup_data_copy_sel_has_reads_settings,
                       lookup_data_copy_check_src_addr_in_range_settings,
                       lookup_data_copy_check_dst_addr_in_range_settings>(trace);
 }
@@ -227,7 +226,7 @@ TEST_F(NestedCdConstrainingBuilderTest, NestedCdCopyPartial)
     check_relation<data_copy>(trace);
     check_interaction<DataCopyTraceBuilder,
                       lookup_data_copy_offset_plus_size_is_gt_data_size_settings,
-                      lookup_data_copy_data_index_upper_bound_gt_offset_settings,
+                      lookup_data_copy_sel_has_reads_settings,
                       lookup_data_copy_check_src_addr_in_range_settings,
                       lookup_data_copy_check_dst_addr_in_range_settings>(trace);
 }
@@ -251,7 +250,7 @@ TEST_F(NestedCdConstrainingBuilderTest, ZeroCopySizeOffsetOOB)
     check_relation<data_copy>(trace);
     check_interaction<DataCopyTraceBuilder,
                       lookup_data_copy_offset_plus_size_is_gt_data_size_settings,
-                      lookup_data_copy_data_index_upper_bound_gt_offset_settings,
+                      lookup_data_copy_sel_has_reads_settings,
                       lookup_data_copy_check_src_addr_in_range_settings,
                       lookup_data_copy_check_dst_addr_in_range_settings>(trace);
 }
@@ -275,7 +274,7 @@ TEST_F(NestedCdConstrainingBuilderTest, NonZeroCopySizeOffsetOOB)
     check_relation<data_copy>(trace);
     check_interaction<DataCopyTraceBuilder,
                       lookup_data_copy_offset_plus_size_is_gt_data_size_settings,
-                      lookup_data_copy_data_index_upper_bound_gt_offset_settings,
+                      lookup_data_copy_sel_has_reads_settings,
                       lookup_data_copy_check_src_addr_in_range_settings,
                       lookup_data_copy_check_dst_addr_in_range_settings>(trace);
 }
@@ -287,7 +286,7 @@ TEST_F(NestedCdConstrainingBuilderTest, OutofRangeError)
 
     uint32_t big_dst_addr = AVM_HIGHEST_MEM_ADDRESS - 1;
     EXPECT_THROW_WITH_MESSAGE(copy_data.cd_copy(context, size, offset, big_dst_addr),
-                              "Attempting to access out of bounds memory");
+                              "Attempting to write out of bounds memory");
 
     DataCopyTraceBuilder builder;
     builder.process(event_emitter.dump_events(), trace);
@@ -298,7 +297,7 @@ TEST_F(NestedCdConstrainingBuilderTest, OutofRangeError)
     check_relation<data_copy>(trace);
     check_interaction<DataCopyTraceBuilder,
                       lookup_data_copy_offset_plus_size_is_gt_data_size_settings,
-                      lookup_data_copy_data_index_upper_bound_gt_offset_settings,
+                      lookup_data_copy_sel_has_reads_settings,
                       lookup_data_copy_check_src_addr_in_range_settings,
                       lookup_data_copy_check_dst_addr_in_range_settings>(trace);
 }
@@ -310,10 +309,11 @@ TEST_F(NestedCdConstrainingBuilderTest, HighestMemoryAddressesWithPadding)
 
     uint32_t high_dst_addr = AVM_HIGHEST_MEM_ADDRESS - size + 1;
 
-    std::vector<MemoryValue> result_cd(size, MemoryValue::from<FF>(0));
-    result_cd.at(0) = data.at(offset);
+    // effective_reads = clamped - offset = data.size() - offset = 1
+    uint32_t effective_reads = static_cast<uint32_t>(data.size()) - offset;
+    std::vector<MemoryValue> result_cd = { data.at(offset) };
 
-    EXPECT_CALL(context, get_calldata(offset, size)).WillOnce(Return(result_cd));
+    EXPECT_CALL(context, get_calldata(offset, effective_reads)).WillOnce(Return(result_cd));
 
     copy_data.cd_copy(context, size, offset, high_dst_addr);
 
@@ -326,7 +326,7 @@ TEST_F(NestedCdConstrainingBuilderTest, HighestMemoryAddressesWithPadding)
     check_relation<data_copy>(trace);
     check_interaction<DataCopyTraceBuilder,
                       lookup_data_copy_offset_plus_size_is_gt_data_size_settings,
-                      lookup_data_copy_data_index_upper_bound_gt_offset_settings,
+                      lookup_data_copy_sel_has_reads_settings,
                       lookup_data_copy_check_src_addr_in_range_settings,
                       lookup_data_copy_check_dst_addr_in_range_settings>(trace);
 }
@@ -352,7 +352,7 @@ TEST_F(NestedCdConstrainingBuilderTest, HighestMemoryAddressesNoPadding)
     check_relation<data_copy>(trace);
     check_interaction<DataCopyTraceBuilder,
                       lookup_data_copy_offset_plus_size_is_gt_data_size_settings,
-                      lookup_data_copy_data_index_upper_bound_gt_offset_settings,
+                      lookup_data_copy_sel_has_reads_settings,
                       lookup_data_copy_check_src_addr_in_range_settings,
                       lookup_data_copy_check_dst_addr_in_range_settings>(trace);
 }
@@ -377,10 +377,11 @@ TEST_F(HighCdAddressConstrainingBuilderTest, HighestMemoryAddressesWithPadding)
 
     uint32_t high_dst_addr = AVM_HIGHEST_MEM_ADDRESS - size + 1;
 
-    std::vector<MemoryValue> result_cd(size, MemoryValue::from<FF>(0));
-    result_cd.at(0) = data.at(offset);
+    // effective_reads = clamped - offset = data.size() - offset = 1
+    uint32_t effective_reads = static_cast<uint32_t>(data.size()) - offset;
+    std::vector<MemoryValue> result_cd = { data.at(offset) };
 
-    EXPECT_CALL(context, get_calldata(offset, size)).WillOnce(Return(result_cd));
+    EXPECT_CALL(context, get_calldata(offset, effective_reads)).WillOnce(Return(result_cd));
 
     copy_data.cd_copy(context, size, offset, high_dst_addr);
 
@@ -393,7 +394,7 @@ TEST_F(HighCdAddressConstrainingBuilderTest, HighestMemoryAddressesWithPadding)
     check_relation<data_copy>(trace);
     check_interaction<DataCopyTraceBuilder,
                       lookup_data_copy_offset_plus_size_is_gt_data_size_settings,
-                      lookup_data_copy_data_index_upper_bound_gt_offset_settings,
+                      lookup_data_copy_sel_has_reads_settings,
                       lookup_data_copy_check_src_addr_in_range_settings,
                       lookup_data_copy_check_dst_addr_in_range_settings>(trace);
 }
@@ -419,7 +420,143 @@ TEST_F(HighCdAddressConstrainingBuilderTest, HighestMemoryAddressesNoPadding)
     check_relation<data_copy>(trace);
     check_interaction<DataCopyTraceBuilder,
                       lookup_data_copy_offset_plus_size_is_gt_data_size_settings,
-                      lookup_data_copy_data_index_upper_bound_gt_offset_settings,
+                      lookup_data_copy_sel_has_reads_settings,
+                      lookup_data_copy_check_src_addr_in_range_settings,
+                      lookup_data_copy_check_dst_addr_in_range_settings>(trace);
+}
+
+// Test that src reads exceeding memory are clamped (not an error).
+class SrcExceedsMemConstrainingBuilderTest : public DataCopyConstrainingBuilderTest {
+  protected:
+    SrcExceedsMemConstrainingBuilderTest()
+    {
+        // Set up parent context with cd_addr near end of memory space.
+        // src_addr + src_data_size > AVM_MEMORY_SIZE, but dst writes are fine.
+        EXPECT_CALL(context, has_parent).WillRepeatedly(Return(true));
+        EXPECT_CALL(context, get_parent_id).WillRepeatedly(Return(1));
+        EXPECT_CALL(context, get_context_id).WillRepeatedly(Return(2));
+        EXPECT_CALL(context, get_parent_cd_size).WillRepeatedly(Return(src_data_size));
+        EXPECT_CALL(context, get_parent_cd_addr).WillRepeatedly(Return(src_addr));
+    }
+
+    // 3 slots fit in memory before AVM_MEMORY_SIZE, but parent claims 8.
+    uint32_t src_addr = AVM_HIGHEST_MEM_ADDRESS - 2;
+    uint32_t src_data_size = 8;
+};
+
+TEST_F(SrcExceedsMemConstrainingBuilderTest, SrcOutOfRangeClampedNotAnError)
+{
+    uint32_t offset = 0;
+    uint32_t size = 5;
+
+    // read_index_upper_bound = min(5, 8) = 5
+    // read_addr_upper_bound = (AVM_HIGHEST_MEM_ADDRESS - 2) + 5 > AVM_MEMORY_SIZE
+    // clamped = AVM_MEMORY_SIZE - src_addr = 3
+    // effective_reads = 3 - 0 = 3
+    uint32_t effective_reads = 3;
+    std::vector<MemoryValue> result_cd(data.begin(), data.begin() + effective_reads);
+
+    EXPECT_CALL(context, get_calldata(offset, effective_reads)).WillOnce(Return(result_cd));
+
+    // Should NOT throw — src out of range is handled by clamping.
+    copy_data.cd_copy(context, size, offset, dst_addr);
+
+    DataCopyTraceBuilder builder;
+    builder.process(event_emitter.dump_events(), trace);
+
+    tracegen::GreaterThanTraceBuilder gt_builder;
+    gt_builder.process(gt_event_emitter.dump_events(), trace);
+
+    check_relation<data_copy>(trace);
+    check_interaction<DataCopyTraceBuilder,
+                      lookup_data_copy_offset_plus_size_is_gt_data_size_settings,
+                      lookup_data_copy_sel_has_reads_settings,
+                      lookup_data_copy_check_src_addr_in_range_settings,
+                      lookup_data_copy_check_dst_addr_in_range_settings>(trace);
+}
+
+// Src out-of-range with non-zero offset: offset interacts correctly with clamping.
+TEST_F(SrcExceedsMemConstrainingBuilderTest, SrcOutOfRangeWithOffset)
+{
+    uint32_t offset = 1;
+    uint32_t size = 4;
+
+    // read_index_upper_bound = min(1+4, 8) = 5
+    // read_addr_upper_bound = (AVM_HIGHEST_MEM_ADDRESS - 2) + 5 > AVM_MEMORY_SIZE
+    // clamped = AVM_MEMORY_SIZE - src_addr = 3
+    // effective_reads = 3 - 1 = 2
+    uint32_t effective_reads = 2;
+    std::vector<MemoryValue> result_cd(data.begin() + offset, data.begin() + offset + effective_reads);
+
+    EXPECT_CALL(context, get_calldata(offset, effective_reads)).WillOnce(Return(result_cd));
+
+    copy_data.cd_copy(context, size, offset, dst_addr);
+
+    DataCopyTraceBuilder builder;
+    builder.process(event_emitter.dump_events(), trace);
+
+    tracegen::GreaterThanTraceBuilder gt_builder;
+    gt_builder.process(gt_event_emitter.dump_events(), trace);
+
+    check_relation<data_copy>(trace);
+    check_interaction<DataCopyTraceBuilder,
+                      lookup_data_copy_offset_plus_size_is_gt_data_size_settings,
+                      lookup_data_copy_sel_has_reads_settings,
+                      lookup_data_copy_check_src_addr_in_range_settings,
+                      lookup_data_copy_check_dst_addr_in_range_settings>(trace);
+}
+
+// Src out-of-range where clamped < offset: all rows are padding (sel_has_reads = 0).
+TEST_F(SrcExceedsMemConstrainingBuilderTest, SrcOutOfRangeClampedBelowOffset)
+{
+    uint32_t offset = 5;
+    uint32_t size = 3;
+
+    // read_index_upper_bound = min(5+3, 8) = 8
+    // read_addr_upper_bound = (AVM_HIGHEST_MEM_ADDRESS - 2) + 8 > AVM_MEMORY_SIZE
+    // clamped = AVM_MEMORY_SIZE - src_addr = 3
+    // clamped(3) < offset(5), so reads_left = 0, all padding
+
+    // No get_calldata call — all padding
+    copy_data.cd_copy(context, size, offset, dst_addr);
+
+    DataCopyTraceBuilder builder;
+    builder.process(event_emitter.dump_events(), trace);
+
+    tracegen::GreaterThanTraceBuilder gt_builder;
+    gt_builder.process(gt_event_emitter.dump_events(), trace);
+
+    check_relation<data_copy>(trace);
+    check_interaction<DataCopyTraceBuilder,
+                      lookup_data_copy_offset_plus_size_is_gt_data_size_settings,
+                      lookup_data_copy_sel_has_reads_settings,
+                      lookup_data_copy_check_src_addr_in_range_settings,
+                      lookup_data_copy_check_dst_addr_in_range_settings>(trace);
+}
+
+// Src out-of-range AND dst out-of-range simultaneously: should still error on dst.
+TEST_F(SrcExceedsMemConstrainingBuilderTest, SrcAndDstBothOutOfRange)
+{
+    uint32_t offset = 0;
+    uint32_t size = 4;
+    uint32_t big_dst_addr = AVM_HIGHEST_MEM_ADDRESS - 1;
+
+    // src_addr + min(4,8) = (AVM_HIGHEST_MEM_ADDRESS-2) + 4 > AVM_MEMORY_SIZE (src overflow)
+    // big_dst_addr + 4 > AVM_MEMORY_SIZE (dst overflow)
+    // Should throw on dst overflow.
+    EXPECT_THROW_WITH_MESSAGE(copy_data.cd_copy(context, size, offset, big_dst_addr),
+                              "Attempting to write out of bounds memory");
+
+    DataCopyTraceBuilder builder;
+    builder.process(event_emitter.dump_events(), trace);
+
+    tracegen::GreaterThanTraceBuilder gt_builder;
+    gt_builder.process(gt_event_emitter.dump_events(), trace);
+
+    check_relation<data_copy>(trace);
+    check_interaction<DataCopyTraceBuilder,
+                      lookup_data_copy_offset_plus_size_is_gt_data_size_settings,
+                      lookup_data_copy_sel_has_reads_settings,
                       lookup_data_copy_check_src_addr_in_range_settings,
                       lookup_data_copy_check_dst_addr_in_range_settings>(trace);
 }
@@ -488,12 +625,11 @@ TEST_F(EnqueuedCdConstrainingBuilderTest, SimpleEnqueuedCdCopy)
 TEST_F(EnqueuedCdConstrainingBuilderTest, EnqueuedCallCdCopyPadding)
 {
     uint32_t cd_offset = 0;
-    std::vector<MemoryValue> result_cd = data;
-    ASSERT_LT(result_cd.size(), 10);                          // Ensure we have less than 10 elements  so we can pad
-    result_cd.resize(10, MemoryValue::from<FF>(0));           // Pad with zeros to 10 elements
-    auto copy_size = static_cast<uint32_t>(result_cd.size()); // Request more than available
+    uint32_t copy_size = 10; // Request more than available
+    // effective_reads = min(0+10, 8) - 0 = 8
+    uint32_t effective_reads = static_cast<uint32_t>(data.size());
 
-    EXPECT_CALL(context, get_calldata(cd_offset, copy_size)).WillOnce(Return(result_cd));
+    EXPECT_CALL(context, get_calldata(cd_offset, effective_reads)).WillOnce(Return(data));
 
     copy_data.cd_copy(context, copy_size, cd_offset, dst_addr);
 
@@ -705,6 +841,49 @@ TEST_F(NestedRdConstrainingBuilderTest, RdZeroCopy)
     check_all_interactions<DataCopyTraceBuilder>(trace);
 }
 
+// Rd copy with src reads exceeding memory — clamped, not an error.
+class SrcExceedsMemRdConstrainingBuilderTest : public DataCopyConstrainingBuilderTest {
+  protected:
+    SrcExceedsMemRdConstrainingBuilderTest()
+    {
+        EXPECT_CALL(context, has_parent).WillRepeatedly(Return(true));
+        EXPECT_CALL(context, get_last_child_id).WillRepeatedly(Return(2));
+        EXPECT_CALL(context, get_context_id).WillRepeatedly(Return(2));
+        EXPECT_CALL(context, get_last_rd_size).WillRepeatedly(Return(rd_data_size));
+        EXPECT_CALL(context, get_last_rd_addr).WillRepeatedly(Return(rd_addr));
+    }
+
+    // 2 slots fit in memory before AVM_MEMORY_SIZE, but child claims 6.
+    uint32_t rd_addr = AVM_HIGHEST_MEM_ADDRESS - 1;
+    uint32_t rd_data_size = 6;
+};
+
+TEST_F(SrcExceedsMemRdConstrainingBuilderTest, SrcOutOfRangeClampedNotAnError)
+{
+    uint32_t offset = 0;
+    uint32_t size = 4;
+
+    // read_index_upper_bound = min(4, 6) = 4
+    // read_addr_upper_bound = (AVM_HIGHEST_MEM_ADDRESS - 1) + 4 > AVM_MEMORY_SIZE
+    // clamped = AVM_MEMORY_SIZE - rd_addr = 2
+    // effective_reads = 2 - 0 = 2
+    uint32_t effective_reads = 2;
+    std::vector<MemoryValue> result_rd(data.begin(), data.begin() + effective_reads);
+
+    EXPECT_CALL(context, get_returndata(offset, effective_reads)).WillOnce(Return(result_rd));
+
+    copy_data.rd_copy(context, size, offset, dst_addr);
+
+    DataCopyTraceBuilder builder;
+    builder.process(event_emitter.dump_events(), trace);
+
+    tracegen::GreaterThanTraceBuilder gt_builder;
+    gt_builder.process(gt_event_emitter.dump_events(), trace);
+
+    check_relation<data_copy>(trace);
+    check_all_interactions<DataCopyTraceBuilder>(trace);
+}
+
 TEST(DataCopyWithExecutionPerm, RdCopy)
 {
     // Current Context
@@ -817,7 +996,7 @@ TEST(DataCopyWithExecutionPerm, ErrorPropagation)
     });
 
     EXPECT_THROW_WITH_MESSAGE(copy_data.rd_copy(context, copy_size, rd_offset, big_dst_addr),
-                              "Attempting to access out of bounds memory");
+                              "Attempting to write out of bounds memory");
 
     DataCopyTraceBuilder builder;
     builder.process(event_emitter.dump_events(), trace);

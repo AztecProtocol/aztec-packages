@@ -1,5 +1,3 @@
-import { P2PClientType } from './client_type.js';
-
 /**
  * Creates the topic channel identifier string from a given topic type
  */
@@ -27,19 +25,14 @@ export enum TopicType {
   checkpoint_attestation = 'checkpoint_attestation',
 }
 
-export function getTopicTypeForClientType(clientType: P2PClientType) {
-  if (clientType === P2PClientType.Full) {
-    return [TopicType.tx, TopicType.block_proposal, TopicType.checkpoint_proposal, TopicType.checkpoint_attestation];
-  } else if (clientType === P2PClientType.Prover) {
-    return [TopicType.tx, TopicType.block_proposal, TopicType.checkpoint_proposal];
-  } else {
-    const _: never = clientType;
-    return [TopicType.tx];
-  }
-}
-
-export function getTopicsForClientAndConfig(clientType: P2PClientType, disableTransactions: boolean) {
-  const topics = getTopicTypeForClientType(clientType);
+/** Returns all gossip topics, optionally filtering out transactions. */
+export function getTopicsForConfig(disableTransactions: boolean) {
+  const topics = [
+    TopicType.tx,
+    TopicType.block_proposal,
+    TopicType.checkpoint_proposal,
+    TopicType.checkpoint_attestation,
+  ];
   if (disableTransactions) {
     return topics.filter(topic => topic !== TopicType.tx);
   }

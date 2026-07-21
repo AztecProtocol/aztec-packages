@@ -4,6 +4,7 @@
 #include <gtest/gtest.h>
 #include <iostream>
 
+#include "barretenberg/aztec/aztec_hash_policy.hpp"
 #include "barretenberg/crypto/poseidon2/poseidon2.hpp"
 #include "barretenberg/vm2/simulation/lib/merkle.hpp"
 #include "barretenberg/vm2/testing/macros.hpp"
@@ -82,8 +83,8 @@ struct UpdatableLeafValue {
     }
 };
 
-using Tree = IndexedMemoryTree<LeafValue, Poseidon2HashPolicy>;
-using UpdatableTree = IndexedMemoryTree<UpdatableLeafValue, Poseidon2HashPolicy>;
+using Tree = IndexedMemoryTree<LeafValue, aztec::NullifierMerkleHashPolicy>;
+using UpdatableTree = IndexedMemoryTree<UpdatableLeafValue, aztec::NullifierMerkleHashPolicy>;
 
 TEST(IndexedMemoryTree, Append)
 {
@@ -109,26 +110,28 @@ TEST(IndexedMemoryTree, Append)
     EXPECT_EQ(low_leaf_witness_data.leaf, padding_leaf);
 
     EXPECT_EQ(
-        unconstrained_root_from_path(Poseidon2::hash(padding_leaf.get_hash_inputs()), 0, low_leaf_witness_data.path),
+        unconstrained_root_from_path(
+            DOM_SEP__NULLIFIER_MERKLE, Poseidon2::hash(padding_leaf.get_hash_inputs()), 0, low_leaf_witness_data.path),
         prev_snapshot.root);
 
     // Reconstruct intermediate root:
     padding_leaf.nextIndex = 1;
     padding_leaf.nextKey = leaf.key;
 
-    auto intermediate_root =
-        unconstrained_root_from_path(Poseidon2::hash(padding_leaf.get_hash_inputs()), 0, low_leaf_witness_data.path);
+    auto intermediate_root = unconstrained_root_from_path(
+        DOM_SEP__NULLIFIER_MERKLE, Poseidon2::hash(padding_leaf.get_hash_inputs()), 0, low_leaf_witness_data.path);
 
     // Insertion leaf should be the new leaf
 
     // Membership check a zero at the insertion index
-    EXPECT_EQ(unconstrained_root_from_path(0, 1, insertion_witness_data.path), intermediate_root);
+    EXPECT_EQ(unconstrained_root_from_path(DOM_SEP__NULLIFIER_MERKLE, 0, 1, insertion_witness_data.path),
+              intermediate_root);
 
     IndexedLeaf<LeafValue> inserted_leaf(leaf, 0, 0);
     EXPECT_EQ(insertion_witness_data.leaf, inserted_leaf);
 
-    auto final_root =
-        unconstrained_root_from_path(Poseidon2::hash(inserted_leaf.get_hash_inputs()), 1, insertion_witness_data.path);
+    auto final_root = unconstrained_root_from_path(
+        DOM_SEP__NULLIFIER_MERKLE, Poseidon2::hash(inserted_leaf.get_hash_inputs()), 1, insertion_witness_data.path);
 
     EXPECT_EQ(snapshot_after.root, final_root);
     EXPECT_EQ(snapshot_after.next_available_leaf_index, 2);
@@ -158,14 +161,15 @@ TEST(IndexedMemoryTree, Update)
     EXPECT_EQ(low_leaf_witness_data.leaf, padding_leaf);
 
     EXPECT_EQ(
-        unconstrained_root_from_path(Poseidon2::hash(padding_leaf.get_hash_inputs()), 0, low_leaf_witness_data.path),
+        unconstrained_root_from_path(
+            DOM_SEP__NULLIFIER_MERKLE, Poseidon2::hash(padding_leaf.get_hash_inputs()), 0, low_leaf_witness_data.path),
         prev_snapshot.root);
 
     // Update padding leaf
     padding_leaf.leaf.value = leaf.value;
 
-    auto intermediate_root =
-        unconstrained_root_from_path(Poseidon2::hash(padding_leaf.get_hash_inputs()), 0, low_leaf_witness_data.path);
+    auto intermediate_root = unconstrained_root_from_path(
+        DOM_SEP__NULLIFIER_MERKLE, Poseidon2::hash(padding_leaf.get_hash_inputs()), 0, low_leaf_witness_data.path);
 
     // No insertion
     EXPECT_EQ(snapshot_after.root, intermediate_root);
@@ -207,8 +211,9 @@ TEST(IndexedMemoryTree, GetSiblingPath)
     auto path = tree.get_sibling_path(1);
 
     EXPECT_EQ(path.size(), 5);
-    EXPECT_EQ(unconstrained_root_from_path(Poseidon2::hash(leaf.get_hash_inputs(0, 0)), 1, path),
-              tree.get_snapshot().root);
+    EXPECT_EQ(
+        unconstrained_root_from_path(DOM_SEP__NULLIFIER_MERKLE, Poseidon2::hash(leaf.get_hash_inputs(0, 0)), 1, path),
+        tree.get_snapshot().root);
 }
 
 TEST(IndexedMemoryTree, Full)

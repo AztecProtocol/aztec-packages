@@ -1,24 +1,24 @@
 #include "barretenberg/vm2/simulation/gadgets/execution.hpp"
 
+#include <cstddef>
 #include <stdexcept>
-#include <string>
 #include <type_traits>
 
+#include "barretenberg/aztec/aztec_constants.hpp"
 #include "barretenberg/common/bb_bench.hpp"
 #include "barretenberg/common/log.hpp"
-#include "barretenberg/vm2/common/aztec_constants.hpp"
-#include "barretenberg/vm2/common/tagged_value.hpp"
 #include "barretenberg/vm2/common/to_radix.hpp"
 #include "barretenberg/vm2/common/uint1.hpp"
 #include "barretenberg/vm2/simulation/events/addressing_event.hpp"
 #include "barretenberg/vm2/simulation/events/data_copy_events.hpp"
 #include "barretenberg/vm2/simulation/events/ecc_events.hpp"
-#include "barretenberg/vm2/simulation/events/emit_unencrypted_log_event.hpp"
+#include "barretenberg/vm2/simulation/events/emit_public_log_event.hpp"
 #include "barretenberg/vm2/simulation/events/gas_event.hpp"
 #include "barretenberg/vm2/simulation/events/get_contract_instance_event.hpp"
 #include "barretenberg/vm2/simulation/events/keccakf1600_event.hpp"
 #include "barretenberg/vm2/simulation/events/poseidon2_event.hpp"
 #include "barretenberg/vm2/simulation/events/sha256_event.hpp"
+// Interface headers not included in execution.hpp because the types are forward-declared there.
 #include "barretenberg/vm2/simulation/interfaces/addressing.hpp"
 #include "barretenberg/vm2/simulation/interfaces/alu.hpp"
 #include "barretenberg/vm2/simulation/interfaces/bitwise.hpp"
@@ -26,9 +26,10 @@
 #include "barretenberg/vm2/simulation/interfaces/call_stack_metadata_collector.hpp"
 #include "barretenberg/vm2/simulation/interfaces/context_provider.hpp"
 #include "barretenberg/vm2/simulation/interfaces/data_copy.hpp"
+#include "barretenberg/vm2/simulation/interfaces/db.hpp"
 #include "barretenberg/vm2/simulation/interfaces/debug_log.hpp"
 #include "barretenberg/vm2/simulation/interfaces/ecc.hpp"
-#include "barretenberg/vm2/simulation/interfaces/emit_unencrypted_log.hpp"
+#include "barretenberg/vm2/simulation/interfaces/emit_public_log.hpp"
 #include "barretenberg/vm2/simulation/interfaces/execution_components.hpp"
 #include "barretenberg/vm2/simulation/interfaces/get_contract_instance.hpp"
 #include "barretenberg/vm2/simulation/interfaces/gt.hpp"
@@ -561,22 +562,22 @@ void Execution::mov(ContextInterface& context, MemoryAddress src_addr, MemoryAdd
  * @param l2_gas_offset The resolved address of the allocated L2 gas value.
  * @param da_gas_offset The resolved address of the allocated DA gas value.
  * @param addr The resolved address of the contract address.
- * @param cd_size_offset The resolved address of the calldata size value.
- * @param cd_offset The resolved address of the calldata offset value.
+ * @param args_size_offset The resolved address of the args size value.
+ * @param args_offset The resolved address of the args offset value.
  *
  * @throws RegisterValidationException if the tags of the input values do not match the expected tags:
  *        - l2_gas_offset memory value tag: U32
  *        - da_gas_offset memory value tag: U32
  *        - addr memory value tag: FF
- *        - cd_size_offset memory value tag: U32
+ *        - args_size_offset memory value tag: U32
  * @throws OutOfGasException if the gas limit is exceeded.
  */
 void Execution::call(ContextInterface& context,
                      MemoryAddress l2_gas_offset,
                      MemoryAddress da_gas_offset,
                      MemoryAddress addr,
-                     MemoryAddress cd_size_offset,
-                     MemoryAddress cd_offset)
+                     MemoryAddress args_size_offset,
+                     MemoryAddress args_offset)
 {
     BB_BENCH_NAME("Execution::call");
     constexpr auto opcode = ExecutionOpCode::CALL;
@@ -586,22 +587,22 @@ void Execution::call(ContextInterface& context,
     const auto& allocated_l2_gas_read = memory.get(l2_gas_offset);
     const auto& allocated_da_gas_read = memory.get(da_gas_offset);
     const auto& contract_address = memory.get(addr);
-    // Cd offset loads are deferred to calldatacopy
-    const auto& cd_size = memory.get(cd_size_offset);
+    // Args offset load is deferred to calldatacopy
+    const auto& args_size = memory.get(args_size_offset);
 
-    set_and_validate_inputs(opcode, { allocated_l2_gas_read, allocated_da_gas_read, contract_address, cd_size });
+    set_and_validate_inputs(opcode, { allocated_l2_gas_read, allocated_da_gas_read, contract_address, args_size });
 
     get_gas_tracker().consume_gas(); // Base gas.
     Gas gas_limit = get_gas_tracker().compute_gas_limit_for_call(
         Gas{ .l2_gas = allocated_l2_gas_read.as<uint32_t>(), .da_gas = allocated_da_gas_read.as<uint32_t>() });
 
-    // Tag check contract address + cd_size
+    // Tag check contract address + args_size
     auto nested_context = context_provider.make_nested_context(contract_address,
                                                                /*msg_sender=*/context.get_address(),
                                                                /*transaction_fee=*/context.get_transaction_fee(),
                                                                /*parent_context=*/context,
-                                                               /*cd_offset_address=*/cd_offset,
-                                                               /*cd_size=*/cd_size.as<uint32_t>(),
+                                                               /*cd_offset_address=*/args_offset,
+                                                               /*cd_size=*/args_size.as<uint32_t>(),
                                                                /*is_static=*/context.get_is_static(),
                                                                /*gas_limit=*/gas_limit,
                                                                /*phase=*/context.get_phase());
@@ -621,22 +622,22 @@ void Execution::call(ContextInterface& context,
  * @param l2_gas_offset The resolved address of the allocated L2 gas value.
  * @param da_gas_offset The resolved address of the allocated DA gas value.
  * @param addr The resolved address of the contract address.
- * @param cd_size_offset The resolved address of the calldata size value.
- * @param cd_offset The resolved address of the calldata offset value.
+ * @param args_size_offset The resolved address of the args size value.
+ * @param args_offset The resolved address of the args offset value.
  *
  * @throws RegisterValidationException if the tags of the input values do not match the expected tags:
  *        - l2_gas_offset memory value tag: U32
  *        - da_gas_offset memory value tag: U32
  *        - addr memory value tag: FF
- *        - cd_size_offset memory value tag: U32
+ *        - args_size_offset memory value tag: U32
  * @throws OutOfGasException if the gas limit is exceeded.
  */
 void Execution::static_call(ContextInterface& context,
                             MemoryAddress l2_gas_offset,
                             MemoryAddress da_gas_offset,
                             MemoryAddress addr,
-                            MemoryAddress cd_size_offset,
-                            MemoryAddress cd_offset)
+                            MemoryAddress args_size_offset,
+                            MemoryAddress args_offset)
 {
     BB_BENCH_NAME("Execution::static_call");
     constexpr auto opcode = ExecutionOpCode::STATICCALL;
@@ -646,22 +647,22 @@ void Execution::static_call(ContextInterface& context,
     const auto& allocated_l2_gas_read = memory.get(l2_gas_offset);
     const auto& allocated_da_gas_read = memory.get(da_gas_offset);
     const auto& contract_address = memory.get(addr);
-    // Cd offset loads are deferred to calldatacopy
-    const auto& cd_size = memory.get(cd_size_offset);
+    // Args offset load is deferred to calldatacopy
+    const auto& args_size = memory.get(args_size_offset);
 
-    set_and_validate_inputs(opcode, { allocated_l2_gas_read, allocated_da_gas_read, contract_address, cd_size });
+    set_and_validate_inputs(opcode, { allocated_l2_gas_read, allocated_da_gas_read, contract_address, args_size });
 
     get_gas_tracker().consume_gas(); // Base gas.
     Gas gas_limit = get_gas_tracker().compute_gas_limit_for_call(
         Gas{ .l2_gas = allocated_l2_gas_read.as<uint32_t>(), .da_gas = allocated_da_gas_read.as<uint32_t>() });
 
-    // Tag check contract address + cd_size
+    // Tag check contract address + args_size
     auto nested_context = context_provider.make_nested_context(contract_address,
                                                                /*msg_sender=*/context.get_address(),
                                                                /*transaction_fee=*/context.get_transaction_fee(),
                                                                /*parent_context=*/context,
-                                                               /*cd_offset_address=*/cd_offset,
-                                                               /*cd_size=*/cd_size.as<uint32_t>(),
+                                                               /*cd_offset_address=*/args_offset,
+                                                               /*cd_size=*/args_size.as<uint32_t>(),
                                                                /*is_static=*/true,
                                                                /*gas_limit=*/gas_limit,
                                                                /*phase=*/context.get_phase());
@@ -793,6 +794,7 @@ void Execution::ret(ContextInterface& context, MemoryAddress ret_size_offset, Me
                            .gas_used = context.get_gas_used(),
                            .success = true,
                            .halting_pc = context.get_pc(),
+                           .halting_mode = HaltingMode::RETURN,
                            .halting_message = std::nullopt });
 
     context.halt();
@@ -826,6 +828,7 @@ void Execution::revert(ContextInterface& context, MemoryAddress rev_size_offset,
                            .gas_used = context.get_gas_used(),
                            .success = false,
                            .halting_pc = context.get_pc(),
+                           .halting_mode = HaltingMode::REVERT,
                            .halting_message = "Assertion failed: " });
 
     context.halt();
@@ -1020,10 +1023,7 @@ void Execution::and_op(ContextInterface& context, MemoryAddress a_addr, MemoryAd
     const MemoryValue a = memory.get(a_addr);
     const MemoryValue b = memory.get(b_addr);
     set_and_validate_inputs(opcode, { a, b });
-
-    // Dynamic gas consumption for bitwise is dependent on the tag, FF tags are valid here but
-    // will result in an exception in the bitwise subtrace.
-    get_gas_tracker().consume_gas({ .l2_gas = get_tag_bytes(a.get_tag()), .da_gas = 0 });
+    get_gas_tracker().consume_gas();
 
     try {
         MemoryValue c = bitwise.and_op(a, b);
@@ -1057,10 +1057,7 @@ void Execution::or_op(ContextInterface& context, MemoryAddress a_addr, MemoryAdd
     const MemoryValue a = memory.get(a_addr);
     const MemoryValue b = memory.get(b_addr);
     set_and_validate_inputs(opcode, { a, b });
-
-    // Dynamic gas consumption for bitwise is dependent on the tag, FF tags are valid here but
-    // will result in an exception in the bitwise subtrace.
-    get_gas_tracker().consume_gas({ .l2_gas = get_tag_bytes(a.get_tag()), .da_gas = 0 });
+    get_gas_tracker().consume_gas();
 
     try {
         MemoryValue c = bitwise.or_op(a, b);
@@ -1092,10 +1089,7 @@ void Execution::xor_op(ContextInterface& context, MemoryAddress a_addr, MemoryAd
     const MemoryValue a = memory.get(a_addr);
     const MemoryValue b = memory.get(b_addr);
     set_and_validate_inputs(opcode, { a, b });
-
-    // Dynamic gas consumption for bitwise is dependent on the tag, FF tags are valid here but
-    // will result in an exception in the bitwise subtrace.
-    get_gas_tracker().consume_gas({ .l2_gas = get_tag_bytes(a.get_tag()), .da_gas = 0 });
+    get_gas_tracker().consume_gas();
 
     try {
         MemoryValue c = bitwise.xor_op(a, b);
@@ -1466,19 +1460,15 @@ void Execution::poseidon2_permutation(ContextInterface& context, MemoryAddress s
  * @param context The context.
  * @param p_x_addr The resolved address of the x coordinate of the first point.
  * @param p_y_addr The resolved address of the y coordinate of the first point.
- * @param p_inf_addr The resolved address of the infinity flag of the first point.
  * @param q_x_addr The resolved address of the x coordinate of the second point.
  * @param q_y_addr The resolved address of the y coordinate of the second point.
- * @param q_inf_addr The resolved address of the infinity flag of the second point.
  * @param dst_addr The resolved address of the destination memory address.
  *
  * @throws RegisterValidationException if the tags of the input values do not match the expected tags:
  *        - tag of the memory value at p_x_addr is not FF.
  *        - tag of the memory value at p_y_addr is not FF.
- *        - tag of the memory value at p_inf_addr is not U1.
  *        - tag of the memory value at q_x_addr is not FF.
  *        - tag of the memory value at q_y_addr is not FF.
- *        - tag of the memory value at q_inf_addr is not U1.
  * @throws OutOfGasException if the gas limit is exceeded.
  * @throws OpcodeExecutionException if the elliptic curve addition operation fails:
  *        - memory write out of bounds.
@@ -1487,10 +1477,8 @@ void Execution::poseidon2_permutation(ContextInterface& context, MemoryAddress s
 void Execution::ecc_add(ContextInterface& context,
                         MemoryAddress p_x_addr,
                         MemoryAddress p_y_addr,
-                        MemoryAddress p_inf_addr,
                         MemoryAddress q_x_addr,
                         MemoryAddress q_y_addr,
-                        MemoryAddress q_inf_addr,
                         MemoryAddress dst_addr)
 {
     BB_BENCH_NAME("Execution::ecc_add");
@@ -1500,19 +1488,17 @@ void Execution::ecc_add(ContextInterface& context,
     // Read the points from memory.
     const auto& p_x = memory.get(p_x_addr);
     const auto& p_y = memory.get(p_y_addr);
-    const auto& p_inf = memory.get(p_inf_addr);
 
     const auto& q_x = memory.get(q_x_addr);
     const auto& q_y = memory.get(q_y_addr);
-    const auto& q_inf = memory.get(q_inf_addr);
 
-    set_and_validate_inputs(opcode, { p_x, p_y, p_inf, q_x, q_y, q_inf });
+    set_and_validate_inputs(opcode, { p_x, p_y, q_x, q_y });
     get_gas_tracker().consume_gas();
 
     // Once inputs are tag checked the conversion to EmbeddedCurvePoint is safe, on curve checks are done in the add
     // method.
-    EmbeddedCurvePoint p = EmbeddedCurvePoint(p_x.as_ff(), p_y.as_ff(), p_inf == MemoryValue::from<uint1_t>(1));
-    EmbeddedCurvePoint q = EmbeddedCurvePoint(q_x.as_ff(), q_y.as_ff(), q_inf == MemoryValue::from<uint1_t>(1));
+    EmbeddedCurvePoint p = EmbeddedCurvePoint(p_x.as_ff(), p_y.as_ff());
+    EmbeddedCurvePoint q = EmbeddedCurvePoint(q_x.as_ff(), q_y.as_ff());
 
     try {
         embedded_curve.add(memory, p, q, dst_addr);
@@ -1605,7 +1591,7 @@ void Execution::to_radix_be(ContextInterface& context,
 }
 
 /**
- * @brief EMITUNENCRYPTEDLOG execution opcode handler: Emit an unencrypted log.
+ * @brief EMITPUBLICLOG execution opcode handler: Emit a public log.
  *
  * @param context The context.
  * @param log_size_offset The resolved address of the log size value.
@@ -1614,16 +1600,16 @@ void Execution::to_radix_be(ContextInterface& context,
  * @throws RegisterValidationException if the tags of the input values do not match the expected tags:
  *        - tag of the memory value at log_size_offset is not U32.
  * @throws OutOfGasException if the gas limit is exceeded.
- * @throws OpcodeExecutionException if the unencrypted log emission operation fails:
+ * @throws OpcodeExecutionException if the public log emission operation fails:
  *        - memory read out of bounds.
  *        - number of log fields exceeds the maximum allowed.
  *        - tags of the log memory values are not FF.
  *        - The current context is static.
  */
-void Execution::emit_unencrypted_log(ContextInterface& context, MemoryAddress log_size_offset, MemoryAddress log_offset)
+void Execution::emit_public_log(ContextInterface& context, MemoryAddress log_size_offset, MemoryAddress log_offset)
 {
-    BB_BENCH_NAME("Execution::emit_unencrypted_log");
-    constexpr auto opcode = ExecutionOpCode::EMITUNENCRYPTEDLOG;
+    BB_BENCH_NAME("Execution::emit_public_log");
+    constexpr auto opcode = ExecutionOpCode::EMITPUBLICLOG;
     auto& memory = context.get_memory();
 
     const auto& log_size = memory.get(log_size_offset);
@@ -1634,10 +1620,9 @@ void Execution::emit_unencrypted_log(ContextInterface& context, MemoryAddress lo
 
     // Call the dedicated opcode component to emit the log
     try {
-        emit_unencrypted_log_component.emit_unencrypted_log(
-            memory, context, context.get_address(), log_offset, log_size_int);
-    } catch (const EmitUnencryptedLogException& e) {
-        throw OpcodeExecutionException("EmitUnencryptedLog Exception: " + std::string(e.what()));
+        emit_public_log_component.emit_public_log(memory, context, context.get_address(), log_offset, log_size_int);
+    } catch (const EmitPublicLogException& e) {
+        throw OpcodeExecutionException("EmitPublicLog Exception: " + std::string(e.what()));
     }
 }
 
@@ -1850,9 +1835,11 @@ EnqueuedCallResult Execution::execute(std::unique_ptr<ContextInterface> enqueued
     }
 
     const ExecutionResult& result = get_execution_result();
-    return {
+    return EnqueuedCallResult{
         .success = result.success,
         .gas_used = result.gas_used,
+        .halting_mode = result.halting_mode,
+        .halting_message = result.halting_message,
     };
 }
 
@@ -1897,7 +1884,7 @@ void Execution::handle_enter_call(ContextInterface& parent_context, std::unique_
         .tree_states = merkle_db.get_tree_state(),
         .written_public_data_slots_tree_snapshot = parent_context.get_written_public_data_slots_tree_snapshot(),
         // Non-tree-tracked side effects
-        .numUnencryptedLogFields = side_effects.get_num_unencrypted_log_fields(),
+        .numPublicLogFields = side_effects.get_num_public_log_fields(),
         .numL2ToL1Messages = static_cast<uint32_t>(side_effects.l2_to_l1_messages.size()),
     });
 
@@ -1970,6 +1957,7 @@ void Execution::handle_exceptional_halt(ContextInterface& context, const std::st
         .gas_used = context.get_gas_used(),
         .success = false,
         .halting_pc = context.get_pc(),
+        .halting_mode = HaltingMode::EXCEPTIONAL_HALT,
         .halting_message = halting_message,
     });
 }
@@ -2119,8 +2107,8 @@ void Execution::dispatch_opcode(ExecutionOpCode opcode,
     case ExecutionOpCode::TORADIXBE:
         call_with_operands(&Execution::to_radix_be, context, resolved_operands);
         break;
-    case ExecutionOpCode::EMITUNENCRYPTEDLOG:
-        call_with_operands(&Execution::emit_unencrypted_log, context, resolved_operands);
+    case ExecutionOpCode::EMITPUBLICLOG:
+        call_with_operands(&Execution::emit_public_log, context, resolved_operands);
         break;
     case ExecutionOpCode::SENDL2TOL1MSG:
         call_with_operands(&Execution::send_l2_to_l1_msg, context, resolved_operands);

@@ -3,9 +3,10 @@ mod output_composition_tests;
 mod proof_and_vk_tests;
 
 use crate::private_kernel_inner::{self, PrivateKernelInnerCircuitPrivateInputs};
-use dep::types::{
+use protocol_test_utils::FixtureBuilder;
+use types::{
     abis::kernel_circuit_public_inputs::PrivateKernelCircuitPublicInputs,
-    constants::PRIVATE_KERNEL_INIT_VK_INDEX, tests::fixture_builder::FixtureBuilder,
+    constants::PRIVATE_KERNEL_INIT_VK_INDEX,
 };
 
 struct TestBuilder {

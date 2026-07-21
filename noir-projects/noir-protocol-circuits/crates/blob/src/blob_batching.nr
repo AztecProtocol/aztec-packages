@@ -4,13 +4,20 @@ use crate::{
         FinalBlobBatchingChallenges,
     },
     blob::barycentric_evaluate_blob_at_z,
+    compute_factor,
+    compute_fracs,
     utils::{compress_to_blob_commitment, validate_canonical_representation_if_infinity},
 };
 use bigcurve::BigCurve;
 use bignum::BLS12_381_Fr;
 use types::{
-    constants::FIELDS_PER_BLOB, hash::poseidon2_hash, traits::Empty, utils::arrays::subarray,
+    constants::{DOM_SEP__BLOB_CHALLENGE_Z, FIELDS_PER_BLOB},
+    hash::poseidon2_hash_with_separator,
+    traits::Empty,
+    utils::arrays::subarray,
 };
+
+// Note: fracs and factor are computed once in the checkpoint root rollup and shared across all blobs.
 
 // Evaluates a single blob:
 // - Evaluates the blob at shared challenge z and returns result y_i
@@ -19,15 +26,15 @@ fn evaluate_blob_for_batching(
     blob_as_fields: [Field; FIELDS_PER_BLOB],
     kzg_commitment: BatchingBlobCommitment,
     blob_fields_hash: Field,
-    challenge_z: Field,
+    fracs: [BLS12_381_Fr; FIELDS_PER_BLOB],
+    factor: BLS12_381_Fr,
 ) -> (Field, BLS12_381_Fr) {
-    let challenge_z_as_bignum = BLS12_381_Fr::from(challenge_z);
-
     // Note: this conversion is lossless: the size of a native BN Fr `Field` is 254 bits, whereas
     // the BLS_12_381_Fr scalar field is 255 bits.
+    // (AUDITTODO) Potential optimization: can we batch the conversion of the blob fields to BLS12_381_Fr?
     let blob = blob_as_fields.map(|b| BLS12_381_Fr::from(b));
 
-    let y_i = barycentric_evaluate_blob_at_z(challenge_z_as_bignum, blob);
+    let y_i = barycentric_evaluate_blob_at_z(blob, fracs, factor);
     let z_i = compute_blob_challenge(blob_fields_hash, kzg_commitment);
 
     (z_i, y_i)
@@ -41,7 +48,7 @@ fn compute_blob_challenge(
 ) -> Field {
     let compressed_fields = kzg_commitment.to_compressed_fields();
     let preimage = [blob_fields_hash, compressed_fields[0], compressed_fields[1]];
-    let challenge = poseidon2_hash(preimage);
+    let challenge = poseidon2_hash_with_separator(preimage, DOM_SEP__BLOB_CHALLENGE_Z);
     challenge
 }
 
@@ -49,6 +56,9 @@ fn compute_blob_challenge(
 /// - Compresses each of the blob's injected commitments.
 /// - Evaluates each blob individually to find its challenge `z_i` and evaluation `y_i`.
 /// - Updates the batched blob accumulator.
+///
+/// Note: `fracs` and `factor` are computed once in the checkpoint root rollup from the shared
+/// challenge `z` and are reused for all blob evaluations.
 pub fn evaluate_blobs_and_batch<let NumBlobs: u32>(
     blobs_as_fields: [Field; FIELDS_PER_BLOB * NumBlobs],
     num_fields: u32,
@@ -56,6 +66,7 @@ pub fn evaluate_blobs_and_batch<let NumBlobs: u32>(
     kzg_commitments_points: [BLSPoint; NumBlobs],
     final_blob_challenges: FinalBlobBatchingChallenges,
     start_accumulator: BlobAccumulator,
+    challenge_z: BLS12_381_Fr,
 ) -> BlobAccumulator {
     // The rationale behind this line is that the start accumulator is hinted, and in merge we just assert that left.end.eq(right.start)
     // And on root we check that left.start.eq(empty()).
@@ -65,6 +76,8 @@ pub fn evaluate_blobs_and_batch<let NumBlobs: u32>(
     // but as good measure we'll validate that it's canonical here.
     // Also, the Root Rollup circuit technically validates that the start accumulator of the checkpoint is Empty,
     // and the Empty impl uses the canonical representation of infinity.
+    let fracs = compute_fracs(challenge_z);
+    let factor = compute_factor(challenge_z);
     validate_canonical_representation_if_infinity(start_accumulator.c_acc);
 
     let mut end_accumulator = start_accumulator;
@@ -73,19 +86,15 @@ pub fn evaluate_blobs_and_batch<let NumBlobs: u32>(
         let commitment_point = kzg_commitments_points[i];
         // We need to validate that the point is on the curve and canonical (0,0 if infinity), since it's hinted in this verification scheme
         commitment_point.validate_on_curve();
-        // Strangely, `validate_on_curve` doesn't validate the point at infinity, so we check that here:
-        validate_canonical_representation_if_infinity(commitment_point);
+        // `validate_on_curve` doesn't validate the point at infinity, but `compress_to_blob_commitment`
+        // asserts the canonical (0,0) infinity encoding internally, so the hinted point is fully validated.
         let c_i = compress_to_blob_commitment(commitment_point);
 
         // Note that with multiple blobs per block, each blob uses the same blob_fields_hash in z_i.
         // This is ok, because each commitment is unique to the blob, and we need `blob_fields_hash` to encompass all
         // fields in the blob, which it does.
-        let (z_i, y_i) = evaluate_blob_for_batching(
-            single_blob_fields,
-            c_i,
-            blob_fields_hash,
-            final_blob_challenges.z,
-        );
+        let (z_i, y_i) =
+            evaluate_blob_for_batching(single_blob_fields, c_i, blob_fields_hash, fracs, factor);
 
         // Accumulate ceil(num_fields / FIELDS_PER_BLOB) blobs.
         //
@@ -133,15 +142,11 @@ mod tests {
     use bigcurve::{BigCurve, curves::bls12_381::BLS12_381 as BLSPoint};
     use bignum::{BigNum, BLS12_381_Fr};
     use bignum::fields::bls12_381Fq::BLS12_381_Fq;
-    use types::{
-        constants::FIELDS_PER_BLOB,
-        hash::sha256_to_field,
-        tests::utils::{pad_end, pad_end_with},
-        traits::Empty,
-    };
+    use protocol_test_utils::{pad_end, pad_end_with};
+    use types::{constants::FIELDS_PER_BLOB, hash::sha256_to_field, traits::Empty};
 
     #[test]
-    unconstrained fn test_1_blob_batched() {
+    fn test_1_blob_batched() {
         // We evaluate 1 blob of 400 items using the batch methods.
         // This ensures a block with a single blob will work:
         let num_fields = 400;
@@ -165,11 +170,11 @@ mod tests {
             0x3faea573187a84ffda9855c15596b8,
             0x1962ca,
         ];
-        let z_blob_400_from_ts = 0x2386cdc1cd34e082e14fa1410694c58b99c7c9b93b8effd9ae3a6b2d819854f7;
+        let z_blob_400_from_ts = 0x0385a84e8d5e59bde136bb296dbda99180c409974a07b2d7084d9c4e3b06dc69;
         let gamma_limbs_blob_400_from_ts =
-            [0x0f8e4bdfc88b8bad985c43ef399030, 0xa6111cf46305c115d0c5d3ac38c51a, 0x262d];
+            [0xe2d69fdf2deace017adcce741873ca, 0x11e4e4c9035c35acd8ea601d46f020, 0x08e5];
         let y_limbs_blob_400_from_ts =
-            [0xfc33eee32e4cfe0cb39ef7578a85c6, 0x2c004486b1796de6f1403c71acdba4, 0x2784];
+            [0xf63403f694f4e5f9341d1fc274a09c, 0x5c5064c1c1115988f901a3928433a4, 0x4ce5];
 
         let kzg_commitment = BatchingBlobCommitment::from_limbs(
             kzg_commitment_x_limbs_blob_400_from_ts,
@@ -184,6 +189,8 @@ mod tests {
             gamma: BLS12_381_Fr::from_limbs(gamma_limbs_blob_400_from_ts),
         };
 
+        let challenge_z = BLS12_381_Fr::from(final_challenges.z);
+
         // Evaluation: Can evaluate up to 3 blobs, but only 1 is needed and will be accumulated.
         let res = evaluate_blobs_and_batch::<3>(
             pad_end(blob_fields),
@@ -192,6 +199,7 @@ mod tests {
             pad_end_with([kzg_commitment], BLSPoint::point_at_infinity()),
             final_challenges,
             BlobAccumulator::empty(),
+            challenge_z,
         );
 
         validate_final_blob_batching_challenges(res, final_challenges);
@@ -264,22 +272,22 @@ mod tests {
             0x59dcc1d2a509604b557950b349a9f5,
             0x0c6b4d,
         ];
-        let z_3_blobs_from_ts = 0x1d6f81c9ee5724f7e9d8eea03ba0c9e29e53913151a395a301e17b0901bfa68e;
+        let z_3_blobs_from_ts = 0x1f4a21e3a1ab23739c164d0df1596c870180aab5f810c548097dd6371ac3186d;
         let gamma_limbs_3_blobs_from_ts =
-            [0xcaac06f034aff18046f72a833b5e56, 0x14d28092a1b7b9b3a7f541251733c2, 0x1863];
+            [0xf8b8cfdf51c20cc6ffc9820eb0d204, 0x36482d033a8c01a3089bba6714ca12, 0x14e8];
         let y_limbs_3_blobs_from_ts =
-            [0xdd96a38e51f8550be2a4c5ad587664, 0xa65e19e250e80342e1b1c9ea3a5a7e, 0x0338];
+            [0x2efdd5c643e35c174ad283728606d0, 0xec1be7b72f4d498565159353969b29, 0x6632];
         let batched_c_x_limbs_3_blobs_from_ts = [
-            0xba3b9220d2b505a37963a53b388fbb,
-            0x105b5d6a410c8e44a923538967bcf8,
-            0x415f4e2efbad9d9a9f461bddcc5863,
-            0x11c03e,
+            0x5101f24f9f437af987af28c702c041,
+            0x468ab01b44deaac4082cace7b65ced,
+            0x78ee78fa48e49ce445e26440d58e49,
+            0x0d9f26,
         ];
         let batched_c_y_limbs_3_blobs_from_ts = [
-            0x2f053c58fd82b21f0203ed94078699,
-            0x8c9d5eeaf252eed94085bd7897c3c2,
-            0x91605fcb7bb8f16d6f01a33c0fc9d4,
-            0x0c1b2f,
+            0x4f9c2645c3b2236aeffb03a639a0ee,
+            0x3697b5fc6b7a457acc63250b8a0737,
+            0x2b3bdc8e5c90079309b3b3c8370bc7,
+            0x16ed67,
         ];
         let blob_commitments_hash_3_blobs_from_ts =
             0x00993920f366febbb5cd05c6436eda28a447447f58a1b7d713c21423790c395b;
@@ -310,6 +318,9 @@ mod tests {
             // - The final gamma value is injected and checked for correctness in root (see below final_acc)
             gamma: BLS12_381_Fr::from_limbs(gamma_limbs_3_blobs_from_ts),
         };
+
+        let challenge_z = BLS12_381_Fr::from(final_challenges.z);
+
         // Init. the accumulator
         let start_acc = BlobAccumulator::empty();
         // Evaluate all blobs and iteratively accumulate the results
@@ -320,6 +331,7 @@ mod tests {
             kzg_commitments_in,
             final_challenges,
             start_acc,
+            challenge_z,
         );
 
         validate_final_blob_batching_challenges(output, final_challenges);
@@ -347,50 +359,63 @@ mod tests {
     }
 
     #[test]
-    unconstrained fn test_empty_blob() {
+    fn test_empty_blob() {
         let blob = [0; FIELDS_PER_BLOB];
+        let final_challenges = FinalBlobBatchingChallenges::empty();
+
+        let challenge_z = BLS12_381_Fr::from(final_challenges.z);
+
         // The below should not throw
         let _ = evaluate_blobs_and_batch(
             blob,
             0, // num_fields
             123, // Arbitrary blob fields hash.
             [BLSPoint::point_at_infinity()],
-            FinalBlobBatchingChallenges::empty(),
+            final_challenges,
             BlobAccumulator::empty(),
+            challenge_z,
         );
     }
 
     #[test(should_fail_with = "Non canonical x coordinate at infinity")]
-    unconstrained fn test_non_canonical_point_at_infinity_fails() {
-        let mut blob = [0; FIELDS_PER_BLOB];
+    fn test_non_canonical_point_at_infinity_fails() {
+        let blob = [0; FIELDS_PER_BLOB];
         let point = BLSPoint { x: BLS12_381_Fq::one(), y: BLS12_381_Fq::zero(), is_infinity: true };
+        let final_challenges = FinalBlobBatchingChallenges::empty();
+
+        let challenge_z = BLS12_381_Fr::from(final_challenges.z);
 
         let _ = evaluate_blobs_and_batch(
             blob,
             FIELDS_PER_BLOB,
             123, // Arbitrary blob fields hash.
             [point],
-            FinalBlobBatchingChallenges::empty(),
+            final_challenges,
             BlobAccumulator::empty(),
+            challenge_z,
         );
     }
 
     #[test(should_fail)]
-    unconstrained fn test_point_not_on_curve_fails() {
-        let mut blob = [0; FIELDS_PER_BLOB];
+    fn test_point_not_on_curve_fails() {
+        let blob = [0; FIELDS_PER_BLOB];
         let point = BLSPoint {
             x: BLS12_381_Fq::from_limbs([0, 0, 0, 42]),
             y: BLS12_381_Fq::from_limbs([0, 0, 0, 27]),
             is_infinity: false,
         };
+        let final_challenges = FinalBlobBatchingChallenges::empty();
+
+        let challenge_z = BLS12_381_Fr::from(final_challenges.z);
 
         let _ = evaluate_blobs_and_batch(
             blob,
             FIELDS_PER_BLOB,
             123, // Arbitrary blob fields hash.
             [point],
-            FinalBlobBatchingChallenges::empty(),
+            final_challenges,
             BlobAccumulator::empty(),
+            challenge_z,
         );
     }
 

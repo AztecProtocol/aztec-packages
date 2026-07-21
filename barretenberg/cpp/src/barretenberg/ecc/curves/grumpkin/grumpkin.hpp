@@ -1,5 +1,5 @@
 // === AUDIT STATUS ===
-// internal:    { status: Planned, auditors: [], commit: }
+// internal:    { status: Completed, auditors: [Federico], commit: 158dd845c99f8f702979c20f1625730d126c4b20}
 // external_1:  { status: not started, auditors: [], commit: }
 // external_2:  { status: not started, auditors: [], commit: }
 // =====================
@@ -12,7 +12,10 @@
 
 namespace bb::grumpkin {
 
+// Max num bits such that all numbers represented by that many bits are smaller than fr::modulus
 constexpr size_t MAX_NO_WRAP_INTEGER_BIT_LENGTH = 252;
+static_assert((uint256_t(1) << (MAX_NO_WRAP_INTEGER_BIT_LENGTH + 1)) - 1 < fr::modulus,
+              "MAX_NO_WRAP_INTEGER_BIT_LENGTH is too large");
 
 using fq = bb::fr;
 using fr = bb::fq;
@@ -20,9 +23,7 @@ using fr = bb::fq;
 struct G1Params {
     static constexpr bool USE_ENDOMORPHISM = true;
     static constexpr bool can_hash_to_curve = true;
-    static constexpr bool small_elements = true;
     static constexpr bool has_a = false;
-// have checked in grumpkin.test_b that b is Montgomery form of -17
 #if defined(__SIZEOF_INT128__) && !defined(__wasm__)
     static constexpr bb::fr b{ 0xdd7056026000005a, 0x223fa97acb319311, 0xcc388229877910c0, 0x34394632b724eaa };
 #else
@@ -30,7 +31,7 @@ struct G1Params {
 #endif
     static constexpr bb::fr a{ 0UL, 0UL, 0UL, 0UL };
 
-    // generator point = (x, y) = (1, sqrt(-16)), sqrt(-16) = 4i
+    // generator point = (x, y) = (1, sqrt(-16)) = (1, -4i)
     static constexpr bb::fr one_x = bb::fr::one();
 #if defined(__SIZEOF_INT128__) && !defined(__wasm__)
     static constexpr bb::fr one_y{
@@ -63,14 +64,13 @@ class Grumpkin {
     using AffineElement = typename Group::affine_element;
 
     static constexpr const char* name = "Grumpkin";
-    // TODO(#673): This flag is temporary. It is needed in the verifier classes (GeminiVerifier, etc.) while these
-    // classes are instantiated with "native" curve types. Eventually, the verifier classes will be instantiated only
-    // with stdlib types, and "native" verification will be acheived via a simulated builder.
     static constexpr bool is_stdlib_type = false;
 
     // Required by SmallSubgroupIPA argument. This constant needs to divide the size of the multiplicative subgroup of
-    // the ScalarField and satisfy SUBGROUP_SIZE > CONST_PROOF_SIZE_LOG_N * 3, since in every round of Sumcheck, the
-    // prover sends 3 elements to the verifier.
+    // the ScalarField and accommodate the concatenated Libra polynomial:
+    // SUBGROUP_SIZE > CONST_ECCVM_LOG_N * LIBRA_UNIVARIATES_LENGTH + 1 = 15 * 4 + 1 = 61. The committed sumcheck over
+    // Grumpkin only runs at the fixed size CONST_ECCVM_LOG_N = 15; reusing it with d rounds requires
+    // d * LIBRA_UNIVARIATES_LENGTH + 1 < SUBGROUP_SIZE (guarded at runtime in SmallSubgroupIPA).
     static constexpr size_t SUBGROUP_SIZE = 87;
     // The generator below was derived by factoring r - 1 into primes, where r is the modulus of the Grumkin scalar
     // field. A random field element was sampled and raised to the power (r - 1) / (3 * 29). We verified that the
@@ -80,9 +80,10 @@ class Grumpkin {
         ScalarField(uint256_t("0x147c647c09fb639514909e9f0513f31ec1a523bf8a0880bc7c24fbc962a9586b"));
     static constexpr ScalarField subgroup_generator_inverse =
         ScalarField("0x0c68e27477b5e78cfab790bd3b59806fa871771f71ec7452cde5384f6e3a1988");
-    // The length of the polynomials used to mask the Sumcheck Round Univariates. In the ECCVM Sumcheck, the prover only
-    // sends 3 elements in every round - a commitment to the round univariate and its evaluations at 0 and 1. Therefore,
-    // length 3 is sufficient.
-    static constexpr uint32_t LIBRA_UNIVARIATES_LENGTH = 3;
+    // The length of the polynomials used to mask the Sumcheck Round Univariates in the committed (ECCVM) sumcheck.
+    // Per round, the verifier's view exposes three Libra-sensitive functionals of the round univariate U_i — the
+    // evaluation U_i(0), the chained target T_{i+1} = U_i(u_i), and the non-hiding commitment [U_i] — and the pair-sum
+    // bookkeeping U_i(0) + U_i(1) = T_i consumes one Libra coefficient, so the required length is 4.
+    static constexpr uint32_t LIBRA_UNIVARIATES_LENGTH = 4;
 };
 } // namespace bb::curve

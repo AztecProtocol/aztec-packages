@@ -1,22 +1,21 @@
 use crate::{
     context::{inputs::PrivateContextInputs, NoteExistenceRequest, NullifierExistenceRequest, ReturnsHash},
     hash::{hash_args, hash_calldata_array},
-    keys::constants::{NULLIFIER_INDEX, NUM_KEY_TYPES, OUTGOING_INDEX, sk_generators},
+    keys::constants::{NULLIFIER_INDEX, NUM_KEY_TYPES, OUTGOING_INDEX, public_key_domain_separators},
     messaging::process_l1_to_l2_message,
     oracle::{
         block_header::get_block_header_at,
         call_private_function::call_private_function_internal,
-        enqueue_public_function_call::{
-            is_side_effect_counter_revertible_oracle_wrapper, notify_enqueued_public_function_call,
-            notify_set_min_revertible_side_effect_counter, notify_set_public_teardown_function_call,
-        },
         execution_cache,
         key_validation_request::get_key_validation_request,
         logs::notify_created_contract_class_log,
         notes::notify_nullified_note,
         nullifiers::notify_created_nullifier,
+        public_call::assert_valid_public_call_data,
+        tx_phase::{is_execution_in_revertible_phase, notify_revertible_phase_start},
     },
 };
+use crate::logging::aztecnr_trace_log_format;
 use crate::protocol::{
     abis::{
         block_header::BlockHeader,
@@ -30,20 +29,20 @@ use crate::protocol::{
         private_circuit_public_inputs::PrivateCircuitPublicInputs,
         private_log::{PrivateLog, PrivateLogData},
         public_call_request::PublicCallRequest,
-        validation_requests::{KeyValidationRequest, KeyValidationRequestAndGenerator},
+        validation_requests::{KeyValidationRequest, KeyValidationRequestAndSeparator},
     },
     address::{AztecAddress, EthAddress},
     constants::{
         CONTRACT_CLASS_LOG_SIZE_IN_FIELDS, MAX_CONTRACT_CLASS_LOGS_PER_CALL, MAX_ENQUEUED_CALLS_PER_CALL,
-        MAX_INCLUDE_BY_TIMESTAMP_DURATION, MAX_KEY_VALIDATION_REQUESTS_PER_CALL, MAX_L2_TO_L1_MSGS_PER_CALL,
-        MAX_NOTE_HASH_READ_REQUESTS_PER_CALL, MAX_NOTE_HASHES_PER_CALL, MAX_NULLIFIER_READ_REQUESTS_PER_CALL,
-        MAX_NULLIFIERS_PER_CALL, MAX_PRIVATE_CALL_STACK_LENGTH_PER_CALL, MAX_PRIVATE_LOGS_PER_CALL,
-        NULL_MSG_SENDER_CONTRACT_ADDRESS, PRIVATE_LOG_SIZE_IN_FIELDS,
+        MAX_KEY_VALIDATION_REQUESTS_PER_CALL, MAX_L2_TO_L1_MSGS_PER_CALL, MAX_NOTE_HASH_READ_REQUESTS_PER_CALL,
+        MAX_NOTE_HASHES_PER_CALL, MAX_NULLIFIER_READ_REQUESTS_PER_CALL, MAX_NULLIFIERS_PER_CALL,
+        MAX_PRIVATE_CALL_STACK_LENGTH_PER_CALL, MAX_PRIVATE_LOGS_PER_CALL, MAX_TX_LIFETIME,
+        NULL_MSG_SENDER_CONTRACT_ADDRESS, PRIVATE_LOG_CIPHERTEXT_LEN,
     },
-    hash::poseidon2_hash,
+    hash::compute_contract_class_log_hash,
     messaging::l2_to_l1_message::L2ToL1Message,
     side_effect::{Counted, scoped::Scoped},
-    traits::{Empty, Hash, ToField},
+    traits::{Empty, ToField},
     utils::arrays::{ClaimedLengthArray, trimmed_array_length_hint},
 };
 
@@ -139,49 +138,47 @@ use crate::protocol::{
 #[derive(Eq)]
 pub struct PrivateContext {
     // docs:start:private-context
-    pub inputs: PrivateContextInputs,
-    pub side_effect_counter: u32,
+    inputs: PrivateContextInputs,
+    side_effect_counter: u32,
 
-    pub min_revertible_side_effect_counter: u32,
-    pub is_fee_payer: bool,
+    min_revertible_side_effect_counter: u32,
+    is_fee_payer: bool,
 
-    pub args_hash: Field,
-    pub return_hash: Field,
+    args_hash: Field,
+    return_hash: Field,
 
-    pub include_by_timestamp: u64,
+    pub(crate) expiration_timestamp: u64,
 
     pub(crate) note_hash_read_requests: BoundedVec<Scoped<Counted<Field>>, MAX_NOTE_HASH_READ_REQUESTS_PER_CALL>,
     pub(crate) nullifier_read_requests: BoundedVec<Scoped<Counted<Field>>, MAX_NULLIFIER_READ_REQUESTS_PER_CALL>,
-    key_validation_requests_and_generators: BoundedVec<KeyValidationRequestAndGenerator, MAX_KEY_VALIDATION_REQUESTS_PER_CALL>,
+    key_validation_requests_and_separators: BoundedVec<KeyValidationRequestAndSeparator, MAX_KEY_VALIDATION_REQUESTS_PER_CALL>,
 
-    pub note_hashes: BoundedVec<Counted<NoteHash>, MAX_NOTE_HASHES_PER_CALL>,
-    pub nullifiers: BoundedVec<Counted<Nullifier>, MAX_NULLIFIERS_PER_CALL>,
+    pub(crate) note_hashes: BoundedVec<Counted<NoteHash>, MAX_NOTE_HASHES_PER_CALL>,
+    pub(crate) nullifiers: BoundedVec<Counted<Nullifier>, MAX_NULLIFIERS_PER_CALL>,
 
-    pub private_call_requests: BoundedVec<PrivateCallRequest, MAX_PRIVATE_CALL_STACK_LENGTH_PER_CALL>,
-    pub public_call_requests: BoundedVec<Counted<PublicCallRequest>, MAX_ENQUEUED_CALLS_PER_CALL>,
-    pub public_teardown_call_request: PublicCallRequest,
-    pub l2_to_l1_msgs: BoundedVec<Counted<L2ToL1Message>, MAX_L2_TO_L1_MSGS_PER_CALL>,
+    pub(crate) private_call_requests: BoundedVec<PrivateCallRequest, MAX_PRIVATE_CALL_STACK_LENGTH_PER_CALL>,
+    public_call_requests: BoundedVec<Counted<PublicCallRequest>, MAX_ENQUEUED_CALLS_PER_CALL>,
+    public_teardown_call_request: PublicCallRequest,
+    l2_to_l1_msgs: BoundedVec<Counted<L2ToL1Message>, MAX_L2_TO_L1_MSGS_PER_CALL>,
     // docs:end:private-context
 
     // Header of a block whose state is used during private execution (not the block the transaction is included in).
-    pub anchor_block_header: BlockHeader,
+    pub(crate) anchor_block_header: BlockHeader,
 
-    pub private_logs: BoundedVec<Counted<PrivateLogData>, MAX_PRIVATE_LOGS_PER_CALL>,
-    pub contract_class_logs_hashes: BoundedVec<Counted<LogHash>, MAX_CONTRACT_CLASS_LOGS_PER_CALL>,
+    private_logs: BoundedVec<Counted<PrivateLogData>, MAX_PRIVATE_LOGS_PER_CALL>,
+    contract_class_logs_hashes: BoundedVec<Counted<LogHash>, MAX_CONTRACT_CLASS_LOGS_PER_CALL>,
 
     // Contains the last key validation request for each key type. This is used to cache the last request and avoid
     // fetching the same request multiple times. The index of the array corresponds to the key type (0 nullifier, 1
     // incoming, 2 outgoing, 3 tagging).
-    pub last_key_validation_requests: [Option<KeyValidationRequest>; NUM_KEY_TYPES],
+    last_key_validation_requests: [Option<KeyValidationRequest>; NUM_KEY_TYPES],
 
-    pub expected_non_revertible_side_effect_counter: u32,
-    pub expected_revertible_side_effect_counter: u32,
+    expected_non_revertible_side_effect_counter: u32,
+    expected_revertible_side_effect_counter: u32,
 }
 
 impl PrivateContext {
     pub fn new(inputs: PrivateContextInputs, args_hash: Field) -> PrivateContext {
-        let max_allowed_include_by_timestamp =
-            inputs.anchor_block_header.global_variables.timestamp + MAX_INCLUDE_BY_TIMESTAMP_DURATION;
         PrivateContext {
             inputs,
             side_effect_counter: inputs.start_side_effect_counter + 1,
@@ -189,10 +186,10 @@ impl PrivateContext {
             is_fee_payer: false,
             args_hash,
             return_hash: 0,
-            include_by_timestamp: max_allowed_include_by_timestamp,
+            expiration_timestamp: inputs.anchor_block_header.timestamp() + MAX_TX_LIFETIME,
             note_hash_read_requests: BoundedVec::new(),
             nullifier_read_requests: BoundedVec::new(),
-            key_validation_requests_and_generators: BoundedVec::new(),
+            key_validation_requests_and_separators: BoundedVec::new(),
             note_hashes: BoundedVec::new(),
             nullifiers: BoundedVec::new(),
             anchor_block_header: inputs.anchor_block_header,
@@ -306,6 +303,19 @@ impl PrivateContext {
         self.inputs.call_context.function_selector
     }
 
+    /// Returns whether this call is being executed as part of a static call.
+    ///
+    /// Similar to Solidity's `STATICCALL`, a static call is read-only: neither this function nor any of its nested
+    /// calls may emit side-effects (new notes, nullifiers, logs, L2->L1 messages, etc.). A call is considered static
+    /// if it was invoked as a static call or if any of its ancestor calls were.
+    ///
+    /// # Returns
+    /// * `bool` - `true` if this call (or an ancestor call) is a static call.
+    ///
+    pub fn is_static_call(self) -> bool {
+        self.inputs.call_context.is_static_call
+    }
+
     /// Returns the hash of the arguments passed to the current function.
     ///
     /// Very low-level function: You shouldn't need to call this. The #[external("private")] macro calls this, and it
@@ -321,6 +331,19 @@ impl PrivateContext {
     ///
     pub fn get_args_hash(self) -> Field {
         self.args_hash
+    }
+
+    /// Returns the current value of the side-effect counter, i.e. the counter that will be assigned to the next
+    /// side-effect emitted by this function.
+    ///
+    /// Low-level function: Ordinarily, smart contract developers will not need to access this. See `next_counter` for
+    /// details on how side-effect counters are assigned and why they exist.
+    ///
+    /// # Returns
+    /// * `u32` - The current side-effect counter.
+    ///
+    pub fn get_side_effect_counter(self) -> u32 {
+        self.side_effect_counter
     }
 
     /// Pushes a new note_hash to the Aztec blockchain's global Note Hash Tree (a state tree).
@@ -352,71 +375,57 @@ impl PrivateContext {
         self.note_hashes.push(Counted::new(note_hash, self.next_counter()));
     }
 
-    /// Pushes a new nullifier to the Aztec blockchain's global Nullifier Tree (a state tree).
+    /// Creates a new [nullifier](crate::nullifier).
     ///
-    /// See also: `push_nullifier_for_note_hash`.
+    /// ## Safety
     ///
-    /// Low-level function: Ordinarily, smart contract developers will not need to manually call this. Aztec-nr's state
-    /// variables (see `../state_vars/`) are designed to understand when to create and push new nullifiers.
+    /// This is a low-level function that must be used with great care to avoid subtle corruption of contract state.
+    /// Instead of calling this function, consider using the higher-level [`crate::state_vars::SingleUseClaim`].
     ///
-    /// A nullifier can only be emitted once. Duplicate nullifier insertions are rejected by the protocol.
+    /// In particular, callers must ensure all nullifiers created by a contract are properly domain-separated, so that
+    /// unrelated components don't interfere with one another (e.g. a transaction nullifier accidentally marking a
+    /// variable as initialized). Only [`PrivateContext::push_nullifier_for_note_hash`] should be used for note
+    /// nullifiers, never this one.
     ///
-    /// Generally, a nullifier is emitted to prevent an action from happening more than once, in such a way that the
-    /// action cannot be linked (by an observer of the blockchain) to any earlier transactions.
+    /// ## Advanced
     ///
-    /// I.e. a nullifier is a random-looking, but deterministic record of a private, one-time action, which does not
-    /// leak what action has been taken, and which preserves the property of "tx unlinkability".
-    ///
-    /// Usually, a nullifier will be emitted to "spend" a note (a piece of private state), without revealing which
-    /// specific note is being spent.
-    ///
-    /// (Important: in such cases, use the below `push_nullifier_for_note_hash`).
-    ///
-    /// Sometimes, a nullifier might be emitted completely unrelated to any notes. Examples include initialization of a
-    /// new contract; initialization of a PrivateMutable, or signalling in Semaphore-like applications. This
-    /// `push_nullifier` function serves such use cases.
-    ///
-    /// # Arguments
-    /// * `nullifier`
-    ///
-    /// # Advanced
-    /// From here, the protocol's kernel circuits will take over and insert the nullifier into the protocol's
-    /// "nullifier tree" (in the Base Rollup circuit). Before insertion, the protocol will:
-    /// - "Silo" the `nullifier` with the contract address of this function, to yield a `siloed_nullifier`. This
-    /// prevents state collisions between different smart contracts.
-    /// - Ensure the `siloed_nullifier` is unique (the nullifier tree is an indexed merkle tree which supports
-    /// efficient non-membership proofs).
-    ///
-    pub fn push_nullifier(&mut self, nullifier: Field) {
+    /// The raw `nullifier` is not what is inserted into the Aztec state tree: it will be first siloed by contract
+    /// address via [`crate::protocol::hash::compute_siloed_nullifier`] in order to prevent accidental or malicious
+    /// interference of nullifiers from different contracts.
+    pub fn push_nullifier_unsafe(&mut self, nullifier: Field) {
         notify_created_nullifier(nullifier);
         self.nullifiers.push(Nullifier { value: nullifier, note_hash: 0 }.count(self.next_counter()));
     }
 
-    /// Pushes a nullifier that corresponds to a specific note hash.
+    /// Creates a new [nullifier](crate::nullifier) associated with a note.
     ///
-    /// Low-level function: Ordinarily, smart contract developers will not need to manually call this. Aztec-nr's state
-    /// variables (see `../state_vars/`) are designed to understand when to create and push new nullifiers.
+    /// This is a variant of [`PrivateContext::push_nullifier_unsafe`] that is used for note nullifiers, i.e.
+    /// nullifiers that correspond to a note. If a note and its nullifier are created in the same transaction, then
+    /// the private kernels will 'squash' these values, deleting them both as if they never existed and reducing
+    /// transaction fees.
     ///
-    /// This is a specialized version of `push_nullifier` that links a nullifier to the specific note hash it's
-    /// nullifying. This is the most common usage pattern for nullifiers. See `push_nullifier` for more explanation on
-    /// nullifiers.
+    /// The `nullification_note_hash` must be the result of calling
+    /// [`crate::note::utils::compute_confirmed_note_hash_for_nullification`] for pending notes, and `0` for settled
+    /// notes (which cannot be squashed).
     ///
-    /// # Arguments
-    /// * `nullifier`
-    /// * `nullified_note_hash` - The note hash of the note being nullified
+    /// ## Safety
     ///
-    /// # Advanced
-    ///Important: usage of this function doesn't mean that the world will _see_ that this nullifier relates to the
-    /// given nullified_note_hash (as that would violate "tx unlinkability"); it simply informs the user's PXE about
-    /// the relationship (via `notify_nullified_note`). The PXE can then use this information to feed hints to the
-    /// kernel circuits for "squashing" purposes: If a note is nullified during the same tx which created it, we can
-    /// "squash" (delete) the note and nullifier (and any private logs associated with the note), to save on data
-    /// emission costs.
+    /// This is a low-level function that must be used with great care to avoid subtle corruption of contract state.
+    /// Instead of calling this function, consider using the higher-level [`crate::note::lifecycle::destroy_note`].
     ///
-    pub fn push_nullifier_for_note_hash(&mut self, nullifier: Field, nullified_note_hash: Field) {
+    /// The precautions listed for [`PrivateContext::push_nullifier_unsafe`] apply here as well, and callers should
+    /// additionally ensure `nullification_note_hash` corresponds to a note emitted by this contract, with its hash
+    /// computed in the same transaction execution phase as the call to this function. Finally, only this function
+    /// should be used for note nullifiers, never [`PrivateContext::push_nullifier_unsafe`].
+    ///
+    /// Failure to do these things can result in unprovable contexts, accidental deletion of notes, or double-spend
+    /// attacks.
+    pub fn push_nullifier_for_note_hash(&mut self, nullifier: Field, nullification_note_hash: Field) {
         let nullifier_counter = self.next_counter();
-        notify_nullified_note(nullifier, nullified_note_hash, nullifier_counter);
-        self.nullifiers.push(Nullifier { value: nullifier, note_hash: nullified_note_hash }.count(nullifier_counter));
+        notify_nullified_note(nullifier, nullification_note_hash, nullifier_counter);
+        self.nullifiers.push(Nullifier { value: nullifier, note_hash: nullification_note_hash }.count(
+            nullifier_counter,
+        ));
     }
 
     /// Returns the anchor block header - the historical block header that this private function is reading from.
@@ -430,7 +439,7 @@ impl PrivateContext {
     ///
     /// # Advanced
     /// * All private functions of a tx read from the same anchor block header.
-    /// * The protocol asserts that the `include_by_timestamp` of every tx is at most 24 hours beyond the timestamp of
+    /// * The protocol asserts that the `expiration_timestamp` of every tx is at most 24 hours beyond the timestamp of
     /// the tx's chosen anchor block header. This enables the network's nodes to safely prune old txs from the mempool.
     /// Therefore, the chosen block header _must_ be one from within the last 24 hours.
     ///
@@ -496,11 +505,11 @@ impl PrivateContext {
             returns_hash: self.return_hash,
             min_revertible_side_effect_counter: self.min_revertible_side_effect_counter,
             is_fee_payer: self.is_fee_payer,
-            include_by_timestamp: self.include_by_timestamp,
+            expiration_timestamp: self.expiration_timestamp,
             note_hash_read_requests: ClaimedLengthArray::from_bounded_vec(self.note_hash_read_requests),
             nullifier_read_requests: ClaimedLengthArray::from_bounded_vec(self.nullifier_read_requests),
-            key_validation_requests_and_generators: ClaimedLengthArray::from_bounded_vec(
-                self.key_validation_requests_and_generators,
+            key_validation_requests_and_separators: ClaimedLengthArray::from_bounded_vec(
+                self.key_validation_requests_and_separators,
             ),
             note_hashes: ClaimedLengthArray::from_bounded_vec(self.note_hashes),
             nullifiers: ClaimedLengthArray::from_bounded_vec(self.nullifiers),
@@ -516,6 +525,7 @@ impl PrivateContext {
             tx_context: self.inputs.tx_context,
             expected_non_revertible_side_effect_counter: self.expected_non_revertible_side_effect_counter,
             expected_revertible_side_effect_counter: self.expected_revertible_side_effect_counter,
+            tx_request_salt: self.inputs.tx_request_salt,
         }
     }
 
@@ -529,7 +539,7 @@ impl PrivateContext {
     /// balance (>= the gas limits specified in the TxContext) by the time we reach the public setup phase of the tx.
     ///
     pub fn set_as_fee_payer(&mut self) {
-        crate::protocol::debug_log::debug_log_format("Setting {0} as fee payer", [self.this_address().to_field()]);
+        aztecnr_trace_log_format!("Setting {0} as fee payer")([self.this_address().to_field()]);
         self.is_fee_payer = true;
     }
 
@@ -537,7 +547,7 @@ impl PrivateContext {
         let current_counter = self.side_effect_counter;
 
         // Safety: Kernel will validate that the claim is correct by validating the expected counters.
-        let is_revertible = unsafe { is_side_effect_counter_revertible_oracle_wrapper(current_counter) };
+        let is_revertible = unsafe { is_execution_in_revertible_phase(current_counter) };
 
         if is_revertible {
             if (self.expected_revertible_side_effect_counter == 0)
@@ -575,15 +585,21 @@ impl PrivateContext {
     /// counter.
     ///
     pub fn end_setup(&mut self) {
-        // Incrementing the side effect counter when ending setup ensures non ambiguity for the counter where we change
-        // phases.
+        // We bump the counter twice: once so that `min_revertible_side_effect_counter` sits strictly above any
+        // non-revertible side effect counter (including queries made via `in_revertible_phase` before this call), and
+        // once more so that the next revertible side effect counter is strictly greater than
+        // `min_revertible_side_effect_counter`. This ensures `min_revertible_side_effect_counter` occupies a gap that
+        // no side effect takes, which the kernel relies on when validating the phase split.
         self.side_effect_counter += 1;
-        // crate::protocol::debug_log::debug_log_format(
-        //     "Ending setup at counter {0}",
-        //     [self.side_effect_counter as Field]
-        // );
-        self.min_revertible_side_effect_counter = self.next_counter();
-        notify_set_min_revertible_side_effect_counter(self.min_revertible_side_effect_counter);
+        self.min_revertible_side_effect_counter = self.side_effect_counter;
+        self.side_effect_counter += 1;
+
+        aztecnr_trace_log_format!(
+            "Ending setup, minimum revertible side effect counter is {0}",
+        )(
+            [self.min_revertible_side_effect_counter as Field],
+        );
+        notify_revertible_phase_start(self.min_revertible_side_effect_counter);
     }
 
     /// Sets a deadline (an "include-by timestamp") for when this transaction must be included in a block.
@@ -598,11 +614,11 @@ impl PrivateContext {
     /// This expiry timestamp is publicly visible. See the "Advanced" section for privacy concerns.
     ///
     /// # Arguments
-    /// * `include_by_timestamp` - Unix timestamp (seconds) deadline for inclusion. The include-by timestamp of this tx
+    /// * `expiration_timestamp` - Unix timestamp (seconds) deadline for inclusion. The include-by timestamp of this tx
     /// will be _at most_ the timestamp specified.
     ///
     /// # Advanced
-    /// * If multiple functions set differing `include_by_timestamp`s, the kernel circuits will set it to be the
+    /// * If multiple functions set differing `expiration_timestamp`s, the kernel circuits will set it to be the
     /// _minimum_ of the two. This ensures the tx expiry requirements of all functions in the tx are met.
     /// * Rollup circuits will reject expired txs.
     /// * The protocol enforces that all transactions must be included within 24 hours of their chosen anchor block's
@@ -613,14 +629,14 @@ impl PrivateContext {
     /// network as a whole. For example, if a contract interaction sets include-by to some publicly-known value (e.g.
     /// the time when a contract upgrades), then the wallet might wish to set an even lower one to avoid revealing that
     /// this tx is interacting with said contract. Ideally, all wallets should standardize on an approach in order to
-    ///   provide users with a large anonymity set -- although the exact approach
+    ///   provide users with a large privacy set -- although the exact approach
     /// will need to be discussed. Wallets that deviate from a standard might accidentally reveal which wallet each
     /// transaction originates from.
     ///
-    // docs:start:include-by-timestamp
-    pub fn set_include_by_timestamp(&mut self, include_by_timestamp: u64) {
-        // docs:end:include-by-timestamp
-        self.include_by_timestamp = std::cmp::min(self.include_by_timestamp, include_by_timestamp);
+    // docs:start:expiration-timestamp
+    pub fn set_expiration_timestamp(&mut self, expiration_timestamp: u64) {
+        // docs:end:expiration-timestamp
+        self.expiration_timestamp = std::cmp::min(self.expiration_timestamp, expiration_timestamp);
     }
 
     /// Asserts that a note has been created.
@@ -731,10 +747,10 @@ impl PrivateContext {
         self.request_sk_app(npk_m_hash, NULLIFIER_INDEX)
     }
 
-    /// Requests the app-siloed nullifier secret key (nsk_app) for the given (hashed) master nullifier public key
-    /// (npk_m), from the user's PXE.
+    /// Requests the app-siloed outgoing viewing secret key (ovsk_app) for the given (hashed) master outgoing
+    /// viewing public key (ovpk_m), from the user's PXE.
     ///
-    /// See `request_nsk_app` and `request_sk_app` for more info.
+    /// See `request_nhk_app` and `request_sk_app` for more info.
     ///
     /// The intention of the "outgoing" keypair is to provide a second secret key for all of a user's outgoing activity
     /// (i.e. for notes that a user creates, as opposed to notes that a user receives from others). The separation of
@@ -765,41 +781,48 @@ impl PrivateContext {
     /// request validation of this claim, by making a "key validation request" to the protocol's kernel circuits (which
     /// _are_ allowed to see certain master secret keys).
     ///
-    /// When a Key Validation Request tuple of (sk_app, Pk_m, app_address) is submitted to the kernel, it will perform
-    /// the following derivations to validate the relationship between the claimed sk_app and the user's Pk_m:
+    /// The app circuit only sees `pk_m_hash` (not the raw point). The kernel derives the
+    /// point from `sk_m`, hashes it, and asserts equality. When a Key Validation Request tuple of
+    /// (sk_app, pk_m_hash, app_address) is submitted to the kernel, it performs the following
+    /// derivations to validate the relationship between the claimed sk_app and the user's pk_m_hash:
     ///
-    ///       (sk_m) ----> * G ----> Pk_m
-    ///         |                     |
-    ///         v                       We use the kernel to prove this
-    ///  h(sk_m, app_address)         | sk_app-Pk_m relationship, because app
-    ///         |                       circuits must not be trusted to see sk_m.
-    ///         v                     |
-    /// sk_app - -  - - - - - - -
+    ///       (sk_m) ----> * G ----> pk_m ----> hash_public_key(pk_m)
+    ///         |                                        |
+    ///         v                                        | We use the kernel to prove this
+    ///  h(sk_m, app_address)                            | sk_app-pk_m_hash relationship, because app
+    ///         |                                        | circuits must not be trusted to see sk_m.
+    ///         v                                        |
+    ///      sk_app  - - - - - - - - - - - - - - - - - -
     ///
     /// The function is named "request_" instead of "get_" to remind the user that a Key Validation Request will be
     /// emitted to the kernel.
     ///
     fn request_sk_app(&mut self, pk_m_hash: Field, key_index: Field) -> Field {
-        let cached_request =
-            self.last_key_validation_requests[key_index as u32].unwrap_or(KeyValidationRequest::empty());
+        // Match against the cache only when a request is actually present in the slot.
+        let cached_slot = self.last_key_validation_requests[key_index as u32];
+        let cache_hit = cached_slot.is_some() & (cached_slot.unwrap_unchecked().pk_m_hash == pk_m_hash);
 
-        if cached_request.pk_m.hash() == pk_m_hash {
+        if cache_hit {
             // We get a match so the cached request is the latest one
-            cached_request.sk_app
+            cached_slot.unwrap_unchecked().sk_app
         } else {
-            // We didn't get a match meaning the cached result is stale Typically we'd validate keys by showing that
-            // they are the preimage of `pk_m_hash`, but that'd require the oracle returning the master secret keys,
-            // which could cause malicious contracts to leak it or learn about secrets from other contracts. We
-            // therefore silo secret keys, and rely on the private kernel to validate that we siloed secret key
-            // corresponds to correct siloing of the master secret key that hashes to `pk_m_hash`.
+            // We didn't get a match meaning the cached result is stale. Typically we'd validate keys by showing that
+            // the master secret key derives to a public key matching `pk_m_hash`, but that'd require the oracle
+            // returning the master secret keys, which could cause malicious contracts to leak it or learn about
+            // secrets from other contracts. We therefore silo secret keys, and rely on the private kernel to validate
+            // that the siloed secret key corresponds to correct siloing of the master secret key that hashes to
+            // `pk_m_hash`.
 
             // Safety: Kernels verify that the key validation request is valid and below we verify that a request for
             // the correct public key has been received.
             let request = unsafe { get_key_validation_request(pk_m_hash, key_index) };
-            assert_eq(request.pk_m.hash(), pk_m_hash, "Obtained invalid key validation request");
+            assert_eq(request.pk_m_hash, pk_m_hash, "Obtained key validation request for wrong pk_m_hash");
 
-            self.key_validation_requests_and_generators.push(
-                KeyValidationRequestAndGenerator { request, sk_app_generator: sk_generators[key_index as u32] },
+            self.key_validation_requests_and_separators.push(
+                KeyValidationRequestAndSeparator {
+                    request,
+                    key_type_domain_separator: public_key_domain_separators[key_index as u32],
+                },
             );
             self.last_key_validation_requests[key_index as u32] = Option::some(request);
             request.sk_app
@@ -866,7 +889,7 @@ impl PrivateContext {
         );
 
         // Push nullifier (and the "commitment" corresponding to this can be "empty")
-        self.push_nullifier(nullifier)
+        self.push_nullifier_unsafe(nullifier)
     }
 
     /// Emits a private log (an array of Fields) that will be published to an Ethereum blob.
@@ -895,48 +918,71 @@ impl PrivateContext {
     /// about _which_ function has been executed. A tx which leaks such information does not contribute to the privacy
     /// set of the network.
     ///
-    /// * Unlike `emit_raw_note_log`, this log is not tied to any specific note
+    /// * Unlike `emit_raw_note_log_unsafe`, this log is not tied to any specific note
     ///
     /// # Arguments
+    /// * `tag` - A tag placed at `fields[0]` of the emitted log. Used by recipients and nodes to identify and
+    /// filter for relevant logs without scanning all of them.
     /// * `log` - The log data that will be publicly broadcast (so make sure it's already been encrypted before you
-    /// call this function). Private logs are bounded in size (PRIVATE_LOG_SIZE_IN_FIELDS), to encourage all logs from
-    /// all smart contracts look identical.
-    /// * `length` - The actual length of the `log` (measured in number of Fields). Although the input log has a max
-    /// size of PRIVATE_LOG_SIZE_IN_FIELDS, the latter values of the array might all be 0's for small logs. This
-    /// `length` should reflect the trimmed length of the array. The protocol's kernel circuits can then append random
-    /// fields as "padding" after the `length`, so that the logs of this smart contract look indistinguishable from
-    /// (the same length as) the logs of all other applications. It's up to wallets how much padding to apply, so
+    /// call this function). Private logs are bounded in size (`PRIVATE_LOG_CIPHERTEXT_LEN`), to encourage all logs
+    /// from all smart contracts look identical. The protocol's kernel circuits can then append random fields as
+    /// "padding" after the log's length, so that the logs of this smart contract look indistinguishable from (the
+    /// same length as) the logs of all other applications. It's up to wallets how much padding to apply, so
     /// ideally all wallets should agree on standards for this.
-    pub fn emit_private_log(&mut self, log: [Field; PRIVATE_LOG_SIZE_IN_FIELDS], length: u32) {
-        let counter = self.next_counter();
-        let private_log = PrivateLogData { log: PrivateLog::new(log, length), note_hash_counter: 0 }.count(counter);
-        self.private_logs.push(private_log);
+    ///
+    /// ## Safety
+    ///
+    /// The `tag` should be domain-separated (e.g. via [`crate::protocol::hash::compute_log_tag`]) to prevent
+    /// collisions between logs from different sources. Without domain separation, two unrelated log types that
+    /// happen to share a raw tag value become indistinguishable. Prefer the higher-level APIs
+    /// ([`crate::messages::delivery::MessageDelivery`] for messages, `self.emit(event)` for events) which
+    /// handle tagging automatically.
+    pub fn emit_private_log_unsafe(&mut self, tag: Field, log: BoundedVec<Field, PRIVATE_LOG_CIPHERTEXT_LEN>) {
+        self.emit_raw_note_log_unsafe(tag, log, 0);
     }
 
-    // TODO: rename.
     /// Emits a private log that is explicitly tied to a newly-emitted note_hash, to convey to the kernel: "this log
     /// relates to this note".
     ///
     /// This linkage is important in case the note gets squashed (due to being read later in this same tx), since we
     /// can then squash the log as well.
     ///
-    /// See `emit_private_log` for more info about private log emission.
+    /// See [`emit_private_log_unsafe`](PrivateContext::emit_private_log_unsafe) for more info about private log
+    /// emission.
     ///
     /// # Arguments
-    /// * `log` - The log data as an array of Field elements
-    /// * `length` - The actual length of the `log` (measured in number of Fields).
+    /// * `tag` - A tag placed at `fields[0]`. See
+    ///   [`emit_private_log_unsafe`](PrivateContext::emit_private_log_unsafe).
+    /// * `log` - The log data as a `BoundedVec` of Field elements.
     /// * `note_hash_counter` - The side-effect counter that was assigned to the new note_hash when it was pushed to
     /// this `PrivateContext`.
     ///
     /// Important: If your application logic requires the log to always be emitted regardless of note squashing,
-    /// consider using `emit_private_log` instead, or emitting additional events.
+    /// consider using [`emit_private_log_unsafe`](PrivateContext::emit_private_log_unsafe) instead, or emitting
+    /// additional events.
     ///
-    pub fn emit_raw_note_log(&mut self, log: [Field; PRIVATE_LOG_SIZE_IN_FIELDS], length: u32, note_hash_counter: u32) {
+    /// ## Safety
+    ///
+    /// Same as [`PrivateContext::emit_private_log_unsafe`]: the `tag` should be domain-separated.
+    pub fn emit_raw_note_log_unsafe(
+        &mut self,
+        tag: Field,
+        log: BoundedVec<Field, PRIVATE_LOG_CIPHERTEXT_LEN>,
+        note_hash_counter: u32,
+    ) {
         let counter = self.next_counter();
-        let private_log = PrivateLogData { log: PrivateLog::new(log, length), note_hash_counter };
+        let full_log = [tag].concat(log.storage());
+        let private_log = PrivateLogData { log: PrivateLog::new(full_log, log.len() + 1), note_hash_counter };
         self.private_logs.push(private_log.count(counter));
     }
 
+    /// Emits large data blobs.
+    ///
+    /// This reuses the Contract Class Log channel to emit blobs of up to [`CONTRACT_CLASS_LOG_SIZE_IN_FIELDS`].
+    ///
+    /// ## Privacy
+    ///
+    /// The address of the contract emitting these blobs is revelead.
     pub fn emit_contract_class_log<let N: u32>(&mut self, log: [Field; N]) {
         let contract_address = self.this_address();
         let counter = self.next_counter();
@@ -948,10 +994,10 @@ impl PrivateContext {
         // Safety: The below length is constrained in the base rollup, which will make sure that all the fields beyond
         // length are zero. However, it won't be able to check that we didn't add extra padding (trailing zeroes) or
         // that we cut trailing zeroes from the end.
-        let length = unsafe { trimmed_array_length_hint(log_to_emit) };
+        let length = unsafe { trimmed_array_length_hint(log) };
         // We hash the entire padded log to ensure a user cannot pass a shorter length and so emit incorrect shorter
         // bytecode.
-        let log_hash = poseidon2_hash(log_to_emit);
+        let log_hash = compute_contract_class_log_hash(log_to_emit);
         // Safety: the below only exists to broadcast the raw log, so we can provide it to the base rollup later to be
         // constrained.
         unsafe {
@@ -1109,7 +1155,7 @@ impl PrivateContext {
         args_hash: Field,
         is_static_call: bool,
     ) -> ReturnsHash {
-        let mut is_static_call = is_static_call | self.inputs.call_context.is_static_call;
+        let is_static_call = is_static_call | self.inputs.call_context.is_static_call;
         let start_side_effect_counter = self.side_effect_counter;
 
         // Safety: The oracle simulates the private call and returns the value of the side effects counter after
@@ -1142,16 +1188,12 @@ impl PrivateContext {
             },
         );
 
-        // TODO (fees) figure out why this crashes the prover and enable it we need this in order to pay fees inside
-        // child call contexts assert(
-        //     (item.public_inputs.min_revertible_side_effect_counter == 0 as u32)
-        //     | (item.public_inputs.min_revertible_side_effect_counter
-        //         > self.min_revertible_side_effect_counter)
-        // ); if item.public_inputs.min_revertible_side_effect_counter
-        //     > self.min_revertible_side_effect_counter { self.min_revertible_side_effect_counter =
-        // item.public_inputs.min_revertible_side_effect_counter; }
-        self.side_effect_counter = end_side_effect_counter + 1; // TODO: call `next_counter`
-        // instead, for consistency
+        // The kernel circuits ensure that end_side_effect_counter is greater than start_side_effect_counter, and that
+        // all side effects emitted in the child call have counters within the range [start_side_effect_counter,
+        // end_side_effect_counter]. Therefore, we only need to ensure that the next side effect from the current call
+        // starts after the end side effect from the child call.
+        self.side_effect_counter = end_side_effect_counter + 1;
+
         ReturnsHash::new(returns_hash)
     }
 
@@ -1276,9 +1318,9 @@ impl PrivateContext {
     ) {
         let counter = self.next_counter();
 
-        let mut is_static_call = is_static_call | self.inputs.call_context.is_static_call;
+        let is_static_call = is_static_call | self.inputs.call_context.is_static_call;
 
-        notify_enqueued_public_function_call(contract_address, calldata_hash, counter, is_static_call);
+        assert_valid_public_call_data(calldata_hash);
 
         let msg_sender = if hide_msg_sender {
             NULL_MSG_SENDER_CONTRACT_ADDRESS
@@ -1347,11 +1389,9 @@ impl PrivateContext {
         is_static_call: bool,
         hide_msg_sender: bool,
     ) {
-        let counter = self.next_counter();
+        let is_static_call = is_static_call | self.inputs.call_context.is_static_call;
 
-        let mut is_static_call = is_static_call | self.inputs.call_context.is_static_call;
-
-        notify_set_public_teardown_function_call(contract_address, calldata_hash, counter, is_static_call);
+        assert_valid_public_call_data(calldata_hash);
 
         let msg_sender = if hide_msg_sender {
             NULL_MSG_SENDER_CONTRACT_ADDRESS
@@ -1460,10 +1500,10 @@ impl Empty for PrivateContext {
             is_fee_payer: false,
             args_hash: 0,
             return_hash: 0,
-            include_by_timestamp: 0,
+            expiration_timestamp: 0,
             note_hash_read_requests: BoundedVec::new(),
             nullifier_read_requests: BoundedVec::new(),
-            key_validation_requests_and_generators: BoundedVec::new(),
+            key_validation_requests_and_separators: BoundedVec::new(),
             note_hashes: BoundedVec::new(),
             nullifiers: BoundedVec::new(),
             private_call_requests: BoundedVec::new(),

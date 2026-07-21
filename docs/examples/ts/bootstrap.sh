@@ -2,6 +2,7 @@
 set -euo pipefail
 
 source "$(git rev-parse --show-toplevel)/ci3/source_bootstrap"
+source "$(dirname "${BASH_SOURCE[0]}")/lib.sh"
 
 export REPO_ROOT=$(git rev-parse --show-toplevel)
 export ARTIFACTS_DIR="$REPO_ROOT/docs/target"
@@ -9,6 +10,10 @@ export BUILDER_CLI="$REPO_ROOT/yarn-project/builder/dest/bin/cli.js"
 
 # Set parallel flags for concurrent validation
 export PARALLEL_FLAGS="-j${PARALLELISM:-4} --halt now,fail=1"
+
+# Ensure all yarn.lock files are empty on exit. The per-project cleanup trap
+# handles the normal case, but parallel's --halt can kill jobs before their trap runs.
+trap 'for lf in */yarn.lock; do [ -f "$lf" ] && > "$lf"; done' EXIT
 
 # Validate config.yaml structure before processing
 validate_config() {
@@ -56,6 +61,7 @@ validate_config() {
     return 0
 }
 export -f validate_config
+export -f parse_dependencies
 
 # Function to validate a single TS project
 # Must be exported for parallel execution
@@ -137,45 +143,13 @@ validate_project() {
         # Read dependencies from config.yaml
         echo_stderr "Installing dependencies for '${project_name}'..."
 
-        # Separate @aztec packages (linked) from npm packages (external)
-        local aztec_deps=()
-        local explicit_link_deps=()
-        local npm_deps=()
-        local pkg
-        local has_deps=false
+        parse_dependencies config.yaml "$REPO_ROOT"
 
-        while IFS= read -r pkg; do
-            has_deps=true
-            # Remove quotes and whitespace
-            pkg="${pkg//\"/}"
-            pkg="${pkg#"${pkg%%[![:space:]]*}"}"  # ltrim
-            pkg="${pkg%"${pkg##*[![:space:]]}"}"  # rtrim
+        local aztec_deps=("${AZTEC_DEPS[@]}")
+        local explicit_link_deps=("${EXPLICIT_LINK_DEPS[@]}")
+        local npm_deps=("${NPM_DEPS[@]}")
 
-            if [ -z "$pkg" ]; then
-                continue
-            fi
-
-            # Check if it's an external npm package (prefixed with npm:)
-            if [[ "$pkg" =~ ^npm: ]]; then
-                # External package: npm:viem -> viem
-                local npm_pkg="${pkg#npm:}"
-                npm_deps+=("$npm_pkg")
-            elif [[ "$pkg" =~ ^link: ]]; then
-                # Explicit link: link:@aztec/bb.js:barretenberg/ts -> @aztec/bb.js@link:$REPO_ROOT/barretenberg/ts
-                local link_spec="${pkg#link:}"
-                local link_pkg_name="${link_spec%%:*}"
-                local link_path="${link_spec#*:}"
-                explicit_link_deps+=("${link_pkg_name}@link:$REPO_ROOT/${link_path}")
-            elif [[ "$pkg" =~ ^@ ]]; then
-                # @aztec/* package - auto-link from yarn-project/
-                local pkg_name="${pkg#@aztec/}"
-                aztec_deps+=("${pkg}@link:$REPO_ROOT/yarn-project/${pkg_name}")
-            else
-                echo_stderr "Warning: Unknown dependency format '$pkg' (use '@aztec/pkg', 'link:pkg:path', or 'npm:pkg')"
-            fi
-        done < <(yq eval '.dependencies[]' config.yaml)
-
-        if [ "$has_deps" = true ]; then
+        if [ "$PARSED_DEPS_FOUND" = true ]; then
             # Install linked @aztec dependencies from yarn-project/
             if [ ${#aztec_deps[@]} -gt 0 ]; then
                 echo_stderr "Adding aztec deps: ${aztec_deps[*]}"
@@ -199,7 +173,7 @@ validate_project() {
             yarn add \
                 @aztec/aztec.js@link:$REPO_ROOT/yarn-project/aztec.js \
                 @aztec/accounts@link:$REPO_ROOT/yarn-project/accounts \
-                @aztec/test-wallet@link:$REPO_ROOT/yarn-project/test-wallet \
+                @aztec/wallets@link:$REPO_ROOT/yarn-project/wallets \
                 @aztec/kv-store@link:$REPO_ROOT/yarn-project/kv-store
         fi
 
@@ -244,16 +218,17 @@ validate_project() {
                 return 1
             fi
 
-            # Check for .d.ts files in dest/ or lib/ (different packages use different output dirs)
+            # Check for .d.ts files in common output dirs
             local dts_count=0
-            if [ -d "$link_target/dest" ]; then
-                dts_count=$(find "$link_target/dest" -name "*.d.ts" 2>/dev/null | wc -l)
-            elif [ -d "$link_target/lib" ]; then
-                dts_count=$(find "$link_target/lib" -name "*.d.ts" 2>/dev/null | wc -l)
-            fi
+            for check_dir in dest lib nodejs web; do
+                if [ -d "$link_target/$check_dir" ]; then
+                    dts_count=$(find "$link_target/$check_dir" -name "*.d.ts" 2>/dev/null | wc -l)
+                    [ "$dts_count" -gt 0 ] && break
+                fi
+            done
 
             if [ "$dts_count" -eq 0 ]; then
-                echo_stderr "ERROR: No .d.ts files found in $link_target (checked dest/ and lib/)"
+                echo_stderr "ERROR: No .d.ts files found in $link_target (checked dest/, lib/, nodejs/, web/)"
                 ls -la "$link_target" | head -20 || true
                 return 1
             fi
@@ -261,7 +236,7 @@ validate_project() {
             echo_stderr "  ✓ $pkg_name: $dts_count .d.ts files"
         done
 
-        yarn add -D typescript >/dev/null 2>&1
+        yarn add -D "typescript@^5.3.3" >/dev/null 2>&1
 
         # Create tsconfig.json from template
         if [ ! -f "$REPO_ROOT/docs/examples/ts/tsconfig.template.json" ]; then
@@ -293,6 +268,23 @@ get_all_projects() {
         fi
     done
 }
+
+# In CI, validate all yarn.lock files are committed empty (they must exist but contain no content).
+# We check git state (not filesystem) because a previous interrupted validation run may have
+# populated lockfiles on disk via yarn add before cleanup could run.
+# Locally, the pre-commit hook handles this; here we catch it in case hooks were bypassed.
+if [ "${CI:-0}" != "0" ]; then
+    for lockfile in */yarn.lock; do
+        [ -f "$lockfile" ] || continue
+        if [ -n "$(git show HEAD:"docs/examples/ts/$lockfile" 2>/dev/null)" ]; then
+            echo_stderr "ERROR: $lockfile is not empty in git. These files must be committed empty."
+            echo_stderr "       Run: > $lockfile && git add $lockfile"
+            exit 1
+        fi
+        # Ensure clean filesystem state (may be dirty from a previous interrupted run)
+        > "$lockfile"
+    done
+fi
 
 case "$cmd" in
     "")

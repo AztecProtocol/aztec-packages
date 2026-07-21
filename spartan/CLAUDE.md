@@ -48,6 +48,7 @@ The main entry point is `terraform/deploy-aztec-infra/`:
 ### Helm Charts
 
 **aztec-node** (base chart):
+
 - Deployable as Deployment or StatefulSet
 - Configurable via `node.env` for environment variables
 - Pre-start scripts for dynamic configuration
@@ -55,15 +56,18 @@ The main entry point is `terraform/deploy-aztec-infra/`:
 - Pod template in `templates/_pod-template.yaml`
 
 **aztec-validator** (extends aztec-node):
+
 - Wrapper chart with `aztec-node` as dependency (aliased as `validator`)
 - Adds validator-specific ConfigMap (`env.configmap.yaml`)
-- Configures mnemonic, validators-per-node, publisher keys
+- Configures mnemonic, validators-per-node, publishers-per-replica
 
 **aztec-prover-stack**:
+
 - Multi-component: prover node, broker, and agent replicas
 - Each component has its own sub-values (`node`, `broker`, `agent`)
 
 **aztec-postgres**:
+
 - Simple PostgreSQL StatefulSet using official `postgres:16-alpine` image
 - Used for validator HA signing coordination
 - No third-party chart dependencies (avoids Bitnami, etc.)
@@ -115,11 +119,13 @@ module "validator_ha_postgres" {
 ```
 
 The module:
+
 - Deploys the `aztec-postgres` Helm chart
 - Runs database migrations via a Kubernetes Job (`aztec migrate-ha-db up`)
 - Outputs `database_url` for validators to connect
 
 Validators receive the database URL via environment variables:
+
 - `VALIDATOR_HA_SIGNING_ENABLED=true`
 - `VALIDATOR_HA_DATABASE_URL=postgresql://...`
 - `VALIDATOR_HA_NODE_ID` (auto-set from pod name)
@@ -131,23 +137,24 @@ Validators receive the database URL via environment variables:
 `environments/network-defaults.yml` is a **code generation source**, not a runtime config file. It centralizes "baked-in" defaults for the yarn-project packages.
 
 **What it defines:**
-- `l1-contracts`: L1 smart contract parameters (timing, validator thresholds, slashing)
+
+- `l1-contracts`: L1 smart contract parameters (timing, validator thresholds, slashing). This section defines what `l1-contracts/script/deploy/RollupConfiguration.sol` ingests.
 - `slasher`: Slasher node operational settings (penalties, offense tracking)
 - `networks`: Preset configurations for `devnet`, `testnet`, and `mainnet`
 
 **Generated outputs:**
-- `yarn-project/ethereum/src/generated/l1-contracts-defaults.ts`
-- `yarn-project/slasher/src/generated/slasher-defaults.ts`
-- `yarn-project/cli/src/config/generated/networks.ts`
-- `l1-contracts/generated/default.json`
+
+- `yarn-project/slasher/src/generated/slasher-defaults.ts` (from `slasher`)
+- `yarn-project/cli/src/config/generated/networks.ts` (from `networks`)
 
 **Regenerate after editing:**
+
 ```bash
-cd yarn-project/ethereum && yarn generate
 cd yarn-project/slasher && yarn generate
 cd yarn-project/cli && yarn generate
-cd l1-contracts && ./bootstrap.sh
 ```
+
+**L1 contract config source of truth:** L1 contract defaults live in `l1-contracts/scripts/network-defaults.json` (owned by l1-contracts), published via `@aztec/l1-artifacts`. `@aztec/ethereum`'s config imports that JSON directly, and the Solidity deploy scripts read it via foundry `vm.readFile`. The JSON values are only used for testing flows.
 
 ### Deployment Environment Files
 
@@ -170,6 +177,7 @@ These are loaded by deployment scripts and passed to Terraform.
 ### Passing Environment Variables to Pods
 
 Via Terraform `custom_settings`:
+
 ```hcl
 "validator.node.env.MY_VAR" = var.MY_VALUE
 ```
@@ -179,11 +187,13 @@ This maps to Helm values that populate the pod's env section.
 ### Conditional Deployments
 
 Use ternary operators in the `helm_releases` map:
+
 ```hcl
 prover = tonumber(var.PROVER_REPLICAS) > 0 ? { ... } : null
 ```
 
 For dynamic multi-release generation (e.g., HA validators), use `for` expressions:
+
 ```hcl
 validator_releases = tonumber(var.VALIDATOR_REPLICAS) > 0 ? {
   for idx in range(1 + var.VALIDATOR_HA_REPLICAS) :
@@ -194,6 +204,7 @@ validator_releases = tonumber(var.VALIDATOR_REPLICAS) > 0 ? {
 ### Values Layering
 
 Values are applied in order (later overrides earlier):
+
 1. `common.yaml`
 2. `{component}.yaml`
 3. `{component}-resources-{profile}.yaml`
@@ -203,11 +214,13 @@ Values are applied in order (later overrides earlier):
 ### Service Discovery
 
 Internal services use Kubernetes DNS:
+
 ```
 http://{release-name}-{component}.{namespace}.svc.cluster.local:{port}
 ```
 
 Example web3signer URL:
+
 ```
 http://staging-signer-web3signer.staging.svc.cluster.local:9000/
 ```
@@ -227,6 +240,7 @@ When `VALIDATOR_HA_REPLICAS > 0`, validators are deployed as **multiple Helm rel
 - `VALIDATOR_HA_REPLICAS=2` → 3 releases (primary + 2 HA)
 
 Example with `VALIDATOR_HA_REPLICAS=1`:
+
 ```
 validator-0       & validator-ha-1-0   share attesters 0-11
 validator-1       & validator-ha-1-1   share attesters 12-23
@@ -263,43 +277,57 @@ locals {
 
 **Key derivation via Terraform + `setup-attester-keystore.sh`:**
 
-Each release receives a different `PUBLISHER_KEY_INDEX_START` from Terraform:
+Publishers are allocated **per replica (pod)**, not per attester key. Each release receives a different `PUBLISHER_KEY_INDEX_START` from Terraform:
 
 ```hcl
 # In main.tf custom_settings per release:
 "validator.node.env.PUBLISHER_KEY_INDEX_START" = var.VALIDATOR_PUBLISHER_MNEMONIC_START_INDEX +
-  (idx * (var.VALIDATORS_PER_NODE * var.VALIDATOR_PUBLISHERS_PER_VALIDATOR_KEY * var.VALIDATOR_REPLICAS))
+  (idx * (var.VALIDATOR_PUBLISHERS_PER_REPLICA * var.VALIDATOR_REPLICAS))
 ```
 
-Example with 4 replicas, 12 validators/node, 2 publishers/key, base index 5000:
+Example with 4 replicas, 4 publishers/replica, base index 5000:
+
 - Primary (idx=0): `PUBLISHER_KEY_INDEX_START = 5000`
-- HA-1 (idx=1): `PUBLISHER_KEY_INDEX_START = 5000 + (1 * 12 * 2 * 4) = 5096`
+- HA-1 (idx=1): `PUBLISHER_KEY_INDEX_START = 5000 + (1 * 4 * 4) = 5016`
 
 At runtime, `setup-attester-keystore.sh` calculates publisher indices:
 
 ```bash
 # POD_INDEX extracted from pod name (validator-0 → 0, validator-1 → 1, etc.)
-PUBLISHER_KEY_INDEX=$((POD_INDEX * VALIDATORS_PER_NODE * PUBLISHERS_PER_VALIDATOR_KEY + PUBLISHER_KEY_INDEX_START))
+PUBLISHER_KEY_INDEX=$((POD_INDEX * VALIDATOR_PUBLISHERS_PER_REPLICA + PUBLISHER_KEY_INDEX_START))
 ```
 
-This ensures each release uses non-overlapping publisher key ranges.
+The keystore uses **schema v2** with a top-level `publisher` array shared by all validators on the pod:
+
+```json
+{
+  "schemaVersion": 2,
+  "publisher": ["0x1", "0x2", "0x3", "0x4"],
+  "validators": [{ "attester": "..." }]
+}
+```
+
+This ensures each release uses non-overlapping publisher key ranges while decoupling publisher count from attester count.
 
 **HA coordination:**
+
 - Both releases connect to shared PostgreSQL via `VALIDATOR_HA_DATABASE_URL`
 - Database prevents double-signing by the same attester
 - If one pod dies, its HA partner continues signing
 
 ### Provers
+
 - Generate validity proofs for epochs
 - Broker distributes proving jobs to agents
 - Agents can scale horizontally
 
 ### RPC Nodes
+
 - Serve public API endpoints
 - Optional ingress with GCP backend config
-- Archive nodes for historical data
 
 ### Boot Nodes
+
 - P2P bootstrap for network discovery
 - Internal boot node optional (can use external)
 
@@ -310,7 +338,20 @@ This ensures each release uses non-overlapping publisher key ranges.
 3. **New Helm chart**: Add to `spartan/` root (follow aztec-keystore pattern)
 
 For new modules, follow the web3signer pattern:
+
 - `main.tf`: Helm release(s) and supporting resources
 - `variables.tf`: Input variables
 - `outputs.tf`: Service URLs and other outputs
 - `values/`: Base Helm values if needed
+
+## Troubleshooting
+
+### "The committee does not exist on L1" after a fresh deploy
+
+For the first `AZTEC_LAG_IN_EPOCHS_FOR_VALIDATOR_SET + 1` epochs after a freshly deployed rollup, validators will log:
+
+> `Cannot propose at target slot N since the committee does not exist on L1`
+
+This is **expected, not a bug.** The committee at epoch `E` samples the validator set at the start of epoch `E - LAG`. For epochs before `LAG`, the sample time is before genesis, where no validators are registered — the L1 `getCommitteeAt` call reverts with `ValidatorSelection__InsufficientValidatorSetSize`, which the node surfaces as `NoCommitteeError`.
+
+With the typical `AZTEC_LAG_IN_EPOCHS_FOR_VALIDATOR_SET=1`, `AZTEC_EPOCH_DURATION=32`, `AZTEC_SLOT_DURATION=72` (epoch = 2304s ≈ 38 min), committee formation begins at epoch 2 — roughly **77 minutes after rollup genesis**. Do not chase this error during the warm-up window; just wait. The same reasoning applies to `AZTEC_LAG_IN_EPOCHS_FOR_RANDAO`.

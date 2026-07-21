@@ -2,12 +2,21 @@ nameOverride: "node"
 
 replicaCount: 1
 
+deploymentStrategy:
+  type: Recreate
+
+podDisruptionBudget:
+  enabled: true
+  minAvailable: 1
+
 node:
   env:
     OTEL_SERVICE_NAME: "boot-node"
 
   startCmd:
     - --p2p-bootstrap
+  readinessProbe:
+    enabled: false
 
 service:
   p2p:

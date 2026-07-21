@@ -21,26 +21,26 @@ variable "AZTEC_DOCKER_IMAGE" {
 }
 
 variable "CPU_REQUEST" {
-  type        = string
-  default     = "100m"
+  type    = string
+  default = "100m"
 }
 
 variable "MEMORY_REQUEST" {
-  type        = string
-  default     = "256Mi"
+  type    = string
+  default = "256Mi"
 }
 
 variable "CPU_LIMIT" {
-  type        = string
-  default     = "500m"
+  type    = string
+  default = "500m"
 }
 
 variable "MEMORY_LIMIT" {
-  type        = string
-  default     = "512Mi"
+  type    = string
+  default = "512Mi"
 }
 
 variable "STORAGE_SIZE" {
-  type        = string
-  default     = "1Gi"
+  type    = string
+  default = "10Gi"
 }

@@ -52,7 +52,7 @@ TEST(SuccessCopyConstrainingTest, NegativeInvalidMemTag)
           { C::execution_last_child_success, 1 } },
     });
     EXPECT_THROW_WITH_MESSAGE(check_relation<execution>(trace, execution::SR_SUCCESS_COPY_U1_TAG),
-                              "SUCCESS_COPY_U1_TAG");
+                              execution::get_subrelation_label(execution::SR_SUCCESS_COPY_U1_TAG));
 }
 
 TEST(SuccessCopyConstrainingTest, NegativeInvalidLastChildSuccess)
@@ -65,7 +65,7 @@ TEST(SuccessCopyConstrainingTest, NegativeInvalidLastChildSuccess)
           { C::execution_last_child_success, /*true=*/1 } },
     });
     EXPECT_THROW_WITH_MESSAGE(check_relation<execution>(trace, execution::SR_SUCCESS_COPY_WRITE_REG),
-                              "SUCCESS_COPY_WRITE_REG");
+                              execution::get_subrelation_label(execution::SR_SUCCESS_COPY_WRITE_REG));
 }
 
 } // namespace

@@ -15,95 +15,51 @@ Follow the installation instructions described [here](../../../../../barretenber
 
 Certain `bb` commands will expect the tool `jq` to already be installed. If `jq -V` doesn't return a version number, install it from [here](https://jqlang.github.io/jq/download/).
 
-### Version compatibility with Noir
-
-TODO: https://github.com/AztecProtocol/aztec-packages/issues/7511
-
-For quick reference:
-
-- Noir v0.38.0 <> BB v0.61.0
-- Noir v0.37.0 <> BB v0.61.0
-- Noir v0.36.0 <> BB v0.58.0
-- Noir v0.35.0 <> BB v0.56.0
-- Noir v0.34.0 <> BB v0.55.0
-- Noir v0.33.0 <> BB v0.47.1
-- Noir v0.32.0 <> BB v0.46.1
-- Noir v0.31.0 <> BB v0.41.0
-
 ### Usage
 
-TODO: https://github.com/AztecProtocol/aztec-packages/issues/7600
+For comprehensive documentation, visit [barretenberg.aztec.network/docs](https://barretenberg.aztec.network/docs/).
 
-All available `bb` commands:
-https://github.com/AztecProtocol/aztec-packages/blob/barretenberg-v0.55.0/barretenberg/cpp/src/barretenberg/bb/main.cpp#L654-L734
+#### Quick Start
+
+1. Follow [the Noir docs](https://noir-lang.org/docs/getting_started/quick_start) to compile and generate witness of your Noir program
+
+2. Prove the valid execution of your Noir program:
+
+   ```bash
+   bb prove -b ./target/hello_world.json -w ./target/witness-name.gz -o ./target/proof
+   ```
+
+3. Compute the verification key:
+
+   ```bash
+   bb write_vk -b ./target/hello_world.json -o ./target/vk
+   ```
+
+4. Verify your proof:
+
+   ```bash
+   bb verify -k ./target/vk -p ./target/proof
+   ```
+
+   If successful, the verification will complete in silence; if unsuccessful, the command will trigger logging of the corresponding error.
 
 #### FilePath vs Stdout
 
 For commands which allow you to send the output to a file using `-o {filePath}`, there is also the option to send the output to stdout by using `-o -`.
 
-#### Usage with UltraHonk
+#### Verifier Targets
 
-##### Proving and verifying
+Use `--verifier_target` (or `-t`) to configure proofs for different verification environments:
 
-1. Follow [the Noir docs](https://noir-lang.org/docs/getting_started/quick_start) to compile and generate witness of your Noir program
+```bash
+# For EVM/Solidity verification
+bb prove -b ./target/hello_world.json -w ./target/witness-name.gz --verifier_target evm -o ./target/proof
 
-2. Prove the valid execution of your Noir program running:
+# For recursive verification in Noir circuits
+bb prove -b ./target/hello_world.json -w ./target/witness-name.gz --verifier_target noir-recursive -o ./target/proof
+```
 
-   ```bash
-   bb prove --scheme ultra_honk -b ./target/hello_world.json -w ./target/witness-name.gz -o ./target/proof
-   ```
-
-3. Compute the verification key for your Noir program running:
-
-   ```bash
-   bb write_vk --scheme ultra_honk -b ./target/hello_world.json -o ./target/vk
-   ```
-
-4. Verify your proof running:
-
-   ```bash
-   bb verify --scheme ultra_honk -k ./target/vk -p ./target/proof
-   ```
-
-   If successful, the verification will complete in silence; if unsuccessful, the command will trigger logging of the corresponding error.
-
-Refer to all available `bb` commands linked above for full list of functionality.
-
-##### Generating proofs for verifying in Solidity
-
-Barretenberg UltraHonk comes with the capability to verify proofs in Solidity, i.e. in smart contracts on EVM chains.
-
-1. Prove the valid execution of your Noir program running:
-
-   ```bash
-   bb prove --scheme ultra_honk --oracle-hash keccak -b ./target/hello_world.json -w ./target/witness-name.gz -o ./target/proof
-   ```
-
-   > **Note:** `--oracle-hash keccak` flag is used to generate UltraHonk proofs with Keccak hashes, as it is what the Solidity verifier is designed to be compatible with given the better gas efficiency when verifying onchain; The default `--oracle-hash poseidon` in comparison generates proofs with Poseidon hashes, which is more efficient in recursions but not for onchain verifications.
-
-2. Compute the verification key for your Noir program running:
-
-   ```bash
-   bb write_vk --scheme ultra_honk -b ./target/hello_world.json -o ./target/vk
-   ```
-
-3. Generate Solidity verifier
-   **WARNING:** Contract incomplete, do not use in production!
-
-   ```bash
-   bb write_solidity_verifier --scheme ultra_honk -k ./target/vk -b ./target/hello_world.json -o ./target/Verifier.sol
-   ```
-
-#### Usage with MegaHonk
-
-Use `bb <command>_mega_honk`.
-
-Refer to all available `bb` commands linked above for full list of functionality.
-
-Note that MegaHonk:
-
-- Generates insecure recursion circuits when Goblin recursive verifiers are not present
-- Will not have a Solidity verifier, as the proving system is intended for use with apps deploying on Aztec only
+See the full documentation for details on all available targets and options.
 
 ### Maximum circuit size
 

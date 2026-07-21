@@ -2,7 +2,7 @@ name: Nightly Spartan Benchmarks
 
 on:
   schedule:
-    - cron: "0 4 * * *"
+    - cron: "0 6 * * *"
   workflow_dispatch:
     inputs:
       nightly_tag:
@@ -15,41 +15,149 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
-  benchmark:
+  select-image:
+    if: ${{ github.repository == 'AztecProtocol/aztec-packages' }}
     runs-on: ubuntu-latest
+    outputs:
+      nightly_tag: ${{ steps.nightly-tag.outputs.nightly_tag }}
+      docker_image: ${{ steps.nightly-tag.outputs.docker_image }}
+      source_ref: ${{ steps.nightly-tag.outputs.source_ref }}
+      use_internal_docker_registry: ${{ steps.nightly-tag.outputs.use_internal_docker_registry }}
     steps:
       - name: Checkout
-        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
-        # Note cron jobs will be on 'next' by default.
+        uses: actions/checkout@93cb6efe18208431cddfb8368fd83d5badbf9bfd # v5.0.1
+        with:
+          ref: next
 
       - name: Determine nightly tag
         id: nightly-tag
         run: |
+          USE_INTERNAL_DOCKER_REGISTRY="false"
+
           if [[ -n "${{ inputs.nightly_tag }}" ]]; then
             nightly_tag="${{ inputs.nightly_tag }}"
           else
             current_version=$(jq -r '."."' .release-please-manifest.json)
             nightly_tag="${current_version}-nightly.$(date -u +%Y%m%d)"
           fi
-          echo "nightly_tag=$nightly_tag" >> $GITHUB_OUTPUT
-          echo "Using nightly tag: $nightly_tag"
 
-      - name: Check if Docker image exists
-        run: |
-          DOCKER_IMAGE="aztecprotocol/aztec:${{ steps.nightly-tag.outputs.nightly_tag }}"
-          echo "Checking if Docker image exists: $DOCKER_IMAGE"
-          if docker manifest inspect "$DOCKER_IMAGE" > /dev/null 2>&1; then
-            echo "Docker image exists: $DOCKER_IMAGE"
+          source_ref="v${nightly_tag}"
+
+          if [[ "$USE_INTERNAL_DOCKER_REGISTRY" == "true" ]]; then
+            docker_image=""
+            image_label="internal/aztec:${nightly_tag}"
           else
-            echo "Docker image does not exist: $DOCKER_IMAGE"
-            exit 1
+            docker_image="aztecprotocol/aztec:${nightly_tag}"
+            image_label="$docker_image"
           fi
+
+          echo "nightly_tag=$nightly_tag" >> "$GITHUB_OUTPUT"
+          echo "docker_image=$docker_image" >> "$GITHUB_OUTPUT"
+          echo "source_ref=$source_ref" >> "$GITHUB_OUTPUT"
+          echo "use_internal_docker_registry=$USE_INTERNAL_DOCKER_REGISTRY" >> "$GITHUB_OUTPUT"
+          echo "Using nightly tag: $nightly_tag"
+          echo "Using image: $image_label"
+          echo "Using source ref: $source_ref"
+
+      - name: Verify source git ref
+        run: |
+          set -euo pipefail
+          source_ref="${{ steps.nightly-tag.outputs.source_ref }}"
+          git fetch --depth 1 origin "refs/tags/${source_ref}:refs/tags/${source_ref}"
+          source_sha=$(git rev-parse "${source_ref}^{}")
+          echo "Nightly source commit: $source_sha"
+
+  # Block until the nightly tag's release build has published the docker image,
+  # so the deploys below don't race the build and hit ImagePullBackOff.
+  wait-for-ci3:
+    needs: select-image
+    if: ${{ github.repository == 'AztecProtocol/aztec-packages' }}
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@93cb6efe18208431cddfb8368fd83d5badbf9bfd # v5.0.1
+        with:
+          fetch-depth: 1
+
+      - name: Setup Node
+        uses: actions/setup-node@48b55a011bda9f5d6aeb4c2d9c7362e8dae4041e
+        with:
+          node-version: 22
+
+      - name: Wait for CI3
+        run: spartan/scripts/wait_for_ci3.ts "${{ needs.select-image.outputs.source_ref }}"
+
+  # ---------------------------------------------------------------------------
+  # TPS benchmark (env tps-scenario, namespace nightly-bench)
+  # ---------------------------------------------------------------------------
+  deploy-bench-network:
+    needs: [select-image, wait-for-ci3]
+    if: ${{ github.repository == 'AztecProtocol/aztec-packages' }}
+    uses: ./.github/workflows/deploy-network.yml
+    with:
+      network: tps-scenario
+      namespace: nightly-bench
+      semver: ${{ needs.select-image.outputs.nightly_tag }}
+      ref: ${{ needs.select-image.outputs.source_ref }}
+      use_internal_docker_registry: ${{ needs.select-image.outputs.use_internal_docker_registry == 'true' }}
+      skip_notify_on_failure: true
+    secrets: inherit
+
+  wait-bench-l2-block:
+    needs:
+      - select-image
+      - deploy-bench-network
+    if: ${{ github.repository == 'AztecProtocol/aztec-packages' }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 120
+    steps:
+      - name: Checkout
+        uses: actions/checkout@93cb6efe18208431cddfb8368fd83d5badbf9bfd # v5.0.1
+        with:
+          ref: ${{ needs.select-image.outputs.source_ref }}
+
+      - name: Authenticate to Google Cloud
+        uses: google-github-actions/auth@7c6bc770dae815cd3e89ee6cdf493a5fab2cc093 # v3.0.0
+        with:
+          credentials_json: ${{ secrets.GCP_SA_KEY }}
+
+      - name: Set up Cloud SDK
+        uses: google-github-actions/setup-gcloud@aa5489c8933f4cc7a4f7d45035b3b1440c9c10db # v3.0.1
+        with:
+          install_components: gke-gcloud-auth-plugin
+
+      - name: Wait for first L2 block
+        env:
+          GCP_PROJECT_ID: ${{ secrets.GCP_PROJECT_ID }}
+          NAMESPACE: nightly-bench
+        run: |
+          cd spartan
+          ./bootstrap.sh wait_for_l2_block tps-scenario
+
+  benchmark:
+    needs:
+      - select-image
+      - wait-bench-l2-block
+    if: ${{ github.repository == 'AztecProtocol/aztec-packages' }}
+    runs-on: ubuntu-latest
+    permissions:
+      id-token: write
+      contents: read
+    steps:
+      - name: Checkout
+        uses: actions/checkout@93cb6efe18208431cddfb8368fd83d5badbf9bfd # v5.0.1
+        with:
+          ref: ${{ needs.select-image.outputs.source_ref }}
+
+      - name: Configure AWS credentials (OIDC)
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ secrets.AWS_OIDC_ROLE_ARN }}
+          aws-region: us-east-2
 
       - name: Run benchmarks
         timeout-minutes: 240
         env:
-          AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
-          AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
           GITHUB_TOKEN: ${{ secrets.AZTEC_BOT_GITHUB_TOKEN }}
           BUILD_INSTANCE_SSH_KEY: ${{ secrets.BUILD_INSTANCE_SSH_KEY }}
           GCP_SA_KEY: ${{ secrets.GCP_SA_KEY }}
@@ -58,40 +166,27 @@ jobs:
           RUN_ID: ${{ github.run_id }}
           AWS_SHUTDOWN_TIME: 240
           NO_SPOT: 1
+          SKIP_NETWORK_DEPLOY: "1"
         run: |
           # Pass the arguments expected in ./bootstrap.sh ci-network-bench
-          ./.github/ci3.sh network-bench tps-scenario nightly-bench "aztecprotocol/aztec:${{ steps.nightly-tag.outputs.nightly_tag }}"
-
-      - name: Cleanup network resources
-        if: always()
-        env:
-          AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
-          AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
-          GITHUB_TOKEN: ${{ secrets.AZTEC_BOT_GITHUB_TOKEN }}
-          BUILD_INSTANCE_SSH_KEY: ${{ secrets.BUILD_INSTANCE_SSH_KEY }}
-          GCP_SA_KEY: ${{ secrets.GCP_SA_KEY }}
-          GCP_PROJECT_ID: ${{ secrets.GCP_PROJECT_ID }}
-          NO_SPOT: 1
-        run: ./.github/ci3.sh network-teardown tps-scenario nightly-bench
+          ./.github/ci3.sh network-bench tps-scenario nightly-bench "${{ needs.select-image.outputs.docker_image }}"
 
       - name: Download benchmarks
         if: always()
-        env:
-          AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
-          AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
         run: |
           if ./ci.sh gh-spartan-bench; then
-            echo "ENABLE_DEPLOY_BENCH=1" >> $GITHUB_ENV
+            echo "ENABLE_DEPLOY_BENCH=1" >> "$GITHUB_ENV"
           fi
 
       - name: Upload benchmarks
         if: always() && env.ENABLE_DEPLOY_BENCH == '1'
-        uses: benchmark-action/github-action-benchmark@4de1bed97a47495fc4c5404952da0499e31f5c29
+        uses: benchmark-action/github-action-benchmark@52576c92bccf6ac60c8223ec7eb2565637cae9ba # v1.22.1
         with:
           name: Spartan
           benchmark-data-dir-path: "bench/next"
           tool: "customSmallerIsBetter"
           output-file-path: ./bench-out/bench.json
+          gh-repository: github.com/AztecProtocol/benchmark-page-data
           github-token: ${{ secrets.AZTEC_BOT_GITHUB_TOKEN }}
           auto-push: true
           ref: ${{ github.event.workflow_run.head_sha || github.sha }}
@@ -100,100 +195,354 @@ jobs:
           fail-on-alert: false
           max-items-in-chart: 100
 
-      - name: Notify Slack on failure
-        if: failure() && github.event_name != 'workflow_dispatch'
-        env:
-          SLACK_BOT_TOKEN: ${{ secrets.SLACK_BOT_TOKEN }}
-        run: |
-          if [ -n "${SLACK_BOT_TOKEN}" ]; then
-            read -r -d '' data <<EOF || true
-            {
-              "channel": "#alerts-next-scenario",
-              "text": "Nightly Spartan Benchmarks FAILED (nightly tag ${{ steps.nightly-tag.outputs.nightly_tag }}): <https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}|View Run>"
-            }
-          EOF
-            curl -X POST https://slack.com/api/chat.postMessage \
-              -H "Authorization: Bearer $SLACK_BOT_TOKEN" \
-              -H "Content-type: application/json" \
-              --data "$data"
-          fi
+  cleanup-bench:
+    if: ${{ always() && github.repository == 'AztecProtocol/aztec-packages' }}
+    needs:
+      - select-image
+      - deploy-bench-network
+      - wait-bench-l2-block
+      - benchmark
+    runs-on: ubuntu-latest
+    permissions:
+      id-token: write
+      contents: read
+    steps:
+      - name: Checkout
+        uses: actions/checkout@93cb6efe18208431cddfb8368fd83d5badbf9bfd # v5.0.1
+        with:
+          ref: ${{ needs.select-image.outputs.source_ref }}
 
-  proving-benchmark:
+      - name: Configure AWS credentials (OIDC)
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ secrets.AWS_OIDC_ROLE_ARN }}
+          aws-region: us-east-2
+
+      - name: Cleanup network resources
+        uses: ./.github/actions/network-teardown
+        with:
+          env_file: tps-scenario
+          namespace: nightly-bench
+          gcp_sa_key: ${{ secrets.GCP_SA_KEY }}
+          gcp_project_id: ${{ secrets.GCP_PROJECT_ID }}
+
+  notify-bench:
+    if: ${{ always() && github.event_name != 'workflow_dispatch' && github.repository == 'AztecProtocol/aztec-packages' }}
+    needs:
+      - select-image
+      - deploy-bench-network
+      - wait-bench-l2-block
+      - benchmark
+      - cleanup-bench
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
-        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
-        # Note cron jobs will be on 'next' by default.
+        uses: actions/checkout@93cb6efe18208431cddfb8368fd83d5badbf9bfd # v5.0.1
+        with:
+          ref: ${{ needs.select-image.outputs.source_ref }}
 
-      - name: Determine nightly tag
-        id: nightly-tag
+      - name: Notify Slack on success
+        if: ${{ needs.benchmark.result == 'success' }}
+        env:
+          SLACK_BOT_TOKEN: ${{ secrets.SLACK_BOT_TOKEN }}
         run: |
-          if [[ -n "${{ inputs.nightly_tag }}" ]]; then
-            nightly_tag="${{ inputs.nightly_tag }}"
-          else
-            current_version=$(jq -r '."."' .release-please-manifest.json)
-            nightly_tag="${current_version}-nightly.$(date -u +%Y%m%d)"
-          fi
-          echo "nightly_tag=$nightly_tag" >> $GITHUB_OUTPUT
-          echo "Using nightly tag: $nightly_tag"
+          export CI=1
+          TAG="${{ needs.select-image.outputs.nightly_tag || 'unknown' }}"
+          RUN_URL="https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}"
+          ./ci3/slack_notify \
+            "Nightly Spartan TPS benchmarks PASSED (nightly tag ${TAG}) :white_check_mark: <${RUN_URL}|View Run>" \
+            "#alerts-next-scenario"
 
-      - name: Check if Docker image exists
+      - name: Notify Slack and dispatch ClaudeBox on failure
+        if: ${{ needs.benchmark.result != 'success' }}
+        env:
+          SLACK_BOT_TOKEN: ${{ secrets.SLACK_BOT_TOKEN }}
+          GITHUB_TOKEN: ${{ secrets.AZTEC_BOT_GITHUB_TOKEN }}
         run: |
-          DOCKER_IMAGE="aztecprotocol/aztec:${{ steps.nightly-tag.outputs.nightly_tag }}"
-          echo "Checking if Docker image exists: $DOCKER_IMAGE"
-          if docker manifest inspect "$DOCKER_IMAGE" > /dev/null 2>&1; then
-            echo "Docker image exists: $DOCKER_IMAGE"
-          else
-            echo "Docker image does not exist: $DOCKER_IMAGE"
-            exit 1
-          fi
+          TAG="${{ needs.select-image.outputs.nightly_tag || 'unknown' }}"
+          RUN_URL="https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}"
+          ./ci3/slack_notify_with_claudebox_kickoff "#alerts-next-scenario" \
+            "Nightly Spartan Benchmarks FAILED (nightly tag ${TAG}): <${RUN_URL}|View Run> (🤖)" \
+            "Nightly Spartan benchmarks failed (nightly tag ${TAG}). CI run: ${RUN_URL}. Investigate the benchmark failure and identify the root cause." \
+            --link "$RUN_URL"
+
+  # ---------------------------------------------------------------------------
+  # Proving benchmark (env prove-n-tps-fake, namespace prove-n-tps-fake)
+  # ---------------------------------------------------------------------------
+  deploy-proving-network:
+    needs: [select-image, wait-for-ci3]
+    if: ${{ github.repository == 'AztecProtocol/aztec-packages' }}
+    uses: ./.github/workflows/deploy-network.yml
+    with:
+      network: prove-n-tps-fake
+      namespace: prove-n-tps-fake
+      semver: ${{ needs.select-image.outputs.nightly_tag }}
+      ref: ${{ needs.select-image.outputs.source_ref }}
+      use_internal_docker_registry: ${{ needs.select-image.outputs.use_internal_docker_registry == 'true' }}
+      skip_notify_on_failure: true
+    secrets: inherit
+
+  wait-proving-l2-block:
+    needs:
+      - select-image
+      - deploy-proving-network
+    if: ${{ github.repository == 'AztecProtocol/aztec-packages' }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 120
+    steps:
+      - name: Checkout
+        uses: actions/checkout@93cb6efe18208431cddfb8368fd83d5badbf9bfd # v5.0.1
+        with:
+          ref: ${{ needs.select-image.outputs.source_ref }}
+
+      - name: Authenticate to Google Cloud
+        uses: google-github-actions/auth@7c6bc770dae815cd3e89ee6cdf493a5fab2cc093 # v3.0.0
+        with:
+          credentials_json: ${{ secrets.GCP_SA_KEY }}
+
+      - name: Set up Cloud SDK
+        uses: google-github-actions/setup-gcloud@aa5489c8933f4cc7a4f7d45035b3b1440c9c10db # v3.0.1
+        with:
+          install_components: gke-gcloud-auth-plugin
+
+      - name: Wait for first L2 block
+        env:
+          GCP_PROJECT_ID: ${{ secrets.GCP_PROJECT_ID }}
+          NAMESPACE: prove-n-tps-fake
+        run: |
+          cd spartan
+          ./bootstrap.sh wait_for_l2_block prove-n-tps-fake
+
+  proving-benchmark:
+    needs:
+      - select-image
+      - wait-proving-l2-block
+    if: ${{ github.repository == 'AztecProtocol/aztec-packages' }}
+    runs-on: ubuntu-latest
+    permissions:
+      id-token: write
+      contents: read
+    steps:
+      - name: Checkout
+        uses: actions/checkout@93cb6efe18208431cddfb8368fd83d5badbf9bfd # v5.0.1
+        with:
+          ref: ${{ needs.select-image.outputs.source_ref }}
+
+      - name: Configure AWS credentials (OIDC)
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ secrets.AWS_OIDC_ROLE_ARN }}
+          aws-region: us-east-2
 
       - name: Run proving benchmarks
-        timeout-minutes: 150
+        timeout-minutes: 180
         env:
-          AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
-          AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
           GITHUB_TOKEN: ${{ secrets.AZTEC_BOT_GITHUB_TOKEN }}
           BUILD_INSTANCE_SSH_KEY: ${{ secrets.BUILD_INSTANCE_SSH_KEY }}
           GCP_SA_KEY: ${{ secrets.GCP_SA_KEY }}
           GCP_PROJECT_ID: ${{ secrets.GCP_PROJECT_ID }}
           SLACK_BOT_TOKEN: ${{ secrets.SLACK_BOT_TOKEN }}
           RUN_ID: ${{ github.run_id }}
-          AWS_SHUTDOWN_TIME: 150
+          AWS_SHUTDOWN_TIME: 180
           NO_SPOT: 1
+          SKIP_NETWORK_DEPLOY: "1"
         run: |
-          ./.github/ci3.sh network-proving-bench prove-n-tps-fake prove-n-tps-fake "aztecprotocol/aztec:${{ steps.nightly-tag.outputs.nightly_tag }}"
-
-      - name: Cleanup network resources
-        if: always()
-        env:
-          AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
-          AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
-          GITHUB_TOKEN: ${{ secrets.AZTEC_BOT_GITHUB_TOKEN }}
-          BUILD_INSTANCE_SSH_KEY: ${{ secrets.BUILD_INSTANCE_SSH_KEY }}
-          GCP_SA_KEY: ${{ secrets.GCP_SA_KEY }}
-          GCP_PROJECT_ID: ${{ secrets.GCP_PROJECT_ID }}
-          NO_SPOT: 1
-        run: ./.github/ci3.sh network-teardown prove-n-tps-fake prove-n-tps-fake
+          ./.github/ci3.sh network-proving-bench prove-n-tps-fake prove-n-tps-fake "${{ needs.select-image.outputs.docker_image }}"
 
       - name: Download benchmarks
         if: always()
-        env:
-          AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
-          AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
         run: |
           if ./ci.sh gh-spartan-proving-bench; then
-            echo "ENABLE_DEPLOY_BENCH=1" >> $GITHUB_ENV
+            echo "ENABLE_DEPLOY_BENCH=1" >> "$GITHUB_ENV"
           fi
 
       - name: Upload benchmarks
         if: always() && env.ENABLE_DEPLOY_BENCH == '1'
-        uses: benchmark-action/github-action-benchmark@4de1bed97a47495fc4c5404952da0499e31f5c29
+        uses: benchmark-action/github-action-benchmark@52576c92bccf6ac60c8223ec7eb2565637cae9ba # v1.22.1
         with:
           name: Spartan
           benchmark-data-dir-path: "bench/next"
           tool: "customSmallerIsBetter"
           output-file-path: ./bench-out/bench.json
+          github-token: ${{ secrets.AZTEC_BOT_GITHUB_TOKEN }}
+          gh-repository: github.com/AztecProtocol/benchmark-page-data
+          auto-push: true
+          ref: ${{ github.event.workflow_run.head_sha || github.sha }}
+          alert-threshold: "120%"
+          comment-on-alert: false
+          fail-on-alert: false
+          max-items-in-chart: 100
+
+  cleanup-proving:
+    if: ${{ always() && github.repository == 'AztecProtocol/aztec-packages' }}
+    needs:
+      - select-image
+      - deploy-proving-network
+      - wait-proving-l2-block
+      - proving-benchmark
+    runs-on: ubuntu-latest
+    permissions:
+      id-token: write
+      contents: read
+    steps:
+      - name: Checkout
+        uses: actions/checkout@93cb6efe18208431cddfb8368fd83d5badbf9bfd # v5.0.1
+        with:
+          ref: ${{ needs.select-image.outputs.source_ref }}
+
+      - name: Configure AWS credentials (OIDC)
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ secrets.AWS_OIDC_ROLE_ARN }}
+          aws-region: us-east-2
+
+      - name: Cleanup network resources
+        uses: ./.github/actions/network-teardown
+        with:
+          env_file: prove-n-tps-fake
+          namespace: prove-n-tps-fake
+          gcp_sa_key: ${{ secrets.GCP_SA_KEY }}
+          gcp_project_id: ${{ secrets.GCP_PROJECT_ID }}
+
+  notify-proving:
+    if: ${{ always() && github.event_name != 'workflow_dispatch' && github.repository == 'AztecProtocol/aztec-packages' }}
+    needs:
+      - select-image
+      - deploy-proving-network
+      - wait-proving-l2-block
+      - proving-benchmark
+      - cleanup-proving
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@93cb6efe18208431cddfb8368fd83d5badbf9bfd # v5.0.1
+        with:
+          ref: ${{ needs.select-image.outputs.source_ref }}
+
+      - name: Notify Slack on success
+        if: ${{ needs.proving-benchmark.result == 'success' }}
+        env:
+          SLACK_BOT_TOKEN: ${{ secrets.SLACK_BOT_TOKEN }}
+        run: |
+          export CI=1
+          TAG="${{ needs.select-image.outputs.nightly_tag || 'unknown' }}"
+          RUN_URL="https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}"
+          ./ci3/slack_notify \
+            "Nightly proving benchmarks passed (nightly tag ${TAG}) :white_check_mark: <${RUN_URL}|View Run>" \
+            "#alerts-next-scenario"
+
+      - name: Notify Slack and dispatch ClaudeBox on failure
+        if: ${{ needs.proving-benchmark.result != 'success' }}
+        env:
+          SLACK_BOT_TOKEN: ${{ secrets.SLACK_BOT_TOKEN }}
+          GITHUB_TOKEN: ${{ secrets.AZTEC_BOT_GITHUB_TOKEN }}
+        run: |
+          TAG="${{ needs.select-image.outputs.nightly_tag || 'unknown' }}"
+          RUN_URL="https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}"
+          ./ci3/slack_notify_with_claudebox_kickoff "#alerts-next-scenario" \
+            "Nightly Proving Benchmarks FAILED (nightly tag ${TAG}): <${RUN_URL}|View Run> (🤖)" \
+            "Nightly proving benchmarks failed (nightly tag ${TAG}). CI run: ${RUN_URL}. Investigate the benchmark failure and identify the root cause." \
+            --link "$RUN_URL"
+
+  # ---------------------------------------------------------------------------
+  # Block capacity benchmark (env block-capacity, namespace nightly-block-capacity)
+  # ---------------------------------------------------------------------------
+  deploy-block-capacity-network:
+    needs: [select-image, wait-for-ci3]
+    if: ${{ github.repository == 'AztecProtocol/aztec-packages' }}
+    uses: ./.github/workflows/deploy-network.yml
+    with:
+      network: block-capacity
+      namespace: nightly-block-capacity
+      semver: ${{ needs.select-image.outputs.nightly_tag }}
+      ref: ${{ needs.select-image.outputs.source_ref }}
+      use_internal_docker_registry: ${{ needs.select-image.outputs.use_internal_docker_registry == 'true' }}
+      skip_notify_on_failure: true
+    secrets: inherit
+
+  wait-block-capacity-l2-block:
+    needs:
+      - select-image
+      - deploy-block-capacity-network
+    if: ${{ github.repository == 'AztecProtocol/aztec-packages' }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 120
+    steps:
+      - name: Checkout
+        uses: actions/checkout@93cb6efe18208431cddfb8368fd83d5badbf9bfd # v5.0.1
+        with:
+          ref: ${{ needs.select-image.outputs.source_ref }}
+
+      - name: Authenticate to Google Cloud
+        uses: google-github-actions/auth@7c6bc770dae815cd3e89ee6cdf493a5fab2cc093 # v3.0.0
+        with:
+          credentials_json: ${{ secrets.GCP_SA_KEY }}
+
+      - name: Set up Cloud SDK
+        uses: google-github-actions/setup-gcloud@aa5489c8933f4cc7a4f7d45035b3b1440c9c10db # v3.0.1
+        with:
+          install_components: gke-gcloud-auth-plugin
+
+      - name: Wait for first L2 block
+        env:
+          GCP_PROJECT_ID: ${{ secrets.GCP_PROJECT_ID }}
+          NAMESPACE: nightly-block-capacity
+        run: |
+          cd spartan
+          ./bootstrap.sh wait_for_l2_block block-capacity
+
+  block-capacity-benchmark:
+    needs:
+      - select-image
+      - wait-block-capacity-l2-block
+    if: ${{ github.repository == 'AztecProtocol/aztec-packages' }}
+    runs-on: ubuntu-latest
+    permissions:
+      id-token: write
+      contents: read
+    steps:
+      - name: Checkout
+        uses: actions/checkout@93cb6efe18208431cddfb8368fd83d5badbf9bfd # v5.0.1
+        with:
+          ref: ${{ needs.select-image.outputs.source_ref }}
+
+      - name: Configure AWS credentials (OIDC)
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ secrets.AWS_OIDC_ROLE_ARN }}
+          aws-region: us-east-2
+
+      - name: Run block capacity benchmarks
+        timeout-minutes: 240
+        env:
+          GITHUB_TOKEN: ${{ secrets.AZTEC_BOT_GITHUB_TOKEN }}
+          BUILD_INSTANCE_SSH_KEY: ${{ secrets.BUILD_INSTANCE_SSH_KEY }}
+          GCP_SA_KEY: ${{ secrets.GCP_SA_KEY }}
+          GCP_PROJECT_ID: ${{ secrets.GCP_PROJECT_ID }}
+          SLACK_BOT_TOKEN: ${{ secrets.SLACK_BOT_TOKEN }}
+          RUN_ID: ${{ github.run_id }}
+          AWS_SHUTDOWN_TIME: 240
+          NO_SPOT: 1
+          SKIP_NETWORK_DEPLOY: "1"
+        run: |
+          ./.github/ci3.sh network-block-capacity-bench block-capacity nightly-block-capacity "${{ needs.select-image.outputs.docker_image }}"
+
+      - name: Download benchmarks
+        if: always()
+        run: |
+          if ./ci.sh gh-spartan-block-capacity-bench; then
+            echo "ENABLE_DEPLOY_BENCH=1" >> "$GITHUB_ENV"
+          fi
+
+      - name: Upload benchmarks
+        if: always() && env.ENABLE_DEPLOY_BENCH == '1'
+        uses: benchmark-action/github-action-benchmark@52576c92bccf6ac60c8223ec7eb2565637cae9ba # v1.22.1
+        with:
+          name: Spartan
+          benchmark-data-dir-path: "bench/next"
+          tool: "customSmallerIsBetter"
+          output-file-path: ./bench-out/bench.json
+          gh-repository: github.com/AztecProtocol/benchmark-page-data
           github-token: ${{ secrets.AZTEC_BOT_GITHUB_TOKEN }}
           auto-push: true
           ref: ${{ github.event.workflow_run.head_sha || github.sha }}
@@ -202,35 +551,89 @@ jobs:
           fail-on-alert: false
           max-items-in-chart: 100
 
-      - name: Notify Slack on failure
-        if: failure() && github.event_name != 'workflow_dispatch'
+  cleanup-block-capacity:
+    if: ${{ always() && github.repository == 'AztecProtocol/aztec-packages' }}
+    needs:
+      - select-image
+      - deploy-block-capacity-network
+      - wait-block-capacity-l2-block
+      - block-capacity-benchmark
+    runs-on: ubuntu-latest
+    permissions:
+      id-token: write
+      contents: read
+    steps:
+      - name: Checkout
+        uses: actions/checkout@93cb6efe18208431cddfb8368fd83d5badbf9bfd # v5.0.1
+        with:
+          ref: ${{ needs.select-image.outputs.source_ref }}
+
+      - name: Configure AWS credentials (OIDC)
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ secrets.AWS_OIDC_ROLE_ARN }}
+          aws-region: us-east-2
+
+      - name: Cleanup network resources
+        uses: ./.github/actions/network-teardown
+        with:
+          env_file: block-capacity
+          namespace: nightly-block-capacity
+          gcp_sa_key: ${{ secrets.GCP_SA_KEY }}
+          gcp_project_id: ${{ secrets.GCP_PROJECT_ID }}
+
+  notify-block-capacity:
+    if: ${{ always() && github.event_name != 'workflow_dispatch' && github.repository == 'AztecProtocol/aztec-packages' }}
+    needs:
+      - select-image
+      - deploy-block-capacity-network
+      - wait-block-capacity-l2-block
+      - block-capacity-benchmark
+      - cleanup-block-capacity
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@93cb6efe18208431cddfb8368fd83d5badbf9bfd # v5.0.1
+        with:
+          ref: ${{ needs.select-image.outputs.source_ref }}
+
+      - name: Notify Slack on success
+        if: ${{ needs.block-capacity-benchmark.result == 'success' }}
         env:
           SLACK_BOT_TOKEN: ${{ secrets.SLACK_BOT_TOKEN }}
         run: |
-          if [ -n "${SLACK_BOT_TOKEN}" ]; then
-            read -r -d '' data <<EOF || true
-            {
-              "channel": "#alerts-next-scenario",
-              "text": "Nightly Proving Benchmarks FAILED (nightly tag ${{ steps.nightly-tag.outputs.nightly_tag }}): <https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}|View Run>"
-            }
-          EOF
-            curl -X POST https://slack.com/api/chat.postMessage \
-              -H "Authorization: Bearer $SLACK_BOT_TOKEN" \
-              -H "Content-type: application/json" \
-              --data "$data"
-          fi
+          export CI=1
+          TAG="${{ needs.select-image.outputs.nightly_tag || 'unknown' }}"
+          RUN_URL="https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}"
+          ./ci3/slack_notify \
+            "Nightly block capacity benchmarks passed (nightly tag ${TAG}) :white_check_mark: <${RUN_URL}|View Run>" \
+            "#alerts-next-scenario"
+
+      - name: Notify Slack and dispatch ClaudeBox on failure
+        if: ${{ needs.block-capacity-benchmark.result != 'success' }}
+        env:
+          SLACK_BOT_TOKEN: ${{ secrets.SLACK_BOT_TOKEN }}
+          GITHUB_TOKEN: ${{ secrets.AZTEC_BOT_GITHUB_TOKEN }}
+        run: |
+          TAG="${{ needs.select-image.outputs.nightly_tag || 'unknown' }}"
+          RUN_URL="https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}"
+          ./ci3/slack_notify_with_claudebox_kickoff "#alerts-next-scenario" \
+            "Nightly Block Capacity Benchmarks FAILED (nightly tag ${TAG}): <${RUN_URL}|View Run> (🤖)" \
+            "Nightly block capacity benchmarks failed (nightly tag ${TAG}). CI run: ${RUN_URL}. Investigate the benchmark failure and identify the root cause." \
+            --link "$RUN_URL"
 
   status:
     runs-on: ubuntu-latest
-    needs: [benchmark, proving-benchmark]
-    if: always()
+    needs: [benchmark, proving-benchmark, block-capacity-benchmark]
+    if: ${{ always() && github.repository == 'AztecProtocol/aztec-packages' }}
     steps:
       - name: Check benchmark results
         run: |
-          if [[ "${{ needs.benchmark.result }}" != "success" || "${{ needs.proving-benchmark.result }}" != "success" ]]; then
+          if [[ "${{ needs.benchmark.result }}" != "success" || "${{ needs.proving-benchmark.result }}" != "success" || "${{ needs.block-capacity-benchmark.result }}" != "success" ]]; then
             echo "One or more benchmark jobs failed"
             echo "benchmark: ${{ needs.benchmark.result }}"
             echo "proving-benchmark: ${{ needs.proving-benchmark.result }}"
+            echo "block-capacity-benchmark: ${{ needs.block-capacity-benchmark.result }}"
             exit 1
           fi
           echo "All benchmark jobs succeeded"

@@ -14,10 +14,10 @@
 #include "barretenberg/vm2/simulation/testing/mock_dbs.hpp"
 #include "barretenberg/vm2/simulation/testing/mock_execution_id_manager.hpp"
 #include "barretenberg/vm2/simulation/testing/mock_field_gt.hpp"
+#include "barretenberg/vm2/simulation/testing/mock_indexed_tree_check.hpp"
 #include "barretenberg/vm2/simulation/testing/mock_l1_to_l2_message_tree_check.hpp"
 #include "barretenberg/vm2/simulation/testing/mock_merkle_check.hpp"
 #include "barretenberg/vm2/simulation/testing/mock_note_hash_tree_check.hpp"
-#include "barretenberg/vm2/simulation/testing/mock_nullifier_tree_check.hpp"
 #include "barretenberg/vm2/simulation/testing/mock_poseidon2.hpp"
 #include "barretenberg/vm2/simulation/testing/mock_written_public_data_slots_tree_check.hpp"
 #include "barretenberg/vm2/testing/macros.hpp"
@@ -36,11 +36,11 @@ using simulation::EventEmitter;
 using simulation::MerkleDB;
 using simulation::MockExecutionIdManager;
 using simulation::MockFieldGreaterThan;
+using simulation::MockIndexedTreeCheck;
 using simulation::MockL1ToL2MessageTreeCheck;
 using simulation::MockLowLevelMerkleDB;
 using simulation::MockMerkleCheck;
 using simulation::MockNoteHashTreeCheck;
-using simulation::MockNullifierTreeCheck;
 using simulation::MockPoseidon2;
 using simulation::MockWrittenPublicDataSlotsTreeCheck;
 using simulation::PublicDataTreeCheck;
@@ -81,7 +81,8 @@ TEST(SLoadConstrainingTest, NegativeInvalidOutputTag)
           { C::execution_mem_tag_reg_2_, static_cast<uint8_t>(MemoryTag::U32) },
           { C::execution_subtrace_operation_id, AVM_EXEC_OP_ID_SLOAD } },
     });
-    EXPECT_THROW_WITH_MESSAGE(check_relation<sload>(trace), "SLOAD_FF_OUTPUT_TAG");
+    EXPECT_THROW_WITH_MESSAGE(check_relation<sload>(trace),
+                              sload::get_subrelation_label(sload::SR_SLOAD_FF_OUTPUT_TAG));
 }
 
 TEST(SLoadConstrainingTest, NegativeSloadSuccess)
@@ -100,7 +101,7 @@ TEST(SLoadConstrainingTest, NegativeSloadSuccess)
 
     check_relation<sload>(trace);
     EXPECT_THROW_WITH_MESSAGE(check_relation<execution>(trace, execution::SR_INFALLIBLE_OPCODES_SUCCESS),
-                              "INFALLIBLE_OPCODES_SUCCESS");
+                              execution::get_subrelation_label(execution::SR_INFALLIBLE_OPCODES_SUCCESS));
 }
 
 TEST(SLoadConstrainingTest, Interactions)
@@ -111,7 +112,7 @@ TEST(SLoadConstrainingTest, Interactions)
     NiceMock<MockExecutionIdManager> execution_id_manager;
     NiceMock<MockWrittenPublicDataSlotsTreeCheck> written_public_data_slots_tree_check;
     NiceMock<MockLowLevelMerkleDB> low_level_merkle_db;
-    NiceMock<MockNullifierTreeCheck> nullifier_tree_check;
+    NiceMock<MockIndexedTreeCheck> indexed_tree_check;
     NiceMock<MockNoteHashTreeCheck> note_hash_tree_check;
     NiceMock<MockL1ToL2MessageTreeCheck> l1_to_l2_message_tree_check;
 
@@ -124,7 +125,7 @@ TEST(SLoadConstrainingTest, Interactions)
 
     MerkleDB merkle_db(low_level_merkle_db,
                        public_data_tree_check,
-                       nullifier_tree_check,
+                       indexed_tree_check,
                        note_hash_tree_check,
                        written_public_data_slots_tree_check,
                        l1_to_l2_message_tree_check);

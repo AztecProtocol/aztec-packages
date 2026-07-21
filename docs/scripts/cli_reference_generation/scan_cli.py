@@ -123,32 +123,63 @@ class CLIScanner:
         return None
 
     def parse_commander_help(self, help_text: str) -> Dict[str, Any]:
-        """Parse Commander.js style help output."""
+        """Parse Commander.js style help output.
+
+        This parser is only used for the root command (to discover Commands and
+        Additional commands sections). Leaf subcommands are auto-detected and
+        typically parsed by parse_cli11_help which handles both CLI11 and
+        Commander.js leaf output correctly.
+        """
         result = {
             "usage": "",
             "description": "",
             "options": [],
             "commands": [],
-            "additional_commands": []
+            "additional_commands": [],
+            "examples": []
         }
 
         lines = help_text.split('\n')
         current_section = None
+        pre_usage_lines = []  # Collect lines before Usage: for modern CLI format
 
         for i, line in enumerate(lines):
-            # Extract usage
+            # Extract usage (keep the first one; wrapper commands may show
+            # a second Usage: line from the delegated tool)
             if line.strip().startswith('Usage:'):
-                result["usage"] = line.replace('Usage:', '').strip()
+                if not result["usage"]:
+                    result["usage"] = line.replace('Usage:', '').strip()
+                    # In modern CLI format, description comes BEFORE Usage:
+                    if pre_usage_lines and not result["description"]:
+                        result["description"] = ' '.join(pre_usage_lines)
+                continue
 
             # Section headers (check these before description parsing)
             elif 'Options:' in line and current_section != 'additional':
                 current_section = 'options'
-            elif line.strip() == 'Commands:' or 'Arguments:' in line:
+            elif line.strip() == 'Commands:':
                 current_section = 'commands'
+            elif 'Arguments:' in line:
+                # Arguments section - skip parsing (not commands)
+                current_section = 'arguments'
+            elif 'Examples:' in line or 'Example:' in line:
+                # Examples section - capture but don't parse as commands
+                current_section = 'examples'
+            elif 'Output:' in line or 'Note:' in line:
+                # Other informational sections - skip parsing
+                current_section = 'info'
             elif 'Additional commands:' in line:
                 current_section = 'additional'
 
-            # Extract description (usually after Usage, before Options/Commands)
+            # Collect lines before Usage: (for modern CLI format where description comes first)
+            elif not result["usage"] and line.strip() and current_section is None:
+                pre_usage_lines.append(line.strip())
+
+            # Capture examples
+            elif current_section == 'examples' and line.strip():
+                result["examples"].append(line.strip())
+
+            # Extract description (Commander.js format: after Usage, before Options/Commands)
             elif line.strip() and not line.startswith(' ') and current_section is None:
                 if result["usage"] and not result["description"]:
                     result["description"] = line.strip()
@@ -190,24 +221,38 @@ class CLIScanner:
                             "description": description
                         })
 
-            # Parse additional commands (custom format with colon separator)
+            # Parse additional commands
+            # These can use either colon-separated format ("init [folder]: description")
+            # or space-padded format like regular Commands ("init [folder]  description")
             elif current_section == 'additional' and line.strip():
                 stripped = line.strip()
-                # Match patterns like: "compile [options]: description" or "init [folder] [options]: description"
-                # Command lines start with a word (possibly hyphenated) followed by optional args and a colon
-                additional_match = re.match(r'^([\w-]+)(\s+[^:]+)?:\s*(.+)$', stripped)
-                if additional_match:
-                    cmd_name = additional_match.group(1)
-                    cmd_args = additional_match.group(2) or ""
-                    description = additional_match.group(3).strip()
+                if stripped and not stripped.startswith('-'):
+                    cmd_name = None
+                    cmd_full = None
+                    description = None
 
-                    cmd_full = f"{cmd_name}{cmd_args}".strip()
+                    # Try colon-separated format first
+                    colon_match = re.match(r'^([\w-]+)(\s+[^:]+)?:\s*(.+)$', stripped)
+                    if colon_match:
+                        cmd_name = colon_match.group(1)
+                        cmd_args = colon_match.group(2) or ""
+                        description = colon_match.group(3).strip()
+                        cmd_full = f"{cmd_name}{cmd_args}".strip()
 
-                    result["additional_commands"].append({
-                        "name": cmd_name,
-                        "signature": cmd_full,
-                        "description": description
-                    })
+                    # Fall back to space-padded format (same as Commands section)
+                    if not cmd_name:
+                        parts = re.split(r'\s{2,}', stripped, maxsplit=1)
+                        if len(parts) == 2:
+                            cmd_full = parts[0].strip()
+                            description = parts[1].strip()
+                            cmd_name = cmd_full.split()[0]
+
+                    if cmd_name and description:
+                        result["additional_commands"].append({
+                            "name": cmd_name,
+                            "signature": cmd_full,
+                            "description": description
+                        })
 
         # Merge additional_commands into commands list, avoiding duplicates
         existing_cmd_names = {cmd["name"] for cmd in result["commands"]}
@@ -313,21 +358,31 @@ class CLIScanner:
             option_indent = None  # Indentation level where options start
 
             for line in lines:
-                # Extract usage
+                # Extract usage (keep the first one; wrapper commands may show
+                # a second Usage: line from the delegated tool)
                 if line.strip().startswith('Usage:'):
-                    result["usage"] = line.replace('Usage:', '').strip()
+                    if not result["usage"]:
+                        result["usage"] = line.replace('Usage:', '').strip()
                     current_section = 'post_usage'
                     continue
 
-                # Collect description (lines before Usage:)
+                # Collect description (before or after Usage:)
                 if current_section is None and line.strip():
                     description_lines.append(line.strip())
                     continue
+                if current_section == 'post_usage' and line.strip():
+                    # Stop at section headers (Options:, Arguments:, etc.)
+                    if line.strip().endswith(':'):
+                        current_section = 'other'
+                    else:
+                        description_lines.append(line.strip())
+                        continue
 
                 # Section headers
                 if line.strip() == 'Options:':
                     current_section = 'options'
                     current_option = None
+                    option_indent = None  # Reset for new section (may have different indentation)
                     continue
                 elif line.strip() == 'Subcommands:':
                     current_section = 'subcommands'
@@ -345,8 +400,7 @@ class CLIScanner:
                     # parsed as a new option (e.g., "requires --slow_low_memory).")
                     if current_option and line.strip() and option_indent is not None:
                         # Continuation lines are indented more than the option itself
-                        # Use a threshold of option_indent + 4 to be flexible
-                        if line_indent > option_indent + 4:
+                        if line_indent >= option_indent + 2:
                             desc_text = line.strip()
                             if current_option["description"]:
                                 current_option["description"] += " " + desc_text
@@ -354,16 +408,9 @@ class CLIScanner:
                                 current_option["description"] = desc_text
                             continue
 
-                    # Option line: starts with dash(es), format: -h,--help or --long [ENV_VAR]
-                    # Regex breakdown:
-                    #   ^\s+                           - Leading whitespace (indentation)
-                    #   (-[^\s,]+                      - Short flag: dash followed by non-space/comma chars (e.g., -h, -v)
-                    #   (?:,\s*--[^\s\[]+)?            - Optional: comma + long flag without brackets (e.g., ,--help)
-                    #   (?:\s*,\s*--[^\s\[]+)?         - Optional: another long flag variant (for multi-flag options)
-                    #   )\s*                           - End of flags group + optional whitespace
-                    #   (\[[^\]]+\])?                  - Optional: environment variable in brackets (e.g., [BB_ENV])
-                    #   \s*$                           - Trailing whitespace + end of line
-                    option_match = re.match(r'^\s+(-[^\s,]+(?:,\s*--[^\s\[]+)?(?:\s*,\s*--[^\s\[]+)?)\s*(\[[^\]]+\])?\s*$', line)
+                    # Option line: starts with dash(es), format: -h,--help or --long <VALUE> [ENV_VAR]
+                    # Value placeholders can use <VALUE> or [value] syntax.
+                    option_match = re.match(r'^\s+(-[^\s,]+(?:,\s*--[^\s\[]+)?(?:\s*,\s*--[^\s\[]+)?(?:\s+(?:<[^>]+>|\[[^\]]+\]))?)\s*(\[[^\]]+\])?\s*$', line)
                     if option_match:
                         # Track option indentation level on first option seen
                         if option_indent is None:
@@ -380,15 +427,9 @@ class CLIScanner:
                         continue
 
                     # Check for option with inline description: -h,--help  Description here
-                    # Regex breakdown:
-                    #   ^\s+                           - Leading whitespace (indentation)
-                    #   (-[^\s]+                       - Short flag: dash followed by non-space chars
-                    #   (?:,\s*--[^\s]+)?              - Optional: comma + long flag (e.g., ,--help)
-                    #   (?:\s*,\s*--[^\s]+)?           - Optional: another long flag variant
-                    #   )                              - End of flags group
-                    #   \s{2,}                         - Two or more spaces (separator between flags and description)
-                    #   (.+)$                          - Description text to end of line
-                    inline_option_match = re.match(r'^\s+(-[^\s]+(?:,\s*--[^\s]+)?(?:\s*,\s*--[^\s]+)?)\s{2,}(.+)$', line)
+                    # Also handles: --flag <VALUE>  Description here
+                    #               --flag [value]  Description here
+                    inline_option_match = re.match(r'^\s+(-[^\s]+(?:,\s*--[^\s]+)?(?:\s*,\s*--[^\s]+)?(?:\s+(?:<[^>]+>|\[[^\]]+\]))?)\s{2,}(.+)$', line)
                     if inline_option_match:
                         # Track option indentation level on first option seen
                         if option_indent is None:
@@ -445,12 +486,8 @@ class CLIScanner:
                 "commands": result.get("commands", [])
             }
 
-    def _detect_or_use_format(self, help_output: str) -> str:
-        """Return the format to use: explicit if set, otherwise auto-detect."""
-        if self.cli_format != self.FORMAT_AUTO:
-            return self.cli_format
-
-        # Auto-detect by checking for section headers at start of lines
+    def _auto_detect_format(self, help_output: str) -> str:
+        """Auto-detect the CLI help format from the output text."""
         has_commands_section = re.search(r'^Commands:', help_output, re.MULTILINE)
         has_subcommands_section = re.search(r'^Subcommands:', help_output, re.MULTILINE)
         has_options_section = re.search(r'^Options:', help_output, re.MULTILINE)
@@ -461,10 +498,8 @@ class CLIScanner:
         elif has_usage_line and has_subcommands_section:
             return self.FORMAT_CLI11
         elif has_usage_line and has_options_section:
-            # CLI11 leaf command (has options but no subcommands)
             return self.FORMAT_CLI11
         elif re.search(r'^\s{2}[A-Z][A-Z\s]+$', help_output, re.MULTILINE):
-            # Custom format with uppercase section headers
             return self.FORMAT_CUSTOM
         else:
             return "raw"
@@ -512,9 +547,33 @@ class CLIScanner:
                 "error_preview": help_output[:200]
             }
 
-        # Determine format and parse accordingly
-        detected_format = self._detect_or_use_format(help_output)
+        # Determine format: use configured format for root command only.
+        # Subcommands always auto-detect because they may use a different
+        # framework (e.g., aztec root is Commander.js but aztec test/compile
+        # delegate to nargo which uses CLI11, and aztec start uses custom format).
+        # If auto-detect returns "raw", fall back to the configured format.
+        if depth == 0 and self.cli_format != self.FORMAT_AUTO:
+            detected_format = self.cli_format
+        else:
+            detected_format = self._auto_detect_format(help_output)
+            if detected_format == "raw" and self.cli_format != self.FORMAT_AUTO:
+                detected_format = self.cli_format
         parsed = self._parse_help(detected_format, help_output)
+
+        # Normalize usage line to reflect the actual command path.
+        # Wrapper commands (e.g., "aztec test" delegating to "nargo test") may
+        # report the underlying tool's name in the Usage: line.
+        if parsed.get("usage") and not parsed["usage"].startswith(cmd_path[0]):
+            expected_cmd = ' '.join(cmd_path)
+            usage_parts = parsed["usage"].split()
+            # Find where arguments start (brackets, angle brackets, or dashes)
+            args_start = len(usage_parts)
+            for i, part in enumerate(usage_parts):
+                if part.startswith('[') or part.startswith('<') or part.startswith('-'):
+                    args_start = i
+                    break
+            args = ' '.join(usage_parts[args_start:])
+            parsed["usage"] = f"{expected_cmd} {args}" if args else expected_cmd
 
         # Recursively scan subcommands for formats that support them
         if detected_format in (self.FORMAT_COMMANDER, self.FORMAT_CLI11):

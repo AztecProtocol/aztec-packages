@@ -2,6 +2,7 @@ import { AztecAddress } from '@aztec/aztec.js/addresses';
 import type { L2AmountClaim } from '@aztec/aztec.js/ethereum';
 import { Fr } from '@aztec/foundation/curves/bn254';
 import { type Logger, createLogger } from '@aztec/foundation/log';
+import { DateProvider } from '@aztec/foundation/timer';
 import type { AztecAsyncKVStore, AztecAsyncMap } from '@aztec/kv-store';
 
 export interface BridgeClaimData {
@@ -10,18 +11,38 @@ export interface BridgeClaimData {
   recipient: string;
 }
 
+export interface PendingL1ToL2Message {
+  /** Random content field sent in the message. */
+  content: string;
+  /** Secret for consuming the message. */
+  secret: string;
+  /** Hash of the secret. */
+  secretHash: string;
+  /** Hash of the L1→L2 message. */
+  msgHash: string;
+  /** L1 sender address (hex). */
+  sender: string;
+  /** Global leaf index in the L1→L2 message tree. */
+  globalLeafIndex: string;
+  /** Timestamp when the message was seeded. */
+  timestamp: number;
+}
+
 /**
  * Simple data store for the bot to persist L1 bridge claims.
  */
 export class BotStore {
   public static readonly SCHEMA_VERSION = 1;
   private readonly bridgeClaims: AztecAsyncMap<string, string>;
+  private readonly pendingL1ToL2: AztecAsyncMap<string, string>;
 
   constructor(
     private readonly store: AztecAsyncKVStore,
     private readonly log: Logger = createLogger('bot:store'),
+    private readonly dateProvider: DateProvider = new DateProvider(),
   ) {
     this.bridgeClaims = store.openMap<string, string>('bridge_claims');
+    this.pendingL1ToL2 = store.openMap<string, string>('pending_l1_to_l2');
   }
 
   /**
@@ -39,7 +60,7 @@ export class BotStore {
 
     const data = {
       claim: serializableClaim,
-      timestamp: Date.now(),
+      timestamp: this.dateProvider.now(),
       recipient: recipient.toString(),
     };
 
@@ -115,7 +136,7 @@ export class BotStore {
    * Cleans up old bridge claims (older than 24 hours).
    */
   public async cleanupOldClaims(maxAgeMs: number = 24 * 60 * 60 * 1000): Promise<number> {
-    const now = Date.now();
+    const now = this.dateProvider.now();
     let cleanedCount = 0;
     const entries = this.bridgeClaims.entriesAsync();
 
@@ -131,9 +152,43 @@ export class BotStore {
     return cleanedCount;
   }
 
-  /**
-   * Closes the store.
-   */
+  /** Saves a pending L1→L2 message keyed by msgHash. */
+  public async savePendingL1ToL2Message(msg: PendingL1ToL2Message): Promise<void> {
+    await this.pendingL1ToL2.set(msg.msgHash, JSON.stringify(msg));
+    this.log.info(`Saved pending L1→L2 message ${msg.msgHash}`);
+  }
+
+  /** Returns all unconsumed pending L1→L2 messages. */
+  public async getUnconsumedL1ToL2Messages(): Promise<PendingL1ToL2Message[]> {
+    const messages: PendingL1ToL2Message[] = [];
+    for await (const [_, data] of this.pendingL1ToL2.entriesAsync()) {
+      messages.push(JSON.parse(data));
+    }
+    return messages;
+  }
+
+  /** Deletes a consumed L1→L2 message from the store. */
+  public async deleteL1ToL2Message(msgHash: string): Promise<void> {
+    await this.pendingL1ToL2.delete(msgHash);
+    this.log.info(`Deleted consumed L1→L2 message ${msgHash}`);
+  }
+
+  /** Cleans up pending L1→L2 messages older than maxAgeMs. */
+  public async cleanupOldPendingMessages(maxAgeMs: number = 24 * 60 * 60 * 1000): Promise<number> {
+    const now = this.dateProvider.now();
+    let cleanedCount = 0;
+    for await (const [key, data] of this.pendingL1ToL2.entriesAsync()) {
+      const parsed = JSON.parse(data);
+      if (now - parsed.timestamp > maxAgeMs) {
+        await this.pendingL1ToL2.delete(key);
+        cleanedCount++;
+        this.log.info(`Cleaned up old pending L1→L2 message ${key}`);
+      }
+    }
+    return cleanedCount;
+  }
+
+  /** Closes the store. */
   public async close(): Promise<void> {
     await this.store.close();
     this.log.info('Closed bot data store');

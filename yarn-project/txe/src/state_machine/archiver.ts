@@ -1,12 +1,20 @@
-import { ArchiverDataSourceBase, ArchiverDataStoreUpdater, KVArchiverDataStore } from '@aztec/archiver';
+import { ArchiverDataSourceBase, ArchiverDataStoreUpdater, createArchiverDataStores } from '@aztec/archiver';
 import { GENESIS_ARCHIVE_ROOT } from '@aztec/constants';
 import { CheckpointNumber, type EpochNumber, type SlotNumber } from '@aztec/foundation/branded-types';
 import { Fr } from '@aztec/foundation/curves/bn254';
 import type { EthAddress } from '@aztec/foundation/eth-address';
 import type { AztecAsyncKVStore } from '@aztec/kv-store';
-import type { CheckpointId, L2BlockId, L2TipId, L2Tips, ValidateCheckpointResult } from '@aztec/stdlib/block';
+import {
+  type CheckpointId,
+  GENESIS_BLOCK_HEADER_HASH,
+  type L2BlockId,
+  type L2TipId,
+  type L2Tips,
+  type ValidateCheckpointResult,
+} from '@aztec/stdlib/block';
 import type { PublishedCheckpoint } from '@aztec/stdlib/checkpoint';
-import type { L1RollupConstants } from '@aztec/stdlib/epoch-helpers';
+import { EmptyL1RollupConstants, type L1RollupConstants } from '@aztec/stdlib/epoch-helpers';
+import { BlockHeader } from '@aztec/stdlib/tx';
 
 /**
  * TXE Archiver implementation.
@@ -14,11 +22,16 @@ import type { L1RollupConstants } from '@aztec/stdlib/epoch-helpers';
  * without needing any of the extra overhead that the Archiver itself requires (i.e. an L1 client).
  */
 export class TXEArchiver extends ArchiverDataSourceBase {
-  private readonly updater = new ArchiverDataStoreUpdater(this.store);
+  private readonly updater = new ArchiverDataStoreUpdater(this.stores);
 
   constructor(db: AztecAsyncKVStore) {
-    const store = new KVArchiverDataStore(db, 9999, { epochDuration: 32 });
-    super(store);
+    super(
+      createArchiverDataStores(db, GENESIS_BLOCK_HEADER_HASH),
+      undefined,
+      BlockHeader.empty(),
+      GENESIS_BLOCK_HEADER_HASH,
+      new Fr(GENESIS_ARCHIVE_ROOT),
+    );
   }
 
   public async addCheckpoints(checkpoints: PublishedCheckpoint[], result?: ValidateCheckpointResult): Promise<void> {
@@ -34,7 +47,9 @@ export class TXEArchiver extends ArchiverDataSourceBase {
   }
 
   public getL1Constants(): Promise<L1RollupConstants> {
-    throw new Error('TXE Archiver does not implement "getL1Constants"');
+    // The TXE has no L1, so it serves the empty constants (epochDuration=1) used throughout the TXE state machine
+    // (see mock_epoch_cache). The node calls this when assembling a mined tx receipt to derive the epoch number.
+    return Promise.resolve(EmptyL1RollupConstants);
   }
 
   public getGenesisValues(): Promise<{ genesisArchiveRoot: Fr }> {
@@ -48,18 +63,21 @@ export class TXEArchiver extends ArchiverDataSourceBase {
   public async getL2Tips(): Promise<L2Tips> {
     // In TXE there is no possibility of reorgs and no blocks are ever getting proven so we just set 'latest', 'proven'
     // and 'finalized' to the latest block.
-    const blockHeader = await this.getBlockHeader('latest');
-    if (!blockHeader) {
+    const latestBlockNumber = await this.stores.blocks.getLatestL2BlockNumber();
+    if (latestBlockNumber === 0) {
+      throw new Error('L2Tips requested from TXE Archiver but no block found');
+    }
+    const latestBlockData = await this.stores.blocks.getBlockData({ number: latestBlockNumber });
+    if (!latestBlockData) {
       throw new Error('L2Tips requested from TXE Archiver but no block header found');
     }
 
-    const number = blockHeader.globalVariables.blockNumber;
-    const hash = (await blockHeader.hash()).toString();
-    const checkpointedBlock = await this.getCheckpointedBlock(number);
-    if (!checkpointedBlock) {
-      throw new Error(`L2Tips requested from TXE Archiver but no checkpointed block found for block number ${number}`);
-    }
-    const checkpoint = await this.store.getRangeOfCheckpoints(CheckpointNumber.fromBlockNumber(number), 1);
+    const number = latestBlockData.header.globalVariables.blockNumber;
+    const hash = latestBlockData.blockHash.toString();
+
+    // TXE uses 1-block-per-checkpoint for testing simplicity, so we can use block number as checkpoint number.
+    // This uses the deprecated fromBlockNumber method intentionally for the TXE testing environment.
+    const checkpoint = await this.stores.blocks.getRangeOfCheckpoints(CheckpointNumber.fromBlockNumber(number), 1);
     if (checkpoint.length === 0) {
       throw new Error(`L2Tips requested from TXE Archiver but no checkpoint found for block number ${number}`);
     }
@@ -77,12 +95,12 @@ export class TXEArchiver extends ArchiverDataSourceBase {
     };
   }
 
-  public getL2SlotNumber(): Promise<SlotNumber | undefined> {
-    throw new Error('TXE Archiver does not implement "getL2SlotNumber"');
+  public getSyncedL2SlotNumber(): Promise<SlotNumber | undefined> {
+    throw new Error('TXE Archiver does not implement "getSyncedL2SlotNumber"');
   }
 
-  public getL2EpochNumber(): Promise<EpochNumber | undefined> {
-    throw new Error('TXE Archiver does not implement "getL2EpochNumber"');
+  public getSyncedL2EpochNumber(): Promise<EpochNumber | undefined> {
+    throw new Error('TXE Archiver does not implement "getSyncedL2EpochNumber"');
   }
 
   public isEpochComplete(_epochNumber: EpochNumber): Promise<boolean> {
@@ -91,5 +109,10 @@ export class TXEArchiver extends ArchiverDataSourceBase {
 
   public syncImmediate(): Promise<void> {
     throw new Error('TXE Archiver does not implement "syncImmediate"');
+  }
+
+  public getL2ToL1MembershipWitness(): Promise<undefined> {
+    // TXE doesn't drive the L2-to-L1 message flow through this archiver.
+    return Promise.resolve(undefined);
   }
 }

@@ -1,4 +1,8 @@
+const path = require("path");
 const { processConditionalBlocks } = require("./conditional_content");
+
+// Load version defaults from config file (source of truth for version→type mapping)
+const developerVersionConfig = require(path.join(__dirname, "../../developer_version_config.json"));
 
 // Valid release types for RELEASE_TYPE environment variable
 const VALID_RELEASE_TYPES = [
@@ -6,7 +10,6 @@ const VALID_RELEASE_TYPES = [
   "devnet",
   "testnet",
   "mainnet",
-  "ignition",
 ];
 
 /**
@@ -27,17 +30,12 @@ function getReleaseVersion(
 ) {
   switch (releaseType) {
     case "nightly":
-      // For nightly, use nightly tag and strip 'v' prefix
       return nightlyTag.startsWith("v") ? nightlyTag.substring(1) : nightlyTag;
     case "devnet":
-      // For devnet, use devnet tag and strip 'v' prefix
       return devnetTag.startsWith("v") ? devnetTag.substring(1) : devnetTag;
     case "testnet":
-      // For testnet, use testnet tag and strip 'v' prefix
       return testnetTag.startsWith("v") ? testnetTag.substring(1) : testnetTag;
     case "mainnet":
-    case "ignition":
-      // For mainnet/ignition, use mainnet tag and strip 'v' prefix
       return mainnetTag.startsWith("v") ? mainnetTag.substring(1) : mainnetTag;
     default:
       throw new Error(
@@ -60,7 +58,6 @@ function getReleaseNetwork(releaseType) {
     case "testnet":
       return "testnet";
     case "mainnet":
-    case "ignition":
       return "mainnet";
     default:
       throw new Error(
@@ -78,15 +75,15 @@ function getReleaseNetwork(releaseType) {
 async function preprocessIncludeVersion(markdownContent, filePath = "unknown") {
   const originalContent = markdownContent;
 
-  // Get environment variables
-  // NIGHTLY_TAG: version for nightly releases (e.g., "v3.0.0-nightly.20251222")
+  // Get environment variables, falling back to version config file defaults
   // COMMIT_TAG: kept for backwards compatibility with #include_aztec_version
+  const stripV = (v) => (v && v.startsWith("v") ? v.substring(1) : v);
   const nightlyTag =
-    process.env.NIGHTLY_TAG || process.env.COMMIT_TAG || "0.0.0-nightly.0";
-  const testnetTag = process.env.TESTNET_TAG || "2.1.9";
-  const devnetTag = process.env.DEVNET_TAG || "3.0.0-devnet.6-patch.1";
-  const mainnetTag = process.env.MAINNET_TAG || "2.1.9";
-  const releaseType = process.env.RELEASE_TYPE || "nightly";
+    process.env.NIGHTLY_TAG || process.env.COMMIT_TAG || stripV(developerVersionConfig.nightly) || "0.0.0";
+  const devnetTag = process.env.DEVNET_TAG || stripV(developerVersionConfig.devnet) || "0.0.0";
+  const testnetTag = process.env.TESTNET_TAG || stripV(developerVersionConfig.testnet) || "0.0.0";
+  const mainnetTag = process.env.MAINNET_TAG || stripV(developerVersionConfig.mainnet) || "0.0.0";
+  const releaseType = process.env.RELEASE_TYPE || "mainnet";
   // COMMIT_TAG kept for backwards compatibility
   const commitTag = process.env.COMMIT_TAG || "next";
 
@@ -107,6 +104,11 @@ async function preprocessIncludeVersion(markdownContent, filePath = "unknown") {
   );
   const releaseNetwork = getReleaseNetwork(releaseType);
 
+  // API ref paths
+  const apiRefVersion = releaseType === "testnet" ? "testnet"
+                      : releaseType === "mainnet" ? "mainnet"
+                      : "next";
+
   // Step 1: Process conditional blocks FIRST (before version substitution)
   // This allows conditionals to contain version macros
   markdownContent = processConditionalBlocks(
@@ -116,14 +118,9 @@ async function preprocessIncludeVersion(markdownContent, filePath = "unknown") {
   );
 
   // Step 2: Replace new release-type-aware macros
-  markdownContent = markdownContent.replaceAll(
-    `#release_version`,
-    releaseVersion,
-  );
-  markdownContent = markdownContent.replaceAll(
-    `#release_network`,
-    releaseNetwork,
-  );
+  markdownContent = markdownContent.replaceAll(`#release_version`, releaseVersion);
+  markdownContent = markdownContent.replaceAll(`#release_network`, releaseNetwork);
+  markdownContent = markdownContent.replaceAll(`#api_ref_version`, apiRefVersion);
 
   // Step 3: Replace existing macros (backwards compatibility)
   // TODO: Phase out #include_aztec_version and #include_version_without_prefix macros.

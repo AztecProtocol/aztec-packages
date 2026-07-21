@@ -1,5 +1,9 @@
+import './style.css';
 import { AztecAddress } from '@aztec/aztec.js/addresses';
-import { getContractInstanceFromInstantiationParams } from '@aztec/aztec.js/contracts';
+import {
+  BatchCall,
+  getContractInstanceFromInstantiationParams,
+} from '@aztec/aztec.js/contracts';
 import { Fr } from '@aztec/aztec.js/fields';
 import type { Wallet } from '@aztec/aztec.js/wallet';
 import { EmbeddedWallet } from './embedded-wallet';
@@ -24,11 +28,12 @@ const testAccountNumber = document.querySelector<HTMLSelectElement>(
 )!;
 
 // Local variables
-let wallet: EmbeddedWallet;
+let wallet;
 let contractAddress = process.env.CONTRACT_ADDRESS;
 let deployerAddress = process.env.DEPLOYER_ADDRESS;
 let deploymentSalt = process.env.DEPLOYMENT_SALT;
 let nodeUrl = process.env.AZTEC_NODE_URL;
+let electionId = Fr.fromString(process.env.ELECTION_ID);
 
 // On page load
 document.addEventListener('DOMContentLoaded', async () => {
@@ -39,16 +44,18 @@ document.addEventListener('DOMContentLoaded', async () => {
 
     // Initialize the PXE and the wallet
     displayStatusMessage('Connecting to node and initializing wallet...');
-    wallet = await EmbeddedWallet.initialize(nodeUrl);
+    wallet = await EmbeddedWallet.create(nodeUrl, {
+      pxeConfig: { proverEnabled: true },
+    });
 
     // Register voting contract with wallet/PXE
     displayStatusMessage('Registering contracts...');
     const instance = await getContractInstanceFromInstantiationParams(
       PrivateVotingContract.artifact,
       {
-        deployer: AztecAddress.fromString(deployerAddress),
+        deployer: AztecAddress.fromStringUnsafe(deployerAddress),
         salt: Fr.fromString(deploymentSalt),
-        constructorArgs: [AztecAddress.fromString(deployerAddress)],
+        constructorArgs: [AztecAddress.fromStringUnsafe(deployerAddress)],
       }
     );
     await wallet.registerContract(instance, PrivateVotingContract.artifact);
@@ -148,13 +155,13 @@ voteButton.addEventListener('click', async (e) => {
 
     // Prepare contract interaction
     const votingContract = PrivateVotingContract.at(
-      AztecAddress.fromString(contractAddress),
+      AztecAddress.fromStringUnsafe(contractAddress),
       wallet
     );
 
     // Send tx
     await votingContract.methods
-      .cast_vote(candidate)
+      .cast_vote({ id: electionId }, candidate)
       .send({ from: connectedAccount });
 
     // Update tally
@@ -181,20 +188,22 @@ async function updateVoteTally(wallet: Wallet, from: AztecAddress) {
 
   // Prepare contract interaction
   const votingContract = PrivateVotingContract.at(
-    AztecAddress.fromString(contractAddress),
+    AztecAddress.fromStringUnsafe(contractAddress),
     wallet
   );
 
-  await Promise.all(
-    Array.from({ length: 5 }, async (_, i) => {
-      const value = await votingContract.methods
-        .get_vote(i + 1)
-        .simulate({ from });
-      results[i + 1] = value;
-    })
+  const payloads = await Promise.all(
+    Array.from({ length: 5 }, async (_, i) =>
+      votingContract.methods.get_tally({ id: electionId }, i + 1).request()
+    )
   );
 
-  // Display the tally
+  const { result: batchResult } = await new BatchCall(wallet, payloads).simulate({ from });
+
+  batchResult.forEach(({ result: value }, i) => {
+    results[i + 1] = value;
+  });
+
   displayTally(results);
   displayStatusMessage('');
 }

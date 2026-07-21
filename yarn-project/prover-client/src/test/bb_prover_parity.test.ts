@@ -47,8 +47,9 @@ describe('prover/bb_prover/parity', () => {
     'proves the parity circuits',
     async () => {
       const l1ToL2Messages = new Array(NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP).fill(null).map(() => Fr.random());
+      const proverId = Fr.random();
       const baseParityInputs = makeTuple(NUM_BASE_PARITY_PER_ROOT_PARITY, i =>
-        ParityBasePrivateInputs.fromSlice(l1ToL2Messages, i, getVKTreeRoot()),
+        ParityBasePrivateInputs.fromSlice(l1ToL2Messages, i, getVKTreeRoot(), proverId),
       );
 
       // Generate the base parity proofs
@@ -108,7 +109,7 @@ describe('prover/bb_prover/parity', () => {
       shaRoot[0] = 0;
 
       const defectivePublicInputs = toProofData({
-        inputs: new ParityPublicInputs(Fr.fromBuffer(shaRoot), Fr.random(), getVKTreeRoot()),
+        inputs: new ParityPublicInputs(Fr.fromBuffer(shaRoot), Fr.random(), getVKTreeRoot(), proverId),
         proof: validProof,
         verificationKey: validVk,
       });

@@ -1,0 +1,415 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8" />
+  <title>ACI - Namespace Billing</title>
+  <style>
+    body {
+      background-color: black;
+      color: #ccc;
+      font-family: monospace;
+      padding: 10px;
+      font-size: 14px;
+    }
+    a { color: #58a6ff; text-decoration: none; }
+    a:hover { text-decoration: underline; }
+    .controls { margin: 10px 0; display: flex; gap: 12px; align-items: center; flex-wrap: wrap; }
+    .controls label { color: #888; }
+    input, select {
+      background: #111; border: 1px solid #333; color: #ccc;
+      font-family: monospace; font-size: 13px; padding: 4px 8px;
+    }
+    input:focus, select:focus { outline: none; border-color: #58a6ff; }
+    button {
+      background: #222; border: 1px solid #444; color: #ccc;
+      font-family: monospace; font-size: 13px; padding: 4px 12px; cursor: pointer;
+    }
+    button:hover { background: #333; }
+    button.active { background: #238636; border-color: #238636; color: #fff; }
+    .stats { margin: 12px 0; color: #888; }
+    .stats span { color: #ccc; }
+    .charts { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; margin: 16px 0; }
+    .charts .full { grid-column: 1 / -1; }
+    @media (max-width: 1000px) { .charts { grid-template-columns: 1fr; } }
+    .chart-box { background: #0a0a0a; border: 1px solid #222; padding: 12px; }
+    .chart-box h3 { color: #888; font-size: 12px; font-weight: normal; text-transform: uppercase; margin-bottom: 8px; }
+    .chart-wrap { position: relative; }
+    .chart-wrap.tall { height: 350px; }
+    .chart-wrap.med { height: 280px; }
+    table { width: 100%; border-collapse: collapse; margin-top: 16px; font-size: 13px; }
+    th { text-align: left; padding: 6px 8px; border-bottom: 1px solid #333; color: #888; cursor: pointer; white-space: nowrap; }
+    th:hover { color: #ccc; }
+    td { padding: 6px 8px; border-bottom: 1px solid #111; }
+    tr:hover td { background: #111; }
+    .amt { font-variant-numeric: tabular-nums; text-align: right; }
+    th.amt { text-align: right; }
+    .msg { color: #888; padding: 8px 0; }
+    .msg.err { color: #f85149; }
+    .nav { margin: 8px 0; display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
+    .nav a { color: #58a6ff; text-decoration: none; font-size: 13px; }
+    .nav a:hover { text-decoration: underline; }
+    .nav a.active { color: #fff; border-bottom: 1px solid #58a6ff; }
+    .sep { color: #333; }
+  </style>
+</head>
+<body>
+  <div class="nav" id="nav">
+    <a href="/">&lt; CI</a> <span class="sep">|</span>
+    <a href="/cost-overview">cost overview</a>
+    <a href="/namespace-billing" class="active">namespace billing</a>
+    <a href="/ci-insights">ci insights</a>
+  </div>
+  <h2 style="margin:8px 0;color:#ccc;">namespace billing</h2>
+
+  <div class="controls">
+    <button data-range="30">1m</button>
+    <button data-range="90">3m</button>
+    <button data-range="365">1y</button>
+    <span style="color:#333">|</span>
+    <label>from</label> <input type="date" id="dateFrom" />
+    <label>to</label> <input type="date" id="dateTo" />
+    <span style="color:#333">|</span>
+    <button data-g="daily" class="active">daily</button>
+    <button data-g="weekly">weekly</button>
+    <button data-g="monthly">monthly</button>
+    <span style="color:#333">|</span>
+    <label>top</label>
+    <button data-top="5">5</button>
+    <button data-top="10">10</button>
+    <button data-top="20">20</button>
+    <button data-top="0" class="active">all</button>
+    <span style="color:#333">|</span>
+    <label>ns</label>
+    <select id="nsFilter"><option value="all">all</option></select>
+    <button id="refreshBtn">refresh</button>
+  </div>
+
+  <div id="msg" class="msg"></div>
+
+  <div class="stats" id="stats"></div>
+
+  <div class="charts">
+    <div class="chart-box full">
+      <h3>cost over time</h3>
+      <div class="chart-wrap tall"><canvas id="timeline"></canvas></div>
+    </div>
+    <div class="chart-box">
+      <h3>cost by namespace</h3>
+      <div class="chart-wrap med"><canvas id="nsPie"></canvas></div>
+    </div>
+    <div class="chart-box">
+      <h3>cost by category</h3>
+      <div class="chart-wrap med"><canvas id="catBar"></canvas></div>
+    </div>
+  </div>
+
+  <table>
+    <thead id="thead"><tr></tr></thead>
+    <tbody id="tbody"></tbody>
+  </table>
+
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@3.9.1/dist/chart.min.js"></script>
+  <script>
+    let data = [], nsList = [], cats = [], charts = {};
+    let sort = { col: 'total', dir: 'desc' };
+
+    const COLORS = [
+      '#58a6ff','#3fb950','#d2a8ff','#f0883e','#f85149',
+      '#a5d6ff','#56d364','#bc8cff','#db6d28','#ff7b72',
+      '#79c0ff','#7ee787','#e2c5ff','#d18616','#ffa198',
+      '#39d353','#2ea043','#388bfd','#8957e5','#bf4b8a'
+    ];
+    const CAT_COLORS = { compute_spot:'#3fb950', compute_ondemand:'#58a6ff', network:'#d2a8ff', storage:'#f0883e', other:'#555' };
+
+    const nsColor = ns => COLORS[nsList.indexOf(ns) % COLORS.length];
+    const catColor = (c,i) => CAT_COLORS[c] || COLORS[i % COLORS.length];
+    const cap = s => s.split('_').map(w => w[0].toUpperCase()+w.slice(1)).join(' ');
+    const fmt = v => v >= 1000 ? '$'+v.toFixed(0).replace(/\B(?=(\d{3})+(?!\d))/g,',') : v >= 1 ? '$'+v.toFixed(2) : '$'+v.toFixed(4);
+    const fmtDate = s => { const d = new Date(s+'T00:00:00'); return d.toLocaleDateString('en-US',{month:'short',day:'numeric'}); };
+
+    function granularity() { return document.querySelector('[data-g].active').dataset.g; }
+    function topN() { return parseInt(document.querySelector('[data-top].active').dataset.top) || 0; }
+
+    // ---- data ----
+    async function load() {
+      document.getElementById('msg').className = 'msg';
+      document.getElementById('msg').textContent = 'loading...';
+      try {
+        const f = document.getElementById('dateFrom').value;
+        const t = document.getElementById('dateTo').value;
+        const d = await fetch(`/api/billing/data?from=${f}&to=${t}&granularity=${granularity()}`).then(r=>r.json());
+        data = d;
+        // Derive namespace list from data (only namespaces present in the response)
+        const ns = [...new Set(data.flatMap(e=>Object.keys(e.namespaces||{})))].sort();
+        nsList = ns;
+        cats = [...new Set(data.flatMap(e => Object.values(e.namespaces||{}).flatMap(n => Object.keys(n.breakdown||{}))))].sort();
+
+        const sel = document.getElementById('nsFilter');
+        const cur = sel.value;
+        sel.innerHTML = '<option value="all">all</option>';
+        ns.forEach(n => { const o = document.createElement('option'); o.value=n; o.textContent=n; sel.appendChild(o); });
+        if (ns.includes(cur) || cur==='all') sel.value = cur;
+
+        buildHeader();
+        render(sel.value);
+        document.getElementById('msg').textContent = '';
+
+        if (!data.length) {
+          document.getElementById('msg').textContent = 'no data yet - fetching from BigQuery in background, refresh in a moment...';
+        }
+      } catch(e) {
+        document.getElementById('msg').className = 'msg err';
+        document.getElementById('msg').textContent = 'error: ' + e.message;
+      }
+    }
+
+    function agg(nsF) {
+      const filtered = nsF && nsF !== 'all'
+        ? data.map(e => ({ date:e.date, namespaces: e.namespaces[nsF] ? {[nsF]:e.namespaces[nsF]} : {} }))
+        : data;
+      const nsTotals = {}, catTotals = {};
+      cats.forEach(c => catTotals[c] = 0);
+      for (const e of filtered) {
+        for (const [ns, nd] of Object.entries(e.namespaces)) {
+          if (!nsTotals[ns]) { nsTotals[ns] = {total:0}; cats.forEach(c => nsTotals[ns][c]=0); }
+          for (const c of cats) {
+            const v = (nd.breakdown||{})[c]||0;
+            nsTotals[ns][c] += v; nsTotals[ns].total += v; catTotals[c] += v;
+          }
+        }
+      }
+      return { nsTotals, catTotals, total: Object.values(catTotals).reduce((s,v)=>s+v,0), days: data.length||1 };
+    }
+
+    // ---- render ----
+    function render(nsF) {
+      const a = agg(nsF);
+      Object.values(charts).forEach(c=>c.destroy()); charts = {};
+
+      // Apply top N filter: top N *per bucket*, then union all visible namespaces
+      const n = topN();
+      let visibleNs = null;
+      if (n > 0) {
+        visibleNs = new Set();
+        const filtered = nsF && nsF !== 'all'
+          ? data.map(e => ({ date:e.date, namespaces: e.namespaces[nsF] ? {[nsF]:e.namespaces[nsF]} : {} }))
+          : data;
+        for (const bucket of filtered) {
+          const bucketRanked = Object.entries(bucket.namespaces)
+            .map(([ns, nd]) => [ns, (nd.total || 0)])
+            .sort((x,y) => y[1] - x[1]);
+          bucketRanked.slice(0, n).forEach(([ns]) => visibleNs.add(ns));
+        }
+        for (const ns of Object.keys(a.nsTotals)) {
+          if (!visibleNs.has(ns)) delete a.nsTotals[ns];
+        }
+        cats.forEach(c => { a.catTotals[c] = 0; });
+        a.total = 0;
+        for (const d of Object.values(a.nsTotals)) {
+          cats.forEach(c => { a.catTotals[c] += d[c]||0; });
+          a.total += d.total;
+        }
+      }
+
+      // stats
+      const top = Object.entries(a.nsTotals).sort((x,y)=>y[1].total-x[1].total);
+      document.getElementById('stats').innerHTML =
+        `total: <span>${fmt(a.total)}</span> &middot; daily avg: <span>${fmt(a.total/a.days)}</span> &middot; ` +
+        `top: <span>${top[0]?top[0][0]:'--'} (${top[0]?fmt(top[0][1].total):'--'})</span> &middot; ` +
+        `namespaces: <span>${Object.keys(a.nsTotals).length}</span>`;
+
+      // timeline: show top N overall as named segments, rest of union as "other"
+      const dates = data.map(e=>e.date);
+      let nsSet = [...new Set(data.flatMap(e=>Object.keys(e.namespaces).filter(n=>nsF==='all'||n===nsF)))].sort();
+      if (visibleNs) nsSet = nsSet.filter(ns => visibleNs.has(ns));
+      // Per-bucket: only top N in that bucket get named segments, rest → "other"
+      const chartNs = nsSet.slice().sort((a,b) => (a.nsTotals?.[b]?.total||0) - (a.nsTotals?.[a]?.total||0));
+      // Precompute per-bucket top N sets
+      let bucketTopSets = null;
+      if (n > 0) {
+        const filteredData = nsF && nsF !== 'all'
+          ? data.map(e => ({ date:e.date, namespaces: e.namespaces[nsF] ? {[nsF]:e.namespaces[nsF]} : {} }))
+          : data;
+        bucketTopSets = filteredData.map(e => {
+          const ranked = Object.entries(e.namespaces)
+            .map(([ns, nd]) => [ns, nd.total||0])
+            .sort((x,y) => y[1] - x[1]);
+          return new Set(ranked.slice(0, n).map(e => e[0]));
+        });
+      }
+      const datasets = chartNs.map(ns => ({
+        label: ns,
+        data: data.map((e, i) => {
+          if (bucketTopSets && !bucketTopSets[i].has(ns)) return 0;
+          return (e.namespaces[ns]||{}).total||0;
+        }),
+        backgroundColor: nsColor(ns), borderWidth: 0
+      }));
+      // "other" = per bucket, all costs not in that bucket's top N
+      if (n > 0) {
+        const otherData = data.map((e, i) => {
+          const allNs = nsF && nsF !== 'all' ? (e.namespaces[nsF] ? {[nsF]:e.namespaces[nsF]} : {}) : e.namespaces;
+          return Object.entries(allNs).reduce((s, [ns, nd]) => s + (bucketTopSets[i].has(ns) ? 0 : ((nd.total||0))), 0);
+        });
+        datasets.unshift({ label:'other', data:otherData, backgroundColor:'#333', borderWidth:0, order:999 });
+      }
+      charts.t = new Chart(document.getElementById('timeline').getContext('2d'), {
+        type:'bar',
+        data: { labels: dates.map(fmtDate), datasets },
+        options: {
+          responsive:true, maintainAspectRatio:false,
+          interaction:{mode:'index',intersect:false},
+          scales: {
+            x:{stacked:true, ticks:{color:'#555',maxRotation:45}, grid:{color:'#181818'}},
+            y:{stacked:true, ticks:{color:'#555',callback:v=>'$'+v}, grid:{color:'#181818'}}
+          },
+          plugins: {
+            legend:{position:'bottom',labels:{color:'#888',boxWidth:10,padding:8,font:{size:10,family:'monospace'}}},
+            tooltip:{
+              itemSort:(a,b)=>{ if(a.dataset.label==='other') return 1; if(b.dataset.label==='other') return -1; return b.raw-a.raw; },
+              filter:c=>c.raw>0,
+              callbacks:{label:c=>`${c.dataset.label}: ${fmt(c.raw)}`, footer:items=>`total: ${fmt(items.reduce((s,i)=>s+i.raw,0))}`}
+            }
+          }
+        }
+      });
+
+      // ns pie
+      const entries = Object.entries(a.nsTotals).sort((x,y)=>y[1].total-x[1].total);
+      charts.p = new Chart(document.getElementById('nsPie').getContext('2d'), {
+        type:'doughnut',
+        data: { labels:entries.map(e=>e[0]), datasets:[{
+          data:entries.map(e=>e[1].total), backgroundColor:entries.map(e=>nsColor(e[0])),
+          borderColor:'#0a0a0a', borderWidth:2
+        }]},
+        options: {
+          responsive:true, maintainAspectRatio:false,
+          plugins: {
+            legend:{position:'right',labels:{color:'#888',boxWidth:10,padding:6,font:{size:10,family:'monospace'}}},
+            tooltip:{callbacks:{label:c=>{const p=a.total>0?((c.raw/a.total)*100).toFixed(1):'0';return `${c.label}: ${fmt(c.raw)} (${p}%)`;}}}
+          }
+        }
+      });
+
+      // cat bar
+      const activeCats = cats.filter(c=>a.catTotals[c]>0);
+      charts.c = new Chart(document.getElementById('catBar').getContext('2d'), {
+        type:'bar',
+        data: { labels:activeCats.map(cap), datasets:[{
+          data:activeCats.map(c=>a.catTotals[c]),
+          backgroundColor:activeCats.map((c,i)=>catColor(c,i)), borderRadius:2, barPercentage:0.5
+        }]},
+        options: {
+          responsive:true, maintainAspectRatio:false, indexAxis:'y',
+          scales: {
+            x:{ticks:{color:'#555',callback:v=>'$'+v}, grid:{color:'#181818'}},
+            y:{ticks:{color:'#ccc',font:{family:'monospace'}}, grid:{display:false}}
+          },
+          plugins:{legend:{display:false}, tooltip:{callbacks:{label:c=>fmt(c.raw)}}}
+        }
+      });
+
+      renderTable(a);
+      saveUrl();
+    }
+
+    // ---- table ----
+    function buildHeader() {
+      const tr = document.querySelector('#thead tr');
+      tr.innerHTML = '';
+      const cols = [{k:'namespace',l:'namespace'},...cats.map(c=>({k:c,l:cap(c)})),{k:'total',l:'total'}];
+      cols.forEach(col => {
+        const th = document.createElement('th');
+        th.dataset.sort = col.k;
+        if (col.k !== 'namespace') th.className = 'amt';
+        th.textContent = col.l;
+        th.onclick = () => {
+          sort = sort.col===col.k ? {col:col.k,dir:sort.dir==='asc'?'desc':'asc'} : {col:col.k,dir:'desc'};
+          renderTable(agg(document.getElementById('nsFilter').value));
+        };
+        tr.appendChild(th);
+      });
+    }
+
+    function renderTable(a) {
+      const rows = Object.entries(a.nsTotals).map(([ns,d])=>({namespace:ns,...d}));
+      rows.sort((x,y) => {
+        const av = sort.col==='namespace'?x.namespace:(x[sort.col]||0);
+        const bv = sort.col==='namespace'?y.namespace:(y[sort.col]||0);
+        if (typeof av==='string') return sort.dir==='asc'?av.localeCompare(bv):bv.localeCompare(av);
+        return sort.dir==='asc'?av-bv:bv-av;
+      });
+      const threshold = a.total * 0.01;
+      document.getElementById('tbody').innerHTML = rows.map(r => {
+        const dim = r.total < threshold ? ' style="opacity:0.35"' : '';
+        return `<tr${dim}><td>${r.namespace}</td>${cats.map(c=>`<td class="amt">${fmt(r[c]||0)}</td>`).join('')}<td class="amt" style="color:#fff">${fmt(r.total)}</td></tr>`;
+      }).join('');
+    }
+
+    // ---- url state ----
+    function saveUrl() {
+      const p = new URLSearchParams();
+      p.set('from', document.getElementById('dateFrom').value);
+      p.set('to', document.getElementById('dateTo').value);
+      p.set('g', granularity());
+      const ns = document.getElementById('nsFilter').value;
+      if (ns!=='all') p.set('ns', ns);
+      const tn = topN();
+      if (tn > 0) p.set('top', tn);
+      history.replaceState({}, '', '?'+p);
+      // Sync nav links so date/granularity carries across pages
+      const shared = new URLSearchParams();
+      shared.set('from', p.get('from')); shared.set('to', p.get('to')); shared.set('g', p.get('g'));
+      document.querySelectorAll('#nav a[href]').forEach(a => {
+        const base = a.getAttribute('href').split('?')[0];
+        if (base !== '/') a.href = base + '?' + shared;
+      });
+    }
+
+    function loadUrl() {
+      const p = new URLSearchParams(location.search);
+      if (p.get('from')) document.getElementById('dateFrom').value = p.get('from');
+      if (p.get('to')) document.getElementById('dateTo').value = p.get('to');
+      if (p.get('g')) document.querySelectorAll('[data-g]').forEach(b=>b.classList.toggle('active',b.dataset.g===p.get('g')));
+      if (p.get('top')) document.querySelectorAll('[data-top]').forEach(b=>b.classList.toggle('active',b.dataset.top===p.get('top')));
+      return p.get('ns')||'all';
+    }
+
+    // ---- init ----
+    window.addEventListener('DOMContentLoaded', () => {
+      const now = new Date(), from = new Date();
+      from.setDate(from.getDate() - 30);
+      document.getElementById('dateFrom').value = from.toISOString().split('T')[0];
+      document.getElementById('dateTo').value = now.toISOString().split('T')[0];
+
+      const savedNs = loadUrl();
+      document.getElementById('refreshBtn').onclick = load;
+      document.querySelectorAll('[data-range]').forEach(b => b.onclick = () => {
+        document.querySelectorAll('[data-range]').forEach(x=>x.classList.remove('active'));
+        b.classList.add('active');
+        const days = parseInt(b.dataset.range);
+        const to = new Date(), fr = new Date();
+        fr.setDate(fr.getDate() - days);
+        document.getElementById('dateFrom').value = fr.toISOString().split('T')[0];
+        document.getElementById('dateTo').value = to.toISOString().split('T')[0];
+        load();
+      });
+      document.querySelectorAll('[data-g]').forEach(b => b.onclick = () => {
+        document.querySelectorAll('[data-g]').forEach(x=>x.classList.remove('active'));
+        b.classList.add('active'); load();
+      });
+      document.querySelectorAll('[data-top]').forEach(b => b.onclick = () => {
+        document.querySelectorAll('[data-top]').forEach(x=>x.classList.remove('active'));
+        b.classList.add('active'); render(document.getElementById('nsFilter').value);
+      });
+      document.getElementById('nsFilter').onchange = () => render(document.getElementById('nsFilter').value);
+      document.getElementById('dateFrom').onchange = () => { document.querySelectorAll('[data-range]').forEach(x=>x.classList.remove('active')); load(); };
+      document.getElementById('dateTo').onchange = () => { document.querySelectorAll('[data-range]').forEach(x=>x.classList.remove('active')); load(); };
+
+      const orig = load;
+      load = async () => { await orig(); if (savedNs!=='all') { document.getElementById('nsFilter').value=savedNs; render(savedNs); } load=orig; };
+      load();
+    });
+  </script>
+</body>
+</html>

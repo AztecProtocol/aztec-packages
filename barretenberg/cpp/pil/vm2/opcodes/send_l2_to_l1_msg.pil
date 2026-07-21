@@ -2,25 +2,39 @@ include "../constants_gen.pil";
 include "../public_inputs.pil";
 
 /**
- * This virtual gadget implements the SendL2ToL1Msg opcode, which attempts to send a message
- * from L2 to L1. The message is written to the public inputs for later processing by the
- * L1 contract.
+ * This virtual gadget implements the SendL2ToL1Msg opcode, which sends a message
+ * from L2 to L1. The message (recipient + content + sender contract address) is written
+ * to the public inputs for later processing by the L1 contract. It also increments the
+ * number of L2-to-L1 messages emitted.
  *
+ * The opcode is gated by the `sel_execute_send_l2_to_l1_msg` selector, which is set to 1 if the
+ * SendL2ToL1Msg opcode has reached opcode dispatch (there are no earlier errors).
  *
- * This opcode uses:
- * - register[0] as the recipient address register (FF)
- * - register[1] as the message content register (FF)
+ * This opcode also uses:
+ * - register[0]: the recipient address register (FF)                          (from execution.pil)
+ * - register[1]: the message content register (FF)                            (from execution.pil)
+ * - is_static: whether the current context is static                          (from context.pil)
+ * - contract_address: address of the current contract                         (from context.pil)
+ * - prev_num_l2_to_l1_messages: count before this emission                    (from context.pil)
+ * - num_l2_to_l1_messages: count after this emission                          (from context.pil)
+ * - sel_opcode_error: whether an opcode error was raised                      (from execution.pil)
+ * - discard: whether the transaction will be discarded (reverted)             (from discard.pil)
  *
  * Interactions:
+ * - The gadget performs a lookup into the ff_gt gadget to validate the recipient is a valid
+ *     Ethereum address (not larger than MAX_ETH_ADDRESS_VALUE).
  * - The gadget performs a lookup into the public_inputs gadget to write the L2-to-L1 message.
- *     - This lookup is only performed if no error occurs.
+ *     - This lookup is only performed if no error occurs and discard is off (sel_write_l2_to_l1_msg = 1).
  *
  * Errors:
  * - If the max L2-to-L1 message writes limit has been reached, the operation raises an opcode error.
- * - If the operation is executed in a static context, the operation raises an opcode error.
+ * - If the current context is static, the operation raises an opcode error.
+ * - If the recipient address exceeds MAX_ETH_ADDRESS_VALUE, the operation raises an opcode error.
  *
+ * If there are errors in earlier temporality groups (i.e. the opcode is not dispatched),
+ * all columns in this trace should be 0 (gated by sel_execute_send_l2_to_l1_msg).
  */
-namespace execution; // this is a virtual gadget that shares rows with the execution trace
+namespace execution;
 
     // No relations will be checked if this identity is satisfied.
     #[skippable_if]
@@ -31,10 +45,10 @@ namespace execution; // this is a virtual gadget that shares rows with the execu
     pol REMAINING_L2_TO_L1_MSG_WRITES = constants.MAX_L2_TO_L1_MSGS_PER_TX -
         prev_num_l2_to_l1_messages;
 
-    pol commit sel_l2_to_l1_msg_limit_error;
+    pol commit sel_l2_to_l1_msg_limit_error; // @boolean
     sel_l2_to_l1_msg_limit_error * (1 - sel_l2_to_l1_msg_limit_error) = 0;
 
-    pol commit remaining_l2_to_l1_msgs_inv;
+    pol commit remaining_l2_to_l1_msgs_inv; // @zero-check
     // Limit error if REMAINING_L2_TO_L1_MSG_WRITES is 0
     #[MAX_WRITES_REACHED]
     sel_execute_send_l2_to_l1_msg * (REMAINING_L2_TO_L1_MSG_WRITES * (sel_l2_to_l1_msg_limit_error * (1 - remaining_l2_to_l1_msgs_inv) + remaining_l2_to_l1_msgs_inv) - 1 + sel_l2_to_l1_msg_limit_error) = 0;
@@ -61,15 +75,20 @@ namespace execution; // this is a virtual gadget that shares rows with the execu
     sel_execute_send_l2_to_l1_msg * ((1 - sel_l2_to_l1_msg_limit_error) * (1 - is_static) * (1 - sel_too_large_recipient_error) - (1 - sel_opcode_error)) = 0;
 
     // =========== LOOKUP PI ===========
-    pol commit sel_write_l2_to_l1_msg;
-    // We write to public inputs if there is no error and discard is off
+    // Unconditionally boolean by algebraic definition as a product of booleans.
+    // Required as a lookup source selector.
+    pol commit sel_write_l2_to_l1_msg; // @boolean
+    // We write to public inputs if there is no error and discard is off.
     #[SEND_L2_TO_L1_MSG_CONDITION]
-    sel_execute_send_l2_to_l1_msg * ((1 - sel_opcode_error) * (1 - discard) - sel_write_l2_to_l1_msg) = 0;
+    sel_write_l2_to_l1_msg = sel_execute_send_l2_to_l1_msg * (1 - sel_opcode_error) * (1 - discard);
 
     pol commit public_inputs_index;
     sel_execute_send_l2_to_l1_msg * (constants.AVM_PUBLIC_INPUTS_AVM_ACCUMULATED_DATA_L2_TO_L1_MSGS_ROW_IDX + prev_num_l2_to_l1_messages - public_inputs_index) = 0;
 
     // Lookup public inputs to write
+    // ONE-WAY write: only the active rows [0, length) are constrained. Rows [length, MAX) are left
+    // free by the AVM and are defensively zero-checked by the public base rollup
+    // (validate_avm_accumulated_data_padding). See public_inputs.pil's NOTE ON NON-MALLEABILITY.
     #[WRITE_L2_TO_L1_MSG]
     sel_write_l2_to_l1_msg {
         public_inputs_index,
@@ -77,7 +96,7 @@ namespace execution; // this is a virtual gadget that shares rows with the execu
         register[1],          // content
         contract_address      // current contract address (from context)
     } in public_inputs.sel {
-        precomputed.clk,
+        precomputed.idx,
         public_inputs.cols[0],
         public_inputs.cols[1],
         public_inputs.cols[2]

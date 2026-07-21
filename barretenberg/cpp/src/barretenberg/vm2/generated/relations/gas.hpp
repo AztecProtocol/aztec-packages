@@ -3,7 +3,6 @@
 
 #include <string_view>
 
-#include "barretenberg/common/bb_bench.hpp"
 #include "barretenberg/relations/relation_parameters.hpp"
 #include "barretenberg/relations/relation_types.hpp"
 #include "barretenberg/vm2/generated/columns.hpp"
@@ -20,7 +19,7 @@ template <typename FF_> class gasImpl {
     {
         using C = ColumnAndShifts;
 
-        return (in.get(C::execution_sel_should_check_gas)).is_zero();
+        return (in.get(C::execution_sel_check_gas)).is_zero();
     }
 
     template <typename ContainerOverSubrelations, typename AllEntities>
@@ -34,9 +33,17 @@ template <typename FF> class gas : public Relation<gasImpl<FF>> {
   public:
     static constexpr const std::string_view NAME = "gas";
 
+    // Subrelation indices constants, to be used in tests.
+    static constexpr size_t SR_NO_OOG_IF_NO_GAS_CHECK = 3;
+
     static std::string get_subrelation_label(size_t index)
     {
-        switch (index) {}
+#ifdef AVM_INCLUDE_COLUMN_INFORMATION
+        switch (index) {
+        case SR_NO_OOG_IF_NO_GAS_CHECK:
+            return "NO_OOG_IF_NO_GAS_CHECK";
+        }
+#endif
         return std::to_string(index);
     }
 };

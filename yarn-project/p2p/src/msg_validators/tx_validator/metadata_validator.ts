@@ -28,16 +28,24 @@ export class MetadataTxValidator<T extends AnyTx> implements TxValidator<T> {
   validateTx(tx: T): Promise<TxValidationResult> {
     const errors = [];
     if (!this.#hasCorrectL1ChainId(tx)) {
-      errors.push(TX_ERROR_INCORRECT_L1_CHAIN_ID);
+      errors.push(
+        `${TX_ERROR_INCORRECT_L1_CHAIN_ID} (tx: ${tx.data.constants.txContext.chainId.toNumber()}, expected: ${this.values.l1ChainId.toNumber()})`,
+      );
     }
     if (!this.#hasCorrectRollupVersion(tx)) {
-      errors.push(TX_ERROR_INCORRECT_ROLLUP_VERSION);
+      errors.push(
+        `${TX_ERROR_INCORRECT_ROLLUP_VERSION} (tx: ${tx.data.constants.txContext.version.toNumber()}, expected: ${this.values.rollupVersion.toNumber()})`,
+      );
     }
     if (!this.#hasCorrectVkTreeRoot(tx)) {
-      errors.push(TX_ERROR_INCORRECT_VK_TREE_ROOT);
+      errors.push(
+        `${TX_ERROR_INCORRECT_VK_TREE_ROOT} (tx: ${tx.data.constants.vkTreeRoot.toString()}, expected: ${this.values.vkTreeRoot.toString()})`,
+      );
     }
     if (!this.#hasCorrectprotocolContractsHash(tx)) {
-      errors.push(TX_ERROR_INCORRECT_PROTOCOL_CONTRACTS_HASH);
+      errors.push(
+        `${TX_ERROR_INCORRECT_PROTOCOL_CONTRACTS_HASH} (tx: ${tx.data.constants.protocolContractsHash.toString()}, expected: ${this.values.protocolContractsHash.toString()})`,
+      );
     }
     return Promise.resolve(errors.length > 0 ? { result: 'invalid', reason: errors } : { result: 'valid' });
   }

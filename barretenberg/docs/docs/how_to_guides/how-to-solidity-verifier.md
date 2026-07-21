@@ -22,7 +22,7 @@ sidebar_position: 0
 This guide shows how to generate a Solidity Verifier with Barretenberg and deploy it on the [Remix IDE](https://remix.ethereum.org/). It is assumed that:
 
 - You are comfortable with the Solidity programming language and understand how contracts are deployed on the Ethereum network
-- You have Noir installed and you have a Noir program. If you don't, [get started](https://noir-lang.org/docs/getting_started/quick_start) with Nargo, then follow through the [Barretenberg quick start](../index.md)
+- You have Noir installed and you have a Noir program. If you don't, [get started](https://noir-lang.org/docs/getting_started/quick_start) with Nargo, then follow through the [Barretenberg quick start](../getting_started.md)
 - You are comfortable navigating RemixIDE. If you aren't or you need a refresher, you can find some video tutorials [here](https://www.youtube.com/channel/UCjTUPyFEr2xDGN6Cg8nKDaA) that could help you.
 
 ## Rundown
@@ -107,7 +107,7 @@ bb prove -b ./target/<circuit-name>.json -w ./target/<witness-name> -o ./target 
 
 Make sure to use the same `--verifier_target` value (`evm` or `evm-no-zk`) that you used when generating the verification key.
 
-Binary Output Format
+### Binary Output Format
 
 Barretenberg outputs `proof` and `public_inputs` files in binary format. The binary format is fields-compatible, meaning it can be split into 32-byte chunks where each chunk represents a field element.
 
@@ -213,7 +213,7 @@ Meanwhile, some EVM chains manually tested that failed to work with the Barreten
 - zkSync ERA
 - Polygon zkEVM
 
-Pull requests to update this section are welcome and appreciated if you have compatibility updates on existing / new chains to contribute: https://github.com/noir-lang/noir
+Pull requests to update this section are welcome and appreciated if you have compatibility updates on existing / new chains to contribute: https://github.com/AztecProtocol/aztec-packages
 
 ## What's next
 

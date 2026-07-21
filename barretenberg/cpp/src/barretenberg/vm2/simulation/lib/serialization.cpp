@@ -13,7 +13,6 @@
 #include "barretenberg/common/assert.hpp"
 #include "barretenberg/common/log.hpp"
 #include "barretenberg/common/serialize.hpp"
-#include "barretenberg/numeric/uint256/uint256.hpp"
 #include "barretenberg/vm2/common/addressing.hpp"
 #include "barretenberg/vm2/common/instruction_spec.hpp"
 #include "barretenberg/vm2/common/opcodes.hpp"
@@ -52,8 +51,8 @@ const std::vector<OperandType> external_call_format = { OperandType::INDIRECT16,
                                                         /*l2GasOffset=*/OperandType::UINT16,
                                                         /*daGasOffset=*/OperandType::UINT16,
                                                         /*addrOffset=*/OperandType::UINT16,
-                                                        /*argsOffset=*/OperandType::UINT16,
-                                                        /*argsSizeOffset=*/OperandType::UINT16 };
+                                                        /*argsSizeOffset=*/OperandType::UINT16,
+                                                        /*argsOffset=*/OperandType::UINT16 };
 
 namespace {
 // Contrary to TS, the format does not contain the WireOpCode byte which prefixes any instruction.
@@ -153,7 +152,7 @@ const std::unordered_map<WireOpCode, std::vector<OperandType>>& get_wire_opcode_
           { OperandType::INDIRECT8, OperandType::UINT16, OperandType::UINT16, OperandType::UINT16 } },
         { WireOpCode::GETCONTRACTINSTANCE,
           { OperandType::INDIRECT8, OperandType::UINT16, OperandType::UINT16, OperandType::UINT8 } },
-        { WireOpCode::EMITUNENCRYPTEDLOG,
+        { WireOpCode::EMITPUBLICLOG,
           {
               OperandType::INDIRECT8,
               OperandType::UINT16,
@@ -189,10 +188,8 @@ const std::unordered_map<WireOpCode, std::vector<OperandType>>& get_wire_opcode_
           { OperandType::INDIRECT16,
             OperandType::UINT16,     // lhs.x
             OperandType::UINT16,     // lhs.y
-            OperandType::UINT16,     // lhs.is_infinite
             OperandType::UINT16,     // rhs.x
             OperandType::UINT16,     // rhs.y
-            OperandType::UINT16,     // rhs.is_infinite
             OperandType::UINT16 } }, // dst_offset
         // Gadget - Conversion
         { WireOpCode::TORADIXBE,
@@ -230,6 +227,26 @@ bool is_wire_opcode_valid(uint8_t w_opcode)
 
 } // namespace
 
+/**
+ * @brief Attempts to deserialize the instruction at position @p pos in bytecode. Called by
+ * bytecode managers during instruction fetching to extract and check for parse errors.
+ *
+ * If no error is thrown, reads the opcode byte at @p pos, then deserializes each operand in
+ * the order defined by the wire format for that opcode (from get_wire_opcode_wire_format()).
+ * The addressing mode (INDIRECT8 or INDIRECT16 operand type) is extracted separately and
+ * not included in the returned operands vector.
+ *
+ * @throws InstrDeserializationError if:
+ *           - PC_OUT_OF_RANGE: pos >= bytecode.size(), thrown immediately.
+ *           - OPCODE_OUT_OF_RANGE: bytecode[pos] >= WireOpCode::LAST_OPCODE_SENTINEL i.e. the byte does not map
+ *             to a valid wire opcode.
+ *           - INSTRUCTION_OUT_OF_RANGE: pos + instruction_size > bytecode.size(), i.e. the instruction body is
+ *             truncated, where the size is gathered from the wire specification table (get_wire_instruction_spec(),
+ *             corresponds to instr_size looked up in #[WIRE_INSTRUCTION_INFO] in instr_fetching.pil).
+ * @param bytecode The raw bytecode bytes.
+ * @param pos The program counter (pc) to start at.
+ * @return The deserialized instruction.
+ */
 Instruction deserialize_instruction(std::span<const uint8_t> bytecode, size_t pos)
 {
     const auto bytecode_length = bytecode.size();
@@ -261,8 +278,6 @@ Instruction deserialize_instruction(std::span<const uint8_t> bytecode, size_t po
 
     const uint32_t instruction_size = get_wire_instruction_spec().at(opcode).size_in_bytes;
 
-    // We know we will encounter a parsing error, but continue processing because
-    // we need the partial instruction to be parsed for witness generation.
     if (pos + instruction_size > bytecode_length) {
         std::string error_msg = format("Instruction at PC ",
                                        pos,
@@ -275,7 +290,8 @@ Instruction deserialize_instruction(std::span<const uint8_t> bytecode, size_t po
         throw InstrDeserializationError(InstrDeserializationEventError::INSTRUCTION_OUT_OF_RANGE, error_msg);
     }
 
-    pos++; // move after opcode byte
+    // Increment by 1 for the opcode byte.
+    pos++;
 
     uint16_t addressing_mode = 0;
     std::vector<Operand> operands;
@@ -428,12 +444,30 @@ std::vector<uint8_t> Instruction::serialize() const
     return output;
 }
 
+/**
+ * @brief Checks whether the tag operand of an @p instruction is a valid MemoryTag. Called by
+ * bytecode managers during instruction fetching to check tag operands.
+ *
+ * Note that this function must be called after successful instruction deserialization since it assumes a valid
+ * opcode (!OPCODE_OUT_OF_RANGE) and the correct number of operands (!INSTRUCTION_OUT_OF_RANGE).
+ *
+ * Reads the wire format for the instruction's opcode (from get_wire_opcode_wire_format()) and looks for a tag operand.
+ * Instructions with no tags return true unconditionally (corresponding to sel_has_tag = 0 in instr_fetching.pil, where
+ * tag validation is skipped). Otherwise we check:
+ *    - The operands vector is too small to contain the tag.
+ *    - The operand cannot be cast to a uint8.
+ *    - The operand value > MemoryTag::MAX.
+ * If any of these checks fail, we return false. These are not treated as errors here; that is delegated
+ * to the bytecode manager, which handles them as TAG_OUT_OF_RANGE errors (tag_out_of_range in instr_fetching.pil).
+ *
+ * @param instruction The deserialized instruction to validate.
+ * @return true if the tag operand is valid or absent, false otherwise.
+ */
 bool check_tag(const Instruction& instruction)
 {
-    if (instruction.opcode == WireOpCode::LAST_OPCODE_SENTINEL) {
-        vinfo("Instruction does not contain a valid wire opcode.");
-        return false;
-    }
+    // Guaranteed to hold as we only call this function after deserialize_instruction() where the opcode is checked.
+    BB_ASSERT(instruction.opcode != WireOpCode::LAST_OPCODE_SENTINEL,
+              "Instruction does not contain a valid wire opcode.");
 
     const auto& wire_format = get_wire_opcode_wire_format().at(instruction.opcode);
 
@@ -445,15 +479,9 @@ bool check_tag(const Instruction& instruction)
         }
 
         if (operand_type == OperandType::TAG) {
-            if (pos >= instruction.operands.size()) {
-                vinfo("Instruction operands size is too small. Tag position: ",
-                      pos,
-                      " size: ",
-                      instruction.operands.size(),
-                      " WireOpCode: ",
-                      instruction.opcode);
-                return false;
-            }
+            // Guaranteed to hold as we only call this function after deserialize_instruction() where instruction size
+            // is checked.
+            BB_ASSERT(pos < instruction.operands.size(), "Instruction operands size is too small.");
 
             try {
                 uint8_t tag = instruction.operands.at(pos).as<uint8_t>(); // Cast to uint8_t might throw CastException

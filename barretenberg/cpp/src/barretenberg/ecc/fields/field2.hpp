@@ -1,5 +1,5 @@
 // === AUDIT STATUS ===
-// internal:    { status: Planned, auditors: [Raju], commit: }
+// internal:    { status: Completed, auditors: [Raju], commit: }
 // external_1:  { status: not started, auditors: [], commit: }
 // external_2:  { status: not started, auditors: [], commit: }
 // =====================
@@ -82,38 +82,39 @@ template <class base, class T> constexpr void field2<base, T>::self_sqr() noexce
     *this = sqr();
 }
 
+// Montgomery form conversions use the reduced variants to ensure each component
+// is in canonical form [0, p) rather than the coarse internal representation [0, 2p).
 template <class base, class T> constexpr field2<base, T> field2<base, T>::to_montgomery_form() const noexcept
 {
-    return { c0.to_montgomery_form(), c1.to_montgomery_form() };
+    return { c0.to_montgomery_form_reduced(), c1.to_montgomery_form_reduced() };
 }
 
 template <class base, class T> constexpr field2<base, T> field2<base, T>::from_montgomery_form() const noexcept
 {
-    return { c0.from_montgomery_form(), c1.from_montgomery_form() };
+    return { c0.from_montgomery_form_reduced(), c1.from_montgomery_form_reduced() };
 }
 
 template <class base, class T> constexpr void field2<base, T>::self_to_montgomery_form() noexcept
 {
-    c0.self_to_montgomery_form();
-    c1.self_to_montgomery_form();
+    c0.self_to_montgomery_form_reduced();
+    c1.self_to_montgomery_form_reduced();
 }
 
 template <class base, class T> constexpr void field2<base, T>::self_from_montgomery_form() noexcept
 {
-    c0.self_from_montgomery_form();
-    c1.self_from_montgomery_form();
+    c0.self_from_montgomery_form_reduced();
+    c1.self_from_montgomery_form_reduced();
 }
 
 template <class base, class T> constexpr field2<base, T> field2<base, T>::reduce_once() const noexcept
 {
-    return *this;
-    // return { c0.reduce_once(), c1.reduce_once() };
+    return { c0.reduce_once(), c1.reduce_once() };
 }
 
 template <class base, class T> constexpr void field2<base, T>::self_reduce_once() noexcept
 {
-    // c0.self_reduce_once();
-    // c1.self_reduce_once();
+    c0.self_reduce_once();
+    c1.self_reduce_once();
 }
 
 template <class base, class T> constexpr void field2<base, T>::self_neg() noexcept

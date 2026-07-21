@@ -1,3 +1,9 @@
+// === AUDIT STATUS ===
+// internal:    { status: Complete, auditors: [Nishat], commit: 8c1bc925461f1ed6f3f53824646c6e971b8c6af6 }
+// external_1:  { status: not started, auditors: [], commit: }
+// external_2:  { status: not started, auditors: [], commit: }
+// =====================
+
 #pragma once
 #include "../generators/generator_data.hpp"
 #include "barretenberg/ecc/curves/bn254/bn254.hpp"
@@ -25,7 +31,7 @@ template <typename Curve> class pedersen_commitment_base {
     using Group = typename Curve::Group;
     using GeneratorContext = typename crypto::GeneratorContext<Curve>;
 
-    static AffineElement commit_native(const std::vector<Fq>& inputs, GeneratorContext context = {});
+    static AffineElement commit_native(const std::vector<Fq>& inputs, const GeneratorContext& context = {});
 };
 
 using pedersen_commitment = pedersen_commitment_base<curve::Grumpkin>;

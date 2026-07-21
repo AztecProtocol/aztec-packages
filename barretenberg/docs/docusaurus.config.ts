@@ -11,7 +11,7 @@ const path = require("path");
 const fs = require("fs");
 const macros = require("./src/katex-macros.js");
 const versions = require("./versions.json");
-const nightlyVersion = versions.find((v) => v.includes("nightly"));
+const stableVersion = versions[0];
 
 // To redirect /api to the static/api directory in dev mode (netlify handles it in prod)
 function apiPlugin(context: any, options: any) {
@@ -87,19 +87,9 @@ const config: Config = {
               },
             ],
           ],
-          // Don't show latest since nightlies are published
           includeCurrentVersion: process.env.ENV === "dev",
-          // There should be 2 versions, nightly and stable
-          // The stable version is second in the list
-          // Fall back to versions[0] if only one version exists (e.g., during release builds)
-          lastVersion: versions[1] ?? versions[0],
+          lastVersion: stableVersion,
           versions: {
-            ...(nightlyVersion && versions[1] && {
-              [nightlyVersion]: {
-                path: "nightly",
-                banner: "unreleased",
-              },
-            }),
             ...(process.env.ENV === "dev" && {
               current: {
                 label: "dev",
@@ -271,17 +261,6 @@ const config: Config = {
         {
           className: "code-block-error-line",
           line: "this-will-error",
-        },
-        // This could be used to have release-please modify the current version in code blocks.
-        // However doing so requires to manually add each md file to release-please-config.json/extra-files
-        // which is easy to forget an error prone, so instead we rely on the AztecPackagesVersion() function.
-        {
-          line: "x-release-please-version",
-          block: {
-            start: "x-release-please-start-version",
-            end: "x-release-please-end",
-          },
-          className: "not-allowed-to-be-empty",
         },
       ],
     },

@@ -17,7 +17,7 @@ describe('buildNullifierReadRequestHints', () => {
   /**
    * Create fixtures.
    */
-  const contractAddress = AztecAddress.fromBigInt(112233n);
+  const contractAddress = AztecAddress.fromBigIntUnsafe(112233n);
 
   const innerNullifier = (index: number) => index + 1;
 
@@ -97,7 +97,6 @@ describe('buildNullifierReadRequestHints', () => {
       oracle,
       new ClaimedLengthArray(nullifierReadRequests, numReadRequests),
       new ClaimedLengthArray(nullifiers, MAX_NULLIFIERS_PER_TX),
-      futureNullifiers,
     );
 
   beforeEach(() => {

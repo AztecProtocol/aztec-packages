@@ -27,6 +27,13 @@ def set_base_url(url: str):
 def hyperlink(link, text):
     return f"{LINK_OPEN}{link}{LINK_CLOSE}{text}{LINK_OPEN}{LINK_CLOSE}"
 
+def ts_to_s(ts):
+    """Normalise a timestamp to seconds (int). Accepts ms (13-digit) or ms+suffix (16-digit)."""
+    ts = int(ts)
+    if ts > 9_999_999_999_999:
+        ts = ts // 1000
+    return ts // 1000
+
 REDIS_HOST = os.getenv('REDIS_HOST', 'localhost')
 REDIS_PORT = int(os.getenv('REDIS_PORT', '6379'))
 r = redis.Redis(host=REDIS_HOST, port=REDIS_PORT, decode_responses=False)
@@ -38,7 +45,7 @@ def get_list_as_string(key, limit=None):
         else:
             values = r.lrange(key, 0, limit - 1)
         if not values:
-            value = "List is empty or key not found"
+            value = ""
         else:
             concatenated = []
             for item in values:
@@ -70,31 +77,29 @@ def render(group: list) -> str:
             link_color = RESET
         job_links.append(f"{link_color}{hyperlink(BASE_URL + '/' + str(job['timestamp']), job['job_id'])}{RESET}")
     links_str = ",".join(job_links)
-    date_time = datetime.fromtimestamp(ts // 1000).strftime("%m-%d %H:%M:%S")
+    date_time = datetime.fromtimestamp(ts_to_s(ts)).strftime("%m-%d %H:%M:%S")
 
     statuses = [job.get('status') for job in group if 'status' in job]
     if statuses and all(s == 'INACTIVE' for s in statuses):
         return f"{date_time}: {links_str} {BOLD}{name}{RESET} {author}: {msg}{CLEAR_EOL}\n"
 
-    current_time = int(time.time() * 1000)
+    current_time = int(time.time())
     durations = []
     for job in group:
         # ignore inactive jobs in duration calculation
         if job.get('status') == 'INACTIVE':
             continue
         if 'timestamp' in job:
-            job_start = job['timestamp']
+            job_start = ts_to_s(job['timestamp'])
             job_complete = job.get('complete')
-            job_end = job_complete if job_complete is not None else current_time
+            job_end = ts_to_s(job_complete) if job_complete is not None else current_time
             durations.append(job_end - job_start)
     max_duration = max(durations) if durations else 0
-    duration = max_duration // 1000
-    duration_str = f"({duration // 60}m{duration % 60}s)"
+    duration_str = f"({max_duration // 60}m{max_duration % 60}s)"
     return f"{date_time}: {links_str} {BOLD}{name}{RESET} {PURPLE}{author}{RESET}: {msg} {duration_str}{CLEAR_EOL}\n"
 
 def get_section_data(section: str, offset: int = 0, limit: int = 100,
-                     filter_str: str = '', filter_prop: str = '',
-                     fail_list: str = '') -> str:
+                     filter_str: str = '', filter_prop: str = '') -> str:
     """Core logic for fetching and rendering section data."""
     lua_script_path = Path(__file__).parent / 'set-filter.lua'
     with lua_script_path.open('r') as f:
@@ -113,8 +118,9 @@ def get_section_data(section: str, offset: int = 0, limit: int = 100,
             group_sorted = sorted(group, key=lambda x: x.get('ts', x.get('timestamp', 0)))
             lines += render(group_sorted)
 
-    if fail_list:
+    fail_lines = get_list_as_string("failed_tests_" + section, 100)
+    if fail_lines:
         lines += "\n"
         lines += f"Last 100 failed or flaked tests:\n\n"
-        lines += get_list_as_string(fail_list, 100)
+        lines += fail_lines
     return lines

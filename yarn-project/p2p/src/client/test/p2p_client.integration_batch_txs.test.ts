@@ -1,5 +1,5 @@
 import type { EpochCache } from '@aztec/epoch-cache';
-import { BlockNumber } from '@aztec/foundation/branded-types';
+import { BlockNumber, SlotNumber } from '@aztec/foundation/branded-types';
 import { times } from '@aztec/foundation/collection';
 import { Secp256k1Signer } from '@aztec/foundation/crypto/secp256k1-signer';
 import { Fr } from '@aztec/foundation/curves/bn254';
@@ -9,7 +9,7 @@ import { sleep } from '@aztec/foundation/sleep';
 import { emptyChainConfig } from '@aztec/stdlib/config';
 import type { WorldStateSynchronizer } from '@aztec/stdlib/interfaces/server';
 import { makeBlockHeader, makeBlockProposal, mockTx } from '@aztec/stdlib/testing';
-import { Tx, TxHash } from '@aztec/stdlib/tx';
+import { Tx, TxHash, type TxValidator } from '@aztec/stdlib/tx';
 
 import { describe, expect, it, jest } from '@jest/globals';
 import { type MockProxy, mock } from 'jest-mock-extended';
@@ -17,11 +17,11 @@ import { type MockProxy, mock } from 'jest-mock-extended';
 import type { P2PClient } from '../../client/p2p_client.js';
 import { type P2PConfig, getP2PDefaultConfig } from '../../config.js';
 import type { AttestationPool } from '../../mem_pools/attestation_pool/attestation_pool.js';
-import type { TxPool } from '../../mem_pools/tx_pool/index.js';
+import type { TxPoolV2 } from '../../mem_pools/tx_pool_v2/interfaces.js';
 import { BatchTxRequester } from '../../services/reqresp/batch-tx-requester/batch_tx_requester.js';
 import type { BatchTxRequesterLibP2PService } from '../../services/reqresp/batch-tx-requester/interface.js';
-import type { IBatchRequestTxValidator } from '../../services/reqresp/batch-tx-requester/tx_validator.js';
 import type { ConnectionSampler } from '../../services/reqresp/connection-sampler/connection_sampler.js';
+import { RequestTracker } from '../../services/tx_collection/request_tracker.js';
 import { generatePeerIdPrivateKeys } from '../../test-helpers/generate-peer-id-private-keys.js';
 import { getPorts } from '../../test-helpers/get-ports.js';
 import { makeEnrs } from '../../test-helpers/make-enrs.js';
@@ -31,14 +31,14 @@ const TEST_TIMEOUT = 120_000;
 jest.setTimeout(TEST_TIMEOUT);
 
 describe('p2p client integration batch txs', () => {
-  let txPool: MockProxy<TxPool>;
+  let txPool: MockProxy<TxPoolV2>;
   let attestationPool: MockProxy<AttestationPool>;
   let epochCache: MockProxy<EpochCache>;
   let worldState: MockProxy<WorldStateSynchronizer>;
 
   let mockP2PService: MockProxy<BatchTxRequesterLibP2PService>;
   let connectionSampler: MockProxy<ConnectionSampler>;
-  let txValidator: IBatchRequestTxValidator;
+  let txValidator: TxValidator;
 
   let logger: Logger;
   let p2pBaseConfig: P2PConfig;
@@ -47,15 +47,17 @@ describe('p2p client integration batch txs', () => {
 
   beforeEach(() => {
     clients = [];
-    txPool = mock<TxPool>();
+    txPool = mock<TxPoolV2>();
     attestationPool = mock<AttestationPool>();
     epochCache = mock<EpochCache>();
     worldState = mock<WorldStateSynchronizer>();
     connectionSampler = mock<ConnectionSampler>();
-    mockP2PService = mock<BatchTxRequesterLibP2PService>({ connectionSampler });
+    mockP2PService = mock<BatchTxRequesterLibP2PService>({
+      connectionSampler,
+      validateRequestedBlockTxsConsistency: () => Promise.resolve(true),
+    });
     txValidator = {
-      validateRequestedTx: () => Promise.resolve({ result: 'valid' }),
-      validateRequestedTxs: txs => Promise.resolve(txs.map(() => ({ result: 'valid' }))),
+      validateTx: () => Promise.resolve({ result: 'valid' }),
     };
 
     logger = createLogger('p2p:test:integration:batch');
@@ -64,12 +66,22 @@ describe('p2p client integration batch txs', () => {
     //@ts-expect-error - we want to mock the getEpochAndSlotInNextL1Slot method, mocking ts is enough
     epochCache.getEpochAndSlotInNextL1Slot.mockReturnValue({ ts: BigInt(0) });
     epochCache.getRegisteredValidators.mockResolvedValue([]);
+    epochCache.getCurrentAndNextSlot.mockReturnValue({ currentSlot: SlotNumber(0), nextSlot: SlotNumber(1) });
+
+    attestationPool.isEmpty.mockResolvedValue(true);
+    epochCache.getL1Constants.mockReturnValue({
+      l1StartBlock: 0n,
+      l1GenesisTime: 0n,
+      slotDuration: 24,
+      epochDuration: 16,
+      ethereumSlotDuration: 12,
+      proofSubmissionEpochs: 2,
+      targetCommitteeSize: 48,
+      rollupManaLimit: Number.MAX_SAFE_INTEGER,
+    });
 
     txPool.hasTxs.mockResolvedValue([]);
-    txPool.getAllTxs.mockImplementation(() => {
-      return Promise.resolve([] as Tx[]);
-    });
-    txPool.addTxs.mockResolvedValue(1);
+    txPool.addPendingTxs.mockResolvedValue({ accepted: [], ignored: [], rejected: [] });
     txPool.getTxsByHash.mockImplementation(() => {
       return Promise.resolve([] as Tx[]);
     });
@@ -114,7 +126,7 @@ describe('p2p client integration batch txs', () => {
     });
   };
 
-  const setupClients = async (numberOfPeers: number, txPoolMocks?: MockProxy<TxPool>[]) => {
+  const setupClients = async (numberOfPeers: number, txPoolMocks?: MockProxy<TxPoolV2>[]) => {
     if (txPoolMocks) {
       const peerIdPrivateKeys = generatePeerIdPrivateKeys(numberOfPeers);
       let ports = [];
@@ -186,13 +198,14 @@ describe('p2p client integration batch txs', () => {
     ];
 
     // Create individual txPool mocks for each peer
-    const txPoolMocks: MockProxy<TxPool>[] = [];
+    const txPoolMocks: MockProxy<TxPoolV2>[] = [];
     for (let i = 0; i < NUMBER_OF_PEERS; i++) {
-      const peerTxPool = mock<TxPool>();
+      const peerTxPool = mock<TxPoolV2>();
       const { start, end } = peerTxDistribution[i];
       const peerTxs = txs.slice(start, end);
       const peerTxHashSet = new Set(peerTxs.map(tx => tx.txHash.toString()));
 
+      peerTxPool.isEmpty.mockResolvedValue(true);
       peerTxPool.hasTxs.mockImplementation((hashes: TxHash[]) => {
         return Promise.resolve(hashes.map(h => peerTxHashSet.has(h.toString())));
       });
@@ -209,7 +222,7 @@ describe('p2p client integration batch txs', () => {
     const peerIds = clients.map(client => (client as any).p2pService.node.peerId);
     connectionSampler.getPeerListSortedByConnectionCountAsc.mockReturnValue(peerIds);
 
-    attestationPool.getBlockProposal.mockResolvedValue(blockProposal);
+    attestationPool.getBlockProposalByArchive.mockResolvedValue(blockProposal);
 
     // Client 0 is missing all transactions
     const missingTxHashes = txHashes;
@@ -219,10 +232,9 @@ describe('p2p client integration batch txs', () => {
     mockP2PService.reqResp = (client0 as any).p2pService.reqresp;
 
     const requester = new BatchTxRequester(
-      missingTxHashes,
+      RequestTracker.create(missingTxHashes, new Date(Date.now() + 5_000)),
       blockProposal,
       undefined, // no pinned peer
-      5_000,
       mockP2PService,
       logger,
       undefined,

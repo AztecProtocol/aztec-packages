@@ -14,6 +14,17 @@
 
 #include "barretenberg/common/compiler_hints.hpp"
 
+// Fix for https://github.com/AztecProtocol/aztec-packages/issues/19769
+// Zig's Mach-O linker (https://codeberg.org/ziglang/zig/issues/31461) misaligns
+// __thread_bss TLS template offsets when __thread_data is also present (from Rust
+// static libraries), causing x86_64-macos segfaults on any thread_local requiring
+// 16-byte alignment (e.g. std::mutex). Adding an alignas(16) initialized
+// thread_local forces __thread_data alignment to 16, ensuring __thread_bss starts
+// at a correctly aligned TLS template offset.
+// NOLINTBEGIN
+alignas(16) thread_local char tls_alignment_pad[16] __attribute__((used)) = { 1 };
+// NOLINTEND
+
 namespace {
 
 class ThreadPool {
@@ -72,7 +83,6 @@ class ThreadPool {
                 }
                 iteration = iteration_++;
             }
-            // BB_BENCH_NAME("do_iterations()");
             task_(iteration);
             {
                 std::unique_lock<std::mutex> lock(tasks_mutex);
@@ -105,9 +115,9 @@ ThreadPool::~ThreadPool()
     }
 }
 
-void ThreadPool::worker_loop(size_t /*unused*/)
+void ThreadPool::worker_loop([[maybe_unused]] size_t thread_index)
 {
-    // info("created worker ", worker_num);
+    // info("created worker ", thread_index);
     while (true) {
         {
             std::unique_lock<std::mutex> lock(tasks_mutex);

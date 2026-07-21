@@ -66,7 +66,13 @@ if [[ -z "$PR_NUMBER" || -z "$TARGET_BRANCH" ]]; then
   usage
 fi
 
-STAGING_BRANCH="backport-to-${TARGET_BRANCH}-staging"
+# STAGING_BRANCH, STAGING_PR_TITLE and STAGING_PR_LABELS may be pre-set in the
+# environment to reuse this script for non-backport ports (e.g. the
+# port-to-next label, which targets next and needs ci-no-squash). They default
+# to the backport naming with no extra labels.
+STAGING_BRANCH="${STAGING_BRANCH:-backport-to-${TARGET_BRANCH}-staging}"
+STAGING_PR_TITLE="${STAGING_PR_TITLE:-chore: Accumulated backports to $TARGET_BRANCH}"
+STAGING_PR_LABELS="${STAGING_PR_LABELS:-}"
 
 # Check for required tools
 command -v gh >/dev/null 2>&1 || { echo "Error: 'gh' CLI not found. Install from https://cli.github.com/" >&2; exit 1; }
@@ -80,9 +86,15 @@ echo "Dry Run: ${DRY_RUN:-0}"
 echo "Continue Mode: $CONTINUE_MODE"
 echo ""
 
+# Set a default git committer identity
+if ! git config user.name &>/dev/null; then
+  git config user.name "aztec-bot"
+  git config user.email "tech@aztecprotocol.com"
+fi
+
 # Get PR information
 echo "Fetching PR information..."
-if ! PR_INFO=$(gh pr view "$PR_NUMBER" --json number,title,state,mergedAt,body,author 2>&1); then
+if ! PR_INFO=$(gh pr view "$PR_NUMBER" --json number,title,state,mergedAt,body,author); then
   echo "Error: Failed to fetch PR #$PR_NUMBER" >&2
   exit 1
 fi
@@ -91,8 +103,14 @@ PR_TITLE=$(echo "$PR_INFO" | jq -r '.title')
 PR_STATE=$(echo "$PR_INFO" | jq -r '.state')
 PR_BODY=$(echo "$PR_INFO" | jq -r '.body')
 PR_MERGED_AT=$(echo "$PR_INFO" | jq -r '.mergedAt')
-PR_AUTHOR=$(echo "$PR_INFO" | jq -r '.author.login')
-PR_AUTHOR_EMAIL="${PR_AUTHOR}@users.noreply.github.com"
+PR_AUTHOR=$(echo "$PR_INFO" | jq -r '.author.login // empty')
+if [[ -n "$PR_AUTHOR" && "$PR_AUTHOR" != "null" ]]; then
+  PR_AUTHOR_EMAIL="${PR_AUTHOR}@users.noreply.github.com"
+else
+  echo "Warning: Could not determine PR author, using AztecBot as fallback" >&2
+  PR_AUTHOR="AztecBot"
+  PR_AUTHOR_EMAIL="tech@aztec-labs.com"
+fi
 
 echo "PR Title: $PR_TITLE"
 echo "PR State: $PR_STATE"
@@ -101,7 +119,7 @@ echo "Author: $PR_AUTHOR"
 echo "Author Email: $PR_AUTHOR_EMAIL"
 
 if [[ "$PR_STATE" != "MERGED" ]]; then
-  echo "Error: PR #$PR_NUMBER is not merged yet (state: $PR_MERGED_AT)" >&2
+  echo "Error: PR #$PR_NUMBER is not merged yet (state: $PR_STATE)" >&2
   exit 1
 fi
 
@@ -121,13 +139,33 @@ if [[ $CONTINUE_MODE -eq 0 ]]; then
     git checkout -B "$STAGING_BRANCH" "origin/$TARGET_BRANCH"
   fi
 
-  echo "Fetching PR diff..."
-
-  if ! gh pr diff "$PR_NUMBER" 2>/dev/null | git apply --verbose --reject; then
-    git status -s
-    echo "Error: Failed to apply diff. Fix conflicts manually, then run: ./scripts/backport_to_staging.sh --continue $PR_NUMBER $TARGET_BRANCH" >&2
+  # Get merge commit SHA and cherry-pick (preserves author and message)
+  echo "Fetching merge commit..."
+  MERGE_COMMIT=$(gh pr view "$PR_NUMBER" --json mergeCommit --jq '.mergeCommit.oid')
+  if [[ -z "$MERGE_COMMIT" || "$MERGE_COMMIT" == "null" ]]; then
+    echo "Error: Could not find merge commit for PR #$PR_NUMBER" >&2
     exit 1
   fi
+  echo "Merge commit: $MERGE_COMMIT"
+  git fetch origin "$MERGE_COMMIT"
+
+  # Detect if merge commit has multiple parents (merge commit vs squash commit)
+  PARENT_COUNT=$(git rev-list --parents -n 1 "$MERGE_COMMIT" | wc -w)
+  # First word is the commit itself, remaining are parents
+  if [[ $PARENT_COUNT -gt 2 ]]; then
+    echo "Merge commit has multiple parents, using -m 1 for cherry-pick"
+    CHERRY_PICK_ARGS="-m 1"
+  else
+    CHERRY_PICK_ARGS=""
+  fi
+
+  echo "Cherry-picking $MERGE_COMMIT..."
+  if ! git cherry-pick $CHERRY_PICK_ARGS "$MERGE_COMMIT" --no-edit; then
+    git cherry-pick --abort 2>/dev/null || true
+    echo "Error: Failed to cherry-pick. Fix conflicts manually, then run: ./scripts/backport_to_staging.sh --continue $PR_NUMBER $TARGET_BRANCH" >&2
+    exit 1
+  fi
+  echo "Cherry-pick applied successfully!"
 else
   echo "Continuing from previous failure..."
   # Verify we're on the correct branch
@@ -136,18 +174,18 @@ else
     echo "Error: Not on expected branch $STAGING_BRANCH (currently on $CURRENT_BRANCH)" >&2
     exit 1
   fi
-fi
 
-# Commit changes - base the commit details off of the PR title and body
-echo "Diff applied successfully! Committing changes..."
-
-git config user.name "$PR_AUTHOR"
-git config user.email "$PR_AUTHOR_EMAIL"
-
-git add -A
-git commit -m "$PR_TITLE
+  # Commit the manually resolved changes
+  echo "Committing resolved changes..."
+  COMMIT_SUBJECT="$PR_TITLE"
+  if ! echo "$COMMIT_SUBJECT" | grep -qE '\(#[0-9]+\)'; then
+    COMMIT_SUBJECT="$COMMIT_SUBJECT (#$PR_NUMBER)"
+  fi
+  git add -A
+  git commit --author="$PR_AUTHOR <$PR_AUTHOR_EMAIL>" -m "$COMMIT_SUBJECT
 
 $PR_BODY"
+fi
 
 git log -1 --pretty=format:'Committed as %H by %an <%ae>%n%n%s%n%n%b'
 # Push staging branch
@@ -162,27 +200,27 @@ EXISTING_PR=$(gh pr list --base "$TARGET_BRANCH" --head "$STAGING_BRANCH" --json
 
 if [[ -z "$EXISTING_PR" ]]; then
   echo "Creating new PR..."
-  TRAIN_PR_BODY="This PR accumulates backport commits throughout the day and will be auto-merged overnight.
-
-Latest backport: #$PR_NUMBER - $PR_TITLE
-
-🤖 This PR is managed automatically by the backport workflow."
-
-  do_or_dryrun gh pr create \
-    --base "$TARGET_BRANCH" \
-    --head "$STAGING_BRANCH" \
-    --title "chore: Accumulated backports to $TARGET_BRANCH" \
-    --body "$TRAIN_PR_BODY"
-
-  do_or_dryrun echo "✅ Created new backport PR"
+  CREATE_ARGS=(
+    --base "$TARGET_BRANCH"
+    --head "$STAGING_BRANCH"
+    --title "$STAGING_PR_TITLE"
+    --body "Backport staging PR. Body will be updated with commit list."
+  )
+  if [[ -n "$STAGING_PR_LABELS" ]]; then
+    CREATE_ARGS+=(--label "$STAGING_PR_LABELS")
+  fi
+  do_or_dryrun gh pr create "${CREATE_ARGS[@]}"
+  do_or_dryrun echo "Created new backport PR"
 else
-  echo "PR already exists (#$EXISTING_PR), updating description..."
-  CURRENT_BODY=$(gh pr view "$EXISTING_PR" --json body --jq '.body')
-  NEW_BODY="${CURRENT_BODY}
-- #$PR_NUMBER - $PR_TITLE"
-
-  do_or_dryrun gh pr edit "$EXISTING_PR" --body "$NEW_BODY"
-  do_or_dryrun echo "✅ Updated existing backport PR #$EXISTING_PR"
+  echo "PR already exists (#$EXISTING_PR)"
+  # Ensure required labels are present on a pre-existing staging PR too.
+  if [[ -n "$STAGING_PR_LABELS" ]]; then
+    do_or_dryrun gh pr edit "$EXISTING_PR" --add-label "$STAGING_PR_LABELS"
+  fi
 fi
 
-do_or_dryrun echo "✅ Successfully backported PR #$PR_NUMBER to $STAGING_BRANCH"
+# Update PR body with commit override markers (same mechanism as merge-trains)
+echo "Updating PR body with commit list..."
+do_or_dryrun "$root/scripts/merge-train/update-pr-body.sh" "$STAGING_BRANCH"
+
+do_or_dryrun echo "Successfully backported PR #$PR_NUMBER to $STAGING_BRANCH"

@@ -10,50 +10,34 @@ This guide covers how to test Aztec smart contracts by connecting to a local net
 ## Prerequisites
 
 - A running [local Aztec network](../../getting_started_on_local_network.md)
-- A compiled contract artifact (see [How to compile a contract](../aztec-nr/how_to_compile_contract.md))
+- A compiled contract artifact (see [How to compile a contract](../aztec-nr/compiling_contracts.md))
 - Node.js test framework (Jest, Vitest, or similar)
 
 ## Setting up the test environment
 
-Connect to your local Aztec network and create a test wallet:
+Connect to your local Aztec network and create an embedded wallet:
 
-#include_code setup yarn-project/end-to-end/src/composed/e2e_local_network_example.test.ts typescript
+#include_code connect_to_network /docs/examples/ts/aztecjs_connection/index.ts typescript
 
-The `TestWallet` manages accounts, tracks deployed contracts, and handles transaction proving. It connects to the Aztec node which provides access to both the Private eXecution Environment (PXE) and the network.
+The `EmbeddedWallet` manages accounts, tracks deployed contracts, and handles transaction proving. It connects to the Aztec node which provides access to both the Private eXecution Environment (PXE) and the network.
 
 ## Loading test accounts
 
 The local network comes with pre-funded accounts. Load them into your wallet:
 
-```typescript
-import { registerInitialLocalNetworkAccountsInWallet } from "@aztec/test-wallet/server";
-
-// wallet is the TestWallet from the setup section above
-const [alice, bob] = await registerInitialLocalNetworkAccountsInWallet(wallet);
-```
+#include_code load_test_accounts /docs/examples/ts/aztecjs_testing/index.ts typescript
 
 ## Deploying contracts in tests
 
 Deploy contracts using the generated contract class:
 
-```typescript
-import { TokenContract } from "@aztec/noir-contracts.js/Token";
-
-// wallet is from the setup section; alice is from registerInitialLocalNetworkAccountsInWallet
-const contract = await TokenContract.deploy(
-  wallet,
-  alice, // admin
-  "TestToken",
-  "TST",
-  18,
-).send({ from: alice });
-```
+#include_code deploy_test_contract /docs/examples/ts/aztecjs_testing/index.ts typescript
 
 ## Verifying contract state
 
 Use `.simulate()` to read contract state without creating a transaction:
 
-#include_code simulate_function yarn-project/end-to-end/src/composed/docs_examples.test.ts typescript
+#include_code simulate_function /docs/examples/ts/aztecjs_connection/index.ts typescript
 
 Simulations are free (no gas cost) and return the function's result directly. Use them for:
 
@@ -79,22 +63,43 @@ Here's a complete test example showing the typical structure with setup, test ca
 
 Test that invalid operations revert as expected:
 
-```typescript
-// token, alice, and bob are from the test setup in beforeAll
-it("reverts when transferring more than balance", async () => {
-  const balance = await token.methods
-    .balance_of_public(alice)
-    .simulate({ from: alice });
+#include_code test_revert_case /docs/examples/ts/aztecjs_testing/index.ts typescript
 
-  await expect(
-    token.methods
-      .transfer_in_public(bob, balance + 1n)
-      .simulate({ from: alice })
-  ).rejects.toThrow();
+Use `.simulate()` to test reverts without spending gas. The simulation will throw if the transaction would fail onchain.
+
+## Simulating with overrides
+
+`.simulate()` accepts an `overrides` option that injects values into the simulator's (ephemeral) world-state fork and contract DB before the call runs. The override is scoped to that single simulation and thrown away afterwards.
+
+Override a public-storage slot:
+
+```typescript
+const result = await contract.methods.read_balance(account).simulate({
+  overrides: {
+    publicStorage: [{ contract: contract.address, slot: BALANCE_SLOT, value: new Fr(1_000_000n) }],
+  },
 });
 ```
 
-Use `.simulate()` to test reverts without spending gas. The simulation will throw if the transaction would fail onchain.
+Use this to set up state preconditions, reproduce production bugs against pinned storage, or exercise rare value branches without orchestrating the contract calls that produce them.
+
+### Fast-forwarding a contract update
+
+`fastForwardContractUpdate` returns a `SimulationOverrides` object that simulates a deployed instance as if it had already been upgraded to a new contract class. The new class must already be registered on chain. The cheat mirrors a real onchain upgrade followed by waiting out the upgrade delay: the override instance's `currentContractClassId` is bumped, and the `ContractInstanceRegistry`'s delayed-public-mutable storage is rewritten to look like the upgrade was scheduled in the past.
+
+```typescript
+import { fastForwardContractUpdate } from '@aztec/aztec.js';
+
+const overrides = await fastForwardContractUpdate({
+  instanceAddress: contract.address,
+  newClassId: upgradedClass.id,
+  node,
+});
+
+const result = await contract.methods.upgraded_method().simulate({ overrides });
+```
+
+Use this to test code paths that only execute after an upgrade, without orchestrating the full delayed-mutable upgrade flow.
 
 ## Further reading
 
@@ -102,4 +107,4 @@ Use `.simulate()` to test reverts without spending gas. The simulation will thro
 - [How to send transactions](./how_to_send_transaction.md)
 - [How to deploy a contract](./how_to_deploy_contract.md)
 - [How to create an account](./how_to_create_account.md)
-- [How to compile a contract](../aztec-nr/how_to_compile_contract.md)
+- [How to compile a contract](../aztec-nr/compiling_contracts.md)

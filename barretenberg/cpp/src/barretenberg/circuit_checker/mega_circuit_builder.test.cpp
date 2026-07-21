@@ -1,5 +1,6 @@
 #include "barretenberg/stdlib_circuit_builders/mega_circuit_builder.hpp"
 #include "barretenberg/circuit_checker/circuit_checker.hpp"
+#include "barretenberg/flavor/mega_flavor.hpp"
 #include "barretenberg/goblin/mock_circuits.hpp"
 #include "barretenberg/stdlib/primitives/bigfield/constants.hpp"
 #include <gtest/gtest.h>
@@ -163,53 +164,6 @@ TEST(MegaCircuitBuilder, GoblinEccOpQueueUltraOps)
 }
 
 /**
- * @brief Check that the selector partitioning is correct for the mega circuit builder
- * @details We check that for the arithmetic, delta_range, elliptic, memory, nnf, lookup, busread, poseidon2_external,
- * poseidon2_internal blocks, and the other selectors are zero on that block.
- */
-TEST(MegaCircuitBuilder, CompleteSelectorPartitioningCheck)
-{
-    auto builder = MegaCircuitBuilder();
-    GoblinMockCircuits::construct_simple_circuit(builder);
-    bool result = CircuitChecker::check(builder);
-    EXPECT_EQ(result, true);
-
-    // For each block, we want to check that all of the other selectors are zero on that block besides the one
-    // corresponding to the current block
-    for (auto& block : builder.blocks.get()) {
-        for (size_t i = 0; i < block.size(); ++i) {
-            if (&block != &builder.blocks.arithmetic) {
-                EXPECT_EQ(block.q_arith()[i], 0);
-            }
-            if (&block != &builder.blocks.delta_range) {
-                EXPECT_EQ(block.q_delta_range()[i], 0);
-            }
-            if (&block != &builder.blocks.elliptic) {
-                EXPECT_EQ(block.q_elliptic()[i], 0);
-            }
-            if (&block != &builder.blocks.memory) {
-                EXPECT_EQ(block.q_memory()[i], 0);
-            }
-            if (&block != &builder.blocks.nnf) {
-                EXPECT_EQ(block.q_nnf()[i], 0);
-            }
-            if (&block != &builder.blocks.lookup) {
-                EXPECT_EQ(block.q_lookup()[i], 0);
-            }
-            if (&block != &builder.blocks.busread) {
-                EXPECT_EQ(block.q_busread()[i], 0);
-            }
-            if (&block != &builder.blocks.poseidon2_external) {
-                EXPECT_EQ(block.q_poseidon2_external()[i], 0);
-            }
-            if (&block != &builder.blocks.poseidon2_internal) {
-                EXPECT_EQ(block.q_poseidon2_internal()[i], 0);
-            }
-        }
-    }
-}
-
-/**
  * @brief Verify that the ecc_op block is first in the trace and starts at offset 1 (after the zero row)
  */
 TEST(MegaCircuitBuilder, EccOpBlockIsFirstInTrace)
@@ -227,14 +181,14 @@ TEST(MegaCircuitBuilder, EccOpBlockIsFirstInTrace)
     auto c = builder.add_variable(builder.get_variable(a) + builder.get_variable(b));
     builder.create_add_gate({ a, b, c, 1, 1, -1, 0 });
 
-    builder.finalize_circuit(true);
-    builder.blocks.compute_offsets();
+    builder.finalize_circuit();
+    builder.blocks.compute_offsets(MegaFlavor::TRACE_OFFSET);
 
-    // Verify ecc_op block starts at offset 1 (after zero row)
-    EXPECT_EQ(builder.blocks.ecc_op.trace_offset(), 1);
+    // Verify ecc_op block starts at offset TRACE_OFFSET + NUM_ZERO_ROWS = NUM_ZERO_ROWS for non-ZK Mega.
+    EXPECT_EQ(builder.blocks.ecc_op.trace_offset(), MegaFlavor::TRACE_OFFSET + NUM_ZERO_ROWS);
 
     // Verify no other non-empty block starts before ecc_op ends
-    size_t ecc_op_end = builder.blocks.ecc_op.trace_offset() + builder.blocks.ecc_op.size();
+    size_t ecc_op_end = builder.blocks.ecc_op.trace_end();
     for (auto& block : builder.blocks.get()) {
         if (&block != &builder.blocks.ecc_op && block.size() > 0) {
             EXPECT_GE(block.trace_offset(), ecc_op_end) << "Block starts before ecc_op ends";
@@ -246,8 +200,6 @@ TEST(MegaCircuitBuilder, EccOpBlockIsFirstInTrace)
 
 /**
  * @brief Verify that an empty circuit can be finalized and passes circuit checks
- * @details Finalization should add required gates to ensure all polynomials are non-zero
- * @note This is a "completeness" test; unlikely to be a use-case.
  */
 TEST(MegaCircuitBuilder, EmptyCircuitFinalization)
 {
@@ -255,14 +207,27 @@ TEST(MegaCircuitBuilder, EmptyCircuitFinalization)
 
     // Completely empty circuit - no gates added
     EXPECT_EQ(builder.blocks.ecc_op.size(), 0);
+    EXPECT_FALSE(builder.circuit_finalized);
 
-    builder.finalize_circuit(true);
+    builder.finalize_circuit();
 
-    // After finalization, should have non-zero content for required polynomials
-    EXPECT_GT(builder.blocks.ecc_op.size(), 0) << "Finalization should add ECC ops for non-zero polynomials";
-    EXPECT_GT(builder.get_calldata().size(), 0) << "Finalization should add databus entries";
-    EXPECT_GT(builder.get_secondary_calldata().size(), 0);
-    EXPECT_GT(builder.get_return_data().size(), 0);
+    EXPECT_TRUE(builder.circuit_finalized);
+
+    // After finalization: only zero_idx arithmetic gates and the corresponding public inputs remain.
+    // No dummy ecc ops, databus entries, or other gate types are added.
+    EXPECT_EQ(builder.blocks.arithmetic.size(), 4); // zero_idx setup
+    EXPECT_EQ(builder.blocks.pub_inputs.size(), 0);
+    EXPECT_EQ(builder.blocks.ecc_op.size(), 0);
+    EXPECT_EQ(builder.blocks.busread.size(), 0);
+    EXPECT_EQ(builder.blocks.lookup.size(), 0);
+    EXPECT_EQ(builder.blocks.delta_range.size(), 0);
+    EXPECT_EQ(builder.blocks.elliptic.size(), 0);
+    EXPECT_EQ(builder.blocks.memory.size(), 0);
+    EXPECT_EQ(builder.blocks.nnf.size(), 0);
+    EXPECT_EQ(builder.blocks.poseidon2.size(), 0);
+    EXPECT_EQ(builder.get_calldata(BusId::KERNEL_CALLDATA).size(), 0);
+    EXPECT_EQ(builder.get_calldata(BusId::APP_CALLDATA).size(), 0);
+    EXPECT_EQ(builder.get_return_data().size(), 0);
 
     EXPECT_TRUE(CircuitChecker::check(builder));
 }
@@ -276,13 +241,13 @@ TEST(MegaCircuitBuilder, DatabusOutOfBoundsReadFails)
 
     // Add single entry to calldata
     auto val = builder.add_variable(fr(42));
-    builder.add_public_calldata(val);
+    builder.add_public_calldata(BusId::KERNEL_CALLDATA, val);
 
     // Try to read at index 1 (out of bounds - only index 0 exists)
     auto bad_idx = builder.add_variable(fr(1));
 
     // This should trigger an assertion in read_calldata
-    EXPECT_THROW(builder.read_calldata(bad_idx), std::runtime_error);
+    EXPECT_THROW(builder.read_calldata(BusId::KERNEL_CALLDATA, bad_idx), std::runtime_error);
 }
 
 } // namespace bb

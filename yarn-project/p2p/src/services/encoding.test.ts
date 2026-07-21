@@ -1,8 +1,36 @@
-import { MAX_TX_SIZE_KB, TopicType } from '@aztec/stdlib/p2p';
+import { MAX_TX_SIZE_KB, P2PMessage, TopicType } from '@aztec/stdlib/p2p';
 
 import { compressSync, uncompressSync } from 'snappy';
 
-import { SnappyTransform, readSnappyPreamble } from './encoding.js';
+import { SnappyTransform, getMsgIdFn, readSnappyPreamble } from './encoding.js';
+
+describe('getMsgIdFn', () => {
+  it('frames the topic length so a boundary-shifted (topic, data) pair does not collide', async () => {
+    const topic = '/aztec/tx/0.1.0';
+    const data = new P2PMessage(Buffer.from('deadbeefcafe', 'hex')).toMessageData();
+
+    // Aztec gossip data starts with a 4-byte BE length prefix, so data[0] === 0x00.
+    expect(data[0]).toBe(0x00);
+
+    // Shift one byte across the topic/data boundary: T' = T + data[0], D' = data[1:]. Under a raw
+    // topic||data concatenation these hash identically to (T, data) — the suppression attack.
+    const shiftedTopic = topic + String.fromCharCode(data[0]);
+    const shiftedData = data.subarray(1);
+
+    const id = await getMsgIdFn({ topic, data });
+    const shiftedId = await getMsgIdFn({ topic: shiftedTopic, data: shiftedData });
+
+    expect(Buffer.from(shiftedId).equals(Buffer.from(id))).toBe(false);
+  });
+
+  it('is deterministic for the same (topic, data)', async () => {
+    const topic = '/aztec/tx/0.1.0';
+    const data = new P2PMessage(Buffer.from('0102030405', 'hex')).toMessageData();
+    const a = await getMsgIdFn({ topic, data });
+    const b = await getMsgIdFn({ topic, data });
+    expect(Buffer.from(a).equals(Buffer.from(b))).toBe(true);
+  });
+});
 
 describe('readSnappyPreamble', () => {
   describe('basic varint decoding', () => {
@@ -354,6 +382,33 @@ describe('SnappyTransform', () => {
         const compressedLarge = compressSync(dataLarge);
         expect(() => transform.inboundTransformData(compressedLarge, undefined)).toThrow(
           'exceeds maximum allowed size of 200kb',
+        );
+      });
+
+      it('should use maxSizeKbOverride when provided, ignoring topic and default limits', () => {
+        const transform = new SnappyTransform();
+
+        // Data at 50kb should pass with 100kb override
+        const data = Buffer.alloc(50 * 1024, 'a');
+        const compressed = compressSync(data);
+        expect(() => transform.inboundTransformData(compressed, undefined, 100)).not.toThrow();
+
+        // Data at 150kb should fail with 100kb override
+        const dataLarge = Buffer.alloc(150 * 1024, 'a');
+        const compressedLarge = compressSync(dataLarge);
+        expect(() => transform.inboundTransformData(compressedLarge, undefined, 100)).toThrow(
+          'exceeds maximum allowed size of 100kb',
+        );
+      });
+
+      it('should prefer maxSizeKbOverride over topic-specific limit', () => {
+        const transform = new SnappyTransform();
+
+        // TX topic has a 512kb limit, but override is 10kb
+        const data = Buffer.alloc(50 * 1024, 'a'); // 50kb - within tx limit but over override
+        const compressed = compressSync(data);
+        expect(() => transform.inboundTransformData(compressed, TopicType.tx, 10)).toThrow(
+          'exceeds maximum allowed size of 10kb',
         );
       });
     });

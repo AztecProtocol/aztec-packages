@@ -1,0 +1,13 @@
+#!/usr/bin/env bash
+set -eu
+
+os=$(uname -s)
+
+if [[ "$os" == "Darwin" ]]; then
+  total_mem_bytes=$(sysctl -n hw.memsize)
+  total_mem_gb=$((total_mem_bytes / 1024 / 1024 / 1024))
+elif [[ "$os" == "Linux" ]]; then
+  total_mem_gb=$(free -g | awk '/^Mem:/ {print $2}')
+fi
+
+echo $total_mem_gb

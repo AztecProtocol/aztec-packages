@@ -1,8 +1,11 @@
 #!/usr/bin/env bash
-# Precommit hook for formatting staged noir files.
+# Precommit hook for formatting staged noir files and keeping generated contracts in sync.
 # We only run the formatter if there are staged *.nr files.
 # Nothing should cause a failure, because that would annoy everyone if all they're trying to do is commit.
 set -euo pipefail
+
+# we have to unset this env var set by git hooks so that this relative paths work correctly when used inside worktrees
+unset GIT_DIR
 
 cd $(dirname $0)
 
@@ -10,6 +13,9 @@ export FORCE_COLOR=true
 
 # Path to nargo binary
 NARGO_PATH="../noir/noir-repo/target/release/nargo"
+# Absolute path for use inside the per-workspace loop, where a relative path would
+# resolve differently depending on each workspace's depth.
+NARGO_ABS="$PWD/$NARGO_PATH"
 
 # Check if there are staged .nr files
 staged_nr_files=$(git diff --cached --name-only --diff-filter=d | grep '\.nr$' || true)
@@ -47,10 +53,10 @@ if [[ -n "$staged_nr_files" ]]; then
     exit 0
   fi
 
-  for dir in noir-contracts noir-protocol-circuits mock-protocol-circuits aztec-nr; do
+  for dir in noir-contracts noir-protocol-circuits mock-protocol-circuits aztec-nr protocol-fuzzer/contracts; do
     if [[ -d "$dir" ]]; then
       echo "Formatting in $dir..."
-      (cd "$dir" && "../$NARGO_PATH" fmt) || echo "Warning: Formatting failed in $dir, but continuing..."
+      (cd "$dir" && "$NARGO_ABS" fmt) || echo "Warning: Formatting failed in $dir, but continuing..."
     else
       echo "Warning: Directory $dir not found, skipping..."
     fi
@@ -65,3 +71,36 @@ if [[ -n "$staged_nr_files" ]]; then
 fi
 
 # We just don't say anything if there are no staged nr files, because no one cares.
+
+# Keep the generated TestToken in sync with canonical Token (see
+# noir-contracts/scripts/gen_test_token.sh). That script is pure cp+perl (no build), so it's cheap to
+# run here, and it replaces the build-time --check for local commits. Runs after nargo fmt above so it
+# copies the freshly-formatted canonical source. Like the rest of this hook, it must never block a commit.
+staged_token_files=$(git diff --cached --name-only --diff-filter=d \
+  | grep '^noir-projects/noir-contracts/contracts/app/token_contract/' || true)
+if [[ -n "$staged_token_files" ]]; then
+  # Skip if any canonical Token file is partially staged, so we don't bake unstaged Token changes into
+  # the committed TestToken (mirrors the partial-staging guard above).
+  unstaged_token_files=$(git diff --name-only --diff-filter=d \
+    | grep '^noir-projects/noir-contracts/contracts/app/token_contract/' || true)
+  token_partially_staged=false
+  for file in $staged_token_files; do
+    if echo "$unstaged_token_files" | grep -Fxq "$file"; then
+      token_partially_staged=true
+    fi
+  done
+
+  if $token_partially_staged; then
+    echo -e "\033[33mWarning:\033[0m token_contract is partially staged; skipping TestToken regen."
+    echo -e "\033[33mRun noir-contracts/scripts/gen_test_token.sh and stage the result manually.\033[0m"
+  else
+    echo "Detected staged canonical Token change. Regenerating TestToken..."
+    if ./noir-contracts/scripts/gen_test_token.sh; then
+      repo_root=$(git rev-parse --show-toplevel)
+      git add "$repo_root/noir-projects/noir-contracts/contracts/test/test_token_contract"
+    else
+      echo -e "\033[33mWarning:\033[0m TestToken regen failed; your commit will proceed."
+      echo -e "\033[33mRun noir-contracts/scripts/gen_test_token.sh manually.\033[0m"
+    fi
+  fi
+fi

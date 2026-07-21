@@ -1,21 +1,30 @@
 #include "barretenberg/vm2/tracegen/note_hash_tree_check_trace.hpp"
 
-#include <cassert>
-#include <memory>
-#include <stack>
-#include <unordered_map>
+#include <cstdint>
 
-#include "barretenberg/vm2/common/aztec_constants.hpp"
+#include "barretenberg/aztec/aztec_constants.hpp"
 #include "barretenberg/vm2/common/aztec_types.hpp"
 #include "barretenberg/vm2/common/field.hpp"
+#include "barretenberg/vm2/generated/columns.hpp"
 #include "barretenberg/vm2/generated/relations/lookups_note_hash_tree_check.hpp"
-#include "barretenberg/vm2/simulation/events/event_emitter.hpp"
 #include "barretenberg/vm2/tracegen/lib/discard_reconstruction.hpp"
-#include "barretenberg/vm2/tracegen/lib/interaction_builder.hpp"
-#include "barretenberg/vm2/tracegen/lib/lookup_builder.hpp"
 
 namespace bb::avm2::tracegen {
 
+/**
+ * @brief Process the note hash tree check events and populate the relevant columns in the trace.
+ *
+ * The event stream contains both read/write events and checkpoint events (create, commit, revert).
+ * We use process_with_discard to consume the checkpoint events and reconstruct a discard flag for
+ * each read/write event, indicating whether it belongs to a reverted checkpoint. Discarded events
+ * still produce trace rows but are excluded from public input writes.
+ *
+ * Each event produces one trace row covering: siloing, nonce derivation, uniqueness, Merkle
+ * membership/write, and existence checking. The diff inverse column is batch-inverted at the end.
+ *
+ * @param events The container of note hash tree check events to process.
+ * @param trace The trace container.
+ */
 void NoteHashTreeCheckTraceBuilder::process(
     const simulation::EventEmitterInterface<simulation::NoteHashTreeCheckEvent>::Container& events,
     TraceContainer& trace)
@@ -68,9 +77,9 @@ void NoteHashTreeCheckTraceBuilder::process(
                       { C::note_hash_tree_check_note_hash, note_hash },
                       { C::note_hash_tree_check_leaf_index, event.leaf_index },
                       { C::note_hash_tree_check_prev_root, event.prev_snapshot.root },
-                      { C::note_hash_tree_check_should_silo, should_silo },
+                      { C::note_hash_tree_check_sel_silo, should_silo },
                       { C::note_hash_tree_check_address, address },
-                      { C::note_hash_tree_check_should_unique, should_unique },
+                      { C::note_hash_tree_check_sel_unique, should_unique },
                       { C::note_hash_tree_check_note_hash_index, note_hash_counter },
                       { C::note_hash_tree_check_discard, discard },
                       { C::note_hash_tree_check_next_root, next_root },
@@ -88,7 +97,8 @@ void NoteHashTreeCheckTraceBuilder::process(
                         prev_leaf_value_unique_note_hash_diff }, // Will be inverted in batch later
                       { C::note_hash_tree_check_next_leaf_value, write ? unique_note_hash : 0 },
                       { C::note_hash_tree_check_note_hash_tree_height, NOTE_HASH_TREE_HEIGHT },
-                      { C::note_hash_tree_check_should_write_to_public_inputs, write && (!discard) },
+                      { C::note_hash_tree_check_merkle_hash_separator, DOM_SEP__MERKLE_HASH },
+                      { C::note_hash_tree_check_sel_write_to_public_inputs, write && (!discard) },
                       { C::note_hash_tree_check_public_inputs_index,
                         AVM_PUBLIC_INPUTS_AVM_ACCUMULATED_DATA_NOTE_HASHES_ROW_IDX + note_hash_counter } } });
         row++;
@@ -100,12 +110,12 @@ void NoteHashTreeCheckTraceBuilder::process(
 
 const InteractionDefinition NoteHashTreeCheckTraceBuilder::interactions =
     InteractionDefinition()
-        .add<lookup_note_hash_tree_check_silo_poseidon2_settings, InteractionType::LookupGeneric>()
-        .add<lookup_note_hash_tree_check_read_first_nullifier_settings, InteractionType::LookupGeneric>()
-        .add<lookup_note_hash_tree_check_nonce_computation_poseidon2_settings, InteractionType::LookupGeneric>()
-        .add<lookup_note_hash_tree_check_unique_note_hash_poseidon2_settings, InteractionType::LookupGeneric>()
-        .add<lookup_note_hash_tree_check_merkle_check_settings, InteractionType::LookupGeneric>()
-        .add<lookup_note_hash_tree_check_write_note_hash_to_public_inputs_settings,
-             InteractionType::LookupIntoIndexedByClk>();
+        .add<InteractionType::LookupSequential, lookup_note_hash_tree_check_silo_poseidon2_settings>()
+        .add<InteractionType::LookupIntoIndexedByRow, lookup_note_hash_tree_check_read_first_nullifier_settings>()
+        .add<InteractionType::LookupSequential, lookup_note_hash_tree_check_nonce_computation_poseidon2_settings>()
+        .add<InteractionType::LookupSequential, lookup_note_hash_tree_check_unique_note_hash_poseidon2_settings>()
+        .add<InteractionType::LookupSequential, lookup_note_hash_tree_check_merkle_check_settings>()
+        .add<InteractionType::LookupIntoIndexedByRow,
+             lookup_note_hash_tree_check_write_note_hash_to_public_inputs_settings>();
 
 } // namespace bb::avm2::tracegen

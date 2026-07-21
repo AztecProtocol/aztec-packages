@@ -1,0 +1,51 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="UTF-8">
+<link rel="stylesheet" href="../../../styles.css">
+<script defer src="../../../nargo_doc.js"></script>
+<title>Function assert_note_existed_by documentation</title>
+</head>
+<body>
+<div id="sidebar-toggle">
+<button id="sidebar-toggle-button"></button>
+<div id="sidebar-toggle-title">assert_note_existed_by</div>
+</div>
+<span id="main-contents">
+<nav class="sidebar">
+<h1><a href="../../../index.html">aztec-nr</a></h1>
+<div><a href="../../../all.html">All items</a></div>
+<h2 id="crate-name"><a href="../../index.html">noir_aztec</a></h2>
+<div id="crate-version">0.0.0</div>
+<h2>In module note</h2>
+<h3>Functions</h3><ul class="item-list">
+<li><a href="fn.assert_local_note_was_not_nullified_by.html">assert_local_note_was_not_nullified_by</a></div></li>
+<li><a href="fn.assert_local_note_was_nullified_by.html">assert_local_note_was_nullified_by</a></div></li>
+<li><a href="fn.assert_local_note_was_valid_by.html">assert_local_note_was_valid_by</a></div></li>
+<li><a href="fn.assert_note_existed_by.html">assert_note_existed_by</a></div></li>
+</ul>
+</nav>
+<main>
+<div><a href="../../../index.html">aztec-nr</a> - <a href="../../index.html">noir_aztec</a>::<a href="../index.html">history</a>::<a href="index.html">note</a></div>
+<h1>Function <span class="fn">assert_note_existed_by</span></h1>
+<pre><code>pub fn assert_note_existed_by&lt;Note&gt;(
+    block_header: <a href="../../../protocol_types/abis/block_header/struct.BlockHeader.html" class="struct">BlockHeader</a>,
+    hinted_note: <a href="../../../noir_aztec/note/struct.HintedNote.html" class="struct">HintedNote</a>&lt;Note&gt;,
+) -> <a href="../../../noir_aztec/note/struct.ConfirmedNote.html" class="struct">ConfirmedNote</a>&lt;Note&gt;
+<div class="where-clause">where
+    Note: <a href="../../../noir_aztec/note/note_interface/trait.NoteHash.html" class="trait">NoteHash</a></div></code></pre>
+
+<div class="comments">
+<p>Asserts that a note existed in the note hash tree by the time a block was mined.</p>
+<p>Proves note inclusion at <code>block_header</code> by checking membership of the note's unique note hash, and returns a
+<a href="../../../noir_aztec/note/struct.ConfirmedNote.html"><code>ConfirmedNote</code></a> describing it.</p>
+<h2>Cross-contract notes</h2>
+<p>Unlike the nullification helpers, this works for notes of <strong>any</strong> contract, not just the executing one: note hashes
+are siloed with the note's own contract address (carried by the <a href="../../../noir_aztec/note/struct.HintedNote.html"><code>HintedNote</code></a>) and no secret keys are involved.</p>
+<p>To reason about whether such a note has been nullified, see <a href="../../../noir_aztec/history/note/fn.assert_local_note_was_nullified_by.html"><code>assert_local_note_was_nullified_by</code></a> and
+<a href="../../../noir_aztec/history/note/fn.assert_local_note_was_not_nullified_by.html"><code>assert_local_note_was_not_nullified_by</code></a>, which — in contrast — can only be used for the executing contract's own
+notes.</p></div>
+</main>
+</span>
+</body>
+</html>

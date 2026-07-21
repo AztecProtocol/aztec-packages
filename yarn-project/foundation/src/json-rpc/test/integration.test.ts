@@ -80,7 +80,9 @@ describe('JsonRpc integration', () => {
     });
 
     it('calls an RPC function with incorrect parameter type', async () => {
-      await expect(() => client.getNote('foo' as any)).rejects.toThrow('Expected number, received string');
+      await expect(() => client.getNote('foo' as any)).rejects.toThrow(
+        'Invalid input: expected number, received string',
+      );
     });
 
     it('calls an RPC function with a primitive return type', async () => {

@@ -2,11 +2,15 @@
 set -eu
 
 # Parse arguments
-DEQUEUED=false
+MODE=""
 while [[ $# -gt 0 ]]; do
   case $1 in
     --dequeued)
-      DEQUEUED=true
+      MODE="dequeued"
+      shift
+      ;;
+    --merged)
+      MODE="merged"
       shift
       ;;
     *)
@@ -19,37 +23,45 @@ done
 commit_title=$(git log -1 --pretty=format:'%s')
 commit_author=$(git log -1 --pretty=format:'%an')
 
-if [[ "$REF_NAME" == "merge-train/barretenberg" ]]; then
-  channel="#honk-team"
-elif [[ "$REF_NAME" == "merge-train/avm" ]]; then
+if [[ "$REF_NAME" == "merge-train/avm" ]]; then
   channel="#team-bonobos"
+elif [[ "$REF_NAME" == "merge-train/barretenberg" ]]; then
+  channel="#honk-team"
+elif [[ "$REF_NAME" == "merge-train/ci" ]]; then
+  channel="#help-ci"
 elif [[ "$REF_NAME" == "merge-train/docs" ]]; then
   channel="#dev-rels"
+elif [[ "$REF_NAME" == "merge-train/fairies" ]]; then
+  channel="#team-fairies"
+elif [[ "$REF_NAME" == "merge-train/fairies-v5" ]]; then
+  channel="#team-fairies"
 elif [[ "$REF_NAME" == "merge-train/spartan" ]]; then
+  channel="#team-alpha"
+elif [[ "$REF_NAME" == "merge-train/spartan-v5" ]]; then
   channel="#team-alpha"
 else
   exit 0
 fi
 
-send_slack_message() {
-  local message=$1
-  local data=$(cat <<EOF
-{
-  "channel": "$channel",
-  "text": "$message"
-}
-EOF
-)
-  curl -X POST https://slack.com/api/chat.postMessage \
-    -H "Authorization: Bearer $SLACK_BOT_TOKEN" \
-    -H "Content-type: application/json" \
-    --data "$data"
-}
+TOPDIR=$(git rev-parse --show-toplevel)
 
 set -x
 
-if [[ "$DEQUEUED" == "true" ]]; then
-  send_slack_message "PR was removed from the merge queue: <$PR_URL|View PR>"
+if [[ "$MODE" == "dequeued" ]]; then
+  "$TOPDIR/ci3/slack_notify_with_claudebox_kickoff" "$channel" \
+    "$(printf 'PR was removed from the %s merge queue: <%s|View PR>\n%s by %s (🤖)' "$REF_NAME" "$PR_URL" "$commit_title" "$commit_author")" \
+    "PR was dequeued from merge queue for $REF_NAME: $PR_URL — $commit_title by $commit_author. Investigate why the PR was dequeued (check CI logs, merge conflicts, etc.), fix the issue, and create a PR targeting $REF_NAME (the exact merge-train branch). Run ./bootstrap.sh ci to verify the fix locally and iterate until CI passes. Follow the merge-trains skill (.claude/skills/merge-trains/SKILL.md)." \
+    --target-ref "origin/$REF_NAME" \
+    --repo "${GITHUB_REPOSITORY:-}"
+
+elif [[ "$MODE" == "merged" ]]; then
+  "$TOPDIR/ci3/slack_notify" "PR merged into $REF_NAME: <$PR_URL|$commit_title> by $commit_author" "$channel"
+
 else
-  send_slack_message "There was a failure (http://ci.aztec-labs.com/$ci_log_id) in the merge-train:\\n$commit_title by $commit_author"
+  "$TOPDIR/ci3/slack_notify_with_claudebox_kickoff" "$channel" \
+    "$(printf 'There was a failure in %s: http://ci.aztec-labs.com/%s\n%s by %s (🤖)' "$REF_NAME" "$ci_log_id" "$commit_title" "$commit_author")" \
+    "CI failure in merge-train branch $REF_NAME. Log: http://ci.aztec-labs.com/$ci_log_id — $commit_title by $commit_author. Investigate the failure, fix it, and create a PR targeting $REF_NAME (the exact merge-train branch). Run ./bootstrap.sh ci to verify the fix locally and iterate until CI passes. Follow the merge-trains skill (.claude/skills/merge-trains/SKILL.md)." \
+    --link "http://ci.aztec-labs.com/$ci_log_id" \
+    --target-ref "origin/$REF_NAME" \
+    --repo "${GITHUB_REPOSITORY:-}"
 fi

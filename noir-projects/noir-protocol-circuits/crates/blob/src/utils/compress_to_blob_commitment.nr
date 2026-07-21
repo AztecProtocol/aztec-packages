@@ -1,4 +1,5 @@
 use crate::abis::{batching_blob_commitment::BatchingBlobCommitment, BLSPoint};
+use super::validate_canonical_representation_if_infinity;
 use bignum::{BigNum, BLS12_381_Fq};
 
 // TODO(MW): get_flags() and compress_to_bytes() will eventually be part of BigCurve.
@@ -13,11 +14,14 @@ use bignum::{BigNum, BLS12_381_Fq};
  * and noble-curves/src/bls12-381.ts -> setMask()
  */
 pub fn compress_to_blob_commitment(point: BLSPoint) -> (BatchingBlobCommitment) {
+    // A point at infinity must be canonically encoded (x == 0 && y == 0); otherwise a non-zero
+    // coordinate would leak into the compressed output and produce a non-canonical encoding.
+    validate_canonical_representation_if_infinity(point);
     let (flags, x) = get_flags(point);
     let mut compressed = x.to_be_bytes();
-    let most_sig_bits: [u1; 8] = (compressed[0] as Field).to_be_bits();
+    let most_sig_bits: [bool; 8] = (compressed[0] as Field).to_be_bits();
     for i in 0..3 {
-        assert_eq(most_sig_bits[i], 0, "Invalid BLS12-381 x coordinate given to compress().");
+        assert_eq(most_sig_bits[i], false, "Invalid BLS12-381 x coordinate given to compress().");
     }
     compressed[0] = set_flags(flags, compressed[0]);
     BatchingBlobCommitment { point, compressed }
@@ -68,7 +72,7 @@ mod tests {
         assert_eq(flags[0], true);
         // is_infinity = false
         assert_eq(flags[1], false);
-        // is_greater = false (point.y < -point.y for G)
+        // is_greater = false: the BLS12-381 offset generator's y is the lower root (y < -y)
         assert_eq(flags[2], false);
         // Decompress back to the same point:
         let mut bytes = compress_to_blob_commitment(point).compressed;
@@ -80,18 +84,13 @@ mod tests {
         // y^2 = x^3 + ax + b
         let reconstructed_y_squared =
             reconstructed_x.__pow(BLS12_381_Fq::from(3)).add(a.mul(reconstructed_x)).add(b);
-        let mut reconstructed_y = reconstructed_y_squared.__tonelli_shanks_sqrt().unwrap();
-        // If the sqrt returned is the 'greater' one, negate it (since here is_greater = false):
-        reconstructed_y = if reconstructed_y > -reconstructed_y {
-            -reconstructed_y
-        } else {
-            reconstructed_y
-        };
+        let reconstructed_y = -(reconstructed_y_squared.__sqrt().unwrap());
+
         assert_eq(reconstructed_y, point.y);
     }
 
     #[test]
-    unconstrained fn infinity_point_compression() {
+    fn infinity_point_compression() {
         let point = BLSPoint::point_at_infinity();
         let (flags, x) = get_flags(point);
         // is_compressed = true
@@ -109,8 +108,23 @@ mod tests {
         assert_eq(expected_bytes, compress_to_blob_commitment(point).compressed);
     }
 
+    #[test(should_fail_with = "Non canonical x coordinate at infinity")]
+    fn non_canonical_infinity_point_fails() {
+        let point =
+            BLSPoint { x: BLS12_381_Fq::from(1), y: BLS12_381_Fq::zero(), is_infinity: true };
+        let _ = compress_to_blob_commitment(point);
+    }
+
+    #[test(should_fail_with = "Non canonical y coordinate at infinity")]
+    fn non_canonical_infinity_point_y_fails() {
+        // x is canonical (0) but y is not: the y-coordinate check must still reject it.
+        let point =
+            BLSPoint { x: BLS12_381_Fq::zero(), y: BLS12_381_Fq::from(1), is_infinity: true };
+        let _ = compress_to_blob_commitment(point);
+    }
+
     #[test]
-    unconstrained fn test_point_compression_greater() {
+    fn test_point_compression_greater() {
         // Note that this p is the negation of p from the test test_point_compression_not_greater...
         let p = BLSPoint {
             x: BLS12_381_Fq::from_limbs([
@@ -140,7 +154,7 @@ mod tests {
     }
 
     #[test]
-    unconstrained fn test_point_compression_not_greater() {
+    fn test_point_compression_not_greater() {
         // Note that this p is the negation of p from the test test_point_compression_greater...
         let p = BLSPoint {
             x: BLS12_381_Fq::from_limbs([

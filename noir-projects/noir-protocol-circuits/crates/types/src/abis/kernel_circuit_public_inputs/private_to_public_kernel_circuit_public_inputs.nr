@@ -18,7 +18,7 @@ pub struct PrivateToPublicKernelCircuitPublicInputs {
     pub public_teardown_call_request: PublicCallRequest,
     pub gas_used: Gas,
     pub fee_payer: AztecAddress,
-    pub include_by_timestamp: u64,
+    pub expiration_timestamp: u64,
 }
 
 impl Empty for PrivateToPublicKernelCircuitPublicInputs {
@@ -30,7 +30,7 @@ impl Empty for PrivateToPublicKernelCircuitPublicInputs {
             public_teardown_call_request: PublicCallRequest::empty(),
             gas_used: Gas::empty(),
             fee_payer: AztecAddress::empty(),
-            include_by_timestamp: 0,
+            expiration_timestamp: 0,
         }
     }
 }

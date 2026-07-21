@@ -1,7 +1,9 @@
 use crate::{
     constants::PUBLIC_DATA_TREE_HEIGHT,
     data::public_data_tree_leaf_preimage::PublicDataTreeLeafPreimage,
-    merkle_tree::{conditionally_check_membership, MembershipWitness},
+    merkle_tree::{
+        conditionally_check_membership_with_hasher, MembershipWitness, public_data_merkle_hash,
+    },
 };
 
 /// Read the value from public storage at the given `leaf_slot`.
@@ -27,12 +29,13 @@ pub fn public_data_storage_read(
     // not.
     let is_slot_in_tree = leaf_preimage.slot == public_data_leaf_slot;
 
-    let (_, is_expected_leaf, is_leaf_in_tree) = conditionally_check_membership(
+    let (_, is_expected_leaf, is_leaf_in_tree) = conditionally_check_membership_with_hasher(
         public_data_leaf_slot,
         is_slot_in_tree,
         leaf_preimage,
         witness,
         public_data_tree_root,
+        public_data_merkle_hash,
     );
 
     // In the case of the state existing in the tree, `is_leaf_in_tree = true`.
@@ -62,8 +65,9 @@ mod tests {
     use crate::{
         constants::PUBLIC_DATA_TREE_HEIGHT,
         data::public_data_tree_leaf_preimage::PublicDataTreeLeafPreimage,
-        merkle_tree::MembershipWitness,
-        tests::merkle_tree_utils::single_subtree_merkle_tree::SingleSubtreeMerkleTree,
+        merkle_tree::{
+            MembershipWitness, public_data_merkle_hash, test_utils::SingleSubtreeMerkleTree,
+        },
         traits::{Empty, Hash},
     };
     use super::public_data_storage_read;
@@ -86,8 +90,9 @@ mod tests {
                 PublicDataTreeLeafPreimage { slot: 33, value: 789, next_slot: 0, next_index: 0 },
                 PublicDataTreeLeafPreimage { slot: 11, value: 456, next_slot: 22, next_index: 1 },
             ];
-            let public_data_tree = SingleSubtreeMerkleTree::<4, 2, PUBLIC_DATA_TREE_HEIGHT>::new(
+            let public_data_tree = SingleSubtreeMerkleTree::<4, 2, PUBLIC_DATA_TREE_HEIGHT>::new_with_hasher(
                 prefilled_leaves.map(|l| l.hash()),
+                public_data_merkle_hash,
             );
 
             let public_data_tree_root = public_data_tree.get_root();

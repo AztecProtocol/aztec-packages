@@ -2,13 +2,13 @@ use crate::{
     abis::ParityPublicInputs,
     parity::parity_root::{self, ParityBaseProofData, ParityRootPrivateInputs},
 };
+use protocol_test_utils::{fixtures::vk_tree::{get_vk_data, vk_tree_root}, pad_end};
 use types::{
     constants::{
         NUM_BASE_PARITY_PER_ROOT_PARITY, PARITY_BASE_VK_INDEX, PARITY_ROOT_VK_INDEX,
         ULTRA_VK_LENGTH_IN_FIELDS,
     },
     proof::{proof_data::ProofData, vk_data::VkData},
-    tests::{fixtures::vk_tree::{get_vk_data, vk_tree_root}, utils::pad_end},
 };
 
 struct TestBuilder {
@@ -36,7 +36,8 @@ impl TestBuilder {
         sha_root: Field,
         vk_data: VkData<ULTRA_VK_LENGTH_IN_FIELDS>,
     ) -> ParityBaseProofData {
-        let public_inputs = ParityPublicInputs { sha_root, converted_root: 0, vk_tree_root };
+        let public_inputs =
+            ParityPublicInputs { sha_root, converted_root: 0, vk_tree_root, prover_id: 42 };
 
         let value_offset = sha_root / 2;
         ProofData {
@@ -50,7 +51,7 @@ impl TestBuilder {
 
     pub fn execute(self) -> ParityPublicInputs {
         let private_inputs = ParityRootPrivateInputs { children: self.children };
-        parity_root.execute(private_inputs)
+        parity_root::execute(private_inputs)
     }
 }
 
@@ -60,11 +61,12 @@ fn public_inputs_match_expected() {
 
     let expected_sha_root = 0xa0c56543aa73140e5ca27231eee3107bd4e11d62164feb411d77c9d9b2da47;
     let expected_converted_root =
-        0x0e34ac2c09f45a503d2908bcb12f1cbae5fa4065759c88d501c097506a8b2290;
+        0x14e4b977b2203b70e6ee1c2456eb7114d090fe4b907f631eecd0919fed432e7d;
 
     assert_eq(public_inputs.sha_root, expected_sha_root);
     assert_eq(public_inputs.converted_root, expected_converted_root);
     assert_eq(public_inputs.vk_tree_root, vk_tree_root);
+    assert_eq(public_inputs.prover_id, 42);
 }
 
 #[test(should_fail_with = "Inconsistent vk tree roots across parity base circuits")]
@@ -127,6 +129,16 @@ fn incorrect_vk_index() {
     for i in 0..NUM_BASE_PARITY_PER_ROOT_PARITY {
         builder.children[i].vk_data.leaf_index = PARITY_ROOT_VK_INDEX;
     }
+
+    let _ = builder.execute();
+}
+
+#[test(should_fail_with = "Inconsistent prover ids across parity base circuits")]
+fn inconsistent_prover_ids() {
+    let mut builder = TestBuilder::new();
+
+    // Tweak the prover_id of the second child.
+    builder.children[1].public_inputs.prover_id += 1;
 
     let _ = builder.execute();
 }

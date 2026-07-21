@@ -5,26 +5,24 @@ import { AMMContractArtifact } from '@aztec/noir-contracts.js/AMM';
 import { TokenContractArtifact } from '@aztec/noir-contracts.js/Token';
 import { AvmGadgetsTestContractArtifact } from '@aztec/noir-test-contracts.js/AvmGadgetsTest';
 import { AvmTestContractArtifact } from '@aztec/noir-test-contracts.js/AvmTest';
+import { PublicFnsWithEmitReproContractArtifact } from '@aztec/noir-test-contracts.js/PublicFnsWithEmitRepro';
+import { StorageProofTestContractArtifact } from '@aztec/noir-test-contracts.js/StorageProofTest';
 import { PublicSimulatorConfig } from '@aztec/stdlib/avm';
 import { AztecAddress } from '@aztec/stdlib/aztec-address';
 import type { ContractInstanceWithAddress } from '@aztec/stdlib/contract';
 import { NativeWorldStateService } from '@aztec/world-state';
 
-import { mkdirSync, writeFileSync } from 'fs';
-import path from 'path';
+import { mkdirSync, readFileSync, writeFileSync } from 'fs';
+import path, { dirname, join } from 'path';
+import { fileURLToPath } from 'url';
 
 import { ammTest } from '../../fixtures/amm_test.js';
 import { bulkTest, megaBulkTest } from '../../fixtures/bulk_test.js';
-import {
-  type MeasuredSimulatorFactory,
-  PublicTxSimulationTester,
-  defaultGlobals,
-} from '../../fixtures/public_tx_simulation_tester.js';
-import { SimpleContractDataSource } from '../../fixtures/simple_contract_data_source.js';
+import { PublicTxSimulationTester, defaultGlobals } from '../../fixtures/public_tx_simulation_tester.js';
 import { tokenTest } from '../../fixtures/token_test.js';
 import { TestExecutorMetrics } from '../../test_executor_metrics.js';
-import { MeasuredCppPublicTxSimulator } from '../cpp_public_tx_simulator.js';
-import { MeasuredPublicTxSimulator } from '../measured_public_tx_simulator.js';
+
+const __dirname = dirname(fileURLToPath(import.meta.url));
 
 describe('Public TX simulator apps tests: benchmarks', () => {
   const logger = createLogger('public-tx-apps-tests-bench');
@@ -50,40 +48,23 @@ describe('Public TX simulator apps tests: benchmarks', () => {
     logger.info(metrics.toPrettyString());
   });
 
-  describe.each([
-    { useCppSimulator: false, simulatorName: 'TS Simulator' },
-    { useCppSimulator: true, simulatorName: 'Cpp Simulator' },
-  ])('Public TX simulator apps tests: benchmarks (via $simulatorName)', ({ useCppSimulator }) => {
-    const metricsPrefixPrefix = useCppSimulator ? 'Cpp ' : '';
-
+  describe('Public TX simulator apps tests: benchmark apps', () => {
     describe('Regular apps and AVM test contract', () => {
       let worldStateService: NativeWorldStateService;
       let tester: PublicTxSimulationTester;
 
       beforeEach(async () => {
         worldStateService = await NativeWorldStateService.tmp();
-        const contractDataSource = new SimpleContractDataSource();
-        const merkleTree = await worldStateService.fork();
-        // For benchmarking, use pure simulators (no CppVsTs comparison overhead)
-        const simulatorFactory: MeasuredSimulatorFactory = useCppSimulator
-          ? (mt, cdb, g, m, c) => new MeasuredCppPublicTxSimulator(mt, cdb, g, m, c)
-          : (mt, cdb, g, m, c) => new MeasuredPublicTxSimulator(mt, cdb, g, m, c);
-        tester = new PublicTxSimulationTester(
-          merkleTree,
-          contractDataSource,
-          defaultGlobals(),
-          metrics,
-          simulatorFactory,
-          config,
-        );
+        tester = await PublicTxSimulationTester.create(worldStateService, defaultGlobals(), metrics, config);
       });
 
       afterEach(async () => {
+        await tester.close();
         await worldStateService.close();
       });
 
       it('Token Contract test', async () => {
-        tester.setMetricsPrefix(`${metricsPrefixPrefix}Token contract tests`);
+        tester.setMetricsPrefix('Token contract tests');
         // Skip return value assertions since collectCallMetadata=false for benchmarking
         await tokenTest(tester, logger, TokenContractArtifact, (b: boolean) => expect(b).toBe(true), {
           skipReturnValueAssertions: true,
@@ -91,25 +72,25 @@ describe('Public TX simulator apps tests: benchmarks', () => {
       });
 
       it('AMM Contract test', async () => {
-        tester.setMetricsPrefix(`${metricsPrefixPrefix}AMM contract tests`);
+        tester.setMetricsPrefix('AMM contract tests');
         await ammTest(tester, logger, TokenContractArtifact, AMMContractArtifact, (b: boolean) => expect(b).toBe(true));
       });
 
       it('AVM simulator bulk test', async () => {
-        tester.setMetricsPrefix(`${metricsPrefixPrefix}AvmTest contract tests`);
+        tester.setMetricsPrefix('AvmTest contract tests');
         const result = await bulkTest(tester, logger, AvmTestContractArtifact);
         expect(result.revertCode.isOK()).toBe(true);
       });
 
       it('AVM simulator MEGA bulk test', async () => {
-        tester.setMetricsPrefix(`${metricsPrefixPrefix}AvmTest contract tests`);
+        tester.setMetricsPrefix('AvmTest contract tests');
         const result = await megaBulkTest(tester, logger, AvmTestContractArtifact);
         expect(result.revertCode.isOK()).toBe(true);
       });
 
       it('AVM large calldata test', async () => {
-        tester.setMetricsPrefix(`${metricsPrefixPrefix}AvmTest contract tests`);
-        const deployer = AztecAddress.fromNumber(42);
+        tester.setMetricsPrefix('AvmTest contract tests');
+        const deployer = AztecAddress.fromNumberUnsafe(42);
 
         const avmTestContract = await tester.registerAndDeployContract(
           /*constructorArgs=*/ [],
@@ -131,10 +112,71 @@ describe('Public TX simulator apps tests: benchmarks', () => {
         );
         expect(result.revertCode.isOK()).toBe(true);
       });
+
+      it('PublicFnsWithEmitRepro contract test', async () => {
+        // See comments on the contract source for motivation as to including this contract in our benchmarks.
+        tester.setMetricsPrefix('PublicFnsWithEmitRepro contract tests');
+        const deployer = AztecAddress.fromNumberUnsafe(42);
+
+        const reproContract = await tester.registerAndDeployContract(
+          /*constructorArgs=*/ [],
+          deployer,
+          /*contractArtifact=*/ PublicFnsWithEmitReproContractArtifact,
+        );
+
+        const result = await tester.executeTxWithLabel(
+          /*txLabel=*/ 'PublicFnsWithEmitRepro/fn_01',
+          /*sender=*/ deployer,
+          /*setupCalls=*/ [],
+          /*appCalls=*/ [
+            {
+              address: reproContract.address,
+              fnName: 'fn_01',
+              args: [/*v=*/ 1n],
+            },
+          ],
+        );
+        expect(result.revertCode.isOK()).toBe(true);
+      });
+
+      it('Storage proof test', async () => {
+        tester.setMetricsPrefix('StorageProof contract tests');
+        const deployer = AztecAddress.fromNumberUnsafe(42);
+
+        const storageProofContract = await tester.registerAndDeployContract(
+          /*constructorArgs=*/ [],
+          deployer,
+          /*contractArtifact=*/ StorageProofTestContractArtifact,
+        );
+
+        const storageProofJson = JSON.parse(
+          readFileSync(join(__dirname, '../../avm/testing/account_proof.json'), 'utf8'),
+        );
+
+        const result = await tester.executeTxWithLabel(
+          /*txLabel=*/ 'AvmStorageProofTest/account_proof',
+          /*sender=*/ deployer,
+          /*setupCalls=*/ [],
+          /*appCalls=*/ [
+            {
+              address: storageProofContract.address,
+              fnName: 'account_proof',
+              isStaticCall: true,
+              args: [
+                storageProofJson.account,
+                storageProofJson.root,
+                storageProofJson.nodes,
+                storageProofJson.node_length,
+              ],
+            },
+          ],
+        );
+        expect(result.revertCode.isOK()).toBe(true);
+      });
     });
 
     describe('AVM gadgets tests', () => {
-      const deployer = AztecAddress.fromNumber(42);
+      const deployer = AztecAddress.fromNumberUnsafe(42);
 
       let worldStateService: NativeWorldStateService;
       let tester: PublicTxSimulationTester;
@@ -142,28 +184,17 @@ describe('Public TX simulator apps tests: benchmarks', () => {
 
       beforeEach(async () => {
         worldStateService = await NativeWorldStateService.tmp();
-        const contractDataSource = new SimpleContractDataSource();
-        const merkleTree = await worldStateService.fork();
-        // For benchmarking, use pure simulators (no CppVsTs comparison overhead)
-        const simulatorFactory: MeasuredSimulatorFactory = useCppSimulator
-          ? (mt, cdb, g, m, c) => new MeasuredCppPublicTxSimulator(mt, cdb, g, m, c)
-          : (mt, cdb, g, m, c) => new MeasuredPublicTxSimulator(mt, cdb, g, m, c);
-        tester = new PublicTxSimulationTester(
-          merkleTree,
-          contractDataSource,
-          defaultGlobals(),
-          metrics,
-          simulatorFactory,
-        );
+        tester = await PublicTxSimulationTester.create(worldStateService, defaultGlobals(), metrics);
         avmGadgetsTestContract = await tester.registerAndDeployContract(
           /*constructorArgs=*/ [],
           deployer,
           /*contractArtifact=*/ AvmGadgetsTestContractArtifact,
         );
-        tester.setMetricsPrefix(`${metricsPrefixPrefix}AvmGadgetsTest contract tests`);
+        tester.setMetricsPrefix('AvmGadgetsTest contract tests');
       });
 
       afterEach(async () => {
+        await tester.close();
         await worldStateService.close();
       });
 
@@ -213,7 +244,7 @@ describe('Public TX simulator apps tests: benchmarks', () => {
             {
               address: avmGadgetsTestContract.address,
               fnName: 'keccak_hash_1400',
-              args: [/*input=*/ Array.from({ length: 2400 }, () => randomInt(2 ** 8))],
+              args: [/*input=*/ Array.from({ length: 1400 }, () => randomInt(2 ** 8))],
             },
           ],
         );

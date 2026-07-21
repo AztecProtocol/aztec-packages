@@ -1,5 +1,5 @@
 // === AUDIT STATUS ===
-// internal:    { status: Planned, auditors: [], commit: }
+// internal:    { status: Complete, auditors: [Nishat], commit: 94f596f8b3bbbc216f9ad7dc33253256141156b2 }
 // external_1:  { status: not started, auditors: [], commit: }
 // external_2:  { status: not started, auditors: [], commit: }
 // =====================
@@ -64,6 +64,10 @@ size_t parse_size_string(const std::string& size_str)
         }
 
         size_t value = std::stoull(str);
+        // Guard against value * multiplier silently wrapping modulo 2^64 for very large inputs
+        if (multiplier != 0 && value > std::numeric_limits<size_t>::max() / multiplier) {
+            throw_or_abort("Invalid storage size format: '" + size_str + "'. Value out of range");
+        }
         return value * multiplier;
     } catch (const std::invalid_argument&) {
         throw_or_abort("Invalid storage size format: '" + size_str + "'. Not a valid number");

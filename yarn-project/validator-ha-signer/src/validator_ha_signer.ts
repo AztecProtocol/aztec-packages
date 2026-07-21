@@ -9,15 +9,28 @@ import type { Buffer32 } from '@aztec/foundation/buffer';
 import { EthAddress } from '@aztec/foundation/eth-address';
 import type { Signature } from '@aztec/foundation/eth-signature';
 import { type Logger, createLogger } from '@aztec/foundation/log';
-
-import type { ValidatorHASignerConfig } from './config.js';
-import { type DutyIdentifier, DutyType } from './db/types.js';
-import { SlashingProtectionService } from './slashing_protection_service.js';
+import { type DateProvider, executeTimeout } from '@aztec/foundation/timer';
 import {
+  type BaseSignerConfig,
+  DutyType,
   type HAProtectedSigningContext,
-  type SlashingProtectionDatabase,
   getBlockNumberFromSigningContext,
-} from './types.js';
+  getCheckpointNumberFromSigningContext,
+} from '@aztec/stdlib/ha-signing';
+
+import type { DutyIdentifier } from './db/types.js';
+import { SigningLockLostError } from './errors.js';
+import type { HASignerMetrics } from './metrics.js';
+import { DEFAULT_MAX_STUCK_DUTIES_AGE_MS, SlashingProtectionService } from './slashing_protection_service.js';
+import type { SlashingProtectionDatabase } from './types.js';
+
+export interface ValidatorHASignerDeps {
+  metrics: HASignerMetrics;
+  dateProvider: DateProvider;
+}
+
+/** Default hard timeout (ms) for a single signer call when not configured. */
+const DEFAULT_SIGNER_CALL_TIMEOUT_MS = 30_000;
 
 /**
  * Validator High Availability Signer
@@ -43,25 +56,45 @@ export class ValidatorHASigner {
   private readonly slashingProtection: SlashingProtectionService;
   private readonly rollupAddress: EthAddress;
 
+  private readonly dateProvider: DateProvider;
+  private readonly metrics: HASignerMetrics;
+  private readonly signerCallTimeoutMs: number;
+
   constructor(
     db: SlashingProtectionDatabase,
-    private readonly config: ValidatorHASignerConfig,
+    private readonly config: BaseSignerConfig,
+    deps: ValidatorHASignerDeps,
   ) {
     this.log = createLogger('validator-ha-signer');
 
-    if (!config.haSigningEnabled) {
-      // this shouldn't happen, the validator should use different signer for non-HA setups
-      throw new Error('Validator HA Signer is not enabled in config');
-    }
+    this.metrics = deps.metrics;
+    this.dateProvider = deps.dateProvider;
+
+    // Clamp the signer-call timeout below half the stuck-duty max age. This maintains the
+    // invariant that an in-flight signing always times out and releases its SIGNING row well before
+    // stuck-duty cleanup could consider it stuck, so cleanup can never delete a live duty (only
+    // signWithProtection writes SIGNING rows, and every path through it is bounded by this timeout).
+    // If timers misbehave anyway, the recordSuccess-returns-false throw is the backstop: the duty
+    // fails instead of broadcasting an unprotected signature.
+    const maxStuckDutiesAgeMs = config.maxStuckDutiesAgeMs ?? DEFAULT_MAX_STUCK_DUTIES_AGE_MS;
+    this.signerCallTimeoutMs = Math.min(
+      config.signerCallTimeoutMs ?? DEFAULT_SIGNER_CALL_TIMEOUT_MS,
+      maxStuckDutiesAgeMs / 2,
+    );
 
     if (!config.nodeId || config.nodeId === '') {
       throw new Error('NODE_ID is required for high-availability setups');
     }
-    this.rollupAddress = config.l1Contracts.rollupAddress;
-    this.slashingProtection = new SlashingProtectionService(db, config);
+    this.rollupAddress = config.rollupAddress;
+    this.slashingProtection = new SlashingProtectionService(db, config, {
+      metrics: deps.metrics,
+      dateProvider: deps.dateProvider,
+    });
+
     this.log.info('Validator HA Signer initialized with slashing protection', {
       nodeId: config.nodeId,
       rollupAddress: this.rollupAddress.toString(),
+      signerCallTimeoutMs: this.signerCallTimeoutMs,
     });
   }
 
@@ -88,6 +121,9 @@ export class ValidatorHASigner {
     context: HAProtectedSigningContext,
     signFn: (messageHash: Buffer32) => Promise<Signature>,
   ): Promise<Signature> {
+    const startTime = this.dateProvider.now();
+    const dutyType = context.dutyType;
+
     let dutyIdentifier: DutyIdentifier;
     if (context.dutyType === DutyType.BLOCK_PROPOSAL) {
       dutyIdentifier = {
@@ -107,31 +143,56 @@ export class ValidatorHASigner {
     }
 
     // Acquire lock and get the token for ownership verification
+    // DutyAlreadySignedError and SlashingProtectionError may be thrown here and are recorded in the service
     const blockNumber = getBlockNumberFromSigningContext(context);
+    const checkpointNumber = getCheckpointNumberFromSigningContext(context);
     const lockToken = await this.slashingProtection.checkAndRecord({
       ...dutyIdentifier,
       blockNumber,
+      checkpointNumber,
       messageHash: messageHash.toString(),
       nodeId: this.config.nodeId,
     });
 
-    // Perform signing
+    // Perform signing under a hard timeout. If the signer hangs, executeTimeout aborts and rejects;
+    // the orphaned signFn promise resolving later is discarded (never broadcast). A timeout takes the
+    // same failure path as any signing error: release the lock so the duty can be retried safely.
     let signature: Signature;
     try {
-      signature = await signFn(messageHash);
+      signature = await executeTimeout(
+        () => signFn(messageHash),
+        this.signerCallTimeoutMs,
+        () =>
+          new Error(
+            `Signing operation for ${dutyType} at slot ${context.slot} timed out after ` +
+              `${this.signerCallTimeoutMs}ms`,
+          ),
+      );
     } catch (error: any) {
       // Delete duty to allow retry (only succeeds if we own the lock)
       await this.slashingProtection.deleteDuty({ ...dutyIdentifier, lockToken });
+      this.metrics.recordSigningError(dutyType);
       throw error;
     }
 
-    // Record success (only succeeds if we own the lock)
-    await this.slashingProtection.recordSuccess({
+    // Record success (only succeeds if we still own the lock).
+    // A false result means our SIGNING row is gone or no longer ours (e.g. deleted by stuck-duty
+    // cleanup while signing was slow). We must not broadcast this signature: without a protection
+    // record, a later attempt for the same duty with different data would sign freely (slashable).
+    // Do not delete the duty here - we no longer own it, and another node may legitimately hold it.
+    const recorded = await this.slashingProtection.recordSuccess({
       ...dutyIdentifier,
       signature,
       nodeId: this.config.nodeId,
       lockToken,
     });
+    if (!recorded) {
+      this.metrics.recordSigningError(dutyType);
+      throw new SigningLockLostError(context.slot, dutyType, this.config.nodeId);
+    }
+
+    const duration = this.dateProvider.now() - startTime;
+    this.metrics.recordSigningSuccess(dutyType, duration);
 
     return signature;
   }

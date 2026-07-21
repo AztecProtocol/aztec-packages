@@ -6,6 +6,7 @@
 
 #pragma once
 #include "barretenberg/commitment_schemes/ipa/ipa.hpp"
+#include "barretenberg/commitment_schemes/small_subgroup_ipa/small_subgroup_ipa_utils.hpp"
 #include "barretenberg/common/assert.hpp"
 #include "barretenberg/common/bb_bench.hpp"
 #include "barretenberg/common/std_array.hpp"
@@ -17,7 +18,6 @@
 #include "barretenberg/flavor/flavor_macros.hpp"
 #include "barretenberg/flavor/partially_evaluated_multivariates.hpp"
 #include "barretenberg/flavor/relation_definitions.hpp"
-#include "barretenberg/flavor/repeated_commitments_data.hpp"
 #include "barretenberg/polynomials/polynomial.hpp"
 #include "barretenberg/polynomials/univariate.hpp"
 #include "barretenberg/relations/ecc_vm/ecc_bools_relation.hpp"
@@ -25,9 +25,11 @@
 #include "barretenberg/relations/ecc_vm/ecc_msm_relation.hpp"
 #include "barretenberg/relations/ecc_vm/ecc_point_table_relation.hpp"
 #include "barretenberg/relations/ecc_vm/ecc_set_relation.hpp"
+#include "barretenberg/relations/ecc_vm/ecc_shiftable_init_relation.hpp"
 #include "barretenberg/relations/ecc_vm/ecc_transcript_relation.hpp"
 #include "barretenberg/relations/ecc_vm/ecc_wnaf_relation.hpp"
 #include "barretenberg/relations/relation_parameters.hpp"
+#include "barretenberg/relations/relation_tuple_helpers.hpp"
 
 // NOLINTBEGIN(cppcoreguidelines-avoid-const-or-ref-data-members)
 
@@ -57,6 +59,8 @@ class ECCVMFlavor {
 
     // Indicates that this flavor runs with ZK Sumcheck.
     static constexpr bool HasZK = true;
+    // The number of rows reserved at the top of the execution trace for row-disabling / ZK masking.
+    static constexpr size_t TRACE_OFFSET = NUM_DISABLED_ROWS_IN_SUMCHECK;
     // ECCVM proof size and its recursive verifier circuit are genuinely fixed, hence no padding is needed.
     static constexpr bool USE_PADDING = false;
     // Fixed size of the ECCVM circuits used in Chonk
@@ -64,7 +68,7 @@ class ECCVMFlavor {
     // they become too small.
     static constexpr size_t ECCVM_FIXED_SIZE = 1UL << CONST_ECCVM_LOG_N;
 
-    static constexpr size_t NUM_WIRES = 85;
+    static constexpr size_t NUM_WIRES = 86;
 
     // The number of entities added for ZK (gemini_masking_poly)
     static constexpr size_t NUM_MASKING_POLYNOMIALS = 1;
@@ -72,26 +76,14 @@ class ECCVMFlavor {
     // The number of multivariate polynomials on which a sumcheck prover sumcheck operates (including shifts). We often
     // need containers of this size to hold related data, so we choose a name more agnostic than `NUM_POLYNOMIALS`.
     // Note: this number does not include the individual sorted list polynomials.
-    // Includes gemini_masking_poly for ZK (NUM_ALL_ENTITIES = 117 + NUM_MASKING_POLYNOMIALS)
-    static constexpr size_t NUM_ALL_ENTITIES = 118;
+    // Includes gemini_masking_poly for ZK (NUM_ALL_ENTITIES = 118 + NUM_MASKING_POLYNOMIALS)
+    static constexpr size_t NUM_ALL_ENTITIES = 119;
     // The number of polynomials precomputed to describe a circuit and to aid a prover in constructing a satisfying
     // assignment of witnesses. We again choose a neutral name.
     static constexpr size_t NUM_PRECOMPUTED_ENTITIES = 4;
     // The total number of witness entities not including shifts.
-    // Includes gemini_masking_poly for ZK (NUM_WITNESS_ENTITIES = 86 + NUM_MASKING_POLYNOMIALS)
-    static constexpr size_t NUM_WITNESS_ENTITIES = 87;
-    // The number of entities in ShiftedEntities.
-    static constexpr size_t NUM_SHIFTED_ENTITIES = 26;
-    // The number of entities in DerivedWitnessEntities that are not going to be shifted.
-    static constexpr size_t NUM_DERIVED_WITNESS_ENTITIES_NON_SHIFTED = 1;
-    // A container to be fed to ShpleminiVerifier to avoid redundant scalar muls, the first number is the index of the
-    // first witness to be shifted.
-    static constexpr RepeatedCommitmentsData REPEATED_COMMITMENTS =
-        RepeatedCommitmentsData(NUM_PRECOMPUTED_ENTITIES + NUM_WITNESS_ENTITIES -
-                                    NUM_DERIVED_WITNESS_ENTITIES_NON_SHIFTED - NUM_SHIFTED_ENTITIES,
-                                NUM_PRECOMPUTED_ENTITIES + NUM_WITNESS_ENTITIES,
-                                NUM_SHIFTED_ENTITIES);
-
+    // Includes gemini_masking_poly for ZK (NUM_WITNESS_ENTITIES = 87 + NUM_MASKING_POLYNOMIALS)
+    static constexpr size_t NUM_WITNESS_ENTITIES = 88;
     using GrandProductRelations = std::tuple<ECCVMSetRelation<FF>>;
     // define the tuple of Relations that comprise the Sumcheck relation
     template <typename FF>
@@ -101,12 +93,17 @@ class ECCVMFlavor {
                                   ECCVMMSMRelation<FF>,
                                   ECCVMSetRelation<FF>,
                                   ECCVMLookupRelation<FF>,
-                                  ECCVMBoolsRelation<FF>>;
+                                  ECCVMBoolsRelation<FF>,
+                                  ECCVMShiftableInitRelation<FF>>;
     using Relations = Relations_<FF>;
     using LookupRelation = ECCVMLookupRelation<FF>;
 
     static constexpr size_t NUM_SUBRELATIONS = compute_number_of_subrelations<Relations>();
     using SubrelationSeparators = std::array<FF, NUM_SUBRELATIONS - 1>;
+
+    // ECCVM has many high-degree subrelations, so per-relation thread dispatch pays off; it opts into parallel
+    // relation batching (see ParallelizesRelationBatching).
+    static constexpr bool PARALLELIZE_RELATION_BATCHING = true;
 
     static constexpr size_t MAX_PARTIAL_RELATION_LENGTH = compute_max_partial_relation_length<Relations>();
 
@@ -118,8 +115,24 @@ class ECCVMFlavor {
     static constexpr size_t BATCHED_RELATION_PARTIAL_LENGTH = MAX_PARTIAL_RELATION_LENGTH + 2;
     static constexpr size_t NUM_RELATIONS = std::tuple_size<Relations>::value;
 
+    // Masking budget of the committed sumcheck: per round, the verifier's view exposes 3 Libra-sensitive functionals
+    // of the round univariate U_i — its evaluation at 0, the chained target T_{i+1} = U_i(u_i), and the non-hiding
+    // commitment [U_i] — and the pair-sum bookkeeping U_i(0) + U_i(1) = T_i consumes one Libra coefficient, so the
+    // Libra masking univariates must have length 3 + 1 = 4. The BN254 ZK flavors pin their (non-committed) budget
+    // with an analogous static_assert. See sumcheck/docs/committed_sumcheck_zk.md.
+    static_assert(Curve::LIBRA_UNIVARIATES_LENGTH == 4,
+                  "Committed sumcheck requires LIBRA_UNIVARIATES_LENGTH == #revealed evaluations (3) + 1");
+    static_assert(Curve::LIBRA_UNIVARIATES_LENGTH * CONST_ECCVM_LOG_N + 1 < Curve::SUBGROUP_SIZE,
+                  "Concatenated Libra polynomial must fit in the SmallSubgroupIPA subgroup");
+
     static constexpr size_t num_frs_comm = FrCodec::calc_num_fields<Commitment>();
     static constexpr size_t num_frs_fq = FrCodec::calc_num_fields<FF>();
+
+    static constexpr size_t TRIPLE_IPA_PROOF_LENGTH =
+        /* TripleIPA cross sums (cross_F_shift, cross_F_P, cross_shift_P) */ (3 * num_frs_fq) +
+        /* TripleIPA L and R round commitments */ (2 * CONST_ECCVM_LOG_N * num_frs_comm) +
+        /* TripleIPA G_0 commitment */ (num_frs_comm) +
+        /* TripleIPA a_0 evaluation */ (num_frs_fq);
 
     // Proof length formula
     static constexpr size_t PROOF_LENGTH =
@@ -134,31 +147,29 @@ class ECCVMFlavor {
         /* 7. Libra claimed evaluation */ (num_frs_fq) +
         /* 8. Libra grand sum commitment */ (num_frs_comm) +
         /* 9. Libra quotient commitment */ (num_frs_comm) +
-        /* 10. CONST_ECCVM_LOG_N - 1 Gemini Fold commitments */
-        ((CONST_ECCVM_LOG_N - 1) * num_frs_comm) +
-        /* 11. CONST_ECCVM_LOG_N Gemini a evaluations */
-        (CONST_ECCVM_LOG_N * num_frs_fq) +
-        /* 12. NUM_SMALL_IPA_EVALUATIONS libra evals */ (NUM_SMALL_IPA_EVALUATIONS * num_frs_fq) +
-        /* 13. Shplonk Q commitment */ (num_frs_comm) +
-        /* 14. Translator concatenated masking term commitment */ (num_frs_comm) +
-        /* 15 Translator op evaluation */ (num_frs_fq) +
-        /* 16 Translator Px evaluation */ (num_frs_fq) +
-        /* 17 Translator Py evaluation */ (num_frs_fq) +
-        /* 18 Translator z1 evaluation */ (num_frs_fq) +
-        /* 19 Translator z2 evaluation */ (num_frs_fq) +
-        /* 20 Translator concatenated masking term evaluation */ (num_frs_fq) +
-        /* 21 Translator grand sum commitment */ (num_frs_comm) +
-        /* 22 Translator quotient commitment */ (num_frs_comm) +
-        /* 23 Translator concatenation eval */ (num_frs_fq) +
-        /* 24 Translator grand sum shift eval */ (num_frs_fq) +
-        /* 25 Translator grand sum eval */ (num_frs_fq) +
-        /* 26 Translator quotient eval */ (num_frs_fq) +
-        /* 27 Shplonk Q commitment */ (num_frs_comm);
+        /* 10. NUM_SMALL_IPA_TRANSCRIPT_EVALS libra evals */
+        (NUM_SMALL_IPA_TRANSCRIPT_EVALS * num_frs_fq) +
+        /* 11. Translator concatenated masking term commitment */ (num_frs_comm) +
+        /* 12. Translator op evaluation */ (num_frs_fq) +
+        /* 13. Translator Px evaluation */ (num_frs_fq) +
+        /* 14. Translator Py evaluation */ (num_frs_fq) +
+        /* 15. Translator z1 evaluation */ (num_frs_fq) +
+        /* 16. Translator z2 evaluation */ (num_frs_fq) +
+        /* 17. Translator concatenated masking term evaluation */ (num_frs_fq) +
+        /* 18. Translator grand sum commitment */ (num_frs_comm) +
+        /* 19. Translator quotient commitment */ (num_frs_comm) +
+        /* 20. Translator concatenation eval */ (num_frs_fq) +
+        /* 21. Translator grand sum shift eval */ (num_frs_fq) +
+        /* 22. Translator grand sum eval */ (num_frs_fq) +
+        /* 23. Translator quotient eval */ (num_frs_fq) +
+        /* 24. TripleIPA pow-tensor masking commitment */ (num_frs_comm) +
+        /* 25. TripleIPA pow-tensor masking evaluation */ (num_frs_fq) +
+        /* 26. Shplonk Q commitment (single TripleIPA Shplonk reduction) */ (num_frs_comm);
 
-    // The sub-protocol `compute_translation_opening_claims` outputs an opening claim for the batched univariate
+    // The translation opening-claim step outputs an opening claim for the batched univariate
     // evaluation of `op`, `Px`, `Py`, `z1`, and `z2`, and an array of opening claims for the evaluations of the
     // SmallSubgroupIPA witness polynomials.
-    static constexpr size_t NUM_TRANSLATION_OPENING_CLAIMS = NUM_SMALL_IPA_EVALUATIONS + 1;
+    static constexpr size_t NUM_TRANSLATION_OPENING_CLAIMS = NUM_SMALL_IPA_OPENING_CLAIMS + 1;
 
     // TODO(https://github.com/AztecProtocol/barretenberg/issues/989): refine access specifiers in flavors, this is
     // public as it is also used in the recursive flavor but the two could possibly me unified eventually
@@ -250,7 +261,8 @@ class ECCVMFlavor {
                               transcript_msm_infinity,                    // column 56
                               transcript_msm_x_inverse,                   // column 57
                               transcript_msm_count_zero_at_transition,    // column 58
-                              transcript_msm_count_at_transition_inverse) // column 59
+                              transcript_msm_count_at_transition_inverse, // column 59
+                              msm_round_minus_31_inv)                     // column 60
     };
 
     /**
@@ -295,8 +307,7 @@ class ECCVMFlavor {
     };
 
     /**
-     * @brief Containter for transcript accumulators, they stand out as the only to-be-shifted wires that are always
-     * populated until the dyadic size of the circuit.
+     * @brief Container for transcript accumulator wires that need shifted views.
      */
     template <typename DataType> class WireToBeShiftedAccumulatorEntities {
       public:
@@ -334,6 +345,96 @@ class ECCVMFlavor {
             return concatenate(WireNonShiftedEntities<DataType>::get_all(),
                                WireToBeShiftedWithoutAccumulatorsEntities<DataType>::get_all());
         }
+        // The following getters group the wires by execution subtable (transcript / precompute / msm) plus the
+        // lookup read counts. ProverPolynomials uses these groups to physically allocate each subtable's columns to
+        // that subtable's actual row count, rather than zero-padding every column to the full (virtual) dyadic
+        // circuit size. The subtables have different lengths, so per-table sizing saves substantial prover memory.
+        auto get_transcript_wires()
+        {
+            return RefArray{ this->transcript_add,
+                             this->transcript_eq,
+                             this->transcript_msm_transition,
+                             this->transcript_Px,
+                             this->transcript_Py,
+                             this->transcript_z1,
+                             this->transcript_z2,
+                             this->transcript_z1zero,
+                             this->transcript_z2zero,
+                             this->transcript_op,
+                             this->transcript_msm_x,
+                             this->transcript_msm_y,
+                             this->transcript_reset_accumulator,
+                             this->transcript_base_infinity,
+                             this->transcript_base_x_inverse,
+                             this->transcript_base_y_inverse,
+                             this->transcript_add_x_equal,
+                             this->transcript_add_y_equal,
+                             this->transcript_add_lambda,
+                             this->transcript_msm_intermediate_x,
+                             this->transcript_msm_intermediate_y,
+                             this->transcript_msm_infinity,
+                             this->transcript_msm_x_inverse,
+                             this->transcript_msm_count_zero_at_transition,
+                             this->transcript_msm_count_at_transition_inverse };
+        }
+        auto get_shifted_transcript_wires()
+        {
+            return RefArray{ this->transcript_mul, this->transcript_msm_count, this->transcript_pc };
+        }
+        auto get_precompute_wires()
+        {
+            return RefArray{ this->precompute_point_transition,
+                             this->precompute_s1lo,
+                             this->precompute_s2hi,
+                             this->precompute_s2lo,
+                             this->precompute_s3hi,
+                             this->precompute_s3lo,
+                             this->precompute_s4hi,
+                             this->precompute_s4lo,
+                             this->precompute_skew };
+        }
+        auto get_shifted_precompute_wires()
+        {
+            return RefArray{ this->precompute_scalar_sum, this->precompute_s1hi,  this->precompute_dx,
+                             this->precompute_dy,         this->precompute_tx,    this->precompute_ty,
+                             this->precompute_pc,         this->precompute_round, this->precompute_select };
+        }
+        auto get_msm_wires()
+        {
+            return RefArray{ this->msm_size_of_msm,
+                             this->msm_add2,
+                             this->msm_add3,
+                             this->msm_add4,
+                             this->msm_x1,
+                             this->msm_y1,
+                             this->msm_x2,
+                             this->msm_y2,
+                             this->msm_x3,
+                             this->msm_y3,
+                             this->msm_x4,
+                             this->msm_y4,
+                             this->msm_collision_x1,
+                             this->msm_collision_x2,
+                             this->msm_collision_x3,
+                             this->msm_collision_x4,
+                             this->msm_lambda1,
+                             this->msm_lambda2,
+                             this->msm_lambda3,
+                             this->msm_lambda4,
+                             this->msm_slice1,
+                             this->msm_slice2,
+                             this->msm_slice3,
+                             this->msm_slice4,
+                             this->msm_round_minus_31_inv };
+        }
+        auto get_shifted_msm_wires()
+        {
+            return RefArray{ this->msm_transition, this->msm_add,           this->msm_double,
+                             this->msm_skew,       this->msm_accumulator_x, this->msm_accumulator_y,
+                             this->msm_count,      this->msm_round,         this->msm_add1,
+                             this->msm_pc };
+        }
+        auto get_lookup_read_counts() { return RefArray{ this->lookup_read_counts_0, this->lookup_read_counts_1 }; }
     };
 
     /**
@@ -429,7 +530,9 @@ class ECCVMFlavor {
                                WitnessEntities<DataType>::get_all());
         };
         auto get_to_be_shifted() { return ECCVMFlavor::get_to_be_shifted<DataType>(*this); }
+        auto get_to_be_shifted() const { return ECCVMFlavor::get_to_be_shifted<DataType>(*this); }
         auto get_shifted() { return ShiftedEntities<DataType>::get_all(); };
+        auto get_shifted() const { return ShiftedEntities<DataType>::get_all(); };
         auto get_precomputed() { return PrecomputedEntities<DataType>::get_all(); };
     };
 
@@ -465,6 +568,7 @@ class ECCVMFlavor {
         ProverPolynomials(ProverPolynomials&& o) noexcept = default;
         ProverPolynomials& operator=(ProverPolynomials&& o) noexcept = default;
         ~ProverPolynomials() = default;
+        size_t row_skip_active_prefix_end = 0;
         [[nodiscard]] size_t get_polynomial_size() const { return this->lagrange_first.size(); }
 
         /**
@@ -475,7 +579,9 @@ class ECCVMFlavor {
         {
             AllValues result;
             for (auto [result_field, polynomial] : zip_view(result.get_all(), this->get_all())) {
-                result_field = polynomial[row_idx];
+                // .get() returns 0 past the polynomial's end_index; operator[] would be UB on the unallocated
+                // virtual tail, since columns are physically sized to their subtable (see the get_*_wires getters).
+                result_field = polynomial.get(row_idx);
             }
             return result;
         }
@@ -496,15 +602,15 @@ class ECCVMFlavor {
          * @details RawPolynomial member polynomials that this fn must populate described below
          *          For full details see `eccvm/eccvm_flavor.hpp`
          *
-         *          lagrange_first: lagrange_first[0] = 1, 0 elsewhere
-         *          lagrange_second: lagrange_second[1] = 1, 0 elsewhere (hiding op row)
-         *          lagrange_third: lagrange_third[2] = 1, 0 elsewhere (first real op row)
-         *          lagrange_last: lagrange_last[lagrange_last.size() - 1] = 1, 0 elsewhere
+         *          lagrange_first: lagrange_first[TRACE_OFFSET] = 1, 0 elsewhere
+         *          lagrange_second: lagrange_second[TRACE_OFFSET+1] = 1, 0 elsewhere (hiding op row)
+         *          lagrange_third: lagrange_third[TRACE_OFFSET+2] = 1, 0 elsewhere (first real op row)
+         *          lagrange_last: lagrange_last[dyadic_size - 1] = 1, 0 elsewhere
          *          transcript_add/mul/eq/reset_accumulator: boolean selectors that toggle add/mul/eq/reset opcodes
          trigger
          * incomplete addition rules
-         *          transcript_msm_transition: is current transcript row the final `mul` opcode of a multiscalar
-         multiplication?
+         *          transcript_msm_transition: is current transcript row the final `mul` opcode of a non-trivial
+         multiscalar multiplication?
          *          transcript_pc: point counter for transcript columns
          *          transcript_msm_count: counts number of muls processed in an ongoing multiscalar multiplication
          *          transcript_Px: input transcript point, x-coordinate
@@ -512,7 +618,7 @@ class ECCVMFlavor {
          *          transcript_op: input transcript opcode value
          *          transcript_z1: input transcript scalar multiplier (low component, 128 bits max)
          *          transcript_z2: input transcript scalar multipplier (high component, 128 bits max)
-         * N.B. scalar multiplier = transcript_z1 + \lambda * transcript_z2. \lambda = cube root of unity in scalar
+         * N.B. scalar multiplier = transcript_z1 - \lambda * transcript_z2. \lambda = cube root of unity in scalar
          field
          *          transcript_z1zero: if 1, transcript_z1 must equal 0
          *          transcript_z2zero: if 1, transcript_z2 must equal 0
@@ -520,12 +626,12 @@ class ECCVMFlavor {
          *          transcript_accumulator_y: y-coordinate of eccvm accumulator register
          *          transcript_msm_x: x-coordinate of MSM output
          *          transcript_msm_y: y-coordinate of MSM output
-         *          transcript_accumulator_not_empty: if 1, transcript_accumulator = point at infinity
+         *          transcript_accumulator_not_empty: if 1, transcript_accumulator is NOT the point at infinity
          *          transcript_base_infinity: if 1, transcript_Px, transcript_Py is a point at infinity
          *          transcript_add_x_equal: if adding a point into the accumulator, is 1 if x-coordinates are equal
          *          transcript_add_y_equal: if adding a point into the accumulator, is 1 if y-coordinates are equal
          *          transcript_base_x_inverse: to check transcript_add_x_equal (if x-vals not equal inverse exists)
-         *          transcript_base_y_inverse: to check transcript_add_x_equal (if y-vals not equal inverse exists)
+         *          transcript_base_y_inverse: to check transcript_add_y_equal (if y-vals not equal inverse exists)
          *          transcript_add_lambda: if adding a point into the accumulator, contains the lambda gradient
          *          transcript_msm_intermediate_x: if add MSM result into accumulator, is msm_output - offset_generator
          *          transcript_msm_intermediate_y: if add MSM result into accumulator, is msm_output - offset_generator
@@ -544,12 +650,13 @@ class ECCVMFlavor {
          *          precompute_skew: Straus WNAF skew parameter for a single scalar multiplier
          *          precompute_tx: x-coordinate of point accumulator used to generate Straus lookup table for an input
          point (from transcript)
-         *          precompute_tx: x-coordinate of point accumulator used to generate Straus lookup table for an input
+         *          precompute_ty: y-coordinate of point accumulator used to generate Straus lookup table for an input
          point (from transcript)
          *          precompute_dx: x-coordinate of D = 2 * input point we are evaluating Straus over
          *          precompute_dy: y-coordinate of D
          *          msm_pc: point counter for Straus MSM columns
-         *          msm_transition: 1 if current row evaluates different MSM to previous row
+         *          msm_transition: 1 if the current row starts the processing of a different MSM, else 0. EDGE CASE:
+         this is also 1 after the final active row in the MSM table.
          *          msm_add: 1 if we are adding points in Straus MSM algorithm at current row
          *          msm_double: 1 if we are doubling accumulator in Straus MSM algorithm at current row
          *          msm_skew: 1 if we are adding skew points in Straus MSM algorithm at current row
@@ -601,8 +708,8 @@ class ECCVMFlavor {
             const auto& msm_rows = std::get<0>(result);
             const auto& point_table_read_counts = std::get<1>(result);
 
-            const size_t num_rows = std::max({ point_table_rows.size(), msm_rows.size(), transcript_rows.size() }) +
-                                    NUM_DISABLED_ROWS_IN_SUMCHECK;
+            const size_t num_rows =
+                std::max({ point_table_rows.size(), msm_rows.size(), transcript_rows.size() }) + TRACE_OFFSET;
             vinfo("Num rows in the ECCVM: ", num_rows);
             const auto log_num_rows = static_cast<size_t>(numeric::get_msb64(num_rows));
             size_t dyadic_num_rows = 1UL << (log_num_rows + (1UL << log_num_rows == num_rows ? 0 : 1));
@@ -621,23 +728,84 @@ class ECCVMFlavor {
 #else
             dyadic_num_rows = ECCVM_FIXED_SIZE;
 #endif
-            size_t unmasked_witness_size = dyadic_num_rows - NUM_DISABLED_ROWS_IN_SUMCHECK;
+            // The first TRACE_OFFSET rows are disabled.
+            // Trace data starts at row TRACE_OFFSET. lagrange_last goes to dyadic end.
+            constexpr size_t trace_offset = TRACE_OFFSET;
+            const auto offset_size = [](const size_t size) { return TRACE_OFFSET + size; };
+            const size_t transcript_alloc_size = offset_size(transcript_rows.size());
+            const size_t point_table_alloc_size = offset_size(point_table_rows.size());
+            const size_t msm_alloc_size = offset_size(msm_rows.size());
+            const size_t read_counts_alloc_size = offset_size(point_table_read_counts[0].size() + 1);
 
-            for (auto& poly : get_to_be_shifted()) {
-                poly = Polynomial{ /*memory size*/ dyadic_num_rows - 1,
-                                   /*largest possible index*/ dyadic_num_rows,
-                                   /* offset */ 1 };
+            // Active trace data occupies the single contiguous range [TRACE_OFFSET, num_rows) -- the union of the
+            // subtable ranges above, with no inactive rows in between -- so it is a tight row-skip prefix: every row
+            // beyond num_rows is relation-trivial. The sumcheck prover takes this directly as its static row-skip
+            // manifest (num_rows already includes the TRACE_OFFSET shift). See
+            // SumcheckProverRound::HAS_STATIC_ROW_SKIP_MANIFEST.
+            row_skip_active_prefix_end = num_rows;
+
+            // 1. Wires backed by their active table range, with virtual zeros beyond that range.
+            for (auto& poly : get_transcript_wires()) {
+                poly = Polynomial(transcript_alloc_size, dyadic_num_rows);
+                poly.add_masking();
             }
-            // allocate polynomials; define lagrange and lookup read count polynomials
+            for (auto& poly : get_precompute_wires()) {
+                poly = Polynomial(point_table_alloc_size, dyadic_num_rows);
+                poly.add_masking();
+            }
+            for (auto& poly : get_msm_wires()) {
+                poly = Polynomial(msm_alloc_size, dyadic_num_rows);
+                poly.add_masking();
+            }
+            for (auto& poly : get_lookup_read_counts()) {
+                poly = Polynomial(read_counts_alloc_size, dyadic_num_rows);
+                poly.add_masking();
+            }
+
+            // 2. To-be-shifted wires retain one leading zero row for their shifted views.
+            for (auto& poly : get_shifted_transcript_wires()) {
+                poly = Polynomial::shiftable(transcript_alloc_size, dyadic_num_rows, /*masked=*/true);
+            }
+            for (auto& poly : get_shifted_precompute_wires()) {
+                poly = Polynomial::shiftable(point_table_alloc_size, dyadic_num_rows, /*masked=*/true);
+            }
+            for (auto& poly : get_shifted_msm_wires()) {
+                poly = Polynomial::shiftable(msm_alloc_size, dyadic_num_rows, /*masked=*/true);
+            }
+            for (auto& poly : WireToBeShiftedAccumulatorEntities<Polynomial>::get_all()) {
+                poly = Polynomial::shiftable(transcript_alloc_size, dyadic_num_rows, /*masked=*/true);
+            }
+
+            // 3. z_perm: shiftable with masking (grand product starts after disabled region)
+            z_perm = Polynomial::shiftable(dyadic_num_rows, dyadic_num_rows, /*masked=*/true);
+
+            // 4. Catch-all: precomputed, lookup_inverses, gemini_masking_poly → full size
             for (auto& poly : get_all()) {
                 if (poly.is_empty()) {
                     poly = Polynomial(dyadic_num_rows);
                 }
             }
-            lagrange_first.at(0) = 1;
-            lagrange_second.at(1) = 1;
-            lagrange_third.at(2) = 1;
-            lagrange_last.at(unmasked_witness_size - 1) = 1;
+            // lookup_inverses is a derived witness — mask it so the commitment hides its values
+            lookup_inverses.add_masking();
+
+            // Lagrange polys shifted by the disabled head region
+            lagrange_first.at(trace_offset) = 1;
+            lagrange_second.at(trace_offset + 1) = 1;
+            lagrange_third.at(trace_offset + 2) = 1;
+            lagrange_last.at(dyadic_num_rows - 1) = 1;
+
+            static const auto MSM_ROUND_MINUS_31_INV_BY_ROUND = []() {
+                std::array<FF, LAST_ADDITION_ROUND + 2> table{};
+                for (size_t round = 0; round < table.size(); ++round) {
+                    // IMPORTANT: when round == LAST_ADDITION_ROUND, the entry is exactly 0 because
+                    // (round - LAST_ADDITION_ROUND)^-1 is undefined. Every other slot stores the canonical inverse.
+                    table[round] = (round == LAST_ADDITION_ROUND)
+                                       ? FF(0)
+                                       : (FF(static_cast<uint32_t>(round)) - FF(LAST_ADDITION_ROUND)).invert();
+                }
+                return table;
+            }();
+
             for (size_t i = 0; i < point_table_read_counts[0].size(); ++i) {
                 // Explanation of off-by-one offset:
                 // When computing the WNAF slice for a point at point counter value `pc` and a round index `round`, the
@@ -645,118 +813,125 @@ class ECCVMFlavor {
                 // `lookup_read_counts`. We do this mapping in `ecc_msm_relation`. We are off-by-one because we add an
                 // empty row at the start of the WNAF columns that is not accounted for (index of lookup_read_counts
                 // maps to the row in our WNAF columns that computes a slice for a given value of pc and round)
-                lookup_read_counts_0.at(i + 1) = point_table_read_counts[0][i];
-                lookup_read_counts_1.at(i + 1) = point_table_read_counts[1][i];
+                lookup_read_counts_0.at(trace_offset + i + 1) = point_table_read_counts[0][i];
+                lookup_read_counts_1.at(trace_offset + i + 1) = point_table_read_counts[1][i];
             }
 
-            // compute polynomials for transcript columns
+            // compute polynomials for transcript columns (offset by trace_offset for top masking)
             parallel_for_range(transcript_rows.size(), [&](size_t start, size_t end) {
                 for (size_t i = start; i < end; i++) {
-                    transcript_accumulator_not_empty.set_if_valid_index(i, transcript_rows[i].accumulator_not_empty);
-                    transcript_add.set_if_valid_index(i, transcript_rows[i].q_add);
-                    transcript_mul.set_if_valid_index(i, transcript_rows[i].q_mul);
-                    transcript_eq.set_if_valid_index(i, transcript_rows[i].q_eq);
-                    transcript_reset_accumulator.set_if_valid_index(i, transcript_rows[i].q_reset_accumulator);
-                    transcript_msm_transition.set_if_valid_index(i, transcript_rows[i].msm_transition);
-                    transcript_pc.set_if_valid_index(i, transcript_rows[i].pc);
-                    transcript_msm_count.set_if_valid_index(i, transcript_rows[i].msm_count);
-                    transcript_Px.set_if_valid_index(i, transcript_rows[i].base_x);
-                    transcript_Py.set_if_valid_index(i, transcript_rows[i].base_y);
-                    transcript_z1.set_if_valid_index(i, transcript_rows[i].z1);
-                    transcript_z2.set_if_valid_index(i, transcript_rows[i].z2);
-                    transcript_z1zero.set_if_valid_index(i, transcript_rows[i].z1_zero);
-                    transcript_z2zero.set_if_valid_index(i, transcript_rows[i].z2_zero);
-                    transcript_op.set_if_valid_index(i, transcript_rows[i].opcode);
-                    transcript_accumulator_x.set_if_valid_index(i, transcript_rows[i].accumulator_x);
-                    transcript_accumulator_y.set_if_valid_index(i, transcript_rows[i].accumulator_y);
-                    transcript_msm_x.set_if_valid_index(i, transcript_rows[i].msm_output_x);
-                    transcript_msm_y.set_if_valid_index(i, transcript_rows[i].msm_output_y);
-                    transcript_base_infinity.set_if_valid_index(i, transcript_rows[i].base_infinity);
-                    transcript_base_x_inverse.set_if_valid_index(i, transcript_rows[i].base_x_inverse);
-                    transcript_base_y_inverse.set_if_valid_index(i, transcript_rows[i].base_y_inverse);
-                    transcript_add_x_equal.set_if_valid_index(i, transcript_rows[i].transcript_add_x_equal);
-                    transcript_add_y_equal.set_if_valid_index(i, transcript_rows[i].transcript_add_y_equal);
-                    transcript_add_lambda.set_if_valid_index(i, transcript_rows[i].transcript_add_lambda);
-                    transcript_msm_intermediate_x.set_if_valid_index(i,
+                    const size_t idx = trace_offset + i;
+                    transcript_accumulator_not_empty.set_if_valid_index(idx, transcript_rows[i].accumulator_not_empty);
+                    transcript_add.set_if_valid_index(idx, transcript_rows[i].q_add);
+                    transcript_mul.set_if_valid_index(idx, transcript_rows[i].q_mul);
+                    transcript_eq.set_if_valid_index(idx, transcript_rows[i].q_eq);
+                    transcript_reset_accumulator.set_if_valid_index(idx, transcript_rows[i].q_reset_accumulator);
+                    transcript_msm_transition.set_if_valid_index(idx, transcript_rows[i].msm_transition);
+                    transcript_pc.set_if_valid_index(idx, transcript_rows[i].pc);
+                    transcript_msm_count.set_if_valid_index(idx, transcript_rows[i].msm_count);
+                    transcript_Px.set_if_valid_index(idx, transcript_rows[i].base_x);
+                    transcript_Py.set_if_valid_index(idx, transcript_rows[i].base_y);
+                    transcript_z1.set_if_valid_index(idx, transcript_rows[i].z1);
+                    transcript_z2.set_if_valid_index(idx, transcript_rows[i].z2);
+                    transcript_z1zero.set_if_valid_index(idx, transcript_rows[i].z1_zero);
+                    transcript_z2zero.set_if_valid_index(idx, transcript_rows[i].z2_zero);
+                    transcript_op.set_if_valid_index(idx, transcript_rows[i].opcode);
+                    transcript_accumulator_x.set_if_valid_index(idx, transcript_rows[i].accumulator_x);
+                    transcript_accumulator_y.set_if_valid_index(idx, transcript_rows[i].accumulator_y);
+                    transcript_msm_x.set_if_valid_index(idx, transcript_rows[i].msm_output_x);
+                    transcript_msm_y.set_if_valid_index(idx, transcript_rows[i].msm_output_y);
+                    transcript_base_infinity.set_if_valid_index(idx, transcript_rows[i].base_infinity);
+                    transcript_base_x_inverse.set_if_valid_index(idx, transcript_rows[i].base_x_inverse);
+                    transcript_base_y_inverse.set_if_valid_index(idx, transcript_rows[i].base_y_inverse);
+                    transcript_add_x_equal.set_if_valid_index(idx, transcript_rows[i].transcript_add_x_equal);
+                    transcript_add_y_equal.set_if_valid_index(idx, transcript_rows[i].transcript_add_y_equal);
+                    transcript_add_lambda.set_if_valid_index(idx, transcript_rows[i].transcript_add_lambda);
+                    transcript_msm_intermediate_x.set_if_valid_index(idx,
                                                                      transcript_rows[i].transcript_msm_intermediate_x);
-                    transcript_msm_intermediate_y.set_if_valid_index(i,
+                    transcript_msm_intermediate_y.set_if_valid_index(idx,
                                                                      transcript_rows[i].transcript_msm_intermediate_y);
-                    transcript_msm_infinity.set_if_valid_index(i, transcript_rows[i].transcript_msm_infinity);
-                    transcript_msm_x_inverse.set_if_valid_index(i, transcript_rows[i].transcript_msm_x_inverse);
+                    transcript_msm_infinity.set_if_valid_index(idx, transcript_rows[i].transcript_msm_infinity);
+                    transcript_msm_x_inverse.set_if_valid_index(idx, transcript_rows[i].transcript_msm_x_inverse);
                     transcript_msm_count_zero_at_transition.set_if_valid_index(
-                        i, transcript_rows[i].msm_count_zero_at_transition);
+                        idx, transcript_rows[i].msm_count_zero_at_transition);
                     transcript_msm_count_at_transition_inverse.set_if_valid_index(
-                        i, transcript_rows[i].msm_count_at_transition_inverse);
+                        idx, transcript_rows[i].msm_count_at_transition_inverse);
                 }
             });
 
             parallel_for_range(point_table_rows.size(), [&](size_t start, size_t end) {
                 for (size_t i = start; i < end; i++) {
+                    const size_t idx = trace_offset + i;
                     // first row is always an empty row (to accommodate shifted polynomials which must have 0 as 1st
                     // coefficient). All other rows in the point_table_rows represent active wnaf gates (i.e.
                     // precompute_select = 1)
-                    precompute_select.set_if_valid_index(i, (i != 0) ? 1 : 0);
-                    precompute_pc.set_if_valid_index(i, point_table_rows[i].pc);
+                    precompute_select.set_if_valid_index(idx, (i != 0) ? 1 : 0);
+                    precompute_pc.set_if_valid_index(idx, point_table_rows[i].pc);
                     precompute_point_transition.set_if_valid_index(
-                        i, static_cast<uint64_t>(point_table_rows[i].point_transition));
-                    precompute_round.set_if_valid_index(i, point_table_rows[i].round);
-                    precompute_scalar_sum.set_if_valid_index(i, point_table_rows[i].scalar_sum);
-                    precompute_s1hi.set_if_valid_index(i, point_table_rows[i].s1);
-                    precompute_s1lo.set_if_valid_index(i, point_table_rows[i].s2);
-                    precompute_s2hi.set_if_valid_index(i, point_table_rows[i].s3);
-                    precompute_s2lo.set_if_valid_index(i, point_table_rows[i].s4);
-                    precompute_s3hi.set_if_valid_index(i, point_table_rows[i].s5);
-                    precompute_s3lo.set_if_valid_index(i, point_table_rows[i].s6);
-                    precompute_s4hi.set_if_valid_index(i, point_table_rows[i].s7);
-                    precompute_s4lo.set_if_valid_index(i, point_table_rows[i].s8);
+                        idx, static_cast<uint64_t>(point_table_rows[i].point_transition));
+                    precompute_round.set_if_valid_index(idx, point_table_rows[i].round);
+                    precompute_scalar_sum.set_if_valid_index(idx, point_table_rows[i].scalar_sum);
+                    precompute_s1hi.set_if_valid_index(idx, point_table_rows[i].s1);
+                    precompute_s1lo.set_if_valid_index(idx, point_table_rows[i].s2);
+                    precompute_s2hi.set_if_valid_index(idx, point_table_rows[i].s3);
+                    precompute_s2lo.set_if_valid_index(idx, point_table_rows[i].s4);
+                    precompute_s3hi.set_if_valid_index(idx, point_table_rows[i].s5);
+                    precompute_s3lo.set_if_valid_index(idx, point_table_rows[i].s6);
+                    precompute_s4hi.set_if_valid_index(idx, point_table_rows[i].s7);
+                    precompute_s4lo.set_if_valid_index(idx, point_table_rows[i].s8);
                     // If skew is active (i.e. we need to subtract a base point from the msm result),
                     // write `7` into rows.precompute_skew. `7`, in binary representation, equals `-1` when converted
                     // into WNAF form
-                    precompute_skew.set_if_valid_index(i, point_table_rows[i].skew ? 7 : 0);
-                    precompute_dx.set_if_valid_index(i, point_table_rows[i].precompute_double.x);
-                    precompute_dy.set_if_valid_index(i, point_table_rows[i].precompute_double.y);
-                    precompute_tx.set_if_valid_index(i, point_table_rows[i].precompute_accumulator.x);
-                    precompute_ty.set_if_valid_index(i, point_table_rows[i].precompute_accumulator.y);
+                    precompute_skew.set_if_valid_index(idx, point_table_rows[i].skew ? 7 : 0);
+                    precompute_dx.set_if_valid_index(idx, point_table_rows[i].precompute_double.x);
+                    precompute_dy.set_if_valid_index(idx, point_table_rows[i].precompute_double.y);
+                    precompute_tx.set_if_valid_index(idx, point_table_rows[i].precompute_accumulator.x);
+                    precompute_ty.set_if_valid_index(idx, point_table_rows[i].precompute_accumulator.y);
                 }
             });
 
-            // compute polynomials for the msm columns
+            // compute polynomials for the msm columns (offset by trace_offset for top masking)
             parallel_for_range(msm_rows.size(), [&](size_t start, size_t end) {
                 for (size_t i = start; i < end; i++) {
-                    msm_transition.set_if_valid_index(i, static_cast<int>(msm_rows[i].msm_transition));
-                    msm_add.set_if_valid_index(i, static_cast<int>(msm_rows[i].q_add));
-                    msm_double.set_if_valid_index(i, static_cast<int>(msm_rows[i].q_double));
-                    msm_skew.set_if_valid_index(i, static_cast<int>(msm_rows[i].q_skew));
-                    msm_accumulator_x.set_if_valid_index(i, msm_rows[i].accumulator_x);
-                    msm_accumulator_y.set_if_valid_index(i, msm_rows[i].accumulator_y);
-                    msm_pc.set_if_valid_index(i, msm_rows[i].pc);
-                    msm_size_of_msm.set_if_valid_index(i, msm_rows[i].msm_size);
-                    msm_count.set_if_valid_index(i, msm_rows[i].msm_count);
-                    msm_round.set_if_valid_index(i, msm_rows[i].msm_round);
-                    msm_add1.set_if_valid_index(i, static_cast<int>(msm_rows[i].add_state[0].add));
-                    msm_add2.set_if_valid_index(i, static_cast<int>(msm_rows[i].add_state[1].add));
-                    msm_add3.set_if_valid_index(i, static_cast<int>(msm_rows[i].add_state[2].add));
-                    msm_add4.set_if_valid_index(i, static_cast<int>(msm_rows[i].add_state[3].add));
-                    msm_x1.set_if_valid_index(i, msm_rows[i].add_state[0].point.x);
-                    msm_y1.set_if_valid_index(i, msm_rows[i].add_state[0].point.y);
-                    msm_x2.set_if_valid_index(i, msm_rows[i].add_state[1].point.x);
-                    msm_y2.set_if_valid_index(i, msm_rows[i].add_state[1].point.y);
-                    msm_x3.set_if_valid_index(i, msm_rows[i].add_state[2].point.x);
-                    msm_y3.set_if_valid_index(i, msm_rows[i].add_state[2].point.y);
-                    msm_x4.set_if_valid_index(i, msm_rows[i].add_state[3].point.x);
-                    msm_y4.set_if_valid_index(i, msm_rows[i].add_state[3].point.y);
-                    msm_collision_x1.set_if_valid_index(i, msm_rows[i].add_state[0].collision_inverse);
-                    msm_collision_x2.set_if_valid_index(i, msm_rows[i].add_state[1].collision_inverse);
-                    msm_collision_x3.set_if_valid_index(i, msm_rows[i].add_state[2].collision_inverse);
-                    msm_collision_x4.set_if_valid_index(i, msm_rows[i].add_state[3].collision_inverse);
-                    msm_lambda1.set_if_valid_index(i, msm_rows[i].add_state[0].lambda);
-                    msm_lambda2.set_if_valid_index(i, msm_rows[i].add_state[1].lambda);
-                    msm_lambda3.set_if_valid_index(i, msm_rows[i].add_state[2].lambda);
-                    msm_lambda4.set_if_valid_index(i, msm_rows[i].add_state[3].lambda);
-                    msm_slice1.set_if_valid_index(i, msm_rows[i].add_state[0].slice);
-                    msm_slice2.set_if_valid_index(i, msm_rows[i].add_state[1].slice);
-                    msm_slice3.set_if_valid_index(i, msm_rows[i].add_state[2].slice);
-                    msm_slice4.set_if_valid_index(i, msm_rows[i].add_state[3].slice);
+                    const size_t idx = trace_offset + i;
+                    msm_transition.set_if_valid_index(idx, static_cast<int>(msm_rows[i].msm_transition));
+                    msm_add.set_if_valid_index(idx, static_cast<int>(msm_rows[i].q_add));
+                    msm_double.set_if_valid_index(idx, static_cast<int>(msm_rows[i].q_double));
+                    msm_skew.set_if_valid_index(idx, static_cast<int>(msm_rows[i].q_skew));
+                    msm_accumulator_x.set_if_valid_index(idx, msm_rows[i].accumulator_x);
+                    msm_accumulator_y.set_if_valid_index(idx, msm_rows[i].accumulator_y);
+                    msm_pc.set_if_valid_index(idx, msm_rows[i].pc);
+                    msm_size_of_msm.set_if_valid_index(idx, msm_rows[i].msm_size);
+                    msm_count.set_if_valid_index(idx, msm_rows[i].msm_count);
+                    msm_round.set_if_valid_index(idx, msm_rows[i].msm_round);
+                    // IMPORTANT: when msm_round == 31, this witness is exactly 0 because (31 - 31)^-1 does not exist.
+                    // On every other active MSM row it is the precomputed inverse (msm_round - 31)^-1.
+                    msm_round_minus_31_inv.set_if_valid_index(idx,
+                                                              MSM_ROUND_MINUS_31_INV_BY_ROUND[msm_rows[i].msm_round]);
+                    msm_add1.set_if_valid_index(idx, static_cast<int>(msm_rows[i].add_state[0].add));
+                    msm_add2.set_if_valid_index(idx, static_cast<int>(msm_rows[i].add_state[1].add));
+                    msm_add3.set_if_valid_index(idx, static_cast<int>(msm_rows[i].add_state[2].add));
+                    msm_add4.set_if_valid_index(idx, static_cast<int>(msm_rows[i].add_state[3].add));
+                    msm_x1.set_if_valid_index(idx, msm_rows[i].add_state[0].point.x);
+                    msm_y1.set_if_valid_index(idx, msm_rows[i].add_state[0].point.y);
+                    msm_x2.set_if_valid_index(idx, msm_rows[i].add_state[1].point.x);
+                    msm_y2.set_if_valid_index(idx, msm_rows[i].add_state[1].point.y);
+                    msm_x3.set_if_valid_index(idx, msm_rows[i].add_state[2].point.x);
+                    msm_y3.set_if_valid_index(idx, msm_rows[i].add_state[2].point.y);
+                    msm_x4.set_if_valid_index(idx, msm_rows[i].add_state[3].point.x);
+                    msm_y4.set_if_valid_index(idx, msm_rows[i].add_state[3].point.y);
+                    msm_collision_x1.set_if_valid_index(idx, msm_rows[i].add_state[0].collision_inverse);
+                    msm_collision_x2.set_if_valid_index(idx, msm_rows[i].add_state[1].collision_inverse);
+                    msm_collision_x3.set_if_valid_index(idx, msm_rows[i].add_state[2].collision_inverse);
+                    msm_collision_x4.set_if_valid_index(idx, msm_rows[i].add_state[3].collision_inverse);
+                    msm_lambda1.set_if_valid_index(idx, msm_rows[i].add_state[0].lambda);
+                    msm_lambda2.set_if_valid_index(idx, msm_rows[i].add_state[1].lambda);
+                    msm_lambda3.set_if_valid_index(idx, msm_rows[i].add_state[2].lambda);
+                    msm_lambda4.set_if_valid_index(idx, msm_rows[i].add_state[3].lambda);
+                    msm_slice1.set_if_valid_index(idx, msm_rows[i].add_state[0].slice);
+                    msm_slice2.set_if_valid_index(idx, msm_rows[i].add_state[1].slice);
+                    msm_slice3.set_if_valid_index(idx, msm_rows[i].add_state[2].slice);
+                    msm_slice4.set_if_valid_index(idx, msm_rows[i].add_state[3].slice);
                 }
             });
             this->set_shifted();
@@ -896,6 +1071,7 @@ class ECCVMFlavor {
             Base::transcript_msm_x_inverse = "TRANSCRIPT_MSM_X_INVERSE";
             Base::transcript_msm_count_zero_at_transition = "TRANSCRIPT_MSM_COUNT_ZERO_AT_TRANSITION";
             Base::transcript_msm_count_at_transition_inverse = "TRANSCRIPT_MSM_COUNT_AT_TRANSITION_INVERSE";
+            Base::msm_round_minus_31_inv = "MSM_ROUND_MINUS_31_INV";
             Base::z_perm = "Z_PERM";
             Base::z_perm_shift = "Z_PERM_SHIFT";
             Base::lookup_inverses = "LOOKUP_INVERSES";
@@ -905,6 +1081,18 @@ class ECCVMFlavor {
             Base::lagrange_third = "__LAGRANGE_THIRD";
             Base::lagrange_last = "__LAGRANGE_LAST";
         };
+
+        // Used in pippenger_unsafe to activate duplicate stripping.
+        // Dups need to be > ~14 bits to be worth stripping.
+        // Empirical tests showed these polys had high duplicate counts under these conditions
+        static bool wire_has_high_duplicate_density(const std::string& label) noexcept
+        {
+            return label == "MSM_X1" || label == "MSM_X2" || label == "MSM_X3" || label == "MSM_X4" ||
+                   label == "MSM_Y1" || label == "MSM_Y2" || label == "MSM_Y3" || label == "MSM_Y4" ||
+                   label == "MSM_ROUND_MINUS_31_INV" || label == "PRECOMPUTE_DX" || label == "PRECOMPUTE_DY" ||
+                   label == "PRECOMPUTE_TX" || label == "PRECOMPUTE_TY" || label == "TRANSCRIPT_ACCUMULATOR_X" ||
+                   label == "TRANSCRIPT_ACCUMULATOR_Y" || label == "TRANSCRIPT_PX" || label == "TRANSCRIPT_PY";
+        }
     };
 
     template <typename Commitment, typename VerificationKey>
@@ -972,44 +1160,10 @@ class ECCVMFlavor {
         }
     };
 
-    /**
-     * @brief   When evaluating the sumcheck protocol - can we skip evaluation of _all_ relations for a given row? This
-     *          is purely a prover-side optimization.
-     *
-     * @details When used in Chonk, the ECCVM has a large fixed size, which is often not fully utilized.
-     *          If a row is completely empty, the values of `z_perm` and `z_perm_shift` will match,
-     *          we can use this as a proxy to determine if we can skip `Sumcheck::compute_univariate_with_row_skipping`.
-     *          In fact, here are several other conditions that need to be checked to see if we can skip the computation
-     *          of all relations in the row.
-     **/
-    template <typename ProverPolynomialsOrPartiallyEvaluatedMultivariates, typename EdgeType>
-    static bool skip_entire_row([[maybe_unused]] const ProverPolynomialsOrPartiallyEvaluatedMultivariates& polynomials,
-                                [[maybe_unused]] const EdgeType edge_idx)
+    template <typename ProverPolynomialsOrPartiallyEvaluatedMultivariates>
+    static size_t row_skip_active_prefix_end(const ProverPolynomialsOrPartiallyEvaluatedMultivariates& polynomials)
     {
-        // SKIP CONDITIONS:
-        // The most important skip condition is that `z_perm == z_perm_shift`. This implies that none of the wire values
-        // for the present input are involved in non-trivial copy constraints. Edge cases where nonzero rows do not
-        // contribute to permutation:
-        //
-        // 1: If `lagrange_last != 0`, the permutation polynomial identity is updated even if
-        //    z_perm == z_perm_shift. Therefore, we must force it to be zero.
-        //
-        // 2: The final MSM row won't add to the permutation but still has polynomial identitiy
-        //    contributions. This is because the permutation argument uses the SHIFTED msm columns when performing
-        //    lookups i.e. `msm_accumulator_x[last_edge_idx]` will change `z_perm[last_edge_idx - 1]` and
-        //    `z_perm_shift[last_edge_idx - 1]`
-        //
-        // 3. The value of `transcript_mul` is non-zero at the end of an MSM of points-at-infinity, which will
-        //    cause `full_msm_count` to be non-zero while `transcript_msm_count` vanishes. We therefore force
-        //    transcript_mul == 0 as a skip-row condition.
-        //
-        // 4: We also force that `transcript_op==0`.
-        return (polynomials.z_perm[edge_idx] == polynomials.z_perm_shift[edge_idx]) &&
-               (polynomials.z_perm[edge_idx + 1] == polynomials.z_perm_shift[edge_idx + 1]) &&
-               (polynomials.lagrange_last[edge_idx] == 0 && polynomials.lagrange_last[edge_idx + 1]) == 0 &&
-               (polynomials.msm_transition[edge_idx] == 0 && polynomials.msm_transition[edge_idx + 1] == 0) &&
-               (polynomials.transcript_mul[edge_idx] == 0 && polynomials.transcript_mul[edge_idx + 1] == 0) &&
-               (polynomials.transcript_op[edge_idx] == 0 && polynomials.transcript_op[edge_idx + 1] == 0);
+        return polynomials.row_skip_active_prefix_end;
     }
 };
 } // namespace bb

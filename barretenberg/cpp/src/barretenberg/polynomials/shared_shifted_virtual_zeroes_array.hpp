@@ -1,5 +1,5 @@
 // === AUDIT STATUS ===
-// internal:    { status: Planned, auditors: [], commit: }
+// internal:    { status: Complete, auditors: [Nishat], commit: 94f596f8b3bbbc216f9ad7dc33253256141156b2 }
 // external_1:  { status: not started, auditors: [], commit: }
 // external_2:  { status: not started, auditors: [], commit: }
 // =====================
@@ -114,7 +114,7 @@ template <typename T> struct SharedShiftedVirtualZeroesArray {
      *
      * Represents the first index after `start_` that is not backed by actual memory. Note however that
      * the backed memory might extend beyond end_ index but will not be accessed anymore. Namely, any
-     * access after after end_ returns zero. (Happens after Polynomial::shrink_end_index() call).
+     * access after end_ returns zero. (Happens after Polynomial::shrink_end_index() call).
      */
     size_t end_ = 0;
 

@@ -16,38 +16,21 @@ pub(crate) unconstrained fn setup() -> (TestEnvironment, AztecAddress, AztecAddr
     let admin = env.create_contract_account();
 
     // Deploy tokens
-    let token0_initializer = Token::interface().constructor(
-        admin,
-        "Token00000000000000000000000000",
-        "TK00000000000000000000000000000",
-        18,
-    );
-    let token0_address =
-        env.deploy("@token_contract/Token").with_public_initializer(admin, token0_initializer);
+    let token0_initializer =
+        Token::interface().constructor(admin, "Token00000000000000000000000000", "TK00000000000000000000000000000", 18);
+    let token0_address = env.deploy("@token_contract/Token").with_public_initializer(admin, token0_initializer);
 
-    let token1_initializer = Token::interface().constructor(
-        admin,
-        "Token11111111111111111111111111",
-        "TK11111111111111111111111111111",
-        18,
-    );
-    let token1_address =
-        env.deploy("@token_contract/Token").with_public_initializer(admin, token1_initializer);
+    let token1_initializer =
+        Token::interface().constructor(admin, "Token11111111111111111111111111", "TK11111111111111111111111111111", 18);
+    let token1_address = env.deploy("@token_contract/Token").with_public_initializer(admin, token1_initializer);
 
-    let liquidity_token_initializer = Token::interface().constructor(
-        admin,
-        "LiquidityToken00000000000000000",
-        "LT00000000000000000000000000000",
-        18,
-    );
-    let liquidity_token_address = env.deploy("@token_contract/Token").with_public_initializer(
-        admin,
-        liquidity_token_initializer,
-    );
+    let liquidity_token_initializer =
+        Token::interface().constructor(admin, "LiquidityToken00000000000000000", "LT00000000000000000000000000000", 18);
+    let liquidity_token_address =
+        env.deploy("@token_contract/Token").with_public_initializer(admin, liquidity_token_initializer);
 
     // Deploy AMM contract
-    let amm_initializer =
-        AMM::interface().constructor(token0_address, token1_address, liquidity_token_address);
+    let amm_initializer = AMM::interface().constructor(token0_address, token1_address, liquidity_token_address);
     let amm_address = env.deploy("AMM").with_public_initializer(admin, amm_initializer);
 
     // Set AMM as minter for liquidity token
@@ -114,12 +97,8 @@ pub(crate) unconstrained fn remove_liquidity(
     let liquidity_token = Token::at(liquidity_token_address);
     let amm = AMM::at(amm_address);
 
-    let transfer_liquidity_call = liquidity_token.transfer_to_public(
-        liquidity_provider,
-        amm_address,
-        liquidity_amount,
-        AUTHWIT_NONCE,
-    );
+    let transfer_liquidity_call =
+        liquidity_token.transfer_to_public(liquidity_provider, amm_address, liquidity_amount, AUTHWIT_NONCE);
     add_private_authwit_from_call(
         env,
         liquidity_provider,
@@ -127,8 +106,5 @@ pub(crate) unconstrained fn remove_liquidity(
         transfer_liquidity_call,
     );
 
-    env.call_private(
-        liquidity_provider,
-        amm.remove_liquidity(liquidity_amount, amount0_min, amount1_min, AUTHWIT_NONCE),
-    );
+    env.call_private(liquidity_provider, amm.remove_liquidity(liquidity_amount, amount0_min, amount1_min, AUTHWIT_NONCE));
 }

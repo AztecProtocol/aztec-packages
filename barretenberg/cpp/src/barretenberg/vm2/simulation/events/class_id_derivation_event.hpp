@@ -5,9 +5,10 @@
 namespace bb::avm2::simulation {
 
 struct ClassIdDerivationEvent {
-    // Uses ContractClassWithCommitment which includes id and bytecode_commitment
-    // WARNING: this class has the whole bytecode. Create a new class.
-    ContractClassWithCommitment klass;
+    ContractClassId class_id = 0;
+    FF artifact_hash = 0;
+    FF private_functions_root = 0;
+    BytecodeId public_bytecode_commitment = 0;
 };
 
 } // namespace bb::avm2::simulation

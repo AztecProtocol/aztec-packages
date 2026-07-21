@@ -1,7 +1,5 @@
 import { toArray } from '@aztec/foundation/iterable';
 
-import { expect } from 'chai';
-
 import type { Key, Range } from './common.js';
 import type { AztecAsyncMap, AztecMap } from './map.js';
 import type { AztecAsyncKVStore, AztecKVStore } from './store.js';
@@ -59,9 +57,9 @@ export function describeAztecMap(
       await map.set('foo', 'bar');
       await map.set('baz', 'qux');
 
-      expect(await get('foo')).to.equal('bar');
-      expect(await get('baz')).to.equal('qux');
-      expect(await get('quux')).to.equal(undefined);
+      expect(await get('foo')).toBe('bar');
+      expect(await get('baz')).toBe('qux');
+      expect(await get('quux')).toBe(undefined);
     });
 
     it('should be able to set many values', async () => {
@@ -69,7 +67,7 @@ export function describeAztecMap(
       await map.setMany(pairs);
 
       for (const { key, value } of pairs) {
-        expect(await get(key)).to.equal(value);
+        expect(await get(key)).toBe(value);
       }
     });
 
@@ -77,14 +75,14 @@ export function describeAztecMap(
       await map.set('foo', 'bar');
       await map.set('foo', 'baz');
 
-      expect(await get('foo')).to.equal('baz');
+      expect(await get('foo')).toBe('baz');
     });
 
     it('should be able to set values if they do not exist', async () => {
-      expect(await map.setIfNotExists('foo', 'bar')).to.equal(true);
-      expect(await map.setIfNotExists('foo', 'baz')).to.equal(false);
+      expect(await map.setIfNotExists('foo', 'bar')).toBe(true);
+      expect(await map.setIfNotExists('foo', 'baz')).toBe(false);
 
-      expect(await get('foo')).to.equal('bar');
+      expect(await get('foo')).toBe('bar');
     });
 
     it('should be able to delete values', async () => {
@@ -93,56 +91,56 @@ export function describeAztecMap(
 
       await map.delete('foo');
 
-      expect(await get('foo')).to.equal(undefined);
-      expect(await get('baz')).to.equal('qux');
+      expect(await get('foo')).toBe(undefined);
+      expect(await get('baz')).toBe('qux');
     });
 
     it('should be able to return size of the map', async () => {
       await map.set('foo', 'bar');
-      expect(await size()).to.equal(1);
+      expect(await size()).toBe(1);
       await map.set('baz', 'qux');
-      expect(await size()).to.equal(2);
+      expect(await size()).toBe(2);
 
       await map.delete('foo');
-      expect(await size()).to.equal(1);
+      expect(await size()).toBe(1);
     });
 
     it('returns 0 for empty map size', async () => {
-      expect(await size()).to.equal(0);
+      expect(await size()).toBe(0);
     });
 
     it('calculates size correctly across multiple operations', async () => {
-      expect(await size()).to.equal(0);
+      expect(await size()).toBe(0);
 
       // Add items
       await map.set('a', 'value1');
       await map.set('b', 'value2');
       await map.set('c', 'value3');
-      expect(await size()).to.equal(3);
+      expect(await size()).toBe(3);
 
       // Update existing (size should not change)
       await map.set('b', 'updated');
-      expect(await size()).to.equal(3);
+      expect(await size()).toBe(3);
 
       // Delete some
       await map.delete('a');
-      expect(await size()).to.equal(2);
+      expect(await size()).toBe(2);
 
       // Delete all
       await map.delete('b');
       await map.delete('c');
-      expect(await size()).to.equal(0);
+      expect(await size()).toBe(0);
     });
 
     it('should be able to iterate over entries when there are no keys', async () => {
-      expect(await entries()).to.deep.equal([]);
+      expect(await entries()).toEqual([]);
     });
 
     it('should be able to iterate over entries', async () => {
       await map.set('foo', 'bar');
       await map.set('baz', 'qux');
 
-      expect(await entries()).to.deep.equal([
+      expect(await entries()).toEqual([
         ['baz', 'qux'],
         ['foo', 'bar'],
       ]);
@@ -152,21 +150,21 @@ export function describeAztecMap(
       await map.set('foo', 'bar');
       await map.set('baz', 'quux');
 
-      expect(await values()).to.deep.equal(['quux', 'bar']);
+      expect(await values()).toEqual(['quux', 'bar']);
     });
 
     it('should be able to iterate over keys', async () => {
       await map.set('foo', 'bar');
       await map.set('baz', 'qux');
 
-      expect(await keys()).to.deep.equal(['baz', 'foo']);
+      expect(await keys()).toEqual(['baz', 'foo']);
     });
 
     it('should be able to iterate over string keys that represent numbers', async () => {
       await map.set('0x22', 'bar');
       await map.set('0x31', 'qux');
 
-      expect(await keys()).to.deep.equal(['0x22', '0x31']);
+      expect(await keys()).toEqual(['0x22', '0x31']);
     });
 
     for (const [name, data] of [
@@ -186,14 +184,14 @@ export function describeAztecMap(
         await map.set(c, 'c');
         await map.set(d, 'd');
 
-        expect(await keys()).to.deep.equal([a, b, c, d]);
-        expect(await keys({ start: b, end: c })).to.deep.equal([b]);
-        expect(await keys({ start: b })).to.deep.equal([b, c, d]);
-        expect(await keys({ end: c })).to.deep.equal([a, b]);
-        expect(await keys({ start: b, end: c, reverse: true })).to.deep.equal([c]);
-        expect(await keys({ start: b, limit: 1 })).to.deep.equal([b]);
-        expect(await keys({ start: b, reverse: true })).to.deep.equal([d, c]);
-        expect(await keys({ end: b, reverse: true })).to.deep.equal([b, a]);
+        expect(await keys()).toEqual([a, b, c, d]);
+        expect(await keys({ start: b, end: c })).toEqual([b]);
+        expect(await keys({ start: b })).toEqual([b, c, d]);
+        expect(await keys({ end: c })).toEqual([a, b]);
+        expect(await keys({ start: b, end: c, reverse: true })).toEqual([c]);
+        expect(await keys({ start: b, limit: 1 })).toEqual([b]);
+        expect(await keys({ start: b, reverse: true })).toEqual([d, c]);
+        expect(await keys({ end: b, reverse: true })).toEqual([b, a]);
       });
     }
   });

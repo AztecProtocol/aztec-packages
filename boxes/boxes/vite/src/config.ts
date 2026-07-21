@@ -1,9 +1,7 @@
-import { getInitialTestAccountsData } from "@aztec/accounts/testing";
+import { getInitialTestAccountsData } from '@aztec/accounts/testing';
 import { AztecAddress } from '@aztec/aztec.js/addresses';
-import { createAztecNodeClient } from '@aztec/aztec.js/node';
 import { Wallet } from '@aztec/aztec.js/wallet';
-import { getPXEConfig } from "@aztec/pxe/client/lazy";
-import { TestWallet } from "@aztec/test-wallet/client/lazy";
+import { EmbeddedWallet } from '@aztec/wallets/embedded';
 
 export class PrivateEnv {
   private wallet!: Wallet;
@@ -12,26 +10,18 @@ export class PrivateEnv {
   constructor() {}
 
   async init() {
-    const nodeURL = process.env.AZTEC_NODE_URL ?? "http://localhost:8080";
+    const nodeURL = process.env.AZTEC_NODE_URL ?? 'http://localhost:8080';
 
-    const aztecNode = await createAztecNodeClient(nodeURL);
-    const config = getPXEConfig();
-    config.dataDirectory = "pxe";
-    config.proverEnabled = false;
-    const wallet = await TestWallet.create(aztecNode, config);
+    const wallet = await EmbeddedWallet.create(nodeURL);
 
     const [accountData] = await getInitialTestAccountsData();
     if (!accountData) {
       console.error(
-        "Account not found. Please connect the app to a testing environment with deployed and funded test accounts.",
+        'Account not found. Please connect the app to a testing environment with deployed and funded test accounts.',
       );
     }
 
-    await wallet.createSchnorrAccount(
-      accountData.secret,
-      accountData.salt,
-      accountData.signingKey,
-    );
+    await wallet.createSchnorrInitializerlessAccount(accountData.secret, accountData.salt, accountData.signingKey);
     this.wallet = wallet;
     this.defaultAccountAddress = accountData.address;
   }

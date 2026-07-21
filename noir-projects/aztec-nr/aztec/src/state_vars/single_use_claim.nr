@@ -1,5 +1,5 @@
 use crate::protocol::{
-    address::AztecAddress, constants::DOM_SEP__NOTE_HASH, hash::poseidon2_hash_with_separator, traits::Hash,
+    address::AztecAddress, constants::DOM_SEP__SINGLE_USE_CLAIM_NULLIFIER, hash::poseidon2_hash_with_separator,
 };
 
 use crate::{
@@ -62,7 +62,6 @@ mod test;
 ///
 /// Public effects you emit alongside a claim (e.g. a  public function call to update a tally) may still let observers
 /// infer who likely exercised the claim, so consider that when designing flows.
-/// ```
 pub struct SingleUseClaim<Context> {
     context: Context,
     storage_slot: Field,
@@ -82,8 +81,10 @@ impl<Context> SingleUseClaim<Context> {
     /// This function is primarily used internally by functions [`SingleUseClaim::claim`],
     /// [`SingleUseClaim::assert_claimed`] and [`SingleUseClaim::has_claimed`] to coherently write and read state.
     fn compute_nullifier(self, owner_nhk_app: Field) -> Field {
-        // TODO(F-180): make sure we follow the nullifier convention
-        poseidon2_hash_with_separator([owner_nhk_app, self.storage_slot], DOM_SEP__NOTE_HASH)
+        poseidon2_hash_with_separator(
+            [owner_nhk_app, self.storage_slot],
+            DOM_SEP__SINGLE_USE_CLAIM_NULLIFIER,
+        )
     }
 }
 
@@ -102,8 +103,8 @@ impl SingleUseClaim<&mut PrivateContext> {
     /// The implementation of this function emits a nullifier derived from the `owner`'s nullifier hiding key and the
     /// storage slot of the underlying state variable.
     pub fn claim(self) {
-        let owner_nhk_app = self.context.request_nhk_app(get_public_keys(self.owner).npk_m.hash());
-        self.context.push_nullifier(self.compute_nullifier(owner_nhk_app));
+        let owner_nhk_app = self.context.request_nhk_app(get_public_keys(self.owner).npk_m_hash);
+        self.context.push_nullifier_unsafe(self.compute_nullifier(owner_nhk_app));
     }
 
     /// Asserts that the owner has already claimed this single use claim (i.e. that [`SingleUseClaim::claim`] has been
@@ -114,7 +115,7 @@ impl SingleUseClaim<&mut PrivateContext> {
     /// This function generates a kernel nullifier read request, so it can even assert the existence of pending claims,
     /// i.e. when [`SingleUseClaim::claim`] was called in the same transaction as [`SingleUseClaim::assert_claimed`].
     pub fn assert_claimed(self) {
-        let owner_nhk_app = self.context.request_nhk_app(get_public_keys(self.owner).npk_m.hash());
+        let owner_nhk_app = self.context.request_nhk_app(get_public_keys(self.owner).npk_m_hash);
         let nullifier = self.compute_nullifier(owner_nhk_app);
 
         // Safety: `check_nullifier_exists` is an unconstrained function - we can constrain a true value
@@ -132,9 +133,9 @@ impl SingleUseClaim<&mut PrivateContext> {
 }
 
 impl SingleUseClaim<UtilityContext> {
-    /// Returns whether an owner has claimed this single use claim.
+    /// Returns `true` if an owner has claimed this single use claim.
     pub unconstrained fn has_claimed(self) -> bool {
-        let owner_nhk_app = get_nhk_app(get_public_keys(self.owner).npk_m.hash());
+        let owner_nhk_app = get_nhk_app(get_public_keys(self.owner).npk_m_hash);
         check_nullifier_exists(self.compute_nullifier(owner_nhk_app))
     }
 }

@@ -497,3 +497,107 @@ export function hashToEmoji(hash: string, count: number = DEFAULT_EMOJI_GRID_SIZ
   }
   return emojis.join('');
 }
+
+// ─── Passphrase-based encryption (PBKDF2 + AES-256-GCM) ───────────────────
+
+/** Default PBKDF2 iteration count. High to compensate for short PINs (~1-2s on modern hardware). */
+const DEFAULT_PBKDF2_ITERATIONS = 2_000_000;
+const PBKDF2_SALT_BYTES = 16;
+const PBKDF2_IV_BYTES = 12;
+
+/**
+ * Derives an AES-256-GCM key from a passphrase using PBKDF2-SHA256.
+ *
+ * @param passphrase - The user-provided passphrase or PIN
+ * @param salt - Random salt bytes
+ * @param iterations - PBKDF2 iteration count (default: 2,000,000)
+ * @returns An AES-256-GCM CryptoKey
+ */
+export async function deriveKeyFromPassphrase(
+  passphrase: string,
+  salt: Uint8Array,
+  iterations: number = DEFAULT_PBKDF2_ITERATIONS,
+): Promise<CryptoKey> {
+  const keyMaterial = await crypto.subtle.importKey('raw', new TextEncoder().encode(passphrase), 'PBKDF2', false, [
+    'deriveKey',
+  ]);
+  return crypto.subtle.deriveKey(
+    { name: 'PBKDF2', salt: salt as BufferSource, iterations, hash: 'SHA-256' },
+    keyMaterial,
+    { name: 'AES-GCM', length: 256 },
+    false,
+    ['encrypt', 'decrypt'],
+  );
+}
+
+/**
+ * Encrypts arbitrary bytes with a passphrase using PBKDF2 + AES-256-GCM.
+ *
+ * Output layout: `[salt (16)] [iv (12)] [ciphertext (...)]`
+ *
+ * @param plaintext - Data to encrypt
+ * @param passphrase - User passphrase or PIN
+ * @param iterations - PBKDF2 iteration count (default: 2,000,000)
+ * @returns A Uint8Array containing salt + iv + ciphertext
+ */
+export async function encryptWithPassphrase(
+  plaintext: Uint8Array,
+  passphrase: string,
+  iterations: number = DEFAULT_PBKDF2_ITERATIONS,
+): Promise<Uint8Array> {
+  const salt = crypto.getRandomValues(new Uint8Array(PBKDF2_SALT_BYTES));
+  const iv = crypto.getRandomValues(new Uint8Array(PBKDF2_IV_BYTES));
+  const key = await deriveKeyFromPassphrase(passphrase, salt, iterations);
+  const ciphertext = new Uint8Array(
+    await crypto.subtle.encrypt({ name: 'AES-GCM', iv }, key, plaintext as BufferSource),
+  );
+  const result = new Uint8Array(PBKDF2_SALT_BYTES + PBKDF2_IV_BYTES + ciphertext.length);
+  result.set(salt, 0);
+  result.set(iv, PBKDF2_SALT_BYTES);
+  result.set(ciphertext, PBKDF2_SALT_BYTES + PBKDF2_IV_BYTES);
+  return result;
+}
+
+/**
+ * Decrypts data produced by {@link encryptWithPassphrase}.
+ *
+ * @param data - The encrypted blob (salt + iv + ciphertext)
+ * @param passphrase - The passphrase used during encryption
+ * @param iterations - PBKDF2 iteration count (must match encryption)
+ * @returns The decrypted plaintext bytes
+ * @throws On wrong passphrase (AES-GCM auth tag mismatch)
+ */
+export async function decryptWithPassphrase(
+  data: Uint8Array,
+  passphrase: string,
+  iterations: number = DEFAULT_PBKDF2_ITERATIONS,
+): Promise<Uint8Array> {
+  const salt = data.slice(0, PBKDF2_SALT_BYTES);
+  const iv = data.slice(PBKDF2_SALT_BYTES, PBKDF2_SALT_BYTES + PBKDF2_IV_BYTES);
+  const ciphertext = data.slice(PBKDF2_SALT_BYTES + PBKDF2_IV_BYTES);
+  const key = await deriveKeyFromPassphrase(passphrase, salt, iterations);
+  return new Uint8Array(await crypto.subtle.decrypt({ name: 'AES-GCM', iv }, key, ciphertext as BufferSource));
+}
+
+/**
+ * Converts a Uint8Array to a base64 string.
+ */
+export function uint8ToBase64(bytes: Uint8Array): string {
+  let binary = '';
+  for (const b of bytes) {
+    binary += String.fromCharCode(b);
+  }
+  return btoa(binary);
+}
+
+/**
+ * Converts a base64 string to a Uint8Array.
+ */
+export function base64ToUint8(b64: string): Uint8Array {
+  const binary = atob(b64);
+  const bytes = new Uint8Array(binary.length);
+  for (let i = 0; i < binary.length; i++) {
+    bytes[i] = binary.charCodeAt(i);
+  }
+  return bytes;
+}

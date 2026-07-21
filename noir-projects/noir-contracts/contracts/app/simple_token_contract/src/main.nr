@@ -18,7 +18,7 @@ pub contract SimpleToken {
             functions::{authorize_once, external, initializer, internal, only_self, view},
             storage::storage,
         },
-        messages::message_delivery::MessageDelivery,
+        messages::delivery::MessageDelivery,
         protocol::address::AztecAddress,
         state_vars::{Map, Owned, PublicImmutable, PublicMutable, StateVariable},
     };
@@ -42,24 +42,30 @@ pub contract SimpleToken {
         balances: Owned<BalanceSet<Context>, Context>,
         total_supply: PublicMutable<u128, Context>,
         public_balances: Map<AztecAddress, PublicMutable<u128, Context>, Context>,
+        // docs:start:public_immutable
         symbol: PublicImmutable<FieldCompressedString, Context>,
         name: PublicImmutable<FieldCompressedString, Context>,
         decimals: PublicImmutable<u8, Context>,
+        // docs:end:public_immutable
     }
 
     #[external("public")]
     #[initializer]
     fn constructor(name: str<31>, symbol: str<31>, decimals: u8) {
+        // docs:start:public_immutable_initialize
         self.storage.name.initialize(FieldCompressedString::from_string(name));
         self.storage.symbol.initialize(FieldCompressedString::from_string(symbol));
         self.storage.decimals.initialize(decimals);
+        // docs:end:public_immutable_initialize
     }
 
+    // docs:start:public_immutable_read
     #[external("public")]
     #[view]
     fn public_get_name() -> FieldCompressedString {
         self.storage.name.read()
     }
+    // docs:end:public_immutable_read
 
     #[external("public")]
     #[view]
@@ -118,13 +124,8 @@ pub contract SimpleToken {
 
     #[authorize_once("from", "authwit_nonce")]
     #[external("private")]
-    fn transfer_from_private_to_public(
-        from: AztecAddress,
-        to: AztecAddress,
-        amount: u128,
-        authwit_nonce: Field,
-    ) {
-        self.storage.balances.at(from).sub(amount).deliver(MessageDelivery.ONCHAIN_CONSTRAINED);
+    fn transfer_from_private_to_public(from: AztecAddress, to: AztecAddress, amount: u128, authwit_nonce: Field) {
+        self.storage.balances.at(from).sub(amount).deliver(MessageDelivery::onchain_constrained());
         self.enqueue_self._increase_public_balance(to, amount);
     }
 
@@ -133,19 +134,16 @@ pub contract SimpleToken {
         let from = self.msg_sender();
 
         let change = self.internal.subtract_balance(from, amount, INITIAL_TRANSFER_CALL_MAX_NOTES);
-        self.storage.balances.at(from).add(change).deliver(MessageDelivery.ONCHAIN_UNCONSTRAINED);
-        self.storage.balances.at(to).add(amount).deliver(MessageDelivery.ONCHAIN_UNCONSTRAINED);
+        self.storage.balances.at(from).add(change).deliver(MessageDelivery::onchain_unconstrained());
+        self.storage.balances.at(to).add(amount).deliver(MessageDelivery::onchain_unconstrained());
 
-        self.emit(Transfer { from, to, amount }).deliver_to(
-            to,
-            MessageDelivery.ONCHAIN_UNCONSTRAINED,
-        );
+        self.emit(Transfer { from, to, amount }).deliver_to(to, MessageDelivery::onchain_unconstrained());
     }
 
     #[authorize_once("from", "authwit_nonce")]
     #[external("private")]
     fn burn_private(from: AztecAddress, amount: u128, authwit_nonce: Field) {
-        self.storage.balances.at(from).sub(amount).deliver(MessageDelivery.ONCHAIN_CONSTRAINED);
+        self.storage.balances.at(from).sub(amount).deliver(MessageDelivery::onchain_constrained());
         self.enqueue_self._reduce_total_supply(amount);
     }
 
@@ -164,13 +162,7 @@ pub contract SimpleToken {
 
     #[internal("private")]
     fn _prepare_private_balance_increase(to: AztecAddress) -> PartialUintNote {
-        let partial_note = UintNote::partial(
-            to,
-            self.storage.balances.get_storage_slot(),
-            self.context,
-            to,
-            self.msg_sender(),
-        );
+        let partial_note = UintNote::partial(to, self.context, to, self.msg_sender());
 
         partial_note
     }
@@ -192,17 +184,13 @@ pub contract SimpleToken {
     }
 
     #[internal("public")]
-    fn _finalize_transfer_to_private(
-        from_and_completer: AztecAddress,
-        amount: u128,
-        partial_note: PartialUintNote,
-    ) {
+    fn _finalize_transfer_to_private(from_and_completer: AztecAddress, amount: u128, partial_note: PartialUintNote) {
         let balance_storage = self.storage.public_balances.at(from_and_completer);
 
         let from_balance = balance_storage.read().sub(amount);
         balance_storage.write(from_balance);
 
-        partial_note.complete(self.context, from_and_completer, amount);
+        partial_note.complete(self.context, from_and_completer, self.storage.balances.get_storage_slot(), amount);
     }
 
     #[external("private")]
@@ -227,15 +215,11 @@ pub contract SimpleToken {
     }
 
     #[internal("public")]
-    fn _finalize_mint_to_private(
-        completer: AztecAddress,
-        amount: u128,
-        partial_note: PartialUintNote,
-    ) {
+    fn _finalize_mint_to_private(completer: AztecAddress, amount: u128, partial_note: PartialUintNote) {
         let supply = self.storage.total_supply.read().add(amount);
         self.storage.total_supply.write(supply);
 
-        partial_note.complete(self.context, completer, amount);
+        partial_note.complete(self.context, completer, self.storage.balances.get_storage_slot(), amount);
     }
 
     #[external("public")]
@@ -263,7 +247,7 @@ pub contract SimpleToken {
     fn cancel_authwit(inner_hash: Field) {
         let on_behalf_of = self.msg_sender();
         let nullifier = compute_authwit_nullifier(on_behalf_of, inner_hash);
-        self.context.push_nullifier(nullifier);
+        self.context.push_nullifier_unsafe(nullifier);
     }
 
     #[internal("private")]
@@ -274,9 +258,7 @@ pub contract SimpleToken {
             subtracted - amount
         } else {
             let remaining = amount - subtracted;
-            compute_recurse_subtract_balance_call(*self.context, account, remaining).call(
-                self.context,
-            )
+            compute_recurse_subtract_balance_call(*self.context, account, remaining).call(self.context)
         }
     }
 

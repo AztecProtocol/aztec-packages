@@ -40,7 +40,11 @@ export class IndexedMerkleTreeCalculator<T extends IndexedTreeLeafPreimage, N ex
     }
     const sorted = values
       .map((v, i) => ({ value: v, index: i }))
-      .sort((a, b) => Number(toBigIntBE(b.value) - toBigIntBE(a.value)));
+      .sort((a, b): -1 | 0 | 1 => {
+        const aBigInt = toBigIntBE(a.value);
+        const bBigInt = toBigIntBE(b.value);
+        return aBigInt < bBigInt ? 1 : aBigInt > bBigInt ? -1 : 0;
+      });
     const indexedLeaves = sorted.map((item, i) => ({
       leaf: this.factory.fromBuffer(
         Buffer.concat([

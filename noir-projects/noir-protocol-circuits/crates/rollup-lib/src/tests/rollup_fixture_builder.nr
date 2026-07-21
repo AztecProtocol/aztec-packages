@@ -4,6 +4,10 @@ use crate::abis::{
 use bigcurve::BigCurve;
 use bignum::BigNum;
 use blob::abis::{BlobAccumulator, BLSPoint, FinalBlobBatchingChallenges};
+use protocol_test_utils::{
+    fixtures::{proof_data::{make_proof_data, make_proof_data_for_fixed_vk}, vk_tree::vk_tree_root},
+    utils::make_fixture,
+};
 use types::{
     abis::{
         append_only_tree_snapshot::AppendOnlyTreeSnapshot, block_constant_data::BlockConstantData,
@@ -17,21 +21,13 @@ use types::{
     address::{AztecAddress, EthAddress},
     blob_data::SpongeBlob,
     constants::{
-        ARCHIVE_HEIGHT, AZTEC_MAX_EPOCH_DURATION, BLOBS_PER_CHECKPOINT, EMPTY_EPOCH_OUT_HASH,
-        L1_TO_L2_MSG_SUBTREE_HEIGHT, L1_TO_L2_MSG_TREE_HEIGHT, OUT_HASH_TREE_HEIGHT,
-        OUT_HASH_TREE_LEAF_COUNT,
+        ARCHIVE_HEIGHT, BLOBS_PER_CHECKPOINT, DOM_SEP__BLOB_GAMMA_FINAL, EMPTY_EPOCH_OUT_HASH,
+        L1_TO_L2_MSG_SUBTREE_HEIGHT, L1_TO_L2_MSG_TREE_HEIGHT, MAX_CHECKPOINTS_PER_EPOCH,
+        OUT_HASH_TREE_HEIGHT, OUT_HASH_TREE_LEAF_COUNT,
     },
-    hash::poseidon2_hash,
-    merkle_tree::{compute_empty_tree_root, MerkleTree},
+    hash::{poseidon2_hash, poseidon2_hash_with_separator},
+    merkle_tree::{compute_empty_tree_root, MerkleTree, test_utils::SingleSubtreeMerkleTree},
     proof::proof_data::{AvmV2ProofData, ProofData},
-    tests::{
-        fixtures::{
-            proof_data::{make_proof_data, make_proof_data_for_fixed_vk},
-            vk_tree::vk_tree_root,
-        },
-        merkle_tree_utils::SingleSubtreeMerkleTree,
-        utils::make_fixture,
-    },
     traits::{Deserialize, Empty, Hash},
 };
 
@@ -357,8 +353,8 @@ impl RollupFixtureBuilder {
         let start_checkpoint_index = (start_slot_number - self.start_slot_number) as u32;
         let end_checkpoint_index = (end_slot_number - self.start_slot_number) as u32;
 
-        let mut checkpoint_header_hashes = [0; AZTEC_MAX_EPOCH_DURATION];
-        let mut fees = [FeeRecipient::empty(); AZTEC_MAX_EPOCH_DURATION];
+        let mut checkpoint_header_hashes = [0; MAX_CHECKPOINTS_PER_EPOCH];
+        let mut fees = [FeeRecipient::empty(); MAX_CHECKPOINTS_PER_EPOCH];
         let num_checkpoints = end_checkpoint_index - start_checkpoint_index + 1;
         for i in 0..num_checkpoints {
             let slot_number = i as Field + start_slot_number;
@@ -387,6 +383,7 @@ impl RollupFixtureBuilder {
             sha_root: slot_number * 85831493,
             converted_root: self.get_l1_to_l2_message_subtree_root(slot_number),
             vk_tree_root: self.vk_tree_root,
+            prover_id: self.prover_id,
         }
     }
 
@@ -422,7 +419,12 @@ impl RollupFixtureBuilder {
         let end_block_accumulator = self.get_blob_accumulator(self.end_slot_number);
         let z = end_block_accumulator.z_acc;
         // Safety: This is only for testing.
-        let gamma = unsafe { __from_field(poseidon2_hash([end_block_accumulator.gamma_acc, z])) };
+        let gamma = unsafe {
+            __from_field(poseidon2_hash_with_separator(
+                [end_block_accumulator.gamma_acc, z],
+                DOM_SEP__BLOB_GAMMA_FINAL,
+            ))
+        };
         FinalBlobBatchingChallenges { z, gamma: BigNum::from_limbs(gamma) }
     }
 

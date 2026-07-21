@@ -14,13 +14,15 @@ source ./scripts/gcp_auth.sh
 function build {
   denoise "helm lint ./aztec-bot/"
   denoise "helm lint ./aztec-chaos-scenarios/"
+  denoise "helm lint ./charts/otel-metrics-collector/"
   denoise "helm lint ./aztec-keystore/"
-  denoise "helm lint ./aztec-node/"
+  denoise "helm lint ./aztec-node/ --set global.aztecImage.tag=lint"
   denoise "helm lint ./aztec-prover-stack/"
-  denoise "helm lint ./aztec-snapshots/"
+  denoise "helm lint ./aztec-snapshots/ --set snapshots.frequency='0 */6 * * *' --set snapshots.nodeUrl=http://lint --set snapshots.bucket=lint"
   denoise "helm lint ./aztec-validator/"
   denoise "helm lint ./eth-devnet/"
-  denoise ./spartan/scripts/check_env_vars.sh
+  denoise "terraform fmt -check -recursive ./terraform/"
+  denoise ./scripts/check_env_vars.sh
 }
 
 function network_shaping {
@@ -46,8 +48,19 @@ function network_shaping {
 }
 
 function gke {
-  # For GKE access
-  if ! command -v gcloud &> /dev/null; then
+  # For GKE access: ensure both gcloud and the GKE auth plugin are installed.
+  # gcloud itself is installed by install_deps.sh; this only handles the auth plugin
+  # (and the Ubuntu-specific gcloud install for backwards compatibility).
+  if [[ "$(os)" == "macos" ]]; then
+    if ! command -v gke-gcloud-auth-plugin &> /dev/null; then
+      gcloud components install --quiet gke-gcloud-auth-plugin
+      if ! command -v gke-gcloud-auth-plugin &> /dev/null; then
+        echo "gke-gcloud-auth-plugin installed but not on PATH. Add this to your shell rc:" >&2
+        echo "  export PATH=\"\$(brew --prefix)/share/google-cloud-sdk/bin:\$PATH\"" >&2
+        exit 1
+      fi
+    fi
+  elif ! command -v gcloud &> /dev/null; then
     if [ -f /etc/os-release ] && grep -qi "Ubuntu" /etc/os-release; then
       sudo apt update
       sudo apt install -y apt-transport-https ca-certificates gnupg curl
@@ -56,11 +69,12 @@ function gke {
       sudo apt install -y google-cloud-cli
       sudo apt install google-cloud-cli-gke-gcloud-auth-plugin
       echo "Now you can run 'gcloud init'. Exiting with 1 as this is a necessary step."
+      exit 1
     else
       echo "gcloud not found. This is needed for GKE kubernetes usage." >&2
-      echo "If needed, install glcoud and do 'gcloud components install gke-gcloud-auth-plugin', then 'gcloud init'" >&2
+      echo "If needed, install gcloud and do 'gcloud components install gke-gcloud-auth-plugin', then 'gcloud init'" >&2
+      exit 1
     fi
-    exit 1
   fi
 }
 
@@ -89,7 +103,17 @@ NETWORK_TESTS_2=(
   mempool_limit.test.ts
   upgrade_governance_proposer.test.ts
   validator_nuke_and_suppression.test.ts
+  mbps.test.ts
 )
+
+# Retrieve the admin API key stored as a K8s Secret during deployment.
+# Exported so the test runner can authenticate against the admin RPC endpoint.
+function export_admin_api_key {
+  export AZTEC_ADMIN_API_KEY
+  AZTEC_ADMIN_API_KEY=$(kubectl get secret aztec-admin-api-key \
+    --namespace "$NAMESPACE" \
+    -o jsonpath='{.data.key}' 2>/dev/null | base64 -d 2>/dev/null || true)
+}
 
 # Run spartan tests sequentially with k8s log enrichment, collecting failures.
 function run_network_tests {
@@ -98,6 +122,7 @@ function run_network_tests {
   source_network_env "$env_file"
   gcp_auth
   export SCENARIO_TESTS=1
+  export_admin_api_key
   local failed=()
   for test_file in "$@"; do
     echo_header "Running $test_file"
@@ -113,19 +138,29 @@ function run_network_tests {
   fi
 }
 
+function slack_notify_scenario_pass {
+  local label="$1"
+  if [[ "${REF_NAME:-}" == v* ]]; then
+    slack_notify "Scenario ${label} tests PASSED on *${REF_NAME}*" "#alerts-next-scenario"
+  fi
+}
+
 function network_tests_1 {
   run_network_tests "$1" "smoke.test.ts" "${NETWORK_TESTS_1[@]}"
+  slack_notify_scenario_pass "set-1"
 }
 function network_tests_2 {
   run_network_tests "$1" "smoke.test.ts" "${NETWORK_TESTS_2[@]}"
+  slack_notify_scenario_pass "set-2"
 }
 function network_tests {
   run_network_tests "$1" "smoke.test.ts" "${NETWORK_TESTS_1[@]}" "${NETWORK_TESTS_2[@]}"
+  slack_notify_scenario_pass "all"
 }
 
 function network_bench_cmds {
   local high_value_tps=0.1
-  local low_value_tps_list=(0.1 0.2 0.5 1)
+  local low_value_tps_list=(0.1 0.2 0.5 1 2)
 
   for low_value_tps in "${low_value_tps_list[@]}"; do
     local low_label=${low_value_tps/./_}
@@ -140,7 +175,12 @@ function network_bench_cmds {
 function proving_bench_cmds {
   local tps=1
   local timeout=9000  # 2.5h
-  echo "$hash:TIMEOUT=${timeout} TPS=${tps} BENCH_OUTPUT=bench-out/prove_n_tps.${tps}tps.bench.json $root/yarn-project/end-to-end/scripts/run_test.sh simple prove_n_tps.test.ts"
+  echo "$(hash):TIMEOUT=${timeout} TPS=${tps} BENCH_OUTPUT=bench-out/n_tps_prove.${tps}tps.bench.json $root/yarn-project/end-to-end/scripts/run_test.sh simple n_tps_prove.test.ts"
+}
+
+function block_capacity_bench_cmds {
+  local timeout=7200  # 2h
+  echo "$(hash):TIMEOUT=${timeout} BENCH_OUTPUT=bench-out/block_capacity.bench.json $root/yarn-project/end-to-end/scripts/run_test.sh simple block_capacity.test.ts"
 }
 
 function network_bench {
@@ -152,6 +192,8 @@ function network_bench {
 
   echo_header "spartan bench"
   gcp_auth
+  export_admin_api_key
+  export K8S_ENRICHER=${K8S_ENRICHER:-1}
   network_bench_cmds | parallelize 1
 }
 
@@ -164,7 +206,168 @@ function proving_bench {
 
   echo_header "spartan proving bench"
   gcp_auth
+  export_admin_api_key
+  export K8S_ENRICHER=${K8S_ENRICHER:-1}
   proving_bench_cmds | parallelize 1
+}
+
+function block_capacity_bench {
+  rm -rf bench-out
+  mkdir -p bench-out
+
+  local env_file="$1"
+  source_network_env $env_file
+
+  echo_header "spartan block capacity bench"
+  gcp_auth
+  export_admin_api_key
+  export K8S_ENRICHER=${K8S_ENRICHER:-1}
+  block_capacity_bench_cmds | parallelize 1
+}
+
+# One point of the inclusion sweep: a fixed 1 TPS of high-value txs (the
+# measured inclusion lane) plus (TARGET_TPS - 1) TPS of low-value background
+# traffic to bring total load to the target. So inclusion latency is always
+# measured for a properly-paying user's tx while the network runs at TARGET_TPS.
+# Tagged with a shared BENCH_SWEEP_ID so the 1/5/10 points group as one sweep
+# (schema v5). Each point runs in its own namespace.
+function bench_inclusion_point_cmds {
+  local tps=${TARGET_TPS:-10}
+  local high_value_tps=1
+  # Low-value lane makes up the difference to the target; clamp at 0 for a 1 TPS
+  # target. awk handles any fractional TARGET_TPS.
+  local low_value_tps
+  low_value_tps=$(awk "BEGIN{l=${tps}-${high_value_tps}; if(l<0)l=0; print l}")
+  local test_duration=${TEST_DURATION_SECONDS:-600} # 10 mins
+  local timeout=${BENCH_TIMEOUT_SECONDS:-7200} # account for committee formation
+  local scenario="incl_${tps/./_}tps"
+  echo "$(hash):TIMEOUT=${timeout} BENCH_RUN_ID=${BENCH_RUN_ID:-} BENCH_OUTPUT=bench-out/n_tps.${scenario}.bench.json BENCH_SCENARIO=${scenario} LOW_VALUE_TPS=${low_value_tps} HIGH_VALUE_TPS=${high_value_tps} TEST_DURATION_SECONDS=${test_duration} $root/yarn-project/end-to-end/scripts/run_test.sh simple n_tps.test.ts"
+}
+
+function bench_inclusion_point {
+  rm -rf bench-out
+  mkdir -p bench-out
+
+  local env_file="$1"
+  source_network_env $env_file
+
+  local tps=${TARGET_TPS:-10}
+  echo_header "spartan inclusion-sweep point (${tps} TPS)"
+  gcp_auth
+  export_admin_api_key
+  export K8S_ENRICHER=${K8S_ENRICHER:-1}
+  export BENCH_RUN_ID="${BENCH_RUN_ID:-$(date -u +%Y%m%d)-incl-${tps}tps-${COMMIT_HASH:0:10}}"
+  # Capture the load-test exit code but do NOT abort: a degraded point (e.g. a
+  # higher-TPS point that misses its target, or any failed assertion) still
+  # produced inclusion records worth scraping. We always scrape below, then
+  # re-surface the failure at the end so the job status still reflects it.
+  local test_rc=0
+  bench_inclusion_point_cmds | parallelize 1 || test_rc=$?
+  if [[ "$test_rc" -ne 0 ]]; then
+    echo "[bench_inclusion_point] load test exited ${test_rc}; scraping captured data anyway"
+  fi
+
+  local metadata="/tmp/n_tps_timing_data.json"
+  local run_json="bench-out/bench-inclusion-${tps}tps-${BENCH_RUN_ID}.json"
+  if [[ -f "$metadata" ]]; then
+    local started=$(jq -r .startedAt < "$metadata")
+    local ended=$(jq -r .endedAt < "$metadata")
+    echo "Scraping inclusion-sweep point ${tps} TPS (run ${BENCH_RUN_ID}, started=${started} ended=${ended})"
+    NAMESPACE="$NAMESPACE" GCP_PROJECT_ID="${GCP_PROJECT_ID:-}" ./scripts/bench_10tps/bench_scrape.ts \
+      --run-id "$BENCH_RUN_ID" \
+      --started "$started" \
+      --ended "$ended" \
+      --target-tps "$tps" \
+      --sweep-id "${BENCH_SWEEP_ID:-}" \
+      --sweep-label "${BENCH_SWEEP_LABEL:-inclusion-sweep}" \
+      --benchmark-type "${BENCH_BENCHMARK_TYPE:-ingress-inclusion}" \
+      --workload sha256_hash_1024 \
+      --output "$run_json" \
+      --inclusion-records "$metadata" \
+      --wait-for-pending-zero \
+      --max-pending-wait-seconds "${BENCH_SCRAPE_MAX_PENDING_WAIT_SECONDS:-3600}" \
+      || echo "[bench_inclusion_point] scraper failed (non-fatal)"
+    network_bench_upload "$run_json" || echo "[network_bench] upload failed (non-fatal)"
+  else
+    echo "[bench_inclusion_point] no timing metadata at ${metadata}; skipping scraper"
+  fi
+
+  # Re-surface the load-test failure (if any) now that data has been scraped.
+  return "$test_rc"
+}
+
+function network_bench_upload {
+  local run_json=$1
+  if [[ "${CI:-0}" != "1" ]]; then
+    echo "[network_bench] CI != 1, skipping upload (run JSON at ${run_json})"
+    return 0
+  fi
+  if [[ ! -f "$run_json" ]]; then
+    echo "[network_bench] no run JSON at ${run_json}; skipping upload"
+    return 0
+  fi
+
+  # Reject anything that's not the schema we've designed the index against.
+  local schema=$(jq -r .schemaVersion "$run_json")
+  if [[ "$schema" != "5" ]]; then
+    echo "[network_bench] run JSON has schemaVersion '$schema', expected '5'; skipping upload"
+    return 0
+  fi
+
+  local bucket="${NETWORK_BENCH_BUCKET:-gs://aztec-testnet/network_bench}"
+  local run_id=$(jq -r .run.runId "$run_json")
+  local target="${bucket}/${run_id}.json"
+
+  echo "[network_bench] uploading ${run_json} to ${target}"
+  gcloud storage cp "$run_json" "$target"
+
+  local entry=$(jq '{
+    runId: .run.runId,
+    path: (.run.runId + ".json"),
+    startedAt: .run.startedAt,
+    endedAt: .run.endedAt,
+    targetTps: .run.targetTps,
+    sweepId: .run.sweepId,
+    sweepLabel: .run.sweepLabel,
+    benchmarkType: .run.benchmarkType,
+    workload: .run.workload,
+    testDurationSeconds: .run.testDurationSeconds,
+    namespace: .run.namespace,
+    headlineKpi: .summary.headlineKpi,
+    inclusionTpsMean: .summary.inclusionTpsMean,
+    inclusionTpsPeak: .summary.inclusionTpsPeak,
+    totalTxsMined: .summary.totalTxsMined,
+    reorgCount: .summary.reorgCount
+  }' "$run_json")
+
+  local idx_local
+  idx_local=$(mktemp)
+  trap "rm -f $idx_local ${idx_local}.new" RETURN
+  # Distinguish "index does not exist yet" (404 -> seed empty) from real errors
+  # (auth/network/permission -> fail closed). Without this probe, a naive
+  # `cp ... 2>/dev/null || seed_empty` would silently overwrite a healthy index
+  # with a single-entry one whenever GCS hiccups.
+  local desc_err
+  if desc_err=$(gcloud storage objects describe "${bucket}/index.json" 2>&1 >/dev/null); then
+    gcloud storage cp "${bucket}/index.json" "$idx_local"
+  elif echo "$desc_err" | grep -qiE 'not.?found|matched no objects|404'; then
+    echo "[network_bench] no remote index.json yet; seeding empty"
+    echo '{"schemaVersion":"2","runs":[]}' > "$idx_local"
+  else
+    echo "[network_bench] cannot read remote index.json:"
+    echo "$desc_err" | head -5
+    return 1
+  fi
+
+  jq --argjson entry "$entry" --arg ts "$(date -u +%Y-%m-%dT%H:%M:%SZ)" '
+    .schemaVersion = "2"
+    | .generatedAt = $ts
+    | .runs = ((.runs // []) | map(select(.runId != $entry.runId)) + [$entry]
+              | sort_by(.endedAt) | reverse)
+  ' "$idx_local" > "${idx_local}.new"
+
+  gcloud storage cp "${idx_local}.new" "${bucket}/index.json"
+  echo "[network_bench] updated ${bucket}/index.json"
 }
 
 function ensure_eth_balances {
@@ -218,6 +421,7 @@ case "$cmd" in
     # Run the network deploy script
     DENOISE=1 denoise "./scripts/network_deploy.sh $env_file"
 
+    export K8S_ENRICHER=${K8S_ENRICHER:-1}
     if [[ "${RUN_TESTS:-}" == "true" ]]; then
       if [[ -n "$test_set" ]]; then
         network_tests_$test_set "$env_file"
@@ -226,11 +430,18 @@ case "$cmd" in
       fi
     fi
     ;;
+  "wait_for_l2_block")
+    env_file="$1"
+    source_env_basic "$env_file"
+    gcp_auth
+    source_network_env "$env_file"
+    ./scripts/wait_for_l2_block.sh "$NAMESPACE"
+    ;;
   "single_test")
     run_network_tests "$1" "$2"
     ;;
 
-  network_tests|network_tests_1|network_tests_2|network_bench|proving_bench)
+  network_tests|network_tests_1|network_tests_2|network_bench|proving_bench|block_capacity_bench|bench_inclusion_point)
     env_file="$1"
     $cmd "$env_file"
     ;;
@@ -273,15 +484,18 @@ case "$cmd" in
   "hash")
     echo $(hash)
     ;;
+  "network_bench_upload")
+    network_bench_upload "$1"
+    ;;
   test|test_cmds|gke|build|gcp_auth)
     $cmd
     ;;
   "test-kind-upgrade-rollup")
     source scripts/source_network_env.sh
-    source_network_env kind-provers
+    source_network_env ${KIND_ENV:-kind-provers}
     namespace="upgrade-rollup-version${NAME_POSTFIX:-}"
-    INSTALL_METRICS=false \
-      ./scripts/test_kind.sh src/spartan/upgrade_rollup_version.test.ts "$namespace"
+    export K8S_ENRICHER=${K8S_ENRICHER:-1}
+    ./scripts/test_kind.sh src/spartan/upgrade_rollup_version.test.ts "$namespace"
     ;;
   "network_teardown")
     env_file="$1"

@@ -112,7 +112,7 @@ mod tests {
         NUM_TXS_BIT_SIZE, TIMESTAMP_BIT_SIZE, TOTAL_MANA_USED_BIT_SIZE,
     };
 
-    fn accumulate_bits<let N: u32>(bits: [u1; N], offset: u32, num_bits: u32) -> Field {
+    fn accumulate_bits<let N: u32>(bits: [bool; N], offset: u32, num_bits: u32) -> Field {
         let mut accum = 0;
         let mut shift = 1;
         for i in 0..num_bits {
@@ -131,7 +131,7 @@ mod tests {
 
         let block_end_marker = create_block_end_marker(global_variables, num_txs);
 
-        let bits: [u1; 254] = block_end_marker.to_le_bits();
+        let bits: [bool; 254] = block_end_marker.to_le_bits();
         let mut offset = 0;
         assert_eq(accumulate_bits(bits, offset, NUM_TXS_BIT_SIZE), 99); // num_txs
         offset += NUM_TXS_BIT_SIZE;
@@ -143,7 +143,7 @@ mod tests {
 
         // Generated from yarn-project/blob-lib/src/encoding/block_end_marker.test.ts
         let block_end_marker_from_typescript =
-            0x000000000000000000626c6f636b5f656e64000000000006f8550000007b0063;
+            0x0000000000000000000000000000eb8dcdbf000000000006f8550000007b0063;
 
         assert_eq(block_end_marker, block_end_marker_from_typescript);
     }
@@ -157,7 +157,7 @@ mod tests {
 
         let block_end_marker = create_block_end_marker(global_variables, num_txs);
 
-        let bits: [u1; 254] = block_end_marker.to_le_bits();
+        let bits: [bool; 254] = block_end_marker.to_le_bits();
         let mut offset = 0;
         assert_eq(accumulate_bits(bits, offset, NUM_TXS_BIT_SIZE), 0xfedc);
         offset += NUM_TXS_BIT_SIZE;
@@ -172,7 +172,7 @@ mod tests {
 
         // Generated from yarn-project/blob-lib/src/encoding/block_end_marker.test.ts
         let large_block_end_marker_from_typescript =
-            0x000000000000000000626c6f636b5f656e64800000000008aa52abcd1234fedc;
+            0x0000000000000000000000000000eb8dcdbf800000000008aa52abcd1234fedc;
 
         assert_eq(block_end_marker, large_block_end_marker_from_typescript);
     }
@@ -188,7 +188,7 @@ mod tests {
 
         let end_state_field = create_block_end_state_field(state, total_mana_used);
 
-        let bits: [u1; 254] = end_state_field.to_le_bits();
+        let bits: [bool; 254] = end_state_field.to_le_bits();
         let mut offset = 0;
         assert_eq(accumulate_bits(bits, offset, TOTAL_MANA_USED_BIT_SIZE), 87654321); // total_mana_used
         offset += TOTAL_MANA_USED_BIT_SIZE;
@@ -222,7 +222,7 @@ mod tests {
 
         let end_state_field = create_block_end_state_field(state, total_mana_used);
 
-        let bits: [u1; 254] = end_state_field.to_le_bits();
+        let bits: [bool; 254] = end_state_field.to_le_bits();
         let mut offset = 0;
         assert_eq(accumulate_bits(bits, offset, TOTAL_MANA_USED_BIT_SIZE), total_mana_used);
         offset += TOTAL_MANA_USED_BIT_SIZE;

@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/usr/bin/env bash
 
 # Script to run AVM fuzzers with default parameters
 # Usage: ./run_fuzzer.sh <command> <fuzzer_type> [options]
@@ -30,7 +30,6 @@ shift
 # Handle list-targets command
 if [ "$COMMAND" = "list-targets" ]; then
     echo "Available fuzzing options (<target_name>):"
-    echo "  avm - AVM fuzzer (avm_fuzzer_avm_differential_fuzzer)"
     echo "  tx - Transaction fuzzer (avm_fuzzer_tx_fuzzer)"
     echo "  prover - Prover fuzzer (avm_fuzzer_prover_fuzzer)"
     echo "  alu - ALU fuzzer (harness_alu_fuzzer)"
@@ -39,7 +38,7 @@ if [ "$COMMAND" = "list-targets" ]; then
     echo "  gt - Greater Than fuzzer (harness_gt_fuzzer)"
     echo "  merkle_check - Merkle Check fuzzer (harness_merkle_check_fuzzer)"
     echo "  calldata - Calldata fuzzer (harness_calldata_fuzzer)"
-    echo "  emit_unencrypted_log - Emit Unencrypted Log fuzzer (harness_emit_unencrypted_log_fuzzer)"
+    echo "  emit_public_log - Emit Public Log fuzzer (harness_emit_public_log_fuzzer)"
     echo "  internal_call - Internal Call fuzzer (harness_internal_call_fuzzer)"
     echo "  external_call - External Call fuzzer (harness_external_call_fuzzer)"
     exit 0
@@ -103,7 +102,6 @@ fi
 
 # Validate and map fuzzer type
 case "$FUZZER_ALIAS" in
-    avm) FUZZER_TYPE="avm_fuzzer_avm_differential_fuzzer" ;;
     tx) FUZZER_TYPE="avm_fuzzer_tx_fuzzer" ;;
     prover) FUZZER_TYPE="avm_fuzzer_prover_fuzzer" ;;
     alu) FUZZER_TYPE="harness_alu_fuzzer" ;;
@@ -112,12 +110,12 @@ case "$FUZZER_ALIAS" in
     gt) FUZZER_TYPE="harness_gt_fuzzer" ;;
     merkle_check) FUZZER_TYPE="harness_merkle_check_fuzzer" ;;
     calldata) FUZZER_TYPE="harness_calldata_fuzzer" ;;
-    emit_unencrypted_log) FUZZER_TYPE="harness_emit_unencrypted_log_fuzzer" ;;
+    emit_public_log) FUZZER_TYPE="harness_emit_public_log_fuzzer" ;;
     internal_call) FUZZER_TYPE="harness_internal_call_fuzzer" ;;
     external_call) FUZZER_TYPE="harness_external_call_fuzzer" ;;
     *)
         echo "Error: Invalid fuzzer type '$FUZZER_ALIAS'"
-        echo "Valid options: 'avm', 'tx', 'prover', 'alu', 'bitwise', 'ecc', 'gt', 'merkle_check', 'calldata', 'emit_unencrypted_log', 'internal_call', or 'external_call'"
+        echo "Valid options: 'tx', 'prover', 'alu', 'bitwise', 'ecc', 'gt', 'merkle_check', 'calldata', 'emit_public_log', 'internal_call', or 'external_call'"
         exit 1
         ;;
 esac
@@ -125,29 +123,14 @@ esac
 # Get the script directory and project root
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 BARRETENBERG_ROOT="$(cd "$SCRIPT_DIR/../../../.." && pwd)"
-PROJECT_ROOT="$(cd "$BARRETENBERG_ROOT/.." && pwd)"
 CPP_DIR="$BARRETENBERG_ROOT/cpp"
 COVERAGE_OUTPUT_DIR="$SCRIPT_DIR/coverage"
 
-# Set AVM_SIMULATOR_BIN environment variable (relative to PROJECT_ROOT)
-export AVM_SIMULATOR_BIN="${AVM_SIMULATOR_BIN:-$PROJECT_ROOT/yarn-project/simulator/dest/public/fuzzing/avm_simulator_bin.js}"
-
-# Check if AVM_SIMULATOR_BIN exists (only for avm, tx, and prover fuzzers)
-if [ "$COMMAND" = "fuzz" ] && { [ "$FUZZER_ALIAS" = "avm" ] || [ "$FUZZER_ALIAS" = "tx" ] || [ "$FUZZER_ALIAS" = "prover" ]; } && [ ! -f "$AVM_SIMULATOR_BIN" ]; then
-    echo "Error: AVM simulator binary not found at: $AVM_SIMULATOR_BIN"
-    echo ""
-    echo "To build the AVM simulator fuzzer binary:"
-    echo "  cd $PROJECT_ROOT/yarn-project/simulator"
-    echo "  yarn build:fuzzer"
-    echo ""
-    exit 1
-fi
-
 # Set build directory based on command
 if [ "$COMMAND" = "coverage" ]; then
-    BUILD_DIR="$CPP_DIR/build-coverage"
-    BUILD_PRESET="clang20-coverage"
-    BUILD_CMAKE_FLAGS="-DCOVERAGE_AVM=ON -DFUZZING=ON -DFUZZING_AVM=ON"
+    BUILD_DIR="$CPP_DIR/build-fuzzing-avm-cov"
+    BUILD_PRESET="fuzzing-avm"
+    BUILD_CMAKE_FLAGS="-DCOVERAGE=ON -DCOVERAGE_AVM=ON"
 else
     BUILD_DIR="$CPP_DIR/build-fuzzing-avm"
     BUILD_PRESET="fuzzing-avm"
@@ -170,9 +153,9 @@ build_fuzzer() {
     if [ ! -f "$BUILD_DIR/CMakeCache.txt" ]; then
         echo "Configuring cmake..."
         if [ -n "$BUILD_CMAKE_FLAGS" ]; then
-            cmake --preset "$BUILD_PRESET" $BUILD_CMAKE_FLAGS
+            cmake --preset "$BUILD_PRESET" -B "$BUILD_DIR" $BUILD_CMAKE_FLAGS
         else
-            cmake --preset "$BUILD_PRESET"
+            cmake --preset "$BUILD_PRESET" -B "$BUILD_DIR"
         fi
     fi
 
@@ -314,13 +297,14 @@ if [ "$COMMAND" = "coverage" ] && [ -f "$LLVM_PROFILE_FILE" ]; then
     echo "=========================================="
 
     COVERAGE_DATA="$COVERAGE_OUTPUT_DIR/bb_avm.profdata"
-    # Merge all profraw and profdata files in coverage directory
-    COVERAGE_FILES=("$COVERAGE_OUTPUT_DIR"/*.profraw "$COVERAGE_OUTPUT_DIR"/*.profdata)
+    # Merge all profraw and profdata files in coverage directory (skip globs that match nothing)
+    COVERAGE_FILES=()
+    for f in "$COVERAGE_OUTPUT_DIR"/*.profraw "$COVERAGE_OUTPUT_DIR"/*.profdata; do
+        [ -f "$f" ] && COVERAGE_FILES+=("$f")
+    done
     echo "Merging coverage files:"
     for f in "${COVERAGE_FILES[@]}"; do
-        if [ -f "$f" ]; then
-            echo "  $f"
-        fi
+        echo "  $f"
     done
     echo ""
     llvm-profdata-20 merge -sparse "${COVERAGE_FILES[@]}" -o "$COVERAGE_DATA"

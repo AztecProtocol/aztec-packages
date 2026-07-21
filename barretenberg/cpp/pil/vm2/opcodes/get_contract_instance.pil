@@ -1,91 +1,97 @@
 include "../bytecode/contract_instance_retrieval.pil";
+include "../constants_gen.pil";
+include "../memory.pil";
+include "../precomputed.pil";
 
 /**
- * Dedicated opcode gadget for the GetContractInstance opcode.
- * It interacts with core ContractInstanceRetrieval gadget.
- * It performs write out-of-bounds checking, member enum validation,
- * contract instance retrieval, instance member selection, and two memory writes.
+ * Dedicated opcode gadget for the GetContractInstance opcode. Dispatched by execution.pil
+ * to retrieve a contract instance member and write the result to memory.
  *
- * In more detail:
- * - Performs bounds checking for dst_offset+1 using AVM_HIGHEST_MEM_ADDRESS
- * - Validates member_enum <= MAX (3)
- * - Retrieves contract instance using the shared ContractInstanceRetrieval gadget
- *   - Only does this if there are no errors (write out-of-bounds or invalid enum)
- * - Selects appropriate member based on enum (deployer/class_id/init_hash)
- * - Performs two memory writes and tag assignments (again, only if there are no errors):
- *   - exists flag (U1) at dst_offset
- *   - member value (FF) at dst_offset+1
+ * GADGET LOGIC:
+ *     - Bounds-check dst_offset+1 via #[WRITE_OUT_OF_BOUNDS_CHECK]. If dst_offset is the
+ *       maximum valid address, dst_offset+1 would be out of bounds.
+ *     - Look up member_enum in the precomputed table (#[PRECOMPUTED_INFO]) to determine
+ *       validity and which member is selected (deployer, class_id, init_hash or immutables_hash).
+ *       The precomputed table covers the full 8-bit range:
+ *       +-------+----------------------+-------------+-------------+--------------+--------------------+
+ *       | idx   | is_valid_member_enum | is_deployer | is_class_id | is_init_hash | is_immutables_hash |
+ *       +-------+----------------------+-------------+-------------+--------------+--------------------+
+ *       |   0   |         1            |      1      |      0      |      0       |          0         |
+ *       |   1   |         1            |      0      |      1      |      0       |          0         |
+ *       |   2   |         1            |      0      |      0      |      1       |          0         |
+ *       |   3   |         1            |      0      |      0      |      0       |          1         |
+ *       |  4+   |         0            |      0      |      0      |      0       |          0         |
+ *       +-------+----------------------+-------------+-------------+--------------+--------------------+
+ *     - Aggregate errors via #[ERROR_AGGREGATION]. sel_error is set when either
+ *       is_valid_writes_in_bounds or is_valid_member_enum is false.
+ *     - [no error only] Retrieve contract instance via the ContractInstanceRetrieval gadget
+ *       (#[CONTRACT_INSTANCE_RETRIEVAL]).
+ *     - [no error only] Select the member indicated by the enum (#[SELECTED_MEMBER]).
+ *     - [no error only] Write two values to memory:
+ *         - exists flag (U1) at dst_offset (#[MEM_WRITE_CONTRACT_INSTANCE_EXISTS]).
+ *         - member value (FF) at dst_offset+1 (#[MEM_WRITE_CONTRACT_INSTANCE_MEMBER]).
  *
- * Note: this gadget relies on execution to perform address resolution for address_offset and dst_offset,
- * and to perform the memory-read and tag-checking of address.
+ * PRECONDITIONS:
+ *     - Execution resolves rop[0] (address_offset) and rop[1] (dst_offset) via addressing,
+ *       ensuring dst_offset is within valid memory bounds.
+ *     - Execution reads register[0] = M[address_offset] (the contract address) from memory
+ *       and tag-checks it as FF. This gadget receives the resolved value directly.
+ *     - rop[2] (member_enum) is a U8 immediate operand, guaranteed to be 8-bit by execution.
  *
- * Opcode operands (relevant in EXECUTION when interacting with this gadget):
- * - rop[0]: address_offset (input offset operand)
- * - rop[1]: dst_offset (output offset operand)
- * - rop[2]: member_enum (immediate operand)
- * Memory I/O:
- * - register[0]: M[address_offset} aka address (input - read from memory BY EXECUTION, not here)
- *     - address is tagged-checked by execution/registers to be FF based on instruction spec.
- * - register[1]: M[dst_offset] aka exists (output - written to memory by this gadget)
- *     - tagged by this gadget to be U1.
- * - M[rop[1]+1]: M[dst_offset+1] aka memberValue (output - written to memory by this gadget)
- *     - tagged by this gadget to be FF.
+ * USAGE:
+ *     Execution dispatches into this gadget via a permutation on sel
+ *     (#[DISPATCH_TO_GET_CONTRACT_INSTANCE] in execution.pil):
  *
- * Possible errors:
- * - dst_offset+1 is an out-of-bounds memory offset.
- * - enum value is invalid (out of range).
+ *     sel_exec_dispatch_get_contract_instance {
+ *         // inputs
+ *         clk,
+ *         register[0], // contract_address
+ *         rop[1], // dst_offset
+ *         rop[2], // member_enum
+ *         context_id, // space_id
+ *         nullifier_tree_root,
+ *         public_data_tree_root,
+ *         // outputs/errors
+ *         sel_opcode_error
+ *     } is get_contract_instance.sel {
+ *         // inputs
+ *         get_contract_instance.clk,
+ *         get_contract_instance.contract_address,
+ *         get_contract_instance.dst_offset,
+ *         get_contract_instance.member_enum,
+ *         get_contract_instance.space_id,
+ *         get_contract_instance.nullifier_tree_root,
+ *         get_contract_instance.public_data_tree_root,
+ *         // outputs/errors
+ *         get_contract_instance.sel_error
+ *     };
  *
- * A precomputed table is used to retrieve the following selectors based on member_enum:
- * - is_valid_member_enum
- * - is_deployer
- * - is_class_id
- * - is_init_hash
- * +-------+----------------------+---------------+-------------+---------------+
- * |  Row  | is_valid_member_enum | is_deployer   | is_class_id | is_init_hash  |
- * | (clk) |                      |               |             |               |
- * +-------+----------------------+---------------+-------------+---------------+
- * |   0   |         1            |      1        |      0      |      0        |
- * |   1   |         1            |      0        |      1      |      0        |
- * |   2   |         1            |      0        |      0      |      1        |
- * |   3+  |         0            |      0        |      0      |      0        |
- * +-------+----------------------+---------------+-------------+---------------+
+ * TRACE SHAPE:
+ *     1 row per event. Row 0 is reserved (sel=0) for the skippable gadget optimization.
+ *     Both error and normal events produce exactly 1 row.
  *
- * Usage from execution:
+ * ERROR HANDLING:
+ *     Two error conditions, which are NOT mutually exclusive:
+ *     - Write out-of-bounds: dst_offset == AVM_HIGHEST_MEM_ADDRESS (dst_offset+1 overflows).
+ *     - Invalid member enum: member_enum >= 4 (precomputed table returns is_valid_member_enum=0).
+ *     On error, the row has sel_error=1. The contract instance retrieval lookup and memory
+ *     write permutations are disabled (their selectors is_valid_member_enum / is_valid_writes_in_bounds
+ *     are 0), so no destination interactions fire for error rows.
  *
- * sel_exec_dispatch_get_contract_instance {
- *     // inputs
- *     precomputed.clk,
- *     register[0],
- *     rop[1],
- *     rop[2],
- *     context_id,
- *     context_stack.nullifier_tree_root,
- *     context_stack.public_data_tree_root,
- *     // outputs/errors
- *     sel_opcode_error
- * } is get_contract_instance.sel {
- *     // inputs
- *     get_contract_instance.clk,
- *     get_contract_instance.contract_address,
- *     get_contract_instance.dst_offset,
- *     get_contract_instance.member_enum,
- *     get_contract_instance.space_id,
- *     get_contract_instance.nullifier_tree_root,
- *     get_contract_instance.public_data_tree_root,
- *     // outputs/errors
- *     get_contract_instance.sel_error
- * };
+ * INTERACTIONS:
+ *     - precomputed.pil: Member enum validation and selector lookup (#[PRECOMPUTED_INFO])
+ *     - contract_instance_retrieval.pil: Instance retrieval (#[CONTRACT_INSTANCE_RETRIEVAL])
+ *     - memory.pil: Write exists flag to M[dst_offset] (#[MEM_WRITE_CONTRACT_INSTANCE_EXISTS])
+ *     - memory.pil: Write member value to M[dst_offset+1] (#[MEM_WRITE_CONTRACT_INSTANCE_MEMBER])
  */
 
 namespace get_contract_instance;
 
-    // Selector for when this gadget is active
-    pol commit sel; // @boolean
-    sel * (1 - sel) = 0;
-
-    // No relations will be checked if this identity is satisfied.
     #[skippable_if]
     sel = 0;
+
+    pol commit sel; // @boolean
+    sel * (1 - sel) = 0;
 
     // Interface columns
     pol commit clk;
@@ -107,16 +113,23 @@ namespace get_contract_instance;
     is_valid_writes_in_bounds * (1 - is_valid_writes_in_bounds) = 0;
     pol WRITES_OUT_OF_BOUNDS = 1 - is_valid_writes_in_bounds;
     pol DST_OFFSET_DIFF_MAX = constants.AVM_HIGHEST_MEM_ADDRESS - dst_offset;
-    pol commit dst_offset_diff_max_inv;
+    pol commit dst_offset_diff_max_inv; // @zero-check
+    // See https://github.com/AztecProtocol/aztec-packages/blob/next/barretenberg/cpp/pil/vm2/docs/recipes.md#with-error-support.
     #[WRITE_OUT_OF_BOUNDS_CHECK]
     sel * (DST_OFFSET_DIFF_MAX * (WRITES_OUT_OF_BOUNDS * (1 - dst_offset_diff_max_inv) + dst_offset_diff_max_inv) - 1 + WRITES_OUT_OF_BOUNDS) = 0;
 
     // Member selection helper columns
     // (from precomputed.pil's GETCONTRACTINSTANCE opcode precomputed columns)
+    // These are constrained only via the #[PRECOMPUTED_INFO] lookup when is_valid_writes_in_bounds == 1.
+    // When the lookup is disabled (writes out of bounds), is_valid_member_enum is forced to 0 by
+    // #[IS_VALID_MEMBER_ENUM_ONLY_SET_BY_PRECOMPUTED_LOOKUP]. is_deployer/is_class_id/is_init_hash/is_immutables_hash
+    // are free in that case, but safe: they are only consumed in #[SELECTED_MEMBER] and the memory
+    // write permutations, all of which are gated on is_valid_member_enum (which is 0).
     pol commit is_valid_member_enum; // @boolean (by lookup when is_valid_writes_in_bounds == 1)
     pol commit is_deployer; // @boolean (by lookup when is_valid_writes_in_bounds == 1)
     pol commit is_class_id; // @boolean (by lookup when is_valid_writes_in_bounds == 1)
     pol commit is_init_hash; // @boolean (by lookup when is_valid_writes_in_bounds == 1)
+    pol commit is_immutables_hash; // @boolean (by lookup when is_valid_writes_in_bounds == 1)
     // Note: member_enum is guaranteed to be 8 bits by execution (as a U8 immediate operand),
     // and the precomputed table is populated for the entire 8-bit range (256 rows).
     #[PRECOMPUTED_INFO]
@@ -127,15 +140,17 @@ namespace get_contract_instance;
         is_valid_member_enum,
         is_deployer,
         is_class_id,
-        is_init_hash
+        is_init_hash,
+        is_immutables_hash
     } in precomputed.sel_range_8 {
         // inputs
-        precomputed.clk,
+        precomputed.idx,
         // outputs
         precomputed.is_valid_member_enum,
         precomputed.is_deployer,
         precomputed.is_class_id,
-        precomputed.is_init_hash
+        precomputed.is_init_hash,
+        precomputed.is_immutables_hash
     };
     // Do not allow is_valid_member_enum to be 1 if the precomputed lookup is disabled.
     #[IS_VALID_MEMBER_ENUM_ONLY_SET_BY_PRECOMPUTED_LOOKUP]
@@ -152,11 +167,15 @@ namespace get_contract_instance;
     #[ERROR_AGGREGATION]
     sel_error = sel * (1 - is_valid_writes_in_bounds * is_valid_member_enum);
 
-    // Retrieved instance members and existence (from lookup to the core instance retrieval gadget)
+    // Retrieved instance members and existence (from lookup to the core instance retrieval gadget).
+    // These are constrained only via #[CONTRACT_INSTANCE_RETRIEVAL] when is_valid_member_enum == 1.
+    // When the lookup is disabled (error), these columns are free, but safe: they are only consumed
+    // in #[SELECTED_MEMBER] and the memory write permutations, all gated on is_valid_member_enum.
     pol commit instance_exists;
     pol commit retrieved_deployer_addr;
     pol commit retrieved_class_id;
     pol commit retrieved_init_hash;
+    pol commit retrieved_immutables_hash;
 
     #[CONTRACT_INSTANCE_RETRIEVAL]
     is_valid_member_enum {
@@ -168,7 +187,8 @@ namespace get_contract_instance;
         instance_exists,
         retrieved_deployer_addr,
         retrieved_class_id,
-        retrieved_init_hash
+        retrieved_init_hash,
+        retrieved_immutables_hash
     } in contract_instance_retrieval.sel {
         // inputs
         contract_instance_retrieval.address,
@@ -178,20 +198,21 @@ namespace get_contract_instance;
         contract_instance_retrieval.exists,
         contract_instance_retrieval.deployer_addr,
         contract_instance_retrieval.current_class_id,
-        contract_instance_retrieval.init_hash
+        contract_instance_retrieval.init_hash,
+        contract_instance_retrieval.immutables_hash
     };
 
     // Select the member indicated by the enum for writing to memory
     // Note: is_* selectors are guaranteed to be mutually exclusive booleans by the precomputed table.
     pol commit selected_member;
     #[SELECTED_MEMBER]
-    selected_member = is_deployer * retrieved_deployer_addr + is_class_id * retrieved_class_id + is_init_hash * retrieved_init_hash;
+    selected_member = is_deployer * retrieved_deployer_addr + is_class_id * retrieved_class_id + is_init_hash * retrieved_init_hash + is_immutables_hash * retrieved_immutables_hash;
 
     // Compute memory offsets for writing to
     pol commit member_write_offset;
     #[MEMBER_WRITE_OFFSET]
     member_write_offset = is_valid_writes_in_bounds * (dst_offset + 1);
-    // TODO: remove these once we can use constants in permutations
+    // Lookup constant support: Can be removed when we support constants in permutations.
     pol commit exists_tag;
     exists_tag = is_valid_writes_in_bounds * constants.MEM_TAG_U1;
     pol commit member_tag;
@@ -214,8 +235,7 @@ namespace get_contract_instance;
         memory.tag,
         memory.rw
     };
-    // TODO(dbanks12): consider reusing a single memory permutation for both writes,
-    // or do the first write in execution (after returning `exists` to execution).
+
     #[MEM_WRITE_CONTRACT_INSTANCE_MEMBER]
     is_valid_member_enum {
         clk,

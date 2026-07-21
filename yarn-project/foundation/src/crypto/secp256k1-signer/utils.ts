@@ -210,3 +210,35 @@ export function recoverPublicKey(hash: Buffer32, signature: Signature, opts: Rec
   const publicKey = sig.recoverPublicKey(hash.buffer).toHex(false);
   return Buffer.from(publicKey, 'hex');
 }
+
+/** Arbitrary hash used for testing signature recoverability. */
+const PROBE_HASH = Buffer32.fromBuffer(keccak256(Buffer.from('signature-recoverability-probe')));
+
+/**
+ * Generates a random valid ECDSA signature that is recoverable to some address.
+ * Since Signature.random() produces real signatures via secp256k1 signing, the result is always
+ * recoverable, but we verify defensively by checking tryRecoverAddress.
+ */
+export function generateRecoverableSignature(): Signature {
+  for (let i = 0; i < 100; i++) {
+    const sig = Signature.random();
+    if (tryRecoverAddress(PROBE_HASH, sig) !== undefined) {
+      return sig;
+    }
+  }
+  throw new Secp256k1Error('Failed to generate a recoverable signature after 100 attempts');
+}
+
+/**
+ * Generates a random signature where ECDSA address recovery fails.
+ * Uses random r/s values (not from real signing) so that r is unlikely to be a valid secp256k1 x-coordinate.
+ */
+export function generateUnrecoverableSignature(): Signature {
+  for (let i = 0; i < 100; i++) {
+    const sig = new Signature(Buffer32.random(), Buffer32.random(), 27);
+    if (tryRecoverAddress(PROBE_HASH, sig) === undefined) {
+      return sig;
+    }
+  }
+  throw new Secp256k1Error('Failed to generate an unrecoverable signature after 100 attempts');
+}

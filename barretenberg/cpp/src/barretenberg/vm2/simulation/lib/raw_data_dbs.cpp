@@ -6,11 +6,11 @@
 #include <stdexcept>
 #include <string>
 
+#include "barretenberg/aztec/aztec_constants.hpp"
 #include "barretenberg/common/bb_bench.hpp"
 #include "barretenberg/common/log.hpp"
 #include "barretenberg/crypto/merkle_tree/indexed_tree/indexed_leaf.hpp"
 #include "barretenberg/vm2/common/avm_io.hpp"
-#include "barretenberg/vm2/common/aztec_constants.hpp"
 #include "barretenberg/vm2/simulation/interfaces/db.hpp"
 #include "barretenberg/vm2/simulation/lib/contract_crypto.hpp"
 
@@ -113,12 +113,15 @@ std::optional<ContractInstance> HintedRawContractDB::get_contract_instance(const
         .current_contract_class_id = contract_instance_hint.current_contract_class_id,
         .original_contract_class_id = contract_instance_hint.original_contract_class_id,
         .initialization_hash = contract_instance_hint.initialization_hash,
+        .immutables_hash = contract_instance_hint.immutables_hash,
         .public_keys =
             PublicKeys{
-                .nullifier_key = contract_instance_hint.public_keys.master_nullifier_public_key,
-                .incoming_viewing_key = contract_instance_hint.public_keys.master_incoming_viewing_public_key,
-                .outgoing_viewing_key = contract_instance_hint.public_keys.master_outgoing_viewing_public_key,
-                .tagging_key = contract_instance_hint.public_keys.master_tagging_public_key,
+                .nullifier_key_hash = contract_instance_hint.public_keys.npk_m_hash,
+                .incoming_viewing_key = contract_instance_hint.public_keys.ivpk_m,
+                .outgoing_viewing_key_hash = contract_instance_hint.public_keys.ovpk_m_hash,
+                .tagging_key_hash = contract_instance_hint.public_keys.tpk_m_hash,
+                .message_signing_key_hash = contract_instance_hint.public_keys.mspk_m_hash,
+                .fallback_key_hash = contract_instance_hint.public_keys.fbpk_m_hash,
             },
     });
 }

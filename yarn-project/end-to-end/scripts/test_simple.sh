@@ -33,8 +33,7 @@ else
   [ -n "${test_name:-}" ] && test_name_arg=(--testNamePattern="$test_name")
 
   node --experimental-vm-modules ../node_modules/.bin/jest \
-  --testTimeout=300000 \
-  --forceExit \
+  --testTimeout=600000 \
   --no-cache \
   "${cache_dir_arg[@]}" \
   "${test_name_arg[@]}" \

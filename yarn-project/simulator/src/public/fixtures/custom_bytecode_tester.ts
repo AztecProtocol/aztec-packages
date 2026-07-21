@@ -17,7 +17,7 @@ export async function deployCustomBytecode(
   bytecode: Buffer,
   tester: PublicTxSimulationTester,
   contractName: string = 'CustomBytecodeContract',
-  deployer: AztecAddress = AztecAddress.fromNumber(42),
+  deployer: AztecAddress = AztecAddress.fromNumberUnsafe(42),
 ): Promise<ContractInstanceWithAddress> {
   const contractArtifact = emptyContractArtifact();
   contractArtifact.name = contractName;
@@ -75,7 +75,7 @@ export async function deployAndExecuteCustomBytecode(
   tester: PublicTxSimulationTester,
   txLabel: string = 'CustomBytecodeTest',
   contractName: string = 'CustomBytecodeContract',
-  deployer: AztecAddress = AztecAddress.fromNumber(42),
+  deployer: AztecAddress = AztecAddress.fromNumberUnsafe(42),
   calldata: any[] = [],
 ): Promise<PublicTxResult> {
   const testContract = await deployCustomBytecode(bytecode, tester, contractName, deployer);

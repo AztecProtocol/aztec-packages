@@ -1,18 +1,23 @@
 import { EcdsaRAccountContractArtifact } from '@aztec/accounts/ecdsa';
+import { SchnorrAccountContractArtifact } from '@aztec/accounts/schnorr';
+import { NO_FROM } from '@aztec/aztec.js/account';
 import { AztecAddress } from '@aztec/aztec.js/addresses';
 import { publishContractClass } from '@aztec/aztec.js/deployment';
 import type { DeployAccountOptions, Wallet } from '@aztec/aztec.js/wallet';
 import { SponsoredFPCContract } from '@aztec/noir-contracts.js/SponsoredFPC';
 import type { ContractInstanceWithAddress } from '@aztec/stdlib/contract';
-import type { TestWallet } from '@aztec/test-wallet/server';
 
 import { jest } from '@jest/globals';
 
-import { captureProfile } from './benchmark.js';
+import type { TestWallet } from '../../test-wallet/test_wallet.js';
+import { captureProfile, expectedExecutionSteps } from './benchmark.js';
 import { type AccountType, type BenchmarkingFeePaymentMethod, ClientFlowsBenchmark } from './client_flows_benchmark.js';
 
 jest.setTimeout(300_000);
 
+// Account deployment round-trip benchmark. Uses ClientFlowsBenchmark (wraps setup()) with BENCHMARK_CONFIG
+// env var; profiles the full deployment flow (simulate → prove → send → wait) for ECDSA-R1 and Schnorr
+// account types with various fee-payment methods. Bench pipeline only.
 describe('Deployment benchmark', () => {
   const t = new ClientFlowsBenchmark('deployments');
 
@@ -30,11 +35,16 @@ describe('Deployment benchmark', () => {
     await t.setup();
     await t.applyDeploySponsoredFPC();
     ({ adminWallet, adminAddress, userWallet, sponsoredFPCInstance } = t);
-    // Ensure the ECDSAR1 contract is already registered, to avoid benchmarking an extra call to the ContractClassRegistry
+    // Ensure both account contract classes are already registered, to avoid benchmarking an extra call to the ContractClassRegistry
     // The typical interaction would be for a user to deploy an account contract that is already registered in the
     // network.
-    const publishContractClassInteraction = await publishContractClass(adminWallet, EcdsaRAccountContractArtifact);
-    await publishContractClassInteraction.send({ from: adminAddress });
+    const interactions = [
+      await publishContractClass(adminWallet, SchnorrAccountContractArtifact),
+      await publishContractClass(adminWallet, EcdsaRAccountContractArtifact),
+    ];
+    for (const interaction of interactions) {
+      await interaction.send({ from: adminAddress });
+    }
   });
 
   afterAll(async () => {
@@ -65,7 +75,7 @@ describe('Deployment benchmark', () => {
           // Publicly deploy the contract, but skip the class registration as that is the
           // "typical" use case
           const options: DeployAccountOptions = {
-            from: AztecAddress.ZERO, // Self deployment
+            from: NO_FROM, // Self deployment
             skipClassPublication: true,
             skipInstancePublication: false,
             skipInitialization: false,
@@ -78,21 +88,19 @@ describe('Deployment benchmark', () => {
             `deploy_${accountType}+${benchmarkingPaymentMethod}`,
             deploymentInteraction,
             options,
-            1 + // Multicall entrypoint
-              1 + // Kernel init
-              2 + // ContractInstanceRegistry publish + kernel inner
-              2 + // Account constructor + kernel inner
-              2 + // Account entrypoint (wrapped fee payload) + kernel inner
-              paymentMethodManager.circuits + // Payment method circuits
-              1 + // Kernel reset
-              1 + // Kernel tail
-              1, // Kernel hiding
+            expectedExecutionSteps(
+              1 + // Multicall entrypoint
+                1 + // ContractInstanceRegistry publish
+                1 + // Account constructor
+                1 + // Account entrypoint (wrapped fee payload)
+                paymentMethodManager.apps, // Payment method apps
+            ),
           );
 
           if (process.env.SANITY_CHECKS) {
             // Ensure we paid a fee
-            const tx = await deploymentInteraction.send({ ...options, wait: { returnReceipt: true } });
-            expect(tx.transactionFee!).toBeGreaterThan(0n);
+            const { receipt } = await deploymentInteraction.send({ ...options });
+            expect(receipt.transactionFee!).toBeGreaterThan(0n);
           }
         });
       }

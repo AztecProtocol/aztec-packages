@@ -1,44 +1,111 @@
-import type { ARCHIVE_HEIGHT, NOTE_HASH_TREE_HEIGHT } from '@aztec/constants';
+import { ARCHIVE_HEIGHT, type NOTE_HASH_TREE_HEIGHT } from '@aztec/constants';
 import type { BlockNumber } from '@aztec/foundation/branded-types';
+import { uniqueBy } from '@aztec/foundation/collection';
 import { Aes128 } from '@aztec/foundation/crypto/aes128';
 import { Fr } from '@aztec/foundation/curves/bn254';
 import { Point } from '@aztec/foundation/curves/grumpkin';
-import { LogLevels, applyStringFormatting, createLogger } from '@aztec/foundation/log';
-import type { MembershipWitness } from '@aztec/foundation/trees';
+import { LogLevels, type Logger, createLogger } from '@aztec/foundation/log';
+import { MembershipWitness } from '@aztec/foundation/trees';
 import type { KeyStore } from '@aztec/key-store';
+import {
+  type CircuitSimulator,
+  ExecutionError,
+  extractCallStack,
+  resolveAssertionMessageFromError,
+  toACVMWitness,
+  witnessMapToFields,
+} from '@aztec/simulator/client';
+import { STANDARD_HANDSHAKE_REGISTRY_ADDRESS } from '@aztec/standard-contracts/handshake-registry/constants';
+import { type FunctionCall, FunctionSelector } from '@aztec/stdlib/abi';
 import type { AuthWitness } from '@aztec/stdlib/auth-witness';
 import { AztecAddress } from '@aztec/stdlib/aztec-address';
-import { BlockHash } from '@aztec/stdlib/block';
-import type { CompleteAddress, ContractInstance } from '@aztec/stdlib/contract';
+import { BlockHash, type L2TipsProvider } from '@aztec/stdlib/block';
+import type { CompleteAddress, ContractInstancePreimageWithAddress, PartialAddress } from '@aztec/stdlib/contract';
 import { siloNullifier } from '@aztec/stdlib/hash';
 import type { AztecNode } from '@aztec/stdlib/interfaces/server';
 import type { KeyValidationRequest } from '@aztec/stdlib/kernel';
-import { computeAddressSecret } from '@aztec/stdlib/keys';
-import { deriveEcdhSharedSecret } from '@aztec/stdlib/logs';
+import { PublicKeys, computeAddressSecret, hashPublicKey } from '@aztec/stdlib/keys';
+import { AppTaggingSecret, FlatPublicLogs, appSiloEcdhSharedSecret } from '@aztec/stdlib/logs';
 import { getNonNullifiedL1ToL2MessageWitness } from '@aztec/stdlib/messaging';
 import type { NoteStatus } from '@aztec/stdlib/note';
 import { MerkleTreeId, type NullifierMembershipWitness, PublicDataWitness } from '@aztec/stdlib/trees';
-import type { BlockHeader, Capsule } from '@aztec/stdlib/tx';
+import {
+  type BlockHeader,
+  CallContext,
+  type Capsule,
+  type IndexedTxEffect,
+  type OffchainEffect,
+  type TxHash,
+} from '@aztec/stdlib/tx';
 
+import type { ContractSyncService } from '../../contract/contract_sync_service.js';
+import { createContractLogger, logContractMessage, stripAztecnrLogPrefix } from '../../contract_logging.js';
 import { EventService } from '../../events/event_service.js';
+import type { UtilityCallAuthorizationRequest } from '../../hooks/authorize_utility_call.js';
+import type { ExecutionHooks } from '../../hooks/index.js';
 import { LogService } from '../../logs/log_service.js';
+import { TxResolverService } from '../../messages/tx_resolver_service.js';
 import { NoteService } from '../../notes/note_service.js';
-import { ORACLE_VERSION } from '../../oracle_version.js';
+import { ORACLE_VERSION_MAJOR } from '../../oracle_version.js';
 import type { AddressStore } from '../../storage/address_store/address_store.js';
-import type { CapsuleStore } from '../../storage/capsule_store/capsule_store.js';
-import type { ContractStore } from '../../storage/contract_store/contract_store.js';
+import type { CapsuleService } from '../../storage/capsule_store/capsule_service.js';
+import { FactCollectionKey, FactCollectionTypeKey, anchoredTipBlockNumbers } from '../../storage/fact_store/index.js';
+import type { FactService, OriginBlock } from '../../storage/fact_store/index.js';
 import type { NoteStore } from '../../storage/note_store/note_store.js';
 import type { PrivateEventStore } from '../../storage/private_event_store/private_event_store.js';
 import type { RecipientTaggingStore } from '../../storage/tagging_store/recipient_tagging_store.js';
-import type { SenderAddressBookStore } from '../../storage/tagging_store/sender_address_book_store.js';
-import { EventValidationRequest } from '../noir-structs/event_validation_request.js';
-import { LogRetrievalRequest } from '../noir-structs/log_retrieval_request.js';
-import { LogRetrievalResponse } from '../noir-structs/log_retrieval_response.js';
-import { NoteValidationRequest } from '../noir-structs/note_validation_request.js';
-import { UtilityContext } from '../noir-structs/utility_context.js';
+import type { TaggingSecretSourcesStore } from '../../storage/tagging_store/tagging_secret_sources_store.js';
+import type { AnchoredContractData } from '../anchored_contract_data.js';
+import { EphemeralArrayService } from '../ephemeral_array_service.js';
+import { BoundedVec } from '../noir-structs/bounded_vec.js';
+import type { EmbeddedCurvePoint } from '../noir-structs/embedded_curve_point.js';
+import { EphemeralArray } from '../noir-structs/ephemeral_array.js';
+import type { EventValidationRequest } from '../noir-structs/event_validation_request.js';
+import { type FactCollection, emptyFactCollection, toNoirFactCollection } from '../noir-structs/fact_collection.js';
+import type { LogRetrievalRequest } from '../noir-structs/log_retrieval_request.js';
+import type { LogRetrievalResponse } from '../noir-structs/log_retrieval_response.js';
+import type { NoteData } from '../noir-structs/note_data.js';
+import type { NoteValidationRequest } from '../noir-structs/note_validation_request.js';
+import { Option } from '../noir-structs/option.js';
+import type { PendingTaggedLog } from '../noir-structs/pending_tagged_log.js';
+import type { ProvidedSecret } from '../noir-structs/provided_secret.js';
+import type { ResolvedTx } from '../noir-structs/resolved_tx.js';
+import type { TxEffectData } from '../noir-structs/tx_effect_data.js';
+import type { UtilityContext } from '../noir-structs/utility_context.js';
 import { pickNotes } from '../pick_notes.js';
-import type { IMiscOracle, IUtilityExecutionOracle, NoteData } from './interfaces.js';
-import { MessageLoadOracleInputs } from './message_load_oracle_inputs.js';
+import type { TransientArrayService } from '../transient_array_service.js';
+import { buildACIRCallback } from './acir_callback.js';
+import type { IMiscOracle, IUtilityExecutionOracle } from './interfaces.js';
+
+/** Args for UtilityExecutionOracle constructor. */
+export type UtilityExecutionOracleArgs = {
+  callContext: CallContext;
+  /** List of transient auth witnesses to be used during this simulation */
+  authWitnesses: AuthWitness[];
+  capsules: Capsule[]; // TODO(#12425): Rename to transientCapsules
+  anchorBlockHeader: BlockHeader;
+  anchoredContractData: AnchoredContractData;
+  noteStore: NoteStore;
+  keyStore: KeyStore;
+  addressStore: AddressStore;
+  aztecNode: AztecNode;
+  recipientTaggingStore: RecipientTaggingStore;
+  taggingSecretSourcesStore: TaggingSecretSourcesStore;
+  capsuleService: CapsuleService;
+  factService: FactService;
+  privateEventStore: PrivateEventStore;
+  txResolver: TxResolverService;
+  contractSyncService: ContractSyncService;
+  l2TipsStore: L2TipsProvider;
+  jobId: string;
+  log?: ReturnType<typeof createLogger>;
+  scopes: AztecAddress[];
+  simulator: CircuitSimulator;
+  hooks?: ExecutionHooks;
+  /** Needed to trigger contract synchronization before nested cross-contract calls. */
+  utilityExecutor: (call: FunctionCall, scopes: AztecAddress[]) => Promise<void>;
+  transientArrayService: TransientArrayService;
+};
 
 /**
  * The oracle for an execution of utility contract functions.
@@ -47,64 +114,136 @@ export class UtilityExecutionOracle implements IMiscOracle, IUtilityExecutionOra
   isMisc = true as const;
   isUtility = true as const;
 
-  private aztecNrDebugLog = createLogger('aztec-nr:debug_log');
+  private contractLogger: Logger | undefined;
+  private aztecnrLogger: Logger | undefined;
+  private offchainEffects: OffchainEffect[] = [];
+  private readonly ephemeralArrayService = new EphemeralArrayService();
+  protected readonly transientArrayService: TransientArrayService;
 
-  constructor(
-    protected readonly contractAddress: AztecAddress,
-    /** List of transient auth witnesses to be used during this simulation */
-    protected readonly authWitnesses: AuthWitness[],
-    protected readonly capsules: Capsule[], // TODO(#12425): Rename to transientCapsules
-    protected readonly anchorBlockHeader: BlockHeader,
-    protected readonly contractStore: ContractStore,
-    protected readonly noteStore: NoteStore,
-    protected readonly keyStore: KeyStore,
-    protected readonly addressStore: AddressStore,
-    protected readonly aztecNode: AztecNode,
-    protected readonly recipientTaggingStore: RecipientTaggingStore,
-    protected readonly senderAddressBookStore: SenderAddressBookStore,
-    protected readonly capsuleStore: CapsuleStore,
-    protected readonly privateEventStore: PrivateEventStore,
-    protected readonly jobId: string,
-    protected log = createLogger('simulator:client_view_context'),
-    protected readonly scopes?: AztecAddress[],
-  ) {}
+  // We store oracle version to be able to show a nice error message when an oracle handler is missing.
+  private contractOracleVersion: { major: number; minor: number } | undefined;
 
-  public utilityAssertCompatibleOracleVersion(version: number): void {
-    if (version !== ORACLE_VERSION) {
-      throw new Error(`Incompatible oracle version. Expected version ${ORACLE_VERSION}, got ${version}.`);
-    }
+  protected readonly callContext: CallContext;
+  protected readonly authWitnesses: AuthWitness[];
+  protected readonly capsules: Capsule[];
+  protected readonly anchorBlockHeader: BlockHeader;
+  protected readonly anchoredContractData: AnchoredContractData;
+  protected readonly noteStore: NoteStore;
+  protected readonly keyStore: KeyStore;
+  protected readonly addressStore: AddressStore;
+  protected readonly aztecNode: AztecNode;
+  protected readonly recipientTaggingStore: RecipientTaggingStore;
+  protected readonly taggingSecretSourcesStore: TaggingSecretSourcesStore;
+  protected readonly capsuleService: CapsuleService;
+  protected readonly factService: FactService;
+  protected readonly privateEventStore: PrivateEventStore;
+  protected readonly txResolver: TxResolverService;
+  protected readonly contractSyncService: ContractSyncService;
+  protected readonly l2TipsStore: L2TipsProvider;
+  protected readonly jobId: string;
+  protected logger: ReturnType<typeof createLogger>;
+  protected readonly scopes: AztecAddress[];
+  protected readonly simulator: CircuitSimulator;
+  protected readonly hooks: ExecutionHooks | undefined;
+  protected readonly utilityExecutor: (call: FunctionCall, scopes: AztecAddress[]) => Promise<void>;
+
+  constructor(args: UtilityExecutionOracleArgs) {
+    this.callContext = args.callContext;
+    this.authWitnesses = args.authWitnesses;
+    this.capsules = args.capsules;
+    this.anchorBlockHeader = args.anchorBlockHeader;
+    this.anchoredContractData = args.anchoredContractData;
+    this.noteStore = args.noteStore;
+    this.keyStore = args.keyStore;
+    this.addressStore = args.addressStore;
+    this.aztecNode = args.aztecNode;
+    this.recipientTaggingStore = args.recipientTaggingStore;
+    this.taggingSecretSourcesStore = args.taggingSecretSourcesStore;
+    this.capsuleService = args.capsuleService;
+    this.factService = args.factService;
+    this.privateEventStore = args.privateEventStore;
+    this.txResolver = args.txResolver;
+    this.contractSyncService = args.contractSyncService;
+    this.l2TipsStore = args.l2TipsStore;
+    this.jobId = args.jobId;
+    this.logger = args.log ?? createLogger('simulator:client_view_context');
+    this.scopes = args.scopes;
+    this.simulator = args.simulator;
+    this.hooks = args.hooks;
+    this.utilityExecutor = args.utilityExecutor;
+    this.transientArrayService = args.transientArrayService;
   }
 
-  public utilityGetRandomField(): Fr {
+  public assertCompatibleOracleVersion(major: number, minor: number): void {
+    if (major !== ORACLE_VERSION_MAJOR) {
+      const hint =
+        major > ORACLE_VERSION_MAJOR
+          ? 'The contract was compiled with a newer version of Aztec.nr than your private environment supports. Upgrade your private environment to a compatible version.'
+          : 'The contract was compiled with an older version of Aztec.nr than your private environment supports. Recompile the contract with a compatible version of Aztec.nr.';
+      throw new Error(
+        `Incompatible private environment version: ${hint} See https://docs.aztec.network/errors/8 (expected oracle major version ${ORACLE_VERSION_MAJOR}, got ${major})`,
+      );
+    }
+
+    this.contractOracleVersion = { major, minor };
+  }
+
+  // Prefixed with "nonOracleFunction" as it is not used as an oracle handler.
+  public nonOracleFunctionGetContractOracleVersion(): { major: number; minor: number } | undefined {
+    return this.contractOracleVersion;
+  }
+
+  public getRandomField(): Fr {
     return Fr.random();
   }
 
-  public utilityGetUtilityContext(): UtilityContext {
-    return new UtilityContext(this.anchorBlockHeader, this.contractAddress);
+  public getUtilityContext(): UtilityContext {
+    return {
+      blockHeader: this.anchorBlockHeader,
+      contractAddress: this.callContext.contractAddress,
+      msgSender: this.callContext.msgSender,
+    };
   }
 
   /**
    * Retrieve keys associated with a specific master public key and app address.
    * @param pkMHash - The master public key hash.
+   * @param _keyIndex - Sent by the Noir oracle caller but unused here; kept to match the oracle signature.
    * @returns A Promise that resolves to nullifier keys.
    * @throws If the keys are not registered in the key store.
+   * @throws If scopes are defined and the account is not in the scopes.
    */
-  public utilityGetKeyValidationRequest(pkMHash: Fr): Promise<KeyValidationRequest> {
+  public async getKeyValidationRequest(pkMHash: Fr, _keyIndex: Fr): Promise<KeyValidationRequest> {
+    let hasAccess = false;
+    for (let i = 0; i < this.scopes.length && !hasAccess; i++) {
+      if (await this.keyStore.accountHasKey(this.scopes[i], pkMHash)) {
+        hasAccess = true;
+      }
+    }
+    if (!hasAccess) {
+      throw new Error(`Key validation request denied: no scoped account has a key with hash ${pkMHash.toString()}.`);
+    }
     return this.keyStore.getKeyValidationRequest(pkMHash, this.contractAddress);
   }
 
   /**
    * Fetches the index and sibling path of a leaf at a given block from the note hash tree.
-   * @param anchorBlockHash - The hash of a block that contains the note hash tree root in which to find the membership
-   * witness.
+   * @param blockHash - The hash of a block that contains the note hash tree root in which to find the
+   * membership witness.
    * @param noteHash - The note hash to find in the note hash tree.
    * @returns The membership witness containing the leaf index and sibling path
    */
-  public utilityGetNoteHashMembershipWitness(
-    anchorBlockHash: BlockHash,
+  public async getNoteHashMembershipWitness(
+    blockHash: BlockHash,
     noteHash: Fr,
-  ): Promise<MembershipWitness<typeof NOTE_HASH_TREE_HEIGHT> | undefined> {
-    return this.aztecNode.getNoteHashMembershipWitness(anchorBlockHash, noteHash);
+  ): Promise<MembershipWitness<typeof NOTE_HASH_TREE_HEIGHT>> {
+    const witness = await this.#queryWithBlockHashNotAfterAnchor(blockHash, () =>
+      this.aztecNode.getNoteHashMembershipWitness(blockHash, noteHash),
+    );
+    if (!witness) {
+      throw new Error(`Note hash ${noteHash} not found in the note hash tree at block ${blockHash.toString()}.`);
+    }
+    return witness;
   }
 
   /**
@@ -113,16 +252,22 @@ export class UtilityExecutionOracle implements IMiscOracle, IUtilityExecutionOra
    * Block hashes are the leaves of the archive tree. Each time a new block is added to the chain,
    * its block hash is appended as a new leaf to the archive tree.
    *
-   * @param anchorBlockHash - The hash of a block that contains the archive tree root in which to find the membership
+   * @param referenceBlockHash - The hash of a block that contains the archive tree root in which to find the membership
    * witness.
    * @param blockHash - The block hash to find in the archive tree.
    * @returns The membership witness containing the leaf index and sibling path
    */
-  public utilityGetBlockHashMembershipWitness(
-    anchorBlockHash: BlockHash,
+  public async getBlockHashMembershipWitness(
+    referenceBlockHash: BlockHash,
     blockHash: BlockHash,
-  ): Promise<MembershipWitness<typeof ARCHIVE_HEIGHT> | undefined> {
-    return this.aztecNode.getBlockHashMembershipWitness(anchorBlockHash, blockHash);
+  ): Promise<Option<MembershipWitness<typeof ARCHIVE_HEIGHT>>> {
+    // Note that we validate that the reference block hash is at or before the anchor block - we don't test the block
+    // hash at all. If the block hash did not exist by the reference block hash, then the node will not return the
+    // membership witness as there is none.
+    const witness = await this.#queryWithBlockHashNotAfterAnchor(referenceBlockHash, () =>
+      this.aztecNode.getBlockHashMembershipWitness(referenceBlockHash, blockHash),
+    );
+    return witness ? Option.some(witness) : Option.none();
   }
 
   /**
@@ -131,11 +276,14 @@ export class UtilityExecutionOracle implements IMiscOracle, IUtilityExecutionOra
    * @param nullifier - Nullifier we try to find witness for.
    * @returns The nullifier membership witness (if found).
    */
-  public utilityGetNullifierMembershipWitness(
-    blockHash: BlockHash,
-    nullifier: Fr,
-  ): Promise<NullifierMembershipWitness | undefined> {
-    return this.aztecNode.getNullifierMembershipWitness(blockHash, nullifier);
+  public async getNullifierMembershipWitness(blockHash: BlockHash, nullifier: Fr): Promise<NullifierMembershipWitness> {
+    const witness = await this.#queryWithBlockHashNotAfterAnchor(blockHash, () =>
+      this.aztecNode.getNullifierMembershipWitness(blockHash, nullifier),
+    );
+    if (!witness) {
+      throw new Error(`Nullifier membership witness not found at block ${blockHash.toString()}.`);
+    }
+    return witness;
   }
 
   /**
@@ -147,11 +295,19 @@ export class UtilityExecutionOracle implements IMiscOracle, IUtilityExecutionOra
    * list structure" of leaves and proving that a lower nullifier is pointing to a bigger next value than the nullifier
    * we are trying to prove non-inclusion for.
    */
-  public utilityGetLowNullifierMembershipWitness(
+  public async getLowNullifierMembershipWitness(
     blockHash: BlockHash,
     nullifier: Fr,
-  ): Promise<NullifierMembershipWitness | undefined> {
-    return this.aztecNode.getLowNullifierMembershipWitness(blockHash, nullifier);
+  ): Promise<NullifierMembershipWitness> {
+    const witness = await this.#queryWithBlockHashNotAfterAnchor(blockHash, () =>
+      this.aztecNode.getLowNullifierMembershipWitness(blockHash, nullifier),
+    );
+    if (!witness) {
+      throw new Error(
+        `Low nullifier witness not found for nullifier ${nullifier} at block hash ${blockHash.toString()}.`,
+      );
+    }
+    return witness;
   }
 
   /**
@@ -160,8 +316,14 @@ export class UtilityExecutionOracle implements IMiscOracle, IUtilityExecutionOra
    * @param leafSlot - The slot of the public data tree to get the witness for.
    * @returns - The witness
    */
-  public utilityGetPublicDataWitness(blockHash: BlockHash, leafSlot: Fr): Promise<PublicDataWitness | undefined> {
-    return this.aztecNode.getPublicDataWitness(blockHash, leafSlot);
+  public async getPublicDataWitness(blockHash: BlockHash, leafSlot: Fr): Promise<PublicDataWitness> {
+    const witness = await this.#queryWithBlockHashNotAfterAnchor(blockHash, () =>
+      this.aztecNode.getPublicDataWitness(blockHash, leafSlot),
+    );
+    if (!witness) {
+      throw new Error(`Public data witness not found for slot ${leafSlot} at block hash ${blockHash.toString()}.`);
+    }
+    return witness;
   }
 
   /**
@@ -169,23 +331,37 @@ export class UtilityExecutionOracle implements IMiscOracle, IUtilityExecutionOra
    * @param blockNumber - The number of a block of which to get the block header.
    * @returns Block extracted from a block with block number `blockNumber`.
    */
-  public async utilityGetBlockHeader(blockNumber: BlockNumber): Promise<BlockHeader | undefined> {
+  public async getBlockHeader(blockNumber: BlockNumber): Promise<BlockHeader> {
     const anchorBlockNumber = this.anchorBlockHeader.getBlockNumber();
     if (blockNumber > anchorBlockNumber) {
       throw new Error(`Block number ${blockNumber} is higher than current block ${anchorBlockNumber}`);
     }
 
+    // Most contracts query state at the "current" block, which is the anchor. Skip the RPC when we can.
+    if (blockNumber === anchorBlockNumber) {
+      return this.anchorBlockHeader;
+    }
+
     const block = await this.aztecNode.getBlock(blockNumber);
-    return block?.header;
+    if (!block?.header) {
+      throw new Error(`Block header not found for block ${blockNumber}.`);
+    }
+    return block.header;
   }
 
   /**
-   * Retrieve the complete address associated to a given address.
+   * Retrieve the public keys and partial address associated to a given address.
    * @param account - The account address.
-   * @returns A complete address associated with the input address, or `undefined` if not registered.
+   * @returns The public keys and partial address, or `undefined` if the account is not registered.
    */
-  public utilityTryGetPublicKeysAndPartialAddress(account: AztecAddress): Promise<CompleteAddress | undefined> {
-    return this.addressStore.getCompleteAddress(account);
+  public async getPublicKeysAndPartialAddress(
+    account: AztecAddress,
+  ): Promise<Option<{ publicKeys: PublicKeys; partialAddress: PartialAddress }>> {
+    const completeAddress = await this.addressStore.getCompleteAddress(account);
+    if (!completeAddress) {
+      return Option.none();
+    }
+    return Option.some({ publicKeys: completeAddress.publicKeys, partialAddress: completeAddress.partialAddress });
   }
 
   protected async getCompleteAddressOrFail(account: AztecAddress): Promise<CompleteAddress> {
@@ -193,7 +369,7 @@ export class UtilityExecutionOracle implements IMiscOracle, IUtilityExecutionOra
     if (!completeAddress) {
       throw new Error(
         `No public key registered for address ${account}.
-        Register it by calling pxe.addAccount(...).\nSee docs for context: https://docs.aztec.network/developers/resources/debugging/aztecnr-errors#simulation-error-no-public-key-registered-for-address-0x0-register-it-by-calling-pxeregisterrecipient-or-pxeregisteraccount`,
+        Register it by calling wallet.registerSender(...).\nSee docs for context: https://docs.aztec.network/errors/14`,
       );
     }
     return completeAddress;
@@ -204,12 +380,8 @@ export class UtilityExecutionOracle implements IMiscOracle, IUtilityExecutionOra
    * @param address - Address.
    * @returns A contract instance.
    */
-  public utilityGetContractInstance(address: AztecAddress): Promise<ContractInstance> {
-    return this.getContractInstance(address);
-  }
-
-  protected async getContractInstance(address: AztecAddress): Promise<ContractInstance> {
-    const instance = await this.contractStore.getContractInstance(address);
+  public async getContractInstance(address: AztecAddress): Promise<ContractInstancePreimageWithAddress> {
+    const instance = await this.anchoredContractData.getContractInstance(address);
     if (!instance) {
       throw new Error(`No contract instance found for address ${address.toString()}`);
     }
@@ -217,13 +389,16 @@ export class UtilityExecutionOracle implements IMiscOracle, IUtilityExecutionOra
   }
 
   /**
-   * Returns an auth witness for the given message hash. Checks on the list of transient witnesses
-   * for this transaction first, and falls back to the local database if not found.
+   * Returns an auth witness for the given message hash from the list of transient witnesses for this transaction.
    * @param messageHash - Hash of the message to authenticate.
-   * @returns Authentication witness for the requested message hash.
+   * @returns Authentication witness for the requested message hash, or undefined if not found.
    */
-  public utilityGetAuthWitness(messageHash: Fr): Promise<Fr[] | undefined> {
-    return Promise.resolve(this.authWitnesses.find(w => w.requestHash.equals(messageHash))?.witness);
+  public getAuthWitness(messageHash: Fr): Promise<Fr[]> {
+    const witness = this.authWitnesses.find(w => w.requestHash.equals(messageHash))?.witness;
+    if (!witness) {
+      throw new Error(`Unknown auth witness for message hash ${messageHash}`);
+    }
+    return Promise.resolve(witness);
   }
 
   /**
@@ -248,8 +423,8 @@ export class UtilityExecutionOracle implements IMiscOracle, IUtilityExecutionOra
    * @param status - The status of notes to fetch.
    * @returns Array of note data.
    */
-  public async utilityGetNotes(
-    owner: AztecAddress | undefined,
+  public async getNotes(
+    owner: Option<AztecAddress>,
     storageSlot: Fr,
     numSelects: number,
     selectByIndexes: number[],
@@ -264,11 +439,13 @@ export class UtilityExecutionOracle implements IMiscOracle, IUtilityExecutionOra
     limit: number,
     offset: number,
     status: NoteStatus,
-  ): Promise<NoteData[]> {
+    maxNotes: number,
+    packedHintedNoteLength: number,
+  ): Promise<BoundedVec<NoteData>> {
     const noteService = new NoteService(this.noteStore, this.aztecNode, this.anchorBlockHeader, this.jobId);
 
-    const dbNotes = await noteService.getNotes(this.contractAddress, owner, storageSlot, status, this.scopes);
-    return pickNotes<NoteData>(dbNotes, {
+    const dbNotes = await noteService.getNotes(this.contractAddress, owner.value, storageSlot, status, this.scopes);
+    const picked = pickNotes<NoteData>(dbNotes, {
       selects: selectByIndexes.slice(0, numSelects).map((index, i) => ({
         selector: { index, offset: selectByOffsets[i], length: selectByLengths[i] },
         value: selectValues[i],
@@ -281,6 +458,7 @@ export class UtilityExecutionOracle implements IMiscOracle, IUtilityExecutionOra
       limit,
       offset,
     });
+    return BoundedVec.from({ data: picked, maxLength: maxNotes, elementSize: packedHintedNoteLength });
   }
 
   /**
@@ -288,29 +466,35 @@ export class UtilityExecutionOracle implements IMiscOracle, IUtilityExecutionOra
    * @param innerNullifier - The inner nullifier.
    * @returns A boolean indicating whether the nullifier exists in the tree or not.
    */
-  public async utilityCheckNullifierExists(innerNullifier: Fr) {
-    const nullifier = await siloNullifier(this.contractAddress, innerNullifier!);
-    const [leafIndex] = await this.aztecNode.findLeavesIndexes('latest', MerkleTreeId.NULLIFIER_TREE, [nullifier]);
+  public async doesNullifierExist(innerNullifier: Fr) {
+    const [nullifier, anchorBlockHash] = await Promise.all([
+      siloNullifier(this.contractAddress, innerNullifier!),
+      this.anchorBlockHeader.hash(),
+    ]);
+    const [leafIndex] = await this.aztecNode.findLeavesIndexes(anchorBlockHash, MerkleTreeId.NULLIFIER_TREE, [
+      nullifier,
+    ]);
     return leafIndex?.data !== undefined;
   }
 
   /**
-   * Fetches a message from the executionStore, given its key.
+   * Returns the membership witness of an un-nullified L1 to L2 message.
    * @param contractAddress - Address of a contract by which the message was emitted.
    * @param messageHash - Hash of the message.
    * @param secret - Secret used to compute a nullifier.
    * @dev Contract address and secret are only used to compute the nullifier to get non-nullified messages
    * @returns The l1 to l2 membership witness (index of message in the tree and sibling path).
    */
-  public async utilityGetL1ToL2MembershipWitness(contractAddress: AztecAddress, messageHash: Fr, secret: Fr) {
+  public async getL1ToL2MembershipWitness(contractAddress: AztecAddress, messageHash: Fr, secret: Fr) {
     const [messageIndex, siblingPath] = await getNonNullifiedL1ToL2MessageWitness(
       this.aztecNode,
       contractAddress,
       messageHash,
       secret,
+      await this.anchorBlockHeader.hash(),
     );
 
-    return new MessageLoadOracleInputs(messageIndex, siblingPath);
+    return { index: messageIndex, siblingPath };
   }
 
   /**
@@ -320,225 +504,675 @@ export class UtilityExecutionOracle implements IMiscOracle, IUtilityExecutionOra
    * @param startStorageSlot - The starting storage slot.
    * @param numberOfElements - Number of elements to read from the starting storage slot.
    */
-  public async utilityStorageRead(
+  public getFromPublicStorage(
     blockHash: BlockHash,
     contractAddress: AztecAddress,
     startStorageSlot: Fr,
     numberOfElements: number,
   ) {
-    const slots = Array(numberOfElements)
-      .fill(0)
-      .map((_, i) => new Fr(startStorageSlot.value + BigInt(i)));
+    return this.#queryWithBlockHashNotAfterAnchor(blockHash, async () => {
+      const slots = Array(numberOfElements)
+        .fill(0)
+        .map((_, i) => new Fr(startStorageSlot.value + BigInt(i)));
 
-    const values = await Promise.all(
-      slots.map(storageSlot => this.aztecNode.getPublicStorageAt(blockHash, contractAddress, storageSlot)),
-    );
+      const values = await Promise.all(
+        slots.map(storageSlot => this.aztecNode.getPublicStorageAt(blockHash, contractAddress, storageSlot)),
+      );
 
-    this.log.debug(
-      `Oracle storage read: slots=[${slots.map(slot => slot.toString()).join(', ')}] address=${contractAddress.toString()} values=[${values.join(', ')}]`,
-    );
+      this.logger.debug(
+        `Oracle storage read: slots=[${slots.map(slot => slot.toString()).join(', ')}] address=${contractAddress.toString()} values=[${values.join(', ')}]`,
+      );
 
-    return values;
-  }
-
-  public utilityDebugLog(level: number, message: string, fields: Fr[]): void {
-    if (!LogLevels[level]) {
-      throw new Error(`Invalid debug log level: ${level}`);
-    }
-    const levelName = LogLevels[level];
-    this.aztecNrDebugLog[levelName](`${applyStringFormatting(message, fields)}`);
-  }
-
-  public async utilityFetchTaggedLogs(pendingTaggedLogArrayBaseSlot: Fr) {
-    const logService = new LogService(
-      this.aztecNode,
-      this.anchorBlockHeader,
-      this.keyStore,
-      this.capsuleStore,
-      this.recipientTaggingStore,
-      this.senderAddressBookStore,
-      this.addressStore,
-      this.jobId,
-      this.log.getBindings(),
-    );
-
-    await logService.fetchTaggedLogs(this.contractAddress, pendingTaggedLogArrayBaseSlot, this.scopes);
+      return values;
+    });
   }
 
   /**
-   * Validates all note and event validation requests enqueued via `enqueue_note_for_validation` and
-   * `enqueue_event_for_validation`, inserting them into the note database and event store respectively, making them
-   * queryable via `get_notes` and `getPrivateEvents`.
-   *
-   * This automatically clears both validation request queues, so no further work needs to be done by the caller.
-   * @param contractAddress - The address of the contract that the logs are tagged for.
-   * @param noteValidationRequestsArrayBaseSlot - The base slot of capsule array containing note validation requests.
-   * @param eventValidationRequestsArrayBaseSlot - The base slot of capsule array containing event validation requests.
+   * Returns a per-contract logger whose output is prefixed with `contract:<name>(<addrAbbrev>)`.
    */
-  public async utilityValidateAndStoreEnqueuedNotesAndEvents(
-    contractAddress: AztecAddress,
-    noteValidationRequestsArrayBaseSlot: Fr,
-    eventValidationRequestsArrayBaseSlot: Fr,
-  ) {
-    // TODO(#10727): allow other contracts to store notes
-    if (!this.contractAddress.equals(contractAddress)) {
-      throw new Error(`Got a note validation request from ${contractAddress}, expected ${this.contractAddress}`);
+  async #getContractLogger(): Promise<Logger> {
+    if (!this.contractLogger) {
+      // Purpose of instanceId is to distinguish logs from different instances of the same component. It makes sense
+      // to re-use jobId as instanceId here as executions of different PXE jobs are isolated.
+      this.contractLogger = await createContractLogger(
+        this.contractAddress,
+        addr => this.anchoredContractData.getDebugContractName(addr),
+        'user',
+        { instanceId: this.jobId },
+      );
     }
-
-    // We read all note and event validation requests and process them all concurrently. This makes the process much
-    // faster as we don't need to wait for the network round-trip.
-    const noteValidationRequests = (
-      await this.capsuleStore.readCapsuleArray(contractAddress, noteValidationRequestsArrayBaseSlot, this.jobId)
-    ).map(NoteValidationRequest.fromFields);
-
-    const eventValidationRequests = (
-      await this.capsuleStore.readCapsuleArray(contractAddress, eventValidationRequestsArrayBaseSlot, this.jobId)
-    ).map(EventValidationRequest.fromFields);
-
-    const noteService = new NoteService(this.noteStore, this.aztecNode, this.anchorBlockHeader, this.jobId);
-    const noteStorePromises = noteValidationRequests.map(request =>
-      noteService.validateAndStoreNote(
-        request.contractAddress,
-        request.owner,
-        request.storageSlot,
-        request.randomness,
-        request.noteNonce,
-        request.content,
-        request.noteHash,
-        request.nullifier,
-        request.txHash,
-        request.recipient,
-      ),
-    );
-
-    const eventService = new EventService(this.anchorBlockHeader, this.aztecNode, this.privateEventStore, this.jobId);
-    const eventStorePromises = eventValidationRequests.map(request =>
-      eventService.validateAndStoreEvent(
-        request.contractAddress,
-        request.eventTypeId,
-        request.randomness,
-        request.serializedEvent,
-        request.eventCommitment,
-        request.txHash,
-        request.recipient,
-      ),
-    );
-
-    await Promise.all([...noteStorePromises, ...eventStorePromises]);
-
-    // Requests are cleared once we're done.
-    await this.capsuleStore.setCapsuleArray(contractAddress, noteValidationRequestsArrayBaseSlot, [], this.jobId);
-    await this.capsuleStore.setCapsuleArray(contractAddress, eventValidationRequestsArrayBaseSlot, [], this.jobId);
+    return this.contractLogger;
   }
 
-  public async utilityBulkRetrieveLogs(
-    contractAddress: AztecAddress,
-    logRetrievalRequestsArrayBaseSlot: Fr,
-    logRetrievalResponsesArrayBaseSlot: Fr,
-  ) {
-    // TODO(#10727): allow other contracts to process partial notes
-    if (!this.contractAddress.equals(contractAddress)) {
-      throw new Error(`Got a note validation request from ${contractAddress}, expected ${this.contractAddress}`);
+  /**
+   * Returns a per-contract logger whose output is prefixed with `aztecnr:<name>(<addrAbbrev>)`.
+   */
+  async #getAztecnrLogger(): Promise<Logger> {
+    if (!this.aztecnrLogger) {
+      // Purpose of instanceId is to distinguish logs from different instances of the same component. It makes sense
+      // to re-use jobId as instanceId here as executions of different PXE jobs are isolated.
+      this.aztecnrLogger = await createContractLogger(
+        this.contractAddress,
+        addr => this.anchoredContractData.getDebugContractName(addr),
+        'aztecnr',
+        { instanceId: this.jobId },
+      );
+    }
+    return this.aztecnrLogger;
+  }
+
+  public async log(level: number, message: string, _fieldsSize: number, fields: Fr[]): Promise<void> {
+    if (!LogLevels[level]) {
+      throw new Error(`Invalid log level: ${level}`);
     }
 
-    // We read all log retrieval requests and process them all concurrently. This makes the process much faster as we
-    // don't need to wait for the network round-trip.
-    const logRetrievalRequests = (
-      await this.capsuleStore.readCapsuleArray(contractAddress, logRetrievalRequestsArrayBaseSlot, this.jobId)
-    ).map(LogRetrievalRequest.fromFields);
+    const { kind, message: strippedMessage } = stripAztecnrLogPrefix(message);
 
-    const logService = new LogService(
+    const logger = kind == 'aztecnr' ? await this.#getAztecnrLogger() : await this.#getContractLogger();
+    logContractMessage(logger, LogLevels[level], strippedMessage, fields);
+  }
+
+  /** Fetches pending tagged logs into a freshly allocated ephemeral array and returns it. */
+  public async getPendingTaggedLogsV2(
+    scope: AztecAddress,
+    providedSecrets: EphemeralArray<ProvidedSecret>,
+  ): Promise<EphemeralArray<PendingTaggedLog>> {
+    const secrets = providedSecrets
+      .readAll(this.ephemeralArrayService)
+      .map(ps => new AppTaggingSecret(ps.secret, this.contractAddress, ps.mode));
+
+    const logService = this.#createLogService();
+    const logs = await logService.fetchTaggedLogs(this.contractAddress, scope, secrets);
+    return EphemeralArray.fromValues(this.ephemeralArrayService, logs);
+  }
+
+  #createLogService(): LogService {
+    return new LogService(
       this.aztecNode,
       this.anchorBlockHeader,
+      this.l2TipsStore,
       this.keyStore,
-      this.capsuleStore,
       this.recipientTaggingStore,
-      this.senderAddressBookStore,
+      this.taggingSecretSourcesStore,
       this.addressStore,
       this.jobId,
-      this.log.getBindings(),
-    );
-
-    const maybeLogRetrievalResponses = await logService.bulkRetrieveLogs(logRetrievalRequests);
-
-    // Requests are cleared once we're done.
-    await this.capsuleStore.setCapsuleArray(contractAddress, logRetrievalRequestsArrayBaseSlot, [], this.jobId);
-
-    // The responses are stored as Option<LogRetrievalResponse> in a second CapsuleArray.
-    await this.capsuleStore.setCapsuleArray(
-      contractAddress,
-      logRetrievalResponsesArrayBaseSlot,
-      maybeLogRetrievalResponses.map(LogRetrievalResponse.toSerializedOption),
-      this.jobId,
+      this.logger.getBindings(),
     );
   }
 
-  public utilityStoreCapsule(contractAddress: AztecAddress, slot: Fr, capsule: Fr[]): Promise<void> {
-    if (!contractAddress.equals(this.contractAddress)) {
-      // TODO(#10727): instead of this check that this.contractAddress is allowed to access the external DB
-      throw new Error(`Contract ${contractAddress} is not allowed to access ${this.contractAddress}'s PXE DB`);
-    }
-    this.capsuleStore.storeCapsule(this.contractAddress, slot, capsule, this.jobId);
-    return Promise.resolve();
-  }
-
-  public async utilityLoadCapsule(contractAddress: AztecAddress, slot: Fr): Promise<Fr[] | null> {
-    if (!contractAddress.equals(this.contractAddress)) {
-      // TODO(#10727): instead of this check that this.contractAddress is allowed to access the external DB
-      throw new Error(`Contract ${contractAddress} is not allowed to access ${this.contractAddress}'s PXE DB`);
-    }
-    return (
-      // TODO(#12425): On the following line, the pertinent capsule gets overshadowed by the transient one. Tackle this.
-      this.capsules.find(c => c.contractAddress.equals(contractAddress) && c.storageSlot.equals(slot))?.data ??
-      (await this.capsuleStore.loadCapsule(this.contractAddress, slot, this.jobId))
+  public async validateAndStoreEnqueuedNotesAndEvents(
+    noteValidationRequests: EphemeralArray<NoteValidationRequest>,
+    eventValidationRequests: EphemeralArray<EventValidationRequest>,
+    scope: AztecAddress,
+  ) {
+    await this.#processValidationRequests(
+      noteValidationRequests.readAll(this.ephemeralArrayService),
+      eventValidationRequests.readAll(this.ephemeralArrayService),
+      scope,
     );
   }
 
-  public utilityDeleteCapsule(contractAddress: AztecAddress, slot: Fr): Promise<void> {
-    if (!contractAddress.equals(this.contractAddress)) {
-      // TODO(#10727): instead of this check that this.contractAddress is allowed to access the external DB
-      throw new Error(`Contract ${contractAddress} is not allowed to access ${this.contractAddress}'s PXE DB`);
-    }
-    this.capsuleStore.deleteCapsule(this.contractAddress, slot, this.jobId);
-    return Promise.resolve();
+  async #processValidationRequests(
+    noteValidationRequests: NoteValidationRequest[],
+    eventValidationRequests: EventValidationRequest[],
+    scope: AztecAddress,
+  ) {
+    const txEffects = await this.#fetchTxEffects([
+      ...noteValidationRequests.map(r => r.txHash),
+      ...eventValidationRequests.map(r => r.txHash),
+    ]);
+
+    const noteService = new NoteService(this.noteStore, this.aztecNode, this.anchorBlockHeader, this.jobId);
+    const eventService = new EventService(this.anchorBlockHeader, this.aztecNode, this.privateEventStore, this.jobId);
+
+    await Promise.all([
+      noteService.validateAndStoreNotes(noteValidationRequests, scope, txEffects),
+      eventService.validateAndStoreEvents(eventValidationRequests, scope, txEffects),
+    ]);
   }
 
-  public utilityCopyCapsule(
+  public async getLogsByTagV2(
+    requests: EphemeralArray<LogRetrievalRequest>,
+  ): Promise<EphemeralArray<EphemeralArray<LogRetrievalResponse>>> {
+    const logRetrievalRequests = requests.readAll(this.ephemeralArrayService);
+    const logService = this.#createLogService();
+
+    const logRetrievalResponses = await logService.fetchLogsByTag(this.contractAddress, logRetrievalRequests);
+
+    // Create an inner ephemeral array for each request's matching logs, then wrap all slots in an outer array.
+    const innerArrays = logRetrievalResponses.map(responses =>
+      EphemeralArray.fromValues(this.ephemeralArrayService, responses),
+    );
+
+    return EphemeralArray.fromValues(this.ephemeralArrayService, innerArrays);
+  }
+
+  /** Given an array of tx hashes, returns an aligned array of tx info if the tx is available. */
+  public async getResolvedTxs(requests: EphemeralArray<Fr>): Promise<EphemeralArray<Option<ResolvedTx>>> {
+    const txHashes = requests.readAll(this.ephemeralArrayService);
+
+    const resolved = await this.txResolver.resolveTxs(txHashes, this.anchorBlockHeader.getBlockNumber());
+
+    const options = resolved.map(r => (r ? Option.some(r) : Option.none<ResolvedTx>()));
+    return EphemeralArray.fromValues(this.ephemeralArrayService, options);
+  }
+
+  /**
+   * Fetches the effects of a transaction by its hash. Returns null if the tx is not found or is beyond the anchor
+   * block.
+   */
+  public async getTxEffect(txHash: TxHash): Promise<Option<TxEffectData>> {
+    if (txHash.hash.isZero()) {
+      throw new Error('Invalid tx hash passed into aztec_utl_getTxEffect oracle handler');
+    }
+
+    const receipt = await this.aztecNode.getTxReceipt(txHash, { includeTxEffect: true });
+    if (!receipt.isMined() || !receipt.txEffect || receipt.blockNumber > this.anchorBlockHeader.getBlockNumber()) {
+      return Option.none();
+    }
+
+    const txEffect = receipt.txEffect;
+    return Option.some({
+      ...txEffect,
+      publicLogs: FlatPublicLogs.fromLogs(txEffect.publicLogs),
+      contractClassLogs: txEffect.contractClassLogs.map(log => ({
+        contractAddress: log.contractAddress,
+        fields: log.fields.toFields(),
+        emittedLength: log.emittedLength,
+      })),
+    });
+  }
+
+  public setCapsule(contractAddress: AztecAddress, slot: Fr, capsule: Fr[], scope: AztecAddress): void {
+    this.#assertOwnContract(contractAddress);
+    this.capsuleService.setCapsule(contractAddress, slot, capsule, this.jobId, scope);
+  }
+
+  public async getCapsule(
+    contractAddress: AztecAddress,
+    slot: Fr,
+    tSize: number,
+    scope: AztecAddress,
+  ): Promise<Option<Fr[]>> {
+    this.#assertOwnContract(contractAddress);
+    const values = await this.capsuleService.getCapsule(contractAddress, slot, this.jobId, scope, this.capsules);
+    return values ? Option.some(values) : Option.none({ length: tSize });
+  }
+
+  public deleteCapsule(contractAddress: AztecAddress, slot: Fr, scope: AztecAddress): void {
+    this.#assertOwnContract(contractAddress);
+    this.capsuleService.deleteCapsule(contractAddress, slot, this.jobId, scope);
+  }
+
+  public copyCapsule(
     contractAddress: AztecAddress,
     srcSlot: Fr,
     dstSlot: Fr,
     numEntries: number,
+    scope: AztecAddress,
   ): Promise<void> {
-    if (!contractAddress.equals(this.contractAddress)) {
-      // TODO(#10727): instead of this check that this.contractAddress is allowed to access the external DB
-      throw new Error(`Contract ${contractAddress} is not allowed to access ${this.contractAddress}'s PXE DB`);
-    }
-    return this.capsuleStore.copyCapsule(this.contractAddress, srcSlot, dstSlot, numEntries, this.jobId);
-  }
-
-  // TODO(#11849): consider replacing this oracle with a pure Noir implementation of aes decryption.
-  public utilityAes128Decrypt(ciphertext: Buffer, iv: Buffer, symKey: Buffer): Promise<Buffer> {
-    const aes128 = new Aes128();
-    return aes128.decryptBufferCBC(ciphertext, iv, symKey);
+    this.#assertOwnContract(contractAddress);
+    return this.capsuleService.copyCapsule(contractAddress, srcSlot, dstSlot, numEntries, this.jobId, scope);
   }
 
   /**
-   * Retrieves the shared secret for a given address and ephemeral public key.
-   * @param address - The address to get the secret for.
-   * @param ephPk - The ephemeral public key to get the secret for.
-   * @returns The secret for the given address.
+   * Asserts the executing contract may only access its own slice of PXE DB.
    */
-  public utilityGetSharedSecret(address: AztecAddress, ephPk: Point): Promise<Point> {
-    return this.getSharedSecret(address, ephPk);
+  #assertOwnContract(contractAddress: AztecAddress): void {
+    if (!contractAddress.equals(this.contractAddress)) {
+      throw new Error(`Contract ${contractAddress} is not allowed to access ${this.contractAddress}'s PXE DB`);
+    }
   }
 
-  protected async getSharedSecret(address: AztecAddress, ephPk: Point): Promise<Point> {
-    // TODO(#12656): return an app-siloed secret
-    const recipientCompleteAddress = await this.getCompleteAddressOrFail(address);
-    const ivskM = await this.keyStore.getMasterSecretKey(
-      recipientCompleteAddress.publicKeys.masterIncomingViewingPublicKey,
+  /**
+   * Records a fact into a collection. A `Some` origin block makes the fact retractable (pruned on reorg of that
+   * block), a `None` origin block makes it non-retractable, surviving reorgs.
+   */
+  public recordFact(
+    contractAddress: AztecAddress,
+    scope: AztecAddress,
+    factCollectionTypeId: Fr,
+    factCollectionId: Fr,
+    factTypeId: Fr,
+    payload: EphemeralArray<Fr>,
+    originBlock: Option<OriginBlock>,
+  ): Promise<void> {
+    this.#assertOwnContract(contractAddress);
+    return this.factService.recordFact(
+      new FactCollectionKey(contractAddress, scope, factCollectionTypeId, factCollectionId),
+      factTypeId,
+      payload.readAll(this.ephemeralArrayService),
+      originBlock.isSome() ? originBlock.value : undefined,
+      this.jobId,
     );
-    const addressSecret = await computeAddressSecret(await recipientCompleteAddress.getPreaddress(), ivskM);
-    return deriveEcdhSharedSecret(addressSecret, ephPk);
   }
+
+  /**
+   * Deletes a fact collection, removing all its facts. A no-op if no such collection exists.
+   */
+  public deleteFactCollection(
+    contractAddress: AztecAddress,
+    scope: AztecAddress,
+    factCollectionTypeId: Fr,
+    factCollectionId: Fr,
+  ): Promise<void> {
+    this.#assertOwnContract(contractAddress);
+    return this.factService.deleteFactCollection(
+      new FactCollectionKey(contractAddress, scope, factCollectionTypeId, factCollectionId),
+      this.jobId,
+    );
+  }
+
+  /**
+   * Returns a fact collection.
+   */
+  public async getFactCollection(
+    contractAddress: AztecAddress,
+    scope: AztecAddress,
+    factCollectionTypeId: Fr,
+    factCollectionId: Fr,
+  ): Promise<Option<FactCollection>> {
+    this.#assertOwnContract(contractAddress);
+    const tips = anchoredTipBlockNumbers(await this.l2TipsStore.getL2Tips(), this.anchorBlockHeader.getBlockNumber());
+    const collection = await this.factService.getFactCollection(
+      new FactCollectionKey(contractAddress, scope, factCollectionTypeId, factCollectionId),
+      tips,
+      this.jobId,
+    );
+    return collection
+      ? Option.some(
+          toNoirFactCollection(
+            this.ephemeralArrayService,
+            contractAddress,
+            scope,
+            factCollectionTypeId,
+            factCollectionId,
+            collection.facts,
+          ),
+        )
+      : Option.none(emptyFactCollection(this.ephemeralArrayService));
+  }
+
+  /** Returns every fact collection of `factCollectionTypeId`. */
+  public async getFactCollectionsByType(
+    contractAddress: AztecAddress,
+    scope: AztecAddress,
+    factCollectionTypeId: Fr,
+  ): Promise<EphemeralArray<FactCollection>> {
+    this.#assertOwnContract(contractAddress);
+    const tips = anchoredTipBlockNumbers(await this.l2TipsStore.getL2Tips(), this.anchorBlockHeader.getBlockNumber());
+    const collections = await this.factService.getFactCollectionsByType(
+      new FactCollectionTypeKey(contractAddress, scope, factCollectionTypeId),
+      tips,
+      this.jobId,
+    );
+    return EphemeralArray.fromValues(
+      this.ephemeralArrayService,
+      collections.map(collection =>
+        toNoirFactCollection(
+          this.ephemeralArrayService,
+          collection.key.contractAddress,
+          collection.key.scope,
+          collection.key.factCollectionTypeId,
+          collection.key.factCollectionId,
+          collection.facts,
+        ),
+      ),
+    );
+  }
+
+  /**
+   * Clears cached sync state for a contract for a set of scopes, forcing re-sync on the next query so that newly
+   * stored notes or events are discovered.
+   */
+  public setContractSyncCacheInvalid(contractAddress: AztecAddress, scopes: BoundedVec<AztecAddress>): void {
+    if (!contractAddress.equals(this.contractAddress)) {
+      throw new Error(`Contract ${this.contractAddress} cannot invalidate sync cache of ${contractAddress}`);
+    }
+    this.contractSyncService.invalidateContractForScopes(contractAddress, scopes.data);
+  }
+
+  // TODO(#11849): consider replacing this oracle with a pure Noir implementation of aes decryption.
+  public async decryptAes128(
+    ciphertext: BoundedVec<number>,
+    iv: Buffer,
+    symKey: Buffer,
+  ): Promise<Option<BoundedVec<number>>> {
+    const capacity = ciphertext.maxLength;
+    try {
+      const aes128 = new Aes128();
+      const plaintext = await aes128.decryptBufferCBC(Buffer.from(ciphertext.data), iv, symKey);
+      return Option.some(BoundedVec.from<number>({ data: [...plaintext], maxLength: capacity }));
+    } catch {
+      return Option.none({ maxLength: capacity });
+    }
+  }
+
+  /**
+   * Retrieves app-siloed shared secrets for multiple ephemeral public keys stored in an ephemeral array.
+   * @param address - The recipient address.
+   * @param ephPks - Ephemeral array containing the serialized Points.
+   * @param contractAddress - The contract address for app-siloing (validated against execution context).
+   * @returns A new ephemeral array containing the computed shared secrets, or an empty array when the PXE does not
+   * hold the keys for `address`, signaling that no secrets can be derived for it.
+   */
+  public async getSharedSecrets(
+    address: AztecAddress,
+    ephPks: EphemeralArray<EmbeddedCurvePoint>,
+    contractAddress: AztecAddress,
+  ): Promise<EphemeralArray<Fr>> {
+    if (!contractAddress.equals(this.contractAddress)) {
+      throw new Error(
+        `getSharedSecrets called with contract address ${contractAddress}, expected ${this.contractAddress}`,
+      );
+    }
+    const recipientCompleteAddress = await this.addressStore.getCompleteAddress(address);
+    if (!recipientCompleteAddress) {
+      this.logger.warn(
+        `Computing shared secrets for address ${address} whose keys are not held - returning no secrets`,
+        {
+          address,
+          contractAddress: this.contractAddress,
+        },
+      );
+      return EphemeralArray.fromValues<Fr>(this.ephemeralArrayService, []);
+    }
+    const ivpkMHash = await hashPublicKey(recipientCompleteAddress.publicKeys.ivpkM);
+    const ivskM = await this.keyStore.getMasterSecretKey(ivpkMHash);
+    const addressSecret = await computeAddressSecret(await recipientCompleteAddress.getPreaddress(), ivskM);
+
+    const ephPkPoints = ephPks.readAll(this.ephemeralArrayService);
+    const secrets = await Promise.all(
+      ephPkPoints.map(({ x, y }) => appSiloEcdhSharedSecret(addressSecret, new Point(x, y), this.contractAddress)),
+    );
+
+    return EphemeralArray.fromValues(this.ephemeralArrayService, secrets);
+  }
+
+  public pushEphemeral(slot: Fr, elements: Fr[]): number {
+    return this.ephemeralArrayService.push(slot, elements);
+  }
+
+  public popEphemeral(slot: Fr): Fr[] {
+    return this.ephemeralArrayService.pop(slot);
+  }
+
+  public getEphemeral(slot: Fr, index: number): Fr[] {
+    return this.ephemeralArrayService.get(slot, index);
+  }
+
+  public setEphemeral(slot: Fr, index: number, elements: Fr[]): void {
+    this.ephemeralArrayService.set(slot, index, elements);
+  }
+
+  public getEphemeralLen(slot: Fr): number {
+    return this.ephemeralArrayService.len(slot);
+  }
+
+  public removeEphemeral(slot: Fr, index: number): void {
+    this.ephemeralArrayService.remove(slot, index);
+  }
+
+  public clearEphemeral(slot: Fr): void {
+    this.ephemeralArrayService.clear(slot);
+  }
+
+  public pushTransient(slot: Fr, elements: Fr[]): number {
+    return this.transientArrayService.push(this.contractAddress, slot, elements);
+  }
+
+  public popTransient(slot: Fr): Fr[] {
+    return this.transientArrayService.pop(this.contractAddress, slot);
+  }
+
+  public getTransient(slot: Fr, index: number): Fr[] {
+    return this.transientArrayService.get(this.contractAddress, slot, index);
+  }
+
+  public setTransient(slot: Fr, index: number, elements: Fr[]): void {
+    this.transientArrayService.set(this.contractAddress, slot, index, elements);
+  }
+
+  public getTransientLen(slot: Fr): number {
+    return this.transientArrayService.len(this.contractAddress, slot);
+  }
+
+  public removeTransient(slot: Fr, index: number): void {
+    this.transientArrayService.remove(this.contractAddress, slot, index);
+  }
+
+  public clearTransient(slot: Fr): void {
+    this.transientArrayService.clear(this.contractAddress, slot);
+  }
+
+  public emitOffchainEffect(data: Fr[]): Promise<void> {
+    this.offchainEffects.push({ data, contractAddress: this.contractAddress });
+    return Promise.resolve();
+  }
+
+  /** Executes another utility function from within this one and returns its serialized return values. */
+  public async callUtilityFunction(
+    targetContractAddress: AztecAddress,
+    functionSelector: FunctionSelector,
+    args: Fr[],
+  ): Promise<Fr[]> {
+    const targetArtifact = await this.anchoredContractData.getFunctionArtifactWithDebugMetadata(
+      targetContractAddress,
+      functionSelector,
+    );
+    if (!targetArtifact) {
+      throw new Error(
+        `Cannot call ${targetContractAddress}:${functionSelector}: the contract is not registered. ` +
+          `Register it via wallet.registerContract(...).`,
+      );
+    }
+
+    if (!targetContractAddress.equals(this.contractAddress)) {
+      // Standard handshake registry reads are authorized by default; every other cross-contract call needs the hook.
+      if (!(await isStandardHandshakeRegistryUtilityRead(targetContractAddress, functionSelector))) {
+        const [callerClassId, targetClassId] = await Promise.all([
+          this.anchoredContractData.getCurrentClassId(this.contractAddress),
+          this.anchoredContractData.getCurrentClassId(targetContractAddress),
+        ]);
+        if (!callerClassId || !targetClassId) {
+          throw new Error(
+            `Cannot authorize utility call from ${this.contractAddress} to ${targetContractAddress}: ` +
+              `${!callerClassId ? this.contractAddress : targetContractAddress} is not registered.`,
+          );
+        }
+        const request: UtilityCallAuthorizationRequest = {
+          caller: this.contractAddress,
+          callerClassId,
+          target: targetContractAddress,
+          targetClassId,
+          functionSelector,
+          functionName: targetArtifact.name,
+          args,
+          callerContext: this.callerContext,
+        };
+
+        const response = this.hooks?.authorizeUtilityCall
+          ? await this.hooks.authorizeUtilityCall(request)
+          : { authorized: false, reason: 'No authorizeUtilityCall hook configured' };
+
+        if (!response.authorized) {
+          const reason = response.reason ? `: ${response.reason}` : '';
+          throw new Error(
+            `Cross-contract utility call denied${reason}. ${this.contractAddress} attempted to call ` +
+              `${targetContractAddress}:${functionSelector} (${targetArtifact.name}). ` +
+              `See https://docs.aztec.network/errors/11`,
+          );
+        }
+      }
+
+      await this.contractSyncService.ensureContractSynced(
+        targetContractAddress,
+        functionSelector,
+        this.utilityExecutor,
+        this.anchorBlockHeader,
+        this.jobId,
+        this.scopes,
+      );
+    }
+
+    this.logger.debug(
+      `Calling nested utility function ${targetContractAddress}:${functionSelector} from ${this.contractAddress}`,
+    );
+
+    const nestedOracle = new UtilityExecutionOracle({
+      callContext: CallContext.from({
+        msgSender: this.contractAddress,
+        contractAddress: targetContractAddress,
+        functionSelector,
+        isStaticCall: true,
+      }),
+      authWitnesses: this.authWitnesses,
+      capsules: this.capsules,
+      anchorBlockHeader: this.anchorBlockHeader,
+      anchoredContractData: this.anchoredContractData,
+      noteStore: this.noteStore,
+      keyStore: this.keyStore,
+      addressStore: this.addressStore,
+      aztecNode: this.aztecNode,
+      recipientTaggingStore: this.recipientTaggingStore,
+      taggingSecretSourcesStore: this.taggingSecretSourcesStore,
+      capsuleService: this.capsuleService,
+      factService: this.factService,
+      privateEventStore: this.privateEventStore,
+      txResolver: this.txResolver,
+      contractSyncService: this.contractSyncService,
+      l2TipsStore: this.l2TipsStore,
+      jobId: this.jobId,
+      scopes: this.scopes,
+      simulator: this.simulator,
+      hooks: this.hooks,
+      utilityExecutor: this.utilityExecutor,
+      log: this.logger,
+      // Shared across the whole execution tree: nested utility frames inherit the caller's transient-array store.
+      transientArrayService: this.transientArrayService,
+    });
+
+    const initialWitness = toACVMWitness(0, args);
+    const acirExecutionResult = await this.simulator
+      .executeUserCircuit(initialWitness, targetArtifact, buildACIRCallback(nestedOracle))
+      .catch((err: Error) => {
+        err.message = resolveAssertionMessageFromError(err, targetArtifact);
+        throw new ExecutionError(
+          err.message,
+          { contractAddress: targetContractAddress, functionSelector },
+          extractCallStack(err, targetArtifact.debug),
+          { cause: err },
+        );
+      });
+
+    return witnessMapToFields(acirExecutionResult.returnWitness);
+  }
+
+  /** Returns offchain effects collected during execution. */
+  public getOffchainEffects(): OffchainEffect[] {
+    return this.offchainEffects;
+  }
+
+  /**
+   * Fetches tx effects for the given hashes in parallel, deduplicating repeated hashes so each tx is only requested
+   * once. Returns a map keyed by `TxHash.toString()`; hashes for which the node has no tx effect are omitted.
+   */
+  async #fetchTxEffects(txHashes: TxHash[]): Promise<Map<string, IndexedTxEffect>> {
+    const uniqueTxHashes = uniqueBy(txHashes, h => h.toString());
+    const fetched = await Promise.all(
+      uniqueTxHashes.map(h => this.aztecNode.getTxReceipt(h, { includeTxEffect: true })),
+    );
+    return new Map(
+      uniqueTxHashes
+        .map((h, i): [string, IndexedTxEffect | undefined] => {
+          const receipt = fetched[i];
+          if (!receipt.isMined() || !receipt.txEffect) {
+            return [h.toString(), undefined];
+          }
+          return [
+            h.toString(),
+            {
+              data: receipt.txEffect,
+              l2BlockNumber: receipt.blockNumber,
+              l2BlockHash: receipt.blockHash,
+              txIndexInBlock: receipt.txIndexInBlock,
+              slotNumber: receipt.slotNumber,
+            },
+          ];
+        })
+        .filter((entry): entry is [string, IndexedTxEffect] => entry[1] !== undefined),
+    );
+  }
+
+  /** Runs a query concurrently with a validation that the block hash is not ahead of the anchor block. */
+  async #queryWithBlockHashNotAfterAnchor<T>(blockHash: BlockHash, query: () => Promise<T>): Promise<T> {
+    // Most contracts query state at the "current" block, which is the anchor. Skip the validation when we can.
+    const anchorHash = await this.anchorBlockHeader.hash();
+    if (blockHash.equals(anchorHash)) {
+      return query();
+    }
+
+    const [response] = await Promise.all([
+      query(),
+      (async () => {
+        const block = await this.aztecNode.getBlock(blockHash);
+        const header = block?.header;
+        if (!header) {
+          throw new Error(`Could not find block header for block hash ${blockHash}`);
+        }
+
+        if (header.getBlockNumber() > this.anchorBlockHeader.getBlockNumber()) {
+          throw new Error(
+            `Made a node query with a reference block hash ${blockHash} with block number ${header.getBlockNumber()}, which is ahead of the anchor block number ${this.anchorBlockHeader.getBlockNumber()} (from anchor block hash ${anchorHash}).`,
+          );
+        }
+      })(),
+    ]);
+    return response;
+  }
+
+  /** The execution context of the current call. */
+  protected get callerContext(): 'private' | 'private view' | 'utility' {
+    return 'utility';
+  }
+
+  /** The address of the contract whose function is being executed, from the call context. */
+  protected get contractAddress(): AztecAddress {
+    return this.callContext.contractAddress;
+  }
+}
+
+// Registry reads that any contract may issue without an `authorizeUtilityCall` hook. The constrained-delivery
+// library calls these implicitly for the app, and they are safe to default-authorize: `get_app_siloed_secrets`
+// siloes every returned secret to `msg_sender`, and `get_non_interactive_handshakes` only exposes ephemeral public
+// keys, from which the shared secret cannot be derived without the recipient's secret keys.
+const STANDARD_HANDSHAKE_REGISTRY_DEFAULT_AUTHORIZED_READ_SIGNATURES = [
+  'get_non_interactive_handshakes((Field),u32)',
+  'get_app_siloed_secrets((Field),(Field))',
+];
+
+async function doesSelectorHaveSignature(functionSelector: FunctionSelector, signature: string): Promise<boolean> {
+  return functionSelector.equals(await FunctionSelector.fromSignature(signature));
+}
+
+/**
+ * Whether a cross-contract utility call targets one of the standard handshake registry's read functions.
+ *
+ * These reads are authorized by PXE for every wallet, without consulting the `authorizeUtilityCall` hook, so that
+ * wallets don't need to know the handshake registry exists in order to deliver and discover messages through it.
+ */
+async function isStandardHandshakeRegistryUtilityRead(
+  targetContractAddress: AztecAddress,
+  functionSelector: FunctionSelector,
+): Promise<boolean> {
+  if (!targetContractAddress.equals(STANDARD_HANDSHAKE_REGISTRY_ADDRESS)) {
+    return false;
+  }
+
+  const matches = await Promise.all(
+    STANDARD_HANDSHAKE_REGISTRY_DEFAULT_AUTHORIZED_READ_SIGNATURES.map(signature =>
+      doesSelectorHaveSignature(functionSelector, signature),
+    ),
+  );
+  return matches.some(Boolean);
 }

@@ -42,7 +42,7 @@ mod tests {
 
     #[test]
     unconstrained fn reading_after_initialization_succeeds() {
-        let (mut env, contract_address) = setup();
+        let (env, contract_address) = setup();
         let test_contract = PublicImmutableContract::at(contract_address);
 
         // set x to 10
@@ -58,10 +58,7 @@ mod tests {
         let (env, contract_address) = setup();
 
         // Try to read uninitialized value - this should fail
-        let _ = env.call_public(
-            contract_address,
-            PublicImmutableContract::at(contract_address).read_value(),
-        );
+        let _ = env.call_public(contract_address, PublicImmutableContract::at(contract_address).read_value());
     }
 
     #[test]
@@ -70,10 +67,7 @@ mod tests {
 
         // Try to read uninitialized value - this should return 0 as it is the default public storage value
         assert_eq(
-            env.call_public(
-                contract_address,
-                PublicImmutableContract::at(contract_address).read_value_unsafe(),
-            ),
+            env.call_public(contract_address, PublicImmutableContract::at(contract_address).read_value_unsafe()),
             0,
         );
     }

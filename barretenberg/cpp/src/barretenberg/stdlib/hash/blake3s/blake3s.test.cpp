@@ -1,21 +1,20 @@
-// === AUDIT STATUS ===
-// internal:    { status: Complete, auditors: [Nishat], commit: 8fb8b041d4c9179f62da56a9c7bbf22c40db46cc}
-// external_1:  { status: not started, auditors: [], commit: }
-// external_2:  { status: not started, auditors: [], commit: }
-// =====================
-
 #include "barretenberg/crypto/blake3s/blake3s.hpp"
 #include "barretenberg/circuit_checker/circuit_checker.hpp"
 #include "barretenberg/common/assert.hpp"
 #include "barretenberg/common/streams.hpp"
+#include "barretenberg/stdlib_circuit_builders/mega_circuit_builder.hpp"
+#include "barretenberg/stdlib_circuit_builders/ultra_circuit_builder.hpp"
 #include "blake3s.hpp"
 #include <gtest/gtest.h>
 
 using namespace bb;
 
-using byte_array_ct = stdlib::byte_array<bb::UltraCircuitBuilder>;
-using UltraBuilder = UltraCircuitBuilder;
+template <class Builder> class StdlibBlake3s : public ::testing::Test {};
 
+using BuilderTypes = ::testing::Types<bb::UltraCircuitBuilder, bb::MegaCircuitBuilder>;
+TYPED_TEST_SUITE(StdlibBlake3s, BuilderTypes);
+
+namespace {
 std::vector<std::string> test_vectors = { std::string{},
                                           "a",
                                           "ab",
@@ -30,15 +29,19 @@ std::vector<std::string> test_vectors = { std::string{},
                                           "abcdefghijklmnopqrstuvwxyz0123456789abcdefghijklmnopqrstuvwxyz01",
                                           "abcdefghijklmnopqrstuvwxyz0123456789abcdefghijklmnopqrstuvwxyz012",
                                           "abcdefghijklmnopqrstuvwxyz0123456789abcdefghijklmnopqrstuvwxyz0123456789" };
+} // namespace
 
-TEST(stdlib_blake3s, test_single_block)
+TYPED_TEST(StdlibBlake3s, test_single_block)
 {
-    auto builder = UltraBuilder();
+    using Builder = TypeParam;
+    using byte_array_ct = stdlib::byte_array<Builder>;
+
+    Builder builder;
     std::string input = "abcdefghijklmnopqrstuvwxyz0123456789abcdefghijklmnopqrstuvwxyz01";
     std::vector<uint8_t> input_v(input.begin(), input.end());
 
     byte_array_ct input_arr(&builder, input_v);
-    byte_array_ct output = stdlib::Blake3s<UltraBuilder>::hash(input_arr);
+    byte_array_ct output = stdlib::Blake3s<Builder>::hash(input_arr);
 
     std::vector<uint8_t> expected = blake3::blake3s(input_v);
 
@@ -50,14 +53,17 @@ TEST(stdlib_blake3s, test_single_block)
     EXPECT_EQ(proof_result, true);
 }
 
-TEST(stdlib_blake3s, test_double_block)
+TYPED_TEST(StdlibBlake3s, test_double_block)
 {
-    auto builder = UltraBuilder();
+    using Builder = TypeParam;
+    using byte_array_ct = stdlib::byte_array<Builder>;
+
+    Builder builder;
     std::string input = "abcdefghijklmnopqrstuvwxyz0123456789abcdefghijklmnopqrstuvwxyz0123456789";
     std::vector<uint8_t> input_v(input.begin(), input.end());
 
     byte_array_ct input_arr(&builder, input_v);
-    byte_array_ct output = stdlib::Blake3s<UltraBuilder>::hash(input_arr);
+    byte_array_ct output = stdlib::Blake3s<Builder>::hash(input_arr);
 
     std::vector<uint8_t> expected = blake3::blake3s(input_v);
 
@@ -69,20 +75,26 @@ TEST(stdlib_blake3s, test_double_block)
     EXPECT_EQ(proof_result, true);
 }
 
-TEST(stdlib_blake3s, test_too_large_input)
+TYPED_TEST(StdlibBlake3s, test_too_large_input)
 {
-    auto builder = UltraBuilder();
+    using Builder = TypeParam;
+    using byte_array_ct = stdlib::byte_array<Builder>;
+
+    Builder builder;
 
     std::vector<uint8_t> input_v(1025, 0);
 
     byte_array_ct input_arr(&builder, input_v);
-    EXPECT_THROW_WITH_MESSAGE(stdlib::Blake3s<UltraBuilder>::hash(input_arr),
+    EXPECT_THROW_WITH_MESSAGE(stdlib::Blake3s<Builder>::hash(input_arr),
                               "Barretenberg does not support blake3s with input lengths greater than 1024 bytes.");
 }
 
-TEST(stdlib_blake3s, test_witness_and_constant)
+TYPED_TEST(StdlibBlake3s, test_witness_and_constant)
 {
-    UltraBuilder builder;
+    using Builder = TypeParam;
+    using byte_array_ct = stdlib::byte_array<Builder>;
+
+    Builder builder;
 
     // create a byte array that is a circuit witness
     std::string witness_str = "abcdefghijklmnopqrstuvwxyz0123456789abcdefghijklmnopqrstuvwxyz";
@@ -106,7 +118,7 @@ TEST(stdlib_blake3s, test_witness_and_constant)
     EXPECT_EQ(input_arr.get_value(), input_v);
 
     // hash the combined byte array
-    byte_array_ct output = stdlib::Blake3s<UltraBuilder>::hash(input_arr);
+    byte_array_ct output = stdlib::Blake3s<Builder>::hash(input_arr);
 
     // compute expected hash
     auto expected = blake3::blake3s(input_v);
@@ -119,9 +131,12 @@ TEST(stdlib_blake3s, test_witness_and_constant)
     EXPECT_EQ(proof_result, true);
 }
 
-TEST(stdlib_blake3s, test_constant_only)
+TYPED_TEST(StdlibBlake3s, test_constant_only)
 {
-    UltraBuilder builder;
+    using Builder = TypeParam;
+    using byte_array_ct = stdlib::byte_array<Builder>;
+
+    Builder builder;
     size_t len = 65;
 
     // create a byte array that is a circuit constant
@@ -134,7 +149,7 @@ TEST(stdlib_blake3s, test_constant_only)
     EXPECT_EQ(input_arr.get_value(), input_v);
 
     // hash the byte array
-    byte_array_ct output = stdlib::Blake3s<UltraBuilder>::hash(input_arr);
+    byte_array_ct output = stdlib::Blake3s<Builder>::hash(input_arr);
 
     // compute expected hash
     auto expected = blake3::blake3s(input_v);
@@ -147,17 +162,20 @@ TEST(stdlib_blake3s, test_constant_only)
     EXPECT_EQ(proof_result, true);
 }
 
-TEST(stdlib_blake3s, test_multiple_sized_blocks)
+TYPED_TEST(StdlibBlake3s, test_multiple_sized_blocks)
 {
+    using Builder = TypeParam;
+    using byte_array_ct = stdlib::byte_array<Builder>;
+
     int i = 0;
 
     for (auto v : test_vectors) {
-        UltraBuilder builder;
+        Builder builder;
 
         std::vector<uint8_t> input_v(v.begin(), v.end());
 
         byte_array_ct input_arr(&builder, input_v);
-        byte_array_ct output = stdlib::Blake3s<UltraBuilder>::hash(input_arr);
+        byte_array_ct output = stdlib::Blake3s<Builder>::hash(input_arr);
 
         auto expected = blake3::blake3s(input_v);
 
@@ -175,18 +193,21 @@ TEST(stdlib_blake3s, test_multiple_sized_blocks)
 // second half of every call to `g` to ensure that the overflow doesn't go beyond 3 bits. The edge case that caused
 // addition overflow issues in Blake is tested here. See https://hackmd.io/@aztec-network/SyTHLkAWZx for a detailed
 // description of the addition overflow issue.
-TEST(stdlib_blake3s, test_edge_case_addition_overflow)
+TYPED_TEST(StdlibBlake3s, test_edge_case_addition_overflow)
 {
+    using Builder = TypeParam;
+    using byte_array_ct = stdlib::byte_array<Builder>;
+
     std::array<uint8_t, 34> v = { 0xC3, 0x2B, 0xC3, 0x91, 0x23, 0xFF, 0xFF, 0xFF, 0xFF, 0xC3, 0xFF, 0xFF,
                                   0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF,
                                   0xFF, 0xFF, 0xFF, 0xFF, 0xC3, 0x03, 0x83, 0x83, 0x83, 0x40 };
 
-    UltraBuilder builder;
+    Builder builder;
 
     std::vector<uint8_t> input_v(v.begin(), v.end());
 
     byte_array_ct input_arr(&builder, input_v);
-    byte_array_ct output = stdlib::Blake3s<UltraBuilder>::hash(input_arr);
+    byte_array_ct output = stdlib::Blake3s<Builder>::hash(input_arr);
 
     auto expected = blake3::blake3s(input_v);
 

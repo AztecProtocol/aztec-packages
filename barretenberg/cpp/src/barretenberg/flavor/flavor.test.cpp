@@ -5,6 +5,23 @@
 
 using namespace bb;
 
+namespace {
+// Allocate all polynomials in a ProverPolynomials to a uniform size (test-only helper).
+template <typename ProverPolynomials> void allocate_all(ProverPolynomials& polynomials, size_t circuit_size)
+{
+    using Polynomial = typename std::remove_reference_t<decltype(*polynomials.get_to_be_shifted().begin())>;
+    for (auto& poly : polynomials.get_to_be_shifted()) {
+        poly = Polynomial{ circuit_size - 1, circuit_size, /*offset=*/1 };
+    }
+    for (auto& poly : polynomials.get_unshifted()) {
+        if (poly.is_empty()) {
+            poly = Polynomial{ circuit_size, circuit_size };
+        }
+    }
+    polynomials.set_shifted();
+}
+} // namespace
+
 TEST(Flavor, Getters)
 {
     bb::srs::init_file_crs_factory(bb::srs::bb_crs_path());
@@ -13,7 +30,7 @@ TEST(Flavor, Getters)
     using ProverPolynomials = Flavor::ProverPolynomials;
 
     const size_t circuit_size = 4;
-    ProverPolynomials polynomials{ circuit_size };
+    ProverPolynomials polynomials;
 
     // set
     size_t coset_idx = 0;
@@ -26,18 +43,18 @@ TEST(Flavor, Getters)
     }
 
     // Polynomials in the proving key can be set through loops over subsets produced by the getters
-    EXPECT_EQ(polynomials.id_1[0], FF(0));
-    EXPECT_EQ(polynomials.id_2[0], FF(4));
-    EXPECT_EQ(polynomials.id_3[0], FF(8));
+    EXPECT_EQ(polynomials.id_1()[0], FF(0));
+    EXPECT_EQ(polynomials.id_2()[0], FF(4));
+    EXPECT_EQ(polynomials.id_3()[0], FF(8));
 
-    Flavor::CommitmentLabels commitment_labels;
+    const auto& commitment_labels = Flavor::commitment_labels();
 
     // Globals are also available through STL container sizes
     EXPECT_EQ(polynomials.get_all().size(), Flavor::NUM_ALL_ENTITIES);
     // Shited polynomials have the righ tsize
     EXPECT_EQ(polynomials.get_all().size(), polynomials.get_shifted().size() + polynomials.get_unshifted().size());
     // Commitment lables are stored in the flavor.
-    EXPECT_EQ(commitment_labels.w_r, "W_R");
+    EXPECT_EQ(commitment_labels.w_r(), "W_R");
 }
 
 TEST(Flavor, AllEntitiesSpecialMemberFunctions)
@@ -48,7 +65,8 @@ TEST(Flavor, AllEntitiesSpecialMemberFunctions)
     using Polynomial = bb::Polynomial<FF>;
 
     constexpr size_t circuit_size = 16;
-    Flavor::ProverPolynomials full_polynomials{ circuit_size };
+    Flavor::ProverPolynomials full_polynomials;
+    allocate_all(full_polynomials, circuit_size);
     PartiallyEvaluatedMultivariates polynomials_A(full_polynomials, circuit_size);
 
     Polynomial random_poly{ 10 };
@@ -58,15 +76,15 @@ TEST(Flavor, AllEntitiesSpecialMemberFunctions)
 
     // Test some special member functions.
 
-    polynomials_A.w_l = random_poly.share();
+    polynomials_A[Flavor::ProverPolynomials::EntityId::w_l] = random_poly.share();
 
-    ASSERT_EQ(random_poly, polynomials_A.w_l);
+    ASSERT_EQ(random_poly, polynomials_A.w_l());
 
     PartiallyEvaluatedMultivariates polynomials_B(polynomials_A);
-    ASSERT_EQ(random_poly, polynomials_B.w_l);
+    ASSERT_EQ(random_poly, polynomials_B.w_l());
 
     PartiallyEvaluatedMultivariates polynomials_C(std::move(polynomials_B));
-    ASSERT_EQ(random_poly, polynomials_C.w_l);
+    ASSERT_EQ(random_poly, polynomials_C.w_l());
 }
 
 TEST(Flavor, GetRow)
@@ -82,6 +100,6 @@ TEST(Flavor, GetRow)
     }
     auto row0 = prover_polynomials.get_row(0);
     auto row1 = prover_polynomials.get_row(1);
-    EXPECT_EQ(row0.q_elliptic, prover_polynomials.q_elliptic[0]);
-    EXPECT_EQ(row1.w_4_shift, prover_polynomials.w_4_shift[1]);
+    EXPECT_EQ(row0.q_elliptic(), prover_polynomials.q_elliptic()[0]);
+    EXPECT_EQ(row1.w_4_shift(), prover_polynomials.w_4_shift()[1]);
 }

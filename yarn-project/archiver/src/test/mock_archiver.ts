@@ -56,8 +56,9 @@ export class MockPrefilledArchiver extends MockArchiver {
     }
 
     const fromBlock = this.l2Blocks.length;
-    // TODO: Add L2 blocks and checkpoints separately once archiver has the apis for that.
-    this.addProposedBlocks(this.prefilled.slice(fromBlock, fromBlock + numBlocks).flatMap(c => c.blocks));
+    const checkpointsToAdd = this.prefilled.slice(fromBlock, fromBlock + numBlocks);
+    this.addProposedBlocks(checkpointsToAdd.flatMap(c => c.blocks));
+    this.checkpointList.push(...checkpointsToAdd);
     return Promise.resolve();
   }
 }

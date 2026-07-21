@@ -59,7 +59,7 @@
     ]
   },
   "dependencies": {
-    "@aztec/bb.js": "../../ts",
+    "@aztec/bb.js": "portal:../../barretenberg/ts/bb.js",
     "@aztec/constants": "workspace:^",
     "@aztec/foundation": "workspace:^",
     "@aztec/noir-noir_codegen": "portal:../../noir/packages/noir_codegen",
@@ -93,7 +93,7 @@
     "jest-mock-extended": "^4.0.0",
     "msgpackr": "^1.11.2",
     "resolve-typescript-plugin": "^2.0.1",
-    "serve": "^14.2.1",
+    "serve": "^14.2.6",
     "ts-loader": "^9.5.4",
     "ts-node": "^10.9.1",
     "typescript": "^5.3.3",

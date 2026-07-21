@@ -17,20 +17,19 @@ While this is one type of oracle, the more general oracle, allows us to get any 
 **Why is this useful? Why don't just pass them as input parameters?**
 In the world of EVM, you would just read the values directly from storage and call it a day. However, when we are working with circuits for private execution, this becomes more tricky as you cannot just read the storage directly from your state tree, because there are only commitments (e.g. hashes) there. The pre-images (content) of your commitments need to be provided to the function to prove that you actually allowed to modify them.
 
-If we fetch the notes using an oracle call, we can keep the function signature independent of the underlying data and make it easier to use. A similar idea, applied to the authentication mechanism is used for the Authentication Witnesses that allow us to have a single function signature for any wallet implementation, see [AuthWit](../how_to_use_authwit.md) for more information on this.
+If we fetch the notes using an oracle call, we can keep the function signature independent of the underlying data and make it easier to use. A similar idea, applied to the authentication mechanism is used for the Authentication Witnesses that allow us to have a single function signature for any wallet implementation, see [AuthWit](../authentication_witnesses.md) for more information on this.
 
 Oracles introduce **non-determinism** into a circuit, and thus are `unconstrained`. It is important that any information that is injected into a circuit through an oracle is later constrained for correctness. Otherwise, the circuit will be **under-constrained** and potentially insecure!
 
-`Aztec.nr` has a module dedicated to its oracles. If you are interested, you can view them by following the link below:
-#include_code oracles-module /noir-projects/aztec-nr/aztec/src/oracle/mod.nr rust
+`Aztec.nr` has a [module dedicated to its oracles](pathname:///aztec-nr-api/#api_ref_version/noir_aztec/oracle/index.html) where you can browse the full list.
 
 ## Inbuilt oracles
 
-- [`debug_log`](https://github.com/AztecProtocol/aztec-packages/blob/#include_aztec_version/noir-projects/noir-protocol-circuits/crates/types/src/debug_log.nr) - Provides debug functions that can be used to log information to the console. Read more about debugging [here](../../debugging.md).
-- [`auth_witness`](https://github.com/AztecProtocol/aztec-packages/blob/#include_aztec_version/noir-projects/aztec-nr/aztec/src/oracle/auth_witness.nr) - Provides a way to fetch the authentication witness for a given address. This is useful when building account contracts to support approve-like functionality.
-- [`get_l1_to_l2_membership_witness`](https://github.com/AztecProtocol/aztec-packages/blob/#include_aztec_version/noir-projects/aztec-nr/aztec/src/oracle/get_l1_to_l2_membership_witness.nr) - Returns the leaf index and sibling path for an L1 to L2 message, used to prove message existence in cross-chain applications like token bridges.
-- [`notes`](https://github.com/AztecProtocol/aztec-packages/blob/#include_aztec_version/noir-projects/aztec-nr/aztec/src/oracle/notes.nr) - Provides functions related to notes, such as fetching notes from storage, used behind the scenes for value notes and other pre-built note implementations.
-- [`logs`](https://github.com/AztecProtocol/aztec-packages/blob/#include_aztec_version/noir-projects/aztec-nr/aztec/src/oracle/logs.nr) - Provides functions to log encrypted and unencrypted data.
+- [`debug_log`](pathname:///aztec-nr-api/#api_ref_version/noir_aztec/protocol/logging/fn.debug_log) - Provides debug functions that can be used to log information to the console. Read more about debugging [here](../../debugging.md).
+- [`auth_witness`](pathname:///aztec-nr-api/#api_ref_version/noir_aztec/oracle/auth_witness/index.html) - Provides a way to fetch the authentication witness for a given address. This is useful when building account contracts to support approve-like functionality.
+- [`get_l1_to_l2_membership_witness`](pathname:///aztec-nr-api/#api_ref_version/noir_aztec/oracle/get_l1_to_l2_membership_witness/index.html) - Returns the leaf index and sibling path for an L1 to L2 message, used to prove message existence in cross-chain applications like token bridges.
+- [`notes`](pathname:///aztec-nr-api/#api_ref_version/noir_aztec/oracle/notes/index.html) - Provides functions related to notes, such as fetching notes from storage, used behind the scenes for value notes and other pre-built note implementations.
+- [`logs`](pathname:///aztec-nr-api/#api_ref_version/noir_aztec/oracle/logs/index.html) - Provides functions to log encrypted and unencrypted data.
 
 Find a full list [on GitHub](https://github.com/AztecProtocol/aztec-packages/tree/#include_aztec_version/noir-projects/aztec-nr/aztec/src/oracle).
 

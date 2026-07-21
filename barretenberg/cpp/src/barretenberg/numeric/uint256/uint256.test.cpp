@@ -97,6 +97,9 @@ TEST(uint256, DivAndMod)
         b.data[3] = (i > 0) ? 0 : b.data[3];
         b.data[2] = (i > 1) ? 0 : b.data[2];
         b.data[1] = (i > 2) ? 0 : b.data[1];
+        if (b == 0) {
+            b = 1;
+        }
         uint256_t q = a / b;
         uint256_t r = a % b;
 
@@ -108,17 +111,9 @@ TEST(uint256, DivAndMod)
     }
 
     uint256_t a = engine.get_random_uint256();
-    uint256_t b = 0;
-
+    uint256_t b = a;
     uint256_t q = a / b;
     uint256_t r = a % b;
-
-    EXPECT_EQ(q, uint256_t(0));
-    EXPECT_EQ(r, uint256_t(0));
-
-    b = a;
-    q = a / b;
-    r = a % b;
 
     EXPECT_EQ(q, uint256_t(1));
     EXPECT_EQ(r, uint256_t(0));
@@ -335,4 +330,149 @@ TEST(uint256, ToFromBuffer)
     auto buf = to_buffer(a);
     auto b = from_buffer<uint256_t>(buf);
     EXPECT_EQ(a, b);
+}
+
+// operator bool: verify all limbs are checked (not just data[0])
+TEST(uint256, BoolConversion)
+{
+    EXPECT_FALSE(static_cast<bool>(uint256_t(0)));
+    EXPECT_TRUE(static_cast<bool>(uint256_t(1)));
+    // These cases caught the old bug where only data[0] was checked
+    EXPECT_TRUE(static_cast<bool>(uint256_t{ 0, 1, 0, 0 }));
+    EXPECT_TRUE(static_cast<bool>(uint256_t{ 0, 0, 1, 0 }));
+    EXPECT_TRUE(static_cast<bool>(uint256_t{ 0, 0, 0, 1 }));
+}
+
+// operator uint128_t: verify both lower limbs are preserved
+TEST(uint256, Uint128Conversion)
+{
+    constexpr uint256_t a{ 0xaaaaaaaaaaaaaaaa, 0xbbbbbbbbbbbbbbbb, 0xcccccccccccccccc, 0xdddddddddddddddd };
+    auto lo128 = static_cast<uint128_t>(a);
+    EXPECT_EQ(static_cast<uint64_t>(lo128), 0xaaaaaaaaaaaaaaaa);
+    EXPECT_EQ(static_cast<uint64_t>(lo128 >> 64), 0xbbbbbbbbbbbbbbbb);
+
+    // Verify const objects use the correct overload (not the integral template)
+    const uint256_t b{ 0x1111111111111111, 0x2222222222222222, 0, 0 };
+    auto b128 = static_cast<uint128_t>(b);
+    EXPECT_EQ(static_cast<uint64_t>(b128 >> 64), 0x2222222222222222);
+}
+
+// Addition with carry propagation across all limbs
+TEST(uint256, AddCarryPropagation)
+{
+    // Carry from limb 0 to limb 1
+    uint256_t a{ UINT64_MAX, 0, 0, 0 };
+    uint256_t b{ 1, 0, 0, 0 };
+    uint256_t c = a + b;
+    EXPECT_EQ(c, (uint256_t{ 0, 1, 0, 0 }));
+
+    // Carry propagates through all limbs
+    uint256_t d{ UINT64_MAX, UINT64_MAX, UINT64_MAX, 0 };
+    uint256_t e = d + uint256_t(1);
+    EXPECT_EQ(e, (uint256_t{ 0, 0, 0, 1 }));
+
+    // Full overflow wraps to zero
+    uint256_t f{ UINT64_MAX, UINT64_MAX, UINT64_MAX, UINT64_MAX };
+    uint256_t g = f + uint256_t(1);
+    EXPECT_EQ(g, uint256_t(0));
+}
+
+// mul_extended: verify full 512-bit product is correct
+TEST(uint256, MulExtended)
+{
+    // Simple case: known product
+    uint256_t a{ 0, 0, 0, 1 }; // 2^192
+    uint256_t b{ 0, 0, 0, 1 }; // 2^192
+    auto [lo, hi] = a.mul_extended(b);
+    // 2^192 * 2^192 = 2^384, which is hi.data[2] bit 0
+    EXPECT_EQ(lo, uint256_t(0));
+    EXPECT_EQ(hi, (uint256_t{ 0, 0, 1, 0 }));
+
+    // Verify with random values
+    a = engine.get_random_uint256();
+    b = engine.get_random_uint256();
+    auto [ab_lo, ab_hi] = a.mul_extended(b);
+
+    // Truncated product should match low half
+    EXPECT_EQ(a * b, ab_lo);
+
+    // Verify commutativity
+    auto [ba_lo, ba_hi] = b.mul_extended(a);
+    EXPECT_EQ(ab_lo, ba_lo);
+    EXPECT_EQ(ab_hi, ba_hi);
+
+    // Verify hi is zero when inputs are small
+    uint256_t small_a{ 0xFFFFFFFF, 0, 0, 0 };
+    uint256_t small_b{ 0xFFFFFFFF, 0, 0, 0 };
+    auto [sm_lo, sm_hi] = small_a.mul_extended(small_b);
+    EXPECT_EQ(sm_hi, uint256_t(0));
+    EXPECT_EQ(sm_lo, small_a * small_b);
+}
+
+// Single-limb divmod
+TEST(uint256, DivModSingleLimb)
+{
+    for (size_t i = 0; i < 64; ++i) {
+        uint256_t a = engine.get_random_uint256();
+        uint64_t b = engine.get_random_uint256().data[0];
+        if (b == 0) {
+            b = 1;
+        }
+        auto [q, r] = a.divmod(b);
+        // Verify roundtrip: q * b + r == a
+        uint256_t reconstructed = q * uint256_t(b) + uint256_t(r);
+        EXPECT_EQ(reconstructed, a);
+        // Remainder must be less than divisor
+        EXPECT_LT(r, b);
+    }
+}
+
+// slice
+TEST(uint256, Slice)
+{
+    constexpr uint256_t a{ 0xaaaaaaaaaaaaaaaa, 0xbbbbbbbbbbbbbbbb, 0xcccccccccccccccc, 0xdddddddddddddddd };
+
+    // Slice bottom 64 bits
+    uint256_t bottom = a.slice(0, 64);
+    EXPECT_EQ(bottom, uint256_t(0xaaaaaaaaaaaaaaaa));
+
+    // Slice bits [64, 128)
+    uint256_t mid = a.slice(64, 128);
+    EXPECT_EQ(mid, uint256_t(0xbbbbbbbbbbbbbbbb));
+
+    // Slice across limb boundary [32, 96)
+    uint256_t cross = a.slice(32, 96);
+    uint256_t expected = (a >> 32) & ((uint256_t(1) << 64) - 1);
+    EXPECT_EQ(cross, expected);
+
+    // Full slice
+    uint256_t full = a.slice(0, 256);
+    EXPECT_EQ(full, a);
+}
+
+// pow
+TEST(uint256, Pow)
+{
+    // x^0 = 1
+    uint256_t a{ 12345, 0, 0, 0 };
+    EXPECT_EQ(a.pow(uint256_t(0)), uint256_t(1));
+
+    // x^1 = x
+    EXPECT_EQ(a.pow(uint256_t(1)), a);
+
+    // 0^n = 0 for n > 0
+    EXPECT_EQ(uint256_t(0).pow(uint256_t(5)), uint256_t(0));
+
+    // 2^10 = 1024
+    EXPECT_EQ(uint256_t(2).pow(uint256_t(10)), uint256_t(1024));
+
+    // 3^20 = 3486784401
+    EXPECT_EQ(uint256_t(3).pow(uint256_t(20)), uint256_t(3486784401ULL));
+
+    // Verify a^2 == a * a for random value
+    uint256_t b = engine.get_random_uint256();
+    EXPECT_EQ(b.pow(uint256_t(2)), b * b);
+
+    // Verify a^3 == a * a * a
+    EXPECT_EQ(b.pow(uint256_t(3)), b * b * b);
 }

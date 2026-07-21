@@ -554,8 +554,8 @@
       {
         "current": {
           "selected": false,
-          "text": "staging-ignition",
-          "value": "staging-ignition"
+          "text": "testnet",
+          "value": "testnet"
         },
         "datasource": {
           "type": "prometheus",

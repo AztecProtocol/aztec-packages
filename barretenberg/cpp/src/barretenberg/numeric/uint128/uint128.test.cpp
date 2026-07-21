@@ -78,6 +78,9 @@ TEST(uint128, DivAndMod)
         b.data[3] = (i > 0) ? 0 : b.data[3];
         b.data[2] = (i > 1) ? 0 : b.data[2];
         b.data[1] = (i > 2) ? 0 : b.data[1];
+        if (b == 0) {
+            b = 1;
+        }
         uint128_t q = a / b;
         uint128_t r = a % b;
 
@@ -89,17 +92,9 @@ TEST(uint128, DivAndMod)
     }
 
     uint128_t a = engine.get_random_uint128();
-    uint128_t b = 0;
-
+    uint128_t b = a;
     uint128_t q = a / b;
     uint128_t r = a % b;
-
-    EXPECT_EQ(q, uint128_t(0));
-    EXPECT_EQ(r, uint128_t(0));
-
-    b = a;
-    q = a / b;
-    r = a % b;
 
     EXPECT_EQ(q, uint128_t(1));
     EXPECT_EQ(r, uint128_t(0));

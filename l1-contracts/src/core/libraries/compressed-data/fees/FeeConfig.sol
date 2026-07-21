@@ -38,7 +38,7 @@ function subEthValue(EthValue _a, EthValue _b) pure returns (EthValue) {
 
 using {addEthValue as +, subEthValue as -} for EthValue global;
 
-// 64 bit manaTarget, 128 bit congestionUpdateFraction, 64 bit provingCostPerMana
+// 32 bit manaTarget, 128 bit congestionUpdateFraction, 64 bit provingCostPerMana
 type CompressedFeeConfig is uint256;
 
 struct FeeConfig {

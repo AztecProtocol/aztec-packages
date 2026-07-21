@@ -5,7 +5,7 @@ use aztec::macros::aztec;
 pub contract ReturningTuple {
     use aztec::{
         macros::functions::{external, view},
-        protocol::{address::AztecAddress, point::Point, traits::{Deserialize, FromField}},
+        protocol::{address::AztecAddress, point::EmbeddedCurvePoint, traits::{Deserialize, FromField}},
     };
 
     #[external("private")]
@@ -40,8 +40,8 @@ pub contract ReturningTuple {
 
     #[external("private")]
     #[view]
-    fn fn_that_returns_6() -> (Field, u128, bool, str<3>, AztecAddress, Point) {
-        (1, 2, false, "xyz", AztecAddress::from_field(1), Point::deserialize([1, 2, 3]))
+    fn fn_that_returns_6() -> (Field, u128, bool, str<3>, AztecAddress, EmbeddedCurvePoint) {
+        (1, 2, false, "xyz", AztecAddress::from_field(1), EmbeddedCurvePoint::deserialize([1, 2]))
     }
 
     #[external("public")]
@@ -76,8 +76,8 @@ pub contract ReturningTuple {
 
     #[external("public")]
     #[view]
-    fn fn_that_returns_6_public() -> (Field, u128, bool, str<3>, AztecAddress, Point) {
-        (1, 2, false, "xyz", AztecAddress::from_field(1), Point::deserialize([1, 2, 3]))
+    fn fn_that_returns_6_public() -> (Field, u128, bool, str<3>, AztecAddress, EmbeddedCurvePoint) {
+        (1, 2, false, "xyz", AztecAddress::from_field(1), EmbeddedCurvePoint::deserialize([1, 2]))
     }
 
 }

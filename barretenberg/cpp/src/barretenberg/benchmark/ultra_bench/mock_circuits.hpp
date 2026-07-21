@@ -26,7 +26,7 @@ void generate_basic_arithmetic_circuit_with_target_gates(Builder& builder, size_
     stdlib::field_t c(&builder);
     // Ensure the circuit is filled but finalisation doesn't make the circuit size go to the next power of two
     const size_t GATE_COUNT_BUFFER = 1000; // Since we're using an estimate, let's add an error term in case.
-    size_t current_gates = builder.get_num_finalized_gates_inefficient(/*ensure_nonzero=*/false);
+    size_t current_gates = builder.get_num_finalized_gates_inefficient();
 
     if (target_gate_count <= current_gates + GATE_COUNT_BUFFER) {
         throw_or_abort("Target gate count is too low.");
@@ -41,7 +41,7 @@ void generate_basic_arithmetic_circuit_with_target_gates(Builder& builder, size_
         b = c * c;
     }
 
-    size_t est_gate_count = builder.get_num_finalized_gates_inefficient(/*ensure_nonzero=*/false);
+    size_t est_gate_count = builder.get_num_finalized_gates_inefficient();
     BB_ASSERT_LTE(est_gate_count,
                   target_gate_count - GATE_COUNT_BUFFER,
                   "Check that the finalized gate count won't exceed the desired gate count.");

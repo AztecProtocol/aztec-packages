@@ -1,6 +1,6 @@
 use crate::context::UtilityContext;
 
-#[oracle(utilityGetUtilityContext)]
+#[oracle(aztec_utl_getUtilityContext)]
 unconstrained fn get_utility_context_oracle() -> UtilityContext {}
 
 /// Returns a utility context built from the global variables of anchor block and the contract address of the function

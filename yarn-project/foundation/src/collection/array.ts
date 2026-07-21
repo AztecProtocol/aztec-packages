@@ -139,6 +139,26 @@ export function unique<T>(arr: T[]): T[] {
 }
 
 /**
+ * Removes duplicates from the given array using a key function. The first occurrence of each key is kept.
+ * @param arr - The array.
+ * @param keyFn - A function that returns a primitive key for each element. Elements with the same key are
+ *               considered duplicates.
+ * @returns A new array.
+ */
+export function uniqueBy<T, K extends string | number | bigint>(arr: T[], keyFn: (item: T) => K): T[] {
+  const seen = new Set<K>();
+  const result: T[] = [];
+  for (const item of arr) {
+    const key = keyFn(item);
+    if (!seen.has(key)) {
+      seen.add(key);
+      result.push(item);
+    }
+  }
+  return result;
+}
+
+/**
  * Removes all undefined elements from the array.
  * @param arr - The array.
  * @returns A new array.
@@ -308,6 +328,20 @@ export function partition<T>(items: T[], predicate: (item: T) => boolean): [T[],
   const fail: T[] = [];
   for (const item of items) {
     if (predicate(item)) {
+      pass.push(item);
+    } else {
+      fail.push(item);
+    }
+  }
+  return [pass, fail];
+}
+
+/** Partitions the given iterable into two arrays based on the predicate. */
+export async function partitionAsync<T>(items: T[], predicate: (item: T) => Promise<boolean>): Promise<[T[], T[]]> {
+  const pass: T[] = [];
+  const fail: T[] = [];
+  for (const item of items) {
+    if (await predicate(item)) {
       pass.push(item);
     } else {
       fail.push(item);

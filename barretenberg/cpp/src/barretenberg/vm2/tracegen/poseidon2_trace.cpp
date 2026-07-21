@@ -5,8 +5,8 @@
 #include <cstddef>
 #include <cstdint>
 
+#include "barretenberg/aztec/aztec_constants.hpp"
 #include "barretenberg/crypto/poseidon2/poseidon2_permutation.hpp"
-#include "barretenberg/vm2/common/aztec_constants.hpp"
 #include "barretenberg/vm2/common/field.hpp"
 #include "barretenberg/vm2/generated/columns.hpp"
 #include "barretenberg/vm2/generated/relations/lookups_poseidon2_hash.hpp"
@@ -21,77 +21,40 @@ namespace {
 using C = Column;
 using StateCols = std::array<C, 4>;
 
-// This absolute monstrosity is a mapping of the intermediate round columns (round & state) to the "flattened" columns
-// in the trace.
-constexpr std::array<StateCols, Poseidon2Perm::NUM_ROUNDS> intermediate_round_cols = { {
-    // Full rounds
+// Full-round end-of-round columns. After the external MDS the lanes are
+// permuted as (lane 0 = T_*_6, lane 1 = T_*_5, lane 2 = T_*_7, lane 3 = T_*_4).
+constexpr std::array<StateCols, 4> initial_full_round_cols = { {
     { C::poseidon2_perm_T_0_6, C::poseidon2_perm_T_0_5, C::poseidon2_perm_T_0_7, C::poseidon2_perm_T_0_4 },
     { C::poseidon2_perm_T_1_6, C::poseidon2_perm_T_1_5, C::poseidon2_perm_T_1_7, C::poseidon2_perm_T_1_4 },
     { C::poseidon2_perm_T_2_6, C::poseidon2_perm_T_2_5, C::poseidon2_perm_T_2_7, C::poseidon2_perm_T_2_4 },
     { C::poseidon2_perm_T_3_6, C::poseidon2_perm_T_3_5, C::poseidon2_perm_T_3_7, C::poseidon2_perm_T_3_4 },
-    // Partial rounds
-    { C::poseidon2_perm_B_4_0, C::poseidon2_perm_B_4_1, C::poseidon2_perm_B_4_2, C::poseidon2_perm_B_4_3 },
-    { C::poseidon2_perm_B_5_0, C::poseidon2_perm_B_5_1, C::poseidon2_perm_B_5_2, C::poseidon2_perm_B_5_3 },
-    { C::poseidon2_perm_B_6_0, C::poseidon2_perm_B_6_1, C::poseidon2_perm_B_6_2, C::poseidon2_perm_B_6_3 },
-    { C::poseidon2_perm_B_7_0, C::poseidon2_perm_B_7_1, C::poseidon2_perm_B_7_2, C::poseidon2_perm_B_7_3 },
-    { C::poseidon2_perm_B_8_0, C::poseidon2_perm_B_8_1, C::poseidon2_perm_B_8_2, C::poseidon2_perm_B_8_3 },
-    { C::poseidon2_perm_B_9_0, C::poseidon2_perm_B_9_1, C::poseidon2_perm_B_9_2, C::poseidon2_perm_B_9_3 },
-    { C::poseidon2_perm_B_10_0, C::poseidon2_perm_B_10_1, C::poseidon2_perm_B_10_2, C::poseidon2_perm_B_10_3 },
-    { C::poseidon2_perm_B_11_0, C::poseidon2_perm_B_11_1, C::poseidon2_perm_B_11_2, C::poseidon2_perm_B_11_3 },
-    { C::poseidon2_perm_B_12_0, C::poseidon2_perm_B_12_1, C::poseidon2_perm_B_12_2, C::poseidon2_perm_B_12_3 },
-    { C::poseidon2_perm_B_13_0, C::poseidon2_perm_B_13_1, C::poseidon2_perm_B_13_2, C::poseidon2_perm_B_13_3 },
-    { C::poseidon2_perm_B_14_0, C::poseidon2_perm_B_14_1, C::poseidon2_perm_B_14_2, C::poseidon2_perm_B_14_3 },
-    { C::poseidon2_perm_B_15_0, C::poseidon2_perm_B_15_1, C::poseidon2_perm_B_15_2, C::poseidon2_perm_B_15_3 },
-    { C::poseidon2_perm_B_16_0, C::poseidon2_perm_B_16_1, C::poseidon2_perm_B_16_2, C::poseidon2_perm_B_16_3 },
-    { C::poseidon2_perm_B_17_0, C::poseidon2_perm_B_17_1, C::poseidon2_perm_B_17_2, C::poseidon2_perm_B_17_3 },
-    { C::poseidon2_perm_B_18_0, C::poseidon2_perm_B_18_1, C::poseidon2_perm_B_18_2, C::poseidon2_perm_B_18_3 },
-    { C::poseidon2_perm_B_19_0, C::poseidon2_perm_B_19_1, C::poseidon2_perm_B_19_2, C::poseidon2_perm_B_19_3 },
-    { C::poseidon2_perm_B_20_0, C::poseidon2_perm_B_20_1, C::poseidon2_perm_B_20_2, C::poseidon2_perm_B_20_3 },
-    { C::poseidon2_perm_B_21_0, C::poseidon2_perm_B_21_1, C::poseidon2_perm_B_21_2, C::poseidon2_perm_B_21_3 },
-    { C::poseidon2_perm_B_22_0, C::poseidon2_perm_B_22_1, C::poseidon2_perm_B_22_2, C::poseidon2_perm_B_22_3 },
-    { C::poseidon2_perm_B_23_0, C::poseidon2_perm_B_23_1, C::poseidon2_perm_B_23_2, C::poseidon2_perm_B_23_3 },
-    { C::poseidon2_perm_B_24_0, C::poseidon2_perm_B_24_1, C::poseidon2_perm_B_24_2, C::poseidon2_perm_B_24_3 },
-    { C::poseidon2_perm_B_25_0, C::poseidon2_perm_B_25_1, C::poseidon2_perm_B_25_2, C::poseidon2_perm_B_25_3 },
-    { C::poseidon2_perm_B_26_0, C::poseidon2_perm_B_26_1, C::poseidon2_perm_B_26_2, C::poseidon2_perm_B_26_3 },
-    { C::poseidon2_perm_B_27_0, C::poseidon2_perm_B_27_1, C::poseidon2_perm_B_27_2, C::poseidon2_perm_B_27_3 },
-    { C::poseidon2_perm_B_28_0, C::poseidon2_perm_B_28_1, C::poseidon2_perm_B_28_2, C::poseidon2_perm_B_28_3 },
-    { C::poseidon2_perm_B_29_0, C::poseidon2_perm_B_29_1, C::poseidon2_perm_B_29_2, C::poseidon2_perm_B_29_3 },
-    { C::poseidon2_perm_B_30_0, C::poseidon2_perm_B_30_1, C::poseidon2_perm_B_30_2, C::poseidon2_perm_B_30_3 },
-    { C::poseidon2_perm_B_31_0, C::poseidon2_perm_B_31_1, C::poseidon2_perm_B_31_2, C::poseidon2_perm_B_31_3 },
-    { C::poseidon2_perm_B_32_0, C::poseidon2_perm_B_32_1, C::poseidon2_perm_B_32_2, C::poseidon2_perm_B_32_3 },
-    { C::poseidon2_perm_B_33_0, C::poseidon2_perm_B_33_1, C::poseidon2_perm_B_33_2, C::poseidon2_perm_B_33_3 },
-    { C::poseidon2_perm_B_34_0, C::poseidon2_perm_B_34_1, C::poseidon2_perm_B_34_2, C::poseidon2_perm_B_34_3 },
-    { C::poseidon2_perm_B_35_0, C::poseidon2_perm_B_35_1, C::poseidon2_perm_B_35_2, C::poseidon2_perm_B_35_3 },
-    { C::poseidon2_perm_B_36_0, C::poseidon2_perm_B_36_1, C::poseidon2_perm_B_36_2, C::poseidon2_perm_B_36_3 },
-    { C::poseidon2_perm_B_37_0, C::poseidon2_perm_B_37_1, C::poseidon2_perm_B_37_2, C::poseidon2_perm_B_37_3 },
-    { C::poseidon2_perm_B_38_0, C::poseidon2_perm_B_38_1, C::poseidon2_perm_B_38_2, C::poseidon2_perm_B_38_3 },
-    { C::poseidon2_perm_B_39_0, C::poseidon2_perm_B_39_1, C::poseidon2_perm_B_39_2, C::poseidon2_perm_B_39_3 },
-    { C::poseidon2_perm_B_40_0, C::poseidon2_perm_B_40_1, C::poseidon2_perm_B_40_2, C::poseidon2_perm_B_40_3 },
-    { C::poseidon2_perm_B_41_0, C::poseidon2_perm_B_41_1, C::poseidon2_perm_B_41_2, C::poseidon2_perm_B_41_3 },
-    { C::poseidon2_perm_B_42_0, C::poseidon2_perm_B_42_1, C::poseidon2_perm_B_42_2, C::poseidon2_perm_B_42_3 },
-    { C::poseidon2_perm_B_43_0, C::poseidon2_perm_B_43_1, C::poseidon2_perm_B_43_2, C::poseidon2_perm_B_43_3 },
-    { C::poseidon2_perm_B_44_0, C::poseidon2_perm_B_44_1, C::poseidon2_perm_B_44_2, C::poseidon2_perm_B_44_3 },
-    { C::poseidon2_perm_B_45_0, C::poseidon2_perm_B_45_1, C::poseidon2_perm_B_45_2, C::poseidon2_perm_B_45_3 },
-    { C::poseidon2_perm_B_46_0, C::poseidon2_perm_B_46_1, C::poseidon2_perm_B_46_2, C::poseidon2_perm_B_46_3 },
-    { C::poseidon2_perm_B_47_0, C::poseidon2_perm_B_47_1, C::poseidon2_perm_B_47_2, C::poseidon2_perm_B_47_3 },
-    { C::poseidon2_perm_B_48_0, C::poseidon2_perm_B_48_1, C::poseidon2_perm_B_48_2, C::poseidon2_perm_B_48_3 },
-    { C::poseidon2_perm_B_49_0, C::poseidon2_perm_B_49_1, C::poseidon2_perm_B_49_2, C::poseidon2_perm_B_49_3 },
-    { C::poseidon2_perm_B_50_0, C::poseidon2_perm_B_50_1, C::poseidon2_perm_B_50_2, C::poseidon2_perm_B_50_3 },
-    { C::poseidon2_perm_B_51_0, C::poseidon2_perm_B_51_1, C::poseidon2_perm_B_51_2, C::poseidon2_perm_B_51_3 },
-    { C::poseidon2_perm_B_52_0, C::poseidon2_perm_B_52_1, C::poseidon2_perm_B_52_2, C::poseidon2_perm_B_52_3 },
-    { C::poseidon2_perm_B_53_0, C::poseidon2_perm_B_53_1, C::poseidon2_perm_B_53_2, C::poseidon2_perm_B_53_3 },
-    { C::poseidon2_perm_B_54_0, C::poseidon2_perm_B_54_1, C::poseidon2_perm_B_54_2, C::poseidon2_perm_B_54_3 },
-    { C::poseidon2_perm_B_55_0, C::poseidon2_perm_B_55_1, C::poseidon2_perm_B_55_2, C::poseidon2_perm_B_55_3 },
-    { C::poseidon2_perm_B_56_0, C::poseidon2_perm_B_56_1, C::poseidon2_perm_B_56_2, C::poseidon2_perm_B_56_3 },
-    { C::poseidon2_perm_B_57_0, C::poseidon2_perm_B_57_1, C::poseidon2_perm_B_57_2, C::poseidon2_perm_B_57_3 },
-    { C::poseidon2_perm_B_58_0, C::poseidon2_perm_B_58_1, C::poseidon2_perm_B_58_2, C::poseidon2_perm_B_58_3 },
-    { C::poseidon2_perm_B_59_0, C::poseidon2_perm_B_59_1, C::poseidon2_perm_B_59_2, C::poseidon2_perm_B_59_3 },
-    // Full rounds
+} };
+
+constexpr std::array<StateCols, 4> final_full_round_cols = { {
     { C::poseidon2_perm_T_60_6, C::poseidon2_perm_T_60_5, C::poseidon2_perm_T_60_7, C::poseidon2_perm_T_60_4 },
     { C::poseidon2_perm_T_61_6, C::poseidon2_perm_T_61_5, C::poseidon2_perm_T_61_7, C::poseidon2_perm_T_61_4 },
     { C::poseidon2_perm_T_62_6, C::poseidon2_perm_T_62_5, C::poseidon2_perm_T_62_7, C::poseidon2_perm_T_62_4 },
     { C::poseidon2_perm_T_63_6, C::poseidon2_perm_T_63_5, C::poseidon2_perm_T_63_7, C::poseidon2_perm_T_63_4 },
 } };
+
+// Partial-round columns.
+// We need to still commit to state[0] at every partial round. Check poseidon2_perm.pil for how this works.
+constexpr std::array<C, 56> partial_round_cols = {
+    C::poseidon2_perm_B_4_0,  C::poseidon2_perm_B_5_0,  C::poseidon2_perm_B_6_0,  C::poseidon2_perm_B_7_0,
+    C::poseidon2_perm_B_8_0,  C::poseidon2_perm_B_9_0,  C::poseidon2_perm_B_10_0, C::poseidon2_perm_B_11_0,
+    C::poseidon2_perm_B_12_0, C::poseidon2_perm_B_13_0, C::poseidon2_perm_B_14_0, C::poseidon2_perm_B_15_0,
+    C::poseidon2_perm_B_16_0, C::poseidon2_perm_B_17_0, C::poseidon2_perm_B_18_0, C::poseidon2_perm_B_19_0,
+    C::poseidon2_perm_B_20_0, C::poseidon2_perm_B_21_0, C::poseidon2_perm_B_22_0, C::poseidon2_perm_B_23_0,
+    C::poseidon2_perm_B_24_0, C::poseidon2_perm_B_25_0, C::poseidon2_perm_B_26_0, C::poseidon2_perm_B_27_0,
+    C::poseidon2_perm_B_28_0, C::poseidon2_perm_B_29_0, C::poseidon2_perm_B_30_0, C::poseidon2_perm_B_31_0,
+    C::poseidon2_perm_B_32_0, C::poseidon2_perm_B_33_0, C::poseidon2_perm_B_34_0, C::poseidon2_perm_B_35_0,
+    C::poseidon2_perm_B_36_0, C::poseidon2_perm_B_37_0, C::poseidon2_perm_B_38_0, C::poseidon2_perm_B_39_0,
+    C::poseidon2_perm_B_40_0, C::poseidon2_perm_B_41_0, C::poseidon2_perm_B_42_0, C::poseidon2_perm_B_43_0,
+    C::poseidon2_perm_B_44_0, C::poseidon2_perm_B_45_0, C::poseidon2_perm_B_46_0, C::poseidon2_perm_B_47_0,
+    C::poseidon2_perm_B_48_0, C::poseidon2_perm_B_49_0, C::poseidon2_perm_B_50_0, C::poseidon2_perm_B_51_0,
+    C::poseidon2_perm_B_52_0, C::poseidon2_perm_B_53_0, C::poseidon2_perm_B_54_0, C::poseidon2_perm_B_55_0,
+    C::poseidon2_perm_B_56_0, C::poseidon2_perm_B_57_0, C::poseidon2_perm_B_58_0, C::poseidon2_perm_B_59_0,
+};
 
 } // namespace
 
@@ -176,8 +139,6 @@ void Poseidon2TraceBuilder::process_permutation(
 {
     // Our current state
     std::array<FF, 4> current_state;
-    // These are where we will store the intermediate values of current_state in the trace.
-    std::array<C, 4> round_state_cols;
 
     uint32_t row = 0;
 
@@ -210,41 +171,43 @@ void Poseidon2TraceBuilder::process_permutation(
             Poseidon2Perm::add_round_constants(current_state, Poseidon2Perm::round_constants[i]);
             Poseidon2Perm::apply_sbox(current_state);
             Poseidon2Perm::matrix_multiplication_external(current_state);
-            // Store end of round state
-            round_state_cols = intermediate_round_cols[i];
+            const auto& cols = initial_full_round_cols[i];
             trace.set(row,
-                      { { { round_state_cols[0], current_state[0] },
-                          { round_state_cols[1], current_state[1] },
-                          { round_state_cols[2], current_state[2] },
-                          { round_state_cols[3], current_state[3] } } });
+                      { { { cols[0], current_state[0] },
+                          { cols[1], current_state[1] },
+                          { cols[2], current_state[2] },
+                          { cols[3], current_state[3] } } });
         }
 
         // Internal (partial) rounds
+        // Only state[0] is committed (B_n_0). The other three state values are intermediate polys
         const size_t p_end = rounds_f_beginning + Poseidon2Perm::rounds_p;
         for (size_t i = rounds_f_beginning; i < p_end; ++i) {
             current_state[0] += Poseidon2Perm::round_constants[i][0];
             Poseidon2Perm::apply_single_sbox(current_state[0]);
             Poseidon2Perm::matrix_multiplication_internal(current_state);
-            // Store end of round state
-            round_state_cols = intermediate_round_cols[i];
-            trace.set(row,
-                      { { { round_state_cols[0], current_state[0] },
-                          { round_state_cols[1], current_state[1] },
-                          { round_state_cols[2], current_state[2] },
-                          { round_state_cols[3], current_state[3] } } });
+            const size_t partial_idx = i - rounds_f_beginning;
+            trace.set(row, { { { partial_round_cols[partial_idx], current_state[0] } } });
         }
 
-        // Remaining external (full) rounds
+        // Bridge: at the end of the partial-round chain we need to commit all four state B_59_{1,2,3}
+        // so the first final full round can S-box the standard 4-lane state.
+        trace.set(row,
+                  { { { C::poseidon2_perm_B_59_1, current_state[1] },
+                      { C::poseidon2_perm_B_59_2, current_state[2] },
+                      { C::poseidon2_perm_B_59_3, current_state[3] } } });
+
+        // Remaining external (full) rounds.
         for (size_t i = p_end; i < Poseidon2Perm::NUM_ROUNDS; ++i) {
             Poseidon2Perm::add_round_constants(current_state, Poseidon2Perm::round_constants[i]);
             Poseidon2Perm::apply_sbox(current_state);
             Poseidon2Perm::matrix_multiplication_external(current_state);
-            round_state_cols = intermediate_round_cols[i];
+            const auto& cols = final_full_round_cols[i - p_end];
             trace.set(row,
-                      { { { round_state_cols[0], current_state[0] },
-                          { round_state_cols[1], current_state[1] },
-                          { round_state_cols[2], current_state[2] },
-                          { round_state_cols[3], current_state[3] } } });
+                      { { { cols[0], current_state[0] },
+                          { cols[1], current_state[1] },
+                          { cols[2], current_state[2] },
+                          { cols[3], current_state[3] } } });
         }
         // Set the output
         trace.set(row,
@@ -301,7 +264,8 @@ void Poseidon2TraceBuilder::process_permutation_with_memory(
             uint32_t target_tag = static_cast<uint32_t>(MemoryTag::FF);
             FF batched_tag_check = 0;
             // Performs the batched tag check described in the circuit.
-            // see https://hackmd.io/moq6viBpRJeLpWrHAogCZw#Batching-comparison-of-n-bit-numbers
+            // see
+            // https://github.com/AztecProtocol/aztec-packages/blob/next/barretenberg/cpp/pil/vm2/docs/recipes.md#batching-comparison-of-n-bit-numbers
             for (uint32_t i = 0; i < event.input.size(); i++) {
                 uint32_t exponent = 3 * i;
                 uint32_t current_tag = static_cast<uint32_t>(event.input[i].get_tag());
@@ -359,11 +323,11 @@ void Poseidon2TraceBuilder::process_permutation_with_memory(
 
 const InteractionDefinition Poseidon2TraceBuilder::interactions =
     InteractionDefinition()
-        .add<lookup_poseidon2_hash_poseidon2_perm_settings, InteractionType::LookupSequential>()
+        .add<InteractionType::LookupSequential, lookup_poseidon2_hash_poseidon2_perm_settings>()
         // Poseidon2 Memory to Permutation Subtrace
-        .add<lookup_poseidon2_mem_input_output_poseidon2_perm_settings, InteractionType::LookupSequential>()
+        .add<InteractionType::LookupSequential, lookup_poseidon2_mem_input_output_poseidon2_perm_settings>()
         // Lookups to Greater Than Subtrace
-        .add<lookup_poseidon2_mem_check_src_addr_in_range_settings, InteractionType::LookupGeneric>(C::gt_sel)
-        .add<lookup_poseidon2_mem_check_dst_addr_in_range_settings, InteractionType::LookupGeneric>(C::gt_sel);
+        .add<InteractionType::LookupGeneric, lookup_poseidon2_mem_check_src_addr_in_range_settings>(C::gt_sel)
+        .add<InteractionType::LookupGeneric, lookup_poseidon2_mem_check_dst_addr_in_range_settings>(C::gt_sel);
 
 } // namespace bb::avm2::tracegen

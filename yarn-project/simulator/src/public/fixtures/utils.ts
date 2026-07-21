@@ -2,10 +2,8 @@ import {
   CONTRACT_CLASS_PUBLISHED_MAGIC_VALUE,
   CONTRACT_CLASS_REGISTRY_CONTRACT_ADDRESS,
   CONTRACT_INSTANCE_REGISTRY_CONTRACT_ADDRESS,
-  DEFAULT_DA_GAS_LIMIT,
-  DEFAULT_L2_GAS_LIMIT,
-  DEFAULT_TEARDOWN_DA_GAS_LIMIT,
-  DEFAULT_TEARDOWN_L2_GAS_LIMIT,
+  MAX_PROCESSABLE_DA_GAS_PER_CHECKPOINT,
+  MAX_PROCESSABLE_L2_GAS,
   PRIVATE_LOG_SIZE_IN_FIELDS,
 } from '@aztec/constants';
 import { padArrayEnd } from '@aztec/foundation/collection';
@@ -38,6 +36,9 @@ import {
 
 import { strict as assert } from 'assert';
 
+const TEARDOWN_DA_GAS_LIMIT = 98_304;
+const TEARDOWN_L2_GAS_LIMIT = 817_500;
+
 export type TestPrivateInsertions = {
   revertible?: {
     nullifiers?: Fr[];
@@ -62,13 +63,14 @@ export async function createTxForPublicCalls(
   feePayer = AztecAddress.zero(),
   gasUsedByPrivate: Gas = Gas.empty(),
   globals: GlobalVariables = GlobalVariables.empty(),
+  gasLimits?: Gas,
 ): Promise<Tx> {
   assert(
     setupCallRequests.length > 0 || appCallRequests.length > 0 || teardownCallRequest !== undefined,
     "Can't create public tx with no enqueued calls",
   );
   // use max limits
-  const gasLimits = new Gas(DEFAULT_DA_GAS_LIMIT, DEFAULT_L2_GAS_LIMIT);
+  gasLimits = gasLimits ?? new Gas(MAX_PROCESSABLE_DA_GAS_PER_CHECKPOINT, MAX_PROCESSABLE_L2_GAS);
 
   const forPublic = PartialPrivateTailPublicInputsForPublic.empty();
 
@@ -127,20 +129,18 @@ export async function createTxForPublicCalls(
   }
 
   const maxFeesPerGas = feePayer.isZero() ? GasFees.empty() : new GasFees(10, 10);
-  const teardownGasLimits = teardownCallRequest
-    ? new Gas(DEFAULT_TEARDOWN_DA_GAS_LIMIT, DEFAULT_TEARDOWN_L2_GAS_LIMIT)
-    : Gas.empty();
+  const teardownGasLimits = teardownCallRequest ? new Gas(TEARDOWN_DA_GAS_LIMIT, TEARDOWN_L2_GAS_LIMIT) : Gas.empty();
   const gasSettings = new GasSettings(gasLimits, teardownGasLimits, maxFeesPerGas, GasFees.empty());
   const txContext = new TxContext(Fr.zero(), Fr.zero(), gasSettings);
   const header = BlockHeader.empty({ globalVariables: globals });
   const constantData = new TxConstantData(header, txContext, Fr.zero(), Fr.zero());
-  const includeByTimestamp = 0n; // Not used in the simulator.
+  const expirationTimestamp = 0n; // Not used in the simulator.
 
   const txData = new PrivateKernelTailCircuitPublicInputs(
     constantData,
     /*gasUsed=*/ gasUsedByPrivate,
     feePayer,
-    includeByTimestamp,
+    expirationTimestamp,
     forPublic,
   );
 
@@ -163,7 +163,7 @@ export async function createTxForPrivateOnly(
   gasUsedByPrivate: Gas = new Gas(10, 10),
 ): Promise<Tx> {
   // use max limits
-  const gasLimits = new Gas(DEFAULT_DA_GAS_LIMIT, DEFAULT_L2_GAS_LIMIT);
+  const gasLimits = new Gas(MAX_PROCESSABLE_DA_GAS_PER_CHECKPOINT, MAX_PROCESSABLE_L2_GAS);
 
   const forRollup = PartialPrivateTailPublicInputsForRollup.empty();
 
@@ -171,13 +171,13 @@ export async function createTxForPrivateOnly(
   const gasSettings = new GasSettings(gasLimits, Gas.empty(), maxFeesPerGas, GasFees.empty());
   const txContext = new TxContext(Fr.zero(), Fr.zero(), gasSettings);
   const constantData = new TxConstantData(BlockHeader.empty(), txContext, Fr.zero(), Fr.zero());
-  const includeByTimestamp = 0n; // Not used in the simulator.
+  const expirationTimestamp = 0n; // Not used in the simulator.
 
   const txData = new PrivateKernelTailCircuitPublicInputs(
     constantData,
     /*gasUsed=*/ gasUsedByPrivate,
     feePayer,
-    includeByTimestamp,
+    expirationTimestamp,
     /*forPublic=*/ undefined,
     forRollup,
   );
@@ -228,17 +228,15 @@ export async function addNewContractInstanceToTx(
   contractInstance: ContractInstanceWithAddress,
   skipNullifierInsertion = false,
 ) {
-  // can't use publicKeys.toFields() because it includes isInfinite which
-  // is not broadcast in such private logs
+  // Only ivpk_m is broadcast as a point (x, y); the other five keys are hashes.
   const publicKeysAsFields = [
-    contractInstance.publicKeys.masterNullifierPublicKey.x,
-    contractInstance.publicKeys.masterNullifierPublicKey.y,
-    contractInstance.publicKeys.masterIncomingViewingPublicKey.x,
-    contractInstance.publicKeys.masterIncomingViewingPublicKey.y,
-    contractInstance.publicKeys.masterOutgoingViewingPublicKey.x,
-    contractInstance.publicKeys.masterOutgoingViewingPublicKey.y,
-    contractInstance.publicKeys.masterTaggingPublicKey.x,
-    contractInstance.publicKeys.masterTaggingPublicKey.y,
+    contractInstance.publicKeys.npkMHash,
+    contractInstance.publicKeys.ivpkM.x,
+    contractInstance.publicKeys.ivpkM.y,
+    contractInstance.publicKeys.ovpkMHash,
+    contractInstance.publicKeys.tpkMHash,
+    contractInstance.publicKeys.mspkMHash,
+    contractInstance.publicKeys.fbpkMHash,
   ];
   const logFields = [
     CONTRACT_INSTANCE_PUBLISHED_EVENT_TAG,
@@ -247,6 +245,7 @@ export async function addNewContractInstanceToTx(
     new Fr(contractInstance.salt),
     contractInstance.currentContractClassId,
     contractInstance.initializationHash,
+    contractInstance.immutablesHash,
     ...publicKeysAsFields,
     contractInstance.deployer.toField(),
   ];
@@ -256,7 +255,7 @@ export async function addNewContractInstanceToTx(
   );
 
   const contractAddressNullifier = await siloNullifier(
-    AztecAddress.fromNumber(CONTRACT_INSTANCE_REGISTRY_CONTRACT_ADDRESS),
+    AztecAddress.fromNumberUnsafe(CONTRACT_INSTANCE_REGISTRY_CONTRACT_ADDRESS),
     contractInstance.address.toField(),
   );
 

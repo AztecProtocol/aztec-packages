@@ -1,12 +1,14 @@
 ---
-title: Proving Historic State
+title: Proving historic state
 sidebar_position: 15
 tags: [contracts]
-description: Prove historical state and note inclusion in your Aztec smart contracts using the Archive tree.
+description: Prove historical notes, nullifiers, contract deployment, and public storage in your Aztec smart contracts.
 references: ["noir-projects/noir-contracts/contracts/app/claim_contract/src/main.nr"]
 ---
 
-This guide shows you how to prove historical state transitions and note inclusion using Aztec's Archive tree.
+This guide shows you how to prove facts about Aztec's historical state from inside a private function: that a note existed, that a nullifier was or wasn't present, that a contract was deployed, or what a public storage slot held at a past block.
+
+Each proof is a Merkle membership (or non-membership) proof against a state tree root committed in a past block header: the note hash tree, the nullifier tree, or the public data tree. (The Archive tree, by contrast, holds a hash of each block header and is what proves a header is canonical.) Private functions always read from a past block header rather than the live chain tip, because the chain advances while a proof is generated on your device. The proofs therefore tell you what was true once every transaction in the chosen block had executed.
 
 ## Prerequisites
 
@@ -21,11 +23,23 @@ You can create proofs for these elements at any past block height:
 - **Note validity** - prove a note existed and wasn't nullified at a specific block
 - **Nullifier inclusion/non-inclusion** - prove a nullifier was or wasn't in the nullifier tree
 - **Contract deployment** - prove a contract's bytecode was published or initialized
+- **Public storage** - read the value a public storage slot held at a past block
 
 Common use cases:
 - Verify ownership of an asset from another contract without revealing which specific note
 - Prove eligibility based on historical state (e.g., "owned tokens at block X")
-- Claim rewards based on past contributions (see the [claim contract](https://github.com/AztecProtocol/aztec-packages/blob/master/noir-projects/noir-contracts/contracts/app/claim_contract/src/main.nr) for a complete example)
+- Claim rewards based on past contributions (see the [claim contract](https://github.com/AztecProtocol/aztec-packages/blob/#include_aztec_version/noir-projects/noir-contracts/contracts/app/claim_contract/src/main.nr) for a complete example)
+
+## Choosing a block header
+
+Every function below takes a `BlockHeader`. Two getters on the private context provide one:
+
+- `self.context.get_anchor_block_header()` returns the transaction's anchor block header. The protocol's circuits verify it once per transaction, so using it adds no extra constraints to your function. The protocol requires a transaction to expire within 24 hours of its anchor block, so the anchor is always a block from the last 24 hours.
+- `self.context.get_block_header_at(block_number)` returns the header of any block at or before the anchor block, letting you prove against older state at the cost of extra constraints (see [Prove at a specific historical block](#prove-at-a-specific-historical-block)).
+
+:::warning Data availability
+Producing these proofs requires the historical state trees (note hashes, nullifiers, public storage) for the chosen block. Many nodes prune this data after a few hours, so proving against older blocks requires a node that retains it, such as an archive node.
+:::
 
 ## Prove note inclusion
 
@@ -42,7 +56,7 @@ Prove a note exists in the note hash tree:
 To prove a note was valid (existed AND wasn't nullified) at a historical block:
 
 ```rust
-use dep::aztec::history::note::assert_note_was_valid_by;
+use aztec::history::note::assert_note_was_valid_by;
 
 let header = self.context.get_anchor_block_header();
 assert_note_was_valid_by(header, hinted_note, &mut self.context);
@@ -57,7 +71,7 @@ This verifies both:
 To prove against state at a specific past block (not just the anchor block):
 
 ```rust
-use dep::aztec::history::note::assert_note_existed_by;
+use aztec::history::note::assert_note_existed_by;
 
 let historical_header = self.context.get_block_header_at(block_number);
 assert_note_existed_by(historical_header, hinted_note);
@@ -72,7 +86,7 @@ Using `get_block_header_at` adds ~3k constraints to prove Archive tree membershi
 To prove a note has been spent/nullified:
 
 ```rust
-use dep::aztec::history::note::assert_note_was_nullified_by;
+use aztec::history::note::assert_note_was_nullified_by;
 
 let header = self.context.get_anchor_block_header();
 assert_note_was_nullified_by(header, confirmed_note, &mut self.context);
@@ -83,7 +97,7 @@ assert_note_was_nullified_by(header, confirmed_note, &mut self.context);
 To prove a contract's bytecode was published at a historical block:
 
 ```rust
-use dep::aztec::history::deployment::assert_contract_bytecode_was_published_by;
+use aztec::history::deployment::assert_contract_bytecode_was_published_by;
 
 let header = self.context.get_anchor_block_header();
 assert_contract_bytecode_was_published_by(header, contract_address);
@@ -92,13 +106,32 @@ assert_contract_bytecode_was_published_by(header, contract_address);
 You can also prove a contract was initialized (constructor was called):
 
 ```rust
-use dep::aztec::history::deployment::assert_contract_was_initialized_by;
+use aztec::history::deployment::assert_contract_was_initialized_by;
+use aztec::oracle::get_contract_instance::get_contract_instance;
 
 let header = self.context.get_anchor_block_header();
-assert_contract_was_initialized_by(header, contract_address);
+let instance = get_contract_instance(contract_address);
+assert_contract_was_initialized_by(header, contract_address, instance.initialization_hash);
 ```
 
-## Available proof functions
+## Read historical public storage
+
+To read the value a public storage slot held at a past block in a private function, use `public_storage_historical_read`. It returns the stored value and constrains it against the public data tree root in the given block header:
+
+```rust
+use aztec::history::storage::public_storage_historical_read;
+
+let header = self.context.get_anchor_block_header();
+let value = public_storage_historical_read(header, storage_slot, contract_address);
+```
+
+An uninitialized slot reads as `0`.
+
+Because this proves the value against a past block header rather than reading the live chain tip, a private function can read public state this way **without enqueuing a public call**. Enqueuing a public call is only needed to read the _current_ value or to write to public storage.
+
+Higher-level state variables build on this. Reading a `PublicImmutable` or `DelayedPublicMutable` from a private function performs a historical public storage read internally (through `WithHash`), so you rarely need to call `public_storage_historical_read` directly. Both types are designed so that a historical read is also a correct read of the current value: a `PublicImmutable` can only be initialized once, so its value never changes, while a `DelayedPublicMutable` delays every write and sets the transaction's expiration timestamp so the transaction is only valid for as long as the value it read still holds.
+
+## Available history functions
 
 The `aztec::history` module provides these functions:
 
@@ -108,9 +141,12 @@ The `aztec::history` module provides these functions:
 | `assert_note_was_valid_by` | `history::note` | Prove note exists and is not nullified |
 | `assert_note_was_nullified_by` | `history::note` | Prove note's nullifier is in nullifier tree |
 | `assert_note_was_not_nullified_by` | `history::note` | Prove note's nullifier is not in nullifier tree |
-| `assert_nullifier_existed_by` | `history::nullifier` | Prove a raw nullifier exists |
-| `assert_nullifier_did_not_exist_by` | `history::nullifier` | Prove a raw nullifier does not exist |
+| `assert_nullifier_existed_by` | `history::nullifier` | Prove a siloed nullifier exists |
+| `assert_nullifier_did_not_exist_by` | `history::nullifier` | Prove a siloed nullifier does not exist |
 | `assert_contract_bytecode_was_published_by` | `history::deployment` | Prove a contract's bytecode was published |
 | `assert_contract_bytecode_was_not_published_by` | `history::deployment` | Prove a contract's bytecode was not published |
 | `assert_contract_was_initialized_by` | `history::deployment` | Prove a contract was initialized |
 | `assert_contract_was_not_initialized_by` | `history::deployment` | Prove a contract was not initialized |
+| `public_storage_historical_read` | `history::storage` | Read a public storage value at a historical block |
+
+The nullifier functions take a _siloed_ nullifier: the nullifier hashed together with the contract address, which is the value actually stored in the global nullifier tree. Use `compute_siloed_nullifier` to convert an inner nullifier (the value passed to `push_nullifier_unsafe`) into its siloed form.

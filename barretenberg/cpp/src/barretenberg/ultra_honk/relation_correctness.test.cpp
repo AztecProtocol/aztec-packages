@@ -11,11 +11,13 @@
 #include "barretenberg/relations/permutation_relation.hpp"
 #include "barretenberg/relations/relation_parameters.hpp"
 #include "barretenberg/relations/ultra_arithmetic_relation.hpp"
+#include "barretenberg/stdlib/hash/poseidon2/poseidon2.hpp"
+#include "barretenberg/stdlib/primitives/bigfield/bigfield.hpp"
 #include "barretenberg/stdlib/primitives/pairing_points.hpp"
 #include "barretenberg/stdlib/special_public_inputs/special_public_inputs.hpp"
 #include "barretenberg/stdlib_circuit_builders/plookup_tables/fixed_base/fixed_base.hpp"
 #include "barretenberg/ultra_honk/prover_instance.hpp"
-#include "barretenberg/ultra_honk/witness_computation.hpp"
+#include "barretenberg/ultra_honk/witness_computation_test_utils.hpp"
 
 #include <gtest/gtest.h>
 using namespace bb;
@@ -155,20 +157,126 @@ template <typename Flavor> void create_some_elliptic_curve_addition_gates(auto& 
     uint32_t x3 = circuit_builder.add_variable(p3.x);
     uint32_t y3 = circuit_builder.add_variable(p3.y);
 
-    circuit_builder.create_ecc_add_gate({ x1, y1, x2, y2, x3, y3, -1 });
+    circuit_builder.create_ecc_add_gate({ x1, y1, x2, y2, x3, y3, /*is_addition=*/false });
 }
 
-template <typename Flavor> void create_some_ecc_op_queue_gates(auto& circuit_builder)
+template <typename Flavor>
+void create_some_ecc_op_queue_gates(auto& circuit_builder)
+    requires(Flavor::HasEccOpQueue)
 {
     using G1 = typename Flavor::Curve::Group;
     using FF = typename Flavor::FF;
-    static_assert(IsMegaFlavor<Flavor>);
     const size_t num_ecc_operations = 10; // arbitrary
     for (size_t i = 0; i < num_ecc_operations; ++i) {
         auto point = G1::affine_one * FF::random_element();
         auto scalar = FF::random_element();
         circuit_builder.queue_ecc_mul_accum(point, scalar);
     }
+}
+
+template <typename Flavor>
+void create_some_databus_gates(auto& builder)
+    requires Flavor::HasDataBus
+{
+    using FF = typename Flavor::FF;
+    auto val = builder.add_variable(FF::random_element());
+    builder.add_public_calldata(BusId::KERNEL_CALLDATA, val);
+    builder.read_calldata(BusId::KERNEL_CALLDATA, builder.add_variable(FF(0)));
+    for (size_t app_idx = 0; app_idx < MAX_APPS_PER_KERNEL; ++app_idx) {
+        auto bus_id = static_cast<BusId>(static_cast<size_t>(BusId::APP_CALLDATA) + app_idx);
+        builder.add_public_calldata(bus_id, val);
+        builder.read_calldata(bus_id, builder.add_variable(FF(0)));
+    }
+    builder.add_public_return_data(val);
+    builder.read_return_data(builder.add_variable(FF(0)));
+}
+
+template <typename Flavor> void create_some_non_native_field_gates(auto& builder)
+{
+    using Builder = typename Flavor::CircuitBuilder;
+    using fq_ct = stdlib::bigfield<Builder, bb::Bn254FqParams>;
+
+    auto a = fq_ct::from_witness(&builder, bb::fq::random_element());
+    auto b = fq_ct::from_witness(&builder, bb::fq::random_element());
+    [[maybe_unused]] auto c = a * b;
+}
+
+template <typename Flavor> void create_some_bilinear_batched_eq_gates(auto& builder)
+{
+    using FF = typename Flavor::FF;
+
+    // BILINEAR row: enforce the full identity
+    //   q_m·a·b + q_5·a·c + q_l·a + q_r·b + q_o·c + q_4·d + q_c = 0
+    // with two products sharing wire a, a linear term on each wire, and a constant. Pick a, b, c and
+    // solve for the linear-only wire d so the identity holds.
+    FF qm = FF(3);
+    FF q5 = -FF(5);
+    FF ql = FF(2);
+    FF qr = -FF(1);
+    FF qo = FF(7);
+    FF q4 = FF(4);
+    FF qc = FF(11);
+    FF a_val = FF::random_element();
+    FF b_val = FF::random_element();
+    FF c_val = FF::random_element();
+    // q_4·d = −(q_m·a·b + q_5·a·c + q_l·a + q_r·b + q_o·c + q_c)  ⇒  d = rest / q_4
+    FF rest = -(qm * a_val * b_val + q5 * a_val * c_val + ql * a_val + qr * b_val + qo * c_val + qc);
+    FF d_val = rest * q4.invert();
+    uint32_t a_idx = builder.add_variable(a_val);
+    uint32_t b_idx = builder.add_variable(b_val);
+    uint32_t c_idx = builder.add_variable(c_val);
+    uint32_t d_idx = builder.add_variable(d_val);
+    builder.create_bilinear_batched_eq_gate({ BilinearBatchedEqMode::Bilinear,
+                                              a_idx,
+                                              b_idx,
+                                              c_idx,
+                                              d_idx,
+                                              /*q_l=*/ql,
+                                              /*q_r=*/qr,
+                                              /*q_o=*/qo,
+                                              /*q_4=*/q4,
+                                              /*q_c=*/qc,
+                                              /*q_m=*/qm,
+                                              /*q_5=*/q5 });
+
+    // BATCHED_EQ row: pair two equality-with-const constraints into one row.
+    // Half 1: w_l + 2·w_r − k1 = 0
+    // Half 2: 3·w_o − w_4 − k2 = 0
+    FF w_l_val = FF::random_element();
+    FF w_r_val = FF::random_element();
+    FF w_o_val = FF::random_element();
+    FF k1 = w_l_val + FF(2) * w_r_val;
+    FF k2 = FF(3) * w_o_val;
+    FF w_4_val = k2 * -FF(1) + FF(3) * w_o_val; // makes 3·w_o − w_4 − k2 = 0
+    uint32_t wl_idx = builder.add_variable(w_l_val);
+    uint32_t wr_idx = builder.add_variable(w_r_val);
+    uint32_t wo_idx = builder.add_variable(w_o_val);
+    uint32_t w4_idx = builder.add_variable(w_4_val);
+    builder.create_bilinear_batched_eq_gate({ BilinearBatchedEqMode::BatchedEq,
+                                              wl_idx,
+                                              wr_idx,
+                                              wo_idx,
+                                              w4_idx,
+                                              /*q_l=*/FF(1),
+                                              /*q_r=*/FF(2),
+                                              /*q_o=*/FF(3),
+                                              /*q_4=*/-FF(1),
+                                              /*q_c=*/-k1,
+                                              /*q_m=*/-k2,
+                                              /*q_5=*/0 });
+}
+
+template <typename Flavor> void create_some_poseidon2_gates(auto& builder)
+{
+    using field_ct = stdlib::field_t<typename Flavor::CircuitBuilder>;
+    using witness_ct = stdlib::witness_t<typename Flavor::CircuitBuilder>;
+    using FF = typename Flavor::FF;
+
+    std::vector<field_ct> inputs;
+    for (size_t i = 0; i < 4; ++i) {
+        inputs.emplace_back(witness_ct(&builder, FF::random_element()));
+    }
+    stdlib::poseidon2<typename Flavor::CircuitBuilder>::hash(inputs);
 }
 
 class UltraRelationCorrectnessTests : public ::testing::Test {
@@ -201,12 +309,14 @@ TEST_F(UltraRelationCorrectnessTests, Ultra)
     create_some_delta_range_constraint_gates<Flavor>(builder);
     create_some_elliptic_curve_addition_gates<Flavor>(builder);
     create_some_RAM_gates<Flavor>(builder);
+    create_some_non_native_field_gates<Flavor>(builder);
+    create_some_poseidon2_gates<Flavor>(builder);
     stdlib::recursion::honk::DefaultIO<UltraCircuitBuilder>::add_default(builder);
 
     // Create a prover (it will compute proving key and witness)
     auto prover_inst = std::make_shared<ProverInstance_<Flavor>>(builder);
 
-    WitnessComputation<Flavor>::complete_prover_instance_for_test(prover_inst);
+    complete_prover_instance_for_test<Flavor>(prover_inst);
 
     // Check that selectors are nonzero to ensure corresponding relation has nontrivial contribution
     for (auto selector : prover_inst->polynomials.get_gate_selectors()) {
@@ -234,23 +344,28 @@ TEST_F(UltraRelationCorrectnessTests, Mega)
     create_some_delta_range_constraint_gates<Flavor>(builder);
     create_some_elliptic_curve_addition_gates<Flavor>(builder);
     create_some_RAM_gates<Flavor>(builder);
-    create_some_ecc_op_queue_gates<Flavor>(builder); // Goblin!
+    create_some_ecc_op_queue_gates<Flavor>(builder);
+    create_some_databus_gates<Flavor>(builder);
+    create_some_non_native_field_gates<Flavor>(builder);
+    create_some_poseidon2_gates<Flavor>(builder);
+    create_some_bilinear_batched_eq_gates<Flavor>(builder);
     stdlib::recursion::honk::DefaultIO<MegaCircuitBuilder>::add_default(builder);
 
     // Create a prover (it will compute proving key and witness)
     auto prover_inst = std::make_shared<ProverInstance_<Flavor>>(builder);
 
-    WitnessComputation<Flavor>::complete_prover_instance_for_test(prover_inst);
+    complete_prover_instance_for_test<Flavor>(prover_inst);
 
-    // Check that selectors are nonzero to ensure corresponding relation has nontrivial contribution
+    // Check that selectors and databus inverses are nonzero to ensure relations are non-trivially exercised
     for (auto selector : prover_inst->polynomials.get_gate_selectors()) {
         ensure_non_zero(selector);
     }
 
-    // Check the databus entities are non-zero
-    for (auto selector : prover_inst->polynomials.get_databus_entities()) {
-        ensure_non_zero(selector);
+    // Check the databus read counts/tags/inverses are non-zero (data columns may be zero with DEFAULT_VALUE=0)
+    for (auto poly : prover_inst->polynomials.get_databus_inverses()) {
+        ensure_non_zero(poly);
     }
+
     auto& prover_polynomials = prover_inst->polynomials;
     auto params = prover_inst->relation_parameters;
 

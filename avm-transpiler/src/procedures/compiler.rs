@@ -233,10 +233,8 @@ fn compile_opcode(
         Mnemonic::ECADD => {
             collector.memory_address_operand()?; // p1 x
             collector.memory_address_operand()?; // p1 y
-            collector.memory_address_operand()?; // p1 is_infinite
             collector.memory_address_operand()?; // p2 x
             collector.memory_address_operand()?; // p2 y
-            collector.memory_address_operand()?; // p2 is_infinite
             collector.memory_address_operand()?; // result
             let collection = collector.finish()?;
             result.add_instruction(

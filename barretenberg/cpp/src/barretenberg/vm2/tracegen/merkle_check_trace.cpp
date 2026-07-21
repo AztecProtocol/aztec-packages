@@ -4,6 +4,7 @@
 #include <cstdint>
 #include <optional>
 
+#include "barretenberg/aztec/aztec_constants.hpp"
 #include "barretenberg/crypto/poseidon2/poseidon2.hpp"
 #include "barretenberg/vm2/common/field.hpp"
 #include "barretenberg/vm2/generated/columns.hpp"
@@ -53,6 +54,7 @@ void MerkleCheckTraceBuilder::process(
 
         const FF& root = event.root;
         const FF new_root = event.new_root.value_or(FF(0));
+        const uint64_t sep = event.merkle_hash_domain_separator;
 
         for (size_t i = 0; i < full_path_len; ++i) {
             const FF& sibling = event.sibling_path[i];
@@ -66,12 +68,13 @@ void MerkleCheckTraceBuilder::process(
             const bool index_is_even = current_index_in_layer % 2 == 0;
             const FF read_left_node = index_is_even ? read_node : sibling;
             const FF read_right_node = index_is_even ? sibling : read_node;
-            const FF read_output_hash = Poseidon2::hash({ read_left_node, read_right_node });
+            const FF read_output_hash = Poseidon2::hash({ FF(sep), read_left_node, read_right_node });
 
             // Read and Write
             trace.set(row,
                       { { { C::merkle_check_sel, 1 },
-                          { C::merkle_check_const_two, 2 },
+                          { C::merkle_check_const_three, 3 },
+                          { C::merkle_check_merkle_hash_separator, sep },
                           { C::merkle_check_read_node, read_node },
                           { C::merkle_check_index, current_index_in_layer },
                           { C::merkle_check_path_len, path_len },
@@ -95,7 +98,7 @@ void MerkleCheckTraceBuilder::process(
                 // Only active when write is on.
                 const FF write_left_node = index_is_even ? write_node : sibling;
                 const FF write_right_node = index_is_even ? sibling : write_node;
-                const FF write_output_hash = Poseidon2::hash({ write_left_node, write_right_node });
+                const FF write_output_hash = Poseidon2::hash({ FF(sep), write_left_node, write_right_node });
 
                 trace.set(row,
                           { { { C::merkle_check_write, 1 },
@@ -125,7 +128,7 @@ void MerkleCheckTraceBuilder::process(
 
 const InteractionDefinition MerkleCheckTraceBuilder::interactions =
     InteractionDefinition()
-        .add<lookup_merkle_check_merkle_poseidon2_read_settings, InteractionType::LookupSequential>()
-        .add<lookup_merkle_check_merkle_poseidon2_write_settings, InteractionType::LookupSequential>();
+        .add<InteractionType::LookupSequential, lookup_merkle_check_merkle_poseidon2_read_settings>()
+        .add<InteractionType::LookupSequential, lookup_merkle_check_merkle_poseidon2_write_settings>();
 
 } // namespace bb::avm2::tracegen

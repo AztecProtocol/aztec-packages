@@ -3,7 +3,6 @@ title: Wallets
 sidebar_position: 2
 tags: [accounts]
 description: Overview of wallet responsibilities in Aztec including account management, private state tracking, transaction execution, key management, and authorization handling.
-references: ["yarn-project/aztec.js/src/account/interface.ts"]
 ---
 
 This page covers the main responsibilities of a wallet in the Aztec network.
@@ -36,6 +35,8 @@ Private functions use a UTXO model, so their execution trace is determined entir
 Public functions use an account model (like Ethereum), so their execution trace depends on chain state at inclusion time, which may differ from simulation.
 :::
 
+Before sending, the wallet may run a **simulation**, a lightweight execution using a stub account contract that avoids expensive kernel circuit execution. This simulation estimates gas limits for the transaction and captures any required private authorization data (see [Authorizing actions](#authorizing-actions) below). The `EmbeddedWallet` runs this step automatically on every send. For details on what the PXE skips in this mode and how to wire it up in your own wallet, see [Kernelless simulations](./pxe/kernelless_simulations.md).
+
 Finally, the wallet **sends** the resulting _transaction_ object, which includes the proof of execution, to an Aztec Node. The transaction is then broadcasted through the peer-to-peer network, to be eventually picked up by a sequencer and included in a block.
 
 ## Authorizing actions
@@ -43,6 +44,8 @@ Finally, the wallet **sends** the resulting _transaction_ object, which includes
 Account contracts in Aztec expose an interface for other contracts to validate [whether an action is authorized by the account or not](./accounts/index.md#authentication-witnesses-authwit). For example, an application contract may want to transfer tokens on behalf of a user, in which case the token contract will check with the account contract whether the application is authorized to do so. These actions may be carried out in private or in public functions, and in transactions originated by the user or by someone else.
 
 Wallets should manage these authorizations, prompting the user when they are requested by an application. Authorizations in private executions come in the form of _auth witnesses_, which are usually signatures over an identifier for an action. Applications can request the wallet to produce an auth witness via the `createAuthWit` call. In public functions, authorizations are pre-stored in the account contract storage, which is handled by a call to an internal function in the account contract implementation.
+
+Wallets can automate private authorization by capturing authorization requests during simulation. The `EmbeddedWallet`, for example, detects which private authwits a transaction needs and generates them automatically, so dapps don't need to explicitly create or manage private authorizations. Public authorizations still require explicit setup, as they involve onchain state changes that must occur before the authorized action.
 
 ## Key management
 

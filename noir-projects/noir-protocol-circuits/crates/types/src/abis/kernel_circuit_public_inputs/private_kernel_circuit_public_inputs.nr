@@ -24,15 +24,10 @@ pub struct PrivateKernelCircuitPublicInputs {
     // The timestamp at which the transaction expires. This value can only decrease with each iteration.
     // It's output from the Tail(-to-Public) circuit and checked in the TxBaseRollup circuit against the timestamp of
     // the block the transaction is included in.
-    pub include_by_timestamp: u64,
+    pub expiration_timestamp: u64,
     // Whether this tx only makes private calls. `false` if at least one public call will be made by any private call.
     // It remains constant throughout the private execution and is checked in the Tail(-to-Public) circuit.
     pub is_private_only: bool,
-    // A hint to what will be the first nullifier of the transaction. It's the protocol nullifier if no nullifiers will
-    // be emitted by any private call. The first nullifier is used for computing nonces for note hashes. This hint is
-    // necessary to avoid the situation where a Reset circuit is used to silo note hashes before the first nullifier is
-    // emitted. It remains constant throughout the private execution and is checked in the Tail(-to-Public) circuit.
-    pub claimed_first_nullifier: Field,
     // A hint to what will be the `min_revertible_side_effect_counter` of the transaction. It remains constant
     // throughout the private execution and is checked in the Tail(-to-Public) circuit.
     pub claimed_revertible_counter: u32,

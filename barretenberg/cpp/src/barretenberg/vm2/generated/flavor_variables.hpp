@@ -23,7 +23,7 @@
 #include "relations/ecc_mem.hpp"
 #include "relations/emit_notehash.hpp"
 #include "relations/emit_nullifier.hpp"
-#include "relations/emit_unencrypted_log.hpp"
+#include "relations/emit_public_log.hpp"
 #include "relations/execution.hpp"
 #include "relations/external_call.hpp"
 #include "relations/ff_gt.hpp"
@@ -31,6 +31,7 @@
 #include "relations/get_contract_instance.hpp"
 #include "relations/get_env_var.hpp"
 #include "relations/gt.hpp"
+#include "relations/indexed_tree_check.hpp"
 #include "relations/instr_fetching.hpp"
 #include "relations/internal_call.hpp"
 #include "relations/internal_call_stack.hpp"
@@ -42,15 +43,14 @@
 #include "relations/merkle_check.hpp"
 #include "relations/note_hash_tree_check.hpp"
 #include "relations/notehash_exists.hpp"
-#include "relations/nullifier_check.hpp"
 #include "relations/nullifier_exists.hpp"
 #include "relations/poseidon2_hash.hpp"
 #include "relations/poseidon2_mem.hpp"
+#include "relations/precomputed.hpp"
 #include "relations/public_data_check.hpp"
 #include "relations/public_data_squash.hpp"
 #include "relations/range_check.hpp"
 #include "relations/registers.hpp"
-#include "relations/retrieved_bytecodes_tree_check.hpp"
 #include "relations/scalar_mul.hpp"
 #include "relations/send_l2_to_l1_msg.hpp"
 #include "relations/sha256.hpp"
@@ -63,7 +63,6 @@
 #include "relations/tx_context.hpp"
 #include "relations/tx_discard.hpp"
 #include "relations/update_check.hpp"
-#include "relations/written_public_data_slots_tree_check.hpp"
 
 // Optimized Relations
 #include "barretenberg/vm2/optimized/relations/poseidon2_perm.hpp"
@@ -76,7 +75,6 @@
 #include "relations/lookups_bc_hashing.hpp"
 #include "relations/lookups_bc_retrieval.hpp"
 #include "relations/lookups_bitwise.hpp"
-#include "relations/lookups_calldata.hpp"
 #include "relations/lookups_calldata_hashing.hpp"
 #include "relations/lookups_class_id_derivation.hpp"
 #include "relations/lookups_context.hpp"
@@ -85,7 +83,7 @@
 #include "relations/lookups_ecc_mem.hpp"
 #include "relations/lookups_emit_notehash.hpp"
 #include "relations/lookups_emit_nullifier.hpp"
-#include "relations/lookups_emit_unencrypted_log.hpp"
+#include "relations/lookups_emit_public_log.hpp"
 #include "relations/lookups_execution.hpp"
 #include "relations/lookups_external_call.hpp"
 #include "relations/lookups_ff_gt.hpp"
@@ -93,6 +91,7 @@
 #include "relations/lookups_get_contract_instance.hpp"
 #include "relations/lookups_get_env_var.hpp"
 #include "relations/lookups_gt.hpp"
+#include "relations/lookups_indexed_tree_check.hpp"
 #include "relations/lookups_instr_fetching.hpp"
 #include "relations/lookups_internal_call.hpp"
 #include "relations/lookups_keccakf1600.hpp"
@@ -102,14 +101,12 @@
 #include "relations/lookups_merkle_check.hpp"
 #include "relations/lookups_note_hash_tree_check.hpp"
 #include "relations/lookups_notehash_exists.hpp"
-#include "relations/lookups_nullifier_check.hpp"
 #include "relations/lookups_nullifier_exists.hpp"
 #include "relations/lookups_poseidon2_hash.hpp"
 #include "relations/lookups_poseidon2_mem.hpp"
 #include "relations/lookups_public_data_check.hpp"
 #include "relations/lookups_public_data_squash.hpp"
 #include "relations/lookups_range_check.hpp"
-#include "relations/lookups_retrieved_bytecodes_tree_check.hpp"
 #include "relations/lookups_scalar_mul.hpp"
 #include "relations/lookups_send_l2_to_l1_msg.hpp"
 #include "relations/lookups_sha256.hpp"
@@ -121,13 +118,13 @@
 #include "relations/lookups_tx.hpp"
 #include "relations/lookups_tx_context.hpp"
 #include "relations/lookups_update_check.hpp"
-#include "relations/lookups_written_public_data_slots_tree_check.hpp"
 #include "relations/perms_addressing.hpp"
 #include "relations/perms_bc_hashing.hpp"
+#include "relations/perms_calldata_hashing.hpp"
 #include "relations/perms_context.hpp"
 #include "relations/perms_data_copy.hpp"
 #include "relations/perms_ecc_mem.hpp"
-#include "relations/perms_emit_unencrypted_log.hpp"
+#include "relations/perms_emit_public_log.hpp"
 #include "relations/perms_execution.hpp"
 #include "relations/perms_get_contract_instance.hpp"
 #include "relations/perms_internal_call.hpp"
@@ -144,11 +141,11 @@
 namespace bb::avm2 {
 
 struct AvmFlavorVariables {
-    static constexpr size_t NUM_PRECOMPUTED_ENTITIES = 123;
-    static constexpr size_t NUM_WITNESS_ENTITIES = 3078;
-    static constexpr size_t NUM_SHIFTED_ENTITIES = 358;
-    static constexpr size_t NUM_WIRES = 2611;
-    static constexpr size_t NUM_ALL_ENTITIES = 3559;
+    static constexpr size_t NUM_PRECOMPUTED_ENTITIES = 108;
+    static constexpr size_t NUM_WITNESS_ENTITIES = 2758;
+    static constexpr size_t NUM_SHIFTED_ENTITIES = 357;
+    static constexpr size_t NUM_WIRES = 2354;
+    static constexpr size_t NUM_ALL_ENTITIES = 3223;
 
     // Need to be templated for recursive verifier
     template <typename FF_>
@@ -175,7 +172,7 @@ struct AvmFlavorVariables {
         avm2::ecc_mem<FF_>,
         avm2::emit_notehash<FF_>,
         avm2::emit_nullifier<FF_>,
-        avm2::emit_unencrypted_log<FF_>,
+        avm2::emit_public_log<FF_>,
         avm2::execution<FF_>,
         avm2::external_call<FF_>,
         avm2::ff_gt<FF_>,
@@ -183,6 +180,7 @@ struct AvmFlavorVariables {
         avm2::get_contract_instance<FF_>,
         avm2::get_env_var<FF_>,
         avm2::gt<FF_>,
+        avm2::indexed_tree_check<FF_>,
         avm2::instr_fetching<FF_>,
         avm2::internal_call<FF_>,
         avm2::internal_call_stack<FF_>,
@@ -194,15 +192,14 @@ struct AvmFlavorVariables {
         avm2::merkle_check<FF_>,
         avm2::note_hash_tree_check<FF_>,
         avm2::notehash_exists<FF_>,
-        avm2::nullifier_check<FF_>,
         avm2::nullifier_exists<FF_>,
         avm2::poseidon2_hash<FF_>,
         avm2::poseidon2_mem<FF_>,
+        avm2::precomputed<FF_>,
         avm2::public_data_check<FF_>,
         avm2::public_data_squash<FF_>,
         avm2::range_check<FF_>,
         avm2::registers<FF_>,
-        avm2::retrieved_bytecodes_tree_check<FF_>,
         avm2::scalar_mul<FF_>,
         avm2::send_l2_to_l1_msg<FF_>,
         avm2::sha256<FF_>,
@@ -214,22 +211,20 @@ struct AvmFlavorVariables {
         avm2::tx<FF_>,
         avm2::tx_context<FF_>,
         avm2::tx_discard<FF_>,
-        avm2::update_check<FF_>,
-        avm2::written_public_data_slots_tree_check<FF_>>;
+        avm2::update_check<FF_>>;
 
     // Need to be templated for recursive verifier
     template <typename FF_>
     using LookupRelations_ = flat_tuple::tuple<
         // Lookups
         lookup_address_derivation_address_ecadd_relation<FF_>,
+        lookup_address_derivation_ivpk_m_hash_poseidon2_relation<FF_>,
         lookup_address_derivation_partial_address_poseidon2_relation<FF_>,
         lookup_address_derivation_preaddress_poseidon2_relation<FF_>,
         lookup_address_derivation_preaddress_scalar_mul_relation<FF_>,
         lookup_address_derivation_public_keys_hash_poseidon2_0_relation<FF_>,
         lookup_address_derivation_public_keys_hash_poseidon2_1_relation<FF_>,
         lookup_address_derivation_public_keys_hash_poseidon2_2_relation<FF_>,
-        lookup_address_derivation_public_keys_hash_poseidon2_3_relation<FF_>,
-        lookup_address_derivation_public_keys_hash_poseidon2_4_relation<FF_>,
         lookup_address_derivation_salted_initialization_hash_poseidon2_0_relation<FF_>,
         lookup_address_derivation_salted_initialization_hash_poseidon2_1_relation<FF_>,
         lookup_addressing_relative_overflow_result_0_relation<FF_>,
@@ -237,8 +232,6 @@ struct AvmFlavorVariables {
         lookup_addressing_relative_overflow_result_2_relation<FF_>,
         lookup_addressing_relative_overflow_result_3_relation<FF_>,
         lookup_addressing_relative_overflow_result_4_relation<FF_>,
-        lookup_addressing_relative_overflow_result_5_relation<FF_>,
-        lookup_addressing_relative_overflow_result_6_relation<FF_>,
         lookup_alu_ff_gt_relation<FF_>,
         lookup_alu_int_gt_relation<FF_>,
         lookup_alu_large_trunc_canonical_dec_relation<FF_>,
@@ -246,25 +239,38 @@ struct AvmFlavorVariables {
         lookup_alu_range_check_decomposition_a_lo_relation<FF_>,
         lookup_alu_range_check_decomposition_b_hi_relation<FF_>,
         lookup_alu_range_check_decomposition_b_lo_relation<FF_>,
+        lookup_alu_range_check_div_remainder_relation<FF_>,
         lookup_alu_range_check_mul_c_hi_relation<FF_>,
         lookup_alu_range_check_trunc_mid_relation<FF_>,
         lookup_alu_shifts_two_pow_relation<FF_>,
         lookup_alu_tag_max_bits_value_relation<FF_>,
         lookup_bc_decomposition_bytes_are_bytes_relation<FF_>,
-        lookup_bc_hashing_check_final_bytes_remaining_relation<FF_>,
         lookup_bc_hashing_poseidon2_hash_relation<FF_>,
         lookup_bc_retrieval_class_id_derivation_relation<FF_>,
         lookup_bc_retrieval_contract_instance_retrieval_relation<FF_>,
         lookup_bc_retrieval_is_new_class_check_relation<FF_>,
         lookup_bc_retrieval_retrieved_bytecodes_insertion_relation<FF_>,
-        lookup_bitwise_byte_operations_relation<FF_>,
-        lookup_bitwise_integral_tag_length_relation<FF_>,
-        lookup_calldata_hashing_check_final_size_relation<FF_>,
+        lookup_bitwise_bitw_tag_byte_length_relation<FF_>,
+        lookup_bitwise_byte_operations_0_relation<FF_>,
+        lookup_bitwise_byte_operations_1_relation<FF_>,
+        lookup_bitwise_byte_operations_10_relation<FF_>,
+        lookup_bitwise_byte_operations_11_relation<FF_>,
+        lookup_bitwise_byte_operations_12_relation<FF_>,
+        lookup_bitwise_byte_operations_13_relation<FF_>,
+        lookup_bitwise_byte_operations_14_relation<FF_>,
+        lookup_bitwise_byte_operations_15_relation<FF_>,
+        lookup_bitwise_byte_operations_2_relation<FF_>,
+        lookup_bitwise_byte_operations_3_relation<FF_>,
+        lookup_bitwise_byte_operations_4_relation<FF_>,
+        lookup_bitwise_byte_operations_5_relation<FF_>,
+        lookup_bitwise_byte_operations_6_relation<FF_>,
+        lookup_bitwise_byte_operations_7_relation<FF_>,
+        lookup_bitwise_byte_operations_8_relation<FF_>,
+        lookup_bitwise_byte_operations_9_relation<FF_>,
         lookup_calldata_hashing_get_calldata_field_0_relation<FF_>,
         lookup_calldata_hashing_get_calldata_field_1_relation<FF_>,
         lookup_calldata_hashing_get_calldata_field_2_relation<FF_>,
         lookup_calldata_hashing_poseidon2_hash_relation<FF_>,
-        lookup_calldata_range_check_context_id_diff_relation<FF_>,
         lookup_class_id_derivation_class_id_poseidon2_0_relation<FF_>,
         lookup_class_id_derivation_class_id_poseidon2_1_relation<FF_>,
         lookup_context_ctx_stack_return_relation<FF_>,
@@ -277,15 +283,15 @@ struct AvmFlavorVariables {
         lookup_data_copy_check_dst_addr_in_range_relation<FF_>,
         lookup_data_copy_check_src_addr_in_range_relation<FF_>,
         lookup_data_copy_col_read_relation<FF_>,
-        lookup_data_copy_data_index_upper_bound_gt_offset_relation<FF_>,
         lookup_data_copy_offset_plus_size_is_gt_data_size_relation<FF_>,
+        lookup_data_copy_sel_has_reads_relation<FF_>,
         lookup_ecc_mem_check_dst_addr_in_range_relation<FF_>,
         lookup_ecc_mem_input_output_ecc_add_relation<FF_>,
         lookup_emit_notehash_notehash_tree_write_relation<FF_>,
         lookup_emit_nullifier_write_nullifier_relation<FF_>,
-        lookup_emit_unencrypted_log_check_log_fields_count_relation<FF_>,
-        lookup_emit_unencrypted_log_check_memory_out_of_bounds_relation<FF_>,
-        lookup_emit_unencrypted_log_write_data_to_public_inputs_relation<FF_>,
+        lookup_emit_public_log_check_log_fields_count_relation<FF_>,
+        lookup_emit_public_log_check_memory_out_of_bounds_relation<FF_>,
+        lookup_emit_public_log_write_data_to_public_inputs_relation<FF_>,
         lookup_execution_bytecode_retrieval_result_relation<FF_>,
         lookup_execution_check_radix_gt_256_relation<FF_>,
         lookup_execution_check_written_storage_slot_relation<FF_>,
@@ -293,7 +299,6 @@ struct AvmFlavorVariables {
         lookup_execution_dispatch_to_bitwise_relation<FF_>,
         lookup_execution_dispatch_to_cast_relation<FF_>,
         lookup_execution_dispatch_to_set_relation<FF_>,
-        lookup_execution_dyn_l2_factor_bitwise_relation<FF_>,
         lookup_execution_exec_spec_read_relation<FF_>,
         lookup_execution_get_max_limbs_relation<FF_>,
         lookup_execution_get_p_limbs_relation<FF_>,
@@ -312,6 +317,15 @@ struct AvmFlavorVariables {
         lookup_get_env_var_read_from_public_inputs_col0_relation<FF_>,
         lookup_get_env_var_read_from_public_inputs_col1_relation<FF_>,
         lookup_gt_gt_range_relation<FF_>,
+        lookup_indexed_tree_check_low_leaf_merkle_check_relation<FF_>,
+        lookup_indexed_tree_check_low_leaf_next_value_validation_relation<FF_>,
+        lookup_indexed_tree_check_low_leaf_poseidon2_relation<FF_>,
+        lookup_indexed_tree_check_low_leaf_value_validation_relation<FF_>,
+        lookup_indexed_tree_check_new_leaf_merkle_check_relation<FF_>,
+        lookup_indexed_tree_check_new_leaf_poseidon2_relation<FF_>,
+        lookup_indexed_tree_check_silo_poseidon2_relation<FF_>,
+        lookup_indexed_tree_check_updated_low_leaf_poseidon2_relation<FF_>,
+        lookup_indexed_tree_check_write_value_to_public_inputs_relation<FF_>,
         lookup_instr_fetching_bytecode_size_from_bc_dec_relation<FF_>,
         lookup_instr_fetching_bytes_from_bc_dec_relation<FF_>,
         lookup_instr_fetching_instr_abs_diff_positive_relation<FF_>,
@@ -322,87 +336,49 @@ struct AvmFlavorVariables {
         lookup_keccakf1600_dst_out_of_range_toggle_relation<FF_>,
         lookup_keccakf1600_round_cst_relation<FF_>,
         lookup_keccakf1600_src_out_of_range_toggle_relation<FF_>,
-        lookup_keccakf1600_state_chi_00_relation<FF_>,
-        lookup_keccakf1600_state_chi_01_relation<FF_>,
-        lookup_keccakf1600_state_chi_02_relation<FF_>,
-        lookup_keccakf1600_state_chi_03_relation<FF_>,
-        lookup_keccakf1600_state_chi_04_relation<FF_>,
-        lookup_keccakf1600_state_chi_10_relation<FF_>,
-        lookup_keccakf1600_state_chi_11_relation<FF_>,
-        lookup_keccakf1600_state_chi_12_relation<FF_>,
-        lookup_keccakf1600_state_chi_13_relation<FF_>,
-        lookup_keccakf1600_state_chi_14_relation<FF_>,
-        lookup_keccakf1600_state_chi_20_relation<FF_>,
-        lookup_keccakf1600_state_chi_21_relation<FF_>,
-        lookup_keccakf1600_state_chi_22_relation<FF_>,
-        lookup_keccakf1600_state_chi_23_relation<FF_>,
-        lookup_keccakf1600_state_chi_24_relation<FF_>,
-        lookup_keccakf1600_state_chi_30_relation<FF_>,
-        lookup_keccakf1600_state_chi_31_relation<FF_>,
-        lookup_keccakf1600_state_chi_32_relation<FF_>,
-        lookup_keccakf1600_state_chi_33_relation<FF_>,
-        lookup_keccakf1600_state_chi_34_relation<FF_>,
-        lookup_keccakf1600_state_chi_40_relation<FF_>,
-        lookup_keccakf1600_state_chi_41_relation<FF_>,
-        lookup_keccakf1600_state_chi_42_relation<FF_>,
-        lookup_keccakf1600_state_chi_43_relation<FF_>,
         lookup_keccakf1600_state_chi_44_relation<FF_>,
+        lookup_keccakf1600_state_chi_simd_00_relation<FF_>,
+        lookup_keccakf1600_state_chi_simd_02_relation<FF_>,
+        lookup_keccakf1600_state_chi_simd_04_relation<FF_>,
+        lookup_keccakf1600_state_chi_simd_11_relation<FF_>,
+        lookup_keccakf1600_state_chi_simd_13_relation<FF_>,
+        lookup_keccakf1600_state_chi_simd_20_relation<FF_>,
+        lookup_keccakf1600_state_chi_simd_22_relation<FF_>,
+        lookup_keccakf1600_state_chi_simd_24_relation<FF_>,
+        lookup_keccakf1600_state_chi_simd_31_relation<FF_>,
+        lookup_keccakf1600_state_chi_simd_33_relation<FF_>,
+        lookup_keccakf1600_state_chi_simd_40_relation<FF_>,
+        lookup_keccakf1600_state_chi_simd_42_relation<FF_>,
         lookup_keccakf1600_state_iota_00_relation<FF_>,
-        lookup_keccakf1600_state_pi_and_00_relation<FF_>,
-        lookup_keccakf1600_state_pi_and_01_relation<FF_>,
-        lookup_keccakf1600_state_pi_and_02_relation<FF_>,
-        lookup_keccakf1600_state_pi_and_03_relation<FF_>,
-        lookup_keccakf1600_state_pi_and_04_relation<FF_>,
-        lookup_keccakf1600_state_pi_and_10_relation<FF_>,
-        lookup_keccakf1600_state_pi_and_11_relation<FF_>,
-        lookup_keccakf1600_state_pi_and_12_relation<FF_>,
-        lookup_keccakf1600_state_pi_and_13_relation<FF_>,
-        lookup_keccakf1600_state_pi_and_14_relation<FF_>,
-        lookup_keccakf1600_state_pi_and_20_relation<FF_>,
-        lookup_keccakf1600_state_pi_and_21_relation<FF_>,
-        lookup_keccakf1600_state_pi_and_22_relation<FF_>,
-        lookup_keccakf1600_state_pi_and_23_relation<FF_>,
-        lookup_keccakf1600_state_pi_and_24_relation<FF_>,
-        lookup_keccakf1600_state_pi_and_30_relation<FF_>,
-        lookup_keccakf1600_state_pi_and_31_relation<FF_>,
-        lookup_keccakf1600_state_pi_and_32_relation<FF_>,
-        lookup_keccakf1600_state_pi_and_33_relation<FF_>,
-        lookup_keccakf1600_state_pi_and_34_relation<FF_>,
-        lookup_keccakf1600_state_pi_and_40_relation<FF_>,
-        lookup_keccakf1600_state_pi_and_41_relation<FF_>,
-        lookup_keccakf1600_state_pi_and_42_relation<FF_>,
-        lookup_keccakf1600_state_pi_and_43_relation<FF_>,
         lookup_keccakf1600_state_pi_and_44_relation<FF_>,
-        lookup_keccakf1600_state_theta_00_relation<FF_>,
-        lookup_keccakf1600_state_theta_01_relation<FF_>,
-        lookup_keccakf1600_state_theta_02_relation<FF_>,
-        lookup_keccakf1600_state_theta_03_relation<FF_>,
-        lookup_keccakf1600_state_theta_04_relation<FF_>,
-        lookup_keccakf1600_state_theta_10_relation<FF_>,
-        lookup_keccakf1600_state_theta_11_relation<FF_>,
-        lookup_keccakf1600_state_theta_12_relation<FF_>,
-        lookup_keccakf1600_state_theta_13_relation<FF_>,
-        lookup_keccakf1600_state_theta_14_relation<FF_>,
-        lookup_keccakf1600_state_theta_20_relation<FF_>,
-        lookup_keccakf1600_state_theta_21_relation<FF_>,
-        lookup_keccakf1600_state_theta_22_relation<FF_>,
-        lookup_keccakf1600_state_theta_23_relation<FF_>,
-        lookup_keccakf1600_state_theta_24_relation<FF_>,
-        lookup_keccakf1600_state_theta_30_relation<FF_>,
-        lookup_keccakf1600_state_theta_31_relation<FF_>,
-        lookup_keccakf1600_state_theta_32_relation<FF_>,
-        lookup_keccakf1600_state_theta_33_relation<FF_>,
-        lookup_keccakf1600_state_theta_34_relation<FF_>,
-        lookup_keccakf1600_state_theta_40_relation<FF_>,
-        lookup_keccakf1600_state_theta_41_relation<FF_>,
-        lookup_keccakf1600_state_theta_42_relation<FF_>,
-        lookup_keccakf1600_state_theta_43_relation<FF_>,
+        lookup_keccakf1600_state_pi_and_simd_00_relation<FF_>,
+        lookup_keccakf1600_state_pi_and_simd_02_relation<FF_>,
+        lookup_keccakf1600_state_pi_and_simd_04_relation<FF_>,
+        lookup_keccakf1600_state_pi_and_simd_11_relation<FF_>,
+        lookup_keccakf1600_state_pi_and_simd_13_relation<FF_>,
+        lookup_keccakf1600_state_pi_and_simd_20_relation<FF_>,
+        lookup_keccakf1600_state_pi_and_simd_22_relation<FF_>,
+        lookup_keccakf1600_state_pi_and_simd_24_relation<FF_>,
+        lookup_keccakf1600_state_pi_and_simd_31_relation<FF_>,
+        lookup_keccakf1600_state_pi_and_simd_33_relation<FF_>,
+        lookup_keccakf1600_state_pi_and_simd_40_relation<FF_>,
+        lookup_keccakf1600_state_pi_and_simd_42_relation<FF_>,
         lookup_keccakf1600_state_theta_44_relation<FF_>,
-        lookup_keccakf1600_theta_combined_xor_0_relation<FF_>,
-        lookup_keccakf1600_theta_combined_xor_1_relation<FF_>,
-        lookup_keccakf1600_theta_combined_xor_2_relation<FF_>,
-        lookup_keccakf1600_theta_combined_xor_3_relation<FF_>,
+        lookup_keccakf1600_state_theta_simd_00_relation<FF_>,
+        lookup_keccakf1600_state_theta_simd_02_relation<FF_>,
+        lookup_keccakf1600_state_theta_simd_04_relation<FF_>,
+        lookup_keccakf1600_state_theta_simd_11_relation<FF_>,
+        lookup_keccakf1600_state_theta_simd_13_relation<FF_>,
+        lookup_keccakf1600_state_theta_simd_20_relation<FF_>,
+        lookup_keccakf1600_state_theta_simd_22_relation<FF_>,
+        lookup_keccakf1600_state_theta_simd_24_relation<FF_>,
+        lookup_keccakf1600_state_theta_simd_31_relation<FF_>,
+        lookup_keccakf1600_state_theta_simd_33_relation<FF_>,
+        lookup_keccakf1600_state_theta_simd_40_relation<FF_>,
+        lookup_keccakf1600_state_theta_simd_42_relation<FF_>,
         lookup_keccakf1600_theta_combined_xor_4_relation<FF_>,
+        lookup_keccakf1600_theta_combined_xor_simd_0_relation<FF_>,
+        lookup_keccakf1600_theta_combined_xor_simd_2_relation<FF_>,
         lookup_keccakf1600_theta_limb_01_range_relation<FF_>,
         lookup_keccakf1600_theta_limb_02_range_relation<FF_>,
         lookup_keccakf1600_theta_limb_03_range_relation<FF_>,
@@ -427,26 +403,18 @@ struct AvmFlavorVariables {
         lookup_keccakf1600_theta_limb_42_range_relation<FF_>,
         lookup_keccakf1600_theta_limb_43_range_relation<FF_>,
         lookup_keccakf1600_theta_limb_44_range_relation<FF_>,
-        lookup_keccakf1600_theta_xor_01_relation<FF_>,
-        lookup_keccakf1600_theta_xor_02_relation<FF_>,
-        lookup_keccakf1600_theta_xor_03_relation<FF_>,
-        lookup_keccakf1600_theta_xor_11_relation<FF_>,
-        lookup_keccakf1600_theta_xor_12_relation<FF_>,
-        lookup_keccakf1600_theta_xor_13_relation<FF_>,
-        lookup_keccakf1600_theta_xor_21_relation<FF_>,
-        lookup_keccakf1600_theta_xor_22_relation<FF_>,
-        lookup_keccakf1600_theta_xor_23_relation<FF_>,
-        lookup_keccakf1600_theta_xor_31_relation<FF_>,
-        lookup_keccakf1600_theta_xor_32_relation<FF_>,
-        lookup_keccakf1600_theta_xor_33_relation<FF_>,
         lookup_keccakf1600_theta_xor_41_relation<FF_>,
         lookup_keccakf1600_theta_xor_42_relation<FF_>,
         lookup_keccakf1600_theta_xor_43_relation<FF_>,
-        lookup_keccakf1600_theta_xor_row_0_relation<FF_>,
-        lookup_keccakf1600_theta_xor_row_1_relation<FF_>,
-        lookup_keccakf1600_theta_xor_row_2_relation<FF_>,
-        lookup_keccakf1600_theta_xor_row_3_relation<FF_>,
         lookup_keccakf1600_theta_xor_row_4_relation<FF_>,
+        lookup_keccakf1600_theta_xor_row_simd_0_relation<FF_>,
+        lookup_keccakf1600_theta_xor_row_simd_2_relation<FF_>,
+        lookup_keccakf1600_theta_xor_simd_01_relation<FF_>,
+        lookup_keccakf1600_theta_xor_simd_02_relation<FF_>,
+        lookup_keccakf1600_theta_xor_simd_03_relation<FF_>,
+        lookup_keccakf1600_theta_xor_simd_21_relation<FF_>,
+        lookup_keccakf1600_theta_xor_simd_22_relation<FF_>,
+        lookup_keccakf1600_theta_xor_simd_23_relation<FF_>,
         lookup_l1_to_l2_message_exists_l1_to_l2_msg_leaf_index_in_range_relation<FF_>,
         lookup_l1_to_l2_message_exists_l1_to_l2_msg_read_relation<FF_>,
         lookup_l1_to_l2_message_tree_check_merkle_check_relation<FF_>,
@@ -465,15 +433,6 @@ struct AvmFlavorVariables {
         lookup_note_hash_tree_check_write_note_hash_to_public_inputs_relation<FF_>,
         lookup_notehash_exists_note_hash_leaf_index_in_range_relation<FF_>,
         lookup_notehash_exists_note_hash_read_relation<FF_>,
-        lookup_nullifier_check_low_leaf_merkle_check_relation<FF_>,
-        lookup_nullifier_check_low_leaf_next_nullifier_validation_relation<FF_>,
-        lookup_nullifier_check_low_leaf_nullifier_validation_relation<FF_>,
-        lookup_nullifier_check_low_leaf_poseidon2_relation<FF_>,
-        lookup_nullifier_check_new_leaf_merkle_check_relation<FF_>,
-        lookup_nullifier_check_new_leaf_poseidon2_relation<FF_>,
-        lookup_nullifier_check_silo_poseidon2_relation<FF_>,
-        lookup_nullifier_check_updated_low_leaf_poseidon2_relation<FF_>,
-        lookup_nullifier_check_write_nullifier_to_public_inputs_relation<FF_>,
         lookup_nullifier_exists_nullifier_exists_check_relation<FF_>,
         lookup_poseidon2_hash_poseidon2_perm_relation<FF_>,
         lookup_poseidon2_mem_check_dst_addr_in_range_relation<FF_>,
@@ -507,13 +466,6 @@ struct AvmFlavorVariables {
         lookup_range_check_r5_is_u16_relation<FF_>,
         lookup_range_check_r6_is_u16_relation<FF_>,
         lookup_range_check_r7_is_u16_relation<FF_>,
-        lookup_retrieved_bytecodes_tree_check_low_leaf_class_id_validation_relation<FF_>,
-        lookup_retrieved_bytecodes_tree_check_low_leaf_merkle_check_relation<FF_>,
-        lookup_retrieved_bytecodes_tree_check_low_leaf_next_class_id_validation_relation<FF_>,
-        lookup_retrieved_bytecodes_tree_check_low_leaf_poseidon2_relation<FF_>,
-        lookup_retrieved_bytecodes_tree_check_new_leaf_merkle_check_relation<FF_>,
-        lookup_retrieved_bytecodes_tree_check_new_leaf_poseidon2_relation<FF_>,
-        lookup_retrieved_bytecodes_tree_check_updated_low_leaf_poseidon2_relation<FF_>,
         lookup_scalar_mul_add_relation<FF_>,
         lookup_scalar_mul_double_relation<FF_>,
         lookup_scalar_mul_to_radix_relation<FF_>,
@@ -530,21 +482,13 @@ struct AvmFlavorVariables {
         lookup_sha256_mem_check_input_addr_in_range_relation<FF_>,
         lookup_sha256_mem_check_output_addr_in_range_relation<FF_>,
         lookup_sha256_mem_check_state_addr_in_range_relation<FF_>,
-        lookup_sha256_range_comp_a_lhs_relation<FF_>,
         lookup_sha256_range_comp_a_rhs_relation<FF_>,
-        lookup_sha256_range_comp_b_lhs_relation<FF_>,
         lookup_sha256_range_comp_b_rhs_relation<FF_>,
-        lookup_sha256_range_comp_c_lhs_relation<FF_>,
         lookup_sha256_range_comp_c_rhs_relation<FF_>,
-        lookup_sha256_range_comp_d_lhs_relation<FF_>,
         lookup_sha256_range_comp_d_rhs_relation<FF_>,
-        lookup_sha256_range_comp_e_lhs_relation<FF_>,
         lookup_sha256_range_comp_e_rhs_relation<FF_>,
-        lookup_sha256_range_comp_f_lhs_relation<FF_>,
         lookup_sha256_range_comp_f_rhs_relation<FF_>,
-        lookup_sha256_range_comp_g_lhs_relation<FF_>,
         lookup_sha256_range_comp_g_rhs_relation<FF_>,
-        lookup_sha256_range_comp_h_lhs_relation<FF_>,
         lookup_sha256_range_comp_h_rhs_relation<FF_>,
         lookup_sha256_range_comp_next_a_lhs_relation<FF_>,
         lookup_sha256_range_comp_next_a_rhs_relation<FF_>,
@@ -597,7 +541,7 @@ struct AvmFlavorVariables {
         lookup_tx_context_public_inputs_write_l2_to_l1_message_count_relation<FF_>,
         lookup_tx_context_public_inputs_write_note_hash_count_relation<FF_>,
         lookup_tx_context_public_inputs_write_nullifier_count_relation<FF_>,
-        lookup_tx_context_public_inputs_write_unencrypted_log_count_relation<FF_>,
+        lookup_tx_context_public_inputs_write_public_log_count_relation<FF_>,
         lookup_tx_context_restore_state_on_revert_relation<FF_>,
         lookup_tx_note_hash_append_relation<FF_>,
         lookup_tx_nullifier_append_relation<FF_>,
@@ -617,35 +561,26 @@ struct AvmFlavorVariables {
         lookup_update_check_update_hash_public_data_read_relation<FF_>,
         lookup_update_check_update_hi_metadata_range_relation<FF_>,
         lookup_update_check_update_lo_metadata_range_relation<FF_>,
-        lookup_written_public_data_slots_tree_check_low_leaf_merkle_check_relation<FF_>,
-        lookup_written_public_data_slots_tree_check_low_leaf_next_slot_validation_relation<FF_>,
-        lookup_written_public_data_slots_tree_check_low_leaf_poseidon2_relation<FF_>,
-        lookup_written_public_data_slots_tree_check_low_leaf_slot_validation_relation<FF_>,
-        lookup_written_public_data_slots_tree_check_new_leaf_merkle_check_relation<FF_>,
-        lookup_written_public_data_slots_tree_check_new_leaf_poseidon2_relation<FF_>,
-        lookup_written_public_data_slots_tree_check_silo_poseidon2_relation<FF_>,
-        lookup_written_public_data_slots_tree_check_updated_low_leaf_poseidon2_relation<FF_>,
         perm_addressing_base_address_from_memory_relation<FF_>,
         perm_addressing_indirect_from_memory_0_relation<FF_>,
         perm_addressing_indirect_from_memory_1_relation<FF_>,
         perm_addressing_indirect_from_memory_2_relation<FF_>,
         perm_addressing_indirect_from_memory_3_relation<FF_>,
         perm_addressing_indirect_from_memory_4_relation<FF_>,
-        perm_addressing_indirect_from_memory_5_relation<FF_>,
-        perm_addressing_indirect_from_memory_6_relation<FF_>,
+        perm_bc_hashing_bytecode_length_bytes_relation<FF_>,
         perm_bc_hashing_get_packed_field_0_relation<FF_>,
         perm_bc_hashing_get_packed_field_1_relation<FF_>,
         perm_bc_hashing_get_packed_field_2_relation<FF_>,
+        perm_calldata_hashing_check_final_size_relation<FF_>,
         perm_context_ctx_stack_call_relation<FF_>,
         perm_data_copy_mem_read_relation<FF_>,
         perm_data_copy_mem_write_relation<FF_>,
         perm_ecc_mem_write_mem_0_relation<FF_>,
         perm_ecc_mem_write_mem_1_relation<FF_>,
-        perm_ecc_mem_write_mem_2_relation<FF_>,
-        perm_emit_unencrypted_log_read_mem_relation<FF_>,
+        perm_emit_public_log_read_mem_relation<FF_>,
         perm_execution_dispatch_to_cd_copy_relation<FF_>,
         perm_execution_dispatch_to_ecc_add_relation<FF_>,
-        perm_execution_dispatch_to_emit_unencrypted_log_relation<FF_>,
+        perm_execution_dispatch_to_emit_public_log_relation<FF_>,
         perm_execution_dispatch_to_get_contract_instance_relation<FF_>,
         perm_execution_dispatch_to_keccakf1600_relation<FF_>,
         perm_execution_dispatch_to_poseidon2_perm_relation<FF_>,
@@ -671,8 +606,6 @@ struct AvmFlavorVariables {
         perm_registers_mem_op_1_relation<FF_>,
         perm_registers_mem_op_2_relation<FF_>,
         perm_registers_mem_op_3_relation<FF_>,
-        perm_registers_mem_op_4_relation<FF_>,
-        perm_registers_mem_op_5_relation<FF_>,
         perm_sha256_mem_mem_input_read_relation<FF_>,
         perm_sha256_mem_mem_op_0_relation<FF_>,
         perm_sha256_mem_mem_op_1_relation<FF_>,

@@ -33,7 +33,7 @@ class ChonkRecursionTests : public testing::Test {
         // Construct and accumulate a series of mocked private function execution circuits
         MockCircuitProducer circuit_producer{ num_app_circuits };
         const size_t NUM_CIRCUITS = circuit_producer.total_num_circuits;
-        Chonk ivc{ NUM_CIRCUITS };
+        Chonk ivc{ circuit_producer.circuit_kinds() };
 
         for (size_t idx = 0; idx < NUM_CIRCUITS; ++idx) {
             circuit_producer.construct_and_accumulate_next_circuit(ivc);
@@ -76,11 +76,12 @@ TEST_F(ChonkRecursionTests, Basic)
     StdlibProof stdlib_proof(builder, proof);
     ChonkRecVerifierOutput output = verifier.verify(stdlib_proof);
 
+    EXPECT_TRUE(output.all_checks_passed);
     EXPECT_EQ(builder.failed(), false) << builder.err();
 
     EXPECT_TRUE(CircuitChecker::check(builder));
 
     // Print the number of gates post finalization
-    info("Recursive Verifier: finalized num gates = ", builder.num_gates());
+    info("Recursive Verifier: finalized num gates = ", builder.get_num_finalized_gates_inefficient());
 }
 } // namespace bb::stdlib::recursion::honk

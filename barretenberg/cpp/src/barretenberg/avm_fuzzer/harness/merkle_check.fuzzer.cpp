@@ -6,6 +6,7 @@
 
 #include "barretenberg/avm_fuzzer/fuzz_lib/constants.hpp"
 #include "barretenberg/avm_fuzzer/harness/mutation_helper.hpp"
+#include "barretenberg/aztec/aztec_constants.hpp"
 #include "barretenberg/common/serialize.hpp"
 #include "barretenberg/numeric/uint128/uint128.hpp"
 #include "barretenberg/vm2/constraining/testing/check_relation.hpp"
@@ -40,6 +41,7 @@ struct MerkleCheckFuzzerInput {
     std::array<FF, 64> sibling_path;
     FF root = 0;
     uint64_t tree_height = 10;
+    uint64_t domain_separator = DOM_SEP__MERKLE_HASH;
 
     uint64_t trimmed_leaf_index() const
     {
@@ -53,7 +55,8 @@ struct MerkleCheckFuzzerInput {
         return std::span<const FF>(sibling_path).subspan(0, tree_height);
     }
 
-    MSGPACK_FIELDS(is_write, current_value, new_value, leaf_index, sibling_path, root, tree_height);
+    SERIALIZATION_FIELDS(
+        is_write, current_value, new_value, leaf_index, sibling_path, root, tree_height, domain_separator);
 };
 
 namespace {
@@ -73,8 +76,8 @@ bool predict_if_will_throw(const MerkleCheckFuzzerInput& input)
         return true;
     }
 
-    FF expected_root =
-        unconstrained_root_from_path(input.current_value, input.trimmed_leaf_index(), input.trimmed_sibling_path());
+    FF expected_root = unconstrained_root_from_path(
+        input.domain_separator, input.current_value, input.trimmed_leaf_index(), input.trimmed_sibling_path());
 
     if (expected_root != input.root) {
         fuzz_info("Should throw: root does not match expected root");
@@ -112,8 +115,8 @@ extern "C" size_t LLVMFuzzerCustomMutator(uint8_t* data, size_t size, size_t max
     switch (choice) {
     case 0: {
         // Set correct root
-        input.root =
-            unconstrained_root_from_path(input.current_value, input.trimmed_leaf_index(), input.trimmed_sibling_path());
+        input.root = unconstrained_root_from_path(
+            input.domain_separator, input.current_value, input.trimmed_leaf_index(), input.trimmed_sibling_path());
 
         break;
     }
@@ -196,11 +199,18 @@ extern "C" int LLVMFuzzerTestOneInput(const uint8_t* data, size_t size)
 
     try {
         if (input.is_write) {
-            new_root = merkle_check.write(
-                input.current_value, input.new_value, input.leaf_index, input.trimmed_sibling_path(), input.root);
+            new_root = merkle_check.write(input.domain_separator,
+                                          input.current_value,
+                                          input.new_value,
+                                          input.leaf_index,
+                                          input.trimmed_sibling_path(),
+                                          input.root);
         } else {
-            merkle_check.assert_membership(
-                input.current_value, input.leaf_index, input.trimmed_sibling_path(), input.root);
+            merkle_check.assert_membership(input.domain_separator,
+                                           input.current_value,
+                                           input.leaf_index,
+                                           input.trimmed_sibling_path(),
+                                           input.root);
         }
     } catch (std::exception& e) {
         if (!will_throw) {
@@ -216,8 +226,8 @@ extern "C" int LLVMFuzzerTestOneInput(const uint8_t* data, size_t size)
     }
 
     if (new_root.has_value()) {
-        FF expected_new_root =
-            unconstrained_root_from_path(input.new_value, input.trimmed_leaf_index(), input.trimmed_sibling_path());
+        FF expected_new_root = unconstrained_root_from_path(
+            input.domain_separator, input.new_value, input.trimmed_leaf_index(), input.trimmed_sibling_path());
         if (new_root.value() != expected_new_root) {
             throw std::runtime_error("New root does not match expected root");
         }

@@ -11,12 +11,17 @@
 #include "barretenberg/ecc/curves/bn254/g1.hpp"
 #include "barretenberg/ecc/curves/secp256k1/secp256k1.hpp"
 #include <array>
+#include <mutex>
 
 namespace bb::plookup::ecc_generator_tables {
 
 template <typename G1> class ecc_generator_table {
   public:
     using element = typename G1::element;
+
+    // Number of rows in secp256k1 generator tables.
+    static constexpr size_t TABLE_SIZE = 256;
+
     /**
      * Store arrays of precomputed 8-bit lookup tables for generator point coordinates (and their endomorphism
      * equivalents):
@@ -29,17 +34,17 @@ template <typename G1> class ecc_generator_table {
      * - endo_xhi_table: (x2', x3') = high limbs of endomorphism-mapped x-coordinate (x' = x * beta)
      * - endo_xyprime_table: (x'p, yp) = endomorphism-mapped x and y-coord in prime basis (i.e., x' % p, y % p)
      *
-     * Each table has 256 rows and 2 columns.
+     * Each table has TABLE_SIZE rows and 2 columns.
      **/
-    inline static std::array<std::pair<fr, fr>, 256> generator_endo_xlo_table;
-    inline static std::array<std::pair<fr, fr>, 256> generator_endo_xhi_table;
-    inline static std::array<std::pair<fr, fr>, 256> generator_xlo_table;
-    inline static std::array<std::pair<fr, fr>, 256> generator_xhi_table;
-    inline static std::array<std::pair<fr, fr>, 256> generator_ylo_table;
-    inline static std::array<std::pair<fr, fr>, 256> generator_yhi_table;
-    inline static std::array<std::pair<fr, fr>, 256> generator_xyprime_table;
-    inline static std::array<std::pair<fr, fr>, 256> generator_endo_xyprime_table;
-    inline static bool init = false;
+    inline static std::array<std::pair<fr, fr>, TABLE_SIZE> generator_endo_xlo_table;
+    inline static std::array<std::pair<fr, fr>, TABLE_SIZE> generator_endo_xhi_table;
+    inline static std::array<std::pair<fr, fr>, TABLE_SIZE> generator_xlo_table;
+    inline static std::array<std::pair<fr, fr>, TABLE_SIZE> generator_xhi_table;
+    inline static std::array<std::pair<fr, fr>, TABLE_SIZE> generator_ylo_table;
+    inline static std::array<std::pair<fr, fr>, TABLE_SIZE> generator_yhi_table;
+    inline static std::array<std::pair<fr, fr>, TABLE_SIZE> generator_xyprime_table;
+    inline static std::array<std::pair<fr, fr>, TABLE_SIZE> generator_endo_xyprime_table;
+    inline static std::once_flag init_flag;
 
     static void init_generator_tables();
 

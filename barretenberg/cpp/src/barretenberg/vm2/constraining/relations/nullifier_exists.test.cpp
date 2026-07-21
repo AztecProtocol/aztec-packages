@@ -2,6 +2,7 @@
 
 #include <cstdint>
 
+#include "barretenberg/aztec/aztec_constants.hpp"
 #include "barretenberg/vm2/common/memory_types.hpp"
 #include "barretenberg/vm2/constraining/flavor_settings.hpp"
 #include "barretenberg/vm2/constraining/testing/check_relation.hpp"
@@ -11,31 +12,32 @@
 #include "barretenberg/vm2/simulation/gadgets/execution.hpp"
 #include "barretenberg/vm2/simulation/gadgets/field_gt.hpp"
 #include "barretenberg/vm2/simulation/interfaces/db.hpp"
+#include "barretenberg/vm2/simulation/testing/mock_indexed_tree_check.hpp"
 #include "barretenberg/vm2/simulation/testing/mock_merkle_check.hpp"
-#include "barretenberg/vm2/simulation/testing/mock_nullifier_tree_check.hpp"
 #include "barretenberg/vm2/simulation/testing/mock_poseidon2.hpp"
 #include "barretenberg/vm2/simulation/testing/mock_range_check.hpp"
 #include "barretenberg/vm2/testing/macros.hpp"
 #include "barretenberg/vm2/tracegen/execution_trace.hpp"
-#include "barretenberg/vm2/tracegen/nullifier_tree_check_trace.hpp"
+#include "barretenberg/vm2/tracegen/indexed_tree_check_trace.hpp"
 #include "barretenberg/vm2/tracegen/test_trace_container.hpp"
 
 namespace bb::avm2::constraining {
 namespace {
 
 using tracegen::ExecutionTraceBuilder;
-using tracegen::NullifierTreeCheckTraceBuilder;
+using tracegen::IndexedTreeCheckTraceBuilder;
 using tracegen::TestTraceContainer;
 
 using simulation::DeduplicatingEventEmitter;
 using simulation::EventEmitter;
 using simulation::FieldGreaterThan;
 using simulation::FieldGreaterThanEvent;
+using simulation::IndexedTreeCheck;
+using simulation::IndexedTreeCheckEvent;
+using simulation::IndexedTreeLeafData;
 using simulation::MockMerkleCheck;
 using simulation::MockPoseidon2;
 using simulation::MockRangeCheck;
-using simulation::NullifierTreeCheck;
-using simulation::NullifierTreeCheckEvent;
 using NullifierLeafValue = crypto::merkle_tree::NullifierLeafValue;
 using NullifierTreeLeafPreimage = simulation::NullifierTreeLeafPreimage;
 
@@ -55,6 +57,8 @@ TEST(NullifierExistsConstrainingTest, PositiveTest)
                                  { C::execution_prev_nullifier_tree_root, FF(0xabc) },
                                  { C::execution_mem_tag_reg_0_, static_cast<uint8_t>(MemoryTag::FF) },
                                  { C::execution_mem_tag_reg_1_, static_cast<uint8_t>(MemoryTag::U1) },
+                                 { C::execution_nullifier_tree_height, NULLIFIER_TREE_HEIGHT },
+                                 { C::execution_nullifier_merkle_separator, DOM_SEP__NULLIFIER_MERKLE },
                                  { C::execution_sel_opcode_error, 0 },
                                  { C::execution_subtrace_operation_id, AVM_EXEC_OP_ID_NULLIFIER_EXISTS } } });
     check_relation<nullifier_exists>(trace);
@@ -69,6 +73,8 @@ TEST(NullifierExistsConstrainingTest, PositiveNullifierNotExists)
                                  { C::execution_prev_nullifier_tree_root, FF(0xabc) },
                                  { C::execution_mem_tag_reg_0_, static_cast<uint8_t>(MemoryTag::FF) },
                                  { C::execution_mem_tag_reg_1_, static_cast<uint8_t>(MemoryTag::U1) },
+                                 { C::execution_nullifier_tree_height, NULLIFIER_TREE_HEIGHT },
+                                 { C::execution_nullifier_merkle_separator, DOM_SEP__NULLIFIER_MERKLE },
                                  { C::execution_sel_opcode_error, 0 },
                                  { C::execution_subtrace_operation_id, AVM_EXEC_OP_ID_NULLIFIER_EXISTS } } });
     check_relation<nullifier_exists>(trace);
@@ -83,11 +89,13 @@ TEST(NullifierExistsConstrainingTest, NegativeInvalidOutputTag)
                                  { C::execution_prev_nullifier_tree_root, FF(0xabc) },
                                  { C::execution_mem_tag_reg_0_, static_cast<uint8_t>(MemoryTag::FF) },
                                  { C::execution_mem_tag_reg_1_, static_cast<uint8_t>(MemoryTag::U8) }, // WRONG!
+                                 { C::execution_nullifier_tree_height, NULLIFIER_TREE_HEIGHT },
+                                 { C::execution_nullifier_merkle_separator, DOM_SEP__NULLIFIER_MERKLE },
                                  { C::execution_sel_opcode_error, 0 },
                                  { C::execution_subtrace_operation_id, AVM_EXEC_OP_ID_NULLIFIER_EXISTS } } });
     EXPECT_THROW_WITH_MESSAGE(
         check_relation<nullifier_exists>(trace, nullifier_exists::SR_NULLIFIER_EXISTS_U1_OUTPUT_TAG),
-        "NULLIFIER_EXISTS_U1_OUTPUT_TAG");
+        nullifier_exists::get_subrelation_label(nullifier_exists::SR_NULLIFIER_EXISTS_U1_OUTPUT_TAG));
 }
 
 TEST(NullifierExistsConstrainingTest, NegativeNullifierExistsSuccess)
@@ -98,7 +106,7 @@ TEST(NullifierExistsConstrainingTest, NegativeNullifierExistsSuccess)
     } });
 
     EXPECT_THROW_WITH_MESSAGE(check_relation<execution>(trace, execution::SR_INFALLIBLE_OPCODES_SUCCESS),
-                              "INFALLIBLE_OPCODES_SUCCESS");
+                              execution::get_subrelation_label(execution::SR_INFALLIBLE_OPCODES_SUCCESS));
 }
 
 TEST(NullifierExistsConstrainingTest, Interactions)
@@ -110,23 +118,35 @@ TEST(NullifierExistsConstrainingTest, Interactions)
     DeduplicatingEventEmitter<FieldGreaterThanEvent> event_emitter;
     FieldGreaterThan field_gt(range_check, event_emitter);
 
-    EventEmitter<NullifierTreeCheckEvent> nullifier_tree_check_event_emitter;
-    NullifierTreeCheck nullifier_tree_check(poseidon2, merkle_check, field_gt, nullifier_tree_check_event_emitter);
+    EventEmitter<IndexedTreeCheckEvent> indexed_tree_check_event_emitter;
+    IndexedTreeCheck indexed_tree_check(
+        poseidon2, merkle_check, field_gt, DOM_SEP__NULLIFIER_MERKLE, indexed_tree_check_event_emitter);
 
     // Siloed nullifier (no siloing happens in the opcode now)
     FF siloed_nullifier = 42;
 
     // For exists=true, the low leaf's nullifier must match the searched nullifier
-    NullifierTreeLeafPreimage low_leaf = NullifierTreeLeafPreimage(NullifierLeafValue(siloed_nullifier), 0, 0);
+    IndexedTreeLeafData low_leaf = {
+        .value = siloed_nullifier,
+        .next_value = 0,
+        .next_index = 0,
+    };
 
     AppendOnlyTreeSnapshot nullifier_tree_snapshot = AppendOnlyTreeSnapshot{
         .root = 42,
         .next_available_leaf_index = 128,
     };
 
-    // should_silo=false (address unused when not siloing)
-    nullifier_tree_check.assert_read(
-        siloed_nullifier, /*contract_address=*/std::nullopt, /*exists=*/true, low_leaf, 0, {}, nullifier_tree_snapshot);
+    std::vector<FF> sibling_path(NULLIFIER_TREE_HEIGHT);
+
+    // sel_silo=false
+    indexed_tree_check.assert_read(siloed_nullifier,
+                                   /*siloing_params=*/std::nullopt,
+                                   /*exists=*/true,
+                                   low_leaf,
+                                   0,
+                                   sibling_path,
+                                   nullifier_tree_snapshot);
 
     TestTraceContainer trace({ {
         { C::execution_sel_execute_nullifier_exists, 1 },
@@ -135,12 +155,14 @@ TEST(NullifierExistsConstrainingTest, Interactions)
         { C::execution_mem_tag_reg_0_, static_cast<uint8_t>(MemoryTag::FF) },
         { C::execution_mem_tag_reg_1_, static_cast<uint8_t>(MemoryTag::U1) },
         { C::execution_prev_nullifier_tree_root, nullifier_tree_snapshot.root },
+        { C::execution_nullifier_tree_height, NULLIFIER_TREE_HEIGHT },
+        { C::execution_nullifier_merkle_separator, DOM_SEP__NULLIFIER_MERKLE },
         { C::execution_sel_opcode_error, 0 },
         { C::execution_subtrace_operation_id, AVM_EXEC_OP_ID_NULLIFIER_EXISTS },
     } });
 
-    NullifierTreeCheckTraceBuilder nullifier_tree_check_trace_builder;
-    nullifier_tree_check_trace_builder.process(nullifier_tree_check_event_emitter.dump_events(), trace);
+    IndexedTreeCheckTraceBuilder indexed_tree_check_trace_builder;
+    indexed_tree_check_trace_builder.process(indexed_tree_check_event_emitter.dump_events(), trace);
 
     check_relation<nullifier_exists>(trace);
 

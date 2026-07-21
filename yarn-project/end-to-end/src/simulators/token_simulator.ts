@@ -109,7 +109,9 @@ export class TokenSimulator {
       await Promise.all(
         chunk(calls, 5).map(batch => new BatchCall(this.defaultWallet, batch).simulate({ from: this.defaultAddress })),
       )
-    ).flat();
+    )
+      .flatMap(r => r.result)
+      .map(r => r.result);
     expect(results[0]).toEqual(this.totalSupply);
 
     // Check that all our balances match
@@ -119,39 +121,13 @@ export class TokenSimulator {
   }
 
   async checkPrivate() {
-    // Private calls
-    const defaultLookups = [];
-    const nonDefaultLookups = [];
-
     for (const address of this.accounts) {
-      if (this.lookupProvider.has(address.toString())) {
-        nonDefaultLookups.push(address);
-      } else {
-        defaultLookups.push(address);
-      }
-    }
-
-    const defaultCalls = defaultLookups.map(address => this.token.methods.balance_of_private(address));
-    const results = (
-      await Promise.all(
-        chunk(defaultCalls, 4).map(batch =>
-          new BatchCall(this.defaultWallet, batch).simulate({ from: this.defaultAddress }),
-        ),
-      )
-    ).flat();
-    for (let i = 0; i < defaultLookups.length; i++) {
-      expect(results[i]).toEqual(this.balanceOfPrivate(defaultLookups[i]));
-    }
-
-    // We are just running individual calls for the non-default lookups
-    // @todo We should also batch these
-    for (const address of nonDefaultLookups) {
       const wallet = this.lookupProvider.get(address.toString());
       const asset = wallet ? this.token.withWallet(wallet) : this.token;
 
-      const actualPrivateBalance = await asset.methods
-        .balance_of_private({ address })
-        .simulate({ from: this.defaultAddress });
+      const { result: actualPrivateBalance } = await asset.methods
+        .balance_of_private(address)
+        .simulate({ from: address });
       expect(actualPrivateBalance).toEqual(this.balanceOfPrivate(address));
     }
   }

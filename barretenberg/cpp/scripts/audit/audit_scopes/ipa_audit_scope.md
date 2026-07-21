@@ -1,7 +1,7 @@
 # IPA AUDIT
 
-Repository: https://github.com/AztecProtocol/aztec-packages
-Commit hash: 05a381f8b31ae4648e480f1369e911b148216e8b
+Repository: https://github.com/AztecProtocol/aztec-packages-private
+Commit hash: Most recent commit on branch 'next'
 
 
 The content of the IPA recursive verifier may be found together with the prover and native verifier, in

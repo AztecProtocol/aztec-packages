@@ -12,6 +12,15 @@ describe('string', () => {
     ])('removes duplicate slashes', (parts, url) => {
       expect(urlJoin(...parts)).toBe(url);
     });
+
+    it.each([
+      [['http://example.com', 'a'], 'http://example.com/a'],
+      [['http://example.com', 'a', 'b'], 'http://example.com/a/b'],
+      [['x', 'y', 'z'], 'x/y/z'],
+      [['http://example.com', '/a/'], 'http://example.com/a'],
+    ])('preserves single-character path segments %#', (parts, url) => {
+      expect(urlJoin(...parts)).toBe(url);
+    });
   });
 
   describe('hex prefix helpers', () => {

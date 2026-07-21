@@ -19,7 +19,6 @@
       },
       "cacheVariables": {
         "CMAKE_BUILD_TYPE": "Release",
-        "TARGET_ARCH": "skylake",
         "ENABLE_PIC": "ON"
       }
     },
@@ -35,55 +34,49 @@
     },
     {
       "name": "clang20",
-      "displayName": "Build with Clang-20",
-      "description": "Build with globally installed Clang-20",
+      "displayName": "Build with Zig (glibc 2.35 on Linux)",
+      "description": "Build with Zig-wrapped Clang. On Linux, pins glibc 2.35 (Ubuntu 22.04+). On macOS, uses native target.",
       "inherits": "default",
       "binaryDir": "build",
       "environment": {
-        "CC": "clang-20",
-        "CXX": "clang++-20"
+        "CC": "${sourceDir}/scripts/zig-cc.sh",
+        "CXX": "${sourceDir}/scripts/zig-c++.sh",
+        "CFLAGS": "-g0 -fvisibility=hidden",
+        "CXXFLAGS": "-g0 -fvisibility=hidden",
+        "LDFLAGS": "-s"
       },
       "cacheVariables": {
+        "CMAKE_AR": "${sourceDir}/scripts/zig-ar.sh",
+        "CMAKE_RANLIB": "${sourceDir}/scripts/zig-ranlib.sh",
         "AVM_TRANSPILER_LIB": "${sourceDir}/../../avm-transpiler/target/release/libavm_transpiler.a"
       }
     },
     {
       "name": "clang20-no-avm",
-      "displayName": "Build with Clang-20 plus AVM",
-      "description": "Build with globally installed Clang-20 plus AVM",
+      "displayName": "Build with Zig (no AVM, glibc 2.35)",
+      "description": "Build with Zig-wrapped Clang targeting glibc 2.35, AVM disabled",
       "inherits": "clang20",
       "binaryDir": "build",
-      "environment": {
-        "CC": "clang-20",
-        "CXX": "clang++-20"
-      },
       "cacheVariables": {
-        "AVM": "OFF",
-        "AVM_TRANSPILER_LIB": "${sourceDir}/../../avm-transpiler/target/release/libavm_transpiler.a"
+        "AVM": "OFF"
       }
     },
     {
       "name": "clang20-assert",
-      "displayName": "Build with Clang-20",
-      "description": "Build with globally installed Clang-20",
-      "inherits": "default",
+      "displayName": "Build with Zig (assertions, glibc 2.35)",
+      "description": "Build with Zig-wrapped Clang targeting glibc 2.35, assertions enabled",
+      "inherits": "clang20",
       "binaryDir": "build",
-      "environment": {
-        "CC": "clang-20",
-        "CXX": "clang++-20"
-      },
       "cacheVariables": {
         "CMAKE_BUILD_TYPE": "RelWithAssert"
       }
     },
     {
       "name": "clang20-no-exceptions",
-      "displayName": "Build with Clang-20",
-      "description": "Build with globally installed Clang-20",
-      "inherits": "default",
+      "displayName": "Build with Zig (no exceptions, glibc 2.35)",
+      "description": "Build with Zig-wrapped Clang targeting glibc 2.35, exceptions disabled",
+      "inherits": "clang20",
       "environment": {
-        "CC": "clang-20",
-        "CXX": "clang++-20",
         "CMAKE_CXX_FLAGS": "-DBB_NO_EXCEPTIONS"
       }
     },
@@ -91,11 +84,13 @@
       "name": "debug",
       "displayName": "Debugging build with Clang-20",
       "description": "Build with globally installed Clang-20 in debug mode",
-      "inherits": "clang20",
+      "inherits": "default",
       "binaryDir": "build-debug",
       "environment": {
+        "CC": "clang-20",
+        "CXX": "clang++-20",
         "CFLAGS": "-gdwarf-4",
-        "CXXFLAGS": "-gdwarf-4",
+        "CXXFLAGS": "-gdwarf-4 -D_GLIBCXX_DEBUG",
         "LDFLAGS": "-gdwarf-4"
       },
       "cacheVariables": {
@@ -167,7 +162,7 @@
       "binaryDir": "build-debug-fast",
       "environment": {
         "CFLAGS": "-O2 -gdwarf",
-        "CXXFLAGS": "-O2 -gdwarf-4",
+        "CXXFLAGS": "-O2 -gdwarf-4 -D_GLIBCXX_DEBUG",
         "LDFLAGS": "-O2 -gdwarf-4"
       },
       "cacheVariables": {
@@ -220,30 +215,30 @@
     {
       "name": "fuzzing",
       "displayName": "Build with fuzzing",
-      "description": "Build default preset but with fuzzing enabled",
-      "inherits": "clang20",
+      "description": "Build default preset but with fuzzing enabled. Uses clang-20 directly (zig does not provide libFuzzer/libclang_rt.fuzzer).",
+      "inherits": "default",
       "binaryDir": "build-fuzzing",
+      "environment": {
+        "CC": "clang-20",
+        "CXX": "clang++-20"
+      },
       "cacheVariables": {
         "FUZZING": "ON",
         "AVM": "OFF",
         "AVM_TRANSPILER_LIB": "",
         "CMAKE_BUILD_TYPE": "RelWithAssert",
-        "MULTITHREADING": "OFF"
+        "MULTITHREADING": "OFF",
+        "FUZZER_PRESET_NAME": "${presetName}"
       }
     },
     {
       "name": "fuzzing-noasm",
       "displayName": "Build with fuzzing and ASM disabled",
       "description": "Build default preset but with fuzzing enabled and ASM disabled",
-      "inherits": "clang20",
+      "inherits": "fuzzing",
       "binaryDir": "build-fuzzing-noasm",
       "cacheVariables": {
-        "FUZZING": "ON",
-        "AVM": "OFF",
-        "AVM_TRANSPILER_LIB": "",
-        "DISABLE_ASM": "ON",
-        "CMAKE_BUILD_TYPE": "RelWithAssert",
-        "MULTITHREADING": "OFF"
+        "DISABLE_ASM": "ON"
       }
     },
     {
@@ -267,17 +262,14 @@
       "name": "fuzzing-coverage",
       "displayName": "Build with coverage flags",
       "description": "Build default preset but with fuzzing and coverage enabled",
-      "inherits": "clang20",
+      "inherits": "fuzzing",
       "binaryDir": "build-fuzzing-cov",
       "cacheVariables": {
-        "FUZZING": "ON",
-        "AVM": "OFF",
-        "DISABLE_ASM": "ON",
-        "AVM_TRANSPILER_LIB": "",
-        "CMAKE_BUILD_TYPE": "RelWithAssert",
-        "MULTITHREADING": "OFF"
+        "DISABLE_ASM": "ON"
       },
       "environment": {
+        "CC": "clang-20",
+        "CXX": "clang++-20",
         "CXXFLAGS": "-fprofile-instr-generate -fcoverage-mapping"
       }
     },
@@ -287,13 +279,20 @@
       "description": "Build default preset but with fuzzing and AVM enabled",
       "inherits": "clang20",
       "binaryDir": "build-fuzzing-avm",
+      "environment": {
+        "CC": "clang-20",
+        "CXX": "clang++-20"
+      },
       "cacheVariables": {
         "FUZZING": "ON",
         "DISABLE_ASM": "OFF",
         "AVM_TRANSPILER_LIB": "",
         "FUZZING_AVM": "ON",
         "CMAKE_BUILD_TYPE": "RelWithAssert",
-        "MULTITHREADING": "ON"
+        "MULTITHREADING": "ON",
+        "FUZZER_PRESET_NAME": "${presetName}",
+        "CMAKE_AR": null,
+        "CMAKE_RANLIB": null
       }
     },
     {
@@ -314,10 +313,16 @@
     {
       "name": "smt-verification",
       "displayName": "Build with smt verification",
-      "description": "Build default preset but with smt library included",
+      "description": "Build clang20 preset but with smt library included, using clang-20 directly (cvc5 ExternalProject needs a plain compiler path)",
       "inherits": "clang20",
       "binaryDir": "build-smt",
+      "environment": {
+        "CC": "clang-20",
+        "CXX": "clang++-20"
+      },
       "cacheVariables": {
+        "CMAKE_AR": null,
+        "CMAKE_RANLIB": null,
         "AVM_TRANSPILER_LIB": "",
         "SMT": "ON"
       }
@@ -403,7 +408,8 @@
         "WASI_SDK_PREFIX": "/opt/wasi-sdk",
         "CC": "$env{WASI_SDK_PREFIX}/bin/clang",
         "CXX": "$env{WASI_SDK_PREFIX}/bin/clang++",
-        "CXXFLAGS": "-DBB_VERBOSE",
+        "CXXFLAGS": "-DBB_VERBOSE -fvisibility=hidden",
+        "LDFLAGS": "--no-wasm-opt",
         "AR": "$env{WASI_SDK_PREFIX}/bin/llvm-ar",
         "RANLIB": "$env{WASI_SDK_PREFIX}/bin/llvm-ranlib"
       },
@@ -428,7 +434,7 @@
       "cacheVariables": {
         "CMAKE_BUILD_TYPE": "Release",
         "MULTITHREADING": "ON",
-        "ENABLE_WASM_BENCH": "ON"
+        "ENABLE_WASM_BENCH": "OFF"
       }
     },
     {
@@ -456,13 +462,15 @@
       "binaryDir": "build-xray"
     },
     {
-      "name": "zig-base",
+      "name": "cross-base",
       "displayName": "Zig (base)",
       "generator": "Ninja",
       "binaryDir": "${sourceDir}/build-${presetName}",
       "environment": {
         "CC": "zig cc",
-        "CXX": "zig c++"
+        "CXX": "zig c++",
+        "CFLAGS": "-g0 -fvisibility=hidden",
+        "CXXFLAGS": "-g0 -fvisibility=hidden"
       },
       "cacheVariables": {
         "ENABLE_PIC": "ON",
@@ -472,41 +480,41 @@
       }
     },
     {
-      "name": "zig-amd64-linux",
+      "name": "amd64-linux",
       "displayName": "Build for linux amd64 with Zig",
-      "inherits": "zig-base",
+      "inherits": "cross-base",
       "environment": {
-        "CC": "zig cc -target x86_64-linux-gnu",
-        "CXX": "zig c++ -target x86_64-linux-gnu",
+        "CC": "zig cc -target x86_64-linux-gnu.2.35",
+        "CXX": "zig c++ -target x86_64-linux-gnu.2.35",
         "LDFLAGS": "-s"
       },
       "cacheVariables": {
         "CMAKE_SYSTEM_NAME": "Linux",
-        "TARGET_ARCH": "skylake",
         "AVM_TRANSPILER_LIB": "${sourceDir}/../../avm-transpiler/target/x86_64-apple-darwin/release/libavm_transpiler.a"
       }
     },
     {
-      "name": "zig-arm64-linux",
-      "inherits": "zig-base",
+      "name": "arm64-linux",
+      "inherits": "cross-base",
       "environment": {
-        "CC": "zig cc -target aarch64-linux-gnu",
-        "CXX": "zig c++ -target aarch64-linux-gnu",
+        "CC": "zig cc -target aarch64-linux-gnu.2.35",
+        "CXX": "zig c++ -target aarch64-linux-gnu.2.35",
         "LDFLAGS": "-s"
       },
       "cacheVariables": {
         "CMAKE_SYSTEM_NAME": "Linux",
-        "TARGET_ARCH": "generic"
+        "AVM_TRANSPILER_LIB": "${sourceDir}/../../avm-transpiler/target/aarch64-unknown-linux-gnu/release/libavm_transpiler.a"
       }
     },
     {
-      "name": "zig-amd64-macos",
+      "name": "amd64-macos",
       "displayName": "Build for macOS amd64 with Zig",
       "description": "Cross-compile for intel macOS using Zig",
-      "inherits": "zig-base",
+      "inherits": "cross-base",
       "environment": {
         "CC": "zig cc -target x86_64-macos -mcpu=baseline",
-        "CXX": "zig c++ -target x86_64-macos -mcpu=baseline"
+        "CXX": "zig c++ -target x86_64-macos -mcpu=baseline",
+        "LDFLAGS": "-s"
       },
       "cacheVariables": {
         "CMAKE_SYSTEM_NAME": "Darwin",
@@ -516,19 +524,101 @@
       }
     },
     {
-      "name": "zig-arm64-macos",
+      "name": "arm64-macos",
       "displayName": "Build for macOS arm64 with Zig",
       "description": "Cross-compile for macOS arm64 (Apple Silicon) using Zig",
-      "inherits": "zig-base",
+      "inherits": "cross-base",
       "environment": {
         "CC": "zig cc -target aarch64-macos -mcpu=apple_a14",
-        "CXX": "zig c++ -target aarch64-macos -mcpu=apple_a14"
+        "CXX": "zig c++ -target aarch64-macos -mcpu=apple_a14",
+        "LDFLAGS": "-s"
       },
       "cacheVariables": {
         "CMAKE_SYSTEM_NAME": "Darwin",
         "CMAKE_SYSTEM_PROCESSOR": "aarch64",
         "AVM_TRANSPILER_LIB": "${sourceDir}/../../avm-transpiler/target/aarch64-apple-darwin/release/libavm_transpiler.a",
         "HAVE_STD_REGEX": "ON"
+      }
+    },
+    {
+      "name": "amd64-windows",
+      "displayName": "Build for Windows amd64 with Zig",
+      "description": "Cross-compile for Windows x86_64 using Zig (MinGW). Excludes ipc/lmdb/world_state/nodejs_module (no Windows support).",
+      "inherits": "cross-base",
+      "environment": {
+        "CC": "zig cc -target x86_64-windows-gnu",
+        "CXX": "zig c++ -target x86_64-windows-gnu",
+        "LDFLAGS": "-s"
+      },
+      "cacheVariables": {
+        "CMAKE_SYSTEM_NAME": "Windows",
+        "CMAKE_SYSTEM_PROCESSOR": "x86_64",
+        "BB_LITE": "ON",
+        "AVM_TRANSPILER_LIB": ""
+      }
+    },
+    {
+      "name": "arm64-ios",
+      "displayName": "iOS arm64 static library (Zig)",
+      "description": "Cross-compile static libraries for iOS arm64 devices using Zig. Only supports static library targets (no linking) — Zig lacks iOS TBD/dylib support.",
+      "inherits": "cross-base",
+      "environment": {
+        "CC": "zig cc -target aarch64-ios -mios-version-min=16.3 -isystem ${sourceDir}/ios-sdk/iPhoneOS26.2.sdk/usr/include",
+        "CXX": "zig c++ -target aarch64-ios -mios-version-min=16.3 -isystem ${sourceDir}/ios-sdk/iPhoneOS26.2.sdk/usr/include"
+      },
+      "cacheVariables": {
+        "CMAKE_SYSTEM_NAME": "Generic",
+        "CMAKE_TRY_COMPILE_TARGET_TYPE": "STATIC_LIBRARY",
+        "HAVE_STD_REGEX": "ON",
+        "BB_LITE": "ON"
+      }
+    },
+    {
+      "name": "arm64-ios-sim",
+      "displayName": "iOS Simulator arm64 static library (Zig)",
+      "description": "Cross-compile static libraries for iOS Simulator on ARM64 using Zig. Only supports static library targets (no linking) — Zig lacks iOS TBD/dylib support.",
+      "inherits": "cross-base",
+      "environment": {
+        "CC": "zig cc -target aarch64-ios-simulator -mios-version-min=16.3 -isystem ${sourceDir}/ios-sdk/iPhoneOS26.2.sdk/usr/include",
+        "CXX": "zig c++ -target aarch64-ios-simulator -mios-version-min=16.3 -isystem ${sourceDir}/ios-sdk/iPhoneOS26.2.sdk/usr/include"
+      },
+      "cacheVariables": {
+        "CMAKE_SYSTEM_NAME": "Generic",
+        "CMAKE_TRY_COMPILE_TARGET_TYPE": "STATIC_LIBRARY",
+        "HAVE_STD_REGEX": "ON",
+        "BB_LITE": "ON"
+      }
+    },
+    {
+      "name": "arm64-android",
+      "displayName": "Android arm64 static library (Zig)",
+      "description": "Cross-compile static libraries for Android arm64 devices using Zig. Only supports static library targets (no linking).",
+      "inherits": "cross-base",
+      "environment": {
+        "CC": "zig cc -target aarch64-linux-android -isystem ${sourceDir}/android-sysroot/usr/include -isystem ${sourceDir}/android-sysroot/usr/include/aarch64-linux-android",
+        "CXX": "zig c++ -target aarch64-linux-android -isystem ${sourceDir}/android-sysroot/usr/include -isystem ${sourceDir}/android-sysroot/usr/include/aarch64-linux-android"
+      },
+      "cacheVariables": {
+        "CMAKE_SYSTEM_NAME": "Generic",
+        "CMAKE_TRY_COMPILE_TARGET_TYPE": "STATIC_LIBRARY",
+        "HAVE_STD_REGEX": "ON",
+        "BB_LITE": "ON"
+      }
+    },
+    {
+      "name": "x86_64-android",
+      "displayName": "Android x86_64 static library (Zig)",
+      "description": "Cross-compile static libraries for Android x86_64 emulator using Zig. Only supports static library targets (no linking).",
+      "inherits": "cross-base",
+      "environment": {
+        "CC": "zig cc -target x86_64-linux-android -isystem ${sourceDir}/android-sysroot/usr/include -isystem ${sourceDir}/android-sysroot/usr/include/x86_64-linux-android",
+        "CXX": "zig c++ -target x86_64-linux-android -isystem ${sourceDir}/android-sysroot/usr/include -isystem ${sourceDir}/android-sysroot/usr/include/x86_64-linux-android"
+      },
+      "cacheVariables": {
+        "CMAKE_SYSTEM_NAME": "Generic",
+        "CMAKE_TRY_COMPILE_TARGET_TYPE": "STATIC_LIBRARY",
+        "HAVE_STD_REGEX": "ON",
+        "BB_LITE": "ON"
       }
     }
   ],
@@ -597,7 +687,13 @@
     {
       "name": "asan-fast",
       "inherits": "default",
-      "configurePreset": "asan-fast"
+      "configurePreset": "asan-fast",
+      "targets": [
+        "commitment_schemes_recursion_tests",
+        "chonk_tests",
+        "ultra_honk_tests",
+        "dsl_tests"
+      ]
     },
     {
       "name": "gcc",
@@ -670,7 +766,9 @@
       "inheritConfigureEnvironment": true,
       "jobs": 0,
       "targets": [
-        "barretenberg.wasm.gz"
+        "barretenberg.wasm",
+        "barretenberg.wasm.gz",
+        "barretenberg-debug.wasm"
       ]
     },
     {
@@ -678,10 +776,7 @@
       "configurePreset": "wasm-threads-dbg",
       "inheritConfigureEnvironment": true,
       "jobs": 0,
-      "targets": [
-        "barretenberg.wasm",
-        "bb"
-      ]
+      "targets": ["barretenberg.wasm", "bb"]
     },
     {
       "name": "wasm-threads",
@@ -689,8 +784,12 @@
       "inheritConfigureEnvironment": true,
       "jobs": 0,
       "targets": [
+        "barretenberg.wasm",
         "barretenberg.wasm.gz",
-        "ecc_tests"
+        "barretenberg-debug.wasm",
+        "ecc_tests",
+        "ultra_honk_bench",
+        "bb"
       ]
     },
     {
@@ -699,24 +798,58 @@
       "inherits": "default"
     },
     {
-      "name": "zig-amd64-linux",
-      "configurePreset": "zig-amd64-linux",
-      "inheritConfigureEnvironment": true
+      "name": "amd64-linux",
+      "configurePreset": "amd64-linux",
+      "inheritConfigureEnvironment": true,
+      "targets": ["bb", "nodejs_module", "bb-external", "aztec-wsdb", "bb-avm-sim"]
     },
     {
-      "name": "zig-arm64-linux",
-      "configurePreset": "zig-arm64-linux",
-      "inheritConfigureEnvironment": true
+      "name": "arm64-linux",
+      "configurePreset": "arm64-linux",
+      "inheritConfigureEnvironment": true,
+      "targets": ["bb", "nodejs_module", "bb-external", "aztec-wsdb", "bb-avm-sim"]
     },
     {
-      "name": "zig-amd64-macos",
-      "configurePreset": "zig-amd64-macos",
-      "inheritConfigureEnvironment": true
+      "name": "amd64-macos",
+      "configurePreset": "amd64-macos",
+      "inheritConfigureEnvironment": true,
+      "targets": ["bb", "nodejs_module", "bb-external", "aztec-wsdb", "bb-avm-sim"]
     },
     {
-      "name": "zig-arm64-macos",
-      "configurePreset": "zig-arm64-macos",
-      "inheritConfigureEnvironment": true
+      "name": "arm64-macos",
+      "configurePreset": "arm64-macos",
+      "inheritConfigureEnvironment": true,
+      "targets": ["bb", "nodejs_module", "bb-external", "aztec-wsdb", "bb-avm-sim"]
+    },
+    {
+      "name": "amd64-windows",
+      "configurePreset": "amd64-windows",
+      "inheritConfigureEnvironment": true,
+      "targets": ["bb", "bb-external"]
+    },
+    {
+      "name": "arm64-ios",
+      "configurePreset": "arm64-ios",
+      "inheritConfigureEnvironment": true,
+      "targets": ["bb-external"]
+    },
+    {
+      "name": "arm64-ios-sim",
+      "configurePreset": "arm64-ios-sim",
+      "inheritConfigureEnvironment": true,
+      "targets": ["bb-external"]
+    },
+    {
+      "name": "arm64-android",
+      "configurePreset": "arm64-android",
+      "inheritConfigureEnvironment": true,
+      "targets": ["bb-external"]
+    },
+    {
+      "name": "x86_64-android",
+      "configurePreset": "x86_64-android",
+      "inheritConfigureEnvironment": true,
+      "targets": ["bb-external"]
     }
   ],
   "testPresets": [

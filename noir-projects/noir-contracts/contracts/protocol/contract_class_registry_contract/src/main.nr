@@ -1,29 +1,55 @@
 mod events;
+mod validate_bytecode;
 
+/// Protocol contract that tracks which contract classes have been published to the network.
+///
+/// In Aztec, contracts are split into *classes* and *instances* (deployments of a class at a unique address). This
+/// contract handles publishing of contract classes.
+///
+/// Every contract class must be registered here before any instance of that class can be deployed via the
+/// ContractInstanceRegistry - this applies even to contracts with no public functions. Registration is also
+/// a prerequisite for contract upgrades: the *new* class must be published before an existing deployed contract
+/// instance can update its class id (a contract instance that is not registered in ContractInstanceRegistry cannot
+/// be upgraded).
+///
+/// Registration works by emitting a nullifier keyed to the contract class id. Other protocol contracts
+/// (e.g. ContractInstanceRegistry) verify registration by asserting this nullifier exists.
+///
+/// Contracts with public functions need to have their bytecode published in order for for the sequencer to be
+/// guaranteed to be able to execute a public function (this is achieved by checking contract instance address
+/// nullifier exists by the AVM - see ContractInstanceRegistry for more details). ACIR of private functions does not
+/// need to be published here as private functions are executed on user devices.
 pub contract ContractClassRegistry {
-    use crate::events::{
-        class_published::ContractClassPublished,
-        private_function_broadcasted::{
-            ClassPrivateFunctionBroadcasted, InnerPrivateFunction, PrivateFunction,
-        },
-        utility_function_broadcasted::{
-            ClassUtilityFunctionBroadcasted, InnerUtilityFunction, UtilityFunction,
-        },
-    };
+    use crate::events::class_published::ContractClassPublished;
+    use crate::validate_bytecode::validate_packed_public_bytecode;
     use aztec::{
-        hash::compute_public_bytecode_commitment,
         oracle::capsules,
         protocol::{
-            constants::{
-                CONTRACT_CLASS_REGISTRY_BYTECODE_CAPSULE_SLOT,
-                MAX_PACKED_BYTECODE_SIZE_PER_PRIVATE_FUNCTION_IN_FIELDS,
-                MAX_PACKED_BYTECODE_SIZE_PER_UTILITY_FUNCTION_IN_FIELDS,
-            },
+            address::AztecAddress,
+            constants::{CONTRACT_CLASS_REGISTRY_BYTECODE_CAPSULE_SLOT, MAX_PACKED_PUBLIC_BYTECODE_SIZE_IN_FIELDS},
             contract_class_id::ContractClassId,
-            traits::{Serialize, ToField},
+            traits::ToField,
         },
     };
 
+    /// Publishes a contract class to the network.
+    ///
+    /// The caller provides the three components of the contract class id (artifact_hash, private_functions_root,
+    /// public_bytecode_commitment) together with the packed public bytecode loaded via a capsule. Even contracts with
+    /// no public functions have non-empty bytecode because the AVM transpiler adds a public dispatch function that
+    /// simply reverts. Without it, publishing would fail due to the non-zero bytecode length check in
+    /// `compute_public_bytecode_commitment`.
+    ///
+    /// Note that there is only one public bytecode commitment per contract instead of per contract-function as
+    /// bytecode of public functions is merged into one `public_dispatch` function and the relevant code branch is then
+    /// executed based on the function selector.
+    ///
+    /// This function:
+    /// 1. Validates the packed bytecode against the provided commitment.
+    /// 2. Recomputes and emits the contract class id as a nullifier (preventing duplicate registration and serving as
+    /// a proof of publication).
+    /// 3. Broadcasts a `ContractClassPublished` event containing the full class metadata and bytecode so that nodes
+    /// can reconstruct the class.
     #[aztec::macros::internals_functions_generation::abi_attributes::abi_private]
     fn publish(
         inputs: aztec::context::inputs::PrivateContextInputs,
@@ -36,27 +62,24 @@ pub contract ContractClassRegistry {
         // body, I have removed that check.
         aztec::oracle::version::assert_compatible_oracle_version();
 
-        let serialized_params: [Field; 3] =
-            [artifact_hash, private_functions_root, public_bytecode_commitment];
+        let serialized_params: [Field; 3] = [artifact_hash, private_functions_root, public_bytecode_commitment];
 
         let args_hash: Field = aztec::hash::hash_args(serialized_params);
-        let mut context: aztec::context::PrivateContext =
-            aztec::context::PrivateContext::new(inputs, args_hash);
+        let mut context: aztec::context::PrivateContext = aztec::context::PrivateContext::new(inputs, args_hash);
         // MACRO CODE END
 
         // Safety: We load the bytecode via a capsule, which is unconstrained. In order to ensure the loaded bytecode
         // matches the expected one, we recompute the commitment and assert it matches the one provided by the caller.
-        let mut packed_public_bytecode: [Field; 3000] = unsafe {
+        let packed_public_bytecode: [Field; MAX_PACKED_PUBLIC_BYTECODE_SIZE_IN_FIELDS] = unsafe {
             capsules::load(
                 context.this_address(),
                 CONTRACT_CLASS_REGISTRY_BYTECODE_CAPSULE_SLOT,
+                AztecAddress::zero(),
             )
                 .unwrap()
         };
-        // Compute and check the public bytecode commitment
-        let computed_public_bytecode_commitment =
-            compute_public_bytecode_commitment(packed_public_bytecode);
-        assert_eq(computed_public_bytecode_commitment, public_bytecode_commitment);
+
+        validate_packed_public_bytecode(packed_public_bytecode, public_bytecode_commitment);
 
         // Compute contract class id from preimage
         let contract_class_id = ContractClassId::compute(
@@ -68,17 +91,13 @@ pub contract ContractClassRegistry {
         // Emit the contract class id as a nullifier:
         // - to demonstrate that this contract class hasn't been published before
         // - to enable apps to read that this contract class has been published.
+        // We use no domain separators because these are the only nullifiers this contract uses.
         context.push_nullifier(contract_class_id.to_field());
 
         // Broadcast class info including public bytecode
-        aztec::oracle::debug_log::debug_log_format(
+        aztec::oracle::logging::debug_log_format(
             "ContractClassPublished: {}",
-            [
-                contract_class_id.to_field(),
-                artifact_hash,
-                private_functions_root,
-                public_bytecode_commitment,
-            ],
+            [contract_class_id.to_field(), artifact_hash, private_functions_root, public_bytecode_commitment],
         );
 
         let event = ContractClassPublished {
@@ -95,187 +114,12 @@ pub contract ContractClassRegistry {
         // MACRO CODE END
     }
 
-    #[aztec::macros::internals_functions_generation::abi_attributes::abi_private]
-    fn broadcast_private_function(
-        inputs: aztec::context::inputs::PrivateContextInputs,
-        contract_class_id: ContractClassId,
-        artifact_metadata_hash: Field,
-        utility_functions_artifact_tree_root: Field,
-        private_function_tree_sibling_path: [Field; 7],
-        private_function_tree_leaf_index: Field,
-        artifact_function_tree_sibling_path: [Field; 7],
-        artifact_function_tree_leaf_index: Field,
-        function_data: InnerPrivateFunction,
-    ) -> return_data aztec::protocol::abis::private_circuit_public_inputs::PrivateCircuitPublicInputs {
-        // MACRO CODE START
-        // Note: The macros initially inserted a phase check here, but since there is no phase change in this function
-        // body, I have removed that check.
-        aztec::oracle::version::assert_compatible_oracle_version();
-
-        let serialized_params: [Field; 22] = [
-            contract_class_id.to_field(),
-            artifact_metadata_hash,
-            utility_functions_artifact_tree_root,
-        ]
-            .concat(private_function_tree_sibling_path)
-            .concat([private_function_tree_leaf_index])
-            .concat(artifact_function_tree_sibling_path)
-            .concat([artifact_function_tree_leaf_index])
-            .concat(function_data.serialize());
-
-        let args_hash: Field = aztec::hash::hash_args(serialized_params);
-        let mut context: aztec::context::PrivateContext =
-            aztec::context::PrivateContext::new(inputs, args_hash);
-        // MACRO CODE END
-
-        // Safety: The bytecode loaded here is unconstrained, which is acceptable since:
-        // 1. Unlike public functions, we don't need execution guarantees for private functions.
-        // 2. This broadcast simply provides convenient bytecode sharing vs offchain distribution.
-        // 3. Computing the VK for private bytecode in-circuit is not possible, so we can't do better.
-        let private_bytecode: [Field; MAX_PACKED_BYTECODE_SIZE_PER_PRIVATE_FUNCTION_IN_FIELDS] = unsafe {
-            capsules::load(
-                context.this_address(),
-                CONTRACT_CLASS_REGISTRY_BYTECODE_CAPSULE_SLOT,
-            )
-                .unwrap()
-        };
-        let event = ClassPrivateFunctionBroadcasted {
-            contract_class_id,
-            artifact_metadata_hash,
-            utility_functions_artifact_tree_root,
-            private_function_tree_sibling_path,
-            private_function_tree_leaf_index,
-            artifact_function_tree_sibling_path,
-            artifact_function_tree_leaf_index,
-            function: PrivateFunction {
-                selector: function_data.selector,
-                metadata_hash: function_data.metadata_hash,
-                vk_hash: function_data.vk_hash,
-                bytecode: private_bytecode,
-            },
-        };
-        aztec::oracle::debug_log::debug_log_format(
-            "ClassPrivateFunctionBroadcasted: {}",
-            [
-                contract_class_id.to_field(),
-                artifact_metadata_hash,
-                utility_functions_artifact_tree_root,
-                function_data.selector.to_field(),
-                function_data.vk_hash,
-                function_data.metadata_hash,
-            ],
-        );
-        context.emit_contract_class_log(event.serialize_non_standard());
-
-        // MACRO CODE START
-        context.finish()
-        // MACRO CODE END
-    }
-
-    #[aztec::macros::internals_functions_generation::abi_attributes::abi_private]
-    fn broadcast_utility_function(
-        inputs: aztec::context::inputs::PrivateContextInputs,
-        contract_class_id: ContractClassId,
-        artifact_metadata_hash: Field,
-        private_functions_artifact_tree_root: Field,
-        artifact_function_tree_sibling_path: [Field; 7],
-        artifact_function_tree_leaf_index: Field,
-        function_data: InnerUtilityFunction,
-    ) -> return_data aztec::protocol::abis::private_circuit_public_inputs::PrivateCircuitPublicInputs {
-        // MACRO CODE START
-        // Note: The macros initially inserted a phase check here, but since there is no phase change in this function
-        // body, I have removed that check.
-        aztec::oracle::version::assert_compatible_oracle_version();
-
-        let serialized_params: [Field; 13] = [
-            contract_class_id.to_field(),
-            artifact_metadata_hash,
-            private_functions_artifact_tree_root,
-        ]
-            .concat(artifact_function_tree_sibling_path)
-            .concat([artifact_function_tree_leaf_index])
-            .concat(function_data.serialize());
-
-        let args_hash: Field = aztec::hash::hash_args(serialized_params);
-        let mut context: aztec::context::PrivateContext =
-            aztec::context::PrivateContext::new(inputs, args_hash);
-        // MACRO CODE END
-
-        // Safety: The bytecode loaded here is unconstrained, which is acceptable since:
-        // 1. Unlike public functions, we don't need execution guarantees for utility functions.
-        // 2. This broadcast simply provides convenient bytecode sharing vs offchain distribution.
-        let utility_bytecode: [Field; MAX_PACKED_BYTECODE_SIZE_PER_UTILITY_FUNCTION_IN_FIELDS] = unsafe {
-            capsules::load(
-                context.this_address(),
-                CONTRACT_CLASS_REGISTRY_BYTECODE_CAPSULE_SLOT,
-            )
-                .unwrap()
-        };
-        let event = ClassUtilityFunctionBroadcasted {
-            contract_class_id,
-            artifact_metadata_hash,
-            private_functions_artifact_tree_root,
-            artifact_function_tree_sibling_path,
-            artifact_function_tree_leaf_index,
-            function: UtilityFunction {
-                selector: function_data.selector,
-                metadata_hash: function_data.metadata_hash,
-                bytecode: utility_bytecode,
-            },
-        };
-        aztec::oracle::debug_log::debug_log_format(
-            "ClassUtilityFunctionBroadcasted: {}",
-            [
-                contract_class_id.to_field(),
-                artifact_metadata_hash,
-                private_functions_artifact_tree_root,
-                function_data.selector.to_field(),
-                function_data.metadata_hash,
-            ],
-        );
-        context.emit_contract_class_log(event.serialize_non_standard());
-
-        // MACRO CODE START
-        context.finish()
-        // MACRO CODE END
-    }
-
     // THE REST OF THE CODE IN THIS CONTRACT WAS ORIGINALLY INJECTED BY THE #[aztec] MACRO.
-
-    pub struct broadcast_private_function_parameters {
-        pub _contract_class_id: ContractClassId,
-        pub _artifact_metadata_hash: Field,
-        pub _utility_functions_artifact_tree_root: Field,
-        pub _private_function_tree_sibling_path: [Field; 7],
-        pub _private_function_tree_leaf_index: Field,
-        pub _artifact_function_tree_sibling_path: [Field; 7],
-        pub _artifact_function_tree_leaf_index: Field,
-        pub _function_data: InnerPrivateFunction,
-    }
-
-    pub struct broadcast_utility_function_parameters {
-        pub _contract_class_id: ContractClassId,
-        pub _artifact_metadata_hash: Field,
-        pub _private_functions_artifact_tree_root: Field,
-        pub _artifact_function_tree_sibling_path: [Field; 7],
-        pub _artifact_function_tree_leaf_index: Field,
-        pub _function_data: InnerUtilityFunction,
-    }
 
     pub struct publish_parameters {
         pub _artifact_hash: Field,
         pub _private_functions_root: Field,
         pub _public_bytecode_commitment: Field,
-    }
-
-    #[abi(functions)]
-    pub struct broadcast_private_function_abi {
-        parameters: broadcast_private_function_parameters,
-    }
-
-    #[abi(functions)]
-    pub struct broadcast_utility_function_abi {
-        parameters: broadcast_utility_function_parameters,
     }
 
     #[abi(functions)]

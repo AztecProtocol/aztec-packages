@@ -53,9 +53,10 @@ A contract instance includes:
 
 - `salt`: User-generated pseudorandom value for uniqueness
 - `deployer`: Optional address of the contract deployer. Zero for universal deployment
-- `contract_class_id`: Identifier of the contract class for this instance
+- `original_contract_class_id`: Identifier of the contract class the instance was deployed with. Updating the instance to a new class via the ContractInstanceRegistry does not change this value, since it is part of the address preimage
 - `initialization_hash`: Hash of the selector and arguments to the constructor
-- `public_keys`: Public keys used for encryption and nullifying (nullifier, incoming viewing, outgoing viewing, and tagging keys)
+- `immutables_hash`: Hash of the contract's compile-time immutable state
+- `public_keys`: Public keys participating in address derivation (nullifier, incoming viewing, outgoing viewing, tagging, message-signing, and fallback keys). Only the incoming viewing key is held as an elliptic curve point; the other five are held as their `hash_public_key` digests.
 
 ### Instance Address
 
@@ -102,24 +103,25 @@ Your contract can verify the deployment or initialization state of other contrac
 - Conditional logic based on initialization
 
 ```rust
-use aztec::history::contract_inclusion::{
-    ProveContractDeployment,
-    ProveContractNonDeployment,
-    ProveContractInitialization,
-    ProveContractNonInitialization,
+use aztec::history::deployment::{
+    assert_contract_bytecode_was_not_published_by,
+    assert_contract_bytecode_was_published_by,
+    assert_contract_was_initialized_by,
+    assert_contract_was_not_initialized_by,
 };
 
-// Prove a contract is deployed
-header.prove_contract_deployment(contract_address);
+// Prove a contract's bytecode was published by a given block
+assert_contract_bytecode_was_published_by(block_header, contract_address);
 
-// Prove a contract is NOT deployed
-header.prove_contract_non_deployment(contract_address);
+// Prove a contract's bytecode was NOT published by a given block
+assert_contract_bytecode_was_not_published_by(block_header, contract_address);
 
-// Prove a contract is initialized
-header.prove_contract_initialization(contract_address);
+// Prove a contract was initialized by a given block
+// (init_hash is the contract's initialization hash, obtainable via get_contract_instance)
+assert_contract_was_initialized_by(block_header, contract_address, init_hash);
 
-// Prove a contract is NOT initialized
-header.prove_contract_non_initialization(contract_address);
+// Prove a contract was NOT initialized by a given block
+assert_contract_was_not_initialized_by(block_header, contract_address, init_hash);
 ```
 
 These functions prove inclusion or non-inclusion of the corresponding nullifiers in the nullifier tree at a given block.
@@ -129,4 +131,4 @@ These functions prove inclusion or non-inclusion of the corresponding nullifiers
 - [Contract Deployment Quick Reference](../aztec-nr/contract_readiness_states.md) - Practical guide for which deployment steps your contract needs
 - [Deploying Contracts](../aztec-js/how_to_deploy_contract.md) - Deploy contracts using TypeScript
 - [DApp Development Tutorial](../tutorials/js_tutorials/aztecjs-getting-started.md) - Build a complete application
-- [Communicating Cross-Chain](../aztec-nr/framework-description/how_to_communicate_cross_chain.md) - Portal contracts and L1/L2 messaging
+- [Communicating Cross-Chain](../aztec-nr/framework-description/ethereum_aztec_messaging.md) - Portal contracts and L1/L2 messaging

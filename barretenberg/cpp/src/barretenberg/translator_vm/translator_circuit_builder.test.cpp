@@ -13,7 +13,10 @@ auto& engine = numeric::get_debug_randomness();
 /**
  * @brief Helper function to compute the expected accumulator result manually
  */
-fq compute_expected_result(const std::shared_ptr<ECCOpQueue>& op_queue, const fq& batching_challenge, const fq& x)
+fq compute_expected_result(const std::shared_ptr<ECCOpQueue>& op_queue,
+                           const fq& batching_challenge,
+                           const fq& x,
+                           bool include_zk = true)
 {
     using Fq = fq;
     Fq x_inv = x.invert();
@@ -24,7 +27,8 @@ fq compute_expected_result(const std::shared_ptr<ECCOpQueue>& op_queue, const fq
     Fq z_2_accumulator = Fq(0);
     Fq x_pow = Fq(1);
 
-    const auto& ultra_ops = op_queue->get_ultra_ops();
+    const auto& ultra_ops =
+        include_zk ? op_queue->get_zk_reconstructed_ultra_ops() : op_queue->get_no_zk_reconstructed_ultra_ops();
     for (const auto& ultra_op : ultra_ops) {
         if (ultra_op.op_code.is_random_op || ultra_op.op_code.value() == 0) {
             continue;
@@ -68,10 +72,7 @@ TEST(TranslatorCircuitBuilder, SeveralOperationCorrectness)
 
     // Add the same operations to the ECC op queue; the native computation is performed under the hood.
     auto op_queue = std::make_shared<ECCOpQueue>();
-    op_queue->no_op_ultra_only();
-    op_queue->random_op_ultra_only();
-    op_queue->random_op_ultra_only();
-    op_queue->random_op_ultra_only();
+    op_queue->construct_zk_columns();
     op_queue->add_accumulate(P1);
     op_queue->mul_accumulate(P2, z);
     op_queue->eq_and_reset();
@@ -86,7 +87,7 @@ TEST(TranslatorCircuitBuilder, SeveralOperationCorrectness)
     // Placeholder for randomness
     op_queue->random_op_ultra_only();
     op_queue->random_op_ultra_only();
-    op_queue->merge(MergeSettings::APPEND, ECCOpQueue::OP_QUEUE_SIZE - op_queue->get_current_subtable_size());
+    op_queue->merge_fixed_append(op_queue->get_append_offset_for_prover());
 
     Fq batching_challenge = Fq::random_element();
     Fq x = Fq::random_element();
@@ -106,15 +107,12 @@ TEST(TranslatorCircuitBuilder, MinimalOperations)
     using Fq = fq;
 
     auto op_queue = std::make_shared<ECCOpQueue>();
-    op_queue->no_op_ultra_only();
-    op_queue->random_op_ultra_only();
-    op_queue->random_op_ultra_only();
-    op_queue->random_op_ultra_only();
+    op_queue->construct_zk_columns();
     op_queue->eq_and_reset();
     op_queue->merge();
     op_queue->random_op_ultra_only();
     op_queue->random_op_ultra_only();
-    op_queue->merge(MergeSettings::APPEND, ECCOpQueue::OP_QUEUE_SIZE - op_queue->get_current_subtable_size());
+    op_queue->merge_fixed_append(op_queue->get_append_offset_for_prover());
 
     Fq batching_challenge = Fq::random_element();
     Fq x = Fq::random_element();
@@ -133,10 +131,7 @@ TEST(TranslatorCircuitBuilder, OnlyAddOperations)
     auto P2 = point::random_element();
 
     auto op_queue = std::make_shared<ECCOpQueue>();
-    op_queue->no_op_ultra_only();
-    op_queue->random_op_ultra_only();
-    op_queue->random_op_ultra_only();
-    op_queue->random_op_ultra_only();
+    op_queue->construct_zk_columns();
     op_queue->add_accumulate(P1);
     op_queue->add_accumulate(P2);
     op_queue->add_accumulate(P1);
@@ -144,7 +139,7 @@ TEST(TranslatorCircuitBuilder, OnlyAddOperations)
     op_queue->merge();
     op_queue->random_op_ultra_only();
     op_queue->random_op_ultra_only();
-    op_queue->merge(MergeSettings::APPEND, ECCOpQueue::OP_QUEUE_SIZE - op_queue->get_current_subtable_size());
+    op_queue->merge_fixed_append(op_queue->get_append_offset_for_prover());
 
     Fq batching_challenge = Fq::random_element();
     Fq x = Fq::random_element();
@@ -169,17 +164,14 @@ TEST(TranslatorCircuitBuilder, OnlyMulOperations)
     auto z2 = scalar::random_element();
 
     auto op_queue = std::make_shared<ECCOpQueue>();
-    op_queue->no_op_ultra_only();
-    op_queue->random_op_ultra_only();
-    op_queue->random_op_ultra_only();
-    op_queue->random_op_ultra_only();
+    op_queue->construct_zk_columns();
     op_queue->mul_accumulate(P, z1);
     op_queue->mul_accumulate(P, z2);
     op_queue->eq_and_reset();
     op_queue->merge();
     op_queue->random_op_ultra_only();
     op_queue->random_op_ultra_only();
-    op_queue->merge(MergeSettings::APPEND, ECCOpQueue::OP_QUEUE_SIZE - op_queue->get_current_subtable_size());
+    op_queue->merge_fixed_append(op_queue->get_append_offset_for_prover());
 
     Fq batching_challenge = Fq::random_element();
     Fq x = Fq::random_element();
@@ -201,20 +193,14 @@ TEST(TranslatorCircuitBuilder, InterspersedNoOps)
     auto P = point::random_element();
 
     auto op_queue = std::make_shared<ECCOpQueue>();
-    op_queue->no_op_ultra_only();
-    op_queue->random_op_ultra_only();
-    op_queue->random_op_ultra_only();
-    op_queue->random_op_ultra_only();
+    op_queue->construct_zk_columns();
     op_queue->add_accumulate(P);
-    op_queue->no_op_ultra_only();
-    op_queue->no_op_ultra_only();
     op_queue->add_accumulate(P);
-    op_queue->no_op_ultra_only();
     op_queue->eq_and_reset();
     op_queue->merge();
     op_queue->random_op_ultra_only();
     op_queue->random_op_ultra_only();
-    op_queue->merge(MergeSettings::APPEND, ECCOpQueue::OP_QUEUE_SIZE - op_queue->get_current_subtable_size());
+    op_queue->merge_fixed_append(op_queue->get_append_offset_for_prover());
 
     Fq batching_challenge = Fq::random_element();
     Fq x = Fq::random_element();
@@ -236,16 +222,13 @@ TEST(TranslatorCircuitBuilder, PointAtInfinity)
     auto P_infinity = point::infinity();
 
     auto op_queue = std::make_shared<ECCOpQueue>();
-    op_queue->no_op_ultra_only();
-    op_queue->random_op_ultra_only();
-    op_queue->random_op_ultra_only();
-    op_queue->random_op_ultra_only();
+    op_queue->construct_zk_columns();
     op_queue->add_accumulate(P_infinity);
     op_queue->eq_and_reset();
     op_queue->merge();
     op_queue->random_op_ultra_only();
     op_queue->random_op_ultra_only();
-    op_queue->merge(MergeSettings::APPEND, ECCOpQueue::OP_QUEUE_SIZE - op_queue->get_current_subtable_size());
+    op_queue->merge_fixed_append(op_queue->get_append_offset_for_prover());
 
     Fq batching_challenge = Fq::random_element();
     Fq x = Fq::random_element();
@@ -269,16 +252,13 @@ TEST(TranslatorCircuitBuilder, ZeroScalar)
     auto zero = scalar::zero();
 
     auto op_queue = std::make_shared<ECCOpQueue>();
-    op_queue->no_op_ultra_only();
-    op_queue->random_op_ultra_only();
-    op_queue->random_op_ultra_only();
-    op_queue->random_op_ultra_only();
+    op_queue->construct_zk_columns();
     op_queue->mul_accumulate(P, zero);
     op_queue->eq_and_reset();
     op_queue->merge();
     op_queue->random_op_ultra_only();
     op_queue->random_op_ultra_only();
-    op_queue->merge(MergeSettings::APPEND, ECCOpQueue::OP_QUEUE_SIZE - op_queue->get_current_subtable_size());
+    op_queue->merge_fixed_append(op_queue->get_append_offset_for_prover());
 
     Fq batching_challenge = Fq::random_element();
     Fq x = Fq::random_element();
@@ -299,10 +279,7 @@ TEST(TranslatorCircuitBuilder, ManyOperations)
     using Fq = fq;
 
     auto op_queue = std::make_shared<ECCOpQueue>();
-    op_queue->no_op_ultra_only();
-    op_queue->random_op_ultra_only();
-    op_queue->random_op_ultra_only();
-    op_queue->random_op_ultra_only();
+    op_queue->construct_zk_columns();
 
     // Add many operations
     for (size_t i = 0; i < 20; ++i) {
@@ -316,7 +293,7 @@ TEST(TranslatorCircuitBuilder, ManyOperations)
     op_queue->merge();
     op_queue->random_op_ultra_only();
     op_queue->random_op_ultra_only();
-    op_queue->merge(MergeSettings::APPEND, ECCOpQueue::OP_QUEUE_SIZE - op_queue->get_current_subtable_size());
+    op_queue->merge_fixed_append(op_queue->get_append_offset_for_prover());
 
     Fq batching_challenge = Fq::random_element();
     Fq x = Fq::random_element();
@@ -343,37 +320,41 @@ TEST(TranslatorCircuitBuilder, Determinism)
 
     // Build first circuit
     auto op_queue1 = std::make_shared<ECCOpQueue>();
-    op_queue1->no_op_ultra_only();
-    op_queue1->random_op_ultra_only();
-    op_queue1->random_op_ultra_only();
-    op_queue1->random_op_ultra_only();
+    op_queue1->construct_zk_columns();
     op_queue1->add_accumulate(P);
     op_queue1->mul_accumulate(P, z);
     op_queue1->eq_and_reset();
     op_queue1->merge();
     op_queue1->random_op_ultra_only();
     op_queue1->random_op_ultra_only();
-    op_queue1->merge(MergeSettings::APPEND, ECCOpQueue::OP_QUEUE_SIZE - op_queue1->get_current_subtable_size());
+    op_queue1->merge_fixed_append(op_queue1->get_append_offset_for_prover());
 
     auto circuit_builder1 = TranslatorCircuitBuilder(batching_challenge, x, op_queue1);
     auto result1 = CircuitChecker::get_computation_result(circuit_builder1);
 
     // Build second circuit with same operations
     auto op_queue2 = std::make_shared<ECCOpQueue>();
-    op_queue2->no_op_ultra_only();
-    op_queue2->random_op_ultra_only();
-    op_queue2->random_op_ultra_only();
-    op_queue2->random_op_ultra_only();
+    op_queue2->construct_zk_columns();
     op_queue2->add_accumulate(P);
     op_queue2->mul_accumulate(P, z);
     op_queue2->eq_and_reset();
     op_queue2->merge();
     op_queue2->random_op_ultra_only();
     op_queue2->random_op_ultra_only();
-    op_queue2->merge(MergeSettings::APPEND, ECCOpQueue::OP_QUEUE_SIZE - op_queue2->get_current_subtable_size());
+    op_queue2->merge_fixed_append(op_queue2->get_append_offset_for_prover());
 
     auto circuit_builder2 = TranslatorCircuitBuilder(batching_challenge, x, op_queue2);
     auto result2 = CircuitChecker::get_computation_result(circuit_builder2);
 
-    EXPECT_EQ(result1, result2);
+    // Compute contributions
+    Fq op_queue_1_with_randomness = compute_expected_result(op_queue1, batching_challenge, x, /*include_zk=*/true);
+    Fq op_queue_2_with_randomness = compute_expected_result(op_queue2, batching_challenge, x, /*include_zk=*/true);
+    Fq op_queue_1_without_randomness = compute_expected_result(op_queue1, batching_challenge, x, /*include_zk=*/false);
+    Fq op_queue_2_without_randomness = compute_expected_result(op_queue2, batching_challenge, x, /*include_zk=*/false);
+    Fq op_queue_1_randomness =
+        op_queue_1_with_randomness - op_queue_1_without_randomness * x.invert().pow(UltraEccOpsTable::ZK_ULTRA_OPS);
+    Fq op_queue_2_randomness =
+        op_queue_2_with_randomness - op_queue_2_without_randomness * x.invert().pow(UltraEccOpsTable::ZK_ULTRA_OPS);
+
+    EXPECT_EQ(result1 - result2, op_queue_1_randomness - op_queue_2_randomness);
 }

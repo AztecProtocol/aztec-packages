@@ -1,9 +1,11 @@
 use crate::Test;
-use dep::aztec::{
+use aztec::{
+    hash::hash_args,
     history::deployment::{
         assert_contract_bytecode_was_not_published_by, assert_contract_bytecode_was_published_by,
         assert_contract_was_initialized_by, assert_contract_was_not_initialized_by,
     },
+    macros::functions::initialization_utils::compute_initialization_hash,
     protocol::address::AztecAddress,
     test::helpers::test_environment::{PrivateContextOptions, TestEnvironment},
 };
@@ -18,7 +20,7 @@ global CONTRACT_DEPLOYED_AT: u32 = 2;
 // following block.
 global CONTRACT_INITIALIZED_AT: u32 = CONTRACT_DEPLOYED_AT + 1;
 
-pub unconstrained fn setup() -> (TestEnvironment, AztecAddress, AztecAddress) {
+pub unconstrained fn setup() -> (TestEnvironment, AztecAddress, AztecAddress, Field) {
     let mut env = TestEnvironment::new();
     let owner = env.create_light_account();
 
@@ -27,107 +29,111 @@ pub unconstrained fn setup() -> (TestEnvironment, AztecAddress, AztecAddress) {
 
     // Deploy contract and initialize
     let initializer = Test::interface().initialize();
+    let init_hash = compute_initialization_hash(initializer.selector, hash_args(initializer.args));
     let contract_address = env.deploy("Test").with_private_initializer(owner, initializer);
 
     // We sanity check that the initialization block was the last one
     assert_eq(env.last_block_number(), CONTRACT_INITIALIZED_AT);
 
-    (env, contract_address, owner)
+    (env, contract_address, owner, init_hash)
 }
 
 #[test]
 unconstrained fn contract_historical_proofs_happy_path() {
-    let (env, contract_address, _owner) = setup();
+    let (env, contract_address, _owner, init_hash) = setup();
 
-    env.private_context_opts(
-        PrivateContextOptions::new().at_anchor_block_number(CONTRACT_DEPLOYED_AT - 1),
-        |context| {
-            assert_contract_bytecode_was_not_published_by(
-                context.anchor_block_header,
-                contract_address,
-            );
-        },
-    );
+    env.private_context_opts(PrivateContextOptions::new().at_anchor_block_number(CONTRACT_DEPLOYED_AT - 1), |context| {
+        assert_contract_bytecode_was_not_published_by(context.get_anchor_block_header(), contract_address);
+    });
 
-    env.private_context_opts(
-        PrivateContextOptions::new().at_anchor_block_number(CONTRACT_DEPLOYED_AT),
-        |context| {
-            assert_contract_bytecode_was_published_by(
-                context.anchor_block_header,
-                contract_address,
-            );
-        },
-    );
+    env.private_context_opts(PrivateContextOptions::new().at_anchor_block_number(CONTRACT_DEPLOYED_AT), |context| {
+        assert_contract_bytecode_was_published_by(context.get_anchor_block_header(), contract_address);
+    });
 
     env.private_context_opts(
         PrivateContextOptions::new().at_anchor_block_number(CONTRACT_INITIALIZED_AT - 1),
         |context| {
-            assert_contract_was_not_initialized_by(context.anchor_block_header, contract_address);
+            assert_contract_was_not_initialized_by(
+                context.get_anchor_block_header(),
+                contract_address,
+                init_hash,
+            );
         },
     );
 
-    env.private_context_opts(
-        PrivateContextOptions::new().at_anchor_block_number(CONTRACT_INITIALIZED_AT),
-        |context| {
-            assert_contract_was_initialized_by(context.anchor_block_header, contract_address);
-        },
-    );
+    env.private_context_opts(PrivateContextOptions::new().at_anchor_block_number(CONTRACT_INITIALIZED_AT), |context| {
+        assert_contract_was_initialized_by(
+            context.get_anchor_block_header(),
+            contract_address,
+            init_hash,
+        );
+    });
 }
 
 #[test(should_fail_with = "Nullifier membership witness not found at block")]
 unconstrained fn assert_contract_bytecode_was_published_by_before_deployment_fails() {
-    let (env, contract_address, _owner) = setup();
+    let (env, contract_address, _owner, _init_hash) = setup();
 
-    // Note that we're only testing that the function fails, but not that it would correct reject bad hints from an oracle
-    env.private_context_opts(
-        PrivateContextOptions::new().at_anchor_block_number(CONTRACT_DEPLOYED_AT - 1),
-        |context| {
-            assert_contract_bytecode_was_published_by(
-                context.anchor_block_header,
-                contract_address,
-            );
-        },
-    );
+    // Note that we're only testing that the function fails, but not that it would correct reject bad hints from an
+    // oracle
+    env.private_context_opts(PrivateContextOptions::new().at_anchor_block_number(CONTRACT_DEPLOYED_AT - 1), |context| {
+        assert_contract_bytecode_was_published_by(context.get_anchor_block_header(), contract_address);
+    });
 }
 
 #[test(should_fail_with = "Nullifier membership witness not found at block")]
 unconstrained fn assert_contract_was_initialized_by_before_initialization_fails() {
-    let (env, contract_address, _owner) = setup();
+    let (env, contract_address, _owner, init_hash) = setup();
 
-    // Note that we're only testing that the function fails, but not that it would correct reject bad hints from an oracle
+    // Note that we're only testing that the function fails, but not that it would correct reject bad hints from an
+    // oracle
     env.private_context_opts(
         PrivateContextOptions::new().at_anchor_block_number(CONTRACT_INITIALIZED_AT - 1),
         |context| {
-            assert_contract_was_initialized_by(context.anchor_block_header, contract_address);
-        },
-    );
-}
-
-#[test(should_fail_with = "Proving nullifier non-inclusion failed")]
-unconstrained fn assert_contract_bytecode_was_not_published_by_of_deployed_fails() {
-    let (env, contract_address, _owner) = setup();
-
-    // Note that we're only testing that the function fails, but not that it would correct reject bad hints from an oracle
-    env.private_context_opts(
-        PrivateContextOptions::new().at_anchor_block_number(CONTRACT_DEPLOYED_AT),
-        |context| {
-            assert_contract_bytecode_was_not_published_by(
-                context.anchor_block_header,
+            assert_contract_was_initialized_by(
+                context.get_anchor_block_header(),
                 contract_address,
+                init_hash,
             );
         },
     );
 }
 
-#[test(should_fail_with = "Proving nullifier non-inclusion failed")]
-unconstrained fn assert_contract_was_not_initialized_by_of_initialized_fails() {
-    let (env, contract_address, _owner) = setup();
+#[test(should_fail_with = "Cannot prove nullifier non-inclusion")]
+unconstrained fn assert_contract_bytecode_was_not_published_by_of_deployed_fails() {
+    let (env, contract_address, _owner, _init_hash) = setup();
 
-    // Note that we're only testing that the function fails, but not that it would correct reject bad hints from an oracle
-    env.private_context_opts(
-        PrivateContextOptions::new().at_anchor_block_number(CONTRACT_INITIALIZED_AT),
-        |context| {
-            assert_contract_was_not_initialized_by(context.anchor_block_header, contract_address);
-        },
-    );
+    // Note that we're only testing that the function fails, but not that it would correct reject bad hints from an
+    // oracle
+    env.private_context_opts(PrivateContextOptions::new().at_anchor_block_number(CONTRACT_DEPLOYED_AT), |context| {
+        assert_contract_bytecode_was_not_published_by(context.get_anchor_block_header(), contract_address);
+    });
+}
+
+#[test(should_fail_with = "Nullifier membership witness not found at block")]
+unconstrained fn assert_contract_was_initialized_by_with_wrong_init_hash_fails() {
+    let (env, contract_address, _owner, _init_hash) = setup();
+
+    env.private_context_opts(PrivateContextOptions::new().at_anchor_block_number(CONTRACT_INITIALIZED_AT), |context| {
+        assert_contract_was_initialized_by(
+            context.get_anchor_block_header(),
+            contract_address,
+            0xdeadbeef,
+        );
+    });
+}
+
+#[test(should_fail_with = "Cannot prove nullifier non-inclusion")]
+unconstrained fn assert_contract_was_not_initialized_by_of_initialized_fails() {
+    let (env, contract_address, _owner, init_hash) = setup();
+
+    // Note that we're only testing that the function fails, but not that it would correct reject bad hints from an
+    // oracle
+    env.private_context_opts(PrivateContextOptions::new().at_anchor_block_number(CONTRACT_INITIALIZED_AT), |context| {
+        assert_contract_was_not_initialized_by(
+            context.get_anchor_block_header(),
+            contract_address,
+            init_hash,
+        );
+    });
 }

@@ -1,17 +1,16 @@
 import { AztecAddress } from '@aztec/aztec.js/addresses';
 import type { ContractInstanceWithAddress, SimulateInteractionOptions } from '@aztec/aztec.js/contracts';
-import { Fr } from '@aztec/aztec.js/fields';
 import type { AztecNode } from '@aztec/aztec.js/node';
 import type { Wallet } from '@aztec/aztec.js/wallet';
 import { FPCContract } from '@aztec/noir-contracts.js/FPC';
 import { SponsoredFPCContract } from '@aztec/noir-contracts.js/SponsoredFPC';
-import { TokenContract } from '@aztec/noir-contracts.js/Token';
-import type { TestWallet } from '@aztec/test-wallet/server';
+import { TestTokenContract } from '@aztec/noir-test-contracts.js/TestToken';
 
 import { jest } from '@jest/globals';
 
 import { mintNotes } from '../../fixtures/token_utils.js';
-import { captureProfile } from './benchmark.js';
+import type { TestWallet } from '../../test-wallet/test_wallet.js';
+import { captureProfile, expectedExecutionSteps } from './benchmark.js';
 import { type AccountType, type BenchmarkingFeePaymentMethod, ClientFlowsBenchmark } from './client_flows_benchmark.js';
 
 jest.setTimeout(1_600_000);
@@ -20,6 +19,8 @@ const AMOUNT_PER_NOTE = 1_000_000;
 
 const MINIMUM_NOTES_FOR_RECURSION_LEVEL = [0, 2, 10];
 
+// Token transfer round-trip benchmark. Uses ClientFlowsBenchmark with BENCHMARK_CONFIG; profiles private
+// token transfer flows at varying note-recursion depths for multiple account/fee-method combinations.
 describe('Transfer benchmark', () => {
   const t = new ClientFlowsBenchmark('transfers');
   // The wallet used by the admin to interact
@@ -33,7 +34,7 @@ describe('Transfer benchmark', () => {
   // BananaCoin Token contract, just used to pay fees in this scenario
   let bananaCoinInstance: ContractInstanceWithAddress;
   // CandyBarCoin Token contract, which we want to transfer
-  let candyBarCoin: TokenContract;
+  let candyBarCoin: TestTokenContract;
   let candyBarCoinInstance: ContractInstanceWithAddress;
   // Sponsored FPC contract
   let sponsoredFPCInstance: ContractInstanceWithAddress;
@@ -83,7 +84,7 @@ describe('Transfer benchmark', () => {
         await userWallet.registerSender(adminAddress);
         // Register both FPC and BananCoin on the user's Wallet so we can simulate and prove
         await userWallet.registerContract(bananaFPCInstance, FPCContract.artifact);
-        await userWallet.registerContract(bananaCoinInstance, TokenContract.artifact);
+        await userWallet.registerContract(bananaCoinInstance, TestTokenContract.artifact);
         // Register the CandyBarCoin on the user's Wallet so we can simulate and prove
         await userWallet.registerContract(candyBarCoinInstance);
         // Register the sponsored FPC on the user's PXE so we can simulate and prove
@@ -114,19 +115,10 @@ describe('Transfer benchmark', () => {
 
           afterEach(async () => {
             // Send back the change to restart the test without redeploying the accounts
-            // We can do this because adminPXE has the private key for the user
-            // Since the admin's PXE never generates proofs, this upkeep is better done by them
-            const interaction = candyBarCoin.methods.transfer_in_private(
-              benchysAddress,
-              adminAddress,
-              expectedChange,
-              Fr.random(),
-            );
-            const witness = await userWallet.createAuthWit(benchysAddress, {
-              caller: adminAddress,
-              action: interaction,
-            });
-            await interaction.send({ from: adminAddress, authWitnesses: [witness], wait: { timeout: 120 } });
+            const asset = TestTokenContract.at(candyBarCoin.address, userWallet);
+            await asset.methods
+              .transfer(adminAddress, expectedChange)
+              .send({ from: benchysAddress, wait: { timeout: 120 } });
           });
 
           // Ensure we create a change note, by sending an amount that is not a multiple of the note amount
@@ -139,29 +131,27 @@ describe('Transfer benchmark', () => {
               fee: { paymentMethod: await paymentMethod.forWallet(userWallet, benchysAddress) },
             };
 
-            const asset = TokenContract.at(t.candyBarCoin.address, userWallet);
+            const asset = TestTokenContract.at(t.candyBarCoin.address, userWallet);
 
             const transferInteraction = asset.methods.transfer(adminAddress, amountToSend);
+
+            expectedChange = totalAmount - BigInt(amountToSend);
 
             await captureProfile(
               `${accountType}+transfer_${recursions}_recursions+${benchmarkingPaymentMethod}`,
               transferInteraction,
               options,
-              1 + // Account entrypoint
-                1 + // Kernel init
-                paymentMethod.circuits + // Payment method circuits
-                2 + // CandyBarCoin transfer + kernel inner
-                recursions * 2 + // (CandyBarCoin _recurse_subtract_balance + kernel inner) * recursions
-                1 + // Kernel reset
-                1 + // Kernel tail
-                1, // Kernel hiding
+              expectedExecutionSteps(
+                1 + // Account entrypoint
+                  paymentMethod.apps + // Payment method apps
+                  1 + // CandyBarCoin transfer
+                  recursions, // CandyBarCoin _recurse_subtract_balance per recursion
+              ),
             );
-
-            expectedChange = totalAmount - BigInt(amountToSend);
 
             if (process.env.SANITY_CHECKS) {
               // Ensure we paid a fee
-              const tx = await transferInteraction.send(options);
+              const { receipt: tx } = await transferInteraction.send(options);
               expect(tx.transactionFee!).toBeGreaterThan(0n);
 
               // Sanity checks
@@ -189,7 +179,7 @@ describe('Transfer benchmark', () => {
                */
               expect(txEffects!.data.noteHashes.length).toBe(2 + (benchmarkingPaymentMethod === 'private_fpc' ? 2 : 0));
 
-              const senderBalance = await asset.methods
+              const { result: senderBalance } = await asset.methods
                 .balance_of_private(benchysAddress)
                 .simulate({ from: benchysAddress });
               expect(senderBalance).toEqual(expectedChange);

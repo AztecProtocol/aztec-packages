@@ -1,24 +1,31 @@
 #include "barretenberg/vm2/tracegen/opcodes/get_contract_instance_trace.hpp"
 
-#include <cstddef>
 #include <cstdint>
 
-#include "barretenberg/vm2/common/aztec_constants.hpp"
-#include "barretenberg/vm2/common/aztec_types.hpp"
-#include "barretenberg/vm2/common/constants.hpp"
-#include "barretenberg/vm2/common/memory_types.hpp"
+#include "barretenberg/aztec/aztec_constants.hpp"
+#include "barretenberg/vm2/common/field.hpp"
 #include "barretenberg/vm2/common/tagged_value.hpp"
 #include "barretenberg/vm2/generated/columns.hpp"
 #include "barretenberg/vm2/generated/relations/lookups_get_contract_instance.hpp"
-#include "barretenberg/vm2/simulation/events/event_emitter.hpp"
-#include "barretenberg/vm2/simulation/events/get_contract_instance_event.hpp"
 #include "barretenberg/vm2/tracegen/lib/get_contract_instance_spec.hpp"
-#include "barretenberg/vm2/tracegen/lib/interaction_def.hpp"
 
 namespace bb::avm2::tracegen {
 
 using C = Column;
 
+/**
+ * @brief Process the GetContractInstance events and populate the relevant columns in the trace.
+ *
+ * Events are emitted in the following flavors:
+ * - Out-of-bounds error: dst_offset == AVM_HIGHEST_MEM_ADDRESS. Instance retrieval fields are
+ *   unpopulated (defaults). Event is emitted before the exception is thrown.
+ * - Invalid enum error: member_enum > MAX. Instance retrieval fields are unpopulated (defaults).
+ *   Event is emitted before the exception is thrown.
+ * - Normal execution: all fields populated including instance_exists and retrieved member values.
+ *
+ * @param events Container of GetContractInstanceEvent to process.
+ * @param trace The trace container to populate.
+ */
 void GetContractInstanceTraceBuilder::process(
     const simulation::EventEmitterInterface<simulation::GetContractInstanceEvent>::Container& events,
     TraceContainer& trace)
@@ -38,6 +45,7 @@ void GetContractInstanceTraceBuilder::process(
         bool is_deployer = false;
         bool is_class_id = false;
         bool is_init_hash = false;
+        bool is_immutables_hash = false;
 
         if (writes_are_in_bounds) {
             // Get precomputed table values for this member enum
@@ -47,14 +55,16 @@ void GetContractInstanceTraceBuilder::process(
             is_deployer = spec.is_deployer;
             is_class_id = spec.is_class_id;
             is_init_hash = spec.is_init_hash;
+            is_immutables_hash = spec.is_immutables_hash;
         }
 
         bool has_error = !(writes_are_in_bounds && is_valid_member_enum);
 
-        FF selected_member = is_deployer    ? event.retrieved_deployer_addr
-                             : is_class_id  ? event.retrieved_class_id
-                             : is_init_hash ? event.retrieved_init_hash
-                                            : FF(0);
+        FF selected_member = is_deployer          ? event.retrieved_deployer_addr
+                             : is_class_id        ? event.retrieved_class_id
+                             : is_init_hash       ? event.retrieved_init_hash
+                             : is_immutables_hash ? event.retrieved_immutables_hash
+                                                  : FF(0);
 
         trace.set(
             row,
@@ -79,11 +89,13 @@ void GetContractInstanceTraceBuilder::process(
                 { C::get_contract_instance_is_deployer, is_deployer ? 1 : 0 },
                 { C::get_contract_instance_is_class_id, is_class_id ? 1 : 0 },
                 { C::get_contract_instance_is_init_hash, is_init_hash ? 1 : 0 },
+                { C::get_contract_instance_is_immutables_hash, is_immutables_hash ? 1 : 0 },
                 // Retrieval results
                 { C::get_contract_instance_instance_exists, event.instance_exists ? 1 : 0 },
                 { C::get_contract_instance_retrieved_deployer_addr, event.retrieved_deployer_addr },
                 { C::get_contract_instance_retrieved_class_id, event.retrieved_class_id },
                 { C::get_contract_instance_retrieved_init_hash, event.retrieved_init_hash },
+                { C::get_contract_instance_retrieved_immutables_hash, event.retrieved_immutables_hash },
                 { C::get_contract_instance_selected_member, selected_member },
                 // Memory writing
                 { C::get_contract_instance_member_write_offset, writes_are_in_bounds ? (event.dst_offset + 1) : 0 },
@@ -100,7 +112,7 @@ void GetContractInstanceTraceBuilder::process(
 
 const InteractionDefinition GetContractInstanceTraceBuilder::interactions =
     InteractionDefinition()
-        .add<lookup_get_contract_instance_precomputed_info_settings, InteractionType::LookupIntoIndexedByClk>()
-        .add<lookup_get_contract_instance_contract_instance_retrieval_settings, InteractionType::LookupSequential>();
+        .add<InteractionType::LookupIntoIndexedByRow, lookup_get_contract_instance_precomputed_info_settings>()
+        .add<InteractionType::LookupSequential, lookup_get_contract_instance_contract_instance_retrieval_settings>();
 
 } // namespace bb::avm2::tracegen
