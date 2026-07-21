@@ -15,11 +15,17 @@ function build {
 
 function test_cmds {
   echo "$hash cd protocol/constants-codegen && node --test src/*.test.ts"
+  echo "$hash cd protocol/constants-codegen && ./scripts/test-package.sh"
 }
 
 function test {
   echo_header "constants-codegen test"
   test_cmds | filter_test_cmds | parallelize
+}
+
+function release {
+  npm_install_deps
+  retry "deploy_npm ${REF_NAME#v}"
 }
 
 case "$cmd" in

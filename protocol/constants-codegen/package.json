@@ -1,5 +1,5 @@
 {
-  "name": "@aztec-foundation/constants-codegen",
+  "name": "@aztec/constants-codegen",
   "version": "0.0.0",
   "description": "Generate Aztec protocol constants from Noir definitions",
   "license": "Apache-2.0",
@@ -15,7 +15,7 @@
     "build": "tsc -p tsconfig.json",
     "clean": "rm -rf dest",
     "prepack": "yarn build",
-    "test": "node --test src/*.test.ts"
+    "test": "node --test src/*.test.ts && yarn build && ./scripts/test-package.sh"
   },
   "devDependencies": {
     "@types/node": "^22",
