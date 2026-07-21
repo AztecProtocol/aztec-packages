@@ -79,6 +79,19 @@ describe('data_retrieval', () => {
       expect(reconstructedBlock1.body.txEffects.map(tx => tx.txHash.toString())).not.toEqual(
         reconstructedBlock3.body.txEffects.map(tx => tx.txHash.toString()),
       );
+
+      // Each block's L1-to-L2 message tree root must be reconstructed from its own blob data, not the
+      // checkpoint's first block. Post-flip (AZIP-22 streaming inbox) any block can insert messages, so
+      // intra-checkpoint blocks carry distinct roots; using the first block's root forks follower nodes.
+      expect(reconstructedBlock1.header.state.l1ToL2MessageTree.root.toString()).toEqual(
+        block1BlobData.l1ToL2MessageRoot.toString(),
+      );
+      expect(reconstructedBlock2.header.state.l1ToL2MessageTree.root.toString()).toEqual(
+        block2BlobData.l1ToL2MessageRoot.toString(),
+      );
+      expect(reconstructedBlock3.header.state.l1ToL2MessageTree.root.toString()).toEqual(
+        block3BlobData.l1ToL2MessageRoot.toString(),
+      );
     });
 
     it('handles single-block checkpoint', async () => {
