@@ -122,9 +122,9 @@ When making changes that affect proof sizes (e.g., pairing points encoding, publ
 
 1. **C++ static_asserts** in `dsl/acir_format/mock_verifier_inputs.test.cpp` - These catch size changes at compile time
 2. **Noir constants** in `noir-projects/noir-protocol-circuits/crates/types/src/constants.nr`
-3. **Generated constants** - Run `barretenberg/cpp/scripts/remake-constants.sh` and
-   `l1-contracts/scripts/remake-constants.sh`. The TypeScript projection (`constants.gen.ts`) is generated during the
-   yarn-project build and needs no manual step.
+3. **Generated constants** - Run `barretenberg/cpp/scripts/remake-constants.sh`. The TypeScript and Solidity
+   projections (`constants.gen.ts`, `ConstantsGen.sol`) are generated during their components' builds and need no
+   manual step.
 
 Key constants to watch:
 - `RECURSIVE_PROOF_LENGTH` - UltraHonk proof + DefaultIO public inputs
