@@ -176,6 +176,9 @@ function build {
 
 function test_cmds {
   local hash=$(hash)
+  local constants_hash=$(cache_content_hash constants/.rebuild_patterns)
+
+  echo "$constants_hash yarn-project/constants/scripts/remake-constants.sh --check"
 
   # Exclusions:
   # end-to-end: e2e tests handled separately with end-to-end/bootstrap.sh.

@@ -1,25 +1,4 @@
-import * as fs from 'fs';
-import { dirname, join } from 'path';
-import { fileURLToPath } from 'url';
-
-const NOIR_CONSTANTS_FILE = '../../../../noir-projects/noir-protocol-circuits/crates/types/src/constants.nr';
-const TS_CONSTANTS_FILE = '../constants.gen.ts';
-const CPP_AZTEC_CONSTANTS_FILE = '../../../../barretenberg/cpp/src/barretenberg/aztec/aztec_constants.hpp';
-const PIL_AZTEC_CONSTANTS_FILE = '../../../../barretenberg/cpp/pil/vm2/constants_gen.pil';
-const SOLIDITY_CONSTANTS_FILE = '../../../../l1-contracts/src/core/libraries/ConstantsGen.sol';
-
-// Additional Noir source files (outside constants.nr) to extract specific constants from, keyed by
-// file path (relative to this script) and the exact constant names to pull from each. Used for
-// constants that are defined alongside circuit code rather than in constants.nr, so they can be
-// exported to the generated TS constants without duplicating their definition. The referenced
-// constants may depend on constants.nr values, which are in scope because they are evaluated after
-// the main file's constants.
-const ADDITIONAL_NOIR_CONSTANT_FILES: { file: string; constants: string[] }[] = [
-  {
-    file: '../../../../noir-projects/noir-protocol-circuits/crates/types/src/blob_data/tx_blob_data.nr',
-    constants: ['MAX_TX_BLOB_DATA_SIZE_IN_FIELDS'],
-  },
-];
+import * as fs from 'node:fs';
 
 // Whitelist of constants that will be copied to aztec_constants.hpp.
 // We don't copy everything as just a handful are needed, and updating them breaks the cache and triggers expensive bb builds.
@@ -365,7 +344,7 @@ const SOLIDITY_CONSTANTS = [
 /**
  * Parsed content.
  */
-interface ParsedContent {
+export interface ParsedContent {
   /**
    * Constants of the form "CONSTANT_NAME: number_as_string".
    */
@@ -377,17 +356,13 @@ interface ParsedContent {
 }
 
 /**
- * Raw expressions parsed from a Noir file, prior to evaluation. Keeping expressions unevaluated lets
- * us merge constants from multiple files and resolve cross-file references in a single evaluation pass.
+ * Raw expressions parsed from a Noir file, prior to evaluation. Keeping expressions unevaluated lets callers merge
+ * constants from multiple files and resolve cross-file references in a single evaluation pass.
  */
-interface ParsedExpressions {
-  /**
-   * Ordered list of "CONSTANT_NAME: expression" pairs.
-   */
+export interface ParsedExpressions {
+  /** Ordered list of constant name and expression pairs. */
   constantsExpressions: [string, string][];
-  /**
-   * DomainSeparatorEnum.
-   */
+  /** DomainSeparatorEnum members. */
   domainSeparatorEnum: { [key: string]: number };
 }
 
@@ -397,7 +372,7 @@ interface ParsedExpressions {
  * @param constants - An object containing key-value pairs representing constants.
  * @returns A string containing code that exports the constants as TypeScript constants.
  */
-function processConstantsTS(constants: { [key: string]: string }): string {
+export function processConstantsTS(constants: { [key: string]: string }): string {
   const code: string[] = [];
   Object.entries(constants).forEach(([key, value]) => {
     code.push(`export const ${key} = ${+value > Number.MAX_SAFE_INTEGER ? value + 'n' : value};`);
@@ -412,7 +387,7 @@ function processConstantsTS(constants: { [key: string]: string }): string {
  * @param constants - An object containing key-value pairs representing constants.
  * @returns A string containing code that exports the constants as cpp constants.
  */
-function processConstantsCpp(
+export function processConstantsCpp(
   constants: { [key: string]: string },
   generatorIndices: { [key: string]: number },
 ): string {
@@ -443,7 +418,7 @@ function processConstantsCpp(
  * @param constants - An object containing key-value pairs representing constants.
  * @returns A string containing code that exports the constants as cpp constants.
  */
-function processConstantsPil(
+export function processConstantsPil(
   constants: { [key: string]: string },
   generatorIndices: { [key: string]: number },
 ): string {
@@ -468,7 +443,7 @@ function processConstantsPil(
  * @param enumValues - An object containing key-value pairs representing enum values.
  * @returns A string containing code that exports the enum as a TypeScript enum.
  */
-function processEnumTS(enumName: string, enumValues: { [key: string]: number }): string {
+export function processEnumTS(enumName: string, enumValues: { [key: string]: number }): string {
   const code: string[] = [];
 
   code.push(`export enum ${enumName} {`);
@@ -489,7 +464,7 @@ function processEnumTS(enumName: string, enumValues: { [key: string]: number }):
  * @param prefix - A prefix to add to the constant names.
  * @returns A string containing code that exports the constants as Noir constants.
  */
-function processConstantsSolidity(constants: { [key: string]: string }, prefix = ''): string {
+export function processConstantsSolidity(constants: { [key: string]: string }, prefix = ''): string {
   const code: string[] = [];
   Object.entries(constants).forEach(([key, value]) => {
     if (SOLIDITY_CONSTANTS.includes(key)) {
@@ -502,7 +477,7 @@ function processConstantsSolidity(constants: { [key: string]: string }, prefix =
 /**
  * Generate the constants file in Typescript.
  */
-function generateTypescriptConstants({ constants, domainSeparatorEnum }: ParsedContent, targetPath: string) {
+export function generateTypescriptConstants({ constants, domainSeparatorEnum }: ParsedContent, targetPath: string) {
   const result = [
     '// GENERATED FILE - DO NOT EDIT, RUN yarn remake-constants',
     processConstantsTS(constants),
@@ -515,7 +490,7 @@ function generateTypescriptConstants({ constants, domainSeparatorEnum }: ParsedC
 /**
  * Generate the constants file in C++.
  */
-function generateCppConstants({ constants, domainSeparatorEnum }: ParsedContent, targetPath: string) {
+export function generateCppConstants({ constants, domainSeparatorEnum }: ParsedContent, targetPath: string) {
   const resultCpp: string = `// GENERATED FILE - DO NOT EDIT, RUN yarn remake-constants in yarn-project/constants
 #pragma once
 
@@ -528,7 +503,7 @@ ${processConstantsCpp(constants, domainSeparatorEnum)}
 /**
  * Generate the constants file in PIL.
  */
-function generatePilConstants({ constants, domainSeparatorEnum }: ParsedContent, targetPath: string) {
+export function generatePilConstants({ constants, domainSeparatorEnum }: ParsedContent, targetPath: string) {
   const resultPil: string = `// GENERATED FILE - DO NOT EDIT, RUN yarn remake-constants in yarn-project/constants
 namespace constants;
 ${processConstantsPil(constants, domainSeparatorEnum)}
@@ -540,7 +515,7 @@ ${processConstantsPil(constants, domainSeparatorEnum)}
 /**
  * Generate the constants file in Solidity.
  */
-function generateSolidityConstants({ constants }: ParsedContent, targetPath: string) {
+export function generateSolidityConstants({ constants }: ParsedContent, targetPath: string) {
   const resultSolidity: string = `// GENERATED FILE - DO NOT EDIT, RUN yarn remake-constants in yarn-project/constants
 // SPDX-License-Identifier: Apache-2.0
 // Copyright 2023 Aztec Labs.
@@ -565,7 +540,7 @@ ${processConstantsSolidity(constants)}
 /**
  * Parse the content of the constants file in Noir.
  */
-function parseNoirFile(
+export function parseNoirFile(
   fileContent: string,
   { stripLineComments = false }: { stripLineComments?: boolean } = {},
 ): ParsedExpressions {
@@ -575,9 +550,6 @@ function parseNoirFile(
   const emptyExpression = (): { name: string; content: string[] } => ({ name: '', content: [] });
   let expression = emptyExpression();
   fileContent.split('\n').forEach(l => {
-    // Strip trailing `//` line comments so multi-line expressions with inline comments (e.g.
-    // MAX_TX_BLOB_DATA_SIZE_IN_FIELDS) parse correctly. Disabled for constants.nr to keep its
-    // existing parsing behavior byte-for-byte unchanged.
     const line = (stripLineComments ? l.replace(/\/\/.*$/, '') : l).trim();
 
     if (!line) {
@@ -640,7 +612,7 @@ function parseNoirFile(
  *   For example: "CONSTANT_NAME: 2 + 2" or "CONSTANT_NAME: CONSTANT_A * CONSTANT_B".
  * @returns Parsed expressions of the form: "CONSTANT_NAME: number_as_string".
  */
-function evaluateExpressions(expressions: [string, string][]): { [key: string]: string } {
+export function evaluateExpressions(expressions: [string, string][]): { [key: string]: string } {
   const constants: { [key: string]: string } = {};
 
   const knownBigInts = ['AZTEC_EPOCH_DURATION', 'FEE_RECIPIENT_LENGTH'];
@@ -689,54 +661,3 @@ function evaluateExpressions(expressions: [string, string][]): { [key: string]: 
 
   return constants;
 }
-
-/**
- * Convert the Noir constants to TypeScript and Solidity.
- */
-function main(): void {
-  const __dirname = dirname(fileURLToPath(import.meta.url));
-
-  const noirConstantsFile = join(__dirname, NOIR_CONSTANTS_FILE);
-  const noirConstants = fs.readFileSync(noirConstantsFile, 'utf-8');
-  const { constantsExpressions, domainSeparatorEnum } = parseNoirFile(noirConstants);
-
-  // Pull in explicitly-listed constants defined outside constants.nr (e.g. alongside circuit code).
-  // They are appended after the main constants so they can reference them when evaluated together.
-  for (const { file, constants: names } of ADDITIONAL_NOIR_CONSTANT_FILES) {
-    const additionalContent = fs.readFileSync(join(__dirname, file), 'utf-8');
-    const { constantsExpressions: additionalExpressions } = parseNoirFile(additionalContent, {
-      stripLineComments: true,
-    });
-    for (const name of names) {
-      const expression = additionalExpressions.find(([exprName]) => exprName === name);
-      if (!expression) {
-        throw new Error(`Constant ${name} not found in ${file}`);
-      }
-      constantsExpressions.push(expression);
-    }
-  }
-
-  const parsedContent: ParsedContent = {
-    constants: evaluateExpressions(constantsExpressions),
-    domainSeparatorEnum,
-  };
-
-  // Typescript
-  const tsTargetPath = join(__dirname, TS_CONSTANTS_FILE);
-  generateTypescriptConstants(parsedContent, tsTargetPath);
-
-  // Cpp
-  const cppTargetPath = join(__dirname, CPP_AZTEC_CONSTANTS_FILE);
-  generateCppConstants(parsedContent, cppTargetPath);
-
-  // PIL
-  const pilTargetPath = join(__dirname, PIL_AZTEC_CONSTANTS_FILE);
-  generatePilConstants(parsedContent, pilTargetPath);
-
-  // Solidity
-  const solidityTargetPath = join(__dirname, SOLIDITY_CONSTANTS_FILE);
-  fs.mkdirSync(dirname(solidityTargetPath), { recursive: true });
-  generateSolidityConstants(parsedContent, solidityTargetPath);
-}
-
-main();
