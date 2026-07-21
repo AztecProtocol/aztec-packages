@@ -37,11 +37,6 @@ contract Inbox is IInbox {
 
   uint256 public immutable BUCKET_RING_SIZE;
 
-  // Legacy 128-bit keccak rolling hash over every inserted message leaf. Consumed only by the node's
-  // message sync and L1-reorg detection; retained until those switch to the full-width consensus rolling
-  // hash tracked in the buckets (AZIP-22 Fast Inbox).
-  bytes16 internal messagesRollingHash;
-
   // Ring of rolling-hash buckets, keyed by `bucketSeq % BUCKET_RING_SIZE`. Consumed by the streaming inbox
   // checks at `propose` (AZIP-22 Fast Inbox).
   mapping(uint256 ringIndex => InboxBucket bucket) internal buckets;
@@ -106,11 +101,9 @@ contract Inbox is IInbox {
 
     bytes32 leaf = message.sha256ToField();
 
-    messagesRollingHash = bytes16(keccak256(abi.encodePacked(messagesRollingHash, leaf)));
-
     (uint64 bucketSeq, bytes32 inboxRollingHash) = _absorbIntoBucket(leaf);
 
-    emit MessageSent(index, leaf, messagesRollingHash, inboxRollingHash, bucketSeq);
+    emit MessageSent(index, leaf, inboxRollingHash, bucketSeq);
 
     return (leaf, index);
   }
@@ -120,7 +113,7 @@ contract Inbox is IInbox {
   }
 
   function getState() external view override(IInbox) returns (InboxState memory) {
-    return InboxState({rollingHash: messagesRollingHash, totalMessagesInserted: _totalMessagesInserted()});
+    return InboxState({totalMessagesInserted: _totalMessagesInserted()});
   }
 
   function getTotalMessagesInserted() external view override(IInbox) returns (uint64) {
