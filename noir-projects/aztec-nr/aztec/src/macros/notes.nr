@@ -161,23 +161,6 @@ comptime fn generate_note_properties(s: TypeDefinition) -> Quoted {
 
         impl aztec::note::note_interface::NoteProperties<$struct_name> for $name {
             fn properties() -> $struct_name {
-<<<<<<< HEAD
-=======
-                let note_type_name = $note_type_name;
-                let fields_packed_len: u32 = $accumulated_offset;
-                let note_packed_len: u32 = <$typ as aztec::protocol::traits::Packable>::N;
-                // We only reject custom Packable layouts whose total packed length differs from the derived
-                // layout's. A hand-written pack() that keeps the same total length but reorders same-width fields
-                // is deliberately not caught: the selectors are computed from declared field order and would
-                // silently point at the wrong packed slot. Detecting it would require knowing whether Packable was
-                // derived or hand-written, which comptime cannot currently tell us. Custom layouts must define their
-                // PropertySelectors manually.
-                std::static_assert(
-                    fields_packed_len == note_packed_len,
-                    f"{note_type_name}'s auto-generated note properties assume the #[derive(Packable)] layout ({fields_packed_len} fields), but its hand-written Packable packs to {note_packed_len}. Derive Packable, or define property selectors manually for the custom layout. See https://docs.aztec.network/errors/15",
-                );
-
->>>>>>> 15c7a1e5a9 (chore: clarify scope of packable impl detection (#24820))
                 $struct_name {
                     $properties
                 }
