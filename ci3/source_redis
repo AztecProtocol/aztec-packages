@@ -81,7 +81,16 @@ function redis_cli {
 }
 
 function redis_setexz {
-  gzip | redis_cli -x SETEX $1 $2 &>/dev/null
+  # When redis is unavailable, redis_cli is a no-op that never reads its stdin, so a
+  # bare `gzip | redis_cli` leaves gzip writing into an already-closed pipe. gzip dies
+  # with "gzip: stdout: Broken pipe" and, under `set -euo pipefail`, that aborts the
+  # whole run at the first log write (e.g. the nightly debug build, which has no redis
+  # on the GitHub-hosted runner). Drain stdin instead so the producer completes cleanly.
+  if [ "${CI_REDIS_AVAILABLE:-0}" -eq 1 ]; then
+    gzip | redis_cli -x SETEX $1 $2 &>/dev/null
+  else
+    cat >/dev/null
+  fi
 }
 
 function redis_getz {
