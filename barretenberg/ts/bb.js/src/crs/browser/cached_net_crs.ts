@@ -25,7 +25,11 @@ export class CachedNetCrs {
     const g1Uncompressed = await get('g1Data');
     const uncompressedLength = this.numPoints * 64;
     if (g1Uncompressed && g1Uncompressed.length >= uncompressedLength) {
-      this.g1Data = g1Uncompressed;
+      // A larger cached CRS is valid here (its prefix is the CRS for numPoints), but WASM
+      // auto-detects compressed vs uncompressed from buffer length / numPoints, so it must
+      // receive exactly numPoints * 64 bytes. We do this by slicing the cached buffer to the correct length.
+      this.g1Data =
+        g1Uncompressed.length === uncompressedLength ? g1Uncompressed : g1Uncompressed.slice(0, uncompressedLength);
     } else {
       // Download compressed from CDN
       const netCrs = new NetCrs(this.numPoints);
