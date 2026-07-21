@@ -55,7 +55,7 @@ endef
 
 # Fast bootstrap.
 fast: release-image barretenberg boxes playground docs aztec-up \
-		  bb-tests l1-contracts-tests yarn-project-tests boxes-tests playground-tests aztec-up-tests docs-tests noir-protocol-circuits-tests contract-snapshots-tests release-image-tests spartan claude-tests ipc-codegen-tests
+		  bb-tests l1-contracts-tests yarn-project-tests boxes-tests playground-tests aztec-up-tests docs-tests noir-protocol-circuits-tests contract-snapshots-tests release-image-tests spartan claude-tests ipc-codegen-tests constants-codegen-tests
 
 # Full bootstrap.
 full: fast bb-full-tests bb-cpp-full yarn-project-benches
@@ -295,6 +295,17 @@ bb-tests: bb-cpp-native-tests bb-acir-tests bb-ts-tests bb-sol-tests bb-bbup-tes
 bb-full-tests: bb-cpp-wasm-threads-tests bb-cpp-asan-tests bb-cpp-smt-tests
 
 #==============================================================================
+# Protocol Constants Codegen
+#==============================================================================
+
+.PHONY: constants-codegen constants-codegen-tests
+constants-codegen:
+	$(call build,$@,protocol/constants-codegen)
+
+constants-codegen-tests: constants-codegen
+	$(call test,$@,protocol/constants-codegen)
+
+#==============================================================================
 # IPC Codegen
 #==============================================================================
 
@@ -421,7 +432,7 @@ l1-contracts-tests: l1-contracts-verifier
 # Yarn Project - TypeScript monorepo with all TS packages
 #==============================================================================
 
-yarn-project: bb-ts noir-projects l1-contracts wsdb bb-avm-sim
+yarn-project: bb-ts noir-projects l1-contracts wsdb bb-avm-sim constants-codegen
 	$(call build,$@,yarn-project)
 
 yarn-project-tests: yarn-project
