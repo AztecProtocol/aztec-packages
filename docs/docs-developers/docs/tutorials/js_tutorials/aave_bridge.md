@@ -113,7 +113,7 @@ This template is a community-maintained starter. If the repository is unavailabl
 You may need to update the `@aztec/l1-contracts` tag in the template's `package.json` to match your Aztec version, e.g.:
 
 ```json
-"@aztec/l1-contracts": "git+https://github.com/AztecProtocol/l1-contracts.git#v5.0.0-nightly.20260311"
+"@aztec/l1-contracts": "git+https://github.com/AztecProtocol/l1-contracts.git#v5.0.1"
 ```
 
 :::

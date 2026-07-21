@@ -21,6 +21,9 @@
 <h3>Structs</h3><ul class="item-list">
 <li><a href="struct.OffchainMessage.html">OffchainMessage</a></div></li>
 </ul>
+<h3>Type aliases</h3><ul class="item-list">
+<li><a href="type.OffchainInboxSync.html">OffchainInboxSync</a></div></li>
+</ul>
 <h3>Functions</h3><ul class="item-list">
 <li><a href="fn.receive.html">receive</a></div></li>
 <li><a href="fn.sync_inbox.html">sync_inbox</a></div></li>
@@ -35,12 +38,10 @@
 <pre><code>pub unconstrained fn sync_inbox(
     contract_address: <a href="../../../../protocol_types/address/aztec_address/struct.AztecAddress.html" class="struct">AztecAddress</a>,
     scope: <a href="../../../../protocol_types/address/aztec_address/struct.AztecAddress.html" class="struct">AztecAddress</a>,
-) -> <a href="../../../../noir_aztec/ephemeral/struct.EphemeralArray.html" class="struct">EphemeralArray</a>&lt;<a href="../../../../noir_aztec/messages/processing/struct.OffchainMessageWithContext.html" class="struct">OffchainMessageWithContext</a>&gt;</code></pre>
+) -> <a href="../../../../noir_aztec/ephemeral/type.EphemeralArray.html" class="type">EphemeralArray</a>&lt;<a href="../../../../noir_aztec/messages/processing/struct.OffchainMessageWithTx.html" class="struct">OffchainMessageWithTx</a>&gt;</code></pre>
 
 <div class="comments">
 <p>Returns offchain-delivered messages to process during sync.</p>
-<p>Messages remain in the inbox and are reprocessed on each sync until their originating transaction is no longer at
-risk of being dropped by a reorg.</p>
 </div>
 </main>
 </span>

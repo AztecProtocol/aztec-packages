@@ -39,7 +39,7 @@ We version the oracle interface as <code>major.minor</code> where:</p>
 <li><code>minor</code> = oracle additions (non-breaking; PXE minor &gt;= contract minor)</li>
 </ul>
 <p>The TypeScript counterparts are in <code>oracle_version.ts</code>.</p>
-<p>@dev Whenever a contract function or Noir test is run, the <code>aztec_utl_assertCompatibleOracleVersion</code> oracle is
+<p>@dev Whenever a contract function or Noir test is run, the <code>aztec_misc_assertCompatibleOracleVersion</code> oracle is
 called. If the major version is incompatible, an error is thrown immediately. The minor version is recorded by
 the PXE and used to provide helpful error messages if a contract calls an oracle that doesn't exist. We don't throw
 immediately if AZTEC_NR_MINOR &gt; PXE_MINOR because if a contract is updated to use a newer Aztec.nr dependency

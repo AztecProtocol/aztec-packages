@@ -103,6 +103,7 @@
   --ifm-menu-color: #1a1400;
   --ifm-breadcrumb-item-background-active: #f2eee1;
   --brand-background: #f2eee1;
+  --aztec-card-bg: #ebe6d3;
 }
 [data-theme="dark"] {
   --ifm-color-primary: #f2eee1;
@@ -119,6 +120,7 @@
   --ifm-navbar-background-color: #1a1400;
   --ifm-footer-background-color: #1a1400;
   --brand-background: #1a1400;
+  --aztec-card-bg: var(--ifm-background-surface-color);
   --ifm-font-color-base: #f2eee1;
   background: #1a1400;
 

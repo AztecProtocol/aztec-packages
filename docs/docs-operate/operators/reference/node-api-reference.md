@@ -25,12 +25,12 @@ All methods use standard JSON RPC 2.0 format with methods prefixed by `aztec_` o
 
 ### aztec_getBlockNumber
 
-Returns the block number at a given chain tip, or the latest proposed block number when
+Returns the block number at a given block tag, or the latest proposed block number when
 `tip` is omitted.
 
 **Parameters**:
 
-1. `tip` - `ChainTip | undefined`
+1. `tip` - `BlockTagWithoutLatest | undefined`
 
 **Returns**: `number`
 
@@ -44,16 +44,13 @@ curl -X POST http://localhost:8080 \
 
 ### aztec_getCheckpointNumber
 
-Returns the checkpoint number at a given chain tip, or the latest checkpoint number when
-`tip` is omitted.
-
-**Remarks**: **Semantic foot-gun**: block-side `'proposed'` means "latest proposed block" (chain
-head), but checkpoint-side `'proposed'` means "latest confirmed checkpoint" — pre-L1-confirm
-checkpoints are not exposed over RPC. `'checkpointed'` on the checkpoint side is equivalent.
+Returns the checkpoint number at a given checkpoint tag, or the latest checkpointed number when
+`tip` is omitted. The proposed-but-unconfirmed checkpoint frontier is archiver-internal and not
+exposed over RPC, so `'proposed'` is not a valid checkpoint tag (see ).
 
 **Parameters**:
 
-1. `tip` - `ChainTip | undefined`
+1. `tip` - `CheckpointTag | undefined`
 
 **Returns**: `number`
 
@@ -71,7 +68,7 @@ Returns the tips of the L2 chain.
 
 **Parameters**: None
 
-**Returns**: `ChainTips`
+**Returns**: `L2Tips`
 
 **Example**:
 
@@ -778,11 +775,19 @@ curl -X POST http://localhost:8080 \
 
 ### aztec_getContract
 
-Returns a publicly deployed contract instance given its address.
+Returns a publicly deployed contract instance given its address. Its current class id is resolved as of the given
+reference block.
+
+Returns `undefined` if the instance has not been published (i.e. `publish_for_public_execution` was never called
+on the `ContractInstanceRegistry`). A contract whose class has been updated will never return `undefined`:
+scheduling an update requires the contract's deployment nullifier, which is only emitted by publishing, so any
+updatable contract has necessarily been published.
 
 **Parameters**:
 
 1. `address` - `AztecAddress` - Address of the deployed contract.
+2. `referenceBlock` - `BlockHash | number | "latest" | undefined` - The block parameter (block number, block hash, or 'latest') at which to get the data.
+Defaults to 'latest'.
 
 **Returns**: `ContractInstanceWithAddress | undefined`
 
@@ -791,7 +796,7 @@ Returns a publicly deployed contract instance given its address.
 ```bash
 curl -X POST http://localhost:8080 \
   -H 'Content-Type: application/json' \
-  -d '{"jsonrpc":"2.0","method":"aztec_getContract","params":["0x1234..."],"id":1}'
+  -d '{"jsonrpc":"2.0","method":"aztec_getContract","params":["0x1234...","latest"],"id":1}'
 ```
 
 ## Fee queries
@@ -822,7 +827,7 @@ given mana usage estimate. Defaults to target usage (steady state).
 
 1. `manaUsage` - `ManaUsageEstimate | undefined` - Expected mana usage per checkpoint (none, target, or limit).
 
-**Returns**: `GasFees[]` - An array of GasFees, one per slot in the prediction window.
+**Returns**: `GasFees[]` - An array of GasFees with current min fees first, followed by one entry per predicted slot.
 
 **Example**:
 
@@ -1078,24 +1083,6 @@ curl -X POST http://localhost:8080 \
 ```
 
 ## Debug operations
-
-### aztec_registerContractFunctionSignatures
-
-Registers contract function signatures for debugging purposes.
-
-**Parameters**:
-
-1. `functionSignatures` - `string[]` - An array of function signatures to register by selector.
-
-**Returns**: `void`
-
-**Example**:
-
-```bash
-curl -X POST http://localhost:8080 \
-  -H 'Content-Type: application/json' \
-  -d '{"jsonrpc":"2.0","method":"aztec_registerContractFunctionSignatures","params":[["0x1234..."]],"id":1}'
-```
 
 ### aztec_getAllowedPublicSetup
 

@@ -16,7 +16,7 @@ concurrency:
 
 jobs:
   select-image:
-    if: ${{ github.repository == 'AztecProtocol/aztec-packages-private' }}
+    if: ${{ github.repository == 'AztecProtocol/aztec-packages' }}
     runs-on: ubuntu-latest
     outputs:
       nightly_tag: ${{ steps.nightly-tag.outputs.nightly_tag }}
@@ -27,12 +27,12 @@ jobs:
       - name: Checkout
         uses: actions/checkout@93cb6efe18208431cddfb8368fd83d5badbf9bfd # v5.0.1
         with:
-          ref: ${{ github.repository == 'AztecProtocol/aztec-packages-private' && github.event_name == 'schedule' && 'v5-next' || 'next' }}
+          ref: next
 
       - name: Determine nightly tag
         id: nightly-tag
         run: |
-          USE_INTERNAL_DOCKER_REGISTRY="${{ github.repository == 'AztecProtocol/aztec-packages-private' && 'true' || 'false' }}"
+          USE_INTERNAL_DOCKER_REGISTRY="false"
 
           if [[ -n "${{ inputs.nightly_tag }}" ]]; then
             nightly_tag="${{ inputs.nightly_tag }}"
@@ -67,24 +67,32 @@ jobs:
           source_sha=$(git rev-parse "${source_ref}^{}")
           echo "Nightly source commit: $source_sha"
 
-      - name: Check if Docker image exists
-        if: steps.nightly-tag.outputs.use_internal_docker_registry != 'true'
-        run: |
-          DOCKER_IMAGE="${{ steps.nightly-tag.outputs.docker_image }}"
-          echo "Checking if Docker image exists: $DOCKER_IMAGE"
-          if docker manifest inspect "$DOCKER_IMAGE" > /dev/null 2>&1; then
-            echo "Docker image exists: $DOCKER_IMAGE"
-          else
-            echo "Docker image does not exist: $DOCKER_IMAGE"
-            exit 1
-          fi
+  # Block until the nightly tag's release build has published the docker image,
+  # so the deploys below don't race the build and hit ImagePullBackOff.
+  wait-for-ci3:
+    needs: select-image
+    if: ${{ github.repository == 'AztecProtocol/aztec-packages' }}
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@93cb6efe18208431cddfb8368fd83d5badbf9bfd # v5.0.1
+        with:
+          fetch-depth: 1
+
+      - name: Setup Node
+        uses: actions/setup-node@48b55a011bda9f5d6aeb4c2d9c7362e8dae4041e
+        with:
+          node-version: 22
+
+      - name: Wait for CI3
+        run: spartan/scripts/wait_for_ci3.ts "${{ needs.select-image.outputs.source_ref }}"
 
   # ---------------------------------------------------------------------------
   # TPS benchmark (env tps-scenario, namespace nightly-bench)
   # ---------------------------------------------------------------------------
   deploy-bench-network:
-    needs: select-image
-    if: ${{ github.repository == 'AztecProtocol/aztec-packages-private' }}
+    needs: [select-image, wait-for-ci3]
+    if: ${{ github.repository == 'AztecProtocol/aztec-packages' }}
     uses: ./.github/workflows/deploy-network.yml
     with:
       network: tps-scenario
@@ -99,7 +107,7 @@ jobs:
     needs:
       - select-image
       - deploy-bench-network
-    if: ${{ github.repository == 'AztecProtocol/aztec-packages-private' }}
+    if: ${{ github.repository == 'AztecProtocol/aztec-packages' }}
     runs-on: ubuntu-latest
     timeout-minutes: 120
     steps:
@@ -130,7 +138,7 @@ jobs:
     needs:
       - select-image
       - wait-bench-l2-block
-    if: ${{ github.repository == 'AztecProtocol/aztec-packages-private' }}
+    if: ${{ github.repository == 'AztecProtocol/aztec-packages' }}
     runs-on: ubuntu-latest
     permissions:
       id-token: write
@@ -188,7 +196,7 @@ jobs:
           max-items-in-chart: 100
 
   cleanup-bench:
-    if: ${{ always() && github.repository == 'AztecProtocol/aztec-packages-private' }}
+    if: ${{ always() && github.repository == 'AztecProtocol/aztec-packages' }}
     needs:
       - select-image
       - deploy-bench-network
@@ -219,7 +227,7 @@ jobs:
           gcp_project_id: ${{ secrets.GCP_PROJECT_ID }}
 
   notify-bench:
-    if: ${{ always() && github.event_name != 'workflow_dispatch' && github.repository == 'AztecProtocol/aztec-packages-private' }}
+    if: ${{ always() && github.event_name != 'workflow_dispatch' && github.repository == 'AztecProtocol/aztec-packages' }}
     needs:
       - select-image
       - deploy-bench-network
@@ -262,8 +270,8 @@ jobs:
   # Proving benchmark (env prove-n-tps-fake, namespace prove-n-tps-fake)
   # ---------------------------------------------------------------------------
   deploy-proving-network:
-    needs: select-image
-    if: ${{ github.repository == 'AztecProtocol/aztec-packages-private' }}
+    needs: [select-image, wait-for-ci3]
+    if: ${{ github.repository == 'AztecProtocol/aztec-packages' }}
     uses: ./.github/workflows/deploy-network.yml
     with:
       network: prove-n-tps-fake
@@ -278,7 +286,7 @@ jobs:
     needs:
       - select-image
       - deploy-proving-network
-    if: ${{ github.repository == 'AztecProtocol/aztec-packages-private' }}
+    if: ${{ github.repository == 'AztecProtocol/aztec-packages' }}
     runs-on: ubuntu-latest
     timeout-minutes: 120
     steps:
@@ -309,7 +317,7 @@ jobs:
     needs:
       - select-image
       - wait-proving-l2-block
-    if: ${{ github.repository == 'AztecProtocol/aztec-packages-private' }}
+    if: ${{ github.repository == 'AztecProtocol/aztec-packages' }}
     runs-on: ubuntu-latest
     permissions:
       id-token: write
@@ -366,7 +374,7 @@ jobs:
           max-items-in-chart: 100
 
   cleanup-proving:
-    if: ${{ always() && github.repository == 'AztecProtocol/aztec-packages-private' }}
+    if: ${{ always() && github.repository == 'AztecProtocol/aztec-packages' }}
     needs:
       - select-image
       - deploy-proving-network
@@ -397,7 +405,7 @@ jobs:
           gcp_project_id: ${{ secrets.GCP_PROJECT_ID }}
 
   notify-proving:
-    if: ${{ always() && github.event_name != 'workflow_dispatch' && github.repository == 'AztecProtocol/aztec-packages-private' }}
+    if: ${{ always() && github.event_name != 'workflow_dispatch' && github.repository == 'AztecProtocol/aztec-packages' }}
     needs:
       - select-image
       - deploy-proving-network
@@ -440,8 +448,8 @@ jobs:
   # Block capacity benchmark (env block-capacity, namespace nightly-block-capacity)
   # ---------------------------------------------------------------------------
   deploy-block-capacity-network:
-    needs: select-image
-    if: ${{ github.repository == 'AztecProtocol/aztec-packages-private' }}
+    needs: [select-image, wait-for-ci3]
+    if: ${{ github.repository == 'AztecProtocol/aztec-packages' }}
     uses: ./.github/workflows/deploy-network.yml
     with:
       network: block-capacity
@@ -456,7 +464,7 @@ jobs:
     needs:
       - select-image
       - deploy-block-capacity-network
-    if: ${{ github.repository == 'AztecProtocol/aztec-packages-private' }}
+    if: ${{ github.repository == 'AztecProtocol/aztec-packages' }}
     runs-on: ubuntu-latest
     timeout-minutes: 120
     steps:
@@ -487,7 +495,7 @@ jobs:
     needs:
       - select-image
       - wait-block-capacity-l2-block
-    if: ${{ github.repository == 'AztecProtocol/aztec-packages-private' }}
+    if: ${{ github.repository == 'AztecProtocol/aztec-packages' }}
     runs-on: ubuntu-latest
     permissions:
       id-token: write
@@ -544,7 +552,7 @@ jobs:
           max-items-in-chart: 100
 
   cleanup-block-capacity:
-    if: ${{ always() && github.repository == 'AztecProtocol/aztec-packages-private' }}
+    if: ${{ always() && github.repository == 'AztecProtocol/aztec-packages' }}
     needs:
       - select-image
       - deploy-block-capacity-network
@@ -575,7 +583,7 @@ jobs:
           gcp_project_id: ${{ secrets.GCP_PROJECT_ID }}
 
   notify-block-capacity:
-    if: ${{ always() && github.event_name != 'workflow_dispatch' && github.repository == 'AztecProtocol/aztec-packages-private' }}
+    if: ${{ always() && github.event_name != 'workflow_dispatch' && github.repository == 'AztecProtocol/aztec-packages' }}
     needs:
       - select-image
       - deploy-block-capacity-network
@@ -617,7 +625,7 @@ jobs:
   status:
     runs-on: ubuntu-latest
     needs: [benchmark, proving-benchmark, block-capacity-benchmark]
-    if: ${{ always() && github.repository == 'AztecProtocol/aztec-packages-private' }}
+    if: ${{ always() && github.repository == 'AztecProtocol/aztec-packages' }}
     steps:
       - name: Check benchmark results
         run: |

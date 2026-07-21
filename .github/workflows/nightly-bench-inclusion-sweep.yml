@@ -33,7 +33,7 @@ jobs:
   select-image:
     # Scheduled runs only fire on the public repo; on the private mirror this is a no-op
     # (matches the guard the prior nightly-bench-10tps.yml workflow carried on this line).
-    if: ${{ github.event_name != 'schedule' || github.repository == 'AztecProtocol/aztec-packages' }}
+    if: ${{ github.repository == 'AztecProtocol/aztec-packages' }}
     runs-on: ubuntu-latest
     outputs:
       docker_image: ${{ steps.docker-image.outputs.docker_image }}
@@ -113,7 +113,7 @@ jobs:
       namespace: bench-inclusion-sweep
       aztec_docker_image: ${{ needs.select-image.outputs.docker_image }}
       ref: ${{ needs.select-image.outputs.source_ref }}
-      notify_on_failure: false
+      skip_notify_on_failure: true
     secrets: inherit
 
   wait:

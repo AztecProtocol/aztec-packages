@@ -84,6 +84,11 @@
     "typescript": "^5.3.3"
   },
   "resolutions": {
+    "@aztec/bb-avm-sim": "portal:../barretenberg/ts/bb-avm-sim",
+    "@aztec/bb-avm-sim-darwin-arm64": "portal:../barretenberg/ts/bb-avm-sim/packages/bb-avm-sim-darwin-arm64",
+    "@aztec/bb-avm-sim-darwin-x64": "portal:../barretenberg/ts/bb-avm-sim/packages/bb-avm-sim-darwin-x64",
+    "@aztec/bb-avm-sim-linux-arm64": "portal:../barretenberg/ts/bb-avm-sim/packages/bb-avm-sim-linux-arm64",
+    "@aztec/bb-avm-sim-linux-x64": "portal:../barretenberg/ts/bb-avm-sim/packages/bb-avm-sim-linux-x64",
     "@aztec/bb.js": "portal:../barretenberg/ts/bb.js",
     "@aztec/ipc-runtime": "portal:../ipc-runtime/ts",
     "@aztec/wsdb": "portal:../wsdb/ts",

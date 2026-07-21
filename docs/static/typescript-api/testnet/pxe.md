@@ -1,6 +1,6 @@
 # @aztec/pxe
 
-Version: v5.0.0
+Version: 5.0.1
 
 ## Quick Import Reference
 
@@ -418,7 +418,8 @@ new SenderTaggingStore(store: AztecAsyncKVStore)
 - `getLastFinalizedIndex(secret: AppTaggingSecret, jobId: string) => Promise<number | undefined>` - Returns the last (highest) finalized index for a given secret.
 - `getLastUsedIndex(secret: AppTaggingSecret, jobId: string) => Promise<number | undefined>` - Returns the last used index for a given directional app tagging secret, considering both finalized and pending indexes.
 - `getTxHashesOfPendingIndexes(secret: AppTaggingSecret, startIndex: number, endIndex: number, jobId: string) => Promise<TxHash[]>` - Returns the transaction hashes of all pending transactions that contain highest indexes within a specified range for a given directional app tagging secret. We check based on the highest indexes only as that is the relevant information for the caller of this function.
-- `storePendingIndexes(ranges: TaggingIndexRange[], txHash: TxHash, jobId: string) => Promise<void>` - Stores pending index ranges.
+- `mergePendingIndexes(ranges: TaggingIndexRange[], txHash: TxHash, jobId: string) => Promise<void>` - Stores pending index ranges, widening an existing entry for the same (secret, txHash) pair to the union of the stored and incoming ranges instead of throwing on a mismatch. Discovery from onchain logs needs this: it may see only the surviving (non-revertible phase) sub-range of a partially reverted tx recorded at prove time (the finalized receipt step of the sync resolves that difference), or indexes beyond a partially discovered entry when a tx from another PXE straddles a sync window boundary. Callers that record indexes at prove time must use `storePendingIndexes` instead, so that a range disagreement surfaces as a bug rather than being absorbed.
+- `storePendingIndexes(ranges: TaggingIndexRange[], txHash: TxHash, jobId: string) => Promise<void>` - Stores pending index ranges, rejecting any range that disagrees with an already-stored one.
 
 ### TaggingSecretSourcesStore
 
@@ -536,6 +537,18 @@ function logContractMessage(logger: Logger, level: "silent" | "fatal" | "error" 
 ```
 Formats and emits a single contract log message through the given logger.
 
+### openBrowserStore
+```typescript
+function openBrowserStore(name: string, schemaVersion: number, config: { dataStoreMapSizeKb?: number; l1ChainId: number; rollupAddress: EthAddress }, log: Logger) => Promise<AztecSQLiteOPFSStore>
+```
+Opens the persistent browser (sqlite-opfs) store selected by `name` and identity `(config.l1ChainId, config.rollupAddress, schemaVersion)` triple. A store exists per identity: reopening with the same identity returns the same data, a different identity selects a different (possibly fresh) store.
+
+### openStore
+```typescript
+function openStore(name: string, schemaVersion: number, config: IdentityStoreConfig, bindings?: LoggerBindings) => Promise<AztecLMDBStoreV2>
+```
+Opens the persistent LMDB store selected by `name` and identity triple `(l1ChainId, rollupAddress, schemaVersion)`. A store exists per identity: reopening with the same identity returns the same data, a different identity selects a different (possibly fresh) store. Callers wanting an ephemeral store use `openTmpStore` explicitly instead.
+
 ### stripAztecnrLogPrefix
 ```typescript
 function stripAztecnrLogPrefix(message: string) => { kind: CONTRACT_LOG_KIND; message: string }
@@ -625,6 +638,12 @@ type FactWithOriginState = unknown
 ```
 A fact enriched with origin-block state. `originBlock` is undefined for a non-retractable fact.
 
+### IdentityStoreConfig
+```typescript
+type IdentityStoreConfig = unknown
+```
+Location and identity inputs for opening an identity-partitioned PXE-side store.
+
 ### NotesFilter
 ```typescript
 type NotesFilter = unknown
@@ -638,7 +657,7 @@ type ORACLE_VERSION_MAJOR = 30
 
 ### ORACLE_VERSION_MINOR
 ```typescript
-type ORACLE_VERSION_MINOR = 7
+type ORACLE_VERSION_MINOR = 8
 ```
 
 ### OriginBlock
@@ -795,13 +814,13 @@ This package references types from other Aztec packages:
 - `L1ContractAddresses`
 
 **@aztec/foundation**
-- `BlockNumber`, `BufferReader`, `ConfigMappingsType`, `FieldsOf`, `Fr`, `Logger`, `LoggerBindings`, `MembershipWitness`, `Point`
+- `BlockNumber`, `BufferReader`, `ConfigMappingsType`, `EthAddress`, `FieldsOf`, `Fr`, `Logger`, `LoggerBindings`, `MembershipWitness`, `Point`
 
 **@aztec/key-store**
 - `AccountPrivacyKeys`, `AccountPrivacySecretKeys`
 
 **@aztec/kv-store**
-- `AztecAsyncKVStore`
+- `AztecAsyncKVStore`, `AztecLMDBStoreV2`, `AztecSQLiteOPFSStore`
 
 **@aztec/stdlib**
 - `AppTaggingSecret`, `AztecAddress`, `AztecNode`, `BlockHeader`, `Capsule`, `ChainConfig`, `CompleteAddress`, `ContractArtifact`, `ContractClass`, `ContractClassCommitments`, `ContractClassIdPreimage`, `ContractInstancePreimage`, `ContractInstancePreimageWithAddress`, `ContractOverrides`, `DataInBlock`, `DataStoreConfig`, `DebugLog`, `EventSelector`, `FunctionArtifactWithContractName`, `FunctionCall`, `FunctionDebugMetadata`, `FunctionSelector`, `InTx`, `IndexedTxEffect`, `L2Tips`, `Note`, `NoteDao`, `NoteStatus`, `PublicKey`, `SimulationError`, `TaggingIndexRange`, `TxEffect`, `TxExecutionRequest`, `TxHash`, `TxProfileResult`, `TxProvingResult`, `TxSimulationResult`, `UtilityExecutionResult`

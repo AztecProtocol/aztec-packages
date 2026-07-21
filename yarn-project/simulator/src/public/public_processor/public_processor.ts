@@ -50,6 +50,7 @@ import { ForkCheckpoint } from '@aztec/world-state/native';
 
 import { AssertionError } from 'assert';
 
+import type { AvmSimulator } from '../avm_simulator.js';
 import { PublicContractsDB, PublicTreesDB } from '../public_db_sources.js';
 import {
   type PublicTxSimulatorConfig,
@@ -66,6 +67,7 @@ export class PublicProcessorFactory {
   private log: Logger;
   constructor(
     private contractDataSource: ContractDataSource,
+    private avmSimulator: AvmSimulator,
     private dateProvider: DateProvider = new DateProvider(),
     protected telemetryClient: TelemetryClient = getTelemetryClient(),
     bindings?: LoggerBindings,
@@ -74,7 +76,9 @@ export class PublicProcessorFactory {
   }
 
   /**
-   * Creates a new instance of a PublicProcessor.
+   * Creates a new instance of a PublicProcessor. The simulator it drives reads contract data from the fork's
+   * contracts DB, scoped by the fork id so AVM requests route to the right state.
+   *
    * @param globalVariables - The global variables for the block being processed.
    * @param contractsDB - Optional pre-populated contracts DB; a fresh one is constructed if omitted.
    * @returns A new instance of a PublicProcessor.
@@ -85,8 +89,10 @@ export class PublicProcessorFactory {
     config: PublicSimulatorConfig,
     contractsDB: PublicContractsDB = new PublicContractsDB(this.contractDataSource, this.log.getBindings()),
   ): PublicProcessor {
+    const forkId = merkleTree.getRevision().forkId;
+
     const guardedFork = new GuardedMerkleTreeOperations(merkleTree);
-    const publicTxSimulator = this.createPublicTxSimulator(guardedFork, contractsDB, globalVariables, config);
+    const publicTxSimulator = this.createPublicTxSimulator(forkId, globalVariables, contractsDB, config);
 
     return new PublicProcessor(
       globalVariables,
@@ -100,15 +106,16 @@ export class PublicProcessorFactory {
   }
 
   protected createPublicTxSimulator(
-    merkleTree: MerkleTreeWriteOperations,
-    contractsDB: PublicContractsDB,
+    forkId: number,
     globalVariables: GlobalVariables,
+    contractsDB: PublicContractsDB,
     config?: Partial<PublicTxSimulatorConfig>,
   ): PublicTxSimulatorInterface {
     return new TelemetryPublicTxSimulator(
-      merkleTree,
-      contractsDB,
+      this.avmSimulator,
       globalVariables,
+      contractsDB,
+      forkId,
       this.telemetryClient,
       config,
       this.log.getBindings(),
@@ -128,10 +135,6 @@ class PublicProcessorAbortError extends Error {
     super(message);
     this.name = 'PublicProcessorAbortError';
   }
-}
-
-function isPublicProcessorInterruptError(err: any) {
-  return err?.name === 'PublicProcessorTimeoutError' || err?.name === 'PublicProcessorAbortError';
 }
 
 /**
@@ -326,11 +329,15 @@ export class PublicProcessor implements Traceable {
         // Commit the tx-level contracts checkpoint on success
         this.contractsDB.commitCheckpoint();
       } catch (err: any) {
-        if (isPublicProcessorInterruptError(err)) {
-          const interruptReason = err.name === 'PublicProcessorTimeoutError' ? 'timeout' : 'abort signal';
-          this.log.warn(`Stopping tx processing due to ${interruptReason}.`);
-          // The tx may still be executing on a worker thread (C++ via NAPI).
-          // Signal cancellation AND WAIT for the simulation to actually stop before touching fork checkpoints.
+        if (err?.name === 'PublicProcessorTimeoutError' || err?.name === 'PublicProcessorAbortError') {
+          this.log.warn(
+            `Stopping tx processing due to ${err.name === 'PublicProcessorTimeoutError' ? 'timeout' : 'abort'}.`,
+          );
+          // We hit the transaction execution deadline or an external abort signal.
+          // There may still be a simulation in progress.
+          // Signal cancellation AND WAIT for the simulation to actually stop. Cancellation is
+          // cooperative: the simulator may be mid slow-operation and won't observe the flag until it
+          // completes, and without waiting we'd revert checkpoints while it's still writing to state.
           await this.publicTxSimulator.cancel?.();
 
           // Now stop the guarded fork to prevent any further TS-side access to the world state.

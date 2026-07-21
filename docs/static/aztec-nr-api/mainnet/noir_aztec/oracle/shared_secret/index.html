@@ -48,8 +48,10 @@
 <li><a href="../nullifiers/index.html">nullifiers</a></div></li>
 <li><a href="../offchain_effect/index.html">offchain_effect</a></div></li>
 <li><a href="../random/index.html">random</a></div></li>
+<li><a href="../resolve_custom_request/index.html">resolve_custom_request</a></div></li>
 <li><a href="../shared_secret/index.html">shared_secret</a></div></li>
 <li><a href="../storage/index.html">storage</a></div></li>
+<li><a href="../tx_resolution/index.html">tx_resolution</a></div></li>
 <li><a href="../version/index.html">version</a></div></li>
 </ul>
 </nav>
@@ -57,8 +59,9 @@
 <div><a href="../../../index.html">aztec-nr</a> - <a href="../../index.html">noir_aztec</a>::<a href="../index.html">oracle</a>::shared_secret</div>
 <h1>Module <span id="mod" class="module">shared_secret</span></h1>
 <h2 id="functions">Functions</h2><ul class="item-list">
-<li><div class="item-name"><a href="fn.get_shared_secret.html" class="fn">get_shared_secret</a></div><div class="item-description">Returns an app-siloed shared secret between <code>address</code> and someone who knows the secret key behind an ephemeral
-public key <code>ephPk</code>.</div></li>
+<li><div class="item-name"><a href="fn.get_shared_secret.html" class="fn">get_shared_secret</a></div><div class="item-description">Convenience wrapper around <a href="../../../noir_aztec/oracle/shared_secret/fn.get_shared_secrets.html"><code>get_shared_secrets</code></a> for a single ephemeral public key.</div></li>
+<li><div class="item-name"><a href="fn.get_shared_secrets.html" class="fn">get_shared_secrets</a></div><div class="item-description">Returns app-siloed shared secrets between <code>address</code> and someone who knows the secret keys behind the given
+ephemeral public keys.</div></li>
 </ul>
 </main>
 </span>

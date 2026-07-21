@@ -34,6 +34,7 @@
     low_leaf_preimages: [Leaf; SubtreeWidth],
     low_leaf_membership_witnesses: [<a href="../../../protocol_types/merkle_tree/membership/struct.MembershipWitness.html" class="struct">MembershipWitness</a>&lt;TreeHeight&gt;; SubtreeWidth],
     new_subtree_sibling_path: [<a href="../../../std/primitive.Field.html" class="primitive">Field</a>; TreeHeight - SubtreeHeight],
+    merkle_hasher: fn(<a href="../../../std/primitive.Field.html" class="primitive">Field</a>, <a href="../../../std/primitive.Field.html" class="primitive">Field</a>) -> <a href="../../../std/primitive.Field.html" class="primitive">Field</a>,
 ) -> <a href="../../../protocol_types/abis/append_only_tree_snapshot/struct.AppendOnlyTreeSnapshot.html" class="struct">AppendOnlyTreeSnapshot</a>
 <div class="where-clause">where
     Value: <a href="../../../protocol_types/merkle_tree/leaf_preimage/trait.IndexedTreeLeafValue.html" class="trait">IndexedTreeLeafValue</a>,
@@ -42,6 +43,8 @@
 <div class="comments">
 <p>Batch insert values into the indexed tree by creating a subtree of the values and inserting the subtree root.
 This function does not allow updating the values of existing leaves.</p>
+<p><code>merkle_hasher</code> must be the tree-specific sibling-pair hasher for the target indexed tree
+(e.g. <code>nullifier_merkle_hash</code> for the nullifier tree).</p>
 </div>
 </main>
 </span>
