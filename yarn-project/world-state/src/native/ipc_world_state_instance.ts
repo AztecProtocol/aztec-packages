@@ -207,6 +207,21 @@ function getWsdbExtraArgs(
     args.push('--prefilled-public-data', JSON.stringify(pairs));
   }
 
+  // Nullifiers to pre-insert into the genesis nullifier tree (empty by default, so production genesis roots are
+  // unchanged). The native indexed nullifier tree requires its prefilled leaves to be unique and strictly
+  // increasing, so we enforce that here before handing them over rather than failing deep inside the C++ tree
+  // construction.
+  const prefilledNullifiers = genesis.prefilledNullifiers ?? [];
+  for (let i = 1; i < prefilledNullifiers.length; i++) {
+    if (prefilledNullifiers[i].toBigInt() <= prefilledNullifiers[i - 1].toBigInt()) {
+      throw new Error('Prefilled genesis nullifiers must be unique and strictly increasing');
+    }
+  }
+  if (prefilledNullifiers.length > 0) {
+    const nullifiers = prefilledNullifiers.map(n => n.toBuffer().toString('hex'));
+    args.push('--prefilled-nullifiers', JSON.stringify(nullifiers));
+  }
+
   const genesisTimestamp = Number(genesis.genesisTimestamp);
   if (genesisTimestamp !== 0) {
     args.push('--genesis-timestamp', genesisTimestamp.toString());
