@@ -1,6 +1,0 @@
-^protocol/constants-codegen/
-^noir-projects/noir-protocol-circuits/crates/types/src/constants\.nr$
-^noir-projects/noir-protocol-circuits/crates/types/src/blob_data/tx_blob_data\.nr$
-^yarn-project/constants/\.rebuild_patterns$
-^yarn-project/constants/src/constants\.gen\.ts$
-^yarn-project/constants/scripts/remake-constants\.sh$
