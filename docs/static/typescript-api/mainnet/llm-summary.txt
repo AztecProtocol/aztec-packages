@@ -1,6 +1,6 @@
 # Aztec TypeScript API Summary
-Version: v4.3.1
-Generated: 2026-05-18T14:24:59.459Z
+Version: 5.0.1
+Generated: 2026-07-17T01:34:22.543Z
 
 This file provides an index of the Aztec TypeScript API packages.
 For detailed API documentation, see the individual package .md files.
@@ -14,20 +14,20 @@ For detailed API documentation, see the individual package .md files.
   - Transaction creation and submission
   - Account management
   - RPC client for connecting to Aztec nodes
-Exports: 37 classes, 24 interfaces, 31 functions, 82 types
+Exports: 39 classes, 24 interfaces, 32 functions, 83 types
 Key: AccountManager, Contract, Fq, Fr
 
 **@aztec/accounts** - Sample account contract implementations
   - ECDSA accounts (Ethereum-compatible signatures)
   - Schnorr accounts (native Aztec signatures)
   - Testing utilities
-Exports: 5 classes, 1 interfaces, 3 functions, 7 types
+Exports: 6 classes, 1 interfaces, 4 functions, 9 types
 
 **@aztec/pxe** - Private eXecution Environment client
   - Orchestrates private transaction execution and proving
   - Manages encrypted notes and nullifiers
   - Provides privacy-preserving state queries
-Exports: 15 classes, 3 interfaces, 11 functions, 22 types
+Exports: 21 classes, 3 interfaces, 16 functions, 41 types
 Key: PXE, createPXE
 
 **@aztec/entrypoints** - Transaction entrypoint implementations
@@ -38,7 +38,7 @@ Exports: 4 classes, 2 interfaces, 1 functions, 5 types
 **@aztec/wallet-sdk** - Wallet SDK for browser and extension integrations
   - Browser wallet integration
   - Key management utilities
-Exports: 9 classes, 37 interfaces, 16 functions, 13 types
+Exports: 9 classes, 37 interfaces, 18 functions, 13 types
 
 **@aztec/wallets** - Embedded wallet for browser and Node.js environments
   - EmbeddedWallet with browser and Node.js flavors
@@ -53,7 +53,7 @@ Exports: 3 classes, 2 functions, 3 types
   - Proof types and verification
   - Kernel circuit types
   - Tree structures (note hash, nullifier, public data)
-Exports: 90 classes, 39 interfaces, 132 functions, 125 types
+Exports: 89 classes, 43 interfaces, 158 functions, 161 types
 Key: AztecAddress, BlockHeader, CompleteAddress, EthAddress
 
 **@aztec/foundation** - Low-level utilities and primitives
@@ -61,14 +61,14 @@ Key: AztecAddress, BlockHeader, CompleteAddress, EthAddress
   - Serialization utilities
   - Async helpers and collections
   - Logging infrastructure
-Exports: 19 classes, 6 interfaces, 139 functions, 30 types
+Exports: 22 classes, 6 interfaces, 146 functions, 35 types
 Key: EthAddress
 
 **@aztec/constants** - Protocol constants shared between TypeScript and Noir
   - Circuit size limits
   - Gas and fee constants
   - Tree heights and sizes
-Exports: 496 types
+Exports: 513 types
 
 ## Key Types Quick Reference
 
@@ -109,7 +109,7 @@ Exports: 496 types
 accounts → aztec.js, entrypoints, foundation, stdlib
 aztec.js → entrypoints, ethereum, foundation, stdlib
 entrypoints → foundation, stdlib
-pxe → aztec.js, foundation, kv-store, stdlib
+pxe → aztec.js, ethereum, foundation, key-store, kv-store, stdlib
 stdlib → blob-lib, constants, ethereum, foundation
 wallet-sdk → aztec.js, entrypoints, foundation, pxe, stdlib
 wallets → accounts, aztec.js, entrypoints, foundation, kv-store, pxe, stdlib, wallet-sdk

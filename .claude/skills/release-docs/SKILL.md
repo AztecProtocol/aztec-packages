@@ -252,8 +252,13 @@ docs (Step 11), the generated content is included in the snapshot automatically.
 2. Create the new `## <new version>` heading below `## TBD` (and below any
    `## Unreleased` sections). Move the items identified in step 1 under it.
 
-3. Ensure `## TBD` remains at the top with a blank line separating it from the
-   next heading.
+3. Ensure `## TBD` remains at the top of the **source** file with a blank line
+   separating it from the next heading. The source keeps the (now usually
+   empty) `## TBD` heading as the working bucket for future notes — but the
+   **versioned snapshot must not ship it**: after the cut (Step 11), delete the
+   empty `## TBD` heading (and any empty `## Unreleased` headings) from
+   `developer_versioned_docs/version-v<new_version>/docs/resources/migration_notes.md`
+   so released docs never show an empty TBD section.
 
 4. Check for missing migration items by analyzing the diff between the previous
    release tag and the new one:
@@ -282,6 +287,10 @@ governance/shared contracts persist (Registry, Governance, GSE, Staking Asset, F
 Juice, Coin Issuer, Reward Distributor, Governance Proposer, Fee Asset Handler,
 Staking Registry, Slash Factory). Re-resolve the per-rollup set; for the rest,
 confirm the existing values still hold (e.g. `cast code <addr>` returns bytecode).
+
+When a value read on-chain comes back as hex (e.g. a rollup version from
+`getVersion()`), convert it with `cast to-dec <hex>` — never by eye. A
+hand-converted rollup version has shipped wrong before.
 
 #### Tier 1: Query on-chain from known contracts
 
@@ -358,6 +367,45 @@ Also grep for any other files referencing old addresses for this network and upd
 ```bash
 grep -r "<old_address>" docs/
 ```
+
+#### Re-verify every figure against its source of truth
+
+Every value in `networks.md` — both columns, all tables — is re-derived at
+release time from a source of truth: the node RPC, an on-chain call, or the
+tag's tooling. Never carry a value forward from the previous release and never
+transcribe one by hand. Concretely:
+
+- **EIP-55 checksums.** Run every L1 address through
+  `cast to-check-sum-address <addr>` before writing it into the tables (both
+  the link text and the href). RPC responses return lowercase; the docs use
+  checksummed casing.
+- **Decimal conversions.** Anything read on-chain comes back as hex; convert
+  with `cast to-dec <hex>`, never by eye (see the rollup-version note in the
+  mental model above).
+- **Rollup version.** Read it from the rollup itself on each network —
+  `cast call <ROLLUP> "getVersion()(uint256)" --rpc-url <L1_RPC>` — and
+  cross-check the RPC's `rollupVersion`. If the network's nodes have not yet
+  upgraded (pre-release workflow), the target rollup's on-chain value wins.
+- **L1 chain id.** `cast chain-id --rpc-url <L1_RPC>` must equal both the
+  docs' **L1 Chain ID** row and the node RPC's `l1ChainId`.
+- **Governance parameters table.** This table goes stale silently — query it
+  on-chain for **both** columns, every release:
+  - *Proposer Quorum*: `cast call <GOVERNANCE_PROPOSER> "QUORUM_SIZE()(uint256)"`
+    and `"ROUND_SIZE()(uint256)"` (e.g. 600/1000 mainnet, 60/100 testnet).
+  - *Voting Delay / Voting Duration / Execution Delay*:
+    `cast call <GOVERNANCE> "getConfiguration()"` and decode against the tag's
+    `IGovernance` configuration struct in `l1-contracts`. Beware: some time
+    fields are stored compressed in 256-second units — decode via the struct
+    definition, then sanity-convert to days/hours (e.g. `675 * 256s = 172800s
+    = 2 days`).
+  - *Slashing Quorum / Slashing Round Size*: from the Tally Slashing Proposer —
+    `"QUORUM()(uint256)"`, `"ROUND_SIZE()(uint256)"` (slots), and
+    `"ROUND_SIZE_IN_EPOCHS()(uint256)"`. Express the round as
+    `<epochs> epochs (<slots> slots)`.
+- **Cross-check human-owned data.** If the network/protocol team has a parallel
+  update in flight (a PR or forum post with the deployment addresses), diff
+  every value against it. Resolve any discrepancy by querying the chain — not
+  by preferring either document — and reconcile with the owner before shipping.
 
 ### Step 10: Update Getting Started Page
 
@@ -463,6 +511,12 @@ Verify the new version appears in both `docs/developer_version_config.json` and
 Also verify that macros were resolved in the network versioned snapshot — check
 that `docs/network_versioned_docs/version-v<new_version>/` contains no raw
 `#release_version` or `#release_network` placeholders.
+
+**Strip the empty `## TBD` heading from the cut snapshot.** The source
+migration notes keep `## TBD` as the working bucket for future entries, but a
+final release snapshot must not render an empty TBD section. After the cut,
+remove the empty `## TBD` (and any empty `## Unreleased (...)`) headings from
+`developer_versioned_docs/version-v<new_version>/docs/resources/migration_notes.md`.
 
 #### Hardcoded version references
 
@@ -755,6 +809,12 @@ Check for stash conflicts. Then report to the user:
 
 - **Always query the network first**: The RPC response is the source of truth for
   version and contract addresses.
+- **Re-derive, never carry forward**: every address, version, chain id, and
+  governance parameter in `networks.md` is re-checked at release time against
+  its source of truth (RPC, on-chain call, or tag tooling) — checksummed with
+  `cast to-check-sum-address`, converted with `cast to-dec`, and cross-checked
+  against any human-owned deployment data (see the "Re-verify every figure"
+  subsection of Step 9).
 - **Tag must exist**: If the git tag for the version doesn't exist, abort. The
   release hasn't been tagged yet.
 - **CLI version must match**: The `aztec` CLI must match the network version to get

@@ -1,0 +1,50 @@
+---
+title: "Solo sequencer: zero to attesting"
+description: "An opinionated, end-to-end walkthrough that takes a new operator from a blank server to a registered, self-staked, attesting Aztec sequencer in roughly 45 minutes."
+displayed_sidebar: operatorsSidebar
+---
+
+# Solo sequencer: zero to attesting
+
+The fastest path from a blank server to an attesting Aztec sequencer staked with your own AZTEC. Pick your network and topology, fill the configuration panel once, copy commands as you go.
+
+:::info One of two ways to learn the operator stack
+This **guided setup** is one entry point into the operator docs. It's the right starting place if you've never run an Aztec sequencer before. For lookup material once your node is live, the topic-organized reference pages stay authoritative: [Setup](/operate/operators/setup/sequencer_management) (deeper details on each subsystem), [Keystore management](/operate/operators/keystore), [Monitoring](/operate/operators/monitoring), [Sequencer management](/operate/operators/sequencer-management), and the [CLI / API references](/operate/operators/reference/cli-reference). When this guide hands you off to a deeper topic, it links to the reference page for that topic.
+:::
+
+## Pick your network and topology
+
+<TrackPicker hideStake />
+
+<ForceStakeMode mode="self" />
+
+The guide adapts to your choices:
+- **Network** swaps RPC URL hints, contract addresses, and Docker image tag in every code block on every page.
+- **Topology** changes the server requirements and the Docker Compose file (HA mode runs the same attester across two coordinated nodes).
+
+Your choices persist across pages. Flip any toggle at any time. Running on delegated stake instead of your own? Switch to the [Staking provider guide](/operate/operators/provider/).
+
+:::tip Running a DappNode box?
+The community-maintained Aztec package replaces the configure, compose, and start steps of this guide with a one-click install. See [DappNode setup](/operate/operators/solo-sequencer/dappnode); you'll rejoin this guide for keystore, funding, and registration.
+:::
+
+## What you'll do
+
+| # | Step | Time |
+|---|------|------|
+| 1 | [Pre-flight](/operate/operators/solo-sequencer/pre-flight) | ~2 min |
+| 2 | [Install Aztec toolchain](/operate/operators/solo-sequencer/install-toolchain) | ~2 min |
+| 3 | [Generate keystore](/operate/operators/solo-sequencer/generate-keystore) | ~5 min |
+| 4 | [Fund your accounts](/operate/operators/solo-sequencer/fund-accounts) | ~5 min |
+| 5 | [Configure environment](/operate/operators/solo-sequencer/configure-environment) | ~5 min |
+| 6 | [Create Docker Compose](/operate/operators/solo-sequencer/docker-compose) | ~3 min |
+| 7 | [Start the node](/operate/operators/solo-sequencer/start-node) | 5 to 15 min |
+| 8 | [Register as sequencer](/operate/operators/solo-sequencer/register-sequencer) | ~10 min |
+| 9 | [Verify everything works](/operate/operators/solo-sequencer/verify) | ~5 min |
+| 10 | [Updates, alerts, rewards](/operate/operators/solo-sequencer/day-2-essentials) | ~5 min |
+
+## How to read it
+
+- **Code blocks personalize themselves.** Starting in [generate keystore](/operate/operators/solo-sequencer/generate-keystore), a configuration panel appears at the top of pages that need it. Paste your RPC URLs, keys, and addresses once. Every code block on every page after that auto-fills with your values. Commands fill in with your real values and copy ready to run; keys stay masked in the panel inputs and live in session-only storage.
+- **"What just happened?"** sections at the end of each step explain the why. Skip them on the first pass; come back when something breaks.
+- **Sections in dashed boxes with a coloured tag** (such as "HA") only show because of your topology choice. Flip the toggles up top to see other paths.

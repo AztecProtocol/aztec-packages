@@ -39,6 +39,7 @@
 <li><a href="#mine_block">mine_block</a></li>
 <li><a href="#mine_block_at">mine_block_at</a></li>
 <li><a href="#new">new</a></li>
+<li><a href="#new_opts">new_opts</a></li>
 <li><a href="#next_block_number">next_block_number</a></li>
 <li><a href="#offchain_messages">offchain_messages</a></li>
 <li><a href="#private_context">private_context</a></li>
@@ -46,6 +47,8 @@
 <li><a href="#private_context_opts">private_context_opts</a></li>
 <li><a href="#public_context">public_context</a></li>
 <li><a href="#public_context_at">public_context_at</a></li>
+<li><a href="#send_l1_to_l2_message">send_l1_to_l2_message</a></li>
+<li><a href="#send_l1_to_l2_message_from_secret_hash">send_l1_to_l2_message_from_secret_hash</a></li>
 <li><a href="#set_next_block_timestamp">set_next_block_timestamp</a></li>
 <li><a href="#utility_context">utility_context</a></li>
 <li><a href="#utility_context_at">utility_context_at</a></li>
@@ -62,6 +65,7 @@
 <li><a href="struct.ExecuteUtilityOptions.html">ExecuteUtilityOptions</a></div></li>
 <li><a href="struct.PrivateContextOptions.html">PrivateContextOptions</a></div></li>
 <li><a href="struct.TestEnvironment.html">TestEnvironment</a></div></li>
+<li><a href="struct.TestEnvironmentOptions.html">TestEnvironmentOptions</a></div></li>
 <li><a href="struct.ViewPrivateOptions.html">ViewPrivateOptions</a></div></li>
 </ul>
 </nav>
@@ -97,7 +101,17 @@ methods. E.g.:</p>
 
 <div class="padded-description"><div class="comments">
 <p>Creates a new <code>TestEnvironment</code>. This function should only be called once per test.</p>
-</div>
+<p>See <a href="../../../../noir_aztec/test/helpers/test_environment/struct.TestEnvironment.html#new_opts"><code>new_opts</code></a> for a variant that allows configuring the environment.</p></div>
+</div><code id="new_opts" class="code-header">pub unconstrained fn <a href="#new_opts"><span class="fn">new_opts</span></a>(options: <a href="../../../../noir_aztec/test/helpers/test_environment/struct.TestEnvironmentOptions.html" class="struct">TestEnvironmentOptions</a>) -> Self</code>
+
+<div class="padded-description"><div class="comments">
+<p>Creates a new <code>TestEnvironment</code> with the configuration values in <code>options</code>. This function should only be
+called once per test.</p>
+<h4>Sample usage</h4>
+<pre><code><span class="kw">let</span> strategy = TaggingSecretStrategy::non_interactive_handshake();
+<span class="kw">let</span> env = TestEnvironment::new_opts(
+    TestEnvironmentOptions::new().with_default_tag_secret_strategy_all_modes(strategy),
+);</code></pre></div>
 </div><code id="public_context" class="code-header">pub unconstrained fn <a href="#public_context"><span class="fn">public_context</span></a>&lt;Env, T&gt;(
     self,
     f: unconstrained fn[Env](<a href="../../../../noir_aztec/context/struct.PublicContext.html" class="struct">PublicContext</a>) -> T,
@@ -257,6 +271,36 @@ this must be done by calling <code>mine_block_at</code> or <code>set_next_block_
 <div class="padded-description"><div class="comments">
 <p>Sets the timestamp of the next block to be mined to be ahead of the last one by <code>duration</code>.</p>
 </div>
+</div><code id="send_l1_to_l2_message" class="code-header">pub unconstrained fn <a href="#send_l1_to_l2_message"><span class="fn">send_l1_to_l2_message</span></a>(
+    self,
+    content: <a href="../../../../std/primitive.Field.html" class="primitive">Field</a>,
+    secret: <a href="../../../../std/primitive.Field.html" class="primitive">Field</a>,
+    sender: <a href="../../../../protocol_types/address/eth_address/struct.EthAddress.html" class="struct">EthAddress</a>,
+    recipient: <a href="../../../../protocol_types/address/aztec_address/struct.AztecAddress.html" class="struct">AztecAddress</a>,
+) -> <a href="../../../../std/primitive.Field.html" class="primitive">Field</a></code>
+
+<div class="padded-description"><div class="comments">
+<p>Creates a message sent from the L1 to the L2.</p>
+<p>This is required so that a contract can later consume it via
+<a href="../../../../noir_aztec/context/struct.PrivateContext.html#consume_l1_to_l2_message"><code>PrivateContext::consume_l1_to_l2_message</code></a> or its
+public counterpart. An empty block is mined carrying the message leaf.</p>
+<p><code>content</code>, <code>secret</code>, <code>sender</code> and <code>recipient</code> must match what the consuming contract uses. The secret is hashed
+with the standard <a href="../../../../noir_aztec/hash/fn.compute_secret_hash.html"><code>crate::hash::compute_secret_hash</code></a> - use
+<a href="../../../../noir_aztec/test/helpers/test_environment/struct.TestEnvironment.html#send_l1_to_l2_message_from_secret_hash"><code>send_l1_to_l2_message_from_secret_hash</code></a> if the
+contract commits to its secret differently).</p>
+<p>Returns the global leaf index to pass as <code>consume_l1_to_l2_message</code>'s <code>leaf_index</code>.</p></div>
+</div><code id="send_l1_to_l2_message_from_secret_hash" class="code-header">pub unconstrained fn <a href="#send_l1_to_l2_message_from_secret_hash"><span class="fn">send_l1_to_l2_message_from_secret_hash</span></a>(
+    _self: Self,
+    content: <a href="../../../../std/primitive.Field.html" class="primitive">Field</a>,
+    secret_hash: <a href="../../../../std/primitive.Field.html" class="primitive">Field</a>,
+    sender: <a href="../../../../protocol_types/address/eth_address/struct.EthAddress.html" class="struct">EthAddress</a>,
+    recipient: <a href="../../../../protocol_types/address/aztec_address/struct.AztecAddress.html" class="struct">AztecAddress</a>,
+) -> <a href="../../../../std/primitive.Field.html" class="primitive">Field</a></code>
+
+<div class="padded-description"><div class="comments">
+<p>Variant of <a href="../../../../noir_aztec/test/helpers/test_environment/struct.TestEnvironment.html#send_l1_to_l2_message"><code>send_l1_to_l2_message</code></a> that takes the secret hash
+directly.</p>
+<p>This is only required by contracts that commit to their consumption secret with a non-standard hash function.</p></div>
 </div><code id="create_contract_account" class="code-header">pub unconstrained fn <a href="#create_contract_account"><span class="fn">create_contract_account</span></a>(&mut self) -> <a href="../../../../protocol_types/address/aztec_address/struct.AztecAddress.html" class="struct">AztecAddress</a></code>
 
 <div class="padded-description"><div class="comments">
@@ -394,8 +438,7 @@ scope isolation - only notes scoped to this account will be visible during execu
 <div class="padded-description"><div class="comments">
 <p>Performs a utility contract function call and returns the result of the called function.</p>
 <p>The <code>call</code> value can be obtained by calling the appropriate method on a contract type. E.g.:</p>
-<pre><code><span class="kw">let</span> caller = env.create_light_account();
-<span class="kw">let</span> contract_addr = env.deploy(<span class="string">"SampleContract"</span>).without_initializer();
+<pre><code><span class="kw">let</span> contract_addr = env.deploy(<span class="string">"SampleContract"</span>).without_initializer();
 <span class="kw">let</span> return_value = env.execute_utility(SampleContract::at(contract_addr).sample_utility_function());</code></pre></div>
 </div><code id="execute_utility_opts" class="code-header">pub unconstrained fn <a href="#execute_utility_opts"><span class="fn">execute_utility_opts</span></a>&lt;let M: <a href="../../../../std/primitive.u32.html" class="primitive">u32</a>, let N: <a href="../../../../std/primitive.u32.html" class="primitive">u32</a>, let U: <a href="../../../../std/primitive.u32.html" class="primitive">u32</a>, T&gt;(
     _self: Self,
@@ -407,7 +450,7 @@ scope isolation - only notes scoped to this account will be visible during execu
 
 <div class="padded-description"><div class="comments">
 <p>Variant of <code>execute_utility</code> which allows specifying configuration values via <code>ExecuteUtilityOptions</code>, such as
-authorizing cross-contract utility calls.</p>
+<code>msg_sender</code> or authorizing cross-contract utility calls.</p>
 </div>
 </div><code id="offchain_messages" class="code-header">pub unconstrained fn <a href="#offchain_messages"><span class="fn">offchain_messages</span></a>(_self: Self) -> <a href="../../../../std/collections/bounded_vec/struct.BoundedVec.html" class="struct">BoundedVec</a>&lt;<a href="../../../../noir_aztec/messages/processing/offchain/struct.OffchainMessage.html" class="struct">OffchainMessage</a>, 64&gt;</code>
 

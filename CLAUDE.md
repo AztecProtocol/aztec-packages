@@ -42,6 +42,8 @@ Otherwise infer from the component being worked in:
 
 The bases above target the `next` line. For work scoped to the v5 release line, use `merge-train/spartan-v5` (which targets `v5-next`) in place of `merge-train/spartan`.
 
+`spartan` in these branch names refers to the deployment infrastructure in `spartan/`; it is not a release channel, network, or SDK version. Never present it, `merge-train/*`, `next`, or `v5-next` to a user as something to install or migrate to — releases are version tags (e.g. v5) and networks are named (e.g. testnet).
+
 Use the discovered base in `git diff origin/<base>...HEAD` and `git log origin/<base>..HEAD`. Always `git fetch` before creating branches so the base is not stale.
 </critical_never_assume_master>
 

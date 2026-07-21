@@ -3,6 +3,7 @@ import { BlockNumber, CheckpointNumber, EpochNumber, SlotNumber } from '@aztec/f
 import { Fr } from '@aztec/foundation/curves/bn254';
 import { EthAddress } from '@aztec/foundation/eth-address';
 import type { EpochProverFactory } from '@aztec/prover-client';
+import type { AvmSimulator } from '@aztec/simulator/server';
 import { L2Block, type L2BlockSource, type L2BlockStreamEvent, type L2Tips } from '@aztec/stdlib/block';
 import type { Checkpoint, PublishedCheckpoint } from '@aztec/stdlib/checkpoint';
 import type { ContractDataSource } from '@aztec/stdlib/contract';
@@ -33,6 +34,7 @@ describe('ProverNode', () => {
   let txProvider: ReturnType<typeof mock<ITxProvider>>;
   let rollupContract: ReturnType<typeof mock<RollupContract>>;
   let l1Metrics: ReturnType<typeof mock<L1Metrics>>;
+  let avmSimulator: ReturnType<typeof mock<AvmSimulator>>;
   let sessionManager: ReturnType<typeof mock<SessionManager>>;
   let publishingService: ReturnType<typeof mock<ProofPublishingService>>;
 
@@ -51,6 +53,7 @@ describe('ProverNode', () => {
     txProvider = mock<ITxProvider>();
     rollupContract = mock<RollupContract>();
     l1Metrics = mock<L1Metrics>();
+    avmSimulator = mock<AvmSimulator>();
     sessionManager = mock<SessionManager>();
     publishingService = mock<ProofPublishingService>();
 
@@ -70,6 +73,7 @@ describe('ProverNode', () => {
       { getTxProvider: () => txProvider },
       rollupContract,
       l1Metrics,
+      avmSimulator,
       {},
     );
     // Inject the session manager and publishing service without going through start() —

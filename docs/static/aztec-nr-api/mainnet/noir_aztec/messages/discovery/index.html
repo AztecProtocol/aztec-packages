@@ -27,11 +27,11 @@
 </ul>
 <h2>In module messages</h2>
 <h3>Modules</h3><ul class="item-list">
+<li><a href="../delivery/index.html">delivery</a></div></li>
 <li><a href="../discovery/index.html">discovery</a></div></li>
 <li><a href="../encoding/index.html">encoding</a></div></li>
 <li><a href="../encryption/index.html">encryption</a></div></li>
 <li><a href="../logs/index.html">logs</a></div></li>
-<li><a href="../message_delivery/index.html">message_delivery</a></div></li>
 <li><a href="../msg_type/index.html">msg_type</a></div></li>
 <li><a href="../offchain_messages/index.html">offchain_messages</a></div></li>
 <li><a href="../processing/index.html">processing</a></div></li>
@@ -52,9 +52,12 @@
 <li><div class="item-name"><a href="type.ComputeNoteHashAndNullifier.html" class="type">ComputeNoteHashAndNullifier</a></div><div class="item-description">Deprecated: use <a href="../../../noir_aztec/messages/discovery/type.ComputeNoteHash.html"><code>ComputeNoteHash</code></a> and <a href="../../../noir_aztec/messages/discovery/type.ComputeNoteNullifier.html"><code>ComputeNoteNullifier</code></a> instead.</div></li>
 <li><div class="item-name"><a href="type.ComputeNoteNullifier.html" class="type">ComputeNoteNullifier</a></div><div class="item-description">A contract's way of computing note nullifiers.</div></li>
 <li><div class="item-name"><a href="type.CustomMessageHandler.html" class="type">CustomMessageHandler</a></div><div class="item-description">A handler for custom messages.</div></li>
+<li><div class="item-name"><a href="type.CustomSyncHandler.html" class="type">CustomSyncHandler</a></div><div class="item-description">Custom state synchronization handler.</div></li>
 </ul>
 <h2 id="functions">Functions</h2><ul class="item-list">
 <li><div class="item-name"><a href="fn.do_sync_state.html" class="fn">do_sync_state</a></div><div class="item-description">Synchronizes the contract's private state with the network.</div></li>
+<li><div class="item-name"><a href="fn.do_sync_state_without_handshake_discovery.html" class="fn">do_sync_state_without_handshake_discovery</a></div><div class="item-description">Variant of <a href="../../../noir_aztec/messages/discovery/fn.do_sync_state.html"><code>do_sync_state</code></a> that skips handshake secret discovery. Used by the HandshakeRegistry to avoid
+infinite recursion (the registry discovers handshakes for other contracts, not for itself).</div></li>
 </ul>
 </main>
 </span>

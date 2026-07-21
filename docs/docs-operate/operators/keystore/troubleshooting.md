@@ -1,6 +1,7 @@
 ---
 title: Troubleshooting and Best Practices
 description: Common issues, troubleshooting steps, security best practices, and CLI reference for keystore configuration and operation on the Aztec network.
+displayed_sidebar: operatorsSidebar
 ---
 
 ## Keystore Creation Issues

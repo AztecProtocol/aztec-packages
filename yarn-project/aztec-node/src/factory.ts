@@ -25,6 +25,7 @@ import {
   type SequencerPublisher,
 } from '@aztec/sequencer-client';
 import { type AutomineSequencer, createAutomineSequencer } from '@aztec/sequencer-client/automine';
+import { AvmSimulatorPool } from '@aztec/simulator/server';
 import {
   AttestationsBlockWatcher,
   AttestedInvalidProposalWatcher,
@@ -195,6 +196,16 @@ export async function createAztecNodeService(
     const nativeWs = await createWorldState(config, options.genesis);
     const initialHeader = nativeWs.getInitialHeader();
     const initialBlockHash = await initialHeader.hash();
+
+    // AVM execution backend for public simulation: a pool of bb-avm-sim processes reaching the world state
+    // over its IPC socket. Owned here and threaded into the public-processor consumers (node, checkpoint
+    // builders, prover node); disposed on stop via the started-resources cleanup.
+    log.info('WSDB ready, creating AVM simulator pool');
+    const avmSimulator = await AvmSimulatorPool.spawn({
+      wsdbIpcPath: nativeWs.getIpcPath(),
+      logger: (msg: string) => log.debug(msg),
+    });
+    started.push({ stop: () => avmSimulator[Symbol.asyncDispose]() });
     const archiver = await createArchiver(
       config,
       { blobClient, epochCache, telemetry, dateProvider },
@@ -295,6 +306,7 @@ export async function createAztecNodeService(
       worldStateSynchronizer,
       archiver,
       dateProvider,
+      avmSimulator,
       telemetry,
     );
 
@@ -510,6 +522,7 @@ export async function createAztecNodeService(
         worldStateSynchronizer,
         archiver,
         dateProvider,
+        avmSimulator,
         telemetry,
         debugLogStore,
       );
@@ -594,6 +607,7 @@ export async function createAztecNodeService(
         epochCache,
         blobClient,
         keyStoreManager,
+        avmSimulator,
       });
 
       if (!options.dontStartProverNode) {
@@ -634,6 +648,7 @@ export async function createAztecNodeService(
       keyStoreManager,
       debugLogStore,
       automineSequencer,
+      avmSimulator,
     });
 
     return node;

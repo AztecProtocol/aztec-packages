@@ -63,17 +63,18 @@ recipients.</p></div>
     Note: <a href="../../noir_aztec/note/note_interface/trait.NoteType.html" class="trait">NoteType</a>,
     Note: <a href="../../protocol_types/traits/trait.Packable.html" class="trait">Packable</a></div></code>
 
-<code id="deliver" class="code-header">pub fn <a href="#deliver"><span class="fn">deliver</span></a>(self, delivery_mode: <a href="../../std/primitive.u8.html" class="primitive">u8</a>)
+<code id="deliver" class="code-header">pub fn <a href="#deliver"><span class="fn">deliver</span></a>&lt;D&gt;(self, delivery_mode: D)
 <div class="where-clause">where
+    D: <a href="../../noir_aztec/messages/delivery/trait.MessageDeliveryBuilder.html" class="trait">MessageDeliveryBuilder</a>,
     Note: <a href="../../noir_aztec/note/note_interface/trait.NoteType.html" class="trait">NoteType</a>,
     Note: <a href="../../protocol_types/traits/trait.Packable.html" class="trait">Packable</a></div></code>
 
 <div class="padded-description"><div class="comments">
 <p>Delivers the note message to its owner, providing them access to the private note information.</p>
 <p>The message is first encrypted to the owner's public key, ensuring no other actor can read it.</p>
-<p>The <code>delivery_mode</code> must be one of <a href="../../noir_aztec/messages/message_delivery/struct.MessageDeliveryEnum.html"><code>crate::messages::message_delivery::MessageDeliveryEnum</code></a>, and will inform
-costs (both proving time and TX fees) as well as delivery guarantees. This value must be a compile-time
-constant.</p>
+<p>The <code>delivery_mode</code> is produced by the <a href="../../noir_aztec/messages/delivery/struct.MessageDelivery.html"><code>crate::messages::delivery::MessageDelivery</code></a> entrypoints
+(<code>offchain</code>, <code>onchain_unconstrained</code>, or <code>onchain_constrained</code>). It informs costs (both proving time and TX
+fees) as well as delivery guarantees, and must be a compile-time constant.</p>
 <p>To deliver the message to a recipient that is not the note's owner, use <a href="../../noir_aztec/note/struct.NoteMessage.html#deliver_to"><code>deliver_to</code></a>
 instead.</p>
 <h4>Invalid Recipients</h4>
@@ -81,8 +82,9 @@ instead.</p>
 as normal. This prevents both 'king of the hill' attacks (where a sender would otherwise fail to deliver a note
 to an invalid recipient) and forced privacy leaks (where an invalid recipient results in a unique transaction
 fingerprint, e.g. one lacking the private logs that would correspond to message delivery).</p></div>
-</div><code id="deliver_to" class="code-header">pub fn <a href="#deliver_to"><span class="fn">deliver_to</span></a>(self, recipient: <a href="../../protocol_types/address/aztec_address/struct.AztecAddress.html" class="struct">AztecAddress</a>, delivery_mode: <a href="../../std/primitive.u8.html" class="primitive">u8</a>)
+</div><code id="deliver_to" class="code-header">pub fn <a href="#deliver_to"><span class="fn">deliver_to</span></a>&lt;D&gt;(self, recipient: <a href="../../protocol_types/address/aztec_address/struct.AztecAddress.html" class="struct">AztecAddress</a>, delivery_mode: D)
 <div class="where-clause">where
+    D: <a href="../../noir_aztec/messages/delivery/trait.MessageDeliveryBuilder.html" class="trait">MessageDeliveryBuilder</a>,
     Note: <a href="../../noir_aztec/note/note_interface/trait.NoteType.html" class="trait">NoteType</a>,
     Note: <a href="../../protocol_types/traits/trait.Packable.html" class="trait">Packable</a></div></code>
 
