@@ -131,14 +131,9 @@ export function makeBlockEndStateField({
 }
 
 export function makeBlockEndBlobData({
-  // Accepted for call-site compatibility, but no longer read: post-flip every block carries the
-  // l1-to-l2 message tree root regardless of position, so the blob format no longer branches on it.
-  isFirstBlock: _isFirstBlock = true,
   seed = 1,
   ...overrides
-}: { seed?: number; isFirstBlock?: boolean } & Partial<
-  Omit<BlockEndBlobData, 'blockEndMarker' | 'blockEndStateField'>
-> & {
+}: { seed?: number } & Partial<Omit<BlockEndBlobData, 'blockEndMarker' | 'blockEndStateField'>> & {
     blockEndMarker?: Partial<BlockEndMarker>;
     blockEndStateField?: Partial<BlockEndStateField>;
   } = {}): BlockEndBlobData {
@@ -162,11 +157,10 @@ export function makeBlockEndBlobData({
 
 export function makeBlockBlobData({
   numTxs = 1,
-  isFirstBlock = true,
   isFullTx = false,
   seed = 1,
   ...overrides
-}: { numTxs?: number; isFirstBlock?: boolean; isFullTx?: boolean; seed?: number } & Partial<
+}: { numTxs?: number; isFullTx?: boolean; seed?: number } & Partial<
   Parameters<typeof makeBlockEndBlobData>[0]
 > = {}): BlockBlobData {
   return {
@@ -176,7 +170,6 @@ export function makeBlockBlobData({
       blockEndMarker: {
         numTxs,
       },
-      isFirstBlock,
       ...overrides,
     }),
   };
@@ -196,11 +189,7 @@ export function makeCheckpointBlobData({
 } & Partial<CheckpointBlobData> = {}): CheckpointBlobData {
   const blocks =
     overrides.blocks ??
-    makeTuple(
-      numBlocks,
-      i => makeBlockBlobData({ numTxs: numTxsPerBlock, isFirstBlock: i === seed, isFullTx, seed: seed + i * 0x1000 }),
-      seed,
-    );
+    makeTuple(numBlocks, i => makeBlockBlobData({ numTxs: numTxsPerBlock, isFullTx, seed: seed + i * 0x1000 }), seed);
 
   const numBlobFields =
     overrides.checkpointEndMarker?.numBlobFields ??

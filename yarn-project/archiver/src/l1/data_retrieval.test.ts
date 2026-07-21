@@ -16,9 +16,9 @@ describe('data_retrieval', () => {
       const body3 = await Body.random({ txsPerBlock: 2 });
 
       // Convert to BlockBlobData
-      const block1BlobData = makeBlockBlobDataFromBody(body1, BlockNumber(1), true, 1000);
-      const block2BlobData = makeBlockBlobDataFromBody(body2, BlockNumber(2), false, 2000);
-      const block3BlobData = makeBlockBlobDataFromBody(body3, BlockNumber(3), false, 3000);
+      const block1BlobData = makeBlockBlobDataFromBody(body1, BlockNumber(1), 1000);
+      const block2BlobData = makeBlockBlobDataFromBody(body2, BlockNumber(2), 2000);
+      const block3BlobData = makeBlockBlobDataFromBody(body3, BlockNumber(3), 3000);
 
       // Calculate total blob fields for checkpoint end marker
       const numBlobFields = 100; // Approximate, doesn't need to be exact for this test
@@ -96,7 +96,7 @@ describe('data_retrieval', () => {
 
     it('handles single-block checkpoint', async () => {
       const body1 = await Body.random({ txsPerBlock: 3 });
-      const block1BlobData = makeBlockBlobDataFromBody(body1, BlockNumber(1), true, 5000);
+      const block1BlobData = makeBlockBlobDataFromBody(body1, BlockNumber(1), 5000);
 
       const checkpointBlobData: CheckpointBlobData = {
         blocks: [block1BlobData],
@@ -134,15 +134,9 @@ describe('data_retrieval', () => {
  * Helper to create a BlockBlobData from a Body. This ensures the blob data is compatible
  * with Body.fromTxBlobData.
  */
-function makeBlockBlobDataFromBody(
-  body: Body,
-  blockNumber: BlockNumber,
-  isFirstBlock: boolean,
-  seed: number,
-): BlockBlobData {
+function makeBlockBlobDataFromBody(body: Body, blockNumber: BlockNumber, seed: number): BlockBlobData {
   const blockEndBlobData = makeBlockEndBlobData({
     seed,
-    isFirstBlock,
     blockEndMarker: {
       numTxs: body.txEffects.length,
       blockNumber,
