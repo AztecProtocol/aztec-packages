@@ -29,3 +29,4 @@ android-sysroot/
 scripts/flavor-codegen/dist/
 scripts/flavor-codegen/node_modules/
 pil/vm2/constants_gen.pil
+src/barretenberg/aztec/aztec_constants.hpp
