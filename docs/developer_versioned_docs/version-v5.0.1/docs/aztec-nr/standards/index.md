@@ -1,17 +1,17 @@
 ---
 title: Aztec Contract Standards
 sidebar_position: 0
-description: Overview of Aztec Improvement Proposal (AIP) contract standards maintained by DeFi Wonderland.
+description: Overview of Aztec Improvement Proposal (AIP) contract standards from the aztec-standards repository.
 ---
 
 Aztec contract standards define shared interfaces and behaviors for common onchain primitives. They serve the same role that ERC standards play on Ethereum: establishing conventions that allow contracts, wallets, and tooling to interoperate without prior coordination.
 
-The standards described in this section are maintained by [DeFi Wonderland](https://github.com/defi-wonderland/aztec-standards) in the `aztec-standards` repository. Each standard is identified by an **Aztec Improvement Proposal (AIP)** number that mirrors its Ethereum counterpart where applicable (AIP-20 corresponds to ERC-20, AIP-721 to ERC-721, AIP-4626 to ERC-4626).
+The standards described in this section are maintained in the [aztec-standards repository](https://github.com/AztecProtocol/aztec-standards/tree/v5.0.1) and published on npm as [`@aztec-foundation/aztec-standards`](https://www.npmjs.com/package/@aztec-foundation/aztec-standards#provenance). Each standard is identified by an **Aztec Improvement Proposal (AIP)** number that mirrors its Ethereum counterpart where applicable (AIP-20 corresponds to ERC-20, AIP-721 to ERC-721, AIP-4626 to ERC-4626).
 
 Because Aztec contracts have both private and public execution contexts, the standards are more involved than their Ethereum equivalents. Transfers can move value between private notes and public balances, and many operations require coordination between encrypted state and transparent state within a single transaction.
 
 :::note
-The code examples in this section are taken from the [aztec-standards repository](https://github.com/defi-wonderland/aztec-standards) maintained by DeFi Wonderland. They will differ from the reference contract implementations shipped in the [aztec-packages repo](https://github.com/AztecProtocol/aztec-packages) under `noir-projects/noir-contracts/contracts/`. When in doubt, consult the aztec-standards github repo for the canonical standard interfaces.
+The code examples in this section are taken from the [aztec-standards repository](https://github.com/AztecProtocol/aztec-standards/tree/v5.0.1). They will differ from the reference contract implementations shipped in the [aztec-packages repo](https://github.com/AztecProtocol/aztec-packages) under `noir-projects/noir-contracts/contracts/`. When in doubt, consult the aztec-standards github repo for the canonical standard interfaces.
 :::
 
 ## Standards
@@ -30,4 +30,4 @@ The code examples in this section are taken from the [aztec-standards repository
 - [Deploying a Token Contract](../../tutorials/js_tutorials/aztecjs-getting-started.md) — deploy and interact with the reference token contract using Aztec.js
 - [Counter Contract](../../tutorials/contract_tutorials/counter_contract.md) — introduces private state, notes, and balance management
 
-For the canonical implementations and latest interface specifications, refer to the [aztec-standards repository](https://github.com/defi-wonderland/aztec-standards) maintained by DeFi Wonderland.
+For the canonical implementations and latest interface specifications, refer to the [aztec-standards repository](https://github.com/AztecProtocol/aztec-standards/tree/v5.0.1).

@@ -4,7 +4,7 @@ sidebar_position: 4
 description: Minimal token and NFT custody contract with salt-based authorization.
 ---
 
-[Source](https://github.com/defi-wonderland/aztec-standards/tree/dev/src/escrow_contract)
+[Source](https://github.com/AztecProtocol/aztec-standards/tree/v5.0.1/src/escrow_contract)
 
 The Escrow standard provides a minimal contract for holding tokens or NFTs on behalf of a single owner. Rather than storing the owner in mutable private state — which would require note discovery and decryption on every authorization check — the owner is encoded in the contract's own `salt` and thus baked into the contract address at deploy time. This makes authorization a simple field comparison against immutable deployment parameters: cheaper, simpler, and impossible to front-run.
 
