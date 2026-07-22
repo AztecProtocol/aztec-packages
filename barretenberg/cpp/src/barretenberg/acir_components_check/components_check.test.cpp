@@ -550,7 +550,7 @@ TEST_F(AcirComponentsCheckTest, DetectsUnconstrainedWitnesses)
                               .linear_combinations =
                                   {
                                       { bb::fr::one().to_buffer(), make_witness(8) },
-                                      { bb::fr(-1).to_buffer(), make_witness(9) },
+                                      { bb::fr::zero().to_buffer(), make_witness(9) },
                                   },
                               .q_c = bb::fr::zero().to_buffer(),
                           } } },
@@ -559,8 +559,6 @@ TEST_F(AcirComponentsCheckTest, DetectsUnconstrainedWitnesses)
     auto constraints = circuit_serde_to_acir_format(circuit, IsMegaBuilder<AcirComponentsCheckBuilder>);
     AcirProgram program{ .constraints = constraints, .witness = {} };
     auto builder = create_circuit<AcirComponentsCheckBuilder>(program);
-    // Corrupt the circuit
-    builder.real_variable_index.resize(9);
 
     acir_components_check::ComponentsChecker checker(circuit, builder);
     auto errors = checker.check();
