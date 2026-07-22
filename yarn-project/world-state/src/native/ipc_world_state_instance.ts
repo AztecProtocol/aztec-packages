@@ -26,6 +26,7 @@ import type {
   TreeMeta as WsdbTreeMeta,
 } from '@aztec/wsdb';
 
+import assert from 'node:assert';
 import { cpus } from 'node:os';
 
 import type { WorldStateInstrumentation } from '../instrumentation/instrumentation.js';
@@ -205,6 +206,23 @@ function getWsdbExtraArgs(
       data.value.toBuffer().toString('hex'),
     ]);
     args.push('--prefilled-public-data', JSON.stringify(pairs));
+  }
+
+  // Nullifiers to pre-insert into the genesis nullifier tree (empty by default, so production genesis roots are
+  // unchanged). The native indexed nullifier tree requires its prefilled leaves to be unique and strictly
+  // increasing, so we enforce that here before handing them to the aztec-wsdb subprocess rather than failing deep
+  // inside C++ tree construction. Each nullifier is serialised as a 64-char hex string, matching the JSON-array
+  // format `--prefilled-nullifiers` is parsed with in wsdb_ipc_server.cpp.
+  const prefilledNullifiers = genesis.prefilledNullifiers ?? [];
+  if (prefilledNullifiers.length > 0) {
+    for (let i = 1; i < prefilledNullifiers.length; i++) {
+      assert(
+        prefilledNullifiers[i].toBigInt() > prefilledNullifiers[i - 1].toBigInt(),
+        'Prefilled genesis nullifiers must be unique and strictly increasing',
+      );
+    }
+    const hexNullifiers = prefilledNullifiers.map(n => n.toBuffer().toString('hex'));
+    args.push('--prefilled-nullifiers', JSON.stringify(hexNullifiers));
   }
 
   const genesisTimestamp = Number(genesis.genesisTimestamp);
