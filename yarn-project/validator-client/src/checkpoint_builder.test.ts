@@ -808,6 +808,7 @@ describe('FullNodeCheckpointsBuilder', () => {
       worldState,
       mock<ContractDataSource>(),
       new TestDateProvider(),
+      mock<AvmSimulator>(),
       telemetryClient,
     );
   });
