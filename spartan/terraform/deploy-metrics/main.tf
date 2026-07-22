@@ -163,6 +163,10 @@ resource "helm_release" "aztec-gke-cluster" {
           {
             name     = "grafana-webhooks"
             optional = false
+          },
+          {
+            name     = "grafana-propose-watcher-datasource"
+            optional = false
           }
         ]
 
@@ -203,6 +207,26 @@ resource "helm_release" "aztec-gke-cluster" {
                 { secretKey = "SLACK_WEBHOOK_DEVNET_URL", remoteRef = { key = var.SLACK_WEBHOOK_DEVNET_SECRET_NAME } },
                 { secretKey = "SLACK_WEBHOOK_TESTNET_URL", remoteRef = { key = var.SLACK_WEBHOOK_TESTNET_SECRET_NAME } },
                 { secretKey = "SLACK_WEBHOOK_MAINNET_URL", remoteRef = { key = var.SLACK_WEBHOOK_MAINNET_SECRET_NAME } },
+              ]
+            }
+          },
+          {
+            apiVersion = "external-secrets.io/v1"
+            kind       = "ExternalSecret"
+            metadata = {
+              name = "grafana-propose-watcher-datasource"
+            }
+            spec = {
+              refreshInterval = "1m"
+              secretStoreRef = {
+                name = "gcp-secret-store"
+                kind = "ClusterSecretStore"
+              }
+              data = [
+                { secretKey = "PROPOSE_WATCHER_PG_HOST", remoteRef = { key = var.PROPOSE_WATCHER_GRAFANA_DATASOURCE_SECRET_NAME, property = "host" } },
+                { secretKey = "PROPOSE_WATCHER_PG_DATABASE", remoteRef = { key = var.PROPOSE_WATCHER_GRAFANA_DATASOURCE_SECRET_NAME, property = "database" } },
+                { secretKey = "PROPOSE_WATCHER_PG_USER", remoteRef = { key = var.PROPOSE_WATCHER_GRAFANA_DATASOURCE_SECRET_NAME, property = "user" } },
+                { secretKey = "PROPOSE_WATCHER_PG_PASSWORD", remoteRef = { key = var.PROPOSE_WATCHER_GRAFANA_DATASOURCE_SECRET_NAME, property = "password" } },
               ]
             }
           }

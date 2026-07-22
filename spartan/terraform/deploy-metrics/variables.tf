@@ -22,6 +22,12 @@ variable "GRAFANA_PASSWORD_SECRET_NAME" {
   default     = "grafana-dashboard-password"
 }
 
+variable "PROPOSE_WATCHER_GRAFANA_DATASOURCE_SECRET_NAME" {
+  description = "GCP Secret Manager JSON secret containing the propose-watcher Grafana datasource connection values"
+  type        = string
+  default     = "propose-watcher-grafana-datasource"
+}
+
 variable "SLACK_WEBHOOK_SECRET_NAME" {
   description = "Webhook to use to send to notifications"
   type        = string
