@@ -1,4 +1,4 @@
-use aztec::macros::aztec;
+use aztec::{macros::{aztec, AztecConfig}, messages::discovery::do_sync_state_no_op};
 
 /// A contract that manages public authentication witnesses (authwits) on the Aztec network.
 ///
@@ -14,7 +14,7 @@ use aztec::macros::aztec;
 /// Note that there is no expiration time enforced on the approved actions in this contract as this can be achieved by
 /// including an expiration timestamp in the `message` (`message_hash` preimage) and having the consumer contract
 /// constrain that value.
-#[aztec]
+#[aztec(AztecConfig::new().custom_sync_state(do_sync_state_no_op))]
 pub contract AuthRegistry {
     use aztec::{
         authwit::auth::{assert_current_call_valid_authwit, compute_authwit_message_hash, IS_VALID_SELECTOR},

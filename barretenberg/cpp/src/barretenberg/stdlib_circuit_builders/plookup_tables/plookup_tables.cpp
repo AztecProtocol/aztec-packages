@@ -285,22 +285,22 @@ BasicTable create_basic_table(const BasicTableId id, const size_t index)
     if (id_var >= static_cast<size_t>(SECP256R1_FIXED_BASE_XLO_0) &&
         id_var < static_cast<size_t>(SECP256R1_FIXED_BASE_XHI_0)) {
         return secp256r1_fixed_base::table::generate_basic_table_runtime<secp256r1_fixed_base::table::AXIS_XLO>(
-            id, id_var - static_cast<size_t>(SECP256R1_FIXED_BASE_XLO_0));
+            id, id_var - static_cast<size_t>(SECP256R1_FIXED_BASE_XLO_0), index);
     }
     if (id_var >= static_cast<size_t>(SECP256R1_FIXED_BASE_XHI_0) &&
         id_var < static_cast<size_t>(SECP256R1_FIXED_BASE_YLO_0)) {
         return secp256r1_fixed_base::table::generate_basic_table_runtime<secp256r1_fixed_base::table::AXIS_XHI>(
-            id, id_var - static_cast<size_t>(SECP256R1_FIXED_BASE_XHI_0));
+            id, id_var - static_cast<size_t>(SECP256R1_FIXED_BASE_XHI_0), index);
     }
     if (id_var >= static_cast<size_t>(SECP256R1_FIXED_BASE_YLO_0) &&
         id_var < static_cast<size_t>(SECP256R1_FIXED_BASE_YHI_0)) {
         return secp256r1_fixed_base::table::generate_basic_table_runtime<secp256r1_fixed_base::table::AXIS_YLO>(
-            id, id_var - static_cast<size_t>(SECP256R1_FIXED_BASE_YLO_0));
+            id, id_var - static_cast<size_t>(SECP256R1_FIXED_BASE_YLO_0), index);
     }
     if (id_var >= static_cast<size_t>(SECP256R1_FIXED_BASE_YHI_0) &&
         id_var < static_cast<size_t>(SECP256R1_FIXED_BASE_END)) {
         return secp256r1_fixed_base::table::generate_basic_table_runtime<secp256r1_fixed_base::table::AXIS_YHI>(
-            id, id_var - static_cast<size_t>(SECP256R1_FIXED_BASE_YHI_0));
+            id, id_var - static_cast<size_t>(SECP256R1_FIXED_BASE_YHI_0), index);
     }
     switch (id) {
     case AES_SPARSE_MAP: {

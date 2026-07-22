@@ -1,19 +1,26 @@
 use crate::note::{HintedNote, note_interface::NoteType};
-use crate::protocol::{
-    address::AztecAddress,
-    constants::MAX_NOTE_HASH_READ_REQUESTS_PER_CALL,
-    traits::{Packable, ToField},
-};
+use crate::protocol::{address::AztecAddress, constants::MAX_NOTE_HASH_READ_REQUESTS_PER_CALL, traits::Packable};
 use std::option::Option;
 
-pub struct PropertySelector {
-    pub index: u8, // index of the field in the serialized note array
+/// Locates a note property inside the packed note.
+///
+/// `T` is the type of the selected property: it is not stored, and is only used to validate the selector when
+/// constructing a `Select` or `Sort` criterion.
+pub struct PropertySelector<T> {
+    pub index: u8, // index of the field in the note's packed representation
     pub offset: u8, // offset in the byte representation of the field (selected with index above) from which to reading
     pub length: u8, // number of bytes to read after the offset
 }
 
+impl<T> PropertySelector<T> {
+    fn type_erased(self) -> PropertySelector<Field> {
+        PropertySelector { index: self.index, offset: self.offset, length: self.length }
+    }
+}
+
 pub struct Select {
-    pub(crate) property_selector: PropertySelector,
+    // The property type is validated and erased in `Select::new`.
+    pub(crate) property_selector: PropertySelector<Field>,
     pub(crate) comparator: u8,
     pub(crate) value: Field,
 }
@@ -21,8 +28,15 @@ pub struct Select {
 impl Select {
     // The selected property will be the left hand side and value the right hand side of the operation, so e.g. the
     // object created by new(property, Comparator.GT, value) represents 'property > value'.
-    pub fn new(property_selector: PropertySelector, comparator: u8, value: Field) -> Self {
-        Select { property_selector, comparator, value }
+    pub fn new<T>(property_selector: PropertySelector<T>, comparator: u8, value: T) -> Self
+    where
+        T: Packable,
+    {
+        std::static_assert(
+            <T as Packable>::N == 1,
+            "cannot select by a property that packs to more than one field",
+        );
+        Select { property_selector: property_selector.type_erased(), comparator, value: value.pack()[0] }
     }
 }
 
@@ -34,13 +48,21 @@ pub struct SortOrderEnum {
 pub global SortOrder: SortOrderEnum = SortOrderEnum { DESC: 1, ASC: 2 };
 
 pub struct Sort {
-    pub(crate) property_selector: PropertySelector,
+    // The property type is validated and erased in `Sort::new`.
+    pub(crate) property_selector: PropertySelector<Field>,
     pub(crate) order: u8,
 }
 
 impl Sort {
-    pub fn new(property_selector: PropertySelector, order: u8) -> Self {
-        Sort { property_selector, order }
+    pub fn new<T>(property_selector: PropertySelector<T>, order: u8) -> Self
+    where
+        T: Packable,
+    {
+        std::static_assert(
+            <T as Packable>::N == 1,
+            "cannot sort by a property that packs to more than one field",
+        );
+        Sort { property_selector: property_selector.type_erased(), order }
     }
 }
 
@@ -86,17 +108,24 @@ impl<Note, let N: u32, PreprocessorArgs, FilterArgs> NoteGetterOptions<Note, N, 
     // This method adds a `Select` criterion to the options. It takes a property_selector indicating which field to
     // select, a value representing the specific value to match in that field, and a comparator (For possible values of
     // comparators, please see the Comparator enum from `utils::comparison`)
-    pub fn select<T>(&mut self, property_selector: PropertySelector, comparator: u8, value: T) -> Self
+    // Selectors from auto-generated `properties()` require the note's derived Packable layout. Manually defined
+    // selectors work with any layout.
+    pub fn select<T>(&mut self, property_selector: PropertySelector<T>, comparator: u8, value: T) -> Self
     where
-        T: ToField,
+        T: Packable,
     {
-        self.selects.push(Option::some(Select::new(property_selector, comparator, value.to_field())));
+        self.selects.push(Option::some(Select::new(property_selector, comparator, value)));
         *self
     }
 
     // This method adds a `Sort` criterion to the options. It takes a field_index indicating which field to sort by and
     // an order (SortOrder) to determine the sorting direction.
-    pub fn sort(&mut self, property_selector: PropertySelector, order: u8) -> Self {
+    // Selectors from auto-generated `properties()` require the note's derived Packable layout. Manually defined
+    // selectors work with any layout.
+    pub fn sort<T>(&mut self, property_selector: PropertySelector<T>, order: u8) -> Self
+    where
+        T: Packable,
+    {
         self.sorts.push(Option::some(Sort::new(property_selector, order)));
         *self
     }
