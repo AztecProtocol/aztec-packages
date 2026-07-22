@@ -124,7 +124,8 @@ function verify_refreshed_inputs {
   echo "Using smallest pinned Chonk smoke-test flow: $flow"
   CHONK_PINNED_IVC_FLOW="$flow" CHONK_PINNED_IVC_FLOW_LIMIT=1 \
     barretenberg/cpp/scripts/run_test.sh bbapi_tests ChonkPinnedIvcInputsTest.AllPinnedFlows
-  CHONK_PINNED_IVC_FLOW="$flow" CHONK_PINNED_IVC_FLOW_LIMIT=1 CHONK_PINNED_IVC_WASM_FLOW_LIMIT=1 \
+  AZTEC_REPO_ROOT="${root:-$(git rev-parse --show-toplevel)}" \
+    CHONK_PINNED_IVC_FLOW="$flow" CHONK_PINNED_IVC_FLOW_LIMIT=1 CHONK_PINNED_IVC_WASM_FLOW_LIMIT=1 \
     barretenberg/ts/bb.js/scripts/run_test.sh bbapi/chonk_pinned_inputs.test.js
 }
 
