@@ -71,6 +71,31 @@ locals {
       })
     })
   }
+
+  # Consumers listed here get no per-minute cap (rate_limit_minute = 0). Consumers that need a
+  # finite cap go in rate_limited_consumers instead, since this loop hardcodes 0 for every entry.
+  consumer_secret_names = [
+    "testnet-rpc-consumer-client1"
+  ]
+
+  rate_limited_consumers = {
+    "testnet-rpc-consumer-client2" = {
+      username                       = "testnet-rpc-consumer-client2"
+      gcp_secret_manager_secret_name = "testnet-rpc-consumer-client2"
+      rate_limit_minute              = 3000
+    }
+  }
+
+  consumers = merge(
+    {
+      for name in local.consumer_secret_names : name => {
+        username                       = name
+        gcp_secret_manager_secret_name = name
+        rate_limit_minute              = 0
+      }
+    },
+    local.rate_limited_consumers
+  )
 }
 
 module "environment" {
@@ -86,6 +111,7 @@ module "environment" {
   RELEASE_PREFIX  = "testnet"
   RPCS            = local.rpcs
   ALLOW_ANONYMOUS = true
+  CONSUMERS       = local.consumers
 
   IRM_METRICS_ENABLED = false
 }
