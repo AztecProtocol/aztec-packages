@@ -353,7 +353,7 @@ case "$cmd" in
     export INSTANCE_POSTFIX="n-proving-bench"
     skip_network_deploy=0
     [ "${SKIP_NETWORK_DEPLOY:-0}" = "1" ] && skip_network_deploy=1
-    bootstrap_ec2 "SKIP_NETWORK_DEPLOY=$skip_network_deploy ./bootstrap.sh ci-network-proving-bench $*"
+    bootstrap_ec2 "BENCH_SWEEP_ID=${BENCH_SWEEP_ID:-} BENCH_SWEEP_LABEL=${BENCH_SWEEP_LABEL:-} BENCH_BENCHMARK_TYPE=${BENCH_BENCHMARK_TYPE:-} SKIP_NETWORK_DEPLOY=$skip_network_deploy ./bootstrap.sh ci-network-proving-bench $*"
     ;;
   network-block-capacity-bench)
     # Args: <scenario> <namespace> [docker_image]
@@ -363,7 +363,7 @@ case "$cmd" in
     export INSTANCE_POSTFIX="n-block-cap-bench"
     skip_network_deploy=0
     [ "${SKIP_NETWORK_DEPLOY:-0}" = "1" ] && skip_network_deploy=1
-    bootstrap_ec2 "SKIP_NETWORK_DEPLOY=$skip_network_deploy ./bootstrap.sh ci-network-block-capacity-bench $*"
+    bootstrap_ec2 "BENCH_SWEEP_ID=${BENCH_SWEEP_ID:-} BENCH_SWEEP_LABEL=${BENCH_SWEEP_LABEL:-block-capacity} BENCH_BENCHMARK_TYPE=${BENCH_BENCHMARK_TYPE:-block-capacity} SKIP_NETWORK_DEPLOY=$skip_network_deploy ./bootstrap.sh ci-network-block-capacity-bench $*"
     ;;
   network-bench-10tps)
     # Args: <scenario> <namespace> [docker_image]
