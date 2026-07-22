@@ -49,7 +49,11 @@ Round N: Proposers vote on offenses from Round N-2
 - **Grace Period**: First 8,400 slots after the rollup becomes canonical (~7 days; configurable per node via `SLASH_GRACE_PERIOD_L2_SLOTS`)
 =======
 - **Execution Delay**: 2 rounds on the v5 testnet (~5 hours; mainnet uses 28 rounds, ~3 days)
+<<<<<<< HEAD
 - **Grace Period**: First 64 slots after the rollup becomes canonical on the v5 testnet (~1.3 hours; mainnet uses 1,200 slots, ~1 day); configurable per node via `SLASH_GRACE_PERIOD_L2_SLOTS`
+>>>>>>> origin/v5-next
+=======
+- **Grace Period**: First 64 slots after the rollup becomes canonical on the v5 testnet (~1.3 hours; mainnet uses 8,400 slots, ~7 days); configurable per node via `SLASH_GRACE_PERIOD_L2_SLOTS`
 >>>>>>> origin/v5-next
 
 ### Slashing Amounts

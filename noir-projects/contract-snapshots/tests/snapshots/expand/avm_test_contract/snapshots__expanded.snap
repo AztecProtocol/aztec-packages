@@ -2,7 +2,6 @@
 source: tests/snapshots.rs
 expression: stdout
 ---
-
 use aztec::macros::aztec;
 use aztec::macros::aztec;
 
@@ -716,20 +715,20 @@ pub contract AvmTest {
         })
     }
 
-    /// This contract does not use private notes, so this function should never be called as it will unconditionally fail.
+    /// This contract does not use private notes, so this function always returns `Option::none()`.
     /// 
     /// This function is automatically injected by the `#[aztec]` macro.
     #[contract_library_method]
     unconstrained fn _compute_note_hash(_packed_note: BoundedVec<Field, 8>, _owner: AztecAddress, _storage_slot: Field, _note_type_id: Field, _contract_address: AztecAddress, _randomness: Field) -> Option<Field> {
-        panic(f"This contract does not use private notes")
+        Option::<Field>::none()
     }
 
-    /// This contract does not use private notes, so this function should never be called as it will unconditionally fail.
+    /// This contract does not use private notes, so this function always returns `Option::none()`.
     /// 
     /// This function is automatically injected by the `#[aztec]` macro.
     #[contract_library_method]
     unconstrained fn _compute_note_nullifier(_unique_note_hash: Field, _packed_note: BoundedVec<Field, 8>, _owner: AztecAddress, _storage_slot: Field, _note_type_id: Field, _contract_address: AztecAddress, _randomness: Field) -> Option<Field> {
-        panic(f"This contract does not use private notes")
+        Option::<Field>::none()
     }
 
     /// Receives offchain messages into this contract's offchain inbox for subsequent processing.
@@ -1846,9 +1845,13 @@ pub contract AvmTest {
     unconstrained fn sync_state(scope: AztecAddress) {
         let address: AztecAddress = aztec::context::UtilityContext::new().this_address();
 <<<<<<< HEAD
+<<<<<<< HEAD
         aztec::messages::discovery::do_sync_state(address, _compute_note_hash, _compute_note_nullifier, Option::<unconstrained fn(AztecAddress, u64, u64, BoundedVec<Field, 11>, aztec::oracle::tx_resolution::ResolvedTx, AztecAddress)>::none(), Option::<unconstrained fn(AztecAddress, AztecAddress) -> aztec::unconstrained_array::UnconstrainedArray<aztec::messages::processing::OffchainMessageWithTx, aztec::ephemeral::EphemeralOracles>>::some(aztec::messages::processing::offchain::sync_inbox), scope);
 =======
         aztec::messages::discovery::do_sync_state(address, _compute_note_hash, _compute_note_nullifier, Option::<unconstrained fn(AztecAddress, u64, u64, BoundedVec<Field, 11>, aztec::messages::processing::MessageContext, AztecAddress)>::none(), Option::<unconstrained fn(AztecAddress, AztecAddress) -> aztec::unconstrained_array::UnconstrainedArray<aztec::messages::processing::OffchainMessageWithContext, aztec::ephemeral::EphemeralOracles>>::some(aztec::messages::processing::offchain::sync_inbox), scope);
+>>>>>>> origin/v5-next
+=======
+        aztec::messages::discovery::do_sync_state(address, _compute_note_hash, _compute_note_nullifier, Option::<unconstrained fn(AztecAddress, u64, u64, BoundedVec<Field, 11>, aztec::oracle::tx_resolution::ResolvedTx, AztecAddress)>::none(), Option::<unconstrained fn(AztecAddress, AztecAddress) -> aztec::unconstrained_array::UnconstrainedArray<aztec::messages::processing::OffchainMessageWithTx, aztec::ephemeral::EphemeralOracles>>::some(aztec::messages::processing::offchain::sync_inbox), scope);
 >>>>>>> origin/v5-next
     }
 

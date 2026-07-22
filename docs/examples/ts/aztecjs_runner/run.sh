@@ -116,12 +116,18 @@ setup_project() {
     fi
 
 <<<<<<< HEAD
+<<<<<<< HEAD
+=======
+>>>>>>> origin/v5-next
     # Pin typescript to the 5.x line used across the monorepo. An unpinned
     # `yarn add typescript` now resolves to the 7.x native port, whose package
     # layout has no lib/_tsc.js, so yarn 4's builtin compat patch fails to apply.
     yarn_add_with_retry -D "typescript@^5.3.3" tsx
+<<<<<<< HEAD
 =======
     yarn_add_with_retry -D typescript@^5.3.3 tsx
+>>>>>>> origin/v5-next
+=======
 >>>>>>> origin/v5-next
 
     # Copy tsconfig

@@ -388,4 +388,34 @@ describe('prover-node-publisher', () => {
 
     expect(result).toBe(false);
   });
+
+  describe('proof submission target', () => {
+    it('defaults the submit tx target to the rollup address', async () => {
+      const rollupAddress = EthAddress.random().toString();
+      (rollup as any).address = rollupAddress;
+      publisher = new ProverNodePublisher(config, { rollupContract: rollup, l1TxUtils: l1Utils });
+
+      await publisher.submitEpochProof(setupPublishData(65, 32, 33, 64));
+      expect(l1Utils.sendAndMonitorTransaction).toHaveBeenCalledWith(
+        expect.objectContaining({ to: rollupAddress }),
+        expect.anything(),
+      );
+    });
+
+    it('redirects the submit tx to the configured proof submission target', async () => {
+      (rollup as any).address = EthAddress.random().toString();
+      const target = EthAddress.random();
+      publisher = new ProverNodePublisher(config, {
+        rollupContract: rollup,
+        l1TxUtils: l1Utils,
+        proofSubmissionTarget: target,
+      });
+
+      await publisher.submitEpochProof(setupPublishData(65, 32, 33, 64));
+      expect(l1Utils.sendAndMonitorTransaction).toHaveBeenCalledWith(
+        expect.objectContaining({ to: target.toString() }),
+        expect.anything(),
+      );
+    });
+  });
 });

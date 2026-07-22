@@ -188,7 +188,7 @@ export class RPCTranslator {
     return callTxeHandler({
       oracle: 'aztec_txe_createAccount',
       inputs,
-      handler: ([secret]) => this.handlerAsTxe().createAccount(secret),
+      handler: ([secret, partialAddress]) => this.handlerAsTxe().createAccount(secret, partialAddress),
     });
   }
 

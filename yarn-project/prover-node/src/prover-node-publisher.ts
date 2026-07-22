@@ -293,9 +293,13 @@ export class ProverNodePublisher {
     try {
       const { receipt } = await this.l1TxUtils.sendAndMonitorTransaction(
 <<<<<<< HEAD
+<<<<<<< HEAD
         { to: this.proofSubmissionTarget, data },
 =======
         { to: this.rollupContract.address, data },
+>>>>>>> origin/v5-next
+=======
+        { to: this.proofSubmissionTarget, data },
 >>>>>>> origin/v5-next
         { txTimeoutAt: args.deadline },
       );
