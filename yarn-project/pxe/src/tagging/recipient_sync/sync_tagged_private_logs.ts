@@ -116,19 +116,23 @@ export async function syncTaggedPrivateLogs(
 
         // Persist new indexes. If the finalized index moved forward, the window advances
         // and we need another round for this secret.
-        const processForKind =
-          pendingSecret.secret.kind === AppTaggingSecretKind.CONSTRAINED
-            ? processConstrainedResults
-            : processUnconstrainedResults;
-
-        return await processForKind(
-          pendingSecret,
-          logsFoundWithSecret,
-          taggingStore,
-          currentTimestamp,
-          finalizedBlockNumber,
-          jobId,
-        );
+        return pendingSecret.kind === AppTaggingSecretKind.CONSTRAINED
+          ? await processConstrainedResults(
+              pendingSecret,
+              logsFoundWithSecret,
+              taggingStore,
+              currentTimestamp,
+              finalizedBlockNumber,
+              jobId,
+            )
+          : await processUnconstrainedResults(
+              pendingSecret,
+              logsFoundWithSecret,
+              taggingStore,
+              currentTimestamp,
+              finalizedBlockNumber,
+              jobId,
+            );
       }),
     );
 
@@ -145,28 +149,29 @@ function getIndexRangesForSecrets(
   jobId: string,
 ): Promise<PendingSecret[]> {
   return Promise.all(
-    secrets.map(async secret => {
+    secrets.map(async (secret): Promise<PendingSecret> => {
       const currentHighestFinalizedIndex = await taggingStore.getHighestFinalizedIndex(secret, jobId);
-
-      const highestIndexBeforeStart =
-        secret.kind === AppTaggingSecretKind.CONSTRAINED
-          ? currentHighestFinalizedIndex
-          : await taggingStore.getHighestAgedIndex(secret, jobId);
-      const start = highestIndexBeforeStart === undefined ? 0 : highestIndexBeforeStart + 1;
-
       const boundEnd = (currentHighestFinalizedIndex ?? 0) + UNFINALIZED_TAGGING_INDEXES_WINDOW_LEN + 1;
 
-      // Constrained streams are gapless, so probe a small initial window and stop at the first missing tag instead of
-      // always fetching the full window. Unconstrained secrets can have gaps, so they still scan the whole window.
-      const end =
-        secret.kind === AppTaggingSecretKind.CONSTRAINED
-          ? Math.min(boundEnd, start + INITIAL_CONSTRAINED_PROBE_LEN)
-          : boundEnd;
+      if (secret.kind === AppTaggingSecretKind.CONSTRAINED) {
+        // Constrained streams are gapless and resume at the finalized index, so probe a small initial window and stop
+        // at the first missing tag instead of always fetching the full window. The probe grows each round up to the
+        // window cap (see processConstrainedResults).
+        const start = currentHighestFinalizedIndex === undefined ? 0 : currentHighestFinalizedIndex + 1;
+        return {
+          kind: AppTaggingSecretKind.CONSTRAINED,
+          secret,
+          start,
+          end: Math.min(boundEnd, start + INITIAL_CONSTRAINED_PROBE_LEN),
+          boundEnd,
+          probeLen: INITIAL_CONSTRAINED_PROBE_LEN,
+        };
+      }
 
-      // Constrained-only: continued probes grow each round up to the window cap (see processConstrainedResults).
-      const probeLen = secret.kind === AppTaggingSecretKind.CONSTRAINED ? INITIAL_CONSTRAINED_PROBE_LEN : undefined;
-
-      return { secret, start, end, boundEnd, probeLen };
+      // Unconstrained secrets can have gaps, so they scan the whole window starting past the highest aged index.
+      const highestAgedIndex = await taggingStore.getHighestAgedIndex(secret, jobId);
+      const start = highestAgedIndex === undefined ? 0 : highestAgedIndex + 1;
+      return { kind: AppTaggingSecretKind.UNCONSTRAINED, secret, start, end: boundEnd };
     }),
   );
 }
@@ -225,7 +230,7 @@ async function fetchLogsForSecrets(
  * is tracked (no aged index).
  */
 async function processConstrainedResults(
-  pending: PendingSecret,
+  pending: PendingConstrained,
   logsWithIndexes: LogWithIndex[],
   taggingStore: RecipientTaggingStore,
   currentTimestamp: bigint,
@@ -261,11 +266,11 @@ async function processConstrainedResults(
   // ~K/WINDOW_LEN once it saturates the cap, far below one round per log either way. The queried range is already
   // bounded by boundEnd (a probe can never reach more than WINDOW_LEN past the finalized frontier); the cap on the
   // stored length just keeps it from growing unbounded once the probe saturates the window.
-  const currentProbeLen = pending.probeLen ?? INITIAL_CONSTRAINED_PROBE_LEN;
-  const nextProbeLen = Math.min(currentProbeLen * 2, UNFINALIZED_TAGGING_INDEXES_WINDOW_LEN);
+  const nextProbeLen = Math.min(pending.probeLen * 2, UNFINALIZED_TAGGING_INDEXES_WINDOW_LEN);
 
   if (probeFullyConsumed && pending.end < boundEnd) {
     return {
+      kind: AppTaggingSecretKind.CONSTRAINED,
       secret: pending.secret,
       start: pending.end,
       end: Math.min(boundEnd, pending.end + nextProbeLen),
@@ -282,7 +287,7 @@ async function processConstrainedResults(
  * if the window needs to advance, or undefined if this secret is done.
  */
 async function processUnconstrainedResults(
-  pending: PendingSecret,
+  pending: PendingUnconstrained,
   logsWithIndexes: LogWithIndex[],
   taggingStore: RecipientTaggingStore,
   currentTimestamp: bigint,
@@ -318,24 +323,36 @@ async function processUnconstrainedResults(
   // ensuring that we do not look further than WINDOW_LEN ahead of the highest finalized index.
   const end = highestFinalizedIndex + UNFINALIZED_TAGGING_INDEXES_WINDOW_LEN + 1;
   return {
+    kind: AppTaggingSecretKind.UNCONSTRAINED,
     secret: pending.secret,
     start: pending.end,
     end,
-    boundEnd: end,
   };
 }
 
-type PendingSecret = {
+/** Working scan state common to both secret kinds: the half-open [start, end) tag-index range to query this round. */
+type PendingSecretBase = {
   secret: AppTaggingSecret;
   start: number;
   end: number;
-  // Exclusive upper bound on the indexes this secret may probe this sync (highest finalized index + WINDOW_LEN + 1, the
-  // protocol bound on how far ahead of finalized a log can sit). Constrained `end` grows toward it each round.
-  boundEnd: number;
-  // Intended constrained probe length for the round that produced `end` (constrained-only). The queried span can be
-  // smaller when boundEnd caps it.
-  probeLen?: number;
 };
+
+/** Constrained scan state, carrying the doubling-probe bookkeeping that only the gapless constrained scan uses. */
+type PendingConstrained = PendingSecretBase & {
+  kind: typeof AppTaggingSecretKind.CONSTRAINED;
+  // Exclusive upper bound on the indexes this secret may probe this sync (highest finalized index + WINDOW_LEN + 1, the
+  // protocol bound on how far ahead of finalized a log can sit). `end` grows toward it each round.
+  boundEnd: number;
+  // Intended probe length for the round that produced `end`. The queried span can be smaller when boundEnd caps it.
+  probeLen: number;
+};
+
+/** Unconstrained scan state: a plain window with no probe bookkeeping, since the scan always covers the full window. */
+type PendingUnconstrained = PendingSecretBase & {
+  kind: typeof AppTaggingSecretKind.UNCONSTRAINED;
+};
+
+type PendingSecret = PendingConstrained | PendingUnconstrained;
 
 type LogWithIndex = {
   log: LogResult;
