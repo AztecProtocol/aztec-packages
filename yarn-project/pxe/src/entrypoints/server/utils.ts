@@ -35,7 +35,8 @@ export async function createPXE(
   const simulator = new SimulatorRecorderWrapper(new WASMSimulator(simulatorLogger), recorder);
   const loggers = options.loggers ?? {};
 
-  const { l1ChainId, l1ContractAddresses, rollupVersion } = await aztecNode.getNodeInfo();
+  const nodeInfo = options.nodeInfo ?? (await aztecNode.getNodeInfo());
+  const { l1ChainId, l1ContractAddresses, rollupVersion } = nodeInfo;
   const configWithContracts: PXEConfig = {
     ...config,
     ...l1ContractAddresses,
@@ -83,6 +84,7 @@ export async function createPXE(
     config: configWithContracts,
     loggerOrSuffix: pxeLogger,
     hooks: options.hooks,
+    nodeInfo,
   });
   return pxe;
 }

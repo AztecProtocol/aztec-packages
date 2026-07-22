@@ -11,7 +11,12 @@ import type { AztecNode } from '@aztec/stdlib/interfaces/client';
 import { BundleAccountContractsProvider } from '../account-contract-providers/bundle.js';
 import type { AccountContractsProvider } from '../account-contract-providers/types.js';
 import { EmbeddedWallet, type EmbeddedWalletOptions, splitPxeOptions } from '../embedded_wallet.js';
+import { resolveNodeInfo } from '../node_info_cache.js';
 import { WalletDB } from '../wallet_db.js';
+
+// LMDB requires a schema version for its own on-disk format; the cache's logical versioning is handled by the
+// compound version key inside resolveNodeInfo, so this only needs bumping if the LMDB store layout changes.
+const NODE_INFO_CACHE_STORE_SCHEMA_VERSION = 1;
 
 export class NodeEmbeddedWallet extends EmbeddedWallet {
   static async create<T extends NodeEmbeddedWallet = NodeEmbeddedWallet>(
@@ -28,7 +33,21 @@ export class NodeEmbeddedWallet extends EmbeddedWallet {
     const rootLogger = options.logger ?? createLogger('embedded-wallet');
 
     const aztecNode = typeof nodeOrUrl === 'string' ? createAztecNodeClient(nodeOrUrl) : nodeOrUrl;
-    const l1Contracts = await aztecNode.getL1ContractAddresses();
+    const nodeInfoUrl = typeof nodeOrUrl === 'string' ? nodeOrUrl : undefined;
+    const nodeInfoCacheStore =
+      nodeInfoUrl && !options.ephemeral
+        ? await createStore(
+            'node_info_cache',
+            NODE_INFO_CACHE_STORE_SCHEMA_VERSION,
+            { dataDirectory: 'node_info_cache', dataStoreMapSizeKb: getPXEConfig().dataStoreMapSizeKb },
+            rootLogger.createChild('node-info-cache').getBindings(),
+          ).catch(err => {
+            rootLogger.debug('Could not open node info cache store; will fetch node info', { err });
+            return undefined;
+          })
+        : undefined;
+    const nodeInfo = await resolveNodeInfo(aztecNode, nodeInfoUrl, nodeInfoCacheStore, rootLogger);
+    const l1Contracts = nodeInfo.l1ContractAddresses;
 
     // Support both the new unified `pxe` option and the deprecated `pxeConfig`/`pxeOptions`.
     const { config: pxeConfigFromPxe, creation: pxeCreationFromPxe } = splitPxeOptions(options.pxe);
@@ -48,6 +67,7 @@ export class NodeEmbeddedWallet extends EmbeddedWallet {
 
     const pxeOptions: PXECreationOptions = {
       ...mergedCreationOverrides,
+      nodeInfo,
       preloadedContractsProvider: mergedCreationOverrides.preloadedContractsProvider ?? {
         getPreloadedContracts: async () => [
           await getStandardMultiCallEntrypoint(),
@@ -88,6 +108,7 @@ export class NodeEmbeddedWallet extends EmbeddedWallet {
     const walletDB = new WalletDB(walletDBStore, rootLogger.createChild('wallet:db').info);
 
     const wallet = new this(pxe, aztecNode, walletDB, new BundleAccountContractsProvider(), rootLogger) as T;
+    wallet.seedNodeInfo(nodeInfo);
     await wallet.initStubClasses();
     return wallet;
   }
