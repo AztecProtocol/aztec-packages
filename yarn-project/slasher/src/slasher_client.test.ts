@@ -9,7 +9,7 @@ import { DateProvider } from '@aztec/foundation/timer';
 import { openTmpStore } from '@aztec/kv-store/lmdb';
 import type { SlasherConfig } from '@aztec/stdlib/interfaces/server';
 import { type Offense, OffenseType, type ProposerSlashAction } from '@aztec/stdlib/slashing';
-import { Metrics } from '@aztec/telemetry-client';
+import { Attributes, Metrics } from '@aztec/telemetry-client';
 import { BenchmarkTelemetryClient } from '@aztec/telemetry-client/bench';
 
 import { jest } from '@jest/globals';
@@ -174,7 +174,11 @@ describe('SlasherClient', () => {
     slashingProposer.listenToRoundExecuted.mockReturnValue(() => {});
 
     // Create consensus slasher client with proper constructor parameters
-    slasherClient = new TestSlasherClient(
+    slasherClient = createClient();
+  });
+
+  const createClient = (ownValidators: EthAddress[] = []) =>
+    new TestSlasherClient(
       config,
       settings,
       slashingProposer,
@@ -184,10 +188,10 @@ describe('SlasherClient', () => {
       mockEpochCache,
       dateProvider,
       offensesStore,
+      ownValidators,
       logger,
-      new SlasherMetrics(telemetryClient),
+      new SlasherMetrics(telemetryClient, ownValidators),
     );
-  });
 
   afterEach(async () => {
     await slasherClient.stop();
@@ -1110,6 +1114,137 @@ describe('SlasherClient', () => {
       });
     });
   });
+
+  describe('self-slashing detection', () => {
+    let ownValidator: EthAddress;
+    const round = 5n;
+    const proposer = EthAddress.fromNumber(200).toString();
+
+    // Recreates the telemetry client along with the slasher client so metric assertions only see this client's data
+    const setupClient = (ownValidators: EthAddress[]) => {
+      telemetryClient = new BenchmarkTelemetryClient();
+      slasherClient = createClient(ownValidators);
+    };
+
+    const getPoints = (name: string) =>
+      telemetryClient
+        .getMeters()
+        .flatMap(meter => meter.metrics)
+        .find(metric => metric.name === name)?.points ?? [];
+
+    beforeEach(() => {
+      ownValidator = committee[7];
+      setupClient([ownValidator]);
+    });
+
+    it('warns and increments the targeted metric when a vote names an own validator', async () => {
+      slashingProposer.getLastVote.mockResolvedValue([
+        { validator: ownValidator, slashAmount: slashingUnit },
+        { validator: committee[1], slashAmount: slashingUnit },
+      ]);
+      const warnSpy = jest.spyOn(logger, 'warn');
+
+      await slasherClient.handleVoteCast(round, proposer);
+
+      expect(warnSpy).toHaveBeenCalledTimes(1);
+      expect(slashingProposer.getLastVote).toHaveBeenCalledWith(round, settings.slashingAmounts);
+      const points = getPoints(Metrics.SLASHER_OWN_VALIDATOR_TARGETED_COUNT.name);
+      expect(points.map(point => point.value)).toEqual([0, 1]);
+      expect(points.at(-1)?.attributes?.[Attributes.ATTESTER_ADDRESS]).toEqual(ownValidator.toString());
+    });
+
+    it('warns only once per round and validator', async () => {
+      slashingProposer.getLastVote.mockResolvedValue([{ validator: ownValidator, slashAmount: slashingUnit }]);
+      const warnSpy = jest.spyOn(logger, 'warn');
+
+      await slasherClient.handleVoteCast(round, proposer);
+      await slasherClient.handleVoteCast(round, proposer);
+
+      expect(warnSpy).toHaveBeenCalledTimes(1);
+      expect(getPoints(Metrics.SLASHER_OWN_VALIDATOR_TARGETED_COUNT.name).map(point => point.value)).toEqual([0, 1]);
+    });
+
+    it('warns again when a later round also names the validator', async () => {
+      slashingProposer.getLastVote.mockResolvedValue([{ validator: ownValidator, slashAmount: slashingUnit }]);
+      const warnSpy = jest.spyOn(logger, 'warn');
+
+      await slasherClient.handleVoteCast(round, proposer);
+      await slasherClient.handleVoteCast(round + 1n, proposer);
+
+      expect(warnSpy).toHaveBeenCalledTimes(2);
+      expect(getPoints(Metrics.SLASHER_OWN_VALIDATOR_TARGETED_COUNT.name).map(point => point.value)).toEqual([0, 1, 1]);
+    });
+
+    it('does not warn when votes only name other validators', async () => {
+      slashingProposer.getLastVote.mockResolvedValue([{ validator: committee[1], slashAmount: slashingUnit }]);
+      const warnSpy = jest.spyOn(logger, 'warn');
+
+      await slasherClient.handleVoteCast(round, proposer);
+
+      expect(warnSpy).not.toHaveBeenCalled();
+      expect(getPoints(Metrics.SLASHER_OWN_VALIDATOR_TARGETED_COUNT.name).map(point => point.value)).toEqual([0]);
+    });
+
+    it('warns for each own validator named in a vote', async () => {
+      setupClient([committee[7], committee[8], committee[9]]);
+      slashingProposer.getLastVote.mockResolvedValue([
+        { validator: committee[7], slashAmount: slashingUnit },
+        { validator: committee[8], slashAmount: slashingUnit * 2n },
+        { validator: committee[1], slashAmount: slashingUnit },
+      ]);
+      const warnSpy = jest.spyOn(logger, 'warn');
+
+      await slasherClient.handleVoteCast(round, proposer);
+
+      expect(warnSpy).toHaveBeenCalledTimes(2);
+      const points = getPoints(Metrics.SLASHER_OWN_VALIDATOR_TARGETED_COUNT.name);
+      expect(points.map(point => point.value)).toEqual([0, 0, 0, 1, 1]);
+      expect(
+        points.filter(point => point.value === 1).map(point => point.attributes?.[Attributes.ATTESTER_ADDRESS]),
+      ).toEqual([committee[7].toString(), committee[8].toString()]);
+    });
+
+    it('warns and records metrics when an own validator is slashed at round execution', async () => {
+      rollup.getSlashEvents.mockResolvedValue([
+        { attester: ownValidator, amount: slashingUnit * 2n },
+        { attester: committee[1], amount: slashingUnit },
+      ]);
+      const warnSpy = jest.spyOn(logger, 'warn');
+
+      await slasherClient.handleRoundExecuted(7n, 2n, '0x1');
+
+      expect(warnSpy).toHaveBeenCalledTimes(1);
+      const countPoints = getPoints(Metrics.SLASHER_OWN_VALIDATOR_SLASHED_COUNT.name);
+      expect(countPoints.map(point => point.value)).toEqual([0, 1]);
+      expect(countPoints.at(-1)?.attributes?.[Attributes.ATTESTER_ADDRESS]).toEqual(ownValidator.toString());
+      // The 2e18 wei slash is recorded as 2 in eth units
+      expect(getPoints(Metrics.SLASHER_OWN_VALIDATOR_SLASHED_AMOUNT.name).map(point => point.value)).toEqual([0, 2]);
+      expect(getPoints(Metrics.SLASHER_OWN_VALIDATOR_TARGETED_COUNT.name).map(point => point.value)).toEqual([0]);
+      expect(getPoints(Metrics.SLASHER_ROUND_EXECUTED_COUNT.name).map(point => point.value)).toEqual([0, 1]);
+    });
+
+    it('subscribes to vote cast events only when running own validators', async () => {
+      setupClient([]);
+      await slasherClient.start();
+      expect(slashingProposer.listenToVoteCast).not.toHaveBeenCalled();
+      await slasherClient.stop();
+
+      setupClient([ownValidator]);
+      await slasherClient.start();
+      expect(slashingProposer.listenToVoteCast).toHaveBeenCalledTimes(1);
+    });
+
+    it('warns again for a round once its dedupe entry expires', async () => {
+      slashingProposer.getLastVote.mockResolvedValue([{ validator: ownValidator, slashAmount: slashingUnit }]);
+      const warnSpy = jest.spyOn(logger, 'warn');
+
+      await slasherClient.handleVoteCast(round, proposer);
+      await slasherClient.handleNewRound(round + BigInt(settings.slashingLifetimeInRounds) + 1n);
+      await slasherClient.handleVoteCast(round, proposer);
+
+      expect(warnSpy).toHaveBeenCalledTimes(2);
+    });
+  });
 });
 
 // Test helper class that exposes protected methods for testing
@@ -1120,6 +1255,10 @@ class TestSlasherClient extends SlasherClient {
 
   public override handleNewRound(round: bigint): Promise<void> {
     return super.handleNewRound(round);
+  }
+
+  public override handleVoteCast(round: bigint, proposer: string): Promise<void> {
+    return super.handleVoteCast(round, proposer);
   }
 
   public override getExecuteSlashAction(slotNumber: SlotNumber): Promise<ProposerSlashAction | undefined> {

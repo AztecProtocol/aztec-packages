@@ -234,13 +234,16 @@ export class SlashingProposerContract {
     };
   }
 
-  /** Returns the last vote emitted for a given round  */
-  public async getLastVote(round: bigint) {
+  /**
+   * Returns the last vote emitted for a given round
+   * @param slashingAmounts - The slash amount per vote unit, to avoid re-reading them from the contract
+   */
+  public async getLastVote(round: bigint, slashingAmounts?: [bigint, bigint, bigint]) {
     const { voteCount } = await this.getRound(round);
     const validators = (await this.contract.simulate.getSlashTargetCommittees([round])).result.flat();
     const vote = await this.contract.read.getVotes([round, voteCount - 1n]);
     const decoded = decodeSlashConsensusVotes(hexToBuffer(vote));
-    const slashAmounts = await this.getSlashingAmounts();
+    const slashAmounts = slashingAmounts ?? (await this.getSlashingAmounts());
     return decoded
       .map((units, i) => ({
         validator: EthAddress.fromString(validators[i]),

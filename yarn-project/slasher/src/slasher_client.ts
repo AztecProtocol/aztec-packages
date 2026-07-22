@@ -91,6 +91,8 @@ export class SlasherClient implements ProposerSlashActionProvider, SlasherClient
   protected unwatchCallbacks: (() => void)[] = [];
   protected roundMonitor: SlashRoundMonitor;
   protected offensesCollector: SlashOffensesCollector;
+  /** Rounds mapped to own validators already warned about, so each (round, validator) pair warns only once. */
+  private readonly warnedSelfSlashVotes = new Map<bigint, Set<string>>();
 
   constructor(
     private config: SlasherClientConfig,
@@ -102,8 +104,9 @@ export class SlasherClient implements ProposerSlashActionProvider, SlasherClient
     private epochCache: EpochCache,
     private dateProvider: DateProvider,
     private offensesStore: SlasherOffensesStore,
+    private readonly ownValidators: EthAddress[] = [],
     private log = createLogger('slasher:consensus'),
-    private readonly metrics = new SlasherMetrics(getTelemetryClient()),
+    private readonly metrics = new SlasherMetrics(getTelemetryClient(), ownValidators),
   ) {
     this.roundMonitor = new SlashRoundMonitor(settings, dateProvider);
     this.offensesCollector = new SlashOffensesCollector(config, settings, watchers, offensesStore);
@@ -124,6 +127,16 @@ export class SlasherClient implements ProposerSlashActionProvider, SlasherClient
           ),
       ),
     );
+
+    // Listen for VoteCast events to warn early when a vote names one of our own validators as a slash target
+    if (this.ownValidators.length > 0) {
+      this.unwatchCallbacks.push(
+        this.slashingProposer.listenToVoteCast(
+          ({ round, proposer }) =>
+            void this.handleVoteCast(round, proposer).catch(err => this.log.error('Error handling vote cast', err)),
+        ),
+      );
+    }
 
     // Check for round changes
     this.unwatchCallbacks.push(this.roundMonitor.listenToNewRound(round => this.handleNewRound(round)));
@@ -159,14 +172,60 @@ export class SlasherClient implements ProposerSlashActionProvider, SlasherClient
   /** Triggered on a time basis when we enter a new slashing round. Clears expired offenses. */
   protected async handleNewRound(round: bigint) {
     this.log.info(`Starting new slashing round ${round}`);
+    this.pruneSelfSlashVoteWarnings(round);
     await this.offensesCollector.handleNewRound(round);
   }
 
-  /** Called when we see a RoundExecuted event on the SlashingProposer (just for logging). */
+  /** Called when we see a RoundExecuted event on the SlashingProposer (just for logging and metrics). */
   protected async handleRoundExecuted(round: bigint, slashCount: bigint, l1BlockHash: Hex) {
     this.metrics.recordRoundExecuted();
     const slashes = await this.rollup.getSlashEvents(l1BlockHash);
     this.log.info(`Slashing round ${round} has been executed with ${slashCount} slashes`, { slashes });
+
+    for (const { attester, amount } of slashes.filter(slash => this.isOwnValidator(slash.attester))) {
+      this.log.warn(`Own validator ${attester} was slashed for ${amount}`, {
+        round,
+        validator: attester.toString(),
+        amount,
+        l1BlockHash,
+      });
+      this.metrics.recordOwnValidatorSlashed(attester, amount);
+    }
+  }
+
+  /** Called when we see a VoteCast event. Warns once per round and validator when a vote names one of our own. */
+  protected async handleVoteCast(round: bigint, proposer: string) {
+    const votes = await this.slashingProposer.getLastVote(round, this.settings.slashingAmounts);
+    for (const { validator, slashAmount } of votes.filter(vote => this.isOwnValidator(vote.validator))) {
+      const warned = this.warnedSelfSlashVotes.get(round) ?? new Set<string>();
+      if (warned.has(validator.toString())) {
+        continue;
+      }
+      warned.add(validator.toString());
+      this.warnedSelfSlashVotes.set(round, warned);
+
+      this.log.warn(`Detected onchain slashing vote against own validator ${validator}`, {
+        round,
+        validator: validator.toString(),
+        slashAmount,
+        proposer,
+      });
+      this.metrics.recordOwnValidatorTargeted(validator);
+    }
+  }
+
+  private isOwnValidator(address: EthAddress): boolean {
+    return this.ownValidators.some(validator => validator.equals(address));
+  }
+
+  /** Drops warning dedupe entries for rounds past their slashing lifetime, as they can no longer receive votes. */
+  private pruneSelfSlashVoteWarnings(currentRound: bigint) {
+    const oldestLiveRound = currentRound - BigInt(this.settings.slashingLifetimeInRounds);
+    for (const round of this.warnedSelfSlashVotes.keys()) {
+      if (round < oldestLiveRound) {
+        this.warnedSelfSlashVotes.delete(round);
+      }
+    }
   }
 
   /**

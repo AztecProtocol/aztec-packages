@@ -548,6 +548,23 @@ export const SLASHER_ROUND_EXECUTED_COUNT: MetricDefinition = {
   description: 'The number of slashing rounds executed',
   valueType: ValueType.INT,
 };
+export const SLASHER_OWN_VALIDATOR_TARGETED_COUNT: MetricDefinition = {
+  name: 'aztec.slasher.own_validator.targeted_count',
+  description:
+    "The number of times one of the node's own validators was named as a slash target by an onchain vote, deduplicated per round and validator",
+  valueType: ValueType.INT,
+};
+export const SLASHER_OWN_VALIDATOR_SLASHED_COUNT: MetricDefinition = {
+  name: 'aztec.slasher.own_validator.slashed_count',
+  description: "The number of times one of the node's own validators was slashed, from executed Slashed events",
+  valueType: ValueType.INT,
+};
+export const SLASHER_OWN_VALIDATOR_SLASHED_AMOUNT: MetricDefinition = {
+  name: 'aztec.slasher.own_validator.slashed_amount',
+  description: "Cumulative amount slashed from the node's own validators, from executed Slashed events",
+  unit: 'eth',
+  valueType: ValueType.DOUBLE,
+};
 export const SEQUENCER_CHECKPOINT_SUCCESS_COUNT: MetricDefinition = {
   name: 'aztec.sequencer.checkpoint.success_count',
   description: 'The number of times checkpoint publishing succeeded',
