@@ -71,7 +71,7 @@ A fee-paying contract (FPC) pays $AZTEC (referred to as "Fee Juice" in the devel
 ### Private Fee Payment
 Some apps pay fees through a fully private fee-paying contract, so the fee payment itself leaks no information about who you are. The more apps that route private fee payments through the *same* contract address, the stronger your privacy — every payment shares one large anonymity set instead of many small ones.
 
-If you care about fee privacy, look for apps that use a shared private FPC. For example, [DeFi Wonderland](https://github.com/defi-wonderland/aztec-fee-payment) has built a community implementation where every app can derive the same contract address from a common deployment salt. Note that the derived address depends on the compiled contract bytecode, which changes between Aztec versions — always verify the address matches the network you are using.
+If you care about fee privacy, look for apps that use a shared private FPC. For example, [`private-fee-juice`](https://github.com/alejoamiras/ecosystem-tooling/tree/main/packages/private-fee-juice) is a community implementation where every app can derive the same contract address from a common deployment salt. Note that the derived address depends on the compiled contract bytecode, which changes between Aztec versions — always verify the address matches the network you are using.
 
 ## Understanding Your Fee
 

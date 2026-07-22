@@ -197,7 +197,7 @@ Have a look at the [contract source](https://github.com/AztecProtocol/aztec-pack
 
 The pre-compiled token contract used in this tutorial is Aztec's reference implementation. It covers the core operations you need to get started: minting, private transfers, and public balance management.
 
-For production applications, consider the **AIP-20 Token Standard** maintained by [DeFi Wonderland](https://github.com/defi-wonderland/aztec-standards/tree/dev/src/token_contract). AIP-20 formalizes the same patterns used in the reference contract and adds:
+For production applications, consider the **AIP-20 Token Standard** from the [aztec-standards repository](https://github.com/AztecProtocol/aztec-standards/tree/v5.0.1/src/token_contract). AIP-20 formalizes the same patterns used in the reference contract and adds:
 
 - **Commitment-based transfers** for DeFi protocols where the recipient is determined asynchronously
 - **Recursive note consumption** for handling large balances that span many notes

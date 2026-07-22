@@ -4,7 +4,7 @@ sidebar_position: 1
 description: Fungible token standard with private balances, partial-note transfers, and recursive note consumption.
 ---
 
-[Source](https://github.com/defi-wonderland/aztec-standards/tree/dev/src/token_contract)
+[Source](https://github.com/AztecProtocol/aztec-standards/tree/v5.0.1/src/token_contract)
 
 AIP-20 defines a fungible token with support for private balances (stored as notes in the note hash tree), public balances (stored in contract public storage), and a hybrid transfer path between the two.
 
