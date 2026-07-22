@@ -312,7 +312,7 @@ export class PXE {
     // sync at block 0 would then get stuck in `areBlockHashesEqualAt` and abort. If the node does
     // not return a genesis block (older node or test fixture) we fall back to the static constant.
     const initialBlockHash =
-      providedInitialBlockHash ?? ((await node.getBlock(BlockNumber.ZERO))?.hash ?? GENESIS_BLOCK_HEADER_HASH);
+      providedInitialBlockHash ?? (await node.getBlock(BlockNumber.ZERO))?.hash ?? GENESIS_BLOCK_HEADER_HASH;
 
     const proverEnabled = config.proverEnabled !== undefined ? config.proverEnabled : info.realProofs;
     const {

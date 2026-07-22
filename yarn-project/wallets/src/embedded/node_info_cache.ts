@@ -69,10 +69,7 @@ export async function resolveStartupInfo(
       }
     }
 
-    const [nodeInfo, genesisBlock] = await Promise.all([
-      aztecNode.getNodeInfo(),
-      aztecNode.getBlock(BlockNumber.ZERO),
-    ]);
+    const [nodeInfo, genesisBlock] = await Promise.all([aztecNode.getNodeInfo(), aztecNode.getBlock(BlockNumber.ZERO)]);
     const initialBlockHash = genesisBlock?.hash ?? GENESIS_BLOCK_HEADER_HASH;
 
     if (singleton) {
