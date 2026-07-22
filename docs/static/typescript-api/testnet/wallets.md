@@ -1,6 +1,6 @@
 # @aztec/wallets
 
-Version: v5.0.0
+Version: 5.0.1
 
 ## Quick Import Reference
 

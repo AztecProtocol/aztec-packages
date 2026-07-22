@@ -34,8 +34,9 @@
 <div class="comments">
 <p>Asserts that a nullifier did not exist by the time a block was mined.</p>
 <p>This function takes a <em>siloed</em> nullifier, i.e. the value that is actually stored in the tree. Use
-<a href="../../../protocol_types/hash/fn.compute_siloed_nullifier.html"><code>crate::protocol::hash::compute_siloed_nullifier</code></a> to convert an inner nullifier (what
-<a href="../../../noir_aztec/context/struct.PrivateContext.html#push_nullifier"><code>PrivateContext::push_nullifier</code></a> takes) into a siloed one.</p>
+<a href="../../../protocol_types/hash/fn.compute_siloed_nullifier.html"><code>crate::protocol::hash::compute_siloed_nullifier</code></a> to convert an inner nullifier
+(what <a href="../../../noir_aztec/context/struct.PrivateContext.html#push_nullifier_unsafe"><code>PrivateContext::push_nullifier_unsafe</code></a>
+takes) into a siloed one.</p>
 <p>In order to prove that a nullifier <strong>did</strong> exist by <code>block_header</code>, use <a href="../../../noir_aztec/history/nullifier/fn.assert_nullifier_existed_by.html"><code>assert_nullifier_existed_by</code></a>.</p>
 <h2>Nullifier Non-Existence</h2>
 <p>Proving nullifier non-existence is always nuanced, as it is not possible to privately prove that a nullifier does
@@ -43,8 +44,8 @@ not exist by the time a transaction is executed. What this function does instead
 transactions from <code>block_header</code> were executed, the nullifier was not in the tree.</p>
 <p>If you <strong>must</strong> prove that a nullifier does not exist by the time a transaction is executed, there only two ways to
 do this: by actually emitting the nullifier via
-<a href="../../../noir_aztec/context/struct.PrivateContext.html#push_nullifier"><code>PrivateContext::push_nullifier</code></a> (which can of course can be done
-once), or by calling a public contract function that calls
+<a href="../../../noir_aztec/context/struct.PrivateContext.html#push_nullifier_unsafe"><code>PrivateContext::push_nullifier_unsafe</code></a>
+(which can of course only be done once), or by calling a public contract function that calls
 <a href="../../../noir_aztec/context/struct.PublicContext.html#nullifier_exists_unsafe"><code>PublicContext::nullifier_exists_unsafe</code></a> (which leaks
 that this nullifier is being checked):</p>
 <pre><code>#[external(<span class="string">"public"</span>)]

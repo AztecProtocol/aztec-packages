@@ -566,7 +566,7 @@ export class TXEOracleTopLevelContext implements IMiscOracle, ITxeExecutionOracl
     globals.version = this.version;
     globals.gasFees = GasFees.empty();
 
-    const forkedWorldTrees = await this.stateMachine.synchronizer.nativeWorldStateService.fork();
+    await using forkedWorldTrees = await this.stateMachine.synchronizer.nativeWorldStateService.fork();
 
     const bindings = this.logger.getBindings();
     const contractsDB = new PublicContractsDB(
@@ -581,11 +581,20 @@ export class TXEOracleTopLevelContext implements IMiscOracle, ITxeExecutionOracl
       collectStatistics: false,
       collectCallMetadata: true,
     });
+    // The AVM simulator reads this fork's contracts DB, scoped by fork id, for each simulation.
+    const forkId = forkedWorldTrees.getRevision().forkId;
     const processor = new PublicProcessor(
       globals,
       guardedMerkleTrees,
       contractsDB,
-      new PublicTxSimulator(guardedMerkleTrees, contractsDB, globals, config, bindings),
+      new PublicTxSimulator(
+        this.stateMachine.synchronizer.avmSimulator,
+        globals,
+        contractsDB,
+        forkId,
+        config,
+        bindings,
+      ),
       new TestDateProvider(),
       undefined,
       createLogger('simulator:public-processor', bindings),
@@ -636,8 +645,6 @@ export class TXEOracleTopLevelContext implements IMiscOracle, ITxeExecutionOracl
 
     if (isStaticCall) {
       await checkpoint!.revert();
-
-      await forkedWorldTrees.close();
       return { returnValues: executionResult.returnValues ?? [], offchainEffects };
     }
 
@@ -657,8 +664,6 @@ export class TXEOracleTopLevelContext implements IMiscOracle, ITxeExecutionOracl
     const l2Block = await makeTXEBlock(forkedWorldTrees, globals, [txEffect]);
 
     await this.stateMachine.handleL2Block(l2Block);
-
-    await forkedWorldTrees.close();
 
     return { returnValues: executionResult.returnValues ?? [], offchainEffects };
   }
@@ -695,7 +700,7 @@ export class TXEOracleTopLevelContext implements IMiscOracle, ITxeExecutionOracl
     globals.version = this.version;
     globals.gasFees = GasFees.empty();
 
-    const forkedWorldTrees = await this.stateMachine.synchronizer.nativeWorldStateService.fork();
+    await using forkedWorldTrees = await this.stateMachine.synchronizer.nativeWorldStateService.fork();
 
     const bindings2 = this.logger.getBindings();
     const contractsDB = new PublicContractsDB(
@@ -710,7 +715,16 @@ export class TXEOracleTopLevelContext implements IMiscOracle, ITxeExecutionOracl
       collectStatistics: false,
       collectCallMetadata: true,
     });
-    const simulator = new PublicTxSimulator(guardedMerkleTrees, contractsDB, globals, config, bindings2);
+    // The AVM simulator reads this fork's contracts DB, scoped by fork id, for each simulation.
+    const forkId2 = forkedWorldTrees.getRevision().forkId;
+    const simulator = new PublicTxSimulator(
+      this.stateMachine.synchronizer.avmSimulator,
+      globals,
+      contractsDB,
+      forkId2,
+      config,
+      bindings2,
+    );
     const processor = new PublicProcessor(
       globals,
       guardedMerkleTrees,
@@ -796,9 +810,6 @@ export class TXEOracleTopLevelContext implements IMiscOracle, ITxeExecutionOracl
 
     if (isStaticCall) {
       await checkpoint!.revert();
-
-      await forkedWorldTrees.close();
-
       return returnValues ?? [];
     }
 
@@ -818,8 +829,6 @@ export class TXEOracleTopLevelContext implements IMiscOracle, ITxeExecutionOracl
     const l2Block = await makeTXEBlock(forkedWorldTrees, globals, [txEffect]);
 
     await this.stateMachine.handleL2Block(l2Block);
-
-    await forkedWorldTrees.close();
 
     return returnValues ?? [];
   }

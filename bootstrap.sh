@@ -621,16 +621,15 @@ function private_release {
   ci3/gcp_artifact_login
   set +x  # Never echo the access token.
   export NPM_TOKEN=$(gcloud auth print-access-token)
-  # Route our scopes to the internal npm registry; public deps still resolve from the default registry
-  # (npmjs), so publishes and yarn-project's install smoke-test both work. Everything we publish uses
-  # either the @aztec or @aztec-foundation scope — the noir packages are renamed @noir-lang/* ->
-  # @aztec/noir-* on release. Exported so deploy_npm and that smoke-test share one config.
+  # Route our scope to the internal npm registry; public deps still resolve from the default registry
+  # (npmjs), so publishes and yarn-project's install smoke-test both work. Everything we publish is
+  # @aztec-scoped — the noir packages are renamed @noir-lang/* -> @aztec/noir-* on release. Exported so
+  # deploy_npm and that smoke-test share one config.
   local npmrc reg
   reg="${INTERNAL_NPM_REGISTRY%/}/"
   npmrc=$(mktemp)
   (umask 077; {
     echo "@aztec:registry=$reg"
-    echo "@aztec-foundation:registry=$reg"
     echo "${reg#https:}:_authToken=\${NPM_TOKEN}"
   } > "$npmrc")
   export NPM_CONFIG_GLOBALCONFIG="$npmrc"

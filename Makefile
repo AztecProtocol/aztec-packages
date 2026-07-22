@@ -260,7 +260,7 @@ bb-sol: bb-cpp-native bb-crs l1-contracts-solc
 # Barretenberg Tests
 #==============================================================================
 
-bb-cpp-native-tests: bb-cpp-native bb-cpp-chonk-inputs constants-codegen
+bb-cpp-native-tests: bb-cpp-native bb-cpp-chonk-inputs
 	$(call test,$@,barretenberg/cpp,native)
 
 bb-cpp-wasm-threads-tests: bb-cpp-wasm-threads
@@ -425,14 +425,14 @@ l1-contracts-artifacts: l1-contracts-verifier
 # l1-contracts: Complete build (aggregate target)
 l1-contracts: l1-contracts-src l1-contracts-verifier l1-contracts-artifacts
 
-l1-contracts-tests: l1-contracts-verifier constants-codegen
+l1-contracts-tests: l1-contracts-verifier
 	$(call test,$@,l1-contracts)
 
 #==============================================================================
 # Yarn Project - TypeScript monorepo with all TS packages
 #==============================================================================
 
-yarn-project: bb-ts noir-projects l1-contracts wsdb bb-avm-sim constants-codegen
+yarn-project: bb-ts noir-projects l1-contracts wsdb bb-avm-sim
 	$(call build,$@,yarn-project)
 
 yarn-project-tests: yarn-project

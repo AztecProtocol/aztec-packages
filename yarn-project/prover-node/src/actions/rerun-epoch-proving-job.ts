@@ -7,7 +7,7 @@ import { type ProverClientConfig, createProverClient } from '@aztec/prover-clien
 import { ProverBrokerConfig, createAndStartProvingBroker } from '@aztec/prover-client/broker';
 import { getLastSiblingPath } from '@aztec/prover-client/helpers';
 import { ChonkCache } from '@aztec/prover-client/orchestrator';
-import { PublicProcessorFactory } from '@aztec/simulator/server';
+import { AvmSimulatorPool, PublicProcessorFactory } from '@aztec/simulator/server';
 import type { L2Block } from '@aztec/stdlib/block';
 import { getEpochAtSlot, getSlotRangeForEpoch } from '@aztec/stdlib/epoch-helpers';
 import type { ITxProvider } from '@aztec/stdlib/interfaces/server';
@@ -44,8 +44,10 @@ export async function rerunEpochProvingJob(
   await using worldState = await createWorldState(config, genesis);
   const initialBlockHash = await worldState.getInitialHeader().hash();
   const archiver = await createArchiverStore(config, initialBlockHash);
+  await using avmSimulator = await AvmSimulatorPool.spawn({ wsdbIpcPath: worldState.getIpcPath() });
   const publicProcessorFactory = new PublicProcessorFactory(
     createContractDataSource(archiver),
+    avmSimulator,
     undefined,
     undefined,
     log.getBindings(),

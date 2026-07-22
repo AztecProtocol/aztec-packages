@@ -142,6 +142,15 @@ check_file_or_id() {
       if [[ "$file_id" == "$slug" ]]; then
         return 0
       fi
+      # Docusaurus strips "NN-" number prefixes from filenames when deriving
+      # doc ids/routes, so 01-foo.md is served at .../foo.
+      local base_name
+      base_name=$(basename "$file")
+      base_name="${base_name%.mdx}"
+      base_name="${base_name%.md}"
+      if [[ "$base_name" =~ ^[0-9]+-(.+)$ ]] && [[ "${BASH_REMATCH[1]}" == "$slug" ]]; then
+        return 0
+      fi
     done
   fi
 

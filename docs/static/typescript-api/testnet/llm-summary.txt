@@ -1,6 +1,6 @@
 # Aztec TypeScript API Summary
-Version: v5.0.0
-Generated: 2026-07-13T18:51:14.538Z
+Version: 5.0.1
+Generated: 2026-07-17T01:35:29.402Z
 
 This file provides an index of the Aztec TypeScript API packages.
 For detailed API documentation, see the individual package .md files.
@@ -27,7 +27,7 @@ Exports: 6 classes, 1 interfaces, 4 functions, 9 types
   - Orchestrates private transaction execution and proving
   - Manages encrypted notes and nullifiers
   - Provides privacy-preserving state queries
-Exports: 21 classes, 3 interfaces, 14 functions, 40 types
+Exports: 21 classes, 3 interfaces, 16 functions, 41 types
 Key: PXE, createPXE
 
 **@aztec/entrypoints** - Transaction entrypoint implementations
@@ -53,7 +53,7 @@ Exports: 3 classes, 2 functions, 3 types
   - Proof types and verification
   - Kernel circuit types
   - Tree structures (note hash, nullifier, public data)
-Exports: 89 classes, 43 interfaces, 157 functions, 161 types
+Exports: 89 classes, 43 interfaces, 158 functions, 161 types
 Key: AztecAddress, BlockHeader, CompleteAddress, EthAddress
 
 **@aztec/foundation** - Low-level utilities and primitives

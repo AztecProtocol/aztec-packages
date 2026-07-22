@@ -122,8 +122,9 @@ When making changes that affect proof sizes (e.g., pairing points encoding, publ
 
 1. **C++ static_asserts** in `dsl/acir_format/mock_verifier_inputs.test.cpp` - These catch size changes at compile time
 2. **Noir constants** in `noir-projects/noir-protocol-circuits/crates/types/src/constants.nr`
-3. **Generated constants** - Run `barretenberg/cpp/scripts/remake-constants.sh`,
-   `(cd yarn-project/constants && yarn remake-constants)`, and `l1-contracts/scripts/remake-constants.sh`
+3. **Generated constants** - All projections (`aztec_constants.hpp`, `constants.gen.ts`, `ConstantsGen.sol`,
+   `constants_gen.pil`) regenerate automatically at build time; none need a manual step. If AVM-related constants
+   changed, also run `scripts/avm2_gen.sh` and commit the resulting `vm2/generated` changes.
 
 Key constants to watch:
 - `RECURSIVE_PROOF_LENGTH` - UltraHonk proof + DefaultIO public inputs
@@ -132,7 +133,7 @@ Key constants to watch:
 - `HIDING_KERNEL_PUBLIC_INPUTS_SIZE` - Size of HidingKernelIO
 
 If C++ static_asserts fail after your changes, update both the assert values and the corresponding Noir constants, then
-run the three generation commands above.
+run the generation commands above.
 
 ## Prover.toml Fixtures
 

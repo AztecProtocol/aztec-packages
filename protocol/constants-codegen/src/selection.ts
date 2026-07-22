@@ -1,6 +1,6 @@
 import { readFileSync } from 'node:fs';
 
-import type { ParsedContent } from './generator.js';
+import type { ParsedContent } from './generator.ts';
 
 /** Source symbols to include in one generated output. */
 export interface SymbolSelection {
@@ -71,10 +71,6 @@ function selectRecord<T>(record: Record<string, T>, symbols: string[], kind: str
 export function selectSymbols(content: ParsedContent, selection: SymbolSelection): ParsedContent {
   return {
     constants: selectRecord(content.constants, selection.constants, 'constant'),
-    domainSeparatorEnum: selectRecord(
-      content.domainSeparatorEnum,
-      selection.domainSeparators,
-      'domain separator',
-    ),
+    domainSeparatorEnum: selectRecord(content.domainSeparatorEnum, selection.domainSeparators, 'domain separator'),
   };
 }

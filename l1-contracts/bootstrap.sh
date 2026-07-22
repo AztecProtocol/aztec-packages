@@ -49,6 +49,8 @@ export hash=$(cache_content_hash \
 function build_src {
   echo_header "l1-contracts build_src"
 
+  scripts/remake-constants.sh
+
   # Download solc binary
   download_solc
 
@@ -130,14 +132,6 @@ function build {
 }
 
 function test_cmds {
-  local constants_hash=$(cache_content_hash \
-    ^protocol/constants-codegen/ \
-    ^noir-projects/noir-protocol-circuits/crates/types/src/constants\.nr$ \
-    ^l1-contracts/foundry\.toml$ \
-    ^l1-contracts/scripts/remake-constants\.sh$ \
-    ^l1-contracts/src/core/libraries/ConstantsGen\.sol$)
-  echo "$constants_hash l1-contracts/scripts/remake-constants.sh --check"
-
   echo "$hash cd l1-contracts && solhint --config ./.solhint.json \"src/**/*.sol\""
   echo "$hash cd l1-contracts && forge fmt --check"
   echo "$hash cd l1-contracts && forge test"
@@ -315,6 +309,10 @@ function release_git_push {
   # Copy from noir-projects. Bootstrap must have ran in noir-projects.
   cp ../noir-projects/noir-protocol-circuits/target/keys/rollup_root_verifier.sol release-out/src/HonkVerifier.sol
 
+  # ConstantsGen.sol is generated at build time and gitignored, so git archive omits it. The mirrored
+  # repo has neither the generator nor the Noir source of truth, so ship the built copy.
+  cp src/core/libraries/ConstantsGen.sol release-out/src/core/libraries/ConstantsGen.sol
+
   # Push the release from the clean export of HEAD, in a subshell so the caller's working directory
   # is preserved. Later release steps (e.g. release_l1_artifacts_npm) rely on the gitignored build
   # outputs that live in the working tree, outside this git-archive copy.
@@ -348,6 +346,9 @@ function release_git_push {
       echo "Tag $tag_name already exists. Skipping release."
     else
       git add .
+      # The exported .gitignore lists ConstantsGen.sol and the index starts empty here, so a
+      # plain 'git add .' would leave it out of the release tree.
+      git add -f src/core/libraries/ConstantsGen.sol
       git commit -m "Release $tag_name." >/dev/null
       git tag -a "$tag_name" -m "Release $tag_name."
       do_or_dryrun git push origin "$branch_name" --quiet

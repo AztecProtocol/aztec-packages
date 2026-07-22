@@ -1,0 +1,71 @@
+name: Port v5-next to next
+
+# Daily forward-port: accumulate everything new from `v5-next` onto the
+# long-lived `port-v5-next-to-next` branch (merging `next` and `v5-next` into
+# it) and open/update one large PR against `next`. See scripts/port_to_next.sh.
+
+on:
+  schedule:
+    # Daily at 06:30 UTC.
+    - cron: "30 6 * * *"
+  workflow_dispatch:
+    inputs:
+      source_branch:
+        description: "Source branch to port into next"
+        required: false
+        default: v5-next
+        type: string
+
+jobs:
+  port:
+    name: Forward-port v5-next into next
+    if: ${{ github.event_name != 'schedule' || github.repository == 'AztecProtocol/aztec-packages' }}
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@93cb6efe18208431cddfb8368fd83d5badbf9bfd # v5.0.1
+        with:
+          fetch-depth: 0
+          token: ${{ secrets.AZTEC_BOT_GITHUB_TOKEN }}
+
+      - name: Configure Git
+        run: |
+          git config --global user.name AztecBot
+          git config --global user.email tech@aztecprotocol.com
+
+      - name: Run port script
+        id: port
+        continue-on-error: true
+        env:
+          GH_TOKEN: ${{ secrets.AZTEC_BOT_GITHUB_TOKEN }}
+        run: ./scripts/port_to_next.sh "${{ github.event.inputs.source_branch || 'v5-next' }}"
+
+      - name: Notify Slack of conflicts
+        if: steps.port.outputs.conflicts != ''
+        env:
+          SLACK_BOT_TOKEN: ${{ secrets.SLACK_BOT_TOKEN }}
+          SOURCE_BRANCH: ${{ github.event.inputs.source_branch || 'v5-next' }}
+          PR_URL: ${{ steps.port.outputs.pr_url }}
+          CONFLICTS: ${{ steps.port.outputs.conflicts }}
+        run: |
+          WORKFLOW_URL="${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}"
+          TEXT=$(printf '⚠️ Daily port of `%s` → `next` hit merge conflicts. A PR was opened/updated for manual resolution: %s\n*Conflicted files:*\n```\n%s```\n<%s|View run>' \
+            "$SOURCE_BRANCH" "${PR_URL:-(none)}" "$CONFLICTS" "$WORKFLOW_URL")
+          curl -sS -X POST https://slack.com/api/chat.postMessage \
+            -H "Authorization: Bearer $SLACK_BOT_TOKEN" \
+            -H "Content-type: application/json" \
+            -d "$(jq -n --arg c "#backports" --arg t "$TEXT" '{channel:$c, text:$t}')"
+
+      - name: Notify Slack on unexpected failure
+        if: steps.port.outcome == 'failure'
+        env:
+          SLACK_BOT_TOKEN: ${{ secrets.SLACK_BOT_TOKEN }}
+          SOURCE_BRANCH: ${{ github.event.inputs.source_branch || 'v5-next' }}
+        run: |
+          WORKFLOW_URL="${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}"
+          TEXT=$(printf '❌ Daily port of `%s` → `next` failed unexpectedly (not a merge conflict). (🤖) <%s|View run>' \
+            "$SOURCE_BRANCH" "$WORKFLOW_URL")
+          curl -sS -X POST https://slack.com/api/chat.postMessage \
+            -H "Authorization: Bearer $SLACK_BOT_TOKEN" \
+            -H "Content-type: application/json" \
+            -d "$(jq -n --arg c "#backports" --arg t "$TEXT" '{channel:$c, text:$t}')"

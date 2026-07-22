@@ -382,7 +382,7 @@ const config = {
             docId: "operators/index",
             docsPluginId: "network",
             position: "left",
-            label: "Operate",
+            label: "Run a Node",
           },
           // Participate section - educational content (non-versioned)
           {

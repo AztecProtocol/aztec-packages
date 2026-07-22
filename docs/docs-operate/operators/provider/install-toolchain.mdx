@@ -1,0 +1,78 @@
+---
+title: "Install the Aztec toolchain"
+description: "Install the aztec CLI and Foundry, the two tools you need to generate keys and interact with Aztec L1 contracts."
+displayed_sidebar: operatorsSidebar
+---
+
+# Install the Aztec toolchain
+
+**Time:** ~2 minutes. The Aztec CLI is needed to generate validator keys and interact with L1 contracts. Foundry's `cast` is used throughout the Playbook to query contracts.
+
+<TrackPicker compact hideStake />
+
+<ForceStakeMode mode="provider" />
+
+## 1. Install Aztec
+
+```bash
+bash -i <(curl -sL https://install.aztec.network)
+```
+
+The installer pulls the `latest` tag by default. The current Aztec-recommended release is <RecommendedVersion />. To pin to it, set `VERSION` before running the installer:
+
+<ConfigCode language="bash">{`VERSION={{RECOMMENDED_VERSION}} bash -i <(curl -sL https://install.aztec.network)`}</ConfigCode>
+
+## 2. Install Foundry
+
+You'll use `cast` later to query contracts and claim rewards.
+
+```bash
+curl -L https://foundry.paradigm.xyz | bash && foundryup
+```
+
+## 3. Make the installation persistent
+
+Both installers append `PATH` lines to a shell rc file, but new shell sessions only pick them up if that rc file is loaded automatically. The fastest fix that survives reboots and new SSH sessions:
+
+```bash
+# Source the rc file once in this session
+source ~/.bashrc   # or ~/.zshrc if you use zsh
+
+# Make sure login shells pick it up too (covers non-interactive SSH)
+grep -q 'source ~/.bashrc' ~/.bash_profile 2>/dev/null || \
+  echo '[ -f ~/.bashrc ] && source ~/.bashrc' >> ~/.bash_profile
+```
+
+If you run the node under `systemd` or as a different user, that process won't read your rc files. Set `PATH` explicitly in the unit file or use absolute paths (`/home/<user>/.aztec/bin/aztec`, `/home/<user>/.foundry/bin/cast`).
+
+## 4. Verify the installation
+
+Open a new shell or run `source ~/.bashrc`, then:
+
+```bash
+aztec --version
+cast --version
+```
+
+Expected output: `aztec` followed by the version you installed (the recommended pin is <RecommendedVersion />, or whatever `latest` resolves to today), plus `cast Version: ...`.
+
+<details open>
+<summary>What just happened?</summary>
+
+You installed two tools and made them available in every new shell.
+
+- **`aztec` CLI** generates BLS and ECDSA keypairs for your sequencer and registers your validator on L1.
+- **Foundry (`cast`)** is a CLI for interacting with Ethereum smart contracts. You'll use `cast call` to check your sequencer status and `cast send` to claim rewards.
+- **The `~/.bash_profile` line** ensures non-interactive shells (the kind `ssh user@host "aztec --version"` uses) load `~/.bashrc` and find the new tools on `PATH`.
+
+</details>
+
+<details open>
+<summary>Something wrong?</summary>
+
+- **`command not found: aztec` after reopening shell** — Your shell may not be `bash`. Run `echo $SHELL`. If it's `zsh`, source `~/.zshrc` instead and add the equivalent line to `~/.zprofile`.
+- **Tools work in interactive shell but not via `ssh user@host "aztec --version"`** — The `~/.bash_profile` step above fixes this. Make sure that file exists and contains the source line.
+- **`curl` fails** — Check your firewall allows HTTPS. Try `curl -I https://install.aztec.network`.
+
+</details>
+

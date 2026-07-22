@@ -11,10 +11,11 @@ import {
   evaluateExpressions,
   generateCppConstants,
   generatePilConstants,
+  generateRustConstants,
   generateSolidityConstants,
   generateTypescriptConstants,
   parseNoirFile,
-} from './generator.js';
+} from './generator.ts';
 
 const noirFixture = `
 pub global MAX_FIELD_VALUE: Field =
@@ -70,6 +71,21 @@ test('generates PIL constants and domain separators', () => {
   assert.match(output, /pol DOM_SEP__MERKLE_HASH = 2982624097;/);
 });
 
+test('generates Rust constants', () => {
+  const output = generateToString(generateRustConstants);
+
+  assert.match(output, /pub const ARCHIVE_HEIGHT: u128 = 30;/);
+  assert.match(
+    output,
+    /pub const MAX_ETH_ADDRESS_VALUE: &str = "0x000000000000000000000000ffffffffffffffffffffffffffffffffffffffff";/,
+  );
+  assert.match(
+    output,
+    /pub const MAX_FIELD_VALUE: &str = "0x30644e72e131a029b85045b68181585d2833e84879b9709143e1f593f0000000";/,
+  );
+  assert.match(output, /pub const DOM_SEP__MERKLE_HASH: u128 = 2982624097;/);
+});
+
 test('generates Solidity constants', () => {
   const output = generateToString(generateSolidityConstants);
 
@@ -88,7 +104,7 @@ test('the CLI generates multiple requested outputs', () => {
   const cppSelectionPath = join(tempDir, 'cpp-selection.json');
   const typescriptPath = join(tempDir, 'typescript', 'constants.ts');
   const cppPath = join(tempDir, 'cpp', 'constants.hpp');
-  const cliPath = join(dirname(fileURLToPath(import.meta.url)), 'cli.js');
+  const cliPath = join(dirname(fileURLToPath(import.meta.url)), 'cli.ts');
 
   try {
     writeFileSync(inputPath, noirFixture);
@@ -143,7 +159,7 @@ test('the CLI rejects unknown selected symbols', () => {
   const inputPath = join(tempDir, 'constants.nr');
   const selectionPath = join(tempDir, 'selection.json');
   const outputPath = join(tempDir, 'constants.ts');
-  const cliPath = join(dirname(fileURLToPath(import.meta.url)), 'cli.js');
+  const cliPath = join(dirname(fileURLToPath(import.meta.url)), 'cli.ts');
 
   try {
     writeFileSync(inputPath, noirFixture);
@@ -153,19 +169,24 @@ test('the CLI rejects unknown selected symbols', () => {
       () =>
         execFileSync(
           process.execPath,
-          [
-            cliPath,
-            '--input',
-            inputPath,
-            '--typescript',
-            outputPath,
-            '--typescript-selection',
-            selectionPath,
-          ],
+          [cliPath, '--input', inputPath, '--typescript', outputPath, '--typescript-selection', selectionPath],
           { encoding: 'utf8', stdio: 'pipe' },
         ),
       error => error instanceof Error && error.message.includes("unknown constant 'UNKNOWN_CONSTANT'"),
     );
+  } finally {
+    rmSync(tempDir, { recursive: true, force: true });
+  }
+});
+
+test('the CLI defaults --input to the monorepo constants.nr', () => {
+  const tempDir = mkdtempSync(join(tmpdir(), 'constants-codegen-cli-'));
+  const typescriptPath = join(tempDir, 'constants.ts');
+  const cliPath = join(dirname(fileURLToPath(import.meta.url)), 'cli.ts');
+
+  try {
+    execFileSync(process.execPath, [cliPath, '--typescript', typescriptPath], { stdio: 'pipe' });
+    assert.match(readFileSync(typescriptPath, 'utf8'), /export const ARCHIVE_HEIGHT = \d+;/);
   } finally {
     rmSync(tempDir, { recursive: true, force: true });
   }

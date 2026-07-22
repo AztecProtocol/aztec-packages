@@ -217,7 +217,7 @@ phase2_cascade() {
     step "Regenerating constants for TypeScript and Barretenberg"
     if ! (
         cd "$ROOT/yarn-project"
-        yarn workspace @aztec/constants remake-constants
+        yarn workspace @aztec/constants generate
         "$ROOT/barretenberg/cpp/scripts/remake-constants.sh"
     ); then
         cat >&2 <<EOF

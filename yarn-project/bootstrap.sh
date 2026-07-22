@@ -5,6 +5,7 @@ function hash {
   hash_str \
     $(../noir/bootstrap.sh hash) \
     $(../barretenberg/bootstrap.sh hash) \
+    $(../ipc-codegen/bootstrap.sh hash) \
     $(cache_content_hash ../{avm-transpiler,noir-projects,l1-contracts,yarn-project}/.rebuild_patterns)
 }
 
@@ -122,6 +123,9 @@ function compile_all {
   # Ensure the pinned version sqlite3mc-wasm upstream artifacts are present before any package builds.
   ./sqlite3mc-wasm/scripts/vendor.sh ensure
 
+  # produce constants.gen.ts before compiling the constants package.
+  constants/scripts/remake-constants.sh
+
   compile_project ::: constants foundation stdlib blob-lib builder ethereum
 
   # Call all projects that have a generation stage.
@@ -137,6 +141,7 @@ function compile_all {
     noir-protocol-circuits-types \
     protocol-contracts \
     pxe \
+    simulator \
     standard-contracts
   cat joblog.txt
 
@@ -174,9 +179,6 @@ function build {
 
 function test_cmds {
   local hash=$(hash)
-  local constants_hash=$(cache_content_hash constants/.rebuild_patterns)
-
-  echo "$constants_hash yarn-project/constants/scripts/remake-constants.sh --check"
 
   # Exclusions:
   # end-to-end: e2e tests handled separately with end-to-end/bootstrap.sh.

@@ -1,36 +1,20 @@
 #!/usr/bin/env bash
 
-# Precommit hook simply to warn the user that they've staged a change to constants.nr.
-# Longer-term, there might be a more-robust solution, but the goal of this script is
-# simply to warn devs, so that they don't forget to regenerate the constants.
-# Lots of hours lost to people forgetting to regenerate all the downstream constants.
-# This script DOES NOT regenerate the constants, because there's too much to build.
-# In the case where they've already generated and staged all the constant files of
-# this commit, they'll have to cope with this small bit of noise.
+# Warn when constants.nr is staged. The generated projections (constants.gen.ts,
+# aztec_constants.hpp, ConstantsGen.sol, constants_gen.pil) regenerate at build time,
+# but two downstream artifacts still need a manual step, and forgetting them has
+# historically cost hours of debugging. This hook only warns; it never blocks the commit.
 
-#!/usr/bin/env bash
-set -euo pipefail  # Fail on errors, unset variables, and pipeline failures
+set -euo pipefail
 
-cd "$(dirname "$0")"  # Change to the script's directory
-
-export FORCE_COLOR=true
+cd "$(dirname "$0")"
 
 FILE_TO_WATCH="noir-projects/noir-protocol-circuits/crates/types/src/constants.nr"
 
-# Check if constants.nr is staged for commit
 if git diff --cached --name-only | grep -Fxq "$FILE_TO_WATCH"; then
     echo "It looks like you changed $FILE_TO_WATCH."
     echo ""
-    echo -e "\033[33mPlease remember to regenerate the other constants files. If you've already regenerated the constants, please ignore this message.\033[0m"
-    echo ""
-    echo "Depending on the constants you've changed, these might include: constants.gen.ts, ConstantsGen.sol, constants_gen.pil, aztec_constants.hpp."
-    echo ""
-    echo "Regenerate each owned output with:"
-    echo -e "  \033[33m(cd yarn-project/constants && yarn remake-constants)\033[0m"
-    echo -e "  \033[33mbarretenberg/cpp/scripts/remake-constants.sh\033[0m"
-    echo -e "  \033[33ml1-contracts/scripts/remake-constants.sh\033[0m"
-    echo "If you have changed tree sizes, also run ./yarn-project/update-snapshots.sh."
-    echo ""
-    echo "We don't automatically regenerate them for you in this git hook, because you'll likely need to also re-build components of the repo. End."
+    echo -e "\033[33mIf you changed AVM-related constants, rerun barretenberg/cpp/scripts/avm2_gen.sh and commit the vm2/generated changes.\033[0m"
+    echo -e "\033[33mIf you changed tree sizes, also run ./yarn-project/update-snapshots.sh.\033[0m"
     echo ""
 fi

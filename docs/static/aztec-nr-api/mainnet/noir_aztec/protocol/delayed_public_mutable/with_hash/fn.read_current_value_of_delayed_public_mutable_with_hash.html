@@ -48,16 +48,16 @@ are written.</p>
 <li><code>historical_header</code>: The header of the block whose state we are reading from.</li>
 <li><code>storage_slot</code>: The <strong>starting</strong> storage slot of the delayed public mutable state variable.</li>
 <li><code>contract_address</code>: The address of the contract where the delayed public mutable was written to.</li>
-<li><code>delayed_public_mutable</code>: The delayed public mutable to read.
-Note: This can be anything if the variable has not been initialized yet. The caller should only use the returned
-value from this function to perform further checks.</li>
+<li><code>delayed_public_mutable</code>: The hinted delayed public mutable to read (its correctness is validated within this function).</li>
 <li><code>witness</code>: A hint to prove that the <code>leaf_preimage</code> exists in the tree.</li>
 <li><code>leaf_preimage</code>: The preimage of the leaf containing the hash of the packed values. Or a low leaf if the variable
 has not been initialized.</li>
 </ul>
 <p>Returns:</p>
 <ul>
-<li>T: The current value of the delayed public mutable at the time of the historical block. Empty if not initialized.</li>
+<li>T: The current value of the delayed public mutable at the time of the historical block. Returns
+<code>T::unpack(std::mem::zeroed())</code> (the bitwise-zero packing of <code>T</code>, i.e. the storage-default) if
+the variable has not been initialized.</li>
 </ul>
 </div>
 </main>

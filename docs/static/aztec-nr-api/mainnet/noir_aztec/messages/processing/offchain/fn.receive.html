@@ -21,6 +21,9 @@
 <h3>Structs</h3><ul class="item-list">
 <li><a href="struct.OffchainMessage.html">OffchainMessage</a></div></li>
 </ul>
+<h3>Type aliases</h3><ul class="item-list">
+<li><a href="type.OffchainInboxSync.html">OffchainInboxSync</a></div></li>
+</ul>
 <h3>Functions</h3><ul class="item-list">
 <li><a href="fn.receive.html">receive</a></div></li>
 <li><a href="fn.sync_inbox.html">sync_inbox</a></div></li>
@@ -43,12 +46,9 @@
 message to the recipient through an external channel (e.g. a URL accessible by the recipient). The recipient then
 calls this function to hand the messages to the contract so they can be processed through the same mechanisms as
 onchain messages.</p>
-<p>Each message is routed to the inbox scoped to its <code>recipient</code> field, so messages for different accounts are
-automatically isolated.</p>
 <p>Messages are processed when their originating transaction is found onchain (providing the context needed to
 validate resulting notes and events).</p>
-<p>Messages are kept in the inbox until they expire. The effective expiration is
-<code>anchor_block_timestamp + MAX_MSG_TTL</code>.</p>
+<p>Messages are eventually removed from the inbox: an unprocessed message once its TTL (<code>anchor_block_timestamp + MAX_MSG_TTL</code>) elapses, and a processed message once the block its transaction was found in finalizes.</p>
 <p>Processing order is not guaranteed.</p>
 </div>
 </main>

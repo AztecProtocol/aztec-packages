@@ -1,6 +1,7 @@
 #!/usr/bin/env node
-import { mkdirSync, readFileSync } from 'node:fs';
+import { existsSync, mkdirSync, readFileSync } from 'node:fs';
 import { dirname } from 'node:path';
+import { fileURLToPath } from 'node:url';
 import { parseArgs } from 'node:util';
 
 import {
@@ -8,11 +9,12 @@ import {
   evaluateExpressions,
   generateCppConstants,
   generatePilConstants,
+  generateRustConstants,
   generateSolidityConstants,
   generateTypescriptConstants,
   parseNoirFile,
-} from './generator.js';
-import { readSymbolSelection, selectSymbols } from './selection.js';
+} from './generator.ts';
+import { readSymbolSelection, selectSymbols } from './selection.ts';
 
 type GenerateOutput = (content: ParsedContent, targetPath: string) => void;
 
@@ -47,12 +49,19 @@ function run(args: string[]): void {
       'pil-selection': { type: 'string' },
       solidity: { type: 'string' },
       'solidity-selection': { type: 'string' },
+      rust: { type: 'string' },
     },
     strict: true,
   });
 
-  if (!values.input) {
-    throw new Error('--input is required');
+  // Resolved relative to this file, so it exists only when the package sits inside the
+  // aztec-packages monorepo; the published npm package must be given --input explicitly.
+  const defaultInput = fileURLToPath(
+    new URL('../../../noir-projects/noir-protocol-circuits/crates/types/src/constants.nr', import.meta.url),
+  );
+  const input = values.input ?? (existsSync(defaultInput) ? defaultInput : undefined);
+  if (!input) {
+    throw new Error('--input is required when running outside the aztec-packages monorepo');
   }
 
   const outputs = [
@@ -72,6 +81,7 @@ function run(args: string[]): void {
     values.solidity
       ? { path: values.solidity, selectionPath: values['solidity-selection'], generate: generateSolidityConstants }
       : undefined,
+    values.rust ? { path: values.rust, selectionPath: undefined, generate: generateRustConstants } : undefined,
   ].filter((output): output is RequestedOutput => output !== undefined);
 
   const unpairedSelection = [
@@ -88,7 +98,7 @@ function run(args: string[]): void {
     throw new Error('at least one output option is required');
   }
 
-  const { constantsExpressions, domainSeparatorEnum } = parseNoirFile(readFileSync(values.input, 'utf8'));
+  const { constantsExpressions, domainSeparatorEnum } = parseNoirFile(readFileSync(input, 'utf8'));
   for (const value of values.include ?? []) {
     const { path, symbol } = parseIncludedConstant(value);
     const { constantsExpressions: includedExpressions } = parseNoirFile(readFileSync(path, 'utf8'), {

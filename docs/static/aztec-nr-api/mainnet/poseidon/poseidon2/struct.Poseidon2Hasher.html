@@ -46,7 +46,12 @@
 
 <code class="code-header">pub fn <span class="fn">finish_ref</span>(&mut self: &Self) -> <a href="../../std/primitive.Field.html" class="primitive">Field</a></code>
 
-<code class="code-header">pub fn <span class="fn">write</span>(&mut self, input: <a href="../../std/primitive.Field.html" class="primitive">Field</a>)</code>
+<div class="padded-description"><div class="comments">
+<p>Returns the hash value without consuming the hasher.
+Override this for more efficient implementations that avoid copying.
+TODO: deprecate finish() and replace it</p>
+</div>
+</div><code class="code-header">pub fn <span class="fn">write</span>(&mut self, input: <a href="../../std/primitive.Field.html" class="primitive">Field</a>)</code>
 
 </div></main>
 </span>

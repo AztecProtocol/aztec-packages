@@ -22,6 +22,7 @@
 <ul class="sidebar-list">
 <li><a href="#new">new</a></li>
 <li><a href="#with_authorized_utility_call_targets">with_authorized_utility_call_targets</a></li>
+<li><a href="#with_from">with_from</a></li>
 </ul>
 <h2>In module test_environment</h2>
 <h3>Structs</h3><ul class="item-list">
@@ -31,6 +32,7 @@
 <li><a href="struct.ExecuteUtilityOptions.html">ExecuteUtilityOptions</a></div></li>
 <li><a href="struct.PrivateContextOptions.html">PrivateContextOptions</a></div></li>
 <li><a href="struct.TestEnvironment.html">TestEnvironment</a></div></li>
+<li><a href="struct.TestEnvironmentOptions.html">TestEnvironmentOptions</a></div></li>
 <li><a href="struct.ViewPrivateOptions.html">ViewPrivateOptions</a></div></li>
 </ul>
 </nav>
@@ -44,19 +46,25 @@
 <p>Configuration for <a href="../../../../noir_aztec/test/helpers/test_environment/struct.TestEnvironment.html#execute_utility_opts"><code>TestEnvironment::execute_utility_opts</code></a>.</p>
 <p>Constructed by calling <a href="../../../../noir_aztec/test/helpers/test_environment/struct.ExecuteUtilityOptions.html#new"><code>ExecuteUtilityOptions::new</code></a> and then chaining methods:</p>
 <pre><code>env.execute_utility_opts(
-    ExecuteUtilityOptions::new().with_authorized_utility_call_targets([target]),
+    ExecuteUtilityOptions::new().with_from(caller).with_authorized_utility_call_targets([target]),
     SomeContract::at(addr).some_utility_function(),
 );</code></pre></div>
 <h2>Implementations</h2>
 <h3><code class="code-header">impl&lt;let T: <a href="../../../../std/primitive.u32.html" class="primitive">u32</a>&gt; <a href="../../../../noir_aztec/test/helpers/test_environment/struct.ExecuteUtilityOptions.html" class="struct">ExecuteUtilityOptions</a>&lt;T&gt;</code></h3>
 
-<div class="padded-methods"><code id="with_authorized_utility_call_targets" class="code-header">pub fn <a href="#with_authorized_utility_call_targets"><span class="fn">with_authorized_utility_call_targets</span></a>&lt;let T_2: <a href="../../../../std/primitive.u32.html" class="primitive">u32</a>&gt;(
-    _self: Self,
+<div class="padded-methods"><code id="with_from" class="code-header">pub fn <a href="#with_from"><span class="fn">with_from</span></a>(&mut self, from: <a href="../../../../protocol_types/address/aztec_address/struct.AztecAddress.html" class="struct">AztecAddress</a>) -> Self</code>
+
+<div class="padded-description"><div class="comments">
+<p>Sets the <code>msg_sender</code> simulating a cross-contract call.</p>
+<p>By default, an <code>Option::none</code> value is supplied to <code>maybe_msg_sender</code>.</p>
+</div>
+</div><code id="with_authorized_utility_call_targets" class="code-header">pub fn <a href="#with_authorized_utility_call_targets"><span class="fn">with_authorized_utility_call_targets</span></a>&lt;let T_2: <a href="../../../../std/primitive.u32.html" class="primitive">u32</a>&gt;(
+    self,
     targets: [<a href="../../../../protocol_types/address/aztec_address/struct.AztecAddress.html" class="struct">AztecAddress</a>; T_2],
 ) -> <a href="../../../../noir_aztec/test/helpers/test_environment/struct.ExecuteUtilityOptions.html" class="struct">ExecuteUtilityOptions</a>&lt;T_2&gt;</code>
 
 <div class="padded-description"><div class="comments">
-<p>Authorizes cross-contract utility calls to the given target contracts during this call.</p>
+<p>Authorizes cross-contract utility calls to given targets.</p>
 <p>By default, cross-contract utility calls are denied. This method lets the test author specify which target
 contracts are allowed to be called via utility functions during execution.</p>
 </div>

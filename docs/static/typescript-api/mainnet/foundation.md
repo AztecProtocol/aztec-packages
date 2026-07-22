@@ -1,6 +1,6 @@
 # @aztec/foundation
 
-Version: v4.3.1
+Version: 5.0.1
 
 ## Quick Import Reference
 
@@ -8,9 +8,9 @@ Version: v4.3.1
 import {
   AbortError,
   BadRequestError,
+  BaseBuffer32,
   Buffer16,
   Buffer32,
-  BufferReader,
   // ... and more
 } from '@aztec/foundation';
 ```
@@ -39,6 +39,28 @@ Extends: `Error`
 ```typescript
 new BadRequestError(message: string)
 ```
+
+### BaseBuffer32
+
+Abstract unbranded base class for 32-byte buffers. Extend this instead of Buffer32 when defining a branded subtype to avoid inheriting Buffer32's `_branding`.
+
+**Constructor**
+```typescript
+new BaseBuffer32(buffer: Buffer)
+```
+
+**Properties**
+- `buffer: Buffer` - The buffer containing the data.
+- `static SIZE: number` - The size of the buffer in bytes.
+
+**Methods**
+- `[custom]() => string`
+- `equals(hash: BaseBuffer32) => boolean` - Checks if this and another buffer are equal.
+- `isZero() => boolean` - Returns true if all bytes are zero.
+- `toBigInt() => bigint` - Convert to a big int.
+- `toBuffer() => Buffer<ArrayBufferLike>` - Returns the raw buffer.
+- `toJSON() => string`
+- `toString() => string` - Convert to a hex string.
 
 ### Buffer16
 
@@ -71,7 +93,9 @@ new Buffer16(buffer: Buffer)
 
 ### Buffer32
 
-A class representing a 32 byte Buffer.
+A branded 32-byte buffer.
+
+Extends: `BaseBuffer32`
 
 **Constructor**
 ```typescript
@@ -79,25 +103,25 @@ new Buffer32(buffer: Buffer)
 ```
 
 **Properties**
-- `buffer: Buffer` - The buffer containing the hash.
-- `static SIZE: number` - The size of the hash in bytes.
+- `buffer: Buffer` - The buffer containing the data.
+- `static SIZE: number` - The size of the buffer in bytes.
 - `static ZERO: Buffer32` - Buffer32 with value zero.
 
 **Methods**
 - `[custom]() => string`
-- `equals(hash: Buffer32) => boolean` - Checks if this hash and another hash are equal.
+- `equals(hash: BaseBuffer32) => boolean` - Checks if this and another buffer are equal.
 - `static fromBigInt(hash: bigint) => Buffer32` - Creates a Buffer32 from a bigint.
 - `static fromBuffer(buffer: Buffer<ArrayBufferLike> | BufferReader) => Buffer32` - Creates a Buffer32 from a buffer.
-- `static fromBuffer28(buffer: Buffer) => Buffer32` - Converts this hash from a buffer of 28 bytes. Verifies the input is 28 bytes.
+- `static fromBuffer28(buffer: Buffer) => Buffer32` - Converts from a buffer of 28 bytes.
 - `static fromField(hash: Fr) => Buffer32`
 - `static fromNumber(num: number) => Buffer32` - Converts a number into a Buffer32 object.
 - `static fromString(str: string) => Buffer32` - Converts a string into a Buffer32 object.
-- `isZero() => boolean` - Returns true if this hash is zero.
+- `isZero() => boolean` - Returns true if all bytes are zero.
 - `static random() => Buffer32` - Generates a random Buffer32.
-- `toBigInt() => bigint` - Convert this hash to a big int.
-- `toBuffer() => Buffer<ArrayBufferLike>` - Returns the raw buffer of the hash.
+- `toBigInt() => bigint` - Convert to a big int.
+- `toBuffer() => Buffer<ArrayBufferLike>` - Returns the raw buffer.
 - `toJSON() => string`
-- `toString() => string` - Convert this hash to a hex string.
+- `toString() => string` - Convert to a hex string.
 
 ### BufferReader
 
@@ -113,7 +137,7 @@ new BufferReader(buffer: Buffer, offset: number)
 - `getLength() => number` - Get the length of the reader's buffer.
 - `isEmpty() => boolean` - Returns true if the underlying buffer has been consumed completely.
 - `peekBytes(n?: number) => Buffer` - Returns a Buffer containing the next n bytes from the current buffer without modifying the reader's index position. If n is not provided or exceeds the remaining length of the buffer, it returns all bytes from the current position till the end of the buffer.
-- `readArray<T>(size: number, itemDeserializer: { fromBuffer: (reader: BufferReader) => T }) => T[]` - Read an array from the buffer using lazy allocation (new Array + loop). Safe for use with untrusted sizes — does not pre-allocate memory proportional to size.
+- `readArray<T, N extends number>(size: N, itemDeserializer: { fromBuffer: (reader: BufferReader) => T }) => Tuple<T, N>` - Read an array of a fixed size with elements of type T from the buffer. The 'itemDeserializer' object should have a 'fromBuffer' method that takes a BufferReader instance as input, and returns an instance of the desired deserialized data type T. This method will call the 'fromBuffer' method for each element in the array and return the resulting array.
 - `readBigInt() => bigint` - Alias for readUInt256
 - `readBoolean() => boolean` - Reads and returns the next boolean value from the buffer. Advances the internal index by 1, treating the byte at the current index as a boolean value. Returns true if the byte is non-zero, false otherwise.
 - `readBuffer(maxSize?: number) => Buffer` - Reads a buffer from the current position of the reader and advances the index. The method first reads the size (number) of bytes to be read, and then returns a Buffer with that size containing the bytes. Useful for reading variable-length binary data encoded as (size, data) format.
@@ -127,7 +151,6 @@ new BufferReader(buffer: Buffer, offset: number)
 - `readObject<T>(deserializer: { fromBuffer: (reader: BufferReader) => T }) => T` - Reads a serialized object from a buffer and returns the deserialized object using the given deserializer.
 - `readString(maxSize?: number) => string` - Reads a string from the buffer and returns it. The method first reads the size of the string, then reads the corresponding number of bytes from the buffer and converts them to a string.
 - `readToEnd() => Buffer` - Reads until the end of the buffer.
-- `readTuple<T, N extends number>(size: N, itemDeserializer: { fromBuffer: (reader: BufferReader) => T }) => Tuple<T, N>` - Read a fixed-size tuple from the buffer using dense allocation (Array.from). Only use with compile-time constant sizes — the size parameter MUST NOT come from untrusted input as Array.from pre-allocates memory proportional to size.
 - `readUInt128() => bigint` - Reads a 128-bit unsigned integer from the buffer at the current index position. Updates the index position by 16 bytes after reading the number. Assumes the number is stored in big-endian format.
 - `readUInt16() => number` - Reads a 16-bit unsigned integer from the buffer at the current index position. Updates the index position by 2 bytes after reading the number.
 - `readUInt256() => bigint` - Reads a 256-bit unsigned integer from the buffer at the current index position. Updates the index position by 32 bytes after reading the number. Assumes the number is stored in big-endian format.
@@ -138,6 +161,34 @@ new BufferReader(buffer: Buffer, offset: number)
 - `readVector<T>(itemDeserializer: { fromBuffer: (reader: BufferReader) => T }, maxSize?: number) => T[]` - Reads a vector of fixed size from the buffer and deserializes its elements using the provided itemDeserializer object. The 'itemDeserializer' object should have a 'fromBuffer' method that takes a BufferReader instance and returns the deserialized element. The method first reads the size of the vector (a number) from the buffer, then iterates through its elements, deserializing each one using the 'fromBuffer' method of 'itemDeserializer'.
 - `readVectorUint8Prefix<T>(itemDeserializer: { fromBuffer: (reader: BufferReader) => T }) => T[]` - Reads a vector of fixed size from the buffer and deserializes its elements using the provided itemDeserializer object. The 'itemDeserializer' object should have a 'fromBuffer' method that takes a BufferReader instance and returns the deserialized element. The method first reads the size of the vector (a number) from the buffer, then iterates through its elements, deserializing each one using the 'fromBuffer' method of 'itemDeserializer'.
 - `remainingBytes() => number` - Gets bytes remaining to be read from the buffer.
+
+### BufferSink
+
+A growable, append-only binary sink backed by a single `ArrayBuffer`. It exists to replace the recursive `toBuffer()` chain — which allocates a `Buffer` at every node and `Buffer.concat`s at every level — with one buffer that the whole object graph streams into and that is sliced exactly once at the root. Encodings are big-endian, matching `serializeToBuffer` byte-for-byte. The migration contract is the optional-sink `toBuffer`: ```ts toBuffer(): Buffer; toBuffer(sink: BufferSink): void; toBuffer(sink?: BufferSink): Buffer | void { if (!sink) return BufferSink.serialize(this); // own a sink, fill it, slice once serializeToSink(sink, this.a, this.b, this.c); // stream into the caller's sink } ``` When a sink is passed it writes and returns `undefined`; otherwise it returns its own buffer. Nodes that have not been migrated keep their plain `toBuffer(): Buffer` and are folded in via the return-value fallback in serializeToSink, so the tree stays valid at every step of an incremental migration. Performance note: bigints are written via `DataView.setBigUint64` limbs (writeBigInt, writeField), NOT a per-byte shift loop. The limb form is ~16x faster than the legacy hex round-trip on field-heavy structures, and faster than the legacy path at every width — a naive per-byte shift loop is actually the slowest option, since each byte allocates a fresh BigInt. See the spike benchmark.
+
+**Constructor**
+```typescript
+new BufferSink(initialCapacity: number)
+```
+
+**Properties**
+- `length: unknown`
+
+**Methods**
+- `asUint8Array() => Uint8Array` - A zero-copy view of the written region. Valid only until the next write (which may reallocate).
+- `reset() => void` - Reset the write cursor without releasing the backing buffer. Lets the same sink be reused across many serializations without reallocating — the per-call cost drops to the bytes written (no `new ArrayBuffer`). Any `Buffer` previously returned by toBuffer is a fresh copy and remains valid; any view from asUint8Array aliases the buffer and is invalidated.
+- `static serialize(obj: {}, initialCapacity?: number) => Buffer` - Serialize a migrated value into a fresh sink and return the single resulting buffer. This is the no-sink branch of every migrated `toBuffer`: one allocation, one slice, only at the root.
+- `toBuffer() => Buffer` - Copy the written region into a freshly allocated `Buffer`. The single allocation of the whole serialization.
+- `writeBigInt(value: bigint, width: number) => void` - Append a non-negative bigint as a big-endian unsigned integer of `width` bytes (default 32), matching `serializeBigInt` / `toBufferBE`. Every width is written limb-wise via `setBigUint64` rather than the legacy per-byte BigInt shift loop — that loop allocated a fresh BigInt per byte and benchmarked as the *slowest* option (slower even than the legacy hex round-trip); the limb form is faster at every width. The bulk of the value is written as 64-bit big-endian limbs from the least-significant tail upward, and a final `width % 8` (at most 7) high bytes that don't fill a whole limb are written individually. The common widths (8/16/32) are exact multiples of 8, so they take the pure-limb path with no remainder. `width === 32` keeps its own straight-line four-limb form (shared with writeField) since it is the `Fr`/`Fq`/Chonk-proof hot path and the unrolled body is marginally faster than the loop.
+- `writeBool(value: boolean) => void` - Append a single byte (0/1) for a boolean, matching `boolToBuffer`.
+- `writeBytes(bytes: Uint8Array) => void` - Append raw bytes verbatim (no length prefix), matching how a `Buffer`/`Uint8Array` is serialized inline.
+- `writeField(value: bigint) => void` - Append a 32-byte (256-bit) big-endian non-negative bigint. Specialized form of writeBigInt with no width parameter and no width-branch, so V8 can inline the four `setBigUint64` limb writes without the wider branchy form's instability. This is the Fr/Fq leaf hot path; prefer it over `writeBigInt(value, 32)` in callers that always serialize 32-byte fields.
+- `writeFields(fields: readonly {}[]) => void` - Append an array of field elements (or any objects exposing `toBigInt(): bigint`) as a contiguous sequence of 32-byte big-endian limbs. Iterates inline — no per-element `toBuffer` dispatch and no per-element function-call indirection through the generic sinkable dispatcher. Use this in classes that hold large flat field arrays (e.g. the 1632-element ChonkProof field list).
+- `writeNumber(value: number) => void` - Append a big-endian unsigned 32-bit integer, matching `numToUInt32BE`.
+- `writeString(value: string) => void` - Append a string as a 4-byte big-endian length prefix followed by its UTF-8 bytes, matching the string case.
+- `writeUInt16(value: number) => void` - Append a big-endian unsigned 16-bit integer.
+- `writeUInt64(value: bigint) => void` - Append a big-endian unsigned 64-bit integer, matching `bigintToUInt64BE`.
+- `writeUInt8(value: number) => void` - Append an unsigned 8-bit integer.
 
 ### DateProvider
 
@@ -205,13 +256,12 @@ new FieldReader(fields: Fr[], offset: number)
 - `static asReader(fields: Fr[] | FieldReader) => FieldReader` - Creates a FieldReader instance from either a field array or an existing FieldReader.
 - `isFinished() => boolean` - Returns whether the reader has finished reading all fields.
 - `peekField() => Fr` - Peeks at the next field without advancing the cursor.
-- `readArray<T>(size: number, itemDeserializer: { fromFields: (reader: FieldReader) => T }) => T[]` - Read an array from the field array using lazy allocation (new Array + loop). Safe for use with untrusted sizes.
+- `readArray<T, N extends number>(size: N, itemDeserializer: { fromFields: (reader: FieldReader) => T }) => Tuple<T, N>` - Read an array of a fixed size with elements of type T from the field array. The 'itemDeserializer' object should have a 'fromFields' method that takes a FieldReader instance as input, and returns an instance of the desired deserialized data type T. This method will call the 'fromFields' method for each element in the array and return the resulting array.
 - `readBoolean() => boolean` - Reads and returns the next boolean value from the field array. Advances the internal index by 1, treating the field at the current index as a boolean value. Returns true if the field is non-zero, false otherwise. Throw if the value is not 0 or 1.
 - `readField() => Fr` - Reads a single field from the array.
 - `readFieldArray<N extends number>(size: N) => Tuple<Fr, N>` - Read an array of a fixed size field array.
 - `readFq() => Fq` - Reads a Fq from the array.
 - `readObject<T>(deserializer: { fromFields: (reader: FieldReader) => T }) => T` - Reads a serialized object from a field array and returns the deserialized object using the given deserializer.
-- `readTuple<T, N extends number>(size: N, itemDeserializer: { fromFields: (reader: FieldReader) => T }) => Tuple<T, N>` - Read a fixed-size tuple from the field array using dense allocation (Array.from). Only use with compile-time constant sizes — the size parameter MUST NOT come from untrusted input.
 - `readU32() => number` - Reads a 32-bit unsigned integer from the field array at the current index position. Updates the index position by 1 after reading the number. Throw if the value is greater than 2 ** 32.
 - `readU64() => bigint` - Reads a 64-bit unsigned integer from the field array at the current index position. Updates the index position by 1 after reading the number. Throw if the value is greater than 2 ** 64.
 - `remainingFields() => number`
@@ -243,6 +293,42 @@ new InterruptibleSleep()
 **Methods**
 - `interrupt(sleepShouldThrow: boolean) => void` - Interrupts the current sleep operation and optionally throws an error if specified. By default, when interrupted, the sleep operation will resolve without throwing. If 'sleepShouldThrow' is set to true, the sleep operation will throw an InterruptError instead.
 - `sleep(ms: number) => Promise<void>` - Sleep for a specified amount of time in milliseconds. The sleep function will pause the execution of the current async function for the given time period, allowing other tasks to run before resuming.
+
+### LruMap
+
+A bounded key-value map with Least Recently Used (LRU) eviction. Both get and set count as an access and refresh the entry's recency, so entries that are actively used stay in the map longest. Uses a doubly-linked list for O(1) ordering and a Map for O(1) lookup. Head = least recent, tail = most recent.
+
+**Constructor**
+```typescript
+new LruMap(maxSize: number)
+```
+
+**Properties**
+- `size: unknown`
+
+**Methods**
+- `clear() => void` - Removes all entries from the map.
+- `delete(key: K) => boolean` - Removes the entry for the key, returning true if it was present.
+- `get(key: K) => V | undefined` - Returns the value for the key, or undefined if absent. Refreshes the entry's recency so it becomes the most recently used.
+- `has(key: K) => boolean` - Returns true if the key is present, without refreshing its recency.
+- `set(key: K, value: V) => void` - Stores a value for the key, refreshing its recency. If the key already exists, overwrites the value. If the map is at capacity, evicts the least recently used entry.
+
+### LruSet
+
+A bounded set with Least Recently Used (LRU) eviction. Both has and add count as an access and refresh the entry's recency, so items that are actively checked stay in the set longest. Uses a doubly-linked list for O(1) ordering and a Map for O(1) lookup. Head = least recent, tail = most recent.
+
+**Constructor**
+```typescript
+new LruSet(maxSize: number)
+```
+
+**Properties**
+- `size: unknown`
+
+**Methods**
+- `add(item: T) => void` - Adds an item to the set. If the item already exists, refreshes its recency. If the set is at capacity, evicts the least recently used item.
+- `clear() => void` - Removes all entries from the set.
+- `has(item: T) => boolean` - Returns true if the item is in the set. Refreshes the item's recency so it becomes the most recently used.
 
 ### ManualDateProvider
 
@@ -286,7 +372,7 @@ new SecretValue(value: T, redactedValue: string)
 **Methods**
 - `[custom]() => string`
 - `getValue() => T` - Returns the wrapped value
-- `static schema<O>(valueSchema: ZodType<O, any, any>) => ZodType<SecretValue<O>, any, any>` - Returns a Zod schema
+- `static schema<O>(valueSchema: ZodType<O, any>) => ZodType<SecretValue<O>, any>` - Returns a Zod schema
 - `toJSON() => string` - Returns a redacted string representation of the value
 - `toString() => string` - Returns a redacted string representation of the value
 
@@ -306,6 +392,7 @@ new TestDateProvider(logger: Logger)
 - `now() => number`
 - `nowAsDate() => Date`
 - `nowInSeconds() => number`
+- `reset() => void` - Resets the time back to real time (offset = 0).
 - `setTime(timeMs: number) => void`
 
 ### TimeoutError
@@ -363,45 +450,27 @@ new TypeRegistry()
 - `static getConstructor(typeName: string) => Deserializable | undefined`
 - `static register(typeName: string, constructor: Deserializable) => void`
 
-### ZodNullableOptional
-
-Extends: `ZodOptional<T>`
-
-**Constructor**
-```typescript
-new ZodNullableOptional(def: ZodOptionalDef)
-```
-
-**Properties**
-- `_isNullableOptional: boolean`
-
-**Methods**
-- `_parse(input: ParseInput) => ParseReturnType<T["_output"] | undefined>`
-- `static create<T extends ZodTypeAny>(type: T) => ZodNullableOptional<T>`
-
 ## Interfaces
 
 ### ConfigMapping
 
 **Properties**
-- `defaultValue?: any`
+- `defaultValue?: T`
 - `deprecatedFallback?: { env: EnvVar; message?: string }[]` - List of deprecated env vars that are still supported but will log a warning. These should also be included in the fallback array for parsing.
 - `description: string`
 - `env?: EnvVar`
 - `fallback?: EnvVar[]`
 - `isBoolean?: boolean`
-- `nested?: Record<string, ConfigMapping>`
-- `parseEnv?: (val: string) => any`
+- `parseEnv?: (val: string) => T` - Parse an env-var string into `T`. Throws on invalid input.
 - `printDefault?: (val: any) => string`
 
 ### Fq
 
-Branding to ensure fields are not interchangeable types.
+Fq field class.
 
 Extends: `BaseField`
 
 **Properties**
-- `_branding: "Fq"` - Brand.
 - `hi: unknown`
 - `lo: unknown`
 - `size: unknown`
@@ -419,7 +488,7 @@ Extends: `BaseField`
 - `sqrt() => Promise<Fq | null>` - Computes a square root of the field element.
 - `toBigInt() => bigint`
 - `toBool() => boolean`
-- `toBuffer() => Buffer` - Converts the bigint to a Buffer.
+- `toBuffer() => Buffer` - Converts the bigint to a Buffer. With a sink, streams the 32 big-endian bytes straight in (no allocation) and returns undefined; without one, returns a freshly allocated buffer.
 - `toField() => Fq`
 - `toFields() => Fr[]`
 - `toFriendlyJSON() => string`
@@ -431,12 +500,11 @@ Extends: `BaseField`
 
 ### Fr
 
-Branding to ensure fields are not interchangeable types.
+Fr field class.
 
-Extends: `BaseField`
+Extends: `BaseFr`
 
 **Properties**
-- `_branding: "Fr"` - Brand.
 - `size: unknown`
 - `value: unknown`
 
@@ -458,7 +526,7 @@ Extends: `BaseField`
 - `sub(rhs: Fr) => Fr`
 - `toBigInt() => bigint`
 - `toBool() => boolean`
-- `toBuffer() => Buffer` - Converts the bigint to a Buffer.
+- `toBuffer() => Buffer` - Converts the bigint to a Buffer. With a sink, streams the 32 big-endian bytes straight in (no allocation) and returns undefined; without one, returns a freshly allocated buffer.
 - `toField() => Fr`
 - `toFriendlyJSON() => string`
 - `toJSON() => string`
@@ -479,7 +547,6 @@ A deserializer
 Represents a Point on an elliptic curve with x and y coordinates. The Point class provides methods for creating instances from different input types, converting instances to various output formats, and checking the equality of points. Clean up this class.
 
 **Properties**
-- `inf: unknown`
 - `readonly isInfinite: boolean` - Whether the point is at infinity
 - `readonly kind: "point"` - Used to differentiate this class from AztecAddress
 - `readonly x: Fr` - The point's x coordinate
@@ -487,18 +554,17 @@ Represents a Point on an elliptic curve with x and y coordinates. The Point clas
 
 **Methods**
 - `equals(rhs: Point) => boolean` - Check if two Point instances are equal by comparing their buffer values. Returns true if the buffer values are the same, and false otherwise.
-- `hash() => Promise<Fr>`
-- `isOnGrumpkin() => boolean`
+- `isOnCurve() => boolean`
 - `isZero() => boolean`
-- `toBigInts() => { isInfinite: bigint; x: bigint; y: bigint }` - Returns the contents of the point as BigInts.
+- `toBigInts() => { x: bigint; y: bigint }` - Returns the contents of the point as BigInts.
 - `toBuffer() => Buffer<ArrayBufferLike>` - Converts the Point instance to a Buffer representation of the coordinates.
 - `toCompressedBuffer() => Buffer<ArrayBufferLike>` - Converts the Point instance to a compressed Buffer representation of the coordinates.
-- `toFields() => Fr[]` - Returns the contents of the point as an array of 3 fields.
+- `toFields() => Fr[]` - Returns the contents of the point as an array of 2 fields.
 - `toJSON() => string`
-- `toNoirStruct() => { is_infinite: boolean; x: Fr; y: Fr }`
+- `toNoirStruct() => { x: Fr; y: Fr }`
 - `toShortString() => string` - Generate a short string representation of the Point instance. The returned string includes the first 10 and last 4 characters of the full string representation, with '...' in between to indicate truncation. This is useful for displaying or logging purposes when the full string representation may be too long.
 - `toString() => string` - Convert the Point instance to a hexadecimal string representation. The output string is prefixed with '0x' and consists of exactly 128 hex characters, representing the concatenated x and y coordinates of the point.
-- `toWrappedNoirStruct() => { inner: { is_infinite: boolean; x: Fr; y: Fr } }`
+- `toWrappedNoirStruct() => { inner: { x: Fr; y: Fr } }`
 - `toXAndSign() => []` - Returns the x coordinate and the sign of the y coordinate.
 
 ### TypedEventEmitter
@@ -574,7 +640,7 @@ Generates a backoff sequence for retrying operations with an increasing delay. T
 
 ### bigintConfigHelper
 ```typescript
-function bigintConfigHelper(defaultVal?: bigint) => Pick<ConfigMapping, "parseEnv" | "defaultValue">
+function bigintConfigHelper(defaultVal: bigint) => Pick<ConfigMapping<bigint>, "parseEnv" | "defaultValue">
 ```
 Generates parseEnv and default values for a numerical config value.
 
@@ -604,13 +670,13 @@ Convert a boolean value to its corresponding byte representation in a Buffer of 
 
 ### booleanConfigHelper
 ```typescript
-function booleanConfigHelper(defaultVal: boolean) => Required<Pick<ConfigMapping, "parseEnv" | "defaultValue" | "isBoolean"> & { parseVal: (val: string) => boolean }>
+function booleanConfigHelper(defaultVal: boolean) => Required<Pick<ConfigMapping<boolean>, "parseEnv" | "defaultValue" | "isBoolean"> & { parseVal: (val: string) => boolean }>
 ```
 Generates parseEnv and default values for a boolean config value.
 
 ### bufferSchemaFor
 ```typescript
-function bufferSchemaFor<TClass extends {}>(klazz: TClass, refinement?: (buf: Buffer) => boolean) => ZodType<unknown, any, string>
+function bufferSchemaFor<TClass extends {}>(klazz: TClass, refinement?: (buf: Buffer) => boolean) => ZodType<unknown, string>
 ```
 Creates a schema that accepts a base64 string and uses it to hydrate an instance.
 
@@ -723,9 +789,15 @@ Measures the elapsed execution time of a synchronous function call once it is aw
 
 ### enumConfigHelper
 ```typescript
-function enumConfigHelper<T extends string>(values: T[], defaultValue?: NoInfer<T>) => Pick<ConfigMapping, "parseEnv" | "defaultValue">
+function enumConfigHelper<T extends string>(values: T[], defaultValue: NoInfer<T>) => Pick<ConfigMapping<T>, "parseEnv" | "defaultValue">
 ```
 Generates parseEnv for an enum-like config value.
+
+### execWithSignal
+```typescript
+function execWithSignal<T>(fn: (signal: AbortSignal) => Promise<T>, signal: AbortSignal, errorFn: (signal: AbortSignal) => Error) => Promise<T>
+```
+Executes a function until it completes or the given signal aborts.
 
 ### executeTimeout
 ```typescript
@@ -741,9 +813,9 @@ Filters an array with an async predicate. Fires all predicate promises in parall
 
 ### floatConfigHelper
 ```typescript
-function floatConfigHelper(defaultVal: number, validationFn?: (val: number) => void) => Pick<ConfigMapping, "parseEnv" | "defaultValue">
+function floatConfigHelper(defaultVal: number, validationFn?: (val: number) => void) => Pick<ConfigMapping<number>, "parseEnv" | "defaultValue">
 ```
-Generates parseEnv and default values for a numerical config value.
+Generates parseEnv and default values for a floating-point config value. The default is used only when the environment variable is unset or empty. A set-but-invalid value (not a finite number) throws rather than silently falling back to the default.
 
 ### formatLogMessage
 ```typescript
@@ -806,11 +878,29 @@ function getEntries<T extends Record<PropertyKey, unknown>>(obj: T) => { [key: s
 ```
 Equivalent to Object.entries but preserves types.
 
+### getErrorCause
+```typescript
+function getErrorCause<T extends Error>(err: unknown, errorClass: (...args: any[]) => T) => T | undefined
+```
+Returns the first error in the cause chain matching the given error class.
+
 ### getKeys
 ```typescript
 function getKeys<T extends object>(obj: T) => keyof T[]
 ```
 Equivalent to Object.keys but preserves types.
+
+### getSchemaParameters
+```typescript
+function getSchemaParameters<T extends ZodFunction<ZodTuple<any, any>, ZodType<unknown, unknown, $ZodTypeInternals<unknown, unknown>>>>(schema: T) => ZodTuple<any, any>
+```
+Returns the parameter tuple schema for an API method schema.
+
+### getSchemaReturnType
+```typescript
+function getSchemaReturnType<T extends ZodFunction<ZodTuple<any, any>, ZodType<unknown, unknown, $ZodTypeInternals<unknown, unknown>>>>(schema: T) => ZodType<unknown, unknown, $ZodTypeInternals<unknown, unknown>>
+```
+Returns the return value schema for an API method schema.
 
 ### getValueFromEnvWithFallback
 ```typescript
@@ -820,7 +910,7 @@ Shared utility function to get a value from environment variables with fallback 
 
 ### hexSchemaFor
 ```typescript
-function hexSchemaFor<TClass extends {} | {}>(klazz: TClass, refinement?: (input: string) => boolean) => ZodType<unknown, any, string>
+function hexSchemaFor<TClass extends {} | {}>(klazz: TClass, refinement?: (input: string) => boolean) => ZodType<unknown, string>
 ```
 Creates a schema that accepts a hex string and uses it to hydrate an instance.
 
@@ -943,9 +1033,9 @@ Convert a number to an 8-bit unsigned integer and return it as a Buffer of lengt
 
 ### numberConfigHelper
 ```typescript
-function numberConfigHelper(defaultVal: number) => Pick<ConfigMapping, "parseEnv" | "defaultValue">
+function numberConfigHelper(defaultVal: number) => Pick<ConfigMapping<number>, "parseEnv" | "defaultValue">
 ```
-Generates parseEnv and default values for a numerical config value.
+Generates parseEnv and default values for an integer config value. The default is used only when the environment variable is unset or empty. A set-but-invalid value (non-numeric, fractional, or outside the safe-integer range) throws rather than silently falling back to the default.
 
 ### omit
 ```typescript
@@ -961,15 +1051,15 @@ Filters out a service's config mappings to exclude certain keys.
 
 ### optional
 ```typescript
-function optional<T extends ZodTypeAny>(schema: T) => ZodNullableOptional<T>
+function optional<T extends ZodType<unknown, unknown, $ZodTypeInternals<unknown, unknown>>>(schema: T) => ZodPipe<ZodOptional<ZodNullable<T>>, ZodTransform<Awaited<NonNullable<output<T>>> | undefined, output<T> | null | undefined>>
 ```
 Declares a parameter as optional. Use this over z.optional in order to accept nulls as undefineds. This is required as JSON does not have an undefined type, and null is used to represent it, so we need to convert nulls to undefineds as we parse.
 
 ### optionalNumberConfigHelper
 ```typescript
-function optionalNumberConfigHelper() => Pick<ConfigMapping, "parseEnv">
+function optionalNumberConfigHelper() => Pick<ConfigMapping<number>, "parseEnv">
 ```
-Generates parseEnv for an optional numerical config value.
+Generates parseEnv for an optional numerical config value. Empty strings are already handled by getValueFromEnvWithFallback.
 
 ### overwriteLoggingStream
 ```typescript
@@ -991,7 +1081,7 @@ Pads an array to the target length by prepending elements at the beginning. Thro
 
 ### parse
 ```typescript
-function parse<T extends [] | []>(args: IArguments, ...schemas: T) => AssertArray<{ [key: string]: unknown }>
+function parse<T extends [] | []>(args: IArguments, ...schemas: T) => []
 ```
 Parses the given arguments using a tuple from the provided schemas.
 
@@ -1003,7 +1093,7 @@ Parses an env var as boolean. Returns true only if value is 1, true, or TRUE.
 
 ### parseWithOptionals
 ```typescript
-function parseWithOptionals<T extends AnyZodTuple>(args: any[], schema: T) => Promise<T["_output"]>
+function parseWithOptionals<T extends ZodTuple<any, any>>(args: any[], schema: T) => Promise<output<T>>
 ```
 Parses the given arguments against a tuple, allowing empty for optional items.
 
@@ -1021,9 +1111,9 @@ Partitions the given iterable into two arrays based on the predicate.
 
 ### percentageConfigHelper
 ```typescript
-function percentageConfigHelper(defaultVal: number) => Pick<ConfigMapping, "parseEnv" | "defaultValue">
+function percentageConfigHelper(defaultVal: number) => Pick<ConfigMapping<number>, "parseEnv" | "defaultValue">
 ```
-Parses an environment variable to a 0-1 percentage value
+Generates parseEnv and default values for a 0-1 percentage config value. The default is used only when the environment variable is unset or empty. A set-but-invalid value (not a finite number, or outside the 0-1 range) throws rather than silently falling back to the default.
 
 ### pick
 ```typescript
@@ -1039,7 +1129,7 @@ Picks specific keys from the given configuration mappings.
 
 ### pickFromSchema
 ```typescript
-function pickFromSchema<T extends object, S extends ZodObject<ZodRawShape, UnknownKeysParam, ZodTypeAny, {}, {}>>(obj: T, schema: S) => Partial<T>
+function pickFromSchema<T extends object, S extends ZodObject<Readonly<{}>, $strip>>(obj: T, schema: S) => Partial<T>
 ```
 Given an already parsed and validated object, extracts the keys defined in the given schema. Does not validate again.
 
@@ -1118,9 +1208,15 @@ function retryFastUntil<T>(fn: () => T | Promise<T | undefined> | undefined, nam
 ```
 Convenience wrapper around retryUntil with fast polling for tests. Uses 10s timeout and 100ms polling interval by default.
 
+### retryTimes
+```typescript
+function retryTimes<T>(fn: () => T | Promise<T | undefined> | undefined, name: string, maxRetries: number, retryInterval: number) => Promise<NonNullable<Awaited<T>>>
+```
+Retry an asynchronous function until it returns a truthy value or the maximum number of retries is exceeded. The function is retried periodically with a fixed interval between attempts.
+
 ### retryUntil
 ```typescript
-function retryUntil<T>(fn: () => T | Promise<T | undefined> | undefined, name: string, timeout: number, interval: number) => Promise<NonNullable<Awaited<T>>>
+function retryUntil<T>(fn: () => T | Promise<T | undefined> | undefined, name: string, timeout: RetryUntilTimeout, interval: number) => Promise<NonNullable<Awaited<T>>>
 ```
 Retry an asynchronous function until it returns a truthy value or the specified timeout is exceeded. The function is retried periodically with a fixed interval between attempts. The operation can be named for better error messages. Will never timeout if the value is 0.
 
@@ -1137,22 +1233,22 @@ Return whether an API schema defines a valid function schema for a given method 
 
 ### secretFqConfigHelper
 ```typescript
-function secretFqConfigHelper(defaultValue: Fq) => Required<Pick<ConfigMapping, "parseEnv" | "defaultValue" | "isBoolean"> & { parseVal: (val: string) => SecretValue<Fq> }>
+function secretFqConfigHelper() => { defaultValue: undefined; parseEnv: (val: string) => SecretValue<Fq>; parseVal: (val: string) => SecretValue<Fq> }
 ```
 
 ### secretFrConfigHelper
 ```typescript
-function secretFrConfigHelper() => Required<Pick<ConfigMapping, "parseEnv" | "defaultValue" | "isBoolean"> & { parseVal: (val: string) => SecretValue<Fr | undefined> }>
+function secretFrConfigHelper() => { defaultValue: undefined; parseEnv: (val: string) => SecretValue<Fr>; parseVal: (val: string) => SecretValue<Fr> }
 ```
 
 ### secretStringConfigHelper
 ```typescript
-function secretStringConfigHelper() => Required<Pick<ConfigMapping, "parseEnv" | "defaultValue" | "isBoolean"> & { parseVal: (val: string) => SecretValue<string | undefined> }>
+function secretStringConfigHelper() => { defaultValue: undefined; parseEnv: (val: string) => SecretValue<string>; parseVal: (val: string) => SecretValue<string> }
 ```
 
 ### secretValueConfigHelper
 ```typescript
-function secretValueConfigHelper<T>(parse: (val: string | undefined) => T) => Required<Pick<ConfigMapping, "parseEnv" | "defaultValue" | "isBoolean"> & { parseVal: (val: string) => SecretValue<T> }>
+function secretValueConfigHelper<T>(parse: (val: string | undefined) => T) => Pick<ConfigMapping<SecretValue<T>>, "parseEnv" | "defaultValue"> & { parseVal: (val: string) => SecretValue<T> }
 ```
 
 ### serializeArrayOfBufferableToVector
@@ -1160,6 +1256,12 @@ function secretValueConfigHelper<T>(parse: (val: string | undefined) => T) => Re
 function serializeArrayOfBufferableToVector(objs: Bufferable[], prefixLength: number) => Buffer
 ```
 For serializing an array of fixed length buffers.
+
+### serializeArrayToSink
+```typescript
+function serializeArrayToSink(sink: BufferSink, objs: Sinkable[], prefixLength: number) => void
+```
+Streaming counterpart to `serializeArrayOfBufferableToVector`: write a length prefix (1 or 4 bytes) giving the number of serialized elements, then each element. Byte-identical to the buffer version.
 
 ### serializeBigInt
 ```typescript
@@ -1196,6 +1298,12 @@ Serializes a list of objects contiguously.
 function serializeToFields(...objs: Fieldable[]) => Fr[]
 ```
 Serializes a list of objects contiguously.
+
+### serializeToSink
+```typescript
+function serializeToSink(sink: BufferSink, ...objs: Sinkable[]) => void
+```
+Streaming counterpart to `serializeToBufferArray`: walk a list of Sinkables and append each to the sink. Dispatch matches `serializeToBufferArray` byte-for-byte. An object is serialized via `obj.toBuffer(sink)`; a migrated node writes into the sink and returns `undefined`, while a not-yet-migrated node ignores the argument and returns its `Buffer`, which we copy in. That return-value fallback is what makes the migration incremental. Dispatch is hot-pathed for the common case of objects exposing `toBuffer` (Fr/Fq and every other migrated leaf), and arrays recurse via an inner-array helper to avoid the per-call rest-args allocation that a spread-recurse would force on large flat arrays like the 1632-element ChonkProof field list.
 
 ### setSchema
 ```typescript
@@ -1324,7 +1432,7 @@ Computes the variance of a numeric array. Returns undefined if there are less th
 
 ### zodFor
 ```typescript
-function zodFor<T>() => <S extends ZodType<any, any, any>>(schema: unknown) => S
+function zodFor<T>() => <S extends ZodType<any, any, $ZodTypeInternals<any, any>>>(schema: unknown) => S
 ```
 Creates a schema validator that enforces all properties of type T are present in the schema. This provides compile-time safety to ensure schemas don't miss optional properties.
 
@@ -1344,12 +1452,18 @@ A type that can be written to a buffer.
 
 ### ConfigMappingsType
 ```typescript
-type ConfigMappingsType = Record<keyof T, ConfigMapping>
+type ConfigMappingsType = { [key: string]: unknown }
 ```
+
+### DefineIfFlag
+```typescript
+type DefineIfFlag = unknown
+```
+Returns a type T based on a flag: T if true, undefined if false, optional otherwise.
 
 ### EnvVar
 ```typescript
-type EnvVar = "REGISTRY_CONTRACT_ADDRESS" | "FEE_ASSET_HANDLER_CONTRACT_ADDRESS" | "SLASH_FACTORY_CONTRACT_ADDRESS" | "ACVM_BINARY_PATH" | "ACVM_WORKING_DIRECTORY" | "API_KEY" | "API_PREFIX" | "ARCHIVER_MAX_LOGS" | "ARCHIVER_POLLING_INTERVAL_MS" | "ARCHIVER_URL" | "ARCHIVER_VIEM_POLLING_INTERVAL_MS" | "ARCHIVER_BATCH_SIZE" | "AZTEC_ADMIN_PORT" | "AZTEC_NODE_DEBUG" | "AZTEC_ADMIN_API_KEY_HASH" | "AZTEC_DISABLE_ADMIN_API_KEY" | "AZTEC_RESET_ADMIN_API_KEY" | "AZTEC_NODE_ADMIN_URL" | "AZTEC_NODE_URL" | "AZTEC_PORT" | "BB_BINARY_PATH" | "BB_SKIP_CLEANUP" | "BB_WORKING_DIRECTORY" | "BB_NUM_IVC_VERIFIERS" | "BB_IVC_CONCURRENCY" | "BOOTSTRAP_NODES" | "BLOB_ARCHIVE_API_URL" | "BLOB_FILE_STORE_URLS" | "BLOB_FILE_STORE_UPLOAD_URL" | "BLOB_HEALTHCHECK_UPLOAD_INTERVAL_MINUTES" | "BOT_DA_GAS_LIMIT" | "BOT_FEE_PAYMENT_METHOD" | "BOT_MIN_FEE_PADDING" | "BOT_FLUSH_SETUP_TRANSACTIONS" | "BOT_FOLLOW_CHAIN" | "BOT_L2_GAS_LIMIT" | "BOT_MAX_PENDING_TXS" | "BOT_NO_START" | "BOT_L1_MNEMONIC" | "BOT_L1_PRIVATE_KEY" | "BOT_L1_TO_L2_TIMEOUT_SECONDS" | "BOT_PRIVATE_KEY" | "BOT_ACCOUNT_SALT" | "BOT_PRIVATE_TRANSFERS_PER_TX" | "BOT_PUBLIC_TRANSFERS_PER_TX" | "BOT_RECIPIENT_ENCRYPTION_SECRET" | "BOT_TOKEN_CONTRACT" | "BOT_TOKEN_SALT" | "BOT_TX_INTERVAL_SECONDS" | "BOT_TX_MINED_WAIT_SECONDS" | "BOT_MAX_CONSECUTIVE_ERRORS" | "BOT_STOP_WHEN_UNHEALTHY" | "BOT_MODE" | "BOT_L2_TO_L1_MESSAGES_PER_TX" | "BOT_L1_TO_L2_SEED_COUNT" | "BOT_L1_TO_L2_SEED_INTERVAL" | "COINBASE" | "CRS_PATH" | "DATA_DIRECTORY" | "DATA_STORE_MAP_SIZE_KB" | "ARCHIVER_STORE_MAP_SIZE_KB" | "BLOB_SINK_MAP_SIZE_KB" | "P2P_STORE_MAP_SIZE_KB" | "PROVER_BROKER_STORE_MAP_SIZE_KB" | "WS_DB_MAP_SIZE_KB" | "ARCHIVE_TREE_MAP_SIZE_KB" | "NULLIFIER_TREE_MAP_SIZE_KB" | "NOTE_HASH_TREE_MAP_SIZE_KB" | "MESSAGE_TREE_MAP_SIZE_KB" | "PUBLIC_DATA_TREE_MAP_SIZE_KB" | "DEBUG" | "DEBUG_P2P_DISABLE_COLOCATION_PENALTY" | "ENABLE_PROVER_NODE" | "ETHEREUM_HOSTS" | "ETHEREUM_DEBUG_HOSTS" | "ETHEREUM_ALLOW_NO_DEBUG_HOSTS" | "FEE_RECIPIENT" | "FORCE_COLOR" | "GOVERNANCE_PROPOSER_PAYLOAD_ADDRESS" | "KEY_STORE_DIRECTORY" | "L1_CHAIN_ID" | "L1_CONSENSUS_HOST_URLS" | "ETHEREUM_HTTP_TIMEOUT_MS" | "L1_CONSENSUS_HOST_API_KEYS" | "L1_CONSENSUS_HOST_API_KEY_HEADERS" | "LOG_JSON" | "LOG_MULTILINE" | "LOG_NO_COLOR_PER_ACTOR" | "LOG_LEVEL" | "MNEMONIC" | "NETWORK" | "NETWORK_CONFIG_LOCATION" | "USE_GCLOUD_LOGGING" | "OTEL_EXPORTER_OTLP_METRICS_ENDPOINT" | "OTEL_EXPORTER_OTLP_TRACES_ENDPOINT" | "OTEL_EXPORTER_OTLP_LOGS_ENDPOINT" | "OTEL_COLLECT_INTERVAL_MS" | "OTEL_EXCLUDE_METRICS" | "OTEL_INCLUDE_METRICS" | "OTEL_EXPORT_TIMEOUT_MS" | "PUBLIC_OTEL_EXPORTER_OTLP_METRICS_ENDPOINT" | "PUBLIC_OTEL_INCLUDE_METRICS" | "PUBLIC_OTEL_COLLECT_FROM" | "PUBLIC_OTEL_OPT_OUT" | "P2P_BATCH_TX_REQUESTER_SMART_PARALLEL_WORKER_COUNT" | "P2P_BATCH_TX_REQUESTER_DUMB_PARALLEL_WORKER_COUNT" | "P2P_BATCH_TX_REQUESTER_TX_BATCH_SIZE" | "P2P_BATCH_TX_REQUESTER_BAD_PEER_THRESHOLD" | "P2P_BLOCK_CHECK_INTERVAL_MS" | "P2P_SLOT_CHECK_INTERVAL_MS" | "P2P_BLOCK_REQUEST_BATCH_SIZE" | "P2P_BOOTSTRAP_NODE_ENR_VERSION_CHECK" | "P2P_BOOTSTRAP_NODES_AS_FULL_PEERS" | "P2P_ENABLED" | "P2P_DISCOVERY_DISABLED" | "P2P_GOSSIPSUB_D" | "P2P_GOSSIPSUB_DHI" | "P2P_GOSSIPSUB_DLO" | "P2P_GOSSIPSUB_DLAZY" | "P2P_GOSSIPSUB_FLOOD_PUBLISH" | "P2P_GOSSIPSUB_INTERVAL_MS" | "P2P_GOSSIPSUB_MCACHE_GOSSIP" | "P2P_GOSSIPSUB_MCACHE_LENGTH" | "P2P_GOSSIPSUB_SEEN_TTL" | "P2P_GOSSIPSUB_TX_INVALID_MESSAGE_DELIVERIES_DECAY" | "P2P_GOSSIPSUB_TX_INVALID_MESSAGE_DELIVERIES_WEIGHT" | "P2P_GOSSIPSUB_TX_TOPIC_WEIGHT" | "P2P_L2_QUEUE_SIZE" | "P2P_MAX_PEERS" | "P2P_PEER_CHECK_INTERVAL_MS" | "P2P_PEER_PENALTY_VALUES" | "P2P_QUERY_FOR_IP" | "P2P_REQRESP_INDIVIDUAL_REQUEST_TIMEOUT_MS" | "P2P_REQRESP_DIAL_TIMEOUT_MS" | "P2P_REQRESP_OVERALL_REQUEST_TIMEOUT_MS" | "P2P_DISABLE_STATUS_HANDSHAKE" | "P2P_ALLOW_ONLY_VALIDATORS" | "P2P_MAX_AUTH_FAILED_ATTEMPTS_ALLOWED" | "P2P_REQRESP_OPTIMISTIC_NEGOTIATION" | "P2P_DOUBLE_SPEND_SEVERE_PEER_PENALTY_WINDOW" | "P2P_LISTEN_ADDR" | "P2P_PORT" | "P2P_BROADCAST_PORT" | "P2P_IP" | "P2P_ARCHIVED_TX_LIMIT" | "P2P_TRUSTED_PEERS" | "P2P_PRIVATE_PEERS" | "P2P_PREFERRED_PEERS" | "P2P_MAX_PENDING_TX_COUNT" | "P2P_SEEN_MSG_CACHE_SIZE" | "P2P_DROP_TX" | "P2P_DROP_TX_CHANCE" | "P2P_TX_POOL_DELETE_TXS_AFTER_REORG" | "P2P_MIN_TX_POOL_AGE_MS" | "P2P_RPC_PRICE_BUMP_PERCENTAGE" | "DEBUG_P2P_INSTRUMENT_MESSAGES" | "PEER_ID_PRIVATE_KEY" | "PEER_ID_PRIVATE_KEY_PATH" | "PROVER_AGENT_COUNT" | "PROVER_AGENT_PROOF_TYPES" | "PROVER_AGENT_POLL_INTERVAL_MS" | "PROVER_BROKER_HOST" | "PROVER_BROKER_JOB_TIMEOUT_MS" | "PROVER_BROKER_POLL_INTERVAL_MS" | "PROVER_BROKER_JOB_MAX_RETRIES" | "PROVER_BROKER_BATCH_INTERVAL_MS" | "PROVER_BROKER_BATCH_SIZE" | "PROVER_BROKER_MAX_EPOCHS_TO_KEEP_RESULTS_FOR" | "PROVER_BROKER_DEBUG_REPLAY_ENABLED" | "PROVER_CANCEL_JOBS_ON_STOP" | "PROVER_ENQUEUE_CONCURRENCY" | "PROVER_COORDINATION_NODE_URLS" | "PROVER_PROOF_STORE" | "PROVER_FAILED_PROOF_STORE" | "PROVER_NODE_FAILED_EPOCH_STORE" | "PROVER_NODE_DISABLE_PROOF_PUBLISH" | "PROVER_ID" | "PROVER_NODE_POLLING_INTERVAL_MS" | "PROVER_NODE_MAX_PENDING_JOBS" | "PROVER_NODE_MAX_PARALLEL_BLOCKS_PER_EPOCH" | "PROVER_NODE_TX_GATHERING_INTERVAL_MS" | "PROVER_NODE_TX_GATHERING_BATCH_SIZE" | "PROVER_NODE_TX_GATHERING_MAX_PARALLEL_REQUESTS_PER_NODE" | "PROVER_NODE_TX_GATHERING_TIMEOUT_MS" | "PROVER_PUBLISHER_PRIVATE_KEY" | "PROVER_PUBLISHER_PRIVATE_KEYS" | "PROVER_PUBLISHER_ADDRESSES" | "PROVER_PUBLISHER_ALLOW_INVALID_STATES" | "PROVER_PUBLISHER_FORWARDER_ADDRESS" | "PROVER_REAL_PROOFS" | "PROVER_TEST_DELAY_FACTOR" | "PROVER_TEST_DELAY_MS" | "PROVER_TEST_DELAY_TYPE" | "PROVER_TEST_VERIFICATION_DELAY_MS" | "PXE_L2_BLOCK_BATCH_SIZE" | "PXE_PROVER_ENABLED" | "PXE_SYNC_CHAIN_TIP" | "RPC_MAX_BATCH_SIZE" | "RPC_MAX_BODY_SIZE" | "RPC_SIMULATE_PUBLIC_MAX_GAS_LIMIT" | "RPC_SIMULATE_PUBLIC_MAX_DEBUG_LOG_MEMORY_READS" | "SENTINEL_ENABLED" | "SENTINEL_HISTORY_LENGTH_IN_EPOCHS" | "SENTINEL_HISTORIC_PROVEN_PERFORMANCE_LENGTH_IN_EPOCHS" | "SEQ_MAX_TX_PER_BLOCK" | "SEQ_MAX_TX_PER_CHECKPOINT" | "SEQ_MIN_TX_PER_BLOCK" | "SEQ_PUBLISH_TXS_WITH_PROPOSALS" | "SEQ_MAX_DA_BLOCK_GAS" | "SEQ_MAX_L2_BLOCK_GAS" | "SEQ_PER_BLOCK_ALLOCATION_MULTIPLIER" | "SEQ_REDISTRIBUTE_CHECKPOINT_BUDGET" | "SEQ_PUBLISHER_PRIVATE_KEY" | "SEQ_PUBLISHER_PRIVATE_KEYS" | "SEQ_PUBLISHER_ADDRESSES" | "SEQ_PUBLISHER_ALLOW_INVALID_STATES" | "SEQ_PUBLISHER_FORWARDER_ADDRESS" | "SEQ_POLLING_INTERVAL_MS" | "SEQ_ENFORCE_TIME_TABLE" | "SEQ_L1_PUBLISHING_TIME_ALLOWANCE_IN_SLOT" | "SEQ_ATTESTATION_PROPAGATION_TIME" | "SEQ_BLOCK_DURATION_MS" | "SEQ_EXPECTED_BLOCK_PROPOSALS_PER_SLOT" | "SEQ_BUILD_CHECKPOINT_IF_EMPTY" | "SEQ_SECONDS_BEFORE_INVALIDATING_BLOCK_AS_COMMITTEE_MEMBER" | "SEQ_SECONDS_BEFORE_INVALIDATING_BLOCK_AS_NON_COMMITTEE_MEMBER" | "SEQ_SKIP_CHECKPOINT_PUBLISH_PERCENT" | "SLASH_MIN_PENALTY_PERCENTAGE" | "SLASH_MAX_PENALTY_PERCENTAGE" | "SLASH_VALIDATORS_ALWAYS" | "SLASH_VALIDATORS_NEVER" | "SLASH_PRUNE_PENALTY" | "SLASH_DATA_WITHHOLDING_PENALTY" | "SLASH_INACTIVITY_PENALTY" | "SLASH_INACTIVITY_TARGET_PERCENTAGE" | "SLASH_INACTIVITY_CONSECUTIVE_EPOCH_THRESHOLD" | "SLASH_INVALID_BLOCK_PENALTY" | "SLASH_DUPLICATE_PROPOSAL_PENALTY" | "SLASH_DUPLICATE_ATTESTATION_PENALTY" | "SLASH_OVERRIDE_PAYLOAD" | "SLASH_PROPOSE_INVALID_ATTESTATIONS_PENALTY" | "SLASH_ATTEST_DESCENDANT_OF_INVALID_PENALTY" | "SLASH_UNKNOWN_PENALTY" | "SLASH_GRACE_PERIOD_L2_SLOTS" | "SLASH_OFFENSE_EXPIRATION_ROUNDS" | "SLASH_MAX_PAYLOAD_SIZE" | "SLASH_EXECUTE_ROUNDS_LOOK_BACK" | "SYNC_MODE" | "SYNC_SNAPSHOTS_URLS" | "SYNC_SNAPSHOTS_URL" | "TELEMETRY" | "TEST_ACCOUNTS" | "SPONSORED_FPC" | "PREFUND_ADDRESSES" | "TX_COLLECTION_FAST_NODES_TIMEOUT_BEFORE_REQ_RESP_MS" | "TX_COLLECTION_SLOW_NODES_INTERVAL_MS" | "TX_COLLECTION_SLOW_REQ_RESP_INTERVAL_MS" | "TX_COLLECTION_SLOW_REQ_RESP_TIMEOUT_MS" | "TX_COLLECTION_RECONCILE_INTERVAL_MS" | "TX_COLLECTION_DISABLE_SLOW_DURING_FAST_REQUESTS" | "TX_COLLECTION_FAST_NODE_INTERVAL_MS" | "TX_COLLECTION_FAST_MAX_PARALLEL_REQUESTS_PER_NODE" | "TX_COLLECTION_NODE_RPC_MAX_BATCH_SIZE" | "TX_COLLECTION_NODE_RPC_URLS" | "TX_COLLECTION_MISSING_TXS_COLLECTOR_TYPE" | "TX_COLLECTION_FILE_STORE_URLS" | "TX_COLLECTION_FILE_STORE_SLOW_DELAY_MS" | "TX_COLLECTION_FILE_STORE_FAST_DELAY_MS" | "TX_COLLECTION_FILE_STORE_FAST_WORKER_COUNT" | "TX_COLLECTION_FILE_STORE_SLOW_WORKER_COUNT" | "TX_COLLECTION_FILE_STORE_FAST_BACKOFF_BASE_MS" | "TX_COLLECTION_FILE_STORE_SLOW_BACKOFF_BASE_MS" | "TX_COLLECTION_FILE_STORE_FAST_BACKOFF_MAX_MS" | "TX_COLLECTION_FILE_STORE_SLOW_BACKOFF_MAX_MS" | "TX_FILE_STORE_URL" | "TX_FILE_STORE_UPLOAD_CONCURRENCY" | "TX_FILE_STORE_MAX_QUEUE_SIZE" | "TX_FILE_STORE_ENABLED" | "TX_PUBLIC_SETUP_ALLOWLIST" | "TXE_PORT" | "TRANSACTIONS_DISABLED" | "VALIDATOR_ATTESTATIONS_POLLING_INTERVAL_MS" | "VALIDATOR_DISABLED" | "VALIDATOR_MAX_DA_BLOCK_GAS" | "VALIDATOR_MAX_L2_BLOCK_GAS" | "VALIDATOR_MAX_TX_PER_BLOCK" | "VALIDATOR_MAX_TX_PER_CHECKPOINT" | "VALIDATOR_PRIVATE_KEYS" | "VALIDATOR_PRIVATE_KEY" | "VALIDATOR_REEXECUTE" | "VALIDATOR_ADDRESSES" | "ROLLUP_VERSION" | "WS_BLOCK_CHECK_INTERVAL_MS" | "WS_BLOCK_REQUEST_BATCH_SIZE" | "L1_READER_VIEM_POLLING_INTERVAL_MS" | "WS_DATA_DIRECTORY" | "WS_NUM_HISTORIC_CHECKPOINTS" | "WS_NUM_HISTORIC_BLOCKS" | "ETHEREUM_SLOT_DURATION" | "AZTEC_SLOT_DURATION" | "AZTEC_EPOCH_DURATION" | "AZTEC_TARGET_COMMITTEE_SIZE" | "AZTEC_LAG_IN_EPOCHS_FOR_VALIDATOR_SET" | "AZTEC_LAG_IN_EPOCHS_FOR_RANDAO" | "AZTEC_INBOX_LAG" | "AZTEC_PROOF_SUBMISSION_EPOCHS" | "AZTEC_ACTIVATION_THRESHOLD" | "AZTEC_EJECTION_THRESHOLD" | "AZTEC_LOCAL_EJECTION_THRESHOLD" | "AZTEC_MANA_TARGET" | "AZTEC_PROVING_COST_PER_MANA" | "AZTEC_INITIAL_ETH_PER_FEE_ASSET" | "AZTEC_SLASHING_QUORUM" | "AZTEC_SLASHING_ROUND_SIZE_IN_EPOCHS" | "AZTEC_SLASHING_LIFETIME_IN_ROUNDS" | "AZTEC_SLASHING_EXECUTION_DELAY_IN_ROUNDS" | "AZTEC_SLASHING_VETOER" | "AZTEC_SLASHING_OFFSET_IN_ROUNDS" | "AZTEC_SLASHING_DISABLE_DURATION" | "AZTEC_SLASH_AMOUNT_SMALL" | "AZTEC_SLASH_AMOUNT_MEDIUM" | "AZTEC_SLASH_AMOUNT_LARGE" | "AZTEC_SLASHER_FLAVOR" | "AZTEC_GOVERNANCE_PROPOSER_QUORUM" | "AZTEC_GOVERNANCE_PROPOSER_ROUND_SIZE" | "AZTEC_GOVERNANCE_VOTING_DURATION" | "AZTEC_EXIT_DELAY_SECONDS" | "L1_GAS_LIMIT_BUFFER_PERCENTAGE" | "L1_GAS_PRICE_MAX" | "L1_FEE_PER_GAS_GWEI_MAX" | "L1_BLOB_FEE_PER_GAS_MAX" | "L1_BLOB_FEE_PER_GAS_GWEI_MAX" | "L1_PRIORITY_FEE_BUMP_PERCENTAGE" | "L1_PRIORITY_FEE_RETRY_BUMP_PERCENTAGE" | "L1_MINIMUM_PRIORITY_FEE_PER_GAS_GWEI" | "L1_FIXED_PRIORITY_FEE_PER_GAS" | "L1_FIXED_PRIORITY_FEE_PER_GAS_GWEI" | "L1_TX_MONITOR_MAX_ATTEMPTS" | "L1_TX_MONITOR_CHECK_INTERVAL_MS" | "L1_TX_MONITOR_STALL_TIME_MS" | "L1_TX_MONITOR_TX_TIMEOUT_MS" | "L1_TX_MONITOR_CANCEL_TX_ON_TIMEOUT" | "L1_TX_MONITOR_TX_CANCELLATION_TIMEOUT_MS" | "L1_TX_MONITOR_TX_UNSEEN_CONSIDERED_DROPPED_MS" | "FAUCET_MNEMONIC_ADDRESS_INDEX" | "FAUCET_ETH_AMOUNT" | "FAUCET_INTERVAL_MS" | "FAUCET_L1_ASSETS" | "K8S_POD_NAME" | "K8S_POD_UID" | "K8S_NAMESPACE_NAME" | "ENABLE_VERSION_CHECK" | "VALIDATOR_REEXECUTE_DEADLINE_MS" | "WEB3_SIGNER_URL" | "SKIP_ARCHIVER_INITIAL_SYNC" | "BLOB_ALLOW_EMPTY_SOURCES" | "FISHERMAN_MODE" | "MAX_ALLOWED_ETH_CLIENT_DRIFT_SECONDS" | "LEGACY_BLS_CLI" | "DEBUG_FORCE_TX_PROOF_VERIFICATION" | "VALIDATOR_HA_SIGNING_ENABLED" | "VALIDATOR_HA_NODE_ID" | "VALIDATOR_HA_POLLING_INTERVAL_MS" | "VALIDATOR_HA_SIGNING_TIMEOUT_MS" | "VALIDATOR_HA_MAX_STUCK_DUTIES_AGE_MS" | "VALIDATOR_HA_OLD_DUTIES_MAX_AGE_H" | "VALIDATOR_HA_DATABASE_URL" | "VALIDATOR_HA_RUN_MIGRATIONS" | "VALIDATOR_HA_POOL_MAX" | "VALIDATOR_HA_POOL_MIN" | "VALIDATOR_HA_POOL_IDLE_TIMEOUT_MS" | "VALIDATOR_HA_POOL_CONNECTION_TIMEOUT_MS"
+type EnvVar = "REGISTRY_CONTRACT_ADDRESS" | "FEE_ASSET_HANDLER_CONTRACT_ADDRESS" | "ACVM_BINARY_PATH" | "ACVM_WORKING_DIRECTORY" | "API_KEY" | "API_PREFIX" | "ARCHIVER_POLLING_INTERVAL_MS" | "ARCHIVER_SKIP_HISTORICAL_LOGS_CHECK" | "ARCHIVER_URL" | "ARCHIVER_VIEM_POLLING_INTERVAL_MS" | "ARCHIVER_BATCH_SIZE" | "ARCHIVER_ORPHAN_PRUNE_NO_PROPOSAL_TOLERANCE" | "ARCHIVER_SKIP_ORPHAN_PROPOSED_BLOCK_PRUNING" | "AZTEC_ADMIN_PORT" | "AZTEC_NODE_DEBUG" | "AZTEC_ADMIN_API_KEY_HASH" | "AZTEC_DISABLE_ADMIN_API_KEY" | "AZTEC_RESET_ADMIN_API_KEY" | "AZTEC_NODE_ADMIN_URL" | "AZTEC_NODE_URL" | "AZTEC_PORT" | "BB_BINARY_PATH" | "BB_SKIP_CLEANUP" | "BB_WORKING_DIRECTORY" | "BB_NUM_IVC_VERIFIERS" | "BB_IVC_CONCURRENCY" | "BB_CHONK_VERIFY_MAX_BATCH" | "BB_CHONK_VERIFY_BATCH_CONCURRENCY" | "BB_DEBUG_OUTPUT_DIR" | "BOOTSTRAP_NODES" | "BLOB_ARCHIVE_API_URL" | "BLOB_FILE_STORE_URLS" | "BLOB_FILE_STORE_UPLOAD_URL" | "BLOB_HEALTHCHECK_UPLOAD_INTERVAL_MINUTES" | "BOT_DA_GAS_LIMIT" | "BOT_FEE_PAYMENT_METHOD" | "BOT_MIN_FEE_PADDING" | "BOT_FLUSH_SETUP_TRANSACTIONS" | "BOT_FOLLOW_CHAIN" | "BOT_L2_GAS_LIMIT" | "BOT_MAX_PENDING_TXS" | "BOT_NO_START" | "BOT_L1_MNEMONIC" | "BOT_L1_PRIVATE_KEY" | "BOT_L1_TO_L2_TIMEOUT_SECONDS" | "BOT_PRIVATE_KEY" | "BOT_ACCOUNT_SALT" | "BOT_PRIVATE_TRANSFERS_PER_TX" | "BOT_PUBLIC_TRANSFERS_PER_TX" | "BOT_RECIPIENT_ENCRYPTION_SECRET" | "BOT_TOKEN_CONTRACT" | "BOT_TOKEN_SALT" | "BOT_TX_INTERVAL_SECONDS" | "BOT_TX_MINED_WAIT_SECONDS" | "BOT_MAX_CONSECUTIVE_ERRORS" | "BOT_STOP_WHEN_UNHEALTHY" | "BOT_MODE" | "BOT_L2_TO_L1_MESSAGES_PER_TX" | "BOT_L1_TO_L2_SEED_COUNT" | "BOT_L1_TO_L2_SEED_INTERVAL" | "COINBASE" | "CRS_PATH" | "DATA_DIRECTORY" | "DATA_STORE_MAP_SIZE_KB" | "ARCHIVER_STORE_MAP_SIZE_KB" | "BLOB_SINK_MAP_SIZE_KB" | "P2P_STORE_MAP_SIZE_KB" | "PROVER_BROKER_STORE_MAP_SIZE_KB" | "SIGNING_PROTECTION_MAP_SIZE_KB" | "WS_DB_MAP_SIZE_KB" | "ARCHIVE_TREE_MAP_SIZE_KB" | "NULLIFIER_TREE_MAP_SIZE_KB" | "NOTE_HASH_TREE_MAP_SIZE_KB" | "MESSAGE_TREE_MAP_SIZE_KB" | "PUBLIC_DATA_TREE_MAP_SIZE_KB" | "DEBUG" | "DEBUG_P2P_DISABLE_COLOCATION_PENALTY" | "ENABLE_PROVER_NODE" | "USE_AUTOMINE_SEQUENCER" | "AUTOMINE_ENABLE_PROVE_EPOCH" | "ETHEREUM_HOSTS" | "ETHEREUM_DEBUG_HOSTS" | "ETHEREUM_ALLOW_NO_DEBUG_HOSTS" | "FEE_RECIPIENT" | "FORCE_COLOR" | "GOVERNANCE_PROPOSER_PAYLOAD_ADDRESS" | "KEY_STORE_DIRECTORY" | "L1_CHAIN_ID" | "L1_CONSENSUS_HOST_URLS" | "ETHEREUM_HTTP_TIMEOUT_MS" | "L1_CONSENSUS_HOST_API_KEYS" | "L1_CONSENSUS_HOST_API_KEY_HEADERS" | "L1_TX_FAILED_STORE" | "LOG_JSON" | "LOG_MULTILINE" | "LOG_NO_COLOR_PER_ACTOR" | "LOG_LEVEL" | "MNEMONIC" | "NETWORK" | "NETWORK_CONFIG_LOCATION" | "ALLOW_OVERRIDING_NETWORK_CONFIG" | "USE_GCLOUD_LOGGING" | "OTEL_EXPORTER_OTLP_METRICS_ENDPOINT" | "OTEL_EXPORTER_OTLP_TRACES_ENDPOINT" | "OTEL_EXPORTER_OTLP_LOGS_ENDPOINT" | "OTEL_COLLECT_INTERVAL_MS" | "OTEL_BSP_MAX_QUEUE_SIZE" | "OTEL_EXCLUDE_METRICS" | "OTEL_INCLUDE_METRICS" | "OTEL_MIN_TRACE_DURATION_MS" | "OTEL_EXPORT_TIMEOUT_MS" | "PUBLIC_OTEL_EXPORTER_OTLP_METRICS_ENDPOINT" | "PUBLIC_OTEL_INCLUDE_METRICS" | "PUBLIC_OTEL_COLLECT_FROM" | "PUBLIC_OTEL_OPT_OUT" | "P2P_BATCH_TX_REQUESTER_SMART_PARALLEL_WORKER_COUNT" | "P2P_BATCH_TX_REQUESTER_DUMB_PARALLEL_WORKER_COUNT" | "P2P_BATCH_TX_REQUESTER_TX_BATCH_SIZE" | "P2P_BATCH_TX_REQUESTER_BAD_PEER_THRESHOLD" | "P2P_BLOCK_CHECK_INTERVAL_MS" | "P2P_BLOCK_REQUEST_BATCH_SIZE" | "P2P_BOOTSTRAP_NODE_ENR_VERSION_CHECK" | "P2P_BOOTSTRAP_NODES_AS_FULL_PEERS" | "P2P_ENABLED" | "P2P_DISCOVERY_DISABLED" | "P2P_GOSSIPSUB_D" | "P2P_GOSSIPSUB_DHI" | "P2P_GOSSIPSUB_DLO" | "P2P_GOSSIPSUB_DLAZY" | "P2P_GOSSIPSUB_FLOOD_PUBLISH" | "P2P_GOSSIPSUB_INTERVAL_MS" | "P2P_GOSSIPSUB_MCACHE_GOSSIP" | "P2P_GOSSIPSUB_MCACHE_LENGTH" | "P2P_GOSSIPSUB_SEEN_TTL" | "P2P_GOSSIPSUB_TX_INVALID_MESSAGE_DELIVERIES_DECAY" | "P2P_GOSSIPSUB_TX_INVALID_MESSAGE_DELIVERIES_WEIGHT" | "P2P_GOSSIPSUB_TX_TOPIC_WEIGHT" | "P2P_L2_QUEUE_SIZE" | "P2P_MAX_GOSSIP_CLOCK_DISPARITY_MS" | "P2P_MAX_PEERS" | "P2P_PEER_BAN_DURATION_SECONDS" | "P2P_PEER_CHECK_INTERVAL_MS" | "P2P_PEER_FAILED_BAN_TIME_MS" | "P2P_PEER_PENALTY_VALUES" | "P2P_QUERY_FOR_IP" | "P2P_PUBLIC_IP_SERVICES" | "P2P_REQRESP_INDIVIDUAL_REQUEST_TIMEOUT_MS" | "P2P_REQRESP_DIAL_TIMEOUT_MS" | "P2P_REQRESP_OVERALL_REQUEST_TIMEOUT_MS" | "P2P_DISABLE_STATUS_HANDSHAKE" | "P2P_ALLOW_ONLY_VALIDATORS" | "P2P_MAX_AUTH_FAILED_ATTEMPTS_ALLOWED" | "P2P_REQRESP_OPTIMISTIC_NEGOTIATION" | "P2P_DOUBLE_SPEND_SEVERE_PEER_PENALTY_WINDOW" | "P2P_LISTEN_ADDR" | "P2P_PORT" | "P2P_BROADCAST_PORT" | "P2P_IP" | "P2P_ARCHIVED_TX_LIMIT" | "P2P_TRUSTED_PEERS" | "P2P_PRIVATE_PEERS" | "P2P_PREFERRED_PEERS" | "P2P_MAX_PENDING_TX_COUNT" | "P2P_SEEN_MSG_CACHE_SIZE" | "P2P_DROP_TX_CHANCE" | "P2P_TX_POOL_DELETE_TXS_AFTER_REORG" | "P2P_MIN_TX_POOL_AGE_MS" | "P2P_MISSING_TX_COLLECTION_DEADLINE_SLOTS" | "P2P_RPC_PRICE_BUMP_PERCENTAGE" | "P2P_KEEP_FINALIZED_TXS_FOR_SLOTS" | "P2P_TX_VALIDATION_CACHE_SIZE" | "DEBUG_P2P_INSTRUMENT_MESSAGES" | "PEER_ID_PRIVATE_KEY" | "PEER_ID_PRIVATE_KEY_PATH" | "PROVER_AGENT_COUNT" | "PROVER_AGENT_PROOF_TYPES" | "PROVER_AGENT_POLL_INTERVAL_MS" | "PROVER_BROKER_HOST" | "PROVER_BROKER_JOB_TIMEOUT_MS" | "PROVER_BROKER_POLL_INTERVAL_MS" | "PROVER_BROKER_JOB_MAX_RETRIES" | "PROVER_BROKER_BATCH_INTERVAL_MS" | "PROVER_BROKER_BATCH_SIZE" | "PROVER_BROKER_MAX_EPOCHS_TO_KEEP_RESULTS_FOR" | "PROVER_BROKER_DEBUG_REPLAY_ENABLED" | "PROVER_CANCEL_JOBS_ON_STOP" | "PROVER_ENQUEUE_CONCURRENCY" | "PROVER_COORDINATION_NODE_URLS" | "PROVER_PROOF_STORE" | "PROVER_FAILED_PROOF_STORE" | "PROVER_NODE_FAILED_EPOCH_STORE" | "PROVER_NODE_DISABLE_PROOF_PUBLISH" | "PROVER_ID" | "PROVER_NODE_POLLING_INTERVAL_MS" | "PROVER_NODE_MAX_PENDING_JOBS" | "PROVER_NODE_MAX_PARALLEL_BLOCKS_PER_EPOCH" | "PROVER_NODE_TX_GATHERING_INTERVAL_MS" | "PROVER_NODE_TX_GATHERING_BATCH_SIZE" | "PROVER_NODE_TX_GATHERING_MAX_PARALLEL_REQUESTS_PER_NODE" | "PROVER_NODE_TX_GATHERING_TIMEOUT_MS" | "PROVER_PUBLISHER_PRIVATE_KEY" | "PROVER_PUBLISHER_PRIVATE_KEYS" | "PROVER_PUBLISHER_ADDRESSES" | "PROVER_PUBLISHER_ALLOW_INVALID_STATES" | "PROVER_PUBLISHER_FORWARDER_ADDRESS" | "PROVER_REAL_PROOFS" | "PROVER_TEST_DELAY_FACTOR" | "PROVER_TEST_DELAY_MS" | "PROVER_TEST_DELAY_TYPE" | "PROVER_TEST_VERIFICATION_DELAY_MS" | "PXE_AUTO_SYNC" | "PXE_L2_BLOCK_BATCH_SIZE" | "PXE_PROVER_ENABLED" | "PXE_SYNC_CHAIN_TIP" | "RPC_MAX_BATCH_SIZE" | "RPC_MAX_BODY_SIZE" | "RPC_SIMULATE_PUBLIC_MAX_GAS_LIMIT" | "RPC_SIMULATE_PUBLIC_MAX_DEBUG_LOG_MEMORY_READS" | "OFFENSE_COLLECTION_ENABLED" | "SENTINEL_ENABLED" | "SENTINEL_HISTORY_LENGTH_IN_EPOCHS" | "SENTINEL_HISTORIC_EPOCH_PERFORMANCE_LENGTH_IN_EPOCHS" | "SENTINEL_EPOCH_END_BUFFER_SLOTS" | "SEQ_MAX_TX_PER_BLOCK" | "SEQ_MAX_TX_PER_CHECKPOINT" | "SEQ_MIN_TX_PER_BLOCK" | "SEQ_PUBLISH_TXS_WITH_PROPOSALS" | "SEQ_MAX_DA_BLOCK_GAS" | "SEQ_MAX_L2_BLOCK_GAS" | "SEQ_PER_BLOCK_ALLOCATION_MULTIPLIER" | "SEQ_PER_BLOCK_DA_ALLOCATION_MULTIPLIER" | "SEQ_REDISTRIBUTE_CHECKPOINT_BUDGET" | "SEQ_PUBLISHER_PRIVATE_KEY" | "SEQ_PUBLISHER_PRIVATE_KEYS" | "SEQ_PUBLISHER_ADDRESSES" | "SEQ_PUBLISHER_ALLOW_INVALID_STATES" | "SEQ_PUBLISHER_FORWARDER_ADDRESS" | "SEQ_PUBLISHER_PREVIOUS_L1_BLOCK_WAIT_TIMEOUT_MS" | "SEQ_PUBLISHER_PREVIOUS_L1_BLOCK_WAIT_POLL_INTERVAL_MS" | "PUBLISHER_FUNDING_THRESHOLD" | "PUBLISHER_FUNDING_AMOUNT" | "SEQ_POLLING_INTERVAL_MS" | "SEQ_L1_PUBLISHING_TIME_ALLOWANCE_IN_SLOT" | "SEQ_ATTESTATION_PROPAGATION_TIME" | "SEQ_CHECKPOINT_PROPOSAL_PREPARE_TIME" | "CHECKPOINT_PROPOSAL_SYNC_GRACE_SECONDS" | "SEQ_MIN_BLOCK_DURATION" | "SEQ_BLOCK_DURATION_MS" | "SEQ_LAST_BLOCK_DURATION_MS" | "SEQ_EXPECTED_BLOCK_PROPOSALS_PER_SLOT" | "SEQ_BUILD_CHECKPOINT_IF_EMPTY" | "SEQ_SECONDS_BEFORE_INVALIDATING_BLOCK_AS_COMMITTEE_MEMBER" | "SEQ_SECONDS_BEFORE_INVALIDATING_BLOCK_AS_NON_COMMITTEE_MEMBER" | "SEQ_SKIP_CHECKPOINT_PUBLISH_PERCENT" | "SLASH_VALIDATORS_ALWAYS" | "SLASH_VALIDATORS_NEVER" | "SLASH_DATA_WITHHOLDING_PENALTY" | "SLASH_DATA_WITHHOLDING_TOLERANCE_SLOTS" | "SLASH_INACTIVITY_PENALTY" | "SLASH_INACTIVITY_TARGET_PERCENTAGE" | "SLASH_INACTIVITY_CONSECUTIVE_EPOCH_THRESHOLD" | "SLASH_INVALID_BLOCK_PENALTY" | "SLASH_INVALID_CHECKPOINT_PROPOSAL_PENALTY" | "SLASH_DUPLICATE_PROPOSAL_PENALTY" | "SLASH_DUPLICATE_ATTESTATION_PENALTY" | "SLASH_OVERRIDE_PAYLOAD" | "SLASH_PROPOSE_INVALID_ATTESTATIONS_PENALTY" | "SLASH_PROPOSE_DESCENDANT_OF_CHECKPOINT_WITH_INVALID_ATTESTATIONS_PENALTY" | "SLASH_ATTEST_INVALID_CHECKPOINT_PROPOSAL_PENALTY" | "SLASH_UNKNOWN_PENALTY" | "SLASH_GRACE_PERIOD_L2_SLOTS" | "SLASH_OFFENSE_EXPIRATION_ROUNDS" | "SLASH_MAX_PAYLOAD_SIZE" | "SLASH_EXECUTE_ROUNDS_LOOK_BACK" | "SYNC_MODE" | "SYNC_SNAPSHOTS_URLS" | "SYNC_SNAPSHOTS_URL" | "TELEMETRY" | "TEST_ACCOUNTS" | "TEST_PRELOAD_STANDARD_CONTRACTS" | "SPONSORED_FPC" | "PREFUND_ADDRESSES" | "TX_COLLECTION_FAST_NODES_TIMEOUT_BEFORE_REQ_RESP_MS" | "TX_COLLECTION_FAST_NODE_INTERVAL_MS" | "TX_COLLECTION_FAST_MAX_PARALLEL_REQUESTS_PER_NODE" | "TX_COLLECTION_NODE_RPC_MAX_BATCH_SIZE" | "TX_COLLECTION_NODE_RPC_URLS" | "TX_COLLECTION_MISSING_TXS_COLLECTOR_TYPE" | "TX_COLLECTION_FILE_STORE_URLS" | "TX_COLLECTION_FILE_STORE_FAST_DELAY_MS" | "TX_COLLECTION_FILE_STORE_FAST_WORKER_COUNT" | "TX_COLLECTION_FILE_STORE_FAST_BACKOFF_BASE_MS" | "TX_COLLECTION_FILE_STORE_FAST_BACKOFF_MAX_MS" | "TX_FILE_STORE_URL" | "TX_FILE_STORE_UPLOAD_CONCURRENCY" | "TX_FILE_STORE_MAX_QUEUE_SIZE" | "TX_FILE_STORE_ENABLED" | "TX_PUBLIC_SETUP_ALLOWLIST" | "TXE_PORT" | "TRANSACTIONS_DISABLED" | "VALIDATOR_ATTESTATIONS_POLLING_INTERVAL_MS" | "VALIDATOR_DISABLED" | "VALIDATOR_MAX_DA_BLOCK_GAS" | "VALIDATOR_MAX_L2_BLOCK_GAS" | "VALIDATOR_MAX_TX_PER_BLOCK" | "VALIDATOR_MAX_TX_PER_CHECKPOINT" | "VALIDATOR_PRIVATE_KEYS" | "VALIDATOR_PRIVATE_KEY" | "VALIDATOR_ADDRESSES" | "ROLLUP_VERSION" | "WS_BLOCK_CHECK_INTERVAL_MS" | "WS_BLOCK_REQUEST_BATCH_SIZE" | "L1_READER_VIEM_POLLING_INTERVAL_MS" | "WS_DATA_DIRECTORY" | "WS_NUM_HISTORIC_CHECKPOINTS" | "WS_NUM_HISTORIC_BLOCKS" | "ETHEREUM_SLOT_DURATION" | "AZTEC_SLOT_DURATION" | "AZTEC_EPOCH_DURATION" | "AZTEC_TARGET_COMMITTEE_SIZE" | "AZTEC_LAG_IN_EPOCHS_FOR_VALIDATOR_SET" | "AZTEC_LAG_IN_EPOCHS_FOR_RANDAO" | "AZTEC_INBOX_LAG" | "AZTEC_PROOF_SUBMISSION_EPOCHS" | "AZTEC_ACTIVATION_THRESHOLD" | "AZTEC_EJECTION_THRESHOLD" | "AZTEC_LOCAL_EJECTION_THRESHOLD" | "AZTEC_MANA_TARGET" | "AZTEC_PROVING_COST_PER_MANA" | "AZTEC_INITIAL_ETH_PER_FEE_ASSET" | "AZTEC_SLASHING_QUORUM" | "AZTEC_SLASHING_ROUND_SIZE_IN_EPOCHS" | "AZTEC_SLASHING_LIFETIME_IN_ROUNDS" | "AZTEC_SLASHING_EXECUTION_DELAY_IN_ROUNDS" | "AZTEC_SLASHING_VETOER" | "AZTEC_SLASHING_OFFSET_IN_ROUNDS" | "AZTEC_SLASHING_DISABLE_DURATION" | "AZTEC_SLASH_AMOUNT_SMALL" | "AZTEC_SLASH_AMOUNT_MEDIUM" | "AZTEC_SLASH_AMOUNT_LARGE" | "AZTEC_SLASHER_ENABLED" | "AZTEC_GOVERNANCE_PROPOSER_QUORUM" | "AZTEC_GOVERNANCE_PROPOSER_ROUND_SIZE" | "AZTEC_GOVERNANCE_VOTING_DURATION" | "AZTEC_EXIT_DELAY_SECONDS" | "L1_GAS_LIMIT_BUFFER_PERCENTAGE" | "L1_GAS_PRICE_MAX" | "L1_FEE_PER_GAS_GWEI_MAX" | "L1_BLOB_FEE_PER_GAS_MAX" | "L1_BLOB_FEE_PER_GAS_GWEI_MAX" | "L1_PRIORITY_FEE_BUMP_PERCENTAGE" | "L1_PRIORITY_FEE_RETRY_BUMP_PERCENTAGE" | "L1_MINIMUM_PRIORITY_FEE_PER_GAS_GWEI" | "L1_FIXED_PRIORITY_FEE_PER_GAS" | "L1_FIXED_PRIORITY_FEE_PER_GAS_GWEI" | "L1_TX_MONITOR_MAX_ATTEMPTS" | "L1_TX_MONITOR_CHECK_INTERVAL_MS" | "L1_TX_MONITOR_STALL_TIME_MS" | "L1_TX_MONITOR_TX_TIMEOUT_MS" | "L1_TX_MONITOR_CANCEL_TX_ON_TIMEOUT" | "L1_TX_MONITOR_TX_CANCELLATION_TIMEOUT_MS" | "L1_TX_MONITOR_TX_UNSEEN_CONSIDERED_DROPPED_MS" | "FAUCET_MNEMONIC_ADDRESS_INDEX" | "FAUCET_ETH_AMOUNT" | "FAUCET_INTERVAL_MS" | "FAUCET_L1_ASSETS" | "K8S_POD_NAME" | "K8S_POD_UID" | "K8S_NAMESPACE_NAME" | "ENABLE_AUTO_SHUTDOWN" | "WEB3_SIGNER_URL" | "SKIP_ARCHIVER_INITIAL_SYNC" | "BLOB_ALLOW_EMPTY_SOURCES" | "BLOB_PREFER_FILESTORES" | "BLOB_FILE_STORE_TIMEOUT_MS" | "FISHERMAN_MODE" | "MAX_ALLOWED_ETH_CLIENT_DRIFT_SECONDS" | "MAX_BLOCKS_PER_CHECKPOINT" | "LEGACY_BLS_CLI" | "DEBUG_FORCE_TX_PROOF_VERIFICATION" | "VALIDATOR_ALLOW_EPHEMERAL_SIGNING_PROTECTION" | "VALIDATOR_HA_SIGNING_ENABLED" | "VALIDATOR_HA_NODE_ID" | "VALIDATOR_HA_POLLING_INTERVAL_MS" | "VALIDATOR_HA_SIGNING_TIMEOUT_MS" | "VALIDATOR_SIGNER_CALL_TIMEOUT_MS" | "VALIDATOR_HA_MAX_STUCK_DUTIES_AGE_MS" | "VALIDATOR_HA_OLD_DUTIES_MAX_AGE_H" | "VALIDATOR_HA_DATABASE_URL" | "VALIDATOR_HA_RUN_MIGRATIONS" | "VALIDATOR_HA_POOL_MAX" | "VALIDATOR_HA_POOL_MIN" | "VALIDATOR_HA_POOL_IDLE_TIMEOUT_MS" | "VALIDATOR_HA_POOL_CONNECTION_TIMEOUT_MS"
 ```
 
 ### EpochNumber
@@ -1422,7 +1536,7 @@ type NetworkConfigMap = z.infer<typeof NetworkConfigMapSchema>
 
 ### NetworkNames
 ```typescript
-type NetworkNames = "local" | "staging-public" | "testnet" | "mainnet" | "next-net" | "devnet"
+type NetworkNames = "local" | "staging" | "testnet" | "mainnet" | "next-net" | "devnet" | string
 ```
 
 ### PartialBy
@@ -1431,16 +1545,40 @@ type PartialBy = Omit<T, K> & Partial<Pick<T, K>>
 ```
 Marks a set of properties of a type as optional.
 
+### PickDefined
+```typescript
+type PickDefined = Prettify<Pick<T, { [key: string]: unknown }[keyof T]>>
+```
+Picks only the defined (non-undefined) properties of a type.
+
+### PickIfFlag
+```typescript
+type PickIfFlag = unknown
+```
+Returns a type with fields conditionally required based on a flag
+
 ### Prettify
 ```typescript
 type Prettify = { [key: string]: unknown } & {}
 ```
 Resolves a record-like type. Lifted from viem.
 
+### RetryUntilTimeout
+```typescript
+type RetryUntilTimeout = number | { timeout: number } | { dateProvider?: DateProvider; deadline: Date }
+```
+Timeout specification accepted by retryUntil. Either a plain number of seconds, an explicit `{ timeout }` in seconds, or an absolute `{ deadline }` with an optional DateProvider used to read the current time. A deadline is converted to the remaining seconds at call time; a deadline that has already passed yields a zero remaining budget, matching the immediate-timeout semantics of a non-positive numeric timeout.
+
 ### Serializable
 ```typescript
 type Serializable = Bufferable & Fieldable
 ```
+
+### Sinkable
+```typescript
+type Sinkable = boolean | Buffer | Uint8Array | number | bigint | string | {} | Sinkable[]
+```
+A value that can be appended to a BufferSink. Mirrors `Bufferable`, but the object arm allows the optional-sink overload of `toBuffer` so a legacy `toBuffer(): Buffer` and a migrated `toBuffer(sink?)` both fit.
 
 ### SlotNumber
 ```typescript
@@ -1494,5 +1632,5 @@ Pino-pretty options for direct use (e.g., jest/setup.mjs). Includes function-bas
 
 ### schemas
 ```typescript
-type schemas = { BigInt: ZodPipeline<ZodUnion<[]>, ZodBigInt>; Boolean: ZodUnion<[]>; ... }
+type schemas = { BigInt: ZodPipe<ZodUnion<readonly []>, ZodCoercedBigInt<string | number | bigint>>; Boolean: ZodUnion<readonly []>; ... }
 ```

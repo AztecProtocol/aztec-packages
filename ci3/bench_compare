@@ -1,0 +1,180 @@
+#!/usr/bin/env bash
+# Compare a PR commit's benchmark run against its merge-base on a baseline branch (default: next),
+# optionally averaging a window of baseline runs, and emit the relative perf diffs as JSON.
+#
+# Per-run benchmark data lives in the CI build-cache keyed by the commit's *git tree hash*
+# (`bench-<treehash>.tar.gz` -> `bench-out/bench.json`, a flat array of {name, unit, value}). This
+# pulls only those ~40 KB per-run blobs; it never touches the multi-MB per-branch `data.js` history.
+#
+# It deliberately does NOT decide which benchmarks matter — it emits every comparable bench, plus a
+# stddev/z-score when a window is used. The caller (the `bench-regression` skill) filters to the
+# benches relevant to what the PR changes and drops the noise.
+#
+# BASELINE BRANCH — read this. The cache is content-addressed by git *tree hash*, so branches with
+# different perf (next vs v5-next vs merge-train/*) already live under different keys and never cross-
+# contaminate. But you MUST merge-base against the PR's *actual* base branch: comparing a v5-next PR
+# against `next` would surface the whole v5-next-vs-next delta as bogus regressions. If --baseline is
+# not given, this auto-detects the base of the current branch's PR via `gh` and falls back to
+# origin/next with a loud warning. The chosen baseline is always printed to stderr — check it.
+# Caveat: the cache key carries no branch/repo/hardware provenance, so a tree benched under a different
+# environment (e.g. the private fork) yields whichever result was uploaded first; comparisons are only
+# trustworthy within one bench infrastructure.
+#
+# Usage: ci3/bench_compare [PR_REF] [--baseline REF] [--window N] [--out FILE]
+#   PR_REF        commit whose bench run to inspect (default: HEAD)
+#   --baseline    baseline branch/ref to merge-base against (default: auto-detect, else origin/next)
+#   --window N    average the merge-base + N-1 preceding baseline runs (default: 1)
+#   --out FILE    write JSON here (default: stdout); the human summary always goes to stderr
+#
+# JSON (stdout): { meta:{pr_commit,merge_base,baseline_branch,baseline_runs,counts}, benches:[
+#   { name, unit, pr, baseline, n, status, pct, stddev, z } ] }  sorted by pct desc.
+set -uo pipefail   # not -e: failures are handled explicitly, and `cond && break` under -e would exit.
+[ "${BUILD_SYSTEM_DEBUG:-}" = 1 ] && set -x
+
+BASELINE="${BASELINE:-}"   # empty => auto-detect the PR's base branch below
+WINDOW=1
+PR_REF="HEAD"
+OUT=""
+SCAN_LIMIT=300
+# Same endpoints cache_download uses: the in-CI S3 http endpoint, else the public cache CDN.
+if [ "${CI:-0}" -eq 1 ]; then
+  CACHE_ENDPOINT="http://aztec-ci-artifacts.s3.amazonaws.com/build-cache"
+else
+  CACHE_ENDPOINT="https://build-cache.aztec-labs.com"
+fi
+
+die() { echo "bench_compare: error: $*" >&2; exit 1; }
+
+while [ $# -gt 0 ]; do
+  case "$1" in
+    --baseline) BASELINE="$2"; shift 2 ;;
+    --window)   WINDOW="$2"; shift 2 ;;
+    --out)      OUT="$2"; shift 2 ;;
+    -h|--help)  sed -n '2,22p' "$0"; exit 0 ;;
+    --*)        die "unknown flag $1" ;;
+    *)          PR_REF="$1"; shift ;;
+  esac
+done
+
+command -v jq >/dev/null || die "jq not found"
+command -v python3 >/dev/null || die "python3 not found"
+
+# Resolve the baseline branch. Explicit --baseline (or $BASELINE) wins; otherwise auto-detect the base
+# of the current branch's PR via gh, and only then fall back to origin/next. Always announced — a wrong
+# baseline silently invalidates every number, so never let it be a silent default.
+if [ -z "$BASELINE" ]; then
+  det=""
+  command -v gh >/dev/null && det="$(gh pr view --json baseRefName -q .baseRefName 2>/dev/null)"
+  if [ -n "$det" ]; then
+    BASELINE="origin/$det"
+    echo "bench_compare: auto-detected PR base branch -> $BASELINE" >&2
+  else
+    BASELINE="origin/next"
+    echo "bench_compare: WARNING baseline defaulted to origin/next (no PR base detected). Pass --baseline for v5-next / merge-train PRs." >&2
+  fi
+fi
+echo "bench_compare: baseline = $BASELINE" >&2
+
+# Fetch a per-run bench.json for a tree hash. Tries the http cache (no creds), then aws s3 (creds).
+fetch_bench() { # <treehash> <dest.json> -> 0 if found
+  local tree="$1" dest="$2" tmp
+  tmp="$(mktemp -d)"
+  if curl -fsSL "$CACHE_ENDPOINT/bench-$tree.tar.gz" -o "$tmp/b.tgz" 2>/dev/null \
+     || aws s3 cp "s3://aztec-ci-artifacts/build-cache/bench-$tree.tar.gz" "$tmp/b.tgz" >/dev/null 2>&1; then
+    if tar -xzf "$tmp/b.tgz" -C "$tmp" 2>/dev/null && [ -f "$tmp/bench-out/bench.json" ]; then
+      cp "$tmp/bench-out/bench.json" "$dest"; rm -rf "$tmp"; return 0
+    fi
+  fi
+  rm -rf "$tmp"; return 1
+}
+
+pr_commit="$(git rev-parse --verify "$PR_REF^{commit}" 2>/dev/null)" || die "bad PR ref '$PR_REF'"
+git rev-parse --verify "$BASELINE" >/dev/null 2>&1 || die "baseline '$BASELINE' not found (git fetch?)"
+base_commit="$(git merge-base "$pr_commit" "$BASELINE")" || die "no merge-base between PR and $BASELINE"
+pr_tree="$(git rev-parse "$pr_commit^{tree}")"
+
+work="$(mktemp -d)"; trap 'rm -rf "$work"' EXIT
+
+fetch_bench "$pr_tree" "$work/pr.json" \
+  || die "no bench data for PR commit $pr_commit (tree $pr_tree). Trigger a run (label 'ci-full-no-test-cache') or pass a benched commit."
+
+# Baseline set: merge-base, then first-parent predecessors; take the first $WINDOW that have data.
+baseline_files=(); n=0
+for c in $(git rev-list --first-parent "$base_commit" -n "$SCAN_LIMIT"); do
+  if [ "$n" -ge "$WINDOW" ]; then break; fi
+  t="$(git rev-parse "$c^{tree}")"
+  if fetch_bench "$t" "$work/base_$n.json"; then
+    baseline_files+=("$work/base_$n.json"); n=$((n + 1))
+  fi
+done
+[ "${#baseline_files[@]}" -gt 0 ] || die "no bench data for baseline (merge-base $base_commit or predecessors)"
+
+META_JSON="$(jq -n \
+  --arg pr "$pr_commit" --arg base "$base_commit" --arg branch "$BASELINE" \
+  --argjson n "${#baseline_files[@]}" \
+  '{pr_commit:$pr, merge_base:$base, baseline_branch:$branch, baseline_runs:$n}')"
+
+python3 - "$META_JSON" "$work/pr.json" "${baseline_files[@]}" <<'PY' > "${OUT:-/dev/stdout}"
+import json, sys, math
+
+meta = json.loads(sys.argv[1])
+pr = sys.argv[2]
+bases = sys.argv[3:]
+
+def load(path):
+    with open(path) as f:
+        arr = json.load(f)
+    out = {}
+    for e in arr:
+        try:
+            out[e["name"]] = (float(e["value"]), e.get("unit", ""))
+        except (ValueError, TypeError, KeyError):
+            pass  # drop non-numeric / malformed
+    return out
+
+pr = load(pr)
+bases = [load(p) for p in bases]
+
+names = set(pr).union(*bases) if bases else set(pr)
+rows = []
+for name in names:
+    vals = [b[name][0] for b in bases if name in b]
+    unit = next((b[name][1] for b in bases if name in b), pr.get(name, (0, ""))[1])
+    prv = pr[name][0] if name in pr else None
+    mean = sum(vals) / len(vals) if vals else None
+    std = (math.sqrt(sum((v - mean) ** 2 for v in vals) / len(vals)) if len(vals) > 1 else 0.0) if vals else None
+    row = {"name": name, "unit": unit, "pr": prv, "baseline": mean, "n": len(vals)}
+    if prv is None:
+        row["status"] = "only_in_baseline"
+    elif mean is None:
+        row["status"] = "only_in_pr"
+    else:
+        row["status"] = "compared"
+        row["pct"] = ((prv - mean) / abs(mean) * 100) if mean != 0 else None
+        row["stddev"] = std
+        row["z"] = ((prv - mean) / std) if std and std > 0 else None
+    rows.append(row)
+
+cmp = [r for r in rows if r["status"] == "compared" and r.get("pct") is not None]
+cmp.sort(key=lambda r: r["pct"], reverse=True)
+only_pr = [r for r in rows if r["status"] == "only_in_pr"]
+only_base = [r for r in rows if r["status"] == "only_in_baseline"]
+meta["counts"] = {"compared": len(cmp), "only_in_pr": len(only_pr), "only_in_baseline": len(only_base)}
+print(json.dumps({"meta": meta, "benches": cmp + only_pr + only_base}))
+
+def fmt(r):
+    z = f", z={r['z']:.1f}" if r.get("z") is not None else ""
+    return f"  {r['pct']:+7.1f}%  {r['baseline']:.4g} -> {r['pr']:.4g} {r['unit']}{z}  {r['name']}"
+print(f"\nbaseline: {meta['baseline_branch']} @ {meta['merge_base'][:10]} "
+      f"(window {meta['baseline_runs']} run(s))  vs  PR {meta['pr_commit'][:10]}", file=sys.stderr)
+print(f"compared {len(cmp)} | only-in-PR {len(only_pr)} | only-in-baseline {len(only_base)}", file=sys.stderr)
+print("\ntop 15 regressions (PR larger; customSmallerIsBetter):", file=sys.stderr)
+for r in cmp[:15]:
+    print(fmt(r), file=sys.stderr)
+print("\ntop 5 improvements:", file=sys.stderr)
+for r in cmp[-5:][::-1]:
+    print(fmt(r), file=sys.stderr)
+PY
+
+[ -n "$OUT" ] && echo "bench_compare: wrote $OUT" >&2
+exit 0
