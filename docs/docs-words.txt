@@ -9,6 +9,7 @@ activatingˮ
 additonal
 addressnote
 airgapped
+alejoamiras
 analysed
 Anoncast
 arithmetisation
@@ -22,6 +23,7 @@ authwit
 authwitnesses
 autonumber
 Azguard
+azguardwallet
 AZIP
 AZTC
 aztecexplorer
