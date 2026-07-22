@@ -85,6 +85,7 @@ export async function createPXE(
     loggerOrSuffix: pxeLogger,
     hooks: options.hooks,
     nodeInfo,
+    initialBlockHash: options.initialBlockHash,
   });
   return pxe;
 }

@@ -10,7 +10,7 @@ import { getStandardMultiCallEntrypoint } from '@aztec/standard-contracts/multi-
 import { LazyAccountContractsProvider } from '../account-contract-providers/lazy.js';
 import type { AccountContractsProvider } from '../account-contract-providers/types.js';
 import { EmbeddedWallet, type EmbeddedWalletOptions, splitPxeOptions } from '../embedded_wallet.js';
-import { resolveNodeInfo } from '../node_info_cache.js';
+import { resolveStartupInfo } from '../node_info_cache.js';
 import { WalletDB } from '../wallet_db.js';
 
 export class BrowserEmbeddedWallet extends EmbeddedWallet {
@@ -41,7 +41,12 @@ export class BrowserEmbeddedWallet extends EmbeddedWallet {
             return undefined;
           })
         : undefined;
-    const nodeInfo = await resolveNodeInfo(aztecNode, nodeInfoUrl, nodeInfoCacheStore, rootLogger);
+    const { nodeInfo, initialBlockHash } = await resolveStartupInfo(
+      aztecNode,
+      nodeInfoUrl,
+      nodeInfoCacheStore,
+      rootLogger,
+    );
     const l1Contracts = nodeInfo.l1ContractAddresses;
 
     // Support both the new unified `pxe` option and the deprecated `pxeConfig`/`pxeOptions`.
@@ -63,6 +68,7 @@ export class BrowserEmbeddedWallet extends EmbeddedWallet {
     const pxeOptions: PXECreationOptions = {
       ...mergedCreationOverrides,
       nodeInfo,
+      initialBlockHash,
       preloadedContractsProvider: mergedCreationOverrides.preloadedContractsProvider ?? {
         getPreloadedContracts: async () => [
           await getStandardMultiCallEntrypoint(),

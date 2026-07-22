@@ -162,6 +162,7 @@ export abstract class BaseWallet implements Wallet {
    * Seeds the node-info cache with a value the entrypoint already fetched while building the PXE, so the first
    * chain-info or gas-limit lookup doesn't re-fetch what startup just retrieved. A no-op if the cache is already
    * populated (a real fetch or an earlier seed wins).
+   * @param nodeInfo - Node info already fetched at wallet startup.
    */
   public seedNodeInfo(nodeInfo: NodeInfo): void {
     this.nodeInfoPromise ??= Promise.resolve(nodeInfo);

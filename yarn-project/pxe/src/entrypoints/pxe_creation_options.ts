@@ -2,6 +2,7 @@ import type { BBPrivateKernelProverOptions } from '@aztec/bb-prover/client';
 import type { Logger } from '@aztec/foundation/log';
 import type { AztecAsyncKVStore } from '@aztec/kv-store';
 import type { CircuitSimulator } from '@aztec/simulator/client';
+import type { BlockHash } from '@aztec/stdlib/block';
 import type { NodeInfo } from '@aztec/stdlib/contract';
 import type { AztecNodeDebug, PrivateKernelProver } from '@aztec/stdlib/interfaces/client';
 
@@ -23,6 +24,11 @@ export type PXECreationOptions = {
    * `getNodeInfo`/`getL1ContractAddresses` request. Node info is immutable for a given rollup connection.
    */
   nodeInfo?: NodeInfo;
+  /**
+   * Pre-fetched genesis block hash, forwarded to `PXE.create` so it skips fetching block zero. Immutable for a
+   * given rollup, so an entrypoint that persists startup state can supply it to skip the round-trip on reopen.
+   */
+  initialBlockHash?: BlockHash;
   /** Contracts to preload on startup. Replaces the default when set. */
   preloadedContractsProvider?: PreloadedContractsProvider;
   /**

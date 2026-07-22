@@ -20,7 +20,7 @@ import {
 } from '@aztec/stdlib/abi';
 import type { AuthWitness } from '@aztec/stdlib/auth-witness';
 import type { AztecAddress } from '@aztec/stdlib/aztec-address';
-import { GENESIS_BLOCK_HEADER_HASH, type L2TipsProvider } from '@aztec/stdlib/block';
+import { type BlockHash, GENESIS_BLOCK_HEADER_HASH, type L2TipsProvider } from '@aztec/stdlib/block';
 import {
   CompleteAddress,
   type ContractInstancePreimage,
@@ -200,6 +200,11 @@ export type PXECreateArgs = {
    * config), `create` reuses it instead of issuing its own `getNodeInfo` request.
    */
   nodeInfo?: NodeInfo;
+  /**
+   * Pre-fetched genesis block hash. When provided, `create` reuses it instead of fetching block zero. Immutable
+   * for a rollup, so an entrypoint that persists startup state can supply it to skip the round-trip on reopen.
+   */
+  initialBlockHash?: BlockHash;
 };
 
 /** A source from which PXE derives the tagging secrets it scans for to discover incoming private logs. */
@@ -287,6 +292,7 @@ export class PXE {
     loggerOrSuffix,
     hooks,
     nodeInfo,
+    initialBlockHash: providedInitialBlockHash,
   }: PXECreateArgs) {
     // Extract bindings from the logger, or use empty bindings if a string suffix is provided.
     const bindings: LoggerBindings | undefined =
@@ -305,7 +311,8 @@ export class PXE {
     // default empty genesis (timestamp 0, no prefilled public data) and diverges otherwise — the
     // sync at block 0 would then get stuck in `areBlockHashesEqualAt` and abort. If the node does
     // not return a genesis block (older node or test fixture) we fall back to the static constant.
-    const initialBlockHash = (await node.getBlock(BlockNumber.ZERO))?.hash ?? GENESIS_BLOCK_HEADER_HASH;
+    const initialBlockHash =
+      providedInitialBlockHash ?? ((await node.getBlock(BlockNumber.ZERO))?.hash ?? GENESIS_BLOCK_HEADER_HASH);
 
     const proverEnabled = config.proverEnabled !== undefined ? config.proverEnabled : info.realProofs;
     const {

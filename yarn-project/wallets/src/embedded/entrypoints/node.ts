@@ -11,7 +11,7 @@ import type { AztecNode } from '@aztec/stdlib/interfaces/client';
 import { BundleAccountContractsProvider } from '../account-contract-providers/bundle.js';
 import type { AccountContractsProvider } from '../account-contract-providers/types.js';
 import { EmbeddedWallet, type EmbeddedWalletOptions, splitPxeOptions } from '../embedded_wallet.js';
-import { resolveNodeInfo } from '../node_info_cache.js';
+import { resolveStartupInfo } from '../node_info_cache.js';
 import { WalletDB } from '../wallet_db.js';
 
 // LMDB requires a schema version for its own on-disk format; the cache's logical versioning is handled by the
@@ -46,7 +46,12 @@ export class NodeEmbeddedWallet extends EmbeddedWallet {
             return undefined;
           })
         : undefined;
-    const nodeInfo = await resolveNodeInfo(aztecNode, nodeInfoUrl, nodeInfoCacheStore, rootLogger);
+    const { nodeInfo, initialBlockHash } = await resolveStartupInfo(
+      aztecNode,
+      nodeInfoUrl,
+      nodeInfoCacheStore,
+      rootLogger,
+    );
     const l1Contracts = nodeInfo.l1ContractAddresses;
 
     // Support both the new unified `pxe` option and the deprecated `pxeConfig`/`pxeOptions`.
@@ -68,6 +73,7 @@ export class NodeEmbeddedWallet extends EmbeddedWallet {
     const pxeOptions: PXECreationOptions = {
       ...mergedCreationOverrides,
       nodeInfo,
+      initialBlockHash,
       preloadedContractsProvider: mergedCreationOverrides.preloadedContractsProvider ?? {
         getPreloadedContracts: async () => [
           await getStandardMultiCallEntrypoint(),
