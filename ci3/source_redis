@@ -81,7 +81,15 @@ function redis_cli {
 }
 
 function redis_setexz {
-  gzip | redis_cli -x SETEX $1 $2 &>/dev/null
+  # When redis is unavailable redis_cli is a no-op that never reads its stdin, so
+  # `gzip | redis_cli` would leave gzip writing into a closed pipe (SIGPIPE / "Broken
+  # pipe"). Under `set -e -o pipefail` that aborts the caller on the first log write.
+  # Drain stdin instead so this stays a clean no-op, matching redis_cli/redis_publish.
+  if [ "$CI_REDIS_AVAILABLE" -eq 1 ]; then
+    gzip | redis_cli -x SETEX $1 $2 &>/dev/null
+  else
+    cat >/dev/null
+  fi
 }
 
 function redis_getz {
