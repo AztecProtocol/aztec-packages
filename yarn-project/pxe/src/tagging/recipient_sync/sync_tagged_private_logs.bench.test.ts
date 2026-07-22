@@ -1,5 +1,6 @@
 import { MAX_TX_LIFETIME } from '@aztec/constants';
 import { BlockNumber } from '@aztec/foundation/branded-types';
+import { sum, times } from '@aztec/foundation/collection';
 import { createLogger } from '@aztec/foundation/log';
 import { sleep } from '@aztec/foundation/sleep';
 import { openTmpStore } from '@aztec/kv-store/lmdb-v2';
@@ -167,22 +168,25 @@ describeBench('syncTaggedPrivateLogs constrained-sync bench', () => {
     const taggingStore = new RecipientTaggingStore(await openTmpStore('bench'));
     const secrets = await Promise.all(Array.from({ length: secretCount }, () => randomAppTaggingSecret(kind)));
 
-    // Seed the persisted finalized indexes to simulate a recipient that already synced prior finalized messages.
-    for (const secret of secrets) {
-      await taggingStore.updateHighestFinalizedIndex(secret, PRIOR_FINALIZED_INDEX, JOB_ID);
-      if (kind === AppTaggingSecretKind.UNCONSTRAINED) {
-        await taggingStore.updateHighestAgedIndex(secret, PRIOR_FINALIZED_INDEX, JOB_ID);
-      }
-    }
+    // Seed the persisted finalized indexes to simulate a recipient that already synced prior finalized messages. The
+    // per-secret writes are independent, so run them concurrently.
+    await Promise.all(
+      secrets.map(async secret => {
+        await taggingStore.updateHighestFinalizedIndex(secret, PRIOR_FINALIZED_INDEX, JOB_ID);
+        if (kind === AppTaggingSecretKind.UNCONSTRAINED) {
+          await taggingStore.updateHighestAgedIndex(secret, PRIOR_FINALIZED_INDEX, JOB_ID);
+        }
+      }),
+    );
 
     // Tags that should resolve to a finalized log: per secret, the contiguous run
-    // (PRIOR_FINALIZED_INDEX, PRIOR_FINALIZED_INDEX + K].
-    const hitTags = new Set<string>();
-    for (let s = 0; s < secrets.length; s++) {
-      for (let k = 1; k <= perSecretNewLogs[s]; k++) {
-        hitTags.add((await computeSiloedTagForIndex(secrets[s], PRIOR_FINALIZED_INDEX + k)).toString());
-      }
-    }
+    // (PRIOR_FINALIZED_INDEX, PRIOR_FINALIZED_INDEX + K]. Computing the tags is independent per (secret, index).
+    const hitTagList = await Promise.all(
+      secrets.flatMap((secret, s) =>
+        times(perSecretNewLogs[s], i => computeSiloedTagForIndex(secret, PRIOR_FINALIZED_INDEX + i + 1)),
+      ),
+    );
+    const hitTags = new Set(hitTagList.map(tag => tag.toString()));
 
     aztecNode.getPrivateLogsByTags.mockImplementation(async (query: PrivateLogsQuery) => {
       await sleep(MODELED_NODE_RPC_LATENCY_MS);
@@ -203,7 +207,7 @@ describeBench('syncTaggedPrivateLogs constrained-sync bench', () => {
     );
 
     const calls = aztecNode.getPrivateLogsByTags.mock.calls;
-    const tagQueries = calls.reduce((sum, [query]) => sum + extractTags(query).length, 0);
+    const tagQueries = sum(calls.map(([query]) => extractTags(query).length));
 
     // Round-trips and blocking time from the same instrumentation the app benches use. `syncTaggedPrivateLogs` only
     // ever calls `getPrivateLogsByTags`, so every round-trip is that method.
@@ -214,7 +218,7 @@ describeBench('syncTaggedPrivateLogs constrained-sync bench', () => {
     // First-miss floor: each secret pays its K hits + 1 miss. Unconstrained cannot first-miss, so its floor is
     // its current cost.
     const firstMissOptimum =
-      kind === AppTaggingSecretKind.CONSTRAINED ? perSecretNewLogs.reduce((sum, k) => sum + k + 1, 0) : tagQueries;
+      kind === AppTaggingSecretKind.CONSTRAINED ? sum(perSecretNewLogs.map(k => k + 1)) : tagQueries;
 
     return {
       ...scenario,
@@ -241,7 +245,7 @@ describeBench('syncTaggedPrivateLogs constrained-sync bench', () => {
 
       // Seeding sanity check only: every seeded log must be found, or the reported numbers measure a broken harness.
       // Scan behavior (probe schedules, round counts) is pinned by the unit tests, which run in CI while this does not.
-      expect(row.logsFound).toBe(newLogsPerSecret(scenario).reduce((sum, k) => sum + k, 0));
+      expect(row.logsFound).toBe(sum(newLogsPerSecret(scenario)));
 
       // Steady state is one round trip by construction: every secret first-misses in round one, independent of secret
       // count, so a wide round's chunked parallel RPC calls must count as a single blocking wait. Guards the round-trip
