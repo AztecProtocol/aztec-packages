@@ -133,6 +133,11 @@ jobs:
           AWS_SHUTDOWN_TIME: 180
           NO_SPOT: 1
           SKIP_NETWORK_DEPLOY: "1"
+          # Publishes to the custom network-dashboard pipeline (GCS) tagged as the
+          # real-proving benchmark, grouped as one sweep per run.
+          BENCH_SWEEP_ID: real-proving-${{ github.run_id }}
+          BENCH_SWEEP_LABEL: real-proving
+          BENCH_BENCHMARK_TYPE: real-proving
         run: |
           ./.github/ci3.sh network-proving-bench prove-n-tps-real prove-n-tps-real
 

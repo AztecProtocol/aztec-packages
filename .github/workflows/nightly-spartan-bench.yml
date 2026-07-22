@@ -349,6 +349,12 @@ jobs:
           AWS_SHUTDOWN_TIME: 180
           NO_SPOT: 1
           SKIP_NETWORK_DEPLOY: "1"
+          # Publishes to the custom network-dashboard pipeline (GCS). Fake/fixed-delay
+          # proving, so it's tagged simulated-proving (distinct from the weekly
+          # real-proving run).
+          BENCH_SWEEP_ID: simulated-proving-${{ github.run_id }}
+          BENCH_SWEEP_LABEL: simulated-proving
+          BENCH_BENCHMARK_TYPE: simulated-proving
         run: |
           ./.github/ci3.sh network-proving-bench prove-n-tps-fake prove-n-tps-fake "${{ needs.select-image.outputs.docker_image }}"
 

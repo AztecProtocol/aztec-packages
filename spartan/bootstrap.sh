@@ -208,7 +208,40 @@ function proving_bench {
   gcp_auth
   export_admin_api_key
   export K8S_ENRICHER=${K8S_ENRICHER:-1}
-  proving_bench_cmds | parallelize 1
+  export BENCH_RUN_ID="${BENCH_RUN_ID:-$(date -u +%Y%m%d)-proving-${COMMIT_HASH:0:10}}"
+  # real proving (prove-n-tps-real, REAL_VERIFIER=true) vs fake/simulated timings.
+  local benchmark_type="${BENCH_BENCHMARK_TYPE:-$([ "${REAL_VERIFIER:-}" = "true" ] && echo real-proving || echo simulated-proving)}"
+
+  local test_rc=0
+  proving_bench_cmds | parallelize 1 || test_rc=$?
+  if [[ "$test_rc" -ne 0 ]]; then
+    echo "[proving_bench] test exited ${test_rc}; scraping captured data anyway"
+  fi
+
+  # Publish to the custom pipeline (GCS -> network-dashboard) alongside the
+  # legacy github-action-benchmark output the workflow still uploads.
+  local metadata="/tmp/n_tps_prove_timing_data.json"
+  local run_json="bench-out/bench-${benchmark_type}-${BENCH_RUN_ID}.json"
+  if [[ -f "$metadata" ]]; then
+    local started=$(jq -r .startedAt < "$metadata")
+    local ended=$(jq -r .endedAt < "$metadata")
+    echo "Scraping ${benchmark_type} run ${BENCH_RUN_ID} (started=${started} ended=${ended})"
+    NAMESPACE="$NAMESPACE" GCP_PROJECT_ID="${GCP_PROJECT_ID:-}" ./scripts/bench_10tps/bench_scrape.ts \
+      --run-id "$BENCH_RUN_ID" \
+      --started "$started" \
+      --ended "$ended" \
+      --target-tps "${TARGET_TPS:-1}" \
+      --sweep-id "${BENCH_SWEEP_ID:-$BENCH_RUN_ID}" \
+      --sweep-label "${BENCH_SWEEP_LABEL:-$benchmark_type}" \
+      --benchmark-type "$benchmark_type" \
+      --output "$run_json" \
+      || echo "[proving_bench] scraper failed (non-fatal)"
+    network_bench_upload "$run_json" || echo "[network_bench] upload failed (non-fatal)"
+  else
+    echo "[proving_bench] no timing metadata at ${metadata}; skipping custom-pipeline scrape"
+  fi
+
+  return "$test_rc"
 }
 
 function block_capacity_bench {
