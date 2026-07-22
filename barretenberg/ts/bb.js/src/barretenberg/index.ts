@@ -80,6 +80,29 @@ export class Barretenberg extends AsyncApi {
     }
   }
 
+  /**
+   * Flush the accumulated WebGPU/WASM MSM-phase wall time (logs a `[msm-phase-total] ms=…` line
+   * via the C++ hook). No-op on a backend/build without the export.
+   */
+  async emitMsmPhase(): Promise<void> {
+    const backend = this.backend as unknown as { callRawExport?: (name: string) => Promise<void> };
+    if (typeof backend.callRawExport === 'function') {
+      await backend.callRawExport('bb_emit_msm_phase');
+    }
+  }
+
+  /**
+   * Serialize the phase-level BB_BENCH per-call trace captured during the most recent prove to
+   * Chrome Trace Event JSON. Returns `undefined` on a backend without the trace export.
+   */
+  async dumpBenchTraceJson(): Promise<string | undefined> {
+    const backend = this.backend as unknown as { dumpBenchTraceJson?: () => Promise<string | undefined> };
+    if (typeof backend.dumpBenchTraceJson === 'function') {
+      return backend.dumpBenchTraceJson();
+    }
+    return undefined;
+  }
+
   async initSRSChonk(srsSize = this.getDefaultSrsSize()): Promise<void> {
     // crsPath can be undefined
     const crs = await Crs.new(srsSize, this.options.crsPath, this.options.logger);

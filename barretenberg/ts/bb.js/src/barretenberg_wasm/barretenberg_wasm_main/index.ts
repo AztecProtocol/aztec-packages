@@ -94,9 +94,13 @@ export class BarretenbergWasmMain extends BarretenbergWasmBase {
   private getDefaultMaximumMemoryPages(): number {
     // iOS browser is very aggressive with memory. Check if running in browser and on iOS.
     // We at any rate expect the mobile iOS browser to kill us >=1GB, so we don't set a maximum higher than that.
+    // A shared WebAssembly.Memory reserves its full `maximum` upfront on WebKit, and iOS appears
+    // to count that reservation against the WebContent process budget — so a 1GB cap leaves no room
+    // for the prover's working set, JS heap, and GPU buffers and the tab gets killed mid-prove. The
+    // Chonk IVC prover peaks ~270MiB of WASM heap, so a 512MiB cap is ample and halves the pressure.
     // Use `self` instead of `window` so this check also works inside Web Workers.
     if (typeof self !== 'undefined' && typeof self.navigator !== 'undefined' && /iPad|iPhone/.test(self.navigator.userAgent)) {
-      return 2 ** 14;
+      return 2 ** 13;
     }
     return 2 ** 16;
   }

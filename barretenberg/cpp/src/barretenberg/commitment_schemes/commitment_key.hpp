@@ -14,6 +14,7 @@
 #include "barretenberg/common/log.hpp"
 #include "barretenberg/common/ref_span.hpp"
 #include "barretenberg/ecc/scalar_multiplication/scalar_multiplication.hpp"
+#include "barretenberg/ecc/scalar_multiplication/webgpu_msm_hook.hpp"
 #include "barretenberg/polynomials/polynomial.hpp"
 #include "barretenberg/srs/factories/crs_factory.hpp"
 #include "barretenberg/srs/global_crs.hpp"
@@ -119,6 +120,17 @@ template <class Curve> class CommitmentKey {
             }
             scalar_spans.emplace_back(polynomial.start_index(), polynomial.coeffs());
         }
+
+#ifdef BBERG_WEBGPU_MSM_HOOK
+        // Register the full monomial-points SRS with the GPU hook so every commit
+        // (a subspan starting at polynomial.start_index()) routes as a prefix-with-
+        // offset of one uploaded pool, instead of re-shipping the SRS per MSM.
+        // Idempotent — the hook only uploads on the first registration of a session.
+        if constexpr (std::is_same_v<Curve, curve::BN254>) {
+            const auto monomial = get_monomial_points();
+            scalar_multiplication::webgpu_register_full_srs_bn254(monomial.data(), monomial.size());
+        }
+#endif
 
         auto results = scalar_multiplication::MSM<Curve>::batch_multi_scalar_mul(
             get_monomial_points(), scalar_spans, /*handle_edge_cases=*/false, dedup_infos);

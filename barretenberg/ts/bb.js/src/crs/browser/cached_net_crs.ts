@@ -25,7 +25,11 @@ export class CachedNetCrs {
     const g1Uncompressed = await get('g1Data');
     const uncompressedLength = this.numPoints * 64;
     if (g1Uncompressed && g1Uncompressed.length >= uncompressedLength) {
-      this.g1Data = g1Uncompressed;
+      // Slice to exactly numPoints*64: a cache populated by a larger SRS request
+      // is oversized, and passing the full buffer makes srsInitSrs compute the
+      // wrong bytes-per-point (e.g. 128) and reject it. The SRS prefix property
+      // makes the first numPoints points valid for this request.
+      this.g1Data = g1Uncompressed.subarray(0, uncompressedLength);
     } else {
       // Download compressed from CDN
       const netCrs = new NetCrs(this.numPoints);

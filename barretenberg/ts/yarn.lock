@@ -67,14 +67,18 @@ __metadata:
   resolution: "@aztec/bb.js@workspace:bb.js"
   dependencies:
     "@jest/globals": "npm:^30.0.0"
+    "@noble/curves": "npm:=1.7.0"
     "@swc/core": "npm:^1.10.1"
     "@swc/jest": "npm:^0.2.37"
     "@types/detect-node": "npm:^2.0.0"
     "@types/jest": "npm:^30.0.0"
+    "@types/mustache": "npm:^4.2.3"
     "@types/node": "npm:^22.15.17"
     "@types/pako": "npm:^2.0.3"
     "@types/source-map-support": "npm:^0.5.6"
     "@typescript/native-preview": "npm:7.0.0-dev.20251126.1"
+    "@webgpu/types": "npm:^0.1.55"
+    bigint-crypto-utils: "npm:^3.3.0"
     comlink: "npm:^4.4.1"
     commander: "npm:^12.1.0"
     eslint: "npm:^9.26.0"
@@ -82,6 +86,7 @@ __metadata:
     idb-keyval: "npm:^6.2.1"
     jest: "npm:^30.0.0"
     msgpackr: "npm:^1.11.2"
+    mustache: "npm:^4.2.0"
     pako: "npm:^2.1.0"
     prettier: "npm:^3.5.3"
     ts-jest: "npm:^29.4.0"
@@ -1067,6 +1072,22 @@ __metadata:
   languageName: node
   linkType: hard
 
+"@noble/curves@npm:=1.7.0":
+  version: 1.7.0
+  resolution: "@noble/curves@npm:1.7.0"
+  dependencies:
+    "@noble/hashes": "npm:1.6.0"
+  checksum: 10/2a11ef4895907d0b241bd3b72f9e6ebe56f0e705949bfd5efe003f25233549f620d287550df2d24ad56a1f953b82ec5f7cf4bd7cb78b1b2e76eb6dd516d44cf8
+  languageName: node
+  linkType: hard
+
+"@noble/hashes@npm:1.6.0":
+  version: 1.6.0
+  resolution: "@noble/hashes@npm:1.6.0"
+  checksum: 10/b44b043b02adbecd33596adeed97d9f9864c24a2410f7ac3b847986c2ecf1f6f0df76024b3f1b14d6ea954932960d88898fe551fb9d39844a8b870e9f9044ea1
+  languageName: node
+  linkType: hard
+
 "@nodelib/fs.scandir@npm:2.1.5":
   version: 2.1.5
   resolution: "@nodelib/fs.scandir@npm:2.1.5"
@@ -1431,6 +1452,13 @@ __metadata:
   version: 7.0.15
   resolution: "@types/json-schema@npm:7.0.15"
   checksum: 10/1a3c3e06236e4c4aab89499c428d585527ce50c24fe8259e8b3926d3df4cfbbbcf306cfc73ddfb66cbafc973116efd15967020b0f738f63e09e64c7d260519e7
+  languageName: node
+  linkType: hard
+
+"@types/mustache@npm:^4.2.3":
+  version: 4.2.6
+  resolution: "@types/mustache@npm:4.2.6"
+  checksum: 10/56a9b979a9984d4f8b370ccdf04b54ae07f055b9e7326a526cf86b2fac73b04576cc71c83edaceaaf80038817520cbe2405f73623200a8ce03dcdd1e578e5016
   languageName: node
   linkType: hard
 
@@ -1842,6 +1870,13 @@ __metadata:
   languageName: node
   linkType: hard
 
+"@webgpu/types@npm:^0.1.55":
+  version: 0.1.71
+  resolution: "@webgpu/types@npm:0.1.71"
+  checksum: 10/15809b0de24b48ef0a4b933fc23dbaef3abcac27c0e0bcf5e47e8ce7752c5d1089aebde258f43268b6c3d8801dce05cd2289729770f1bb2ee65b0e0a9062d023
+  languageName: node
+  linkType: hard
+
 "abbrev@npm:^4.0.0":
   version: 4.0.0
   resolution: "abbrev@npm:4.0.0"
@@ -2070,6 +2105,13 @@ __metadata:
   bin:
     baseline-browser-mapping: dist/cli.js
   checksum: 10/073e2548e0036e96f49644b94ba15e30ad273c5b2c314102c7b1473cd65c33878347e49185a4fc38fb1742957132c894f1229de1006924135f9e90c434601d1f
+  languageName: node
+  linkType: hard
+
+"bigint-crypto-utils@npm:^3.3.0":
+  version: 3.3.0
+  resolution: "bigint-crypto-utils@npm:3.3.0"
+  checksum: 10/94d10ac9db66b093c7c2beace833ac167b57188c8ac784a7e207ea4f585cf9c2066e5d1f5a1b26cb6ccb7f7be8e38687c79f049b87df07cfdc7bd484aee2390d
   languageName: node
   linkType: hard
 
@@ -4047,6 +4089,15 @@ __metadata:
   languageName: node
   linkType: hard
 
+"mustache@npm:^4.2.0":
+  version: 4.2.0
+  resolution: "mustache@npm:4.2.0"
+  bin:
+    mustache: bin/mustache
+  checksum: 10/6e668bd5803255ab0779c3983b9412b5c4f4f90e822230e0e8f414f5449ed7a137eed29430e835aa689886f663385cfe05f808eb34b16e1f3a95525889b05cd3
+  languageName: node
+  linkType: hard
+
 "napi-postinstall@npm:^0.3.0":
   version: 0.3.4
   resolution: "napi-postinstall@npm:0.3.4"
@@ -5228,3 +5279,4 @@ __metadata:
   checksum: 10/f77b3d8d00310def622123df93d4ee654fc6a0096182af8bd60679ddcdfb3474c56c6c7190817c84a2785648cdee9d721c0154eb45698c62176c322fb46fc700
   languageName: node
   linkType: hard
+
