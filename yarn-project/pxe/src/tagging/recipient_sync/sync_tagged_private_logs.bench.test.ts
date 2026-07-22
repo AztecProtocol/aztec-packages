@@ -4,14 +4,7 @@ import { createLogger } from '@aztec/foundation/log';
 import { sleep } from '@aztec/foundation/sleep';
 import { openTmpStore } from '@aztec/kv-store/lmdb-v2';
 import type { AztecNode } from '@aztec/stdlib/interfaces/server';
-import {
-  type AppTaggingSecret,
-  AppTaggingSecretKind,
-  type PrivateLogsQuery,
-  SiloedTag,
-  type TagQuery,
-  randomLogResult,
-} from '@aztec/stdlib/logs';
+import { AppTaggingSecretKind, type PrivateLogsQuery, randomLogResult } from '@aztec/stdlib/logs';
 import { randomAppTaggingSecret } from '@aztec/stdlib/testing';
 import { BlockHeader } from '@aztec/stdlib/tx';
 
@@ -22,6 +15,7 @@ import path from 'path';
 import { BenchmarkedNodeFactory } from '../../contract_function_simulator/benchmarked_node.js';
 import { RecipientTaggingStore } from '../../storage/tagging_store/recipient_tagging_store.js';
 import { UNFINALIZED_TAGGING_INDEXES_WINDOW_LEN, syncTaggedPrivateLogs } from '../index.js';
+import { computeSiloedTagForIndex, extractTags } from '../testing/tag_query_test_utils.js';
 
 /**
  * Benchmark for constrained recipient tag-sync.
@@ -156,14 +150,6 @@ const SCENARIOS: Scenario[] = [
 
 describeBench('syncTaggedPrivateLogs constrained-sync bench', () => {
   const aztecNode: MockProxy<AztecNode> = mock<AztecNode>();
-
-  function computeSiloedTagForIndex(secret: AppTaggingSecret, index: number) {
-    return SiloedTag.compute({ extendedSecret: secret, index });
-  }
-
-  function extractTags(query: PrivateLogsQuery): SiloedTag[] {
-    return query.tags.map((entry: TagQuery<SiloedTag>) => (entry instanceof SiloedTag ? entry : entry.tag));
-  }
 
   function makeFinalizedLog() {
     return {

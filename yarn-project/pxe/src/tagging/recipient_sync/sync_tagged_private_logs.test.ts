@@ -8,8 +8,7 @@ import {
   type AppTaggingSecret,
   AppTaggingSecretKind,
   type PrivateLogsQuery,
-  SiloedTag,
-  type TagQuery,
+  type SiloedTag,
   randomLogResult,
 } from '@aztec/stdlib/logs';
 import { randomAppTaggingSecret } from '@aztec/stdlib/testing';
@@ -23,6 +22,7 @@ import {
   UNFINALIZED_TAGGING_INDEXES_WINDOW_LEN,
   syncTaggedPrivateLogs,
 } from '../index.js';
+import { computeSiloedTagForIndex, extractTags } from '../testing/tag_query_test_utils.js';
 
 const FAR_FUTURE_BLOCK_NUMBER = BlockNumber(100);
 const CURRENT_TIMESTAMP = BigInt(Math.floor(Date.now() / 1000));
@@ -38,10 +38,6 @@ describe('syncTaggedPrivateLogs', () => {
   const aztecNode: MockProxy<AztecNode> = mock<AztecNode>();
   let taggingStore: RecipientTaggingStore;
 
-  function computeSiloedTagForIndex(secret: AppTaggingSecret, index: number) {
-    return SiloedTag.compute({ extendedSecret: secret, index });
-  }
-
   function computeSiloedTags(secret: AppTaggingSecret, indexes: number[]): Promise<SiloedTag[]> {
     return Promise.all(indexes.map(i => computeSiloedTagForIndex(secret, i)));
   }
@@ -56,13 +52,6 @@ describe('syncTaggedPrivateLogs', () => {
 
   function makeLog(blockNumber: number, blockTimestamp: bigint) {
     return { ...randomLogResult(/* includeEffects */ true), blockNumber: BlockNumber(blockNumber), blockTimestamp };
-  }
-
-  /**
-   * Extracts the bare-tag set from a query, defaulting `afterLog`-wrapped entries to their inner tag.
-   */
-  function extractTags(query: PrivateLogsQuery): SiloedTag[] {
-    return query.tags.map((entry: TagQuery<SiloedTag>) => (entry instanceof SiloedTag ? entry : entry.tag));
   }
 
   /** Mocks the node to return one log per matching tag per group, at the group's block number and timestamp. */
