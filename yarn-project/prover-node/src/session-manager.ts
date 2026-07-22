@@ -185,7 +185,7 @@ export class SessionManager {
    * slot. Dedupes against any existing session covering the same range, returning its id.
    */
   public async startProof(epoch: EpochNumber): Promise<string> {
-    const canonical = await this.deps.checkpointStore.listCanonicalForEpoch(epoch);
+    const canonical = await this.deps.checkpointStore.listForEpoch(epoch);
     if (canonical.length === 0) {
       throw new EmptyEpochError(epoch);
     }
@@ -227,7 +227,9 @@ export class SessionManager {
     await this.epochTicker?.stop();
     await this.reconcileQueue.cancel();
     const sessions = this.allSessions();
-    await Promise.allSettled(sessions.map(s => s.cancel('prover-node stopping')));
+    // A clean shutdown is just a restart, so preserve the in-flight broker jobs (abortJobs: false)
+    // for the restarted node to reuse rather than re-proving the epoch from scratch.
+    await Promise.allSettled(sessions.map(s => s.cancel('prover-node stopping', { abortJobs: false })));
   }
 
   // ---------------- reconcile ----------------
@@ -268,7 +270,7 @@ export class SessionManager {
         this.fullSessions.delete(key);
         continue;
       }
-      const canonical = this.canonicalCheckpointsForSpec(session.getSpec());
+      const canonical = this.checkpointsForSpec(session.getSpec());
       if (!this.checkpointsMatch(session.getCheckpoints(), canonical)) {
         this.fireAndForgetCancel(session, 'canonical content changed');
         this.fullSessions.delete(key);
@@ -284,7 +286,7 @@ export class SessionManager {
         this.partialSessions.delete(key);
         continue;
       }
-      const canonical = this.canonicalCheckpointsForSpec(session.getSpec());
+      const canonical = this.checkpointsForSpec(session.getSpec());
       if (!this.checkpointsMatch(session.getCheckpoints(), canonical)) {
         this.fireAndForgetCancel(session, 'canonical content changed');
         this.partialSessions.delete(key);
@@ -298,6 +300,8 @@ export class SessionManager {
   }
 
   private async openFullSessionIfReady(epoch: EpochNumber): Promise<void> {
+    // `recreateInvalidSessions` runs at the top of every reconcile and deletes terminal sessions
+    // before this is called, so a session present here is live and already covers the epoch.
     if (this.fullSessions.has(epoch)) {
       return;
     }
@@ -314,7 +318,7 @@ export class SessionManager {
       return;
     }
     const [fromSlot, toSlot] = getSlotRangeForEpoch(epoch, l1Constants);
-    const canonical = this.deps.checkpointStore.listCanonicalInSlotRange(fromSlot, toSlot);
+    const canonical = this.deps.checkpointStore.listInSlotRange(fromSlot, toSlot);
     if (!this.archiverFullyCovered(archiverCps, canonical)) {
       this.log.debug(`Skipping full-session open for epoch ${epoch}: archiver checkpoints not all in store`, {
         archiverCount: archiverCps.length,
@@ -329,7 +333,7 @@ export class SessionManager {
   }
 
   private openPartialSession(spec: SessionSpec): void {
-    const canonical = this.deps.checkpointStore.listCanonicalInSlotRange(spec.fromSlot, spec.toSlot);
+    const canonical = this.deps.checkpointStore.listInSlotRange(spec.fromSlot, spec.toSlot);
     if (canonical.length === 0) {
       return;
     }
@@ -403,6 +407,17 @@ export class SessionManager {
     const state = await session.start();
     this.log.info(`Session ${session.getId()} exited with state ${state}`);
     if (state === 'failed' && this.deps.onSessionFailed) {
+      // Best-effort suppression of the spurious post-mortem upload a prune produces: if the session's
+      // checkpoints no longer match the store's current set, the failure was caused by the content
+      // changing under it, not a genuine proving fault, so skip the upload. This is inherently racy —
+      // the store lags the world-state unwind, so a fault observed before the prune is reconciled here
+      // still uploads. The epoch is recovered regardless by recreating the session on re-add.
+      if (!this.checkpointsMatch(session.getCheckpoints(), this.checkpointsForSpec(session.getSpec()))) {
+        this.log.info(`Skipping failure upload for session ${session.getId()}: canonical content changed`, {
+          ...session.getSpec(),
+        });
+        return;
+      }
       try {
         await this.deps.onSessionFailed(session);
       } catch (err) {
@@ -447,6 +462,24 @@ export class SessionManager {
     return live >= max;
   }
 
+  /**
+   * Maps a reconcile trigger to the epochs whose full session should be (re)opened.
+   *
+   * This is where the "don't retry a genuinely-failed epoch, but do recover a pruned one" invariant
+   * lives — enforced by which triggers are gated by `lastTickEpoch`:
+   *
+   * - The periodic `tick` IS gated: once a tick has opened a session for an epoch, `lastTickEpoch`
+   *   advances to it and later ticks skip it (`epoch <= lastTickEpoch`). So a failed attempt is never
+   *   resubmitted on a loop by the tick.
+   * - `checkpoint` and `prune` are deliberately NOT gated. They only fire when the epoch's canonical
+   *   content actually changes — a checkpoint arrives, or a reorg prunes/replaces one — which is
+   *   exactly when re-attempting is correct.
+   *
+   * A genuine proving failure produces no content change, hence no checkpoint/prune event, so only
+   * the gated tick could reopen it — and it won't. A prune + re-add fires ungated events, so the
+   * epoch is reopened through this path (and `openFullSessionIfReady` rebuilds over the fresh
+   * provers). See the "onTick does not retry ... but recovers ... re-added" test.
+   */
   private async epochsForTrigger(trigger: ReconcileTrigger): Promise<EpochNumber[]> {
     switch (trigger.kind) {
       case 'checkpoint':
@@ -481,8 +514,8 @@ export class SessionManager {
     return getEpochAtSlot(header.getSlot(), await this.getL1Constants());
   }
 
-  private canonicalCheckpointsForSpec(spec: SessionSpec): CheckpointProver[] {
-    return this.deps.checkpointStore.listCanonicalInSlotRange(spec.fromSlot, spec.toSlot);
+  private checkpointsForSpec(spec: SessionSpec): CheckpointProver[] {
+    return this.deps.checkpointStore.listInSlotRange(spec.fromSlot, spec.toSlot);
   }
 
   private fireAndForgetCancel(session: EpochSession, reason: string): void {

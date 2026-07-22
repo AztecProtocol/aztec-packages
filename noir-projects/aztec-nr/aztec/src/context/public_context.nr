@@ -226,7 +226,7 @@ impl PublicContext {
     ///
     /// # Arguments
     /// * `content` - The message content that was sent from L1
-    /// * `secret` - Secret value used for message privacy (if needed)
+    /// * `secret` - Secret fields used for message privacy (if needed)
     /// * `sender` - Ethereum address that sent the message
     /// * `leaf_index` - Index of the message in the L1-to-L2 message tree
     ///
@@ -236,7 +236,13 @@ impl PublicContext {
     /// * Message hash is computed from all parameters + chain context
     /// * Will revert if message doesn't exist or was already consumed
     ///
-    pub fn consume_l1_to_l2_message(self: Self, content: Field, secret: Field, sender: EthAddress, leaf_index: Field) {
+    pub fn consume_l1_to_l2_message<let N: u32>(
+        self: Self,
+        content: Field,
+        secret: [Field; N],
+        sender: EthAddress,
+        leaf_index: Field,
+    ) {
         let secret_hash = compute_secret_hash(secret);
         let message_hash = compute_l1_to_l2_message_hash(
             sender,

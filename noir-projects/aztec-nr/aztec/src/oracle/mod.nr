@@ -22,13 +22,7 @@ use crate::macros::oracle_testing::{generate_oracle_tests, generate_oracle_tests
     ],
 )]
 pub mod avm;
-#[generate_oracle_tests_excluding(
-    @[
-        // TODO: cover once the iv/sym_key BUFFER mapping is expressible as a plain fixed array of bytes, so the
-        // fixture synthesizer does not need to special-case it.
-        quote { aes128_decrypt_oracle },
-    ],
-)]
+#[generate_oracle_tests]
 pub mod aes128_decrypt;
 #[generate_oracle_tests]
 pub mod auth_witness;
@@ -99,7 +93,12 @@ pub mod get_nullifier_membership_witness;
     ],
 )]
 pub mod get_public_data_witness;
-#[generate_oracle_tests]
+#[generate_oracle_tests_excluding(
+    @[
+        // TODO: cover once the test resolver can serve EphemeralArray contents.
+        quote { are_block_hashes_in_archive_oracle },
+    ],
+)]
 pub mod get_membership_witness;
 #[generate_oracle_tests]
 pub mod keys;

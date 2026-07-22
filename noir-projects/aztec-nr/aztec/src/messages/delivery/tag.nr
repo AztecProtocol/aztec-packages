@@ -180,6 +180,29 @@ mod test {
         });
     }
 
+    #[test(should_fail_with = "an unconstrained tagging secret cannot back constrained delivery")]
+    unconstrained fn constrained_delivery_rejects_a_resolved_unconstrained_secret() {
+        let env = TestEnvironment::new();
+        let secret: Field = 7;
+        let index: u32 = 0;
+
+        env.private_context(|context| {
+            mock_existing_handshake_secrets(Option::none());
+            let _ = OracleMock::mock("aztec_prv_resolveTaggingStrategy").returns(
+                ResolvedTaggingStrategy::unconstrained_secret(secret),
+            );
+            let _ = OracleMock::mock("aztec_prv_getNextTaggingIndex").returns(index);
+
+            let _ = derive_log_tag(
+                context,
+                OnchainDeliveryMode::onchain_constrained(),
+                SENDER,
+                RECIPIENT,
+                Option::none(),
+            );
+        });
+    }
+
     #[test]
     unconstrained fn constrained_delivery_emits_the_sequence_nullifier_and_constrained_tag() {
         let env = TestEnvironment::new();

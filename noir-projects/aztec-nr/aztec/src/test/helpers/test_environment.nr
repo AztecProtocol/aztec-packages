@@ -13,6 +13,7 @@ use crate::{
     event::{event_interface::EventInterface, EventMessage},
     hash::{compute_secret_hash, hash_args},
     messages::{
+        delivery::OnchainDeliveryMode,
         discovery::{
             ComputeNoteHash, ComputeNoteNullifier, CustomMessageHandler, process_message::process_message_plaintext,
         },
@@ -79,6 +80,9 @@ pub struct TestEnvironment {
     // results in TXE being able to maximize cache usage and not have to recompute account addresses and contract
     // artifacts, which are relatively expensive operations.
     light_account_secret: Counter,
+    // The partial address used for light account creation. Kept separate from the secret (which derives the keys) so
+    // that light accounts with the same keys but different addresses can be created via `create_light_account_opts`.
+    light_account_partial_address: Counter,
     contract_account_secret: Counter,
     contract_deployment_secret: Counter,
     contract_deployment_salt: Counter,
@@ -88,26 +92,65 @@ pub struct TestEnvironment {
 /// methods setting each value, e.g.:
 /// ```noir
 /// let env = TestEnvironment::new_opts(
-///     TestEnvironmentOptions::new().with_tagging_secret_strategy(TaggingSecretStrategy::non_interactive_handshake()),
+///     TestEnvironmentOptions::new().with_default_tag_secret_strategy(
+///         MessageDelivery::onchain_unconstrained(),
+///         TaggingSecretStrategy::non_interactive_handshake(),
+///     ),
 /// );
 /// ```
 pub struct TestEnvironmentOptions {
-    tagging_secret_strategy: Option<TaggingSecretStrategy>,
+    default_unconstrained_tagging_secret_strategy: Option<TaggingSecretStrategy>,
+    default_constrained_tagging_secret_strategy: Option<TaggingSecretStrategy>,
+    authorize_all_utility_call_targets: bool,
 }
 
 impl TestEnvironmentOptions {
     /// Creates a new `TestEnvironmentOptions` with default values.
     pub fn new() -> Self {
-        Self { tagging_secret_strategy: Option::none() }
+        Self {
+            default_unconstrained_tagging_secret_strategy: Option::none(),
+            default_constrained_tagging_secret_strategy: Option::none(),
+            authorize_all_utility_call_targets: false,
+        }
     }
 
-    /// Sets the [`TaggingSecretStrategy`] the wallet reports through the
+    /// Sets the default [`TaggingSecretStrategy`] the wallet reports for `mode` through the
     /// [`resolve_tagging_strategy`](crate::oracle::resolve_tagging_strategy) oracle, affecting message delivery in
-    /// private executions.
+    /// private executions that do not fix their own delivery derivation.
     ///
-    /// If not set, the wallet hook is left unconfigured and the private execution environment applies its own default.
-    pub fn with_tagging_secret_strategy(&mut self, strategy: TaggingSecretStrategy) -> Self {
-        self.tagging_secret_strategy = Option::some(strategy);
+    /// If no strategy is set for either mode, the wallet hook is left unconfigured and the private execution
+    /// environment applies its own default. A mode left unset while the other is configured falls back to the default
+    /// [`TaggingSecretStrategy::non_interactive_handshake`], the strategy a PXE `resolveTaggingSecretStrategy` hook
+    /// typically hardcodes for modes it does not customize.
+    pub fn with_default_tag_secret_strategy<M>(&mut self, mode: M, strategy: TaggingSecretStrategy) -> Self
+    where
+        M: Into<OnchainDeliveryMode>,
+    {
+        if mode.into() == OnchainDeliveryMode::onchain_unconstrained() {
+            self.default_unconstrained_tagging_secret_strategy = Option::some(strategy);
+        } else {
+            self.default_constrained_tagging_secret_strategy = Option::some(strategy);
+        }
+        *self
+    }
+
+    /// Sets `strategy` for both delivery modes: the equivalent of a PXE `resolveTaggingSecretStrategy` hook that
+    /// ignores the request's mode. See
+    /// [`with_default_tag_secret_strategy`](Self::with_default_tag_secret_strategy) to configure a single mode.
+    pub fn with_default_tag_secret_strategy_all_modes(&mut self, strategy: TaggingSecretStrategy) -> Self {
+        let _ = self.with_default_tag_secret_strategy(OnchainDeliveryMode::onchain_unconstrained(), strategy);
+        self.with_default_tag_secret_strategy(OnchainDeliveryMode::onchain_constrained(), strategy)
+    }
+
+    /// Authorizes all cross-contract utility call targets for the entire test.
+    ///
+    /// Removes the need to list targets on each call via
+    /// [`CallPrivateOptions::with_authorized_utility_call_targets`] and its siblings.
+    ///
+    /// By default, cross-contract utility calls are denied, mirroring a wallet that authorizes no such call. Use
+    /// this in tests that do not care about utility call authorization.
+    pub fn with_all_utility_call_targets_authorized(&mut self) -> Self {
+        self.authorize_all_utility_call_targets = true;
         *self
     }
 }
@@ -482,6 +525,44 @@ impl DeployOptions {
     }
 }
 
+/// Configuration values for [`TestEnvironment::create_light_account_opts`]. Meant to be used by calling `new` and then
+/// chaining methods setting each value, e.g.:
+/// ```noir
+/// env.create_light_account_opts(CreateAccountOptions::new().with_secret(42).with_partial_address(1));
+/// ```
+///
+/// The account address is derived from both the public keys (which come from the secret) and the partial address.
+/// Setting the same secret with different partial addresses produces accounts that share master keys but have distinct
+/// addresses.
+pub struct CreateAccountOptions {
+    secret: Option<Field>,
+    partial_address: Option<Field>,
+}
+
+impl CreateAccountOptions {
+    /// Creates a new `CreateAccountOptions` with default values, i.e. the same as if using the `create_light_account`
+    /// method instead of `create_light_account_opts`. Use the `with_secret` and `with_partial_address` methods to set
+    /// the desired configuration values.
+    pub fn new() -> Self {
+        Self { secret: Option::none(), partial_address: Option::none() }
+    }
+
+    /// Sets the secret used for key derivation. The secret affects the account's public keys and therefore its address:
+    /// accounts created with different secrets will have different keys and addresses.
+    pub fn with_secret(&mut self, secret: Field) -> Self {
+        self.secret = Option::some(secret);
+        *self
+    }
+
+    /// Sets the partial address used for address derivation. The partial address affects the resulting account address
+    /// but not its keys: accounts created with the same secret but different partial addresses share master keys while
+    /// having different addresses.
+    pub fn with_partial_address(&mut self, partial_address: Field) -> Self {
+        self.partial_address = Option::some(partial_address);
+        *self
+    }
+}
+
 /// Configuration values for [`TestEnvironment::call_public_opts`]. Meant to be used by calling `new` and then chaining
 /// methods setting each value, e.g.:
 /// ```noir
@@ -607,18 +688,21 @@ impl TestEnvironment {
     ///
     /// ### Sample usage
     /// ```noir
+    /// let strategy = TaggingSecretStrategy::non_interactive_handshake();
     /// let env = TestEnvironment::new_opts(
-    ///     TestEnvironmentOptions::new().with_tagging_secret_strategy(
-    ///         TaggingSecretStrategy::non_interactive_handshake(),
-    ///     ),
+    ///     TestEnvironmentOptions::new().with_default_tag_secret_strategy_all_modes(strategy),
     /// );
     /// ```
     pub unconstrained fn new_opts(options: TestEnvironmentOptions) -> Self {
         assert_compatible_oracle_version();
         txe_oracles::assert_compatible_txe_oracle_version();
 
-        // Forward the configured strategy to the wallet.
-        txe_oracles::set_tagging_secret_strategy(options.tagging_secret_strategy);
+        txe_oracles::set_tagging_secret_strategies(
+            options.default_unconstrained_tagging_secret_strategy,
+            options.default_constrained_tagging_secret_strategy,
+        );
+
+        txe_oracles::set_authorize_all_utility_call_targets(options.authorize_all_utility_call_targets);
 
         Self {
             // Use an offset to avoid secret collision with account secrets. Without this, when
@@ -626,6 +710,10 @@ impl TestEnvironment {
             // secrets (e.g., Token1 with deployment secret=1 and liquidity_provider with account
             // secret=1), causing key collisions since keys are derived from the secret alone.
             light_account_secret: Counter::new(),
+            // The partial address counter does not need an offset for the same reason the salt counter doesn't: keys
+            // are derived from the secret alone, so a collision between a partial address and a secret value has no
+            // effect on key derivation.
+            light_account_partial_address: Counter::new(),
             contract_account_secret: Counter::new_with_offset(1_000),
             contract_deployment_secret: Counter::new_with_offset(2_000),
             // The salt counter does not need an offset because keys (derived from secret) and salt are unrelated: a
@@ -887,7 +975,7 @@ impl TestEnvironment {
         sender: EthAddress,
         recipient: AztecAddress,
     ) -> Field {
-        self.send_l1_to_l2_message_from_secret_hash(content, compute_secret_hash(secret), sender, recipient)
+        self.send_l1_to_l2_message_from_secret_hash(content, compute_secret_hash([secret]), sender, recipient)
     }
 
     /// Variant of [`send_l1_to_l2_message`](TestEnvironment::send_l1_to_l2_message) that takes the secret hash
@@ -945,8 +1033,24 @@ impl TestEnvironment {
     /// Each call to `create_light_account` will return a different address, and so it can be called repeatedly to
     /// generate multiple addresses. These addresses are also different from the ones that `create_contract_account`
     /// returns, and so these two functions can be mixed and match to create a set of unique accounts.
+    ///
+    /// See [`create_light_account_opts`](TestEnvironment::create_light_account_opts) for a variant that allows
+    /// controlling the account's secret and partial address, e.g. to create accounts that share keys but have
+    /// different addresses.
     pub unconstrained fn create_light_account(&mut self) -> AztecAddress {
-        let test_account = txe_oracles::create_account(self.light_account_secret.next());
+        self.create_light_account_opts(CreateAccountOptions::new())
+    }
+
+    /// Variant of `create_light_account` which allows specifying configuration values via `CreateAccountOptions`, such
+    /// as a custom secret or partial address. If not specified, the secret and partial address default to values from
+    /// internal counters.
+    ///
+    /// Setting the same secret with different partial addresses produces accounts that share master keys but have
+    /// distinct addresses.
+    pub unconstrained fn create_light_account_opts(&mut self, opts: CreateAccountOptions) -> AztecAddress {
+        let secret = opts.secret.unwrap_or_else(|| self.light_account_secret.next());
+        let partial_address = opts.partial_address.unwrap_or_else(|| self.light_account_partial_address.next());
+        let test_account = txe_oracles::create_account(secret, partial_address);
         test_account.address
     }
 

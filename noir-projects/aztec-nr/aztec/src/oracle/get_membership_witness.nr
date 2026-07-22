@@ -1,8 +1,11 @@
-use crate::protocol::{
-    abis::block_header::BlockHeader,
-    constants::{ARCHIVE_HEIGHT, NOTE_HASH_TREE_HEIGHT},
-    merkle_tree::MembershipWitness,
-    traits::Hash,
+use crate::{
+    ephemeral::EphemeralArray,
+    protocol::{
+        abis::block_header::BlockHeader,
+        constants::{ARCHIVE_HEIGHT, NOTE_HASH_TREE_HEIGHT},
+        merkle_tree::MembershipWitness,
+        traits::Hash,
+    },
 };
 
 #[oracle(aztec_utl_getNoteHashMembershipWitness)]
@@ -16,6 +19,12 @@ unconstrained fn get_block_hash_membership_witness_oracle(
     anchor_block_hash: Field,
     block_hash: Field,
 ) -> Option<MembershipWitness<ARCHIVE_HEIGHT>> {}
+
+#[oracle(aztec_utl_areBlockHashesInArchive)]
+unconstrained fn are_block_hashes_in_archive_oracle(
+    anchor_block_hash: Field,
+    block_hashes: EphemeralArray<Field>,
+) -> EphemeralArray<bool> {}
 
 // Note: get_nullifier_membership_witness function is implemented in get_nullifier_membership_witness.nr
 
@@ -51,6 +60,15 @@ pub unconstrained fn get_maybe_block_hash_membership_witness(
 ) -> Option<MembershipWitness<ARCHIVE_HEIGHT>> {
     let anchor_block_hash = anchor_block_header.hash();
     get_block_hash_membership_witness_oracle(anchor_block_hash, block_hash)
+}
+
+/// Returns whether each block hash is present in the archive tree whose root is defined in `anchor_block_header`.
+pub unconstrained fn are_block_hashes_in_archive(
+    anchor_block_header: BlockHeader,
+    block_hashes: EphemeralArray<Field>,
+) -> EphemeralArray<bool> {
+    let anchor_block_hash = anchor_block_header.hash();
+    are_block_hashes_in_archive_oracle(anchor_block_hash, block_hashes)
 }
 
 mod test {

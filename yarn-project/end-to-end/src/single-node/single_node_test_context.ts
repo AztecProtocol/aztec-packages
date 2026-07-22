@@ -27,7 +27,7 @@ import { executeTimeout } from '@aztec/foundation/timer';
 import { SpamContract } from '@aztec/noir-test-contracts.js/Spam';
 import { TestContract } from '@aztec/noir-test-contracts.js/Test';
 import { getMockPubSubP2PServiceFactory } from '@aztec/p2p/test-helpers';
-import type { ProverNodeConfig } from '@aztec/prover-node';
+import type { ProverNodeConfig, ProverNodeDeps } from '@aztec/prover-node';
 import type { PXEConfig } from '@aztec/pxe/config';
 import { type Sequencer, type SequencerClient, type SequencerEvents, SequencerState } from '@aztec/sequencer-client';
 import { type BlockParameter, EthAddress } from '@aztec/stdlib/block';
@@ -60,7 +60,14 @@ import type { TestWallet } from '../test-wallet/test_wallet.js';
 export const WORLD_STATE_CHECKPOINT_HISTORY = 2;
 export const WORLD_STATE_BLOCK_CHECK_INTERVAL = 50;
 export const ARCHIVER_POLL_INTERVAL = 50;
-export const DEFAULT_L1_BLOCK_TIME = process.env.CI ? 12 : 8;
+/**
+ * Default L1 (ethereum) slot duration in seconds for single-node e2e tests. Kept at 8s, the fast-profile
+ * boundary (`FAST_PROFILE_ETHEREUM_SLOT_DURATION`): at 8s the proposer still uses the production operational
+ * budgets (fast-profile clamping only kicks in strictly below 8s), so the default single-node L2 slot is
+ * `2 x 8 = 16s`. CI previously ran at 12s (24s L2 slots); unifying it with the local value removes a
+ * CI-vs-local cadence asymmetry and cuts every default-cadence single-node suite by a third.
+ */
+export const DEFAULT_L1_BLOCK_TIME = 8;
 
 export type SingleNodeTestOpts = Partial<SetupOptions> & {
   numberOfAccounts?: number;
@@ -87,15 +94,18 @@ export type TrackedSequencerEvent = {
 export type BlockProposedEvent = { blockNumber: BlockNumber; slot: SlotNumber; buildSlot: SlotNumber };
 
 /**
- * The 36s-slot reorg cadence shared by every reorg/prune/HA test, regardless of single-node vs
- * multi-validator topology: a 36s L2 slot, 8s blocks, and a 4-slot epoch. The two concrete reorg
+ * The 24s-slot reorg cadence shared by every reorg/prune/HA test, regardless of single-node vs
+ * multi-validator topology: a 24s L2 slot, 5s blocks, and a 4-slot epoch. The 5s block duration is chosen
+ * so the fast-profile budgets both reorg profiles run under (eth < 8s: p2p 0.5s, prepare 0.5s, init 1s)
+ * still fit ~3 full block sub-slots per checkpoint — `floor((24 - 1 - 5 - 2*0.5 - 0.5) / 5) = 3` — which
+ * the l1-reorgs suites' `assertMultipleBlocksPerSlot(2)` assertions require. The two concrete reorg
  * profiles ({@link FAST_REORG_TIMING}, {@link MULTI_VALIDATOR_REORG_TIMING}) extend this with their topology's L1
  * slot duration and any extra knobs. Kept timing-only — `maxSpeedUpAttempts`, `cancelTxOnTimeout`, and
  * `aztecProofSubmissionEpochs` encode per-test scenario intent and stay explicit at the call site.
  */
 export const REORG_TIMING_BASE = {
-  aztecSlotDuration: 36,
-  blockDurationMs: 8000,
+  aztecSlotDuration: 24,
+  blockDurationMs: 5000,
   aztecEpochDuration: 4,
 } as const;
 
@@ -115,7 +125,7 @@ export const FAST_REORG_TIMING = {
 } as const;
 
 /**
- * Timing-only profile naming the 36s/6s reorg-and-prune cadence copied verbatim across the
+ * Timing-only profile naming the 24s/6s reorg-and-prune cadence copied verbatim across the
  * multi-validator recovery and high-availability tests (`recovery/proposal_failure_recovery`,
  * `recovery/equivocation_recovery`, `high-availability/ha_sync`,
  * `high-availability/ha_checkpoint_handoff`). The multi-validator analogue of
@@ -130,17 +140,20 @@ export const MULTI_VALIDATOR_REORG_TIMING = {
 } as const;
 
 /**
- * Timing-only profile naming the 36s/12s multi-validator block-production cadence copied across
- * `block-production/` (`simple`, `high_tps`, `first_slot`, and `proof_boundary`). Uses
- * `aztecSlotDurationInL1Slots: 3` rather than an explicit `aztecSlotDuration: 36` so the L2 slot stays
- * coupled to `ethereumSlotDuration` if a test overrides eth. Deliberately omits
- * `attestationPropagationTime` (per-scenario: default 2, 0.5, or 1) — set it per test. Spread BEFORE
- * per-test overrides.
+ * Timing-only profile naming the 24s/12s multi-validator block-production cadence copied across
+ * `block-production/` (`simple`, `first_slot`, and `proof_boundary`). Uses `aztecSlotDurationInL1Slots: 2`
+ * rather than an explicit `aztecSlotDuration: 24` so the L2 slot stays coupled to `ethereumSlotDuration`
+ * if a test overrides eth. The 4s block duration keeps enough full block sub-slots per checkpoint under
+ * the production budgets these eth=12 tests run with (init 1s, prepare 1s, min-block 2s, p2p =
+ * attestationPropagationTime): `floor((24 - 1 - 4 - 2P - 1) / 4)` = 4 blocks at P<=1, 3 blocks at P=2
+ * (the default). Deliberately omits `attestationPropagationTime` (per-scenario: default 2, 0.5, or 1) —
+ * set it per test. `high_tps` pins the old 36s/6s cadence at its own call site because its 2-txs-x-2.5s
+ * per-block budget does not fit a 4s block. Spread BEFORE per-test overrides.
  */
 export const MULTI_VALIDATOR_BLOCK_PRODUCTION_TIMING = {
   ethereumSlotDuration: 12,
-  aztecSlotDurationInL1Slots: 3,
-  blockDurationMs: 6000,
+  aztecSlotDurationInL1Slots: 2,
+  blockDurationMs: 4000,
 } as const;
 
 /**
@@ -358,8 +371,11 @@ export class SingleNodeTestContext {
     return accountManager.address;
   }
 
-  public async createProverNode(opts: { dontStart?: boolean } & Partial<ProverNodeConfig> = {}) {
+  public async createProverNode(
+    opts: { dontStart?: boolean; proverNodeDeps?: Partial<ProverNodeDeps> } & Partial<ProverNodeConfig> = {},
+  ) {
     this.logger.warn('Creating and syncing a simulated prover node...');
+    const { proverNodeDeps, ...configOverrides } = opts;
     const proverNodePrivateKey = this.getNextPrivateKey();
     const proverIndex = this.proverNodes.length + 1;
     const { mockGossipSubNetwork } = this.context;
@@ -372,7 +388,7 @@ export class SingleNodeTestContext {
             p2pEnabled: this.context.config.p2pEnabled || mockGossipSubNetwork !== undefined,
             proverId: EthAddress.fromNumber(proverIndex),
             dontStart: opts.dontStart,
-            ...opts,
+            ...configOverrides,
           },
           {
             dataDirectory: join(this.context.config.dataDirectory!, randomBytes(8).toString('hex')),
@@ -385,6 +401,7 @@ export class SingleNodeTestContext {
                 : undefined,
               rpcTxProviders: [this.context.aztecNode],
             },
+            proverNodeDeps,
           },
           {
             genesis: this.context.genesis,

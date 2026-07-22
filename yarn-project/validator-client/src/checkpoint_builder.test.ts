@@ -14,7 +14,7 @@ import { TestDateProvider } from '@aztec/foundation/timer';
 import type { LightweightCheckpointBuilder } from '@aztec/prover-client/light';
 import type { AvmSimulator, PublicContractsDB, PublicProcessor } from '@aztec/simulator/server';
 import { AztecAddress } from '@aztec/stdlib/aztec-address';
-import { L2Block } from '@aztec/stdlib/block';
+import { BlockHash, L2Block } from '@aztec/stdlib/block';
 import type { ContractDataSource } from '@aztec/stdlib/contract';
 import { Gas, GasFees } from '@aztec/stdlib/gas';
 import {
@@ -24,6 +24,7 @@ import {
   type MerkleTreeWriteOperations,
   type PublicProcessorLimits,
   type PublicProcessorValidator,
+  type WorldStateSynchronizer,
 } from '@aztec/stdlib/interfaces/server';
 import {
   type CheckpointGlobalVariables,
@@ -37,7 +38,7 @@ import type { TelemetryClient } from '@aztec/telemetry-client';
 import { describe, expect, it, jest } from '@jest/globals';
 import { type MockProxy, mock } from 'jest-mock-extended';
 
-import { CheckpointBuilder } from './checkpoint_builder.js';
+import { CheckpointBuilder, FullNodeCheckpointsBuilder } from './checkpoint_builder.js';
 
 describe('CheckpointBuilder', () => {
   let checkpointBuilder: TestCheckpointBuilder;
@@ -786,6 +787,55 @@ describe('CheckpointBuilder', () => {
 
       expect(capped.maxBlockGas!.daGas).toBeLessThan(largestDeployDaGas);
       expect(capped.maxBlobFields!).toBeLessThan(largestDeployBlobFields);
+    });
+  });
+});
+
+describe('FullNodeCheckpointsBuilder', () => {
+  let worldState: MockProxy<WorldStateSynchronizer>;
+  let builder: FullNodeCheckpointsBuilder;
+
+  const blockNumber = BlockNumber(5);
+
+  beforeEach(() => {
+    worldState = mock<WorldStateSynchronizer>();
+    const telemetryClient = mock<TelemetryClient>();
+    telemetryClient.getMeter.mockReturnValue(mock());
+    telemetryClient.getTracer.mockReturnValue(mock());
+
+    builder = new FullNodeCheckpointsBuilder(
+      { l1GenesisTime: 0n, slotDuration: 24, l1ChainId: 1, rollupVersion: 1, rollupManaLimit: 200_000_000 },
+      worldState,
+      mock<ContractDataSource>(),
+      new TestDateProvider(),
+      telemetryClient,
+    );
+  });
+
+  describe('getFork', () => {
+    it('syncs world state to the block (with its hash) before forking', async () => {
+      const forkResult = mock<MerkleTreeWriteOperations>();
+      worldState.fork.mockResolvedValue(forkResult);
+      const blockHash = BlockHash.random();
+
+      const result = await builder.getFork(blockNumber, blockHash);
+
+      expect(result).toBe(forkResult);
+      // The block hash is relayed to syncImmediate for reorg detection.
+      expect(worldState.syncImmediate).toHaveBeenCalledWith(blockNumber, blockHash);
+      expect(worldState.fork).toHaveBeenCalledWith(blockNumber);
+      // Syncing must precede the fork, otherwise the fork can hit a block the trees have not applied yet
+      // and throw a raw "initialize from future block" tree error.
+      expect(worldState.syncImmediate.mock.invocationCallOrder[0]).toBeLessThan(
+        worldState.fork.mock.invocationCallOrder[0],
+      );
+    });
+
+    it('propagates a sync failure without forking', async () => {
+      worldState.syncImmediate.mockRejectedValue(new Error('Unable to initialize from future block'));
+
+      await expect(builder.getFork(blockNumber)).rejects.toThrow('Unable to initialize from future block');
+      expect(worldState.fork).not.toHaveBeenCalled();
     });
   });
 });
