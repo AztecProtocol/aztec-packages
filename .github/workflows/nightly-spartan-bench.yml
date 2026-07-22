@@ -527,6 +527,11 @@ jobs:
           AWS_SHUTDOWN_TIME: 240
           NO_SPOT: 1
           SKIP_NETWORK_DEPLOY: "1"
+          # Publishes to the custom network-dashboard pipeline (GCS) tagged as the
+          # block-capacity benchmark, grouped as one sweep per run.
+          BENCH_SWEEP_ID: block-capacity-${{ github.run_id }}
+          BENCH_SWEEP_LABEL: block-capacity
+          BENCH_BENCHMARK_TYPE: block-capacity
         run: |
           ./.github/ci3.sh network-block-capacity-bench block-capacity nightly-block-capacity "${{ needs.select-image.outputs.docker_image }}"
 

@@ -222,7 +222,39 @@ function block_capacity_bench {
   gcp_auth
   export_admin_api_key
   export K8S_ENRICHER=${K8S_ENRICHER:-1}
-  block_capacity_bench_cmds | parallelize 1
+  export BENCH_RUN_ID="${BENCH_RUN_ID:-$(date -u +%Y%m%d)-block-capacity-${COMMIT_HASH:0:10}}"
+
+  # Capture the test exit code but don't abort: even a partial run produced blocks
+  # worth scraping. We scrape below, then re-surface the failure at the end.
+  local test_rc=0
+  block_capacity_bench_cmds | parallelize 1 || test_rc=$?
+  if [[ "$test_rc" -ne 0 ]]; then
+    echo "[block_capacity_bench] test exited ${test_rc}; scraping captured data anyway"
+  fi
+
+  # Publish to the custom pipeline (GCS -> network-dashboard) alongside the
+  # legacy github-action-benchmark output the workflow still uploads.
+  local metadata="/tmp/block_capacity_timing_data.json"
+  local run_json="bench-out/bench-block-capacity-${BENCH_RUN_ID}.json"
+  if [[ -f "$metadata" ]]; then
+    local started=$(jq -r .startedAt < "$metadata")
+    local ended=$(jq -r .endedAt < "$metadata")
+    echo "Scraping block-capacity run ${BENCH_RUN_ID} (started=${started} ended=${ended})"
+    NAMESPACE="$NAMESPACE" GCP_PROJECT_ID="${GCP_PROJECT_ID:-}" ./scripts/bench_10tps/bench_scrape.ts \
+      --run-id "$BENCH_RUN_ID" \
+      --started "$started" \
+      --ended "$ended" \
+      --sweep-id "${BENCH_SWEEP_ID:-$BENCH_RUN_ID}" \
+      --sweep-label "${BENCH_SWEEP_LABEL:-block-capacity}" \
+      --benchmark-type "${BENCH_BENCHMARK_TYPE:-block-capacity}" \
+      --output "$run_json" \
+      || echo "[block_capacity_bench] scraper failed (non-fatal)"
+    network_bench_upload "$run_json" || echo "[network_bench] upload failed (non-fatal)"
+  else
+    echo "[block_capacity_bench] no timing metadata at ${metadata}; skipping custom-pipeline scrape"
+  fi
+
+  return "$test_rc"
 }
 
 # One point of the inclusion sweep: a fixed 1 TPS of high-value txs (the
