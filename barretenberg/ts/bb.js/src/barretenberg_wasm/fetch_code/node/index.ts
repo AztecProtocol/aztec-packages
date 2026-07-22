@@ -1,7 +1,7 @@
 import { readFile } from 'fs/promises';
+import { ungzip } from 'pako';
 import { dirname } from 'path';
 import { fileURLToPath } from 'url';
-import pako from 'pako';
 
 function getCurrentDir() {
   if (typeof __dirname !== 'undefined') {
@@ -13,7 +13,6 @@ function getCurrentDir() {
   }
 }
 
-// eslint-disable-next-line @typescript-eslint/no-unused-vars
 export async function fetchCode(multithreaded: boolean, wasmPath?: string) {
   const path = wasmPath ?? getCurrentDir() + '/../../barretenberg-threads.wasm.gz';
   // Default bb wasm is compressed, but user could point it to a non-compressed version
@@ -26,7 +25,7 @@ export async function fetchCode(multithreaded: boolean, wasmPath?: string) {
     // Check compression method:
     buffer[2] === 0x08;
   if (isGzip) {
-    const decompressedData = pako.ungzip(buffer);
+    const decompressedData = ungzip(buffer);
     return decompressedData.buffer as unknown as Uint8Array<ArrayBuffer>;
   } else {
     return buffer;

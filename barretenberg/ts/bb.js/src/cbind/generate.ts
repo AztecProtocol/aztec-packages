@@ -4,18 +4,22 @@
  * Architecture:
  *   Raw Schema → SchemaVisitor → CompiledSchema IR → Language Codegens → Files
  */
-
-import { writeFileSync, mkdirSync } from 'fs';
-import { dirname, join } from 'path';
 import { exec } from 'child_process';
-import { promisify } from 'util';
-import { fileURLToPath } from 'url';
+import { mkdirSync, writeFileSync } from 'fs';
 import { unpack } from 'msgpackr';
-import { SchemaVisitor, type CompiledSchema } from './schema_visitor.js';
-import { TypeScriptCodegen } from './typescript_codegen.js';
+import { dirname, join } from 'path';
+import { fileURLToPath } from 'url';
+import { promisify } from 'util';
+
 import { RustCodegen } from './rust_codegen.js';
+import { type CompiledSchema, SchemaVisitor } from './schema_visitor.js';
+import { TypeScriptCodegen } from './typescript_codegen.js';
 
 const execAsync = promisify(exec);
+
+function log(message: string) {
+  process.stdout.write(`${message}\n`);
+}
 
 // Language generators - all use the same CompiledSchema IR
 interface LanguageGenerator {
@@ -28,7 +32,7 @@ const LANGUAGE_GENERATORS: LanguageGenerator[] = [
   {
     name: 'TypeScript',
     enabled: true,
-    generate: (compiled) => {
+    generate: compiled => {
       const tsGen = new TypeScriptCodegen();
       return [
         { path: 'generated/api_types.ts', content: tsGen.generateTypes(compiled) },
@@ -40,7 +44,7 @@ const LANGUAGE_GENERATORS: LanguageGenerator[] = [
   {
     name: 'Rust',
     enabled: true,
-    generate: (compiled) => {
+    generate: compiled => {
       const rustGen = new RustCodegen();
       return [
         { path: '../../../../rust/barretenberg-rs/src/generated_types.rs', content: rustGen.generateTypes(compiled) },
@@ -50,14 +54,15 @@ const LANGUAGE_GENERATORS: LanguageGenerator[] = [
   },
 ];
 
-// @ts-ignore
+// eslint-disable-next-line @typescript-eslint/ban-ts-comment -- The same source is also compiled for CommonJS.
+// @ts-ignore -- import.meta is valid when this generator runs as ESM, but TypeScript rejects it in the CJS build.
 const __dirname = dirname(fileURLToPath(import.meta.url));
 
 async function generate() {
   const bbBuildPath = process.env.BB_BINARY_PATH || join(__dirname, '../../../../cpp/build/bin/bb');
 
   // Get schema from bb
-  console.log('Fetching msgpack schema from bb...');
+  log('Fetching msgpack schema from bb...');
   const { stdout } = await execAsync(`${bbBuildPath} msgpack schema`);
   const schema = JSON.parse(stdout.trim());
 
@@ -66,11 +71,11 @@ async function generate() {
   }
 
   // Compile schema once using visitor pattern
-  console.log('Compiling schema...');
+  log('Compiling schema...');
   const visitor = new SchemaVisitor();
   const compiled = visitor.visit(schema.commands, schema.responses);
 
-  console.log(`Found ${compiled.commands.length} commands, ${compiled.structs.size} structs\n`);
+  log(`Found ${compiled.commands.length} commands, ${compiled.structs.size} structs\n`);
 
   // Ensure output directory exists
   const outputDir = join(__dirname, 'generated');
@@ -79,7 +84,7 @@ async function generate() {
   // Generate all language bindings from compiled IR
   for (const generator of LANGUAGE_GENERATORS) {
     if (!generator.enabled) {
-      console.log(`⊘ ${generator.name}: disabled`);
+      log(`⊘ ${generator.name}: disabled`);
       continue;
     }
 
@@ -89,15 +94,15 @@ async function generate() {
       const outputPath = join(__dirname, file.path);
       mkdirSync(dirname(outputPath), { recursive: true });
       writeFileSync(outputPath, file.content);
-      console.log(`✓ ${generator.name}: ${outputPath}`);
+      log(`✓ ${generator.name}: ${outputPath}`);
     }
   }
 
   // Generate curve constants
-  console.log('\nGenerating curve constants...');
+  log('\nGenerating curve constants...');
   await generateCurveConstants(bbBuildPath, outputDir);
 
-  console.log('\n✨ Generation complete! Clean, maintainable, multi-language architecture.');
+  log('\n✨ Generation complete! Clean, maintainable, multi-language architecture.');
 }
 
 async function generateCurveConstants(bbBuildPath: string, outputDir: string) {
@@ -109,9 +114,6 @@ async function generateCurveConstants(bbBuildPath: string, outputDir: string) {
 
   // Decode msgpack
   const constants = unpack(constantsBuffer as Buffer);
-
-  // Helper to convert Uint8Array to hex string
-  const toHex = (bytes: Uint8Array) => '0x' + Buffer.from(bytes).toString('hex');
 
   // Helper to convert Uint8Array to bigint (big-endian)
   const toBigInt = (bytes: Uint8Array) => {
@@ -191,11 +193,12 @@ export const SECP256R1_G1_GENERATOR = {
 
   const outputPath = join(outputDir, 'curve_constants.ts');
   writeFileSync(outputPath, content);
-  console.log(`✓ Curve constants: ${outputPath}`);
+  log(`✓ Curve constants: ${outputPath}`);
 }
 
 // Run the generator
 generate().catch(error => {
-  console.error('Generation failed:', error);
+  const message = error instanceof Error ? (error.stack ?? error.message) : String(error);
+  process.stderr.write(`Generation failed: ${message}\n`);
   process.exit(1);
 });
