@@ -941,6 +941,12 @@ variable "RPC_REPLICAS" {
   default     = 1
 }
 
+variable "WAIT_FOR_RPC_DEPLOY" {
+  description = "Whether to wait for the RPC Helm installation to become ready"
+  type        = bool
+  default     = true
+}
+
 variable "FULL_NODE_REPLICAS" {
   description = "The number of full node replicas"
   type        = string

@@ -545,7 +545,7 @@ locals {
       })
       boot_node_host_path  = "node.env.BOOT_NODE_HOST"
       bootstrap_nodes_path = "node.env.BOOTSTRAP_NODES"
-      wait                 = true
+      wait                 = var.WAIT_FOR_RPC_DEPLOY
     }
 
     fisherman = tonumber(var.FISHERMAN_REPLICAS) > 0 ? {

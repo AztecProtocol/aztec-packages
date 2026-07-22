@@ -30,6 +30,7 @@ environments/*
 !environments/testnet-v4.env
 !environments/mainnet.env
 !environments/mainnet-v4.env
+!environments/mainnet-v4-snapshot.env
 !environments/tps-scenario.env
 !environments/kind-minimal.env
 !environments/kind-provers.env
