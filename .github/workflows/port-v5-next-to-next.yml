@@ -1,13 +1,16 @@
 name: Port v5-next to next
 
-# Daily forward-port: accumulate everything new from `v5-next` onto the
+# Whole-branch forward-port: accumulate everything new from `v5-next` onto the
 # long-lived `port-v5-next-to-next` branch (merging `next` and `v5-next` into
 # it) and open/update one large PR against `next`. See scripts/port_to_next.sh.
-
+#
+# SUPERSEDED by per-PR forward-porting (auto-port-v5-merge-trains.yml applies the
+# `port-to-next` label to each v5 merge-train PR; backport.yml ports it). Because
+# `next` was cut from a reshaped snapshot of `v5-next`, a whole-branch merge fights
+# ~300 byte-level false conflicts and never converges. The daily schedule is
+# therefore disabled; kept for manual `workflow_dispatch` as an occasional
+# drift-check (its conflicted PR shows what the per-PR path may have missed).
 on:
-  schedule:
-    # Daily at 06:30 UTC.
-    - cron: "30 6 * * *"
   workflow_dispatch:
     inputs:
       source_branch:
