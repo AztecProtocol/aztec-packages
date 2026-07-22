@@ -1218,6 +1218,7 @@ type BlockRecord = {
   silentlySkippedCount: number;
   silentlySkippedDurationMs: number;
   buildDurationSeconds: number;
+  manaPerSec?: number;
   totalPublicGas?: { daGas: number; l2Gas: number };
   totalSizeInBytes?: number;
   source: "log";
@@ -1313,6 +1314,9 @@ async function scrapeBlocks(
           ? finiteOrZero(numberPayloadField(processorPayload ?? {}, "duration"))
           : finiteOrZero(numberPayloadField(built.jsonPayload, "duration")) /
             1000,
+      manaPerSec: numberOrUndefined(
+        numberPayloadField(built?.jsonPayload ?? {}, "manaPerSec"),
+      ),
       totalPublicGas: processorPayload?.totalPublicGas as
         | { daGas: number; l2Gas: number }
         | undefined,

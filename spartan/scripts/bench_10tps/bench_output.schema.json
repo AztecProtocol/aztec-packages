@@ -682,6 +682,11 @@
           "type": "number",
           "minimum": 0
         },
+        "manaPerSec": {
+          "type": "number",
+          "minimum": 0,
+          "description": "Mana consumed per second while building this block (totalManaUsed / buildDuration), from the l2-block-built log. The headline throughput signal for the block-capacity benchmark. Optional; absent when the block-built log was not captured."
+        },
         "totalPublicGas": {
           "type": "object",
           "additionalProperties": false,
