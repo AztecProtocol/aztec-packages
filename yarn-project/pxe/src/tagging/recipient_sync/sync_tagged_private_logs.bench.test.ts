@@ -22,10 +22,10 @@ import { computeSiloedTagForIndex, extractTags } from '../testing/tag_query_test
  * Benchmark for constrained recipient tag-sync.
  *
  * Measures the per-sync cost of `syncTaggedPrivateLogs` for constrained secrets. Constrained streams are gapless, so
- * the scan probes a small initial window (`INITIAL_CONSTRAINED_PROBE_LEN`) and doubles it each round (capped at the
- * `UNFINALIZED_TAGGING_INDEXES_WINDOW_LEN` window), stopping at the first missing tag instead of fetching the
- * full window. This only reports costs; the scan behavior itself (probe schedules, round counts) is pinned by the
- * unit tests in `sync_tagged_private_logs.test.ts`, which run in CI while this bench is opt-in.
+ * the scan uses a doubling first-miss probe (see `INITIAL_CONSTRAINED_PROBE_LEN` in `../constants.ts` for the probe
+ * schedule and complexity analysis), stopping at the first missing tag instead of fetching the full window. This only
+ * reports costs; the scan behavior itself (probe schedules, round counts) is pinned by the unit tests in
+ * `sync_tagged_private_logs.test.ts`, which run in CI while this bench is opt-in.
  *
  * Manual run:
  * ```bash
@@ -35,12 +35,10 @@ import { computeSiloedTagForIndex, extractTags } from '../testing/tag_query_test
  *
  * Metrics, per scenario:
  * - `tag-queries`: total tags queried, the throughput win.
- * - `rpc-round-trips`: sequential blocking waits on the node, via `BenchmarkedNodeFactory`.
- *    The latency axis: doubling grows the probe geometrically, so round-trips rise only ~log2(K) while the
- *    probe is still doubling, then linearly at ~K/WINDOW_LEN once it saturates the cap.
- *    Depends only on K, not on secret count. A round's tags are chunked at MAX_RPC_LEN (=100) into parallel calls
- *   internally, but those overlap, so a wide round is still one round-trip; that is why
- *   round-trips, not raw call count, is the latency axis.
+ * - `rpc-round-trips`: sequential blocking waits on the node, via `BenchmarkedNodeFactory`. The latency axis: this
+ *    grows with K per the complexity analysis on `INITIAL_CONSTRAINED_PROBE_LEN`, and depends only on K, not on secret
+ *    count. A round's tags are chunked at MAX_RPC_LEN (=100) into parallel calls internally, but those overlap, so a
+ *    wide round is still one round-trip; that is why round-trips, not raw call count, is the latency axis.
  * - `rpc-blocking-time`: measured wall-clock the caller blocks on the node, under a modeled
  *   `MODELED_NODE_RPC_LATENCY_MS` per call plus a little per-round overhead. Parallel calls within a round overlap, so
  *   it tracks round-trips (a 1000-secret round is many parallel chunks but ~one round-trip of blocking time).

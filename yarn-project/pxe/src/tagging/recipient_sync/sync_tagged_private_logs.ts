@@ -63,12 +63,10 @@ import { findHighestIndexes } from './utils/find_highest_indexes.js';
  *   the nullifier chain prevents out-of-order index usage: no device can fill in a lower index after a higher
  *   one is already on-chain.
  * - Because the sequence is gapless, the scan stops at the first missing index: that gap proves the sequence has
- *   ended and no further logs exist. We exploit this by probing only a small initial window
- *   (`INITIAL_CONSTRAINED_PROBE_LEN`) and doubling it each round (capped at the window) while every probed index has a
- *   log, stopping at the first miss. A steady-state sync with no new logs costs a single tag instead of the whole
- *   window. A secret K logs behind catches up in ~log2(K) round-trips while the probe is still doubling, then linearly
- *   at ~K/WINDOW_LEN rounds once the probe saturates the cap, still far below one round per log. The probe length is
- *   in-memory state scoped to one sync call, so every sync restarts at the initial probe.
+ *   ended and no further logs exist. We exploit this with a doubling first-miss probe (see
+ *   `INITIAL_CONSTRAINED_PROBE_LEN` in ../constants.ts for the probe schedule and complexity analysis), so a
+ *   steady-state sync with no new logs costs a single tag instead of the whole window. The probe length is in-memory
+ *   state scoped to one sync call, so every sync restarts at the initial probe.
  * - The upper bound is the same as unconstrained: `highestFinalizedIndex + WINDOW_LEN`. Advancing the probe is
  *   decoupled from persisting the finalized index, so unfinalized logs at the top of the run are still fetched
  *   while only the finalized prefix is persisted.
@@ -262,10 +260,10 @@ async function processConstrainedResults(
       ? Math.max(pending.boundEnd, highestFinalizedIndex + UNFINALIZED_TAGGING_INDEXES_WINDOW_LEN + 1)
       : pending.boundEnd;
 
-  // Double the probe each round so catch-up costs ~log2(K) round-trips while the probe is still doubling, then
-  // ~K/WINDOW_LEN once it saturates the cap, far below one round per log either way. The queried range is already
-  // bounded by boundEnd (a probe can never reach more than WINDOW_LEN past the finalized frontier); the cap on the
-  // stored length just keeps it from growing unbounded once the probe saturates the window.
+  // Double the probe each round, capped at the window (see INITIAL_CONSTRAINED_PROBE_LEN in ../constants.ts for the
+  // probe schedule and complexity analysis). The queried range is already bounded by boundEnd (a probe can never reach
+  // more than WINDOW_LEN past the finalized frontier); this cap just keeps the stored length from growing unbounded
+  // once the probe saturates the window.
   const nextProbeLen = Math.min(pending.probeLen * 2, UNFINALIZED_TAGGING_INDEXES_WINDOW_LEN);
 
   if (probeFullyConsumed && pending.end < boundEnd) {
