@@ -3,6 +3,7 @@ import { BlockNumber, CheckpointNumber, EpochNumber, SlotNumber } from '@aztec/f
 import { Fr } from '@aztec/foundation/curves/bn254';
 import { EthAddress } from '@aztec/foundation/eth-address';
 import type { EpochProverFactory } from '@aztec/prover-client';
+import type { AvmSimulator } from '@aztec/simulator/server';
 import { L2Block, type L2BlockSource, type L2BlockStreamEvent, type L2Tips } from '@aztec/stdlib/block';
 import type { Checkpoint, PublishedCheckpoint } from '@aztec/stdlib/checkpoint';
 import type { ContractDataSource } from '@aztec/stdlib/contract';
@@ -70,7 +71,7 @@ describe('ProverNode', () => {
       { getTxProvider: () => txProvider },
       rollupContract,
       l1Metrics,
-      {},
+      mock<AvmSimulator>(),
     );
     // Inject the session manager and publishing service without going through start() —
     // start() wires the publisher + block stream + ticker, none of which these unit tests
