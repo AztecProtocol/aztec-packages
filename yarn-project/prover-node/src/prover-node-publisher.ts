@@ -291,14 +291,10 @@ export class ProverNodePublisher {
       args: txArgs,
     });
     try {
-<<<<<<< HEAD
       const { receipt } = await this.l1TxUtils.sendAndMonitorTransaction(
         { to: this.proofSubmissionTarget, data },
         { txTimeoutAt: args.deadline },
       );
-=======
-      const { receipt } = await this.l1TxUtils.sendAndMonitorTransaction({ to: this.proofSubmissionTarget, data });
->>>>>>> 1039d38148 (feat: allow custom proof submission target address (#24270))
       if (receipt.status !== 'success') {
         const errorMsg = await this.l1TxUtils.tryGetErrorFromRevertedTx(
           data,

@@ -101,16 +101,6 @@ export function injectCommands(program: Command, log: LogFn) {
       'Coinbase ETH address to use when proposing. Defaults to attester address.',
       parseEthereumAddress,
     )
-<<<<<<< HEAD
-<<<<<<< HEAD
-=======
-    .option(
-      '--funding-account <privateKey|address>',
-      'ETH funding account used to top up publisher EOAs. Provide a private key, or an address together with --remote-signer.',
-    )
->>>>>>> f00bd74268 (feat(cli): support --funding-account in validator-keys new/add)
-=======
->>>>>>> dd60c3ced7 (refactor(cli): move funding account setting to set-funding-account subcommand)
     .option('--remote-signer <url>', 'Default remote signer URL for accounts in this file')
     .option('--ikm <hex>', 'Initial keying material for BLS (alternative to mnemonic)', value => parseHex(value, 32))
     .option('--bls-path <path>', `EIP-2334 path (default ${defaultBlsPath})`)
@@ -134,10 +124,6 @@ export function injectCommands(program: Command, log: LogFn) {
       'Sets the keystore-level ETH funding account used to top up publisher EOAs, replacing any existing one',
     )
     .argument('<existing>', 'Path to existing keystore JSON')
-<<<<<<< HEAD
-<<<<<<< HEAD
-=======
->>>>>>> 6dcf923c81 (feat(cli): inherit keystore remote signer for set-funding-account address form)
     .argument(
       '<privateKey|address>',
       'Funding account: a private key, or an address (needs --remote-signer unless the keystore already defines one)',
@@ -146,13 +132,6 @@ export function injectCommands(program: Command, log: LogFn) {
       '--remote-signer <url>',
       'Remote signer URL for the funding account (required with an address unless the keystore already defines one)',
     )
-<<<<<<< HEAD
-=======
-    .argument('<privateKey|address>', 'Funding account: a private key, or an address together with --remote-signer')
-    .option('--remote-signer <url>', 'Remote signer URL for the funding account (required with an address)')
->>>>>>> dd60c3ced7 (refactor(cli): move funding account setting to set-funding-account subcommand)
-=======
->>>>>>> 6dcf923c81 (feat(cli): inherit keystore remote signer for set-funding-account address form)
     .option(
       '--password <str>',
       'Password for writing the funding key as an encrypted ETH JSON V3 file. Empty string allowed',

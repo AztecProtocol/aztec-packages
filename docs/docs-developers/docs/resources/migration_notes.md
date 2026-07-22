@@ -9,25 +9,10 @@ Aztec is in active development. Each version may introduce breaking changes that
 
 ## TBD
 
-<<<<<<< HEAD
-<<<<<<< HEAD
-<<<<<<< HEAD
-<<<<<<< HEAD
-<<<<<<< HEAD
-<<<<<<< HEAD
-<<<<<<< HEAD
-<<<<<<< HEAD
-## 5.0.1
-
-=======
->>>>>>> 8b1903c998 (feat!: forbid external note validation checks (#24644))
-=======
-=======
 ### [Aztec.nr] Canonical HandshakeRegistry re-pinned at a new address
 
 The canonical `HandshakeRegistry` has been re-pinned so that it includes the owner's address in its `PrivateMutable` initialization nullifiers, keeping the handshake state of accounts that share keys independent. The registry moves to a new address. Handshakes established with the previous registry instance are not visible to the new one and must be re-established. The other standard contracts keep their addresses.
 
->>>>>>> c3a2a8512c (chore: re-pin handshake registry with owner-bound nullifiers (#24893))
 ### [Aztec.nr] Note property selectors are typed and use packed-layout indices
 
 The selectors in the generated `properties()` used the field's position in the note struct declaration, which pointed at the wrong packed field for any note with an earlier field packing to more than one `Field` (a `Point`, an array, a nested struct). Selector indices are now the field's offset in the note's packed representation, so `select`/`sort` criteria constrain the field they name.
@@ -40,7 +25,8 @@ Breaking changes:
 - `properties()` cannot be used with a custom `Packable` layout. Define property selectors manually for such notes.
 - Every note field type must implement `Packable`, even when the note's own `Packable` is hand-written.
 
->>>>>>> 10e339a580 (fix(aztec-nr)!: compute note property selectors from the packed layout (#24689))
+## 5.0.1
+
 ### [Aztec.nr] History note nullification helpers renamed and restricted to own-contract notes
 
 The `history::note` helpers that recompute a note's nullifier have been renamed with a `local_` prefix and now assert that the note belongs to the executing contract:
@@ -55,11 +41,6 @@ These helpers derive the note's nullifier from the executing contract's app-silo
 
 **Impact**: Update call sites to the new names. Own-contract usage (the common case) is unaffected beyond the rename. `assert_note_existed_by` is unchanged and still supports notes of any contract, since note-hash inclusion involves no keys.
 
-<<<<<<< HEAD
-=======
->>>>>>> da9ac1c883 (feat: assert non revertible phase when setting fee payer (#24479))
-=======
->>>>>>> 8b1903c998 (feat!: forbid external note validation checks (#24644))
 ### [Aztec.nr] `set_as_fee_payer` now asserts it is called during the setup phase
 
 `PrivateContext::set_as_fee_payer` now asserts that execution is still in the setup (non-revertible) phase, i.e. that `end_setup` has not yet been called by any function in the transaction. Electing a fee payer in the revertible phase was never safe: compensation collected by the fee payer after `end_setup` can be discarded if a public call later reverts, while the protocol still debits the fee payer's fee-juice balance.
@@ -83,31 +64,12 @@ This change also removes `createStore` from `@aztec/kv-store/sqlite-opfs` and `@
 
 ## 5.0.0
 
-=======
->>>>>>> 736f39189c (feat(pxe)!: Add AppTaggingSecret kinds to keys in tagging stores (#24604))
 ### [PXE] Local PXE database is reset on upgrade
-=======
-### [PXE] Stores are now selected by `(l1ChainId, rollupAddress, schemaVersion)` instead of being wiped on mismatch
->>>>>>> 0bb0628549 (feat: preserve stores on schema version or rollup address change (#24631))
 
-Previously, connecting a PXE or embedded wallet to a different or redeployed rollup, or bumping the store schema version, wiped the existing on-disk store in place. That meant master account keys could be destroyed simply by pointing a wallet at a different network. PXE data stores now exist per `(l1ChainId, rollupAddress, schemaVersion)` triple, and switching networks (or upgrading) selects or creates the matching store instead of overwriting previous ones. The embedded wallet's `wallet_data` store is partitioned the same way, so accounts and aliases are per network: switching networks starts with an empty account list until accounts are re-imported, and switching back finds the originals intact.
+The persisted tagging stores now key every entry by the self-describing `<kind>:<secret>:<app>` form of `AppTaggingSecret`; unconstrained secrets previously used a two-part `<secret>:<app>` key. This bumps the PXE data schema version, and there is no forward migration for the old keys: on first open the PXE clears any database whose stored schema version differs from the current one. The wipe resets the entire PXE store, not just the tagging data, because all of it shares one backing database.
 
-**Impact**: The first start after upgrading to this version begins with a fresh, empty store; the pre-upgrade data is not deleted. On Node.js environments (lmdb-v2) pre-upgrade data stays at `<dataDirectory>/<name>` while new per-identity `pxe_data` stores live under `<dataDirectory>/<name>-stores/`. The embedded Node.js wallet previously stored data in cwd-relative, rollup-address-suffixed directories instead (`pxe_data_<rollupAddress>/pxe_data` for the PXE store, `wallet_data_<rollupAddress>/wallet_data` for the wallet store): if you used it before this release, that is where the old data lives. The embedded wallet now defaults its data root to `aztec-wallet-data/`, with per-identity wallet stores under `<dataDirectory>/wallet_data-stores/` on Node.js and OPFS store names prefixed `wallet_data_` in the browser. Browser apps can enumerate and clean up `pxe_data` and `wallet_data` stores for networks no longer in use with the new `listStores()` / `deleteStore()` utilities:
+**Impact**: On upgrade your local PXE state is reset. You must re-register accounts and re-sync from genesis. Wallets should surface a "your local state was reset, please re-register accounts and re-sync" path.
 
-```ts
-import { deleteStore, listStores } from '@aztec/kv-store/sqlite-opfs';
-
-const names = await listStores();
-await deleteStore(names[0]);
-```
-
-This change also removes `createStore` from `@aztec/kv-store/sqlite-opfs` and `@aztec/kv-store/deprecated/indexeddb`: stores are now opened by name with `AztecSQLiteOPFSStore.open` / `AztecIndexedDBStore.open`.
-
-<<<<<<< HEAD
-=======
->>>>>>> 6dd127124d (fix(txe): align tagging strategy oracle with PXE (#24561))
-=======
->>>>>>> 736f39189c (feat(pxe)!: Add AppTaggingSecret kinds to keys in tagging stores (#24604))
 ### [Aztec.nr] `TestEnvironmentOptions::with_tagging_secret_strategy` replaced
 
 `TestEnvironmentOptions::with_tagging_secret_strategy` is now `with_default_tag_secret_strategy_all_modes` for tests
@@ -117,11 +79,6 @@ configure the TXE default wallet strategy hook; contract-fixed delivery derivati
 For mode-specific defaults and hook semantics, see the
 [`resolveTaggingSecretStrategy` test helper docs](../foundational-topics/pxe/execution_hooks.md#resolvetaggingsecretstrategy).
 
-<<<<<<< HEAD
-=======
->>>>>>> 9f1167e6d4 (feat!: make inbox secrets be multiple fields (#24599))
-=======
->>>>>>> 6dd127124d (fix(txe): align tagging strategy oracle with PXE (#24561))
 ### [Aztec.nr] L1-to-L2 message consumption takes the secret as an array
 
 `PrivateContext::consume_l1_to_l2_message` and `PublicContext::consume_l1_to_l2_message` now take the message secret as an arbitrary-length array `[Field; N]` instead of a single `Field`, so a consumer can derive its secret hash from more than one field. The helpers `compute_secret_hash` and `compute_l1_to_l2_message_nullifier` are likewise now generic over the secret length. A single-field secret behaves exactly as before (the hashes are unchanged for `N = 1`) — just wrap it in an array.
@@ -229,6 +186,8 @@ Registering classes and instances are now separate, unvalidated operations. `reg
   The new class is used automatically once the upgrade takes effect on chain; no further PXE action is needed. Registering it beforehand is harmless: until the update activates, the node still resolves the contract's current class to the previous one, so it keeps running its old code.
 
 - `pxe.getContractInstance(address)` and `wallet.getContractMetadata(address).instance` now return the contract's **address preimage**, which no longer includes `currentContractClassId`.
+
+
 ### [Aztec.js] `AccountWithSecretKey` removed, read account keys from the `AccountManager` or PXE
 
 `AccountWithSecretKey` was a thin wrapper that bundled an account's transaction signer with its master secret key, used mainly to print or export the secret. It has been removed, and `AccountManager.getAccount()` now returns the plain `Account` signer. The wrapper's extra methods are no longer available on that value:

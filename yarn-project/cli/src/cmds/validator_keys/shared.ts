@@ -126,40 +126,18 @@ export function deriveEthAttester(
 }
 
 /**
-<<<<<<< HEAD
-<<<<<<< HEAD
-=======
->>>>>>> 6dcf923c81 (feat(cli): inherit keystore remote signer for set-funding-account address form)
  * Resolve a `--funding-account` value into a keystore `EthAccount`. A 66-char value is a private key
  * (used verbatim). A 42-char value is an address: with an explicit `remoteSigner` URL it becomes an
  * `{ address, remoteSignerUrl }` pair; without one it is stored as a bare address that falls back to
  * the keystore-level remote signer at runtime. Callers must validate the value first (see
  * `validateFundingAccountOptions`).
-<<<<<<< HEAD
-=======
- * Resolve a `--funding-account` value into a keystore `EthAccount`. A 66-char value is a private
- * key (used verbatim); a 42-char value is an address paired with the remote signer URL. Callers must
- * validate the value first (see `validateFundingAccountOptions`), which also guarantees a remote
- * signer is present for the address form.
->>>>>>> f00bd74268 (feat(cli): support --funding-account in validator-keys new/add)
-=======
->>>>>>> 6dcf923c81 (feat(cli): inherit keystore remote signer for set-funding-account address form)
  */
 export function resolveFundingAccount(fundingAccount: string, remoteSigner?: string): EthAccount {
   if (fundingAccount.length === 66) {
     return fundingAccount as EthPrivateKey;
   }
-<<<<<<< HEAD
-<<<<<<< HEAD
   const address = EthAddress.fromString(fundingAccount);
   return remoteSigner ? ({ address, remoteSignerUrl: remoteSigner } as EthAccount) : address;
-=======
-  return { address: EthAddress.fromString(fundingAccount), remoteSignerUrl: remoteSigner } as EthAccount;
->>>>>>> f00bd74268 (feat(cli): support --funding-account in validator-keys new/add)
-=======
-  const address = EthAddress.fromString(fundingAccount);
-  return remoteSigner ? ({ address, remoteSignerUrl: remoteSigner } as EthAccount) : address;
->>>>>>> 6dcf923c81 (feat(cli): inherit keystore remote signer for set-funding-account address form)
 }
 
 export async function buildValidatorEntries(input: BuildValidatorsInput) {

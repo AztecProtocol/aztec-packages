@@ -1067,15 +1067,7 @@ describe('validator keys utilities', () => {
           count: 1,
           mnemonic: TEST_MNEMONIC,
           fundingAccount: '0x' + 'cd'.repeat(32),
-<<<<<<< HEAD
-<<<<<<< HEAD
           password: 'funding-test-pw',
-=======
-          password: '',
->>>>>>> f00bd74268 (feat(cli): support --funding-account in validator-keys new/add)
-=======
-          password: 'funding-test-pw',
->>>>>>> 7934b6dcb1 (test(cli): use non-empty password in funding encryption test)
           encryptedKeystoreDir: tmp,
           feeRecipient: ('0x' + '15'.repeat(32)) as unknown as AztecAddress,
         },
@@ -1158,100 +1150,6 @@ describe('validator keys utilities', () => {
           () => {},
         ),
       ).rejects.toThrow('Schema validation failed');
-    });
-  });
-
-  describe('setFundingAccount', () => {
-    const writeBaseKeystore = (path: string, extra: Record<string, unknown> = {}) => {
-      const baseKeystore = {
-        schemaVersion: 1,
-        validators: [{ attester: '0x' + '0a'.repeat(32), feeRecipient: ('0x' + '06'.repeat(32)) as unknown as string }],
-        ...extra,
-      };
-      writeFileSync(path, JSON.stringify(baseKeystore, null, 2), 'utf-8');
-    };
-
-    it('sets a funding account on a keystore that has none', async () => {
-      const existing = join(tmp, 'set-funding.json');
-      writeBaseKeystore(existing);
-      const fundingKey = '0x' + 'ab'.repeat(32);
-
-      const logs: string[] = [];
-      await setFundingAccount(existing, fundingKey, {}, s => logs.push(s));
-
-      const updated: KeyStore = loadKeystoreFile(existing);
-      expect(updated.fundingAccount).toBe(fundingKey);
-      expect(logs.some(l => l.includes('Replacing existing funding account'))).toBe(false);
-      expect(logs.some(l => l.includes('Set funding account'))).toBe(true);
-    });
-
-    it('replaces an existing funding account and warns', async () => {
-      const existing = join(tmp, 'replace-funding.json');
-      writeBaseKeystore(existing, { fundingAccount: '0x' + 'aa'.repeat(32) });
-      const newFundingKey = '0x' + 'bb'.repeat(32);
-
-      const logs: string[] = [];
-      await setFundingAccount(existing, newFundingKey, {}, s => logs.push(s));
-
-      const updated: KeyStore = loadKeystoreFile(existing);
-      expect(updated.fundingAccount).toBe(newFundingKey);
-      expect(logs.some(l => l.includes('Replacing existing funding account'))).toBe(true);
-    });
-
-    it('sets a remote-signer funding account from an address', async () => {
-      const existing = join(tmp, 'set-funding-address.json');
-      writeBaseKeystore(existing);
-      const fundingAddress = '0x' + '02'.repeat(20);
-      const remoteSigner = 'http://localhost:9000';
-
-      await setFundingAccount(existing, fundingAddress, { remoteSigner }, s => s);
-
-      const updated: KeyStore = loadKeystoreFile(existing);
-      const funder = updated.fundingAccount as any;
-      expect(funder.remoteSignerUrl).toBe(remoteSigner);
-      expect(funder.address.toString().toLowerCase()).toBe(fundingAddress);
-    });
-
-    it('inherits the keystore remote signer for an address when --remote-signer is omitted', async () => {
-      const existing = join(tmp, 'set-funding-inherit-signer.json');
-      writeBaseKeystore(existing, { remoteSigner: 'http://localhost:9000' });
-      const fundingAddress = '0x' + '02'.repeat(20);
-
-      await setFundingAccount(existing, fundingAddress, {}, s => s);
-
-      const updated: KeyStore = loadKeystoreFile(existing);
-      // Stored as a bare address (no inline remoteSignerUrl); resolved via the keystore-level signer at runtime.
-      const funder = updated.fundingAccount as any;
-      expect(funder.remoteSignerUrl).toBeUndefined();
-      expect(funder.toString().toLowerCase()).toBe(fundingAddress);
-    });
-
-    it('rejects an address without a remote signer', async () => {
-      const existing = join(tmp, 'set-funding-no-signer.json');
-      writeBaseKeystore(existing);
-
-      await expect(setFundingAccount(existing, '0x' + '03'.repeat(20), {}, s => s)).rejects.toThrow(
-        /requires --remote-signer/,
-      );
-    });
-
-    it('rejects a malformed funding account', async () => {
-      const existing = join(tmp, 'set-funding-malformed.json');
-      writeBaseKeystore(existing);
-
-      await expect(setFundingAccount(existing, '0xdead', {}, s => s)).rejects.toThrow(/Invalid funding account/);
-    });
-
-    it('encrypts a plaintext funding key when a password is provided', async () => {
-      const existing = join(tmp, 'set-funding-encrypted.json');
-      writeBaseKeystore(existing);
-
-      await setFundingAccount(existing, '0x' + 'cd'.repeat(32), { password: '', encryptedKeystoreDir: tmp }, s => s);
-
-      const updated: KeyStore = loadKeystoreFile(existing);
-      const funder = updated.fundingAccount as any;
-      expect(typeof funder.path).toBe('string');
-      expect(existsSync(funder.path)).toBe(true);
     });
   });
 
