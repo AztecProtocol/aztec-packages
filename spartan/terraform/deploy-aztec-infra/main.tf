@@ -153,8 +153,8 @@ locals {
       "prover-node-rpc" = {
         hosts                       = var.PROVER_NODE_RPC_GATEWAY_HOSTS
         route_namespace             = var.NAMESPACE
-        upstream_service_name       = "${var.RELEASE_PREFIX}-prover-node"
-        upstream_service_port       = 8080
+        upstream_service_name       = "${var.RELEASE_PREFIX}-prover-node-admin"
+        upstream_service_port       = 8880
         auth_mode                   = "keyed_only"
         anonymous_rate_limit_minute = 0
         path                        = var.PROVER_NODE_RPC_GATEWAY_PATH
@@ -402,6 +402,7 @@ locals {
           }
           node = {
             logLevel = var.LOG_LEVEL
+            disableAdminApiKey = true
           }
         }
         broker = {

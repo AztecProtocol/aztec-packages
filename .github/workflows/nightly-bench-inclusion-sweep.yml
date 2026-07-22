@@ -9,7 +9,11 @@ name: Nightly Bench Inclusion Sweep
 
 on:
   schedule:
-    - cron: "30 3 * * *"
+    # 06:00 UTC, matching the other nightly consumers (spartan-bench, deploy-next-net).
+    # The nightly git tag + docker image this sweep resolves are produced by the
+    # Nightly Release Tag workflow at 04:00 UTC; running earlier races that job and
+    # fails "Verify source git ref" with "couldn't find remote ref".
+    - cron: "0 6 * * *"
   workflow_dispatch:
     inputs:
       docker_image:
