@@ -50,6 +50,18 @@ resource "google_project_iam_member" "helm_sa_roles" {
   member   = "serviceAccount:${google_service_account.helm_sa.email}"
 }
 
+# helm-sa is the CI deploy identity (GitHub Actions secret GCP_SA_KEY). The bench
+# scraper runs `gcloud logging read` as this account to collect block/event/
+# sequencer-state records (l2-block-handled / l2-block-built / public-processor
+# logs); without logging read the reads are permission-denied and the scraper
+# silently emits empty block data (null totalTxsMined, empty build/validator
+# fields). Prometheus metrics use a kube port-forward and are unaffected.
+resource "google_project_iam_member" "helm_sa_logging_viewer" {
+  project = var.project
+  role    = "roles/logging.viewer"
+  member  = "serviceAccount:${google_service_account.helm_sa.email}"
+}
+
 # Create a service account for CI
 resource "google_service_account" "ci" {
   account_id   = var.ci_service_account_id
