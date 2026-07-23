@@ -4,26 +4,24 @@ This directory will contain the standalone cross-language generator for Aztec pr
 
 ## Version 1 interface
 
-The command reads a primary Noir source file, optionally adds named constants from other Noir files, and writes any
-requested combination of the supported outputs.
+The command reads a primary Noir source file, optionally adds named constants from other Noir files, and writes one
+of the supported outputs.
 
 ```text
 constants-codegen \
   [--input <constants.nr>] \
   [--include <file.nr>:<symbol>]... \
-  [--typescript <output.ts> [--typescript-selection <selection.json>]] \
-  [--cpp <output.hpp> [--cpp-selection <selection.json>]] \
-  [--pil <output.pil> [--pil-selection <selection.json>]] \
-  [--solidity <output.sol> [--solidity-selection <selection.json>]] \
-  [--rust <output.rs>]
+  [--selection <selection.json>] \
+  (--typescript <output.ts> | --cpp <output.hpp> | --pil <output.pil> | --solidity <output.sol> | --rust <output.rs>)
 ```
 
 - `--input` defaults to `noir-projects/noir-protocol-circuits/crates/types/src/constants.nr` when the tool runs from
   inside the aztec-packages monorepo (resolved relative to the tool itself). Outside the
   monorepo — e.g. the published npm package — it is required.
 - `--include` adds one named constant from another Noir file before evaluating expressions. It may be repeated.
-- At least one output option is required, and any combination of output options may be used in one invocation.
-- Each output may have its own selection file. Without one, that output contains every supported symbol from the input.
+- Exactly one output option is required. Run the command once per desired output.
+- `--selection` filters the output to the selected symbols. Without it, the output contains every supported symbol
+  from the input.
 - Relative paths given as arguments are resolved from the caller's working directory.
 - Invalid arguments, an unreadable input, an unsupported expression, or an output failure produce a diagnostic on
   stderr and a nonzero exit status.

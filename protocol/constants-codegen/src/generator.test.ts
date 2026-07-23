@@ -96,7 +96,7 @@ test('generates Solidity constants', () => {
   assert.match(output, /uint256 internal constant ARCHIVE_HEIGHT = 30;/);
 });
 
-test('the CLI generates multiple requested outputs', () => {
+test('the CLI generates one output per invocation with its selection', () => {
   const tempDir = mkdtempSync(join(tmpdir(), 'constants-codegen-cli-'));
   const inputPath = join(tempDir, 'constants.nr');
   const includedInputPath = join(tempDir, 'additional.nr');
@@ -126,15 +126,14 @@ pub global EXCLUDED_CONSTANT: u32 = 100;
         `${includedInputPath}:INCLUDED_CONSTANT`,
         '--typescript',
         typescriptPath,
-        '--typescript-selection',
+        '--selection',
         typescriptSelectionPath,
-        '--cpp',
-        cppPath,
-        '--cpp-selection',
-        cppSelectionPath,
       ],
       { stdio: 'pipe' },
     );
+    execFileSync(process.execPath, [cliPath, '--input', inputPath, '--cpp', cppPath, '--selection', cppSelectionPath], {
+      stdio: 'pipe',
+    });
 
     assert.match(readFileSync(typescriptPath, 'utf8'), /export const ARCHIVE_HEIGHT = 30;/);
     assert.match(readFileSync(typescriptPath, 'utf8'), /export const INCLUDED_CONSTANT = 31;/);
@@ -143,6 +142,36 @@ pub global EXCLUDED_CONSTANT: u32 = 100;
     assert.match(readFileSync(cppPath, 'utf8'), /#define MAX_ETH_ADDRESS_VALUE/);
     assert.match(readFileSync(cppPath, 'utf8'), /#define DOM_SEP__MERKLE_HASH 2982624097UL/);
     assert.doesNotMatch(readFileSync(cppPath, 'utf8'), /ARCHIVE_HEIGHT/);
+  } finally {
+    rmSync(tempDir, { recursive: true, force: true });
+  }
+});
+
+test('the CLI rejects more than one output option', () => {
+  const tempDir = mkdtempSync(join(tmpdir(), 'constants-codegen-cli-'));
+  const inputPath = join(tempDir, 'constants.nr');
+  const cliPath = join(dirname(fileURLToPath(import.meta.url)), 'cli.ts');
+
+  try {
+    writeFileSync(inputPath, noirFixture);
+
+    assert.throws(
+      () =>
+        execFileSync(
+          process.execPath,
+          [
+            cliPath,
+            '--input',
+            inputPath,
+            '--typescript',
+            join(tempDir, 'constants.ts'),
+            '--cpp',
+            join(tempDir, 'constants.hpp'),
+          ],
+          { encoding: 'utf8', stdio: 'pipe' },
+        ),
+      error => error instanceof Error && error.message.includes('exactly one output option is required'),
+    );
   } finally {
     rmSync(tempDir, { recursive: true, force: true });
   }
@@ -163,7 +192,7 @@ test('the CLI rejects unknown selected symbols', () => {
       () =>
         execFileSync(
           process.execPath,
-          [cliPath, '--input', inputPath, '--typescript', outputPath, '--typescript-selection', selectionPath],
+          [cliPath, '--input', inputPath, '--typescript', outputPath, '--selection', selectionPath],
           { encoding: 'utf8', stdio: 'pipe' },
         ),
       error => error instanceof Error && error.message.includes("unknown symbol 'UNKNOWN_CONSTANT'"),

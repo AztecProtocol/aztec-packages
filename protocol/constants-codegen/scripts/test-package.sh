@@ -30,13 +30,11 @@ mkdir "$work_dir/consumer"
   cd "$work_dir/consumer"
   npm init --yes >/dev/null
   npm install --ignore-scripts "${tarballs[0]}" >/dev/null
-  ./node_modules/.bin/constants-codegen \
-    --input "$input" \
-    --typescript "$work_dir/constants.ts" \
-    --cpp "$work_dir/constants.hpp" \
-    --pil "$work_dir/constants.pil" \
-    --solidity "$work_dir/Constants.sol" \
-    --rust "$work_dir/constants.rs"
+  ./node_modules/.bin/constants-codegen --input "$input" --typescript "$work_dir/constants.ts"
+  ./node_modules/.bin/constants-codegen --input "$input" --cpp "$work_dir/constants.hpp"
+  ./node_modules/.bin/constants-codegen --input "$input" --pil "$work_dir/constants.pil"
+  ./node_modules/.bin/constants-codegen --input "$input" --solidity "$work_dir/Constants.sol"
+  ./node_modules/.bin/constants-codegen --input "$input" --rust "$work_dir/constants.rs"
 
   # The monorepo --input default must not resolve inside node_modules; external users get an
   # explicit error instead of a silently wrong input file.
