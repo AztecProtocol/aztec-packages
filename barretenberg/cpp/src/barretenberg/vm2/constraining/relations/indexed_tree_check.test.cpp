@@ -330,12 +330,14 @@ TEST(IndexedTreeCheckConstrainingTest, NegativeExistsFlagCheck)
     trace.set(C::indexed_tree_check_exists, 0, 0);
 
     EXPECT_THROW_WITH_MESSAGE(
-        check_relation<IndexedTreeCheckRelation>(trace, IndexedTreeCheckRelation::SR_EXISTS_CHECK), "EXISTS_CHECK");
+        check_relation<IndexedTreeCheckRelation>(trace, IndexedTreeCheckRelation::SR_EXISTS_CHECK),
+        IndexedTreeCheckRelation::get_subrelation_label(IndexedTreeCheckRelation::SR_EXISTS_CHECK));
     trace.set(C::indexed_tree_check_exists, 0, 1);
     trace.set(C::indexed_tree_check_exists, 1, 1);
 
     EXPECT_THROW_WITH_MESSAGE(
-        check_relation<IndexedTreeCheckRelation>(trace, IndexedTreeCheckRelation::SR_EXISTS_CHECK), "EXISTS_CHECK");
+        check_relation<IndexedTreeCheckRelation>(trace, IndexedTreeCheckRelation::SR_EXISTS_CHECK),
+        IndexedTreeCheckRelation::get_subrelation_label(IndexedTreeCheckRelation::SR_EXISTS_CHECK));
 }
 
 TEST(IndexedTreeCheckConstrainingTest, NegativeNextValueIsZero)
@@ -363,14 +365,14 @@ TEST(IndexedTreeCheckConstrainingTest, NegativeNextValueIsZero)
 
     EXPECT_THROW_WITH_MESSAGE(
         check_relation<IndexedTreeCheckRelation>(trace, IndexedTreeCheckRelation::SR_NEXT_VALUE_IS_ZERO_CHECK),
-        "NEXT_VALUE_IS_ZERO_CHECK");
+        IndexedTreeCheckRelation::get_subrelation_label(IndexedTreeCheckRelation::SR_NEXT_VALUE_IS_ZERO_CHECK));
 
     trace.set(C::indexed_tree_check_next_value_is_nonzero, 0, 0);
     trace.set(C::indexed_tree_check_next_value_is_nonzero, 1, 0);
 
     EXPECT_THROW_WITH_MESSAGE(
         check_relation<IndexedTreeCheckRelation>(trace, IndexedTreeCheckRelation::SR_NEXT_VALUE_IS_ZERO_CHECK),
-        "NEXT_VALUE_IS_ZERO_CHECK");
+        IndexedTreeCheckRelation::get_subrelation_label(IndexedTreeCheckRelation::SR_NEXT_VALUE_IS_ZERO_CHECK));
 }
 
 TEST(IndexedTreeCheckConstrainingTest, NegativePassthroughSiloing)
@@ -397,7 +399,7 @@ TEST(IndexedTreeCheckConstrainingTest, NegativePassthroughSiloing)
 
     EXPECT_THROW_WITH_MESSAGE(
         check_relation<IndexedTreeCheckRelation>(trace, IndexedTreeCheckRelation::SR_PASSTHROUGH_SILOING),
-        "PASSTHROUGH_SILOING");
+        IndexedTreeCheckRelation::get_subrelation_label(IndexedTreeCheckRelation::SR_PASSTHROUGH_SILOING));
 }
 
 } // namespace

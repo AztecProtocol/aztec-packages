@@ -1,4 +1,4 @@
-import { AVM_V2_PROOF_LENGTH_IN_FIELDS_PADDED, NESTED_RECURSIVE_ROLLUP_HONK_PROOF_LENGTH } from '@aztec/constants';
+import { AVM_V2_PROOF_LENGTH_IN_FIELDS, NESTED_RECURSIVE_ROLLUP_HONK_PROOF_LENGTH } from '@aztec/constants';
 import type { Fr } from '@aztec/foundation/curves/bn254';
 import { getVkData } from '@aztec/noir-protocol-circuits-types/server/vks';
 import type { AvmCircuitInputs } from '@aztec/stdlib/avm';
@@ -32,7 +32,7 @@ export class TxProvingState {
     PublicChonkVerifierPublicInputs,
     typeof NESTED_RECURSIVE_ROLLUP_HONK_PROOF_LENGTH
   >;
-  private avmProof?: RecursiveProof<typeof AVM_V2_PROOF_LENGTH_IN_FIELDS_PADDED>;
+  private avmProof?: RecursiveProof<typeof AVM_V2_PROOF_LENGTH_IN_FIELDS>;
 
   constructor(
     public readonly processedTx: ProcessedTx,
@@ -80,7 +80,7 @@ export class TxProvingState {
     this.publicChonkVerifier = publicChonkVerifierProofAndVk;
   }
 
-  public setAvmProof(avmProof: RecursiveProof<typeof AVM_V2_PROOF_LENGTH_IN_FIELDS_PADDED>) {
+  public setAvmProof(avmProof: RecursiveProof<typeof AVM_V2_PROOF_LENGTH_IN_FIELDS>) {
     this.avmProof = avmProof;
   }
 

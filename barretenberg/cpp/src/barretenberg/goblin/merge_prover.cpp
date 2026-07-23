@@ -6,7 +6,9 @@
 
 #include "merge_prover.hpp"
 #include "barretenberg/commitment_schemes/shplonk/shplonk.hpp"
+#include "barretenberg/common/assert.hpp"
 #include "barretenberg/common/bb_bench.hpp"
+#include "barretenberg/constants.hpp"
 #include "barretenberg/flavor/mega_zk_flavor.hpp"
 
 namespace bb {
@@ -21,8 +23,12 @@ MergeProver::MergeProver(const std::shared_ptr<ECCOpQueue>& op_queue, std::share
     , op_queue(op_queue)
 {
     // MergeProver is used only for the final merge, where the hiding kernel subtable is appended at a fixed offset.
-    const size_t append_offset = op_queue->get_append_offset();
-    fixed_append_shift_size = UltraEccOpsTable::ZK_ULTRA_OPS + (append_offset * UltraEccOpsTable::NUM_ROWS_PER_OP);
+    // The verifier hard-codes the shift size from HIDING_KERNEL_ULTRA_OPS, so the prover's subtable must match.
+    BB_ASSERT_EQ(op_queue->get_current_subtable_size(),
+                 HIDING_KERNEL_ULTRA_OPS,
+                 "Number of ultra ops in the hiding kernel doesn't match the expected value.");
+    const size_t append_offset = op_queue->get_append_offset_for_prover();
+    fixed_append_shift_size = ECCOpQueue::compute_fixed_append_offset(append_offset);
     op_queue->merge_fixed_append(append_offset);
 
     pcs_commitment_key = CommitmentKey(op_queue->get_ultra_ops_table_num_rows() + UltraEccOpsTable::ZK_ULTRA_OPS);
@@ -164,9 +170,6 @@ MergeProver::MergeProof MergeProver::construct_proof()
     right_table = op_queue->construct_current_ultra_ops_subtable_columns(); // t (fixed append carries
                                                                             // APPEND_TRACE_OFFSET leading zeros)
 
-    // Send shift_size to the verifier
-    transcript->send_to_verifier("shift_size", static_cast<uint32_t>(fixed_append_shift_size));
-
     // Compute commitments [M_j] and send to the verifier
     for (size_t idx = 0; idx < NUM_WIRES; ++idx) {
         transcript->send_to_verifier("MERGED_TABLE_" + std::to_string(idx),
@@ -179,10 +182,6 @@ MergeProver::MergeProof MergeProver::construct_proof()
     Polynomial reversed_batched_left_tables = compute_degree_check_polynomial(left_table, degree_check_challenges);
     transcript->send_to_verifier("REVERSED_BATCHED_LEFT_TABLES",
                                  pcs_commitment_key.commit(reversed_batched_left_tables));
-
-    // Compute batching challenges
-    std::vector<FF> shplonk_batching_challenges =
-        transcript->template get_challenges<FF>(labels_shplonk_batching_challenges);
 
     // Compute evaluation challenge
     const FF kappa = transcript->template get_challenge<FF>("kappa");
@@ -207,6 +206,10 @@ MergeProver::MergeProof MergeProver::construct_proof()
     // Send evaluation of G at 1/κ
     evals.emplace_back(reversed_batched_left_tables.evaluate(kappa_inv));
     transcript->send_to_verifier("REVERSED_BATCHED_LEFT_TABLES_EVAL", evals.back());
+
+    // Compute batching challenges
+    std::vector<FF> shplonk_batching_challenges =
+        transcript->template get_challenges<FF>(labels_shplonk_batching_challenges);
 
     // Compute Shplonk batched quotient
     Polynomial shplonk_batched_quotient = compute_shplonk_batched_quotient(left_table,

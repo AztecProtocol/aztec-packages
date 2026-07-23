@@ -213,4 +213,38 @@ TEST_F(AvmVerifierTests, ProofSizeMatchesComputedConstant)
         << computed_proof_size << "). The formula in flavor.hpp needs to be updated.";
 }
 
+// Reject a proof with extra trailing fields. Closes the transcript-completeness gap that the AVM padding once
+// permitted: appending arbitrary field(s) past COMPUTED_AVM_PROOF_LENGTH_IN_FIELDS must fail verification.
+TEST_F(AvmVerifierTests, NegativeRejectsProofWithTrailingFields)
+{
+    if (testing::skip_slow_tests()) {
+        GTEST_SKIP() << "Skipping slow test";
+    }
+
+    auto [proof, public_inputs_cols] = create_proof();
+    proof.push_back(FF::zero());
+
+    Verifier verifier;
+    const bool verified = verifier.verify_proof(proof, public_inputs_cols);
+
+    ASSERT_FALSE(verified) << "verifier accepted a proof with one extra trailing field";
+}
+
+// Reject a proof that is shorter than COMPUTED_AVM_PROOF_LENGTH_IN_FIELDS.
+TEST_F(AvmVerifierTests, NegativeRejectsTruncatedProof)
+{
+    if (testing::skip_slow_tests()) {
+        GTEST_SKIP() << "Skipping slow test";
+    }
+
+    auto [proof, public_inputs_cols] = create_proof();
+    ASSERT_FALSE(proof.empty());
+    proof.pop_back();
+
+    Verifier verifier;
+    const bool verified = verifier.verify_proof(proof, public_inputs_cols);
+
+    ASSERT_FALSE(verified) << "verifier accepted a truncated proof";
+}
+
 } // namespace bb::avm2::constraining

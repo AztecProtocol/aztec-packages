@@ -63,8 +63,7 @@ class HidingKernelIO {
     using PublicPairingPoints = PublicInputComponent<PairingPoints<curve::BN254>>;
     using PublicPoint = PublicInputComponent<G1>;
 
-    static constexpr size_t PUBLIC_INPUTS_SIZE =
-        PairingPoints<curve::BN254>::PUBLIC_INPUTS_SIZE + G1::PUBLIC_INPUTS_SIZE * (1 + MegaCircuitBuilder::NUM_WIRES);
+    static constexpr size_t PUBLIC_INPUTS_SIZE = HIDING_KERNEL_PUBLIC_INPUTS_SIZE;
     static constexpr bool HasIPA = false;
 
     PairingPoints<curve::BN254> pairing_inputs;

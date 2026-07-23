@@ -363,7 +363,7 @@ TEST(GasConstrainingTest, DynGasFactorToRadix)
 
     trace.set(C::execution_dynamic_l2_gas_factor, 0, 100); // Set to some random value is incorrect
     EXPECT_THROW_WITH_MESSAGE((check_relation<execution>(trace, execution::SR_DYN_L2_FACTOR_TO_RADIX_BE)),
-                              ".*subrelation DYN_L2_FACTOR_TO_RADIX_BE failed.*");
+                              execution::get_subrelation_label(execution::SR_DYN_L2_FACTOR_TO_RADIX_BE));
 }
 
 TEST(GasConstrainingTest, DynGasFactorInvalidRadix)

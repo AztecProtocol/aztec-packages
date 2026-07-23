@@ -318,25 +318,14 @@ template <typename Flavor> struct MegaStructuredProofBase : StructuredProofHelpe
     Commitment ecc_op_wire_2_comm;
     Commitment ecc_op_wire_3_comm;
     Commitment ecc_op_wire_4_comm;
-    Commitment kernel_calldata_comm;
-    Commitment kernel_calldata_read_counts_comm;
-    Commitment first_app_calldata_comm;
-    Commitment first_app_calldata_read_counts_comm;
-    Commitment second_app_calldata_comm;
-    Commitment second_app_calldata_read_counts_comm;
-    Commitment third_app_calldata_comm;
-    Commitment third_app_calldata_read_counts_comm;
-    Commitment return_data_comm;
-    Commitment return_data_read_counts_comm;
+    // Per-bus commitments. MegaZK keeps only the kernel_calldata bus; MegaFlavor carries all five.
+    std::array<Commitment, Flavor::NUM_BUS_COLUMNS> bus_comms;
+    std::array<Commitment, Flavor::NUM_BUS_COLUMNS> bus_read_counts_comms;
+    std::array<Commitment, Flavor::NUM_BUS_COLUMNS> bus_inverses_comms;
     Commitment lookup_read_counts_comm;
     Commitment lookup_read_tags_comm;
     Commitment w_4_comm;
     Commitment lookup_inverses_comm;
-    Commitment kernel_calldata_inverses_comm;
-    Commitment first_app_calldata_inverses_comm;
-    Commitment second_app_calldata_inverses_comm;
-    Commitment third_app_calldata_inverses_comm;
-    Commitment return_data_inverses_comm;
     Commitment z_perm_comm;
     std::vector<bb::Univariate<FF, BATCHED_RELATION_PARTIAL_LENGTH>> sumcheck_univariates;
     std::array<FF, NUM_ALL_ENTITIES> sumcheck_evaluations;
@@ -364,25 +353,21 @@ template <typename Flavor> struct MegaStructuredProofBase : StructuredProofHelpe
         ecc_op_wire_2_comm = this->template deserialize_from_buffer<Commitment>(proof_data, offset);
         ecc_op_wire_3_comm = this->template deserialize_from_buffer<Commitment>(proof_data, offset);
         ecc_op_wire_4_comm = this->template deserialize_from_buffer<Commitment>(proof_data, offset);
-        kernel_calldata_comm = this->template deserialize_from_buffer<Commitment>(proof_data, offset);
-        kernel_calldata_read_counts_comm = this->template deserialize_from_buffer<Commitment>(proof_data, offset);
-        first_app_calldata_comm = this->template deserialize_from_buffer<Commitment>(proof_data, offset);
-        first_app_calldata_read_counts_comm = this->template deserialize_from_buffer<Commitment>(proof_data, offset);
-        second_app_calldata_comm = this->template deserialize_from_buffer<Commitment>(proof_data, offset);
-        second_app_calldata_read_counts_comm = this->template deserialize_from_buffer<Commitment>(proof_data, offset);
-        third_app_calldata_comm = this->template deserialize_from_buffer<Commitment>(proof_data, offset);
-        third_app_calldata_read_counts_comm = this->template deserialize_from_buffer<Commitment>(proof_data, offset);
-        return_data_comm = this->template deserialize_from_buffer<Commitment>(proof_data, offset);
-        return_data_read_counts_comm = this->template deserialize_from_buffer<Commitment>(proof_data, offset);
-        lookup_read_counts_comm = this->template deserialize_from_buffer<Commitment>(proof_data, offset);
-        lookup_read_tags_comm = this->template deserialize_from_buffer<Commitment>(proof_data, offset);
+        for (size_t i = 0; i < Flavor::NUM_BUS_COLUMNS; ++i) {
+            bus_comms[i] = this->template deserialize_from_buffer<Commitment>(proof_data, offset);
+            bus_read_counts_comms[i] = this->template deserialize_from_buffer<Commitment>(proof_data, offset);
+        }
+        if constexpr (Flavor::HasLogDerivLookup) {
+            lookup_read_counts_comm = this->template deserialize_from_buffer<Commitment>(proof_data, offset);
+            lookup_read_tags_comm = this->template deserialize_from_buffer<Commitment>(proof_data, offset);
+        }
         w_4_comm = this->template deserialize_from_buffer<Commitment>(proof_data, offset);
-        lookup_inverses_comm = this->template deserialize_from_buffer<Commitment>(proof_data, offset);
-        kernel_calldata_inverses_comm = this->template deserialize_from_buffer<Commitment>(proof_data, offset);
-        first_app_calldata_inverses_comm = this->template deserialize_from_buffer<Commitment>(proof_data, offset);
-        second_app_calldata_inverses_comm = this->template deserialize_from_buffer<Commitment>(proof_data, offset);
-        third_app_calldata_inverses_comm = this->template deserialize_from_buffer<Commitment>(proof_data, offset);
-        return_data_inverses_comm = this->template deserialize_from_buffer<Commitment>(proof_data, offset);
+        if constexpr (Flavor::HasLogDerivLookup) {
+            lookup_inverses_comm = this->template deserialize_from_buffer<Commitment>(proof_data, offset);
+        }
+        for (size_t i = 0; i < Flavor::NUM_BUS_COLUMNS; ++i) {
+            bus_inverses_comms[i] = this->template deserialize_from_buffer<Commitment>(proof_data, offset);
+        }
         z_perm_comm = this->template deserialize_from_buffer<Commitment>(proof_data, offset);
     }
 
@@ -396,25 +381,21 @@ template <typename Flavor> struct MegaStructuredProofBase : StructuredProofHelpe
         Base::serialize_to_buffer(ecc_op_wire_2_comm, proof_data);
         Base::serialize_to_buffer(ecc_op_wire_3_comm, proof_data);
         Base::serialize_to_buffer(ecc_op_wire_4_comm, proof_data);
-        Base::serialize_to_buffer(kernel_calldata_comm, proof_data);
-        Base::serialize_to_buffer(kernel_calldata_read_counts_comm, proof_data);
-        Base::serialize_to_buffer(first_app_calldata_comm, proof_data);
-        Base::serialize_to_buffer(first_app_calldata_read_counts_comm, proof_data);
-        Base::serialize_to_buffer(second_app_calldata_comm, proof_data);
-        Base::serialize_to_buffer(second_app_calldata_read_counts_comm, proof_data);
-        Base::serialize_to_buffer(third_app_calldata_comm, proof_data);
-        Base::serialize_to_buffer(third_app_calldata_read_counts_comm, proof_data);
-        Base::serialize_to_buffer(return_data_comm, proof_data);
-        Base::serialize_to_buffer(return_data_read_counts_comm, proof_data);
-        Base::serialize_to_buffer(lookup_read_counts_comm, proof_data);
-        Base::serialize_to_buffer(lookup_read_tags_comm, proof_data);
+        for (size_t i = 0; i < Flavor::NUM_BUS_COLUMNS; ++i) {
+            Base::serialize_to_buffer(bus_comms[i], proof_data);
+            Base::serialize_to_buffer(bus_read_counts_comms[i], proof_data);
+        }
+        if constexpr (Flavor::HasLogDerivLookup) {
+            Base::serialize_to_buffer(lookup_read_counts_comm, proof_data);
+            Base::serialize_to_buffer(lookup_read_tags_comm, proof_data);
+        }
         Base::serialize_to_buffer(w_4_comm, proof_data);
-        Base::serialize_to_buffer(lookup_inverses_comm, proof_data);
-        Base::serialize_to_buffer(kernel_calldata_inverses_comm, proof_data);
-        Base::serialize_to_buffer(first_app_calldata_inverses_comm, proof_data);
-        Base::serialize_to_buffer(second_app_calldata_inverses_comm, proof_data);
-        Base::serialize_to_buffer(third_app_calldata_inverses_comm, proof_data);
-        Base::serialize_to_buffer(return_data_inverses_comm, proof_data);
+        if constexpr (Flavor::HasLogDerivLookup) {
+            Base::serialize_to_buffer(lookup_inverses_comm, proof_data);
+        }
+        for (size_t i = 0; i < Flavor::NUM_BUS_COLUMNS; ++i) {
+            Base::serialize_to_buffer(bus_inverses_comms[i], proof_data);
+        }
         Base::serialize_to_buffer(z_perm_comm, proof_data);
     }
 

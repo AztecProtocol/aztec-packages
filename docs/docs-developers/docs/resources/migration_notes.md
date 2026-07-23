@@ -9,6 +9,22 @@ Aztec is in active development. Each version may introduce breaking changes that
 
 ## TBD
 
+### [Aztec.nr] Canonical HandshakeRegistry re-pinned at a new address
+
+The canonical `HandshakeRegistry` has been re-pinned so that it includes the owner's address in its `PrivateMutable` initialization nullifiers, keeping the handshake state of accounts that share keys independent. The registry moves to a new address. Handshakes established with the previous registry instance are not visible to the new one and must be re-established. The other standard contracts keep their addresses.
+
+### [Aztec.nr] Note property selectors are typed and use packed-layout indices
+
+The selectors in the generated `properties()` used the field's position in the note struct declaration, which pointed at the wrong packed field for any note with an earlier field packing to more than one `Field` (a `Point`, an array, a nested struct). Selector indices are now the field's offset in the note's packed representation, so `select`/`sort` criteria constrain the field they name.
+
+Breaking changes:
+
+- `PropertySelector<T>` carries the selected property's type. Hand-constructed literals need a type annotation, e.g. `let selector: PropertySelector<Field> = PropertySelector { index: 0, offset: 0, length: 32 };`.
+- `select`/`sort` reject properties that pack to more than one `Field` at compile time.
+- `select` takes its value typed as the property's type. Cast the value if a mixed-type comparison was intentional.
+- `properties()` cannot be used with a custom `Packable` layout. Define property selectors manually for such notes.
+- Every note field type must implement `Packable`, even when the note's own `Packable` is hand-written.
+
 ### [Aztec.nr] History note nullification helpers renamed and restricted to own-contract notes
 
 The `history::note` helpers that recompute a note's nullifier have been renamed with a `local_` prefix and now assert that the note belongs to the executing contract:
@@ -401,6 +417,14 @@ while i > 0 {
     }
 }
 ```
+
+### [Protocol] `PrivateCircuitPublicInputs` and `PrivateContextInputs` gain a `tx_request_salt` field
+
+The init kernel now always injects the protocol nullifier (`H(tx_request)`) as the transaction's first nullifier and binds the entry-point proof to the tx request's salt. To support this, `PrivateCircuitPublicInputs` and `PrivateContextInputs` each carry a new `tx_request_salt` field (set by the framework), and the `first_nullifier_hint` input to the init kernel is removed. This is handled automatically by the framework and PXE; contracts using the standard entrypoint need no changes beyond recompiling against the new protocol circuits.
+
+The salt serves two purposes. It keeps `H(tx_request)` (the protocol nullifier) unpredictable, preventing a dictionary attack that guesses the tx-request preimage to recompute the nullifier. It also lets the init kernel bind the proof to a specific tx request: the kernel asserts `tx_request_salt` equals `tx_request.salt`, so a third party holding the proof cannot rebind it to a different request (and thus a different protocol nullifier).
+
+Because `tx_request_salt` is now part of the private function's public inputs, an app or account contract can read it. Together with the other public inputs (the call context, `args_hash`, `tx_context`, and the function selector), an entrypoint can reconstruct the full `tx_request` and verify a signature over `tx_request.hash()`, instead of over a separate payload. This lets an account authorize the complete, kernel-checked transaction request rather than just the calls it contains. Building on that, the protocol nullifier can be made to provide a transaction's replay protection and cancellation directly, reducing the number of nullifiers an account needs to emit. This is not done by the standard entrypoint today; see issues #461 (the protocol/design direction) and #462 (the Aztec.nr account-layer work) for the full picture.
 
 ### [Aztec.js] Prefunded local network test accounts are now initializerless
 

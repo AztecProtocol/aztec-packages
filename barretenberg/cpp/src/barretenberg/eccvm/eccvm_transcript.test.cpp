@@ -104,6 +104,7 @@ class ECCVMTranscriptTests : public ::testing::Test {
         manifest_expected.add_entry(round, "TRANSCRIPT_MSM_X_INVERSE", frs_per_G);
         manifest_expected.add_entry(round, "TRANSCRIPT_MSM_COUNT_ZERO_AT_TRANSITION", frs_per_G);
         manifest_expected.add_entry(round, "TRANSCRIPT_MSM_COUNT_AT_TRANSITION_INVERSE", frs_per_G);
+        manifest_expected.add_entry(round, "MSM_ROUND_MINUS_31_INV", frs_per_G);
         manifest_expected.add_entry(round, "TRANSCRIPT_MUL", frs_per_G);
         manifest_expected.add_entry(round, "TRANSCRIPT_MSM_COUNT", frs_per_G);
         manifest_expected.add_entry(round, "PRECOMPUTE_SCALAR_SUM", frs_per_G);
@@ -203,7 +204,7 @@ class ECCVMTranscriptTests : public ::testing::Test {
 
         round++;
         manifest_expected.add_entry(round, "Translation:concatenation_eval", frs_per_Fq);
-        manifest_expected.add_entry(round, "Translation:grand_sum_shift_eval", frs_per_Fq);
+        manifest_expected.add_entry(round, "Translation:shifted_grand_sum_eval", frs_per_Fq);
         manifest_expected.add_entry(round, "Translation:grand_sum_eval", frs_per_Fq);
         manifest_expected.add_entry(round, "Translation:quotient_eval", frs_per_Fq);
         manifest_expected.add_challenge(round, "Shplonk:nu");

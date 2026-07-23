@@ -17,6 +17,8 @@ include "precomputed.pil";
  *  2) sel_gt
  *  3) sel_memory
  *  4) sel_alu
+ *  5) sel_sha256
+ *
  *
  * Preconditions:
  * - 0 <= value < 2^128. Any value >= 2^128 is unsatisfiable because the 16-bit range checks
@@ -95,12 +97,14 @@ namespace range_check;
     pol commit sel_gt; // @boolean - destination for gt.pil #[GT_RANGE]
     pol commit sel_memory; // @boolean - destination for memory.pil #[RANGE_CHECK_WRITE_TAGGED_VALUE]
     pol commit sel_alu; // @boolean - destination for alu.pil range check lookups
+    pol commit sel_sha256; // @boolean - destination for sha256.pil range check lookups
     sel_keccak * (1 - sel_keccak) = 0;
     sel_gt * (1 - sel_gt) = 0;
     sel_memory * (1 - sel_memory) = 0;
     sel_alu * (1 - sel_alu) = 0;
+    sel_sha256 * (1 - sel_sha256) = 0;
     // If any of the above selectors is 1, then sel must be 1.
-    (sel_keccak + sel_gt + sel_memory + sel_alu) * (1 - sel) = 0;
+    (sel_keccak + sel_gt + sel_memory + sel_alu + sel_sha256) * (1 - sel) = 0;
 
     // No relations will be checked if this identity is satisfied.
     #[skippable_if]

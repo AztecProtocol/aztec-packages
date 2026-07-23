@@ -137,11 +137,13 @@ namespace contract_instance_retrieval;
     sel * (constants.CONTRACT_INSTANCE_REGISTRY_CONTRACT_ADDRESS - deployer_protocol_contract_address) = 0;
 
     // Indicates if the instance belongs to a protocol contract.
-    pol commit is_protocol_contract; // @boolean (by lookup on active rows)
-    // Note that is_protocol_contract is not constrained to be boolean or nonzero on inactive rows.
-    // This should be fine as it is not used as the target selector for lookups into this trace
-    // and is not used to activate any interactions that create side effects (memory writes, public inputs writes).
-    // Worst-case, a malicious actor could prove an extra properly constrained address-derivation which should be harmless.
+    // Boolean by lookup into ff_gt on active rows.
+    // Forced to zero on inactive rows by #[IS_PROTOCOL_CONTRACT_ON_SEL].
+    // Therefore, unconditionally boolean — required as a lookup source selector.
+    pol commit is_protocol_contract; // @boolean
+
+    #[IS_PROTOCOL_CONTRACT_ON_SEL]
+    (1 - sel) * is_protocol_contract = 0;
 
     // Canonical addresses can be in the range of 1 <= address <= MAX_PROTOCOL_CONTRACTS.
     pol commit max_protocol_contracts;
@@ -280,6 +282,14 @@ namespace contract_instance_retrieval;
         address_derivation.message_signing_key_hash,
         address_derivation.fallback_key_hash
     };
+
+    // ==== Constrain "current" Class ID (Protocol Contracts) ====
+
+    // Protocol contracts are not upgradeable; enforce current == original.
+    // This is critical because current_class_id is an output of this gadget,
+    // but only original is used in address derivation.
+    #[PROTOCOL_CONTRACT_CLASS_ID_IS_ORIGINAL]
+    is_protocol_contract * (current_class_id - original_class_id) = 0;
 
     // ==== Constrain That "current" Class ID Truly Is Current (Non-protocol Contracts That Exist) ====
 

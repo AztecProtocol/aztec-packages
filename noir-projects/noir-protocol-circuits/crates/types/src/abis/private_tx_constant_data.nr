@@ -19,6 +19,9 @@ pub struct PrivateTxConstantData {
     // a situation we could be using header from a block before the upgrade took place but be using the updated
     // protocol to execute and prove the transaction.
     pub tx_context: TxContext,
+    // The transaction request salt, kept constant so each app circuit's `tx_request_salt` can be checked against it.
+    // Deliberately dropped by `to_tx_constant_data`, so it is never exposed beyond the private kernels.
+    pub tx_request_salt: Field,
     // The root of the vk tree for the protocol circuits. Used for validating the protocol circuits being used.
     // This value must remain the same throughout the private execution and the rollups. It will be output from the root
     // rollup and checked on L1.
@@ -46,6 +49,7 @@ impl Empty for PrivateTxConstantData {
         PrivateTxConstantData {
             anchor_block_header: BlockHeader::empty(),
             tx_context: TxContext::empty(),
+            tx_request_salt: 0,
             vk_tree_root: 0,
             protocol_contracts: ProtocolContracts::empty(),
         }

@@ -394,7 +394,12 @@ describe('ValidatorClient', () => {
       } as unknown as L2Block;
       const disposeFork = jest.fn();
       blockSource.getBlocksForSlot.mockResolvedValue([checkpointBlock]);
-      checkpointsBuilder.getFork.mockResolvedValue({ [Symbol.asyncDispose]: disposeFork } as any);
+      checkpointsBuilder.getFork.mockResolvedValue({
+        [Symbol.asyncDispose]: disposeFork,
+        // Match the proposal's expected starting archive so the fork archive check passes and validation
+        // reaches the header-mismatch offense under test.
+        getTreeInfo: () => Promise.resolve({ root: proposalHeader.lastArchiveRoot.toBuffer() }),
+      } as any);
       mockCheckpointBuilder.completeCheckpoint.mockResolvedValue({
         header: computedHeader,
         archive: new AppendOnlyTreeSnapshot(proposal.archive, blockNumber),

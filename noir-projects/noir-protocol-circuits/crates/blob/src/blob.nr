@@ -397,7 +397,7 @@ mod tests {
     }
 
     #[test]
-    unconstrained fn test_400() {
+    fn test_400() {
         let blob_fields = [3; 400];
         let blob_fields_hash = poseidon2_hash(blob_fields);
 
@@ -420,7 +420,7 @@ mod tests {
     }
 
     #[test]
-    unconstrained fn test_full_blob() {
+    fn test_full_blob() {
         let mut blob_fields = [0; FIELDS_PER_BLOB];
         for i in 0..FIELDS_PER_BLOB {
             blob_fields[i] = i as Field + 2;

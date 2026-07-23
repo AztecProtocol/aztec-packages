@@ -7,8 +7,8 @@
 #pragma once
 
 #include "barretenberg/chonk/batched_honk_translator/batched_honk_translator_prover.hpp"
-#include "barretenberg/chonk/chonk_base.hpp"
 #include "barretenberg/chonk/chonk_proof.hpp"
+#include "barretenberg/flavor/mega_flavor.hpp"
 #include "barretenberg/flavor/mega_zk_recursive_flavor.hpp"
 #include "barretenberg/goblin/goblin.hpp"
 #include "barretenberg/hypernova/hypernova_decider_prover.hpp"
@@ -18,6 +18,7 @@
 #include "barretenberg/stdlib/primitives/databus/databus.hpp"
 #include "barretenberg/stdlib/proof/proof.hpp"
 #include "barretenberg/stdlib/special_public_inputs/special_public_inputs.hpp"
+#include "barretenberg/stdlib_circuit_builders/mega_circuit_builder.hpp"
 #include "barretenberg/ultra_honk/ultra_prover.hpp"
 #include "barretenberg/ultra_honk/ultra_verifier.hpp"
 #ifndef NDEBUG
@@ -36,7 +37,7 @@ namespace bb {
  * of circuits being accumulated is even.
  *
  */
-class Chonk : public IVCBase {
+class Chonk {
     // CHONK: "Client Honk" - An UltraHonk variant with incremental folding and delayed non-native arithmetic.
 
   public:
@@ -180,15 +181,14 @@ class Chonk : public IVCBase {
 
     Goblin goblin;
 
-    // Hiding kernel prover state: built during accumulate(MEGA), consumed by prove().
+    // Hiding kernel prover state: built during accumulate_hiding_kernel(), consumed by prove().
     std::shared_ptr<HidingKernelProverInstance> hiding_prover_inst;
     std::shared_ptr<MegaZKVerificationKey> hiding_vk;
 
     size_t get_num_circuits() const { return num_circuits; }
 
-    // IVCBase interface
-    Goblin& get_goblin() override { return goblin; }
-    const Goblin& get_goblin() const override { return goblin; }
+    Goblin& get_goblin() { return goblin; }
+    const Goblin& get_goblin() const { return goblin; }
 
     Chonk(size_t num_circuits);
 
@@ -208,14 +208,27 @@ class Chonk : public IVCBase {
     void complete_kernel_circuit_logic(ClientCircuit& circuit);
 
     /**
-     * @brief Perform prover work for accumulation (e.g. HN folding, merge proving)
+     * @brief Perform prover work for accumulating a non-hiding circuit (HN folding, merge proving).
+     *
+     * @details For the final (hiding-kernel) circuit, call `accumulate_hiding_kernel` instead — it
+     * uses the MegaZKFlavor-shaped VK, which is a different C++ type than `MegaVerificationKey`.
      *
      * @param circuit The incoming statement
-     * @param precomputed_vk The verification key of the incoming statement OR a mocked key whose metadata needs to be
-     * set using the proving key produced from `circuit` in order to pass some assertions in the Oink prover.
-     * @param mock_vk A boolean to say whether the precomputed vk should have its metadata set.
+     * @param precomputed_vk The MegaFlavor verification key of the incoming statement OR a mocked
+     * key whose metadata needs to be set using the proving key produced from `circuit` in order to
+     * pass some assertions in the Oink prover.
      */
-    void accumulate(ClientCircuit& circuit, const std::shared_ptr<MegaVerificationKey>& precomputed_vk) override;
+    void accumulate(ClientCircuit& circuit, const std::shared_ptr<MegaVerificationKey>& precomputed_vk);
+
+    /**
+     * @brief Accumulate the hiding kernel (the final circuit in the IVC stack).
+     *
+     * @param circuit The hiding-kernel circuit
+     * @param precomputed_vk Optional precomputed MegaZK VK; if null, the VK is computed from the
+     * prover instance.
+     */
+    void accumulate_hiding_kernel(ClientCircuit& circuit,
+                                  const std::shared_ptr<MegaZKVerificationKey>& precomputed_vk = nullptr);
 
     ChonkProof prove();
 
@@ -246,14 +259,13 @@ class Chonk : public IVCBase {
     FoldingResult verify_folding(ClientCircuit& circuit,
                                  const StdlibVerifierInputs& verifier_inputs,
                                  const std::shared_ptr<RecursiveVerifierInstance>& verifier_instance,
+                                 const std::optional<RecursiveVerifierAccumulator>& input_verifier_accumulator,
                                  const std::shared_ptr<RecursiveTranscript>& accumulation_recursive_transcript) const;
 
     PublicInputsResult process_public_inputs_and_consistency_checks(const StdlibVerifierInputs& verifier_inputs,
                                                                     std::vector<StdlibFF>& public_inputs,
                                                                     WitnessCommitments& witness_commitments,
                                                                     const std::optional<StdlibFF>& prev_accum_hash);
-
-    void accumulate_hiding_kernel(ClientCircuit& circuit, const std::shared_ptr<MegaVerificationKey>& precomputed_vk);
 
     void accumulate_and_fold(ClientCircuit& circuit,
                              const std::shared_ptr<MegaVerificationKey>& precomputed_vk,

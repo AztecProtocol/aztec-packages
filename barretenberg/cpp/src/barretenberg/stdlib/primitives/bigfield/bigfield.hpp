@@ -75,15 +75,31 @@ template <typename Builder, typename T> class bigfield {
     Builder* context;
 
     /**
-     * @brief Represents a bigfield element in the binary basis. A bigfield element is represented as a combination of 4
-     * binary basis limbs: a = a[0] + a[1] * 2^L + a[2] * 2^2L + a[3] * 2^3L.
+     * @brief Read-only access to a binary basis limb (element + maximum_value).
      */
-    mutable std::array<Limb, NUM_LIMBS> binary_basis_limbs;
+    const Limb& get_limb(size_t i) const { return binary_basis_limbs[i]; }
 
     /**
-     * @brief Represents a bigfield element in the prime basis: (a mod n) where n is the native modulus.
+     * @brief Read-only access to the prime basis limb.
      */
-    mutable field_t<Builder> prime_basis_limb;
+    const field_t<Builder>& get_prime_basis_limb() const { return prime_basis_limb; }
+
+    /**
+     * @brief Set the maximum_value of a binary basis limb.
+     *
+     * @details This is the only legitimate external mutator: callers (e.g. ROM-backed lookups and ECDSA) need to
+     * tighten the bookkeeping on the limb's maximum value after constructing a bigfield through one of the
+     * `unsafe_construct_from_limbs` paths. The witness values themselves are never mutated through this API.
+     */
+    void set_limb_max(size_t i, const uint256_t& m)
+    {
+#ifndef NDEBUG
+        BB_ASSERT_LTE(uint256_t(binary_basis_limbs[i].element.get_value()),
+                      m,
+                      "bigfield::set_limb_max: new max is below current witness value");
+#endif
+        binary_basis_limbs[i].maximum_value = m;
+    }
 
     /**
      * @brief Constructs a new bigfield object from two field elements representing the low and high bits.
@@ -249,6 +265,15 @@ template <typename Builder, typename T> class bigfield {
         result.binary_basis_limbs[3] =
             Limb(field_t(d), can_overflow ? DEFAULT_MAXIMUM_LIMB : DEFAULT_MAXIMUM_MOST_SIGNIFICANT_LIMB);
         result.prime_basis_limb = prime_limb;
+
+#ifndef NDEBUG
+        std::array<bb::fr, NUM_LIMBS> limbs = { a.get_value(), b.get_value(), c.get_value(), d.get_value() };
+        bb::fr shift(uint256_t(1) << NUM_LIMB_BITS);
+        bb::fr reconstructed_value =
+            limbs[0] + (limbs[1] * shift) + (limbs[2] * shift * shift) + (limbs[3] * shift * shift * shift);
+        bb::fr prime_limb_native = prime_limb.get_value();
+        BB_ASSERT_EQ(reconstructed_value, prime_limb_native);
+#endif
         return result;
     };
 
@@ -949,6 +974,24 @@ template <typename Builder, typename T> class bigfield {
 
   private:
     /**
+     * @brief Represents a bigfield element in the binary basis. A bigfield element is represented as a combination of 4
+     * binary basis limbs: a = a[0] + a[1] * 2^L + a[2] * 2^2L + a[3] * 2^3L.
+     *
+     * @details `mutable` because `self_reduce()` and `reduction_check()` are logically-const operations that rewrite
+     * the in-circuit representation while preserving the logical value.
+     */
+    mutable std::array<Limb, NUM_LIMBS> binary_basis_limbs;
+
+    /**
+     * @brief Represents a bigfield element in the prime basis: (a mod n) where n is the native modulus.
+     *
+     * @details `mutable` for the same reason as `binary_basis_limbs`. The invariant
+     * `prime_basis_limb = Σ binary_basis_limbs[i].element · 2^(64·i)` (in the native field) is maintained by every
+     * write inside the class. External writers may only mutate `maximum_value` via `set_limb_max`.
+     */
+    mutable field_t<Builder> prime_basis_limb;
+
+    /**
      * @brief Assert that the current bigfield is less than the given upper limit.
      *
      * @param upper_limit
@@ -1182,6 +1225,25 @@ class bigfield_test_access {
     {
         bigfield::unsafe_evaluate_multiple_multiply_add(
             input_left, input_right, to_add, input_quotient, input_remainders);
+    }
+
+    template <typename bigfield>
+    static void set_limb_element(bigfield& bf, size_t i, const typename bigfield::field_ct& v)
+    {
+        bf.binary_basis_limbs[i].element = v;
+    }
+
+    template <typename bigfield> static void set_prime_basis_limb(bigfield& bf, const typename bigfield::field_ct& v)
+    {
+        bf.prime_basis_limb = v;
+    }
+
+    template <typename bigfield> static void fix_witness_in_place(const bigfield& bf)
+    {
+        for (size_t i = 0; i < bigfield::NUM_LIMBS; ++i) {
+            bf.binary_basis_limbs[i].element.fix_witness();
+        }
+        bf.prime_basis_limb.fix_witness();
     }
 };
 

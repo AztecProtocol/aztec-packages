@@ -101,7 +101,7 @@ template <typename Flavor, class IO>
 typename UltraVerifier_<Flavor, IO>::ReductionResult UltraVerifier_<Flavor, IO>::reduce_to_pairing_check(
     const typename UltraVerifier_<Flavor, IO>::Proof& proof)
 {
-    using Shplemini = ShpleminiVerifier_<Curve, Flavor::HasZK>;
+    using Shplemini = ShpleminiVerifier_<Curve, Flavor::HasZK, flavor_has_gemini_masking<Flavor>()>;
     using ClaimBatcher = ClaimBatcher_<Curve>;
     using ClaimBatch = ClaimBatcher::Batch;
 
@@ -126,17 +126,14 @@ typename UltraVerifier_<Flavor, IO>::ReductionResult UltraVerifier_<Flavor, IO>:
     verifier_instance->gate_challenges =
         transcript->template get_dyadic_powers_of_challenge<FF>("Sumcheck:gate_challenge", log_n);
 
-    // Get the witness commitments that the verifier needs to verify
-    VerifierCommitments commitments{ verifier_instance->get_vk(), verifier_instance->witness_commitments };
-    // For ZK flavors with Gemini masking: set gemini_masking_poly commitment from accumulator
-    if constexpr (flavor_has_gemini_masking<Flavor>()) {
-        commitments.gemini_masking_poly = verifier_instance->gemini_masking_commitment;
-    }
+    auto commitments = VerifierCommitmentsConstructor<Flavor>::construct(verifier_instance->get_vk(),
+                                                                         verifier_instance->witness_commitments,
+                                                                         verifier_instance->gemini_masking_commitment);
 
     // Construct the sumcheck verifier
     SumcheckVerifier<Flavor> sumcheck(transcript, verifier_instance->alpha, log_n);
     // Receive commitments to Libra masking polynomials for ZKFlavors
-    std::array<Commitment, NUM_LIBRA_COMMITMENTS> libra_commitments = {};
+    std::array<Commitment, NUM_SMALL_IPA_COMMITMENTS> libra_commitments = {};
 
     if constexpr (Flavor::HasZK) {
         libra_commitments[0] = transcript->template receive_from_prover<Commitment>("Libra:concatenation_commitment");

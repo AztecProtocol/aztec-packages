@@ -27,7 +27,6 @@ impl TestBuilder {
             vk_tree_root: self.private_call.vk_tree_root,
             protocol_contracts: self.private_call.protocol_contracts,
             is_private_only: self.is_private_only,
-            first_nullifier_hint: self.first_nullifier_hint,
             revertible_counter_hint: self.revertible_counter_hint,
         };
 
