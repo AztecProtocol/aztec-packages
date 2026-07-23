@@ -241,16 +241,43 @@ describe('SenderTaggingStore', () => {
 
       it('throws after pending txs exhaust window', async () => {
         // One single-index pending tx per index, mirroring how an un-mined backlog accumulates one log per tx on a
-        // shared secret (e.g. the self-send chain in bench_build_block). A fresh secret treats the
-        // finalized floor as 0, so indexes 0..WINDOW fit...
-        for (let i = 0; i <= UNFINALIZED_TAGGING_INDEXES_WINDOW_LEN; i++) {
+        // shared secret (e.g. the self-send chain in bench_build_block). A fresh secret treats the finalized floor
+        // as virtual index -1, so exactly WINDOW_LEN indexes (0..WINDOW_LEN - 1) fit...
+        for (let i = 0; i < UNFINALIZED_TAGGING_INDEXES_WINDOW_LEN; i++) {
           await taggingStore.storePendingIndexes([range(secret1, i)], TxHash.random(), 'test');
         }
 
         // ...and the next tx throws, even with a single additional tag.
         await expect(
           taggingStore.storePendingIndexes(
-            [range(secret1, UNFINALIZED_TAGGING_INDEXES_WINDOW_LEN + 1)],
+            [range(secret1, UNFINALIZED_TAGGING_INDEXES_WINDOW_LEN)],
+            TxHash.random(),
+            'test',
+          ),
+        ).rejects.toThrow(/configured too low/);
+      });
+
+      it('permits exactly WINDOW_LEN pending indexes for a fresh secret', async () => {
+        // With nothing finalized, the last permitted pending index is WINDOW_LEN - 1: the same WINDOW_LEN-sized
+        // allowance a secret gets after any real finalization ([f + 1, f + WINDOW_LEN]), anchored at virtual
+        // finalized index -1. This must never exceed what the sender-sync first window probes ([0, WINDOW_LEN)),
+        // or two stores sharing a secret could pick colliding indexes.
+        await taggingStore.storePendingIndexes(
+          [range(secret1, 0, MAX_PRIVATE_LOGS_PER_TX - 1)],
+          TxHash.random(),
+          'test',
+        );
+        await expect(
+          taggingStore.storePendingIndexes(
+            [range(secret1, MAX_PRIVATE_LOGS_PER_TX, UNFINALIZED_TAGGING_INDEXES_WINDOW_LEN - 1)],
+            TxHash.random(),
+            'test',
+          ),
+        ).resolves.not.toThrow();
+
+        await expect(
+          taggingStore.storePendingIndexes(
+            [range(secret1, UNFINALIZED_TAGGING_INDEXES_WINDOW_LEN)],
             TxHash.random(),
             'test',
           ),

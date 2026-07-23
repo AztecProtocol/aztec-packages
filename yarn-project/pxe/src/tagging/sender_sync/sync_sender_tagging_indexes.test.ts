@@ -474,33 +474,6 @@ describe('syncSenderTaggingIndexes', () => {
     expect(await taggingStore.getLastUsedIndex(secret, 'test')).toBe(4);
   });
 
-  it('discovers a pending tx at the last permitted index for a fresh secret', async () => {
-    await setUp();
-
-    const boundaryIndex = UNFINALIZED_TAGGING_INDEXES_WINDOW_LEN;
-    const pendingTxHash = TxHash.random();
-    const tagBelowBoundary = await computeSiloedTagForIndex(boundaryIndex - 1);
-    const tagAtBoundary = await computeSiloedTagForIndex(boundaryIndex);
-
-    aztecNode.getPrivateLogsByTags.mockImplementation(query => {
-      const tags = query.tags as SiloedTag[];
-      return Promise.resolve(
-        tags.map((tag: SiloedTag) =>
-          tag.equals(tagBelowBoundary) || tag.equals(tagAtBoundary) ? [makeLog(pendingTxHash, tag.value)] : [],
-        ),
-      );
-    });
-
-    // The tx is mined but not finalized, so no finalized index shows up and the sync stops after its first window.
-    aztecNode.getTxReceipt.mockResolvedValue(mined(pendingTxHash, TxStatus.PROPOSED, 14));
-
-    await syncSenderTaggingIndexes(secret, aztecNode, taggingStore, MOCK_ANCHOR_BLOCK_HASH, 'test');
-
-    expect(await taggingStore.getLastFinalizedIndex(secret, 'test')).toBeUndefined();
-    // The next index this PXE would pick is last used + 1, so the boundary index the tx used must be covered.
-    expect(await taggingStore.getLastUsedIndex(secret, 'test')).toBe(boundaryIndex);
-  });
-
   /**
    * Cross-device straddle: another PXE sharing this directional secret sent a tx, and an earlier window discovered
    * only part of its index range, so the store already tracks a narrower entry for the same (secret, txHash).
@@ -547,6 +520,33 @@ describe('syncSenderTaggingIndexes', () => {
     expect(await taggingStore.getLastFinalizedIndex(secret, 'test')).toBeUndefined();
   });
 
+  it('discovers a pending tx at the last permitted index for a fresh secret', async () => {
+    await setUp();
+
+    // With nothing finalized the store permits pending indexes up to WINDOW_LEN - 1 (virtual finalized index -1),
+    // and the sync loop never extends its first window without a finalized-index change, so that first window alone
+    // must reach the last permitted index. If it stops short, another PXE's still-pending tx at that index goes
+    // undiscovered and the next locally chosen index collides with its onchain tag.
+    const lastPermittedIndex = UNFINALIZED_TAGGING_INDEXES_WINDOW_LEN - 1;
+    const pendingTxHash = TxHash.random();
+    const tagAtLastPermitted = await computeSiloedTagForIndex(lastPermittedIndex);
+
+    aztecNode.getPrivateLogsByTags.mockImplementation(query => {
+      const tags = query.tags as SiloedTag[];
+      return Promise.resolve(
+        tags.map((tag: SiloedTag) => (tag.equals(tagAtLastPermitted) ? [makeLog(pendingTxHash, tag.value)] : [])),
+      );
+    });
+
+    // The tx is mined but not finalized, so the finalized index stays unset and the sync stops after its first window.
+    aztecNode.getTxReceipt.mockResolvedValue(mined(pendingTxHash, TxStatus.PROPOSED, 14));
+
+    await syncSenderTaggingIndexes(secret, aztecNode, taggingStore, MOCK_ANCHOR_BLOCK_HASH, 'test');
+
+    expect(await taggingStore.getLastFinalizedIndex(secret, 'test')).toBeUndefined();
+    expect(await taggingStore.getLastUsedIndex(secret, 'test')).toBe(lastPermittedIndex);
+  });
+
   /**
    * Single-sync window straddle: a foreign tx's tags span the boundary between two consecutive sync windows, so the
    * window loop assembles the tx's range piecewise — window 1 stores the lower index, window 2 evidences the higher
@@ -556,18 +556,14 @@ describe('syncSenderTaggingIndexes', () => {
   it('assembles a pending range piecewise when a tx straddles the sync window boundary', async () => {
     await setUp();
 
-    // A tx finalized at index 1 makes the finalized index advance during window 1, so the loop proceeds to window 2.
-    // The finalized index must be strictly greater than (finalizedIndex ?? 0) for the window advance formula
-    // `end = newFinalizedIndex + WINDOW_LEN + 1` to actually extend past the first window's end.
+    // A tx finalized at index 0 makes the finalized index advance during window 1, so the loop proceeds to window 2.
     const finalizedTxHash = TxHash.random();
-    const finalizedTag = await computeSiloedTagForIndex(1);
+    const finalizedTag = await computeSiloedTagForIndex(0);
 
-    // The straddling tx used the last index of window 1 and the first index of window 2. With nothing finalized yet,
-    // window 1 for a fresh secret probes [0, WINDOW_LEN] inclusive, so the last index of window 1 is WINDOW_LEN and
-    // window 2 (after finalized advances to 1) then probes [WINDOW_LEN + 1, WINDOW_LEN + 2).
+    // The straddling tx used the last index of window 1 and the first index of window 2.
     const straddlingTxHash = TxHash.random();
-    const lowerStraddleIndex = UNFINALIZED_TAGGING_INDEXES_WINDOW_LEN;
-    const upperStraddleIndex = UNFINALIZED_TAGGING_INDEXES_WINDOW_LEN + 1;
+    const lowerStraddleIndex = UNFINALIZED_TAGGING_INDEXES_WINDOW_LEN - 1;
+    const upperStraddleIndex = UNFINALIZED_TAGGING_INDEXES_WINDOW_LEN;
     const lowerStraddleTag = await computeSiloedTagForIndex(lowerStraddleIndex);
     const upperStraddleTag = await computeSiloedTagForIndex(upperStraddleIndex);
 
@@ -606,7 +602,7 @@ describe('syncSenderTaggingIndexes', () => {
     expect(queriedTags[0].some(tag => tag.equals(lowerStraddleTag))).toBe(true);
     expect(queriedTags[1].some(tag => tag.equals(upperStraddleTag))).toBe(true);
 
-    expect(await taggingStore.getLastFinalizedIndex(secret, 'test')).toBe(1);
+    expect(await taggingStore.getLastFinalizedIndex(secret, 'test')).toBe(0);
     // The next index choice must account for both straddled onchain tags.
     expect(await taggingStore.getLastUsedIndex(secret, 'test')).toBe(upperStraddleIndex);
 

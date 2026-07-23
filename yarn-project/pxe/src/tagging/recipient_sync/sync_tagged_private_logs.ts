@@ -147,6 +147,9 @@ function getIndexRangesForSecrets(
           : await taggingStore.getHighestAgedIndex(secret, jobId);
       const start = highestIndexBeforeStart === undefined ? 0 : highestIndexBeforeStart + 1;
 
+      // Deliberately `?? 0` rather than the `?? -1` the sender-side permit uses: scanning one index past the
+      // fresh-secret permit costs a single extra tag and keeps discovering txs sent by clients from before the
+      // permit was anchored at virtual finalized index -1.
       const end = (currentHighestFinalizedIndex ?? 0) + UNFINALIZED_TAGGING_INDEXES_WINDOW_LEN + 1;
 
       return { secret, start, end };
