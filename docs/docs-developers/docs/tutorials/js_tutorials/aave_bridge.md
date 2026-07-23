@@ -110,7 +110,7 @@ Start with the Hardhat + Aztec template. This provides a pre-configured Hardhat 
 
 This template is a community-maintained starter. If the repository is unavailable, you can set up a Hardhat project manually and add the `@aztec/*` Solidity remappings from the [cross-chain messaging docs](../../foundational-topics/ethereum-aztec-messaging/index.md).
 
-If the template still pins `@aztec/l1-contracts` as a git dependency, replace it in `package.json` with the `@aztec/l1-artifacts` npm package at the version matching your Aztec version, e.g.:
+You may need to replace the `@aztec/l1-contracts` dependency in `package.json` with the `@aztec/l1-artifacts` npm package at the version matching your Aztec version, e.g.:
 
 ```json
 "@aztec/l1-artifacts": "5.0.1"
