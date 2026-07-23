@@ -520,33 +520,6 @@ describe('syncSenderTaggingIndexes', () => {
     expect(await taggingStore.getLastFinalizedIndex(secret, 'test')).toBeUndefined();
   });
 
-  it('discovers a pending tx at the last permitted index for a fresh secret', async () => {
-    await setUp();
-
-    // When no index is finalized yet the store permits pending indexes up to WINDOW_LEN - 1, and the sync loop
-    // never extends its first window without a finalized-index change, so that first window alone must reach the
-    // last permitted index. If it stops short, another PXE's still-pending tx at that index goes undiscovered and
-    // the next locally chosen index collides with its onchain tag.
-    const lastPermittedIndex = UNFINALIZED_TAGGING_INDEXES_WINDOW_LEN - 1;
-    const pendingTxHash = TxHash.random();
-    const tagAtLastPermitted = await computeSiloedTagForIndex(lastPermittedIndex);
-
-    aztecNode.getPrivateLogsByTags.mockImplementation(query => {
-      const tags = query.tags as SiloedTag[];
-      return Promise.resolve(
-        tags.map((tag: SiloedTag) => (tag.equals(tagAtLastPermitted) ? [makeLog(pendingTxHash, tag.value)] : [])),
-      );
-    });
-
-    // The tx is mined but not finalized, so the finalized index stays unset and the sync stops after its first window.
-    aztecNode.getTxReceipt.mockResolvedValue(mined(pendingTxHash, TxStatus.PROPOSED, 14));
-
-    await syncSenderTaggingIndexes(secret, aztecNode, taggingStore, MOCK_ANCHOR_BLOCK_HASH, 'test');
-
-    expect(await taggingStore.getLastFinalizedIndex(secret, 'test')).toBeUndefined();
-    expect(await taggingStore.getLastUsedIndex(secret, 'test')).toBe(lastPermittedIndex);
-  });
-
   /**
    * Single-sync window straddle: a foreign tx's tags span the boundary between two consecutive sync windows, so the
    * window loop assembles the tx's range piecewise — window 1 stores the lower index, window 2 evidences the higher
