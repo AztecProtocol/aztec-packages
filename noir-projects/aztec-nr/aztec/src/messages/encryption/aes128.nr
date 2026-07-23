@@ -69,7 +69,6 @@ fn extract_many_close_to_uniformly_random_256_bits_using_poseidon2<let N: u32>(s
     *
     * If you're calling this function for a differently-derived `s_app`, be careful.
     */
-    
 
     /* The output of this function needs to be 32 random bytes.
      * A single field won't give us 32 bytes of entropy. So we compute two "random" fields, by poseidon-hashing
