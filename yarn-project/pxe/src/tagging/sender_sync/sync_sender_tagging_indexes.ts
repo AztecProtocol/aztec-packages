@@ -49,9 +49,8 @@ export async function syncSenderTaggingIndexes(
   const finalizedIndex = await taggingStore.getLastFinalizedIndex(secret, jobId);
 
   let start = finalizedIndex === undefined ? 0 : finalizedIndex + 1;
-  // Equal to (finalizedIndex ?? -1) + WINDOW_LEN + 1, i.e. one past the store's permitted pending bound (see
-  // `#storePendingIndexes`) and consistent with the window advance below. The loop only extends the window when the
-  // finalized index moves, so this first window must cover the entire permitted range on its own.
+  // The loop only extends the window when the finalized index moves,
+  // so this first window must cover the entire permitted range on its own.
   let end = start + UNFINALIZED_TAGGING_INDEXES_WINDOW_LEN;
 
   let previousFinalizedIndex = finalizedIndex;
