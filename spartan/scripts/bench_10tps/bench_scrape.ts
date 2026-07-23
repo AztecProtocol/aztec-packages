@@ -840,6 +840,32 @@ const PROVING_INFRA_DEFS: Record<string, TimeSeriesDef> = {
     unit: "count",
     query: queueRateByJobType("aztec_proving_queue_resolved_jobs_count"),
   },
+  // Epoch proving: how long the prover node takes to prove a job (epoch) and how
+  // much it has proven. The headline real-proving signal — compare against the
+  // epoch wall-clock (AZTEC_PROOF_SUBMISSION_EPOCHS * epoch duration).
+  epochProvingDurationP50: {
+    metric: "aztec_prover_node_job_duration",
+    unit: "s",
+    query: proverNodeHist(0.5, "aztec_prover_node_job_duration_seconds_bucket"),
+  },
+  epochProvingDurationP99: {
+    metric: "aztec_prover_node_job_duration",
+    unit: "s",
+    query: proverNodeHist(
+      0.99,
+      "aztec_prover_node_job_duration_seconds_bucket",
+    ),
+  },
+  provenBlocks: {
+    metric: "aztec_prover_node_job_blocks",
+    unit: "count",
+    query: `sum(aztec_prover_node_job_blocks${NS})`,
+  },
+  provenTransactions: {
+    metric: "aztec_prover_node_job_transactions",
+    unit: "count",
+    query: `sum(aztec_prover_node_job_transactions${NS})`,
+  },
 };
 
 // Scrape a map of slug -> PromQL def via query_range. One failing query emits an
@@ -1218,6 +1244,7 @@ type BlockRecord = {
   silentlySkippedCount: number;
   silentlySkippedDurationMs: number;
   buildDurationSeconds: number;
+  manaPerSec?: number;
   totalPublicGas?: { daGas: number; l2Gas: number };
   totalSizeInBytes?: number;
   source: "log";
@@ -1313,6 +1340,9 @@ async function scrapeBlocks(
           ? finiteOrZero(numberPayloadField(processorPayload ?? {}, "duration"))
           : finiteOrZero(numberPayloadField(built.jsonPayload, "duration")) /
             1000,
+      manaPerSec: numberOrUndefined(
+        numberPayloadField(built?.jsonPayload ?? {}, "manaPerSec"),
+      ),
       totalPublicGas: processorPayload?.totalPublicGas as
         | { daGas: number; l2Gas: number }
         | undefined,
