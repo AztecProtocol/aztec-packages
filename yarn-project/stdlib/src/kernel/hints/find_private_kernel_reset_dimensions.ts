@@ -1,8 +1,7 @@
-import { isDefined } from '@aztec/foundation/types';
-
 import {
   PrivateKernelResetDimensions,
   type PrivateKernelResetDimensionsConfig,
+  type ResetCatalogEntry,
   privateKernelResetDimensionNames,
 } from '../private_kernel_reset_dimensions.js';
 
@@ -10,13 +9,6 @@ interface DimensionOption {
   dimensions: PrivateKernelResetDimensions;
   cost: number;
   remainder?: PrivateKernelResetDimensions;
-}
-
-function computeCost(dimensions: PrivateKernelResetDimensions, config: PrivateKernelResetDimensionsConfig) {
-  return privateKernelResetDimensionNames.reduce(
-    (accum, name) => accum + dimensions[name] * config.dimensions[name].cost,
-    0,
-  );
 }
 
 function getSize(dimensions: PrivateKernelResetDimensions) {
@@ -38,124 +30,42 @@ function getRemainder(
   return remainingDimensions ? remainder : undefined;
 }
 
-function pickFromValues(targetValue: number, values: number[]) {
-  // Find the min value in `values` that's greater than or equal to `targetValue`.
-  const minGte = values.reduce(
-    (prev: number | undefined, curr) => (curr >= targetValue && (prev === undefined || curr < prev) ? curr : prev),
-    undefined,
-  );
-
-  // If no such value is found, returns the max value.
-  return minGte ?? Math.max(...values);
-}
-
-function pickCheapest(options: DimensionOption[]) {
-  return options.reduce((prev, curr) => (curr.cost < prev.cost ? curr : prev), options[0]);
-}
-
-function pickSmallestRemainder(options: DimensionOption[]) {
-  const optionsWithSize = options
-    .filter(o => o.remainder)
-    .map(option => ({ option, size: getSize(option.remainder!) }));
-  return optionsWithSize.reduce((prev, curr) => (curr.size < prev.size ? curr : prev), optionsWithSize[0])?.option;
-}
-
-function pickBestOption(options: DimensionOption[]) {
-  const optionsResetAll = options.filter(opt => !opt.remainder);
-  const optionsResetPartial = options.filter(opt => opt.remainder);
-  // The best option is the cheapest one that can reset all dimensions.
-  // If no such option exists, find one that can reset the most data.
-  return pickCheapest(optionsResetAll) || pickSmallestRemainder(optionsResetPartial);
-}
-
-function findVariant(
-  requestedDimensions: PrivateKernelResetDimensions,
-  config: PrivateKernelResetDimensionsConfig,
-  isQualified: (dimensions: PrivateKernelResetDimensions) => boolean,
-): DimensionOption | undefined {
-  const variant = PrivateKernelResetDimensions.empty();
-  privateKernelResetDimensionNames.forEach(name => {
-    variant[name] = pickFromValues(requestedDimensions[name], config.dimensions[name].variants);
-  });
-  if (!isQualified(variant)) {
-    return;
+// Returns the cheapest option that fully covers the request, or the option with the smallest
+// remainder if none do. Caller must pass a non-empty list.
+function pickBestOption(options: DimensionOption[]): DimensionOption {
+  const fullCoverage = options.filter(opt => !opt.remainder);
+  if (fullCoverage.length) {
+    return fullCoverage.reduce((prev, curr) => (curr.cost < prev.cost ? curr : prev));
   }
-
-  return {
-    dimensions: variant,
-    cost: computeCost(variant, config),
-    remainder: getRemainder(requestedDimensions, variant),
-  };
+  return options.reduce((prev, curr) => (getSize(curr.remainder!) < getSize(prev.remainder!) ? curr : prev));
 }
 
-function findStandalone(
-  requestedDimensions: PrivateKernelResetDimensions,
-  config: PrivateKernelResetDimensionsConfig,
-  isQualified: (dimensions: PrivateKernelResetDimensions) => boolean,
-): DimensionOption | undefined {
-  const needsReset = privateKernelResetDimensionNames.filter(name => requestedDimensions[name] > 0);
-  if (needsReset.length !== 1) {
-    // At the moment, we only use standalone to reset one dimension when it's about to overflow.
-    return;
-  }
-
-  const name = needsReset[0];
-  const value = pickFromValues(requestedDimensions[name], config.dimensions[name].standalone);
-  if (!value) {
-    return;
-  }
-
-  const dimensions = PrivateKernelResetDimensions.from({ [name]: value });
-  if (!isQualified(dimensions)) {
-    return;
-  }
-
+function buildOption(entry: ResetCatalogEntry, requestedDimensions: PrivateKernelResetDimensions): DimensionOption {
+  const dimensions = PrivateKernelResetDimensions.fromValues(entry.dimensions);
   return {
     dimensions,
-    cost: computeCost(dimensions, config),
+    cost: entry.cost,
     remainder: getRemainder(requestedDimensions, dimensions),
   };
 }
 
-function findSpecialCase(
-  requestedDimensions: PrivateKernelResetDimensions,
-  config: PrivateKernelResetDimensionsConfig,
-  isQualified: (dimensions: PrivateKernelResetDimensions) => boolean,
-): DimensionOption | undefined {
-  const specialCases = config.specialCases.map(PrivateKernelResetDimensions.fromValues);
-  const options = specialCases.filter(isQualified).map(dimensions => ({
-    dimensions,
-    cost: computeCost(dimensions, config),
-    remainder: getRemainder(requestedDimensions, dimensions),
-  }));
-  return pickBestOption(options);
-}
+/**
+ * Picks which catalog group the selector should search. Mid-tx resets go to `inner` (no
+ * siloing); terminal kernels go to `finalTail` or `finalTailToPublic`, depending on whether
+ * the tx has public function calls.
+ */
+export type ResetDimensionsMode = 'inner' | 'finalTail' | 'finalTailToPublic';
 
 export function findPrivateKernelResetDimensions(
   requestedDimensions: PrivateKernelResetDimensions,
   config: PrivateKernelResetDimensionsConfig,
-  isInner = false,
+  mode: ResetDimensionsMode,
   allowRemainder = false,
 ) {
-  const requestedValues = requestedDimensions.toValues();
-  const isEnough = allowRemainder
-    ? () => true
-    : (dimensions: PrivateKernelResetDimensions) => dimensions.toValues().every((v, i) => v >= requestedValues[i]);
-
-  const isQualified = !isInner
-    ? isEnough
-    : // If isInner is true, it's a reset to prevent overflow. The following must be zero because siloing can't be done at the moment.
-      (dimensions: PrivateKernelResetDimensions) =>
-        dimensions.NOTE_HASH_SILOING === 0 &&
-        dimensions.NULLIFIER_SILOING === 0 &&
-        dimensions.PRIVATE_LOG_SILOING === 0 &&
-        isEnough(dimensions);
-
-  const options = [
-    findVariant(requestedDimensions, config, isQualified),
-    findStandalone(requestedDimensions, config, isQualified),
-    findSpecialCase(requestedDimensions, config, isQualified),
-  ].filter(isDefined);
+  const catalog = config[mode];
+  const options = catalog
+    .map(entry => buildOption(entry, requestedDimensions))
+    .filter(option => allowRemainder || !option.remainder);
 
   if (!options.length) {
     throw new Error(`Cannot find an option for dimension: ${requestedDimensions.toValues()}`);

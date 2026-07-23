@@ -24,10 +24,6 @@
 
 namespace bb::avm2 {
 
-// Maximum number of polynomials to batch commit at once.
-const size_t AVM_MAX_MSM_BATCH_SIZE =
-    getenv("AVM_MAX_MSM_BATCH_SIZE") != nullptr ? std::stoul(getenv("AVM_MAX_MSM_BATCH_SIZE")) : 32;
-
 using Flavor = AvmFlavor;
 using FF = Flavor::FF;
 
@@ -103,7 +99,7 @@ void AvmProver::execute_wire_commitments_round()
     for (const auto& [poly, label] : zip_view(prover_polynomials.get_wires(), prover_polynomials.get_wires_labels())) {
         batch.add_to_batch(poly, label);
     }
-    batch.commit_and_send_to_verifier(transcript, AVM_MAX_MSM_BATCH_SIZE);
+    batch.commit_and_send_to_verifier(transcript);
 }
 
 void AvmProver::execute_log_derivative_inverse_round()
@@ -147,7 +143,7 @@ void AvmProver::execute_log_derivative_inverse_commitments_round()
 
         batch.add_to_batch(derived_poly, label);
     }
-    batch.commit_and_send_to_verifier(transcript, AVM_MAX_MSM_BATCH_SIZE);
+    batch.commit_and_send_to_verifier(transcript);
 }
 
 /**
@@ -254,28 +250,49 @@ void AvmProver::execute_pcs_rounds()
 
     // Batch to be shifted polys in their to_be_shifted form
     // Search for poly with largest end index to avoid allocating a zero polynomial of circuit size
-    size_t max_idx = index_of_max_end_index(shifted_polys);
+    size_t max_idx_shifted = index_of_max_end_index(shifted_polys);
 
-    Polynomial batched_shifted = std::move(shifted_polys[max_idx]);
-    batched_shifted *= shifted_challenges[max_idx];
-    add_scaled_batched(batched_shifted, shifted_polys, shifted_challenges, max_idx);
+    Polynomial batched_shifted = std::move(shifted_polys[max_idx_shifted]);
+    batched_shifted *= shifted_challenges[max_idx_shifted];
+    add_scaled_batched(batched_shifted, shifted_polys, shifted_challenges, max_idx_shifted);
 
-    // Batch unshifted polys (to avoid allocating a zero polynomial of circuit size, we initialize the batched
-    // polynomial with the polynomial of the largest size)
-    max_idx = index_of_max_end_index(unshifted_polys);
+    // Batch unshifted polys
+    // Search the not to be shifted poly of max size to avoid allocating a zero polynomial of circuit size
+    // The not to be shifted polys are in the ranges [0, WIRES_TO_BE_SHIFTED_START_IDX) and
+    // [WIRES_TO_BE_SHIFTED_END_IDX, end]
+    size_t max_idx_left_side = index_of_max_end_index(unshifted_polys.subspan(0, WIRES_TO_BE_SHIFTED_START_IDX));
+    size_t max_idx_right_side = index_of_max_end_index(unshifted_polys.subspan(WIRES_TO_BE_SHIFTED_END_IDX));
+    size_t max_idx_unshifted = unshifted_polys[max_idx_left_side].end_index() >
+                                       unshifted_polys[max_idx_right_side + WIRES_TO_BE_SHIFTED_END_IDX].end_index()
+                                   ? max_idx_left_side
+                                   : max_idx_right_side + WIRES_TO_BE_SHIFTED_END_IDX;
 
-    Polynomial batched_unshifted = std::move(unshifted_polys[max_idx]);
-    batched_unshifted *= unshifted_challenges[max_idx];
-    batched_unshifted += batched_shifted;
+    // Assign the batched unshifted polynomial according to whether the largest poly was among the to be shifted polys
+    // or not
+    Polynomial batched_unshifted;
+    if (unshifted_polys[max_idx_unshifted].end_index() > batched_shifted.end_index()) {
+        batched_unshifted = std::move(unshifted_polys[max_idx_unshifted]);
+        batched_unshifted *= unshifted_challenges[max_idx_unshifted];
+        batched_unshifted += batched_shifted;
+    } else {
+        // batched_shifted has a start_index == 1 which would assert if we directly call
+        // batched_shifted.add_scaled(unshifted_polys[..]..). We therefore first initialize
+        // a zero polynomial with start_index == 0 and size = end_index.
+        batched_unshifted = Polynomial(batched_shifted.end_index());
+        batched_unshifted += batched_shifted;
+        batched_unshifted.add_scaled(unshifted_polys[max_idx_unshifted], unshifted_challenges[max_idx_unshifted]);
+    }
+
     add_scaled_batched(batched_unshifted,
                        unshifted_polys.subspan(0, WIRES_TO_BE_SHIFTED_START_IDX),
                        unshifted_challenges.subspan(0, WIRES_TO_BE_SHIFTED_START_IDX),
-                       max_idx);
+                       max_idx_unshifted);
     add_scaled_batched(batched_unshifted,
                        unshifted_polys.subspan(WIRES_TO_BE_SHIFTED_END_IDX),
                        unshifted_challenges.subspan(WIRES_TO_BE_SHIFTED_END_IDX),
-                       max_idx > WIRES_TO_BE_SHIFTED_END_IDX ? max_idx - WIRES_TO_BE_SHIFTED_END_IDX
-                                                             : unshifted_polys.size());
+                       max_idx_unshifted >= WIRES_TO_BE_SHIFTED_END_IDX
+                           ? max_idx_unshifted - WIRES_TO_BE_SHIFTED_END_IDX
+                           : unshifted_polys.size());
 
     const size_t circuit_dyadic_size = numeric::round_up_power_2(batched_unshifted.end_index());
 

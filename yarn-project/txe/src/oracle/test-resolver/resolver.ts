@@ -2,7 +2,7 @@
 import type { Logger } from '@aztec/foundation/log';
 import { createLogger } from '@aztec/foundation/log';
 import { withoutHexPrefix } from '@aztec/foundation/string';
-import { BOUNDED_VEC, BYTE, BoundedVec, Option, type OracleRegistryEntry, makeEntry } from '@aztec/pxe/simulator';
+import { BOUNDED_VEC, BoundedVec, Option, type OracleRegistryEntry, U8, makeEntry } from '@aztec/pxe/simulator';
 
 import type { ForeignCallArgs, ForeignCallResult } from '../../utils/encoding.js';
 import { toInputSlots } from '../txe_oracle_registry.js';
@@ -10,7 +10,7 @@ import { synthesizeDefaultFixtures } from './default_fixtures.js';
 
 /** Name of the meta-oracle that Noir tests call to announce the next call's scenario by name. */
 const SET_SCENARIO_ORACLE = 'aztec_oracle_test_set_scenario';
-export const SET_SCENARIO_ENTRY = makeEntry({ params: [{ name: 'name', type: BOUNDED_VEC(BYTE) }] });
+export const SET_SCENARIO_ENTRY = makeEntry({ params: [{ name: 'name', type: BOUNDED_VEC(U8) }] });
 
 export type OracleTestCallInput = {
   session_id: number;

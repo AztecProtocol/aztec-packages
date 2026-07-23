@@ -136,7 +136,7 @@ TEST(KeccakF1600ConstrainingTest, NegativeRoundCountAtWrite)
 
     EXPECT_THROW_WITH_MESSAGE(
         check_relation<keccakf1600_relation>(trace, keccakf1600_relation::SR_ROUND_COUNT_AT_WRITE),
-        "ROUND_COUNT_AT_WRITE");
+        keccakf1600_relation::get_subrelation_label(keccakf1600_relation::SR_ROUND_COUNT_AT_WRITE));
 
     // Setting round to 24 should satisfy the constraint.
     trace.set(C::keccakf1600_round, 1, 24);
@@ -163,7 +163,7 @@ TEST(KeccakF1600ConstrainingTest, NegativeTraceContinuity)
 
     // sel drops from 1 to 0 at row 1 without end == 1, so this should fail.
     EXPECT_THROW_WITH_MESSAGE(check_relation<keccakf1600_relation>(trace, keccakf1600_relation::SR_TRACE_CONTINUITY),
-                              "TRACE_CONTINUITY");
+                              keccakf1600_relation::get_subrelation_label(keccakf1600_relation::SR_TRACE_CONTINUITY));
 
     // Setting end=1 on row 1 should satisfy the constraint.
     trace.set(C::keccakf1600_end, 1, 1);

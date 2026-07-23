@@ -60,7 +60,7 @@ TYPED_TEST(PartialEvaluationTests, TwoRoundsSpecial)
     f0.template copy_vector<FF>({ v00, v10, v01, v11 });
 
     typename Flavor::ProverPolynomials full_polynomials;
-    full_polynomials.q_m = f0;
+    full_polynomials.q_m() = f0;
     auto transcript = Transcript::test_prover_init_empty();
     FF alpha = FF(1);
     std::vector<FF> gate_challenges{ 1, 1 };
@@ -75,7 +75,7 @@ TYPED_TEST(PartialEvaluationTests, TwoRoundsSpecial)
 
     auto partially_evaluated_polynomials = sumcheck.partially_evaluate_first_round(full_polynomials, round_challenge_0);
 
-    auto& first_polynomial = partially_evaluated_polynomials.get_all()[0];
+    auto& first_polynomial = partially_evaluated_polynomials.q_m();
     EXPECT_EQ(first_polynomial[0], round_challenge_0);
     EXPECT_EQ(first_polynomial[1], FF(0));
 
@@ -107,7 +107,7 @@ TYPED_TEST(PartialEvaluationTests, TwoRoundsGeneric)
     auto transcript = Transcript::test_prover_init_empty();
     FF alpha = FF(1);
     typename Flavor::ProverPolynomials full_polynomials;
-    full_polynomials.q_m = f0;
+    full_polynomials.q_m() = f0;
     std::vector<FF> gate_challenges{ 1, 1 };
 
     SumcheckProver<Flavor> sumcheck(
@@ -118,7 +118,7 @@ TYPED_TEST(PartialEvaluationTests, TwoRoundsGeneric)
     FF expected_hi = v01 * (FF(1) - round_challenge_0) + v11 * round_challenge_0;
 
     auto partially_evaluated_polynomials = sumcheck.partially_evaluate_first_round(full_polynomials, round_challenge_0);
-    auto& first_polynomial = partially_evaluated_polynomials.get_all()[0];
+    auto& first_polynomial = partially_evaluated_polynomials.q_m();
 
     EXPECT_EQ(first_polynomial[0], expected_lo);
     EXPECT_EQ(first_polynomial[1], expected_hi);
@@ -174,7 +174,7 @@ TYPED_TEST(PartialEvaluationTests, ThreeRoundsSpecial)
     f0.template copy_vector<FF>({ v000, v100, v010, v110, v001, v101, v011, v111 });
 
     typename Flavor::ProverPolynomials full_polynomials;
-    full_polynomials.q_m = f0;
+    full_polynomials.q_m() = f0;
     auto transcript = Transcript::test_prover_init_empty();
     FF alpha = FF(1);
 
@@ -191,7 +191,7 @@ TYPED_TEST(PartialEvaluationTests, ThreeRoundsSpecial)
 
     auto partially_evaluated_polynomials = sumcheck.partially_evaluate_first_round(full_polynomials, round_challenge_0);
 
-    auto& first_polynomial = partially_evaluated_polynomials.get_all()[0];
+    auto& first_polynomial = partially_evaluated_polynomials.q_m();
     EXPECT_EQ(first_polynomial[0], expected_q1);
     EXPECT_EQ(first_polynomial[1], expected_q2);
     EXPECT_EQ(first_polynomial[2], expected_q3);
@@ -234,7 +234,7 @@ TYPED_TEST(PartialEvaluationTests, ThreeRoundsGeneric)
     f0.template copy_vector<FF>({ v000, v100, v010, v110, v001, v101, v011, v111 });
 
     typename Flavor::ProverPolynomials full_polynomials;
-    full_polynomials.q_m = f0;
+    full_polynomials.q_m() = f0;
 
     auto transcript = Transcript::test_prover_init_empty();
     FF alpha = FF(1);
@@ -250,7 +250,7 @@ TYPED_TEST(PartialEvaluationTests, ThreeRoundsGeneric)
     FF expected_q4 = v011 * (FF(1) - round_challenge_0) + v111 * round_challenge_0;
 
     auto partially_evaluated_polynomials = sumcheck.partially_evaluate_first_round(full_polynomials, round_challenge_0);
-    auto& first_polynomial = partially_evaluated_polynomials.get_all()[0];
+    auto& first_polynomial = partially_evaluated_polynomials.q_m();
 
     EXPECT_EQ(first_polynomial[0], expected_q1);
     EXPECT_EQ(first_polynomial[1], expected_q2);
@@ -305,10 +305,11 @@ TYPED_TEST(PartialEvaluationTests, ThreeRoundsGenericMultiplePolys)
     f2.template copy_vector<FF>({ v000[2], v100[2], v010[2], v110[2], v001[2], v101[2], v011[2], v111[2] });
 
     typename Flavor::ProverPolynomials full_polynomials;
-    // Set the first 3 ProverPolynomials
-    full_polynomials.q_m = f0;
-    full_polynomials.q_c = f1;
-    full_polynomials.q_l = f2;
+    // Assign the first three ProverPolynomials in layout order (Ultra's EntityId layout starts
+    // q_m, q_l, q_r) so that `get_all()[0..2]` lines up with f0/f1/f2.
+    full_polynomials.q_m() = f0;
+    full_polynomials.q_l() = f1;
+    full_polynomials.q_r() = f2;
     auto transcript = Transcript::test_prover_init_empty();
     FF alpha = FF(1);
     std::vector<FF> gate_challenges{ 1, 1, 1 };
@@ -329,12 +330,14 @@ TYPED_TEST(PartialEvaluationTests, ThreeRoundsGenericMultiplePolys)
     }
 
     auto partially_evaluated_polynomials = sumcheck.partially_evaluate_first_round(full_polynomials, round_challenge_0);
-    auto polynomial_get_all = partially_evaluated_polynomials.get_all();
+    std::array<std::reference_wrapper<Polynomial>, 3> polys{ partially_evaluated_polynomials.q_m(),
+                                                             partially_evaluated_polynomials.q_l(),
+                                                             partially_evaluated_polynomials.q_r() };
     for (size_t i = 0; i < 3; i++) {
-        EXPECT_EQ((polynomial_get_all[i])[0], expected_q1[i]);
-        EXPECT_EQ((polynomial_get_all[i])[1], expected_q2[i]);
-        EXPECT_EQ((polynomial_get_all[i])[2], expected_q3[i]);
-        EXPECT_EQ((polynomial_get_all[i])[3], expected_q4[i]);
+        EXPECT_EQ(polys[i].get()[0], expected_q1[i]);
+        EXPECT_EQ(polys[i].get()[1], expected_q2[i]);
+        EXPECT_EQ(polys[i].get()[2], expected_q3[i]);
+        EXPECT_EQ(polys[i].get()[3], expected_q4[i]);
     }
 
     FF round_challenge_1 = FF::random_element();
@@ -346,8 +349,8 @@ TYPED_TEST(PartialEvaluationTests, ThreeRoundsGenericMultiplePolys)
     }
     sumcheck.partially_evaluate_in_place(partially_evaluated_polynomials, round_challenge_1);
     for (size_t i = 0; i < 3; i++) {
-        EXPECT_EQ((polynomial_get_all[i])[0], expected_lo[i]);
-        EXPECT_EQ((polynomial_get_all[i])[1], expected_hi[i]);
+        EXPECT_EQ(polys[i].get()[0], expected_lo[i]);
+        EXPECT_EQ(polys[i].get()[1], expected_hi[i]);
     }
     FF round_challenge_2 = FF::random_element();
     std::array<FF, 3> expected_val;
@@ -356,6 +359,6 @@ TYPED_TEST(PartialEvaluationTests, ThreeRoundsGenericMultiplePolys)
     }
     sumcheck.partially_evaluate_in_place(partially_evaluated_polynomials, round_challenge_2);
     for (size_t i = 0; i < 3; i++) {
-        EXPECT_EQ((polynomial_get_all[i])[0], expected_val[i]);
+        EXPECT_EQ(polys[i].get()[0], expected_val[i]);
     }
 }

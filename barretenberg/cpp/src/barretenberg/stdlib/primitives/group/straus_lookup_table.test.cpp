@@ -195,3 +195,34 @@ TYPED_TEST(StrausLookupTableTest, TestInfinityBasePoint)
         check_circuit_and_gate_count(builder, 67);
     }
 }
+
+/**
+ * When table_index = 0 and all the wires contributing to the lookup term are zero, the batched denominator term in the
+ * log derivative lookup relation is equal to gamma (it is independent of beta), and a malicious prover could inject a
+ * fake row anywhere in the trace balancing the lookup. This test shows this bug is not possible anymore because tables
+ * are indexed from 1.
+ *
+ */
+TYPED_TEST(StrausLookupTableTest, ZeroIndexTable)
+{
+    using Builder = TypeParam;
+    using cycle_group_ct = stdlib::cycle_group<Builder>;
+    using cycle_scalar_ct = typename cycle_group_ct::cycle_scalar;
+
+    Builder builder;
+
+    auto base = grumpkin::g1::affine_one;
+    cycle_group_ct base_ct(base);
+
+    auto scalar_value = grumpkin::fr::random_element();
+    cycle_scalar_ct scalar = cycle_scalar_ct::from_witness(&builder, scalar_value);
+
+    std::vector<cycle_group_ct> points = { base_ct };
+    std::vector<cycle_scalar_ct> scalars = { scalar };
+
+    cycle_group_ct::fixed_batch_mul(points, scalars);
+
+    const auto& tables = builder.get_lookup_tables();
+    ASSERT_FALSE(tables.empty());
+    EXPECT_EQ(tables[0].table_index, 1U) << "The first registered table should be at index 1";
+}

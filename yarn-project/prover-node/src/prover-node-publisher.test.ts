@@ -47,6 +47,68 @@ describe('prover-node-publisher', () => {
     publisher = new ProverNodePublisher(config, { rollupContract: rollup, l1TxUtils: l1Utils });
   });
 
+  const setupPublishData = (pending: number, proven: number, fromCheckpoint: number, toCheckpoint: number) => {
+    // Create public inputs for every checkpoint
+    const checkpoints = Array.from({ length: 100 }, () => {
+      return RootRollupPublicInputs.random();
+    });
+
+    // Return the tips specified by the test
+    rollup.getTips.mockResolvedValue({
+      pending: CheckpointNumber(pending),
+      proven: CheckpointNumber(proven),
+    });
+
+    // Return the requested checkpoint
+    rollup.getCheckpoint.mockImplementation((checkpointNumber: CheckpointNumber) =>
+      Promise.resolve({
+        archive: checkpoints[checkpointNumber - 1].endArchiveRoot,
+        attestationsHash: Buffer32.ZERO, // unused,
+        payloadDigest: Buffer32.ZERO, // unused,
+        headerHash: Buffer32.ZERO, // unused,
+        blobCommitmentsHash: Buffer32.ZERO, // unused,
+        outHash: '0x', // unused,
+        slotNumber: SlotNumber(0), // unused,
+        feeHeader: {
+          excessMana: 0n, // unused
+          manaUsed: 0n, // unused
+          ethPerFeeAsset: 0n, // unused
+          congestionCost: 0n, // unused
+          proverCost: 0n, // unused
+        },
+      }),
+    );
+
+    // We have built a rollup proof of the range fromCheckpoint - toCheckpoint
+    // so we need to set our archives and hashes accordingly
+    const ourPublicInputs = RootRollupPublicInputs.random();
+    ourPublicInputs.previousArchiveRoot = checkpoints[fromCheckpoint - 2]?.endArchiveRoot ?? Fr.ZERO;
+    ourPublicInputs.endArchiveRoot = checkpoints[toCheckpoint - 1]?.endArchiveRoot ?? Fr.ZERO;
+
+    const ourBatchedBlob = new BatchedBlob(
+      ourPublicInputs.blobPublicInputs.blobCommitmentsHash,
+      ourPublicInputs.blobPublicInputs.z,
+      ourPublicInputs.blobPublicInputs.y,
+      ourPublicInputs.blobPublicInputs.c,
+      ourPublicInputs.blobPublicInputs.c.negate(), // Fill with dummy value
+    );
+
+    // Return our public inputs
+    const totalFields = ourPublicInputs.toFields();
+    rollup.getEpochProofPublicInputs.mockResolvedValue(totalFields);
+
+    return {
+      epochNumber: EpochNumber(2),
+      fromCheckpoint: CheckpointNumber(fromCheckpoint),
+      toCheckpoint: CheckpointNumber(toCheckpoint),
+      publicInputs: ourPublicInputs,
+      headers: makeHeadersForRange(fromCheckpoint, toCheckpoint),
+      proof: Proof.empty(),
+      batchedBlobInputs: ourBatchedBlob,
+      attestations: [],
+    };
+  };
+
   const testCases = [
     // Usual case of proving full epoch
     { pending: 65, proven: 32, fromCheckpoint: 33, toCheckpoint: 64, expectedPublish: true, message: '' },
@@ -335,5 +397,35 @@ describe('prover-node-publisher', () => {
     });
 
     expect(result).toBe(false);
+  });
+
+  describe('proof submission target', () => {
+    it('defaults the submit tx target to the rollup address', async () => {
+      const rollupAddress = EthAddress.random().toString();
+      (rollup as any).address = rollupAddress;
+      publisher = new ProverNodePublisher(config, { rollupContract: rollup, l1TxUtils: l1Utils });
+
+      await publisher.submitEpochProof(setupPublishData(65, 32, 33, 64));
+      expect(l1Utils.sendAndMonitorTransaction).toHaveBeenCalledWith(
+        expect.objectContaining({ to: rollupAddress }),
+        expect.anything(),
+      );
+    });
+
+    it('redirects the submit tx to the configured proof submission target', async () => {
+      (rollup as any).address = EthAddress.random().toString();
+      const target = EthAddress.random();
+      publisher = new ProverNodePublisher(config, {
+        rollupContract: rollup,
+        l1TxUtils: l1Utils,
+        proofSubmissionTarget: target,
+      });
+
+      await publisher.submitEpochProof(setupPublishData(65, 32, 33, 64));
+      expect(l1Utils.sendAndMonitorTransaction).toHaveBeenCalledWith(
+        expect.objectContaining({ to: target.toString() }),
+        expect.anything(),
+      );
+    });
   });
 });

@@ -13,6 +13,7 @@ import { Checkpoint } from '@aztec/stdlib/checkpoint';
 import type { ForkMerkleTreeOperations, ITxProvider } from '@aztec/stdlib/interfaces/server';
 import type { BlockHeader, Tx } from '@aztec/stdlib/tx';
 
+import { jest } from '@jest/globals';
 import { mock } from 'jest-mock-extended';
 
 import { ProverNodeJobMetrics } from '../metrics.js';
@@ -26,6 +27,7 @@ describe('CheckpointProver', () => {
   let publicProcessorFactory: ReturnType<typeof mock<PublicProcessorFactory>>;
   let dbProvider: ReturnType<typeof mock<Pick<ForkMerkleTreeOperations, 'fork'>>>;
   let chonkCache: ReturnType<typeof mock<ChonkCache>>;
+  let onFailed: jest.Mock<(prover: CheckpointProver) => void>;
   let log: Logger;
 
   beforeEach(async () => {
@@ -36,6 +38,7 @@ describe('CheckpointProver', () => {
     publicProcessorFactory = mock<PublicProcessorFactory>();
     dbProvider = mock<Pick<ForkMerkleTreeOperations, 'fork'>>();
     chonkCache = mock<ChonkCache>();
+    onFailed = jest.fn<(prover: CheckpointProver) => void>();
     log = createLogger('test:checkpoint-prover');
 
     // Default: gather rejects fast so the eager pipeline unwinds without hanging. The
@@ -59,6 +62,7 @@ describe('CheckpointProver', () => {
       ),
       txGatheringTimeoutMs: 30_000,
       deadline: undefined,
+      onFailed,
       log,
     };
   });
@@ -95,8 +99,7 @@ describe('CheckpointProver', () => {
       expect(prover.attestations).toEqual([]);
       expect(prover.l1ToL2Messages).toEqual([]);
       expect(prover.isCancelled()).toBe(false);
-      expect(prover.isCompleted()).toBe(false);
-      expect(prover.isPruned()).toBe(false);
+      expect(prover.isFailed()).toBe(false);
       await cleanup(prover);
     });
 
@@ -104,31 +107,6 @@ describe('CheckpointProver', () => {
       const prover = makeProver();
       // The constructor kicks off gatherTxs which calls getTxsForBlock for every block.
       expect(txProvider.getTxsForBlock).toHaveBeenCalledTimes(checkpoint.blocks.length);
-      await cleanup(prover);
-    });
-  });
-
-  // ---------------- prune/canonical flag ----------------
-
-  describe('markPruned / markCanonical', () => {
-    it('markPruned flips isPruned() and is idempotent', async () => {
-      const prover = makeProver();
-      expect(prover.isPruned()).toBe(false);
-      prover.markPruned();
-      expect(prover.isPruned()).toBe(true);
-      prover.markPruned();
-      expect(prover.isPruned()).toBe(true);
-      await cleanup(prover);
-    });
-
-    it('markCanonical restores isPruned() to false and is idempotent on a non-pruned prover', async () => {
-      const prover = makeProver();
-      prover.markPruned();
-      prover.markCanonical();
-      expect(prover.isPruned()).toBe(false);
-      // No-op when already canonical.
-      prover.markCanonical();
-      expect(prover.isPruned()).toBe(false);
       await cleanup(prover);
     });
   });
@@ -156,11 +134,15 @@ describe('CheckpointProver', () => {
       await prover.whenDone();
     });
 
-    it('rejects whenBlockProofsReady()', async () => {
+    it('rejects whenBlockProofsReady() but does not mark the prover failed or fire onFailed', async () => {
+      // A cancel (reorg/prune/shutdown) is not a proving failure: isFailed() must stay false and the
+      // onFailed callback must not fire (no post-mortem upload for a cancelled prover).
       const prover = makeProver();
       const blockProofs = prover.whenBlockProofsReady();
       prover.cancel();
       await expect(blockProofs).rejects.toThrow(/cancelled/);
+      expect(prover.isFailed()).toBe(false);
+      expect(onFailed).not.toHaveBeenCalled();
       await prover.whenDone();
     });
 
@@ -185,6 +167,54 @@ describe('CheckpointProver', () => {
       expect(prover.getAbortSignal().aborted).toBe(true);
       await expect(blockProofs).rejects.toThrow(/cancelled/);
       await prover.whenDone();
+    });
+  });
+
+  // ---------------- cancellation short-circuits execution ----------------
+
+  describe('cancellation short-circuits execution', () => {
+    it('threads its abort signal into public execution so a cancel stops the current block', async () => {
+      // Drive execution into the block loop: gather resolves, the sub-tree and forks are stubbed,
+      // and public processing parks until its signal aborts. The captured signal must be the
+      // prover's own abort signal, so cancelling the prover interrupts the in-flight block rather
+      // than letting it run to completion before the next `signal.aborted` check.
+      txProvider.getTxsForBlock.mockReset();
+      txProvider.getTxsForBlock.mockResolvedValue({ txs: [], missingTxs: [] });
+
+      const subTree = {
+        getSubTreeResult: () => new Promise<never>(() => {}),
+        startNewBlock: () => Promise.resolve(),
+        startChonkVerifierCircuits: () => Promise.resolve(),
+        addTxs: () => Promise.resolve(),
+        setBlockCompleted: () => Promise.resolve(),
+        cancel: () => {},
+        stop: () => Promise.resolve(),
+      };
+      proverFactory.createCheckpointSubTreeOrchestrator.mockResolvedValue(subTree as any);
+      dbProvider.fork.mockResolvedValue({
+        appendLeaves: () => Promise.resolve(),
+        close: () => Promise.resolve(),
+      } as any);
+
+      const processReached = promiseWithResolvers<AbortSignal>();
+      const publicProcessor = {
+        process: (_txs: unknown, limits: { signal?: AbortSignal }) => {
+          processReached.resolve(limits.signal!);
+          // Park until the signal aborts, mirroring PublicProcessor's per-tx abort check.
+          return new Promise(resolve => {
+            limits.signal?.addEventListener('abort', () => resolve([[], [], [], [], []]));
+          });
+        },
+      };
+      publicProcessorFactory.create.mockReturnValue(publicProcessor as any);
+
+      const prover = makeProver();
+      const signal = await processReached.promise;
+      expect(signal.aborted).toBe(false);
+
+      prover.cancel();
+      expect(signal.aborted).toBe(true);
+      await expect(prover.whenDone()).resolves.toBeUndefined();
     });
   });
 
@@ -249,6 +279,47 @@ describe('CheckpointProver', () => {
       prover.cancel();
       expect(prover.isCancelled()).toBe(true);
       await prover.whenDone();
+    });
+  });
+
+  // ---------------- data-plane reorg fork fault ----------------
+
+  describe('data-plane reorg fault', () => {
+    it('rejects whenBlockProofsReady when a world-state fork faults mid-proof', async () => {
+      // Models the data-plane prune race: gather succeeds and the sub-tree starts, but the
+      // world-state synchronizer has already unwound the base block, so forking it faults inside
+      // executeCheckpoint. The fault must reject whenBlockProofsReady() AND mark the prover failed, so
+      // the SessionManager won't build (or rebuild) an EpochSession over it until a re-add replaces it.
+      txProvider.getTxsForBlock.mockReset();
+      txProvider.getTxsForBlock.mockResolvedValue({ txs: [], missingTxs: [] });
+
+      const subTree = {
+        getSubTreeResult: () => new Promise<never>(() => {}),
+        startNewBlock: () => Promise.resolve(),
+        startChonkVerifierCircuits: () => Promise.resolve(),
+        addTxs: () => Promise.resolve(),
+        setBlockCompleted: () => Promise.resolve(),
+        cancel: () => {},
+        stop: () => Promise.resolve(),
+      };
+      proverFactory.createCheckpointSubTreeOrchestrator.mockResolvedValue(subTree as any);
+
+      // The prune-induced fault: the base block was unwound, so forking it rejects. This is the
+      // production signal — `Unable to get meta data for block N` out of world-state.
+      dbProvider.fork.mockRejectedValue(new Error('Unable to get meta data for block 0'));
+
+      const prover = makeProver();
+
+      // blockProofs rejects: the fork error aborts the block loop before completion, so the sub-tree
+      // never yields proofs. (The raw fork error is logged; the promise settles as not-completed.)
+      await expect(prover.whenBlockProofsReady()).rejects.toThrow(/did not complete block processing/);
+      expect(dbProvider.fork).toHaveBeenCalled();
+      expect(prover.isFailed()).toBe(true);
+      // The owner is notified exactly once, with this prover, so it can upload a checkpoint post-mortem.
+      expect(onFailed).toHaveBeenCalledTimes(1);
+      expect(onFailed).toHaveBeenCalledWith(prover);
+
+      await cleanup(prover);
     });
   });
 

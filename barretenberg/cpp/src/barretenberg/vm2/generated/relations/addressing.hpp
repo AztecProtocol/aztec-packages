@@ -3,7 +3,6 @@
 
 #include <string_view>
 
-#include "barretenberg/common/bb_bench.hpp"
 #include "barretenberg/relations/relation_parameters.hpp"
 #include "barretenberg/relations/relation_types.hpp"
 #include "barretenberg/vm2/generated/columns.hpp"
@@ -77,6 +76,7 @@ template <typename FF> class addressing : public Relation<addressingImpl<FF>> {
 
     static std::string get_subrelation_label(size_t index)
     {
+#ifdef AVM_INCLUDE_COLUMN_INFORMATION
         switch (index) {
         case SR_ADDRESSING_MODE_RECONSTRUCTION:
             return "ADDRESSING_MODE_RECONSTRUCTION";
@@ -147,6 +147,7 @@ template <typename FF> class addressing : public Relation<addressingImpl<FF>> {
         case SR_NO_ADDRESSING_ERROR_IF_NOT_RESOLVING:
             return "NO_ADDRESSING_ERROR_IF_NOT_RESOLVING";
         }
+#endif
         return std::to_string(index);
     }
 };

@@ -831,9 +831,7 @@ void add_memory_op_to_block_constraint(Acir::Opcode::MemoryOp const& mem_op, Blo
 
 bool is_single_arithmetic_gate(Acir::Expression const& arg, const std::map<uint32_t, bb::fr>& linear_terms)
 {
-    static constexpr size_t NUM_WIRES = 4; // Equal to the number of wires in the arithmetization
-
-    // If there are more than 4 distinct witnesses in the linear terms, then we need multiple arithmetic gates
+    // If there are more than NUM_WIRES distinct witnesses in the linear terms, then we need multiple arithmetic gates
     if (linear_terms.size() > NUM_WIRES) {
         return false;
     }

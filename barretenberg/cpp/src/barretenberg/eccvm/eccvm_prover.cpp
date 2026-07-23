@@ -65,7 +65,7 @@ void ECCVMProver::execute_wire_commitments_round()
 
     auto batch = key->commitment_key.start_batch();
     for (const auto& [wire, label] : zip_view(key->polynomials.get_wires(), commitment_labels.get_wires())) {
-        batch.add_to_batch(wire, label);
+        batch.add_to_batch(wire, label, Flavor::CommitmentLabels::wire_has_high_duplicate_density(label));
     }
     batch.commit_and_send_to_verifier(transcript);
 }
@@ -120,7 +120,9 @@ void ECCVMProver::execute_grand_product_computation_round()
     // Compute permutation grand product (starts after disabled head region via gp_start)
     compute_grand_products<Flavor>(key->polynomials, relation_parameters);
     auto& zp = key->polynomials.z_perm;
-    transcript->send_to_verifier(commitment_labels.z_perm, key->commitment_key.commit(zp));
+    // set has_duplicates_hint for Z_PERM (empty row = duplicate Z value)
+    transcript->send_to_verifier(commitment_labels.z_perm,
+                                 key->commitment_key.commit(zp, /*has_duplicates_hint=*/true));
 }
 
 /**
@@ -251,10 +253,7 @@ void ECCVMProver::compute_translation_opening_claims()
 {
     // Used to capture the batched evaluation of unmasked `translation_polynomials` while preserving ZK
     using SmallIPA = SmallSubgroupIPAProver<ECCVMFlavor>;
-
-    // Initialize SmallSubgroupIPA structures
-    std::array<std::string, NUM_SMALL_IPA_EVALUATIONS> evaluation_labels;
-    std::array<FF, NUM_SMALL_IPA_EVALUATIONS> evaluation_points;
+    using Curve = Flavor::Curve;
 
     RefArray translation_polynomials{ key->polynomials.transcript_op,
                                       key->polynomials.transcript_Px,
@@ -287,17 +286,15 @@ void ECCVMProver::compute_translation_opening_claims()
     FF small_ipa_evaluation_challenge =
         transcript->template get_challenge<FF>("Translation:small_ipa_evaluation_challenge");
 
-    // Populate SmallSubgroupIPA opening claims:
-    // 1. Get the evaluation points and labels
-    evaluation_points = translation_masking_term_prover.evaluation_points(small_ipa_evaluation_challenge);
-    evaluation_labels = translation_masking_term_prover.evaluation_labels();
-    // 2. Compute the evaluations of witness polynomials at corresponding points, send them to the verifier, and create
-    // the opening claims
-    for (size_t idx = 0; idx < NUM_SMALL_IPA_EVALUATIONS; idx++) {
-        auto witness_poly = translation_masking_term_prover.get_witness_polynomials()[idx];
-        const FF evaluation = witness_poly.evaluate(evaluation_points[idx]);
-        transcript->send_to_verifier(evaluation_labels[idx], evaluation);
-        opening_claims[idx] = { .polynomial = witness_poly, .opening_pair = { evaluation_points[idx], evaluation } };
+    // Populate the five SmallSubgroupIPA opening claims via the shared helper, which evaluates witness polynomials,
+    // sends transmitted slots to the transcript, and fills boundary slots with 0.
+    const auto small_ipa_claims =
+        make_small_ipa_prover_opening_claims<Curve>(translation_masking_term_prover.get_witness_polynomials(),
+                                                    small_ipa_evaluation_challenge,
+                                                    "Translation:",
+                                                    transcript);
+    for (size_t idx = 0; idx < NUM_SMALL_IPA_OPENING_CLAIMS; ++idx) {
+        opening_claims[idx] = small_ipa_claims[idx];
     }
 
     // Compute the opening claim for the masked evaluations of `op`, `Px`, `Py`, `z1`, and `z2` at
@@ -312,8 +309,8 @@ void ECCVMProver::compute_translation_opening_claims()
     }
 
     // Add the batched claim to the array of SmallSubgroupIPA opening claims.
-    opening_claims[NUM_SMALL_IPA_EVALUATIONS] = { batched_translation_univariate,
-                                                  { evaluation_challenge_x, batched_translation_evaluation } };
+    opening_claims[NUM_SMALL_IPA_OPENING_CLAIMS] = { batched_translation_univariate,
+                                                     { evaluation_challenge_x, batched_translation_evaluation } };
 }
 
 /**

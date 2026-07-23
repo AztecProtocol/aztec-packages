@@ -130,6 +130,8 @@ pub fn analyzed_to_cpp<F: FieldElement>(
         &all_cols_with_shifts,
     );
 
+    bb_files.create_columns_cpp(vm_name);
+
     println!("Done with generation.");
 }
 

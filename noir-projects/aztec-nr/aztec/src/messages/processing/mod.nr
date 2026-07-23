@@ -95,6 +95,13 @@ pub unconstrained fn enqueue_note_for_validation(
     ))
 }
 
+/// The note validation requests enqueued so far in the current context via [`enqueue_note_for_validation`], before
+/// [`validate_and_store_enqueued_notes_and_events`] drains them. Exists so tests can inspect the pending queue;
+/// production code should not read requests back once enqueued.
+pub(crate) unconstrained fn get_enqueued_note_validation_requests() -> EphemeralArray<NoteValidationRequest> {
+    EphemeralArray::at(NOTE_VALIDATION_REQUESTS_ARRAY_BASE_SLOT)
+}
+
 /// Enqueues an event for validation and storage by PXE.
 ///
 /// This is the primary way for custom message handlers (registered via

@@ -40,25 +40,25 @@ std::array<twin_rom_table<C>, Fq::NUM_LIMBS + 1> element<C, Fq, Fr, G>::create_g
     std::vector<std::array<field_ct, 2>> prime_limbs;
 
     for (size_t i = 0; i < num_elements; ++i) {
-        limb_max[0] = std::max(limb_max[0], rom_data[i]._x.binary_basis_limbs[0].maximum_value);
-        limb_max[1] = std::max(limb_max[1], rom_data[i]._x.binary_basis_limbs[1].maximum_value);
-        limb_max[2] = std::max(limb_max[2], rom_data[i]._x.binary_basis_limbs[2].maximum_value);
-        limb_max[3] = std::max(limb_max[3], rom_data[i]._x.binary_basis_limbs[3].maximum_value);
-        limb_max[4] = std::max(limb_max[4], rom_data[i]._y.binary_basis_limbs[0].maximum_value);
-        limb_max[5] = std::max(limb_max[5], rom_data[i]._y.binary_basis_limbs[1].maximum_value);
-        limb_max[6] = std::max(limb_max[6], rom_data[i]._y.binary_basis_limbs[2].maximum_value);
-        limb_max[7] = std::max(limb_max[7], rom_data[i]._y.binary_basis_limbs[3].maximum_value);
+        limb_max[0] = std::max(limb_max[0], rom_data[i]._x.get_limb(0).maximum_value);
+        limb_max[1] = std::max(limb_max[1], rom_data[i]._x.get_limb(1).maximum_value);
+        limb_max[2] = std::max(limb_max[2], rom_data[i]._x.get_limb(2).maximum_value);
+        limb_max[3] = std::max(limb_max[3], rom_data[i]._x.get_limb(3).maximum_value);
+        limb_max[4] = std::max(limb_max[4], rom_data[i]._y.get_limb(0).maximum_value);
+        limb_max[5] = std::max(limb_max[5], rom_data[i]._y.get_limb(1).maximum_value);
+        limb_max[6] = std::max(limb_max[6], rom_data[i]._y.get_limb(2).maximum_value);
+        limb_max[7] = std::max(limb_max[7], rom_data[i]._y.get_limb(3).maximum_value);
 
-        x_lo_limbs.emplace_back(std::array<field_ct, 2>{ rom_data[i]._x.binary_basis_limbs[0].element,
-                                                         rom_data[i]._x.binary_basis_limbs[1].element });
-        x_hi_limbs.emplace_back(std::array<field_ct, 2>{ rom_data[i]._x.binary_basis_limbs[2].element,
-                                                         rom_data[i]._x.binary_basis_limbs[3].element });
-        y_lo_limbs.emplace_back(std::array<field_ct, 2>{ rom_data[i]._y.binary_basis_limbs[0].element,
-                                                         rom_data[i]._y.binary_basis_limbs[1].element });
-        y_hi_limbs.emplace_back(std::array<field_ct, 2>{ rom_data[i]._y.binary_basis_limbs[2].element,
-                                                         rom_data[i]._y.binary_basis_limbs[3].element });
+        x_lo_limbs.emplace_back(
+            std::array<field_ct, 2>{ rom_data[i]._x.get_limb(0).element, rom_data[i]._x.get_limb(1).element });
+        x_hi_limbs.emplace_back(
+            std::array<field_ct, 2>{ rom_data[i]._x.get_limb(2).element, rom_data[i]._x.get_limb(3).element });
+        y_lo_limbs.emplace_back(
+            std::array<field_ct, 2>{ rom_data[i]._y.get_limb(0).element, rom_data[i]._y.get_limb(1).element });
+        y_hi_limbs.emplace_back(
+            std::array<field_ct, 2>{ rom_data[i]._y.get_limb(2).element, rom_data[i]._y.get_limb(3).element });
         prime_limbs.emplace_back(
-            std::array<field_ct, 2>{ rom_data[i]._x.prime_basis_limb, rom_data[i]._y.prime_basis_limb });
+            std::array<field_ct, 2>{ rom_data[i]._x.get_prime_basis_limb(), rom_data[i]._y.get_prime_basis_limb() });
     }
     std::array<twin_rom_table<C>, Fq::NUM_LIMBS + 1> output_tables;
     output_tables[0] = twin_rom_table<C>(x_lo_limbs);
@@ -85,14 +85,14 @@ element<C, Fq, Fr, G> element<C, Fq, Fr, G>::read_group_element_rom_tables(
     // We assign maximum_value of each limb here, so we can use the unsafe API from element construction
     Fq x_fq = Fq::unsafe_construct_from_limbs(xlo[0], xlo[1], xhi[0], xhi[1], xyprime[0]);
     Fq y_fq = Fq::unsafe_construct_from_limbs(ylo[0], ylo[1], yhi[0], yhi[1], xyprime[1]);
-    x_fq.binary_basis_limbs[0].maximum_value = limb_max[0];
-    x_fq.binary_basis_limbs[1].maximum_value = limb_max[1];
-    x_fq.binary_basis_limbs[2].maximum_value = limb_max[2];
-    x_fq.binary_basis_limbs[3].maximum_value = limb_max[3];
-    y_fq.binary_basis_limbs[0].maximum_value = limb_max[4];
-    y_fq.binary_basis_limbs[1].maximum_value = limb_max[5];
-    y_fq.binary_basis_limbs[2].maximum_value = limb_max[6];
-    y_fq.binary_basis_limbs[3].maximum_value = limb_max[7];
+    x_fq.set_limb_max(0, limb_max[0]);
+    x_fq.set_limb_max(1, limb_max[1]);
+    x_fq.set_limb_max(2, limb_max[2]);
+    x_fq.set_limb_max(3, limb_max[3]);
+    y_fq.set_limb_max(0, limb_max[4]);
+    y_fq.set_limb_max(1, limb_max[5]);
+    y_fq.set_limb_max(2, limb_max[6]);
+    y_fq.set_limb_max(3, limb_max[7]);
 
     // ROM table points are precomputed and known to be valid, skip curve check.
     // Use 4-arg constructor with is_infinity=false (table lookups return valid, non-infinity points).

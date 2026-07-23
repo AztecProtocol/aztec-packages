@@ -2,7 +2,7 @@ import { Fr } from '@aztec/foundation/curves/bn254';
 import { EthAddress } from '@aztec/foundation/eth-address';
 import { KeyStore } from '@aztec/key-store';
 import type { AztecAsyncKVStore } from '@aztec/kv-store';
-import { createStore, openTmpStore } from '@aztec/kv-store/lmdb-v2';
+import { openTmpStore } from '@aztec/kv-store/lmdb-v2';
 import { AztecAddress } from '@aztec/stdlib/aztec-address';
 import { GENESIS_BLOCK_HEADER_HASH } from '@aztec/stdlib/block';
 
@@ -12,6 +12,7 @@ import { tmpdir } from 'os';
 import { dirname, join } from 'path';
 import { fileURLToPath } from 'url';
 
+import { openStore } from '../../entrypoints/server/store.js';
 import { PXE_DATA_SCHEMA_VERSION } from '../metadata.js';
 import { openPxeStores } from '../open_pxe_stores.js';
 import { SCHEMA_TESTS } from './schema_tests.js';
@@ -85,9 +86,9 @@ function compatibilityTestGuidance(name: string): string {
       'If intentional, take these steps in order:',
       '  1. Determine whether the change is BREAKING or READ-DEFAULTABLE:',
       '       - If BREAKING (e.g., a sub-store was renamed or removed; existing data becomes inaccessible):',
-      '         bump PXE_DATA_SCHEMA_VERSION in pxe/src/storage/metadata.ts. DatabaseVersionManager wipes any',
-      '         DB whose stored version is below the current one when it next opens; without this bump,',
-      '         existing wallets see corrupted data with no migration path.',
+      '         bump PXE_DATA_SCHEMA_VERSION in pxe/src/storage/metadata.ts. The schema version is part of the',
+      '         store identity, so bumping it selects a fresh store on next open (existing data is left on disk,',
+      '         unread); without this bump, existing wallets see corrupted data with no migration path.',
       '       - If READ-DEFAULTABLE (e.g., a new sub-store was added; existing data continues to work because',
       '         the new sub-store starts empty for pre-existing DBs and is populated as new events arrive):',
       '         leave PXE_DATA_SCHEMA_VERSION alone, but document the reasoning in the commit/PR description.',
@@ -115,9 +116,9 @@ function compatibilityTestGuidance(name: string): string {
     '         Examples: a new key whose absence resolves to a sentinel (genesis, undefined, etc.); a new',
     '         field with a safe default. Existing wallets continue working after upgrade and the on-disk',
     '         state self-heals as new events arrive.',
-    '  2. If BREAKING: bump PXE_DATA_SCHEMA_VERSION in pxe/src/storage/metadata.ts. DatabaseVersionManager',
-    '     wipes any DB whose stored version is below the current one when it next opens; without this bump,',
-    '     existing wallets see corrupted data with no migration path.',
+    '  2. If BREAKING: bump PXE_DATA_SCHEMA_VERSION in pxe/src/storage/metadata.ts. The schema version is',
+    '     part of the store identity, so bumping it selects a fresh store on next open (existing data is left',
+    '     on disk, unread); without this bump, existing wallets see corrupted data with no migration path.',
     '     If READ-DEFAULTABLE: leave PXE_DATA_SCHEMA_VERSION alone, but document the reasoning in the',
     '     commit/PR description (which fallback applies, where, and what state pre-upgrade DBs converge to).',
     `  3. Regenerate ONLY ${name}.json. From the yarn-project directory, run:`,
@@ -146,35 +147,45 @@ async function collectOpenedStores() {
 }
 
 /**
- * Seeds rows into a `pxe_data` store opened at `oldSchemaVersion`, then reopens it at the current
- * `PXE_DATA_SCHEMA_VERSION`. The version mismatch makes DatabaseVersionManager wipe the database on open, so
- * `assertWiped` runs against a cleared store and can prove the legacy rows are gone.
+ * Seeds rows into a `pxe_data` store opened at `oldSchemaVersion`, then opens the store for the current
+ * `PXE_DATA_SCHEMA_VERSION`. The schema version is part of the store identity, so the current version selects a
+ * fresh store: `assertNotRead` proves the legacy rows are invisible to new code, and `assertLegacyIntact` proves
+ * they still exist untouched in the old schema's own store.
  */
-async function expectStoreWipedOnUpgradeFrom(
+async function expectFreshStoreSelectedOnUpgradeFrom(
   oldSchemaVersion: number,
   seedLegacyRows: (oldStore: AztecAsyncKVStore) => Promise<void>,
-  assertWiped: (currentStore: AztecAsyncKVStore) => Promise<void>,
+  assertNotRead: (currentStore: AztecAsyncKVStore) => Promise<void>,
+  assertLegacyIntact: (oldStore: AztecAsyncKVStore) => Promise<void>,
 ) {
-  const dataDirectory = await mkdtemp(join(tmpdir(), 'pxe-schema-wipe-'));
+  const dataDirectory = await mkdtemp(join(tmpdir(), 'pxe-schema-upgrade-'));
   const config = {
     dataDirectory,
     dataStoreMapSizeKb: 1024,
+    l1ChainId: 31337,
     rollupAddress: EthAddress.ZERO,
   };
 
   try {
-    const oldStore = await createStore('pxe_data', oldSchemaVersion, config);
+    const oldStore = await openStore('pxe_data', oldSchemaVersion, config);
     try {
       await seedLegacyRows(oldStore);
     } finally {
       await oldStore.close();
     }
 
-    const currentStore = await createStore('pxe_data', PXE_DATA_SCHEMA_VERSION, config);
+    const currentStore = await openStore('pxe_data', PXE_DATA_SCHEMA_VERSION, config);
     try {
-      await assertWiped(currentStore);
+      await assertNotRead(currentStore);
     } finally {
       await currentStore.close();
+    }
+
+    const reopenedOldStore = await openStore('pxe_data', oldSchemaVersion, config);
+    try {
+      await assertLegacyIntact(reopenedOldStore);
+    } finally {
+      await reopenedOldStore.close();
     }
   } finally {
     await rm(dataDirectory, { recursive: true, force: true, maxRetries: 3 });
@@ -198,35 +209,37 @@ async function expectStoreWipedOnUpgradeFrom(
  *     class and compares the resulting bytes to a committed per-store snapshot.
  */
 describe('PXE storage compatibility test suite', () => {
-  it('wipes key-store rows written before the message-signing and fallback secret keys were removed', async () => {
+  it('never reads key-store rows written under an older schema version, and leaves them intact', async () => {
     const account = AztecAddress.fromStringUnsafe('0x0b3683ee9df3ed6ed7027145bd6093f783b0bb4d8354501d906db7bb8cb58ea3');
-    await expectStoreWipedOnUpgradeFrom(
+    const ivskKey = `${account.toString()}-ivsk_m`;
+    const ivskValue = Buffer.from('1fb01c42d1aaa2662041b899c77cb19e08192193acc5a94405f1b43c974eba7a', 'hex');
+    await expectFreshStoreSelectedOnUpgradeFrom(
       PRE_MESSAGE_AND_FALLBACK_SECRET_KEY_REMOVAL_PXE_SCHEMA_VERSION,
-      oldStore =>
-        oldStore
-          .openMap<string, Buffer>('key_store')
-          .set(
-            `${account.toString()}-ivsk_m`,
-            Buffer.from('1fb01c42d1aaa2662041b899c77cb19e08192193acc5a94405f1b43c974eba7a', 'hex'),
-          ),
+      oldStore => oldStore.openMap<string, Buffer>('key_store').set(ivskKey, ivskValue),
       async currentStore => {
         const keyStore = new KeyStore(currentStore);
         await expect(keyStore.hasAccount(account)).resolves.toBe(false);
       },
+      async oldStore => {
+        expect(await oldStore.openMap<string, Buffer>('key_store').getAsync(ivskKey)).toEqual(ivskValue);
+      },
     );
   });
 
-  it('wipes tagging-store rows written under the legacy two-part AppTaggingSecret key format', async () => {
+  it('never reads tagging-store rows written under the legacy two-part AppTaggingSecret key format, and leaves them intact', async () => {
     // The current toString() only emits the three-part `<kind>:<secret>:<app>` form, so build the legacy two-part
     // `<secret>:<app>` key by hand.
     const legacyKey = `${new Fr(2n).toString()}:${AztecAddress.fromBigIntUnsafe(3n).toString()}`;
-    await expectStoreWipedOnUpgradeFrom(
+    await expectFreshStoreSelectedOnUpgradeFrom(
       PRE_KIND_PREFIXED_TAGGING_KEY_PXE_SCHEMA_VERSION,
       oldStore => oldStore.openMap<string, number>('highest_aged_index').set(legacyKey, 13),
       async currentStore => {
         // Assert on the raw map, not a high-level getter: the new three-part toString() never reconstructs the
-        // legacy two-part key, so a getter would report it absent (false-pass) whether or not the wipe happened.
+        // legacy two-part key, so a getter would report it absent (false-pass) regardless of which store was opened.
         await expect(currentStore.openMap<string, number>('highest_aged_index').sizeAsync()).resolves.toBe(0);
+      },
+      async oldStore => {
+        expect(await oldStore.openMap<string, number>('highest_aged_index').getAsync(legacyKey)).toBe(13);
       },
     );
   });

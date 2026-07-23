@@ -48,9 +48,7 @@ MemoryValue Sha256::ror(const MemoryValue& x, uint8_t shift)
     uint32_t hi = val >> shift;
     uint32_t result = (lo << (32U - shift)) | hi;
 
-    // Do this outside of an assert, in case this gets built without assert
-    bool lo_in_range = gt.gt(static_cast<uint32_t>(1) << shift, lo); // Ensure the lower bits are in range
-    BB_ASSERT(lo_in_range, "Low Value in ROR out of range");
+    range_check.assert_range(lo, shift);
     return MemoryValue::from<uint32_t>(result);
 }
 
@@ -74,9 +72,7 @@ MemoryValue Sha256::shr(const MemoryValue& x, uint8_t shift)
     uint32_t lo = input & ((static_cast<uint32_t>(1) << shift) - 1);
     uint32_t hi = input >> shift;
 
-    // Do this outside of an assert, in case this gets built without assert
-    bool lo_in_range = gt.gt(static_cast<uint32_t>(1) << shift, lo); // Ensure the lower bits are in range
-    BB_ASSERT(lo_in_range, "Low Value in SHR out of range");
+    range_check.assert_range(lo, shift);
 
     return MemoryValue::from<uint32_t>(hi);
 }
@@ -100,12 +96,10 @@ MemoryValue Sha256::modulo_sum(std::span<const MemoryValue> values)
     uint32_t lo = static_cast<uint32_t>(sum);
     uint32_t hi = static_cast<uint32_t>(sum >> 32);
 
-    // Range-check lo via GT (matches PIL RANGE_COMP_*_RHS lookups).
-    bool lo_in_range =
-        gt.gt(static_cast<uint64_t>(1) << 32, static_cast<uint64_t>(lo)); // Ensure the lower bits are in range
-    // hi is range-checked in PIL via boolean constraint (output) or range-8 lookup (compression),
-    // not via GT. We only assert here for debug purposes.
-    BB_ASSERT(lo_in_range, "Low value in MODULO_SUM out of range");
+    // lo matches PIL RANGE_COMP_*_RHS lookups (range_check.sel_sha256 at 32 bits).
+    range_check.assert_range(lo, 32);
+    // hi is range-checked in PIL via boolean constraint (output) or precomputed.sel_range_8 lookup
+    // (computed_w / next_a / next_e); both bounds fit in 8 bits, so this sim-time assert is sufficient.
     BB_ASSERT(hi < 256, "High value in MODULO_SUM out of range");
     return MemoryValue::from<uint32_t>(lo);
 }

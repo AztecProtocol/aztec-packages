@@ -91,7 +91,7 @@ pub fn array_length_until<T, let N: u32, Env>(array: [T; N], predicate: fn[Env](
         } else {
             assert(
                 stop == false,
-                "matching element found after already encountering a non-matching element",
+                "non-matching element found after already encountering a matching element",
             );
             length += 1;
         }
@@ -117,11 +117,18 @@ where
     }
 }
 
-// Helper function to check if an array is padded with a given value from a given index.
+/// Returns true iff every element of `array` at index `>= from_index` equals `padded_with`.
+///
+/// `from_index` must be a valid index into the array, i.e. `from_index <= N` (the boundary
+/// `from_index == N` denotes a full prefix with no padding). Passing `from_index > N` is rejected:
+/// otherwise this check would pass vacuously (the loop never reaches `from_index`), letting a caller
+/// believe the array holds a `from_index`-length prefix followed by padding even though the array is
+/// shorter than `from_index`.
 pub fn array_padded_with<T, let N: u32>(array: [T; N], from_index: u32, padded_with: T) -> bool
 where
     T: Eq,
 {
+    assert(from_index <= N, "from_index out of bounds");
     let mut is_valid = true;
     let mut should_check = false;
     for i in 0..N {
@@ -251,13 +258,13 @@ fn test_array_length_until() {
     assert_eq(array_length_until(array, |x| x > 10), 0);
 }
 
-#[test(should_fail_with = "matching element found after already encountering a non-matching element")]
+#[test(should_fail_with = "non-matching element found after already encountering a matching element")]
 fn test_array_length_until_non_consecutive_fails() {
     let array = [1, 1, 0, 1, 0];
     let _ = array_length_until(array, |x| x == 0);
 }
 
-#[test(should_fail_with = "matching element found after already encountering a non-matching element")]
+#[test(should_fail_with = "non-matching element found after already encountering a matching element")]
 fn test_array_length_until_first_non_matching_fails() {
     let array = [1, 0, 0, 0, 0];
     let _ = array_length_until(array, |x| x == 1);
@@ -300,6 +307,39 @@ fn test_array_padded_with() {
     assert_eq(array_padded_with(array, 3, 44), true);
     assert_eq(array_padded_with(array, 4, 44), true);
     assert_eq(array_padded_with(array, 4, 33), false);
-    assert_eq(array_padded_with(array, 5, 44), true); // Index out of bounds.
+    assert_eq(array_padded_with(array, 5, 44), true); // from_index == N: full prefix, no padding.
     assert_eq(array_padded_with(array, 0, 11), false);
+}
+
+#[test(should_fail_with = "from_index out of bounds")]
+fn test_array_padded_with_from_index_out_of_bounds() {
+    let array = [11, 22, 33, 44, 44];
+    let _ = array_padded_with(array, 6, 44);
+}
+
+#[test]
+fn test_array_padded_with_single_element() {
+    // N == 1: from_index 0 checks the whole array; from_index 1 (== N) is the no-padding boundary.
+    assert_eq(array_padded_with([7], 0, 7), true);
+    assert_eq(array_padded_with([7], 0, 8), false);
+    assert_eq(array_padded_with([7], 1, 8), true);
+}
+
+#[test]
+fn test_array_padded_with_requires_all_tail_padded() {
+    // Padding must hold for every index >= from_index, not just the first one.
+    let array = [1, 2, 9, 9, 9];
+    assert_eq(array_padded_with(array, 2, 9), true);
+    assert_eq(array_padded_with(array, 1, 9), false); // index 1 (value 2) != 9
+    let broken_tail = [1, 2, 9, 8, 9];
+    assert_eq(array_padded_with(broken_tail, 2, 9), false); // index 3 (value 8) != 9
+    // from_index == 0 requires the whole array to equal the pad value.
+    assert_eq(array_padded_with([9, 9, 9], 0, 9), true);
+    assert_eq(array_padded_with([9, 9, 8], 0, 9), false);
+}
+
+#[test(should_fail_with = "from_index out of bounds")]
+fn test_array_padded_with_from_index_far_out_of_bounds() {
+    let array = [11, 22, 33, 44, 44];
+    let _ = array_padded_with(array, 100, 44);
 }

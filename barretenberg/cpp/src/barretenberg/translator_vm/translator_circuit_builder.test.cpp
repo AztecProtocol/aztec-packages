@@ -87,7 +87,7 @@ TEST(TranslatorCircuitBuilder, SeveralOperationCorrectness)
     // Placeholder for randomness
     op_queue->random_op_ultra_only();
     op_queue->random_op_ultra_only();
-    op_queue->merge_fixed_append(op_queue->get_append_offset());
+    op_queue->merge_fixed_append(op_queue->get_append_offset_for_prover());
 
     Fq batching_challenge = Fq::random_element();
     Fq x = Fq::random_element();
@@ -112,7 +112,7 @@ TEST(TranslatorCircuitBuilder, MinimalOperations)
     op_queue->merge();
     op_queue->random_op_ultra_only();
     op_queue->random_op_ultra_only();
-    op_queue->merge_fixed_append(op_queue->get_append_offset());
+    op_queue->merge_fixed_append(op_queue->get_append_offset_for_prover());
 
     Fq batching_challenge = Fq::random_element();
     Fq x = Fq::random_element();
@@ -139,7 +139,7 @@ TEST(TranslatorCircuitBuilder, OnlyAddOperations)
     op_queue->merge();
     op_queue->random_op_ultra_only();
     op_queue->random_op_ultra_only();
-    op_queue->merge_fixed_append(op_queue->get_append_offset());
+    op_queue->merge_fixed_append(op_queue->get_append_offset_for_prover());
 
     Fq batching_challenge = Fq::random_element();
     Fq x = Fq::random_element();
@@ -171,7 +171,7 @@ TEST(TranslatorCircuitBuilder, OnlyMulOperations)
     op_queue->merge();
     op_queue->random_op_ultra_only();
     op_queue->random_op_ultra_only();
-    op_queue->merge_fixed_append(op_queue->get_append_offset());
+    op_queue->merge_fixed_append(op_queue->get_append_offset_for_prover());
 
     Fq batching_challenge = Fq::random_element();
     Fq x = Fq::random_element();
@@ -200,7 +200,7 @@ TEST(TranslatorCircuitBuilder, InterspersedNoOps)
     op_queue->merge();
     op_queue->random_op_ultra_only();
     op_queue->random_op_ultra_only();
-    op_queue->merge_fixed_append(op_queue->get_append_offset());
+    op_queue->merge_fixed_append(op_queue->get_append_offset_for_prover());
 
     Fq batching_challenge = Fq::random_element();
     Fq x = Fq::random_element();
@@ -228,7 +228,7 @@ TEST(TranslatorCircuitBuilder, PointAtInfinity)
     op_queue->merge();
     op_queue->random_op_ultra_only();
     op_queue->random_op_ultra_only();
-    op_queue->merge_fixed_append(op_queue->get_append_offset());
+    op_queue->merge_fixed_append(op_queue->get_append_offset_for_prover());
 
     Fq batching_challenge = Fq::random_element();
     Fq x = Fq::random_element();
@@ -258,7 +258,7 @@ TEST(TranslatorCircuitBuilder, ZeroScalar)
     op_queue->merge();
     op_queue->random_op_ultra_only();
     op_queue->random_op_ultra_only();
-    op_queue->merge_fixed_append(op_queue->get_append_offset());
+    op_queue->merge_fixed_append(op_queue->get_append_offset_for_prover());
 
     Fq batching_challenge = Fq::random_element();
     Fq x = Fq::random_element();
@@ -293,7 +293,7 @@ TEST(TranslatorCircuitBuilder, ManyOperations)
     op_queue->merge();
     op_queue->random_op_ultra_only();
     op_queue->random_op_ultra_only();
-    op_queue->merge_fixed_append(op_queue->get_append_offset());
+    op_queue->merge_fixed_append(op_queue->get_append_offset_for_prover());
 
     Fq batching_challenge = Fq::random_element();
     Fq x = Fq::random_element();
@@ -327,7 +327,7 @@ TEST(TranslatorCircuitBuilder, Determinism)
     op_queue1->merge();
     op_queue1->random_op_ultra_only();
     op_queue1->random_op_ultra_only();
-    op_queue1->merge_fixed_append(op_queue1->get_append_offset());
+    op_queue1->merge_fixed_append(op_queue1->get_append_offset_for_prover());
 
     auto circuit_builder1 = TranslatorCircuitBuilder(batching_challenge, x, op_queue1);
     auto result1 = CircuitChecker::get_computation_result(circuit_builder1);
@@ -341,7 +341,7 @@ TEST(TranslatorCircuitBuilder, Determinism)
     op_queue2->merge();
     op_queue2->random_op_ultra_only();
     op_queue2->random_op_ultra_only();
-    op_queue2->merge_fixed_append(op_queue2->get_append_offset());
+    op_queue2->merge_fixed_append(op_queue2->get_append_offset_for_prover());
 
     auto circuit_builder2 = TranslatorCircuitBuilder(batching_challenge, x, op_queue2);
     auto result2 = CircuitChecker::get_computation_result(circuit_builder2);

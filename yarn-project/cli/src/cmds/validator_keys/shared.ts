@@ -3,7 +3,7 @@ import { asyncPool } from '@aztec/foundation/async-pool';
 import { deriveBlsPrivateKey } from '@aztec/foundation/crypto/bls';
 import { createBn254Keystore } from '@aztec/foundation/crypto/bls/bn254_keystore';
 import { computeBn254G1PublicKeyCompressed } from '@aztec/foundation/crypto/bn254';
-import type { EthAddress } from '@aztec/foundation/eth-address';
+import { EthAddress } from '@aztec/foundation/eth-address';
 import type { LogFn } from '@aztec/foundation/log';
 import type { EthAccount, EthPrivateKey, ValidatorKeyStore } from '@aztec/node-keystore/types';
 import type { AztecAddress } from '@aztec/stdlib/aztec-address';
@@ -123,6 +123,21 @@ export function deriveEthAttester(
   return remoteSigner
     ? ({ address: acct.address as unknown as EthAddress, remoteSignerUrl: remoteSigner } as EthAccount)
     : (('0x' + Buffer.from(acct.getHdKey().privateKey!).toString('hex')) as EthPrivateKey);
+}
+
+/**
+ * Resolve a `--funding-account` value into a keystore `EthAccount`. A 66-char value is a private key
+ * (used verbatim). A 42-char value is an address: with an explicit `remoteSigner` URL it becomes an
+ * `{ address, remoteSignerUrl }` pair; without one it is stored as a bare address that falls back to
+ * the keystore-level remote signer at runtime. Callers must validate the value first (see
+ * `validateFundingAccountOptions`).
+ */
+export function resolveFundingAccount(fundingAccount: string, remoteSigner?: string): EthAccount {
+  if (fundingAccount.length === 66) {
+    return fundingAccount as EthPrivateKey;
+  }
+  const address = EthAddress.fromString(fundingAccount);
+  return remoteSigner ? ({ address, remoteSignerUrl: remoteSigner } as EthAccount) : address;
 }
 
 export async function buildValidatorEntries(input: BuildValidatorsInput) {
@@ -328,6 +343,27 @@ export async function writeEthJsonV3Keystore(
   const outPath = join(outDir, `keystore-eth-${safeBase}.json`);
   await writeFile(outPath, json, { encoding: 'utf-8' });
   return outPath;
+}
+
+/**
+ * If `account` is a plaintext ETH private key, encrypt it to a JSON V3 file and return a
+ * { path, password } reference; otherwise return it unchanged.
+ */
+async function maybeEncryptEthAccount(account: any, label: string, options: { outDir: string; password: string }) {
+  if (typeof account === 'string' && account.startsWith('0x') && account.length === 66) {
+    const fileBase = `${label}_${account.slice(2, 10)}`;
+    const p = await writeEthJsonV3Keystore(options.outDir, fileBase, options.password, account);
+    return { path: p, password: options.password };
+  }
+  return account;
+}
+
+/** Encrypt a plaintext funding-account key to a JSON V3 file, replacing it with a { path, password } reference. */
+export async function encryptFundingAccountToFile(
+  account: EthAccount,
+  options: { outDir: string; password: string },
+): Promise<EthAccount> {
+  return (await maybeEncryptEthAccount(account, 'funding', options)) as EthAccount;
 }
 
 /** Replace plaintext ETH keys in validators with { path, password } pointing to JSON V3 files. */
