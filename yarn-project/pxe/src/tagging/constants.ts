@@ -19,9 +19,7 @@ import { MAX_PRIVATE_LOGS_PER_TX } from '@aztec/constants';
 // MAX_PRIVATE_LOGS_PER_TX. No fixed window value closes that gap.
 export const UNFINALIZED_TAGGING_INDEXES_WINDOW_LEN = MAX_PRIVATE_LOGS_PER_TX + 20;
 
-// The number of tags probed per constrained secret in the first round. This is the canonical description of the
-// constrained probe schedule and its complexity; the recipient sync module and the bench link here rather than
-// restating it.
+// The number of tags probed per constrained secret in the first round.
 //
 // The probe doubles each round (1, 2, 4, ..., capped at UNFINALIZED_TAGGING_INDEXES_WINDOW_LEN) while every probed
 // index is a hit, stopping at the first missing tag. Constrained delivery is gapless, so a single missing tag proves
