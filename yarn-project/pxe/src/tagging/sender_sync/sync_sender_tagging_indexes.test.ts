@@ -523,10 +523,10 @@ describe('syncSenderTaggingIndexes', () => {
   it('discovers a pending tx at the last permitted index for a fresh secret', async () => {
     await setUp();
 
-    // With nothing finalized the store permits pending indexes up to WINDOW_LEN - 1 (virtual finalized index -1),
-    // and the sync loop never extends its first window without a finalized-index change, so that first window alone
-    // must reach the last permitted index. If it stops short, another PXE's still-pending tx at that index goes
-    // undiscovered and the next locally chosen index collides with its onchain tag.
+    // When no index is finalized yet the store permits pending indexes up to WINDOW_LEN - 1, and the sync loop
+    // never extends its first window without a finalized-index change, so that first window alone must reach the
+    // last permitted index. If it stops short, another PXE's still-pending tx at that index goes undiscovered and
+    // the next locally chosen index collides with its onchain tag.
     const lastPermittedIndex = UNFINALIZED_TAGGING_INDEXES_WINDOW_LEN - 1;
     const pendingTxHash = TxHash.random();
     const tagAtLastPermitted = await computeSiloedTagForIndex(lastPermittedIndex);

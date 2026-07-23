@@ -241,8 +241,8 @@ describe('SenderTaggingStore', () => {
 
       it('throws after pending txs exhaust window', async () => {
         // One single-index pending tx per index, mirroring how an un-mined backlog accumulates one log per tx on a
-        // shared secret (e.g. the self-send chain in bench_build_block). A fresh secret treats the finalized floor
-        // as virtual index -1, so exactly WINDOW_LEN indexes (0..WINDOW_LEN - 1) fit...
+        // shared secret (e.g. the self-send chain in bench_build_block). With no index finalized yet, exactly
+        // WINDOW_LEN indexes (0..WINDOW_LEN - 1) fit...
         for (let i = 0; i < UNFINALIZED_TAGGING_INDEXES_WINDOW_LEN; i++) {
           await taggingStore.storePendingIndexes([range(secret1, i)], TxHash.random(), 'test');
         }
@@ -258,10 +258,10 @@ describe('SenderTaggingStore', () => {
       });
 
       it('permits exactly WINDOW_LEN pending indexes for a fresh secret', async () => {
-        // With nothing finalized, the last permitted pending index is WINDOW_LEN - 1: the same WINDOW_LEN-sized
-        // allowance a secret gets after any real finalization ([f + 1, f + WINDOW_LEN]), anchored at virtual
-        // finalized index -1. This must never exceed what the sender-sync first window probes ([0, WINDOW_LEN)),
-        // or two stores sharing a secret could pick colliding indexes.
+        // With no index finalized yet, the last permitted pending index is WINDOW_LEN - 1: the same WINDOW_LEN-sized
+        // allowance a secret gets after any real finalization ([f + 1, f + WINDOW_LEN]). This must never exceed what
+        // the sender-sync first window probes ([0, WINDOW_LEN)), or two stores sharing a secret could pick colliding
+        // indexes.
         await taggingStore.storePendingIndexes(
           [range(secret1, 0, MAX_PRIVATE_LOGS_PER_TX - 1)],
           TxHash.random(),

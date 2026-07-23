@@ -196,10 +196,10 @@ export class SenderTaggingStore implements StagedStore {
       // Process in memory and validate
       for (const { range, secretStr, pendingData, finalizedIndex } of rangeData) {
         // Check that the highest index is not further than window length from the highest finalized index.
-        // A fresh secret (nothing finalized) is treated as having virtual finalized index -1: the next usable index
-        // is 0 and exactly UNFINALIZED_TAGGING_INDEXES_WINDOW_LEN pending indexes are permitted, the same allowance
-        // as after any real finalization. The sender-sync first window probes exactly this bound, so widening it
-        // here without widening the probe would let two stores sharing a secret pick colliding indexes.
+        // When no index is finalized yet, indexes 0..UNFINALIZED_TAGGING_INDEXES_WINDOW_LEN - 1 are permitted:
+        // exactly WINDOW_LEN pending indexes, the same allowance as after any real finalization
+        // ([f + 1, f + WINDOW_LEN]). The sender-sync first window probes exactly this bound, so widening it here
+        // without widening the probe would let two stores sharing a secret pick colliding indexes.
         if (range.highestIndex > (finalizedIndex ?? -1) + UNFINALIZED_TAGGING_INDEXES_WINDOW_LEN) {
           throw new Error(
             `Highest used index ${range.highestIndex} is further than window length from the highest finalized index ${finalizedIndex ?? 'none'}.
