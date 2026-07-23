@@ -93,16 +93,18 @@ describe('automine/phase_check', () => {
   });
 
   it('should fail when the fee payer is elected after the setup phase has ended', async () => {
-    await expect(
-      new BatchCall(wallet, [
-        contract.methods.call_function_that_ends_setup_without_phase_check(),
-        sponsoredFPC.methods.sponsor_unconditionally(),
-      ]).simulate({
-        from: defaultAccountAddress,
-        fee: {
-          paymentMethod: new DeferredSponsoredFeePaymentMethod(sponsoredFPC.address),
-        },
-      }),
-    ).rejects.toThrow('fee payer must be elected during the setup phase');
+    // On this branch BatchCall.simulate enters the phase before the first app call. Build the payload via request(),
+    // which preserves the deferred payment method's externally supplied fee payer, and simulate it directly.
+    const lateElection = await new BatchCall(wallet, [
+      contract.methods.call_function_that_ends_setup_without_phase_check(),
+      sponsoredFPC.methods.sponsor_unconditionally(),
+    ]).request({
+      fee: {
+        paymentMethod: new DeferredSponsoredFeePaymentMethod(sponsoredFPC.address),
+      },
+    });
+    await expect(wallet.simulateTx(lateElection, { from: defaultAccountAddress })).rejects.toThrow(
+      'fee payer must be elected during the setup phase',
+    );
   });
 });
