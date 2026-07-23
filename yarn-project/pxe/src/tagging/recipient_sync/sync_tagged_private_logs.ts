@@ -65,7 +65,7 @@ import { findHighestIndexes } from './utils/find_highest_indexes.js';
  * - Because the sequence is gapless, the scan stops at the first missing index: that gap proves the sequence has
  *   ended and no further logs exist. We exploit this with a doubling first-miss probe (see
  *   `INITIAL_CONSTRAINED_PROBE_LEN` in ../constants.ts), so a
- *   steady-state sync with no new logs costs a single tag instead of the whole window. The probe length is in-memory
+ *   steady-state sync with no new logs costs two tags instead of the whole window. The probe length is in-memory
  *   state scoped to one sync call, so every sync restarts at the initial probe.
  * - The upper bound is the same as unconstrained: `highestFinalizedIndex + WINDOW_LEN`. Advancing the probe is
  *   decoupled from persisting the finalized index, so unfinalized logs at the top of the run are still fetched

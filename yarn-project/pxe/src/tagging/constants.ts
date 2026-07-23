@@ -21,10 +21,10 @@ export const UNFINALIZED_TAGGING_INDEXES_WINDOW_LEN = MAX_PRIVATE_LOGS_PER_TX + 
 
 // The number of tags probed per constrained secret in the first round.
 //
-// The probe doubles each round (1, 2, 4, ..., capped at UNFINALIZED_TAGGING_INDEXES_WINDOW_LEN) while every probed
+// The probe doubles each round (2, 4, 8, ..., capped at UNFINALIZED_TAGGING_INDEXES_WINDOW_LEN) while every probed
 // index is a hit, stopping at the first missing tag. Constrained delivery is gapless, so a single missing tag proves
-// the stream has ended: at steady state this turns a full WINDOW_LEN probe into a single tag. A secret K logs behind
-// catches up in ~log2(K) round-trips while the probe is still doubling (1, 2, 4, 8, 16), but once it saturates the cap
+// the stream has ended: at steady state this turns a full WINDOW_LEN probe into two tags. A secret K logs behind
+// catches up in ~log2(K) round-trips while the probe is still doubling (2, 4, 8, 16, 32), but once it saturates the cap
 // and advances WINDOW_LEN tags per round, deeper catch-up is linear at ~K/WINDOW_LEN rounds. Either way it beats both
 // the full window every round and one round per log.
-export const INITIAL_CONSTRAINED_PROBE_LEN = 1;
+export const INITIAL_CONSTRAINED_PROBE_LEN = 2;

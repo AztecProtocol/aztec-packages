@@ -268,9 +268,9 @@ describe('syncTaggedPrivateLogs', () => {
       const secret = await randomAppTaggingSecret(AppTaggingSecretKind.CONSTRAINED);
       const finalizedBlockNumber = BlockNumber(5);
 
-      // Indexes 0 and 1 are hits in an unfinalized block (8 > finalized 5); index 2 is the gap. With the small initial
-      // probe, index 0 is probed alone and is unfinalized, so the scan must still advance to discover index 1 — gating
-      // advancement on finalization would drop it.
+      // Indexes 0 and 1 are hits in an unfinalized block (8 > finalized 5); index 2 is the gap. The initial probe
+      // covers [0, 1] and both are unfinalized, so the scan must still advance past this all-unfinalized round to reach
+      // the gap — gating advancement on finalization would stop after round 1.
       mockNodeWithLogs(await computeSiloedTags(secret, [0, 1]), 8, RECENT_TIMESTAMP);
 
       const logs = await sync([secret], finalizedBlockNumber);
@@ -279,22 +279,22 @@ describe('syncTaggedPrivateLogs', () => {
       // Nothing finalized, so the finalized index must not advance.
       expect(await taggingStore.getHighestFinalizedIndex(secret, JOB_ID)).toBeUndefined();
 
-      // Round 1 probes [0] and advances on the unfinalized hit; round 2 probes [1, 2] and stops at the gap (2).
-      expect(callSizes()).toEqual([1, 2]);
+      // Round 1 probes [0, 1] and advances on the unfinalized hits; round 2 probes [2..5] and stops at the gap (2).
+      expect(callSizes()).toEqual([2, 4]);
 
       // The store only ever advances through finalized logs, so an unfinalized log can never be skipped: since nothing
       // was persisted, a second sync restarts at index 0 and re-fetches both unfinalized logs.
       aztecNode.getPrivateLogsByTags.mockClear();
       const secondSyncLogs = await sync([secret], finalizedBlockNumber);
       expect(secondSyncLogs).toHaveLength(2);
-      expect(calledTags()).toEqual(await computeSiloedTags(secret, [0]));
+      expect(calledTags()).toEqual(await computeSiloedTags(secret, [0, 1]));
       // The repeat sync saw the same unfinalized-only hits, so the finalized index must still not advance.
       expect(await taggingStore.getHighestFinalizedIndex(secret, JOB_ID)).toBeUndefined();
     });
 
-    // Pins the probe schedule: the probe doubles each round (1, 2, 4, ...) until the first miss, so K-deep
-    // catch-up resolves in ~log2(K) round-trips instead of K + 1. With 3 new logs the windows are [1], [2,3],
-    // [4,5,6,7] - round 3 (probe length 4) contains the terminating miss at index 4.
+    // Pins the probe schedule: the probe doubles each round (2, 4, 8, ...) until the first miss, so K-deep
+    // catch-up resolves in ~log2(K) round-trips instead of K + 1. With 3 new logs the windows are [1,2],
+    // [3,4,5,6] - round 2 (probe length 4) contains the terminating miss at index 4.
     it('doubling catch-up grows the probe geometrically and stops at the first miss', async () => {
       const secret = await randomAppTaggingSecret(AppTaggingSecretKind.CONSTRAINED);
 
@@ -307,11 +307,10 @@ describe('syncTaggedPrivateLogs', () => {
       expect(logs).toHaveLength(3);
       expect(await taggingStore.getHighestFinalizedIndex(secret, JOB_ID)).toBe(3);
 
-      // Probe windows double each round: [1], then [2,3], then [4,5,6,7] where index 4 is the terminating miss.
-      expect(aztecNode.getPrivateLogsByTags).toHaveBeenCalledTimes(3);
-      expect(calledTags(0)).toEqual(await computeSiloedTags(secret, [1]));
-      expect(calledTags(1)).toEqual(await computeSiloedTags(secret, [2, 3]));
-      expect(calledTags(2)).toEqual(await computeSiloedTags(secret, [4, 5, 6, 7]));
+      // Probe windows double each round: [1,2], then [3,4,5,6] where index 4 is the terminating miss.
+      expect(aztecNode.getPrivateLogsByTags).toHaveBeenCalledTimes(2);
+      expect(calledTags(0)).toEqual(await computeSiloedTags(secret, [1, 2]));
+      expect(calledTags(1)).toEqual(await computeSiloedTags(secret, [3, 4, 5, 6]));
     });
 
     // Pins the effective per-round query cap and that deep catch-up is linear past the cap, not logarithmic: the probe
@@ -330,11 +329,11 @@ describe('syncTaggedPrivateLogs', () => {
       // The capped catch-up still drains the run fully.
       expect(await taggingStore.getHighestFinalizedIndex(secret, JOB_ID)).toBe(newLogs);
 
-      // Fixed golden probe sizes for the WINDOW_LEN*3 (=252) run: the probe doubles (1, 2, 4, 8, 16, 32, 64) until the
+      // Fixed golden probe sizes for the WINDOW_LEN*3 (=252) run: the probe doubles (2, 4, 8, 16, 32, 64) until the
       // next step would exceed the window, then saturates at the cap (WINDOW_LEN = 84) for the last two rounds. The 84s
       // encode UNFINALIZED_TAGGING_INDEXES_WINDOW_LEN and the doubling prefix encodes INITIAL_CONSTRAINED_PROBE_LEN;
       // update these literals if either constant changes.
-      expect(callSizes()).toEqual([1, 2, 4, 8, 16, 32, 64, 84, 84]);
+      expect(callSizes()).toEqual([2, 4, 8, 16, 32, 64, 84, 84]);
     });
 
     it('batches tags from multiple constrained secrets into a single RPC call', async () => {
@@ -343,18 +342,20 @@ describe('syncTaggedPrivateLogs', () => {
 
       await sync(secrets);
 
-      // One batched call carrying exactly each secret's initial probe tag (index 0): constrained secrets share the same
-      // RPC round as everything else rather than getting a call apiece.
+      // One batched call carrying exactly each secret's initial probe tags (indexes 0 and 1): constrained secrets
+      // share the same RPC round as everything else rather than getting a call apiece.
       expect(aztecNode.getPrivateLogsByTags).toHaveBeenCalledTimes(1);
-      expect(calledTags()).toEqual(await Promise.all(secrets.map(s => computeSiloedTagForIndex(s, 0))));
+      expect(calledTags()).toEqual(
+        await Promise.all(secrets.flatMap(s => [computeSiloedTagForIndex(s, 0), computeSiloedTagForIndex(s, 1)])),
+      );
     });
 
     it('halts at the first all-miss batch and never probes past the gap', async () => {
       const secret = await randomAppTaggingSecret(AppTaggingSecretKind.CONSTRAINED);
 
       // Contiguous run 0,1,2 ends at the gap (index 3); a sentinel log sits far past it at index 10. The doubling probe
-      // reaches the all-miss batch [3..6] and stops there, starting no further round, so index 10 is never queried. The
-      // sentinel is a falsifying witness: a scan that failed to stop would eventually fetch it.
+      // reaches the batch [2..5] spanning the gap (index 3) and stops there, starting no further round, so index 10 is
+      // never queried. The sentinel is a falsifying witness: a scan that failed to stop would eventually fetch it.
       mockNodeWithLogs(await computeSiloedTags(secret, [0, 1, 2, 10]));
 
       const logs = await sync([secret]);
@@ -385,14 +386,14 @@ describe('syncTaggedPrivateLogs', () => {
       // assertions see only the second sync.
       aztecNode.getPrivateLogsByTags.mockClear();
 
-      // Second sync, no new logs: it must probe a single tag at the finalized index + 1, not the saturated probe from
+      // Second sync, no new logs: it must probe two tags at the finalized index + 1, not the saturated probe from
       // the catch-up.
       await sync([secret]);
 
       expect(aztecNode.getPrivateLogsByTags).toHaveBeenCalledTimes(1);
       const probedTags = calledTags();
       expect(probedTags).toHaveLength(INITIAL_CONSTRAINED_PROBE_LEN);
-      expect(probedTags).toEqual([await computeSiloedTagForIndex(secret, totalLogs)]);
+      expect(probedTags).toEqual(await computeSiloedTagRange(secret, INITIAL_CONSTRAINED_PROBE_LEN, totalLogs));
     });
 
     it('steady state probes only the initial probe length in a single round', async () => {
@@ -417,12 +418,12 @@ describe('syncTaggedPrivateLogs', () => {
     // depends on UNFINALIZED_TAGGING_INDEXES_WINDOW_LEN. Update the counts if that window or
     // INITIAL_CONSTRAINED_PROBE_LEN change.
     it.each([
-      [1, 2],
-      [3, 3],
-      [20, 5],
-      [50, 6],
-      [100, 7],
-      [UNFINALIZED_TAGGING_INDEXES_WINDOW_LEN * 3, 9],
+      [1, 1],
+      [3, 2],
+      [20, 4],
+      [50, 5],
+      [100, 6],
+      [UNFINALIZED_TAGGING_INDEXES_WINDOW_LEN * 3, 8],
     ])('catch-up round-trips grow logarithmically then linearly: K=%i', async (newLogs, expectedRoundTrips) => {
       // A round queries at most WINDOW_LEN tags (the probe cap) with at most one log per tag, so as long as the cap
       // fits in a single RPC, one sync round is exactly one RPC call and the call count is the round-trip count.
@@ -447,8 +448,8 @@ describe('syncTaggedPrivateLogs', () => {
       const idleSecrets = await makeSecrets(4, AppTaggingSecretKind.CONSTRAINED);
       const straggler = await randomAppTaggingSecret(AppTaggingSecretKind.CONSTRAINED);
 
-      // Idle secrets are caught up at index 5, so their next probe (index 6) misses and drops them after round 1. The
-      // straggler is at index 0 with 3 new contiguous logs at indexes 1..3.
+      // Idle secrets are caught up at index 5, so their next probe (indexes 6, 7) misses and drops them after round 1.
+      // The straggler is at index 0 with 3 new contiguous logs at indexes 1..3.
       const idleFinalizedIndex = 5;
       for (const secret of idleSecrets) {
         await taggingStore.updateHighestFinalizedIndex(secret, idleFinalizedIndex, JOB_ID);
@@ -459,9 +460,8 @@ describe('syncTaggedPrivateLogs', () => {
       const logs = await sync([...idleSecrets, straggler]);
       expect(logs).toHaveLength(3);
 
-      // Round 1: 4 idle probes + straggler[1]. Rounds 2 and 3 are straggler-only: [2,3], then [4..7] (terminating
-      // miss at 4).
-      expect(callSizes()).toEqual([5, 2, 4]);
+      // Round 1: 4 idle probes + straggler[1,2]. Round 2 is straggler-only: [3..6] (terminating miss at 4).
+      expect(callSizes()).toEqual([10, 4]);
       expect(await taggingStore.getHighestFinalizedIndex(straggler, JOB_ID)).toBe(3);
 
       // Dropping out also means no writes: the caught-up secrets' finalized indexes are untouched by the
@@ -492,11 +492,11 @@ describe('syncTaggedPrivateLogs', () => {
       // Fixed golden probe sizes for the cold-start WINDOW_LEN+2 run: pure doubling with no cap saturation, since the
       // run drains inside the 64-tag round. Depends on INITIAL_CONSTRAINED_PROBE_LEN and, via the run length, on
       // UNFINALIZED_TAGGING_INDEXES_WINDOW_LEN; update if either changes.
-      expect(callSizes()).toEqual([1, 2, 4, 8, 16, 32, 64]);
+      expect(callSizes()).toEqual([2, 4, 8, 16, 32, 64]);
 
-      // The final round spans indexes 63..126 (64 tags), reaching well past a full window (84) even though the run is
+      // The final round spans indexes 62..125 (64 tags), reaching well past a full window (84) even though the run is
       // only WINDOW_LEN+2 long: only possible because the scan bound re-anchored forward to each finalized index found.
-      expect(calledTags(6)).toEqual(await computeSiloedTagRange(secret, 64, 63));
+      expect(calledTags(5)).toEqual(await computeSiloedTagRange(secret, 64, 62));
     });
 
     it('unconstrained', async () => {
