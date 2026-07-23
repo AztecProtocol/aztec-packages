@@ -502,12 +502,7 @@ void ECCVMSetRelationImpl<FF>::accumulate(ContainerOverSubrelations& accumulator
     // Contribution (2)
     std::get<LEFT_SHIFTABLE>(accumulator) += lagrange_last_short * z_perm_shift_short * scaling_factor;
 
-    // Contribution (3): Enforce z_perm starts at 0. The grand product initialization relies on
-    // z_perm[0] = 0 so that (z_perm + lagrange_first) evaluates to 1 at the first row.
-    using InitAccumulator = std::tuple_element_t<Z_PERM_INIT, ContainerOverSubrelations>;
-    using InitView = typename InitAccumulator::View;
-    const auto& lagrange_first_init = InitView(in.lagrange_first);
-    const auto& z_perm_init = InitView(in.z_perm);
-    std::get<Z_PERM_INIT>(accumulator) += lagrange_first_init * z_perm_init * scaling_factor;
+    // The `z_perm[lagrange_first row] = 0` initialization the grand product depends on is now
+    // enforced by Z_PERM_INIT inside ECCVMShiftableInitRelation.
 }
 } // namespace bb

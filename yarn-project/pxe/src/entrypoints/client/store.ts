@@ -1,6 +1,11 @@
 import type { EthAddress } from '@aztec/foundation/eth-address';
 import { type Logger, createLogger } from '@aztec/foundation/log';
-import { AztecSQLiteOPFSStore, storePoolDirectory } from '@aztec/kv-store/sqlite-opfs';
+import {
+  AztecSQLiteOPFSStore,
+  SqliteCorruptionError,
+  deleteStore,
+  storePoolDirectory,
+} from '@aztec/kv-store/sqlite-opfs';
 
 import { assertStoreIdentity, effectiveStoreName } from '../../storage/store_identity.js';
 
@@ -21,12 +26,23 @@ export async function openBrowserStore(
     storeName,
     dataStoreMapSizeKb: config.dataStoreMapSizeKb,
   });
-  const store = await AztecSQLiteOPFSStore.open(
-    createLogger('kv-store:sqlite-opfs'),
-    storeName,
-    false,
-    storePoolDirectory(storeName),
-  );
+  const openStore = () =>
+    AztecSQLiteOPFSStore.open(createLogger('kv-store:sqlite-opfs'), storeName, false, storePoolDirectory(storeName));
+
+  let store: AztecSQLiteOPFSStore;
+  try {
+    store = await openStore();
+  } catch (err) {
+    if (!(err instanceof SqliteCorruptionError)) {
+      throw err;
+    }
+    // A corrupt image is unrecoverable — no retry against the same bytes helps. Wipe the store's OPFS directory
+    // (safe: the failed open left no SAH-pool lock behind) and reopen a fresh, empty one, so the browser self-heals
+    // into a normal first-run rather than dead-ending on "database disk image is malformed" every load.
+    log.warn(`${storeName} store is corrupt (${err.message}); wiping and reopening fresh`);
+    await deleteStore(storeName);
+    store = await openStore();
+  }
   try {
     await assertStoreIdentity(store, storeName, identity);
   } catch (err) {

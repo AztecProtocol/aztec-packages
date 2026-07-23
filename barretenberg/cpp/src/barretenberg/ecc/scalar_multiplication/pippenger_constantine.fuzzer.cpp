@@ -123,7 +123,7 @@ extern "C" int LLVMFuzzerTestOneInput(const uint8_t* data, size_t size)
     std::memcpy(buf.data(), data, std::min(size, MIN_INPUT));
 
     // window_bits ∈ [1, 19] — `choose_window_bits` returns [2,19]; the final
-    // window emitted by `build_var_window_schedule` can additionally be 1 bit
+    // window emitted by `build_window_schedule` can additionally be 1 bit
     // (e.g. wb=3 over 256 bits = 85*3+1). Outside this range the encoder has
     // no well-defined behavior in production.
     const size_t window_bits = 1 + (buf[0] % 19);
@@ -147,7 +147,7 @@ extern "C" int LLVMFuzzerTestOneInput(const uint8_t* data, size_t size)
     }
 
     // Check 2: SIMD x4 path agrees with scalar path lane-by-lane.
-    std::array<uint32_t, 4> simd_out{};
+    alignas(16) std::array<uint32_t, 4> simd_out{};
     production_simd(scalars, bit_offset, window_bits, simd_out);
     for (size_t lane = 0; lane < 4; ++lane) {
         const uint32_t want = production_scalar(scalars[lane].data(), bit_offset, window_bits);

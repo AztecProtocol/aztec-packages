@@ -118,8 +118,10 @@ const std::vector<WycherproofSecp256r1> secp256r1_tests{
         .r = WycherproofSecp256r1::Fr("0xbb5a52f42f9c9261ed4361f59422a1e30036e7c32b270c8807a419feca605023"),
         .s = WycherproofSecp256r1::Fr("0x249249246db6db6ddb6db6db6db6db6dad4591868595a8ee6bf5f864ff7be0c2"),
         .is_valid_signature = false,
-        .is_circuit_satisfied =
-            false, // When the public key is equal to ±G, the circuit fails because of the generation of lookup tables
+        // The fake-GLV two-2-MSM path handles pubkey = ±G natively: each MSM operates on independent input pairs
+        // {G, ±T₁} or {Q, ±T₂}, none of which collide for honest signatures, so the circuit is satisfiable. The
+        // verifier still reports invalid because this Wycherproof vector is independently a malformed signature.
+        .is_circuit_satisfied = true,
         .comment = "Point duplication, public key shares x-coordinates with generator",
     },
     // Edge case public key test

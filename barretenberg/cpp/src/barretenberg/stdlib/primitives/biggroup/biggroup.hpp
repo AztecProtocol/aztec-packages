@@ -364,6 +364,29 @@ template <class Builder_, class Fq, class Fr, class NativeGroup> class element {
     static element secp256k1_ecdsa_mul(const element& pubkey, const Fr& u1, const Fr& u2);
 
     /**
+     * @brief Output of `secp256r1_ecdsa_mul`: the multiplication result plus a soundness flag.
+     * @details `result` holds `u₁·G + u₂_safe·Q`, where `u₂_safe = u₂` if `u₂ ∉ {0, ±1}` and `u₂_safe = 2`
+     * otherwise (the fake-GLV path cannot compute `u₂·Q` when u₂ ∈ {0, ±1}).
+     */
+    struct Secp256r1EcdsaMulResult {
+        element result;
+        bool_ct u2_is_acceptable;
+    };
+
+    template <typename X = NativeGroup, typename = typename std::enable_if_t<std::is_same<X, secp256r1::g1>::value>>
+    static Secp256r1EcdsaMulResult secp256r1_ecdsa_mul(const element& pubkey, const Fr& u1, const Fr& u2);
+
+    /**
+     * @brief Fixed-base scalar multiplication for the secp256r1 generator using Pedersen-style ROM tables.
+     * @details Computes u·G where G is the secp256r1 generator and u is a full 256-bit scalar. The scalar
+     * is sliced into 8-bit windows; each window is resolved against a precomputed 256-entry ROM table
+     * holding {k · 2^(8i) · G + offset_i}. No accumulator doublings are required — the algorithm is one
+     * ROM read + one chain-add per window, plus a final offset subtraction.
+     */
+    template <typename X = NativeGroup, typename = typename std::enable_if_t<std::is_same<X, secp256r1::g1>::value>>
+    static element secp256r1_fixed_base_mul(const Fr& u);
+
+    /**
      * @brief Compute Non-Adjacent Form (NAF) representation of a scalar
      * @details Only used internally in biggroup_nafs.hpp
      */
@@ -375,7 +398,6 @@ template <class Builder_, class Fq, class Fr, class NativeGroup> class element {
         bool_ct positive_skew;
         bool_ct negative_skew;
         field_t<Builder> least_significant_wnaf_fragment;
-        bool has_wnaf_fragment = false;
     };
 
     // Internal struct to represent a pair of secp256k1 wNAFs
@@ -475,12 +497,13 @@ template <class Builder_, class Fq, class Fr, class NativeGroup> class element {
      * @brief Mask points for batch multiplication to handle edge cases
      * @param _points The points to be masked
      * @param _scalars The corresponding scalars
-     * @return A pair of vectors containing the masked points and scalars
+     * @return A tuple of (masked points, masked scalars, offset generator element used for masking).
+     *         The offset generator is exposed primarily for testing purposes.
      *
      * @details Only used internally in biggroup_edgecase_handling.hpp
      */
-    static std::pair<std::vector<element>, std::vector<Fr>> mask_points(const std::vector<element>& _points,
-                                                                        const std::vector<Fr>& _scalars);
+    static std::tuple<std::vector<element>, std::vector<Fr>, element> mask_points(const std::vector<element>& _points,
+                                                                                  const std::vector<Fr>& _scalars);
 
     /**
      * @brief Handle points at infinity in batch operations, replaces (∞, scalar) pairs by (G, 0)
@@ -973,6 +996,12 @@ class element_test_accessor {
         return elem1.checked_unconditional_add_sub(elem2);
     }
 
+    template <typename C, typename Fq, typename Fr, typename G>
+    static auto mask_points(const std::vector<element<C, Fq, Fr, G>>& points, const std::vector<Fr>& scalars)
+    {
+        return element<C, Fq, Fr, G>::mask_points(points, scalars);
+    }
+
     // Overload for goblin_element
     template <typename C, typename Fq, typename Fr, typename G>
     static auto checked_unconditional_add_sub(const element_goblin::goblin_element<C, Fq, Fr, G>& elem1,
@@ -1027,4 +1056,5 @@ using element = std::conditional_t<IsGoblinBigGroup<C, Fq, Fr, G>,
 #include "biggroup_impl.hpp"
 #include "biggroup_nafs.hpp"
 #include "biggroup_secp256k1.hpp"
+#include "biggroup_secp256r1.hpp"
 #include "biggroup_tables.hpp"

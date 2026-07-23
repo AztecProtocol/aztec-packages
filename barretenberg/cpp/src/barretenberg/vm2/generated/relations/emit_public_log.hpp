@@ -3,7 +3,6 @@
 
 #include <string_view>
 
-#include "barretenberg/common/bb_bench.hpp"
 #include "barretenberg/relations/relation_parameters.hpp"
 #include "barretenberg/relations/relation_types.hpp"
 #include "barretenberg/vm2/generated/columns.hpp"
@@ -14,9 +13,9 @@ template <typename FF_> class emit_public_logImpl {
   public:
     using FF = FF_;
 
-    static constexpr std::array<size_t, 40> SUBRELATION_PARTIAL_LENGTHS = { 3, 3, 3, 3, 3, 3, 3, 3, 5, 3, 3, 3, 3, 3,
+    static constexpr std::array<size_t, 41> SUBRELATION_PARTIAL_LENGTHS = { 3, 3, 3, 3, 3, 3, 3, 3, 5, 3, 3, 3, 3, 3,
                                                                             3, 3, 4, 3, 6, 4, 2, 3, 3, 3, 4, 3, 3, 3,
-                                                                            3, 3, 3, 5, 4, 3, 3, 3, 3, 3, 3, 3 };
+                                                                            3, 3, 3, 5, 4, 3, 3, 3, 3, 3, 3, 3, 3 };
 
     template <typename AllEntities> inline static bool skip(const AllEntities& in)
     {
@@ -55,10 +54,12 @@ template <typename FF> class emit_public_log : public Relation<emit_public_logIm
     static constexpr size_t SR_DISABLED_MEM_READ_VALUE_ZERO = 28;
     static constexpr size_t SR_DISABLED_MEM_READ_TAG_FF = 29;
     static constexpr size_t SR_SEL_SHOULD_WRITE_TO_PUBLIC_INPUTS_CONSISTENCY = 33;
-    static constexpr size_t SR_CONTRACT_ADDRESS_CONSISTENCY = 36;
+    static constexpr size_t SR_SEL_WRITE_TO_PI_ON_SEL = 34;
+    static constexpr size_t SR_CONTRACT_ADDRESS_CONSISTENCY = 37;
 
     static std::string get_subrelation_label(size_t index)
     {
+#ifdef AVM_INCLUDE_COLUMN_INFORMATION
         switch (index) {
         case SR_SEL_ON_START_OR_END:
             return "SEL_ON_START_OR_END";
@@ -96,9 +97,12 @@ template <typename FF> class emit_public_log : public Relation<emit_public_logIm
             return "DISABLED_MEM_READ_TAG_FF";
         case SR_SEL_SHOULD_WRITE_TO_PUBLIC_INPUTS_CONSISTENCY:
             return "SEL_SHOULD_WRITE_TO_PUBLIC_INPUTS_CONSISTENCY";
+        case SR_SEL_WRITE_TO_PI_ON_SEL:
+            return "SEL_WRITE_TO_PI_ON_SEL";
         case SR_CONTRACT_ADDRESS_CONSISTENCY:
             return "CONTRACT_ADDRESS_CONSISTENCY";
         }
+#endif
         return std::to_string(index);
     }
 };

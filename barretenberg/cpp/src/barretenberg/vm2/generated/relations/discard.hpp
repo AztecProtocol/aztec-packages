@@ -3,7 +3,6 @@
 
 #include <string_view>
 
-#include "barretenberg/common/bb_bench.hpp"
 #include "barretenberg/relations/relation_parameters.hpp"
 #include "barretenberg/relations/relation_types.hpp"
 #include "barretenberg/vm2/generated/columns.hpp"
@@ -46,6 +45,7 @@ template <typename FF> class discard : public Relation<discardImpl<FF>> {
 
     static std::string get_subrelation_label(size_t index)
     {
+#ifdef AVM_INCLUDE_COLUMN_INFORMATION
         switch (index) {
         case SR_SEL_FAILURE:
             return "SEL_FAILURE";
@@ -64,6 +64,7 @@ template <typename FF> class discard : public Relation<discardImpl<FF>> {
         case SR_DYING_CONTEXT_WITH_PARENT_MUST_CLEAR_DISCARD:
             return "DYING_CONTEXT_WITH_PARENT_MUST_CLEAR_DISCARD";
         }
+#endif
         return std::to_string(index);
     }
 };

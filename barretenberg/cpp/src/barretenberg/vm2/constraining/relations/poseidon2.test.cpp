@@ -481,7 +481,7 @@ TEST_F(Poseidon2ConstrainingTest, StartSelectorIsProtected)
 
     // FIX VERIFIED: The SELECTOR_ON_START constraint now catches this attack
     EXPECT_THROW_WITH_MESSAGE(check_relation<poseidon2_hash>(trace, poseidon2_hash::SR_SEL_ON_START_OR_END),
-                              "SEL_ON_START_OR_END");
+                              poseidon2_hash::get_subrelation_label(poseidon2_hash::SR_SEL_ON_START_OR_END));
 }
 
 // This test verifies that the SELECTOR_ON_START fix blocks the class_id forgery attack.
@@ -592,7 +592,7 @@ TEST_F(Poseidon2ConstrainingTest, FakeClassIdAttackIsBlocked)
     // =========================================================================
     // The forged row has start=1 but sel=0, which violates: start * (1 - sel) = 0
     EXPECT_THROW_WITH_MESSAGE(check_relation<poseidon2_hash>(trace, poseidon2_hash::SR_SEL_ON_START_OR_END),
-                              "SEL_ON_START_OR_END");
+                              poseidon2_hash::get_subrelation_label(poseidon2_hash::SR_SEL_ON_START_OR_END));
 
     // class_id_derivation relations still pass (the attack is blocked at the poseidon2_hash level)
     check_relation<class_id_derivation>(trace);

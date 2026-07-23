@@ -40,7 +40,10 @@ template <typename FF_> class NonNativeFieldRelationImpl {
      * @brief Returns true if the contribution from all subrelations for the provided inputs is identically zero
      *
      */
-    template <typename AllEntities> inline static bool skip(const AllEntities& in) { return in.q_nnf.is_zero(); }
+    template <typename AllEntities> inline static bool skip(const AllEntities& in)
+    {
+        return in[AllEntities::EntityId::q_nnf].is_zero();
+    }
 
     /**
      * @brief Accumulates constraints for non-native field multiplication and limb decomposition.
@@ -72,21 +75,21 @@ template <typename FF_> class NonNativeFieldRelationImpl {
         using Accumulator = typename std::tuple_element_t<0, ContainerOverSubrelations>;
         using CoefficientAccumulator = typename Accumulator::CoefficientAccumulator;
 
-        auto w_1_m = CoefficientAccumulator(in.w_l);
-        auto w_2_m = CoefficientAccumulator(in.w_r);
-        auto w_3_m = CoefficientAccumulator(in.w_o);
-        auto w_4_m = CoefficientAccumulator(in.w_4);
-        auto w_1_shift_m = CoefficientAccumulator(in.w_l_shift);
-        auto w_2_shift_m = CoefficientAccumulator(in.w_r_shift);
-        auto w_3_shift_m = CoefficientAccumulator(in.w_o_shift);
-        auto w_4_shift_m = CoefficientAccumulator(in.w_4_shift);
+        auto w_1_m = CoefficientAccumulator(in[AllEntities::EntityId::w_l]);
+        auto w_2_m = CoefficientAccumulator(in[AllEntities::EntityId::w_r]);
+        auto w_3_m = CoefficientAccumulator(in[AllEntities::EntityId::w_o]);
+        auto w_4_m = CoefficientAccumulator(in[AllEntities::EntityId::w_4]);
+        auto w_1_shift_m = CoefficientAccumulator(in[AllEntities::EntityId::w_l_shift]);
+        auto w_2_shift_m = CoefficientAccumulator(in[AllEntities::EntityId::w_r_shift]);
+        auto w_3_shift_m = CoefficientAccumulator(in[AllEntities::EntityId::w_o_shift]);
+        auto w_4_shift_m = CoefficientAccumulator(in[AllEntities::EntityId::w_4_shift]);
 
-        auto q_2_m = CoefficientAccumulator(in.q_r);
-        auto q_3_m = CoefficientAccumulator(in.q_o);
-        auto q_4_m = CoefficientAccumulator(in.q_4);
-        auto q_m_m = CoefficientAccumulator(in.q_m);
+        auto q_2_m = CoefficientAccumulator(in[AllEntities::EntityId::q_r]);
+        auto q_3_m = CoefficientAccumulator(in[AllEntities::EntityId::q_o]);
+        auto q_4_m = CoefficientAccumulator(in[AllEntities::EntityId::q_4]);
+        auto q_m_m = CoefficientAccumulator(in[AllEntities::EntityId::q_m]);
 
-        auto q_nnf_m = CoefficientAccumulator(in.q_nnf);
+        auto q_nnf_m = CoefficientAccumulator(in[AllEntities::EntityId::q_nnf]);
         const FF LIMB_SIZE(uint256_t(1) << 68);
         const FF SUBLIMB_SHIFT(uint256_t(1) << 14);
 

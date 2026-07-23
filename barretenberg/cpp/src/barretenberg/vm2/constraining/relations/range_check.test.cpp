@@ -43,7 +43,7 @@ TEST(RangeCheckConstrainingTest, NegativeIsLteMutuallyExclusive)
     });
 
     EXPECT_THROW_WITH_MESSAGE(check_relation<range_check>(trace, range_check::SR_IS_LTE_MUTUALLY_EXCLUSIVE),
-                              "IS_LTE_MUTUALLY_EXCLUSIVE");
+                              range_check::get_subrelation_label(range_check::SR_IS_LTE_MUTUALLY_EXCLUSIVE));
 }
 
 TEST(RangeCheckConstrainingTest, CheckRecomposition)
@@ -87,7 +87,7 @@ TEST(RangeCheckConstrainingTest, NegativeCheckRecomposition)
     } });
 
     EXPECT_THROW_WITH_MESSAGE(check_relation<range_check>(trace, range_check::SR_CHECK_RECOMPOSITION),
-                              "CHECK_RECOMPOSITION");
+                              range_check::get_subrelation_label(range_check::SR_CHECK_RECOMPOSITION));
 }
 
 TEST(RangeCheckConstrainingTest, Full)

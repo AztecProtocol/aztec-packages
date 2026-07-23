@@ -3,7 +3,6 @@
 
 #include <string_view>
 
-#include "barretenberg/common/bb_bench.hpp"
 #include "barretenberg/relations/relation_parameters.hpp"
 #include "barretenberg/relations/relation_types.hpp"
 #include "barretenberg/vm2/generated/columns.hpp"
@@ -45,6 +44,7 @@ template <typename FF> class sstore : public Relation<sstoreImpl<FF>> {
 
     static std::string get_subrelation_label(size_t index)
     {
+#ifdef AVM_INCLUDE_COLUMN_INFORMATION
         switch (index) {
         case SR_SSTORE_MAX_DATA_WRITES_REACHED:
             return "SSTORE_MAX_DATA_WRITES_REACHED";
@@ -61,6 +61,7 @@ template <typename FF> class sstore : public Relation<sstoreImpl<FF>> {
         case SR_SSTORE_PUBLIC_DATA_TREE_SIZE_NOT_CHANGED:
             return "SSTORE_PUBLIC_DATA_TREE_SIZE_NOT_CHANGED";
         }
+#endif
         return std::to_string(index);
     }
 };

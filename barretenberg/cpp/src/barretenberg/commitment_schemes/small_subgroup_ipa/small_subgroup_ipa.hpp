@@ -7,6 +7,7 @@
 #pragma once
 
 #include "barretenberg/commitment_schemes/utils/test_settings.hpp"
+#include "barretenberg/common/assert.hpp"
 #include "barretenberg/constants.hpp"
 #include "barretenberg/ecc/curves/bn254/bn254.hpp"
 #include "barretenberg/eccvm/eccvm_translation_data.hpp"
@@ -101,10 +102,10 @@ template <typename Flavor> class SmallSubgroupIPAProver {
 
     // Monomial coefficients of the concatenated polynomial extracted from ZKSumcheckData or TranslationData
     Polynomial<FF> concatenated_polynomial;
-    // Lagrange coefficeints of the concatenated polynomial
+    // Lagrange coefficients of the concatenated polynomial
     Polynomial<FF> concatenated_lagrange_form;
 
-    // The polynomial obtained by concatenated powers of sumcheck challenges or the productcs of
+    // The polynomial obtained by concatenating powers of sumcheck challenges or the products of
     // `evaluation_challenge_x` and `batching_challenge_v`
     Polynomial<FF> challenge_polynomial;
     Polynomial<FF> challenge_polynomial_lagrange;
@@ -173,25 +174,15 @@ template <typename Flavor> class SmallSubgroupIPAProver {
                                                         const std::array<FF, SUBGROUP_SIZE>& interpolation_domain,
                                                         const EvaluationDomain<FF>& bn_evaluation_domain);
 
-    // Getter to pass the witnesses to ShpleminiProver. Grand sum polynomial appears twice, because it is evaluated at 2
-    // points (and is small).
-    std::array<bb::Polynomial<FF>, NUM_SMALL_IPA_EVALUATIONS> get_witness_polynomials() const
+    // Returns {G, A, Q} in commitment-slot order. Code that needs a per-claim polynomial must index via
+    // `SMALL_IPA_CLAIMS[i].commitment_index`.
+    std::array<bb::Polynomial<FF>, NUM_SMALL_IPA_COMMITMENTS> get_witness_polynomials() const
     {
-        return { concatenated_polynomial, grand_sum_polynomial, grand_sum_polynomial, grand_sum_identity_quotient };
+        return { concatenated_polynomial, grand_sum_polynomial, grand_sum_identity_quotient };
     }
     // Getters for test purposes
     const Polynomial<FF>& get_batched_polynomial() const { return grand_sum_identity_polynomial; }
     const Polynomial<FF>& get_challenge_polynomial() const { return challenge_polynomial; }
-
-    std::array<FF, NUM_SMALL_IPA_EVALUATIONS> evaluation_points(const FF& small_ipa_evaluation_challenge)
-    {
-        return compute_evaluation_points(small_ipa_evaluation_challenge, Curve::subgroup_generator);
-    }
-
-    std::array<std::string, NUM_SMALL_IPA_EVALUATIONS> evaluation_labels()
-    {
-        return get_evaluation_labels(label_prefix);
-    };
 };
 
 /*!
@@ -201,7 +192,7 @@ template <typename Flavor> class SmallSubgroupIPAProver {
  * @details
  * Given a subgroup of \f$ \mathbb{F}^\ast \f$, its generator \f$ g\f$, this function checks whether the following
  * equation holds: \f[ L_1(r) A(r) + (r - g^{-1}) \left( A(g*r) - A(r) - F(r) G(r) \right) + L_{|H|}(r) \left( A(r) - s
- * \right) = T(r) Z_H(r) \f]
+ * \right) = Q(r) Z_H(r) \f]
  * where the following evaluations are sent by the prover:
  * - \f$ A(r), A(g\cdot r) \f$ are the evaluations of the "grand sum polynomial"
  * - \f$ G(r) \f$ is the evaluation of the witness polynomial
@@ -232,16 +223,23 @@ template <typename Curve> class SmallSubgroupIPAVerifier {
     /**
      * @brief Generic consistency check agnostic to challenge polynomial \f$ F\f$.
      *
-     * @param small_ipa_evaluations \f$ G(r) \f$ , \f$ A(g* r) \f$, \f$ A(r) \f$ , \f$ Q(r)\f$.
-     * @param small_ipa_eval_challenge
+     * @details Verifies the algebraic identity
+     *   \f$ L_1(r) A(r) + (r - g^{-1})(A(gr) - A(r) - F(r) G(r)) + L_{|H|}(r)(A(r) - s) = Z_H(r) Q(r) \f$
+     * at the random challenge \f$ r \f$. This check alone is **not** sufficient for soundness — the protocol's
+     * SmallSubgroupIPA identity has a one-dimensional kernel at \f$ X = 1 \f$ (see the README's "Why the fifth opening
+     * is required" section). Soundness additionally requires the boundary opening \f$ A(1) = 0 \f$, which is enforced
+     * by the Shplemini/Shplonk batched opening on the committed \f$ [A] \f$ — not by this function.
+     *
+     * Slot [3] of \p small_ipa_evaluations is the (verifier-supplied) boundary value 0 and is read by Shplonk batching
+     * upstream; it is intentionally unused inside this function.
+     *
+     * @param small_ipa_evaluations \f$ G(r), A(gr), A(r), A(1), Q(r) \f$.
+     * @param small_ipa_eval_challenge The random challenge \f$ r \f$.
      * @param challenge_polynomial The polynomial \f$ F \f$ that the verifier computes and evaluates on its own.
-     * @param inner_product_eval_claim \f$ <F,G> \f$ where the polynomials are treated as vectors of coefficients (in
-     * Lagrange basis).
+     * @param inner_product_eval_claim \f$ \langle F, G \rangle \f$ in the Lagrange basis.
      * @param vanishing_poly_eval \f$ Z_H(r) \f$
-     * @return true
-     * @return false
      */
-    static bool check_consistency(const std::array<FF, NUM_SMALL_IPA_EVALUATIONS>& small_ipa_evaluations,
+    static bool check_consistency(const std::array<FF, NUM_SMALL_IPA_OPENING_CLAIMS>& small_ipa_evaluations,
                                   const FF& small_ipa_eval_challenge,
                                   const std::vector<FF>& challenge_polynomial,
                                   const FF& inner_product_eval_claim,
@@ -256,7 +254,8 @@ template <typename Curve> class SmallSubgroupIPAVerifier {
         const FF& concatenated_at_r = small_ipa_evaluations[0];
         const FF& grand_sum_shifted_eval = small_ipa_evaluations[1];
         const FF& grand_sum_eval = small_ipa_evaluations[2];
-        const FF& quotient_eval = small_ipa_evaluations[3];
+        // Slot 3 is the fixed boundary value A(1) = 0; it is enforced by the PCS opening, not by this identity.
+        const FF& quotient_eval = small_ipa_evaluations[4];
 
         // Compute the evaluation of L_1(X) * A(X) + (X - 1/g) (A(gX) - A(X) - F(X) G(X)) + L_{|H|}(X)(A(X) - s) -
         // Z_H(X) * Q(X)
@@ -289,14 +288,14 @@ template <typename Curve> class SmallSubgroupIPAVerifier {
      * @return true
      * @return false
      */
-    static bool check_libra_evaluations_consistency(const std::array<FF, NUM_SMALL_IPA_EVALUATIONS>& libra_evaluations,
-                                                    const FF& gemini_evaluation_challenge,
-                                                    const std::vector<FF>& multilinear_challenge,
-                                                    const FF& inner_product_eval_claim)
+    static bool check_libra_evaluations_consistency(
+        const std::array<FF, NUM_SMALL_IPA_OPENING_CLAIMS>& libra_evaluations,
+        const FF& gemini_evaluation_challenge,
+        const std::vector<FF>& multilinear_challenge,
+        const FF& inner_product_eval_claim)
     {
 
-        // Compute the evaluation of the vanishing polynomia Z_H(X) at X =
-        // gemini_evaluation_challenge
+        // Compute the evaluation of the vanishing polynomial Z_H(X) at the Gemini evaluation challenge.
         const FF vanishing_poly_eval = gemini_evaluation_challenge.pow(SUBGROUP_SIZE) - FF(1);
 
         return check_consistency(libra_evaluations,
@@ -317,14 +316,14 @@ template <typename Curve> class SmallSubgroupIPAVerifier {
      * @param inner_product_eval_claim Claimed inner product of \f$ F \f$ and \f$ G\f$.
      */
     static bool check_eccvm_evaluations_consistency(
-        const std::array<FF, NUM_SMALL_IPA_EVALUATIONS>& small_ipa_evaluations,
+        const std::array<FF, NUM_SMALL_IPA_OPENING_CLAIMS>& small_ipa_evaluations,
         const FF& evaluation_challenge,
         const FF& evaluation_challenge_x,
         const FF& batching_challenge_v,
         const FF& inner_product_eval_claim)
     {
 
-        // Compute the evaluation of the vanishing polynomia Z_H(X) at `evaluation_challenge`
+        // Compute the evaluation of the vanishing polynomial Z_H(X) at `evaluation_challenge`.
         const FF vanishing_poly_eval = evaluation_challenge.pow(SUBGROUP_SIZE) - FF(1);
 
         return check_consistency(small_ipa_evaluations,
@@ -407,14 +406,6 @@ template <typename Curve> class SmallSubgroupIPAVerifier {
             result.begin(), result.end(), result.begin(), [&](FF& denominator) { return denominator * numerator; });
         return result;
     }
-    static std::array<FF, NUM_SMALL_IPA_EVALUATIONS> evaluation_points(const FF& small_ipa_evaluation_challenge)
-    {
-        return compute_evaluation_points<FF>(small_ipa_evaluation_challenge, Curve::subgroup_generator);
-    }
-    static std::array<std::string, NUM_SMALL_IPA_EVALUATIONS> evaluation_labels(const std::string& label_prefix)
-    {
-        return get_evaluation_labels(label_prefix);
-    };
 };
 
 /**
@@ -436,6 +427,7 @@ static std::vector<typename Curve::ScalarField> compute_challenge_polynomial_coe
     static constexpr size_t libra_univariates_length = Curve::LIBRA_UNIVARIATES_LENGTH;
 
     const size_t challenge_poly_length = libra_univariates_length * multivariate_challenge.size() + 1;
+    BB_ASSERT_LT(challenge_poly_length, Curve::SUBGROUP_SIZE);
 
     FF one{ 1 };
     FF zero{ 0 };
@@ -503,6 +495,7 @@ std::vector<typename Curve::ScalarField> compute_eccvm_challenge_coeffs(
     }
 
     const size_t challenge_poly_length = num_polys * num_coeffs_per_poly;
+    BB_ASSERT_LT(challenge_poly_length, Curve::SUBGROUP_SIZE);
 
     // Ensure that the coefficients are padded with fixed witnesses obtained from 0
     for (size_t idx = challenge_poly_length; idx < Curve::SUBGROUP_SIZE; idx++) {

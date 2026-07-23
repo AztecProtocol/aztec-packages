@@ -21,6 +21,9 @@
  *   DeltaRangeFailsOnFirstSortedValueTooLarge         — position 0->1 transition (virtual zero start)
  *   DeltaRangeFailsOnFifthOrderedPolyCorruption       — 5th ordered poly (different build path)
  *
+ * Shiftable first coeff zero relation (TranslatorShiftableFirstCoeffZeroRelation) — 1 test:
+ *   ShiftableFirstCoeffZeroFailsOnOrderedNonZero      — nonzero ordered_i at lagrange_first row (subrelations 0-4)
+ *
  * Accumulator transfer relation (TranslatorAccumulatorTransferRelation) — 6 tests:
  *   AccumulatorTransferFailsOnOddRowCorruption        — interior odd row (transfer chain)
  *   AccumulatorTransferFailsOnZeroInitCorruption      — last minicircuit row (zero-init)
@@ -32,6 +35,10 @@
  * Non-native field relation (TranslatorNonNativeFieldRelation) — 1 test:
  *   NonNativeFieldRejectsAccumulatorAlias              — #2492 regression: acc += q, quot -= 1 caught
  *                                                       by higher carry check (subrelation 1)
+ *
+ * Opcode constraint relation (TranslatorOpcodeConstraintRelation) — 1 test:
+ *   OpcodeConstraintFailsOnGenuineOpcodeAtOddRow       — genuine opcode on an odd row must be rejected
+ *                                                       (subrelation 0: lagrange_odd * op == 0)
  *
  * Pipeline correctness — 1 test:
  *   InRangeValueInMaskingFlowsToOrderedTail           — trace FF(42) from wire masking through
@@ -142,7 +149,7 @@ ValidTranslatorState build_valid_accumulator_transfer_state()
     for (size_t i = 0; i < Flavor::CircuitBuilder::NUM_RANDOM_OPS_END; i++) {
         op_queue->random_op_ultra_only();
     }
-    op_queue->merge_fixed_append(op_queue->get_append_offset());
+    op_queue->merge_fixed_append(op_queue->get_append_offset_for_prover());
 
     const auto batching_challenge_v = BF::random_element(&engine);
     const auto evaluation_input_x = BF::random_element(&engine);
@@ -320,6 +327,46 @@ TEST_F(TranslatorRelationFailureTests, PermutationFailsOnZPermNonZeroAtFirstRow)
     // Sub-relation 2 (lagrange_first * z_perm = 0) should catch this
     EXPECT_TRUE(failures.contains(2)) << "Sub-relation 2 (z_perm init) should catch the corruption";
     EXPECT_EQ(failures.at(2), static_cast<uint32_t>(first_row)) << "Failure should be at lagrange_first row";
+}
+
+/**
+ * @brief Test that each ordered_range_constraints wire must be zero at the lagrange_first row.
+ *
+ * @details Soundness of the 14-bit range check requires each sorted chain to start at 0; otherwise field wraparound
+ * lets an out-of-range value (e.g. -3 = p-3) sit at the chain start with the delta to the next row still in {0,1,2,3}.
+ * The Gemini/Shplemini shift mechanic forces the constant term of a to-be-shifted polynomial to 0, so this is not
+ * exploitable, but TranslatorShiftableFirstCoeffZeroRelation anchors it explicitly as defense-in-depth.
+ */
+TEST_F(TranslatorRelationFailureTests, ShiftableFirstCoeffZeroFailsOnOrderedNonZero)
+{
+    auto [key, params] = build_valid_translator_state();
+    auto& pp = key.proving_key->polynomials;
+
+    // Baseline: the relation passes on valid data
+    auto baseline = RelationChecker<Flavor>::check<TranslatorShiftableFirstCoeffZeroRelation<FF>>(
+        pp, params, "TranslatorShiftableFirstCoeffZeroRelation");
+    EXPECT_TRUE(baseline.empty()) << "Baseline shiftable-first-coeff-zero should pass";
+
+    // Derive the lagrange_first position from the ordered poly's shiftable structure and cross-check it.
+    ASSERT_TRUE(pp.ordered_range_constraints_0.is_shiftable());
+    const size_t first_row = pp.ordered_range_constraints_0.start_index() - 1;
+    ASSERT_NE(pp.lagrange_first[first_row], FF(0)) << "lagrange_first should be active at the ordered poly's zero row";
+
+    // Expand to a full polynomial so we can write at the zero row. The shift drops index 0, so the unshifted/shift
+    // views stay consistent after we only touch the zero row.
+    pp.ordered_range_constraints_0 = pp.ordered_range_constraints_0.full();
+    pp.ordered_range_constraints_0_shift = pp.ordered_range_constraints_0_shift.full();
+    ASSERT_EQ(pp.ordered_range_constraints_0[first_row], FF(0));
+
+    // Tamper: place an out-of-range micro-limb (-3 = p-3) at the sorted-chain start.
+    pp.ordered_range_constraints_0.at(first_row) = -FF(3);
+
+    auto failures = RelationChecker<Flavor>::check<TranslatorShiftableFirstCoeffZeroRelation<FF>>(
+        pp, params, "TranslatorShiftableFirstCoeffZeroRelation - After setting ordered_range_constraints_0[0] != 0");
+    EXPECT_FALSE(failures.empty()) << "Relation should fail after nonzero first sorted value";
+    // Sub-relation 0 (lagrange_first * ordered_range_constraints_0 = 0) should catch this
+    EXPECT_TRUE(failures.contains(0)) << "Sub-relation 0 (ordered_0 first-coeff anchor) should catch the corruption";
+    EXPECT_EQ(failures.at(0), static_cast<uint32_t>(first_row)) << "Failure should be at lagrange_first row";
 }
 
 /**
@@ -855,4 +902,39 @@ TEST_F(TranslatorRelationFailureTests, NonNativeFieldRejectsAccumulatorAlias)
 
     // The native-field check (subrelation 2) should still pass — the mod-r projection is preserved.
     EXPECT_FALSE(failures.contains(2)) << "Subrelation 2 (native check) should pass under the alias mutation";
+}
+
+// ======================== Opcode Constraint Relation: op on odd rows ========================
+
+/**
+ * @brief A genuine opcode must never appear on an odd minicircuit row.
+ *
+ * @details The non-native accumulator only advances on even rows (every advance subrelation is gated by
+ * lagrange_even_in_minicircuit * op). An opcode placed on an odd row would therefore be skipped by the
+ * accumulator, letting a prover exclude an ECC op from the batched evaluation while the rest of the circuit
+ * stays consistent. Subrelation 0 of the opcode-constraint relation forbids this by enforcing
+ * lagrange_odd_in_minicircuit * op == 0. Random masking ops are exempt because both lagrange selectors are zero
+ * in the masking regions.
+ */
+TEST_F(TranslatorRelationFailureTests, OpcodeConstraintFailsOnGenuineOpcodeAtOddRow)
+{
+    auto [key, params] = build_valid_accumulator_transfer_state();
+    auto& pp = key.proving_key->polynomials;
+
+    auto baseline = RelationChecker<Flavor>::check<TranslatorOpcodeConstraintRelation<FF>>(
+        pp, params, "TranslatorOpcodeConstraintRelation");
+    EXPECT_TRUE(baseline.empty()) << "Baseline opcode constraint should pass";
+
+    // Row 9 is the first odd row in the genuine-op processing range (lagrange_odd_in_minicircuit = 1, op = 0).
+    const size_t odd_row = Flavor::RESULT_ROW + 1;
+    ASSERT_EQ(pp.op[odd_row], FF(0));
+
+    // Place a genuine opcode (3 = eq + reset) on the odd row.
+    pp.op.at(odd_row) = FF(3);
+
+    auto failures = RelationChecker<Flavor>::check<TranslatorOpcodeConstraintRelation<FF>>(
+        pp, params, "TranslatorOpcodeConstraintRelation");
+    EXPECT_FALSE(failures.empty()) << "Opcode constraint should fail with a genuine opcode on an odd row";
+    EXPECT_TRUE(failures.contains(0)) << "Subrelation 0 (opcode validity) should catch the odd-row opcode";
+    EXPECT_EQ(failures.at(0), static_cast<uint32_t>(odd_row)) << "Failure should be at the odd row";
 }

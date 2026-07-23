@@ -1,4 +1,4 @@
-// Shared carry-less signed-Booth window slice parameters.
+// Carry-less signed-Booth window recoding helpers.
 //
 // Each window is a c-bit signed digit in [-2^(c-1), 2^(c-1)], read as a (c+1)-bit
 // slice that overlaps its lower neighbour by one bit; the shared boundary bit
@@ -6,18 +6,10 @@
 // `signedWindowEncoding` / `getSignedFullWindowAt`
 // (constantine/math/arithmetic/bigints.nim).
 //
-// The struct + `compute_booth_slice_params` live here so they can be shared
-// between:
-//   * `ecc/groups/element_impl.hpp` — the GLV-endo straus path uses a small
-//     fixed-window (c=4, 32 windows) Booth recoding;
-//   * `ecc/scalar_multiplication/pippenger_constantine.hpp` — the round-parallel
-//     Pippenger MSM uses the same recoding at runtime-chosen window sizes.
-// The two callers diverge on the packed-digit reader (perf-tuned multi-path +
-// SIMD x4 in MSM; simple branchless in element_impl) — only the slice-param
-// computation is shared.
-
 #pragma once
 
+#include "barretenberg/common/assert.hpp"
+#include <array>
 #include <cstddef>
 #include <cstdint>
 
@@ -52,11 +44,11 @@ struct BoothSliceParams {
  *        `constexpr` so callers with compile-time window schedules
  *        (`element_impl`'s GLV-endo 32-window table) can materialise the param
  *        array at compile time, while runtime-schedule callers (Pippenger) use
- *        the same function at runtime.
+ *        the checked wrapper at runtime.
  */
-[[nodiscard]] constexpr BoothSliceParams compute_booth_slice_params(size_t bit_offset,
-                                                                    size_t window_bits,
-                                                                    size_t num_uint64_limbs) noexcept
+[[nodiscard]] constexpr BoothSliceParams compute_booth_slice_params_unchecked(size_t bit_offset,
+                                                                              size_t window_bits,
+                                                                              size_t num_uint64_limbs) noexcept
 {
     constexpr size_t LIMB_BITS = 64;
     BoothSliceParams sp{};
@@ -101,6 +93,72 @@ struct BoothSliceParams {
         sp.slice_localised_to_one_u64 = (hi_bits == 0);
     }
     return sp;
+}
+
+[[nodiscard]] inline BoothSliceParams compute_booth_slice_params(size_t bit_offset,
+                                                                 size_t window_bits,
+                                                                 size_t num_uint64_limbs) noexcept
+{
+    BB_ASSERT(window_bits + 1 <= 32, "Booth window_bits must fit in uint32_t masks");
+    BB_ASSERT(num_uint64_limbs > 0, "Booth scalar limb count must be non-zero");
+    return compute_booth_slice_params_unchecked(bit_offset, window_bits, num_uint64_limbs);
+}
+
+template <size_t NUM_WINDOWS, size_t WINDOW_BITS, size_t NUM_UINT64_LIMBS>
+[[nodiscard]] constexpr std::array<BoothSliceParams, NUM_WINDOWS> make_booth_slice_params() noexcept
+{
+    static_assert(WINDOW_BITS + 1 <= 32);
+    static_assert(NUM_UINT64_LIMBS > 0);
+
+    std::array<BoothSliceParams, NUM_WINDOWS> sp{};
+    for (size_t w = 0; w < NUM_WINDOWS; ++w) {
+        sp[w] = compute_booth_slice_params_unchecked(w * WINDOW_BITS, WINDOW_BITS, NUM_UINT64_LIMBS);
+    }
+    return sp;
+}
+
+template <size_t NUM_WINDOWS, size_t WINDOW_BITS, size_t LOW_WINDOW_BITS, size_t NUM_UINT64_LIMBS>
+[[nodiscard]] constexpr std::array<BoothSliceParams, NUM_WINDOWS> make_offset_booth_slice_params() noexcept
+{
+    static_assert(NUM_WINDOWS > 0);
+    static_assert(WINDOW_BITS + 1 <= 32);
+    static_assert(LOW_WINDOW_BITS + 1 <= 32);
+    static_assert(NUM_UINT64_LIMBS > 0);
+
+    std::array<BoothSliceParams, NUM_WINDOWS> sp{};
+    sp[0] = compute_booth_slice_params_unchecked(0, LOW_WINDOW_BITS, NUM_UINT64_LIMBS);
+    for (size_t w = 1; w < NUM_WINDOWS; ++w) {
+        const size_t bit_offset = (w - 1) * WINDOW_BITS + LOW_WINDOW_BITS;
+        sp[w] = compute_booth_slice_params_unchecked(bit_offset, WINDOW_BITS, NUM_UINT64_LIMBS);
+    }
+    return sp;
+}
+
+/**
+ * @brief Read a (window_bits+1)-bit window from `s[]` (uint64 limbs) and apply Constantine's
+ *        signedWindowEncoding to produce a `(sign | magnitude)` packed digit: bit 31 = sign
+ *        (1 = negative), bits 0..30 = magnitude in [0, 2^(window_bits-1)]. Magnitude 0 means
+ *        the window contributes nothing.
+ *
+ * @details Two unconditional limb loads; windows entirely inside one uint64 still work because
+ *          `hi_mask == 0`, so `hi_part` vanishes without a branch.
+ */
+[[nodiscard]] [[gnu::always_inline]] inline uint32_t booth_packed_digit(const uint64_t* s,
+                                                                        const BoothSliceParams& sp,
+                                                                        size_t window_bits) noexcept
+{
+    const uint64_t s_lo = s[sp.lo_limb];
+    const uint64_t s_hi = s[sp.hi_limb];
+    const uint64_t lo_part = (s_lo >> sp.lo_off) & sp.lo_mask;
+    const uint64_t hi_part = (s_hi & sp.hi_mask) << sp.lo_bits;
+    // raw fits in window_bits+1 ≤ 32 bits, safe to narrow.
+    const uint32_t raw = static_cast<uint32_t>(lo_part | hi_part);
+    const uint32_t neg = (raw >> window_bits) & uint32_t{ 1 };
+    const uint32_t neg_mask = uint32_t{ 0 } - neg;
+    const uint32_t val_mask = (uint32_t{ 1 } << window_bits) - 1;
+    const uint32_t encode = (raw + 1) >> 1;
+    const uint32_t magnitude = ((encode + neg_mask) ^ neg_mask) & val_mask;
+    return (neg << 31) | magnitude;
 }
 
 } // namespace bb::ecc::booth

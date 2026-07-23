@@ -148,10 +148,6 @@ where
     TransformedValue: Ordered + Empty,
 {
     let original_array_length = original_array.length;
-    assert(
-        original_array_length <= CappedSize,
-        "CappedSize not large enough to cover all valid items in original_array",
-    );
 
     // The claimed length of the result array (`output_array`) should be the original array length
     // plus the hinted number of padded items.
@@ -159,6 +155,18 @@ where
     // We also assert below that items between original_array_length and result_array_length (in the resulting array)
     // have all the characteristics of padding items.
     let result_array_length = original_array_length + num_padded_items_hint;
+
+    // `result_array_length` must fit within `CappedSize`. Without this check, a malicious prover
+    // could supply an inflated `num_padded_items_hint`, making `result_array_length` exceed
+    // `CappedSize`. Items in `[CappedSize, result_array_length)` only have the `counter == 0`
+    // check applied (from the `i >= CappedSize` branch below), so their values would be
+    // unconstrained even though they sit within the claimed length of the output. This also
+    // implicitly bounds `original_array_length` since `result_array_length >= original_array_length`.
+    // For an example, see the test `inflate_padded_items_hint_to_add_random_value_within_claimed_length`.
+    assert(
+        result_array_length <= CappedSize,
+        "CappedSize not large enough to cover all items in result_array",
+    );
 
     let mut should_be_padding = false;
     let mut should_be_empty = false;
@@ -274,7 +282,14 @@ mod tests {
         assert_sorted_padded_transformed_i_array_capped_size_with_hints,
     };
     use protocol_test_utils::pad_end;
-    use types::{constants::MAX_U32_VALUE, traits::Empty, utils::arrays::ClaimedLengthArray};
+    use types::{
+        abis::note_hash::NoteHash,
+        address::AztecAddress,
+        constants::MAX_U32_VALUE,
+        side_effect::{Counted, Scoped},
+        traits::{Empty, FromField},
+        utils::arrays::ClaimedLengthArray,
+    };
 
     fn transform_i(original: TestValue, sorted_index: u32) -> TestValue {
         let value = if original.value == 0 {
@@ -663,7 +678,7 @@ mod tests {
         builder.execute_with_hints();
     }
 
-    #[test(should_fail_with = "CappedSize not large enough to cover all valid items in original_array")]
+    #[test(should_fail_with = "CappedSize not large enough to cover all items in result_array")]
     fn capped_size_smaller_than_original_array_claimed_length() {
         let builder = TestDataBuilder::default();
         builder.execute_capped::<2>();
@@ -701,5 +716,112 @@ mod tests {
         builder.sorted_padded_transformed_array.array[6] = TestValue { value: 1, counter: 11 };
 
         builder.execute_capped::<5>();
+    }
+
+    #[test(should_fail_with = "CappedSize not large enough to cover all items in result_array")]
+    fn inflate_padded_items_hint_to_add_random_value_within_claimed_length() {
+        let mut builder = TestDataBuilder::<8>::new(
+            [TestValue { value: 1, counter: 33 }, TestValue { value: 2, counter: 22 }],
+            [
+                TestValue { value: 99, counter: MAX_U32_VALUE },
+                TestValue { value: 88, counter: MAX_U32_VALUE },
+            ],
+        );
+
+        // Attack: claim a result length of 6 even though CappedSize is 4.
+        // Items 0..4 are the legitimate sorted originals + padded items. Items 4 and 5 sit past
+        // CappedSize but within the claimed length, with counter 0 and a random non-empty value.
+        // Past CappedSize the loop only asserts `counter == 0` and ignores the value, so this
+        // smuggles `value: 9999` entries into the array under a `counter == 0` disguise.
+        builder.sorted_padded_transformed_array.array = pad_end([
+            TestValue { value: 2, counter: 22 },
+            TestValue { value: 1, counter: 33 },
+            TestValue { value: 99, counter: MAX_U32_VALUE },
+            TestValue { value: 88, counter: MAX_U32_VALUE },
+            TestValue { value: 9999, counter: 0 },
+            TestValue { value: 9999, counter: 0 },
+        ]);
+        builder.sorted_padded_transformed_array.length = 6;
+
+        // Inflate the hint from the genuine 2 to 4 so that result_array_length = 6 > CappedSize.
+        builder.num_padded_items = 4;
+
+        builder.execute_with_hints_capped::<4>();
+    }
+
+    #[test(should_fail_with = "CappedSize not large enough to cover all items in result_array")]
+    fn inflate_padded_items_hint_by_one_past_capped_size() {
+        let mut builder = TestDataBuilder::<8>::new(
+            [TestValue { value: 1, counter: 33 }, TestValue { value: 2, counter: 22 }],
+            [],
+        );
+
+        builder.sorted_padded_transformed_array.array = pad_end([
+            TestValue { value: 2, counter: 22 },
+            TestValue { value: 1, counter: 33 },
+            TestValue { value: 9999, counter: 0 }, // forged item at index == CappedSize
+        ]);
+        builder.sorted_padded_transformed_array.length = 3;
+
+        // result_array_length = original_array_length (2) + num_padded_items_hint (1) = 3 = CappedSize + 1.
+        builder.num_padded_items = 1;
+
+        builder.execute_with_hints_capped::<2>();
+    }
+
+    // Auditor's PoC (verbatim, modulo two adjustments noted below). Kept alongside the synthetic
+    // `TestValue`-based tests above to (1) preserve provenance as the canonical reproduction handed
+    // over by the auditors and (2) exercise the production types `Scoped<Counted<NoteHash>>`
+    // through `_with_hints` directly, catching any integration weirdness specific to those types
+    // (Empty/Ordered impls, packing) that the `TestValue` harness might paper over.
+    //
+    // Adjustments from the original:
+    //   * Flipped to `should_fail_with`: the original `#[test]` asserted that the attack
+    //     succeeded (length == 3 past the fix). After the fix the function panics earlier, so the
+    //     expected outcome is failure with the new assertion message.
+    //   * Removed the trailing `assert_eq(output_array.length, 3)` line, which is unreachable post-
+    //     fix and would be dead code.
+    #[test(should_fail_with = "CappedSize not large enough to cover all items in result_array")]
+    fn injecting_arbitrary_note_hash_into_claimed_output() {
+        // The honest side effects array produced by the Tx.
+        let original_array = ClaimedLengthArray {
+            array: pad_end([
+                Counted::new(111, 33).scope(AztecAddress::from_field(1001)),
+                Counted::new(222, 22).scope(AztecAddress::from_field(1002)),
+            ]),
+            length: 2,
+        };
+
+        // The output array produced by the prover. The prover added a new element that does not
+        // follow the rules of what a padding element should look like.
+        let output_array = ClaimedLengthArray {
+            array: pad_end([
+                Counted::new(222, 22).scope(AztecAddress::zero()),
+                Counted::new(111, 33).scope(AztecAddress::zero()),
+                Counted::new(999999, 0).scope(AztecAddress::zero()),
+            ]),
+            length: 3,
+        };
+
+        // Safety: This is a test simulating a malicious prover supplying inflated hints; the
+        // call below is precisely what these hints are constrained against.
+        let sorted_index_hints = unsafe { get_order_hints(original_array.array).sorted_indexes };
+        let num_padded_items_hint = 1;
+        // The padded items array is empty: the prover is claiming a padding slot exists without
+        // supplying a real padding element to back it.
+        let padded_items = [Scoped::<Counted<NoteHash>>::empty(); 8];
+
+        // Prover uses a reset kernel compiled with CappedSize = 2.
+        assert_sorted_padded_transformed_i_array_capped_size_with_hints::<_, _, _, _, 2>(
+            original_array,
+            padded_items,
+            output_array,
+            |prev: Scoped<Counted<NoteHash>>, out: Scoped<Counted<NoteHash>>, _index: u32| {
+                assert_eq(prev.innermost(), out.innermost(), "note hash mismatch");
+                assert(out.contract_address.is_zero(), "The contract_address should be 0");
+            },
+            sorted_index_hints,
+            num_padded_items_hint,
+        );
     }
 }

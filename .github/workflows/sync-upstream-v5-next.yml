@@ -1,0 +1,38 @@
+# Sync public-v5-next to upstream v5-next while preserving private automation.
+#
+# Mirror of sync-upstream-next.yml for the v5 release line. Uses
+# AZTEC_BOT_GITHUB_TOKEN (PAT) because GITHUB_TOKEN cannot push commits
+# that modify .github/workflows/ files.
+name: Sync Upstream v5-next
+
+on:
+  schedule:
+    - cron: "*/15 * * * *"
+  workflow_dispatch:
+
+jobs:
+  sync:
+    name: Sync public-v5-next
+    runs-on: ubuntu-latest
+    concurrency:
+      group: sync-public-v5-next
+      cancel-in-progress: false
+    steps:
+      - name: Checkout public-v5-next
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+        with:
+          ref: public-v5-next
+          fetch-depth: 0
+          token: ${{ secrets.AZTEC_BOT_GITHUB_TOKEN }}
+          persist-credentials: true
+
+      - name: Configure Git
+        run: |
+          git config user.name "AztecBot"
+          git config user.email "tech@aztecprotocol.com"
+
+      - name: Sync public-v5-next with upstream
+        env:
+          PUBLIC_BRANCH: public-v5-next
+          UPSTREAM_BRANCH: v5-next
+        run: ./scripts/merge-train/sync-public-next.sh

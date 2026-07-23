@@ -888,11 +888,11 @@ void ContentAddressedCachedTreeStore<LeafValueType>::advance_finalized_block(con
     }
 
     // can currently only finalize up to the unfinalized block height
-    if (committedMeta.finalizedBlockHeight > committedMeta.unfinalizedBlockHeight) {
+    if (blockNumber > committedMeta.unfinalizedBlockHeight) {
         throw std::runtime_error(format("Unable to finalize block ",
                                         blockNumber,
                                         " currently unfinalized block height ",
-                                        committedMeta.finalizedBlockHeight));
+                                        committedMeta.unfinalizedBlockHeight));
     }
 
     {
