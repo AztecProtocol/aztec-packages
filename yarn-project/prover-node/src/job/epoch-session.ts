@@ -95,7 +95,11 @@ export type EpochSessionDeps = {
  *   initialized → awaiting-checkpoints → awaiting-root → publishing-proof → completed
  *
  * Terminal states map the publishing outcome: `published` → `completed`, `superseded` →
- * `superseded`, `failed` → `failed`, `expired` → `timed-out`, `withdrawn` → `cancelled`.
+ * `superseded`, `expired` → `timed-out`, `withdrawn` → `cancelled`. A fault ends the attempt in one
+ * of two terminal states depending on its cause: `stopped` if a checkpoint prover under it failed
+ * (possibly a prune — the reconciler will rebuild over a fresh prover on re-add), or `failed` if the
+ * session's own top-tree/submit work failed while every prover was healthy (a genuine, non-prune
+ * failure the reconciler retains and uploads — see `hasFailed()`).
  * Additionally, the session-level deadline fires `cancel('deadline')` and transitions
  * to `timed-out` for the pre-submit window (top-tree proving) — the publishing service
  * handles the post-submit window via the candidate's `deadline`.
@@ -187,6 +191,17 @@ export class EpochSession implements Traceable {
     return EpochProvingJobTerminalState.includes(this.state);
   }
 
+  /**
+   * True if the session ended in its own genuine failure — top-tree proving or L1 submission failed
+   * while every checkpoint prover succeeded. Because healthy provers rule out a prune-induced fault,
+   * this is a race-free "the epoch could not be proven" signal: the reconciler retains such a (full)
+   * session rather than re-proving it, and uploads a post-mortem. A `stopped` session (a checkpoint
+   * prover failed under it) is NOT a session failure in this sense.
+   */
+  public hasFailed(): boolean {
+    return this.state === 'failed';
+  }
+
   /** First block this session proves. */
   public getStartBlockNumber(): BlockNumber {
     return BlockNumber(this.checkpoints[0].checkpoint.blocks[0].number);
@@ -213,8 +228,17 @@ export class EpochSession implements Traceable {
         uuid: this.uuid,
         ...this.spec,
       });
+      // Distinguish the two ways an attempt can fault:
+      //  - a checkpoint prover in the set has failed OR was cancelled (a sub-tree fault, a prune-induced
+      //    fork fault, or a control-plane cancel that reached this catch before the reconcile marked the
+      //    session 'cancelled'): end in the non-declaring terminal 'stopped'. This is not the session's own
+      //    failure and may be a prune, so the reconciler does not upload it; a re-add installs a fresh prover.
+      //  - no prover failed or was cancelled, yet top-tree proving or L1 submission failed: this is the
+      //    session's own, genuine failure — and, because every prover is healthy and un-cancelled, it is
+      //    definitively NOT a prune. End in terminal 'failed' so the reconciler retains it (no pointless
+      //    re-prove) and uploads a race-free post-mortem.
       if (!this.isTerminal()) {
-        this.state = 'failed';
+        this.state = this.checkpoints.some(c => c.isFailed() || c.isCancelled()) ? 'stopped' : 'failed';
       }
     } finally {
       clearTimeout(this.deadlineTimeoutHandler);
