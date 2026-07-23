@@ -26,7 +26,7 @@ New to Aztec? Start here to understand the fundamentals:
 
 - [**Addresses**](/participate/basics/addresses) - How addresses work on Aztec
 - [**Wallets**](/participate/basics/wallets) - Available wallets and hardware wallet support
-- [**Fees**](/participate/basics/fees) - How fees and mana work
+- [**Fees**](/participate/basics/fees) - How fees, mana, and Fee Juice work, and how to get Fee Juice
 - [**Transactions**](/participate/basics/transactions) - The transaction lifecycle and client-side proving
 - [**Blocks**](/participate/basics/blocks) - Blocks, epochs, and proving
 - [**Bridging**](/participate/basics/bridging) - How to move assets between Ethereum and Aztec

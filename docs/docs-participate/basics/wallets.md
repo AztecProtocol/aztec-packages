@@ -8,14 +8,24 @@ displayed_sidebar: participateSidebar
 
 Wallets on Aztec do more than just store your keys. This page covers what wallets are available, what makes them different, and the future of hardware wallet support.
 
-## Available Wallets
+## Available wallets
+
+### Azguard
+
+[Azguard](https://azguardwallet.io/) is a browser extension wallet for Aztec, and currently the wallet to use if you want to interact with Aztec applications from your browser. It connects to Aztec apps the same way MetaMask connects to Ethereum apps: a website requests a connection, and you approve it in the extension.
+
+With Azguard you can:
+
+- Create and manage Aztec accounts
+- Connect to Aztec applications, such as the [Shield](https://shield.human.tech/) bridge for [getting Fee Juice](/participate/basics/fees#how-to-get-fee-juice)
+- Sign and send transactions, with proofs generated on your device
 
 ### Aztec CLI Wallet
 
-The Aztec CLI wallet is the reference wallet packaged and maintained by the Aztec team. It is a command-line tool that handles account creation, transaction signing, and private state management.
+The Aztec CLI wallet is the reference wallet packaged and maintained by the Aztec team. It is a command-line tool that handles account creation, transaction signing, and private state management. It is aimed at developers and advanced users.
 
 :::note
-This is the wallet shipped as part of the Aztec tooling suite. Third-party wallets may become available as the ecosystem grows.
+More third-party wallets are expected to become available as the ecosystem grows.
 :::
 
 ### Developer Wallets

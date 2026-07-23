@@ -133,6 +133,9 @@ describe(`prove ${TARGET_TPS}TPS test`, () => {
   let rollupCheatCodes: RollupCheatCodes;
   let ethEndpoint: ServiceEndpoint | undefined;
   let metricsStartSnapshot: MetricsSnapshot | undefined;
+  // Window handed to bench_scrape.ts so the custom pipeline can scrape this run's
+  // proving-infra series (see spartan/bootstrap.sh proving_bench).
+  let benchStartedAt: string | undefined;
 
   afterAll(async () => {
     if (process.env.BENCH_OUTPUT && metrics && metricsStartSnapshot) {
@@ -212,6 +215,19 @@ describe(`prove ${TARGET_TPS}TPS test`, () => {
       await writeFile(process.env.BENCH_OUTPUT, JSON.stringify(metrics.toGithubActionBenchmarkJSON()));
     }
 
+    // Hand the run window to the custom-pipeline scraper (bench_scrape.ts), which
+    // reads this file to bound its Prometheus queries for the proving run.
+    const timingMetadataPath = '/tmp/n_tps_prove_timing_data.json';
+    await writeFile(
+      timingMetadataPath,
+      JSON.stringify({
+        startedAt: benchStartedAt ?? new Date().toISOString(),
+        endedAt: new Date().toISOString(),
+        runId: process.env.BENCH_RUN_ID,
+      }),
+    );
+    logger.info('Wrote proving-bench timing metadata', { path: timingMetadataPath });
+
     if (testWallets) {
       for (const tw of testWallets) {
         await tw.cleanup();
@@ -247,6 +263,7 @@ describe(`prove ${TARGET_TPS}TPS test`, () => {
       server: new URL(`http://127.0.0.1:${promPortForward.port}`),
     });
     metricsStartSnapshot = await captureMetricsSnapshot(prometheusClient, logger);
+    benchStartedAt = new Date().toISOString();
     promPortForward.process.kill();
     logger.info('Metrics snapshot captured');
 
