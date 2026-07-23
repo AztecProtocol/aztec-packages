@@ -207,6 +207,19 @@ function getWsdbExtraArgs(
     args.push('--prefilled-public-data', JSON.stringify(pairs));
   }
 
+  const prefilledNullifiers = genesis.prefilledNullifiers ?? [];
+  for (let i = 1; i < prefilledNullifiers.length; i++) {
+    if (prefilledNullifiers[i].toBigInt() <= prefilledNullifiers[i - 1].toBigInt()) {
+      throw new Error('Prefilled genesis nullifiers must be unique and strictly increasing');
+    }
+  }
+  if (prefilledNullifiers.length > 0) {
+    args.push(
+      '--prefilled-nullifiers',
+      JSON.stringify(prefilledNullifiers.map(nullifier => nullifier.toBuffer().toString('hex'))),
+    );
+  }
+
   const genesisTimestamp = Number(genesis.genesisTimestamp);
   if (genesisTimestamp !== 0) {
     args.push('--genesis-timestamp', genesisTimestamp.toString());
