@@ -1,5 +1,5 @@
-import { BarretenbergSync } from './index.js';
 import { Timer } from '../benchmark/timer.js';
+import { BarretenbergSync } from './index.js';
 import { Fr } from './testing/fields.js';
 
 describe('pedersen sync', () => {
@@ -23,7 +23,7 @@ describe('pedersen sync', () => {
       api.pedersenHash({ inputs: [fields[i * 2].toBuffer(), fields[i * 2 + 1].toBuffer()], hashIndex: 0 });
     }
     const us = t.us() / loops;
-    console.log(`Executed ${loops} hashes at an average ${us}us / hash`);
+    process.stdout.write(`Executed ${loops} hashes at an average ${us}us / hash\n`);
   });
 
   // TODO: pedersenHashes not yet in new msgpack API
@@ -64,6 +64,6 @@ describe('pedersen sync', () => {
     for (let i = 0; i < loops; ++i) {
       api.pedersenCommit({ inputs: [fields[i * 2].toBuffer(), fields[i * 2 + 1].toBuffer()], hashIndex: 0 });
     }
-    console.log(t.us() / loops);
+    process.stdout.write(`${t.us() / loops}\n`);
   });
 });

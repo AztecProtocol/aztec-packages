@@ -1,4 +1,5 @@
 import * as fs from 'fs';
+
 export * from './timer.js';
 
 const bfd = (() => {

@@ -1,9 +1,10 @@
-import { type Worker } from 'worker_threads';
 import { Remote } from 'comlink';
-import { getNumCpu, getRemoteBarretenbergWasm, getSharedMemoryAvailable } from '../helpers/index.js';
-import { createThreadWorker } from '../barretenberg_wasm_thread/factory/node/index.js';
-import { type BarretenbergWasmThreadWorker } from '../barretenberg_wasm_thread/index.js';
+import type { Worker } from 'worker_threads';
+
 import { BarretenbergWasmBase } from '../barretenberg_wasm_base/index.js';
+import { createThreadWorker } from '../barretenberg_wasm_thread/factory/node/index.js';
+import type { BarretenbergWasmThreadWorker } from '../barretenberg_wasm_thread/index.js';
+import { getNumCpu, getRemoteBarretenbergWasm, getSharedMemoryAvailable } from '../helpers/index.js';
 import { HeapAllocator } from './heap_allocator.js';
 
 /**
@@ -80,7 +81,7 @@ export class BarretenbergWasmMain extends BarretenbergWasmBase {
         this.workers.forEach(worker => this.setupWorkerLogForwarding(worker));
       }
 
-      this.remoteWasms = await Promise.all(this.workers.map(getRemoteBarretenbergWasm<BarretenbergWasmThreadWorker>));
+      this.remoteWasms = this.workers.map(getRemoteBarretenbergWasm<BarretenbergWasmThreadWorker>);
       await Promise.all(this.remoteWasms.map(w => w.initThread(module, this.memory, this.useCustomLogger)));
 
       if (unref) {
@@ -95,7 +96,11 @@ export class BarretenbergWasmMain extends BarretenbergWasmBase {
     // iOS browser is very aggressive with memory. Check if running in browser and on iOS.
     // We at any rate expect the mobile iOS browser to kill us >=1GB, so we don't set a maximum higher than that.
     // Use `self` instead of `window` so this check also works inside Web Workers.
-    if (typeof self !== 'undefined' && typeof self.navigator !== 'undefined' && /iPad|iPhone/.test(self.navigator.userAgent)) {
+    if (
+      typeof self !== 'undefined' &&
+      typeof self.navigator !== 'undefined' &&
+      /iPad|iPhone/.test(self.navigator.userAgent)
+    ) {
       return 2 ** 14;
     }
     return 2 ** 16;

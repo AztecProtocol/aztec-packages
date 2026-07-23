@@ -9,6 +9,22 @@ Aztec is in active development. Each version may introduce breaking changes that
 
 ## TBD
 
+### [Aztec.nr] Standard contracts re-pinned at new addresses
+
+The canonical `HandshakeRegistry` now protects handshake shared secrets from recipient forgery and includes the owner's address in its `PrivateMutable` initialization nullifiers, keeping the handshake state of accounts that share keys independent. All standard contracts have been re-pinned and move to new addresses. Handshakes established with a previous registry instance are not visible to the new one and must be re-established.
+
+### [Aztec.nr] Note property selectors are typed and use packed-layout indices
+
+The selectors in the generated `properties()` used the field's position in the note struct declaration, which pointed at the wrong packed field for any note with an earlier field packing to more than one `Field` (a `Point`, an array, a nested struct). Selector indices are now the field's offset in the note's packed representation, so `select`/`sort` criteria constrain the field they name.
+
+Breaking changes:
+
+- `PropertySelector<T>` carries the selected property's type. Hand-constructed literals need a type annotation, e.g. `let selector: PropertySelector<Field> = PropertySelector { index: 0, offset: 0, length: 32 };`.
+- `select`/`sort` reject properties that pack to more than one `Field` at compile time.
+- `select` takes its value typed as the property's type. Cast the value if a mixed-type comparison was intentional.
+- `properties()` cannot be used with a custom `Packable` layout. Define property selectors manually for such notes.
+- Every note field type must implement `Packable`, even when the note's own `Packable` is hand-written.
+
 ## 5.0.1
 
 ### [Aztec.nr] History note nullification helpers renamed and restricted to own-contract notes

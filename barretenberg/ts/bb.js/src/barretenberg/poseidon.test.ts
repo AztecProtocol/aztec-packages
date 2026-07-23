@@ -1,5 +1,5 @@
-import { BarretenbergSync } from './index.js';
 import { Timer } from '../benchmark/timer.js';
+import { BarretenbergSync } from './index.js';
 import { Fr } from './testing/fields.js';
 
 describe('poseidon sync', () => {
@@ -22,7 +22,7 @@ describe('poseidon sync', () => {
       api.poseidon2Hash({ inputs: [fields[i * 2], fields[i * 2 + 1]] });
     }
     const us = t.us() / loops;
-    console.log(`Executed ${loops} hashes at an average ${us}us / hash`);
+    process.stdout.write(`Executed ${loops} hashes at an average ${us}us / hash\n`);
   });
 
   // it('poseidonHashes perf test', () => {

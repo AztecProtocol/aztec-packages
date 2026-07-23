@@ -1,6 +1,7 @@
 import { Remote } from 'comlink';
-import { killSelf, threadLogger } from '../helpers/index.js';
+
 import { BarretenbergWasmBase } from '../barretenberg_wasm_base/index.js';
+import { killSelf, threadLogger } from '../helpers/index.js';
 
 export class BarretenbergWasmThread extends BarretenbergWasmBase {
   /**
