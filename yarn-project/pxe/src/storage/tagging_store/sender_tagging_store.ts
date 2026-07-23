@@ -195,9 +195,8 @@ export class SenderTaggingStore implements StagedStore {
 
       // Process in memory and validate
       for (const { range, secretStr, pendingData, finalizedIndex } of rangeData) {
-        // Pending indexes must stay below the window bound shared with sender and recipient sync (see
-        // `unfinalizedTaggingIndexesWindowEnd`): an index the syncs never scan would let two stores
-        // sharing a secret pick colliding indexes.
+        // Pending indexes must stay below the window bound shared with sender and recipient sync:
+        // an index the syncs never scan would let two stores sharing a secret pick colliding indexes.
         if (range.highestIndex >= unfinalizedTaggingIndexesWindowEnd(finalizedIndex)) {
           throw new Error(
             `Highest used index ${range.highestIndex} is further than window length from the highest finalized index ${finalizedIndex ?? 'none'}.
