@@ -138,7 +138,7 @@ aztec-forge create \
   --rpc-url $L1_RPC_URL \
   --private-key $PRIVATE_KEY \
   --broadcast \
-  test/governance/scenario/RegisterNewRollupVersionPayload.sol:RegisterNewRollupVersionPayload \
+  src/periphery/RegisterNewRollupVersionPayload.sol:RegisterNewRollupVersionPayload \
   --constructor-args $REGISTRY_ADDRESS $NEW_ROLLUP_ADDRESS
 ```
 

@@ -23,11 +23,10 @@ cp -rp "$src/script/deploy" "l1-contracts/script/"  # only deploy/, other script
 mkdir -p "l1-contracts/test/script"
 cp -p "$src/test/shouting.t.sol" "l1-contracts/test/"
 cp -p "$src"/test/script/*.sol "l1-contracts/test/script/"
-# Governance payload contracts that the rollup-upgrade docs tutorial deploys from the published
-# bundle (docs/docs-developers/docs/tutorials/testing_governance_rollup_upgrade.md). They compile
-# against src/ interfaces only.
-mkdir -p "l1-contracts/test/governance/scenario" "l1-contracts/test/governance/governance"
-cp -p "$src/test/governance/scenario/RegisterNewRollupVersionPayload.sol" "l1-contracts/test/governance/scenario/"
+# EmptyPayload for the rollup-upgrade docs tutorial's quick-test path
+# (docs/docs-developers/docs/tutorials/testing_governance_rollup_upgrade.md); the tutorial's main
+# payload, RegisterNewRollupVersionPayload, ships with src/periphery. Compiles against src/ only.
+mkdir -p "l1-contracts/test/governance/governance"
 cp -p "$src/test/governance/governance/TestPayloads.sol" "l1-contracts/test/governance/governance/"
 cp -p "$src"/{foundry.toml,foundry.lock,package.json,solc-*} "l1-contracts/"
 # Copy the forge broadcast wrapper (now a plain .js source file) and the network defaults
