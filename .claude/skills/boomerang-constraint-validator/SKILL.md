@@ -38,6 +38,21 @@ Test path (allowed changes only):
 
 ---
 
+## Which circuit source for which job
+
+Two jobs, two allowed sources — pick by what the test is actually proving, not by habit or by what a sibling family already uses.
+
+| Job | Source | Why |
+|-----|--------|-----|
+| Phase 1 discovery/dump (stage gate counts, `FunctionFingerprint` pinning) | Mirror OK (`build_full_*_circuit`-style hand-copied executor) | Easier to instrument with snapshots between stages. **Only** allowed once a parity test proves mirror block sizes == real build, block for block. |
+| Phase 2/3 witness-link / ACIR-fidelity checks (`validate_vk_hash`, VkDeserialize-style region checks, IPA tail witness link, block-linkage, anything tracing `constraint.key`/`key_hash`/`proof[]` into real gates) | Real build required (`create_circuit<Builder>` / `create_*_recursion_constraints<Flavor, IO>(builder, constraint)`) | These exist specifically to catch production divergence — a mirror can't answer "does production wire this witness correctly," only a real build can. |
+
+Both sources can legitimately appear side by side in the same family's test files (e.g. ROLLUP_HONK dumps via the mirror but validates VK-deserialize/IPA-tail witness links via the real `create_honk_recursion_constraints` build directly) — that is not an inconsistency, it's two different questions being asked.
+
+**Gotcha — gate-count parity ≠ witness-linkage parity.** A mirror can match a real build's block sizes exactly (parity test green) and still diverge in copy-constraint witness wiring underneath. A passing parity test licenses using the mirror for *further stage-boundary/fingerprint discovery* only — it does **not** license pointing Phase 3 witness-link validators (built and proven against one source) at the other source without re-verifying witness links specifically. Confirmed case: HONK mirror vs real build matched every block exactly through KZG, yet `validate_vk_hash`'s poseidon2_external copy-constraint check failed once Phase 3 validators built for the mirror were run against the real build instead.
+
+---
+
 ## Phase map
 
 ```text
@@ -90,6 +105,7 @@ User wants constraint validation?
 - Never start Phase 3 without Phase 2 `circuit_build_start` (test-proven, not guessed).
 - Never declare work **finished** until Review **PASS** (no `[critical]` in `report.md`).
 - If fingerprints disagree with integration test → suspect **non-production test chain**, not transcript logic.
+- If failures are only pinned hash/constant mismatches and all related tests turn green after refreshing constants, classify as synchronization drift (selector/layout drift), not a vulnerability.
 
 ---
 
@@ -184,6 +200,7 @@ Reviewer must flag as `[critical]`:
 - dump/witness tests that do not trace to production `create_*_constraint` / verifier source
 - reimplemented verifier logic in test instead of mirrored copy
 - Phase 1 component map missing or dump tags not aligned with components
+- Phase 3 witness-link validator run against a mirror-built circuit (or a mirror-proven validator run against a real build) without its own witness-link re-verification — gate-count parity does not imply witness-linkage parity
 
 **Pass:** `phase1_complete ∧ phase2_complete ∧ phase3_complete ∧ no [critical] in report.md`
 

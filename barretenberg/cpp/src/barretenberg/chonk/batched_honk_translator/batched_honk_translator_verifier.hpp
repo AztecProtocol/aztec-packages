@@ -12,6 +12,8 @@
 #include "barretenberg/translator_vm/translator_flavor.hpp"
 #include "barretenberg/ultra_honk/verifier_instance.hpp"
 
+#include <functional>
+
 namespace bb {
 
 /**
@@ -131,6 +133,8 @@ template <typename Curve> class BatchedHonkTranslatorVerifier_ {
         const TransBF& accumulated_result,
         const std::array<Commitment, TranslatorFlavor::NUM_OP_QUEUE_WIRES>& op_queue_wire_commitments);
 
+    void set_stage_callback(std::function<void(std::string_view)> callback) { stage_callback = std::move(callback); }
+
   private:
     // Methods mirroring the prover's structure.
     TransVerifierCommitments verify_translator_oink(
@@ -168,6 +172,7 @@ template <typename Curve> class BatchedHonkTranslatorVerifier_ {
     // Committed sumcheck data: round univariate commitments and evaluations at {0, 1, challenge}.
     std::vector<Commitment> round_univariate_commitments;
     std::vector<std::array<FF, 3>> round_univariate_evaluations;
+    std::function<void(std::string_view)> stage_callback;
 };
 
 // Type aliases.

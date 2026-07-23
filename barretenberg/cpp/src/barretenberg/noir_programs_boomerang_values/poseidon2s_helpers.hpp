@@ -49,11 +49,8 @@ static constexpr size_t NUM_MATRIX_MUL_GATES = 6;
  * @return true if all rounds are valid
  */
 template <typename FF, typename Block>
-bool validate_external_rounds(Block& ext_block,
-                              std::array<uint32_t, 4>& state,
-                              size_t start_idx,
-                              size_t num_rounds,
-                              size_t round_offset)
+bool validate_external_rounds(
+    Block& ext_block, std::array<uint32_t, 4>& state, size_t start_idx, size_t num_rounds, size_t round_offset)
 {
     for (size_t round = 0; round < num_rounds; ++round) {
         size_t gate_idx = start_idx + round;
@@ -65,7 +62,7 @@ bool validate_external_rounds(Block& ext_block,
                        ext_block.q_2()[gate_idx] == Params::round_constants[round_idx][1] &&
                        ext_block.q_3()[gate_idx] == Params::round_constants[round_idx][2] &&
                        ext_block.q_4()[gate_idx] == Params::round_constants[round_idx][3] &&
-                       ext_block.q_poseidon2_external()[gate_idx] == FF::one();
+                       ext_block.gate_selector_for(bb::GateKind::Poseidon2Ext)[gate_idx] == FF::one();
 
         if (!correct) {
             return false;
@@ -92,11 +89,8 @@ bool validate_external_rounds(Block& ext_block,
  * @return true if all rounds are valid
  */
 template <typename FF, typename Block>
-bool validate_internal_rounds(Block& int_block,
-                              std::array<uint32_t, 4>& state,
-                              size_t start_idx,
-                              size_t num_rounds,
-                              size_t round_offset)
+bool validate_internal_rounds(
+    Block& int_block, std::array<uint32_t, 4>& state, size_t start_idx, size_t num_rounds, size_t round_offset)
 {
     for (size_t round = 0; round < num_rounds; ++round) {
         size_t gate_idx = start_idx + round;
@@ -105,7 +99,7 @@ bool validate_internal_rounds(Block& int_block,
         bool correct = int_block.w_l()[gate_idx] == state[0] && int_block.w_r()[gate_idx] == state[1] &&
                        int_block.w_o()[gate_idx] == state[2] && int_block.w_4()[gate_idx] == state[3] &&
                        int_block.q_1()[gate_idx] == Params::round_constants[round_idx][0] &&
-                       int_block.q_poseidon2_internal()[gate_idx] == FF::one();
+                       int_block.gate_selector_for(bb::GateKind::Poseidon2Int)[gate_idx] == FF::one();
 
         if (!correct) {
             return false;
@@ -133,9 +127,9 @@ bool validate_internal_rounds(Block& int_block,
  */
 template <typename FF, typename CircuitBuilder, typename Block>
 std::optional<std::array<uint32_t, 4>> validate_matrix_mul_layer(CircuitBuilder& builder,
-                                                                  Block& arith_block,
-                                                                  const std::array<uint32_t, 4>& state_indices,
-                                                                  size_t gate_idx)
+                                                                 Block& arith_block,
+                                                                 const std::array<uint32_t, 4>& state_indices,
+                                                                 size_t gate_idx)
 {
     // Bounds check
     if (gate_idx + NUM_MATRIX_MUL_GATES > arith_block.size()) {
@@ -185,7 +179,7 @@ std::optional<std::array<uint32_t, 4>> validate_matrix_mul_layer(CircuitBuilder&
         selectors.emplace_back(q3[g]);
         selectors.emplace_back(q4[g]);
         selectors.emplace_back(arith_block.q_m()[g]);
-        selectors.emplace_back(arith_block.q_arith()[g]);
+        selectors.emplace_back(arith_block.gate_selector_for(bb::GateKind::Arith)[g]);
     }
 
     correct &= (selectors == expected_selectors);
@@ -248,9 +242,7 @@ std::optional<size_t> find_gate_matching_state(CircuitBuilder& builder,
  * @return true if full permutation is valid
  */
 template <typename FF, typename CircuitBuilder, typename Analyzer>
-bool validate_poseidon2_permutation(CircuitBuilder& builder,
-                                    Analyzer& analyzer,
-                                    std::array<uint32_t, 4>& state)
+bool validate_poseidon2_permutation(CircuitBuilder& builder, Analyzer& analyzer, std::array<uint32_t, 4>& state)
 {
     using Poseidon2Perm = bb::stdlib::Poseidon2Permutation<CircuitBuilder>;
     static constexpr size_t rounds_f_half = Poseidon2Perm::rounds_f / 2;

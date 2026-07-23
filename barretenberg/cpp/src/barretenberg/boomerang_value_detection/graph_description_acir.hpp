@@ -196,5 +196,6 @@ template <typename FF, typename CircuitBuilder> class StaticAnalyzerAcir_ {
 };
 
 using StaticAnalyzerAcir = StaticAnalyzerAcir_<bb::fr, bb::UltraCircuitBuilder>;
+using MegaStaticAnalyzerAcir = StaticAnalyzerAcir_<bb::fr, bb::MegaCircuitBuilder>;
 
 } // namespace cdg

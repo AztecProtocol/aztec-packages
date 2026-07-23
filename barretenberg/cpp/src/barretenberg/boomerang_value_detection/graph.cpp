@@ -891,7 +891,7 @@ bool StaticAnalyzer_<FF, CircuitBuilder>::validate_decompose_chain(uint32_t witn
             collected_sublimbs.push_back(to_real(out_idx));
         }
 
-        auto q_arith = block.q_arith()[current_index];
+        auto q_arith = read_gate_selector(block, GateKind::Arith, current_index);
         if (q_arith == FF::one()) {
             gates_traversed++;
             break;

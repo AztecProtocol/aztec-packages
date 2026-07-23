@@ -3,9 +3,7 @@
 #include "barretenberg/crypto/poseidon2/poseidon2_params.hpp"
 #include "barretenberg/crypto/sha256/sha256.hpp"
 #include "barretenberg/dsl/acir_format/acir_format.hpp"
-#include "barretenberg/noir_programs_boomerang_values/boomerang_chonk_eccvm_translator_verification.hpp"
-#include "barretenberg/noir_programs_boomerang_values/boomerang_chonk_kernel_io_verification.hpp"
-#include "barretenberg/noir_programs_boomerang_values/chonk_merge_verification.hpp"
+#include "barretenberg/noir_programs_boomerang_values/chonk_validation.hpp"
 #include "barretenberg/noir_programs_boomerang_values/poseidon2s_helpers.hpp"
 #include "barretenberg/noir_programs_boomerang_values/recursion_constraints_helper.hpp"
 #include "barretenberg/noir_programs_boomerang_values/sha256_circuit_helpers.hpp"
@@ -24,7 +22,7 @@ namespace cdg {
 
 template <typename FF, typename CircuitBuilder>
 StaticAnalyzerAcir_<FF, CircuitBuilder>::StaticAnalyzerAcir_(std::vector<uint8_t>& acir_program_buf)
-    : constraint_system(circuit_buf_to_acir_format(std::move(acir_program_buf)))
+    : constraint_system(circuit_buf_to_acir_format(std::move(acir_program_buf), IsMegaBuilder<CircuitBuilder>))
     , program(constraint_system)
     , builder(create_circuit<CircuitBuilder>(program))
     , analyzer(builder)
@@ -60,7 +58,7 @@ bool StaticAnalyzerAcir_<FF, CircuitBuilder>::is_inverse_gate(size_t block_idx, 
     auto& block = builder.blocks.get()[block_idx];
     auto q_m = block.q_m()[gate_idx];
     auto q_c = block.q_c()[gate_idx];
-    auto q_arith = block.q_arith()[gate_idx];
+    auto q_arith = read_gate_selector(block, GateKind::Arith, gate_idx);
     auto q_1 = block.q_1()[gate_idx];
     auto q_2 = block.q_2()[gate_idx];
     auto q_3 = block.q_3()[gate_idx];
@@ -79,7 +77,7 @@ bool StaticAnalyzerAcir_<FF, CircuitBuilder>::is_boolean_gate(size_t block_idx, 
     auto& block = builder.blocks.get()[block_idx];
     auto q_m = block.q_m()[gate_idx];
     auto q_c = block.q_c()[gate_idx];
-    auto q_arith = block.q_arith()[gate_idx];
+    auto q_arith = read_gate_selector(block, GateKind::Arith, gate_idx);
     auto q_1 = block.q_1()[gate_idx];
     auto q_2 = block.q_2()[gate_idx];
     auto q_3 = block.q_3()[gate_idx];
@@ -268,21 +266,17 @@ std::unordered_set<uint32_t> StaticAnalyzerAcir_<FF, CircuitBuilder>::collect_wi
         add_witness_if_not_constant(constraint->predicate, witness_indices);
         witness_indices.insert(constraint->out_point_x);
         witness_indices.insert(constraint->out_point_y);
-        witness_indices.insert(constraint->out_point_is_infinite);
         break;
     }
     case AcirConstraintType::EC_ADD: {
         const auto* constraint = std::get<const EcAdd*>(constraint_info.ptr);
         add_witness_if_not_constant(constraint->input1_x, witness_indices);
         add_witness_if_not_constant(constraint->input1_y, witness_indices);
-        add_witness_if_not_constant(constraint->input1_infinite, witness_indices);
         add_witness_if_not_constant(constraint->input2_x, witness_indices);
         add_witness_if_not_constant(constraint->input2_y, witness_indices);
-        add_witness_if_not_constant(constraint->input2_infinite, witness_indices);
         add_witness_if_not_constant(constraint->predicate, witness_indices);
         witness_indices.insert(constraint->result_x);
         witness_indices.insert(constraint->result_y);
-        witness_indices.insert(constraint->result_infinite);
         break;
     }
     case AcirConstraintType::HONK_RECURSION:
@@ -335,10 +329,10 @@ std::unordered_set<uint32_t> StaticAnalyzerAcir_<FF, CircuitBuilder>::collect_wi
         for (const auto& init_idx : constraint->init) {
             witness_indices.insert(init_idx);
         }
-        // MemOp now has WitnessOrConstant for index and value
+        // MemOp index/value are now direct witness indices
         for (const auto& mem_op : constraint->trace) {
-            add_witness_if_not_constant(mem_op.index, witness_indices);
-            add_witness_if_not_constant(mem_op.value, witness_indices);
+            witness_indices.insert(mem_op.index);
+            witness_indices.insert(mem_op.value);
         }
         break;
     }
@@ -471,9 +465,16 @@ bool StaticAnalyzerAcir_<FF, CircuitBuilder>::process_quad_constraints(const Con
 {
     const auto* constraint = std::get<const acir_format::QuadConstraint*>(ptr);
     if (constraint->a == bb::stdlib::IS_CONSTANT) {
+        log_error("BIG_QUAD/QUAD validation failed: constraint.a is constant sentinel");
         return false;
     }
     bool is_gate_created = false;
+    size_t arithmetic_candidates = 0;
+    bool saw_q_arith_match = false;
+    bool saw_selectors_match = false;
+    bool saw_variables_match = false;
+    bool saw_next_w4_match = false;
+    bool saw_next_q4_match = false;
     std::array<uint32_t, 4> constraint_variables{ constraint->a, constraint->b, constraint->c, constraint->d };
     std::array<FF, 6> scalings{ constraint->mul_scaling, constraint->a_scaling, constraint->b_scaling,
                                 constraint->c_scaling,   constraint->d_scaling, constraint->const_scaling };
@@ -490,73 +491,106 @@ bool StaticAnalyzerAcir_<FF, CircuitBuilder>::process_quad_constraints(const Con
     const auto var_it = std::find_if(constraint_variables.begin(),
                                      constraint_variables.end(),
                                      [zero](const uint32_t var_idx) { return var_idx != zero; });
-    if (var_it != constraint_variables.end()) {
-        auto& arith_block = builder.blocks.arithmetic;
-        std::vector<std::pair<size_t, size_t>> var_gates = analyzer.get_variable_gates(*var_it);
-        for (const auto& [blk_idx, gate_idx] : var_gates) {
-            if (&builder.blocks.get()[blk_idx] == &arith_block) {
-                std::vector<uint32_t> gate_indices{ builder.blocks.arithmetic.w_l()[gate_idx],
-                                                    builder.blocks.arithmetic.w_r()[gate_idx],
-                                                    builder.blocks.arithmetic.w_o()[gate_idx],
-                                                    builder.blocks.arithmetic.w_4()[gate_idx] };
-                gate_indices = analyzer.to_real(gate_indices);
-                if (include_next_gate_w_4) {
-                    // Non-last gate in BigQuadConstraint: q_arith=2, q_m is doubled, validates next w4
-                    bool correct_q_arith = builder.blocks.arithmetic.q_arith()[gate_idx] == FF(2);
-
-                    // For q_arith=2 gates, create_big_mul_add_gate doubles q_m
-                    std::array<FF, 6> expected_scalings = scalings;
-                    expected_scalings[0] = FF(2) * scalings[0];
-
-                    bool correct_selectors =
-                        expected_scalings == std::array<FF, 6>({ builder.blocks.arithmetic.q_m()[gate_idx],
-                                                                 builder.blocks.arithmetic.q_1()[gate_idx],
-                                                                 builder.blocks.arithmetic.q_2()[gate_idx],
-                                                                 builder.blocks.arithmetic.q_3()[gate_idx],
-                                                                 builder.blocks.arithmetic.q_4()[gate_idx],
-                                                                 builder.blocks.arithmetic.q_c()[gate_idx] });
-                    bool correct_variables = std::equal(constraint_variables.begin(),
-                                                        constraint_variables.end(),
-                                                        gate_indices.begin(),
-                                                        gate_indices.end());
-                    if (correct_q_arith && correct_selectors && correct_variables) {
-                        // Validate that the next gate's w_4 carries the correct accumulated value
-                        FF next_w4_wire_value = builder.get_variable(constraint_variables[0]) *
-                                                    builder.get_variable(constraint_variables[1]) *
-                                                    constraint->mul_scaling +
-                                                builder.get_variable(constraint_variables[0]) * constraint->a_scaling +
-                                                builder.get_variable(constraint_variables[1]) * constraint->b_scaling +
-                                                builder.get_variable(constraint_variables[2]) * constraint->c_scaling +
-                                                builder.get_variable(constraint_variables[3]) * constraint->d_scaling +
-                                                constraint->const_scaling;
-                        next_w4_wire_value = -next_w4_wire_value;
-                        bool correct_next_w4 =
-                            builder.get_variable(builder.blocks.arithmetic.w_4()[gate_idx + 1]) == next_w4_wire_value;
-                        bool correct_next_d_scaling = builder.blocks.arithmetic.q_4()[gate_idx + 1] == FF(-1);
-                        if (correct_next_w4 && correct_next_d_scaling) {
-                            is_gate_created = true;
-                            break;
-                        }
-                    }
-                } else {
-                    // Standalone QUAD constraint or last gate in BigQuadConstraint: q_arith=1
-                    if (builder.blocks.arithmetic.q_arith()[gate_idx] == FF::one() &&
-                        std::equal(constraint_variables.begin(),
-                                   constraint_variables.end(),
-                                   gate_indices.begin(),
-                                   gate_indices.end()) &&
-                        scalings == std::array<FF, 6>({ builder.blocks.arithmetic.q_m()[gate_idx],
-                                                        builder.blocks.arithmetic.q_1()[gate_idx],
-                                                        builder.blocks.arithmetic.q_2()[gate_idx],
-                                                        builder.blocks.arithmetic.q_3()[gate_idx],
-                                                        builder.blocks.arithmetic.q_4()[gate_idx],
-                                                        builder.blocks.arithmetic.q_c()[gate_idx] })) {
-                        is_gate_created = true;
-                        break;
-                    }
-                } // continue looking for a gate for the given constraint
-            }
+    if (var_it == constraint_variables.end()) {
+        log_error("BIG_QUAD/QUAD validation failed: all constraint variables resolved to zero_idx");
+        return false;
+    }
+    auto& arith_block = builder.blocks.arithmetic;
+    std::vector<std::pair<size_t, size_t>> var_gates = analyzer.get_variable_gates(*var_it);
+    if (var_gates.empty()) {
+        log_error("BIG_QUAD/QUAD validation failed: no gates found for anchor variable ", *var_it);
+        return false;
+    }
+    for (const auto& [blk_idx, gate_idx] : var_gates) {
+        if (&builder.blocks.get()[blk_idx] != &arith_block) {
+            continue;
         }
+        arithmetic_candidates++;
+        std::vector<uint32_t> gate_indices{ builder.blocks.arithmetic.w_l()[gate_idx],
+                                            builder.blocks.arithmetic.w_r()[gate_idx],
+                                            builder.blocks.arithmetic.w_o()[gate_idx],
+                                            builder.blocks.arithmetic.w_4()[gate_idx] };
+        gate_indices = analyzer.to_real(gate_indices);
+        if (include_next_gate_w_4) {
+            // Non-last gate in BigQuadConstraint: q_arith=2, q_m is doubled, validates next w4
+            bool correct_q_arith = read_gate_selector(builder.blocks.arithmetic, GateKind::Arith, gate_idx) == FF(2);
+            saw_q_arith_match = saw_q_arith_match || correct_q_arith;
+
+            // For q_arith=2 gates, create_big_mul_add_gate doubles q_m
+            std::array<FF, 6> expected_scalings = scalings;
+            expected_scalings[0] = FF(2) * scalings[0];
+
+            bool correct_selectors =
+                expected_scalings == std::array<FF, 6>({ builder.blocks.arithmetic.q_m()[gate_idx],
+                                                         builder.blocks.arithmetic.q_1()[gate_idx],
+                                                         builder.blocks.arithmetic.q_2()[gate_idx],
+                                                         builder.blocks.arithmetic.q_3()[gate_idx],
+                                                         builder.blocks.arithmetic.q_4()[gate_idx],
+                                                         builder.blocks.arithmetic.q_c()[gate_idx] });
+            saw_selectors_match = saw_selectors_match || correct_selectors;
+            bool correct_variables = std::equal(
+                constraint_variables.begin(), constraint_variables.end(), gate_indices.begin(), gate_indices.end());
+            saw_variables_match = saw_variables_match || correct_variables;
+            if (correct_q_arith && correct_selectors && correct_variables) {
+                if (gate_idx + 1 >= builder.blocks.arithmetic.size()) {
+                    log_error("BIG_QUAD validation failed: expected next gate for chain link at gate ", gate_idx);
+                    continue;
+                }
+                // Validate that the next gate's w_4 carries the correct accumulated value
+                FF next_w4_wire_value = builder.get_variable(constraint_variables[0]) *
+                                            builder.get_variable(constraint_variables[1]) * constraint->mul_scaling +
+                                        builder.get_variable(constraint_variables[0]) * constraint->a_scaling +
+                                        builder.get_variable(constraint_variables[1]) * constraint->b_scaling +
+                                        builder.get_variable(constraint_variables[2]) * constraint->c_scaling +
+                                        builder.get_variable(constraint_variables[3]) * constraint->d_scaling +
+                                        constraint->const_scaling;
+                next_w4_wire_value = -next_w4_wire_value;
+                bool correct_next_w4 =
+                    builder.get_variable(builder.blocks.arithmetic.w_4()[gate_idx + 1]) == next_w4_wire_value;
+                bool correct_next_d_scaling = builder.blocks.arithmetic.q_4()[gate_idx + 1] == FF(-1);
+                saw_next_w4_match = saw_next_w4_match || correct_next_w4;
+                saw_next_q4_match = saw_next_q4_match || correct_next_d_scaling;
+                if (correct_next_w4 && correct_next_d_scaling) {
+                    is_gate_created = true;
+                    break;
+                }
+            }
+        } else {
+            // Standalone QUAD constraint or last gate in BigQuadConstraint: q_arith=1
+            bool correct_q_arith =
+                read_gate_selector(builder.blocks.arithmetic, GateKind::Arith, gate_idx) == FF::one();
+            bool correct_variables = std::equal(
+                constraint_variables.begin(), constraint_variables.end(), gate_indices.begin(), gate_indices.end());
+            bool correct_selectors = scalings == std::array<FF, 6>({ builder.blocks.arithmetic.q_m()[gate_idx],
+                                                                     builder.blocks.arithmetic.q_1()[gate_idx],
+                                                                     builder.blocks.arithmetic.q_2()[gate_idx],
+                                                                     builder.blocks.arithmetic.q_3()[gate_idx],
+                                                                     builder.blocks.arithmetic.q_4()[gate_idx],
+                                                                     builder.blocks.arithmetic.q_c()[gate_idx] });
+            saw_q_arith_match = saw_q_arith_match || correct_q_arith;
+            saw_selectors_match = saw_selectors_match || correct_selectors;
+            saw_variables_match = saw_variables_match || correct_variables;
+            if (correct_q_arith && correct_variables && correct_selectors) {
+                is_gate_created = true;
+                break;
+            }
+        } // continue looking for a gate for the given constraint
+    }
+    if (!is_gate_created) {
+        log_error("BIG_QUAD/QUAD validation failed: include_next_gate_w_4=",
+                  include_next_gate_w_4,
+                  " candidates=",
+                  arithmetic_candidates,
+                  " q_arith_match=",
+                  saw_q_arith_match,
+                  " selectors_match=",
+                  saw_selectors_match,
+                  " variables_match=",
+                  saw_variables_match,
+                  " next_w4_match=",
+                  saw_next_w4_match,
+                  " next_q4_match=",
+                  saw_next_q4_match);
     }
     return is_gate_created;
 }
@@ -569,6 +603,7 @@ bool StaticAnalyzerAcir_<FF, CircuitBuilder>::process_big_quad_constraints(const
         bool is_last = (i == constraint->size() - 1);
         ConstraintPtr gate_ptr = static_cast<const acir_format::QuadConstraint*>(&(*constraint)[i]);
         if (!process_quad_constraints(gate_ptr, /*include_next_gate_w_4=*/!is_last)) {
+            log_error("BIG_QUAD validation failed: gate_in_chain=", i, "/", constraint->size(), " is_last=", is_last);
             return false;
         }
     }
@@ -603,98 +638,25 @@ bool StaticAnalyzerAcir_<FF, CircuitBuilder>::process_chonk_recursion_constraint
         log_error("CHONK recursion validation failed: null constraint passed to process_chonk_recursion_constraint");
         return false;
     }
-
-    if (constraint->proof.size() <= acir_format::HIDING_KERNEL_PUBLIC_INPUTS_SIZE) {
-        log_error("CHONK recursion validation failed: proof too small for MegaZK body, proof size=",
-                  constraint->proof.size(),
-                  " hidden_kernel_public_inputs=",
-                  acir_format::HIDING_KERNEL_PUBLIC_INPUTS_SIZE);
-        return false;
+    const auto result = chonk_validation::validate<FF>(builder, analyzer, *constraint);
+    if (!result.serialization_valid) {
+        log_error("CHONK recursion validation failed: proof serialization");
     }
-
-    std::vector<uint32_t> proof_body_witnesses(
-        constraint->proof.begin() + acir_format::HIDING_KERNEL_PUBLIC_INPUTS_SIZE, constraint->proof.end());
-
-    auto validate_MegaZKpart = [&]() -> KZGVerification::KZGValidationResult {
-        KZGVerification::KZGValidationResult kzg_validation;
-        if (!OinkVerifierValidation::validate_oink_verifier<FF>(builder, analyzer, *constraint, proof_body_witnesses)) {
-            log_error("CHONK recursion validation failed: MegaZKpart step 1/5 validate_oink_verifier");
-            return kzg_validation;
-        }
-
-        auto padding_step = recursion_helpers::validate_compute_padding_array_step<FF>(builder, analyzer, *constraint);
-        if (!padding_step.valid) {
-            log_error("CHONK recursion validation failed: MegaZKpart step 2/5 validate_compute_padding_array_step");
-            return kzg_validation;
-        }
-
-        if (!SumcheckValidation::validate_sumcheck<FF>(builder, analyzer)) {
-            log_error("CHONK recursion validation failed: MegaZKpart step 3/5 validate_sumcheck");
-            return kzg_validation;
-        }
-
-        if (!ShpleminiVerification::validate_shplemini<FF>(builder, analyzer)) {
-            log_error("CHONK recursion validation failed: MegaZKpart step 4/5 validate_shplemini");
-            return kzg_validation;
-        }
-
-        auto all_squeezes = recursion_helpers::find_all_transcript_squeeze_gates(builder);
-        const size_t consumed_count = recursion_helpers::NUM_OINK_SQUEEZES + recursion_helpers::NUM_STEP2_SQUEEZES +
-                                      recursion_helpers::NUM_SUMCHECK_SQUEEZES +
-                                      recursion_helpers::NUM_SHPLEMINI_SQUEEZES;
-        if (all_squeezes.size() < consumed_count + recursion_helpers::NUM_KZG_SQUEEZES) {
-            log_error("CHONK recursion validation failed: not enough squeeze gates for KZG, found ",
-                      all_squeezes.size(),
-                      " expected at least ",
-                      consumed_count + recursion_helpers::NUM_KZG_SQUEEZES);
-            return kzg_validation;
-        }
-        const std::set<size_t> consumed(all_squeezes.begin(), all_squeezes.begin() + consumed_count);
-
-        kzg_validation = KZGVerification::validate_kzg(builder, all_squeezes, consumed);
-        if (!kzg_validation.is_valid) {
-            log_error("CHONK recursion validation failed: MegaZKpart step 5/5 validate_kzg");
-            return kzg_validation;
-        }
-
-        return kzg_validation;
-    };
-
-    auto validate_GoblinPart = [&](const KZGVerification::KZGValidationResult& megazk_kzg) -> bool {
-        auto kernel_io = KernelIOVerification::validate_kernel_io_part(builder, megazk_kzg.batch_mul);
-        if (!kernel_io.is_valid) {
-            log_error("CHONK recursion validation failed: GoblinPart step 1/4 validate_kernel_io_part");
-            return false;
-        }
-
-        auto merge_kzg_reduce = MergeVerifierVerification::validate_merge_verifier(
-            builder, kernel_io, megazk_kzg.masking_challenge_generation, megazk_kzg.batch_mul);
-        if (!merge_kzg_reduce.is_valid) {
-            log_error("CHONK recursion validation failed: GoblinPart step 2/4 validate_merge_verifier");
-            return false;
-        }
-
-        auto eccvm = ECCVMTranslatorVerification::validate_eccvm_part(builder, merge_kzg_reduce, analyzer);
-        if (!eccvm.is_valid) {
-            log_error("CHONK recursion validation failed: GoblinPart step 3/4 validate_eccvm_part");
-            return false;
-        }
-
-        auto translator = ECCVMTranslatorVerification::validate_translator_part(builder, eccvm);
-        if (!translator.is_valid) {
-            log_error("CHONK recursion validation failed: GoblinPart step 4/4 validate_translator_part");
-            return false;
-        }
-
-        return true;
-    };
-
-    auto megazk_kzg = validate_MegaZKpart();
-    if (!megazk_kzg.is_valid) {
-        return false;
+    if (!result.serialization_fingerprint_valid) {
+        log_error("CHONK recursion validation failed: VK serialization fingerprint");
     }
-
-    return validate_GoblinPart(megazk_kzg);
+    if (!result.serialization_witness_link_valid) {
+        log_error("CHONK recursion validation failed: VK serialization witness link");
+    }
+    for (size_t idx = 0; idx < result.stages.size(); ++idx) {
+        if (!result.stages[idx].fingerprint_valid) {
+            log_error("CHONK recursion validation failed: stage ", idx, " fingerprint");
+        }
+        if (!result.stages[idx].witness_link_valid) {
+            log_error("CHONK recursion validation failed: stage ", idx, " witness link");
+        }
+    }
+    return result.all_valid;
 }
 
 template <typename FF, typename CircuitBuilder>
@@ -712,6 +674,14 @@ bool StaticAnalyzerAcir_<FF, CircuitBuilder>::process_logic_constraints(const Co
         uint256_t b_val(constraint->b.value);
         uint256_t expected = constraint->is_xor_gate ? (a_val ^ b_val) : (a_val & b_val);
         uint256_t actual(builder.get_variable(constraint->result));
+        if (expected != actual) {
+            log_error("LOGIC validation failed: constant-operand result mismatch; is_xor=",
+                      constraint->is_xor_gate,
+                      " num_bits=",
+                      constraint->num_bits,
+                      " result_witness=",
+                      constraint->result);
+        }
         return expected == actual;
     }
 
@@ -743,6 +713,14 @@ bool StaticAnalyzerAcir_<FF, CircuitBuilder>::process_logic_constraints(const Co
     result_chunks.push_back(current_res);
 
     if (result_chunks.size() != num_chunks) {
+        log_error("LOGIC validation failed: chunk-chain reconstruction size mismatch; expected_chunks=",
+                  num_chunks,
+                  " actual_chunks=",
+                  result_chunks.size(),
+                  " num_bits=",
+                  constraint->num_bits,
+                  " result_witness_real=",
+                  analyzer.to_real(constraint->result));
         return false;
     }
 
@@ -770,23 +748,55 @@ bool StaticAnalyzerAcir_<FF, CircuitBuilder>::process_logic_constraints(const Co
                 bool correct_lookup = true;
                 for (size_t lookup_idx = 0; lookup_idx < num_lookups; lookup_idx++) {
                     size_t gate_idx = gate + lookup_idx;
-                    if (!(lookup_block.q_lookup()[gate_idx] == FF::one())) {
+                    if (!(read_gate_selector(lookup_block, GateKind::Lookup, gate_idx) == FF::one())) {
+                        log_error("LOGIC lookup mismatch: q_lookup!=1; is_xor=",
+                                  constraint->is_xor_gate,
+                                  " chunk_idx=",
+                                  i,
+                                  " gate=",
+                                  gate_idx);
                         correct_lookup = false;
                         break;
                     }
                     if (lookup_block.w_4()[gate_idx] != builder.zero_idx()) {
+                        log_error("LOGIC lookup mismatch: w_4 not zero; is_xor=",
+                                  constraint->is_xor_gate,
+                                  " chunk_idx=",
+                                  i,
+                                  " gate=",
+                                  gate_idx);
                         correct_lookup = false;
                         break;
                     }
                     const bool is_last_lookup = (lookup_idx == num_lookups - 1);
                     BasicTableId expected_table = multi_table.basic_table_ids[lookup_idx];
                     auto table_index = static_cast<size_t>(static_cast<uint256_t>(lookup_block.q_3()[gate_idx]));
-                    if (table_index >= lookup_tables.size()) {
+                    if (table_index == 0 || table_index > lookup_tables.size()) {
+                        log_error("LOGIC lookup mismatch: table index out of bounds; is_xor=",
+                                  constraint->is_xor_gate,
+                                  " chunk_idx=",
+                                  i,
+                                  " gate=",
+                                  gate_idx,
+                                  " table_index=",
+                                  table_index,
+                                  " tables_size=",
+                                  lookup_tables.size());
                         correct_lookup = false;
                         break;
                     }
-                    auto table_id = lookup_tables[table_index].id;
+                    auto table_id = lookup_tables[table_index - 1].id;
                     if (table_id != expected_table) {
+                        log_error("LOGIC lookup mismatch: table id mismatch; is_xor=",
+                                  constraint->is_xor_gate,
+                                  " chunk_idx=",
+                                  i,
+                                  " gate=",
+                                  gate_idx,
+                                  " expected_table=",
+                                  static_cast<size_t>(expected_table),
+                                  " actual_table=",
+                                  static_cast<size_t>(table_id));
                         correct_lookup = false;
                         break;
                     }
@@ -796,12 +806,44 @@ bool StaticAnalyzerAcir_<FF, CircuitBuilder>::process_logic_constraints(const Co
                     if (!(lookup_block.q_1()[gate_idx].is_zero() && expected_q2 == lookup_block.q_2()[gate_idx] &&
                           expected_qm == lookup_block.q_m()[gate_idx] && expected_qc == lookup_block.q_c()[gate_idx] &&
                           lookup_block.q_4()[gate_idx].is_zero())) {
+                        log_error("LOGIC lookup mismatch: selector mismatch; is_xor=",
+                                  constraint->is_xor_gate,
+                                  " chunk_idx=",
+                                  i,
+                                  " gate=",
+                                  gate_idx,
+                                  " expected(q1,q2,qm,qc,q4)=",
+                                  FF(0),
+                                  ",",
+                                  expected_q2,
+                                  ",",
+                                  expected_qm,
+                                  ",",
+                                  expected_qc,
+                                  ",",
+                                  FF(0),
+                                  " actual=",
+                                  lookup_block.q_1()[gate_idx],
+                                  ",",
+                                  lookup_block.q_2()[gate_idx],
+                                  ",",
+                                  lookup_block.q_m()[gate_idx],
+                                  ",",
+                                  lookup_block.q_c()[gate_idx],
+                                  ",",
+                                  lookup_block.q_4()[gate_idx]);
                         correct_lookup = false;
                         break;
                     }
                 }
 
                 if (!correct_lookup) {
+                    log_error("LOGIC validation failed: lookup gate layout/selectors mismatch; is_xor=",
+                              constraint->is_xor_gate,
+                              " chunk_idx=",
+                              i,
+                              " gate=",
+                              gate);
                     return false;
                 }
 
@@ -812,12 +854,24 @@ bool StaticAnalyzerAcir_<FF, CircuitBuilder>::process_logic_constraints(const Co
                 // Verify operation correctness
                 if (constraint->is_xor_gate ? (a_chunk ^ b_chunk) != result_chunk
                                             : (a_chunk & b_chunk) != result_chunk) {
+                    log_error("LOGIC validation failed: boolean op result mismatch; is_xor=",
+                              constraint->is_xor_gate,
+                              " chunk_idx=",
+                              i,
+                              " gate=",
+                              gate);
                     return false;
                 }
 
                 auto [a_recovered, b_recovered] = recover_chunks_from_lookups(multi_table, gate);
 
                 if (a_recovered != (a_chunk & ~uint256_t(0x3F)) || b_recovered != (b_chunk & ~uint256_t(0x3F))) {
+                    log_error("LOGIC validation failed: lookup chunk reconstruction mismatch; is_xor=",
+                              constraint->is_xor_gate,
+                              " chunk_idx=",
+                              i,
+                              " gate=",
+                              gate);
                     return false;
                 }
 
@@ -836,6 +890,12 @@ bool StaticAnalyzerAcir_<FF, CircuitBuilder>::process_logic_constraints(const Co
             }
         } // block to process 1 result_chunk
         if (!found_valid_for_chunk) {
+            log_error("LOGIC validation failed: no valid lookup gate found for chunk; is_xor=",
+                      constraint->is_xor_gate,
+                      " chunk_idx=",
+                      i,
+                      " real_chunk_witness=",
+                      real_chunk_idx);
             return false;
         }
     }
@@ -846,6 +906,10 @@ bool StaticAnalyzerAcir_<FF, CircuitBuilder>::process_logic_constraints(const Co
     uint256_t b_init = constraint->b.is_constant ? uint256_t(constraint->b.value)
                                                  : uint256_t(builder.get_variable(constraint->b.index));
     if (a_init != a_accumulated || b_init != b_accumulated) {
+        log_error("LOGIC validation failed: accumulated inputs do not match initial inputs; is_xor=",
+                  constraint->is_xor_gate,
+                  " num_bits=",
+                  constraint->num_bits);
         return false;
     }
 
@@ -854,6 +918,12 @@ bool StaticAnalyzerAcir_<FF, CircuitBuilder>::process_logic_constraints(const Co
     if (final_bits != 0) {
         if (!analyzer.validate_decompose_chain(first_chunk_a_idx, final_bits) ||
             !analyzer.validate_decompose_chain(first_chunk_b_idx, final_bits)) {
+            log_error("LOGIC validation failed: final chunk range check failed; final_bits=",
+                      final_bits,
+                      " first_chunk_a_real=",
+                      first_chunk_a_idx,
+                      " first_chunk_b_real=",
+                      first_chunk_b_idx);
             return false;
         }
     }
@@ -974,7 +1044,7 @@ std::optional<size_t> StaticAnalyzerAcir_<FF, CircuitBuilder>::find_sha256_add_n
         // Check add_normalize selectors
         if (arith.q_1()[gate_idx] == FF::one() && arith.q_2()[gate_idx] == FF::one() &&
             arith.q_3()[gate_idx] == NEG_TWO_POW_32 && arith.q_4()[gate_idx] == FF::neg_one() &&
-            arith.q_m()[gate_idx].is_zero() && arith.q_arith()[gate_idx] == FF::one()) {
+            arith.q_m()[gate_idx].is_zero() && read_gate_selector(arith, GateKind::Arith, gate_idx) == FF::one()) {
             return gate_idx;
         }
     }
@@ -1001,7 +1071,7 @@ std::optional<std::vector<size_t>> StaticAnalyzerAcir_<FF, CircuitBuilder>::find
         }
         if (arith.q_1()[gate_idx] == FF::one() && arith.q_2()[gate_idx] == DECOMPOSE_Q2 &&
             arith.q_3()[gate_idx] == DECOMPOSE_Q3 && arith.q_4()[gate_idx] == FF::neg_one() &&
-            arith.q_arith()[gate_idx] == FF::one()) {
+            read_gate_selector(arith, GateKind::Arith, gate_idx) == FF::one()) {
             // Verify sublimbs (w_l, w_r, w_o) have range tags to distinguish from
             // internal SHA256 big_add gates that use the same selector pattern.
             bool sublimbs_in_range_list = true;
@@ -1063,7 +1133,8 @@ std::optional<AddTwoGateInfo> StaticAnalyzerAcir_<FF, CircuitBuilder>::find_and_
             if (&builder.blocks.get()[blk_idx] != &arith_block) {
                 continue;
             }
-            if (!arith_block.q_m()[gate_idx].is_zero() || arith_block.q_arith()[gate_idx] != FF(1)) {
+            if (!arith_block.q_m()[gate_idx].is_zero() ||
+                read_gate_selector(arith_block, GateKind::Arith, gate_idx) != FF(1)) {
                 continue;
             }
             if (arith_block.q_4()[gate_idx] != FF::neg_one()) {
@@ -1135,7 +1206,7 @@ std::optional<AddTwoGateWires> StaticAnalyzerAcir_<FF, CircuitBuilder>::find_add
             continue;
         }
         FF q_m = arith_block.q_m()[gate_idx];
-        FF q_arith = arith_block.q_arith()[gate_idx];
+        FF q_arith = read_gate_selector(arith_block, GateKind::Arith, gate_idx);
         if (!q_m.is_zero() || q_arith != FF::one()) {
             continue;
         }
@@ -1211,7 +1282,7 @@ std::vector<size_t> StaticAnalyzerAcir_<FF, CircuitBuilder>::find_arithmetic_gat
             continue;
         }
         FF q_m = arith_block.q_m()[gate_idx];
-        FF q_arith = arith_block.q_arith()[gate_idx];
+        FF q_arith = read_gate_selector(arith_block, GateKind::Arith, gate_idx);
         if (!q_m.is_zero() || q_arith != FF::one()) {
             continue;
         }
@@ -1419,7 +1490,7 @@ Sha256SparseFunctionResult StaticAnalyzerAcir_<FF, CircuitBuilder>::validate_sha
                 analyzer.to_real(arith_block.w_r()[gate_idx]) != zero_real ||
                 analyzer.to_real(arith_block.w_4()[gate_idx]) != zero_real ||
                 arith_block.q_2()[gate_idx] != FF::zero() || arith_block.q_3()[gate_idx] != FF::neg_one() ||
-                arith_block.q_arith()[gate_idx] != FF::one()) {
+                read_gate_selector(arith_block, GateKind::Arith, gate_idx) != FF::one()) {
                 continue;
             }
             // Connectivity check: w_o should appear in lookup w_l
@@ -1558,7 +1629,8 @@ bool StaticAnalyzerAcir_<FF, CircuitBuilder>::validate_extend_witness_iteration(
         for (const auto& [blk_idx, gate_idx] : w_i_gates) {
             if (&builder.blocks.get()[blk_idx] != &arith_block)
                 continue;
-            if (!arith_block.q_m()[gate_idx].is_zero() || arith_block.q_arith()[gate_idx] != FF::one())
+            if (!arith_block.q_m()[gate_idx].is_zero() ||
+                read_gate_selector(arith_block, GateKind::Arith, gate_idx) != FF::one())
                 continue;
 
             FF q_1 = arith_block.q_1()[gate_idx];
@@ -1600,7 +1672,7 @@ bool StaticAnalyzerAcir_<FF, CircuitBuilder>::validate_extend_witness_iteration(
                 if (analyzer.to_real(arith_block.w_4()[gi2]) != zero_real)
                     continue;
                 if (arith_block.q_2()[gi2] != FF::zero() || arith_block.q_3()[gi2] != FF::neg_one() ||
-                    arith_block.q_arith()[gi2] != FF::one())
+                    read_gate_selector(arith_block, GateKind::Arith, gi2) != FF::one())
                     continue;
 
                 // Found normalize gate. Check normalized witness in range list for target_range=3
@@ -1995,7 +2067,7 @@ bool StaticAnalyzerAcir_<FF, CircuitBuilder>::process_sha256comression_round(
         for (const auto& [blk_idx, gate_idx] : gates) {
             if (&builder.blocks.get()[blk_idx] != &ab)
                 continue;
-            if (!ab.q_m()[gate_idx].is_zero() || ab.q_arith()[gate_idx] != FF::one())
+            if (!ab.q_m()[gate_idx].is_zero() || read_gate_selector(ab, GateKind::Arith, gate_idx) != FF::one())
                 continue;
             FF q_2 = ab.q_2()[gate_idx];
             FF q_3 = ab.q_3()[gate_idx];
@@ -2029,7 +2101,7 @@ bool StaticAnalyzerAcir_<FF, CircuitBuilder>::process_sha256comression_round(
         for (const auto& [blk_idx, gate_idx] : t1_gates) {
             if (&builder.blocks.get()[blk_idx] != &ab)
                 continue;
-            if (!ab.q_m()[gate_idx].is_zero() || ab.q_arith()[gate_idx] != FF::one())
+            if (!ab.q_m()[gate_idx].is_zero() || read_gate_selector(ab, GateKind::Arith, gate_idx) != FF::one())
                 continue;
             FF q_2 = ab.q_2()[gate_idx];
             FF q_3 = ab.q_3()[gate_idx];
@@ -2348,7 +2420,7 @@ bool StaticAnalyzerAcir_<FF, CircuitBuilder>::process_sha256compression_constrai
         for (const auto& [blk_idx, gate_idx] : gates) {
             if (&builder.blocks.get()[blk_idx] != &arith)
                 continue;
-            if (!arith.q_m()[gate_idx].is_zero() || arith.q_arith()[gate_idx] != FF::one())
+            if (!arith.q_m()[gate_idx].is_zero() || read_gate_selector(arith, GateKind::Arith, gate_idx) != FF::one())
                 continue;
             FF q_2 = arith.q_2()[gate_idx];
             FF q_3 = arith.q_3()[gate_idx];

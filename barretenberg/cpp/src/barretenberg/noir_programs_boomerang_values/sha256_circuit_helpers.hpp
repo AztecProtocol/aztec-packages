@@ -34,7 +34,8 @@ template <typename Builder> std::vector<size_t> find_unconstrained_arithmetic_ga
 
     for (size_t i = 0; i < arith.size(); ++i) {
         if (arith.q_m()[i].is_zero() && arith.q_1()[i].is_zero() && arith.q_2()[i].is_zero() &&
-            arith.q_3()[i].is_zero() && arith.q_4()[i].is_zero() && arith.q_arith()[i].is_zero()) {
+            arith.q_3()[i].is_zero() && arith.q_4()[i].is_zero() &&
+            arith.gate_selector_for(bb::GateKind::Arith)[i].is_zero()) {
             result.push_back(i);
         }
     }
@@ -158,8 +159,7 @@ size_t compute_selector_hash_without_table_index(size_t combined_hash, Block& bl
  * @param gate_idx The index of the gate to hash
  * @return The updated hash value (same as combined_hash after update)
  */
-template <typename Block>
-size_t update_selector_hash(size_t& combined_hash, Block& block, size_t gate_idx)
+template <typename Block> size_t update_selector_hash(size_t& combined_hash, Block& block, size_t gate_idx)
 {
     auto selectors = block.get_selectors();
     for (size_t s = 0; s < selectors.size(); ++s) {
@@ -171,12 +171,12 @@ size_t update_selector_hash(size_t& combined_hash, Block& block, size_t gate_idx
 
 // Pinned selector hashes for SHA256 lookup gate blocks (excluding q_3/table_index).
 // These are deterministic hashes over all selectors except q_3 for each lookup table type.
-static constexpr size_t SHA256_CH_INPUT_HASH = 0x449F9039F2C000BCULL;       // choose_with_sigma1 INPUT (3 gates)
-static constexpr size_t SHA256_CH_OUTPUT_HASH = 0x878BCBBEB422FBE5ULL;      // choose_with_sigma1 OUTPUT (16 gates)
-static constexpr size_t SHA256_MAJ_INPUT_HASH = 0x0994A333A520AB4CULL;      // majority_with_sigma0 INPUT (3 gates)
-static constexpr size_t SHA256_MAJ_OUTPUT_HASH = 0xBEB978F7280A5543ULL;     // majority_with_sigma0 OUTPUT (11 gates)
-static constexpr size_t SHA256_WITNESS_INPUT_HASH = 0x09BF18916C955877ULL;  // convert_witness INPUT (4 gates)
-static constexpr size_t SHA256_WITNESS_OUTPUT_HASH = 0xBEB978F7280A5543ULL; // convert_witness OUTPUT (11 gates)
+static constexpr size_t SHA256_CH_INPUT_HASH = 3688234554709237331ULL;        // choose_with_sigma1 INPUT (3 gates)
+static constexpr size_t SHA256_CH_OUTPUT_HASH = 13894510414391467752ULL;      // choose_with_sigma1 OUTPUT (16 gates)
+static constexpr size_t SHA256_MAJ_INPUT_HASH = 6873917255644180369ULL;       // majority_with_sigma0 INPUT (3 gates)
+static constexpr size_t SHA256_MAJ_OUTPUT_HASH = 18275753415692160175ULL;     // majority_with_sigma0 OUTPUT (11 gates)
+static constexpr size_t SHA256_WITNESS_INPUT_HASH = 7251786320398586631ULL;   // convert_witness INPUT (4 gates)
+static constexpr size_t SHA256_WITNESS_OUTPUT_HASH = 18275753415692160175ULL; // convert_witness OUTPUT (11 gates)
 
 /**
  * @brief Parameters for validate_sha256_sparse_function, which validates both
