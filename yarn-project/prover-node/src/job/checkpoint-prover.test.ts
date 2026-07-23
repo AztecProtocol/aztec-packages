@@ -7,7 +7,7 @@ import { type Logger, createLogger } from '@aztec/foundation/log';
 import { promiseWithResolvers } from '@aztec/foundation/promise';
 import { DateProvider } from '@aztec/foundation/timer';
 import type { EpochProverFactory } from '@aztec/prover-client';
-import type { ChonkCache } from '@aztec/prover-client/orchestrator';
+import type { ChonkCache, SubTreeResult } from '@aztec/prover-client/orchestrator';
 import type { PublicProcessorFactory } from '@aztec/simulator/server';
 import { Checkpoint } from '@aztec/stdlib/checkpoint';
 import type { ForkMerkleTreeOperations, ITxProvider } from '@aztec/stdlib/interfaces/server';
@@ -279,6 +279,66 @@ describe('CheckpointProver', () => {
       prover.cancel();
       expect(prover.isCancelled()).toBe(true);
       await prover.whenDone();
+    });
+  });
+
+  // ---------------- teardown on completion ----------------
+
+  describe('teardown on completion', () => {
+    it('releases the sub-tree once block proofs are ready, still returning the outputs', async () => {
+      // Empty-tx blocks let the execute loop complete without real public processing. The sub-tree
+      // result is gated on the final block completing, so resolution happens after the loop's work.
+      checkpoint = await Checkpoint.random(CheckpointNumber(1), { numBlocks: 2, txsPerBlock: 0 });
+
+      txProvider.getTxsForBlock.mockReset();
+      txProvider.getTxsForBlock.mockResolvedValue({ txs: [], missingTxs: [] });
+
+      const blockProofOutputs = [{ tag: 'block-proof-output' }] as unknown as SubTreeResult['blockProofOutputs'];
+      const resultGate = promiseWithResolvers<SubTreeResult>();
+      const lastBlockNumber = checkpoint.blocks[checkpoint.blocks.length - 1].number;
+      const stop = jest.fn(() => Promise.resolve());
+
+      const subTree = {
+        getSubTreeResult: () => resultGate.promise,
+        startNewBlock: () => Promise.resolve(),
+        startChonkVerifierCircuits: () => Promise.resolve(),
+        addTxs: () => Promise.resolve(),
+        // Resolve the sub-tree result only after the final block finishes, mirroring production
+        // where proofs land after every block has been added.
+        setBlockCompleted: (blockNumber: number) => {
+          if (blockNumber === lastBlockNumber) {
+            resultGate.resolve({
+              blockProofOutputs,
+              previousArchiveSiblingPath: makeTuple(ARCHIVE_HEIGHT, () => Fr.ZERO),
+            });
+          }
+          return Promise.resolve();
+        },
+        cancel: () => {},
+        stop,
+      };
+      proverFactory.createCheckpointSubTreeOrchestrator.mockResolvedValue(subTree as any);
+      dbProvider.fork.mockResolvedValue({
+        appendLeaves: () => Promise.resolve(),
+        close: () => Promise.resolve(),
+      } as any);
+      publicProcessorFactory.create.mockReturnValue({ process: () => Promise.resolve([[], []]) } as any);
+
+      const prover = makeProver();
+
+      // The block-proof outputs survive teardown via the resolved promise.
+      await expect(prover.whenBlockProofsReady()).resolves.toBe(blockProofOutputs);
+      await prover.whenDone();
+
+      // The sub-tree orchestrator was released exactly once, and completion is not a failure.
+      expect(stop).toHaveBeenCalledTimes(1);
+      expect(prover.isFailed()).toBe(false);
+      expect(onFailed).not.toHaveBeenCalled();
+
+      // A subsequent reap cancel is a no-op on the already-released sub-tree (stop not called again).
+      prover.cancel({ routine: true });
+      await prover.whenDone();
+      expect(stop).toHaveBeenCalledTimes(1);
     });
   });
 

@@ -123,6 +123,8 @@ export class CheckpointProver {
   private readonly runPromise: Promise<void>;
   /** Tracks the cancel-driven teardown so `whenDone()` can await it. */
   private cancelPromise?: Promise<void>;
+  /** Tracks the success-driven sub-tree teardown (once block proofs are captured) so `whenDone()` can await it. */
+  private teardownPromise?: Promise<void>;
 
   constructor(
     args: CheckpointProverArgs,
@@ -189,6 +191,9 @@ export class CheckpointProver {
     await this.runPromise.catch(() => {});
     if (this.cancelPromise) {
       await this.cancelPromise;
+    }
+    if (this.teardownPromise) {
+      await this.teardownPromise;
     }
   }
 
@@ -301,6 +306,14 @@ export class CheckpointProver {
           // Spans processing + proving (from executeCheckpoint start, after tx gathering) to proofs ready.
           this.deps.metrics.recordCheckpointProving(checkpointTimer.ms());
           this.blockProofs.resolve(result.blockProofOutputs);
+          // Release the sub-tree orchestrator now that its output is captured. The block-proof outputs
+          // survive via the resolved promise; everything else the sub-tree held — per-tx AVM inputs, and
+          // the base/merge/parity proof trees — is dead once proving completes, yet the prover is retained
+          // for the whole proof-submission window. Dropping it here is what stops that retention from
+          // accumulating across every proven checkpoint. Post-completion consumers (the top-tree job, a
+          // rebuilt EpochSession, failure upload) read only `whenBlockProofsReady()` and this prover's own
+          // fields (`checkpoint`, `txs`, headers, sibling paths), never the sub-tree.
+          this.teardownPromise = this.teardownSubTree();
         },
         err => this.failBlockProofs(err instanceof Error ? err : new Error(String(err))),
       );
