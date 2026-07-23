@@ -1,3 +1,4 @@
+import type { L1ContractAddresses } from '@aztec/ethereum/l1-contract-addresses';
 import type { ExtendedViemWalletClient, ViemContract } from '@aztec/ethereum/types';
 import { extractEvent } from '@aztec/ethereum/utils';
 import type { EpochNumber } from '@aztec/foundation/branded-types';
@@ -223,15 +224,17 @@ export class L1FeeJuicePortalManager {
    * @param node - Aztec node client used for retrieving the L1 contract addresses.
    * @param extendedClient - Wallet client, extended with public actions.
    * @param logger - Logger.
+   * @param l1ContractAddresses - Pre-fetched L1 contract addresses. When supplied (e.g. from a wallet that already
+   * holds node info), avoids an extra `getNodeInfo` round-trip; otherwise they are fetched from the node.
    */
   public static async new(
     node: AztecNode,
     extendedClient: ExtendedViemWalletClient,
     logger: Logger,
+    l1ContractAddresses?: L1ContractAddresses,
   ): Promise<L1FeeJuicePortalManager> {
-    const {
-      l1ContractAddresses: { feeJuiceAddress, feeJuicePortalAddress, feeAssetHandlerAddress },
-    } = await node.getNodeInfo();
+    const { feeJuiceAddress, feeJuicePortalAddress, feeAssetHandlerAddress } =
+      l1ContractAddresses ?? (await node.getNodeInfo()).l1ContractAddresses;
 
     if (feeJuiceAddress.isZero() || feeJuicePortalAddress.isZero()) {
       throw new Error('Portal or token not deployed on L1');

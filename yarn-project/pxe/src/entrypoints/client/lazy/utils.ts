@@ -29,10 +29,10 @@ export async function createPXE(
 ) {
   const actor = options.loggerActorLabel;
 
-  const l1ContractAddresses = await aztecNode.getL1ContractAddresses();
+  const nodeInfo = options.nodeInfo ?? (await aztecNode.getNodeInfo());
   const configWithContracts = {
     ...config,
-    ...l1ContractAddresses,
+    ...nodeInfo.l1ContractAddresses,
   } as PXEConfig;
 
   const loggers = options.loggers ?? {};
@@ -72,6 +72,8 @@ export async function createPXE(
     config,
     loggerOrSuffix: pxeLogger,
     hooks: options.hooks,
+    nodeInfo,
+    initialBlockHash: options.initialBlockHash,
   });
   return pxe;
 }

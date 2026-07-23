@@ -10,6 +10,7 @@ import { getStandardMultiCallEntrypoint } from '@aztec/standard-contracts/multi-
 import { LazyAccountContractsProvider } from '../account-contract-providers/lazy.js';
 import type { AccountContractsProvider } from '../account-contract-providers/types.js';
 import { EmbeddedWallet, type EmbeddedWalletOptions, splitPxeOptions } from '../embedded_wallet.js';
+import { resolveStartupInfo } from '../node_info_cache.js';
 import { WalletDB } from '../wallet_db.js';
 
 export class BrowserEmbeddedWallet extends EmbeddedWallet {
@@ -27,7 +28,26 @@ export class BrowserEmbeddedWallet extends EmbeddedWallet {
     const rootLogger = options.logger ?? createLogger('embedded-wallet');
 
     const aztecNode = typeof nodeOrUrl === 'string' ? createAztecNodeClient(nodeOrUrl) : nodeOrUrl;
-    const l1Contracts = await aztecNode.getL1ContractAddresses();
+    const nodeInfoUrl = typeof nodeOrUrl === 'string' ? nodeOrUrl : undefined;
+    const nodeInfoCacheStore =
+      nodeInfoUrl && !options.ephemeral
+        ? await createStore(
+            'node_info_cache',
+            { dataDirectory: 'node_info_cache', dataStoreMapSizeKb: getPXEConfig().dataStoreMapSizeKb },
+            undefined,
+            rootLogger.createChild('node-info-cache'),
+          ).catch(err => {
+            rootLogger.debug('Could not open node info cache store; will fetch node info', { err });
+            return undefined;
+          })
+        : undefined;
+    const { nodeInfo, initialBlockHash } = await resolveStartupInfo(
+      aztecNode,
+      nodeInfoUrl,
+      nodeInfoCacheStore,
+      rootLogger,
+    );
+    const l1Contracts = nodeInfo.l1ContractAddresses;
 
     // Support both the new unified `pxe` option and the deprecated `pxeConfig`/`pxeOptions`.
     const { config: pxeConfigFromPxe, creation: pxeCreationFromPxe } = splitPxeOptions(options.pxe);
@@ -47,6 +67,8 @@ export class BrowserEmbeddedWallet extends EmbeddedWallet {
 
     const pxeOptions: PXECreationOptions = {
       ...mergedCreationOverrides,
+      nodeInfo,
+      initialBlockHash,
       preloadedContractsProvider: mergedCreationOverrides.preloadedContractsProvider ?? {
         getPreloadedContracts: async () => [
           await getStandardMultiCallEntrypoint(),
@@ -81,6 +103,7 @@ export class BrowserEmbeddedWallet extends EmbeddedWallet {
     const walletDB = new WalletDB(walletDBStore, rootLogger.createChild('wallet:db').info);
 
     const wallet = new this(pxe, aztecNode, walletDB, new LazyAccountContractsProvider(), rootLogger) as T;
+    wallet.seedNodeInfo(nodeInfo);
     await wallet.initStubClasses();
     return wallet;
   }
