@@ -14,5 +14,9 @@ pub global STANDARD_PUBLIC_CHECKS_ADDRESS: AztecAddress = AztecAddress::from_fie
 );
 
 pub global STANDARD_HANDSHAKE_REGISTRY_ADDRESS: AztecAddress = AztecAddress::from_field(
+<<<<<<< HEAD
     0x090d0f9525c99184e3741290b2695c5e3af23f51e96061b74b953111b0d4f59d,
+=======
+    0x06127814dca78709650de6629637194f7381d2e05b35eb9d53a4746636c9aa9d,
+>>>>>>> c3a2a8512c6 (chore: re-pin handshake registry with owner-bound nullifiers (#24893))
 );
