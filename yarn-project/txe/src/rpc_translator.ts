@@ -188,7 +188,7 @@ export class RPCTranslator {
     return callTxeHandler({
       oracle: 'aztec_txe_createAccount',
       inputs,
-      handler: ([secret]) => this.handlerAsTxe().createAccount(secret),
+      handler: ([secret, partialAddress]) => this.handlerAsTxe().createAccount(secret, partialAddress),
     });
   }
 
@@ -227,6 +227,15 @@ export class RPCTranslator {
       inputs,
       handler: ([unconstrainedStrategy, constrainedStrategy]) =>
         this.handlerAsTxe().setTaggingSecretStrategies(unconstrainedStrategy, constrainedStrategy),
+    });
+  }
+
+  // eslint-disable-next-line camelcase
+  aztec_txe_setAuthorizeAllUtilityCallTargets(...inputs: ForeignCallArgs) {
+    return callTxeHandler({
+      oracle: 'aztec_txe_setAuthorizeAllUtilityCallTargets',
+      inputs,
+      handler: ([authorizeAll]) => this.handlerAsTxe().setAuthorizeAllUtilityCallTargets(authorizeAll),
     });
   }
 
@@ -630,6 +639,15 @@ export class RPCTranslator {
       oracle: 'aztec_utl_getResolvedTxs',
       inputs,
       handler: ([requestArrayBaseSlot]) => this.handlerAsUtility().getResolvedTxs(requestArrayBaseSlot),
+    });
+  }
+
+  // eslint-disable-next-line camelcase
+  aztec_utl_getTxEffects(...inputs: ForeignCallArgs) {
+    return callTxeHandler({
+      oracle: 'aztec_utl_getTxEffects',
+      inputs,
+      handler: ([txHashes]) => this.handlerAsUtility().getTxEffects(txHashes),
     });
   }
 

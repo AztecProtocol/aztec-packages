@@ -5,8 +5,8 @@ authors = [""]
 compiler_version = ">=0.18.0"
 
 [dependencies]
-bignum = { git = "https://github.com/noir-lang/noir-bignum", tag = "v0.10.0" }
-bigcurve = { git = "https://github.com/noir-lang/noir_bigcurve", tag = "v0.14.0" }
+bignum = { path = "../bignum" }
+bigcurve = { path = "../bigcurve" }
 types = { path = "../types" }
 protocol_test_utils = { path = "../protocol-test-utils" }
 blob = { path = "../blob" }

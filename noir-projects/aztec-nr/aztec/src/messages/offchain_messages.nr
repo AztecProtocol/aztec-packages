@@ -9,8 +9,8 @@ pub global OFFCHAIN_MESSAGE_IDENTIFIER: Field =
 /// Emits a message that will be delivered offchain rather than through the data availability layer.
 ///
 /// Sends data through an alternative app-specific channel without incurring data availability (DA) costs. After
-/// receiving the message, the recipient is expected to call the `process_message` function implemented on the contract
-/// that originally emitted the message.
+/// receiving the message, the recipient is expected to call the `offchain_receive` utility function (injected by the
+/// `#[aztec]` macro) on the contract that originally emitted the message.
 ///
 /// # Example use case
 ///

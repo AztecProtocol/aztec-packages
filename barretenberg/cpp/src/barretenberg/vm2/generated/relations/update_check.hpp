@@ -3,7 +3,6 @@
 
 #include <string_view>
 
-#include "barretenberg/common/bb_bench.hpp"
 #include "barretenberg/relations/relation_parameters.hpp"
 #include "barretenberg/relations/relation_types.hpp"
 #include "barretenberg/vm2/generated/columns.hpp"
@@ -46,6 +45,7 @@ template <typename FF> class update_check : public Relation<update_checkImpl<FF>
 
     static std::string get_subrelation_label(size_t index)
     {
+#ifdef AVM_INCLUDE_COLUMN_INFORMATION
         switch (index) {
         case SR_HASH_IS_ZERO_CHECK:
             return "HASH_IS_ZERO_CHECK";
@@ -62,6 +62,7 @@ template <typename FF> class update_check : public Relation<update_checkImpl<FF>
         case SR_PAST_UPDATE_CLASS_ID_ASSIGNMENT:
             return "PAST_UPDATE_CLASS_ID_ASSIGNMENT";
         }
+#endif
         return std::to_string(index);
     }
 };

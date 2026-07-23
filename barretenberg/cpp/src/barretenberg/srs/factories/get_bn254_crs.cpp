@@ -70,17 +70,14 @@ size_t round_up_to_chunk_boundary(size_t num_points)
  * on first mismatch. Also verifies the partial last chunk (if present) so every downloaded byte
  * is covered. Uses std::span to avoid per-chunk memory allocation.
  *
- * @note Intentionally invoked from a single site — `download_bn254_g1_data` below — and not from
- * the cache-hit, MemBn254Crs ctor, or `bbapi::SrsInitSrs` paths. This is the only path that
- * (a) fetches CRS bytes over plain HTTP, and (b) does not consume bytes that have already been
- * hash-verified upstream:
- *   - the cache-hit paths (uncompressed and compressed) read bytes that were verified by this
- *     function on a previous run before being cached;
- *   - `bbapi::SrsInitSrs` (bb.js / WASM) receives bytes that bb.js itself fetched over HTTPS,
- *     where TLS provides transport integrity;
- *   - `MemBn254Crs` is constructed in-process from already-validated points.
- * Therefore re-anchoring at every additional call site is redundant; this anchor exists
- * specifically to compensate for the plain-HTTP fetch on the fresh-download path.
+ * @note Invoked from `download_bn254_g1_data` (compensating for plain-HTTP fetch) and from the
+ * cache-load path when `BB_VERIFY_CRS=1` is set. NOT invoked unconditionally on cache-load: the
+ * default trust model assumes whatever populated the cache (`download_bn254_g1_data`, the
+ * `barretenberg/crs/bootstrap.sh` script, an AMI/container preseed, or a `CRS_PATH` mount) is
+ * the operator's responsibility to ensure correct. Operators who want per-load verification opt
+ * in via `BB_VERIFY_CRS=1` or invoke `bb verify-crs` out-of-band. WASM (`bbapi::SrsInitSrs`)
+ * receives bytes that bb.js fetched over HTTPS; `MemBn254Crs` is built in-process from
+ * already-validated points.
  */
 void verify_bn254_crs_integrity(const std::vector<uint8_t>& data)
 {
@@ -227,6 +224,11 @@ std::vector<g1::affine_element> get_bn254_g1_data(const std::filesystem::path& p
     if (compressed_points >= num_points) {
         vinfo("decompressing cached compressed bn254 crs (", compressed_points, " points)...");
         auto data = read_file(compressed_path, num_points * COMPRESSED_POINT_SIZE);
+        // BB_VERIFY_CRS=1 opts in to per-load verification of cached compressed bytes against the
+        // compiled-in chunk hashes. Off by default so cache-hit loads stay cheap.
+        if (std::getenv("BB_VERIFY_CRS") != nullptr) {
+            verify_bn254_crs_integrity(data);
+        }
         auto points = decompress_g1_points(data, num_points);
         write_uncompressed_g1_points(points, uncompressed_path);
         vinfo("cached uncompressed bn254 crs at ", uncompressed_path);
@@ -253,6 +255,9 @@ std::vector<g1::affine_element> get_bn254_g1_data(const std::filesystem::path& p
     compressed_points = get_file_size(compressed_path) / COMPRESSED_POINT_SIZE;
     if (compressed_points >= num_points) {
         auto data = read_file(compressed_path, num_points * COMPRESSED_POINT_SIZE);
+        if (std::getenv("BB_VERIFY_CRS") != nullptr) {
+            verify_bn254_crs_integrity(data);
+        }
         auto points = decompress_g1_points(data, num_points);
         write_uncompressed_g1_points(points, uncompressed_path);
         return points;

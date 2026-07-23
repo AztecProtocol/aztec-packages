@@ -191,9 +191,8 @@ struct ChonkVerifyFromFields {
  * @struct ChonkComputeVk
  * @brief Compute MegaHonk verification key for a circuit to be accumulated in Chonk
  *
- * @details This unified command replaces the former ChonkComputeStandaloneVk and ChonkComputeIvcVk.
- * Both standalone circuits (to be accumulated) and the IVC hiding kernel use the same MegaVerificationKey,
- * so a single implementation suffices for all Chonk VK computation needs.
+ * @details Computes a VK for a circuit used by Chonk. The command keeps the existing wire schema;
+ * Chonk owns the mapping from circuit role to concrete VK type.
  */
 struct ChonkComputeVk {
     static constexpr const char MSGPACK_SCHEMA_NAME[] = "ChonkComputeVk";
@@ -205,7 +204,7 @@ struct ChonkComputeVk {
     struct Response {
         static constexpr const char MSGPACK_SCHEMA_NAME[] = "ChonkComputeVkResponse";
 
-        /** @brief Serialized MegaVerificationKey in binary format */
+        /** @brief Serialized Chonk verification key in binary format */
         std::vector<uint8_t> bytes;
         /** @brief Verification key as array of field elements */
         std::vector<bb::fr> fields;
@@ -214,8 +213,7 @@ struct ChonkComputeVk {
     };
 
     CircuitInputNoVK circuit;
-    /** @brief When true, derive VK using MegaZKFlavor; otherwise MegaFlavor.
-     * The caller sets this to true for the hiding-kernel circuit. */
+    /** @brief Existing wire flag selecting the hiding-kernel VK role. */
     bool use_zk_flavor = false;
     Response execute([[maybe_unused]] const BBApiRequest& request = {}) &&;
     SERIALIZATION_FIELDS(circuit, use_zk_flavor);
@@ -246,8 +244,7 @@ struct ChonkCheckPrecomputedVk {
 
     /** @brief Circuit with its precomputed verification key */
     CircuitInput circuit;
-    /** @brief When true, derive VK using MegaZKFlavor; otherwise MegaFlavor.
-     * The caller sets this to true for the hiding-kernel circuit. */
+    /** @brief Existing wire flag selecting the hiding-kernel VK role. */
     bool use_zk_flavor = false;
 
     Response execute(const BBApiRequest& request = {}) &&;

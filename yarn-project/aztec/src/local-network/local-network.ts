@@ -88,6 +88,8 @@ export type LocalNetworkConfig = AztecNodeConfig & {
   l1Mnemonic: string;
   /** Whether to deploy test accounts on local network start.*/
   testAccounts: boolean;
+  /** Override the default per-address fee juice granted at genesis to funded addresses. */
+  initialAccountFeeJuice?: Fr;
 };
 
 /**
@@ -176,7 +178,10 @@ export async function createLocalNetwork(config: Partial<LocalNetworkConfig> = {
     ...(initialAccounts.length ? [bananaFPC, sponsoredFPC] : []),
     ...prefundAddresses,
   ];
-  const { genesisArchiveRoot, genesis, fundingNeeded } = await getGenesisValues(fundedAddresses);
+  const { genesisArchiveRoot, genesis, fundingNeeded } = await getGenesisValues(
+    fundedAddresses,
+    config.initialAccountFeeJuice,
+  );
 
   const dateProvider = new TestDateProvider();
 

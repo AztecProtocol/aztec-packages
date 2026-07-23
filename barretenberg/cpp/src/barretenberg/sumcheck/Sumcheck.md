@@ -113,7 +113,7 @@ This extension is done via the `extend_edges` method. This method uses a barycen
 
 Computing the final round univariate, from the evaluations of the individual multilinear polynomials is done via the `batch_over_relations` method, which as the name suggests batches the univariate contributions of each multilinear to obtain the final univariate.
 
-The contribution of the `RowDisablingPoly` to the round univariate is done quite similarly using the equalities given in the previous section and can be found in `compute_disabled_contribution` method of the `SumcheckProverRound` method.
+The contribution of the `RowDisablingPoly` to the round univariate is done quite similarly using the equalities given in the previous section and can be found in the `compute_offset_area_contribution` method of `SumcheckProverRound`. The same method also applies the dual `L` factor to any relation tagged `IS_OFFSET_ONLY` (see `IsOffsetOnlyRelation`), which is how boundary constraints on the offset rows 0..3 are enforced.
 
 
 

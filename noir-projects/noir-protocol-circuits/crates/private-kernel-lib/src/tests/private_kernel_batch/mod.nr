@@ -53,7 +53,6 @@ fn execute_init_n_sequential<let N: u32>(
             vk_tree_root: inputs.vk_tree_root,
             protocol_contracts: inputs.protocol_contracts,
             is_private_only: inputs.is_private_only,
-            first_nullifier_hint: inputs.first_nullifier_hint,
             revertible_counter_hint: inputs.revertible_counter_hint,
         },
     );
@@ -104,7 +103,6 @@ struct BatchNTestBuilder<let N: u32> {
     tx_request: TxRequest,
     private_calls: [FixtureBuilder; N],
     is_private_only: bool,
-    first_nullifier_hint: Field,
     revertible_counter_hint: u32,
 }
 
@@ -131,7 +129,6 @@ impl<let N: u32> BatchNTestBuilder<N> {
             tx_request,
             private_calls,
             is_private_only: false,
-            first_nullifier_hint: 123,
             revertible_counter_hint: 0,
         }
     }
@@ -249,7 +246,6 @@ impl<let N: u32> BatchNTestBuilder<N> {
             vk_tree_root: private_calls[0].vk_tree_root,
             protocol_contracts: private_calls[0].protocol_contracts,
             is_private_only: self.is_private_only,
-            first_nullifier_hint: self.first_nullifier_hint,
             revertible_counter_hint: self.revertible_counter_hint,
         }
     }

@@ -34,6 +34,7 @@ import {
   BlockHeader,
   CallContext,
   Capsule,
+  DroppedTxReceipt,
   GlobalVariables,
   MinedTxReceipt,
   TxEffect,
@@ -67,7 +68,6 @@ import type { EmbeddedCurvePoint } from '../noir-structs/embedded_curve_point.js
 import { EphemeralArray } from '../noir-structs/ephemeral_array.js';
 import { Option } from '../noir-structs/option.js';
 import type { ProvidedSecret } from '../noir-structs/provided_secret.js';
-import { ResolvedTx } from '../noir-structs/resolved_tx.js';
 import { TransientArrayService } from '../transient_array_service.js';
 import { UtilityExecutionOracle, type UtilityExecutionOracleArgs } from './utility_execution_oracle.js';
 
@@ -564,8 +564,8 @@ describe('Utility Execution test suite', () => {
         const contractAddressA = await AztecAddress.random();
         const contractAddressB = await AztecAddress.random();
 
-        const oracleA = makeOracle({ contractAddress: contractAddressA });
-        const oracleB = makeOracle({ contractAddress: contractAddressB });
+        const oracleA = makeOracle({ contractAddress: contractAddressA, scopes: [owner] });
+        const oracleB = makeOracle({ contractAddress: contractAddressB, scopes: [owner] });
 
         const ephPksArray = EphemeralArray.fromValues<EmbeddedCurvePoint>(service, [ephPk]);
         const responseA = await oracleA.getSharedSecrets(owner, ephPksArray, contractAddressA);
@@ -593,15 +593,14 @@ describe('Utility Execution test suite', () => {
         );
       });
 
-      it('returns no secrets when the PXE does not hold the keys for the address', async () => {
+      it('rejects a recipient outside the allowed scopes', async () => {
         const ephSk = GrumpkinScalar.random();
         const ephPk = await Grumpkin.mul(Grumpkin.generator, ephSk);
 
-        const foreignAddress = await AztecAddress.random();
         const ephPksArray = EphemeralArray.fromValues<EmbeddedCurvePoint>(service, [ephPk]);
-        const response = await utilityExecutionOracle.getSharedSecrets(foreignAddress, ephPksArray, contractAddress);
-
-        expect(response.readAll(service)).toEqual([]);
+        await expect(utilityExecutionOracle.getSharedSecrets(owner, ephPksArray, contractAddress)).rejects.toThrow(
+          /not in the allowed scopes/,
+        );
       });
     });
 
@@ -643,10 +642,8 @@ describe('Utility Execution test suite', () => {
           );
         });
 
-        const result = await utilityExecutionOracle.getPendingTaggedLogsV2(
-          owner,
-          EphemeralArray.fromValues(service, providedSecrets),
-        );
+        const oracle = makeOracle({ scopes: [owner] });
+        const result = await oracle.getPendingTaggedLogsV2(owner, EphemeralArray.fromValues(service, providedSecrets));
 
         const queried = aztecNode.getPrivateLogsByTags.mock.calls.flatMap(([query]) =>
           query.tags.map(entry => ('tag' in entry ? entry.tag.value.toString() : entry.value.toString())),
@@ -657,27 +654,42 @@ describe('Utility Execution test suite', () => {
         expect(resultLogs).toEqual([
           {
             log: log.logData,
-            context: new ResolvedTx(
-              log.txHash,
-              log.noteHashes,
-              log.nullifiers[0],
-              log.blockNumber,
-              log.blockHash.toFr(),
-            ),
+            context: {
+              txHash: log.txHash,
+              uniqueNoteHashesInTx: log.noteHashes,
+              firstNullifierInTx: log.nullifiers[0],
+              blockNumber: log.blockNumber,
+              blockHash: log.blockHash.toFr(),
+            },
           },
         ]);
+      });
+
+      it('rejects a scope outside the allowed scopes', async () => {
+        const outOfScope = await AztecAddress.random();
+        await expect(
+          utilityExecutionOracle.getPendingTaggedLogsV2(
+            outOfScope,
+            EphemeralArray.fromValues<ProvidedSecret>(service, []),
+          ),
+        ).rejects.toThrow(/not in the allowed scopes/);
       });
     });
 
     describe('node read cache', () => {
-      const makeMinedReceipt = (txHash: TxHash, txEffect = TxEffect.empty()) =>
+      const makeTxEffect = (txHash: TxHash) => TxEffect.from({ ...TxEffect.empty(), txHash });
+      const makeMinedReceipt = (
+        txHash: TxHash,
+        txEffect = makeTxEffect(txHash),
+        blockNumber = BlockNumber(syncedBlockNumber),
+      ) =>
         new MinedTxReceipt(
           txHash,
           TxStatus.FINALIZED,
           TxExecutionResult.SUCCESS,
           0n,
           BlockHash.random(),
-          BlockNumber(syncedBlockNumber),
+          blockNumber,
           SlotNumber(1),
           0,
           EpochNumber(1),
@@ -724,6 +736,49 @@ describe('Utility Execution test suite', () => {
         const result = await oracle.getTxEffect(txHash);
 
         expect(result.isSome()).toBe(true);
+        expect(aztecNode.getTxReceipt).toHaveBeenCalledTimes(2);
+      });
+
+      it('returns aligned tx-effect options for tx hash batches', async () => {
+        const service = new EphemeralArrayService();
+        const oracle = makeOracle({ scopes: [scope] });
+        const presentTxHash = TxHash.random();
+        const pendingTxHash = TxHash.random();
+        const futureTxHash = TxHash.random();
+
+        aztecNode.getTxReceipt.mockImplementation(txHash => {
+          if (txHash.equals(presentTxHash)) {
+            return Promise.resolve(makeMinedReceipt(txHash));
+          }
+          if (txHash.equals(futureTxHash)) {
+            return Promise.resolve(makeMinedReceipt(txHash, makeTxEffect(txHash), BlockNumber(syncedBlockNumber + 1)));
+          }
+          return Promise.resolve(new DroppedTxReceipt(txHash));
+        });
+
+        const result = await oracle.getTxEffects(
+          EphemeralArray.fromValues(service, [presentTxHash, pendingTxHash, futureTxHash, presentTxHash]),
+        );
+        const options = result.readAll(service);
+
+        expect(options.map(option => option.isSome())).toEqual([true, false, false, true]);
+        expect(options[0].value?.txHash).toEqual(presentTxHash);
+        expect(options[3].value?.txHash).toEqual(presentTxHash);
+        expect(aztecNode.getTxReceipt).toHaveBeenCalledTimes(3);
+      });
+
+      it('does not share batched tx-effect reads across utility executions', async () => {
+        const service = new EphemeralArrayService();
+        const txHash = TxHash.random();
+        aztecNode.getTxReceipt.mockResolvedValue(makeMinedReceipt(txHash));
+
+        const firstOracle = makeOracle({ scopes: [scope] });
+        const secondOracle = makeOracle({ scopes: [scope] });
+
+        await firstOracle.getTxEffects(EphemeralArray.fromValues(service, [txHash, txHash]));
+        expect(aztecNode.getTxReceipt).toHaveBeenCalledTimes(1);
+
+        await secondOracle.getTxEffects(EphemeralArray.fromValues(service, [txHash]));
         expect(aztecNode.getTxReceipt).toHaveBeenCalledTimes(2);
       });
 

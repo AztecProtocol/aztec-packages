@@ -6,6 +6,7 @@ export {
   type ParamTypes,
 } from './oracle/oracle_registry.js';
 export {
+  ALIAS,
   ARRAY,
   AZTEC_ADDRESS,
   BIGINT,
@@ -13,8 +14,7 @@ export {
   BLOCK_NUMBER,
   BOOL,
   BOUNDED_VEC,
-  BUFFER,
-  BYTE,
+  U8,
   CONTRACT_INSTANCE,
   DELIVERY_MODE,
   EPHEMERAL_ARRAY,
@@ -23,6 +23,8 @@ export {
   FIELD,
   FIXED_ARRAY,
   FUNCTION_SELECTOR,
+  LEAF,
+  LEAF_INDEX,
   LOG_RETRIEVAL_REQUEST,
   LOG_RETRIEVAL_RESPONSE,
   MEMBERSHIP_WITNESS,
@@ -32,16 +34,34 @@ export {
   PENDING_TAGGED_LOG,
   POINT,
   PROVIDED_SECRET,
+  SCALAR,
   SLOT_NUMBER,
   STR,
   STRUCT,
   U32,
+  U64,
+  U128,
   tryFieldWidth,
+  isArrayMapping,
+  isBoundedVecMapping,
+  isEphemeralArrayMapping,
+  isFixedArrayMapping,
+  isFixedBoundedVecMapping,
+  isOptionMapping,
+  isStructMapping,
+  type ArrayMapping,
+  type BoundedVecMapping,
+  type CompositeMapping,
+  type EphemeralArrayMapping,
+  type FixedArrayMapping,
+  type FixedBoundedVecMapping,
   type InputSlot,
   type MaybePromise,
+  type OptionMapping,
   type OutputSlot,
   type SlotShape,
   type StructField,
+  type StructMapping,
   type TypeMapping,
 } from './oracle/oracle_type_mappings.js';
 export { ExecutionNoteCache } from './execution_note_cache.js';
@@ -74,5 +94,5 @@ export { NoteValidationRequest } from './noir-structs/note_validation_request.js
 export type { PendingTaggedLog } from './noir-structs/pending_tagged_log.js';
 export type { TxEffectData } from './noir-structs/tx_effect_data.js';
 export type { ProvidedSecret } from './noir-structs/provided_secret.js';
-export { ResolvedTx } from './noir-structs/resolved_tx.js';
+export type { ResolvedTx } from './noir-structs/resolved_tx.js';
 export { TransientArrayService } from './transient_array_service.js';

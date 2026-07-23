@@ -141,7 +141,7 @@ TEST(UpdateCheckConstrainingTest, HashIsZeroCheck)
 
     EXPECT_THROW_WITH_MESSAGE(
         check_relation<update_check_relation>(trace, update_check_relation::SR_HASH_IS_ZERO_CHECK),
-        "HASH_IS_ZERO_CHECK");
+        update_check_relation::get_subrelation_label(update_check_relation::SR_HASH_IS_ZERO_CHECK));
 }
 
 TEST(UpdateCheckConstrainingTest, NeverUpdatedCheck)
@@ -163,7 +163,7 @@ TEST(UpdateCheckConstrainingTest, NeverUpdatedCheck)
 
     EXPECT_THROW_WITH_MESSAGE(
         check_relation<update_check_relation>(trace, update_check_relation::SR_NEVER_UPDATED_CHECK),
-        "NEVER_UPDATED_CHECK");
+        update_check_relation::get_subrelation_label(update_check_relation::SR_NEVER_UPDATED_CHECK));
 }
 
 TEST(UpdateCheckConstrainingTest, UpdateMetadataDecomposition)
@@ -186,7 +186,7 @@ TEST(UpdateCheckConstrainingTest, UpdateMetadataDecomposition)
 
     EXPECT_THROW_WITH_MESSAGE(
         check_relation<update_check_relation>(trace, update_check_relation::SR_UPDATE_METADATA_DECOMPOSITION),
-        "UPDATE_METADATA_DECOMPOSITION");
+        update_check_relation::get_subrelation_label(update_check_relation::SR_UPDATE_METADATA_DECOMPOSITION));
 }
 
 TEST(UpdateCheckConstrainingTest, UpdatePreClassIsZero)
@@ -210,7 +210,7 @@ TEST(UpdateCheckConstrainingTest, UpdatePreClassIsZero)
 
     EXPECT_THROW_WITH_MESSAGE(
         check_relation<update_check_relation>(trace, update_check_relation::SR_UPDATE_PRE_CLASS_IS_ZERO),
-        "UPDATE_PRE_CLASS_IS_ZERO");
+        update_check_relation::get_subrelation_label(update_check_relation::SR_UPDATE_PRE_CLASS_IS_ZERO));
 }
 
 TEST(UpdateCheckConstrainingTest, UpdatePostClassIsZero)
@@ -234,7 +234,7 @@ TEST(UpdateCheckConstrainingTest, UpdatePostClassIsZero)
 
     EXPECT_THROW_WITH_MESSAGE(
         check_relation<update_check_relation>(trace, update_check_relation::SR_UPDATE_POST_CLASS_IS_ZERO),
-        "UPDATE_POST_CLASS_IS_ZERO");
+        update_check_relation::get_subrelation_label(update_check_relation::SR_UPDATE_POST_CLASS_IS_ZERO));
 }
 
 TEST(UpdateCheckConstrainingTest, FutureUpdateClassIdAssignment)
@@ -261,7 +261,7 @@ TEST(UpdateCheckConstrainingTest, FutureUpdateClassIdAssignment)
 
     EXPECT_THROW_WITH_MESSAGE(
         check_relation<update_check_relation>(trace, update_check_relation::SR_FUTURE_UPDATE_CLASS_ID_ASSIGNMENT),
-        "FUTURE_UPDATE_CLASS_ID_ASSIGNMENT");
+        update_check_relation::get_subrelation_label(update_check_relation::SR_FUTURE_UPDATE_CLASS_ID_ASSIGNMENT));
 
     // Fix - should use original class id
     trace.set(C::update_check_current_class_id, 0, 42);
@@ -293,7 +293,7 @@ TEST(UpdateCheckConstrainingTest, PastUpdateClassIdAssignment)
 
     EXPECT_THROW_WITH_MESSAGE(
         check_relation<update_check_relation>(trace, update_check_relation::SR_PAST_UPDATE_CLASS_ID_ASSIGNMENT),
-        "PAST_UPDATE_CLASS_ID_ASSIGNMENT");
+        update_check_relation::get_subrelation_label(update_check_relation::SR_PAST_UPDATE_CLASS_ID_ASSIGNMENT));
 
     // Fix - should use original class id
     trace.set(C::update_check_current_class_id, 0, 42);

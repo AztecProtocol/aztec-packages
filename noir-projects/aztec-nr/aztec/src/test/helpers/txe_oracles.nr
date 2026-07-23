@@ -21,7 +21,7 @@ use crate::protocol::{
 /// [`oracle::version`](crate::oracle::version), which covers oracles used during contract execution by PXE.
 ///
 /// The TypeScript counterparts are in `yarn-project/txe/src/txe_oracle_version.ts`.
-pub global TXE_ORACLE_VERSION_MAJOR: Field = 3;
+pub global TXE_ORACLE_VERSION_MAJOR: Field = 4;
 pub global TXE_ORACLE_VERSION_MINOR: Field = 0;
 
 /// Asserts that the TXE oracle interface version is compatible.
@@ -249,7 +249,7 @@ pub unconstrained fn deploy_oracle<let N: u32, let P: u32>(
 ) -> [Field; CONTRACT_INSTANCE_LENGTH] {}
 
 #[oracle(aztec_txe_createAccount)]
-pub unconstrained fn create_account(secret: Field) -> TestAccount {}
+pub unconstrained fn create_account(secret: Field, partial_address: Field) -> TestAccount {}
 
 #[oracle(aztec_txe_addAccount)]
 pub unconstrained fn add_account(secret: Field) -> TestAccount {}
@@ -270,6 +270,9 @@ pub unconstrained fn set_tagging_secret_strategies(
     unconstrained_strategy: Option<TaggingSecretStrategy>,
     constrained_strategy: Option<TaggingSecretStrategy>,
 ) {}
+
+#[oracle(aztec_txe_setAuthorizeAllUtilityCallTargets)]
+pub unconstrained fn set_authorize_all_utility_call_targets(authorize_all: bool) {}
 
 #[oracle(aztec_txe_privateCallNewFlow)]
 unconstrained fn private_call_new_flow_oracle<let M: u32, let N: u32, let S: u32, let T: u32>(

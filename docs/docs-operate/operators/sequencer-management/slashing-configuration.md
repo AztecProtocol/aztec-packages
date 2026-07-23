@@ -45,7 +45,7 @@ Round N: Proposers vote on offenses from Round N-2
 - **Round Size**: 128 L2 slots (approximately 2.6 hours at 72 seconds per slot)
 - **Slashing Offset**: 2 rounds (proposers in round N vote on offenses from round N-2)
 - **Execution Delay**: 2 rounds on the v5 testnet (~5 hours; mainnet uses 28 rounds, ~3 days)
-- **Grace Period**: First 64 slots after the rollup becomes canonical on the v5 testnet (~1.3 hours; mainnet uses 1,200 slots, ~1 day); configurable per node via `SLASH_GRACE_PERIOD_L2_SLOTS`
+- **Grace Period**: First 64 slots after the rollup becomes canonical on the v5 testnet (~1.3 hours; mainnet uses 8,400 slots, ~7 days); configurable per node via `SLASH_GRACE_PERIOD_L2_SLOTS`
 
 ### Slashing Amounts
 

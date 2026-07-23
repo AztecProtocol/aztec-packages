@@ -125,8 +125,15 @@ export abstract class BaseWallet implements Wallet {
     protected log = createLogger('wallet-sdk:base_wallet'),
   ) {}
 
-  protected scopesFrom(from: AztecAddress | NoFrom, additionalScopes: AztecAddress[] = []): AztecAddress[] {
-    const allScopes = from === NO_FROM ? additionalScopes : [from, ...additionalScopes];
+  protected scopesFrom(
+    from: AztecAddress | NoFrom,
+    additionalScopes: AztecAddress[],
+    sendMessagesAs: AztecAddress | undefined,
+  ): AztecAddress[] {
+    // The sendMessagesAs account must be in scope so that its tagging secrets can be accessed.
+    const tagSenderScopes = sendMessagesAs ? [sendMessagesAs] : [];
+    const baseScopes = from === NO_FROM ? [] : [from];
+    const allScopes = [...baseScopes, ...additionalScopes, ...tagSenderScopes];
     const scopeSet = new Set(allScopes.map(address => address.toString()));
     return [...scopeSet].map(AztecAddress.fromStringUnsafe);
   }
@@ -402,7 +409,7 @@ export abstract class BaseWallet implements Wallet {
       simulatePublic: true,
       skipTxValidation: opts.skipTxValidation,
       skipFeeEnforcement: opts.skipFeeEnforcement,
-      scopes: this.scopesFrom(opts.from, opts.additionalScopes),
+      scopes: this.scopesFrom(opts.from, opts.additionalScopes ?? [], opts.sendMessagesAs),
       senderForTags: this.senderForTagsFrom(opts.from, opts.sendMessagesAs),
       overrides: opts.overrides,
     });
@@ -498,7 +505,7 @@ export abstract class BaseWallet implements Wallet {
     return this.pxe.profileTx(txRequest, {
       profileMode: opts.profileMode,
       skipProofGeneration: opts.skipProofGeneration ?? true,
-      scopes: this.scopesFrom(opts.from, opts.additionalScopes),
+      scopes: this.scopesFrom(opts.from, opts.additionalScopes ?? [], opts.sendMessagesAs),
       senderForTags: this.senderForTagsFrom(opts.from, opts.sendMessagesAs),
     });
   }
@@ -515,7 +522,7 @@ export abstract class BaseWallet implements Wallet {
     });
     const txRequest = await this.createTxExecutionRequestFromPayloadAndFee(executionPayload, opts.from, feeOptions);
     const provenTx = await this.pxe.proveTx(txRequest, {
-      scopes: this.scopesFrom(opts.from, opts.additionalScopes),
+      scopes: this.scopesFrom(opts.from, opts.additionalScopes ?? [], opts.sendMessagesAs),
       senderForTags: this.senderForTagsFrom(opts.from, opts.sendMessagesAs),
     });
     const offchainOutput = extractOffchainOutput(

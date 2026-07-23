@@ -31,6 +31,13 @@ use types::{
     utils::arrays::ClaimedLengthArray,
 };
 
+// TODO(https://github.com/AztecProtocol/aztec-packages-private/issues/147): the
+// "contract_address == 0 means already siloed" convention used by `silo_note_hash`,
+// `silo_nullifier`, and `silo_private_log` below (and read by `reset_output_validator.nr` when it
+// branches on `contract_address.is_zero()`) was needed when an inner reset could feed siloed
+// values into a later reset. Siloing now only runs in the terminal reset path, so the input to
+// these functions is always un-siloed and the is_zero() branch in the validator is dead. Drop the
+// convention and the branch together.
 pub fn silo_note_hash(note_hash: Scoped<Counted<NoteHash>>) -> Scoped<Counted<NoteHash>> {
     let mut siloed = note_hash;
     siloed.inner.inner =

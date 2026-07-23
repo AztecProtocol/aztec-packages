@@ -35,6 +35,7 @@ import {
   type Capsule,
   type IndexedTxEffect,
   type OffchainEffect,
+  type TxEffect,
   type TxHash,
 } from '@aztec/stdlib/tx';
 
@@ -48,6 +49,7 @@ import { TxResolverService } from '../../messages/tx_resolver_service.js';
 import { NoteService } from '../../notes/note_service.js';
 import { ORACLE_VERSION_MAJOR } from '../../oracle_version.js';
 import type { AddressStore } from '../../storage/address_store/address_store.js';
+import { assertAllowedScope } from '../../storage/allowed_scopes.js';
 import type { CapsuleService } from '../../storage/capsule_store/capsule_service.js';
 import { FactCollectionKey, FactCollectionTypeKey, anchoredTipBlockNumbers } from '../../storage/fact_store/index.js';
 import type { FactService, OriginBlock } from '../../storage/fact_store/index.js';
@@ -612,6 +614,7 @@ export class UtilityExecutionOracle implements IMiscOracle, IUtilityExecutionOra
       this.recipientTaggingStore,
       this.taggingSecretSourcesStore,
       this.addressStore,
+      this.scopes,
       this.jobId,
       this.logger.getBindings(),
     );
@@ -683,21 +686,25 @@ export class UtilityExecutionOracle implements IMiscOracle, IUtilityExecutionOra
       throw new Error('Invalid tx hash passed into aztec_utl_getTxEffect oracle handler');
     }
 
-    const receipt = await this.aztecNodeReadCache.getTxReceiptWithEffect(txHash);
-    if (!receipt.isMined() || !receipt.txEffect || receipt.blockNumber > this.anchorBlockHeader.getBlockNumber()) {
-      return Option.none();
+    return await this.#getTxEffectOption(txHash);
+  }
+
+  /** Fetches transaction effects for all hashes, preserving request order. */
+  public async getTxEffects(txHashes: EphemeralArray<TxHash>): Promise<EphemeralArray<Option<TxEffectData>>> {
+    const hashes = txHashes.readAll(this.ephemeralArrayService);
+    const invalidHash = hashes.find(txHash => txHash.hash.isZero());
+    if (invalidHash) {
+      throw new Error('Invalid tx hash passed into aztec_utl_getTxEffects oracle handler');
     }
 
-    const txEffect = receipt.txEffect;
-    return Option.some({
-      ...txEffect,
-      publicLogs: FlatPublicLogs.fromLogs(txEffect.publicLogs),
-      contractClassLogs: txEffect.contractClassLogs.map(log => ({
-        contractAddress: log.contractAddress,
-        fields: log.fields.toFields(),
-        emittedLength: log.emittedLength,
-      })),
-    });
+    const uniqueTxHashes = uniqueBy(hashes, h => h.toString());
+    const options = await Promise.all(uniqueTxHashes.map(txHash => this.#getTxEffectOption(txHash)));
+    const optionsByHash = new Map(uniqueTxHashes.map((txHash, i) => [txHash.toString(), options[i]]));
+
+    return EphemeralArray.fromValues(
+      this.ephemeralArrayService,
+      hashes.map(txHash => optionsByHash.get(txHash.toString())!),
+    );
   }
 
   public setCapsule(contractAddress: AztecAddress, slot: Fr, capsule: Fr[], scope: AztecAddress): void {
@@ -852,13 +859,17 @@ export class UtilityExecutionOracle implements IMiscOracle, IUtilityExecutionOra
   // TODO(#11849): consider replacing this oracle with a pure Noir implementation of aes decryption.
   public async decryptAes128(
     ciphertext: BoundedVec<number>,
-    iv: Buffer,
-    symKey: Buffer,
+    iv: number[],
+    symKey: number[],
   ): Promise<Option<BoundedVec<number>>> {
     const capacity = ciphertext.maxLength;
     try {
       const aes128 = new Aes128();
-      const plaintext = await aes128.decryptBufferCBC(Buffer.from(ciphertext.data), iv, symKey);
+      const plaintext = await aes128.decryptBufferCBC(
+        Buffer.from(ciphertext.data),
+        Buffer.from(iv),
+        Buffer.from(symKey),
+      );
       return Option.some(BoundedVec.from<number>({ data: [...plaintext], maxLength: capacity }));
     } catch {
       return Option.none({ maxLength: capacity });
@@ -871,7 +882,8 @@ export class UtilityExecutionOracle implements IMiscOracle, IUtilityExecutionOra
    * @param ephPks - Ephemeral array containing the serialized Points.
    * @param contractAddress - The contract address for app-siloing (validated against execution context).
    * @returns A new ephemeral array containing the computed shared secrets, or an empty array when the PXE does not
-   * hold the keys for `address`, signaling that no secrets can be derived for it.
+   * hold the keys for `address`.
+   * @throws If `address` is not in the execution's allowed scopes.
    */
   public async getSharedSecrets(
     address: AztecAddress,
@@ -883,6 +895,11 @@ export class UtilityExecutionOracle implements IMiscOracle, IUtilityExecutionOra
         `getSharedSecrets called with contract address ${contractAddress}, expected ${this.contractAddress}`,
       );
     }
+
+    assertAllowedScope(address, this.scopes);
+
+    // An address can be in scope without the PXE holding its keys (e.g. syncing a registered but non-owned account),
+    // in which case no secrets can be derived and we return an empty array rather than failing.
     const recipientCompleteAddress = await this.addressStore.getCompleteAddress(address);
     if (!recipientCompleteAddress) {
       this.logger.warn(
@@ -1117,6 +1134,27 @@ export class UtilityExecutionOracle implements IMiscOracle, IUtilityExecutionOra
         })
         .filter((entry): entry is [string, IndexedTxEffect] => entry[1] !== undefined),
     );
+  }
+
+  async #getTxEffectOption(txHash: TxHash): Promise<Option<TxEffectData>> {
+    const receipt = await this.aztecNodeReadCache.getTxReceiptWithEffect(txHash);
+    if (!receipt.isMined() || !receipt.txEffect || receipt.blockNumber > this.anchorBlockHeader.getBlockNumber()) {
+      return Option.none();
+    }
+    return Option.some(this.#toTxEffectData(receipt.txEffect));
+  }
+
+  #toTxEffectData(txEffect: TxEffect): TxEffectData {
+    return {
+      ...txEffect,
+      revertCode: txEffect.revertCode.getCode(),
+      publicLogs: FlatPublicLogs.fromLogs(txEffect.publicLogs),
+      contractClassLogs: txEffect.contractClassLogs.map(log => ({
+        contractAddress: log.contractAddress,
+        fields: log.fields.toFields(),
+        emittedLength: log.emittedLength,
+      })),
+    };
   }
 
   /** Runs a query concurrently with a validation that the block hash is not ahead of the anchor block. */

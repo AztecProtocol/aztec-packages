@@ -11,13 +11,17 @@
  */
 
 #include "barretenberg/common/bb_bench.hpp"
+#include "barretenberg/common/log.hpp"
 #include "barretenberg/common/ref_span.hpp"
 #include "barretenberg/ecc/scalar_multiplication/scalar_multiplication.hpp"
 #include "barretenberg/polynomials/polynomial.hpp"
 #include "barretenberg/srs/factories/crs_factory.hpp"
 #include "barretenberg/srs/global_crs.hpp"
 
+#include <algorithm>
+#include <array>
 #include <cstddef>
+#include <cstdint>
 #include <cstdlib>
 #include <limits>
 #include <memory>
@@ -70,7 +74,7 @@ template <class Curve> class CommitmentKey {
      * @param polynomial a univariate polynomial p(X) = ∑ᵢ aᵢ⋅Xⁱ
      * @return Commitment computed as C = [p(x)] = ∑ᵢ aᵢ⋅Gᵢ
      */
-    Commitment commit(PolynomialSpan<const Fr> polynomial) const
+    Commitment commit(PolynomialSpan<const Fr> polynomial, bool has_duplicates_hint = false) const
     {
         BB_BENCH_NAME("CommitmentKey::commit");
         std::span<const Commitment> point_table = get_monomial_points();
@@ -81,7 +85,7 @@ template <class Curve> class CommitmentKey {
                                   " points with an SRS of size ",
                                   get_monomial_size()));
         }
-        return scalar_multiplication::pippenger_unsafe<Curve>(polynomial, point_table);
+        return scalar_multiplication::pippenger_unsafe<Curve>(polynomial, point_table, has_duplicates_hint);
     };
     /**
      * @brief Batch commitment to multiple polynomials
@@ -89,48 +93,32 @@ template <class Curve> class CommitmentKey {
      *          The input polynomials are not const because batch_mul modifies them and then restores them back.
      *
      * @param polynomials vector of polynomial spans to commit to
+     * @param has_duplicates_hints optional per-polynomial hints (parallel to polynomials):
+     *        a non-zero entry opts that polynomial's MSM into the dedup pre-pass.
      * @return std::vector<Commitment> vector of commitments, one for each polynomial
      */
     std::vector<Commitment> batch_commit(RefSpan<Polynomial<Fr>> polynomials,
-                                         size_t max_batch_size = std::numeric_limits<size_t>::max()) const
+                                         std::span<const uint32_t> dedup_infos = {}) const
     {
         BB_BENCH_NAME("CommitmentKey::batch_commit");
 
-        // We can only commit max_batch_size at a time
-        // This is to prevent excessive memory usage in the pippenger algorithm
-        // First batch, create the commitments vector
-        std::vector<Commitment> commitments;
+        std::vector<PolynomialSpan<Fr>> scalar_spans;
+        scalar_spans.reserve(polynomials.size());
 
-        for (size_t i = 0; i < polynomials.size();) {
-            // Note: have to be careful how we compute this to not overlow e.g. max_batch_size + 1 would
-            size_t batch_size = std::min(max_batch_size, polynomials.size() - i);
-            size_t batch_end = i + batch_size;
-
-            // Prepare spans for batch MSM
-            std::vector<std::span<const Commitment>> points_spans;
-            std::vector<std::span<Fr>> scalar_spans;
-
-            for (auto& polynomial : polynomials.subspan(i, batch_end - i)) {
-                size_t consumed_srs = polynomial.start_index() + polynomial.size();
-                if (consumed_srs > get_monomial_size()) {
-                    throw_or_abort(format("Attempting to commit to a polynomial that needs ",
-                                          consumed_srs,
-                                          " points with an SRS of size ",
-                                          get_monomial_size()));
-                }
-                std::span<const Commitment> point_table = get_monomial_points().subspan(polynomial.start_index());
-                scalar_spans.emplace_back(polynomial.coeffs());
-                points_spans.emplace_back(point_table);
+        for (auto& polynomial : polynomials) {
+            const size_t consumed_srs = polynomial.start_index() + polynomial.size();
+            if (consumed_srs > get_monomial_size()) {
+                throw_or_abort(format("Attempting to commit to a polynomial that needs ",
+                                      consumed_srs,
+                                      " points with an SRS of size ",
+                                      get_monomial_size()));
             }
-
-            // Perform batch MSM
-            auto results = scalar_multiplication::MSM<Curve>::batch_multi_scalar_mul(points_spans, scalar_spans, false);
-            for (const auto& result : results) {
-                commitments.emplace_back(result);
-            }
-            i += batch_size;
+            scalar_spans.emplace_back(polynomial.start_index(), polynomial.coeffs());
         }
-        return commitments;
+
+        auto results = scalar_multiplication::MSM<Curve>::batch_multi_scalar_mul(
+            get_monomial_points(), scalar_spans, /*handle_edge_cases=*/false, dedup_infos);
+        return std::vector<Commitment>(results.begin(), results.end());
     };
 
     // helper builder struct for constructing a batch to commit at once
@@ -138,29 +126,28 @@ template <class Curve> class CommitmentKey {
         CommitmentKey* key;
         RefVector<Polynomial<Fr>> wires;
         std::vector<std::string> labels;
-        std::vector<const Polynomial<Fr>*> tail_polys; // optional ZK masking tails (parallel to wires)
+        // Per-poly dedup channel (parallel to wires): 0 = off, 1 = hinted with no
+        // estimate, k >= 2 = hinted with a measured duplicate count of k.
+        std::vector<uint32_t> dedup_infos;
 
-        std::vector<Commitment> commit_and_send_to_verifier(auto transcript,
-                                                            size_t max_batch_size = std::numeric_limits<size_t>::max())
+        std::vector<Commitment> commit_and_send_to_verifier(auto transcript)
         {
-            std::vector<Commitment> commitments = key->batch_commit(wires, max_batch_size);
-
-            // Adjust commitments for wires with masking tails: C' = C_short + commit(tail)
+            std::vector<Commitment> commitments = key->batch_commit(wires, dedup_infos);
             for (size_t i = 0; i < commitments.size(); ++i) {
-                if (i < tail_polys.size() && tail_polys[i] != nullptr && !tail_polys[i]->is_empty()) {
-                    commitments[i] = commitments[i] + key->commit(*tail_polys[i]);
-                }
                 transcript->send_to_verifier(labels[i], commitments[i]);
             }
-
             return commitments;
         }
 
-        void add_to_batch(Polynomial<Fr>& poly, const std::string& label, const Polynomial<Fr>* tail = nullptr)
+        void add_to_batch(Polynomial<Fr>& poly,
+                          const std::string& label,
+                          bool has_duplicates_hint = false,
+                          uint32_t measured_duplicate_count = 0)
         {
             wires.push_back(poly);
             labels.push_back(label);
-            tail_polys.push_back(tail);
+            dedup_infos.push_back(has_duplicates_hint ? std::max<uint32_t>(1, measured_duplicate_count)
+                                                      : uint32_t{ 0 });
         }
     };
 

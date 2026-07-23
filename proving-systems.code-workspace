@@ -3,7 +3,7 @@
     // relative to `.code-workspace`.
     "folders": [
         {
-            "name": "aztec-packages",
+            "name": "aztec-packages-private",
             "path": "./"
         },
     ],

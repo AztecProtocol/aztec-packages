@@ -63,7 +63,7 @@ class EccOpsTableTest : public ::testing::Test {
 
     // Mock ultra ops table that constructs a concatenated table from successively appended subtables.
     struct MockUltraOpsTable {
-        std::array<std::vector<Scalar>, 4> columns;
+        std::array<std::vector<Scalar>, NUM_WIRES> columns;
         void append(const UltraOp& op)
         {
             columns[0].push_back(op.op_code.value());
@@ -148,8 +148,8 @@ TEST(EccOpsTableTest, UltraOpsTable)
 
     // Construct polynomials corresponding to the columns of the ultra ops table
     ultra_ops_table.construct_zk_columns();
-    std::array<Polynomial<Fr>, 4> ultra_ops_table_polynomials = ultra_ops_table.construct_table_columns();
-    std::array<Polynomial<Fr>, 4> no_zk_ultra_ops_table_polynomials =
+    std::array<Polynomial<Fr>, NUM_WIRES> ultra_ops_table_polynomials = ultra_ops_table.construct_table_columns();
+    std::array<Polynomial<Fr>, NUM_WIRES> no_zk_ultra_ops_table_polynomials =
         ultra_ops_table.construct_table_columns(/*include_zk_ops=*/false);
 
     // Check that the ultra ops table constructed by the op queue matches the expected table
@@ -207,7 +207,7 @@ TEST(EccOpsTableTest, UltraOpsFixedLocationAppendNoGap)
 
     // Construct polynomials corresponding to the columns of the ultra ops table
     ultra_ops_table.construct_zk_columns();
-    std::array<Polynomial<Fr>, 4> ultra_ops_table_polynomials = ultra_ops_table.construct_table_columns();
+    std::array<Polynomial<Fr>, NUM_WIRES> ultra_ops_table_polynomials = ultra_ops_table.construct_table_columns();
 
     // Check that the ultra ops table matches the expected table
     for (auto [expected_column, poly] : zip_view(expected_ultra_ops_table.columns, ultra_ops_table_polynomials)) {
@@ -266,7 +266,7 @@ TEST(EccOpsTableTest, UltraOpsFixedLocationAppendWithGap)
     const size_t zk_prefix_rows = UltraEccOpsTable::ZK_ULTRA_OPS;
 
     // Construct polynomials corresponding to the columns of the ultra ops table
-    std::array<Polynomial<Fr>, 4> ultra_ops_table_polynomials = ultra_ops_table.construct_table_columns();
+    std::array<Polynomial<Fr>, NUM_WIRES> ultra_ops_table_polynomials = ultra_ops_table.construct_table_columns();
 
     // Verify each polynomial has the expected size
     for (const auto& poly : ultra_ops_table_polynomials) {

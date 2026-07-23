@@ -158,7 +158,7 @@ TEST(PippengerConstantine, ScalarMatchesReferenceOracleAllWindowBits)
 {
     constexpr size_t TRIALS_PER_SHAPE = 32;
     // window_bits range covers production: choose_window_bits returns 2..19,
-    // build_var_window_schedule's final window can additionally be 1 bit wide
+    // build_window_schedule's final window can additionally be 1 bit wide
     // (e.g. wb=3 over 256 bits yields 85*3 + 1). bit_offset 255 covers the
     // above-modulus top edge where every read bit is structurally zero.
     for (size_t window_bits = 1; window_bits <= 19; ++window_bits) {
@@ -186,7 +186,7 @@ TEST(PippengerConstantine, SimdX4MatchesScalarPathLanewise)
     bool saw_bottom = false;
     bool saw_boundary = false;
     // window_bits range covers production: choose_window_bits returns 2..19,
-    // build_var_window_schedule's final window can additionally be 1 bit wide
+    // build_window_schedule's final window can additionally be 1 bit wide
     // (e.g. wb=3 over 256 bits yields 85*3 + 1). bit_offset 255 covers the
     // above-modulus top edge where every read bit is structurally zero.
     for (size_t window_bits = 1; window_bits <= 19; ++window_bits) {
@@ -207,7 +207,7 @@ TEST(PippengerConstantine, SimdX4MatchesScalarPathLanewise)
                 std::array<std::array<uint64_t, NUM_LIMBS_U64>, 4> scalars{
                     random_scalar_limbs(), random_scalar_limbs(), random_scalar_limbs(), random_scalar_limbs()
                 };
-                std::array<uint32_t, 4> got_simd{};
+                alignas(16) std::array<uint32_t, 4> got_simd{};
                 production_simd_path(scalars.data(), bit_offset, window_bits, got_simd.data());
                 for (size_t lane = 0; lane < 4; ++lane) {
                     const uint32_t want = production_scalar_path(scalars[lane].data(), bit_offset, window_bits);
@@ -235,7 +235,7 @@ TEST(PippengerConstantine, RoundTripIdentityMatchesScalarMod2N)
 {
     constexpr size_t TOTAL_BITS = 254;
     constexpr size_t TRIALS = 64;
-    // Including window_bits == 1 because `build_var_window_schedule` truncates
+    // Including window_bits == 1 because `build_window_schedule` truncates
     // the final window to whatever bits remain, which can be exactly 1.
     for (size_t window_bits = 1; window_bits <= 19; ++window_bits) {
         for (size_t t = 0; t < TRIALS; ++t) {
@@ -247,7 +247,7 @@ TEST(PippengerConstantine, RoundTripIdentityMatchesScalarMod2N)
             //
             // Tile windows of width `window_bits` until we cover TOTAL_BITS+2
             // bits. The +2 mirrors the `total_bits = num_bits + 2` budget used
-            // by `build_var_window_schedule` to absorb the carry-less top bit.
+            // by `build_window_schedule` to absorb the carry-less top bit.
             std::vector<std::pair<int32_t, size_t>> signed_digits; // (signed_value, bit_offset)
             size_t bit_offset = 0;
             size_t bits_remaining = TOTAL_BITS + 2;
@@ -374,7 +374,7 @@ TEST(PippengerConstantine, NamedSliceShapes)
         // Top window — clamp regime. With wb=12, bit_offset=246 reads bits 245..257; hi limb is past
         // the scalar's 256-bit storage in u32 view (limb_index 7 is the last).
         { "top_clamped_wb12", 246, 12, cnst::ConstantineSlicePath::Boundary, false },
-        // wb=1 at the very top — the final-window case `build_var_window_schedule` can emit.
+        // wb=1 at the very top — the final-window case `build_window_schedule` can emit.
         { "top_wb1_final", 254, 1, cnst::ConstantineSlicePath::Localised, true },
         // Random mid-scalar localised case as a "happy path" anchor.
         { "local_mid_u64", 80, 12, cnst::ConstantineSlicePath::Localised, true },

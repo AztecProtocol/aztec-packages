@@ -1,6 +1,6 @@
 use crate::{
     constants::{
-        AVM_V2_PROOF_LENGTH_IN_FIELDS_PADDED, CHONK_PROOF_LENGTH, CHONK_VK_LENGTH_IN_FIELDS,
+        AVM_V2_PROOF_LENGTH_IN_FIELDS, CHONK_PROOF_LENGTH, CHONK_VK_LENGTH_IN_FIELDS,
         PROOF_TYPE_AVM, PROOF_TYPE_CHONK, PROOF_TYPE_HONK, PROOF_TYPE_ROLLUP_HONK,
         PROOF_TYPE_ROOT_ROLLUP_HONK, RECURSIVE_PROOF_LENGTH, RECURSIVE_ROLLUP_HONK_PROOF_LENGTH,
         ULTRA_VK_LENGTH_IN_FIELDS,
@@ -72,7 +72,7 @@ pub struct ProofDataForFixedVk<T, let ProofLen: u32> {
     pub proof: [Field; ProofLen],
 }
 
-impl<T> ProofDataForFixedVk<T, AVM_V2_PROOF_LENGTH_IN_FIELDS_PADDED> {
+impl<T> ProofDataForFixedVk<T, AVM_V2_PROOF_LENGTH_IN_FIELDS> {
     pub fn verify_proof_with_columns<let N: u32>(self)
     where
         T: SerializeToColumns<N>,
@@ -96,4 +96,4 @@ pub type UltraHonkProofData<T> = ProofData<T, RECURSIVE_PROOF_LENGTH, ULTRA_VK_L
 /// Using this type for both RECURSIVE_ROLLUP_HONK_PROOF_LENGTH and NESTED_RECURSIVE_ROLLUP_HONK_PROOF_LENGTH.
 pub type RollupHonkProofData<T> = ProofData<T, RECURSIVE_ROLLUP_HONK_PROOF_LENGTH, ULTRA_VK_LENGTH_IN_FIELDS>;
 
-pub type AvmV2ProofData<T> = ProofDataForFixedVk<T, AVM_V2_PROOF_LENGTH_IN_FIELDS_PADDED>;
+pub type AvmV2ProofData<T> = ProofDataForFixedVk<T, AVM_V2_PROOF_LENGTH_IN_FIELDS>;

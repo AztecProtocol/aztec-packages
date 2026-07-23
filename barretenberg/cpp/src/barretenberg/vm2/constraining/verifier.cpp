@@ -5,6 +5,7 @@
 // =====================
 #include "barretenberg/vm2/constraining/verifier.hpp"
 
+#include "barretenberg/aztec/aztec_constants.hpp"
 #include "barretenberg/commitment_schemes/shplonk/shplemini.hpp"
 #include "barretenberg/common/log.hpp"
 #include "barretenberg/numeric/bitop/get_msb.hpp"
@@ -60,6 +61,14 @@ bool AvmVerifier::verify_proof(const HonkProof& proof, const std::vector<std::ve
     using Challenges = Flavor::AllEntities<FF>;
 
     RelationParameters<FF> relation_parameters;
+
+    if (proof.size() != static_cast<size_t>(AVM_V2_PROOF_LENGTH_IN_FIELDS)) {
+        vinfo("Proof length mismatch: got ",
+              proof.size(),
+              " fields, expected ",
+              static_cast<size_t>(AVM_V2_PROOF_LENGTH_IN_FIELDS));
+        return false;
+    }
 
     transcript->load_proof(proof);
 

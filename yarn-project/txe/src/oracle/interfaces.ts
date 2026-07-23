@@ -69,7 +69,7 @@ export interface ITxeExecutionOracle {
     salt: Fr,
     deployer: AztecAddress,
   ): Promise<Fr[]>;
-  createAccount(secret: Fr): Promise<CompleteAddress>;
+  createAccount(secret: Fr, partialAddress: Fr): Promise<CompleteAddress>;
   addAccount(secret: Fr): Promise<CompleteAddress>;
   addAuthWitness(address: AztecAddress, messageHash: Fr): Promise<void>;
   sendL1ToL2Message(content: Fr, secretHash: Fr, sender: EthAddress, recipient: AztecAddress): Promise<Fr>;
@@ -81,6 +81,10 @@ export interface ITxeExecutionOracle {
     unconstrainedStrategy: Option<TaggingSecretStrategy>,
     constrainedStrategy: Option<TaggingSecretStrategy>,
   ): void;
+  /**
+   * Configures whether the test's simulated wallet authorizes every cross-contract utility call target.
+   */
+  setAuthorizeAllUtilityCallTargets(authorizeAll: boolean): void;
   getLastBlockTimestamp(): Promise<bigint>;
   getLastTxEffects(): Promise<{
     txHash: TxHash;

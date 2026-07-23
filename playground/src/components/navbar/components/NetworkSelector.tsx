@@ -7,7 +7,7 @@ import AddIcon from '@mui/icons-material/Add';
 import { AddNetworksDialog } from './AddNetworkDialog';
 import CircularProgress from '@mui/material/CircularProgress';
 import KeyboardArrowDownIcon from '@mui/icons-material/KeyboardArrowDown';
-import { createStore } from '@aztec/kv-store/sqlite-opfs';
+import { AztecSQLiteOPFSStore, storePoolDirectory } from '@aztec/kv-store/sqlite-opfs';
 import { AztecContext } from '../../../aztecContext';
 import { navbarButtonStyle, navbarSelect } from '../../../styles/common';
 import { NETWORKS } from '../../../utils/networks';
@@ -50,10 +50,12 @@ export function NetworkSelector() {
       }
       setIsContextInitialized(true);
       WebLogger.create(setLogs, setTotalLogCount);
-      const store = await createStore('playground_data', {
-        dataDirectory: 'playground',
-        dataStoreMapSizeKb: 1e6,
-      });
+      const store = await AztecSQLiteOPFSStore.open(
+        WebLogger.getInstance().createLogger('playground_data'),
+        'playground_data',
+        false,
+        storePoolDirectory('playground_data'),
+      );
       const playgroundDB = PlaygroundDB.getInstance();
       playgroundDB.init(store, WebLogger.getInstance().createLogger('playground_db').info);
       setPlaygroundDB(PlaygroundDB.getInstance());

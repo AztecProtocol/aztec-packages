@@ -126,6 +126,7 @@ export class TXEOracleTopLevelContext implements IMiscOracle, ITxeExecutionOracl
     private chainId: Fr,
     private authwits: Map<string, AuthWitness>,
     private taggingSecretStrategies: TXETaggingSecretStrategies,
+    private authorizeAllUtilityCallTargets: boolean,
     private readonly artifactResolver: TXEArtifactResolver,
     private readonly rootPath: string,
     private readonly packageName: string,
@@ -335,9 +336,8 @@ export class TXEOracleTopLevelContext implements IMiscOracle, ITxeExecutionOracl
     return completeAddress;
   }
 
-  async createAccount(secret: Fr) {
-    // This is a foot gun !
-    const completeAddress = await this.keyStore.addAccount(await deriveKeys(secret), secret);
+  async createAccount(secret: Fr, partialAddress: Fr) {
+    const completeAddress = await this.keyStore.addAccount(await deriveKeys(secret), partialAddress);
     await this.accountStore.setAccount(completeAddress.address, completeAddress);
     await this.addressStore.addCompleteAddress(completeAddress);
     this.logger.debug(`Created account ${completeAddress.address}`);
@@ -371,6 +371,10 @@ export class TXEOracleTopLevelContext implements IMiscOracle, ITxeExecutionOracl
     };
     apply(AppTaggingSecretKind.UNCONSTRAINED, unconstrainedStrategy);
     apply(AppTaggingSecretKind.CONSTRAINED, constrainedStrategy);
+  }
+
+  setAuthorizeAllUtilityCallTargets(authorizeAll: boolean): void {
+    this.authorizeAllUtilityCallTargets = authorizeAll;
   }
 
   async sendL1ToL2Message(content: Fr, secretHash: Fr, sender: EthAddress, recipient: AztecAddress): Promise<Fr> {
@@ -487,6 +491,8 @@ export class TXEOracleTopLevelContext implements IMiscOracle, ITxeExecutionOracl
     const privateExecutionOracle = new PrivateExecutionOracle({
       argsHash,
       txContext,
+      // The TXE does not run the init kernel's salt binding, so no tx-request salt is in scope.
+      txRequestSalt: Fr.ZERO,
       callContext,
       anchorBlockHeader: blockHeader,
       utilityExecutor,
@@ -552,7 +558,6 @@ export class TXEOracleTopLevelContext implements IMiscOracle, ITxeExecutionOracl
         }),
       );
 
-      noteCache.finish();
       const nonceGenerator = noteCache.getNonceGenerator();
       result = new PrivateExecutionResult(executionResult, nonceGenerator, publicFunctionsCalldata);
     } catch (err) {
@@ -917,7 +922,7 @@ export class TXEOracleTopLevelContext implements IMiscOracle, ITxeExecutionOracl
     try {
       const simulator = new WASMSimulator();
       const utilityExecutor = async (syncCall: FunctionCall, execScopes: AztecAddress[]) => {
-        await this.executeUtilityCall(syncCall, { scopes: execScopes, jobId });
+        await this.executeUtilityCall(syncCall, { scopes: execScopes, jobId, authorizedUtilityCallTargets });
       };
       const oracle = new UtilityExecutionOracle({
         callContext: CallContext.from({
@@ -945,10 +950,10 @@ export class TXEOracleTopLevelContext implements IMiscOracle, ITxeExecutionOracl
         jobId,
         scopes,
         simulator,
+        utilityExecutor,
         hooks: composeHooks({
           authorizeUtilityCall: this.buildAuthorizeUtilityCallHook('utility', authorizedUtilityCallTargets),
         }),
-        utilityExecutor,
         // Execution-tree root (top-level utility run or contract sync): own store; nested frames inherit it.
         transientArrayService: new TransientArrayService(),
       });
@@ -974,9 +979,19 @@ export class TXEOracleTopLevelContext implements IMiscOracle, ITxeExecutionOracl
     }
   }
 
-  close(): [bigint, Map<string, AuthWitness>, TXETaggingSecretStrategies] {
+  close(): {
+    nextBlockTimestamp: bigint;
+    authwits: Map<string, AuthWitness>;
+    taggingSecretStrategies: TXETaggingSecretStrategies;
+    authorizeAllUtilityCallTargets: boolean;
+  } {
     this.logger.debug('Exiting Top Level Context');
-    return [this.nextBlockTimestamp, this.authwits, this.taggingSecretStrategies];
+    return {
+      nextBlockTimestamp: this.nextBlockTimestamp,
+      authwits: this.authwits,
+      taggingSecretStrategies: this.taggingSecretStrategies,
+      authorizeAllUtilityCallTargets: this.authorizeAllUtilityCallTargets,
+    };
   }
 
   private async getLastBlockNumber(): Promise<BlockNumber> {
@@ -988,6 +1003,9 @@ export class TXEOracleTopLevelContext implements IMiscOracle, ITxeExecutionOracl
     callerContext: 'private' | 'private view' | 'utility',
     authorizedTargets: AztecAddress[],
   ): ExecutionHooks['authorizeUtilityCall'] | undefined {
+    if (this.authorizeAllUtilityCallTargets) {
+      return authorizeAllUtilityCallsHook;
+    }
     if (authorizedTargets.length === 0) {
       return undefined;
     }
@@ -997,3 +1015,11 @@ export class TXEOracleTopLevelContext implements IMiscOracle, ITxeExecutionOracl
       });
   }
 }
+
+/**
+ * An `authorizeUtilityCall` hook that authorizes every cross-contract utility call.
+ *
+ * Backs the `aztec_txe_setAuthorizeAllUtilityCallTargets` oracle.
+ */
+export const authorizeAllUtilityCallsHook: NonNullable<ExecutionHooks['authorizeUtilityCall']> = () =>
+  Promise.resolve({ authorized: true });

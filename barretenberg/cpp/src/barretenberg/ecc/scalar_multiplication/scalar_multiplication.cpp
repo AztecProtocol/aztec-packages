@@ -19,8 +19,10 @@
 
 #include "barretenberg/common/mem.hpp"
 #include "barretenberg/numeric/bitop/get_msb.hpp"
+#include <atomic>
+#include <cstdlib>
 
-namespace bb::scalar_multiplication {
+namespace bb::scalar_multiplication::legacy {
 
 // Naive double-and-add fallback for small inputs (< PIPPENGER_THRESHOLD points).
 template <typename Curve> typename Curve::Element small_mul(const typename MSM<Curve>::MSMData& msm_data) noexcept
@@ -369,8 +371,9 @@ typename Curve::Element MSM<Curve>::affine_pippenger_with_transformed_scalars(MS
     Element msm_result = Curve::Group::point_at_infinity;
 
     for (uint32_t round = 0; round < num_rounds; ++round) {
-        // Build point schedule for this round
+        // Build point schedule for this round (≈ rewrite Stage1 digit-extract + Stage4 scatter).
         {
+            BB_BENCH_NAME("MSM::build_point_schedule");
             for (size_t i = 0; i < num_points; ++i) {
                 uint32_t idx = msm_data.scalar_indices[i];
                 uint32_t bucket_idx = get_scalar_slice(msm_data.scalars[idx], round, bits_per_slice);
@@ -378,17 +381,29 @@ typename Curve::Element MSM<Curve>::affine_pippenger_with_transformed_scalars(MS
             }
         }
 
-        // Sort by bucket and count zero-bucket entries
-        size_t num_zero_bucket_entries =
-            sort_point_schedule_and_count_zero_buckets(&msm_data.point_schedule[0], num_points, bits_per_slice);
+        // Sort by bucket and count zero-bucket entries (≈ rewrite Stage2/Stage3 bucket offsets).
+        size_t num_zero_bucket_entries = 0;
+        {
+            BB_BENCH_NAME("MSM::sort_point_schedule");
+            num_zero_bucket_entries =
+                sort_point_schedule_and_count_zero_buckets(&msm_data.point_schedule[0], num_points, bits_per_slice);
+        }
         size_t round_size = num_points - num_zero_bucket_entries;
 
         // Accumulate points into buckets
         Element bucket_result = Curve::Group::point_at_infinity;
         if (round_size > 0) {
             std::span<uint64_t> schedule(&msm_data.point_schedule[num_zero_bucket_entries], round_size);
-            batch_accumulate_points_into_buckets(schedule, msm_data.points, affine_data, bucket_data);
-            bucket_result = accumulate_buckets(bucket_data);
+            {
+                // ≈ rewrite Stage6a: the dominant bucket-accumulation work.
+                BB_BENCH_NAME("MSM::batch_accumulate_into_buckets");
+                batch_accumulate_points_into_buckets(schedule, msm_data.points, affine_data, bucket_data);
+            }
+            {
+                // ≈ rewrite Stage6b + Stage7: reduce buckets into the round/window sum.
+                BB_BENCH_NAME("MSM::accumulate_buckets");
+                bucket_result = accumulate_buckets(bucket_data);
+            }
             bucket_data.bucket_exists.clear();
         }
 
@@ -626,7 +641,121 @@ template curve::BN254::Element pippenger<curve::BN254>(PolynomialSpan<const curv
 template curve::BN254::Element pippenger_unsafe<curve::BN254>(PolynomialSpan<const curve::BN254::ScalarField> scalars,
                                                               std::span<const curve::BN254::AffineElement> points);
 
-} // namespace bb::scalar_multiplication
+} // namespace bb::scalar_multiplication::legacy
 
-template class bb::scalar_multiplication::MSM<bb::curve::Grumpkin>;
-template class bb::scalar_multiplication::MSM<bb::curve::BN254>;
+template class bb::scalar_multiplication::legacy::MSM<bb::curve::Grumpkin>;
+template class bb::scalar_multiplication::legacy::MSM<bb::curve::BN254>;
+
+// ===================================================================================
+// Public MSM facade implementation (see scalar_multiplication.hpp). Routes to the
+// `legacy::` MSM by default; the round-parallel `_fast` path is opt-in (BB_MSM_NEW env,
+// the API override, or TS `legacyMsm: false`).
+// ===================================================================================
+namespace bb::scalar_multiplication {
+
+namespace {
+// -1 means "no API override"; fall back to the env-var default.
+std::atomic<int> legacy_msm_override{ -1 };
+} // namespace
+
+bool use_legacy_msm() noexcept
+{
+    const int selected_override = legacy_msm_override.load(std::memory_order_relaxed);
+    if (selected_override != -1) {
+        return selected_override != 0;
+    }
+    // Legacy MSM is the default; the round-parallel path is opt-in via BB_MSM_NEW (or the API
+    // override / TS `legacyMsm: false`). BB_MSM_LEGACY forces legacy explicitly and wins if both
+    // env vars are set.
+    static const bool legacy_forced = std::getenv("BB_MSM_LEGACY") != nullptr;
+    static const bool new_selected = std::getenv("BB_MSM_NEW") != nullptr;
+    return legacy_forced || !new_selected;
+}
+
+void set_legacy_msm_override(bool enabled) noexcept
+{
+    legacy_msm_override.store(enabled ? 1 : 0, std::memory_order_relaxed);
+}
+
+void clear_legacy_msm_override() noexcept
+{
+    legacy_msm_override.store(-1, std::memory_order_relaxed);
+}
+
+template <typename Curve>
+typename Curve::Element pippenger(PolynomialSpan<const typename Curve::ScalarField> scalars,
+                                  std::span<const typename Curve::AffineElement> points,
+                                  bool handle_edge_cases,
+                                  size_t dedup_info) noexcept
+{
+    if (use_legacy_msm()) {
+        return legacy::pippenger<Curve>(scalars, points, handle_edge_cases);
+    }
+    return pippenger_fast<Curve>(scalars, points, handle_edge_cases, dedup_info);
+}
+
+template <typename Curve>
+typename Curve::Element pippenger_unsafe(PolynomialSpan<const typename Curve::ScalarField> scalars,
+                                         std::span<const typename Curve::AffineElement> points,
+                                         size_t dedup_info) noexcept
+{
+    if (use_legacy_msm()) {
+        return legacy::pippenger_unsafe<Curve>(scalars, points);
+    }
+    return pippenger_unsafe_fast<Curve>(scalars, points, dedup_info);
+}
+
+template <typename Curve>
+typename Curve::AffineElement MSM<Curve>::msm(std::span<const typename Curve::AffineElement> points,
+                                              PolynomialSpan<const typename Curve::ScalarField> scalars,
+                                              bool handle_edge_cases,
+                                              size_t dedup_info) noexcept
+{
+    return AffineElement(pippenger<Curve>(scalars, points, handle_edge_cases, dedup_info));
+}
+
+template <typename Curve>
+std::vector<typename Curve::AffineElement> MSM<Curve>::batch_multi_scalar_mul(
+    std::span<const typename Curve::AffineElement> points,
+    std::span<PolynomialSpan<typename Curve::ScalarField>> scalars,
+    bool handle_edge_cases,
+    std::span<const uint32_t> dedup_infos) noexcept
+{
+    if (use_legacy_msm()) {
+        // Adapt the rewrite's (single shared points + per-MSM PolynomialSpan) shape to the
+        // legacy per-MSM (points span, scalar span) shape. dedup_hints are dropped.
+        const size_t k = scalars.size();
+        std::vector<std::span<const AffineElement>> legacy_points;
+        std::vector<std::span<ScalarField>> legacy_scalars;
+        legacy_points.reserve(k);
+        legacy_scalars.reserve(k);
+        for (size_t i = 0; i < k; ++i) {
+            const size_t start_i = std::min(scalars[i].start_index, points.size());
+            const size_t n = std::min(scalars[i].span.size(), points.size() - start_i);
+            legacy_points.push_back(points.subspan(start_i, n));
+            legacy_scalars.push_back(scalars[i].span);
+        }
+        return legacy::MSM<Curve>::batch_multi_scalar_mul(legacy_points, legacy_scalars, handle_edge_cases);
+    }
+    return MSM_fast<Curve>::batch_multi_scalar_mul(points, scalars, handle_edge_cases, dedup_infos);
+}
+
+template curve::BN254::Element pippenger<curve::BN254>(PolynomialSpan<const curve::BN254::ScalarField> scalars,
+                                                       std::span<const curve::BN254::AffineElement> points,
+                                                       bool handle_edge_cases,
+                                                       size_t dedup_info) noexcept;
+template curve::Grumpkin::Element pippenger<curve::Grumpkin>(PolynomialSpan<const curve::Grumpkin::ScalarField> scalars,
+                                                             std::span<const curve::Grumpkin::AffineElement> points,
+                                                             bool handle_edge_cases,
+                                                             size_t dedup_info) noexcept;
+template curve::BN254::Element pippenger_unsafe<curve::BN254>(PolynomialSpan<const curve::BN254::ScalarField> scalars,
+                                                              std::span<const curve::BN254::AffineElement> points,
+                                                              size_t dedup_info) noexcept;
+template curve::Grumpkin::Element pippenger_unsafe<curve::Grumpkin>(
+    PolynomialSpan<const curve::Grumpkin::ScalarField> scalars,
+    std::span<const curve::Grumpkin::AffineElement> points,
+    size_t dedup_info) noexcept;
+template class MSM<curve::BN254>;
+template class MSM<curve::Grumpkin>;
+
+} // namespace bb::scalar_multiplication

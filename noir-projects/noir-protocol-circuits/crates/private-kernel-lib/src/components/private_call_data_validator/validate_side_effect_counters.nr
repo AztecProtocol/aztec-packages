@@ -405,11 +405,6 @@ fn validate_side_effect_counter_for_single_value(
             "Mismatch counter: value does not match hint",
         );
         assert_eq(
-            counter,
-            sorted_side_effect_counter_hint.counter,
-            "Mismatch counter: value does not match hint",
-        );
-        assert_eq(
             global_index_offset,
             sorted_side_effect_counter_hint.global_index,
             "Mismatch global index: value does not match hint",
