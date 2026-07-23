@@ -194,6 +194,20 @@ size_t count_circuit_components_for_witnesses(const Acir::Circuit& circuit, cons
     return components.size();
 }
 
+void replace_trace_witness(AcirComponentsCheckBuilder& builder, uint32_t witness, uint32_t replacement)
+{
+    for (auto& block : builder.blocks.get()) {
+        auto wire_columns = std::array{ &block.w_l(), &block.w_r(), &block.w_o(), &block.w_4() };
+        for (auto* column : wire_columns) {
+            for (size_t i = 0; i < block.size(); ++i) {
+                if ((*column)[i] == witness) {
+                    (*column)[i] = replacement;
+                }
+            }
+        }
+    }
+}
+
 } // namespace
 
 class AcirComponentsCheckTest : public ::testing::Test {
@@ -560,7 +574,7 @@ TEST_F(AcirComponentsCheckTest, DetectsUnconstrainedWitnesses)
     AcirProgram program{ .constraints = constraints, .witness = {} };
     auto builder = create_circuit<AcirComponentsCheckBuilder>(program);
     // Corrupt the circuit
-    builder.real_variable_index.resize(9);
+    replace_trace_witness(builder, 9, builder.zero_idx());
 
     acir_components_check::ComponentsChecker checker(circuit, builder);
     auto errors = checker.check();
