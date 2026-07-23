@@ -9,9 +9,9 @@ Aztec is in active development. Each version may introduce breaking changes that
 
 ## TBD
 
-### [Aztec.nr] Canonical HandshakeRegistry re-pinned at a new address
+### [Aztec.nr] Standard contracts re-pinned at new addresses
 
-The canonical `HandshakeRegistry` has been re-pinned so that it includes the owner's address in its `PrivateMutable` initialization nullifiers, keeping the handshake state of accounts that share keys independent. The registry moves to a new address. Handshakes established with the previous registry instance are not visible to the new one and must be re-established. The other standard contracts keep their addresses.
+The canonical `HandshakeRegistry` now protects handshake shared secrets from recipient forgery and includes the owner's address in its `PrivateMutable` initialization nullifiers, keeping the handshake state of accounts that share keys independent. All standard contracts have been re-pinned and move to new addresses. Handshakes established with a previous registry instance are not visible to the new one and must be re-established.
 
 ### [Aztec.nr] Note property selectors are typed and use packed-layout indices
 
