@@ -114,14 +114,8 @@ test('the CLI generates multiple requested outputs', () => {
 pub global EXCLUDED_CONSTANT: u32 = 100;
 `,
     );
-    writeFileSync(
-      typescriptSelectionPath,
-      JSON.stringify({ constants: ['ARCHIVE_HEIGHT', 'INCLUDED_CONSTANT'], domainSeparators: [] }),
-    );
-    writeFileSync(
-      cppSelectionPath,
-      JSON.stringify({ constants: ['MAX_ETH_ADDRESS_VALUE'], domainSeparators: ['MERKLE_HASH'] }),
-    );
+    writeFileSync(typescriptSelectionPath, JSON.stringify(['ARCHIVE_HEIGHT', 'INCLUDED_CONSTANT']));
+    writeFileSync(cppSelectionPath, JSON.stringify(['MAX_ETH_ADDRESS_VALUE', 'DOM_SEP__MERKLE_HASH']));
     execFileSync(
       process.execPath,
       [
@@ -163,7 +157,7 @@ test('the CLI rejects unknown selected symbols', () => {
 
   try {
     writeFileSync(inputPath, noirFixture);
-    writeFileSync(selectionPath, JSON.stringify({ constants: ['UNKNOWN_CONSTANT'], domainSeparators: [] }));
+    writeFileSync(selectionPath, JSON.stringify(['UNKNOWN_CONSTANT']));
 
     assert.throws(
       () =>
@@ -172,7 +166,7 @@ test('the CLI rejects unknown selected symbols', () => {
           [cliPath, '--input', inputPath, '--typescript', outputPath, '--typescript-selection', selectionPath],
           { encoding: 'utf8', stdio: 'pipe' },
         ),
-      error => error instanceof Error && error.message.includes("unknown constant 'UNKNOWN_CONSTANT'"),
+      error => error instanceof Error && error.message.includes("unknown symbol 'UNKNOWN_CONSTANT'"),
     );
   } finally {
     rmSync(tempDir, { recursive: true, force: true });
