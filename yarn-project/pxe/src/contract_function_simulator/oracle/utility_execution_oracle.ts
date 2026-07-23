@@ -859,13 +859,17 @@ export class UtilityExecutionOracle implements IMiscOracle, IUtilityExecutionOra
   // TODO(#11849): consider replacing this oracle with a pure Noir implementation of aes decryption.
   public async decryptAes128(
     ciphertext: BoundedVec<number>,
-    iv: Buffer,
-    symKey: Buffer,
+    iv: number[],
+    symKey: number[],
   ): Promise<Option<BoundedVec<number>>> {
     const capacity = ciphertext.maxLength;
     try {
       const aes128 = new Aes128();
-      const plaintext = await aes128.decryptBufferCBC(Buffer.from(ciphertext.data), iv, symKey);
+      const plaintext = await aes128.decryptBufferCBC(
+        Buffer.from(ciphertext.data),
+        Buffer.from(iv),
+        Buffer.from(symKey),
+      );
       return Option.some(BoundedVec.from<number>({ data: [...plaintext], maxLength: capacity }));
     } catch {
       return Option.none({ maxLength: capacity });
@@ -1143,6 +1147,7 @@ export class UtilityExecutionOracle implements IMiscOracle, IUtilityExecutionOra
   #toTxEffectData(txEffect: TxEffect): TxEffectData {
     return {
       ...txEffect,
+      revertCode: txEffect.revertCode.getCode(),
       publicLogs: FlatPublicLogs.fromLogs(txEffect.publicLogs),
       contractClassLogs: txEffect.contractClassLogs.map(log => ({
         contractAddress: log.contractAddress,

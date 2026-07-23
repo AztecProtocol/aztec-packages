@@ -12,8 +12,10 @@ use crate::{
 };
 
 use crate::protocol::{
-    address::AztecAddress, constants::DOM_SEP__INITIALIZATION_NULLIFIER, hash::poseidon2_hash_with_separator,
-    traits::Packable,
+    address::AztecAddress,
+    constants::DOM_SEP__INITIALIZATION_NULLIFIER,
+    hash::poseidon2_hash_with_separator,
+    traits::{Packable, ToField},
 };
 
 mod test;
@@ -86,7 +88,7 @@ impl<Note, Context> PrivateMutable<Note, Context> {
     /// Computes the initialization nullifier using the provided secret.
     fn compute_initialization_nullifier(self, secret: Field) -> Field {
         poseidon2_hash_with_separator(
-            [self.storage_slot, secret],
+            [self.storage_slot, self.owner.to_field(), secret],
             DOM_SEP__INITIALIZATION_NULLIFIER,
         )
     }

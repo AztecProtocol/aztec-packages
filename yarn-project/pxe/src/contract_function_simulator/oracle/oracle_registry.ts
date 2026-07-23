@@ -13,8 +13,6 @@ import {
   BLOCK_NUMBER,
   BOOL,
   BOUNDED_VEC,
-  BUFFER,
-  BYTE,
   CALL_PRIVATE_RESULT,
   CONTRACT_CLASS_LOG,
   CONTRACT_INSTANCE,
@@ -23,6 +21,7 @@ import {
   EVENT_VALIDATION_REQUEST,
   FACT_COLLECTION,
   FIELD,
+  FIXED_ARRAY,
   FUNCTION_SELECTOR,
   type InputSlot,
   KEY_VALIDATION_REQUEST,
@@ -50,6 +49,7 @@ import {
   TX_EFFECT,
   TX_HASH,
   type TypeMapping,
+  U8,
   U32,
   UTILITY_CONTEXT,
   assertReadersConsumed,
@@ -63,8 +63,7 @@ export {
   BLOCK_NUMBER,
   BOOL,
   BOUNDED_VEC,
-  BUFFER,
-  BYTE,
+  U8,
   CONTRACT_CLASS_LOG,
   DELIVERY_MODE,
   RESOLVED_TAGGING_STRATEGY,
@@ -317,11 +316,11 @@ export const ORACLE_REGISTRY = {
 
   aztec_utl_decryptAes128: makeEntry({
     params: [
-      { name: 'ciphertext', type: BOUNDED_VEC(BYTE) },
-      { name: 'iv', type: BUFFER(8, 16) },
-      { name: 'symKey', type: BUFFER(8, 16) },
+      { name: 'ciphertext', type: BOUNDED_VEC(U8) },
+      { name: 'iv', type: FIXED_ARRAY(U8, 16) },
+      { name: 'symKey', type: FIXED_ARRAY(U8, 16) },
     ],
-    returnType: OPTION(BOUNDED_VEC(BYTE)),
+    returnType: OPTION(BOUNDED_VEC(U8)),
   }),
 
   aztec_utl_getSharedSecrets: makeEntry({

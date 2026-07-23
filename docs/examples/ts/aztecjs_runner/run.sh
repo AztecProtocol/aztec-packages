@@ -115,9 +115,10 @@ setup_project() {
         [ ${#NPM_DEPS[@]} -gt 0 ] && yarn_add_with_retry "${NPM_DEPS[@]}"
     fi
 
-    # Pin majors (matching ts/bootstrap.sh): unpinned, typescript resolves to 7.x, which drops
-    # lib/_tsc.js and crashes Yarn's builtin compat/typescript patch at install time.
-    yarn_add_with_retry -D "typescript@^5.3.3" "tsx@^4"
+    # Pin typescript to the 5.x line used across the monorepo. An unpinned
+    # `yarn add typescript` now resolves to the 7.x native port, whose package
+    # layout has no lib/_tsc.js, so yarn 4's builtin compat patch fails to apply.
+    yarn_add_with_retry -D "typescript@^5.3.3" tsx
 
     # Copy tsconfig
     cp "$EXAMPLES_DIR/tsconfig.template.json" tsconfig.json
