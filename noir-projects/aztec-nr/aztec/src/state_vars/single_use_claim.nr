@@ -1,5 +1,6 @@
 use crate::protocol::{
     address::AztecAddress, constants::DOM_SEP__SINGLE_USE_CLAIM_NULLIFIER, hash::poseidon2_hash_with_separator,
+    traits::ToField,
 };
 
 use crate::{
@@ -82,7 +83,7 @@ impl<Context> SingleUseClaim<Context> {
     /// [`SingleUseClaim::assert_claimed`] and [`SingleUseClaim::has_claimed`] to coherently write and read state.
     fn compute_nullifier(self, owner_nhk_app: Field) -> Field {
         poseidon2_hash_with_separator(
-            [owner_nhk_app, self.storage_slot],
+            [owner_nhk_app, self.storage_slot, self.owner.to_field()],
             DOM_SEP__SINGLE_USE_CLAIM_NULLIFIER,
         )
     }

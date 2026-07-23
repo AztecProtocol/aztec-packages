@@ -345,7 +345,7 @@ pub contract Test {
         let content_hash = get_mint_to_private_content_hash(amount);
         self.context.consume_l1_to_l2_message(
             content_hash,
-            secret_for_L1_to_L2_message_consumption,
+            [secret_for_L1_to_L2_message_consumption],
             portal_address,
             message_leaf_index,
         );
@@ -359,7 +359,7 @@ pub contract Test {
         message_leaf_index: Field,
     ) {
         // Consume message and emit nullifier
-        self.context.consume_l1_to_l2_message(content, secret, sender, message_leaf_index);
+        self.context.consume_l1_to_l2_message(content, [secret], sender, message_leaf_index);
     }
 
     #[external("private")]
@@ -370,7 +370,7 @@ pub contract Test {
         message_leaf_index: Field,
     ) {
         // Consume message and emit nullifier
-        self.context.consume_l1_to_l2_message(content, secret, sender, message_leaf_index);
+        self.context.consume_l1_to_l2_message(content, [secret], sender, message_leaf_index);
     }
 
     #[external("private")]
