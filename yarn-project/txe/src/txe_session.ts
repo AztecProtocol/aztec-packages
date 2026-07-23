@@ -20,7 +20,6 @@ import {
   RecipientTaggingStore,
   SenderTaggingStore,
   TaggingSecretSourcesStore,
-  type TaggingSecretStrategy,
   composeHooks,
 } from '@aztec/pxe/server';
 import {
@@ -58,9 +57,13 @@ import { z } from 'zod';
 
 import { DEFAULT_ADDRESS, MAX_OFFCHAIN_EFFECTS_PER_TXE_QUERY, MAX_OFFCHAIN_EFFECT_LEN } from './constants.js';
 import type { IAvmExecutionOracle, ITxeExecutionOracle } from './oracle/interfaces.js';
+import {
+  type TXETaggingSecretStrategies,
+  makeResolveTaggingSecretStrategyHook,
+} from './oracle/tagging_secret_strategy.js';
 import { TXEOraclePublicContext } from './oracle/txe_oracle_public_context.js';
 import { callTxeLegacyHandler } from './oracle/txe_oracle_registry.js';
-import { TXEOracleTopLevelContext } from './oracle/txe_oracle_top_level_context.js';
+import { TXEOracleTopLevelContext, authorizeAllUtilityCallsHook } from './oracle/txe_oracle_top_level_context.js';
 import { TXE_ORACLE_VERSION_MAJOR, TXE_ORACLE_VERSION_MINOR } from './oracle/txe_oracle_version.js';
 import { TXEPrivateExecutionOracle } from './oracle/txe_private_execution_oracle.js';
 import { RPCTranslator, UnavailableOracleError } from './rpc_translator.js';
@@ -237,7 +240,8 @@ function emptyLastCallState(): LastCallState {
 export class TXESession implements TXESessionStateHandler {
   private state: SessionState = { name: 'TOP_LEVEL' };
   private authwits: Map<string, AuthWitness> = new Map();
-  private taggingSecretStrategy: TaggingSecretStrategy | undefined = undefined;
+  private taggingSecretStrategies: TXETaggingSecretStrategies = new Map();
+  private authorizeAllUtilityCallTargets = false;
   private lastCallInfo: LastCallState = emptyLastCallState();
   private txeOracleVersion: { major: number; minor: number } | undefined;
 
@@ -365,7 +369,8 @@ export class TXESession implements TXESessionStateHandler {
       version,
       chainId,
       new Map(),
-      undefined,
+      new Map(),
+      false, // authorizeAllUtilityCallTargets
       artifactResolver,
       rootPath,
       packageName,
@@ -695,7 +700,8 @@ export class TXESession implements TXESessionStateHandler {
       this.version,
       this.chainId,
       this.authwits,
-      this.taggingSecretStrategy,
+      this.taggingSecretStrategies,
+      this.authorizeAllUtilityCallTargets,
       this.artifactResolver,
       this.rootPath,
       this.packageName,
@@ -745,7 +751,6 @@ export class TXESession implements TXESessionStateHandler {
       this.stateMachine.contractClassService,
       anchorBlock!,
     );
-    const taggingSecretStrategy = this.taggingSecretStrategy;
     this.oracleHandler = new TXEPrivateExecutionOracle({
       argsHash: Fr.ZERO,
       txContext: new TxContext(this.chainId, this.version, gasSettings),
@@ -776,7 +781,8 @@ export class TXESession implements TXESessionStateHandler {
       txResolver: this.stateMachine.txResolver,
       simulator: new WASMSimulator(),
       hooks: composeHooks({
-        resolveTaggingSecretStrategy: taggingSecretStrategy ? () => Promise.resolve(taggingSecretStrategy) : undefined,
+        resolveTaggingSecretStrategy: makeResolveTaggingSecretStrategyHook(this.taggingSecretStrategies),
+        authorizeUtilityCall: this.authorizeAllUtilityCallTargets ? authorizeAllUtilityCallsHook : undefined,
       }),
       transientArrayService,
     });
@@ -877,6 +883,9 @@ export class TXESession implements TXESessionStateHandler {
       scopes: await this.keyStore.getAccounts(),
       simulator: new WASMSimulator(),
       utilityExecutor: this.utilityExecutorForContractSync(anchorBlockHeader),
+      hooks: composeHooks({
+        authorizeUtilityCall: this.authorizeAllUtilityCallTargets ? authorizeAllUtilityCallsHook : undefined,
+      }),
       // Execution-tree root (top-level utility run): own store; nested frames inherit it.
       transientArrayService: new TransientArrayService(),
     });
@@ -899,15 +908,18 @@ export class TXESession implements TXESessionStateHandler {
     // accounts to PXE (via `addAccount`), etc. This is a slight inconsistency in the working model of this class, but
     // is not too bad. The `close` call below therefore only hands back the session-scoped values that a test
     // sets directly at the top level, outside any contract execution (e.g. via `advanceTimestampBy`,
-    // `addAuthWitness`, `setTaggingSecretStrategy`). The oracle handler is discarded on every state transition,
+    // `addAuthWitness`, `setTaggingSecretStrategies`). The oracle handler is discarded on every state transition,
     // so the session must seed these values into the contexts it creates later.
 
     // TODO: persisting authwits this way is quite unfortunate: they create a temporary utility context that would
     // otherwise reset them, so we'd not be able to pass more than one per execution. Ideally authwits would be passed
     // alongside a contract call instead of pre-seeded.
-    [this.nextBlockTimestamp, this.authwits, this.taggingSecretStrategy] = (
-      this.oracleHandler as TXEOracleTopLevelContext
-    ).close();
+    ({
+      nextBlockTimestamp: this.nextBlockTimestamp,
+      authwits: this.authwits,
+      taggingSecretStrategies: this.taggingSecretStrategies,
+      authorizeAllUtilityCallTargets: this.authorizeAllUtilityCallTargets,
+    } = (this.oracleHandler as TXEOracleTopLevelContext).close());
   }
 
   private async exitPrivateState() {
