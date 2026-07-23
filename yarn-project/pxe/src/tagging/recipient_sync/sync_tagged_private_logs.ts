@@ -149,9 +149,9 @@ function getIndexRangesForSecrets(
   return Promise.all(
     secrets.map(async (secret): Promise<PendingSecret> => {
       const currentHighestFinalizedIndex = await taggingStore.getHighestFinalizedIndex(secret, jobId);
-      // Deliberately `?? 0` rather than the `?? -1` the sender-side permit uses: scanning one index past the
-      // fresh-secret permit costs a single extra tag and keeps discovering txs sent by clients from before the
-      // permit was anchored at virtual finalized index -1.
+      // Deliberately `?? 0` rather than the `?? -1` that SenderTaggingStore uses to cap a fresh secret's pending
+      // indexes: scanning one index further than a fresh-secret sender may go costs a single extra tag, and keeps
+      // discovering txs from older client versions whose cap still allowed that extra index.
       const boundEnd = (currentHighestFinalizedIndex ?? 0) + UNFINALIZED_TAGGING_INDEXES_WINDOW_LEN + 1;
 
       if (secret.kind === AppTaggingSecretKind.CONSTRAINED) {
