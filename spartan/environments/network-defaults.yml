@@ -375,5 +375,9 @@ networks:
     SLASH_ATTEST_INVALID_CHECKPOINT_PROPOSAL_PENALTY: 0 # AZIP-16: deferred to subsequent release
     SLASH_UNKNOWN_PENALTY: 2000e18
     SLASH_INVALID_BLOCK_PENALTY: 2000e18
+<<<<<<< HEAD
     SLASH_INVALID_CHECKPOINT_PROPOSAL_PENALTY: 2000e18 # AZIP-16: activated at SMALL
+=======
+    SLASH_INVALID_CHECKPOINT_PROPOSAL_PENALTY: 2000e18  # AZIP-16: activated at SMALL
+>>>>>>> 38202d9de8c (chore(spartan): restore 7 day mainnet slash grace period (#24804))
     SLASH_GRACE_PERIOD_L2_SLOTS: 8400 # 7 days at a 72s slot
