@@ -144,7 +144,9 @@ pub(crate) comptime fn module_has_initializer(m: Module) -> bool {
 /// inlining would result in missing import warnings in the generated code (specifically, warnings that the trait
 /// implementation is not in scope).
 ///
-/// # Note A copy of this function exists in `noir-protocol-circuits/crates/types/src/meta/mod.nr`. We maintain separate copies because importing it here from there would cause the `target_trait` to be interpreted in the context of the protocol circuits types crate, making it impossible to compile code for traits from this crate (e.g. NoteType).
+/// # Note A copy of this function exists in `noir-protocol-circuits/crates/types/src/meta/mod.nr`. We maintain separate
+/// copies because importing it here from there would cause the `target_trait` to be interpreted in the context of the
+/// protocol circuits types crate, making it impossible to compile code for traits from this crate (e.g. NoteType).
 pub(crate) comptime fn get_trait_impl_method(typ: Type, target_trait: Quoted, target_method: Quoted) -> TypedExpr {
     let trait_constraint = target_trait.as_trait_constraint();
     typ.get_trait_impl(trait_constraint).expect(f"Type does not implement trait").methods().filter(|m| {
