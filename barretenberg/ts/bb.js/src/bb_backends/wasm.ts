@@ -1,9 +1,10 @@
-import { BarretenbergWasmMain, BarretenbergWasmMainWorker } from '../barretenberg_wasm/barretenberg_wasm_main/index.js';
-import { fetchModuleAndThreads } from '../barretenberg_wasm/index.js';
-import { IMsgpackBackendSync, IMsgpackBackendAsync } from './interface.js';
-import { createMainWorker } from '../barretenberg_wasm/barretenberg_wasm_main/factory/node/index.js';
-import { getRemoteBarretenbergWasm } from '../barretenberg_wasm/helpers/index.js';
 import { proxy } from 'comlink';
+
+import { createMainWorker } from '../barretenberg_wasm/barretenberg_wasm_main/factory/node/index.js';
+import { BarretenbergWasmMain, BarretenbergWasmMainWorker } from '../barretenberg_wasm/barretenberg_wasm_main/index.js';
+import { getRemoteBarretenbergWasm } from '../barretenberg_wasm/helpers/index.js';
+import { fetchModuleAndThreads } from '../barretenberg_wasm/index.js';
+import { IMsgpackBackendAsync, IMsgpackBackendSync } from './interface.js';
 
 /**
  * Synchronous WASM backend that wraps BarretenbergWasmMain.
@@ -94,8 +95,8 @@ export class BarretenbergWasmAsyncBackend implements IMsgpackBackendAsync {
     }
   }
 
-  async call(inputBuffer: Uint8Array): Promise<Uint8Array> {
-    return this.wasm.cbindCall('bbapi', inputBuffer);
+  call(inputBuffer: Uint8Array): Promise<Uint8Array> {
+    return Promise.resolve(this.wasm.cbindCall('bbapi', inputBuffer));
   }
 
   async destroy(): Promise<void> {

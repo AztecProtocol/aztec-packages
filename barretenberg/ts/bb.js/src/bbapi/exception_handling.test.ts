@@ -1,6 +1,5 @@
 import { BarretenbergWasmSyncBackend } from '../bb_backends/wasm.js';
 import { SyncApi } from '../cbind/generated/sync.js';
-import { BBApiException } from '../bbapi_exception.js';
 
 describe('BBApi Exception Handling from bb.js', () => {
   let backend: BarretenbergWasmSyncBackend;
@@ -48,7 +47,6 @@ describe('BBApi Exception Handling from bb.js', () => {
       expect((error as Error).message).toBeTruthy();
       expect((error as Error).message.length).toBeGreaterThan(0);
       expect((error as Error).message).toContain('invalid points_buf size');
-      console.log('Successfully caught exception from bb.js with message:', (error as Error).message);
     }
   });
 });

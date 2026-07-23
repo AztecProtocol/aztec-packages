@@ -1,8 +1,13 @@
-import { Barretenberg, BarretenbergSync } from '../index.js';
 import { BarretenbergWasmMain } from '../barretenberg_wasm/barretenberg_wasm_main/index.js';
 import { fetchModuleAndThreads } from '../barretenberg_wasm/index.js';
+import { Barretenberg, BarretenbergSync } from '../index.js';
 import { BackendType } from './index.js';
 import { Fr } from './testing/fields.js';
+
+function warnBackendInitialization(name: string, error: unknown) {
+  const message = error instanceof Error ? error.message : String(error);
+  process.stderr.write(`Failed to initialize ${name} backend: ${message}\n`);
+}
 
 /**
  * Async API benchmark test: WASM vs Native backends with proper non-blocking I/O
@@ -32,37 +37,28 @@ describe('poseidon2Hash benchmark (Async API): WASM vs Native', () => {
     try {
       wasmApi = await Barretenberg.new({ backend: BackendType.Wasm, threads: 1, skipSrsInit: true });
     } catch (error) {
-      console.warn('Failed to initialize WASM backend:', error instanceof Error ? error.message : String(error));
+      warnBackendInitialization('WASM', error);
     }
 
     // Setup native socket API
     try {
       nativeSocketApi = await Barretenberg.new({ backend: BackendType.NativeUnixSocket, threads: 1 });
     } catch (error) {
-      console.warn(
-        'Failed to initialize Native Socket backend:',
-        error instanceof Error ? error.message : String(error),
-      );
+      warnBackendInitialization('Native Socket', error);
     }
 
     // Setup native shared memory API (async)
     try {
       nativeShmApi = await Barretenberg.new({ backend: BackendType.NativeSharedMemory, threads: 1 });
     } catch (error) {
-      console.warn(
-        'Failed to initialize Native Shared Memory (async) backend:',
-        error instanceof Error ? error.message : String(error),
-      );
+      warnBackendInitialization('Native Shared Memory (async)', error);
     }
 
     // Setup native shared memory API (sync)
     try {
       nativeShmSyncApi = await BarretenbergSync.new({ backend: BackendType.NativeSharedMemory, threads: 1 });
     } catch (error) {
-      console.warn(
-        'Failed to initialize Native Shared Memory (sync) backend:',
-        error instanceof Error ? error.message : String(error),
-      );
+      warnBackendInitialization('Native Shared Memory (sync)', error);
     }
   }, 20000);
 

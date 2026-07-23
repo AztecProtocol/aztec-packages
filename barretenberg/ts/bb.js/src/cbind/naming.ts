@@ -8,7 +8,10 @@
  * @example toSnakeCase("poseidonHash") -> "poseidon_hash"
  */
 export function toSnakeCase(name: string): string {
-  return name.replace(/([A-Z])/g, '_$1').toLowerCase().replace(/^_/, '');
+  return name
+    .replace(/([A-Z])/g, '_$1')
+    .toLowerCase()
+    .replace(/^_/, '');
 }
 
 /**
@@ -21,7 +24,8 @@ export function toPascalCase(name: string): string {
   if (!name.includes('_') && name[0] === name[0].toUpperCase()) {
     return name;
   }
-  return name.split('_').map(part =>
-    part.charAt(0).toUpperCase() + part.slice(1).toLowerCase()
-  ).join('');
+  return name
+    .split('_')
+    .map(part => part.charAt(0).toUpperCase() + part.slice(1).toLowerCase())
+    .join('');
 }

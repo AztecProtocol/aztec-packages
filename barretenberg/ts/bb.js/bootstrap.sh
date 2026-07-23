@@ -12,10 +12,21 @@ hash=$(hash_str \
   $(semver check $REF_NAME && echo 1 || echo 0) \
   ${AVM_TRANSPILER:-1})
 
-function build {
-  echo_header "bb.js build"
+function prepare_project {
   (cd .. && ./bootstrap.sh generate_bb_avm_sim_package)
   (cd .. && npm_install_deps)
+}
+
+function formatting {
+  echo_header "bb.js formatting"
+  prepare_project
+  yarn formatting
+}
+
+function build {
+  echo_header "bb.js build"
+  prepare_project
+  yarn formatting
 
   if ! cache_download bb.js-$hash.tar.gz; then
     find . -exec touch -d "@0" {} + 2>/dev/null || true
