@@ -59,5 +59,3 @@ describe('fetchWithFallback', () => {
     expect(data).toEqual(BN254_G1_FIRST_ELEMENT_COMPRESSED);
   }, 30000);
 });
-
-

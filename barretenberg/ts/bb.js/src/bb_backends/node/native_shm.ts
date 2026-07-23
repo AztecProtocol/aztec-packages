@@ -1,9 +1,10 @@
+import { ChildProcess, spawn } from 'child_process';
+import { closeSync, openSync, unlinkSync } from 'fs';
 import { createRequire } from 'module';
-import { spawn, ChildProcess } from 'child_process';
-import { openSync, closeSync, unlinkSync } from 'fs';
+import { threadId } from 'worker_threads';
+
 import { IMsgpackBackendSync } from '../interface.js';
 import { findNapiBinary, findPackageRoot } from './platform.js';
-import { threadId } from 'worker_threads';
 
 let instanceCounter = 0;
 
@@ -49,7 +50,7 @@ export class BarretenbergNativeShmSyncBackend implements IMsgpackBackendSync {
     try {
       const require = createRequire(findPackageRoot()!);
       addon = require(addonPath!);
-    } catch (err) {
+    } catch {
       // Addon not built yet or not available
       throw new Error('Shared memory sync NAPI not available.');
     }
@@ -151,7 +152,7 @@ export class BarretenbergNativeShmSyncBackend implements IMsgpackBackendSync {
           if (attempt === maxAttempts - 1) {
             // Last attempt failed - check one more time if process exited
             if (processExited && exitError) {
-              throw exitError;
+              throw exitError as Error;
             }
             throw new Error(`Failed to connect to shared memory after ${timeout}ms: ${err.message}`);
           }
@@ -171,7 +172,7 @@ export class BarretenbergNativeShmSyncBackend implements IMsgpackBackendSync {
         if (logFd !== undefined) {
           try {
             closeSync(logFd);
-          } catch (e) {
+          } catch {
             // Ignore errors during cleanup
           }
         }
@@ -192,14 +193,14 @@ export class BarretenbergNativeShmSyncBackend implements IMsgpackBackendSync {
     if (this.client) {
       try {
         this.client.close();
-      } catch (e) {
+      } catch {
         // Ignore errors during cleanup
       }
     }
     if (this.logFd !== undefined) {
       try {
         closeSync(this.logFd);
-      } catch (e) {
+      } catch {
         // Ignore errors during cleanup
       }
     }

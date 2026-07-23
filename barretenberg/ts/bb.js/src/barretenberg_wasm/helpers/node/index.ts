@@ -1,8 +1,9 @@
-import { Worker, parentPort } from 'worker_threads';
-import os from 'os';
 import { wrap } from 'comlink';
-import { nodeEndpoint } from './node_endpoint.js';
 import { writeSync } from 'fs';
+import os from 'os';
+import { Worker, parentPort } from 'worker_threads';
+
+import { nodeEndpoint } from './node_endpoint.js';
 
 export function getSharedMemoryAvailable() {
   return true;

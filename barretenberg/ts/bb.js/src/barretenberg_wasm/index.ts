@@ -1,5 +1,5 @@
-import { getSharedMemoryAvailable, getAvailableThreads } from './helpers/node/index.js';
 import { fetchCode } from './fetch_code/index.js';
+import { getAvailableThreads, getSharedMemoryAvailable } from './helpers/node/index.js';
 
 export async function fetchModuleAndThreads(
   desiredThreads = 32,
@@ -8,7 +8,7 @@ export async function fetchModuleAndThreads(
 ) {
   const shared = getSharedMemoryAvailable();
 
-  const availableThreads = shared ? await getAvailableThreads(logger) : 1;
+  const availableThreads = shared ? getAvailableThreads(logger) : 1;
   // We limit the number of threads to 32 as we do not benefit from greater numbers.
   const limitedThreads = Math.min(desiredThreads, availableThreads, 32);
 
