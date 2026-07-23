@@ -13,6 +13,7 @@ import { Checkpoint } from '@aztec/stdlib/checkpoint';
 import type { ForkMerkleTreeOperations, ITxProvider } from '@aztec/stdlib/interfaces/server';
 import type { BlockHeader, Tx } from '@aztec/stdlib/tx';
 
+import { jest } from '@jest/globals';
 import { mock } from 'jest-mock-extended';
 
 import { ProverNodeJobMetrics } from '../metrics.js';
@@ -26,6 +27,7 @@ describe('CheckpointProver', () => {
   let publicProcessorFactory: ReturnType<typeof mock<PublicProcessorFactory>>;
   let dbProvider: ReturnType<typeof mock<Pick<ForkMerkleTreeOperations, 'fork'>>>;
   let chonkCache: ReturnType<typeof mock<ChonkCache>>;
+  let onFailed: jest.Mock<(prover: CheckpointProver) => void>;
   let log: Logger;
 
   beforeEach(async () => {
@@ -36,6 +38,7 @@ describe('CheckpointProver', () => {
     publicProcessorFactory = mock<PublicProcessorFactory>();
     dbProvider = mock<Pick<ForkMerkleTreeOperations, 'fork'>>();
     chonkCache = mock<ChonkCache>();
+    onFailed = jest.fn<(prover: CheckpointProver) => void>();
     log = createLogger('test:checkpoint-prover');
 
     // Default: gather rejects fast so the eager pipeline unwinds without hanging. The
@@ -59,6 +62,7 @@ describe('CheckpointProver', () => {
       ),
       txGatheringTimeoutMs: 30_000,
       deadline: undefined,
+      onFailed,
       log,
     };
   });
@@ -97,6 +101,7 @@ describe('CheckpointProver', () => {
       expect(prover.isCancelled()).toBe(false);
       expect(prover.isCompleted()).toBe(false);
       expect(prover.isPruned()).toBe(false);
+      expect(prover.isFailed()).toBe(false);
       await cleanup(prover);
     });
 
@@ -156,11 +161,15 @@ describe('CheckpointProver', () => {
       await prover.whenDone();
     });
 
-    it('rejects whenBlockProofsReady()', async () => {
+    it('rejects whenBlockProofsReady() but does not mark the prover failed or fire onFailed', async () => {
+      // A cancel (reorg/prune/shutdown) is not a proving failure: isFailed() must stay false and the
+      // onFailed callback must not fire (no post-mortem upload for a cancelled prover).
       const prover = makeProver();
       const blockProofs = prover.whenBlockProofsReady();
       prover.cancel();
       await expect(blockProofs).rejects.toThrow(/cancelled/);
+      expect(prover.isFailed()).toBe(false);
+      expect(onFailed).not.toHaveBeenCalled();
       await prover.whenDone();
     });
 
@@ -249,6 +258,47 @@ describe('CheckpointProver', () => {
       prover.cancel();
       expect(prover.isCancelled()).toBe(true);
       await prover.whenDone();
+    });
+  });
+
+  // ---------------- data-plane reorg fork fault ----------------
+
+  describe('data-plane reorg fault', () => {
+    it('rejects whenBlockProofsReady when a world-state fork faults mid-proof', async () => {
+      // Models the data-plane prune race: gather succeeds and the sub-tree starts, but the
+      // world-state synchronizer has already unwound the base block, so forking it faults inside
+      // executeCheckpoint. The fault must reject whenBlockProofsReady() AND mark the prover failed, so
+      // the SessionManager won't build (or rebuild) an EpochSession over it until a re-add replaces it.
+      txProvider.getTxsForBlock.mockReset();
+      txProvider.getTxsForBlock.mockResolvedValue({ txs: [], missingTxs: [] });
+
+      const subTree = {
+        getSubTreeResult: () => new Promise<never>(() => {}),
+        startNewBlock: () => Promise.resolve(),
+        startChonkVerifierCircuits: () => Promise.resolve(),
+        addTxs: () => Promise.resolve(),
+        setBlockCompleted: () => Promise.resolve(),
+        cancel: () => {},
+        stop: () => Promise.resolve(),
+      };
+      proverFactory.createCheckpointSubTreeOrchestrator.mockResolvedValue(subTree as any);
+
+      // The prune-induced fault: the base block was unwound, so forking it rejects. This is the
+      // production signal — `Unable to get meta data for block N` out of world-state.
+      dbProvider.fork.mockRejectedValue(new Error('Unable to get meta data for block 0'));
+
+      const prover = makeProver();
+
+      // blockProofs rejects: the fork error aborts the block loop before completion, so the sub-tree
+      // never yields proofs. (The raw fork error is logged; the promise settles as not-completed.)
+      await expect(prover.whenBlockProofsReady()).rejects.toThrow(/did not complete block processing/);
+      expect(dbProvider.fork).toHaveBeenCalled();
+      expect(prover.isFailed()).toBe(true);
+      // The owner is notified exactly once, with this prover, so it can upload a checkpoint post-mortem.
+      expect(onFailed).toHaveBeenCalledTimes(1);
+      expect(onFailed).toHaveBeenCalledWith(prover);
+
+      await cleanup(prover);
     });
   });
 

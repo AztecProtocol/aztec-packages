@@ -147,11 +147,14 @@ describe('EpochSession', () => {
       expect(state).toBe(expected);
     });
 
-    it('"failed" outcome propagates as a thrown error → state "failed"', async () => {
+    it('"failed" submit outcome propagates as a thrown error → state "failed" (healthy provers)', async () => {
+      // The provers all succeeded (a proof was produced) and only the L1 submission failed — a genuine,
+      // non-prune failure of the session's own work, so it ends in terminal 'failed'.
       publishingService.submit.mockResolvedValue('failed');
       const session = makeSession();
       const state = await session.start();
       expect(state).toBe('failed');
+      expect(session.hasFailed()).toBe(true);
     });
 
     it('"withdrawn" outcome with no prior cancel falls back to "cancelled"', async () => {
@@ -259,10 +262,12 @@ describe('EpochSession', () => {
   // ---------------- checkpoint failure ----------------
 
   describe('checkpoint that fails to prove', () => {
-    it('drives the session to "failed" when a checkpoint\'s blockProofs reject', async () => {
+    it('ends the session in "stopped" (not "failed") when a checkpoint\'s blockProofs reject', async () => {
       // Build a prover whose block-rollup proofs are guaranteed to reject — this mirrors
       // the production path where CheckpointProver.executeCheckpoint catches an internal
-      // error and rejects its blockProofs promise.
+      // error (e.g. a data-plane reorg fork fault) and rejects its blockProofs promise.
+      // The session must NOT declare the epoch failed: it ends in the non-declaring terminal
+      // 'stopped', leaving the reconciler free to rebuild it over current canonical content.
       const failingProver = makeStubProver(cp, { blockProofsError: new Error('block 7 proving failed') });
       const session = new EpochSession(
         makeSpec(),
@@ -274,13 +279,15 @@ describe('EpochSession', () => {
         }),
       );
       const state = await session.start();
-      expect(state).toBe('failed');
+      expect(state).toBe('stopped');
       expect(session.isTerminal()).toBe(true);
+      // A failed prover under the session ⇒ 'stopped', NOT the session's own 'failed' (no upload).
+      expect(session.hasFailed()).toBe(false);
       // Failure happens before submission; the publishing service must never see the candidate.
       expect(publishingService.submit).not.toHaveBeenCalled();
     });
 
-    it('whenDone resolves to "failed" so callers observing the lifecycle agree with the return value', async () => {
+    it('whenDone resolves to "stopped" so callers observing the lifecycle agree with the return value', async () => {
       const failingProver = makeStubProver(cp, { blockProofsError: new Error('boom') });
       const session = new EpochSession(
         makeSpec(),
@@ -290,18 +297,42 @@ describe('EpochSession', () => {
         }),
       );
       const startResult = session.start();
-      await expect(session.whenDone()).resolves.toBe('failed');
-      await expect(startResult).resolves.toBe('failed');
+      await expect(session.whenDone()).resolves.toBe('stopped');
+      await expect(startResult).resolves.toBe('stopped');
     });
 
-    it('a prove that rejects for any reason ends the session in "failed" without submitting', async () => {
-      // Belt-and-braces: any prove rejection (top-tree internal error, blob computation,
-      // etc.) follows the same path. The session swallows the error and reports 'failed'.
+    it('ends the session in "stopped" (not "failed") when a prover was cancelled by a prune (isCancelled, not isFailed)', async () => {
+      // A control-plane prune cancels the prover: its blockProofs reject with "cancelled" and it reports
+      // isCancelled()===true / isFailed()===false. If that rejection reaches start()'s catch before the
+      // reconcile marks the session 'cancelled', it must NOT be classified 'failed' (which would trigger a
+      // spurious full-snapshot upload) — a cancelled prover is prune-ambiguous, so classify 'stopped'.
+      const cancelledProver = makeStubProver(cp, {
+        blockProofsError: new Error('Checkpoint cancelled'),
+        isFailed: false,
+        isCancelled: true,
+      });
+      const session = new EpochSession(
+        makeSpec(),
+        [cancelledProver],
+        makeDeps({
+          hooks: { topTreeProveOverride: () => cancelledProver.whenBlockProofsReady().then(() => synthProof) },
+        }),
+      );
+      const state = await session.start();
+      expect(state).toBe('stopped');
+      expect(session.hasFailed()).toBe(false);
+      expect(publishingService.submit).not.toHaveBeenCalled();
+    });
+
+    it('a top-tree prove that rejects with healthy provers ends the session in "failed" without submitting', async () => {
+      // The provers are healthy but the top-tree (root) prove itself rejects — the session's own work
+      // failed, and since no prover failed this is definitively not a prune, so it ends in 'failed'.
       const session = makeSession({
         hooks: { topTreeProveOverride: () => Promise.reject(new Error('top-tree internal failure')) },
       });
       const state = await session.start();
       expect(state).toBe('failed');
+      expect(session.hasFailed()).toBe(true);
       expect(publishingService.submit).not.toHaveBeenCalled();
     });
   });
@@ -419,7 +450,10 @@ class TestEpochSession extends EpochSession {
  * path where CheckpointProver.executeCheckpoint catches an internal failure and rejects
  * its blockProofs promise.
  */
-function makeStubProver(checkpoint: Checkpoint, opts: { blockProofsError?: Error } = {}): CheckpointProver {
+function makeStubProver(
+  checkpoint: Checkpoint,
+  opts: { blockProofsError?: Error; isFailed?: boolean; isCancelled?: boolean } = {},
+): CheckpointProver {
   const id = CheckpointProver.idFor(checkpoint);
   // By default whenBlockProofsReady never resolves in these tests; the prove override
   // bypasses any path that would actually await it.
@@ -440,11 +474,14 @@ function makeStubProver(checkpoint: Checkpoint, opts: { blockProofsError?: Error
     previousArchiveSiblingPath: makeTuple(ARCHIVE_HEIGHT, () => Fr.ZERO),
     txs: new Map(),
     whenBlockProofsReady: () => blockProofs,
-    isCancelled: () => false,
+    isCancelled: () => opts.isCancelled ?? false,
     isCompleted: () => false,
     isPruned: () => false,
     markPruned: () => {},
     markCanonical: () => {},
+    // A prover configured with a blockProofsError is one whose block proofs rejected — i.e. failed,
+    // unless the caller decouples the two (e.g. to model a cancelled-but-not-failed prune).
+    isFailed: () => opts.isFailed ?? opts.blockProofsError !== undefined,
     cancel: () => {},
     whenDone: () => Promise.resolve(),
     getAbortSignal: () => new AbortController().signal,

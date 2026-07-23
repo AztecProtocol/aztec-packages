@@ -66,6 +66,22 @@ describe('CheckpointStore', () => {
     expect(stubs.length).toBe(1);
   });
 
+  it('addOrUpdate rebuilds a failed pruned prover for the same content key', async () => {
+    const cp = await Checkpoint.random(CheckpointNumber(1), { numBlocks: 1 });
+
+    const first = (await store.addOrUpdate(cp, makeRegisterData())) as unknown as StubProver;
+    store.markPrunedAboveBlock(BlockNumber(0));
+    first.failed = true;
+
+    const second = await store.addOrUpdate(cp, makeRegisterData());
+
+    expect(second).not.toBe(first);
+    expect(first.cancelled).toBe(true);
+    expect(stubs.length).toBe(2);
+    expect(second.isPruned()).toBe(false);
+    expect(second.isFailed()).toBe(false);
+  });
+
   it('addOrUpdate refuses a conflicting canonical checkpoint at the same slot', async () => {
     // Two canonical checkpoints sharing a slot would be a parallel chain. The store rejects
     // the second; the caller must prune the first (via the chain-pruned event) before the
@@ -222,8 +238,10 @@ type StubProver = {
   epochNumber: EpochNumber;
   pruned: boolean;
   cancelled: boolean;
+  failed: boolean;
   isPruned(): boolean;
   isCancelled(): boolean;
+  isFailed(): boolean;
   markPruned(): void;
   markCanonical(): void;
   cancel(opts?: { routine?: boolean }): void;
@@ -239,11 +257,15 @@ function makeStubProver(checkpoint: Checkpoint, epochNumber: EpochNumber): StubP
     epochNumber,
     pruned: false,
     cancelled: false,
+    failed: false,
     isPruned() {
       return this.pruned;
     },
     isCancelled() {
       return this.cancelled;
+    },
+    isFailed() {
+      return this.failed;
     },
     markPruned() {
       this.pruned = true;

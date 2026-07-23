@@ -5,7 +5,12 @@ import type { L2BlockSource } from '@aztec/stdlib/block';
 import type { Checkpoint } from '@aztec/stdlib/checkpoint';
 import { type L1RollupConstants, getEpochAtSlot, getSlotRangeForEpoch } from '@aztec/stdlib/epoch-helpers';
 
-import { CheckpointProver, type CheckpointProverArgs, type CheckpointProverDeps } from './job/checkpoint-prover.js';
+import {
+  CheckpointProver,
+  type CheckpointProverArgs,
+  type CheckpointProverDeps,
+  type CheckpointProverTestHooks,
+} from './job/checkpoint-prover.js';
 
 /** Register-time data needed to construct a `CheckpointProver` (everything except the checkpoint + epoch). */
 export type RegisterCheckpointData = Omit<CheckpointProverArgs, 'checkpoint' | 'epochNumber'>;
@@ -23,13 +28,16 @@ export type CheckpointProverFactory = (args: CheckpointProverArgs, deps: Checkpo
  *  - its epoch's proof-submission window has closed (`reapExpired`), so the proof could no
  *    longer be accepted on L1 even if produced.
  *
- * A re-add of a checkpoint that matches an existing prover's content key reuses the
+ * A re-add of a checkpoint that matches an existing healthy prover's content key reuses the
  * existing prover (and flips it back to canonical); the in-flight sub-tree work never
- * stops, so a prune-then-re-add of the same content avoids re-proving entirely.
+ * stops, so a prune-then-re-add of the same content avoids re-proving entirely. A failed pruned
+ * prover is replaced instead because its block-proof promise cannot be recovered.
  */
 export class CheckpointStore {
   private readonly provers = new Map<string, CheckpointProver>();
   private readonly slotWatcher: RunningPromise;
+  /** Test-only hooks injected into every prover this store constructs. */
+  private testHooks: CheckpointProverTestHooks = {};
   private readonly log: Logger;
 
   constructor(
@@ -64,9 +72,9 @@ export class CheckpointStore {
   }
 
   /**
-   * Registers a checkpoint with the store. If a prover already exists for the
-   * `(number, slot, archive root)` content key, it is reused and marked canonical;
-   * otherwise a new prover is constructed.
+   * Registers a checkpoint with the store. If a healthy prover already exists for the
+   * `(number, slot, archive root)` content key, it is reused and marked canonical. If the existing
+   * prover failed while pruned, or if no prover exists, a new prover is constructed.
    */
   public async addOrUpdate(checkpoint: Checkpoint, data: RegisterCheckpointData): Promise<CheckpointProver> {
     const l1Constants = await this.l2BlockSource.getL1Constants();
@@ -75,8 +83,14 @@ export class CheckpointStore {
 
     const existing = this.provers.get(id);
     if (existing) {
-      existing.markCanonical();
-      return existing;
+      if (existing.isPruned() && existing.isFailed()) {
+        existing.cancel();
+        void existing.whenDone();
+        this.provers.delete(id);
+      } else {
+        existing.markCanonical();
+        return existing;
+      }
     }
 
     // At most one canonical checkpoint per slot. A different canonical checkpoint at the
@@ -91,9 +105,20 @@ export class CheckpointStore {
       }
     }
 
-    const prover = this.proverFactoryFn({ ...data, checkpoint, epochNumber }, { ...this.proverDeps, log: this.log });
+    const prover = this.proverFactoryFn(
+      { ...data, checkpoint, epochNumber },
+      { ...this.proverDeps, checkpointProveOverride: this.testHooks.checkpointProveOverride, log: this.log },
+    );
     this.provers.set(id, prover);
     return prover;
+  }
+
+  /**
+   * Installs test-only hooks applied to every prover constructed from now on. Used by the e2e harness to
+   * force a checkpoint sub-tree failure without monkey-patching the prover factory.
+   */
+  public setTestHooks(hooks: CheckpointProverTestHooks): void {
+    this.testHooks = hooks;
   }
 
   /**

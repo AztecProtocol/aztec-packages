@@ -38,7 +38,23 @@ export type CheckpointProverDeps = {
   txGatheringTimeoutMs: number;
   /** Public processor deadline. */
   deadline: Date | undefined;
+  /**
+   * Fired once when the prover's block proofs reject for a genuine (non-cancel) reason — a sub-tree
+   * fault or a prune-induced fork fault. Useful for performing post mortem on failures.
+   */
+  onFailed?: (prover: CheckpointProver) => void;
+  /**
+   * Test-only hook: if set, invoked at the start of checkpoint execution instead of proving. Lets e2e
+   * tests force a sub-tree failure (it should throw) to exercise the checkpoint failure/upload path.
+   */
+  checkpointProveOverride?: () => Promise<never>;
   log: Logger;
+};
+
+/** Test-only hooks the store injects into every `CheckpointProver` it constructs. */
+export type CheckpointProverTestHooks = {
+  /** If set, invoked at the start of checkpoint execution instead of proving; should throw to fail. */
+  checkpointProveOverride?: () => Promise<never>;
 };
 
 /** Inputs that fully describe a checkpoint at register time. */
@@ -66,9 +82,10 @@ export type CheckpointProverArgs = {
  * callers only need to call `whenBlockProofsReady()` to obtain the resulting block-rollup
  * proofs.
  *
- * The prover survives prune/re-add cycles via `markPruned()` / `markCanonical()` —
+ * The prover survives healthy prune/re-add cycles via `markPruned()` / `markCanonical()` —
  * sub-tree proving keeps running underneath, so a checkpoint that is re-added after
- * a brief reorg can be re-consumed with no re-proving.
+ * a brief reorg can be re-consumed with no re-proving. If its block proofs fail while
+ * pruned, the store replaces it on re-add because the one-shot proof promise is poisoned.
  *
  * `cancel()` is idempotent. It aborts the gather + sub-tree, rejects the block-proof
  * promise, and exposes a `whenDone()` that resolves once teardown has unwound.
@@ -89,9 +106,18 @@ export class CheckpointProver {
   /** Resolved by the sub-tree on success, rejected on cancel/failure. */
   private readonly blockProofs: PromiseWithResolvers<SubTreeResult['blockProofOutputs']> = promiseWithResolvers();
 
+  // Three independent lifecycle facts — deliberately not collapsed into one status enum, because several
+  // combinations are legal and relied on: a prover can be `completed` and then `cancelled` (routine
+  // teardown of an already-proven checkpoint), or `completed` and then `failed` (block proving was
+  // enqueued, but the sub-tree subsequently faulted). Only `failed` + `cancelled` is excluded — a cancel
+  // is not a failure (enforced in `failBlockProofs`).
+  /** Block-level proving was fully *enqueued* (a progress marker; the sub-tree may still be proving). */
+  private completed = false;
+  /** Block proofs rejected for a genuine (non-cancel) reason — a sub-tree or prune-induced fork fault. */
+  private failed = false;
+  /** The prover was torn down (prune / reap / shutdown). */
   private cancelled = false;
   private subTree?: CheckpointSubTreeOrchestrator;
-  private completed = false;
   /** Pruned in the canonical chain but not yet reaped — sub-tree continues running. */
   private pruned = false;
   private readonly abortController = new AbortController();
@@ -144,6 +170,16 @@ export class CheckpointProver {
   /** True once block-level proving has been fully *enqueued* (sub-tree completion may still be pending). */
   public isCompleted(): boolean {
     return this.completed;
+  }
+
+  /**
+   * True once this prover's block proofs have rejected for a genuine (non-cancel) reason — a sub-tree
+   * proving fault or a prune-induced world-state fork fault. A failed prover cannot produce its block
+   * proofs, so the reconciler must not build (or rebuild) an EpochSession over it; it is cleared only by
+   * a prune/re-add replacing it with a fresh prover, or by expiry reaping it.
+   */
+  public isFailed(): boolean {
+    return this.failed;
   }
 
   public isPruned(): boolean {
@@ -212,8 +248,27 @@ export class CheckpointProver {
       this.deps.log.error(`Error in CheckpointProver ${this.id}`, err, {
         checkpointNumber: this.checkpoint.number,
       });
-      this.blockProofs.reject(err instanceof Error ? err : new Error(String(err)));
+      this.failBlockProofs(err instanceof Error ? err : new Error(String(err)));
     }
+  }
+
+  /**
+   * Rejects the block-proof promise and, unless this is a cancellation, records the prover as failed so
+   * the reconciler won't build an EpochSession over it. First rejection wins, so a later duplicate reject
+   * (e.g. the executeCheckpoint `finally`) is a harmless no-op.
+   */
+  private failBlockProofs(err: Error): void {
+    if (!this.cancelled && !this.failed) {
+      this.failed = true;
+      // Notify the owner so it can upload a post-mortem for this checkpoint. Fire-and-forget: the
+      // callback must not block the prover's teardown, and a throw in it must not mask the rejection.
+      try {
+        this.deps.onFailed?.(this);
+      } catch (err) {
+        this.deps.log.error(`Error in CheckpointProver onFailed callback for ${this.id}`, err);
+      }
+    }
+    this.blockProofs.reject(err);
   }
 
   private async gatherTxs(): Promise<Map<string, Tx>> {
@@ -238,6 +293,11 @@ export class CheckpointProver {
     let subTreeStarted = false;
 
     try {
+      // Test hook: force a sub-tree failure to exercise the checkpoint failure/upload path.
+      if (this.deps.checkpointProveOverride) {
+        await this.deps.checkpointProveOverride();
+      }
+
       for (const [hash, tx] of txs) {
         this.txs.set(hash, tx);
       }
@@ -281,7 +341,7 @@ export class CheckpointProver {
           this.deps.metrics.recordCheckpointProving(checkpointTimer.ms());
           this.blockProofs.resolve(result.blockProofOutputs);
         },
-        err => this.blockProofs.reject(err),
+        err => this.failBlockProofs(err instanceof Error ? err : new Error(String(err))),
       );
       if (signal.aborted) {
         return;
@@ -361,7 +421,7 @@ export class CheckpointProver {
         if (subTreeStarted) {
           await this.teardownSubTree();
         }
-        this.blockProofs.reject(new Error(`Checkpoint ${this.id} did not complete block processing`));
+        this.failBlockProofs(new Error(`Checkpoint ${this.id} did not complete block processing`));
       }
     }
   }
