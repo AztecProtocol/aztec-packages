@@ -101,7 +101,9 @@ export AZTEC_SLASHING_VETOER=0x0000000000000000000000000000000000000000
 export AZTEC_SLASHING_DISABLE_DURATION=0
 export AZTEC_MANA_TARGET=100000000
 export AZTEC_EXIT_DELAY_SECONDS=0
-export AZTEC_PROVING_COST_PER_MANA=0
+# Must match the running network and stay above the protocol floor; 0 reverts
+# the deployment with FeeLib__ProvingCostBelowFloor.
+export AZTEC_PROVING_COST_PER_MANA=100
 export AZTEC_SLASH_AMOUNT_SMALL=0
 export AZTEC_SLASH_AMOUNT_MEDIUM=0
 export AZTEC_SLASH_AMOUNT_LARGE=0
@@ -128,6 +130,10 @@ export NEW_ROLLUP_ADDRESS=0x...
 ---
 
 ## Step 5: Deploy Governance Payload
+
+:::tip
+The deploy script in Step 4 also deploys this payload and prints it as `payloadAddress` in its JSON output. You can export that address as `PAYLOAD_ADDRESS` and skip this step.
+:::
 
 **Important:** Place flags before the contract path to avoid argument parsing issues.
 
