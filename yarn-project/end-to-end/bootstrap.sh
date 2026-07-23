@@ -255,9 +255,10 @@ function avm_check_circuit_cmds {
 
   # Specify timeout and resources
   # WARNING: theoretically, transactions could need more CPU and MEM than we allocate by default.
-  # In that case, they might start timing out. For now, all of the e2e test txs seem to be relatively
-  # small and the AVM can run check-circuit with limited resources.
-  local prefix="$hash:ISOLATE=1:TIMEOUT=30s"
+  # Large AVM inputs, such as multi-blob block-building cases, can take longer than the default
+  # test timeout on slower CI instance types, so keep a bounded but less aggressive default here.
+  local timeout="${AVM_CHECK_CIRCUIT_TIMEOUT:-2m}"
+  local prefix="$hash:ISOLATE=1:TIMEOUT=$timeout"
 
   # Find all .bin files in the dump directory (handles nested dirs, e.g. the 3-segment
   # single-node/block-building/block_building dump path needs the 4-level glob).
