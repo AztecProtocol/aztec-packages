@@ -7,7 +7,11 @@ import { AppTaggingSecretKind, SiloedTag } from '@aztec/stdlib/logs';
 import type { BlockHeader } from '@aztec/stdlib/tx';
 
 import type { RecipientTaggingStore } from '../../storage/tagging_store/recipient_tagging_store.js';
-import { INITIAL_CONSTRAINED_PROBE_LEN, UNFINALIZED_TAGGING_INDEXES_WINDOW_LEN } from '../constants.js';
+import {
+  INITIAL_CONSTRAINED_PROBE_LEN,
+  UNFINALIZED_TAGGING_INDEXES_WINDOW_LEN,
+  unfinalizedTaggingIndexesWindowEnd,
+} from '../constants.js';
 import { getAllPrivateLogsByTags } from '../get_all_logs_by_tags.js';
 import { findHighestIndexes } from './utils/find_highest_indexes.js';
 
@@ -149,11 +153,7 @@ function getIndexRangesForSecrets(
   return Promise.all(
     secrets.map(async (secret): Promise<PendingSecret> => {
       const currentHighestFinalizedIndex = await taggingStore.getHighestFinalizedIndex(secret, jobId);
-      // Exclusive upper bound on scanned indexes. After a finalization at f the scan reaches f + WINDOW_LEN, exactly
-      // the sender allowance. With nothing finalized it reaches index WINDOW_LEN, one index further than a sender on
-      // this version can go on a fresh secret; kept so txs from older clients, whose cap still allowed that index,
-      // are discovered.
-      const boundEnd = (currentHighestFinalizedIndex ?? 0) + UNFINALIZED_TAGGING_INDEXES_WINDOW_LEN + 1;
+      const boundEnd = unfinalizedTaggingIndexesWindowEnd(currentHighestFinalizedIndex);
 
       if (secret.kind === AppTaggingSecretKind.CONSTRAINED) {
         // Constrained streams are gapless and resume at the finalized index, so probe a small initial window and stop
@@ -261,7 +261,7 @@ async function processConstrainedResults(
   const probeFullyConsumed = firstMissingIndex >= pending.end;
   const boundEnd =
     highestFinalizedIndex !== undefined
-      ? Math.max(pending.boundEnd, highestFinalizedIndex + UNFINALIZED_TAGGING_INDEXES_WINDOW_LEN + 1)
+      ? Math.max(pending.boundEnd, unfinalizedTaggingIndexesWindowEnd(highestFinalizedIndex))
       : pending.boundEnd;
 
   // Double the probe each round, capped at the window (see INITIAL_CONSTRAINED_PROBE_LEN in ../constants.ts).
@@ -323,7 +323,7 @@ async function processUnconstrainedResults(
 
   // For the next iteration we want to look only at indexes for which we have not yet fetched logs while
   // ensuring that we do not look further than WINDOW_LEN ahead of the highest finalized index.
-  const end = highestFinalizedIndex + UNFINALIZED_TAGGING_INDEXES_WINDOW_LEN + 1;
+  const end = unfinalizedTaggingIndexesWindowEnd(highestFinalizedIndex);
   return {
     kind: AppTaggingSecretKind.UNCONSTRAINED,
     secret: pending.secret,

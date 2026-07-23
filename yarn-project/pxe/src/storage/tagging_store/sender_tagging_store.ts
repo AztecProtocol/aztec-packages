@@ -3,7 +3,7 @@ import { AppTaggingSecret, SiloedTag, type TaggingIndexRange } from '@aztec/stdl
 import { TxEffect, TxHash } from '@aztec/stdlib/tx';
 
 import type { StagedStore } from '../../job_coordinator/job_coordinator.js';
-import { UNFINALIZED_TAGGING_INDEXES_WINDOW_LEN } from '../../tagging/constants.js';
+import { UNFINALIZED_TAGGING_INDEXES_WINDOW_LEN, unfinalizedTaggingIndexesWindowEnd } from '../../tagging/constants.js';
 
 /** Internal representation of a pending index range entry. */
 type PendingIndexesEntry = { lowestIndex: number; highestIndex: number; txHash: string };
@@ -195,12 +195,10 @@ export class SenderTaggingStore implements StagedStore {
 
       // Process in memory and validate
       for (const { range, secretStr, pendingData, finalizedIndex } of rangeData) {
-        // Check that the highest index is not further than window length from the highest finalized index.
-        // When no index is finalized yet, indexes 0..UNFINALIZED_TAGGING_INDEXES_WINDOW_LEN - 1 are permitted:
-        // exactly WINDOW_LEN pending indexes.
-        // The sender-sync first window probes exactly this bound, so widening it here
-        // without widening the probe would let two stores sharing a secret pick colliding indexes.
-        if (range.highestIndex > (finalizedIndex ?? -1) + UNFINALIZED_TAGGING_INDEXES_WINDOW_LEN) {
+        // Pending indexes must stay below the window bound shared with sender and recipient sync (see
+        // `unfinalizedTaggingIndexesWindowEnd`): an index the syncs never scan would let two stores
+        // sharing a secret pick colliding indexes.
+        if (range.highestIndex >= unfinalizedTaggingIndexesWindowEnd(finalizedIndex)) {
           throw new Error(
             `Highest used index ${range.highestIndex} is further than window length from the highest finalized index ${finalizedIndex ?? 'none'}.
             Tagging window length ${UNFINALIZED_TAGGING_INDEXES_WINDOW_LEN} is configured too low. Contact the Aztec team
