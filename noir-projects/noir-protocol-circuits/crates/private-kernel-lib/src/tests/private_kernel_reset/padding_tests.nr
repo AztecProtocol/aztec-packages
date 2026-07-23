@@ -20,15 +20,15 @@ fn squashing_siloing_and_ordering_with_padded_items() {
     let private_logs = builder.previous_kernel.private_logs.storage();
 
     // Shuffle.
-    builder.previous_kernel.note_hashes = BoundedVec::from_parts_unchecked(
+    builder.previous_kernel.note_hashes = BoundedVec::from_parts(
         pad_end([note_hashes[2], note_hashes[0], note_hashes[1]]),
         3,
     );
-    builder.previous_kernel.nullifiers = BoundedVec::from_parts_unchecked(
+    builder.previous_kernel.nullifiers = BoundedVec::from_parts(
         pad_end([nullifiers[2], nullifiers[1], nullifiers[0], nullifiers[3]]),
         4,
     );
-    builder.previous_kernel.private_logs = BoundedVec::from_parts_unchecked(
+    builder.previous_kernel.private_logs = BoundedVec::from_parts(
         pad_end([private_logs[2], private_logs[0], private_logs[1]]),
         3,
     );
