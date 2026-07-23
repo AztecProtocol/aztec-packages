@@ -64,7 +64,7 @@ import { findHighestIndexes } from './utils/find_highest_indexes.js';
  *   one is already on-chain.
  * - Because the sequence is gapless, the scan stops at the first missing index: that gap proves the sequence has
  *   ended and no further logs exist. We exploit this with a doubling first-miss probe (see
- *   `INITIAL_CONSTRAINED_PROBE_LEN` in ../constants.ts for the probe schedule and complexity analysis), so a
+ *   `INITIAL_CONSTRAINED_PROBE_LEN` in ../constants.ts), so a
  *   steady-state sync with no new logs costs a single tag instead of the whole window. The probe length is in-memory
  *   state scoped to one sync call, so every sync restarts at the initial probe.
  * - The upper bound is the same as unconstrained: `highestFinalizedIndex + WINDOW_LEN`. Advancing the probe is
@@ -154,7 +154,7 @@ function getIndexRangesForSecrets(
       if (secret.kind === AppTaggingSecretKind.CONSTRAINED) {
         // Constrained streams are gapless and resume at the finalized index, so probe a small initial window and stop
         // at the first missing tag instead of always fetching the full window. The probe grows each round up to the
-        // window cap (see processConstrainedResults).
+        // window cap.
         const start = currentHighestFinalizedIndex === undefined ? 0 : currentHighestFinalizedIndex + 1;
         return {
           kind: AppTaggingSecretKind.CONSTRAINED,
@@ -260,8 +260,8 @@ async function processConstrainedResults(
       ? Math.max(pending.boundEnd, highestFinalizedIndex + UNFINALIZED_TAGGING_INDEXES_WINDOW_LEN + 1)
       : pending.boundEnd;
 
-  // Double the probe each round, capped at the window (see INITIAL_CONSTRAINED_PROBE_LEN in ../constants.ts for the
-  // probe schedule and complexity analysis). The queried range is already bounded by boundEnd (a probe can never reach
+  // Double the probe each round, capped at the window (see INITIAL_CONSTRAINED_PROBE_LEN in ../constants.ts).
+  // The queried range is already bounded by boundEnd (a probe can never reach
   // more than WINDOW_LEN past the finalized frontier); this cap just keeps the stored length from growing unbounded
   // once the probe saturates the window.
   const nextProbeLen = Math.min(pending.probeLen * 2, UNFINALIZED_TAGGING_INDEXES_WINDOW_LEN);
