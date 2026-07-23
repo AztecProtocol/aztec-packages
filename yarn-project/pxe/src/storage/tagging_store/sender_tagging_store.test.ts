@@ -260,14 +260,9 @@ describe('SenderTaggingStore', () => {
       it('permits exactly WINDOW_LEN pending indexes for a fresh secret', async () => {
         // Fresh-secret counterpart of the two boundary tests above: with no index finalized yet, the last permitted
         // pending index is WINDOW_LEN - 1, the same WINDOW_LEN-sized allowance as after any real finalization.
-        await taggingStore.storePendingIndexes(
-          [range(secret1, 0, MAX_PRIVATE_LOGS_PER_TX - 1)],
-          TxHash.random(),
-          'test',
-        );
         await expect(
           taggingStore.storePendingIndexes(
-            [range(secret1, MAX_PRIVATE_LOGS_PER_TX, UNFINALIZED_TAGGING_INDEXES_WINDOW_LEN - 1)],
+            [range(secret1, 0, UNFINALIZED_TAGGING_INDEXES_WINDOW_LEN - 1)],
             TxHash.random(),
             'test',
           ),
