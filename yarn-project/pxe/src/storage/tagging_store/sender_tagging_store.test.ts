@@ -258,10 +258,8 @@ describe('SenderTaggingStore', () => {
       });
 
       it('permits exactly WINDOW_LEN pending indexes for a fresh secret', async () => {
-        // With no index finalized yet, the last permitted pending index is WINDOW_LEN - 1: the same WINDOW_LEN-sized
-        // allowance a secret gets after any real finalization ([f + 1, f + WINDOW_LEN]). This must never exceed what
-        // the sender-sync first window probes ([0, WINDOW_LEN)), or two stores sharing a secret could pick colliding
-        // indexes.
+        // Fresh-secret counterpart of the two boundary tests above: with no index finalized yet, the last permitted
+        // pending index is WINDOW_LEN - 1, the same WINDOW_LEN-sized allowance as after any real finalization.
         await taggingStore.storePendingIndexes(
           [range(secret1, 0, MAX_PRIVATE_LOGS_PER_TX - 1)],
           TxHash.random(),
