@@ -1,5 +1,6 @@
-import { NetCrs, NetGrumpkinCrs } from '../net_crs.js';
 import { get, set } from 'idb-keyval';
+
+import { NetCrs, NetGrumpkinCrs } from '../net_crs.js';
 
 /**
  * Downloader for CRS from the web or local.

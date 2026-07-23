@@ -12,7 +12,7 @@ contract StorageProofTest {
         utils::to_nibbles,
     };
     use aztec::{
-        macros::functions::{external, internal, only_self, view},
+        macros::functions::{external, only_self, view},
         oracle::capsules,
         protocol::{
             address::{AztecAddress, EthAddress},
