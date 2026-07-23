@@ -197,7 +197,7 @@ export class SenderTaggingStore implements StagedStore {
       for (const { range, secretStr, pendingData, finalizedIndex } of rangeData) {
         // Check that the highest index is not further than window length from the highest finalized index.
         // When no index is finalized yet, indexes 0..UNFINALIZED_TAGGING_INDEXES_WINDOW_LEN - 1 are permitted:
-        // exactly WINDOW_LEN pending indexes, the same allowance as after any real finalization.
+        // exactly WINDOW_LEN pending indexes.
         // The sender-sync first window probes exactly this bound, so widening it here
         // without widening the probe would let two stores sharing a secret pick colliding indexes.
         if (range.highestIndex > (finalizedIndex ?? -1) + UNFINALIZED_TAGGING_INDEXES_WINDOW_LEN) {
