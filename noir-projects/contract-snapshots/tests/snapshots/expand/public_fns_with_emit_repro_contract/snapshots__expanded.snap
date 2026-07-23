@@ -185,28 +185,10 @@ pub contract PublicFnsWithEmitRepro {
             Self { target_contract: aztec::protocol::address::AztecAddress::zero()}
         }
 
-        pub fn fn_05(self, v: u64) -> aztec::context::calls::PublicCall<5, 1, ()> {
+        pub fn fn_01(self, v: u64) -> aztec::context::calls::PublicCall<5, 1, ()> {
             let serialized_params: [Field; 1] = <u64 as aztec::protocol::traits::Serialize>::serialize(v);
-            let selector: aztec::protocol::abis::function_selector::FunctionSelector = <aztec::protocol::abis::function_selector::FunctionSelector as aztec::protocol::traits::FromField>::from_field(1024449064_Field);
-            aztec::context::calls::PublicCall::<5, 1, ()>::new(self.target_contract, selector, "fn_05", serialized_params)
-        }
-
-        pub fn fn_07(self, v: u64) -> aztec::context::calls::PublicCall<5, 1, ()> {
-            let serialized_params: [Field; 1] = <u64 as aztec::protocol::traits::Serialize>::serialize(v);
-            let selector: aztec::protocol::abis::function_selector::FunctionSelector = <aztec::protocol::abis::function_selector::FunctionSelector as aztec::protocol::traits::FromField>::from_field(3759335427_Field);
-            aztec::context::calls::PublicCall::<5, 1, ()>::new(self.target_contract, selector, "fn_07", serialized_params)
-        }
-
-        pub fn fn_14(self, v: u64) -> aztec::context::calls::PublicCall<5, 1, ()> {
-            let serialized_params: [Field; 1] = <u64 as aztec::protocol::traits::Serialize>::serialize(v);
-            let selector: aztec::protocol::abis::function_selector::FunctionSelector = <aztec::protocol::abis::function_selector::FunctionSelector as aztec::protocol::traits::FromField>::from_field(1096580269_Field);
-            aztec::context::calls::PublicCall::<5, 1, ()>::new(self.target_contract, selector, "fn_14", serialized_params)
-        }
-
-        pub fn fn_06(self, v: u64) -> aztec::context::calls::PublicCall<5, 1, ()> {
-            let serialized_params: [Field; 1] = <u64 as aztec::protocol::traits::Serialize>::serialize(v);
-            let selector: aztec::protocol::abis::function_selector::FunctionSelector = <aztec::protocol::abis::function_selector::FunctionSelector as aztec::protocol::traits::FromField>::from_field(4182861060_Field);
-            aztec::context::calls::PublicCall::<5, 1, ()>::new(self.target_contract, selector, "fn_06", serialized_params)
+            let selector: aztec::protocol::abis::function_selector::FunctionSelector = <aztec::protocol::abis::function_selector::FunctionSelector as aztec::protocol::traits::FromField>::from_field(1472103964_Field);
+            aztec::context::calls::PublicCall::<5, 1, ()>::new(self.target_contract, selector, "fn_01", serialized_params)
         }
 
         pub fn fn_02(self, v: u64) -> aztec::context::calls::PublicCall<5, 1, ()> {
@@ -215,10 +197,10 @@ pub contract PublicFnsWithEmitRepro {
             aztec::context::calls::PublicCall::<5, 1, ()>::new(self.target_contract, selector, "fn_02", serialized_params)
         }
 
-        pub fn fn_01(self, v: u64) -> aztec::context::calls::PublicCall<5, 1, ()> {
+        pub fn fn_03(self, v: u64) -> aztec::context::calls::PublicCall<5, 1, ()> {
             let serialized_params: [Field; 1] = <u64 as aztec::protocol::traits::Serialize>::serialize(v);
-            let selector: aztec::protocol::abis::function_selector::FunctionSelector = <aztec::protocol::abis::function_selector::FunctionSelector as aztec::protocol::traits::FromField>::from_field(1472103964_Field);
-            aztec::context::calls::PublicCall::<5, 1, ()>::new(self.target_contract, selector, "fn_01", serialized_params)
+            let selector: aztec::protocol::abis::function_selector::FunctionSelector = <aztec::protocol::abis::function_selector::FunctionSelector as aztec::protocol::traits::FromField>::from_field(2154571552_Field);
+            aztec::context::calls::PublicCall::<5, 1, ()>::new(self.target_contract, selector, "fn_03", serialized_params)
         }
 
         pub fn fn_04(self, v: u64) -> aztec::context::calls::PublicCall<5, 1, ()> {
@@ -227,28 +209,34 @@ pub contract PublicFnsWithEmitRepro {
             aztec::context::calls::PublicCall::<5, 1, ()>::new(self.target_contract, selector, "fn_04", serialized_params)
         }
 
+        pub fn fn_05(self, v: u64) -> aztec::context::calls::PublicCall<5, 1, ()> {
+            let serialized_params: [Field; 1] = <u64 as aztec::protocol::traits::Serialize>::serialize(v);
+            let selector: aztec::protocol::abis::function_selector::FunctionSelector = <aztec::protocol::abis::function_selector::FunctionSelector as aztec::protocol::traits::FromField>::from_field(1024449064_Field);
+            aztec::context::calls::PublicCall::<5, 1, ()>::new(self.target_contract, selector, "fn_05", serialized_params)
+        }
+
+        pub fn fn_06(self, v: u64) -> aztec::context::calls::PublicCall<5, 1, ()> {
+            let serialized_params: [Field; 1] = <u64 as aztec::protocol::traits::Serialize>::serialize(v);
+            let selector: aztec::protocol::abis::function_selector::FunctionSelector = <aztec::protocol::abis::function_selector::FunctionSelector as aztec::protocol::traits::FromField>::from_field(4182861060_Field);
+            aztec::context::calls::PublicCall::<5, 1, ()>::new(self.target_contract, selector, "fn_06", serialized_params)
+        }
+
+        pub fn fn_07(self, v: u64) -> aztec::context::calls::PublicCall<5, 1, ()> {
+            let serialized_params: [Field; 1] = <u64 as aztec::protocol::traits::Serialize>::serialize(v);
+            let selector: aztec::protocol::abis::function_selector::FunctionSelector = <aztec::protocol::abis::function_selector::FunctionSelector as aztec::protocol::traits::FromField>::from_field(3759335427_Field);
+            aztec::context::calls::PublicCall::<5, 1, ()>::new(self.target_contract, selector, "fn_07", serialized_params)
+        }
+
         pub fn fn_08(self, v: u64) -> aztec::context::calls::PublicCall<5, 1, ()> {
             let serialized_params: [Field; 1] = <u64 as aztec::protocol::traits::Serialize>::serialize(v);
             let selector: aztec::protocol::abis::function_selector::FunctionSelector = <aztec::protocol::abis::function_selector::FunctionSelector as aztec::protocol::traits::FromField>::from_field(4192827894_Field);
             aztec::context::calls::PublicCall::<5, 1, ()>::new(self.target_contract, selector, "fn_08", serialized_params)
         }
 
-        pub fn fn_11(self, v: u64) -> aztec::context::calls::PublicCall<5, 1, ()> {
+        pub fn fn_09(self, v: u64) -> aztec::context::calls::PublicCall<5, 1, ()> {
             let serialized_params: [Field; 1] = <u64 as aztec::protocol::traits::Serialize>::serialize(v);
-            let selector: aztec::protocol::abis::function_selector::FunctionSelector = <aztec::protocol::abis::function_selector::FunctionSelector as aztec::protocol::traits::FromField>::from_field(3056031378_Field);
-            aztec::context::calls::PublicCall::<5, 1, ()>::new(self.target_contract, selector, "fn_11", serialized_params)
-        }
-
-        pub fn fn_13(self, v: u64) -> aztec::context::calls::PublicCall<5, 1, ()> {
-            let serialized_params: [Field; 1] = <u64 as aztec::protocol::traits::Serialize>::serialize(v);
-            let selector: aztec::protocol::abis::function_selector::FunctionSelector = <aztec::protocol::abis::function_selector::FunctionSelector as aztec::protocol::traits::FromField>::from_field(2026372669_Field);
-            aztec::context::calls::PublicCall::<5, 1, ()>::new(self.target_contract, selector, "fn_13", serialized_params)
-        }
-
-        pub fn fn_03(self, v: u64) -> aztec::context::calls::PublicCall<5, 1, ()> {
-            let serialized_params: [Field; 1] = <u64 as aztec::protocol::traits::Serialize>::serialize(v);
-            let selector: aztec::protocol::abis::function_selector::FunctionSelector = <aztec::protocol::abis::function_selector::FunctionSelector as aztec::protocol::traits::FromField>::from_field(2154571552_Field);
-            aztec::context::calls::PublicCall::<5, 1, ()>::new(self.target_contract, selector, "fn_03", serialized_params)
+            let selector: aztec::protocol::abis::function_selector::FunctionSelector = <aztec::protocol::abis::function_selector::FunctionSelector as aztec::protocol::traits::FromField>::from_field(1901877638_Field);
+            aztec::context::calls::PublicCall::<5, 1, ()>::new(self.target_contract, selector, "fn_09", serialized_params)
         }
 
         pub fn fn_10(self, v: u64) -> aztec::context::calls::PublicCall<5, 1, ()> {
@@ -257,22 +245,34 @@ pub contract PublicFnsWithEmitRepro {
             aztec::context::calls::PublicCall::<5, 1, ()>::new(self.target_contract, selector, "fn_10", serialized_params)
         }
 
+        pub fn fn_11(self, v: u64) -> aztec::context::calls::PublicCall<5, 1, ()> {
+            let serialized_params: [Field; 1] = <u64 as aztec::protocol::traits::Serialize>::serialize(v);
+            let selector: aztec::protocol::abis::function_selector::FunctionSelector = <aztec::protocol::abis::function_selector::FunctionSelector as aztec::protocol::traits::FromField>::from_field(3056031378_Field);
+            aztec::context::calls::PublicCall::<5, 1, ()>::new(self.target_contract, selector, "fn_11", serialized_params)
+        }
+
         pub fn fn_12(self, v: u64) -> aztec::context::calls::PublicCall<5, 1, ()> {
             let serialized_params: [Field; 1] = <u64 as aztec::protocol::traits::Serialize>::serialize(v);
             let selector: aztec::protocol::abis::function_selector::FunctionSelector = <aztec::protocol::abis::function_selector::FunctionSelector as aztec::protocol::traits::FromField>::from_field(2749762129_Field);
             aztec::context::calls::PublicCall::<5, 1, ()>::new(self.target_contract, selector, "fn_12", serialized_params)
         }
 
+        pub fn fn_13(self, v: u64) -> aztec::context::calls::PublicCall<5, 1, ()> {
+            let serialized_params: [Field; 1] = <u64 as aztec::protocol::traits::Serialize>::serialize(v);
+            let selector: aztec::protocol::abis::function_selector::FunctionSelector = <aztec::protocol::abis::function_selector::FunctionSelector as aztec::protocol::traits::FromField>::from_field(2026372669_Field);
+            aztec::context::calls::PublicCall::<5, 1, ()>::new(self.target_contract, selector, "fn_13", serialized_params)
+        }
+
+        pub fn fn_14(self, v: u64) -> aztec::context::calls::PublicCall<5, 1, ()> {
+            let serialized_params: [Field; 1] = <u64 as aztec::protocol::traits::Serialize>::serialize(v);
+            let selector: aztec::protocol::abis::function_selector::FunctionSelector = <aztec::protocol::abis::function_selector::FunctionSelector as aztec::protocol::traits::FromField>::from_field(1096580269_Field);
+            aztec::context::calls::PublicCall::<5, 1, ()>::new(self.target_contract, selector, "fn_14", serialized_params)
+        }
+
         pub fn fn_15(self, v: u64) -> aztec::context::calls::PublicCall<5, 1, ()> {
             let serialized_params: [Field; 1] = <u64 as aztec::protocol::traits::Serialize>::serialize(v);
             let selector: aztec::protocol::abis::function_selector::FunctionSelector = <aztec::protocol::abis::function_selector::FunctionSelector as aztec::protocol::traits::FromField>::from_field(986670843_Field);
             aztec::context::calls::PublicCall::<5, 1, ()>::new(self.target_contract, selector, "fn_15", serialized_params)
-        }
-
-        pub fn fn_09(self, v: u64) -> aztec::context::calls::PublicCall<5, 1, ()> {
-            let serialized_params: [Field; 1] = <u64 as aztec::protocol::traits::Serialize>::serialize(v);
-            let selector: aztec::protocol::abis::function_selector::FunctionSelector = <aztec::protocol::abis::function_selector::FunctionSelector as aztec::protocol::traits::FromField>::from_field(1901877638_Field);
-            aztec::context::calls::PublicCall::<5, 1, ()>::new(self.target_contract, selector, "fn_09", serialized_params)
         }
 
         pub fn offchain_receive(self, messages: BoundedVec<aztec::messages::processing::offchain::OffchainMessage, 16>) -> aztec::context::calls::UtilityCall<16, 321, ()> {
@@ -326,39 +326,12 @@ pub contract PublicFnsWithEmitRepro {
     }
 
     impl CallSelf<aztec::context::PublicContext> {
-        pub fn fn_05(self, v: u64) {
+        pub fn fn_01(self, v: u64) {
             let serialized_params: [Field; 1] = <u64 as aztec::protocol::traits::Serialize>::serialize(v);
-            let selector: aztec::protocol::abis::function_selector::FunctionSelector = <aztec::protocol::abis::function_selector::FunctionSelector as aztec::protocol::traits::FromField>::from_field(1024449064_Field);
+            let selector: aztec::protocol::abis::function_selector::FunctionSelector = <aztec::protocol::abis::function_selector::FunctionSelector as aztec::protocol::traits::FromField>::from_field(1472103964_Field);
             // Safety: comment added by `nargo expand`
             unsafe {
-                aztec::context::calls::PublicCall::<5, 1, ()>::new(self.address, selector, "fn_05", serialized_params).call(self.context)
-            }
-        }
-
-        pub fn fn_07(self, v: u64) {
-            let serialized_params: [Field; 1] = <u64 as aztec::protocol::traits::Serialize>::serialize(v);
-            let selector: aztec::protocol::abis::function_selector::FunctionSelector = <aztec::protocol::abis::function_selector::FunctionSelector as aztec::protocol::traits::FromField>::from_field(3759335427_Field);
-            // Safety: comment added by `nargo expand`
-            unsafe {
-                aztec::context::calls::PublicCall::<5, 1, ()>::new(self.address, selector, "fn_07", serialized_params).call(self.context)
-            }
-        }
-
-        pub fn fn_14(self, v: u64) {
-            let serialized_params: [Field; 1] = <u64 as aztec::protocol::traits::Serialize>::serialize(v);
-            let selector: aztec::protocol::abis::function_selector::FunctionSelector = <aztec::protocol::abis::function_selector::FunctionSelector as aztec::protocol::traits::FromField>::from_field(1096580269_Field);
-            // Safety: comment added by `nargo expand`
-            unsafe {
-                aztec::context::calls::PublicCall::<5, 1, ()>::new(self.address, selector, "fn_14", serialized_params).call(self.context)
-            }
-        }
-
-        pub fn fn_06(self, v: u64) {
-            let serialized_params: [Field; 1] = <u64 as aztec::protocol::traits::Serialize>::serialize(v);
-            let selector: aztec::protocol::abis::function_selector::FunctionSelector = <aztec::protocol::abis::function_selector::FunctionSelector as aztec::protocol::traits::FromField>::from_field(4182861060_Field);
-            // Safety: comment added by `nargo expand`
-            unsafe {
-                aztec::context::calls::PublicCall::<5, 1, ()>::new(self.address, selector, "fn_06", serialized_params).call(self.context)
+                aztec::context::calls::PublicCall::<5, 1, ()>::new(self.address, selector, "fn_01", serialized_params).call(self.context)
             }
         }
 
@@ -371,12 +344,12 @@ pub contract PublicFnsWithEmitRepro {
             }
         }
 
-        pub fn fn_01(self, v: u64) {
+        pub fn fn_03(self, v: u64) {
             let serialized_params: [Field; 1] = <u64 as aztec::protocol::traits::Serialize>::serialize(v);
-            let selector: aztec::protocol::abis::function_selector::FunctionSelector = <aztec::protocol::abis::function_selector::FunctionSelector as aztec::protocol::traits::FromField>::from_field(1472103964_Field);
+            let selector: aztec::protocol::abis::function_selector::FunctionSelector = <aztec::protocol::abis::function_selector::FunctionSelector as aztec::protocol::traits::FromField>::from_field(2154571552_Field);
             // Safety: comment added by `nargo expand`
             unsafe {
-                aztec::context::calls::PublicCall::<5, 1, ()>::new(self.address, selector, "fn_01", serialized_params).call(self.context)
+                aztec::context::calls::PublicCall::<5, 1, ()>::new(self.address, selector, "fn_03", serialized_params).call(self.context)
             }
         }
 
@@ -389,6 +362,33 @@ pub contract PublicFnsWithEmitRepro {
             }
         }
 
+        pub fn fn_05(self, v: u64) {
+            let serialized_params: [Field; 1] = <u64 as aztec::protocol::traits::Serialize>::serialize(v);
+            let selector: aztec::protocol::abis::function_selector::FunctionSelector = <aztec::protocol::abis::function_selector::FunctionSelector as aztec::protocol::traits::FromField>::from_field(1024449064_Field);
+            // Safety: comment added by `nargo expand`
+            unsafe {
+                aztec::context::calls::PublicCall::<5, 1, ()>::new(self.address, selector, "fn_05", serialized_params).call(self.context)
+            }
+        }
+
+        pub fn fn_06(self, v: u64) {
+            let serialized_params: [Field; 1] = <u64 as aztec::protocol::traits::Serialize>::serialize(v);
+            let selector: aztec::protocol::abis::function_selector::FunctionSelector = <aztec::protocol::abis::function_selector::FunctionSelector as aztec::protocol::traits::FromField>::from_field(4182861060_Field);
+            // Safety: comment added by `nargo expand`
+            unsafe {
+                aztec::context::calls::PublicCall::<5, 1, ()>::new(self.address, selector, "fn_06", serialized_params).call(self.context)
+            }
+        }
+
+        pub fn fn_07(self, v: u64) {
+            let serialized_params: [Field; 1] = <u64 as aztec::protocol::traits::Serialize>::serialize(v);
+            let selector: aztec::protocol::abis::function_selector::FunctionSelector = <aztec::protocol::abis::function_selector::FunctionSelector as aztec::protocol::traits::FromField>::from_field(3759335427_Field);
+            // Safety: comment added by `nargo expand`
+            unsafe {
+                aztec::context::calls::PublicCall::<5, 1, ()>::new(self.address, selector, "fn_07", serialized_params).call(self.context)
+            }
+        }
+
         pub fn fn_08(self, v: u64) {
             let serialized_params: [Field; 1] = <u64 as aztec::protocol::traits::Serialize>::serialize(v);
             let selector: aztec::protocol::abis::function_selector::FunctionSelector = <aztec::protocol::abis::function_selector::FunctionSelector as aztec::protocol::traits::FromField>::from_field(4192827894_Field);
@@ -398,30 +398,12 @@ pub contract PublicFnsWithEmitRepro {
             }
         }
 
-        pub fn fn_11(self, v: u64) {
+        pub fn fn_09(self, v: u64) {
             let serialized_params: [Field; 1] = <u64 as aztec::protocol::traits::Serialize>::serialize(v);
-            let selector: aztec::protocol::abis::function_selector::FunctionSelector = <aztec::protocol::abis::function_selector::FunctionSelector as aztec::protocol::traits::FromField>::from_field(3056031378_Field);
+            let selector: aztec::protocol::abis::function_selector::FunctionSelector = <aztec::protocol::abis::function_selector::FunctionSelector as aztec::protocol::traits::FromField>::from_field(1901877638_Field);
             // Safety: comment added by `nargo expand`
             unsafe {
-                aztec::context::calls::PublicCall::<5, 1, ()>::new(self.address, selector, "fn_11", serialized_params).call(self.context)
-            }
-        }
-
-        pub fn fn_13(self, v: u64) {
-            let serialized_params: [Field; 1] = <u64 as aztec::protocol::traits::Serialize>::serialize(v);
-            let selector: aztec::protocol::abis::function_selector::FunctionSelector = <aztec::protocol::abis::function_selector::FunctionSelector as aztec::protocol::traits::FromField>::from_field(2026372669_Field);
-            // Safety: comment added by `nargo expand`
-            unsafe {
-                aztec::context::calls::PublicCall::<5, 1, ()>::new(self.address, selector, "fn_13", serialized_params).call(self.context)
-            }
-        }
-
-        pub fn fn_03(self, v: u64) {
-            let serialized_params: [Field; 1] = <u64 as aztec::protocol::traits::Serialize>::serialize(v);
-            let selector: aztec::protocol::abis::function_selector::FunctionSelector = <aztec::protocol::abis::function_selector::FunctionSelector as aztec::protocol::traits::FromField>::from_field(2154571552_Field);
-            // Safety: comment added by `nargo expand`
-            unsafe {
-                aztec::context::calls::PublicCall::<5, 1, ()>::new(self.address, selector, "fn_03", serialized_params).call(self.context)
+                aztec::context::calls::PublicCall::<5, 1, ()>::new(self.address, selector, "fn_09", serialized_params).call(self.context)
             }
         }
 
@@ -434,6 +416,15 @@ pub contract PublicFnsWithEmitRepro {
             }
         }
 
+        pub fn fn_11(self, v: u64) {
+            let serialized_params: [Field; 1] = <u64 as aztec::protocol::traits::Serialize>::serialize(v);
+            let selector: aztec::protocol::abis::function_selector::FunctionSelector = <aztec::protocol::abis::function_selector::FunctionSelector as aztec::protocol::traits::FromField>::from_field(3056031378_Field);
+            // Safety: comment added by `nargo expand`
+            unsafe {
+                aztec::context::calls::PublicCall::<5, 1, ()>::new(self.address, selector, "fn_11", serialized_params).call(self.context)
+            }
+        }
+
         pub fn fn_12(self, v: u64) {
             let serialized_params: [Field; 1] = <u64 as aztec::protocol::traits::Serialize>::serialize(v);
             let selector: aztec::protocol::abis::function_selector::FunctionSelector = <aztec::protocol::abis::function_selector::FunctionSelector as aztec::protocol::traits::FromField>::from_field(2749762129_Field);
@@ -443,21 +434,30 @@ pub contract PublicFnsWithEmitRepro {
             }
         }
 
+        pub fn fn_13(self, v: u64) {
+            let serialized_params: [Field; 1] = <u64 as aztec::protocol::traits::Serialize>::serialize(v);
+            let selector: aztec::protocol::abis::function_selector::FunctionSelector = <aztec::protocol::abis::function_selector::FunctionSelector as aztec::protocol::traits::FromField>::from_field(2026372669_Field);
+            // Safety: comment added by `nargo expand`
+            unsafe {
+                aztec::context::calls::PublicCall::<5, 1, ()>::new(self.address, selector, "fn_13", serialized_params).call(self.context)
+            }
+        }
+
+        pub fn fn_14(self, v: u64) {
+            let serialized_params: [Field; 1] = <u64 as aztec::protocol::traits::Serialize>::serialize(v);
+            let selector: aztec::protocol::abis::function_selector::FunctionSelector = <aztec::protocol::abis::function_selector::FunctionSelector as aztec::protocol::traits::FromField>::from_field(1096580269_Field);
+            // Safety: comment added by `nargo expand`
+            unsafe {
+                aztec::context::calls::PublicCall::<5, 1, ()>::new(self.address, selector, "fn_14", serialized_params).call(self.context)
+            }
+        }
+
         pub fn fn_15(self, v: u64) {
             let serialized_params: [Field; 1] = <u64 as aztec::protocol::traits::Serialize>::serialize(v);
             let selector: aztec::protocol::abis::function_selector::FunctionSelector = <aztec::protocol::abis::function_selector::FunctionSelector as aztec::protocol::traits::FromField>::from_field(986670843_Field);
             // Safety: comment added by `nargo expand`
             unsafe {
                 aztec::context::calls::PublicCall::<5, 1, ()>::new(self.address, selector, "fn_15", serialized_params).call(self.context)
-            }
-        }
-
-        pub fn fn_09(self, v: u64) {
-            let serialized_params: [Field; 1] = <u64 as aztec::protocol::traits::Serialize>::serialize(v);
-            let selector: aztec::protocol::abis::function_selector::FunctionSelector = <aztec::protocol::abis::function_selector::FunctionSelector as aztec::protocol::traits::FromField>::from_field(1901877638_Field);
-            // Safety: comment added by `nargo expand`
-            unsafe {
-                aztec::context::calls::PublicCall::<5, 1, ()>::new(self.address, selector, "fn_09", serialized_params).call(self.context)
             }
         }
     }
@@ -473,36 +473,9 @@ pub contract PublicFnsWithEmitRepro {
     }
 
     impl EnqueueSelf<&mut aztec::context::PrivateContext> {
-        pub fn fn_05(self, v: u64) {
+        pub fn fn_01(self, v: u64) {
             let serialized_params: [Field; 1] = <u64 as aztec::protocol::traits::Serialize>::serialize(v);
-            let selector: aztec::protocol::abis::function_selector::FunctionSelector = <aztec::protocol::abis::function_selector::FunctionSelector as aztec::protocol::traits::FromField>::from_field(1024449064_Field);
-            let calldata: [Field; 1 + 1] = [<aztec::protocol::abis::function_selector::FunctionSelector as aztec::protocol::traits::ToField>::to_field(selector)].concat(serialized_params);
-            let calldata_hash: Field = aztec::hash::hash_calldata_array(calldata);
-            aztec::oracle::execution_cache::store(calldata, calldata_hash);
-            self.context.call_public_function_with_calldata_hash(self.address, calldata_hash, false, false);
-        }
-
-        pub fn fn_07(self, v: u64) {
-            let serialized_params: [Field; 1] = <u64 as aztec::protocol::traits::Serialize>::serialize(v);
-            let selector: aztec::protocol::abis::function_selector::FunctionSelector = <aztec::protocol::abis::function_selector::FunctionSelector as aztec::protocol::traits::FromField>::from_field(3759335427_Field);
-            let calldata: [Field; 1 + 1] = [<aztec::protocol::abis::function_selector::FunctionSelector as aztec::protocol::traits::ToField>::to_field(selector)].concat(serialized_params);
-            let calldata_hash: Field = aztec::hash::hash_calldata_array(calldata);
-            aztec::oracle::execution_cache::store(calldata, calldata_hash);
-            self.context.call_public_function_with_calldata_hash(self.address, calldata_hash, false, false);
-        }
-
-        pub fn fn_14(self, v: u64) {
-            let serialized_params: [Field; 1] = <u64 as aztec::protocol::traits::Serialize>::serialize(v);
-            let selector: aztec::protocol::abis::function_selector::FunctionSelector = <aztec::protocol::abis::function_selector::FunctionSelector as aztec::protocol::traits::FromField>::from_field(1096580269_Field);
-            let calldata: [Field; 1 + 1] = [<aztec::protocol::abis::function_selector::FunctionSelector as aztec::protocol::traits::ToField>::to_field(selector)].concat(serialized_params);
-            let calldata_hash: Field = aztec::hash::hash_calldata_array(calldata);
-            aztec::oracle::execution_cache::store(calldata, calldata_hash);
-            self.context.call_public_function_with_calldata_hash(self.address, calldata_hash, false, false);
-        }
-
-        pub fn fn_06(self, v: u64) {
-            let serialized_params: [Field; 1] = <u64 as aztec::protocol::traits::Serialize>::serialize(v);
-            let selector: aztec::protocol::abis::function_selector::FunctionSelector = <aztec::protocol::abis::function_selector::FunctionSelector as aztec::protocol::traits::FromField>::from_field(4182861060_Field);
+            let selector: aztec::protocol::abis::function_selector::FunctionSelector = <aztec::protocol::abis::function_selector::FunctionSelector as aztec::protocol::traits::FromField>::from_field(1472103964_Field);
             let calldata: [Field; 1 + 1] = [<aztec::protocol::abis::function_selector::FunctionSelector as aztec::protocol::traits::ToField>::to_field(selector)].concat(serialized_params);
             let calldata_hash: Field = aztec::hash::hash_calldata_array(calldata);
             aztec::oracle::execution_cache::store(calldata, calldata_hash);
@@ -518,9 +491,9 @@ pub contract PublicFnsWithEmitRepro {
             self.context.call_public_function_with_calldata_hash(self.address, calldata_hash, false, false);
         }
 
-        pub fn fn_01(self, v: u64) {
+        pub fn fn_03(self, v: u64) {
             let serialized_params: [Field; 1] = <u64 as aztec::protocol::traits::Serialize>::serialize(v);
-            let selector: aztec::protocol::abis::function_selector::FunctionSelector = <aztec::protocol::abis::function_selector::FunctionSelector as aztec::protocol::traits::FromField>::from_field(1472103964_Field);
+            let selector: aztec::protocol::abis::function_selector::FunctionSelector = <aztec::protocol::abis::function_selector::FunctionSelector as aztec::protocol::traits::FromField>::from_field(2154571552_Field);
             let calldata: [Field; 1 + 1] = [<aztec::protocol::abis::function_selector::FunctionSelector as aztec::protocol::traits::ToField>::to_field(selector)].concat(serialized_params);
             let calldata_hash: Field = aztec::hash::hash_calldata_array(calldata);
             aztec::oracle::execution_cache::store(calldata, calldata_hash);
@@ -536,6 +509,33 @@ pub contract PublicFnsWithEmitRepro {
             self.context.call_public_function_with_calldata_hash(self.address, calldata_hash, false, false);
         }
 
+        pub fn fn_05(self, v: u64) {
+            let serialized_params: [Field; 1] = <u64 as aztec::protocol::traits::Serialize>::serialize(v);
+            let selector: aztec::protocol::abis::function_selector::FunctionSelector = <aztec::protocol::abis::function_selector::FunctionSelector as aztec::protocol::traits::FromField>::from_field(1024449064_Field);
+            let calldata: [Field; 1 + 1] = [<aztec::protocol::abis::function_selector::FunctionSelector as aztec::protocol::traits::ToField>::to_field(selector)].concat(serialized_params);
+            let calldata_hash: Field = aztec::hash::hash_calldata_array(calldata);
+            aztec::oracle::execution_cache::store(calldata, calldata_hash);
+            self.context.call_public_function_with_calldata_hash(self.address, calldata_hash, false, false);
+        }
+
+        pub fn fn_06(self, v: u64) {
+            let serialized_params: [Field; 1] = <u64 as aztec::protocol::traits::Serialize>::serialize(v);
+            let selector: aztec::protocol::abis::function_selector::FunctionSelector = <aztec::protocol::abis::function_selector::FunctionSelector as aztec::protocol::traits::FromField>::from_field(4182861060_Field);
+            let calldata: [Field; 1 + 1] = [<aztec::protocol::abis::function_selector::FunctionSelector as aztec::protocol::traits::ToField>::to_field(selector)].concat(serialized_params);
+            let calldata_hash: Field = aztec::hash::hash_calldata_array(calldata);
+            aztec::oracle::execution_cache::store(calldata, calldata_hash);
+            self.context.call_public_function_with_calldata_hash(self.address, calldata_hash, false, false);
+        }
+
+        pub fn fn_07(self, v: u64) {
+            let serialized_params: [Field; 1] = <u64 as aztec::protocol::traits::Serialize>::serialize(v);
+            let selector: aztec::protocol::abis::function_selector::FunctionSelector = <aztec::protocol::abis::function_selector::FunctionSelector as aztec::protocol::traits::FromField>::from_field(3759335427_Field);
+            let calldata: [Field; 1 + 1] = [<aztec::protocol::abis::function_selector::FunctionSelector as aztec::protocol::traits::ToField>::to_field(selector)].concat(serialized_params);
+            let calldata_hash: Field = aztec::hash::hash_calldata_array(calldata);
+            aztec::oracle::execution_cache::store(calldata, calldata_hash);
+            self.context.call_public_function_with_calldata_hash(self.address, calldata_hash, false, false);
+        }
+
         pub fn fn_08(self, v: u64) {
             let serialized_params: [Field; 1] = <u64 as aztec::protocol::traits::Serialize>::serialize(v);
             let selector: aztec::protocol::abis::function_selector::FunctionSelector = <aztec::protocol::abis::function_selector::FunctionSelector as aztec::protocol::traits::FromField>::from_field(4192827894_Field);
@@ -545,27 +545,9 @@ pub contract PublicFnsWithEmitRepro {
             self.context.call_public_function_with_calldata_hash(self.address, calldata_hash, false, false);
         }
 
-        pub fn fn_11(self, v: u64) {
+        pub fn fn_09(self, v: u64) {
             let serialized_params: [Field; 1] = <u64 as aztec::protocol::traits::Serialize>::serialize(v);
-            let selector: aztec::protocol::abis::function_selector::FunctionSelector = <aztec::protocol::abis::function_selector::FunctionSelector as aztec::protocol::traits::FromField>::from_field(3056031378_Field);
-            let calldata: [Field; 1 + 1] = [<aztec::protocol::abis::function_selector::FunctionSelector as aztec::protocol::traits::ToField>::to_field(selector)].concat(serialized_params);
-            let calldata_hash: Field = aztec::hash::hash_calldata_array(calldata);
-            aztec::oracle::execution_cache::store(calldata, calldata_hash);
-            self.context.call_public_function_with_calldata_hash(self.address, calldata_hash, false, false);
-        }
-
-        pub fn fn_13(self, v: u64) {
-            let serialized_params: [Field; 1] = <u64 as aztec::protocol::traits::Serialize>::serialize(v);
-            let selector: aztec::protocol::abis::function_selector::FunctionSelector = <aztec::protocol::abis::function_selector::FunctionSelector as aztec::protocol::traits::FromField>::from_field(2026372669_Field);
-            let calldata: [Field; 1 + 1] = [<aztec::protocol::abis::function_selector::FunctionSelector as aztec::protocol::traits::ToField>::to_field(selector)].concat(serialized_params);
-            let calldata_hash: Field = aztec::hash::hash_calldata_array(calldata);
-            aztec::oracle::execution_cache::store(calldata, calldata_hash);
-            self.context.call_public_function_with_calldata_hash(self.address, calldata_hash, false, false);
-        }
-
-        pub fn fn_03(self, v: u64) {
-            let serialized_params: [Field; 1] = <u64 as aztec::protocol::traits::Serialize>::serialize(v);
-            let selector: aztec::protocol::abis::function_selector::FunctionSelector = <aztec::protocol::abis::function_selector::FunctionSelector as aztec::protocol::traits::FromField>::from_field(2154571552_Field);
+            let selector: aztec::protocol::abis::function_selector::FunctionSelector = <aztec::protocol::abis::function_selector::FunctionSelector as aztec::protocol::traits::FromField>::from_field(1901877638_Field);
             let calldata: [Field; 1 + 1] = [<aztec::protocol::abis::function_selector::FunctionSelector as aztec::protocol::traits::ToField>::to_field(selector)].concat(serialized_params);
             let calldata_hash: Field = aztec::hash::hash_calldata_array(calldata);
             aztec::oracle::execution_cache::store(calldata, calldata_hash);
@@ -581,6 +563,15 @@ pub contract PublicFnsWithEmitRepro {
             self.context.call_public_function_with_calldata_hash(self.address, calldata_hash, false, false);
         }
 
+        pub fn fn_11(self, v: u64) {
+            let serialized_params: [Field; 1] = <u64 as aztec::protocol::traits::Serialize>::serialize(v);
+            let selector: aztec::protocol::abis::function_selector::FunctionSelector = <aztec::protocol::abis::function_selector::FunctionSelector as aztec::protocol::traits::FromField>::from_field(3056031378_Field);
+            let calldata: [Field; 1 + 1] = [<aztec::protocol::abis::function_selector::FunctionSelector as aztec::protocol::traits::ToField>::to_field(selector)].concat(serialized_params);
+            let calldata_hash: Field = aztec::hash::hash_calldata_array(calldata);
+            aztec::oracle::execution_cache::store(calldata, calldata_hash);
+            self.context.call_public_function_with_calldata_hash(self.address, calldata_hash, false, false);
+        }
+
         pub fn fn_12(self, v: u64) {
             let serialized_params: [Field; 1] = <u64 as aztec::protocol::traits::Serialize>::serialize(v);
             let selector: aztec::protocol::abis::function_selector::FunctionSelector = <aztec::protocol::abis::function_selector::FunctionSelector as aztec::protocol::traits::FromField>::from_field(2749762129_Field);
@@ -590,18 +581,27 @@ pub contract PublicFnsWithEmitRepro {
             self.context.call_public_function_with_calldata_hash(self.address, calldata_hash, false, false);
         }
 
-        pub fn fn_15(self, v: u64) {
+        pub fn fn_13(self, v: u64) {
             let serialized_params: [Field; 1] = <u64 as aztec::protocol::traits::Serialize>::serialize(v);
-            let selector: aztec::protocol::abis::function_selector::FunctionSelector = <aztec::protocol::abis::function_selector::FunctionSelector as aztec::protocol::traits::FromField>::from_field(986670843_Field);
+            let selector: aztec::protocol::abis::function_selector::FunctionSelector = <aztec::protocol::abis::function_selector::FunctionSelector as aztec::protocol::traits::FromField>::from_field(2026372669_Field);
             let calldata: [Field; 1 + 1] = [<aztec::protocol::abis::function_selector::FunctionSelector as aztec::protocol::traits::ToField>::to_field(selector)].concat(serialized_params);
             let calldata_hash: Field = aztec::hash::hash_calldata_array(calldata);
             aztec::oracle::execution_cache::store(calldata, calldata_hash);
             self.context.call_public_function_with_calldata_hash(self.address, calldata_hash, false, false);
         }
 
-        pub fn fn_09(self, v: u64) {
+        pub fn fn_14(self, v: u64) {
             let serialized_params: [Field; 1] = <u64 as aztec::protocol::traits::Serialize>::serialize(v);
-            let selector: aztec::protocol::abis::function_selector::FunctionSelector = <aztec::protocol::abis::function_selector::FunctionSelector as aztec::protocol::traits::FromField>::from_field(1901877638_Field);
+            let selector: aztec::protocol::abis::function_selector::FunctionSelector = <aztec::protocol::abis::function_selector::FunctionSelector as aztec::protocol::traits::FromField>::from_field(1096580269_Field);
+            let calldata: [Field; 1 + 1] = [<aztec::protocol::abis::function_selector::FunctionSelector as aztec::protocol::traits::ToField>::to_field(selector)].concat(serialized_params);
+            let calldata_hash: Field = aztec::hash::hash_calldata_array(calldata);
+            aztec::oracle::execution_cache::store(calldata, calldata_hash);
+            self.context.call_public_function_with_calldata_hash(self.address, calldata_hash, false, false);
+        }
+
+        pub fn fn_15(self, v: u64) {
+            let serialized_params: [Field; 1] = <u64 as aztec::protocol::traits::Serialize>::serialize(v);
+            let selector: aztec::protocol::abis::function_selector::FunctionSelector = <aztec::protocol::abis::function_selector::FunctionSelector as aztec::protocol::traits::FromField>::from_field(986670843_Field);
             let calldata: [Field; 1 + 1] = [<aztec::protocol::abis::function_selector::FunctionSelector as aztec::protocol::traits::ToField>::to_field(selector)].concat(serialized_params);
             let calldata_hash: Field = aztec::hash::hash_calldata_array(calldata);
             aztec::oracle::execution_cache::store(calldata, calldata_hash);
@@ -626,77 +626,77 @@ pub contract PublicFnsWithEmitRepro {
         if selector == 1472103964_Field {
             let arg0: u64 = __aztec_nr_internals__unpack_arguments_0();
             __aztec_nr_internals__fn_01(arg0);
-            aztec::oracle::avm::avm_return([].as_slice());
+            aztec::oracle::avm::avm_return([].as_vector());
         };
         if selector == 3685080997_Field {
             let arg0: u64 = __aztec_nr_internals__unpack_arguments_0();
             __aztec_nr_internals__fn_02(arg0);
-            aztec::oracle::avm::avm_return([].as_slice());
+            aztec::oracle::avm::avm_return([].as_vector());
         };
         if selector == 2154571552_Field {
             let arg0: u64 = __aztec_nr_internals__unpack_arguments_0();
             __aztec_nr_internals__fn_03(arg0);
-            aztec::oracle::avm::avm_return([].as_slice());
+            aztec::oracle::avm::avm_return([].as_vector());
         };
         if selector == 1049101134_Field {
             let arg0: u64 = __aztec_nr_internals__unpack_arguments_0();
             __aztec_nr_internals__fn_04(arg0);
-            aztec::oracle::avm::avm_return([].as_slice());
+            aztec::oracle::avm::avm_return([].as_vector());
         };
         if selector == 1024449064_Field {
             let arg0: u64 = __aztec_nr_internals__unpack_arguments_0();
             __aztec_nr_internals__fn_05(arg0);
-            aztec::oracle::avm::avm_return([].as_slice());
+            aztec::oracle::avm::avm_return([].as_vector());
         };
         if selector == 4182861060_Field {
             let arg0: u64 = __aztec_nr_internals__unpack_arguments_0();
             __aztec_nr_internals__fn_06(arg0);
-            aztec::oracle::avm::avm_return([].as_slice());
+            aztec::oracle::avm::avm_return([].as_vector());
         };
         if selector == 3759335427_Field {
             let arg0: u64 = __aztec_nr_internals__unpack_arguments_0();
             __aztec_nr_internals__fn_07(arg0);
-            aztec::oracle::avm::avm_return([].as_slice());
+            aztec::oracle::avm::avm_return([].as_vector());
         };
         if selector == 4192827894_Field {
             let arg0: u64 = __aztec_nr_internals__unpack_arguments_0();
             __aztec_nr_internals__fn_08(arg0);
-            aztec::oracle::avm::avm_return([].as_slice());
+            aztec::oracle::avm::avm_return([].as_vector());
         };
         if selector == 1901877638_Field {
             let arg0: u64 = __aztec_nr_internals__unpack_arguments_0();
             __aztec_nr_internals__fn_09(arg0);
-            aztec::oracle::avm::avm_return([].as_slice());
+            aztec::oracle::avm::avm_return([].as_vector());
         };
         if selector == 2644440885_Field {
             let arg0: u64 = __aztec_nr_internals__unpack_arguments_0();
             __aztec_nr_internals__fn_10(arg0);
-            aztec::oracle::avm::avm_return([].as_slice());
+            aztec::oracle::avm::avm_return([].as_vector());
         };
         if selector == 3056031378_Field {
             let arg0: u64 = __aztec_nr_internals__unpack_arguments_0();
             __aztec_nr_internals__fn_11(arg0);
-            aztec::oracle::avm::avm_return([].as_slice());
+            aztec::oracle::avm::avm_return([].as_vector());
         };
         if selector == 2749762129_Field {
             let arg0: u64 = __aztec_nr_internals__unpack_arguments_0();
             __aztec_nr_internals__fn_12(arg0);
-            aztec::oracle::avm::avm_return([].as_slice());
+            aztec::oracle::avm::avm_return([].as_vector());
         };
         if selector == 2026372669_Field {
             let arg0: u64 = __aztec_nr_internals__unpack_arguments_0();
             __aztec_nr_internals__fn_13(arg0);
-            aztec::oracle::avm::avm_return([].as_slice());
+            aztec::oracle::avm::avm_return([].as_vector());
         };
         if selector == 1096580269_Field {
             let arg0: u64 = __aztec_nr_internals__unpack_arguments_0();
             __aztec_nr_internals__fn_14(arg0);
-            aztec::oracle::avm::avm_return([].as_slice());
+            aztec::oracle::avm::avm_return([].as_vector());
         };
         if selector == 986670843_Field {
             let arg0: u64 = __aztec_nr_internals__unpack_arguments_0();
             __aztec_nr_internals__fn_15(arg0);
-            aztec::oracle::avm::avm_return([].as_slice());
+            aztec::oracle::avm::avm_return([].as_vector());
         };
         panic(f"Unknown selector {selector}")
     }
