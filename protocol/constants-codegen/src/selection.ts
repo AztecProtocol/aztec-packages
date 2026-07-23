@@ -12,14 +12,28 @@ function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === 'object' && value !== null && !Array.isArray(value);
 }
 
+// Symbol names contain no regex metacharacters, so any entry that is not a
+// valid name can only be intended as a pattern.
+function isExactName(entry: string): boolean {
+  return /^[A-Za-z_]\w*$/.test(entry);
+}
+
+function compilePattern(entry: string): RegExp {
+  return new RegExp(`^(?:${entry})$`);
+}
+
 function readSymbolList(value: unknown, property: keyof SymbolSelection, path: string): string[] {
   if (!Array.isArray(value) || !value.every(symbol => typeof symbol === 'string')) {
     throw new Error(`'${property}' in ${path} must be an array of strings`);
   }
 
   for (const symbol of value) {
-    if (!/^[A-Za-z_]\w*$/.test(symbol)) {
-      throw new Error(`invalid ${property} symbol '${symbol}' in ${path}`);
+    if (!isExactName(symbol)) {
+      try {
+        compilePattern(symbol);
+      } catch {
+        throw new Error(`invalid ${property} pattern '${symbol}' in ${path}`);
+      }
     }
   }
 
@@ -57,13 +71,24 @@ export function readSymbolSelection(path: string): SymbolSelection {
   };
 }
 
-function selectRecord<T>(record: Record<string, T>, symbols: string[], kind: string): Record<string, T> {
-  const unknownSymbol = symbols.find(symbol => !Object.hasOwn(record, symbol));
-  if (unknownSymbol) {
-    throw new Error(`unknown ${kind} '${unknownSymbol}' in selection`);
+function selectRecord<T>(record: Record<string, T>, entries: string[], kind: string): Record<string, T> {
+  const selected = new Set<string>();
+  for (const entry of entries) {
+    if (isExactName(entry)) {
+      if (!Object.hasOwn(record, entry)) {
+        throw new Error(`unknown ${kind} '${entry}' in selection`);
+      }
+      selected.add(entry);
+    } else {
+      const pattern = compilePattern(entry);
+      const matches = Object.keys(record).filter(symbol => pattern.test(symbol));
+      if (matches.length === 0) {
+        throw new Error(`pattern '${entry}' in selection matched no ${kind}s`);
+      }
+      matches.forEach(symbol => selected.add(symbol));
+    }
   }
 
-  const selected = new Set(symbols);
   return Object.fromEntries(Object.entries(record).filter(([symbol]) => selected.has(symbol)));
 }
 

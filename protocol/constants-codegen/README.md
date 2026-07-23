@@ -32,13 +32,14 @@ A selection file names Noir source symbols and has the following shape:
 
 ```json
 {
-  "constants": ["ARCHIVE_HEIGHT"],
+  "constants": ["ARCHIVE_HEIGHT", "MAX_.*_PER_TX"],
   "domainSeparators": ["MERKLE_HASH"]
 }
 ```
 
-Both properties are required. Domain separator names omit the `DOM_SEP__` output prefix. Duplicate, invalid, or
-unknown symbols are rejected.
+Both properties are required. Domain separator names omit the `DOM_SEP__` output prefix. An entry that is not a
+valid symbol name is treated as a regular expression selecting every symbol whose whole name matches it. Duplicate
+entries, invalid patterns, unknown symbols, and patterns that match no symbol are rejected.
 
 Rust emits all parsed constants and domain separators: values that fit `u128` become `pub const NAME: u128` items,
 and larger field-sized values become `pub const NAME: &str` hex-string items.
