@@ -54,7 +54,8 @@ if [[ "$MODE" == "dequeued" ]]; then
     --target-ref "origin/$REF_NAME"
 
 elif [[ "$MODE" == "merged" ]]; then
-  "$TOPDIR/ci3/slack_notify" "PR merged into $REF_NAME: <$PR_URL|$commit_title> by $commit_author" "$channel"
+  merged_target="${TARGET_BRANCH:-$REF_NAME}"
+  "$TOPDIR/ci3/slack_notify" "PR merged into $merged_target: <$PR_URL|$commit_title> by $commit_author" "$channel"
 
 else
   "$TOPDIR/ci3/slack_notify_with_claudebox_kickoff" "$channel" \
