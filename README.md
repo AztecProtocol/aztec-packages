@@ -33,10 +33,6 @@ Releases are driven by git tags. The current version is tracked in `.release-ple
 
 There are many ways you can participate and help build high quality software. Check out the [contribution guide](CONTRIBUTING.md)!
 
-## Syncing noir
-
-We use marker commits and [git-subrepo](https://github.com/ingydotnet/git-subrepo) (for a subset of its intended use) to manage a mirror of noir. This tool was chosen because it makes code checkout and development as simple as possible (compared to submodules or subtrees), with the tradeoff of complexity around sync's.
-
 ## Development and CI
 
 For a broad overview of the CI system take a look at [CI.md](CI.md).
