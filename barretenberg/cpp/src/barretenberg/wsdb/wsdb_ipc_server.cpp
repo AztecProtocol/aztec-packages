@@ -131,6 +131,34 @@ static std::vector<PublicDataLeafValue> parse_prefilled_public_data(const std::s
 }
 
 // ---------------------------------------------------------------------------
+// Parse prefilled nullifiers from JSON: ["nullifier_hex",...]
+// Each hex string is a 64-char (32-byte) hex-encoded field element.
+// ---------------------------------------------------------------------------
+
+static std::vector<fr> parse_prefilled_nullifiers(const std::string& json)
+{
+    std::vector<fr> result;
+    if (json.empty() || json == "[]") {
+        return result;
+    }
+
+    std::string current;
+    bool in_string = false;
+
+    for (char c : json) {
+        if (c == '"') {
+            in_string = !in_string;
+        } else if (in_string) {
+            current += c;
+        } else if ((c == ',' || c == ']') && !current.empty()) {
+            result.push_back(hex_to_fr(current));
+            current.clear();
+        }
+    }
+    return result;
+}
+
+// ---------------------------------------------------------------------------
 // IPC server execution
 // ---------------------------------------------------------------------------
 
@@ -142,6 +170,7 @@ int execute_wsdb_server(const std::string& input_path,
                         uint32_t threads,
                         uint32_t initial_header_generator_point,
                         const std::string& prefilled_public_data_json,
+                        const std::string& prefilled_nullifiers_json,
                         uint64_t genesis_timestamp,
                         size_t request_ring_size,
                         size_t response_ring_size)
@@ -173,6 +202,14 @@ int execute_wsdb_server(const std::string& input_path,
         std::cerr << "Parsed " << prefilled_public_data.size() << " prefilled public data entries" << '\n';
     }
 
+    // Parse prefilled nullifiers: JSON array of "nullifier_hex" strings. The caller (TS world-state) passes the same
+    // canonical genesis nullifiers it seeds via the napi path, so the IPC genesis nullifier-tree root matches.
+    std::vector<bb::fr> prefilled_nullifiers;
+    if (!prefilled_nullifiers_json.empty()) {
+        prefilled_nullifiers = parse_prefilled_nullifiers(prefilled_nullifiers_json);
+        std::cerr << "Parsed " << prefilled_nullifiers.size() << " prefilled nullifiers" << '\n';
+    }
+
     // Create WorldState
     std::cerr << "Creating WorldState at " << data_dir << " with " << threads << " threads" << '\n';
     auto ws = std::make_unique<WorldState>(threads,
@@ -181,6 +218,7 @@ int execute_wsdb_server(const std::string& input_path,
                                            tree_height,
                                            tree_prefill,
                                            prefilled_public_data,
+                                           prefilled_nullifiers,
                                            initial_header_generator_point,
                                            genesis_timestamp);
 

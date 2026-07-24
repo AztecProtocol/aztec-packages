@@ -67,8 +67,12 @@ describe('block capacity benchmark', () => {
   let aztecNode: AztecNode;
   let originalSequencerConfig: Awaited<ReturnType<typeof getSequencersConfig>> | undefined;
   const benchmarkData: Array<{ name: string; unit: string; value: number }> = [];
+  // Window handed to bench_scrape.ts so the custom pipeline can scrape this run's
+  // blocks/metrics (see spartan/bootstrap.sh block_capacity_bench).
+  let benchStartedAt: string | undefined;
 
   beforeAll(async () => {
+    benchStartedAt = new Date().toISOString();
     logger.info('Setting up block capacity benchmark', {
       numWallets: NUM_WALLETS,
       txRealProofs,
@@ -139,6 +143,19 @@ describe('block capacity benchmark', () => {
       await writeFile(process.env.BENCH_OUTPUT, JSON.stringify(finalData));
       logger.info('Wrote benchmark output', { path: process.env.BENCH_OUTPUT, entries: finalData.length });
     }
+
+    // Hand the run window to the custom-pipeline scraper (bench_scrape.ts), which
+    // reads this file to bound its Prometheus/log queries for the block-capacity run.
+    const timingMetadataPath = '/tmp/block_capacity_timing_data.json';
+    await writeFile(
+      timingMetadataPath,
+      JSON.stringify({
+        startedAt: benchStartedAt ?? new Date().toISOString(),
+        endedAt: new Date().toISOString(),
+        runId: process.env.BENCH_RUN_ID,
+      }),
+    );
+    logger.info('Wrote block-capacity timing metadata', { path: timingMetadataPath });
 
     // Restore original sequencer config
     if (originalSequencerConfig?.[0]) {

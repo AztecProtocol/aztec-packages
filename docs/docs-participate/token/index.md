@@ -28,7 +28,7 @@ Please verify the contract address and other specifications with official Aztec 
 The $AZTEC token has three primary uses:
 
 ### 1. Transaction Fees
-All transactions on Aztec require fees paid in $AZTEC. This includes:
+All transactions on Aztec require fees. Fees are paid in [Fee Juice](/participate/basics/fees), a non-transferable fee asset created by bridging $AZTEC from Ethereum into Aztec. This covers:
 - Sending private transactions
 - Interacting with smart contracts
 - Deploying new contracts

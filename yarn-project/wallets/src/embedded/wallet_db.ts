@@ -11,6 +11,9 @@ function accountKey(field: string, address: AztecAddress | string): string {
   return `${field}:${address.toString()}`;
 }
 
+/** Bump when the WalletDB layout changes; a new version selects a fresh store, leaving the old one intact. */
+export const WALLET_DATA_SCHEMA_VERSION = 1;
+
 export class WalletDB {
   private accounts: AztecAsyncMap<string, Buffer>;
   private aliases: AztecAsyncMap<string, Buffer>;

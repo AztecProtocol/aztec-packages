@@ -2035,6 +2035,90 @@ groups:
           labels:
             <<: *common_labels
           isPaused: false
+        - uid: l1EthRethHeadStalled
+          title: L1 Ethereum - Reth canonical head stalled
+          condition: C
+          data:
+            - refId: A
+              relativeTimeRange:
+                from: 1200
+                to: 0
+              datasourceUid: spartan-metrics-prometheus
+              model:
+                editorMode: code
+                expr: (max by (eth_chain) (max_over_time(reth_blockchain_tree_canonical_chain_height{network="ethereum",eth_client="reth"}[15m]) - min_over_time(reth_blockchain_tree_canonical_chain_height{network="ethereum",eth_client="reth"}[15m]))) and on (eth_chain) ((max by (eth_chain) (max_over_time(beacon_head_slot{network="ethereum",eth_client="lighthouse"}[15m]) - min_over_time(beacon_head_slot{network="ethereum",eth_client="lighthouse"}[15m]))) > 0)
+                instant: true
+                intervalMs: 60000
+                legendFormat: __auto
+                maxDataPoints: 43200
+                range: false
+                refId: A
+            - refId: B
+              relativeTimeRange:
+                from: 1200
+                to: 0
+              datasourceUid: __expr__
+              model:
+                conditions:
+                    - evaluator:
+                        params: []
+                        type: gt
+                      operator:
+                        type: and
+                      query:
+                        params:
+                            - B
+                      reducer:
+                        params: []
+                        type: last
+                      type: query
+                datasource:
+                    type: __expr__
+                    uid: __expr__
+                expression: A
+                intervalMs: 1000
+                maxDataPoints: 43200
+                reducer: last
+                refId: B
+                type: reduce
+            - refId: C
+              relativeTimeRange:
+                from: 1200
+                to: 0
+              datasourceUid: __expr__
+              model:
+                conditions:
+                    - evaluator:
+                        params:
+                            - 1
+                        type: lt
+                      operator:
+                        type: and
+                      query:
+                        params:
+                            - C
+                      reducer:
+                        params: []
+                        type: query
+                datasource:
+                    type: __expr__
+                    uid: __expr__
+                expression: B
+                intervalMs: 1000
+                maxDataPoints: 43200
+                refId: C
+                type: threshold
+          dashboardUid: ""
+          panelId: 0
+          noDataState: NoData
+          execErrState: Error
+          for: 15m
+          annotations:
+            summary: Reth canonical head is stalled for {{ $labels.eth_chain }}
+            description: Reth canonical chain height has advanced by fewer than one block for 15 minutes while Lighthouse head slots continue advancing. Investigate Reth sync progress, storage, and execution health.
+          labels:
+            <<: *common_labels
+          isPaused: false
         - uid: l1EthLighthouseLowPeers
           title: L1 Ethereum - Lighthouse low peers
           condition: C

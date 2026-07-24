@@ -1,4 +1,4 @@
-import { type BarretenbergWasmMain } from './index.js';
+import type { BarretenbergWasmMain } from './index.js';
 
 /**
  * Keeps track of heap allocations so they can be easily freed.
