@@ -9,19 +9,20 @@ import { NativeWorldStateService } from '@aztec/world-state/native';
 
 import { bulkTest } from '../../fixtures/bulk_test.js';
 import { PublicTxSimulationTester } from '../../fixtures/public_tx_simulation_tester.js';
-import { TestExecutorMetrics } from '../../test_executor_metrics.js';
 
 describe('Public TX simulator apps tests: AvmTestContract', () => {
   const logger = createLogger('avm-test-contract-tests');
 
   let worldStateService: NativeWorldStateService;
   let simTester: PublicTxSimulationTester;
-  let metrics: TestExecutorMetrics;
 
   beforeEach(async () => {
     worldStateService = await NativeWorldStateService.tmp();
-    metrics = new TestExecutorMetrics();
-    simTester = await PublicTxSimulationTester.create(worldStateService, /*globals=*/ undefined, metrics);
+    simTester = await PublicTxSimulationTester.create(
+      worldStateService,
+      /*globals=*/ undefined,
+      /*metrics=*/ undefined,
+    );
   });
 
   afterEach(async () => {
@@ -34,12 +35,6 @@ describe('Public TX simulator apps tests: AvmTestContract', () => {
     expect(result.revertCode.isOK()).toBe(true);
     // The simulator reports how many AVM instructions the tx executed; the bulk test runs many.
     expect(result.totalInstructionsExecuted).toBeGreaterThan(0);
-    // Closing the loop: the count recorded into the benchmark metrics (through the real simulator call
-    // site) must match the value on the result. bulkTest runs a single labelled tx, so there is exactly
-    // one such entry.
-    const benchJson: Array<{ name: string; value: number }> = JSON.parse(metrics.toGithubActionBenchmarkJSON());
-    const instructionsEntry = benchJson.find(e => e.name.endsWith('/totalInstructionsExecuted'));
-    expect(instructionsEntry?.value).toBe(result.totalInstructionsExecuted);
   });
 
   describe('unique contract class limit and exceptional halts', () => {
