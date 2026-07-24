@@ -1,9 +1,11 @@
 #include "./graph_description_acir.hpp"
 #include "barretenberg/common/zip_view.hpp"
+#include "barretenberg/constants.hpp"
 #include "barretenberg/crypto/poseidon2/poseidon2_params.hpp"
 #include "barretenberg/crypto/sha256/sha256.hpp"
 #include "barretenberg/dsl/acir_format/acir_format.hpp"
 #include "barretenberg/noir_programs_boomerang_values/chonk_validation.hpp"
+#include "barretenberg/noir_programs_boomerang_values/hypernova_verification.hpp"
 #include "barretenberg/noir_programs_boomerang_values/poseidon2s_helpers.hpp"
 #include "barretenberg/noir_programs_boomerang_values/recursion_constraints_helper.hpp"
 #include "barretenberg/noir_programs_boomerang_values/sha256_circuit_helpers.hpp"
@@ -621,13 +623,28 @@ bool StaticAnalyzerAcir_<FF, CircuitBuilder>::process_recursion_constraints(
         return false;
     }
 
-    if (constraint->proof_type != PROOF_TYPE::CHONK) {
-        log_error("CHONK recursion validation failed: unsupported proof_type ",
-                  static_cast<int>(constraint->proof_type));
-        return false;
+    if (constraint->proof_type == PROOF_TYPE::CHONK) {
+        return process_chonk_recursion_constraint(constraint);
     }
 
-    return process_chonk_recursion_constraint(constraint);
+    if (constraint->proof_type == PROOF_TYPE::HN || constraint->proof_type == PROOF_TYPE::HN_FINAL ||
+        constraint->proof_type == PROOF_TYPE::OINK) {
+        return process_hn_recursion_constraint(constraint);
+    }
+
+    log_error("recursion validation: unsupported proof_type ", static_cast<int>(constraint->proof_type));
+    return false;
+}
+
+template <typename FF, typename CircuitBuilder>
+bool StaticAnalyzerAcir_<FF, CircuitBuilder>::process_hn_recursion_constraint(
+    const acir_format::RecursionConstraint* constraint)
+{
+    (void)constraint;
+    // HN recursion is only valid on MegaCircuitBuilder.
+    // The UltraCircuitBuilder specialization returns false.
+    log_error("HN recursion validation: not supported on UltraCircuitBuilder");
+    return false;
 }
 
 template <typename FF, typename CircuitBuilder>
@@ -2629,5 +2646,100 @@ bool StaticAnalyzerAcir_<FF, CircuitBuilder>::process_range_constraints(const Co
     return validate_range_constraint(constraint->witness, constraint->num_bits);
 }
 
+// Explicit specialization of process_hn_recursion_constraint for MegaCircuitBuilder.
+// Routes to the appropriate HN validator based on proof type.
+//
+// NOTE: PROOF_TYPE::HN_TAIL does not exist on this branch's PROOF_TYPE enum (upstream folded TAIL
+// into plain PROOF_TYPE::HN, since TAIL's fold-core is byte-identical to RESET's -- see
+// hypernova_verification.hpp's comment above validate_hn_baseline). A TAIL circuit therefore arrives
+// tagged PROOF_TYPE::HN with hn_count==1 and falls through to the RESET path below, which already
+// validates it correctly.
+template <>
+bool StaticAnalyzerAcir_<fr, MegaCircuitBuilder>::process_hn_recursion_constraint(
+    const acir_format::RecursionConstraint* constraint)
+{
+    if (constraint == nullptr) {
+        log_error("HN recursion validation failed: null constraint");
+        return false;
+    }
+
+    using namespace HNVerification;
+
+    const auto proof_type = constraint->proof_type;
+
+    if (proof_type == PROOF_TYPE::HN) {
+        // INNER-vs-RESET is not distinguished by proof_type (ACIR gives both PROOF_TYPE::HN);
+        // INNER is the only one of the valid kernel queue patterns with >=2 HN-typed entries
+        // sharing one queue -- a structural ACIR fact, not a gate-count side effect.
+        const size_t hn_count =
+            static_cast<size_t>(std::count_if(constraint_system.hn_recursion_constraints.begin(),
+                                              constraint_system.hn_recursion_constraints.end(),
+                                              [](const auto& c) { return c.proof_type == PROOF_TYPE::HN; }));
+
+        if (hn_count >= 2 && hn_count <= bb::MAX_APPS_PER_KERNEL + 1) {
+            // INNER kernel: one kernel-verify loop + up to MAX_APPS_PER_KERNEL app-verify loops in
+            // one circuit. constraint_index = this constraint's position in the ACIR opcode/
+            // verification-queue order (index 0 = previous kernel, index 1..hn_count-1 = apps --
+            // real ACIR queue order, not a squeeze-gate-derived guess).
+            const size_t constraint_index =
+                static_cast<size_t>(constraint - constraint_system.hn_recursion_constraints.data());
+
+            auto result = validate_hn_inner_for_opcode<fr>(builder, analyzer, *constraint, constraint_index, hn_count);
+            if (!result.all_valid) {
+                log_error("HN recursion validation failed: validate_hn_inner_for_opcode returned false "
+                          "(constraint_index=",
+                          constraint_index,
+                          ", proof_type=",
+                          static_cast<int>(proof_type),
+                          ")");
+                return false;
+            }
+            return true;
+        }
+
+        if (hn_count > bb::MAX_APPS_PER_KERNEL + 1) {
+            // More HN entries than any valid INNER kernel can have (1 kernel-verify +
+            // MAX_APPS_PER_KERNEL apps) -- fail closed rather than silently misrouting to RESET.
+            log_error(
+                "HN recursion validation failed: hn_count=", hn_count, " exceeds MAX_APPS_PER_KERNEL+1 for INNER");
+            return false;
+        }
+
+        // RESET (or TAIL, folded into the same proof_type -- see file-header note above) kernel:
+        // plain baseline fold-core, no ZK masking prelude.
+        auto result = validate_hn_baseline<fr>(builder, analyzer);
+        if (!result.all_valid) {
+            log_error("HN recursion validation failed: validate_hn_baseline returned false "
+                      "(proof_type=",
+                      static_cast<int>(proof_type),
+                      ")");
+            return false;
+        }
+        return true;
+    }
+
+    if (proof_type == PROOF_TYPE::HN_FINAL) {
+        auto result = validate_hn_hiding<fr>(builder, analyzer);
+        if (!result.all_valid) {
+            log_error("HN recursion validation failed: validate_hn_hiding returned false");
+            return false;
+        }
+        return true;
+    }
+
+    if (proof_type == PROOF_TYPE::OINK) {
+        auto result = validate_hn_init<fr>(builder, analyzer, *constraint);
+        if (!result.all_valid) {
+            log_error("HN recursion validation failed: validate_hn_init returned false");
+            return false;
+        }
+        return true;
+    }
+
+    log_error("HN recursion validation: unhandled HN proof_type ", static_cast<int>(proof_type));
+    return false;
+}
+
+template class StaticAnalyzerAcir_<fr, MegaCircuitBuilder>;
 template class StaticAnalyzerAcir_<fr, UltraCircuitBuilder>;
 } // namespace cdg
