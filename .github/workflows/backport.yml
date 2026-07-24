@@ -95,8 +95,13 @@ jobs:
             ${{ github.event.pull_request.number }} \
             ${{ steps.extract-branch.outputs.target_branch }}
 
-      - name: Comment on original PR (success)
-        if: steps.backport.outcome == 'success'
+      # The script step is continue-on-error so we can branch on its result. It
+      # reports one of three outcomes via steps.backport.outputs.outcome:
+      #   ported  (script exit 0, a commit was pushed and the staging PR exists)
+      #   skipped (script exit 0, nothing to port — already present or artifact)
+      #   <unset> (script exit != 0 — a conflict or a change the merge dropped)
+      - name: Comment on original PR (ported)
+        if: steps.backport.outcome == 'success' && steps.backport.outputs.outcome == 'ported'
         env:
           GH_TOKEN: ${{ secrets.AZTEC_BOT_GITHUB_TOKEN }}
         run: |
@@ -119,7 +124,7 @@ jobs:
           WORKFLOW_URL="${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}"
 
           gh pr comment "${{ github.event.pull_request.number }}" --body \
-            "❌ Failed to cherry-pick to \`$TARGET_BRANCH\` due to conflicts. (🤖) [View backport run]($WORKFLOW_URL)."
+            "❌ Could not automatically port to \`$TARGET_BRANCH\` — the change conflicted or did not apply cleanly. (🤖) [View backport run]($WORKFLOW_URL)."
 
       - name: Notify Slack and dispatch ClaudeBox on failure
         if: steps.backport.outcome == 'failure'
@@ -152,8 +157,20 @@ jobs:
           fi
 
           gh workflow run claudebox.yml \
-            -f prompt="${VERB^} PR #$PR ($TITLE) to $BRANCH (staging branch $STAGING_BRANCH). The automatic cherry-pick failed due to conflicts. Follow .claude/claudebox/backport.md to resolve conflicts and create a PR." \
+            -f prompt="${VERB^} PR #$PR ($TITLE) to $BRANCH (staging branch $STAGING_BRANCH). The automatic cherry-pick did not complete — it conflicted, or the merge produced an empty result and the change is not present in $BRANCH. Follow .claude/claudebox/backport.md to port the change and create a PR." \
             -f link="${LINK:-$URL}" \
             -f target_ref="origin/$STAGING_BRANCH" \
             -f slack_channel="$CHANNEL_ID" \
             -f slack_thread_ts="$TS"
+
+      # continue-on-error above keeps the notification + dispatch steps running,
+      # but a genuine non-completion must not report as a green run. Fail last,
+      # after the PR comment, Slack ping, and ClaudeBox dispatch have all fired,
+      # so an incomplete port is visible instead of silently swallowed. A clean
+      # port or an intentional skip leaves steps.backport.outcome == 'success'
+      # and the run stays green.
+      - name: Fail the run on an incomplete port
+        if: steps.backport.outcome == 'failure'
+        run: |
+          echo "Port of PR #${{ github.event.pull_request.number }} to ${{ steps.extract-branch.outputs.target_branch }} did not complete (conflict, or the change was not present after an empty merge). See the PR comment and #backports." >&2
+          exit 1

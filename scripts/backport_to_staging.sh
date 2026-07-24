@@ -176,6 +176,7 @@ if [[ $CONTINUE_MODE -eq 0 ]]; then
     fi
     if [[ $SKIP_ARTIFACT -eq 1 ]]; then
       echo "Skipping PR #$PR_NUMBER: release-line artifact, not forward-ported to $TARGET_BRANCH."
+      echo "outcome=skipped" >> "${GITHUB_OUTPUT:-/dev/null}"
       exit 0
     fi
   fi
@@ -192,14 +193,29 @@ if [[ $CONTINUE_MODE -eq 0 ]]; then
 
   echo "Cherry-picking $MERGE_COMMIT..."
   if ! git cherry-pick $CHERRY_PICK_ARGS "$MERGE_COMMIT" --no-edit; then
-    # No unmerged paths means the patch applied to nothing: the change is already
-    # present in the target (e.g. a fix that also reached next independently, or
-    # a next->release backport bounced back). Skip it quietly instead of treating
-    # it as a conflict, so auto-forward-porting does not raise false alarms.
+    # A cherry-pick with no unmerged paths means the 3-way merge produced no net
+    # change. That is USUALLY because the change is already in the target (a fix
+    # that also reached next independently, or a next->release backport bounced
+    # back). But an empty result can equally come from the merge silently
+    # resolving the change AWAY — which would drop it with no trace. Since `next`
+    # was cut from a reshaped snapshot of `v5-next`, that false-empty case is
+    # common here, so we must not infer "already present" from an empty tree alone.
+    #
+    # Verify it: the PR's own introduced diff (merge^1..merge) must already apply
+    # in reverse against the target. If it reverse-applies cleanly the target
+    # genuinely contains the change and skipping is safe; if it does not, the
+    # change is NOT present and the empty pick swallowed it — surface that as a
+    # port failure so a human / ClaudeBox can port it deliberately.
     if [[ -z "$(git diff --name-only --diff-filter=U)" ]]; then
       git cherry-pick --skip >/dev/null 2>&1 || git reset --hard >/dev/null
-      echo "PR #$PR_NUMBER is already present in $TARGET_BRANCH; nothing to port."
-      exit 0
+      PR_PATCH=$(git diff --no-color "${MERGE_COMMIT}^1" "$MERGE_COMMIT")
+      if [[ -z "$PR_PATCH" ]] || git apply --reverse --check <<<"$PR_PATCH" 2>/dev/null; then
+        echo "PR #$PR_NUMBER is already present in $TARGET_BRANCH; nothing to port."
+        echo "outcome=skipped" >> "${GITHUB_OUTPUT:-/dev/null}"
+        exit 0
+      fi
+      echo "Error: cherry-pick of PR #$PR_NUMBER produced an empty result, but its change is NOT present in $TARGET_BRANCH — the merge resolved it away. Port it manually, then run: ./scripts/backport_to_staging.sh --continue $PR_NUMBER $TARGET_BRANCH" >&2
+      exit 1
     fi
     git cherry-pick --abort 2>/dev/null || true
     echo "Error: Failed to cherry-pick. Fix conflicts manually, then run: ./scripts/backport_to_staging.sh --continue $PR_NUMBER $TARGET_BRANCH" >&2
@@ -264,3 +280,4 @@ echo "Updating PR body with commit list..."
 do_or_dryrun "$root/scripts/merge-train/update-pr-body.sh" "$STAGING_BRANCH"
 
 do_or_dryrun echo "Successfully backported PR #$PR_NUMBER to $STAGING_BRANCH"
+echo "outcome=ported" >> "${GITHUB_OUTPUT:-/dev/null}"
