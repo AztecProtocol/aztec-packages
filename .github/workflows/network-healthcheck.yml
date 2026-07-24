@@ -37,7 +37,7 @@ jobs:
           5. Any errors (level >= 50) or warnings (level 40) in the last 8 hours
           6. Bot status if applicable
 
-          Create a gist with the full healthcheck report. Then post a concise summary to the #team-alpha channel via respond_to_user. Flag anything that needs attention (stopped bots, missed slots, errors, low peer counts).
+          Create a gist with the full healthcheck report. Then post a concise summary to the #team-alpha-ci channel via respond_to_user. Flag anything that needs attention (stopped bots, missed slots, errors, low peer counts).
 
           Format the respond_to_user message as a brief network status overview, e.g.:
           - testnet: healthy, block 5570, 100 peers
@@ -45,6 +45,6 @@ jobs:
           - devnet: WARNING - bot stopped (insufficient balance)
           Link to the gist for full details."
 
-          ./ci3/slack_notify_with_claudebox_kickoff "#team-alpha" \
+          ./ci3/slack_notify_with_claudebox_kickoff "#team-alpha-ci" \
             "Starting network healthcheck for: ${NETWORKS}" \
             "$PROMPT"

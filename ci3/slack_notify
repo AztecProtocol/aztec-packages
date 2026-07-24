@@ -8,7 +8,17 @@ fi
 channel=${2:-"#aztec3-ci"}
 data=$(jq -n --arg channel "$channel" --arg text "$1" '{channel: $channel, text: $text}')
 
-curl -X POST https://slack.com/api/chat.postMessage \
+# Post to Slack, capturing the API response. Previously the response went to
+# /dev/null, so a failed post (most commonly the bot not being a member of the
+# target channel -> "not_in_channel", or an invalid channel/token) vanished with
+# no trace and could not be troubleshooted. Surface any failure in the CI log.
+# Best-effort: log the failure but do not fail the caller.
+response=$(curl -sS -X POST https://slack.com/api/chat.postMessage \
   -H "Authorization: Bearer $SLACK_BOT_TOKEN" \
   -H "Content-type: application/json" \
-  --data "$data" &>/dev/null
+  --data "$data" 2>&1)
+
+if [ "$(jq -r '.ok // false' <<<"$response" 2>/dev/null)" != "true" ]; then
+  error=$(jq -r '.error // empty' <<<"$response" 2>/dev/null)
+  echo "slack_notify: failed to post to Slack channel '$channel': ${error:-$response}" >&2
+fi
