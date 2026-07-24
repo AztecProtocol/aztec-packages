@@ -261,6 +261,26 @@ describe('Archiver Sync', () => {
       ).toEqual([1, 2, 3]);
     }, 30_000);
 
+    it('publishes an atomic L1 sync snapshot consistent with the individual getters', async () => {
+      // No snapshot is published before the first successful sync.
+      expect(archiver.getL1SyncSnapshot()).toBeUndefined();
+
+      await fake.addCheckpoint(CheckpointNumber(1), {
+        l1BlockNumber: 101n,
+        messagesL1BlockNumber: 98n,
+        numL1ToL2Messages: 3,
+      });
+      fake.setL1BlockNumber(2500n);
+      await archiver.syncImmediate();
+
+      const snapshot = archiver.getL1SyncSnapshot();
+      expect(snapshot).toBeDefined();
+      // The atomic triple matches the individual getters assigned at the same point in the sync loop.
+      expect(snapshot!.blockNumber).toBe(archiver.getL1BlockNumber());
+      expect(snapshot!.blockTimestamp).toBe(await archiver.getL1Timestamp());
+      expect(snapshot!.blockNumber).toBe(2500n);
+    }, 30_000);
+
     it('ignores checkpoint 3 because it has been pruned', async () => {
       const loggerSpy = jest.spyOn(syncLogger, 'warn');
 

@@ -1,7 +1,7 @@
 import type { BlobClientInterface } from '@aztec/blob-client/client';
 import { EpochCache } from '@aztec/epoch-cache';
 import { InboxContract, type InboxContractState, RollupContract } from '@aztec/ethereum/contracts';
-import type { L1BlockId } from '@aztec/ethereum/l1-types';
+import type { L1BlockId, L1SyncSnapshot } from '@aztec/ethereum/l1-types';
 import { getFinalizedL1Block } from '@aztec/ethereum/queries';
 import type { ViemPublicClient, ViemPublicDebugClient } from '@aztec/ethereum/types';
 import { asyncPool } from '@aztec/foundation/async-pool';
@@ -74,6 +74,11 @@ export class ArchiverL1Synchronizer implements Traceable {
   private l1BlockNumber: bigint | undefined;
   private l1BlockHash: Buffer32 | undefined;
   private l1Timestamp: bigint | undefined;
+  /**
+   * Atomic snapshot of the last fully-synced L1 identity. Published as a single object reference at the
+   * same point the three fields above are assigned, so a synchronous reader never observes a torn triple.
+   */
+  private l1SyncSnapshot: L1SyncSnapshot | undefined;
 
   private readonly updater: ArchiverDataStoreUpdater;
   public readonly tracer: Tracer;
@@ -127,6 +132,11 @@ export class ArchiverL1Synchronizer implements Traceable {
   /** Returns the last L1 timestamp that was synced. */
   public getL1Timestamp(): bigint | undefined {
     return this.l1Timestamp;
+  }
+
+  /** Returns the last fully-synced L1 identity as an atomic in-memory snapshot, or undefined before the first sync. */
+  public getL1SyncSnapshot(): L1SyncSnapshot | undefined {
+    return this.l1SyncSnapshot;
   }
 
   private getSignatureContext(): CoordinationSignatureContext {
@@ -240,6 +250,11 @@ export class ArchiverL1Synchronizer implements Traceable {
     this.l1Timestamp = currentL1Timestamp;
     this.l1BlockNumber = currentL1BlockNumber;
     this.l1BlockHash = currentL1BlockHash;
+    this.l1SyncSnapshot = {
+      blockNumber: currentL1BlockNumber,
+      blockHash: currentL1BlockHash,
+      blockTimestamp: currentL1Timestamp,
+    };
 
     const l1BlockNumberAtEnd = await this.publicClient.getBlockNumber();
     this.log.debug(`Archiver sync iteration complete`, {

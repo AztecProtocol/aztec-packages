@@ -2,6 +2,7 @@ import type { BlobClientInterface } from '@aztec/blob-client/client';
 import { EpochCache } from '@aztec/epoch-cache';
 import { BlockTagTooOldError, OutboxContract, RollupContract } from '@aztec/ethereum/contracts';
 import type { L1ContractAddresses } from '@aztec/ethereum/l1-contract-addresses';
+import type { L1SyncSnapshot, L1SyncSnapshotProvider } from '@aztec/ethereum/l1-types';
 import type { ViemPublicClient, ViemPublicDebugClient } from '@aztec/ethereum/types';
 import { BlockNumber, CheckpointNumber, EpochNumber, SlotNumber } from '@aztec/foundation/branded-types';
 import { Buffer32 } from '@aztec/foundation/buffer';
@@ -89,7 +90,7 @@ const noCheckpointProposalPresence: CheckpointProposalPresence = {
  * Responsible for handling robust L1 polling so that other components do not need to
  * concern themselves with it.
  */
-export class Archiver extends ArchiverDataSourceBase implements L2BlockSink, Traceable {
+export class Archiver extends ArchiverDataSourceBase implements L2BlockSink, L1SyncSnapshotProvider, Traceable {
   /** Event emitter for archiver events (L2BlockProven, L2PruneUnproven, L2PruneUncheckpointed, etc). */
   public readonly events: ArchiverEmitter;
 
@@ -608,6 +609,10 @@ export class Archiver extends ArchiverDataSourceBase implements L2BlockSink, Tra
 
   public getL1Timestamp(): Promise<bigint | undefined> {
     return Promise.resolve(this.synchronizer.getL1Timestamp());
+  }
+
+  public getL1SyncSnapshot(): L1SyncSnapshot | undefined {
+    return this.synchronizer.getL1SyncSnapshot();
   }
 
   public async getSyncedL2SlotNumber(): Promise<SlotNumber | undefined> {

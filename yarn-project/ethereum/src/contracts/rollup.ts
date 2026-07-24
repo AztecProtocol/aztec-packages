@@ -22,11 +22,13 @@ import {
   type StateOverride,
   type WatchContractEventReturnType,
   decodeErrorResult,
+  decodeFunctionResult,
   encodeAbiParameters,
   encodeFunctionData,
   getContract,
   hexToBigInt,
   keccak256,
+  multicall3Abi,
 } from 'viem';
 
 import { getPublicClient } from '../client.js';
@@ -38,6 +40,7 @@ import type { ViemClient } from '../types.js';
 import { formatViemError } from '../utils.js';
 import { GSEContract } from './gse.js';
 import type { L1EventLog } from './log.js';
+import { MULTI_CALL_3_ADDRESS } from './multicall.js';
 import { SlasherContract } from './slasher_contract.js';
 import { SlashingProposerContract } from './slashing_proposer.js';
 import { checkBlockTag } from './utils.js';
@@ -133,6 +136,31 @@ export type L1FeeData = {
   baseFee: bigint;
   blobFee: bigint;
 };
+
+/**
+ * A single fee-model read to batch into one pinned multicall. Every entry is a pure view function whose
+ * result feeds the fee snapshot; batching them into one `eth_call` gives a consistent per-wave view.
+ */
+export type RollupFeeRead =
+  | { kind: 'tips' }
+  | { kind: 'manaTarget' }
+  | { kind: 'manaLimit' }
+  | { kind: 'provingCostPerManaEth' }
+  | { kind: 'manaMinFeeAt'; timestamp: bigint }
+  | { kind: 'canPruneAtTime'; timestamp: bigint }
+  | { kind: 'l1FeesAt'; timestamp: bigint }
+  | { kind: 'checkpoint'; checkpointNumber: CheckpointNumber };
+
+/** Decoded result of a {@link RollupFeeRead}, tagged with the same `kind` and echoing the read's key params. */
+export type RollupFeeReadResult =
+  | { kind: 'tips'; value: { pending: CheckpointNumber; proven: CheckpointNumber } }
+  | { kind: 'manaTarget'; value: bigint }
+  | { kind: 'manaLimit'; value: bigint }
+  | { kind: 'provingCostPerManaEth'; value: bigint }
+  | { kind: 'manaMinFeeAt'; timestamp: bigint; value: bigint }
+  | { kind: 'canPruneAtTime'; timestamp: bigint; value: boolean }
+  | { kind: 'l1FeesAt'; timestamp: bigint; value: L1FeeData }
+  | { kind: 'checkpoint'; checkpointNumber: CheckpointNumber; value: CheckpointLog };
 
 /** Field offsets within the CompressedTempCheckpointLog struct in Solidity storage. */
 export enum TempCheckpointLogField {
@@ -270,6 +298,8 @@ export class RollupContract {
     address: EthAddress;
     contract: GetContractReturnType<typeof EscapeHatchAbi, ViemClient>;
   };
+  /** Cached feature-detection of Multicall3 bytecode presence, used by {@link readFeeInputs}. */
+  private multicall3Available: boolean | undefined;
 
   static get checkBlobStorageSlot(): bigint {
     const asString = RollupStorage.find(storage => storage.label === 'checkBlob')?.slot;
@@ -740,8 +770,9 @@ export class RollupContract {
     );
   }
 
-  async getTips(): Promise<{ pending: CheckpointNumber; proven: CheckpointNumber }> {
-    const { pending, proven } = await this.rollup.read.getTips();
+  async getTips(options?: { blockNumber?: bigint }): Promise<{ pending: CheckpointNumber; proven: CheckpointNumber }> {
+    await checkBlockTag(options?.blockNumber, this.client);
+    const { pending, proven } = await this.rollup.read.getTips(options);
     return {
       pending: CheckpointNumber.fromBigInt(pending),
       proven: CheckpointNumber.fromBigInt(proven),
@@ -1134,8 +1165,120 @@ export class RollupContract {
     return this.rollup.read.getHasSubmitted([BigInt(epochNumber), BigInt(numberOfCheckpointsInEpoch), prover]);
   }
 
-  getManaMinFeeAt(timestamp: bigint, inFeeAsset: boolean, stateOverride?: StateOverride): Promise<bigint> {
-    return this.rollup.read.getManaMinFeeAt([timestamp, inFeeAsset], { stateOverride });
+  getManaMinFeeAt(
+    timestamp: bigint,
+    inFeeAsset: boolean,
+    options?: { blockNumber?: bigint; stateOverride?: StateOverride },
+  ): Promise<bigint> {
+    return this.rollup.read.getManaMinFeeAt([timestamp, inFeeAsset], {
+      blockNumber: options?.blockNumber,
+      stateOverride: options?.stateOverride,
+    });
+  }
+
+  /**
+   * Non-memoized read of `getManaTarget` pinned to an optional L1 block. Governance can change the mana
+   * target, so a per-refresh reader must not reuse the process-lifetime `@memoize`d {@link getManaTarget}.
+   */
+  async readManaTarget(options?: { blockNumber?: bigint }): Promise<bigint> {
+    await checkBlockTag(options?.blockNumber, this.client);
+    return this.rollup.read.getManaTarget(options);
+  }
+
+  /**
+   * Non-memoized read of `getManaLimit` pinned to an optional L1 block. Derived from the mana target, which
+   * governance can change, so a per-refresh reader must not reuse the memoized {@link getManaLimit}.
+   */
+  async readManaLimit(options?: { blockNumber?: bigint }): Promise<bigint> {
+    await checkBlockTag(options?.blockNumber, this.client);
+    return this.rollup.read.getManaLimit(options);
+  }
+
+  /**
+   * Non-memoized read of `getProvingCostPerManaInEth` pinned to an optional L1 block. Governance can change
+   * the proving cost, so a per-refresh reader must not reuse the memoized {@link getProvingCostPerMana}.
+   */
+  async readProvingCostPerManaInEth(options?: { blockNumber?: bigint }): Promise<bigint> {
+    await checkBlockTag(options?.blockNumber, this.client);
+    return this.rollup.read.getProvingCostPerManaInEth(options);
+  }
+
+  /** Returns true iff Multicall3 bytecode is deployed at its canonical address (feature-detected once, cached). */
+  private async hasMulticall3(): Promise<boolean> {
+    if (this.multicall3Available === undefined) {
+      const code = await this.client.getCode({ address: MULTI_CALL_3_ADDRESS });
+      this.multicall3Available = !!code && code !== '0x';
+    }
+    return this.multicall3Available;
+  }
+
+  /**
+   * Reads a batch of fee-model view functions pinned to a single L1 block. When Multicall3 is available the
+   * whole batch is a single `eth_call` (one atomic per-backend view via `aggregate3` with `allowFailure: false`);
+   * otherwise it falls back to parallel individual pinned calls, which is weaker (a single logical batch may then
+   * mix fallback-transport backends). Results are returned in the same order as the requests.
+   */
+  async readFeeInputs(
+    reads: RollupFeeRead[],
+    options: { blockNumber: bigint; allowMulticall?: boolean },
+  ): Promise<RollupFeeReadResult[]> {
+    const allowMulticall = options.allowMulticall ?? true;
+    if (allowMulticall && (await this.hasMulticall3())) {
+      return this.readFeeInputsViaMulticall(reads, options.blockNumber);
+    }
+    return Promise.all(reads.map(read => this.readSingleFeeInput(read, options.blockNumber)));
+  }
+
+  private async readFeeInputsViaMulticall(reads: RollupFeeRead[], blockNumber: bigint): Promise<RollupFeeReadResult[]> {
+    const calls = reads.map(read => ({
+      target: this.address,
+      allowFailure: false,
+      callData: encodeFeeRead(read),
+    }));
+    const aggregateData = encodeFunctionData({ abi: multicall3Abi, functionName: 'aggregate3', args: [calls] });
+    const { data } = await this.client.call({ to: MULTI_CALL_3_ADDRESS, data: aggregateData, blockNumber });
+    if (!data) {
+      throw new Error('Multicall3 aggregate3 returned no data');
+    }
+    const entries = decodeFunctionResult({ abi: multicall3Abi, functionName: 'aggregate3', data });
+    if (entries.length !== reads.length) {
+      throw new Error(`Multicall3 returned ${entries.length} results for ${reads.length} requests`);
+    }
+    return reads.map((read, i) => decodeFeeReadResult(read, entries[i].returnData));
+  }
+
+  private async readSingleFeeInput(read: RollupFeeRead, blockNumber: bigint): Promise<RollupFeeReadResult> {
+    const opts = { blockNumber };
+    switch (read.kind) {
+      case 'tips':
+        return { kind: 'tips', value: await this.getTips(opts) };
+      case 'manaTarget':
+        return { kind: 'manaTarget', value: await this.readManaTarget(opts) };
+      case 'manaLimit':
+        return { kind: 'manaLimit', value: await this.readManaLimit(opts) };
+      case 'provingCostPerManaEth':
+        return { kind: 'provingCostPerManaEth', value: await this.readProvingCostPerManaInEth(opts) };
+      case 'manaMinFeeAt':
+        return {
+          kind: 'manaMinFeeAt',
+          timestamp: read.timestamp,
+          value: await this.getManaMinFeeAt(read.timestamp, true, opts),
+        };
+      case 'canPruneAtTime':
+        return {
+          kind: 'canPruneAtTime',
+          timestamp: read.timestamp,
+          value: await this.canPruneAtTime(read.timestamp, opts),
+        };
+      case 'l1FeesAt':
+        return { kind: 'l1FeesAt', timestamp: read.timestamp, value: await this.getL1FeesAt(read.timestamp, opts) };
+      case 'checkpoint':
+        return {
+          kind: 'checkpoint',
+          checkpointNumber: read.checkpointNumber,
+          value: await this.getCheckpoint(read.checkpointNumber, opts),
+        };
+    }
   }
 
   async getManaMinFeeComponentsAt(timestamp: bigint, inFeeAsset: boolean): Promise<ManaMinFeeComponents> {
@@ -1435,5 +1578,98 @@ export class RollupContract {
       ),
     );
     return entryBase + fieldOffset;
+  }
+}
+
+/** Encodes a {@link RollupFeeRead} into calldata using literal function names so the ABI types resolve. */
+function encodeFeeRead(read: RollupFeeRead): Hex {
+  switch (read.kind) {
+    case 'tips':
+      return encodeFunctionData({ abi: RollupAbi, functionName: 'getTips' });
+    case 'manaTarget':
+      return encodeFunctionData({ abi: RollupAbi, functionName: 'getManaTarget' });
+    case 'manaLimit':
+      return encodeFunctionData({ abi: RollupAbi, functionName: 'getManaLimit' });
+    case 'provingCostPerManaEth':
+      return encodeFunctionData({ abi: RollupAbi, functionName: 'getProvingCostPerManaInEth' });
+    case 'manaMinFeeAt':
+      return encodeFunctionData({ abi: RollupAbi, functionName: 'getManaMinFeeAt', args: [read.timestamp, true] });
+    case 'canPruneAtTime':
+      return encodeFunctionData({ abi: RollupAbi, functionName: 'canPruneAtTime', args: [read.timestamp] });
+    case 'l1FeesAt':
+      return encodeFunctionData({ abi: RollupAbi, functionName: 'getL1FeesAt', args: [read.timestamp] });
+    case 'checkpoint':
+      return encodeFunctionData({
+        abi: RollupAbi,
+        functionName: 'getCheckpoint',
+        args: [BigInt(read.checkpointNumber)],
+      });
+  }
+}
+
+/** Decodes one Multicall3 sub-call return value back into a typed {@link RollupFeeReadResult}. */
+function decodeFeeReadResult(read: RollupFeeRead, data: Hex): RollupFeeReadResult {
+  switch (read.kind) {
+    case 'tips': {
+      const { pending, proven } = decodeFunctionResult({ abi: RollupAbi, functionName: 'getTips', data });
+      return {
+        kind: 'tips',
+        value: { pending: CheckpointNumber.fromBigInt(pending), proven: CheckpointNumber.fromBigInt(proven) },
+      };
+    }
+    case 'manaTarget':
+      return {
+        kind: 'manaTarget',
+        value: decodeFunctionResult({ abi: RollupAbi, functionName: 'getManaTarget', data }),
+      };
+    case 'manaLimit':
+      return { kind: 'manaLimit', value: decodeFunctionResult({ abi: RollupAbi, functionName: 'getManaLimit', data }) };
+    case 'provingCostPerManaEth':
+      return {
+        kind: 'provingCostPerManaEth',
+        value: decodeFunctionResult({ abi: RollupAbi, functionName: 'getProvingCostPerManaInEth', data }),
+      };
+    case 'manaMinFeeAt':
+      return {
+        kind: 'manaMinFeeAt',
+        timestamp: read.timestamp,
+        value: decodeFunctionResult({ abi: RollupAbi, functionName: 'getManaMinFeeAt', data }),
+      };
+    case 'canPruneAtTime':
+      return {
+        kind: 'canPruneAtTime',
+        timestamp: read.timestamp,
+        value: decodeFunctionResult({ abi: RollupAbi, functionName: 'canPruneAtTime', data }),
+      };
+    case 'l1FeesAt': {
+      const result = decodeFunctionResult({ abi: RollupAbi, functionName: 'getL1FeesAt', data });
+      return {
+        kind: 'l1FeesAt',
+        timestamp: read.timestamp,
+        value: { baseFee: result.baseFee, blobFee: result.blobFee },
+      };
+    }
+    case 'checkpoint': {
+      const result = decodeFunctionResult({ abi: RollupAbi, functionName: 'getCheckpoint', data });
+      return {
+        kind: 'checkpoint',
+        checkpointNumber: read.checkpointNumber,
+        value: {
+          archive: Fr.fromString(result.archive),
+          headerHash: Buffer32.fromString(result.headerHash),
+          blobCommitmentsHash: Buffer32.fromString(result.blobCommitmentsHash),
+          attestationsHash: Buffer32.fromString(result.attestationsHash),
+          payloadDigest: Buffer32.fromString(result.payloadDigest),
+          slotNumber: SlotNumber.fromBigInt(result.slotNumber),
+          feeHeader: {
+            excessMana: result.feeHeader.excessMana,
+            manaUsed: result.feeHeader.manaUsed,
+            ethPerFeeAsset: result.feeHeader.ethPerFeeAsset,
+            congestionCost: result.feeHeader.congestionCost,
+            proverCost: result.feeHeader.proverCost,
+          },
+        },
+      };
+    }
   }
 }

@@ -27,7 +27,7 @@ import { uploadSnapshot } from '@aztec/node-lib/actions';
 import { type P2P, createTxValidatorForAcceptingTxsOverRPC, getDefaultAllowedSetupFunctions } from '@aztec/p2p';
 import { ProtocolContractAddress } from '@aztec/protocol-contracts';
 import type { ProverNode } from '@aztec/prover-node';
-import { SequencerClient } from '@aztec/sequencer-client';
+import { type FeeSnapshotStats, SequencerClient } from '@aztec/sequencer-client';
 import { AutomineSequencer } from '@aztec/sequencer-client/automine';
 import type { SlasherClientInterface } from '@aztec/slasher';
 import { STANDARD_MULTI_CALL_ENTRYPOINT_ADDRESS } from '@aztec/standard-contracts/multi-call-entrypoint';
@@ -138,6 +138,8 @@ export interface AztecNodeServiceDeps {
   globalVariableBuilder: GlobalVariableBuilderInterface;
   rollupContract: RollupContract | undefined;
   feeProvider: FeeProvider;
+  /** Background fee snapshot service, stopped before the archiver so its final refresh sees a live identity. */
+  feeSnapshotService?: { stop(): Promise<void>; getStats(): FeeSnapshotStats };
   epochCache: EpochCacheInterface;
   packageVersion: string;
   peerProofVerifier: ClientProtocolCircuitVerifier;
@@ -184,6 +186,7 @@ export class AztecNodeService implements AztecNode, AztecNodeAdmin, AztecNodeDeb
   protected readonly globalVariableBuilder: GlobalVariableBuilderInterface;
   protected readonly rollupContract: RollupContract | undefined;
   protected readonly feeProvider: FeeProvider;
+  private readonly feeSnapshotService?: { stop(): Promise<void>; getStats(): FeeSnapshotStats };
   protected readonly epochCache: EpochCacheInterface;
   protected readonly packageVersion: string;
   private peerProofVerifier: ClientProtocolCircuitVerifier;
@@ -214,6 +217,7 @@ export class AztecNodeService implements AztecNode, AztecNodeAdmin, AztecNodeDeb
     this.globalVariableBuilder = deps.globalVariableBuilder;
     this.rollupContract = deps.rollupContract;
     this.feeProvider = deps.feeProvider;
+    this.feeSnapshotService = deps.feeSnapshotService;
     this.epochCache = deps.epochCache;
     this.packageVersion = deps.packageVersion;
     this.peerProofVerifier = deps.peerProofVerifier;
@@ -567,6 +571,8 @@ export class AztecNodeService implements AztecNode, AztecNodeAdmin, AztecNodeDeb
     await tryStop(this.proverNode);
     await tryStop(this.p2pClient);
     await tryStop(this.worldStateSynchronizer);
+    // Stop the fee snapshot service before the archiver so its identity provider is still live during shutdown.
+    await tryStop(this.feeSnapshotService);
     await tryStop(this.blockSource);
     await tryStop(this.blobClient);
     await tryStop(this.telemetry);
@@ -579,6 +585,14 @@ export class AztecNodeService implements AztecNode, AztecNodeAdmin, AztecNodeDeb
    */
   public getBlobClient(): BlobClientInterface | undefined {
     return this.blobClient;
+  }
+
+  /**
+   * Returns the background fee snapshot service counters, or undefined if the service is not wired.
+   * @internal - Exposed for benchmarking/testing purposes only.
+   */
+  public getFeeSnapshotStats(): FeeSnapshotStats | undefined {
+    return this.feeSnapshotService?.getStats();
   }
 
   /**

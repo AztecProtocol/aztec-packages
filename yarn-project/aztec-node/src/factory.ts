@@ -20,9 +20,11 @@ import { type ProverNode, type ProverNodeDeps, createProverNode } from '@aztec/p
 import { createKeyStoreForProver } from '@aztec/prover-node/config';
 import {
   FeeProviderImpl,
+  FeeSnapshotService,
   GlobalVariableBuilder,
   SequencerClient,
   type SequencerPublisher,
+  getDefaultFeeSnapshotServiceConfig,
 } from '@aztec/sequencer-client';
 import { type AutomineSequencer, createAutomineSequencer } from '@aztec/sequencer-client/automine';
 import {
@@ -241,7 +243,24 @@ export async function createAztecNodeService(
     };
 
     const globalVariableBuilder = new GlobalVariableBuilder(publicClient, globalVariableBuilderConfig);
-    const feeProvider = new FeeProviderImpl(dateProvider, publicClient, globalVariableBuilderConfig);
+
+    // Serve fee RPCs (and the p2p mempool fee policy) from a background snapshot refreshed per L1 block, so
+    // warm calls issue zero L1 requests. The service pins its reads to the archiver's synced L1 identity.
+    const feeSnapshotService = new FeeSnapshotService(
+      rollupContract,
+      archiver,
+      dateProvider,
+      getDefaultFeeSnapshotServiceConfig({
+        slotDuration: Number(slotDuration),
+        l1GenesisTime,
+        ethereumSlotDuration: config.ethereumSlotDuration,
+        epochDuration: Number(epochDuration),
+      }),
+      log.createChild('fee-snapshot'),
+    );
+    feeSnapshotService.start();
+    started.push(feeSnapshotService);
+    const feeProvider = new FeeProviderImpl(feeSnapshotService);
 
     const collectOffenses = !config.disableValidator || config.enableOffenseCollection;
 
@@ -623,6 +642,7 @@ export async function createAztecNodeService(
       globalVariableBuilder,
       rollupContract,
       feeProvider,
+      feeSnapshotService,
       epochCache,
       packageVersion,
       peerProofVerifier,

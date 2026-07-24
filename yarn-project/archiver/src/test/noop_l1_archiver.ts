@@ -40,6 +40,9 @@ class NoopL1Synchronizer implements FunctionsOf<ArchiverL1Synchronizer> {
   getL1Timestamp(): bigint | undefined {
     return undefined;
   }
+  getL1SyncSnapshot(): undefined {
+    return undefined;
+  }
   testEthereumNodeSynced(): Promise<void> {
     return Promise.resolve();
   }
