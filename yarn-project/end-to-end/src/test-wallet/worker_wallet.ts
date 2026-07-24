@@ -116,15 +116,17 @@ export class WorkerWallet implements Wallet {
     return wallet;
   }
 
-  private async callRaw(fn: string, ...args: any[]): Promise<string> {
+  private async callRaw(fn: string, ...args: any[]): Promise<string | undefined> {
     const argsJson = jsonStringify(args);
-    return (await this.client.request({ fn, args: argsJson })) as string;
+    return (await this.client.request({ fn, args: argsJson })) as string | undefined;
   }
 
   private async call(fn: string, ...args: any[]): Promise<any> {
     const resultJson = await this.callRaw(fn, ...args);
     const methodSchema = (WorkerWalletSchema as ApiSchema)[fn];
-    return getSchemaReturnType(methodSchema).parseAsync(JSON.parse(resultJson));
+    // Void-returning methods (e.g. registerContract) serialize to `undefined` on the worker side, which
+    // JSON.parse cannot handle; hand it straight to the schema, whose `z.void()` output accepts undefined.
+    return getSchemaReturnType(methodSchema).parseAsync(resultJson === undefined ? undefined : JSON.parse(resultJson));
   }
 
   getChainInfo(): Promise<ChainInfo> {
