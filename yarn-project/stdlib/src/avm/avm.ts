@@ -1281,8 +1281,7 @@ export class PublicTxResult {
     // For the proving request.
     public hints: AvmExecutionHints | undefined,
     public publicInputs: AvmCircuitPublicInputs | undefined,
-    // Total AVM instructions executed by the tx (execution steps / trace rows), across all enqueued and
-    // nested calls. Trailing with a default so older serialized results deserialize to 0.
+    // Total AVM instructions executed by the tx, across all enqueued and nested calls.
     public totalInstructionsExecuted: number = 0,
   ) {}
 
@@ -1312,7 +1311,7 @@ export class PublicTxResult {
         publicTxEffect: PublicTxEffect.schema,
         callStackMetadata: z.union([CallStackMetadata.schema.array(), NestedProcessReturnValues.schema.array()]),
         logs: NullishToUndefined(DebugLog.schema.array()),
-        // Missing/null (e.g. from an older serialized result) coalesces to 0.
+        // Missing/null coalesces to 0.
         totalInstructionsExecuted: z
           .number()
           .nullish()
