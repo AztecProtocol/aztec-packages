@@ -1,4 +1,5 @@
 import { ChildProcess, spawn } from 'child_process';
+import { once } from 'events';
 import * as fs from 'fs';
 import * as net from 'net';
 import * as os from 'os';
@@ -9,6 +10,11 @@ import { threadId } from 'worker_threads';
 import { IMsgpackBackendAsync } from '../interface.js';
 
 let instanceCounter = 0;
+
+// Backstop for a bb process that is alive but wedged before listen(). Deliberately generous:
+// on a fully loaded prover many bb processes can spawn simultaneously and startup time has no
+// useful upper bound, so this must only ever fire when bb is genuinely stuck, never under load.
+const STARTUP_TIMEOUT_MS = 60_000;
 
 /**
  * Asynchronous native backend that communicates with bb binary via Unix Domain Socket.
@@ -23,12 +29,7 @@ let instanceCounter = 0;
  * - Response: 4-byte little-endian length + msgpack buffer
  */
 export class BarretenbergNativeSocketAsyncBackend implements IMsgpackBackendAsync {
-  private process: ChildProcess;
-  private socket: net.Socket | null = null;
-  private socketPath: string;
-  private connectionPromise: Promise<void>;
-  private connectionTimeout: NodeJS.Timeout | null = null;
-  private logger: (msg: string) => void;
+  private socket: net.Socket | null;
 
   // Queue of pending callbacks for pipelined requests
   // Responses come back in FIFO order, so we match them with queued callbacks
@@ -45,66 +46,15 @@ export class BarretenbergNativeSocketAsyncBackend implements IMsgpackBackendAsyn
   private responseBuffer: Buffer | null = null;
   private responseBytesRead: number = 0;
 
-  constructor(bbBinaryPath: string, threads?: number, logger?: (msg: string) => void, unref?: boolean) {
-    this.logger = logger ?? (() => {});
-    // Create a unique socket path in temp directory
-    this.socketPath = path.join(os.tmpdir(), `bb-${process.pid}-${threadId}-${instanceCounter++}.sock`);
-
-    // Ensure socket path doesn't already exist (cleanup from previous crashes)
-    if (fs.existsSync(this.socketPath)) {
-      fs.unlinkSync(this.socketPath);
-    }
-
-    let connectionResolve: (() => void) | null = null;
-    let connectionReject: ((error: Error) => void) | null = null;
-
-    this.connectionPromise = new Promise<void>((resolve, reject) => {
-      connectionResolve = resolve;
-      connectionReject = reject;
-    });
-
-    // If threads not set use num cpu cores, max 16.
-    const hwc = threads ? threads.toString() : Math.min(16, os.cpus().length).toString();
-    const env = { ...process.env, HARDWARE_CONCURRENCY: hwc };
-
-    // Spawn bb process - it will create the socket server
-    const args = ['msgpack', 'run', '--input', this.socketPath];
-    this.process = spawn(bbBinaryPath, args, {
-      stdio: ['ignore', logger ? 'pipe' : 'ignore', logger ? 'pipe' : 'ignore'],
-      env,
-    });
-
-    // Disconnect from event loop so process can exit without waiting for bb
-    // The bb process has parent death monitoring (prctl on Linux, kqueue on macOS)
-    // so it will automatically exit when Node.js exits
-    this.process.unref();
-
-    if (logger) {
-      logger("Logger attached to bb process. DON'T FORGET TO DESTROY THE BACKEND to allow Node.js to exit.");
-      readline.createInterface({ input: this.process.stdout! }).on('line', logger);
-      readline.createInterface({ input: this.process.stderr! }).on('line', logger);
-      if (unref) {
-        (this.process.stdout as any)?.unref?.();
-        (this.process.stderr as any)?.unref?.();
-      }
-    }
+  private constructor(
+    private process: ChildProcess,
+    socket: net.Socket,
+    private logger: (msg: string) => void,
+  ) {
+    this.socket = socket;
 
     this.process.on('error', err => {
-      if (connectionReject) {
-        connectionReject(new Error(`Native backend process error: ${err.message}`));
-        connectionReject = null;
-        connectionResolve = null;
-      }
-      // Reject all pending callbacks and destroy socket to prevent further writes
-      const error = new Error(`Native backend process error: ${err.message}`);
-      for (const callback of this.pendingCallbacks) {
-        callback.reject(error);
-      }
-      this.pendingCallbacks = [];
-      if (this.socket) {
-        this.socket.destroy();
-        this.socket = null;
-      }
+      this.failAllPending(new Error(`Native backend process error: ${err.message}`));
     });
 
     this.process.on('exit', (code, signal) => {
@@ -114,125 +64,123 @@ export class BarretenbergNativeSocketAsyncBackend implements IMsgpackBackendAsyn
           : signal && signal !== 'SIGTERM'
             ? `Native backend process killed with signal ${signal}`
             : 'Native backend process exited unexpectedly';
-
-      if (connectionReject) {
-        connectionReject(new Error(errorMsg));
-        connectionReject = null;
-        connectionResolve = null;
-      }
-      // Reject all pending callbacks and destroy socket to prevent further writes
-      const error = new Error(errorMsg);
-      for (const callback of this.pendingCallbacks) {
-        callback.reject(error);
-      }
-      this.pendingCallbacks = [];
-      if (this.socket) {
-        this.socket.destroy();
-        this.socket = null;
-      }
+      this.failAllPending(new Error(errorMsg));
     });
 
-    // Wait for bb to create socket file, then connect
-    this.waitForSocketAndConnect()
-      .then(() => {
-        if (connectionResolve) {
-          connectionResolve();
-          connectionResolve = null;
-          connectionReject = null;
-        }
-      })
-      .catch(err => {
-        if (connectionReject) {
-          connectionReject(err);
-          connectionReject = null;
-          connectionResolve = null;
-        }
-      });
-
-    // Set a timeout for connection
-    this.connectionTimeout = setTimeout(() => {
-      if (connectionReject) {
-        connectionReject(new Error('Timeout waiting for bb socket connection'));
-        connectionReject = null;
-        connectionResolve = null;
-        this.cleanup();
-      }
-    }, 5000);
-  }
-
-  private async waitForSocketAndConnect(): Promise<void> {
-    // Poll for socket file to exist (bb is creating it)
-    const startTime = Date.now();
-    while (!fs.existsSync(this.socketPath)) {
-      if (Date.now() - startTime > 5000) {
-        throw new Error('Timeout waiting for bb to create socket file');
-      }
-      await new Promise(resolve => setTimeout(resolve, 50));
-    }
-
-    // Additional check: ensure it's actually a socket
-    const stats = fs.statSync(this.socketPath);
-    if (!stats.isSocket()) {
-      throw new Error(`Path exists but is not a socket: ${this.socketPath}`);
-    }
-
-    // Connect with retry on ECONNREFUSED. The socket file appears after bb's bind() but
-    // before its listen(); a connect() landing in that window gets ECONNREFUSED. Retry
-    // briefly until bb is listening or we hit the 5s budget.
-    const socket = await this.connectWithRetry(startTime);
-    this.socket = socket;
-
-    // Clear connection timeout on successful connection
-    if (this.connectionTimeout) {
-      clearTimeout(this.connectionTimeout);
-      this.connectionTimeout = null;
-    }
-
-    // Set up persistent handlers now that we're connected.
     socket.on('data', (chunk: Buffer) => {
       this.handleData(chunk);
     });
 
     socket.on('error', err => {
-      const error = new Error(`Socket error: ${err.message}`);
-      for (const callback of this.pendingCallbacks) {
-        callback.reject(error);
-      }
-      this.pendingCallbacks = [];
+      this.failAllPending(new Error(`Socket error: ${err.message}`));
     });
 
     socket.on('end', () => {
-      const error = new Error('Socket connection ended unexpectedly');
-      for (const callback of this.pendingCallbacks) {
-        callback.reject(error);
-      }
-      this.pendingCallbacks = [];
+      this.failAllPending(new Error('Socket connection ended unexpectedly'));
     });
   }
 
-  private async connectWithRetry(startTime: number): Promise<net.Socket> {
-    let attempt = 0;
-    let lastErr: Error | undefined;
-    while (Date.now() - startTime < 5000) {
-      try {
-        return await this.attemptConnect();
-      } catch (err) {
-        lastErr = err as Error;
-        const code = (err as NodeJS.ErrnoException).code;
-        if (code !== 'ECONNREFUSED') {
-          throw new Error(`Failed to connect to bb socket: ${lastErr.message}`);
-        }
-        // bb has bound the path but not yet called listen(); back off and retry.
-        const delay = Math.min(50, 5 * 2 ** attempt++);
-        await new Promise(resolve => setTimeout(resolve, delay));
+  /**
+   * Spawn a bb process and wait until a socket connection to it is established.
+   * Waits as long as the bb process is alive (bb startup has no useful upper bound on a loaded
+   * machine), failing fast with the real cause if the process dies, and killing the process if
+   * it is still not accepting connections after the generous STARTUP_TIMEOUT_MS backstop.
+   */
+  static async new(
+    bbBinaryPath: string,
+    threads?: number,
+    logger?: (msg: string) => void,
+    unref?: boolean,
+  ): Promise<BarretenbergNativeSocketAsyncBackend> {
+    // Create a unique socket path in temp directory
+    const socketPath = path.join(os.tmpdir(), `bb-${process.pid}-${threadId}-${instanceCounter++}.sock`);
+
+    // Ensure socket path doesn't already exist (cleanup from previous crashes)
+    if (fs.existsSync(socketPath)) {
+      fs.unlinkSync(socketPath);
+    }
+
+    // If threads not set use num cpu cores, max 16.
+    const hwc = threads ? threads.toString() : Math.min(16, os.cpus().length).toString();
+    const env = { ...process.env, HARDWARE_CONCURRENCY: hwc };
+
+    // Spawn bb process - it will create the socket server
+    const args = ['msgpack', 'run', '--input', socketPath];
+    const proc = spawn(bbBinaryPath, args, {
+      stdio: ['ignore', logger ? 'pipe' : 'ignore', logger ? 'pipe' : 'ignore'],
+      env,
+    });
+
+    // Disconnect from event loop so process can exit without waiting for bb
+    // The bb process has parent death monitoring (prctl on Linux, kqueue on macOS)
+    // so it will automatically exit when Node.js exits
+    proc.unref();
+
+    if (logger) {
+      logger("Logger attached to bb process. DON'T FORGET TO DESTROY THE BACKEND to allow Node.js to exit.");
+      readline.createInterface({ input: proc.stdout! }).on('line', logger);
+      readline.createInterface({ input: proc.stderr! }).on('line', logger);
+      if (unref) {
+        (proc.stdout as any)?.unref?.();
+        (proc.stderr as any)?.unref?.();
       }
     }
-    throw new Error(`Timeout connecting to bb socket: ${lastErr?.message ?? 'unknown'}`);
+
+    // Spawn failures (e.g. missing binary) surface only as an 'error' event, never as 'exit',
+    // so wait for the spawn/error outcome up front. Once 'spawn' has fired, every later death
+    // is observable via exitCode/signalCode in the connect loop below.
+    try {
+      await once(proc, 'spawn');
+    } catch (err) {
+      throw new Error(`Native backend process error: ${(err as Error).message}`);
+    }
+
+    try {
+      const socket = await this.waitForSocketAndConnect(socketPath, proc);
+      return new BarretenbergNativeSocketAsyncBackend(proc, socket, logger ?? (() => {}));
+    } catch (err) {
+      proc.kill('SIGKILL');
+      throw err;
+    }
   }
 
-  private attemptConnect(): Promise<net.Socket> {
+  private static async waitForSocketAndConnect(socketPath: string, proc: ChildProcess): Promise<net.Socket> {
+    const startTime = Date.now();
+    for (;;) {
+      if (proc.exitCode !== null || proc.signalCode !== null) {
+        throw new Error(
+          `bb process exited before socket connection was established (code=${proc.exitCode} signal=${proc.signalCode})`,
+        );
+      }
+      if (Date.now() - startTime > STARTUP_TIMEOUT_MS) {
+        throw new Error(
+          `bb process is alive but did not accept a socket connection within ${STARTUP_TIMEOUT_MS}ms: ${socketPath}`,
+        );
+      }
+
+      if (fs.existsSync(socketPath)) {
+        const stats = fs.statSync(socketPath);
+        if (!stats.isSocket()) {
+          throw new Error(`Path exists but is not a socket: ${socketPath}`);
+        }
+        try {
+          return await this.attemptConnect(socketPath);
+        } catch (err) {
+          const code = (err as NodeJS.ErrnoException).code;
+          if (code !== 'ECONNREFUSED') {
+            throw new Error(`Failed to connect to bb socket: ${(err as Error).message}`);
+          }
+          // bb has bound the path but not yet called listen(); fall through and retry.
+        }
+      }
+
+      await new Promise(resolve => setTimeout(resolve, 50));
+    }
+  }
+
+  private static attemptConnect(socketPath: string): Promise<net.Socket> {
     return new Promise<net.Socket>((resolve, reject) => {
-      const socket = net.connect(this.socketPath);
+      const socket = net.connect(socketPath);
       socket.setNoDelay(true);
       const onConnect = () => {
         socket.removeListener('error', onError);
@@ -246,6 +194,17 @@ export class BarretenbergNativeSocketAsyncBackend implements IMsgpackBackendAsyn
       socket.once('connect', onConnect);
       socket.once('error', onError);
     });
+  }
+
+  private failAllPending(error: Error): void {
+    for (const callback of this.pendingCallbacks) {
+      callback.reject(error);
+    }
+    this.pendingCallbacks = [];
+    if (this.socket) {
+      this.socket.destroy();
+      this.socket = null;
+    }
   }
 
   private handleData(chunk: Buffer): void {
@@ -299,12 +258,9 @@ export class BarretenbergNativeSocketAsyncBackend implements IMsgpackBackendAsyn
     }
   }
 
-  async call(inputBuffer: Uint8Array): Promise<Uint8Array> {
-    // Wait for connection to be established
-    await this.connectionPromise;
-
+  call(inputBuffer: Uint8Array): Promise<Uint8Array> {
     if (!this.socket) {
-      throw new Error('Socket not connected');
+      return Promise.reject(new Error('Socket not connected'));
     }
 
     return new Promise((resolve, reject) => {
@@ -325,42 +281,9 @@ export class BarretenbergNativeSocketAsyncBackend implements IMsgpackBackendAsyn
     });
   }
 
-  private cleanup(): void {
-    // Reject any remaining pending callbacks
-    const error = new Error('Backend connection closed');
-    for (const callback of this.pendingCallbacks) {
-      callback.reject(error);
-    }
-    this.pendingCallbacks = [];
-
-    try {
-      // Remove all event listeners to prevent hanging
-      if (this.socket) {
-        this.socket.removeAllListeners();
-        // Unref so socket doesn't keep event loop alive
-        // this.socket.unref();
-        this.socket.destroy();
-        this.socket = null;
-      }
-    } catch {
-      // Ignore errors during cleanup
-    }
-
-    // Clear connection timeout if still pending
-    if (this.connectionTimeout) {
-      clearTimeout(this.connectionTimeout);
-      this.connectionTimeout = null;
-    }
-
-    // Remove process event listeners and unref to not block event loop
-    this.process.removeAllListeners();
-    // this.process.unref();
-
-    // Don't try to unlink socket - bb owns it and will clean it up
-  }
-
   destroy(): Promise<void> {
-    this.cleanup();
+    this.failAllPending(new Error('Backend connection closed'));
+    // Don't try to unlink socket - bb owns it and will clean it up
     this.process.kill('SIGTERM');
     this.process.removeAllListeners();
     return Promise.resolve();
