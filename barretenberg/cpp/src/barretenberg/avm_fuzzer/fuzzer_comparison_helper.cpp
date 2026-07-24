@@ -64,6 +64,9 @@ bool compare_cpp_simulator_results(const std::vector<TxSimulationResult>& result
         if (prev.revert_code != curr.revert_code) {
             mismatches.push_back("revert_code");
         }
+        if (prev.total_instructions_executed != curr.total_instructions_executed) {
+            mismatches.push_back("total_instructions_executed");
+        }
         if (prev.public_tx_effect != curr.public_tx_effect) {
             mismatches.push_back("public_tx_effect");
         }

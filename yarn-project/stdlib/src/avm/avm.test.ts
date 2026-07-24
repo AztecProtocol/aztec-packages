@@ -28,3 +28,28 @@ describe('Avm circuit inputs', () => {
     expect(res).toEqual(avmCircuitInputs);
   });
 });
+
+describe('PublicTxResult totalInstructionsExecuted', () => {
+  // Round-trips an empty result through the schema, overriding (or omitting) totalInstructionsExecuted.
+  const parseWith = (value: number | null | undefined) => {
+    const plain = JSON.parse(jsonStringify(PublicTxResult.empty()));
+    if (value === undefined) {
+      delete plain.totalInstructionsExecuted;
+    } else {
+      plain.totalInstructionsExecuted = value;
+    }
+    return jsonParseWithSchema(JSON.stringify(plain), PublicTxResult.schema);
+  };
+
+  it('round-trips a concrete value through the schema', () => {
+    expect(parseWith(4242).totalInstructionsExecuted).toBe(4242);
+  });
+
+  it('defaults to 0 when missing (e.g. an older serialized result)', () => {
+    expect(parseWith(undefined).totalInstructionsExecuted).toBe(0);
+  });
+
+  it('defaults to 0 when null', () => {
+    expect(parseWith(null).totalInstructionsExecuted).toBe(0);
+  });
+});

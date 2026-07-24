@@ -175,7 +175,8 @@ std::tuple<EventsContainer, TxSimulationResult> AvmSimulationHelper::simulate_fo
     DefaultEventEmitter<L1ToL2MessageTreeCheckEvent> l1_to_l2_msg_tree_check_emitter;
     DefaultEventEmitter<EmitPublicLogEvent> emit_public_log_emitter;
 
-    ExecutionIdManager execution_id_manager(1);
+    constexpr uint32_t initial_execution_id = 1;
+    ExecutionIdManager execution_id_manager(initial_execution_id);
     RangeCheck range_check(range_check_emitter);
     FieldGreaterThan field_gt(range_check, field_gt_emitter);
     GreaterThan greater_than(field_gt, range_check, greater_than_emitter);
@@ -373,6 +374,7 @@ std::tuple<EventsContainer, TxSimulationResult> AvmSimulationHelper::simulate_fo
     TxSimulationResult tx_simulation_result = {
         .gas_used = tx_execution_result.gas_used,
         .revert_code = tx_execution_result.revert_code,
+        .total_instructions_executed = execution_id_manager.get_execution_id() - initial_execution_id,
         .public_tx_effect = extract_public_tx_effect(tx_execution_result, side_effect_tracker),
         .call_stack_metadata = call_stack_metadata_collector->dump_call_stack_metadata(),
         .logs = debug_log_component.dump_logs(),
@@ -411,7 +413,8 @@ TxSimulationResult AvmSimulationHelper::simulate_fast_internal(ContractDBInterfa
     NoopEventEmitter<UpdateCheckEvent> update_check_emitter;
     NoopEventEmitter<IndexedTreeCheckEvent> indexed_tree_check_emitter;
 
-    ExecutionIdManager execution_id_manager(1);
+    constexpr uint32_t initial_execution_id = 1;
+    ExecutionIdManager execution_id_manager(initial_execution_id);
     RangeCheck range_check(range_check_emitter);
     FieldGreaterThan field_gt(range_check, field_gt_emitter);
     PureGreaterThan greater_than;
@@ -542,6 +545,7 @@ TxSimulationResult AvmSimulationHelper::simulate_fast_internal(ContractDBInterfa
         // Simulation.
         .gas_used = tx_execution_result.gas_used,
         .revert_code = tx_execution_result.revert_code,
+        .total_instructions_executed = execution_id_manager.get_execution_id() - initial_execution_id,
         .public_tx_effect = extract_public_tx_effect(tx_execution_result, side_effect_tracker),
         .call_stack_metadata = call_stack_metadata_collector->dump_call_stack_metadata(),
         .logs = debug_log_component->dump_logs(),

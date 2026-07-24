@@ -1,4 +1,3 @@
-import { sum } from '@aztec/foundation/collection';
 import { type Logger, type LoggerBindings, createLogger } from '@aztec/foundation/log';
 import { Timer } from '@aztec/foundation/timer';
 import type { RevertCode } from '@aztec/stdlib/avm';
@@ -100,7 +99,12 @@ export class TestExecutorMetrics implements ExecutorMetricsInterface {
     this.txTimer = new Timer();
   }
 
-  stopRecordingTxSimulation(txLabel: string, gasUsed?: GasUsed, revertedCode?: RevertCode) {
+  stopRecordingTxSimulation(
+    txLabel: string,
+    gasUsed?: GasUsed,
+    revertedCode?: RevertCode,
+    totalInstructionsExecuted?: number,
+  ) {
     assert(this.currentTxLabel === txLabel, 'Cannot stop recording metrics for tx when another is live');
 
     const txMetrics = this.txMetrics.get(txLabel)!;
@@ -109,10 +113,9 @@ export class TestExecutorMetrics implements ExecutorMetricsInterface {
     txMetrics.totalDurationMs = this.txTimer!.ms();
     this.logger.debug(`Public TX simulation of ${txLabel} took ${txMetrics.totalDurationMs}ms`);
 
-    // add manaUsed across all enqueued calls
+    // manaUsed and totalInstructionsExecuted are tx-level totals reported by the (C++) simulator.
     txMetrics.manaUsed = gasUsed?.publicGas.l2Gas;
-    // add totalInstructionsExecuted across all enqueued calls
-    txMetrics.totalInstructionsExecuted = sum(txMetrics.enqueuedCalls.map(call => call.totalInstructionsExecuted));
+    txMetrics.totalInstructionsExecuted = totalInstructionsExecuted ?? 0;
     txMetrics.revertedCode = revertedCode;
 
     this.currentTxLabel = undefined;

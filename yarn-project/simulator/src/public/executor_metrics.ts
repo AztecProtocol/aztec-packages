@@ -47,7 +47,12 @@ export class ExecutorMetrics implements ExecutorMetricsInterface {
     // do nothing (unimplemented)
   }
 
-  stopRecordingTxSimulation(_txLabel: string, _gasUsed?: GasUsed, _revertedCode?: RevertCode) {
+  stopRecordingTxSimulation(
+    _txLabel: string,
+    _gasUsed?: GasUsed,
+    _revertedCode?: RevertCode,
+    _totalInstructionsExecuted?: number,
+  ) {
     // do nothing (unimplemented)
   }
 

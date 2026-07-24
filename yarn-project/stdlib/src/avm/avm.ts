@@ -1281,6 +1281,9 @@ export class PublicTxResult {
     // For the proving request.
     public hints: AvmExecutionHints | undefined,
     public publicInputs: AvmCircuitPublicInputs | undefined,
+    // Total AVM instructions executed by the tx (execution steps / trace rows), across all enqueued and
+    // nested calls. Trailing with a default so older serialized results deserialize to 0.
+    public totalInstructionsExecuted: number = 0,
   ) {}
 
   static empty() {
@@ -1309,12 +1312,26 @@ export class PublicTxResult {
         publicTxEffect: PublicTxEffect.schema,
         callStackMetadata: z.union([CallStackMetadata.schema.array(), NestedProcessReturnValues.schema.array()]),
         logs: NullishToUndefined(DebugLog.schema.array()),
+        // Missing/null (e.g. from an older serialized result) coalesces to 0.
+        totalInstructionsExecuted: z
+          .number()
+          .nullish()
+          .transform(v => v ?? 0),
         // For the proving request.
         publicInputs: NullishToUndefined(AvmCircuitPublicInputs.schema),
         hints: NullishToUndefined(AvmExecutionHints.schema),
       })
       .transform(
-        ({ gasUsed, revertCode, publicTxEffect, callStackMetadata, logs, hints, publicInputs }) =>
+        ({
+          gasUsed,
+          revertCode,
+          publicTxEffect,
+          callStackMetadata,
+          logs,
+          hints,
+          publicInputs,
+          totalInstructionsExecuted,
+        }) =>
           new PublicTxResult(
             gasUsed,
             revertCode as RevertCode,
@@ -1323,6 +1340,7 @@ export class PublicTxResult {
             logs,
             hints,
             publicInputs,
+            totalInstructionsExecuted,
           ),
       );
   }
@@ -1343,6 +1361,7 @@ export class PublicTxResult {
       obj.logs?.map(DebugLog.fromPlainObject),
       obj.hints ? AvmExecutionHints.fromPlainObject(obj.hints) : undefined,
       obj.publicInputs ? AvmCircuitPublicInputs.fromPlainObject(obj.publicInputs) : undefined,
+      obj.totalInstructionsExecuted ?? 0,
     );
   }
 

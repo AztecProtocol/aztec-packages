@@ -551,6 +551,10 @@ struct TxSimulationResult {
     // Simulation.
     GasUsed gas_used;
     RevertCode revert_code;
+    // Total AVM instructions executed by the tx, across all enqueued calls and their nested calls. This is
+    // the number of execution steps (equivalently, execution trace rows): the execution loop advances it once
+    // per instruction it processes, including a terminal halting/failing instruction. Always present.
+    uint32_t total_instructions_executed = 0;
     PublicTxEffect public_tx_effect;
     // The following fields are only guaranteed to be present if the simulator is configured to collect them.
     std::vector<CallStackMetadata> call_stack_metadata; // One per enqueued call. All phases.
@@ -561,7 +565,14 @@ struct TxSimulationResult {
 
     bool operator==(const TxSimulationResult& other) const = default;
 
-    MSGPACK_CAMEL_CASE_FIELDS(gas_used, revert_code, public_tx_effect, call_stack_metadata, logs, public_inputs, hints);
+    MSGPACK_CAMEL_CASE_FIELDS(gas_used,
+                              revert_code,
+                              total_instructions_executed,
+                              public_tx_effect,
+                              call_stack_metadata,
+                              logs,
+                              public_inputs,
+                              hints);
 };
 
 } // namespace bb::avm2
