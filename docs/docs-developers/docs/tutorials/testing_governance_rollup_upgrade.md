@@ -101,8 +101,6 @@ export AZTEC_SLASHING_VETOER=0x0000000000000000000000000000000000000000
 export AZTEC_SLASHING_DISABLE_DURATION=0
 export AZTEC_MANA_TARGET=100000000
 export AZTEC_EXIT_DELAY_SECONDS=0
-# Must match the running network and stay above the protocol floor; 0 reverts
-# the deployment with FeeLib__ProvingCostBelowFloor.
 export AZTEC_PROVING_COST_PER_MANA=100
 export AZTEC_SLASH_AMOUNT_SMALL=0
 export AZTEC_SLASH_AMOUNT_MEDIUM=0
