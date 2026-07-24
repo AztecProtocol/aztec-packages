@@ -295,7 +295,7 @@ bool validate_vk_hash(CircuitBuilder& builder,
     }
 
     uint32_t key_hash_real = builder.real_variable_index[constraint->key_hash];
-    auto& pos2_ext = builder.blocks.poseidon2_external;
+    auto& pos2_ext = poseidon2_helpers::poseidon2_external_block(builder);
     for (const auto& [blk, gi] : analyzer.get_variable_gates(key_hash_real)) {
         if (&builder.blocks.get()[blk] == &pos2_ext) {
             return true;
@@ -1902,8 +1902,8 @@ ChallengeGenerationValidationResult validate_challenges_generation(CircuitBuilde
 {
     ChallengeGenerationValidationResult result;
     auto& arith = builder.blocks.arithmetic;
-    auto& poseidon2_external = builder.blocks.poseidon2_external;
-    auto& poseidon2_internal = builder.blocks.poseidon2_internal;
+    auto& poseidon2_external = poseidon2_helpers::poseidon2_external_block(builder);
+    auto& poseidon2_internal = poseidon2_helpers::poseidon2_internal_block(builder);
 
     auto arith_start = find_fingerprint_range_containing_gate(builder, arith, challenge_gate_idx, arith_fp);
     if (!arith_start.has_value()) {
@@ -2234,8 +2234,8 @@ MaskingChallengeValidationResult validate_masking_challenge_generation(
     }
 
     auto& arith = builder.blocks.arithmetic;
-    auto& poseidon2_external = builder.blocks.poseidon2_external;
-    auto& poseidon2_internal = builder.blocks.poseidon2_internal;
+    auto& poseidon2_external = poseidon2_helpers::poseidon2_external_block(builder);
+    auto& poseidon2_internal = poseidon2_helpers::poseidon2_internal_block(builder);
 
     const size_t masking_challenge_start =
         transcript_receive.arithmetic_gate_start_idx + TRANSCRIPT_RECEIVE_KZG_W_ARITHMETIC.gate_count;
@@ -3599,8 +3599,8 @@ VkHashValidationResult validate_vk_hash_stage(CircuitBuilder& builder,
 {
     VkHashValidationResult result;
     auto& arith = builder.blocks.arithmetic;
-    auto& poseidon2_external = builder.blocks.poseidon2_external;
-    auto& poseidon2_internal = builder.blocks.poseidon2_internal;
+    auto& poseidon2_external = poseidon2_helpers::poseidon2_external_block(builder);
+    auto& poseidon2_internal = poseidon2_helpers::poseidon2_internal_block(builder);
 
     if (constraint.key.empty()) {
         info("validate_vk_hash_stage failed: empty constraint.key");
@@ -4074,8 +4074,8 @@ ChonkOinkValidationResult validate_chonk_oink(CircuitBuilder& builder,
 
     auto& arith = builder.blocks.arithmetic;
     auto& nnf = builder.blocks.nnf;
-    auto& poseidon_ext = builder.blocks.poseidon2_external;
-    auto& poseidon_int = builder.blocks.poseidon2_internal;
+    auto& poseidon_ext = poseidon2_helpers::poseidon2_external_block(builder);
+    auto& poseidon_int = poseidon2_helpers::poseidon2_internal_block(builder);
     const auto arith_block_idx = recursion_helpers::find_block_index(builder, arith);
     const auto nnf_block_idx = recursion_helpers::find_block_index(builder, nnf);
     const auto poseidon_ext_block_idx = recursion_helpers::find_block_index(builder, poseidon_ext);

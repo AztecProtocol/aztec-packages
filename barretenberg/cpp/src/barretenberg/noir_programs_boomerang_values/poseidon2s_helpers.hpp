@@ -1,6 +1,6 @@
 #pragma once
 #include "barretenberg/crypto/poseidon2/poseidon2.hpp"
-#include "barretenberg/stdlib/primitives/circuit_builders/circuit_builders_fwd.hpp"
+#include "barretenberg/stdlib/primitives/circuit_builders/circuit_builders.hpp"
 #include <array>
 #include <optional>
 #include <utility>
@@ -241,6 +241,29 @@ std::optional<size_t> find_gate_matching_state(CircuitBuilder& builder,
  * @param state Current state (4 wire indices). Updated in-place to final output state.
  * @return true if full permutation is valid
  */
+// Mega merged poseidon2_external/poseidon2_internal into one `poseidon2` block (owning both
+// GateKinds via per-row gate_selector_for); Ultra kept the two-block split. Alias both refs to
+// the same merged block on Mega so callers can stay block-shape-agnostic; per-gate GateKind
+// selector checks inside validate_external_rounds/validate_internal_rounds still discriminate
+// Ext vs Int rows correctly either way.
+template <typename CircuitBuilder> auto& poseidon2_external_block(CircuitBuilder& builder)
+{
+    if constexpr (IsMegaBuilder<CircuitBuilder>) {
+        return builder.blocks.poseidon2;
+    } else {
+        return builder.blocks.poseidon2_external;
+    }
+}
+
+template <typename CircuitBuilder> auto& poseidon2_internal_block(CircuitBuilder& builder)
+{
+    if constexpr (IsMegaBuilder<CircuitBuilder>) {
+        return builder.blocks.poseidon2;
+    } else {
+        return builder.blocks.poseidon2_internal;
+    }
+}
+
 template <typename FF, typename CircuitBuilder, typename Analyzer>
 bool validate_poseidon2_permutation(CircuitBuilder& builder, Analyzer& analyzer, std::array<uint32_t, 4>& state)
 {
@@ -248,8 +271,8 @@ bool validate_poseidon2_permutation(CircuitBuilder& builder, Analyzer& analyzer,
     static constexpr size_t rounds_f_half = Poseidon2Perm::rounds_f / 2;
     static constexpr size_t rounds_p = Poseidon2Perm::rounds_p;
 
-    auto& ext_block = builder.blocks.poseidon2_external;
-    auto& int_block = builder.blocks.poseidon2_internal;
+    auto& ext_block = poseidon2_external_block(builder);
+    auto& int_block = poseidon2_internal_block(builder);
 
     // Step 1: Find and validate first half of external rounds
     auto start_ext = find_gate_matching_state<FF>(builder, analyzer, ext_block, state);
