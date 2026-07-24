@@ -544,7 +544,8 @@ TEST_F(AcirComponentsCheckTest, DetectsSplitComponents)
 
 TEST_F(AcirComponentsCheckTest, DetectsUnconstrainedWitnesses)
 {
-    Acir::Circuit circuit = make_circuit({
+    // The ACIR view links witnesses 8 and 9 into one component.
+    Acir::Circuit acir_circuit = make_circuit({
         Acir::Opcode{ .value = Acir::Opcode::AssertZero{
                           .value = Acir::Expression{
                               .linear_combinations =
@@ -556,13 +557,25 @@ TEST_F(AcirComponentsCheckTest, DetectsUnconstrainedWitnesses)
                           } } },
     });
 
-    auto constraints = circuit_serde_to_acir_format(circuit, IsMegaBuilder<AcirComponentsCheckBuilder>);
+    // The circuit instead links witness 8 to witness 10, leaving witness 9 allocated but touched by no
+    // gate. Witness 9 therefore has no circuit-side component and must be reported as unconstrained.
+    Acir::Circuit builder_circuit = make_circuit({
+        Acir::Opcode{ .value = Acir::Opcode::AssertZero{
+                          .value = Acir::Expression{
+                              .linear_combinations =
+                                  {
+                                      { bb::fr::one().to_buffer(), make_witness(8) },
+                                      { bb::fr(-1).to_buffer(), make_witness(10) },
+                                  },
+                              .q_c = bb::fr::zero().to_buffer(),
+                          } } },
+    });
+
+    auto constraints = circuit_serde_to_acir_format(builder_circuit, IsMegaBuilder<AcirComponentsCheckBuilder>);
     AcirProgram program{ .constraints = constraints, .witness = {} };
     auto builder = create_circuit<AcirComponentsCheckBuilder>(program);
-    // Corrupt the circuit
-    builder.real_variable_index.resize(9);
 
-    acir_components_check::ComponentsChecker checker(circuit, builder);
+    acir_components_check::ComponentsChecker checker(acir_circuit, builder);
     auto errors = checker.check();
     expect_single_error_type(errors, acir_components_check::Error::Type::UNCONSTRAINED);
 }
