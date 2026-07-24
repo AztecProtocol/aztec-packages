@@ -148,6 +148,28 @@ void expect_single_error_type(const std::vector<acir_components_check::Error>& e
     EXPECT_EQ(errors[0].type, type);
 }
 
+void replace_witness_in_block(auto& block, uint32_t witness_idx, uint32_t replacement_idx)
+{
+    auto replace = [witness_idx, replacement_idx](auto& wire) {
+        if (wire == witness_idx) {
+            wire = replacement_idx;
+        }
+    };
+    for (size_t i = 0; i < block.size(); ++i) {
+        replace(block.w_l()[i]);
+        replace(block.w_r()[i]);
+        replace(block.w_o()[i]);
+        replace(block.w_4()[i]);
+    }
+}
+
+void remove_witness_from_trace(AcirComponentsCheckBuilder& builder, uint32_t witness_idx)
+{
+    for (auto& block : builder.blocks.get()) {
+        replace_witness_in_block(block, witness_idx, builder.zero_idx());
+    }
+}
+
 size_t count_acir_components_for_witnesses(const Acir::Circuit& circuit, const std::vector<uint32_t>& witnesses)
 {
     acir_components_check::AcirGraph graph;
@@ -560,7 +582,7 @@ TEST_F(AcirComponentsCheckTest, DetectsUnconstrainedWitnesses)
     AcirProgram program{ .constraints = constraints, .witness = {} };
     auto builder = create_circuit<AcirComponentsCheckBuilder>(program);
     // Corrupt the circuit
-    builder.real_variable_index.resize(9);
+    remove_witness_from_trace(builder, 9);
 
     acir_components_check::ComponentsChecker checker(circuit, builder);
     auto errors = checker.check();
