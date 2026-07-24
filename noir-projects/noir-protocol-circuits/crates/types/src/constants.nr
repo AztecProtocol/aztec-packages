@@ -1204,6 +1204,16 @@ pub global DA_GAS_PER_BYTE: u32 = 1; // Arbitrary.
 pub global DA_GAS_PER_FIELD: u32 = DA_BYTES_PER_FIELD * DA_GAS_PER_BYTE;
 // A tx always emits 3 fields: tx_start_marker, tx_hash, and tx_fee.
 pub global TX_DA_GAS_OVERHEAD: u32 = 3 * DA_GAS_PER_FIELD;
+pub global MAX_TX_BLOB_DATA_SIZE_IN_FIELDS: u32 = 1 // tx start marker
+    + 1 // tx hash
+    + 1 // transaction fee
+    + MAX_NOTE_HASHES_PER_TX
+    + MAX_NULLIFIERS_PER_TX
+    + MAX_L2_TO_L1_MSGS_PER_TX
+    + MAX_TOTAL_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX * 2 // (*2 for leaf slot and value)
+    + MAX_PRIVATE_LOGS_PER_TX * (PRIVATE_LOG_SIZE_IN_FIELDS + 1) // (+1 for log length)
+    + FLAT_PUBLIC_LOGS_PAYLOAD_LENGTH
+    + MAX_CONTRACT_CLASS_LOGS_PER_TX * (CONTRACT_CLASS_LOG_SIZE_IN_FIELDS + 1); // (+1 for contract address)
 // Computed taking into account simulation time metrics.
 pub global PUBLIC_TX_L2_GAS_OVERHEAD: u32 = 540000;
 pub global PRIVATE_TX_L2_GAS_OVERHEAD: u32 = 440000;

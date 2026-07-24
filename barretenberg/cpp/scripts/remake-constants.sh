@@ -13,7 +13,7 @@ tmp_dir=$(mktemp -d "$(dirname "$cpp_output")/.constants-gen.XXXXXX")
 trap 'rm -rf "$tmp_dir"' EXIT
 tmp_output="$tmp_dir/aztec_constants.hpp"
 
-node "$codegen_dir/src/cli.ts" --cpp "$tmp_output" --selection "$cpp_selection"
+"$codegen_dir/scripts/generate.sh" --cpp "$tmp_output" --selection "$cpp_selection"
 
 clang-format-20 --style="file:$repo_root/barretenberg/cpp/.clang-format" -i "$tmp_output"
 

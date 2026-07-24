@@ -18,23 +18,12 @@ import { readSymbolSelection, selectSymbols } from './selection.ts';
 
 type GenerateOutput = (content: ParsedContent, targetPath: string) => void;
 
-function parseIncludedConstant(value: string): { path: string; symbol: string } {
-  const separatorIndex = value.lastIndexOf(':');
-  const path = value.slice(0, separatorIndex);
-  const symbol = value.slice(separatorIndex + 1);
-  if (separatorIndex <= 0 || !/^\w+$/.test(symbol)) {
-    throw new Error(`invalid --include value '${value}', expected <file.nr>:<symbol>`);
-  }
-  return { path, symbol };
-}
-
 function run(args: string[]): void {
   const { values } = parseArgs({
     args,
     allowPositionals: false,
     options: {
       input: { type: 'string' },
-      include: { type: 'string', multiple: true },
       selection: { type: 'string' },
       typescript: { type: 'string' },
       cpp: { type: 'string' },
@@ -45,14 +34,12 @@ function run(args: string[]): void {
     strict: true,
   });
 
-  // Resolved relative to this file, so it exists only when the package sits inside the
-  // aztec-packages monorepo; the published npm package must be given --input explicitly.
-  const defaultInput = fileURLToPath(
-    new URL('../../../noir-projects/noir-protocol-circuits/crates/types/src/constants.nr', import.meta.url),
-  );
+  // The default input is embedded by scripts/embed-inputs.sh: prepack ships it in the published
+  // tarball, while in-repo callers pass --input (via scripts/generate.sh).
+  const defaultInput = fileURLToPath(new URL('../inputs/constants.nr', import.meta.url));
   const input = values.input ?? (existsSync(defaultInput) ? defaultInput : undefined);
   if (!input) {
-    throw new Error('--input is required when running outside the aztec-packages monorepo');
+    throw new Error('--input is required when the package has no embedded inputs');
   }
 
   const generators: [string | undefined, GenerateOutput][] = [
@@ -69,17 +56,6 @@ function run(args: string[]): void {
   const [outputPath, generate] = outputs[0] as [string, GenerateOutput];
 
   const { constantsExpressions, domainSeparatorEnum } = parseNoirFile(readFileSync(input, 'utf8'));
-  for (const value of values.include ?? []) {
-    const { path, symbol } = parseIncludedConstant(value);
-    const { constantsExpressions: includedExpressions } = parseNoirFile(readFileSync(path, 'utf8'), {
-      stripLineComments: true,
-    });
-    const expression = includedExpressions.find(([name]) => name === symbol);
-    if (!expression) {
-      throw new Error(`constant '${symbol}' not found in ${path}`);
-    }
-    constantsExpressions.push(expression);
-  }
 
   const parsedContent: ParsedContent = {
     constants: evaluateExpressions(constantsExpressions),

@@ -9,12 +9,13 @@
     "dest",
     "!dest/*.test.d.ts",
     "!dest/*.test.js",
+    "inputs",
     "README.md"
   ],
   "scripts": {
     "build": "tsc -p tsconfig.json",
-    "clean": "rm -rf dest",
-    "prepack": "yarn build",
+    "clean": "rm -rf dest inputs",
+    "prepack": "yarn build && ./scripts/embed-inputs.sh",
     "test": "node --test src/*.test.ts && yarn build && ./scripts/test-package.sh"
   },
   "devDependencies": {
