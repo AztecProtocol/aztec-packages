@@ -1,7 +1,8 @@
 use crate::{
     context::{PrivateContext, UtilityContext},
+    keys::getters::get_public_keys,
     state_vars::{OwnedStateVariable, private_immutable::PrivateImmutable},
-    test::{helpers::test_environment::TestEnvironment, mocks::mock_note::MockNote},
+    test::{helpers::test_environment::{CreateAccountOptions, TestEnvironment}, mocks::mock_note::MockNote},
 };
 use crate::protocol::address::AztecAddress;
 
@@ -195,6 +196,22 @@ unconstrained fn initialize_twice_same_tx() {
         let another_note = MockNote::new(VALUE + 1).build_note();
         let _ = state_var.initialize(another_note);
     });
+}
+
+#[test]
+unconstrained fn shared_keys_distinct_addresses_have_distinct_initialization_nullifiers() {
+    let mut env = TestEnvironment::new();
+
+    let owner_a = env.create_light_account_opts(CreateAccountOptions::new().with_secret(42));
+    let owner_b = env.create_light_account_opts(CreateAccountOptions::new().with_secret(42));
+
+    assert(owner_a != owner_b);
+    env.utility_context(|_| { assert_eq(get_public_keys(owner_a).npk_m_hash, get_public_keys(owner_b).npk_m_hash); });
+
+    let nullifier_a = env.private_context(|context| in_private(context, owner_a).get_initialization_nullifier());
+    let nullifier_b = env.private_context(|context| in_private(context, owner_b).get_initialization_nullifier());
+
+    assert(nullifier_a != nullifier_b);
 }
 
 #[test(should_fail_with = "already present")]

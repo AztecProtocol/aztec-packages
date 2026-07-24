@@ -23,8 +23,16 @@ async function main() {
 
   // During local network setup we create a few initializerless accounts. Below we add them to our wallet.
   const [aliceInitialAccountData, bobInitialAccountData] = await getInitialTestAccountsData();
-  await wallet.createSchnorrInitializerlessAccount(aliceInitialAccountData.secret, aliceInitialAccountData.salt);
-  await wallet.createSchnorrInitializerlessAccount(bobInitialAccountData.secret, bobInitialAccountData.salt);
+  await wallet.createSchnorrInitializerlessAccount(
+    aliceInitialAccountData.secret,
+    aliceInitialAccountData.salt,
+    aliceInitialAccountData.signingKey,
+  );
+  await wallet.createSchnorrInitializerlessAccount(
+    bobInitialAccountData.secret,
+    bobInitialAccountData.salt,
+    bobInitialAccountData.signingKey,
+  );
 
   const alice = aliceInitialAccountData.address;
   const bob = bobInitialAccountData.address;

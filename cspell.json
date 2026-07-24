@@ -421,7 +421,6 @@
     ".bootstrapped",
     "*.svg",
     "*.otf",
-    "git-subrepo/",
     "*.snap",
     "package.json",
     "build-wasm",

@@ -660,12 +660,10 @@ function private_release {
   fi
 
   # Publish @aztec/l1-artifacts to the internal registry. 13 yarn-project packages depend on it at the
-  # release version, so it must exist before yarn-project's release smoke-test installs them. We call
-  # only the npm publish, not l1-contracts' full `release` — that also git-mirrors tags to the public
-  # AztecProtocol/l1-contracts repo, which the private flow must not do. amd64 only (npm packages are
-  # platform-independent; mirrors the publish guard below).
+  # release version, so it must exist before yarn-project's release smoke-test installs them. amd64
+  # only (npm packages are platform-independent; mirrors the publish guard below).
   if [ $(arch) != arm64 ]; then
-    l1-contracts/bootstrap.sh release_l1_artifacts_npm
+    l1-contracts/bootstrap.sh release
   fi
 
   # Publish for real, in dependency order: bb.js, the noir packages, ipc-runtime, and wsdb must be on
@@ -1198,6 +1196,7 @@ case "$cmd" in
     export USE_TEST_CACHE=1
     export AVM=0
     export AVM_TRANSPILER=0
+    barretenberg/ts/bb.js/bootstrap.sh formatting
     barretenberg/crs/bootstrap.sh
     barretenberg/cpp/bootstrap.sh ci
     ;;

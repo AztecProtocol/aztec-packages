@@ -73,11 +73,11 @@ locals {
       checkpoint_sync_url = "https://mainnet.checkpoint.sigp.io"
       reth_p2p_port       = 32300
       lighthouse_p2p_port = 32301
-      reth_storage        = "2.5Ti"
+      reth_storage        = "3.25Ti"
       lighthouse_storage  = "256Gi"
       reth_resources = {
-        requests = { cpu = "1", memory = "32Gi" }
-        limits   = { cpu = "8", memory = "64Gi" }
+        requests = { cpu = "1", memory = "48Gi" }
+        limits   = { cpu = "8", memory = "96Gi" }
       }
       lighthouse_resources = {
         requests = { cpu = "1", memory = "12Gi" }

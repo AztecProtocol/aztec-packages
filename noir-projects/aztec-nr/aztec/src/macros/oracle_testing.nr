@@ -50,11 +50,7 @@
 //! (`__0`, `__1`, …).
 
 use crate::messages::delivery::OnchainDeliveryMode;
-use crate::protocol::{
-    abis::function_selector::FunctionSelector,
-    address::{AztecAddress, EthAddress},
-    traits::FromField,
-};
+use crate::protocol::{abis::function_selector::FunctionSelector, address::{AztecAddress, EthAddress}};
 
 /// Max capacity of [`Scenario`] names.
 global MAX_SCENARIO_NAME_LEN: u32 = 64;
@@ -103,15 +99,31 @@ comptime struct TestValueSynthesizer {
 /// The scalar registrations.
 comptime fn scalars() -> [(Type, Quoted)] {
     @[
-        scalar(|seed: u32| seed as Field),
-        scalar(|seed: u32| (seed % 2) != 0),
-        scalar(|seed: u32| seed as u8),
-        scalar(|seed: u32| seed),
-        scalar(|seed: u32| seed as u64),
-        scalar(|seed: u32| seed as u128),
-        scalar(|seed: u32| AztecAddress::from_field(seed as Field)),
-        scalar(|seed: u32| EthAddress::from_field(seed as Field)),
-        scalar(|seed: u32| FunctionSelector::from_field(seed as Field)),
+        scalar::<Field>(quote { |seed: u32| seed as Field }),
+        scalar::<bool>(quote { |seed: u32| (seed % 2) != 0 }),
+        scalar::<u8>(quote { |seed: u32| seed as u8 }),
+        scalar::<u32>(quote { |seed: u32| seed }),
+        scalar::<u64>(quote { |seed: u32| seed as u64 }),
+        scalar::<u128>(quote { |seed: u32| seed as u128 }),
+        scalar::<AztecAddress>(
+            quote {
+            |seed: u32| <crate::protocol::address::AztecAddress as crate::protocol::traits::FromField>::from_field(
+                seed as Field,
+            )
+        },
+        ),
+        scalar::<EthAddress>(
+            quote {
+                |seed: u32| crate::protocol::address::EthAddress::from_field(seed as Field)
+            },
+        ),
+        scalar::<FunctionSelector>(
+            quote {
+            |seed: u32| <crate::protocol::abis::function_selector::FunctionSelector as crate::protocol::traits::FromField>::from_field(
+                seed as Field,
+            )
+        },
+        ),
         onchain_delivery_mode_scalar(),
     ]
 }
@@ -131,21 +143,25 @@ comptime fn synthesizers() -> [TestValueSynthesizer] {
 
 /// The seed alternates between the only two valid modes.
 comptime fn onchain_delivery_mode_scalar() -> (Type, Quoted) {
-    scalar(
-        |seed: u32| if (seed % 2) == 0 {
-            OnchainDeliveryMode::onchain_unconstrained()
-        } else {
-            OnchainDeliveryMode::onchain_constrained()
+    scalar::<OnchainDeliveryMode>(
+        quote {
+            |seed: u32| if (seed % 2) == 0 {
+                crate::messages::delivery::OnchainDeliveryMode::onchain_unconstrained()
+            } else {
+                crate::messages::delivery::OnchainDeliveryMode::onchain_constrained()
+            }
         },
     )
 }
 
 /// One [`scalars`] entry: the scalar type `T`, paired with the function that builds its canonical test value from
 /// a seed.
-comptime fn scalar<T>(value: fn(u32) -> T) -> (Type, Quoted) {
+comptime fn scalar<T>(value: Quoted) -> (Type, Quoted) {
+    // Keep the builder as syntax until it is expanded at the call site. A typed closure would capture comptime
+    // locals in this scope and cannot escape into the generated runtime code.
     // There is no direct way to reflect the generic `T` as a `Type`, so a zeroed value is materialized purely to
     // take its type.
-    (std::meta::type_of(std::mem::zeroed::<T>()), quote { $value })
+    (std::meta::type_of(std::mem::zeroed::<T>()), value)
 }
 
 comptime fn scalar_synth() -> TestValueSynthesizer {
@@ -153,7 +169,7 @@ comptime fn scalar_synth() -> TestValueSynthesizer {
         matches: |t: Type| maybe_scalar_builder(t).is_some(),
         scenarios: |t: Type, seed: Quoted| {
             let value_fn = maybe_scalar_builder(t).unwrap();
-            @[unnamed(quote { $value_fn($seed) })]
+            @[unnamed(quote { ($value_fn)($seed) })]
         },
         // Being a single wire field with no lengths to pin is what qualifies a type for the scalars table.
         width: |_t: Type| 1,

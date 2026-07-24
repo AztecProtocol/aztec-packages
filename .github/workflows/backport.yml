@@ -9,18 +9,25 @@ jobs:
     name: Check labels
     runs-on: ubuntu-latest
     outputs:
-      state: ${{ steps.check.outputs.label_check }}
+      state: ${{ steps.check.outputs.state }}
     steps:
+      # The agilepathway label-checker action only supports a single prefix in
+      # prefix_mode, so `any_of: backport-to-,port-to-next` errored out and the
+      # gate never opened (silently breaking both backports and forward-ports).
+      # Check the prefixes directly instead.
       - id: check
-        uses: agilepathway/label-checker@825944377ab3bce1269b38c99b718767e2ca6bbc
-        with:
-          prefix_mode: true
-          any_of: backport-to-,port-to-next
-          repo_token: ${{ secrets.AZTEC_BOT_GITHUB_TOKEN }}
-          allow_failure: true
-      - name: Print status
         shell: bash
-        run: 'echo "Label detection status: ${{ steps.check.outputs.label_check }}"'
+        env:
+          LABELS_JSON: ${{ toJson(github.event.pull_request.labels.*.name) }}
+        run: |
+          echo "Labels: $LABELS_JSON"
+          if echo "$LABELS_JSON" | jq -e 'any(.[]; startswith("backport-to-") or startswith("port-to-next"))' >/dev/null; then
+            echo "Label detection status: success"
+            echo "state=success" >> "$GITHUB_OUTPUT"
+          else
+            echo "Label detection status: failure"
+            echo "state=failure" >> "$GITHUB_OUTPUT"
+          fi
 
   backport:
     needs: [label_checker]

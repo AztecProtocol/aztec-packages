@@ -123,7 +123,35 @@ function compile {
   local json_path="./target/$filename"
   local contract_hash=$(get_contract_hash $1 $2)
   if ! cache_download contract-$contract_hash.tar.gz; then
-    $NARGO compile --package $contract --inliner-aggressiveness 0 --deny-warnings
+    # Aztec private app circuits intentionally defer validation of some oracle outputs (including
+    # note-read requests) to the private kernels. Noir's local underconstrained and Brillig coverage
+    # checks cannot see those downstream constraints.
+    #
+    # beta.25 also recognizes constant fields in the fixed PrivateCircuitPublicInputs ABI and
+    # reports them as ReturnConstant warnings. Those fields cannot be removed from the protocol ABI,
+    # so allow that one diagnostic while continuing to reject every other compiler warning or bug.
+    local diagnostics_file=$(mktemp)
+    if ! $NARGO compile \
+      --package $contract \
+      --inliner-aggressiveness 0 \
+      --skip-underconstrained-check \
+      --skip-brillig-constraints-check \
+      2>"$diagnostics_file"; then
+      cat "$diagnostics_file" >&2
+      rm "$diagnostics_file"
+      return 1
+    fi
+    cat "$diagnostics_file" >&2
+
+    local unexpected_diagnostics
+    unexpected_diagnostics=$(grep -E '^(warning|bug):' "$diagnostics_file" \
+      | grep -Fvx 'warning: Return variable contains a constant value' || true)
+    rm "$diagnostics_file"
+    if [ -n "$unexpected_diagnostics" ]; then
+      echo_stderr "Unexpected Noir compiler diagnostics:"
+      echo_stderr "$unexpected_diagnostics"
+      return 1
+    fi
     $BB aztec_process -i $json_path
     cache_upload contract-$contract_hash.tar.gz $json_path
   fi
@@ -287,8 +315,13 @@ function bench_cmds {
 }
 
 # Force-builds standard contracts and tar-balls their artifacts into pinned-standard-contracts.tar.gz.
-# Run this to (re)pin the standard-contract artifacts, then commit the resulting tarball. Re-run and
-# re-commit whenever the canonical standard-contract artifacts are intended to change.
+#
+# WARNING: re-pinning (running this, then committing the new tarball) moves the standard contracts'
+# canonical deterministic addresses and class ids. Rebuilding changes the artifact hash and bytecode
+# commitment, which changes the class id and the address derived from it. Those addresses are baked
+# into every already-deployed network and published package, so a re-pin breaks compatibility with all
+# of them and means the standard contracts must be redeployed at their new addresses on any network
+# meant to run the new artifacts. It is only correct as part of a deliberate, coordinated redeploy.
 # Mirrors the v4 `pin-build` mechanism that pins protocol contracts.
 function pin-standard-build {
   rm -f pinned-standard-contracts.tar.gz

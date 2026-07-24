@@ -5,7 +5,6 @@ import { randomBytes } from '../../random/index.js';
  * Contains code that is common to the "main thread" implementation and the "child thread" implementation.
  */
 export class BarretenbergWasmBase {
-
   protected memory!: WebAssembly.Memory;
   protected instance!: WebAssembly.Instance;
   protected logger: (msg: string) => void = () => {};
@@ -110,7 +109,9 @@ export class BarretenbergWasmBase {
     addr = addr >>> 0;
     const m = this.getMemory();
     let i = addr;
-    for (; m[i] !== 0; ++i);
+    while (m[i] !== 0) {
+      ++i;
+    }
     const textDecoder = new TextDecoder('ascii');
     return textDecoder.decode(m.slice(addr, i));
   }

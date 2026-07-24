@@ -55,7 +55,7 @@ pub contract TokenBridge {
         let config = self.storage.config.read();
 
         // Consume message and emit nullifier
-        self.context.consume_l1_to_l2_message(content_hash, secret, config.portal, message_leaf_index);
+        self.context.consume_l1_to_l2_message(content_hash, [secret], config.portal, message_leaf_index);
 
         // Mint tokens
         self.call(Token::at(config.token).mint_to_public(to, amount));
@@ -101,7 +101,7 @@ pub contract TokenBridge {
         let content_hash = get_mint_to_private_content_hash(amount);
         self.context.consume_l1_to_l2_message(
             content_hash,
-            secret_for_L1_to_L2_message_consumption,
+            [secret_for_L1_to_L2_message_consumption],
             config.portal,
             message_leaf_index,
         );

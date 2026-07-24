@@ -285,9 +285,17 @@ function test_cmds_native {
         if [[ "${CI_FULL:-0}" -eq 0 && "$test" == "ChonkKernelCapacity.MaxCapacityPassing" ]]; then
           continue
         fi
-        # A little extra resource for these tests.
-        # IPARecursiveTests fails with 2 threads.
-        if [[ "$test" =~ ^(AcirAvmRecursionConstraint|ChonkKernelCapacity|AvmRecursiveTests|IPARecursiveTests|HonkRecursionConstraintTest|ChonkRecursionConstraintTest) ]]; then
+        # Heavy provers get more cores/memory so they finish within the default per-test timeout;
+        # these circuits parallelize, so more cores lowers wall-time. Specific tests before family.
+        if [[ "$test" == "ChonkKernelCapacity.MaxCapacityPassing" ]]; then
+          # Accumulates and proves CHONK_MAX_NUM_APPS apps.
+          prefix="$prefix:CPUS=8:MEM=16g"
+        elif [[ "$test" == HonkRecursionConstraintTestWithoutPredicate/2.* ]]; then
+          # Root rollup circuit (HonkRecursionTypesWithoutPredicate index 2, IsRootRollup=true):
+          # a ~6.35M-gate circuit whose VK generation is memory- and compute-heavy.
+          prefix="$prefix:CPUS=8:MEM=16g"
+        elif [[ "$test" =~ ^(AcirAvmRecursionConstraint|ChonkKernelCapacity|AvmRecursiveTests|IPARecursiveTests|HonkRecursionConstraintTest|ChonkRecursionConstraintTest) ]]; then
+          # IPARecursiveTests fails with 2 threads.
           prefix="$prefix:CPUS=4:MEM=8g"
         fi
         echo -e "$prefix barretenberg/cpp/scripts/run_test.sh $bin_name $test"
@@ -299,8 +307,9 @@ function test_cmds_native {
 }
 
 function test_cmds_wasm_threads {
-  # We only want to sanity check that we haven't broken wasm ecc in merge queue.
-  echo "$hash barretenberg/cpp/scripts/wasmtime.sh barretenberg/cpp/build-wasm-threads/bin/ecc_tests"
+  # Sanity check that threaded wasm ecc still works in the merge queue. Pass cores and
+  # HARDWARE_CONCURRENCY into the guest so bb's wasm thread pool follows the CI budget.
+  echo "$hash:CPUS=8 HARDWARE_CONCURRENCY=8 barretenberg/cpp/scripts/wasmtime.sh barretenberg/cpp/build-wasm-threads/bin/ecc_tests"
 }
 
 function test_cmds_asan {

@@ -1,11 +1,12 @@
-import { spawn, ChildProcess } from 'child_process';
-import * as net from 'net';
+import { ChildProcess, spawn } from 'child_process';
 import * as fs from 'fs';
+import * as net from 'net';
 import * as os from 'os';
 import * as path from 'path';
-import { IMsgpackBackendAsync } from '../interface.js';
 import readline from 'readline';
 import { threadId } from 'worker_threads';
+
+import { IMsgpackBackendAsync } from '../interface.js';
 
 let instanceCounter = 0;
 
@@ -27,6 +28,7 @@ export class BarretenbergNativeSocketAsyncBackend implements IMsgpackBackendAsyn
   private socketPath: string;
   private connectionPromise: Promise<void>;
   private connectionTimeout: NodeJS.Timeout | null = null;
+  private logger: (msg: string) => void;
 
   // Queue of pending callbacks for pipelined requests
   // Responses come back in FIFO order, so we match them with queued callbacks
@@ -44,6 +46,7 @@ export class BarretenbergNativeSocketAsyncBackend implements IMsgpackBackendAsyn
   private responseBytesRead: number = 0;
 
   constructor(bbBinaryPath: string, threads?: number, logger?: (msg: string) => void, unref?: boolean) {
+    this.logger = logger ?? (() => {});
     // Create a unique socket path in temp directory
     this.socketPath = path.join(os.tmpdir(), `bb-${process.pid}-${threadId}-${instanceCounter++}.sock`);
 
@@ -277,7 +280,7 @@ export class BarretenbergNativeSocketAsyncBackend implements IMsgpackBackendAsyn
             callback.resolve(new Uint8Array(this.responseBuffer!));
           } else {
             // This shouldn't happen - response without a pending request
-            console.warn('Received response but no pending callback');
+            this.logger('Received response but no pending callback');
           }
 
           // If no more pending callbacks, unref socket to allow process to exit
@@ -339,7 +342,7 @@ export class BarretenbergNativeSocketAsyncBackend implements IMsgpackBackendAsyn
         this.socket.destroy();
         this.socket = null;
       }
-    } catch (e) {
+    } catch {
       // Ignore errors during cleanup
     }
 
@@ -356,9 +359,10 @@ export class BarretenbergNativeSocketAsyncBackend implements IMsgpackBackendAsyn
     // Don't try to unlink socket - bb owns it and will clean it up
   }
 
-  async destroy(): Promise<void> {
+  destroy(): Promise<void> {
     this.cleanup();
     this.process.kill('SIGTERM');
     this.process.removeAllListeners();
+    return Promise.resolve();
   }
 }

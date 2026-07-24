@@ -30,7 +30,7 @@ error: Type annotation needed
    ┌─ <repo>/noir-projects/aztec-nr/aztec/src/macros/internals_functions_generation/external/private.nr:<line>:<col>
    │
    │             aztec::contract_self::ContractSelfPrivate::new(&mut context, storage, call_self, enqueue_self, call_self_static, enqueue_self_static, internal, utility)
-   │                                                        --- Could not determine the type of the generic argument `Storage` declared on the struct `ContractSelfPrivate`
+   │             ---------------------------------------------- Could not determine the type of the generic argument `Storage` declared on the struct `ContractSelfPrivate`
    │
    ┌─ src/main.nr:4:1
    │

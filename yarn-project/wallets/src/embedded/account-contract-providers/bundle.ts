@@ -32,10 +32,12 @@ export class BundleAccountContractsProvider implements AccountContractsProvider 
   }
 
   getStubAccountContractArtifact(type: AccountType): Promise<ContractArtifact> {
-    return Promise.resolve(type === 'schnorr' ? StubSchnorrAccountContractArtifact : StubEcdsaAccountContractArtifact);
+    const isSchnorr = type === 'schnorr' || type === 'schnorr_initializerless';
+    return Promise.resolve(isSchnorr ? StubSchnorrAccountContractArtifact : StubEcdsaAccountContractArtifact);
   }
 
   createStubAccount(address: CompleteAddress, type: AccountType): Promise<Account> {
-    return Promise.resolve(type === 'schnorr' ? createStubSchnorrAccount(address) : createStubEcdsaAccount(address));
+    const isSchnorr = type === 'schnorr' || type === 'schnorr_initializerless';
+    return Promise.resolve(isSchnorr ? createStubSchnorrAccount(address) : createStubEcdsaAccount(address));
   }
 }

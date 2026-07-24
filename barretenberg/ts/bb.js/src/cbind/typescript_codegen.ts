@@ -7,9 +7,8 @@
  *   - Idiomatic TypeScript conventions
  *   - No complex abstraction
  */
-
-import type { CompiledSchema, Type, Struct, Field, Command } from './schema_visitor.js';
 import { toPascalCase } from './naming.js';
+import type { Command, CompiledSchema, Field, Struct, Type } from './schema_visitor.js';
 
 function toCamelCase(name: string): string {
   const pascal = toPascalCase(name);
@@ -24,17 +23,28 @@ export class TypeScriptCodegen {
     switch (type.kind) {
       case 'primitive':
         switch (type.primitive) {
-          case 'bool': return 'boolean';
-          case 'u8': return 'number';
-          case 'u16': return 'number';
-          case 'u32': return 'number';
-          case 'u64': return 'number';
-          case 'f64': return 'number';
-          case 'string': return 'string';
-          case 'bytes': return 'Uint8Array';
-          case 'field2': return '[Uint8Array, Uint8Array]';  // Extension field (Fq2)
-          case 'enum_u32': return 'number';  // C++ enum as integer
-          case 'map_u32_pair': return 'Record<number, [Uint8Array, number]>';  // map<enum, pair<fr, index>>
+          case 'bool':
+            return 'boolean';
+          case 'u8':
+            return 'number';
+          case 'u16':
+            return 'number';
+          case 'u32':
+            return 'number';
+          case 'u64':
+            return 'number';
+          case 'f64':
+            return 'number';
+          case 'string':
+            return 'string';
+          case 'bytes':
+            return 'Uint8Array';
+          case 'field2':
+            return '[Uint8Array, Uint8Array]'; // Extension field (Fq2)
+          case 'enum_u32':
+            return 'number'; // C++ enum as integer
+          case 'map_u32_pair':
+            return 'Record<number, [Uint8Array, number]>'; // map<enum, pair<fr, index>>
         }
         break;
 
@@ -64,17 +74,28 @@ export class TypeScriptCodegen {
     switch (type.kind) {
       case 'primitive':
         switch (type.primitive) {
-          case 'bool': return 'boolean';
-          case 'u8': return 'number';
-          case 'u16': return 'number';
-          case 'u32': return 'number';
-          case 'u64': return 'number';
-          case 'f64': return 'number';
-          case 'string': return 'string';
-          case 'bytes': return 'Uint8Array';
-          case 'field2': return '[Uint8Array, Uint8Array]';
-          case 'enum_u32': return 'number';
-          case 'map_u32_pair': return 'Record<number, [Uint8Array, number]>';
+          case 'bool':
+            return 'boolean';
+          case 'u8':
+            return 'number';
+          case 'u16':
+            return 'number';
+          case 'u32':
+            return 'number';
+          case 'u64':
+            return 'number';
+          case 'f64':
+            return 'number';
+          case 'string':
+            return 'string';
+          case 'bytes':
+            return 'Uint8Array';
+          case 'field2':
+            return '[Uint8Array, Uint8Array]';
+          case 'enum_u32':
+            return 'number';
+          case 'map_u32_pair':
+            return 'Record<number, [Uint8Array, number]>';
         }
         break;
 
@@ -157,7 +178,9 @@ ${fields}
     }
 
     const checks = struct.fields
-      .map(f => `  if (o.${f.name} === undefined) { throw new Error("Expected ${f.name} in ${tsName} deserialization"); }`)
+      .map(
+        f => `  if (o.${f.name} === undefined) { throw new Error("Expected ${f.name} in ${tsName} deserialization"); }`,
+      )
       .join('\n');
 
     const conversions = struct.fields
@@ -262,23 +285,15 @@ ${conversions}
     const allStructs = [...schema.structs.values(), ...schema.responses.values()];
 
     // Public interfaces
-    const publicInterfaces = allStructs
-      .map(s => this.generateInterface(s))
-      .join('\n\n');
+    const publicInterfaces = allStructs.map(s => this.generateInterface(s)).join('\n\n');
 
     // Msgpack interfaces
-    const msgpackInterfaces = allStructs
-      .map(s => this.generateMsgpackInterface(s))
-      .join('\n\n');
+    const msgpackInterfaces = allStructs.map(s => this.generateMsgpackInterface(s)).join('\n\n');
 
     // Conversion functions
-    const toFunctions = allStructs
-      .map(s => 'export ' + this.generateToFunction(s))
-      .join('\n\n');
+    const toFunctions = allStructs.map(s => 'export ' + this.generateToFunction(s)).join('\n\n');
 
-    const fromFunctions = allStructs
-      .map(s => 'export ' + this.generateFromFunction(s))
-      .join('\n\n');
+    const fromFunctions = allStructs.map(s => 'export ' + this.generateFromFunction(s)).join('\n\n');
 
     // BbApiBase interface
     const apiMethods = schema.commands
@@ -351,9 +366,7 @@ ${apiMethods}
   generateAsyncApi(schema: CompiledSchema): string {
     this.errorTypeName = schema.errorTypeName || 'ErrorResponse';
     const imports = this.generateApiImports(schema);
-    const methods = schema.commands
-      .map(c => this.generateAsyncApiMethod(c))
-      .join('\n\n');
+    const methods = schema.commands.map(c => this.generateAsyncApiMethod(c)).join('\n\n');
 
     return `// AUTOGENERATED FILE - DO NOT EDIT
 
@@ -384,9 +397,7 @@ ${methods}
   generateSyncApi(schema: CompiledSchema): string {
     this.errorTypeName = schema.errorTypeName || 'ErrorResponse';
     const imports = this.generateApiImports(schema);
-    const methods = schema.commands
-      .map(c => this.generateSyncApiMethod(c))
-      .join('\n\n');
+    const methods = schema.commands.map(c => this.generateSyncApiMethod(c)).join('\n\n');
 
     return `// AUTOGENERATED FILE - DO NOT EDIT
 
