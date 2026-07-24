@@ -3,7 +3,7 @@ import { AppTaggingSecret, SiloedTag, type TaggingIndexRange } from '@aztec/stdl
 import { TxEffect, TxHash } from '@aztec/stdlib/tx';
 
 import type { StagedStore } from '../../job_coordinator/job_coordinator.js';
-import { UNFINALIZED_TAGGING_INDEXES_WINDOW_LEN } from '../../tagging/constants.js';
+import { UNFINALIZED_TAGGING_INDEXES_WINDOW_LEN, unfinalizedTaggingIndexesWindowEnd } from '../../tagging/constants.js';
 
 /** Internal representation of a pending index range entry. */
 type PendingIndexesEntry = { lowestIndex: number; highestIndex: number; txHash: string };
@@ -195,13 +195,9 @@ export class SenderTaggingStore implements StagedStore {
 
       // Process in memory and validate
       for (const { range, secretStr, pendingData, finalizedIndex } of rangeData) {
-        // Check that the highest index is not further than window length from the highest finalized index.
-        if (range.highestIndex > (finalizedIndex ?? 0) + UNFINALIZED_TAGGING_INDEXES_WINDOW_LEN) {
-          throw new Error(
-            `Highest used index ${range.highestIndex} is further than window length from the highest finalized index ${finalizedIndex ?? 0}.
-            Tagging window length ${UNFINALIZED_TAGGING_INDEXES_WINDOW_LEN} is configured too low. Contact the Aztec team
-            to increase it!`,
-          );
+        const windowEnd = unfinalizedTaggingIndexesWindowEnd(finalizedIndex);
+        if (range.highestIndex >= windowEnd) {
+          throw windowExceededError(range.highestIndex, windowEnd, finalizedIndex);
         }
 
         // Throw if the lowest index is lower than or equal to the last finalized index
@@ -520,4 +516,19 @@ export class SenderTaggingStore implements StagedStore {
       this.#writePendingIndexes(jobId, secret, currentPending);
     }
   }
+}
+
+/** Builds the error thrown when a pending tag index is at or past the unfinalized tagging window end. */
+export function windowExceededError(
+  highestIndex: number,
+  windowEnd: number,
+  finalizedIndex: number | undefined,
+): Error {
+  const finalizedDescription =
+    finalizedIndex === undefined ? 'no index finalized yet' : `highest finalized index ${finalizedIndex}`;
+  return new Error(
+    `Highest used index ${highestIndex} is at or past the window end ${windowEnd} (${finalizedDescription}). ` +
+      `Tagging window length ${UNFINALIZED_TAGGING_INDEXES_WINDOW_LEN} is configured too low. ` +
+      `Contact the Aztec team to increase it!`,
+  );
 }

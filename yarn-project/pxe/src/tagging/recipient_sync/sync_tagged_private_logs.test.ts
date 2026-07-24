@@ -103,7 +103,7 @@ describe('syncTaggedPrivateLogs', () => {
 
     const expectedTags = await Promise.all(
       secrets.flatMap(secret =>
-        Array.from({ length: UNFINALIZED_TAGGING_INDEXES_WINDOW_LEN + 1 }, (_, i) =>
+        Array.from({ length: UNFINALIZED_TAGGING_INDEXES_WINDOW_LEN }, (_, i) =>
           computeSiloedTagForIndex(secret, i),
         ),
       ),
@@ -173,9 +173,9 @@ describe('syncTaggedPrivateLogs', () => {
     const finalizedBlockNumber = BlockNumber(10);
     const agedBlockTimestamp = CURRENT_TIMESTAMP - BigInt(MAX_TX_LIFETIME) - 1000n;
 
-    // A log at the last index of the initial window [0, WINDOW_LEN] moves the finalized index to WINDOW_LEN,
+    // A log at the last index of the initial window [0, WINDOW_LEN) moves the finalized index to WINDOW_LEN - 1,
     // which shifts the next window forward and triggers a second iteration.
-    const lastIndexInInitialWindow = UNFINALIZED_TAGGING_INDEXES_WINDOW_LEN;
+    const lastIndexInInitialWindow = UNFINALIZED_TAGGING_INDEXES_WINDOW_LEN - 1;
     const log1Tag = await computeSiloedTagForIndex(secret, lastIndexInInitialWindow);
 
     // A second log sits in the advanced window, only reachable in the second iteration.

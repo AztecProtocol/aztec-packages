@@ -11,8 +11,8 @@ import {
 import { randomAppTaggingSecret } from '@aztec/stdlib/testing';
 import { TxEffect, TxHash } from '@aztec/stdlib/tx';
 
-import { UNFINALIZED_TAGGING_INDEXES_WINDOW_LEN } from '../../tagging/constants.js';
-import { SenderTaggingStore } from './sender_tagging_store.js';
+import { UNFINALIZED_TAGGING_INDEXES_WINDOW_LEN, unfinalizedTaggingIndexesWindowEnd } from '../../tagging/constants.js';
+import { SenderTaggingStore, windowExceededError } from './sender_tagging_store.js';
 
 /** Helper to create a single-index range (lowestIndex === highestIndex). */
 function range(secret: AppTaggingSecret, lowest: number, highest?: number): TaggingIndexRange {
@@ -195,7 +195,7 @@ describe('SenderTaggingStore', () => {
         await expect(
           taggingStore.storePendingIndexes([range(secret1, indexBeyondWindow)], txHash2, 'test'),
         ).rejects.toThrow(
-          `Highest used index ${indexBeyondWindow} is further than window length from the highest finalized index ${finalizedIndex}`,
+          windowExceededError(indexBeyondWindow, unfinalizedTaggingIndexesWindowEnd(finalizedIndex), finalizedIndex),
         );
       });
 
@@ -217,6 +217,43 @@ describe('SenderTaggingStore', () => {
         const txHashes = await taggingStore.getTxHashesOfPendingIndexes(secret1, 0, indexAtBoundary + 5, 'test');
         expect(txHashes).toHaveLength(1);
         expect(txHashes[0]).toEqual(txHash2);
+      });
+      it('throws after pending txs exhaust window', async () => {
+        // One single-index pending tx per index, mirroring how an un-mined backlog accumulates one log per tx on a
+        // shared secret (e.g. the self-send chain in bench_build_block). With no index finalized yet, exactly
+        // WINDOW_LEN indexes (0..WINDOW_LEN - 1) fit...
+        for (let i = 0; i < UNFINALIZED_TAGGING_INDEXES_WINDOW_LEN; i++) {
+          await taggingStore.storePendingIndexes([range(secret1, i)], TxHash.random(), 'test');
+        }
+
+        // ...and the next tx throws, even with a single additional tag.
+        await expect(
+          taggingStore.storePendingIndexes(
+            [range(secret1, UNFINALIZED_TAGGING_INDEXES_WINDOW_LEN)],
+            TxHash.random(),
+            'test',
+          ),
+        ).rejects.toThrow(/no index finalized yet/);
+      });
+
+      it('permits exactly WINDOW_LEN pending indexes for a fresh secret', async () => {
+        // Fresh-secret counterpart of the two boundary tests above: with no index finalized yet, the last permitted
+        // pending index is WINDOW_LEN - 1, the same WINDOW_LEN-sized allowance as after any real finalization.
+        await expect(
+          taggingStore.storePendingIndexes(
+            [range(secret1, 0, UNFINALIZED_TAGGING_INDEXES_WINDOW_LEN - 1)],
+            TxHash.random(),
+            'test',
+          ),
+        ).resolves.not.toThrow();
+
+        await expect(
+          taggingStore.storePendingIndexes(
+            [range(secret1, UNFINALIZED_TAGGING_INDEXES_WINDOW_LEN)],
+            TxHash.random(),
+            'test',
+          ),
+        ).rejects.toThrow(/configured too low/);
       });
     });
   });
