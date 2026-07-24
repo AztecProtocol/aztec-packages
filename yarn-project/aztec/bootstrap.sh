@@ -12,6 +12,8 @@ function test_cmds {
   # All CLI tests share test/mixed-workspace/target so they must run sequentially
   # in a single jest invocation (--runInBand is set by run_test.sh).
   echo "$hash:ISOLATE=1:NAME=aztec/cli NARGO=$NARGO BB=$BB PROFILER_PATH=$PROFILER_PATH yarn-project/scripts/run_test.sh aztec/src/cli"
+  # setupLocalNetwork smoke test: spins up anvil + an in-process node (network usage ⇒ ISOLATE).
+  echo "$hash:ISOLATE=1:NAME=aztec/testing yarn-project/scripts/run_test.sh aztec/src/testing/local-network.test.ts"
 }
 
 case "$cmd" in

@@ -1,4 +1,4 @@
-import { EcdsaRAccountContract, EcdsaRSSHAccountContract } from '@aztec/accounts/ecdsa';
+import { EcdsaKAccountContract, EcdsaRAccountContract, EcdsaRSSHAccountContract } from '@aztec/accounts/ecdsa';
 import { StubEcdsaAccountContractArtifact, createStubEcdsaAccount } from '@aztec/accounts/ecdsa/stub';
 import { SchnorrAccountContract, SchnorrInitializerlessAccountContract } from '@aztec/accounts/schnorr';
 import { StubSchnorrAccountContractArtifact, createStubSchnorrAccount } from '@aztec/accounts/schnorr/stub';
@@ -15,6 +15,7 @@ import { TxSimulationResultWithAppOffset } from '@aztec/aztec.js/wallet';
 import type { DefaultAccountEntrypointOptions } from '@aztec/entrypoints/account';
 import { DefaultEntrypoint } from '@aztec/entrypoints/default';
 import { Fr } from '@aztec/foundation/curves/bn254';
+import { GrumpkinScalar } from '@aztec/foundation/curves/grumpkin';
 import type { LogFn } from '@aztec/foundation/log';
 import type { NotesFilter } from '@aztec/pxe/client/lazy';
 import type { PXEConfig } from '@aztec/pxe/config';
@@ -23,7 +24,6 @@ import { createPXE, getPXEConfig } from '@aztec/pxe/server';
 import { getStandardAuthRegistry } from '@aztec/standard-contracts/auth-registry';
 import { AztecAddress } from '@aztec/stdlib/aztec-address';
 import type { Gas, GasUsed } from '@aztec/stdlib/gas';
-import { deriveSigningKey } from '@aztec/stdlib/keys';
 import { NoteDao } from '@aztec/stdlib/note';
 import type { SimulationOverrides, TxExecutionRequest, TxProvingResult } from '@aztec/stdlib/tx';
 import { ExecutionPayload, mergeExecutionPayloads } from '@aztec/stdlib/tx';
@@ -145,7 +145,10 @@ export class CLIWallet extends BaseWallet {
     increasedFee: InteractionFeeOptions,
   ): Promise<TxProvingResult> {
     const cancellationTxRequest = await this.createCancellationTxExecutionRequest(from, txNonce, increasedFee);
-    return await this.pxe.proveTx(cancellationTxRequest, { scopes: this.scopesFrom(from), senderForTags: from });
+    return await this.pxe.proveTx(cancellationTxRequest, {
+      scopes: this.scopesFrom(from, [], undefined),
+      senderForTags: from,
+    });
   }
 
   override async getAccountFromAddress(address: AztecAddress) {
@@ -153,7 +156,7 @@ export class CLIWallet extends BaseWallet {
     if (this.accountCache.has(address.toString())) {
       return this.accountCache.get(address.toString())!;
     } else {
-      const accountManager = await this.createOrRetrieveAccount(address);
+      const accountManager = await this.retrieveAccount(address);
       account = await accountManager.getAccount();
     }
 
@@ -163,7 +166,93 @@ export class CLIWallet extends BaseWallet {
     return account;
   }
 
-  private async createAccount(secret: Fr, salt: Fr, contract: AccountContract): Promise<AccountManager> {
+  /**
+   * Creates an account from freshly supplied keys. SSH accounts sign with a key held in the agent (resolved from
+   * `publicKey`), every other type is rooted on `signingKey`, with `secretKey` as its privacy secret.
+   */
+  async createAccount(
+    type: AccountType,
+    signingKey: GrumpkinScalar | undefined,
+    secretKey: Fr | undefined,
+    salt: Fr = Fr.ZERO,
+    publicKey?: string,
+  ): Promise<AccountManager> {
+    const publicSigningKey =
+      type === 'ecdsasecp256r1ssh' ? await this.resolveSshPublicSigningKey(publicKey) : undefined;
+    return this.buildAccount(type, salt, signingKey, secretKey, publicSigningKey);
+  }
+
+  /**
+   * Retrieves a previously stored account by address, loading its keys, type and salt from the wallet database.
+   */
+  async retrieveAccount(address: AztecAddress): Promise<AccountManager> {
+    if (!this.db) {
+      throw new Error('Cannot retrieve an account without a wallet database');
+    }
+    const { type, signingKey, secretKey, salt } = await this.db.retrieveAccount(address);
+    if (type !== 'ecdsasecp256r1ssh' && !signingKey) {
+      throw new Error(
+        `Account ${address} has no stored signing key: it was created with an older version of aztec-wallet and is ` +
+          `incompatible with this one. Create a new account to continue.`,
+      );
+    }
+    const publicSigningKey =
+      type === 'ecdsasecp256r1ssh' ? await this.db.retrieveAccountMetadata(address, 'publicSigningKey') : undefined;
+    return this.buildAccount(type, salt, signingKey, secretKey, publicSigningKey);
+  }
+
+  private async buildAccount(
+    type: AccountType,
+    salt: Fr,
+    signingKey: GrumpkinScalar | undefined,
+    secretKey: Fr | undefined,
+    publicSigningKey: Buffer | undefined,
+  ): Promise<AccountManager> {
+    switch (type) {
+      case 'schnorr':
+      case 'schnorr_initializerless':
+      case 'ecdsasecp256r1':
+      case 'ecdsasecp256k1': {
+        if (!signingKey || !secretKey) {
+          throw new Error('Cannot build account without signing key and secret key');
+        }
+        const contract =
+          type === 'schnorr'
+            ? new SchnorrAccountContract(signingKey)
+            : type === 'schnorr_initializerless'
+              ? new SchnorrInitializerlessAccountContract(signingKey)
+              : type === 'ecdsasecp256r1'
+                ? new EcdsaRAccountContract(signingKey.toBuffer())
+                : new EcdsaKAccountContract(signingKey.toBuffer());
+        return await this.materializeAccount(secretKey, salt, contract);
+      }
+      case 'ecdsasecp256r1ssh': {
+        if (!secretKey || !publicSigningKey) {
+          throw new Error('Cannot build SSH account without secret key and public signing key');
+        }
+        return await this.materializeAccount(secretKey, salt, new EcdsaRSSHAccountContract(publicSigningKey));
+      }
+      default: {
+        throw new Error(`Unsupported account type: ${type}`);
+      }
+    }
+  }
+
+  private async resolveSshPublicSigningKey(publicKey: string | undefined): Promise<Buffer> {
+    if (!publicKey) {
+      throw new Error('Public key must be provided for ECDSA SSH account');
+    }
+    const identities = await getIdentities();
+    const foundIdentity = identities.find(
+      identity => identity.type === 'ecdsa-sha2-nistp256' && identity.publicKey === publicKey,
+    );
+    if (!foundIdentity) {
+      throw new Error(`Identity for public key ${publicKey} not found in the SSH agent`);
+    }
+    return extractECDSAPublicKeyFromBase64String(foundIdentity.publicKey);
+  }
+
+  private async materializeAccount(secret: Fr, salt: Fr, contract: AccountContract): Promise<AccountManager> {
     const accountManager = await AccountManager.create(this, secret, contract, { salt });
 
     const instance = accountManager.getInstance();
@@ -186,73 +275,6 @@ export class CLIWallet extends BaseWallet {
     }
 
     return accountManager;
-  }
-
-  async createOrRetrieveAccount(
-    address?: AztecAddress,
-    secretKey?: Fr,
-    type: AccountType = 'schnorr',
-    salt?: Fr,
-    publicKey?: string,
-  ): Promise<AccountManager> {
-    let account;
-
-    salt ??= Fr.ZERO;
-
-    if (this.db && address) {
-      ({ type, secretKey, salt } = await this.db.retrieveAccount(address));
-    }
-
-    if (!secretKey) {
-      throw new Error('Cannot retrieve/create wallet without secret key');
-    }
-
-    switch (type) {
-      case 'schnorr': {
-        account = await this.createAccount(secretKey, salt, new SchnorrAccountContract(deriveSigningKey(secretKey)));
-        break;
-      }
-      case 'schnorr_initializerless': {
-        account = await this.createAccount(
-          secretKey,
-          salt,
-          new SchnorrInitializerlessAccountContract(deriveSigningKey(secretKey)),
-        );
-        break;
-      }
-      case 'ecdsasecp256r1': {
-        account = await this.createAccount(
-          secretKey,
-          salt,
-          new EcdsaRAccountContract(deriveSigningKey(secretKey).toBuffer()),
-        );
-        break;
-      }
-      case 'ecdsasecp256r1ssh': {
-        let publicSigningKey;
-        if (this.db && address) {
-          publicSigningKey = await this.db.retrieveAccountMetadata(address, 'publicSigningKey');
-        } else if (publicKey) {
-          const identities = await getIdentities();
-          const foundIdentity = identities.find(
-            identity => identity.type === 'ecdsa-sha2-nistp256' && identity.publicKey === publicKey,
-          );
-          if (!foundIdentity) {
-            throw new Error(`Identity for public key ${publicKey} not found in the SSH agent`);
-          }
-          publicSigningKey = extractECDSAPublicKeyFromBase64String(foundIdentity.publicKey);
-        } else {
-          throw new Error('Public key must be provided for ECDSA SSH account');
-        }
-        account = await this.createAccount(secretKey, salt, new EcdsaRSSHAccountContract(publicSigningKey));
-        break;
-      }
-      default: {
-        throw new Error(`Unsupported account type: ${type}`);
-      }
-    }
-
-    return account;
   }
 
   /**
@@ -292,7 +314,7 @@ export class CLIWallet extends BaseWallet {
     opts: SimulateViaEntrypointOptions,
   ): Promise<TxSimulationResultWithAppOffset> {
     const { from, feeOptions, additionalScopes, sendMessagesAs } = opts;
-    const scopes = this.scopesFrom(from, additionalScopes);
+    const scopes = this.scopesFrom(from, additionalScopes ?? [], sendMessagesAs);
     const feeExecutionPayload = await feeOptions.walletFeePaymentMethod?.getExecutionPayload();
     const finalExecutionPayload = feeExecutionPayload
       ? mergeExecutionPayloads([feeExecutionPayload, executionPayload])

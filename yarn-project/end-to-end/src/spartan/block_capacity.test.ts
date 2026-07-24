@@ -9,12 +9,12 @@ import { asyncPool } from '@aztec/foundation/async-pool';
 import { BlockNumber } from '@aztec/foundation/branded-types';
 import { times } from '@aztec/foundation/collection';
 import { Fr } from '@aztec/foundation/curves/bn254';
+import { GrumpkinScalar } from '@aztec/foundation/curves/grumpkin';
 import { createLogger } from '@aztec/foundation/log';
 import { retryUntil } from '@aztec/foundation/retry';
 import { TokenContract } from '@aztec/noir-contracts.js/Token';
 import { BenchmarkingContract } from '@aztec/noir-test-contracts.js/Benchmarking';
 import { GasFees } from '@aztec/stdlib/gas';
-import { deriveSigningKey } from '@aztec/stdlib/keys';
 import { Tx } from '@aztec/stdlib/tx';
 
 import { jest } from '@jest/globals';
@@ -67,8 +67,12 @@ describe('block capacity benchmark', () => {
   let aztecNode: AztecNode;
   let originalSequencerConfig: Awaited<ReturnType<typeof getSequencersConfig>> | undefined;
   const benchmarkData: Array<{ name: string; unit: string; value: number }> = [];
+  // Window handed to bench_scrape.ts so the custom pipeline can scrape this run's
+  // blocks/metrics (see spartan/bootstrap.sh block_capacity_bench).
+  let benchStartedAt: string | undefined;
 
   beforeAll(async () => {
+    benchStartedAt = new Date().toISOString();
     logger.info('Setting up block capacity benchmark', {
       numWallets: NUM_WALLETS,
       txRealProofs,
@@ -108,14 +112,10 @@ describe('block capacity benchmark', () => {
       wallets.map(async wallet => {
         const secret = Fr.random();
         const salt = Fr.random();
-        const address = await wallet.registerAccount(secret, salt);
+        const signingKey = GrumpkinScalar.random();
+        const address = await wallet.registerAccount(secret, salt, signingKey);
         await registerSponsoredFPC(wallet);
-        const manager = await AccountManager.create(
-          wallet,
-          secret,
-          new SchnorrAccountContract(deriveSigningKey(secret)),
-          { salt },
-        );
+        const manager = await AccountManager.create(wallet, secret, new SchnorrAccountContract(signingKey), { salt });
         const deployMethod = await manager.getDeployMethod();
         await deployMethod.send({
           from: NO_FROM,
@@ -139,6 +139,19 @@ describe('block capacity benchmark', () => {
       await writeFile(process.env.BENCH_OUTPUT, JSON.stringify(finalData));
       logger.info('Wrote benchmark output', { path: process.env.BENCH_OUTPUT, entries: finalData.length });
     }
+
+    // Hand the run window to the custom-pipeline scraper (bench_scrape.ts), which
+    // reads this file to bound its Prometheus/log queries for the block-capacity run.
+    const timingMetadataPath = '/tmp/block_capacity_timing_data.json';
+    await writeFile(
+      timingMetadataPath,
+      JSON.stringify({
+        startedAt: benchStartedAt ?? new Date().toISOString(),
+        endedAt: new Date().toISOString(),
+        runId: process.env.BENCH_RUN_ID,
+      }),
+    );
+    logger.info('Wrote block-capacity timing metadata', { path: timingMetadataPath });
 
     // Restore original sequencer config
     if (originalSequencerConfig?.[0]) {

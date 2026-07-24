@@ -21,6 +21,7 @@ export function threadLogger(useCustomLogger: boolean): ((msg: string) => void) 
     };
   }
   // Use console.log directly when no custom logger is provided
+  // eslint-disable-next-line no-console -- Console logging is the worker fallback when no logger is provided.
   return console.log;
 }
 

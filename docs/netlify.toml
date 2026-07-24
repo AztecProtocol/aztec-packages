@@ -980,3 +980,8 @@
     # Aztec-nr: contract errors
     from = "/errors/14"
     to = "/developers/docs/aztec-nr/debugging#contract-errors"
+
+[[redirects]]
+    # Aztec-nr: auto-generated note properties require the derived Packable layout
+    from = "/errors/15"
+    to = "/aztec-nr-api/mainnet/noir_aztec/note/note_interface/trait.NoteProperties.html"

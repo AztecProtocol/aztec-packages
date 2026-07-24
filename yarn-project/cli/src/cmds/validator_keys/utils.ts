@@ -1,4 +1,4 @@
-import type { EthAddress } from '@aztec/foundation/eth-address';
+import { EthAddress } from '@aztec/foundation/eth-address';
 import { ethPrivateKeySchema } from '@aztec/node-keystore/schemas';
 import type { EthPrivateKey } from '@aztec/node-keystore/types';
 
@@ -78,4 +78,47 @@ export function validatePublisherOptions(options: { publishers?: string[]; publi
     // Update the options with the normalized keys
     options.publishers = normalizedKeys as EthPrivateKey[];
   }
+}
+
+/**
+ * Validates and normalizes the `--funding-account` option in place. The value may be a private key
+ * (used as a local signer) or an ETH address. An address needs a remote signer to sign funding txs:
+ * either `--remote-signer`, or a keystore that already defines one (pass `hasKeystoreRemoteSigner`),
+ * which a bare address inherits at runtime.
+ */
+export function validateFundingAccountOptions(
+  options: { fundingAccount?: string; remoteSigner?: string },
+  hasKeystoreRemoteSigner = false,
+) {
+  if (!options.fundingAccount) {
+    return;
+  }
+
+  let value = options.fundingAccount.trim();
+  if (!value.startsWith('0x')) {
+    value = '0x' + value;
+  }
+
+  if (value.length === 66) {
+    try {
+      ethPrivateKeySchema.parse(value);
+    } catch (error) {
+      throw new Error(`Invalid funding account private key: ${error instanceof Error ? error.message : String(error)}`);
+    }
+  } else if (value.length === 42) {
+    try {
+      EthAddress.fromString(value);
+    } catch (error) {
+      throw new Error(`Invalid funding account address: ${error instanceof Error ? error.message : String(error)}`);
+    }
+    if (!options.remoteSigner && !hasKeystoreRemoteSigner) {
+      throw new Error(
+        '--funding-account as an address requires --remote-signer, or a keystore that already defines a remote signer',
+      );
+    }
+  } else {
+    throw new Error('Invalid funding account: expected a 32-byte private key or a 20-byte address');
+  }
+
+  options.fundingAccount = value;
 }

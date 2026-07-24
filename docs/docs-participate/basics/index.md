@@ -17,7 +17,7 @@ Every account on Aztec has an address, but they work differently from Ethereum a
 Discover the wallets available for Aztec, how they differ from traditional crypto wallets, and what hardware wallet support looks like.
 
 ### [Fees](/participate/basics/fees)
-Understand how transaction fees work on Aztec. We use "mana" (similar to Ethereum's gas) and fees are paid in the $AZTEC token.
+Understand how transaction fees work on Aztec. We use "mana" (similar to Ethereum's gas) and fees are paid in Fee Juice, which you get by bridging $AZTEC from Ethereum.
 
 ### [Transactions](/participate/basics/transactions)
 Learn about the unique transaction lifecycle on Aztec, including why transactions are proven on your device before being sent to the network.

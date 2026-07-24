@@ -1,5 +1,0 @@
-# C language gives closest shell env.
-language: c
-
-script:
-- make test PROVEOPT=-v

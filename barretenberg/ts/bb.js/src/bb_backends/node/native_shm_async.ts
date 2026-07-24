@@ -1,9 +1,10 @@
+import { ChildProcess, spawn } from 'child_process';
+import { closeSync, openSync } from 'fs';
 import { createRequire } from 'module';
-import { spawn, ChildProcess } from 'child_process';
-import { openSync, closeSync } from 'fs';
+import { threadId } from 'worker_threads';
+
 import { IMsgpackBackendAsync } from '../interface.js';
 import { findNapiBinary, findPackageRoot } from './platform.js';
-import { threadId } from 'worker_threads';
 
 let instanceCounter = 0;
 
@@ -24,6 +25,7 @@ export class BarretenbergNativeShmAsyncBackend implements IMsgpackBackendAsync {
   private process: ChildProcess;
   private client: any; // NAPI MsgpackClientAsync instance
   private logFd?: number; // File descriptor for logs
+  private logger: (msg: string) => void;
 
   // Queue of pending callbacks for pipelined requests
   // Responses come back in FIFO order, so we match them with queued callbacks
@@ -32,10 +34,11 @@ export class BarretenbergNativeShmAsyncBackend implements IMsgpackBackendAsync {
     reject: (error: Error) => void;
   }> = [];
 
-  private constructor(process: ChildProcess, client: any, logFd?: number) {
+  private constructor(process: ChildProcess, client: any, logFd?: number, logger?: (msg: string) => void) {
     this.process = process;
     this.client = client;
     this.logFd = logFd;
+    this.logger = logger ?? (() => {});
 
     // Register our response handler with the C++ client
     // This callback will be invoked from the background thread via ThreadSafeFunction
@@ -55,7 +58,7 @@ export class BarretenbergNativeShmAsyncBackend implements IMsgpackBackendAsync {
       callback.resolve(new Uint8Array(responseBuffer));
     } else {
       // This shouldn't happen - response without a pending request
-      console.warn('Received response but no pending callback');
+      this.logger('Received response but no pending callback');
     }
 
     // If no more pending callbacks, release ref to allow process to exit
@@ -84,7 +87,7 @@ export class BarretenbergNativeShmAsyncBackend implements IMsgpackBackendAsync {
     try {
       const require = createRequire(findPackageRoot()!);
       addon = require(addonPath!);
-    } catch (err) {
+    } catch {
       // Addon not built yet or not available
       throw new Error('Shared memory async NAPI not available.');
     }
@@ -174,7 +177,7 @@ export class BarretenbergNativeShmAsyncBackend implements IMsgpackBackendAsync {
           if (attempt === maxAttempts - 1) {
             // Last attempt failed - check one more time if process exited
             if (processExited && exitError) {
-              throw exitError;
+              throw exitError as Error;
             }
             throw new Error(`Failed to connect to shared memory after ${timeout}ms: ${err.message}`);
           }
@@ -185,7 +188,7 @@ export class BarretenbergNativeShmAsyncBackend implements IMsgpackBackendAsync {
         throw new Error('Failed to create client connection');
       }
 
-      return new BarretenbergNativeShmAsyncBackend(bbProcess, client, logFd);
+      return new BarretenbergNativeShmAsyncBackend(bbProcess, client, logFd, logger);
     } finally {
       // If we failed to connect, ensure the process is killed and log file closed
       if (!client) {
@@ -193,7 +196,7 @@ export class BarretenbergNativeShmAsyncBackend implements IMsgpackBackendAsync {
         if (logFd !== undefined) {
           try {
             closeSync(logFd);
-          } catch (e) {
+          } catch {
             // Ignore errors during cleanup
           }
         }
@@ -216,7 +219,7 @@ export class BarretenbergNativeShmAsyncBackend implements IMsgpackBackendAsync {
    * @param inputBuffer The msgpack-encoded request
    * @returns Promise resolving to msgpack-encoded response
    */
-  async call(inputBuffer: Uint8Array): Promise<Uint8Array> {
+  call(inputBuffer: Uint8Array): Promise<Uint8Array> {
     return new Promise((resolve, reject) => {
       // If this is the first pending callback, acquire ref to keep event loop alive
       if (this.pendingCallbacks.length === 0) {
@@ -244,7 +247,7 @@ export class BarretenbergNativeShmAsyncBackend implements IMsgpackBackendAsync {
     });
   }
 
-  async destroy(): Promise<void> {
+  destroy(): Promise<void> {
     // Kill the bb process
     // Background thread and callbacks will be cleaned up by OS on process exit
     this.process.kill('SIGTERM');
@@ -254,9 +257,10 @@ export class BarretenbergNativeShmAsyncBackend implements IMsgpackBackendAsync {
     if (this.logFd !== undefined) {
       try {
         closeSync(this.logFd);
-      } catch (e) {
+      } catch {
         // Ignore errors during cleanup
       }
     }
+    return Promise.resolve();
   }
 }
