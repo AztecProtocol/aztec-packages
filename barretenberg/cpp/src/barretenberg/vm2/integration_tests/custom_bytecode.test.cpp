@@ -69,6 +69,28 @@ Instruction jump(uint32_t loc)
 {
     return InstructionBuilder(WireOpCode::JUMP_32).operand(loc).build();
 }
+Instruction calldatacopy(uint16_t copy_size_offset, uint16_t cd_start_offset, uint16_t dst_offset)
+{
+    return InstructionBuilder(WireOpCode::CALLDATACOPY)
+        .operand(copy_size_offset)
+        .operand(cd_start_offset)
+        .operand(dst_offset)
+        .build();
+}
+Instruction call(uint16_t l2_gas_offset,
+                 uint16_t da_gas_offset,
+                 uint16_t addr_offset,
+                 uint16_t args_size_offset,
+                 uint16_t args_offset)
+{
+    return InstructionBuilder(WireOpCode::CALL)
+        .operand(l2_gas_offset)
+        .operand(da_gas_offset)
+        .operand(addr_offset)
+        .operand(args_size_offset)
+        .operand(args_offset)
+        .build();
+}
 
 CustomBytecodeCase avm_minimal()
 {
@@ -83,6 +105,20 @@ CustomBytecodeCase avm_minimal()
                         .add(ret(/*copySizeOffset=*/0, /*returnOffset=*/2))
                         .build();
     return { "AvmMinimal", std::move(bytecode), /*expect_revert=*/false };
+}
+
+// Six instructions: it copies a callee address out of calldata, CALLs it with no arguments, and
+// returns. Used to check that a callee's instructions are counted in the tx-level total.
+std::vector<uint8_t> nested_caller()
+{
+    return BytecodeBuilder()
+        .add(set8(/*dst=*/0, MemoryTag::U32, /*value=*/0))        // args size and return copy size
+        .add(set8(/*dst=*/1, MemoryTag::U32, /*value=*/1))        // calldata copy size
+        .add(set32(/*dst=*/2, MemoryTag::U32, /*value=*/100'000)) // gas allowance for the callee
+        .add(calldatacopy(/*copySizeOffset=*/1, /*cdStartOffset=*/0, /*dstOffset=*/3))
+        .add(call(/*l2GasOffset=*/2, /*daGasOffset=*/2, /*addrOffset=*/3, /*argsSizeOffset=*/0, /*argsOffset=*/0))
+        .add(ret(/*copySizeOffset=*/0, /*returnOffset=*/0))
+        .build();
 }
 
 // First instruction resolves a base address (offset 0) which is uninitialized (invalid tag).
@@ -323,9 +359,9 @@ TEST_P(CustomBytecodeSimulation, SimulateAndProve)
 }
 
 // TxSimulationResult::total_instructions_executed counts one execution step per instruction the AVM
-// processes across all (nested) calls, matching the number of execution trace rows. AvmMinimal is
-// SET_8, SET_8, ADD_8, RETURN, all of which execute, so the count is exactly four, and the fast and
-// witgen simulators must agree.
+// processes, matching the number of execution trace rows. The count is tx-wide: it spans every
+// enqueued call and every nested call underneath them. AvmMinimal is SET_8, SET_8, ADD_8, RETURN,
+// all of which execute, so the count is exactly four.
 TEST(CustomBytecodeInstructionCount, CountsEveryExecutedInstruction)
 {
     PublicTxSimulationTester tester;
@@ -336,9 +372,24 @@ TEST(CustomBytecodeInstructionCount, CountsEveryExecutedInstruction)
     EXPECT_FALSE(fast_result.revert_code != RevertCode::OK);
     EXPECT_EQ(fast_result.total_instructions_executed, 4u);
 
-    const TxSimulationResult hint_result =
-        tester.simulate_tx({ TestEnqueuedCall{ .contract_address = deployed.address } }, proving_config());
-    EXPECT_EQ(hint_result.total_instructions_executed, fast_result.total_instructions_executed);
+    // Two enqueued calls of the same contract: the total accumulates across them.
+    const TxSimulationResult two_calls =
+        tester.simulate_tx({ TestEnqueuedCall{ .contract_address = deployed.address },
+                             TestEnqueuedCall{ .contract_address = deployed.address } });
+    EXPECT_FALSE(two_calls.revert_code != RevertCode::OK);
+    EXPECT_EQ(two_calls.total_instructions_executed, 8u);
+
+    // A nested call contributes its own instructions: six in the caller plus AvmMinimal's four.
+    // Both simulators must agree on the nested count.
+    const auto caller = tester.deploy_contract(nested_caller());
+    const std::vector<TestEnqueuedCall> nested_call = { TestEnqueuedCall{ .contract_address = caller.address,
+                                                                          .calldata = { deployed.address } } };
+    const TxSimulationResult nested_fast_result = tester.simulate_tx(nested_call);
+    EXPECT_FALSE(nested_fast_result.revert_code != RevertCode::OK);
+    EXPECT_EQ(nested_fast_result.total_instructions_executed, 10u);
+
+    const TxSimulationResult nested_hint_result = tester.simulate_tx(nested_call, proving_config());
+    EXPECT_EQ(nested_hint_result.total_instructions_executed, nested_fast_result.total_instructions_executed);
 }
 
 INSTANTIATE_TEST_SUITE_P(CustomBytecode,
