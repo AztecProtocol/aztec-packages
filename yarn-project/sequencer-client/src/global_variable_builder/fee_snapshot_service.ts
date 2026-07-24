@@ -678,13 +678,21 @@ export class FeeSnapshotService {
   }
 
   private exactWantedSlots(nowSeconds: bigint, pinnedSlot: SlotNumber, pendingCheckpointSlot: SlotNumber): number[] {
+    // Enumerate every slot between the drift-window endpoints, exactly like the read path does: with a capped
+    // provisional window, materializing only the endpoints would leave intermediate wanted slots uncovered and
+    // reads would coverage-miss into an error no refresh can repair.
     const drift = BigInt(this.config.clockDriftAllowanceSeconds);
-    const slots = new Set<number>();
-    for (const t of [nowSeconds - drift, nowSeconds + drift]) {
-      slots.add(this.wantedCurrent(pendingCheckpointSlot, t));
-      slots.add(this.wantedPrediction(pinnedSlot, t));
-    }
-    return [...slots];
+    const tLow = nowSeconds - drift;
+    const tHigh = nowSeconds + drift;
+    const current = this.enumerate(
+      this.wantedCurrent(pendingCheckpointSlot, tLow),
+      this.wantedCurrent(pendingCheckpointSlot, tHigh),
+    );
+    const prediction = this.enumerate(
+      this.wantedPrediction(pinnedSlot, tLow),
+      this.wantedPrediction(pinnedSlot, tHigh),
+    );
+    return unique([...current, ...prediction]);
   }
 
   private tsForSlot(slot: number): bigint {
