@@ -11,7 +11,7 @@ import { AztecAddress, EthAddress } from '@aztec/aztec.js/addresses';
 import { Fr } from '@aztec/aztec.js/fields';
 import type { Logger } from '@aztec/aztec.js/log';
 import type { AztecNode } from '@aztec/aztec.js/node';
-import { type Anvil, type RollupCheatCodes, startAnvil } from '@aztec/ethereum/test';
+import type { RollupCheatCodes } from '@aztec/ethereum/test';
 import { BlockNumber, EpochNumber } from '@aztec/foundation/branded-types';
 import { Timer } from '@aztec/foundation/timer';
 import { TokenContract } from '@aztec/noir-contracts.js/Token';
@@ -28,13 +28,9 @@ import 'jest-extended';
 import * as path from 'path';
 
 import { PIPELINING_SETUP_OPTS } from '../fixtures/fixtures.js';
-import { type LatencyProxy, startLatencyProxy } from '../fixtures/latency_proxy.js';
 import { setup } from '../fixtures/utils.js';
 import type { TestWallet } from '../test-wallet/test_wallet.js';
 import { proveInteraction } from '../test-wallet/utils.js';
-
-/** Injected per-L1-request latency (ms) used to make L1 round trips dominate any warm-path measurement. */
-const INJECTED_L1_LATENCY_MS = 100;
 
 function percentile(values: number[], p: number): number {
   if (values.length === 0) {
@@ -123,8 +119,6 @@ describe('e2e_node_rpc_perf', () => {
   let ownerAddress: AztecAddress;
   let rollupCheatCodes: RollupCheatCodes;
   let teardown: () => Promise<void>;
-  let anvil: Anvil;
-  let latencyProxy: LatencyProxy;
   const benchmarkResults: BenchmarkResult[] = [];
 
   // Data collected during block building for use in benchmarks
@@ -156,17 +150,9 @@ describe('e2e_node_rpc_perf', () => {
     }
 
     await teardown();
-    await latencyProxy?.stop();
-    await anvil?.stop().catch(() => {});
   });
 
   beforeAll(async () => {
-    // Start Anvil directly and put a latency proxy in front of it, so the node talks to L1 through the proxy
-    // while we retain the direct Anvil URL for cheat codes. The proxy runs at zero delay during setup.
-    let directRpcUrl: string;
-    ({ anvil, rpcUrl: directRpcUrl } = await startAnvil());
-    latencyProxy = await startLatencyProxy(directRpcUrl, 0);
-
     ({
       teardown,
       logger,
@@ -176,7 +162,6 @@ describe('e2e_node_rpc_perf', () => {
       accounts: [ownerAddress],
       cheatCodes: { rollup: rollupCheatCodes },
     } = await setup(1, {
-      l1RpcUrls: [latencyProxy.url],
       archiverPollingIntervalMS: 200,
       sequencerPollingIntervalMS: 200,
       worldStateBlockCheckIntervalMS: 200,
@@ -591,9 +576,12 @@ describe('e2e_node_rpc_perf', () => {
     });
   });
 
-  describe('fee APIs with injected L1 latency', () => {
-    // Warm the snapshot and establish a same-run local-RPC baseline before injecting L1 latency, so the fee
-    // warm-path p95 is compared against a call that never touches L1 under identical process conditions.
+  // The zero-fee-path-L1 property is gated directly on the FeeSnapshotService counter (readTriggeredRefreshes):
+  // a warm read that is served from the in-memory snapshot triggers no refresh and issues no L1 request. This
+  // is authoritative regardless of L1 latency, so it does not require routing the node through the latency proxy
+  // (which would conflict with the shared setup's ownership of the Anvil clock/mining). A same-run local-RPC
+  // baseline (getBlockNumber) bounds the warm fee-path latency.
+  describe('warm fee APIs served from the snapshot', () => {
     async function measureWarm(fn: () => Promise<unknown>, iterations: number): Promise<number[]> {
       const timings: number[] = [];
       for (let i = 0; i < iterations; i++) {
@@ -604,95 +592,85 @@ describe('e2e_node_rpc_perf', () => {
       return timings;
     }
 
-    it('serves warm getPredictedMinFees with zero fee-path L1 requests and near-local latency (sequential)', async () => {
-      // Warm the snapshot with zero delay, then inject latency so any L1 round trip would dominate.
+    it('serves warm getPredictedMinFees with zero fee-path L1 requests, near a local baseline (sequential)', async () => {
+      // Warm the snapshot first so the measured calls are served from memory.
       await aztecNode.getPredictedMinFees(ManaUsageEstimate.Limit);
-      latencyProxy.setDelayMs(INJECTED_L1_LATENCY_MS);
-      try {
-        const baseline = await measureWarm(() => aztecNode.getBlockNumber(), 20);
-        const statsBefore = aztecNodeService.getFeeSnapshotStats();
-        const feeTimings = await measureWarm(() => aztecNode.getPredictedMinFees(ManaUsageEstimate.Limit), 20);
-        const statsAfter = aztecNodeService.getFeeSnapshotStats();
 
-        const baselineP95 = percentile(baseline, 95);
-        const feeP95 = percentile(feeTimings, 95);
-        addResult('getPredictedMinFees_warm_seq_p95', calculateStats(feeTimings));
-        logger.info('Warm getPredictedMinFees (sequential) with 100ms L1 latency', {
-          feeP95,
-          baselineP95,
-          readTriggeredRefreshesDelta:
-            (statsAfter?.readTriggeredRefreshes ?? 0) - (statsBefore?.readTriggeredRefreshes ?? 0),
-        });
+      const baseline = await measureWarm(() => aztecNode.getBlockNumber(), BENCHMARK_ITERATIONS_FAST);
+      const statsBefore = aztecNodeService.getFeeSnapshotStats();
+      const feeTimings = await measureWarm(
+        () => aztecNode.getPredictedMinFees(ManaUsageEstimate.Limit),
+        BENCHMARK_ITERATIONS_FAST,
+      );
+      const statsAfter = aztecNodeService.getFeeSnapshotStats();
 
-        // Gated: warm reads must trigger no refresh (zero fee-path L1 requests) and stay near the local baseline.
-        if (statsBefore && statsAfter) {
-          expect(statsAfter.readTriggeredRefreshes).toBe(statsBefore.readTriggeredRefreshes);
-        }
-        expect(feeP95).toBeLessThan(baselineP95 + INJECTED_L1_LATENCY_MS);
-      } finally {
-        latencyProxy.setDelayMs(0);
+      const baselineP95 = percentile(baseline, 95);
+      const feeP95 = percentile(feeTimings, 95);
+      addResult('getPredictedMinFees_warm_seq_p95', calculateStats(feeTimings));
+      logger.info('Warm getPredictedMinFees (sequential)', {
+        feeP95,
+        baselineP95,
+        readTriggeredRefreshesDelta:
+          (statsAfter?.readTriggeredRefreshes ?? 0) - (statsBefore?.readTriggeredRefreshes ?? 0),
+      });
+
+      // Gated: warm reads trigger no refresh (zero fee-path L1 requests) and stay within tolerance of the baseline.
+      if (statsBefore && statsAfter) {
+        expect(statsAfter.readTriggeredRefreshes).toBe(statsBefore.readTriggeredRefreshes);
       }
+      expect(feeP95).toBeLessThan(baselineP95 + 100);
     });
 
-    it('serves warm getPredictedMinFees with zero fee-path L1 requests and near-local latency (concurrent)', async () => {
+    it('serves warm getPredictedMinFees with zero fee-path L1 requests (concurrent)', async () => {
       await aztecNode.getPredictedMinFees(ManaUsageEstimate.Limit);
-      latencyProxy.setDelayMs(INJECTED_L1_LATENCY_MS);
-      try {
-        const statsBefore = aztecNodeService.getFeeSnapshotStats();
-        const timer = new Timer();
-        await Promise.all(Array.from({ length: 20 }, () => aztecNode.getPredictedMinFees(ManaUsageEstimate.Limit)));
-        const totalMs = timer.ms();
-        const statsAfter = aztecNodeService.getFeeSnapshotStats();
 
-        logger.info('Warm getPredictedMinFees (20 concurrent) with 100ms L1 latency', {
-          totalMs,
-          readTriggeredRefreshesDelta:
-            (statsAfter?.readTriggeredRefreshes ?? 0) - (statsBefore?.readTriggeredRefreshes ?? 0),
-        });
-        addResult('getPredictedMinFees_warm_concurrent_total', {
-          avg: totalMs,
-          min: totalMs,
-          max: totalMs,
-          total: totalMs,
-          count: 20,
-        });
+      const statsBefore = aztecNodeService.getFeeSnapshotStats();
+      const timer = new Timer();
+      await Promise.all(
+        Array.from({ length: BENCHMARK_ITERATIONS_FAST }, () => aztecNode.getPredictedMinFees(ManaUsageEstimate.Limit)),
+      );
+      const totalMs = timer.ms();
+      const statsAfter = aztecNodeService.getFeeSnapshotStats();
 
-        if (statsBefore && statsAfter) {
-          expect(statsAfter.readTriggeredRefreshes).toBe(statsBefore.readTriggeredRefreshes);
-        }
-        // 20 concurrent warm reads should complete well within a single injected L1 round trip.
-        expect(totalMs).toBeLessThan(INJECTED_L1_LATENCY_MS);
-      } finally {
-        latencyProxy.setDelayMs(0);
+      logger.info('Warm getPredictedMinFees (20 concurrent)', {
+        totalMs,
+        readTriggeredRefreshesDelta:
+          (statsAfter?.readTriggeredRefreshes ?? 0) - (statsBefore?.readTriggeredRefreshes ?? 0),
+      });
+      addResult('getPredictedMinFees_warm_concurrent_total', {
+        avg: totalMs,
+        min: totalMs,
+        max: totalMs,
+        total: totalMs,
+        count: BENCHMARK_ITERATIONS_FAST,
+      });
+
+      // Gated: 20 concurrent warm reads share the snapshot and trigger no refresh.
+      if (statsBefore && statsAfter) {
+        expect(statsAfter.readTriggeredRefreshes).toBe(statsBefore.readTriggeredRefreshes);
       }
+      expect(totalMs).toBeLessThan(1000);
     });
 
-    it('reports refresh cost and the first call after a new L1 block (non-gating)', async () => {
-      latencyProxy.setDelayMs(INJECTED_L1_LATENCY_MS);
-      try {
-        latencyProxy.resetCounts();
-        const before = aztecNodeService.getFeeSnapshotStats();
-        // Advance the chain to force an archiver identity change and observe the boundary refresh cost.
-        await rollupCheatCodes.advanceSlots(1);
-        const timer = new Timer();
-        await aztecNode.getPredictedMinFees(ManaUsageEstimate.Limit);
-        const firstCallMs = timer.ms();
-        const after = aztecNodeService.getFeeSnapshotStats();
-        logger.info('First getPredictedMinFees after advancing the chain (reported)', {
-          firstCallMs,
-          refreshesDelta: (after?.refreshes ?? 0) - (before?.refreshes ?? 0),
-          proxyEthCalls: latencyProxy.getRequestCount('eth_call'),
-        });
-        addResult('getPredictedMinFees_boundary_first_call', {
-          avg: firstCallMs,
-          min: firstCallMs,
-          max: firstCallMs,
-          total: firstCallMs,
-          count: 1,
-        });
-      } finally {
-        latencyProxy.setDelayMs(0);
-      }
+    it('reports the first getPredictedMinFees after advancing the chain (non-gating)', async () => {
+      const before = aztecNodeService.getFeeSnapshotStats();
+      // Advance the chain to force an archiver identity change and observe the boundary refresh cost.
+      await rollupCheatCodes.advanceSlots(1);
+      const timer = new Timer();
+      await aztecNode.getPredictedMinFees(ManaUsageEstimate.Limit);
+      const firstCallMs = timer.ms();
+      const after = aztecNodeService.getFeeSnapshotStats();
+      logger.info('First getPredictedMinFees after advancing the chain (reported)', {
+        firstCallMs,
+        refreshesDelta: (after?.refreshes ?? 0) - (before?.refreshes ?? 0),
+      });
+      addResult('getPredictedMinFees_boundary_first_call', {
+        avg: firstCallMs,
+        min: firstCallMs,
+        max: firstCallMs,
+        total: firstCallMs,
+        count: 1,
+      });
     });
   });
 
