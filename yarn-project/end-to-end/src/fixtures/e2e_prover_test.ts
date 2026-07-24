@@ -24,6 +24,7 @@ import { TestWallet } from '../test-wallet/test_wallet.js';
 import { getACVMConfig } from './get_acvm_config.js';
 import { getBBConfig } from './get_bb_config.js';
 import { getPrivateKeyFromIndex, getSponsoredFPCAddress, setup, setupPXEAndGetWallet } from './setup.js';
+import { getStandardContractGenesisNullifiers } from './standard_contracts_genesis.js';
 
 type ProvenSetup = {
   wallet: TestWallet;
@@ -234,6 +235,7 @@ export class FullProverTest extends SingleNodeTestContext {
       undefined,
       undefined,
       this.context.genesis!.genesisTimestamp,
+      await getStandardContractGenesisNullifiers(),
     );
 
     const proverNodeConfig: Parameters<typeof createAztecNodeService>[0] = {
