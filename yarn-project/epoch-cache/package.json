@@ -28,7 +28,7 @@
   "dependencies": {
     "@aztec/ethereum": "workspace:*",
     "@aztec/foundation": "workspace:^",
-    "@aztec/l1-artifacts": "portal:../../l1-contracts/l1-artifacts",
+    "@aztec/l1-artifacts": "0.1.0-dummy",
     "@aztec/stdlib": "workspace:*",
     "dotenv": "^16.0.3",
     "get-port": "^7.1.0",

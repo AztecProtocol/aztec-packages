@@ -35,7 +35,7 @@
     "@aztec/epoch-cache": "workspace:^",
     "@aztec/ethereum": "workspace:^",
     "@aztec/foundation": "workspace:^",
-    "@aztec/l1-artifacts": "portal:../../l1-contracts/l1-artifacts",
+    "@aztec/l1-artifacts": "0.1.0-dummy",
     "@aztec/node-keystore": "workspace:^",
     "@aztec/noir-acvm_js": "portal:../../noir/packages/acvm_js",
     "@aztec/noir-contracts.js": "workspace:^",

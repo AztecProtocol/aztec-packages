@@ -1,10 +1,5 @@
 import { randomBytes } from '../../random/index.js';
-import {
-  buffer32BytesToBigIntBE,
-  uint8ArrayToBigIntBE,
-  bigIntToBufferBE,
-  bigIntToUint8ArrayBE,
-} from './bigint-buffer.js';
+import { bigIntToUint8ArrayBE, buffer32BytesToBigIntBE, uint8ArrayToBigIntBE } from './bigint-buffer.js';
 
 export class Fr {
   static ZERO = new Fr(0n);

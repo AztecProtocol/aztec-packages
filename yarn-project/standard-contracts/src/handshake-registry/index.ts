@@ -6,6 +6,7 @@ import { makeStandardContract } from '../make_standard_contract.js';
 import type { StandardContract } from '../standard_contract.js';
 
 export {
+  INTERACTIVE_HANDSHAKE_REQUEST_KIND,
   STANDARD_HANDSHAKE_REGISTRY_ADDRESS,
   STANDARD_HANDSHAKE_REGISTRY_CLASS_ID,
   STANDARD_HANDSHAKE_REGISTRY_SALT,

@@ -24,9 +24,9 @@ jest.setTimeout(1000 * 60 * 20);
  * Setup: a single sequencer/validator node from `setupWithProver` plus the context's fake prover-node (no
  * `mockGossipSubNetwork`, so no gossip bus), making this a `single-node` test on the production `Sequencer`. Each of the
  * six `describe` blocks builds a fresh context in its own `beforeEach` and tears it down in the shared `afterEach`. The
- * happy-path pair uses defaults (`numberOfAccounts: 1`; ethSlot=8s local/12s CI, aztecSlot=16s/24s, epoch=6,
- * proofSubEpochs=1); the five reorg describes use a faster cadence (ethSlot=4s, aztecSlot=36s, epoch=4 — or 8 for the
- * with-replacement case so the replacement lands in-epoch — proofSubEpochs=NO_REORG_SUBMISSION_EPOCHS, blockDurationMs=8s, minTxsPerBlock=0,
+ * happy-path pair uses defaults (`numberOfAccounts: 1`; ethSlot=8s, aztecSlot=16s, epoch=6,
+ * proofSubEpochs=1); the five reorg describes use a faster cadence (ethSlot=4s, aztecSlot=24s, epoch=4 — or 8 for the
+ * with-replacement case so the replacement lands in-epoch — proofSubEpochs=NO_REORG_SUBMISSION_EPOCHS, blockDurationMs=5s, minTxsPerBlock=0,
  * anvilSlotsInAnEpoch=32, maxSpeedUpAttempts=0, cancelTxOnTimeout=false). The `prover-node starts mid-epoch` describe
  * sets `startProverNode: false` and spins up the prover via `test.createProverNode()` partway through the epoch.
  *

@@ -174,6 +174,19 @@ pub unconstrained fn do_sync_state_without_handshake_discovery(
     );
 }
 
+/// A [`CustomSyncHandler`] that skips state synchronization entirely.
+///
+/// For contracts that hold no private state and emit no messages, there is nothing to discover: syncing would only
+/// perform unnecessary RPC calls.
+pub unconstrained fn do_sync_state_no_op(
+    _contract_address: AztecAddress,
+    _compute_note_hash: ComputeNoteHash,
+    _compute_note_nullifier: ComputeNoteNullifier,
+    _process_custom_message: Option<CustomMessageHandler>,
+    _offchain_inbox_sync: Option<OffchainInboxSync>,
+    _scope: AztecAddress,
+) {}
+
 unconstrained fn sync_state_with_secrets(
     contract_address: AztecAddress,
     compute_note_hash: ComputeNoteHash,

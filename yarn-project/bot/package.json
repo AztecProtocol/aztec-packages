@@ -60,7 +60,7 @@
     "@aztec/ethereum": "workspace:^",
     "@aztec/foundation": "workspace:^",
     "@aztec/kv-store": "workspace:^",
-    "@aztec/l1-artifacts": "portal:../../l1-contracts/l1-artifacts",
+    "@aztec/l1-artifacts": "0.1.0-dummy",
     "@aztec/noir-contracts.js": "workspace:^",
     "@aztec/noir-protocol-circuits-types": "workspace:^",
     "@aztec/noir-test-contracts.js": "workspace:^",

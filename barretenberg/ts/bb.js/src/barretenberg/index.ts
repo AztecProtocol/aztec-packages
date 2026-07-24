@@ -1,9 +1,9 @@
-import { Crs, GrumpkinCrs } from '../crs/index.js';
+import { BackendOptions, BackendType } from '../bb_backends/index.js';
+import { IMsgpackBackendAsync, IMsgpackBackendSync } from '../bb_backends/interface.js';
+import { createAsyncBackend, createSyncBackend } from '../bb_backends/node/index.js';
 import { AsyncApi } from '../cbind/generated/async.js';
 import { SyncApi } from '../cbind/generated/sync.js';
-import { IMsgpackBackendSync, IMsgpackBackendAsync } from '../bb_backends/interface.js';
-import { BackendOptions, BackendType } from '../bb_backends/index.js';
-import { createAsyncBackend, createSyncBackend } from '../bb_backends/node/index.js';
+import { Crs, GrumpkinCrs } from '../crs/index.js';
 
 const DEFAULT_BB_CRS_SIZE = 2 ** 19;
 // Keep the iOS default separate so it can diverge when mobile memory limits require it.
@@ -52,8 +52,11 @@ export class Barretenberg extends AsyncApi {
 
     if (options.backend) {
       // Explicit backend required - no fallback
-      const backend = await createAsyncBackend(options.backend, options, logger);
-      if (!options.skipSrsInit && (options.backend === BackendType.Wasm || options.backend === BackendType.WasmWorker)) {
+      const backend = new Barretenberg(await createAsyncBackend(options.backend, options, logger), options);
+      if (
+        !options.skipSrsInit &&
+        (options.backend === BackendType.Wasm || options.backend === BackendType.WasmWorker)
+      ) {
         await backend.initSRSChonk(options.srsSize);
       }
       return backend;
@@ -61,10 +64,10 @@ export class Barretenberg extends AsyncApi {
 
     if (typeof window === 'undefined') {
       try {
-        return await createAsyncBackend(BackendType.NativeUnixSocket, options, logger);
+        return new Barretenberg(await createAsyncBackend(BackendType.NativeUnixSocket, options, logger), options);
       } catch (err: any) {
         logger(`Unix socket unavailable (${err.message}), falling back to WASM`);
-        const backend = await createAsyncBackend(BackendType.Wasm, options, logger);
+        const backend = new Barretenberg(await createAsyncBackend(BackendType.Wasm, options, logger), options);
         if (!options.skipSrsInit) {
           await backend.initSRSChonk(options.srsSize);
         }
@@ -72,7 +75,7 @@ export class Barretenberg extends AsyncApi {
       }
     } else {
       logger(`In browser, using WASM over worker backend.`);
-      const backend = await createAsyncBackend(BackendType.WasmWorker, options, logger);
+      const backend = new Barretenberg(await createAsyncBackend(BackendType.WasmWorker, options, logger), options);
       if (!options.skipSrsInit) {
         await backend.initSRSChonk(options.srsSize);
       }
@@ -103,7 +106,11 @@ export class Barretenberg extends AsyncApi {
     // iOS browser is very aggressive with memory. Check if running in browser and on iOS.
     // We expect the mobile iOS browser to kill us >=1GB, so no real use in using a larger SRS.
     // Use `self` instead of `window` so this check also works inside Web Workers.
-    if (typeof self !== 'undefined' && typeof self.navigator !== 'undefined' && /iPad|iPhone/.test(self.navigator.userAgent)) {
+    if (
+      typeof self !== 'undefined' &&
+      typeof self.navigator !== 'undefined' &&
+      /iPad|iPhone/.test(self.navigator.userAgent)
+    ) {
       return IOS_BB_CRS_SIZE;
     }
     return DEFAULT_BB_CRS_SIZE;
@@ -127,7 +134,7 @@ export class Barretenberg extends AsyncApi {
     return [response.numGates, response.numGatesDyadic];
   }
 
-  async destroy() {
+  destroy(): Promise<void> {
     return super.destroy();
   }
 
@@ -144,8 +151,8 @@ export class Barretenberg extends AsyncApi {
       return barretenbergSingleton;
     } catch (error) {
       // If initialization fails, clear the singleton so next call can retry
-      barretenbergSingleton = undefined!;
-      barretenbergSingletonPromise = undefined!;
+      barretenbergSingleton = undefined;
+      barretenbergSingletonPromise = undefined;
       throw error;
     }
   }
@@ -153,8 +160,8 @@ export class Barretenberg extends AsyncApi {
   static async destroySingleton() {
     if (barretenbergSingleton) {
       await barretenbergSingleton.destroy();
-      barretenbergSingleton = undefined!;
-      barretenbergSingletonPromise = undefined!;
+      barretenbergSingleton = undefined;
+      barretenbergSingletonPromise = undefined;
     }
   }
 
@@ -170,11 +177,11 @@ export class Barretenberg extends AsyncApi {
   }
 }
 
-let barretenbergSingletonPromise: Promise<Barretenberg>;
-let barretenbergSingleton: Barretenberg;
+let barretenbergSingletonPromise: Promise<Barretenberg> | undefined;
+let barretenbergSingleton: Barretenberg | undefined;
 
-let barretenbergSyncSingletonPromise: Promise<BarretenbergSync>;
-let barretenbergSyncSingleton: BarretenbergSync;
+let barretenbergSyncSingletonPromise: Promise<BarretenbergSync> | undefined;
+let barretenbergSyncSingleton: BarretenbergSync | undefined;
 
 export class BarretenbergSync extends SyncApi {
   constructor(backend: IMsgpackBackendSync) {
@@ -196,17 +203,17 @@ export class BarretenbergSync extends SyncApi {
     const logger = options.logger ?? (() => {});
 
     if (options.backend) {
-      return await createSyncBackend(options.backend, options, logger);
+      return new BarretenbergSync(await createSyncBackend(options.backend, options, logger));
     }
 
     // Try native, fallback to WASM.
     try {
-      return await createSyncBackend(BackendType.NativeSharedMemory, options, logger);
+      return new BarretenbergSync(await createSyncBackend(BackendType.NativeSharedMemory, options, logger));
     } catch (err: any) {
       logger(`Shared memory unavailable (${err.message}), falling back to WASM`);
     }
 
-    return await createSyncBackend(BackendType.Wasm, options, logger);
+    return new BarretenbergSync(await createSyncBackend(BackendType.Wasm, options, logger));
   }
 
   /**
@@ -225,8 +232,8 @@ export class BarretenbergSync extends SyncApi {
   static destroySingleton() {
     if (barretenbergSyncSingleton) {
       barretenbergSyncSingleton.destroy();
-      barretenbergSyncSingleton = undefined!;
-      barretenbergSyncSingletonPromise = undefined!;
+      barretenbergSyncSingleton = undefined;
+      barretenbergSyncSingletonPromise = undefined;
     }
   }
 

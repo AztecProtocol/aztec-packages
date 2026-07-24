@@ -1,10 +1,11 @@
 use crate::{
     context::{PrivateContext, UtilityContext},
+    keys::getters::get_public_keys,
     oracle::random::random,
     state_vars::{OwnedStateVariable, SingleUseClaim},
 };
 use crate::protocol::{address::AztecAddress, traits::FromField};
-use crate::test::helpers::test_environment::TestEnvironment;
+use crate::test::helpers::test_environment::{CreateAccountOptions, TestEnvironment};
 
 global STORAGE_SLOT: Field = 17;
 
@@ -131,6 +132,24 @@ unconstrained fn claim_two_claim_ids_different_state_vars() {
 
         let state_var_1 = in_utility(context, STORAGE_SLOT + 1, owner);
         assert(state_var_1.has_claimed());
+    });
+}
+
+#[test]
+unconstrained fn claim_by_owner_does_not_claim_for_shared_key_distinct_address_owner() {
+    let mut env = TestEnvironment::new();
+
+    let owner_a = env.create_light_account_opts(CreateAccountOptions::new().with_secret(42));
+    let owner_b = env.create_light_account_opts(CreateAccountOptions::new().with_secret(42));
+
+    assert(owner_a != owner_b);
+    env.utility_context(|_| { assert_eq(get_public_keys(owner_a).npk_m_hash, get_public_keys(owner_b).npk_m_hash); });
+
+    env.private_context(|context| { in_private(context, owner_a).claim(); });
+
+    env.utility_context(|context| {
+        assert(in_utility(context, STORAGE_SLOT, owner_a).has_claimed());
+        assert(!in_utility(context, STORAGE_SLOT, owner_b).has_claimed());
     });
 }
 

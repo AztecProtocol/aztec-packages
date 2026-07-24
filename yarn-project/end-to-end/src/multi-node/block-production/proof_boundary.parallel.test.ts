@@ -28,8 +28,8 @@ type PublishedEvent = Parameters<SequencerEvents['checkpoint-published']>[0];
 
 // Suite: 5 parallel scenarios testing the interaction between the proof submission deadline and
 // the pipelining boundary slot. MultiNodeTestContext: 3 validator nodes + 1 prover node,
-// mockGossipSubNetwork, skipInitialSequencer. Timing: ethSlot=12s, aztecSlot=3×12=36s,
-// epoch=default 6, proofSubmissionEpochs=1 (overridden per test via setupTest), blockDurationMs=6s,
+// mockGossipSubNetwork, skipInitialSequencer. Timing: ethSlot=12s, aztecSlot=2×12=24s,
+// epoch=default 6, proofSubmissionEpochs=1 (overridden per test via setupTest), blockDurationMs=4s,
 // inboxLag=2 (v5 always enforces the timetable, so the former enforceTimeTable/disableAnvilTestWatcher
 // overrides are gone). The Delayer is used to steer proof tx timing.
 describe('multi-node/block-production/proof_boundary', () => {
@@ -58,9 +58,10 @@ describe('multi-node/block-production/proof_boundary', () => {
 
     const minTxsPerBlock = validatorOverrides.minTxsPerBlock ?? 0;
     const maxTxsPerBlock = validatorOverrides.maxTxsPerBlock ?? 1;
-    logger.warn(`Initial setup complete. Starting ${NODE_COUNT} validator nodes.`);
+    logger.warn(`Initial setup complete. Creating ${NODE_COUNT} validator nodes with sequencers paused.`);
+    // Ensure every validator can handle the first proposal before any sequencer begins its polling loop.
     nodes = await asyncMap(validators, ({ privateKey }) =>
-      test.createValidatorNode([privateKey], { minTxsPerBlock, maxTxsPerBlock }),
+      test.createValidatorNode([privateKey], { dontStartSequencer: true, minTxsPerBlock, maxTxsPerBlock }),
     );
 
     proverNode = await test.createProverNode({
@@ -71,6 +72,11 @@ describe('multi-node/block-production/proof_boundary', () => {
     context.proverNode = proverNode;
 
     logger.warn(`Test setup completed.`, { validators: validators.map(v => v.attester.toString()) });
+  };
+
+  const startSequencers = async () => {
+    await test.startSequencers(nodes);
+    logger.warn(`Started ${NODE_COUNT} validator sequencers.`);
   };
 
   const collectSequencerEvents = (sequencers: SequencerClient[]) => {
@@ -216,6 +222,7 @@ describe('multi-node/block-production/proof_boundary', () => {
 
     const sequencers = nodes.map(node => node.getSequencer()!);
     const events = collectSequencerEvents(sequencers);
+    await startSequencers();
 
     const { boundarySlot, boundaryTs } = await computeBoundarySlot();
 
@@ -264,6 +271,7 @@ describe('multi-node/block-production/proof_boundary', () => {
 
     const sequencers = nodes.map(node => node.getSequencer()!);
     const events = collectSequencerEvents(sequencers);
+    await startSequencers();
 
     const { boundarySlot, boundaryTs } = await computeBoundarySlot();
 
@@ -298,6 +306,7 @@ describe('multi-node/block-production/proof_boundary', () => {
 
     const sequencers = nodes.map(node => node.getSequencer()!);
     const events = collectSequencerEvents(sequencers);
+    await startSequencers();
 
     const { boundarySlot, boundaryEpoch } = await computeBoundarySlot();
 
@@ -335,6 +344,7 @@ describe('multi-node/block-production/proof_boundary', () => {
 
     const sequencers = nodes.map(node => node.getSequencer()!);
     const events = collectSequencerEvents(sequencers);
+    await startSequencers();
 
     const { boundarySlot } = await computeBoundarySlot();
     const slotN = SlotNumber(Number(boundarySlot) - 1);
@@ -374,6 +384,7 @@ describe('multi-node/block-production/proof_boundary', () => {
 
     const sequencers = nodes.map(node => node.getSequencer()!);
     const events = collectSequencerEvents(sequencers);
+    await startSequencers();
 
     const { boundarySlot } = await computeBoundarySlot();
     const slotN = SlotNumber(Number(boundarySlot) - 1);
