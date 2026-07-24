@@ -272,15 +272,40 @@ export class ProvingBroker implements ProvingJobProducer, ProvingJobConsumer, Pr
 
   async #enqueueProvingJob(job: ProvingJob): Promise<ProvingJobStatus> {
     // We return the job status at the start of this call
-    const jobStatus = this.#getProvingJobStatus(job.id);
+    let jobStatus = this.#getProvingJobStatus(job.id);
     if (this.jobsCache.has(job.id)) {
       const existing = this.jobsCache.get(job.id);
       assert.deepStrictEqual(job, existing, 'Duplicate proving job ID');
-      this.logger.warn(`Cached proving job id=${job.id} epochNumber=${job.epochNumber}. Not enqueuing again`, {
-        provingJobId: job.id,
-      });
-      this.instrumentation.incCachedJobs(job.type);
-      return jobStatus;
+
+      if (this.resultsCache.get(job.id)?.status === 'aborted') {
+        // The producer is re-requesting a job it previously cancelled: revive it rather than
+        // returning the cached abort, clearing the aborted state in memory and in the database so the
+        // revival survives a restart.
+        //
+        // Concurrency model: `jobsCache` is the enqueue lock. Every path that puts a job on the queue
+        // populates `jobsCache` *synchronously, before its first await* (see the "New proving job"
+        // block below), so a second concurrent enqueue of the same id observes the entry at the top
+        // of this method and takes a cached, no-op branch instead of enqueuing a duplicate. The revive
+        // must keep holding that lock: we tear down the settled state and re-set `jobsCache` in a
+        // single synchronous span (no await in between), and only then await the database. Because a
+        // concurrent re-request can only interleave at that await — by which point `jobsCache` is
+        // populated again and the aborted result is gone — it falls into the cached branch and no-ops,
+        // so the job is enqueued exactly once. (`cleanUpProvingJobState` also drops the promise, which
+        // was resolved with the abort, so `enqueueJobInternal` below mints a fresh one for the retry.)
+        this.logger.info(`Reviving aborted proving job id=${job.id} epochNumber=${job.epochNumber}`, {
+          provingJobId: job.id,
+        });
+        this.cleanUpProvingJobState([job.id]);
+        this.jobsCache.set(job.id, job);
+        await this.database.deleteProvingJobResult(job.id);
+        jobStatus = this.#getProvingJobStatus(job.id);
+      } else {
+        this.logger.warn(`Cached proving job id=${job.id} epochNumber=${job.epochNumber}. Not enqueuing again`, {
+          provingJobId: job.id,
+        });
+        this.instrumentation.incCachedJobs(job.type);
+        return jobStatus;
+      }
     }
 
     if (this.isJobStale(job)) {
@@ -306,15 +331,35 @@ export class ProvingBroker implements ProvingJobProducer, ProvingJobConsumer, Pr
   }
 
   async #cancelProvingJob(id: ProvingJobId): Promise<void> {
-    if (!this.jobsCache.has(id)) {
+    const job = this.jobsCache.get(id);
+    if (!job) {
       this.logger.warn(`Can't cancel a job that doesn't exist id=${id}`, { provingJobId: id });
       return;
     }
 
-    // notify listeners of the cancellation
-    if (!this.resultsCache.has(id)) {
-      this.logger.info(`Cancelling job id=${id}`, { provingJobId: id });
-      await this.#reportProvingJobError(id, 'Aborted', false, undefined, true);
+    // Leave jobs that have already settled (completed or failed) alone: those results are terminal.
+    if (this.resultsCache.has(id)) {
+      return;
+    }
+
+    this.logger.info(`Cancelling job id=${id}`, { provingJobId: id });
+    this.inProgress.delete(id);
+
+    // Record the cancellation as its own settled state and persist it, so it survives a restart and
+    // notifies the current waiter. Unlike a completion or failure this is not terminal: re-enqueuing
+    // the same job id revives it (see #enqueueProvingJob), so the abort never permanently blocks the
+    // proof.
+    const result: ProvingJobSettledResult = { status: 'aborted' };
+    this.resultsCache.set(id, result);
+    this.promises.get(id)?.resolve(result);
+    this.completedJobNotifications.push(id);
+    this.instrumentation.incAbortedJobs(job.type);
+
+    try {
+      await this.database.setProvingJobAborted(id);
+    } catch (saveErr) {
+      this.logger.error(`Failed to save proving job aborted status id=${id}`, saveErr, { provingJobId: id });
+      throw saveErr;
     }
   }
 
@@ -401,7 +446,6 @@ export class ProvingBroker implements ProvingJobProducer, ProvingJobConsumer, Pr
     err: string,
     retry = false,
     filter?: ProvingJobFilter,
-    aborted = false,
   ): Promise<GetProvingJobResponse | undefined> {
     const info = this.inProgress.get(id);
     const item = this.jobsCache.get(id);
@@ -462,11 +506,7 @@ export class ProvingBroker implements ProvingJobProducer, ProvingJobConsumer, Pr
     this.promises.get(id)!.resolve(result);
     this.completedJobNotifications.push(id);
 
-    if (aborted) {
-      this.instrumentation.incAbortedJobs(item.type);
-    } else {
-      this.instrumentation.incRejectedJobs(item.type);
-    }
+    this.instrumentation.incRejectedJobs(item.type);
     if (info) {
       const duration = this.msTimeSource() - info.startedAt;
       this.instrumentation.recordJobDuration(item.type, duration);

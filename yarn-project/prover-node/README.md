@@ -35,7 +35,6 @@ flowchart TB
   SessionManager --> EpochTicker[(periodic tick)]
   SessionManager --> FullSessions[(fullSessions)]
   SessionManager --> PartialSessions[(partialSessions)]
-  CheckpointStore --> SlotWatcher
   FullSessions -.referenced checkpoints.-> CheckpointStore
   PartialSessions -.referenced checkpoints.-> CheckpointStore
   FullSessions --> TopTreeJob
@@ -49,23 +48,30 @@ The prover-node splits responsibility between four classes:
 
 - **`ProverNode`** — owns the long-lived collections, wires the L2BlockStream, and
   translates each chain event into a single method call on the `SessionManager` or
-  `ProofPublishingService`. It also performs the per-event side effects that don't
-  belong on an `EpochSession` (registering new checkpoints with the store, sweeping
-  expired epochs out of the cache and the store, etc.) and runs the failure-upload
-  action when an `EpochSession` exits with `failed`.
+  `ProofPublishingService`. It also performs side effects that don't belong on an
+  `EpochSession`: registering new checkpoints with the store per event, and sweeping expired
+  epochs out of the cache and the store on a periodic ticker (see below). It uploads post-mortem
+  snapshots on failure at two levels: per checkpoint when a `CheckpointProver` fails (its `onFailed`
+  callback), and per session when a full session fails on its own account (`onSessionFailed` /
+  `EpochSession.hasFailed()`).
 - **`CheckpointStore`** — a registry of `CheckpointProver` instances keyed by
   `(checkpointNumber, slot, archiveRoot)`. Each `CheckpointProver` runs its own sub-tree pipeline
   (tx gather → block processing → block-rollup proofs), starting eagerly the moment a
-  checkpoint is registered. The store is the single source of canonical-vs-pruned
-  checkpoint content that `EpochSession`s query when assembling their subsets.
+  checkpoint is registered. The store holds the canonical checkpoint content that
+  `EpochSession`s query when assembling their subsets; a prune cancels and removes the affected
+  provers, so every prover in the store is canonical.
 - **`SessionManager`** — owns every live `EpochSession`, the serial reconcile queue,
   the periodic tick, and all `EpochSession` lifecycle decisions. `ProverNode` calls into it
   via `onCheckpointAdded`, `onPrune`, and `startProof`. Every trigger it receives is
   translated into a `reconcile(trigger)` call, a single idempotent function that walks
   all `EpochSession`s, cancels any whose canonical content has shifted, re-creates them with
   the new content, and opens fresh full `EpochSession`s for any epoch that has become provable.
-  Reconcile runs on a `SerialQueue` (from `@aztec/foundation/queue`), so two concurrent
-  triggers can never interleave on an `await` and race on the `EpochSession` maps.
+  It never builds a session over a **failed** `CheckpointProver` (one whose block proofs rejected —
+  a sub-tree fault or a prune-induced fork fault): a session over it could only fail, so the epoch is
+  cheaply skipped until a prune/re-add installs a fresh prover in its place, at which point a rebuilt
+  session reuses every already-completed sub-proof from the content-addressed broker. Reconcile runs on
+  a `SerialQueue` (from `@aztec/foundation/queue`), so two concurrent triggers can never interleave on an
+  `await` and race on the `EpochSession` maps.
 - **`ProofPublishingService`** — central owner of L1 proof submission. `EpochSession`s hand
   their top-tree proofs to the service as `PublishCandidate`s; the service serialises
   one publish at a time against a freshly-created `ProverNodePublisher`, gates eligibility
@@ -81,43 +87,38 @@ A `CheckpointProver` is content-addressed by `(checkpoint.number, slot, archiveR
 where `archiveRoot` is the checkpoint's own archive root (its post-state). Keying on the
 post-state makes the identity precise: two checkpoints are "the same" iff they produce
 the same archive — so a reorg branch, or a replacement built on the same predecessor but
-with different content, yields a different archive root and a distinct `CheckpointProver`, while an
-identical re-add collapses to the same `CheckpointProver` and reuses its in-flight work.
+with different content, yields a different archive root and a distinct `CheckpointProver`. A prune
+cancels and removes a prover — its sub-tree work forks world-state per block and cannot survive the
+prune — so a re-add, even of identical content, constructs a fresh `CheckpointProver` (block-rollup
+jobs already completed in the proving broker are still reused, as they are content-addressed).
 
 ```mermaid
 stateDiagram-v2
   [*] --> Created
   Created --> Proving: gather + execute
   Proving --> Proven: sub-tree resolves blockProofs
-  Proving --> Cancelled: cancel()
+  Proving --> Cancelled: cancel() (prune / shutdown / epoch-session error)
+  Proven --> Cancelled: cancel() (prune / reap)
   Proven --> Reaped: reapExpired(epoch)
   Cancelled --> [*]
-
-  state "Pruned (side)" as Pruned
-  Proving --> Pruned: markPruned()
-  Pruned --> Proving: markCanonical()
-  Proven --> Pruned: markPruned()
-  Pruned --> Reaped: SlotWatcher (slot < syncedSlot)
 ```
 
-The **`Pruned`** state is a side flag, not a place in the main lifecycle: sub-tree
-proving keeps running underneath, so a brief reorg that prunes and immediately
-re-adds the same checkpoint avoids any re-proving.  The flag only gates *eligibility*
-to be included in an `EpochSession` — `EpochSession`s ask the store for *canonical* (non-pruned)
-checkpoints when assembling their subsets.
+A prune **cancels and removes** the affected `CheckpointProver`s from the store: a prover's
+sub-tree work forks world-state per block, and an L1 prune of a base block faults those reads,
+so there is nothing to preserve across a reorg. A re-add — even of identical content — therefore
+constructs a fresh `CheckpointProver`. `EpochSession`s ask the store for the checkpoints in a slot
+range; every prover in the store is canonical.
 
-### Reaping rules
+### Removal rules
 
-- **Pruned**: the `SlotWatcher` (a `RunningPromise` polling
-  `l2BlockSource.getSyncedL2SlotNumber`) reaps a pruned `CheckpointProver` when the chain's
-  synced slot has moved past the `CheckpointProver`'s slot.  Once the chain is past that slot,
-  a re-add with the same content is impossible.
-- **Canonical**: `CheckpointStore.reapExpired(expiredEpoch)` drops any canonical
-  `CheckpointProver` whose epoch is at or below the supplied expired epoch. Once an epoch's
-  proof-submission window has closed, its proof can no longer be accepted on L1,
-  so the `CheckpointProver` is no longer needed.
-- **Cancelled**: removed immediately by whichever path called `cancel()` (store
-  shutdown, prune past-slot, `EpochSession` error).
+- **Pruned**: `CheckpointStore.cancelAndRemoveAboveBlock(target)` cancels and removes every
+  `CheckpointProver` whose last block is above the prune target, the moment a `chain-pruned`
+  event arrives.
+- **Expired**: `CheckpointStore.reapExpired(expiredEpoch)` drops any `CheckpointProver` whose
+  epoch is at or below the supplied expired epoch. Once an epoch's proof-submission window has
+  closed, its proof can no longer be accepted on L1, so the `CheckpointProver` is no longer needed.
+- **Shutdown**: `CheckpointStore.stop()` cancels every remaining prover and awaits its teardown
+  (including teardowns still in flight for provers already removed by a prune or reap).
 
 ### Eager tx gathering
 
@@ -155,9 +156,9 @@ stateDiagram-v2
   awaiting_root --> publishing_proof: epoch proof ready, submit to L1
   publishing_proof --> completed: publish succeeds
   publishing_proof --> superseded: longer same-epoch candidate wins
-  publishing_proof --> failed: L1 submission errored
-  awaiting_checkpoints --> failed: top-tree prove errored
-  awaiting_root --> failed: top-tree prove errored
+  publishing_proof --> failed: L1 submission errored (provers healthy)
+  awaiting_checkpoints --> stopped: a checkpoint prover failed
+  awaiting_root --> failed: top-tree prove errored (provers healthy)
   initialized --> timed_out: deadline
   awaiting_checkpoints --> timed_out: deadline (EpochSession or candidate)
   awaiting_root --> timed_out: deadline (EpochSession or candidate)
@@ -167,8 +168,21 @@ stateDiagram-v2
   superseded --> [*]
   cancelled --> [*]
   timed_out --> [*]
+  stopped --> [*]
   failed --> [*]
 ```
+
+A fault settles the `EpochSession` in one of two terminal states:
+
+- **`stopped`** — a `CheckpointProver` under the session failed (its block proofs rejected). This may
+  be a prune-induced fork fault, so it is *not* a verdict on the epoch and is *not* uploaded. The
+  reconciler drops the session and, guarded by `isFailed()`, does not rebuild over the failed prover;
+  a prune/re-add installs a fresh prover and the epoch is retried.
+- **`failed`** — the session's own work (top-tree prove or L1 submit) failed while *every* checkpoint
+  prover succeeded. Because healthy provers rule out a prune, this is a genuine, race-free failure
+  (`EpochSession.hasFailed()`). The reconciler retains such a full session (so the tick does not
+  re-prove a deterministically-failing epoch) and uploads a post-mortem exactly once. No prune/fault
+  classification is needed — the two states carry it.
 
 The non-terminal states track the window between `start()` and the L1 submission:
 
@@ -288,8 +302,8 @@ sequenceDiagram
   alt content key new
     CS->>CP: new CheckpointProver(args)
     CP->>CP: eager gather + sub-tree start
-  else content key matches
-    CS->>CP: markCanonical()
+  else content key already live
+    CS->>CP: reuse existing prover
   end
   PN->>SM: onCheckpointAdded(epoch)
   SM->>SM: queue reconcile({kind:'checkpoint', epoch})
@@ -306,9 +320,9 @@ sequenceDiagram
   participant CS as CheckpointStore
   participant SM as SessionManager
 
-  L2->>PN: chain-pruned{checkpoint}
-  PN->>CS: markPrunedAfter(checkpoint.number)
-  CS->>CS: flip every CheckpointProver above threshold to pruned (sub-tree keeps running)
+  L2->>PN: chain-pruned{block}
+  PN->>CS: cancelAndRemoveAboveBlock(prunedToBlock)
+  CS->>CS: cancel + remove every CheckpointProver whose last block is above the target
   PN->>SM: onPrune(affectedEpochs)
   SM->>SM: queue reconcile({kind:'prune', affectedEpochs})
   SM->>SM: walk EpochSessions, cancel-and-recreate those with shifted content
@@ -328,73 +342,84 @@ sequenceDiagram
   PS->>PS: drain reads proven afresh, re-checks eligibility
 ```
 
-### Per-event expiry sweep
+### Periodic expiry sweep
 
 ```mermaid
 sequenceDiagram
-  participant L2 as L2BlockStream
+  participant T as expiryTicker (RunningPromise)
   participant PN as ProverNode
+  participant L2 as L2BlockStream
   participant CC as ChonkCache
   participant CS as CheckpointStore
 
-  L2->>PN: any event
+  T->>PN: checkEpochExpiry() (every poll interval)
   PN->>L2: getSyncedL2SlotNumber()
   PN->>PN: latestEpoch = getEpochAtSlot(latestSlot)
   PN->>PN: newlyExpiredUpTo = latestEpoch - (proofSubmissionEpochs + 1)
   loop for each newly-expired epoch
-    PN->>L2: getCheckpointsData({epoch}) + getBlocks(...)
+    PN->>L2: getBlocks({epoch, onlyCheckpointed})
     PN->>CC: releaseForBlocks(blocks)
     PN->>CS: reapExpired(epoch)
   end
 ```
 
-Expiry runs at the end of every `handleBlockStreamEvent` call (not on any specific
-event type). An epoch `E` is expired once the chain reaches the start of epoch
-`E + proofSubmissionEpochs + 1` — the deadline beyond which an L1 submission for
-`E` would be rejected. A monotonic high-water mark (`lastExpiredEpoch`) makes the
-sweep cheap: it advances per event and never revisits an epoch. It is seeded at
-`start()` from the last fully-proven epoch (computed in `computeStartupState`),
-so on a restart we never re-sweep epochs that already reached L1.
+The sweep is driven solely by the `expiryTicker` (a `RunningPromise` armed in `start()`), which
+calls `checkEpochExpiry()` every poll interval whether or not block-stream events arrive. It is
+deliberately **not** run from `handleBlockStreamEvent` — expiry is a background sweep keyed off the
+archiver's synced slot, not part of event processing — and because a `RunningPromise` never overlaps
+its own runs, no two sweeps can race. An epoch `E` is expired once the chain reaches the start of epoch
+`E + proofSubmissionEpochs + 1` — the deadline beyond which an L1 submission for `E` would be rejected.
+Expiry only releases the chonk cache and reaps `E`'s provers.
+A monotonic high-water mark (`lastExpiredEpoch`) makes the sweep cheap: it only
+advances after a sweep completes and never revisits an epoch. It is seeded at `start()` from the last
+fully-proven epoch (`resolveLastFullyProvenEpoch`), so on a restart we never re-sweep epochs that already
+reached L1.
 
 ### Periodic tick
 
 `SessionManager.start()` arms a `RunningPromise` that fires
 `reconcile({ kind: 'tick' })` every `tickIntervalMs`. The tick picks up epochs that
 became complete by time alone (no fresh checkpoint event) and advances to the
-next unproven epoch once the previous one lands on L1. A monotonic high-water
-mark (`lastTickEpoch`) prevents the tick from re-opening an epoch whose `EpochSession`
-already terminated; the mark advances only after an `EpochSession` actually exists for
-the epoch, so transient blockers (max-pending-jobs reached, archiver still
-indexing) leave the mark in place and the next tick retries.
+next unproven epoch once the previous one lands on L1. The tick is not gated by any per-epoch
+bookkeeping; two things keep it from re-proving a doomed epoch:
+
+- `openFullSessionIfReady` refuses to build a session when any `CheckpointProver` in the set has
+  **failed** (`isFailed()`). So a prover fault (possibly a prune) skips the epoch cheaply each tick —
+  no session, no proving — until a prune/re-add installs a fresh prover.
+- A session that failed on its own account (`hasFailed()` — top-tree/submit failed with every prover
+  healthy) is **retained** by `recreateInvalidSessions` rather than deleted, so the tick's
+  `fullSessions.has(epoch)` check skips it. It is replaced only when its canonical content changes (a
+  re-add), so a deterministically-failing epoch is not re-proved every tick.
+
+Transient blockers (max-pending-jobs reached, archiver still indexing) create no session and no failed
+prover, so the next tick simply tries again.
 
 ## Walkthroughs
 
 ### checkpoint-added → prune → checkpoint-added (reorg resilience)
 
-State: epoch N has checkpoints c1..c4 all canonical (slots s1..s4).  `fullSessions[N]`
-holds `EpochSession` **A** with spec `{kind:'full', N, fromSlot:s1, toSlot:s4}`, referencing
-checkpoints `[c1, c2, c3, c4]`.
+State: epoch N has checkpoints c1..c4 (slots s1..s4).  `fullSessions[N]` holds `EpochSession`
+**A** with spec `{kind:'full', N, fromSlot:s1, toSlot:s4}`, referencing `[c1, c2, c3, c4]`.
 
-1. **chain-pruned arrives, target c3.**  Store flips c4 to pruned.  Reconcile fires:
-   for `EpochSession` A, canonical content for `(s1, s4)` is now `[c1, c2, c3]` (c4 pruned).
-   The frozen set `[c1, c2, c3, c4]` no longer matches → `A.cancel('canonical content
-   changed')`.  Epoch N still complete on L1 → reconcile constructs `EpochSession` **B** with
-   the same spec `{full, N, s1, s4}` but checkpoints `[c1, c2, c3]`.
+1. **chain-pruned arrives, target c3.**  The store cancels and removes c4 (its last block is
+   above the prune target).  Reconcile fires: `EpochSession` A's frozen set `[c1, c2, c3, c4]`
+   includes the now-cancelled c4, so it no longer matches the store's `[c1, c2, c3]` →
+   `A.cancel('canonical content changed')`.  Epoch N still complete on L1 → reconcile constructs
+   `EpochSession` **B** with the same spec `{full, N, s1, s4}` but checkpoints `[c1, c2, c3]`.
 
 2. **`EpochSession` B starts top-tree proving over [c1, c2, c3].**
 
-3. **chain-checkpointed arrives, target c4_re (same content key as old c4).**  The
-   store finds the existing `CheckpointProver` at `(c4.number, s4, c4.archive.root)`
-   and calls `markCanonical()`.  The sub-tree work that never stopped is visible to
-   `EpochSession`s again.  (A re-add with *different* content would have a different archive
-   root and so get a fresh `CheckpointProver` instead.)
+3. **chain-checkpointed arrives, target c4_re (same content key as old c4).**  The old c4
+   prover was removed on the prune, so the store constructs a **fresh** `CheckpointProver` for
+   c4_re and starts its sub-tree work from scratch.  (Its block-rollup jobs are content-addressed
+   in the proving broker, so any the old c4 already completed are reused rather than re-proved.)
 
-4. **Reconcile fires.**  `EpochSession` B's canonical content for `(s1, s4)` is now `[c1, c2,
-   c3, c4]`, doesn't match its frozen `[c1, c2, c3]` → `B.cancel(...)`.  Construct
-   `EpochSession` **C** with same spec but checkpoints `[c1, c2, c3, c4]`.
+4. **Reconcile fires.**  `EpochSession` B's content for `(s1, s4)` is now `[c1, c2, c3, c4_re]`,
+   doesn't match its frozen `[c1, c2, c3]` → `B.cancel(...)`.  Construct `EpochSession` **C** with
+   the same spec but checkpoints `[c1, c2, c3, c4_re]`.
 
-5. **`EpochSession` C reuses the long-lived c1..c4 `CheckpointProver` instances.**  Sub-tree
-   work may already be complete; only the top-tree is recomputed.  The chonk cache
+5. **`EpochSession` C reuses the long-lived c1..c3 `CheckpointProver` instances and the fresh
+   c4_re.**  Only c4_re's witnesses are regenerated; the top-tree is recomputed.  The chonk cache
    survived the reorg because no epoch in this range has expired yet.
 
 
@@ -466,23 +491,37 @@ Keying by tx hash makes the cache survive any reorg up to finality; releasing on
 finality means we don't grow the cache indefinitely while still keeping every
 reorg-relevant proof.
 
-### Why does the slot watcher only reap pruned `CheckpointProver`s?
+### Why is a pruned `CheckpointProver` removed rather than kept for a possible re-add?
 
-Canonical `CheckpointProver`s can't be reaped on a slot heuristic — they're still part of the
-proven-chain story.  Pruned `CheckpointProver`s, on the other hand, are only kept around in
-case the chain re-adds the same content; once the synced slot has moved past, that
-re-add is impossible, and the `CheckpointProver` can go.  Finality is the right signal for
-canonical reaping, because finality is the only state that rules out future reorgs.
+A prover's sub-tree work forks world-state per block, and an L1 prune of a base block faults
+those in-flight reads — so the work cannot survive the prune, and there is nothing to preserve
+by keeping the prover around.  Removing it on prune and rebuilding on re-add is therefore both
+correct and simpler; the expensive block-rollup proofs are still reused when content re-appears,
+because the proving broker is content-addressed independently of the prover's lifetime.
+
+### How is a genuine failure told apart from a prune, without a racy classification?
+
+Knowledge of an L1 reorg reaches the prover-node on two causally unordered channels: the control
+plane (`chain-pruned` → `onPrune`) and the data plane (world-state unwinds, and an in-flight fork
+read faults inside a `CheckpointProver` mid-proof). If the `EpochSession` reacted to a fault by asking
+"was this a prune or a genuine failure?", every answer would sample control-plane state that lags the
+data-plane unwind — racy by construction. We remove the question by pushing the fact down to where it
+is unambiguous: a `CheckpointProver` records `isFailed()` when *its* block proofs reject. The session
+then reads a clean signal: if any prover failed, the fault might be a prune (`stopped`) — don't upload,
+don't rebuild over it, recover on re-add; if *no* prover failed yet the session's own top-tree/submit
+work failed, that is definitively **not** a prune (`failed`) — a genuine, race-free failure that is
+retained (so a deterministic failure isn't re-proved every tick) and uploaded once. No control-plane
+sampling, no timing race — the two prover-level and session-level facts carry the whole decision.
 
 ## Configuration
 
 | Env var | Description |
 |---|---|
-| `PROVER_NODE_POLLING_INTERVAL_MS` | Polling interval for the L2BlockStream, the checkpoint-store slot watcher, and the SessionManager periodic tick.  Default 1000 ms. |
+| `PROVER_NODE_POLLING_INTERVAL_MS` | Polling interval for the L2BlockStream and the SessionManager periodic tick.  Default 1000 ms. |
 | `PROVER_NODE_MAX_PENDING_JOBS` | Cap on the number of non-terminal `EpochSession`s (full + partial).  When at limit, reconcile defers opening new full `EpochSession`s; explicit `startProof` calls throw. |
 | `PROVER_NODE_EPOCH_PROVING_DELAY_MS` | Optional sleep at the start of each `EpochSession`, before the TopTreeJob is constructed.  Used in tests to give late events time to land. |
 | `TX_GATHERING_TIMEOUT_MS` | Per-block tx gather deadline used by each `CheckpointProver`. |
-| `PROVER_NODE_FAILED_EPOCH_STORE` | If set, failed `EpochSession`s upload their proving data (every `CheckpointProver`'s txs + register-time data, regardless of sub-tree completion) to this file store. |
+| `PROVER_NODE_FAILED_EPOCH_STORE` | If set, a full session that fails on its own account (top-tree/submit, provers healthy) uploads its proving data (every `CheckpointProver`'s txs + register-time data, regardless of sub-tree completion) to this file store. |
 | `PROVER_NODE_DISABLE_PROOF_PUBLISH` | If true, the publishing service runs `analyzeEpochProofSubmission` (estimates L1 fees) instead of actually submitting. |
 
 ## Failure handling and observability
@@ -500,14 +539,29 @@ Loggers:
 - `prover-node:checkpoint-prover` — sub-tree pipeline (gather, block processing).
 - `prover-client:chonk-cache` — chonk-verifier cache enqueue / release events.
 
-On `failed` exit, `SessionManager.runSession` invokes the `onSessionFailed` callback
-the manager was constructed with. `ProverNode` wires this to `tryUploadSessionFailure`,
-which calls `SessionManager.buildSessionProvingData(session)` to walk every `CheckpointProver`
-referenced by the `EpochSession` and assemble an `EpochProvingJobData` snapshot — including
-every `CheckpointProver`'s txs and register-time data even if its sub-tree never reached
-`isCompleted()`. This snapshot is what `uploadEpochProofFailure` ships to the
-configured file store along with a world-state + archiver backup, so the failure
-can be reproduced offline via `rerunEpochProvingJob`.
+Failed proving data is uploaded to the configured file store (`PROVER_NODE_FAILED_EPOCH_STORE`) at two
+levels, and re-proved offline by the matching downloader/rerunner: an epoch job via
+`downloadEpochProvingJob` + `rerunEpochProvingJob`, and a single checkpoint via the same download plus
+`rerunCheckpointProvingJob` (which rebuilds just that checkpoint's sub-tree prover and awaits its block
+proofs — no epoch top-tree or L1 submit). Both upload levels build an `EpochProvingJobData` snapshot with
+`SessionManager.buildProvingData(...)` — every `CheckpointProver`'s txs and register-time data, even if
+its sub-tree never reached `isCompleted()` — and ship it via `uploadEpochProofFailure` alongside a
+world-state + archiver backup:
+
+- **Per checkpoint.** When a `CheckpointProver`'s block proofs reject for a non-cancel reason (a sub-tree
+  fault or a prune-induced fork fault), it fires its `onFailed` callback and `ProverNode` uploads that one
+  checkpoint via `tryUploadCheckpointFailure(prover)`. This fires for prune-induced faults too — that is
+  intentional; a prune-caused checkpoint snapshot is harmless, and *not* trying to tell prune from genuine
+  failure is exactly what keeps this race-free. A cancelled prover (control-plane prune / shutdown) is not
+  a failure and does not upload.
+- **Per session.** When a full session ends in its own genuine failure (`EpochSession.hasFailed()` —
+  top-tree/submit failed with every prover healthy), the session manager fires `onSessionFailed` and
+  `ProverNode` uploads all the session's checkpoints via `tryUploadEpochFailure(...)`. This is race-free
+  (healthy provers rule out a prune) and fires once, since the failed session is retained and never re-run.
+
+A `stopped` session (a prover under it failed) does not upload at the session level — its failed checkpoint
+already uploaded itself. Each backup is a full world-state + archiver snapshot, so a prune that faults
+several in-flight provers produces several uploads; this is accepted for the diagnostic value.
 
 Metrics emitted by `EpochSession`s:
 

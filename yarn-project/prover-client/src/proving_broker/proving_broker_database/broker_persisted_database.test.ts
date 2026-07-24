@@ -132,6 +132,28 @@ describe('ProvingBrokerPersistedDatabase', () => {
     }
   });
 
+  it('keeps a queued result-delete ordered after the writes it follows', async () => {
+    const id = makeRandomProvingJobId(EpochNumber(42));
+    const job: ProvingJob = {
+      id,
+      epochNumber: EpochNumber(42),
+      type: ProvingRequestType.PARITY_BASE,
+      inputsUri: makeInputsUri(),
+    };
+    await db.addProvingJob(job);
+
+    // Abort the job and then delete its result without awaiting the abort first — mimicking a revive
+    // that re-requests a job whose aborted write may not have flushed yet. Because the delete rides
+    // the same write queue, it stays ordered after the abort and the result ends up cleared. If it
+    // were applied out of order the abort would resurrect on reload.
+    const abortWrite = db.setProvingJobAborted(id);
+    const deleteWrite = db.deleteProvingJobResult(id);
+    await Promise.all([abortWrite, deleteWrite]);
+
+    const allJobs = await toArray(db.allProvingJobs());
+    expect(allJobs).toEqual([[job, undefined]]);
+  });
+
   it('can add items over multiple epochs', async () => {
     const numJobs = 5;
     const startEpoch = 12;
