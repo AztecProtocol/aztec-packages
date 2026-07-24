@@ -1,11 +1,12 @@
 #!/usr/bin/env node
-import { findBbBinary } from '../bb_backends/node/platform.js';
 import { spawnSync } from 'node:child_process';
+
+import { findBbBinary } from '../bb_backends/node/platform.js';
 
 const bin = findBbBinary();
 
 if (!bin) {
-  console.error('Could not find bb binary. Please ensure it is built and accessible.');
+  process.stderr.write('Could not find bb binary. Please ensure it is built and accessible.\n');
   process.exit(1);
 }
 

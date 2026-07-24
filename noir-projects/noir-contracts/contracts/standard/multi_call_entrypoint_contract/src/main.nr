@@ -8,9 +8,9 @@
 //
 // Note that this contract should not be grouped with protocol contracts as it is not part of the protocol. We keep
 // it here for now as it allows us to use hardcoded address.
-use aztec::macros::aztec;
+use aztec::{macros::{aztec, AztecConfig}, messages::discovery::do_sync_state_no_op};
 
-#[aztec]
+#[aztec(AztecConfig::new().custom_sync_state(do_sync_state_no_op))]
 pub contract MultiCallEntrypoint {
     use aztec::{authwit::entrypoint::app::AppPayload, macros::functions::{allow_phase_change, external}};
 

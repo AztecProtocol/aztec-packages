@@ -58,7 +58,7 @@
   "dependencies": {
     "@aztec/archiver": "workspace:^",
     "@aztec/bb-prover": "workspace:^",
-    "@aztec/bb.js": "workspace:^",
+    "@aztec/bb.js": "0.1.0-dummy",
     "@aztec/blob-client": "workspace:^",
     "@aztec/blob-lib": "workspace:^",
     "@aztec/constants": "workspace:^",
@@ -66,7 +66,7 @@
     "@aztec/ethereum": "workspace:^",
     "@aztec/foundation": "workspace:^",
     "@aztec/kv-store": "workspace:^",
-    "@aztec/l1-artifacts": "portal:../../l1-contracts/l1-artifacts",
+    "@aztec/l1-artifacts": "0.1.0-dummy",
     "@aztec/native": "workspace:^",
     "@aztec/node-keystore": "workspace:^",
     "@aztec/node-lib": "workspace:^",

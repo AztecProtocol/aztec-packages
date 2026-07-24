@@ -7,9 +7,8 @@
  *   - Idiomatic Rust conventions
  *   - No complex abstraction
  */
-
-import type { CompiledSchema, Type, Struct, Field } from './schema_visitor.js';
-import { toSnakeCase, toPascalCase } from './naming.js';
+import { toPascalCase, toSnakeCase } from './naming.js';
+import type { CompiledSchema, Field, Struct, Type } from './schema_visitor.js';
 
 export class RustCodegen {
   private errorTypeName: string = 'ErrorResponse';
@@ -47,10 +46,11 @@ export class RustCodegen {
       case 'vector':
         return `Vec<${this.mapType(type.element!)}>`;
 
-      case 'array':
+      case 'array': {
         const elemType = this.mapType(type.element!);
         // Large arrays become Vec for ergonomics
         return type.size! > 32 ? `Vec<${elemType}>` : `[${elemType}; ${type.size}]`;
+      }
 
       case 'optional':
         return `Option<${this.mapType(type.element!)}>`;

@@ -38,7 +38,7 @@ pub contract NFTBridge {
         // Consume the L1 -> L2 message
         self.context.consume_l1_to_l2_message(
             content_hash,
-            secret,
+            [secret],
             self.storage.portal.read(),
             message_leaf_index,
         );

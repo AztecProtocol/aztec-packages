@@ -1,9 +1,10 @@
-import { Barretenberg } from './index.js';
-import { ProofData, uint8ArrayToHex, hexToUint8Array } from '../proof/index.js';
-import { fromChonkProof, toChonkProof, ChonkProof } from '../cbind/generated/api_types.js';
-import { CircuitKind } from '../cbind/circuit_kind.js';
-import { ungzip } from 'pako';
 import { Decoder, Encoder } from 'msgpackr';
+import { ungzip } from 'pako';
+
+import { CircuitKind } from '../cbind/circuit_kind.js';
+import { ChonkProof, fromChonkProof, toChonkProof } from '../cbind/generated/api_types.js';
+import { ProofData, hexToUint8Array, uint8ArrayToHex } from '../proof/index.js';
+import type { Barretenberg } from './index.js';
 
 export class AztecClientBackendError extends Error {
   constructor(message: string) {
@@ -181,8 +182,6 @@ export class UltraHonkBackend {
       },
       settings: getProofSettingsFromOptions(options),
     });
-    console.log(`Generated proof for circuit with ${publicInputs.length} public inputs and ${proof.length} fields.`);
-
     // We return ProofData as a flat buffer and an array of strings to match the current ProofData class.
     const flatProof = new Uint8Array(proof.length * 32);
     proof.forEach((fr, i) => {
@@ -236,9 +235,7 @@ export class UltraHonkBackend {
 
   // TODO(https://github.com/noir-lang/noir/issues/5661): Update this to handle Honk recursive aggregation in the browser once it is ready in the backend itself
   async generateRecursiveProofArtifacts(
-    // eslint-disable-next-line @typescript-eslint/no-unused-vars
     _proof: Uint8Array,
-    // eslint-disable-next-line @typescript-eslint/no-unused-vars
     _numOfPublicInputs: number,
     options?: UltraHonkBackendOptions,
   ): Promise<{ proofAsFields: string[]; vkAsFields: string[]; vkHash: string }> {

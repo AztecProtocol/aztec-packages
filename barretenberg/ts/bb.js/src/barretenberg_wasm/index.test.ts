@@ -1,8 +1,9 @@
+import { Worker } from 'worker_threads';
+
 import { createMainWorker } from '../barretenberg_wasm/barretenberg_wasm_main/factory/node/index.js';
 import { BarretenbergWasmMainWorker } from '../barretenberg_wasm/barretenberg_wasm_main/index.js';
 import { getRemoteBarretenbergWasm } from '../barretenberg_wasm/helpers/index.js';
 import { fetchModuleAndThreads } from '../barretenberg_wasm/index.js';
-import { Worker } from 'worker_threads';
 
 describe('barretenberg wasm', () => {
   let wasm: BarretenbergWasmMainWorker;

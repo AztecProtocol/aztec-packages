@@ -14,7 +14,6 @@ import type { TaggingSecretStrategy } from '@aztec/pxe/server';
 import {
   ARRAY,
   AZTEC_ADDRESS,
-  BIGINT,
   BLOCK_NUMBER,
   BOOL,
   ETH_ADDRESS,
@@ -22,17 +21,20 @@ import {
   FIXED_ARRAY,
   FUNCTION_SELECTOR,
   type InputSlot,
+  LEAF,
   type MaybePromise,
   OPTION,
   ORACLE_REGISTRY,
   type OracleRegistryEntry,
   type OutputSlot,
   type ParamTypes,
+  SCALAR,
   STR,
   STRUCT,
   type SlotShape,
   type TypeMapping,
   U32,
+  U64,
   buildACIRCallback,
   makeEntry,
 } from '@aztec/pxe/simulator';
@@ -59,22 +61,24 @@ export type { BlockHash } from '@aztec/stdlib/block';
 export type { MembershipWitness } from '@aztec/foundation/trees';
 export type { NullifierMembershipWitness, PublicDataWitness } from '@aztec/stdlib/trees';
 
-const GAS_SETTINGS: TypeMapping<GasSettings> = {
+const GAS_SETTINGS: TypeMapping<GasSettings> = LEAF({
+  kind: 'gas-settings',
   deserialization: {
     fn: ([reader]) => GasSettings.fromFields(reader.readFieldArray(GAS_SETTINGS_LENGTH)),
   },
   shape: [{ len: GAS_SETTINGS_LENGTH }],
-};
+});
 
 // Tagging secret strategy discriminants. Must match the Noir test helper `TaggingSecretStrategy` in
-// aztec-nr `test/helpers/tagging_secret_strategy.nr`. This is a test-only oracle (only `set_tagging_secret_strategy`
+// aztec-nr `test/helpers/tagging_secret_strategy.nr`. This is a test-only oracle (only `set_tagging_secret_strategies`
 // reads it), so the mapping lives here on the TXE side rather than in the production oracle type mappings.
 const STRATEGY_NON_INTERACTIVE_HANDSHAKE = 1;
 const STRATEGY_ARBITRARY_SECRET = 2;
 const STRATEGY_ADDRESS_DERIVED = 3;
 const STRATEGY_INTERACTIVE_HANDSHAKE = 4;
 
-const TAGGING_SECRET_STRATEGY: TypeMapping<TaggingSecretStrategy> = {
+const TAGGING_SECRET_STRATEGY: TypeMapping<TaggingSecretStrategy> = LEAF({
+  kind: 'tagging-secret-strategy',
   serialization: {
     fn: strategy => {
       switch (strategy.type) {
@@ -108,24 +112,27 @@ const TAGGING_SECRET_STRATEGY: TypeMapping<TaggingSecretStrategy> = {
     },
   },
   shape: ['scalar', 'scalar', 'scalar'],
-};
+});
 
-const PRIVATE_CONTEXT_INPUTS: TypeMapping<PrivateContextInputs> = {
+const PRIVATE_CONTEXT_INPUTS: TypeMapping<PrivateContextInputs> = LEAF({
+  kind: 'private-context-inputs',
   serialization: { fn: v => v.toFields() },
   shape: Array<SlotShape>(PRIVATE_CONTEXT_INPUTS_LENGTH).fill('scalar'),
-};
+});
 
-const COMPLETE_ADDRESS: TypeMapping<CompleteAddress> = {
+const COMPLETE_ADDRESS: TypeMapping<CompleteAddress> = LEAF({
+  kind: 'complete-address',
   serialization: { fn: v => [v.address.toField(), ...v.publicKeys.toFields()] },
   shape: Array<SlotShape>(8).fill('scalar'), // address + 7 public-key fields
-};
+});
 
 const TXE_TX_EFFECTS: TypeMapping<{
   txHash: TxHash;
   noteHashes: Fr[];
   nullifiers: Fr[];
   privateLogs: PrivateLog[];
-}> = {
+}> = LEAF({
+  kind: 'txe-tx-effects',
   serialization: {
     fn: ({ txHash, noteHashes, nullifiers, privateLogs }) => {
       const emittedLogs = privateLogs.map(log => log.getEmittedFields());
@@ -164,9 +171,10 @@ const TXE_TX_EFFECTS: TypeMapping<{
     { len: MAX_PRIVATE_LOGS_PER_TX },
     'scalar',
   ],
-};
+});
 
-const TXE_OFFCHAIN_EFFECTS: TypeMapping<{ effects: Fr[][] }> = {
+const TXE_OFFCHAIN_EFFECTS: TypeMapping<{ effects: Fr[][] }> = LEAF({
+  kind: 'txe-offchain-effects',
   serialization: {
     fn: ({ effects }) => {
       const rawArrayStorage = effects
@@ -188,9 +196,10 @@ const TXE_OFFCHAIN_EFFECTS: TypeMapping<{ effects: Fr[][] }> = {
     { len: MAX_OFFCHAIN_EFFECTS_PER_TXE_QUERY },
     'scalar',
   ],
-};
+});
 
-const TXE_CALL_CONTEXT: TypeMapping<{ txHash: Fr; anchorBlockTimestamp: bigint }> = {
+const TXE_CALL_CONTEXT: TypeMapping<{ txHash: Fr; anchorBlockTimestamp: bigint }> = LEAF({
+  kind: 'txe-call-context',
   serialization: {
     fn: ({ txHash, anchorBlockTimestamp }) => {
       const isSome = txHash.isZero() ? 0 : 1;
@@ -198,7 +207,7 @@ const TXE_CALL_CONTEXT: TypeMapping<{ txHash: Fr; anchorBlockTimestamp: bigint }
     },
   },
   shape: ['scalar', 'scalar', 'scalar'], // discriminant, txHash, anchor block timestamp
-};
+});
 
 const CONTRACT_INSTANCE_MEMBER: TypeMapping<{ exists: boolean; member: Fr }[]> = FIXED_ARRAY(
   STRUCT([
@@ -208,13 +217,14 @@ const CONTRACT_INSTANCE_MEMBER: TypeMapping<{ exists: boolean; member: Fr }[]> =
   1,
 );
 
-const EVENT_SELECTOR: TypeMapping<EventSelector> = {
+const EVENT_SELECTOR: TypeMapping<EventSelector> = SCALAR({
+  kind: 'event-selector',
   serialization: { fn: v => [v.toField()] },
   deserialization: { fn: ([reader]) => EventSelector.fromField(reader.readField()) },
-  shape: ['scalar'],
-};
+});
 
-const TXE_PRIVATE_EVENTS: TypeMapping<Fr[][]> = {
+const TXE_PRIVATE_EVENTS: TypeMapping<Fr[][]> = LEAF({
+  kind: 'txe-private-events',
   serialization: {
     fn: events => {
       const rawArrayStorage = events
@@ -235,7 +245,7 @@ const TXE_PRIVATE_EVENTS: TypeMapping<Fr[][]> = {
     { len: MAX_PRIVATE_EVENTS_PER_TXE_QUERY },
     'scalar',
   ],
-};
+});
 
 export const TXE_ORACLE_REGISTRY = {
   ...ORACLE_REGISTRY,
@@ -270,14 +280,14 @@ export const TXE_ORACLE_REGISTRY = {
 
   aztec_txe_getNextBlockNumber: makeEntry({ returnType: BLOCK_NUMBER }),
 
-  aztec_txe_getNextBlockTimestamp: makeEntry({ returnType: BIGINT }),
+  aztec_txe_getNextBlockTimestamp: makeEntry({ returnType: U64 }),
 
   aztec_txe_advanceBlocksBy: makeEntry({
     params: [{ name: 'blocks', type: U32 }],
   }),
 
   aztec_txe_advanceTimestampBy: makeEntry({
-    params: [{ name: 'duration', type: BIGINT }],
+    params: [{ name: 'duration', type: U64 }],
   }),
 
   aztec_txe_deploy: makeEntry({
@@ -294,7 +304,10 @@ export const TXE_ORACLE_REGISTRY = {
   }),
 
   aztec_txe_createAccount: makeEntry({
-    params: [{ name: 'secret', type: FIELD }],
+    params: [
+      { name: 'secret', type: FIELD },
+      { name: 'partialAddress', type: FIELD },
+    ],
     returnType: COMPLETE_ADDRESS,
   }),
 
@@ -320,12 +333,19 @@ export const TXE_ORACLE_REGISTRY = {
     returnType: FIELD,
   }),
 
-  aztec_txe_setTaggingSecretStrategy: makeEntry({
-    params: [{ name: 'strategy', type: OPTION(TAGGING_SECRET_STRATEGY) }],
+  aztec_txe_setTaggingSecretStrategies: makeEntry({
+    params: [
+      { name: 'unconstrainedStrategy', type: OPTION(TAGGING_SECRET_STRATEGY) },
+      { name: 'constrainedStrategy', type: OPTION(TAGGING_SECRET_STRATEGY) },
+    ],
+  }),
+
+  aztec_txe_setAuthorizeAllUtilityCallTargets: makeEntry({
+    params: [{ name: 'authorizeAll', type: BOOL }],
   }),
 
   aztec_txe_getLastBlockTimestamp: makeEntry({
-    returnType: BIGINT,
+    returnType: U64,
   }),
 
   aztec_txe_getLastTxEffects: makeEntry({ returnType: TXE_TX_EFFECTS }),
@@ -384,7 +404,7 @@ export const TXE_ORACLE_REGISTRY = {
 
   aztec_avm_blockNumber: makeEntry({ returnType: BLOCK_NUMBER }),
 
-  aztec_avm_timestamp: makeEntry({ returnType: BIGINT }),
+  aztec_avm_timestamp: makeEntry({ returnType: U64 }),
 
   aztec_avm_isStaticCall: makeEntry({ returnType: BOOL }),
 

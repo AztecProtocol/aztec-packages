@@ -1,4 +1,4 @@
-import { retry, makeBackoff } from '../retry/index.js';
+import { makeBackoff, retry } from '../retry/index.js';
 
 // Primary CRS host (Cloudflare R2)
 const CRS_PRIMARY_HOST = 'https://crs.aztec-cdn.foundation';

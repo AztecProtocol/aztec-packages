@@ -8,7 +8,12 @@
  *     surfaces, so callers don't leak the SAH Pool's OPFS lock.
  */
 import type { Logger } from '@aztec/foundation/log';
-import { AztecSQLiteOPFSStore, SqliteEncryptionError } from '@aztec/kv-store/sqlite-opfs';
+import {
+  AztecSQLiteOPFSStore,
+  SqliteCorruptionError,
+  SqliteEncryptionError,
+  deletePoolDirectory,
+} from '@aztec/kv-store/sqlite-opfs';
 
 /** Which of the embedded wallet's two stores failed to open. */
 export type EmbeddedStoreName = 'pxe' | 'wallet';
@@ -50,6 +55,28 @@ const defaultOpenStore: OpenSqliteEncryptedStoreFn = (log, name, poolDirectory, 
   AztecSQLiteOPFSStore.open(log, name, false, poolDirectory, encryptionKey);
 
 /**
+ * Internal seam for tests to inject a fake store wiper. Defaults to removing the store's OPFS pool directory
+ * outright. Not part of the public API.
+ *
+ * @internal
+ */
+export type WipeSqliteStoreFn = (poolDirectory: string | undefined) => Promise<void>;
+
+/**
+ * Deletes a store's OPFS pool directory. Safe to call only after a *failed* open() — a live store's SAH pool holds
+ * a lock on the directory and the removal would reject. A store with no `poolDirectory` lives in the shared default
+ * pool, which we won't blow away (it would take unrelated stores with it), so wiping is a no-op there.
+ */
+const defaultWipeStore: WipeSqliteStoreFn = async poolDirectory => {
+  if (!poolDirectory) {
+    return;
+  }
+  await deletePoolDirectory(poolDirectory).catch(() => {
+    // Already gone / never created — nothing to wipe.
+  });
+};
+
+/**
  * Opens the PXE and wallet stores in sequence, both encrypted with keys obtained from `getEncryptionKey`.
  *
  * The callback is invoked once per store (twice total per call) because `AztecSQLiteOPFSStore.open` *transfers*
@@ -75,10 +102,11 @@ export async function openEncryptedEmbeddedStores(
   getEncryptionKey: () => Promise<Uint8Array>,
   log: Logger,
   openStore: OpenSqliteEncryptedStoreFn = defaultOpenStore,
+  wipeStore: WipeSqliteStoreFn = defaultWipeStore,
 ): Promise<{ pxeStore: AztecSQLiteOPFSStore; walletStore: AztecSQLiteOPFSStore }> {
-  const pxeStore = await openOneStore('pxe', config.pxe, getEncryptionKey, log, openStore);
+  const pxeStore = await openOneStore('pxe', config.pxe, getEncryptionKey, log, openStore, wipeStore);
   try {
-    const walletStore = await openOneStore('wallet', config.wallet, getEncryptionKey, log, openStore);
+    const walletStore = await openOneStore('wallet', config.wallet, getEncryptionKey, log, openStore, wipeStore);
     return { pxeStore, walletStore };
   } catch (err) {
     // Cleanup is best-effort — if close() itself throws (e.g. worker already dead), swallow it so the original error
@@ -94,6 +122,7 @@ async function openOneStore(
   getEncryptionKey: () => Promise<Uint8Array>,
   log: Logger,
   openStore: OpenSqliteEncryptedStoreFn,
+  wipeStore: WipeSqliteStoreFn,
 ): Promise<AztecSQLiteOPFSStore> {
   const key = await getEncryptionKey();
   try {
@@ -101,6 +130,16 @@ async function openOneStore(
   } catch (err) {
     if (err instanceof SqliteEncryptionError && err.code === 'decrypt_failed') {
       throw new EmbeddedWalletEncryptionError(storeName, { cause: err });
+    }
+    if (err instanceof SqliteCorruptionError) {
+      // A corrupt image is unrecoverable — no key or retry against the same bytes brings it back. Self-heal
+      // instead of dead-ending forever: wipe the store's OPFS directory (safe — the failed open left no SAH-pool
+      // lock behind) and reopen a fresh, empty one, so callers see a normal first-run rather than a permanent
+      // "database disk image is malformed" on every open.
+      log.warn(`Embedded wallet '${storeName}' store is corrupt (${err.message}); wiping and reopening fresh`);
+      await wipeStore(poolDirectory);
+      // open() transferred (detached) the previous key buffer, so fetch a fresh one for the reopen.
+      return await openStore(log, name, poolDirectory, await getEncryptionKey());
     }
     throw err;
   }
