@@ -12,8 +12,8 @@ import {
 import { randomAppTaggingSecret } from '@aztec/stdlib/testing';
 import { TxEffect, TxHash } from '@aztec/stdlib/tx';
 
-import { UNFINALIZED_TAGGING_INDEXES_WINDOW_LEN } from '../../tagging/constants.js';
-import { SenderTaggingStore } from './sender_tagging_store.js';
+import { UNFINALIZED_TAGGING_INDEXES_WINDOW_LEN, unfinalizedTaggingIndexesWindowEnd } from '../../tagging/constants.js';
+import { SenderTaggingStore, windowExceededError } from './sender_tagging_store.js';
 
 /** Helper to create a single-index range (lowestIndex === highestIndex). */
 function range(secret: AppTaggingSecret, lowest: number, highest?: number): TaggingIndexRange {
@@ -196,7 +196,7 @@ describe('SenderTaggingStore', () => {
         await expect(
           taggingStore.storePendingIndexes([range(secret1, indexBeyondWindow)], txHash2, 'test'),
         ).rejects.toThrow(
-          `Highest used index ${indexBeyondWindow} is further than window length from the highest finalized index ${finalizedIndex}`,
+          windowExceededError(indexBeyondWindow, unfinalizedTaggingIndexesWindowEnd(finalizedIndex), finalizedIndex),
         );
       });
 
@@ -254,7 +254,7 @@ describe('SenderTaggingStore', () => {
             TxHash.random(),
             'test',
           ),
-        ).rejects.toThrow(/configured too low/);
+        ).rejects.toThrow(/no index finalized yet/);
       });
 
       it('permits exactly WINDOW_LEN pending indexes for a fresh secret', async () => {

@@ -195,14 +195,9 @@ export class SenderTaggingStore implements StagedStore {
 
       // Process in memory and validate
       for (const { range, secretStr, pendingData, finalizedIndex } of rangeData) {
-        // Pending indexes must stay below the window bound shared with sender and recipient sync:
-        // an index the syncs never scan would let two stores sharing a secret pick colliding indexes.
-        if (range.highestIndex >= unfinalizedTaggingIndexesWindowEnd(finalizedIndex)) {
-          throw new Error(
-            `Highest used index ${range.highestIndex} is further than window length from the highest finalized index ${finalizedIndex ?? 'none'}.
-            Tagging window length ${UNFINALIZED_TAGGING_INDEXES_WINDOW_LEN} is configured too low. Contact the Aztec team
-            to increase it!`,
-          );
+        const windowEnd = unfinalizedTaggingIndexesWindowEnd(finalizedIndex);
+        if (range.highestIndex >= windowEnd) {
+          throw windowExceededError(range.highestIndex, windowEnd, finalizedIndex);
         }
 
         // Throw if the lowest index is lower than or equal to the last finalized index
@@ -521,4 +516,19 @@ export class SenderTaggingStore implements StagedStore {
       this.#writePendingIndexes(jobId, secret, currentPending);
     }
   }
+}
+
+/** Builds the error thrown when a pending tag index is at or past the unfinalized tagging window end. */
+export function windowExceededError(
+  highestIndex: number,
+  windowEnd: number,
+  finalizedIndex: number | undefined,
+): Error {
+  const finalizedDescription =
+    finalizedIndex === undefined ? 'no index finalized yet' : `highest finalized index ${finalizedIndex}`;
+  return new Error(
+    `Highest used index ${highestIndex} is at or past the window end ${windowEnd} (${finalizedDescription}). ` +
+      `Tagging window length ${UNFINALIZED_TAGGING_INDEXES_WINDOW_LEN} is configured too low. ` +
+      `Contact the Aztec team to increase it!`,
+  );
 }

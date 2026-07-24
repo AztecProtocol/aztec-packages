@@ -23,11 +23,12 @@ export const UNFINALIZED_TAGGING_INDEXES_WINDOW_LEN = MAX_PRIVATE_LOGS_PER_TX + 
  * Exclusive upper bound of the tag indexes that can exist for a secret whose highest finalized index is
  * `finalizedIndex` (undefined when nothing is finalized yet). The sender store refuses pending indexes at or past it,
  * and both sender and recipient sync scan exactly up to it. Every absolute window bound must come from this helper:
- * a sync site with a wider or narrower bound lets a tx land at an index that will never be scanned. Probe lengths
- * (spans added to a start index) are not bounds and use UNFINALIZED_TAGGING_INDEXES_WINDOW_LEN directly.
+ * a site with a wider or narrower bound lets a tx land at an index the syncs never scan, so two stores sharing the
+ * secret could later pick a colliding index.
  */
 export function unfinalizedTaggingIndexesWindowEnd(finalizedIndex: number | undefined): number {
-  return (finalizedIndex ?? -1) + UNFINALIZED_TAGGING_INDEXES_WINDOW_LEN + 1;
+  const windowStart = finalizedIndex === undefined ? 0 : finalizedIndex + 1;
+  return windowStart + UNFINALIZED_TAGGING_INDEXES_WINDOW_LEN;
 }
 
 // The number of tags probed per constrained secret in the first round.
