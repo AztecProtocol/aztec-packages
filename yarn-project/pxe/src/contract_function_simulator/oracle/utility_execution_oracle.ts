@@ -58,7 +58,6 @@ import type { PrivateEventStore } from '../../storage/private_event_store/privat
 import type { RecipientTaggingStore } from '../../storage/tagging_store/recipient_tagging_store.js';
 import type { TaggingSecretSourcesStore } from '../../storage/tagging_store/tagging_secret_sources_store.js';
 import type { AnchoredContractData } from '../anchored_contract_data.js';
-import { AztecNodeReadCache } from '../aztec_node_read_cache.js';
 import { EphemeralArrayService } from '../ephemeral_array_service.js';
 import { BoundedVec } from '../noir-structs/bounded_vec.js';
 import type { EmbeddedCurvePoint } from '../noir-structs/embedded_curve_point.js';
@@ -122,7 +121,6 @@ export class UtilityExecutionOracle implements IMiscOracle, IUtilityExecutionOra
   private offchainEffects: OffchainEffect[] = [];
   private readonly ephemeralArrayService = new EphemeralArrayService();
   protected readonly transientArrayService: TransientArrayService;
-  private readonly aztecNodeReadCache: AztecNodeReadCache;
 
   // We store oracle version to be able to show a nice error message when an oracle handler is missing.
   private contractOracleVersion: { major: number; minor: number } | undefined;
@@ -176,7 +174,6 @@ export class UtilityExecutionOracle implements IMiscOracle, IUtilityExecutionOra
     this.hooks = args.hooks;
     this.utilityExecutor = args.utilityExecutor;
     this.transientArrayService = args.transientArrayService;
-    this.aztecNodeReadCache = new AztecNodeReadCache(args.aztecNode);
   }
 
   public assertCompatibleOracleVersion(major: number, minor: number): void {
@@ -270,7 +267,7 @@ export class UtilityExecutionOracle implements IMiscOracle, IUtilityExecutionOra
     // hash at all. If the block hash did not exist by the reference block hash, then the node will not return the
     // membership witness as there is none.
     const witness = await this.#queryWithBlockHashNotAfterAnchor(referenceBlockHash, () =>
-      this.aztecNodeReadCache.getBlockHashMembershipWitness(referenceBlockHash, blockHash),
+      this.aztecNode.getBlockHashMembershipWitness(referenceBlockHash, blockHash),
     );
     return witness ? Option.some(witness) : Option.none();
   }
@@ -284,7 +281,7 @@ export class UtilityExecutionOracle implements IMiscOracle, IUtilityExecutionOra
     const memberships = await this.#queryWithBlockHashNotAfterAnchor(referenceBlockHash, () =>
       Promise.all(
         hashes.map(blockHash =>
-          this.aztecNodeReadCache.getBlockHashMembershipWitness(referenceBlockHash, blockHash).then(Boolean),
+          this.aztecNode.getBlockHashMembershipWitness(referenceBlockHash, blockHash).then(Boolean),
         ),
       ),
     );
@@ -339,7 +336,7 @@ export class UtilityExecutionOracle implements IMiscOracle, IUtilityExecutionOra
    */
   public async getPublicDataWitness(blockHash: BlockHash, leafSlot: Fr): Promise<PublicDataWitness> {
     const witness = await this.#queryWithBlockHashNotAfterAnchor(blockHash, () =>
-      this.aztecNodeReadCache.getPublicDataWitness(blockHash, leafSlot),
+      this.aztecNode.getPublicDataWitness(blockHash, leafSlot),
     );
     if (!witness) {
       throw new Error(`Public data witness not found for slot ${leafSlot} at block hash ${blockHash.toString()}.`);
@@ -530,11 +527,11 @@ export class UtilityExecutionOracle implements IMiscOracle, IUtilityExecutionOra
     numberOfElements: number,
   ) {
     return this.#queryWithBlockHashNotAfterAnchor(blockHash, async () => {
-      const values = await this.aztecNodeReadCache.getPublicStorageRange(
-        blockHash,
-        contractAddress,
-        startStorageSlot,
-        numberOfElements,
+      const slots = Array(numberOfElements)
+        .fill(0)
+        .map((_, i) => new Fr(startStorageSlot.toBigInt() + BigInt(i)));
+      const values = await Promise.all(
+        slots.map(storageSlot => this.aztecNode.getPublicStorageAt(blockHash, contractAddress, storageSlot)),
       );
 
       this.logger.debug(
@@ -1113,7 +1110,9 @@ export class UtilityExecutionOracle implements IMiscOracle, IUtilityExecutionOra
    */
   async #fetchTxEffects(txHashes: TxHash[]): Promise<Map<string, IndexedTxEffect>> {
     const uniqueTxHashes = uniqueBy(txHashes, h => h.toString());
-    const fetched = await Promise.all(uniqueTxHashes.map(h => this.aztecNodeReadCache.getTxReceiptWithEffect(h)));
+    const fetched = await Promise.all(
+      uniqueTxHashes.map(h => this.aztecNode.getTxReceipt(h, { includeTxEffect: true })),
+    );
     return new Map(
       uniqueTxHashes
         .map((h, i): [string, IndexedTxEffect | undefined] => {
@@ -1137,7 +1136,7 @@ export class UtilityExecutionOracle implements IMiscOracle, IUtilityExecutionOra
   }
 
   async #getTxEffectOption(txHash: TxHash): Promise<Option<TxEffectData>> {
-    const receipt = await this.aztecNodeReadCache.getTxReceiptWithEffect(txHash);
+    const receipt = await this.aztecNode.getTxReceipt(txHash, { includeTxEffect: true });
     if (!receipt.isMined() || !receipt.txEffect || receipt.blockNumber > this.anchorBlockHeader.getBlockNumber()) {
       return Option.none();
     }
@@ -1168,7 +1167,7 @@ export class UtilityExecutionOracle implements IMiscOracle, IUtilityExecutionOra
     const [response] = await Promise.all([
       query(),
       (async () => {
-        const block = await this.aztecNodeReadCache.getBlock(blockHash);
+        const block = await this.aztecNode.getBlock(blockHash);
         const header = block?.header;
         if (!header) {
           throw new Error(`Could not find block header for block hash ${blockHash}`);

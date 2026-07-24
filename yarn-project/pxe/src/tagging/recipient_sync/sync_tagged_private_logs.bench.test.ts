@@ -13,7 +13,7 @@ import { mkdir, writeFile } from 'fs/promises';
 import { type MockProxy, mock } from 'jest-mock-extended';
 import path from 'path';
 
-import { BenchmarkedNodeFactory } from '../../contract_function_simulator/benchmarked_node.js';
+import { BenchmarkedNodeFactory } from '../../node/benchmarked_node.js';
 import { RecipientTaggingStore } from '../../storage/tagging_store/recipient_tagging_store.js';
 import { UNFINALIZED_TAGGING_INDEXES_WINDOW_LEN, syncTaggedPrivateLogs } from '../index.js';
 import { computeSiloedTagForIndex, extractTags } from '../testing/tag_query_test_utils.js';

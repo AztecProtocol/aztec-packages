@@ -62,7 +62,6 @@ import { BlockSynchronizer } from './block_synchronizer/index.js';
 import type { PXEConfig } from './config/index.js';
 import { ContractClassService } from './contract/contract_class_service.js';
 import { ContractSyncService } from './contract/contract_sync_service.js';
-import { BenchmarkedNodeFactory } from './contract_function_simulator/benchmarked_node.js';
 import {
   ContractFunctionSimulator,
   generateSimulatedProvingResult,
@@ -74,6 +73,8 @@ import { PrivateEventFilterValidator } from './events/private_event_filter_valid
 import type { ExecutionHooks } from './hooks/index.js';
 import { JobCoordinator } from './job_coordinator/job_coordinator.js';
 import { TxResolverService } from './messages/tx_resolver_service.js';
+import { AztecNodeReadCache, withReadCache } from './node/aztec_node_read_cache.js';
+import { BenchmarkedNodeFactory } from './node/benchmarked_node.js';
 import {
   PrivateKernelExecutionProver,
   type PrivateKernelExecutionProverConfig,
@@ -247,6 +248,7 @@ export class PXE {
     private privateEventStore: PrivateEventStore,
     private contractSyncService: ContractSyncService,
     private contractClassService: ContractClassService,
+    private nodeReadCache: AztecNodeReadCache,
     private txResolver: TxResolverService,
     private l2TipsStore: L2TipsProvider,
     private simulator: CircuitSimulator,
@@ -316,14 +318,22 @@ export class PXE {
       factStore,
     } = openPxeStores(store, initialBlockHash);
     const contractClassService = new ContractClassService(node, contractStore);
+    // PXE-wide store of node reads, shared by every simulator and read-caching node wrapper below. Entries are only
+    // valid for the current anchor block: the block synchronizer wipes it on every anchor update.
+    //
+    // `anchorReadNode` is the node surface for consumers that interpret the chain as of the current anchor block
+    // (simulators, tx resolution, contract/private-state sync). Chain observers must keep using the raw node: the
+    // block synchronizer decides when the anchor moves, and tx submission and validity checks target the live tip.
+    const nodeReadCache = new AztecNodeReadCache();
+    const anchorReadNode = withReadCache(node, nodeReadCache);
     const contractSyncService = new ContractSyncService(
-      node,
+      anchorReadNode,
       contractStore,
       contractClassService,
       noteStore,
       createLogger('pxe:contract_sync', bindings),
     );
-    const txResolver = new TxResolverService(node);
+    const txResolver = new TxResolverService(anchorReadNode);
 
     const synchronizer = new BlockSynchronizer(
       node,
@@ -335,6 +345,7 @@ export class PXE {
       l2TipsStore,
       contractSyncService,
       contractClassService,
+      nodeReadCache,
       config,
       bindings,
     );
@@ -372,6 +383,7 @@ export class PXE {
       privateEventStore,
       contractSyncService,
       contractClassService,
+      nodeReadCache,
       txResolver,
       l2TipsStore,
       simulator,
@@ -410,7 +422,7 @@ export class PXE {
       noteStore: this.noteStore,
       keyStore: this.keyStore,
       addressStore: this.addressStore,
-      aztecNode: BenchmarkedNodeFactory.create(this.node),
+      aztecNode: withReadCache(BenchmarkedNodeFactory.create(this.node), this.nodeReadCache),
       l2TipsStore: this.l2TipsStore,
       senderTaggingStore: this.senderTaggingStore,
       recipientTaggingStore: this.recipientTaggingStore,

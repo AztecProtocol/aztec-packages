@@ -10,6 +10,7 @@ import type { BlockHeader } from '@aztec/stdlib/tx';
 import type { BlockSynchronizerConfig } from '../config/index.js';
 import type { ContractClassService } from '../contract/contract_class_service.js';
 import type { ContractSyncService } from '../contract/contract_sync_service.js';
+import type { AztecNodeReadCache } from '../node/aztec_node_read_cache.js';
 import type { AnchorBlockStore } from '../storage/anchor_block_store/index.js';
 import type { FactStore } from '../storage/fact_store/fact_store.js';
 import type { NoteStore } from '../storage/note_store/index.js';
@@ -37,6 +38,7 @@ export class BlockSynchronizer implements L2BlockStreamEventHandler {
     private readonly l2TipsStore: L2TipsKVStore,
     private readonly contractSyncService: ContractSyncService,
     private readonly contractClassService: ContractClassService,
+    private readonly nodeReadCache: AztecNodeReadCache,
     private readonly config: Partial<BlockSynchronizerConfig> = {},
     bindings?: LoggerBindings,
   ) {
@@ -184,6 +186,10 @@ export class BlockSynchronizer implements L2BlockStreamEventHandler {
     // ever re-simulate at past anchors, we wipe its cache to prevent runaway memory growth on very long-lived PXE
     // instances.
     this.contractClassService.wipe();
+
+    // Node reads are cached PXE-wide but only sound for the current anchor (tx receipt statuses and block-number-keyed
+    // lookups can change as the chain advances), so the store is cleared on every anchor update.
+    this.nodeReadCache.wipe();
 
     this.log.verbose(`Updated pxe last block to ${blockHeader.getBlockNumber()}`, blockHeader.toInspect());
     await this.anchorBlockStore.setHeader(blockHeader);
