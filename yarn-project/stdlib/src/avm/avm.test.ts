@@ -52,4 +52,23 @@ describe('PublicTxResult totalInstructionsExecuted', () => {
   it('defaults to 0 when null', () => {
     expect(parseWith(null).totalInstructionsExecuted).toBe(0);
   });
+
+  // Production deserialization of C++ output goes through fromPlainObject, not the schema, so pin its
+  // fallback too. A real serialized PublicTxResult supplies correctly-shaped sub-fields; we vary only
+  // totalInstructionsExecuted.
+  it('fromPlainObject reads the field from real C++ output, defaulting to 0 when missing/null', () => {
+    const testdataDir = 'barretenberg/cpp/src/barretenberg/vm2/testing';
+    const file = readdirSync(getPathToFile(testdataDir)).find(f => f.startsWith('tx_result_') && f.endsWith('.bin'));
+    expect(file).toBeDefined();
+    const plain: any = deserializeFromMessagePack(readTestData(`${testdataDir}/${file}`));
+
+    expect(PublicTxResult.fromPlainObject({ ...plain, totalInstructionsExecuted: 99 }).totalInstructionsExecuted).toBe(
+      99,
+    );
+    const { totalInstructionsExecuted: _omitted, ...missing } = plain;
+    expect(PublicTxResult.fromPlainObject(missing).totalInstructionsExecuted).toBe(0);
+    expect(
+      PublicTxResult.fromPlainObject({ ...plain, totalInstructionsExecuted: null }).totalInstructionsExecuted,
+    ).toBe(0);
+  });
 });
