@@ -281,10 +281,11 @@ export class BarretenbergNativeSocketAsyncBackend implements IMsgpackBackendAsyn
     });
   }
 
-  async destroy(): Promise<void> {
+  destroy(): Promise<void> {
     this.failAllPending(new Error('Backend connection closed'));
     // Don't try to unlink socket - bb owns it and will clean it up
     this.process.kill('SIGTERM');
     this.process.removeAllListeners();
+    return Promise.resolve();
   }
 }
