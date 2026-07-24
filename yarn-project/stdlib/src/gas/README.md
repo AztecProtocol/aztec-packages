@@ -117,9 +117,11 @@ every 5 slots.
 
 Because queued values only activate `LAG` slots later, the min fee for the next `LAG`
 slots is fully determined by current on-chain state. `fee_math.ts` ports the FeeLib
-formulas so the sequencer can predict min fees over that window (`FeePredictor` in
-`sequencer-client/src/global_variable_builder`), under a configurable mana-usage
-assumption (`ManaUsageEstimate`: none / target / limit).
+formulas so the sequencer can predict min fees over that window (the prediction math in
+`fee_prediction.ts` in `sequencer-client/src/global_variable_builder`), under a configurable
+mana-usage assumption (`ManaUsageEstimate`: none / target / limit). See
+[Serving Fee Quotes](#serving-fee-quotes-the-fee-snapshot) for how those predictions are cached
+and served without per-request L1 round trips.
 
 ### Worked Example
 
@@ -151,6 +153,75 @@ Key observations:
 
 4. **Slot 15**: A new oracle update can be queued (earliest `acceptableSlot`). If
    triggered, the new values would activate at slot 15 + LAG = 17.
+
+## Serving Fee Quotes: the Fee Snapshot
+
+The `getCurrentMinFees` and `getPredictedMinFees` node RPCs (consumed by wallets and by the p2p mempool
+admission/eviction policy) are served from an in-memory **fee snapshot** maintained by `FeeSnapshotService`
+(`sequencer-client/src/global_variable_builder`), so a warm call issues zero L1 requests. A background loop
+refreshes the snapshot once per L1 block — and proactively as the wall clock drifts toward the top of the
+covered window, so empty-Ethereum-slot runs do not freeze quotes — pinning every read to the archiver's
+synced L1 block number, labelling it with that block's hash, and re-validating the archiver identity before
+publishing via an atomic pointer swap. Each candidate slot stores a *complete* precomputed quote: the
+Solidity `getManaMinFeeAt` current fee plus a full `FEE_ORACLE_LAG`-length prediction array per
+`ManaUsageEstimate`. Reads merge only complete arrays (element-wise max), never synthesizing a mixed oracle
+tuple.
+
+### The two anchor rules
+
+A quote applies to a future slot, and the two RPCs floor that slot differently (preserving the
+pre-snapshot behaviour):
+
+- **current fee** floors on the raw pending checkpoint slot:
+  `wantedCurrent(t) = max(pendingCheckpointSlot + 1, slotAtNextL1Block(t))`;
+- **prediction** floors on the slot of the pinned L1 block and the prune-aware effective parent:
+  `wantedPrediction(t) = max(pinnedSlot, slotAtNextL1Block(t))`.
+
+These floors come only from snapshot-level fields (`pendingCheckpointSlot`, `pinnedSlot`); there is no
+per-candidate selection state. The checkpoint-slot invariant `pendingCheckpointSlot <= pinnedSlot` (a
+proposed checkpoint's slot equals the slot of its L1 inclusion timestamp) lets the refresh build a
+conservative window before it has read the checkpoints, then validate exact coverage afterwards.
+
+### Drift window
+
+To tolerate clock skew between the node and L1, a read enumerates every distinct Aztec slot in
+`[wanted(now - drift), wanted(now + drift)]` (small default, e.g. 2s; `0` disables the window and reduces
+selection to the single legacy anchor) and takes the element-wise max of the complete candidate arrays. A
+coverage miss — a wanted slot outside the materialized window, above or below, symmetrically — never
+substitutes another slot's answer: it awaits a keyed single-flight refresh and, on timeout, fails closed
+with a typed error. Concurrent reads and the poll loop share one refresh per identity/window.
+
+### Staleness bounds
+
+Three independent checks each fail closed with their own typed error and metric, and each is disabled by
+setting its config to `0`:
+
+- **computation age** (`now - refreshedAtMs`, reset by every successful refresh including coverage-only) —
+  exceeding it means refresh is broken;
+- **L1-head age** (`now - pinnedBlockTimestamp`, never reset by coverage-only refreshes) — exceeding it
+  means the provider or archiver is frozen;
+- **future-dated head** (`pinnedBlockTimestamp - now`) — fails closed in production; test environments that
+  warp L1 time align their clock or set the allowance to `0`.
+
+### Consistency stance
+
+Reads are block-number pinned, hash-labelled, archiver-rechecked, and wave-consistency-checked: the refresh
+re-reads `getTips` in its second multicall wave and discards the refresh if the tips differ from the first
+wave (catching fork-mixing across the fallback transport). This is strictly better on state consistency than
+the pre-snapshot current-fee path, which ran entirely unpinned at `latest`; on identity freshness the RPC-side
+archiver identity check gives parity with the old per-call latest-block check, bounded by archiver sync
+health. Residual risks, stated plainly:
+
+- each multicall wave is atomic only on whichever fallback-transport backend served it. Without the tips
+  check tripping, the two waves could still mix backends/forks whose tips coincide but whose oracle or
+  governance state differs — producing an **impossible combined state**, not merely a snapshot coloured by
+  one fork. The tips check narrows this; it does not eliminate it.
+- in the parallel-individual-call fallback (no Multicall3 deployed), even a single logical wave can mix
+  backends — a deliberately weaker guarantee than in multicall mode.
+- a same-height reorg not yet observed by the archiver persists for at most one archiver poll + refresh cycle.
+
+EIP-1898 hash pinning or explicit backend binding is the only complete fix and remains a contained follow-up
+inside the refresh function; it is not part of the current design.
 
 ## Fee Asset Price
 
