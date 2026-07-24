@@ -22,7 +22,10 @@ pub use crate::note::constants::MAX_NOTES_PER_PAGE;
 
 mod test;
 
-fn extract_property_value_from_selector<let N: u32>(packed_note: [Field; N], selector: PropertySelector) -> Field {
+fn extract_property_value_from_selector<let N: u32>(
+    packed_note: [Field; N],
+    selector: PropertySelector<Field>,
+) -> Field {
     // Selectors use PropertySelectors in order to locate note properties inside the packed note. This allows easier
     // packing and custom (un)packing schemas. A note property is located inside the packed note using the index inside
     // the array, a byte offset and a length.

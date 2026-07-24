@@ -1,6 +1,6 @@
-import { spawn, ChildProcess } from 'child_process';
-import * as fs from 'fs';
-import { IMsgpackBackendSync, IMsgpackBackendAsync } from '../interface.js';
+import { ChildProcess, spawn } from 'child_process';
+
+import { IMsgpackBackendAsync } from '../interface.js';
 
 /**
  * Asynchronous native backend that communicates with bb binary via stdin/stdout.
@@ -101,7 +101,7 @@ export class BarretenbergNativePipeAsyncBackend implements IMsgpackBackendAsync 
     }
   }
 
-  async call(inputBuffer: Uint8Array): Promise<Uint8Array> {
+  call(inputBuffer: Uint8Array): Promise<Uint8Array> {
     if (this.pendingResolve) {
       throw new Error('Cannot call while another call is pending (no pipelining supported)');
     }
@@ -118,7 +118,7 @@ export class BarretenbergNativePipeAsyncBackend implements IMsgpackBackendAsync 
     });
   }
 
-  async destroy(): Promise<void> {
+  destroy(): Promise<void> {
     this.process.kill();
     return new Promise(resolve => {
       this.process.once('exit', () => resolve());

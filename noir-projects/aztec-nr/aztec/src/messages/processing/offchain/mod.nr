@@ -7,7 +7,7 @@ use crate::{
 };
 
 mod reception;
-use reception::OffchainReception;
+use reception::{MAX_ANCHOR_FUTURE_SKEW, OffchainReception};
 
 /// Maximum number of offchain messages accepted by `offchain_receive` in a single call.
 pub global MAX_OFFCHAIN_MESSAGES_PER_RECEIVE_CALL: u32 = 16;
@@ -50,6 +50,19 @@ pub unconstrained fn receive(
     // Offchain reception facts are scoped to the recipient. Note that because offchain messages have no integrity or
     // authenticity checks it is not possible to verify that this is indeed the intended recipient. In this case we're
     // assuming a cooperative environment, which is on par with other offchain delivery expectations.
+    //
+    // The sender-supplied anchor timestamp is the one field we bound: a message claiming to originate implausibly far
+    // in our future (see MAX_ANCHOR_FUTURE_SKEW) cannot be genuine, and accepting it would let a malicious anchor evade
+    // the TTL-based inbox eviction. We reject such a batch by panicking instead of silently dropping the message, so
+    // the calling wallet can react to it (e.g. surface the error or distrust the sender).
+    let now = UtilityContext::new().timestamp();
+    messages.for_each(|msg| {
+        assert(
+            msg.anchor_block_timestamp <= now + MAX_ANCHOR_FUTURE_SKEW,
+            "offchain message anchor timestamp is implausibly far in the future",
+        );
+    });
+
     messages.for_each(|msg| OffchainReception::init(contract_address, msg));
 
     // Clear cache for message recipients so the next sync runs.
@@ -97,10 +110,12 @@ pub struct OffchainMessage {
 
 mod test {
     use crate::{
-        oracle::random::random, protocol::address::AztecAddress, test::helpers::test_environment::TestEnvironment,
+        oracle::random::random,
+        protocol::{address::AztecAddress, constants::MAX_TX_LIFETIME},
+        test::helpers::test_environment::TestEnvironment,
     };
     use super::{MAX_OFFCHAIN_MESSAGES_PER_RECEIVE_CALL, OffchainMessage, receive, sync_inbox};
-    use super::reception::{MAX_MSG_TTL, OffchainReception};
+    use super::reception::{MAX_ANCHOR_FUTURE_SKEW, MAX_MSG_TTL, OffchainReception};
 
     unconstrained fn setup() -> (TestEnvironment, AztecAddress) {
         let mut env = TestEnvironment::new();
@@ -175,6 +190,42 @@ mod test {
             assert(OffchainReception::is_active(address, scope, survivor), "survivor reception should stay active");
             assert_eq(OffchainReception::load_all(address, scope).len(), 1);
         });
+    }
+
+    #[test]
+    unconstrained fn accepts_messages_within_the_tolerated_future_skew() {
+        let (env, scope) = setup();
+        let now = advance_by(env, 10);
+
+        // A present-dated anchor and a 24h-future one both fall within the tolerated skew. The latter models a genuine
+        // message whose sender anchored ahead of our lagging PXE, and must still be accepted.
+        let present = make_msg(scope, Option::some(random()), now);
+        let lagged = make_msg(scope, Option::some(random()), now + MAX_TX_LIFETIME);
+
+        env.utility_context(|context| {
+            let address = context.this_address();
+            receive(address, BoundedVec::from_array([present, lagged]));
+
+            assert(OffchainReception::is_active(address, scope, present));
+            assert(OffchainReception::is_active(address, scope, lagged));
+            assert_eq(OffchainReception::load_all(address, scope).len(), 2);
+        });
+    }
+
+    #[test(should_fail_with = "offchain message anchor timestamp is implausibly far in the future")]
+    unconstrained fn rejects_batch_with_implausible_future_anchor() {
+        let (env, scope) = setup();
+        let now = advance_by(env, 10);
+
+        // Beyond `now + MAX_ANCHOR_FUTURE_SKEW`: our view would trail the tip by more than a tx lifetime, so this
+        // cannot be genuine. Reception panics so the wallet can react rather than accept it.
+        let too_future = make_msg(
+            scope,
+            Option::some(random()),
+            now + MAX_ANCHOR_FUTURE_SKEW + 7200,
+        );
+
+        env.utility_context(|context| { receive(context.this_address(), BoundedVec::from_array([too_future])); });
     }
 
     // -- Idempotent re-delivery (first-write-wins fact recording) ---------

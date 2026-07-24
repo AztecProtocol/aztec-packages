@@ -11,13 +11,13 @@ import { EthCheatCodesWithState } from '@aztec/ethereum/test';
 import { BlockNumber, SlotNumber } from '@aztec/foundation/branded-types';
 import { timesParallel } from '@aztec/foundation/collection';
 import { Fr } from '@aztec/foundation/curves/bn254';
+import { GrumpkinScalar } from '@aztec/foundation/curves/grumpkin';
 import { type Logger, createLogger } from '@aztec/foundation/log';
 import { retryUntil } from '@aztec/foundation/retry';
 import { sleep } from '@aztec/foundation/sleep';
 import { DateProvider, Timer } from '@aztec/foundation/timer';
 import { AvmGadgetsTestContract } from '@aztec/noir-test-contracts.js/AvmGadgetsTest';
 import { GasFees } from '@aztec/stdlib/gas';
-import { deriveSigningKey } from '@aztec/stdlib/keys';
 import { Tx, TxHash } from '@aztec/stdlib/tx';
 
 import { jest } from '@jest/globals';
@@ -133,6 +133,9 @@ describe(`prove ${TARGET_TPS}TPS test`, () => {
   let rollupCheatCodes: RollupCheatCodes;
   let ethEndpoint: ServiceEndpoint | undefined;
   let metricsStartSnapshot: MetricsSnapshot | undefined;
+  // Window handed to bench_scrape.ts so the custom pipeline can scrape this run's
+  // proving-infra series (see spartan/bootstrap.sh proving_bench).
+  let benchStartedAt: string | undefined;
 
   afterAll(async () => {
     if (process.env.BENCH_OUTPUT && metrics && metricsStartSnapshot) {
@@ -212,6 +215,19 @@ describe(`prove ${TARGET_TPS}TPS test`, () => {
       await writeFile(process.env.BENCH_OUTPUT, JSON.stringify(metrics.toGithubActionBenchmarkJSON()));
     }
 
+    // Hand the run window to the custom-pipeline scraper (bench_scrape.ts), which
+    // reads this file to bound its Prometheus queries for the proving run.
+    const timingMetadataPath = '/tmp/n_tps_prove_timing_data.json';
+    await writeFile(
+      timingMetadataPath,
+      JSON.stringify({
+        startedAt: benchStartedAt ?? new Date().toISOString(),
+        endedAt: new Date().toISOString(),
+        runId: process.env.BENCH_RUN_ID,
+      }),
+    );
+    logger.info('Wrote proving-bench timing metadata', { path: timingMetadataPath });
+
     if (testWallets) {
       for (const tw of testWallets) {
         await tw.cleanup();
@@ -247,6 +263,7 @@ describe(`prove ${TARGET_TPS}TPS test`, () => {
       server: new URL(`http://127.0.0.1:${promPortForward.port}`),
     });
     metricsStartSnapshot = await captureMetricsSnapshot(prometheusClient, logger);
+    benchStartedAt = new Date().toISOString();
     promPortForward.process.kill();
     logger.info('Metrics snapshot captured');
 
@@ -312,14 +329,10 @@ describe(`prove ${TARGET_TPS}TPS test`, () => {
       wallets.map(async wallet => {
         const secret = Fr.random();
         const salt = Fr.random();
-        const address = await wallet.registerAccount(secret, salt);
+        const signingKey = GrumpkinScalar.random();
+        const address = await wallet.registerAccount(secret, salt, signingKey);
         await registerSponsoredFPC(wallet);
-        const manager = await AccountManager.create(
-          wallet,
-          secret,
-          new SchnorrAccountContract(deriveSigningKey(secret)),
-          { salt },
-        );
+        const manager = await AccountManager.create(wallet, secret, new SchnorrAccountContract(signingKey), { salt });
         const deployMethod = await manager.getDeployMethod();
         await deployMethod.send({
           from: NO_FROM,

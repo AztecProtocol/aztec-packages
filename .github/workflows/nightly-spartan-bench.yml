@@ -14,6 +14,9 @@ concurrency:
   group: nightly-spartan-bench-${{ github.ref }}
   cancel-in-progress: true
 
+env:
+  GITHUB_TOKEN: ${{ secrets.AZTEC_BOT_GITHUB_TOKEN }}
+
 jobs:
   select-image:
     if: ${{ github.repository == 'AztecProtocol/aztec-packages' }}
@@ -346,6 +349,12 @@ jobs:
           AWS_SHUTDOWN_TIME: 180
           NO_SPOT: 1
           SKIP_NETWORK_DEPLOY: "1"
+          # Publishes to the custom network-dashboard pipeline (GCS). Fake/fixed-delay
+          # proving, so it's tagged simulated-proving (distinct from the weekly
+          # real-proving run).
+          BENCH_SWEEP_ID: simulated-proving-${{ github.run_id }}
+          BENCH_SWEEP_LABEL: simulated-proving
+          BENCH_BENCHMARK_TYPE: simulated-proving
         run: |
           ./.github/ci3.sh network-proving-bench prove-n-tps-fake prove-n-tps-fake "${{ needs.select-image.outputs.docker_image }}"
 
@@ -524,6 +533,11 @@ jobs:
           AWS_SHUTDOWN_TIME: 240
           NO_SPOT: 1
           SKIP_NETWORK_DEPLOY: "1"
+          # Publishes to the custom network-dashboard pipeline (GCS) tagged as the
+          # block-capacity benchmark, grouped as one sweep per run.
+          BENCH_SWEEP_ID: block-capacity-${{ github.run_id }}
+          BENCH_SWEEP_LABEL: block-capacity
+          BENCH_BENCHMARK_TYPE: block-capacity
         run: |
           ./.github/ci3.sh network-block-capacity-bench block-capacity nightly-block-capacity "${{ needs.select-image.outputs.docker_image }}"
 

@@ -1,4 +1,5 @@
 use aztec::macros::aztec;
+mod multi_slot_note;
 mod packed_note;
 
 /// Used to test note getter in e2e_note_getter.test.ts
@@ -57,7 +58,7 @@ pub contract NoteGetter {
     unconstrained fn select_packed_notes_by_high(
         owner: AztecAddress,
         comparator: u8,
-        value: Field,
+        value: u8,
     ) -> BoundedVec<[u8; 2], 10> {
         let selector = PackedNote::high_selector();
         let notes =
@@ -69,7 +70,7 @@ pub contract NoteGetter {
     unconstrained fn select_packed_notes_by_low(
         owner: AztecAddress,
         comparator: u8,
-        value: Field,
+        value: u8,
     ) -> BoundedVec<[u8; 2], 10> {
         let selector = PackedNote::low_selector();
         let notes =

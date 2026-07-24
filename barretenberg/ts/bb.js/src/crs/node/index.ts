@@ -1,10 +1,11 @@
-import { NetCrs, NetGrumpkinCrs } from '../net_crs.js';
-import { closeSync, mkdirSync, openSync, readFileSync, readSync, writeFileSync, createWriteStream } from 'fs';
+import { closeSync, createWriteStream, mkdirSync, openSync, readFileSync, readSync, writeFileSync } from 'fs';
 import { stat } from 'fs/promises';
-import { Readable } from 'stream';
 import { homedir } from 'os';
-import { finished } from 'stream/promises';
 import { join } from 'path';
+import { Readable } from 'stream';
+import { finished } from 'stream/promises';
+
+import { NetCrs, NetGrumpkinCrs } from '../net_crs.js';
 
 /**
  * Generic CRS finder utility class.
@@ -93,9 +94,10 @@ export class Crs {
   /**
    * Cache uncompressed G1 data to disk after WASM decompression.
    */
-  async cacheUncompressed(data: Uint8Array): Promise<void> {
+  cacheUncompressed(data: Uint8Array): Promise<void> {
     writeFileSync(this.path + '/bn254_g1.dat', data);
     this.hasUncompressed = true;
+    return Promise.resolve();
   }
 
   /**

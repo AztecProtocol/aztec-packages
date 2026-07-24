@@ -1,6 +1,6 @@
-import { Worker } from 'worker_threads';
 import { dirname } from 'path';
 import { fileURLToPath } from 'url';
+import { Worker } from 'worker_threads';
 
 function getCurrentDir() {
   if (typeof __dirname !== 'undefined') {
