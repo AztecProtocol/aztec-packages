@@ -8,8 +8,9 @@ package_dir=$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)
 work_dir=$(mktemp -d)
 trap 'rm -rf "$work_dir"' EXIT
 
-# The release tarball embeds the protocol inputs via prepack; npm pack --ignore-scripts skips prepack
-# (that's what lets us pack the prebuilt dest/ as-is), so run the embed step explicitly.
+# The package build embeds the protocol inputs; refresh them here so the tarball matches the
+# current sources even when dest/ was built earlier (npm pack --ignore-scripts packs the prebuilt
+# dest/ and whatever inputs/ holds).
 "$package_dir/scripts/embed-inputs.sh"
 (cd "$package_dir" && npm pack --ignore-scripts --pack-destination "$work_dir" --quiet >/dev/null)
 

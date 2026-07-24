@@ -13,10 +13,10 @@ constants-codegen \
   (--typescript <output.ts> | --cpp <output.hpp> | --pil <output.pil> | --solidity <output.sol> | --rust <output.rs>)
 ```
 
-- `--input` defaults to `inputs/constants.nr` under the package root, the file `scripts/embed-inputs.sh` embeds at
-  pack time, so the published npm package works without `--input`. In-repo callers either invoke
-  `scripts/generate.sh`, which supplies the monorepo source explicitly, or run `scripts/embed-inputs.sh` first and
-  rely on the default like an installed package would.
+- `--input` defaults to `inputs/constants.nr` under the package root, the file `scripts/embed-inputs.sh` copies in
+  as part of the package build, so both the published npm package and the built in-repo package work without
+  `--input`. In-repo callers invoke `scripts/generate.sh`, which refreshes the embedded copy from the monorepo
+  sources before running the CLI.
 - Exactly one output option is required. Run the command once per desired output.
 - `--selection` filters the output to the selected symbols. Without it, the output contains every supported symbol
   from the input.

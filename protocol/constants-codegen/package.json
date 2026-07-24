@@ -13,9 +13,9 @@
     "README.md"
   ],
   "scripts": {
-    "build": "tsc -p tsconfig.json && chmod +x dest/cli.js",
+    "build": "tsc -p tsconfig.json && chmod +x dest/cli.js && ./scripts/embed-inputs.sh",
     "clean": "rm -rf dest inputs",
-    "prepack": "yarn build && ./scripts/embed-inputs.sh",
+    "prepack": "yarn build",
     "test": "node --test src/*.test.ts && yarn build && ./scripts/test-package.sh"
   },
   "devDependencies": {
