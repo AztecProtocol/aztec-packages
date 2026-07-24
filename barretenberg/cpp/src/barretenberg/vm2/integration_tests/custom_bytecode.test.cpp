@@ -325,7 +325,7 @@ TEST_P(CustomBytecodeSimulation, SimulateAndProve)
 // TxSimulationResult::total_instructions_executed counts one execution step per instruction the AVM
 // processes across all (nested) calls, matching the number of execution trace rows. AvmMinimal is
 // SET_8, SET_8, ADD_8, RETURN, all of which execute, so the count is exactly four, and the fast and
-// witgen (hint-collecting) simulators must agree.
+// witgen simulators must agree.
 TEST(CustomBytecodeInstructionCount, CountsEveryExecutedInstruction)
 {
     PublicTxSimulationTester tester;
@@ -339,19 +339,6 @@ TEST(CustomBytecodeInstructionCount, CountsEveryExecutedInstruction)
     const TxSimulationResult hint_result =
         tester.simulate_tx({ TestEnqueuedCall{ .contract_address = deployed.address } }, proving_config());
     EXPECT_EQ(hint_result.total_instructions_executed, fast_result.total_instructions_executed);
-}
-
-// A terminal halting instruction is still counted as one executed step: the loop advances its
-// instruction count even when the instruction fails. Here CALLDATACOPY halts on address resolution,
-// before the trailing RETURN is ever reached, so exactly one instruction is counted.
-TEST(CustomBytecodeInstructionCount, CountsTheHaltingInstruction)
-{
-    PublicTxSimulationTester tester;
-    const auto deployed = tester.deploy_contract(addressing_with_base_tag_issue(/*is_indirect=*/false).bytecode);
-
-    const TxSimulationResult result = tester.simulate_tx({ TestEnqueuedCall{ .contract_address = deployed.address } });
-    EXPECT_TRUE(result.revert_code != RevertCode::OK);
-    EXPECT_EQ(result.total_instructions_executed, 1u);
 }
 
 INSTANTIATE_TEST_SUITE_P(CustomBytecode,

@@ -32,7 +32,7 @@ describe('Public TX simulator apps tests: AvmTestContract', () => {
   it('bulk testing', async () => {
     const result = await bulkTest(simTester, logger, AvmTestContractArtifact);
     expect(result.revertCode.isOK()).toBe(true);
-    // The (C++) simulator reports how many AVM instructions the tx executed; the bulk test runs many.
+    // The simulator reports how many AVM instructions the tx executed; the bulk test runs many.
     expect(result.totalInstructionsExecuted).toBeGreaterThan(0);
     // Closing the loop: the count recorded into the benchmark metrics (through the real simulator call
     // site) must match the value on the result. bulkTest runs a single labelled tx, so there is exactly

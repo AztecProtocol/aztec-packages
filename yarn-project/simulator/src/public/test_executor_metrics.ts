@@ -113,7 +113,7 @@ export class TestExecutorMetrics implements ExecutorMetricsInterface {
     txMetrics.totalDurationMs = this.txTimer!.ms();
     this.logger.debug(`Public TX simulation of ${txLabel} took ${txMetrics.totalDurationMs}ms`);
 
-    // manaUsed and totalInstructionsExecuted are tx-level totals reported by the (C++) simulator.
+    // manaUsed and totalInstructionsExecuted are tx-level totals reported by the simulator.
     txMetrics.manaUsed = gasUsed?.publicGas.l2Gas;
     txMetrics.totalInstructionsExecuted = totalInstructionsExecuted ?? 0;
     txMetrics.revertedCode = revertedCode;

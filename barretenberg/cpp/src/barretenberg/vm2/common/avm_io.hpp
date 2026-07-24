@@ -551,9 +551,7 @@ struct TxSimulationResult {
     // Simulation.
     GasUsed gas_used;
     RevertCode revert_code;
-    // Total AVM instructions executed by the tx, across all enqueued calls and their nested calls. This is
-    // the number of execution steps (equivalently, execution trace rows): the execution loop advances it once
-    // per instruction it processes, including a terminal halting/failing instruction. Always present.
+    // Total AVM instructions executed by the tx, across all enqueued calls and their nested calls.
     uint32_t total_instructions_executed = 0;
     PublicTxEffect public_tx_effect;
     // The following fields are only guaranteed to be present if the simulator is configured to collect them.
