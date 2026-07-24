@@ -4,6 +4,7 @@
   "type": "module",
   "exports": {
     "./network-defaults.json": "./l1-contracts/scripts/network-defaults.json",
+    "./l1-contracts/*": "./l1-contracts/*",
     "./*": "./dest/*.js",
     ".": "./dest/index.js"
   },

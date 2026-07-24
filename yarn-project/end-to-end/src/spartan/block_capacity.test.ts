@@ -9,12 +9,12 @@ import { asyncPool } from '@aztec/foundation/async-pool';
 import { BlockNumber } from '@aztec/foundation/branded-types';
 import { times } from '@aztec/foundation/collection';
 import { Fr } from '@aztec/foundation/curves/bn254';
+import { GrumpkinScalar } from '@aztec/foundation/curves/grumpkin';
 import { createLogger } from '@aztec/foundation/log';
 import { retryUntil } from '@aztec/foundation/retry';
 import { TokenContract } from '@aztec/noir-contracts.js/Token';
 import { BenchmarkingContract } from '@aztec/noir-test-contracts.js/Benchmarking';
 import { GasFees } from '@aztec/stdlib/gas';
-import { deriveSigningKey } from '@aztec/stdlib/keys';
 import { Tx } from '@aztec/stdlib/tx';
 
 import { jest } from '@jest/globals';
@@ -112,14 +112,10 @@ describe('block capacity benchmark', () => {
       wallets.map(async wallet => {
         const secret = Fr.random();
         const salt = Fr.random();
-        const address = await wallet.registerAccount(secret, salt);
+        const signingKey = GrumpkinScalar.random();
+        const address = await wallet.registerAccount(secret, salt, signingKey);
         await registerSponsoredFPC(wallet);
-        const manager = await AccountManager.create(
-          wallet,
-          secret,
-          new SchnorrAccountContract(deriveSigningKey(secret)),
-          { salt },
-        );
+        const manager = await AccountManager.create(wallet, secret, new SchnorrAccountContract(signingKey), { salt });
         const deployMethod = await manager.getDeployMethod();
         await deployMethod.send({
           from: NO_FROM,
