@@ -14,8 +14,9 @@ const DEFAULT_BATCH_WINDOW_MS = 0;
 // the maximum size of a batched request
 const DEFAULT_MAX_BATCH_SIZE = 100;
 
-// 10 mb
-const DEFAULT_MAX_REQUESTY_BODY_SIZE = 10 * 1024 * 1024;
+// 1 mb, matching the JSON-RPC server's default maxBodySizeBytes so the client never assembles a batch the
+// server rejects for exceeding the body limit
+const DEFAULT_MAX_REQUESTY_BODY_SIZE = 1 * 1024 * 1024;
 
 export type SafeJsonRpcClientOptions = {
   namespaceMethods?: string | false;
