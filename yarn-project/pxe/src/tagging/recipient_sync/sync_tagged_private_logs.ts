@@ -7,7 +7,7 @@ import { AppTaggingSecretKind, SiloedTag } from '@aztec/stdlib/logs';
 import type { BlockHeader } from '@aztec/stdlib/tx';
 
 import type { RecipientTaggingStore } from '../../storage/tagging_store/recipient_tagging_store.js';
-import { UNFINALIZED_TAGGING_INDEXES_WINDOW_LEN } from '../constants.js';
+import { unfinalizedTaggingIndexesWindowEnd } from '../constants.js';
 import { getAllPrivateLogsByTags } from '../get_all_logs_by_tags.js';
 import { findHighestIndexes } from './utils/find_highest_indexes.js';
 
@@ -147,7 +147,7 @@ function getIndexRangesForSecrets(
           : await taggingStore.getHighestAgedIndex(secret, jobId);
       const start = highestIndexBeforeStart === undefined ? 0 : highestIndexBeforeStart + 1;
 
-      const end = (currentHighestFinalizedIndex ?? 0) + UNFINALIZED_TAGGING_INDEXES_WINDOW_LEN + 1;
+      const end = unfinalizedTaggingIndexesWindowEnd(currentHighestFinalizedIndex);
 
       return { secret, start, end };
     }),
@@ -235,7 +235,7 @@ async function processConstrainedResults(
       return {
         secret: pending.secret,
         start: pending.end,
-        end: highestFinalizedIndex + UNFINALIZED_TAGGING_INDEXES_WINDOW_LEN + 1,
+        end: unfinalizedTaggingIndexesWindowEnd(highestFinalizedIndex),
       };
     }
   }
@@ -282,10 +282,11 @@ async function processUnconstrainedResults(
 
   // For the next iteration we want to look only at indexes for which we have not yet fetched logs while
   // ensuring that we do not look further than WINDOW_LEN ahead of the highest finalized index.
+  const end = unfinalizedTaggingIndexesWindowEnd(highestFinalizedIndex);
   return {
     secret: pending.secret,
     start: pending.end,
-    end: highestFinalizedIndex + UNFINALIZED_TAGGING_INDEXES_WINDOW_LEN + 1,
+    end,
   };
 }
 
