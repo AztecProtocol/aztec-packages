@@ -2,6 +2,7 @@ import { type AvmStat, type BackendOptions, BackendType, Barretenberg } from '@a
 import type { LogFn, Logger } from '@aztec/foundation/log';
 import { FifoMemoryQueue } from '@aztec/foundation/queue';
 import { Timer } from '@aztec/foundation/timer';
+import { ProvingError } from '@aztec/stdlib/errors';
 
 import type { UltraHonkFlavor } from '../honk.js';
 
@@ -84,8 +85,13 @@ export class BBJsInstance implements BBJsApi {
     if (threads !== undefined) {
       options.threads = threads;
     }
-    const api = await Barretenberg.new(options);
-    return new BBJsInstance(api);
+    try {
+      return new BBJsInstance(await Barretenberg.new(options));
+    } catch (err) {
+      // bb startup failures are environmental (machine load, a wedged or dead bb process), never a
+      // property of the proof inputs, so the job is always safe to retry.
+      throw new ProvingError(`Failed to start bb process: ${err}`, err, /*retry*/ true);
+    }
   }
 
   /**

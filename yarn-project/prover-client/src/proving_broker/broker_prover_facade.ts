@@ -288,6 +288,8 @@ export class BrokerCircuitProverFacade implements ServerCircuitProver {
         }
       } else if (result.status === 'rejected') {
         return { success: false, reason: result.reason };
+      } else if (result.status === 'aborted') {
+        return { success: false, reason: 'Aborted' };
       } else {
         throw new Error(`Unexpected proving job status ${result.status}`);
       }
