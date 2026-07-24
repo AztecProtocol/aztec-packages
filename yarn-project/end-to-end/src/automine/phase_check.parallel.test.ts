@@ -93,9 +93,8 @@ describe('automine/phase_check', () => {
   });
 
   it('should fail when the fee payer is elected after the setup phase has ended', async () => {
-    // BatchCall.simulate ignores the fee payment method, which would make the wallet fall back to
-    // PREEXISTING_FEE_JUICE and end setup in the account entrypoint before any app call runs. Build the payload via
-    // request() instead, which merges the payment method's payload (and thus its fee payer), and simulate it directly.
+    // On this branch BatchCall.simulate enters the phase before the first app call. Build the payload via request(),
+    // which preserves the deferred payment method's externally supplied fee payer, and simulate it directly.
     const lateElection = await new BatchCall(wallet, [
       contract.methods.call_function_that_ends_setup_without_phase_check(),
       sponsoredFPC.methods.sponsor_unconditionally(),
