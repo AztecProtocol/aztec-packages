@@ -218,6 +218,7 @@ describe('SenderTaggingStore', () => {
         expect(txHashes).toHaveLength(1);
         expect(txHashes[0]).toEqual(txHash2);
       });
+      
       it('throws after pending txs exhaust window', async () => {
         // One single-index pending tx per index, mirroring how an un-mined backlog accumulates one log per tx on a
         // shared secret (e.g. the self-send chain in bench_build_block). With no index finalized yet, exactly
