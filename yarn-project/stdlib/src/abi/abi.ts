@@ -27,6 +27,14 @@ export type AbiValue =
   | IntegerValue
   | StructValue;
 
+/** An exported value together with the name of the global that produced it. */
+export interface AbiNamedValue {
+  /** The name of the exported global. */
+  name: string;
+  /** The exported value. */
+  value: AbiValue;
+}
+
 export const AbiValueSchema: z.ZodType<AbiValue> = z.discriminatedUnion('kind', [
   z.object({ kind: z.literal('boolean'), value: z.boolean() }),
   z.object({ kind: z.literal('string'), value: z.string() }),

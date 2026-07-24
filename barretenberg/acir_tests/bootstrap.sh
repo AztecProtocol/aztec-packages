@@ -108,8 +108,10 @@ function build {
     rm -rf acir_tests/{diamond_deps_0,workspace,workspace_default_member,regression_7323}
     # These use folding, which is not currently supported.
     rm -rf acir_tests/{fold_call_witness_condition,fold_after_inlined_calls,fold_complex_outputs,fold_basic_nested_call,fold_numeric_generic_poseidon,fold_fibonacci,fold_basic,fold_2_to_17,fold_distinct_return}
-    # The following test fails because it uses CallData/ReturnData with UltraBuilder, which is not supported
-    rm -rf acir_tests/{regression_7612,regression_7143,databus_composite_calldata,databus_two_calldata_simple,databus_two_calldata,databus}
+    # The following tests fail because they use CallData/ReturnData with UltraBuilder, which is not supported.
+    rm -rf acir_tests/{regression_7612,regression_7143,regression_claude_1124,databus_composite_calldata,databus_two_calldata_simple,databus_two_calldata,databus}
+    # This compiler typing test optimizes to an empty circuit while retaining unused input witnesses.
+    rm -rf acir_tests/associated_constant_as_array_length
     # Merge the internal test programs with the acir tests.
     cp -R ./internal_test_programs/* acir_tests
 

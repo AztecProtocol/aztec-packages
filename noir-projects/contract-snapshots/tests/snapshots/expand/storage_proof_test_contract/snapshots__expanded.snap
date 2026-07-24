@@ -17,7 +17,6 @@ contract StorageProofTest {
     use crate::storage_proofs::types::StorageSlot;
     use crate::storage_proofs::utils::to_nibbles;
     use aztec::macros::functions::external;
-    use aztec::macros::functions::internal;
     use aztec::macros::functions::only_self;
     use aztec::macros::functions::view;
     use aztec::oracle::capsules;
@@ -127,6 +126,37 @@ contract StorageProofTest {
             Self { target_contract: AztecAddress::zero()}
         }
 
+        pub fn storage_proof(self, address: EthAddress, slot_key: [u8; 32], slot_contents: StorageSlot, eth_storage_root: [u64; 4]) -> aztec::context::calls::PrivateCall<13, 70, ()> {
+            let mut serialized_params: [Field; 70] = [0_Field; 70];
+            let mut offset: u32 = 0_u32;
+            let serialized_member: [Field; 1] = address.serialize();
+            let serialized_member_len: u32 = <EthAddress as Serialize>::N;
+            for i in 0_u32..serialized_member_len {
+                serialized_params[i + offset] = serialized_member[i];
+            };
+            offset = offset + serialized_member_len;
+            let serialized_member: [Field; 32 * 1] = slot_key.serialize();
+            let serialized_member_len: u32 = <[u8; 32] as Serialize<N = 32 * 1>>::N;
+            for i in 0_u32..serialized_member_len {
+                serialized_params[i + offset] = serialized_member[i];
+            };
+            offset = offset + serialized_member_len;
+            let serialized_member: [Field; 33] = slot_contents.serialize();
+            let serialized_member_len: u32 = <StorageSlot as Serialize<N = 33>>::N;
+            for i in 0_u32..serialized_member_len {
+                serialized_params[i + offset] = serialized_member[i];
+            };
+            offset = offset + serialized_member_len;
+            let serialized_member: [Field; 4 * 1] = eth_storage_root.serialize();
+            let serialized_member_len: u32 = <[u64; 4] as Serialize<N = 4 * 1>>::N;
+            for i in 0_u32..serialized_member_len {
+                serialized_params[i + offset] = serialized_member[i];
+            };
+            offset = offset + serialized_member_len;
+            let selector: aztec::protocol::abis::function_selector::FunctionSelector = <aztec::protocol::abis::function_selector::FunctionSelector as aztec::protocol::traits::FromField>::from_field(2067008734_Field);
+            aztec::context::calls::PrivateCall::<13, 70, ()>::new(self.target_contract, selector, "storage_proof", serialized_params)
+        }
+
         pub fn verify_storage_proof_path_recursively(self, num_processed_nodes: u32, num_total_nodes: u32, start_nibble_index: u32, parent_hash: [u64; 4], storage_trie_key_nibbles: [u8; 64], storage_proof_capsule_key: Field) -> aztec::context::calls::PrivateCall<37, 72, ([u64; 4], u32)> {
             let mut serialized_params: [Field; 72] = [0_Field; 72];
             let mut offset: u32 = 0_u32;
@@ -168,37 +198,6 @@ contract StorageProofTest {
             offset = offset + serialized_member_len;
             let selector: aztec::protocol::abis::function_selector::FunctionSelector = <aztec::protocol::abis::function_selector::FunctionSelector as aztec::protocol::traits::FromField>::from_field(2237949917_Field);
             aztec::context::calls::PrivateCall::<37, 72, ([u64; 4], u32)>::new(self.target_contract, selector, "verify_storage_proof_path_recursively", serialized_params)
-        }
-
-        pub fn storage_proof(self, address: EthAddress, slot_key: [u8; 32], slot_contents: StorageSlot, eth_storage_root: [u64; 4]) -> aztec::context::calls::PrivateCall<13, 70, ()> {
-            let mut serialized_params: [Field; 70] = [0_Field; 70];
-            let mut offset: u32 = 0_u32;
-            let serialized_member: [Field; 1] = address.serialize();
-            let serialized_member_len: u32 = <EthAddress as Serialize>::N;
-            for i in 0_u32..serialized_member_len {
-                serialized_params[i + offset] = serialized_member[i];
-            };
-            offset = offset + serialized_member_len;
-            let serialized_member: [Field; 32 * 1] = slot_key.serialize();
-            let serialized_member_len: u32 = <[u8; 32] as Serialize<N = 32 * 1>>::N;
-            for i in 0_u32..serialized_member_len {
-                serialized_params[i + offset] = serialized_member[i];
-            };
-            offset = offset + serialized_member_len;
-            let serialized_member: [Field; 33] = slot_contents.serialize();
-            let serialized_member_len: u32 = <StorageSlot as Serialize<N = 33>>::N;
-            for i in 0_u32..serialized_member_len {
-                serialized_params[i + offset] = serialized_member[i];
-            };
-            offset = offset + serialized_member_len;
-            let serialized_member: [Field; 4 * 1] = eth_storage_root.serialize();
-            let serialized_member_len: u32 = <[u64; 4] as Serialize<N = 4 * 1>>::N;
-            for i in 0_u32..serialized_member_len {
-                serialized_params[i + offset] = serialized_member[i];
-            };
-            offset = offset + serialized_member_len;
-            let selector: aztec::protocol::abis::function_selector::FunctionSelector = <aztec::protocol::abis::function_selector::FunctionSelector as aztec::protocol::traits::FromField>::from_field(2067008734_Field);
-            aztec::context::calls::PrivateCall::<13, 70, ()>::new(self.target_contract, selector, "storage_proof", serialized_params)
         }
 
         pub fn account_proof(self, account: Account, root: [u64; 4], nodes: [Node; 15], node_length: u32) -> aztec::context::calls::PublicStaticCall<13, 1290, ()> {
@@ -463,7 +462,7 @@ contract StorageProofTest {
             let arg2: [Node; 15] = <[Node; 15] as Deserialize<N = 15 * 81>>::stream_deserialize(&mut reader);
             let arg3: u32 = <u32 as Deserialize>::stream_deserialize(&mut reader);
             __aztec_nr_internals__account_proof(arg0, arg1, arg2, arg3);
-            aztec::oracle::avm::avm_return([].as_slice());
+            aztec::oracle::avm::avm_return([].as_vector());
         };
         panic(f"Unknown selector {selector}")
     }
@@ -1194,6 +1193,16 @@ mod storage_proofs {
                 }
             }
         }
+
+        impl BytesSink for KeccakHasher {
+            fn add_byte(&mut self, byte: u8) {
+                self.add_byte(byte);
+            }
+
+            fn add_u64(&mut self, mut value: u64) {
+                self.add_u64(value);
+            }
+        }
     }
 
     pub mod extension_hash {
@@ -1457,16 +1466,6 @@ mod storage_proofs {
                     }
                 };
                 result
-            }
-        }
-
-        impl super::bytes_sink::BytesSink for KeccakHasher {
-            fn add_byte(&mut self, byte: u8) {
-                self.add_byte(byte);
-            }
-
-            fn add_u64(&mut self, mut value: u64) {
-                self.add_u64(value);
             }
         }
 
