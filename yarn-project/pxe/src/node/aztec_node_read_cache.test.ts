@@ -118,15 +118,47 @@ describe('withReadCache', () => {
     expect(aztecNode.getPublicDataWitness).toHaveBeenCalledTimes(1);
   });
 
-  it('caches successful undefined results', async () => {
+  it('evicts undefined results so callers can retry', async () => {
     const referenceBlockHash = BlockHash.random();
     const blockHash = BlockHash.random();
-    aztecNode.getBlockHashMembershipWitness.mockResolvedValue(undefined);
+    const witness = MembershipWitness.empty(ARCHIVE_HEIGHT);
+    aztecNode.getBlockHashMembershipWitness.mockResolvedValueOnce(undefined);
+    aztecNode.getBlockHashMembershipWitness.mockResolvedValueOnce(witness);
 
     await expect(cachedNode.getBlockHashMembershipWitness(referenceBlockHash, blockHash)).resolves.toBeUndefined();
-    await expect(cachedNode.getBlockHashMembershipWitness(referenceBlockHash, blockHash)).resolves.toBeUndefined();
+    await expect(cachedNode.getBlockHashMembershipWitness(referenceBlockHash, blockHash)).resolves.toBe(witness);
 
-    expect(aztecNode.getBlockHashMembershipWitness).toHaveBeenCalledTimes(1);
+    expect(aztecNode.getBlockHashMembershipWitness).toHaveBeenCalledTimes(2);
+  });
+
+  it('caches undefined nullifier witness reads as non-membership answers', async () => {
+    const blockHash = BlockHash.random();
+    const nullifier = Fr.random();
+    aztecNode.getNullifierMembershipWitness.mockResolvedValue(undefined);
+
+    await expect(cachedNode.getNullifierMembershipWitness(blockHash, nullifier)).resolves.toBeUndefined();
+    await expect(cachedNode.getNullifierMembershipWitness(blockHash, nullifier)).resolves.toBeUndefined();
+
+    expect(aztecNode.getNullifierMembershipWitness).toHaveBeenCalledTimes(1);
+  });
+
+  it('caches undefined leaf index reads as non-membership answers', async () => {
+    const blockHash = BlockHash.random();
+    const leafA = Fr.random();
+    const leafB = Fr.random();
+    const indexB = { data: 8n, ...randomInBlock() };
+    aztecNode.findLeavesIndexes.mockResolvedValueOnce([undefined]);
+    aztecNode.findLeavesIndexes.mockResolvedValueOnce([indexB]);
+
+    await expect(cachedNode.findLeavesIndexes(blockHash, MerkleTreeId.NULLIFIER_TREE, [leafA])).resolves.toEqual([
+      undefined,
+    ]);
+    await expect(cachedNode.findLeavesIndexes(blockHash, MerkleTreeId.NULLIFIER_TREE, [leafA, leafB])).resolves.toEqual(
+      [undefined, indexB],
+    );
+
+    expect(aztecNode.findLeavesIndexes).toHaveBeenCalledTimes(2);
+    expect(aztecNode.findLeavesIndexes).toHaveBeenLastCalledWith(blockHash, MerkleTreeId.NULLIFIER_TREE, [leafB]);
   });
 
   it('reuses cached slots across repeated public storage reads', async () => {
@@ -185,6 +217,30 @@ describe('withReadCache', () => {
 
     expect(aztecNode.findLeavesIndexes).toHaveBeenCalledTimes(2);
     expect(aztecNode.findLeavesIndexes).toHaveBeenLastCalledWith(blockHash, MerkleTreeId.NULLIFIER_TREE, [leafB]);
+  });
+
+  it('passes tag-referenced reads through to the node uncached', async () => {
+    const contractAddress = await AztecAddress.random();
+    const storageSlot = new Fr(100);
+    aztecNode.getPublicStorageAt.mockResolvedValue(new Fr(1));
+
+    await cachedNode.getPublicStorageAt('latest', contractAddress, storageSlot);
+    await cachedNode.getPublicStorageAt('latest', contractAddress, storageSlot);
+    await cachedNode.getPublicStorageAt({ tag: 'proven' }, contractAddress, storageSlot);
+    await cachedNode.getPublicStorageAt({ tag: 'proven' }, contractAddress, storageSlot);
+
+    expect(aztecNode.getPublicStorageAt).toHaveBeenCalledTimes(4);
+  });
+
+  it('passes tag-referenced leaf index reads through to the node uncached', async () => {
+    const leaf = Fr.random();
+    const index = { data: 7n, ...randomInBlock() };
+    aztecNode.findLeavesIndexes.mockResolvedValue([index]);
+
+    await expect(cachedNode.findLeavesIndexes('latest', MerkleTreeId.NULLIFIER_TREE, [leaf])).resolves.toEqual([index]);
+    await expect(cachedNode.findLeavesIndexes('latest', MerkleTreeId.NULLIFIER_TREE, [leaf])).resolves.toEqual([index]);
+
+    expect(aztecNode.findLeavesIndexes).toHaveBeenCalledTimes(2);
   });
 
   it('passes uncached methods through to the node', async () => {

@@ -318,12 +318,13 @@ export class PXE {
       factStore,
     } = openPxeStores(store, initialBlockHash);
     const contractClassService = new ContractClassService(node, contractStore);
-    // PXE-wide store of node reads, shared by every simulator and read-caching node wrapper below. Entries are only
-    // valid for the current anchor block: the block synchronizer wipes it on every anchor update.
-    //
-    // `anchorReadNode` is the node surface for consumers that interpret the chain as of the current anchor block
-    // (simulators, tx resolution, contract/private-state sync). Chain observers must keep using the raw node: the
-    // block synchronizer decides when the anchor moves, and tx submission and validity checks target the live tip.
+    // PXE-wide store of node reads, shared by every read-caching node wrapper below and wiped by the block
+    // synchronizer on every anchor update. Some cached results can still change while the anchor stands still (a
+    // receipt can finalize or drop), so every consumer of a wrapped node must either interpret the chain as of the
+    // anchor block, discarding anything mined beyond it (simulators, kernel proving, tx resolution, contract sync),
+    // or react only to monotone status transitions, where staleness at worst defers the reaction past the next wipe
+    // (sender tagging sync). Consumers that need live chain state (the block synchronizer, tx submission, validity
+    // checks) must keep using the raw node.
     const nodeReadCache = new AztecNodeReadCache();
     const anchorReadNode = withReadCache(node, nodeReadCache);
     const contractSyncService = new ContractSyncService(
@@ -675,7 +676,7 @@ export class PXE {
       this.contractStore,
       this.contractClassService,
       this.keyStore,
-      this.node,
+      withReadCache(this.node, this.nodeReadCache),
       anchorBlockHeader,
     );
     const kernelTraceProver = new PrivateKernelExecutionProver(
@@ -1263,7 +1264,7 @@ export class PXE {
           ({ publicInputs, executionSteps } = await generateSimulatedProvingResult(
             privateExecutionResult,
             (addr, sel) => this.#getDebugFunctionName(addr, sel, anchorBlockHeader),
-            this.node,
+            withReadCache(this.node, this.nodeReadCache),
           ));
         } else {
           // Kernel logic, plus proving of all private functions and kernels.

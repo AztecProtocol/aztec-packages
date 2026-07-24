@@ -10,18 +10,31 @@ import type { GetTxReceiptOptions, TxHash } from '@aztec/stdlib/tx';
  * Store of node read promises keyed by method and arguments.
  *
  * Holds no node reference of its own: it only memoizes promises handed to it by {@link withReadCache} wrappers, which
- * lets several wrappers share one store. Rejected promises are evicted so callers can retry.
+ * lets several wrappers share one store. Rejected promises are evicted so callers can retry, and results of
+ * `undefined` are treated the same way unless the caller opts in via `cacheUndefined`: an inconsistent node (e.g. a
+ * lagging replica behind a load balancer) reports reads it cannot serve as an in-band `undefined` rather than an
+ * error, and caching that would pin the failure for every consumer until the next wipe.
  */
 export class AztecNodeReadCache {
   private readonly cache = new Map<string, Promise<unknown>>();
 
-  /** Returns the cached promise for `key`, or runs `fetch` and caches the in-flight promise. */
-  public fetch<T>(key: string, fetch: () => Promise<T>): Promise<T> {
+  /**
+   * Returns the cached promise for `key`, or runs `fetch` and caches the in-flight promise.
+   *
+   * A result of `undefined` is evicted once the promise settles unless `cacheUndefined` is set. Pass it only when
+   * `undefined` is a stable answer to the read (such as non-membership at a pinned block) rather than the node
+   * failing to serve data it should have.
+   */
+  public fetch<T>(
+    key: string,
+    fetch: () => Promise<T>,
+    { cacheUndefined = false }: { cacheUndefined?: boolean } = {},
+  ): Promise<T> {
     const cached = this.get<T>(key);
     if (cached) {
       return cached;
     }
-    return this.set(key, fetch());
+    return this.set(key, fetch(), cacheUndefined);
   }
 
   /** Returns the cached promise for `key`, if any. */
@@ -36,12 +49,17 @@ export class AztecNodeReadCache {
     this.cache.clear();
   }
 
-  private set<T>(key: string, promise: Promise<T>): Promise<T> {
-    promise.catch(() => {
+  private set<T>(key: string, promise: Promise<T>, cacheUndefined: boolean): Promise<T> {
+    const evict = () => {
       if (this.cache.get(key) === promise) {
         this.cache.delete(key);
       }
-    });
+    };
+    promise.then(value => {
+      if (value === undefined && !cacheUndefined) {
+        evict();
+      }
+    }, evict);
     this.cache.set(key, promise);
     return promise;
   }
@@ -54,49 +72,77 @@ export class AztecNodeReadCache {
  * indexes, public storage, blocks, tx receipts). Every other method passes through untouched. `findLeavesIndexes` is
  * cached per leaf: only leaves without a cached result are fetched, in a single batched node call.
  *
+ * An `undefined` result is cached only where it is itself a fact of the chain: a leaf index or nullifier witness
+ * query answering `undefined` states non-membership at the reference block. For every other read an `undefined`
+ * means the node failed to serve data that must exist (a block at or below the anchor, a low-leaf witness), so it is
+ * evicted to keep the read retryable.
+ *
+ * Tag-referenced reads (`'latest'`, `{ tag: 'proven' }`, ...) always pass through to the node: a tag names a moving
+ * chain position, so its result is not a fact of the chain and can change without the cache owner ever wiping.
+ *
  * Tx receipts and block-number-keyed lookups are only immutable up to chain growth and reorgs, so the wrapped node
  * must not outlive the anchor block of whoever owns `cache` (see {@link AztecNodeReadCache.wipe}).
  */
 export function withReadCache(node: AztecNode, cache: AztecNodeReadCache): AztecNode {
+  const readThroughCache = <T>(
+    block: BlockParameter,
+    key: string,
+    read: () => Promise<T>,
+    options?: { cacheUndefined?: boolean },
+  ): Promise<T> => (isTagReference(block) ? read() : cache.fetch(key, read, options));
+
   const cachedReads: Partial<Record<keyof AztecNode, (...args: never[]) => Promise<unknown>>> = {
     getBlock: (block: BlockParameter, options?: BlockIncludeOptions) =>
-      cache.fetch(`block:${keyPart(block)}:${keyPart(options)}`, () => node.getBlock(block, options)),
+      readThroughCache(block, `block:${keyPart(block)}:${keyPart(options)}`, () => node.getBlock(block, options)),
 
     getTxReceipt: (txHash: TxHash, options?: GetTxReceiptOptions) =>
       cache.fetch(`tx-receipt:${txHash.toString()}:${keyPart(options)}`, () => node.getTxReceipt(txHash, options)),
 
     getBlockHashMembershipWitness: (referenceBlock: BlockParameter, blockHash: BlockHash) =>
-      cache.fetch(`block-hash-membership-witness:${keyPart(referenceBlock)}:${blockHash.toString()}`, () =>
-        node.getBlockHashMembershipWitness(referenceBlock, blockHash),
+      readThroughCache(
+        referenceBlock,
+        `block-hash-membership-witness:${keyPart(referenceBlock)}:${blockHash.toString()}`,
+        () => node.getBlockHashMembershipWitness(referenceBlock, blockHash),
       ),
 
     getPublicDataWitness: (referenceBlock: BlockParameter, leafSlot: Fr) =>
-      cache.fetch(`public-data-witness:${keyPart(referenceBlock)}:${leafSlot.toString()}`, () =>
+      readThroughCache(referenceBlock, `public-data-witness:${keyPart(referenceBlock)}:${leafSlot.toString()}`, () =>
         node.getPublicDataWitness(referenceBlock, leafSlot),
       ),
 
     getNoteHashMembershipWitness: (referenceBlock: BlockParameter, noteHash: Fr) =>
-      cache.fetch(`note-hash-membership-witness:${keyPart(referenceBlock)}:${noteHash.toString()}`, () =>
-        node.getNoteHashMembershipWitness(referenceBlock, noteHash),
+      readThroughCache(
+        referenceBlock,
+        `note-hash-membership-witness:${keyPart(referenceBlock)}:${noteHash.toString()}`,
+        () => node.getNoteHashMembershipWitness(referenceBlock, noteHash),
       ),
 
     getNullifierMembershipWitness: (referenceBlock: BlockParameter, nullifier: Fr) =>
-      cache.fetch(`nullifier-membership-witness:${keyPart(referenceBlock)}:${nullifier.toString()}`, () =>
-        node.getNullifierMembershipWitness(referenceBlock, nullifier),
+      readThroughCache(
+        referenceBlock,
+        `nullifier-membership-witness:${keyPart(referenceBlock)}:${nullifier.toString()}`,
+        () => node.getNullifierMembershipWitness(referenceBlock, nullifier),
+        { cacheUndefined: true },
       ),
 
     getLowNullifierMembershipWitness: (referenceBlock: BlockParameter, nullifier: Fr) =>
-      cache.fetch(`low-nullifier-membership-witness:${keyPart(referenceBlock)}:${nullifier.toString()}`, () =>
-        node.getLowNullifierMembershipWitness(referenceBlock, nullifier),
+      readThroughCache(
+        referenceBlock,
+        `low-nullifier-membership-witness:${keyPart(referenceBlock)}:${nullifier.toString()}`,
+        () => node.getLowNullifierMembershipWitness(referenceBlock, nullifier),
       ),
 
     getPublicStorageAt: (referenceBlock: BlockParameter, contractAddress: AztecAddress, storageSlot: Fr) =>
-      cache.fetch(
+      readThroughCache(
+        referenceBlock,
         `public-storage:${keyPart(referenceBlock)}:${contractAddress.toString()}:${storageSlot.toString()}`,
         () => node.getPublicStorageAt(referenceBlock, contractAddress, storageSlot),
       ),
 
     findLeavesIndexes: (referenceBlock: BlockParameter, treeId: MerkleTreeId, leafValues: Fr[]) => {
+      if (isTagReference(referenceBlock)) {
+        return node.findLeavesIndexes(referenceBlock, treeId, leafValues);
+      }
       const keys = leafValues.map(leaf => `leaf-index:${keyPart(referenceBlock)}:${treeId}:${leaf.toString()}`);
       const results = keys.map(key => cache.get(key));
       const missIndexes = results.flatMap((result, i) => (result === undefined ? [i] : []));
@@ -107,7 +153,9 @@ export function withReadCache(node: AztecNode, cache: AztecNodeReadCache): Aztec
           missIndexes.map(i => leafValues[i]),
         );
         missIndexes.forEach((missIndex, batchIndex) => {
-          results[missIndex] = cache.fetch(keys[missIndex], () => batch.then(fetched => fetched[batchIndex]));
+          results[missIndex] = cache.fetch(keys[missIndex], () => batch.then(fetched => fetched[batchIndex]), {
+            cacheUndefined: true,
+          });
         });
       }
       return Promise.all(results);
@@ -124,6 +172,11 @@ export function withReadCache(node: AztecNode, cache: AztecNodeReadCache): Aztec
       return typeof value === 'function' ? value.bind(target) : value;
     },
   });
+}
+
+/** Whether `block` references a chain tip by tag rather than pinning a position (number, hash, or archive root). */
+function isTagReference(block: BlockParameter): boolean {
+  return typeof block === 'string' || (typeof block === 'object' && 'tag' in block);
 }
 
 function keyPart(value: unknown): string {
