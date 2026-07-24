@@ -1,15 +1,17 @@
 import { getPublicClient } from '@aztec/ethereum/client';
 import { DefaultL1ContractsConfig } from '@aztec/ethereum/config';
-import { RollupContract } from '@aztec/ethereum/contracts';
+import { type FeeHeader, RollupContract, TempCheckpointLogField } from '@aztec/ethereum/contracts';
 import { deployAztecL1Contracts } from '@aztec/ethereum/deploy-aztec-l1-contracts';
 import type { L1SyncSnapshot, L1SyncSnapshotProvider } from '@aztec/ethereum/l1-types';
 import { type Anvil, EthCheatCodes, RollupCheatCodes, startAnvil } from '@aztec/ethereum/test';
 import type { ViemClient } from '@aztec/ethereum/types';
+import { CheckpointNumber } from '@aztec/foundation/branded-types';
 import { Buffer32 } from '@aztec/foundation/buffer';
 import { Fr } from '@aztec/foundation/curves/bn254';
+import { EthAddress } from '@aztec/foundation/eth-address';
 import { createLogger } from '@aztec/foundation/log';
 import { DateProvider, ManualDateProvider } from '@aztec/foundation/timer';
-import { ManaUsageEstimate } from '@aztec/stdlib/gas';
+import { FEE_ORACLE_LAG, ManaUsageEstimate } from '@aztec/stdlib/gas';
 
 import { foundry } from 'viem/chains';
 
@@ -30,6 +32,7 @@ describe('FeeSnapshot equivalence with legacy oracle', () => {
   let ethereumSlotDuration: number;
   let l1GenesisTime: bigint;
   let epochDuration: number;
+  let proofSubmissionEpochs: number;
   let constants: { l1GenesisTime: bigint; slotDuration: number; ethereumSlotDuration: number };
 
   beforeAll(async () => {
@@ -52,6 +55,7 @@ describe('FeeSnapshot equivalence with legacy oracle', () => {
     ethereumSlotDuration = DefaultL1ContractsConfig.ethereumSlotDuration;
     l1GenesisTime = await rollup.getL1GenesisTime();
     epochDuration = await rollup.getEpochDuration();
+    proofSubmissionEpochs = await rollup.getProofSubmissionEpochs();
     constants = { l1GenesisTime, slotDuration, ethereumSlotDuration };
   }, 60_000);
 
@@ -105,6 +109,34 @@ describe('FeeSnapshot equivalence with legacy oracle', () => {
     return Number((await publicClient.getBlock()).timestamp);
   }
 
+  function tsForSlot(slot: number): bigint {
+    return l1GenesisTime + BigInt(slot) * BigInt(slotDuration);
+  }
+
+  /** Writes a checkpoint log (slot + fee header) into the Rollup's temp-checkpoint circular buffer via storage. */
+  async function writeCheckpointLog(checkpointNumber: CheckpointNumber, slot: number, feeHeader: FeeHeader) {
+    const address = EthAddress.fromString(rollup.address);
+    const feeHeaderSlot = await rollup.getTempCheckpointLogStorageSlot(
+      checkpointNumber,
+      TempCheckpointLogField.FeeHeader,
+    );
+    await cheatCodes.store(address, feeHeaderSlot, RollupContract.compressFeeHeader(feeHeader));
+    const slotNumberSlot = await rollup.getTempCheckpointLogStorageSlot(
+      checkpointNumber,
+      TempCheckpointLogField.SlotNumber,
+    );
+    await cheatCodes.store(address, slotNumberSlot, BigInt(slot) & ((1n << 32n) - 1n));
+  }
+
+  /** Sets the chain tips (pending, proven) directly via storage. */
+  async function setTips(pending: CheckpointNumber, proven: CheckpointNumber) {
+    await cheatCodes.store(
+      EthAddress.fromString(rollup.address),
+      RollupContract.chainTipsStorageSlot,
+      RollupContract.packChainTips(BigInt(pending), BigInt(proven)),
+    );
+  }
+
   it('matches the legacy oracle at a fresh deploy', async () => {
     await assertEquivalent(await currentBlockTimestamp());
   });
@@ -115,14 +147,52 @@ describe('FeeSnapshot equivalence with legacy oracle', () => {
     await assertEquivalent(await currentBlockTimestamp());
   }, 30_000);
 
-  it('matches the legacy oracle after an L1 gas fee oracle update', async () => {
-    await rollupCheatCodes.advanceSlots(3);
-    await cheatCodes.setNextBlockBaseFeePerGas(120_000_000_000n);
-    await cheatCodes.mine();
+  it('matches the legacy oracle across an oracle rotation placed below/inside/above the window', async () => {
+    const preBaseFee = 50_000_000_000n;
+    const postBaseFee = 200_000_000_000n;
+
+    // Two accepted updates leave pre=preBaseFee, post=postBaseFee with slotOfChange = updateSlot + LAG. The
+    // updates are spaced past the oracle LIFETIME cooldown so both take effect.
+    await rollupCheatCodes.advanceSlots(6);
+    await cheatCodes.setNextBlockBaseFeePerGas(preBaseFee);
     await rollupCheatCodes.updateL1GasFeeOracle();
-    await cheatCodes.mine();
-    await assertEquivalent(await currentBlockTimestamp());
-  }, 30_000);
+    await rollupCheatCodes.advanceSlots(6);
+    await cheatCodes.setNextBlockBaseFeePerGas(postBaseFee);
+    await rollupCheatCodes.updateL1GasFeeOracle();
+
+    const block = await publicClient.getBlock();
+    const blockNumber = block.number!;
+    const pinnedSlot = Number((block.timestamp - l1GenesisTime) / BigInt(slotDuration));
+    const slotOfChange = pinnedSlot + FEE_ORACLE_LAG;
+
+    // Confirm the rotation is real (pre != post) and located exactly at slotOfChange.
+    const pre = await rollup.getL1FeesAt(tsForSlot(slotOfChange - 1), { blockNumber });
+    const post = await rollup.getL1FeesAt(tsForSlot(slotOfChange), { blockNumber });
+    expect(pre.baseFee).not.toBe(post.baseFee);
+    const classify = (fees: { baseFee: bigint }) => (fees.baseFee === pre.baseFee ? 'pre' : 'post');
+
+    // Placing the next-L1-block slot at `anchorSlot` makes the prediction window [anchorSlot, anchorSlot+1].
+    const placements = [
+      { name: 'above the window (whole window uses pre)', deltaT: 0, expected: ['pre', 'pre'] },
+      { name: 'inside the window (window straddles the rotation)', deltaT: 1, expected: ['pre', 'post'] },
+      { name: 'below the window (whole window uses post)', deltaT: 2, expected: ['post', 'post'] },
+    ] as const;
+
+    for (const { name, deltaT, expected } of placements) {
+      const anchorSlot = pinnedSlot + deltaT;
+      const nowSeconds = Number(tsForSlot(anchorSlot)) - ethereumSlotDuration;
+
+      const windowLow = await rollup.getL1FeesAt(tsForSlot(anchorSlot), { blockNumber });
+      const windowHigh = await rollup.getL1FeesAt(tsForSlot(anchorSlot + 1), { blockNumber });
+      // Verify the rotation lands where we intend before comparing, so the case tests what it claims.
+      expect({ placement: name, composition: [classify(windowLow), classify(windowHigh)] }).toEqual({
+        placement: name,
+        composition: [...expected],
+      });
+
+      await assertEquivalent(nowSeconds);
+    }
+  }, 60_000);
 
   it('matches with the host clock one Ethereum slot behind and ahead of the L1 timestamp', async () => {
     const ts = await currentBlockTimestamp();
@@ -171,5 +241,82 @@ describe('FeeSnapshot equivalence with legacy oracle', () => {
     ]);
     expect(atMid).toBe(atStart);
     expect(atEnd).toBe(atStart);
+  });
+
+  // These cases write a real pending checkpoint beyond the proven tip (pending != proven) so the prune-aware
+  // effective-parent selection is exercised: pending when canPrune is false, proven when canPrune is true.
+  describe('pending checkpoint beyond the proven tip', () => {
+    const provenFeeHeader: FeeHeader = {
+      excessMana: 0n,
+      manaUsed: 0n,
+      ethPerFeeAsset: 1_000_000_000_000n,
+      congestionCost: 0n,
+      proverCost: 0n,
+    };
+    const pendingFeeHeader: FeeHeader = {
+      excessMana: 5_000n,
+      manaUsed: 1_000n,
+      ethPerFeeAsset: 500_000_000_000n,
+      congestionCost: 0n,
+      proverCost: 0n,
+    };
+
+    afterEach(async () => {
+      // Restore genesis tips so the written pending>proven state does not leak into other tests.
+      await setTips(CheckpointNumber(0), CheckpointNumber(0));
+    });
+
+    it('canPrune=false selects the pending checkpoint as effective parent, matching legacy', async () => {
+      const block = await publicClient.getBlock();
+      const blockNumber = block.number!;
+      const nowSeconds = Number(block.timestamp);
+      const pinnedSlot = Number((block.timestamp - l1GenesisTime) / BigInt(slotDuration));
+
+      // Proven at slot 0; pending at the current (recent) slot, so its epoch still accepts proofs.
+      await writeCheckpointLog(CheckpointNumber(1), 0, provenFeeHeader);
+      await writeCheckpointLog(CheckpointNumber(2), pinnedSlot, pendingFeeHeader);
+      await setTips(CheckpointNumber(2), CheckpointNumber(1));
+
+      const tips = await rollup.getTips({ blockNumber });
+      expect(tips.pending).toBe(CheckpointNumber(2));
+      expect(tips.proven).toBe(CheckpointNumber(1));
+
+      const nextSlotTs = tsForSlot(pinnedSlot);
+      expect(await rollup.canPruneAtTime(nextSlotTs, { blockNumber })).toBe(false);
+      // Effective parent is the pending checkpoint (its slot), not the proven one (slot 0).
+      const effective = await rollup.getEffectivePendingCheckpoint(nextSlotTs, { blockNumber });
+      expect(Number(effective.slotNumber)).toBe(pinnedSlot);
+
+      await assertEquivalent(nowSeconds);
+    }, 30_000);
+
+    it('canPrune=true selects the proven checkpoint as effective parent, matching legacy', async () => {
+      // Advance well past the proof-submission deadline of epoch 0 so a prune becomes possible.
+      await rollupCheatCodes.advanceSlots(epochDuration * (proofSubmissionEpochs + 2));
+      await cheatCodes.mine();
+
+      const block = await publicClient.getBlock();
+      const blockNumber = block.number!;
+      const nowSeconds = Number(block.timestamp);
+      const pinnedSlot = Number((block.timestamp - l1GenesisTime) / BigInt(slotDuration));
+
+      // Proven at slot 0 and pending at slot 1, both in epoch 0 (long past its proof deadline).
+      await writeCheckpointLog(CheckpointNumber(1), 0, provenFeeHeader);
+      await writeCheckpointLog(CheckpointNumber(2), 1, pendingFeeHeader);
+      await setTips(CheckpointNumber(2), CheckpointNumber(1));
+
+      const tips = await rollup.getTips({ blockNumber });
+      expect(tips.pending).toBe(CheckpointNumber(2));
+      expect(tips.proven).toBe(CheckpointNumber(1));
+
+      // The effective-parent selection happens at the prediction anchor (the current slot at this late time).
+      const nextSlotTs = tsForSlot(pinnedSlot);
+      expect(await rollup.canPruneAtTime(nextSlotTs, { blockNumber })).toBe(true);
+      // Effective parent is the proven checkpoint (slot 0), not the pending one (slot 1).
+      const effective = await rollup.getEffectivePendingCheckpoint(nextSlotTs, { blockNumber });
+      expect(Number(effective.slotNumber)).toBe(0);
+
+      await assertEquivalent(nowSeconds);
+    }, 30_000);
   });
 });
