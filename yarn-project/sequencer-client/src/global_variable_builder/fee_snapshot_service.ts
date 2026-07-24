@@ -36,7 +36,13 @@ export interface RollupFeeReader {
 }
 
 /** Cause of a refresh, recorded on metrics/logs for observability. */
-type RefreshCause = 'poll-identity' | 'poll-coverage' | 'rpc-identity-mismatch' | 'coverage-miss' | 'rpc-first';
+type RefreshCause =
+  | 'poll-identity'
+  | 'poll-coverage'
+  | 'rpc-identity-mismatch'
+  | 'coverage-miss'
+  | 'stale-refresh'
+  | 'rpc-first';
 
 /** Counters exposed for benchmarking and observability. */
 export type FeeSnapshotStats = {
@@ -50,6 +56,14 @@ export type FeeSnapshotStats = {
   tipsMismatchDiscards: number;
   /** Targeted top-up waves fired during refresh. */
   topUpWaves: number;
+  /** Reads that failed closed because the last refresh was too old and a repair refresh did not fix it. */
+  computationStaleErrors: number;
+  /** Reads that failed closed because the pinned L1 head was too old. */
+  l1HeadStaleErrors: number;
+  /** Reads that failed closed because the pinned L1 head was future-dated beyond the allowance. */
+  futureHeadErrors: number;
+  /** Reads that failed closed because a needed refresh did not complete within the bound. */
+  coverageTimeouts: number;
 };
 
 const MAX_LOOKUP_ATTEMPTS = 4;
@@ -85,6 +99,10 @@ export class FeeSnapshotService {
     readTriggeredRefreshes: 0,
     tipsMismatchDiscards: 0,
     topUpWaves: 0,
+    computationStaleErrors: 0,
+    l1HeadStaleErrors: 0,
+    futureHeadErrors: 0,
+    coverageTimeouts: 0,
   };
 
   constructor(
@@ -179,22 +197,23 @@ export class FeeSnapshotService {
       await this.awaitFirstSnapshot(deadline);
     }
 
+    let attemptedStaleRefresh = false;
     for (let attempt = 0; attempt < MAX_LOOKUP_ATTEMPTS; attempt++) {
       if (this.stopped) {
         throw new FeeSnapshotStoppedError();
       }
       const snapshot = this.snapshot!;
-      const nowMs = this.dateProvider.now();
-      const nowSeconds = BigInt(this.dateProvider.nowInSeconds());
-      this.assertFresh(snapshot, nowMs, nowSeconds);
 
-      // Identity check: serve freshness parity with today's per-call latest-block check, at zero L1 cost.
+      // Identity check first: a stale or uncovered snapshot is recoverable when the archiver already has a
+      // newer identity, so refresh before applying any fail-closed staleness bound. This also serves freshness
+      // parity with today's per-call latest-block check, at zero L1 cost.
       const identity = this.identityProvider.getL1SyncSnapshot();
       if (identity && !identity.blockHash.equals(snapshot.l1.blockHash)) {
         await this.readTriggeredRefresh(deadline, 'rpc-identity-mismatch');
         continue;
       }
 
+      const nowSeconds = BigInt(this.dateProvider.nowInSeconds());
       const { currentSlots, predictionSlots } = this.computeWantedSlots(snapshot, nowSeconds);
       const uncovered = [...currentSlots, ...predictionSlots].some(s => !snapshot.candidates.has(s));
       if (uncovered) {
@@ -202,9 +221,26 @@ export class FeeSnapshotService {
         continue;
       }
 
+      // Staleness last: the snapshot matches the archiver identity and covers the wanted slots. A stale
+      // computation age is repairable by one refresh (it re-anchors refreshedAtMs), so attempt that once
+      // before failing; head-age and future-head violations mean the L1 view itself is frozen or warped
+      // (the archiver has nothing newer), so they fail closed immediately.
+      try {
+        this.assertFresh(snapshot, this.dateProvider.now(), nowSeconds);
+      } catch (err) {
+        if (err instanceof FeeSnapshotComputationStaleError && !attemptedStaleRefresh) {
+          attemptedStaleRefresh = true;
+          await this.readTriggeredRefresh(deadline, 'stale-refresh');
+          continue;
+        }
+        this.recordFailClosed(err);
+        throw err;
+      }
+
       return { snapshot, currentSlots, predictionSlots };
     }
 
+    this.stats.coverageTimeouts++;
     throw new FeeSnapshotCoverageError(
       `Fee snapshot did not cover the wanted slots within ${this.config.refreshTimeoutMs}ms`,
     );
@@ -305,10 +341,22 @@ export class FeeSnapshotService {
     }
   }
 
+  /** Increments the fail-closed counter matching a staleness error that is about to escape to the caller. */
+  private recordFailClosed(err: unknown): void {
+    if (err instanceof FeeSnapshotComputationStaleError) {
+      this.stats.computationStaleErrors++;
+    } else if (err instanceof FeeSnapshotL1HeadStaleError) {
+      this.stats.l1HeadStaleErrors++;
+    } else if (err instanceof FeeSnapshotFutureHeadError) {
+      this.stats.futureHeadErrors++;
+    }
+  }
+
   private async readTriggeredRefresh(deadline: number, cause: RefreshCause): Promise<void> {
     this.stats.readTriggeredRefreshes++;
     const remaining = deadline - this.dateProvider.now();
     if (remaining <= 0) {
+      this.stats.coverageTimeouts++;
       throw new FeeSnapshotCoverageError(`Timed out waiting for fee snapshot refresh (${cause})`);
     }
     try {
@@ -318,6 +366,7 @@ export class FeeSnapshotService {
         throw new FeeSnapshotStoppedError();
       }
       if (err instanceof TimeoutError) {
+        this.stats.coverageTimeouts++;
         throw new FeeSnapshotCoverageError(`Timed out waiting for fee snapshot refresh (${cause})`);
       }
       throw err;
@@ -376,6 +425,15 @@ export class FeeSnapshotService {
     if (this.stopped) {
       return Promise.reject(new FeeSnapshotStoppedError());
     }
+    // Reads must not bypass the failure backoff: with a failing L1, per-request refreshes would turn incoming
+    // RPC traffic directly into L1 load. Fail fast instead; the background loop retries once the backoff elapses.
+    if (this.dateProvider.now() < this.nextRetryAtMs) {
+      return Promise.reject(
+        new FeeSnapshotUnavailableError(
+          `Fee snapshot refresh is backing off after ${this.consecutiveFailures} consecutive failures`,
+        ),
+      );
+    }
     const identity = this.identityProvider.getL1SyncSnapshot();
     if (!identity) {
       return Promise.reject(new FeeSnapshotUnavailableError('No L1 identity available yet'));
@@ -406,10 +464,11 @@ export class FeeSnapshotService {
   }
 
   private async runRefresh(identity: L1SyncSnapshot, cause: RefreshCause, attempt: number): Promise<FeeSnapshot> {
-    if (attempt >= MAX_REFRESH_ATTEMPTS) {
-      throw new FeeSnapshotRefreshError('Fee snapshot refresh exceeded max attempts (identity/tips instability)');
-    }
     try {
+      // Thrown inside the try so exceeding the restart bound is accounted as a failure and sets backoff.
+      if (attempt >= MAX_REFRESH_ATTEMPTS) {
+        throw new FeeSnapshotRefreshError('Fee snapshot refresh exceeded max attempts (identity/tips instability)');
+      }
       const snapshot = await this.buildSnapshot(identity, cause, attempt);
       this.consecutiveFailures = 0;
       this.nextRetryAtMs = 0;
@@ -565,13 +624,17 @@ export class FeeSnapshotService {
       throw this.restartWith(after);
     }
 
+    // Publish the actual materialized bounds, not the provisional window: with a capped window plus top-up,
+    // candidates can lie outside [base, top], and provisional bounds would make coverageDrifting() request a
+    // refresh on every poll tick despite full map coverage.
+    const materializedSlots = [...candidates.keys()];
     const snapshot: FeeSnapshot = {
       l1: identity,
       pendingCheckpointSlot,
       pinnedSlot,
       candidates,
-      baseSlot: SlotNumber(base),
-      topSlot: SlotNumber(top),
+      baseSlot: SlotNumber(Math.min(...materializedSlots)),
+      topSlot: SlotNumber(Math.max(...materializedSlots)),
       refreshedAtMs: this.dateProvider.now(),
     };
     this.publish(snapshot, cause, attempt);
@@ -632,15 +695,11 @@ export class FeeSnapshotService {
   }
 
   private publish(snapshot: FeeSnapshot, cause: RefreshCause, attempt: number): void {
-    const current = this.snapshot;
-    if (current && current.l1.blockNumber > snapshot.l1.blockNumber) {
-      // An older refresh finished after a newer one; never overwrite the newer snapshot.
-      this.log.debug('Discarding stale fee snapshot refresh result', {
-        built: snapshot.l1.blockNumber,
-        current: current.l1.blockNumber,
-      });
-      return;
-    }
+    // No ordering guard here: refreshes are strictly serial (chained in triggerRefresh) and the archiver
+    // identity was re-checked synchronously just before this call, so the snapshot always reflects the
+    // archiver's current identity. In particular, never gate on block number — L1 identity is
+    // hash-authoritative and the height can legitimately move backwards (reorg, or a lagging fallback
+    // backend); a height guard would discard every rebuild after a rollback and wedge reads.
     this.snapshot = snapshot;
     this.stats.refreshes++;
     if (!this.firstResolved) {

@@ -7,7 +7,6 @@ import { ManualDateProvider } from '@aztec/foundation/timer';
 import { FEE_ORACLE_LAG, ManaUsageEstimate } from '@aztec/stdlib/gas';
 
 import {
-  FeeSnapshotComputationStaleError,
   FeeSnapshotConfigError,
   FeeSnapshotFutureHeadError,
   FeeSnapshotL1HeadStaleError,
@@ -64,6 +63,8 @@ class FakeRollup implements RollupFeeReader {
   public gate: Promise<void> | undefined;
   /** Wave-2 tips override to simulate fork mixing (applied once). */
   public wave2TipsOnce: { pending: CheckpointNumber; proven: CheckpointNumber } | undefined;
+  /** Wave-2 tips override applied on every wave 2, to simulate persistent tips instability. */
+  public wave2TipsAlways: { pending: CheckpointNumber; proven: CheckpointNumber } | undefined;
 
   async readFeeInputs(reads: RollupFeeRead[], options: { blockNumber: bigint }): Promise<RollupFeeReadResult[]> {
     this.callCount++;
@@ -82,6 +83,9 @@ class FakeRollup implements RollupFeeReader {
   private resolve(read: RollupFeeRead, isWave2: boolean): RollupFeeReadResult {
     switch (read.kind) {
       case 'tips': {
+        if (isWave2 && this.wave2TipsAlways) {
+          return { kind: 'tips', value: this.wave2TipsAlways };
+        }
         if (isWave2 && this.wave2TipsOnce) {
           const value = this.wave2TipsOnce;
           this.wave2TipsOnce = undefined;
@@ -233,10 +237,49 @@ describe('FeeSnapshotService', () => {
     await expect(service.getCurrentMinFees()).rejects.toThrow('L1 read failed');
     // Last-good snapshot is preserved (identity 1).
     expect(service.getSnapshot()).toBe(good);
-    // Recovery: next call refreshes successfully to the new identity.
+    // Recovery: once the failure backoff elapses, the next call refreshes successfully to the new identity.
+    dateProvider.advanceTimeMs(1_000);
     const fees = await service.getCurrentMinFees();
     expect(fees.feePerL2Gas).toBe(101n);
     expect(service.getSnapshot()!.l1.blockNumber).toBe(2n);
+  });
+
+  it('read-triggered refreshes respect the failure backoff and do not hammer L1', async () => {
+    await service.getCurrentMinFees();
+    identity.snapshot = makeIdentity(2n, PINNED_SLOT);
+    rollup.failNext = 1;
+    await expect(service.getCurrentMinFees()).rejects.toThrow('L1 read failed');
+    // During the backoff window, reads fail fast with a typed error and issue no L1 requests.
+    const calls = rollup.callCount;
+    await expect(service.getCurrentMinFees()).rejects.toBeInstanceOf(FeeSnapshotUnavailableError);
+    expect(rollup.callCount).toBe(calls);
+    // After the backoff elapses, reads refresh again.
+    dateProvider.advanceTimeMs(1_000);
+    const fees = await service.getCurrentMinFees();
+    expect(fees.feePerL2Gas).toBe(101n);
+  });
+
+  it('publishes and serves a rollback to a lower L1 block number', async () => {
+    identity.snapshot = makeIdentity(5n, PINNED_SLOT);
+    await service.getCurrentMinFees();
+    expect(service.getSnapshot()!.l1.blockNumber).toBe(5n);
+    // L1 identity is hash-authoritative: a reorg or lagging fallback backend can move the height backwards.
+    identity.snapshot = makeIdentity(4n, PINNED_SLOT, Buffer32.fromNumber(444));
+    const fees = await service.getCurrentMinFees();
+    expect(fees.feePerL2Gas).toBe(101n);
+    expect(service.getSnapshot()!.l1.blockNumber).toBe(4n);
+  });
+
+  it('exceeding the refresh restart bound counts as a failure and engages backoff', async () => {
+    rollup.wave2TipsAlways = { pending: CheckpointNumber(6), proven: CheckpointNumber(3) };
+    // The cold caller parks on the first-snapshot promise (resolved only on success) and times out typed.
+    await expect(service.getCurrentMinFees()).rejects.toBeInstanceOf(FeeSnapshotUnavailableError);
+    expect(service.getStats().refreshFailures).toBe(1);
+    expect(service.getStats().tipsMismatchDiscards).toBe(4);
+    // Backoff is engaged: an immediate retry issues no further L1 reads.
+    const calls = rollup.callCount;
+    await expect(service.getCurrentMinFees()).rejects.toBeInstanceOf(FeeSnapshotUnavailableError);
+    expect(rollup.callCount).toBe(calls);
   });
 
   it('discards and restarts the refresh when wave-2 tips differ from wave-1', async () => {
@@ -251,6 +294,7 @@ describe('FeeSnapshotService', () => {
       rollup.failNext = 100;
       await expect(service.getCurrentMinFees()).rejects.toBeInstanceOf(FeeSnapshotUnavailableError);
       rollup.failNext = 0;
+      dateProvider.advanceTimeMs(1_000);
       const fees = await service.getCurrentMinFees();
       expect(fees.feePerL2Gas).toBe(101n);
     });
@@ -273,11 +317,34 @@ describe('FeeSnapshotService', () => {
   });
 
   describe('staleness', () => {
-    it('fails closed when the computation age exceeds the bound', async () => {
+    it('repairs a stale computation age with one refresh instead of failing', async () => {
+      service = makeService({ maxRefreshAgeMs: 1_000, maxL1HeadAgeSeconds: 0, futureHeadAllowanceSeconds: 0 });
+      await service.getCurrentMinFees();
+      const refreshesBefore = service.getStats().refreshes;
+      dateProvider.advanceTimeMs(2_000);
+      // Computation staleness is recoverable: the read triggers one refresh (re-anchoring refreshedAtMs) and serves.
+      await expect(service.getCurrentMinFees()).resolves.toBeDefined();
+      expect(service.getStats().refreshes).toBe(refreshesBefore + 1);
+      expect(service.getStats().computationStaleErrors).toBe(0);
+    });
+
+    it('fails closed when the computation age exceeds the bound and the repair refresh fails', async () => {
       service = makeService({ maxRefreshAgeMs: 1_000, maxL1HeadAgeSeconds: 0, futureHeadAllowanceSeconds: 0 });
       await service.getCurrentMinFees();
       dateProvider.advanceTimeMs(2_000);
-      await expect(service.getCurrentMinFees()).rejects.toBeInstanceOf(FeeSnapshotComputationStaleError);
+      rollup.failNext = 100;
+      // The repair refresh fails, so the caller sees the underlying refresh error rather than a stale serve.
+      await expect(service.getCurrentMinFees()).rejects.toThrow('L1 read failed');
+    });
+
+    it('refreshes instead of failing when stale but the archiver already has a new identity', async () => {
+      service = makeService({ maxRefreshAgeMs: 1_000, maxL1HeadAgeSeconds: 0, futureHeadAllowanceSeconds: 0 });
+      await service.getCurrentMinFees();
+      dateProvider.advanceTimeMs(2_000);
+      identity.snapshot = makeIdentity(2n, PINNED_SLOT);
+      // Identity is checked before staleness: the read refreshes to the new identity and serves.
+      await expect(service.getCurrentMinFees()).resolves.toBeDefined();
+      expect(service.getSnapshot()!.l1.blockNumber).toBe(2n);
     });
 
     it('fails closed when the L1 head age exceeds the bound', async () => {
@@ -285,6 +352,7 @@ describe('FeeSnapshotService', () => {
       await service.getCurrentMinFees();
       dateProvider.advanceTime(120);
       await expect(service.getCurrentMinFees()).rejects.toBeInstanceOf(FeeSnapshotL1HeadStaleError);
+      expect(service.getStats().l1HeadStaleErrors).toBe(1);
     });
 
     it('fails closed when the L1 head is dated too far into the future', async () => {
@@ -293,6 +361,7 @@ describe('FeeSnapshotService', () => {
       // Step the wall clock backwards so the pinned head is far ahead of "now".
       dateProvider.advanceTime(-120);
       await expect(service.getCurrentMinFees()).rejects.toBeInstanceOf(FeeSnapshotFutureHeadError);
+      expect(service.getStats().futureHeadErrors).toBe(1);
     });
 
     it('disables each staleness check independently when its config is 0', async () => {
