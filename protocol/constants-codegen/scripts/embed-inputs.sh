@@ -1,8 +1,8 @@
 #!/usr/bin/env bash
 
 # Copy the default Noir input file into the package's inputs/ directory, which the published tarball
-# ships so the CLI works without --input. Runs from prepack, so packing always happens inside the
-# monorepo where the protocol sources exist.
+# ships so the CLI works without --input. Runs from prepack and from in-repo consumers that mimic
+# the published layout, so it always executes inside the monorepo where the protocol sources exist.
 set -euo pipefail
 
 package_dir=$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)
