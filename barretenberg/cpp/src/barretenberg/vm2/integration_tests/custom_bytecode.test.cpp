@@ -107,8 +107,8 @@ CustomBytecodeCase avm_minimal()
     return { "AvmMinimal", std::move(bytecode), /*expect_revert=*/false };
 }
 
-// Six instructions: it copies a callee address out of calldata, CALLs it with no arguments, and
-// returns. Used to check that a callee's instructions are counted in the tx-level total.
+// Six instructions: reads a contract address from calldata[0], CALLs it with no arguments and a
+// 100k gas allowance, and returns. The callee is whichever address the tx passes in as calldata[0].
 std::vector<uint8_t> nested_caller()
 {
     return BytecodeBuilder()
