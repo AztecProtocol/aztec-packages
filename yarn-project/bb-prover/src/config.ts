@@ -21,6 +21,11 @@ export interface BBConfig {
   bbChonkVerifyConcurrency: number;
   /** When set, bb.js operations write input/output files and log equivalent CLI commands to this directory. */
   bbDebugOutputDir?: string;
+  /**
+   * Selects the Pippenger/MSM implementation used by prover agents. Defaults to false, which opts into the
+   * round-parallel MSM; set to true to fall back to the legacy one.
+   */
+  bbLegacyMsm?: boolean;
 }
 
 export interface ACVMConfig {

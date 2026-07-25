@@ -115,7 +115,11 @@ export class BBNativeRollupProver implements ServerCircuitProver {
     telemetry: TelemetryClient,
   ) {
     this.instrumentation = new ProverInstrumentation(telemetry, 'BBNativeRollupProver');
-    this.bbJsFactory = new BBJsFactory(config.bbBinaryPath, { logger, debugDir: config.bbDebugOutputDir });
+    this.bbJsFactory = new BBJsFactory(config.bbBinaryPath, {
+      logger,
+      debugDir: config.bbDebugOutputDir,
+      legacyMsm: config.bbLegacyMsm ?? false,
+    });
   }
 
   get tracer() {

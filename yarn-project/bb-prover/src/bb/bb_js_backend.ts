@@ -76,7 +76,7 @@ export class BBJsInstance implements BBJsApi {
   private constructor(private api: Barretenberg) {}
 
   /** Creates a new Barretenberg instance connected to a fresh bb process. */
-  static async create(bbPath: string, logger?: LogFn, threads?: number): Promise<BBJsInstance> {
+  static async create(bbPath: string, logger?: LogFn, threads?: number, legacyMsm?: boolean): Promise<BBJsInstance> {
     const options: BackendOptions = {
       bbPath,
       backend: BackendType.NativeUnixSocket,
@@ -84,6 +84,9 @@ export class BBJsInstance implements BBJsApi {
     };
     if (threads !== undefined) {
       options.threads = threads;
+    }
+    if (legacyMsm !== undefined) {
+      options.legacyMsm = legacyMsm;
     }
     try {
       return new BBJsInstance(await Barretenberg.new(options));
@@ -253,6 +256,11 @@ export interface BBJsFactoryOptions {
   logger?: Logger;
   threads?: number;
   debugDir?: string;
+  /**
+   * Selects the Pippenger/MSM implementation used by the spawned bb processes. Leave unset to take
+   * bb's own default, `false` to opt into the round-parallel MSM, `true` to force the legacy one.
+   */
+  legacyMsm?: boolean;
 }
 
 /**
@@ -273,6 +281,7 @@ export class BBJsFactory {
   private readonly logger?: Logger;
   private readonly threads?: number;
   private readonly debugDir?: string;
+  private readonly legacyMsm?: boolean;
 
   /** Available pooled instances when poolSize is set; otherwise undefined. */
   private pool?: FifoMemoryQueue<BBJsApi>;
@@ -288,6 +297,7 @@ export class BBJsFactory {
     this.logger = options.logger;
     this.threads = options.threads;
     this.debugDir = options.debugDir;
+    this.legacyMsm = options.legacyMsm;
     if (this.poolSize !== undefined && this.poolSize < 1) {
       throw new Error(`BBJsFactory poolSize must be >= 1, got ${this.poolSize}`);
     }
@@ -383,7 +393,7 @@ export class BBJsFactory {
 
   private async createInstance(): Promise<BBJsApi> {
     const logFn = this.logger ? (msg: string) => this.logger!.verbose(`bb.js - ${msg}`) : undefined;
-    const raw = await BBJsInstance.create(this.bbPath, logFn, this.threads);
+    const raw = await BBJsInstance.create(this.bbPath, logFn, this.threads, this.legacyMsm);
     return this.maybeWrapDebug(raw);
   }
 

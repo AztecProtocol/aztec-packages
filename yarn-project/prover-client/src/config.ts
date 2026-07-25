@@ -68,6 +68,12 @@ export const bbConfigMappings: ConfigMappingsType<BBConfig & ACVMConfig> = {
     description:
       'When set, bb.js operations write input/output files and log equivalent CLI commands to this directory',
   },
+  bbLegacyMsm: {
+    env: 'BB_LEGACY_MSM',
+    description:
+      'Whether prover agents use the legacy Pippenger/MSM implementation. Defaults to false, so agents use the round-parallel MSM.',
+    ...booleanConfigHelper(false),
+  },
 };
 
 export const proverClientConfigMappings: ConfigMappingsType<ProverClientUserConfig> = {
