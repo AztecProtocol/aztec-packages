@@ -6,9 +6,10 @@ import { MAX_FEE_ASSET_PRICE_MODIFIER_BPS } from '@aztec/ethereum/contracts';
 import { BlockNumber, CheckpointNumber, SlotNumber } from '@aztec/foundation/branded-types';
 import { Secp256k1Signer } from '@aztec/foundation/crypto/secp256k1-signer';
 import { Fr } from '@aztec/foundation/curves/bn254';
+import { promiseWithResolvers } from '@aztec/foundation/promise';
 import { TestDateProvider } from '@aztec/foundation/timer';
 import { type FieldsOf, unfreeze } from '@aztec/foundation/types';
-import type { P2P } from '@aztec/p2p';
+import type { P2P, PeerId } from '@aztec/p2p';
 import type { BlockProposalValidator } from '@aztec/p2p/msg_validators';
 import { BlockHash } from '@aztec/stdlib/block';
 import type { BlockData, L2Block, L2BlockSink, L2BlockSource } from '@aztec/stdlib/block';
@@ -16,7 +17,7 @@ import { type Checkpoint, CheckpointReexecutionTracker, type ProposedCheckpointD
 import type { L1RollupConstants } from '@aztec/stdlib/epoch-helpers';
 import type { ITxProvider, ValidatorClientFullConfig, WorldStateSynchronizer } from '@aztec/stdlib/interfaces/server';
 import type { L1ToL2MessageSource } from '@aztec/stdlib/messaging';
-import { accumulateCheckpointOutHashes } from '@aztec/stdlib/messaging';
+import { accumulateCheckpointOutHashes, computeInHashFromL1ToL2Messages } from '@aztec/stdlib/messaging';
 import { CheckpointHeader } from '@aztec/stdlib/rollup';
 import {
   TEST_COORDINATION_SIGNATURE_CONTEXT,
@@ -716,6 +717,29 @@ describe('ProposalHandler checkpoint validation', () => {
   // node never re-acquired the block and missed the later checkpoint attestation. The guard must reject
   // only genuine duplicates (same archive) and otherwise wait for the local prune.
   describe('handleBlockProposal block-number guard (reorg-aware)', () => {
+    /** Stateful fake for the single archiver height involved in competing proposal tests. */
+    class TargetHeightBlockStore {
+      private block?: L2Block;
+
+      public readonly insertedArchives: string[] = [];
+
+      /** Returns the block currently occupying the target height. */
+      public getBlockData(): BlockData | undefined {
+        return this.block as unknown as BlockData | undefined;
+      }
+
+      /** Inserts a block at the target height. */
+      public addBlock(block: L2Block): void {
+        this.block = block;
+        this.insertedArchives.push(block.archive.root.toString());
+      }
+
+      /** Models the archiver pruning the current uncheckpointed block. */
+      public prune(): void {
+        this.block = undefined;
+      }
+    }
+
     /**
      * Builds a proposal whose parent resolves to genesis (so blockNumber = INITIAL_L2_BLOCK_NUM) and a
      * handler wired to accept it up to the block-number guard.
@@ -724,6 +748,8 @@ describe('ProposalHandler checkpoint validation', () => {
       const proposal = await makeBlockProposal({
         blockHeader: makeBlockHeader(1, { slotNumber: SlotNumber(1) }),
         archiveRoot: proposalArchive,
+        inHash: computeInHashFromL1ToL2Messages([]),
+        txHashes: [],
       });
 
       // Parent archive == genesis archive → genesis path → blockNumber = INITIAL_L2_BLOCK_NUM.
@@ -796,6 +822,141 @@ describe('ProposalHandler checkpoint validation', () => {
         blockNumber: BlockNumber(INITIAL_L2_BLOCK_NUM),
         reason: 'block_number_already_exists',
       });
+    });
+
+    it('waits for a competing proposal to be pruned before re-executing and inserting its replacement', async () => {
+      dateProvider.setTime(1_000);
+      const archiveA = Fr.random();
+      const archiveB = Fr.random();
+      const { proposal: proposalA, blockHandler } = await setupGenesisProposal(archiveA);
+      const proposalB = await makeBlockProposal({
+        blockHeader: makeBlockHeader(1, { slotNumber: SlotNumber(2) }),
+        archiveRoot: archiveB,
+        inHash: computeInHashFromL1ToL2Messages([]),
+        txHashes: [],
+      });
+      expect(proposalB.blockHeader.lastArchive.root.equals(proposalA.blockHeader.lastArchive.root)).toBe(true);
+
+      const targetHeight = new TargetHeightBlockStore();
+      blockSource.getBlockData.mockImplementation(() => Promise.resolve(targetHeight.getBlockData()));
+      blockSource.addBlock.mockImplementation(block => Promise.resolve(targetHeight.addBlock(block)));
+
+      const reexecutionAStarted = promiseWithResolvers<void>();
+      const allowReexecutionA = promiseWithResolvers<void>();
+      const proposalBReadyForGate = promiseWithResolvers<void>();
+      const pruneWaitStarted = promiseWithResolvers<void>();
+      const allowPrune = promiseWithResolvers<void>();
+      let checkpointDataReads = 0;
+      blockSource.getCheckpointsData.mockImplementation(() => {
+        checkpointDataReads++;
+        if (checkpointDataReads === 2) {
+          proposalBReadyForGate.resolve();
+        }
+        return Promise.resolve([]);
+      });
+      blockSource.syncImmediate.mockImplementation(async () => {
+        pruneWaitStarted.resolve();
+        await allowPrune.promise;
+        targetHeight.prune();
+      });
+
+      const blockFor = (proposal: typeof proposalA) =>
+        ({
+          archive: new AppendOnlyTreeSnapshot(proposal.archive, 1),
+          header: proposal.blockHeader,
+        }) as unknown as L2Block;
+      const reexecute = jest.spyOn(blockHandler, 'reexecuteTransactions').mockImplementation(async proposal => {
+        if (proposal === proposalA) {
+          reexecutionAStarted.resolve();
+          await allowReexecutionA.promise;
+        }
+        return {
+          block: blockFor(proposal),
+          failedTxs: [],
+          reexecutionTimeMs: 1,
+          totalManaUsed: 0,
+        };
+      });
+
+      const resultA = blockHandler.handleBlockProposal(proposalA, mock<PeerId>(), true);
+      await reexecutionAStarted.promise;
+
+      const resultB = blockHandler.handleBlockProposal(proposalB, mock<PeerId>(), true);
+      await proposalBReadyForGate.promise;
+      await Promise.resolve();
+      expect(reexecute.mock.calls.filter(([proposal]) => proposal === proposalB)).toHaveLength(0);
+
+      allowReexecutionA.resolve();
+      await pruneWaitStarted.promise;
+      expect(targetHeight.insertedArchives).toEqual([archiveA.toString()]);
+      expect(reexecute.mock.calls.filter(([proposal]) => proposal === proposalB)).toHaveLength(0);
+
+      allowPrune.resolve();
+      const results = await Promise.allSettled([resultA, resultB]);
+
+      expect(results).toEqual([
+        { status: 'fulfilled', value: expect.objectContaining({ isValid: true }) },
+        { status: 'fulfilled', value: expect.objectContaining({ isValid: true }) },
+      ]);
+      expect(reexecute.mock.calls.filter(([proposal]) => proposal === proposalB)).toHaveLength(1);
+      expect(targetHeight.insertedArchives).toEqual([archiveA.toString(), archiveB.toString()]);
+      expect(targetHeight.getBlockData()?.archive.root.equals(archiveB)).toBe(true);
+    });
+
+    it('returns block_number_already_exists when an external insert wins the addBlock race', async () => {
+      dateProvider.setTime(1_000);
+      const proposalArchive = Fr.random();
+      const competingArchive = Fr.random();
+      const { proposal, blockHandler } = await setupGenesisProposal(proposalArchive);
+      const targetHeight = new TargetHeightBlockStore();
+      const proposalBlock = {
+        archive: new AppendOnlyTreeSnapshot(proposalArchive, 1),
+        header: proposal.blockHeader,
+      } as unknown as L2Block;
+      const competingBlock = {
+        archive: new AppendOnlyTreeSnapshot(competingArchive, 1),
+        header: proposal.blockHeader,
+      } as unknown as L2Block;
+      blockSource.getBlockData.mockImplementation(() => Promise.resolve(targetHeight.getBlockData()));
+      blockSource.addBlock.mockImplementation(() => {
+        targetHeight.addBlock(competingBlock);
+        throw new Error('non-sequential insert');
+      });
+      jest.spyOn(blockHandler, 'reexecuteTransactions').mockResolvedValue({
+        block: proposalBlock,
+        failedTxs: [],
+        reexecutionTimeMs: 1,
+        totalManaUsed: 0,
+      });
+
+      await expect(blockHandler.handleBlockProposal(proposal, mock<PeerId>(), true)).resolves.toEqual({
+        isValid: false,
+        blockNumber: BlockNumber(INITIAL_L2_BLOCK_NUM),
+        reason: 'block_number_already_exists',
+        reexecutionResult: expect.objectContaining({ block: proposalBlock }),
+      });
+      expect(targetHeight.getBlockData()?.archive.root.equals(competingArchive)).toBe(true);
+    });
+
+    it('propagates an addBlock failure when the target height remains empty', async () => {
+      dateProvider.setTime(1_000);
+      const proposalArchive = Fr.random();
+      const { proposal, blockHandler } = await setupGenesisProposal(proposalArchive);
+      const proposalBlock = {
+        archive: new AppendOnlyTreeSnapshot(proposalArchive, 1),
+        header: proposal.blockHeader,
+      } as unknown as L2Block;
+      const insertError = new Error('storage unavailable');
+      blockSource.getBlockData.mockResolvedValue(undefined);
+      blockSource.addBlock.mockRejectedValue(insertError);
+      jest.spyOn(blockHandler, 'reexecuteTransactions').mockResolvedValue({
+        block: proposalBlock,
+        failedTxs: [],
+        reexecutionTimeMs: 1,
+        totalManaUsed: 0,
+      });
+
+      await expect(blockHandler.handleBlockProposal(proposal, mock<PeerId>(), true)).rejects.toBe(insertError);
     });
   });
 });
