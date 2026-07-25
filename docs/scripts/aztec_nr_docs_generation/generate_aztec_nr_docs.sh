@@ -57,20 +57,36 @@ echo_error() {
     echo -e "${RED}[ERROR]${NC} $1"
 }
 
-# Check if nargo is available
-if ! command -v nargo &> /dev/null; then
-    # Try to use the nargo from the noir-repo if available
-    NARGO="${NARGO:-$DOCS_ROOT/../noir/noir-repo/target/release/nargo}"
+# Resolve which nargo to use, in priority order:
+#   1. $NARGO env var (e.g. exported by docs/bootstrap.sh)
+#   2. The nargo built from the noir submodule
+#   3. aztec-nargo from an aztec toolchain install (version-matched to the toolchain)
+#   4. Any nargo on PATH
+# Candidates are test-run rather than existence-checked because the repo-built
+# binary may target another platform (e.g. a Linux build in a macOS checkout).
+nargo_runs() {
+    "$1" --version &> /dev/null
+}
+
+REPO_NARGO="$DOCS_ROOT/../noir/noir-repo/target/release/nargo"
+if [[ -n "${NARGO:-}" ]]; then
     # Convert to absolute path (important since we cd to aztec-nr directory later)
     if [[ "$NARGO" != /* ]]; then
         NARGO="$(cd "$DOCS_ROOT" && cd "$(dirname "$NARGO")" && pwd)/$(basename "$NARGO")"
     fi
-    if [[ ! -x "$NARGO" ]]; then
-        echo_error "nargo not found. Please ensure nargo is installed or set NARGO environment variable."
+    if ! nargo_runs "$NARGO"; then
+        echo_error "NARGO is set to '$NARGO' but it cannot be executed."
         exit 1
     fi
+elif nargo_runs "$REPO_NARGO"; then
+    NARGO="$REPO_NARGO"
+elif AZTEC_NARGO="$(command -v aztec-nargo 2> /dev/null)" && nargo_runs "$AZTEC_NARGO"; then
+    NARGO="$AZTEC_NARGO"
+elif PATH_NARGO="$(command -v nargo 2> /dev/null)" && nargo_runs "$PATH_NARGO"; then
+    NARGO="$PATH_NARGO"
 else
-    NARGO="nargo"
+    echo_error "No working nargo found. Install the aztec toolchain (aztec-up), build the noir submodule, or set the NARGO environment variable."
+    exit 1
 fi
 
 echo_info "Using nargo: $NARGO"
@@ -79,12 +95,20 @@ echo_info "Version: $VERSION"
 echo_info "Output folder: $OUTPUT_FOLDER"
 echo_info "Output directory: $OUTPUT_DIR"
 
+# A nargo built from a different noir commit than the submodule pins can fail
+# in opaque ways (e.g. stack overflows in `nargo doc`), so warn on mismatch.
+PINNED_NOIR_COMMIT="$(git -C "$DOCS_ROOT/.." ls-tree HEAD noir/noir-repo 2> /dev/null | awk '{print $3}' || true)"
+NARGO_NOIR_COMMIT="$("$NARGO" --version 2> /dev/null | sed -n 's/.*git version hash: \([0-9a-f]*\).*/\1/p' || true)"
+if [[ -n "$PINNED_NOIR_COMMIT" && -n "$NARGO_NOIR_COMMIT" && "$PINNED_NOIR_COMMIT" != "$NARGO_NOIR_COMMIT" ]]; then
+    echo_warn "nargo was built from noir commit ${NARGO_NOIR_COMMIT:0:10} but the noir submodule pins ${PINNED_NOIR_COMMIT:0:10}. Doc generation may fail; use a matching nargo if it does."
+fi
+
 # Change to aztec-nr directory
 cd "$AZTEC_NR_DIR"
 
 # Generate documentation
 echo_info "Generating aztec-nr documentation..."
-$NARGO doc --workspace
+"$NARGO" doc --workspace
 
 # Check if docs were generated
 if [[ ! -d "$AZTEC_NR_DIR/target/docs" ]]; then
