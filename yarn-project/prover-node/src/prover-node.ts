@@ -621,7 +621,7 @@ export class ProverNode implements L2BlockStreamEventHandler, ProverNodeApi, Tra
     if (!this.config.proverNodeFailedEpochStore || checkpoints.length === 0) {
       return undefined;
     }
-    const data = SessionManager.buildProvingData(checkpoints);
+    const data = await SessionManager.buildProvingData(checkpoints);
     return await uploadEpochProofFailure(
       this.config.proverNodeFailedEpochStore,
       // The session's own id; `uploadEpochProofFailure` already prefixes the path with the epoch number.
@@ -657,7 +657,7 @@ export class ProverNode implements L2BlockStreamEventHandler, ProverNodeApi, Tra
         });
         return undefined;
       }
-      const data = SessionManager.buildProvingData([prover]);
+      const data = await SessionManager.buildProvingData([prover]);
       return await uploadEpochProofFailure(
         this.config.proverNodeFailedEpochStore,
         // The prover's content-addressed id; the epoch number is already in the upload path.
