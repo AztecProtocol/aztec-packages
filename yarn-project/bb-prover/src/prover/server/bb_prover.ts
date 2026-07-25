@@ -118,7 +118,7 @@ export class BBNativeRollupProver implements ServerCircuitProver {
     this.bbJsFactory = new BBJsFactory(config.bbBinaryPath, {
       logger,
       debugDir: config.bbDebugOutputDir,
-      legacyMsm: config.bbLegacyMsm ?? false,
+      legacyMsm: config.bbLegacyMsm ?? true,
     });
   }
 

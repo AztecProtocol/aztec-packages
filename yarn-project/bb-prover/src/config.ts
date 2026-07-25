@@ -22,8 +22,8 @@ export interface BBConfig {
   /** When set, bb.js operations write input/output files and log equivalent CLI commands to this directory. */
   bbDebugOutputDir?: string;
   /**
-   * Selects the Pippenger/MSM implementation used by prover agents. Defaults to false, which opts into the
-   * round-parallel MSM; set to true to fall back to the legacy one.
+   * Selects the Pippenger/MSM implementation used by prover agents. Defaults to true, the legacy MSM;
+   * set to false to opt into the round-parallel one.
    */
   bbLegacyMsm?: boolean;
 }

@@ -71,8 +71,8 @@ export const bbConfigMappings: ConfigMappingsType<BBConfig & ACVMConfig> = {
   bbLegacyMsm: {
     env: 'BB_LEGACY_MSM',
     description:
-      'Whether prover agents use the legacy Pippenger/MSM implementation. Defaults to false, so agents use the round-parallel MSM.',
-    ...booleanConfigHelper(false),
+      'Whether prover agents use the legacy Pippenger/MSM implementation. Set to false to opt into the round-parallel MSM.',
+    ...booleanConfigHelper(true),
   },
 };
 
