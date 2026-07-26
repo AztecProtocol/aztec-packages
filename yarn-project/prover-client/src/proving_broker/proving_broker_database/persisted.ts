@@ -70,6 +70,16 @@ class SingleEpochDatabase {
     }
   }
 
+  async getProvingJobInputs(id: ProvingJobId): Promise<ProofUri | undefined> {
+    const jobStr = await this.jobs.getAsync(id);
+    return jobStr ? jsonParseWithSchema(jobStr, ProvingJob).inputsUri : undefined;
+  }
+
+  async getProvingJobResult(id: ProvingJobId): Promise<ProvingJobSettledResult | undefined> {
+    const resultStr = await this.jobResults.getAsync(id);
+    return resultStr ? jsonParseWithSchema(resultStr, ProvingJobSettledResult) : undefined;
+  }
+
   async setProvingJobError(id: ProvingJobId, reason: string): Promise<void> {
     const result: ProvingJobSettledResult = { status: 'rejected', reason };
     await this.jobResults.set(id, jsonStringify(result));
@@ -228,6 +238,29 @@ export class KVBrokerDatabase implements ProvingBrokerDatabase {
     for (const it of iterators) {
       yield* it;
     }
+  }
+
+  // Jobs are keyed into an epoch database by `job.epochNumber` (addProvingJob) while results are keyed by
+  // the id-derived epoch (setProvingJobResult); these coincide in practice but need not. Rather than rely
+  // on that, search the (few) resident epoch databases for the id. This is O(epochs kept) LMDB reads.
+  async getProvingJobInputs(id: ProvingJobId): Promise<ProofUri | undefined> {
+    for (const db of this.epochs.values()) {
+      const inputs = await db.getProvingJobInputs(id);
+      if (inputs !== undefined) {
+        return inputs;
+      }
+    }
+    return undefined;
+  }
+
+  async getProvingJobResult(id: ProvingJobId): Promise<ProvingJobSettledResult | undefined> {
+    for (const db of this.epochs.values()) {
+      const result = await db.getProvingJobResult(id);
+      if (result !== undefined) {
+        return result;
+      }
+    }
+    return undefined;
   }
 
   setProvingJobError(id: ProvingJobId, reason: string): Promise<void> {
