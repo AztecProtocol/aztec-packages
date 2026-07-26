@@ -1,4 +1,6 @@
 import { secp256k1 } from '@noble/curves/secp256k1';
+import isNode from 'detect-node';
+import { createRequire } from 'node:module';
 
 import { Buffer32 } from '../../buffer/buffer32.js';
 import { EthAddress } from '../../eth-address/index.js';
@@ -6,6 +8,38 @@ import { Signature } from '../../eth-signature/eth_signature.js';
 import { keccak256 } from '../keccak/index.js';
 
 const ETH_SIGN_PREFIX = '\x19Ethereum Signed Message:\n32';
+
+/** Subset of the bcrypto native secp256k1 binding used for public-key recovery. */
+interface NativeSecp256k1 {
+  /**
+   * Recovers a public key from a message hash and a compact (64-byte r||s) signature.
+   * @returns The recovered public key, or null if recovery fails.
+   */
+  recover(msg: Buffer, sig: Buffer, param: number, compress?: boolean): Buffer | null;
+}
+
+let nativeSecp256k1: NativeSecp256k1 | null | undefined;
+
+/**
+ * Loads the native libsecp256k1 binding (via bcrypto) for signature recovery, caching the result.
+ * Returns null in non-Node environments (e.g. browser/PXE bundles) or if the native addon is
+ * unavailable, in which case callers fall back to the pure-JS `@noble/curves` implementation.
+ */
+function getNativeSecp256k1(): NativeSecp256k1 | null {
+  if (nativeSecp256k1 !== undefined) {
+    return nativeSecp256k1;
+  }
+  if (!isNode) {
+    return (nativeSecp256k1 = null);
+  }
+  try {
+    const require = createRequire(import.meta.url);
+    nativeSecp256k1 = require('bcrypto/lib/native/secp256k1') as NativeSecp256k1;
+  } catch {
+    nativeSecp256k1 = null;
+  }
+  return nativeSecp256k1;
+}
 
 /** Signature recovery options */
 type RecoveryOpts = {
@@ -203,9 +237,21 @@ export function recoverPublicKey(hash: Buffer32, signature: Signature, opts: Rec
     throw new Secp256k1Error(`Invalid v value ${v} (expected 27 or 28)`);
   }
   const recoveryBit = toRecoveryBit(v);
+  // Constructing the noble Signature validates that r and s are in range, matching the rejection
+  // behavior for out-of-range values regardless of which recovery backend runs below.
   const sig = new secp256k1.Signature(r.toBigInt(), s.toBigInt()).addRecoveryBit(recoveryBit);
   if (!opts.allowMalleable && sig.hasHighS()) {
     throw new Secp256k1Error('Signature has high s-value (malleable signature)');
+  }
+  // The expensive part is the elliptic-curve recovery below. Route it through native libsecp256k1
+  // when available (Node), falling back to the pure-JS `@noble/curves` implementation otherwise.
+  const native = getNativeSecp256k1();
+  if (native) {
+    const publicKey = native.recover(hash.buffer, Buffer.concat([r.buffer, s.buffer]), recoveryBit, false);
+    if (!publicKey) {
+      throw new Secp256k1Error('Failed to recover public key from signature');
+    }
+    return publicKey;
   }
   const publicKey = sig.recoverPublicKey(hash.buffer).toHex(false);
   return Buffer.from(publicKey, 'hex');
