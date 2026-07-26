@@ -142,7 +142,7 @@ if [ "$status" -ne 0 ]; then
   if [ "$status" -eq 143 ] || [ "$status" -eq 130 ]; then
     echo -e ". ${yellow}interrupted${reset} ($time)"
   else
-    if [ -t 1 ] || [ "${DUMP_FAIL:-0}" -eq 1 ]; then
+    if [ -t 1 ] || [ "${DUMP_FAIL:-0}" -eq 1 ] || [ "$CI_REDIS_AVAILABLE" -eq 0 ]; then
       echo -e "\nCommand exited with status $status. Dumping output:"
       cat $outfile
     fi

@@ -120,7 +120,22 @@ else
   fail "dot progress appears in output" "no dots found in: $output"
 fi
 
-# --- Test 5: denoise exits promptly (not stuck waiting on pipe) ---
+# --- Test 5: failure output is dumped when no dashboard log is available ---
+echo "--- Test: failure output dumps when redis is unavailable ---"
+
+code=0
+output=$(env "${DENOISE_ENV[@]}" "$ROOT/ci3/denoise" \
+  'echo missing-ci-log; exit 9' 2>&1) || code=$?
+
+if [ "$code" -eq 9 ] &&
+  echo "$output" | grep -q "Command exited with status 9" &&
+  echo "$output" | grep -q "missing-ci-log"; then
+  pass "failure output dumps without redis"
+else
+  fail "failure output dumps without redis" "code=$code output=$output"
+fi
+
+# --- Test 6: denoise exits promptly (not stuck waiting on pipe) ---
 echo "--- Test: denoise exits within timeout ---"
 
 start=$SECONDS
