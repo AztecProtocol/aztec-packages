@@ -1,4 +1,4 @@
-import { urlJoin, withHexPrefix, withoutHexPrefix } from './index.js';
+import { hexToBuffer, urlJoin, withHexPrefix, withoutHexPrefix } from './index.js';
 
 describe('string', () => {
   describe('urlJoin', () => {
@@ -38,6 +38,21 @@ describe('string', () => {
 
     it('leaves string unchanged without prefix', () => {
       expect(withoutHexPrefix('deadbeef')).toBe('deadbeef');
+    });
+  });
+
+  describe('hexToBuffer', () => {
+    it('parses hex strings with or without a prefix', () => {
+      expect(hexToBuffer('0xdeadbeef')).toEqual(Buffer.from('deadbeef', 'hex'));
+      expect(hexToBuffer('deadbeef')).toEqual(Buffer.from('deadbeef', 'hex'));
+    });
+
+    it('rejects odd-length hex strings', () => {
+      expect(() => hexToBuffer('0xabc')).toThrow('Invalid hex string length');
+    });
+
+    it('rejects non-hex strings', () => {
+      expect(() => hexToBuffer('0xzz')).toThrow('Invalid hex string');
     });
   });
 });

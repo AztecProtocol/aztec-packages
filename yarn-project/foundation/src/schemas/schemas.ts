@@ -7,7 +7,7 @@ import { SecretValue } from '../config/secret_value.js';
 import { Fq, Fr } from '../curves/bn254/field.js';
 import { Point } from '../curves/grumpkin/point.js';
 import { EthAddress } from '../eth-address/index.js';
-import { isHex, withHexPrefix, withoutHexPrefix } from '../string/index.js';
+import { hexToBuffer, isHex, isHexBufferString, withHexPrefix, withoutHexPrefix } from '../string/index.js';
 import { bufferSchema, hexSchema } from './utils.js';
 
 export const schemas = {
@@ -76,8 +76,8 @@ export const schemas = {
   BufferHex: z
     .string()
     .refine(isHex, 'Not a valid hex string')
-    .transform(withoutHexPrefix)
-    .transform(data => Buffer.from(data, 'hex')),
+    .refine(isHexBufferString, 'Hex string must have an even number of characters')
+    .transform(hexToBuffer),
 
   /** Hex string with an optional 0x prefix which gets removed as part of the parsing. */
   HexString: hexSchema,

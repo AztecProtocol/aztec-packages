@@ -62,7 +62,7 @@ export class Signature {
    * default serialization of u32
    */
   static fromString(sig: `0x${string}`): Signature {
-    const buf = hexToBuffer(sig);
+    const buf = hexToBuffer(sig.slice(0, 2 + 64 * 2));
     const reader = BufferReader.asReader(buf);
     const r = reader.readObject(Buffer32);
     const s = reader.readObject(Buffer32);
