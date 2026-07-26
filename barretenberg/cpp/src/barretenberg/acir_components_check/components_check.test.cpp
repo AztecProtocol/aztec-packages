@@ -145,7 +145,7 @@ void expect_single_error_type(const std::vector<acir_components_check::Error>& e
                               acir_components_check::Error::Type type)
 {
     ASSERT_EQ(errors.size(), 1U);
-    EXPECT_EQ(errors[0].type, type);
+    EXPECT_EQ(errors[0].type, type) << errors[0].message;
 }
 
 size_t count_acir_components_for_witnesses(const Acir::Circuit& circuit, const std::vector<uint32_t>& witnesses)
@@ -549,18 +549,19 @@ TEST_F(AcirComponentsCheckTest, DetectsUnconstrainedWitnesses)
                           .value = Acir::Expression{
                               .linear_combinations =
                                   {
-                                      { bb::fr::one().to_buffer(), make_witness(8) },
-                                      { bb::fr(-1).to_buffer(), make_witness(9) },
+                                      { bb::fr::one().to_buffer(), make_witness(1000) },
+                                      { bb::fr(-1).to_buffer(), make_witness(1001) },
                                   },
                               .q_c = bb::fr::zero().to_buffer(),
                           } } },
     });
 
-    auto constraints = circuit_serde_to_acir_format(circuit, IsMegaBuilder<AcirComponentsCheckBuilder>);
+    auto circuit_missing_witness = make_circuit({
+        Acir::Opcode{ .value = Acir::Opcode::AssertZero{ .value = make_witness_expression(0) } },
+    });
+    auto constraints = circuit_serde_to_acir_format(circuit_missing_witness, IsMegaBuilder<AcirComponentsCheckBuilder>);
     AcirProgram program{ .constraints = constraints, .witness = {} };
     auto builder = create_circuit<AcirComponentsCheckBuilder>(program);
-    // Corrupt the circuit
-    builder.real_variable_index.resize(9);
 
     acir_components_check::ComponentsChecker checker(circuit, builder);
     auto errors = checker.check();
