@@ -42,7 +42,7 @@ function getNativeSecp256k1(): NativeSecp256k1 | null {
 }
 
 /** Signature recovery options */
-type RecoveryOpts = {
+export type RecoveryOpts = {
   /**
    * Whether to allow s-values in the high half of the curve (s >= CURVE.n/2).
    * These are discouraged by EIP2 to prevent signature malleability, and outright
