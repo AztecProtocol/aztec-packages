@@ -544,25 +544,24 @@ TEST_F(AcirComponentsCheckTest, DetectsSplitComponents)
 
 TEST_F(AcirComponentsCheckTest, DetectsUnconstrainedWitnesses)
 {
-    Acir::Circuit circuit = make_circuit({
+    Acir::Circuit checked_circuit = make_circuit({
         Acir::Opcode{ .value = Acir::Opcode::AssertZero{
                           .value = Acir::Expression{
                               .linear_combinations =
                                   {
-                                      { bb::fr::one().to_buffer(), make_witness(8) },
-                                      { bb::fr(-1).to_buffer(), make_witness(9) },
+                                      { bb::fr::one().to_buffer(), make_witness(0) },
+                                      { bb::fr(-1).to_buffer(), make_witness(1) },
                                   },
                               .q_c = bb::fr::zero().to_buffer(),
                           } } },
     });
 
-    auto constraints = circuit_serde_to_acir_format(circuit, IsMegaBuilder<AcirComponentsCheckBuilder>);
+    auto synthesized_circuit = make_circuit({});
+    auto constraints = circuit_serde_to_acir_format(synthesized_circuit, IsMegaBuilder<AcirComponentsCheckBuilder>);
     AcirProgram program{ .constraints = constraints, .witness = {} };
     auto builder = create_circuit<AcirComponentsCheckBuilder>(program);
-    // Corrupt the circuit
-    builder.real_variable_index.resize(9);
 
-    acir_components_check::ComponentsChecker checker(circuit, builder);
+    acir_components_check::ComponentsChecker checker(checked_circuit, builder);
     auto errors = checker.check();
     expect_single_error_type(errors, acir_components_check::Error::Type::UNCONSTRAINED);
 }
