@@ -8,6 +8,7 @@ import { BufferReader, bigintToUInt64BE, numToUInt32BE, serializeToBuffer } from
 import {
   type AztecAsyncKVStore,
   type AztecAsyncMap,
+  type AztecAsyncMultiMap,
   type AztecAsyncSingleton,
   type CustomRange,
   mapRange,
@@ -109,8 +110,12 @@ export class MessageStore {
   #messagesFinalizedL1Block: AztecAsyncSingleton<Buffer>;
   /** Maps from Inbox bucket sequence number to its serialized snapshot. */
   #inboxBuckets: AztecAsyncMap<number, Buffer>;
-  /** Maps from a bucket's L1 timestamp (key) to the highest bucket sequence number opened at that timestamp. */
-  #bucketTimestampToSeq: AztecAsyncMap<number, number>;
+  /**
+   * Maps from a bucket's L1 timestamp (key) to the sequence numbers of the buckets opened at that timestamp. Holds
+   * several sequences per timestamp when a full bucket rolls over within one L1 block, so that deleting one bucket
+   * leaves its rollover siblings indexed.
+   */
+  #bucketTimestampToSeq: AztecAsyncMultiMap<number, number>;
 
   #log = createLogger('archiver:message_store');
 
@@ -122,7 +127,7 @@ export class MessageStore {
     this.#inboxTreeInProgress = db.openSingleton('archiver_inbox_tree_in_progress');
     this.#messagesFinalizedL1Block = db.openSingleton('archiver_messages_finalized_l1_block');
     this.#inboxBuckets = db.openMap('archiver_inbox_buckets');
-    this.#bucketTimestampToSeq = db.openMap('archiver_inbox_bucket_timestamps');
+    this.#bucketTimestampToSeq = db.openMultiMap('archiver_inbox_bucket_timestamps');
   }
 
   public async getTotalL1ToL2MessageCount(): Promise<bigint> {
@@ -441,44 +446,44 @@ export class MessageStore {
   }
 
   /**
-   * Rewinds the Inbox bucket snapshots to match the messages remaining after a removal. Buckets whose messages
-   * were all removed are deleted, and the boundary bucket (the one holding the last surviving message) is
-   * recomputed from its remaining messages, since a checkpoint-aligned removal can split a bucket. Must run
-   * inside the removal transaction, after the total message count has been updated.
+   * Rewinds the Inbox bucket snapshots to match the messages left after a removal. Each bucket past the surviving tip
+   * is deleted together with its own timestamp index entry, leaving the entries of the rollover siblings it shares a
+   * timestamp with in place.
+   *
+   * The bucket holding the last surviving message is rewritten from the messages it has left, because a removal can
+   * cut inside a bucket: the synchronizer rolls back to the last message it still shares with L1 after a reorg, and
+   * that message need not be the last of its bucket. Must run inside the removal transaction, after the total message
+   * count has been updated.
    */
   private async rewindBucketsAfterRemoval(): Promise<void> {
     const lastRemaining = await this.getLastMessage();
     const boundarySeq = lastRemaining?.bucketSeq;
 
-    // Delete snapshots (and their timestamp index entries) for buckets entirely past the surviving tip.
     const deleteFromKey = boundarySeq === undefined ? 0 : this.bucketSeqToKey(boundarySeq) + 1;
     for await (const [seqKey, snapBuffer] of this.#inboxBuckets.entriesAsync({ start: deleteFromKey })) {
       const snapshot = deserializeBucketSnapshot(snapBuffer);
-      await this.#bucketTimestampToSeq.delete(this.timestampToKey(snapshot.timestamp));
+      await this.#bucketTimestampToSeq.deleteValue(this.timestampToKey(snapshot.timestamp), seqKey);
       await this.#inboxBuckets.delete(seqKey);
     }
 
-    // Recompute the boundary bucket from its surviving messages. This also restores its timestamp index entry if a
-    // just-deleted rollover bucket shared the timestamp.
-    if (lastRemaining !== undefined && boundarySeq !== undefined) {
-      let msgCount = 0;
-      for await (const msg of this.iterateL1ToL2Messages({ reverse: true })) {
-        if (msg.bucketSeq !== boundarySeq) {
-          break;
-        }
-        msgCount += 1;
-      }
-      const stored = await this.getBucketSnapshotBySeq(boundarySeq);
-      await this.writeBucketSnapshot(boundarySeq, {
-        inboxRollingHash: lastRemaining.inboxRollingHash,
-        totalMsgCount: await this.getTotalL1ToL2MessageCount(),
-        timestamp: lastRemaining.bucketTimestamp,
-        l1BlockNumber: stored?.l1BlockNumber ?? lastRemaining.l1BlockNumber,
-        msgCount,
-        firstMessageIndex: stored?.firstMessageIndex ?? lastRemaining.index - BigInt(msgCount) + 1n,
-        lastMessageIndex: lastRemaining.index,
-      });
+    if (lastRemaining === undefined || boundarySeq === undefined) {
+      return;
     }
+    let msgCount = 0;
+    for await (const msg of this.iterateL1ToL2Messages({ reverse: true })) {
+      if (msg.bucketSeq !== boundarySeq) {
+        break;
+      }
+      msgCount += 1;
+    }
+    const stored = await this.getSyncedBucketSnapshot(boundarySeq);
+    await this.writeBucketSnapshot(boundarySeq, {
+      ...stored,
+      inboxRollingHash: lastRemaining.inboxRollingHash,
+      totalMsgCount: await this.getTotalL1ToL2MessageCount(),
+      msgCount,
+      lastMessageIndex: lastRemaining.index,
+    });
   }
 
   /**
@@ -495,13 +500,22 @@ export class MessageStore {
    * was opened strictly after it (AZIP-22 Fast Inbox).
    */
   public async getLatestInboxBucketAtOrBefore(timestamp: bigint): Promise<InboxBucket | undefined> {
-    // Bucket timestamps are non-decreasing in sequence number, and the index holds the highest sequence per
-    // timestamp. A reverse scan bounded above (inclusively) by the requested timestamp yields, first, the value
-    // at the largest timestamp at-or-before it — the bucket sequence we want.
-    const [seq] = await toArray(
-      this.#bucketTimestampToSeq.valuesAsync({ end: this.timestampToKey(timestamp), reverse: true, limit: 1 }),
-    );
-    return seq === undefined ? undefined : this.getInboxBucket(BigInt(seq));
+    // Bucket timestamps are non-decreasing in sequence number, so the bucket we want is the highest sequence indexed
+    // at the largest timestamp at-or-before the requested one. A reverse scan bounded above (inclusively) by that
+    // timestamp visits it first; rollover buckets share a timestamp, so keep the highest of its sequences.
+    let latestTimestampKey: number | undefined;
+    let latestSeqKey: number | undefined;
+    for await (const [timestampKey, seqKey] of this.#bucketTimestampToSeq.entriesAsync({
+      end: this.timestampToKey(timestamp),
+      reverse: true,
+    })) {
+      if (latestTimestampKey !== undefined && timestampKey !== latestTimestampKey) {
+        break;
+      }
+      latestTimestampKey = timestampKey;
+      latestSeqKey = latestSeqKey === undefined ? seqKey : Math.max(latestSeqKey, seqKey);
+    }
+    return latestSeqKey === undefined ? undefined : this.getInboxBucket(BigInt(latestSeqKey));
   }
 
   /**
@@ -551,6 +565,11 @@ export class MessageStore {
   }
 
   private async writeBucketSnapshot(seq: bigint, snapshot: BucketSnapshot): Promise<void> {
+    // A reorg can re-deliver a bucket from an L1 block mined at a different timestamp, so drop the stale index entry.
+    const stored = await this.getBucketSnapshotBySeq(seq);
+    if (stored !== undefined && stored.timestamp !== snapshot.timestamp) {
+      await this.#bucketTimestampToSeq.deleteValue(this.timestampToKey(stored.timestamp), this.bucketSeqToKey(seq));
+    }
     await this.#inboxBuckets.set(this.bucketSeqToKey(seq), serializeBucketSnapshot(snapshot));
     await this.#bucketTimestampToSeq.set(this.timestampToKey(snapshot.timestamp), this.bucketSeqToKey(seq));
   }

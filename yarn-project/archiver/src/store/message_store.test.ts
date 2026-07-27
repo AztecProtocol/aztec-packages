@@ -529,6 +529,39 @@ describe('MessageStore', () => {
       expect((await messageStore.getLatestInboxBucketAtOrBefore(200n))!.seq).toEqual(2n);
     });
 
+    it('keeps rollover siblings indexed when a bucket sharing their timestamp is removed', async () => {
+      // Three buckets rolling over within one L1 block, so all three share timestamp 100.
+      const msgs = makeBucketedMessages([
+        { seq: 1n, timestamp: 100n },
+        { seq: 2n, timestamp: 100n },
+        { seq: 3n, timestamp: 100n },
+      ]);
+      await messageStore.addL1ToL2MessageBuckets(msgs);
+
+      await messageStore.removeL1ToL2Messages(msgs[2].index);
+
+      expect(await messageStore.getInboxBucket(3n)).toBeUndefined();
+      expect(await messageStore.getInboxBucket(1n)).toMatchObject({ msgCount: 1, totalMsgCount: 1n });
+      expect((await messageStore.getLatestInboxBucketAtOrBefore(100n))!.seq).toEqual(2n);
+    });
+
+    it('reindexes a bucket re-delivered from an L1 block with a different timestamp', async () => {
+      const msgs = makeBucketedMessages(threeBucketSpec);
+      await messageStore.addL1ToL2MessageBuckets(msgs.slice(0, 3));
+      await messageStore.removeL1ToL2Messages(msgs[2].index);
+
+      // The reorged L1 block holding bucket 1 was re-mined at a later timestamp.
+      const replayed = [msgs[0], msgs[1], makeNextMessage(msgs[1], { seq: 1n, timestamp: 100n })].map(msg => ({
+        ...msg,
+        bucketTimestamp: 150n,
+      }));
+      await messageStore.addL1ToL2MessageBuckets(replayed);
+
+      expect(await messageStore.getInboxBucket(1n)).toMatchObject({ timestamp: 150n, msgCount: 3 });
+      expect(await messageStore.getLatestInboxBucketAtOrBefore(100n)).toBeUndefined();
+      expect((await messageStore.getLatestInboxBucketAtOrBefore(150n))!.seq).toEqual(1n);
+    });
+
     it('clears all buckets when every message is removed', async () => {
       const msgs = makeBucketedMessages(threeBucketSpec);
       await messageStore.addL1ToL2MessageBuckets(msgs);
