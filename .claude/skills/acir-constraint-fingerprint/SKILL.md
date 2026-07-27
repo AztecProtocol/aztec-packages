@@ -10,6 +10,7 @@ description: >-
 # ACIR Production Chain → Component Dump → FunctionFingerprint
 
 > **Orchestrator:** skill `boomerang-constraint-validator`. This file is **Phase 1 (Production mirror + dump)** only.
+> **Pre-check:** approved `<slug>_tz.md` from `boomerang-validator-intake` (or user skip intake). Works for any ACIR opcode named in that TZ.
 
 ## Hard rule
 
