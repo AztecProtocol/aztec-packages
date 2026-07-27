@@ -5,7 +5,7 @@ pragma solidity >=0.8.27;
 import {Test} from "forge-std/Test.sol";
 import {TestERC20} from "src/mock/TestERC20.sol";
 import {IERC20} from "@oz/token/ERC20/IERC20.sol";
-import {IInbox} from "@aztec/core/interfaces/messagebridge/IInbox.sol";
+import {IInbox, MAX_MSGS_PER_BUCKET} from "@aztec/core/interfaces/messagebridge/IInbox.sol";
 import {InboxHarness} from "./harnesses/InboxHarness.sol";
 import {TestConstants} from "./harnesses/TestConstants.sol";
 import {Constants} from "@aztec/core/libraries/ConstantsGen.sol";
@@ -44,7 +44,7 @@ contract InboxBucketsFuzzTest is Test {
   function setUp() public {
     IERC20 feeAsset = new TestERC20("Fee Asset", "FA", address(this));
     inbox = new InboxHarness(address(this), feeAsset, version, TestConstants.AZTEC_INBOX_BUCKET_RING_SIZE);
-    cap = inbox.MAX_MSGS_PER_BUCKET();
+    cap = MAX_MSGS_PER_BUCKET;
   }
 
   /// forge-config: default.fuzz.runs = 128
