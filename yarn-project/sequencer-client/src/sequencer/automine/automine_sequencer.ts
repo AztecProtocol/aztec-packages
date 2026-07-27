@@ -470,7 +470,7 @@ export class AutomineSequencer {
 
     await using fork = await this.deps.worldState.fork(syncedToBlockNumber, { closeDelayMs: 0 });
 
-    // Streaming Inbox (AZIP-22 Fast Inbox): automine builds a single-block checkpoint, so its one block is the
+    // Streaming Inbox: automine builds a single-block checkpoint, so its one block is the
     // checkpoint's final block; select its bundle from the newest lag-eligible bucket with the last-block censorship
     // floor. The parent total is the fork's L1-to-L2 leaf count (compact indexing), which resolves the parent bucket.
     const parentInfo = await fork.getTreeInfo(MerkleTreeId.L1_TO_L2_MESSAGE_TREE);

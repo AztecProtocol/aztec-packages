@@ -110,8 +110,8 @@ describe('prover/orchestrator/top-tree', () => {
   }
 
   /**
-   * Like {@link driveSubTree} but distributes the checkpoint's messages across its blocks (streaming Inbox,
-   * AZIP-22): block `i` carries `l1ToL2MessagesPerBlock[i]` as its own slice. A zero-tx entry in `numTxsPerBlock`
+   * Like {@link driveSubTree} but distributes the checkpoint's messages across its blocks (streaming Inbox):
+   * block `i` carries `l1ToL2MessagesPerBlock[i]` as its own slice. A zero-tx entry in `numTxsPerBlock`
    * whose slice is non-empty produces a message-only block, proven by the msgs-only block root.
    */
   async function driveSubTreeWithMessageSlices(l1ToL2MessagesPerBlock: Fr[][], numTxsPerBlock: number[]) {
@@ -186,7 +186,7 @@ describe('prover/orchestrator/top-tree', () => {
   });
 
   it('produces an epoch proof when messages span blocks, including a message-only block', async () => {
-    // The streaming Inbox (AZIP-22 Fast Inbox) shapes, driven through the entire proving DAG at simulated-circuit
+    // The streaming Inbox shapes, driven through the entire proving DAG at simulated-circuit
     // fidelity: a checkpoint whose messages land in a non-first block, a zero-tx message-only block (proven by the
     // msgs-only block root), a block merge above the three block roots, the two-input checkpoint root over per-block
     // bundles, the single-block checkpoint root for the follow-on checkpoints, the checkpoint merge asserting inbox

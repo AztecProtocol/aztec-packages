@@ -23,7 +23,7 @@ describe('MAX_CAPACITY_BLOCKS_PER_CHECKPOINT', () => {
 
   // Largest checkpoint that fits in the blob budget with the most compact construction:
   // one (possibly empty) first block + (N - 1) single-nullifier blocks + a checkpoint-end marker. Every block
-  // spends the same block-end overhead (including the per-block l1-to-l2 root) post-flip (AZIP-22 Fast Inbox).
+  // spends the same block-end overhead, including the per-block l1-to-l2 root.
   // This is the real ceiling the proving system / L1 enforce — there is no explicit block-count cap.
   const blobBudget = BLOBS_PER_CHECKPOINT * FIELDS_PER_BLOB;
   const maxBlocksThatFitInBlobs =

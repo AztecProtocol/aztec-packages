@@ -551,7 +551,7 @@ contract ValidatorSelectionTest is ValidatorSelectionTestBase {
       header.gasFees.feePerL2Gas = manaMinFee;
     }
 
-    // Streaming Inbox (AZIP-22 Fast Inbox): reference the newest bucket, consuming the messages seeded above.
+    // Streaming Inbox: reference the newest bucket, consuming the messages seeded above.
     uint256 bucketHint = inbox.getCurrentBucketSeq();
     header.inboxRollingHash = inbox.getBucket(bucketHint).rollingHash;
 

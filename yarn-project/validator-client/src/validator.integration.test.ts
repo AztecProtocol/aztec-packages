@@ -49,7 +49,7 @@ describe('ValidatorClient Integration', () => {
   // Constants for L1
   const l1Constants: L1RollupConstants = {
     // Non-zero genesis time so the slot-1 validation clock is well past INBOX_LAG_SECONDS; otherwise the streaming
-    // Inbox acceptance check rejects even a genesis-timestamp (0) bucket as `bucket_too_new` (AZIP-22 Fast Inbox).
+    // Inbox acceptance check rejects even a genesis-timestamp (0) bucket as `bucket_too_new`.
     l1GenesisTime: 1_700_000_000n,
     slotDuration: 24,
     epochDuration: 16,
@@ -259,8 +259,8 @@ describe('ValidatorClient Integration', () => {
     });
 
     // Resolve the Inbox bucket this block consumed through (keyed by its cumulative L1-to-L2 leaf count) and attach
-    // the reference, mirroring the sequencer's block-building loop which carries a bucketRef on every proposal
-    // (AZIP-22 Fast Inbox). Without it the validator's streaming acceptance check rejects the proposal as
+    // the reference, mirroring the sequencer's block-building loop which carries a bucketRef on every proposal.
+    // Without it the validator's streaming acceptance check rejects the proposal as
     // `bucket_unknown`. A block that consumed nothing resolves to the genesis (or reused parent) bucket.
     const blockTotal = BigInt(block.header.state.l1ToL2MessageTree.nextAvailableLeafIndex);
     const bucket = await proposer.archiver.getInboxBucketByTotalMsgCount(blockTotal);

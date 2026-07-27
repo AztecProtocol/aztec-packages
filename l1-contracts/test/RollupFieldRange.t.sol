@@ -175,7 +175,7 @@ contract RollupFieldRangeTest is RollupBase {
 
     vm.blobhashes(this.getBlobHashes(full.checkpoint.blobCommitments));
 
-    // Streaming Inbox (AZIP-22 Fast Inbox): nothing is seeded here, so reference the genesis bucket (hash 0).
+    // Streaming Inbox: nothing is seeded here, so reference the genesis bucket (hash 0).
     header.inboxRollingHash = bytes32(0);
 
     ProposeArgs memory args =

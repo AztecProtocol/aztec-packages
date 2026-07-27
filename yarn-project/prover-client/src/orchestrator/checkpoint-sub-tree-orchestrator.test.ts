@@ -224,8 +224,8 @@ describe('prover/orchestrator/checkpoint-sub-tree', () => {
     // A checkpoint whose messages span more than one block: the first block carries a bundle, a middle block
     // carries none (txs only), and the last block carries a bundle with zero txs (a message-only block, proven by
     // the msgs-only block root). The sub-tree must append each block's own slice at compact indices with
-    // contiguous, non-overlapping per-block snapshots, and thread the message sponge across the blocks (AZIP-22
-    // Fast Inbox). The sub-tree result surfaces post-merge top-level nodes (at most two, for the binary
+    // contiguous, non-overlapping per-block snapshots, and thread the message sponge across the blocks.
+    // The sub-tree result surfaces post-merge top-level nodes (at most two, for the binary
     // checkpoint root), not one output per block.
     const l1ToL2MessagesPerBlock = [[new Fr(1001), new Fr(1002)], [], [new Fr(1003), new Fr(1004), new Fr(1005)]];
     const numBlocks = l1ToL2MessagesPerBlock.length;

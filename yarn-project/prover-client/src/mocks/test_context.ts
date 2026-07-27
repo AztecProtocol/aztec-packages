@@ -197,7 +197,7 @@ export class TestContext {
 
     const fork = await this.worldState.fork();
 
-    // Build l1 to l2 messages. Appended unpadded at compact indices (AZIP-22 Fast Inbox); the mock assigns them all to
+    // Build l1 to l2 messages. Appended unpadded at compact indices; the mock assigns them all to
     // the checkpoint's first block, matching how the per-block driver slices them.
     const l1ToL2Messages = times(numL1ToL2Messages, i => new Fr(slotNumber * 100 + i));
     await fork.appendLeaves(MerkleTreeId.L1_TO_L2_MESSAGE_TREE, l1ToL2Messages);
@@ -292,7 +292,7 @@ export class TestContext {
 
   /**
    * Like {@link makeCheckpoint} but distributes the L1-to-L2 message bundle across the checkpoint's blocks
-   * (streaming Inbox / AZIP-22 Fast Inbox): `l1ToL2MessagesPerBlock[i]` is block `i`'s own message slice,
+   * (streaming Inbox): `l1ToL2MessagesPerBlock[i]` is block `i`'s own message slice,
    * appended at compact indices in insertion order. Lets tests exercise checkpoints whose messages span more
    * than one block, including a non-first block carrying a bundle — the single-block-per-checkpoint
    * `makeCheckpoint` puts every message in the first block. `numTxsPerBlock` defaults to 1 because the builder

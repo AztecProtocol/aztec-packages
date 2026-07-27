@@ -1393,7 +1393,7 @@ export class BlockStore {
       const archive = lastBlock.archive;
       const checkpointOutHash = Checkpoint.getCheckpointOutHash(blocks);
       // The last block's L1-to-L2 leaf count is the checkpoint's cumulative consumed Inbox total under compact
-      // indexing, which is what `propose` records on L1 for it (AZIP-22 Fast Inbox).
+      // indexing, which is what `propose` records on L1 for it.
       const inboxMsgTotal = BigInt(lastBlock.header.state.l1ToL2MessageTree.nextAvailableLeafIndex);
 
       await this.#proposedCheckpoints.set(proposed.checkpointNumber, {

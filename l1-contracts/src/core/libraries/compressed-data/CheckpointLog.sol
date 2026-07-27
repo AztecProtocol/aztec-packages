@@ -34,7 +34,7 @@ struct TempCheckpointLog {
   bytes32 attestationsHash;
   bytes32 payloadDigest;
   Slot slotNumber;
-  // Streaming Inbox consumption counts (AZIP-22 Fast Inbox). `inboxMsgTotal` is the cumulative Inbox message count
+  // Streaming Inbox consumption counts. `inboxMsgTotal` is the cumulative Inbox message count
   // consumed as of this checkpoint (the child's parent-total origin); `inboxConsumedBucket` is the bucket sequence
   // number the header's rolling hash corresponds to. Declared next to the slot number so the three share one storage
   // slot (4 + 8 + 8 of 32 bytes): propose writes and reads that slot for the slot-progression check anyway.

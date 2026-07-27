@@ -19,9 +19,9 @@ import { createL1ToL2MessageHelpers } from './message_test_helpers.js';
 
 jest.setTimeout(600_000);
 
-// Streaming Inbox (AZIP-22 Fast Inbox / FI-15) e2e coverage the legacy suite could not express: pre-flip
-// every L1->L2 message entered at the first block of the *next* checkpoint, so mid-checkpoint inclusion,
-// message-only blocks, and per-block streaming latency had no observable surface. Runs the production
+// Streaming Inbox e2e coverage the legacy per-checkpoint suite could not express: when every L1->L2 message
+// entered at the first block of the *next* checkpoint, mid-checkpoint inclusion, message-only blocks, and
+// per-block streaming latency had no observable surface. Runs the production
 // pipelining sequencer via CrossChainMessagingTest with a widened slot (36s / 6s blocks -> up to ~4 blocks
 // per checkpoint) so a message can become lag-eligible partway through a checkpoint and land in a non-first
 // block. minTxsPerBlock=0 lets a checkpoint carry a zero-tx block whose only content is a streaming bundle.

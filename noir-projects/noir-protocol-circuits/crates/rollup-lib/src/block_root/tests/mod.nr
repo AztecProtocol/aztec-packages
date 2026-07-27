@@ -281,7 +281,7 @@ impl TestBuilder {
     }
 
     // The block's message bundle: exactly `num_msgs` real leaves, appended compactly to the tree and absorbed into the
-    // message sponge (AZIP-22 Fast Inbox).
+    // message sponge.
     fn message_bundle(self) -> L1ToL2MessageBundle {
         L1ToL2MessageBundle { messages: self.l1_to_l2_messages, num_msgs: self.num_msgs }
     }
