@@ -80,7 +80,7 @@ For details on how rollup upgrades work, see [Network Upgrades](/participate/gov
 
 ## Security disclosures
 
-We expect bugs, including critical ones, to be discovered during Alpha. Aztec is preparing a bug bounty program and actively conducts internal and external reviews.
+We expect bugs, including critical ones, to be discovered during Alpha. Aztec runs a live [bug bounty program on Cantina](https://cantina.xyz/bounties/80e74370-10d8-4e52-8e4b-7294deb7c9ee) and actively conducts internal and external reviews.
 
 ### Reporting vulnerabilities
 

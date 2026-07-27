@@ -8,9 +8,13 @@ displayed_sidebar: participateSidebar
 
 Network upgrades transition the Aztec network to a new rollup contract instance. This page explains why upgrades happen, how the Registry model works, and how validators migrate to new versions.
 
+:::tip TL;DR for token holders
+Upgrades deploy a new rollup contract alongside the old one; old versions keep working, and nothing is overwritten in place. Validators who follow the "latest" rollup migrate automatically. As a user or token holder you normally do not need to act; see the [Alpha Network](/participate/alpha) page for what upgrades mean for your funds.
+:::
+
 For the detailed governance stages (signaling, voting, execution), see [Proposal Lifecycle](./proposal-lifecycle).
 
-## Why Upgrades Happen
+## Why upgrades happen
 
 The Aztec protocol evolves over time. Common reasons for upgrades include:
 
@@ -19,7 +23,7 @@ The Aztec protocol evolves over time. Common reasons for upgrades include:
 - **Performance Improvements**: Optimizing proof generation or block processing
 - **Parameter Changes**: Adjusting staking requirements, fees, or timing
 
-## The Registry Model
+## The Registry model
 
 The Aztec governance system maintains a [Registry](https://github.com/AztecProtocol/aztec-packages/blob/master/l1-contracts/src/governance/Registry.sol) of all rollup contract instances. This design enables:
 
@@ -29,29 +33,29 @@ The Aztec governance system maintains a [Registry](https://github.com/AztecProto
 
 When an upgrade passes governance, the new rollup address is added to the Registry via `addRollup()`.
 
-## Validator Transition
+## Validator transition
 
 The [GSE](./gse) enables smooth validator transitions during upgrades.
 
-### Automatic Migration
+### Automatic migration
 
 Validators who deposited with `moveWithLatestRollup = true`:
 - Stake automatically becomes available to the new rollup
-- No action required—they can validate immediately
+- No action required; they can validate immediately
 - Voting power moves with their stake
 
-### Manual Migration
+### Manual migration
 
 Validators who deposited with `moveWithLatestRollup = false`:
 - Must initiate withdrawal from the old rollup (has a delay)
 - Then deposit into the new rollup (may have an entry queue)
 - Temporary gap in validation ability
 
-### Best Practice
+### Best practice
 
 Use `moveWithLatestRollup = true` for seamless upgrades. Only use `false` if you specifically want to remain on an older rollup version.
 
-## After an Upgrade
+## After an upgrade
 
 Once an upgrade is executed:
 
@@ -59,7 +63,7 @@ Once an upgrade is executed:
 
 2. **Old Rollup Remains Accessible**: Users can still bridge assets in/out; validators with unmoved stake can still operate
 
-## Related Topics
+## Related topics
 
 - [Proposal Lifecycle](./proposal-lifecycle) - Detailed stages from signaling to execution
 - [GSE and Stake Mobility](./gse) - How stake transitions work

@@ -8,7 +8,7 @@ displayed_sidebar: participateSidebar
 
 The $AZTEC token is the native token of the Aztec network. It serves multiple essential functions that keep the network secure and operational.
 
-## Token Specifications
+## Token specifications
 
 | Property | Value |
 |----------|-------|
@@ -23,11 +23,11 @@ The $AZTEC token is the native token of the Aztec network. It serves multiple es
 Please verify the contract address and other specifications with official Aztec sources before interacting with the token.
 :::
 
-## Token Utility
+## Token utility
 
 The $AZTEC token has three primary uses:
 
-### 1. Transaction Fees
+### 1. Transaction fees
 All transactions on Aztec require fees. Fees are paid in [Fee Juice](/participate/basics/fees), a non-transferable fee asset created by bridging $AZTEC from Ethereum into Aztec. This covers:
 - Sending private transactions
 - Interacting with smart contracts
@@ -51,14 +51,14 @@ $AZTEC holders can participate in protocol governance:
 
 The $AZTEC token has a fixed initial supply with a controlled inflation mechanism to fund network rewards.
 
-### Inflation Rate
+### Inflation rate
 
 The protocol has a nominal annual inflation rate defined in the CoinIssuer contract. This rate:
 - Funds rewards for sequencers and provers
 - Is capped and cannot be changed after deployment
 - Represents the maximum possible inflation (actual may be lower)
 
-### Token Distribution
+### Token distribution
 
 Checkpoint rewards are distributed each slot:
 - **70%** to block proposers (sequencers)
@@ -66,7 +66,7 @@ Checkpoint rewards are distributed each slot:
 
 See [Economics & Rewards](/participate/token/economics) for detailed information on how rewards work.
 
-## How to Participate
+## How to participate
 
 As a token holder, you have several options:
 
@@ -77,7 +77,7 @@ As a token holder, you have several options:
 | **[Vote](/participate/token/voting)** | Participate in governance | Hold staked or governance-locked tokens |
 
 #if(testnet)
-## Getting Testnet Tokens
+## Getting testnet tokens
 
 To participate in the Aztec testnet, you'll need testnet tokens. Visit the **[Aztec Testnet Faucet](https://testnet.aztec.network/)** to get started.
 
@@ -91,7 +91,7 @@ You'll also need Sepolia ETH for L1 transaction fees:
 - [Infura Sepolia Faucet](https://www.infura.io/faucet/sepolia)
 #endif
 
-## Understanding the Risks
+## Understanding the risks
 
 Before staking or participating, understand:
 

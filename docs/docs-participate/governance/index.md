@@ -10,7 +10,7 @@ import Image from "@theme/IdealImage";
 
 The Aztec network is governed by its community through an onchain governance system. This system allows the network to upgrade rollup contracts, adjust parameters, and evolve over time while maintaining security and decentralization.
 
-## Quick Summary for Token Holders
+## Quick summary for token holders
 
 If you're a token holder looking to participate in governance, here's what you need to know:
 
@@ -22,7 +22,7 @@ If you're a token holder looking to participate in governance, here's what you n
 
 For step-by-step instructions, see [Voting on Proposals](/participate/token/voting).
 
-## Design Goals
+## Design goals
 
 The governance system is designed around two core requirements:
 
@@ -31,21 +31,21 @@ The governance system is designed around two core requirements:
 
 These goals shape the entire governance architecture, from how rollups are tracked to how upgrades are proposed and executed.
 
-## How Governance Works
+## How governance works
 
 <Image img={require("@site/static/img/governance.png")} />
 
 Governance follows a multi-stage process:
 
 1. **Signaling**: Block producers on the canonical rollup signal support for a payload by calling `signal()` on the Governance Proposer during their assigned slots
-2. **Quorum**: When enough signals are received within a round (e.g., 151 out of 300 slots), the payload qualifies for proposal
+2. **Quorum**: When enough signals are received within a round (600 out of 1,000 slots on mainnet), the payload qualifies for proposal
 3. **Proposal Creation**: Anyone can call `submitRoundWinner()` to formally submit the payload as a proposal to Governance
 4. **Voting**: Token holders vote on the proposal using their voting power (determined at the moment voting opens)
 5. **Execution**: After the voting period and execution delay, anyone can trigger execution of approved proposals
 
 All signaling and voting happen on L1 (Ethereum).
 
-## Core Contracts
+## Core contracts
 
 The governance system consists of several interconnected smart contracts:
 
@@ -79,7 +79,7 @@ The [GSE](https://github.com/AztecProtocol/aztec-packages/blob/master/l1-contrac
 
 See [GSE and Stake Mobility](/participate/governance/gse) for details.
 
-## Key Concepts
+## Key concepts
 
 ### Payloads
 
@@ -87,26 +87,26 @@ A **payload** is a contract that defines the actions to be executed if a proposa
 
 For example, a payload to register a new rollup would include a call to `Registry.addRollup(newRollupAddress)`.
 
-### Rounds and Slots
+### Rounds and slots
 
-The signaling system operates in **rounds**, where each round consists of a fixed number of **slots** (e.g., 300 slots per round). A slot corresponds to approximately 36 seconds of L2 time.
+The signaling system operates in **rounds**, where each round consists of a fixed number of **slots** (1,000 slots per round on mainnet, 100 on testnet). A slot is 72 seconds of L2 time, so a mainnet round lasts about 20 hours.
 
 During each slot, only the designated block proposer can signal for a payload. This prevents timing games and ensures signaling reflects genuine validator support.
 
 ### Quorum
 
-For a payload to become a proposal, it must receive signals from a quorum of slots within a single round. For example, if quorum is set to 151 out of 300 slots, at least 151 different block proposers must signal for the same payload address within one round.
+For a payload to become a proposal, it must receive signals from a quorum of slots within a single round. With mainnet's quorum of 600 out of 1,000 slots, at least 600 block-proposer slots must signal for the same payload address within one round.
 
-### Voting Power
+### Voting power
 
 Voting power in Governance comes from depositing tokens. Key points:
 
 - Power is timestamped at deposit time
 - When voting on a proposal, only power you had *before* the proposal became active counts
-- Withdrawing requires a two-step process with a delay (on the order of days)
+- Withdrawing requires a two-step process with a delay (~9.6 days on mainnet)
 - Partial voting is allowed (e.g., vote "yea" with half your power, "nay" with the other half)
 
-## Topics in This Section
+## Topics in this section
 
 - [Proposal Lifecycle](/participate/governance/proposal-lifecycle) - The complete journey from payload to execution
 - [Voting](/participate/governance/voting) - How voting power works and how votes are cast
@@ -114,7 +114,7 @@ Voting power in Governance comes from depositing tokens. Key points:
 - [Upgrades](/participate/governance/upgrades) - The end-to-end process for network upgrades
 - [L1 Contracts](/participate/governance/contracts) - Smart contracts that power governance
 
-## Related Guides
+## Related guides
 
 :::tip For Sequencer Operators
 To participate in governance as a sequencer (signaling and voting), see [Governance Participation](/operate/operators/sequencer-management/creating_and_voting_on_proposals).

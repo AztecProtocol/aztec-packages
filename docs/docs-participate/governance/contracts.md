@@ -6,11 +6,11 @@ displayed_sidebar: participateSidebar
 
 # L1 Contracts
 
-:::warning Work in Progress
-This page provides a high-level overview of Aztec's governance contracts. The contract interfaces and implementations are still evolving. For the authoritative source, see the [l1-contracts repository](https://github.com/AztecProtocol/aztec-packages/tree/master/l1-contracts/src/governance).
+:::note
+This page is a high-level overview of Aztec's governance contracts. The authoritative source is the [l1-contracts repository](https://github.com/AztecProtocol/aztec-packages/tree/master/l1-contracts/src/governance), and the deployed contract addresses for each network are listed on the [networks page](/networks#contract-addresses).
 :::
 
-## Contract Overview
+## Contract overview
 
 The Aztec governance system consists of several L1 smart contracts:
 
@@ -61,7 +61,7 @@ Key features:
 
 See [GSE and Stake Mobility](/participate/governance/gse) for details.
 
-## Related Topics
+## Related topics
 
 - [Governance Overview](/participate/governance) - How the governance system works
 - [Proposal Lifecycle](/participate/governance/proposal-lifecycle) - Stages from signaling to execution

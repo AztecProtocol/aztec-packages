@@ -8,7 +8,7 @@ displayed_sidebar: participateSidebar
 
 This section covers the fundamental concepts you need to understand how Aztec works. Whether you're a user, token holder, or just curious about the technology, these pages explain the core ideas without requiring technical expertise.
 
-## What You'll Learn
+## What you'll learn
 
 ### [Addresses](/participate/basics/addresses)
 Every account on Aztec has an address, but they work differently from Ethereum addresses. Learn how Aztec's privacy-first design creates addresses that can receive funds even before the account exists.

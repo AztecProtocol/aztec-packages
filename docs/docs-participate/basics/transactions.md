@@ -8,7 +8,7 @@ displayed_sidebar: participateSidebar
 
 Transactions on Aztec work differently from traditional blockchains. The most significant difference is that your device proves the transaction before it's sent to the network.
 
-## The Key Difference: Client-Side Proving
+## The key difference: client-side proving
 
 On Ethereum, you sign a transaction and send it to the network. Miners or validators then execute and validate it.
 
@@ -20,7 +20,7 @@ On Aztec, your wallet does more work:
 
 This is called "client-side proving" and it's what enables Aztec's privacy.
 
-## Why Client-Side Proving Matters
+## Why client-side proving matters
 
 ### Privacy
 Because private execution happens on your device, the network never sees your private inputs. A private transfer doesn't reveal who sent it, who received it, or how much - just a proof that the rules were followed.
@@ -28,38 +28,38 @@ Because private execution happens on your device, the network never sees your pr
 ### Correctness
 The proof guarantees that private execution was performed correctly. The sequencer cannot alter the outcome of your private function calls - it can only verify the proof and include the transaction.
 
-### Account Abstraction
+### Account abstraction
 Because your account contract runs on your device, you can define custom authentication logic (like multisig or social recovery) without adding complexity for the network.
 
-## Transaction Lifecycle
+## Transaction lifecycle
 
 Here's what happens when you send a transaction:
 
 ### 1. Initiation
 You decide to make a transfer, interact with a contract, or perform some action. Your wallet prepares the transaction.
 
-### 2. Private Execution
+### 2. Private execution
 Your wallet (specifically the PXE - Private eXecution Environment) executes the private portion of the transaction locally. This determines what private state changes will happen.
 
-### 3. Proof Generation
+### 3. Proof generation
 Your wallet generates a zero-knowledge proof of the private execution. This proves correctness without revealing private information.
 
 ### 4. Submission
 The transaction request - including the private proof and any public function calls - is sent to the network.
 
-### 5. Sequencer Processing
+### 5. Sequencer processing
 The sequencer verifies the private proof and executes any public function calls. Public execution happens on the sequencer, not on your device, since it reads from and writes to public state that is shared across the network.
 
-### 6. Block Production
-The sequencer assembles transactions into a block and proposes it. Validators in the committee validate and attest to the block.
+### 6. Block production
+The sequencer assembles transactions into a block and proposes it. Validators in the committee (a randomly selected group of sequencers, see [Blocks](/participate/basics/blocks)) validate and attest to the block.
 
-### 7. Epoch Proving
+### 7. Epoch proving
 Provers generate a rollup proof covering all transactions in the epoch, aggregating the work into a single proof.
 
-### 8. L1 Settlement
+### 8. L1 settlement
 The epoch proof is submitted to Ethereum. Once verified on L1, the state transition is finalized.
 
-## Private vs Public Transactions
+## Private vs public transactions
 
 Aztec supports both private and public execution:
 
@@ -67,12 +67,12 @@ Aztec supports both private and public execution:
 |--------|---------|--------|
 | Execution location | Your device | Sequencer |
 | Data visibility | Hidden | Visible |
-| State model | Notes (like UTXOs) | Storage (like Ethereum) |
+| State model | Notes (individual private "coins", like Bitcoin's UTXOs) | Storage (like Ethereum) |
 | Proof generation | You | Network |
 
 Many transactions use both - private functions first, then public functions.
 
-## What the Network Sees
+## What the network sees
 
 Even with privacy, some information is visible:
 
@@ -86,7 +86,7 @@ What stays private:
 - Transaction amounts (for private transfers)
 - Which accounts are involved (for private interactions)
 
-## Transaction Speed
+## Transaction speed
 
 Transaction finality depends on several factors:
 

@@ -8,7 +8,7 @@ displayed_sidebar: participateSidebar
 
 If you want to participate in staking but don't want to run your own infrastructure, you can delegate your tokens to professional operators who run sequencers on your behalf.
 
-## Before You Delegate
+## Before you delegate
 
 Understanding these concepts will help you choose the right operator:
 
@@ -16,7 +16,7 @@ Understanding these concepts will help you choose the right operator:
 - [Economics & Rewards](/participate/token/economics) - how rewards are distributed
 - [How governance works](/participate/governance) - understand voting power
 
-## How Delegation Works
+## How delegation works
 
 When you delegate tokens to an operator:
 
@@ -25,16 +25,16 @@ When you delegate tokens to an operator:
 3. **Rewards are shared** between you and the operator based on their fee structure
 4. **Slashing risk is shared** - if the operator misbehaves, your delegated stake can be slashed
 
-## Choosing an Operator
+## Choosing an operator
 
 When selecting an operator to delegate to, consider:
 
-### Performance Metrics
+### Performance metrics
 - **Uptime**: How reliably does the operator maintain their infrastructure?
 - **Attestation Rate**: Do they consistently participate in consensus?
 - **Slashing History**: Have they been slashed before?
 
-### Economic Terms
+### Economic terms
 - **Commission Rate**: What percentage of rewards does the operator keep?
 - **Minimum Delegation**: Is there a minimum amount required?
 
@@ -43,24 +43,26 @@ When selecting an operator to delegate to, consider:
 - **Community Standing**: Are they known in the Aztec community?
 - **Transparency**: Do they communicate openly about their operations?
 
-## Delegation Process
+## Delegation process
 
 ### Prerequisites
 
 - An Ethereum wallet that owns an Aztec Token Vault (the same wallet you connected during the token sale)
 - A Token Vault balance of at least 200,000 AZTEC tokens
 
-:::note Minimum Stake
-You must stake a minimum of 200,000 AZTEC per validator — similar to how Ethereum requires 32 ETH per validator.
+:::note Stake per validator
+Each validator requires a deposit of exactly 200,000 AZTEC, the network's activation threshold (readable from the live Rollup contract), similar to how Ethereum requires 32 ETH per validator.
 :::
 
-### Step 1: Connect Your Wallet
+This guide documents the Token Vault flow used by token sale participants. If you hold $AZTEC without a Token Vault, check the [staking dashboard](https://staking.aztec.network) for the currently supported flows.
+
+### Step 1: Connect your wallet
 
 Navigate to [staking.aztec.network](https://staking.aztec.network) and click **Connect Wallet**. Connect the wallet that owns your Token Vaults.
 
 The dashboard displays all your Token Vaults and an overview of the assets under your control. Click on any Token Vault to view details such as its vesting schedule.
 
-### Step 2: Navigate to the Stake Tab
+### Step 2: Navigate to the stake tab
 
 Above the Token Vaults overview, select the **Stake** tab. You are presented with two options: **Delegate** and **Self-Stake**. Choose **Delegate**.
 
@@ -69,10 +71,10 @@ Above the Token Vaults overview, select the **Stake** tab. You are presented wit
 With delegation, you pay a commission to a provider who runs a sequencer on your behalf. With self-stake, you run your own sequencer, pay no commission, and contribute directly to network decentralization. See the [Sequencer Setup Guide](/operate/operators/setup/sequencer_management) if you prefer self-staking.
 
 :::note Transaction Queue
-The following steps add transactions to a queue — nothing is submitted to the chain until you reach [Step 9](#step-9-execute-batch). At that point, Gnosis Safe wallets execute everything as a single batched transaction, while EOA wallets submit each transaction one by one.
+The following steps add transactions to a queue: nothing is submitted to the chain until you reach [Step 9](#step-9-execute-batch). At that point, Gnosis Safe wallets execute everything as a single batched transaction, while EOA wallets submit each transaction one by one.
 :::
 
-### Step 3: Choose a Provider
+### Step 3: Choose a provider
 
 Click **Choose Provider** and inspect the delegation table to find your preferred operator. Click on any provider to view details including their contact information, commission rate, and capacity.
 
@@ -90,7 +92,7 @@ Some providers appear greyed out because they are not currently accepting delega
 One of your responsibilities as a delegator is choosing good providers without overly centralizing the network. Avoid providers that already have very high staking concentration.
 :::
 
-### Step 4: Select Token Vault and Amount
+### Step 4: Select Token Vault and amount
 
 Choose a Token Vault with at least 200,000 tokens available. Then select how much you want to delegate.
 
@@ -106,9 +108,9 @@ whichever is lower.
 You cannot consolidate multiple Token Vaults into a single delegation. Each vault must be staked individually.
 :::
 
-### Step 5: Set Operator Address
+### Step 5: Set operator address
 
-The operator address controls block submissions for this vault. Confirm the address is correct — this determines who manages sequencer operations and receives reward attribution.
+The operator address controls block submissions for this vault. Confirm the address is correct: this determines who manages sequencer operations and receives reward attribution.
 
 The staking dashboard defaults the operator to the connected wallet address. If you need a separate operator address for security separation, interact directly with the staking contracts via the CLI.
 
@@ -118,7 +120,7 @@ Click **Add to Batch** to continue.
 Setting the operator address is a one-time action per Token Vault. If the vault already has an operator configured, this step is skipped automatically.
 :::
 
-### Step 6: Select Staking Version
+### Step 6: Select staking version
 
 Every Token Vault uses a **Staker Contract** that handles staking and unstaking operations. Governance may periodically approve new staker contract versions that add features (such as unstaking) or improve security.
 
@@ -132,7 +134,7 @@ Click **Add to Batch** to continue.
 Selecting the staking version is a one-time action per Token Vault. If the vault already has a staker version configured, this step is skipped automatically.
 :::
 
-### Step 7: Approve Tokens
+### Step 7: Approve tokens
 
 Approve the staker contract to move funds from your Token Vault. Each validator requires 200,000 tokens, so the approval amount matches your delegation.
 
@@ -140,33 +142,33 @@ Approve the staker contract to move funds from your Token Vault. Each validator 
 
 Review your delegation configuration and click **Delegate** / **Add to Batch**.
 
-### Step 9: Execute Batch
+### Step 9: Execute batch
 
 Review the full set of queued transactions and click **Execute All**.
 
 ![Batch execution review screen](/img/batch-execute.png)
 
 :::tip Subsequent Delegations
-When you delegate again from a vault that already has an operator and staker version configured, Steps 5 and 6 are skipped — making future delegations faster.
+When you delegate again from a vault that already has an operator and staker version configured, Steps 5 and 6 are skipped, making future delegations faster.
 :::
 
-## Managing Your Delegation
+## Managing your delegation
 
-### Monitoring Performance
+### Monitoring performance
 
 Keep track of your delegated stake:
 - Check operator uptime and performance
 - Monitor for any slashing events
 - Review reward distributions
 
-### Changing Operators
+### Changing operators
 
 If you want to switch to a different operator:
 1. Initiate undelegation from your current operator
 2. Wait for the unbonding period
 3. Delegate to your new chosen operator
 
-## Voting with Delegated Stake
+## Voting with delegated stake
 
 By default, when you delegate to an operator, they may vote on your behalf in governance decisions.
 
@@ -175,7 +177,7 @@ To maintain control over your votes:
 - Consider delegating voting power separately from stake
 - See [Voting on Proposals](/participate/token/voting) for voting options
 
-## Next Steps
+## Next steps
 
 - [Learn about voting](/participate/token/voting) with your staked or delegated tokens
 - [Staking Tokens](/participate/token/staking) to understand slashing risks

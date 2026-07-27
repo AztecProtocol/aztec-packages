@@ -8,6 +8,10 @@ displayed_sidebar: participateSidebar
 
 A proposal's journey from idea to execution involves multiple stages, each with specific requirements and timing constraints. This page details each stage of the lifecycle.
 
+:::tip TL;DR for token holders
+Sequencers first signal support for a proposal during ~20-hour signaling rounds (600 of 1,000 slots must signal on mainnet). The winning proposal then goes to a token-holder vote: a 3-day review delay, a 7-day voting period, and a 2-day delay before execution. You do not need the contract-level detail below to participate; see [Voting on Proposals](/participate/token/voting) for the practical guide.
+:::
+
 ## Overview
 
 ```
@@ -24,7 +28,7 @@ A proposal's journey from idea to execution involves multiple stages, each with 
                                                              └─────────────┘
 ```
 
-## Stage 1: Payload Deployment
+## Stage 1: Payload deployment
 
 Before any governance process begins, someone must deploy the contracts that define what the proposal will do:
 
@@ -69,35 +73,35 @@ contract RegisterRollupPayload is IPayload {
 
 Once a payload is deployed, block producers on the canonical rollup can signal support for it.
 
-### How Signaling Works
+### How signaling works
 
-The Governance Proposer operates in **rounds**. Each round consists of `ROUND_SIZE` slots (e.g., 300 slots, approximately 180 minutes at 36 seconds per slot).
+The Governance Proposer operates in **rounds**. Each round consists of `ROUND_SIZE` slots. On mainnet this is 1,000 slots, approximately 20 hours at 72 seconds per slot; on testnet it is 100 slots, approximately 2 hours.
 
 During each slot:
 1. The Governance Proposer queries the canonical rollup for the current proposer
 2. Only that proposer can successfully call `signal(payloadAddress)`
 3. The signal is recorded for the current round
 
-### Reaching Quorum
+### Reaching quorum
 
-A payload reaches quorum when it receives `QUORUM` signals within a single round. For example:
-- Round size: 300 slots
-- Quorum: 151 signals (>50% of round size)
+A payload reaches quorum when it receives `QUORUM` signals within a single round. On mainnet:
+- Round size: 1,000 slots
+- Quorum: 600 signals (60% of round size)
 
-If multiple block proposers signal for the same payload address and it reaches 151 signals before the round ends, that payload wins the round.
+If multiple block proposers signal for the same payload address and it reaches 600 signals before the round ends, that payload wins the round. (Testnet uses 60 signals out of 100 slots.)
 
-### Round Expiration
+### Round expiration
 
 If no payload reaches quorum by the end of a round:
 - All signals for that round are discarded
 - A new round begins
 - Signaling can start fresh for any payload
 
-## Stage 3: Proposal Submission
+## Stage 3: Proposal submission
 
 When a payload reaches quorum, anyone can call `submitRoundWinner()` on the Governance Proposer to formally create a proposal.
 
-### GSE Payload Wrapping
+### GSE payload wrapping
 
 The Governance Proposer doesn't submit the original payload directly. Instead, it wraps it in a [GSEPayload](https://github.com/AztecProtocol/aztec-packages/blob/master/l1-contracts/src/governance/GSEPayload.sol) that:
 
@@ -111,12 +115,12 @@ The GSEPayload validation runs at **execution time**, not at proposal submission
 
 This wrapping prevents proposals that would leave the network without a supermajority of validators on the active rollup.
 
-## Stage 4: Queued (Voting Delay)
+## Stage 4: Queued (voting delay)
 
 After submission, the proposal enters a mandatory waiting period before voting opens.
 
 - **Purpose**: Give the community time to review the proposal
-- **Duration**: Configurable (e.g., 12 hours on testnet)
+- **Duration**: 3 days on mainnet, 12 hours on testnet
 - **State**: Proposal exists but no votes can be cast yet
 
 During this period:
@@ -128,15 +132,15 @@ During this period:
 Voting power is snapshotted at the moment the proposal transitions from Queued to Active. If you want to vote on a proposal, you must have deposited tokens *before* the voting delay ends.
 :::
 
-## Stage 5: Active (Voting Period)
+## Stage 5: Active (voting period)
 
 Once the voting delay passes, the proposal becomes active and voting opens.
 
-- **Duration**: Configurable (e.g., 24 hours on testnet)
+- **Duration**: 7 days on mainnet, 24 hours on testnet
 - **Who can vote**: Anyone with voting power at the snapshot timestamp
 - **Vote options**: "Yea" (support) or "Nay" (oppose)
 
-### Voting Mechanics
+### Voting mechanics
 
 - Votes are weighted by voting power at the snapshot
 - Partial voting is allowed (split your power between yea and nay)
@@ -160,12 +164,12 @@ If the proposal fails to gain sufficient support:
 - It cannot be executed
 - A new proposal would need to go through the entire process again
 
-## Stage 7: Executable (Execution Delay)
+## Stage 7: Executable (execution delay)
 
 Proposals that pass voting enter another waiting period before execution.
 
 - **Purpose**: Allow node operators time to prepare for changes
-- **Duration**: Configurable (e.g., 12 hours on testnet)
+- **Duration**: 2 days on mainnet, 12 hours on testnet
 - **State**: Approved but not yet executed
 
 This delay is critical for upgrades because:
@@ -185,19 +189,23 @@ Execution:
 
 If any action reverts, the entire execution reverts and the proposal remains executable.
 
-## Timeline Example (Testnet)
+## Timeline example
 
-| Stage | Duration | Cumulative Time |
-|-------|----------|-----------------|
-| Signaling | Up to 1 round (~3 hours) | 3 hours |
-| Voting Delay | 12 hours | 15 hours |
-| Voting Period | 24 hours | 39 hours |
-| Execution Delay | 12 hours | 51 hours |
-| **Total** | | **~2 days minimum** |
+| Stage | Alpha (Mainnet) | Testnet |
+|-------|-----------------|---------|
+| Signaling | Up to 1 round (~20 hours) | Up to 1 round (~2 hours) |
+| Voting Delay | 3 days | 12 hours |
+| Voting Period | 7 days | 24 hours |
+| Execution Delay | 2 days | 12 hours |
+| **Total** | **~13 days minimum** | **~2 days minimum** |
 
-Note: Mainnet parameters will likely be longer to provide more security.
+After the execution delay, a proposal stays executable for a grace period (7 days on mainnet) before it expires.
 
-## Escape Hatch: Propose With Lock
+:::note Live values
+Mainnet values are read from the live Governance and GovernanceProposer contracts and can change through governance. See the [networks page](/networks#governance-parameters) for the current parameters.
+:::
+
+## Escape hatch: propose with lock
 
 What if block producers cannot or will not signal for a critical proposal? The governance system includes an escape hatch.
 
@@ -208,13 +216,13 @@ function proposeWithLock(IPayload _proposal, address _to) external returns (uint
 ```
 
 This requires:
-- A large amount of voting power (configured in governance)
-- The power is immediately locked with a long withdrawal delay
+- A large amount of voting power: 258,750,000 $AZTEC on mainnet (2.5% of total supply)
+- The power is immediately locked with a long withdrawal delay (90 days on mainnet)
 - The proposal still goes through normal voting
 
 This mechanism protects against governance capture while ensuring the network can always upgrade if needed.
 
-## Related Topics
+## Related topics
 
 - [Voting](./voting) - Detailed voting mechanics
 - [GSE and Stake Mobility](./gse) - How GSEPayload ensures stake continuity

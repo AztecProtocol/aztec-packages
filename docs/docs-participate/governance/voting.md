@@ -6,13 +6,17 @@ displayed_sidebar: participateSidebar
 
 # Voting
 
+:::tip TL;DR for token holders
+If you stake or delegate, your voting power votes "yea" automatically with the rollup on proposals that passed sequencer signaling. To vote differently, or to vote without staking, lock tokens in Governance and vote yourself; withdrawing afterwards takes ~9.6 days on mainnet. This page covers the contract mechanics; the practical walkthrough is [Voting on Proposals](/participate/token/voting).
+:::
+
 Voting is how the Aztec community decides which proposals should be executed. This page explains how voting power is acquired, managed, and used.
 
-## Voting Power
+## Voting power
 
 Voting power in Governance comes from depositing tokens into the Governance contract. The amount of tokens deposited equals your voting power.
 
-### Acquiring Voting Power
+### Acquiring voting power
 
 To get voting power, call `deposit()` on the Governance contract:
 
@@ -25,7 +29,7 @@ This:
 2. Increases the `beneficiary`'s voting power
 3. Records the power with a timestamp
 
-### Timestamped Power
+### Timestamped power
 
 Voting power is **timestamped** at the moment of deposit. This is crucial because:
 
@@ -44,11 +48,11 @@ Timeline:
 Alice can only vote with 1000 tokens (her balance at the Day 2 snapshot)
 ```
 
-## Deposit Control
+## Deposit control
 
 By default, not everyone can deposit into Governance. A **deposit control** mechanism restricts who can hold voting power.
 
-### GSE as Deposit Controller
+### GSE as deposit controller
 
 In the standard configuration, only the Governance Staking Escrow (GSE) can deposit into Governance. This means:
 
@@ -56,19 +60,19 @@ In the standard configuration, only the Governance Staking Escrow (GSE) can depo
 - The rollup contract can vote on behalf of its validators
 - Non-validators cannot directly hold governance power
 
-### Disabling Deposit Control
+### Disabling deposit control
 
 Governance can vote to disable deposit control, allowing anyone to hold voting power. This requires executing a proposal that calls the appropriate function on the Governance contract.
 
 :::note Current Status
-On mainnet, deposit control was disabled at launch by passing the zero address as the GSE to the Governance constructor. This means anyone can deposit tokens and participate in governance.
+On mainnet, deposit control is open: the Governance contract was deployed with a zero beneficiary address, which permanently allows all beneficiaries. Anyone can deposit tokens and participate in governance (verifiable onchain via `isAllBeneficiariesAllowed()`).
 :::
 
 ## Withdrawing
 
 Withdrawing voting power is a two-step process with a mandatory delay.
 
-### Step 1: Initiate Withdrawal
+### Step 1: Initiate withdrawal
 
 Call `initiateWithdraw()` to start the withdrawal process:
 
@@ -81,7 +85,7 @@ This:
 2. Creates a pending withdrawal record
 3. Starts the withdrawal delay timer
 
-### Step 2: Finalize Withdrawal
+### Step 2: Finalize withdrawal
 
 After the delay period passes, call `finaliseWithdraw()`:
 
@@ -91,9 +95,9 @@ function finalizeWithdraw(uint256 withdrawalId) external;
 
 This transfers the tokens to the specified recipient.
 
-### Why the Delay?
+### Why the delay?
 
-The withdrawal delay (typically on the order of days) prevents governance attacks:
+The withdrawal delay, calculated as `votingDelay/5 + votingDuration + executionDelay` (~9.6 days on mainnet, ~1.6 days on testnet), prevents governance attacks:
 
 - Attackers cannot quickly deposit, vote, and withdraw
 - The community has time to react to suspicious voting patterns
@@ -103,14 +107,14 @@ The withdrawal delay (typically on the order of days) prevents governance attack
 
 Validators can delegate their voting power to another address, allowing for flexible voting arrangements.
 
-### Default Delegation
+### Default delegation
 
 When a validator deposits stake into a rollup:
 1. The stake is held in the GSE
 2. Voting power is delegated to the rollup contract by default
 3. The rollup votes automatically on proposals its block producers signaled for
 
-### Custom Delegation
+### Custom delegation
 
 Validators can delegate to themselves or any other address:
 
@@ -125,7 +129,7 @@ After delegating to yourself, you can vote directly on the GSE:
 function vote(uint256 proposalId, uint256 amount, bool support) external;
 ```
 
-### Delegation Accounting
+### Delegation accounting
 
 The GSE tracks: `delegatee => proposal => power used`
 
@@ -134,9 +138,9 @@ This allows:
 - Split delegation (delegate to multiple addresses)
 - Transparent power tracking
 
-## Casting Votes
+## Casting votes
 
-### Voting Through the Rollup
+### Voting through the rollup
 
 The rollup contract has a `vote(uint256 proposalId)` function that:
 
@@ -149,7 +153,7 @@ The rollup only votes on proposals that:
 - Had their block producers signal for the payload
 - Match the current governance configuration
 
-### Voting Through the GSE
+### Voting through the GSE
 
 If you've delegated to yourself, vote directly on the GSE:
 
@@ -166,7 +170,7 @@ This allows:
 - Partial voting with specific amounts
 - More granular control over your voting power
 
-## Partial Voting
+## Partial voting
 
 You can split your voting power between "yea" and "nay" on the same proposal:
 
@@ -183,23 +187,24 @@ This is useful when you:
 - Want to signal nuanced support
 - Are voting on behalf of multiple stakeholders
 
-## Vote Finality
+## Vote finality
 
 Once cast, votes cannot be changed. Consider carefully before voting, as you cannot:
 - Switch from "yea" to "nay" or vice versa
 - Increase or decrease your vote amount
 - Revoke your vote
 
-## Quorum and Thresholds
+## Quorum and thresholds
 
 For a proposal to pass, it must meet certain thresholds:
 
-- **Participation Quorum**: Minimum total votes (yea + nay) required
-- **Approval Threshold**: Minimum percentage of "yea" votes required
+- **Participation Quorum**: Minimum total votes (yea + nay) required. On mainnet this is 20% of all voting power in the Governance contract at the snapshot.
+- **Approval Threshold**: Minimum share of "yea" votes required. Mainnet's required yea margin of 33% means yea votes must exceed roughly two thirds of votes cast.
+- **Minimum Total Power**: A proposal is only valid if at least 100,000,000 $AZTEC of voting power exists in Governance at the snapshot.
 
-These parameters are configured in the Governance contract and can be changed through governance proposals.
+These parameters are read from the live Governance contract (`getConfiguration()`) and can be changed through governance proposals.
 
-## Timeline Considerations
+## Timeline considerations
 
 | Event | Voting Power Impact |
 |-------|---------------------|
@@ -209,7 +214,7 @@ These parameters are configured in the Governance contract and can be changed th
 | Initiate withdrawal | Power reduced immediately |
 | Finalize withdrawal | Tokens returned after delay |
 
-## Related Topics
+## Related topics
 
 - [Proposal Lifecycle](./proposal-lifecycle) - When voting occurs in the proposal process
 - [GSE and Stake Mobility](./gse) - How validator stakes translate to voting power

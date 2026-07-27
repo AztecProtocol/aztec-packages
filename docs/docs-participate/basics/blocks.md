@@ -8,7 +8,7 @@ displayed_sidebar: participateSidebar
 
 Aztec uses a decentralized block production system with two key roles: sequencers who produce blocks and provers who generate validity proofs.
 
-## Block Production Overview
+## Block production overview
 
 Block production on Aztec involves several steps:
 
@@ -27,9 +27,9 @@ Sequencers are responsible for ordering transactions and producing blocks. They:
 - Propose blocks to the committee
 - Earn rewards for successful blocks
 
-### How Sequencers Are Selected
+### How sequencers are selected
 
-Each time slot, a sequencer is randomly selected to propose a block. The selection uses randomness from Ethereum (RANDAO), making it unpredictable but verifiable.
+Each time slot, a sequencer is randomly selected to propose a block. The selection uses randomness from Ethereum (RANDAO, the randomness value Ethereum validators collectively produce each block), fixed two epochs in advance, making it unpredictable but verifiable.
 
 This ensures:
 - **Fairness** - All staked sequencers have a chance to propose
@@ -45,7 +45,7 @@ Provers generate the cryptographic proofs that make Aztec a valid rollup. They:
 - Submit proofs to Ethereum
 - Earn rewards for successful proving
 
-### Why Proving Matters
+### Why proving matters
 
 The proofs guarantee that all transactions in a block were valid. Without a proof, Ethereum has no way to verify that Aztec's state transitions are correct.
 
@@ -57,7 +57,7 @@ Aztec organizes time into **epochs**, which are groups of consecutive slots. Epo
 - After the epoch ends, provers generate a single proof covering all blocks
 - This aggregated proof is submitted to Ethereum
 
-### Why Use Epochs?
+### Why use epochs?
 
 Generating a proof for every block would be expensive and slow. By batching blocks into epochs:
 
@@ -65,7 +65,7 @@ Generating a proof for every block would be expensive and slow. By batching bloc
 - **Cost savings** - Fewer proofs mean lower L1 costs
 - **Parallelization** - Different provers can work on different parts
 
-## The Attestation Committee
+## The attestation committee
 
 Not all sequencers propose blocks, but many participate in **attestation**. Committee members:
 
@@ -74,9 +74,9 @@ Not all sequencers propose blocks, but many participate in **attestation**. Comm
 3. Sign attestations if valid
 4. Return attestations to the proposer
 
-A block needs attestations from at least 2/3 + 1 of the committee to be considered valid. This provides Byzantine fault tolerance - the network can handle some malicious or offline validators.
+A block needs attestations from at least 2/3 + 1 of the committee to be considered valid. This provides Byzantine fault tolerance: as long as fewer than a third of committee members are malicious or offline, the network keeps producing valid blocks.
 
-## Timeline of a Block
+## Timeline of a block
 
 Here's what happens during a typical slot:
 
@@ -99,12 +99,12 @@ Both sequencers and provers earn rewards:
 
 See [Economics](../token/economics) for details on how rewards work.
 
-## What Happens If Things Go Wrong
+## What happens if things go wrong
 
 The system has safeguards for various failure scenarios:
 
 - **Proposer offline** - The slot is skipped; next slot's proposer takes over
-- **Insufficient attestations** - Block isn't finalized; transactions return to mempool
+- **Insufficient attestations** - Block isn't finalized; transactions return to the mempool (the waiting pool of submitted-but-unconfirmed transactions)
 - **Proof not submitted** - Unproven blocks are pruned and must be re-proposed
 
 ---

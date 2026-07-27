@@ -8,7 +8,7 @@ displayed_sidebar: participateSidebar
 
 Staking allows you to participate in securing the Aztec network while earning rewards. This guide explains how staking works and how to get started.
 
-## Before You Stake
+## Before you stake
 
 Understanding these concepts will help you make informed decisions:
 
@@ -19,16 +19,16 @@ Understanding these concepts will help you make informed decisions:
 
 When you stake tokens on the Aztec network, your tokens are locked in a smart contract and used to secure the network. In return, you earn a share of the network rewards proportional to your stake.
 
-### Key Concepts
+### Key concepts
 
 - **Activation Threshold**: The minimum amount required to become an active validator
 - **Staking Period**: Tokens must remain staked for a minimum period before withdrawal
 - **Rewards**: Earned based on your stake proportion and network activity
 - **Slashing Risk**: Validators who misbehave may have a portion of their stake slashed
 
-## Staking Options
+## Staking options
 
-### Option 1: Run Your Own Validator
+### Option 1: Run your own validator
 
 If you have the technical expertise and infrastructure, you can run your own sequencer node and stake directly.
 
@@ -39,13 +39,13 @@ If you have the technical expertise and infrastructure, you can run your own seq
 
 See the [Sequencer Setup Guide](/operate/operators/setup/sequencer_management) for details.
 
-### Option 2: Delegate to an Operator
+### Option 2: Delegate to an operator
 
 If you don't want to run infrastructure, you can delegate your stake to a professional operator.
 
 See [Delegating Stake](/participate/token/delegation) for details.
 
-## Understanding Slashing Risk
+## Understanding slashing risk
 
 Before staking, understand that your stake can be partially slashed if:
 - The validator you stake with (or delegate to) commits protocol violations
@@ -58,18 +58,18 @@ Slashing is managed through governance voting based on evidence collected both o
 
 When you want to withdraw your staked tokens, you must go through an unstaking process with mandatory delays.
 
-### Exit Delays
+### Exit delays
 
 | Delay Type | Alpha (Mainnet) | Testnet |
 |-----------|-----------------|---------|
 | **Staking Exit Delay** | 4 days | 2 days |
-| **Governance Withdrawal Delay** | ~38 days | ~1.6 days |
+| **Governance Withdrawal Delay** | ~9.6 days | ~1.6 days |
 
 The **staking exit delay** is the minimum time after initiating withdrawal before you can claim your tokens. It allows time for pending slashing conditions to be detected.
 
-If your tokens are deposited in the Governance Staking Escrow (GSE) for voting, the **governance withdrawal delay** also applies. This delay is calculated as `votingDelay/5 + votingDuration + executionDelay` to ensure voted-on proposals can be executed before voters exit. On mainnet this is approximately 38 days (0.6 + 7 + 30 days).
+If your tokens are deposited in the Governance Staking Escrow (GSE) for voting, the **governance withdrawal delay** also applies. This delay is calculated as `votingDelay/5 + votingDuration + executionDelay` to ensure voted-on proposals can be executed before voters exit. On mainnet this is approximately 9.6 days (0.6 + 7 + 2 days, from the live Governance configuration). These parameters can change through governance; see the [networks page](/networks#governance-parameters) for current values.
 
-### How to Unstake
+### How to unstake
 
 To unstake your tokens, use the [Aztec Staking Dashboard](https://stake.aztec.network/). The dashboard guides you through the unstaking process:
 
@@ -79,12 +79,12 @@ To unstake your tokens, use the [Aztec Staking Dashboard](https://stake.aztec.ne
 
 If you've delegated stake, contact your operator or use the delegation interface to request unstaking.
 
-### Important Considerations
+### Important considerations
 
 - **Slashing Risk**: You can still be slashed during the exit delay if misbehavior is detected from when you were active
 - **No Rewards During Exit**: You do not earn staking rewards during the exit delay period
 
-## Next Steps
+## Next steps
 
 - [Delegate your stake](/participate/token/delegation) if you prefer not to run infrastructure
 - [Learn about voting](/participate/token/voting) to participate in governance with your staked tokens
