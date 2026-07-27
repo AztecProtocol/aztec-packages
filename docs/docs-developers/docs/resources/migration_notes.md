@@ -13,7 +13,7 @@ Aztec is in active development. Each version may introduce breaking changes that
 
 `@aztec/noir-contracts.js` no longer includes the protocol contracts: the `FeeJuice`, `ContractClassRegistry`, and `ContractInstanceRegistry` artifacts and typed wrappers have been removed from the package, so imports such as `@aztec/noir-contracts.js/FeeJuice` no longer resolve. These names are also no longer available to the `aztec` CLI's contract-name lookup (e.g. in `aztec example-contracts`).
 
-Protocol contracts are distributed via `@aztec/protocol-contracts` (artifacts and canonical deployment data), and typed wrappers for them are exported from `@aztec/aztec.js/protocol`. The `aztec.js` wrappers are bound to the contract's canonical address, so `.at()` takes only the wallet.
+Protocol contracts are distributed via `@aztec/protocol-contracts` (artifacts and canonical deployment data), and typed wrappers for them are exported from `@aztec/aztec.js/protocol`. The `aztec.js` wrappers are bound to the contract's canonical address, so attaching takes only the wallet: there is no address parameter.
 
 **Migration:**
 
@@ -22,7 +22,18 @@ Protocol contracts are distributed via `@aztec/protocol-contracts` (artifacts an
 + import { FeeJuiceContract } from '@aztec/aztec.js/protocol';
 
 - const feeJuice = FeeJuiceContract.at(ProtocolContractAddress.FeeJuice, wallet);
-+ const feeJuice = FeeJuiceContract.at(wallet);
++ const feeJuice = FeeJuiceContract.withWallet(wallet);
+```
+
+### [Aztec.js] Protocol contract wrappers: `at(wallet)` deprecated in favor of `withWallet(wallet)`
+
+The protocol contract wrappers exported from `@aztec/aztec.js/protocol` (`FeeJuiceContract`, `ContractClassRegistryContract`, `ContractInstanceRegistryContract`) rename their static `at(wallet)` to `withWallet(wallet)`. These wrappers are bound to the contract's canonical address, so their only parameter is the wallet to act through; `withWallet` states that directly and matches the existing `withWallet` instance method, whereas the one-argument `at` read as if it took an address. `at(wallet)` still works but is deprecated and will be removed in a future release.
+
+**Migration:**
+
+```diff
+- const feeJuice = FeeJuiceContract.at(wallet);
++ const feeJuice = FeeJuiceContract.withWallet(wallet);
 ```
 
 ### [Aztec.nr] Standard contracts re-pinned at new addresses

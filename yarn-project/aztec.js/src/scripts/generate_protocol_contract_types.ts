@@ -112,8 +112,14 @@ export class ${contractName} extends ContractBase {
     super(ProtocolContractAddress.${protocolContractName}, ${contractName}Artifact, wallet);
   }
 
-  public static at(wallet: Wallet): ${contractName} {
+  /** Returns an interface to the canonical ${contractName} instance, bound to the given wallet. */
+  public static withWallet(wallet: Wallet): ${contractName} {
     return new ${contractName}(wallet);
+  }
+
+  /** @deprecated Use \`withWallet\` instead. */
+  public static at(wallet: Wallet): ${contractName} {
+    return ${contractName}.withWallet(wallet);
   }
 
   public declare methods: {${methodsMatch[1]}

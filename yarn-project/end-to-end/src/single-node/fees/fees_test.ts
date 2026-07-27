@@ -249,13 +249,13 @@ export class FeesTest extends SingleNodeTestContext {
     // We set Alice as the FPC admin to avoid the need for deployment of another account.
     this.fpcAdmin = this.aliceAddress;
 
-    this.feeJuiceContract = FeeJuiceContract.at(this.wallet);
+    this.feeJuiceContract = FeeJuiceContract.withWallet(this.wallet);
   }
 
   async applySetupFeeJuice() {
     this.logger.info('Applying fee juice setup');
 
-    this.feeJuiceContract = FeeJuiceContract.at(this.wallet);
+    this.feeJuiceContract = FeeJuiceContract.withWallet(this.wallet);
 
     this.getGasBalanceFn = getBalancesFn('⛽', this.feeJuiceContract.methods.balance_of_public, this.logger);
 

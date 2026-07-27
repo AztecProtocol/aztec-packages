@@ -216,7 +216,7 @@ export class ClientFlowsBenchmark {
     this.adminAddress = adminAddress;
     this.sequencerAddress = sequencerAddress;
 
-    this.feeJuiceContract = FeeJuiceContract.at(this.adminWallet);
+    this.feeJuiceContract = FeeJuiceContract.withWallet(this.adminWallet);
     this.coinbase = EthAddress.random();
 
     const userPXEConfig = getPXEConfig();
@@ -247,7 +247,7 @@ export class ClientFlowsBenchmark {
 
   async applySetupFeeJuice() {
     this.logger.info('Applying fee juice setup');
-    this.feeJuiceContract = FeeJuiceContract.at(this.adminWallet);
+    this.feeJuiceContract = FeeJuiceContract.withWallet(this.adminWallet);
 
     this.feeJuiceBridgeTestHarness = await FeeJuicePortalTestingHarnessFactory.create({
       aztecNode: this.context.aztecNodeService,
