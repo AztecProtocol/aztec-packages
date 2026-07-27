@@ -62,6 +62,16 @@ export interface L1ToL2MessageSource {
   getL1ToL2MessagesBetweenBuckets(fromExclusive: bigint, toInclusive: bigint): Promise<Fr[]>;
 
   /**
+   * Returns the message leaves in the cumulative Inbox message-count range `[startLeafCount, endLeafCount)`, in
+   * insertion order (AZIP-22 Fast Inbox). The bounds are compact L1-to-L2 tree leaf counts, which every block header
+   * carries, so a consumer can ask for the messages a block or checkpoint consumed without resolving Inbox buckets
+   * itself. Both bounds must land on a bucket boundary the source has synced; it throws otherwise.
+   * @param startLeafCount - The cumulative Inbox message count the range starts at, inclusive.
+   * @param endLeafCount - The cumulative Inbox message count the range ends at, exclusive.
+   */
+  getL1ToL2MessagesBetweenLeafCounts(startLeafCount: bigint, endLeafCount: bigint): Promise<Fr[]>;
+
+  /**
    * Returns the tips of the L2 chain.
    */
   getL2Tips(): Promise<L2Tips>;

@@ -59,6 +59,15 @@ export class MockL1ToL2MessageSource implements L1ToL2MessageSource {
     return Promise.resolve(seqs.flatMap(seq => this.messagesPerBucket.get(seq) ?? []));
   }
 
+  async getL1ToL2MessagesBetweenLeafCounts(startLeafCount: bigint, endLeafCount: bigint): Promise<Fr[]> {
+    const startBucket = await this.getInboxBucketByTotalMsgCount(startLeafCount);
+    const endBucket = await this.getInboxBucketByTotalMsgCount(endLeafCount);
+    if (startBucket === undefined || endBucket === undefined) {
+      throw new Error(`No mocked Inbox bucket boundary at ${startLeafCount} or ${endLeafCount}`);
+    }
+    return this.getL1ToL2MessagesBetweenBuckets(startBucket.seq, endBucket.seq);
+  }
+
   getBlockNumber() {
     return Promise.resolve(BlockNumber(this.blockNumber));
   }

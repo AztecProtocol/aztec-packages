@@ -8,7 +8,11 @@ import { Checkpoint, type PublishedCheckpoint } from '@aztec/stdlib/checkpoint';
 import { updateInboxRollingHash } from '@aztec/stdlib/messaging';
 import '@aztec/stdlib/testing/jest';
 
-import { InboxBucketNotSyncedError, L1ToL2MessagesNotReadyError } from '../errors.js';
+import {
+  InboxBucketBoundaryNotSyncedError,
+  InboxBucketNotSyncedError,
+  L1ToL2MessagesNotReadyError,
+} from '../errors.js';
 import { type InboxMessage, updateRollingHash } from '../structs/inbox_message.js';
 import {
   makeInboxMessage,
@@ -512,6 +516,40 @@ describe('MessageStore', () => {
       // A nonzero lower bound is never treated as genesis.
       await expect(messageStore.getL1ToL2MessagesBetweenBuckets(4n, 5n)).rejects.toThrow(InboxBucketNotSyncedError);
       await expect(messageStore.getL1ToL2MessagesBetweenBuckets(4n, 3n)).rejects.toThrow(/Invalid Inbox bucket range/);
+    });
+
+    it('returns messages between cumulative leaf counts', async () => {
+      const msgs = makeBucketedMessages(threeBucketSpec);
+      await messageStore.addL1ToL2MessageBuckets(msgs);
+      const leaves = msgs.map(m => m.leaf);
+
+      // Bucket boundaries sit at cumulative counts 0 (genesis), 3, 5 and 6.
+      expect(await messageStore.getL1ToL2MessagesBetweenLeafCounts(0n, 6n)).toEqual(leaves);
+      expect(await messageStore.getL1ToL2MessagesBetweenLeafCounts(0n, 3n)).toEqual(leaves.slice(0, 3));
+      expect(await messageStore.getL1ToL2MessagesBetweenLeafCounts(3n, 5n)).toEqual(leaves.slice(3, 5));
+      expect(await messageStore.getL1ToL2MessagesBetweenLeafCounts(5n, 6n)).toEqual(leaves.slice(5));
+      // An empty range consumes nothing, at a bucket boundary or at genesis.
+      expect(await messageStore.getL1ToL2MessagesBetweenLeafCounts(5n, 5n)).toEqual([]);
+      expect(await messageStore.getL1ToL2MessagesBetweenLeafCounts(0n, 0n)).toEqual([]);
+    });
+
+    it('throws when a leaf count does not land on a synced bucket boundary', async () => {
+      const msgs = makeBucketedMessages(threeBucketSpec);
+      await messageStore.addL1ToL2MessageBuckets(msgs);
+
+      // Counts inside a bucket and past the last synced bucket both fail rather than returning a partial range.
+      await expect(messageStore.getL1ToL2MessagesBetweenLeafCounts(0n, 4n)).rejects.toThrow(
+        InboxBucketBoundaryNotSyncedError,
+      );
+      await expect(messageStore.getL1ToL2MessagesBetweenLeafCounts(4n, 6n)).rejects.toThrow(
+        InboxBucketBoundaryNotSyncedError,
+      );
+      await expect(messageStore.getL1ToL2MessagesBetweenLeafCounts(3n, 9n)).rejects.toThrow(
+        InboxBucketBoundaryNotSyncedError,
+      );
+      await expect(messageStore.getL1ToL2MessagesBetweenLeafCounts(5n, 3n)).rejects.toThrow(
+        /Invalid Inbox leaf count range/,
+      );
     });
 
     it('rewinds buckets when messages are removed', async () => {

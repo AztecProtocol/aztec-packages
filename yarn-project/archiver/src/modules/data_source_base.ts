@@ -340,6 +340,10 @@ export abstract class ArchiverDataSourceBase
     return this.stores.messages.getL1ToL2MessagesBetweenBuckets(fromExclusive, toInclusive);
   }
 
+  public getL1ToL2MessagesBetweenLeafCounts(startLeafCount: bigint, endLeafCount: bigint): Promise<Fr[]> {
+    return this.stores.messages.getL1ToL2MessagesBetweenLeafCounts(startLeafCount, endLeafCount);
+  }
+
   private async getPublishedCheckpointFromCheckpointData(checkpoint: CheckpointData): Promise<PublishedCheckpoint> {
     const blocksForCheckpoint = await this.stores.blocks.getBlocksForCheckpoint(checkpoint.checkpointNumber);
     if (!blocksForCheckpoint) {

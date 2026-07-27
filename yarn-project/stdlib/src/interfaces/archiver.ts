@@ -151,6 +151,10 @@ export const ArchiverApiSchema: ApiSchemaFor<ArchiverApi> = {
     input: z.tuple([schemas.BigInt, schemas.BigInt]),
     output: z.array(schemas.Fr),
   }),
+  getL1ToL2MessagesBetweenLeafCounts: z.function({
+    input: z.tuple([schemas.BigInt, schemas.BigInt]),
+    output: z.array(schemas.Fr),
+  }),
   getDebugFunctionName: z.function({
     input: z.tuple([schemas.AztecAddress, schemas.FunctionSelector]),
     output: optional(z.string()),
