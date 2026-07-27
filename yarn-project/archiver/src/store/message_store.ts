@@ -15,7 +15,11 @@ import {
 } from '@aztec/kv-store';
 import { type InboxBucket, InboxLeaf, updateInboxRollingHash } from '@aztec/stdlib/messaging';
 
-import { InboxBucketNotSyncedError, L1ToL2MessagesNotReadyError } from '../errors.js';
+import {
+  InboxBucketBoundaryNotSyncedError,
+  InboxBucketNotSyncedError,
+  L1ToL2MessagesNotReadyError,
+} from '../errors.js';
 import {
   type InboxMessage,
   deserializeInboxMessage,
@@ -96,7 +100,6 @@ const GENESIS_INBOX_BUCKET: InboxBucket = {
   timestamp: 0n,
   msgCount: 0,
   lastMessageIndex: 0n,
-  isOpen: false,
 };
 
 export class MessageStoreError extends Error {
@@ -531,6 +534,31 @@ export class MessageStore {
     }
     const bucket = await this.getInboxBucket(deserializeInboxMessage(buffer).bucketSeq);
     return bucket !== undefined && bucket.totalMsgCount === totalMsgCount ? bucket : undefined;
+  }
+
+  /**
+   * Returns the message leaves in the cumulative Inbox message-count range `[startLeafCount, endLeafCount)`, in
+   * insertion order (AZIP-22 Fast Inbox). The bounds are compact L1-to-L2 tree leaf counts, which every block header
+   * carries, so consumers can ask for the messages a block or checkpoint consumed without resolving buckets
+   * themselves. Both bounds must land on a bucket boundary this archiver has synced; it throws otherwise, since a
+   * caller asking for a range always expects the messages in it.
+   */
+  public async getL1ToL2MessagesBetweenLeafCounts(startLeafCount: bigint, endLeafCount: bigint): Promise<Fr[]> {
+    if (startLeafCount > endLeafCount) {
+      throw new Error(`Invalid Inbox leaf count range [${startLeafCount}, ${endLeafCount})`);
+    }
+    const startBucket = await this.getBucketAtBoundary(startLeafCount);
+    const endBucket = await this.getBucketAtBoundary(endLeafCount);
+    return this.getL1ToL2MessagesBetweenBuckets(startBucket.seq, endBucket.seq);
+  }
+
+  /** Resolves the bucket ending at the given cumulative message count, failing loudly if there is none. */
+  private async getBucketAtBoundary(totalMsgCount: bigint): Promise<InboxBucket> {
+    const bucket = await this.getInboxBucketByTotalMsgCount(totalMsgCount);
+    if (bucket === undefined) {
+      throw new InboxBucketBoundaryNotSyncedError(totalMsgCount);
+    }
+    return bucket;
   }
 
   /**

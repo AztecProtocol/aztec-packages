@@ -234,6 +234,11 @@ describe('ArchiverApiSchema', () => {
     expect(result).toEqual([expect.any(Fr)]);
   });
 
+  it('getL1ToL2MessagesBetweenLeafCounts', async () => {
+    const result = await context.client.getL1ToL2MessagesBetweenLeafCounts(0n, 3n);
+    expect(result).toEqual([expect.any(Fr)]);
+  });
+
   it('registerContractFunctionSignatures', async () => {
     await context.client.registerContractFunctionSignatures(['test()']);
   });
@@ -603,12 +608,16 @@ class MockArchiver implements ArchiverApi {
       timestamp: 100n,
       msgCount: 3,
       lastMessageIndex: 2n,
-      isOpen: true,
     });
   }
   getL1ToL2MessagesBetweenBuckets(fromExclusive: bigint, toInclusive: bigint): Promise<Fr[]> {
     expect(typeof fromExclusive).toEqual('bigint');
     expect(typeof toInclusive).toEqual('bigint');
+    return Promise.resolve([Fr.random()]);
+  }
+  getL1ToL2MessagesBetweenLeafCounts(startLeafCount: bigint, endLeafCount: bigint): Promise<Fr[]> {
+    expect(typeof startLeafCount).toEqual('bigint');
+    expect(typeof endLeafCount).toEqual('bigint');
     return Promise.resolve([Fr.random()]);
   }
   getL1Constants(): Promise<L1RollupConstants> {

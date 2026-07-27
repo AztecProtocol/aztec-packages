@@ -33,7 +33,6 @@ class FakeInboxView implements StreamingInboxBucketSource {
       timestamp: 0n,
       msgCount: 0,
       lastMessageIndex: 0n,
-      isOpen: false,
     });
   }
 
@@ -51,7 +50,6 @@ class FakeInboxView implements StreamingInboxBucketSource {
       timestamp: BigInt(timestamp),
       msgCount,
       lastMessageIndex: totalMsgCount - 1n,
-      isOpen: false,
     };
     this.buckets.set(BigInt(seq), bucket);
     return bucket;

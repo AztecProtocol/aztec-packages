@@ -809,7 +809,6 @@ describe('ProposalHandler checkpoint validation', () => {
       timestamp: 100n,
       msgCount: 2,
       lastMessageIndex: 1n,
-      isOpen: false,
       ...overrides,
     });
 
