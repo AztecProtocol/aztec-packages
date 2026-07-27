@@ -15,44 +15,12 @@
 #include "barretenberg/constants.hpp"
 #include "barretenberg/crypto/poseidon2/poseidon2.hpp"
 #include "barretenberg/dsl/acir_format/acir_format.hpp"
-#include "barretenberg/flavor/flavor.hpp"
-#include "barretenberg/honk/execution_trace/generated/ultra_execution_trace_generated.hpp"
 #include "barretenberg/honk/library/grand_product_delta.hpp"
 #include "barretenberg/honk/types/public_inputs_type.hpp"
 #include "barretenberg/noir_programs_boomerang_values/poseidon2s_helpers.hpp"
 #include "barretenberg/noir_programs_boomerang_values/sha256_circuit_helpers.hpp"
 
 namespace recursion_helpers {
-
-// VK metadata field layout at the front of `constraint.key`
-// (NativeVerificationKey_ / MetaData serialization order).
-static constexpr size_t VK_LOG_CIRCUIT_SIZE_INDEX = 0;
-static constexpr size_t VK_NUM_PUBLIC_INPUTS_INDEX = 1;
-static constexpr size_t VK_PUB_INPUTS_OFFSET_INDEX = 2;
-static constexpr size_t VK_METADATA_NUM_FIELDS = bb::MetaData::NUM_FIELDS;
-static_assert(VK_METADATA_NUM_FIELDS == VK_PUB_INPUTS_OFFSET_INDEX + 1);
-
-// UltraCircuitBuilder execution-trace block indices
-// (order matches UltraTraceBlockData::get() / get_labels()).
-static constexpr size_t ULTRA_BLOCK_PUB_INPUTS = 0;
-static constexpr size_t ULTRA_BLOCK_LOOKUP = 1;
-static constexpr size_t ULTRA_BLOCK_ARITHMETIC = 2;
-static constexpr size_t ULTRA_BLOCK_DELTA_RANGE = 3;
-static constexpr size_t ULTRA_BLOCK_ELLIPTIC = 4;
-static constexpr size_t ULTRA_BLOCK_MEMORY = 5;
-static constexpr size_t ULTRA_BLOCK_NNF = 6;
-static constexpr size_t ULTRA_BLOCK_POSEIDON2_EXT = 7;
-static constexpr size_t ULTRA_BLOCK_POSEIDON2_INT = 8;
-static constexpr size_t ULTRA_BLOCK_COUNT = 9;
-static_assert(ULTRA_BLOCK_COUNT == bb::UltraTraceBlockData::NUM_BLOCKS);
-
-// compute_public_input_delta emits 6*m + 2 arithmetic gates for m public inputs.
-static constexpr size_t PUBLIC_INPUT_DELTA_GATES_PER_INPUT = 6;
-static constexpr size_t PUBLIC_INPUT_DELTA_FIXED_GATES = 2;
-static constexpr size_t public_input_delta_gate_count(const size_t num_public_inputs)
-{
-    return PUBLIC_INPUT_DELTA_GATES_PER_INPUT * num_public_inputs + PUBLIC_INPUT_DELTA_FIXED_GATES;
-}
 
 // Per-commitment NNF selector hash: hash of NNF gate selectors anchored from
 // the commitment's ACIR witnesses via decompose gate limb tracing.
@@ -88,11 +56,13 @@ size_t calculate_hash_arithmetic_block(CircuitBuilder& builder,
         if (is_fix_witness_gate(builder, index)) {
             const bb::fr fixed_value = -arith.q_c()[index];
             auto it = builder.constant_variable_indices.find(fixed_value);
-            if (it != builder.constant_variable_indices.end()) {
-                const uint32_t real_wl = builder.real_variable_index[arith.w_l()[index]];
-                if (builder.real_variable_index[it->second] == real_wl) {
-                    continue;
-                }
+            // Skip iff the raw wire stored in the gate IS the registered constant variable
+            // for this value. Using the raw wire (before real_variable_index) makes this
+            // invariant to union-find remapping: put_constant_variable always stores exactly
+            // N_V as w_l when calling fix_witness(N_V, V), so arith.w_l() == it->second
+            // holds for the gate that registered the constant, regardless of later merges.
+            if (it != builder.constant_variable_indices.end() && arith.w_l()[index] == it->second) {
+                continue;
             }
         }
         sha256_helpers::update_selector_hash(hash, arith, index);
@@ -105,28 +75,6 @@ size_t calculate_hash_arithmetic_block(CircuitBuilder& builder,
     return hash;
 }
 
-// Compute an arithmetic selector fingerprint independent of constant-cache state.
-// Unlike calculate_hash_arithmetic_block(), this skips every syntactic fix-witness
-// gate, including gates whose constant variable was already cached and therefore
-// cannot be identified through constant_variable_indices.
-template <typename CircuitBuilder>
-std::pair<size_t, size_t> calculate_normalized_hash_arithmetic_block(CircuitBuilder& builder,
-                                                                     size_t start,
-                                                                     size_t finish)
-{
-    auto& arith = builder.blocks.arithmetic;
-    size_t gate_count = 0;
-    size_t hash = 0;
-    for (size_t index = start; index < finish; ++index) {
-        if (is_fix_witness_gate(builder, index)) {
-            continue;
-        }
-        ++gate_count;
-        sha256_helpers::update_selector_hash(hash, arith, index);
-    }
-    return { gate_count, hash };
-}
-
 template <typename FF, typename CircuitBuilder>
 uint32_t find_sqr_of(uint32_t w_real, CircuitBuilder& builder, cdg::StaticAnalyzer_<FF, CircuitBuilder>& analyzer)
 {
@@ -136,9 +84,8 @@ uint32_t find_sqr_of(uint32_t w_real, CircuitBuilder& builder, cdg::StaticAnalyz
         if (&builder.blocks.get()[blk_idx] != &arith) {
             continue;
         }
-        bool correct_selectors = !arith.q_m()[g].is_zero() &&
-                                 arith.gate_selector_for(bb::GateKind::Arith)[g] == FF::one() &&
-                                 arith.q_3()[g] == FF::neg_one();
+        bool correct_selectors =
+            !arith.q_m()[g].is_zero() && arith.gate_selector_for(bb::GateKind::Arith)[g] == FF::one() && arith.q_3()[g] == FF::neg_one();
         bool correct_wires = builder.real_variable_index[arith.w_l()[g]] == w_real &&
                              builder.real_variable_index[arith.w_r()[g]] == w_real;
         if (correct_wires && correct_selectors) {
@@ -162,9 +109,8 @@ uint32_t find_cube_of(uint32_t w_real,
         if (&builder.blocks.get()[blk] != &arith) {
             continue;
         }
-        bool correct_selectors = !arith.q_m()[g].is_zero() &&
-                                 arith.gate_selector_for(bb::GateKind::Arith)[g] == FF::one() &&
-                                 arith.q_3()[g] == FF::neg_one();
+        bool correct_selectors =
+            !arith.q_m()[g].is_zero() && arith.gate_selector_for(bb::GateKind::Arith)[g] == FF::one() && arith.q_3()[g] == FF::neg_one();
         uint32_t wl = builder.real_variable_index[arith.w_l()[g]];
         uint32_t wr = builder.real_variable_index[arith.w_r()[g]];
         bool correct_wires = (wl == w_real_sqr && wr == w_real) || (wl == w_real && wr == w_real_sqr);
@@ -213,9 +159,9 @@ bool validate_square_and_cube(uint32_t base_real,
     auto& arith = builder.blocks.arithmetic;
 
     auto is_pure_mul = [&](size_t g) {
-        return arith.q_m()[g] == FF::one() && arith.gate_selector_for(bb::GateKind::Arith)[g] == FF::one() &&
-               arith.q_3()[g] == FF::neg_one() && arith.q_1()[g].is_zero() && arith.q_2()[g].is_zero() &&
-               arith.q_4()[g].is_zero() && arith.q_c()[g].is_zero();
+        return arith.q_m()[g] == FF::one() && arith.gate_selector_for(bb::GateKind::Arith)[g] == FF::one() && arith.q_3()[g] == FF::neg_one() &&
+               arith.q_1()[g].is_zero() && arith.q_2()[g].is_zero() && arith.q_4()[g].is_zero() &&
+               arith.q_c()[g].is_zero();
     };
 
     // Find unique sqr gate: w_l == w_r == base, w_o == sqr
@@ -295,7 +241,7 @@ bool validate_vk_hash(CircuitBuilder& builder,
     }
 
     uint32_t key_hash_real = builder.real_variable_index[constraint->key_hash];
-    auto& pos2_ext = poseidon2_helpers::poseidon2_external_block(builder);
+    auto& pos2_ext = builder.blocks.poseidon2_external;
     for (const auto& [blk, gi] : analyzer.get_variable_gates(key_hash_real)) {
         if (&builder.blocks.get()[blk] == &pos2_ext) {
             return true;
@@ -315,9 +261,9 @@ bool validate_vk_hash(CircuitBuilder& builder,
  *   vk->num_public_inputs.assert_equal(FF(num_public_inputs), ...)
  *
  * Checks:
- *   1. Value: key[VK_NUM_PUBLIC_INPUTS_INDEX] witness value matches the expected num_public_inputs.
- *   2. Copy constraint: that witness's real index appears on at least one arithmetic gate.
- *      assert_equal merges equivalence classes so it inherits gate
+ *   1. Value: key[1] witness value matches the expected num_public_inputs.
+ *   2. Copy constraint: key[1]_real appears on at least one arithmetic gate.
+ *      assert_equal merges equivalence classes so key[1]_real inherits gate
  *      participation from the expected constant — a variable with no gate
  *      participation would be unconstrained.
  */
@@ -326,10 +272,10 @@ bool validate_num_pub_assertion(CircuitBuilder& builder,
                                 cdg::StaticAnalyzer_<FF, CircuitBuilder>& analyzer,
                                 const acir_format::RecursionConstraint* constraint)
 {
-    if (constraint->key.size() <= VK_NUM_PUBLIC_INPUTS_INDEX) {
+    if (constraint->key.size() < 2) {
         return false;
     }
-    uint32_t num_pub_idx = constraint->key[VK_NUM_PUBLIC_INPUTS_INDEX];
+    uint32_t num_pub_idx = constraint->key[1];
     FF vk_num_pub = builder.get_variable(num_pub_idx);
     size_t total_pub_inputs = constraint->public_inputs.size() + acir_format::HIDING_KERNEL_PUBLIC_INPUTS_SIZE;
     if (vk_num_pub != FF(total_pub_inputs)) {
@@ -360,8 +306,8 @@ template <typename FF, typename Block> bool is_decompose_gate(Block& arith, size
 {
     static const FF neg_one = -FF(1);
     static const FF neg_shift_68 = -FF(2).pow(68);
-    return arith.gate_selector_for(bb::GateKind::Arith)[gi] == FF(1) && arith.q_1()[gi] == FF(1) &&
-           arith.q_2()[gi] == neg_one && arith.q_3()[gi] == neg_shift_68 && arith.q_4()[gi] == FF(1);
+    return arith.gate_selector_for(bb::GateKind::Arith)[gi] == FF(1) && arith.q_1()[gi] == FF(1) && arith.q_2()[gi] == neg_one &&
+           arith.q_3()[gi] == neg_shift_68 && arith.q_4()[gi] == FF(1);
 }
 
 /**
@@ -374,8 +320,8 @@ template <typename FF, typename Block> bool is_combine_gate(Block& arith, size_t
 {
     static const FF shift_136 = FF(2).pow(136);
     static const FF neg_one = -FF(1);
-    return arith.gate_selector_for(bb::GateKind::Arith)[gi] == FF(1) && arith.q_1()[gi] == FF(1) &&
-           arith.q_2()[gi] == shift_136 && arith.q_3()[gi] == neg_one;
+    return arith.gate_selector_for(bb::GateKind::Arith)[gi] == FF(1) && arith.q_1()[gi] == FF(1) && arith.q_2()[gi] == shift_136 &&
+           arith.q_3()[gi] == neg_one;
 }
 
 /**
@@ -387,9 +333,8 @@ template <typename FF, typename Block> bool is_combine_gate(Block& arith, size_t
 template <typename FF, typename Block> bool is_accumulate_gate(Block& arith, size_t gi)
 {
     static const FF neg_one = -FF(1);
-    return arith.gate_selector_for(bb::GateKind::Arith)[gi] == FF(2) && arith.q_1()[gi] == FF(1) &&
-           arith.q_2()[gi] == FF(1) && arith.q_3()[gi] == FF(1) && arith.q_4()[gi] == neg_one &&
-           arith.q_m()[gi].is_zero();
+    return arith.gate_selector_for(bb::GateKind::Arith)[gi] == FF(2) && arith.q_1()[gi] == FF(1) && arith.q_2()[gi] == FF(1) &&
+           arith.q_3()[gi] == FF(1) && arith.q_4()[gi] == neg_one && arith.q_m()[gi].is_zero();
 }
 
 /**
@@ -403,8 +348,8 @@ template <typename FF, typename Block> bool is_accumulate_gate(Block& arith, siz
 template <typename FF, typename Block> bool is_transcript_add_gate(Block& arith, size_t gi)
 {
     static const FF neg_one = -FF(1);
-    return arith.gate_selector_for(bb::GateKind::Arith)[gi] == FF(1) && arith.q_1()[gi] == FF(1) &&
-           arith.q_2()[gi] == FF(1) && arith.q_3()[gi] == neg_one && arith.q_m()[gi].is_zero();
+    return arith.gate_selector_for(bb::GateKind::Arith)[gi] == FF(1) && arith.q_1()[gi] == FF(1) && arith.q_2()[gi] == FF(1) &&
+           arith.q_3()[gi] == neg_one && arith.q_m()[gi].is_zero();
 }
 
 /**
@@ -538,23 +483,6 @@ struct BlockSnapshot {
         return snap;
     }
 };
-
-/**
- * Step 2 (padding indicator array + dyadic gate challenges) — locating builder variables.
- *
- * New UltraCircuitBuilder variables are allocated contiguously right after OinkVerifier:
- *   - step2_var_begin = builder.get_num_variables() immediately after step 1 (Oink only)
- *   - step2_var_end   = builder.get_num_variables() after step 2 (Oink + padding/challenges)
- *   - step2_var_end - step2_var_begin == MEGAZK_STEP2_NEW_BUILDER_VARIABLES (constant for MegaZK)
- *
- * The absolute indices shift with num_public_inputs (Oink grows); only the *count* is fixed.
- * To trace gates with StaticAnalyzer: for each idx in [step2_var_begin, step2_var_end),
- * call get_variable_gates(builder.real_variable_index[idx]).
- *
- * Gate ranges for step 2 use BlockSnapshot: hash gates in (post_oink_snapshot, post_step2_snapshot).
- * Discovered via MegaZkStep2BuilderVariableRange test.
- */
-static constexpr size_t MEGAZK_STEP2_NEW_BUILDER_VARIABLES = 392;
 
 // ============================================================================
 // Per-step gate count helpers
@@ -862,9 +790,8 @@ template <typename CircuitBuilder> std::vector<size_t> find_all_transcript_squee
     const NativeFF two_127 = NativeFF(2).pow(127);
     std::vector<size_t> gates;
     for (size_t g = 0; g < arith.size(); g++) {
-        if (arith.gate_selector_for(bb::GateKind::Arith)[g] == NativeFF::one() && arith.q_1()[g] == NativeFF::one() &&
-            arith.q_2()[g] == two_127 && arith.q_3()[g] == -NativeFF::one() && arith.q_4()[g] == NativeFF::one() &&
-            arith.q_m()[g].is_zero()) {
+        if (arith.gate_selector_for(bb::GateKind::Arith)[g] == NativeFF::one() && arith.q_1()[g] == NativeFF::one() && arith.q_2()[g] == two_127 &&
+            arith.q_3()[g] == -NativeFF::one() && arith.q_4()[g] == NativeFF::one() && arith.q_m()[g].is_zero()) {
             gates.push_back(g);
         }
     }
@@ -1185,9 +1112,7 @@ uint32_t find_and_validate_public_input_delta(CircuitBuilder& builder,
                                               uint32_t beta_real,
                                               uint32_t gamma_real,
                                               uint32_t pub_inputs_offset_real,
-                                              const std::vector<uint32_t>& public_input_reals,
-                                              const size_t search_start = 0,
-                                              const size_t search_end = SIZE_MAX)
+                                              const std::vector<uint32_t>& public_input_reals)
 {
     (void)analyzer; // not needed — we scan the arithmetic block directly
 
@@ -1216,10 +1141,8 @@ uint32_t find_and_validate_public_input_delta(CircuitBuilder& builder,
     auto& arith = builder.blocks.arithmetic;
     uint32_t found = UINT32_MAX;
     size_t match_count = 0;
-    const size_t end = std::min(search_end, arith.size());
-    for (size_t g = search_start; g < end; g++) {
-        if (arith.q_m()[g] != FF::one() || arith.gate_selector_for(bb::GateKind::Arith)[g] != FF::one() ||
-            arith.q_3()[g] != FF::neg_one()) {
+    for (size_t g = 0; g < arith.size(); g++) {
+        if (arith.q_m()[g] != FF::one() || arith.gate_selector_for(bb::GateKind::Arith)[g] != FF::one() || arith.q_3()[g] != FF::neg_one()) {
             continue;
         }
         if (!arith.q_1()[g].is_zero() || !arith.q_2()[g].is_zero() || !arith.q_4()[g].is_zero() ||
@@ -1256,7 +1179,7 @@ struct GrandProductComputationResult {
  *
  * @param beta_real real_idx of beta (from prior log_derivative_round validation)
  * @param gamma_real real_idx of gamma
- * @param pub_inputs_offset_real real_idx of pub_inputs_offset (= constraint.key[VK_PUB_INPUTS_OFFSET_INDEX])
+ * @param pub_inputs_offset_real real_idx of pub_inputs_offset (= constraint.key[2])
  * @param public_input_reals vector of real_idx values for all mega public inputs
  */
 template <typename FF, typename CircuitBuilder>
@@ -1443,7 +1366,7 @@ struct PaddingArrayValidationResult {
  * @brief Locate and validate the compute_padding_indicator_array subcircuit starting from log_n.
  *
  * @param log_n_witness_idx ACIR witness index (or any witness index) for log_circuit_size.
- *                           Typically constraint.key[VK_LOG_CIRCUIT_SIZE_INDEX].
+ *                           Typically constraint.key[0].
  */
 template <typename FF, typename CircuitBuilder>
 PaddingArrayValidationResult validate_compute_padding_array_from_log_n(
@@ -1457,10 +1380,9 @@ PaddingArrayValidationResult validate_compute_padding_array_from_log_n(
         if (&builder.blocks.get()[block_idx] != &ab) {
             continue;
         }
-        bool correct_selectors = ab.gate_selector_for(bb::GateKind::Arith)[gate_idx] == FF::one() &&
-                                 ab.q_m()[gate_idx] == FF::one() && ab.q_c()[gate_idx] == FF(2) &&
-                                 ab.q_1()[gate_idx] == FF(-2) && ab.q_2()[gate_idx] == FF::neg_one() &&
-                                 ab.q_3()[gate_idx] == FF::neg_one();
+        bool correct_selectors = ab.gate_selector_for(bb::GateKind::Arith)[gate_idx] == FF::one() && ab.q_m()[gate_idx] == FF::one() &&
+                                 ab.q_c()[gate_idx] == FF(2) && ab.q_1()[gate_idx] == FF(-2) &&
+                                 ab.q_2()[gate_idx] == FF::neg_one() && ab.q_3()[gate_idx] == FF::neg_one();
         bool correct_wires = poseidon2_helpers::all_equal(
             log_circuit_size_idx, analyzer.to_real(ab.w_l()[gate_idx]), analyzer.to_real(ab.w_r()[gate_idx]));
         if (!correct_wires || !correct_selectors) {
@@ -1500,8 +1422,7 @@ PaddingArrayValidationResult validate_compute_padding_array_from_log_n(
         for (size_t i = 0; i < NUM_ADDS; i++) {
             size_t g = add_start + i;
             // Sanity: each must be an arithmetic gate with q_arith=1, q_3=-1, q_m=0
-            if (ab.gate_selector_for(bb::GateKind::Arith)[g] != FF::one() || ab.q_3()[g] != FF::neg_one() ||
-                !ab.q_m()[g].is_zero()) {
+            if (ab.gate_selector_for(bb::GateKind::Arith)[g] != FF::one() || ab.q_3()[g] != FF::neg_one() || !ab.q_m()[g].is_zero()) {
                 return out;
             }
             out.padding_indicator_reals[14 - i] = analyzer.to_real(ab.w_o()[g]);
@@ -1531,14 +1452,14 @@ PaddingArrayValidationResult validate_compute_padding_array_from_log_n(
 }
 
 /**
- * @brief Convenience overload — takes a RecursionConstraint and uses its key[VK_LOG_CIRCUIT_SIZE_INDEX] as log_n.
+ * @brief Convenience overload — takes a RecursionConstraint and uses its key[0] as log_n.
  */
 template <typename FF, typename CircuitBuilder>
 PaddingArrayValidationResult validate_compute_padding_array_step(CircuitBuilder& builder,
                                                                  cdg::StaticAnalyzer_<FF, CircuitBuilder>& analyzer,
                                                                  const acir_format::RecursionConstraint& constraint)
 {
-    return validate_compute_padding_array_from_log_n<FF>(builder, analyzer, constraint.key[VK_LOG_CIRCUIT_SIZE_INDEX]);
+    return validate_compute_padding_array_from_log_n<FF>(builder, analyzer, constraint.key[0]);
 }
 
 // ============================================================================
@@ -1574,9 +1495,8 @@ uint32_t find_step2_gate_challenge_0(CircuitBuilder& builder, const std::set<siz
         if (oink_squeeze_gates.count(g)) {
             continue; // skip oink's squeezes
         }
-        if (arith.gate_selector_for(bb::GateKind::Arith)[g] == FF::one() && arith.q_1()[g] == FF::one() &&
-            arith.q_2()[g] == two_127 && arith.q_3()[g] == -FF::one() && arith.q_4()[g] == FF::one() &&
-            arith.q_m()[g].is_zero()) {
+        if (arith.gate_selector_for(bb::GateKind::Arith)[g] == FF::one() && arith.q_1()[g] == FF::one() && arith.q_2()[g] == two_127 &&
+            arith.q_3()[g] == -FF::one() && arith.q_4()[g] == FF::one() && arith.q_m()[g].is_zero()) {
             found = builder.real_variable_index[arith.w_l()[g]];
             match_count++;
             if (match_count > 1) {
@@ -1674,9 +1594,8 @@ PowersOfEvaluationChallengeResult validate_powers_of_evaluation_challenge(
     auto to_real = [&](uint32_t w) { return builder.real_variable_index[w]; };
 
     auto is_squaring_gate = [&](size_t g) {
-        return ab.gate_selector_for(bb::GateKind::Arith)[g] == FF::one() && ab.q_m()[g] == FF::one() &&
-               ab.q_3()[g] == FF::neg_one() && ab.q_1()[g].is_zero() && ab.q_2()[g].is_zero() &&
-               ab.q_4()[g].is_zero() && ab.q_c()[g].is_zero();
+        return ab.gate_selector_for(bb::GateKind::Arith)[g] == FF::one() && ab.q_m()[g] == FF::one() && ab.q_3()[g] == FF::neg_one() &&
+               ab.q_1()[g].is_zero() && ab.q_2()[g].is_zero() && ab.q_4()[g].is_zero() && ab.q_c()[g].is_zero();
     };
 
     size_t anchor = SIZE_MAX;
@@ -1802,14 +1721,46 @@ std::optional<size_t> find_fingerprint_range_containing_gate(CircuitBuilder& bui
  * @brief Find a fingerprint range containing any gate from a set of anchors.
  */
 template <typename CircuitBuilder, typename Block>
-std::optional<size_t> find_fingerprint_range_containing_any_gate(CircuitBuilder& builder,
-                                                                 Block& block,
-                                                                 const std::set<size_t>& anchor_gate_indices,
-                                                                 const FunctionFingerprint& fp)
+std::optional<size_t> find_fingerprint_range_containing_any_gates(CircuitBuilder& builder,
+                                                                  Block& block,
+                                                                  const std::set<size_t>& anchor_gate_indices,
+                                                                  const FunctionFingerprint& fp)
 {
     for (size_t anchor_gate_idx : anchor_gate_indices) {
         if (auto start = find_fingerprint_range_containing_gate(builder, block, anchor_gate_idx, fp);
             start.has_value()) {
+            return start;
+        }
+    }
+    return std::nullopt;
+}
+
+/**
+ * @brief Find a fingerprint range containing all gates from a set of anchors.
+ */
+template <typename CircuitBuilder, typename Block>
+std::optional<size_t> find_fingerprint_range_containing_all_gates(CircuitBuilder& builder,
+                                                                  Block& block,
+                                                                  const std::set<size_t>& anchor_gate_indices,
+                                                                  const FunctionFingerprint& fp)
+{
+    if (anchor_gate_indices.empty() || fp.gate_count == 0) {
+        return std::nullopt;
+    }
+
+    const size_t min_anchor = *anchor_gate_indices.begin();
+    const size_t max_anchor = *anchor_gate_indices.rbegin();
+
+    const size_t first_start_that_contains_all_anchors =
+        max_anchor >= fp.gate_count - 1 ? max_anchor - (fp.gate_count - 1) : 0;
+    const size_t last_start_that_contains_all_anchors = min_anchor;
+    const size_t last_start_that_fits_block = block.size() - fp.gate_count;
+    const size_t last_candidate_start = std::min(last_start_that_contains_all_anchors, last_start_that_fits_block);
+    if (first_start_that_contains_all_anchors > last_candidate_start) {
+        return std::nullopt;
+    }
+    for (size_t start = first_start_that_contains_all_anchors; start <= last_candidate_start; ++start) {
+        if (matches_fingerprint_at(builder, block, start, fp)) {
             return start;
         }
     }
@@ -1902,8 +1853,8 @@ ChallengeGenerationValidationResult validate_challenges_generation(CircuitBuilde
 {
     ChallengeGenerationValidationResult result;
     auto& arith = builder.blocks.arithmetic;
-    auto& poseidon2_external = poseidon2_helpers::poseidon2_external_block(builder);
-    auto& poseidon2_internal = poseidon2_helpers::poseidon2_internal_block(builder);
+    auto& poseidon2_external = builder.blocks.poseidon2_external;
+    auto& poseidon2_internal = builder.blocks.poseidon2_internal;
 
     auto arith_start = find_fingerprint_range_containing_gate(builder, arith, challenge_gate_idx, arith_fp);
     if (!arith_start.has_value()) {
@@ -1938,6 +1889,163 @@ ChallengeGenerationValidationResult validate_challenges_generation(CircuitBuilde
 
     result.is_valid = true;
     return result;
+}
+
+// ── Commitment deserialization fingerprints (flavor-agnostic) ────────────────
+// Both HONK and CHONK use the same transcript_receive circuit per commitment.
+
+static constexpr FunctionFingerprint SINGLE_COMMITMENT_ARITHMETIC = {
+    79, 0xb44f41ca2be07184ULL, 0x7e14d02952bda35aULL, SCANNER_FINGERPRINT_SIZE
+};
+static constexpr FunctionFingerprint SINGLE_COMMITMENT_NNF = {
+    62, 0xff2ca3c0bde9b337ULL, 0x6f7911bba1f0ffe7ULL, SCANNER_FINGERPRINT_SIZE
+};
+
+struct CommitmentReceiveValidationResult {
+    bool is_valid = false;
+    size_t arith_start = SIZE_MAX;
+    size_t arith_end = SIZE_MAX;
+    size_t nnf_start = SIZE_MAX;
+};
+
+template <typename FF, typename CircuitBuilder, typename Block>
+std::vector<size_t> collect_real_witness_gates_in_block(CircuitBuilder& builder,
+                                                        cdg::StaticAnalyzer_<FF, CircuitBuilder>& analyzer,
+                                                        uint32_t real_idx,
+                                                        Block& block)
+{
+    std::vector<size_t> gates;
+    for (const auto& [blk, gate_idx] : analyzer.get_variable_gates(real_idx)) {
+        if (&builder.blocks.get()[blk] == &block) {
+            gates.push_back(gate_idx);
+        }
+    }
+    return gates;
+}
+
+inline std::array<uint32_t, FRS_PER_COMMITMENT> get_commitment_group_witness_indices(
+    const std::vector<uint32_t>& proof_body_witnesses, size_t group_idx)
+{
+    const size_t base = group_idx * FRS_PER_COMMITMENT;
+    return { proof_body_witnesses[base],
+             proof_body_witnesses[base + 1],
+             proof_body_witnesses[base + 2],
+             proof_body_witnesses[base + 3] };
+}
+
+template <typename CircuitBuilder> std::vector<size_t> extract_oink_squeeze_gates(CircuitBuilder& builder)
+{
+    const auto all_squeezes = find_all_transcript_squeeze_gates(builder);
+    const auto challenges = oink_challenges(builder, all_squeezes);
+    if (!challenges.valid || challenges.squeeze_gate_indices.size() != NUM_OINK_SQUEEZES) {
+        return {};
+    }
+    return { challenges.squeeze_gate_indices.begin(), challenges.squeeze_gate_indices.end() };
+}
+
+template <typename FF, typename CircuitBuilder>
+CommitmentReceiveValidationResult validate_commitment_receive_fingerprint(
+    CircuitBuilder& builder,
+    cdg::StaticAnalyzer_<FF, CircuitBuilder>& analyzer,
+    uint32_t fr0_idx,
+    uint32_t fr1_idx,
+    uint32_t fr2_idx,
+    uint32_t fr3_idx)
+{
+    CommitmentReceiveValidationResult result;
+    auto& arith = builder.blocks.arithmetic;
+    auto& nnf = builder.blocks.nnf;
+
+    const uint32_t fr0_real = builder.real_variable_index[fr0_idx];
+    std::vector<size_t> candidate_gates = collect_real_witness_gates_in_block<FF>(builder, analyzer, fr0_real, arith);
+    std::set<size_t> tried_starts;
+    for (size_t gate_idx : candidate_gates) {
+        auto arith_start = find_fingerprint_range_containing_gate(builder, arith, gate_idx, SINGLE_COMMITMENT_ARITHMETIC);
+        if (!arith_start.has_value() || !tried_starts.insert(*arith_start).second) {
+            continue;
+        }
+
+        const size_t arith_end = *arith_start + SINGLE_COMMITMENT_ARITHMETIC.gate_count;
+        const std::set<size_t> linked_nnf_gates =
+            collect_linked_gates(builder, analyzer, arith, *arith_start, arith_end, nnf);
+        auto nnf_start = find_fingerprint_range_containing_any_gates(builder, nnf, linked_nnf_gates, SINGLE_COMMITMENT_NNF);
+        if (!nnf_start.has_value()) {
+            continue;
+        }
+
+        if (!result.is_valid || *arith_start < result.arith_start) {
+            result.is_valid = true;
+            result.arith_start = *arith_start;
+            result.arith_end = arith_end;
+            result.nnf_start = *nnf_start;
+        }
+    }
+    if (result.is_valid) {
+        return result;
+    }
+
+    const std::set<size_t> nnf_gates =
+        find_commitment_nnf_gates<FF>(builder, analyzer, fr0_idx, fr1_idx, fr2_idx, fr3_idx);
+    if (nnf_gates.empty()) {
+        info("validate_commitment_receive_fingerprint: no NNF gates found for fr0=", fr0_idx);
+        return result;
+    }
+
+    auto nnf_start = find_fingerprint_range_containing_any_gates(builder, nnf, nnf_gates, SINGLE_COMMITMENT_NNF);
+    if (!nnf_start.has_value()) {
+        info("validate_commitment_receive_fingerprint: no NNF fingerprint range found for fr0=", fr0_idx);
+        return result;
+    }
+
+    const size_t nnf_end = *nnf_start + SINGLE_COMMITMENT_NNF.gate_count;
+    const std::set<size_t> linked_arith_gates =
+        collect_linked_gates(builder, analyzer, nnf, *nnf_start, nnf_end, arith);
+    auto arith_start = find_fingerprint_range_containing_any_gates(builder, arith, linked_arith_gates, SINGLE_COMMITMENT_ARITHMETIC);
+    if (!arith_start.has_value()) {
+        info("validate_commitment_receive_fingerprint: no arith fingerprint linked from NNF for fr0=", fr0_idx);
+        return result;
+    }
+
+    result.is_valid = true;
+    result.arith_start = *arith_start;
+    result.arith_end = *arith_start + SINGLE_COMMITMENT_ARITHMETIC.gate_count;
+    result.nnf_start = *nnf_start;
+    return result;
+}
+
+template <typename FF, typename CircuitBuilder>
+bool validate_commitment_group_full(CircuitBuilder& builder,
+                                    cdg::StaticAnalyzer_<FF, CircuitBuilder>& analyzer,
+                                    const std::vector<uint32_t>& proof_body_witnesses,
+                                    size_t group_idx,
+                                    CommitmentReceiveValidationResult* fingerprint_result = nullptr,
+                                    bool require_absorption = true)
+{
+    const size_t base = group_idx * FRS_PER_COMMITMENT;
+    if (base + 3 >= proof_body_witnesses.size()) {
+        info("validate_commitment_group_full: group ", group_idx, " out of bounds");
+        return false;
+    }
+
+    const auto frs = get_commitment_group_witness_indices(proof_body_witnesses, group_idx);
+    auto fp = validate_commitment_receive_fingerprint<FF>(builder, analyzer, frs[0], frs[1], frs[2], frs[3]);
+    if (!fp.is_valid) {
+        info("validate_commitment_group_full: fingerprint validation failed for group ", group_idx);
+        return false;
+    }
+    if (!validate_oink_commitment<FF>(builder, analyzer, frs[0], frs[1], frs[2], frs[3])) {
+        info("validate_commitment_group_full: wire-tracing failed for group ", group_idx);
+        return false;
+    }
+    if (require_absorption && !validate_commitment_transcript_absorption<FF>(builder, analyzer, frs[0], frs[1], frs[2], frs[3])) {
+        info("validate_commitment_group_full: transcript absorption failed for group ", group_idx);
+        return false;
+    }
+
+    if (fingerprint_result != nullptr) {
+        *fingerprint_result = fp;
+    }
+    return true;
 }
 
 } // namespace recursion_helpers
@@ -2120,6 +2228,20 @@ struct BatchMulValidationResult {
 };
 
 /**
+ * @brief Full validated KZG subchain needed by later Goblin validators.
+ *
+ * Stores the located masking challenge anchor plus all validated KZG stage results so later
+ * validation steps can continue from the exact same chain without re-deriving it.
+ */
+struct KZGValidationResult {
+    bool is_valid = false;
+    recursion_helpers::KZGMaskingChallenge masking_challenge;
+    TranscriptReceiveValidationResult transcript_receive;
+    MaskingChallengeValidationResult masking_challenge_generation;
+    BatchMulValidationResult batch_mul;
+};
+
+/**
  * @brief Validate the `KZG:W_receive` stage from the masking-challenge anchor.
  *
  * The supplied `masking_challenge_gate_idx` is treated as an anchor inside
@@ -2234,8 +2356,8 @@ MaskingChallengeValidationResult validate_masking_challenge_generation(
     }
 
     auto& arith = builder.blocks.arithmetic;
-    auto& poseidon2_external = poseidon2_helpers::poseidon2_external_block(builder);
-    auto& poseidon2_internal = poseidon2_helpers::poseidon2_internal_block(builder);
+    auto& poseidon2_external = builder.blocks.poseidon2_external;
+    auto& poseidon2_internal = builder.blocks.poseidon2_internal;
 
     const size_t masking_challenge_start =
         transcript_receive.arithmetic_gate_start_idx + TRANSCRIPT_RECEIVE_KZG_W_ARITHMETIC.gate_count;
@@ -2342,7 +2464,7 @@ BatchMulValidationResult validate_batch_mul(CircuitBuilder& builder,
     const size_t batch_mul_arithmetic_end = result.arithmetic_gate_start_idx + BATCH_MUL_ARITHMETIC.gate_count;
     const std::set<size_t> linked_memory_gates = recursion_helpers::collect_linked_gates(
         builder, analyzer, arith, result.arithmetic_gate_start_idx, batch_mul_arithmetic_end, memory);
-    auto memory_start = recursion_helpers::find_fingerprint_range_containing_any_gate(
+    auto memory_start = recursion_helpers::find_fingerprint_range_containing_any_gates(
         builder, memory, linked_memory_gates, BATCH_MUL_MEMORY);
     if (!memory_start.has_value()) {
         log_error(
@@ -2368,45 +2490,53 @@ BatchMulValidationResult validate_batch_mul(CircuitBuilder& builder,
  * @param builder Builder containing the generated recursive verifier circuit.
  * @param all_squeezes All transcript squeeze gates discovered in the builder.
  * @param consumed Squeeze gates consumed before the KZG stage.
- * @return `true` when all KZG subvalidators accept the same anchored chain.
+ * @return Validated KZG subchain data. `is_valid` is set only when all stage validators accept the
+ * same anchored chain.
  */
 template <typename CircuitBuilder>
-bool validate_kzg(CircuitBuilder& builder, const std::vector<size_t>& all_squeezes, const std::set<size_t>& consumed)
+KZGValidationResult validate_kzg(CircuitBuilder& builder,
+                                 const std::vector<size_t>& all_squeezes,
+                                 const std::set<size_t>& consumed)
 {
-    auto masking_challenge = recursion_helpers::kzg_masking_challenge(builder, all_squeezes, consumed);
-    if (!masking_challenge.valid) {
+    KZGValidationResult result;
+    result.masking_challenge = recursion_helpers::kzg_masking_challenge(builder, all_squeezes, consumed);
+    if (!result.masking_challenge.valid) {
         log_error("validate_kzg failed: could not locate valid KZG masking challenge");
-        return false;
+        return result;
     }
 
     cdg::StaticAnalyzer_<bb::fr, CircuitBuilder> analyzer(builder, false);
-    auto transcript_receive = validate_transcript_receive(builder, analyzer, masking_challenge.squeeze_gate);
-    if (!transcript_receive.is_valid) {
+    result.transcript_receive = validate_transcript_receive(builder, analyzer, result.masking_challenge.squeeze_gate);
+    if (!result.transcript_receive.is_valid) {
         log_error("validate_kzg failed: transcript_receive validation failed");
-        return false;
+        return result;
     }
 
-    auto masking_challenge_generation =
-        validate_masking_challenge_generation(builder, analyzer, masking_challenge.squeeze_gate, transcript_receive);
-    if (!masking_challenge_generation.is_valid) {
+    result.masking_challenge_generation = validate_masking_challenge_generation(
+        builder, analyzer, result.masking_challenge.squeeze_gate, result.transcript_receive);
+    if (!result.masking_challenge_generation.is_valid) {
         log_error("validate_kzg failed: masking_challenge generation validation failed");
-        return false;
+        return result;
     }
 
-    auto batch_mul = validate_batch_mul(
-        builder, analyzer, masking_challenge.squeeze_gate, transcript_receive, masking_challenge_generation);
-    if (!batch_mul.is_valid) {
+    result.batch_mul = validate_batch_mul(builder,
+                                          analyzer,
+                                          result.masking_challenge.squeeze_gate,
+                                          result.transcript_receive,
+                                          result.masking_challenge_generation);
+    if (!result.batch_mul.is_valid) {
         log_error("validate_kzg failed: batch_mul validation failed");
-        return false;
+        return result;
     }
 
     info("KZG validator found chain: KZG:W_receive starts at ",
-         transcript_receive.arithmetic_gate_start_idx,
+         result.transcript_receive.arithmetic_gate_start_idx,
          ", KZG:masking_challenge starts at ",
-         masking_challenge_generation.arithmetic_gate_start_idx,
+         result.masking_challenge_generation.arithmetic_gate_start_idx,
          ", KZG:batch_mul starts at ",
-         batch_mul.arithmetic_gate_start_idx);
-    return true;
+         result.batch_mul.arithmetic_gate_start_idx);
+    result.is_valid = true;
+    return result;
 }
 
 } // namespace KZGVerification
@@ -2486,7 +2616,7 @@ GeminiFoldCommitmentsValidationResult validate_gemini_fold_commitments(
         info("Gemini fold commitments validation failed: no witness links from fold arithmetic range to NNF block");
         return result;
     }
-    auto nnf_start = recursion_helpers::find_fingerprint_range_containing_any_gate(
+    auto nnf_start = recursion_helpers::find_fingerprint_range_containing_any_gates(
         builder, nnf, linked_nnf_gates, GEMINI_FOLD_COMMITMENTS_NNF);
     if (!nnf_start.has_value()) {
         info("Gemini fold commitments validation failed: no NNF range matching fingerprint contains a linked gate");
@@ -2595,7 +2725,7 @@ ShplonkQValidationResult validate_shplonk_q(CircuitBuilder& builder,
         return result;
     }
     auto nnf_start =
-        recursion_helpers::find_fingerprint_range_containing_any_gate(builder, nnf, linked_nnf_gates, SHPLONK_Q_NNF);
+        recursion_helpers::find_fingerprint_range_containing_any_gates(builder, nnf, linked_nnf_gates, SHPLONK_Q_NNF);
     if (!nnf_start.has_value()) {
         info("Shplonk Q validation failed: no NNF range matching fingerprint contains a linked gate");
         return result;
@@ -2957,7 +3087,7 @@ LibraCommitmentValidationResult validate_libra_commitment_receive(
     }
 
     auto nnf_start =
-        recursion_helpers::find_fingerprint_range_containing_any_gate(builder, nnf, linked_nnf_gates, nnf_fp);
+        recursion_helpers::find_fingerprint_range_containing_any_gates(builder, nnf, linked_nnf_gates, nnf_fp);
     if (!nnf_start.has_value()) {
         info("validate_libra_commitment_receive (",
              stage_name,
@@ -3312,8 +3442,7 @@ namespace OinkVerifierValidation {
 //   generate_alpha_round()                  -> validate_alpha_stage()
 //
 // Anchor ownership:
-//   - ACIR anchors: constraint.key_hash, constraint.key[VK_NUM_PUBLIC_INPUTS_INDEX],
-//     constraint.key[VK_PUB_INPUTS_OFFSET_INDEX], proof_body_witnesses
+//   - ACIR anchors: constraint.key_hash, constraint.key[1], constraint.key[2], proof_body_witnesses
 //   - Challenge anchors: first 3 Oink squeeze gates = eta, beta/gamma, alpha
 //
 // Supported baseline path:
@@ -3322,41 +3451,13 @@ namespace OinkVerifierValidation {
 // ── Step 1: Fingerprint constants ────────────────────────────────────────────
 
 static constexpr recursion_helpers::FunctionFingerprint VK_HASH_ARITHMETIC = {
-    474, 6104110583215788901ULL, 550964509006047410ULL, recursion_helpers::SCANNER_FINGERPRINT_SIZE
+    508, 0xd58497aa29176bc3ULL, 0x1a6fc854b892e1b9ULL, recursion_helpers::SCANNER_FINGERPRINT_SIZE
 };
 static constexpr recursion_helpers::FunctionFingerprint VK_HASH_POSEIDON2_EXT = {
-    400, 15451349259357675649ULL, 3581275304588819155ULL, recursion_helpers::SCANNER_FINGERPRINT_SIZE
+    430, 0x0ec92a899925d755ULL, 0xaff75f33788010f9ULL, recursion_helpers::SCANNER_FINGERPRINT_SIZE
 };
 static constexpr recursion_helpers::FunctionFingerprint VK_HASH_POSEIDON2_INT = {
-    2280, 18351710661041967697ULL, 16378694786639264919ULL, recursion_helpers::SCANNER_FINGERPRINT_SIZE
-};
-
-static constexpr recursion_helpers::FunctionFingerprint CHONK_WIRE_ARITHMETIC = {
-    846, 3300576537548107642ULL, 9036444660217075995ULL, recursion_helpers::SCANNER_FINGERPRINT_SIZE
-};
-static constexpr recursion_helpers::FunctionFingerprint CHONK_WIRE_NNF = {
-    558, 9597988890089570214ULL, 5180231577776684300ULL, recursion_helpers::SCANNER_FINGERPRINT_SIZE
-};
-static constexpr recursion_helpers::FunctionFingerprint CHONK_SINGLE_RECEIVE_ARITHMETIC = {
-    94, 3300576537548107642ULL, 14467350302441511400ULL, recursion_helpers::SCANNER_FINGERPRINT_SIZE
-};
-static constexpr recursion_helpers::FunctionFingerprint CHONK_SINGLE_RECEIVE_NNF = {
-    62, 9597988890089570214ULL, 17495900531573514997ULL, recursion_helpers::SCANNER_FINGERPRINT_SIZE
-};
-static constexpr recursion_helpers::FunctionFingerprint CHONK_LOGDERIV_NNF = {
-    62, 9597988890089570214ULL, 17495900531573514997ULL, recursion_helpers::SCANNER_FINGERPRINT_SIZE
-};
-static constexpr recursion_helpers::FunctionFingerprint CHONK_TRANSCRIPT_PERMUTATION_POSEIDON2_EXT = {
-    10, 5881079831730166975ULL, 5881079831730166975ULL, 10
-};
-static constexpr recursion_helpers::FunctionFingerprint CHONK_TRANSCRIPT_PERMUTATION_POSEIDON2_INT = {
-    57, 18351710661041967697ULL, 6543417916883557386ULL, recursion_helpers::SCANNER_FINGERPRINT_SIZE
-};
-static constexpr recursion_helpers::FunctionFingerprint CHONK_KERNEL_IO_NNF = {
-    460, 9597988890089570214ULL, 12867440540418116472ULL, recursion_helpers::SCANNER_FINGERPRINT_SIZE
-};
-static constexpr recursion_helpers::FunctionFingerprint CHONK_KERNEL_IO_ARITHMETIC = {
-    683, 3300576537548107642ULL, 7168848738012626868ULL, recursion_helpers::SCANNER_FINGERPRINT_SIZE
+    2451, 0xee3a7ac895f8a6d9ULL, 0xed6a7d8ced122093ULL, recursion_helpers::SCANNER_FINGERPRINT_SIZE
 };
 
 static constexpr recursion_helpers::FunctionFingerprint ETA_ARITHMETIC = {
@@ -3387,13 +3488,6 @@ static constexpr recursion_helpers::FunctionFingerprint ALPHA_POSEIDON2_EXT = {
 };
 static constexpr recursion_helpers::FunctionFingerprint ALPHA_POSEIDON2_INT = {
     399, 0xee3a7ac895f8a6d9ULL, 0x6619c8437f11d164ULL, recursion_helpers::SCANNER_FINGERPRINT_SIZE
-};
-
-static constexpr recursion_helpers::FunctionFingerprint SINGLE_COMMITMENT_ARITHMETIC = {
-    79, 0xb44f41ca2be07184ULL, 0x7e14d02952bda35aULL, recursion_helpers::SCANNER_FINGERPRINT_SIZE
-};
-static constexpr recursion_helpers::FunctionFingerprint SINGLE_COMMITMENT_NNF = {
-    62, 0xff2ca3c0bde9b337ULL, 0x6f7911bba1f0ffe7ULL, recursion_helpers::SCANNER_FINGERPRINT_SIZE
 };
 
 static constexpr recursion_helpers::FunctionFingerprint PUBLIC_INPUT_DELTA_ARITHMETIC = {
@@ -3440,13 +3534,6 @@ struct VkHashValidationResult {
     size_t poseidon2_int_start = SIZE_MAX;
 };
 
-struct CommitmentReceiveValidationResult {
-    bool is_valid = false;
-    size_t arith_start = SIZE_MAX;
-    size_t arith_end = SIZE_MAX;
-    size_t nnf_start = SIZE_MAX;
-};
-
 struct EtaStageValidationResult {
     bool is_valid = false;
     size_t arith_start = SIZE_MAX;
@@ -3486,111 +3573,7 @@ struct PublicInputDeltaStageResult {
     size_t arith_end = SIZE_MAX;
 };
 
-struct ChonkOinkValidationResult {
-    bool is_valid = false;
-    uint32_t beta = UINT32_MAX;
-    uint32_t gamma = UINT32_MAX;
-    uint32_t public_input_delta = UINT32_MAX;
-    std::vector<std::pair<size_t, size_t>> block_ranges;
-};
-
-/**
- * @brief Validate the complete selector sequence emitted by compute_public_input_delta().
- *
- * For `m` public inputs the current implementation emits
- * `public_input_delta_gate_count(m)` (`6m + 2`) arithmetic gates:
- * a 7-gate first public-input segment, `m - 2` identical 6-gate middle segments,
- * and a 7-gate final public-input + division segment.
- */
-template <typename CircuitBuilder>
-bool validate_public_input_delta_selector_pattern(CircuitBuilder& builder,
-                                                  const size_t start,
-                                                  const size_t end,
-                                                  const size_t num_public_inputs)
-{
-    // Measured single-gate arithmetic selector hashes from the stdlib expansion of
-    // compute_public_input_delta. Shared shapes recur across iterations; the
-    // division hash appears once in the final segment.
-    constexpr size_t FIRST_SEGMENT_HEAD_HASH = 1584929364824987885ULL;
-    constexpr size_t REPEATED_GATE_HASH = 13046493496222653101ULL;
-    constexpr size_t FIRST_SEGMENT_THIRD_HASH = 7439118975561227356ULL;
-    constexpr size_t ITERATION_START_HASH = 15221033099327830079ULL;
-    constexpr size_t ITERATION_BODY_HASH = 12315132540492710203ULL;
-    constexpr size_t DIVISION_GATE_HASH = 12174781835826750109ULL;
-
-    constexpr std::array<size_t, 7> FIRST_PUBLIC_INPUT_GATE_HASHES = { FIRST_SEGMENT_HEAD_HASH,  REPEATED_GATE_HASH,
-                                                                       FIRST_SEGMENT_THIRD_HASH, ITERATION_START_HASH,
-                                                                       REPEATED_GATE_HASH,       REPEATED_GATE_HASH,
-                                                                       REPEATED_GATE_HASH };
-    constexpr std::array<size_t, 6> MIDDLE_PUBLIC_INPUT_GATE_HASHES = { ITERATION_START_HASH, REPEATED_GATE_HASH,
-                                                                        ITERATION_BODY_HASH,  REPEATED_GATE_HASH,
-                                                                        ITERATION_BODY_HASH,  REPEATED_GATE_HASH };
-    constexpr std::array<size_t, 7> FINAL_PUBLIC_INPUT_AND_DIVISION_GATE_HASHES = {
-        ITERATION_START_HASH, REPEATED_GATE_HASH, ITERATION_BODY_HASH, REPEATED_GATE_HASH,
-        ITERATION_BODY_HASH,  DIVISION_GATE_HASH, ITERATION_BODY_HASH
-    };
-
-    if (num_public_inputs < 2 || end - start != recursion_helpers::public_input_delta_gate_count(num_public_inputs)) {
-        return false;
-    }
-    size_t gate_idx = start;
-    auto matches_gate_hashes = [&](const auto& expected_hashes) {
-        for (const size_t expected_hash : expected_hashes) {
-            if (recursion_helpers::calculate_hash_arithmetic_block(builder, gate_idx, gate_idx + 1) != expected_hash) {
-                return false;
-            }
-            ++gate_idx;
-        }
-        return true;
-    };
-    if (!matches_gate_hashes(FIRST_PUBLIC_INPUT_GATE_HASHES)) {
-        return false;
-    }
-    for (size_t middle_idx = 0; middle_idx < num_public_inputs - 2; ++middle_idx) {
-        if (!matches_gate_hashes(MIDDLE_PUBLIC_INPUT_GATE_HASHES)) {
-            return false;
-        }
-    }
-    return matches_gate_hashes(FINAL_PUBLIC_INPUT_AND_DIVISION_GATE_HASHES) && gate_idx == end;
-}
-
-// ── Helpers ───────────────────────────────────────────────────────────────────
-
-template <typename FF, typename CircuitBuilder, typename Block>
-std::vector<size_t> collect_real_witness_gates_in_block(CircuitBuilder& builder,
-                                                        cdg::StaticAnalyzer_<FF, CircuitBuilder>& analyzer,
-                                                        uint32_t real_idx,
-                                                        Block& block)
-{
-    std::vector<size_t> gates;
-    for (const auto& [blk, gate_idx] : analyzer.get_variable_gates(real_idx)) {
-        if (&builder.blocks.get()[blk] == &block) {
-            gates.push_back(gate_idx);
-        }
-    }
-    return gates;
-}
-
-inline std::array<uint32_t, recursion_helpers::FRS_PER_COMMITMENT> get_commitment_group_witness_indices(
-    const std::vector<uint32_t>& proof_body_witnesses, size_t group_idx)
-{
-    const size_t base = group_idx * recursion_helpers::FRS_PER_COMMITMENT;
-    return { proof_body_witnesses[base],
-             proof_body_witnesses[base + 1],
-             proof_body_witnesses[base + 2],
-             proof_body_witnesses[base + 3] };
-}
-
-template <typename CircuitBuilder> std::vector<size_t> extract_oink_squeeze_gates(CircuitBuilder& builder)
-{
-    const auto all_squeezes = recursion_helpers::find_all_transcript_squeeze_gates(builder);
-    const auto challenges = recursion_helpers::oink_challenges(builder, all_squeezes);
-    if (!challenges.valid || challenges.squeeze_gate_indices.size() != recursion_helpers::NUM_OINK_SQUEEZES) {
-        return {};
-    }
-
-    return { challenges.squeeze_gate_indices.begin(), challenges.squeeze_gate_indices.end() };
-}
+// ── Stage validators ──────────────────────────────────────────────────────────
 
 template <typename FF, typename CircuitBuilder>
 VkHashValidationResult validate_vk_hash_stage(CircuitBuilder& builder,
@@ -3599,17 +3582,16 @@ VkHashValidationResult validate_vk_hash_stage(CircuitBuilder& builder,
 {
     VkHashValidationResult result;
     auto& arith = builder.blocks.arithmetic;
-    auto& poseidon2_external = poseidon2_helpers::poseidon2_external_block(builder);
-    auto& poseidon2_internal = poseidon2_helpers::poseidon2_internal_block(builder);
+    auto& poseidon2_external = builder.blocks.poseidon2_external;
+    auto& poseidon2_internal = builder.blocks.poseidon2_internal;
 
     if (constraint.key.empty()) {
         info("validate_vk_hash_stage failed: empty constraint.key");
         return result;
     }
 
-    uint32_t key_hash_real = builder.real_variable_index[constraint.key_hash];
-    std::vector<size_t> external_candidate_gates =
-        collect_real_witness_gates_in_block<FF>(builder, analyzer, key_hash_real, poseidon2_external);
+    std::vector<size_t> external_candidate_gates = recursion_helpers::collect_real_witness_gates_in_block<FF>(
+        builder, analyzer, builder.real_variable_index[constraint.key_hash], poseidon2_external);
     std::set<size_t> tried_external_starts;
 
     for (size_t gate_idx : external_candidate_gates) {
@@ -3630,9 +3612,53 @@ VkHashValidationResult validate_vk_hash_stage(CircuitBuilder& builder,
 
         const std::set<size_t> linked_arith_gates = recursion_helpers::collect_linked_gates(
             builder, analyzer, poseidon2_external, *external_start, external_end, arith);
-        auto arith_start = recursion_helpers::find_fingerprint_range_containing_any_gate(
+        auto arith_start = recursion_helpers::find_fingerprint_range_containing_any_gates(
             builder, arith, linked_arith_gates, VK_HASH_ARITHMETIC);
         if (!arith_start.has_value()) {
+            if (!linked_arith_gates.empty()) {
+                const size_t min_gate = *linked_arith_gates.begin();
+                const size_t max_gate = *linked_arith_gates.rbegin();
+                info("validate_vk_hash_stage: linked arithmetic gate count=",
+                     linked_arith_gates.size(),
+                     " min=",
+                     min_gate,
+                     " max=",
+                     max_gate,
+                     " span=",
+                     max_gate - min_gate + 1);
+            } else {
+                info("validate_vk_hash_stage: linked_arith_gates is empty");
+            }
+
+            std::vector<size_t> arithmetic_candidate_starts;
+            for (size_t start = 0; start + VK_HASH_ARITHMETIC.gate_count <= arith.size(); ++start) {
+                if (recursion_helpers::matches_fingerprint_at(builder, arith, start, VK_HASH_ARITHMETIC)) {
+                    arithmetic_candidate_starts.push_back(start);
+                }
+            }
+
+            info("validate_vk_hash_stage: arithmetic fingerprint candidate count == ",
+                 arithmetic_candidate_starts.size());
+            for (size_t start : arithmetic_candidate_starts) {
+                info("validate_vk_hash_stage: arithmetic fingerprint candidate start == ", start);
+            }
+
+            bool linked_gates_hit_candidate_window = false;
+            for (size_t candidate_start : arithmetic_candidate_starts) {
+                const size_t candidate_end = candidate_start + VK_HASH_ARITHMETIC.gate_count;
+                if (std::any_of(linked_arith_gates.begin(), linked_arith_gates.end(), [&](size_t gate_idx_in_arith) {
+                        return candidate_start <= gate_idx_in_arith && gate_idx_in_arith < candidate_end;
+                    })) {
+                    linked_gates_hit_candidate_window = true;
+                    info("validate_vk_hash_stage: linked arithmetic gates intersect candidate window at start ",
+                         candidate_start);
+                    break;
+                }
+            }
+            if (!linked_gates_hit_candidate_window) {
+                info("validate_vk_hash_stage: linked arithmetic gates do not intersect any VK hash arithmetic "
+                     "candidate window");
+            }
             continue;
         }
 
@@ -3762,84 +3788,6 @@ AlphaStageValidationResult validate_alpha_stage(CircuitBuilder& builder,
 }
 
 template <typename FF, typename CircuitBuilder>
-CommitmentReceiveValidationResult validate_commitment_receive_fingerprint(
-    CircuitBuilder& builder,
-    cdg::StaticAnalyzer_<FF, CircuitBuilder>& analyzer,
-    uint32_t fr0_idx,
-    uint32_t fr1_idx,
-    uint32_t fr2_idx,
-    uint32_t fr3_idx)
-{
-    CommitmentReceiveValidationResult result;
-    auto& arith = builder.blocks.arithmetic;
-    auto& nnf = builder.blocks.nnf;
-
-    const uint32_t fr0_real = builder.real_variable_index[fr0_idx];
-    std::vector<size_t> candidate_gates = collect_real_witness_gates_in_block<FF>(builder, analyzer, fr0_real, arith);
-    std::set<size_t> tried_starts;
-    for (size_t gate_idx : candidate_gates) {
-        auto arith_start = recursion_helpers::find_fingerprint_range_containing_gate(
-            builder, arith, gate_idx, SINGLE_COMMITMENT_ARITHMETIC);
-        if (!arith_start.has_value() || !tried_starts.insert(*arith_start).second) {
-            continue;
-        }
-
-        const size_t arith_end = *arith_start + SINGLE_COMMITMENT_ARITHMETIC.gate_count;
-        const std::set<size_t> linked_nnf_gates =
-            recursion_helpers::collect_linked_gates(builder, analyzer, arith, *arith_start, arith_end, nnf);
-        auto nnf_start = recursion_helpers::find_fingerprint_range_containing_any_gate(
-            builder, nnf, linked_nnf_gates, SINGLE_COMMITMENT_NNF);
-        if (!nnf_start.has_value()) {
-            continue;
-        }
-
-        if (!result.is_valid || *arith_start < result.arith_start) {
-            result.is_valid = true;
-            result.arith_start = *arith_start;
-            result.arith_end = arith_end;
-            result.nnf_start = *nnf_start;
-        }
-    }
-    if (result.is_valid) {
-        return result;
-    }
-
-    const std::set<size_t> nnf_gates =
-        recursion_helpers::find_commitment_nnf_gates<FF>(builder, analyzer, fr0_idx, fr1_idx, fr2_idx, fr3_idx);
-    if (nnf_gates.empty()) {
-        info("validate_commitment_receive_fingerprint failed: no NNF gates found for commitment starting at fr0 ",
-             fr0_idx);
-        return result;
-    }
-
-    auto nnf_start =
-        recursion_helpers::find_fingerprint_range_containing_any_gate(builder, nnf, nnf_gates, SINGLE_COMMITMENT_NNF);
-    if (!nnf_start.has_value()) {
-        info("validate_commitment_receive_fingerprint failed: no matching NNF fingerprint range found for fr0 ",
-             fr0_idx);
-        return result;
-    }
-
-    const size_t nnf_end = *nnf_start + SINGLE_COMMITMENT_NNF.gate_count;
-    const std::set<size_t> linked_arith_gates =
-        recursion_helpers::collect_linked_gates(builder, analyzer, nnf, *nnf_start, nnf_end, arith);
-    auto arith_start = recursion_helpers::find_fingerprint_range_containing_any_gate(
-        builder, arith, linked_arith_gates, SINGLE_COMMITMENT_ARITHMETIC);
-    if (!arith_start.has_value()) {
-        info("validate_commitment_receive_fingerprint failed: no matching arithmetic fingerprint range linked from NNF "
-             "for fr0 ",
-             fr0_idx);
-        return result;
-    }
-
-    result.is_valid = true;
-    result.arith_start = *arith_start;
-    result.arith_end = *arith_start + SINGLE_COMMITMENT_ARITHMETIC.gate_count;
-    result.nnf_start = *nnf_start;
-    return result;
-}
-
-template <typename FF, typename CircuitBuilder>
 PublicInputDeltaStageResult validate_public_input_delta_stage(CircuitBuilder& builder,
                                                               cdg::StaticAnalyzer_<FF, CircuitBuilder>& analyzer,
                                                               uint32_t beta_real,
@@ -3853,9 +3801,9 @@ PublicInputDeltaStageResult validate_public_input_delta_stage(CircuitBuilder& bu
 
     auto& arith = builder.blocks.arithmetic;
     const std::vector<size_t> beta_candidate_gates =
-        collect_real_witness_gates_in_block<FF>(builder, analyzer, beta_real, arith);
+        recursion_helpers::collect_real_witness_gates_in_block<FF>(builder, analyzer, beta_real, arith);
     const std::set<size_t> beta_anchor_gates(beta_candidate_gates.begin(), beta_candidate_gates.end());
-    auto beta_gamma_start = recursion_helpers::find_fingerprint_range_containing_any_gate(
+    auto beta_gamma_start = recursion_helpers::find_fingerprint_range_containing_any_gates(
         builder, arith, beta_anchor_gates, BETA_GAMMA_ARITHMETIC);
     if (!beta_gamma_start.has_value()) {
         info("validate_public_input_delta_stage failed: could not locate beta/gamma stage from beta witness");
@@ -3884,42 +3832,6 @@ PublicInputDeltaStageResult validate_public_input_delta_stage(CircuitBuilder& bu
 }
 
 template <typename FF, typename CircuitBuilder>
-bool validate_commitment_group_full(CircuitBuilder& builder,
-                                    cdg::StaticAnalyzer_<FF, CircuitBuilder>& analyzer,
-                                    const std::vector<uint32_t>& proof_body_witnesses,
-                                    size_t group_idx,
-                                    CommitmentReceiveValidationResult* fingerprint_result = nullptr,
-                                    bool require_absorption = true)
-{
-    const size_t base = group_idx * recursion_helpers::FRS_PER_COMMITMENT;
-    if (base + 3 >= proof_body_witnesses.size()) {
-        info("validate_commitment_group_full failed: group ", group_idx, " out of bounds");
-        return false;
-    }
-
-    const auto frs = get_commitment_group_witness_indices(proof_body_witnesses, group_idx);
-    auto fp = validate_commitment_receive_fingerprint<FF>(builder, analyzer, frs[0], frs[1], frs[2], frs[3]);
-    if (!fp.is_valid) {
-        info("validate_commitment_group_full failed: fingerprint validation failed for group ", group_idx);
-        return false;
-    }
-    if (!recursion_helpers::validate_oink_commitment<FF>(builder, analyzer, frs[0], frs[1], frs[2], frs[3])) {
-        info("validate_commitment_group_full failed: wire-tracing validation failed for group ", group_idx);
-        return false;
-    }
-    if (require_absorption && !recursion_helpers::validate_commitment_transcript_absorption<FF>(
-                                  builder, analyzer, frs[0], frs[1], frs[2], frs[3])) {
-        info("validate_commitment_group_full failed: transcript absorption validation failed for group ", group_idx);
-        return false;
-    }
-
-    if (fingerprint_result != nullptr) {
-        *fingerprint_result = fp;
-    }
-    return true;
-}
-
-template <typename FF, typename CircuitBuilder>
 bool validate_oink_verifier(CircuitBuilder& builder,
                             cdg::StaticAnalyzer_<FF, CircuitBuilder>& analyzer,
                             const acir_format::RecursionConstraint& constraint,
@@ -3929,12 +3841,12 @@ bool validate_oink_verifier(CircuitBuilder& builder,
         info("validate_oink_verifier failed: proof_body_witnesses too small");
         return false;
     }
-    if (constraint.key.size() < recursion_helpers::VK_METADATA_NUM_FIELDS) {
-        info("validate_oink_verifier failed: constraint.key missing VK metadata fields");
+    if (constraint.key.size() < 3) {
+        info("validate_oink_verifier failed: constraint.key has fewer than 3 entries");
         return false;
     }
 
-    const auto oink_gates = extract_oink_squeeze_gates(builder);
+    const auto oink_gates = recursion_helpers::extract_oink_squeeze_gates(builder);
     if (oink_gates.size() != recursion_helpers::NUM_OINK_SQUEEZES) {
         info("validate_oink_verifier failed: expected ",
              recursion_helpers::NUM_OINK_SQUEEZES,
@@ -3954,7 +3866,7 @@ bool validate_oink_verifier(CircuitBuilder& builder,
     }
 
     for (size_t group_idx : PRE_ETA_COMMITMENT_GROUPS) {
-        if (!validate_commitment_group_full<FF>(builder, analyzer, proof_body_witnesses, group_idx, nullptr, false)) {
+        if (!recursion_helpers::validate_commitment_group_full<FF>(builder, analyzer, proof_body_witnesses, group_idx, nullptr, false)) {
             info("validate_oink_verifier failed: pre-eta commitment group ", group_idx, " invalid");
             return false;
         }
@@ -3971,7 +3883,7 @@ bool validate_oink_verifier(CircuitBuilder& builder,
     }
 
     for (size_t group_idx : POST_ETA_COMMITMENT_GROUPS) {
-        if (!validate_commitment_group_full<FF>(builder, analyzer, proof_body_witnesses, group_idx, nullptr, false)) {
+        if (!recursion_helpers::validate_commitment_group_full<FF>(builder, analyzer, proof_body_witnesses, group_idx, nullptr, false)) {
             info("validate_oink_verifier failed: post-eta commitment group ", group_idx, " invalid");
             return false;
         }
@@ -3988,7 +3900,7 @@ bool validate_oink_verifier(CircuitBuilder& builder,
     }
 
     for (size_t group_idx : POST_BETA_GAMMA_COMMITMENT_GROUPS) {
-        if (!validate_commitment_group_full<FF>(builder, analyzer, proof_body_witnesses, group_idx, nullptr, false)) {
+        if (!recursion_helpers::validate_commitment_group_full<FF>(builder, analyzer, proof_body_witnesses, group_idx, nullptr, false)) {
             info("validate_oink_verifier failed: post-beta/gamma commitment group ", group_idx, " invalid");
             return false;
         }
@@ -3999,13 +3911,12 @@ bool validate_oink_verifier(CircuitBuilder& builder,
     for (uint32_t witness_idx : constraint.public_inputs) {
         public_input_reals.push_back(builder.real_variable_index[witness_idx]);
     }
-    auto delta = validate_public_input_delta_stage<FF>(
-        builder,
-        analyzer,
-        beta_gamma.beta,
-        beta_gamma.gamma,
-        builder.real_variable_index[constraint.key[recursion_helpers::VK_PUB_INPUTS_OFFSET_INDEX]],
-        public_input_reals);
+    auto delta = validate_public_input_delta_stage<FF>(builder,
+                                                       analyzer,
+                                                       beta_gamma.beta,
+                                                       beta_gamma.gamma,
+                                                       builder.real_variable_index[constraint.key[2]],
+                                                       public_input_reals);
     if (!delta.is_valid) {
         info("validate_oink_verifier failed: public_input_delta stage invalid");
         return false;
@@ -4015,7 +3926,7 @@ bool validate_oink_verifier(CircuitBuilder& builder,
         return false;
     }
 
-    if (!validate_commitment_group_full<FF>(builder, analyzer, proof_body_witnesses, Z_PERM_GROUP, nullptr, false)) {
+    if (!recursion_helpers::validate_commitment_group_full<FF>(builder, analyzer, proof_body_witnesses, Z_PERM_GROUP, nullptr, false)) {
         info("validate_oink_verifier failed: z_perm commitment invalid");
         return false;
     }
@@ -4041,303 +3952,6 @@ bool validate_oink_verifier(CircuitBuilder& builder,
          ", alpha at ",
          alpha.arith_start);
     return true;
-}
-
-/**
- * @brief Validate the Oink-only CHONK pre-sumcheck phase.
- *
- * CHONK invokes Oink with `emit_alpha=false`; therefore this validator checks
- * VK/public-input receipt, eta, beta/gamma, all commitment receives, and the
- * public-input delta, but deliberately does not require an Oink alpha squeeze.
- * Public inputs contain both ACIR public inputs and trailing HidingKernelIO fields.
- */
-template <typename FF, typename CircuitBuilder>
-ChonkOinkValidationResult validate_chonk_oink(CircuitBuilder& builder,
-                                              cdg::StaticAnalyzer_<FF, CircuitBuilder>& analyzer,
-                                              const acir_format::RecursionConstraint& constraint,
-                                              const std::vector<uint32_t>& public_input_witnesses,
-                                              const std::vector<uint32_t>& proof_body_witnesses)
-{
-    // MegaZK has no memory or log-derivative lookup entities. Its current Oink
-    // proof contains 12 commitments in transcript order:
-    // w_l/r/o, four ECC-op wires, two databus entities, w_4, one databus
-    // inverse, and z_perm.
-    static constexpr size_t NUM_CHONK_OINK_COMMITMENTS = 12;
-
-    ChonkOinkValidationResult result;
-    result.block_ranges.resize(builder.blocks.get().size(), { SIZE_MAX, SIZE_MAX });
-    if (proof_body_witnesses.size() < NUM_CHONK_OINK_COMMITMENTS * recursion_helpers::FRS_PER_COMMITMENT ||
-        constraint.key.size() < recursion_helpers::VK_METADATA_NUM_FIELDS || public_input_witnesses.empty()) {
-        info("validate_chonk_oink failed: invalid witness layout");
-        return result;
-    }
-
-    auto& arith = builder.blocks.arithmetic;
-    auto& nnf = builder.blocks.nnf;
-    auto& poseidon_ext = poseidon2_helpers::poseidon2_external_block(builder);
-    auto& poseidon_int = poseidon2_helpers::poseidon2_internal_block(builder);
-    const auto arith_block_idx = recursion_helpers::find_block_index(builder, arith);
-    const auto nnf_block_idx = recursion_helpers::find_block_index(builder, nnf);
-    const auto poseidon_ext_block_idx = recursion_helpers::find_block_index(builder, poseidon_ext);
-    const auto poseidon_int_block_idx = recursion_helpers::find_block_index(builder, poseidon_int);
-    if (!arith_block_idx.has_value() || !nnf_block_idx.has_value() || !poseidon_ext_block_idx.has_value() ||
-        !poseidon_int_block_idx.has_value()) {
-        info("validate_chonk_oink failed: could not resolve block indices");
-        return result;
-    }
-
-    auto include_range = [&](const size_t block, const size_t start, const size_t end) {
-        auto& range = result.block_ranges.at(block);
-        range.first = range.first == SIZE_MAX ? start : std::min(range.first, start);
-        range.second = range.second == SIZE_MAX ? end : std::max(range.second, end);
-    };
-
-    const auto vk_hash = validate_vk_hash_stage<FF>(builder, analyzer, constraint);
-    if (!vk_hash.is_valid || !recursion_helpers::validate_oink_preamble<FF>(builder, analyzer, constraint)) {
-        info("validate_chonk_oink failed: VK/preamble");
-        return result;
-    }
-    include_range(*arith_block_idx, vk_hash.arith_start, vk_hash.arith_end);
-    include_range(*poseidon_ext_block_idx,
-                  vk_hash.poseidon2_ext_start,
-                  vk_hash.poseidon2_ext_start + VK_HASH_POSEIDON2_EXT.gate_count);
-    include_range(*poseidon_int_block_idx,
-                  vk_hash.poseidon2_int_start,
-                  vk_hash.poseidon2_int_start + VK_HASH_POSEIDON2_INT.gate_count);
-    auto find_at_or_after = [&](auto& block, const size_t first, const auto& fingerprint) {
-        if (fingerprint.gate_count > block.size()) {
-            return std::optional<size_t>{};
-        }
-        const size_t last = block.size() - fingerprint.gate_count;
-        for (size_t start = first; start <= last; ++start) {
-            if (recursion_helpers::matches_fingerprint_at(builder, block, start, fingerprint)) {
-                return std::optional<size_t>{ start };
-            }
-        }
-        return std::optional<size_t>{};
-    };
-
-    const auto wire_arith_start = find_at_or_after(arith, vk_hash.arith_end, CHONK_WIRE_ARITHMETIC);
-    std::optional<size_t> wire_nnf_start;
-    if (wire_arith_start.has_value()) {
-        const auto linked_nnf = recursion_helpers::collect_linked_gates(
-            builder, analyzer, arith, *wire_arith_start, *wire_arith_start + CHONK_WIRE_ARITHMETIC.gate_count, nnf);
-        for (const size_t gate : linked_nnf) {
-            const auto candidate =
-                recursion_helpers::find_fingerprint_range_containing_gate(builder, nnf, gate, CHONK_WIRE_NNF);
-            if (!candidate.has_value()) {
-                continue;
-            }
-            const size_t w4_start = *candidate + CHONK_WIRE_NNF.gate_count;
-            const size_t logderiv_start = w4_start + CHONK_SINGLE_RECEIVE_NNF.gate_count;
-            const size_t z_perm_start = logderiv_start + CHONK_LOGDERIV_NNF.gate_count;
-            const size_t kernel_io_start = z_perm_start + CHONK_SINGLE_RECEIVE_NNF.gate_count;
-            if (recursion_helpers::matches_fingerprint_at(builder, nnf, w4_start, CHONK_SINGLE_RECEIVE_NNF) &&
-                recursion_helpers::matches_fingerprint_at(builder, nnf, logderiv_start, CHONK_LOGDERIV_NNF) &&
-                recursion_helpers::matches_fingerprint_at(builder, nnf, z_perm_start, CHONK_SINGLE_RECEIVE_NNF) &&
-                recursion_helpers::matches_fingerprint_at(builder, nnf, kernel_io_start, CHONK_KERNEL_IO_NNF)) {
-                wire_nnf_start = candidate;
-                break;
-            }
-        }
-    }
-    if (!wire_arith_start.has_value() || !wire_nnf_start.has_value() || *wire_arith_start < vk_hash.arith_end) {
-        info("validate_chonk_oink failed: wire commitment stage arith=",
-             wire_arith_start.has_value(),
-             " nnf=",
-             wire_nnf_start.has_value());
-        return result;
-    }
-    const size_t w4_arith_start = *wire_arith_start + CHONK_WIRE_ARITHMETIC.gate_count;
-    const size_t w4_nnf_start = *wire_nnf_start + CHONK_WIRE_NNF.gate_count;
-    if (!recursion_helpers::matches_fingerprint_at(builder, arith, w4_arith_start, CHONK_SINGLE_RECEIVE_ARITHMETIC) ||
-        !recursion_helpers::matches_fingerprint_at(builder, nnf, w4_nnf_start, CHONK_SINGLE_RECEIVE_NNF)) {
-        info("validate_chonk_oink failed: w4 commitment stage");
-        return result;
-    }
-
-    const size_t logderiv_arith_start = w4_arith_start + CHONK_SINGLE_RECEIVE_ARITHMETIC.gate_count;
-    const size_t logderiv_nnf_start = w4_nnf_start + CHONK_SINGLE_RECEIVE_NNF.gate_count;
-    const size_t logderiv_ext_start = vk_hash.poseidon2_ext_start + VK_HASH_POSEIDON2_EXT.gate_count;
-    const size_t logderiv_int_start = vk_hash.poseidon2_int_start + VK_HASH_POSEIDON2_INT.gate_count;
-    if (!recursion_helpers::matches_fingerprint_at(builder, nnf, logderiv_nnf_start, CHONK_LOGDERIV_NNF)) {
-        info("validate_chonk_oink failed: inverse commitment NNF stage");
-        return result;
-    }
-
-    const auto kernel_arith_start = find_at_or_after(arith, logderiv_arith_start, CHONK_KERNEL_IO_ARITHMETIC);
-    if (!kernel_arith_start.has_value() ||
-        *kernel_arith_start < logderiv_arith_start + 2 * CHONK_SINGLE_RECEIVE_ARITHMETIC.gate_count) {
-        info("validate_chonk_oink failed: kernel boundary");
-        return result;
-    }
-    const size_t z_arith_start = *kernel_arith_start - CHONK_SINGLE_RECEIVE_ARITHMETIC.gate_count;
-    if (!recursion_helpers::matches_fingerprint_at(builder, arith, z_arith_start, CHONK_SINGLE_RECEIVE_ARITHMETIC)) {
-        info("validate_chonk_oink failed: z_perm arithmetic stage");
-        return result;
-    }
-
-    size_t inverse_arith_start = SIZE_MAX;
-    for (size_t start = logderiv_arith_start; start < z_arith_start; ++start) {
-        if (recursion_helpers::matches_fingerprint_at(builder, arith, start, CHONK_SINGLE_RECEIVE_ARITHMETIC)) {
-            inverse_arith_start = start;
-        }
-    }
-    if (inverse_arith_start == SIZE_MAX) {
-        info("validate_chonk_oink failed: inverse commitment arithmetic stage");
-        return result;
-    }
-    const size_t delta_arith_start = inverse_arith_start + CHONK_SINGLE_RECEIVE_ARITHMETIC.gate_count;
-
-    // Transcript sponge rate is three field elements. The fixed hiding proof
-    // requires 24 permutations for beta/gamma; every three additional ACIR
-    // public inputs add one permutation (10 external and 57 internal gates).
-    constexpr size_t TRANSCRIPT_SPONGE_RATE = 3;
-    constexpr size_t BASE_TRANSCRIPT_PERMUTATIONS = 24;
-    constexpr size_t EXTERNAL_GATES_PER_PERMUTATION = 10;
-    constexpr size_t INTERNAL_GATES_PER_PERMUTATION = 57;
-    const size_t extra_permutations =
-        (constraint.public_inputs.size() + TRANSCRIPT_SPONGE_RATE - 1) / TRANSCRIPT_SPONGE_RATE;
-    const size_t transcript_permutations = BASE_TRANSCRIPT_PERMUTATIONS + extra_permutations;
-    const size_t logderiv_ext_end = logderiv_ext_start + transcript_permutations * EXTERNAL_GATES_PER_PERMUTATION;
-    const size_t logderiv_int_end = logderiv_int_start + transcript_permutations * INTERNAL_GATES_PER_PERMUTATION;
-    if (logderiv_ext_end > poseidon_ext.size() || logderiv_int_end > poseidon_int.size()) {
-        info("validate_chonk_oink failed: beta/gamma Poseidon ranges");
-        return result;
-    }
-    for (size_t permutation = 0; permutation < transcript_permutations; ++permutation) {
-        const size_t ext_start = logderiv_ext_start + permutation * EXTERNAL_GATES_PER_PERMUTATION;
-        const size_t int_start = logderiv_int_start + permutation * INTERNAL_GATES_PER_PERMUTATION;
-        if (!recursion_helpers::matches_fingerprint_at(
-                builder, poseidon_ext, ext_start, CHONK_TRANSCRIPT_PERMUTATION_POSEIDON2_EXT) ||
-            !recursion_helpers::matches_fingerprint_at(
-                builder, poseidon_int, int_start, CHONK_TRANSCRIPT_PERMUTATION_POSEIDON2_INT)) {
-            info("validate_chonk_oink failed: transcript permutation ", permutation);
-            return result;
-        }
-    }
-
-    std::set<uint32_t> poseidon_reals;
-    auto collect_block_reals = [&](auto& block, const size_t start, const size_t end, auto&& visit) {
-        for (size_t gate = start; gate < end; ++gate) {
-            for (const uint32_t witness :
-                 { block.w_l()[gate], block.w_r()[gate], block.w_o()[gate], block.w_4()[gate] }) {
-                visit(builder.real_variable_index.at(witness));
-            }
-        }
-    };
-    collect_block_reals(
-        poseidon_ext, logderiv_ext_start, logderiv_ext_end, [&](const uint32_t real) { poseidon_reals.insert(real); });
-    collect_block_reals(
-        poseidon_int, logderiv_int_start, logderiv_int_end, [&](const uint32_t real) { poseidon_reals.insert(real); });
-
-    std::vector<uint32_t> challenge_candidates;
-    collect_block_reals(arith, delta_arith_start, z_arith_start, [&](const uint32_t real) {
-        if (poseidon_reals.contains(real) &&
-            std::find(challenge_candidates.begin(), challenge_candidates.end(), real) == challenge_candidates.end()) {
-            challenge_candidates.push_back(real);
-        }
-    });
-    if (challenge_candidates.size() < 2) {
-        info("validate_chonk_oink failed: beta/gamma candidates");
-        return result;
-    }
-
-    include_range(*arith_block_idx, *wire_arith_start, z_arith_start + CHONK_SINGLE_RECEIVE_ARITHMETIC.gate_count);
-    include_range(*nnf_block_idx, *wire_nnf_start, logderiv_nnf_start + CHONK_LOGDERIV_NNF.gate_count);
-    include_range(*poseidon_ext_block_idx, logderiv_ext_start, logderiv_ext_end);
-    include_range(*poseidon_int_block_idx, logderiv_int_start, logderiv_int_end);
-
-    std::vector<uint32_t> public_input_reals;
-    public_input_reals.reserve(public_input_witnesses.size());
-    size_t previous_absorption_gate = 0;
-    bool have_previous_absorption = false;
-    for (const uint32_t witness : public_input_witnesses) {
-        const uint32_t real = builder.real_variable_index.at(witness);
-        public_input_reals.push_back(real);
-        bool absorbed = false;
-        size_t absorption_gate = SIZE_MAX;
-        for (const auto& [block, gate] : analyzer.get_variable_gates(real)) {
-            const bool arithmetic_absorption = block == *arith_block_idx && gate >= logderiv_arith_start &&
-                                               gate < z_arith_start &&
-                                               !arith.gate_selector_for(bb::GateKind::Arith)[gate].is_zero();
-            const bool external_absorption = block == *poseidon_ext_block_idx && gate >= logderiv_ext_start &&
-                                             gate < logderiv_ext_end &&
-                                             !poseidon_ext.gate_selector_for(bb::GateKind::Poseidon2Ext)[gate].is_zero();
-            const bool internal_absorption = block == *poseidon_int_block_idx && gate >= logderiv_int_start &&
-                                             gate < logderiv_int_end &&
-                                             !poseidon_int.gate_selector_for(bb::GateKind::Poseidon2Int)[gate].is_zero();
-            if (arithmetic_absorption || external_absorption || internal_absorption) {
-                absorbed = true;
-                if (arithmetic_absorption) {
-                    absorption_gate = std::min(absorption_gate, gate);
-                }
-            }
-        }
-        if (!absorbed || absorption_gate == SIZE_MAX ||
-            (have_previous_absorption && absorption_gate <= previous_absorption_gate)) {
-            info("validate_chonk_oink failed: PI absorption for witness ", witness);
-            return result;
-        }
-        previous_absorption_gate = absorption_gate;
-        have_previous_absorption = true;
-    }
-
-    if (!validate_public_input_delta_selector_pattern(
-            builder, delta_arith_start, z_arith_start, public_input_reals.size())) {
-        info("validate_chonk_oink failed: public_input_delta selector pattern");
-        return result;
-    }
-
-    uint32_t beta = UINT32_MAX;
-    uint32_t gamma = UINT32_MAX;
-    uint32_t delta = UINT32_MAX;
-    size_t matching_challenge_pairs = 0;
-    for (const uint32_t beta_candidate : challenge_candidates) {
-        for (const uint32_t gamma_candidate : challenge_candidates) {
-            if (beta_candidate == gamma_candidate) {
-                continue;
-            }
-            const uint32_t candidate_delta = recursion_helpers::find_and_validate_public_input_delta<FF>(
-                builder,
-                analyzer,
-                beta_candidate,
-                gamma_candidate,
-                builder.real_variable_index.at(constraint.key[recursion_helpers::VK_PUB_INPUTS_OFFSET_INDEX]),
-                public_input_reals,
-                delta_arith_start,
-                z_arith_start);
-            if (candidate_delta != UINT32_MAX) {
-                beta = beta_candidate;
-                gamma = gamma_candidate;
-                delta = candidate_delta;
-                ++matching_challenge_pairs;
-            }
-        }
-    }
-    if (delta == UINT32_MAX || matching_challenge_pairs != 1) {
-        info("validate_chonk_oink failed: public_input_delta replay");
-        return result;
-    }
-    for (const auto& [block, gate] : analyzer.get_variable_gates(delta)) {
-        if (&builder.blocks.get()[block] == &arith && gate >= delta_arith_start && gate < z_arith_start) {
-            include_range(block, gate, gate + 1);
-        }
-    }
-
-    const size_t z_nnf_start = logderiv_nnf_start + CHONK_LOGDERIV_NNF.gate_count;
-    if (!recursion_helpers::matches_fingerprint_at(builder, nnf, z_nnf_start, CHONK_SINGLE_RECEIVE_NNF)) {
-        info("validate_chonk_oink failed: z_perm fixed stage");
-        return result;
-    }
-    include_range(*arith_block_idx, z_arith_start, z_arith_start + CHONK_SINGLE_RECEIVE_ARITHMETIC.gate_count);
-    include_range(*nnf_block_idx, z_nnf_start, z_nnf_start + CHONK_SINGLE_RECEIVE_NNF.gate_count);
-
-    result.beta = beta;
-    result.gamma = gamma;
-    result.public_input_delta = delta;
-    result.is_valid = true;
-    return result;
 }
 
 } // namespace OinkVerifierValidation
