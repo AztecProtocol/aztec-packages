@@ -18,6 +18,16 @@ import { makeTracedFetch } from '@aztec/telemetry-client';
 
 import { z } from 'zod';
 
+/**
+ * Max JSON-RPC request body the broker clients will send.
+ *
+ * Job inputs and proof results travel inline as `data:` URIs on this path, so a single call is routinely larger than
+ * the 1 mb the generic JSON-RPC client allows — that default sizes batches of small node requests against the node
+ * server's own default. An AVM (`PUBLIC_VM`) result is around 1.3 mb today. This value must stay at or below the
+ * broker server's `RPC_MAX_BODY_SIZE`, which deployments set to 50mb.
+ */
+export const PROVER_BROKER_MAX_REQUEST_BODY_SIZE = 50 * 1024 * 1024;
+
 /** Indefinite backoff for broker communication: 1, 1, 1, 2, 4, 4, 4, ... seconds. */
 export function* proverBrokerBackoff() {
   const v = [1, 1, 1, 2, 4];
@@ -83,10 +93,12 @@ export function createProvingJobBrokerClient(
   url: string,
   versions: Partial<ComponentsVersions>,
   fetch = makeTracedFetch(proverBrokerBackoff, false),
+  maxRequestBodySize = PROVER_BROKER_MAX_REQUEST_BODY_SIZE,
 ): ProvingJobBroker {
   return createSafeJsonRpcClient(url, ProvingJobBrokerSchema, {
     namespaceMethods: 'proverBroker',
     fetch,
+    maxRequestBodySize,
     onResponse: getVersioningResponseHandler(versions),
   });
 }
@@ -95,10 +107,12 @@ export function createProvingJobProducerClient(
   url: string,
   versions: Partial<ComponentsVersions>,
   fetch = makeTracedFetch(proverBrokerBackoff, false),
+  maxRequestBodySize = PROVER_BROKER_MAX_REQUEST_BODY_SIZE,
 ): ProvingJobProducer {
   return createSafeJsonRpcClient(url, ProvingJobProducerSchema, {
     namespaceMethods: 'provingJobProducer',
     fetch,
+    maxRequestBodySize,
     onResponse: getVersioningResponseHandler(versions),
   });
 }
@@ -107,10 +121,12 @@ export function createProvingJobConsumerClient(
   url: string,
   versions: Partial<ComponentsVersions>,
   fetch = makeTracedFetch(proverBrokerBackoff, false),
+  maxRequestBodySize = PROVER_BROKER_MAX_REQUEST_BODY_SIZE,
 ): ProvingJobConsumer {
   return createSafeJsonRpcClient(url, ProvingJobConsumerSchema, {
     namespaceMethods: 'provingJobConsumer',
     fetch,
+    maxRequestBodySize,
     onResponse: getVersioningResponseHandler(versions),
   });
 }
