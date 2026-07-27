@@ -5,7 +5,7 @@ pragma solidity >=0.8.27;
 import {BlobLib} from "@aztec-blob-lib/BlobLib.sol";
 import {IEscapeHatch} from "@aztec/core/interfaces/IEscapeHatch.sol";
 import {RollupStore, IRollupCore, CheckpointHeaderValidationFlags} from "@aztec/core/interfaces/IRollup.sol";
-import {IInbox} from "@aztec/core/interfaces/messagebridge/IInbox.sol";
+import {IInbox, MAX_MSGS_PER_BUCKET} from "@aztec/core/interfaces/messagebridge/IInbox.sol";
 import {TempCheckpointLog} from "@aztec/core/libraries/compressed-data/CheckpointLog.sol";
 import {FeeHeader} from "@aztec/core/libraries/compressed-data/fees/FeeStructs.sol";
 import {ChainTipsLib, CompressedChainTips} from "@aztec/core/libraries/compressed-data/Tips.sol";
@@ -389,12 +389,14 @@ library ProposeLib {
    *         bucket referenced by `_bucketHint`. The hint is a plain calldata lookup aid, not signed and not
    *         part of the header: a wrong hint cannot change what gets accepted, it only reverts. A checkpoint
    *         that consumes no messages references the same bucket as its parent.
-   *      2. Consumption moves forward: the referenced bucket's cumulative total must be at least the parent
+   *      2. The referenced bucket must be settled: a bucket that can still absorb another message is not a
+   *         snapshot of anything.
+   *      3. Consumption moves forward: the referenced bucket's cumulative total must be at least the parent
    *         checkpoint's (equal consumes nothing; behind is a hard revert). This precedes the subtractions
    *         below, which rely on `bucket.totalMsgCount >= _parentTotalMsgCount` to not underflow.
-   *      3. Cap upper bound: a single checkpoint cannot consume more than MAX_L1_TO_L2_MSGS_PER_CHECKPOINT
+   *      4. Cap upper bound: a single checkpoint cannot consume more than MAX_L1_TO_L2_MSGS_PER_CHECKPOINT
    *         messages, the maximum the circuits can insert.
-   *      4. Mandatory consumption (the censorship assert): the first unconsumed bucket (`_bucketHint + 1`)
+   *      5. Mandatory consumption (the censorship assert): the first unconsumed bucket (`_bucketHint + 1`)
    *         must either not exist, sit past the consumption cutoff, or be cap-escaped — consuming through it
    *         would exceed MAX_L1_TO_L2_MSGS_PER_CHECKPOINT messages since the parent checkpoint's cumulative
    *         total. The cutoff is the start of the checkpoint's build frame minus INBOX_LAG_SECONDS: a
@@ -425,6 +427,17 @@ library ProposeLib {
     require(
       bucket.rollingHash == _inboxRollingHash,
       Errors.Rollup__InvalidInboxRollingHash(bucket.rollingHash, _inboxRollingHash)
+    );
+
+    // A bucket that can still absorb a message mutates in place: a proposer bundling a send after its own propose
+    // in one L1 transaction would leave the checkpoint committed to a rolling hash that exists neither on L1 nor
+    // in any node, which only ever observes a bucket's end-of-block state, and no honest node could then resolve
+    // the consumed position. Settled is the negation of the Inbox's rollover condition: the genesis bucket never
+    // absorbs, a bucket whose L1 block has passed cannot be reopened, and a full bucket spills the next message
+    // into a new one.
+    require(
+      _bucketHint == 0 || bucket.timestamp < block.timestamp || bucket.msgCount == MAX_MSGS_PER_BUCKET,
+      Errors.Rollup__InboxBucketStillMutable(_bucketHint)
     );
 
     require(

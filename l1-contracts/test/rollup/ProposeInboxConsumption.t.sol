@@ -5,7 +5,7 @@ pragma solidity >=0.8.27;
 import {Test} from "forge-std/Test.sol";
 import {TestERC20} from "src/mock/TestERC20.sol";
 import {IERC20} from "@oz/token/ERC20/IERC20.sol";
-import {IInbox} from "@aztec/core/interfaces/messagebridge/IInbox.sol";
+import {IInbox, MAX_MSGS_PER_BUCKET} from "@aztec/core/interfaces/messagebridge/IInbox.sol";
 import {
   ProposeLib,
   INBOX_LAG_SECONDS,
@@ -79,6 +79,8 @@ contract ProposeInboxConsumptionTest is Test {
   }
 
   function testEmptyInbox() public {
+    // The genesis bucket carries the Inbox's deployment timestamp and never absorbs messages, so it is settled
+    // from the start: referencing it works even in the L1 block the Inbox was deployed in.
     uint256 consumed = rollup.validateInboxConsumption(inbox, bytes32(0), 0, SLOT, 0);
     assertEq(consumed, 0, "consumed nothing on empty inbox");
   }
@@ -216,6 +218,38 @@ contract ProposeInboxConsumptionTest is Test {
     // in getBucket before any cutoff logic reads the clock.
     vm.expectRevert(abi.encodeWithSelector(Errors.Inbox__BucketOutOfWindow.selector, 1, MIN_BUCKET_RING_SIZE + 1));
     rollup.validateInboxConsumption(ringInbox, bytes32(0), 1, SLOT, 0);
+  }
+
+  function testCurrentBlockBucketRejected() public {
+    // A proposer that bundles `sendL2Message` and `propose` into a single L1 transaction can reference a
+    // bucket that is still accumulating and then mutate it with a trailing send. The snapshot the checkpoint
+    // committed to would afterwards exist nowhere: not on L1, where it was overwritten in place, and not in
+    // any node, which only ever observes a bucket's end-of-block state.
+    vm.warp(GENESIS_TIME + Slot.unwrap(SLOT) * SLOT_DURATION);
+    _send(0);
+    bytes32 liveHash = inbox.getBucket(1).rollingHash;
+
+    vm.expectRevert(abi.encodeWithSelector(Errors.Rollup__InboxBucketStillMutable.selector, 1));
+    rollup.validateInboxConsumption(inbox, liveHash, 1, SLOT, 0);
+
+    // Nothing prevents the trailing send that erases the referenced snapshot, so the reference itself is what
+    // has to be rejected.
+    _send(1);
+    assertTrue(inbox.getBucket(1).rollingHash != liveHash, "bucket mutated in place within one L1 block");
+  }
+
+  function testFullBucketInCurrentBlockAccepted() public {
+    // A bucket at the per-bucket cap cannot absorb another message: the next send in the same L1 block opens
+    // a new bucket, so the snapshot is already final and referencing it within that block is safe.
+    vm.warp(GENESIS_TIME + Slot.unwrap(SLOT) * SLOT_DURATION);
+    uint256 cap = MAX_MSGS_PER_BUCKET;
+    _sendMany(cap);
+    assertEq(inbox.getBucket(1).msgCount, cap, "bucket 1 is at the per-bucket cap");
+    assertEq(inbox.getBucket(1).timestamp, block.timestamp, "bucket 1 was opened in this L1 block");
+
+    bytes32 endHash = inbox.getBucket(1).rollingHash;
+    uint256 consumed = rollup.validateInboxConsumption(inbox, endHash, 1, SLOT, 0);
+    assertEq(consumed, cap, "a full bucket is consumable in the block it was opened in");
   }
 
   function testConsumeBackwardsReverts() public {

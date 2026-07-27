@@ -4,6 +4,11 @@ pragma solidity >=0.8.27;
 
 import {DataStructures} from "../../libraries/DataStructures.sol";
 
+// Maximum number of messages a single bucket can hold before further messages in the same L1 block spill over
+// into the next bucket. Matches the number of L1 to L2 messages a single L2 block can insert once the streaming
+// inbox is live, so any one bucket is always consumable by one block.
+uint256 constant MAX_MSGS_PER_BUCKET = 256;
+
 /**
  * @title Inbox
  * @author Aztec Labs
