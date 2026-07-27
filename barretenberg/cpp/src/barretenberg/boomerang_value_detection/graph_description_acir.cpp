@@ -8,6 +8,8 @@
 #include "barretenberg/noir_programs_boomerang_values/poseidon2s_helpers.hpp"
 #include "barretenberg/noir_programs_boomerang_values/recursion_constraints_helper.hpp"
 #include "barretenberg/noir_programs_boomerang_values/recursion_constraints_validation/HONK/honk_recursion_validation.hpp"
+#include "barretenberg/noir_programs_boomerang_values/recursion_constraints_validation/ROLLUP_HONK/rollup_honk_recursion_validation.hpp"
+#include "barretenberg/noir_programs_boomerang_values/recursion_constraints_validation/ROLLUP_HONK/rollup_honk_ipa_finalize_verification.hpp"
 #include "barretenberg/noir_programs_boomerang_values/sha256_circuit_helpers.hpp"
 #include "barretenberg/stdlib/hash/poseidon2/poseidon2_permutation.hpp"
 #include <algorithm>
@@ -627,6 +629,9 @@ bool StaticAnalyzerAcir_<FF, CircuitBuilder>::process_recursion_constraints(
         return process_chonk_recursion_constraint(constraint);
     case PROOF_TYPE::HONK:
         return process_honk_recursion_constraint(constraint);
+    case PROOF_TYPE::ROLLUP_HONK:
+    case PROOF_TYPE::ROOT_ROLLUP_HONK:
+        return process_rollup_honk_recursion_constraint(constraint);
     default:
         log_error("recursion validation: unsupported proof_type ", static_cast<int>(constraint->proof_type));
         return false;
@@ -698,6 +703,70 @@ bool StaticAnalyzerAcir_<FF, CircuitBuilder>::process_honk_recursion_constraint(
     }
 
     return result.is_valid;
+}
+
+template <typename FF, typename CircuitBuilder>
+bool StaticAnalyzerAcir_<FF, CircuitBuilder>::process_rollup_honk_recursion_constraint(
+    const acir_format::RecursionConstraint* constraint)
+{
+    if (constraint == nullptr) {
+        log_error("ROLLUP_HONK recursion validation failed: null constraint");
+        return false;
+    }
+
+    using RecursiveFlavor = bb::UltraRecursiveFlavor_<CircuitBuilder>;
+    const size_t log_n = static_cast<size_t>(RecursiveFlavor::NativeFlavor::VIRTUAL_LOG_N);
+    const size_t opcode_index = rollup_honk_opcode_count++;
+    auto result = RollupHonkRecursionValidation::validate_rollup_honk_recursion<FF, CircuitBuilder, RecursiveFlavor>(
+        builder, analyzer, *constraint, log_n, opcode_index, RollupHonkIpaAccumulateValidation::BlockCursor{});
+
+    if (!result.layout.is_valid) {
+        log_error("ROLLUP_HONK recursion validation failed: proof layout. proof_type=",
+                  result.layout.proof_type_ok,
+                  " proof_size=",
+                  result.layout.proof_size_ok,
+                  " commitments_fit=",
+                  result.layout.oink_commitments_fit,
+                  " ipa_tail=",
+                  result.layout.ipa_tail_ok);
+        return false;
+    }
+
+    if (!result.honk.is_valid) {
+        log_error("ROLLUP_HONK recursion validation failed: HONK stages. oink=",
+                  result.honk.oink.is_valid,
+                  " preprocessor=",
+                  result.honk.preprocessor.is_valid,
+                  " sumcheck=",
+                  result.honk.sumcheck.is_valid,
+                  " shplemini=",
+                  result.honk.shplemini.is_valid,
+                  " kzg=",
+                  result.honk.kzg.is_valid,
+                  " output=",
+                  result.output.is_valid,
+                  " arith_cov=",
+                  result.arith_coverage_valid);
+        return false;
+    }
+
+    if (!result.ipa.is_valid) {
+        log_error("ROLLUP_HONK recursion validation failed: IPA tail/claim. layout=",
+                  result.ipa.layout_ok,
+                  " tail_size=",
+                  result.ipa.tail_size_ok,
+                  " pass_through=",
+                  result.ipa.pass_through_ok);
+        return false;
+    }
+
+    if (!result.is_valid) {
+        return false;
+    }
+
+
+
+    return true;
 }
 
 template <typename FF, typename CircuitBuilder>
