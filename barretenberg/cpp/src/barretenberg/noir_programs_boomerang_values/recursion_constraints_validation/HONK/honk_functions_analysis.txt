@@ -1,0 +1,44 @@
+# HONK Recursion — Baseline Circuit Analysis
+# Flavor: UltraRecursiveFlavor_<UltraCircuitBuilder>
+# IO: DefaultIO (PairingPoints only)
+# Predicate: constant true
+# HasZK: false
+# log_n: 25
+
+Oink
+  block[2] arithmetic gates=1405 fingerprint20=0x54b6283c06479365 full_hash=0x23049a4ef6cfaf91
+  block[6] nnf gates=496 fingerprint20=0x8532e80b0fef3fa6 full_hash=0x3dafb8c7e4c95f24
+  block[7] poseidon2_ext gates=560 fingerprint20=0xd66e384960826081 full_hash=0xde008ed420992e0d
+  block[8] poseidon2_int gates=3192 fingerprint20=0xfeae5f9d5c27d251 full_hash=0x912aba966bd0e550
+Preprocessor
+  block[2] arithmetic gates=30 fingerprint20=0x7c75da3a29e5643a full_hash=0x7bff0a58e978cd7d
+  block[7] poseidon2_ext gates=10 fingerprint20=0x519dcaf299fd9cbf full_hash=0x519dcaf299fd9cbf
+  block[8] poseidon2_int gates=57 fingerprint20=0xfeae5f9d5c27d251 full_hash=0x5acee3ed48c55c0a
+Sumcheck
+  block[2] arithmetic gates=2066 fingerprint20=0xd07d54971e301b9a full_hash=0x7be0cf6902a7cdc2
+  block[7] poseidon2_ext gates=750 fingerprint20=0xd66e384960826081 full_hash=0x1d48284b8dda35fc
+  block[8] poseidon2_int gates=4275 fingerprint20=0xfeae5f9d5c27d251 full_hash=0x710aeccf0147b2e0
+Shplemini
+  block[2] arithmetic gates=3599 fingerprint20=0xfc6581cd3b303eec full_hash=0x87df1e59db9ca06e
+  block[6] nnf gates=1550 fingerprint20=0x8532e80b0fef3fa6 full_hash=0x6db07e2807d8e8fc
+  block[7] poseidon2_ext gates=580 fingerprint20=0xd66e384960826081 full_hash=0x7847807629ca2ddc
+  block[8] poseidon2_int gates=3306 fingerprint20=0xfeae5f9d5c27d251 full_hash=0xc6e3196ccd55ce4
+KZG
+  block[2] arithmetic gates=265107 fingerprint20=0x2dce00dfaa8b2f7a full_hash=0x7311171d14f97f6c
+  block[5] memory gates=18445 fingerprint20=0xd57d77a9715cfae9 full_hash=0xb9510f81f6022274
+  block[6] nnf gates=146132 fingerprint20=0x8532e80b0fef3fa6 full_hash=0xf595ee664021492d
+Output
+  block[2] arithmetic gates=32909 fingerprint20=0x2dce00dfaa8b2f7a full_hash=0xfdcb458d3b5c8635
+  block[6] nnf gates=18148 fingerprint20=0x8532e80b0fef3fa6 full_hash=0xe999b59ee758b306
+  block[7] poseidon2_ext gates=60 fingerprint20=0xd66e384960826081 full_hash=0xb5182aac47dd389
+  block[8] poseidon2_int gates=342 fingerprint20=0xfeae5f9d5c27d251 full_hash=0x5ebb1cec5105115b
+
+Squeeze chain (1 total):
+  [0] arith_gate=276912
+
+Total gate counts per block:
+  block[2] arithmetic total=309567
+  block[5] memory total=18445
+  block[6] nnf total=168062
+  block[7] poseidon2_ext total=1960
+  block[8] poseidon2_int total=11172

@@ -1,0 +1,703 @@
+# HONK Phase 2 witness gate dump (aligned slots only)
+# Chain: create_honk_recursion_constraints real build
+
+part=Oink:vk_hash slot=key_hash w=525 real=525
+  block[2] arithmetic gate=5194
+  block[2] arithmetic gate=5196
+  block[7] poseidon2_ext gate=388
+  gate_min=388
+part=wrapper_scalar slot=key[0] w=0 real=0
+  block[2] arithmetic gate=4564
+  block[2] arithmetic gate=4566
+  gate_min=4564
+part=wrapper_scalar slot=key[1] w=1 real=1
+  block[2] arithmetic gate=4564
+  block[2] arithmetic gate=4565
+  block[2] arithmetic gate=4566
+  block[2] arithmetic gate=4910
+  block[5] memory gate=8
+  block[5] memory gate=41
+  block[5] memory gate=74
+  block[5] memory gate=107
+  block[5] memory gate=140
+  block[5] memory gate=173
+  block[5] memory gate=206
+  block[5] memory gate=239
+  block[5] memory gate=272
+  block[5] memory gate=305
+  block[5] memory gate=338
+  block[5] memory gate=371
+  block[5] memory gate=404
+  block[5] memory gate=437
+  block[5] memory gate=470
+  block[5] memory gate=503
+  block[5] memory gate=536
+  block[5] memory gate=569
+  block[5] memory gate=602
+  block[5] memory gate=635
+  block[5] memory gate=668
+  block[5] memory gate=701
+  block[5] memory gate=734
+  block[5] memory gate=767
+  block[5] memory gate=800
+  block[5] memory gate=833
+  block[5] memory gate=866
+  block[5] memory gate=899
+  block[5] memory gate=932
+  block[5] memory gate=965
+  block[5] memory gate=998
+  block[5] memory gate=1031
+  block[5] memory gate=1064
+  block[5] memory gate=1097
+  block[5] memory gate=1130
+  block[5] memory gate=1163
+  block[5] memory gate=1196
+  block[5] memory gate=1229
+  block[5] memory gate=1262
+  block[5] memory gate=1295
+  block[5] memory gate=1328
+  block[5] memory gate=1361
+  block[5] memory gate=1394
+  block[5] memory gate=1427
+  block[5] memory gate=1460
+  block[5] memory gate=1493
+  block[5] memory gate=1526
+  block[5] memory gate=1559
+  block[5] memory gate=1592
+  block[5] memory gate=1625
+  block[5] memory gate=1658
+  block[5] memory gate=1691
+  block[5] memory gate=1724
+  block[5] memory gate=1757
+  block[5] memory gate=1790
+  block[5] memory gate=1823
+  block[5] memory gate=1856
+  block[5] memory gate=1889
+  block[5] memory gate=1922
+  block[5] memory gate=1955
+  block[5] memory gate=1988
+  block[5] memory gate=2005
+  block[5] memory gate=2022
+  block[5] memory gate=2039
+  block[5] memory gate=2056
+  gate_min=8
+part=wrapper_scalar slot=key[2] w=2 real=2
+  block[2] arithmetic gate=4565
+  block[2] arithmetic gate=4568
+  block[2] arithmetic gate=5687
+  block[2] arithmetic gate=5689
+  gate_min=4565
+part=VkDeserialize slot=key[3] w=3 real=3
+  block[2] arithmetic gate=1709
+  block[2] arithmetic gate=1733
+  gate_min=1709
+part=VkDeserialize slot=key[4] w=4 real=4
+  block[2] arithmetic gate=1732
+  block[2] arithmetic gate=1733
+  gate_min=1732
+part=VkDeserialize slot=key[5] w=5 real=5
+  block[2] arithmetic gate=1743
+  block[2] arithmetic gate=1745
+  gate_min=1743
+part=VkDeserialize slot=key[6] w=6 real=6
+  block[2] arithmetic gate=1744
+  block[2] arithmetic gate=1745
+  gate_min=1744
+part=VkDeserialize slot=key[7] w=7 real=7
+  block[2] arithmetic gate=1913
+  block[2] arithmetic gate=1915
+  gate_min=1913
+part=VkDeserialize slot=key[8] w=8 real=8
+  block[2] arithmetic gate=1914
+  block[2] arithmetic gate=1915
+  gate_min=1914
+part=VkDeserialize slot=key[9] w=9 real=9
+  block[2] arithmetic gate=1925
+  block[2] arithmetic gate=1927
+  gate_min=1925
+part=VkDeserialize slot=key[10] w=10 real=10
+  block[2] arithmetic gate=1926
+  block[2] arithmetic gate=1927
+  gate_min=1926
+part=VkDeserialize slot=key[11] w=11 real=11
+  block[2] arithmetic gate=2007
+  block[2] arithmetic gate=2009
+  gate_min=2007
+part=VkDeserialize slot=key[12] w=12 real=12
+  block[2] arithmetic gate=2008
+  block[2] arithmetic gate=2009
+  gate_min=2008
+part=VkDeserialize slot=key[13] w=13 real=13
+  block[2] arithmetic gate=2019
+  block[2] arithmetic gate=2021
+  gate_min=2019
+part=VkDeserialize slot=key[14] w=14 real=14
+  block[2] arithmetic gate=2020
+  block[2] arithmetic gate=2021
+  gate_min=2020
+part=VkDeserialize slot=key[15] w=15 real=15
+  block[2] arithmetic gate=2101
+  block[2] arithmetic gate=2103
+  gate_min=2101
+part=VkDeserialize slot=key[16] w=16 real=16
+  block[2] arithmetic gate=2102
+  block[2] arithmetic gate=2103
+  gate_min=2102
+part=VkDeserialize slot=key[17] w=17 real=17
+  block[2] arithmetic gate=2113
+  block[2] arithmetic gate=2115
+  gate_min=2113
+part=VkDeserialize slot=key[18] w=18 real=18
+  block[2] arithmetic gate=2114
+  block[2] arithmetic gate=2115
+  gate_min=2114
+part=VkDeserialize slot=key[19] w=19 real=19
+  block[2] arithmetic gate=2195
+  block[2] arithmetic gate=2197
+  gate_min=2195
+part=VkDeserialize slot=key[20] w=20 real=20
+  block[2] arithmetic gate=2196
+  block[2] arithmetic gate=2197
+  gate_min=2196
+part=VkDeserialize slot=key[21] w=21 real=21
+  block[2] arithmetic gate=2207
+  block[2] arithmetic gate=2209
+  gate_min=2207
+part=VkDeserialize slot=key[22] w=22 real=22
+  block[2] arithmetic gate=2208
+  block[2] arithmetic gate=2209
+  gate_min=2208
+part=VkDeserialize slot=key[23] w=23 real=23
+  block[2] arithmetic gate=2289
+  block[2] arithmetic gate=2291
+  gate_min=2289
+part=VkDeserialize slot=key[24] w=24 real=24
+  block[2] arithmetic gate=2290
+  block[2] arithmetic gate=2291
+  gate_min=2290
+part=VkDeserialize slot=key[25] w=25 real=25
+  block[2] arithmetic gate=2301
+  block[2] arithmetic gate=2303
+  gate_min=2301
+part=VkDeserialize slot=key[26] w=26 real=26
+  block[2] arithmetic gate=2302
+  block[2] arithmetic gate=2303
+  gate_min=2302
+part=VkDeserialize slot=key[27] w=27 real=27
+  block[2] arithmetic gate=2383
+  block[2] arithmetic gate=2385
+  gate_min=2383
+part=VkDeserialize slot=key[28] w=28 real=28
+  block[2] arithmetic gate=2384
+  block[2] arithmetic gate=2385
+  gate_min=2384
+part=VkDeserialize slot=key[29] w=29 real=29
+  block[2] arithmetic gate=2395
+  block[2] arithmetic gate=2397
+  gate_min=2395
+part=VkDeserialize slot=key[30] w=30 real=30
+  block[2] arithmetic gate=2396
+  block[2] arithmetic gate=2397
+  gate_min=2396
+part=VkDeserialize slot=key[31] w=31 real=31
+  block[2] arithmetic gate=2477
+  block[2] arithmetic gate=2479
+  gate_min=2477
+part=VkDeserialize slot=key[32] w=32 real=32
+  block[2] arithmetic gate=2478
+  block[2] arithmetic gate=2479
+  gate_min=2478
+part=VkDeserialize slot=key[33] w=33 real=33
+  block[2] arithmetic gate=2489
+  block[2] arithmetic gate=2491
+  gate_min=2489
+part=VkDeserialize slot=key[34] w=34 real=34
+  block[2] arithmetic gate=2490
+  block[2] arithmetic gate=2491
+  gate_min=2490
+part=VkDeserialize slot=key[35] w=35 real=35
+  block[2] arithmetic gate=2571
+  block[2] arithmetic gate=2573
+  gate_min=2571
+part=VkDeserialize slot=key[36] w=36 real=36
+  block[2] arithmetic gate=2572
+  block[2] arithmetic gate=2573
+  gate_min=2572
+part=VkDeserialize slot=key[37] w=37 real=37
+  block[2] arithmetic gate=2583
+  block[2] arithmetic gate=2585
+  gate_min=2583
+part=VkDeserialize slot=key[38] w=38 real=38
+  block[2] arithmetic gate=2584
+  block[2] arithmetic gate=2585
+  gate_min=2584
+part=VkDeserialize slot=key[39] w=39 real=39
+  block[2] arithmetic gate=2665
+  block[2] arithmetic gate=2667
+  gate_min=2665
+part=VkDeserialize slot=key[40] w=40 real=40
+  block[2] arithmetic gate=2666
+  block[2] arithmetic gate=2667
+  gate_min=2666
+part=VkDeserialize slot=key[41] w=41 real=41
+  block[2] arithmetic gate=2677
+  block[2] arithmetic gate=2679
+  gate_min=2677
+part=VkDeserialize slot=key[42] w=42 real=42
+  block[2] arithmetic gate=2678
+  block[2] arithmetic gate=2679
+  gate_min=2678
+part=VkDeserialize slot=key[43] w=43 real=43
+  block[2] arithmetic gate=2759
+  block[2] arithmetic gate=2761
+  gate_min=2759
+part=VkDeserialize slot=key[44] w=44 real=44
+  block[2] arithmetic gate=2760
+  block[2] arithmetic gate=2761
+  gate_min=2760
+part=VkDeserialize slot=key[45] w=45 real=45
+  block[2] arithmetic gate=2771
+  block[2] arithmetic gate=2773
+  gate_min=2771
+part=VkDeserialize slot=key[46] w=46 real=46
+  block[2] arithmetic gate=2772
+  block[2] arithmetic gate=2773
+  gate_min=2772
+part=VkDeserialize slot=key[47] w=47 real=47
+  block[2] arithmetic gate=2853
+  block[2] arithmetic gate=2855
+  gate_min=2853
+part=VkDeserialize slot=key[48] w=48 real=48
+  block[2] arithmetic gate=2854
+  block[2] arithmetic gate=2855
+  gate_min=2854
+part=VkDeserialize slot=key[49] w=49 real=49
+  block[2] arithmetic gate=2865
+  block[2] arithmetic gate=2867
+  gate_min=2865
+part=VkDeserialize slot=key[50] w=50 real=50
+  block[2] arithmetic gate=2866
+  block[2] arithmetic gate=2867
+  gate_min=2866
+part=VkDeserialize slot=key[51] w=51 real=51
+  block[2] arithmetic gate=2947
+  block[2] arithmetic gate=2949
+  gate_min=2947
+part=VkDeserialize slot=key[52] w=52 real=52
+  block[2] arithmetic gate=2948
+  block[2] arithmetic gate=2949
+  gate_min=2948
+part=VkDeserialize slot=key[53] w=53 real=53
+  block[2] arithmetic gate=2959
+  block[2] arithmetic gate=2961
+  gate_min=2959
+part=VkDeserialize slot=key[54] w=54 real=54
+  block[2] arithmetic gate=2960
+  block[2] arithmetic gate=2961
+  gate_min=2960
+part=VkDeserialize slot=key[55] w=55 real=55
+  block[2] arithmetic gate=3041
+  block[2] arithmetic gate=3043
+  gate_min=3041
+part=VkDeserialize slot=key[56] w=56 real=56
+  block[2] arithmetic gate=3042
+  block[2] arithmetic gate=3043
+  gate_min=3042
+part=VkDeserialize slot=key[57] w=57 real=57
+  block[2] arithmetic gate=3053
+  block[2] arithmetic gate=3055
+  gate_min=3053
+part=VkDeserialize slot=key[58] w=58 real=58
+  block[2] arithmetic gate=3054
+  block[2] arithmetic gate=3055
+  gate_min=3054
+part=VkDeserialize slot=key[59] w=59 real=59
+  block[2] arithmetic gate=3135
+  block[2] arithmetic gate=3137
+  gate_min=3135
+part=VkDeserialize slot=key[60] w=60 real=60
+  block[2] arithmetic gate=3136
+  block[2] arithmetic gate=3137
+  gate_min=3136
+part=VkDeserialize slot=key[61] w=61 real=61
+  block[2] arithmetic gate=3147
+  block[2] arithmetic gate=3149
+  gate_min=3147
+part=VkDeserialize slot=key[62] w=62 real=62
+  block[2] arithmetic gate=3148
+  block[2] arithmetic gate=3149
+  gate_min=3148
+part=VkDeserialize slot=key[63] w=63 real=63
+  block[2] arithmetic gate=3229
+  block[2] arithmetic gate=3231
+  gate_min=3229
+part=VkDeserialize slot=key[64] w=64 real=64
+  block[2] arithmetic gate=3230
+  block[2] arithmetic gate=3231
+  gate_min=3230
+part=VkDeserialize slot=key[65] w=65 real=65
+  block[2] arithmetic gate=3241
+  block[2] arithmetic gate=3243
+  gate_min=3241
+part=VkDeserialize slot=key[66] w=66 real=66
+  block[2] arithmetic gate=3242
+  block[2] arithmetic gate=3243
+  gate_min=3242
+part=VkDeserialize slot=key[67] w=67 real=67
+  block[2] arithmetic gate=3323
+  block[2] arithmetic gate=3325
+  gate_min=3323
+part=VkDeserialize slot=key[68] w=68 real=68
+  block[2] arithmetic gate=3324
+  block[2] arithmetic gate=3325
+  gate_min=3324
+part=VkDeserialize slot=key[69] w=69 real=69
+  block[2] arithmetic gate=3335
+  block[2] arithmetic gate=3337
+  gate_min=3335
+part=VkDeserialize slot=key[70] w=70 real=70
+  block[2] arithmetic gate=3336
+  block[2] arithmetic gate=3337
+  gate_min=3336
+part=VkDeserialize slot=key[71] w=71 real=71
+  block[2] arithmetic gate=3417
+  block[2] arithmetic gate=3419
+  gate_min=3417
+part=VkDeserialize slot=key[72] w=72 real=72
+  block[2] arithmetic gate=3418
+  block[2] arithmetic gate=3419
+  gate_min=3418
+part=VkDeserialize slot=key[73] w=73 real=73
+  block[2] arithmetic gate=3429
+  block[2] arithmetic gate=3431
+  gate_min=3429
+part=VkDeserialize slot=key[74] w=74 real=74
+  block[2] arithmetic gate=3430
+  block[2] arithmetic gate=3431
+  gate_min=3430
+part=VkDeserialize slot=key[75] w=75 real=75
+  block[2] arithmetic gate=3511
+  block[2] arithmetic gate=3513
+  gate_min=3511
+part=VkDeserialize slot=key[76] w=76 real=76
+  block[2] arithmetic gate=3512
+  block[2] arithmetic gate=3513
+  gate_min=3512
+part=VkDeserialize slot=key[77] w=77 real=77
+  block[2] arithmetic gate=3523
+  block[2] arithmetic gate=3525
+  gate_min=3523
+part=VkDeserialize slot=key[78] w=78 real=78
+  block[2] arithmetic gate=3524
+  block[2] arithmetic gate=3525
+  gate_min=3524
+part=VkDeserialize slot=key[79] w=79 real=79
+  block[2] arithmetic gate=3605
+  block[2] arithmetic gate=3607
+  gate_min=3605
+part=VkDeserialize slot=key[80] w=80 real=80
+  block[2] arithmetic gate=3606
+  block[2] arithmetic gate=3607
+  gate_min=3606
+part=VkDeserialize slot=key[81] w=81 real=81
+  block[2] arithmetic gate=3617
+  block[2] arithmetic gate=3619
+  gate_min=3617
+part=VkDeserialize slot=key[82] w=82 real=82
+  block[2] arithmetic gate=3618
+  block[2] arithmetic gate=3619
+  gate_min=3618
+part=VkDeserialize slot=key[83] w=83 real=83
+  block[2] arithmetic gate=3699
+  block[2] arithmetic gate=3701
+  gate_min=3699
+part=VkDeserialize slot=key[84] w=84 real=84
+  block[2] arithmetic gate=3700
+  block[2] arithmetic gate=3701
+  gate_min=3700
+part=VkDeserialize slot=key[85] w=85 real=85
+  block[2] arithmetic gate=3711
+  block[2] arithmetic gate=3713
+  gate_min=3711
+part=VkDeserialize slot=key[86] w=86 real=86
+  block[2] arithmetic gate=3712
+  block[2] arithmetic gate=3713
+  gate_min=3712
+part=VkDeserialize slot=key[87] w=87 real=87
+  block[2] arithmetic gate=3793
+  block[2] arithmetic gate=3795
+  gate_min=3793
+part=VkDeserialize slot=key[88] w=88 real=88
+  block[2] arithmetic gate=3794
+  block[2] arithmetic gate=3795
+  gate_min=3794
+part=VkDeserialize slot=key[89] w=89 real=89
+  block[2] arithmetic gate=3805
+  block[2] arithmetic gate=3807
+  gate_min=3805
+part=VkDeserialize slot=key[90] w=90 real=90
+  block[2] arithmetic gate=3806
+  block[2] arithmetic gate=3807
+  gate_min=3806
+part=VkDeserialize slot=key[91] w=91 real=91
+  block[2] arithmetic gate=3887
+  block[2] arithmetic gate=3889
+  gate_min=3887
+part=VkDeserialize slot=key[92] w=92 real=92
+  block[2] arithmetic gate=3888
+  block[2] arithmetic gate=3889
+  gate_min=3888
+part=VkDeserialize slot=key[93] w=93 real=93
+  block[2] arithmetic gate=3899
+  block[2] arithmetic gate=3901
+  gate_min=3899
+part=VkDeserialize slot=key[94] w=94 real=94
+  block[2] arithmetic gate=3900
+  block[2] arithmetic gate=3901
+  gate_min=3900
+part=VkDeserialize slot=key[95] w=95 real=95
+  block[2] arithmetic gate=3981
+  block[2] arithmetic gate=3983
+  gate_min=3981
+part=VkDeserialize slot=key[96] w=96 real=96
+  block[2] arithmetic gate=3982
+  block[2] arithmetic gate=3983
+  gate_min=3982
+part=VkDeserialize slot=key[97] w=97 real=97
+  block[2] arithmetic gate=3993
+  block[2] arithmetic gate=3995
+  gate_min=3993
+part=VkDeserialize slot=key[98] w=98 real=98
+  block[2] arithmetic gate=3994
+  block[2] arithmetic gate=3995
+  gate_min=3994
+part=VkDeserialize slot=key[99] w=99 real=99
+  block[2] arithmetic gate=4075
+  block[2] arithmetic gate=4077
+  gate_min=4075
+part=VkDeserialize slot=key[100] w=100 real=100
+  block[2] arithmetic gate=4076
+  block[2] arithmetic gate=4077
+  gate_min=4076
+part=VkDeserialize slot=key[101] w=101 real=101
+  block[2] arithmetic gate=4087
+  block[2] arithmetic gate=4089
+  gate_min=4087
+part=VkDeserialize slot=key[102] w=102 real=102
+  block[2] arithmetic gate=4088
+  block[2] arithmetic gate=4089
+  gate_min=4088
+part=VkDeserialize slot=key[103] w=103 real=103
+  block[2] arithmetic gate=4169
+  block[2] arithmetic gate=4171
+  gate_min=4169
+part=VkDeserialize slot=key[104] w=104 real=104
+  block[2] arithmetic gate=4170
+  block[2] arithmetic gate=4171
+  gate_min=4170
+part=VkDeserialize slot=key[105] w=105 real=105
+  block[2] arithmetic gate=4181
+  block[2] arithmetic gate=4183
+  gate_min=4181
+part=VkDeserialize slot=key[106] w=106 real=106
+  block[2] arithmetic gate=4182
+  block[2] arithmetic gate=4183
+  gate_min=4182
+part=VkDeserialize slot=key[107] w=107 real=107
+  block[2] arithmetic gate=4263
+  block[2] arithmetic gate=4265
+  gate_min=4263
+part=VkDeserialize slot=key[108] w=108 real=108
+  block[2] arithmetic gate=4264
+  block[2] arithmetic gate=4265
+  gate_min=4264
+part=VkDeserialize slot=key[109] w=109 real=109
+  block[2] arithmetic gate=4275
+  block[2] arithmetic gate=4277
+  gate_min=4275
+part=VkDeserialize slot=key[110] w=110 real=110
+  block[2] arithmetic gate=4276
+  block[2] arithmetic gate=4277
+  gate_min=4276
+part=VkDeserialize slot=key[111] w=111 real=111
+  block[2] arithmetic gate=4357
+  block[2] arithmetic gate=4359
+  gate_min=4357
+part=VkDeserialize slot=key[112] w=112 real=112
+  block[2] arithmetic gate=4358
+  block[2] arithmetic gate=4359
+  gate_min=4358
+part=VkDeserialize slot=key[113] w=113 real=113
+  block[2] arithmetic gate=4369
+  block[2] arithmetic gate=4371
+  gate_min=4369
+part=VkDeserialize slot=key[114] w=114 real=114
+  block[2] arithmetic gate=4370
+  block[2] arithmetic gate=4371
+  gate_min=4370
+part=Oink:comm_g0 slot=fr0 w=123 real=123
+  block[2] arithmetic gate=4911
+  block[2] arithmetic gate=4913
+  block[2] arithmetic gate=5218
+  gate_min=4911
+part=Oink:comm_g0 slot=fr1 w=124 real=124
+  block[2] arithmetic gate=4912
+  block[2] arithmetic gate=4913
+  block[2] arithmetic gate=5219
+  gate_min=4912
+part=Oink:comm_g0 slot=fr2 w=125 real=125
+  block[2] arithmetic gate=4923
+  block[2] arithmetic gate=4925
+  block[2] arithmetic gate=5220
+  gate_min=4923
+part=Oink:comm_g0 slot=fr3 w=126 real=126
+  block[2] arithmetic gate=4924
+  block[2] arithmetic gate=4925
+  block[2] arithmetic gate=5227
+  gate_min=4924
+part=Oink:comm_g1 slot=fr0 w=127 real=127
+  block[2] arithmetic gate=5005
+  block[2] arithmetic gate=5007
+  block[2] arithmetic gate=5228
+  gate_min=5005
+part=Oink:comm_g1 slot=fr1 w=128 real=128
+  block[2] arithmetic gate=5006
+  block[2] arithmetic gate=5007
+  block[2] arithmetic gate=5229
+  gate_min=5006
+part=Oink:comm_g1 slot=fr2 w=129 real=129
+  block[2] arithmetic gate=5017
+  block[2] arithmetic gate=5019
+  block[2] arithmetic gate=5236
+  gate_min=5017
+part=Oink:comm_g1 slot=fr3 w=130 real=130
+  block[2] arithmetic gate=5018
+  block[2] arithmetic gate=5019
+  block[2] arithmetic gate=5237
+  gate_min=5018
+part=Oink:comm_g2 slot=fr0 w=131 real=131
+  block[2] arithmetic gate=5099
+  block[2] arithmetic gate=5101
+  block[2] arithmetic gate=5238
+  gate_min=5099
+part=Oink:comm_g2 slot=fr1 w=132 real=132
+  block[2] arithmetic gate=5100
+  block[2] arithmetic gate=5101
+  block[2] arithmetic gate=5245
+  gate_min=5100
+part=Oink:comm_g2 slot=fr2 w=133 real=133
+  block[2] arithmetic gate=5111
+  block[2] arithmetic gate=5113
+  block[2] arithmetic gate=5246
+  gate_min=5111
+part=Oink:comm_g2 slot=fr3 w=134 real=134
+  block[2] arithmetic gate=5112
+  block[2] arithmetic gate=5113
+  block[2] arithmetic gate=5247
+  gate_min=5112
+part=Oink:comm_g3 slot=fr0 w=143 real=143
+  block[2] arithmetic gate=5450
+  block[2] arithmetic gate=5452
+  block[2] arithmetic gate=5569
+  gate_min=5450
+part=Oink:comm_g3 slot=fr1 w=144 real=144
+  block[2] arithmetic gate=5451
+  block[2] arithmetic gate=5452
+  block[2] arithmetic gate=5570
+  gate_min=5451
+part=Oink:comm_g3 slot=fr2 w=145 real=145
+  block[2] arithmetic gate=5462
+  block[2] arithmetic gate=5464
+  block[2] arithmetic gate=5571
+  gate_min=5462
+part=Oink:comm_g3 slot=fr3 w=146 real=146
+  block[2] arithmetic gate=5463
+  block[2] arithmetic gate=5464
+  block[2] arithmetic gate=5578
+  gate_min=5463
+part=Oink:comm_g4 slot=fr0 w=151 real=151
+  block[2] arithmetic gate=5737
+  block[2] arithmetic gate=5739
+  block[2] arithmetic gate=5840
+  gate_min=5737
+part=Oink:comm_g4 slot=fr1 w=152 real=152
+  block[2] arithmetic gate=5738
+  block[2] arithmetic gate=5739
+  block[2] arithmetic gate=5847
+  gate_min=5738
+part=Oink:comm_g4 slot=fr2 w=153 real=153
+  block[2] arithmetic gate=5749
+  block[2] arithmetic gate=5751
+  block[2] arithmetic gate=5848
+  gate_min=5749
+part=Oink:comm_g4 slot=fr3 w=154 real=154
+  block[2] arithmetic gate=5750
+  block[2] arithmetic gate=5751
+  block[2] arithmetic gate=5849
+  gate_min=5750
+part=Oink:comm_g5 slot=fr0 w=147 real=147
+  block[2] arithmetic gate=5593
+  block[2] arithmetic gate=5595
+  block[2] arithmetic gate=5832
+  block[2] arithmetic gate=5833
+  block[2] arithmetic gate=5834
+  gate_min=5593
+part=Oink:comm_g5 slot=fr1 w=148 real=148
+  block[2] arithmetic gate=5594
+  block[2] arithmetic gate=5595
+  block[2] arithmetic gate=5833
+  block[2] arithmetic gate=5836
+  gate_min=5594
+part=Oink:comm_g5 slot=fr2 w=149 real=149
+  block[2] arithmetic gate=5605
+  block[2] arithmetic gate=5607
+  block[2] arithmetic gate=5838
+  gate_min=5605
+part=Oink:comm_g5 slot=fr3 w=150 real=150
+  block[2] arithmetic gate=5606
+  block[2] arithmetic gate=5607
+  block[2] arithmetic gate=5839
+  gate_min=5606
+part=Oink:comm_g6 slot=fr0 w=135 real=135
+  block[2] arithmetic gate=5262
+  block[2] arithmetic gate=5264
+  block[2] arithmetic gate=5545
+  block[2] arithmetic gate=5546
+  block[2] arithmetic gate=5547
+  gate_min=5262
+part=Oink:comm_g6 slot=fr1 w=136 real=136
+  block[2] arithmetic gate=5263
+  block[2] arithmetic gate=5264
+  block[2] arithmetic gate=5546
+  block[2] arithmetic gate=5549
+  gate_min=5263
+part=Oink:comm_g6 slot=fr2 w=137 real=137
+  block[2] arithmetic gate=5274
+  block[2] arithmetic gate=5276
+  block[2] arithmetic gate=5551
+  gate_min=5274
+part=Oink:comm_g6 slot=fr3 w=138 real=138
+  block[2] arithmetic gate=5275
+  block[2] arithmetic gate=5276
+  block[2] arithmetic gate=5552
+  gate_min=5275
+part=Oink:comm_g7 slot=fr0 w=139 real=139
+  block[2] arithmetic gate=5356
+  block[2] arithmetic gate=5358
+  block[2] arithmetic gate=5553
+  gate_min=5356
+part=Oink:comm_g7 slot=fr1 w=140 real=140
+  block[2] arithmetic gate=5357
+  block[2] arithmetic gate=5358
+  block[2] arithmetic gate=5560
+  gate_min=5357
+part=Oink:comm_g7 slot=fr2 w=141 real=141
+  block[2] arithmetic gate=5368
+  block[2] arithmetic gate=5370
+  block[2] arithmetic gate=5561
+  gate_min=5368
+part=Oink:comm_g7 slot=fr3 w=142 real=142
+  block[2] arithmetic gate=5369
+  block[2] arithmetic gate=5370
+  block[2] arithmetic gate=5562
+  gate_min=5369

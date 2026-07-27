@@ -1,0 +1,46 @@
+# HONK Phase 3 cursor / FP promotion (mirror stage boundaries)
+# Phase 2: primitive_start_arith=1709 vk_deserialize_region_end=4372
+setup arith=4451 nnf=1736 mem=0 p2ext=0 p2int=0
+setup_nnf gates=1736 prefix=0x8532e80b0fef3fa6 full=0xa7afbc28f9f887f9
+pre_primitive_arith gates=1709 prefix=0xe5a2c2bb07c127ca full=0xde229d3d1b6f1039
+
+# Oink
+Oink block[2] arithmetic start=4451 end=5856 gates=1405 prefix=0x54b6283c06479365 full=0x23049a4ef6cfaf91
+Oink block[6] nnf start=1736 end=2232 gates=496 prefix=0x8532e80b0fef3fa6 full=0x3dafb8c7e4c95f24
+Oink block[7] poseidon2_ext start=0 end=560 gates=560 prefix=0xd66e384960826081 full=0xde008ed420992e0d
+Oink block[8] poseidon2_int start=0 end=3192 gates=3192 prefix=0xfeae5f9d5c27d251 full=0x912aba966bd0e550
+
+# Preprocessor
+Preprocessor block[2] arithmetic start=5856 end=5886 gates=30 prefix=0x7c75da3a29e5643a full=0x7bff0a58e978cd7d
+Preprocessor block[7] poseidon2_ext start=560 end=570 gates=10 prefix=0x519dcaf299fd9cbf full=0x519dcaf299fd9cbf
+Preprocessor block[8] poseidon2_int start=3192 end=3249 gates=57 prefix=0xfeae5f9d5c27d251 full=0x5acee3ed48c55c0a
+
+# Sumcheck
+Sumcheck block[2] arithmetic start=5886 end=7952 gates=2066 prefix=0xd07d54971e301b9a full=0x7be0cf6902a7cdc2
+Sumcheck block[7] poseidon2_ext start=570 end=1320 gates=750 prefix=0xd66e384960826081 full=0x1d48284b8dda35fc
+Sumcheck block[8] poseidon2_int start=3249 end=7524 gates=4275 prefix=0xfeae5f9d5c27d251 full=0x710aeccf0147b2e0
+
+# Shplemini
+Shplemini block[2] arithmetic start=7952 end=11551 gates=3599 prefix=0xfc6581cd3b303eec full=0x87df1e59db9ca06e
+Shplemini block[6] nnf start=2232 end=3782 gates=1550 prefix=0x8532e80b0fef3fa6 full=0x6db07e2807d8e8fc
+Shplemini block[7] poseidon2_ext start=1320 end=1900 gates=580 prefix=0xd66e384960826081 full=0x7847807629ca2ddc
+Shplemini block[8] poseidon2_int start=7524 end=10830 gates=3306 prefix=0xfeae5f9d5c27d251 full=0xc6e3196ccd55ce4
+
+# KZG
+KZG block[2] arithmetic start=11551 end=276658 gates=265107 prefix=0x2dce00dfaa8b2f7a full=0x7311171d14f97f6c
+KZG block[5] memory start=0 end=18445 gates=18445 prefix=0xd57d77a9715cfae9 full=0xb9510f81f6022274
+KZG block[6] nnf start=3782 end=149914 gates=146132 prefix=0x8532e80b0fef3fa6 full=0xf595ee664021492d
+
+# Output
+Output block[2] arithmetic start=276658 end=309567 gates=32909 prefix=0x2dce00dfaa8b2f7a full=0xfdcb458d3b5c8635
+Output block[6] nnf start=149914 end=168062 gates=18148 prefix=0x8532e80b0fef3fa6 full=0xe999b59ee758b306
+Output block[7] poseidon2_ext start=1900 end=1960 gates=60 prefix=0xd66e384960826081 full=0xb5182aac47dd389
+Output block[8] poseidon2_int start=10830 end=11172 gates=342 prefix=0xfeae5f9d5c27d251 full=0x5ebb1cec5105115b
+
+# real-build checks
+primitive_start_arith=1709
+vk_deserialize_end=4372
+setup_residual gates=79 prefix=0xecfa5df53beebfac full=0x6b2d93c9a40a16bc
+pre_oink_full gates=2742 prefix=0xec01069372bf3dea full=0xd20fcdf175647116
+oink_arith_start=4451 oink_arith_gates=1405 prefix=0x54b6283c06479365 full=0x23049a4ef6cfaf91
+setup_nnf=1736

@@ -7,6 +7,7 @@
 #include "barretenberg/noir_programs_boomerang_values/chonk_validation.hpp"
 #include "barretenberg/noir_programs_boomerang_values/poseidon2s_helpers.hpp"
 #include "barretenberg/noir_programs_boomerang_values/recursion_constraints_helper.hpp"
+#include "barretenberg/noir_programs_boomerang_values/recursion_constraints_validation/HONK/honk_recursion_validation.hpp"
 #include "barretenberg/noir_programs_boomerang_values/sha256_circuit_helpers.hpp"
 #include "barretenberg/stdlib/hash/poseidon2/poseidon2_permutation.hpp"
 #include <algorithm>
@@ -621,12 +622,15 @@ bool StaticAnalyzerAcir_<FF, CircuitBuilder>::process_recursion_constraints(
         return false;
     }
 
-    if (constraint->proof_type == PROOF_TYPE::CHONK) {
+    switch (static_cast<PROOF_TYPE>(constraint->proof_type)) {
+    case PROOF_TYPE::CHONK:
         return process_chonk_recursion_constraint(constraint);
+    case PROOF_TYPE::HONK:
+        return process_honk_recursion_constraint(constraint);
+    default:
+        log_error("recursion validation: unsupported proof_type ", static_cast<int>(constraint->proof_type));
+        return false;
     }
-
-    log_error("recursion validation: unsupported proof_type ", static_cast<int>(constraint->proof_type));
-    return false;
 }
 
 template <typename FF, typename CircuitBuilder>
@@ -656,6 +660,44 @@ bool StaticAnalyzerAcir_<FF, CircuitBuilder>::process_chonk_recursion_constraint
         }
     }
     return result.all_valid;
+}
+
+template <typename FF, typename CircuitBuilder>
+bool StaticAnalyzerAcir_<FF, CircuitBuilder>::process_honk_recursion_constraint(
+    const acir_format::RecursionConstraint* constraint)
+{
+    if (constraint == nullptr) {
+        log_error("HONK recursion validation failed: null constraint");
+        return false;
+    }
+
+    auto result = HonkRecursionValidation::validate_honk_recursion(builder, analyzer, *constraint, constraint->proof);
+    if (!result.oink.is_valid) {
+        log_error("HONK recursion validation failed: Oink stage");
+        return false;
+    }
+
+    if (!result.preprocessor.is_valid) {
+        log_error("HONK recursion validation failed: Preprocessor stage");
+        return false;
+    }
+
+    if (!result.sumcheck.is_valid) {
+        log_error("HONK recursion validation failed: Sumcheck stage");
+        return false;
+    }
+
+    if (!result.shplemini.is_valid) {
+        log_error("HONK recursion validation failed: Shplemini stage");
+        return false;
+    }
+
+    if (!result.kzg.is_valid) {
+        log_error("HONK recursion validation failed: KZG stage");
+        return false;
+    }
+
+    return result.is_valid;
 }
 
 template <typename FF, typename CircuitBuilder>

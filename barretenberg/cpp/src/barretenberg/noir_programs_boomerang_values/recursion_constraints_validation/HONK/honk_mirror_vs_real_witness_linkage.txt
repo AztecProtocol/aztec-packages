@@ -1,0 +1,33 @@
+# HONK mirror vs real witness-linkage diagnostic (Round 12)
+# Same make_mock_acir_program constraint; mirror = setup_honk_verifier_components +
+# build_full_honk_circuit; real = create_honk_recursion_constraints.
+
+=== key_hash ===
+mirror witness=525 real=525 gates=3
+  block[2] arithmetic gate=5194
+  block[2] arithmetic gate=5196
+  block[7] poseidon2_ext gate=388
+real   witness=525 real=525 gates=3
+  block[2] arithmetic gate=5194
+  block[2] arithmetic gate=5196
+  block[7] poseidon2_ext gate=388
+
+=== first proof-body witness (commitment group 0 / proof[0]) ===
+mirror witness=115 real=115 gates=7
+  block[2] arithmetic gate=5194
+  block[2] arithmetic gate=5195
+  block[2] arithmetic gate=5196
+  block[2] arithmetic gate=5691
+  block[2] arithmetic gate=5692
+  block[2] arithmetic gate=276658
+  block[2] arithmetic gate=276660
+real   witness=115 real=115 gates=7
+  block[2] arithmetic gate=5194
+  block[2] arithmetic gate=5195
+  block[2] arithmetic gate=5196
+  block[2] arithmetic gate=5691
+  block[2] arithmetic gate=5692
+  block[2] arithmetic gate=276658
+  block[2] arithmetic gate=276660
+
+validate_vk_hash: mirror=pass real=pass

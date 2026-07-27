@@ -1,0 +1,18 @@
+# HONK Phase 2 witness gate map
+first_primitive_part=VkDeserialize
+last_serialization_part=wrapper (no gates)
+serialization_end_arith=0
+primitive_start_arith=1709 (alias circuit_build_start_arith)
+vk_deserialize_region_end_arith=4372
+first_key_commitment_gate_arith=1709
+first_key_commitment_gate_nnf=none
+oink_vk_hash_poseidon2_ext_start=388
+proof_g0_fr0_arith_gate_min=4911
+key_hash_touches_arith_before_region_end=0
+early_opcode_witnesses=key[0..2](scalar,wrapper),key_hash(wrapper),proof_indices(wrapper)
+vk_deserialize_arith_fp_match_pinned=true
+vk_deserialize_pinned_fp_stale=false
+measured_vk_deserialize_arith gates=2663 prefix20=0xec01069372bf3dea full=0xd9ed1c196b16b6bd
+# Note: Phase 3 Oink cursor starts at oink_arith_start=4451 (setup end), not
+# vk_deserialize_region_end_arith=4372. Gap [4372,4451) is SETUP_RESIDUAL_ARITH (79 gates).
+# Phase 3 orchestrator: VkDeserialize@1709 → residual → Oink@4451 → … → Output.
