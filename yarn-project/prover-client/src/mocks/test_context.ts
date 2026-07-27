@@ -373,18 +373,12 @@ export class TestContext {
     const cleanFork = await this.worldState.fork();
     const previousCheckpointOutHashes = this.checkpointOutHashes;
     const startInboxRollingHash = this.currentInboxRollingHash;
-    // Empty checkpoint-level list + `insertMessagesPerBlock` so the builder inserts each block's slice via
-    // `addBlock` (and accumulates them into the checkpoint's rolling hash) rather than up front.
-    const builder = await LightweightCheckpointBuilder.startNewCheckpoint(
+    const builder = LightweightCheckpointBuilder.startNewCheckpoint(
       checkpointNumber,
       { ...constants, timestamp },
-      [],
       previousCheckpointOutHashes,
       startInboxRollingHash,
       cleanFork,
-      undefined,
-      0n,
-      true,
     );
 
     const blocks = [];
@@ -392,10 +386,9 @@ export class TestContext {
       const txs = blockTxs[i];
       const state = blockEndStates[i];
 
-      const { block } = await builder.addBlock(blockGlobalVariables[i], txs, {
+      const { block } = await builder.addBlock(blockGlobalVariables[i], txs, l1ToL2MessagesPerBlock[i], {
         expectedEndState: state,
         insertTxsEffects: true,
-        l1ToL2Messages: l1ToL2MessagesPerBlock[i],
       });
 
       const header = block.header;
