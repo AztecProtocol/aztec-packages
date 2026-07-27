@@ -58,9 +58,7 @@ export class LowPriorityEvictionRule implements EvictionRule {
           const numNewTxsEvicted = context.newTxHashes.filter(newTxHash => toEvictSet.has(newTxHash)).length;
           this.log.info(
             `Evicted ${txsToEvict.length} low priority txs, including ${numNewTxsEvicted} newly added txs`,
-            {
-              txsToEvict,
-            },
+            { txsToEvict },
           );
         } else {
           this.log.info(`Evicted ${txsToEvict.length} low priority txs after chain prune`, { txsToEvict });
