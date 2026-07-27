@@ -229,8 +229,13 @@ export class KVBrokerDatabase implements ProvingBrokerDatabase {
     }
   }
 
+  // Key jobs by the id-derived epoch, the same epoch results are written under (setProvingJobResult et
+  // al.). This keeps a job's inputs and its result co-located in one epoch database so both can be read
+  // back with a single keyed lookup (getProvingJobInputs/getProvingJobResult) rather than a scan. The id
+  // embeds the epoch and equals `job.epochNumber` at every construction site, so this matches the prior
+  // storage epoch while making the id the single source of truth for placement.
   addProvingJob(job: ProvingJob): Promise<void> {
-    return this.batchQueue.put(job, job.epochNumber);
+    return this.batchQueue.put(job, getEpochFromProvingJobId(job.id));
   }
 
   async *allProvingJobs(): AsyncIterableIterator<[ProvingJob, ProvingJobSettledResult | undefined]> {
@@ -240,27 +245,17 @@ export class KVBrokerDatabase implements ProvingBrokerDatabase {
     }
   }
 
-  // Jobs are keyed into an epoch database by `job.epochNumber` (addProvingJob) while results are keyed by
-  // the id-derived epoch (setProvingJobResult); these coincide in practice but need not. Rather than rely
-  // on that, search the (few) resident epoch databases for the id. This is O(epochs kept) LMDB reads.
-  async getProvingJobInputs(id: ProvingJobId): Promise<ProofUri | undefined> {
-    for (const db of this.epochs.values()) {
-      const inputs = await db.getProvingJobInputs(id);
-      if (inputs !== undefined) {
-        return inputs;
-      }
-    }
-    return undefined;
+  // A job id is `${epochNumber}:${type}:${inputsHash}`, so its epoch is recoverable directly and maps to
+  // exactly one epoch database. Results are already written under this same id-derived epoch (see
+  // setProvingJobResult et al.), and a job's `epochNumber` equals its id-epoch at every construction site,
+  // so inputs live there too. Use `epochs.get` (not `getEpochDatabase`, which would create the store on a
+  // miss) so a read for an unknown id has no side effects.
+  getProvingJobInputs(id: ProvingJobId): Promise<ProofUri | undefined> {
+    return this.epochs.get(getEpochFromProvingJobId(id))?.getProvingJobInputs(id) ?? Promise.resolve(undefined);
   }
 
-  async getProvingJobResult(id: ProvingJobId): Promise<ProvingJobSettledResult | undefined> {
-    for (const db of this.epochs.values()) {
-      const result = await db.getProvingJobResult(id);
-      if (result !== undefined) {
-        return result;
-      }
-    }
-    return undefined;
+  getProvingJobResult(id: ProvingJobId): Promise<ProvingJobSettledResult | undefined> {
+    return this.epochs.get(getEpochFromProvingJobId(id))?.getProvingJobResult(id) ?? Promise.resolve(undefined);
   }
 
   setProvingJobError(id: ProvingJobId, reason: string): Promise<void> {
