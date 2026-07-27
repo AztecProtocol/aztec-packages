@@ -1217,10 +1217,19 @@ __metadata:
   languageName: unknown
   linkType: soft
 
+"@aztec/constants-codegen@portal:../../protocol/constants-codegen::locator=%40aztec%2Fconstants%40workspace%3Aconstants":
+  version: 0.0.0-use.local
+  resolution: "@aztec/constants-codegen@portal:../../protocol/constants-codegen::locator=%40aztec%2Fconstants%40workspace%3Aconstants"
+  bin:
+    constants-codegen: ./dest/cli.js
+  languageName: node
+  linkType: soft
+
 "@aztec/constants@workspace:^, @aztec/constants@workspace:constants":
   version: 0.0.0-use.local
   resolution: "@aztec/constants@workspace:constants"
   dependencies:
+    "@aztec/constants-codegen": "portal:../../protocol/constants-codegen"
     "@aztec/foundation": "workspace:^"
     "@jest/globals": "npm:^30.0.0"
     "@types/jest": "npm:^30.0.0"

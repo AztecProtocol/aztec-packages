@@ -226,17 +226,16 @@ ${processConstantsRust(constants, domainSeparatorEnum)}
 /**
  * Parse the content of the constants file in Noir.
  */
-export function parseNoirFile(
-  fileContent: string,
-  { stripLineComments = false }: { stripLineComments?: boolean } = {},
-): ParsedExpressions {
+export function parseNoirFile(fileContent: string): ParsedExpressions {
   const constantsExpressions: [string, string][] = [];
   const domainSeparatorEnum: { [key: string]: number } = {};
 
   const emptyExpression = (): { name: string; content: string[] } => ({ name: '', content: [] });
   let expression = emptyExpression();
   fileContent.split('\n').forEach(l => {
-    const line = (stripLineComments ? l.replace(/\/\/.*$/, '') : l).trim();
+    // Line comments are stripped so they never leak into expressions, where they would swallow
+    // the rest of the expression when it is later evaluated as JavaScript.
+    const line = l.replace(/\/\/.*$/, '').trim();
 
     if (!line) {
       // Empty line.

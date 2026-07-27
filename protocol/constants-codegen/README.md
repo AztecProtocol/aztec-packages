@@ -4,21 +4,19 @@ This directory will contain the standalone cross-language generator for Aztec pr
 
 ## Version 1 interface
 
-The command reads a primary Noir source file, optionally adds named constants from other Noir files, and writes one
-of the supported outputs.
+The command reads a Noir source file and writes one of the supported outputs.
 
 ```text
 constants-codegen \
   [--input <constants.nr>] \
-  [--include <file.nr>:<symbol>]... \
   [--selection <selection.json>] \
   (--typescript <output.ts> | --cpp <output.hpp> | --pil <output.pil> | --solidity <output.sol> | --rust <output.rs>)
 ```
 
-- `--input` defaults to `noir-projects/noir-protocol-circuits/crates/types/src/constants.nr` when the tool runs from
-  inside the aztec-packages monorepo (resolved relative to the tool itself). Outside the
-  monorepo — e.g. the published npm package — it is required.
-- `--include` adds one named constant from another Noir file before evaluating expressions. It may be repeated.
+- `--input` defaults to `inputs/constants.nr` under the package root, the file `scripts/embed-inputs.sh` copies in
+  as part of the package build, so both the published npm package and the built in-repo package work without
+  `--input`. In-repo callers invoke `scripts/generate.sh`, which refreshes the embedded copy from the monorepo
+  sources before running the CLI.
 - Exactly one output option is required. Run the command once per desired output.
 - `--selection` filters the output to the selected symbols. Without it, the output contains every supported symbol
   from the input.
