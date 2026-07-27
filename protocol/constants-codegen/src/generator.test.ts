@@ -22,6 +22,9 @@ pub global MAX_FIELD_VALUE: Field =
     21888242871839275222246405745257275088548364400416034343698204186575808495616;
 pub global MAX_ETH_ADDRESS_VALUE: Field = 0xffffffffffffffffffffffffffffffffffffffff;
 pub global ARCHIVE_HEIGHT: u32 = 30;
+pub global TOTAL_BLOB_FIELDS: u32 = 1 // marker
+    + 1 // hash
+    + ARCHIVE_HEIGHT; // fields
 pub global DOM_SEP__MERKLE_HASH: u32 = 2982624097;
 `;
 
@@ -44,6 +47,7 @@ test('generates TypeScript constants and domain separators', () => {
 export const MAX_FIELD_VALUE = 21888242871839275222246405745257275088548364400416034343698204186575808495616n;
 export const MAX_ETH_ADDRESS_VALUE = 1461501637330902918203684832716283019655932542975n;
 export const ARCHIVE_HEIGHT = 30;
+export const TOTAL_BLOB_FIELDS = 32;
 export enum DomainSeparator {
   MERKLE_HASH = 2982624097,
 }`,
@@ -99,7 +103,6 @@ test('generates Solidity constants', () => {
 test('the CLI generates one output per invocation with its selection', () => {
   const tempDir = mkdtempSync(join(tmpdir(), 'constants-codegen-cli-'));
   const inputPath = join(tempDir, 'constants.nr');
-  const includedInputPath = join(tempDir, 'additional.nr');
   const typescriptSelectionPath = join(tempDir, 'typescript-selection.json');
   const cppSelectionPath = join(tempDir, 'cpp-selection.json');
   const typescriptPath = join(tempDir, 'typescript', 'constants.ts');
@@ -108,27 +111,11 @@ test('the CLI generates one output per invocation with its selection', () => {
 
   try {
     writeFileSync(inputPath, noirFixture);
-    writeFileSync(
-      includedInputPath,
-      `pub global INCLUDED_CONSTANT: u32 = ARCHIVE_HEIGHT + 1; // selected for export
-pub global EXCLUDED_CONSTANT: u32 = 100;
-`,
-    );
-    writeFileSync(typescriptSelectionPath, JSON.stringify(['ARCHIVE_HEIGHT', 'INCLUDED_CONSTANT']));
+    writeFileSync(typescriptSelectionPath, JSON.stringify(['ARCHIVE_HEIGHT', 'TOTAL_BLOB_FIELDS']));
     writeFileSync(cppSelectionPath, JSON.stringify(['MAX_ETH_ADDRESS_VALUE', 'DOM_SEP__MERKLE_HASH']));
     execFileSync(
       process.execPath,
-      [
-        cliPath,
-        '--input',
-        inputPath,
-        '--include',
-        `${includedInputPath}:INCLUDED_CONSTANT`,
-        '--typescript',
-        typescriptPath,
-        '--selection',
-        typescriptSelectionPath,
-      ],
+      [cliPath, '--input', inputPath, '--typescript', typescriptPath, '--selection', typescriptSelectionPath],
       { stdio: 'pipe' },
     );
     execFileSync(process.execPath, [cliPath, '--input', inputPath, '--cpp', cppPath, '--selection', cppSelectionPath], {
@@ -136,9 +123,8 @@ pub global EXCLUDED_CONSTANT: u32 = 100;
     });
 
     assert.match(readFileSync(typescriptPath, 'utf8'), /export const ARCHIVE_HEIGHT = 30;/);
-    assert.match(readFileSync(typescriptPath, 'utf8'), /export const INCLUDED_CONSTANT = 31;/);
+    assert.match(readFileSync(typescriptPath, 'utf8'), /export const TOTAL_BLOB_FIELDS = 32;/);
     assert.doesNotMatch(readFileSync(typescriptPath, 'utf8'), /MAX_ETH_ADDRESS_VALUE/);
-    assert.doesNotMatch(readFileSync(typescriptPath, 'utf8'), /EXCLUDED_CONSTANT/);
     assert.match(readFileSync(cppPath, 'utf8'), /#define MAX_ETH_ADDRESS_VALUE/);
     assert.match(readFileSync(cppPath, 'utf8'), /#define DOM_SEP__MERKLE_HASH 2982624097UL/);
     assert.doesNotMatch(readFileSync(cppPath, 'utf8'), /ARCHIVE_HEIGHT/);
@@ -202,14 +188,32 @@ test('the CLI rejects unknown selected symbols', () => {
   }
 });
 
-test('the CLI defaults --input to the monorepo constants.nr', () => {
+test('the CLI defaults to the embedded inputs with the tx blob data constant included', () => {
   const tempDir = mkdtempSync(join(tmpdir(), 'constants-codegen-cli-'));
+  const typescriptPath = join(tempDir, 'constants.ts');
+  const cliPath = join(dirname(fileURLToPath(import.meta.url)), 'cli.ts');
+  const embedScript = join(dirname(fileURLToPath(import.meta.url)), '..', 'scripts', 'embed-inputs.sh');
+
+  try {
+    execFileSync(embedScript, { stdio: 'pipe' });
+    execFileSync(process.execPath, [cliPath, '--typescript', typescriptPath], { stdio: 'pipe' });
+    assert.match(readFileSync(typescriptPath, 'utf8'), /export const ARCHIVE_HEIGHT = \d+;/);
+    assert.match(readFileSync(typescriptPath, 'utf8'), /export const MAX_TX_BLOB_DATA_SIZE_IN_FIELDS = \d+;/);
+  } finally {
+    rmSync(tempDir, { recursive: true, force: true });
+  }
+});
+
+test('the CLI does not fall back to the embedded inputs when --input is given', () => {
+  const tempDir = mkdtempSync(join(tmpdir(), 'constants-codegen-cli-'));
+  const inputPath = join(tempDir, 'constants.nr');
   const typescriptPath = join(tempDir, 'constants.ts');
   const cliPath = join(dirname(fileURLToPath(import.meta.url)), 'cli.ts');
 
   try {
-    execFileSync(process.execPath, [cliPath, '--typescript', typescriptPath], { stdio: 'pipe' });
-    assert.match(readFileSync(typescriptPath, 'utf8'), /export const ARCHIVE_HEIGHT = \d+;/);
+    writeFileSync(inputPath, noirFixture);
+    execFileSync(process.execPath, [cliPath, '--input', inputPath, '--typescript', typescriptPath], { stdio: 'pipe' });
+    assert.doesNotMatch(readFileSync(typescriptPath, 'utf8'), /MAX_TX_BLOB_DATA_SIZE_IN_FIELDS/);
   } finally {
     rmSync(tempDir, { recursive: true, force: true });
   }
