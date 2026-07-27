@@ -498,12 +498,10 @@ export class AutomineSequencer {
       checkpointNumber,
       checkpointGlobals,
       feeAssetPriceModifier,
-      [],
       previousCheckpointOutHashes,
       previousInboxRollingHash,
       fork,
       this.log.getBindings(),
-      true,
     );
 
     // Block building only executes txs, and automine publishes straight to L1, so the proofs are never needed.

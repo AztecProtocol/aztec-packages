@@ -255,6 +255,7 @@ describe('ValidatorClient Integration', () => {
       maxBlocksPerCheckpoint: 1,
       perBlockAllocationMultiplier: 1.2,
       minValidTxs: 0,
+      l1ToL2Messages,
     });
 
     // Resolve the Inbox bucket this block consumed through (keyed by its cumulative L1-to-L2 leaf count) and attach
@@ -343,7 +344,6 @@ describe('ValidatorClient Integration', () => {
       checkpointNumber,
       globalVariables,
       0n,
-      l1ToL2Messages,
       previousCheckpointOutHashes,
       Fr.ZERO,
       fork,
@@ -353,7 +353,15 @@ describe('ValidatorClient Integration', () => {
     for (let i = 0; i < blockCount; i++) {
       const blockNumber = BlockNumber(startBlockNumber + i);
       const txs = await getTxsForBlock(blockNumber, blocks);
-      const block = await buildBlockProposal(builder, blockNumber, checkpointNumber, txs, l1ToL2Messages);
+      // The checkpoint's whole message bundle goes into its first block, matching how a validator derives each
+      // block's bundle from the block's own L1-to-L2 leaf-count delta.
+      const block = await buildBlockProposal(
+        builder,
+        blockNumber,
+        checkpointNumber,
+        txs,
+        i === 0 ? l1ToL2Messages : [],
+      );
       blocks.push(block);
     }
 

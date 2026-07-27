@@ -30,7 +30,7 @@ import {
 /**
  * Builds a checkpoint and its header and the blocks in it from a set of processed tx without running any circuits.
  *
- * It updates the l1-to-l2 message tree when starting a new checkpoint, and then updates the archive tree when each block is added.
+ * Each added block inserts its own L1-to-L2 message bundle into the message tree and then updates the archive tree.
  * Finally completes the checkpoint by computing its header.
  */
 export class LightweightCheckpointBuilder {
@@ -60,29 +60,24 @@ export class LightweightCheckpointBuilder {
     this.logger.debug('Starting new checkpoint', { constants, l1ToL2Messages, feeAssetPriceModifier });
   }
 
-  static async startNewCheckpoint(
+  /**
+   * Starts a fresh checkpoint. The checkpoint's L1-to-L2 messages are not supplied here: every block brings its own
+   * bundle to {@link addBlock}, which inserts it into the tree and accumulates it into the checkpoint's message list.
+   */
+  static startNewCheckpoint(
     checkpointNumber: CheckpointNumber,
     constants: CheckpointGlobalVariables,
-    l1ToL2Messages: Fr[],
     previousCheckpointOutHashes: Fr[],
     previousInboxRollingHash: Fr,
     db: MerkleTreeWriteOperations,
     bindings?: LoggerBindings,
     feeAssetPriceModifier: bigint = 0n,
-    // Streaming Inbox (AZIP-22 Fast Inbox): messages are inserted per block via `addBlock`, so `l1ToL2Messages` here
-    // is empty and the up-front checkpoint-wide insertion is skipped.
-    insertMessagesPerBlock: boolean = false,
-  ): Promise<LightweightCheckpointBuilder> {
-    // Insert l1-to-l2 messages into the tree (legacy flow: the whole checkpoint's messages up front).
-    if (!insertMessagesPerBlock) {
-      await appendL1ToL2MessagesToTree(db, l1ToL2Messages);
-    }
-
+  ): LightweightCheckpointBuilder {
     return new LightweightCheckpointBuilder(
       checkpointNumber,
       constants,
       feeAssetPriceModifier,
-      l1ToL2Messages,
+      [],
       previousCheckpointOutHashes,
       previousInboxRollingHash,
       db,
@@ -93,8 +88,8 @@ export class LightweightCheckpointBuilder {
   /**
    * Resumes building a checkpoint from existing blocks. This is used for validator re-execution
    * where blocks have already been built and their effects are already in the database.
-   * Unlike startNewCheckpoint, this does NOT append l1ToL2Messages to the tree since they
-   * were already added when the blocks were originally built.
+   * `l1ToL2Messages` is the whole checkpoint's message list as consumed by the existing blocks: it seeds the
+   * checkpoint's rolling hash and is not inserted into the tree, since the blocks already inserted it.
    */
   static async resumeCheckpoint(
     checkpointNumber: CheckpointNumber,
@@ -172,18 +167,20 @@ export class LightweightCheckpointBuilder {
   /**
    * Adds a new block to the checkpoint. The tx effects must have already been inserted into the db if
    * this is called after tx processing, if that's not the case, then set `insertTxsEffects` to true.
+   * @param l1ToL2Messages - The message leaves this block consumes from the Inbox, in insertion order.
    */
   public async addBlock(
     globalVariables: GlobalVariables,
     txs: ProcessedTx[],
-    opts: { insertTxsEffects?: boolean; expectedEndState?: StateReference; l1ToL2Messages?: Fr[] } = {},
+    l1ToL2Messages: Fr[],
+    opts: { insertTxsEffects?: boolean; expectedEndState?: StateReference } = {},
   ): Promise<{ block: L2Block; timings: Record<string, number> }> {
     const timings: Record<string, number> = {};
     const isFirstBlock = this.blocks.length === 0;
 
     // A non-first block with no txs is only allowed when it inserts a non-empty L1-to-L2 message bundle: the
     // message-only block shape (AZIP-22 Fast Inbox), proven by the msgs-only block root.
-    if (!isFirstBlock && txs.length === 0 && (opts.l1ToL2Messages?.length ?? 0) === 0) {
+    if (!isFirstBlock && txs.length === 0 && l1ToL2Messages.length === 0) {
       throw new Error('Cannot add an empty non-first block that carries no L1-to-L2 messages.');
     }
 
@@ -213,9 +210,7 @@ export class LightweightCheckpointBuilder {
     // tree's current next-available index). The logical messages are accumulated only once the block is fully built
     // (below), so a mid-build failure does not pollute the checkpoint's rolling hash; the rolling hash is recomputed
     // over them at checkpoint completion.
-    if (opts.l1ToL2Messages !== undefined) {
-      await appendL1ToL2MessagesToTree(this.db, opts.l1ToL2Messages);
-    }
+    await appendL1ToL2MessagesToTree(this.db, l1ToL2Messages);
 
     const [msGetEndState, endState] = await elapsed(() => this.db.getStateReference());
     timings.getEndState = msGetEndState;
@@ -254,9 +249,7 @@ export class LightweightCheckpointBuilder {
 
     // Accumulate the streaming bundle now that the block is fully built, so a mid-build throw above leaves the
     // checkpoint's message list (and thus its inHash/rolling hash) consistent with the blocks actually built.
-    if (opts.l1ToL2Messages !== undefined) {
-      this.l1ToL2Messages.push(...opts.l1ToL2Messages);
-    }
+    this.l1ToL2Messages.push(...l1ToL2Messages);
 
     const [msSpongeAbsorb] = await elapsed(() => this.spongeBlob.absorb(blockBlobFields));
     timings.spongeAbsorb = msSpongeAbsorb;

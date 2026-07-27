@@ -241,10 +241,9 @@ export class TestContext {
 
     const cleanFork = await this.worldState.fork();
     const previousCheckpointOutHashes = this.checkpointOutHashes;
-    const builder = await LightweightCheckpointBuilder.startNewCheckpoint(
+    const builder = LightweightCheckpointBuilder.startNewCheckpoint(
       checkpointNumber,
       { ...constants, timestamp },
-      l1ToL2Messages,
       previousCheckpointOutHashes,
       Fr.ZERO,
       cleanFork,
@@ -256,7 +255,7 @@ export class TestContext {
       const txs = blockTxs[i];
       const state = blockEndStates[i];
 
-      const { block } = await builder.addBlock(blockGlobalVariables[i], txs, {
+      const { block } = await builder.addBlock(blockGlobalVariables[i], txs, i === 0 ? l1ToL2Messages : [], {
         expectedEndState: state,
         insertTxsEffects: true,
       });

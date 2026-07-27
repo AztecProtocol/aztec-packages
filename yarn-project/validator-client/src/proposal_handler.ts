@@ -1069,8 +1069,8 @@ export class ProposalHandler {
       gasFees: blockHeader.globalVariables.gasFees,
     };
 
-    // Create checkpoint builder with prior blocks. Under the streaming Inbox (AZIP-22 Fast Inbox) the checkpoint-wide
-    // message list is empty and this block's bundle is inserted per block (below).
+    // Create checkpoint builder with prior blocks. The messages the prior blocks consumed are not needed: this path
+    // only re-executes and compares the new block, never completing the checkpoint (whose rolling hash they seed).
     const checkpointBuilder = await this.checkpointsBuilder.openCheckpoint(
       checkpointNumber,
       constants,
@@ -1081,7 +1081,6 @@ export class ProposalHandler {
       fork,
       priorBlocks,
       this.log.getBindings(),
-      true,
     );
 
     // Build the new block

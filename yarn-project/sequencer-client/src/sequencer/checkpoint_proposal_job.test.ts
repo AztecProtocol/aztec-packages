@@ -1441,11 +1441,9 @@ describe('CheckpointProposalJob', () => {
 
       expect(checkpoint).toBeDefined();
 
-      // Streaming skips the bulk per-checkpoint fetch and tells the builder to insert messages per block.
+      // Streaming skips the bulk per-checkpoint fetch; every message reaches the builder through a block.
       expect(l1ToL2MessageSource.getL1ToL2Messages).not.toHaveBeenCalled();
       expect(checkpointsBuilder.startCheckpointCalls).toHaveLength(1);
-      expect(checkpointsBuilder.startCheckpointCalls[0].l1ToL2Messages).toEqual([]);
-      expect(checkpointsBuilder.startCheckpointCalls[0].insertMessagesPerBlock).toBe(true);
 
       // The first block consumes the selected bundle; the second consumes nothing.
       expect(checkpointBuilder.buildBlockCalls).toHaveLength(2);

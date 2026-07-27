@@ -648,9 +648,8 @@ export class CheckpointProposalJob implements Traceable {
         this.checkpointSimulationOverridesPlan,
       );
 
-      // Under the streaming Inbox (AZIP-22 Fast Inbox) messages are selected per block, so the checkpoint-level bulk
-      // list stays empty and the legacy inHash is fed zero; the running values are computed block by block.
-      const l1ToL2Messages: Fr[] = [];
+      // Under the streaming Inbox (AZIP-22 Fast Inbox) messages are selected per block, so the legacy inHash is fed
+      // zero; the running values are computed block by block.
       const inHash = Fr.ZERO;
 
       // Collect the out hashes of all the checkpoints before this one in the same epoch.
@@ -697,12 +696,10 @@ export class CheckpointProposalJob implements Traceable {
         this.checkpointNumber,
         checkpointGlobalVariables,
         feeAssetPriceModifier,
-        l1ToL2Messages,
         previousCheckpointOutHashes,
         previousInboxRollingHash,
         fork,
         this.log.getBindings(),
-        true,
       );
 
       // Options for the validator client when creating block and checkpoint proposals

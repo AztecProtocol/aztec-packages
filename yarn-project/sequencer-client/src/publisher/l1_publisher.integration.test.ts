@@ -499,16 +499,15 @@ describe('L1Publisher integration', () => {
 
     // Test uses 1-block-per-checkpoint
     const checkpointNumber = CheckpointNumber.fromBlockNumber(globalVariables.blockNumber);
-    const builder = await LightweightCheckpointBuilder.startNewCheckpoint(
+    const builder = LightweightCheckpointBuilder.startNewCheckpoint(
       checkpointNumber,
       checkpointConstants,
-      l1ToL2Messages,
       previousCheckpointOutHashes,
       previousInboxRollingHash,
       tempFork,
     );
 
-    await builder.addBlock(globalVariables, txs, { insertTxsEffects: true });
+    await builder.addBlock(globalVariables, txs, l1ToL2Messages, { insertTxsEffects: true });
     const checkpoint = await builder.completeCheckpoint();
 
     await tempFork.close();

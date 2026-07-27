@@ -58,8 +58,7 @@ type BlockBuilderOptionsBase = PublicProcessorLimits & {
   minValidTxs: number;
   /**
    * L1-to-L2 message leaves this block consumes, inserted into the fork's L1-to-L2 message tree before the block
-   * header is built (AZIP-22 Fast Inbox streaming). Omitted (or empty) in the legacy flow, where the whole
-   * checkpoint's messages are inserted up front at `startCheckpoint`.
+   * header is built (AZIP-22 Fast Inbox streaming). Omitted when the block consumes nothing from the Inbox.
    */
   l1ToL2Messages?: Fr[];
 };
@@ -156,17 +155,17 @@ export interface ICheckpointsBuilder {
    */
   getFork(blockNumber: BlockNumber, blockHash?: BlockHash): Promise<MerkleTreeWriteOperations>;
 
+  /**
+   * Opens a fresh checkpoint. The checkpoint's L1-to-L2 messages are not passed here: each block carries its own
+   * bundle in `buildBlock`'s `l1ToL2Messages` (AZIP-22 Fast Inbox streaming).
+   */
   startCheckpoint(
     checkpointNumber: CheckpointNumber,
     constants: CheckpointGlobalVariables,
     feeAssetPriceModifier: bigint,
-    l1ToL2Messages: Fr[],
     previousCheckpointOutHashes: Fr[],
     previousInboxRollingHash: Fr,
     fork: MerkleTreeWriteOperations,
     bindings?: LoggerBindings,
-    // When true, the checkpoint's messages are inserted per block (via `buildBlock`'s `l1ToL2Messages`) rather than
-    // as one padded bundle up front, so `l1ToL2Messages` here must be empty (AZIP-22 Fast Inbox streaming).
-    insertMessagesPerBlock?: boolean,
   ): Promise<ICheckpointBlockBuilder>;
 }
