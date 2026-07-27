@@ -295,7 +295,6 @@ describe('L1Publisher integration', () => {
         timestamp: 0n,
         msgCount: 0,
         lastMessageIndex: 0n,
-        isOpen: false,
       },
       [],
     );
@@ -616,7 +615,6 @@ describe('L1Publisher integration', () => {
               timestamp: bucket.timestamp,
               msgCount: Number(bucket.msgCount),
               lastMessageIndex: bucket.totalMsgCount - 1n,
-              isOpen: seq === currentBucketSeq,
             },
             bucketMessages,
           );
