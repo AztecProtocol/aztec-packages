@@ -1,6 +1,6 @@
 // TODO: Move to types/src/abis/rollup/
-// `l1_to_l2_message_sponge` is declared first because the serde `#[derive(...)]` macro requires a field type's module
-// to be declared before any struct that embeds it (see the ordering note in `types/src/lib.nr`).
+// `l1_to_l2_message_sponge` is declared first because the `#[derive(Serialize, Deserialize)]` macros require a field
+// type's module to be declared before any struct that embeds it (see the ordering note in `types/src/lib.nr`).
 mod l1_to_l2_message_sponge;
 mod l1_to_l2_message_bundle;
 mod public_chonk_verifier_public_inputs;

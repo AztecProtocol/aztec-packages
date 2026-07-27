@@ -29,8 +29,8 @@ global ALLOWED_PREVIOUS_VK_INDICES: [u32; 7] = [
 
 pub struct CheckpointRootRollupPrivateInputs {
     pub(crate) previous_rollups: [RollupHonkProofData<BlockRollupPublicInputs>; 2],
-    // Inbox parity proof over the checkpoint's L1-to-L2 messages. One variable-size proof per checkpoint (AZIP-22 Fast
-    // Inbox): the checkpoint root is the only circuit that sees the whole checkpoint's message commitments.
+    // Inbox parity proof over the checkpoint's L1-to-L2 messages. One variable-size proof per checkpoint: the
+    // checkpoint root is the only circuit that sees the whole checkpoint's message commitments.
     pub(crate) inbox_parity: UltraHonkProofData<ParityPublicInputs>,
     pub(crate) hints: CheckpointRootRollupHints,
 }

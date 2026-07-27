@@ -78,9 +78,8 @@ export type SubTreeResult = {
     typeof NESTED_RECURSIVE_ROLLUP_HONK_PROOF_LENGTH
   >[];
   /**
-   * The checkpoint's single InboxParity proof. Parity moved from the first block root to the checkpoint root (AZIP-22
-   * Fast Inbox), so the sub-tree proves it and hands it to the top tree, which feeds it into the checkpoint root
-   * rollup.
+   * The checkpoint's single InboxParity proof. Parity gates the checkpoint root rather than the first block root, so
+   * the sub-tree proves it and hands it to the top tree, which feeds it into the checkpoint root rollup.
    */
   inboxParityProof: PublicInputsAndRecursiveProof<ParityPublicInputs>;
   previousArchiveSiblingPath: Tuple<Fr, typeof ARCHIVE_HEIGHT>;
@@ -88,7 +87,7 @@ export type SubTreeResult = {
 
 /**
  * The proofs a checkpoint's sub-tree hands to the top tree: the per-block rollup proofs plus the checkpoint's single
- * variable-size InboxParity proof (parity moved from the first block root to the checkpoint root in AZIP-22 Fast Inbox).
+ * variable-size InboxParity proof.
  */
 export type CheckpointSubTreeProofs = Pick<SubTreeResult, 'blockProofOutputs' | 'inboxParityProof'>;
 
