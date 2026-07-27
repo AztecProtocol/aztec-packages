@@ -544,23 +544,24 @@ TEST_F(AcirComponentsCheckTest, DetectsSplitComponents)
 
 TEST_F(AcirComponentsCheckTest, DetectsUnconstrainedWitnesses)
 {
+    constexpr uint32_t missing_lhs = 1000;
+    constexpr uint32_t missing_rhs = 1001;
     Acir::Circuit circuit = make_circuit({
         Acir::Opcode{ .value = Acir::Opcode::AssertZero{
                           .value = Acir::Expression{
                               .linear_combinations =
                                   {
-                                      { bb::fr::one().to_buffer(), make_witness(8) },
-                                      { bb::fr(-1).to_buffer(), make_witness(9) },
+                                      { bb::fr::one().to_buffer(), make_witness(missing_lhs) },
+                                      { bb::fr(-1).to_buffer(), make_witness(missing_rhs) },
                                   },
                               .q_c = bb::fr::zero().to_buffer(),
                           } } },
     });
 
-    auto constraints = circuit_serde_to_acir_format(circuit, IsMegaBuilder<AcirComponentsCheckBuilder>);
+    // Simulate synthesis omitting this ACIR component while keeping the builder internally consistent.
+    auto constraints = circuit_serde_to_acir_format(make_circuit({}), IsMegaBuilder<AcirComponentsCheckBuilder>);
     AcirProgram program{ .constraints = constraints, .witness = {} };
     auto builder = create_circuit<AcirComponentsCheckBuilder>(program);
-    // Corrupt the circuit
-    builder.real_variable_index.resize(9);
 
     acir_components_check::ComponentsChecker checker(circuit, builder);
     auto errors = checker.check();
