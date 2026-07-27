@@ -10,7 +10,7 @@ import type { Wallet } from '../wallet/wallet.js';
  * @param instance - The instance to publish.
  */
 export function publishInstance(wallet: Wallet, instance: ContractInstanceWithAddress): ContractFunctionInteraction {
-  const contractInstanceRegistry = ContractInstanceRegistryContract.at(wallet);
+  const contractInstanceRegistry = ContractInstanceRegistryContract.withWallet(wallet);
   const { salt, currentContractClassId: contractClassId, publicKeys, deployer: instanceDeployer } = instance;
   const isUniversalDeploy = instanceDeployer.isZero();
   return contractInstanceRegistry.methods.publish_for_public_execution(

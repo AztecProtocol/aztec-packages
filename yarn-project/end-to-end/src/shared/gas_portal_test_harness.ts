@@ -48,7 +48,7 @@ export class FeeJuicePortalTestingHarnessFactory {
       throw new Error('Fee Juice portal not deployed on L1');
     }
 
-    const gasL2 = FeeJuiceContract.at(wallet);
+    const gasL2 = FeeJuiceContract.withWallet(wallet);
 
     return new GasBridgingTestHarness(
       aztecNode,
