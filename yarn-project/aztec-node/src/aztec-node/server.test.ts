@@ -1568,27 +1568,19 @@ describe('aztec node', () => {
     });
   });
 
-  describe('getL1ToL2MessageCheckpoint', () => {
-    it('returns the checkpoint of the block that consumed the message', async () => {
+  describe('getL1ToL2MessageIndex', () => {
+    it('returns the compact leaf index the node assigned to the message', async () => {
       const msg = Fr.random();
-      l1ToL2MessageSource.getL1ToL2MessageIndex.mockResolvedValue(0n);
-      // The first block (checkpoint 1) consumed message index 0: its L1-to-L2 tree leaf count is 1 > 0.
-      l2BlockSource.getBlockNumber.mockResolvedValue(BlockNumber(1));
-      l2BlockSource.getBlockData.mockResolvedValue({
-        checkpointNumber: CheckpointNumber(1),
-        header: { state: { l1ToL2MessageTree: { nextAvailableLeafIndex: 1 } } },
-      } as unknown as BlockData);
+      l1ToL2MessageSource.getL1ToL2MessageIndex.mockResolvedValue(7n);
 
-      const result = await node.getL1ToL2MessageCheckpoint(msg);
-      expect(result).toEqual(CheckpointNumber(1));
+      expect(await node.getL1ToL2MessageIndex(msg)).toEqual(7n);
     });
 
     it('returns undefined when the message is not found', async () => {
       const msg = Fr.random();
       l1ToL2MessageSource.getL1ToL2MessageIndex.mockResolvedValue(undefined);
 
-      const result = await node.getL1ToL2MessageCheckpoint(msg);
-      expect(result).toBeUndefined();
+      expect(await node.getL1ToL2MessageIndex(msg)).toBeUndefined();
     });
   });
 

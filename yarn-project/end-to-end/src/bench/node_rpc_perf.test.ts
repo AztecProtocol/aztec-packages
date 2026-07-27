@@ -434,12 +434,10 @@ describe('e2e_node_rpc_perf', () => {
   });
 
   describe('message APIs', () => {
-    it('benchmarks getL1ToL2MessageCheckpoint', async () => {
+    it('benchmarks getL1ToL2MessageIndex', async () => {
       const l1ToL2Message = Fr.random();
-      const { stats } = await benchmark('getL1ToL2MessageCheckpoint', () =>
-        aztecNode.getL1ToL2MessageCheckpoint(l1ToL2Message),
-      );
-      addResult('getL1ToL2MessageCheckpoint', stats);
+      const { stats } = await benchmark('getL1ToL2MessageIndex', () => aztecNode.getL1ToL2MessageIndex(l1ToL2Message));
+      addResult('getL1ToL2MessageIndex', stats);
       expect(stats.avg).toBeLessThan(2000);
     });
 

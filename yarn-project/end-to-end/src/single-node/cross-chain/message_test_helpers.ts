@@ -4,7 +4,7 @@ import type { Logger } from '@aztec/aztec.js/log';
 import { isL1ToL2MessageReady } from '@aztec/aztec.js/messaging';
 import type { AztecNode } from '@aztec/aztec.js/node';
 import type { Wallet } from '@aztec/aztec.js/wallet';
-import type { BlockNumber, CheckpointNumber } from '@aztec/foundation/branded-types';
+import type { BlockNumber } from '@aztec/foundation/branded-types';
 import { retryUntil } from '@aztec/foundation/retry';
 import { ExecutionPayload } from '@aztec/stdlib/tx';
 
@@ -33,7 +33,7 @@ export interface L1ToL2MessageHelpers {
     secretHash: Fr;
   }): ReturnType<typeof sendL1ToL2Message>;
   advanceBlock(): Promise<BlockNumber>;
-  waitForMessageFetched(msgHash: Fr): Promise<CheckpointNumber>;
+  waitForMessageIndexed(msgHash: Fr): Promise<bigint>;
   waitForMessageReady(
     msgHash: Fr,
     scope: L1ToL2MessageScope,
@@ -72,20 +72,20 @@ export function createL1ToL2MessageHelpers(deps: L1ToL2MessageHelperDeps): L1ToL
     return newBlock;
   };
 
-  // Waits until the message is fetched by the archiver of the node and returns the msg target checkpoint.
-  // Advances a block on each retry because an L1->L2 message is only indexed once further L2 blocks build.
-  const waitForMessageFetched = async (msgHash: Fr) => {
+  // Waits until the node's archiver has ingested the message from the Inbox and returns its message-tree leaf index.
+  // Advances a block on each retry to keep the chain moving while the archiver catches up with L1.
+  const waitForMessageIndexed = async (msgHash: Fr) => {
     log.warn(`Waiting until the message is fetched by the node`);
     return await retryUntil(
       async () => {
-        const checkpoint = await aztecNode.getL1ToL2MessageCheckpoint(msgHash);
-        if (checkpoint !== undefined) {
-          return checkpoint;
+        const messageIndex = await aztecNode.getL1ToL2MessageIndex(msgHash);
+        if (messageIndex !== undefined) {
+          return messageIndex;
         }
         await advanceBlock();
         return undefined;
       },
-      'get msg checkpoint',
+      'get msg index',
       60,
     );
   };
@@ -96,9 +96,9 @@ export function createL1ToL2MessageHelpers(deps: L1ToL2MessageHelperDeps): L1ToL
     scope: L1ToL2MessageScope,
     onNotReady?: (blockNumber: BlockNumber) => Promise<void>,
   ) => {
-    const msgCheckpoint = await waitForMessageFetched(msgHash);
+    const msgIndex = await waitForMessageIndexed(msgHash);
     log.warn(
-      `Waiting until L2 reaches the first block of msg checkpoint ${msgCheckpoint} (current is ${await aztecNode.getCheckpointNumber()})`,
+      `Waiting until L2 consumes msg leaf index ${msgIndex} (checkpoint is ${await aztecNode.getCheckpointNumber()})`,
     );
     await retryUntil(
       async () => {
@@ -109,17 +109,17 @@ export function createL1ToL2MessageHelpers(deps: L1ToL2MessageHelperDeps): L1ToL
         const witness = await aztecNode.getL1ToL2MessageMembershipWitness('latest', msgHash);
         const isReady = await isL1ToL2MessageReady(aztecNode, msgHash, t.pxeSyncChainTip);
         log.info(
-          `Block is ${blockNumber}, checkpoint is ${checkpointNumber}. Message checkpoint is ${msgCheckpoint}. Witness ${!!witness}. Ready ${isReady}.`,
+          `Block is ${blockNumber}, checkpoint is ${checkpointNumber}. Message leaf index is ${msgIndex}. Witness ${!!witness}. Ready ${isReady}.`,
         );
         if (!isReady) {
           await (onNotReady ? onNotReady(blockNumber) : advanceBlock());
         }
         return isReady;
       },
-      `wait for rollup to reach msg checkpoint ${msgCheckpoint}`,
+      `wait for rollup to consume msg leaf index ${msgIndex}`,
       240,
     );
   };
 
-  return { sendMessageToL2, advanceBlock, waitForMessageFetched, waitForMessageReady };
+  return { sendMessageToL2, advanceBlock, waitForMessageIndexed, waitForMessageReady };
 }
