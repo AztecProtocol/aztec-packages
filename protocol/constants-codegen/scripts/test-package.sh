@@ -30,13 +30,11 @@ mkdir "$work_dir/consumer"
   cd "$work_dir/consumer"
   npm init --yes >/dev/null
   npm install --ignore-scripts "${tarballs[0]}" >/dev/null
-  ./node_modules/.bin/constants-codegen \
-    --input "$input" \
-    --typescript "$work_dir/constants.ts" \
-    --cpp "$work_dir/constants.hpp" \
-    --pil "$work_dir/constants.pil" \
-    --solidity "$work_dir/Constants.sol" \
-    --rust "$work_dir/constants.rs"
+  ./node_modules/.bin/constants-codegen --input "$input" --typescript "$work_dir/constants.ts"
+  ./node_modules/.bin/constants-codegen --input "$input" --cpp "$work_dir/constants.hpp"
+  ./node_modules/.bin/constants-codegen --input "$input" --pil "$work_dir/constants.pil"
+  ./node_modules/.bin/constants-codegen --input "$input" --solidity "$work_dir/Constants.sol"
+  ./node_modules/.bin/constants-codegen --input "$input" --rust "$work_dir/constants.rs"
 
   # The monorepo --input default must not resolve inside node_modules; external users get an
   # explicit error instead of a silently wrong input file.
@@ -58,8 +56,7 @@ function check_output {
   fi
 }
 
-# Each language receives a different allowlisted subset of the input constants,
-# so each check uses a constant known to be in that language's subset.
+# No selection files are passed, so every output contains all parsed constants.
 check_output constants.ts 'export const ARCHIVE_HEIGHT = 30;'
 check_output constants.hpp '#define ARCHIVE_HEIGHT 30'
 check_output constants.pil 'pol MAX_ETH_ADDRESS_VALUE = 1461501637330902918203684832716283019655932542975;'
