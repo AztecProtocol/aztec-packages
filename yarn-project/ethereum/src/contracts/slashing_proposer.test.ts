@@ -17,7 +17,7 @@ import { createExtendedL1Client } from '../client.js';
 import { DefaultL1ContractsConfig } from '../config.js';
 import { type DeployAztecL1ContractsArgs, deployAztecL1Contracts } from '../deploy_aztec_l1_contracts.js';
 import type { Anvil } from '../test/start_anvil.js';
-import { RollupContract, decodeSlashConsensusVotes } from './index.js';
+import { RollupContract, collapseVoteCastLogs, decodeSlashConsensusVotes } from './index.js';
 import { SlashingProposerContract } from './slashing_proposer.js';
 
 describe('SlashingProposer', () => {
@@ -288,6 +288,49 @@ describe('SlashingProposer', () => {
       const votes = decodeSlashConsensusVotes(buffer);
 
       expect(votes).toEqual([0, 0, 1, 2, 3, 2, 1, 0]);
+    });
+  });
+
+  describe('collapseVoteCastLogs', () => {
+    const voteCastLog = (round: bigint, slot: bigint, proposer: string) => ({ args: { round, slot, proposer } });
+
+    it('passes a single log through', () => {
+      const collapsed = collapseVoteCastLogs([voteCastLog(5n, 100n, '0xaaa')]);
+
+      expect(collapsed).toEqual([{ round: 5n, slot: SlotNumber(100), proposer: '0xaaa' }]);
+    });
+
+    it('keeps only the last log of a round', () => {
+      const collapsed = collapseVoteCastLogs([voteCastLog(5n, 100n, '0xaaa'), voteCastLog(5n, 101n, '0xbbb')]);
+
+      expect(collapsed).toEqual([{ round: 5n, slot: SlotNumber(101), proposer: '0xbbb' }]);
+    });
+
+    it('keeps the last log of every round when a batch spans a round boundary', () => {
+      const collapsed = collapseVoteCastLogs([
+        voteCastLog(5n, 100n, '0xaaa'),
+        voteCastLog(5n, 101n, '0xbbb'),
+        voteCastLog(6n, 102n, '0xccc'),
+      ]);
+
+      expect(collapsed).toEqual([
+        { round: 5n, slot: SlotNumber(101), proposer: '0xbbb' },
+        { round: 6n, slot: SlotNumber(102), proposer: '0xccc' },
+      ]);
+    });
+
+    it('returns nothing for an empty batch', () => {
+      expect(collapseVoteCastLogs([])).toEqual([]);
+    });
+
+    it('drops logs with undecoded args', () => {
+      const collapsed = collapseVoteCastLogs([
+        { args: { round: undefined, slot: 100n, proposer: '0xaaa' } },
+        { args: { round: 5n, slot: undefined, proposer: '0xaaa' } },
+        { args: { round: 5n, slot: 100n, proposer: undefined } },
+      ]);
+
+      expect(collapsed).toEqual([]);
     });
   });
 });

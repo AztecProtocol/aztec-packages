@@ -551,7 +551,21 @@ export const SLASHER_ROUND_EXECUTED_COUNT: MetricDefinition = {
 export const SLASHER_OWN_VALIDATOR_TARGETED_COUNT: MetricDefinition = {
   name: 'aztec.slasher.own_validator.targeted_count',
   description:
-    "The number of times one of the node's own validators was named as a slash target by an onchain vote, deduplicated per round and validator",
+    "The number of times one of the node's own validators was named as a slash target by an onchain vote, counted " +
+    'once per vote per validator. Best-effort: delayed L1 log delivery can miss votes or count one twice.',
+  valueType: ValueType.INT,
+};
+export const SLASHER_OWN_VALIDATOR_CURRENT_ROUND_VOTES_MAX: MetricDefinition = {
+  name: 'aztec.slasher.own_validator.current_round_votes_max',
+  description:
+    "Highest number of votes cast against any committee position held by the node's own validators in the current " +
+    'slashing round, to compare against aztec.slasher.quorum_size (the contract tallies quorum per position). ' +
+    'Resets to zero when a new round starts. Best-effort: delayed L1 log delivery can miss votes or count one twice.',
+  valueType: ValueType.INT,
+};
+export const SLASHER_QUORUM_SIZE: MetricDefinition = {
+  name: 'aztec.slasher.quorum_size',
+  description: 'The number of votes a validator must receive in a round to be slashed',
   valueType: ValueType.INT,
 };
 export const SLASHER_OWN_VALIDATOR_SLASHED_COUNT: MetricDefinition = {
@@ -561,8 +575,10 @@ export const SLASHER_OWN_VALIDATOR_SLASHED_COUNT: MetricDefinition = {
 };
 export const SLASHER_OWN_VALIDATOR_SLASHED_AMOUNT: MetricDefinition = {
   name: 'aztec.slasher.own_validator.slashed_amount',
-  description: "Cumulative amount slashed from the node's own validators, from executed Slashed events",
-  unit: 'eth',
+  description:
+    "Cumulative amount slashed from the node's own validators in whole staking-asset tokens, from executed " +
+    'Slashed events',
+  unit: 'tokens',
   valueType: ValueType.DOUBLE,
 };
 export const SEQUENCER_CHECKPOINT_SUCCESS_COUNT: MetricDefinition = {

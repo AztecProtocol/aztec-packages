@@ -3,6 +3,8 @@ import type { ViemClient } from '@aztec/ethereum/types';
 import { mergeAbis, tryExtractEvent } from '@aztec/ethereum/utils';
 import { SlotNumber } from '@aztec/foundation/branded-types';
 import { Buffer32 } from '@aztec/foundation/buffer';
+import { chunk, times } from '@aztec/foundation/collection';
+import { memoize } from '@aztec/foundation/decorators';
 import { EthAddress } from '@aztec/foundation/eth-address';
 import { Signature } from '@aztec/foundation/eth-signature';
 import { hexToBuffer } from '@aztec/foundation/string';
@@ -64,6 +66,12 @@ export class SlashingProposerContract {
     return this.contract.read.EXECUTION_DELAY_IN_ROUNDS();
   }
 
+  /**
+   * Returns the slash amounts for the three slash unit levels, which are immutable on the contract.
+   * Memoized: the first call's promise is cached for the instance's lifetime, including a rejection, so make an
+   * awaited call during startup before relying on this from event handlers.
+   */
+  @memoize
   public getSlashingAmounts(): Promise<[bigint, bigint, bigint]> {
     return Promise.all([
       this.contract.read.SLASH_AMOUNT_SMALL(),
@@ -234,22 +242,47 @@ export class SlashingProposerContract {
     };
   }
 
+  /** Returns the validators eligible to be voted against in a round, in the order votes encode them */
+  public async getSlashTargetValidators(round: bigint): Promise<EthAddress[]> {
+    const { result } = await this.contract.simulate.getSlashTargetCommittees([round]);
+    return result.flat().map(validator => EthAddress.fromString(validator));
+  }
+
   /**
-   * Returns the last vote emitted for a given round
-   * @param slashingAmounts - The slash amount per vote unit, to avoid re-reading them from the contract
+   * Returns the slash amount voted for each target validator by a single vote of a round.
+   * @param index - Position of the vote within the round, from 0 (inclusive) to the round's vote count (exclusive)
    */
-  public async getLastVote(round: bigint, slashingAmounts?: [bigint, bigint, bigint]) {
+  public async getVoteAt(round: bigint, index: bigint): Promise<SlashVote> {
+    const [validators, vote, slashAmounts] = await Promise.all([
+      this.getSlashTargetValidators(round),
+      this.contract.read.getVotes([round, index]),
+      this.getSlashingAmounts(),
+    ]);
+    return decodeVote(vote, validators, slashAmounts);
+  }
+
+  /**
+   * Returns every vote cast so far in a round, oldest first. The target validators and slash amounts are read once
+   * for the whole round rather than per vote, so this is much cheaper than reading each vote individually.
+   */
+  public async getVotesForRound(round: bigint): Promise<SlashVote[]> {
+    const [{ voteCount }, validators, slashAmounts] = await Promise.all([
+      this.getRound(round),
+      this.getSlashTargetValidators(round),
+      this.getSlashingAmounts(),
+    ]);
+    // A round can hold as many votes as it has slots, too many for a single parallel burst of reads
+    const votes: Hex[] = [];
+    for (const indices of chunk(times(Number(voteCount), BigInt), VOTE_READ_BATCH_SIZE)) {
+      votes.push(...(await Promise.all(indices.map(index => this.contract.read.getVotes([round, index])))));
+    }
+    return votes.map(vote => decodeVote(vote, validators, slashAmounts));
+  }
+
+  /** Returns the last vote emitted for a given round  */
+  public async getLastVote(round: bigint) {
     const { voteCount } = await this.getRound(round);
-    const validators = (await this.contract.simulate.getSlashTargetCommittees([round])).result.flat();
-    const vote = await this.contract.read.getVotes([round, voteCount - 1n]);
-    const decoded = decodeSlashConsensusVotes(hexToBuffer(vote));
-    const slashAmounts = slashingAmounts ?? (await this.getSlashingAmounts());
-    return decoded
-      .map((units, i) => ({
-        validator: EthAddress.fromString(validators[i]),
-        slashAmount: slashAmounts[units - 1] ?? 0n,
-      }))
-      .filter(v => v.slashAmount > 0n);
+    return await this.getVoteAt(round, voteCount - 1n);
   }
 
   /**
@@ -257,16 +290,13 @@ export class SlashingProposerContract {
    * @param callback - Callback function to handle vote cast events
    * @returns Unwatch function
    */
-  public listenToVoteCast(callback: (args: { round: bigint; proposer: string }) => void): () => void {
+  public listenToVoteCast(callback: (args: VoteCastEventArgs) => void): () => void {
     return this.contract.watchEvent.VoteCast(
       {},
       {
         onLogs: logs => {
-          for (const log of logs) {
-            const { round, proposer } = log.args;
-            if (round !== undefined && proposer) {
-              callback({ round, proposer });
-            }
+          for (const args of collapseVoteCastLogs(logs)) {
+            callback(args);
           }
         },
       },
@@ -295,6 +325,49 @@ export class SlashingProposerContract {
       },
     );
   }
+}
+
+/** Maximum number of parallel getVotes reads when fetching a whole round. */
+const VOTE_READ_BATCH_SIZE = 32;
+
+/**
+ * The validators a single slashing vote targets, with the amount voted for each. The position is the validator's
+ * index in the round's flattened slash target committees — the unit the contract tallies quorum by. A validator
+ * sitting in several of the round's committees holds several positions, each with its own tally.
+ */
+export type SlashVote = { validator: EthAddress; slashAmount: bigint; position: number }[];
+
+function decodeVote(vote: Hex, validators: EthAddress[], slashAmounts: [bigint, bigint, bigint]): SlashVote {
+  return decodeSlashConsensusVotes(hexToBuffer(vote))
+    .map((units, position) => ({
+      validator: validators[position],
+      slashAmount: slashAmounts[units - 1] ?? 0n,
+      position,
+    }))
+    .filter(v => v.slashAmount > 0n);
+}
+
+/** Arguments decoded from a VoteCast event. */
+export type VoteCastEventArgs = { round: bigint; slot: SlotNumber; proposer: string };
+
+/**
+ * Collapses a batch of VoteCast logs down to the latest log of each round.
+ *
+ * A vote is resolved by reading the round's most recent entry, so acting on every log in a batch would read that
+ * same entry once per log: the newest vote gets counted repeatedly while the ones behind it are never read at all.
+ * Batches only occur when L1 log delivery falls behind, but the resulting miscount lasts for the rest of the round.
+ */
+export function collapseVoteCastLogs(
+  logs: { args: { round?: bigint; slot?: bigint; proposer?: string } }[],
+): VoteCastEventArgs[] {
+  const latestPerRound = new Map<bigint, VoteCastEventArgs>();
+  for (const { args } of logs) {
+    const { round, slot, proposer } = args;
+    if (round !== undefined && slot !== undefined && proposer) {
+      latestPerRound.set(round, { round, slot: SlotNumber.fromBigInt(slot), proposer });
+    }
+  }
+  return [...latestPerRound.values()];
 }
 
 /**

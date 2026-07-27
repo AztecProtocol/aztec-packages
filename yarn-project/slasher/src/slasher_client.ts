@@ -1,6 +1,6 @@
 import { EthAddress } from '@aztec/aztec.js/addresses';
 import type { EpochCache } from '@aztec/epoch-cache';
-import { RollupContract, SlasherContract, SlashingProposerContract } from '@aztec/ethereum/contracts';
+import { RollupContract, type SlashVote, SlasherContract, SlashingProposerContract } from '@aztec/ethereum/contracts';
 import { maxBigint } from '@aztec/foundation/bigint';
 import { SlotNumber } from '@aztec/foundation/branded-types';
 import { compactArray, partition, times } from '@aztec/foundation/collection';
@@ -91,8 +91,16 @@ export class SlasherClient implements ProposerSlashActionProvider, SlasherClient
   protected unwatchCallbacks: (() => void)[] = [];
   protected roundMonitor: SlashRoundMonitor;
   protected offensesCollector: SlashOffensesCollector;
-  /** Rounds mapped to own validators already warned about, so each (round, validator) pair warns only once. */
-  private readonly warnedSelfSlashVotes = new Map<bigint, Set<string>>();
+  /**
+   * Slashing votes cast during a single round against committee positions held by the node's own validators, keyed
+   * by the position's index in the round's flattened slash target committees. The contract tallies quorum per
+   * position, and a validator sitting in several of the round's committees holds several independent positions.
+   * A vote is only ever cast for the round current at the time, so only one round is ever tracked.
+   */
+  private ownValidatorVotes: { round: bigint; countByPosition: Map<number, number> } = {
+    round: -1n,
+    countByPosition: new Map(),
+  };
 
   constructor(
     private config: SlasherClientConfig,
@@ -106,7 +114,7 @@ export class SlasherClient implements ProposerSlashActionProvider, SlasherClient
     private offensesStore: SlasherOffensesStore,
     private readonly ownValidators: EthAddress[] = [],
     private log = createLogger('slasher:consensus'),
-    private readonly metrics = new SlasherMetrics(getTelemetryClient(), ownValidators),
+    private readonly metrics = new SlasherMetrics(getTelemetryClient()),
   ) {
     this.roundMonitor = new SlashRoundMonitor(settings, dateProvider);
     this.offensesCollector = new SlashOffensesCollector(config, settings, watchers, offensesStore);
@@ -115,8 +123,12 @@ export class SlasherClient implements ProposerSlashActionProvider, SlasherClient
   public async start() {
     this.log.debug('Starting slasher client...');
 
-    this.roundMonitor.start();
     await this.offensesCollector.start();
+
+    // Check for round changes. Registered before the monitor starts so a round boundary crossed while the seed
+    // below is awaiting L1 is announced rather than silently swallowed.
+    this.unwatchCallbacks.push(this.roundMonitor.listenToNewRound(round => this.handleNewRound(round)));
+    this.roundMonitor.start();
 
     // Listen for RoundExecuted events
     this.unwatchCallbacks.push(
@@ -130,16 +142,19 @@ export class SlasherClient implements ProposerSlashActionProvider, SlasherClient
 
     // Listen for VoteCast events to warn early when a vote names one of our own validators as a slash target
     if (this.ownValidators.length > 0) {
+      this.metrics.recordQuorumSize(this.settings.slashingQuorumSize);
+      // Seeded before subscribing so no vote is counted by both the seed and the subscription. Votes landing
+      // between the seed's reads and the subscription attaching are missed; the tally is best-effort.
+      await this.seedOwnValidatorVotes();
       this.unwatchCallbacks.push(
         this.slashingProposer.listenToVoteCast(
-          ({ round, proposer }) =>
-            void this.handleVoteCast(round, proposer).catch(err => this.log.error('Error handling vote cast', err)),
+          ({ round, slot, proposer }) =>
+            void this.handleVoteCast(round, slot, proposer).catch(err =>
+              this.log.error('Error handling vote cast', err),
+            ),
         ),
       );
     }
-
-    // Check for round changes
-    this.unwatchCallbacks.push(this.roundMonitor.listenToNewRound(round => this.handleNewRound(round)));
 
     this.log.info(`Started slasher client`);
     return Promise.resolve();
@@ -172,7 +187,11 @@ export class SlasherClient implements ProposerSlashActionProvider, SlasherClient
   /** Triggered on a time basis when we enter a new slashing round. Clears expired offenses. */
   protected async handleNewRound(round: bigint) {
     this.log.info(`Starting new slashing round ${round}`);
-    this.pruneSelfSlashVoteWarnings(round);
+    // Strictly greater so the clock catching up to a round a vote event already rolled to cannot wipe the tally,
+    // and gated on own validators so nodes running none do not emit a meaningless gauge.
+    if (this.ownValidators.length > 0 && round > this.ownValidatorVotes.round) {
+      this.rollOwnValidatorVotesTo(round);
+    }
     await this.offensesCollector.handleNewRound(round);
   }
 
@@ -189,43 +208,88 @@ export class SlasherClient implements ProposerSlashActionProvider, SlasherClient
         amount,
         l1BlockHash,
       });
-      this.metrics.recordOwnValidatorSlashed(attester, amount);
+      this.metrics.recordOwnValidatorSlashed(amount);
     }
   }
 
-  /** Called when we see a VoteCast event. Warns once per round and validator when a vote names one of our own. */
-  protected async handleVoteCast(round: bigint, proposer: string) {
-    const votes = await this.slashingProposer.getLastVote(round, this.settings.slashingAmounts);
-    for (const { validator, slashAmount } of votes.filter(vote => this.isOwnValidator(vote.validator))) {
-      const warned = this.warnedSelfSlashVotes.get(round) ?? new Set<string>();
-      if (warned.has(validator.toString())) {
-        continue;
-      }
-      warned.add(validator.toString());
-      this.warnedSelfSlashVotes.set(round, warned);
+  /** Called when we see a VoteCast event. Warns for every vote that names one of our own validators. */
+  protected async handleVoteCast(round: bigint, slot: SlotNumber, proposer: string) {
+    const votes = await this.slashingProposer.getLastVote(round);
+    this.countVotesAgainstOwnValidators(round, votes, { slot, proposer });
+  }
 
-      this.log.warn(`Detected onchain slashing vote against own validator ${validator}`, {
-        round,
-        validator: validator.toString(),
-        slashAmount,
-        proposer,
-      });
-      this.metrics.recordOwnValidatorTargeted(validator);
+  /**
+   * Reads the votes already cast in the current round so the tally survives a restart mid-round. Without this a
+   * node restarted partway through a round would report a tally near zero for the rest of it, and never warn.
+   */
+  private async seedOwnValidatorVotes() {
+    const { round } = this.roundMonitor.getCurrentRound();
+    try {
+      const votes = await this.slashingProposer.getVotesForRound(round);
+      // The round monitor may have rolled the tally past this round while the votes were being read
+      if (round > this.ownValidatorVotes.round) {
+        this.rollOwnValidatorVotesTo(round);
+      }
+      for (const vote of votes) {
+        this.countVotesAgainstOwnValidators(round, vote);
+      }
+    } catch (error) {
+      // A node starting up with no votes yet in the round, or an L1 read failure, must not block the slasher
+      this.log.warn(`Could not seed slashing votes for round ${round}`, { round, error });
     }
+  }
+
+  /** Adds a vote's slash targets to the current round tally, warning for each of the node's own validators named. */
+  private countVotesAgainstOwnValidators(
+    round: bigint,
+    votes: SlashVote,
+    logContext?: { slot: SlotNumber; proposer: string },
+  ) {
+    if (round < this.ownValidatorVotes.round) {
+      return; // A vote from a round that has already closed, which can no longer reach quorum
+    }
+    if (round > this.ownValidatorVotes.round) {
+      this.rollOwnValidatorVotesTo(round);
+    }
+
+    // The contract tallies quorum per committee position, so the tally is kept per position, but the warning and
+    // the targeted metric are per (vote, validator) — reporting a validator once at its highest position tally —
+    // since an operator cares about the validator, not which of its committee seats is being voted on.
+    const { countByPosition } = this.ownValidatorVotes;
+    const targeted = new Map<string, { validator: EthAddress; slashAmount: bigint; votes: number }>();
+    for (const { validator, slashAmount, position } of votes.filter(vote => this.isOwnValidator(vote.validator))) {
+      const count = (countByPosition.get(position) ?? 0) + 1;
+      countByPosition.set(position, count);
+      const entry = targeted.get(validator.toString());
+      if (!entry || count > entry.votes) {
+        targeted.set(validator.toString(), { validator, slashAmount, votes: count });
+      }
+    }
+
+    const quorum = this.settings.slashingQuorumSize;
+    for (const { validator, slashAmount, votes: count } of targeted.values()) {
+      this.metrics.recordOwnValidatorTargeted();
+
+      // Seeded votes are replayed from L1 rather than observed live, so they carry no event context to log
+      if (logContext) {
+        this.log.warn(
+          `Own validator ${validator} targeted by slashing vote (${count} of ${quorum} votes needed to slash)`,
+          { round, validator: validator.toString(), votes: count, quorum, slashAmount, ...logContext },
+        );
+      }
+    }
+
+    this.metrics.recordCurrentRoundVotesMax(Math.max(0, ...countByPosition.values()));
+  }
+
+  /** Starts a fresh tally for a round, zeroing the gauge so a quiet round does not leave the previous one's value. */
+  private rollOwnValidatorVotesTo(round: bigint) {
+    this.ownValidatorVotes = { round, countByPosition: new Map() };
+    this.metrics.recordCurrentRoundVotesMax(0);
   }
 
   private isOwnValidator(address: EthAddress): boolean {
     return this.ownValidators.some(validator => validator.equals(address));
-  }
-
-  /** Drops warning dedupe entries for rounds past their slashing lifetime, as they can no longer receive votes. */
-  private pruneSelfSlashVoteWarnings(currentRound: bigint) {
-    const oldestLiveRound = currentRound - BigInt(this.settings.slashingLifetimeInRounds);
-    for (const round of this.warnedSelfSlashVotes.keys()) {
-      if (round < oldestLiveRound) {
-        this.warnedSelfSlashVotes.delete(round);
-      }
-    }
   }
 
   /**
