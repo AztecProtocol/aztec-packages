@@ -1,5 +1,7 @@
 #!/usr/bin/env bash
 
+# Verify the distribution boundary by packing the prebuilt output, installing it in an isolated consumer, and invoking
+# the published binary as an external user would.
 set -euo pipefail
 
 package_dir=$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)
@@ -35,6 +37,17 @@ mkdir "$work_dir/consumer"
     --pil "$work_dir/constants.pil" \
     --solidity "$work_dir/Constants.sol" \
     --rust "$work_dir/constants.rs"
+
+  # The monorepo --input default must not resolve inside node_modules; external users get an
+  # explicit error instead of a silently wrong input file.
+  if error=$(./node_modules/.bin/constants-codegen --typescript "$work_dir/unused.ts" 2>&1); then
+    echo "expected constants-codegen to fail without --input outside the monorepo" >&2
+    exit 1
+  fi
+  if [[ "$error" != *"--input is required"* ]]; then
+    echo "unexpected error from constants-codegen without --input: $error" >&2
+    exit 1
+  fi
 )
 
 function check_output {

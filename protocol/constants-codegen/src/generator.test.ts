@@ -40,7 +40,7 @@ function generateToString(generate: (content: ParsedContent, targetPath: string)
 test('generates TypeScript constants and domain separators', () => {
   assert.equal(
     generateToString(generateTypescriptConstants),
-    `// GENERATED FILE - DO NOT EDIT, RUN yarn remake-constants
+    `// GENERATED FILE - DO NOT EDIT
 export const MAX_FIELD_VALUE = 21888242871839275222246405745257275088548364400416034343698204186575808495616n;
 export const MAX_ETH_ADDRESS_VALUE = 1461501637330902918203684832716283019655932542975n;
 export const ARCHIVE_HEIGHT = 30;
@@ -128,6 +128,19 @@ pub global EXCLUDED_CONSTANT: u32 = 100;
     assert.match(readFileSync(typescriptPath, 'utf8'), /export const INCLUDED_CONSTANT = 31;/);
     assert.doesNotMatch(readFileSync(typescriptPath, 'utf8'), /EXCLUDED_CONSTANT/);
     assert.match(readFileSync(cppPath, 'utf8'), /#define ARCHIVE_HEIGHT 30/);
+  } finally {
+    rmSync(tempDir, { recursive: true, force: true });
+  }
+});
+
+test('the CLI defaults --input to the monorepo constants.nr', () => {
+  const tempDir = mkdtempSync(join(tmpdir(), 'constants-codegen-cli-'));
+  const typescriptPath = join(tempDir, 'constants.ts');
+  const cliPath = join(dirname(fileURLToPath(import.meta.url)), 'cli.ts');
+
+  try {
+    execFileSync(process.execPath, [cliPath, '--typescript', typescriptPath], { stdio: 'pipe' });
+    assert.match(readFileSync(typescriptPath, 'utf8'), /export const ARCHIVE_HEIGHT = \d+;/);
   } finally {
     rmSync(tempDir, { recursive: true, force: true });
   }

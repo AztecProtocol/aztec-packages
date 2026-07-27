@@ -9,7 +9,7 @@ requested combination of the supported outputs.
 
 ```text
 constants-codegen \
-  --input <constants.nr> \
+  [--input <constants.nr>] \
   [--include <file.nr>:<symbol>]... \
   [--typescript <output.ts>] \
   [--cpp <output.hpp>] \
@@ -18,11 +18,12 @@ constants-codegen \
   [--rust <output.rs>]
 ```
 
-- `--input` is required.
+- `--input` defaults to `noir-projects/noir-protocol-circuits/crates/types/src/constants.nr` when the tool runs from
+  inside the aztec-packages monorepo (resolved relative to the tool itself). Outside the
+  monorepo — e.g. the published npm package — it is required.
 - `--include` adds one named constant from another Noir file before evaluating expressions. It may be repeated.
 - At least one output option is required, and any combination of output options may be used in one invocation.
-- Relative paths are resolved from the caller's working directory. The tool does not infer paths from the monorepo
-  layout.
+- Relative paths given as arguments are resolved from the caller's working directory.
 - Invalid arguments, an unreadable input, an unsupported expression, or an output failure produce a diagnostic on
   stderr and a nonzero exit status.
 

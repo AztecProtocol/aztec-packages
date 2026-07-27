@@ -505,7 +505,7 @@ export function processConstantsRust(
  */
 export function generateTypescriptConstants({ constants, domainSeparatorEnum }: ParsedContent, targetPath: string) {
   const result = [
-    '// GENERATED FILE - DO NOT EDIT, RUN yarn remake-constants',
+    '// GENERATED FILE - DO NOT EDIT',
     processConstantsTS(constants),
     processEnumTS('DomainSeparator', domainSeparatorEnum),
   ].join('\n');
@@ -517,7 +517,7 @@ export function generateTypescriptConstants({ constants, domainSeparatorEnum }: 
  * Generate the constants file in C++.
  */
 export function generateCppConstants({ constants, domainSeparatorEnum }: ParsedContent, targetPath: string) {
-  const resultCpp: string = `// GENERATED FILE - DO NOT EDIT, RUN yarn remake-constants in yarn-project/constants
+  const resultCpp: string = `// GENERATED FILE - DO NOT EDIT
 #pragma once
 
 ${processConstantsCpp(constants, domainSeparatorEnum)}
@@ -530,7 +530,7 @@ ${processConstantsCpp(constants, domainSeparatorEnum)}
  * Generate the constants file in PIL.
  */
 export function generatePilConstants({ constants, domainSeparatorEnum }: ParsedContent, targetPath: string) {
-  const resultPil: string = `// GENERATED FILE - DO NOT EDIT, RUN yarn remake-constants in yarn-project/constants
+  const resultPil: string = `// GENERATED FILE - DO NOT EDIT
 namespace constants;
 ${processConstantsPil(constants, domainSeparatorEnum)}
 \n`;
@@ -542,7 +542,7 @@ ${processConstantsPil(constants, domainSeparatorEnum)}
  * Generate the constants file in Solidity.
  */
 export function generateSolidityConstants({ constants }: ParsedContent, targetPath: string) {
-  const resultSolidity: string = `// GENERATED FILE - DO NOT EDIT, RUN yarn remake-constants in yarn-project/constants
+  const resultSolidity: string = `// GENERATED FILE - DO NOT EDIT
 // SPDX-License-Identifier: Apache-2.0
 // Copyright 2023 Aztec Labs.
 pragma solidity >=0.8.27;
@@ -567,7 +567,7 @@ ${processConstantsSolidity(constants)}
  * Generate the constants file in Rust.
  */
 export function generateRustConstants({ constants, domainSeparatorEnum }: ParsedContent, targetPath: string) {
-  const resultRust: string = `// GENERATED FILE - DO NOT EDIT, RUN yarn remake-constants
+  const resultRust: string = `// GENERATED FILE - DO NOT EDIT
 ${processConstantsRust(constants, domainSeparatorEnum)}
 `;
 
