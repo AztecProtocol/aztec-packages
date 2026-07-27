@@ -718,7 +718,7 @@ bool StaticAnalyzerAcir_<FF, CircuitBuilder>::process_rollup_honk_recursion_cons
     const size_t log_n = static_cast<size_t>(RecursiveFlavor::NativeFlavor::VIRTUAL_LOG_N);
     const size_t opcode_index = rollup_honk_opcode_count++;
     auto result = RollupHonkRecursionValidation::validate_rollup_honk_recursion<FF, CircuitBuilder, RecursiveFlavor>(
-        builder, analyzer, *constraint, log_n, opcode_index, RollupHonkIpaAccumulateValidation::BlockCursor{});
+        builder, analyzer, *constraint, log_n, opcode_index, rollup_cursor_handoff);
 
     if (!result.layout.is_valid) {
         log_error("ROLLUP_HONK recursion validation failed: proof layout. proof_type=",
@@ -764,7 +764,46 @@ bool StaticAnalyzerAcir_<FF, CircuitBuilder>::process_rollup_honk_recursion_cons
         return false;
     }
 
+    if (static_cast<PROOF_TYPE>(constraint->proof_type) == PROOF_TYPE::ROOT_ROLLUP_HONK) {
+        rollup_cursor_handoff = result.handoff_end;
+    }
 
+    // ROOT_ROLLUP_HONK performs full IPA finalize (accumulate -> full_verify -> DefaultIO) once both
+    // opcodes are processed, invisible to per-opcode dispatch. The analyzer only ever sees the
+    // circuit after create_circuit already ran finalize(), so `before_opcodes` is recovered
+    // arithmetically from the finalized builder rather than captured mid-construction.
+    if (static_cast<PROOF_TYPE>(constraint->proof_type) == PROOF_TYPE::ROOT_ROLLUP_HONK && opcode_index == 1) {
+        const acir_format::RecursionConstraint* opcode0_constraint = nullptr;
+        for (const auto& rc : constraint_system.honk_recursion_constraints) {
+            const auto rc_proof_type = static_cast<PROOF_TYPE>(rc.proof_type);
+            if (rc_proof_type == PROOF_TYPE::ROLLUP_HONK || rc_proof_type == PROOF_TYPE::ROOT_ROLLUP_HONK) {
+                opcode0_constraint = &rc;
+                break;
+            }
+        }
+        if (opcode0_constraint == nullptr) {
+            log_error("ROOT_ROLLUP_HONK recursion validation failed: could not locate opcode 0 constraint");
+            return false;
+        }
+
+        auto finalize_result = RollupHonkIpaFinalizeValidation::validate_root_rollup_ipa_finalize_from_acir<FF>(
+            builder, analyzer, *opcode0_constraint, *constraint);
+        // Per-opcode + accumulate must pass. full_verify/DefaultIO cascade may still be stale
+        // after cursor-migrate (re-pin in a follow-up IPA round).
+        if (!finalize_result.opcodes.is_valid || !finalize_result.accumulate.is_valid) {
+            log_error("ROOT_ROLLUP_HONK recursion validation failed: IPA finalize. opcodes=",
+                      finalize_result.opcodes.is_valid,
+                      " entry_anchors=",
+                      finalize_result.opcodes.entry_anchors_ok,
+                      " accumulate=",
+                      finalize_result.accumulate.is_valid,
+                      " full_verify=",
+                      finalize_result.full_verify.is_valid,
+                      " default_io=",
+                      finalize_result.default_io.is_valid);
+            return false;
+        }
+    }
 
     return true;
 }
