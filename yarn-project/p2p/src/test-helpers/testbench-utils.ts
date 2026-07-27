@@ -340,6 +340,7 @@ export function createMockEpochCache(): EpochCacheInterface {
       targetCommitteeSize: 48,
       rollupManaLimit: Number.MAX_SAFE_INTEGER,
     }),
+    getLagInEpochsForValidatorSet: () => 2,
   };
   return cache;
 }

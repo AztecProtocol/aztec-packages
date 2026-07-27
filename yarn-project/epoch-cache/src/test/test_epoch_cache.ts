@@ -43,9 +43,15 @@ export class TestEpochCache implements EpochCacheInterface {
   private seed: bigint = 0n;
   private registeredValidators: EthAddress[] = [];
   private l1Constants: L1RollupConstants;
+  private lagInEpochsForValidatorSet = 2;
 
   constructor(l1Constants: Partial<L1RollupConstants> = {}) {
     this.l1Constants = { ...DEFAULT_L1_CONSTANTS, ...l1Constants };
+  }
+
+  setLagInEpochsForValidatorSet(lag: number): this {
+    this.lagInEpochsForValidatorSet = lag;
+    return this;
   }
 
   /**
@@ -113,6 +119,10 @@ export class TestEpochCache implements EpochCacheInterface {
 
   getL1Constants(): L1RollupConstants {
     return this.l1Constants;
+  }
+
+  getLagInEpochsForValidatorSet(): number {
+    return this.lagInEpochsForValidatorSet;
   }
 
   getCommittee(_slot?: SlotTag): Promise<EpochCommitteeInfo> {
