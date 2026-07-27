@@ -89,7 +89,6 @@ export class MockPrefilledArchiver extends MockArchiver {
         timestamp: 0n,
         msgCount: 0,
         lastMessageIndex: 0n,
-        isOpen: false,
       },
       [],
     );
@@ -110,7 +109,6 @@ export class MockPrefilledArchiver extends MockArchiver {
           timestamp: bucketSeq,
           msgCount: messages.length,
           lastMessageIndex: totalMsgCount - 1n,
-          isOpen: false,
         },
         messages,
       );

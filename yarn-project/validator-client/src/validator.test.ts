@@ -467,7 +467,6 @@ describe('ValidatorClient', () => {
       timestamp: 0n,
       msgCount: 0,
       lastMessageIndex: 0n,
-      isOpen: false,
     };
     const genesisBucketRef = InboxBucketRef.fromBucket(genesisInboxBucket);
 

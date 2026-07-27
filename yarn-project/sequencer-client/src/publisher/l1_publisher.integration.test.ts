@@ -292,7 +292,6 @@ describe('L1Publisher integration', () => {
         timestamp: 0n,
         msgCount: 0,
         lastMessageIndex: 0n,
-        isOpen: false,
       },
       [],
     );
@@ -638,7 +637,6 @@ describe('L1Publisher integration', () => {
             timestamp,
             msgCount: currentL1ToL2Messages.length,
             lastMessageIndex: cumulativeMsgCount - 1n,
-            isOpen: false,
           },
           currentL1ToL2Messages,
         );

@@ -259,7 +259,6 @@ describe('CheckpointProposalJob', () => {
       timestamp: 0n,
       msgCount: 0,
       lastMessageIndex: 0n,
-      isOpen: false,
     });
 
     l2BlockSource = mock<L2BlockSource>();
@@ -1473,7 +1472,6 @@ describe('CheckpointProposalJob', () => {
         timestamp: 0n,
         msgCount: 2,
         lastMessageIndex: 4n,
-        isOpen: false,
       };
       const bundle = Array.from({ length: 5 }, (_, i) => new Fr(i + 1));
       l1ToL2MessageSource.getLatestInboxBucketAtOrBefore.mockResolvedValue(bucket);
@@ -1512,7 +1510,6 @@ describe('CheckpointProposalJob', () => {
         timestamp: 0n,
         msgCount: 2,
         lastMessageIndex: 4n,
-        isOpen: false,
       };
       const bundle = Array.from({ length: 5 }, (_, i) => new Fr(i + 1));
       l1ToL2MessageSource.getLatestInboxBucketAtOrBefore.mockResolvedValue(bucket);

@@ -373,7 +373,6 @@ describe('sequencer', () => {
       timestamp: 0n,
       msgCount: 0,
       lastMessageIndex: 0n,
-      isOpen: false,
     });
 
     validatorClient = mock<ValidatorClient>();

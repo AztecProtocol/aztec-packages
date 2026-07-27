@@ -463,7 +463,6 @@ describe('CheckpointProposalJob Timing Tests', () => {
       timestamp: 0n,
       msgCount: 0,
       lastMessageIndex: 0n,
-      isOpen: false,
     });
 
     l2BlockSource = mock<L2BlockSource>();
