@@ -90,7 +90,7 @@ void run_arith_corruption_test(FindFn find_gate, CorruptFn corrupt_gate, bool ex
     }
     ASSERT_TRUE(found) << "Could not find matrix layer gate to corrupt";
     if (expect_circuit_checker_fail) {
-        // EXPECT_FALSE(CircuitChecker::check(builder));
+        EXPECT_FALSE(CircuitChecker::check(builder));
     }
 
     AcirFormat cs_copy = constraint_system;
@@ -185,7 +185,7 @@ TEST_F(BoomerangPoseidon2ConstraintsTests, BasicPoseidon2Constraint)
     auto constraint_system = build_acir_format(constraint);
     AcirProgram program{ constraint_system, witness };
     auto builder = create_circuit<UltraCircuitBuilder>(program);
-    // EXPECT_TRUE(CircuitChecker::check(builder));
+    EXPECT_TRUE(CircuitChecker::check(builder));
 
     AcirFormat cs_copy = constraint_system;
     auto analyzer = StaticAnalyzerAcir(std::move(cs_copy), std::move(builder));
@@ -202,7 +202,7 @@ TEST_F(BoomerangPoseidon2ConstraintsTests, Poseidon2ZeroInputs)
     auto constraint_system = build_acir_format(constraint);
     AcirProgram program{ constraint_system, witness };
     auto builder = create_circuit<UltraCircuitBuilder>(program);
-    // EXPECT_TRUE(CircuitChecker::check(builder));
+    EXPECT_TRUE(CircuitChecker::check(builder));
 
     AcirFormat cs_copy = constraint_system;
     auto analyzer = StaticAnalyzerAcir(std::move(cs_copy), std::move(builder));
@@ -222,7 +222,7 @@ TEST_F(BoomerangPoseidon2ConstraintsTests, Poseidon2LargeInputs)
     auto constraint_system = build_acir_format(constraint);
     AcirProgram program{ constraint_system, witness };
     auto builder = create_circuit<UltraCircuitBuilder>(program);
-    // EXPECT_TRUE(CircuitChecker::check(builder));
+    EXPECT_TRUE(CircuitChecker::check(builder));
 
     AcirFormat cs_copy = constraint_system;
     auto analyzer = StaticAnalyzerAcir(std::move(cs_copy), std::move(builder));
@@ -405,7 +405,7 @@ TEST_F(BoomerangPoseidon2ConstraintsTests, MultiplePoseidon2Constraints)
                               output_state2[0], output_state2[1], output_state2[2], output_state2[3] };
     AcirProgram program{ constraint_system, witness };
     auto builder = create_circuit<UltraCircuitBuilder>(program);
-    // EXPECT_TRUE(CircuitChecker::check(builder));
+    EXPECT_TRUE(CircuitChecker::check(builder));
 
     AcirFormat cs_copy = constraint_system;
     auto analyzer = StaticAnalyzerAcir(std::move(cs_copy), std::move(builder));
@@ -427,7 +427,7 @@ TEST_F(BoomerangPoseidon2ConstraintsTests, Poseidon2MixedWithRangeConstraints)
 
     AcirProgram program{ constraint_system, witness };
     auto builder = create_circuit<UltraCircuitBuilder>(program);
-    // EXPECT_TRUE(CircuitChecker::check(builder));
+    EXPECT_TRUE(CircuitChecker::check(builder));
 
     AcirFormat cs_copy = constraint_system;
     auto analyzer = StaticAnalyzerAcir(std::move(cs_copy), std::move(builder));
@@ -465,7 +465,7 @@ TEST_F(BoomerangPoseidon2ConstraintsTests, Poseidon2MixedWithQuadConstraint)
 
     AcirProgram program{ constraint_system, witness };
     auto builder = create_circuit<UltraCircuitBuilder>(program);
-    // EXPECT_TRUE(CircuitChecker::check(builder));
+    EXPECT_TRUE(CircuitChecker::check(builder));
 
     AcirFormat cs_copy = constraint_system;
     auto analyzer = StaticAnalyzerAcir(std::move(cs_copy), std::move(builder));
@@ -520,7 +520,7 @@ TEST_F(BoomerangPoseidon2ConstraintsTests, Poseidon2MixedWithBigQuadConstraint)
 
     AcirProgram program{ constraint_system, witness };
     auto builder = create_circuit<UltraCircuitBuilder>(program);
-    // EXPECT_TRUE(CircuitChecker::check(builder));
+    EXPECT_TRUE(CircuitChecker::check(builder));
 
     // Use program.constraints (mutated by create_circuit) for BIG_QUAD
     auto analyzer = StaticAnalyzerAcir(std::move(program.constraints), std::move(builder));
@@ -590,7 +590,7 @@ TEST_F(BoomerangPoseidon2ConstraintsTests, Poseidon2MixedWithQuadAndBigQuad)
 
     AcirProgram program{ constraint_system, witness };
     auto builder = create_circuit<UltraCircuitBuilder>(program);
-    // EXPECT_TRUE(CircuitChecker::check(builder));
+    EXPECT_TRUE(CircuitChecker::check(builder));
 
     // Use program.constraints (mutated by create_circuit) for BIG_QUAD
     auto analyzer = StaticAnalyzerAcir(std::move(program.constraints), std::move(builder));

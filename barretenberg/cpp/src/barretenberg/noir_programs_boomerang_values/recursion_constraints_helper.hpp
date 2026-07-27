@@ -1720,6 +1720,45 @@ struct FunctionFingerprint {
     size_t fingerprint_size;
 };
 
+/**
+ * @brief Compute a FunctionFingerprint over builder.blocks.get()[block_index][start, end).
+ *
+ * `arithmetic_block_index` selects between two hashing strategies: on the arithmetic block,
+ * hashing goes through `calculate_hash_arithmetic_block` (skips fix_witness constant-pin gates,
+ * which vary with witness layout); on every other block, it's a plain selector hash over the
+ * range. Callers pass their own arithmetic-block-index constant since it differs by family/
+ * builder (e.g. HN's merged Mega trace vs a family with a different block order).
+ *
+ * Canonical home for what used to be two independent per-family copies (HN's
+ * `hn_compute_fingerprint`, CHONK's `compute_fingerprint_at` in `boomerang_chonk_recursion.test.cpp`)
+ * — see `shared_api_functions.md` group C.
+ */
+template <typename CircuitBuilder>
+FunctionFingerprint compute_fingerprint_at(
+    CircuitBuilder& builder, size_t block_index, size_t start, size_t end, size_t arithmetic_block_index)
+{
+    const size_t gate_count = end - start;
+    const size_t fingerprint_size = std::min(SCANNER_FINGERPRINT_SIZE, gate_count);
+    auto& block = builder.blocks.get()[block_index];
+
+    const auto compute_hash = [&](size_t range_start, size_t range_end) -> size_t {
+        if (range_start >= range_end) {
+            return 0;
+        }
+        if (block_index == arithmetic_block_index) {
+            return calculate_hash_arithmetic_block(builder, range_start, range_end);
+        }
+        return sha256_helpers::compute_selector_hash(0, block, range_start, range_end - 1);
+    };
+
+    return FunctionFingerprint{
+        .gate_count = gate_count,
+        .prefix_hash = compute_hash(start, start + fingerprint_size),
+        .full_hash = compute_hash(start, end),
+        .fingerprint_size = fingerprint_size,
+    };
+}
+
 // ============================================================================
 // Shared fingerprint scanning + Poseidon challenge validation (MegaZK verifier)
 // ============================================================================

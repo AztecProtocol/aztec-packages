@@ -1,6 +1,8 @@
 #pragma once
 #include "barretenberg/crypto/poseidon2/poseidon2.hpp"
+#include "barretenberg/honk/execution_trace/execution_trace_block.hpp"
 #include "barretenberg/stdlib/primitives/circuit_builders/circuit_builders.hpp"
+#include "barretenberg/stdlib/primitives/circuit_builders/circuit_builders_fwd.hpp"
 #include <array>
 #include <optional>
 #include <utility>
@@ -77,20 +79,33 @@ bool validate_external_rounds(
 }
 
 /**
- * @brief Validate internal Poseidon2 rounds in poseidon2_internal block.
+ * @brief Validate internal Poseidon2 rounds in the internal-round block.
+ *
+ * Ultra kept the one-gate-per-round `poseidon2_internal` block (`GateKind::Poseidon2Int`); Mega's
+ * quad-compression rework (`poseidon2_quad_internal`, `GateKind::Poseidon2QuadInt`) encodes four
+ * rounds per row via a closed-form Vandermonde propagation (see
+ * `relations/poseidon2_quad_internal_relation.hpp`). This one-round-per-gate loop is only
+ * algebraically correct for Ultra's layout; the caller passes `internal_kind` so this at least
+ * compiles and reads the right selector column for either builder, but a Mega caller needs its
+ * own re-derived per-quad-row check (Stage 3/4 follow-up), not this loop.
  *
  * Internal rounds apply S-box only to state[0] and use single round constant (q_1).
  *
- * @param int_block Reference to poseidon2_internal block
+ * @param int_block Reference to the internal-round block
  * @param state Current state (4 wire indices). Updated in-place to output state after last round.
  * @param start_idx Gate index in int_block where rounds begin
  * @param num_rounds Number of internal rounds to validate
  * @param round_offset Offset into Poseidon2 round constants table
+ * @param internal_kind GateKind owning the internal-round selector on int_block
  * @return true if all rounds are valid
  */
 template <typename FF, typename Block>
-bool validate_internal_rounds(
-    Block& int_block, std::array<uint32_t, 4>& state, size_t start_idx, size_t num_rounds, size_t round_offset)
+bool validate_internal_rounds(Block& int_block,
+                              std::array<uint32_t, 4>& state,
+                              size_t start_idx,
+                              size_t num_rounds,
+                              size_t round_offset,
+                              bb::GateKind internal_kind = bb::GateKind::Poseidon2Int)
 {
     for (size_t round = 0; round < num_rounds; ++round) {
         size_t gate_idx = start_idx + round;
@@ -99,7 +114,7 @@ bool validate_internal_rounds(
         bool correct = int_block.w_l()[gate_idx] == state[0] && int_block.w_r()[gate_idx] == state[1] &&
                        int_block.w_o()[gate_idx] == state[2] && int_block.w_4()[gate_idx] == state[3] &&
                        int_block.q_1()[gate_idx] == Params::round_constants[round_idx][0] &&
-                       int_block.gate_selector_for(bb::GateKind::Poseidon2Int)[gate_idx] == FF::one();
+                       int_block.gate_selector_for(internal_kind)[gate_idx] == FF::one();
 
         if (!correct) {
             return false;
@@ -273,6 +288,10 @@ bool validate_poseidon2_permutation(CircuitBuilder& builder, Analyzer& analyzer,
 
     auto& ext_block = poseidon2_external_block(builder);
     auto& int_block = poseidon2_internal_block(builder);
+    // Mega's quad-compression rework packs internal rounds under a different GateKind (see
+    // `validate_internal_rounds` doc comment); the loop itself stays Ultra-correct regardless.
+    constexpr bb::GateKind internal_kind =
+        IsMegaBuilder<CircuitBuilder> ? bb::GateKind::Poseidon2QuadInt : bb::GateKind::Poseidon2Int;
 
     // Step 1: Find and validate first half of external rounds
     auto start_ext = find_gate_matching_state<FF>(builder, analyzer, ext_block, state);
@@ -282,7 +301,8 @@ bool validate_poseidon2_permutation(CircuitBuilder& builder, Analyzer& analyzer,
 
     // Step 2: Find and validate internal rounds
     auto start_int = find_gate_matching_state<FF>(builder, analyzer, int_block, state);
-    if (!start_int || !validate_internal_rounds<FF>(int_block, state, *start_int, rounds_p, rounds_f_half)) {
+    if (!start_int ||
+        !validate_internal_rounds<FF>(int_block, state, *start_int, rounds_p, rounds_f_half, internal_kind)) {
         return false;
     }
 
