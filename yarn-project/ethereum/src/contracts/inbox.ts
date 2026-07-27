@@ -88,8 +88,8 @@ export class InboxContract {
     const logs = (await this.inbox.getEvents.MessageSent({}, { fromBlock, toBlock })).filter(
       log => log.blockNumber! >= fromBlock && log.blockNumber! <= toBlock,
     );
-    const timestamps = await this.getBlockTimestamps(logs.map(log => log.blockNumber!));
-    return logs.map(log => this.mapMessageSentLog(log, timestamps.get(log.blockNumber!)!));
+    const timestamps = await this.getBlockTimestamps(logs.map(log => log.blockHash!));
+    return logs.map(log => this.mapMessageSentLog(log, timestamps.get(log.blockHash!)!));
   }
 
   /** Fetches MessageSent events for a specific message hash around a specific block. */
@@ -105,22 +105,24 @@ export class InboxContract {
     if (!log) {
       return log as unknown as MessageSentLog;
     }
-    const [timestamp] = (await this.getBlockTimestamps([log.blockNumber!])).values();
+    const [timestamp] = (await this.getBlockTimestamps([log.blockHash!])).values();
     return this.mapMessageSentLog(log, timestamp);
   }
 
   /**
-   * Fetches the timestamp of each distinct L1 block number, so each MessageSent log can carry its bucket key.
-   * Fetched with bounded concurrency to keep a large sync batch from fanning out unbounded RPC requests. Blocks
-   * are resolved by number rather than hash so a concurrent L1 reorg does not throw; a resulting cross-fork
-   * timestamp is transient and re-corrected by the archiver's rolling-hash reorg detection on the next sync.
+   * Fetches the timestamp of each distinct L1 block, so each MessageSent log can carry its bucket key. Blocks are
+   * resolved by hash, which pins them to the same fork the logs were read from: resolving by number would silently
+   * return the same-height block of another fork if the chain reorgs between the log query and this lookup, storing a
+   * timestamp that never applied to the message. By hash, such a reorg fails the lookup instead, and the caller
+   * retries against the reorged chain. Fetched with bounded concurrency to keep a large sync batch from fanning out
+   * unbounded RPC requests.
    */
-  private async getBlockTimestamps(blockNumbers: bigint[]): Promise<Map<bigint, bigint>> {
-    const uniqueBlockNumbers = [...new Set(blockNumbers)];
-    const timestamps = new Map<bigint, bigint>();
-    await asyncPool(10, uniqueBlockNumbers, async blockNumber => {
-      const block = await this.client.getBlock({ blockNumber, includeTransactions: false });
-      timestamps.set(blockNumber, block.timestamp);
+  private async getBlockTimestamps(blockHashes: Hex[]): Promise<Map<Hex, bigint>> {
+    const uniqueBlockHashes = [...new Set(blockHashes)];
+    const timestamps = new Map<Hex, bigint>();
+    await asyncPool(10, uniqueBlockHashes, async blockHash => {
+      const block = await this.client.getBlock({ blockHash, includeTransactions: false });
+      timestamps.set(blockHash, block.timestamp);
     });
     return timestamps;
   }
