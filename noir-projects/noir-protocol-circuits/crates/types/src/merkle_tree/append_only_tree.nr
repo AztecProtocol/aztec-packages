@@ -131,8 +131,9 @@ pub fn append_leaves_to_snapshot<let TreeHeight: u32, let MaxLeaves: u32>(
     frontier_hint: [Field; TreeHeight],
 ) -> AppendOnlyTreeSnapshot {
     // We cast the leaf index to a u64, so heights above 64 would insert at the wrong index once the tree grows past
-    // 2^64 leaves.
-    assert(
+    // 2^64 leaves. Checking at compile time turns a bad instantiation into a build error rather than a circuit no
+    // prover can satisfy.
+    std::static_assert(
         TreeHeight <= 64,
         "`append_leaves_to_snapshot` does not support trees with height greater than 64",
     );
@@ -147,6 +148,10 @@ pub fn append_leaves_to_snapshot<let TreeHeight: u32, let MaxLeaves: u32>(
             merkle_hash(zero_subtree_roots[level - 1], zero_subtree_roots[level - 1]);
     }
 
+    // The cast below truncates, so an index above 2^64 would silently drop its high bits and append at the wrong
+    // position. Callers keep the index far below that by only ever advancing it by the number of leaves appended, but
+    // nothing in this function's signature enforces it, so pin it here.
+    snapshot.next_available_leaf_index.assert_max_bit_size::<64>();
     let start_index = snapshot.next_available_leaf_index as u64;
     let end_index = start_index + num_leaves as u64;
     // Guard against wrapping past the tree capacity, which would otherwise silently produce a wrong root.
