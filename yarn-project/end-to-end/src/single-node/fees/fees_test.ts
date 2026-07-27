@@ -3,6 +3,7 @@ import { BatchCall } from '@aztec/aztec.js/contracts';
 import { Fr } from '@aztec/aztec.js/fields';
 import { createLogger } from '@aztec/aztec.js/log';
 import type { AztecNode } from '@aztec/aztec.js/node';
+import { FeeJuiceContract } from '@aztec/aztec.js/protocol';
 import { CheatCodes, getTokenAllowedSetupFunctions } from '@aztec/aztec/testing';
 import { createExtendedL1Client } from '@aztec/ethereum/client';
 import type { RollupContract } from '@aztec/ethereum/contracts';
@@ -13,12 +14,9 @@ import { sleep } from '@aztec/foundation/sleep';
 import { TestERC20Abi } from '@aztec/l1-artifacts';
 import { AppSubscriptionContract } from '@aztec/noir-contracts.js/AppSubscription';
 import { FPCContract } from '@aztec/noir-contracts.js/FPC';
-import { FeeJuiceContract } from '@aztec/noir-contracts.js/FeeJuice';
 import { SponsoredFPCContract } from '@aztec/noir-contracts.js/SponsoredFPC';
 import { TokenContract as BananaCoin } from '@aztec/noir-contracts.js/Token';
 import { CounterContract } from '@aztec/noir-test-contracts.js/Counter';
-import { ProtocolContractAddress } from '@aztec/protocol-contracts';
-import { getCanonicalFeeJuice } from '@aztec/protocol-contracts/fee-juice';
 import { getContractInstanceFromInstantiationParams } from '@aztec/stdlib/contract';
 import { Gas, GasSettings } from '@aztec/stdlib/gas';
 import type { AztecNodeAdmin } from '@aztec/stdlib/interfaces/client';
@@ -251,14 +249,13 @@ export class FeesTest extends SingleNodeTestContext {
     // We set Alice as the FPC admin to avoid the need for deployment of another account.
     this.fpcAdmin = this.aliceAddress;
 
-    const canonicalFeeJuice = await getCanonicalFeeJuice();
-    this.feeJuiceContract = FeeJuiceContract.at(canonicalFeeJuice.address, this.wallet);
+    this.feeJuiceContract = FeeJuiceContract.withWallet(this.wallet);
   }
 
   async applySetupFeeJuice() {
     this.logger.info('Applying fee juice setup');
 
-    this.feeJuiceContract = FeeJuiceContract.at(ProtocolContractAddress.FeeJuice, this.wallet);
+    this.feeJuiceContract = FeeJuiceContract.withWallet(this.wallet);
 
     this.getGasBalanceFn = getBalancesFn('⛽', this.feeJuiceContract.methods.balance_of_public, this.logger);
 
