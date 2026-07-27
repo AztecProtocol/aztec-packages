@@ -53,7 +53,7 @@ library Hash {
   /**
    * @notice Advances the Inbox consensus rolling hash by one message leaf
    * @dev Truncated at every link so the value is always a field element; the rollup circuits recompute the
-   * identical chain over the message leaves they insert (AZIP-22 Fast Inbox). The genesis value is zero.
+   * identical chain over the message leaves they insert. The genesis value is zero.
    * @param _rollingHash - The current rolling hash
    * @param _leaf - The message leaf to absorb
    * @return The updated rolling hash
