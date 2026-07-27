@@ -12,7 +12,7 @@ import {
 
 /**
  * A Poseidon2 sponge used to accumulate data that will be added to blobs.
- * See noir-projects/fnd/noir-protocol-circuits/crates/types/src/abis/sponge_blob.nr.
+ * See noir-projects/fnd/noir-protocol-circuits/crates/types/src/blob_data/sponge_blob.nr.
  */
 export class SpongeBlob {
   static MAX_FIELDS = BLOBS_PER_CHECKPOINT * FIELDS_PER_BLOB;
@@ -28,7 +28,7 @@ export class SpongeBlob {
    * Initialize the sponge blob to absorb data for a checkpoint.
    */
   static init(): SpongeBlob {
-    // This must match the implementation in noir-projects/fnd/noir-protocol-circuits/types/src/abis/sponge_blob.nr
+    // This must match the implementation in noir-projects/fnd/noir-protocol-circuits/crates/types/src/blob_data/sponge_blob.nr
     const iv = new Fr(BigInt(SpongeBlob.MAX_FIELDS) * TWO_POW_64);
     const sponge = Poseidon2Sponge.init(iv);
     return new SpongeBlob(sponge, 0);

@@ -9,7 +9,7 @@ shift
 circuit_name=$(basename $artifact .json)
 
 mkdir -p ./bench-out
-../../barretenberg/cpp/build/bin/bb gates -b $artifact "$@" |
+../../../barretenberg/cpp/build/bin/bb gates -b $artifact "$@" |
   jq --arg name $circuit_name '[
     { name: ($name + "_opcodes"), unit: "opcodes", value: .functions[0].acir_opcodes },
     { name: ($name + "_gates"), unit: "gates", value: .functions[0].circuit_size }

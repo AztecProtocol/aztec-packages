@@ -29,7 +29,7 @@ fi
 # "Write" our contract over the scaffold.
 cp -Rf ./aztec-packages/noir-projects/labs/noir-contracts/contracts/test/counter/* counter/
 cd counter
-sed -i 's|\.\./\.\./\.\./\.\./\.\./|/home/ubuntu/aztec-packages/noir-projects/|g' counter_contract/Nargo.toml counter_test/Nargo.toml
+sed -i 's|\.\./\.\./\.\./\.\./\.\./|/home/ubuntu/aztec-packages/noir-projects/labs/|g' counter_contract/Nargo.toml counter_test/Nargo.toml
 
 # Compile the contract.
 aztec compile

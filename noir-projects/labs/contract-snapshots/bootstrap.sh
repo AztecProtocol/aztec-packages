@@ -2,7 +2,7 @@
 source $(git rev-parse --show-toplevel)/ci3/source_bootstrap
 
 # nargo binary path relative to the crate root (this directory)
-export NARGO=${NARGO:-../../noir/noir-repo/target/release/nargo}
+export NARGO=${NARGO:-../../../noir/noir-repo/target/release/nargo}
 
 # Build the snapshot test binaries (compiles build.rs codegen too) and run Rust lints.
 function build {
@@ -43,7 +43,7 @@ function test_cmds {
       hash=disabled-cache
     else
       hash=$(hash_str \
-        $(../../noir/bootstrap.sh hash) \
+        $(../../../noir/bootstrap.sh hash) \
         $(cache_content_hash \
             ^noir-projects/labs/contract-snapshots \
             ^noir-projects/labs/noir-contracts/contracts/app \

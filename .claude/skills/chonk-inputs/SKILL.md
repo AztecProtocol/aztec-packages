@@ -41,10 +41,9 @@ If a bb/proof-system change can affect VKs, refresh in this order:
    BB=$(realpath ../../barretenberg/cpp/build/bin/bb-avm) ./bootstrap.sh pin-standard-build
    (cd ../../yarn-project && yarn workspace @aztec/standard-contracts generate)   # rewrites stamps; exits non-zero on drift
    ```
-   `BB` defaults to non-AVM `bb`; set it to `bb-avm` explicitly. Once converged, run `noir-projects/bootstrap.sh` once to recompile dependents against the final addresses, then commit the pin **together with** the three regenerated stamp files:
+   `BB` defaults to non-AVM `bb`; set it to `bb-avm` explicitly. Once converged, run `noir-projects/bootstrap.sh` once to recompile dependents against the final addresses, then commit the pin **together with** the two regenerated stamp files:
    - `yarn-project/standard-contracts/src/standard_contract_data.ts`
    - `noir-projects/labs/aztec-nr/aztec/src/standard_addresses.nr`
-   - `noir-projects/fnd/noir-contracts/contracts/protocol/aztec_sublib/src/standard_addresses.nr`
 
    Two failure modes if you cut corners: skipping the stamp regen rotates the contract addresses out from under the committed stamps → a cascade of contract-class / "address not updated" failures; stopping before the addresses stabilize leaves a pinned contract calling another standard contract's *previous* address → e2e capture aborts with `Function artifact not found for contract 0x…` during flow execution.
 6. Recapture and upload Chonk flows with `barretenberg/cpp/scripts/chonk_inputs.sh update` (only after step 5 is committed, since the capture embeds the standard-contract VKs).

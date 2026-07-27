@@ -7,7 +7,7 @@ import { FunctionCall, FunctionType } from '@aztec/stdlib/abi';
 import { HashedValues } from '@aztec/stdlib/tx';
 
 // These must match the values defined in:
-// - noir-projects/labs/aztec-nr/aztec/src/entrypoint/app.nr
+// - noir-projects/labs/aztec-nr/aztec/src/authwit/entrypoint/app.nr
 export const APP_MAX_CALLS = 5;
 
 /** Encoded function call for an Aztec entrypoint */

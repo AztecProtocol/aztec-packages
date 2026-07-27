@@ -29,7 +29,7 @@ const __dirname = dirname(fileURLToPath(import.meta.url));
 const candidates = [
   '/usr/src/yarn-project/cli-wallet/dest',                  // nightly container
   resolve(__dirname, 'cli-wallet/dest'),                     // symlinked into yarn-project/
-  resolve(__dirname, '../../yarn-project/cli-wallet/dest'),  // original location in protocol-fuzzer/
+  resolve(__dirname, '../../../yarn-project/cli-wallet/dest'),  // original location in protocol-fuzzer/
 ];
 const CLI = candidates.find(p => existsSync(p));
 if (!CLI) throw new Error('Cannot find cli-wallet/dest in any known location');

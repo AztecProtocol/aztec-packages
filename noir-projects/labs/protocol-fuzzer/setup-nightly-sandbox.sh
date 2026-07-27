@@ -19,7 +19,7 @@ CONTAINER_NAME="aztec-sandbox-nightly"
 KNOWN_GOOD_TAG="5.0.0-nightly.20260402"
 WRAPPER_DIR="${HOME}/.local/bin"
 WRAPPER_PATH="${WRAPPER_DIR}/aztec-wallet"
-REPO_ROOT="$(cd "$(dirname "$0")/../.." && pwd)"
+REPO_ROOT="$(cd "$(dirname "$0")/../../.." && pwd)"
 NIGHTLY_BUILD_DIR="/tmp/nightly-build"
 
 # --------------------------------------------------------------------------- #

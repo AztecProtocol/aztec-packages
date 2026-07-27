@@ -6,7 +6,7 @@ source $(git rev-parse --show-toplevel)/ci3/source_bootstrap
 # this via the root Makefile's noir-protocol-circuits-variants target.
 function generate_variants {
   set -eu
-  (cd noir-protocol-circuits && yarn && node ./scripts/generate_variants.js)
+  (cd fnd/noir-protocol-circuits && yarn && node ./scripts/generate_variants.js)
 }
 
 # Format check across all workspaces. CI runs this via the root Makefile's
@@ -20,7 +20,7 @@ function format_check {
   # wiping the partial dependency cache after a failure so the next attempt
   # re-clones cleanly. A warm cache is left intact on success.
   local nargo=$root/noir/noir-repo/target/release/nargo
-  local fmt_check="( set -e; for dir in noir-contracts noir-protocol-circuits mock-protocol-circuits aztec-nr protocol-fuzzer/contracts; do (cd \"\$dir\" && \"$nargo\" fmt --check); done )"
+  local fmt_check="( set -e; for dir in fnd/noir-contracts labs/noir-contracts fnd/noir-protocol-circuits fnd/mock-protocol-circuits labs/aztec-nr labs/protocol-fuzzer/contracts; do (cd \"\$dir\" && \"$nargo\" fmt --check); done )"
   RETRY_SLEEP=10 retry "$fmt_check || { rm -rf \"\$HOME/nargo\"; exit 1; }"
 }
 
@@ -40,17 +40,18 @@ function build {
   denoise prep
 
   parallel --tag --line-buffered --joblog joblog.txt --halt now,fail=1 denoise "'./{}/bootstrap.sh $cmd'" ::: \
-    mock-protocol-circuits \
-    noir-protocol-circuits \
-    noir-contracts \
-    aztec-nr
+    fnd/mock-protocol-circuits \
+    fnd/noir-protocol-circuits \
+    fnd/noir-contracts \
+    labs/noir-contracts \
+    labs/aztec-nr
 }
 
 # Local-dev entry only (via ./bootstrap.sh test). CI does not run this aggregate:
 # the root Makefile wires each subproject's test_cmds individually, so a new
 # suite must also get a Makefile target to run in CI.
 function test_cmds {
-  parallel -k ./{}/bootstrap.sh test_cmds ::: noir-protocol-circuits noir-contracts aztec-nr contract-snapshots
+  parallel -k ./{}/bootstrap.sh test_cmds ::: fnd/noir-protocol-circuits labs/noir-contracts labs/aztec-nr labs/contract-snapshots
 }
 
 function test {
@@ -59,14 +60,14 @@ function test {
 }
 
 function format {
-    parallel -k ./{}/bootstrap.sh format ::: noir-protocol-circuits noir-contracts aztec-nr
+    parallel -k ./{}/bootstrap.sh format ::: fnd/noir-protocol-circuits fnd/noir-contracts labs/noir-contracts labs/aztec-nr
 }
 
 function pin-build {
   echo_header "noir-projects pin-build"
   parallel --tag --line-buffered --halt now,fail=1 './{}/bootstrap.sh pin-build' ::: \
-    mock-protocol-circuits \
-    noir-protocol-circuits
+    fnd/mock-protocol-circuits \
+    fnd/noir-protocol-circuits
 }
 
 case "$cmd" in

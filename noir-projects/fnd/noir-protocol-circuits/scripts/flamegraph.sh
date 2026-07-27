@@ -111,10 +111,10 @@ if [[ ! $ALLOW_NO_CIRCUIT_NAMES ]]; then
 fi
 
 # Build profiler if it's not available.
-PROFILER="$SCRIPT_DIR/../../../noir/noir-repo/target/release/noir-profiler"
+PROFILER="$SCRIPT_DIR/../../../../noir/noir-repo/target/release/noir-profiler"
 if [ ! -f $PROFILER ]; then
     echo "Profiler not found, building profiler"
-    cd "$SCRIPT_DIR/../../../noir/noir-repo/tooling/profiler"
+    cd "$SCRIPT_DIR/../../../../noir/noir-repo/tooling/profiler"
     cargo build --release
     cd "$SCRIPT_DIR"
 fi
@@ -159,11 +159,11 @@ for CIRCUIT_NAME in "${CIRCUIT_NAMES[@]}"; do
 
         # Generate the flamegraph.
         if [ "$IS_MEGA_HONK_CIRCUIT" = "true" ]; then
-            $PROFILER gates --artifact-path "${ARTIFACT}" --backend-path "$SCRIPT_DIR/../../../barretenberg/cpp/build/bin/bb" --output "$DEST" --output-filename "$CIRCUIT_NAME" --backend-gates-command "gates" --scheme chonk --include_gates_per_opcode
+            $PROFILER gates --artifact-path "${ARTIFACT}" --backend-path "$SCRIPT_DIR/../../../../barretenberg/cpp/build/bin/bb" --output "$DEST" --output-filename "$CIRCUIT_NAME" --backend-gates-command "gates" --scheme chonk --include_gates_per_opcode
         elif [ "$IS_ROLLUP_HONK_CIRCUIT" = "true" ]; then
-            $PROFILER gates --artifact-path "${ARTIFACT}" --backend-path "$SCRIPT_DIR/../../../barretenberg/cpp/build/bin/bb" --output "$DEST" --output-filename "$CIRCUIT_NAME" --backend-gates-command "gates" --scheme ultra_honk --ipa_accumulation --include_gates_per_opcode
+            $PROFILER gates --artifact-path "${ARTIFACT}" --backend-path "$SCRIPT_DIR/../../../../barretenberg/cpp/build/bin/bb" --output "$DEST" --output-filename "$CIRCUIT_NAME" --backend-gates-command "gates" --scheme ultra_honk --ipa_accumulation --include_gates_per_opcode
         else
-            $PROFILER gates --artifact-path "${ARTIFACT}" --backend-path "$SCRIPT_DIR/../../../barretenberg/cpp/build/bin/bb" --output "$DEST" --output-filename "$CIRCUIT_NAME" --backend-gates-command "gates" --scheme ultra_honk --include_gates_per_opcode
+            $PROFILER gates --artifact-path "${ARTIFACT}" --backend-path "$SCRIPT_DIR/../../../../barretenberg/cpp/build/bin/bb" --output "$DEST" --output-filename "$CIRCUIT_NAME" --backend-gates-command "gates" --scheme ultra_honk --include_gates_per_opcode
         fi
 
         echo "Flamegraph generated for circuit: $CIRCUIT_NAME"

@@ -38,7 +38,7 @@ L1 to L2 messages are not available immediately. The proposer batches messages f
 
 Call `consume_l1_to_l2_message` on the context. The `content` must match the hash sent from L1, and the `secret` must be the pre-image of the `secretHash`. Consuming a message emits a nullifier to prevent double-spending.
 
-The content hash must be computed identically on both L1 and L2. Create a shared library for your content hash functions—see [`token_portal_content_hash_lib`](https://github.com/AztecProtocol/aztec-packages/tree/#include_aztec_version/noir-projects/labs/noir-contracts/contracts/app/token_portal_content_hash_lib) for an example.
+The content hash must be computed identically on both L1 and L2. Create a shared library for your content hash functions—see [`token_portal_content_hash_lib`](https://github.com/AztecProtocol/aztec-packages/tree/#include_aztec_version/noir-projects/labs/noir-contracts/contracts/libs/token_portal_content_hash_lib) for an example.
 
 #include_code claim_public noir-projects/labs/noir-contracts/contracts/app/token_bridge_contract/src/main.nr rust
 

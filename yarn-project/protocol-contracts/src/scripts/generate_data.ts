@@ -29,7 +29,7 @@ import path from 'path';
 
 const log = createConsoleLogger('autogenerate');
 
-const noirContractsRoot = '../../noir-projects/labs/noir-contracts';
+const noirContractsRoot = '../../noir-projects/fnd/noir-contracts';
 const srcPath = path.join(noirContractsRoot, './target');
 const destArtifactsDir = './artifacts';
 const outputFilePath = './src/protocol_contract_data.ts';

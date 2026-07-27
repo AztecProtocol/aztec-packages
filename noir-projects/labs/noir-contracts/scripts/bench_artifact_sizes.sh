@@ -6,7 +6,7 @@
 # bootstrap.sh bench_cmds.
 set -euo pipefail
 
-cd "$(dirname "$0")/../noir-contracts"
+cd "$(dirname "$0")/.."
 
 shopt -s nullglob
 artifacts=(target/*.json)

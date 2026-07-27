@@ -27,10 +27,10 @@ export RAYON_NUM_THREADS=${RAYON_NUM_THREADS:-16}
 export HARDWARE_CONCURRENCY=${HARDWARE_CONCURRENCY:-16}
 export PLATFORM_TAG=any
 
-export BB=${BB:-../../barretenberg/cpp/build/bin/bb}
-export NARGO=${NARGO:-../../noir/noir-repo/target/release/nargo}
-export BB_HASH=${BB_HASH:-$(../../barretenberg/cpp/bootstrap.sh hash)}
-export NOIR_HASH=${NOIR_HASH:-$(../../noir/bootstrap.sh hash)}
+export BB=${BB:-../../../barretenberg/cpp/build/bin/bb}
+export NARGO=${NARGO:-../../../noir/noir-repo/target/release/nargo}
+export BB_HASH=${BB_HASH:-$(../../../barretenberg/cpp/bootstrap.sh hash)}
+export NOIR_HASH=${NOIR_HASH:-$(../../../noir/bootstrap.sh hash)}
 # Below the Linux ephemeral range (32768-60999) to reduce accidental port conflicts.
 DEFAULT_TXE_PORT=14730
 
@@ -58,11 +58,10 @@ function get_contract_hash {
     hash_str \
       $NOIR_HASH \
       $(cache_content_hash \
-        ../../avm-transpiler/.rebuild_patterns \
-        ../../barretenberg/cpp/.rebuild_patterns \
-        ../../barretenberg/ts/.rebuild_patterns \
+        ../../../avm-transpiler/.rebuild_patterns \
+        ../../../barretenberg/cpp/.rebuild_patterns \
+        ../../../barretenberg/ts/.rebuild_patterns \
         "^noir-projects/labs/noir-contracts/contracts/$contract_path/" \
-        "^noir-projects/fnd/noir-contracts/contracts/protocol/aztec_sublib/" \
         "^noir-projects/labs/aztec-nr/" \
         "^noir-projects/fnd/noir-protocol-circuits/crates/types/")
   fi
@@ -215,18 +214,18 @@ function test_cmds {
   fi
 
   # Test bb aztec_process command
-  echo "$BB_HASH noir-projects/scripts/test_aztec_process.sh"
+  echo "$BB_HASH noir-projects/labs/noir-contracts/scripts/test_aztec_process.sh"
 
   # Fairies want to run these tests on every PR
   if [ "${TARGET_BRANCH:-}" = "merge-train/fairies" ]; then
     $NARGO test --list-tests --silence-warnings | sort | while read -r package test; do
-      echo "disabled-cache noir-projects/scripts/run_test.sh noir-contracts $package $test $txe_port"
+      echo "disabled-cache noir-projects/scripts/run_test.sh labs/noir-contracts $package $test $txe_port"
     done
   else
     local -A cache
     $NARGO test --list-tests --silence-warnings | sort | while read -r package test; do
       [ -z "${cache[$package]:-}" ] && cache[$package]=$(get_contract_hash $package $folder_name)
-      echo "${cache[$package]} noir-projects/scripts/run_test.sh noir-contracts $package $test $txe_port"
+      echo "${cache[$package]} noir-projects/scripts/run_test.sh labs/noir-contracts $package $test $txe_port"
     done
   fi
 }
@@ -287,7 +286,7 @@ function test-one {
   local txe_port=$DEFAULT_TXE_PORT
   start_txe "$txe_port"
 
-  $root/noir-projects/scripts/run_test.sh noir-contracts "$package" "$test_name" "$txe_port"
+  $root/noir-projects/scripts/run_test.sh labs/noir-contracts "$package" "$test_name" "$txe_port"
 }
 
 function format {
@@ -304,14 +303,14 @@ function bench_cmds {
     $NOIR_HASH \
     $BB_HASH \
     $(cache_content_hash \
-      ../../avm-transpiler/.rebuild_patterns \
-      ../../barretenberg/cpp/.rebuild_patterns \
-      ../../barretenberg/ts/.rebuild_patterns \
+      ../../../avm-transpiler/.rebuild_patterns \
+      ../../../barretenberg/cpp/.rebuild_patterns \
+      ../../../barretenberg/ts/.rebuild_patterns \
       "^noir-projects/labs/noir-contracts/" \
       "^noir-projects/labs/aztec-nr/" \
       "^noir-projects/fnd/noir-protocol-circuits/crates/types/" \
-      "^noir-projects/scripts/bench_artifact_sizes.sh"))
-  echo "$hash noir-projects/scripts/bench_artifact_sizes.sh"
+      "^noir-projects/labs/noir-contracts/scripts/bench_artifact_sizes.sh"))
+  echo "$hash noir-projects/labs/noir-contracts/scripts/bench_artifact_sizes.sh"
 }
 
 # Force-builds standard contracts and tar-balls their artifacts into pinned-standard-contracts.tar.gz.

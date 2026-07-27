@@ -8,7 +8,7 @@
 // Otherwise the catalog costs go stale and the variant selector may pick a non-optimal variant.
 //
 // Prerequisites:
-//   - barretenberg `bb` binary built (../../barretenberg/cpp/build/bin/bb)
+//   - barretenberg `bb` binary built (../../../barretenberg/cpp/build/bin/bb)
 //   - Catalog variants compiled (run noir-projects/fnd/noir-protocol-circuits/bootstrap.sh)
 //
 // Usage:
@@ -23,7 +23,7 @@ const ROOT = path.resolve(__dirname, "..");
 const CONFIG_FILE = path.join(ROOT, "private_kernel_reset_config.json");
 const TARGET_DIR = path.join(ROOT, "target");
 const BB =
-  process.env.BB || path.resolve(ROOT, "../../barretenberg/cpp/build/bin/bb");
+  process.env.BB || path.resolve(ROOT, "../../../barretenberg/cpp/build/bin/bb");
 
 const FULL = [64, 64, 64, 64, 64, 64, 64, 64, 64];
 

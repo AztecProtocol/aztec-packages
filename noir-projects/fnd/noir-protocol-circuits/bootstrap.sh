@@ -10,10 +10,10 @@ fi
 export RAYON_NUM_THREADS=${RAYON_NUM_THREADS:-16}
 export HARDWARE_CONCURRENCY=${HARDWARE_CONCURRENCY:-16}
 export PLATFORM_TAG=any
-export BB=${BB:-$(../../barretenberg/cpp/scripts/find-bb)}
-export NARGO=${NARGO:-../../noir/noir-repo/target/release/nargo}
-export BB_HASH=$(../../barretenberg/cpp/bootstrap.sh hash)
-export NOIR_HASH=${NOIR_HASH:-$(../../noir/bootstrap.sh hash)}
+export BB=${BB:-$(../../../barretenberg/cpp/scripts/find-bb)}
+export NARGO=${NARGO:-../../../noir/noir-repo/target/release/nargo}
+export BB_HASH=$(../../../barretenberg/cpp/bootstrap.sh hash)
+export NOIR_HASH=${NOIR_HASH:-$(../../../noir/bootstrap.sh hash)}
 
 export key_dir=./target/keys
 mkdir -p $key_dir
@@ -255,7 +255,7 @@ function test_cmds {
     if [[ "$test" =~ checkpoint || "$package" =~ "blob" ]]; then
       prefix+=":TIMEOUT=20m"
     fi
-    echo "$prefix noir-projects/scripts/run_test.sh noir-protocol-circuits $package $test"
+    echo "$prefix noir-projects/scripts/run_test.sh fnd/noir-protocol-circuits $package $test"
   done
   # We don't blindly execute all circuits as some will have no `Prover.toml`.
   circuits_to_execute="

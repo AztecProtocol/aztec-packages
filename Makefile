@@ -375,6 +375,9 @@ noir-protocol-circuits-tests: noir noir-protocol-circuits
 mock-protocol-circuits: noir bb-cpp-native noir-projects-format-check
 	$(call build,$@,noir-projects/fnd/mock-protocol-circuits)
 
+protocol-contracts: noir bb-cpp-native noir-projects-format-check
+	$(call build,$@,noir-projects/fnd/noir-contracts)
+
 noir-contracts: noir bb-cpp-native noir-projects-format-check
 	$(call build,$@,noir-projects/labs/noir-contracts)
 
@@ -391,7 +394,7 @@ contract-snapshots-tests: noir noir-projects-format-check
 	$(call test,$@,noir-projects/labs/contract-snapshots)
 
 # Noir Projects - Aggregate target (builds all sub-projects)
-noir-projects: noir-protocol-circuits mock-protocol-circuits noir-contracts aztec-nr
+noir-projects: noir-protocol-circuits mock-protocol-circuits protocol-contracts noir-contracts aztec-nr
 
 #==============================================================================
 # L1 Contracts - Ethereum L1 smart contracts

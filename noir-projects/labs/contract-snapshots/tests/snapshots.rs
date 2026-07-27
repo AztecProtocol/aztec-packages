@@ -12,13 +12,15 @@ fn repo_root() -> PathBuf {
         .unwrap()
         .parent()
         .unwrap()
+        .parent()
+        .unwrap()
         .to_path_buf()
 }
 
 fn nargo_path() -> PathBuf {
     let raw = std::env::var("NARGO")
         .map(PathBuf::from)
-        .unwrap_or_else(|_| manifest_dir().join("../../noir/noir-repo/target/release/nargo"));
+        .unwrap_or_else(|_| manifest_dir().join("../../../noir/noir-repo/target/release/nargo"));
     if raw.is_absolute() {
         raw
     } else {

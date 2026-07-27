@@ -6,7 +6,7 @@ description: Using partial notes as a recipient's offer to be paid, enabling nam
 references:
   [
     "noir-projects/labs/aztec-nr/uint-note/src/uint_note.nr",
-    "noir-projects/labs/aztec-nr/aztec/src/messages/discovery/partial_notes.nr",
+    "noir-projects/labs/aztec-nr/aztec/src/partial_notes/*",
   ]
 ---
 

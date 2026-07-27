@@ -1,18 +1,20 @@
 #!/usr/bin/env bash
 set -eu
 
+cd "$(dirname "$0")"
+
 # TODO(https://github.com/noir-lang/noir/issues/4962): This script is still yet to be integrated with noir-lang/noir-gates-diff
 # The script needs some slight updating as `nargo info` expects a complete JSON object, while this script expects a single object field
 # representing a list of circuit reports for a program.
 # The ACIR tests in barretenberg also expect every target bytecode to have the name `acir.gz` while this script expects the same name of the package
-MEGA_HONK_CIRCUIT_PATTERNS=$(jq -r '.[]' chonk_circuits.json)
+MEGA_HONK_CIRCUIT_PATTERNS=$(jq -r '.[].pattern' chonk_circuits.json)
 HIDING_CIRCUIT_PATTERNS=$(jq -r '.[]' chonk_tail_circuits.json)
 ROLLUP_HONK_CIRCUIT_PATTERNS=$(jq -r '.[]' rollup_honk_circuits.json)
 
 cd noir-protocol-circuits
 PROTOCOL_CIRCUITS_DIR=$PWD
 
-BB_BIN=${BB_BIN:-../../barretenberg/cpp/build/bin/bb-avm}
+BB_BIN=${BB_BIN:-../../../barretenberg/cpp/build/bin/bb-avm}
 
 echo "{\"programs\": [" > gates_report.json
 
