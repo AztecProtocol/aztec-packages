@@ -114,6 +114,7 @@ export class FeePayerBalancePreAddRule implements PreAddRule {
     if (txsToEvict.length > 0) {
       this.log.debug(
         `Accepting tx ${incomingMeta.txHash}, evicting ${txsToEvict.length} lower-priority txs due to fee payer balance`,
+        { txsToEvict },
       );
     }
 
