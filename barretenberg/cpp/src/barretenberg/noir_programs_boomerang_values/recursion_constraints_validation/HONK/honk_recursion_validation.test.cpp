@@ -580,8 +580,8 @@ TEST_F(HonkBoomerangDiscoveryTests, HonkOinkFingerprintsMatch)
     expect_fingerprint_matches(vc.builder(),
                                BLOCK_IDX_NNF,
                                nnf_start,
-                               nnf_start + OinkVerifierValidation::SINGLE_COMMITMENT_NNF.gate_count,
-                               OinkVerifierValidation::SINGLE_COMMITMENT_NNF,
+                               nnf_start + recursion_helpers::SINGLE_COMMITMENT_NNF.gate_count,
+                               recursion_helpers::SINGLE_COMMITMENT_NNF,
                                "Oink:SINGLE_COMMITMENT_NNF");
 
     // ── Poseidon2 fingerprints ────────────────────────────────────────────────

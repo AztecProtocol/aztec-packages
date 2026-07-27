@@ -111,7 +111,7 @@ bool validate_honk_commitment_group_full(CircuitBuilder& builder,
         return false;
     }
 
-    auto fp = OinkVerifierValidation::validate_commitment_receive_fingerprint<FF>(
+    auto fp = recursion_helpers::validate_commitment_receive_fingerprint<FF>(
         builder, analyzer, (*frs)[0], (*frs)[1], (*frs)[2], (*frs)[3]);
     if (!fp.is_valid) {
         return false;
