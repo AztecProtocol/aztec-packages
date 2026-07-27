@@ -1048,6 +1048,12 @@ variable "PROVER_AGENT_KEDA_COOLDOWN_PERIOD_SECONDS" {
   default     = 300
 }
 
+variable "PROVER_AGENT_KEDA_SCALE_DOWN_STABILIZATION_WINDOW_SECONDS" {
+  description = "HPA stabilization window before scaling prover agents down"
+  type        = number
+  default     = 300
+}
+
 variable "PROVER_AGENT_INCLUDE_METRICS" {
   description = "Metrics whitelist in the prover agent"
   type        = string

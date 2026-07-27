@@ -15,6 +15,11 @@ spec:
     name: {{ $agentName }}
   pollingInterval: {{ .Values.agent.autoscaling.keda.pollingInterval }}
   cooldownPeriod: {{ .Values.agent.autoscaling.keda.cooldownPeriod }}
+  advanced:
+    horizontalPodAutoscalerConfig:
+      behavior:
+        scaleDown:
+          stabilizationWindowSeconds: {{ .Values.agent.autoscaling.keda.scaleDownStabilizationWindowSeconds }}
   minReplicaCount: {{ .Values.agent.autoscaling.keda.minReplicaCount }}
   maxReplicaCount: {{ .Values.agent.autoscaling.keda.maxReplicaCount }}
   triggers:

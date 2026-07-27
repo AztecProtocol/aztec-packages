@@ -92,6 +92,7 @@ agent:
       enabled: false
       pollingInterval: 30
       cooldownPeriod: 300
+      scaleDownStabilizationWindowSeconds: 300
       minReplicaCount: 0
       maxReplicaCount: 1
       scalingBands: []
