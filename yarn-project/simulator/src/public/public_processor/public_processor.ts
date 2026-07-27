@@ -240,7 +240,11 @@ export class PublicProcessor implements Traceable {
         const txHash = tx.getTxHash();
         if (result.result === 'invalid') {
           const reason = result.reason.join(', ');
-          this.log.debug(`Rejecting tx ${txHash.toString()} due to pre-process validation fail: ${reason}`);
+          this.log.warn(`Rejecting tx ${txHash.toString()} due to pre-process validation fail: ${reason}`, {
+            txHash,
+            reason,
+            blockNumber: this.globalVariables.blockNumber,
+          });
           failed.push({ tx, error: new Error(`Tx failed preprocess validation: ${reason}`) });
           returns.push(new NestedProcessReturnValues([]));
           continue;

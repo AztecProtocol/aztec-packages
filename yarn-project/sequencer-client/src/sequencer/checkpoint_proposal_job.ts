@@ -1531,7 +1531,13 @@ export class CheckpointProposalJob implements Traceable {
     }
     const failedTxData = failedTxs.map(fail => fail.tx);
     const failedTxHashes = failedTxData.map(tx => tx.getTxHash());
-    this.log.verbose(`Dropping failed txs ${failedTxHashes.join(', ')}`);
+    // Dropping a tx from the mempool is terminal for it, so the reason is logged at warn: without it the only
+    // record of why a tx vanished is a debug-level line in the public processor.
+    const failures = failedTxs.map(fail => ({ txHash: fail.tx.getTxHash().toString(), reason: fail.error.message }));
+    this.log.warn(
+      `Dropping ${failedTxs.length} failed txs: ${failures.map(f => `${f.txHash} (${f.reason})`).join(', ')}`,
+      { slot: this.targetSlot, checkpointNumber: this.checkpointNumber, failures },
+    );
     await this.p2pClient.handleFailedExecution(failedTxHashes);
   }
 
