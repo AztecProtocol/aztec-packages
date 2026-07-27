@@ -469,30 +469,35 @@ export class ProvingBroker implements ProvingJobProducer, ProvingJobConsumer, Pr
         const meta = this.jobsCache.get(enqueuedJob.id);
         if (meta && !this.inProgress.has(enqueuedJob.id) && !this.resultsCache.has(enqueuedJob.id)) {
           const time = this.msTimeSource();
-          // Claim the job synchronously (before the await below) so a concurrent dispatch can't re-pick it.
+          // Claim the job synchronously (before the await below) so a concurrent dispatch can't re-pick
+          // it. The same id can sit in a queue more than once (an abort leaves a stale entry that a
+          // later revive re-enqueues alongside), so this in-progress claim — not the queue pop — is what
+          // dedups those copies across concurrently-polling agents. It must be set before the await.
           this.inProgress.set(meta.id, {
             id: meta.id,
             startedAt: time,
             lastUpdatedAt: time,
           });
-          const enqueuedAt = this.enqueuedAt.get(meta.id);
-          if (enqueuedAt) {
-            this.instrumentation.recordJobWait(meta.type, enqueuedAt);
-            // we can clear this flag now.
-            this.enqueuedAt.delete(meta.id);
-          }
 
           // The large inputs are not kept in memory; read them from the database. They were durably
           // persisted (addProvingJob's write commits) before the job became dispatchable, so this hits.
           const inputsUri = await this.database.getProvingJobInputs(meta.id);
           if (!inputsUri) {
             // The job was cleaned up (or its inputs lost) after we claimed it — release the claim and
-            // keep draining the queue for another candidate.
+            // keep draining the queue for another candidate. Nothing else was mutated yet, so there is
+            // no wait metric or enqueued-at timer to unwind.
             this.inProgress.delete(meta.id);
             this.logger.warn(`No inputs found for proving job id=${meta.id}; skipping dispatch`, {
               provingJobId: meta.id,
             });
             continue;
+          }
+
+          // The dispatch is now committed: record the queue wait and clear the enqueued-at timer.
+          const enqueuedAt = this.enqueuedAt.get(meta.id);
+          if (enqueuedAt) {
+            this.instrumentation.recordJobWait(meta.type, enqueuedAt);
+            this.enqueuedAt.delete(meta.id);
           }
           const job: ProvingJob = { id: meta.id, type: meta.type, epochNumber: meta.epochNumber, inputsUri };
           return { job, time };
