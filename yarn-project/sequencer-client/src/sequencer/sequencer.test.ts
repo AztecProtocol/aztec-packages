@@ -1,6 +1,6 @@
 import { NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP } from '@aztec/constants';
 import { type EpochCache, type EpochCommitteeInfo, PROPOSER_PIPELINING_SLOT_OFFSET } from '@aztec/epoch-cache';
-import type { RollupContract } from '@aztec/ethereum/contracts';
+import { NoCommitteeError, type RollupContract } from '@aztec/ethereum/contracts';
 import {
   BlockNumber,
   CheckpointNumber,
@@ -1828,6 +1828,41 @@ describe('sequencer', () => {
       await sequencer.checkCanProposeForTest(SlotNumber(2));
 
       expect(epochCache.getProposerAttesterAddressInSlot).toHaveBeenCalledWith(SlotNumber(2));
+    });
+  });
+
+  describe('missing committee logging', () => {
+    const missingCommitteeL1Constants = {
+      l1StartBlock: 0n,
+      l1GenesisTime: 0n,
+      slotDuration,
+      epochDuration,
+      ethereumSlotDuration,
+      proofSubmissionEpochs: 2,
+      targetCommitteeSize: 48,
+      rollupManaLimit: Number.MAX_SAFE_INTEGER,
+    };
+
+    beforeEach(() => {
+      epochCache.getL1Constants.mockReturnValue(missingCommitteeL1Constants);
+      epochCache.getLagInEpochsForValidatorSet.mockReturnValue(2);
+      epochCache.getProposerAttesterAddressInSlot.mockRejectedValue(new NoCommitteeError());
+    });
+
+    // The diagnosis itself is unit-tested in missing_committee.test.ts; here we only check that the sequencer
+    // wires it in and dedupes per epoch.
+    it('only logs once per epoch across repeated slots', async () => {
+      rollupContract.getActiveAttesterCount.mockResolvedValue(0);
+      l2BlockSource.getBlockNumber.mockResolvedValue(BlockNumber.ZERO);
+      const infoSpy = jest.spyOn(sequencer.getLogger(), 'info');
+
+      // Slots 0 and 1 share epoch 0 (epochDuration 16); slot 16 is epoch 1.
+      await sequencer.checkCanProposeForTest(SlotNumber(0));
+      await sequencer.checkCanProposeForTest(SlotNumber(1));
+      await sequencer.checkCanProposeForTest(SlotNumber(16));
+
+      const missingCommitteeLogs = infoSpy.mock.calls.filter(([msg]) => String(msg).includes('No committee'));
+      expect(missingCommitteeLogs).toHaveLength(2);
     });
   });
 });
