@@ -42,7 +42,7 @@
     "yup": "^1.2.0"
   },
   "devDependencies": {
-    "@playwright/test": "1.49.0",
+    "@playwright/test": "1.55.1",
     "@types/jest": "^30.0.0",
     "@types/node": "^22.15.17",
     "@types/react": "^18.2.15",
