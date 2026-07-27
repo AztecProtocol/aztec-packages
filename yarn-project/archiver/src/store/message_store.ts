@@ -582,15 +582,19 @@ export class MessageStore {
   /**
    * Removes every L1 to L2 message inserted after the given L1 block, so the message store matches the L1 Inbox state
    * as of that block. Used when rolling the archiver back to an earlier checkpoint, whose L1 block is passed here.
+   *
+   * A bucket lives entirely within one L1 block, so the cut always falls on a bucket boundary and can be found from
+   * the bucket snapshots alone, without reading the messages being removed.
    */
   public async rollbackL1ToL2MessagesAfterL1Block(l1BlockNumber: bigint): Promise<void> {
     this.#log.debug(`Deleting L1 to L2 messages inserted after L1 block ${l1BlockNumber}`);
     let removeFromIndex: bigint | undefined;
-    for await (const message of this.iterateL1ToL2Messages({ reverse: true })) {
-      if (message.l1BlockNumber <= l1BlockNumber) {
+    for await (const snapBuffer of this.#inboxBuckets.valuesAsync({ reverse: true })) {
+      const snapshot = deserializeBucketSnapshot(snapBuffer);
+      if (snapshot.l1BlockNumber <= l1BlockNumber) {
         break;
       }
-      removeFromIndex = message.index;
+      removeFromIndex = snapshot.firstMessageIndex;
     }
     if (removeFromIndex !== undefined) {
       await this.removeL1ToL2Messages(removeFromIndex);

@@ -225,11 +225,14 @@ describe('MessageStore', () => {
   describe('Inbox buckets', () => {
     // Builds `count` consecutive valid messages, then reassigns their bucket sequence and timestamp per the given
     // per-message spec so we can exercise multi-message and rollover buckets.
-    const makeBucketedMessages = (spec: { seq: bigint; timestamp: bigint }[]): InboxMessage[] => {
+    const makeBucketedMessages = (
+      spec: { seq: bigint; timestamp: bigint; l1BlockNumber?: bigint }[],
+    ): InboxMessage[] => {
       const msgs = makeInboxMessages(spec.length);
       msgs.forEach((msg, i) => {
         msg.bucketSeq = spec[i].seq;
         msg.bucketTimestamp = spec[i].timestamp;
+        msg.l1BlockNumber = spec[i].l1BlockNumber ?? msg.l1BlockNumber;
       });
       return msgs;
     };
@@ -503,6 +506,27 @@ describe('MessageStore', () => {
       expect(await messageStore.getInboxBucket(1n)).toMatchObject({ timestamp: 150n, msgCount: 3 });
       expect(await messageStore.getLatestInboxBucketAtOrBefore(100n)).toBeUndefined();
       expect((await messageStore.getLatestInboxBucketAtOrBefore(150n))!.seq).toEqual(1n);
+    });
+
+    it('rolls back whole buckets past an L1 block', async () => {
+      // Bucket 1 fills L1 block 100, bucket 2 fills L1 block 101 and bucket 3 fills L1 block 102.
+      const msgs = makeBucketedMessages([
+        { seq: 1n, timestamp: 100n, l1BlockNumber: 100n },
+        { seq: 1n, timestamp: 100n, l1BlockNumber: 100n },
+        { seq: 1n, timestamp: 100n, l1BlockNumber: 100n },
+        { seq: 2n, timestamp: 200n, l1BlockNumber: 101n },
+        { seq: 2n, timestamp: 200n, l1BlockNumber: 101n },
+        { seq: 3n, timestamp: 300n, l1BlockNumber: 102n },
+      ]);
+      await messageStore.addL1ToL2MessageBuckets(msgs);
+
+      await messageStore.rollbackL1ToL2MessagesAfterL1Block(100n);
+
+      expect(await toArray(messageStore.iterateL1ToL2Messages())).toEqual(msgs.slice(0, 3));
+      expect(await messageStore.getInboxBucket(2n)).toBeUndefined();
+      expect(await messageStore.getInboxBucket(3n)).toBeUndefined();
+      expect(await messageStore.getInboxBucket(1n)).toMatchObject({ msgCount: 3, totalMsgCount: 3n });
+      expect((await messageStore.getLatestInboxBucketAtOrBefore(300n))!.seq).toEqual(1n);
     });
 
     it('clears all buckets when every message is removed', async () => {
