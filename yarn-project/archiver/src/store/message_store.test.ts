@@ -8,7 +8,7 @@ import { Checkpoint, type PublishedCheckpoint } from '@aztec/stdlib/checkpoint';
 import { updateInboxRollingHash } from '@aztec/stdlib/messaging';
 import '@aztec/stdlib/testing/jest';
 
-import { L1ToL2MessagesNotReadyError } from '../errors.js';
+import { InboxBucketNotSyncedError, L1ToL2MessagesNotReadyError } from '../errors.js';
 import { type InboxMessage, updateRollingHash } from '../structs/inbox_message.js';
 import {
   makeInboxMessage,
@@ -478,10 +478,18 @@ describe('MessageStore', () => {
       expect(await messageStore.getL1ToL2MessagesBetweenBuckets(2n, 3n)).toEqual(leaves.slice(5));
       // An empty (fromExclusive, toInclusive] range yields no messages.
       expect(await messageStore.getL1ToL2MessagesBetweenBuckets(3n, 3n)).toEqual([]);
-      // Unknown upper bucket yields no messages.
-      expect(await messageStore.getL1ToL2MessagesBetweenBuckets(0n, 9n)).toEqual([]);
-      // An unknown nonzero lower bucket is treated as unavailable, not as genesis.
-      expect(await messageStore.getL1ToL2MessagesBetweenBuckets(4n, 3n)).toEqual([]);
+    });
+
+    it('throws when a bucket bound has not been synced', async () => {
+      const msgs = makeBucketedMessages(threeBucketSpec);
+      await messageStore.addL1ToL2MessageBuckets(msgs);
+
+      // An unsynced bound is reported rather than collapsing into an empty range.
+      await expect(messageStore.getL1ToL2MessagesBetweenBuckets(0n, 9n)).rejects.toThrow(InboxBucketNotSyncedError);
+      await expect(messageStore.getL1ToL2MessagesBetweenBuckets(9n, 12n)).rejects.toThrow(InboxBucketNotSyncedError);
+      // A nonzero lower bound is never treated as genesis.
+      await expect(messageStore.getL1ToL2MessagesBetweenBuckets(4n, 5n)).rejects.toThrow(InboxBucketNotSyncedError);
+      await expect(messageStore.getL1ToL2MessagesBetweenBuckets(4n, 3n)).rejects.toThrow(/Invalid Inbox bucket range/);
     });
 
     it('rewinds buckets when messages are removed', async () => {

@@ -41,8 +41,10 @@ export interface L1ToL2MessageSource {
 
   /**
    * Returns the message leaves absorbed into buckets in the range `(fromExclusive, toInclusive]`, in insertion
-   * order, for streaming message-bundle derivation (AZIP-22 Fast Inbox). Returns an empty array if the upper
-   * bucket has not been synced.
+   * order, for streaming message-bundle derivation (AZIP-22 Fast Inbox). Both bounds must name buckets the source
+   * has synced; it throws otherwise, so that an empty result means the range holds no messages instead of hiding an
+   * unsynced bound. Callers that can tolerate an unsynced source resolve both bounds first, or map the failure to
+   * their own catch-up handling.
    * @param fromExclusive - The lower bucket sequence bound, exclusive (0 means from the start of the Inbox).
    * @param toInclusive - The upper bucket sequence bound, inclusive.
    */

@@ -14,7 +14,7 @@ import {
 } from '@aztec/kv-store';
 import { type InboxBucket, InboxLeaf, updateInboxRollingHash } from '@aztec/stdlib/messaging';
 
-import { L1ToL2MessagesNotReadyError } from '../errors.js';
+import { InboxBucketNotSyncedError, L1ToL2MessagesNotReadyError } from '../errors.js';
 import {
   type InboxMessage,
   deserializeInboxMessage,
@@ -505,27 +505,27 @@ export class MessageStore {
   }
 
   /**
-   * Returns the message leaves absorbed into buckets in the range `(fromExclusive, toInclusive]`, in insertion
-   * order (AZIP-22 Fast Inbox). Returns an empty array if the upper bucket has not been synced.
+   * Returns the message leaves absorbed into buckets in the range `(fromExclusive, toInclusive]`, in insertion order
+   * (AZIP-22 Fast Inbox). Both bounds must name buckets this archiver has synced, so that an empty result means the
+   * range holds no messages rather than hiding an unsynced bound; callers route the
+   * `InboxBucketNotSyncedError` to their own catch-up handling. Sequence 0 is the genesis base case and always
+   * resolves: the range then starts at the first message of the Inbox.
    */
   public async getL1ToL2MessagesBetweenBuckets(fromExclusive: bigint, toInclusive: bigint): Promise<Fr[]> {
-    const toBucket = await this.getBucketSnapshotBySeq(toInclusive);
-    if (toBucket === undefined) {
+    if (fromExclusive > toInclusive) {
+      throw new Error(`Invalid Inbox bucket range (${fromExclusive}, ${toInclusive}]`);
+    }
+    if (toInclusive === 0n) {
       return [];
     }
-    // A nonzero lower bound must reference a synced bucket; otherwise the range is unavailable (rather than
-    // defaulting to genesis, which would silently over-return). Sequence 0 is the genesis base case: start from
-    // the beginning of the Inbox.
-    let startIndex = 0n;
-    if (fromExclusive > 0n) {
-      const fromBucket = await this.getBucketSnapshotBySeq(fromExclusive);
-      if (fromBucket === undefined) {
-        return [];
-      }
-      startIndex = fromBucket.lastMessageIndex + 1n;
-    }
-    const endIndexExclusive = toBucket.lastMessageIndex + 1n;
+    const endIndexExclusive = (await this.getSyncedBucketSnapshot(toInclusive)).lastMessageIndex + 1n;
+    const startIndex =
+      fromExclusive === 0n ? 0n : (await this.getSyncedBucketSnapshot(fromExclusive)).lastMessageIndex + 1n;
+    return this.getMessageLeavesInIndexRange(startIndex, endIndexExclusive);
+  }
 
+  /** Collects the message leaves in the global index range `[startIndex, endIndexExclusive)`, in insertion order. */
+  private async getMessageLeavesInIndexRange(startIndex: bigint, endIndexExclusive: bigint): Promise<Fr[]> {
     const leaves: Fr[] = [];
     for await (const msgBuffer of this.#l1ToL2Messages.valuesAsync({
       start: this.indexToKey(startIndex),
@@ -539,6 +539,15 @@ export class MessageStore {
   private async getBucketSnapshotBySeq(seq: bigint): Promise<BucketSnapshot | undefined> {
     const buffer = await this.#inboxBuckets.getAsync(this.bucketSeqToKey(seq));
     return buffer && deserializeBucketSnapshot(buffer);
+  }
+
+  /** Reads a bucket snapshot, failing loudly if the archiver has not synced that bucket. */
+  private async getSyncedBucketSnapshot(seq: bigint): Promise<BucketSnapshot> {
+    const snapshot = await this.getBucketSnapshotBySeq(seq);
+    if (snapshot === undefined) {
+      throw new InboxBucketNotSyncedError(seq);
+    }
+    return snapshot;
   }
 
   private async writeBucketSnapshot(seq: bigint, snapshot: BucketSnapshot): Promise<void> {
