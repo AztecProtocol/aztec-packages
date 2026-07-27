@@ -70,7 +70,7 @@ pub global MAX_L1_TO_L2_MSGS_PER_BLOCK: u32 = 1024;
 // Cap on L1-to-L2 messages consumed by a single checkpoint. Semantically today's NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP.
 pub global MAX_L1_TO_L2_MSGS_PER_CHECKPOINT: u32 = 1024;
 // Minimum bucket age, in seconds, at the start of a checkpoint's build frame for its consumption to be mandatory under
-// the streaming Inbox censorship cutoff (AZIP-22 Fast Inbox). One L1 slot: validators cannot be required to act on
+// the streaming Inbox censorship cutoff. One L1 slot: validators cannot be required to act on
 // buckets they may not yet have seen. L2 consensus policy consumed by the sequencer and validator (and mirrored by
 // ProposeLib on L1); the protocol circuits do not read it.
 pub global INBOX_LAG_SECONDS: u32 = 12;

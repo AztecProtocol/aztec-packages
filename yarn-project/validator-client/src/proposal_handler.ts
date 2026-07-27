@@ -927,10 +927,10 @@ export class ProposalHandler {
   }
 
   /**
-   * Runs the streaming-Inbox per-block acceptance checks (AZIP-22 Fast Inbox) for a block proposal and returns the
-   * derived L1-to-L2 message bundle for re-execution, or a rejection reason. The parent block's consumed total and the
-   * checkpoint's starting total are derived from L1-to-L2 tree leaf counts (post-flip compact indexing); a parent that
-   * does not sit on a bucket boundary (a pre-flip padded parent) is rejected inside {@link checkStreamingBlockProposal}.
+   * Runs the streaming-Inbox per-block acceptance checks for a block proposal and returns the derived L1-to-L2
+   * message bundle for re-execution, or a rejection reason. The parent block's consumed total and the checkpoint's
+   * starting total are derived from L1-to-L2 tree leaf counts; a parent whose count does not sit on a bucket boundary
+   * is rejected inside {@link checkStreamingBlockProposal}.
    */
   private async runStreamingBlockChecks(
     proposal: BlockProposal,
@@ -945,7 +945,7 @@ export class ProposalHandler {
     );
     if (checkpointStartTotalMsgCount === undefined) {
       // The block before the checkpoint's first block has not synced locally, so the per-checkpoint cap origin is
-      // unavailable: treat as an unknown local view (the bounded-wait soft path is A-1393).
+      // unavailable: treat as an unknown local view. There is no bounded wait for the missing block yet.
       return { accepted: false, reason: 'bucket_unknown' };
     }
     const nowSeconds = BigInt(Math.floor(this.dateProvider.now() / 1000));
@@ -1000,11 +1000,10 @@ export class ProposalHandler {
   }
 
   /**
-   * Enforces the streaming-Inbox last-block minimum-consumption (censorship) rule for a checkpoint (AZIP-22 Fast
-   * Inbox), mirroring `ProposeLib.validateInboxConsumption`: the first bucket the checkpoint left unconsumed must be
-   * absent, past the cutoff, or a cap-escape. Returns true (sufficient) when the checkpoint's consumption cannot be
-   * resolved against the local Inbox view (e.g. a pre-flip padded leaf count), deferring to L1 `propose` as the
-   * authoritative reject pre-flip; the flip (A-1384) removes the padding so the check resolves.
+   * Enforces the streaming-Inbox last-block minimum-consumption (censorship) rule for a checkpoint, mirroring
+   * `ProposeLib.validateInboxConsumption`: the first bucket the checkpoint left unconsumed must be absent, past the
+   * cutoff, or a cap-escape. Returns true (sufficient) when the checkpoint's consumption cannot be resolved against
+   * the local Inbox view, deferring to L1 `propose` as the authoritative reject.
    */
   private async isLastBlockConsumptionSufficient(slot: SlotNumber, blocks: L2Block[]): Promise<boolean> {
     const lastBlockTotal = this.blockLeafCount(blocks[blocks.length - 1]);
@@ -1314,7 +1313,7 @@ export class ProposalHandler {
     const constants = this.extractCheckpointConstants(firstBlock);
     const checkpointNumber = firstBlock.checkpointNumber;
 
-    // Streaming Inbox (AZIP-22 Fast Inbox): on the last block of a checkpoint, enforce the minimum-consumption
+    // Streaming Inbox: on the last block of a checkpoint, enforce the minimum-consumption
     // (censorship) rule before attesting. Reject (no attestation) if a mandatory bucket was left unconsumed. Flag off,
     // this is skipped and behavior is byte-identical.
     if (this.config.streamingInbox === true && !(await this.isLastBlockConsumptionSufficient(slot, blocks))) {

@@ -115,7 +115,7 @@ describe('checkStreamingBlockProposal', () => {
         baseInput({ messageSource: view, bucketRef: new InboxBucketRef(7n, 100n, new Fr(1)) }),
       );
       expect(result).toEqual({ accepted: false, reason: 'bucket_unknown' });
-      // The happy path rejects immediately; the bounded wait is A-1393. Assert it did not sleep.
+      // The happy path rejects immediately; there is no bounded wait yet. Assert it did not sleep.
       expect(Date.now() - start).toBeLessThan(500);
     });
 
@@ -227,7 +227,7 @@ describe('checkStreamingBlockProposal', () => {
       const view = new FakeInboxView();
       view.addBucket(1, 2, 100); // total 2
       const proposed = view.addBucket(2, 2, 100); // total 4
-      // Parent leaf count 3 is between bucket boundaries (2 and 4): unresolvable, as with a pre-flip padded parent.
+      // Parent leaf count 3 is between bucket boundaries (2 and 4): unresolvable.
       const result = await checkStreamingBlockProposal(
         baseInput({ messageSource: view, bucketRef: refFor(proposed), parentTotalMsgCount: 3n }),
       );

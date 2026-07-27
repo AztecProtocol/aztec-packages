@@ -71,8 +71,8 @@ export type CheckpointLastBlock = Omit<CheckpointLastBlockData, 'txs'> & {
   /** The signed transactions in the last block (optional, for DA guarantees) */
   signedTxs?: SignedTxs;
   /**
-   * Reference to the Inbox bucket the last block proposes to consume (AZIP-22 Fast Inbox). Optional pre-flip; when set,
-   * its rolling hash must equal the checkpoint header's `inboxRollingHash` (enforced at construction).
+   * Reference to the Inbox bucket the last block proposes to consume. When set, its rolling hash must equal the
+   * checkpoint header's `inboxRollingHash` (enforced at construction).
    */
   bucketRef?: InboxBucketRef;
 };

@@ -4,7 +4,7 @@ import { type L1RollupConstants, getTimestampForSlot } from '../epoch-helpers/in
 import type { InboxBucket } from './inbox_bucket.js';
 
 /**
- * Censorship cutoff timestamp for a checkpoint proposed in `slot` (AZIP-22 Fast Inbox), mirroring the cutoff in
+ * Censorship cutoff timestamp for a checkpoint proposed in `slot`, mirroring the cutoff in
  * `ProposeLib.validateInboxConsumption`. A checkpoint proposed in slot `S` is built during slot `S - 1`, so
  * `buildFrameStart(S) = toTimestamp(S - 1)` and `cutoff(S) = buildFrameStart(S) - lagSeconds`. Buckets opened at or
  * before the cutoff are mandatory to consume by the checkpoint's last block; the strict `>` on the L1 "past cutoff"
@@ -23,7 +23,7 @@ export function getInboxCutoffTimestamp(
 
 /**
  * Whether a checkpoint whose last-consumed bucket is immediately followed by `nextBucket` meets the censorship floor,
- * mirroring the mandatory-consumption assert in `ProposeLib.validateInboxConsumption` (AZIP-22 Fast Inbox).
+ * mirroring the mandatory-consumption assert in `ProposeLib.validateInboxConsumption`.
  * Consumption is sufficient when the first unconsumed bucket:
  *  - does not exist (the checkpoint consumed everything the Inbox has), or
  *  - was opened strictly after the cutoff (`timestamp > cutoffTimestamp`), or

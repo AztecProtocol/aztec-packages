@@ -12,9 +12,9 @@ export type InboxMessage = {
   l1BlockHash: Buffer32;
   /** Legacy 128-bit keccak rolling hash of all messages inserted up to and including this one. */
   rollingHash: Buffer16;
-  /** Consensus rolling hash (truncated sha256 chain) of all messages up to and including this one (AZIP-22 Fast Inbox). */
+  /** Consensus rolling hash (truncated sha256 chain) of all messages up to and including this one. */
   inboxRollingHash: Fr;
-  /** Sequence number of the Inbox bucket this message was absorbed into (AZIP-22 Fast Inbox). */
+  /** Sequence number of the Inbox bucket this message was absorbed into. */
   bucketSeq: bigint;
   /** L1 block timestamp at which this message's bucket was opened; the bucket's recency key, in seconds. */
   bucketTimestamp: bigint;

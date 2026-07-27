@@ -110,7 +110,7 @@ type CheckpointProposalResult = {
 };
 
 /**
- * Running state of streaming Inbox message selection across the blocks of one checkpoint (AZIP-22 Fast Inbox).
+ * Running state of streaming Inbox message selection across the blocks of one checkpoint.
  * Consumption starts from the parent checkpoint's last-consumed bucket and advances one block at a time.
  */
 type StreamingCheckpointState = {
@@ -1124,7 +1124,7 @@ export class CheckpointProposalJob implements Traceable {
 
   /**
    * Selects this block's streaming-Inbox message bundle against the current consumption cursor, mirroring the L1
-   * predicate in `ProposeLib.validateInboxConsumption` (AZIP-22 Fast Inbox). Does not mutate the cursor; the caller
+   * predicate in `ProposeLib.validateInboxConsumption`. Does not mutate the cursor; the caller
    * advances it only after the block builds successfully.
    */
   private selectStreamingBundle(

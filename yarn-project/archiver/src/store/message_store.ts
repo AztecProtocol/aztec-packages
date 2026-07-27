@@ -89,7 +89,7 @@ function groupMessagesByBucket(messages: InboxMessage[]): IncomingBucket[] {
   return buckets;
 }
 
-// The genesis sentinel bucket (AZIP-22 Fast Inbox): sequence 0 with a zero rolling hash and no messages, mirroring the
+// The genesis sentinel bucket: sequence 0 with a zero rolling hash and no messages, mirroring the
 // on-chain Inbox's base case. The archiver never ingests a snapshot for it (no message is absorbed into sequence 0), so
 // it is synthesized on read. Consumers use its sequence number and zero total; its deploy-time timestamp is not tracked
 // here and is unused.
@@ -504,8 +504,8 @@ export class MessageStore {
   }
 
   /**
-   * Returns the Inbox bucket with the given sequence number, or undefined if it has not been synced (AZIP-22 Fast
-   * Inbox). Sequence 0 is the genesis sentinel: the on-chain Inbox reserves it as the "consumed nothing" base case
+   * Returns the Inbox bucket with the given sequence number, or undefined if it has not been synced. Sequence 0 is
+   * the genesis sentinel: the on-chain Inbox reserves it as the "consumed nothing" base case
    * and never absorbs a message into it, so the archiver ingests no snapshot for it; it is synthesized here (rolling
    * hash 0, total 0) so streaming consumers can resolve a genesis parent or an empty checkpoint's last-consumed bucket.
    */
@@ -519,10 +519,9 @@ export class MessageStore {
 
   /**
    * Returns the Inbox bucket whose cumulative message total equals `totalMsgCount`, or undefined if no synced bucket
-   * sits on that boundary (AZIP-22 Fast Inbox). Sequence 0 (total 0) is the genesis sentinel base case; otherwise the
+   * sits on that boundary. Sequence 0 (total 0) is the genesis sentinel base case; otherwise the
    * message at global index `totalMsgCount - 1` is the last message of the bucket with that cumulative total, so its
-   * `bucketSeq` resolves the bucket. A total that does not land on a bucket boundary (e.g. a pre-flip padded leaf
-   * count) returns undefined.
+   * `bucketSeq` resolves the bucket. A total that does not land on a bucket boundary returns undefined.
    */
   public async getInboxBucketByTotalMsgCount(totalMsgCount: bigint): Promise<InboxBucket | undefined> {
     if (totalMsgCount === 0n) {
@@ -538,7 +537,7 @@ export class MessageStore {
 
   /**
    * Returns the message leaves in the cumulative Inbox message-count range `[startLeafCount, endLeafCount)`, in
-   * insertion order (AZIP-22 Fast Inbox). The bounds are compact L1-to-L2 tree leaf counts, which every block header
+   * insertion order. The bounds are compact L1-to-L2 tree leaf counts, which every block header
    * carries, so consumers can ask for the messages a block or checkpoint consumed without resolving buckets
    * themselves. Both bounds must land on a bucket boundary this archiver has synced; it throws otherwise, since a
    * caller asking for a range always expects the messages in it.
@@ -563,7 +562,7 @@ export class MessageStore {
 
   /**
    * Returns the latest Inbox bucket opened at or before the given L1 timestamp, or undefined if every synced bucket
-   * was opened strictly after it (AZIP-22 Fast Inbox).
+   * was opened strictly after it.
    */
   public async getLatestInboxBucketAtOrBefore(timestamp: bigint): Promise<InboxBucket | undefined> {
     // Bucket timestamps are non-decreasing in sequence number, so the bucket we want is the highest sequence indexed
@@ -585,8 +584,8 @@ export class MessageStore {
   }
 
   /**
-   * Returns the message leaves absorbed into buckets in the range `(fromExclusive, toInclusive]`, in insertion order
-   * (AZIP-22 Fast Inbox). Both bounds must name buckets this archiver has synced, so that an empty result means the
+   * Returns the message leaves absorbed into buckets in the range `(fromExclusive, toInclusive]`, in insertion order.
+   * Both bounds must name buckets this archiver has synced, so that an empty result means the
    * range holds no messages rather than hiding an unsynced bound; callers route the
    * `InboxBucketNotSyncedError` to their own catch-up handling. Sequence 0 is the genesis base case and always
    * resolves: the range then starts at the first message of the Inbox.

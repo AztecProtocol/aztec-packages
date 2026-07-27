@@ -2,7 +2,7 @@ import type { Fr } from '@aztec/foundation/curves/bn254';
 import type { InboxBucketRef, L1ToL2MessageSource } from '@aztec/stdlib/messaging';
 
 /**
- * Reason a streaming-Inbox block proposal fails the per-block acceptance checks (AZIP-22 Fast Inbox). Follows the
+ * Reason a streaming-Inbox block proposal fails the per-block acceptance checks. Follows the
  * handler's existing `{ isValid, reason }` string style.
  */
 export type StreamingBlockCheckReason =
@@ -54,11 +54,11 @@ export type StreamingBlockCheckResult =
     };
 
 /**
- * Runs the AZIP-22 Fast Inbox per-block acceptance checks a validator applies to a streaming block proposal, and
+ * Runs the per-block acceptance checks a validator applies to a streaming block proposal, and
  * derives the message-leaf bundle the block consumes (for re-execution). Mirrors the L1 acceptance conditions:
  *
  * 1. **Exists**: the referenced bucket resolves in this node's own Inbox view, and its consensus rolling hash matches
- *    the reference. An unknown bucket is an immediate reject here (the bounded-wait soft path is A-1393); a hash
+ *    the reference. An unknown bucket is an immediate reject here (there is no bounded wait yet); a hash
  *    mismatch means the wire reference disagrees with the local bucket. The reference is trusted only as a `bucketSeq`
  *    lookup hint — timestamp and message counts are read from the locally resolved bucket, never from the wire.
  * 2. **Moves forward**: the bucket's cumulative total is at least the parent block's, so consumption never rewinds.
@@ -67,7 +67,7 @@ export type StreamingBlockCheckResult =
  *    inclusive — a bucket exactly `lagSeconds` old is eligible, matching L1's strict `>` "too new" test).
  * 4. **Caps**: the per-block message count and the running per-checkpoint total fit their respective caps.
  *
- * The reject branch is a single function so A-1393 can wrap `bucket_unknown` with its bounded wait.
+ * The reject branch is a single function so a future bounded wait can wrap `bucket_unknown`.
  */
 export async function checkStreamingBlockProposal(input: StreamingBlockCheckInput): Promise<StreamingBlockCheckResult> {
   const {
@@ -118,8 +118,8 @@ export async function checkStreamingBlockProposal(input: StreamingBlockCheckInpu
   }
 
   // Derive the message bundle for re-execution: the leaves consumed between the parent bucket and the proposed one.
-  // The parent bucket is the one whose cumulative total equals the parent block's leaf count (post-flip compact
-  // indexing); a parent that does not sit on a bucket boundary (a pre-flip padded parent) is unresolvable.
+  // The parent bucket is the one whose cumulative total equals the parent block's leaf count (messages are indexed
+  // compactly, with no padding); a parent whose count does not sit on a bucket boundary is unresolvable.
   const parentBucket = await messageSource.getInboxBucketByTotalMsgCount(parentTotalMsgCount);
   if (parentBucket === undefined) {
     return { accepted: false, reason: 'parent_bucket_unresolved' };
