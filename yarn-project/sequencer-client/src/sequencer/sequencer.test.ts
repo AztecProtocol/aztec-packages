@@ -1575,6 +1575,7 @@ describe('sequencer', () => {
         blockCount: 1,
         totalManaUsed: 0n,
         feeAssetPriceModifier: 0n,
+        inboxMsgTotal: 0n,
       });
 
       await sequencer.work();
@@ -1700,6 +1701,7 @@ describe('sequencer', () => {
         blockCount: 1,
         totalManaUsed: 0n,
         feeAssetPriceModifier: 0n,
+        inboxMsgTotal: 0n,
       });
 
       await sequencer.work();
@@ -1829,6 +1831,7 @@ describe('sequencer', () => {
           blockCount: 1,
           totalManaUsed: 0n,
           feeAssetPriceModifier: 0n,
+          inboxMsgTotal: 0n,
         },
       });
 

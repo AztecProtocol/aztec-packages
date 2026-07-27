@@ -1395,6 +1395,7 @@ describe('aztec node', () => {
         blockCount: 1,
         totalManaUsed: 0n,
         feeAssetPriceModifier: 0n,
+        inboxMsgTotal: 0n,
       };
     }
 

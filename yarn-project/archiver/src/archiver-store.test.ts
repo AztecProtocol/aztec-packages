@@ -462,6 +462,7 @@ describe('Archiver Store', () => {
         totalManaUsed: 100n,
         feeAssetPriceModifier: 0n,
       });
+      return block;
     }
 
     it('returns the latest proposed entry when called with no args', async () => {
@@ -475,6 +476,13 @@ describe('Archiver Store', () => {
     it('returns undefined when no proposed entry exists (no args)', async () => {
       const result = await archiver.getProposedCheckpointData();
       expect(result).toBeUndefined();
+    });
+
+    it('reports the consumed Inbox total of the last block in the checkpoint', async () => {
+      const block = await addProposedCheckpoint(CheckpointNumber(1), SlotNumber(3), BlockNumber(1));
+
+      const result = await archiver.getProposedCheckpointData();
+      expect(result!.inboxMsgTotal).toBe(BigInt(block.header.state.l1ToL2MessageTree.nextAvailableLeafIndex));
     });
 
     it('returns the latest proposed entry for tag=proposed', async () => {

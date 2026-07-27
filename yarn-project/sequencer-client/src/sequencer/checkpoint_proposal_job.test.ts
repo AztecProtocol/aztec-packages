@@ -451,6 +451,7 @@ describe('CheckpointProposalJob', () => {
           blockCount: 1,
           totalManaUsed: 5000n,
           feeAssetPriceModifier: 100n,
+          inboxMsgTotal: 0n,
         },
       });
 
@@ -650,6 +651,7 @@ describe('CheckpointProposalJob', () => {
         blockCount: 1,
         totalManaUsed: 5000n,
         feeAssetPriceModifier: 100n,
+        inboxMsgTotal: 0n,
       };
 
       job = createCheckpointProposalJob({
@@ -697,6 +699,7 @@ describe('CheckpointProposalJob', () => {
         blockCount: 1,
         totalManaUsed: 5000n,
         feeAssetPriceModifier: 100n,
+        inboxMsgTotal: 0n,
       };
 
       job = createCheckpointProposalJob({ targetSlot, targetEpoch, proposedCheckpointData });
@@ -848,6 +851,7 @@ describe('CheckpointProposalJob', () => {
       blockCount: 1,
       totalManaUsed: 5000n,
       feeAssetPriceModifier: 100n,
+      inboxMsgTotal: 0n,
     };
 
     let mismatchEvents: { slot: SlotNumber; checkpointNumber: CheckpointNumber; reason: string }[];

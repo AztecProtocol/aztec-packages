@@ -125,6 +125,7 @@ type CheckpointStorage = CommonCheckpointStorage & {
 type ProposedCheckpointStorage = CommonCheckpointStorage & {
   totalManaUsed: string;
   feeAssetPriceModifier: string;
+  inboxMsgTotal: string;
 };
 
 export type RemoveCheckpointsResult = { blocksRemoved: L2Block[] | undefined };
@@ -930,6 +931,7 @@ export class BlockStore {
       blockCount: stored.blockCount,
       totalManaUsed: BigInt(stored.totalManaUsed),
       feeAssetPriceModifier: BigInt(stored.feeAssetPriceModifier),
+      inboxMsgTotal: BigInt(stored.inboxMsgTotal),
     };
   }
 
@@ -1361,7 +1363,7 @@ export class BlockStore {
    * Adds a proposed checkpoint to the pending queue.
    * Accepts proposed.checkpointNumber === latestTip + 1, where latestTip is the highest of
    * confirmed and the highest pending checkpoint number.
-   * Computes archive and checkpointOutHash from the stored blocks.
+   * Computes archive, checkpointOutHash and the consumed Inbox message total from the stored blocks.
    */
   async addProposedCheckpoint(proposed: ProposedCheckpointInput) {
     return await this.db.transactionAsync(async () => {
@@ -1387,8 +1389,12 @@ export class BlockStore {
       }
       this.validateCheckpointBlocks(blocks, previousBlock);
 
-      const archive = blocks[blocks.length - 1].archive;
+      const lastBlock = blocks[blocks.length - 1];
+      const archive = lastBlock.archive;
       const checkpointOutHash = Checkpoint.getCheckpointOutHash(blocks);
+      // The last block's L1-to-L2 leaf count is the checkpoint's cumulative consumed Inbox total under compact
+      // indexing, which is what `propose` records on L1 for it (AZIP-22 Fast Inbox).
+      const inboxMsgTotal = BigInt(lastBlock.header.state.l1ToL2MessageTree.nextAvailableLeafIndex);
 
       await this.#proposedCheckpoints.set(proposed.checkpointNumber, {
         header: proposed.header.toBuffer(),
@@ -1399,6 +1405,7 @@ export class BlockStore {
         blockCount: proposed.blockCount,
         totalManaUsed: proposed.totalManaUsed.toString(),
         feeAssetPriceModifier: proposed.feeAssetPriceModifier.toString(),
+        inboxMsgTotal: inboxMsgTotal.toString(),
       });
     });
   }
