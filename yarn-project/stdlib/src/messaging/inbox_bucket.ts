@@ -25,11 +25,6 @@ export type InboxBucket = {
   msgCount: number;
   /** Global leaf index of the last message absorbed into this bucket. */
   lastMessageIndex: bigint;
-  /**
-   * Whether this is the latest bucket the archiver has synced. A latest bucket may still grow as more messages
-   * arrive on L1; earlier buckets are complete. Consumers that need a settled bucket apply a lag on the timestamp.
-   */
-  isOpen: boolean;
 };
 
 export const InboxBucketSchema = z.object({
@@ -39,5 +34,4 @@ export const InboxBucketSchema = z.object({
   timestamp: schemas.BigInt,
   msgCount: schemas.Integer,
   lastMessageIndex: schemas.BigInt,
-  isOpen: z.boolean(),
 }) satisfies z.ZodType<InboxBucket>;

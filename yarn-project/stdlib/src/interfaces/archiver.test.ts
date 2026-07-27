@@ -216,12 +216,12 @@ describe('ArchiverApiSchema', () => {
 
   it('getLatestInboxBucketAtOrBefore', async () => {
     const result = await context.client.getLatestInboxBucketAtOrBefore(123n);
-    expect(result).toMatchObject({ seq: 1n, msgCount: 3, totalMsgCount: 3n, isOpen: false });
+    expect(result).toMatchObject({ seq: 1n, msgCount: 3, totalMsgCount: 3n });
   });
 
   it('getInboxBucket', async () => {
     const result = await context.client.getInboxBucket(2n);
-    expect(result).toMatchObject({ seq: 2n, msgCount: 3, isOpen: true });
+    expect(result).toMatchObject({ seq: 2n, msgCount: 3 });
   });
 
   it('getL1ToL2MessagesBetweenBuckets', async () => {
@@ -576,7 +576,6 @@ class MockArchiver implements ArchiverApi {
       timestamp: 100n,
       msgCount: 3,
       lastMessageIndex: 2n,
-      isOpen: false,
     });
   }
   getInboxBucket(seq: bigint): Promise<InboxBucket | undefined> {
@@ -588,7 +587,6 @@ class MockArchiver implements ArchiverApi {
       timestamp: 100n,
       msgCount: 3,
       lastMessageIndex: 2n,
-      isOpen: true,
     });
   }
   getL1ToL2MessagesBetweenBuckets(fromExclusive: bigint, toInclusive: bigint): Promise<Fr[]> {

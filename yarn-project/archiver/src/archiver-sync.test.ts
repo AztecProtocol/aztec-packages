@@ -276,9 +276,7 @@ describe('Archiver Sync', () => {
         msgCount: 3,
         totalMsgCount: 9n,
         timestamp: t3,
-        isOpen: true,
       });
-      expect((await archiver.getInboxBucket(1n))!.isOpen).toBe(false);
 
       // At-or-before lookups resolve the latest bucket not opened after the given timestamp.
       expect((await archiver.getLatestInboxBucketAtOrBefore(t3))!.seq).toEqual(3n);
