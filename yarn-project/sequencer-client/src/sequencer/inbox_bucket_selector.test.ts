@@ -30,7 +30,6 @@ function makeSource(specs: TestBucketSpec[]): {
       timestamp: spec.timestamp,
       msgCount: spec.msgCount,
       lastMessageIndex: total - 1n,
-      isOpen: false,
     });
   }
 
