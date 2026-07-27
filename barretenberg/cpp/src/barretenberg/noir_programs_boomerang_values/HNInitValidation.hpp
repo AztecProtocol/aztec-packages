@@ -343,7 +343,6 @@ Result validate(CircuitBuilder& builder,
 }
 
 } // namespace HNInitValidation
-} // namespace HNVerification
 
 using HNInitValidationResult = HNInitValidation::Result;
 /**
@@ -396,3 +395,5 @@ HNInitValidationResult validate_hn_init(CircuitBuilder& builder, const acir_form
     cdg::StaticAnalyzer_<bb::fr, CircuitBuilder> analyzer(builder, false);
     return validate_hn_init<bb::fr>(builder, analyzer, constraint);
 }
+
+} // namespace HNVerification
