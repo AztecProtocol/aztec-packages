@@ -752,7 +752,7 @@ contract ValidatorSelectionTest is ValidatorSelectionTestBase {
       endArchive: endFull.checkpoint.archive,
       outHash: endFull.checkpoint.header.outHash,
       previousInboxRollingHash: 0,
-      endInboxRollingHash: 0,
+      endInboxRollingHash: proposedHeaders[endCheckpointNumber].inboxRollingHash,
       proverId: prover
     });
 

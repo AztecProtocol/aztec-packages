@@ -290,19 +290,27 @@ library EpochProofLib {
         );
       }
 
+      // Boundary anchoring for the Inbox rolling-hash chain (AZIP-22 Fast Inbox), mirroring previousArchive/endArchive:
+      // both ends of the claimed chain segment must match the rolling hashes recorded at propose for checkpoints
+      // _start - 1 and _end. The start needs this to be sound - the previous checkpoint's header is not among this
+      // proof's public inputs, so nothing else pins where the segment begins. The end is already pinned transitively
+      // (the checkpoint root binds end_inbox_rolling_hash to the last checkpoint header, whose hash verifyHeaders ties
+      // to storage), so checking it here only trades a bare proof-verification failure for a specific error.
       {
-        // Start-boundary anchoring for the Inbox rolling-hash chain (AZIP-22 Fast Inbox), mirroring previousArchive:
-        // the proof's claimed chain start must match the rolling hash recorded at propose for checkpoint _start - 1.
-        // No end-side check is needed: the checkpoint root writes the parity end into both the checkpoint header and
-        // end_inbox_rolling_hash, checkpoint merges assert start/end continuity, and verifyHeaders pins the supplied
-        // headers (whose hash covers inboxRollingHash) to the stored header hashes, so a wrong endInboxRollingHash
-        // fails proof verification.
         bytes32 expectedPreviousInboxRollingHash = STFLib.getInboxRollingHash(_start - 1);
         require(
           expectedPreviousInboxRollingHash == _args.previousInboxRollingHash,
           Errors.Rollup__InvalidPreviousInboxRollingHash(
             expectedPreviousInboxRollingHash, _args.previousInboxRollingHash
           )
+        );
+      }
+
+      {
+        bytes32 expectedEndInboxRollingHash = STFLib.getInboxRollingHash(_end);
+        require(
+          expectedEndInboxRollingHash == _args.endInboxRollingHash,
+          Errors.Rollup__InvalidEndInboxRollingHash(expectedEndInboxRollingHash, _args.endInboxRollingHash)
         );
       }
     }

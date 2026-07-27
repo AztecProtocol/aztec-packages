@@ -905,7 +905,7 @@ contract RollupTest is RollupBase {
       endArchive: data.archive,
       outHash: data.header.outHash,
       previousInboxRollingHash: 0,
-      endInboxRollingHash: data.header.inboxRollingHash,
+      endInboxRollingHash: proposedHeaders[1].inboxRollingHash,
       proverId: address(0)
     });
 
@@ -954,13 +954,40 @@ contract RollupTest is RollupBase {
       endArchive: data.archive,
       outHash: data.header.outHash,
       previousInboxRollingHash: wrongPrevious,
-      endInboxRollingHash: data.header.inboxRollingHash,
+      endInboxRollingHash: proposedHeaders[1].inboxRollingHash,
       proverId: address(0)
     });
 
     vm.expectRevert(
       abi.encodeWithSelector(Errors.Rollup__InvalidPreviousInboxRollingHash.selector, bytes32(0), wrongPrevious)
     );
+    rollup.getEpochProofPublicInputs(1, 1, args, headers, data.batchedBlobInputs);
+  }
+
+  // The end of the rolling-hash chain segment is pinned to the hash recorded at propose for the epoch's last
+  // checkpoint (AZIP-22 Fast Inbox), mirroring endArchive. A wrong endInboxRollingHash must be rejected here rather
+  // than surfacing as a generic proof-verification failure.
+  function testGetEpochProofPublicInputsRejectsWrongEndInboxRollingHash() public setUpFor("empty_checkpoint_1") {
+    _proposeCheckpoint("empty_checkpoint_1", 1);
+
+    DecoderBase.Data memory data = load("empty_checkpoint_1").checkpoint;
+    CheckpointLog memory checkpoint = rollup.getCheckpoint(0);
+
+    ProposedHeader[] memory headers = new ProposedHeader[](1);
+    headers[0] = proposedHeaders[1];
+
+    bytes32 expectedEnd = proposedHeaders[1].inboxRollingHash;
+    bytes32 wrongEnd = bytes32(uint256(expectedEnd) + 1);
+    PublicInputArgs memory args = PublicInputArgs({
+      previousArchive: checkpoint.archive,
+      endArchive: data.archive,
+      outHash: data.header.outHash,
+      previousInboxRollingHash: 0,
+      endInboxRollingHash: wrongEnd,
+      proverId: address(0)
+    });
+
+    vm.expectRevert(abi.encodeWithSelector(Errors.Rollup__InvalidEndInboxRollingHash.selector, expectedEnd, wrongEnd));
     rollup.getEpochProofPublicInputs(1, 1, args, headers, data.batchedBlobInputs);
   }
 
@@ -989,7 +1016,7 @@ contract RollupTest is RollupBase {
       endArchive: _archive,
       outHash: _outHash,
       previousInboxRollingHash: 0,
-      endInboxRollingHash: 0,
+      endInboxRollingHash: proposedHeaders[_end].inboxRollingHash,
       proverId: _prover
     });
 
