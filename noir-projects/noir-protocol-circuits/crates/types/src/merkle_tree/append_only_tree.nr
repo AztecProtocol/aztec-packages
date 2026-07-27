@@ -585,6 +585,106 @@ mod append_leaves_tests {
         let _ = append_leaves_to_snapshot::<5, 8>(snapshot, new_leaves, 2, frontier);
     }
 
+    #[test]
+    fn append_ignores_unpinned_frontier_lanes() {
+        // At start index 3 only levels 0 and 1 are right children, so those are the only hint lanes the validation
+        // reads; the rest are unpinned and entirely prover-chosen. A tree database answering with a sibling path puts
+        // the zero-subtree roots there, while the tests here pass zeros. Neither may influence the result.
+        let before_root = MerkleTree::<32>::new(padded([11, 22, 33])).get_root();
+        let snapshot = AppendOnlyTreeSnapshot { root: before_root, next_available_leaf_index: 3 };
+        let new_leaves: [Field; 8] = padded([44, 55]);
+        let expected_root = MerkleTree::<32>::new(padded([11, 22, 33, 44, 55])).get_root();
+
+        // `compute_zero_hashes[i]` is the root of an all-zero subtree of height `i + 1`, i.e. the right sibling a
+        // sibling path carries at level `i + 1`.
+        let zero_hashes = compute_zero_hashes::<5>();
+        let from_db = [33, merkle_hash(11, 22), zero_hashes[1], zero_hashes[2], zero_hashes[3]];
+        let adversarial = [33, merkle_hash(11, 22), 0xdead, 0xbeef, 0xf00d];
+
+        let from_db_result = append_leaves_to_snapshot::<5, 8>(snapshot, new_leaves, 2, from_db);
+        assert_eq(from_db_result.root, expected_root);
+        assert_eq(from_db_result.next_available_leaf_index, 5);
+
+        let junk_result = append_leaves_to_snapshot::<5, 8>(snapshot, new_leaves, 2, adversarial);
+        assert_eq(junk_result.root, expected_root);
+        assert_eq(junk_result.next_available_leaf_index, 5);
+    }
+
+    #[test]
+    fn append_reuses_stale_pinned_frontier_entry() {
+        // Appending one leaf at index 5 leaves level 2 untouched by the merge: the batch has no node there. The final
+        // root recomputation still reads that entry, because the end index 6 is a right child at level 2. The reuse is
+        // sound only because the start index 5 is a right child at level 2 as well, so the entry is pinned.
+        let before_root = MerkleTree::<32>::new(padded([11, 22, 33, 44, 55])).get_root();
+        let snapshot = AppendOnlyTreeSnapshot { root: before_root, next_available_leaf_index: 5 };
+        let level_2_node = merkle_hash(merkle_hash(11, 22), merkle_hash(33, 44));
+        let frontier = [55, 0, level_2_node, 0, 0];
+
+        let new_leaves: [Field; 8] = padded([66]);
+        let result = append_leaves_to_snapshot::<5, 8>(snapshot, new_leaves, 1, frontier);
+
+        let expected_root = MerkleTree::<32>::new(padded([11, 22, 33, 44, 55, 66])).get_root();
+        assert_eq(result.root, expected_root);
+        assert_eq(result.next_available_leaf_index, 6);
+    }
+
+    #[test(should_fail_with = "Frontier hint does not match the snapshot root")]
+    fn append_wrong_stale_pinned_frontier_entry_fails() {
+        // The level-2 entry that `append_reuses_stale_pinned_frontier_entry` reuses is pinned, so corrupting it is
+        // rejected instead of silently producing a wrong root.
+        let before_root = MerkleTree::<32>::new(padded([11, 22, 33, 44, 55])).get_root();
+        let snapshot = AppendOnlyTreeSnapshot { root: before_root, next_available_leaf_index: 5 };
+        let level_2_node = merkle_hash(merkle_hash(11, 22), merkle_hash(33, 44));
+        let frontier = [55, 0, level_2_node + 1, 0, 0];
+
+        let new_leaves: [Field; 8] = padded([66]);
+        let _ = append_leaves_to_snapshot::<5, 8>(snapshot, new_leaves, 1, frontier);
+    }
+
+    #[test]
+    fn append_filling_tree_exactly() {
+        // Filling the last four leaves of a height-4 tree takes the exact-fill branch: the post-state has no
+        // representable frontier, so the root comes from the top of the merged batch instead of a recomputation.
+        // Levels 0 and 1 are left children at index 12, so their junk hint lanes must not reach the result.
+        let mut pre_leaves = [0; 16];
+        for i in 0..12 {
+            pre_leaves[i] = (100 + i) as Field;
+        }
+        let pre_tree = MerkleTree::new(pre_leaves);
+        let snapshot =
+            AppendOnlyTreeSnapshot { root: pre_tree.get_root(), next_available_leaf_index: 12 };
+        // Levels 2 and 3 are right children at index 12: the node over leaves 8..11 and the node over leaves 0..7.
+        let level_2_node = merkle_hash(merkle_hash(108, 109), merkle_hash(110, 111));
+        let left_half = MerkleTree::<8>::new([100, 101, 102, 103, 104, 105, 106, 107]);
+        let frontier = [0xdead, 0xbeef, level_2_node, left_half.get_root()];
+
+        let batch: [Field; 6] = padded([201, 202, 203, 204]);
+        let result = append_leaves_to_snapshot::<4, 6>(snapshot, batch, 4, frontier);
+
+        let mut all_leaves = pre_leaves;
+        for i in 0..4 {
+            all_leaves[12 + i] = (201 + i) as Field;
+        }
+        assert_eq(result.root, MerkleTree::new(all_leaves).get_root());
+        assert_eq(result.next_available_leaf_index, 16);
+    }
+
+    #[test(should_fail_with = "append_leaves_to_snapshot exceeds the tree capacity")]
+    fn append_past_tree_capacity_fails() {
+        // A height-4 tree holds 16 leaves, so appending 3 from index 14 overruns it. The capacity check runs before
+        // the hint validation, hence the all-zero frontier here.
+        let mut pre_leaves = [0; 16];
+        for i in 0..14 {
+            pre_leaves[i] = (100 + i) as Field;
+        }
+        let pre_tree = MerkleTree::new(pre_leaves);
+        let snapshot =
+            AppendOnlyTreeSnapshot { root: pre_tree.get_root(), next_available_leaf_index: 14 };
+
+        let batch: [Field; 6] = padded([201, 202, 203]);
+        let _ = append_leaves_to_snapshot::<4, 6>(snapshot, batch, 3, [0; 4]);
+    }
+
     #[test(should_fail_with = "Found non-zero field after breakpoint")]
     fn append_non_zero_padding_lane_fails() {
         let snapshot = empty_snapshot::<5>();
