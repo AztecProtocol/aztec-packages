@@ -6,8 +6,8 @@
 #include <set>
 #include <vector>
 
-// Included from hypernova_verification.hpp or HNInitValidation.hpp.
-
+namespace HNVerification {
+using namespace recursion_helpers;
 namespace HNOinkValidation {
 
 inline constexpr FunctionFingerprint COMMITMENT_RECEIVE_ARITH = { 5, 0x8c7907ea98903f3ULL, 0x8c7907ea98903f3ULL, 5 };
@@ -249,3 +249,4 @@ bool validate_pre_eta_transcript_chain(CircuitBuilder& builder, size_t start, co
 }
 
 } // namespace HNOinkValidation
+} // namespace HNVerification

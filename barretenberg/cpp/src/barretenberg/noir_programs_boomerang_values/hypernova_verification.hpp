@@ -3,6 +3,7 @@
 #ifndef BB_RECURSION_HELPERS_AVAILABLE
 #include "barretenberg/noir_programs_boomerang_values/recursion_constraints_helper.hpp"
 #endif
+#include "barretenberg/noir_programs_boomerang_values/HNOinkValidationCommon.hpp"
 
 // ============================================================================
 // HNVerification - fingerprint constants and result structs for HN/HyperNova
@@ -28,9 +29,6 @@
 namespace HNVerification {
 
 using namespace recursion_helpers;
-
-// Nested as HNVerification::HNOinkValidation (same include later from HNInitValidation is a no-op).
-#include "barretenberg/noir_programs_boomerang_values/HNOinkValidationCommon.hpp"
 
 // Expected total squeeze gate count for the RESET kernel (legacy; detector undercounts post-merge).
 static constexpr size_t HN_RESET_TOTAL_SQUEEZES = 87;
