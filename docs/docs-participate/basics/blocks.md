@@ -92,7 +92,7 @@ Here's what happens during a typical slot:
 
 ## Rewards
 
-Both sequencers and provers earn rewards:
+Both sequencers and provers earn rewards, paid per **checkpoint** (the bundle of blocks a sequencer publishes in its slot):
 
 - **Sequencers** receive 70% of checkpoint rewards plus transaction fees
 - **Provers** receive 30% of checkpoint rewards

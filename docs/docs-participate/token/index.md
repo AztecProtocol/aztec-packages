@@ -60,7 +60,7 @@ The protocol has a nominal annual inflation rate defined in the CoinIssuer contr
 
 ### Token distribution
 
-Checkpoint rewards are distributed each slot:
+Checkpoint rewards are distributed for each proven checkpoint:
 - **70%** to block proposers (sequencers)
 - **30%** to provers
 

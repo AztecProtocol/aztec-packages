@@ -12,7 +12,7 @@ The Aztec network uses economic incentives to encourage honest participation and
 
 Network participants earn rewards from two sources:
 
-1. **Checkpoint Rewards**: Protocol-funded rewards accruing for each proven checkpoint
+1. **Checkpoint Rewards**: Protocol-funded rewards accruing for each proven checkpoint (a checkpoint is the bundle of blocks a sequencer publishes in its slot, which the rollup then proves)
 2. **Transaction Fees**: Fees paid by users for transaction processing
 
 ## Checkpoint rewards
@@ -71,7 +71,7 @@ Where `k = 1,000,000`, `a = 250,000`, and the minimum share is `10,000`.
 At or above the maximum activity score, a prover receives the full `k` shares, and shares never drop below the minimum. As the score drops, the quadratic term reduces shares increasingly aggressively, meaning small drops have minimal impact but extended inactivity significantly reduces earnings.
 
 :::note Live values
-These constants were set by [AZIP-5](https://github.com/AztecProtocol/governance/pull/14) and are read from the mainnet RewardBooster contract (`getConfig()`). They can change through governance.
+The increment, maximum, and share-formula constants were set by [AZIP-5](https://github.com/AztecProtocol/governance/pull/14) and are read from the mainnet RewardBooster contract (`getConfig()`). The 100,000-per-epoch decay rate is fixed in the RewardBooster contract code. Changing any of them requires governance action, up to deploying an updated RewardBooster.
 :::
 
 This design rewards long-term, consistent provers and discourages sporadic participation.

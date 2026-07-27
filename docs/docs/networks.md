@@ -95,8 +95,16 @@ Stable releases target roughly one per month, typically mid-month. Dates are not
 | **Voting Delay**        | 3 days          | 12 hours  |
 | **Voting Duration**     | 7 days          | 24 hours  |
 | **Execution Delay**     | 2 days          | 12 hours  |
+| **Grace Period**        | 7 days          | 24 hours  |
+| **Voting Quorum**       | 20% of deposited power | 20% of deposited power |
+| **Required Yea Margin** | 33%             | 10%       |
+| **Minimum Total Power** | 100,000,000 AZTEC | 9,600,000 AZTEC |
+| **Propose-With-Lock Amount** | 258,750,000 AZTEC | 258,750,000 AZTEC |
+| **Propose-With-Lock Delay**  | 90 days    | 90 days   |
 | **Slashing Quorum**     | 65/128          | 65/128    |
 | **Slashing Round Size** | 4 epochs (128 slots) | 4 epochs (128 slots) |
+
+These values are read from each network's deployed Governance and GovernanceProposer contracts (`getConfiguration()`, `QUORUM_SIZE()`, `ROUND_SIZE()`) and can change through governance.
 
 ---
 
