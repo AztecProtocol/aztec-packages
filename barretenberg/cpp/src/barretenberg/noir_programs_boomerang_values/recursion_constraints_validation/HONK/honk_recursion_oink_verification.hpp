@@ -1,6 +1,7 @@
 #pragma once
 
 #include "barretenberg/noir_programs_boomerang_values/recursion_constraints_helper.hpp"
+#include "barretenberg/noir_programs_boomerang_values/poseidon2s_helpers.hpp"
 #include <algorithm>
 #include <array>
 #include <cstddef>
@@ -163,8 +164,8 @@ OinkValidationResult validate_oink(CircuitBuilder& builder,
     OinkValidationResult result;
     auto& arith = builder.blocks.arithmetic;
     auto& nnf = builder.blocks.nnf;
-    auto& p2ext = builder.blocks.poseidon2_external;
-    auto& p2int = builder.blocks.poseidon2_internal;
+    auto& p2ext = poseidon2_helpers::poseidon2_external_block(builder);
+    auto& p2int = poseidon2_helpers::poseidon2_internal_block(builder);
 
     result.arith_start = arith_start;
     result.nnf_start = nnf_start;

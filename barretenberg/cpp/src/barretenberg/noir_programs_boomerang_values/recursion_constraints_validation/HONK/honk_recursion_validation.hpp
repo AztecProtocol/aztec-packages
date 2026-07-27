@@ -8,6 +8,7 @@
 // No squeeze-window slicing; no find_fingerprint_range_* in the chain.
 
 #include "barretenberg/noir_programs_boomerang_values/recursion_constraints_helper.hpp"
+#include "barretenberg/noir_programs_boomerang_values/poseidon2s_helpers.hpp"
 #include "barretenberg/noir_programs_boomerang_values/recursion_constraints_validation/HONK/honk_recursion_kzg_verification.hpp"
 #include "barretenberg/noir_programs_boomerang_values/recursion_constraints_validation/HONK/honk_recursion_oink_verification.hpp"
 #include "barretenberg/noir_programs_boomerang_values/recursion_constraints_validation/HONK/honk_recursion_output_verification.hpp"
@@ -136,9 +137,9 @@ HonkRecursionValidationResult validate_honk_recursion(CircuitBuilder& builder,
     result.arith_cursor_end = result.output.arith_end;
     result.arith_region_end = builder.blocks.arithmetic.size();
     result.poseidon2_ext_cursor_end = result.output.poseidon2_ext_end;
-    result.poseidon2_ext_region_end = builder.blocks.poseidon2_external.size();
+    result.poseidon2_ext_region_end = poseidon2_helpers::poseidon2_external_block(builder).size();
     result.poseidon2_int_cursor_end = result.output.poseidon2_int_end;
-    result.poseidon2_int_region_end = builder.blocks.poseidon2_internal.size();
+    result.poseidon2_int_region_end = poseidon2_helpers::poseidon2_internal_block(builder).size();
     result.nnf_cursor_end = result.output.nnf_end;
     result.nnf_region_end = builder.blocks.nnf.size();
     result.memory_cursor_end = result.kzg.memory_end;

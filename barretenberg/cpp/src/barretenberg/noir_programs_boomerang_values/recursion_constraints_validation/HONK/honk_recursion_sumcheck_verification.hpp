@@ -1,6 +1,7 @@
 #pragma once
 
 #include "barretenberg/noir_programs_boomerang_values/recursion_constraints_helper.hpp"
+#include "barretenberg/noir_programs_boomerang_values/poseidon2s_helpers.hpp"
 #include "barretenberg/noir_programs_boomerang_values/recursion_constraints_validation/HONK/honk_recursion_preprocessor_verification.hpp"
 #include <cstddef>
 #include <set>
@@ -54,8 +55,8 @@ SumcheckValidationResult validate_sumcheck(CircuitBuilder& builder,
     result.poseidon2_int_start = previous.poseidon2_int_end;
 
     auto& arith = builder.blocks.arithmetic;
-    auto& p2ext = builder.blocks.poseidon2_external;
-    auto& p2int = builder.blocks.poseidon2_internal;
+    auto& p2ext = poseidon2_helpers::poseidon2_external_block(builder);
+    auto& p2int = poseidon2_helpers::poseidon2_internal_block(builder);
 
     result.arith_ok = recursion_helpers::matches_fingerprint_at(builder, arith, result.arith_start, ARITH_TOTAL);
     result.poseidon2_ext_ok =

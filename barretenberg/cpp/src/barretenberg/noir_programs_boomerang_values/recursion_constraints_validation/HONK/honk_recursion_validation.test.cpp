@@ -580,8 +580,8 @@ TEST_F(HonkBoomerangDiscoveryTests, HonkOinkFingerprintsMatch)
     expect_fingerprint_matches(vc.builder(),
                                BLOCK_IDX_NNF,
                                nnf_start,
-                               nnf_start + recursion_helpers::SINGLE_COMMITMENT_NNF.gate_count,
-                               recursion_helpers::SINGLE_COMMITMENT_NNF,
+                               nnf_start + OinkVerifierValidation::SINGLE_COMMITMENT_NNF.gate_count,
+                               OinkVerifierValidation::SINGLE_COMMITMENT_NNF,
                                "Oink:SINGLE_COMMITMENT_NNF");
 
     // ── Poseidon2 fingerprints ────────────────────────────────────────────────
@@ -1414,7 +1414,7 @@ TEST_F(HonkBoomerangDiscoveryTests, AcirHonkWitnessLinkInOink)
     // key_hash must hit poseidon2_ext inside Oink:vk_hash window [0, oink.p2ext_end).
     const uint32_t key_hash_real = vc.builder().real_variable_index[vc.constraint.key_hash];
     auto p2_gates = recursion_helpers::collect_real_witness_gates_in_block<bb::fr>(
-        vc.builder(), analyzer, key_hash_real, vc.builder().blocks.poseidon2_external);
+        vc.builder(), analyzer, key_hash_real, poseidon2_helpers::poseidon2_external_block(vc.builder()));
     ASSERT_FALSE(p2_gates.empty());
     EXPECT_GE(p2_gates.front(), result.oink.poseidon2_ext_start);
     EXPECT_LT(p2_gates.front(), result.oink.poseidon2_ext_end);
