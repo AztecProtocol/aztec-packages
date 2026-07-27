@@ -119,8 +119,11 @@ pub fn insert_subtree_root_to_snapshot_with_hasher<let TreeHeight: u32, let Subt
 /// index is a right child, which are exactly the entries the validation pins, so an incorrect hint cannot produce a
 /// wrong result: it either fails validation or is never read.
 ///
-/// A completely full tree (`next_available_leaf_index == 2^TreeHeight`) has no representable frontier, so even a
-/// `num_leaves = 0` call against one fails hint validation. This fails closed and is accepted behavior.
+/// A completely full tree (`next_available_leaf_index == 2^TreeHeight`) has no representable frontier, so every call
+/// against one fails hint validation — including `num_leaves = 0`. Callers that append a bundle unconditionally
+/// therefore stop being provable altogether once the tree fills up, so this is a chain halt rather than a graceful
+/// degradation to "no more messages". It fails closed and is accepted behavior: at the heights used in practice the
+/// tree cannot be filled within the lifetime of the chain.
 pub fn append_leaves_to_snapshot<let TreeHeight: u32, let MaxLeaves: u32>(
     snapshot: AppendOnlyTreeSnapshot,
     leaves: [Field; MaxLeaves],
