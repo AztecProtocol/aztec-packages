@@ -77,12 +77,12 @@ fi
 # run here, and it replaces the build-time --check for local commits. Runs after nargo fmt above so it
 # copies the freshly-formatted canonical source. Like the rest of this hook, it must never block a commit.
 staged_token_files=$(git diff --cached --name-only --diff-filter=d \
-  | grep '^noir-projects/noir-contracts/contracts/app/token_contract/' || true)
+  | grep '^noir-projects/labs/noir-contracts/contracts/app/token_contract/' || true)
 if [[ -n "$staged_token_files" ]]; then
   # Skip if any canonical Token file is partially staged, so we don't bake unstaged Token changes into
   # the committed TestToken (mirrors the partial-staging guard above).
   unstaged_token_files=$(git diff --name-only --diff-filter=d \
-    | grep '^noir-projects/noir-contracts/contracts/app/token_contract/' || true)
+    | grep '^noir-projects/labs/noir-contracts/contracts/app/token_contract/' || true)
   token_partially_staged=false
   for file in $staged_token_files; do
     if echo "$unstaged_token_files" | grep -Fxq "$file"; then
@@ -97,7 +97,7 @@ if [[ -n "$staged_token_files" ]]; then
     echo "Detected staged canonical Token change. Regenerating TestToken..."
     if ./noir-contracts/scripts/gen_test_token.sh; then
       repo_root=$(git rev-parse --show-toplevel)
-      git add "$repo_root/noir-projects/noir-contracts/contracts/test/test_token_contract"
+      git add "$repo_root/noir-projects/labs/noir-contracts/contracts/test/test_token_contract"
     else
       echo -e "\033[33mWarning:\033[0m TestToken regen failed; your commit will proceed."
       echo -e "\033[33mRun noir-contracts/scripts/gen_test_token.sh manually.\033[0m"

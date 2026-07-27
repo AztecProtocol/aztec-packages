@@ -12,6 +12,6 @@ error: The #[allow_phase_change] attribute can only be applied to #[external("pr
     1: ?
             at src/main.nr:11:5
     2: allow_phase_change
-            at <repo>/noir-projects/aztec-nr/aztec/src/macros/functions/mod.nr:<line>:<col>
+            at <repo>/noir-projects/labs/aztec-nr/aztec/src/macros/functions/mod.nr:<line>:<col>
 
 Aborting due to 1 previous error

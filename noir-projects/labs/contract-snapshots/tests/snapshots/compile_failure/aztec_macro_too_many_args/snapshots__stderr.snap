@@ -12,6 +12,6 @@ error: #[aztec] expects 0 or 1 arguments, got 2
     1: #[aztec]
             at src/main.nr:4:1
     2: aztec
-            at <repo>/noir-projects/aztec-nr/aztec/src/macros/aztec.nr:<line>:<col>
+            at <repo>/noir-projects/labs/aztec-nr/aztec/src/macros/aztec.nr:<line>:<col>
 
 Aborting due to 1 previous error

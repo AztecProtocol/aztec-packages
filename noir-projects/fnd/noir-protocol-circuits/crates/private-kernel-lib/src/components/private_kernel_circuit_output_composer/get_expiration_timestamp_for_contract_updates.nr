@@ -11,7 +11,7 @@ use types::{
 /// Computes the expiration_timestamp value for contract updates based on the delayed public mutable values stored inside
 /// the `private_call`. The timestamp is set to the time horizon value of the given `DelayedPublicMutable`.
 /// See documentation of the `get_time_horizon` function in
-/// `noir-projects/noir-protocol-circuits/crates/types/src/delayed_public_mutable/scheduled_value_change.nr` for more details
+/// `noir-projects/fnd/noir-protocol-circuits/crates/types/src/delayed_public_mutable/scheduled_value_change.nr` for more details
 /// on what is a time horizon.
 pub fn get_expiration_timestamp_for_contract_updates(private_call: PrivateCallData) -> u64 {
     // `updated_class_id_delayed_public_mutable_values` is constrained against the public data tree

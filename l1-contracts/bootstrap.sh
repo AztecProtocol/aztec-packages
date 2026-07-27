@@ -42,7 +42,7 @@ function download_solc {
 export hash=$(cache_content_hash \
   .rebuild_patterns \
   ../noir/.rebuild_patterns \
-  ../noir-projects/noir-protocol-circuits \
+  ../noir-projects/fnd/noir-protocol-circuits \
   ../barretenberg/cpp/.rebuild_patterns
 )
 
@@ -90,7 +90,7 @@ function build_verifier {
     mkdir -p generated
 
     # Copy from noir-projects. Bootstrap must have ran in noir-projects.
-    local rollup_verifier_path=../noir-projects/noir-protocol-circuits/target/keys/rollup_root_verifier.sol
+    local rollup_verifier_path=../noir-projects/fnd/noir-protocol-circuits/target/keys/rollup_root_verifier.sol
     if [ -f "$rollup_verifier_path" ]; then
       cp "$rollup_verifier_path" generated/HonkVerifier.sol
     else

@@ -122,19 +122,19 @@ Store mutable public state using `PublicMutable<T>` for values that need to be u
 
 For example, storing the address of the collateral asset in a lending contract:
 
-#include_code public_mutable /noir-projects/noir-contracts/contracts/app/lending_contract/src/main.nr rust
+#include_code public_mutable /noir-projects/labs/noir-contracts/contracts/app/lending_contract/src/main.nr rust
 
 #### `read`
 
 `PublicMutable` variables have a `read` method to read the value at the location in storage:
 
-#include_code public_mutable_read /noir-projects/noir-contracts/contracts/app/lending_contract/src/main.nr rust
+#include_code public_mutable_read /noir-projects/labs/noir-contracts/contracts/app/lending_contract/src/main.nr rust
 
 #### `write`
 
 The `write` method on `PublicMutable` variables takes the value to write as an input and saves this in storage:
 
-#include_code public_mutable_write /noir-projects/noir-contracts/contracts/app/lending_contract/src/main.nr rust
+#include_code public_mutable_write /noir-projects/labs/noir-contracts/contracts/app/lending_contract/src/main.nr rust
 
 ### PublicImmutable
 
@@ -146,13 +146,13 @@ Due to the value being immutable, you can also read it during private execution 
 
 For example, in the `Storage` struct in a simple token contract, the name, symbol, and decimals are `PublicImmutable` variables:
 
-#include_code public_immutable /noir-projects/noir-contracts/contracts/app/simple_token_contract/src/main.nr rust
+#include_code public_immutable /noir-projects/labs/noir-contracts/contracts/app/simple_token_contract/src/main.nr rust
 
 #### `initialize`
 
 This function sets the immutable value. It can only be called once.
 
-#include_code public_immutable_initialize /noir-projects/noir-contracts/contracts/app/simple_token_contract/src/main.nr rust
+#include_code public_immutable_initialize /noir-projects/labs/noir-contracts/contracts/app/simple_token_contract/src/main.nr rust
 
 :::warning
 A `PublicImmutable`'s storage **must** only be set once via `initialize`. Attempting to override this by manually accessing the underlying storage slots breaks all properties of the data structure, rendering it useless.
@@ -162,7 +162,7 @@ A `PublicImmutable`'s storage **must** only be set once via `initialize`. Attemp
 
 Returns the stored immutable value. This function is available in public, private and utility contexts.
 
-#include_code public_immutable_read /noir-projects/noir-contracts/contracts/app/simple_token_contract/src/main.nr rust
+#include_code public_immutable_read /noir-projects/labs/noir-contracts/contracts/app/simple_token_contract/src/main.nr rust
 
 ### DelayedPublicMutable
 
@@ -176,19 +176,19 @@ The existence of minimum delays means that a private function that reads a publi
 
 Unlike other state variables, `DelayedPublicMutable` receives not only a type parameter for the underlying datatype, but also a `DELAY` type parameter with the value change delay as a number of seconds.
 
-#include_code delayed_public_mutable_storage /noir-projects/noir-contracts/contracts/app/auth_contract/src/main.nr rust
+#include_code delayed_public_mutable_storage /noir-projects/labs/noir-contracts/contracts/app/auth_contract/src/main.nr rust
 
 #### `schedule_value_change`
 
 This is the means by which a `DelayedPublicMutable` variable mutates its contents. It schedules a value change for the variable at a future timestamp after the `DELAY` has elapsed.
 
-#include_code schedule_value_change /noir-projects/noir-contracts/contracts/app/auth_contract/src/main.nr rust
+#include_code schedule_value_change /noir-projects/labs/noir-contracts/contracts/app/auth_contract/src/main.nr rust
 
 #### `get_current_value`
 
 Returns the current value in a public, private or utility execution context.
 
-#include_code get_current_value /noir-projects/noir-contracts/contracts/app/auth_contract/src/main.nr rust
+#include_code get_current_value /noir-projects/labs/noir-contracts/contracts/app/auth_contract/src/main.nr rust
 
 :::warning Privacy Consideration
 Reading `DelayedPublicMutable` in private sets the `expiration_timestamp` property, which may reveal timing information. Choose delays that align with common values to maximize privacy sets.
@@ -198,7 +198,7 @@ Reading `DelayedPublicMutable` in private sets the `expiration_timestamp` proper
 
 Returns the scheduled value and when it takes effect:
 
-#include_code get_scheduled_value /noir-projects/noir-contracts/contracts/app/auth_contract/src/main.nr rust
+#include_code get_scheduled_value /noir-projects/labs/noir-contracts/contracts/app/auth_contract/src/main.nr rust
 
 ## Private State Variables
 
@@ -229,7 +229,7 @@ They also have some metadata, including a storage slot to avoid collisions with 
 
 The note content plus the metadata are all hashed together, and it is this hash that gets stored onchain in the note hash tree. This hash is called a commitment. The underlying note content (the note hash preimage) is not stored anywhere onchain, so third parties cannot access it and it remains private. The note hash tree is append-only - if it wasn't, when a note was spent, external observers would notice that the tree leaf inserted in some transaction was modified in a second transaction, linking them together and leaking privacy. For example, when a user made a payment to a third party, the recipient would be able to know when they spent the received funds. Nullifiers exist to solve this issue.
 
-Note: Aztec.nr comes with some prebuilt note types, including [`UintNote`](https://github.com/AztecProtocol/aztec-packages/tree/#include_aztec_version/noir-projects/aztec-nr/uint-note) and [`AddressNote`](https://github.com/AztecProtocol/aztec-packages/tree/#include_aztec_version/noir-projects/aztec-nr/address-note), but users are also free to create their own with the `#[note]` macro.
+Note: Aztec.nr comes with some prebuilt note types, including [`UintNote`](https://github.com/AztecProtocol/aztec-packages/tree/#include_aztec_version/noir-projects/labs/aztec-nr/uint-note) and [`AddressNote`](https://github.com/AztecProtocol/aztec-packages/tree/#include_aztec_version/noir-projects/labs/aztec-nr/address-note), but users are also free to create their own with the `#[note]` macro.
 
 ##### Note Lifecycle
 
@@ -277,7 +277,7 @@ Private notes need to be communicated to their recipients so they know the note 
   - [`MessageDelivery::onchain_unconstrained()`](pathname:///aztec-nr-api/#api_ref_version/noir_aztec/messages/delivery/struct.MessageDelivery): Message stored onchain but no guarantees on content - Use when the sender is incentivized to deliver correctly but may not have an offchain channel to the recipient.
   - [`MessageDelivery::offchain()`](pathname:///aztec-nr-api/#api_ref_version/noir_aztec/messages/delivery/struct.MessageDelivery): Lowest cost, no onchain data - Use when the sender and recipient can communicate and the sender is incentivized to deliver correctly.
 
-#include_code note_delivery /noir-projects/noir-contracts/contracts/app/private_token_contract/src/main.nr rust
+#include_code note_delivery /noir-projects/labs/noir-contracts/contracts/app/private_token_contract/src/main.nr rust
 
 Methods that return `NoteMessage` include `initialize()`, `get_note()`, and `replace()` on `PrivateMutable`, `initialize()` on `PrivateImmutable`, and `insert()` on `PrivateSet` (more on these methods and private state variable types shortly).
 
@@ -359,19 +359,19 @@ Access the underlying state variable for a specific owner using `.at(owner)`
 
 #### Declaration
 
-#include_code owned_private_mutable /noir-projects/noir-contracts/contracts/app/app_subscription_contract/src/main.nr rust
+#include_code owned_private_mutable /noir-projects/labs/noir-contracts/contracts/app/app_subscription_contract/src/main.nr rust
 
 #### `is_initialized`
 
 An unconstrained method to check whether the `PrivateMutable` has been initialized or not:
 
-#include_code owned_private_mutable_is_initialized /noir-projects/noir-contracts/contracts/app/app_subscription_contract/src/main.nr rust
+#include_code owned_private_mutable_is_initialized /noir-projects/labs/noir-contracts/contracts/app/app_subscription_contract/src/main.nr rust
 
 #### `initialize` and `initialize_or_replace`
 
 The `PrivateMutable` should be initialized to create the first note and value. This can be done with either `initialize` or `initialize_or_replace`:
 
-#include_code owned_private_mutable_initialize /noir-projects/noir-contracts/contracts/app/app_subscription_contract/src/main.nr rust
+#include_code owned_private_mutable_initialize /noir-projects/labs/noir-contracts/contracts/app/app_subscription_contract/src/main.nr rust
 
 #### `get_note`
 
@@ -395,7 +395,7 @@ Reading a `PrivateMutable` nullifies and recreates the note. This makes reads in
 
 To update the value of a `PrivateMutable`, we can use the `replace` method:
 
-#include_code owned_single_private_mutable_replace /noir-projects/noir-contracts/contracts/app/private_token_contract/src/main.nr rust
+#include_code owned_single_private_mutable_replace /noir-projects/labs/noir-contracts/contracts/app/private_token_contract/src/main.nr rust
 
 ### PrivateImmutable
 
@@ -405,7 +405,7 @@ Unlike `PrivateMutable`, the `get_note` function for a `PrivateImmutable` doesn'
 
 #### Declaration
 
-#include_code private_immutable /noir-projects/noir-contracts/contracts/test/test_contract/src/main.nr rust
+#include_code private_immutable /noir-projects/labs/noir-contracts/contracts/test/test_contract/src/main.nr rust
 
 `PrivateImmutable` variables also have the `initialize` and `get_note` functions on them but no `initialize_or_replace` since they cannot be modified.
 
@@ -422,13 +422,13 @@ The set's current value is the collection of notes in the set that have not yet 
 
 For example, to add private token balances to storage:
 
-#include_code private_set /noir-projects/noir-contracts/contracts/test/pending_note_hashes_contract/src/main.nr rust
+#include_code private_set /noir-projects/labs/noir-contracts/contracts/test/pending_note_hashes_contract/src/main.nr rust
 
 #### `insert`
 
 Allows us to modify the storage by inserting a note into the `PrivateSet`:
 
-#include_code private_set_insert /noir-projects/noir-contracts/contracts/test/pending_note_hashes_contract/src/main.nr rust
+#include_code private_set_insert /noir-projects/labs/noir-contracts/contracts/test/pending_note_hashes_contract/src/main.nr rust
 
 Note: The `Owned` wrapper requires calling `.at(owner)` to access the underlying `PrivateSet` for a specific owner. This binds the owner to the state variable instance.
 
@@ -436,13 +436,13 @@ Note: The `Owned` wrapper requires calling `.at(owner)` to access the underlying
 
 Retrieves notes the account has access to. You can optionally provide filtering options. Returns `ConfirmedNote` instances:
 
-#include_code private_set_get_notes /noir-projects/noir-contracts/contracts/test/pending_note_hashes_contract/src/main.nr rust
+#include_code private_set_get_notes /noir-projects/labs/noir-contracts/contracts/test/pending_note_hashes_contract/src/main.nr rust
 
 #### `pop_notes`
 
 This function pops (gets, removes and returns) the notes the account has access to. Unlike `get_notes`, this immediately nullifies the notes and returns them directly (not wrapped in `ConfirmedNote`):
 
-#include_code private_set_pop_notes /noir-projects/noir-contracts/contracts/test/pending_note_hashes_contract/src/main.nr rust
+#include_code private_set_pop_notes /noir-projects/labs/noir-contracts/contracts/test/pending_note_hashes_contract/src/main.nr rust
 
 #### `remove`
 

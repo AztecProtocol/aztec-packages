@@ -5,8 +5,8 @@ tags: [Developers, Contracts, Notes, Privacy]
 description: Using partial notes as a recipient's offer to be paid, enabling naming-service style flows with no recipient action at payment time.
 references:
   [
-    "noir-projects/aztec-nr/uint-note/src/uint_note.nr",
-    "noir-projects/aztec-nr/aztec/src/messages/discovery/partial_notes.nr",
+    "noir-projects/labs/aztec-nr/uint-note/src/uint_note.nr",
+    "noir-projects/labs/aztec-nr/aztec/src/messages/discovery/partial_notes.nr",
   ]
 ---
 

@@ -3,7 +3,7 @@ title: Proving historic state
 sidebar_position: 15
 tags: [contracts]
 description: Prove historical notes, nullifiers, contract deployment, and public storage in your Aztec smart contracts.
-references: ["noir-projects/noir-contracts/contracts/app/claim_contract/src/main.nr"]
+references: ["noir-projects/labs/noir-contracts/contracts/app/claim_contract/src/main.nr"]
 ---
 
 This guide shows you how to prove facts about Aztec's historical state from inside a private function: that a note existed, that a nullifier was or wasn't present, that a contract was deployed, or what a public storage slot held at a past block.
@@ -28,7 +28,7 @@ You can create proofs for these elements at any past block height:
 Common use cases:
 - Verify ownership of an asset from another contract without revealing which specific note
 - Prove eligibility based on historical state (e.g., "owned tokens at block X")
-- Claim rewards based on past contributions (see the [claim contract](https://github.com/AztecProtocol/aztec-packages/blob/#include_aztec_version/noir-projects/noir-contracts/contracts/app/claim_contract/src/main.nr) for a complete example)
+- Claim rewards based on past contributions (see the [claim contract](https://github.com/AztecProtocol/aztec-packages/blob/#include_aztec_version/noir-projects/labs/noir-contracts/contracts/app/claim_contract/src/main.nr) for a complete example)
 
 ## Choosing a block header
 
@@ -45,11 +45,11 @@ Producing these proofs requires the historical state trees (note hashes, nullifi
 
 Import the function:
 
-#include_code history_import noir-projects/noir-contracts/contracts/app/claim_contract/src/main.nr rust
+#include_code history_import noir-projects/labs/noir-contracts/contracts/app/claim_contract/src/main.nr rust
 
 Prove a note exists in the note hash tree:
 
-#include_code prove_note_inclusion noir-projects/noir-contracts/contracts/app/claim_contract/src/main.nr rust
+#include_code prove_note_inclusion noir-projects/labs/noir-contracts/contracts/app/claim_contract/src/main.nr rust
 
 ## Prove note validity
 

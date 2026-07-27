@@ -3,7 +3,7 @@ title: Call Types
 sidebar_position: 6
 tags: [calls, contracts, execution]
 description: Understand the different types of contract calls in Aztec, including private and public execution modes, and how they compare to Ethereum's call types.
-references: ["noir-projects/noir-contracts/contracts/app/auth_contract/src/main.nr", "noir-projects/noir-contracts/contracts/app/crowdfunding_contract/src/main.nr", "noir-projects/noir-contracts/contracts/app/lending_contract/src/main.nr", "noir-projects/noir-contracts/contracts/fees/fpc_contract/src/main.nr", "yarn-project/end-to-end/src/automine/card_game.test.ts", "yarn-project/end-to-end/src/automine/token/crowdfunding_and_claim.test.ts"]
+references: ["noir-projects/labs/noir-contracts/contracts/app/auth_contract/src/main.nr", "noir-projects/labs/noir-contracts/contracts/app/crowdfunding_contract/src/main.nr", "noir-projects/labs/noir-contracts/contracts/app/lending_contract/src/main.nr", "noir-projects/labs/noir-contracts/contracts/fees/fpc_contract/src/main.nr", "yarn-project/end-to-end/src/automine/card_game.test.ts", "yarn-project/end-to-end/src/automine/token/crowdfunding_and_claim.test.ts"]
 
 ---
 
@@ -122,7 +122,7 @@ Contract functions marked with `#[external("private")]` can only be called priva
 
 Private functions from other contracts can be called either regularly or statically by using `self.call()` and `self.view()`. They will also be 'executed' (i.e. proved) in the user's device, and `self.view()` will fail if any state changes are attempted (like the EVM's `STATICCALL`).
 
-#include_code private_call /noir-projects/noir-contracts/contracts/app/lending_contract/src/main.nr rust
+#include_code private_call /noir-projects/labs/noir-contracts/contracts/app/lending_contract/src/main.nr rust
 
 Unlike the EVM however, private execution doesn't revert in the traditional way: in case of error (e.g. a failed assertion, a state changing operation in a static context, etc.) the proof generation simply fails and no transaction request is generated, spending no network gas or user funds.
 
@@ -132,13 +132,13 @@ Since public execution can only be performed by the sequencer, public functions 
 
 Since the public call is made asynchronously, any return values or side effects are not available during private execution. If the public function fails once executed, the entire transaction is reverted including state changes caused by the private part, such as new notes or nullifiers. Note that this does result in gas being spent, like in the case of the EVM.
 
-#include_code enqueue_public /noir-projects/noir-contracts/contracts/app/lending_contract/src/main.nr rust
+#include_code enqueue_public /noir-projects/labs/noir-contracts/contracts/app/lending_contract/src/main.nr rust
 
 It is also possible to create public functions that can _only_ be invoked by privately enqueueing a call from the same contract, which can be very useful to update public state after private execution (e.g. update a token's supply after privately minting). This is achieved by annotating functions with `#[only_self]`.
 
 A common pattern is to enqueue public calls to check some validity condition on public state, e.g. that a deadline has not expired or that some public value is set.
 
-#include_code enqueueing /noir-projects/aztec-nr/aztec/src/public_checks.nr rust
+#include_code enqueueing /noir-projects/labs/aztec-nr/aztec/src/public_checks.nr rust
 
 Note that this reveals what public function is being called on what contract, and perhaps more importantly which contract enqueued the call during private execution.
 To prevent this you can enqueue a call to a public function using `self.enqueue_incognito` that behaves the same as `self.enqueue` but conceals the message sender.
@@ -148,15 +148,15 @@ By having these checks on a contract shared between apps the privacy set increas
 
 An example of how a deadline can be checked using the `PublicChecks` contract follows:
 
-#include_code call-check-deadline /noir-projects/noir-contracts/contracts/app/crowdfunding_contract/src/main.nr rust
+#include_code call-check-deadline /noir-projects/labs/noir-contracts/contracts/app/crowdfunding_contract/src/main.nr rust
 
 `privately_check_timestamp` and `privately_check_block_number` are helper functions around the call to the `PublicChecks` contract:
 
-#include_code helper_public_checks_functions /noir-projects/aztec-nr/aztec/src/public_checks.nr rust
+#include_code helper_public_checks_functions /noir-projects/labs/aztec-nr/aztec/src/public_checks.nr rust
 
 This is what the implementation of the check timestamp functionality looks like:
 
-#include_code check_timestamp /noir-projects/noir-contracts/contracts/standard/public_checks_contract/src/main.nr rust
+#include_code check_timestamp /noir-projects/labs/noir-contracts/contracts/standard/public_checks_contract/src/main.nr rust
 
 :::note
 The `PublicChecks` contract is not part of the [aztec-nr repository](https://github.com/AztecProtocol/aztec-nr).
@@ -164,7 +164,7 @@ To add it as a dependency, point to the aztec-packages repository:
 
 ```toml
 [dependencies]
-public_checks = { git = "https://github.com/AztecProtocol/aztec-packages/", tag = "#include_aztec_version", directory = "noir-projects/noir-contracts/contracts/standard/public_checks_contract" }
+public_checks = { git = "https://github.com/AztecProtocol/aztec-packages/", tag = "#include_aztec_version", directory = "noir-projects/labs/noir-contracts/contracts/standard/public_checks_contract" }
 ```
 
 :::
@@ -185,7 +185,7 @@ Since private calls are always run in a user's device, it is not possible to per
 
 Public functions in other contracts can be called both regularly and statically, just like on the EVM.
 
-#include_code public_call /noir-projects/noir-contracts/contracts/fees/fpc_contract/src/main.nr rust
+#include_code public_call /noir-projects/labs/noir-contracts/contracts/fees/fpc_contract/src/main.nr rust
 
 :::note
 Public functions can be called either directly in a public context (as shown above), or asynchronously by enqueuing from a private context (as shown in the [Public Calls](#public-calls) section).

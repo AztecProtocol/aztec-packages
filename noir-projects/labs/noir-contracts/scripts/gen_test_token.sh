@@ -75,7 +75,7 @@ if $check; then
   gen_into "$tmp"
   if ! diff -ruN "$DST" "$tmp" >/dev/null; then
     echo "ERROR: $DST is out of sync with canonical Token." >&2
-    echo "Run noir-projects/noir-contracts/scripts/gen_test_token.sh and commit the result." >&2
+    echo "Run noir-projects/labs/noir-contracts/scripts/gen_test_token.sh and commit the result." >&2
     diff -ruN "$DST" "$tmp" >&2 || true
     exit 1
   fi

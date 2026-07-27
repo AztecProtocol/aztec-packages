@@ -3,7 +3,7 @@ title: Attributes and Macros
 sidebar_position: 6
 tags: [functions]
 description: Reference for Aztec contract attributes that control function visibility, execution context, storage, and notes.
-references: ["noir-projects/noir-contracts/contracts/app/token_contract/src/main.nr"]
+references: ["noir-projects/labs/noir-contracts/contracts/app/token_contract/src/main.nr"]
 ---
 
 This page documents the attributes (macros) available in Aztec.nr for defining contract functions, storage, and notes.
@@ -60,7 +60,7 @@ Utility functions perform state queries from an offchain client and are never in
 
 A reasonable mental model is a Solidity `view` function that can only be invoked via `eth_call`, never in a transaction. Unlike Solidity `view` functions, utility functions can also modify local offchain PXE state.
 
-#include_code balance_of_private /noir-projects/noir-contracts/contracts/app/token_contract/src/main.nr rust
+#include_code balance_of_private /noir-projects/labs/noir-contracts/contracts/app/token_contract/src/main.nr rust
 
 :::info
 Utility functions can access both private and historical public data since they're not part of transactions—there's no risk of using stale or unverified state.
@@ -76,7 +76,7 @@ All data inserted into private storage from a public function will be publicly v
 
 To create a public function you can annotate it with the `#[external("public")]` attribute. This will make the public context available within the function's execution scope.
 
-#include_code set_minter /noir-projects/noir-contracts/contracts/app/token_contract/src/main.nr rust
+#include_code set_minter /noir-projects/labs/noir-contracts/contracts/app/token_contract/src/main.nr rust
 
 Under the hood, the macro:
 

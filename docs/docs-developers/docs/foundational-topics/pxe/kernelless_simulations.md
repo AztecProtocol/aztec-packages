@@ -63,7 +63,7 @@ For the cheat that simulates a contract as if it had already been upgraded to a 
 
 The stub-account pattern is the standard way to drive a kernelless simulation without authwit prompts.
 
-The Noir sources live at `noir-projects/noir-contracts/contracts/account/simulated_schnorr_account_contract/` and `simulated_ecdsa_account_contract/`. Both implement `is_valid` to always return `IS_VALID_SELECTOR`, so authwit validity checks pass without a real signature. Their constructors deliberately emit the same shape of side effects as the real account contracts (one nullifier for the contract init, one nullifier for the `SinglePrivateImmutable` signing-key state, one note hash for the key note, and a private log) so that gas estimation against the stub produces the same numbers as the real account.
+The Noir sources live at `noir-projects/labs/noir-contracts/contracts/account/simulated_schnorr_account_contract/` and `simulated_ecdsa_account_contract/`. Both implement `is_valid` to always return `IS_VALID_SELECTOR`, so authwit validity checks pass without a real signature. Their constructors deliberately emit the same shape of side effects as the real account contracts (one nullifier for the contract init, one nullifier for the `SinglePrivateImmutable` signing-key state, one note hash for the key note, and a private log) so that gas estimation against the stub produces the same numbers as the real account.
 
 ## Authwit requests come from the app, not the stub
 

@@ -103,7 +103,7 @@ function verify_ivc_flow {
   set +e
 
   # Extract VK bytes from JSON artifacts and convert to binary
-  local circuits_target="../../noir-projects/noir-protocol-circuits/target"
+  local circuits_target="../../noir-projects/fnd/noir-protocol-circuits/target"
   local rollup_vk_json="$circuits_target/hiding_kernel_to_rollup.json"
   local public_vk_json="$circuits_target/hiding_kernel_to_public.json"
   if [[ ! -f "$rollup_vk_json" || ! -f "$public_vk_json" ]]; then
@@ -111,7 +111,7 @@ function verify_ivc_flow {
     echo_stderr "Rerun with: barretenberg/cpp/scripts/ci_benchmark_ivc_flows.sh $runtime '$(pinned_chonk_inputs_dir)/$flow'"
     if [[ "${CI:-0}" == "1" || "${REQUIRE_IVC_FLOW_KEY_VERIFY:-0}" == "1" ]]; then
       echo_stderr "Verification key artifacts are missing under $circuits_target."
-      echo_stderr "Build noir-projects/noir-protocol-circuits before running this benchmark."
+      echo_stderr "Build noir-projects/fnd/noir-protocol-circuits before running this benchmark."
       exit 1
     fi
     echo "proof completed; protocol VK check skipped because $circuits_target has not been built."
@@ -138,7 +138,7 @@ function verify_ivc_flow {
     exit 1
   fi
   if [[ $private_result -ne 0 ]] && [[ $public_result -ne 0 ]]; then
-    echo_stderr "Verification failed for $flow. Did not verify with precalculated verification key - we may need to revisit how it is generated in noir-projects/noir-protocol-circuits."
+    echo_stderr "Verification failed for $flow. Did not verify with precalculated verification key - we may need to revisit how it is generated in noir-projects/fnd/noir-protocol-circuits."
     exit 1
   fi
   echo "protocol VK check passed."

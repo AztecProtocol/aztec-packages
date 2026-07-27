@@ -3,7 +3,7 @@ title: Transactions
 sidebar_position: 3
 tags: [protocol]
 description: Comprehensive guide to the Aztec transaction lifecycle, covering private execution, PXE interactions, kernel circuits, and the step-by-step process from user request to L1 settlement.
-references: ["noir-projects/noir-contracts/contracts/account/ecdsa_k_account_contract/*", "yarn-project/aztec.js/src/contract/*", "yarn-project/stdlib/src/tx/*"]
+references: ["noir-projects/labs/noir-contracts/contracts/account/ecdsa_k_account_contract/*", "yarn-project/aztec.js/src/contract/*", "yarn-project/stdlib/src/tx/*"]
 ---
 
 import Image from '@theme/IdealImage';
@@ -66,7 +66,7 @@ The `TxExecutionRequest` class:
 
 An account contract validates that the transaction request has been authorized via its specified authorization mechanism, via the `is_valid_impl` function. Here is an example using an ECDSA signature:
 
-#include_code is_valid_impl noir-projects/noir-contracts/contracts/account/ecdsa_k_account_contract/src/main.nr rust
+#include_code is_valid_impl noir-projects/labs/noir-contracts/contracts/account/ecdsa_k_account_contract/src/main.nr rust
 
 Transaction requests are simulated in the PXE in order to generate the necessary inputs for generating proofs. Once transactions are proven, a `Tx` object is created and can be sent to the network to be included in a block:
 

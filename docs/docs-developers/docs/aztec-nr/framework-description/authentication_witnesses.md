@@ -3,7 +3,7 @@ title: Authentication Witnesses
 description: Enable contracts to execute actions on behalf of user accounts using authentication witnesses.
 tags: [accounts, authwit]
 sidebar_position: 11
-references: ["noir-projects/noir-contracts/contracts/app/token_contract/src/main.nr", "noir-projects/noir-contracts/contracts/app/uniswap_contract/src/main.nr"]
+references: ["noir-projects/labs/noir-contracts/contracts/app/token_contract/src/main.nr", "noir-projects/labs/noir-contracts/contracts/app/uniswap_contract/src/main.nr"]
 ---
 
 Authentication witnesses (authwit) allow other contracts to execute actions on behalf of your account. This guide shows you how to implement and use authwits in your Aztec smart contracts.
@@ -38,11 +38,11 @@ The `#[authorize_once]` macro validates that a caller has authorization from the
 
 ### Private function example
 
-#include_code transfer_in_private noir-projects/noir-contracts/contracts/app/token_contract/src/main.nr rust
+#include_code transfer_in_private noir-projects/labs/noir-contracts/contracts/app/token_contract/src/main.nr rust
 
 ### Public function example
 
-#include_code transfer_in_public noir-projects/noir-contracts/contracts/app/token_contract/src/main.nr rust
+#include_code transfer_in_public noir-projects/labs/noir-contracts/contracts/app/token_contract/src/main.nr rust
 
 The macro parameters specify:
 
@@ -53,7 +53,7 @@ The macro parameters specify:
 
 When a contract needs to authorize another contract to act on its behalf, use `set_authorized` to update the auth registry. This is common in bridge contracts where contract A authorizes contract B to perform actions.
 
-#include_code authwit_uniswap_set noir-projects/noir-contracts/contracts/app/uniswap_contract/src/main.nr rust
+#include_code authwit_uniswap_set noir-projects/labs/noir-contracts/contracts/app/uniswap_contract/src/main.nr rust
 
 Key steps:
 
@@ -67,7 +67,7 @@ When authorization and consumption happen in the same transaction, state changes
 
 Users can revoke an authwit before it's used by emitting its nullifier:
 
-#include_code cancel_authwit noir-projects/noir-contracts/contracts/app/token_contract/src/main.nr rust
+#include_code cancel_authwit noir-projects/labs/noir-contracts/contracts/app/token_contract/src/main.nr rust
 
 :::note
 The cancel transaction must be finalized before any transaction attempts to use the authwit. If both are pending simultaneously, the outcome depends on which the sequencer includes first.

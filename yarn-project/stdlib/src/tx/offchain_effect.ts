@@ -2,7 +2,7 @@ import { Fr } from '@aztec/foundation/curves/bn254';
 
 import type { AztecAddress } from '../aztec-address/index.js';
 
-// The following identifier was copied over from `noir-projects/aztec-nr/aztec/src/messages/offchain_messages.nr`.
+// The following identifier was copied over from `noir-projects/labs/aztec-nr/aztec/src/messages/offchain_messages.nr`.
 // poseidon2hash("aztecnr_offchain_message")
 export const OFFCHAIN_MESSAGE_IDENTIFIER: Fr = new Fr(
   6023466688192654631553769360478808766602235351827869819420284624004071427516n,

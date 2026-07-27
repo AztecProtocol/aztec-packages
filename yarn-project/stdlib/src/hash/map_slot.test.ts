@@ -17,7 +17,7 @@ describe('Map slot', () => {
 
     // Run with AZTEC_GENERATE_TEST_DATA=1 to update noir test data
     updateInlineTestData(
-      'noir-projects/noir-protocol-circuits/crates/types/src/storage/map.nr',
+      'noir-projects/fnd/noir-protocol-circuits/crates/types/src/storage/map.nr',
       'slot_from_typescript',
       slot.toString(),
     );

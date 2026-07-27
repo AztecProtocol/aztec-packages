@@ -18,38 +18,38 @@ Use the scripts instead of open-coding URLs, hashes, temp paths, or bucket listi
 
 A bb/proof-system change that rotates VKs touches THREE tracked pins, and all of them feed the captured Chonk flows:
 
-- The mock artifact pin `noir-projects/mock-protocol-circuits/pinned-build.tar.gz` freezes mock protocol circuit bytecode and VKs used by Chonk fixture capture.
-- The standard-contracts pin `noir-projects/noir-contracts/pinned-standard-contracts.tar.gz` freezes the `contracts/standard/` artifacts with their precomputed VKs and deterministic addresses. `noir-contracts/bootstrap.sh build` extracts it and excludes `standard/` from recompilation, so these VKs only refresh via `pin-standard-build` (step 5).
+- The mock artifact pin `noir-projects/fnd/mock-protocol-circuits/pinned-build.tar.gz` freezes mock protocol circuit bytecode and VKs used by Chonk fixture capture.
+- The standard-contracts pin `noir-projects/labs/noir-contracts/pinned-standard-contracts.tar.gz` freezes the `contracts/standard/` artifacts with their precomputed VKs and deterministic addresses. `noir-contracts/bootstrap.sh build` extracts it and excludes `standard/` from recompilation, so these VKs only refresh via `pin-standard-build` (step 5).
 - The Chonk flow pin `barretenberg/cpp/scripts/chonk-inputs.hash` points to the S3 tarball of captured `ivc-inputs.msgpack` flows. Those msgpacks embed bytecode, witnesses, circuit kinds, and precomputed VKs — including the standard-contract VKs above, so the standard-contracts pin must be correct *before* recapturing flows.
 
-`noir-projects/noir-protocol-circuits/pinned-build.tar.gz` is not a current tracked pin on the `next` line. `noir-projects/bootstrap.sh pin-build` may generate it as untracked local build output; do not commit it unless intentionally reintroducing that large artifact pin.
+`noir-projects/fnd/noir-protocol-circuits/pinned-build.tar.gz` is not a current tracked pin on the `next` line. `noir-projects/bootstrap.sh pin-build` may generate it as untracked local build output; do not commit it unless intentionally reintroducing that large artifact pin.
 
 If a bb/proof-system change can affect VKs, refresh in this order:
 
-1. Rebuild the AVM-enabled bb binary so the regenerated VKs reflect the change. `cmake --build build --target bb` is not enough: `noir-projects/noir-protocol-circuits/bootstrap.sh` resolves the bb binary via `barretenberg/cpp/scripts/find-bb`, which returns `bb-avm` (not `bb`) unless `AVM=0`. From `barretenberg/cpp/`:
+1. Rebuild the AVM-enabled bb binary so the regenerated VKs reflect the change. `cmake --build build --target bb` is not enough: `noir-projects/fnd/noir-protocol-circuits/bootstrap.sh` resolves the bb binary via `barretenberg/cpp/scripts/find-bb`, which returns `bb-avm` (not `bb`) unless `AVM=0`. From `barretenberg/cpp/`:
    ```bash
    cmake --preset default -DAVM=ON
    cmake --build build --target bb-avm
    ```
 2. Repin Noir artifacts with the AVM-enabled binary: `./bootstrap.sh pin-build` from `noir-projects/`. Do not set `AVM=0` — the `*-tx-base-public` circuits verify an AVM proof, so non-AVM `bb` fails their VK generation with "AVM recursion is not supported in this build". Because pin-build runs under `set +e`, that failure does not abort the run; it silently archives an incomplete `pinned-build.tar.gz` with stale/missing VKs.
-3. Keep the tracked `noir-projects/mock-protocol-circuits/pinned-build.tar.gz` diff.
-4. Remove the generated untracked `noir-projects/noir-protocol-circuits/pinned-build.tar.gz` unless intentionally reintroducing that large pin.
+3. Keep the tracked `noir-projects/fnd/mock-protocol-circuits/pinned-build.tar.gz` diff.
+4. Remove the generated untracked `noir-projects/fnd/noir-protocol-circuits/pinned-build.tar.gz` unless intentionally reintroducing that large pin.
 5. Repin the standard contracts **iteratively, and regenerate their address stamps**. A stale standard-contracts pin surfaces as a "Computed VK differs from precomputed VK" mismatch on a `standard/` contract function during chonk capture verification. Repinning is not a single command: `pin-standard-build` compiles the standard contracts against the *current* `standard_addresses.nr` and tarballs them — it does NOT regenerate the stamps, and standard contracts can reference each other's deterministic addresses. Because a contract's address depends on its bytecode, which depends on the addresses it embeds, you must repeat the re-pin + stamp-regeneration until a round changes nothing (the addresses stop moving):
    ```bash
-   cd noir-projects/noir-contracts
+   cd noir-projects/labs/noir-contracts
    # repeat this pair until `generate` makes no change (exits 0, no "Changed values"):
    BB=$(realpath ../../barretenberg/cpp/build/bin/bb-avm) ./bootstrap.sh pin-standard-build
    (cd ../../yarn-project && yarn workspace @aztec/standard-contracts generate)   # rewrites stamps; exits non-zero on drift
    ```
    `BB` defaults to non-AVM `bb`; set it to `bb-avm` explicitly. Once converged, run `noir-projects/bootstrap.sh` once to recompile dependents against the final addresses, then commit the pin **together with** the three regenerated stamp files:
    - `yarn-project/standard-contracts/src/standard_contract_data.ts`
-   - `noir-projects/aztec-nr/aztec/src/standard_addresses.nr`
-   - `noir-projects/noir-contracts/contracts/protocol/aztec_sublib/src/standard_addresses.nr`
+   - `noir-projects/labs/aztec-nr/aztec/src/standard_addresses.nr`
+   - `noir-projects/fnd/noir-contracts/contracts/protocol/aztec_sublib/src/standard_addresses.nr`
 
    Two failure modes if you cut corners: skipping the stamp regen rotates the contract addresses out from under the committed stamps → a cascade of contract-class / "address not updated" failures; stopping before the addresses stabilize leaves a pinned contract calling another standard contract's *previous* address → e2e capture aborts with `Function artifact not found for contract 0x…` during flow execution.
 6. Recapture and upload Chonk flows with `barretenberg/cpp/scripts/chonk_inputs.sh update` (only after step 5 is committed, since the capture embeds the standard-contract VKs).
 
-After pin-build, sanity-check that the tracked tarball is a full pin, not the empty/incomplete shell a silent failure leaves behind: `tar tzf noir-projects/mock-protocol-circuits/pinned-build.tar.gz | grep -c '\.json$'` should list every circuit (a 400-byte tarball containing only `./` and `./keys/` means the build produced nothing).
+After pin-build, sanity-check that the tracked tarball is a full pin, not the empty/incomplete shell a silent failure leaves behind: `tar tzf noir-projects/fnd/mock-protocol-circuits/pinned-build.tar.gz | grep -c '\.json$'` should list every circuit (a 400-byte tarball containing only `./` and `./keys/` means the build produced nothing).
 
 A refreshed Chonk flow pin alone can still contain stale VKs if the capture used stale Noir artifacts. `ChonkPinnedIvcInputsTest.AllPinnedFlows` uses the embedded VKs with the default policy, so stale VKs may surface later as generated-proof verification failure rather than the explicit `chonk_inputs.sh check` VK-mismatch message.
 

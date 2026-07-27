@@ -578,7 +578,7 @@ function release {
     barretenberg/rust
     noir
     l1-contracts
-    noir-projects/aztec-nr
+    noir-projects/labs/aztec-nr
     protocol/constants-codegen
     yarn-project
     boxes

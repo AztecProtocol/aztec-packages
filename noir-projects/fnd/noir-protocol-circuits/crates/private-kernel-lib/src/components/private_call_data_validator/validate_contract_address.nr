@@ -212,7 +212,7 @@ pub fn validate_contract_address(
 /// Returns the updated class_id if the contract has been updated, or a ContractClassId::empty()
 /// otherwise.
 ///
-/// See `noir-projects/noir-contracts/protocol/contract_instance_registry_contract/src/main.nr` for the ContractInstanceRegistry and its storage layout.
+/// See `noir-projects/labs/noir-contracts/protocol/contract_instance_registry_contract/src/main.nr` for the ContractInstanceRegistry and its storage layout.
 fn get_updated_contract_class_id(
     contract_address: AztecAddress,
     anchor_block_header: BlockHeader,

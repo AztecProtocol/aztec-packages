@@ -23,7 +23,7 @@ project_name=$(basename "$PWD")
 # Hash of the entire protocol circuits.
 # Needed for test hash, as we presently don't have a program hash for each individual test.
 # Means if anything within the dir changes, the tests will rerun.
-export circuits_hash=$(hash_str "$NOIR_HASH" $(cache_content_hash "^noir-projects/$project_name/crates/" "^noir-projects/noir-protocol-circuits/bootstrap.sh"))
+export circuits_hash=$(hash_str "$NOIR_HASH" $(cache_content_hash "^noir-projects/$project_name/crates/" "^noir-projects/fnd/noir-protocol-circuits/bootstrap.sh"))
 
 # Circuits matching these patterns we have chonk keys computed, rather than ultra-honk.
 # Each entry is `{ pattern, kind }` where kind ∈ {app, kernel, hiding}. The kind is forwarded to
@@ -63,7 +63,7 @@ function compile {
   # echo_stderr $program_hash_cmd
   local program_hash=$(dump_fail "$program_hash_cmd")
   echo_stderr "Hash preimage: $NOIR_HASH-$program_hash"
-  local hash=$(hash_str "$NOIR_HASH-$program_hash" $(cache_content_hash "^noir-projects/noir-protocol-circuits/bootstrap.sh"))
+  local hash=$(hash_str "$NOIR_HASH-$program_hash" $(cache_content_hash "^noir-projects/fnd/noir-protocol-circuits/bootstrap.sh"))
   # Note: an edge case: If you change the name of a circuit public input, but don't change any of the
   # circuit's bytecode, then this bootstrap script will not re-compile the circuits. You can force a
   # re-compilation by temporarily replacing $NOIR_HASH on the above two lines with:
@@ -280,7 +280,7 @@ function test_cmds {
   "
   nargo_root_rel=$(realpath --relative-to=$root $NARGO)
   for circuit in $circuits_to_execute; do
-    echo "$circuits_hash $nargo_root_rel execute --program-dir noir-projects/noir-protocol-circuits/crates/$circuit --silence-warnings  --skip-brillig-constraints-check"
+    echo "$circuits_hash $nargo_root_rel execute --program-dir noir-projects/fnd/noir-protocol-circuits/crates/$circuit --silence-warnings  --skip-brillig-constraints-check"
   done
 }
 
@@ -294,7 +294,7 @@ function format {
 }
 
 function bench_cmds {
-  prefix="$circuits_hash noir-projects/noir-protocol-circuits/scripts/run_bench.sh"
+  prefix="$circuits_hash noir-projects/fnd/noir-protocol-circuits/scripts/run_bench.sh"
   for artifact in ./target/*.json; do
     [[ "$artifact" =~ _simulated ]] && continue
     if echo "$artifact" | grep -qEf <(printf '%s\n' "${ivc_patterns[@]}"); then

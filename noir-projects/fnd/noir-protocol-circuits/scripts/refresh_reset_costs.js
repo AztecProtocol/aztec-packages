@@ -9,7 +9,7 @@
 //
 // Prerequisites:
 //   - barretenberg `bb` binary built (../../barretenberg/cpp/build/bin/bb)
-//   - Catalog variants compiled (run noir-projects/noir-protocol-circuits/bootstrap.sh)
+//   - Catalog variants compiled (run noir-projects/fnd/noir-protocol-circuits/bootstrap.sh)
 //
 // Usage:
 //   node scripts/refresh_reset_costs.js            # measure and rewrite the config

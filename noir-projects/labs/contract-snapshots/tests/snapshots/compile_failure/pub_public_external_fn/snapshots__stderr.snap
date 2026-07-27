@@ -12,8 +12,8 @@ error: A function marked as #[external("public")] or #[internal("public")] must 
     1: ?
             at src/main.nr:8:5
     2: external
-            at <repo>/noir-projects/aztec-nr/aztec/src/macros/functions/mod.nr:<line>:<col>
+            at <repo>/noir-projects/labs/aztec-nr/aztec/src/macros/functions/mod.nr:<line>:<col>
     3: assert_valid_public
-            at <repo>/noir-projects/aztec-nr/aztec/src/macros/functions/mod.nr:<line>:<col>
+            at <repo>/noir-projects/labs/aztec-nr/aztec/src/macros/functions/mod.nr:<line>:<col>
 
 Aborting due to 1 previous error

@@ -9,7 +9,7 @@ export NARGO=${NARGO:-../../noir/noir-repo/target/release/nargo}
 if [ "${TARGET_BRANCH:-}" = "merge-train/fairies" ]; then
   hash=disabled-cache
 else
-  hash=$(hash_str $(../../noir/bootstrap.sh hash) $(cache_content_hash "^noir-projects/aztec-nr"))
+  hash=$(hash_str $(../../noir/bootstrap.sh hash) $(cache_content_hash "^noir-projects/labs/aztec-nr"))
 fi
 
 function build {
@@ -97,7 +97,7 @@ function release_git_push {
 
   # Update Nargo.toml files to reference noir-protocol-circuits from the monorepo tag
   monorepo_url="https://github.com/AztecProtocol/aztec-packages"
-  monorepo_protocol_circuits_path="noir-projects/noir-protocol-circuits"
+  monorepo_protocol_circuits_path="noir-projects/fnd/noir-protocol-circuits"
 
   # Find all Nargo.toml files that reference noir-protocol-circuits
   nargo_files="$(find . -name 'Nargo.toml' | xargs grep --files-with-matches 'noir-protocol-circuits' || true)"

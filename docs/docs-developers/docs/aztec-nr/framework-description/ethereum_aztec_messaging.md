@@ -3,7 +3,7 @@ title: Ethereum<>Aztec Messaging
 tags: [contracts, portals]
 sidebar_position: 12
 description: Send messages and data between L1 and L2 contracts using portal contracts and cross-chain messaging.
-references: ["l1-contracts/test/portals/TokenPortal.sol", "noir-projects/noir-contracts/contracts/app/token_bridge_contract/src/main.nr"]
+references: ["l1-contracts/test/portals/TokenPortal.sol", "noir-projects/labs/noir-contracts/contracts/app/token_bridge_contract/src/main.nr"]
 ---
 
 This guide covers cross-chain communication between Ethereum (L1) and Aztec (L2) using portal contracts.
@@ -38,9 +38,9 @@ L1 to L2 messages are not available immediately. The proposer batches messages f
 
 Call `consume_l1_to_l2_message` on the context. The `content` must match the hash sent from L1, and the `secret` must be the pre-image of the `secretHash`. Consuming a message emits a nullifier to prevent double-spending.
 
-The content hash must be computed identically on both L1 and L2. Create a shared library for your content hash functions—see [`token_portal_content_hash_lib`](https://github.com/AztecProtocol/aztec-packages/tree/#include_aztec_version/noir-projects/noir-contracts/contracts/app/token_portal_content_hash_lib) for an example.
+The content hash must be computed identically on both L1 and L2. Create a shared library for your content hash functions—see [`token_portal_content_hash_lib`](https://github.com/AztecProtocol/aztec-packages/tree/#include_aztec_version/noir-projects/labs/noir-contracts/contracts/app/token_portal_content_hash_lib) for an example.
 
-#include_code claim_public noir-projects/noir-contracts/contracts/app/token_bridge_contract/src/main.nr rust
+#include_code claim_public noir-projects/labs/noir-contracts/contracts/app/token_bridge_contract/src/main.nr rust
 
 This function works in both public and private contexts.
 
@@ -50,7 +50,7 @@ This function works in both public and private contexts.
 
 Call `message_portal` on the context to send messages to your L1 portal:
 
-#include_code exit_to_l1_public noir-projects/noir-contracts/contracts/app/token_bridge_contract/src/main.nr rust
+#include_code exit_to_l1_public noir-projects/labs/noir-contracts/contracts/app/token_bridge_contract/src/main.nr rust
 
 This function works in both public and private contexts.
 
@@ -92,7 +92,7 @@ const witness = await aztecNode.getL2ToL1MembershipWitness(
 ## Example implementations
 
 - [Token Portal (L1)](https://github.com/AztecProtocol/aztec-packages/blob/#include_aztec_version/l1-contracts/test/portals/TokenPortal.sol)
-- [Token Bridge (L2)](https://github.com/AztecProtocol/aztec-packages/blob/#include_aztec_version/noir-projects/noir-contracts/contracts/app/token_bridge_contract/src/main.nr)
+- [Token Bridge (L2)](https://github.com/AztecProtocol/aztec-packages/blob/#include_aztec_version/noir-projects/labs/noir-contracts/contracts/app/token_bridge_contract/src/main.nr)
 
 ## Next steps
 

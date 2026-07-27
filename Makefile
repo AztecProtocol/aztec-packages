@@ -367,28 +367,28 @@ noir-projects-format-check: noir noir-protocol-circuits-variants
 	$(call build,$@,noir-projects,format_check)
 
 noir-protocol-circuits: noir bb-cpp-native noir-projects-format-check
-	$(call build,$@,noir-projects/noir-protocol-circuits)
+	$(call build,$@,noir-projects/fnd/noir-protocol-circuits)
 
 noir-protocol-circuits-tests: noir noir-protocol-circuits
-	$(call test,$@,noir-projects/noir-protocol-circuits)
+	$(call test,$@,noir-projects/fnd/noir-protocol-circuits)
 
 mock-protocol-circuits: noir bb-cpp-native noir-projects-format-check
-	$(call build,$@,noir-projects/mock-protocol-circuits)
+	$(call build,$@,noir-projects/fnd/mock-protocol-circuits)
 
 noir-contracts: noir bb-cpp-native noir-projects-format-check
-	$(call build,$@,noir-projects/noir-contracts)
+	$(call build,$@,noir-projects/labs/noir-contracts)
 
 aztec-nr: noir bb-cpp-native noir-projects-format-check
-	$(call build,$@,noir-projects/aztec-nr)
+	$(call build,$@,noir-projects/labs/aztec-nr)
 
 # These tests are not included in the dep tree.
 # Rather this target must be explicitly called by bootstrap.sh after it's started the txe's.
 noir-projects-txe-tests:
-	$(call test,$@,noir-projects/aztec-nr)
-	$(call test,$@,noir-projects/noir-contracts)
+	$(call test,$@,noir-projects/labs/aztec-nr)
+	$(call test,$@,noir-projects/labs/noir-contracts)
 
 contract-snapshots-tests: noir noir-projects-format-check
-	$(call test,$@,noir-projects/contract-snapshots)
+	$(call test,$@,noir-projects/labs/contract-snapshots)
 
 # Noir Projects - Aggregate target (builds all sub-projects)
 noir-projects: noir-protocol-circuits mock-protocol-circuits noir-contracts aztec-nr

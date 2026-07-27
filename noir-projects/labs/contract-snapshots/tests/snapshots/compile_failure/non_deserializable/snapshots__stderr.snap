@@ -3,7 +3,7 @@ source: tests/snapshots.rs
 expression: stderr
 ---
 error: Contract function 'bad_private_return' returns a value of type NotDeserializable, which does not implement the Deserialize trait. Add #[derive(Deserialize)] to NotDeserializable's declaration.
-    ┌─ <repo>/noir-projects/aztec-nr/aztec/src/macros/utils.nr:<line>:<col>
+    ┌─ <repo>/noir-projects/labs/aztec-nr/aztec/src/macros/utils.nr:<line>:<col>
     │
     │             return_type.implements(deserialize_constraint),
     │             ---------------------------------------------- Assertion failed
@@ -12,10 +12,10 @@ error: Contract function 'bad_private_return' returns a value of type NotDeseria
       1: ?
               at src/main.nr:15:5
       2: external
-              at <repo>/noir-projects/aztec-nr/aztec/src/macros/functions/mod.nr:<line>:<col>
+              at <repo>/noir-projects/labs/aztec-nr/aztec/src/macros/functions/mod.nr:<line>:<col>
 
 error: Parameter '_p' of contract function 'bad_private_param' has type NotDeserializable, which does not implement the Deserialize trait. Add #[derive(Deserialize)] to NotDeserializable's declaration.
-    ┌─ <repo>/noir-projects/aztec-nr/aztec/src/macros/utils.nr:<line>:<col>
+    ┌─ <repo>/noir-projects/labs/aztec-nr/aztec/src/macros/utils.nr:<line>:<col>
     │
     │             param_type.implements(deserialize_constraint),
     │             --------------------------------------------- Assertion failed
@@ -24,10 +24,10 @@ error: Parameter '_p' of contract function 'bad_private_param' has type NotDeser
       1: ?
               at src/main.nr:20:5
       2: external
-              at <repo>/noir-projects/aztec-nr/aztec/src/macros/functions/mod.nr:<line>:<col>
+              at <repo>/noir-projects/labs/aztec-nr/aztec/src/macros/functions/mod.nr:<line>:<col>
 
 error: Contract function 'bad_public_return' returns a value of type NotDeserializable, which does not implement the Deserialize trait. Add #[derive(Deserialize)] to NotDeserializable's declaration.
-    ┌─ <repo>/noir-projects/aztec-nr/aztec/src/macros/utils.nr:<line>:<col>
+    ┌─ <repo>/noir-projects/labs/aztec-nr/aztec/src/macros/utils.nr:<line>:<col>
     │
     │             return_type.implements(deserialize_constraint),
     │             ---------------------------------------------- Assertion failed
@@ -36,10 +36,10 @@ error: Contract function 'bad_public_return' returns a value of type NotDeserial
       1: ?
               at src/main.nr:23:5
       2: external
-              at <repo>/noir-projects/aztec-nr/aztec/src/macros/functions/mod.nr:<line>:<col>
+              at <repo>/noir-projects/labs/aztec-nr/aztec/src/macros/functions/mod.nr:<line>:<col>
 
 error: Parameter '_p' of contract function 'bad_public_param' has type NotDeserializable, which does not implement the Deserialize trait. Add #[derive(Deserialize)] to NotDeserializable's declaration.
-    ┌─ <repo>/noir-projects/aztec-nr/aztec/src/macros/utils.nr:<line>:<col>
+    ┌─ <repo>/noir-projects/labs/aztec-nr/aztec/src/macros/utils.nr:<line>:<col>
     │
     │             param_type.implements(deserialize_constraint),
     │             --------------------------------------------- Assertion failed
@@ -48,10 +48,10 @@ error: Parameter '_p' of contract function 'bad_public_param' has type NotDeseri
       1: ?
               at src/main.nr:28:5
       2: external
-              at <repo>/noir-projects/aztec-nr/aztec/src/macros/functions/mod.nr:<line>:<col>
+              at <repo>/noir-projects/labs/aztec-nr/aztec/src/macros/functions/mod.nr:<line>:<col>
 
 error: Contract function 'bad_utility_return' returns a value of type NotDeserializable, which does not implement the Deserialize trait. Add #[derive(Deserialize)] to NotDeserializable's declaration.
-    ┌─ <repo>/noir-projects/aztec-nr/aztec/src/macros/utils.nr:<line>:<col>
+    ┌─ <repo>/noir-projects/labs/aztec-nr/aztec/src/macros/utils.nr:<line>:<col>
     │
     │             return_type.implements(deserialize_constraint),
     │             ---------------------------------------------- Assertion failed
@@ -60,10 +60,10 @@ error: Contract function 'bad_utility_return' returns a value of type NotDeseria
       1: ?
               at src/main.nr:31:5
       2: external
-              at <repo>/noir-projects/aztec-nr/aztec/src/macros/functions/mod.nr:<line>:<col>
+              at <repo>/noir-projects/labs/aztec-nr/aztec/src/macros/functions/mod.nr:<line>:<col>
 
 error: Parameter '_p' of contract function 'bad_utility_param' has type NotDeserializable, which does not implement the Deserialize trait. Add #[derive(Deserialize)] to NotDeserializable's declaration.
-    ┌─ <repo>/noir-projects/aztec-nr/aztec/src/macros/utils.nr:<line>:<col>
+    ┌─ <repo>/noir-projects/labs/aztec-nr/aztec/src/macros/utils.nr:<line>:<col>
     │
     │             param_type.implements(deserialize_constraint),
     │             --------------------------------------------- Assertion failed
@@ -72,6 +72,6 @@ error: Parameter '_p' of contract function 'bad_utility_param' has type NotDeser
       1: ?
               at src/main.nr:36:5
       2: external
-              at <repo>/noir-projects/aztec-nr/aztec/src/macros/functions/mod.nr:<line>:<col>
+              at <repo>/noir-projects/labs/aztec-nr/aztec/src/macros/functions/mod.nr:<line>:<col>
 
 Aborting due to 6 previous errors

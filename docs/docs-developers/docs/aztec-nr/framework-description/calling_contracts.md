@@ -3,7 +3,7 @@ title: Calling Other Contracts
 sidebar_position: 5
 tags: [functions, contracts, composability]
 description: Call functions in other contracts from your Aztec smart contracts to enable composability.
-references: ["noir-projects/noir-contracts/contracts/app/lending_contract/src/main.nr"]
+references: ["noir-projects/labs/noir-contracts/contracts/app/lending_contract/src/main.nr"]
 ---
 
 This guide shows you how to call functions in other contracts from your Aztec smart contracts.
@@ -14,7 +14,7 @@ Add the contract you want to call to your `Nargo.toml` dependencies:
 
 ```toml
 [dependencies]
-token = { git="https://github.com/AztecProtocol/aztec-packages/", tag="#include_aztec_version", directory="noir-projects/noir-contracts/contracts/app/token_contract" }
+token = { git="https://github.com/AztecProtocol/aztec-packages/", tag="#include_aztec_version", directory="noir-projects/labs/noir-contracts/contracts/app/token_contract" }
 ```
 
 Then import the contract interface at the top of your contract file:
@@ -38,7 +38,7 @@ The pattern is:
 
 ### Private-to-private calls
 
-#include_code private_call /noir-projects/noir-contracts/contracts/app/lending_contract/src/main.nr rust
+#include_code private_call /noir-projects/labs/noir-contracts/contracts/app/lending_contract/src/main.nr rust
 
 ### Public-to-public calls
 

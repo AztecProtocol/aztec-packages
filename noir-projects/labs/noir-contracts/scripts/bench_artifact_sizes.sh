@@ -2,7 +2,7 @@
 # Sizes every compiled noir-contracts artifact and emits github-action-benchmark JSON: per contract,
 # the total on-disk size of the artifact JSON and the size of its decoded public (AVM) bytecode.
 # bench_merge prefixes the metric names with this component's directory, so on the dashboard they
-# appear under "noir-projects/noir-contracts/artifact-size/<contract>/...". Driven by noir-contracts'
+# appear under "noir-projects/labs/noir-contracts/artifact-size/<contract>/...". Driven by noir-contracts'
 # bootstrap.sh bench_cmds.
 set -euo pipefail
 

@@ -64,7 +64,7 @@ describe('TimestampTxValidator', () => {
     // Since at block 1, we skip the expiration check, we expect the tx to be valid even if the expiration timestamp
     // is lower than the current timestamp. For details on why the check is disable for block 1 see the
     // `validate_expiration_timestamp` function in
-    // `noir-projects/noir-protocol-circuits/crates/rollup-lib/src/base/components/validation_requests.nr`.
+    // `noir-projects/fnd/noir-protocol-circuits/crates/rollup-lib/src/base/components/validation_requests.nr`.
     setValidatorAtBlock(BlockNumber(1));
 
     const [badTx] = await makeTxs();

@@ -27,7 +27,7 @@ if [ "$(stat -c %U counter)" != "ubuntu" ]; then
 fi
 
 # "Write" our contract over the scaffold.
-cp -Rf ./aztec-packages/noir-projects/noir-contracts/contracts/test/counter/* counter/
+cp -Rf ./aztec-packages/noir-projects/labs/noir-contracts/contracts/test/counter/* counter/
 cd counter
 sed -i 's|\.\./\.\./\.\./\.\./\.\./|/home/ubuntu/aztec-packages/noir-projects/|g' counter_contract/Nargo.toml counter_test/Nargo.toml
 

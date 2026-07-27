@@ -19,7 +19,7 @@ use types::{
 // functions; and then intelligently figures out which reset circuit variant has the smallest array
 // lengths that would still have capacity to accommodate and iterate-over all of those side-effects.
 //
-// See `noir-projects/noir-protocol-circuits/scripts/generate_variants.js` to understand:
+// See `noir-projects/fnd/noir-protocol-circuits/scripts/generate_variants.js` to understand:
 // - how the circuit variants are generated;
 // - the configuration parameters for the many variants;
 // - where the noir source code for the generated variants is stored.

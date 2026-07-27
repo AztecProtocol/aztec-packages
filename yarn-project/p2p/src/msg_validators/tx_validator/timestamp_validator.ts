@@ -37,7 +37,7 @@ export class TimestampTxValidator<T extends HasTimestampData> implements TxValid
   validateTx(tx: T): Promise<TxValidationResult> {
     const expirationTimestamp = tx.data.expirationTimestamp;
     // If building block 1, we skip the expiration check. For details on why see the `validate_expiration_timestamp`
-    // function in `noir-projects/noir-protocol-circuits/crates/rollup-lib/src/base/components/validation_requests.nr`.
+    // function in `noir-projects/fnd/noir-protocol-circuits/crates/rollup-lib/src/base/components/validation_requests.nr`.
     const buildingBlock1 = this.values.blockNumber === 1;
 
     if (!buildingBlock1 && expirationTimestamp < this.values.timestamp) {

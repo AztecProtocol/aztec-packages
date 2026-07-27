@@ -34,7 +34,7 @@ slots, fixes the wallet, identifies the nightly commit, compiles both contracts,
 starts the bridge server. Test accounts are imported automatically by the fuzzer on each run.
 
 ```bash
-cd noir-projects/protocol-fuzzer
+cd noir-projects/labs/protocol-fuzzer
 bash setup-nightly-sandbox.sh
 ```
 
@@ -180,7 +180,7 @@ NIGHTLY_COMMIT=HEAD  # or the commit hash from step 1
 # Extract aztec-nr and protocol-circuits
 mkdir -p /tmp/nightly-build/side_effect_contract/src
 mkdir -p /tmp/nightly-build/parent_contract/src
-git archive $NIGHTLY_COMMIT -- noir-projects/aztec-nr/ noir-projects/noir-protocol-circuits/ \
+git archive $NIGHTLY_COMMIT -- noir-projects/labs/aztec-nr/ noir-projects/fnd/noir-protocol-circuits/ \
   | tar -x -C /tmp/nightly-build --strip-components=1
 
 # Copy contract sources; fix dependency paths (3 levels -> 1 level deep)

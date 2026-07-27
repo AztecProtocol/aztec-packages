@@ -8,7 +8,7 @@ use crate::protocol::{
 use crate::history::nullifier::{assert_nullifier_did_not_exist_by, assert_nullifier_existed_by};
 use crate::macros::functions::initialization_utils::compute_private_initialization_nullifier;
 
-// This is tested in `noir-projects/noir-contracts/test_contract/src/test.nr because we cannot define a contract from
+// This is tested in `noir-projects/labs/noir-contracts/test_contract/src/test.nr because we cannot define a contract from
 // within aztec.nr (due to the contract macro).
 
 pub fn assert_contract_bytecode_was_published_by(block_header: BlockHeader, contract_address: AztecAddress) {

@@ -164,14 +164,14 @@ rm -rf "$NIGHTLY_BUILD_DIR"
 mkdir -p "${NIGHTLY_BUILD_DIR}/side_effect_contract/src"
 mkdir -p "${NIGHTLY_BUILD_DIR}/parent_contract/src"
 
-git archive "$NIGHTLY_COMMIT" -- noir-projects/aztec-nr/ noir-projects/noir-protocol-circuits/ \
+git archive "$NIGHTLY_COMMIT" -- noir-projects/labs/aztec-nr/ noir-projects/fnd/noir-protocol-circuits/ \
     | tar -x -C "$NIGHTLY_BUILD_DIR" --strip-components=1
 
 # --------------------------------------------------------------------------- #
 # 4. Copy contract source and Nargo.toml files
 # --------------------------------------------------------------------------- #
 
-CONTRACTS_DIR="${REPO_ROOT}/noir-projects/protocol-fuzzer/contracts"
+CONTRACTS_DIR="${REPO_ROOT}/noir-projects/labs/protocol-fuzzer/contracts"
 
 for contract in side_effect_contract parent_contract; do
     if [ ! -f "${CONTRACTS_DIR}/${contract}/src/main.nr" ]; then
@@ -223,7 +223,7 @@ done
 log "Waiting for Aztec Server HTTP endpoint to be ready..."
 wait_for_http http://localhost:8080 120 || die "PXE HTTP endpoint did not recover"
 
-BRIDGE_SRC="${REPO_ROOT}/noir-projects/protocol-fuzzer/wallet-bridge.mjs"
+BRIDGE_SRC="${REPO_ROOT}/noir-projects/labs/protocol-fuzzer/wallet-bridge.mjs"
 if [ ! -f "$BRIDGE_SRC" ]; then
     die "Bridge source not found: ${BRIDGE_SRC}"
 fi
@@ -280,7 +280,7 @@ echo "  export PATH=\"${WRAPPER_DIR}:\$PATH\""
 echo ""
 echo "Then run the fuzzer:"
 echo ""
-echo "  cd noir-projects/protocol-fuzzer"
+echo "  cd noir-projects/labs/protocol-fuzzer"
 echo ""
 echo "  # Side-effect machine"
 echo "  RUST_LOG=debug cargo run -- side-effect --max-steps 5"

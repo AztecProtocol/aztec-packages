@@ -26,7 +26,7 @@ describe('CheckpointHeader', () => {
 
     // Run with AZTEC_GENERATE_TEST_DATA=1 to update noir test data
     updateInlineTestData(
-      'noir-projects/noir-protocol-circuits/crates/types/src/abis/checkpoint_header.nr',
+      'noir-projects/fnd/noir-protocol-circuits/crates/types/src/abis/checkpoint_header.nr',
       'empty_checkpoint_header_hash_from_ts',
       hash,
     );
@@ -53,7 +53,7 @@ describe('CheckpointHeader', () => {
 
     // Run with AZTEC_GENERATE_TEST_DATA=1 to update noir test data
     updateInlineTestData(
-      'noir-projects/noir-protocol-circuits/crates/types/src/abis/checkpoint_header.nr',
+      'noir-projects/fnd/noir-protocol-circuits/crates/types/src/abis/checkpoint_header.nr',
       'checkpoint_header_hash_from_ts',
       hash,
     );
@@ -83,7 +83,7 @@ describe('CheckpointHeader', () => {
 
     // Run with AZTEC_GENERATE_TEST_DATA=1 to update noir test data
     updateInlineTestData(
-      'noir-projects/noir-protocol-circuits/crates/types/src/abis/checkpoint_header.nr',
+      'noir-projects/fnd/noir-protocol-circuits/crates/types/src/abis/checkpoint_header.nr',
       'checkpoint_header_hash_large_values_from_ts',
       hash,
     );

@@ -25,7 +25,7 @@ import { promises as fs } from 'fs';
 import path from 'path';
 
 /** Root of the noir-contracts package relative to `yarn-project/standard-contracts`. */
-export const NOIR_CONTRACTS_ROOT = '../../noir-projects/noir-contracts';
+export const NOIR_CONTRACTS_ROOT = '../../noir-projects/labs/noir-contracts';
 /** Directory holding the freshly-compiled Noir artifacts the generator reads from. */
 export const NOIR_ARTIFACTS_SRC_PATH = path.join(NOIR_CONTRACTS_ROOT, './target');
 /** Output directory inside this package where the trimmed artifacts get copied. */
@@ -35,7 +35,7 @@ export const STANDARD_CONTRACT_DATA_OUTPUT_PATH = './src/standard_contract_data.
 // The `aztec` crate in aztec-nr needs a twin of the generated addresses module stamped into its
 // source so circuits can reference standard-contract addresses at compile time (e.g. authwit and
 // public_checks) without re-hashing at runtime.
-export const NOIR_STANDARD_ADDRESSES_PATHS = ['../../noir-projects/aztec-nr/aztec/src/standard_addresses.nr'];
+export const NOIR_STANDARD_ADDRESSES_PATHS = ['../../noir-projects/labs/aztec-nr/aztec/src/standard_addresses.nr'];
 
 /** The deployment salt baked into every standard contract instance. */
 export const STANDARD_CONTRACT_SALT = new Fr(1);

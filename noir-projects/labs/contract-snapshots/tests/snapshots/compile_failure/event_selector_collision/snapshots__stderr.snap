@@ -12,8 +12,8 @@ error: Event selector collision detected between events 'EventCollision837008225
     1: EventSelectorCollision::#[event]
             at src/main.nr:10:5
     2: event
-            at <repo>/noir-projects/aztec-nr/aztec/src/macros/events.nr:<line>:<col>
+            at <repo>/noir-projects/labs/aztec-nr/aztec/src/macros/events.nr:<line>:<col>
     3: register_event_selector
-            at <repo>/noir-projects/aztec-nr/aztec/src/macros/events.nr:<line>:<col>
+            at <repo>/noir-projects/labs/aztec-nr/aztec/src/macros/events.nr:<line>:<col>
 
 Aborting due to 1 previous error

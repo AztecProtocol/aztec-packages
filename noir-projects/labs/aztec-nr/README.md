@@ -46,7 +46,7 @@ See [here](https://docs.aztec.network/developers/guides/smart_contracts) for mor
 - Create a Noir project
 - Import `aztec-nr` as a dependency
 - Use the various annotations, state variables, and libraries of `aztec-nr` to write your smart contract.
-- See some example contracts [here](https://github.com/AztecProtocol/aztec-packages/tree/master/noir-projects/noir-contracts/contracts).
+- See some example contracts [here](https://github.com/AztecProtocol/aztec-packages/tree/master/noir-projects/labs/noir-contracts/contracts).
 
 
 ## Directory Structure

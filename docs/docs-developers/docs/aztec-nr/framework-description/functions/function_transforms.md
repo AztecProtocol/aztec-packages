@@ -170,4 +170,4 @@ Contract artifacts enable:
 ## Further reading
 
 - [Function attributes and macros](./attributes.md)
-- [Aztec.nr macro source code](https://github.com/AztecProtocol/aztec-packages/tree/#include_aztec_version/noir-projects/aztec-nr/aztec/src/macros) - for those who want to see the actual transformation implementation
+- [Aztec.nr macro source code](https://github.com/AztecProtocol/aztec-packages/tree/#include_aztec_version/noir-projects/labs/aztec-nr/aztec/src/macros) - for those who want to see the actual transformation implementation

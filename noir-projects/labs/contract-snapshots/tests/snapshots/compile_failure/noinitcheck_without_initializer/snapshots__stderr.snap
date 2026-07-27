@@ -12,6 +12,6 @@ error: The #[noinitcheck] attribute is unnecessary for contracts with no #[initi
     1: ?
             at src/main.nr:8:5
     2: noinitcheck
-            at <repo>/noir-projects/aztec-nr/aztec/src/macros/functions/mod.nr:<line>:<col>
+            at <repo>/noir-projects/labs/aztec-nr/aztec/src/macros/functions/mod.nr:<line>:<col>
 
 Aborting due to 1 previous error

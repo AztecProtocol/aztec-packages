@@ -35,7 +35,7 @@ describe('PublicKeys', () => {
 
     // Run with AZTEC_GENERATE_TEST_DATA=1 to update noir test data
     updateInlineTestData(
-      'noir-projects/noir-protocol-circuits/crates/types/src/public_keys.nr',
+      'noir-projects/fnd/noir-protocol-circuits/crates/types/src/public_keys.nr',
       'expected_public_keys_hash',
       hash.toString(),
     );
@@ -51,7 +51,7 @@ describe('PublicKeys', () => {
 
     // Run with AZTEC_GENERATE_TEST_DATA=1 to update noir test data
     updateInlineTestData(
-      'noir-projects/noir-protocol-circuits/crates/types/src/public_keys.nr',
+      'noir-projects/fnd/noir-protocol-circuits/crates/types/src/public_keys.nr',
       'test_data_default_hash',
       hash.toString(),
     );

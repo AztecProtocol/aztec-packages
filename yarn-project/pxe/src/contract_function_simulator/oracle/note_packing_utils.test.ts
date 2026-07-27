@@ -23,7 +23,7 @@ it('packs hinted note', () => {
   // Run with AZTEC_GENERATE_TEST_DATA=1 to update noir test data
   const fieldArrayStr = `[${packed.map(f => f.toString()).join(',')}]`;
   updateInlineTestData(
-    'noir-projects/aztec-nr/aztec/src/note/hinted_note.nr',
+    'noir-projects/labs/aztec-nr/aztec/src/note/hinted_note.nr',
     'packed_hinted_note_from_typescript',
     fieldArrayStr,
   );

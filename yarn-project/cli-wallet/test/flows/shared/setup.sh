@@ -12,7 +12,7 @@ bold="\033[1m"
 # Call our cli-wallet entrypoint as the default command.
 command="${COMMAND:-"node --no-warnings $root/yarn-project/cli-wallet/dest/bin/index.js"}"
 flows=$(pwd)
-cd $root/noir-projects/noir-contracts
+cd $root/noir-projects/labs/noir-contracts
 
 export PXE_PROVER="none"
 

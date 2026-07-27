@@ -45,12 +45,12 @@ function test_cmds {
       hash=$(hash_str \
         $(../../noir/bootstrap.sh hash) \
         $(cache_content_hash \
-            ^noir-projects/contract-snapshots \
-            ^noir-projects/noir-contracts/contracts/app \
-            ^noir-projects/noir-contracts/contracts/test \
-            ^noir-projects/aztec-nr))
+            ^noir-projects/labs/contract-snapshots \
+            ^noir-projects/labs/noir-contracts/contracts/app \
+            ^noir-projects/labs/noir-contracts/contracts/test \
+            ^noir-projects/labs/aztec-nr))
     fi
-    echo "$hash ./noir-projects/contract-snapshots/bootstrap.sh test"
+    echo "$hash ./noir-projects/labs/contract-snapshots/bootstrap.sh test"
 }
 
 case "$cmd" in

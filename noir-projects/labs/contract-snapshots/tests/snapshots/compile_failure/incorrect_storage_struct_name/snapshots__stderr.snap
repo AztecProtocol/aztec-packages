@@ -12,6 +12,6 @@ error: The #[storage] macro can only be applied to a struct with name 'Storage',
     1: IncorrectStorageStructName::#[storage]
             at src/main.nr:8:5
     2: storage
-            at <repo>/noir-projects/aztec-nr/aztec/src/macros/storage.nr:<line>:<col>
+            at <repo>/noir-projects/labs/aztec-nr/aztec/src/macros/storage.nr:<line>:<col>
 
 Aborting due to 1 previous error
