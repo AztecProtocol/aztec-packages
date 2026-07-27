@@ -90,6 +90,12 @@ export type SubTreeResult = {
   previousArchiveSiblingPath: Tuple<Fr, typeof ARCHIVE_HEIGHT>;
 };
 
+/**
+ * The proofs a checkpoint's sub-tree hands to the top tree: the per-block rollup proofs plus the checkpoint's single
+ * variable-size InboxParity proof (parity moved from the first block root to the checkpoint root in AZIP-22 Fast Inbox).
+ */
+export type CheckpointSubTreeProofs = Pick<SubTreeResult, 'blockProofOutputs' | 'inboxParityProof'>;
+
 type TreeSnapshots = Map<MerkleTreeId, AppendOnlyTreeSnapshot>;
 
 /**

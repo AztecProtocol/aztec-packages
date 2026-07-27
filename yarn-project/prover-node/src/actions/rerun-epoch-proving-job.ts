@@ -95,9 +95,9 @@ export async function rerunCheckpointProvingJob(
 
   const prover = await buildCheckpointProver(ctx, 0, log);
   try {
-    const blockProofs = await prover.whenBlockProofsReady();
-    log.info(`Completed proving for checkpoint ${checkpointNumber} with ${blockProofs.length} block proof(s)`);
-    return blockProofs;
+    const { blockProofOutputs } = await prover.whenSubTreeProofsReady();
+    log.info(`Completed proving for checkpoint ${checkpointNumber} with ${blockProofOutputs.length} block proof(s)`);
+    return blockProofOutputs;
   } finally {
     prover.cancel({ routine: true });
     await prover.whenDone();

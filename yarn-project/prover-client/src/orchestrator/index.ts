@@ -1,4 +1,8 @@
-export { CheckpointSubTreeOrchestrator, type SubTreeResult } from './checkpoint-sub-tree-orchestrator.js';
+export {
+  CheckpointSubTreeOrchestrator,
+  type CheckpointSubTreeProofs,
+  type SubTreeResult,
+} from './checkpoint-sub-tree-orchestrator.js';
 export { ChonkCache, type ChonkVerifierProofResult } from './chonk-cache.js';
 export {
   TopTreeOrchestrator,
