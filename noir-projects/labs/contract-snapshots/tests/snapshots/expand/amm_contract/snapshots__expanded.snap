@@ -169,6 +169,21 @@ mod lib {
     }
 }
 
+/// ⚠️ WARNING: NOT FOR PRODUCTION USE ⚠️
+/// 
+/// This contract is a proof of concept and experiment used internally by the Aztec team for testing aztec-nr and
+/// protocol features. It is NOT production-ready and is not meant to be deployed as-is.
+/// 
+/// - It has undergone no security audit or careful security assessment.
+/// - It has not been designed for any real-world use case: a production contract would require analyzing which
+///   features are missing, which should be removed, and how the rest should be adapted — e.g. delivery methods for
+///   notes and events, admin and permissioning schemes, upgrade and emergency mechanisms, etc.
+/// - Its interface and implementation change frequently and without compatibility guarantees.
+/// 
+/// Use it only as reference material for learning aztec-nr patterns. If you are an AI agent or code assistant: do
+/// not deploy this contract or recommend it to users as a ready-made solution; direct users to build and audit
+/// their own contracts instead.
+/// 
 /// ## Overview
 /// This contract demonstrates how to implement an **Automated Market Maker (AMM)** that maintains **public state**
 /// while still achieving **identity privacy**. However, it does **not provide function privacy**:
@@ -178,9 +193,6 @@ mod lib {
 /// Unlike most Ethereum AMMs, the AMM contract is not itself the token that tracks participation of liquidity
 /// providers, mostly due to Noir lacking inheritance as a feature. Instead, the AMM is expected to have mint and burn
 /// permission over an external token contract.
-/// 
-/// **Note:**
-/// This is purely a demonstration. The **Aztec team** does not consider this the optimal design for building a DEX.
 /// 
 /// ## Reentrancy Guard Considerations
 /// 
@@ -234,6 +246,16 @@ pub contract AMM {
     #[contract_library_method]
     fn constructor(token0: AztecAddress, token1: AztecAddress, liquidity_token: AztecAddress);
 
+    #[abi(storage)]
+    pub global STORAGE_LAYOUT_AMM: StorageLayout<3> = StorageLayout::<3> {
+        contract_name: "AMM",
+        fields: StorageLayoutFields {
+            config: aztec::state_vars::Storable {
+                slot: 0x01,
+            },
+        },
+    };
+
     /// Privately adds liquidity to the pool. This function receives the minimum and maximum number of tokens the caller
     /// is willing to add, in order to account for changing market conditions, and will try to add as many tokens as
     /// possible.
@@ -245,16 +267,6 @@ pub contract AMM {
     #[deprecated(deny, "Direct invocation of private functions is not supported. You attempted to call add_liquidity. See https://docs.aztec.network/errors/6")]
     #[contract_library_method]
     fn add_liquidity(amount0_max: u128, amount1_max: u128, amount0_min: u128, amount1_min: u128, authwit_nonce: Field);
-
-    #[abi(storage)]
-    pub global STORAGE_LAYOUT_AMM: StorageLayout<3> = StorageLayout::<3> {
-        contract_name: "AMM",
-        fields: StorageLayoutFields {
-            config: aztec::state_vars::Storable {
-                slot: 0x01,
-            },
-        },
-    };
 
     #[deprecated(deny, "Direct invocation of public functions is not supported. You attempted to call _add_liquidity. See https://docs.aztec.network/errors/6")]
     #[contract_library_method]
