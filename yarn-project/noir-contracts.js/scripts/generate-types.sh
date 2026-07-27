@@ -11,8 +11,14 @@ fi
 
 mkdir -p $OUT_DIR
 
-# Extract contract names from Nargo.toml, excluding test contracts
-CONTRACTS=$(grep "contracts/" ../../noir-projects/noir-contracts/Nargo.toml | grep -v "contracts/test/" | sed 's/.*\/\([^/"]*\)_contract.*/\1/')
+# Extract contract names from Nargo.toml, excluding test contracts and protocol contracts.
+# Protocol contracts (FeeJuice, ContractClassRegistry, ContractInstanceRegistry) are distributed
+# via @aztec/protocol-contracts, with typed wrappers exported from @aztec/aztec.js/protocol.
+CONTRACTS=$(grep "contracts/" ../../noir-projects/noir-contracts/Nargo.toml \
+  | grep -v "contracts/test/" \
+  | grep -v "contracts/protocol/" \
+  | grep -v "contracts/protocol_interface/" \
+  | sed 's/.*\/\([^/"]*\)_contract.*/\1/')
 
 # Check for .json files existence
 if ! ls ../../noir-projects/noir-contracts/target/*.json >/dev/null 2>&1; then

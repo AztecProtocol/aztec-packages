@@ -71,7 +71,6 @@
     "@aztec/ethereum": "workspace:^",
     "@aztec/foundation": "workspace:^",
     "@aztec/node-keystore": "workspace:^",
-    "@aztec/noir-protocol-circuits-types": "workspace:^",
     "@aztec/p2p": "workspace:^",
     "@aztec/protocol-contracts": "workspace:^",
     "@aztec/prover-client": "workspace:^",
@@ -87,6 +86,7 @@
   },
   "devDependencies": {
     "@aztec/archiver": "workspace:^",
+    "@aztec/noir-protocol-circuits-types": "workspace:^",
     "@aztec/world-state": "workspace:^",
     "@electric-sql/pglite": "^0.3.14",
     "@jest/globals": "^30.0.0",

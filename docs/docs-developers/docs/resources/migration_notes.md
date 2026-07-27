@@ -9,6 +9,22 @@ Aztec is in active development. Each version may introduce breaking changes that
 
 ## TBD
 
+### [Aztec.js] Protocol contracts removed from `@aztec/noir-contracts.js`
+
+`@aztec/noir-contracts.js` no longer includes the protocol contracts: the `FeeJuice`, `ContractClassRegistry`, and `ContractInstanceRegistry` artifacts and typed wrappers have been removed from the package, so imports such as `@aztec/noir-contracts.js/FeeJuice` no longer resolve. These names are also no longer available to the `aztec` CLI's contract-name lookup (e.g. in `aztec example-contracts`).
+
+Protocol contracts are distributed via `@aztec/protocol-contracts` (artifacts and canonical deployment data), and typed wrappers for them are exported from `@aztec/aztec.js/protocol`. The `aztec.js` wrappers are bound to the contract's canonical address, so `.at()` takes only the wallet.
+
+**Migration:**
+
+```diff
+- import { FeeJuiceContract } from '@aztec/noir-contracts.js/FeeJuice';
++ import { FeeJuiceContract } from '@aztec/aztec.js/protocol';
+
+- const feeJuice = FeeJuiceContract.at(ProtocolContractAddress.FeeJuice, wallet);
++ const feeJuice = FeeJuiceContract.at(wallet);
+```
+
 ### [Aztec.nr] Standard contracts re-pinned at new addresses
 
 The canonical `HandshakeRegistry` now protects handshake shared secrets from recipient forgery and includes the owner's address in its `PrivateMutable` initialization nullifiers, keeping the handshake state of accounts that share keys independent. All standard contracts have been re-pinned and move to new addresses. Handshakes established with a previous registry instance are not visible to the new one and must be re-established.
