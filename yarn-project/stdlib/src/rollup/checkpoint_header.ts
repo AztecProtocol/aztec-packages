@@ -31,8 +31,8 @@ export class CheckpointHeader {
     /** Hash of the blobs in the checkpoint. */
     public blobsHash: Fr,
     /**
-     * Inbox rolling-hash chain value after consuming all L1-to-L2 messages bundled into this checkpoint (AZIP-22 Fast
-     * Inbox): the truncated-to-field sha256 chain the L1 Inbox accumulates. This is the checkpoint's only inbox
+     * Inbox rolling-hash chain value after consuming all L1-to-L2 messages bundled into this checkpoint:
+     * the truncated-to-field sha256 chain the L1 Inbox accumulates. This is the checkpoint's only inbox
      * commitment.
      */
     public inboxRollingHash: Fr,

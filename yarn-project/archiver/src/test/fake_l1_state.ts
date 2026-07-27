@@ -172,7 +172,7 @@ export class FakeL1State {
   addMessages(_checkpointNumber: CheckpointNumber, l1BlockNumber: bigint, messageLeaves: Fr[]): void {
     const timestamp = this.getTimestampAtL1Block(l1BlockNumber);
     messageLeaves.forEach(leaf => {
-      // Compact global insertion index (AZIP-22 Fast Inbox): the position in the Inbox's insertion order.
+      // Compact global insertion index: the position in the Inbox's insertion order.
       const index = BigInt(this.messages.length);
       const { bucketSeq, inboxRollingHash } = this.absorbIntoBucket(leaf, timestamp);
 
@@ -507,7 +507,7 @@ export class FakeL1State {
     });
 
     // Mirror the on-chain Inbox current bucket: its consensus rolling hash and cumulative total are the live chain
-    // position the archiver's message sync compares against (AZIP-22 Fast Inbox).
+    // position the archiver's message sync compares against.
     mockInbox.getCurrentBucket.mockImplementation((opts: { blockTag?: string; blockNumber?: bigint } = {}) => {
       const blockNumber = opts.blockNumber ?? this.l1BlockNumber;
       const visibleMessages = this.messages.filter(m => m.l1BlockNumber <= blockNumber);

@@ -47,7 +47,7 @@ export function makeInboxMessage(
 
 /**
  * Builds a contiguous run of `totalCount` inbox messages with compact global indices starting at `initialIndex`
- * and a chained consensus rolling hash starting from `initialInboxHash` (AZIP-22 Fast Inbox).
+ * and a chained consensus rolling hash starting from `initialInboxHash`.
  */
 export function makeInboxMessages(
   totalCount: number,
@@ -79,7 +79,7 @@ export function makeInboxMessages(
 
 /**
  * Creates `blockCount` full buckets of `MAX_L1_TO_L2_MSGS_PER_BLOCK` inbox messages each, with compact indices and one
- * bucket sequence per block (AZIP-22 Fast Inbox).
+ * bucket sequence per block.
  */
 export function makeInboxMessagesWithFullBlocks(blockCount: number): InboxMessage[] {
   return makeInboxMessages(MAX_L1_TO_L2_MSGS_PER_BLOCK * blockCount, {

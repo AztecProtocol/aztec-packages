@@ -1,7 +1,7 @@
 // Golden wire fixtures that pin the exact bytes a peer produces and consumes, so the optional bucket-reference tail
 // added to proposals stays wire compatible: an unset proposal must serialize to these bytes, and decoding these bytes
 // must yield no bucket reference. The block-proposal fixtures were refreshed for the removal of the legacy `inHash`
-// field (AZIP-22 Fast Inbox); the checkpoint-proposal fixture was refreshed for the checkpoint-header format change.
+// field; the checkpoint-proposal fixture was refreshed for the checkpoint-header format change.
 //
 // Both fixtures come from a deterministic proposal built with:
 //   BlockHeader.empty(), IndexWithinCheckpoint(3), archiveRoot=Fr(99),

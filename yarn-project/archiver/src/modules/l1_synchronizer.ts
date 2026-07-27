@@ -431,7 +431,7 @@ export class ArchiverL1Synchronizer implements Traceable {
     }
 
     // Compare local message store state with the remote. If they match, we just advance the match pointer. The
-    // remote state is the Inbox's current bucket (AZIP-22 Fast Inbox): its cumulative total and consensus rolling
+    // remote state is the Inbox's current bucket: its cumulative total and consensus rolling
     // hash are the Inbox's live chain position.
     const remoteBucket = await this.inbox.getCurrentBucket({ blockNumber: currentL1BlockNumber });
     const localLastMessage = await this.stores.messages.getLastMessage();

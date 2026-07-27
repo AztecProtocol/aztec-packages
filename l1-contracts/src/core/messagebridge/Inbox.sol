@@ -38,7 +38,7 @@ contract Inbox is IInbox {
   uint256 public immutable BUCKET_RING_SIZE;
 
   // Ring of rolling-hash buckets, keyed by `bucketSeq % BUCKET_RING_SIZE`. Consumed by the streaming inbox
-  // checks at `propose` (AZIP-22 Fast Inbox).
+  // checks at `propose`.
   mapping(uint256 ringIndex => InboxBucket bucket) internal buckets;
 
   uint64 internal currentBucketSeq;

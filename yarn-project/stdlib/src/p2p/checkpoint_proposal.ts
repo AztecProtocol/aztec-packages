@@ -110,8 +110,8 @@ export class CheckpointProposal extends Gossipable implements Signable {
   ) {
     super();
 
-    // Check that last block properties match those of the checkpoint. The last block's bucket reference (AZIP-22 Fast
-    // Inbox) commits to the same rolling hash as the checkpoint header. Only enforced when the reference is set.
+    // Check that last block properties match those of the checkpoint. The last block's bucket reference
+    // commits to the same rolling hash as the checkpoint header. Only enforced when the reference is set.
     if (lastBlock?.bucketRef && !lastBlock.bucketRef.inboxRollingHash.equals(checkpointHeader.inboxRollingHash)) {
       throw new Error(
         `CheckpointProposal lastBlock bucketRef rolling hash ${lastBlock.bucketRef.inboxRollingHash} does not match checkpoint inboxRollingHash ${checkpointHeader.inboxRollingHash}`,
@@ -294,7 +294,7 @@ export class CheckpointProposal extends Gossipable implements Signable {
       } else {
         buffer.push(0); // hasSignedTxs = false
       }
-      // Optional bucket-reference tail (AZIP-22 Fast Inbox). Appended only when set, so a proposal without a reference
+      // Optional bucket-reference tail. Appended only when set, so a proposal without a reference
       // serializes without the tail and a decoder that reaches EOF reads it as unset.
       if (this.lastBlock.bucketRef) {
         buffer.push(1); // hasBucketRef = true
@@ -336,7 +336,7 @@ export class CheckpointProposal extends Gossipable implements Signable {
         }
       }
 
-      // Optional bucket-reference tail (AZIP-22 Fast Inbox). A buffer that ends after the signedTxs flag decodes as
+      // Optional bucket-reference tail. A buffer that ends after the signedTxs flag decodes as
       // "no reference", so proposals written without the tail round-trip cleanly.
       let bucketRef: InboxBucketRef | undefined;
       if (!reader.isEmpty()) {

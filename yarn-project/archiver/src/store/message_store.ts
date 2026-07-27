@@ -218,7 +218,7 @@ export class MessageStore {
           );
         }
 
-        // Check the compact-indexed messages arrive contiguously (AZIP-22 Fast Inbox): the global insertion index of
+        // Check the compact-indexed messages arrive contiguously: the global insertion index of
         // each message is exactly one past the previous one.
         const expectedIndex = lastMessage === undefined ? 0n : lastMessage.index + 1n;
         if (message.index !== expectedIndex) {
@@ -229,7 +229,7 @@ export class MessageStore {
           );
         }
 
-        // Check the consensus rolling-hash chain is valid (AZIP-22 Fast Inbox): each message's rolling hash must
+        // Check the consensus rolling-hash chain is valid: each message's rolling hash must
         // continue the chain from the previously inserted message.
         const previousInboxRollingHash = lastMessage?.inboxRollingHash ?? Fr.ZERO;
         const expectedInboxRollingHash = updateInboxRollingHash(previousInboxRollingHash, message.leaf);

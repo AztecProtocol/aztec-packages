@@ -18,9 +18,9 @@ import { checkBlockTag } from './utils.js';
 export type MessageSentArgs = {
   index: bigint;
   leaf: Fr;
-  /** Consensus rolling hash (truncated sha256 chain) after this message (AZIP-22 Fast Inbox). */
+  /** Consensus rolling hash (truncated sha256 chain) after this message. */
   inboxRollingHash: Fr;
-  /** Sequence number of the Inbox bucket this message was absorbed into (AZIP-22 Fast Inbox). */
+  /** Sequence number of the Inbox bucket this message was absorbed into. */
   bucketSeq: bigint;
 };
 
@@ -73,13 +73,13 @@ export class InboxContract {
     };
   }
 
-  /** Returns the sequence number of the Inbox bucket currently accumulating messages (AZIP-22 Fast Inbox). */
+  /** Returns the sequence number of the Inbox bucket currently accumulating messages. */
   public async getCurrentBucketSeq(opts: { blockTag?: BlockTag; blockNumber?: bigint } = {}): Promise<bigint> {
     await checkBlockTag(opts.blockNumber, this.client);
     return this.inbox.read.getCurrentBucketSeq(opts);
   }
 
-  /** Returns the Inbox bucket with the given sequence number (AZIP-22 Fast Inbox). */
+  /** Returns the Inbox bucket with the given sequence number. */
   public async getBucket(
     seq: bigint,
     opts: { blockTag?: BlockTag; blockNumber?: bigint } = {},
@@ -96,8 +96,7 @@ export class InboxContract {
 
   /**
    * Returns the Inbox bucket currently accumulating messages: its consensus rolling hash and cumulative message
-   * total are the Inbox's live chain position, used by the archiver's message sync and L1-reorg detection (AZIP-22
-   * Fast Inbox).
+   * total are the Inbox's live chain position, used by the archiver's message sync and L1-reorg detection.
    */
   public async getCurrentBucket(
     opts: { blockTag?: BlockTag; blockNumber?: bigint } = {},
@@ -183,7 +182,7 @@ export type InboxContractState = {
   totalMessagesInserted: bigint;
 };
 
-/** A snapshot of an on-chain Inbox rolling-hash bucket (AZIP-22 Fast Inbox). */
+/** A snapshot of an on-chain Inbox rolling-hash bucket. */
 export type InboxContractBucket = {
   /** Consensus rolling hash (truncated sha256 chain) after the last message absorbed into this bucket. */
   rollingHash: Fr;
