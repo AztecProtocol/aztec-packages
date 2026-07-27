@@ -34,7 +34,6 @@ describe('InboxBucketRef', () => {
       timestamp: 1_650_000_000n,
       msgCount: 3,
       lastMessageIndex: 29n,
-      isOpen: true,
     };
     const ref = InboxBucketRef.fromBucket(bucket);
     expect(ref.bucketSeq).toBe(bucket.seq);
