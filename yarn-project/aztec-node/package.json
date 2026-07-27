@@ -78,7 +78,6 @@
     "@aztec/l1-artifacts": "0.1.0-dummy",
     "@aztec/node-keystore": "workspace:^",
     "@aztec/node-lib": "workspace:^",
-    "@aztec/noir-protocol-circuits-types": "workspace:^",
     "@aztec/p2p": "workspace:^",
     "@aztec/protocol-contracts": "workspace:^",
     "@aztec/prover-client": "workspace:^",
@@ -98,6 +97,7 @@
     "viem": "npm:@aztec/viem@2.38.2"
   },
   "devDependencies": {
+    "@aztec/noir-protocol-circuits-types": "workspace:^",
     "@jest/globals": "^30.0.0",
     "@types/jest": "^30.0.0",
     "@types/node": "^22.15.17",

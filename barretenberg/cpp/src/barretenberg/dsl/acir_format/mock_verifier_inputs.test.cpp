@@ -29,10 +29,10 @@ static_assert(HIDING_KERNEL_PUBLIC_INPUTS_SIZE == 28,
 // Component proof lengths (used in Noir)
 static_assert(MERGE_PROOF_SIZE == 41,
               "MERGE_PROOF_SIZE changed - update CHONK_MERGE_PROOF_SIZE in constants.nr "
-              "and run `yarn remake-constants`");
+              "and run barretenberg/cpp/scripts/remake-constants.sh");
 static_assert(ECCVMFlavor::PROOF_LENGTH == 556,
               "ECCVM proof size changed - update CHONK_ECCVM_PROOF_LENGTH in constants.nr "
-              "and run `yarn remake-constants`");
+              "and run barretenberg/cpp/scripts/remake-constants.sh");
 static_assert(ECCVMFlavor::TRIPLE_IPA_PROOF_LENGTH == 70, "TripleIPA proof size changed - update constants.nr");
 static_assert(IPA_PROOF_LENGTH == 64, "IPA_PROOF_LENGTH changed - update constants.nr");
 static_assert(TranslatorFlavor::PROOF_LENGTH == 483, "Translator proof size changed - update constants.nr");
@@ -45,10 +45,10 @@ static_assert(
 static_assert(ChonkProof::PROOF_LENGTH == 1221, "CHONK_PROOF_LENGTH changed - update constants.nr");
 static_assert(ChonkProof::HIDING_OINK_LENGTH == 48,
               "ChonkProof::HIDING_OINK_LENGTH changed - update CHONK_HIDING_OINK_LENGTH in constants.nr "
-              "and run `yarn remake-constants`");
+              "and run barretenberg/cpp/scripts/remake-constants.sh");
 static_assert(ChonkProof::JOINT_PROOF_LENGTH == 478,
               "ChonkProof::JOINT_PROOF_LENGTH changed - update CHONK_JOINT_PROOF_LENGTH in constants.nr "
-              "and run `yarn remake-constants`");
+              "and run barretenberg/cpp/scripts/remake-constants.sh");
 static_assert(MegaAppFlavor::VerificationKey::calc_num_data_types() == 151,
               "MEGA_APP_VK_LENGTH_IN_FIELDS changed - update constants.nr");
 static_assert(MegaKernelFlavor::VerificationKey::calc_num_data_types() == 151,

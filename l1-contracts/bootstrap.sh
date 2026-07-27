@@ -49,6 +49,8 @@ export hash=$(cache_content_hash \
 function build_src {
   echo_header "l1-contracts build_src"
 
+  scripts/remake-constants.sh
+
   # Download solc binary
   download_solc
 

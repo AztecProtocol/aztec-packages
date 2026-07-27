@@ -9,7 +9,5 @@ pub use block_blob_data::{
 };
 pub use checkpoint_blob_data::create_checkpoint_end_marker;
 pub use sponge_blob::SpongeBlob;
-pub use tx_blob_data::{
-    create_tx_start_marker, MAX_TX_BLOB_DATA_SIZE_IN_FIELDS, TxEffectArrayLengths,
-};
+pub use tx_blob_data::{create_tx_start_marker, TxEffectArrayLengths};
 pub use tx_effect::TxEffect;

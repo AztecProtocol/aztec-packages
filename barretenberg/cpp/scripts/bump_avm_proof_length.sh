@@ -12,8 +12,7 @@
 #   1. Discover the new computed length from the C++ flavor and (if it differs
 #      from constants.nr) print instructions for the user to update constants.nr,
 #      then exit. The user updates constants.nr by hand and re-runs the script.
-#   2. Once constants.nr is in sync: run yarn remake-constants (propagates to
-#      aztec_constants.hpp / constants.gen.ts / ConstantsGen.sol / constants_gen.pil),
+#   2. Once constants.nr is in sync: regenerate each consumer's constants,
 #      renew the pinned public-base-rollup VKs (see renew-pins below), rebuild Noir
 #      (which also regenerates the remaining circuit VKs as a byproduct of bb write_vk
 #      during the bootstrap), and regenerate Prover.toml fixtures via the e2e full.test
@@ -139,7 +138,7 @@ Update $(realpath --relative-to="$ROOT" "$CONSTANTS_NR"):
   pub global AVM_V2_PROOF_LENGTH_IN_FIELDS: u32 = $computed;
 
 Then re-run barretenberg/cpp/scripts/bump_avm_proof_length.sh to finish the cascade
-(yarn remake-constants → noir rebuild → Prover.toml regen).
+(constant regeneration → noir rebuild → Prover.toml regen).
 EOF
     exit 0
 }
@@ -215,13 +214,17 @@ renew_base_public_pins() {
 phase2_cascade() {
     step "Phase 2: propagating to mirrors and rebuilding…"
 
-    step "yarn remake-constants (constants.nr → aztec_constants.hpp, constants.gen.ts, ConstantsGen.sol, constants_gen.pil)"
-    if ! (cd "$ROOT/yarn-project" && yarn workspace @aztec/constants remake-constants); then
+    step "Regenerating constants for TypeScript and Barretenberg"
+    if ! (
+        cd "$ROOT/yarn-project"
+        yarn workspace @aztec/constants generate
+        "$ROOT/barretenberg/cpp/scripts/remake-constants.sh"
+    ); then
         cat >&2 <<EOF
 
-ERROR: yarn remake-constants failed. Make sure yarn-project is bootstrapped:
+ERROR: constants regeneration failed. Make sure the repository is bootstrapped:
 
-  ./bootstrap.sh build yarn-project
+  ./bootstrap.sh build constants-codegen
 
 Then re-run barretenberg/cpp/scripts/bump_avm_proof_length.sh.
 EOF

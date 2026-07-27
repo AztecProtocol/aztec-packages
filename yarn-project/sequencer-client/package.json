@@ -38,8 +38,6 @@
     "@aztec/l1-artifacts": "0.1.0-dummy",
     "@aztec/node-keystore": "workspace:^",
     "@aztec/noir-acvm_js": "portal:../../noir/packages/acvm_js",
-    "@aztec/noir-contracts.js": "workspace:^",
-    "@aztec/noir-protocol-circuits-types": "workspace:^",
     "@aztec/noir-types": "portal:../../noir/packages/types",
     "@aztec/p2p": "workspace:^",
     "@aztec/protocol-contracts": "workspace:^",
@@ -59,6 +57,7 @@
   "devDependencies": {
     "@aztec/archiver": "workspace:^",
     "@aztec/kv-store": "workspace:^",
+    "@aztec/noir-protocol-circuits-types": "workspace:^",
     "@electric-sql/pglite": "^0.3.14",
     "@jest/globals": "^30.0.0",
     "@types/jest": "^30.0.0",
