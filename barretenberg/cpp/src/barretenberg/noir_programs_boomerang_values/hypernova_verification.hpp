@@ -1067,109 +1067,18 @@ template <typename CircuitBuilder> HNBaselineValidationResult validate_hn_baseli
     return validate_hn_baseline<bb::fr>(builder, analyzer);
 }
 
-// -- Extension kernel constants -----------------------------------------------------
-
-// HIDING (HN_FINAL) kernel: 95 squeezes total. The shared fold-core (F2) runs through the claim_batching
-// squeeze sq[76]; the remaining 18 squeezes sq[77..94] plus the KZG/kernel-IO tail are the FINAL-only
-// decider (F3). HN_HIDING_DECIDER_FIRST/HN_HIDING_EXTRA_SQUEEZES are retained for the older gap-based
-// diagnostics; the real F2/F3 boundary is HN_SQUEEZE_CLAIM_BATCHING (see HNFinalValidation.hpp).
-static constexpr size_t HN_HIDING_TOTAL_SQUEEZES = 148;
-static constexpr size_t HN_HIDING_EXTRA_SQUEEZES = 5;
-static constexpr size_t HN_HIDING_DECIDER_FIRST = 90; // sq index of first decider squeeze (legacy)
-
-// INNER kernel (2-constraint fixture: kernel + 1 app). Stage 3.2 step 1 (2026-07-16) re-derived
-// this from the stale pre-Stage-4 180/90 model: loop0 (kernel role) contributes 88 squeezes
-// (HNInnerValidation::HN_INNER_LOOP0_SQUEEZES), loop1 (app role) contributes 87 -- NOT an even
-// split, since loop0's Oink phase has one more squeeze than loop1's Oink-equivalent micro-chain.
-// See HNInnerValidation.hpp's file header for the full derivation.
-static constexpr size_t HN_INNER_TOTAL_SQUEEZES = 175;
-
-// FINAL-only decider (F3) fingerprint chain + hiding mask (F6). Included here (after the hiding constants,
-// before HNHidingValidationResult) so the result struct can hold its sub-results.
-#include "barretenberg/noir_programs_boomerang_values/HNFinalValidation.hpp"
-
-// -- Extension result structs -------------------------------------------------------
-
-struct HNHidingValidationResult {
-    HNBaselineValidationResult baseline; // F2: shared fold-core through claim_batching (cursor-chain)
-    HNFinalValidation::HNFinalDeciderMergeValidationResult
-        decider_merge;                                      // F3+F5+tail: decider + delayed batch-merge + IO tail
-    HNFinalValidation::HNFinalEccOpValidationResult ecc_op; // F3+F5: decider + batch-merge ecc_op selectors
-    HNFinalValidation::HNFinalMaskValidationResult mask;    // F6: trailing ecc_op hiding mask
-    bool all_valid = false;
-};
-
 // -- Extension validators -----------------------------------------------------------
-
+//
+// The HIDING (HN_FINAL), INIT, and INNER kernel validators (`validate_hn_hiding`, `validate_hn_init`,
+// `validate_hn_inner`) live in their own opcode headers (`HNFinalValidation.hpp`, `HNInitValidation.hpp`,
+// `HNInnerValidation.hpp`), each self-nested under `namespace HNVerification { namespace HNXValidation {
+// ... } }` -- this file stays opcode-agnostic so it can be shared across all HN opcode branches without
+// pulling in every opcode's header.
+//
 // TAIL's ecc_op block carries no TAIL-specific content: `complete_kernel_circuit_logic` (chonk.cpp)
 // prepends the same single `queue_ecc_eq()` to every kernel type regardless of queue type, and
 // `accumulate_and_fold`/`verify_folding` (chonk.cpp) handle QUEUE_TYPE::HN and QUEUE_TYPE::HN_TAIL
 // identically. So a TAIL kernel's circuit is structurally indistinguishable from a RESET kernel's,
 // and `validate_hn_baseline` covers it fully -- there is no separate `validate_hn_tail`.
-
-/**
- * @brief Validate a HIDING (HN_FINAL) kernel circuit via a contiguous FunctionFingerprint cursor chain
- * (hn_cursor_chaining_plan.md) -- no transcript-squeeze-count gate.
- *
- * Three parts:
- *   F2 -- the RESET/FINAL-shared fold-core through claim_batching (validate_hn_shared_fold_core).
- *   F3+F5+tail -- the FINAL-only decider (Shplemini/KZG) + delayed batch-merge (Shplonk/KZG) + the
- *         HidingKernelIO output tail, a two-stage arith fingerprint chain plus one poseidon2 fingerprint
- *         anchored right where F2 ended (validate_hn_final_decider_merge).
- *   F6 -- the trailing hiding mask on the ecc_op block (validate_hn_final_mask).
- *
- * @param constraint  Optional ACIR constraint for the vk_hash anchor (see validate_hn_shared_fold_core).
- */
-template <typename FF, typename CircuitBuilder>
-HNHidingValidationResult validate_hn_hiding(CircuitBuilder& builder,
-                                            cdg::StaticAnalyzer_<FF, CircuitBuilder>& analyzer,
-                                            const acir_format::RecursionConstraint* constraint = nullptr)
-{
-    HNHidingValidationResult result;
-
-    // F2: shared fold-core through claim_batching.
-    result.baseline = validate_hn_shared_fold_core<FF>(builder, analyzer, constraint);
-    if (!result.baseline.mlb.valid) {
-        return result;
-    }
-
-    // F3+F5+tail: decider + delayed batch-merge + HidingKernelIO output, anchored where F2 ended.
-    result.decider_merge = HNFinalValidation::validate_hn_final_decider_merge(
-        builder, result.baseline.shared_fold_core_arith_end, result.baseline.poseidon2_cursor_end);
-    if (!result.decider_merge.valid) {
-        return result;
-    }
-
-    // F3+F5 (ecc_op): the decider's KZG/Shplemini pairing reduction and the batch-merge primitive's own
-    // subtable/merged-column commitments both emit EC group ops in the Goblin ecc_op block that the
-    // arith/poseidon2 window chains never inspect. Cover them via the ecc_op selector hash.
-    result.ecc_op = HNFinalValidation::validate_hn_final_ecc_op(builder);
-    if (!result.ecc_op.valid) {
-        return result;
-    }
-
-    // F6: trailing hiding mask on the ecc_op block.
-    result.mask = HNFinalValidation::validate_hn_final_mask(builder);
-    if (!result.mask.valid) {
-        return result;
-    }
-
-    result.all_valid = true;
-    return result;
-}
-
-/**
- * @brief `validate_hn_hiding` convenience overload: builds its own `bb::fr` analyzer for `builder`.
- */
-template <typename CircuitBuilder>
-HNHidingValidationResult validate_hn_hiding(CircuitBuilder& builder,
-                                            const acir_format::RecursionConstraint* constraint = nullptr)
-{
-    cdg::StaticAnalyzer_<bb::fr, CircuitBuilder> analyzer(builder, false);
-    return validate_hn_hiding<bb::fr>(builder, analyzer, constraint);
-}
-
-#include "barretenberg/noir_programs_boomerang_values/HNInitValidation.hpp"
-#include "barretenberg/noir_programs_boomerang_values/HNInnerValidation.hpp"
 
 } // namespace HNVerification
