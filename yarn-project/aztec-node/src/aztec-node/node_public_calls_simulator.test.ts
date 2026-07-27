@@ -23,11 +23,13 @@ import {
 } from '@aztec/stdlib/block';
 import type { ProposedCheckpointData } from '@aztec/stdlib/checkpoint';
 import type { ContractDataSource } from '@aztec/stdlib/contract';
+import { EmptyL1RollupConstants } from '@aztec/stdlib/epoch-helpers';
 import { GasFees } from '@aztec/stdlib/gas';
 import type { MerkleTreeWriteOperations, WorldStateSynchronizer } from '@aztec/stdlib/interfaces/server';
+import type { InboxBucket, L1ToL2MessageSource } from '@aztec/stdlib/messaging';
 import { CheckpointHeader } from '@aztec/stdlib/rollup';
 import { mockTx } from '@aztec/stdlib/testing';
-import { AppendOnlyTreeSnapshot } from '@aztec/stdlib/trees';
+import { AppendOnlyTreeSnapshot, MerkleTreeId } from '@aztec/stdlib/trees';
 import {
   BlockHeader,
   type CheckpointGlobalVariables,
@@ -48,6 +50,7 @@ const ROLLUP_ADDRESS = EthAddress.random();
 describe('NodePublicCallsSimulator', () => {
   let blockSource: MockProxy<L2BlockSource>;
   let worldStateSynchronizer: MockProxy<WorldStateSynchronizer>;
+  let l1ToL2MessageSource: MockProxy<L1ToL2MessageSource>;
   let contractDataSource: MockProxy<ContractDataSource>;
   let globalVariableBuilder: MockProxy<GlobalVariableBuilder>;
   let rollupContract: MockProxy<RollupContract>;
@@ -111,6 +114,26 @@ describe('NodePublicCallsSimulator', () => {
     gasFees: GasFees.empty(),
   });
 
+  /**
+   * Mocks the Inbox so the next-block prediction selects a two-message bundle: the fork's message total (0)
+   * resolves to bucket 0, and bucket 1 is lag-eligible and holds both messages.
+   */
+  const mockInboxSelection = () => {
+    const makeBucket = (seq: bigint, totalMsgCount: bigint): InboxBucket => ({
+      seq,
+      inboxRollingHash: Fr.ZERO,
+      totalMsgCount,
+      timestamp: 0n,
+      msgCount: Number(totalMsgCount),
+      lastMessageIndex: totalMsgCount === 0n ? 0n : totalMsgCount - 1n,
+    });
+    const bundle = [new Fr(0x1234), new Fr(0x5678)];
+    l1ToL2MessageSource.getInboxBucketByTotalMsgCount.mockResolvedValue(makeBucket(0n, 0n));
+    l1ToL2MessageSource.getLatestInboxBucketAtOrBefore.mockResolvedValue(makeBucket(1n, 2n));
+    l1ToL2MessageSource.getL1ToL2MessagesBetweenBuckets.mockResolvedValue(bundle);
+    return bundle;
+  };
+
   const lowGasTx = () =>
     mockTx(0x10000, {
       numberOfNonRevertiblePublicCallRequests: 0,
@@ -124,6 +147,7 @@ describe('NodePublicCallsSimulator', () => {
 
     blockSource = mock<L2BlockSource>();
     worldStateSynchronizer = mock<WorldStateSynchronizer>();
+    l1ToL2MessageSource = mock<L1ToL2MessageSource>();
     contractDataSource = mock<ContractDataSource>();
     globalVariableBuilder = mock<GlobalVariableBuilder>();
     rollupContract = mock<RollupContract>();
@@ -136,8 +160,18 @@ describe('NodePublicCallsSimulator', () => {
     (merkleTreeFork as unknown as { [Symbol.asyncDispose]: () => Promise<void> })[Symbol.asyncDispose] = () =>
       Promise.resolve();
     worldStateSynchronizer.fork.mockResolvedValue(merkleTreeFork);
+    merkleTreeFork.getTreeInfo.mockResolvedValue({
+      treeId: MerkleTreeId.L1_TO_L2_MESSAGE_TREE,
+      root: Buffer.alloc(32),
+      size: 0n,
+      depth: 16,
+    });
     blockSource.getPendingChainValidationStatus.mockResolvedValue({ valid: true });
     blockSource.getProposedCheckpointData.mockResolvedValue(undefined);
+    // No Inbox bucket resolves to the fork's message total by default, so the next-block message prediction
+    // bails out and tests see the bare tip state unless they opt into it.
+    l1ToL2MessageSource.getInboxBucketByTotalMsgCount.mockResolvedValue(undefined);
+    epochCache.getL1Constants.mockReturnValue(EmptyL1RollupConstants);
 
     globalVariableBuilder.buildCheckpointGlobalVariables.mockImplementation((_c, _f, slotNumber) =>
       Promise.resolve(checkpointGlobals(slotNumber)),
@@ -163,6 +197,7 @@ describe('NodePublicCallsSimulator', () => {
     simulator = new NodePublicCallsSimulator({
       blockSource,
       worldStateSynchronizer,
+      l1ToL2MessageSource,
       contractDataSource,
       globalVariableBuilder,
       rollupContract,
@@ -216,15 +251,30 @@ describe('NodePublicCallsSimulator', () => {
       expect(rollupContract.getManaTarget).not.toHaveBeenCalled();
     });
 
-    it('does not insert L1-to-L2 messages', async () => {
+    it('appends the message bundle the next block would consume', async () => {
       const tx = await lowGasTx();
       setupMidCheckpoint();
       blockSource.getBlockData.mockImplementation((query: BlockQuery) =>
         Promise.resolve('number' in query ? makeBlockData(query.number, SlotNumber(42)) : undefined),
       );
       mockNextL1Slot(SlotNumber(100));
+      const bundle = mockInboxSelection();
 
       await simulator.simulate(tx);
+
+      expect(merkleTreeFork.appendLeaves).toHaveBeenCalledWith(MerkleTreeId.L1_TO_L2_MESSAGE_TREE, bundle);
+    });
+
+    it('simulates against the tip when the parent Inbox bucket is not synced', async () => {
+      const tx = await lowGasTx();
+      setupMidCheckpoint();
+      blockSource.getBlockData.mockImplementation((query: BlockQuery) =>
+        Promise.resolve('number' in query ? makeBlockData(query.number, SlotNumber(42)) : undefined),
+      );
+      mockNextL1Slot(SlotNumber(100));
+      // Default mock: no bucket resolves the fork's message total.
+
+      await expect(simulator.simulate(tx)).resolves.toBeDefined();
 
       expect(merkleTreeFork.appendLeaves).not.toHaveBeenCalled();
     });
@@ -273,18 +323,19 @@ describe('NodePublicCallsSimulator', () => {
       expect(plan?.chainTipsOverride).toEqual({ pending: CheckpointNumber(1), proven: CheckpointNumber(1) });
     });
 
-    it('does not insert L1-to-L2 messages when opening a new checkpoint', async () => {
+    it('appends the message bundle the next block would consume', async () => {
       const tx = await lowGasTx();
       blockSource.getL2Tips.mockResolvedValue(setupBoundary());
       blockSource.getBlockData.mockImplementation((query: BlockQuery) =>
         Promise.resolve('number' in query ? makeBlockData(query.number, SlotNumber(5)) : undefined),
       );
       mockNextL1Slot(SlotNumber(20));
+      const bundle = mockInboxSelection();
 
       await expect(simulator.simulate(tx)).resolves.toBeDefined();
 
-      // Streaming Inbox: the next checkpoint's messages are consumed per block, so none are appended here.
-      expect(merkleTreeFork.appendLeaves).not.toHaveBeenCalled();
+      // Only the first block's worth of messages: a fresh checkpoint starts its per-checkpoint budget at the tip.
+      expect(merkleTreeFork.appendLeaves).toHaveBeenCalledWith(MerkleTreeId.L1_TO_L2_MESSAGE_TREE, bundle);
     });
 
     it('targets parentSlot + 1 and carries the parent overrides when pipelining on a proposed checkpoint', async () => {
@@ -382,6 +433,7 @@ describe('NodePublicCallsSimulator', () => {
       new NodePublicCallsSimulator({
         blockSource,
         worldStateSynchronizer,
+        l1ToL2MessageSource,
         contractDataSource,
         globalVariableBuilder,
         epochCache,

@@ -1,3 +1,4 @@
+import { INBOX_LAG_SECONDS, MAX_L1_TO_L2_MSGS_PER_BLOCK, MAX_L1_TO_L2_MSGS_PER_CHECKPOINT } from '@aztec/constants';
 import { PROPOSER_PIPELINING_SLOT_OFFSET } from '@aztec/epoch-cache';
 import type { EpochCacheInterface } from '@aztec/epoch-cache';
 import {
@@ -11,14 +12,17 @@ import { EthAddress } from '@aztec/foundation/eth-address';
 import { BadRequestError } from '@aztec/foundation/json-rpc';
 import { type Logger, createLogger } from '@aztec/foundation/log';
 import { DateProvider } from '@aztec/foundation/timer';
+import { type InboxBucketSource, selectInboxBucketForBlock } from '@aztec/sequencer-client';
 import { type AvmSimulator, PublicContractsDB, PublicProcessorFactory } from '@aztec/simulator/server';
 import { CollectionLimitsConfig, PublicSimulatorConfig } from '@aztec/stdlib/avm';
 import { AztecAddress } from '@aztec/stdlib/aztec-address';
 import type { L2BlockSource, L2Tips } from '@aztec/stdlib/block';
 import { type ProposedCheckpointData, buildCheckpointSimulationOverridesPlan } from '@aztec/stdlib/checkpoint';
 import type { ContractDataSource } from '@aztec/stdlib/contract';
-import type { WorldStateSynchronizer } from '@aztec/stdlib/interfaces/server';
+import type { MerkleTreeWriteOperations, WorldStateSynchronizer } from '@aztec/stdlib/interfaces/server';
+import { type L1ToL2MessageSource, appendL1ToL2MessagesToTree, getInboxCutoffTimestamp } from '@aztec/stdlib/messaging';
 import type { CoordinationSignatureContext } from '@aztec/stdlib/p2p';
+import { MerkleTreeId } from '@aztec/stdlib/trees';
 import {
   type GlobalVariableBuilder,
   GlobalVariables,
@@ -29,6 +33,9 @@ import {
 import { type TelemetryClient, getTelemetryClient } from '@aztec/telemetry-client';
 
 import { applyPublicDataOverrides } from './public_data_overrides.js';
+
+/** Inbox queries the simulator needs to predict the message bundle the next block would consume. */
+type SimulatorInboxSource = InboxBucketSource & Pick<L1ToL2MessageSource, 'getInboxBucketByTotalMsgCount'>;
 
 /** Config fields the simulator needs — a narrow subset of `AztecNodeConfig`. */
 export interface NodePublicCallsSimulatorConfig {
@@ -42,6 +49,8 @@ export interface NodePublicCallsSimulatorConfig {
 export interface NodePublicCallsSimulatorDeps {
   blockSource: L2BlockSource;
   worldStateSynchronizer: WorldStateSynchronizer;
+  /** Inbox bucket queries, used to predict the L1-to-L2 messages the next block will consume. */
+  l1ToL2MessageSource: SimulatorInboxSource;
   contractDataSource: ContractDataSource;
   globalVariableBuilder: GlobalVariableBuilder;
   /**
@@ -73,15 +82,20 @@ export interface NodePublicCallsSimulatorDeps {
  * - **When the next block continues an in-progress checkpoint** (the latest proposed block is ahead of
  *   the proposed-checkpoint frontier): every block in a checkpoint shares the same
  *   `CheckpointGlobalVariables`, so we copy the latest proposed block's globals verbatim and only
- *   bump the block number. No L1 calls, no L1-to-L2 message insertion.
+ *   bump the block number. No L1 calls.
  * - **When the next block opens a new checkpoint** (the latest proposed block coincides with the
  *   proposed-checkpoint frontier): we compute fresh globals for the slot the next block will land in,
  *   applying the same `SimulationOverridesPlan` the sequencer applies so the simulated mana min fee
  *   matches what the sequencer will write into the block header.
+ *
+ * Either way it also predicts the L1-to-L2 message bundle the next block would consume and appends it
+ * to the fork, so a transaction consuming a message that is in the Inbox but not yet in a block
+ * simulates against the state it will actually run in.
  */
 export class NodePublicCallsSimulator {
   private readonly blockSource: L2BlockSource;
   private readonly worldStateSynchronizer: WorldStateSynchronizer;
+  private readonly l1ToL2MessageSource: SimulatorInboxSource;
   private readonly contractDataSource: ContractDataSource;
   private readonly globalVariableBuilder: GlobalVariableBuilder;
   private readonly rollupContract: RollupContract | undefined;
@@ -91,10 +105,12 @@ export class NodePublicCallsSimulator {
   private readonly avmSimulator?: AvmSimulator;
   private readonly telemetry: TelemetryClient;
   private readonly log: Logger;
+  private readonly dateProvider = new DateProvider();
 
   constructor(deps: NodePublicCallsSimulatorDeps) {
     this.blockSource = deps.blockSource;
     this.worldStateSynchronizer = deps.worldStateSynchronizer;
+    this.l1ToL2MessageSource = deps.l1ToL2MessageSource;
     this.contractDataSource = deps.contractDataSource;
     this.globalVariableBuilder = deps.globalVariableBuilder;
     this.rollupContract = deps.rollupContract;
@@ -160,7 +176,7 @@ export class NodePublicCallsSimulator {
     const publicProcessorFactory = new PublicProcessorFactory(
       this.contractDataSource,
       this.avmSimulator,
-      new DateProvider(),
+      this.dateProvider,
       this.telemetry,
       this.log.getBindings(),
     );
@@ -175,11 +191,14 @@ export class NodePublicCallsSimulator {
     // Ensure world-state has caught up with the latest block we loaded from the archiver
     await this.worldStateSynchronizer.syncImmediate(latestBlockNumber);
 
-    // Request a new fork of the world state at the latest block number, and apply any overrides to it before
-    // simulation. The next checkpoint's L1-to-L2 messages are not inserted here: under the streaming Inbox
-    // (AZIP-22 Fast Inbox) a checkpoint's messages are consumed per block, so the simulation runs against the
-    // fork's current tree without predicting the next block's message bundle.
+    // Request a new fork of the world state at the latest block number, then apply the next block's predicted
+    // L1-to-L2 message bundle and any caller overrides to it before simulation.
     await using merkleTreeFork = await this.worldStateSynchronizer.fork(latestBlockNumber);
+
+    await this.appendPredictedL1ToL2Messages(merkleTreeFork, {
+      slotNumber: newGlobalVariables.slotNumber,
+      checkpointStartBlock: atCheckpointBoundary ? undefined : proposedCheckpointLastBlock,
+    });
 
     await applyPublicDataOverrides(merkleTreeFork, overrides?.publicStorage);
 
@@ -220,16 +239,88 @@ export class NodePublicCallsSimulator {
   }
 
   /**
+   * Appends the L1-to-L2 message bundle the next block would consume to the simulation fork, so a transaction
+   * consuming a message that has reached the Inbox but no block yet simulates against the state it will run in.
+   * Runs the same bucket selection the sequencer runs (lag eligibility plus the per-block and per-checkpoint caps),
+   * treating the next block as non-final: the censorship cutoff only widens consumption on a checkpoint's last
+   * block, and the node cannot know whether the next block is it.
+   *
+   * Best-effort. Any failure — Inbox buckets not synced yet, a torn archiver snapshot — leaves the fork at the tip
+   * state, which is what the transaction sees if the next block consumes nothing.
+   */
+  private async appendPredictedL1ToL2Messages(
+    fork: MerkleTreeWriteOperations,
+    opts: {
+      /** Slot the next block lands in; anchors the censorship cutoff. */
+      slotNumber: SlotNumber;
+      /** Last block of the checkpoint the next block extends; undefined when the next block opens a checkpoint. */
+      checkpointStartBlock: BlockNumber | undefined;
+    },
+  ): Promise<void> {
+    try {
+      const parentTotalMsgCount = (await fork.getTreeInfo(MerkleTreeId.L1_TO_L2_MESSAGE_TREE)).size;
+      const parentBucket = await this.l1ToL2MessageSource.getInboxBucketByTotalMsgCount(parentTotalMsgCount);
+      if (parentBucket === undefined) {
+        this.log.debug(`Inbox bucket at message total ${parentTotalMsgCount} not synced; simulating against the tip`, {
+          parentTotalMsgCount,
+        });
+        return;
+      }
+
+      // Origin of the per-checkpoint cap: the total consumed as of the checkpoint's parent. A block extending an
+      // in-progress checkpoint reads it off that checkpoint's parent block; a block opening one starts from the tip.
+      const checkpointStartTotalMsgCount =
+        opts.checkpointStartBlock === undefined
+          ? parentTotalMsgCount
+          : await this.getConsumedMessageTotal(opts.checkpointStartBlock);
+      if (checkpointStartTotalMsgCount === undefined) {
+        this.log.debug(`Block ${opts.checkpointStartBlock} has no header on this node; simulating against the tip`);
+        return;
+      }
+
+      const selection = await selectInboxBucketForBlock({
+        messageSource: this.l1ToL2MessageSource,
+        now: BigInt(Math.floor(this.dateProvider.now() / 1000)),
+        lagSeconds: BigInt(INBOX_LAG_SECONDS),
+        parent: { seq: parentBucket.seq, totalMsgCount: parentBucket.totalMsgCount },
+        checkpointStartTotalMsgCount,
+        perBlockCap: MAX_L1_TO_L2_MSGS_PER_BLOCK,
+        perCheckpointCap: MAX_L1_TO_L2_MSGS_PER_CHECKPOINT,
+        isLastBlock: false,
+        cutoffTimestamp: getInboxCutoffTimestamp(opts.slotNumber, this.epochCache.getL1Constants(), INBOX_LAG_SECONDS),
+      });
+      if (!selection.consume || selection.bundle.length === 0) {
+        return;
+      }
+
+      await appendL1ToL2MessagesToTree(fork, selection.bundle);
+      this.log.debug(`Appended ${selection.bundle.length} predicted L1-to-L2 messages to the simulation fork`, {
+        bucketSeq: selection.bucket.seq,
+        messageCount: selection.bundle.length,
+      });
+    } catch (err) {
+      this.log.verbose(`Could not predict the next block's L1-to-L2 messages, simulating against the tip: ${err}`);
+    }
+  }
+
+  /** Cumulative Inbox message total consumed as of `blockNumber`, i.e. its L1-to-L2 message tree leaf count. */
+  private async getConsumedMessageTotal(blockNumber: BlockNumber): Promise<bigint | undefined> {
+    if (blockNumber === BlockNumber.ZERO) {
+      return 0n;
+    }
+    const block = await this.blockSource.getBlockData({ number: blockNumber });
+    return block === undefined ? undefined : BigInt(block.header.state.l1ToL2MessageTree.nextAvailableLeafIndex);
+  }
+
+  /**
    * Continues an in-progress checkpoint: the next block extends the checkpoint the latest proposed
    * block belongs to. Every block in a checkpoint shares the same `CheckpointGlobalVariables`, so the
    * next block's globals are the latest proposed block's globals with only the block number bumped —
-   * including the proposer's real coinbase/feeRecipient. No L1 reads and no L1-to-L2 message insertion
-   * happen here.
+   * including the proposer's real coinbase/feeRecipient. No L1 reads happen here.
    *
    * A missing header means the archiver reported a proposed tip via `getL2Tips` but no longer has its
    * data (a torn snapshot). We throw a transient/retryable error rather than treating the next block as
-   * opening a new checkpoint: the fork at `latestBlockNumber` already contains the ongoing checkpoint's
-   * L1-to-L2 messages, so inserting the next checkpoint's messages would append them a second time.
+   * opening a new checkpoint, whose globals would be built for the wrong slot.
    */
   private async copyGlobalVariablesFromLatestProposedBlock(
     latestBlockNumber: BlockNumber,
