@@ -14,6 +14,7 @@
 // FINAL's ecc_op FRONT is byte-identical to plain HN (shared queue_ecc_eq only, chonk.cpp:288).
 
 #include "barretenberg/boomerang_value_detection/graph_description_acir.hpp"
+#include "barretenberg/noir_programs_boomerang_values/HNFinalValidation.hpp"
 #include "barretenberg/noir_programs_boomerang_values/boomerang_hn_recursion_test_helpers.hpp"
 
 #include <fstream>
