@@ -14,13 +14,9 @@ import {
   generateTypescriptConstants,
   parseNoirFile,
 } from './generator.ts';
+import { readSymbolSelection, selectSymbols } from './selection.ts';
 
 type GenerateOutput = (content: ParsedContent, targetPath: string) => void;
-
-interface RequestedOutput {
-  path: string;
-  generate: GenerateOutput;
-}
 
 function parseIncludedConstant(value: string): { path: string; symbol: string } {
   const separatorIndex = value.lastIndexOf(':');
@@ -39,6 +35,7 @@ function run(args: string[]): void {
     options: {
       input: { type: 'string' },
       include: { type: 'string', multiple: true },
+      selection: { type: 'string' },
       typescript: { type: 'string' },
       cpp: { type: 'string' },
       pil: { type: 'string' },
@@ -58,17 +55,18 @@ function run(args: string[]): void {
     throw new Error('--input is required when running outside the aztec-packages monorepo');
   }
 
-  const outputs = [
-    values.typescript ? { path: values.typescript, generate: generateTypescriptConstants } : undefined,
-    values.cpp ? { path: values.cpp, generate: generateCppConstants } : undefined,
-    values.pil ? { path: values.pil, generate: generatePilConstants } : undefined,
-    values.solidity ? { path: values.solidity, generate: generateSolidityConstants } : undefined,
-    values.rust ? { path: values.rust, generate: generateRustConstants } : undefined,
-  ].filter((output): output is RequestedOutput => output !== undefined);
-
-  if (outputs.length === 0) {
-    throw new Error('at least one output option is required');
+  const generators: [string | undefined, GenerateOutput][] = [
+    [values.typescript, generateTypescriptConstants],
+    [values.cpp, generateCppConstants],
+    [values.pil, generatePilConstants],
+    [values.solidity, generateSolidityConstants],
+    [values.rust, generateRustConstants],
+  ];
+  const outputs = generators.filter(([path]) => path !== undefined);
+  if (outputs.length !== 1) {
+    throw new Error('exactly one output option is required');
   }
+  const [outputPath, generate] = outputs[0] as [string, GenerateOutput];
 
   const { constantsExpressions, domainSeparatorEnum } = parseNoirFile(readFileSync(input, 'utf8'));
   for (const value of values.include ?? []) {
@@ -88,10 +86,11 @@ function run(args: string[]): void {
     domainSeparatorEnum,
   };
 
-  for (const output of outputs) {
-    mkdirSync(dirname(output.path), { recursive: true });
-    output.generate(parsedContent, output.path);
-  }
+  const outputContent = values.selection
+    ? selectSymbols(parsedContent, readSymbolSelection(values.selection))
+    : parsedContent;
+  mkdirSync(dirname(outputPath), { recursive: true });
+  generate(outputContent, outputPath);
 }
 
 try {
