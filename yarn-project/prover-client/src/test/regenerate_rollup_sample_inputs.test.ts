@@ -37,7 +37,7 @@ import { type CheckpointTopTreeData, TopTreeOrchestrator } from '../orchestrator
 // circuit. A block with three txs merges its transaction base proofs through the tx-merge circuit
 // before the (two-input) block root, whereas one- or two-tx blocks feed the block root directly, so a
 // dedicated three-tx scenario is what regenerates the tx-merge sample. A zero-tx non-first block that
-// carries a message bundle (a message-only block, AZIP-22 Fast Inbox) routes through the msgs-only
+// carries a message bundle (a message-only block) routes through the msgs-only
 // block root, so that variant needs a per-block message distribution. Every scenario also produces
 // the root rollup.
 const describeOrSkip = isGenerateTestDataEnabled() ? describe : describe.skip;
@@ -110,8 +110,8 @@ describeOrSkip('prover/regenerate-rollup-sample-inputs', () => {
       numL1ToL2Messages: withMessages,
       dump: ['rollup-tx-merge'],
     },
-    // A zero-tx non-first block carrying a message bundle is a message-only block (AZIP-22 Fast
-    // Inbox), the only shape that selects the msgs-only block root.
+    // A zero-tx non-first block carrying a message bundle is a message-only block, the only shape that
+    // selects the msgs-only block root.
     {
       numCheckpoints: 1,
       numBlocksPerCheckpoint: 2,
