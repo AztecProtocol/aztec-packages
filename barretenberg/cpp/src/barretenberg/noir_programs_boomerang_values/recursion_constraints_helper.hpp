@@ -4260,13 +4260,13 @@ ChonkOinkValidationResult validate_chonk_oink(CircuitBuilder& builder,
         for (const auto& [block, gate] : analyzer.get_variable_gates(real)) {
             const bool arithmetic_absorption = block == *arith_block_idx && gate >= logderiv_arith_start &&
                                                gate < z_arith_start &&
-                                               !arith.gate_selector_for(GateKind::Arith)[gate].is_zero();
+                                               !arith.gate_selector_for(bb::GateKind::Arith)[gate].is_zero();
             const bool external_absorption = block == *poseidon_ext_block_idx && gate >= logderiv_ext_start &&
                                              gate < logderiv_ext_end &&
-                                             !poseidon_ext.gate_selector_for(GateKind::Poseidon2Ext)[gate].is_zero();
+                                             !poseidon_ext.gate_selector_for(bb::GateKind::Poseidon2Ext)[gate].is_zero();
             const bool internal_absorption = block == *poseidon_int_block_idx && gate >= logderiv_int_start &&
                                              gate < logderiv_int_end &&
-                                             !poseidon_int.gate_selector_for(GateKind::Poseidon2Int)[gate].is_zero();
+                                             !poseidon_int.gate_selector_for(bb::GateKind::Poseidon2Int)[gate].is_zero();
             if (arithmetic_absorption || external_absorption || internal_absorption) {
                 absorbed = true;
                 if (arithmetic_absorption) {
