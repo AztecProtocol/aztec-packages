@@ -531,10 +531,12 @@ contract ValidatorSelectionTest is ValidatorSelectionTestBase {
     DecoderBase.Full memory full = load(_name);
     ProposedHeader memory header = full.checkpoint.header;
 
-    // We jump to the time of the block. (unless it is in the past)
-    vm.warp(max(block.timestamp, Timestamp.unwrap(full.checkpoint.header.timestamp)));
-
+    // Seed the Inbox before jumping to the checkpoint's L1 block: propose rejects a bucket that is still
+    // accumulating, and a bucket keeps accumulating for the whole L1 block that opened it.
     _populateInbox(full.populate.sender, full.populate.recipient, full.populate.l1ToL2Content);
+
+    // We jump to the time of the block, always past the L1 block the messages above landed in.
+    vm.warp(max(block.timestamp + 1, Timestamp.unwrap(full.checkpoint.header.timestamp)));
 
     rollup.setupEpoch();
 
