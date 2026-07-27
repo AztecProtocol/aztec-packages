@@ -3,6 +3,7 @@
 #include "barretenberg/dsl/acir_format/acir_format.hpp"
 #include "barretenberg/dsl/acir_format/acir_to_constraint_buf.hpp"
 #include "barretenberg/noir_programs_boomerang_values/sha256_circuit_helpers.hpp"
+#include "barretenberg/noir_programs_boomerang_values/recursion_constraints_validation/ROLLUP_HONK/rollup_honk_ipa_accumulate_verification.hpp"
 
 namespace cdg {
 
@@ -197,6 +198,8 @@ template <typename FF, typename CircuitBuilder> class StaticAnalyzerAcir_ {
     mutable bool opcode_constraint_map_built = false;
     // Position among ROLLUP_HONK/ROOT_ROLLUP_HONK recursion constraints on this builder.
     size_t rollup_honk_opcode_count = 0;
+    // Multi-block cursor handoff after the previous ROOT_ROLLUP_HONK opcode.
+    RollupHonkIpaAccumulateValidation::BlockCursor rollup_cursor_handoff{};
 };
 
 
