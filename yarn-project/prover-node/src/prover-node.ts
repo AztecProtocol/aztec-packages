@@ -14,7 +14,6 @@ import { ChonkCache } from '@aztec/prover-client/orchestrator';
 import { type AvmSimulator, PublicProcessorFactory } from '@aztec/simulator/server';
 import {
   EventDrivenL2BlockStream,
-  type L2Block,
   type L2BlockId,
   type L2BlockSource,
   type L2BlockStreamEvent,
@@ -38,7 +37,6 @@ import {
 import type { DataStoreConfig } from '@aztec/stdlib/kv-store';
 import type { L1ToL2MessageSource } from '@aztec/stdlib/messaging';
 import { MerkleTreeId } from '@aztec/stdlib/trees';
-import type { BlockHeader } from '@aztec/stdlib/tx';
 import {
   L1Metrics,
   type TelemetryClient,
@@ -353,9 +351,13 @@ export class ProverNode implements L2BlockStreamEventHandler, ProverNodeApi, Tra
     const previousBlockNumber = BlockNumber(checkpoint.blocks[0].number - 1);
     const previousBlockHeader = await this.gatherPreviousBlockHeader(previousBlockNumber);
     const lastBlock = checkpoint.blocks.at(-1)!;
-    // Streaming Inbox (AZIP-22 Fast Inbox): the checkpoint's consumed messages are those in the Inbox buckets between
-    // the parent checkpoint's consumed position and this checkpoint's last block (compact leaf-count range).
-    const l1ToL2Messages = await this.deriveCheckpointConsumedMessages(previousBlockHeader, lastBlock);
+    // Streaming Inbox (AZIP-22 Fast Inbox): the checkpoint's consumed messages are those between the parent
+    // checkpoint's consumed position and this checkpoint's last block, as a compact leaf-count range. The prover
+    // slices them per block.
+    const l1ToL2Messages = await this.l1ToL2MessageSource.getL1ToL2MessagesBetweenLeafCounts(
+      BigInt(previousBlockHeader.state.l1ToL2MessageTree.nextAvailableLeafIndex),
+      BigInt(lastBlock.header.state.l1ToL2MessageTree.nextAvailableLeafIndex),
+    );
     const previousInboxRollingHash = await this.gatherPreviousInboxRollingHash(checkpoint.number);
     const lastBlockHash = await lastBlock.header.hash();
     await this.worldState.syncImmediate(lastBlock.number, lastBlockHash);
@@ -370,27 +372,6 @@ export class ProverNode implements L2BlockStreamEventHandler, ProverNodeApi, Tra
       previousInboxRollingHash,
       previousArchiveSiblingPath,
     };
-  }
-
-  /**
-   * Derives a checkpoint's consumed L1-to-L2 messages, in order, from the Inbox buckets between the parent
-   * checkpoint's consumed position (the block before the checkpoint's first block) and the checkpoint's last block
-   * (compact leaf counts), for the prover to slice per block (AZIP-22 Fast Inbox).
-   */
-  private async deriveCheckpointConsumedMessages(previousBlockHeader: BlockHeader, lastBlock: L2Block): Promise<Fr[]> {
-    const startLeafCount = BigInt(previousBlockHeader.state.l1ToL2MessageTree.nextAvailableLeafIndex);
-    const endLeafCount = BigInt(lastBlock.header.state.l1ToL2MessageTree.nextAvailableLeafIndex);
-    if (endLeafCount <= startLeafCount) {
-      return [];
-    }
-    const startBucket = await this.l1ToL2MessageSource.getInboxBucketByTotalMsgCount(startLeafCount);
-    const endBucket = await this.l1ToL2MessageSource.getInboxBucketByTotalMsgCount(endLeafCount);
-    if (startBucket === undefined || endBucket === undefined) {
-      throw new Error(
-        `Cannot resolve consumed messages for checkpoint ending at block ${lastBlock.number} from the Inbox buckets`,
-      );
-    }
-    return this.l1ToL2MessageSource.getL1ToL2MessagesBetweenBuckets(startBucket.seq, endBucket.seq);
   }
 
   /**
