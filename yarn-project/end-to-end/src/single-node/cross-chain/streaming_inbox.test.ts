@@ -227,7 +227,7 @@ describe('single-node/cross-chain/streaming_inbox', () => {
       const includingBlockTs = insertingBlock.header.globalVariables.timestamp;
       const delaySeconds = includingBlockTs - messageL1Ts;
 
-      // Informational only (A-1178 timings style): the wall-clock number flakes under CI load, so it is never
+      // Informational only: the wall-clock number flakes under CI load, so it is never
       // asserted on; the slot-denominated bound below is the real check.
       log.warn(`Streaming latency for message ${msgHash.toString()}`, {
         messageL1Ts,
@@ -290,7 +290,7 @@ describe('single-node/cross-chain/streaming_inbox', () => {
 
   // Test 4 (send-then-consume on the streaming path): a message inserted by the streaming Inbox is consumed by
   // a public L2 tx, passing the compact leaf index, and cannot be consumed twice. Same-block consumption is
-  // available post-A-1432 (a block's BlockConstantData.l1_to_l2_tree_snapshot pins to that block's post-bundle
+  // available (a block's BlockConstantData.l1_to_l2_tree_snapshot pins to that block's post-bundle
   // root, so the public/AVM read sees the just-inserted message), but which block consumes the message relative
   // to its insertion depends on sequencer timing under the production sequencer; the block relationship is
   // logged for visibility while the robust invariants asserted are the successful compact-index consume and the
