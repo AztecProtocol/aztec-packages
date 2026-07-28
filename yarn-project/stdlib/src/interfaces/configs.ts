@@ -115,6 +115,13 @@ export interface SequencerConfig {
   expectedBlockProposalsPerSlot?: number;
   /** Have sequencer build and publish an empty checkpoint if there are no txs */
   buildCheckpointIfEmpty?: boolean;
+  /**
+   * Select L1-to-L2 messages per block from the streaming Inbox buckets (AZIP-22 Fast Inbox), rather than consuming
+   * the whole checkpoint's messages up front. Default off: pre-flip, on-chain `propose` still enforces the legacy
+   * per-checkpoint consumption, so a checkpoint built with this on is expected to fail L1 submission. The sequencer
+   * and validator must flip together, so both read the same `STREAMING_INBOX` env var.
+   */
+  streamingInbox?: boolean;
   /** Skip pushing proposed blocks to archiver (default: false) */
   skipPushProposedBlocksToArchiver?: boolean;
   /** Minimum number of blocks required for a checkpoint proposal (test only, defaults to undefined = no minimum) */
@@ -180,6 +187,7 @@ export const SequencerConfigSchema = zodFor<SequencerConfig>()(
     checkpointProposalSyncGraceSeconds: z.number().nonnegative().optional(),
     expectedBlockProposalsPerSlot: z.number().nonnegative().optional(),
     buildCheckpointIfEmpty: z.boolean().optional(),
+    streamingInbox: z.boolean().optional(),
     skipPushProposedBlocksToArchiver: z.boolean().optional(),
     minBlocksForCheckpoint: z.number().positive().optional(),
     skipPublishingCheckpointsPercent: z.number().gte(0).lte(100).optional(),
