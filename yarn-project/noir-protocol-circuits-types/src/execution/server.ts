@@ -7,6 +7,7 @@ import type {
   BlockRollupPublicInputs,
   BlockRootEmptyTxFirstRollupPrivateInputs,
   BlockRootFirstRollupPrivateInputs,
+  BlockRootMsgsOnlyRollupPrivateInputs,
   BlockRootRollupPrivateInputs,
   BlockRootSingleTxFirstRollupPrivateInputs,
   BlockRootSingleTxRollupPrivateInputs,
@@ -32,6 +33,7 @@ import {
   mapBlockRollupPublicInputsFromNoir,
   mapBlockRootEmptyTxFirstRollupPrivateInputsToNoir,
   mapBlockRootFirstRollupPrivateInputsToNoir,
+  mapBlockRootMsgsOnlyRollupPrivateInputsToNoir,
   mapBlockRootRollupPrivateInputsToNoir,
   mapBlockRootSingleTxFirstRollupPrivateInputsToNoir,
   mapBlockRootSingleTxRollupPrivateInputsToNoir,
@@ -59,6 +61,7 @@ import type {
   RollupBlockRootFirstEmptyTxReturnType,
   RollupBlockRootFirstReturnType,
   RollupBlockRootFirstSingleTxReturnType,
+  RollupBlockRootMsgsOnlyReturnType,
   RollupBlockRootReturnType,
   RollupBlockRootSingleTxReturnType,
   RollupCheckpointMergeReturnType,
@@ -197,6 +200,17 @@ export function convertBlockRootSingleTxRollupPrivateInputsToWitnessMap(
   return convertPrivateInputsToWitnessMap(
     'BlockRootSingleTxRollupArtifact',
     mapBlockRootSingleTxRollupPrivateInputsToNoir(inputs),
+    simulated,
+  );
+}
+
+export function convertBlockRootMsgsOnlyRollupPrivateInputsToWitnessMap(
+  inputs: BlockRootMsgsOnlyRollupPrivateInputs,
+  simulated = false,
+): WitnessMap {
+  return convertPrivateInputsToWitnessMap(
+    'BlockRootMsgsOnlyRollupArtifact',
+    mapBlockRootMsgsOnlyRollupPrivateInputsToNoir(inputs),
     simulated,
   );
 }
@@ -364,6 +378,18 @@ export function convertBlockRootSingleTxRollupOutputsFromWitnessMap(
 ): BlockRollupPublicInputs {
   const publicInputs = convertOutputsFromWitnessMap<RollupBlockRootSingleTxReturnType>(
     'BlockRootSingleTxRollupArtifact',
+    outputs,
+    simulated,
+  );
+  return mapBlockRollupPublicInputsFromNoir(publicInputs);
+}
+
+export function convertBlockRootMsgsOnlyRollupOutputsFromWitnessMap(
+  outputs: WitnessMap,
+  simulated = false,
+): BlockRollupPublicInputs {
+  const publicInputs = convertOutputsFromWitnessMap<RollupBlockRootMsgsOnlyReturnType>(
+    'BlockRootMsgsOnlyRollupArtifact',
     outputs,
     simulated,
   );

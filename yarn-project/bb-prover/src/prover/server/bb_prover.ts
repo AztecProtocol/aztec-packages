@@ -17,6 +17,8 @@ import {
   convertBlockRootEmptyTxFirstRollupPrivateInputsToWitnessMap,
   convertBlockRootFirstRollupOutputsFromWitnessMap,
   convertBlockRootFirstRollupPrivateInputsToWitnessMap,
+  convertBlockRootMsgsOnlyRollupOutputsFromWitnessMap,
+  convertBlockRootMsgsOnlyRollupPrivateInputsToWitnessMap,
   convertBlockRootRollupOutputsFromWitnessMap,
   convertBlockRootRollupPrivateInputsToWitnessMap,
   convertBlockRootSingleTxFirstRollupOutputsFromWitnessMap,
@@ -65,6 +67,7 @@ import {
   BlockRollupPublicInputs,
   BlockRootEmptyTxFirstRollupPrivateInputs,
   BlockRootFirstRollupPrivateInputs,
+  BlockRootMsgsOnlyRollupPrivateInputs,
   BlockRootRollupPrivateInputs,
   BlockRootSingleTxFirstRollupPrivateInputs,
   BlockRootSingleTxRollupPrivateInputs,
@@ -313,6 +316,18 @@ export class BBNativeRollupProver implements ServerCircuitProver {
       NESTED_RECURSIVE_ROLLUP_HONK_PROOF_LENGTH,
       convertBlockRootSingleTxRollupPrivateInputsToWitnessMap,
       convertBlockRootSingleTxRollupOutputsFromWitnessMap,
+    );
+  }
+
+  public getBlockRootMsgsOnlyRollupProof(
+    input: BlockRootMsgsOnlyRollupPrivateInputs,
+  ): Promise<PublicInputsAndRecursiveProof<BlockRollupPublicInputs, typeof NESTED_RECURSIVE_ROLLUP_HONK_PROOF_LENGTH>> {
+    return this.createRecursiveProofAndVerify(
+      input,
+      'BlockRootMsgsOnlyRollupArtifact',
+      NESTED_RECURSIVE_ROLLUP_HONK_PROOF_LENGTH,
+      convertBlockRootMsgsOnlyRollupPrivateInputsToWitnessMap,
+      convertBlockRootMsgsOnlyRollupOutputsFromWitnessMap,
     );
   }
 

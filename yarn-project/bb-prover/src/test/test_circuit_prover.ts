@@ -15,6 +15,8 @@ import {
   convertBlockRootEmptyTxFirstRollupPrivateInputsToWitnessMap,
   convertBlockRootFirstRollupOutputsFromWitnessMap,
   convertBlockRootFirstRollupPrivateInputsToWitnessMap,
+  convertBlockRootMsgsOnlyRollupOutputsFromWitnessMap,
+  convertBlockRootMsgsOnlyRollupPrivateInputsToWitnessMap,
   convertBlockRootRollupOutputsFromWitnessMap,
   convertBlockRootRollupPrivateInputsToWitnessMap,
   convertBlockRootSingleTxFirstRollupOutputsFromWitnessMap,
@@ -67,6 +69,7 @@ import {
   type BlockRollupPublicInputs,
   type BlockRootEmptyTxFirstRollupPrivateInputs,
   type BlockRootFirstRollupPrivateInputs,
+  type BlockRootMsgsOnlyRollupPrivateInputs,
   type BlockRootRollupPrivateInputs,
   type BlockRootSingleTxFirstRollupPrivateInputs,
   type BlockRootSingleTxRollupPrivateInputs,
@@ -265,6 +268,21 @@ export class TestCircuitProver implements ServerCircuitProver {
         NESTED_RECURSIVE_ROLLUP_HONK_PROOF_LENGTH,
         convertBlockRootEmptyTxFirstRollupPrivateInputsToWitnessMap,
         convertBlockRootEmptyTxFirstRollupOutputsFromWitnessMap,
+      ),
+    );
+  }
+
+  @trackSpan('TestCircuitProver.getBlockRootMsgsOnlyRollupProof')
+  public getBlockRootMsgsOnlyRollupProof(
+    input: BlockRootMsgsOnlyRollupPrivateInputs,
+  ): Promise<PublicInputsAndRecursiveProof<BlockRollupPublicInputs, typeof NESTED_RECURSIVE_ROLLUP_HONK_PROOF_LENGTH>> {
+    return this.applyDelay(ProvingRequestType.BLOCK_ROOT_MSGS_ONLY_ROLLUP, () =>
+      this.simulate(
+        input,
+        'BlockRootMsgsOnlyRollupArtifact',
+        NESTED_RECURSIVE_ROLLUP_HONK_PROOF_LENGTH,
+        convertBlockRootMsgsOnlyRollupPrivateInputsToWitnessMap,
+        convertBlockRootMsgsOnlyRollupOutputsFromWitnessMap,
       ),
     );
   }

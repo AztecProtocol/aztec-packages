@@ -15,6 +15,7 @@ import type { BlockRollupPublicInputs } from '../rollup/block_rollup_public_inpu
 import type {
   BlockRootEmptyTxFirstRollupPrivateInputs,
   BlockRootFirstRollupPrivateInputs,
+  BlockRootMsgsOnlyRollupPrivateInputs,
   BlockRootRollupPrivateInputs,
   BlockRootSingleTxFirstRollupPrivateInputs,
   BlockRootSingleTxRollupPrivateInputs,
@@ -125,6 +126,12 @@ export interface ServerCircuitProver {
 
   getBlockRootSingleTxRollupProof(
     input: BlockRootSingleTxRollupPrivateInputs,
+    signal?: AbortSignal,
+    epochNumber?: number,
+  ): Promise<PublicInputsAndRecursiveProof<BlockRollupPublicInputs, typeof NESTED_RECURSIVE_ROLLUP_HONK_PROOF_LENGTH>>;
+
+  getBlockRootMsgsOnlyRollupProof(
+    input: BlockRootMsgsOnlyRollupPrivateInputs,
     signal?: AbortSignal,
     epochNumber?: number,
   ): Promise<PublicInputsAndRecursiveProof<BlockRollupPublicInputs, typeof NESTED_RECURSIVE_ROLLUP_HONK_PROOF_LENGTH>>;
