@@ -4,12 +4,9 @@
 pragma solidity >=0.8.27;
 
 import {Errors} from "@aztec/core/libraries/Errors.sol";
-import {SubmitEpochRootProofArgs, PublicInputArgs} from "@aztec/core/interfaces/IRollup.sol";
 import {STFLib} from "@aztec/core/libraries/rollup/STFLib.sol";
 import {Timestamp, TimeLib, Slot, Epoch} from "@aztec/core/libraries/TimeLib.sol";
 import {BlobLib} from "@aztec-blob-lib/BlobLib.sol";
-import {EpochProofLib} from "./EpochProofLib.sol";
-import {ProposedHeader} from "@aztec/core/libraries/rollup/ProposedHeaderLib.sol";
 import {AttestationLib} from "@aztec/core/libraries/rollup/AttestationLib.sol";
 import {
   ProposeLib,
@@ -21,16 +18,16 @@ import {
 import {Signature} from "@aztec/shared/libraries/SignatureLib.sol";
 
 /**
- * @title RollupOperationsExtLib - External Rollup Library (Proposal and Proof Verification Functions)
+ * @title RollupOperationsExtLib - External Rollup Library (Proposal Functions)
  * @author Aztec Labs
  * @notice External library containing proposal-related functions for the Rollup contract to avoid exceeding max
  * contract size.
  *
  * @dev This library serves as an external library for the Rollup contract, splitting off proposal-related
- *      functionality to keep the main contract within the maximum contract size limit. The library contains
- *      external functions primarily focused on:
+ *      functionality to keep the main contract within the maximum contract size limit. Epoch-proof functions
+ *      live in EpochProofExtLib to keep this library itself deployable. The library contains external
+ *      functions primarily focused on:
  *      - Checkpoint proposal submission and validation
- *      - Epoch proof submission and verification
  *      - Blob validation and commitment management
  *      - Chain pruning operations
  */
@@ -38,10 +35,6 @@ library RollupOperationsExtLib {
   using TimeLib for Timestamp;
   using TimeLib for Slot;
   using AttestationLib for CommitteeAttestations;
-
-  function submitEpochRootProof(SubmitEpochRootProofArgs calldata _args) external {
-    EpochProofLib.submitEpochRootProof(_args);
-  }
 
   function validateHeaderWithAttestations(
     ValidateHeaderArgs calldata _args,
@@ -76,16 +69,6 @@ library RollupOperationsExtLib {
   function prune() external {
     require(STFLib.canPruneAtTime(Timestamp.wrap(block.timestamp)), Errors.Rollup__NothingToPrune());
     STFLib.prune();
-  }
-
-  function getEpochProofPublicInputs(
-    uint256 _start,
-    uint256 _end,
-    PublicInputArgs calldata _args,
-    ProposedHeader[] calldata _headers,
-    bytes calldata _blobPublicInputs
-  ) external view returns (bytes32[] memory) {
-    return EpochProofLib.getEpochProofPublicInputs(_start, _end, _args, _headers, _blobPublicInputs);
   }
 
   function validateBlobs(bytes calldata _blobsInput, bool _checkBlob)

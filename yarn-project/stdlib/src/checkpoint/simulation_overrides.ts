@@ -73,21 +73,25 @@ export async function buildCheckpointSimulationOverridesPlan(
   builder.withChainTips({ pending: overridenChainTip, proven: overridenChainTip });
 
   if (input.proposedCheckpointData) {
-    const { header, archive, checkpointOutHash, feeAssetPriceModifier } = input.proposedCheckpointData;
+    const { header, archive, checkpointOutHash, feeAssetPriceModifier, inboxMsgTotal } = input.proposedCheckpointData;
     builder.withPendingArchive(archive.root);
     // Override every locally-derivable `tempCheckpointLogs[parent]` field that L1 will eventually
-    // write. `slotNumber` is load-bearing for `STFLib.canPruneAtTime`: without it the cell reads
+    // write. `slotNumber` is required by `STFLib.canPruneAtTime`: without it the cell reads
     // slotNumber 0, the contract treats the pending tip as belonging to an expired epoch, and
     // `getEffectivePendingCheckpointNumber` silently collapses pending back to proven — producing
-    // a spurious `Rollup__InvalidArchive` against the on-chain genesis archive. The other fields
-    // (headerHash, outHash, payloadDigest) are not strictly load-bearing for `canProposeAt` /
-    // `validateBlockHeader`, but mirroring the full cell keeps the simulation byte-faithful with
-    // what the actual `propose()` send will observe, which is a defense against future reads
-    // taking dependencies on them.
+    // a spurious `Rollup__InvalidArchive` against the on-chain genesis archive. `inboxMsgTotal` is
+    // read by `ProposeLib.validateInboxConsumption` as the parent's consumed total: left at zero it
+    // makes our consumption look like the Inbox's entire history and trips
+    // `Rollup__TooManyInboxMessagesConsumed`. The remaining fields (headerHash, outHash,
+    // payloadDigest) are not read by `canProposeAt` / `validateBlockHeader`, but mirroring the full
+    // cell keeps the simulation byte-faithful with what the actual `propose()` send will observe,
+    // which is a defense against future reads taking dependencies on them. The parent's
+    // `inboxConsumedBucket` shares the word and stays zero: no contract path reads it back.
     builder.withPendingTempCheckpointLogFields({
       headerHash: header.hash(),
       outHash: checkpointOutHash,
       slotNumber: header.slotNumber,
+      inboxMsgTotal,
       payloadDigest: computeCheckpointPayloadDigest({
         header,
         archiveRoot: archive.root,

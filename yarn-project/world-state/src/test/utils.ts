@@ -50,13 +50,9 @@ export async function updateBlockState(block: L2Block, l1ToL2Messages: Fr[], for
     padArrayEnd(txEffect.noteHashes, Fr.ZERO, MAX_NOTE_HASHES_PER_TX),
   );
 
-  const l1ToL2MessagesPadded =
-    block.indexWithinCheckpoint === 0
-      ? padArrayEnd<Fr, number>(l1ToL2Messages, Fr.ZERO, NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP)
-      : l1ToL2Messages;
-
+  // Post-flip every block appends its real message leaves unpadded at compact indices (AZIP-22 Fast Inbox).
   const noteHashInsert = fork.appendLeaves(MerkleTreeId.NOTE_HASH_TREE, noteHashesPadded);
-  const messageInsert = fork.appendLeaves(MerkleTreeId.L1_TO_L2_MESSAGE_TREE, l1ToL2MessagesPadded);
+  const messageInsert = fork.appendLeaves(MerkleTreeId.L1_TO_L2_MESSAGE_TREE, l1ToL2Messages);
   await Promise.all([publicDataInsert, nullifierInsert, noteHashInsert, messageInsert]);
 
   const state = await fork.getStateReference();

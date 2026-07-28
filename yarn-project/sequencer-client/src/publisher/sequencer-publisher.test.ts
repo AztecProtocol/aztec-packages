@@ -262,6 +262,7 @@ describe('SequencerPublisher', () => {
       checkpoint,
       CommitteeAttestationsAndSigners.empty(testSignatureContext),
       Signature.empty(),
+      0n,
     );
 
     const { govPayload, voteSig } = mockGovernancePayload();
@@ -295,6 +296,7 @@ describe('SequencerPublisher', () => {
         oracleInput: {
           feeAssetPriceModifier: 0n,
         },
+        bucketHint: 0n,
       },
       CommitteeAttestationsAndSigners.packAttestations([]),
       [],
@@ -350,6 +352,7 @@ describe('SequencerPublisher', () => {
       new Checkpoint(l2Block.archive, header, [l2Block], l2Block.checkpointNumber),
       CommitteeAttestationsAndSigners.empty(testSignatureContext),
       Signature.empty(),
+      0n,
     );
     const result = await publisher.sendRequests();
     expect(result).toEqual(undefined);
@@ -424,6 +427,7 @@ describe('SequencerPublisher', () => {
         new Checkpoint(l2Block.archive, header, [l2Block], l2Block.checkpointNumber),
         CommitteeAttestationsAndSigners.empty(testSignatureContext),
         Signature.empty(),
+        0n,
       );
       const result = await rotatingPublisher.sendRequests();
 
@@ -460,6 +464,7 @@ describe('SequencerPublisher', () => {
         new Checkpoint(l2Block.archive, header, [l2Block], l2Block.checkpointNumber),
         CommitteeAttestationsAndSigners.empty(testSignatureContext),
         Signature.empty(),
+        0n,
       );
       // TimeoutError propagates to the outer catch in sendRequests which returns undefined
       const result = await rotatingPublisher.sendRequests();
@@ -479,6 +484,7 @@ describe('SequencerPublisher', () => {
         new Checkpoint(l2Block.archive, header, [l2Block], l2Block.checkpointNumber),
         CommitteeAttestationsAndSigners.empty(testSignatureContext),
         Signature.empty(),
+        0n,
       );
       const result = await rotatingPublisher.sendRequests();
 
@@ -493,6 +499,7 @@ describe('SequencerPublisher', () => {
         new Checkpoint(l2Block.archive, header, [l2Block], l2Block.checkpointNumber),
         CommitteeAttestationsAndSigners.empty(testSignatureContext),
         Signature.empty(),
+        0n,
         { txTimeoutAt: pastTimeout },
       );
       const result = await rotatingPublisher.sendRequests();
@@ -525,6 +532,7 @@ describe('SequencerPublisher', () => {
           new Checkpoint(l2Block.archive, header, [l2Block], l2Block.checkpointNumber),
           CommitteeAttestationsAndSigners.empty(testSignatureContext),
           Signature.empty(),
+          0n,
           { txTimeoutAt: futureTimeout },
         );
         const result = await rotatingPublisher.sendRequests();
@@ -547,6 +555,7 @@ describe('SequencerPublisher', () => {
         new Checkpoint(l2Block.archive, header, [l2Block], l2Block.checkpointNumber),
         CommitteeAttestationsAndSigners.empty(testSignatureContext),
         Signature.empty(),
+        0n,
       );
       const result = await rotatingPublisher.sendRequests();
 
@@ -561,6 +570,7 @@ describe('SequencerPublisher', () => {
       new Checkpoint(l2Block.archive, header, [l2Block], l2Block.checkpointNumber),
       CommitteeAttestationsAndSigners.empty(testSignatureContext),
       Signature.empty(),
+      0n,
     );
 
     // Simulate the bundle-level validate returning a failed entry for the propose call.
@@ -779,6 +789,7 @@ describe('SequencerPublisher', () => {
       new Checkpoint(l2Block.archive, header, [l2Block], l2Block.checkpointNumber),
       CommitteeAttestationsAndSigners.empty(testSignatureContext),
       Signature.empty(),
+      0n,
     );
     publisher.interrupt();
     const resultPromise = publisher.sendRequests();
@@ -1226,6 +1237,7 @@ describe('SequencerPublisher', () => {
         new Checkpoint(l2Block.archive, header, [l2Block], l2Block.checkpointNumber),
         CommitteeAttestationsAndSigners.empty(testSignatureContext),
         Signature.empty(),
+        0n,
       );
 
       const result = await storedPublisher.sendRequests();

@@ -86,7 +86,7 @@ describe('NativeWorldState', () => {
       await ws.close();
     });
 
-    it('pads messages, note hashes, nullifiers correctly for first block', async () => {
+    it('appends messages unpadded and pads note hashes, nullifiers for first block', async () => {
       const isFirstBlock = true;
       const txsPerBlock = 2;
       const maxEffects = 1;
@@ -102,7 +102,8 @@ describe('NativeWorldState', () => {
 
       const status = await ws.handleL2BlockAndMessages(block, messages);
 
-      expect(status.meta.messageTreeMeta.size).toBe(BigInt(NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP));
+      // Messages are appended unpadded at compact indices (AZIP-22 Fast Inbox).
+      expect(status.meta.messageTreeMeta.size).toBe(BigInt(numMessages));
 
       const expectedNoteHashCount = txsPerBlock * MAX_NOTE_HASHES_PER_TX;
       expect(status.meta.noteHashTreeMeta.size).toBe(BigInt(expectedNoteHashCount));
@@ -147,13 +148,13 @@ describe('NativeWorldState', () => {
       expect(status.meta.publicDataTreeMeta.size).toBe(BigInt(INITIAL_PUBLIC_DATA_TREE_SIZE + expectedPublicDataCount));
     });
 
-    it('pads empty messages array for first block', async () => {
+    it('leaves the message tree empty for a first block with no messages', async () => {
       const isFirstBlock = true;
       const numMessages = 0;
       const { block, messages } = await mockBlock(BlockNumber(1), 1, fork, 1, numMessages, isFirstBlock);
 
       const status = await ws.handleL2BlockAndMessages(block, messages);
-      expect(status.meta.messageTreeMeta.size).toBe(BigInt(NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP));
+      expect(status.meta.messageTreeMeta.size).toBe(0n);
     });
 
     it('appends a non-first block bundle without padding', async () => {
@@ -188,18 +189,17 @@ describe('NativeWorldState', () => {
     it('advances the L1-to-L2 message tree per block, including on non-first blocks', async () => {
       const fork = await ws.fork();
 
-      // Block 1 is first-in-checkpoint, so its bundle is padded to NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP (this is how
-      // the circuits build the tree).
+      // Block 1 is first-in-checkpoint carrying 3 messages, appended unpadded at compact indices (AZIP-22 Fast Inbox).
       const { block: b1, messages: m1 } = await mockBlockWithIndex(BlockNumber(1), /*index=*/ 0, 1, fork, 3, 1);
       const s1 = await ws.handleL2BlockAndMessages(b1, m1);
-      expect(s1.meta.messageTreeMeta.size).toBe(BigInt(NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP));
+      expect(s1.meta.messageTreeMeta.size).toBe(3n);
       expect(s1.meta.messageTreeMeta.unfinalizedBlockHeight).toBe(1);
 
       // Block 2 is non-first and carries no messages: the message tree size and root are unchanged, but the tree is
       // still committed as a new block (so its per-block history stays in lockstep with the other trees).
       const { block: b2, messages: m2 } = await mockBlockWithIndex(BlockNumber(2), /*index=*/ 1, 1, fork, 0, 1);
       const s2 = await ws.handleL2BlockAndMessages(b2, m2);
-      expect(s2.meta.messageTreeMeta.size).toBe(BigInt(NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP));
+      expect(s2.meta.messageTreeMeta.size).toBe(3n);
       expect(s2.meta.messageTreeMeta.root).toEqual(s1.meta.messageTreeMeta.root);
       expect(s2.meta.messageTreeMeta.unfinalizedBlockHeight).toBe(2);
 
@@ -207,23 +207,19 @@ describe('NativeWorldState', () => {
       // bundle size and the root changes on a non-first block.
       const { block: b3, messages: m3 } = await mockBlockWithIndex(BlockNumber(3), /*index=*/ 2, 1, fork, 5, 1);
       const s3 = await ws.handleL2BlockAndMessages(b3, m3);
-      expect(s3.meta.messageTreeMeta.size).toBe(BigInt(NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP + 5));
+      expect(s3.meta.messageTreeMeta.size).toBe(8n);
       expect(s3.meta.messageTreeMeta.root).not.toEqual(s2.meta.messageTreeMeta.root);
       expect(s3.meta.messageTreeMeta.unfinalizedBlockHeight).toBe(3);
 
       await fork.close();
 
-      // A fork opened at block 2 sees exactly the first two bundles (3 padded + 0); at block 3 it also sees the third.
+      // A fork opened at block 2 sees exactly the first two bundles (3 + 0); at block 3 it also sees the third.
       const forkAt2 = await ws.fork(BlockNumber(2));
-      expect((await forkAt2.getTreeInfo(MerkleTreeId.L1_TO_L2_MESSAGE_TREE)).size).toBe(
-        BigInt(NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP),
-      );
+      expect((await forkAt2.getTreeInfo(MerkleTreeId.L1_TO_L2_MESSAGE_TREE)).size).toBe(3n);
       await forkAt2.close();
 
       const forkAt3 = await ws.fork(BlockNumber(3));
-      expect((await forkAt3.getTreeInfo(MerkleTreeId.L1_TO_L2_MESSAGE_TREE)).size).toBe(
-        BigInt(NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP + 5),
-      );
+      expect((await forkAt3.getTreeInfo(MerkleTreeId.L1_TO_L2_MESSAGE_TREE)).size).toBe(8n);
       await forkAt3.close();
     });
 
@@ -236,12 +232,12 @@ describe('NativeWorldState', () => {
       // Non-first block carrying 4 messages.
       const { block: b2, messages: m2 } = await mockBlockWithIndex(BlockNumber(2), /*index=*/ 1, 1, fork, 4, 1);
       const s2 = await ws.handleL2BlockAndMessages(b2, m2);
-      expect(s2.meta.messageTreeMeta.size).toBe(BigInt(NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP + 4));
+      expect(s2.meta.messageTreeMeta.size).toBe(6n);
 
       // Non-first block carrying 5 messages.
       const { block: b3, messages: m3 } = await mockBlockWithIndex(BlockNumber(3), /*index=*/ 2, 1, fork, 5, 1);
       const s3 = await ws.handleL2BlockAndMessages(b3, m3);
-      expect(s3.meta.messageTreeMeta.size).toBe(BigInt(NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP + 9));
+      expect(s3.meta.messageTreeMeta.size).toBe(11n);
       await fork.close();
 
       // Unwind block 3: the message tree returns to the post-block-2 state.
@@ -259,23 +255,22 @@ describe('NativeWorldState', () => {
       const resyncFork = await ws.fork();
       const { block: b2b, messages: m2b } = await mockBlockWithIndex(BlockNumber(2), /*index=*/ 1, 1, resyncFork, 4, 1);
       const s2b = await ws.handleL2BlockAndMessages(b2b, m2b);
-      expect(s2b.meta.messageTreeMeta.size).toBe(BigInt(NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP + 4));
+      expect(s2b.meta.messageTreeMeta.size).toBe(6n);
 
       const { block: b3b, messages: m3b } = await mockBlockWithIndex(BlockNumber(3), /*index=*/ 2, 1, resyncFork, 5, 1);
       const s3b = await ws.handleL2BlockAndMessages(b3b, m3b);
-      expect(s3b.meta.messageTreeMeta.size).toBe(BigInt(NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP + 9));
+      expect(s3b.meta.messageTreeMeta.size).toBe(11n);
       await resyncFork.close();
     });
 
-    it('leaves the message tree byte-identical on every non-first block of a legacy-shaped checkpoint', async () => {
+    it('leaves the message tree unchanged on every non-first block that carries no messages', async () => {
       const fork = await ws.fork();
 
-      // Legacy call shape: the whole (padded) checkpoint bundle is attached to the first block; non-first blocks carry
-      // an empty bundle. With this shape the code change is a no-op, so the message tree must match the pre-change
-      // behaviour (identical trees) at every block, not just at the checkpoint end.
+      // A checkpoint whose messages are all consumed by its first block: non-first blocks carry an empty bundle, so the
+      // message tree must be unchanged (size and root) at every non-first block, not just at the checkpoint end.
       const { block: b1, messages: m1 } = await mockBlockWithIndex(BlockNumber(1), /*index=*/ 0, 2, fork, 6, 2);
       const s1 = await ws.handleL2BlockAndMessages(b1, m1);
-      expect(s1.meta.messageTreeMeta.size).toBe(BigInt(NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP));
+      expect(s1.meta.messageTreeMeta.size).toBe(6n);
 
       for (let index = 1; index <= 2; index++) {
         const blockNumber = index + 1;

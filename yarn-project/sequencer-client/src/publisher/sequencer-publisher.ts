@@ -115,6 +115,8 @@ type L1ProcessArgs = {
   attestationsAndSignersSignature: Signature;
   /** The fee asset price modifier in basis points (from oracle) */
   feeAssetPriceModifier: bigint;
+  /** Sequence number of the Inbox bucket the header's rolling hash corresponds to (AZIP-22 Fast Inbox lookup aid). */
+  bucketHint: bigint;
 };
 
 export const Actions = [
@@ -1435,6 +1437,7 @@ export class SequencerPublisher {
     checkpoint: Checkpoint,
     attestationsAndSigners: CommitteeAttestationsAndSigners,
     attestationsAndSignersSignature: Signature,
+    bucketHint: bigint,
     opts: EnqueueProposeCheckpointOpts = {},
   ): Promise<void> {
     const checkpointHeader = checkpoint.header;
@@ -1449,6 +1452,7 @@ export class SequencerPublisher {
       attestationsAndSigners,
       attestationsAndSignersSignature,
       feeAssetPriceModifier: checkpoint.feeAssetPriceModifier,
+      bucketHint,
     };
 
     this.log.verbose(`Enqueuing checkpoint propose transaction`, {
@@ -1619,6 +1623,7 @@ export class SequencerPublisher {
         oracleInput: {
           feeAssetPriceModifier: encodedData.feeAssetPriceModifier,
         },
+        bucketHint: encodedData.bucketHint,
       },
       encodedData.attestationsAndSigners.getPackedAttestations(),
       signers,

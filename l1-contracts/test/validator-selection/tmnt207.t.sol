@@ -264,8 +264,13 @@ contract Tmnt207Test is RollupBase {
     header.gasFees.feePerL2Gas = SafeCast.toUint128(rollup.getManaMinFeeAt(Timestamp.wrap(block.timestamp), true));
     header.totalManaUsed = MANA_TARGET;
 
-    ProposeArgs memory proposeArgs =
-      ProposeArgs({header: header, archive: archiveRoot, oracleInput: OracleInput({feeAssetPriceModifier: 0})});
+    // Streaming Inbox (AZIP-22 Fast Inbox): reference the newest bucket (genesis here; nothing is seeded).
+    uint256 bucketHint = rollup.getInbox().getCurrentBucketSeq();
+    header.inboxRollingHash = rollup.getInbox().getBucket(bucketHint).rollingHash;
+
+    ProposeArgs memory proposeArgs = ProposeArgs({
+      header: header, archive: archiveRoot, oracleInput: OracleInput({feeAssetPriceModifier: 0}), bucketHint: bucketHint
+    });
 
     CommitteeAttestation[] memory attestations;
     address[] memory signers;

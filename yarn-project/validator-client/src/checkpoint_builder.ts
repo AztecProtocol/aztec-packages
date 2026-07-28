@@ -132,10 +132,14 @@ export class CheckpointBuilder implements ICheckpointBlockBuilder {
       await forkCheckpoint.commit();
 
       // Add block to checkpoint, inserting this block's streaming L1-to-L2 message bundle (if any) into the fork.
-      const { block } = await this.checkpointBuilder.addBlock(globalVariables, processedTxs, {
-        expectedEndState: opts.expectedEndState,
-        l1ToL2Messages: opts.l1ToL2Messages,
-      });
+      const { block } = await this.checkpointBuilder.addBlock(
+        globalVariables,
+        processedTxs,
+        opts.l1ToL2Messages ?? [],
+        {
+          expectedEndState: opts.expectedEndState,
+        },
+      );
 
       this.contractsDB.commitCheckpoint();
 
@@ -204,8 +208,7 @@ export class CheckpointBuilder implements ICheckpointBlockBuilder {
     // Remaining blob fields (block blob fields include both tx data and block-end overhead)
     const usedBlobFields = sum(existingBlocks.map(b => b.toBlobFields().length));
     const totalBlobCapacity = BLOBS_PER_CHECKPOINT * FIELDS_PER_BLOB - NUM_CHECKPOINT_END_MARKER_FIELDS;
-    const isFirstBlock = existingBlocks.length === 0;
-    const blockEndOverhead = getNumBlockEndBlobFields(isFirstBlock);
+    const blockEndOverhead = getNumBlockEndBlobFields();
     const maxBlobFieldsForTxs = totalBlobCapacity - usedBlobFields - blockEndOverhead;
 
     // Remaining txs
@@ -318,35 +321,30 @@ export class FullNodeCheckpointsBuilder implements ICheckpointsBuilder {
     checkpointNumber: CheckpointNumber,
     constants: CheckpointGlobalVariables,
     feeAssetPriceModifier: bigint,
-    l1ToL2Messages: Fr[],
     previousCheckpointOutHashes: Fr[],
     previousInboxRollingHash: Fr,
     fork: MerkleTreeWriteOperations,
     bindings?: LoggerBindings,
-    insertMessagesPerBlock: boolean = false,
   ): Promise<CheckpointBuilder> {
     const stateReference = await fork.getStateReference();
     const archiveTree = await fork.getTreeInfo(MerkleTreeId.ARCHIVE);
 
     this.log.verbose(`Building new checkpoint ${checkpointNumber}`, {
       checkpointNumber,
-      msgCount: l1ToL2Messages.length,
       initialStateReference: stateReference.toInspect(),
       initialArchiveRoot: bufferToHex(archiveTree.root),
       constants,
       feeAssetPriceModifier,
     });
 
-    const lightweightBuilder = await LightweightCheckpointBuilder.startNewCheckpoint(
+    const lightweightBuilder = LightweightCheckpointBuilder.startNewCheckpoint(
       checkpointNumber,
       constants,
-      l1ToL2Messages,
       previousCheckpointOutHashes,
       previousInboxRollingHash,
       fork,
       bindings,
       feeAssetPriceModifier,
-      insertMessagesPerBlock,
     );
 
     return new CheckpointBuilder(
@@ -364,6 +362,9 @@ export class FullNodeCheckpointsBuilder implements ICheckpointsBuilder {
 
   /**
    * Opens a checkpoint, either starting fresh or resuming from existing blocks.
+   * @param l1ToL2Messages - Messages the existing blocks already consumed, which seed the resumed checkpoint's
+   * rolling hash. Must be empty when starting fresh: a fresh checkpoint takes its messages per block, via
+   * `buildBlock` (AZIP-22 Fast Inbox streaming).
    */
   async openCheckpoint(
     checkpointNumber: CheckpointNumber,
@@ -375,25 +376,25 @@ export class FullNodeCheckpointsBuilder implements ICheckpointsBuilder {
     fork: MerkleTreeWriteOperations,
     existingBlocks: L2Block[] = [],
     bindings?: LoggerBindings,
-    // Streaming Inbox (AZIP-22 Fast Inbox): when true the fresh-checkpoint path inserts messages per block (via
-    // `buildBlock`'s `l1ToL2Messages`) instead of the whole checkpoint up front; `l1ToL2Messages` here must be empty.
-    // The resume path never inserts messages up front, so this only affects `startCheckpoint`.
-    insertMessagesPerBlock: boolean = false,
   ): Promise<CheckpointBuilder> {
     const stateReference = await fork.getStateReference();
     const archiveTree = await fork.getTreeInfo(MerkleTreeId.ARCHIVE);
 
     if (existingBlocks.length === 0) {
+      if (l1ToL2Messages.length > 0) {
+        throw new Error(
+          `Cannot open checkpoint ${checkpointNumber} with ${l1ToL2Messages.length} messages and no existing blocks: ` +
+            `a fresh checkpoint consumes its messages per block`,
+        );
+      }
       return this.startCheckpoint(
         checkpointNumber,
         constants,
         feeAssetPriceModifier,
-        l1ToL2Messages,
         previousCheckpointOutHashes,
         previousInboxRollingHash,
         fork,
         bindings,
-        insertMessagesPerBlock,
       );
     }
 

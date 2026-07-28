@@ -18,6 +18,7 @@ import {ValidatorSelectionLib} from "@aztec/core/libraries/rollup/ValidatorSelec
 import {Timestamp, Slot, Epoch, TimeLib} from "@aztec/core/libraries/TimeLib.sol";
 import {CompressedSlot, CompressedTimeMath} from "@aztec/shared/libraries/CompressedTimeMath.sol";
 import {Signature} from "@aztec/shared/libraries/SignatureLib.sol";
+import {SafeCast} from "@oz/utils/math/SafeCast.sol";
 import {ProposedHeader, ProposedHeaderLib} from "./ProposedHeaderLib.sol";
 import {STFLib} from "./STFLib.sol";
 
@@ -30,6 +31,10 @@ struct ProposeArgs {
   bytes32 archive;
   OracleInput oracleInput;
   ProposedHeader header;
+  // Sequence number of the Inbox bucket the header's `inboxRollingHash` corresponds to (AZIP-22 Fast Inbox).
+  // Unsigned lookup aid kept out of the attested payload digest: a wrong hint can only revert, never change what is
+  // accepted, since integrity comes from the rolling-hash equality check against the committee-signed header.
+  uint256 bucketHint;
 }
 
 struct ProposePayload {
@@ -43,7 +48,9 @@ struct InterimProposeValues {
   bytes32[] blobHashes;
   bytes32 blobsHashesCommitment;
   bytes[] blobCommitments;
-  bytes32 inHash;
+  bytes32 blobCommitmentsHash;
+  FeeHeader feeHeader;
+  uint256 consumedInboxMsgTotal;
   bytes32 headerHash;
   bytes32 attestationsHash;
   bytes32 payloadDigest;
@@ -118,6 +125,7 @@ library ProposeLib {
   using TimeLib for Epoch;
   using CompressedTimeMath for CompressedSlot;
   using ChainTipsLib for CompressedChainTips;
+  using SafeCast for uint256;
 
   /**
    * @notice  Publishes a new checkpoint to the pending chain.
@@ -258,17 +266,31 @@ library ProposeLib {
     uint256 checkpointNumber = tips.getPending() + 1;
     tips = tips.updatePending(checkpointNumber);
 
+    // Validate the streaming Inbox consumption against the parent checkpoint's consumed position (AZIP-22 Fast
+    // Inbox). The parent is checkpointNumber - 1, always available: checkpoint 0 carries the {0,0,0} genesis base
+    // case written at initialization. rollupStore.tips is not committed until below, so the parent read still sees
+    // the parent as the pending tip. The returned cumulative total is stored in this checkpoint's record so its
+    // child validates against it and, since temp-log records rewind with the pending chain on a prune, the record
+    // stays prune-consistent.
+    v.consumedInboxMsgTotal = validateInboxConsumption(
+      rollupStore.config.inbox,
+      v.header.inboxRollingHash,
+      _args.bucketHint,
+      v.header.slotNumber,
+      STFLib.getInboxMsgTotal(checkpointNumber - 1)
+    );
+
     // Calculate accumulated blob commitments hash for this checkpoint
     // Blob commitments are collected and proven per root rollup proof (per epoch),
     // so we need to know whether we are at the epoch start:
     v.isFirstCheckpointOfEpoch =
       v.currentEpoch > STFLib.getEpochForCheckpoint(checkpointNumber - 1) || checkpointNumber == 1;
-    bytes32 blobCommitmentsHash = BlobLib.calculateBlobCommitmentsHash(
+    v.blobCommitmentsHash = BlobLib.calculateBlobCommitmentsHash(
       STFLib.getBlobCommitmentsHash(checkpointNumber - 1), v.blobCommitments, v.isFirstCheckpointOfEpoch
     );
 
     // Compute fee header for checkpoint metadata
-    FeeHeader memory feeHeader = FeeLib.computeFeeHeader(
+    v.feeHeader = FeeLib.computeFeeHeader(
       checkpointNumber,
       _args.oracleInput.feeAssetPriceModifier,
       v.header.totalManaUsed,
@@ -286,19 +308,17 @@ library ProposeLib {
     STFLib.addTempCheckpointLog(
       TempCheckpointLog({
         headerHash: v.headerHash,
-        blobCommitmentsHash: blobCommitmentsHash,
+        blobCommitmentsHash: v.blobCommitmentsHash,
         outHash: v.header.outHash,
         attestationsHash: v.attestationsHash,
         payloadDigest: v.payloadDigest,
         slotNumber: v.header.slotNumber,
-        feeHeader: feeHeader
+        feeHeader: v.feeHeader,
+        inboxRollingHash: v.header.inboxRollingHash,
+        inboxMsgTotal: v.consumedInboxMsgTotal.toUint64(),
+        inboxConsumedBucket: _args.bucketHint.toUint64()
       })
     );
-
-    // Consume pending L1->L2 messages and validate against header commitment
-    // @note  The checkpoint number here will always be >=1 as the genesis checkpoint is at 0
-    v.inHash = rollupStore.config.inbox.consume(checkpointNumber);
-    require(v.header.inHash == v.inHash, Errors.Rollup__InvalidInHash(v.inHash, v.header.inHash));
 
     {
       bytes32 archive = _args.archive;

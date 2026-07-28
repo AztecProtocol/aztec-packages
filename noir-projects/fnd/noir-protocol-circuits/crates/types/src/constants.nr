@@ -63,10 +63,9 @@ pub global NULLIFIER_SUBTREE_ROOT_SIBLING_PATH_LENGTH: u32 =
     NULLIFIER_TREE_HEIGHT - NULLIFIER_SUBTREE_HEIGHT;
 pub global L1_TO_L2_MSG_SUBTREE_ROOT_SIBLING_PATH_LENGTH: u32 =
     L1_TO_L2_MSG_TREE_HEIGHT - L1_TO_L2_MSG_SUBTREE_HEIGHT;
-// Cap on L1-to-L2 messages bundled into a single L2 block. Transitional value equal to the per-checkpoint cap: the
-// constant is deliberately oversized so the first block's bundle can carry a whole checkpoint's padded messages during
-// the transition, and drops to 256 at the flip.
-pub global MAX_L1_TO_L2_MSGS_PER_BLOCK: u32 = 1024;
+// Cap on L1-to-L2 messages bundled into a single L2 block (AZIP-22 Fast Inbox). One quarter of the per-checkpoint
+// cap: a checkpoint drains its Inbox consumption across up to four message-bearing blocks.
+pub global MAX_L1_TO_L2_MSGS_PER_BLOCK: u32 = 256;
 // Cap on L1-to-L2 messages consumed by a single checkpoint. Semantically today's NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP.
 pub global MAX_L1_TO_L2_MSGS_PER_CHECKPOINT: u32 = 1024;
 // Minimum bucket age, in seconds, at the start of a checkpoint's build frame for its consumption to be mandatory under

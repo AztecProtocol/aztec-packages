@@ -117,7 +117,10 @@ contract RewardLibWrapper {
         attestationsHash: bytes32(0),
         payloadDigest: bytes32(0),
         slotNumber: Slot.wrap(0),
-        feeHeader: _feeHeader
+        feeHeader: _feeHeader,
+        inboxRollingHash: bytes32(0),
+        inboxMsgTotal: 0,
+        inboxConsumedBucket: 0
       })
     );
   }

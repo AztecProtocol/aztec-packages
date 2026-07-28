@@ -1,5 +1,5 @@
 import type { CheckpointNumber } from '@aztec/foundation/branded-types';
-import type { Fr } from '@aztec/foundation/curves/bn254';
+import { Fr } from '@aztec/foundation/curves/bn254';
 import type { L2BlockSource } from '@aztec/stdlib/block';
 import type { Checkpoint } from '@aztec/stdlib/checkpoint';
 import type { InboxBucket, L1ToL2MessageSource } from '@aztec/stdlib/messaging';
@@ -55,6 +55,7 @@ export class MockArchiver extends MockL2BlockSource implements L2BlockSource, L1
  */
 export class MockPrefilledArchiver extends MockArchiver {
   private prefilled: Checkpoint[] = [];
+  private prefilledMessages: Fr[][] = [];
 
   constructor(prefilled: { checkpoint: Checkpoint; messages: Fr[] }[]) {
     super();
@@ -68,6 +69,49 @@ export class MockPrefilledArchiver extends MockArchiver {
         throw new Error('Prefilled checkpoint must only have 1 block at the moment.');
       }
       this.setL1ToL2Messages(checkpoint.number, messages);
+    }
+
+    for (const { checkpoint, messages } of prefilled) {
+      this.prefilledMessages[checkpoint.number - 1] = messages;
+    }
+
+    // Register the Inbox buckets the streaming world-state synchronizer reconstructs each block's consumed
+    // message bundle from (AZIP-22 Fast Inbox): a genesis sentinel (totalMsgCount 0) so a leaf count of 0
+    // resolves to a bucket, plus one bucket per message-carrying checkpoint whose cumulative totalMsgCount
+    // matches the block's post-insertion L1-to-L2 leaf count. Rebuilt from the full prefilled chain (not just
+    // this call's checkpoints) so a reorg re-prefill that replaces a suffix keeps the cumulative aligned.
+    // Without these the synchronizer derives an empty bundle and the reconstructed block state diverges.
+    this.setInboxBucket(
+      {
+        seq: 0n,
+        inboxRollingHash: Fr.ZERO,
+        totalMsgCount: 0n,
+        timestamp: 0n,
+        msgCount: 0,
+        lastMessageIndex: 0n,
+      },
+      [],
+    );
+    let bucketSeq = 0n;
+    let totalMsgCount = 0n;
+    for (let i = 0; i < this.prefilled.length; i++) {
+      const messages = this.prefilledMessages[i] ?? [];
+      if (messages.length === 0) {
+        continue;
+      }
+      bucketSeq += 1n;
+      totalMsgCount += BigInt(messages.length);
+      this.setInboxBucket(
+        {
+          seq: bucketSeq,
+          inboxRollingHash: Fr.ZERO,
+          totalMsgCount,
+          timestamp: bucketSeq,
+          msgCount: messages.length,
+          lastMessageIndex: totalMsgCount - 1n,
+        },
+        messages,
+      );
     }
   }
 

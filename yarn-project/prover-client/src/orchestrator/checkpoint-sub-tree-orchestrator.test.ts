@@ -58,9 +58,9 @@ describe('prover/orchestrator/checkpoint-sub-tree', () => {
     try {
       const resultPromise = subTree.getSubTreeResult();
 
-      for (const block of blocks) {
+      for (const [blockIndex, block] of blocks.entries()) {
         const { blockNumber, timestamp } = block.header.globalVariables;
-        await subTree.startNewBlock(blockNumber, timestamp, block.txs.length);
+        await subTree.startNewBlock(blockNumber, timestamp, block.txs.length, blockIndex === 0 ? l1ToL2Messages : []);
         if (block.txs.length > 0) {
           await subTree.addTxs(block.txs);
         }
@@ -104,9 +104,9 @@ describe('prover/orchestrator/checkpoint-sub-tree', () => {
     try {
       const resultPromise = subTree.getSubTreeResult();
 
-      for (const block of blocks) {
+      for (const [blockIndex, block] of blocks.entries()) {
         const { blockNumber, timestamp } = block.header.globalVariables;
-        await subTree.startNewBlock(blockNumber, timestamp, block.txs.length);
+        await subTree.startNewBlock(blockNumber, timestamp, block.txs.length, blockIndex === 0 ? l1ToL2Messages : []);
         if (block.txs.length > 0) {
           await subTree.addTxs(block.txs);
         }
@@ -149,9 +149,9 @@ describe('prover/orchestrator/checkpoint-sub-tree', () => {
     try {
       const resultPromise = subTree.getSubTreeResult();
 
-      for (const block of blocks) {
+      for (const [blockIndex, block] of blocks.entries()) {
         const { blockNumber, timestamp } = block.header.globalVariables;
-        await subTree.startNewBlock(blockNumber, timestamp, block.txs.length);
+        await subTree.startNewBlock(blockNumber, timestamp, block.txs.length, blockIndex === 0 ? l1ToL2Messages : []);
         if (block.txs.length > 0) {
           await subTree.addTxs(block.txs);
         }
@@ -197,9 +197,9 @@ describe('prover/orchestrator/checkpoint-sub-tree', () => {
     try {
       const resultPromise = subTree.getSubTreeResult();
 
-      for (const block of blocks) {
+      for (const [blockIndex, block] of blocks.entries()) {
         const { blockNumber, timestamp } = block.header.globalVariables;
-        await subTree.startNewBlock(blockNumber, timestamp, block.txs.length);
+        await subTree.startNewBlock(blockNumber, timestamp, block.txs.length, blockIndex === 0 ? l1ToL2Messages : []);
         if (block.txs.length > 0) {
           await subTree.addTxs(block.txs);
         }

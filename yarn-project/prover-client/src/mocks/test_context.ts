@@ -1,8 +1,7 @@
 import type { BBProverConfig } from '@aztec/bb-prover';
 import { TestCircuitProver } from '@aztec/bb-prover';
-import { NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP } from '@aztec/constants';
 import { BlockNumber, CheckpointNumber } from '@aztec/foundation/branded-types';
-import { padArrayEnd, times, timesAsync } from '@aztec/foundation/collection';
+import { times, timesAsync } from '@aztec/foundation/collection';
 import { Fr } from '@aztec/foundation/curves/bn254';
 import type { Logger } from '@aztec/foundation/log';
 import { SerialQueue } from '@aztec/foundation/queue';
@@ -194,12 +193,10 @@ export class TestContext {
 
     const fork = await this.worldState.fork();
 
-    // Build l1 to l2 messages.
+    // Build l1 to l2 messages. Appended unpadded at compact indices (AZIP-22 Fast Inbox); the mock assigns them all to
+    // the checkpoint's first block, matching how the per-block driver slices them.
     const l1ToL2Messages = times(numL1ToL2Messages, i => new Fr(slotNumber * 100 + i));
-    await fork.appendLeaves(
-      MerkleTreeId.L1_TO_L2_MESSAGE_TREE,
-      padArrayEnd<Fr, number>(l1ToL2Messages, Fr.ZERO, NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP),
-    );
+    await fork.appendLeaves(MerkleTreeId.L1_TO_L2_MESSAGE_TREE, l1ToL2Messages);
     const newL1ToL2Snapshot = await getTreeSnapshot(MerkleTreeId.L1_TO_L2_MESSAGE_TREE, fork);
 
     const startBlockNumber = this.nextBlockNumber;
@@ -244,10 +241,9 @@ export class TestContext {
 
     const cleanFork = await this.worldState.fork();
     const previousCheckpointOutHashes = this.checkpointOutHashes;
-    const builder = await LightweightCheckpointBuilder.startNewCheckpoint(
+    const builder = LightweightCheckpointBuilder.startNewCheckpoint(
       checkpointNumber,
       { ...constants, timestamp },
-      l1ToL2Messages,
       previousCheckpointOutHashes,
       Fr.ZERO,
       cleanFork,
@@ -259,7 +255,7 @@ export class TestContext {
       const txs = blockTxs[i];
       const state = blockEndStates[i];
 
-      const { block } = await builder.addBlock(blockGlobalVariables[i], txs, {
+      const { block } = await builder.addBlock(blockGlobalVariables[i], txs, i === 0 ? l1ToL2Messages : [], {
         expectedEndState: state,
         insertTxsEffects: true,
       });
