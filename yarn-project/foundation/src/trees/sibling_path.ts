@@ -10,9 +10,10 @@ import type { Hasher } from './hasher.js';
 /**
  * Upper bound on the elements a serialized sibling path may declare. The deepest protocol tree is 42 levels,
  * and the stacked path proving L2-to-L1 message inclusion spans four unbalanced trees, so this leaves room to
- * spare while keeping a malformed length prefix from driving a large allocation.
+ * spare while keeping a malformed length prefix from driving a large allocation. `stdlib` asserts that it stays
+ * above every protocol tree height, which this package cannot check itself without depending on `@aztec/constants`.
  */
-const MAX_SIBLING_PATH_LENGTH = 128;
+export const MAX_SIBLING_PATH_LENGTH = 128;
 
 /**
  * Contains functionality to compute and serialize/deserialize a sibling path.
