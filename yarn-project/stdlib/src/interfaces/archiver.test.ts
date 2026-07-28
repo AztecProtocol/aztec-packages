@@ -37,6 +37,7 @@ import { type LogResult, randomLogResult } from '../logs/log_result.js';
 import type { PrivateLogsQuery, PublicLogsQuery } from '../logs/logs_query.js';
 import { SiloedTag } from '../logs/siloed_tag.js';
 import { Tag } from '../logs/tag.js';
+import type { InboxBucket } from '../messaging/inbox_bucket.js';
 import { CheckpointHeader } from '../rollup/checkpoint_header.js';
 import { getTokenContractArtifact } from '../tests/fixtures.js';
 import { AppendOnlyTreeSnapshot } from '../trees/append_only_tree_snapshot.js';
@@ -213,6 +214,21 @@ describe('ArchiverApiSchema', () => {
   it('getL1ToL2MessageIndex', async () => {
     const result = await context.client.getL1ToL2MessageIndex(Fr.random());
     expect(result).toBe(1n);
+  });
+
+  it('getLatestInboxBucketAtOrBefore', async () => {
+    const result = await context.client.getLatestInboxBucketAtOrBefore(123n);
+    expect(result).toMatchObject({ seq: 1n, msgCount: 3, totalMsgCount: 3n });
+  });
+
+  it('getInboxBucket', async () => {
+    const result = await context.client.getInboxBucket(2n);
+    expect(result).toMatchObject({ seq: 2n, msgCount: 3 });
+  });
+
+  it('getL1ToL2MessagesBetweenBuckets', async () => {
+    const result = await context.client.getL1ToL2MessagesBetweenBuckets(0n, 3n);
+    expect(result).toEqual([expect.any(Fr)]);
   });
 
   it('registerContractFunctionSignatures', async () => {
@@ -575,6 +591,33 @@ class MockArchiver implements ArchiverApi {
   getL1ToL2MessageIndex(l1ToL2Message: Fr): Promise<bigint | undefined> {
     expect(l1ToL2Message).toBeInstanceOf(Fr);
     return Promise.resolve(1n);
+  }
+  getLatestInboxBucketAtOrBefore(timestamp: bigint): Promise<InboxBucket | undefined> {
+    expect(typeof timestamp).toEqual('bigint');
+    return Promise.resolve({
+      seq: 1n,
+      inboxRollingHash: Fr.random(),
+      totalMsgCount: 3n,
+      timestamp: 100n,
+      msgCount: 3,
+      lastMessageIndex: 2n,
+    });
+  }
+  getInboxBucket(seq: bigint): Promise<InboxBucket | undefined> {
+    expect(typeof seq).toEqual('bigint');
+    return Promise.resolve({
+      seq,
+      inboxRollingHash: Fr.random(),
+      totalMsgCount: 3n,
+      timestamp: 100n,
+      msgCount: 3,
+      lastMessageIndex: 2n,
+    });
+  }
+  getL1ToL2MessagesBetweenBuckets(fromExclusive: bigint, toInclusive: bigint): Promise<Fr[]> {
+    expect(typeof fromExclusive).toEqual('bigint');
+    expect(typeof toInclusive).toEqual('bigint');
+    return Promise.resolve([Fr.random()]);
   }
   getL1Constants(): Promise<L1RollupConstants> {
     return Promise.resolve(EmptyL1RollupConstants);

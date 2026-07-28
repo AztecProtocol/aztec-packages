@@ -116,6 +116,17 @@ export class L1ToL2MessagesNotReadyError extends Error {
   }
 }
 
+/**
+ * Thrown when a query names an Inbox bucket this archiver has not synced. Distinguishes "not synced yet, retry once
+ * L1 sync catches up" from a genuinely empty result.
+ */
+export class InboxBucketNotSyncedError extends Error {
+  constructor(public readonly bucketSeq: bigint) {
+    super(`Inbox bucket ${bucketSeq} has not been synced`);
+    this.name = 'InboxBucketNotSyncedError';
+  }
+}
+
 /** Thrown when a proposed checkpoint number is stale (already processed). */
 export class ProposedCheckpointStaleError extends Error {
   constructor(
