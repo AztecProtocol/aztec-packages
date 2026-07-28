@@ -189,6 +189,13 @@ export class CheckpointProver {
   /** Resolves when all in-flight work for this prover has fully unwound. */
   public async whenDone(): Promise<void> {
     await this.runPromise.catch(() => {});
+    // `runPromise` resolves once block-level proving is *enqueued*, but the sub-tree's proofs (and the
+    // success-driven teardown they trigger) land later, on the `getSubTreeResult()` callback. Awaiting
+    // `blockProofs` here bridges that gap: on success the callback resolves `blockProofs` and then
+    // synchronously sets `teardownPromise` before this await resumes, so the teardown is observable
+    // below; on failure/cancel `blockProofs` rejects and teardown is driven by the `finally`/cancel
+    // paths already awaited via `runPromise`/`cancelPromise`.
+    await this.blockProofs.promise.catch(() => {});
     if (this.cancelPromise) {
       await this.cancelPromise;
     }

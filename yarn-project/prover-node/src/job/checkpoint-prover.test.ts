@@ -5,6 +5,7 @@ import { Fr } from '@aztec/foundation/curves/bn254';
 import { EthAddress } from '@aztec/foundation/eth-address';
 import { type Logger, createLogger } from '@aztec/foundation/log';
 import { promiseWithResolvers } from '@aztec/foundation/promise';
+import { sleep } from '@aztec/foundation/sleep';
 import { DateProvider } from '@aztec/foundation/timer';
 import type { EpochProverFactory } from '@aztec/prover-client';
 import type { ChonkCache, SubTreeResult } from '@aztec/prover-client/orchestrator';
@@ -339,6 +340,75 @@ describe('CheckpointProver', () => {
       prover.cancel({ routine: true });
       await prover.whenDone();
       expect(stop).toHaveBeenCalledTimes(1);
+    });
+
+    it('whenDone() stays pending until the sub-tree result lands and teardown completes', async () => {
+      // Decouple the sub-tree result from the block-completion loop: the execute loop finishes
+      // enqueueing block-level proving (so runPromise resolves) while the sub-tree's proofs — and the
+      // success-driven teardown they trigger — are still outstanding. whenDone() must not report
+      // completion during that window, or a caller (reap/shutdown) would consider the prover unwound
+      // while its sub-tree is still proving and holding memory.
+      checkpoint = await Checkpoint.random(CheckpointNumber(1), { numBlocks: 2, txsPerBlock: 0 });
+
+      txProvider.getTxsForBlock.mockReset();
+      txProvider.getTxsForBlock.mockResolvedValue({ txs: [], missingTxs: [] });
+
+      const blockProofOutputs = [{ tag: 'block-proof-output' }] as unknown as SubTreeResult['blockProofOutputs'];
+      const resultGate = promiseWithResolvers<SubTreeResult>();
+      const lastBlockNumber = checkpoint.blocks[checkpoint.blocks.length - 1].number;
+      const lastBlockCompleted = promiseWithResolvers<void>();
+      const stop = jest.fn(() => Promise.resolve());
+
+      const subTree = {
+        getSubTreeResult: () => resultGate.promise,
+        startNewBlock: () => Promise.resolve(),
+        startChonkVerifierCircuits: () => Promise.resolve(),
+        addTxs: () => Promise.resolve(),
+        // Signal when the final block finishes enqueueing, but leave the sub-tree result pending so
+        // proofs (and teardown) stay outstanding until the test resolves the gate explicitly.
+        setBlockCompleted: (blockNumber: number) => {
+          if (blockNumber === lastBlockNumber) {
+            lastBlockCompleted.resolve();
+          }
+          return Promise.resolve();
+        },
+        cancel: () => {},
+        stop,
+      };
+      proverFactory.createCheckpointSubTreeOrchestrator.mockResolvedValue(subTree as any);
+      dbProvider.fork.mockResolvedValue({
+        appendLeaves: () => Promise.resolve(),
+        close: () => Promise.resolve(),
+      } as any);
+      publicProcessorFactory.create.mockReturnValue({ process: () => Promise.resolve([[], []]) } as any);
+
+      const prover = makeProver();
+
+      // Block-level proving is now fully enqueued (runPromise about to resolve) with proofs still pending.
+      await lastBlockCompleted.promise;
+
+      let settled = false;
+      const donePromise = prover.whenDone().then(() => {
+        settled = true;
+      });
+
+      // whenDone() must remain pending: enqueueing is done, but proofs and teardown are not. The gate is
+      // still closed, so this cannot flake true early — with the bug, whenDone() resolves off runPromise.
+      await sleep(50);
+      expect(settled).toBe(false);
+      expect(stop).not.toHaveBeenCalled();
+
+      // The proofs land: block proofs resolve, the sub-tree is torn down, and only now does whenDone().
+      resultGate.resolve({
+        blockProofOutputs,
+        previousArchiveSiblingPath: makeTuple(ARCHIVE_HEIGHT, () => Fr.ZERO),
+      });
+      await donePromise;
+
+      expect(settled).toBe(true);
+      expect(stop).toHaveBeenCalledTimes(1);
+      expect(prover.isFailed()).toBe(false);
+      expect(onFailed).not.toHaveBeenCalled();
     });
   });
 
