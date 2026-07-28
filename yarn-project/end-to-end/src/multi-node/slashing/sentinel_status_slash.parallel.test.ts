@@ -73,7 +73,6 @@ describe('multi-node/slashing/sentinel_status_slash', () => {
       blockDurationMs: 2000,
       aztecProofSubmissionEpochs: 1024,
       minTxsPerBlock: 0,
-      inboxLag: 2,
       // A single proposer-fault slot in an epoch gives missed/total = 1/6 ≈ 0.167; threshold
       // 0.1 lets that single fault trip inactivity.
       slashInactivityTargetPercentage: 0.1,

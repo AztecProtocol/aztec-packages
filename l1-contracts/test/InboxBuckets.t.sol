@@ -132,11 +132,10 @@ contract InboxBucketsTest is Test {
       index: inbox.getState().totalMessagesInserted
     });
     bytes32 leaf = Hash.sha256ToField(message);
-    bytes16 legacyHash = bytes16(keccak256(abi.encodePacked(inbox.getState().rollingHash, leaf)));
     bytes32 inboxRollingHash = Hash.accumulateInboxRollingHash(bytes32(0), leaf);
 
     vm.expectEmit(true, true, true, true, address(inbox));
-    emit IInbox.MessageSent(message.index, leaf, legacyHash, inboxRollingHash, 1);
+    emit IInbox.MessageSent(message.index, leaf, inboxRollingHash, 1);
     inbox.sendL2Message(recipient, content, secretHash);
   }
 

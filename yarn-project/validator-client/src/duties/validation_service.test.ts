@@ -34,14 +34,12 @@ describe('ValidationService', () => {
     const txs = await Promise.all([Tx.random(), Tx.random()]);
     const blockHeader = makeBlockHeader(1);
     const indexWithinCheckpoint = IndexWithinCheckpoint(0);
-    const inHash = Fr.random();
     const archive = Fr.random();
 
     const proposal = await service.createBlockProposal(
       blockHeader,
       CheckpointNumber(1),
       indexWithinCheckpoint,
-      inHash,
       archive,
       txs,
       addresses[0],
@@ -56,14 +54,12 @@ describe('ValidationService', () => {
     const txs = await Promise.all([Tx.random(), Tx.random()]);
     const blockHeader = makeBlockHeader(1);
     const indexWithinCheckpoint = IndexWithinCheckpoint(0);
-    const inHash = Fr.random();
     const archive = Fr.random();
 
     const proposal = await service.createBlockProposal(
       blockHeader,
       CheckpointNumber(1),
       indexWithinCheckpoint,
-      inHash,
       archive,
       txs,
       addresses[0],
@@ -90,12 +86,11 @@ describe('ValidationService', () => {
     const checkpointHeader = makeCheckpointHeader(1);
 
     // Create the block proposal first (as the sequencer would) so that getSender() can verify the block proposal
-    // sender matches. The block-level inHash is dead post-flip (AZIP-22 Fast Inbox), so it carries zero.
+    // sender matches.
     const blockProposal = await service.createBlockProposal(
       blockHeader,
       CheckpointNumber(1),
       indexWithinCheckpoint,
-      Fr.ZERO,
       archive,
       txs,
       addresses[0],

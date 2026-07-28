@@ -43,13 +43,7 @@ export class ValidatorMetrics {
       meter,
       Metrics.VALIDATOR_ATTESTATION_FAILED_BAD_PROPOSAL_COUNT,
       {
-        [Attributes.ERROR_TYPE]: [
-          'invalid_proposal',
-          'state_mismatch',
-          'failed_txs',
-          'in_hash_mismatch',
-          'parent_block_wrong_slot',
-        ],
+        [Attributes.ERROR_TYPE]: ['invalid_proposal', 'state_mismatch', 'failed_txs', 'parent_block_wrong_slot'],
         [Attributes.IS_COMMITTEE_MEMBER]: [true, false],
       },
     );

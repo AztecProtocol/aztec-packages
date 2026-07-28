@@ -73,7 +73,6 @@ export type BlockProposalValidationFailureReason =
   | 'invalid_proposal'
   | 'parent_block_not_found'
   | 'parent_block_wrong_slot'
-  | 'in_hash_mismatch'
   // Streaming Inbox per-block acceptance failures.
   | StreamingBlockCheckReason
   | 'global_variables_mismatch'
@@ -192,7 +191,6 @@ export const SLASHABLE_BLOCK_PROPOSAL_VALIDATION_RESULT: BlockProposalValidation
   'global_variables_mismatch',
   'invalid_proposal',
   'parent_block_wrong_slot',
-  'in_hash_mismatch',
 ];
 
 /** Checkpoint-proposal validation failures that constitute a slashable invalid-checkpoint offense. */

@@ -16,11 +16,6 @@ uint256 constant MAX_MSGS_PER_BUCKET = 256;
  */
 interface IInbox {
   struct InboxState {
-    // Legacy 128-bit keccak rolling hash of all messages inserted into the inbox. Consumed only by the
-    // node for message sync and L1-reorg detection.
-    // TODO: remove once the node relies on the full-width consensus rolling hash tracked in the buckets
-    // instead (AZIP-22 Fast Inbox).
-    bytes16 rollingHash;
     // Cumulative number of messages inserted into the inbox. Useful for synching the node faster as it can
     // more easily figure out if it can just skip looking for events for a time period.
     uint64 totalMessagesInserted;
@@ -50,13 +45,10 @@ interface IInbox {
    * @notice Emitted when a message is sent
    * @param index - The compact cumulative index of the message in the Inbox insertion order
    * @param hash - The hash of the message
-   * @param rollingHash - The legacy 128-bit rolling hash of all messages inserted into the inbox
    * @param inboxRollingHash - The consensus rolling hash (truncated sha256 chain) after this message
    * @param bucketSeq - The sequence number of the bucket this message was absorbed into
    */
-  event MessageSent(
-    uint256 index, bytes32 indexed hash, bytes16 rollingHash, bytes32 inboxRollingHash, uint256 bucketSeq
-  );
+  event MessageSent(uint256 index, bytes32 indexed hash, bytes32 inboxRollingHash, uint256 bucketSeq);
 
   // docs:start:send_l1_to_l2_message
   /**

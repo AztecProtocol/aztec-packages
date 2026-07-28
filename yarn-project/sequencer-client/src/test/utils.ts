@@ -142,7 +142,6 @@ export function createBlockProposal(block: L2Block, signature: Signature): Block
   return new BlockProposal(
     block.header,
     block.indexWithinCheckpoint,
-    Fr.ZERO, // inHash - using zero for testing
     block.archive.root,
     txHashes,
     signature,

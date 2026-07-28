@@ -441,22 +441,22 @@ describe('Archiver Sync', () => {
       logger.warn('Initial sync');
       await archiver.syncImmediate();
 
-      expect(inboxContract.getState).toHaveBeenCalledTimes(1);
+      expect(inboxContract.getCurrentBucket).toHaveBeenCalledTimes(1);
       expect(rollupContract.status).toHaveBeenCalledTimes(1);
-      inboxContract.getState.mockClear();
+      inboxContract.getCurrentBucket.mockClear();
       rollupContract.status.mockClear();
 
       // We sync again, but since chain didn't move, no new calls should be expected
       logger.warn('Sync with no L1 advancement');
       await archiver.syncImmediate();
-      expect(inboxContract.getState).toHaveBeenCalledTimes(0);
+      expect(inboxContract.getCurrentBucket).toHaveBeenCalledTimes(0);
       expect(rollupContract.status).toHaveBeenCalledTimes(0);
 
       // Advance the chain and we should see calls again
       fake.setL1BlockNumber(150n);
       logger.warn('Sync after L1 advancement');
       await archiver.syncImmediate();
-      expect(inboxContract.getState).toHaveBeenCalledTimes(1);
+      expect(inboxContract.getCurrentBucket).toHaveBeenCalledTimes(1);
       expect(rollupContract.status).toHaveBeenCalledTimes(1);
     });
 
