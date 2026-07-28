@@ -12,6 +12,7 @@ import { Fr } from '@aztec/foundation/curves/bn254';
 import type { Tuple } from '@aztec/foundation/serialize';
 import { type TreeNodeLocation, UnbalancedTreeStore } from '@aztec/foundation/trees';
 import type { PublicInputsAndRecursiveProof } from '@aztec/stdlib/interfaces/server';
+import { L1ToL2MessageBundle } from '@aztec/stdlib/messaging';
 import type { RollupHonkProofData } from '@aztec/stdlib/proofs';
 import {
   BlockRollupPublicInputs,
@@ -291,7 +292,7 @@ export class BlockProvingState {
       return this.#getFirstBlockRootRollupTypeAndInputs(previousRollups);
     }
 
-    const { leaves, numMsgs } = this.#getMessageBundle();
+    const messageBundle = this.#getMessageBundle();
     const frontierHint = this.#getFrontierHint();
     const startMsgSponge = this.parentCheckpoint.getCheckpointMsgSponge();
 
@@ -301,8 +302,7 @@ export class BlockProvingState {
         rollupType: 'rollup-block-root-single-tx' satisfies CircuitName,
         inputs: new BlockRootSingleTxRollupPrivateInputs(
           leftRollup,
-          leaves,
-          numMsgs,
+          messageBundle,
           startMsgSponge,
           frontierHint,
           this.lastArchiveSiblingPath,
@@ -313,8 +313,7 @@ export class BlockProvingState {
         rollupType: 'rollup-block-root' satisfies CircuitName,
         inputs: new BlockRootRollupPrivateInputs(
           [leftRollup, rightRollup],
-          leaves,
-          numMsgs,
+          messageBundle,
           startMsgSponge,
           frontierHint,
           this.lastArchiveSiblingPath,
@@ -324,7 +323,7 @@ export class BlockProvingState {
   }
 
   #getFirstBlockRootRollupTypeAndInputs([leftRollup, rightRollup]: RollupHonkProofData<TxRollupPublicInputs>[]) {
-    const { leaves, numMsgs } = this.#getMessageBundle();
+    const messageBundle = this.#getMessageBundle();
     const frontierHint = this.#getFrontierHint();
 
     if (!leftRollup) {
@@ -335,8 +334,7 @@ export class BlockProvingState {
           this.headerOfLastBlockInPreviousCheckpoint.state,
           this.constants,
           this.timestamp,
-          leaves,
-          numMsgs,
+          messageBundle,
           frontierHint,
           this.lastArchiveSiblingPath,
         ),
@@ -346,8 +344,7 @@ export class BlockProvingState {
         rollupType: 'rollup-block-root-first-single-tx' satisfies CircuitName,
         inputs: new BlockRootSingleTxFirstRollupPrivateInputs(
           leftRollup,
-          leaves,
-          numMsgs,
+          messageBundle,
           this.lastL1ToL2MessageTreeSnapshot,
           frontierHint,
           this.lastArchiveSiblingPath,
@@ -358,8 +355,7 @@ export class BlockProvingState {
         rollupType: 'rollup-block-root-first' satisfies CircuitName,
         inputs: new BlockRootFirstRollupPrivateInputs(
           [leftRollup, rightRollup],
-          leaves,
-          numMsgs,
+          messageBundle,
           this.lastL1ToL2MessageTreeSnapshot,
           frontierHint,
           this.lastArchiveSiblingPath,
@@ -370,15 +366,19 @@ export class BlockProvingState {
 
   /**
    * The message bundle this block appends. Transitionally the first block carries the whole checkpoint's messages
-   * padded to `MAX_L1_TO_L2_MSGS_PER_BLOCK` (`numMsgs` set to the cap so all leaves — including padding — reproduce
-   * today's aligned subtree insert); non-first blocks carry an empty bundle.
+   * padded to `MAX_L1_TO_L2_MSGS_PER_BLOCK` — inserted as a full aligned subtree into the L1-to-L2 tree (`numMsgs` =
+   * the cap), while only the real messages are absorbed into the message sponge (`numRealMsgs`, matching the
+   * checkpoint's InboxParity proof). Non-first blocks carry an empty bundle.
    */
-  #getMessageBundle(): { leaves: Fr[]; numMsgs: number } {
+  #getMessageBundle(): L1ToL2MessageBundle {
     if (this.isFirstBlock) {
-      return { leaves: this.parentCheckpoint.getPaddedL1ToL2Messages(), numMsgs: MAX_L1_TO_L2_MSGS_PER_BLOCK };
+      return new L1ToL2MessageBundle(
+        this.parentCheckpoint.getPaddedL1ToL2Messages(),
+        MAX_L1_TO_L2_MSGS_PER_BLOCK,
+        this.parentCheckpoint.getNumRealL1ToL2Messages(),
+      );
     }
-    // Array.from (not padArrayEnd) keeps the type `Fr[]` — a padArrayEnd to the literal cap infers a deep tuple type.
-    return { leaves: Array.from({ length: MAX_L1_TO_L2_MSGS_PER_BLOCK }, () => Fr.ZERO), numMsgs: 0 };
+    return L1ToL2MessageBundle.empty();
   }
 
   /**

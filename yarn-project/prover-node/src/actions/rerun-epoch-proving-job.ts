@@ -6,7 +6,7 @@ import { DateProvider } from '@aztec/foundation/timer';
 import { type ProverClientConfig, createProverClient } from '@aztec/prover-client';
 import { ProverBrokerConfig, createAndStartProvingBroker } from '@aztec/prover-client/broker';
 import { getLastSiblingPath } from '@aztec/prover-client/helpers';
-import { ChonkCache } from '@aztec/prover-client/orchestrator';
+import { type CheckpointSubTreeProofs, ChonkCache } from '@aztec/prover-client/orchestrator';
 import { AvmSimulatorPool, PublicProcessorFactory } from '@aztec/simulator/server';
 import type { L2Block } from '@aztec/stdlib/block';
 import { getEpochAtSlot, getSlotRangeForEpoch } from '@aztec/stdlib/epoch-helpers';
@@ -86,7 +86,7 @@ export async function rerunCheckpointProvingJob(
   log: Logger,
   config: RerunConfig,
   genesis?: GenesisData,
-) {
+): Promise<CheckpointSubTreeProofs['blockProofOutputs']> {
   await using ctx = await createRerunContext(localPath, log, config, genesis);
   const { jobData } = ctx;
   const checkpointNumber = jobData.checkpoints[0].number;
@@ -95,9 +95,9 @@ export async function rerunCheckpointProvingJob(
 
   const prover = await buildCheckpointProver(ctx, 0, log);
   try {
-    const blockProofs = await prover.whenBlockProofsReady();
-    log.info(`Completed proving for checkpoint ${checkpointNumber} with ${blockProofs.length} block proof(s)`);
-    return blockProofs;
+    const { blockProofOutputs } = await prover.whenSubTreeProofsReady();
+    log.info(`Completed proving for checkpoint ${checkpointNumber} with ${blockProofOutputs.length} block proof(s)`);
+    return blockProofOutputs;
   } finally {
     prover.cancel({ routine: true });
     await prover.whenDone();

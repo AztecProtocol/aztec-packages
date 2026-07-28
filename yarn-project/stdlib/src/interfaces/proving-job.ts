@@ -11,9 +11,8 @@ import { z } from 'zod';
 
 import { AvmCircuitInputs } from '../avm/avm.js';
 import { AvmProvingRequestSchema } from '../avm/avm_proving_request.js';
-import { ParityBasePrivateInputs } from '../parity/parity_base_private_inputs.js';
+import { InboxParityPrivateInputs } from '../parity/inbox_parity_private_inputs.js';
 import { ParityPublicInputs } from '../parity/parity_public_inputs.js';
-import { ParityRootPrivateInputs } from '../parity/parity_root_private_inputs.js';
 import { ProvingRequestType } from '../proofs/proving_request_type.js';
 import { RecursiveProof } from '../proofs/recursive_proof.js';
 import { BlockMergeRollupPrivateInputs } from '../rollup/block_merge_rollup_private_inputs.js';
@@ -82,8 +81,7 @@ export function makePublicInputsAndRecursiveProof<T, N extends number = typeof N
 
 export const ProvingJobInputs = z.discriminatedUnion('type', [
   AvmProvingRequestSchema,
-  z.object({ type: z.literal(ProvingRequestType.PARITY_BASE), inputs: ParityBasePrivateInputs.schema }),
-  z.object({ type: z.literal(ProvingRequestType.PARITY_ROOT), inputs: ParityRootPrivateInputs.schema }),
+  z.object({ type: z.literal(ProvingRequestType.INBOX_PARITY), inputs: InboxParityPrivateInputs.schema }),
   z.object({
     type: z.literal(ProvingRequestType.PUBLIC_CHONK_VERIFIER),
     inputs: PublicChonkVerifierPrivateInputs.schema,
@@ -174,10 +172,8 @@ export function getProvingJobInputClassFor(type: ProvingRequestType) {
       return CheckpointMergeRollupPrivateInputs;
     case ProvingRequestType.ROOT_ROLLUP:
       return RootRollupPrivateInputs;
-    case ProvingRequestType.PARITY_BASE:
-      return ParityBasePrivateInputs;
-    case ProvingRequestType.PARITY_ROOT:
-      return ParityRootPrivateInputs;
+    case ProvingRequestType.INBOX_PARITY:
+      return InboxParityPrivateInputs;
     default: {
       const _exhaustive: never = type;
       throw new Error(`Cannot find circuit inputs class for proving type ${type}`);
@@ -205,8 +201,7 @@ export type ProvingJobInputsMap = {
   [ProvingRequestType.CHECKPOINT_PADDING_ROLLUP]: CheckpointPaddingRollupPrivateInputs;
   [ProvingRequestType.CHECKPOINT_MERGE_ROLLUP]: CheckpointMergeRollupPrivateInputs;
   [ProvingRequestType.ROOT_ROLLUP]: RootRollupPrivateInputs;
-  [ProvingRequestType.PARITY_BASE]: ParityBasePrivateInputs;
-  [ProvingRequestType.PARITY_ROOT]: ParityRootPrivateInputs;
+  [ProvingRequestType.INBOX_PARITY]: InboxParityPrivateInputs;
 };
 
 export const ProvingJobResult = z.discriminatedUnion('type', [
@@ -324,12 +319,8 @@ export const ProvingJobResult = z.discriminatedUnion('type', [
     result: schemaForPublicInputsAndRecursiveProof(RootRollupPublicInputs.schema, NESTED_RECURSIVE_PROOF_LENGTH),
   }),
   z.object({
-    type: z.literal(ProvingRequestType.PARITY_BASE),
+    type: z.literal(ProvingRequestType.INBOX_PARITY),
     result: schemaForPublicInputsAndRecursiveProof(ParityPublicInputs.schema, RECURSIVE_PROOF_LENGTH),
-  }),
-  z.object({
-    type: z.literal(ProvingRequestType.PARITY_ROOT),
-    result: schemaForPublicInputsAndRecursiveProof(ParityPublicInputs.schema, NESTED_RECURSIVE_PROOF_LENGTH),
   }),
 ]);
 export type ProvingJobResult = z.infer<typeof ProvingJobResult>;
@@ -396,11 +387,7 @@ export type ProvingJobResultsMap = {
     typeof NESTED_RECURSIVE_ROLLUP_HONK_PROOF_LENGTH
   >;
   [ProvingRequestType.ROOT_ROLLUP]: PublicInputsAndRecursiveProof<RootRollupPublicInputs>;
-  [ProvingRequestType.PARITY_BASE]: PublicInputsAndRecursiveProof<ParityPublicInputs, typeof RECURSIVE_PROOF_LENGTH>;
-  [ProvingRequestType.PARITY_ROOT]: PublicInputsAndRecursiveProof<
-    ParityPublicInputs,
-    typeof NESTED_RECURSIVE_PROOF_LENGTH
-  >;
+  [ProvingRequestType.INBOX_PARITY]: PublicInputsAndRecursiveProof<ParityPublicInputs, typeof RECURSIVE_PROOF_LENGTH>;
 };
 
 export type ProvingRequestResultFor<T extends ProvingRequestType> = { type: T; result: ProvingJobResultsMap[T] };

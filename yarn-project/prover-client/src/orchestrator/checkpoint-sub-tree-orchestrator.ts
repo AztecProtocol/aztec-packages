@@ -5,8 +5,6 @@ import {
   L1_TO_L2_MSG_SUBTREE_ROOT_SIBLING_PATH_LENGTH,
   MAX_L1_TO_L2_MSGS_PER_CHECKPOINT,
   NESTED_RECURSIVE_ROLLUP_HONK_PROOF_LENGTH,
-  NUM_BASE_PARITY_PER_ROOT_PARITY,
-  NUM_MSGS_PER_BASE_PARITY,
 } from '@aztec/constants';
 import { BlockNumber, type EpochNumber } from '@aztec/foundation/branded-types';
 import { padArrayEnd } from '@aztec/foundation/collection';
@@ -84,12 +82,19 @@ export type SubTreeResult = {
     typeof NESTED_RECURSIVE_ROLLUP_HONK_PROOF_LENGTH
   >[];
   /**
-   * The checkpoint's parity root proof. Parity moved from the first block root to the checkpoint root (AZIP-22 Fast
-   * Inbox), so the sub-tree proves it and hands it to the top tree, which feeds it into the checkpoint root rollup.
+   * The checkpoint's single InboxParity proof. Parity moved from the first block root to the checkpoint root (AZIP-22
+   * Fast Inbox), so the sub-tree proves it and hands it to the top tree, which feeds it into the checkpoint root
+   * rollup.
    */
-  parityRootProof: PublicInputsAndRecursiveProof<ParityPublicInputs>;
+  inboxParityProof: PublicInputsAndRecursiveProof<ParityPublicInputs>;
   previousArchiveSiblingPath: Tuple<Fr, typeof ARCHIVE_HEIGHT>;
 };
+
+/**
+ * The proofs a checkpoint's sub-tree hands to the top tree: the per-block rollup proofs plus the checkpoint's single
+ * variable-size InboxParity proof (parity moved from the first block root to the checkpoint root in AZIP-22 Fast Inbox).
+ */
+export type CheckpointSubTreeProofs = Pick<SubTreeResult, 'blockProofOutputs' | 'inboxParityProof'>;
 
 type TreeSnapshots = Map<MerkleTreeId, AppendOnlyTreeSnapshot>;
 
@@ -529,20 +534,12 @@ export class CheckpointSubTreeOrchestrator extends ProvingScheduler {
       newL1ToL2MessageSubtreeRootSiblingPath,
     } = await this.updateL1ToL2MessageTree(l1ToL2Messages, db);
 
-    // Precompute the message-bundle sponges. The checkpoint's messages are padded to the per-checkpoint cap (the first
-    // block's transitional bundle); base parity `i` starts from the sponge over the first `i` chunks, and the whole
-    // padded sponge is inherited by non-first block roots.
+    // The first block inserts the whole checkpoint's messages as a full padded subtree into the L1-to-L2 tree, so keep
+    // the padded array for the block-root bundle. The message sponge, however, absorbs only the real messages
+    // (real-count), so it matches the checkpoint's single InboxParity proof; non-first block roots inherit this sponge.
     const paddedL1ToL2Messages = padArrayEnd<Fr, number>(l1ToL2Messages, Fr.ZERO, MAX_L1_TO_L2_MSGS_PER_CHECKPOINT);
-    const baseParityStartSponges: L1ToL2MessageSponge[] = [];
-    let runningSponge = L1ToL2MessageSponge.empty();
-    for (let i = 0; i < NUM_BASE_PARITY_PER_ROOT_PARITY; i++) {
-      baseParityStartSponges.push(runningSponge.clone());
-      runningSponge = runningSponge.clone();
-      await runningSponge.absorb(
-        paddedL1ToL2Messages.slice(i * NUM_MSGS_PER_BASE_PARITY, (i + 1) * NUM_MSGS_PER_BASE_PARITY),
-      );
-    }
-    const checkpointMsgSponge = runningSponge;
+    const checkpointMsgSponge = L1ToL2MessageSponge.empty();
+    await checkpointMsgSponge.absorb(l1ToL2Messages);
 
     this.provingState = new CheckpointProvingState(
       /* index */ 0,
@@ -557,17 +554,15 @@ export class CheckpointSubTreeOrchestrator extends ProvingScheduler {
       newL1ToL2MessageTreeSnapshot,
       newL1ToL2MessageSubtreeRootSiblingPath,
       paddedL1ToL2Messages,
-      baseParityStartSponges,
       checkpointMsgSponge,
       Number(this.epochNumber),
       /* isAlive */ () => !this.cancelled,
       /* onReject */ reason => this.subTreeResult.reject(new Error(reason)),
     );
 
-    // Parity now gates the checkpoint root (not the first block root), so prove it per checkpoint up front.
-    for (let i = 0; i < NUM_BASE_PARITY_PER_ROOT_PARITY; i++) {
-      this.enqueueBaseParityCircuit(this.provingState, i);
-    }
+    // Parity now gates the checkpoint root (not the first block root); prove the single sized InboxParity per
+    // checkpoint up front.
+    this.enqueueInboxParityCircuit(this.provingState);
   }
 
   // ---------------- private: per-block proof orchestration ----------------
@@ -811,65 +806,31 @@ export class CheckpointSubTreeOrchestrator extends ProvingScheduler {
     );
   }
 
-  // Executes the base parity circuit. Enqueues the root parity circuit if all inputs are available.
-  private enqueueBaseParityCircuit(checkpointProvingState: CheckpointProvingState, baseParityIndex: number) {
+  // Runs the checkpoint's single InboxParity circuit and stores the output. The proof feeds the checkpoint root (in
+  // the top tree), so completing it may resolve the sub-tree rather than a block root.
+  private enqueueInboxParityCircuit(checkpointProvingState: CheckpointProvingState) {
     if (!checkpointProvingState.verifyState()) {
-      this.logger.debug('Not running base parity. State no longer valid.');
+      this.logger.debug('Not running inbox parity. State no longer valid.');
       return;
     }
 
-    if (!checkpointProvingState.tryStartProvingBaseParity(baseParityIndex)) {
-      this.logger.warn(`Base parity ${baseParityIndex} already started.`);
+    if (!checkpointProvingState.tryStartProvingInboxParity()) {
+      this.logger.debug('Inbox parity already started.');
       return;
     }
 
-    const inputs = checkpointProvingState.getBaseParityInputs(baseParityIndex);
+    const inputs = checkpointProvingState.getInboxParityInputs();
+    const circuitName = `inbox-parity-${inputs.size}` satisfies CircuitName;
 
     this.deferredProving(
       checkpointProvingState,
       this.wrapCircuitCall(
-        'getBaseParityProof',
-        signal => this.prover.getBaseParityProof(inputs, signal, checkpointProvingState.epochNumber),
-        { [Attributes.PROTOCOL_CIRCUIT_NAME]: 'parity-base' satisfies CircuitName },
-      ),
-      provingOutput => {
-        checkpointProvingState.setBaseParityProof(baseParityIndex, provingOutput);
-        this.checkAndEnqueueRootParityCircuit(checkpointProvingState);
-      },
-    );
-  }
-
-  private checkAndEnqueueRootParityCircuit(checkpointProvingState: CheckpointProvingState) {
-    if (!checkpointProvingState.isReadyForRootParity()) {
-      return;
-    }
-    this.enqueueRootParityCircuit(checkpointProvingState);
-  }
-
-  // Runs the root parity circuit and stores the outputs. The parity root now feeds the checkpoint root (in the top
-  // tree), so completing it may resolve the sub-tree rather than a block root.
-  private enqueueRootParityCircuit(checkpointProvingState: CheckpointProvingState) {
-    if (!checkpointProvingState.verifyState()) {
-      this.logger.debug('Not running root parity. State no longer valid.');
-      return;
-    }
-
-    if (!checkpointProvingState.tryStartProvingRootParity()) {
-      this.logger.debug('Root parity already started.');
-      return;
-    }
-
-    const inputs = checkpointProvingState.getParityRootInputs();
-
-    this.deferredProving(
-      checkpointProvingState,
-      this.wrapCircuitCall(
-        'getRootParityProof',
-        signal => this.prover.getRootParityProof(inputs, signal, checkpointProvingState.epochNumber),
-        { [Attributes.PROTOCOL_CIRCUIT_NAME]: 'parity-root' satisfies CircuitName },
+        'getInboxParityProof',
+        signal => this.prover.getInboxParityProof(inputs, signal, checkpointProvingState.epochNumber),
+        { [Attributes.PROTOCOL_CIRCUIT_NAME]: circuitName },
       ),
       result => {
-        checkpointProvingState.setRootParityProof(result);
+        checkpointProvingState.setInboxParityProof(result);
         this.checkAndEnqueueSubTreeResolution(checkpointProvingState);
       },
     );
@@ -954,15 +915,15 @@ export class CheckpointSubTreeOrchestrator extends ProvingScheduler {
       // Block merge tree not fully resolved yet — retried as more block proofs land.
       return;
     }
-    // The parity root proof gates the sub-tree result too (it feeds the checkpoint root in the top tree).
-    const parityRootProof = provingState.getRootParityProof();
-    if (!parityRootProof) {
-      // Parity not proven yet — retried when the root parity proof lands.
+    // The InboxParity proof gates the sub-tree result too (it feeds the checkpoint root in the top tree).
+    const inboxParityProof = provingState.getInboxParityProof();
+    if (!inboxParityProof) {
+      // Parity not proven yet — retried when the inbox parity proof lands.
       return;
     }
     this.subTreeResult.resolve({
       blockProofOutputs: nonEmpty,
-      parityRootProof,
+      inboxParityProof,
       previousArchiveSiblingPath: provingState.getLastArchiveSiblingPath(),
     });
   }

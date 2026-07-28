@@ -1,5 +1,5 @@
 use crate::{
-    abis::{BlockRollupPublicInputs, L1ToL2MessageSponge},
+    abis::{BlockRollupPublicInputs, L1ToL2MessageBundle, L1ToL2MessageSponge},
     block_root::components::BlockRollupPublicInputsComposer,
 };
 use types::{
@@ -7,7 +7,7 @@ use types::{
         append_only_tree_snapshot::AppendOnlyTreeSnapshot,
         checkpoint_constant_data::CheckpointConstantData, state_reference::StateReference,
     },
-    constants::{ARCHIVE_HEIGHT, L1_TO_L2_MSG_TREE_HEIGHT, MAX_L1_TO_L2_MSGS_PER_BLOCK},
+    constants::{ARCHIVE_HEIGHT, L1_TO_L2_MSG_TREE_HEIGHT},
 };
 
 pub struct BlockRootEmptyTxFirstRollupPrivateInputs {
@@ -20,10 +20,8 @@ pub struct BlockRootEmptyTxFirstRollupPrivateInputs {
     // timestamp in the checkpoint root.
     pub(crate) timestamp: u64,
 
-    // L1-to-L2 messages inserted by this block, padded with zeros beyond `num_msgs`.
-    pub(crate) l1_to_l2_messages: [Field; MAX_L1_TO_L2_MSGS_PER_BLOCK],
-    // Number of real (non-padding) leaves in `l1_to_l2_messages`.
-    pub(crate) num_msgs: u32,
+    // L1-to-L2 message bundle inserted by this block.
+    pub(crate) message_bundle: L1ToL2MessageBundle,
     // Frontier hint for appending the bundle to the l1-to-l2 message tree (validated against `previous_state`).
     pub(crate) l1_to_l2_message_frontier_hint: [Field; L1_TO_L2_MSG_TREE_HEIGHT],
     // Hint for inserting the new block hash to the last archive.
@@ -54,8 +52,7 @@ pub fn execute(inputs: BlockRootEmptyTxFirstRollupPrivateInputs) -> BlockRollupP
             true,
             inputs.previous_state.l1_to_l2_message_tree,
             L1ToL2MessageSponge::new(),
-            inputs.l1_to_l2_messages,
-            inputs.num_msgs,
+            inputs.message_bundle,
             inputs.l1_to_l2_message_frontier_hint,
         )
         .finish(inputs.new_archive_sibling_path)

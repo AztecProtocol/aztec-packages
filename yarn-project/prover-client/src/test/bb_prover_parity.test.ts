@@ -1,27 +1,23 @@
 import { BBNativeRollupProver, type BBProverConfig } from '@aztec/bb-prover';
-import {
-  NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP,
-  NUM_BASE_PARITY_PER_ROOT_PARITY,
-  NUM_MSGS_PER_BASE_PARITY,
-  PARITY_BASE_VK_INDEX,
-  RECURSIVE_PROOF_LENGTH,
-} from '@aztec/constants';
-import { makeTuple } from '@aztec/foundation/array';
 import { parseBooleanEnv } from '@aztec/foundation/config';
-import { randomBytes } from '@aztec/foundation/crypto/random';
 import { Fr } from '@aztec/foundation/curves/bn254';
 import { createLogger } from '@aztec/foundation/log';
+import type { ServerProtocolArtifact } from '@aztec/noir-protocol-circuits-types/server';
 import { ServerCircuitVks } from '@aztec/noir-protocol-circuits-types/server/vks';
 import { getVKTreeRoot } from '@aztec/noir-protocol-circuits-types/vk-tree';
-import { L1ToL2MessageSponge, accumulateInboxRollingHash } from '@aztec/stdlib/messaging';
-import { ParityBasePrivateInputs, ParityPublicInputs, ParityRootPrivateInputs } from '@aztec/stdlib/parity';
-import { makeRecursiveProof } from '@aztec/stdlib/proofs';
-import { VerificationKeyData } from '@aztec/stdlib/vks';
+import { L1ToL2MessageSponge, computeInHashFromL1ToL2Messages } from '@aztec/stdlib/messaging';
+import { INBOX_PARITY_SIZES, InboxParityPrivateInputs, type InboxParitySize } from '@aztec/stdlib/parity';
 
 import { TestContext } from '../mocks/test_context.js';
-import { toProofData } from '../orchestrator/block-building-helpers.js';
 
 const logger = createLogger('prover-client:test:bb-prover-parity');
+
+// Maps a ladder size to its server artifact name, mirroring the bb-prover's own selection.
+const artifactForSize: Record<InboxParitySize, ServerProtocolArtifact> = {
+  64: 'InboxParity64Artifact',
+  256: 'InboxParity256Artifact',
+  1024: 'InboxParity1024Artifact',
+};
 
 describe('prover/bb_prover/parity', () => {
   const FAKE_PROOFS = parseBooleanEnv(process.env.FAKE_PROOFS);
@@ -31,7 +27,7 @@ describe('prover/bb_prover/parity', () => {
 
   beforeAll(async () => {
     const buildProver = async (bbConfig: BBProverConfig) => {
-      bbConfig.circuitFilter = ['ParityBaseArtifact', 'ParityRootArtifact'];
+      bbConfig.circuitFilter = Object.values(artifactForSize);
       bbProver = await BBNativeRollupProver.new(bbConfig);
       return bbProver;
     };
@@ -45,146 +41,35 @@ describe('prover/bb_prover/parity', () => {
     await context.cleanup();
   });
 
-  it(
-    'proves the parity circuits',
-    async () => {
-      const l1ToL2Messages = new Array(NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP).fill(null).map(() => Fr.random());
+  // One InboxParity proof per checkpoint, sized to the smallest ladder rung that fits. Prove and verify each rung.
+  it.each(INBOX_PARITY_SIZES)(
+    'proves and verifies the inbox parity circuit at size %i',
+    async size => {
+      // Fill the rung with real messages so `numMessages === size` (the largest circuit for that rung).
+      const messages = Array.from({ length: size }, () => Fr.random());
       const proverId = Fr.random();
-      // Thread the message sponge across the four base segments (base i starts from the sponge over the first i chunks).
-      const baseStartSponges: L1ToL2MessageSponge[] = [];
-      let runningSponge = L1ToL2MessageSponge.empty();
-      for (let i = 0; i < NUM_BASE_PARITY_PER_ROOT_PARITY; i++) {
-        baseStartSponges.push(runningSponge.clone());
-        runningSponge = runningSponge.clone();
-        await runningSponge.absorb(
-          l1ToL2Messages.slice(i * NUM_MSGS_PER_BASE_PARITY, (i + 1) * NUM_MSGS_PER_BASE_PARITY),
-        );
-      }
-      const baseParityInputs = makeTuple(NUM_BASE_PARITY_PER_ROOT_PARITY, i =>
-        ParityBasePrivateInputs.fromSlice(
-          l1ToL2Messages,
-          i,
-          accumulateInboxRollingHash(Fr.ZERO, l1ToL2Messages.slice(0, i * NUM_MSGS_PER_BASE_PARITY)),
-          baseStartSponges[i],
-          NUM_MSGS_PER_BASE_PARITY,
-          getVKTreeRoot(),
-          proverId,
-        ),
+      // The in_hash is a sha256 frontier root (top byte zeroed to fit the field), which `ParityPublicInputs` enforces;
+      // compute it from the messages rather than using a raw random field.
+      const inHash = computeInHashFromL1ToL2Messages(messages);
+
+      const inputs = InboxParityPrivateInputs.fromMessages(
+        messages,
+        Fr.ZERO,
+        L1ToL2MessageSponge.empty(),
+        inHash,
+        getVKTreeRoot(),
+        proverId,
       );
+      expect(inputs.size).toBe(size);
 
-      // Generate the base parity proofs
-      const baseParityProofsAndPublicInputs = await Promise.all(
-        baseParityInputs.map(baseInputs => context.prover.getBaseParityProof(baseInputs)),
-      );
+      const output = await context.prover.getInboxParityProof(inputs);
 
-      const rootInputs = makeTuple(NUM_BASE_PARITY_PER_ROOT_PARITY, i => {
-        const inputs = baseParityProofsAndPublicInputs[i];
-        return toProofData(inputs);
-      });
+      const artifact = artifactForSize[size as InboxParitySize];
+      // Sanity: the VK the proof was generated against is the one in the vk tree for this rung.
+      expect(ServerCircuitVks[artifact].keyAsFields.hash).toEqual(output.verificationKey.keyAsFields.hash);
 
-      // These could differ if artifacts generated by `generate_vk_json.js` are not consistent with what we do,
-      // which would cause the root parity proof to fail, because the proof of VK root inclusion would not match the key in the proof.
-      expect(ServerCircuitVks.ParityBaseArtifact.keyAsFields.hash).toEqual(rootInputs[0].vkData.vk.keyAsFields.hash);
-
-      // Verify the base parity proofs
       if (bbProver) {
-        await expect(
-          Promise.all(
-            baseParityProofsAndPublicInputs.map(input =>
-              bbProver!.verifyProof('ParityBaseArtifact', input.proof.binaryProof),
-            ),
-          ),
-        ).resolves.not.toThrow();
-      }
-
-      // Now generate the root parity proof
-      const rootParityInputs = new ParityRootPrivateInputs(rootInputs);
-      const rootOutput = await context.prover.getRootParityProof(rootParityInputs);
-
-      // We only test validity and negative proofs with actual proofs enabled
-      if (!bbProver) {
-        return;
-      }
-
-      // Verify the root parity proof
-      await expect(bbProver.verifyProof('ParityRootArtifact', rootOutput.proof.binaryProof)).resolves.not.toThrow();
-
-      // Now test for negative cases. We will try and generate 3 invalid proofs.
-      // One where a single child has an invalid proof
-      // One where a child has incorrect public inputs
-      // One where a child has an invalid verification key
-      // In each case either the proof should fail to generate or verify
-
-      const validVk = rootParityInputs.children[0].vkData.vk;
-      const validPublicInputs = rootParityInputs.children[0].publicInputs;
-      const validProof = rootParityInputs.children[0].proof;
-
-      const defectiveProofInput = toProofData({
-        inputs: validPublicInputs,
-        proof: makeRecursiveProof<typeof RECURSIVE_PROOF_LENGTH>(RECURSIVE_PROOF_LENGTH, 0x500),
-        verificationKey: validVk,
-      });
-
-      const shaRoot = randomBytes(32);
-      shaRoot[0] = 0;
-
-      const defectivePublicInputs = toProofData({
-        inputs: new ParityPublicInputs(
-          Fr.fromBuffer(shaRoot),
-          Fr.random(),
-          Fr.random(),
-          Fr.random(),
-          L1ToL2MessageSponge.empty(),
-          L1ToL2MessageSponge.empty(),
-          0,
-          getVKTreeRoot(),
-          proverId,
-        ),
-        proof: validProof,
-        verificationKey: validVk,
-      });
-
-      const defectiveVerificationKey = toProofData(
-        {
-          inputs: validPublicInputs,
-          proof: validProof,
-          verificationKey: VerificationKeyData.makeFakeHonk(),
-        },
-        PARITY_BASE_VK_INDEX,
-      );
-
-      const tupleWithDefectiveProof = makeTuple(NUM_BASE_PARITY_PER_ROOT_PARITY, (i: number) => {
-        if (i == 0) {
-          return defectiveProofInput;
-        }
-        return rootParityInputs.children[i];
-      });
-
-      const tupleWithDefectiveInputs = makeTuple(NUM_BASE_PARITY_PER_ROOT_PARITY, (i: number) => {
-        if (i == 0) {
-          return defectivePublicInputs;
-        }
-        return rootParityInputs.children[i];
-      });
-
-      const tupleWithDefectiveVK = makeTuple(NUM_BASE_PARITY_PER_ROOT_PARITY, (i: number) => {
-        if (i == 0) {
-          return defectiveVerificationKey;
-        }
-        return rootParityInputs.children[i];
-      });
-
-      // Check the invalid VK scenario with an invalid witness assertion
-      await expect(
-        context.prover.getRootParityProof(new ParityRootPrivateInputs(tupleWithDefectiveVK)),
-      ).rejects.toThrow('Failed to generate witness');
-
-      for (const t of [tupleWithDefectiveProof, tupleWithDefectiveInputs]) {
-        await expect(async () => {
-          const result = await context.prover.getRootParityProof(new ParityRootPrivateInputs(t));
-          await bbProver!.verifyProof('ParityRootArtifact', result.proof.binaryProof);
-          fail('Proof should not be generated and verified');
-        }).rejects.toThrow(/Failed to generate proof|Failed to verify proof/);
+        await expect(bbProver.verifyProof(artifact, output.proof.binaryProof)).resolves.not.toThrow();
       }
     },
     FAKE_PROOFS ? undefined : 600_000,

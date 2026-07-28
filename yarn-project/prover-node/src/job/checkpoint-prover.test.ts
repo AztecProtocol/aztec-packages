@@ -136,13 +136,13 @@ describe('CheckpointProver', () => {
       await prover.whenDone();
     });
 
-    it('rejects whenBlockProofsReady() but does not mark the prover failed or fire onFailed', async () => {
+    it('rejects whenSubTreeProofsReady() but does not mark the prover failed or fire onFailed', async () => {
       // A cancel (reorg/prune/shutdown) is not a proving failure: isFailed() must stay false and the
       // onFailed callback must not fire (no post-mortem upload for a cancelled prover).
       const prover = makeProver();
-      const blockProofs = prover.whenBlockProofsReady();
+      const subTreeProofs = prover.whenSubTreeProofsReady();
       prover.cancel();
-      await expect(blockProofs).rejects.toThrow(/cancelled/);
+      await expect(subTreeProofs).rejects.toThrow(/cancelled/);
       expect(prover.isFailed()).toBe(false);
       expect(onFailed).not.toHaveBeenCalled();
       await prover.whenDone();
@@ -163,11 +163,11 @@ describe('CheckpointProver', () => {
 
     it('routine cancel still aborts and rejects block proofs (only log level differs)', async () => {
       const prover = makeProver();
-      const blockProofs = prover.whenBlockProofsReady();
+      const subTreeProofs = prover.whenSubTreeProofsReady();
       prover.cancel({ routine: true });
       expect(prover.isCancelled()).toBe(true);
       expect(prover.getAbortSignal().aborted).toBe(true);
-      await expect(blockProofs).rejects.toThrow(/cancelled/);
+      await expect(subTreeProofs).rejects.toThrow(/cancelled/);
       await prover.whenDone();
     });
   });
@@ -223,7 +223,7 @@ describe('CheckpointProver', () => {
   // ---------------- gather failure ----------------
 
   describe('gather failures', () => {
-    it('rejects whenBlockProofsReady when txProvider returns missing txs', async () => {
+    it('rejects whenSubTreeProofsReady when txProvider returns missing txs', async () => {
       const missingHash = checkpoint.blocks[0].body.txEffects[0]?.txHash;
       // Without a real missing hash the per-block payload would be empty and the prover
       // would happily proceed; only checkpoints with txs can exercise this branch.
@@ -234,7 +234,7 @@ describe('CheckpointProver', () => {
       txProvider.getTxsForBlock.mockResolvedValue({ txs: [], missingTxs: [missingHash] });
 
       const prover = makeProver();
-      await expect(prover.whenBlockProofsReady()).rejects.toThrow(/Txs not found/);
+      await expect(prover.whenSubTreeProofsReady()).rejects.toThrow(/Txs not found/);
       await prover.whenDone();
     });
 
@@ -247,19 +247,19 @@ describe('CheckpointProver', () => {
       txProvider.getTxsForBlock.mockReturnValue(gate.promise);
 
       const prover = makeProver();
-      const blockProofs = prover.whenBlockProofsReady();
+      const subTreeProofs = prover.whenSubTreeProofsReady();
       prover.cancel();
       gate.reject(new Error('gather aborted by test'));
-      await expect(blockProofs).rejects.toThrow(/cancelled/);
+      await expect(subTreeProofs).rejects.toThrow(/cancelled/);
       await expect(prover.whenDone()).resolves.toBeUndefined();
     });
 
-    it('lets a second whenBlockProofsReady caller observe the same rejection', async () => {
+    it('lets a second whenSubTreeProofsReady caller observe the same rejection', async () => {
       // Two callers awaiting the same promise both see the rejection — neither leaks an
       // unhandled rejection (the constructor pre-attaches a noop catch handler).
       const prover = makeProver();
-      const a = prover.whenBlockProofsReady();
-      const b = prover.whenBlockProofsReady();
+      const a = prover.whenSubTreeProofsReady();
+      const b = prover.whenSubTreeProofsReady();
       prover.cancel();
       await Promise.all([expect(a).rejects.toThrow(/cancelled/), expect(b).rejects.toThrow(/cancelled/)]);
       await prover.whenDone();
@@ -276,7 +276,7 @@ describe('CheckpointProver', () => {
 
       const prover = makeProver();
       failure.resolve({ txs: [], missingTxs: [missingHash] });
-      await expect(prover.whenBlockProofsReady()).rejects.toThrow(/Txs not found/);
+      await expect(prover.whenSubTreeProofsReady()).rejects.toThrow(/Txs not found/);
       // Subsequent cancel is a no-op; no throws.
       prover.cancel();
       expect(prover.isCancelled()).toBe(true);
@@ -296,7 +296,7 @@ describe('CheckpointProver', () => {
       txProvider.getTxsForBlock.mockResolvedValue({ txs: [], missingTxs: [] });
 
       const blockProofOutputs = [{ tag: 'block-proof-output' }] as unknown as SubTreeResult['blockProofOutputs'];
-      const parityRootProof = { tag: 'parity-root-proof' } as unknown as SubTreeResult['parityRootProof'];
+      const inboxParityProof = { tag: 'inbox-parity-proof' } as unknown as SubTreeResult['inboxParityProof'];
       const resultGate = promiseWithResolvers<SubTreeResult>();
       const lastBlockNumber = checkpoint.blocks[checkpoint.blocks.length - 1].number;
       const stop = jest.fn(() => Promise.resolve());
@@ -312,7 +312,7 @@ describe('CheckpointProver', () => {
           if (blockNumber === lastBlockNumber) {
             resultGate.resolve({
               blockProofOutputs,
-              parityRootProof,
+              inboxParityProof,
               previousArchiveSiblingPath: makeTuple(ARCHIVE_HEIGHT, () => Fr.ZERO),
             });
           }
@@ -331,7 +331,7 @@ describe('CheckpointProver', () => {
       const prover = makeProver();
 
       // The block-proof outputs survive teardown via the resolved promise.
-      await expect(prover.whenBlockProofsReady()).resolves.toEqual({ blockProofOutputs, parityRootProof });
+      await expect(prover.whenSubTreeProofsReady()).resolves.toEqual({ blockProofOutputs, inboxParityProof });
       await prover.whenDone();
 
       // The sub-tree orchestrator was released exactly once, and completion is not a failure.
@@ -357,7 +357,7 @@ describe('CheckpointProver', () => {
       txProvider.getTxsForBlock.mockResolvedValue({ txs: [], missingTxs: [] });
 
       const blockProofOutputs = [{ tag: 'block-proof-output' }] as unknown as SubTreeResult['blockProofOutputs'];
-      const parityRootProof = { tag: 'parity-root-proof' } as unknown as SubTreeResult['parityRootProof'];
+      const inboxParityProof = { tag: 'inbox-parity-proof' } as unknown as SubTreeResult['inboxParityProof'];
       const resultGate = promiseWithResolvers<SubTreeResult>();
       const lastBlockNumber = checkpoint.blocks[checkpoint.blocks.length - 1].number;
       const lastBlockCompleted = promiseWithResolvers<void>();
@@ -405,7 +405,7 @@ describe('CheckpointProver', () => {
       // The proofs land: block proofs resolve, the sub-tree is torn down, and only now does whenDone().
       resultGate.resolve({
         blockProofOutputs,
-        parityRootProof,
+        inboxParityProof,
         previousArchiveSiblingPath: makeTuple(ARCHIVE_HEIGHT, () => Fr.ZERO),
       });
       await donePromise;
@@ -420,10 +420,10 @@ describe('CheckpointProver', () => {
   // ---------------- data-plane reorg fork fault ----------------
 
   describe('data-plane reorg fault', () => {
-    it('rejects whenBlockProofsReady when a world-state fork faults mid-proof', async () => {
+    it('rejects whenSubTreeProofsReady when a world-state fork faults mid-proof', async () => {
       // Models the data-plane prune race: gather succeeds and the sub-tree starts, but the
       // world-state synchronizer has already unwound the base block, so forking it faults inside
-      // executeCheckpoint. The fault must reject whenBlockProofsReady() AND mark the prover failed, so
+      // executeCheckpoint. The fault must reject whenSubTreeProofsReady() AND mark the prover failed, so
       // the SessionManager won't build (or rebuild) an EpochSession over it until a re-add replaces it.
       txProvider.getTxsForBlock.mockReset();
       txProvider.getTxsForBlock.mockResolvedValue({ txs: [], missingTxs: [] });
@@ -445,9 +445,9 @@ describe('CheckpointProver', () => {
 
       const prover = makeProver();
 
-      // blockProofs rejects: the fork error aborts the block loop before completion, so the sub-tree
+      // subTreeProofs rejects: the fork error aborts the block loop before completion, so the sub-tree
       // never yields proofs. (The raw fork error is logged; the promise settles as not-completed.)
-      await expect(prover.whenBlockProofsReady()).rejects.toThrow(/did not complete block processing/);
+      await expect(prover.whenSubTreeProofsReady()).rejects.toThrow(/did not complete block processing/);
       expect(dbProvider.fork).toHaveBeenCalled();
       expect(prover.isFailed()).toBe(true);
       // The owner is notified exactly once, with this prover, so it can upload a checkpoint post-mortem.
@@ -468,7 +468,7 @@ describe('CheckpointProver', () => {
       // The prover holds no tx map — the pool is the source of truth. Let the eager gather fail so the
       // pipeline unwinds, then reconfigure the pool and re-fetch, mirroring a post-failure upload.
       const prover = makeProver();
-      await prover.whenBlockProofsReady().catch(() => {});
+      await prover.whenSubTreeProofsReady().catch(() => {});
 
       txProvider.getTxsForBlock.mockReset();
       txProvider.getTxsForBlock.mockResolvedValue({ txs: [fakeTx('0xaa'), fakeTx('0xbb')], missingTxs: [] });
@@ -484,7 +484,7 @@ describe('CheckpointProver', () => {
 
     it('failure-upload re-fetches from the pool and builds complete EpochProvingJobData', async () => {
       const prover = makeProver();
-      await prover.whenBlockProofsReady().catch(() => {});
+      await prover.whenSubTreeProofsReady().catch(() => {});
 
       txProvider.getTxsForBlock.mockReset();
       txProvider.getTxsForBlock.mockResolvedValue({ txs: [fakeTx('0xaa')], missingTxs: [] });

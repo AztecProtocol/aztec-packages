@@ -1,5 +1,5 @@
 use crate::{
-    abis::{BlockRollupPublicInputs, L1ToL2MessageSponge},
+    abis::{BlockRollupPublicInputs, L1ToL2MessageBundle, L1ToL2MessageSponge},
     block_root::components::BlockRollupPublicInputsComposer,
 };
 use types::{
@@ -8,7 +8,7 @@ use types::{
         checkpoint_constant_data::CheckpointConstantData, state_reference::StateReference,
     },
     blob_data::SpongeBlob,
-    constants::{ARCHIVE_HEIGHT, L1_TO_L2_MSG_TREE_HEIGHT, MAX_L1_TO_L2_MSGS_PER_BLOCK},
+    constants::{ARCHIVE_HEIGHT, L1_TO_L2_MSG_TREE_HEIGHT},
 };
 
 pub struct BlockRootMsgsOnlyRollupPrivateInputs {
@@ -28,10 +28,8 @@ pub struct BlockRootMsgsOnlyRollupPrivateInputs {
     // block merge or checkpoint root circuit.
     pub(crate) start_msg_sponge: L1ToL2MessageSponge,
 
-    // L1-to-L2 messages inserted by this block, padded with zeros beyond `num_msgs`.
-    pub(crate) l1_to_l2_messages: [Field; MAX_L1_TO_L2_MSGS_PER_BLOCK],
-    // Number of real (non-padding) leaves in `l1_to_l2_messages`.
-    pub(crate) num_msgs: u32,
+    // L1-to-L2 message bundle inserted by this block.
+    pub(crate) message_bundle: L1ToL2MessageBundle,
     // Frontier hint for appending the bundle to the l1-to-l2 message tree (validated against `previous_state`).
     pub(crate) l1_to_l2_message_frontier_hint: [Field; L1_TO_L2_MSG_TREE_HEIGHT],
     // Hint for inserting the new block hash to the last archive.
@@ -58,9 +56,12 @@ pub struct BlockRootMsgsOnlyRollupPrivateInputs {
 ///
 /// VkIndex: BLOCK_ROOT_MSGS_ONLY_ROLLUP_VK_INDEX
 pub fn execute(inputs: BlockRootMsgsOnlyRollupPrivateInputs) -> BlockRollupPublicInputs {
-    // A message-only block exists solely to insert L1-to-L2 messages, so it must carry at least one. This prevents a
-    // provable, fully-empty non-first filler block.
-    assert(inputs.num_msgs != 0, "A message-only block must insert at least one L1-to-L2 message");
+    // A message-only block exists solely to insert L1-to-L2 messages, so it must carry at least one real message. This
+    // prevents a provable, fully-empty non-first filler block.
+    assert(
+        inputs.message_bundle.num_real_msgs != 0,
+        "A message-only block must insert at least one L1-to-L2 message",
+    );
 
     BlockRollupPublicInputsComposer::new_from_no_rollups_with_start_sponge_blob(
         inputs.previous_archive,
@@ -73,8 +74,7 @@ pub fn execute(inputs: BlockRootMsgsOnlyRollupPrivateInputs) -> BlockRollupPubli
             false,
             inputs.previous_state.l1_to_l2_message_tree,
             inputs.start_msg_sponge,
-            inputs.l1_to_l2_messages,
-            inputs.num_msgs,
+            inputs.message_bundle,
             inputs.l1_to_l2_message_frontier_hint,
         )
         .finish(inputs.new_archive_sibling_path)

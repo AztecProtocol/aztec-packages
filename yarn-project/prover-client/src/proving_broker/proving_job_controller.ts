@@ -198,12 +198,8 @@ export class ProvingJobController {
         return await this.circuitProver.getRootRollupProof(inputs, signal, this.epochNumber);
       }
 
-      case ProvingRequestType.PARITY_BASE: {
-        return await this.circuitProver.getBaseParityProof(inputs, signal, this.epochNumber);
-      }
-
-      case ProvingRequestType.PARITY_ROOT: {
-        return await this.circuitProver.getRootParityProof(inputs, signal, this.epochNumber);
+      case ProvingRequestType.INBOX_PARITY: {
+        return await this.circuitProver.getInboxParityProof(inputs, signal, this.epochNumber);
       }
 
       default: {

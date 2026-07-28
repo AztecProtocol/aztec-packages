@@ -27,7 +27,7 @@ pub fn accumulate_inbox_rolling_hash<let N: u32>(
 
 mod tests {
     use super::accumulate_inbox_rolling_hash;
-    use types::{constants::NUM_MSGS_PER_BASE_PARITY, hash::accumulate_sha256};
+    use types::{constants::INBOX_PARITY_SIZE_MEDIUM, hash::accumulate_sha256};
 
     #[test]
     fn empty_bundle_passes_start_through() {
@@ -51,14 +51,14 @@ mod tests {
     }
 
     #[test]
-    fn base_parity_batch_matches_reference() {
-        // NUM_MSGS_PER_BASE_PARITY leaves valued 1..=256 from a zero start.
-        let mut leaves = [0; NUM_MSGS_PER_BASE_PARITY];
-        for i in 0..NUM_MSGS_PER_BASE_PARITY {
+    fn batch_matches_reference() {
+        // 256 leaves valued 1..=256 from a zero start.
+        let mut leaves = [0; INBOX_PARITY_SIZE_MEDIUM];
+        for i in 0..INBOX_PARITY_SIZE_MEDIUM {
             leaves[i] = (i + 1) as Field;
         }
         let expected = 0x00ea95b96f17b75be03525b35a2a1918b42f03ad8c00a437cf641751825f3992;
-        assert_eq(accumulate_inbox_rolling_hash(0, leaves, NUM_MSGS_PER_BASE_PARITY), expected);
+        assert_eq(accumulate_inbox_rolling_hash(0, leaves, INBOX_PARITY_SIZE_MEDIUM), expected);
     }
 
     #[test]
