@@ -77,7 +77,7 @@ export async function updateBlockState(block: L2Block, l1ToL2Messages: Fr[], for
   block.archive = new AppendOnlyTreeSnapshot(Fr.fromBuffer(archiveState.root), Number(archiveState.size));
 }
 
-export async function mockBlock(
+export function mockBlock(
   blockNum: BlockNumber,
   size: number,
   fork: MerkleTreeWriteOperations,
@@ -85,8 +85,24 @@ export async function mockBlock(
   numL1ToL2Messages: number = NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP,
   isFirstBlockInCheckpoint: boolean = true,
 ) {
+  return mockBlockWithIndex(blockNum, isFirstBlockInCheckpoint ? 0 : 1, size, fork, numL1ToL2Messages, maxEffects);
+}
+
+/**
+ * Builds a mock L2 block at an explicit position within its checkpoint, applying its state (including its L1-to-L2
+ * message bundle) to the given fork. Unlike {@link mockBlock}, the caller chooses the `indexWithinCheckpoint`, so
+ * non-first blocks can carry message bundles — exercising the per-block message insertion path.
+ */
+export async function mockBlockWithIndex(
+  blockNum: BlockNumber,
+  indexWithinCheckpoint: number,
+  size: number,
+  fork: MerkleTreeWriteOperations,
+  numL1ToL2Messages: number = NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP,
+  maxEffects: number | undefined = 1000, // Defaults to the maximum tx effects.
+) {
   const block = await L2Block.random(blockNum, {
-    indexWithinCheckpoint: isFirstBlockInCheckpoint ? IndexWithinCheckpoint(0) : IndexWithinCheckpoint(1),
+    indexWithinCheckpoint: IndexWithinCheckpoint(indexWithinCheckpoint),
     txsPerBlock: size,
     txOptions: { maxEffects },
   });
