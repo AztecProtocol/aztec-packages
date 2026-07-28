@@ -27,7 +27,8 @@ import {
 } from '@aztec/stdlib/testing';
 import { ConsensusTimetable } from '@aztec/stdlib/timetable';
 import { AppendOnlyTreeSnapshot } from '@aztec/stdlib/trees';
-import { GlobalVariables } from '@aztec/stdlib/tx';
+import { GlobalVariables, TX_ERROR_INVALID_PROOF } from '@aztec/stdlib/tx';
+import { InvalidBlockProposalTxsError } from '@aztec/stdlib/validators';
 
 import { describe, expect, it, jest } from '@jest/globals';
 import { type MockProxy, mock } from 'jest-mock-extended';
@@ -710,51 +711,76 @@ describe('ProposalHandler checkpoint validation', () => {
     });
   });
 
+  /**
+   * Builds a proposal whose parent resolves to genesis (so blockNumber = INITIAL_L2_BLOCK_NUM) and a
+   * handler wired to accept it up to the block-number guard.
+   */
+  async function setupGenesisProposal(proposalArchive: Fr) {
+    const proposal = await makeBlockProposal({
+      blockHeader: makeBlockHeader(1, { slotNumber: SlotNumber(1) }),
+      archiveRoot: proposalArchive,
+    });
+
+    // Parent archive == genesis archive → genesis path → blockNumber = INITIAL_L2_BLOCK_NUM.
+    blockSource.getGenesisValues.mockResolvedValue({
+      genesisArchiveRoot: proposal.blockHeader.lastArchive.root,
+    } as any);
+
+    const blockProposalValidator = mock<BlockProposalValidator>();
+    blockProposalValidator.validate.mockResolvedValue({ result: 'accept' } as any);
+
+    const txProvider = mock<ITxProvider>();
+    txProvider.getTxsForBlockProposal.mockResolvedValue({ txs: [], missingTxs: [] } as any);
+
+    const blockHandler = new ProposalHandler(
+      checkpointsBuilder,
+      mock<WorldStateSynchronizer>(),
+      blockSource,
+      l1ToL2MessageSource,
+      txProvider,
+      blockProposalValidator,
+      epochCache,
+      consensusTimetable,
+      config,
+      mock<BlobClientInterface>(),
+      new CheckpointReexecutionTracker(),
+      metrics,
+      dateProvider,
+    );
+    return { proposal, blockHandler, txProvider };
+  }
+
+  describe('handleBlockProposal tx collection', () => {
+    it('classifies txs that fail integrity validation as an invalid proposal', async () => {
+      const { proposal, blockHandler, txProvider } = await setupGenesisProposal(Fr.random());
+      txProvider.getTxsForBlockProposal.mockRejectedValue(
+        new InvalidBlockProposalTxsError([{ txHash: proposal.txHashes[0], reasons: [TX_ERROR_INVALID_PROOF] }]),
+      );
+
+      const result = await blockHandler.handleBlockProposal(proposal, {} as any, false);
+      expect(result).toEqual({
+        isValid: false,
+        blockNumber: BlockNumber(INITIAL_L2_BLOCK_NUM),
+        reason: 'invalid_embedded_txs',
+      });
+    });
+
+    // Only proposer misbehavior gets a typed (and slashable) failure reason; a local collection failure
+    // must keep propagating so it is not mistaken for an invalid proposal.
+    it('propagates other tx collection errors', async () => {
+      const { proposal, blockHandler, txProvider } = await setupGenesisProposal(Fr.random());
+      txProvider.getTxsForBlockProposal.mockRejectedValue(new Error('Tx pool unavailable'));
+
+      await expect(blockHandler.handleBlockProposal(proposal, {} as any, false)).rejects.toThrow('Tx pool unavailable');
+    });
+  });
+
   // Regression for A-1218: during a reorg the archiver can still hold a stale block at the proposal's
   // number (a different archive, about to be pruned) while the proposal carries the rebuilt replacement.
   // The block-number guard used to key on number only and permanently drop the rebuilt proposal, so the
   // node never re-acquired the block and missed the later checkpoint attestation. The guard must reject
   // only genuine duplicates (same archive) and otherwise wait for the local prune.
   describe('handleBlockProposal block-number guard (reorg-aware)', () => {
-    /**
-     * Builds a proposal whose parent resolves to genesis (so blockNumber = INITIAL_L2_BLOCK_NUM) and a
-     * handler wired to accept it up to the block-number guard.
-     */
-    async function setupGenesisProposal(proposalArchive: Fr) {
-      const proposal = await makeBlockProposal({
-        blockHeader: makeBlockHeader(1, { slotNumber: SlotNumber(1) }),
-        archiveRoot: proposalArchive,
-      });
-
-      // Parent archive == genesis archive → genesis path → blockNumber = INITIAL_L2_BLOCK_NUM.
-      blockSource.getGenesisValues.mockResolvedValue({
-        genesisArchiveRoot: proposal.blockHeader.lastArchive.root,
-      } as any);
-
-      const blockProposalValidator = mock<BlockProposalValidator>();
-      blockProposalValidator.validate.mockResolvedValue({ result: 'accept' } as any);
-
-      const txProvider = mock<ITxProvider>();
-      txProvider.getTxsForBlockProposal.mockResolvedValue({ txs: [], missingTxs: [] } as any);
-
-      const blockHandler = new ProposalHandler(
-        checkpointsBuilder,
-        mock<WorldStateSynchronizer>(),
-        blockSource,
-        l1ToL2MessageSource,
-        txProvider,
-        blockProposalValidator,
-        epochCache,
-        consensusTimetable,
-        config,
-        mock<BlobClientInterface>(),
-        new CheckpointReexecutionTracker(),
-        metrics,
-        dateProvider,
-      );
-      return { proposal, blockHandler };
-    }
-
     /** Block-data stub at the target number with the given archive root. */
     const blockAt = (archiveRoot: Fr) => ({ archive: new AppendOnlyTreeSnapshot(archiveRoot, 1) }) as BlockData;
 

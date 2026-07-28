@@ -480,6 +480,7 @@ export class ValidatorClient extends (EventEmitter as new () => WatcherEmitter) 
         'failed_txs',
         'in_hash_mismatch',
         'parent_block_wrong_slot',
+        'invalid_embedded_txs',
       ];
 
       if (badProposalReasons.includes(reason as BlockProposalValidationFailureReason)) {

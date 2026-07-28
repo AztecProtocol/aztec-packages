@@ -30,6 +30,21 @@ export class TransactionsNotAvailableError extends ValidatorError {
   }
 }
 
+/**
+ * Thrown when a tx carried in a block proposal fails minimum integrity validation (metadata, size, data,
+ * contract instances, or proof). The proposer signs both the tx hashes and the tx objects, so this is
+ * proposer misbehavior rather than a local failure, and callers classify it as an invalid block proposal.
+ */
+export class InvalidBlockProposalTxsError extends ValidatorError {
+  constructor(public readonly invalidTxs: { txHash: TxHash; reasons: string[] }[]) {
+    super(
+      `Invalid txs in block proposal: ${invalidTxs
+        .map(({ txHash, reasons }) => `${txHash} (${reasons.join(', ')})`)
+        .join('; ')}`,
+    );
+  }
+}
+
 export class FailedToReExecuteTransactionsError extends ValidatorError {
   constructor(txHashes: TxHash[]) {
     super(`Failed to re-execute transactions: ${txHashes.join(', ')}`);

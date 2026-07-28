@@ -29,6 +29,7 @@ import { ConsensusTimetable, getDefaultCheckpointProposalSyncGrace } from '@azte
 import { MerkleTreeId } from '@aztec/stdlib/trees';
 import { Tx, type TxValidationResult } from '@aztec/stdlib/tx';
 import type { UInt64 } from '@aztec/stdlib/types';
+import { InvalidBlockProposalTxsError } from '@aztec/stdlib/validators';
 import { compressComponentVersions } from '@aztec/stdlib/versioning';
 import {
   Attributes,
@@ -1403,7 +1404,23 @@ export class LibP2PService extends WithTracer implements P2PService {
 
     // Call the block received callback to validate the proposal.
     // Note: Validators do NOT attest to individual blocks, only to checkpoint proposals.
-    const isValid = await this.blockReceivedCallback(block, sender);
+    let isValid: boolean;
+    try {
+      isValid = await this.blockReceivedCallback(block, sender);
+    } catch (err) {
+      // A callback that throws rejects the proposal just as much as one returning false, so release the
+      // protections here too. Cleanup failures are logged rather than thrown, so they cannot mask the
+      // original error.
+      try {
+        await this.mempools.txPool.unprotectTxs(block.txHashes, slot);
+      } catch (unprotectErr) {
+        this.logger.error(`Failed to release tx protections for rejected block proposal`, unprotectErr, {
+          ...block.toBlockInfo(),
+        });
+      }
+      throw err;
+    }
+
     if (!isValid) {
       this.logger.info(`Block proposal validation failed for block ${block.blockNumber}`, block.toBlockInfo());
       // Release the protections this proposal created so its txs return to pending. Only entries still
@@ -1751,13 +1768,15 @@ export class LibP2PService extends WithTracer implements P2PService {
     );
 
     const results = await Promise.all(
-      txs.map(async tx => {
-        const result = await validator.validateTx(tx);
-        return result.result !== 'invalid';
-      }),
+      txs.map(async tx => ({ txHash: tx.getTxHash(), result: await validator.validateTx(tx) })),
     );
-    if (results.some(value => value === false)) {
-      throw new Error('Invalid tx detected');
+
+    const invalidTxs = results.flatMap(({ txHash, result }) =>
+      result.result === 'invalid' ? [{ txHash, reasons: result.reason }] : [],
+    );
+
+    if (invalidTxs.length > 0) {
+      throw new InvalidBlockProposalTxsError(invalidTxs);
     }
   }
 

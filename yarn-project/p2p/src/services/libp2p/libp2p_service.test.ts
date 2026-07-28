@@ -20,7 +20,8 @@ import {
   makeCheckpointProposal,
   mockTx,
 } from '@aztec/stdlib/testing';
-import { TxArray, TxHashArray } from '@aztec/stdlib/tx';
+import { TX_ERROR_INCORRECT_VK_TREE_ROOT, TxArray, type TxHash, TxHashArray } from '@aztec/stdlib/tx';
+import { InvalidBlockProposalTxsError } from '@aztec/stdlib/validators';
 import { type TelemetryClient, getTelemetryClient } from '@aztec/telemetry-client';
 import { ServerWorldStateSynchronizer } from '@aztec/world-state';
 
@@ -314,6 +315,23 @@ describe('LibP2PService', () => {
         source: 'gossip',
       });
       expect(txReportSpy).toHaveBeenCalledWith('test-msg-id', MOCK_PEER_ID, TopicValidatorResult.Accept);
+    });
+  });
+
+  describe('validateTxsReceivedInBlockProposal', () => {
+    it('throws with the offending tx hashes and reasons when a tx fails integrity validation', async () => {
+      // Carries a zero vk tree root, so it fails the metadata check in the minimum integrity validator.
+      const tx = await mockTx();
+
+      const error = await service.validateTxsReceivedInBlockProposal([tx]).catch(err => err);
+
+      expect(error).toBeInstanceOf(InvalidBlockProposalTxsError);
+      expect(error.invalidTxs.map((invalid: { txHash: TxHash }) => invalid.txHash.toString())).toEqual([
+        tx.getTxHash().toString(),
+      ]);
+      expect(error.invalidTxs[0].reasons).toEqual(
+        expect.arrayContaining([expect.stringContaining(TX_ERROR_INCORRECT_VK_TREE_ROOT)]),
+      );
     });
   });
 
@@ -806,6 +824,30 @@ describe('LibP2PService', () => {
 
       expect(mockTxPool.protectTxs).toHaveBeenCalledTimes(1);
       expect(mockTxPool.unprotectTxs).not.toHaveBeenCalled();
+    });
+
+    it('local validation throwing releases the protections it created', async () => {
+      const header = makeBlockHeader(1, { slotNumber: targetSlot });
+      const proposal = await makeBlockProposal({ signer, blockHeader: header });
+      blockReceivedCallback.mockImplementationOnce(() => Promise.reject(new Error('Validation blew up')));
+
+      await expect(service.processBlockFromPeer(proposal.toBuffer(), 'msg-1', mockPeerId)).rejects.toThrow(
+        'Validation blew up',
+      );
+
+      expect(mockTxPool.protectTxs).toHaveBeenCalledTimes(1);
+      expect(mockTxPool.unprotectTxs).toHaveBeenCalledWith(proposal.txHashes, targetSlot);
+    });
+
+    it('surfaces the original validation error when releasing protections also fails', async () => {
+      const header = makeBlockHeader(1, { slotNumber: targetSlot });
+      const proposal = await makeBlockProposal({ signer, blockHeader: header });
+      blockReceivedCallback.mockImplementationOnce(() => Promise.reject(new Error('Validation blew up')));
+      mockTxPool.unprotectTxs.mockRejectedValueOnce(new Error('Pool unavailable'));
+
+      await expect(service.processBlockFromPeer(proposal.toBuffer(), 'msg-1', mockPeerId)).rejects.toThrow(
+        'Validation blew up',
+      );
     });
 
     // Regression for A-1013: payloads sharing (slot, position, archive) but differing on another

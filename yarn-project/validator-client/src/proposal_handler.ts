@@ -39,8 +39,9 @@ import {
 import type { BlockProposal, CheckpointAttestation, CheckpointProposalCore } from '@aztec/stdlib/p2p';
 import type { ConsensusTimetable } from '@aztec/stdlib/timetable';
 import { MerkleTreeId } from '@aztec/stdlib/trees';
-import type { CheckpointGlobalVariables, FailedTx, Tx } from '@aztec/stdlib/tx';
+import type { CheckpointGlobalVariables, FailedTx, Tx, TxHash } from '@aztec/stdlib/tx';
 import {
+  InvalidBlockProposalTxsError,
   ReExFailedTxsError,
   ReExInitialStateMismatchError,
   ReExStateMismatchError,
@@ -61,6 +62,7 @@ export type BlockProposalValidationFailureReason =
   | 'global_variables_mismatch'
   | 'block_number_already_exists'
   | 'txs_not_available'
+  | 'invalid_embedded_txs'
   | 'state_mismatch'
   | 'failed_txs'
   | 'initial_state_mismatch'
@@ -172,6 +174,7 @@ export const SLASHABLE_BLOCK_PROPOSAL_VALIDATION_RESULT: BlockProposalValidation
   'invalid_proposal',
   'parent_block_wrong_slot',
   'in_hash_mismatch',
+  'invalid_embedded_txs',
 ];
 
 /** Checkpoint-proposal validation failures that constitute a slashable invalid-checkpoint offense. */
@@ -527,10 +530,27 @@ export class ProposalHandler {
 
     // Collect txs from the proposal. We start doing this as early as possible,
     // and we do it even if we don't plan to re-execute the txs, so that we have them if another node needs them.
-    const { txs, missingTxs } = await this.txProvider.getTxsForBlockProposal(proposal, blockNumber, {
-      pinnedPeer: proposalSender,
-      deadline: this.getReexecutionDeadline(slotNumber),
-    });
+    let txs: Tx[];
+    let missingTxs: TxHash[];
+    try {
+      ({ txs, missingTxs } = await this.txProvider.getTxsForBlockProposal(proposal, blockNumber, {
+        pinnedPeer: proposalSender,
+        deadline: this.getReexecutionDeadline(slotNumber),
+      }));
+    } catch (error) {
+      // A tx carried in the proposal that fails minimum integrity validation is proposer misbehavior: the
+      // proposal signs both the tx hashes and the tx objects. Map it to a typed failure so the invalid
+      // proposal reaches the slashing and invalid-slot accounting instead of escaping as an exception.
+      // Any other collection error is a local failure and keeps propagating.
+      if (!(error instanceof InvalidBlockProposalTxsError)) {
+        throw error;
+      }
+      this.log.warn(`Block proposal carries ${error.invalidTxs.length} invalid txs`, {
+        ...proposalInfo,
+        invalidTxs: error.invalidTxs.map(({ txHash, reasons }) => ({ txHash: txHash.toString(), reasons })),
+      });
+      return { isValid: false, blockNumber, reason: 'invalid_embedded_txs' };
+    }
 
     // Record the tx-collection outcome on the re-execution tracker
     this.reexecutionTracker.recordTxsCollected(slotNumber, proposal.indexWithinCheckpoint, missingTxs.length === 0);
