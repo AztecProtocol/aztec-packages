@@ -296,6 +296,7 @@ describe('CheckpointProver', () => {
       txProvider.getTxsForBlock.mockResolvedValue({ txs: [], missingTxs: [] });
 
       const blockProofOutputs = [{ tag: 'block-proof-output' }] as unknown as SubTreeResult['blockProofOutputs'];
+      const parityRootProof = { tag: 'parity-root-proof' } as unknown as SubTreeResult['parityRootProof'];
       const resultGate = promiseWithResolvers<SubTreeResult>();
       const lastBlockNumber = checkpoint.blocks[checkpoint.blocks.length - 1].number;
       const stop = jest.fn(() => Promise.resolve());
@@ -311,6 +312,7 @@ describe('CheckpointProver', () => {
           if (blockNumber === lastBlockNumber) {
             resultGate.resolve({
               blockProofOutputs,
+              parityRootProof,
               previousArchiveSiblingPath: makeTuple(ARCHIVE_HEIGHT, () => Fr.ZERO),
             });
           }
@@ -329,7 +331,7 @@ describe('CheckpointProver', () => {
       const prover = makeProver();
 
       // The block-proof outputs survive teardown via the resolved promise.
-      await expect(prover.whenBlockProofsReady()).resolves.toBe(blockProofOutputs);
+      await expect(prover.whenBlockProofsReady()).resolves.toEqual({ blockProofOutputs, parityRootProof });
       await prover.whenDone();
 
       // The sub-tree orchestrator was released exactly once, and completion is not a failure.
@@ -355,6 +357,7 @@ describe('CheckpointProver', () => {
       txProvider.getTxsForBlock.mockResolvedValue({ txs: [], missingTxs: [] });
 
       const blockProofOutputs = [{ tag: 'block-proof-output' }] as unknown as SubTreeResult['blockProofOutputs'];
+      const parityRootProof = { tag: 'parity-root-proof' } as unknown as SubTreeResult['parityRootProof'];
       const resultGate = promiseWithResolvers<SubTreeResult>();
       const lastBlockNumber = checkpoint.blocks[checkpoint.blocks.length - 1].number;
       const lastBlockCompleted = promiseWithResolvers<void>();
@@ -402,6 +405,7 @@ describe('CheckpointProver', () => {
       // The proofs land: block proofs resolve, the sub-tree is torn down, and only now does whenDone().
       resultGate.resolve({
         blockProofOutputs,
+        parityRootProof,
         previousArchiveSiblingPath: makeTuple(ARCHIVE_HEIGHT, () => Fr.ZERO),
       });
       await donePromise;

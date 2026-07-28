@@ -9,12 +9,13 @@ import {
   AVM_V2_PROOF_LENGTH_IN_FIELDS,
   CHONK_PROOF_LENGTH,
   CONTRACT_CLASS_LOG_SIZE_IN_FIELDS,
-  L1_TO_L2_MSG_SUBTREE_ROOT_SIBLING_PATH_LENGTH,
+  L1_TO_L2_MSG_TREE_HEIGHT,
   MAX_CHECKPOINTS_PER_EPOCH,
   MAX_CONTRACT_CLASS_LOGS_PER_TX,
   MAX_ENQUEUED_CALLS_PER_CALL,
   MAX_ENQUEUED_CALLS_PER_TX,
   MAX_KEY_VALIDATION_REQUESTS_PER_CALL,
+  MAX_L1_TO_L2_MSGS_PER_BLOCK,
   MAX_L2_TO_L1_MSGS_PER_CALL,
   MAX_L2_TO_L1_MSGS_PER_TX,
   MAX_NOTE_HASHES_PER_CALL,
@@ -129,6 +130,7 @@ import { ContractClassLog, ContractClassLogFields } from '../logs/index.js';
 import type { LogResult } from '../logs/log_result.js';
 import { PrivateLog } from '../logs/private_log.js';
 import { FlatPublicLogs, PublicLog } from '../logs/public_log.js';
+import { L1ToL2MessageSponge } from '../messaging/l1_to_l2_message_sponge.js';
 import { CountedL2ToL1Message, L2ToL1Message, ScopedL2ToL1Message } from '../messaging/l2_to_l1_message.js';
 import { ParityBasePrivateInputs } from '../parity/parity_base_private_inputs.js';
 import { ParityPublicInputs } from '../parity/parity_public_inputs.js';
@@ -786,13 +788,17 @@ export function makeBlockRollupPublicInputs(seed = 0): BlockRollupPublicInputs {
     makeSpongeBlob(seed + 0x700),
     BigInt(seed + 0x800),
     fr(seed + 0x820),
-    fr(seed + 0x830),
-    fr(seed + 0x835),
-    fr(seed + 0x838),
+    (seed & 1) === 0,
+    makeL1ToL2MessageSponge(seed + 0x835),
+    makeL1ToL2MessageSponge(seed + 0x838),
     fr(seed + 0x840),
     fr(seed + 0x850),
     fr(seed + 0x860),
   );
+}
+
+export function makeL1ToL2MessageSponge(seed = 0): L1ToL2MessageSponge {
+  return new L1ToL2MessageSponge(makeSpongeBlob(seed).sponge, seed % (NUM_MSGS_PER_BASE_PARITY + 1));
 }
 
 export function makeCheckpointRollupPublicInputs(seed = 0) {
@@ -818,6 +824,8 @@ export function makeParityPublicInputs(seed = 0): ParityPublicInputs {
     new Fr(BigInt(seed + 0x300)),
     new Fr(BigInt(seed + 0x400)),
     new Fr(BigInt(seed + 0x500)),
+    makeL1ToL2MessageSponge(seed + 0x550),
+    makeL1ToL2MessageSponge(seed + 0x580),
     seed + 0x600,
     new Fr(BigInt(seed + 0x700)),
     new Fr(BigInt(seed + 0x800)),
@@ -828,6 +836,7 @@ export function makeParityBasePrivateInputs(seed = 0): ParityBasePrivateInputs {
   return new ParityBasePrivateInputs(
     makeTuple(NUM_MSGS_PER_BASE_PARITY, fr, seed + 0x3000),
     new Fr(seed + 0x3500),
+    makeL1ToL2MessageSponge(seed + 0x3800),
     seed % (NUM_MSGS_PER_BASE_PARITY + 1),
     new Fr(seed + 0x4000),
     new Fr(seed + 0x5000),
@@ -957,10 +966,11 @@ export function makeTxMergeRollupPrivateInputs(seed = 0): TxMergeRollupPrivateIn
 
 export function makeBlockRootFirstRollupPrivateInputs(seed = 0) {
   return new BlockRootFirstRollupPrivateInputs(
-    makeProofData(seed, makeParityPublicInputs),
     [makeProofData(seed + 0x1000, makeTxRollupPublicInputs), makeProofData(seed + 0x2000, makeTxRollupPublicInputs)],
+    makeArray(MAX_L1_TO_L2_MSGS_PER_BLOCK, fr, seed + 0x2500),
+    MAX_L1_TO_L2_MSGS_PER_BLOCK,
     makeAppendOnlyTreeSnapshot(seed + 0x3000),
-    makeSiblingPath(seed + 0x4000, L1_TO_L2_MSG_SUBTREE_ROOT_SIBLING_PATH_LENGTH),
+    makeSiblingPath(seed + 0x4000, L1_TO_L2_MSG_TREE_HEIGHT),
     makeSiblingPath(seed + 0x5000, ARCHIVE_HEIGHT),
   );
 }
@@ -968,7 +978,11 @@ export function makeBlockRootFirstRollupPrivateInputs(seed = 0) {
 export function makeBlockRootSingleTxRollupPrivateInputs(seed = 0) {
   return new BlockRootSingleTxRollupPrivateInputs(
     makeProofData(seed + 0x1000, makeTxRollupPublicInputs),
-    makeSiblingPath(seed + 0x4000, ARCHIVE_HEIGHT),
+    makeArray(MAX_L1_TO_L2_MSGS_PER_BLOCK, fr, seed + 0x2500),
+    0,
+    makeL1ToL2MessageSponge(seed + 0x3000),
+    makeSiblingPath(seed + 0x4000, L1_TO_L2_MSG_TREE_HEIGHT),
+    makeSiblingPath(seed + 0x5000, ARCHIVE_HEIGHT),
   );
 }
 

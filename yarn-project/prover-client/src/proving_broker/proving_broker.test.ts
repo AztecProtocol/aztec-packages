@@ -539,6 +539,29 @@ describe.each([
       );
     });
 
+    it('prefers an older epoch over a higher-priority proof type from a younger epoch', async () => {
+      const baseRollup2 = makeRandomProvingJobId();
+      await broker.enqueueProvingJob({
+        id: baseRollup2,
+        type: ProvingRequestType.PRIVATE_TX_BASE_ROLLUP,
+        epochNumber: EpochNumber(2),
+        inputsUri: makeInputsUri(),
+      });
+
+      const publicVm1 = makeRandomProvingJobId();
+      await broker.enqueueProvingJob({
+        id: publicVm1,
+        type: ProvingRequestType.PUBLIC_VM,
+        epochNumber: EpochNumber(1),
+        inputsUri: makeInputsUri(),
+      });
+
+      // A lower-priority type from epoch 1 wins over the higher-priority type from epoch 2: the oldest
+      // epoch's remaining jobs must complete rather than starve behind newer epochs' work.
+      await getAndAssertNextJobId(publicVm1, ProvingRequestType.PUBLIC_VM, ProvingRequestType.PRIVATE_TX_BASE_ROLLUP);
+      await getAndAssertNextJobId(baseRollup2, ProvingRequestType.PUBLIC_VM, ProvingRequestType.PRIVATE_TX_BASE_ROLLUP);
+    });
+
     it('returns any job if filter is empty', async () => {
       const baseParity1 = makeRandomProvingJobId();
       await broker.enqueueProvingJob({

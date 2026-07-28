@@ -160,33 +160,3 @@ fn incorrect_l1_to_l2_tree_next_available_leaf_index__first_single_tx_block() {
 
     builder.execute_and_fail();
 }
-
-#[test(should_fail_with = "The vk tree root of the parity root does not match the rollup's vk tree root")]
-fn mismatched_vk_tree_root_from_parity__first_block() {
-    let mut builder = TestBuilder::default(true, false);
-
-    // Tweak the vk tree root of the parity root.
-    builder.parity_root.vk_tree_root += 1;
-
-    builder.execute_and_fail();
-}
-
-#[test(should_fail_with = "The vk tree root of the parity root does not match the rollup's vk tree root")]
-fn mismatched_vk_tree_root_from_parity__first_single_tx_block() {
-    let mut builder = TestBuilder::default(true, true);
-
-    // Tweak the vk tree root of the parity root.
-    builder.parity_root.vk_tree_root += 1;
-
-    builder.execute_and_fail();
-}
-
-#[test(should_fail_with = "The vk tree root of the parity root does not match the rollup's vk tree root")]
-fn mismatched_vk_tree_root_from_parity__first_empty_block() {
-    let mut builder = TestBuilder::new_empty();
-
-    // Tweak the vk tree root of the parity root.
-    builder.parity_root.vk_tree_root += 1;
-
-    builder.execute_and_fail();
-}

@@ -1,4 +1,7 @@
-use crate::{abis::ParityPublicInputs, inbox_rolling_hash::accumulate_inbox_rolling_hash};
+use crate::{
+    abis::{L1ToL2MessageSponge, ParityPublicInputs},
+    inbox_rolling_hash::accumulate_inbox_rolling_hash,
+};
 use types::{
     constants::NUM_MSGS_PER_BASE_PARITY, merkle_tree::MerkleTree,
     utils::arrays::assert_trailing_zeros,
@@ -9,8 +12,11 @@ pub struct ParityBasePrivateInputs {
     // Rolling hash of the Inbox message chain before absorbing this batch. The orchestrator threads it so that each
     // base's start equals the previous base's end, keeping the chain continuous across the four base proofs.
     pub(crate) start_rolling_hash: Field,
+    // Message-bundle sponge before absorbing this batch. Threaded across the four base proofs the same way as the
+    // rolling hash: each base's start equals the previous base's end, so the checkpoint's sponge chains continuously.
+    pub(crate) start_sponge: L1ToL2MessageSponge,
     // Number of real (non-padding) messages in `msgs`. Only these are absorbed into the rolling hash; the merkle roots
-    // still absorb the full padded batch as before.
+    // and the message sponge still absorb the full padded batch as before.
     pub(crate) num_msgs: u32,
     pub(crate) vk_tree_root: Field,
     pub(crate) prover_id: Field,
@@ -41,11 +47,18 @@ pub fn execute(inputs: ParityBasePrivateInputs) -> ParityPublicInputs {
     let end_rolling_hash =
         accumulate_inbox_rolling_hash(inputs.start_rolling_hash, inputs.msgs, inputs.num_msgs);
 
+    // The sponge absorbs the full padded batch (matching the leaves inserted into the L1-to-L2 tree by the block
+    // roots), so padding zeros enter the sponge even though they never enter the sha rolling chain.
+    let mut end_sponge = inputs.start_sponge;
+    end_sponge.absorb(inputs.msgs, NUM_MSGS_PER_BASE_PARITY);
+
     ParityPublicInputs {
         sha_root: sha_tree.get_root(),
         converted_root: poseidon_tree.get_root(),
         start_rolling_hash: inputs.start_rolling_hash,
         end_rolling_hash,
+        start_sponge: inputs.start_sponge,
+        end_sponge,
         num_msgs: inputs.num_msgs,
         vk_tree_root: inputs.vk_tree_root,
         prover_id: inputs.prover_id,

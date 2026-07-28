@@ -4,12 +4,16 @@ import { bufferSchemaFor } from '@aztec/foundation/schemas';
 import { BufferReader, type Tuple, serializeToBuffer } from '@aztec/foundation/serialize';
 import { bufferToHex, hexToBuffer } from '@aztec/foundation/string';
 
+import { L1ToL2MessageSponge } from '../messaging/l1_to_l2_message_sponge.js';
+
 export class ParityBasePrivateInputs {
   constructor(
     /** Aggregated proof of all the parity circuit iterations. */
     public readonly msgs: Tuple<Fr, typeof NUM_MSGS_PER_BASE_PARITY>,
     /** Inbox rolling hash before absorbing this base's real messages (threaded from the previous base's end). */
     public readonly startRollingHash: Fr,
+    /** Message-bundle sponge before absorbing this base's leaves (threaded from the previous base's end). */
+    public readonly startSponge: L1ToL2MessageSponge,
     /** Number of real (non-padding) messages in `msgs`. */
     public readonly numMsgs: number,
     /** Root of the VK tree */
@@ -22,6 +26,7 @@ export class ParityBasePrivateInputs {
     array: Fr[],
     index: number,
     startRollingHash: Fr,
+    startSponge: L1ToL2MessageSponge,
     numMsgs: number,
     vkTreeRoot: Fr,
     proverId: Fr,
@@ -38,6 +43,7 @@ export class ParityBasePrivateInputs {
     return new ParityBasePrivateInputs(
       msgs as Tuple<Fr, typeof NUM_MSGS_PER_BASE_PARITY>,
       startRollingHash,
+      startSponge,
       numMsgs,
       vkTreeRoot,
       proverId,
@@ -46,7 +52,14 @@ export class ParityBasePrivateInputs {
 
   /** Serializes the inputs to a buffer. */
   toBuffer() {
-    return serializeToBuffer(this.msgs, this.startRollingHash, new Fr(this.numMsgs), this.vkTreeRoot, this.proverId);
+    return serializeToBuffer(
+      this.msgs,
+      this.startRollingHash,
+      this.startSponge,
+      new Fr(this.numMsgs),
+      this.vkTreeRoot,
+      this.proverId,
+    );
   }
 
   /** Serializes the inputs to a hex string. */
@@ -63,6 +76,7 @@ export class ParityBasePrivateInputs {
     return new ParityBasePrivateInputs(
       reader.readArray(NUM_MSGS_PER_BASE_PARITY, Fr),
       Fr.fromBuffer(reader),
+      reader.readObject(L1ToL2MessageSponge),
       Fr.fromBuffer(reader).toNumber(),
       Fr.fromBuffer(reader),
       Fr.fromBuffer(reader),
