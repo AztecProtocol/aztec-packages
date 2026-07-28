@@ -44,6 +44,9 @@ template <typename Builder> void ComponentsChecker_<Builder>::build_circuit_comp
     // Collect range_list variables
     for (const auto& [_, range_list] : builder_.range_lists) {
         for (auto var_idx : range_list.variable_indices) {
+            if (var_idx >= builder_.real_variable_index.size()) {
+                continue;
+            }
             range_list_vars_.insert(builder_.real_variable_index[var_idx]);
         }
     }
