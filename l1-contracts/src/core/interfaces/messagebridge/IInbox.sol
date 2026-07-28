@@ -4,6 +4,11 @@ pragma solidity >=0.8.27;
 
 import {DataStructures} from "../../libraries/DataStructures.sol";
 
+// Maximum number of messages a single bucket can hold before further messages in the same L1 block spill over
+// into the next bucket. Matches the number of L1 to L2 messages a single L2 block can insert once the streaming
+// inbox is live, so any one bucket is always consumable by one block.
+uint256 constant MAX_MSGS_PER_BUCKET = 256;
+
 /**
  * @title Inbox
  * @author Aztec Labs
@@ -28,7 +33,7 @@ interface IInbox {
    * fixed-size ring indexed by a dense bucket sequence number (`seq % ringSize`). A bucket only accumulates
    * messages sent within a single L1 block, so its final state is the chain position as of the end of that
    * block; the censorship check at `propose` compares the checkpoint header's rolling hash against these
-   * snapshots (AZIP-22 Fast Inbox).
+   * snapshots.
    */
   struct InboxBucket {
     // Rolling hash after the last message absorbed into this bucket. Each link is

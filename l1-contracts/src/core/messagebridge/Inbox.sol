@@ -3,7 +3,7 @@
 pragma solidity >=0.8.27;
 
 import {IRollup} from "@aztec/core/interfaces/IRollup.sol";
-import {IInbox} from "@aztec/core/interfaces/messagebridge/IInbox.sol";
+import {IInbox, MAX_MSGS_PER_BUCKET} from "@aztec/core/interfaces/messagebridge/IInbox.sol";
 import {Constants} from "@aztec/core/libraries/ConstantsGen.sol";
 import {FrontierLib} from "@aztec/core/libraries/crypto/FrontierLib.sol";
 import {Hash} from "@aztec/core/libraries/crypto/Hash.sol";
@@ -33,11 +33,6 @@ contract Inbox is IInbox {
   using Hash for DataStructures.L1ToL2Msg;
   using FrontierLib for FrontierLib.Forest;
   using FrontierLib for FrontierLib.Tree;
-
-  // Maximum number of messages a single bucket can hold before further messages in the same L1 block
-  // spill over into the next bucket. Matches the number of L1 to L2 messages a single L2 block can
-  // insert once the streaming inbox is live, so any one bucket is always consumable by one block.
-  uint256 public constant MAX_MSGS_PER_BUCKET = 256;
 
   address public immutable ROLLUP;
   uint256 public immutable VERSION;
