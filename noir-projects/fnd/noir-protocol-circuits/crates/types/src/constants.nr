@@ -353,6 +353,7 @@ pub global GLOBAL_VARIABLES_LENGTH: u32 = 7 + GAS_FEES_LENGTH;
 pub global APPEND_ONLY_TREE_SNAPSHOT_LENGTH: u32 = 2;
 pub global APPEND_ONLY_TREE_SNAPSHOT_LENGTH_BYTES: u32 = 36;
 pub global SPONGE_BLOB_LENGTH: u32 = 10;
+pub global L1_TO_L2_MESSAGE_SPONGE_LENGTH: u32 = 10;
 pub global BLS12_FR_LIMBS: u32 = 3; // TODO(#14646): get this from bignum
 pub global BLS12_FQ_LIMBS: u32 = 4; // TODO(#14646): get this from bignum
 pub global BLS12_POINT_LENGTH: u32 = 2 * BLS12_FQ_LIMBS + 1; // TODO(#14646): reduce num fields needed here?
@@ -628,9 +629,8 @@ pub global BLOCK_ROLLUP_PUBLIC_INPUTS_LENGTH: u32 = CHECKPOINT_CONSTANT_DATA_LEN
     + 2 * SPONGE_BLOB_LENGTH /* start_sponge_blob and end_sponge_blob */
     + 1 /* timestamp */
     + 1 /* block_headers_hash */
-    + 1 /* in_hash */
-    + 1 /* start_inbox_rolling_hash */
-    + 1 /* end_inbox_rolling_hash */
+    + 1 /* is_first_block */
+    + 2 * L1_TO_L2_MESSAGE_SPONGE_LENGTH /* start_msg_sponge and end_msg_sponge */
     + 1 /* out_hash */
     + 1 /* accumulated_fees */
     + 1 /* accumulated_mana_used */;

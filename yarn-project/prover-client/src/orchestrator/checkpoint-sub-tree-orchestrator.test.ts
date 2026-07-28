@@ -70,6 +70,10 @@ describe('prover/orchestrator/checkpoint-sub-tree', () => {
       const result = await resultPromise;
       expect(result.blockProofOutputs).toHaveLength(1);
       expect(result.blockProofOutputs[0].proof).toBeDefined();
+      // Parity moved to the checkpoint root (AZIP-22): the sub-tree proves it once per checkpoint and surfaces it for
+      // the top tree to feed into the checkpoint root rollup.
+      expect(result.parityRootProof).toBeDefined();
+      expect(result.parityRootProof.proof).toBeDefined();
       expect(result.previousArchiveSiblingPath).toBeDefined();
     } finally {
       await subTree.stop();
@@ -111,6 +115,8 @@ describe('prover/orchestrator/checkpoint-sub-tree', () => {
 
       const result = await resultPromise;
       expect(result.blockProofOutputs).toHaveLength(2);
+      // A single parity root proof covers the whole checkpoint, regardless of block count.
+      expect(result.parityRootProof).toBeDefined();
     } finally {
       await subTree.stop();
     }

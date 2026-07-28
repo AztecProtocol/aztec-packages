@@ -1,3 +1,4 @@
+use crate::abis::L1ToL2MessageSponge;
 use protocol_test_utils::make_fixture;
 use types::{
     abis::{
@@ -39,17 +40,19 @@ pub struct BlockRollupPublicInputs {
     // stored in the checkpoint header, enabling validation of the blocks included in a checkpoint given their headers.
     pub block_headers_hash: Field,
 
-    // Root of the `l1_to_l2` message subtree, set in the first block root and propagated to the checkpoint root.
-    // Block root rollups that are not the first in a checkpoint will have an `in_hash` value of 0.
-    pub in_hash: Field,
+    // Whether this block range starts at the first block of its checkpoint. Only the first block root sets this true;
+    // merges propagate it from the left rollup and `validate_consecutive_block_rollups` asserts the right rollup's is
+    // false, so it can only reach the checkpoint root through the leftmost leaf. It replaces `in_hash`'s former
+    // structural role: the checkpoint root asserts the merged value is true, and it drives the block-end blob-absorb
+    // flag (the l1-to-l2 tree root is absorbed only for the first block).
+    pub is_first_block: bool,
 
-    // Inbox rolling-hash chain segment consumed by this block range, set in the first block root from the parity root
-    // and propagated to the checkpoint root exactly like `in_hash`: the first block root carries the checkpoint's
-    // `(start, end)`, non-first block roots carry `(0, 0)`, merges take the left rollup's pair, and
-    // `validate_consecutive_block_rollups` asserts the right rollup's pair is zero. Unlike `in_hash`, the value may
-    // legitimately be zero (genesis / empty checkpoint), so it is not asserted nonzero at the checkpoint root.
-    pub start_inbox_rolling_hash: Field,
-    pub end_inbox_rolling_hash: Field,
+    // Poseidon2 message-bundle sponge threaded across the blocks of the checkpoint. The leftmost block starts from the
+    // empty sponge and each block absorbs its bundle's leaves; `validate_consecutive_block_rollups` asserts
+    // `right.start_msg_sponge == left.end_msg_sponge`, and merges take `start` from the left and `end` from the right.
+    // The checkpoint root asserts the merged end equals the parity root's sponge over the same (padded) leaf list.
+    pub start_msg_sponge: L1ToL2MessageSponge,
+    pub end_msg_sponge: L1ToL2MessageSponge,
 
     // Root of the *wonky* tree composed of all tx out hashes in this block. It will be combined with the `out_hash`
     // values from other blocks within the same checkpoint to form a *wonky* tree.

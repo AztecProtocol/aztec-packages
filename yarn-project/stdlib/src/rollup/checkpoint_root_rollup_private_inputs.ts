@@ -7,7 +7,8 @@ import { BufferReader, type Tuple, serializeToBuffer } from '@aztec/foundation/s
 import { bufferToHex, hexToBuffer } from '@aztec/foundation/string';
 import type { FieldsOf } from '@aztec/foundation/types';
 
-import { ProofData, type RollupHonkProofData } from '../proofs/proof_data.js';
+import { ParityPublicInputs } from '../parity/parity_public_inputs.js';
+import { ProofData, type RollupHonkProofData, type UltraHonkProofData } from '../proofs/proof_data.js';
 import { AppendOnlyTreeSnapshot } from '../trees/append_only_tree_snapshot.js';
 import { BlockHeader } from '../tx/block_header.js';
 import { BlockRollupPublicInputs } from './block_rollup_public_inputs.js';
@@ -117,6 +118,11 @@ export class CheckpointRootRollupPrivateInputs {
       RollupHonkProofData<BlockRollupPublicInputs>,
       RollupHonkProofData<BlockRollupPublicInputs>,
     ],
+    /**
+     * Parity root proof over the checkpoint's L1-to-L2 messages (AZIP-22 Fast Inbox): it commits to the same message
+     * list behind the L1-checked `inHash`, and its message sponge is checked against the blocks' accumulated one.
+     */
+    public parityRoot: UltraHonkProofData<ParityPublicInputs>,
     public hints: CheckpointRootRollupHints,
   ) {}
 
@@ -125,7 +131,7 @@ export class CheckpointRootRollupPrivateInputs {
   }
 
   static getFields(fields: FieldsOf<CheckpointRootRollupPrivateInputs>) {
-    return [fields.previousRollups, fields.hints] as const;
+    return [fields.previousRollups, fields.parityRoot, fields.hints] as const;
   }
 
   toBuffer() {
@@ -136,6 +142,7 @@ export class CheckpointRootRollupPrivateInputs {
     const reader = BufferReader.asReader(buffer);
     return new CheckpointRootRollupPrivateInputs(
       [ProofData.fromBuffer(reader, BlockRollupPublicInputs), ProofData.fromBuffer(reader, BlockRollupPublicInputs)],
+      ProofData.fromBuffer(reader, ParityPublicInputs),
       CheckpointRootRollupHints.fromBuffer(reader),
     );
   }
@@ -160,6 +167,11 @@ export class CheckpointRootRollupPrivateInputs {
 export class CheckpointRootSingleBlockRollupPrivateInputs {
   constructor(
     public previousRollup: RollupHonkProofData<BlockRollupPublicInputs>,
+    /**
+     * Parity root proof over the checkpoint's L1-to-L2 messages (AZIP-22 Fast Inbox): it commits to the same message
+     * list behind the L1-checked `inHash`, and its message sponge is checked against the block's accumulated one.
+     */
+    public parityRoot: UltraHonkProofData<ParityPublicInputs>,
     public hints: CheckpointRootRollupHints,
   ) {}
 
@@ -170,7 +182,7 @@ export class CheckpointRootSingleBlockRollupPrivateInputs {
   }
 
   static getFields(fields: FieldsOf<CheckpointRootSingleBlockRollupPrivateInputs>) {
-    return [fields.previousRollup, fields.hints] as const;
+    return [fields.previousRollup, fields.parityRoot, fields.hints] as const;
   }
 
   toBuffer() {
@@ -181,6 +193,7 @@ export class CheckpointRootSingleBlockRollupPrivateInputs {
     const reader = BufferReader.asReader(buffer);
     return new CheckpointRootSingleBlockRollupPrivateInputs(
       ProofData.fromBuffer(reader, BlockRollupPublicInputs),
+      ProofData.fromBuffer(reader, ParityPublicInputs),
       CheckpointRootRollupHints.fromBuffer(reader),
     );
   }
