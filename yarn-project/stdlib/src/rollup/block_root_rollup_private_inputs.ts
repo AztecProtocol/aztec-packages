@@ -1,3 +1,4 @@
+import { SpongeBlob } from '@aztec/blob-lib/types';
 import { ARCHIVE_HEIGHT, L1_TO_L2_MSG_TREE_HEIGHT, MAX_L1_TO_L2_MSGS_PER_BLOCK } from '@aztec/constants';
 import { Fr } from '@aztec/foundation/curves/bn254';
 import { bufferSchemaFor } from '@aztec/foundation/schemas';
@@ -257,6 +258,109 @@ export class BlockRootEmptyTxFirstRollupPrivateInputs {
 
   static get schema() {
     return bufferSchemaFor(BlockRootEmptyTxFirstRollupPrivateInputs);
+  }
+}
+
+export class BlockRootMsgsOnlyRollupPrivateInputs {
+  constructor(
+    /**
+     * The archive after applying the previous block.
+     */
+    public previousArchive: AppendOnlyTreeSnapshot,
+    /**
+     * The state reference of the previous block.
+     */
+    public previousState: StateReference,
+    /**
+     * The constants of the checkpoint.
+     */
+    public constants: CheckpointConstantData,
+    /**
+     * The timestamp of this block.
+     */
+    public timestamp: UInt64,
+    /**
+     * Sponge blob inherited from the previous block (checked against its `endSpongeBlob` in the merge/checkpoint root).
+     */
+    public startSpongeBlob: SpongeBlob,
+    /**
+     * Message sponge inherited from the previous block (checked against its `endMsgSponge` in the merge/checkpoint root).
+     */
+    public startMsgSponge: L1ToL2MessageSponge,
+    /**
+     * L1-to-L2 messages inserted by this block, padded with zeros to `MAX_L1_TO_L2_MSGS_PER_BLOCK`.
+     */
+    public l1ToL2Messages: Fr[],
+    /**
+     * Number of real (non-padding) leaves in `l1ToL2Messages`.
+     */
+    public numMsgs: number,
+    /**
+     * Frontier hint for appending the message bundle to the previous state's l1 to l2 message tree.
+     */
+    public l1ToL2MessageFrontierHint: Tuple<Fr, typeof L1_TO_L2_MSG_TREE_HEIGHT>,
+    /**
+     * Hint for inserting the new block hash to the last archive.
+     */
+    public newArchiveSiblingPath: Tuple<Fr, typeof ARCHIVE_HEIGHT>,
+  ) {}
+
+  static from(fields: FieldsOf<BlockRootMsgsOnlyRollupPrivateInputs>) {
+    return new BlockRootMsgsOnlyRollupPrivateInputs(...BlockRootMsgsOnlyRollupPrivateInputs.getFields(fields));
+  }
+
+  static getFields(fields: FieldsOf<BlockRootMsgsOnlyRollupPrivateInputs>) {
+    return [
+      fields.previousArchive,
+      fields.previousState,
+      fields.constants,
+      fields.timestamp,
+      fields.startSpongeBlob,
+      fields.startMsgSponge,
+      fields.l1ToL2Messages,
+      fields.numMsgs,
+      fields.l1ToL2MessageFrontierHint,
+      fields.newArchiveSiblingPath,
+    ] as const;
+  }
+
+  toBuffer() {
+    return serializeToBuffer(
+      this.previousArchive,
+      this.previousState,
+      this.constants,
+      bigintToUInt64BE(this.timestamp),
+      this.startSpongeBlob,
+      this.startMsgSponge,
+      this.l1ToL2Messages,
+      this.numMsgs,
+      this.l1ToL2MessageFrontierHint,
+      this.newArchiveSiblingPath,
+    );
+  }
+
+  static fromBuffer(buffer: Buffer | BufferReader) {
+    const reader = BufferReader.asReader(buffer);
+    return new BlockRootMsgsOnlyRollupPrivateInputs(
+      AppendOnlyTreeSnapshot.fromBuffer(reader),
+      StateReference.fromBuffer(reader),
+      CheckpointConstantData.fromBuffer(reader),
+      reader.readUInt64(),
+      reader.readObject(SpongeBlob),
+      reader.readObject(L1ToL2MessageSponge),
+      readL1ToL2Messages(reader),
+      reader.readNumber(),
+      reader.readArray(L1_TO_L2_MSG_TREE_HEIGHT, Fr),
+      reader.readArray(ARCHIVE_HEIGHT, Fr),
+    );
+  }
+
+  toJSON() {
+    return this.toBuffer();
+  }
+
+  static get schema() {
+    return bufferSchemaFor(BlockRootMsgsOnlyRollupPrivateInputs);
   }
 }
 

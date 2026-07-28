@@ -21,6 +21,7 @@ import { BlockRollupPublicInputs } from '../rollup/block_rollup_public_inputs.js
 import {
   BlockRootEmptyTxFirstRollupPrivateInputs,
   BlockRootFirstRollupPrivateInputs,
+  BlockRootMsgsOnlyRollupPrivateInputs,
   BlockRootRollupPrivateInputs,
   BlockRootSingleTxFirstRollupPrivateInputs,
   BlockRootSingleTxRollupPrivateInputs,
@@ -113,6 +114,10 @@ export const ProvingJobInputs = z.discriminatedUnion('type', [
     type: z.literal(ProvingRequestType.BLOCK_ROOT_SINGLE_TX_ROLLUP),
     inputs: BlockRootSingleTxRollupPrivateInputs.schema,
   }),
+  z.object({
+    type: z.literal(ProvingRequestType.BLOCK_ROOT_MSGS_ONLY_ROLLUP),
+    inputs: BlockRootMsgsOnlyRollupPrivateInputs.schema,
+  }),
   z.object({ type: z.literal(ProvingRequestType.BLOCK_MERGE_ROLLUP), inputs: BlockMergeRollupPrivateInputs.schema }),
   z.object({
     type: z.literal(ProvingRequestType.CHECKPOINT_ROOT_ROLLUP),
@@ -155,6 +160,8 @@ export function getProvingJobInputClassFor(type: ProvingRequestType) {
       return BlockRootRollupPrivateInputs;
     case ProvingRequestType.BLOCK_ROOT_SINGLE_TX_ROLLUP:
       return BlockRootSingleTxRollupPrivateInputs;
+    case ProvingRequestType.BLOCK_ROOT_MSGS_ONLY_ROLLUP:
+      return BlockRootMsgsOnlyRollupPrivateInputs;
     case ProvingRequestType.BLOCK_MERGE_ROLLUP:
       return BlockMergeRollupPrivateInputs;
     case ProvingRequestType.CHECKPOINT_ROOT_ROLLUP:
@@ -191,6 +198,7 @@ export type ProvingJobInputsMap = {
   [ProvingRequestType.BLOCK_ROOT_EMPTY_TX_FIRST_ROLLUP]: BlockRootEmptyTxFirstRollupPrivateInputs;
   [ProvingRequestType.BLOCK_ROOT_ROLLUP]: BlockRootRollupPrivateInputs;
   [ProvingRequestType.BLOCK_ROOT_SINGLE_TX_ROLLUP]: BlockRootSingleTxRollupPrivateInputs;
+  [ProvingRequestType.BLOCK_ROOT_MSGS_ONLY_ROLLUP]: BlockRootMsgsOnlyRollupPrivateInputs;
   [ProvingRequestType.BLOCK_MERGE_ROLLUP]: BlockMergeRollupPrivateInputs;
   [ProvingRequestType.CHECKPOINT_ROOT_ROLLUP]: CheckpointRootRollupPrivateInputs;
   [ProvingRequestType.CHECKPOINT_ROOT_SINGLE_BLOCK_ROLLUP]: CheckpointRootSingleBlockRollupPrivateInputs;
@@ -264,6 +272,13 @@ export const ProvingJobResult = z.discriminatedUnion('type', [
   }),
   z.object({
     type: z.literal(ProvingRequestType.BLOCK_ROOT_SINGLE_TX_ROLLUP),
+    result: schemaForPublicInputsAndRecursiveProof(
+      BlockRollupPublicInputs.schema,
+      NESTED_RECURSIVE_ROLLUP_HONK_PROOF_LENGTH,
+    ),
+  }),
+  z.object({
+    type: z.literal(ProvingRequestType.BLOCK_ROOT_MSGS_ONLY_ROLLUP),
     result: schemaForPublicInputsAndRecursiveProof(
       BlockRollupPublicInputs.schema,
       NESTED_RECURSIVE_ROLLUP_HONK_PROOF_LENGTH,
@@ -345,6 +360,10 @@ export type ProvingJobResultsMap = {
     typeof NESTED_RECURSIVE_ROLLUP_HONK_PROOF_LENGTH
   >;
   [ProvingRequestType.BLOCK_ROOT_EMPTY_TX_FIRST_ROLLUP]: PublicInputsAndRecursiveProof<
+    BlockRollupPublicInputs,
+    typeof NESTED_RECURSIVE_ROLLUP_HONK_PROOF_LENGTH
+  >;
+  [ProvingRequestType.BLOCK_ROOT_MSGS_ONLY_ROLLUP]: PublicInputsAndRecursiveProof<
     BlockRollupPublicInputs,
     typeof NESTED_RECURSIVE_ROLLUP_HONK_PROOF_LENGTH
   >;

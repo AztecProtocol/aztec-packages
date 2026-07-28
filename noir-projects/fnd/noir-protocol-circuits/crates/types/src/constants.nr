@@ -153,6 +153,9 @@ pub global PRIVATE_KERNEL_INNER_2_VK_INDEX: u32 = 69;
 pub global PRIVATE_KERNEL_INNER_3_VK_INDEX: u32 = 70;
 pub global PRIVATE_KERNEL_INNER_4_VK_INDEX: u32 = 71;
 pub global PRIVATE_KERNEL_INNER_5_VK_INDEX: u32 = 72;
+// The block-root variants at 10-14 are full; the non-first message-only block root is appended after the
+// multi-app kernel indices (65-72), since 43-64 are reserved for reset variants.
+pub global BLOCK_ROOT_MSGS_ONLY_ROLLUP_VK_INDEX: u32 = 73;
 
 // Maximum number of apps absorbed by a single private kernel iteration.
 pub global MAX_APPS_PER_KERNEL: u32 = 5;

@@ -112,6 +112,7 @@ export type ServerCircuitName =
   | 'rollup-block-root-first-empty-tx'
   | 'rollup-block-root'
   | 'rollup-block-root-single-tx'
+  | 'rollup-block-root-msgs-only'
   | 'rollup-block-merge'
   | 'rollup-checkpoint-root'
   | 'rollup-checkpoint-root-single-block'
