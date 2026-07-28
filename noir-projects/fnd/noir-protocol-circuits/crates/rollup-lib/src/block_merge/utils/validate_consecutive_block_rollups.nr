@@ -42,8 +42,6 @@ fn assert_prev_block_rollups_follow_on_from_each_other(
         "Mismatched timestamps: expected right.timestamp to match left.timestamp",
     );
 
-    // TODO: Consider extracting into its own function:
-
     // `is_first_block` originates from the first block root only, and is propagated through all merge steps via the
     // left rollup only (see merge_block_rollups.nr). We prevent the right rollup from carrying it, so it's impossible
     // for any block but the first to propagate `is_first_block == true` up to the checkpoint root.

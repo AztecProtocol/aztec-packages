@@ -24,9 +24,9 @@ export class CheckpointProvingState {
   private blockProofs: UnbalancedTreeStore<
     ProofState<BlockRollupPublicInputs, typeof NESTED_RECURSIVE_ROLLUP_HONK_PROOF_LENGTH>
   >;
-  // The checkpoint's single InboxParity proof. Parity gates the checkpoint root, not the first block root (AZIP-22
-  // Fast Inbox); a single variable-size proof per checkpoint replaces the former base + root parity fan-in. Surfaced
-  // as part of the sub-tree result.
+  // The checkpoint's single InboxParity proof. Parity gates the checkpoint root, not the first block root: one
+  // variable-size proof per checkpoint replaces the former base + root parity fan-in. Surfaced as part of the
+  // sub-tree result.
   private inboxParityProof: ProofState<ParityPublicInputs, typeof NESTED_RECURSIVE_PROOF_LENGTH> | undefined;
   private blocks: (BlockProvingState | undefined)[] = [];
   private error: string | undefined;

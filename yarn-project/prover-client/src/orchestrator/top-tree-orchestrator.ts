@@ -42,8 +42,7 @@ export type CheckpointTopTreeData = {
   /**
    * The checkpoint sub-tree's proofs. Passed as a Promise so the top tree can start (compute hints, pipeline merges)
    * while sub-trees are still proving. `blockProofOutputs` resolves to 1 entry for a single-block checkpoint, 2 for
-   * multi-block; `inboxParityProof` feeds the checkpoint root rollup (parity moved there from the first block root in
-   * AZIP-22 Fast Inbox).
+   * multi-block; `inboxParityProof` feeds the checkpoint root rollup.
    */
   subTreeProofs: Promise<CheckpointSubTreeProofs>;
   /** L2-to-L1 messages per block in the checkpoint, used to compute the out hash. */
