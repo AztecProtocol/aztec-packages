@@ -2,8 +2,7 @@ import { ProvingRequestType } from '@aztec/stdlib/proofs';
 
 export const WITGEN_DELAY_MS: Record<ProvingRequestType, number> = {
   [ProvingRequestType.PUBLIC_CHONK_VERIFIER]: 60,
-  [ProvingRequestType.PARITY_BASE]: 1_600,
-  [ProvingRequestType.PARITY_ROOT]: 40,
+  [ProvingRequestType.INBOX_PARITY]: 1_600,
   [ProvingRequestType.BLOCK_ROOT_FIRST_ROLLUP]: 45,
   [ProvingRequestType.BLOCK_ROOT_EMPTY_TX_FIRST_ROLLUP]: 18,
   [ProvingRequestType.BLOCK_ROOT_MSGS_ONLY_ROLLUP]: 18,
@@ -26,8 +25,7 @@ export const WITGEN_DELAY_MS: Record<ProvingRequestType, number> = {
 
 export const PROOF_DELAY_MS: Record<ProvingRequestType, number> = {
   [ProvingRequestType.PUBLIC_CHONK_VERIFIER]: 16_300,
-  [ProvingRequestType.PARITY_BASE]: 15_300,
-  [ProvingRequestType.PARITY_ROOT]: 18_600,
+  [ProvingRequestType.INBOX_PARITY]: 15_300,
   [ProvingRequestType.BLOCK_ROOT_FIRST_ROLLUP]: 17_400,
   [ProvingRequestType.BLOCK_ROOT_EMPTY_TX_FIRST_ROLLUP]: 4_500,
   [ProvingRequestType.BLOCK_ROOT_MSGS_ONLY_ROLLUP]: 4_500,

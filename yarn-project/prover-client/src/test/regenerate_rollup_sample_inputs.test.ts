@@ -154,9 +154,9 @@ describeOrSkip('prover/regenerate-rollup-sample-inputs', () => {
           }
 
           topTreeData.push({
-            blockProofs: subTree
+            subTreeProofs: subTree
               .getSubTreeResult()
-              .then(r => ({ blockProofOutputs: r.blockProofOutputs, parityRootProof: r.parityRootProof })),
+              .then(r => ({ blockProofOutputs: r.blockProofOutputs, inboxParityProof: r.inboxParityProof })),
             l2ToL1MsgsPerBlock: blocks.map(b => b.txs.map(tx => tx.txEffect.l2ToL1Msgs)),
             blobFields: checkpoint.toBlobFields(),
             previousBlockHeader,

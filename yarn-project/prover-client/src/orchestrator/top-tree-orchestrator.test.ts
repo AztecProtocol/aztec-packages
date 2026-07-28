@@ -85,9 +85,9 @@ describe('prover/orchestrator/top-tree', () => {
     await subTree.stop();
 
     const topTreeData: CheckpointTopTreeData = {
-      blockProofs: Promise.resolve({
+      subTreeProofs: Promise.resolve({
         blockProofOutputs: result.blockProofOutputs,
-        parityRootProof: result.parityRootProof,
+        inboxParityProof: result.inboxParityProof,
       }),
       l2ToL1MsgsPerBlock: fixture.blocks.map(b => b.txs.map(tx => tx.txEffect.l2ToL1Msgs)),
       blobFields: fixture.checkpoint.toBlobFields(),
@@ -170,9 +170,9 @@ describe('prover/orchestrator/top-tree', () => {
     const b = await driveSubTree(1, 1);
     const challenges = await context.getFinalBlobChallenges();
 
-    // Replace ckpt1's blockProofs with a deferred promise that resolves later.
-    const deferred = promiseWithResolvers<typeof b.topTreeData.blockProofs extends Promise<infer T> ? T : never>();
-    const ckpt1 = { ...b.topTreeData, blockProofs: deferred.promise } as CheckpointTopTreeData;
+    // Replace ckpt1's subTreeProofs with a deferred promise that resolves later.
+    const deferred = promiseWithResolvers<typeof b.topTreeData.subTreeProofs extends Promise<infer T> ? T : never>();
+    const ckpt1 = { ...b.topTreeData, subTreeProofs: deferred.promise } as CheckpointTopTreeData;
 
     const topTree = new TopTreeOrchestrator(context.prover, EthAddress.ZERO, makeTestDeferredJobQueue());
     try {
@@ -184,7 +184,7 @@ describe('prover/orchestrator/top-tree', () => {
       await new Promise(resolve => setTimeout(resolve, 50));
 
       // Now resolve ckpt1 — the orchestrator should pick it up and continue.
-      deferred.resolve((await b.topTreeData.blockProofs) as any);
+      deferred.resolve((await b.topTreeData.subTreeProofs) as any);
 
       const result = await provePromise;
       expect(result.proof).toBeDefined();
@@ -197,9 +197,9 @@ describe('prover/orchestrator/top-tree', () => {
     const { topTreeData } = await driveSubTree(1, 1);
     const challenges = await context.getFinalBlobChallenges();
 
-    // Block ckpt0's blockProofs forever so prove() can't finish.
-    const stuck = new Promise<typeof topTreeData.blockProofs extends Promise<infer T> ? T : never>(() => {});
-    const stuckData = { ...topTreeData, blockProofs: stuck } as CheckpointTopTreeData;
+    // Block ckpt0's subTreeProofs forever so prove() can't finish.
+    const stuck = new Promise<typeof topTreeData.subTreeProofs extends Promise<infer T> ? T : never>(() => {});
+    const stuckData = { ...topTreeData, subTreeProofs: stuck } as CheckpointTopTreeData;
 
     const topTree = new TopTreeOrchestrator(context.prover, EthAddress.ZERO, makeTestDeferredJobQueue());
     const provePromise = topTree.prove(EpochNumber(1), 1, challenges, [stuckData]);
@@ -258,7 +258,7 @@ describe('prover/orchestrator/top-tree', () => {
     // A malformed block proof makes toProofData (inside buildCheckpointRootInputs) throw.
     const badData = {
       ...topTreeData,
-      blockProofs: Promise.resolve({ blockProofOutputs: [{} as any], parityRootProof: {} as any }),
+      subTreeProofs: Promise.resolve({ blockProofOutputs: [{} as any], inboxParityProof: {} as any }),
     } as CheckpointTopTreeData;
 
     const topTree = new TopTreeOrchestrator(context.prover, EthAddress.ZERO, makeTestDeferredJobQueue());
@@ -288,23 +288,23 @@ describe('prover/orchestrator/top-tree', () => {
     const { topTreeData } = await driveSubTree(1, 1);
     const challenges = await context.getFinalBlobChallenges();
 
-    const deferred = promiseWithResolvers<typeof topTreeData.blockProofs extends Promise<infer T> ? T : never>();
-    // Observe exactly when prove() attaches its blockProofs handler, so we can sequence the
+    const deferred = promiseWithResolvers<typeof topTreeData.subTreeProofs extends Promise<infer T> ? T : never>();
+    // Observe exactly when prove() attaches its subTreeProofs handler, so we can sequence the
     // genuine rejection and the cancel deterministically rather than racing a fixed timeout.
     let handlerAttached = false;
-    const observableBlockProofs = {
+    const observableSubTreeProofs = {
       then: (onF: any, onR: any) => {
         handlerAttached = true;
         return deferred.promise.then(onF, onR);
       },
     };
-    const failingData = { ...topTreeData, blockProofs: observableBlockProofs as any } as CheckpointTopTreeData;
+    const failingData = { ...topTreeData, subTreeProofs: observableSubTreeProofs as any } as CheckpointTopTreeData;
 
     const topTree = new TopTreeOrchestrator(context.prover, EthAddress.ZERO, makeTestDeferredJobQueue());
     const provePromise = topTree.prove(EpochNumber(1), 1, challenges, [failingData]);
 
-    // Wait until prove() has finished its pre-loop setup and registered the blockProofs handler.
-    await retryUntil(() => handlerAttached, 'prove() attaches blockProofs handler', 5, 0.005);
+    // Wait until prove() has finished its pre-loop setup and registered the subTreeProofs handler.
+    await retryUntil(() => handlerAttached, 'prove() attaches subTreeProofs handler', 5, 0.005);
 
     // Register a cancel reaction on the rejection, after prove()'s own handler (registered
     // first, so it runs first). On rejection the ordering is: prove's handler rejects the

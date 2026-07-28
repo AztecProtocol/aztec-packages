@@ -15,7 +15,7 @@ import {
 } from '@aztec/stdlib/interfaces/server';
 import type { ParityPublicInputs } from '@aztec/stdlib/parity';
 import { ProvingRequestType, makeRecursiveProof } from '@aztec/stdlib/proofs';
-import { makeParityBasePrivateInputs, makeParityPublicInputs } from '@aztec/stdlib/testing';
+import { makeInboxParityPrivateInputs, makeParityPublicInputs } from '@aztec/stdlib/testing';
 import { VerificationKeyData } from '@aztec/stdlib/vks';
 
 import { jest } from '@jest/globals';
@@ -49,7 +49,7 @@ describe('ProvingAgent', () => {
       saveProofOutput: jest.fn(() => Promise.resolve('' as ProofUri)),
     };
 
-    allowList = [ProvingRequestType.PARITY_BASE];
+    allowList = [ProvingRequestType.INBOX_PARITY];
     agent = new ProvingAgent(jobSource, proofDB, prover, allowList, agentPollIntervalMs);
   });
 
@@ -59,7 +59,7 @@ describe('ProvingAgent', () => {
 
   it('polls for jobs passing the permitted list of proofs', () => {
     agent.start();
-    expect(jobSource.getProvingJob).toHaveBeenCalledWith({ allowList: [ProvingRequestType.PARITY_BASE] });
+    expect(jobSource.getProvingJob).toHaveBeenCalledWith({ allowList: [ProvingRequestType.INBOX_PARITY] });
   });
 
   it('only takes a single job from the source at a time', async () => {
@@ -68,7 +68,7 @@ describe('ProvingAgent', () => {
     // simulate the proof taking a long time
     const { promise, resolve } =
       promiseWithResolvers<PublicInputsAndRecursiveProof<ParityPublicInputs, typeof RECURSIVE_PROOF_LENGTH>>();
-    jest.spyOn(prover, 'getBaseParityProof').mockReturnValueOnce(promise);
+    jest.spyOn(prover, 'getInboxParityProof').mockReturnValueOnce(promise);
 
     const { job, time, inputs } = makeBaseParityJob();
     jobSource.getProvingJob.mockResolvedValueOnce({ job, time });
@@ -103,7 +103,7 @@ describe('ProvingAgent', () => {
     const { job, time, inputs } = makeBaseParityJob();
     const result = makeBaseParityResult();
 
-    jest.spyOn(prover, 'getBaseParityProof').mockResolvedValueOnce(result);
+    jest.spyOn(prover, 'getInboxParityProof').mockResolvedValueOnce(result);
 
     jobSource.getProvingJob.mockResolvedValueOnce({ job, time });
     proofDB.getProofInput.mockResolvedValueOnce(inputs);
@@ -118,7 +118,7 @@ describe('ProvingAgent', () => {
 
   it('reports errors to the job source', async () => {
     const { job, time, inputs } = makeBaseParityJob();
-    jest.spyOn(prover, 'getBaseParityProof').mockRejectedValueOnce(new Error('test error'));
+    jest.spyOn(prover, 'getInboxParityProof').mockRejectedValueOnce(new Error('test error'));
 
     jobSource.getProvingJob.mockResolvedValueOnce({ job, time });
     proofDB.getProofInput.mockResolvedValueOnce(inputs);
@@ -133,7 +133,7 @@ describe('ProvingAgent', () => {
   it('sets the retry flag on when reporting an error', async () => {
     const { job, time, inputs } = makeBaseParityJob();
     const err = new ProvingError('test error', undefined, true);
-    jest.spyOn(prover, 'getBaseParityProof').mockRejectedValueOnce(err);
+    jest.spyOn(prover, 'getInboxParityProof').mockRejectedValueOnce(err);
 
     jobSource.getProvingJob.mockResolvedValueOnce({ job, time });
     proofDB.getProofInput.mockResolvedValueOnce(inputs);
@@ -149,7 +149,7 @@ describe('ProvingAgent', () => {
     const { job, time, inputs } = makeBaseParityJob();
     const { promise, resolve } =
       promiseWithResolvers<PublicInputsAndRecursiveProof<ParityPublicInputs, typeof RECURSIVE_PROOF_LENGTH>>();
-    jest.spyOn(prover, 'getBaseParityProof').mockReturnValueOnce(promise);
+    jest.spyOn(prover, 'getInboxParityProof').mockReturnValueOnce(promise);
 
     jobSource.getProvingJob.mockResolvedValueOnce({ job, time });
     proofDB.getProofInput.mockResolvedValueOnce(inputs);
@@ -157,12 +157,12 @@ describe('ProvingAgent', () => {
 
     await jest.advanceTimersByTimeAsync(agentPollIntervalMs);
     expect(jobSource.reportProvingJobProgress).toHaveBeenCalledWith(job.id, time, {
-      allowList: [ProvingRequestType.PARITY_BASE],
+      allowList: [ProvingRequestType.INBOX_PARITY],
     });
 
     await jest.advanceTimersByTimeAsync(agentPollIntervalMs);
     expect(jobSource.reportProvingJobProgress).toHaveBeenCalledWith(job.id, time, {
-      allowList: [ProvingRequestType.PARITY_BASE],
+      allowList: [ProvingRequestType.INBOX_PARITY],
     });
 
     resolve(makeBaseParityResult());
@@ -175,7 +175,7 @@ describe('ProvingAgent', () => {
       promiseWithResolvers<PublicInputsAndRecursiveProof<ParityPublicInputs, typeof RECURSIVE_PROOF_LENGTH>>();
 
     // simulate a long running proving job that can be aborted
-    jest.spyOn(prover, 'getBaseParityProof').mockImplementationOnce((_, signal) => {
+    jest.spyOn(prover, 'getInboxParityProof').mockImplementationOnce((_, signal) => {
       signal?.addEventListener('abort', () => {
         firstProof.reject(new AbortError('test abort'));
         firstProofAborted = true;
@@ -191,7 +191,7 @@ describe('ProvingAgent', () => {
     await jest.advanceTimersByTimeAsync(agentPollIntervalMs);
     expect(jobSource.reportProvingJobProgress).toHaveBeenCalledTimes(1);
     expect(jobSource.reportProvingJobProgress).toHaveBeenCalledWith(firstJob.job.id, firstJob.time, {
-      allowList: [ProvingRequestType.PARITY_BASE],
+      allowList: [ProvingRequestType.INBOX_PARITY],
     });
 
     await jest.advanceTimersByTimeAsync(agentPollIntervalMs);
@@ -205,21 +205,21 @@ describe('ProvingAgent', () => {
 
     const secondProof =
       promiseWithResolvers<PublicInputsAndRecursiveProof<ParityPublicInputs, typeof RECURSIVE_PROOF_LENGTH>>();
-    jest.spyOn(prover, 'getBaseParityProof').mockReturnValueOnce(secondProof.promise);
+    jest.spyOn(prover, 'getInboxParityProof').mockReturnValueOnce(secondProof.promise);
 
     jobSource.reportProvingJobProgress.mockResolvedValueOnce(secondJobResponse);
 
     await jest.advanceTimersByTimeAsync(agentPollIntervalMs);
     expect(jobSource.reportProvingJobProgress).toHaveBeenCalledTimes(4);
     expect(jobSource.reportProvingJobProgress).toHaveBeenNthCalledWith(3, firstJob.job.id, firstJob.time, {
-      allowList: [ProvingRequestType.PARITY_BASE],
+      allowList: [ProvingRequestType.INBOX_PARITY],
     });
     expect(jobSource.reportProvingJobProgress).toHaveBeenNthCalledWith(
       4,
       secondJobResponse.job.id,
       secondJobResponse.time,
       {
-        allowList: [ProvingRequestType.PARITY_BASE],
+        allowList: [ProvingRequestType.INBOX_PARITY],
       },
     );
     expect(firstProofAborted).toBe(true);
@@ -231,7 +231,7 @@ describe('ProvingAgent', () => {
       secondJobResponse.job.id,
       secondJobResponse.time,
       {
-        allowList: [ProvingRequestType.PARITY_BASE],
+        allowList: [ProvingRequestType.INBOX_PARITY],
       },
     );
   });
@@ -241,7 +241,7 @@ describe('ProvingAgent', () => {
     const job2 = makeBaseParityJob();
 
     jest
-      .spyOn(prover, 'getBaseParityProof')
+      .spyOn(prover, 'getInboxParityProof')
       .mockResolvedValueOnce(makeBaseParityResult())
       .mockResolvedValueOnce(makeBaseParityResult());
 
@@ -265,7 +265,7 @@ describe('ProvingAgent', () => {
     const job2 = makeBaseParityJob();
 
     jest
-      .spyOn(prover, 'getBaseParityProof')
+      .spyOn(prover, 'getInboxParityProof')
       .mockRejectedValueOnce(new Error('test error'))
       .mockResolvedValueOnce(makeBaseParityResult());
 
@@ -297,11 +297,11 @@ describe('ProvingAgent', () => {
 
   function makeBaseParityJob(): { job: ProvingJob; time: number; inputs: ProvingJobInputs } {
     const time = jest.now();
-    const inputs: ProvingJobInputs = { type: ProvingRequestType.PARITY_BASE, inputs: makeParityBasePrivateInputs() };
+    const inputs: ProvingJobInputs = { type: ProvingRequestType.INBOX_PARITY, inputs: makeInboxParityPrivateInputs() };
     const job: ProvingJob = {
       id: randomBytes(8).toString('hex') as ProvingJobId,
       epochNumber: EpochNumber(1),
-      type: ProvingRequestType.PARITY_BASE,
+      type: ProvingRequestType.INBOX_PARITY,
       inputsUri: randomBytes(8).toString('hex') as ProofUri,
     };
 

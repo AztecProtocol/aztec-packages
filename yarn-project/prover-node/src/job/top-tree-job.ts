@@ -42,7 +42,7 @@ export type TopTreeJobHooks = {
 
 /**
  * Self-contained top-tree job. Constructed from a snapshot of `CheckpointProver`s; runs
- * `topTree.prove(...)` against their pending `blockProofs` promises and exposes the
+ * `topTree.prove(...)` against their pending `subTreeProofs` promises and exposes the
  * final epoch proof via `result`.
  *
  */
@@ -185,7 +185,7 @@ export class TopTreeJob {
       );
 
       const checkpointData: CheckpointTopTreeData[] = this.snapshot.map(j => ({
-        blockProofs: j.whenBlockProofsReady(),
+        subTreeProofs: j.whenSubTreeProofsReady(),
         l2ToL1MsgsPerBlock: j.checkpoint.blocks.map(b => b.body.txEffects.map(tx => tx.l2ToL1Msgs)),
         blobFields: j.checkpoint.toBlobFields(),
         previousBlockHeader: j.previousBlockHeader,

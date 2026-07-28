@@ -6,14 +6,14 @@
  */
 import { BBJsInstance, type BBJsProofResult } from '@aztec/bb-prover';
 import { DebugBBJsInstance } from '@aztec/bb-prover/debug';
-import { NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP, NUM_MSGS_PER_BASE_PARITY } from '@aztec/constants';
+import { INBOX_PARITY_SIZE_MEDIUM } from '@aztec/constants';
 import { Fr } from '@aztec/foundation/curves/bn254';
 import { createLogger } from '@aztec/foundation/log';
 import { Noir } from '@aztec/noir-noir_js';
 import { ServerCircuitArtifacts } from '@aztec/noir-protocol-circuits-types/server';
 import { getVKTreeRoot } from '@aztec/noir-protocol-circuits-types/vk-tree';
-import { L1ToL2MessageSponge } from '@aztec/stdlib/messaging';
-import { ParityBasePrivateInputs } from '@aztec/stdlib/parity';
+import { L1ToL2MessageSponge, computeInHashFromL1ToL2Messages } from '@aztec/stdlib/messaging';
+import { InboxParityPrivateInputs } from '@aztec/stdlib/parity';
 
 import { jest } from '@jest/globals';
 import * as proc from 'child_process';
@@ -55,24 +55,25 @@ describe('BB.js Debug Wrapper', () => {
     // Create a temporary debug output directory
     debugDir = await fs.mkdtemp(path.join(process.env.BB_WORKING_DIRECTORY || '/tmp', 'bb-debug-test-'));
 
-    // Generate base parity inputs (same approach as base_parity_inputs.test.ts)
-    const l1ToL2Messages = new Array(NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP).fill(null).map(() => Fr.random());
+    // Generate inbox parity inputs (same approach as base_parity_inputs.test.ts)
+    const l1ToL2Messages = new Array(INBOX_PARITY_SIZE_MEDIUM).fill(null).map(() => Fr.random());
     const vkTreeRoot = getVKTreeRoot();
-    const baseParityInputs = ParityBasePrivateInputs.fromSlice(
+    const inboxParityInputs = InboxParityPrivateInputs.fromMessages(
       l1ToL2Messages,
-      0,
       Fr.ZERO,
       L1ToL2MessageSponge.empty(),
-      NUM_MSGS_PER_BASE_PARITY,
+      computeInHashFromL1ToL2Messages(l1ToL2Messages),
       vkTreeRoot,
       Fr.random(),
     );
 
-    const startSponge = baseParityInputs.startSponge;
+    const startSponge = inboxParityInputs.startSponge;
     const noirInputs = {
-      msgs: baseParityInputs.msgs.map(m => m.toString()),
+      msgs: inboxParityInputs.messages.map(m => m.toString()),
       // eslint-disable-next-line camelcase
-      start_rolling_hash: baseParityInputs.startRollingHash.toString(),
+      num_msgs: inboxParityInputs.numMessages,
+      // eslint-disable-next-line camelcase
+      start_rolling_hash: inboxParityInputs.startRollingHash.toString(),
       // eslint-disable-next-line camelcase
       start_sponge: {
         sponge: {
@@ -87,14 +88,14 @@ describe('BB.js Debug Wrapper', () => {
         num_absorbed: startSponge.numAbsorbed,
       },
       // eslint-disable-next-line camelcase
-      num_msgs: baseParityInputs.numMsgs,
+      in_hash: inboxParityInputs.inHash.toString(),
       // eslint-disable-next-line camelcase
-      vk_tree_root: baseParityInputs.vkTreeRoot.toString(),
+      vk_tree_root: inboxParityInputs.vkTreeRoot.toString(),
       // eslint-disable-next-line camelcase
-      prover_id: baseParityInputs.proverId.toString(),
+      prover_id: inboxParityInputs.proverId.toString(),
     };
 
-    const artifact = ServerCircuitArtifacts.ParityBaseArtifact;
+    const artifact = ServerCircuitArtifacts.InboxParity256Artifact;
 
     // Execute circuit with Noir JS to generate witness
     logger.info('Generating witness via Noir JS...');
@@ -112,7 +113,7 @@ describe('BB.js Debug Wrapper', () => {
     const debug = new DebugBBJsInstance(raw, debugDir, BB_PATH, logger);
 
     try {
-      bbJsResult = await debug.generateProof('ParityBase', bytecode, vkBytes, witness, 'ultra_honk');
+      bbJsResult = await debug.generateProof('InboxParity256', bytecode, vkBytes, witness, 'ultra_honk');
       logger.info(
         `bb.js proof generated: ${bbJsResult.proofFields.length} proof fields, ${bbJsResult.publicInputFields.length} public input fields`,
       );
@@ -129,12 +130,12 @@ describe('BB.js Debug Wrapper', () => {
   });
 
   it('writes correct debug files and command.sh', async () => {
-    const opDir = path.join(debugDir, 'ParityBase-001');
+    const opDir = path.join(debugDir, 'InboxParity256-001');
 
     // Check all expected files exist
     const files = await fs.readdir(opDir);
-    expect(files).toContain('ParityBase-bytecode.gz');
-    expect(files).toContain('ParityBase-vk');
+    expect(files).toContain('InboxParity256-bytecode.gz');
+    expect(files).toContain('InboxParity256-vk');
     expect(files).toContain('partial-witness.gz');
     expect(files).toContain('proof');
     expect(files).toContain('public_inputs');
@@ -153,15 +154,15 @@ describe('BB.js Debug Wrapper', () => {
   });
 
   it('CLI bb prove reproduces the same proof as bb.js', async () => {
-    const opDir = path.join(debugDir, 'ParityBase-001');
+    const opDir = path.join(debugDir, 'InboxParity256-001');
 
     // Create a separate output directory for the CLI proof
     const cliOutputDir = path.join(debugDir, 'cli-prove-output');
     await fs.mkdir(cliOutputDir, { recursive: true });
 
     // Run the bb prove command using the same input files
-    const bytecodePath = path.join(opDir, 'ParityBase-bytecode.gz');
-    const vkPath = path.join(opDir, 'ParityBase-vk');
+    const bytecodePath = path.join(opDir, 'InboxParity256-bytecode.gz');
+    const vkPath = path.join(opDir, 'InboxParity256-vk');
     const witnessPath = path.join(opDir, 'partial-witness.gz');
 
     const logFn = (msg: string) => logger.verbose(`bb-cli - ${msg}`);
@@ -202,7 +203,7 @@ describe('BB.js Debug Wrapper', () => {
   });
 
   it('CLI bb verify succeeds with debug output files', async () => {
-    const opDir = path.join(debugDir, 'ParityBase-001');
+    const opDir = path.join(debugDir, 'InboxParity256-001');
 
     // We need the VK produced by the prover (not the input VK).
     // The prove command writes a VK only with --write_vk. Instead, we write_vk separately
@@ -212,7 +213,7 @@ describe('BB.js Debug Wrapper', () => {
     const vkDir = path.join(debugDir, 'cli-vk-output');
     await fs.mkdir(vkDir, { recursive: true });
 
-    const bytecodePath = path.join(opDir, 'ParityBase-bytecode.gz');
+    const bytecodePath = path.join(opDir, 'InboxParity256-bytecode.gz');
 
     // Generate VK via CLI
     const logFn = (msg: string) => logger.verbose(`bb-cli - ${msg}`);

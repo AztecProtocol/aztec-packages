@@ -1,11 +1,11 @@
 use crate::{
-    abis::{BlockRollupPublicInputs, L1ToL2MessageSponge, TxRollupPublicInputs},
+    abis::{BlockRollupPublicInputs, L1ToL2MessageBundle, L1ToL2MessageSponge, TxRollupPublicInputs},
     block_root::components::{BlockRollupPublicInputsComposer, validate_previous_rollups},
 };
 use types::{
     constants::{
-        ARCHIVE_HEIGHT, L1_TO_L2_MSG_TREE_HEIGHT, MAX_L1_TO_L2_MSGS_PER_BLOCK,
-        PRIVATE_TX_BASE_ROLLUP_VK_INDEX, PUBLIC_TX_BASE_ROLLUP_VK_INDEX, TX_MERGE_ROLLUP_VK_INDEX,
+        ARCHIVE_HEIGHT, L1_TO_L2_MSG_TREE_HEIGHT, PRIVATE_TX_BASE_ROLLUP_VK_INDEX,
+        PUBLIC_TX_BASE_ROLLUP_VK_INDEX, TX_MERGE_ROLLUP_VK_INDEX,
     },
     proof::proof_data::RollupHonkProofData,
 };
@@ -15,10 +15,8 @@ global ALLOWED_PREVIOUS_VK_INDICES: [u32; 3] =
 
 pub struct BlockRootRollupPrivateInputs {
     pub(crate) previous_rollups: [RollupHonkProofData<TxRollupPublicInputs>; 2],
-    // L1-to-L2 messages inserted by this block, padded with zeros beyond `num_msgs`.
-    pub(crate) l1_to_l2_messages: [Field; MAX_L1_TO_L2_MSGS_PER_BLOCK],
-    // Number of real (non-padding) leaves in `l1_to_l2_messages`.
-    pub(crate) num_msgs: u32,
+    // L1-to-L2 message bundle inserted by this block.
+    pub(crate) message_bundle: L1ToL2MessageBundle,
     // Message sponge inherited from the previous block. Checked against the previous block's `end_msg_sponge` in the
     // block merge or checkpoint root circuit.
     pub(crate) start_msg_sponge: L1ToL2MessageSponge,
@@ -55,8 +53,7 @@ pub fn execute(inputs: BlockRootRollupPrivateInputs) -> BlockRollupPublicInputs 
             false,
             previous_l1_to_l2,
             inputs.start_msg_sponge,
-            inputs.l1_to_l2_messages,
-            inputs.num_msgs,
+            inputs.message_bundle,
             inputs.l1_to_l2_message_frontier_hint,
         )
         .finish(inputs.new_archive_sibling_path)

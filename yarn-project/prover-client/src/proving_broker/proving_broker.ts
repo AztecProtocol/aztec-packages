@@ -83,8 +83,7 @@ export class ProvingBroker implements ProvingJobProducer, ProvingJobConsumer, Pr
     [ProvingRequestType.CHECKPOINT_MERGE_ROLLUP]: new PriorityMemoryQueue<EnqueuedProvingJob>(provingJobComparator),
     [ProvingRequestType.CHECKPOINT_PADDING_ROLLUP]: new PriorityMemoryQueue<EnqueuedProvingJob>(provingJobComparator),
 
-    [ProvingRequestType.PARITY_BASE]: new PriorityMemoryQueue<EnqueuedProvingJob>(provingJobComparator),
-    [ProvingRequestType.PARITY_ROOT]: new PriorityMemoryQueue<EnqueuedProvingJob>(provingJobComparator),
+    [ProvingRequestType.INBOX_PARITY]: new PriorityMemoryQueue<EnqueuedProvingJob>(provingJobComparator),
   };
 
   // Scheduling metadata for every known job (id, type, epochNumber). The large `inputsUri` is NOT held
@@ -896,6 +895,5 @@ export const PROOF_TYPES_IN_PRIORITY_ORDER: ProvingRequestType[] = [
   ProvingRequestType.PRIVATE_TX_BASE_ROLLUP,
   ProvingRequestType.PUBLIC_VM,
   ProvingRequestType.PUBLIC_CHONK_VERIFIER,
-  ProvingRequestType.PARITY_ROOT,
-  ProvingRequestType.PARITY_BASE,
+  ProvingRequestType.INBOX_PARITY,
 ];

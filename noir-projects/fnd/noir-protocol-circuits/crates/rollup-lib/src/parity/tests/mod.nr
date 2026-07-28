@@ -1,2 +1,1 @@
-mod parity_base_tests;
-mod parity_root_tests;
+mod inbox_parity_tests;

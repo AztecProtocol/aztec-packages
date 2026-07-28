@@ -33,8 +33,7 @@ const ALL_PROVING_TYPES = Object.values(ProvingRequestType).filter(
   (t): t is ProvingRequestType => typeof t === 'number',
 );
 
-const isParity = (type: ProvingRequestType) =>
-  type === ProvingRequestType.PARITY_BASE || type === ProvingRequestType.PARITY_ROOT;
+const isParity = (type: ProvingRequestType) => type === ProvingRequestType.INBOX_PARITY;
 
 const isTxBaseRollup = (type: ProvingRequestType) =>
   type === ProvingRequestType.PRIVATE_TX_BASE_ROLLUP || type === ProvingRequestType.PUBLIC_TX_BASE_ROLLUP;
