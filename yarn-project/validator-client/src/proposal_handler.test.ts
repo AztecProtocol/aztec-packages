@@ -27,7 +27,7 @@ import {
 } from '@aztec/stdlib/testing';
 import { ConsensusTimetable } from '@aztec/stdlib/timetable';
 import { AppendOnlyTreeSnapshot } from '@aztec/stdlib/trees';
-import { GlobalVariables, TX_ERROR_INVALID_PROOF } from '@aztec/stdlib/tx';
+import { GlobalVariables, TX_ERROR_INVALID_PROOF, TxHash } from '@aztec/stdlib/tx';
 import { InvalidBlockProposalTxsError } from '@aztec/stdlib/validators';
 
 import { describe, expect, it, jest } from '@jest/globals';
@@ -715,10 +715,11 @@ describe('ProposalHandler checkpoint validation', () => {
    * Builds a proposal whose parent resolves to genesis (so blockNumber = INITIAL_L2_BLOCK_NUM) and a
    * handler wired to accept it up to the block-number guard.
    */
-  async function setupGenesisProposal(proposalArchive: Fr) {
+  async function setupGenesisProposal(proposalArchive: Fr, txHashes?: TxHash[]) {
     const proposal = await makeBlockProposal({
       blockHeader: makeBlockHeader(1, { slotNumber: SlotNumber(1) }),
       archiveRoot: proposalArchive,
+      ...(txHashes ? { txHashes } : {}),
     });
 
     // Parent archive == genesis archive → genesis path → blockNumber = INITIAL_L2_BLOCK_NUM.
@@ -749,6 +750,31 @@ describe('ProposalHandler checkpoint validation', () => {
     );
     return { proposal, blockHandler, txProvider };
   }
+
+  describe('handleBlockProposal duplicate txs', () => {
+    it('rejects a proposal that lists the same tx hash twice, without attempting collection', async () => {
+      const txHash = TxHash.random();
+      const { proposal, blockHandler, txProvider } = await setupGenesisProposal(Fr.random(), [
+        txHash,
+        TxHash.random(),
+        txHash,
+      ]);
+
+      const result = await blockHandler.handleBlockProposal(proposal, {} as any, false);
+
+      expect(result).toEqual({ isValid: false, reason: 'duplicate_txs' });
+      // Collection reconciles a deduplicated hash set against the full list, so it must not be reached.
+      expect(txProvider.getTxsForBlockProposal).not.toHaveBeenCalled();
+    });
+
+    it('accepts a proposal whose tx hashes are all distinct', async () => {
+      const { proposal, blockHandler } = await setupGenesisProposal(Fr.random(), [TxHash.random(), TxHash.random()]);
+
+      const result = await blockHandler.handleBlockProposal(proposal, {} as any, false);
+
+      expect(result).toEqual({ isValid: true, blockNumber: BlockNumber(INITIAL_L2_BLOCK_NUM) });
+    });
+  });
 
   describe('handleBlockProposal tx collection', () => {
     it('classifies txs that fail integrity validation as an invalid proposal', async () => {

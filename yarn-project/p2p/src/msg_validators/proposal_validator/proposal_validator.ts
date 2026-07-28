@@ -172,19 +172,8 @@ export class ProposalValidator {
       return { result: 'reject', severity: PeerErrorSeverity.MidToleranceError };
     }
 
-    // A tx can only appear once in a block: the second copy would emit nullifiers already emitted by the
-    // first. Tx collection also reconciles a deduplicated set of hashes against the full list, so a repeated
-    // hash breaks it with an unattributable error instead of a rejected proposal.
-    const hashSet = new Set(proposal.txHashes.map(h => h.toString()));
-    if (hashSet.size !== proposal.txHashes.length) {
-      this.logger.warn(`Penalizing peer for proposal with duplicate tx hashes`, {
-        txHashesLength: proposal.txHashes.length,
-        uniqueTxHashes: hashSet.size,
-      });
-      return { result: 'reject', severity: PeerErrorSeverity.MidToleranceError };
-    }
-
     // Embedded txs must be listed in txHashes
+    const hashSet = new Set(proposal.txHashes.map(h => h.toString()));
     const missingTxHashes =
       embeddedTxCount > 0
         ? proposal.txs!.filter(tx => !hashSet.has(tx.getTxHash().toString())).map(tx => tx.getTxHash().toString())
