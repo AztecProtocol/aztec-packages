@@ -1,5 +1,5 @@
 import { type ConfigMappingsType, numberConfigHelper } from '@aztec/foundation/config';
-import { MAX_RPC_HEAVY_LEN } from '@aztec/stdlib/interfaces/api-limit';
+import { MAX_RPC_TXS_LEN } from '@aztec/stdlib/interfaces/api-limit';
 
 export type TxCollectionConfig = {
   /** How long to wait before starting reqresp for fast collection  */
@@ -53,9 +53,8 @@ export const txCollectionConfigMappings: ConfigMappingsType<TxCollectionConfig> 
   },
   txCollectionNodeRpcMaxBatchSize: {
     env: 'TX_COLLECTION_NODE_RPC_MAX_BATCH_SIZE',
-    // Collection always asks for proofs, so the node caps these requests at MAX_RPC_HEAVY_LEN.
     description: 'Maximum number of transactions to request from a node in a single batch',
-    ...numberConfigHelper(MAX_RPC_HEAVY_LEN),
+    ...numberConfigHelper(MAX_RPC_TXS_LEN),
   },
   txCollectionFileStoreUrls: {
     env: 'TX_COLLECTION_FILE_STORE_URLS',
