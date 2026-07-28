@@ -40,7 +40,7 @@ import {
   type ResolvedSequencerConfig,
   type WorldStateSynchronizer,
 } from '@aztec/stdlib/interfaces/server';
-import type { L1ToL2MessageSource } from '@aztec/stdlib/messaging';
+import type { InboxBucket, L1ToL2MessageSource } from '@aztec/stdlib/messaging';
 import { BlockProposal, CheckpointProposal, type CoordinationSignatureContext } from '@aztec/stdlib/p2p';
 import { CheckpointHeader } from '@aztec/stdlib/rollup';
 import type { ProposerTimetable, SubslotSelection } from '@aztec/stdlib/timetable';
@@ -1411,6 +1411,59 @@ describe('CheckpointProposalJob', () => {
       expect(checkpoint).toBeDefined();
       expect(checkpointBuilder.buildBlockCalls).toHaveLength(2);
       expect(publisher.enqueueProposeCheckpoint).toHaveBeenCalledTimes(1);
+    });
+  });
+
+  describe('streaming inbox (flag on)', () => {
+    beforeEach(() => {
+      job.setTimetable(makeProposerTimetable({ l1Constants, blockDurationMs: 3000 }));
+      job.updateConfig({ streamingInbox: true });
+    });
+
+    it('streams per-block bucket bundles, advances the reference, and skips the bulk message fetch', async () => {
+      jest
+        .spyOn(job.getTimetable(), 'selectNextSubslot')
+        .mockReturnValueOnce(subslot(10, 0, false))
+        .mockReturnValueOnce(subslot(18, 1, true))
+        .mockReturnValue(noSubslot());
+
+      // The archiver returns the newest synced bucket (seq 2) for any lag/cutoff lookup, so the first block
+      // consumes through it and the second block (cursor already at seq 2) consumes nothing and reuses the ref.
+      const bucket: InboxBucket = {
+        seq: 2n,
+        inboxRollingHash: new Fr(99),
+        totalMsgCount: 5n,
+        timestamp: 0n,
+        msgCount: 2,
+        lastMessageIndex: 4n,
+      };
+      const bundle = Array.from({ length: 5 }, (_, i) => new Fr(i + 1));
+      l1ToL2MessageSource.getLatestInboxBucketAtOrBefore.mockResolvedValue(bucket);
+      l1ToL2MessageSource.getL1ToL2MessagesBetweenBuckets.mockResolvedValue(bundle);
+
+      const { lastBlock } = await setupMultipleBlocks(2, [2, 1]);
+      validatorClient.collectAttestations.mockResolvedValue(getAttestations(lastBlock));
+
+      const checkpoint = await job.executeAndAwait();
+
+      expect(checkpoint).toBeDefined();
+
+      // Streaming skips the bulk per-checkpoint fetch and tells the builder to insert messages per block.
+      expect(l1ToL2MessageSource.getL1ToL2Messages).not.toHaveBeenCalled();
+      expect(checkpointsBuilder.startCheckpointCalls).toHaveLength(1);
+      expect(checkpointsBuilder.startCheckpointCalls[0].l1ToL2Messages).toEqual([]);
+      expect(checkpointsBuilder.startCheckpointCalls[0].insertMessagesPerBlock).toBe(true);
+
+      // The first block consumes the selected bundle; the second consumes nothing.
+      expect(checkpointBuilder.buildBlockCalls).toHaveLength(2);
+      expect(checkpointBuilder.buildBlockCalls[0].opts.l1ToL2Messages).toEqual(bundle);
+      expect(checkpointBuilder.buildBlockCalls[1].opts.l1ToL2Messages).toEqual([]);
+
+      // Both block proposals carry the selected bucket reference (the second reuses the first's).
+      const bucketRefArgs = validatorClient.createBlockProposal.mock.calls.map(call => call[8]);
+      expect(bucketRefArgs).toHaveLength(2);
+      expect(bucketRefArgs[0]?.bucketSeq).toBe(2n);
+      expect(bucketRefArgs[1]?.bucketSeq).toBe(2n);
     });
   });
 

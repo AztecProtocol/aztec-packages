@@ -1,5 +1,6 @@
 import {
   type ConfigMappingsType,
+  booleanConfigHelper,
   floatConfigHelper,
   numberConfigHelper,
   optionalNumberConfigHelper,
@@ -40,6 +41,7 @@ export const sharedSequencerConfigMappings: ConfigMappingsType<
     | 'checkpointProposalPrepareTime'
     | 'minBlockDuration'
     | 'maxBlocksPerCheckpoint'
+    | 'streamingInbox'
   >
 > = {
   blockDurationMs: {
@@ -92,5 +94,13 @@ export const sharedSequencerConfigMappings: ConfigMappingsType<
       'Maximum number of blocks the sequencer packs into a single checkpoint, and the maximum indexWithinCheckpoint accepted on inbound block proposals.',
     parseEnv: (val: string) => parseInt(val, 10),
     defaultValue: DEFAULT_MAX_BLOCKS_PER_CHECKPOINT,
+  },
+  streamingInbox: {
+    env: 'STREAMING_INBOX',
+    description:
+      'Select L1-to-L2 messages per block from the streaming Inbox buckets (AZIP-22 Fast Inbox) instead of the whole ' +
+      "checkpoint's messages up front. Shared by the sequencer and validator, which must flip together. Default off: " +
+      'pre-flip a checkpoint built with this on is expected to fail L1 submission.',
+    ...booleanConfigHelper(false),
   },
 };

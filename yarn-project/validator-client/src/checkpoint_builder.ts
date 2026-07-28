@@ -131,9 +131,10 @@ export class CheckpointBuilder implements ICheckpointBlockBuilder {
       // Commit the fork checkpoint
       await forkCheckpoint.commit();
 
-      // Add block to checkpoint
+      // Add block to checkpoint, inserting this block's streaming L1-to-L2 message bundle (if any) into the fork.
       const { block } = await this.checkpointBuilder.addBlock(globalVariables, processedTxs, {
         expectedEndState: opts.expectedEndState,
+        l1ToL2Messages: opts.l1ToL2Messages,
       });
 
       this.contractsDB.commitCheckpoint();
@@ -322,6 +323,7 @@ export class FullNodeCheckpointsBuilder implements ICheckpointsBuilder {
     previousInboxRollingHash: Fr,
     fork: MerkleTreeWriteOperations,
     bindings?: LoggerBindings,
+    insertMessagesPerBlock: boolean = false,
   ): Promise<CheckpointBuilder> {
     const stateReference = await fork.getStateReference();
     const archiveTree = await fork.getTreeInfo(MerkleTreeId.ARCHIVE);
@@ -344,6 +346,7 @@ export class FullNodeCheckpointsBuilder implements ICheckpointsBuilder {
       fork,
       bindings,
       feeAssetPriceModifier,
+      insertMessagesPerBlock,
     );
 
     return new CheckpointBuilder(

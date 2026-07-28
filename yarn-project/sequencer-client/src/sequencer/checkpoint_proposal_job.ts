@@ -1,3 +1,4 @@
+import { INBOX_LAG_SECONDS, MAX_L1_TO_L2_MSGS_PER_BLOCK, MAX_L1_TO_L2_MSGS_PER_CHECKPOINT } from '@aztec/constants';
 import { type EpochCache, PROPOSER_PIPELINING_SLOT_OFFSET } from '@aztec/epoch-cache';
 import type { SimulationOverridesPlan } from '@aztec/ethereum/contracts';
 import {
@@ -51,7 +52,7 @@ import {
   type ResolvedSequencerConfig,
   type WorldStateSynchronizer,
 } from '@aztec/stdlib/interfaces/server';
-import { type L1ToL2MessageSource, computeInHashFromL1ToL2Messages } from '@aztec/stdlib/messaging';
+import { InboxBucketRef, type L1ToL2MessageSource, computeInHashFromL1ToL2Messages } from '@aztec/stdlib/messaging';
 import type {
   BlockProposal,
   BlockProposalOptions,
@@ -75,6 +76,11 @@ import type { CheckpointProposalJobMetricsRecorder } from './checkpoint_proposal
 import { CheckpointVoter } from './checkpoint_voter.js';
 import { SequencerInterruptedError } from './errors.js';
 import type { SequencerEvents } from './events.js';
+import {
+  type ConsumedBucketCursor,
+  type InboxBucketSelection,
+  selectInboxBucketForBlock,
+} from './inbox_bucket_selector.js';
 import type { SequencerMetrics } from './metrics.js';
 import type { RequestsTracker } from './requests_tracker.js';
 import type { SequencerRollupConstants } from './types.js';
@@ -96,6 +102,21 @@ type CheckpointProposalResult = {
   checkpoint: Checkpoint;
   attestations: CommitteeAttestationsAndSigners;
   attestationsSignature: Signature;
+};
+
+/**
+ * Running state of streaming Inbox message selection across the blocks of one checkpoint (AZIP-22 Fast Inbox).
+ * Consumption starts from the parent checkpoint's last-consumed bucket and advances one block at a time.
+ */
+type StreamingCheckpointState = {
+  /** Cumulative Inbox message count consumed as of the parent checkpoint; the per-checkpoint cap origin (fixed). */
+  checkpointStartTotalMsgCount: bigint;
+  /** The last bucket consumed so far (parent checkpoint's at the first block); advances as blocks consume. */
+  parent: ConsumedBucketCursor;
+  /** Reference to the last consumed bucket; reused by blocks that consume nothing. */
+  lastBucketRef: InboxBucketRef;
+  /** All message leaves consumed so far this checkpoint, in insertion order; drives the running `inHash`. */
+  accumulatedMessages: Fr[];
 };
 
 /**
@@ -611,9 +632,14 @@ export class CheckpointProposalJob implements Traceable {
         this.checkpointSimulationOverridesPlan,
       );
 
-      // Collect L1 to L2 messages for the checkpoint and compute their hash
-      const l1ToL2Messages = await this.l1ToL2MessageSource.getL1ToL2Messages(this.checkpointNumber);
-      const inHash = computeInHashFromL1ToL2Messages(l1ToL2Messages);
+      // Collect L1 to L2 messages for the checkpoint and compute their hash. Under the streaming Inbox (AZIP-22
+      // Fast Inbox) messages are selected per block instead, so the bulk fetch and up-front insertion are skipped
+      // and both start empty; the running values are computed block by block in the build loop.
+      const streamingInbox = this.config.streamingInbox;
+      const l1ToL2Messages = streamingInbox
+        ? []
+        : await this.l1ToL2MessageSource.getL1ToL2Messages(this.checkpointNumber);
+      const inHash = streamingInbox ? Fr.ZERO : computeInHashFromL1ToL2Messages(l1ToL2Messages);
 
       // Collect the out hashes of all the checkpoints before this one in the same epoch.
       // Under pipelining the parent checkpoint may not be on L1 yet at build time, so the helper
@@ -640,6 +666,12 @@ export class CheckpointProposalJob implements Traceable {
         log: this.log,
       });
 
+      // Streaming Inbox: resolve where this checkpoint's consumption starts (the parent checkpoint's last-consumed
+      // bucket). Only the genesis base case is wired here; see resolveStreamingCheckpointStart.
+      const streamingState = streamingInbox
+        ? await this.resolveStreamingCheckpointStart(previousInboxRollingHash)
+        : undefined;
+
       // Anchor the modifier to the predicted parent fee header: L1 will apply it against
       // that, not against the latest published checkpoint (which lags by one under pipelining).
       const predictedParentEthPerFeeAssetE12 =
@@ -659,6 +691,7 @@ export class CheckpointProposalJob implements Traceable {
         previousInboxRollingHash,
         fork,
         this.log.getBindings(),
+        streamingInbox,
       );
 
       // Options for the validator client when creating block and checkpoint proposals
@@ -684,6 +717,7 @@ export class CheckpointProposalJob implements Traceable {
           checkpointGlobalVariables.timestamp,
           inHash,
           blockProposalOptions,
+          streamingState,
         );
         blocksInCheckpoint = result.blocksInCheckpoint;
         blockPendingBroadcast = result.blockPendingBroadcast;
@@ -875,6 +909,7 @@ export class CheckpointProposalJob implements Traceable {
     timestamp: bigint,
     inHash: Fr,
     blockProposalOptions: BlockProposalOptions,
+    streamingState?: StreamingCheckpointState,
   ): Promise<{
     blocksInCheckpoint: L2Block[];
     blockPendingBroadcast: BlockProposal | undefined;
@@ -912,6 +947,18 @@ export class CheckpointProposalJob implements Traceable {
         break;
       }
 
+      // Streaming Inbox: select this block's message bundle against the current (not-yet-advanced) consumption
+      // cursor. The state is only advanced once the block builds successfully, so a failed build (retried in a
+      // later sub-slot) re-derives the bundle rather than losing it. The builder inserts the bundle and rolls it
+      // back with the fork on failure. The censorship cutoff floor must apply on whichever block ends the
+      // checkpoint, which includes the block that reaches the per-checkpoint block cap, not just the timetable's
+      // last sub-slot.
+      const isCheckpointFinalBlock = timingInfo.isLastBlock || blocksBuilt + 1 >= this.config.maxBlocksPerCheckpoint;
+      const selection = streamingState
+        ? await this.selectStreamingBundle(streamingState, isCheckpointFinalBlock, nowSeconds)
+        : undefined;
+      const streamingBundle = streamingState ? (selection && selection.consume ? selection.bundle : []) : undefined;
+
       const buildResult = await this.buildSingleBlock(checkpointBuilder, {
         // Create all blocks with the same timestamp
         blockTimestamp: timestamp,
@@ -921,6 +968,7 @@ export class CheckpointProposalJob implements Traceable {
         blockNumber,
         indexWithinCheckpoint,
         txHashesAlreadyIncluded,
+        l1ToL2Messages: streamingBundle,
       });
 
       // If we failed to build the block due to insufficient txs, we try again if there is still time left in the slot
@@ -956,13 +1004,35 @@ export class CheckpointProposalJob implements Traceable {
       blocksInCheckpoint.push(block);
       usedTxs.forEach(tx => txHashesAlreadyIncluded.add(tx.txHash.toString()));
 
+      // Streaming Inbox: the block built successfully, so advance the consumption cursor and derive this block's
+      // rolling-hash bucket reference and `inHash`. A block that consumed nothing reuses the parent bucket
+      // reference; the running `inHash` over the accumulated messages matches the checkpoint header's `inHash`
+      // once the last block is reached.
+      let blockInHash = inHash;
+      let blockBucketRef: InboxBucketRef | undefined = undefined;
+      if (streamingState && selection) {
+        if (selection.consume) {
+          streamingState.parent = { seq: selection.bucket.seq, totalMsgCount: selection.bucket.totalMsgCount };
+          streamingState.lastBucketRef = InboxBucketRef.fromBucket(selection.bucket);
+          streamingState.accumulatedMessages.push(...selection.bundle);
+        }
+        blockBucketRef = streamingState.lastBucketRef;
+        blockInHash = computeInHashFromL1ToL2Messages(streamingState.accumulatedMessages);
+      }
+
       // Sign the block proposal. This will throw if HA signing fails.
-      const proposal = await this.createBlockProposal(block, inHash, usedTxs, {
-        ...blockProposalOptions,
-        broadcastInvalidBlockProposal:
-          blockProposalOptions.broadcastInvalidBlockProposal ||
-          block.indexWithinCheckpoint === this.config.invalidBlockProposalIndexWithinCheckpoint,
-      });
+      const proposal = await this.createBlockProposal(
+        block,
+        blockInHash,
+        usedTxs,
+        {
+          ...blockProposalOptions,
+          broadcastInvalidBlockProposal:
+            blockProposalOptions.broadcastInvalidBlockProposal ||
+            block.indexWithinCheckpoint === this.config.invalidBlockProposalIndexWithinCheckpoint,
+        },
+        blockBucketRef,
+      );
 
       // Sync the proposed block to the archiver to make it available, only after we've managed to sign the proposal,
       // so we avoid polluting our archive with a block that would fail.
@@ -1005,6 +1075,7 @@ export class CheckpointProposalJob implements Traceable {
     inHash: Fr,
     usedTxs: Tx[],
     blockProposalOptions: BlockProposalOptions,
+    bucketRef?: InboxBucketRef,
   ): Promise<BlockProposal | undefined> {
     if (this.config.fishermanMode) {
       this.log.info(`Skipping block proposal for block ${block.number} in fisherman mode`);
@@ -1019,7 +1090,57 @@ export class CheckpointProposalJob implements Traceable {
       usedTxs,
       this.proposer,
       blockProposalOptions,
+      bucketRef,
     );
+  }
+
+  /**
+   * Resolves where a streaming-Inbox checkpoint's consumption starts: the parent checkpoint's last-consumed bucket
+   * (AZIP-22 Fast Inbox). Only the genesis base case is wired: when the parent's rolling hash is zero, consumption
+   * begins from the start of the Inbox. Sourcing a non-genesis parent's bucket needs the consumed reference carried
+   * across checkpoints (there is no by-rolling-hash archiver lookup, and legacy parents do not sit on a bucket
+   * boundary); that is a flip-time concern. Pre-flip the flag is off, so this throw only fires if the flag is turned
+   * on against a non-genesis chain, where the outer catch turns it into a skipped (unsubmitted) proposal.
+   */
+  private resolveStreamingCheckpointStart(previousInboxRollingHash: Fr): Promise<StreamingCheckpointState> {
+    if (!previousInboxRollingHash.isZero()) {
+      throw new Error(
+        `Streaming inbox: cannot source parent checkpoint bucket for non-genesis rolling hash ${previousInboxRollingHash} ` +
+          `(checkpoint ${this.checkpointNumber}); cross-checkpoint streaming is wired at the flip`,
+      );
+    }
+    return Promise.resolve({
+      checkpointStartTotalMsgCount: 0n,
+      parent: { seq: 0n, totalMsgCount: 0n },
+      lastBucketRef: InboxBucketRef.empty(),
+      accumulatedMessages: [],
+    });
+  }
+
+  /**
+   * Selects this block's streaming-Inbox message bundle against the current consumption cursor, mirroring the L1
+   * predicate in `ProposeLib.validateInboxConsumption` (AZIP-22 Fast Inbox). Does not mutate the cursor; the caller
+   * advances it only after the block builds successfully.
+   */
+  private selectStreamingBundle(
+    state: StreamingCheckpointState,
+    isLastBlock: boolean,
+    nowSeconds: number,
+  ): Promise<InboxBucketSelection> {
+    // Mirror ProposeLib's cutoff exactly: buildFrameStart = toTimestamp(slot - 1), cutoff = buildFrameStart - lag.
+    const buildFrameStart = getTimestampForSlot(SlotNumber(this.targetSlot - 1), this.l1Constants);
+    const cutoffTimestamp = buildFrameStart - BigInt(INBOX_LAG_SECONDS);
+    return selectInboxBucketForBlock({
+      messageSource: this.l1ToL2MessageSource,
+      now: BigInt(Math.floor(nowSeconds)),
+      lagSeconds: BigInt(INBOX_LAG_SECONDS),
+      parent: state.parent,
+      checkpointStartTotalMsgCount: state.checkpointStartTotalMsgCount,
+      perBlockCap: MAX_L1_TO_L2_MSGS_PER_BLOCK,
+      perCheckpointCap: MAX_L1_TO_L2_MSGS_PER_CHECKPOINT,
+      isLastBlock,
+      cutoffTimestamp,
+    });
   }
 
   /**
@@ -1046,12 +1167,21 @@ export class CheckpointProposalJob implements Traceable {
       indexWithinCheckpoint: IndexWithinCheckpoint;
       buildDeadline: Date | undefined;
       txHashesAlreadyIncluded: Set<string>;
+      /** Streaming Inbox message bundle to insert into this block's L1-to-L2 tree; undefined in the legacy flow. */
+      l1ToL2Messages?: Fr[];
     },
   ): Promise<
     { block: L2Block; usedTxs: Tx[] } | { failure: 'insufficient-txs' | 'insufficient-valid-txs' } | { error: Error }
   > {
-    const { blockTimestamp, forceCreate, blockNumber, indexWithinCheckpoint, buildDeadline, txHashesAlreadyIncluded } =
-      opts;
+    const {
+      blockTimestamp,
+      forceCreate,
+      blockNumber,
+      indexWithinCheckpoint,
+      buildDeadline,
+      txHashesAlreadyIncluded,
+      l1ToL2Messages,
+    } = opts;
 
     this.log.verbose(
       `Preparing block ${blockNumber} index ${indexWithinCheckpoint} at checkpoint ${this.checkpointNumber} for slot ${this.targetSlot}`,
@@ -1122,6 +1252,7 @@ export class CheckpointProposalJob implements Traceable {
         maxBlocksPerCheckpoint: this.timetable.getMaxBlocksPerCheckpoint(),
         perBlockAllocationMultiplier: this.config.perBlockAllocationMultiplier,
         perBlockDAAllocationMultiplier: this.config.perBlockDAAllocationMultiplier,
+        l1ToL2Messages,
       };
 
       // Actually build the block by executing txs. The builder throws InsufficientValidTxsError
