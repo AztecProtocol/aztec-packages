@@ -62,12 +62,7 @@ import {
 import type { TxValidationResult } from '../tx/validator/tx_validator.js';
 import type { SingleValidatorStats, ValidatorsStats } from '../validators/types.js';
 import type { AllowedElement } from './allowed_element.js';
-import {
-  MAX_RPC_BLOCKS_LEN,
-  MAX_RPC_CHECKPOINTS_DATA_LEN,
-  MAX_RPC_LEN,
-  MAX_RPC_PUBLIC_STORAGE_OVERRIDES_LEN,
-} from './api_limit.js';
+import { MAX_RPC_CHECKPOINTS_DATA_LEN, MAX_RPC_LEN, MAX_RPC_PUBLIC_STORAGE_OVERRIDES_LEN } from './api_limit.js';
 import { type AztecNode, AztecNodeApiSchema, type GetTxByHashOptions } from './aztec-node.js';
 import type { BlockIncludeOptions, BlockResponse, BlocksIncludeOptions } from './block_response.js';
 import type { CheckpointTag } from './chain_tips.js';
@@ -270,7 +265,7 @@ describe('AztecNodeApiSchema', () => {
     await expect(context.client.getBlocks(-1 as BlockNumber, BlockNumber(1))).rejects.toThrow();
     await expect(context.client.getBlocks(BlockNumber.ZERO, BlockNumber(1))).rejects.toThrow();
     await expect(context.client.getBlocks(BlockNumber(1), BlockNumber.ZERO)).rejects.toThrow();
-    await expect(context.client.getBlocks(BlockNumber(1), MAX_RPC_BLOCKS_LEN + 1)).rejects.toThrow();
+    await expect(context.client.getBlocks(BlockNumber(1), MAX_RPC_LEN + 1)).rejects.toThrow();
   });
 
   it('getCheckpoints', async () => {

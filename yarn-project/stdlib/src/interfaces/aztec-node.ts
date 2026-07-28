@@ -77,13 +77,7 @@ import { SingleValidatorStatsSchema, ValidatorsStatsSchema } from '../validators
 import type { SingleValidatorStats, ValidatorsStats } from '../validators/types.js';
 import { type ComponentsVersions, getVersioningResponseHandler } from '../versioning/index.js';
 import { type AllowedElement, AllowedElementSchema } from './allowed_element.js';
-import {
-  MAX_COMMITTEE_SIZE,
-  MAX_RPC_BLOCKS_LEN,
-  MAX_RPC_CHECKPOINTS_LEN,
-  MAX_RPC_LEN,
-  MAX_RPC_TXS_LEN,
-} from './api_limit.js';
+import { MAX_RPC_BLOCKS_LEN, MAX_RPC_CHECKPOINTS_LEN, MAX_RPC_LEN, MAX_RPC_TXS_LEN } from './api_limit.js';
 import {
   type BlockIncludeOptions,
   BlockIncludeOptionsSchema,
@@ -787,7 +781,7 @@ export const AztecNodeApiSchema: ApiSchemaFor<AztecNode> = {
       schemas.SlotNumber,
       optional(z.string().regex(/^0x[0-9a-fA-F]+$/) as unknown as z.ZodType<CheckpointProposalHash>),
     ]),
-    output: z.array(CheckpointAttestation.schema).max(MAX_COMMITTEE_SIZE),
+    output: z.array(CheckpointAttestation.schema),
   }),
 
   getProposalsForSlot: z.function({

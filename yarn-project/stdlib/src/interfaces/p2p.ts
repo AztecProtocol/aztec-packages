@@ -9,7 +9,7 @@ import { CheckpointProposal, type CheckpointProposalCore } from '../p2p/checkpoi
 import { type ApiSchemaFor, optional, schemas } from '../schemas/index.js';
 import { Tx } from '../tx/tx.js';
 import { TxHash } from '../tx/tx_hash.js';
-import { MAX_COMMITTEE_SIZE, MAX_RPC_TXS_LEN } from './api_limit.js';
+import { MAX_RPC_TXS_LEN } from './api_limit.js';
 import { type GetTxByHashOptions, GetTxByHashOptionsSchema } from './get_tx_by_hash_options.js';
 
 export type PeerInfo =
@@ -102,7 +102,7 @@ export const P2PApiSchema: ApiSchemaFor<P2PApi> = {
       schemas.SlotNumber,
       optional(z.string().regex(/^0x[0-9a-fA-F]+$/) as unknown as z.ZodType<CheckpointProposalHash>),
     ]),
-    output: z.array(CheckpointAttestation.schema).max(MAX_COMMITTEE_SIZE),
+    output: z.array(CheckpointAttestation.schema),
   }),
   getPendingTxs: z.function({
     input: z.tuple([
