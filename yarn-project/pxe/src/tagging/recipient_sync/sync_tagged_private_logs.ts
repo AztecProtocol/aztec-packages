@@ -153,7 +153,7 @@ function getIndexRangesForSecrets(
   return Promise.all(
     secrets.map(async (secret): Promise<PendingSecret> => {
       const currentHighestFinalizedIndex = await taggingStore.getHighestFinalizedIndex(secret, jobId);
-      const boundEnd = (currentHighestFinalizedIndex ?? 0) + UNFINALIZED_TAGGING_INDEXES_WINDOW_LEN + 1;
+      const boundEnd = unfinalizedTaggingIndexesWindowEnd(currentHighestFinalizedIndex);
 
       if (secret.kind === AppTaggingSecretKind.CONSTRAINED) {
         // Constrained streams are gapless and resume at the finalized index, so probe a small initial window and stop
@@ -170,9 +170,10 @@ function getIndexRangesForSecrets(
         };
       }
 
-      const end = unfinalizedTaggingIndexesWindowEnd(currentHighestFinalizedIndex);
-
-      return { secret, start, end };
+      // Unconstrained secrets can have gaps, so they scan the whole window starting past the highest aged index.
+      const highestAgedIndex = await taggingStore.getHighestAgedIndex(secret, jobId);
+      const start = highestAgedIndex === undefined ? 0 : highestAgedIndex + 1;
+      return { kind: AppTaggingSecretKind.UNCONSTRAINED, secret, start, end: boundEnd };
     }),
   );
 }
@@ -341,8 +342,8 @@ type PendingSecretBase = {
 /** Constrained scan state, carrying the doubling-probe bookkeeping that only the gapless constrained scan uses. */
 type PendingConstrained = PendingSecretBase & {
   kind: typeof AppTaggingSecretKind.CONSTRAINED;
-  // Exclusive upper bound on the indexes this secret may probe this sync (highest finalized index + WINDOW_LEN + 1, the
-  // protocol bound on how far ahead of finalized a log can sit). `end` grows toward it each round.
+  // Exclusive upper bound on the indexes this secret may probe this sync, from `unfinalizedTaggingIndexesWindowEnd`:
+  // the protocol bound on how far ahead of finalized a log can sit. `end` grows toward it each round.
   boundEnd: number;
   // Intended probe length for the round that produced `end`. The queried span can be smaller when boundEnd caps it.
   probeLen: number;
