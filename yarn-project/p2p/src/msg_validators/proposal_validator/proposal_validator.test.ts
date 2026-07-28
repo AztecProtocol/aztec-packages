@@ -467,6 +467,21 @@ describe('ProposalValidator', () => {
       });
     });
 
+    describe('duplicate tx hashes', () => {
+      it('rejects a proposal that lists the same tx hash twice', async () => {
+        const txHash = TxHash.random();
+        const proposal = await makeBlockProposal({ txHashes: [txHash, TxHash.random(), txHash] });
+        const result = await validator.validateTxs(proposal);
+        expect(result).toEqual({ result: 'reject', severity: PeerErrorSeverity.MidToleranceError });
+      });
+
+      it('accepts a proposal whose tx hashes are all distinct', async () => {
+        const proposal = await makeBlockProposal({ txHashes: [TxHash.random(), TxHash.random()] });
+        const result = await validator.validateTxs(proposal);
+        expect(result).toEqual({ result: 'accept' });
+      });
+    });
+
     describe('embedded tx validation', () => {
       it('rejects if embedded txs are not listed in txHashes', async () => {
         const txHashes = [TxHash.random(), TxHash.random()];
