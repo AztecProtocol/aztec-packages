@@ -1,13 +1,13 @@
 import { AztecAddress } from '@aztec/aztec.js/addresses';
 import { type DeployOptions, DeployMethod } from '@aztec/aztec.js/contracts';
-import { Fr } from '@aztec/aztec.js/fields';
+import { Fr, GrumpkinScalar } from '@aztec/aztec.js/fields';
 import type { DeployAccountOptions } from '@aztec/aztec.js/wallet';
 import Button from '@mui/material/Button';
 import Dialog from '@mui/material/Dialog';
 import DialogTitle from '@mui/material/DialogTitle';
 import TextField from '@mui/material/TextField';
 import { useState } from 'react';
-import { deriveSigningKey } from '@aztec/stdlib/keys';
+import { deriveSecretKeyFromSigningKey } from '@aztec/accounts/utils';
 import FormControl from '@mui/material/FormControl';
 import Select from '@mui/material/Select';
 import MenuItem from '@mui/material/MenuItem';
@@ -49,20 +49,20 @@ export function CreateAccountDialog({
     try {
       const salt = Fr.random();
       let accountManager;
-      let signingKey;
       switch (type) {
         case 'schnorr': {
-          signingKey = deriveSigningKey(secretKey);
-          accountManager = await wallet.createAndStoreAccount(alias, 'schnorr', secretKey, salt, signingKey);
+          const signingKey = GrumpkinScalar.random();
+          const secret = await deriveSecretKeyFromSigningKey(signingKey);
+          accountManager = await wallet.createAndStoreAccount(alias, 'schnorr', secret, salt, signingKey.toBuffer());
           break;
         }
         case 'ecdsasecp256r1': {
-          signingKey = randomBytes(32);
+          const signingKey = randomBytes(32);
           accountManager = await wallet.createAndStoreAccount(alias, 'ecdsasecp256r1', secretKey, salt, signingKey);
           break;
         }
         case 'ecdsasecp256k1': {
-          signingKey = randomBytes(32);
+          const signingKey = randomBytes(32);
           accountManager = await wallet.createAndStoreAccount(alias, 'ecdsasecp256k1', secretKey, salt, signingKey);
           break;
         }

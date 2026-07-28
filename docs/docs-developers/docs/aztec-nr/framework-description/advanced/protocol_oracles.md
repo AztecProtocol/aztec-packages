@@ -3,7 +3,7 @@ title: Oracle Functions
 sidebar_position: 18
 tags: [functions, oracles]
 description: Learn about oracles in Aztec, which provide external data to smart contracts during execution.
-references: ["noir-projects/aztec-nr/aztec/src/oracle/*"]
+references: ["noir-projects/labs/aztec-nr/aztec/src/oracle/*"]
 ---
 
 This page goes over what oracles are in Aztec and how they work.
@@ -31,6 +31,6 @@ Oracles introduce **non-determinism** into a circuit, and thus are `unconstraine
 - [`notes`](pathname:///aztec-nr-api/#api_ref_version/noir_aztec/oracle/notes/index.html) - Provides functions related to notes, such as fetching notes from storage, used behind the scenes for value notes and other pre-built note implementations.
 - [`logs`](pathname:///aztec-nr-api/#api_ref_version/noir_aztec/oracle/logs/index.html) - Provides functions to log encrypted and unencrypted data.
 
-Find a full list [on GitHub](https://github.com/AztecProtocol/aztec-packages/tree/#include_aztec_version/noir-projects/aztec-nr/aztec/src/oracle).
+Find a full list [on GitHub](https://github.com/AztecProtocol/aztec-packages/tree/#include_aztec_version/noir-projects/labs/aztec-nr/aztec/src/oracle).
 
 Please note that it is **not** possible to write a custom oracle for your dapp. Oracles are implemented in the PXE, so all users of your dapp would have to use a PXE with your custom oracle included. If you want to inject some arbitrary data that does not have a dedicated oracle, you can use [capsules](./how_to_use_capsules.md).

@@ -71,6 +71,29 @@ locals {
       })
     })
   }
+
+  consumer_secret_names = [
+    "mainnet-rpc-consumer-client1",
+    "mainnet-rpc-consumer-client2",
+    "mainnet-rpc-consumer-client3",
+    "mainnet-rpc-consumer-client4",
+    "mainnet-rpc-consumer-client5",
+    "mainnet-rpc-consumer-client6",
+    "mainnet-rpc-consumer-client7",
+    "mainnet-rpc-consumer-client8",
+    "mainnet-rpc-consumer-client9",
+    "mainnet-rpc-consumer-client10",
+    "mainnet-rpc-consumer-client11",
+    "mainnet-rpc-consumer-client12"
+  ]
+
+  consumers = {
+    for name in local.consumer_secret_names : name => {
+      username                       = name
+      gcp_secret_manager_secret_name = name
+      rate_limit_minute              = 0
+    }
+  }
 }
 
 module "environment" {
@@ -86,53 +109,6 @@ module "environment" {
   RELEASE_PREFIX  = "mainnet"
   RPCS            = local.rpcs
   ALLOW_ANONYMOUS = false
-  CONSUMERS = {
-    client1 = {
-      username                       = "mainnet-rpc-consumer-client1"
-      gcp_secret_manager_secret_name = "mainnet-rpc-consumer-client1"
-      rate_limit_minute              = 0
-    }
-    client2 = {
-      username                       = "mainnet-rpc-consumer-client2"
-      gcp_secret_manager_secret_name = "mainnet-rpc-consumer-client2"
-      rate_limit_minute              = 0
-    }
-    client3 = {
-      username                       = "mainnet-rpc-consumer-client3"
-      gcp_secret_manager_secret_name = "mainnet-rpc-consumer-client3"
-      rate_limit_minute              = 0
-    }
-    client4 = {
-      username                       = "mainnet-rpc-consumer-client4"
-      gcp_secret_manager_secret_name = "mainnet-rpc-consumer-client4"
-      rate_limit_minute              = 0
-    }
-    client5 = {
-      username                       = "mainnet-rpc-consumer-client5"
-      gcp_secret_manager_secret_name = "mainnet-rpc-consumer-client5"
-      rate_limit_minute              = 0
-    }
-    client6 = {
-      username                       = "mainnet-rpc-consumer-client6"
-      gcp_secret_manager_secret_name = "mainnet-rpc-consumer-client6"
-      rate_limit_minute              = 0
-    }
-    client7 = {
-      username                       = "mainnet-rpc-consumer-client7"
-      gcp_secret_manager_secret_name = "mainnet-rpc-consumer-client7"
-      rate_limit_minute              = 0
-    }
-    client8 = {
-      username                       = "mainnet-rpc-consumer-client8"
-      gcp_secret_manager_secret_name = "mainnet-rpc-consumer-client8"
-      rate_limit_minute              = 0
-    }
-    client9 = {
-      username                       = "mainnet-rpc-consumer-client9"
-      gcp_secret_manager_secret_name = "mainnet-rpc-consumer-client9"
-      rate_limit_minute              = 0
-    }
-  }
-
+  CONSUMERS = local.consumers
   IRM_METRICS_ENABLED = true
 }

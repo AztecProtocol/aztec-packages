@@ -3,11 +3,10 @@ import { L1FeeJuicePortalManager, type L1TokenManager, type L2AmountClaim } from
 import { Fr } from '@aztec/aztec.js/fields';
 import type { Logger } from '@aztec/aztec.js/log';
 import type { AztecNode } from '@aztec/aztec.js/node';
+import { FeeJuiceContract } from '@aztec/aztec.js/protocol';
 import type { Wallet } from '@aztec/aztec.js/wallet';
 import type { ExtendedViemWalletClient } from '@aztec/ethereum/types';
 import { retryUntil } from '@aztec/foundation/retry';
-import { FeeJuiceContract } from '@aztec/noir-contracts.js/FeeJuice';
-import { ProtocolContractAddress } from '@aztec/protocol-contracts';
 import type { AztecNodeAdmin, AztecNodeDebug } from '@aztec/stdlib/interfaces/client';
 
 import { testSpan } from '../fixtures/timing.js';
@@ -49,7 +48,7 @@ export class FeeJuicePortalTestingHarnessFactory {
       throw new Error('Fee Juice portal not deployed on L1');
     }
 
-    const gasL2 = FeeJuiceContract.at(ProtocolContractAddress.FeeJuice, wallet);
+    const gasL2 = FeeJuiceContract.withWallet(wallet);
 
     return new GasBridgingTestHarness(
       aztecNode,

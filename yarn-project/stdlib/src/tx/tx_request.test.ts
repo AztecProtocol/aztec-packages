@@ -50,7 +50,7 @@ describe('TxRequest', () => {
 
     // Run with AZTEC_GENERATE_TEST_DATA=1 to update noir test data
     updateInlineTestData(
-      'noir-projects/noir-protocol-circuits/crates/types/src/abis/transaction/tx_request.nr',
+      'noir-projects/fnd/noir-protocol-circuits/crates/types/src/abis/transaction/tx_request.nr',
       'test_data_tx_request_hash',
       hash.toString(),
     );

@@ -25,7 +25,7 @@ Because processing validates the message against the onchain transaction, a malf
 
 Choose offchain delivery by passing `MessageDelivery::offchain()` to `.deliver()` (for notes) or `.deliver_to()` (for events). The token contract's `transfer_in_private_with_offchain_delivery` function delivers both resulting balance notes and a `Transfer` event offchain:
 
-#include_code transfer_in_private_with_offchain_delivery /noir-projects/noir-contracts/contracts/app/token_contract/src/main.nr rust
+#include_code transfer_in_private_with_offchain_delivery /noir-projects/labs/noir-contracts/contracts/app/token_contract/src/main.nr rust
 
 Nothing else changes in the contract: the same notes and events are created, only their delivery mechanism differs.
 
@@ -107,7 +107,7 @@ Once received, messages are managed by an inbox that the wallet syncs against (s
 
 The TXE test environment buffers offchain messages emitted during calls and exposes them via `env.offchain_messages()`. Feed them back through `offchain_receive` to complete the delivery loop inside a test:
 
-#include_code token_transfer_offchain_delivery_test /noir-projects/noir-contracts/contracts/app/token_contract/src/test/transfer_in_private_with_offchain_delivery.nr rust
+#include_code token_transfer_offchain_delivery_test /noir-projects/labs/noir-contracts/contracts/app/token_contract/src/test/transfer_in_private_with_offchain_delivery.nr rust
 
 `env.offchain_messages()` returns up to 64 messages, so drain it into batches of at most 16 when a test emits more messages than one `offchain_receive` call accepts.
 

@@ -202,4 +202,4 @@ jq 'all(has("name") and has("value") and has("unit"))' bench-out/test.bench.json
 - **TypeScript**: `yarn-project/stdlib/src/tx/tx_bench.test.ts`
 - **Python**: `l1-contracts/scripts/generate_benchmark_json.py`
 - **Shell**: `yarn-project/p2p/testbench/consolidate_benchmarks.sh`
-- **Circuits**: `noir-projects/noir-protocol-circuits/scripts/run_bench.sh`
+- **Circuits**: `noir-projects/fnd/noir-protocol-circuits/scripts/run_bench.sh`

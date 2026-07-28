@@ -67,7 +67,7 @@ HARDWARE_CONCURRENCY=8 barretenberg/cpp/scripts/ci_benchmark_ivc_flows.sh native
   barretenberg/cpp/chonk-pinned-flows/<flow>
 ```
 
-The CI benchmark also cross-checks the proof against the generated protocol VK artifacts under `noir-projects/noir-protocol-circuits/target`. That is a post-prove check, not part of the pinned input download.
+The CI benchmark also cross-checks the proof against the generated protocol VK artifacts under `noir-projects/fnd/noir-protocol-circuits/target`. That is a post-prove check, not part of the pinned input download.
 
 For manual runs:
 

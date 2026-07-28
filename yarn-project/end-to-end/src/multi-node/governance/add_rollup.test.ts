@@ -247,6 +247,7 @@ describe('multi-node/governance/add_rollup', () => {
       const aliceAccountManager = await wallet.createSchnorrInitializerlessAccount(
         aliceAccount.secret,
         aliceAccount.salt,
+        aliceAccount.signingKey,
       );
 
       const aliceAddress = aliceAccountManager.address;

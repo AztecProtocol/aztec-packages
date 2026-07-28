@@ -1,3 +1,4 @@
+import { MAX_PRIVATE_LOGS_PER_TX } from '@aztec/constants';
 import { Fr } from '@aztec/foundation/curves/bn254';
 import { openTmpStore } from '@aztec/kv-store/lmdb-v2';
 import { RevertCode } from '@aztec/stdlib/avm';
@@ -218,7 +219,26 @@ describe('SenderTaggingStore', () => {
         expect(txHashes).toHaveLength(1);
         expect(txHashes[0]).toEqual(txHash2);
       });
-      
+
+      it('allows an ordinary pending tx to stack on a fresh secret already at the MAX_PRIVATE_LOGS_PER_TX floor', async () => {
+        const txHash1 = TxHash.random();
+        const txHash2 = TxHash.random();
+
+        // A single tx from a fresh secret (no finalized index yet) can legitimately reach MAX_PRIVATE_LOGS_PER_TX - 1,
+        // since that's the tx-wide cap on private logs. Neither tx is finalized yet.
+        await taggingStore.storePendingIndexes([range(secret1, 0, MAX_PRIVATE_LOGS_PER_TX - 1)], txHash1, 'test');
+
+        // A second, ordinary-sized pending tx to the same secret must still be usable before the first tx is mined -
+        // this is the margin UNFINALIZED_TAGGING_INDEXES_WINDOW_LEN adds on top of MAX_PRIVATE_LOGS_PER_TX for.
+        await expect(
+          taggingStore.storePendingIndexes(
+            [range(secret1, MAX_PRIVATE_LOGS_PER_TX, MAX_PRIVATE_LOGS_PER_TX + 5)],
+            txHash2,
+            'test',
+          ),
+        ).resolves.not.toThrow();
+      });
+
       it('throws after pending txs exhaust window', async () => {
         // One single-index pending tx per index, mirroring how an un-mined backlog accumulates one log per tx on a
         // shared secret (e.g. the self-send chain in bench_build_block). With no index finalized yet, exactly

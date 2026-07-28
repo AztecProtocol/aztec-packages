@@ -2,7 +2,7 @@
 title: Keys
 tags: [accounts, keys]
 description: Understand the specialized key pairs used in Aztec accounts - nullifier keys, incoming viewing keys, and signing keys - and how they enable privacy, security, and flexible authentication.
-references: ["noir-projects/noir-contracts/contracts/account/schnorr_account_contract/src/main.nr"]
+references: ["noir-projects/labs/noir-contracts/contracts/account/schnorr_account_contract/src/main.nr"]
 ---
 
 ## Account Keys in Aztec
@@ -118,7 +118,7 @@ Unlike nullifier and incoming viewing keys which are protocol-mandated, signing 
 
 When using signatures, the account contract validates the signature against a stored public key. Here's an example from the Schnorr account contract:
 
-#include_code is_valid_impl noir-projects/noir-contracts/contracts/account/schnorr_account_contract/src/main.nr rust
+#include_code is_valid_impl noir-projects/labs/noir-contracts/contracts/account/schnorr_account_contract/src/main.nr rust
 
 The flexibility of signing key storage and rotation is entirely up to your account contract implementation.
 

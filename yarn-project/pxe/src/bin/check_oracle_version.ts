@@ -49,14 +49,14 @@ function assertContractOracleVersionMajorInSync(): void {
     {
       label: 'aztec-nr/aztec/src/oracle/version.nr',
       value: readNumericGlobal(
-        join(gitRoot, 'noir-projects/aztec-nr/aztec/src/oracle/version.nr'),
+        join(gitRoot, 'noir-projects/labs/aztec-nr/aztec/src/oracle/version.nr'),
         'ORACLE_VERSION_MAJOR',
       ),
     },
     {
       label: 'aztec_sublib/src/oracle/version.nr',
       value: readNumericGlobal(
-        join(gitRoot, 'noir-projects/noir-contracts/contracts/protocol/aztec_sublib/src/oracle/version.nr'),
+        join(gitRoot, 'noir-projects/fnd/noir-contracts/contracts/protocol/aztec_sublib/src/oracle/version.nr'),
         'ORACLE_VERSION_MAJOR',
       ),
     },

@@ -22,7 +22,7 @@ const outputFilename = './src/private_kernel_reset_data.ts';
 const outputTypesFilename = './src/private_kernel_reset_types.ts';
 const outputVksFilename = './src/private_kernel_reset_vks.ts';
 
-// Must match the values in noir-projects/noir-protocol-circuits/crates/private-kernel-reset/src/main.nr
+// Must match the values in noir-projects/fnd/noir-protocol-circuits/crates/private-kernel-reset/src/main.nr
 const maxDimensions = [
   MAX_NOTE_HASH_READ_REQUESTS_PER_TX,
   MAX_NOTE_HASH_READ_REQUESTS_PER_TX,
@@ -258,11 +258,11 @@ function checkVkBlocksFit(families: Family[], dimensionsByGroup: Record<string, 
 
 const main = async () => {
   const config = JSON.parse(
-    await fs.readFile('../../noir-projects/noir-protocol-circuits/private_kernel_reset_config.json', 'utf8'),
+    await fs.readFile('../../noir-projects/fnd/noir-protocol-circuits/private_kernel_reset_config.json', 'utf8'),
   ) as PrivateKernelResetDimensionsConfig;
 
   const dimensionsByGroup = JSON.parse(
-    await fs.readFile('../../noir-projects/noir-protocol-circuits/private_kernel_reset_dimensions.json', 'utf8'),
+    await fs.readFile('../../noir-projects/fnd/noir-protocol-circuits/private_kernel_reset_dimensions.json', 'utf8'),
   ) as Record<string, number[][]>;
 
   for (const family of families) {

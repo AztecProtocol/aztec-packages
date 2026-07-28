@@ -110,11 +110,13 @@ Start with the Hardhat + Aztec template. This provides a pre-configured Hardhat 
 
 This template is a community-maintained starter. If the repository is unavailable, you can set up a Hardhat project manually and add the `@aztec/*` Solidity remappings from the [cross-chain messaging docs](../../foundational-topics/ethereum-aztec-messaging/index.md).
 
-You may need to update the `@aztec/l1-contracts` tag in the template's `package.json` to match your Aztec version, e.g.:
+You may need to replace the `@aztec/l1-contracts` dependency in `package.json` with the `@aztec/l1-artifacts` npm package at the version matching your Aztec version, e.g.:
 
 ```json
-"@aztec/l1-contracts": "git+https://github.com/AztecProtocol/l1-contracts.git#v5.0.1"
+"@aztec/l1-artifacts": "5.0.1"
 ```
+
+The package ships the L1 contract sources under `@aztec/l1-artifacts/l1-contracts/src`; update any `@aztec/*` Solidity remappings or aliases in the project to point at `node_modules/@aztec/l1-artifacts/l1-contracts/src`.
 
 :::
 
@@ -198,9 +200,9 @@ The bridge reuses the existing `Token` contract and the `token_portal_content_ha
 
 ```toml
 [dependencies]
-aztec = { git="https://github.com/AztecProtocol/aztec-packages", tag = "#include_aztec_version", directory = "noir-projects/aztec-nr/aztec" }
-token_portal_content_hash_lib = { git="https://github.com/AztecProtocol/aztec-packages", tag = "#include_aztec_version", directory = "noir-projects/noir-contracts/contracts/libs/token_portal_content_hash_lib" }
-token = { git="https://github.com/AztecProtocol/aztec-packages", tag = "#include_aztec_version", directory = "noir-projects/noir-contracts/contracts/app/token_contract" }
+aztec = { git="https://github.com/AztecProtocol/aztec-packages", tag = "#include_aztec_version", directory = "noir-projects/labs/aztec-nr/aztec" }
+token_portal_content_hash_lib = { git="https://github.com/AztecProtocol/aztec-packages", tag = "#include_aztec_version", directory = "noir-projects/labs/noir-contracts/contracts/libs/token_portal_content_hash_lib" }
+token = { git="https://github.com/AztecProtocol/aztec-packages", tag = "#include_aztec_version", directory = "noir-projects/labs/noir-contracts/contracts/app/token_contract" }
 ```
 
 ### Bridge Storage
@@ -312,13 +314,13 @@ The portal is where the magic happens. It bridges Aztec's cross-chain messages w
 import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import {SafeERC20} from "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
 
-import {IRegistry} from "@aztec/l1-contracts/src/governance/interfaces/IRegistry.sol";
-import {IInbox} from "@aztec/l1-contracts/src/core/interfaces/messagebridge/IInbox.sol";
-import {IOutbox} from "@aztec/l1-contracts/src/core/interfaces/messagebridge/IOutbox.sol";
-import {IRollup} from "@aztec/l1-contracts/src/core/interfaces/IRollup.sol";
-import {DataStructures} from "@aztec/l1-contracts/src/core/libraries/DataStructures.sol";
-import {Hash} from "@aztec/l1-contracts/src/core/libraries/crypto/Hash.sol";
-import {Epoch} from "@aztec/l1-contracts/src/core/libraries/TimeLib.sol";
+import {IRegistry} from "@aztec/l1-artifacts/l1-contracts/src/governance/interfaces/IRegistry.sol";
+import {IInbox} from "@aztec/l1-artifacts/l1-contracts/src/core/interfaces/messagebridge/IInbox.sol";
+import {IOutbox} from "@aztec/l1-artifacts/l1-contracts/src/core/interfaces/messagebridge/IOutbox.sol";
+import {IRollup} from "@aztec/l1-artifacts/l1-contracts/src/core/interfaces/IRollup.sol";
+import {DataStructures} from "@aztec/l1-artifacts/l1-contracts/src/core/libraries/DataStructures.sol";
+import {Hash} from "@aztec/l1-artifacts/l1-contracts/src/core/libraries/crypto/Hash.sol";
+import {Epoch} from "@aztec/l1-artifacts/l1-contracts/src/core/libraries/TimeLib.sol";
 
 #include_code portal_setup /docs/examples/solidity/aave_bridge/AavePortal.sol raw
 }
