@@ -23,7 +23,7 @@ impl Poseidon2Sponge {
         Poseidon2Sponge::hash_internal(input, message_size, message_size != N)
     }
 
-    pub(crate) fn new(iv: Field) -> Poseidon2Sponge {
+    pub fn new(iv: Field) -> Poseidon2Sponge {
         let mut result =
             Poseidon2Sponge { cache: [0; 3], state: [0; 4], cache_size: 0, squeeze_mode: false };
         result.state[RATE] = iv;
