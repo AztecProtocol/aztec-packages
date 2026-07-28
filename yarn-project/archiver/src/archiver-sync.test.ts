@@ -259,6 +259,34 @@ describe('Archiver Sync', () => {
       expect(
         (await archiver.getCheckpoints({ from: CheckpointNumber(1), limit: 100 })).map(b => b.checkpoint.number),
       ).toEqual([1, 2, 3]);
+
+      // Inbox buckets: each of the three L1 message blocks opened its own bucket, in insertion order.
+      const t1 = fake.getTimestampAtL1Block(98n);
+      const t2 = fake.getTimestampAtL1Block(2504n);
+      const t3 = fake.getTimestampAtL1Block(2511n);
+
+      expect(await archiver.getInboxBucket(1n)).toMatchObject({
+        seq: 1n,
+        msgCount: 3,
+        totalMsgCount: 3n,
+        timestamp: t1,
+      });
+      expect(await archiver.getInboxBucket(3n)).toMatchObject({
+        seq: 3n,
+        msgCount: 3,
+        totalMsgCount: 9n,
+        timestamp: t3,
+      });
+
+      // At-or-before lookups resolve the latest bucket not opened after the given timestamp.
+      expect((await archiver.getLatestInboxBucketAtOrBefore(t3))!.seq).toEqual(3n);
+      expect((await archiver.getLatestInboxBucketAtOrBefore(t2))!.seq).toEqual(2n);
+      expect(await archiver.getLatestInboxBucketAtOrBefore(t1 - 1n)).toBeUndefined();
+
+      // Messages between buckets, in insertion order.
+      expect(await archiver.getL1ToL2MessagesBetweenBuckets(0n, 3n)).toEqual([...msgs1, ...msgs2, ...msgs3]);
+      expect(await archiver.getL1ToL2MessagesBetweenBuckets(1n, 2n)).toEqual(msgs2);
+      expect(await archiver.getL1ToL2MessagesBetweenBuckets(2n, 3n)).toEqual(msgs3);
     }, 30_000);
 
     it('ignores checkpoint 3 because it has been pruned', async () => {

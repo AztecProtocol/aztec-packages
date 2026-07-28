@@ -13,7 +13,7 @@ import { FunctionNamesCache } from './function_names_cache.js';
 import { LogStore } from './log_store.js';
 import { MessageStore } from './message_store.js';
 
-export const ARCHIVER_DB_VERSION = 7;
+export const ARCHIVER_DB_VERSION = 8;
 
 /**
  * Represents the latest L1 block processed by the archiver for various objects in L2.
