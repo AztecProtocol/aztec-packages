@@ -65,8 +65,11 @@ import type { AllowedElement } from './allowed_element.js';
 import {
   MAX_RPC_BLOCKS_LEN,
   MAX_RPC_CHECKPOINTS_DATA_LEN,
+  MAX_RPC_CHECKPOINTS_LEN,
+  MAX_RPC_HEAVY_LEN,
   MAX_RPC_LEN,
   MAX_RPC_PUBLIC_STORAGE_OVERRIDES_LEN,
+  MAX_RPC_TXS_LEN,
 } from './api_limit.js';
 import { type AztecNode, AztecNodeApiSchema, type GetTxByHashOptions } from './aztec-node.js';
 import type { BlockIncludeOptions, BlockResponse, BlocksIncludeOptions } from './block_response.js';
@@ -271,11 +274,27 @@ describe('AztecNodeApiSchema', () => {
     await expect(context.client.getBlocks(BlockNumber.ZERO, BlockNumber(1))).rejects.toThrow();
     await expect(context.client.getBlocks(BlockNumber(1), BlockNumber.ZERO)).rejects.toThrow();
     await expect(context.client.getBlocks(BlockNumber(1), MAX_RPC_BLOCKS_LEN + 1)).rejects.toThrow();
+
+    // Requesting tx bodies drops the page cap to MAX_RPC_HEAVY_LEN.
+    await expect(
+      context.client.getBlocks(BlockNumber(1), MAX_RPC_BLOCKS_LEN, { includeTransactions: true }),
+    ).rejects.toThrow();
+    await expect(
+      context.client.getBlocks(BlockNumber(1), MAX_RPC_HEAVY_LEN, { includeTransactions: true }),
+    ).resolves.toEqual([]);
   });
 
   it('getCheckpoints', async () => {
     const response = await context.client.getCheckpoints(CheckpointNumber(1), 1);
     expect(response).toEqual([]);
+
+    // Requesting nested blocks drops the page cap to MAX_RPC_HEAVY_LEN.
+    await expect(
+      context.client.getCheckpoints(CheckpointNumber(1), MAX_RPC_CHECKPOINTS_LEN, { includeBlocks: true }),
+    ).rejects.toThrow();
+    await expect(
+      context.client.getCheckpoints(CheckpointNumber(1), MAX_RPC_HEAVY_LEN, { includeBlocks: true }),
+    ).resolves.toEqual([]);
   });
 
   it('getCheckpointsData (epoch)', async () => {
@@ -380,6 +399,10 @@ describe('AztecNodeApiSchema', () => {
 
     const responseWithProof = await context.client.getPendingTxs(undefined, undefined, { includeProof: true });
     expect(responseWithProof[0].chonkProof.isEmpty()).toBe(false);
+
+    // A limit above MAX_RPC_HEAVY_LEN is fine without proofs, rejected with them.
+    await expect(context.client.getPendingTxs(MAX_RPC_TXS_LEN)).resolves.toBeDefined();
+    await expect(context.client.getPendingTxs(MAX_RPC_TXS_LEN, undefined, { includeProof: true })).rejects.toThrow();
   });
 
   it('getPendingTxCount', async () => {
@@ -405,6 +428,15 @@ describe('AztecNodeApiSchema', () => {
     const responseWithProof = await context.client.getTxsByHash([TxHash.random()], { includeProof: true });
     expect(responseWithProof[0]).toBeInstanceOf(Tx);
     expect(responseWithProof[0].chonkProof.isEmpty()).toBe(false);
+
+    // Requesting proofs drops the accepted hash count to MAX_RPC_HEAVY_LEN.
+    await expect(context.client.getTxsByHash(times(MAX_RPC_TXS_LEN, TxHash.random))).resolves.toBeDefined();
+    await expect(
+      context.client.getTxsByHash(times(MAX_RPC_TXS_LEN, TxHash.random), { includeProof: true }),
+    ).rejects.toThrow();
+    await expect(
+      context.client.getTxsByHash(times(MAX_RPC_HEAVY_LEN, TxHash.random), { includeProof: true }),
+    ).resolves.toBeDefined();
   });
 
   it('getPublicStorageAt', async () => {

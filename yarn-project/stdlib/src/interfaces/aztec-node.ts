@@ -77,7 +77,14 @@ import { SingleValidatorStatsSchema, ValidatorsStatsSchema } from '../validators
 import type { SingleValidatorStats, ValidatorsStats } from '../validators/types.js';
 import { type ComponentsVersions, getVersioningResponseHandler } from '../versioning/index.js';
 import { type AllowedElement, AllowedElementSchema } from './allowed_element.js';
-import { MAX_RPC_BLOCKS_LEN, MAX_RPC_CHECKPOINTS_LEN, MAX_RPC_LEN, MAX_RPC_TXS_LEN } from './api_limit.js';
+import {
+  MAX_COMMITTEE_SIZE,
+  MAX_RPC_BLOCKS_LEN,
+  MAX_RPC_CHECKPOINTS_LEN,
+  MAX_RPC_HEAVY_LEN,
+  MAX_RPC_LEN,
+  MAX_RPC_TXS_LEN,
+} from './api_limit.js';
 import {
   type BlockIncludeOptions,
   BlockIncludeOptionsSchema,
@@ -571,6 +578,8 @@ export interface AztecNode {
   getProposalsForSlot(slot: SlotNumber): Promise<ProposalsForSlot>;
 }
 
+const heavyPageLimitMessage = `Requesting transaction bodies or proofs limits the page to ${MAX_RPC_HEAVY_LEN} entries`;
+
 export const AztecNodeApiSchema: ApiSchemaFor<AztecNode> = {
   getWorldStateSyncStatus: z.function({ input: z.tuple([]), output: WorldStateSyncStatusSchema }),
 
@@ -648,11 +657,15 @@ export const AztecNodeApiSchema: ApiSchemaFor<AztecNode> = {
   getBlockData: z.function({ input: z.tuple([BlockParameterSchema]), output: BlockDataSchema.optional() }),
 
   getBlocks: z.function({
-    input: z.tuple([
-      BlockNumberPositiveSchema,
-      z.number().gt(0).lte(MAX_RPC_BLOCKS_LEN),
-      optional(BlocksIncludeOptionsSchema),
-    ]),
+    input: z
+      .tuple([
+        BlockNumberPositiveSchema,
+        z.number().gt(0).lte(MAX_RPC_BLOCKS_LEN),
+        optional(BlocksIncludeOptionsSchema),
+      ])
+      .refine(([, limit, options]) => !options?.includeTransactions || limit <= MAX_RPC_HEAVY_LEN, {
+        message: heavyPageLimitMessage,
+      }),
     output: z.array(BlockResponseSchema),
   }),
 
@@ -662,11 +675,15 @@ export const AztecNodeApiSchema: ApiSchemaFor<AztecNode> = {
   }),
 
   getCheckpoints: z.function({
-    input: z.tuple([
-      CheckpointNumberPositiveSchema,
-      z.number().gt(0).lte(MAX_RPC_CHECKPOINTS_LEN),
-      optional(CheckpointIncludeOptionsSchema),
-    ]),
+    input: z
+      .tuple([
+        CheckpointNumberPositiveSchema,
+        z.number().gt(0).lte(MAX_RPC_CHECKPOINTS_LEN),
+        optional(CheckpointIncludeOptionsSchema),
+      ])
+      .refine(([, limit, options]) => !options?.includeBlocks || limit <= MAX_RPC_HEAVY_LEN, {
+        message: heavyPageLimitMessage,
+      }),
     output: z.array(CheckpointResponseSchema),
   }),
 
@@ -713,11 +730,16 @@ export const AztecNodeApiSchema: ApiSchemaFor<AztecNode> = {
   getTxEffect: z.function({ input: z.tuple([TxHash.schema]), output: indexedTxSchema().optional() }),
 
   getPendingTxs: z.function({
-    input: z.tuple([
-      optional(z.number().gte(1).lte(MAX_RPC_TXS_LEN).default(MAX_RPC_TXS_LEN)),
-      optional(TxHash.schema),
-      optional(GetTxByHashOptionsSchema),
-    ]),
+    input: z
+      .tuple([
+        // Defaults to the heavy cap so an unspecified limit is valid with or without `includeProof`.
+        optional(z.number().gte(1).lte(MAX_RPC_TXS_LEN).default(MAX_RPC_HEAVY_LEN)),
+        optional(TxHash.schema),
+        optional(GetTxByHashOptionsSchema),
+      ])
+      .refine(([limit, , options]) => !options?.includeProof || (limit ?? MAX_RPC_HEAVY_LEN) <= MAX_RPC_HEAVY_LEN, {
+        message: heavyPageLimitMessage,
+      }),
     output: z.array(Tx.schema),
   }),
 
@@ -729,7 +751,11 @@ export const AztecNodeApiSchema: ApiSchemaFor<AztecNode> = {
   }),
 
   getTxsByHash: z.function({
-    input: z.tuple([z.array(TxHash.schema).max(MAX_RPC_TXS_LEN), optional(GetTxByHashOptionsSchema)]),
+    input: z
+      .tuple([z.array(TxHash.schema).max(MAX_RPC_TXS_LEN), optional(GetTxByHashOptionsSchema)])
+      .refine(([txHashes, options]) => !options?.includeProof || txHashes.length <= MAX_RPC_HEAVY_LEN, {
+        message: heavyPageLimitMessage,
+      }),
     output: z.array(Tx.schema),
   }),
 
@@ -781,7 +807,7 @@ export const AztecNodeApiSchema: ApiSchemaFor<AztecNode> = {
       schemas.SlotNumber,
       optional(z.string().regex(/^0x[0-9a-fA-F]+$/) as unknown as z.ZodType<CheckpointProposalHash>),
     ]),
-    output: z.array(CheckpointAttestation.schema),
+    output: z.array(CheckpointAttestation.schema).max(MAX_COMMITTEE_SIZE),
   }),
 
   getProposalsForSlot: z.function({
