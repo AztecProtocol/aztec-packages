@@ -23,6 +23,20 @@ export interface ProvingBrokerDatabase {
   allProvingJobs(): AsyncIterableIterator<[ProvingJob, ProvingJobSettledResult | undefined]>;
 
   /**
+   * Reads a single job's inputs URI by id, or undefined if the job is unknown. The broker keeps only
+   * job metadata in memory and reads the (large) inputs from here on demand when dispatching to an agent.
+   * @param id - The ID of the proof request
+   */
+  getProvingJobInputs(id: ProvingJobId): Promise<ProofUri | undefined>;
+
+  /**
+   * Reads a single job's settled result by id, or undefined if not settled. The broker keeps only the
+   * settled status in memory and reads the (large) fulfilled proof from here on demand.
+   * @param id - The ID of the proof request
+   */
+  getProvingJobResult(id: ProvingJobId): Promise<ProvingJobSettledResult | undefined>;
+
+  /**
    * Saves the result of a proof request
    * @param id - The ID of the proof request to save the result for
    * @param ProvingRequestType - The type of proof that was requested
