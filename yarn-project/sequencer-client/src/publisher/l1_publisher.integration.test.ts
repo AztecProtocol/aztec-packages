@@ -116,7 +116,7 @@ const logger = createLogger('integration_l1_publisher');
 const config: SequencerClientConfig & L1ContractsConfig = { ...getL1ContractsConfigEnvVars(), ...getConfigEnvVars() };
 
 // Several consecutive checkpoints, each consuming the L1->L2 messages sent while it was being built, so real
-// messages are genuinely consumed and validated on L1 (AZIP-22 Fast Inbox).
+// messages are genuinely consumed and validated on L1.
 const numberOfConsecutiveBlocks = 3;
 
 jest.setTimeout(1000000);
@@ -144,7 +144,7 @@ describe('L1Publisher integration', () => {
   let builderDb: NativeWorldStateService;
 
   // Backs the blockSource mock's streaming L1->L2 message queries. The world-state synchronizer reconstructs each
-  // block's consumed message bundle from Inbox buckets (AZIP-22 Fast Inbox) when it syncs a block back, so the test
+  // block's consumed message bundle from Inbox buckets when it syncs a block back, so the test
   // registers one bucket per published block here (see buildAndPublishBlock).
   let messageSource: MockL1ToL2MessageSource;
 
@@ -373,7 +373,7 @@ describe('L1Publisher integration', () => {
       getBlockNumber(): Promise<BlockNumber> {
         return Promise.resolve(BlockNumber(blocks.at(-1)?.number ?? BlockNumber.ZERO));
       },
-      // Streaming L1->L2 message reconstruction (AZIP-22 Fast Inbox): the world-state synchronizer resolves each
+      // Streaming L1->L2 message reconstruction: the world-state synchronizer resolves each
       // block's consumed message bundle from the Inbox buckets registered per published block in buildAndPublishBlock.
       getInboxBucketByTotalMsgCount(totalMsgCount: bigint) {
         return messageSource.getInboxBucketByTotalMsgCount(totalMsgCount);
@@ -552,7 +552,7 @@ describe('L1Publisher integration', () => {
   describe('block building', () => {
     beforeEach(async () => {
       // This suite proposes consecutive checkpoints, each consuming the streaming-Inbox messages sent while it was
-      // being built (AZIP-22 Fast Inbox), so real messages are genuinely consumed and validated on L1.
+      // being built, so real messages are genuinely consumed and validated on L1.
       await setup();
     });
 
@@ -567,7 +567,7 @@ describe('L1Publisher integration', () => {
         '0x1647b194c649f5dd01d7c832f89b0f496043c9150797923ea89e93d5ac619a93',
       );
 
-      // Streaming Inbox consumption (AZIP-22 Fast Inbox): the L1 Rollup only lets a checkpoint consume Inbox buckets
+      // Streaming Inbox consumption: the L1 Rollup only lets a checkpoint consume Inbox buckets
       // that have aged past the censorship cutoff (`toTimestamp(slot - 1) - INBOX_LAG_SECONDS`), measured in L1 time,
       // not whole checkpoints. Each checkpoint mirrors the real Inbox buckets into messageSource, then reuses the
       // production `selectInboxBucketForBlock` (which mirrors `ProposeLib.validateInboxConsumption`) to pick exactly

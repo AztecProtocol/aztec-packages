@@ -1,4 +1,3 @@
-import type { CheckpointNumber } from '@aztec/foundation/branded-types';
 import type { Fr } from '@aztec/foundation/curves/bn254';
 
 import type { L2Tips } from '../block/l2_block_source.js';
@@ -8,15 +7,6 @@ import type { InboxBucket } from './inbox_bucket.js';
  * Interface of classes allowing for the retrieval of L1 to L2 messages.
  */
 export interface L1ToL2MessageSource {
-  /**
-   * Gets new L1 to L2 message (to be) included in a given checkpoint.
-   * @param checkpointNumber - Checkpoint number to get messages for.
-   * @returns The L1 to L2 messages/leaves of the messages subtree.
-   * @throws If the message tree for the given checkpoint has not yet been sealed on L1
-   * (i.e., checkpointNumber >= inbox treeInProgress).
-   */
-  getL1ToL2Messages(checkpointNumber: CheckpointNumber): Promise<Fr[]>;
-
   /**
    * Gets the L1 to L2 message index in the L1 to L2 message tree.
    * @param l1ToL2Message - The L1 to L2 message.

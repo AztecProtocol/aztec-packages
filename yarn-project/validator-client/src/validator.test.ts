@@ -32,12 +32,7 @@ import { AztecAddress } from '@aztec/stdlib/aztec-address';
 import { type BlockData, BlockHash, L2Block, type L2BlockSink, type L2BlockSource } from '@aztec/stdlib/block';
 import { type Checkpoint, CheckpointReexecutionTracker, type ProposedCheckpointData } from '@aztec/stdlib/checkpoint';
 import type { SlasherConfig, WorldStateSynchronizer } from '@aztec/stdlib/interfaces/server';
-import {
-  type InboxBucket,
-  InboxBucketRef,
-  type L1ToL2MessageSource,
-  computeInHashFromL1ToL2Messages,
-} from '@aztec/stdlib/messaging';
+import { type InboxBucket, InboxBucketRef, type L1ToL2MessageSource } from '@aztec/stdlib/messaging';
 import {
   type BlockProposal,
   type CheckpointProposalCore,
@@ -189,7 +184,6 @@ describe('ValidatorClient', () => {
     epochCache.isEscapeHatchOpenAtSlot.mockResolvedValue(false);
     l1ToL2MessageSource = mock<L1ToL2MessageSource>();
     txProvider = mock<TxProvider>();
-    l1ToL2MessageSource.getL1ToL2Messages.mockResolvedValue([]);
     dateProvider = new TestDateProvider();
     blobClient = mock<BlobClientInterface>();
     blobClient.canUpload.mockReturnValue(false);
@@ -248,7 +242,6 @@ describe('ValidatorClient', () => {
     it('should create a valid block proposal without txs', async () => {
       const blockHeader = makeBlockHeader();
       const indexWithinCheckpoint = IndexWithinCheckpoint(0);
-      const inHash = Fr.random();
       const archive = Fr.random();
       const txs = await Promise.all([1, 2, 3, 4, 5].map(() => mockTx()));
 
@@ -256,7 +249,6 @@ describe('ValidatorClient', () => {
         blockHeader,
         CheckpointNumber(1),
         indexWithinCheckpoint,
-        inHash,
         archive,
         txs,
         EthAddress.fromString(validatorAccounts[0].address),
@@ -477,11 +469,10 @@ describe('ValidatorClient', () => {
     const genesisBucketRef = InboxBucketRef.fromBucket(genesisInboxBucket);
 
     beforeEach(async () => {
-      const emptyInHash = computeInHashFromL1ToL2Messages([]);
       const blockHeader = makeBlockHeader(1, { blockNumber: BlockNumber(100), slotNumber: SlotNumber(100) });
       blockNumber = BlockNumber(blockHeader.globalVariables.blockNumber);
       proposal = ValidatedBlockProposal(
-        await makeBlockProposal({ blockHeader, inHash: emptyInHash, bucketRef: genesisBucketRef }),
+        await makeBlockProposal({ blockHeader, bucketRef: genesisBucketRef }),
       );
       // The proposal targets slot 100, which under pipelining is built during the previous slot. Set the
       // wall clock to the start of that build slot (target_slot_start - S), matching how a pipelined
@@ -598,7 +589,6 @@ describe('ValidatorClient', () => {
       validatorClient.getProposalHandler().register(p2pClient, true);
 
       const signer = Secp256k1Signer.random();
-      const emptyInHash = computeInHashFromL1ToL2Messages([]);
       const checkpointProposal = await makeCheckpointProposal({
         signer,
         checkpointHeader: makeCheckpointHeader(1, { slotNumber: proposal.slotNumber }),
@@ -628,7 +618,6 @@ describe('ValidatorClient', () => {
           signer,
           blockHeader: laterBlockHeader,
           indexWithinCheckpoint: IndexWithinCheckpoint(1),
-          inHash: emptyInHash,
           archiveRoot: Fr.random(),
         }),
       );
@@ -719,7 +708,6 @@ describe('ValidatorClient', () => {
             blockNumber,
             slotNumber: futureSlot,
           }),
-          inHash: computeInHashFromL1ToL2Messages([]),
           bucketRef: genesisBucketRef,
         }),
       );
@@ -760,11 +748,9 @@ describe('ValidatorClient', () => {
 
     it('should process block proposal from own validator key (HA peer)', async () => {
       const selfSigner = new Secp256k1Signer(Buffer32.fromString(validatorPrivateKeys[0]));
-      const emptyInHash = computeInHashFromL1ToL2Messages([]);
       const selfProposal = ValidatedBlockProposal(
         await makeBlockProposal({
           blockHeader: proposal.blockHeader,
-          inHash: emptyInHash,
           archiveRoot: proposal.archive,
           txHashes: proposal.txHashes,
           signer: selfSigner,
@@ -1472,7 +1458,7 @@ describe('ValidatorClient', () => {
       const duplicateProposal = ValidatedBlockProposal(
         await makeBlockProposal({
           blockHeader: proposal.blockHeader,
-          inHash: proposal.inHash,
+          bucketRef: proposal.bucketRef,
           txHashes: [txHash, txHash],
           signer,
         }),
@@ -1526,10 +1512,6 @@ describe('ValidatorClient', () => {
 
     describe('non-first block in checkpoint validation', () => {
       // When indexWithinCheckpoint > 0, global variables must match parent block (except blockNumber).
-      // The inHash validation is implicitly handled: all blocks in a checkpoint share the same
-      // checkpointNumber, so they fetch the same L1-to-L2 messages and compute the same inHash.
-      // If a proposal has a different inHash, the existing validation (which computes inHash from
-      // L1 messages for the checkpoint) will catch it.
 
       it('should return false if global variables do not match parent for non-first block in checkpoint', async () => {
         // Create a proposal with indexWithinCheckpoint > 0 (non-first block in checkpoint)
@@ -1551,8 +1533,6 @@ describe('ValidatorClient', () => {
           coinbase: EthAddress.random(), // Different from parent - should cause failure
         });
 
-        // Use empty messages and compute the matching inHash
-        const emptyInHash = computeInHashFromL1ToL2Messages([]);
         const proposalBlockHeader = makeBlockHeader(1, {
           blockNumber: BlockNumber(parentBlockNumber + 1),
           slotNumber: SlotNumber(parentSlotNumber),
@@ -1564,7 +1544,6 @@ describe('ValidatorClient', () => {
           await makeBlockProposal({
             blockHeader: proposalBlockHeader,
             indexWithinCheckpoint: IndexWithinCheckpoint(1), // Non-first block in checkpoint
-            inHash: emptyInHash,
           }),
         );
 
@@ -1626,13 +1605,6 @@ describe('ValidatorClient', () => {
         const isValid = await validatorClient.validateBlockProposal(nonFirstBlockProposal, sender);
         expect(isValid).toBe(false);
       });
-
-      // Note: inHash validation for non-first blocks is implicitly handled by the existing
-      // validation that computes inHash from L1-to-L2 messages for the checkpoint. Since all
-      // blocks in the same checkpoint share the same checkpointNumber, they will always
-      // compute the same inHash from the same L1 messages. If a malicious proposal has a
-      // different inHash, it will fail the existing validation at lines 192-200 in
-      // proposal_handler.ts.
     });
 
     it('should validate proposals in fisherman mode but not create or broadcast attestations', async () => {

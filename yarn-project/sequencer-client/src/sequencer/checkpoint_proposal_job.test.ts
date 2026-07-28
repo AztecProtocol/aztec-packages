@@ -249,7 +249,6 @@ describe('CheckpointProposalJob', () => {
     checkpointBuilder = checkpointsBuilder.createCheckpointBuilder(checkpointConstants, checkpointNumber);
 
     l1ToL2MessageSource = mock<L1ToL2MessageSource>();
-    l1ToL2MessageSource.getL1ToL2Messages.mockResolvedValue(Array(4).fill(Fr.ZERO));
     // Genesis bucket for the empty-tree cursor above; with no newer synced buckets mocked, block bundle
     // selection consumes nothing by default.
     l1ToL2MessageSource.getInboxBucketByTotalMsgCount.mockResolvedValue({
@@ -297,12 +296,11 @@ describe('CheckpointProposalJob', () => {
     validatorClient = mock<ValidatorClient>();
     validatorClient.collectAttestations.mockImplementation(() => Promise.resolve([]));
     validatorClient.createBlockProposal.mockImplementation(
-      async (blockHeader, _checkpointNumber, indexWithinCheckpoint, inHash, archiveRoot, txs) => {
+      async (blockHeader, _checkpointNumber, indexWithinCheckpoint, archiveRoot, txs) => {
         const txHashes = await Promise.all((txs ?? []).map((tx: Tx) => tx.getTxHash()));
         return new BlockProposal(
           blockHeader,
           IndexWithinCheckpoint(indexWithinCheckpoint),
-          inHash,
           archiveRoot,
           txHashes,
           mockedSig,
@@ -1465,8 +1463,7 @@ describe('CheckpointProposalJob', () => {
 
       expect(checkpoint).toBeDefined();
 
-      // Streaming skips the bulk per-checkpoint fetch; every message reaches the builder through a block.
-      expect(l1ToL2MessageSource.getL1ToL2Messages).not.toHaveBeenCalled();
+      // Streaming has no bulk per-checkpoint list; every message reaches the builder through a block.
       expect(checkpointsBuilder.startCheckpointCalls).toHaveLength(1);
 
       // The first block consumes the selected bundle; the second consumes nothing.
@@ -1475,7 +1472,7 @@ describe('CheckpointProposalJob', () => {
       expect(checkpointBuilder.buildBlockCalls[1].opts.l1ToL2Messages).toEqual([]);
 
       // Both block proposals carry the selected bucket reference (the second reuses the first's).
-      const bucketRefArgs = validatorClient.createBlockProposal.mock.calls.map(call => call[8]);
+      const bucketRefArgs = validatorClient.createBlockProposal.mock.calls.map(call => call[7]);
       expect(bucketRefArgs).toHaveLength(2);
       expect(bucketRefArgs[0]?.bucketSeq).toBe(2n);
       expect(bucketRefArgs[1]?.bucketSeq).toBe(2n);

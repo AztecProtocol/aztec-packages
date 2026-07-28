@@ -397,8 +397,7 @@ library ProposeLib {
 
   /**
    * @notice Validates a checkpoint's Inbox consumption against the streaming inbox buckets and returns how
-   *         far consumption has reached. Called from propose() as the enforced consumption path (AZIP-22 Fast
-   *         Inbox).
+   *         far consumption has reached. Called from propose() as the enforced consumption path.
    *
    * @dev Read-only; performs no Inbox write. Checks, in order:
    *      1. The checkpoint header's `inboxRollingHash` must equal the rolling hash snapshotted in the Inbox

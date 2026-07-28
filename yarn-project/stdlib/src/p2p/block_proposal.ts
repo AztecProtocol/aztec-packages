@@ -71,9 +71,6 @@ export class BlockProposal extends Gossipable implements Signable {
     /** Index of this block within the checkpoint (0-indexed) */
     public readonly indexWithinCheckpoint: IndexWithinCheckpoint,
 
-    /** Hash of L1 to L2 messages for this checkpoint (constant across all blocks in checkpoint) */
-    public readonly inHash: Fr,
-
     /** Archive root after this block is applied */
     public readonly archiveRoot: Fr,
 
@@ -132,15 +129,14 @@ export class BlockProposal extends Gossipable implements Signable {
 
   /**
    * Get the payload to sign for this block proposal.
-   * The signature is over: blockHeader + indexWithinCheckpoint + inHash + archiveRoot + txHashes, plus the bucket
-   * reference when set. Appending only when set keeps the pre-flip signed payload byte-identical to the legacy format,
-   * while binding the reference to the signature so a relay cannot strip or inject it without breaking recovery.
+   * The signature is over: blockHeader + indexWithinCheckpoint + archiveRoot + txHashes, plus the bucket reference
+   * when set. Appending only when set binds the reference to the signature so a relay cannot strip or inject it
+   * without breaking recovery.
    */
   getPayloadToSign(): Buffer {
     return serializeToBuffer([
       this.blockHeader,
       this.indexWithinCheckpoint,
-      this.inHash,
       this.archiveRoot,
       this.txHashes.length,
       this.txHashes,
@@ -167,7 +163,6 @@ export class BlockProposal extends Gossipable implements Signable {
     blockHeader: BlockHeader,
     checkpointNumber: CheckpointNumber,
     indexWithinCheckpoint: IndexWithinCheckpoint,
-    inHash: Fr,
     archiveRoot: Fr,
     txHashes: TxHash[],
     txs: Tx[] | undefined,
@@ -180,7 +175,6 @@ export class BlockProposal extends Gossipable implements Signable {
     const tempProposal = new BlockProposal(
       blockHeader,
       indexWithinCheckpoint,
-      inHash,
       archiveRoot,
       txHashes,
       Signature.empty(),
@@ -216,7 +210,6 @@ export class BlockProposal extends Gossipable implements Signable {
     return new BlockProposal(
       blockHeader,
       indexWithinCheckpoint,
-      inHash,
       archiveRoot,
       txHashes,
       sig,
@@ -263,7 +256,6 @@ export class BlockProposal extends Gossipable implements Signable {
     const buffer: any[] = [
       this.blockHeader,
       this.indexWithinCheckpoint,
-      this.inHash,
       this.archiveRoot,
       this.signature,
       serializeCoordinationSignatureContext(this.signatureContext),
@@ -276,8 +268,8 @@ export class BlockProposal extends Gossipable implements Signable {
     } else {
       buffer.push(0); // hasSignedTxs = false
     }
-    // Optional bucket-reference tail (AZIP-22 Fast Inbox). Appended only when set, so pre-flip proposals serialize
-    // byte-identically to the legacy format and mixed-version peers keep decoding them.
+    // Optional bucket-reference tail. Appended only when set, so a proposal without a reference
+    // serializes without the tail and a decoder that reaches EOF reads it as unset.
     if (this.bucketRef) {
       buffer.push(1); // hasBucketRef = true
       buffer.push(this.bucketRef.toBuffer());
@@ -290,7 +282,6 @@ export class BlockProposal extends Gossipable implements Signable {
 
     const blockHeader = reader.readObject(BlockHeader);
     const indexWithinCheckpoint = IndexWithinCheckpoint(reader.readNumber());
-    const inHash = reader.readObject(Fr);
     const archiveRoot = reader.readObject(Fr);
     const signature = reader.readObject(Signature);
     const signatureContext = readCoordinationSignatureContext(reader);
@@ -308,8 +299,8 @@ export class BlockProposal extends Gossipable implements Signable {
       }
     }
 
-    // Optional bucket-reference tail (AZIP-22 Fast Inbox). Legacy buffers end after the signedTxs flag, so EOF here
-    // decodes as "no reference" — this is the cross-version tolerance that keeps mixed-version gossip working.
+    // Optional bucket-reference tail. A buffer that ends after the signedTxs flag decodes as
+    // "no reference", so proposals written without the tail round-trip cleanly.
     let bucketRef: InboxBucketRef | undefined;
     if (!reader.isEmpty()) {
       const hasBucketRef = reader.readNumber();
@@ -321,7 +312,6 @@ export class BlockProposal extends Gossipable implements Signable {
     return new BlockProposal(
       blockHeader,
       indexWithinCheckpoint,
-      inHash,
       archiveRoot,
       txHashes,
       signature,
@@ -335,7 +325,6 @@ export class BlockProposal extends Gossipable implements Signable {
     return (
       this.blockHeader.getSize() +
       4 /* indexWithinCheckpoint */ +
-      this.inHash.size +
       this.archiveRoot.size +
       this.signature.getSize() +
       4 /* chainId */ +
@@ -353,7 +342,6 @@ export class BlockProposal extends Gossipable implements Signable {
       BlockHeader.empty(),
       IndexWithinCheckpoint(0),
       Fr.ZERO,
-      Fr.ZERO,
       [],
       Signature.empty(),
       EMPTY_COORDINATION_SIGNATURE_CONTEXT,
@@ -365,7 +353,6 @@ export class BlockProposal extends Gossipable implements Signable {
       BlockHeader.random(),
       IndexWithinCheckpoint(Math.floor(Math.random() * 5)),
       Fr.random(),
-      Fr.random(),
       [TxHash.random(), TxHash.random()],
       Signature.random(),
       EMPTY_COORDINATION_SIGNATURE_CONTEXT,
@@ -376,7 +363,6 @@ export class BlockProposal extends Gossipable implements Signable {
     return {
       blockHeader: this.blockHeader.toInspect(),
       indexWithinCheckpoint: this.indexWithinCheckpoint,
-      inHash: this.inHash.toString(),
       archiveRoot: this.archiveRoot.toString(),
       signature: this.signature.toString(),
       txHashes: this.txHashes.map(h => h.toString()),
@@ -404,7 +390,6 @@ export class BlockProposal extends Gossipable implements Signable {
     return new BlockProposal(
       this.blockHeader,
       this.indexWithinCheckpoint,
-      this.inHash,
       this.archiveRoot,
       this.txHashes,
       this.signature,

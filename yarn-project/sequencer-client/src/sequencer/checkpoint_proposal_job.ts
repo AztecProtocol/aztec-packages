@@ -654,10 +654,6 @@ export class CheckpointProposalJob implements Traceable {
         this.checkpointSimulationOverridesPlan,
       );
 
-      // Under the streaming Inbox (AZIP-22 Fast Inbox) messages are selected per block, so the legacy inHash is fed
-      // zero; the running values are computed block by block.
-      const inHash = Fr.ZERO;
-
       // Collect the out hashes of all the checkpoints before this one in the same epoch.
       // Under pipelining the parent checkpoint may not be on L1 yet at build time, so the helper
       // splices in the parent's checkpointOutHash from the locally-known proposed checkpoint so
@@ -729,7 +725,6 @@ export class CheckpointProposalJob implements Traceable {
         const result = await this.buildBlocksForCheckpoint(
           checkpointBuilder,
           checkpointGlobalVariables.timestamp,
-          inHash,
           blockProposalOptions,
           streamingState,
         );
@@ -958,7 +953,6 @@ export class CheckpointProposalJob implements Traceable {
   private async buildBlocksForCheckpoint(
     checkpointBuilder: CheckpointBuilder,
     timestamp: bigint,
-    inHash: Fr,
     blockProposalOptions: BlockProposalOptions,
     streamingState?: StreamingCheckpointState,
   ): Promise<{
@@ -1072,9 +1066,7 @@ export class CheckpointProposalJob implements Traceable {
       usedTxs.forEach(tx => txHashesAlreadyIncluded.add(tx.txHash.toString()));
 
       // Streaming Inbox: the block built successfully, so advance the consumption cursor and carry this block's
-      // rolling-hash bucket reference. A block that consumed nothing reuses the parent bucket reference. The legacy
-      // inHash is dead post-flip; block proposals carry zero (AZIP-22 Fast Inbox).
-      const blockInHash = inHash;
+      // rolling-hash bucket reference. A block that consumed nothing reuses the parent bucket reference.
       let blockBucketRef: InboxBucketRef | undefined = undefined;
       if (streamingState && selection) {
         if (selection.consume) {
@@ -1087,7 +1079,6 @@ export class CheckpointProposalJob implements Traceable {
       // Sign the block proposal. This will throw if HA signing fails.
       const proposal = await this.createBlockProposal(
         block,
-        blockInHash,
         usedTxs,
         {
           ...blockProposalOptions,
@@ -1136,7 +1127,6 @@ export class CheckpointProposalJob implements Traceable {
   /** Creates a block proposal for a given block via the validator client (unless in fisherman mode) */
   private createBlockProposal(
     block: L2Block,
-    inHash: Fr,
     usedTxs: Tx[],
     blockProposalOptions: BlockProposalOptions,
     bucketRef?: InboxBucketRef,
@@ -1149,7 +1139,6 @@ export class CheckpointProposalJob implements Traceable {
       block.header,
       this.checkpointNumber,
       block.indexWithinCheckpoint,
-      inHash,
       block.archive.root,
       usedTxs,
       this.proposer,
@@ -1252,7 +1241,7 @@ export class CheckpointProposalJob implements Traceable {
       indexWithinCheckpoint: IndexWithinCheckpoint;
       buildDeadline: Date | undefined;
       txHashesAlreadyIncluded: Set<string>;
-      /** Streaming Inbox message bundle to insert into this block's L1-to-L2 tree; undefined in the legacy flow. */
+      /** Streaming Inbox message bundle for this block's L1-to-L2 tree; undefined when it consumes nothing. */
       l1ToL2Messages?: Fr[];
     },
   ): Promise<

@@ -1,6 +1,5 @@
 import type { L1BlockId } from '@aztec/ethereum/l1-types';
-import { CheckpointNumber } from '@aztec/foundation/branded-types';
-import { Buffer16, Buffer32 } from '@aztec/foundation/buffer';
+import { Buffer32 } from '@aztec/foundation/buffer';
 import { Fr } from '@aztec/foundation/curves/bn254';
 import { toArray } from '@aztec/foundation/iterable';
 import { createLogger } from '@aztec/foundation/log';
@@ -13,19 +12,10 @@ import {
   type CustomRange,
   mapRange,
 } from '@aztec/kv-store';
-import { type InboxBucket, InboxLeaf, updateInboxRollingHash } from '@aztec/stdlib/messaging';
+import { type InboxBucket, updateInboxRollingHash } from '@aztec/stdlib/messaging';
 
-import {
-  InboxBucketBoundaryNotSyncedError,
-  InboxBucketNotSyncedError,
-  L1ToL2MessagesNotReadyError,
-} from '../errors.js';
-import {
-  type InboxMessage,
-  deserializeInboxMessage,
-  serializeInboxMessage,
-  updateRollingHash,
-} from '../structs/inbox_message.js';
+import { InboxBucketBoundaryNotSyncedError, InboxBucketNotSyncedError } from '../errors.js';
+import { type InboxMessage, deserializeInboxMessage, serializeInboxMessage } from '../structs/inbox_message.js';
 
 /**
  * Persisted snapshot of an Inbox rolling-hash bucket. Mirrors the fields the on-chain Inbox tracks per bucket, plus
@@ -121,8 +111,6 @@ export class MessageStore {
   #lastSynchedL1Block: AztecAsyncSingleton<Buffer>;
   /** Stores total messages stored */
   #totalMessageCount: AztecAsyncSingleton<bigint>;
-  /** Stores the checkpoint number whose message tree is currently being filled on L1. */
-  #inboxTreeInProgress: AztecAsyncSingleton<bigint>;
   /** Stores the L1 finalized block as of the last successful message sync. */
   #messagesFinalizedL1Block: AztecAsyncSingleton<Buffer>;
   /** Maps from Inbox bucket sequence number to its serialized snapshot. */
@@ -141,7 +129,6 @@ export class MessageStore {
     this.#l1ToL2MessageIndices = db.openMap('archiver_l1_to_l2_message_indices');
     this.#lastSynchedL1Block = db.openSingleton('archiver_last_l1_block_id');
     this.#totalMessageCount = db.openSingleton('archiver_l1_to_l2_message_count');
-    this.#inboxTreeInProgress = db.openSingleton('archiver_inbox_tree_in_progress');
     this.#messagesFinalizedL1Block = db.openSingleton('archiver_messages_finalized_l1_block');
     this.#inboxBuckets = db.openMap('archiver_inbox_buckets');
     this.#bucketTimestampToSeq = db.openMultiMap('archiver_inbox_bucket_timestamps');
@@ -218,7 +205,7 @@ export class MessageStore {
         // Check messages are inserted in increasing order, but allow reinserting messages.
         if (lastMessage && message.index <= lastMessage.index) {
           const existing = await this.#l1ToL2Messages.getAsync(this.indexToKey(message.index));
-          if (existing && deserializeInboxMessage(existing).rollingHash.equals(message.rollingHash)) {
+          if (existing && deserializeInboxMessage(existing).inboxRollingHash.equals(message.inboxRollingHash)) {
             // We reinsert instead of skipping in case the message was re-orged and got added in a different L1 block.
             this.#log.trace(`Reinserting message with index ${message.index} in the store`);
             await this.#l1ToL2Messages.set(this.indexToKey(message.index), serializeInboxMessage(message));
@@ -231,20 +218,19 @@ export class MessageStore {
           );
         }
 
-        // Check rolling hash is valid.
-        const previousRollingHash = lastMessage?.rollingHash ?? Buffer16.ZERO;
-        const expectedRollingHash = updateRollingHash(previousRollingHash, message.leaf);
-        if (!expectedRollingHash.equals(message.rollingHash)) {
+        // Check the compact-indexed messages arrive contiguously: the global insertion index of
+        // each message is exactly one past the previous one.
+        const expectedIndex = lastMessage === undefined ? 0n : lastMessage.index + 1n;
+        if (message.index !== expectedIndex) {
           throw new MessageStoreError(
-            `Invalid rolling hash for incoming L1 to L2 message ${message.leaf.toString()} ` +
-              `with index ${message.index} ` +
-              `(expected ${expectedRollingHash.toString()} from previous hash ${previousRollingHash} but got ${message.rollingHash.toString()})`,
+            `Invalid index ${message.index} for incoming L1 to L2 message ${message.leaf.toString()} ` +
+              `(expected ${expectedIndex})`,
             message,
           );
         }
 
-        // Check the full-width consensus rolling hash is valid (AZIP-22 Fast Inbox). Runs alongside the legacy
-        // 128-bit check above until the streaming inbox flips on and the legacy hash is removed.
+        // Check the consensus rolling-hash chain is valid: each message's rolling hash must
+        // continue the chain from the previously inserted message.
         const previousInboxRollingHash = lastMessage?.inboxRollingHash ?? Fr.ZERO;
         const expectedInboxRollingHash = updateInboxRollingHash(previousInboxRollingHash, message.leaf);
         if (!expectedInboxRollingHash.equals(message.inboxRollingHash)) {
@@ -253,18 +239,6 @@ export class MessageStore {
               `with index ${message.index} ` +
               `(expected ${expectedInboxRollingHash.toString()} from previous hash ${previousInboxRollingHash.toString()} ` +
               `but got ${message.inboxRollingHash.toString()})`,
-            message,
-          );
-        }
-
-        // Check the compact-indexed messages arrive contiguously (AZIP-22 Fast Inbox): the global insertion index of
-        // each message is exactly one past the previous one, independent of the checkpoint it landed in. The flipped
-        // Inbox emits this compact totalMessagesInserted index, so the legacy per-checkpoint range no longer applies.
-        const expectedIndex = lastMessage === undefined ? 0n : lastMessage.index + 1n;
-        if (message.index !== expectedIndex) {
-          throw new MessageStoreError(
-            `Invalid index ${message.index} for incoming L1 to L2 message ${message.leaf.toString()} ` +
-              `(expected ${expectedIndex})`,
             message,
           );
         }
@@ -356,61 +330,17 @@ export class MessageStore {
     return msg ? deserializeInboxMessage(msg) : undefined;
   }
 
-  /** Returns the inbox tree-in-progress checkpoint number from L1, or undefined if not yet set. */
-  public getInboxTreeInProgress(): Promise<bigint | undefined> {
-    return this.#inboxTreeInProgress.getAsync();
-  }
-
   /**
-   * Atomically updates the message sync state: the L1 sync point, the inbox tree-in-progress marker, and
-   * (optionally) the L1 finalized block as of this sync. The finalized block is advanced monotonically.
+   * Atomically updates the message sync state: the L1 sync point and (optionally) the L1 finalized block as of this
+   * sync. The finalized block is advanced monotonically.
    */
-  public setMessageSyncState(
-    l1Block: L1BlockId,
-    treeInProgress: bigint | undefined,
-    finalizedL1Block?: L1BlockId,
-  ): Promise<void> {
+  public setMessageSyncState(l1Block: L1BlockId, finalizedL1Block?: L1BlockId): Promise<void> {
     return this.db.transactionAsync(async () => {
       await this.setSynchedL1Block(l1Block);
-      if (treeInProgress !== undefined) {
-        await this.#inboxTreeInProgress.set(treeInProgress);
-      } else {
-        await this.#inboxTreeInProgress.delete();
-      }
       if (finalizedL1Block !== undefined) {
         await this.maybeAdvanceFinalizedL1Block(finalizedL1Block);
       }
     });
-  }
-
-  public async getL1ToL2Messages(checkpointNumber: CheckpointNumber): Promise<Fr[]> {
-    const treeInProgress = await this.#inboxTreeInProgress.getAsync();
-    if (treeInProgress !== undefined && BigInt(checkpointNumber) >= treeInProgress) {
-      throw new L1ToL2MessagesNotReadyError(checkpointNumber, treeInProgress);
-    }
-
-    const messages: Fr[] = [];
-
-    const [startIndex, endIndex] = InboxLeaf.indexRangeForCheckpoint(checkpointNumber);
-    let lastIndex = startIndex - 1n;
-
-    for await (const msgBuffer of this.#l1ToL2Messages.valuesAsync({
-      start: this.indexToKey(startIndex),
-      end: this.indexToKey(endIndex),
-    })) {
-      const msg = deserializeInboxMessage(msgBuffer);
-      if (msg.checkpointNumber !== checkpointNumber) {
-        throw new Error(
-          `L1 to L2 message with index ${msg.index} has invalid checkpoint number ${msg.checkpointNumber}`,
-        );
-      } else if (msg.index !== lastIndex + 1n) {
-        throw new Error(`Expected L1 to L2 message with index ${lastIndex + 1n} but got ${msg.index}`);
-      }
-      lastIndex = msg.index;
-      messages.push(msg.leaf);
-    }
-
-    return messages;
   }
 
   public async *iterateL1ToL2Messages(range: CustomRange<bigint> = {}): AsyncIterableIterator<InboxMessage> {
@@ -649,10 +579,26 @@ export class MessageStore {
     return Number(timestamp);
   }
 
-  public rollbackL1ToL2MessagesToCheckpoint(targetCheckpointNumber: CheckpointNumber): Promise<void> {
-    this.#log.debug(`Deleting L1 to L2 messages up to target checkpoint ${targetCheckpointNumber}`);
-    const startIndex = InboxLeaf.smallestIndexForCheckpoint(CheckpointNumber(targetCheckpointNumber + 1));
-    return this.removeL1ToL2Messages(startIndex);
+  /**
+   * Removes every L1 to L2 message inserted after the given L1 block, so the message store matches the L1 Inbox state
+   * as of that block. Used when rolling the archiver back to an earlier checkpoint, whose L1 block is passed here.
+   *
+   * A bucket lives entirely within one L1 block, so the cut always falls on a bucket boundary and can be found from
+   * the bucket snapshots alone, without reading the messages being removed.
+   */
+  public async rollbackL1ToL2MessagesAfterL1Block(l1BlockNumber: bigint): Promise<void> {
+    this.#log.debug(`Deleting L1 to L2 messages inserted after L1 block ${l1BlockNumber}`);
+    let removeFromIndex: bigint | undefined;
+    for await (const snapBuffer of this.#inboxBuckets.valuesAsync({ reverse: true })) {
+      const snapshot = deserializeBucketSnapshot(snapBuffer);
+      if (snapshot.l1BlockNumber <= l1BlockNumber) {
+        break;
+      }
+      removeFromIndex = snapshot.firstMessageIndex;
+    }
+    if (removeFromIndex !== undefined) {
+      await this.removeL1ToL2Messages(removeFromIndex);
+    }
   }
 
   private indexToKey(index: bigint): number {

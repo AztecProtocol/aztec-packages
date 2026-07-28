@@ -240,7 +240,6 @@ describe('multi-node/slashing/broadcasted_invalid_checkpoint_proposal_slash', ()
       aztecTargetCommitteeSize: COMMITTEE_SIZE,
       aztecProofSubmissionEpochs: 1024,
       minTxsPerBlock: 0,
-      inboxLag: 2,
       slashingQuorum: SLASHING_QUORUM,
       slashingRoundSizeInEpochs: SLASHING_ROUND_SIZE / SENTINEL_TIMING.aztecEpochDuration,
       slashAmountSmall: slashingUnit,

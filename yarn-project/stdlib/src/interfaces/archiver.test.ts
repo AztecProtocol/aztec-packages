@@ -206,11 +206,6 @@ describe('ArchiverApiSchema', () => {
     expect(result).toEqual([expect.any(Fr)]);
   });
 
-  it('getL1ToL2Messages', async () => {
-    const result = await context.client.getL1ToL2Messages(CheckpointNumber(1));
-    expect(result).toEqual([expect.any(Fr)]);
-  });
-
   it('getL1ToL2MessageIndex', async () => {
     const result = await context.client.getL1ToL2MessageIndex(Fr.random());
     expect(result).toBe(1n);
@@ -595,10 +590,6 @@ class MockArchiver implements ArchiverApi {
   registerContractFunctionSignatures(signatures: string[]): Promise<void> {
     expect(Array.isArray(signatures)).toBe(true);
     return Promise.resolve();
-  }
-  getL1ToL2Messages(checkpointNumber: CheckpointNumber): Promise<Fr[]> {
-    expect(checkpointNumber).toEqual(CheckpointNumber(1));
-    return Promise.resolve([Fr.random()]);
   }
   getL1ToL2MessageIndex(l1ToL2Message: Fr): Promise<bigint | undefined> {
     expect(l1ToL2Message).toBeInstanceOf(Fr);

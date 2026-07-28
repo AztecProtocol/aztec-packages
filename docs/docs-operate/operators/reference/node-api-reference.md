@@ -635,22 +635,24 @@ curl -X POST http://localhost:8080 \
   -d '{"jsonrpc":"2.0","method":"aztec_getL1ToL2MessageMembershipWitness","params":["latest","0x1234..."],"id":1}'
 ```
 
-### aztec_getL1ToL2MessageCheckpoint
+### aztec_getL1ToL2MessageIndex
 
-Returns the L2 checkpoint number in which this L1 to L2 message becomes available, or undefined if not found.
+Returns the compact leaf index assigned to this L1 to L2 message as soon as the node has ingested it from L1,
+before any L2 block consumes it. Returns undefined if the node has not yet seen the message. The message becomes
+consumable once a block's L1-to-L2 message tree grows past this index.
 
 **Parameters**:
 
 1. `l1ToL2Message` - `Fr`
 
-**Returns**: `number | undefined`
+**Returns**: `bigint | undefined`
 
 **Example**:
 
 ```bash
 curl -X POST http://localhost:8080 \
   -H 'Content-Type: application/json' \
-  -d '{"jsonrpc":"2.0","method":"aztec_getL1ToL2MessageCheckpoint","params":["0x1234..."],"id":1}'
+  -d '{"jsonrpc":"2.0","method":"aztec_getL1ToL2MessageIndex","params":["0x1234..."],"id":1}'
 ```
 
 ### aztec_getL2ToL1MembershipWitness

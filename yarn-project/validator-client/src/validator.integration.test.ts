@@ -26,7 +26,7 @@ import { CheckpointReexecutionTracker, L1PublishedData, PublishedCheckpoint } fr
 import { type L1RollupConstants, getTimestampForSlot } from '@aztec/stdlib/epoch-helpers';
 import { Gas, GasFees } from '@aztec/stdlib/gas';
 import { tryStop } from '@aztec/stdlib/interfaces/server';
-import { InboxBucketRef, computeInHashFromL1ToL2Messages } from '@aztec/stdlib/messaging';
+import { InboxBucketRef } from '@aztec/stdlib/messaging';
 import {
   type BlockProposal,
   CheckpointProposal,
@@ -245,7 +245,7 @@ describe('ValidatorClient Integration', () => {
 
   type BlockProposalResult = { block: L2Block; proposal: BlockProposal };
 
-  /** Builds a new block proposal with the given txs and l1-to-l2 messages */
+  /** Builds a new block proposal with the given txs and L1-to-L2 message bundle */
   const buildBlockProposal = async (
     checkpointBuilder: CheckpointBuilder,
     blockNumber: BlockNumber,
@@ -253,7 +253,6 @@ describe('ValidatorClient Integration', () => {
     txs: Tx[] = [],
     l1ToL2Messages: Fr[] = [],
   ): Promise<{ block: L2Block; proposal: BlockProposal }> => {
-    const inHash = computeInHashFromL1ToL2Messages(l1ToL2Messages);
     const blockTimestamp = getTimestampForSlot(checkpointBuilder.getConstantData().slotNumber, l1Constants);
     const { block, usedTxs } = await checkpointBuilder.buildBlock(txs, blockNumber, blockTimestamp, {
       isBuildingProposal: true,
@@ -275,7 +274,6 @@ describe('ValidatorClient Integration', () => {
       block.header,
       cpNumber,
       block.indexWithinCheckpoint,
-      inHash,
       block.archive.root,
       usedTxs,
       proposerSigner.address,
@@ -488,7 +486,7 @@ describe('ValidatorClient Integration', () => {
 
     it('validates and attests with txs anchored to proposed blocks and non-empty l1-to-l2 messages', async () => {
       // Create l1 to l2 messages and seed them into the archivers
-      const l1ToL2Messages = makeInboxMessages(4, { messagesPerCheckpoint: 4 });
+      const l1ToL2Messages = makeInboxMessages(4);
       await proposer.archiver.dataStores.messages.addL1ToL2MessageBuckets(l1ToL2Messages);
       await attestor.archiver.dataStores.messages.addL1ToL2MessageBuckets(l1ToL2Messages);
 
@@ -706,10 +704,10 @@ describe('ValidatorClient Integration', () => {
     });
 
     it('refuses block proposal with mismatching l1 to l2 messages', async () => {
-      const l1ToL2Messages = makeInboxMessages(4, { messagesPerCheckpoint: 4 });
+      const l1ToL2Messages = makeInboxMessages(4);
       await proposer.archiver.dataStores.messages.addL1ToL2MessageBuckets(l1ToL2Messages);
 
-      const otherL1ToL2Messages = makeInboxMessages(4, { messagesPerCheckpoint: 4 });
+      const otherL1ToL2Messages = makeInboxMessages(4);
       await attestor.archiver.dataStores.messages.addL1ToL2MessageBuckets(otherL1ToL2Messages);
 
       const { blocks } = await buildCheckpoint(
