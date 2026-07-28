@@ -33,7 +33,7 @@ export function makeInboxMessage(
   const { l1BlockHash = Buffer32.random() } = overrides;
   const { leaf = Fr.random() } = overrides;
   const { rollingHash = updateRollingHash(previousRollingHash, leaf) } = overrides;
-  // Compact global insertion index (AZIP-22 Fast Inbox): defaults to the first slot.
+  // Compact global insertion index: defaults to the first slot.
   const { index = 0n } = overrides;
   const { inboxRollingHash = updateInboxRollingHash(Fr.ZERO, leaf) } = overrides;
   // Default each message to its own bucket, keyed monotonically off its global index.

@@ -87,7 +87,7 @@ export async function retrievedToPublishedCheckpoint({
   const l2Blocks: L2Block[] = [];
   for (let i = 0; i < blocksBlobData.length; i++) {
     const blockBlobData = blocksBlobData[i];
-    // Post-flip (AZIP-22 streaming inbox) the blob carries a per-block L1-to-L2 message tree root: any block
+    // The blob carries a per-block L1-to-L2 message tree root: any block
     // within a checkpoint can insert messages, so reconstruction must use each block's own root rather than
     // the checkpoint's first block.
     const {

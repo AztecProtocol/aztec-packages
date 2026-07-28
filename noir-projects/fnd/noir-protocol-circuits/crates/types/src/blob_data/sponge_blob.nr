@@ -136,7 +136,7 @@ impl SpongeBlob {
             total_mana_used,
         );
 
-        // The l1-to-l2 message tree root (the last field) is absorbed for every block (AZIP-22 Fast Inbox): any block
+        // The l1-to-l2 message tree root (the last field) is absorbed for every block: any block
         // can now insert its own bundle, so the root differs per block and blob-syncing nodes reconstruct each block's
         // message-tree root from the blob alone.
         self.absorb(blob_data, blob_data.len());

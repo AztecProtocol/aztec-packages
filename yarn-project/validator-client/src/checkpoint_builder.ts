@@ -364,7 +364,7 @@ export class FullNodeCheckpointsBuilder implements ICheckpointsBuilder {
    * Opens a checkpoint, either starting fresh or resuming from existing blocks.
    * @param l1ToL2Messages - Messages the existing blocks already consumed, which seed the resumed checkpoint's
    * rolling hash. Must be empty when starting fresh: a fresh checkpoint takes its messages per block, via
-   * `buildBlock` (AZIP-22 Fast Inbox streaming).
+   * `buildBlock`.
    */
   async openCheckpoint(
     checkpointNumber: CheckpointNumber,

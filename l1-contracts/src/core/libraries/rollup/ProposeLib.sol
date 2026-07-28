@@ -34,7 +34,7 @@ struct ProposeArgs {
   bytes32 archive;
   OracleInput oracleInput;
   ProposedHeader header;
-  // Sequence number of the Inbox bucket the header's `inboxRollingHash` corresponds to (AZIP-22 Fast Inbox).
+  // Sequence number of the Inbox bucket the header's `inboxRollingHash` corresponds to.
   // Unsigned lookup aid kept out of the attested payload digest: a wrong hint can only revert, never change what is
   // accepted, since integrity comes from the rolling-hash equality check against the committee-signed header.
   uint256 bucketHint;
@@ -269,8 +269,8 @@ library ProposeLib {
     uint256 checkpointNumber = tips.getPending() + 1;
     tips = tips.updatePending(checkpointNumber);
 
-    // Validate the streaming Inbox consumption against the parent checkpoint's consumed position (AZIP-22 Fast
-    // Inbox). The parent is checkpointNumber - 1, always available: checkpoint 0 carries the {0,0,0} genesis base
+    // Validate the streaming Inbox consumption against the parent checkpoint's consumed position.
+    // The parent is checkpointNumber - 1, always available: checkpoint 0 carries the {0,0,0} genesis base
     // case written at initialization. rollupStore.tips is not committed until below, so the parent read still sees
     // the parent as the pending tip. The returned cumulative total is stored in this checkpoint's record so its
     // child validates against it and, since temp-log records rewind with the pending chain on a prune, the record

@@ -22,7 +22,7 @@ export const MAX_COMMITTEE_SIZE = 2048;
  *
  *   budget = BLOBS_PER_CHECKPOINT * FIELDS_PER_BLOB = 6 * 4096 = 24,576 fields
  *
- *   per-block minimal blob footprint (every block carries the per-block l1-to-l2 root post-flip):
+ *   per-block minimal blob footprint (every block carries a per-block l1-to-l2 root):
  *     first block  (may be empty)   = 7 fields   (NUM_BLOCK_END_BLOB_FIELDS)
  *     every other  (needs >= 1 tx)  = 7 + 4 = 11 fields
  *                                     (NUM_BLOCK_END_BLOB_FIELDS + a 4-field minimal tx:

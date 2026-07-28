@@ -115,7 +115,7 @@ type L1ProcessArgs = {
   attestationsAndSignersSignature: Signature;
   /** The fee asset price modifier in basis points (from oracle) */
   feeAssetPriceModifier: bigint;
-  /** Sequence number of the Inbox bucket the header's rolling hash corresponds to (AZIP-22 Fast Inbox lookup aid). */
+  /** Sequence number of the Inbox bucket the header's rolling hash corresponds to. */
   bucketHint: bigint;
 };
 

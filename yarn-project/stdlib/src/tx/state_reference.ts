@@ -103,9 +103,8 @@ export class StateReference {
   /**
    * Validates the partial-state trees have the expected number of leaves (multiple of number of insertions per tx).
    *
-   * The L1-to-L2 message tree is not checked: post-flip it grows by real message counts at compact (unaligned)
-   * indices, so its next-available leaf index is no longer a multiple of any per-block subtree size (AZIP-22 Fast
-   * Inbox).
+   * The L1-to-L2 message tree is not checked: it grows by real message counts at compact (unaligned)
+   * indices, so its next-available leaf index is no longer a multiple of any per-block subtree size.
    */
   public validate() {
     if (this.partial.noteHashTree.nextAvailableLeafIndex % MAX_NOTE_HASHES_PER_TX !== 0) {

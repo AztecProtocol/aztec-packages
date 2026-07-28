@@ -179,7 +179,7 @@ export class LightweightCheckpointBuilder {
     const isFirstBlock = this.blocks.length === 0;
 
     // A non-first block with no txs is only allowed when it inserts a non-empty L1-to-L2 message bundle: the
-    // message-only block shape (AZIP-22 Fast Inbox), proven by the msgs-only block root.
+    // message-only block shape, proven by the msgs-only block root.
     if (!isFirstBlock && txs.length === 0 && l1ToL2Messages.length === 0) {
       throw new Error('Cannot add an empty non-first block that carries no L1-to-L2 messages.');
     }

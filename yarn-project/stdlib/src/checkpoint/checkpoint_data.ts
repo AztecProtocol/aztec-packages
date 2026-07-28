@@ -46,7 +46,7 @@ export type ProposedOnlyCheckpointData = {
 export type ProposedInboxConsumption = {
   /**
    * Cumulative Inbox message count consumed as of this checkpoint: its last block's L1-to-L2 message tree leaf count
-   * under compact indexing (AZIP-22 Fast Inbox). L1 records this per checkpoint and reads it back as the parent total
+   * under compact indexing. L1 records this per checkpoint and reads it back as the parent total
    * when validating the next checkpoint's consumption, so a simulation against a not-yet-mined parent must override
    * the parent's cell with it — otherwise the parent reads as having consumed nothing and the child's consumption
    * looks larger than it is.

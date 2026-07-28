@@ -52,7 +52,7 @@ export class CheckpointProvingState {
     this.firstBlockNumber = BlockNumber(headerOfLastBlockInPreviousCheckpoint.globalVariables.blockNumber + 1);
   }
 
-  /** The checkpoint's real L1-to-L2 messages (unpadded), consumed across its blocks (AZIP-22 Fast Inbox). */
+  /** The checkpoint's real L1-to-L2 messages (unpadded), consumed across its blocks. */
   public getL1ToL2Messages(): Fr[] {
     return this.l1ToL2Messages;
   }
@@ -66,7 +66,7 @@ export class CheckpointProvingState {
     // The full state reference of the previous block (before this block's message bundle is appended). Feeds the
     // msgs-only block root, whose zero-tx block carries no tx constants to pin the previous state.
     previousState: StateReference,
-    // Per-block L1-to-L2 message state (AZIP-22 Fast Inbox): the block's start snapshot (its parent's end), its own
+    // Per-block L1-to-L2 message state: the block's start snapshot (its parent's end), its own
     // post-bundle end snapshot, the full-height frontier at the start index, and its own real message slice.
     startL1ToL2MessageTreeSnapshot: AppendOnlyTreeSnapshot,
     endL1ToL2MessageTreeSnapshot: AppendOnlyTreeSnapshot,
@@ -85,7 +85,7 @@ export class CheckpointProvingState {
       );
     }
 
-    // Thread the message sponge across the checkpoint's blocks (AZIP-22 Fast Inbox): each block starts from the
+    // Thread the message sponge across the checkpoint's blocks: each block starts from the
     // previous block's end sponge (empty for the first block) and absorbs its own real slice. The block merge and
     // checkpoint root circuits assert exactly this continuity (`right.start_msg_sponge == left.end_msg_sponge`, first
     // block starts empty, merged end equals the InboxParity sponge), so the end sponge is computed eagerly here for

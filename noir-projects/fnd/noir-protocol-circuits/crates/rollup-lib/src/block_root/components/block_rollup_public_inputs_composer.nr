@@ -145,7 +145,7 @@ impl BlockRollupPublicInputsComposer {
     /// previous block (empty for the first block).
     ///
     /// A single `bundle.num_msgs` count drives both the compact (unpadded) tree append and the message-sponge absorb,
-    /// so the sponge matches the checkpoint's variable-size `InboxParity` proof (AZIP-22 Fast Inbox). The lanes past
+    /// so the sponge matches the checkpoint's variable-size `InboxParity` proof. The lanes past
     /// `num_msgs` must be zero.
     pub fn with_message_bundle(
         &mut self,
@@ -270,7 +270,7 @@ impl BlockRollupPublicInputsComposer {
         };
 
         // Absorb data for this block into the end sponge blob. The l1-to-l2 message tree root is absorbed for every
-        // block (AZIP-22 Fast Inbox): any block can insert its own bundle, so the root is per-block, not
+        // block: any block can insert its own bundle, so the root is per-block, not
         // checkpoint-constant.
         let mut block_end_sponge_blob = self.end_sponge_blob;
 

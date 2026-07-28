@@ -5,7 +5,7 @@ describe('block blob data', () => {
   it('encodes and decodes a block carrying the l1-to-l2 message root', () => {
     const blockBlobData = makeBlockBlobData({ numTxs: 3 });
     expect(blockBlobData.txs.length).toBe(3);
-    // Every block carries the l1-to-l2 message tree root post-flip (AZIP-22 Fast Inbox).
+    // Every block carries the l1-to-l2 message tree root.
     expect(blockBlobData.l1ToL2MessageRoot).toBeDefined();
 
     const encoded = encodeBlockBlobData(blockBlobData);

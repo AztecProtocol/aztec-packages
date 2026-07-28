@@ -449,7 +449,7 @@ describe('CheckpointProposalJob Timing Tests', () => {
     const mockFork = mock<MerkleTreeWriteOperations>({
       [Symbol.asyncDispose]: jest.fn().mockReturnValue(Promise.resolve()) as () => Promise<void>,
     });
-    // AZIP-22 streaming inbox: the checkpoint job resolves the parent Inbox bucket from the fork's
+    // Streaming inbox: the checkpoint job resolves the parent Inbox bucket from the fork's
     // L1-to-L2 tree leaf count. Default to an empty tree so it starts at the genesis bucket.
     mockFork.getTreeInfo.mockResolvedValue({ size: 0n } as TreeInfo);
     worldState.fork.mockResolvedValue(mockFork);
