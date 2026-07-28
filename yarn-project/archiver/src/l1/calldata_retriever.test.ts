@@ -1248,7 +1248,7 @@ describe('CalldataRetriever', () => {
       expect(result.blockHash).toBe(tx.blockHash);
 
       // Verify all components are properly decoded
-      expect(result.header.inHash).toBeInstanceOf(Fr);
+      expect(result.header.inboxRollingHash).toBeInstanceOf(Fr);
       expect(result.header.gasFees).toBeInstanceOf(GasFees);
 
       // Verify instrumentation was called
@@ -1322,7 +1322,7 @@ describe('CalldataRetriever', () => {
       expect(result.blockHash).toBe(blockHash);
 
       // Verify all components are properly decoded
-      expect(result.header.inHash).toBeInstanceOf(Fr);
+      expect(result.header.inboxRollingHash).toBeInstanceOf(Fr);
       expect(result.header.gasFees).toBeInstanceOf(GasFees);
 
       // Verify proxy implementation was checked

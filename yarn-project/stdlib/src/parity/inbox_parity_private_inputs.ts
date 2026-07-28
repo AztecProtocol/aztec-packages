@@ -39,8 +39,6 @@ export class InboxParityPrivateInputs {
     public readonly numMessages: number,
     /** Inbox rolling hash before this checkpoint's messages (the previous checkpoint's end; genesis is zero). */
     public readonly startRollingHash: Fr,
-    /** The L1 `in_hash` (sha256 frontier root), passed through unconstrained by the circuit. */
-    public readonly inHash: Fr,
     /** Prover identity committed to by the circuit, for sybil protection. */
     public readonly proverId: Fr,
   ) {
@@ -53,7 +51,7 @@ export class InboxParityPrivateInputs {
    * Builds the inputs from a checkpoint's real messages, sizing the circuit by the message count and padding the
    * message array out to that size.
    */
-  static fromMessages(messages: Fr[], startRollingHash: Fr, inHash: Fr, proverId: Fr): InboxParityPrivateInputs {
+  static fromMessages(messages: Fr[], startRollingHash: Fr, proverId: Fr): InboxParityPrivateInputs {
     const size = pickInboxParitySize(messages.length);
     // Explicit `<Fr, number>` keeps the result `Fr[]`; padding to the union-literal `size` would infer a deep tuple.
     return new InboxParityPrivateInputs(
@@ -61,7 +59,6 @@ export class InboxParityPrivateInputs {
       padArrayEnd<Fr, number>(messages, Fr.ZERO, size),
       messages.length,
       startRollingHash,
-      inHash,
       proverId,
     );
   }
@@ -73,7 +70,6 @@ export class InboxParityPrivateInputs {
       this.messages,
       new Fr(this.numMessages),
       this.startRollingHash,
-      this.inHash,
       this.proverId,
     );
   }
@@ -96,7 +92,6 @@ export class InboxParityPrivateInputs {
       size,
       messages,
       Fr.fromBuffer(reader).toNumber(),
-      Fr.fromBuffer(reader),
       Fr.fromBuffer(reader),
       Fr.fromBuffer(reader),
     );

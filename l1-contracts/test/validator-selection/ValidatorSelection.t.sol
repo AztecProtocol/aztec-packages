@@ -546,8 +546,6 @@ contract ValidatorSelectionTest is ValidatorSelectionTestBase {
 
     {
       uint128 manaMinFee = SafeCast.toUint128(rollup.getManaMinFeeAt(Timestamp.wrap(block.timestamp), true));
-      // The header's inHash field is an unconstrained pass-through hint post-flip; propose does not check it.
-      header.inHash = bytes32(0);
       header.gasFees.feePerL2Gas = manaMinFee;
     }
 

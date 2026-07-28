@@ -8,11 +8,6 @@ import { L1ToL2MessageSponge } from '../messaging/l1_to_l2_message_sponge.js';
 
 export class ParityPublicInputs {
   constructor(
-    /**
-     * The L1 `in_hash` (sha256 frontier root of the checkpoint's messages). Unconstrained pass-through: InboxParity
-     * echoes the value the prover supplies; it stays the authoritative L1 check until the Fast Inbox flip.
-     */
-    public inHash: Fr,
     /** Inbox rolling hash before absorbing this checkpoint's messages. */
     public startRollingHash: Fr,
     /** Inbox rolling hash after absorbing the checkpoint's real messages. */
@@ -21,18 +16,14 @@ export class ParityPublicInputs {
     public endSponge: L1ToL2MessageSponge,
     /** Prover identity committed to by the circuit, for sybil protection. */
     public proverId: Fr,
-  ) {
-    if (inHash.toBuffer()[0] != 0) {
-      throw new Error(`inHash buffer must be 31 bytes. Got 32 bytes`);
-    }
-  }
+  ) {}
 
   /**
    * Serializes the inputs to a buffer.
    * @returns The inputs serialized to a buffer.
    */
   toBuffer() {
-    return serializeToBuffer(this.inHash, this.startRollingHash, this.endRollingHash, this.endSponge, this.proverId);
+    return serializeToBuffer(this.startRollingHash, this.endRollingHash, this.endSponge, this.proverId);
   }
 
   /**
@@ -63,7 +54,7 @@ export class ParityPublicInputs {
    * @returns The instance fields.
    */
   static getFields(fields: FieldsOf<ParityPublicInputs>) {
-    return [fields.inHash, fields.startRollingHash, fields.endRollingHash, fields.endSponge, fields.proverId] as const;
+    return [fields.startRollingHash, fields.endRollingHash, fields.endSponge, fields.proverId] as const;
   }
 
   /**
@@ -74,7 +65,6 @@ export class ParityPublicInputs {
   static fromBuffer(buffer: Buffer | BufferReader) {
     const reader = BufferReader.asReader(buffer);
     return new ParityPublicInputs(
-      reader.readObject(Fr),
       reader.readObject(Fr),
       reader.readObject(Fr),
       reader.readObject(L1ToL2MessageSponge),

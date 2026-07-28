@@ -1,4 +1,4 @@
-import { INITIAL_CHECKPOINT_NUMBER, NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP } from '@aztec/constants';
+import { INITIAL_CHECKPOINT_NUMBER, MAX_L1_TO_L2_MSGS_PER_CHECKPOINT } from '@aztec/constants';
 import { toBigIntBE } from '@aztec/foundation/bigint-buffer';
 import { CheckpointNumber } from '@aztec/foundation/branded-types';
 import { Fr } from '@aztec/foundation/curves/bn254';
@@ -24,7 +24,7 @@ export class InboxLeaf {
   }
 
   static smallestIndexForCheckpoint(checkpointNumber: CheckpointNumber): bigint {
-    return BigInt(checkpointNumber - INITIAL_CHECKPOINT_NUMBER) * BigInt(NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP);
+    return BigInt(checkpointNumber - INITIAL_CHECKPOINT_NUMBER) * BigInt(MAX_L1_TO_L2_MSGS_PER_CHECKPOINT);
   }
 
   /**
@@ -33,12 +33,12 @@ export class InboxLeaf {
    */
   static indexRangeForCheckpoint(checkpointNumber: CheckpointNumber): [bigint, bigint] {
     const start = this.smallestIndexForCheckpoint(checkpointNumber);
-    const end = start + BigInt(NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP);
+    const end = start + BigInt(MAX_L1_TO_L2_MSGS_PER_CHECKPOINT);
     return [start, end];
   }
 
   /** Returns the checkpoint number for a given leaf index */
   static checkpointNumberFromIndex(index: bigint): CheckpointNumber {
-    return CheckpointNumber(Number(index / BigInt(NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP)) + INITIAL_CHECKPOINT_NUMBER);
+    return CheckpointNumber(Number(index / BigInt(MAX_L1_TO_L2_MSGS_PER_CHECKPOINT)) + INITIAL_CHECKPOINT_NUMBER);
   }
 }

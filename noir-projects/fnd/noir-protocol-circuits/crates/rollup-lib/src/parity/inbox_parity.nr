@@ -16,10 +16,6 @@ pub struct InboxParityPrivateInputs<let S: u32> {
     // Rolling hash of the Inbox chain before this checkpoint's messages (the previous checkpoint's end value; genesis
     // is zero).
     pub(crate) start_rolling_hash: Field,
-    // The L1 `in_hash` (sha256 frontier root of this checkpoint's messages), passed through UNCONSTRAINED to the
-    // public inputs. See `ParityPublicInputs::in_hash`: the frontier tree is gone from this body, so the prover
-    // supplies the value and the circuit does not recompute or bind it to `msgs`.
-    pub(crate) in_hash: Field,
     pub(crate) prover_id: Field,
 }
 
@@ -33,7 +29,6 @@ pub struct InboxParityPrivateInputs<let S: u32> {
 ///   equals the sponge the block roots accumulate). The sponge resets per checkpoint and there is one proof per
 ///   checkpoint, so the start is always the empty sponge and is hard-coded rather than witnessed.
 /// - Asserts the padding lanes past `num_msgs` are zero so they cannot silently enter either accumulator
-/// - Passes `in_hash` through unconstrained (see `InboxParityPrivateInputs::in_hash`)
 ///
 /// The output feeds the Checkpoint Root circuits, which verify this proof against the `{64, 256, 1024}` VK ladder.
 ///
@@ -49,7 +44,6 @@ pub fn execute<let S: u32>(inputs: InboxParityPrivateInputs<S>) -> ParityPublicI
     end_sponge.absorb(inputs.msgs, inputs.num_msgs);
 
     ParityPublicInputs {
-        in_hash: inputs.in_hash,
         start_rolling_hash: inputs.start_rolling_hash,
         end_rolling_hash,
         end_sponge,

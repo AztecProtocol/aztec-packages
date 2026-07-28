@@ -601,7 +601,7 @@ describe('ValidatorClient', () => {
       const emptyInHash = computeInHashFromL1ToL2Messages([]);
       const checkpointProposal = await makeCheckpointProposal({
         signer,
-        checkpointHeader: makeCheckpointHeader(1, { slotNumber: proposal.slotNumber, inHash: emptyInHash }),
+        checkpointHeader: makeCheckpointHeader(1, { slotNumber: proposal.slotNumber }),
         archiveRoot: Fr.random(),
         lastBlock: {
           blockHeader: makeBlockHeader(1, { blockNumber, slotNumber: proposal.slotNumber }),
@@ -679,9 +679,8 @@ describe('ValidatorClient', () => {
       validatorClient.updateConfig({ skipPushProposedBlocksToArchiver: false });
       validatorClient.getProposalHandler().register(p2pClient, true);
 
-      const emptyInHash = computeInHashFromL1ToL2Messages([]);
       const checkpointProposal = await makeCheckpointProposal({
-        checkpointHeader: makeCheckpointHeader(1, { slotNumber: proposal.slotNumber, inHash: emptyInHash }),
+        checkpointHeader: makeCheckpointHeader(1, { slotNumber: proposal.slotNumber }),
         archiveRoot: Fr.random(),
         lastBlock: {
           blockHeader: makeBlockHeader(1, { blockNumber, slotNumber: proposal.slotNumber }),
@@ -690,7 +689,7 @@ describe('ValidatorClient', () => {
         },
       });
       const equivocatedCheckpointProposal = await makeCheckpointProposal({
-        checkpointHeader: makeCheckpointHeader(1, { slotNumber: proposal.slotNumber, inHash: emptyInHash }),
+        checkpointHeader: makeCheckpointHeader(1, { slotNumber: proposal.slotNumber }),
         archiveRoot: Fr.random(),
         lastBlock: {
           blockHeader: makeBlockHeader(1, { blockNumber, slotNumber: proposal.slotNumber }),

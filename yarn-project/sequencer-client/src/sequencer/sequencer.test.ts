@@ -1,4 +1,4 @@
-import { NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP } from '@aztec/constants';
+import { MAX_L1_TO_L2_MSGS_PER_CHECKPOINT } from '@aztec/constants';
 import { type EpochCache, type EpochCommitteeInfo, PROPOSER_PIPELINING_SLOT_OFFSET } from '@aztec/epoch-cache';
 import { NoCommitteeError, type RollupContract } from '@aztec/ethereum/contracts';
 import {
@@ -350,7 +350,7 @@ describe('sequencer', () => {
     });
 
     l1ToL2MessageSource = mock<L1ToL2MessageSource>({
-      getL1ToL2Messages: () => Promise.resolve(Array(NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP).fill(Fr.ZERO)),
+      getL1ToL2Messages: () => Promise.resolve(Array(MAX_L1_TO_L2_MSGS_PER_CHECKPOINT).fill(Fr.ZERO)),
       getL2Tips: mockFn().mockResolvedValue({
         proposed: { number: lastBlockNumber, hash },
         checkpointed: {

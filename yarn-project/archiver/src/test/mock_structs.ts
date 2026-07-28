@@ -1,8 +1,4 @@
-import {
-  MAX_NOTE_HASHES_PER_TX,
-  NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP,
-  PRIVATE_LOG_SIZE_IN_FIELDS,
-} from '@aztec/constants';
+import { MAX_L1_TO_L2_MSGS_PER_CHECKPOINT, MAX_NOTE_HASHES_PER_TX, PRIVATE_LOG_SIZE_IN_FIELDS } from '@aztec/constants';
 import { makeTuple } from '@aztec/foundation/array';
 import { BlockNumber, CheckpointNumber, IndexWithinCheckpoint } from '@aztec/foundation/branded-types';
 import { Buffer16, Buffer32 } from '@aztec/foundation/buffer';
@@ -104,12 +100,12 @@ export function makeInboxMessagesWithFullBlocks(
   opts: { initialCheckpointNumber?: CheckpointNumber } = {},
 ): InboxMessage[] {
   const { initialCheckpointNumber = CheckpointNumber(13) } = opts;
-  return makeInboxMessages(NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP * blockCount, {
+  return makeInboxMessages(MAX_L1_TO_L2_MSGS_PER_CHECKPOINT * blockCount, {
     // Keep the compact global index from makeInboxMessages; only spread the (now-vestigial) checkpoint assignment
     // across blocks so multi-block coverage still exercises differing checkpoint numbers.
     overrideFn: (msg, i) => {
       const checkpointNumber = CheckpointNumber(
-        initialCheckpointNumber + Math.floor(i / NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP),
+        initialCheckpointNumber + Math.floor(i / MAX_L1_TO_L2_MSGS_PER_CHECKPOINT),
       );
       return { ...msg, checkpointNumber };
     },

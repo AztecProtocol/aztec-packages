@@ -110,14 +110,8 @@ export class CheckpointProposal extends Gossipable implements Signable {
   ) {
     super();
 
-    // Check that last block properties match those of the checkpoint.
-    if (lastBlock && 'inHash' in lastBlock && !lastBlock.inHash.equals(checkpointHeader.inHash)) {
-      throw new Error(
-        `CheckpointProposal lastBlock inHash ${lastBlock.inHash} does not match checkpoint inHash ${checkpointHeader.inHash}`,
-      );
-    }
-    // The last block's bucket reference (AZIP-22 Fast Inbox) commits to the same rolling hash as the checkpoint header,
-    // mirroring the inHash cross-check above. Optional pre-flip: only enforced when the reference is set.
+    // Check that last block properties match those of the checkpoint. The last block's bucket reference (AZIP-22 Fast
+    // Inbox) commits to the same rolling hash as the checkpoint header. Only enforced when the reference is set.
     if (lastBlock?.bucketRef && !lastBlock.bucketRef.inboxRollingHash.equals(checkpointHeader.inboxRollingHash)) {
       throw new Error(
         `CheckpointProposal lastBlock bucketRef rolling hash ${lastBlock.bucketRef.inboxRollingHash} does not match checkpoint inboxRollingHash ${checkpointHeader.inboxRollingHash}`,
@@ -147,7 +141,6 @@ export class CheckpointProposal extends Gossipable implements Signable {
 
   /**
    * Extract a BlockProposal from the last block info.
-   * Uses inHash from checkpointHeader.contentCommitment.inHash
    */
   getBlockProposal(): BlockProposal | undefined {
     if (!this.lastBlock) {
@@ -157,7 +150,7 @@ export class CheckpointProposal extends Gossipable implements Signable {
     return new BlockProposal(
       this.lastBlock.blockHeader,
       this.lastBlock.indexWithinCheckpoint,
-      this.checkpointHeader.inHash,
+      Fr.ZERO,
       this.archive,
       this.lastBlock.txHashes,
       this.lastBlock.signature,

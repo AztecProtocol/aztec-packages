@@ -80,7 +80,6 @@ export type ViemHeader = {
   lastArchiveRoot: `0x${string}`;
   blockHeadersHash: `0x${string}`;
   blobsHash: `0x${string}`;
-  inHash: `0x${string}`;
   inboxRollingHash: `0x${string}`;
   outHash: `0x${string}`;
   slotNumber: bigint;
