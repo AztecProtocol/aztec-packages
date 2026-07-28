@@ -104,7 +104,8 @@ fn empty_checkpoint_header_hash_matches_ts() {
     let header = CheckpointHeader::empty();
 
     // Generated from checkpoint_header.test.ts
-    let empty_checkpoint_header_hash_from_ts = 0x002e384af86a480f952aa16443fd29646a9063865e62d7c403fc7ed697bb7712;
+    let empty_checkpoint_header_hash_from_ts =
+        0x002e384af86a480f952aa16443fd29646a9063865e62d7c403fc7ed697bb7712;
 
     assert_eq(header.hash(), empty_checkpoint_header_hash_from_ts);
 }
@@ -132,7 +133,8 @@ fn checkpoint_header_hash_matches_ts() {
     assert_eq(deserialized, header);
 
     // Generated from checkpoint_header.test.ts
-    let checkpoint_header_hash_from_ts = 0x00751391e842cd7b2014478255dd3309df86327197a0feb03f0af1b758f62ba5;
+    let checkpoint_header_hash_from_ts =
+        0x00751391e842cd7b2014478255dd3309df86327197a0feb03f0af1b758f62ba5;
 
     assert_eq(header.hash(), checkpoint_header_hash_from_ts);
 }
@@ -164,7 +166,8 @@ fn checkpoint_header_hash_large_values_matches_ts() {
     assert_eq(deserialized, header);
 
     // Generated from checkpoint_header.test.ts
-    let checkpoint_header_hash_large_values_from_ts = 0x005bd09725c6e77a4a28a7ccdaf7875ba5882431ca3c82e62db96e8a12769ce5;
+    let checkpoint_header_hash_large_values_from_ts =
+        0x005bd09725c6e77a4a28a7ccdaf7875ba5882431ca3c82e62db96e8a12769ce5;
 
     assert_eq(header.hash(), checkpoint_header_hash_large_values_from_ts);
 }
