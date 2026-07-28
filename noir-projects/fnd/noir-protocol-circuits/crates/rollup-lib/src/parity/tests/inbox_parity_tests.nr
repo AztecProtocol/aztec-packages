@@ -61,7 +61,10 @@ fn rolling_hash_and_sponge_ignore_padding_and_thread_start() {
 
     assert_eq(public_inputs.start_rolling_hash, start);
     assert_eq(public_inputs.num_msgs, 3);
-    assert_eq(public_inputs.end_rolling_hash, accumulate_inbox_rolling_hash(start, [11, 22, 33], 3));
+    assert_eq(
+        public_inputs.end_rolling_hash,
+        accumulate_inbox_rolling_hash(start, [11, 22, 33], 3),
+    );
 
     // Both the rolling hash and the sponge see only the three real leaves (real-count absorb).
     assert_eq(public_inputs.start_sponge, start_sponge);

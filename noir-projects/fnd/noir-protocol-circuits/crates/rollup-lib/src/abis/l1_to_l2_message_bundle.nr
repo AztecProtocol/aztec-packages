@@ -1,8 +1,5 @@
 use std::meta::derive;
-use types::{
-    constants::MAX_L1_TO_L2_MSGS_PER_BLOCK,
-    traits::{Deserialize, Empty, Serialize},
-};
+use types::{constants::MAX_L1_TO_L2_MSGS_PER_BLOCK, traits::{Deserialize, Empty, Serialize}};
 
 /// A block's L1-to-L2 message bundle: the real message leaves it inserts into the L1-to-L2 message tree, and the
 /// count a block root needs to append them and absorb them into the message sponge.

@@ -1,5 +1,8 @@
 use crate::{
-    abis::{BlockRollupPublicInputs, CheckpointRollupPublicInputs, L1ToL2MessageSponge, ParityPublicInputs},
+    abis::{
+        BlockRollupPublicInputs, CheckpointRollupPublicInputs, L1ToL2MessageSponge,
+        ParityPublicInputs,
+    },
     block_merge::merge_block_rollups,
 };
 use bignum::BLS12_381_Fr;

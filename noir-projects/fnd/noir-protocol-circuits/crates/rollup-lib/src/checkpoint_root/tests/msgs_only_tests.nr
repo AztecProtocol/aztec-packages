@@ -1,5 +1,8 @@
 use super::TestBuilder;
-use types::constants::{BLOCK_ROOT_MSGS_ONLY_ROLLUP_VK_INDEX, BLOCK_ROOT_ROLLUP_VK_INDEX, BLOCK_ROOT_FIRST_ROLLUP_VK_INDEX};
+use types::constants::{
+    BLOCK_ROOT_FIRST_ROLLUP_VK_INDEX, BLOCK_ROOT_MSGS_ONLY_ROLLUP_VK_INDEX,
+    BLOCK_ROOT_ROLLUP_VK_INDEX,
+};
 
 // A checkpoint of [first block, message-only block] proves: the message-only block is accepted as a non-first direct
 // child of the checkpoint root.
