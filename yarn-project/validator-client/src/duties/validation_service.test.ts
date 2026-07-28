@@ -89,13 +89,13 @@ describe('ValidationService', () => {
     const archive = Fr.random();
     const checkpointHeader = makeCheckpointHeader(1);
 
-    // Create the block proposal first (as the sequencer would), using the checkpoint's inHash
-    // so that getSender() can verify the block proposal sender matches
+    // Create the block proposal first (as the sequencer would) so that getSender() can verify the block proposal
+    // sender matches. The block-level inHash is dead post-flip (AZIP-22 Fast Inbox), so it carries zero.
     const blockProposal = await service.createBlockProposal(
       blockHeader,
       CheckpointNumber(1),
       indexWithinCheckpoint,
-      checkpointHeader.inHash,
+      Fr.ZERO,
       archive,
       txs,
       addresses[0],

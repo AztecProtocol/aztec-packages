@@ -21,7 +21,6 @@ struct ProposedHeader {
   bytes32 lastArchiveRoot;
   bytes32 blockHeadersHash;
   bytes32 blobsHash;
-  bytes32 inHash;
   bytes32 inboxRollingHash;
   bytes32 outHash;
   Slot slotNumber;
@@ -56,7 +55,6 @@ library ProposedHeaderLib {
         _header.lastArchiveRoot,
         _header.blockHeadersHash,
         _header.blobsHash,
-        _header.inHash,
         _header.inboxRollingHash,
         _header.outHash,
         _header.slotNumber,

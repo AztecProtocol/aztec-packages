@@ -159,15 +159,12 @@ export class CheckpointProvingState {
 
   /**
    * Builds the checkpoint's single InboxParity input. The circuit is sized to the smallest ladder rung that fits the
-   * message count and the rolling hash starts from the previous checkpoint's end. `in_hash` (the L1 frontier root) is
-   * supplied as an unconstrained pass-through hint.
+   * message count and the rolling hash starts from the previous checkpoint's end.
    */
   public getInboxParityInputs(): InboxParityPrivateInputs {
     return InboxParityPrivateInputs.fromMessages(
       this.l1ToL2Messages,
       this.startInboxRollingHash,
-      // Legacy in_hash is dead post-flip; the InboxParity pass-through hint carries zero (AZIP-22 Fast Inbox).
-      Fr.ZERO,
       this.constants.proverId,
     );
   }

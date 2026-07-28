@@ -14,6 +14,8 @@ import {
 } from '@aztec/blob-lib';
 import {
   GENESIS_ARCHIVE_ROOT,
+  INBOX_LAG_SECONDS,
+  MAX_L1_TO_L2_MSGS_PER_BLOCK,
   MAX_L1_TO_L2_MSGS_PER_CHECKPOINT,
   MAX_NULLIFIERS_PER_TX,
   MAX_PROCESSABLE_L2_GAS,
@@ -92,6 +94,7 @@ import { type PrivateKeyAccount, privateKeyToAccount } from 'viem/accounts';
 import { foundry } from 'viem/chains';
 
 import { type SequencerClientConfig, getConfigEnvVars } from '../config.js';
+import { selectInboxBucketForBlock } from '../sequencer/inbox_bucket_selector.js';
 import { sendL1ToL2Message } from './l1_to_l2_messaging.js';
 import { SequencerPublisherMetrics } from './sequencer-publisher-metrics.js';
 import { SequencerPublisher } from './sequencer-publisher.js';
@@ -473,7 +476,7 @@ describe('L1Publisher integration', () => {
 
   /**
    * Build a checkpoint with a single block using the LightweightCheckpointBuilder.
-   * This properly computes all checkpoint header fields (blobsHash, blockHeadersHash, inHash, inboxRollingHash,
+   * This properly computes all checkpoint header fields (blobsHash, blockHeadersHash, inboxRollingHash,
    * epochOutHash, etc.). `previousInboxRollingHash` is the previous checkpoint's rolling hash (zero at genesis), so
    * the header's `inboxRollingHash` continues the on-chain Inbox chain over `l1ToL2Messages`.
    */
@@ -564,17 +567,23 @@ describe('L1Publisher integration', () => {
         '0x1647b194c649f5dd01d7c832f89b0f496043c9150797923ea89e93d5ac619a93',
       );
 
-      // Streaming Inbox consumption (AZIP-22 Fast Inbox): each checkpoint consumes every message sent so far, so its
-      // header rolling hash continues the previous checkpoint's and matches the Inbox's current bucket. Consuming
-      // through the newest bucket trivially satisfies the mandatory-consumption assert. A checkpoint's messages are
-      // sent one per L1 block, so they span several Inbox buckets; the checkpoint's consumed bucket is the newest,
-      // whose sequence we read straight off the deployed Inbox and mirror into messageSource so the propose bucket
-      // hint can be looked up by the checkpoint's cumulative message count.
+      // Streaming Inbox consumption (AZIP-22 Fast Inbox): the L1 Rollup only lets a checkpoint consume Inbox buckets
+      // that have aged past the censorship cutoff (`toTimestamp(slot - 1) - INBOX_LAG_SECONDS`), measured in L1 time,
+      // not whole checkpoints. Each checkpoint mirrors the real Inbox buckets into messageSource, then reuses the
+      // production `selectInboxBucketForBlock` (which mirrors `ProposeLib.validateInboxConsumption`) to pick exactly
+      // the buckets it must consume, deriving the consumed bundle, the propose bucket hint, and the header rolling
+      // hash from that one selection so header, world state, and L1 agree by construction.
       const inbox = getContract({
         address: getAddress(l1ContractAddresses.inboxAddress.toString()),
         abi: InboxAbi,
         client: l1Client,
       });
+      // Every message sent to the Inbox, in insertion order, so each bucket's leaves can be mirrored into messageSource.
+      const allSentMessages: Fr[] = [];
+      let mirroredThroughSeq = 0n;
+      let mirroredThroughTotal = 0n;
+      // The last Inbox bucket this checkpoint chain has consumed through; genesis sentinel to start.
+      let parent = { seq: 0n, totalMsgCount: 0n };
       let previousInboxRollingHash = Fr.ZERO;
       const blobFieldsPerCheckpoint: Fr[][] = [];
       // The below batched blob is used for testing different epochs with 1..numberOfConsecutiveBlocks blocks on L1.
@@ -586,10 +595,32 @@ describe('L1Publisher integration', () => {
         // and causes a chain prune
         const l1ToL2Content = range(Math.min(16, MAX_L1_TO_L2_MSGS_PER_CHECKPOINT), 128 * i + 1 + 0x400).map(fr);
 
-        const currentL1ToL2Messages: Fr[] = [];
+        const sentThisCheckpoint: Fr[] = [];
         for (let j = 0; j < l1ToL2Content.length; j++) {
-          currentL1ToL2Messages.push(await sendToL2(l1ToL2Content[j], recipientAddress));
+          sentThisCheckpoint.push(await sendToL2(l1ToL2Content[j], recipientAddress));
         }
+        allSentMessages.push(...sentThisCheckpoint);
+
+        // Mirror the Inbox's new buckets (seq, timestamp, rolling hash, totals) and their leaves into messageSource,
+        // so the selector, the world-state synchronizer, and L1 all read the same bucket state.
+        const currentBucketSeq = await inbox.read.getCurrentBucketSeq();
+        for (let seq = mirroredThroughSeq + 1n; seq <= currentBucketSeq; seq++) {
+          const bucket = await inbox.read.getBucket([seq]);
+          const bucketMessages = allSentMessages.slice(Number(mirroredThroughTotal), Number(bucket.totalMsgCount));
+          messageSource.setInboxBucket(
+            {
+              seq,
+              inboxRollingHash: Fr.fromString(bucket.rollingHash),
+              totalMsgCount: bucket.totalMsgCount,
+              timestamp: bucket.timestamp,
+              msgCount: Number(bucket.msgCount),
+              lastMessageIndex: bucket.totalMsgCount - 1n,
+            },
+            bucketMessages,
+          );
+          mirroredThroughTotal = bucket.totalMsgCount;
+        }
+        mirroredThroughSeq = currentBucketSeq;
 
         // Ensure that each transaction has unique (non-intersecting nullifier values)
         const totalNullifiersPerBlock = 4 * MAX_NULLIFIERS_PER_TX;
@@ -612,6 +643,25 @@ describe('L1Publisher integration', () => {
           new GasFees(0, await rollup.getManaMinFeeAt(timestamp, true)),
         );
 
+        // Reuse the production streaming selector to pick the buckets this single-block (hence last-block) checkpoint
+        // must consume, then derive the consumed bundle, the propose bucket hint, and the rolling-hash cursor from
+        // that one selection so the header, world state, and L1 all agree.
+        const buildFrameStart = await rollup.getTimestampForSlot(SlotNumber(slot - 1));
+        const cutoffTimestamp = buildFrameStart - BigInt(INBOX_LAG_SECONDS);
+        const selection = await selectInboxBucketForBlock({
+          messageSource,
+          now: buildFrameStart,
+          lagSeconds: BigInt(INBOX_LAG_SECONDS),
+          parent,
+          checkpointStartTotalMsgCount: parent.totalMsgCount,
+          perBlockCap: MAX_L1_TO_L2_MSGS_PER_BLOCK,
+          perCheckpointCap: MAX_L1_TO_L2_MSGS_PER_CHECKPOINT,
+          isLastBlock: true,
+          cutoffTimestamp,
+        });
+        const currentL1ToL2Messages = selection.consume ? selection.bundle : [];
+        const bucketHint = selection.consume ? selection.bucket.seq : parent.seq;
+
         const checkpoint = await buildCheckpoint(
           globalVariables,
           txs,
@@ -621,24 +671,9 @@ describe('L1Publisher integration', () => {
         );
         previousInboxRollingHash = checkpoint.header.inboxRollingHash;
         const block = checkpoint.blocks[0];
-
-        // Mirror the Inbox's newest bucket into messageSource so the world-state synchronizer can rebuild this
-        // block's consumed bundle when it syncs the block back on the next iteration, and so the propose bucket hint
-        // resolves to the sequence whose rolling hash the checkpoint header committed to. One bucket per block keyed
-        // by its cumulative L1->L2 tree leaf count -- exactly the value world-state looks the bucket up by.
-        const currentBucketSeq = await inbox.read.getCurrentBucketSeq();
-        const cumulativeMsgCount = BigInt(block.header.state.l1ToL2MessageTree.nextAvailableLeafIndex);
-        messageSource.setInboxBucket(
-          {
-            seq: currentBucketSeq,
-            inboxRollingHash: checkpoint.header.inboxRollingHash,
-            totalMsgCount: cumulativeMsgCount,
-            timestamp,
-            msgCount: currentL1ToL2Messages.length,
-            lastMessageIndex: cumulativeMsgCount - 1n,
-          },
-          currentL1ToL2Messages,
-        );
+        if (selection.consume) {
+          parent = { seq: selection.bucket.seq, totalMsgCount: selection.bucket.totalMsgCount };
+        }
 
         const totalManaUsed = txs.reduce((acc, tx) => acc.add(new Fr(tx.gasUsed.billedGas.l2Gas)), Fr.ZERO);
         expect(totalManaUsed.toBigInt()).toEqual(block.header.totalManaUsed.toBigInt());
@@ -667,8 +702,6 @@ describe('L1Publisher integration', () => {
           deployerAccount.address,
         );
 
-        // The checkpoint consumed everything sent so far, so its consumed bucket is the Inbox's newest.
-        const bucketHint = (await messageSource.getInboxBucketByTotalMsgCount(cumulativeMsgCount))!.seq;
         await publisher.enqueueProposeCheckpoint(
           checkpoint,
           CommitteeAttestationsAndSigners.empty(getSignatureContext()),

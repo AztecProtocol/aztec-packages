@@ -13,17 +13,10 @@ fn public_inputs_match_expected() {
     for i in 0..S {
         msgs[i] = i as Field;
     }
-    let private_inputs = InboxParityPrivateInputs {
-        msgs,
-        num_msgs: S,
-        start_rolling_hash: 0,
-        in_hash: 0x1234,
-        prover_id: 7,
-    };
+    let private_inputs =
+        InboxParityPrivateInputs { msgs, num_msgs: S, start_rolling_hash: 0, prover_id: 7 };
     let public_inputs = inbox_parity::execute(private_inputs);
 
-    // `in_hash` is echoed through unconstrained.
-    assert_eq(public_inputs.in_hash, 0x1234);
     assert_eq(public_inputs.prover_id, 7);
 
     // The rolling hash chains all real messages on top of the start value, which the circuit echoes back.
@@ -45,13 +38,8 @@ fn sponge_matches_block_root_real_count_absorb() {
     msgs[0] = 101;
     msgs[1] = 202;
 
-    let private_inputs = InboxParityPrivateInputs {
-        msgs,
-        num_msgs: 2,
-        start_rolling_hash: 0,
-        in_hash: 0,
-        prover_id: 7,
-    };
+    let private_inputs =
+        InboxParityPrivateInputs { msgs, num_msgs: 2, start_rolling_hash: 0, prover_id: 7 };
     let public_inputs = inbox_parity::execute(private_inputs);
 
     // A block root absorbing the same two real leaves out of its wider bundle reaches the same sponge.
@@ -68,13 +56,8 @@ fn non_zero_padding_lane_fails() {
     msgs[1] = 22;
     msgs[5] = 999;
 
-    let private_inputs = InboxParityPrivateInputs {
-        msgs,
-        num_msgs: 2,
-        start_rolling_hash: 0,
-        in_hash: 0,
-        prover_id: 7,
-    };
+    let private_inputs =
+        InboxParityPrivateInputs { msgs, num_msgs: 2, start_rolling_hash: 0, prover_id: 7 };
     let _ = inbox_parity::execute(private_inputs);
 }
 
@@ -84,7 +67,6 @@ fn num_msgs_greater_than_size_fails() {
         msgs: [0; S],
         num_msgs: S + 1,
         start_rolling_hash: 0,
-        in_hash: 0,
         prover_id: 7,
     };
     let _ = inbox_parity::execute(private_inputs);

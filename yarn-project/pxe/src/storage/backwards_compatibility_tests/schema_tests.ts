@@ -276,7 +276,6 @@ export const SCHEMA_TESTS: readonly SchemaTest[] = [
             new Fr(5n),
             new Fr(7n),
             new Fr(11n),
-            new Fr(13n),
             new Fr(15n),
             new Fr(17n),
             SlotNumber(19),

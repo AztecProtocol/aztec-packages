@@ -172,8 +172,8 @@ impl TestBuilder {
         left_rollup.start_state = hints.previous_block_header.state;
 
         // The InboxParity proof commits to the same checkpoint messages the block roots absorbed. Its message sponge
-        // (empty to the checkpoint's accumulated value) matches the blocks' merged sponge; its rolling hash and in_hash
-        // feed the checkpoint header. Built at the base slot the block fixtures use for their sponge.
+        // (empty to the checkpoint's accumulated value) matches the blocks' merged sponge; its rolling hash feeds the
+        // checkpoint header. Built at the base slot the block fixtures use for their sponge.
         let inbox_parity =
             fixture_builder.get_parity_public_inputs(fixture_builder.start_slot_number);
 
@@ -423,7 +423,6 @@ impl TestBuilder {
             last_archive_root: left.previous_archive.root,
             block_headers_hash,
             blobs_hash: self.hints.blobs_hash,
-            in_hash: self.inbox_parity.in_hash,
             inbox_rolling_hash: self.inbox_parity.end_rolling_hash,
             epoch_out_hash,
             slot_number: left.constants.slot_number,

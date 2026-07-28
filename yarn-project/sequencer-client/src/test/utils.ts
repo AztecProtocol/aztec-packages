@@ -114,7 +114,7 @@ export function createMockSignatures(signer: Secp256k1Signer): CommitteeAttestat
 
 /**
  * Creates a CheckpointHeader from an L2Block for testing purposes.
- * Uses mock values for blockHeadersHash, blobsHash and inHash since L2Block doesn't have these fields.
+ * Uses mock values for blockHeadersHash and blobsHash since L2Block doesn't have these fields.
  */
 function createCheckpointHeaderFromBlock(block: L2Block): CheckpointHeader {
   const gv = block.header.globalVariables;
@@ -122,7 +122,6 @@ function createCheckpointHeaderFromBlock(block: L2Block): CheckpointHeader {
     block.header.lastArchive.root,
     Fr.random(), // blockHeadersHash - mock value for testing
     Fr.random(), // blobsHash - mock value for testing
-    Fr.random(), // inHash - mock value for testing
     Fr.random(), // inboxRollingHash - mock value for testing
     Fr.random(), // outHash - mock value for testing
     gv.slotNumber,
