@@ -33,6 +33,10 @@ pub struct BlockRollupPublicInputsComposer {
     start_msg_sponge: L1ToL2MessageSponge,
     end_msg_sponge: L1ToL2MessageSponge,
     new_l1_to_l2: AppendOnlyTreeSnapshot,
+    // Set by `with_message_bundle` and asserted by `finish`. Without it, a variant that forgot to apply its bundle
+    // would emit `previous_l1_to_l2 == new_l1_to_l2 == constants.l1_to_l2_tree_snapshot`: a silent no-op append that
+    // still satisfies the snapshot check against the constants.
+    bundle_applied: bool,
 }
 
 impl BlockRollupPublicInputsComposer {
@@ -65,6 +69,7 @@ impl BlockRollupPublicInputsComposer {
             start_msg_sponge: L1ToL2MessageSponge::new(),
             end_msg_sponge: L1ToL2MessageSponge::new(),
             new_l1_to_l2: previous_state.l1_to_l2_message_tree,
+            bundle_applied: false,
         }
     }
 
@@ -103,6 +108,7 @@ impl BlockRollupPublicInputsComposer {
             start_msg_sponge: L1ToL2MessageSponge::new(),
             end_msg_sponge: L1ToL2MessageSponge::new(),
             new_l1_to_l2: rollup.constants.l1_to_l2_tree_snapshot,
+            bundle_applied: false,
         }
     }
 
@@ -129,6 +135,7 @@ impl BlockRollupPublicInputsComposer {
     ) -> Self {
         self.is_first_block = is_first_block;
         self.previous_l1_to_l2 = previous_l1_to_l2;
+        self.bundle_applied = true;
 
         // Append the bundle to the l1-to-l2 message tree at its current (arbitrary) next-available index.
         self.new_l1_to_l2 = append_only_tree::append_leaves_to_snapshot::<L1_TO_L2_MSG_TREE_HEIGHT, MAX_L1_TO_L2_MSGS_PER_BLOCK>(
@@ -157,6 +164,13 @@ impl BlockRollupPublicInputsComposer {
         self,
         new_archive_sibling_path: [Field; ARCHIVE_HEIGHT],
     ) -> BlockRollupPublicInputs {
+        // Every block transitions the l1-to-l2 message tree, even when its bundle is empty, so the append is not
+        // optional: skipping it would leave the start and end snapshots trivially equal.
+        assert(
+            self.bundle_applied,
+            "with_message_bundle must be called before finishing the block rollup",
+        );
+
         // Build the header of this block and then insert its hash to the archive tree.
         let (block_header, end_sponge_blob) = self.create_block_header_and_end_sponge_blob();
         let block_header_hash = block_header.hash();
