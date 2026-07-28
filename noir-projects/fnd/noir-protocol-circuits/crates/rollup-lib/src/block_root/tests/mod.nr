@@ -2,6 +2,7 @@ mod child_proof_vk_tests;
 mod consecutive_rollups_tests;
 mod failures_tests;
 mod message_bundle_tests;
+mod msgs_only_tests;
 mod rollup_structure_tests;
 
 use crate::{

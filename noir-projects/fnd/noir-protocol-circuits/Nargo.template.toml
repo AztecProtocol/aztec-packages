@@ -47,6 +47,7 @@ members = [
     "crates/rollup-block-root-first-single-tx",
     "crates/rollup-block-root-first-single-tx-simulated",
     "crates/rollup-block-root-first-empty-tx",
+    "crates/rollup-block-root-msgs-only",
     "crates/rollup-block-merge",
     "crates/rollup-checkpoint-root",
     "crates/rollup-checkpoint-root-simulated",

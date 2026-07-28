@@ -1,6 +1,7 @@
 mod blob_tests;
 mod child_proof_vk_tests;
 mod consecutive_rollups_tests;
+mod msgs_only_tests;
 mod out_hash_tests;
 mod parity_tests;
 mod rollup_structure_tests;
@@ -28,9 +29,9 @@ use types::{
     blob_data::{create_checkpoint_end_marker, SpongeBlob},
     constants::{
         BLOCK_MERGE_ROLLUP_VK_INDEX, BLOCK_ROOT_EMPTY_TX_FIRST_ROLLUP_VK_INDEX,
-        BLOCK_ROOT_FIRST_ROLLUP_VK_INDEX, BLOCK_ROOT_ROLLUP_VK_INDEX,
-        BLOCK_ROOT_SINGLE_TX_FIRST_ROLLUP_VK_INDEX, BLOCK_ROOT_SINGLE_TX_ROLLUP_VK_INDEX,
-        OUT_HASH_TREE_LEAF_COUNT, PARITY_ROOT_VK_INDEX,
+        BLOCK_ROOT_FIRST_ROLLUP_VK_INDEX, BLOCK_ROOT_MSGS_ONLY_ROLLUP_VK_INDEX,
+        BLOCK_ROOT_ROLLUP_VK_INDEX, BLOCK_ROOT_SINGLE_TX_FIRST_ROLLUP_VK_INDEX,
+        BLOCK_ROOT_SINGLE_TX_ROLLUP_VK_INDEX, OUT_HASH_TREE_LEAF_COUNT, PARITY_ROOT_VK_INDEX,
     },
     merkle_tree::compute_sha_tree_root,
     traits::{Hash, Serialize},
@@ -262,7 +263,8 @@ impl TestBuilder {
                     | (vk_index == BLOCK_ROOT_SINGLE_TX_FIRST_ROLLUP_VK_INDEX)
                     | (vk_index == BLOCK_ROOT_EMPTY_TX_FIRST_ROLLUP_VK_INDEX)
                     | (vk_index == BLOCK_ROOT_ROLLUP_VK_INDEX)
-                    | (vk_index == BLOCK_ROOT_SINGLE_TX_ROLLUP_VK_INDEX),
+                    | (vk_index == BLOCK_ROOT_SINGLE_TX_ROLLUP_VK_INDEX)
+                    | (vk_index == BLOCK_ROOT_MSGS_ONLY_ROLLUP_VK_INDEX),
             );
         }
     }
