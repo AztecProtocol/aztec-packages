@@ -139,9 +139,10 @@ impl BlockRollupPublicInputsComposer {
     /// Appends this block's L1-to-L2 message bundle to the tree and absorbs its real messages into the message sponge.
     ///
     /// `previous_l1_to_l2` is the tree snapshot this block builds on: for the first block it is the pre-insertion
-    /// snapshot (hinted, and later checked against the previous checkpoint), for subsequent blocks it is the snapshot
-    /// carried in the constants. `start_msg_sponge` is the sponge inherited from the previous block (empty for the
-    /// first block).
+    /// snapshot (hinted, and later checked against the previous checkpoint), for subsequent blocks it is a witnessed
+    /// snapshot pinned by block-merge continuity to the previous block's end state. Either way, the caller asserts the
+    /// tx constants carry the resulting post-bundle snapshot. `start_msg_sponge` is the sponge inherited from the
+    /// previous block (empty for the first block).
     ///
     /// The tree append and the sponge absorb use different counts transitionally (see `L1ToL2MessageBundle`): the tree
     /// inserts `bundle.num_msgs` leaves (a full padded subtree for a message-bearing block), while the sponge absorbs
@@ -189,8 +190,8 @@ impl BlockRollupPublicInputsComposer {
         *self
     }
 
-    /// The l1-to-l2 tree snapshot after appending this block's bundle. First-block variants check this against the
-    /// snapshot in the tx constants (consumed by the AVM to read new messages).
+    /// The l1-to-l2 tree snapshot after appending this block's bundle. Tx-carrying variants (first and non-first)
+    /// check this against the snapshot in the tx constants (consumed by the AVM to read new messages).
     pub fn get_new_l1_to_l2(self) -> AppendOnlyTreeSnapshot {
         self.new_l1_to_l2
     }

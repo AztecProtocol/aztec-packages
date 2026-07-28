@@ -50,11 +50,11 @@ pub fn validate_previous_rollups<let NumPreviousRollups: u32, let NumVkIndices: 
 /// This snapshot is used in the AVM to validate l1-to-l2 message read requests, allowing public functions to
 /// read new messages before they are inserted into the tree in the block root circuit.
 ///
-/// This check is only required for the first block in a checkpoint, where the new l1-to-l2 messages are inserted
-/// into the tree. For subsequent blocks, the value in the constants is simply propagated to the start and end states of
-/// the public inputs. However, the start state of each block must match the end state of the previous block, which is
-/// validated in the block merge or checkpoint root circuit. This ensures that the snapshot used in subsequent blocks
-/// matches the `computed_new_l1_to_l2` from the first block.
+/// Every tx-carrying block-root variant (first and non-first) runs this check against its own post-bundle snapshot, so
+/// each block's txs can read the messages that block inserts (same-block consumption). Non-first variants take their
+/// start snapshot as a witness rather than reading it from the constants; that witness is pinned to the previous
+/// block's end state by the block merge or checkpoint root circuit, so it cannot be forged. (The tx-less variants —
+/// empty-first and msgs-only — carry no tx constants to read against and so skip this check.)
 pub fn validate_l1_to_l2_tree_snapshot_in_constants(
     constants: BlockConstantData,
     computed_new_l1_to_l2: AppendOnlyTreeSnapshot,

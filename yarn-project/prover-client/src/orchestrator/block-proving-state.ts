@@ -40,6 +40,17 @@ export type ProofState<T, PROOF_LENGTH extends number> = {
 };
 
 /**
+ * The block-root rollup flavor a block proves with and its private inputs, discriminated by circuit name so callers
+ * can dispatch to the matching prover entrypoint with the correctly-typed inputs.
+ */
+export type BlockRootRollupTypeAndInputs =
+  | { rollupType: 'rollup-block-root-first'; inputs: BlockRootFirstRollupPrivateInputs }
+  | { rollupType: 'rollup-block-root-first-single-tx'; inputs: BlockRootSingleTxFirstRollupPrivateInputs }
+  | { rollupType: 'rollup-block-root-first-empty-tx'; inputs: BlockRootEmptyTxFirstRollupPrivateInputs }
+  | { rollupType: 'rollup-block-root-single-tx'; inputs: BlockRootSingleTxRollupPrivateInputs }
+  | { rollupType: 'rollup-block-root'; inputs: BlockRootRollupPrivateInputs };
+
+/**
  * The current state of the proving schedule for a given block. Managed by ProvingState.
  * Contains the raw inputs and intermediate state to generate every constituent proof in the tree.
  */
@@ -280,7 +291,7 @@ export class BlockProvingState {
     return new TxMergeRollupPrivateInputs([toProofData(left), toProofData(right)]);
   }
 
-  public getBlockRootRollupTypeAndInputs() {
+  public getBlockRootRollupTypeAndInputs(): BlockRootRollupTypeAndInputs {
     const provingOutputs = this.#getChildProvingOutputsForBlockRoot();
     if (!provingOutputs.every(p => !!p)) {
       throw new Error('At least one child is not ready for the block root rollup.');
@@ -303,6 +314,7 @@ export class BlockProvingState {
         inputs: new BlockRootSingleTxRollupPrivateInputs(
           leftRollup,
           messageBundle,
+          this.lastL1ToL2MessageTreeSnapshot,
           startMsgSponge,
           frontierHint,
           this.lastArchiveSiblingPath,
@@ -314,6 +326,7 @@ export class BlockProvingState {
         inputs: new BlockRootRollupPrivateInputs(
           [leftRollup, rightRollup],
           messageBundle,
+          this.lastL1ToL2MessageTreeSnapshot,
           startMsgSponge,
           frontierHint,
           this.lastArchiveSiblingPath,
@@ -322,7 +335,10 @@ export class BlockProvingState {
     }
   }
 
-  #getFirstBlockRootRollupTypeAndInputs([leftRollup, rightRollup]: RollupHonkProofData<TxRollupPublicInputs>[]) {
+  #getFirstBlockRootRollupTypeAndInputs([
+    leftRollup,
+    rightRollup,
+  ]: RollupHonkProofData<TxRollupPublicInputs>[]): BlockRootRollupTypeAndInputs {
     const messageBundle = this.#getMessageBundle();
     const frontierHint = this.#getFrontierHint();
 

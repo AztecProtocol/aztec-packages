@@ -129,13 +129,10 @@ impl TestBuilder {
         let (previous_l1_to_l2, l1_to_l2_messages, l1_to_l2_message_frontier_hint, new_l1_to_l2) = fixture_builder
             .build_l1_to_l2_message_bundle_at_index(TEST_NUM_MSGS, l1_to_l2_start_index);
 
-        // The l1-to-l2 tree snapshot carried in the constants is the pre-append snapshot for non-first blocks (the tree
-        // where this block picks up), and the post-append snapshot for first blocks (checked by the circuit against the
-        // computed value).
-        let constants_l1_to_l2 =
-            if is_first_block_root { new_l1_to_l2 } else { previous_l1_to_l2 };
-        left_rollup.constants.l1_to_l2_tree_snapshot = constants_l1_to_l2;
-        right_rollup.constants.l1_to_l2_tree_snapshot = constants_l1_to_l2;
+        // Every tx-carrying block-root variant (first and non-first) asserts the l1-to-l2 tree snapshot carried in the
+        // tx constants equals the post-append snapshot, so its txs read the messages this block inserts.
+        left_rollup.constants.l1_to_l2_tree_snapshot = new_l1_to_l2;
+        right_rollup.constants.l1_to_l2_tree_snapshot = new_l1_to_l2;
 
         // First blocks start the message sponge from empty; non-first blocks inherit a (non-empty) sponge.
         let start_msg_sponge = if is_first_block_root {
@@ -263,6 +260,7 @@ impl TestBuilder {
                 BlockRootSingleTxRollupPrivateInputs {
                     previous_rollup: previous_rollups[0],
                     message_bundle,
+                    previous_l1_to_l2: self.previous_l1_to_l2,
                     start_msg_sponge,
                     l1_to_l2_message_frontier_hint,
                     new_archive_sibling_path,
@@ -273,6 +271,7 @@ impl TestBuilder {
                 BlockRootRollupPrivateInputs {
                     previous_rollups,
                     message_bundle,
+                    previous_l1_to_l2: self.previous_l1_to_l2,
                     start_msg_sponge,
                     l1_to_l2_message_frontier_hint,
                     new_archive_sibling_path,

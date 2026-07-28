@@ -26,10 +26,7 @@ export class RootRollupPublicInputs {
      * The out hash of the first checkpoint in the epoch is inserted at index 0, the second at index 1, and so on.
      */
     public outHash: Fr,
-    /**
-     * Inbox rolling hash before the epoch's first checkpoint's messages. Passed through to L1 unvalidated until the
-     * Fast Inbox flip (AZIP-22).
-     */
+    /** Inbox rolling hash before the epoch's first checkpoint's messages. */
     public previousInboxRollingHash: Fr,
     /** Inbox rolling hash after the epoch's last checkpoint's messages. */
     public endInboxRollingHash: Fr,
