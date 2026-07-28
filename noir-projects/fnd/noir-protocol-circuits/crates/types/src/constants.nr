@@ -61,12 +61,10 @@ pub global NOTE_HASH_SUBTREE_ROOT_SIBLING_PATH_LENGTH: u32 =
     NOTE_HASH_TREE_HEIGHT - NOTE_HASH_SUBTREE_HEIGHT;
 pub global NULLIFIER_SUBTREE_ROOT_SIBLING_PATH_LENGTH: u32 =
     NULLIFIER_TREE_HEIGHT - NULLIFIER_SUBTREE_HEIGHT;
-pub global L1_TO_L2_MSG_SUBTREE_ROOT_SIBLING_PATH_LENGTH: u32 =
-    L1_TO_L2_MSG_TREE_HEIGHT - L1_TO_L2_MSG_SUBTREE_HEIGHT;
 // Cap on L1-to-L2 messages bundled into a single L2 block. One quarter of the per-checkpoint
 // cap: a checkpoint drains its Inbox consumption across up to four message-bearing blocks.
 pub global MAX_L1_TO_L2_MSGS_PER_BLOCK: u32 = 256;
-// Cap on L1-to-L2 messages consumed by a single checkpoint. Semantically today's NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP.
+// Cap on L1-to-L2 messages consumed by a single checkpoint.
 pub global MAX_L1_TO_L2_MSGS_PER_CHECKPOINT: u32 = 1024;
 // Maximum number of subtrees a L2ToL1Msg unbalanced tree can have. Used when calculating the out hash of a tx.
 pub global MAX_L2_TO_L1_MSG_SUBTREES_PER_TX: u32 = 3; // ceil(log2(MAX_L2_TO_L1_MSGS_PER_TX))
@@ -102,9 +100,6 @@ pub global MAX_NOTE_HASH_READ_REQUESTS_PER_CALL: u32 = 16;
 pub global MAX_NULLIFIER_READ_REQUESTS_PER_CALL: u32 = 16;
 pub global MAX_KEY_VALIDATION_REQUESTS_PER_CALL: u32 = MAX_PRIVATE_LOGS_PER_CALL;
 // docs:end:constants
-
-// ROLLUP CONTRACT CONSTANTS - constants used only in l1-contracts
-pub global NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP: u32 = 1 << L1_TO_L2_MSG_SUBTREE_HEIGHT;
 
 // VK TREE CONSTANTS
 pub global PRIVATE_KERNEL_INIT_VK_INDEX: u32 = 0;
@@ -422,7 +417,6 @@ pub global BLOCK_HEADER_LENGTH: u32 = APPEND_ONLY_TREE_SNAPSHOT_LENGTH
 pub global CHECKPOINT_HEADER_LENGTH: u32 = 1 /* last_archive_root */
     + 1 /* block_headers_hash */
     + 1 /* blobs_hash */
-    + 1 /* in_hash */
     + 1 /* inbox_rolling_hash */
     + 1 /* out_hash */
     + 1 /* slot_number */
@@ -614,12 +608,6 @@ pub global ROOT_ROLLUP_PUBLIC_INPUTS_LENGTH: u32 = 1 /* previous_archive_root */
 pub global INBOX_PARITY_SIZE_SMALL: u32 = 64;
 pub global INBOX_PARITY_SIZE_MEDIUM: u32 = 256;
 pub global INBOX_PARITY_SIZE_LARGE: u32 = 1024;
-
-// Fan-in of the sha256 `in_hash` frontier tree (NUM_BASE_PARITY_PER_ROOT_PARITY * NUM_MSGS_PER_BASE_PARITY ==
-// NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP). The circuits no longer build this tree, but the constants are still consumed
-// by the generated Solidity `Constants` and the L1 `Parity.t.sol` test that checks the frontier-root construction.
-pub global NUM_MSGS_PER_BASE_PARITY: u32 = 256;
-pub global NUM_BASE_PARITY_PER_ROOT_PARITY: u32 = 4;
 
 // Lengths of the different types of proofs in fields
 pub global RECURSIVE_PROOF_LENGTH: u32 = 410;
@@ -1346,7 +1334,7 @@ mod test {
     use crate::traits::ToField;
     use super::{
         GLOBAL_INDEX_CONTRACT_MIN_REVERTIBLE_SIDE_EFFECT_COUNTER_OFFSET, INBOX_PARITY_SIZE_LARGE,
-        MAX_ETH_ADDRESS_VALUE, NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP,
+        MAX_ETH_ADDRESS_VALUE, MAX_L1_TO_L2_MSGS_PER_CHECKPOINT,
         TOTAL_COUNTED_SIDE_EFFECTS_PER_CALL,
     };
 
@@ -1393,7 +1381,7 @@ mod test {
     #[test]
     fn parity_covers_all_l1_to_l2_msgs() {
         // The largest InboxParity rung must be able to hold a full checkpoint's worth of messages.
-        assert_eq(INBOX_PARITY_SIZE_LARGE, NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP);
+        assert_eq(INBOX_PARITY_SIZE_LARGE, MAX_L1_TO_L2_MSGS_PER_CHECKPOINT);
     }
 
     #[test]

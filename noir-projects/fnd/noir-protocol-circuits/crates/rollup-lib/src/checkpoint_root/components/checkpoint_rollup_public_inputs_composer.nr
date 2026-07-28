@@ -21,8 +21,8 @@ use types::{
 
 pub struct CheckpointRollupPublicInputsComposer<let NumBlobs: u32> {
     merged_rollup: BlockRollupPublicInputs,
-    // Public inputs of the inbox parity proof (verified by the caller). The checkpoint's `in_hash` and
-    // `inbox_rolling_hash` are sourced from it, and its message sponge is checked against the blocks' accumulated one.
+    // Public inputs of the inbox parity proof (verified by the caller). The checkpoint's `inbox_rolling_hash` is
+    // sourced from it, and its message sponge is checked against the blocks' accumulated one.
     parity: ParityPublicInputs,
     // The below are all hints:
     previous_out_hash: AppendOnlyTreeSnapshot,
@@ -112,8 +112,8 @@ impl<let NumBlobs: u32> CheckpointRollupPublicInputsComposer<NumBlobs> {
             new_archive: merged_rollup.new_archive,
             previous_out_hash: self.previous_out_hash,
             new_out_hash,
-            // Sourced from the inbox parity proof, which commits to the same message list behind the L1-checked
-            // `in_hash`. Checkpoint merges assert continuity across checkpoints (`right.start == left.end`).
+            // Sourced from the inbox parity proof, which commits to the checkpoint's message list. Checkpoint merges
+            // assert continuity across checkpoints (`right.start == left.end`).
             start_inbox_rolling_hash: self.parity.start_rolling_hash,
             end_inbox_rolling_hash: self.parity.end_rolling_hash,
             checkpoint_header_hashes,
@@ -140,10 +140,7 @@ impl<let NumBlobs: u32> CheckpointRollupPublicInputsComposer<NumBlobs> {
             last_archive_root: merged_rollup.previous_archive.root,
             block_headers_hash: merged_rollup.block_headers_hash,
             blobs_hash: self.blobs_hash,
-            // `in_hash` (the sha256 frontier root, checked on L1) and `inbox_rolling_hash` are sourced from the inbox
-            // parity proof. `in_hash` is an unconstrained pass-through there (see `ParityPublicInputs::in_hash`); it
-            // remains the authoritative L1 check until the Fast Inbox flip.
-            in_hash: self.parity.in_hash,
+            // Sourced from the inbox parity proof: the checkpoint's only inbox commitment (AZIP-22 Fast Inbox).
             inbox_rolling_hash: self.parity.end_rolling_hash,
             epoch_out_hash,
             slot_number: constants.slot_number,

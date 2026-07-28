@@ -242,7 +242,7 @@ export class LightweightCheckpointBuilder {
     this.blocks.push(block);
 
     // Accumulate the streaming bundle now that the block is fully built, so a mid-build throw above leaves the
-    // checkpoint's message list (and thus its inHash/rolling hash) consistent with the blocks actually built.
+    // checkpoint's message list (and thus its rolling hash) consistent with the blocks actually built.
     this.l1ToL2Messages.push(...l1ToL2Messages);
 
     const [msSpongeAbsorb] = await elapsed(() => this.spongeBlob.absorb(blockBlobFields));
@@ -277,9 +277,6 @@ export class LightweightCheckpointBuilder {
     const blobs = await getBlobsPerL1Block(this.blobFields);
     const blobsHash = computeBlobsHashFromBlobs(blobs);
 
-    // Legacy inHash is dead post-flip; the checkpoint header carries zero (AZIP-22 Fast Inbox). The consensus
-    // rolling hash over the consumed messages is the authoritative Inbox commitment.
-    const inHash = Fr.ZERO;
     const inboxRollingHash = accumulateInboxRollingHash(this.previousInboxRollingHash, this.l1ToL2Messages);
 
     const { slotNumber, coinbase, feeRecipient, gasFees } = this.constants;
@@ -297,7 +294,6 @@ export class LightweightCheckpointBuilder {
     const header = CheckpointHeader.from({
       lastArchiveRoot: this.lastArchives[0].root,
       blobsHash,
-      inHash,
       inboxRollingHash,
       epochOutHash,
       blockHeadersHash,

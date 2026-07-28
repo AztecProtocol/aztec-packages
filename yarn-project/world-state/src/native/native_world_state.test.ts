@@ -1,12 +1,12 @@
 import {
   ARCHIVE_HEIGHT,
   L1_TO_L2_MSG_TREE_HEIGHT,
+  MAX_L1_TO_L2_MSGS_PER_CHECKPOINT,
   MAX_NOTE_HASHES_PER_TX,
   MAX_NULLIFIERS_PER_TX,
   MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX,
   NOTE_HASH_TREE_HEIGHT,
   NULLIFIER_TREE_HEIGHT,
-  NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP,
   PUBLIC_DATA_TREE_HEIGHT,
 } from '@aztec/constants';
 import { BlockNumber, SlotNumber } from '@aztec/foundation/branded-types';
@@ -170,7 +170,7 @@ describe('NativeWorldState', () => {
 
       const status = await ws.handleL2BlockAndMessages(block, messages);
 
-      // Non-first blocks append their bundle exactly as given (no padding to NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP).
+      // Non-first blocks append their bundle exactly as given (no padding to MAX_L1_TO_L2_MSGS_PER_CHECKPOINT).
       expect(status.meta.messageTreeMeta.size).toBe(BigInt(numMessages));
     });
   });
@@ -1508,8 +1508,8 @@ describe('NativeWorldState', () => {
 
         expect(status.meta.messageTreeMeta).toMatchObject({
           depth: L1_TO_L2_MSG_TREE_HEIGHT,
-          size: BigInt(NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP * (i + 1)),
-          committedSize: BigInt(NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP * (i + 1)),
+          size: BigInt(MAX_L1_TO_L2_MSGS_PER_CHECKPOINT * (i + 1)),
+          committedSize: BigInt(MAX_L1_TO_L2_MSGS_PER_CHECKPOINT * (i + 1)),
           initialSize: BigInt(0),
           oldestHistoricBlock: 1,
           unfinalizedBlockHeight: i + 1,

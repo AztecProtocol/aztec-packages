@@ -475,7 +475,6 @@ export function mapAvmProofDataToNoir(
 
 function mapParityPublicInputsToNoir(parityPublicInputs: ParityPublicInputs): ParityPublicInputsNoir {
   return {
-    in_hash: mapFieldToNoir(parityPublicInputs.inHash),
     start_rolling_hash: mapFieldToNoir(parityPublicInputs.startRollingHash),
     end_rolling_hash: mapFieldToNoir(parityPublicInputs.endRollingHash),
     end_sponge: mapL1ToL2MessageSpongeToNoir(parityPublicInputs.endSponge),
@@ -512,7 +511,6 @@ export function mapRootRollupPublicInputsFromNoir(
  */
 export function mapParityPublicInputsFromNoir(parityPublicInputs: ParityPublicInputsNoir): ParityPublicInputs {
   return new ParityPublicInputs(
-    mapFieldFromNoir(parityPublicInputs.in_hash),
     mapFieldFromNoir(parityPublicInputs.start_rolling_hash),
     mapFieldFromNoir(parityPublicInputs.end_rolling_hash),
     mapL1ToL2MessageSpongeFromNoir(parityPublicInputs.end_sponge),
@@ -726,7 +724,6 @@ export function mapInboxParityPrivateInputsToNoir(inputs: InboxParityPrivateInpu
     msgs: mapFieldArrayToNoir(inputs.messages),
     num_msgs: mapNumberToNoir(inputs.numMessages),
     start_rolling_hash: mapFieldToNoir(inputs.startRollingHash),
-    in_hash: mapFieldToNoir(inputs.inHash),
     vk_tree_root: mapFieldToNoir(inputs.vkTreeRoot),
     prover_id: mapFieldToNoir(inputs.proverId),
   };

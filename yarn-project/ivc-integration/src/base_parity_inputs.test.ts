@@ -15,7 +15,6 @@ import { createLogger } from '@aztec/foundation/log';
 import { Noir } from '@aztec/noir-noir_js';
 import { ServerCircuitArtifacts } from '@aztec/noir-protocol-circuits-types/server';
 import { getVKTreeRoot } from '@aztec/noir-protocol-circuits-types/vk-tree';
-import { computeInHashFromL1ToL2Messages } from '@aztec/stdlib/messaging';
 import { InboxParityPrivateInputs } from '@aztec/stdlib/parity';
 
 import { jest } from '@jest/globals';
@@ -46,7 +45,6 @@ describe('Inbox Parity Benchmark Inputs', () => {
     const inputs = InboxParityPrivateInputs.fromMessages(
       l1ToL2Messages,
       Fr.ZERO,
-      computeInHashFromL1ToL2Messages(l1ToL2Messages),
       vkTreeRoot,
       Fr.random(),
     );
@@ -60,7 +58,6 @@ describe('Inbox Parity Benchmark Inputs', () => {
       // eslint-disable-next-line camelcase
       start_rolling_hash: inputs.startRollingHash.toString(),
       // eslint-disable-next-line camelcase
-      in_hash: inputs.inHash.toString(),
       // eslint-disable-next-line camelcase
       vk_tree_root: inputs.vkTreeRoot.toString(),
       // eslint-disable-next-line camelcase

@@ -17,14 +17,11 @@ fn public_inputs_match_expected() {
         msgs,
         num_msgs: S,
         start_rolling_hash: 0,
-        in_hash: 0x1234,
         vk_tree_root: 42,
         prover_id: 7,
     };
     let public_inputs = inbox_parity::execute(private_inputs);
 
-    // `in_hash` is echoed through unconstrained.
-    assert_eq(public_inputs.in_hash, 0x1234);
     assert_eq(public_inputs.vk_tree_root, 42);
     assert_eq(public_inputs.prover_id, 7);
 
@@ -51,7 +48,6 @@ fn sponge_matches_block_root_real_count_absorb() {
         msgs,
         num_msgs: 2,
         start_rolling_hash: 0,
-        in_hash: 0,
         vk_tree_root: 42,
         prover_id: 7,
     };
@@ -75,7 +71,6 @@ fn non_zero_padding_lane_fails() {
         msgs,
         num_msgs: 2,
         start_rolling_hash: 0,
-        in_hash: 0,
         vk_tree_root: 42,
         prover_id: 7,
     };
@@ -88,7 +83,6 @@ fn num_msgs_greater_than_size_fails() {
         msgs: [0; S],
         num_msgs: S + 1,
         start_rolling_hash: 0,
-        in_hash: 0,
         vk_tree_root: 42,
         prover_id: 7,
     };

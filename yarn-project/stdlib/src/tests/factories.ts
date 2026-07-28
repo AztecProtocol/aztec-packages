@@ -17,6 +17,7 @@ import {
   MAX_ENQUEUED_CALLS_PER_TX,
   MAX_KEY_VALIDATION_REQUESTS_PER_CALL,
   MAX_L1_TO_L2_MSGS_PER_BLOCK,
+  MAX_L1_TO_L2_MSGS_PER_CHECKPOINT,
   MAX_L2_TO_L1_MSGS_PER_CALL,
   MAX_L2_TO_L1_MSGS_PER_TX,
   MAX_NOTE_HASHES_PER_CALL,
@@ -36,7 +37,6 @@ import {
   NOTE_HASH_SUBTREE_ROOT_SIBLING_PATH_LENGTH,
   NULLIFIER_SUBTREE_ROOT_SIBLING_PATH_LENGTH,
   NULLIFIER_TREE_HEIGHT,
-  NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP,
   PRIVATE_LOG_SIZE_IN_FIELDS,
   PUBLIC_DATA_TREE_HEIGHT,
   RECURSIVE_ROLLUP_HONK_PROOF_LENGTH,
@@ -820,7 +820,6 @@ export function makeCheckpointRollupPublicInputs(seed = 0) {
 
 export function makeParityPublicInputs(seed = 0): ParityPublicInputs {
   return new ParityPublicInputs(
-    new Fr(BigInt(seed + 0x200)),
     new Fr(BigInt(seed + 0x400)),
     new Fr(BigInt(seed + 0x500)),
     makeL1ToL2MessageSponge(seed + 0x580),
@@ -838,7 +837,6 @@ export function makeInboxParityPrivateInputs(seed = 0): InboxParityPrivateInputs
     messages,
     numMsgs,
     new Fr(seed + 0x3500),
-    new Fr(seed + 0x3900),
     new Fr(seed + 0x4000),
     new Fr(seed + 0x5000),
   );
@@ -884,7 +882,6 @@ export function makeCheckpointHeader(seed = 0, overrides: Partial<FieldsOf<Check
     lastArchiveRoot: fr(seed + 0x100),
     blockHeadersHash: fr(seed + 0x150),
     blobsHash: fr(seed + 0x200),
-    inHash: fr(seed + 0x210),
     inboxRollingHash: fr(seed + 0x215),
     epochOutHash: fr(seed + 0x220),
     slotNumber: SlotNumber(seed + 0x300),
@@ -905,14 +902,14 @@ export function makeCheckpointHeader(seed = 0, overrides: Partial<FieldsOf<Check
  */
 export function makeStateReference(seed = 0): StateReference {
   return new StateReference(
-    makeAppendOnlyTreeSnapshot(NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP * seed),
+    makeAppendOnlyTreeSnapshot(MAX_L1_TO_L2_MSGS_PER_CHECKPOINT * seed),
     makePartialStateReference(seed + 1),
   );
 }
 
 function makeTreeSnapshots(seed = 0) {
   return new TreeSnapshots(
-    makeAppendOnlyTreeSnapshot(seed * NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP),
+    makeAppendOnlyTreeSnapshot(seed * MAX_L1_TO_L2_MSGS_PER_CHECKPOINT),
     makeAppendOnlyTreeSnapshot((seed + 0x10) * MAX_NOTE_HASHES_PER_TX),
     makeAppendOnlyTreeSnapshot((seed + 0x20) * MAX_NULLIFIERS_PER_TX),
     makeAppendOnlyTreeSnapshot((seed + 0x30) * MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX),

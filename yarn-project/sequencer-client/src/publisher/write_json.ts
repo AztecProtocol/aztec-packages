@@ -55,7 +55,6 @@ export async function writeJson(
         lastArchiveRoot: asHex(checkpointHeader.lastArchiveRoot),
         blockHeadersHash: asHex(checkpointHeader.blockHeadersHash),
         blobsHash: asHex(checkpointHeader.blobsHash),
-        inHash: asHex(checkpointHeader.inHash),
         inboxRollingHash: asHex(checkpointHeader.inboxRollingHash),
         outHash: asHex(checkpointHeader.epochOutHash),
         slotNumber: Number(checkpointHeader.slotNumber),

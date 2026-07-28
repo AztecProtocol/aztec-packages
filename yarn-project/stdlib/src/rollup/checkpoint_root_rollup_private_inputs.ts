@@ -119,8 +119,8 @@ export class CheckpointRootRollupPrivateInputs {
       RollupHonkProofData<BlockRollupPublicInputs>,
     ],
     /**
-     * Inbox parity proof over the checkpoint's L1-to-L2 messages (AZIP-22 Fast Inbox): it commits to the same message
-     * list behind the L1-checked `inHash`, and its message sponge is checked against the blocks' accumulated one.
+     * Inbox parity proof over the checkpoint's L1-to-L2 messages (AZIP-22 Fast Inbox): it commits to the checkpoint's
+     * message list, and its message sponge is checked against the blocks' accumulated one.
      */
     public inboxParity: UltraHonkProofData<ParityPublicInputs>,
     public hints: CheckpointRootRollupHints,
@@ -168,8 +168,8 @@ export class CheckpointRootSingleBlockRollupPrivateInputs {
   constructor(
     public previousRollup: RollupHonkProofData<BlockRollupPublicInputs>,
     /**
-     * Inbox parity proof over the checkpoint's L1-to-L2 messages (AZIP-22 Fast Inbox): it commits to the same message
-     * list behind the L1-checked `inHash`, and its message sponge is checked against the block's accumulated one.
+     * Inbox parity proof over the checkpoint's L1-to-L2 messages (AZIP-22 Fast Inbox): it commits to the checkpoint's
+     * message list, and its message sponge is checked against the block's accumulated one.
      */
     public inboxParity: UltraHonkProofData<ParityPublicInputs>,
     public hints: CheckpointRootRollupHints,
