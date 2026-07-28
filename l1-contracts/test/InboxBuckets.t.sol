@@ -5,7 +5,7 @@ pragma solidity >=0.8.27;
 import {Test} from "forge-std/Test.sol";
 import {TestERC20} from "src/mock/TestERC20.sol";
 import {IERC20} from "@oz/token/ERC20/IERC20.sol";
-import {IInbox} from "@aztec/core/interfaces/messagebridge/IInbox.sol";
+import {IInbox, MAX_MSGS_PER_BUCKET} from "@aztec/core/interfaces/messagebridge/IInbox.sol";
 import {MIN_BUCKET_RING_SIZE} from "@aztec/core/messagebridge/Inbox.sol";
 import {InboxHarness} from "./harnesses/InboxHarness.sol";
 import {TestConstants} from "./harnesses/TestConstants.sol";
@@ -172,7 +172,7 @@ contract InboxBucketsTest is Test {
   }
 
   function testRolloverIntoNextBucket() public {
-    uint256 cap = inbox.MAX_MSGS_PER_BUCKET();
+    uint256 cap = MAX_MSGS_PER_BUCKET;
     for (uint256 i = 0; i < cap; i++) {
       _send(inbox, i);
     }
@@ -266,7 +266,7 @@ contract InboxBucketsTest is Test {
   // Gas cost of a rollover opening mid-block: once a bucket reaches MAX_MSGS_PER_BUCKET, the next
   // message in the same L1 block opens a new bucket even though the timestamp is unchanged.
   function testGasSendRolloverMidBlock() public {
-    uint256 cap = inbox.MAX_MSGS_PER_BUCKET();
+    uint256 cap = MAX_MSGS_PER_BUCKET;
     for (uint256 i = 0; i < cap; i++) {
       _send(inbox, i);
     }
