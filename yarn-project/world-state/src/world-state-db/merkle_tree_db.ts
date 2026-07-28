@@ -34,7 +34,7 @@ export interface MerkleTreeAdminDatabase extends ForkMerkleTreeOperations, Reado
    * Handles a single L2 block: inserts its note hashes, nullifiers, public data writes, and the block's L1-to-L2
    * message bundle into the merkle trees. Any block may carry a message bundle and transition the L1-to-L2 message
    * tree, not just the first block of a checkpoint. A first-in-checkpoint bundle is padded to
-   * NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP to match how the circuits build the tree; a non-first bundle is appended
+   * MAX_L1_TO_L2_MSGS_PER_CHECKPOINT to match how the circuits build the tree; a non-first bundle is appended
    * exactly as given. Padding is a transitional concern of this method that moves entirely to the caller at the flip.
    * @param block - The L2 block to handle.
    * @param l1ToL2Messages - The L1 to L2 messages for the block.

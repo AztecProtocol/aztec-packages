@@ -164,8 +164,6 @@ contract RollupFieldRangeTest is RollupBase {
     vm.warp(max(block.timestamp, Timestamp.unwrap(ts)));
 
     _populateInbox(full.populate.sender, full.populate.recipient, full.populate.l1ToL2Content);
-    // The header's inHash field is an unconstrained pass-through hint post-flip; propose does not check it.
-    header.inHash = bytes32(0);
     header.gasFees.feePerL2Gas = SafeCast.toUint128(rollup.getManaMinFeeAt(ts, true));
 
     // Every field the range check guards, set to the maximal in-range value.

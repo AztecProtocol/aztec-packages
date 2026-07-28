@@ -1,8 +1,8 @@
 import {
+  MAX_L1_TO_L2_MSGS_PER_CHECKPOINT,
   MAX_NOTE_HASHES_PER_TX,
   MAX_NULLIFIERS_PER_TX,
   NULLIFIER_SUBTREE_HEIGHT,
-  NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP,
 } from '@aztec/constants';
 import { asyncMap } from '@aztec/foundation/async-map';
 import { BlockNumber, type CheckpointNumber, IndexWithinCheckpoint } from '@aztec/foundation/branded-types';
@@ -78,7 +78,7 @@ export function mockBlock(
   size: number,
   fork: MerkleTreeWriteOperations,
   maxEffects: number | undefined = 1000, // Defaults to the maximum tx effects.
-  numL1ToL2Messages: number = NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP,
+  numL1ToL2Messages: number = MAX_L1_TO_L2_MSGS_PER_CHECKPOINT,
   isFirstBlockInCheckpoint: boolean = true,
 ) {
   return mockBlockWithIndex(blockNum, isFirstBlockInCheckpoint ? 0 : 1, size, fork, numL1ToL2Messages, maxEffects);
@@ -94,7 +94,7 @@ export async function mockBlockWithIndex(
   indexWithinCheckpoint: number,
   size: number,
   fork: MerkleTreeWriteOperations,
-  numL1ToL2Messages: number = NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP,
+  numL1ToL2Messages: number = MAX_L1_TO_L2_MSGS_PER_CHECKPOINT,
   maxEffects: number | undefined = 1000, // Defaults to the maximum tx effects.
 ) {
   const block = await L2Block.random(blockNum, {

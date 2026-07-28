@@ -48,7 +48,7 @@ pub struct RollupFixtureBuilder {
     pub protocol_contracts_hash: Field,
     pub prover_id: Field,
 
-    // Used to identify the first block, which will have an empty start_sponge_blob, and non-empty in_hash.
+    // Used to identify the first block, which will have an empty start_sponge_blob.
     pub start_block_number: u32,
 
     // Used to identify the first checkpoint, which will have an empty start_blob_accumulator.
@@ -458,7 +458,6 @@ impl RollupFixtureBuilder {
 
     pub fn get_parity_public_inputs(self, slot_number: Field) -> ParityPublicInputs {
         ParityPublicInputs {
-            in_hash: slot_number * 85831493,
             start_rolling_hash: self.get_inbox_rolling_hash(slot_number),
             end_rolling_hash: self.get_inbox_rolling_hash(slot_number + 1),
             // The message sponge resets per checkpoint, so it starts empty and ends at the checkpoint's accumulated

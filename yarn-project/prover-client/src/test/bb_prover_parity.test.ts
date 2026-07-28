@@ -5,7 +5,7 @@ import { createLogger } from '@aztec/foundation/log';
 import type { ServerProtocolArtifact } from '@aztec/noir-protocol-circuits-types/server';
 import { ServerCircuitVks } from '@aztec/noir-protocol-circuits-types/server/vks';
 import { getVKTreeRoot } from '@aztec/noir-protocol-circuits-types/vk-tree';
-import { L1ToL2MessageSponge, computeInHashFromL1ToL2Messages } from '@aztec/stdlib/messaging';
+import { L1ToL2MessageSponge } from '@aztec/stdlib/messaging';
 import { INBOX_PARITY_SIZES, InboxParityPrivateInputs, type InboxParitySize } from '@aztec/stdlib/parity';
 
 import { TestContext } from '../mocks/test_context.js';
@@ -48,15 +48,11 @@ describe('prover/bb_prover/parity', () => {
       // Fill the rung with real messages so `numMessages === size` (the largest circuit for that rung).
       const messages = Array.from({ length: size }, () => Fr.random());
       const proverId = Fr.random();
-      // The in_hash is a sha256 frontier root (top byte zeroed to fit the field), which `ParityPublicInputs` enforces;
-      // compute it from the messages rather than using a raw random field.
-      const inHash = computeInHashFromL1ToL2Messages(messages);
 
       const inputs = InboxParityPrivateInputs.fromMessages(
         messages,
         Fr.ZERO,
         L1ToL2MessageSponge.empty(),
-        inHash,
         getVKTreeRoot(),
         proverId,
       );

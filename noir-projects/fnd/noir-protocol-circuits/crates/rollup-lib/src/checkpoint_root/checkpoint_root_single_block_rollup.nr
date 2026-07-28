@@ -21,8 +21,10 @@ use types::{
 //
 // That `is_first_block` assertion is the only thing keeping a message-only block from standing as a checkpoint's sole
 // block. If it is ever relaxed (e.g. replaced by a "leftmost block's start_msg_sponge is empty" check), this entry
-// must be dropped in the same change, or a transaction-less single-block checkpoint — one whose blob omits the
-// first-block l1-to-l2 root — would silently become provable.
+// must be dropped in the same change, because barring the message-only variant from standing alone is what keeps
+// each checkpoint shape to a single valid encoding: a sole transaction-less block carrying a message bundle is
+// already provable as an empty-tx-first block, which accepts a non-empty bundle. It is also what keeps the rule
+// confining fully-empty blocks to the first position enforceable.
 global ALLOWED_PREVIOUS_VK_INDICES: [u32; 4] = [
     BLOCK_ROOT_FIRST_ROLLUP_VK_INDEX,
     BLOCK_ROOT_SINGLE_TX_FIRST_ROLLUP_VK_INDEX,

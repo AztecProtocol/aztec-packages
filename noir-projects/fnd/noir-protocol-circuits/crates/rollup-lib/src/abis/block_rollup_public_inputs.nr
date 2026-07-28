@@ -40,11 +40,13 @@ pub struct BlockRollupPublicInputs {
     // stored in the checkpoint header, enabling validation of the blocks included in a checkpoint given their headers.
     pub block_headers_hash: Field,
 
-    // Whether this block range starts at the first block of its checkpoint. Only the first block root sets this true;
-    // merges propagate it from the left rollup and `validate_consecutive_block_rollups` asserts the right rollup's is
-    // false, so it can only reach the checkpoint root through the leftmost leaf. It replaces `in_hash`'s former
-    // structural role: the checkpoint root asserts the merged value is true, and it drives the block-end blob-absorb
-    // flag (the l1-to-l2 tree root is absorbed only for the first block).
+    // Whether this block range starts at the first block of its checkpoint. Only the first block root variants set it
+    // true; merges propagate it from the left rollup (`merge_block_rollups`), and
+    // `validate_consecutive_block_rollups` asserts the right rollup of every merge is not a first block. The flag is
+    // therefore a proof that the range's leftmost leaf is a first-variant block root, which is what lets the
+    // checkpoint root assert its leftmost block is one (`checkpoint_root_inputs_validator`) even though it cannot see
+    // the leaf VK indices. Since only first variants may be fully empty (no txs and no messages), that also confines
+    // a fully-empty filler block to the first position of a checkpoint.
     pub is_first_block: bool,
 
     // Poseidon2 message-bundle sponge threaded across the blocks of the checkpoint. The leftmost block starts from the

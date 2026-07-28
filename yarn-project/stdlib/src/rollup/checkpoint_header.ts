@@ -30,12 +30,10 @@ export class CheckpointHeader {
     public blockHeadersHash: Fr,
     /** Hash of the blobs in the checkpoint. */
     public blobsHash: Fr,
-    /** Root of the l1 to l2 messages subtree. */
-    public inHash: Fr,
     /**
-     * Inbox rolling-hash chain value after consuming all L1-to-L2 messages bundled into this checkpoint. The dual of
-     * `inHash` (AZIP-22 Fast Inbox): the truncated-to-field sha256 chain the L1 Inbox accumulates. Currently a
-     * pass-through commitment; `inHash` remains the authoritative L1 check until the Fast Inbox flip.
+     * Inbox rolling-hash chain value after consuming all L1-to-L2 messages bundled into this checkpoint (AZIP-22 Fast
+     * Inbox): the truncated-to-field sha256 chain the L1 Inbox accumulates. This is the checkpoint's only inbox
+     * commitment.
      */
     public inboxRollingHash: Fr,
     /**
@@ -68,7 +66,6 @@ export class CheckpointHeader {
         lastArchiveRoot: schemas.Fr,
         blockHeadersHash: schemas.Fr,
         blobsHash: schemas.Fr,
-        inHash: schemas.Fr,
         inboxRollingHash: schemas.Fr,
         epochOutHash: schemas.Fr,
         slotNumber: schemas.SlotNumber,
@@ -87,7 +84,6 @@ export class CheckpointHeader {
       fields.lastArchiveRoot,
       fields.blockHeadersHash,
       fields.blobsHash,
-      fields.inHash,
       fields.inboxRollingHash,
       fields.epochOutHash,
       fields.slotNumber,
@@ -113,7 +109,6 @@ export class CheckpointHeader {
       reader.readObject(Fr),
       reader.readObject(Fr),
       reader.readObject(Fr),
-      reader.readObject(Fr),
       SlotNumber(Fr.fromBuffer(reader).toNumber()),
       reader.readUInt64(),
       reader.readObject(EthAddress),
@@ -129,7 +124,6 @@ export class CheckpointHeader {
       this.lastArchiveRoot.equals(other.lastArchiveRoot) &&
       this.blockHeadersHash.equals(other.blockHeadersHash) &&
       this.blobsHash.equals(other.blobsHash) &&
-      this.inHash.equals(other.inHash) &&
       this.inboxRollingHash.equals(other.inboxRollingHash) &&
       this.epochOutHash.equals(other.epochOutHash) &&
       this.slotNumber === other.slotNumber &&
@@ -159,7 +153,6 @@ export class CheckpointHeader {
       this.lastArchiveRoot,
       this.blockHeadersHash,
       this.blobsHash,
-      this.inHash,
       this.inboxRollingHash,
       this.epochOutHash,
       new Fr(this.slotNumber),
@@ -181,7 +174,6 @@ export class CheckpointHeader {
       lastArchiveRoot: Fr.ZERO,
       blockHeadersHash: Fr.ZERO,
       blobsHash: Fr.ZERO,
-      inHash: Fr.ZERO,
       inboxRollingHash: Fr.ZERO,
       epochOutHash: Fr.ZERO,
       slotNumber: SlotNumber.ZERO,
@@ -200,7 +192,6 @@ export class CheckpointHeader {
       lastArchiveRoot: Fr.random(),
       blockHeadersHash: Fr.random(),
       blobsHash: Fr.random(),
-      inHash: Fr.random(),
       inboxRollingHash: Fr.random(),
       epochOutHash: Fr.random(),
       slotNumber: SlotNumber(Math.floor(Math.random() * 1000) + 1),
@@ -219,7 +210,6 @@ export class CheckpointHeader {
       this.lastArchiveRoot.isZero() &&
       this.blockHeadersHash.isZero() &&
       this.blobsHash.isZero() &&
-      this.inHash.isZero() &&
       this.inboxRollingHash.isZero() &&
       this.epochOutHash.isZero() &&
       this.slotNumber === 0 &&
@@ -249,7 +239,6 @@ export class CheckpointHeader {
       Fr.fromString(header.lastArchiveRoot),
       Fr.fromString(header.blockHeadersHash),
       Fr.fromString(header.blobsHash),
-      Fr.fromString(header.inHash),
       Fr.fromString(header.inboxRollingHash),
       Fr.fromString(header.outHash),
       SlotNumber.fromBigInt(header.slotNumber),
@@ -275,7 +264,6 @@ export class CheckpointHeader {
       lastArchiveRoot: this.lastArchiveRoot.toString(),
       blockHeadersHash: this.blockHeadersHash.toString(),
       blobsHash: this.blobsHash.toString(),
-      inHash: this.inHash.toString(),
       inboxRollingHash: this.inboxRollingHash.toString(),
       outHash: this.epochOutHash.toString(),
       slotNumber: BigInt(this.slotNumber),
@@ -296,7 +284,6 @@ export class CheckpointHeader {
       lastArchive: this.lastArchiveRoot.toString(),
       blockHeadersHash: this.blockHeadersHash.toString(),
       blobsHash: this.blobsHash.toString(),
-      inHash: this.inHash.toString(),
       inboxRollingHash: this.inboxRollingHash.toString(),
       epochOutHash: this.epochOutHash.toString(),
       slotNumber: this.slotNumber,
@@ -314,7 +301,6 @@ export class CheckpointHeader {
   lastArchiveRoot: ${this.lastArchiveRoot.toString()},
   blockHeadersHash: ${this.blockHeadersHash.toString()},
   blobsHash: ${inspect(this.blobsHash)},
-  inHash: ${inspect(this.inHash)},
   inboxRollingHash: ${inspect(this.inboxRollingHash)},
   epochOutHash: ${inspect(this.epochOutHash)},
   slotNumber: ${this.slotNumber},
