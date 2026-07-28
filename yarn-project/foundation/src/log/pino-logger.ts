@@ -7,6 +7,7 @@ import { inspect } from 'util';
 import { compactArray } from '../collection/array.js';
 import type { EnvVar } from '../config/index.js';
 import { parseBooleanEnv } from '../config/parse-env.js';
+import { AWSCloudLoggerConfig } from './aws-logger-config.js';
 import { convertBigintsToStrings } from './bigint-utils.js';
 import { GoogleCloudLoggerConfig } from './gcloud-logger-config.js';
 import { getLogLevelFromFilters, parseLogLevelEnvVar } from './log-filters.js';
@@ -134,8 +135,17 @@ export const [logLevel, logFilters] = parseLogLevelEnvVar(process.env.LOG_LEVEL,
 // Define custom logging levels for pino.
 const customLevels = { verbose: 25 };
 
-// Global pino options, tweaked for google cloud if running there.
+// Global pino options, tweaked for the active cloud logging backend.
 const useGcloudLogging = parseBooleanEnv(process.env['USE_GCLOUD_LOGGING' satisfies EnvVar]);
+const useAwsLogging = parseBooleanEnv(process.env['USE_AWS_LOGGING' satisfies EnvVar]);
+const loggingConfig = useGcloudLogging
+  ? GoogleCloudLoggerConfig
+  : useAwsLogging
+    ? AWSCloudLoggerConfig
+    : {
+        formatters: {},
+        messageKey: 'msg',
+      };
 
 const redactedPaths = [
   'validatorPrivateKeys',
@@ -156,7 +166,7 @@ const redactedPaths = [
 
 const pinoOpts: pino.LoggerOptions<keyof typeof customLevels> = {
   customLevels,
-  messageKey: 'msg',
+  messageKey: loggingConfig.messageKey,
   useOnlyCustomLevels: false,
   level: logLevel,
   redact: {
@@ -170,8 +180,8 @@ const pinoOpts: pino.LoggerOptions<keyof typeof customLevels> = {
   },
   formatters: {
     log: obj => convertBigintsToStrings(obj) as Record<string, unknown>,
+    ...loggingConfig.formatters,
   },
-  ...(useGcloudLogging ? GoogleCloudLoggerConfig : {}),
 };
 
 export const levels = {
@@ -241,7 +251,7 @@ const pinoPrettyBaseOpts = {
   destination: 2,
   sync: true,
   colorize: useColor,
-  ignore: 'module,actor,instanceId,pid,hostname,trace_id,span_id,trace_flags,severity',
+  ignore: 'module,actor,instanceId,pid,hostname,trace_id,span_id,trace_flags,severity,severityText,severityNumber',
   customLevels: 'fatal:60,error:50,warn:40,info:30,verbose:25,debug:20,trace:10',
   customColors: 'fatal:bgRed,error:red,warn:yellow,info:green,verbose:magenta,debug:blue,trace:gray',
   minimumLevel: 'trace' as const,
