@@ -495,7 +495,10 @@ export class ArchiverL1Synchronizer implements Traceable {
     );
   }
 
-  /** Retrieves L1 to L2 messages from L1 in batches and stores them. */
+  /**
+   * Retrieves L1 to L2 messages from L1 in batches and stores them. Batches must span whole L1 blocks so that every
+   * message of an Inbox bucket is stored in a single call, which the message store requires.
+   */
   private async retrieveAndStoreMessages(fromL1Block: bigint, toL1Block: bigint): Promise<void> {
     let searchStartBlock: bigint = 0n;
     let searchEndBlock: bigint = fromL1Block;
@@ -508,7 +511,7 @@ export class ArchiverL1Synchronizer implements Traceable {
       this.log.trace(`Retrieving L1 to L2 messages in L1 blocks ${searchStartBlock}-${searchEndBlock}`);
       const messages = await retrieveL1ToL2Messages(this.inbox, searchStartBlock, searchEndBlock);
       const timer = new Timer();
-      await this.stores.messages.addL1ToL2Messages(messages);
+      await this.stores.messages.addL1ToL2MessageBuckets(messages);
       const perMsg = timer.ms() / messages.length;
       this.instrumentation.processNewMessages(messages.length, perMsg);
       for (const msg of messages) {
