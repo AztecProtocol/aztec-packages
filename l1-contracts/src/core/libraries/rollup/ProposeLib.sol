@@ -9,6 +9,7 @@ import {IInbox, MAX_MSGS_PER_BUCKET} from "@aztec/core/interfaces/messagebridge/
 import {TempCheckpointLog} from "@aztec/core/libraries/compressed-data/CheckpointLog.sol";
 import {FeeHeader} from "@aztec/core/libraries/compressed-data/fees/FeeStructs.sol";
 import {ChainTipsLib, CompressedChainTips} from "@aztec/core/libraries/compressed-data/Tips.sol";
+import {Constants} from "@aztec/core/libraries/ConstantsGen.sol";
 import {Errors} from "@aztec/core/libraries/Errors.sol";
 import {CommitteeAttestations} from "@aztec/core/libraries/rollup/AttestationLib.sol";
 import {CoordinationSignatureLib} from "@aztec/core/libraries/rollup/CoordinationSignatureLib.sol";
@@ -21,14 +22,6 @@ import {Signature} from "@aztec/shared/libraries/SignatureLib.sol";
 import {SafeCast} from "@oz/utils/math/SafeCast.sol";
 import {ProposedHeader, ProposedHeaderLib} from "./ProposedHeaderLib.sol";
 import {STFLib} from "./STFLib.sol";
-
-// Streaming-inbox protocol constants (AZIP-22 Fast Inbox). These mirror the protocol circuit constants and
-// should move into the generated Constants library once the Solidity emitter includes them.
-// Minimum bucket age, in seconds, at the start of a checkpoint's build frame for its consumption to be
-// mandatory. One L1 slot: validators cannot be required to act on buckets they may not have seen.
-uint256 constant INBOX_LAG_SECONDS = 12;
-// Maximum number of L1 to L2 messages a single checkpoint can insert.
-uint256 constant MAX_L1_TO_L2_MSGS_PER_CHECKPOINT = 1024;
 
 struct ProposeArgs {
   bytes32 archive;
@@ -465,17 +458,17 @@ library ProposeLib {
     );
 
     require(
-      bucket.totalMsgCount - _parentTotalMsgCount <= MAX_L1_TO_L2_MSGS_PER_CHECKPOINT,
+      bucket.totalMsgCount - _parentTotalMsgCount <= Constants.MAX_L1_TO_L2_MSGS_PER_CHECKPOINT,
       Errors.Rollup__TooManyInboxMessagesConsumed(bucket.totalMsgCount - _parentTotalMsgCount)
     );
 
     if (_bucketHint < _inbox.getCurrentBucketSeq()) {
       IInbox.InboxBucket memory next = _inbox.getBucket(_bucketHint + 1);
       Timestamp buildFrameStart = TimeLib.toTimestamp(_slotNumber - Slot.wrap(1));
-      Timestamp cutoff = buildFrameStart - Timestamp.wrap(INBOX_LAG_SECONDS);
+      Timestamp cutoff = buildFrameStart - Timestamp.wrap(Constants.INBOX_LAG_SECONDS);
       require(
         next.timestamp > Timestamp.unwrap(cutoff)
-          || next.totalMsgCount - _parentTotalMsgCount > MAX_L1_TO_L2_MSGS_PER_CHECKPOINT,
+          || next.totalMsgCount - _parentTotalMsgCount > Constants.MAX_L1_TO_L2_MSGS_PER_CHECKPOINT,
         Errors.Rollup__UnconsumedInboxMessages(_bucketHint + 1)
       );
     }
