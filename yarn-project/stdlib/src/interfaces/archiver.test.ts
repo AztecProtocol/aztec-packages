@@ -286,6 +286,7 @@ describe('ArchiverApiSchema', () => {
       startBlock: 1,
       totalManaUsed: 1n,
       feeAssetPriceModifier: 1n,
+      inboxMsgTotal: 1n,
     });
   });
 
@@ -430,6 +431,7 @@ class MockArchiver implements ArchiverApi {
       startBlock: BlockNumber(1),
       totalManaUsed: 1n,
       feeAssetPriceModifier: 1n,
+      inboxMsgTotal: 1n,
     });
   }
   syncImmediate() {

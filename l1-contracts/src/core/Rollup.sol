@@ -41,6 +41,7 @@ import {
   Epoch,
   Timestamp,
   CommitteeAttestations,
+  EpochProofExtLib,
   RollupOperationsExtLib,
   ValidatorOperationsExtLib,
   EthValue,
@@ -300,7 +301,7 @@ contract Rollup is IStaking, IValidatorSelection, IRollup, RollupCore {
     ProposedHeader[] calldata _headers,
     bytes calldata _blobPublicInputs
   ) external view override(IRollup) returns (bytes32[] memory) {
-    return RollupOperationsExtLib.getEpochProofPublicInputs(_start, _end, _args, _headers, _blobPublicInputs);
+    return EpochProofExtLib.getEpochProofPublicInputs(_start, _end, _args, _headers, _blobPublicInputs);
   }
 
   /**

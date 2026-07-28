@@ -1,7 +1,7 @@
 import { SpongeBlob } from '@aztec/blob-lib';
 import type {
   ARCHIVE_HEIGHT,
-  L1_TO_L2_MSG_SUBTREE_ROOT_SIBLING_PATH_LENGTH,
+  L1_TO_L2_MSG_TREE_HEIGHT,
   NESTED_RECURSIVE_PROOF_LENGTH,
   NESTED_RECURSIVE_ROLLUP_HONK_PROOF_LENGTH,
 } from '@aztec/constants';
@@ -10,11 +10,11 @@ import { Fr } from '@aztec/foundation/curves/bn254';
 import type { Tuple } from '@aztec/foundation/serialize';
 import { type TreeNodeLocation, UnbalancedTreeStore } from '@aztec/foundation/trees';
 import type { PublicInputsAndRecursiveProof } from '@aztec/stdlib/interfaces/server';
-import { L1ToL2MessageSponge, computeInHashFromL1ToL2Messages } from '@aztec/stdlib/messaging';
+import { L1ToL2MessageSponge } from '@aztec/stdlib/messaging';
 import { InboxParityPrivateInputs, type ParityPublicInputs } from '@aztec/stdlib/parity';
 import { BlockMergeRollupPrivateInputs, BlockRollupPublicInputs, CheckpointConstantData } from '@aztec/stdlib/rollup';
 import type { AppendOnlyTreeSnapshot } from '@aztec/stdlib/trees';
-import type { BlockHeader } from '@aztec/stdlib/tx';
+import type { BlockHeader, StateReference } from '@aztec/stdlib/tx';
 import type { UInt64 } from '@aztec/stdlib/types';
 
 import { toProofData } from './block-building-helpers.js';
@@ -42,25 +42,6 @@ export class CheckpointProvingState {
     // Inbox rolling hash before this checkpoint's messages (the previous checkpoint's end value; genesis is zero).
     // Threaded into the InboxParity circuit so the resulting checkpoint header rolling hash matches the proposer's.
     private readonly startInboxRollingHash: Fr,
-    // The snapshot and sibling path before the new l1 to l2 message subtree is inserted.
-    private readonly lastL1ToL2MessageTreeSnapshot: AppendOnlyTreeSnapshot,
-    private readonly lastL1ToL2MessageSubtreeRootSiblingPath: Tuple<
-      Fr,
-      typeof L1_TO_L2_MSG_SUBTREE_ROOT_SIBLING_PATH_LENGTH
-    >,
-    // The snapshot and sibling path after the new l1 to l2 message subtree is inserted.
-    private readonly newL1ToL2MessageTreeSnapshot: AppendOnlyTreeSnapshot,
-    private readonly newL1ToL2MessageSubtreeRootSiblingPath: Tuple<
-      Fr,
-      typeof L1_TO_L2_MSG_SUBTREE_ROOT_SIBLING_PATH_LENGTH
-    >,
-    // The checkpoint's messages padded to `MAX_L1_TO_L2_MSGS_PER_CHECKPOINT` (the first block's transitional bundle,
-    // inserted as a full subtree into the L1-to-L2 tree).
-    private readonly paddedL1ToL2Messages: Fr[],
-    // Message-bundle sponge over the checkpoint's real messages (real-count absorb). Equals the InboxParity proof's
-    // end sponge and the sponge the block roots accumulate, so it is threaded into non-first block roots as their
-    // inherited `startMsgSponge`.
-    private readonly checkpointMsgSponge: L1ToL2MessageSponge,
     public readonly epochNumber: number,
     /** Owner's liveness check. `verifyState()` returns false once this returns false. */
     private readonly isAlive: () => boolean,
@@ -71,40 +52,31 @@ export class CheckpointProvingState {
     this.firstBlockNumber = BlockNumber(headerOfLastBlockInPreviousCheckpoint.globalVariables.blockNumber + 1);
   }
 
-  /** The checkpoint's messages padded to the per-checkpoint cap (the first block's transitional bundle). */
-  public getPaddedL1ToL2Messages(): Fr[] {
-    return this.paddedL1ToL2Messages;
+  /** The checkpoint's real L1-to-L2 messages (unpadded), consumed across its blocks (AZIP-22 Fast Inbox). */
+  public getL1ToL2Messages(): Fr[] {
+    return this.l1ToL2Messages;
   }
 
-  /** Number of real (non-padding) L1-to-L2 messages in the checkpoint — the sponge/InboxParity real-count. */
-  public getNumRealL1ToL2Messages(): number {
-    return this.l1ToL2Messages.length;
-  }
-
-  /** The message-bundle sponge over the checkpoint's real messages (real-count absorb) — inherited by non-first block roots. */
-  public getCheckpointMsgSponge(): L1ToL2MessageSponge {
-    return this.checkpointMsgSponge;
-  }
-
-  public startNewBlock(
+  public async startNewBlock(
     blockNumber: BlockNumber,
     timestamp: UInt64,
     totalNumTxs: number,
     lastArchiveTreeSnapshot: AppendOnlyTreeSnapshot,
     lastArchiveSiblingPath: Tuple<Fr, typeof ARCHIVE_HEIGHT>,
-  ): BlockProvingState {
+    // The full state reference of the previous block (before this block's message bundle is appended). Feeds the
+    // msgs-only block root, whose zero-tx block carries no tx constants to pin the previous state.
+    previousState: StateReference,
+    // Per-block L1-to-L2 message state (AZIP-22 Fast Inbox): the block's start snapshot (its parent's end), its own
+    // post-bundle end snapshot, the full-height frontier at the start index, and its own real message slice.
+    startL1ToL2MessageTreeSnapshot: AppendOnlyTreeSnapshot,
+    endL1ToL2MessageTreeSnapshot: AppendOnlyTreeSnapshot,
+    l1ToL2MessageFrontierHint: Tuple<Fr, typeof L1_TO_L2_MSG_TREE_HEIGHT>,
+    l1ToL2Messages: Fr[],
+  ): Promise<BlockProvingState> {
     const index = Number(blockNumber) - Number(this.firstBlockNumber);
     if (index >= this.totalNumBlocks) {
       throw new Error(`Unable to start a new block at index ${index}. Expected at most ${this.totalNumBlocks} blocks.`);
     }
-
-    // If this is the first block, we use the snapshot and sibling path before the new l1 to l2 messages are inserted.
-    // Otherwise, we use the snapshot and sibling path after the new l1 to l2 messages are inserted, which will always
-    // happen in the first block.
-    const lastL1ToL2MessageTreeSnapshot =
-      index === 0 ? this.lastL1ToL2MessageTreeSnapshot : this.newL1ToL2MessageTreeSnapshot;
-    const lastL1ToL2MessageSubtreeRootSiblingPath =
-      index === 0 ? this.lastL1ToL2MessageSubtreeRootSiblingPath : this.newL1ToL2MessageSubtreeRootSiblingPath;
 
     const startSpongeBlob = index === 0 ? SpongeBlob.init() : this.blocks[index - 1]?.getEndSpongeBlob();
     if (!startSpongeBlob) {
@@ -112,6 +84,19 @@ export class CheckpointProvingState {
         'Cannot start a new block before the trees have progressed from the tx effects in the previous block.',
       );
     }
+
+    // Thread the message sponge across the checkpoint's blocks (AZIP-22 Fast Inbox): each block starts from the
+    // previous block's end sponge (empty for the first block) and absorbs its own real slice. The block merge and
+    // checkpoint root circuits assert exactly this continuity (`right.start_msg_sponge == left.end_msg_sponge`, first
+    // block starts empty, merged end equals the InboxParity sponge), so the end sponge is computed eagerly here for
+    // the next block to inherit. Blocks must therefore be started in order, which the sequential per-block message
+    // appends already require.
+    const startMsgSponge = index === 0 ? L1ToL2MessageSponge.empty() : this.blocks[index - 1]?.getEndMsgSponge();
+    if (!startMsgSponge) {
+      throw new Error('Cannot start a new block before the previous block in the checkpoint has been started.');
+    }
+    const endMsgSponge = startMsgSponge.clone();
+    await endMsgSponge.absorb(l1ToL2Messages);
 
     const block = new BlockProvingState(
       index,
@@ -121,10 +106,13 @@ export class CheckpointProvingState {
       timestamp,
       lastArchiveTreeSnapshot,
       lastArchiveSiblingPath,
-      lastL1ToL2MessageTreeSnapshot,
-      lastL1ToL2MessageSubtreeRootSiblingPath,
-      this.newL1ToL2MessageTreeSnapshot,
-      this.headerOfLastBlockInPreviousCheckpoint,
+      previousState,
+      startL1ToL2MessageTreeSnapshot,
+      endL1ToL2MessageTreeSnapshot,
+      l1ToL2MessageFrontierHint,
+      l1ToL2Messages,
+      startMsgSponge,
+      endMsgSponge,
       startSpongeBlob,
       this,
     );
@@ -178,7 +166,8 @@ export class CheckpointProvingState {
     return InboxParityPrivateInputs.fromMessages(
       this.l1ToL2Messages,
       this.startInboxRollingHash,
-      computeInHashFromL1ToL2Messages(this.l1ToL2Messages),
+      // Legacy in_hash is dead post-flip; the InboxParity pass-through hint carries zero (AZIP-22 Fast Inbox).
+      Fr.ZERO,
       this.constants.proverId,
     );
   }

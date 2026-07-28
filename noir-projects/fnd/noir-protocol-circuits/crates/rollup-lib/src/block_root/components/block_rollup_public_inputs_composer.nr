@@ -125,10 +125,9 @@ impl BlockRollupPublicInputsComposer {
     /// tx constants carry the resulting post-bundle snapshot. `start_msg_sponge` is the sponge inherited from the
     /// previous block (empty for the first block).
     ///
-    /// The tree append and the sponge absorb use different counts transitionally (see `L1ToL2MessageBundle`): the tree
-    /// inserts `bundle.num_msgs` leaves (a full padded subtree for a message-bearing block), while the sponge absorbs
-    /// only `bundle.num_real_msgs` real leaves so it matches the checkpoint's variable-size `InboxParity` proof. The
-    /// padding lanes past `num_real_msgs` must be zero.
+    /// A single `bundle.num_msgs` count drives both the compact (unpadded) tree append and the message-sponge absorb,
+    /// so the sponge matches the checkpoint's variable-size `InboxParity` proof (AZIP-22 Fast Inbox). The lanes past
+    /// `num_msgs` must be zero.
     pub fn with_message_bundle(
         &mut self,
         previous_l1_to_l2: AppendOnlyTreeSnapshot,
@@ -139,20 +138,10 @@ impl BlockRollupPublicInputsComposer {
         self.previous_l1_to_l2 = previous_l1_to_l2;
         self.bundle_applied = true;
 
-        // Real messages occupy the leading lanes; everything past `num_real_msgs` is zero padding, including the
-        // padding that fills out the tree's fixed subtree insert.
-        assert_trailing_zeros(bundle.messages, bundle.num_real_msgs);
+        // Real messages occupy the leading lanes; everything past `num_msgs` is zero padding.
+        assert_trailing_zeros(bundle.messages, bundle.num_msgs);
 
-        // The sponge absorbs a prefix of what the tree inserts, so the real count can never exceed the insert count.
-        assert(bundle.num_real_msgs <= bundle.num_msgs, "more real messages than tree leaves");
-
-        // NOTE: `num_msgs` (the tree-insert count) is not otherwise pinned in-circuit — nothing here forces it to the
-        // padded subtree size. On the honest path the orchestrator sets it to `MAX_L1_TO_L2_MSGS_PER_BLOCK` for the
-        // first block and 0 otherwise, and the resulting `new_l1_to_l2` snapshot is what binds it (first-block variants
-        // check it against the tx-constants snapshot, ultimately the L1 pending-chain header hash). Like the
-        // unconstrained `in_hash`, a fully trustless binding is deferred to the Fast Inbox flip.
-
-        // Append the bundle to the l1-to-l2 message tree at its current (arbitrary) next-available index.
+        // Append the real leaves to the l1-to-l2 message tree at its current (compact, unaligned) next-available index.
         self.new_l1_to_l2 = append_only_tree::append_leaves_to_snapshot::<L1_TO_L2_MSG_TREE_HEIGHT, _>(
             previous_l1_to_l2,
             bundle.messages,
@@ -160,10 +149,10 @@ impl BlockRollupPublicInputsComposer {
             frontier_hint,
         );
 
-        // Absorb the real leaves into the message sponge, threading it from the previous block.
+        // Absorb the same real leaves into the message sponge, threading it from the previous block.
         self.start_msg_sponge = start_msg_sponge;
         let mut end_msg_sponge = start_msg_sponge;
-        end_msg_sponge.absorb(bundle.messages, bundle.num_real_msgs);
+        end_msg_sponge.absorb(bundle.messages, bundle.num_msgs);
         self.end_msg_sponge = end_msg_sponge;
 
         *self
@@ -258,23 +247,17 @@ impl BlockRollupPublicInputsComposer {
             gas_fees: self.constants.gas_fees,
         };
 
-        // Absorb data for this block into the end sponge blob.
+        // Absorb data for this block into the end sponge blob. The l1-to-l2 message tree root is absorbed for every
+        // block (AZIP-22 Fast Inbox): any block can insert its own bundle, so the root is per-block, not
+        // checkpoint-constant.
         let mut block_end_sponge_blob = self.end_sponge_blob;
 
-        // The l1-to-l2 message tree root is absorbed only for the first block of a checkpoint (the value is shared by
-        // all blocks in the checkpoint). The first block is exactly the block whose start sponge blob is still at its
-        // initial state: every block absorbs its block-end fields here, so a block that follows another one inside the
-        // checkpoint always inherits a sponge blob with fields already absorbed. Since `start_sponge_blob` is a public
-        // input pinned by the checkpoint root (leftmost must equal `SpongeBlob::init()`) and by the block merge
-        // (`right.start_sponge_blob == left.end_sponge_blob`), this derivation cannot be steered by the prover.
-        let is_first_block_in_checkpoint = self.start_sponge_blob.num_absorbed_fields == 0;
         block_end_sponge_blob.absorb_block_end_data(
             global_variables,
             last_archive,
             state,
             self.num_txs,
             self.accumulated_mana_used,
-            is_first_block_in_checkpoint,
         );
 
         // Duplicate the `block_end_sponge_blob` so that we can squeeze it.

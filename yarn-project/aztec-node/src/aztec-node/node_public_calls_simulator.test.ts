@@ -438,6 +438,7 @@ function makeProposedCheckpointData(args: {
     feeAssetPriceModifier: 7n,
     archive: new AppendOnlyTreeSnapshot(args.archiveRoot ?? Fr.ZERO, 0),
     checkpointOutHash: Fr.fromString('0xfeed'),
+    inboxMsgTotal: 0n,
   };
 }
 

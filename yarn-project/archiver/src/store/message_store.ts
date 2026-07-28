@@ -257,37 +257,14 @@ export class MessageStore {
           );
         }
 
-        // Check index corresponds to the checkpoint number.
-        const [expectedStart, expectedEnd] = InboxLeaf.indexRangeForCheckpoint(message.checkpointNumber);
-        if (message.index < expectedStart || message.index >= expectedEnd) {
+        // Check the compact-indexed messages arrive contiguously (AZIP-22 Fast Inbox): the global insertion index of
+        // each message is exactly one past the previous one, independent of the checkpoint it landed in. The flipped
+        // Inbox emits this compact totalMessagesInserted index, so the legacy per-checkpoint range no longer applies.
+        const expectedIndex = lastMessage === undefined ? 0n : lastMessage.index + 1n;
+        if (message.index !== expectedIndex) {
           throw new MessageStoreError(
             `Invalid index ${message.index} for incoming L1 to L2 message ${message.leaf.toString()} ` +
-              `at checkpoint ${message.checkpointNumber} (expected value in range [${expectedStart}, ${expectedEnd}))`,
-            message,
-          );
-        }
-
-        // Check there are no gaps in the indices within the same checkpoint.
-        if (
-          lastMessage &&
-          message.checkpointNumber === lastMessage.checkpointNumber &&
-          message.index !== lastMessage.index + 1n
-        ) {
-          throw new MessageStoreError(
-            `Missing prior message for incoming L1 to L2 message ${message.leaf.toString()} ` +
-              `with index ${message.index}`,
-            message,
-          );
-        }
-
-        // Check the first message in a checkpoint has the correct index.
-        if (
-          (!lastMessage || message.checkpointNumber > lastMessage.checkpointNumber) &&
-          message.index !== expectedStart
-        ) {
-          throw new MessageStoreError(
-            `Message ${message.leaf.toString()} for checkpoint ${message.checkpointNumber} has wrong index ` +
-              `${message.index} (expected ${expectedStart})`,
+              `(expected ${expectedIndex})`,
             message,
           );
         }

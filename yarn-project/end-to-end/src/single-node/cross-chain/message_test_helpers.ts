@@ -107,7 +107,7 @@ export function createL1ToL2MessageHelpers(deps: L1ToL2MessageHelperDeps): L1ToL
           aztecNode.getCheckpointNumber(),
         ]);
         const witness = await aztecNode.getL1ToL2MessageMembershipWitness('latest', msgHash);
-        const isReady = await isL1ToL2MessageReady(aztecNode, msgHash);
+        const isReady = await isL1ToL2MessageReady(aztecNode, msgHash, t.pxeSyncChainTip);
         log.info(
           `Block is ${blockNumber}, checkpoint is ${checkpointNumber}. Message checkpoint is ${msgCheckpoint}. Witness ${!!witness}. Ready ${isReady}.`,
         );

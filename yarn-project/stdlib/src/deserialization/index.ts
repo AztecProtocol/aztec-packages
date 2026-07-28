@@ -22,23 +22,23 @@ export const MAX_COMMITTEE_SIZE = 2048;
  *
  *   budget = BLOBS_PER_CHECKPOINT * FIELDS_PER_BLOB = 6 * 4096 = 24,576 fields
  *
- *   per-block minimal blob footprint:
- *     first block  (may be empty)   = 7 fields   (NUM_FIRST_BLOCK_END_BLOB_FIELDS)
- *     every other  (needs >= 1 tx)  = 6 + 4 = 10 fields
+ *   per-block minimal blob footprint (every block carries the per-block l1-to-l2 root post-flip):
+ *     first block  (may be empty)   = 7 fields   (NUM_BLOCK_END_BLOB_FIELDS)
+ *     every other  (needs >= 1 tx)  = 7 + 4 = 11 fields
  *                                     (NUM_BLOCK_END_BLOB_FIELDS + a 4-field minimal tx:
  *                                      tx start marker + tx hash + fee + 1 mandatory nullifier)
  *     + 1 checkpoint-end marker      (NUM_CHECKPOINT_END_MARKER_FIELDS)
  *
- *   max N:  7 + 10*(N - 1) + 1 <= 24,576  =>  10*(N - 1) <= 24,568  =>  N <= 2,457
+ *   max N:  7 + 11*(N - 1) + 1 <= 24,576  =>  11*(N - 1) <= 24,568  =>  N <= 2,234
  *
  * Only the first block may be empty; every other block needs >= 1 tx (the circuits have no empty-tx
- * variant for non-first blocks), so 2457 is the largest provable checkpoint. The blob format can encode
- * more blocks than this (up to ~4095 with all-empty blocks), but such a checkpoint is unprovable and
+ * variant for non-first blocks), so 2234 is the largest provable checkpoint. The blob format can encode
+ * more blocks than this (up to ~3510 with all-empty blocks), but such a checkpoint is unprovable and
  * can only reach L1 with a malicious committee supermajority — a terminal network compromise where a
  * wedged archiver is an acceptable outcome. We therefore bound ingest to the provable maximum.
  * Invariant checked by the unit test in deserialization.test.ts.
  */
-export const MAX_CAPACITY_BLOCKS_PER_CHECKPOINT = 2457;
+export const MAX_CAPACITY_BLOCKS_PER_CHECKPOINT = 2234;
 
 /**
  * Max blocks per checkpoint we are willing to build or attest to (conservative client policy, and the

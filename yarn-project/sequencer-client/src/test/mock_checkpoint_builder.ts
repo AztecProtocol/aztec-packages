@@ -204,10 +204,8 @@ export class MockCheckpointsBuilder implements ICheckpointsBuilder {
   public startCheckpointCalls: Array<{
     checkpointNumber: CheckpointNumber;
     constants: CheckpointGlobalVariables;
-    l1ToL2Messages: Fr[];
     previousCheckpointOutHashes: Fr[];
     feeAssetPriceModifier: bigint;
-    insertMessagesPerBlock: boolean | undefined;
   }> = [];
   public openCheckpointCalls: Array<{
     checkpointNumber: CheckpointNumber;
@@ -263,20 +261,16 @@ export class MockCheckpointsBuilder implements ICheckpointsBuilder {
     checkpointNumber: CheckpointNumber,
     constants: CheckpointGlobalVariables,
     feeAssetPriceModifier: bigint,
-    l1ToL2Messages: Fr[],
     previousCheckpointOutHashes: Fr[],
     _previousInboxRollingHash: Fr,
     _fork: MerkleTreeWriteOperations,
     _bindings?: LoggerBindings,
-    insertMessagesPerBlock?: boolean,
   ): Promise<ICheckpointBlockBuilder> {
     this.startCheckpointCalls.push({
       checkpointNumber,
       constants,
-      l1ToL2Messages,
       previousCheckpointOutHashes,
       feeAssetPriceModifier,
-      insertMessagesPerBlock,
     });
 
     if (!this.checkpointBuilder) {

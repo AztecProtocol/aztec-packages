@@ -15,7 +15,7 @@ import { AztecAddress } from '@aztec/stdlib/aztec-address';
 import { CommitteeAttestation, L2Block } from '@aztec/stdlib/block';
 import { Checkpoint, L1PublishedData, PublishedCheckpoint } from '@aztec/stdlib/checkpoint';
 import { PrivateLog, PublicLog, SiloedTag, Tag } from '@aztec/stdlib/logs';
-import { InboxLeaf, updateInboxRollingHash } from '@aztec/stdlib/messaging';
+import { updateInboxRollingHash } from '@aztec/stdlib/messaging';
 import { orderAttestations } from '@aztec/stdlib/p2p';
 import { CheckpointHeader } from '@aztec/stdlib/rollup';
 import { makeCheckpointAttestationFromCheckpoint } from '@aztec/stdlib/testing';
@@ -33,7 +33,8 @@ export function makeInboxMessage(
   const { l1BlockHash = Buffer32.random() } = overrides;
   const { leaf = Fr.random() } = overrides;
   const { rollingHash = updateRollingHash(previousRollingHash, leaf) } = overrides;
-  const { index = InboxLeaf.smallestIndexForCheckpoint(checkpointNumber) } = overrides;
+  // Compact global insertion index (AZIP-22 Fast Inbox): defaults to the first slot.
+  const { index = 0n } = overrides;
   const { inboxRollingHash = updateInboxRollingHash(Fr.ZERO, leaf) } = overrides;
   // Default each message to its own bucket, keyed monotonically off its global index.
   const { bucketSeq = index + 1n } = overrides;
@@ -57,6 +58,7 @@ export function makeInboxMessages(
   opts: {
     initialHash?: Buffer16;
     initialInboxHash?: Fr;
+    initialIndex?: bigint;
     initialCheckpointNumber?: CheckpointNumber;
     messagesPerCheckpoint?: number;
     overrideFn?: (msg: InboxMessage, index: number) => InboxMessage;
@@ -65,6 +67,7 @@ export function makeInboxMessages(
   const {
     initialHash = Buffer16.ZERO,
     initialInboxHash = Fr.ZERO,
+    initialIndex = 0n,
     overrideFn = msg => msg,
     initialCheckpointNumber = CheckpointNumber(1),
     messagesPerCheckpoint = 1,
@@ -74,16 +77,16 @@ export function makeInboxMessages(
   let rollingHash = initialHash;
   let inboxRollingHash = initialInboxHash;
   for (let i = 0; i < totalCount; i++) {
-    const msgIndex = i % messagesPerCheckpoint;
     const checkpointNumber = CheckpointNumber.fromBigInt(
       BigInt(initialCheckpointNumber) + BigInt(i) / BigInt(messagesPerCheckpoint),
     );
     const leaf = Fr.random();
+    // Compact global insertion index (AZIP-22 Fast Inbox): contiguous from initialIndex, independent of checkpoint.
     const message = overrideFn(
       makeInboxMessage(rollingHash, {
         leaf,
         checkpointNumber,
-        index: InboxLeaf.smallestIndexForCheckpoint(checkpointNumber) + BigInt(msgIndex),
+        index: initialIndex + BigInt(i),
         inboxRollingHash: updateInboxRollingHash(inboxRollingHash, leaf),
       }),
       i,
@@ -102,13 +105,13 @@ export function makeInboxMessagesWithFullBlocks(
 ): InboxMessage[] {
   const { initialCheckpointNumber = CheckpointNumber(13) } = opts;
   return makeInboxMessages(NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP * blockCount, {
+    // Keep the compact global index from makeInboxMessages; only spread the (now-vestigial) checkpoint assignment
+    // across blocks so multi-block coverage still exercises differing checkpoint numbers.
     overrideFn: (msg, i) => {
       const checkpointNumber = CheckpointNumber(
         initialCheckpointNumber + Math.floor(i / NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP),
       );
-      const index =
-        InboxLeaf.smallestIndexForCheckpoint(checkpointNumber) + BigInt(i % NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP);
-      return { ...msg, checkpointNumber, index };
+      return { ...msg, checkpointNumber };
     },
   });
 }

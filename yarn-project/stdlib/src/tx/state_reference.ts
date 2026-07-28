@@ -1,9 +1,4 @@
-import {
-  MAX_NOTE_HASHES_PER_TX,
-  MAX_NULLIFIERS_PER_TX,
-  NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP,
-  STATE_REFERENCE_LENGTH,
-} from '@aztec/constants';
+import { MAX_NOTE_HASHES_PER_TX, MAX_NULLIFIERS_PER_TX, STATE_REFERENCE_LENGTH } from '@aztec/constants';
 import type { Fr } from '@aztec/foundation/curves/bn254';
 import { BufferReader, BufferSink, FieldReader, serializeToSink } from '@aztec/foundation/serialize';
 import type { FieldsOf } from '@aztec/foundation/types';
@@ -106,14 +101,13 @@ export class StateReference {
   }
 
   /**
-   * Validates the trees in world state have the expected number of leaves (multiple of number of insertions per tx)
+   * Validates the partial-state trees have the expected number of leaves (multiple of number of insertions per tx).
+   *
+   * The L1-to-L2 message tree is not checked: post-flip it grows by real message counts at compact (unaligned)
+   * indices, so its next-available leaf index is no longer a multiple of any per-block subtree size (AZIP-22 Fast
+   * Inbox).
    */
   public validate() {
-    if (this.l1ToL2MessageTree.nextAvailableLeafIndex % NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP !== 0) {
-      throw new Error(
-        `Invalid L1 to L2 message tree next available leaf index ${this.l1ToL2MessageTree.nextAvailableLeafIndex} (must be a multiple of ${NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP})`,
-      );
-    }
     if (this.partial.noteHashTree.nextAvailableLeafIndex % MAX_NOTE_HASHES_PER_TX !== 0) {
       throw new Error(
         `Invalid note hash tree next available leaf index ${this.partial.noteHashTree.nextAvailableLeafIndex} (must be a multiple of ${MAX_NOTE_HASHES_PER_TX})`,

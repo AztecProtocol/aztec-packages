@@ -21,6 +21,8 @@ export type PendingCheckpointOverrideState = {
   outHash?: Fr;
   payloadDigest?: Buffer32;
   slotNumber?: SlotNumber;
+  inboxMsgTotal?: bigint;
+  inboxConsumedBucket?: bigint;
 };
 
 export type ChainTipsOverride = {
@@ -93,11 +95,12 @@ export class SimulationOverridesBuilder {
 
   /**
    * Overrides one or more `tempCheckpointLogs` cell fields for the configured pending checkpoint.
-   * Fields are independent: any subset can be provided. The translator (`makeTempCheckpointLogOverride`)
-   * emits a stateDiff entry per field actually set, so unspecified fields stay at their on-chain
-   * values.
+   * Any subset can be provided. The translator (`makeTempCheckpointLogOverride`) emits a stateDiff
+   * entry per storage word touched, so fields in untouched words stay at their on-chain values;
+   * `slotNumber`, `inboxMsgTotal` and `inboxConsumedBucket` share a word, so setting any of them
+   * zeroes the others unless they are supplied too.
    *
-   * `slotNumber` is load-bearing for `STFLib.canPruneAtTime`: when the simulation overrides `pending`
+   * `slotNumber` is required for `STFLib.canPruneAtTime`: when the simulation overrides `pending`
    * to a checkpoint that has no on-chain `tempCheckpointLogs` entry yet, the missing slotNumber falls
    * back to 0 and the contract treats the pending tip as belonging to epoch 0, triggering a phantom
    * prune that silently undoes the `pending` override.
@@ -107,6 +110,8 @@ export class SimulationOverridesBuilder {
     outHash?: Fr;
     payloadDigest?: Buffer32;
     slotNumber?: SlotNumber;
+    inboxMsgTotal?: bigint;
+    inboxConsumedBucket?: bigint;
   }): this {
     this.assertPendingCheckpointNumber();
     this.pendingCheckpointState = { ...(this.pendingCheckpointState ?? {}), ...fields };
@@ -174,6 +179,8 @@ export async function buildSimulationOverridesStateOverride(
           outHash: plan.pendingCheckpointState.outHash,
           payloadDigest: plan.pendingCheckpointState.payloadDigest,
           slotNumber: plan.pendingCheckpointState.slotNumber,
+          inboxMsgTotal: plan.pendingCheckpointState.inboxMsgTotal,
+          inboxConsumedBucket: plan.pendingCheckpointState.inboxConsumedBucket,
           feeHeader: plan.pendingCheckpointState.feeHeader,
         }),
       ),

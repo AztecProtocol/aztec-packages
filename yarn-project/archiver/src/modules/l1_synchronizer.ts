@@ -30,7 +30,6 @@ import {
   PublishedCheckpoint,
 } from '@aztec/stdlib/checkpoint';
 import { type L1RollupConstants, getEpochAtSlot, getSlotAtNextL1Block } from '@aztec/stdlib/epoch-helpers';
-import { computeInHashFromL1ToL2Messages } from '@aztec/stdlib/messaging';
 import type { CoordinationSignatureContext } from '@aztec/stdlib/p2p';
 import { type Traceable, type Tracer, execInSpan, trackSpan } from '@aztec/telemetry-client';
 
@@ -1016,25 +1015,8 @@ export class ArchiverL1Synchronizer implements Traceable {
       for (const calldataCheckpoint of checkpointsToIngest) {
         const published = publishedByNumber.get(calldataCheckpoint.checkpointNumber)!;
 
-        // Check the inHash of the checkpoint against the l1->l2 messages.
-        // The messages should've been synced up to the currentL1BlockNumber and must be available for the published
-        // checkpoints we just retrieved.
-        const l1ToL2Messages = await this.stores.messages.getL1ToL2Messages(published.checkpoint.number);
-        const computedInHash = computeInHashFromL1ToL2Messages(l1ToL2Messages);
-        const publishedInHash = published.checkpoint.header.inHash;
-        if (!computedInHash.equals(publishedInHash)) {
-          this.log.fatal(`Mismatch inHash for checkpoint ${published.checkpoint.number}`, {
-            checkpointHash: published.checkpoint.hash(),
-            l1BlockNumber: published.l1.blockNumber,
-            computedInHash,
-            publishedInHash,
-          });
-          // Throwing an error since this is most likely caused by a bug.
-          throw new Error(
-            `Mismatch inHash for checkpoint ${published.checkpoint.number}. Expected ${computedInHash} but got ${publishedInHash}`,
-          );
-        }
-
+        // The legacy inHash cross-check is dead post-flip (the header carries zero): the consensus Inbox rolling hash
+        // is verified on L1 at propose, so no equivalent check is needed here (AZIP-22 Fast Inbox).
         validCheckpoints.push(published);
         this.log.debug(
           `Ingesting new checkpoint ${published.checkpoint.number} with ${published.checkpoint.blocks.length} blocks`,

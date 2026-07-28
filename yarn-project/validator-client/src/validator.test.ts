@@ -32,7 +32,12 @@ import { AztecAddress } from '@aztec/stdlib/aztec-address';
 import { type BlockData, BlockHash, L2Block, type L2BlockSink, type L2BlockSource } from '@aztec/stdlib/block';
 import { type Checkpoint, CheckpointReexecutionTracker, type ProposedCheckpointData } from '@aztec/stdlib/checkpoint';
 import type { SlasherConfig, WorldStateSynchronizer } from '@aztec/stdlib/interfaces/server';
-import { type L1ToL2MessageSource, computeInHashFromL1ToL2Messages } from '@aztec/stdlib/messaging';
+import {
+  type InboxBucket,
+  InboxBucketRef,
+  type L1ToL2MessageSource,
+  computeInHashFromL1ToL2Messages,
+} from '@aztec/stdlib/messaging';
 import {
   type BlockProposal,
   type CheckpointProposalCore,
@@ -459,11 +464,25 @@ describe('ValidatorClient', () => {
           Array.isArray(args) &&
           args[0]?.offenseType === OffenseType.ATTESTED_TO_INVALID_CHECKPOINT_PROPOSAL,
       );
+    // AZIP-22 Fast Inbox: an empty-consumption streaming setup. Proposals reference the genesis Inbox bucket, the
+    // parent block's L1-to-L2 leaf count equals its cumulative total (0), so the derived per-block bundle is empty.
+    const genesisInboxBucket: InboxBucket = {
+      seq: 0n,
+      inboxRollingHash: Fr.ZERO,
+      totalMsgCount: 0n,
+      timestamp: 0n,
+      msgCount: 0,
+      lastMessageIndex: 0n,
+    };
+    const genesisBucketRef = InboxBucketRef.fromBucket(genesisInboxBucket);
+
     beforeEach(async () => {
       const emptyInHash = computeInHashFromL1ToL2Messages([]);
       const blockHeader = makeBlockHeader(1, { blockNumber: BlockNumber(100), slotNumber: SlotNumber(100) });
       blockNumber = BlockNumber(blockHeader.globalVariables.blockNumber);
-      proposal = ValidatedBlockProposal(await makeBlockProposal({ blockHeader, inHash: emptyInHash }));
+      proposal = ValidatedBlockProposal(
+        await makeBlockProposal({ blockHeader, inHash: emptyInHash, bucketRef: genesisBucketRef }),
+      );
       // The proposal targets slot 100, which under pipelining is built during the previous slot. Set the
       // wall clock to the start of that build slot (target_slot_start - S), matching how a pipelined
       // proposer is positioned when validating an inbound block proposal. With S - 2E = 0 in this config
@@ -523,6 +542,7 @@ describe('ValidatorClient', () => {
           getBlockNumber: () => blockNumber - 1,
           getSlot: () => parentSlot,
           globalVariables: blockHeader.globalVariables,
+          state: { l1ToL2MessageTree: { nextAvailableLeafIndex: 0 } },
         },
         archive: new AppendOnlyTreeSnapshot(Fr.random(), blockNumber - 1),
         blockHash: BlockHash.random(),
@@ -535,6 +555,11 @@ describe('ValidatorClient', () => {
 
       blockSource.getGenesisValues.mockResolvedValue({ genesisArchiveRoot: new Fr(GENESIS_ARCHIVE_ROOT) });
       blockSource.syncImmediate.mockImplementation(() => Promise.resolve());
+
+      // Resolve every Inbox bucket query to the genesis bucket, so streaming checks accept with an empty bundle.
+      l1ToL2MessageSource.getInboxBucket.mockResolvedValue(genesisInboxBucket);
+      l1ToL2MessageSource.getInboxBucketByTotalMsgCount.mockResolvedValue(genesisInboxBucket);
+      l1ToL2MessageSource.getL1ToL2MessagesBetweenBuckets.mockResolvedValue([]);
 
       const clonedBlockHeader = blockHeader.clone();
       blockBuildResult = {
@@ -743,6 +768,7 @@ describe('ValidatorClient', () => {
           archiveRoot: proposal.archive,
           txHashes: proposal.txHashes,
           signer: selfSigner,
+          bucketRef: genesisBucketRef,
         }),
       );
 
@@ -1496,13 +1522,6 @@ describe('ValidatorClient', () => {
 
       const isValid = await validatorClient.validateBlockProposal(proposal, sender);
       expect(isValid).toBe(true);
-    });
-
-    it('should return false if messages do not match', async () => {
-      l1ToL2MessageSource.getL1ToL2Messages.mockResolvedValue([Fr.random()]);
-
-      const isValid = await validatorClient.validateBlockProposal(proposal, sender);
-      expect(isValid).toBe(false);
     });
 
     describe('non-first block in checkpoint validation', () => {

@@ -100,7 +100,6 @@ impl TestBuilder {
             message_bundle: L1ToL2MessageBundle {
                 messages: self.l1_to_l2_messages,
                 num_msgs: self.num_msgs,
-                num_real_msgs: self.num_msgs,
             },
             l1_to_l2_message_frontier_hint: self.l1_to_l2_message_frontier_hint,
             new_archive_sibling_path: self.new_archive_sibling_path,
@@ -119,8 +118,7 @@ impl TestBuilder {
         assert_eq(pi.num_blocks(), 1);
         assert_eq(pi.constants, self.constants);
 
-        // --- Sponge blobs: threaded from the provided start, with the block end data absorbed. The l1-to-l2 tree
-        // root is part of that data only for the checkpoint's first block. ---
+        // --- Sponge blobs: threaded from the provided start, with the block end data absorbed. ---
         assert_eq(pi.start_sponge_blob, self.start_sponge_blob);
         let mut expected_end_sponge_blob = self.start_sponge_blob;
         expected_end_sponge_blob.absorb_block_end_data(
@@ -129,7 +127,6 @@ impl TestBuilder {
             pi.end_state,
             0, // num_txs
             0, // total_mana_used
-            self.is_first_block,
         );
         assert_eq(pi.end_sponge_blob, expected_end_sponge_blob);
 
@@ -218,20 +215,4 @@ fn no_txs_block_root_accepts_empty_bundle() {
     // With no messages the l1-to-l2 tree and the message sponge are both untouched.
     assert_eq(pi.end_state.l1_to_l2_message_tree, pi.start_state.l1_to_l2_message_tree);
     assert_eq(pi.end_msg_sponge, pi.start_msg_sponge);
-}
-
-// The first block of a checkpoint additionally absorbs the l1-to-l2 message tree root into its blob data, which is
-// what distinguishes its blob layout from a later block's.
-#[test]
-fn first_no_txs_block_absorbs_one_more_blob_field() {
-    let first_pi = TestBuilder::new_first().execute();
-    let later_pi = TestBuilder::new().execute();
-
-    assert_eq(
-        first_pi.end_sponge_blob.num_absorbed_fields
-            - first_pi.start_sponge_blob.num_absorbed_fields,
-        later_pi.end_sponge_blob.num_absorbed_fields
-            - later_pi.start_sponge_blob.num_absorbed_fields
-            + 1,
-    );
 }

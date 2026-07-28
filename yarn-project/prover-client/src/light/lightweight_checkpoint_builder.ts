@@ -11,7 +11,6 @@ import {
   accumulateInboxRollingHash,
   appendL1ToL2MessagesToTree,
   computeCheckpointOutHash,
-  computeInHashFromL1ToL2Messages,
 } from '@aztec/stdlib/messaging';
 import { CheckpointHeader, computeBlockHeadersHash } from '@aztec/stdlib/rollup';
 import { AppendOnlyTreeSnapshot, MerkleTreeId } from '@aztec/stdlib/trees';
@@ -31,7 +30,7 @@ import {
 /**
  * Builds a checkpoint and its header and the blocks in it from a set of processed tx without running any circuits.
  *
- * It updates the l1-to-l2 message tree when starting a new checkpoint, and then updates the archive tree when each block is added.
+ * Each added block inserts its own L1-to-L2 message bundle into the message tree and then updates the archive tree.
  * Finally completes the checkpoint by computing its header.
  */
 export class LightweightCheckpointBuilder {
@@ -61,29 +60,24 @@ export class LightweightCheckpointBuilder {
     this.logger.debug('Starting new checkpoint', { constants, l1ToL2Messages, feeAssetPriceModifier });
   }
 
-  static async startNewCheckpoint(
+  /**
+   * Starts a fresh checkpoint. The checkpoint's L1-to-L2 messages are not supplied here: every block brings its own
+   * bundle to {@link addBlock}, which inserts it into the tree and accumulates it into the checkpoint's message list.
+   */
+  static startNewCheckpoint(
     checkpointNumber: CheckpointNumber,
     constants: CheckpointGlobalVariables,
-    l1ToL2Messages: Fr[],
     previousCheckpointOutHashes: Fr[],
     previousInboxRollingHash: Fr,
     db: MerkleTreeWriteOperations,
     bindings?: LoggerBindings,
     feeAssetPriceModifier: bigint = 0n,
-    // Streaming Inbox (AZIP-22 Fast Inbox): messages are inserted per block via `addBlock`, so `l1ToL2Messages` here
-    // is empty and the up-front checkpoint-wide insertion is skipped.
-    insertMessagesPerBlock: boolean = false,
-  ): Promise<LightweightCheckpointBuilder> {
-    // Insert l1-to-l2 messages into the tree (legacy flow: the whole checkpoint's messages up front).
-    if (!insertMessagesPerBlock) {
-      await appendL1ToL2MessagesToTree(db, l1ToL2Messages);
-    }
-
+  ): LightweightCheckpointBuilder {
     return new LightweightCheckpointBuilder(
       checkpointNumber,
       constants,
       feeAssetPriceModifier,
-      l1ToL2Messages,
+      [],
       previousCheckpointOutHashes,
       previousInboxRollingHash,
       db,
@@ -94,8 +88,8 @@ export class LightweightCheckpointBuilder {
   /**
    * Resumes building a checkpoint from existing blocks. This is used for validator re-execution
    * where blocks have already been built and their effects are already in the database.
-   * Unlike startNewCheckpoint, this does NOT append l1ToL2Messages to the tree since they
-   * were already added when the blocks were originally built.
+   * `l1ToL2Messages` is the whole checkpoint's message list as consumed by the existing blocks: it seeds the
+   * checkpoint's rolling hash and is not inserted into the tree, since the blocks already inserted it.
    */
   static async resumeCheckpoint(
     checkpointNumber: CheckpointNumber,
@@ -173,19 +167,16 @@ export class LightweightCheckpointBuilder {
   /**
    * Adds a new block to the checkpoint. The tx effects must have already been inserted into the db if
    * this is called after tx processing, if that's not the case, then set `insertTxsEffects` to true.
+   * @param l1ToL2Messages - The message leaves this block consumes from the Inbox, in insertion order.
    */
   public async addBlock(
     globalVariables: GlobalVariables,
     txs: ProcessedTx[],
-    opts: { insertTxsEffects?: boolean; expectedEndState?: StateReference; l1ToL2Messages?: Fr[] } = {},
+    l1ToL2Messages: Fr[],
+    opts: { insertTxsEffects?: boolean; expectedEndState?: StateReference } = {},
   ): Promise<{ block: L2Block; timings: Record<string, number> }> {
     const timings: Record<string, number> = {};
     const isFirstBlock = this.blocks.length === 0;
-
-    // Empty blocks are only allowed as the first block in a checkpoint
-    if (!isFirstBlock && txs.length === 0) {
-      throw new Error('Cannot add empty block that is not the first block in the checkpoint.');
-    }
 
     if (isFirstBlock) {
       const [msGetInitialArchive, initialArchive] = await elapsed(() => getTreeSnapshot(MerkleTreeId.ARCHIVE, this.db));
@@ -209,18 +200,11 @@ export class LightweightCheckpointBuilder {
     }
 
     // Streaming Inbox: insert this block's L1-to-L2 message bundle before reading the end state,
-    // so the block header's L1-to-L2 tree snapshot reflects it. First-in-checkpoint bundles are padded to
-    // NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP (matching the legacy per-checkpoint insertion and the world-state
-    // synchronizer); non-first bundles are appended compactly. The logical (unpadded) messages are accumulated only
-    // once the block is fully built (below), so a mid-build failure does not pollute the checkpoint's inHash/rolling
-    // hash; the rolling hash and inHash are recomputed over them at checkpoint completion.
-    if (opts.l1ToL2Messages !== undefined) {
-      if (isFirstBlock) {
-        await appendL1ToL2MessagesToTree(this.db, opts.l1ToL2Messages);
-      } else {
-        await this.db.appendLeaves(MerkleTreeId.L1_TO_L2_MESSAGE_TREE, opts.l1ToL2Messages);
-      }
-    }
+    // so the block header's L1-to-L2 tree snapshot reflects it. Bundles are appended compactly (unpadded, at the
+    // tree's current next-available index). The logical messages are accumulated only once the block is fully built
+    // (below), so a mid-build failure does not pollute the checkpoint's rolling hash; the rolling hash is recomputed
+    // over them at checkpoint completion.
+    await appendL1ToL2MessagesToTree(this.db, l1ToL2Messages);
 
     const [msGetEndState, endState] = await elapsed(() => this.db.getStateReference());
     timings.getEndState = msGetEndState;
@@ -235,7 +219,7 @@ export class LightweightCheckpointBuilder {
     }
 
     const [msBuildHeaderAndBody, { header, body, blockBlobFields }] = await elapsed(() =>
-      buildHeaderAndBodyFromTxs(txs, lastArchive, endState, globalVariables, this.spongeBlob, isFirstBlock),
+      buildHeaderAndBodyFromTxs(txs, lastArchive, endState, globalVariables, this.spongeBlob),
     );
     timings.buildHeaderAndBody = msBuildHeaderAndBody;
 
@@ -259,9 +243,7 @@ export class LightweightCheckpointBuilder {
 
     // Accumulate the streaming bundle now that the block is fully built, so a mid-build throw above leaves the
     // checkpoint's message list (and thus its inHash/rolling hash) consistent with the blocks actually built.
-    if (opts.l1ToL2Messages !== undefined) {
-      this.l1ToL2Messages.push(...opts.l1ToL2Messages);
-    }
+    this.l1ToL2Messages.push(...l1ToL2Messages);
 
     const [msSpongeAbsorb] = await elapsed(() => this.spongeBlob.absorb(blockBlobFields));
     timings.spongeAbsorb = msSpongeAbsorb;
@@ -295,7 +277,9 @@ export class LightweightCheckpointBuilder {
     const blobs = await getBlobsPerL1Block(this.blobFields);
     const blobsHash = computeBlobsHashFromBlobs(blobs);
 
-    const inHash = computeInHashFromL1ToL2Messages(this.l1ToL2Messages);
+    // Legacy inHash is dead post-flip; the checkpoint header carries zero (AZIP-22 Fast Inbox). The consensus
+    // rolling hash over the consumed messages is the authoritative Inbox commitment.
+    const inHash = Fr.ZERO;
     const inboxRollingHash = accumulateInboxRollingHash(this.previousInboxRollingHash, this.l1ToL2Messages);
 
     const { slotNumber, coinbase, feeRecipient, gasFees } = this.constants;
