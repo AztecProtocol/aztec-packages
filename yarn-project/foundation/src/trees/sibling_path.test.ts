@@ -20,28 +20,34 @@ describe('SiblingPath', () => {
   });
 
   describe('deserialization of malformed paths', () => {
-    it('rejects a path declaring more elements than the buffer holds', () => {
+    it('rejects a path declaring more elements than any tree is deep', () => {
       // Four bytes declaring 1,000,000 elements, with no path data at all.
       expect(() => SiblingPath.fromBuffer(Buffer.from('AA9CQA==', 'base64'))).toThrow(
-        'Serialized array length 1000000 exceeds remaining buffer length 0',
+        'Vector size 1000000 exceeds maximum allowed 128',
       );
     });
 
     it('rejects the largest length a 32 bit prefix can encode', () => {
-      expect(() => SiblingPath.schema.parse('/////w==')).toThrow(
-        'Serialized array length 4294967295 exceeds remaining buffer length 0',
-      );
+      expect(() => SiblingPath.schema.parse('/////w==')).toThrow('Vector size 4294967295 exceeds maximum allowed 128');
+    });
+
+    it('rejects a path declaring more elements than the buffer holds', () => {
+      const buf = Buffer.alloc(4);
+      buf.writeUInt32BE(100, 0);
+      expect(() => SiblingPath.fromBuffer(buf)).toThrow('Vector size 100 exceeds remaining buffer length 0');
     });
 
     it('rejects a path whose data is truncated mid-element', () => {
       const buf = SiblingPath.random(4).toBuffer();
-      expect(() => SiblingPath.fromBuffer(buf.subarray(0, buf.length - 16))).toThrow(/truncated/i);
+      expect(() => SiblingPath.fromBuffer(buf.subarray(0, buf.length - 16))).toThrow(
+        'Attempted to read beyond buffer length',
+      );
     });
 
     it('rejects a path declaring more elements than its data holds', () => {
       const buf = SiblingPath.random(4).toBuffer();
       buf.writeUInt32BE(5, 0);
-      expect(() => SiblingPath.fromBuffer(buf)).toThrow(/truncated/i);
+      expect(() => SiblingPath.fromBuffer(buf)).toThrow('Attempted to read beyond buffer length');
     });
   });
 

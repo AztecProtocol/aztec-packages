@@ -144,6 +144,16 @@ describe('buffer reader', () => {
         `Vector size ${NUMBER} exceeds remaining buffer length 28`,
       );
     });
+
+    it('should bound the size by the bytes after the offset, not by the whole buffer', () => {
+      const prefix = Buffer.alloc(4);
+      prefix.writeUInt32BE(200, 0);
+      const reader = new BufferReader(Buffer.concat([Buffer.alloc(1000), prefix, Buffer.alloc(100)]), 1000);
+
+      expect(() => reader.readVector({ fromBuffer: () => 1 })).toThrow(
+        'Vector size 200 exceeds remaining buffer length 100',
+      );
+    });
   });
 
   describe('readArray', () => {

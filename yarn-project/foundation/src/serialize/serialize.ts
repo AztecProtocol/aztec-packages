@@ -24,64 +24,6 @@ export function serializeArrayOfBufferableToVector(objs: Bufferable[], prefixLen
 }
 
 /**
- * Helper function for deserializeArrayFromVector.
- */
-type DeserializeFn<T> = (
-  buf: Buffer,
-  offset: number,
-) => {
-  /**
-   * The deserialized type.
-   */
-  elem: T;
-  /**
-   * How many bytes to advance by.
-   */
-  adv: number;
-};
-
-/**
- * Deserializes an array from a vector on an element-by-element basis.
- * @param deserialize - A function used to deserialize each element of the vector.
- * @param vector - The vector to deserialize.
- * @param offset - The position in the vector to start deserializing from.
- * @returns Deserialized array and how many bytes we advanced by.
- * @throws If the length prefix declares more elements than the remaining bytes could hold.
- */
-export function deserializeArrayFromVector<T>(
-  deserialize: DeserializeFn<T>,
-  vector: Buffer,
-  offset = 0,
-): {
-  /**
-   * The deserialized array.
-   */
-  elem: T[];
-  /**
-   * How many bytes we advanced by.
-   */
-  adv: number;
-} {
-  let pos = offset;
-  const size = vector.readUInt32BE(pos);
-  pos += 4;
-  // The length prefix is attacker-controlled on anything read off the wire, and element deserializers are not
-  // required to bounds-check. Every element takes at least one byte, so any size beyond the bytes left is
-  // unsatisfiable: reject it before allocating or looping, otherwise a 4 byte prefix can OOM the process.
-  const remaining = vector.length - pos;
-  if (size > remaining) {
-    throw new Error(`Serialized array length ${size} exceeds remaining buffer length ${remaining}`);
-  }
-  const arr = new Array<T>(size);
-  for (let i = 0; i < size; ++i) {
-    const { elem, adv } = deserialize(vector, pos);
-    pos += adv;
-    arr[i] = elem;
-  }
-  return { elem: arr, adv: pos - offset };
-}
-
-/**
  * Cast a uint8 array to a number.
  * @param array - The uint8 array.
  * @returns The number.
