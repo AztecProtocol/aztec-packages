@@ -23,9 +23,9 @@ pub struct ParityRootPrivateInputs {
 /// - Computes the final SHA256 merkle root by merging the children's SHA roots
 /// - Computes the final Poseidon merkle root by merging the children's converted roots
 ///
-/// The output feeds into the Block Root First circuits, where the `sha_root` is used to compute the `in_hash` for
-/// verification against the value on L1, and the `converted_root` is inserted into the L1-to-L2 message tree to be
-/// consumed by the app circuits.
+/// The output feeds into the Checkpoint Root circuits, where the `sha_root` becomes the checkpoint header `in_hash`
+/// (verified against the value on L1), the `end_rolling_hash` becomes the checkpoint header `inbox_rolling_hash`, and
+/// the `end_sponge` is asserted equal to the message sponge accumulated across the checkpoint's block roots.
 ///
 /// VkIndex: PARITY_ROOT_VK_INDEX
 pub fn execute(inputs: ParityRootPrivateInputs) -> ParityPublicInputs {
@@ -56,14 +56,20 @@ pub fn execute(inputs: ParityRootPrivateInputs) -> ParityPublicInputs {
         converted_roots[i] = inputs.children[i].public_inputs.converted_root;
     }
 
-    // Thread the rolling hash sequentially across the four base segments: each child must start from where the previous
-    // one ended. This keeps the sha256 chain chunked across the parallel base proofs while enforcing continuity.
+    // Thread the rolling hash and the message sponge sequentially across the four base segments: each child must start
+    // from where the previous one ended. This keeps both chains chunked across the parallel base proofs while enforcing
+    // continuity.
     let mut num_msgs = inputs.children[0].public_inputs.num_msgs;
     for i in 1..NUM_BASE_PARITY_PER_ROOT_PARITY {
         assert_eq(
             inputs.children[i].public_inputs.start_rolling_hash,
             inputs.children[i - 1].public_inputs.end_rolling_hash,
             "Inconsistent rolling hash across parity base circuits",
+        );
+        assert_eq(
+            inputs.children[i].public_inputs.start_sponge,
+            inputs.children[i - 1].public_inputs.end_sponge,
+            "Inconsistent message sponge across parity base circuits",
         );
         num_msgs += inputs.children[i].public_inputs.num_msgs;
     }
@@ -77,6 +83,8 @@ pub fn execute(inputs: ParityRootPrivateInputs) -> ParityPublicInputs {
         start_rolling_hash: inputs.children[0].public_inputs.start_rolling_hash,
         end_rolling_hash: inputs.children[NUM_BASE_PARITY_PER_ROOT_PARITY - 1].public_inputs
             .end_rolling_hash,
+        start_sponge: inputs.children[0].public_inputs.start_sponge,
+        end_sponge: inputs.children[NUM_BASE_PARITY_PER_ROOT_PARITY - 1].public_inputs.end_sponge,
         num_msgs,
         vk_tree_root,
         prover_id,

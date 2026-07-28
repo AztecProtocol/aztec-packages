@@ -1,5 +1,5 @@
 use crate::{
-    abis::{BlockRollupPublicInputs, ParityPublicInputs, TxRollupPublicInputs},
+    abis::{BlockRollupPublicInputs, L1ToL2MessageSponge, TxRollupPublicInputs},
     tx_merge::merge_tx_rollups,
 };
 use types::{
@@ -9,10 +9,7 @@ use types::{
         partial_state_reference::PartialStateReference, state_reference::StateReference,
     },
     blob_data::SpongeBlob,
-    constants::{
-        ARCHIVE_HEIGHT, L1_TO_L2_MSG_SUBTREE_HEIGHT, L1_TO_L2_MSG_SUBTREE_ROOT_SIBLING_PATH_LENGTH,
-        L1_TO_L2_MSG_TREE_HEIGHT,
-    },
+    constants::{ARCHIVE_HEIGHT, L1_TO_L2_MSG_TREE_HEIGHT, MAX_L1_TO_L2_MSGS_PER_BLOCK},
     merkle_tree::append_only_tree,
     traits::Hash,
 };
@@ -31,11 +28,15 @@ pub struct BlockRollupPublicInputsComposer {
     accumulated_fees: Field,
     accumulated_mana_used: Field,
     num_txs: u16,
-    // The followings are set by calling `with_new_l1_to_l2_messages` explicitly.
-    in_hash: Field,
-    start_inbox_rolling_hash: Field,
-    end_inbox_rolling_hash: Field,
+    // The followings are set by calling `with_message_bundle` explicitly.
+    is_first_block: bool,
+    start_msg_sponge: L1ToL2MessageSponge,
+    end_msg_sponge: L1ToL2MessageSponge,
     new_l1_to_l2: AppendOnlyTreeSnapshot,
+    // Set by `with_message_bundle` and asserted by `finish`. Without it, a variant that forgot to apply its bundle
+    // would emit `previous_l1_to_l2 == new_l1_to_l2 == constants.l1_to_l2_tree_snapshot`: a silent no-op append that
+    // still satisfies the snapshot check against the constants.
+    bundle_applied: bool,
 }
 
 impl BlockRollupPublicInputsComposer {
@@ -63,11 +64,12 @@ impl BlockRollupPublicInputsComposer {
             accumulated_fees: 0,
             accumulated_mana_used: 0,
             num_txs: 0,
-            // The followings are updated by calling `with_new_l1_to_l2_messages` explicitly.
-            in_hash: 0,
-            start_inbox_rolling_hash: 0,
-            end_inbox_rolling_hash: 0,
+            // The followings are updated by calling `with_message_bundle` explicitly.
+            is_first_block: false,
+            start_msg_sponge: L1ToL2MessageSponge::new(),
+            end_msg_sponge: L1ToL2MessageSponge::new(),
             new_l1_to_l2: previous_state.l1_to_l2_message_tree,
+            bundle_applied: false,
         }
     }
 
@@ -100,12 +102,13 @@ impl BlockRollupPublicInputsComposer {
             accumulated_fees: rollup.accumulated_fees,
             accumulated_mana_used: rollup.accumulated_mana_used,
             num_txs: rollup.num_txs,
-            // The followings are updated by calling `update_l1_to_l2_tree_snapshots` explicitly.
+            // The followings are updated by calling `with_message_bundle` explicitly.
             previous_l1_to_l2: rollup.constants.l1_to_l2_tree_snapshot,
-            in_hash: 0,
-            start_inbox_rolling_hash: 0,
-            end_inbox_rolling_hash: 0,
+            is_first_block: false,
+            start_msg_sponge: L1ToL2MessageSponge::new(),
+            end_msg_sponge: L1ToL2MessageSponge::new(),
             new_l1_to_l2: rollup.constants.l1_to_l2_tree_snapshot,
+            bundle_applied: false,
         }
     }
 
@@ -114,42 +117,60 @@ impl BlockRollupPublicInputsComposer {
         Self::new_from_single_rollup(merged_rollup)
     }
 
-    pub fn with_new_l1_to_l2_messages(
+    /// Appends this block's L1-to-L2 message bundle to the tree and absorbs the same leaves into the message sponge.
+    ///
+    /// `previous_l1_to_l2` is the tree snapshot this block builds on: for the first block it is the pre-insertion
+    /// snapshot (hinted, and later checked against the previous checkpoint), for subsequent blocks it is the snapshot
+    /// carried in the constants. `start_msg_sponge` is the sponge inherited from the previous block (empty for the
+    /// first block). Only `leaves[0..num_msgs]` are inserted and absorbed; the padding lanes must be zero. The sponge
+    /// absorbs exactly the leaves inserted into the tree, so the checkpoint root can recompute the same commitment.
+    pub fn with_message_bundle(
         &mut self,
-        parity: ParityPublicInputs,
-        subtree_root_sibling_path: [Field; L1_TO_L2_MSG_SUBTREE_ROOT_SIBLING_PATH_LENGTH],
+        is_first_block: bool,
+        previous_l1_to_l2: AppendOnlyTreeSnapshot,
+        start_msg_sponge: L1ToL2MessageSponge,
+        leaves: [Field; MAX_L1_TO_L2_MSGS_PER_BLOCK],
+        num_msgs: u32,
+        frontier_hint: [Field; L1_TO_L2_MSG_TREE_HEIGHT],
     ) -> Self {
-        self.in_hash = parity.sha_root;
-        self.start_inbox_rolling_hash = parity.start_rolling_hash;
-        self.end_inbox_rolling_hash = parity.end_rolling_hash;
+        self.is_first_block = is_first_block;
+        self.previous_l1_to_l2 = previous_l1_to_l2;
+        self.bundle_applied = true;
 
-        // Insert subtree into the l1-to-l2 message tree.
-        self.new_l1_to_l2 = append_only_tree::insert_subtree_root_to_snapshot::<L1_TO_L2_MSG_TREE_HEIGHT, L1_TO_L2_MSG_SUBTREE_HEIGHT>(
-            self.previous_l1_to_l2,
-            subtree_root_sibling_path,
-            parity.converted_root,
+        // Append the bundle to the l1-to-l2 message tree at its current (arbitrary) next-available index.
+        self.new_l1_to_l2 = append_only_tree::append_leaves_to_snapshot::<L1_TO_L2_MSG_TREE_HEIGHT, MAX_L1_TO_L2_MSGS_PER_BLOCK>(
+            previous_l1_to_l2,
+            leaves,
+            num_msgs,
+            frontier_hint,
         );
+
+        // Absorb the same leaves into the message sponge, threading it from the previous block.
+        self.start_msg_sponge = start_msg_sponge;
+        let mut end_msg_sponge = start_msg_sponge;
+        end_msg_sponge.absorb(leaves, num_msgs);
+        self.end_msg_sponge = end_msg_sponge;
 
         *self
     }
 
-    pub fn update_l1_to_l2_tree_snapshots(
-        &mut self,
-        parity: ParityPublicInputs,
-        previous_l1_to_l2: AppendOnlyTreeSnapshot,
-        subtree_root_sibling_path: [Field; L1_TO_L2_MSG_SUBTREE_ROOT_SIBLING_PATH_LENGTH],
-    ) -> AppendOnlyTreeSnapshot {
-        // Update the previous l1-to-l2 tree snapshot to build the new snapshot with.
-        self.previous_l1_to_l2 = previous_l1_to_l2;
-
-        // Update the new l1-to-l2 tree snapshot and return it.
-        self.with_new_l1_to_l2_messages(parity, subtree_root_sibling_path).new_l1_to_l2
+    /// The l1-to-l2 tree snapshot after appending this block's bundle. First-block variants check this against the
+    /// snapshot in the tx constants (consumed by the AVM to read new messages).
+    pub fn get_new_l1_to_l2(self) -> AppendOnlyTreeSnapshot {
+        self.new_l1_to_l2
     }
 
     pub fn finish(
         self,
         new_archive_sibling_path: [Field; ARCHIVE_HEIGHT],
     ) -> BlockRollupPublicInputs {
+        // Every block transitions the l1-to-l2 message tree, even when its bundle is empty, so the append is not
+        // optional: skipping it would leave the start and end snapshots trivially equal.
+        assert(
+            self.bundle_applied,
+            "with_message_bundle must be called before finishing the block rollup",
+        );
+
         // Build the header of this block and then insert its hash to the archive tree.
         let (block_header, end_sponge_blob) = self.create_block_header_and_end_sponge_blob();
         let block_header_hash = block_header.hash();
@@ -174,9 +195,9 @@ impl BlockRollupPublicInputsComposer {
             end_sponge_blob,
             timestamp: self.timestamp,
             block_headers_hash: block_header_hash,
-            in_hash: self.in_hash,
-            start_inbox_rolling_hash: self.start_inbox_rolling_hash,
-            end_inbox_rolling_hash: self.end_inbox_rolling_hash,
+            is_first_block: self.is_first_block,
+            start_msg_sponge: self.start_msg_sponge,
+            end_msg_sponge: self.end_msg_sponge,
             out_hash: self.out_hash,
             accumulated_fees: self.accumulated_fees,
             accumulated_mana_used: self.accumulated_mana_used,
@@ -226,20 +247,17 @@ impl BlockRollupPublicInputsComposer {
         // Absorb data for this block into the end sponge blob.
         let mut block_end_sponge_blob = self.end_sponge_blob;
 
-        // `in_hash` is not 0 if and only if it's the first block in the checkpoint.
-        // Note: the `in_hash` of the first block in the checkpoint is asserted to be nonzero
-        // by the Checkpoint Root circuit.
-        // Note: the `in_hash` of subsequent blocks in the checkpoint is asserted to be 0
-        // within `validate_consecutive_block_rollups.nr`, by asserting that the `in_hash` of all
-        // "right" rollups is `0`.
-        let is_first_block_in_checkpoint = self.in_hash != 0;
+        // The l1-to-l2 message tree root is absorbed only for the first block of a checkpoint (the value is shared by
+        // all blocks in the checkpoint). `is_first_block` is asserted true at the checkpoint root and false for every
+        // non-first ("right") rollup in `validate_consecutive_block_rollups.nr`, so it can only be true for the first
+        // block. This replaces the former `in_hash != 0` derivation.
         block_end_sponge_blob.absorb_block_end_data(
             global_variables,
             last_archive,
             state,
             self.num_txs,
             self.accumulated_mana_used,
-            is_first_block_in_checkpoint,
+            self.is_first_block,
         );
 
         // Duplicate the `block_end_sponge_blob` so that we can squeeze it.

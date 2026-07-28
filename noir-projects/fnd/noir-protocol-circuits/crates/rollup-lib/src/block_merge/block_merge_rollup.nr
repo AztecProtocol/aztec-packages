@@ -41,7 +41,7 @@ pub struct BlockMergeRollupPrivateInputs {
 /// - Merges the state references (left's start with right's end)
 /// - Merges the sponge blobs (left's start with right's end)
 /// - Accumulates the block_headers_hash, out_hash, fees, and mana used
-/// - Propagates the in_hash from the left rollup (which must be a first block)
+/// - Propagates `is_first_block` from the left rollup and threads the message sponge (left's start, right's end)
 ///
 /// The output feeds into another Block Merge circuit to continue building the tree,
 /// or into a Checkpoint Root circuit once all blocks in the checkpoint are combined.

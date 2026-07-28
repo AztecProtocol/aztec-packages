@@ -1,10 +1,11 @@
 mod child_proof_vk_tests;
 mod consecutive_rollups_tests;
 mod failures_tests;
+mod message_bundle_tests;
 mod rollup_structure_tests;
 
 use crate::{
-    abis::{BlockRollupPublicInputs, ParityPublicInputs, TxRollupPublicInputs},
+    abis::{BlockRollupPublicInputs, L1ToL2MessageSponge, TxRollupPublicInputs},
     block_root::{
         block_root_empty_tx_first_rollup::{self, BlockRootEmptyTxFirstRollupPrivateInputs},
         block_root_first_rollup::{self, BlockRootFirstRollupPrivateInputs},
@@ -21,13 +22,16 @@ use types::{
     },
     blob_data::SpongeBlob,
     constants::{
-        ARCHIVE_HEIGHT, L1_TO_L2_MSG_SUBTREE_ROOT_SIBLING_PATH_LENGTH, PARITY_ROOT_VK_INDEX,
+        ARCHIVE_HEIGHT, L1_TO_L2_MSG_TREE_HEIGHT, MAX_L1_TO_L2_MSGS_PER_BLOCK,
         PRIVATE_TX_BASE_ROLLUP_VK_INDEX, PUBLIC_TX_BASE_ROLLUP_VK_INDEX, TX_MERGE_ROLLUP_VK_INDEX,
     },
     hash::accumulate_sha256,
     merkle_tree::root_from_sibling_path,
-    traits::Hash,
+    traits::{Empty, Hash},
 };
+
+// Default number of real L1-to-L2 messages in the block's bundle. Chosen non-zero so the tree and sponge both move.
+global TEST_NUM_MSGS: u32 = 5;
 
 struct TestBuilder {
     left_rollup: TxRollupPublicInputs,
@@ -37,10 +41,14 @@ struct TestBuilder {
     right_rollup_vk_index: u32,
     num_right_txs: u16,
     is_first_block_root: bool,
-    parity_root: ParityPublicInputs,
-    parity_root_vk_index: u32,
+    // Message bundle appended by this block.
+    l1_to_l2_messages: [Field; MAX_L1_TO_L2_MSGS_PER_BLOCK],
+    num_msgs: u32,
+    l1_to_l2_message_frontier_hint: [Field; L1_TO_L2_MSG_TREE_HEIGHT],
     previous_l1_to_l2: AppendOnlyTreeSnapshot,
-    new_l1_to_l2_message_subtree_root_sibling_path: [Field; L1_TO_L2_MSG_SUBTREE_ROOT_SIBLING_PATH_LENGTH],
+    new_l1_to_l2: AppendOnlyTreeSnapshot,
+    // Message sponge inherited from the previous block (empty for first blocks).
+    start_msg_sponge: L1ToL2MessageSponge,
     new_archive_sibling_path: [Field; ARCHIVE_HEIGHT],
     checkpoint_constants: CheckpointConstantData,
 }
@@ -79,6 +87,26 @@ impl TestBuilder {
         num_right_txs: u16,
         is_first_block_root: bool,
     ) -> Self {
+        Self::new_at_l1_to_l2_index(
+            left_rollup_vk_index,
+            num_left_txs,
+            right_rollup_vk_index,
+            num_right_txs,
+            is_first_block_root,
+            0,
+        )
+    }
+
+    /// Same as `new`, but the block's bundle is appended into an l1-to-l2 tree that already holds
+    /// `l1_to_l2_start_index` leaves instead of into an empty one.
+    pub fn new_at_l1_to_l2_index(
+        left_rollup_vk_index: u32,
+        num_left_txs: u16,
+        right_rollup_vk_index: u32,
+        num_right_txs: u16,
+        is_first_block_root: bool,
+        l1_to_l2_start_index: u32,
+    ) -> Self {
         Self::validate_input_vk_index(left_rollup_vk_index, num_left_txs);
         Self::validate_input_vk_index(right_rollup_vk_index, num_right_txs);
 
@@ -95,12 +123,25 @@ impl TestBuilder {
         );
 
         let slot_number = fixture_builder.start_slot_number;
-        let parity_root = fixture_builder.get_parity_public_inputs(slot_number);
 
-        let (previous_l1_to_l2, new_l1_to_l2_message_subtree_root_sibling_path, new_l1_to_l2) =
-            fixture_builder.build_l1_to_l2_message_subtree_for_insertion(slot_number);
-        left_rollup.constants.l1_to_l2_tree_snapshot = new_l1_to_l2;
-        right_rollup.constants.l1_to_l2_tree_snapshot = new_l1_to_l2;
+        // Build the block's message bundle appended at the l1-to-l2 tree's next available index.
+        let (previous_l1_to_l2, l1_to_l2_messages, l1_to_l2_message_frontier_hint, new_l1_to_l2) = fixture_builder
+            .build_l1_to_l2_message_bundle_at_index(TEST_NUM_MSGS, l1_to_l2_start_index);
+
+        // The l1-to-l2 tree snapshot carried in the constants is the pre-append snapshot for non-first blocks (the tree
+        // where this block picks up), and the post-append snapshot for first blocks (checked by the circuit against the
+        // computed value).
+        let constants_l1_to_l2 =
+            if is_first_block_root { new_l1_to_l2 } else { previous_l1_to_l2 };
+        left_rollup.constants.l1_to_l2_tree_snapshot = constants_l1_to_l2;
+        right_rollup.constants.l1_to_l2_tree_snapshot = constants_l1_to_l2;
+
+        // First blocks start the message sponge from empty; non-first blocks inherit a (non-empty) sponge.
+        let start_msg_sponge = if is_first_block_root {
+            L1ToL2MessageSponge::empty()
+        } else {
+            fixture_builder.get_msg_sponge(slot_number)
+        };
 
         let block_number = fixture_builder.start_block_number;
         let (previous_archive, new_archive_sibling_path) =
@@ -118,10 +159,12 @@ impl TestBuilder {
             right_rollup_vk_index,
             num_right_txs,
             is_first_block_root,
-            parity_root,
-            parity_root_vk_index: PARITY_ROOT_VK_INDEX,
+            l1_to_l2_messages,
+            num_msgs: TEST_NUM_MSGS,
+            l1_to_l2_message_frontier_hint,
             previous_l1_to_l2,
-            new_l1_to_l2_message_subtree_root_sibling_path,
+            new_l1_to_l2,
+            start_msg_sponge,
             new_archive_sibling_path,
             checkpoint_constants,
         }
@@ -154,16 +197,14 @@ impl TestBuilder {
     }
 
     fn execute_first_block_root(self) -> BlockRollupPublicInputs {
-        let parity_root =
-            RollupFixtureBuilder::make_proof_data(self.parity_root, self.parity_root_vk_index);
-
         let previous_rollups = [
             RollupFixtureBuilder::make_proof_data(self.left_rollup, self.left_rollup_vk_index),
             RollupFixtureBuilder::make_proof_data(self.right_rollup, self.right_rollup_vk_index),
         ];
 
-        let new_l1_to_l2_message_subtree_root_sibling_path =
-            self.new_l1_to_l2_message_subtree_root_sibling_path;
+        let l1_to_l2_messages = self.l1_to_l2_messages;
+        let num_msgs = self.num_msgs;
+        let l1_to_l2_message_frontier_hint = self.l1_to_l2_message_frontier_hint;
         let new_archive_sibling_path = self.new_archive_sibling_path;
 
         if self.num_left_txs == 0 {
@@ -174,32 +215,35 @@ impl TestBuilder {
             };
             block_root_empty_tx_first_rollup::execute(
                 BlockRootEmptyTxFirstRollupPrivateInputs {
-                    parity_root,
                     previous_archive: left.constants.last_archive,
                     previous_state,
                     constants: self.checkpoint_constants,
                     timestamp: left.constants.global_variables.timestamp,
-                    new_l1_to_l2_message_subtree_root_sibling_path,
+                    l1_to_l2_messages,
+                    num_msgs,
+                    l1_to_l2_message_frontier_hint,
                     new_archive_sibling_path,
                 },
             )
         } else if self.num_right_txs == 0 {
             block_root_single_tx_first_rollup::execute(
                 BlockRootSingleTxFirstRollupPrivateInputs {
-                    parity_root,
                     previous_rollup: previous_rollups[0],
+                    l1_to_l2_messages,
+                    num_msgs,
                     previous_l1_to_l2: self.previous_l1_to_l2,
-                    new_l1_to_l2_message_subtree_root_sibling_path,
+                    l1_to_l2_message_frontier_hint,
                     new_archive_sibling_path,
                 },
             )
         } else {
             block_root_first_rollup::execute(
                 BlockRootFirstRollupPrivateInputs {
-                    parity_root,
                     previous_rollups,
+                    l1_to_l2_messages,
+                    num_msgs,
                     previous_l1_to_l2: self.previous_l1_to_l2,
-                    new_l1_to_l2_message_subtree_root_sibling_path,
+                    l1_to_l2_message_frontier_hint,
                     new_archive_sibling_path,
                 },
             )
@@ -212,18 +256,33 @@ impl TestBuilder {
             RollupFixtureBuilder::make_proof_data(self.right_rollup, self.right_rollup_vk_index),
         ];
 
+        let l1_to_l2_messages = self.l1_to_l2_messages;
+        let num_msgs = self.num_msgs;
+        let l1_to_l2_message_frontier_hint = self.l1_to_l2_message_frontier_hint;
+        let start_msg_sponge = self.start_msg_sponge;
         let new_archive_sibling_path = self.new_archive_sibling_path;
 
         if self.num_right_txs == 0 {
             block_root_single_tx_rollup::execute(
                 BlockRootSingleTxRollupPrivateInputs {
                     previous_rollup: previous_rollups[0],
+                    l1_to_l2_messages,
+                    num_msgs,
+                    start_msg_sponge,
+                    l1_to_l2_message_frontier_hint,
                     new_archive_sibling_path,
                 },
             )
         } else {
             block_root_rollup::execute(
-                BlockRootRollupPrivateInputs { previous_rollups, new_archive_sibling_path },
+                BlockRootRollupPrivateInputs {
+                    previous_rollups,
+                    l1_to_l2_messages,
+                    num_msgs,
+                    start_msg_sponge,
+                    l1_to_l2_message_frontier_hint,
+                    new_archive_sibling_path,
+                },
             )
         }
     }
@@ -327,40 +386,30 @@ impl TestBuilder {
 
         // --- L1 to L2 message tree ---
 
-        let expected_previous_l1_to_l2 = if self.is_first_block_root {
-            self.previous_l1_to_l2
-        } else {
-            self.left_rollup.constants.l1_to_l2_tree_snapshot
-        };
-        assert_eq(pi.start_state.l1_to_l2_message_tree, expected_previous_l1_to_l2);
-
-        assert_eq(
-            pi.end_state.l1_to_l2_message_tree,
-            self.left_rollup.constants.l1_to_l2_tree_snapshot,
-        );
+        // Every block appends its bundle, so the state ref moves from the pre-append snapshot to the post-append one.
+        assert_eq(pi.start_state.l1_to_l2_message_tree, self.previous_l1_to_l2);
+        assert_eq(pi.end_state.l1_to_l2_message_tree, self.new_l1_to_l2);
 
         // --- Timestamps ---
 
         assert_eq(pi.timestamp, left.constants.global_variables.timestamp);
 
-        // --- In hash ---
+        // --- is_first_block ---
 
-        let expected_in_hash = if self.is_first_block_root {
-            self.parity_root.sha_root
+        assert_eq(pi.is_first_block, self.is_first_block_root);
+
+        // --- Message sponge ---
+
+        let expected_start_msg_sponge = if self.is_first_block_root {
+            L1ToL2MessageSponge::empty()
         } else {
-            0
+            self.start_msg_sponge
         };
-        assert_eq(pi.in_hash, expected_in_hash);
+        assert_eq(pi.start_msg_sponge, expected_start_msg_sponge);
 
-        // --- Inbox rolling hash ---
-
-        let (expected_start_rolling_hash, expected_end_rolling_hash) = if self.is_first_block_root {
-            (self.parity_root.start_rolling_hash, self.parity_root.end_rolling_hash)
-        } else {
-            (0, 0)
-        };
-        assert_eq(pi.start_inbox_rolling_hash, expected_start_rolling_hash);
-        assert_eq(pi.end_inbox_rolling_hash, expected_end_rolling_hash);
+        let mut expected_end_msg_sponge = expected_start_msg_sponge;
+        expected_end_msg_sponge.absorb(self.l1_to_l2_messages, self.num_msgs);
+        assert_eq(pi.end_msg_sponge, expected_end_msg_sponge);
 
         // --- Out hash --
 

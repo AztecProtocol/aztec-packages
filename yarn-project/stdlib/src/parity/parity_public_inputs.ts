@@ -4,6 +4,8 @@ import { BufferReader, serializeToBuffer } from '@aztec/foundation/serialize';
 import { bufferToHex, hexToBuffer } from '@aztec/foundation/string';
 import type { FieldsOf } from '@aztec/foundation/types';
 
+import { L1ToL2MessageSponge } from '../messaging/l1_to_l2_message_sponge.js';
+
 export class ParityPublicInputs {
   constructor(
     /** Root of the SHA256 tree. */
@@ -14,6 +16,10 @@ export class ParityPublicInputs {
     public startRollingHash: Fr,
     /** Inbox rolling hash after absorbing the `numMsgs` real messages in this batch. */
     public endRollingHash: Fr,
+    /** Message-bundle sponge before absorbing this batch of leaves. */
+    public startSponge: L1ToL2MessageSponge,
+    /** Message-bundle sponge after absorbing the full (padded) batch of leaves. */
+    public endSponge: L1ToL2MessageSponge,
     /** Number of real (non-padding) messages absorbed into the rolling hash by this batch. */
     public numMsgs: number,
     /** Root of the VK tree */
@@ -36,6 +42,8 @@ export class ParityPublicInputs {
       this.convertedRoot,
       this.startRollingHash,
       this.endRollingHash,
+      this.startSponge,
+      this.endSponge,
       new Fr(this.numMsgs),
       this.vkTreeRoot,
       this.proverId,
@@ -75,6 +83,8 @@ export class ParityPublicInputs {
       fields.convertedRoot,
       fields.startRollingHash,
       fields.endRollingHash,
+      fields.startSponge,
+      fields.endSponge,
       fields.numMsgs,
       fields.vkTreeRoot,
       fields.proverId,
@@ -93,6 +103,8 @@ export class ParityPublicInputs {
       reader.readObject(Fr),
       reader.readObject(Fr),
       reader.readObject(Fr),
+      reader.readObject(L1ToL2MessageSponge),
+      reader.readObject(L1ToL2MessageSponge),
       Fr.fromBuffer(reader).toNumber(),
       Fr.fromBuffer(reader),
       Fr.fromBuffer(reader),

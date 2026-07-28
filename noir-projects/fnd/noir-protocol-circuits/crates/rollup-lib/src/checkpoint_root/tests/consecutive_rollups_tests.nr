@@ -4,11 +4,11 @@ use super::TestBuilder;
 // validating consecutive block rollups can be found in `block_merge/tests/consecutive_block_rollups_tests.nr`.
 // Tests for merging out hashes can be found in `out_hash_tests.nr`.
 
-#[test(should_fail_with = "Right rollup must not carry in_hash")]
-fn non_zero_in_hash_in_right_rollup() {
+#[test(should_fail_with = "Right rollup must not be a first block")]
+fn first_block_in_right_rollup() {
     let mut builder = TestBuilder::default();
 
-    builder.right_rollup.in_hash = 123;
+    builder.right_rollup.is_first_block = true;
 
     builder.execute_with_mock_and_fail();
 }

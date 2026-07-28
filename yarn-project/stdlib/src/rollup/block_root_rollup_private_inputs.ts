@@ -1,35 +1,46 @@
-import { ARCHIVE_HEIGHT, L1_TO_L2_MSG_SUBTREE_ROOT_SIBLING_PATH_LENGTH } from '@aztec/constants';
+import { ARCHIVE_HEIGHT, L1_TO_L2_MSG_TREE_HEIGHT, MAX_L1_TO_L2_MSGS_PER_BLOCK } from '@aztec/constants';
 import { Fr } from '@aztec/foundation/curves/bn254';
 import { bufferSchemaFor } from '@aztec/foundation/schemas';
 import { BufferReader, type Tuple, bigintToUInt64BE, serializeToBuffer } from '@aztec/foundation/serialize';
 import type { FieldsOf } from '@aztec/foundation/types';
 
-import { ParityPublicInputs } from '../parity/parity_public_inputs.js';
-import { ProofData, type RollupHonkProofData, type UltraHonkProofData } from '../proofs/proof_data.js';
+import { L1ToL2MessageSponge } from '../messaging/l1_to_l2_message_sponge.js';
+import { ProofData, type RollupHonkProofData } from '../proofs/proof_data.js';
 import { AppendOnlyTreeSnapshot } from '../trees/append_only_tree_snapshot.js';
 import { StateReference } from '../tx/state_reference.js';
 import type { UInt64 } from '../types/shared.js';
 import { CheckpointConstantData } from './checkpoint_constant_data.js';
 import { TxRollupPublicInputs } from './tx_rollup_public_inputs.js';
 
+// The full-height (36) frontier hint the block root uses to append its message bundle. Tuple<Fr, 36> stays within TS's
+// instantiation-depth limits; the 1024-lane message array is kept as a plain `Fr[]` (padded by the caller) to avoid
+// the excessively-deep tuple type.
+function readL1ToL2Messages(reader: BufferReader): Fr[] {
+  return Array.from({ length: MAX_L1_TO_L2_MSGS_PER_BLOCK }, () => Fr.fromBuffer(reader));
+}
+
 export class BlockRootFirstRollupPrivateInputs {
   constructor(
-    /**
-     * The original and converted roots of the L1 to L2 messages subtrees.
-     */
-    public l1ToL2Roots: UltraHonkProofData<ParityPublicInputs>,
     /**
      * The previous rollup proof data from base or merge rollup circuits.
      */
     public previousRollups: [RollupHonkProofData<TxRollupPublicInputs>, RollupHonkProofData<TxRollupPublicInputs>],
     /**
+     * L1-to-L2 messages inserted by this block, padded with zeros to `MAX_L1_TO_L2_MSGS_PER_BLOCK`.
+     */
+    public l1ToL2Messages: Fr[],
+    /**
+     * Number of real (non-padding) leaves in `l1ToL2Messages`.
+     */
+    public numMsgs: number,
+    /**
      * The l1 to l2 message tree snapshot immediately before this block.
      */
     public previousL1ToL2: AppendOnlyTreeSnapshot,
     /**
-     * Hint for inserting the new l1 to l2 message subtree root into `previousL1ToL2`.
+     * Frontier hint for appending the message bundle to `previousL1ToL2`.
      */
-    public newL1ToL2MessageSubtreeRootSiblingPath: Tuple<Fr, typeof L1_TO_L2_MSG_SUBTREE_ROOT_SIBLING_PATH_LENGTH>,
+    public l1ToL2MessageFrontierHint: Tuple<Fr, typeof L1_TO_L2_MSG_TREE_HEIGHT>,
     /**
      * Hint for inserting the new block hash to the last archive.
      */
@@ -42,25 +53,34 @@ export class BlockRootFirstRollupPrivateInputs {
 
   static getFields(fields: FieldsOf<BlockRootFirstRollupPrivateInputs>) {
     return [
-      fields.l1ToL2Roots,
       fields.previousRollups,
+      fields.l1ToL2Messages,
+      fields.numMsgs,
       fields.previousL1ToL2,
-      fields.newL1ToL2MessageSubtreeRootSiblingPath,
+      fields.l1ToL2MessageFrontierHint,
       fields.newArchiveSiblingPath,
     ] as const;
   }
 
   toBuffer() {
-    return serializeToBuffer(...BlockRootFirstRollupPrivateInputs.getFields(this));
+    return serializeToBuffer(
+      this.previousRollups,
+      this.l1ToL2Messages,
+      this.numMsgs,
+      this.previousL1ToL2,
+      this.l1ToL2MessageFrontierHint,
+      this.newArchiveSiblingPath,
+    );
   }
 
   static fromBuffer(buffer: Buffer | BufferReader) {
     const reader = BufferReader.asReader(buffer);
     return new BlockRootFirstRollupPrivateInputs(
-      ProofData.fromBuffer(reader, ParityPublicInputs),
       [ProofData.fromBuffer(reader, TxRollupPublicInputs), ProofData.fromBuffer(reader, TxRollupPublicInputs)],
+      readL1ToL2Messages(reader),
+      reader.readNumber(),
       AppendOnlyTreeSnapshot.fromBuffer(reader),
-      reader.readArray(L1_TO_L2_MSG_SUBTREE_ROOT_SIBLING_PATH_LENGTH, Fr),
+      reader.readArray(L1_TO_L2_MSG_TREE_HEIGHT, Fr),
       reader.readArray(ARCHIVE_HEIGHT, Fr),
     );
   }
@@ -77,21 +97,25 @@ export class BlockRootFirstRollupPrivateInputs {
 export class BlockRootSingleTxFirstRollupPrivateInputs {
   constructor(
     /**
-     * The original and converted roots of the L1 to L2 messages subtrees.
-     */
-    public l1ToL2Roots: UltraHonkProofData<ParityPublicInputs>,
-    /**
      * The previous rollup proof data from base or merge rollup circuits.
      */
     public previousRollup: RollupHonkProofData<TxRollupPublicInputs>,
+    /**
+     * L1-to-L2 messages inserted by this block, padded with zeros to `MAX_L1_TO_L2_MSGS_PER_BLOCK`.
+     */
+    public l1ToL2Messages: Fr[],
+    /**
+     * Number of real (non-padding) leaves in `l1ToL2Messages`.
+     */
+    public numMsgs: number,
     /**
      * The l1 to l2 message tree snapshot immediately before this block.
      */
     public previousL1ToL2: AppendOnlyTreeSnapshot,
     /**
-     * Hint for inserting the new l1 to l2 message subtree root.
+     * Frontier hint for appending the message bundle to `previousL1ToL2`.
      */
-    public newL1ToL2MessageSubtreeRootSiblingPath: Tuple<Fr, typeof L1_TO_L2_MSG_SUBTREE_ROOT_SIBLING_PATH_LENGTH>,
+    public l1ToL2MessageFrontierHint: Tuple<Fr, typeof L1_TO_L2_MSG_TREE_HEIGHT>,
     /**
      * Hint for inserting the new block hash to the last archive.
      */
@@ -106,25 +130,34 @@ export class BlockRootSingleTxFirstRollupPrivateInputs {
 
   static getFields(fields: FieldsOf<BlockRootSingleTxFirstRollupPrivateInputs>) {
     return [
-      fields.l1ToL2Roots,
       fields.previousRollup,
+      fields.l1ToL2Messages,
+      fields.numMsgs,
       fields.previousL1ToL2,
-      fields.newL1ToL2MessageSubtreeRootSiblingPath,
+      fields.l1ToL2MessageFrontierHint,
       fields.newArchiveSiblingPath,
     ] as const;
   }
 
   toBuffer() {
-    return serializeToBuffer(...BlockRootSingleTxFirstRollupPrivateInputs.getFields(this));
+    return serializeToBuffer(
+      this.previousRollup,
+      this.l1ToL2Messages,
+      this.numMsgs,
+      this.previousL1ToL2,
+      this.l1ToL2MessageFrontierHint,
+      this.newArchiveSiblingPath,
+    );
   }
 
   static fromBuffer(buffer: Buffer | BufferReader) {
     const reader = BufferReader.asReader(buffer);
     return new BlockRootSingleTxFirstRollupPrivateInputs(
-      ProofData.fromBuffer(reader, ParityPublicInputs),
       ProofData.fromBuffer(reader, TxRollupPublicInputs),
+      readL1ToL2Messages(reader),
+      reader.readNumber(),
       AppendOnlyTreeSnapshot.fromBuffer(reader),
-      reader.readArray(L1_TO_L2_MSG_SUBTREE_ROOT_SIBLING_PATH_LENGTH, Fr),
+      reader.readArray(L1_TO_L2_MSG_TREE_HEIGHT, Fr),
       reader.readArray(ARCHIVE_HEIGHT, Fr),
     );
   }
@@ -140,10 +173,6 @@ export class BlockRootSingleTxFirstRollupPrivateInputs {
 
 export class BlockRootEmptyTxFirstRollupPrivateInputs {
   constructor(
-    /**
-     * The original and converted roots of the L1 to L2 messages subtrees.
-     */
-    public l1ToL2Roots: UltraHonkProofData<ParityPublicInputs>,
     /**
      * The archive after applying the previous block.
      */
@@ -161,9 +190,17 @@ export class BlockRootEmptyTxFirstRollupPrivateInputs {
      */
     public timestamp: UInt64,
     /**
-     * Hint for inserting the new l1 to l2 message subtree root.
+     * L1-to-L2 messages inserted by this block, padded with zeros to `MAX_L1_TO_L2_MSGS_PER_BLOCK`.
      */
-    public newL1ToL2MessageSubtreeRootSiblingPath: Tuple<Fr, typeof L1_TO_L2_MSG_SUBTREE_ROOT_SIBLING_PATH_LENGTH>,
+    public l1ToL2Messages: Fr[],
+    /**
+     * Number of real (non-padding) leaves in `l1ToL2Messages`.
+     */
+    public numMsgs: number,
+    /**
+     * Frontier hint for appending the message bundle to the previous state's l1 to l2 message tree.
+     */
+    public l1ToL2MessageFrontierHint: Tuple<Fr, typeof L1_TO_L2_MSG_TREE_HEIGHT>,
     /**
      * Hint for inserting the new block hash to the last archive.
      */
@@ -176,37 +213,40 @@ export class BlockRootEmptyTxFirstRollupPrivateInputs {
 
   static getFields(fields: FieldsOf<BlockRootEmptyTxFirstRollupPrivateInputs>) {
     return [
-      fields.l1ToL2Roots,
       fields.previousArchive,
       fields.previousState,
       fields.constants,
       fields.timestamp,
-      fields.newL1ToL2MessageSubtreeRootSiblingPath,
+      fields.l1ToL2Messages,
+      fields.numMsgs,
+      fields.l1ToL2MessageFrontierHint,
       fields.newArchiveSiblingPath,
     ] as const;
   }
 
   toBuffer() {
-    return serializeToBuffer([
-      this.l1ToL2Roots,
+    return serializeToBuffer(
       this.previousArchive,
       this.previousState,
       this.constants,
       bigintToUInt64BE(this.timestamp),
-      this.newL1ToL2MessageSubtreeRootSiblingPath,
+      this.l1ToL2Messages,
+      this.numMsgs,
+      this.l1ToL2MessageFrontierHint,
       this.newArchiveSiblingPath,
-    ]);
+    );
   }
 
   static fromBuffer(buffer: Buffer | BufferReader) {
     const reader = BufferReader.asReader(buffer);
     return new BlockRootEmptyTxFirstRollupPrivateInputs(
-      ProofData.fromBuffer(reader, ParityPublicInputs),
       AppendOnlyTreeSnapshot.fromBuffer(reader),
       StateReference.fromBuffer(reader),
       CheckpointConstantData.fromBuffer(reader),
       reader.readUInt64(),
-      reader.readArray(L1_TO_L2_MSG_SUBTREE_ROOT_SIBLING_PATH_LENGTH, Fr),
+      readL1ToL2Messages(reader),
+      reader.readNumber(),
+      reader.readArray(L1_TO_L2_MSG_TREE_HEIGHT, Fr),
       reader.readArray(ARCHIVE_HEIGHT, Fr),
     );
   }
@@ -227,6 +267,22 @@ export class BlockRootRollupPrivateInputs {
      */
     public previousRollups: [RollupHonkProofData<TxRollupPublicInputs>, RollupHonkProofData<TxRollupPublicInputs>],
     /**
+     * L1-to-L2 messages inserted by this block, padded with zeros to `MAX_L1_TO_L2_MSGS_PER_BLOCK`.
+     */
+    public l1ToL2Messages: Fr[],
+    /**
+     * Number of real (non-padding) leaves in `l1ToL2Messages`.
+     */
+    public numMsgs: number,
+    /**
+     * Message sponge inherited from the previous block (checked against its `endMsgSponge` in the merge/checkpoint root).
+     */
+    public startMsgSponge: L1ToL2MessageSponge,
+    /**
+     * Frontier hint for appending the message bundle to the l1 to l2 tree snapshot carried in the constants.
+     */
+    public l1ToL2MessageFrontierHint: Tuple<Fr, typeof L1_TO_L2_MSG_TREE_HEIGHT>,
+    /**
      * Hint for inserting the new block hash to the last archive.
      */
     public newArchiveSiblingPath: Tuple<Fr, typeof ARCHIVE_HEIGHT>,
@@ -237,17 +293,35 @@ export class BlockRootRollupPrivateInputs {
   }
 
   static getFields(fields: FieldsOf<BlockRootRollupPrivateInputs>) {
-    return [fields.previousRollups, fields.newArchiveSiblingPath] as const;
+    return [
+      fields.previousRollups,
+      fields.l1ToL2Messages,
+      fields.numMsgs,
+      fields.startMsgSponge,
+      fields.l1ToL2MessageFrontierHint,
+      fields.newArchiveSiblingPath,
+    ] as const;
   }
 
   toBuffer() {
-    return serializeToBuffer(...BlockRootRollupPrivateInputs.getFields(this));
+    return serializeToBuffer(
+      this.previousRollups,
+      this.l1ToL2Messages,
+      this.numMsgs,
+      this.startMsgSponge,
+      this.l1ToL2MessageFrontierHint,
+      this.newArchiveSiblingPath,
+    );
   }
 
   static fromBuffer(buffer: Buffer | BufferReader) {
     const reader = BufferReader.asReader(buffer);
     return new BlockRootRollupPrivateInputs(
       [ProofData.fromBuffer(reader, TxRollupPublicInputs), ProofData.fromBuffer(reader, TxRollupPublicInputs)],
+      readL1ToL2Messages(reader),
+      reader.readNumber(),
+      reader.readObject(L1ToL2MessageSponge),
+      reader.readArray(L1_TO_L2_MSG_TREE_HEIGHT, Fr),
       reader.readArray(ARCHIVE_HEIGHT, Fr),
     );
   }
@@ -268,6 +342,22 @@ export class BlockRootSingleTxRollupPrivateInputs {
      */
     public previousRollup: RollupHonkProofData<TxRollupPublicInputs>,
     /**
+     * L1-to-L2 messages inserted by this block, padded with zeros to `MAX_L1_TO_L2_MSGS_PER_BLOCK`.
+     */
+    public l1ToL2Messages: Fr[],
+    /**
+     * Number of real (non-padding) leaves in `l1ToL2Messages`.
+     */
+    public numMsgs: number,
+    /**
+     * Message sponge inherited from the previous block (checked against its `endMsgSponge` in the merge/checkpoint root).
+     */
+    public startMsgSponge: L1ToL2MessageSponge,
+    /**
+     * Frontier hint for appending the message bundle to the l1 to l2 tree snapshot carried in the constants.
+     */
+    public l1ToL2MessageFrontierHint: Tuple<Fr, typeof L1_TO_L2_MSG_TREE_HEIGHT>,
+    /**
      * Hint for inserting the new block hash to the last archive.
      */
     public newArchiveSiblingPath: Tuple<Fr, typeof ARCHIVE_HEIGHT>,
@@ -278,17 +368,35 @@ export class BlockRootSingleTxRollupPrivateInputs {
   }
 
   static getFields(fields: FieldsOf<BlockRootSingleTxRollupPrivateInputs>) {
-    return [fields.previousRollup, fields.newArchiveSiblingPath] as const;
+    return [
+      fields.previousRollup,
+      fields.l1ToL2Messages,
+      fields.numMsgs,
+      fields.startMsgSponge,
+      fields.l1ToL2MessageFrontierHint,
+      fields.newArchiveSiblingPath,
+    ] as const;
   }
 
   toBuffer() {
-    return serializeToBuffer(...BlockRootSingleTxRollupPrivateInputs.getFields(this));
+    return serializeToBuffer(
+      this.previousRollup,
+      this.l1ToL2Messages,
+      this.numMsgs,
+      this.startMsgSponge,
+      this.l1ToL2MessageFrontierHint,
+      this.newArchiveSiblingPath,
+    );
   }
 
   static fromBuffer(buffer: Buffer | BufferReader) {
     const reader = BufferReader.asReader(buffer);
     return new BlockRootSingleTxRollupPrivateInputs(
       ProofData.fromBuffer(reader, TxRollupPublicInputs),
+      readL1ToL2Messages(reader),
+      reader.readNumber(),
+      reader.readObject(L1ToL2MessageSponge),
+      reader.readArray(L1_TO_L2_MSG_TREE_HEIGHT, Fr),
       reader.readArray(ARCHIVE_HEIGHT, Fr),
     );
   }
