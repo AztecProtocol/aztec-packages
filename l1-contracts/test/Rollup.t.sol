@@ -172,18 +172,6 @@ contract RollupTest is RollupBase {
   function testPrune() public setUpFor("mixed_checkpoint_1") {
     _proposeCheckpoint("mixed_checkpoint_1", 1);
 
-    assertEq(
-      inbox.getInProgress(),
-      // Post-flip the Inbox `consume()` is no longer called at propose, so the frontier in-progress tree no longer
-      // advances per checkpoint; it stays at its initial value until a tree fills (AZIP-22 Fast Inbox).
-      Constants.INITIAL_CHECKPOINT_NUMBER + TestConstants.AZTEC_INBOX_LAG,
-      "Invalid in progress"
-    );
-
-    // @note  Fetch the inbox root of checkpoint 2. This should be frozen when checkpoint 1 is proposed.
-    //        Even if we end up reverting checkpoint 1, we should still see the same root in the inbox.
-    bytes32 inboxRoot2 = inbox.getRoot(2);
-
     CheckpointLog memory checkpoint = rollup.getCheckpoint(1);
     Slot prunableAt = checkpoint.slotNumber + Epoch.wrap(2).toSlots();
 
@@ -194,13 +182,6 @@ contract RollupTest is RollupBase {
     assertEq(rollup.getProvenCheckpointNumber(), 0, "Invalid proven checkpoint number");
 
     rollup.prune();
-    assertEq(
-      inbox.getInProgress(),
-      // Post-flip the Inbox `consume()` is no longer called at propose, so the frontier in-progress tree no longer
-      // advances per checkpoint; it stays at its initial value until a tree fills (AZIP-22 Fast Inbox).
-      Constants.INITIAL_CHECKPOINT_NUMBER + TestConstants.AZTEC_INBOX_LAG,
-      "Invalid in progress"
-    );
     assertEq(rollup.getPendingCheckpointNumber(), 0, "Invalid pending checkpoint number");
     assertEq(rollup.getProvenCheckpointNumber(), 0, "Invalid proven checkpoint number");
 
@@ -212,14 +193,6 @@ contract RollupTest is RollupBase {
     // @note  We prune the pending chain as part of the propose call.
     _proposeCheckpoint("empty_checkpoint_1", Slot.unwrap(prunableAt));
 
-    assertEq(
-      inbox.getInProgress(),
-      // Post-flip the Inbox `consume()` is no longer called at propose, so the frontier in-progress tree no longer
-      // advances per checkpoint; it stays at its initial value until a tree fills (AZIP-22 Fast Inbox).
-      Constants.INITIAL_CHECKPOINT_NUMBER + TestConstants.AZTEC_INBOX_LAG,
-      "Invalid in progress"
-    );
-    assertEq(inbox.getRoot(2), inboxRoot2, "Invalid inbox root");
     assertEq(rollup.getPendingCheckpointNumber(), 1, "Invalid pending checkpoint number");
     assertEq(rollup.getProvenCheckpointNumber(), 0, "Invalid proven checkpoint number");
   }

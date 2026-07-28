@@ -140,7 +140,7 @@ describe('CalldataRetriever', () => {
           archive,
           oracleInput: { feeAssetPriceModifier: BigInt(0) },
           header: viemHeader,
-          bucketHint: 0n,
+          bucketHint: BigInt(0),
         },
         attestations,
         signers,
@@ -369,7 +369,7 @@ describe('CalldataRetriever', () => {
             archive,
             oracleInput: { feeAssetPriceModifier },
             header,
-            bucketHint: 0n,
+            bucketHint: BigInt(0),
           },
           attestations,
           [], // signers

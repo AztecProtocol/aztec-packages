@@ -24,6 +24,7 @@ import { type Logger, createLogger } from '@aztec/foundation/log';
 import { RollupAbi } from '@aztec/l1-artifacts';
 import { Body, CommitteeAttestation, L2Block } from '@aztec/stdlib/block';
 import { Checkpoint, L1PublishedData, PublishedCheckpoint } from '@aztec/stdlib/checkpoint';
+import { InboxLeaf } from '@aztec/stdlib/messaging';
 import { Proof } from '@aztec/stdlib/proofs';
 import { CheckpointHeader } from '@aztec/stdlib/rollup';
 import { AppendOnlyTreeSnapshot } from '@aztec/stdlib/trees';
@@ -391,7 +392,9 @@ function mapLogInboxMessage(log: MessageSentLog): InboxMessage {
     leaf: log.args.leaf,
     l1BlockNumber: log.l1BlockNumber,
     l1BlockHash: log.l1BlockHash,
-    checkpointNumber: log.args.checkpointNumber,
+    // The Inbox no longer emits a checkpoint number (AZIP-22 Fast Inbox). Derive it from the compact index for the
+    // legacy per-checkpoint message store, which the node still keeps until it drops the per-checkpoint flow.
+    checkpointNumber: InboxLeaf.checkpointNumberFromIndex(log.args.index),
     rollingHash: log.args.rollingHash,
     inboxRollingHash: log.args.inboxRollingHash,
     bucketSeq: log.args.bucketSeq,

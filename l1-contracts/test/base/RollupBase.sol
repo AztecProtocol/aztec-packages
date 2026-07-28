@@ -171,9 +171,8 @@ contract RollupBase is DecoderBase {
 
     // We jump to the time of the block, always past the L1 block the messages above landed in.
     vm.warp(max(block.timestamp + 1, Timestamp.unwrap(full.checkpoint.header.timestamp)));
-    // Legacy frontier root for the header's inHash field. Unchecked at propose post-flip, but kept because the
-    // fixtures were generated with it as part of the header hash.
-    full.checkpoint.header.inHash = rollup.getInbox().getRoot(full.checkpoint.checkpointNumber);
+    // The header's inHash field is an unconstrained pass-through hint post-flip; propose does not check it.
+    full.checkpoint.header.inHash = bytes32(0);
     // Streaming Inbox: reference the newest bucket so the checkpoint consumes all messages
     // seeded above and the mandatory-consumption assert is trivially satisfied (a wrong ref could only revert).
     uint256 bucketHint = rollup.getInbox().getCurrentBucketSeq();

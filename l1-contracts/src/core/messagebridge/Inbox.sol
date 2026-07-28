@@ -5,7 +5,6 @@ pragma solidity >=0.8.27;
 import {IRollup} from "@aztec/core/interfaces/IRollup.sol";
 import {IInbox, MAX_MSGS_PER_BUCKET} from "@aztec/core/interfaces/messagebridge/IInbox.sol";
 import {Constants} from "@aztec/core/libraries/ConstantsGen.sol";
-import {FrontierLib} from "@aztec/core/libraries/crypto/FrontierLib.sol";
 import {Hash} from "@aztec/core/libraries/crypto/Hash.sol";
 import {DataStructures} from "@aztec/core/libraries/DataStructures.sol";
 import {Errors} from "@aztec/core/libraries/Errors.sol";
@@ -31,65 +30,35 @@ uint256 constant MIN_BUCKET_RING_SIZE = 512;
  */
 contract Inbox is IInbox {
   using Hash for DataStructures.L1ToL2Msg;
-  using FrontierLib for FrontierLib.Forest;
-  using FrontierLib for FrontierLib.Tree;
 
   address public immutable ROLLUP;
   uint256 public immutable VERSION;
   address public immutable FEE_ASSET_PORTAL;
 
-  uint256 public immutable LAG;
-
   uint256 public immutable BUCKET_RING_SIZE;
 
-  uint256 internal immutable HEIGHT;
-  uint256 internal immutable SIZE;
-  bytes32 internal immutable EMPTY_ROOT; // The root of an empty frontier tree
+  // Legacy 128-bit keccak rolling hash over every inserted message leaf. Consumed only by the node's
+  // message sync and L1-reorg detection; retained until those switch to the full-width consensus rolling
+  // hash tracked in the buckets (AZIP-22 Fast Inbox).
+  bytes16 internal messagesRollingHash;
 
-  // Practically immutable value as we only set it in the constructor.
-  FrontierLib.Forest internal forest;
-
-  mapping(uint256 checkpointNumber => FrontierLib.Tree tree) public trees;
-
-  InboxState internal state;
-
-  // Ring of rolling-hash buckets, keyed by `bucketSeq % BUCKET_RING_SIZE`. Inert for the legacy
-  // frontier-tree flow; consumed by the streaming inbox checks at `propose` (AZIP-22 Fast Inbox).
+  // Ring of rolling-hash buckets, keyed by `bucketSeq % BUCKET_RING_SIZE`. Consumed by the streaming inbox
+  // checks at `propose` (AZIP-22 Fast Inbox).
   mapping(uint256 ringIndex => InboxBucket bucket) internal buckets;
 
   uint64 internal currentBucketSeq;
 
-  constructor(
-    address _rollup,
-    IERC20 _feeAsset,
-    uint256 _version,
-    uint256 _height,
-    uint256 _lag,
-    uint256 _bucketRingSize
-  ) {
+  constructor(address _rollup, IERC20 _feeAsset, uint256 _version, uint256 _bucketRingSize) {
     ROLLUP = _rollup;
     VERSION = _version;
 
-    HEIGHT = _height;
-    SIZE = 2 ** _height;
-
-    require(_lag > 0, "LAG TOO SMALL");
-    LAG = _lag;
-
     require(_bucketRingSize >= MIN_BUCKET_RING_SIZE, "BUCKET RING TOO SMALL");
     BUCKET_RING_SIZE = _bucketRingSize;
-
-    state = InboxState({
-      rollingHash: 0, totalMessagesInserted: 0, inProgress: SafeCast.toUint64(Constants.INITIAL_CHECKPOINT_NUMBER + LAG)
-    });
 
     // Genesis bucket: a checkpoint consuming no messages references the same bucket as its parent, so the
     // first checkpoint against an empty Inbox references this one and no base case leaks into `propose`.
     buckets[0] =
       InboxBucket({rollingHash: 0, totalMsgCount: 0, timestamp: SafeCast.toUint64(block.timestamp), msgCount: 0});
-
-    forest.initialize(_height);
-    EMPTY_ROOT = trees[type(uint256).max].root(forest, HEIGHT, SIZE);
 
     FEE_ASSET_PORTAL = address(new FeeJuicePortal(IRollup(_rollup), _feeAsset, IInbox(this), VERSION));
   }
@@ -104,7 +73,7 @@ contract Inbox is IInbox {
    * @param _secretHash - The secret hash of the message (make it possible to hide when a specific message is consumed
    * on L2)
    *
-   * @return Hash of the sent message and its leaf index in the tree.
+   * @return Hash of the sent message and its compact cumulative index.
    */
   function sendL2Message(DataStructures.L2Actor memory _recipient, bytes32 _content, bytes32 _secretHash)
     external
@@ -116,24 +85,11 @@ contract Inbox is IInbox {
     require(uint256(_content) <= Constants.MAX_FIELD_VALUE, Errors.Inbox__ContentTooLarge(_content));
     require(uint256(_secretHash) <= Constants.MAX_FIELD_VALUE, Errors.Inbox__SecretHashTooLarge(_secretHash));
 
-    // Is this the best way to read a packed struct into local variables in a single SLOAD
-    // without having to use assembly and manual unpacking?
-    InboxState memory _state = state;
-    bytes16 rollingHash = _state.rollingHash;
-    uint64 totalMessagesInserted = _state.totalMessagesInserted;
-    uint64 inProgress = _state.inProgress;
-
-    FrontierLib.Tree storage currentTree = trees[inProgress];
-
-    if (currentTree.isFull(SIZE)) {
-      inProgress += 1;
-      currentTree = trees[inProgress];
-    }
-
     // Compact cumulative message index: the zero-based position of this message in the Inbox's
-    // insertion order, equal to the number of messages inserted before it. It is embedded in the leaf preimage and
-    // matches the streaming L1-to-L2 tree's leaf count, so consumers do not need per-checkpoint tree geometry.
-    uint256 index = totalMessagesInserted;
+    // insertion order, equal to the number of messages inserted before it. It matches the streaming L1-to-L2 tree's
+    // leaf count, so consumers do not need per-checkpoint tree geometry. Sourced from the current bucket's running
+    // total, which the absorb below then advances (a rollover carries the total forward unchanged).
+    uint256 index = _totalMessagesInserted();
 
     // If the sender is the fee asset portal, we use a magic address to simpler have it initialized at genesis.
     // We assume that no-one will know the private key for this address and that the precompile won't change to
@@ -149,69 +105,26 @@ contract Inbox is IInbox {
     });
 
     bytes32 leaf = message.sha256ToField();
-    currentTree.insertLeaf(leaf);
 
-    bytes16 updatedRollingHash = bytes16(keccak256(abi.encodePacked(rollingHash, leaf)));
-    state = InboxState({
-      rollingHash: updatedRollingHash, totalMessagesInserted: totalMessagesInserted + 1, inProgress: inProgress
-    });
+    messagesRollingHash = bytes16(keccak256(abi.encodePacked(messagesRollingHash, leaf)));
 
     (uint64 bucketSeq, bytes32 inboxRollingHash) = _absorbIntoBucket(leaf);
 
-    emit MessageSent(inProgress, index, leaf, updatedRollingHash, inboxRollingHash, bucketSeq);
+    emit MessageSent(index, leaf, messagesRollingHash, inboxRollingHash, bucketSeq);
 
     return (leaf, index);
-  }
-
-  /**
-   * @notice Consumes the current tree, and starts a new one if needed
-   *
-   * @dev Only callable by the rollup contract
-   * @dev In the first iteration we return empty tree root because first checkpoint's messages tree is always
-   * empty because there has to be a 1 checkpoint lag to prevent sequencer DOS attacks
-   *
-   * @param _toConsume - The checkpoint number to consume
-   *
-   * @return The root of the consumed tree
-   */
-  function consume(uint256 _toConsume) external override(IInbox) returns (bytes32) {
-    require(msg.sender == ROLLUP, Errors.Inbox__Unauthorized());
-
-    uint64 inProgress = state.inProgress;
-    require(_toConsume < inProgress, Errors.Inbox__MustBuildBeforeConsume());
-
-    bytes32 root = EMPTY_ROOT;
-    if (_toConsume > Constants.INITIAL_CHECKPOINT_NUMBER) {
-      root = trees[_toConsume].root(forest, HEIGHT, SIZE);
-    }
-
-    // Once consumption reaches the current lag boundary, open the next checkpoint
-    // so new inserts keep a full LAG-sized buffer ahead of the rollup.
-    if (_toConsume + LAG == inProgress) {
-      state.inProgress = inProgress + 1;
-    }
-
-    return root;
   }
 
   function getFeeAssetPortal() external view override(IInbox) returns (address) {
     return FEE_ASSET_PORTAL;
   }
 
-  function getRoot(uint256 _checkpointNumber) external view override(IInbox) returns (bytes32) {
-    return trees[_checkpointNumber].root(forest, HEIGHT, SIZE);
-  }
-
   function getState() external view override(IInbox) returns (InboxState memory) {
-    return state;
+    return InboxState({rollingHash: messagesRollingHash, totalMessagesInserted: _totalMessagesInserted()});
   }
 
   function getTotalMessagesInserted() external view override(IInbox) returns (uint64) {
-    return state.totalMessagesInserted;
-  }
-
-  function getInProgress() external view override(IInbox) returns (uint64) {
-    return state.inProgress;
+    return _totalMessagesInserted();
   }
 
   function getCurrentBucketSeq() external view override(IInbox) returns (uint64) {
@@ -263,5 +176,10 @@ contract Inbox is IInbox {
     buckets[bucketSeq % BUCKET_RING_SIZE] = bucket;
 
     return (bucketSeq, bucket.rollingHash);
+  }
+
+  // Cumulative number of messages inserted into the Inbox, tracked by the current bucket's running total.
+  function _totalMessagesInserted() internal view returns (uint64) {
+    return buckets[currentBucketSeq % BUCKET_RING_SIZE].totalMsgCount;
   }
 }
