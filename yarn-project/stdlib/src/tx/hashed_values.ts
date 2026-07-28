@@ -1,3 +1,4 @@
+import { MAX_FR_CALLDATA_TO_ALL_ENQUEUED_CALLS } from '@aztec/constants';
 import { Fr } from '@aztec/foundation/curves/bn254';
 import { BufferReader, BufferSink, serializeToSink } from '@aztec/foundation/serialize';
 import type { FieldsOf } from '@aztec/foundation/types';
@@ -30,7 +31,9 @@ export class HashedValues {
   static get schema(): ZodFor<HashedValues> {
     return z
       .object({
-        values: z.array(schemas.Fr),
+        // A tx cannot spend more than its whole calldata budget on a single call, and no other caller of this
+        // schema (private args, authwit args) comes close to that many fields.
+        values: z.array(schemas.Fr).max(MAX_FR_CALLDATA_TO_ALL_ENQUEUED_CALLS),
         hash: schemas.Fr,
       })
       .transform(HashedValues.from);

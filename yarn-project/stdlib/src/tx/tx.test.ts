@@ -1,5 +1,6 @@
 import { PRIVATE_LOG_SIZE_IN_FIELDS } from '@aztec/constants';
 import { makeTuple } from '@aztec/foundation/array';
+import { times } from '@aztec/foundation/collection';
 import { randomBytes } from '@aztec/foundation/crypto/random';
 import { Fr } from '@aztec/foundation/curves/bn254';
 import { EthAddress } from '@aztec/foundation/eth-address';
@@ -8,10 +9,11 @@ import { jsonStringify } from '@aztec/foundation/json-rpc';
 import { AztecAddress } from '../aztec-address/index.js';
 import { LogHash, ScopedLogHash } from '../kernel/log_hash.js';
 import { PrivateKernelTailCircuitPublicInputs } from '../kernel/private_kernel_tail_circuit_public_inputs.js';
+import { ContractClassLogFields } from '../logs/contract_class_log.js';
 import { PrivateLog } from '../logs/private_log.js';
 import { L2ToL1Message, ScopedL2ToL1Message } from '../messaging/l2_to_l1_message.js';
 import { mockTx } from '../tests/mocks.js';
-import { Tx, TxArray } from './tx.js';
+import { MAX_CONTRACT_CLASS_LOG_FIELDS_PER_TX, MAX_PUBLIC_FUNCTION_CALLDATA_PER_TX, Tx, TxArray } from './tx.js';
 
 describe('Tx', () => {
   it('convert to and from buffer', async () => {
@@ -31,6 +33,43 @@ describe('Tx', () => {
     const tx = await mockTx();
     const json = jsonStringify(tx);
     expect(await Tx.schema.parseAsync(JSON.parse(json))).toEqual(tx);
+  });
+
+  describe('schema array limits', () => {
+    // Parses a tx from json after replacing one of its arrays with `count` copies of a valid entry. The
+    // schema recomputes the tx hash and does not cross-check the arrays against the kernel outputs, so the
+    // resulting tx is well-formed as far as parsing is concerned.
+    const parseWithArray = async (field: 'publicFunctionCalldata' | 'contractClassLogFields', count: number) => {
+      const json = JSON.parse(jsonStringify(await mockTx()));
+      const entry =
+        field === 'publicFunctionCalldata'
+          ? json.publicFunctionCalldata[0]
+          : JSON.parse(jsonStringify(ContractClassLogFields.random()));
+      json[field] = times(count, () => entry);
+      return await Tx.schema.parseAsync(json);
+    };
+
+    it('accepts one calldata entry per call a tx can enqueue', async () => {
+      const tx = await parseWithArray('publicFunctionCalldata', MAX_PUBLIC_FUNCTION_CALLDATA_PER_TX);
+      expect(tx.publicFunctionCalldata).toHaveLength(MAX_PUBLIC_FUNCTION_CALLDATA_PER_TX);
+    });
+
+    it('rejects more calldata entries than a tx can enqueue', async () => {
+      await expect(parseWithArray('publicFunctionCalldata', MAX_PUBLIC_FUNCTION_CALLDATA_PER_TX + 1)).rejects.toThrow(
+        expect.objectContaining({ name: 'ZodError' }),
+      );
+    });
+
+    it('accepts contract class logs from both accumulated data sets', async () => {
+      const tx = await parseWithArray('contractClassLogFields', MAX_CONTRACT_CLASS_LOG_FIELDS_PER_TX);
+      expect(tx.contractClassLogFields).toHaveLength(MAX_CONTRACT_CLASS_LOG_FIELDS_PER_TX);
+    });
+
+    it('rejects more contract class logs than a tx can accumulate', async () => {
+      await expect(parseWithArray('contractClassLogFields', MAX_CONTRACT_CLASS_LOG_FIELDS_PER_TX + 1)).rejects.toThrow(
+        expect.objectContaining({ name: 'ZodError' }),
+      );
+    });
   });
 
   describe('getPrivateTxEffectsSizeInFields', () => {
