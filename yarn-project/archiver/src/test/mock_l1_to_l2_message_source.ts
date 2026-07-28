@@ -38,6 +38,13 @@ export class MockL1ToL2MessageSource implements L1ToL2MessageSource {
     return Promise.resolve(this.buckets.get(seq));
   }
 
+  getInboxBucketByTotalMsgCount(totalMsgCount: bigint): Promise<InboxBucket | undefined> {
+    if (totalMsgCount === 0n) {
+      return Promise.resolve(this.buckets.get(0n));
+    }
+    return Promise.resolve([...this.buckets.values()].find(bucket => bucket.totalMsgCount === totalMsgCount));
+  }
+
   getLatestInboxBucketAtOrBefore(timestamp: bigint): Promise<InboxBucket | undefined> {
     const atOrBefore = [...this.buckets.values()]
       .filter(bucket => bucket.timestamp <= timestamp)
@@ -50,6 +57,15 @@ export class MockL1ToL2MessageSource implements L1ToL2MessageSource {
       .filter(seq => seq > fromExclusive && seq <= toInclusive)
       .sort((a, b) => Number(a - b));
     return Promise.resolve(seqs.flatMap(seq => this.messagesPerBucket.get(seq) ?? []));
+  }
+
+  async getL1ToL2MessagesBetweenLeafCounts(startLeafCount: bigint, endLeafCount: bigint): Promise<Fr[]> {
+    const startBucket = await this.getInboxBucketByTotalMsgCount(startLeafCount);
+    const endBucket = await this.getInboxBucketByTotalMsgCount(endLeafCount);
+    if (startBucket === undefined || endBucket === undefined) {
+      throw new Error(`No mocked Inbox bucket boundary at ${startLeafCount} or ${endLeafCount}`);
+    }
+    return this.getL1ToL2MessagesBetweenBuckets(startBucket.seq, endBucket.seq);
   }
 
   getBlockNumber() {

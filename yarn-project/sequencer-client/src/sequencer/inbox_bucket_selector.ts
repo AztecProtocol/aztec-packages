@@ -1,7 +1,7 @@
 import type { Fr } from '@aztec/foundation/curves/bn254';
 import type { InboxBucket, L1ToL2MessageSource } from '@aztec/stdlib/messaging';
 
-/** The subset of the archiver's Inbox-bucket queries the selector needs (AZIP-22 Fast Inbox). */
+/** The subset of the archiver's Inbox-bucket queries the selector needs. */
 export type InboxBucketSource = Pick<
   L1ToL2MessageSource,
   'getInboxBucket' | 'getLatestInboxBucketAtOrBefore' | 'getL1ToL2MessagesBetweenBuckets'
@@ -57,7 +57,7 @@ export type InboxBucketSelection =
 
 /**
  * Selects the newest Inbox bucket a block streams from, mirroring the L1 consumption predicate in
- * `ProposeLib.validateInboxConsumption` (AZIP-22 Fast Inbox). The policy, per block:
+ * `ProposeLib.validateInboxConsumption`. The policy, per block:
  *
  * 1. Pick the newest lag-eligible bucket: the newest bucket opened at or before `now - lagSeconds`. On the
  *    checkpoint's last block, also consider the cutoff bucket (newest opened at or before `cutoffTimestamp`) and take

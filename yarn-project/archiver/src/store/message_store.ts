@@ -15,7 +15,11 @@ import {
 } from '@aztec/kv-store';
 import { type InboxBucket, InboxLeaf, updateInboxRollingHash } from '@aztec/stdlib/messaging';
 
-import { InboxBucketNotSyncedError, L1ToL2MessagesNotReadyError } from '../errors.js';
+import {
+  InboxBucketBoundaryNotSyncedError,
+  InboxBucketNotSyncedError,
+  L1ToL2MessagesNotReadyError,
+} from '../errors.js';
 import {
   type InboxMessage,
   deserializeInboxMessage,
@@ -84,6 +88,19 @@ function groupMessagesByBucket(messages: InboxMessage[]): IncomingBucket[] {
   }
   return buckets;
 }
+
+// The genesis sentinel bucket: sequence 0 with a zero rolling hash and no messages, mirroring the
+// on-chain Inbox's base case. The archiver never ingests a snapshot for it (no message is absorbed into sequence 0), so
+// it is synthesized on read. Consumers use its sequence number and zero total; its deploy-time timestamp is not tracked
+// here and is unused.
+const GENESIS_INBOX_BUCKET: InboxBucket = {
+  seq: 0n,
+  inboxRollingHash: Fr.ZERO,
+  totalMsgCount: 0n,
+  timestamp: 0n,
+  msgCount: 0,
+  lastMessageIndex: 0n,
+};
 
 export class MessageStoreError extends Error {
   constructor(
@@ -487,17 +504,65 @@ export class MessageStore {
   }
 
   /**
-   * Returns the Inbox bucket with the given sequence number, or undefined if it has not been synced (AZIP-22 Fast
-   * Inbox).
+   * Returns the Inbox bucket with the given sequence number, or undefined if it has not been synced. Sequence 0 is
+   * the genesis sentinel: the on-chain Inbox reserves it as the "consumed nothing" base case
+   * and never absorbs a message into it, so the archiver ingests no snapshot for it; it is synthesized here (rolling
+   * hash 0, total 0) so streaming consumers can resolve a genesis parent or an empty checkpoint's last-consumed bucket.
    */
   public async getInboxBucket(seq: bigint): Promise<InboxBucket | undefined> {
     const snapshot = await this.getBucketSnapshotBySeq(seq);
-    return snapshot && this.toInboxBucket(seq, snapshot);
+    if (snapshot !== undefined) {
+      return this.toInboxBucket(seq, snapshot);
+    }
+    return seq === 0n ? GENESIS_INBOX_BUCKET : undefined;
+  }
+
+  /**
+   * Returns the Inbox bucket whose cumulative message total equals `totalMsgCount`, or undefined if no synced bucket
+   * sits on that boundary. Sequence 0 (total 0) is the genesis sentinel base case; otherwise the
+   * message at global index `totalMsgCount - 1` is the last message of the bucket with that cumulative total, so its
+   * `bucketSeq` resolves the bucket. A total that does not land on a bucket boundary returns undefined.
+   */
+  public async getInboxBucketByTotalMsgCount(totalMsgCount: bigint): Promise<InboxBucket | undefined> {
+    if (totalMsgCount === 0n) {
+      return this.getInboxBucket(0n);
+    }
+    const buffer = await this.#l1ToL2Messages.getAsync(this.indexToKey(totalMsgCount - 1n));
+    if (buffer === undefined) {
+      return undefined;
+    }
+    const bucket = await this.getInboxBucket(deserializeInboxMessage(buffer).bucketSeq);
+    return bucket !== undefined && bucket.totalMsgCount === totalMsgCount ? bucket : undefined;
+  }
+
+  /**
+   * Returns the message leaves in the cumulative Inbox message-count range `[startLeafCount, endLeafCount)`, in
+   * insertion order. The bounds are compact L1-to-L2 tree leaf counts, which every block header
+   * carries, so consumers can ask for the messages a block or checkpoint consumed without resolving buckets
+   * themselves. Both bounds must land on a bucket boundary this archiver has synced; it throws otherwise, since a
+   * caller asking for a range always expects the messages in it.
+   */
+  public async getL1ToL2MessagesBetweenLeafCounts(startLeafCount: bigint, endLeafCount: bigint): Promise<Fr[]> {
+    if (startLeafCount > endLeafCount) {
+      throw new Error(`Invalid Inbox leaf count range [${startLeafCount}, ${endLeafCount})`);
+    }
+    const startBucket = await this.getBucketAtBoundary(startLeafCount);
+    const endBucket = await this.getBucketAtBoundary(endLeafCount);
+    return this.getL1ToL2MessagesBetweenBuckets(startBucket.seq, endBucket.seq);
+  }
+
+  /** Resolves the bucket ending at the given cumulative message count, failing loudly if there is none. */
+  private async getBucketAtBoundary(totalMsgCount: bigint): Promise<InboxBucket> {
+    const bucket = await this.getInboxBucketByTotalMsgCount(totalMsgCount);
+    if (bucket === undefined) {
+      throw new InboxBucketBoundaryNotSyncedError(totalMsgCount);
+    }
+    return bucket;
   }
 
   /**
    * Returns the latest Inbox bucket opened at or before the given L1 timestamp, or undefined if every synced bucket
-   * was opened strictly after it (AZIP-22 Fast Inbox).
+   * was opened strictly after it.
    */
   public async getLatestInboxBucketAtOrBefore(timestamp: bigint): Promise<InboxBucket | undefined> {
     // Bucket timestamps are non-decreasing in sequence number, so the bucket we want is the highest sequence indexed
@@ -519,8 +584,8 @@ export class MessageStore {
   }
 
   /**
-   * Returns the message leaves absorbed into buckets in the range `(fromExclusive, toInclusive]`, in insertion order
-   * (AZIP-22 Fast Inbox). Both bounds must name buckets this archiver has synced, so that an empty result means the
+   * Returns the message leaves absorbed into buckets in the range `(fromExclusive, toInclusive]`, in insertion order.
+   * Both bounds must name buckets this archiver has synced, so that an empty result means the
    * range holds no messages rather than hiding an unsynced bound; callers route the
    * `InboxBucketNotSyncedError` to their own catch-up handling. Sequence 0 is the genesis base case and always
    * resolves: the range then starts at the first message of the Inbox.
