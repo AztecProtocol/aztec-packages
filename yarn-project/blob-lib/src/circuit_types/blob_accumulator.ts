@@ -4,7 +4,7 @@ import { Fr } from '@aztec/foundation/curves/bn254';
 import { BufferReader, FieldReader, serializeToBuffer } from '@aztec/foundation/serialize';
 
 /**
- * See `noir-projects/noir-protocol-circuits/crates/blob/src/abis/blob_accumulator.nr` for documentation.
+ * See `noir-projects/fnd/noir-protocol-circuits/crates/blob/src/abis/blob_accumulator.nr` for documentation.
  */
 export class BlobAccumulator {
   constructor(

@@ -799,7 +799,7 @@ type pxeConfigMappings = ConfigMappingsType<PXEConfig>
 ## Enums
 
 ### OriginBlockState
-Chain state of a retractable fact's origin block, mirroring the L2 chain tips. - `Pending`: above the proven tip. - `Proven`: proof on L1 but not yet finalized. - `Finalized`: L1-finalized. The numeric discriminants must stay in sync with the Noir `OriginBlockState` in `noir-projects/aztec-nr/aztec/src/facts/origin_state.nr`: PXE serializes this value into the `Fact` oracle response and Noir deserializes it via `from_u8`, which rejects any value outside this set.
+Chain state of a retractable fact's origin block, mirroring the L2 chain tips. - `Pending`: above the proven tip. - `Proven`: proof on L1 but not yet finalized. - `Finalized`: L1-finalized. The numeric discriminants must stay in sync with the Noir `OriginBlockState` in `noir-projects/labs/aztec-nr/aztec/src/facts/origin_state.nr`: PXE serializes this value into the `Fact` oracle response and Noir deserializes it via `from_u8`, which rejects any value outside this set.
 
 Values: `3`, `1`, `2`
 

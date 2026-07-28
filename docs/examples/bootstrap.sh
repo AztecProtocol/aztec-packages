@@ -78,7 +78,7 @@ function compile {
   # Pass only contract packages so circuits in the shared docs workspace are not
   # treated as contract artifacts by the noir-contracts bootstrap.
   DOCS_WORKING_DIR="$(cd .. && pwd)" \
-    $REPO_ROOT/noir-projects/noir-contracts/bootstrap.sh compile "${contracts[@]}"
+    $REPO_ROOT/noir-projects/labs/noir-contracts/bootstrap.sh compile "${contracts[@]}"
 }
 
 function compile-solidity {

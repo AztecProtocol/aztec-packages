@@ -21,7 +21,7 @@ Or from the docs root:
 ## Requirements
 
 - `nargo` must be available in PATH or set via `NARGO` environment variable
-- The `aztec-nr` workspace must be at `../noir-projects/aztec-nr` relative to the docs folder
+- The `aztec-nr` workspace must be at `../noir-projects/labs/aztec-nr` relative to the docs folder
 
 ## Output
 

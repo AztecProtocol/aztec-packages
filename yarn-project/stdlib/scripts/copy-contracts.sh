@@ -2,9 +2,9 @@
 set -euo pipefail
 mkdir -p ./fixtures
 
-cp "../../noir-projects/noir-contracts/target/benchmarking_contract-Benchmarking.json" ./fixtures/Benchmarking.test.json
-cp "../../noir-projects/noir-contracts/target/test_contract-Test.json" ./fixtures/Test.test.json
-cp "../../noir-projects/noir-contracts/target/token_contract-Token.json" ./fixtures/Token.test.json
+cp "../../noir-projects/labs/noir-contracts/target/benchmarking_contract-Benchmarking.json" ./fixtures/Benchmarking.test.json
+cp "../../noir-projects/labs/noir-contracts/target/test_contract-Test.json" ./fixtures/Test.test.json
+cp "../../noir-projects/labs/noir-contracts/target/token_contract-Token.json" ./fixtures/Token.test.json
 
 # Run bb aztec_process on the copied fixtures to embed precomputed hashes
 # (artifactHash, privateFunctionsRoot, publicBytecodeCommitment, contractClassId,

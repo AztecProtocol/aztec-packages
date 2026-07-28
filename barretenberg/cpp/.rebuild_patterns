@@ -9,4 +9,4 @@
 ^ipc-codegen/src/.*\.ts$
 ^ipc-codegen/templates/cpp/
 ^protocol/constants-codegen/
-^noir-projects/noir-protocol-circuits/crates/types/src/constants\.nr$
+^noir-projects/fnd/noir-protocol-circuits/crates/types/src/constants\.nr$

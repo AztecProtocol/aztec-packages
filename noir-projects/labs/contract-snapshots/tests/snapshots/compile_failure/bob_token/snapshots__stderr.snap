@@ -1,0 +1,304 @@
+---
+source: tests/snapshots.rs
+expression: stderr
+---
+error: The #[internal] attribute cannot be applied to external functions - transfer_public is marked as both #[external] and #[internal("public")]
+  ┌─ std/panic.nr:8:12
+  │
+8 │     assert(false, message);
+  │            ----- Assertion failed
+  │
+  = Call stack:
+    1: ?
+            at src/main.nr:53:5
+    2: internal
+            at <repo>/noir-projects/labs/aztec-nr/aztec/src/macros/functions/mod.nr:<line>:<col>
+
+error: A function marked as #[external("private")] or #[internal("private")] must not have public Noir visibility - transfer_private's visibility is 'pub'
+  ┌─ std/panic.nr:8:12
+  │
+8 │     assert(false, message);
+  │            ----- Assertion failed
+  │
+  = Call stack:
+    1: ?
+            at src/main.nr:85:5
+    2: external
+            at <repo>/noir-projects/labs/aztec-nr/aztec/src/macros/functions/mod.nr:<line>:<col>
+    3: assert_valid_private
+            at <repo>/noir-projects/labs/aztec-nr/aztec/src/macros/functions/mod.nr:<line>:<col>
+
+error: The #[view] attribute can only be applied to #[external("private")] or #[external("public")] functions - _assert_is_owner is neither
+  ┌─ std/panic.nr:8:12
+  │
+8 │     assert(false, message);
+  │            ----- Assertion failed
+  │
+  = Call stack:
+    1: ?
+            at src/main.nr:107:5
+    2: view
+            at <repo>/noir-projects/labs/aztec-nr/aztec/src/macros/functions/mod.nr:<line>:<col>
+
+error: #[external("private")] or #[internal("private")] functions must not be unconstrained - mint_private is
+  ┌─ std/panic.nr:8:12
+  │
+8 │     assert(false, message);
+  │            ----- Assertion failed
+  │
+  = Call stack:
+    1: ?
+            at src/main.nr:113:5
+    2: external
+            at <repo>/noir-projects/labs/aztec-nr/aztec/src/macros/functions/mod.nr:<line>:<col>
+    3: assert_valid_private
+            at <repo>/noir-projects/labs/aztec-nr/aztec/src/macros/functions/mod.nr:<line>:<col>
+
+error: Function _assert_is_owner must be marked as either #[external(...)], #[internal(...)], or #[test]
+  ┌─ std/panic.nr:8:12
+  │
+8 │     assert(false, message);
+  │            ----- Assertion failed
+  │
+  = Call stack:
+    1: #[aztec]
+            at src/main.nr:18:1
+    2: aztec
+            at <repo>/noir-projects/labs/aztec-nr/aztec/src/macros/aztec.nr:<line>:<col>
+    3: check_each_fn_macroified
+            at <repo>/noir-projects/labs/aztec-nr/aztec/src/macros/aztec.nr:<line>:<col>
+
+error: cannot find `self` in this scope
+   ┌─ src/main.nr:41:9
+   │
+41 │         self.storage.owner.write(self.msg_sender());
+   │         ---- not found in this scope
+   │
+
+error: cannot find `self` in this scope
+   ┌─ src/main.nr:46:19
+   │
+46 │         assert_eq(self.msg_sender(), self.storage.owner.read(), "Only owner can mint");
+   │                   ---- not found in this scope
+   │
+
+error: cannot find `self` in this scope
+   ┌─ src/main.nr:46:38
+   │
+46 │         assert_eq(self.msg_sender(), self.storage.owner.read(), "Only owner can mint");
+   │                                      ---- not found in this scope
+   │
+
+error: cannot find `self` in this scope
+   ┌─ src/main.nr:47:31
+   │
+47 │         let current_balance = self.storage.public_balances.at(employee).read();
+   │                               ---- not found in this scope
+   │
+
+error: cannot find `self` in this scope
+   ┌─ src/main.nr:48:9
+   │
+48 │         self.storage.public_balances.at(employee).write(current_balance + amount);
+   │         ---- not found in this scope
+   │
+
+error: cannot find `self` in this scope
+   ┌─ src/main.nr:55:22
+   │
+55 │         let sender = self.msg_sender();
+   │                      ---- not found in this scope
+   │
+
+error: cannot find `self` in this scope
+   ┌─ src/main.nr:56:30
+   │
+56 │         let sender_balance = self.storage.public_balances.at(sender).read();
+   │                              ---- not found in this scope
+   │
+
+error: cannot find `self` in this scope
+   ┌─ src/main.nr:57:9
+   │
+57 │         self.storage.public_balances.at(sender).write(sender_balance - amount);
+   │         ---- not found in this scope
+   │
+
+error: cannot find `self` in this scope
+   ┌─ src/main.nr:58:33
+   │
+58 │         let recipient_balance = self.storage.public_balances.at(to).read();
+   │                                 ---- not found in this scope
+   │
+
+error: cannot find `self` in this scope
+   ┌─ src/main.nr:59:9
+   │
+59 │         self.storage.public_balances.at(to).write(recipient_balance + amount);
+   │         ---- not found in this scope
+   │
+
+error: cannot find `self` in this scope
+   ┌─ src/main.nr:64:19
+   │
+64 │         assert_eq(self.msg_sender(), self.storage.owner.read(), "Only current owner");
+   │                   ---- not found in this scope
+   │
+
+error: cannot find `self` in this scope
+   ┌─ src/main.nr:64:38
+   │
+64 │         assert_eq(self.msg_sender(), self.storage.owner.read(), "Only current owner");
+   │                                      ---- not found in this scope
+   │
+
+error: cannot find `self` in this scope
+   ┌─ src/main.nr:65:9
+   │
+65 │         self.storage.owner.write(new_owner);
+   │         ---- not found in this scope
+   │
+
+error: cannot find `self` in this scope
+   ┌─ src/main.nr:70:22
+   │
+70 │         let sender = self.msg_sender();
+   │                      ---- not found in this scope
+   │
+
+error: cannot find `self` in this scope
+   ┌─ src/main.nr:71:9
+   │
+71 │         self.enqueue_self._deduct_public_balance(sender, amount);
+   │         ---- not found in this scope
+   │
+
+error: cannot find `self` in this scope
+   ┌─ src/main.nr:72:9
+   │
+72 │         self.storage.private_balances.at(sender).add(amount).deliver(
+   │         ---- not found in this scope
+   │
+
+error: cannot find `self` in this scope
+   ┌─ src/main.nr:80:23
+   │
+80 │         let balance = self.storage.public_balances.at(owner).read();
+   │                       ---- not found in this scope
+   │
+
+error: cannot find `self` in this scope
+   ┌─ src/main.nr:81:9
+   │
+81 │         self.storage.public_balances.at(owner).write(balance - amount);
+   │         ---- not found in this scope
+   │
+
+error: cannot find `self` in this scope
+   ┌─ src/main.nr:87:22
+   │
+87 │         let sender = self.msg_sender();
+   │                      ---- not found in this scope
+   │
+
+error: cannot find `self` in this scope
+   ┌─ src/main.nr:88:9
+   │
+88 │         self.storage.private_balances.at(sender).sub(amount).deliver(
+   │         ---- not found in this scope
+   │
+
+error: cannot find `self` in this scope
+   ┌─ src/main.nr:91:9
+   │
+91 │         self.storage.private_balances.at(to).add(amount).deliver(
+   │         ---- not found in this scope
+   │
+
+error: missing pub keyword on return type of function private_balance_of
+   ┌─ src/main.nr:97:65
+   │
+97 │     unconstrained fn private_balance_of(owner: AztecAddress) -> u128 {
+   │                                                                 ---- missing pub on return type
+   │
+   = The `pub` keyword is mandatory for the entry-point function return type because the verifier cannot retrieve private witness and thus the function will not be able to return a 'priv' value
+
+error: cannot find `self` in this scope
+   ┌─ src/main.nr:98:9
+   │
+98 │         self.storage.private_balances.at(owner).balance_of()
+   │         ---- not found in this scope
+   │
+
+error: missing pub keyword on return type of function public_balance_of
+    ┌─ src/main.nr:102:64
+    │
+102 │     unconstrained fn public_balance_of(owner: AztecAddress) -> u128 {
+    │                                                                ---- missing pub on return type
+    │
+    = The `pub` keyword is mandatory for the entry-point function return type because the verifier cannot retrieve private witness and thus the function will not be able to return a 'priv' value
+
+error: cannot find `self` in this scope
+    ┌─ src/main.nr:103:9
+    │
+103 │         self.storage.public_balances.at(owner).read()
+    │         ---- not found in this scope
+    │
+
+error: cannot find `self` in this scope
+    ┌─ src/main.nr:109:28
+    │
+109 │         assert_eq(address, self.storage.owner.read(), "Only owner");
+    │                            ---- not found in this scope
+    │
+
+error: cannot find `self` in this scope
+    ┌─ src/main.nr:115:9
+    │
+115 │         self.enqueue_self._assert_is_owner(self.msg_sender());
+    │         ---- not found in this scope
+    │
+
+error: cannot find `self` in this scope
+    ┌─ src/main.nr:116:9
+    │
+116 │         self.storage.private_balances.at(employee).add(amount).deliver(
+    │         ---- not found in this scope
+    │
+
+error: cannot find `self` in this scope
+    ┌─ src/main.nr:123:22
+    │
+123 │         let sender = self.msg_sender();
+    │                      ---- not found in this scope
+    │
+
+error: cannot find `self` in this scope
+    ┌─ src/main.nr:124:9
+    │
+124 │         self.storage.private_balances.at(sender).sub(amount).deliver(
+    │         ---- not found in this scope
+    │
+
+error: cannot find `self` in this scope
+    ┌─ src/main.nr:127:9
+    │
+127 │         self.enqueue_self._credit_public_balance(sender, amount);
+    │         ---- not found in this scope
+    │
+
+error: cannot find `self` in this scope
+    ┌─ src/main.nr:133:23
+    │
+133 │         let balance = self.storage.public_balances.at(owner).read();
+    │                       ---- not found in this scope
+    │
+
+error: cannot find `self` in this scope
+    ┌─ src/main.nr:134:9
+    │
+134 │         self.storage.public_balances.at(owner).write(balance + amount);
+    │         ---- not found in this scope
+    │
+
+Aborting due to 38 previous errors

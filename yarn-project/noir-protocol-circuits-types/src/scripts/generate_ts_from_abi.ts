@@ -47,16 +47,16 @@ const main = async () => {
   // protocol-maxima base, so noir-codegen renders mapping helpers generically over hint sizes
   // (see `TEMPLATE_DIMENSIONS` below for the differs-from-template invariant).
   const dimensionsByGroup = JSON.parse(
-    await fs.readFile('../../noir-projects/noir-protocol-circuits/private_kernel_reset_dimensions.json', 'utf8'),
+    await fs.readFile('../../noir-projects/fnd/noir-protocol-circuits/private_kernel_reset_dimensions.json', 'utf8'),
   ) as Record<string, number[][]>;
 
   // The template circuit has every dimension at the protocol max for that dimension. For codegen to
   // emit a generic over a given dimension we need the sample variant to differ from the template at
   // that position. The TEMPLATE_DIMENSIONS array mirrors `aliases.full` in
-  // `noir-projects/noir-protocol-circuits/scripts/generate_variants.js` and must be kept in sync.
+  // `noir-projects/fnd/noir-protocol-circuits/scripts/generate_variants.js` and must be kept in sync.
   const TEMPLATE_DIMENSIONS = [64, 64, 64, 64, 64, 64, 64, 64, 64];
 
-  // Names align with `dimensionNames` in `noir-projects/noir-protocol-circuits/scripts/generate_variants.js`.
+  // Names align with `dimensionNames` in `noir-projects/fnd/noir-protocol-circuits/scripts/generate_variants.js`.
   const dimensionNames = [
     'NOTE_HASH_PENDING_READ',
     'NOTE_HASH_SETTLED_READ',

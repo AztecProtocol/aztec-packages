@@ -9,7 +9,7 @@ export NODE_OPTIONS="--no-warnings --loader @swc-node/register/esm"
 rm -rf ./artifacts
 mkdir -p ./artifacts
 
-cp -r ../../noir-projects/noir-protocol-circuits/target/* ./artifacts
+cp -r ../../noir-projects/fnd/noir-protocol-circuits/target/* ./artifacts
 # generate_vk_hashes rewrites ./artifacts/*.json in place; generate_ts_from_abi reads those same
 # files. They must not run concurrently or the reader can observe a partially-written artifact
 # ("Unterminated string in JSON"). Writers run first, readers second.

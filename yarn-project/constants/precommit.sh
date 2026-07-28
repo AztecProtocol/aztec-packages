@@ -9,7 +9,7 @@ set -euo pipefail
 
 cd "$(dirname "$0")"
 
-FILE_TO_WATCH="noir-projects/noir-protocol-circuits/crates/types/src/constants.nr"
+FILE_TO_WATCH="noir-projects/fnd/noir-protocol-circuits/crates/types/src/constants.nr"
 
 if git diff --cached --name-only | grep -Fxq "$FILE_TO_WATCH"; then
     echo "It looks like you changed $FILE_TO_WATCH."

@@ -42,17 +42,17 @@ describe('hash', () => {
 
     // Run with AZTEC_GENERATE_TEST_DATA=1 to update noir test data
     updateInlineTestData(
-      'noir-projects/noir-protocol-circuits/crates/types/src/hash.nr',
+      'noir-projects/fnd/noir-protocol-circuits/crates/types/src/hash.nr',
       'siloed_note_hash_from_ts',
       siloedNoteHash.toString(),
     );
     updateInlineTestData(
-      'noir-projects/noir-protocol-circuits/crates/types/src/hash.nr',
+      'noir-projects/fnd/noir-protocol-circuits/crates/types/src/hash.nr',
       'note_hash_nonce_from_ts',
       noteNonce.toString(),
     );
     updateInlineTestData(
-      'noir-projects/noir-protocol-circuits/crates/types/src/hash.nr',
+      'noir-projects/fnd/noir-protocol-circuits/crates/types/src/hash.nr',
       'unique_siloed_note_hash_from_ts',
       uniqueSiloedNoteHash.toString(),
     );
@@ -68,7 +68,7 @@ describe('hash', () => {
 
     // Run with AZTEC_GENERATE_TEST_DATA=1 to update noir test data
     updateInlineTestData(
-      'noir-projects/noir-protocol-circuits/crates/types/src/hash.nr',
+      'noir-projects/fnd/noir-protocol-circuits/crates/types/src/hash.nr',
       'siloed_nullifier_from_ts',
       res.toString(),
     );
@@ -84,7 +84,7 @@ describe('hash', () => {
 
     // Run with AZTEC_GENERATE_TEST_DATA=1 to update noir test data
     updateInlineTestData(
-      'noir-projects/noir-protocol-circuits/crates/types/src/hash.nr',
+      'noir-projects/fnd/noir-protocol-circuits/crates/types/src/hash.nr',
       'siloed_private_log_first_field_from_ts',
       res.toString(),
     );
@@ -108,7 +108,7 @@ describe('hash', () => {
 
     // Run with AZTEC_GENERATE_TEST_DATA=1 to update noir test data
     updateInlineTestData(
-      'noir-projects/noir-protocol-circuits/crates/types/src/data/hash.nr',
+      'noir-projects/fnd/noir-protocol-circuits/crates/types/src/data/hash.nr',
       'public_data_leaf_slot_from_ts',
       res.toString(),
     );
@@ -145,7 +145,7 @@ describe('hash', () => {
     );
 
     // Run with AZTEC_GENERATE_TEST_DATA=1 to update noir test data
-    updateInlineTestData('noir-projects/aztec-nr/aztec/src/hash.nr', 'secret_hash_from_ts', hash.toString());
+    updateInlineTestData('noir-projects/labs/aztec-nr/aztec/src/hash.nr', 'secret_hash_from_ts', hash.toString());
   });
 
   it('Var args hash matches noir', async () => {
@@ -156,7 +156,7 @@ describe('hash', () => {
     );
 
     // Run with AZTEC_GENERATE_TEST_DATA=1 to update noir test data
-    updateInlineTestData('noir-projects/aztec-nr/aztec/src/hash.nr', 'var_args_hash_from_ts', res.toString());
+    updateInlineTestData('noir-projects/labs/aztec-nr/aztec/src/hash.nr', 'var_args_hash_from_ts', res.toString());
   });
 
   it('calldata hash matches noir', async () => {
@@ -167,7 +167,7 @@ describe('hash', () => {
     );
 
     // Run with AZTEC_GENERATE_TEST_DATA=1 to update noir test data
-    updateInlineTestData('noir-projects/aztec-nr/aztec/src/hash.nr', 'calldata_hash_from_ts', res.toString());
+    updateInlineTestData('noir-projects/labs/aztec-nr/aztec/src/hash.nr', 'calldata_hash_from_ts', res.toString());
   });
 
   it('empty L2ToL1Message siloing matches Noir', () => {
@@ -185,7 +185,7 @@ describe('hash', () => {
 
     // Run with AZTEC_GENERATE_TEST_DATA=1 to update noir test data
     updateInlineTestData(
-      'noir-projects/noir-protocol-circuits/crates/types/src/hash.nr',
+      'noir-projects/fnd/noir-protocol-circuits/crates/types/src/hash.nr',
       'empty_l2_to_l1_msg_hash_from_ts',
       nonEmptyHash.toString(),
     );
@@ -206,7 +206,7 @@ describe('hash', () => {
 
     // Run with AZTEC_GENERATE_TEST_DATA=1 to update noir test data
     updateInlineTestData(
-      'noir-projects/noir-protocol-circuits/crates/types/src/hash.nr',
+      'noir-projects/fnd/noir-protocol-circuits/crates/types/src/hash.nr',
       'l2_to_l1_message_hash_from_ts',
       nonEmptyHash.toString(),
     );

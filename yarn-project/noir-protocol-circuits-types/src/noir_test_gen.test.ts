@@ -114,7 +114,7 @@ describe('Data generation for noir tests', () => {
 
     // Run with AZTEC_GENERATE_TEST_DATA=1 to update noir test data.
     updateInlineTestData(
-      'noir-projects/noir-protocol-circuits/crates/protocol-test-utils/src/fixtures/contracts.nr',
+      'noir-projects/fnd/noir-protocol-circuits/crates/protocol-test-utils/src/fixtures/contracts.nr',
       `${namePrefix}_contract`,
       `ContractData ${format(contractData)}`,
     );
@@ -141,7 +141,7 @@ describe('Data generation for noir tests', () => {
 
     // Run with AZTEC_GENERATE_TEST_DATA=1 to update noir test data.
     updateInlineTestData(
-      'noir-projects/noir-protocol-circuits/crates/protocol-test-utils/src/fixtures/contract_functions.nr',
+      'noir-projects/fnd/noir-protocol-circuits/crates/protocol-test-utils/src/fixtures/contract_functions.nr',
       `${namePrefix}_private_function`,
       `ContractFunction ${format(functionData)}`,
     );

@@ -2,7 +2,7 @@
 title: Global Variables
 description: Access chain ID, block number, timestamps, and gas information in your Aztec contracts
 sidebar_position: 10
-references: ["noir-projects/noir-protocol-circuits/crates/types/src/abis/*"]
+references: ["noir-projects/fnd/noir-protocol-circuits/crates/types/src/abis/*"]
 ---
 
 # Global Variables
@@ -15,7 +15,7 @@ Aztec has two execution environments—Private and Public—each with different 
 
 Private functions access transaction context via `TxContext`:
 
-#include_code tx-context /noir-projects/noir-protocol-circuits/crates/types/src/abis/transaction/tx_context.nr rust
+#include_code tx-context /noir-projects/fnd/noir-protocol-circuits/crates/types/src/abis/transaction/tx_context.nr rust
 
 The following fields are accessible via `context` methods:
 
@@ -47,7 +47,7 @@ self.context.gas_settings();
 
 Public functions access block-level context via `GlobalVariables`:
 
-#include_code global-variables /noir-projects/noir-protocol-circuits/crates/types/src/abis/global_variables.nr rust
+#include_code global-variables /noir-projects/fnd/noir-protocol-circuits/crates/types/src/abis/global_variables.nr rust
 
 :::note
 Not all fields in `GlobalVariables` are exposed via context methods. The `coinbase`, `fee_recipient`, and `slot_number` fields are used internally by the protocol.

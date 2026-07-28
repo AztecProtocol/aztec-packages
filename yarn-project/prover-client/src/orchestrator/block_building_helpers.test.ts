@@ -43,22 +43,22 @@ describe('buildBlobHints', () => {
 
     // Run with AZTEC_GENERATE_TEST_DATA=1 to update noir test data.
     updateInlineTestData(
-      'noir-projects/noir-protocol-circuits/crates/rollup-lib/src/checkpoint_root/tests/blob_tests.nr',
+      'noir-projects/fnd/noir-protocol-circuits/crates/rollup-lib/src/checkpoint_root/tests/blob_tests.nr',
       'blob_fields_from_ts',
       toInlineStrArray(blobFields),
     );
     updateInlineTestData(
-      'noir-projects/noir-protocol-circuits/crates/rollup-lib/src/checkpoint_root/tests/blob_tests.nr',
+      'noir-projects/fnd/noir-protocol-circuits/crates/rollup-lib/src/checkpoint_root/tests/blob_tests.nr',
       'blob_commitment_limbs_x_from_ts',
       toInlineStrArray(blobCommitments[0].x.toNoirBigNum().limbs),
     );
     updateInlineTestData(
-      'noir-projects/noir-protocol-circuits/crates/rollup-lib/src/checkpoint_root/tests/blob_tests.nr',
+      'noir-projects/fnd/noir-protocol-circuits/crates/rollup-lib/src/checkpoint_root/tests/blob_tests.nr',
       'blob_commitment_limbs_y_from_ts',
       toInlineStrArray(blobCommitments[0].y.toNoirBigNum().limbs),
     );
     updateInlineTestData(
-      'noir-projects/noir-protocol-circuits/crates/rollup-lib/src/checkpoint_root/tests/blob_tests.nr',
+      'noir-projects/fnd/noir-protocol-circuits/crates/rollup-lib/src/checkpoint_root/tests/blob_tests.nr',
       'challenge_z_from_ts',
       zStr,
     );

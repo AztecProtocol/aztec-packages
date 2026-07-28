@@ -4,7 +4,7 @@ description: Learn how to create and use custom note types for specialized priva
 sidebar_position: 6
 tags: [smart contracts, notes, privacy]
 keywords: [implementing note, note, custom note]
-references: ["noir-projects/noir-contracts/contracts/app/nft_contract/*"]
+references: ["noir-projects/labs/noir-contracts/contracts/app/nft_contract/*"]
 ---
 
 This guide shows you how to create custom note types for storing specialized private data in your Aztec contracts.
@@ -194,7 +194,7 @@ The secret returned by `request_nhk_app` is the **nullifier hiding key** (abbrev
 
 For read-only queries without constraints:
 
-#include_code view_notes /noir-projects/noir-contracts/contracts/app/nft_contract/src/main.nr rust
+#include_code view_notes /noir-projects/labs/noir-contracts/contracts/app/nft_contract/src/main.nr rust
 
 ## Further reading
 

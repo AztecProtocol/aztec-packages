@@ -30,7 +30,7 @@ A full change is when you attempt to change the object whose buffer we are actua
 
 Even if you correctly update all serialization in [acvm_js](https://github.com/noir-lang/noir/blob/master/acvm-repo/acvm_js/README.md) such as during [execution](https://github.com/noir-lang/noir/blob/master/acvm-repo/acvm_js/src/execute.rs#57), there is multiple places the `yarn-project` uses the ACIR top-level serialization. The `yarn-project` sequencer also uses the native `acvm_cli tool` that has an execute method that [expects raw byte code](https://github.com/noir-lang/noir/blob/master/tooling/acvm_cli/src/cli/execute_cmd.rs#63).
 
-In the context of Aztec we need to regenerate all the artifacts in [noir-projects](../../../../../noir-projects/bootstrap.sh). This regeneration assumes that we have rebuilt the compilers (Noir compiler and AVM transpiler) to use the new serialization. After regenerating these artifacts we can bootstrap the yarn-project. There are multiple packages in the yarn-project that rely on pre-computed artifacts such as `yarn-project/stdlib` and `yarn-project/protocol-contracts`.
+In the context of Aztec we need to regenerate all the artifacts in [noir-projects](../../../../../noir-projects). This regeneration assumes that we have rebuilt the compilers (Noir compiler and AVM transpiler) to use the new serialization. After regenerating these artifacts we can bootstrap the yarn-project. There are multiple packages in the yarn-project that rely on pre-computed artifacts such as `yarn-project/stdlib` and `yarn-project/protocol-contracts`.
 
 The Aztec artifacts can be individually regenerated as well using `yarn test -u`.
 You can also run the command on the relevant workspaces, which at the time are the following:
