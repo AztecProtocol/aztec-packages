@@ -52,7 +52,12 @@ import {
   type ResolvedSequencerConfig,
   type WorldStateSynchronizer,
 } from '@aztec/stdlib/interfaces/server';
-import { InboxBucketRef, type L1ToL2MessageSource, computeInHashFromL1ToL2Messages } from '@aztec/stdlib/messaging';
+import {
+  InboxBucketRef,
+  type L1ToL2MessageSource,
+  computeInHashFromL1ToL2Messages,
+  getInboxCutoffTimestamp,
+} from '@aztec/stdlib/messaging';
 import type {
   BlockProposal,
   BlockProposalOptions,
@@ -105,7 +110,7 @@ type CheckpointProposalResult = {
 };
 
 /**
- * Running state of streaming Inbox message selection across the blocks of one checkpoint (AZIP-22 Fast Inbox).
+ * Running state of streaming Inbox message selection across the blocks of one checkpoint.
  * Consumption starts from the parent checkpoint's last-consumed bucket and advances one block at a time.
  */
 type StreamingCheckpointState = {
@@ -1119,7 +1124,7 @@ export class CheckpointProposalJob implements Traceable {
 
   /**
    * Selects this block's streaming-Inbox message bundle against the current consumption cursor, mirroring the L1
-   * predicate in `ProposeLib.validateInboxConsumption` (AZIP-22 Fast Inbox). Does not mutate the cursor; the caller
+   * predicate in `ProposeLib.validateInboxConsumption`. Does not mutate the cursor; the caller
    * advances it only after the block builds successfully.
    */
   private selectStreamingBundle(
@@ -1127,9 +1132,7 @@ export class CheckpointProposalJob implements Traceable {
     isLastBlock: boolean,
     nowSeconds: number,
   ): Promise<InboxBucketSelection> {
-    // Mirror ProposeLib's cutoff exactly: buildFrameStart = toTimestamp(slot - 1), cutoff = buildFrameStart - lag.
-    const buildFrameStart = getTimestampForSlot(SlotNumber(this.targetSlot - 1), this.l1Constants);
-    const cutoffTimestamp = buildFrameStart - BigInt(INBOX_LAG_SECONDS);
+    const cutoffTimestamp = getInboxCutoffTimestamp(this.targetSlot, this.l1Constants, INBOX_LAG_SECONDS);
     return selectInboxBucketForBlock({
       messageSource: this.l1ToL2MessageSource,
       now: BigInt(Math.floor(nowSeconds)),

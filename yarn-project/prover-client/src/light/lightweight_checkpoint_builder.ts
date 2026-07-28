@@ -208,7 +208,7 @@ export class LightweightCheckpointBuilder {
       timings.insertSideEffects = msInsertSideEffects;
     }
 
-    // Streaming Inbox (AZIP-22 Fast Inbox): insert this block's L1-to-L2 message bundle before reading the end state,
+    // Streaming Inbox: insert this block's L1-to-L2 message bundle before reading the end state,
     // so the block header's L1-to-L2 tree snapshot reflects it. First-in-checkpoint bundles are padded to
     // NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP (matching the legacy per-checkpoint insertion and the world-state
     // synchronizer); non-first bundles are appended compactly. The logical (unpadded) messages are accumulated only

@@ -127,6 +127,17 @@ export class InboxBucketNotSyncedError extends Error {
   }
 }
 
+/**
+ * Thrown when a cumulative Inbox message count does not resolve to a bucket boundary this archiver has synced, either
+ * because the count sits inside a bucket or because the bucket is not synced yet.
+ */
+export class InboxBucketBoundaryNotSyncedError extends Error {
+  constructor(public readonly totalMsgCount: bigint) {
+    super(`No synced Inbox bucket ends at cumulative message count ${totalMsgCount}`);
+    this.name = 'InboxBucketBoundaryNotSyncedError';
+  }
+}
+
 /** Thrown when a proposed checkpoint number is stale (already processed). */
 export class ProposedCheckpointStaleError extends Error {
   constructor(

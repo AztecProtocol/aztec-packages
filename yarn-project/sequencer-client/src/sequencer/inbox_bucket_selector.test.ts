@@ -62,7 +62,8 @@ function makeSource(specs: TestBucketSpec[]): {
 
 const GENESIS_PARENT = { seq: 0n, totalMsgCount: 0n };
 
-// Pinned cross-layer values from A-1371-resolution §13: genesisTime=100000, slotDuration=36, INBOX_LAG_SECONDS=12.
+// Pinned cross-layer values shared with the L1 Foundry harness: genesisTime=100000, slotDuration=36,
+// INBOX_LAG_SECONDS=12.
 const GENESIS_TIME = 100000n;
 const SLOT_DURATION = 36n;
 const LAG = 12n;
