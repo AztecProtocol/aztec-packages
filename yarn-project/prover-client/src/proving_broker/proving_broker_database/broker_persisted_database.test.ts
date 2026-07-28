@@ -137,7 +137,7 @@ describe('ProvingBrokerPersistedDatabase', () => {
     const job: ProvingJob = {
       id,
       epochNumber: EpochNumber(42),
-      type: ProvingRequestType.PARITY_BASE,
+      type: ProvingRequestType.INBOX_PARITY,
       inputsUri: makeInputsUri(),
     };
     await db.addProvingJob(job);

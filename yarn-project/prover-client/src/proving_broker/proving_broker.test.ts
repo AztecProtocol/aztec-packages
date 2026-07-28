@@ -222,7 +222,7 @@ describe.each([
     it('revives an aborted job when its producer re-requests it', async () => {
       const provingJob: ProvingJob = {
         id: makeRandomProvingJobId(),
-        type: ProvingRequestType.PARITY_BASE,
+        type: ProvingRequestType.INBOX_PARITY,
         epochNumber: EpochNumber(1),
         inputsUri: makeInputsUri(),
       };
@@ -239,7 +239,7 @@ describe.each([
       // 'in-queue', and it can then be completed.
       await expect(broker.enqueueProvingJob(provingJob)).resolves.toEqual({ status: 'in-queue' });
       await assertJobStatus(provingJob.id, 'in-queue');
-      const returnedJob = await broker.getProvingJob({ allowList: [ProvingRequestType.PARITY_BASE] });
+      const returnedJob = await broker.getProvingJob({ allowList: [ProvingRequestType.INBOX_PARITY] });
       expect(returnedJob?.job).toEqual(provingJob);
 
       const retryValue = makeOutputsUri();
@@ -250,7 +250,7 @@ describe.each([
     it('persists the aborted state across a restart and revives on re-request', async () => {
       const provingJob: ProvingJob = {
         id: makeRandomProvingJobId(),
-        type: ProvingRequestType.PARITY_BASE,
+        type: ProvingRequestType.INBOX_PARITY,
         epochNumber: EpochNumber(1),
         inputsUri: makeInputsUri(),
       };
@@ -276,7 +276,7 @@ describe.each([
       // 'in-queue' status), and it can be completed.
       await expect(broker.enqueueProvingJob(provingJob)).resolves.toEqual({ status: 'in-queue' });
       await assertJobStatus(provingJob.id, 'in-queue');
-      const returnedJob = await broker.getProvingJob({ allowList: [ProvingRequestType.PARITY_BASE] });
+      const returnedJob = await broker.getProvingJob({ allowList: [ProvingRequestType.INBOX_PARITY] });
       expect(returnedJob?.job).toEqual(provingJob);
 
       const value = makeOutputsUri();
@@ -287,7 +287,7 @@ describe.each([
     it('persists the revived (non-aborted) state, so a restart mid-revival stays revived', async () => {
       const provingJob: ProvingJob = {
         id: makeRandomProvingJobId(),
-        type: ProvingRequestType.PARITY_BASE,
+        type: ProvingRequestType.INBOX_PARITY,
         epochNumber: EpochNumber(1),
         inputsUri: makeInputsUri(),
       };
@@ -318,7 +318,7 @@ describe.each([
     it('revives once when the producer re-requests an aborted job concurrently', async () => {
       const provingJob: ProvingJob = {
         id: makeRandomProvingJobId(),
-        type: ProvingRequestType.PARITY_BASE,
+        type: ProvingRequestType.INBOX_PARITY,
         epochNumber: EpochNumber(1),
         inputsUri: makeInputsUri(),
       };
@@ -338,10 +338,10 @@ describe.each([
       expect(second).toEqual({ status: 'in-queue' });
       await assertJobStatus(provingJob.id, 'in-queue');
 
-      const returnedJob = await broker.getProvingJob({ allowList: [ProvingRequestType.PARITY_BASE] });
+      const returnedJob = await broker.getProvingJob({ allowList: [ProvingRequestType.INBOX_PARITY] });
       expect(returnedJob?.job).toEqual(provingJob);
       await assertJobStatus(provingJob.id, 'in-progress');
-      await expect(broker.getProvingJob({ allowList: [ProvingRequestType.PARITY_BASE] })).resolves.toBeUndefined();
+      await expect(broker.getProvingJob({ allowList: [ProvingRequestType.INBOX_PARITY] })).resolves.toBeUndefined();
 
       await broker.reportProvingJobSuccess(provingJob.id, makeOutputsUri());
       await assertJobStatus(provingJob.id, 'fulfilled');
