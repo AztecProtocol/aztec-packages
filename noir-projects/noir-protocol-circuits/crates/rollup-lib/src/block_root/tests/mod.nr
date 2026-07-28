@@ -1,6 +1,7 @@
 mod child_proof_vk_tests;
 mod consecutive_rollups_tests;
 mod failures_tests;
+mod message_bundle_tests;
 mod rollup_structure_tests;
 
 use crate::{
@@ -86,6 +87,26 @@ impl TestBuilder {
         num_right_txs: u16,
         is_first_block_root: bool,
     ) -> Self {
+        Self::new_at_l1_to_l2_index(
+            left_rollup_vk_index,
+            num_left_txs,
+            right_rollup_vk_index,
+            num_right_txs,
+            is_first_block_root,
+            0,
+        )
+    }
+
+    /// Same as `new`, but the block's bundle is appended into an l1-to-l2 tree that already holds
+    /// `l1_to_l2_start_index` leaves instead of into an empty one.
+    pub fn new_at_l1_to_l2_index(
+        left_rollup_vk_index: u32,
+        num_left_txs: u16,
+        right_rollup_vk_index: u32,
+        num_right_txs: u16,
+        is_first_block_root: bool,
+        l1_to_l2_start_index: u32,
+    ) -> Self {
         Self::validate_input_vk_index(left_rollup_vk_index, num_left_txs);
         Self::validate_input_vk_index(right_rollup_vk_index, num_right_txs);
 
@@ -103,9 +124,9 @@ impl TestBuilder {
 
         let slot_number = fixture_builder.start_slot_number;
 
-        // Build the block's message bundle appended to an empty l1-to-l2 tree.
-        let (previous_l1_to_l2, l1_to_l2_messages, l1_to_l2_message_frontier_hint, new_l1_to_l2) =
-            fixture_builder.build_l1_to_l2_message_bundle(TEST_NUM_MSGS);
+        // Build the block's message bundle appended at the l1-to-l2 tree's next available index.
+        let (previous_l1_to_l2, l1_to_l2_messages, l1_to_l2_message_frontier_hint, new_l1_to_l2) = fixture_builder
+            .build_l1_to_l2_message_bundle_at_index(TEST_NUM_MSGS, l1_to_l2_start_index);
 
         // The l1-to-l2 tree snapshot carried in the constants is the pre-append snapshot for non-first blocks (the tree
         // where this block picks up), and the post-append snapshot for first blocks (checked by the circuit against the

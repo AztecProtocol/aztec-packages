@@ -35,6 +35,11 @@ use types::{
     traits::{Deserialize, Empty, Hash},
 };
 
+// The fixture pre-fills l1-to-l2 leaves into a single subtree of 2^3 = 8 leaves, which bounds how far into the tree a
+// block's bundle can be made to start. The bundle append itself is not aligned to that subtree.
+global PRE_EXISTING_L1_TO_L2_SUBTREE_HEIGHT: u32 = 3;
+global PRE_EXISTING_L1_TO_L2_LEAF_COUNT: u32 = 8;
+
 pub struct RollupFixtureBuilder {
     // Epoch constants.
     pub chain_id: Field,
@@ -181,12 +186,40 @@ impl RollupFixtureBuilder {
     }
 
     /// Builds a per-block L1-to-L2 message bundle appended to an empty tree, returning
-    /// `(previous_snapshot, leaves, num_msgs, frontier_hint, new_snapshot)`. The empty tree has an all-zero frontier,
-    /// and the resulting `new_snapshot` is exactly what the block root circuit recomputes from the same inputs.
+    /// `(previous_snapshot, leaves, frontier_hint, new_snapshot)`. The resulting `new_snapshot` is exactly what the
+    /// block root circuit recomputes from the same inputs.
     pub fn build_l1_to_l2_message_bundle(
-        _self: Self,
+        self,
         num_msgs: u32,
     ) -> (AppendOnlyTreeSnapshot, [Field; MAX_L1_TO_L2_MSGS_PER_BLOCK], [Field; L1_TO_L2_MSG_TREE_HEIGHT], AppendOnlyTreeSnapshot) {
+        self.build_l1_to_l2_message_bundle_at_index(num_msgs, 0)
+    }
+
+    /// Same as `build_l1_to_l2_message_bundle`, but appending into a tree that already holds `start_index` leaves —
+    /// the compact, unaligned append every block after the very first one performs. The pre-existing leaves sit in a
+    /// single subtree of `PRE_EXISTING_L1_TO_L2_LEAF_COUNT` leaves, so `start_index` must stay below that. The frontier
+    /// hint is the tree's sibling path at `start_index`, which is how a tree database answers for it: the pending left
+    /// sibling at every level where the index is a right child, and the zero-subtree root everywhere else.
+    pub fn build_l1_to_l2_message_bundle_at_index(
+        _self: Self,
+        num_msgs: u32,
+        start_index: u32,
+    ) -> (AppendOnlyTreeSnapshot, [Field; MAX_L1_TO_L2_MSGS_PER_BLOCK], [Field; L1_TO_L2_MSG_TREE_HEIGHT], AppendOnlyTreeSnapshot) {
+        assert(
+            start_index < PRE_EXISTING_L1_TO_L2_LEAF_COUNT,
+            "The fixture cannot pre-fill that many l1-to-l2 leaves",
+        );
+
+        let mut pre_existing = [0; PRE_EXISTING_L1_TO_L2_LEAF_COUNT];
+        for i in 0..PRE_EXISTING_L1_TO_L2_LEAF_COUNT {
+            if i < start_index {
+                pre_existing[i] = (i + 1) as Field * 7;
+            }
+        }
+        let tree = SingleSubtreeMerkleTree::<PRE_EXISTING_L1_TO_L2_LEAF_COUNT, PRE_EXISTING_L1_TO_L2_SUBTREE_HEIGHT, L1_TO_L2_MSG_TREE_HEIGHT>::new(
+            pre_existing,
+        );
+
         let mut leaves = [0; MAX_L1_TO_L2_MSGS_PER_BLOCK];
         for i in 0..MAX_L1_TO_L2_MSGS_PER_BLOCK {
             if i < num_msgs {
@@ -194,10 +227,10 @@ impl RollupFixtureBuilder {
             }
         }
         let previous = AppendOnlyTreeSnapshot {
-            root: compute_empty_tree_root::<L1_TO_L2_MSG_TREE_HEIGHT>(),
-            next_available_leaf_index: 0,
+            root: tree.get_root(),
+            next_available_leaf_index: start_index as Field,
         };
-        let frontier_hint = [0; L1_TO_L2_MSG_TREE_HEIGHT];
+        let frontier_hint = tree.get_sibling_path(start_index as Field);
         let new = append_leaves_to_snapshot::<L1_TO_L2_MSG_TREE_HEIGHT, MAX_L1_TO_L2_MSGS_PER_BLOCK>(
             previous,
             leaves,
