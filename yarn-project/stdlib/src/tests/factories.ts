@@ -787,6 +787,8 @@ export function makeBlockRollupPublicInputs(seed = 0): BlockRollupPublicInputs {
     BigInt(seed + 0x800),
     fr(seed + 0x820),
     fr(seed + 0x830),
+    fr(seed + 0x835),
+    fr(seed + 0x838),
     fr(seed + 0x840),
     fr(seed + 0x850),
     fr(seed + 0x860),
@@ -800,6 +802,8 @@ export function makeCheckpointRollupPublicInputs(seed = 0) {
     makeAppendOnlyTreeSnapshot(seed + 0x200),
     makeAppendOnlyTreeSnapshot(seed + 0x300),
     makeAppendOnlyTreeSnapshot(seed + 0x350),
+    fr(seed + 0x360),
+    fr(seed + 0x370),
     makeTuple(MAX_CHECKPOINTS_PER_EPOCH, () => fr(seed), 0x400),
     makeTuple(MAX_CHECKPOINTS_PER_EPOCH, () => makeFeeRecipient(seed), 0x500),
     makeBlobAccumulator(seed + 0x600),
@@ -814,12 +818,17 @@ export function makeParityPublicInputs(seed = 0): ParityPublicInputs {
     new Fr(BigInt(seed + 0x300)),
     new Fr(BigInt(seed + 0x400)),
     new Fr(BigInt(seed + 0x500)),
+    seed + 0x600,
+    new Fr(BigInt(seed + 0x700)),
+    new Fr(BigInt(seed + 0x800)),
   );
 }
 
 export function makeParityBasePrivateInputs(seed = 0): ParityBasePrivateInputs {
   return new ParityBasePrivateInputs(
     makeTuple(NUM_MSGS_PER_BASE_PARITY, fr, seed + 0x3000),
+    new Fr(seed + 0x3500),
+    seed % (NUM_MSGS_PER_BASE_PARITY + 1),
     new Fr(seed + 0x4000),
     new Fr(seed + 0x5000),
   );
@@ -842,6 +851,8 @@ export function makeRootRollupPublicInputs(seed = 0): RootRollupPublicInputs {
     fr(seed + 0x100),
     fr(seed + 0x200),
     fr(seed + 0x300),
+    fr(seed + 0x320),
+    fr(seed + 0x340),
     makeTuple(MAX_CHECKPOINTS_PER_EPOCH, () => fr(seed), 0x400),
     makeTuple(MAX_CHECKPOINTS_PER_EPOCH, () => makeFeeRecipient(seed), 0x500),
     makeEpochConstantData(seed + 0x600),
@@ -870,6 +881,7 @@ export function makeCheckpointHeader(seed = 0, overrides: Partial<FieldsOf<Check
     blockHeadersHash: fr(seed + 0x150),
     blobsHash: fr(seed + 0x200),
     inHash: fr(seed + 0x210),
+    inboxRollingHash: fr(seed + 0x215),
     epochOutHash: fr(seed + 0x220),
     slotNumber: SlotNumber(seed + 0x300),
     timestamp: BigInt(seed + 0x400),

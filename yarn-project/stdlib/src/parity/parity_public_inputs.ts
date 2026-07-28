@@ -10,6 +10,12 @@ export class ParityPublicInputs {
     public shaRoot: Fr,
     /** Root of the converted tree. */
     public convertedRoot: Fr,
+    /** Inbox rolling hash before absorbing this batch of messages. */
+    public startRollingHash: Fr,
+    /** Inbox rolling hash after absorbing the `numMsgs` real messages in this batch. */
+    public endRollingHash: Fr,
+    /** Number of real (non-padding) messages absorbed into the rolling hash by this batch. */
+    public numMsgs: number,
     /** Root of the VK tree */
     public vkTreeRoot: Fr,
     /** Prover identity committed to by the circuit, for sybil protection. */
@@ -25,7 +31,15 @@ export class ParityPublicInputs {
    * @returns The inputs serialized to a buffer.
    */
   toBuffer() {
-    return serializeToBuffer(...ParityPublicInputs.getFields(this));
+    return serializeToBuffer(
+      this.shaRoot,
+      this.convertedRoot,
+      this.startRollingHash,
+      this.endRollingHash,
+      new Fr(this.numMsgs),
+      this.vkTreeRoot,
+      this.proverId,
+    );
   }
 
   /**
@@ -56,7 +70,15 @@ export class ParityPublicInputs {
    * @returns The instance fields.
    */
   static getFields(fields: FieldsOf<ParityPublicInputs>) {
-    return [fields.shaRoot, fields.convertedRoot, fields.vkTreeRoot, fields.proverId] as const;
+    return [
+      fields.shaRoot,
+      fields.convertedRoot,
+      fields.startRollingHash,
+      fields.endRollingHash,
+      fields.numMsgs,
+      fields.vkTreeRoot,
+      fields.proverId,
+    ] as const;
   }
 
   /**
@@ -69,6 +91,9 @@ export class ParityPublicInputs {
     return new ParityPublicInputs(
       reader.readObject(Fr),
       reader.readObject(Fr),
+      reader.readObject(Fr),
+      reader.readObject(Fr),
+      Fr.fromBuffer(reader).toNumber(),
       Fr.fromBuffer(reader),
       Fr.fromBuffer(reader),
     );

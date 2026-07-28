@@ -109,6 +109,8 @@ library EpochProofLib {
 
     Epoch endEpoch = assertAcceptable(_args.start, _args.end);
 
+    // Rehash the supplied headers against storage once, here: the public-input assembly below reads the fee
+    // recipient/value out of them and relies on this call having run.
     verifyHeaders(_args.start, _args.end, _args.headers);
 
     // Verify attestations for the last checkpoint in the epoch
@@ -150,6 +152,11 @@ library EpochProofLib {
    * own public inputs used for generating the proof vs the ones assembled
    * by this contract when verifying it.
    *
+   * @dev The fee recipient/value public inputs are sourced from the supplied headers, so this entry point rehashes
+   * them against storage before assembling: an off-chain caller must not walk away with public inputs built from
+   * unverified fee fields and only discover the mismatch when the on-chain proof reverts. The submit path verifies
+   * the headers up front and assembles via computeEpochProofPublicInputs to avoid rehashing them twice.
+   *
    * @param  _start - The start of the epoch (inclusive)
    * @param  _end - The end of the epoch (inclusive)
    * @param  _args - Array of public inputs to the proof (previousArchive, endArchive, endTimestamp, outHash, proverId)
@@ -163,117 +170,8 @@ library EpochProofLib {
     ProposedHeader[] calldata _headers,
     bytes calldata _blobPublicInputs
   ) internal view returns (bytes32[] memory) {
-    RollupStore storage rollupStore = STFLib.getStorage();
-
-    {
-      // We do it this way to provide better error messages than passing along the storage values
-      {
-        bytes32 expectedPreviousArchive = rollupStore.archives[_start - 1];
-        require(
-          expectedPreviousArchive == _args.previousArchive,
-          Errors.Rollup__InvalidPreviousArchive(expectedPreviousArchive, _args.previousArchive)
-        );
-      }
-
-      {
-        bytes32 expectedEndArchive = rollupStore.archives[_end];
-        require(
-          expectedEndArchive == _args.endArchive, Errors.Rollup__InvalidArchive(expectedEndArchive, _args.endArchive)
-        );
-      }
-    }
-
-    bytes32[] memory publicInputs = new bytes32[](Constants.ROOT_ROLLUP_PUBLIC_INPUTS_LENGTH);
-
-    // Structure of the root rollup public inputs we need to reassemble:
-    //
-    // struct RootRollupPublicInputs {
-    //   previous_archive_root: Field,
-    //   end_archive_root: Field,
-    //   out_hash: Field,
-    //   checkpointHeaderHashes: [Field; Constants.MAX_CHECKPOINTS_PER_EPOCH],
-    //   fees: [FeeRecipient; Constants.MAX_CHECKPOINTS_PER_EPOCH],
-    //   chain_id: Field,
-    //   version: Field,
-    //   vk_tree_root: Field,
-    //   protocol_contracts_hash: Field,
-    //   prover_id: Field,
-    //   blob_public_inputs: FinalBlobAccumulator,
-    // }
-    {
-      // previous_archive.root: the previous archive tree root
-      publicInputs[0] = _args.previousArchive;
-
-      // end_archive.root: the new archive tree root
-      publicInputs[1] = _args.endArchive;
-
-      publicInputs[2] = _args.outHash;
-    }
-
-    uint256 numCheckpoints = _end - _start + 1;
-
-    for (uint256 i = 0; i < numCheckpoints; i++) {
-      publicInputs[3 + i] = STFLib.getHeaderHash(_start + i);
-    }
-
-    uint256 offset = 3 + Constants.MAX_CHECKPOINTS_PER_EPOCH;
-
-    // Taking recipient/value from the checkpoint headers rather than the prover
-    // as defense in depth. Slots past numCheckpoints stay zero.
-    for (uint256 i = 0; i < numCheckpoints; i++) {
-      publicInputs[offset + 2 * i] = addressToField(_headers[i].coinbase);
-      publicInputs[offset + 2 * i + 1] = bytes32(_headers[i].accumulatedFees);
-    }
-    offset += Constants.MAX_CHECKPOINTS_PER_EPOCH * 2;
-
-    publicInputs[offset] = bytes32(block.chainid);
-    offset += 1;
-
-    publicInputs[offset] = bytes32(uint256(rollupStore.config.version));
-    offset += 1;
-
-    // vk_tree_root
-    publicInputs[offset] = rollupStore.config.vkTreeRoot;
-    offset += 1;
-
-    // protocol_contracts_hash
-    publicInputs[offset] = rollupStore.config.protocolContractsHash;
-    offset += 1;
-
-    // prover_id: id of current epoch's prover
-    publicInputs[offset] = addressToField(_args.proverId);
-    offset += 1;
-
-    // FinalBlobAccumulatorPublicInputs:
-    // The blob public inputs do not require the versioned hash of the batched commitment, which is stored in
-    // _blobPublicInputs[0:32]
-    // or the KZG opening 'proof' (commitment Q) stored in _blobPublicInputs[144:]. They are used in
-    // validateBatchedBlob().
-    // See BlobLib.sol -> validateBatchedBlob() and calculateBlobCommitmentsHash() for documentation on the below blob
-    // related inputs.
-
-    // blobCommitmentsHash
-    publicInputs[offset] = STFLib.getBlobCommitmentsHash(_end);
-    offset += 1;
-
-    // z
-    publicInputs[offset] = bytes32(_blobPublicInputs[32:64]);
-    offset += 1;
-
-    // y
-    (publicInputs[offset], publicInputs[offset + 1], publicInputs[offset + 2]) =
-      bytes32ToBigNum(bytes32(_blobPublicInputs[64:96]));
-    offset += 3;
-
-    // To fit into 2 fields, the commitment is split into 31 and 17 byte numbers
-    // See yarn-project/foundation/src/blob/index.ts -> commitmentToFields()
-    // TODO: The below left pads, possibly inefficiently
-    // c[0]
-    publicInputs[offset] = bytes32(uint256(uint248(bytes31((_blobPublicInputs[96:127])))));
-    // c[1]
-    publicInputs[offset + 1] = bytes32(uint256(uint136(bytes17((_blobPublicInputs[127:144])))));
-
-    return publicInputs;
+    verifyHeaders(_start, _end, _headers);
+    return computeEpochProofPublicInputs(_start, _end, _args, _headers, _blobPublicInputs);
   }
 
   /**
@@ -355,6 +253,146 @@ library EpochProofLib {
   }
 
   /**
+   * @notice Assembles the root rollup public inputs, taking the supplied checkpoint headers as already verified
+   *
+   * @dev Callers must have rehashed `_headers` against the stored header hashes beforehand, since the fee
+   * recipient/value public inputs are read straight out of them.
+   *
+   * @param  _start - The start of the epoch (inclusive)
+   * @param  _end - The end of the epoch (inclusive)
+   * @param  _args - Array of public inputs to the proof (previousArchive, endArchive, endTimestamp, outHash, proverId)
+   * @param  _headers - The proposed checkpoint headers supplying the fee recipient and value for each checkpoint
+   * @param _blobPublicInputs- The blob public inputs for the proof
+   */
+  function computeEpochProofPublicInputs(
+    uint256 _start,
+    uint256 _end,
+    PublicInputArgs calldata _args,
+    ProposedHeader[] calldata _headers,
+    bytes calldata _blobPublicInputs
+  ) private view returns (bytes32[] memory) {
+    RollupStore storage rollupStore = STFLib.getStorage();
+
+    {
+      // We do it this way to provide better error messages than passing along the storage values
+      {
+        bytes32 expectedPreviousArchive = rollupStore.archives[_start - 1];
+        require(
+          expectedPreviousArchive == _args.previousArchive,
+          Errors.Rollup__InvalidPreviousArchive(expectedPreviousArchive, _args.previousArchive)
+        );
+      }
+
+      {
+        bytes32 expectedEndArchive = rollupStore.archives[_end];
+        require(
+          expectedEndArchive == _args.endArchive, Errors.Rollup__InvalidArchive(expectedEndArchive, _args.endArchive)
+        );
+      }
+    }
+
+    bytes32[] memory publicInputs = new bytes32[](Constants.ROOT_ROLLUP_PUBLIC_INPUTS_LENGTH);
+
+    // Structure of the root rollup public inputs we need to reassemble:
+    //
+    // struct RootRollupPublicInputs {
+    //   previous_archive_root: Field,
+    //   end_archive_root: Field,
+    //   out_hash: Field,
+    //   previous_inbox_rolling_hash: Field,
+    //   end_inbox_rolling_hash: Field,
+    //   checkpointHeaderHashes: [Field; Constants.MAX_CHECKPOINTS_PER_EPOCH],
+    //   fees: [FeeRecipient; Constants.MAX_CHECKPOINTS_PER_EPOCH],
+    //   chain_id: Field,
+    //   version: Field,
+    //   vk_tree_root: Field,
+    //   protocol_contracts_hash: Field,
+    //   prover_id: Field,
+    //   blob_public_inputs: FinalBlobAccumulator,
+    // }
+    {
+      // previous_archive.root: the previous archive tree root
+      publicInputs[0] = _args.previousArchive;
+
+      // end_archive.root: the new archive tree root
+      publicInputs[1] = _args.endArchive;
+
+      publicInputs[2] = _args.outHash;
+
+      // Inbox rolling-hash chain segment consumed across the epoch (AZIP-22 Fast Inbox). Deliberately UNVALIDATED
+      // until the Fast Inbox flip, when they get checked against per-checkpoint records written at propose; for now
+      // they are only passed through to the proof's public inputs.
+      publicInputs[3] = _args.previousInboxRollingHash;
+      publicInputs[4] = _args.endInboxRollingHash;
+    }
+
+    uint256 numCheckpoints = _end - _start + 1;
+
+    for (uint256 i = 0; i < numCheckpoints; i++) {
+      publicInputs[5 + i] = STFLib.getHeaderHash(_start + i);
+    }
+
+    uint256 offset = 5 + Constants.MAX_CHECKPOINTS_PER_EPOCH;
+
+    // Taking recipient/value from the checkpoint headers rather than the prover
+    // as defense in depth. Slots past numCheckpoints stay zero.
+    for (uint256 i = 0; i < numCheckpoints; i++) {
+      publicInputs[offset + 2 * i] = addressToField(_headers[i].coinbase);
+      publicInputs[offset + 2 * i + 1] = bytes32(_headers[i].accumulatedFees);
+    }
+    offset += Constants.MAX_CHECKPOINTS_PER_EPOCH * 2;
+
+    publicInputs[offset] = bytes32(block.chainid);
+    offset += 1;
+
+    publicInputs[offset] = bytes32(uint256(rollupStore.config.version));
+    offset += 1;
+
+    // vk_tree_root
+    publicInputs[offset] = rollupStore.config.vkTreeRoot;
+    offset += 1;
+
+    // protocol_contracts_hash
+    publicInputs[offset] = rollupStore.config.protocolContractsHash;
+    offset += 1;
+
+    // prover_id: id of current epoch's prover
+    publicInputs[offset] = addressToField(_args.proverId);
+    offset += 1;
+
+    // FinalBlobAccumulatorPublicInputs:
+    // The blob public inputs do not require the versioned hash of the batched commitment, which is stored in
+    // _blobPublicInputs[0:32]
+    // or the KZG opening 'proof' (commitment Q) stored in _blobPublicInputs[144:]. They are used in
+    // validateBatchedBlob().
+    // See BlobLib.sol -> validateBatchedBlob() and calculateBlobCommitmentsHash() for documentation on the below blob
+    // related inputs.
+
+    // blobCommitmentsHash
+    publicInputs[offset] = STFLib.getBlobCommitmentsHash(_end);
+    offset += 1;
+
+    // z
+    publicInputs[offset] = bytes32(_blobPublicInputs[32:64]);
+    offset += 1;
+
+    // y
+    (publicInputs[offset], publicInputs[offset + 1], publicInputs[offset + 2]) =
+      bytes32ToBigNum(bytes32(_blobPublicInputs[64:96]));
+    offset += 3;
+
+    // To fit into 2 fields, the commitment is split into 31 and 17 byte numbers
+    // See yarn-project/foundation/src/blob/index.ts -> commitmentToFields()
+    // TODO: The below left pads, possibly inefficiently
+    // c[0]
+    publicInputs[offset] = bytes32(uint256(uint248(bytes31((_blobPublicInputs[96:127])))));
+    // c[1]
+    publicInputs[offset + 1] = bytes32(uint256(uint136(bytes17((_blobPublicInputs[127:144])))));
+
+    return publicInputs;
+  }
+
+  /**
    * @notice Validates that an epoch proof submission meets all acceptance criteria
    *
    * @dev Performs comprehensive validation of epoch boundaries, timing constraints, and chain state:
@@ -421,6 +459,9 @@ library EpochProofLib {
    *      2. Assembling the public inputs for the root rollup circuit
    *      3. Verifying the validity proof against the assembled public inputs using the configured verifier
    *
+   * @dev Assumes the caller has already verified the supplied checkpoint headers against storage, so assembly skips
+   *      rehashing them.
+   *
    * @dev Errors Thrown:
    *      - Rollup__InvalidBlobProof: Batched blob proof verification failed
    *      - Rollup__InvalidProof: validity proof verification failed
@@ -436,7 +477,7 @@ library EpochProofLib {
     BlobLib.validateBatchedBlob(_args.blobInputs);
 
     bytes32[] memory publicInputs =
-      getEpochProofPublicInputs(_args.start, _args.end, _args.args, _args.headers, _args.blobInputs);
+      computeEpochProofPublicInputs(_args.start, _args.end, _args.args, _args.headers, _args.blobInputs);
 
     require(rollupStore.config.epochProofVerifier.verify(_args.proof, publicInputs), Errors.Rollup__InvalidProof());
 

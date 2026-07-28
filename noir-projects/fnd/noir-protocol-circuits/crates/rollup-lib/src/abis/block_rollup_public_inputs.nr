@@ -43,6 +43,14 @@ pub struct BlockRollupPublicInputs {
     // Block root rollups that are not the first in a checkpoint will have an `in_hash` value of 0.
     pub in_hash: Field,
 
+    // Inbox rolling-hash chain segment consumed by this block range, set in the first block root from the parity root
+    // and propagated to the checkpoint root exactly like `in_hash`: the first block root carries the checkpoint's
+    // `(start, end)`, non-first block roots carry `(0, 0)`, merges take the left rollup's pair, and
+    // `validate_consecutive_block_rollups` asserts the right rollup's pair is zero. Unlike `in_hash`, the value may
+    // legitimately be zero (genesis / empty checkpoint), so it is not asserted nonzero at the checkpoint root.
+    pub start_inbox_rolling_hash: Field,
+    pub end_inbox_rolling_hash: Field,
+
     // Root of the *wonky* tree composed of all tx out hashes in this block. It will be combined with the `out_hash`
     // values from other blocks within the same checkpoint to form a *wonky* tree.
     // The tx and block out hashes form a wonky tree and not an unbalanced tree because zero values are skipped.

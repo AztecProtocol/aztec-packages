@@ -1,6 +1,7 @@
 import { MAX_L2_TO_L1_MSGS_PER_TX } from '@aztec/constants';
 import { EpochNumber } from '@aztec/foundation/branded-types';
 import { padArrayEnd } from '@aztec/foundation/collection';
+import { Fr } from '@aztec/foundation/curves/bn254';
 import { EthAddress } from '@aztec/foundation/eth-address';
 import { createLogger } from '@aztec/foundation/log';
 import { promiseWithResolvers } from '@aztec/foundation/promise';
@@ -65,6 +66,7 @@ describe('prover/orchestrator/top-tree', () => {
       makeTestDeferredJobQueue(),
       fixture.constants,
       fixture.l1ToL2Messages,
+      Fr.ZERO,
       numBlocks,
       fixture.previousBlockHeader,
     );

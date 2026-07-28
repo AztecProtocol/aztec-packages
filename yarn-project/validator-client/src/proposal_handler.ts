@@ -22,7 +22,11 @@ import { isErrorClass } from '@aztec/foundation/types';
 import type { P2P, PeerId } from '@aztec/p2p';
 import type { BlockData, L2Block, L2BlockSink, L2BlockSource } from '@aztec/stdlib/block';
 import type { CheckpointReexecutionTracker, ReexecutionOutcome } from '@aztec/stdlib/checkpoint';
-import { getPreviousCheckpointOutHashes, validateCheckpoint } from '@aztec/stdlib/checkpoint';
+import {
+  getPreviousCheckpointInboxRollingHash,
+  getPreviousCheckpointOutHashes,
+  validateCheckpoint,
+} from '@aztec/stdlib/checkpoint';
 import { getEpochAtSlot } from '@aztec/stdlib/epoch-helpers';
 import { Gas } from '@aztec/stdlib/gas';
 import type {
@@ -612,6 +616,12 @@ export class ProposalHandler {
       log: this.log,
     });
 
+    const previousInboxRollingHash = await getPreviousCheckpointInboxRollingHash({
+      blockSource: this.blockSource,
+      checkpointNumber,
+      log: this.log,
+    });
+
     // Try re-executing the transactions in the proposal if needed
     let reexecutionResult;
     try {
@@ -623,6 +633,7 @@ export class ProposalHandler {
         txs,
         l1ToL2Messages,
         previousCheckpointOutHashes,
+        previousInboxRollingHash,
       );
     } catch (error) {
       this.log.error(`Error reexecuting txs while processing block proposal`, error, proposalInfo);
@@ -940,6 +951,7 @@ export class ProposalHandler {
     txs: Tx[],
     l1ToL2Messages: Fr[],
     previousCheckpointOutHashes: Fr[],
+    previousInboxRollingHash: Fr,
   ): Promise<ReexecuteTransactionsResult> {
     const { blockHeader, txHashes } = proposal;
 
@@ -988,6 +1000,7 @@ export class ProposalHandler {
       0n, // only takes effect in the following checkpoint.
       l1ToL2Messages,
       previousCheckpointOutHashes,
+      previousInboxRollingHash,
       fork,
       priorBlocks,
       this.log.getBindings(),
@@ -1233,6 +1246,12 @@ export class ProposalHandler {
       log: this.log,
     });
 
+    const previousInboxRollingHash = await getPreviousCheckpointInboxRollingHash({
+      blockSource: this.blockSource,
+      checkpointNumber,
+      log: this.log,
+    });
+
     // Fork world state at the block before the first block. getFork syncs world state to the parent block
     // first (see its doc): the block source (archiver) can already hold the block while world state still
     // trails it by one, and forking a not-yet-applied block throws a raw tree error that would otherwise
@@ -1276,6 +1295,7 @@ export class ProposalHandler {
       proposal.feeAssetPriceModifier,
       l1ToL2Messages,
       previousCheckpointOutHashes,
+      previousInboxRollingHash,
       fork,
       blocks,
       this.log.getBindings(),

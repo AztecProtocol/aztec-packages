@@ -30,6 +30,7 @@ describe('EpochProvingJobData', () => {
         [CheckpointNumber(3)]: [Fr.random()],
       },
       previousBlockHeader: BlockHeader.random(),
+      previousInboxRollingHash: Fr.random(),
       attestations: times(3, CommitteeAttestation.random),
     };
 

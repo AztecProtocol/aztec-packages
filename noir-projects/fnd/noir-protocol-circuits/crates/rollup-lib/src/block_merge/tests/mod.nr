@@ -145,6 +145,9 @@ impl TestBuilder {
 
         assert_eq(pi.in_hash, left.in_hash);
 
+        assert_eq(pi.start_inbox_rolling_hash, left.start_inbox_rolling_hash);
+        assert_eq(pi.end_inbox_rolling_hash, left.end_inbox_rolling_hash);
+
         let expected_out_hash = if (left.out_hash != 0) & (right.out_hash != 0) {
             accumulate_sha256(left.out_hash, right.out_hash)
         } else if left.out_hash != 0 {

@@ -339,6 +339,7 @@ describe('ValidatorClient Integration', () => {
       0n,
       l1ToL2Messages,
       previousCheckpointOutHashes,
+      Fr.ZERO,
       fork,
     );
 

@@ -69,6 +69,10 @@ export type EpochProofPublicInputArgs = {
   previousArchive: `0x${string}`;
   endArchive: `0x${string}`;
   outHash: `0x${string}`;
+  /** Inbox rolling hash before the epoch's first checkpoint; unvalidated by L1 until the Fast Inbox flip. */
+  previousInboxRollingHash: `0x${string}`;
+  /** Inbox rolling hash after the epoch's last checkpoint; unvalidated by L1 until the Fast Inbox flip. */
+  endInboxRollingHash: `0x${string}`;
   proverId: `0x${string}`;
 };
 
@@ -77,6 +81,7 @@ export type ViemHeader = {
   blockHeadersHash: `0x${string}`;
   blobsHash: `0x${string}`;
   inHash: `0x${string}`;
+  inboxRollingHash: `0x${string}`;
   outHash: `0x${string}`;
   slotNumber: bigint;
   timestamp: bigint;

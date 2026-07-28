@@ -333,6 +333,8 @@ export class ProverNodePublisher {
         previousArchive: args.publicInputs.previousArchiveRoot.toString(),
         endArchive: args.publicInputs.endArchiveRoot.toString(),
         outHash: args.publicInputs.outHash.toString(),
+        previousInboxRollingHash: args.publicInputs.previousInboxRollingHash.toString(),
+        endInboxRollingHash: args.publicInputs.endInboxRollingHash.toString(),
         proverId: EthAddress.fromField(args.publicInputs.constants.proverId).toString(),
       } /*_args*/,
       args.headers.map(header => header.toViem()) /*_headers*/,
@@ -375,10 +377,12 @@ export class ProverNodePublisher {
  *   [0]                   previousArchiveRoot
  *   [1]                   endArchiveRoot
  *   [2]                   outHash
- *   [3 .. 3+N-1]          checkpointHeaderHashes[i] for i in 0..N-1   (N = MAX_CHECKPOINTS_PER_EPOCH)
- *   [3+N .. 3+3N-1]       fees[i] = (recipient, value) for i in 0..N-1
- *   [3+3N .. 3+3N+4]      EpochConstantData (chainId, version, vkTreeRoot, protocolContractsHash, proverId)
- *   [3+3N+5 ..]           blobPublicInputs (FinalBlobAccumulator)
+ *   [3]                   previousInboxRollingHash
+ *   [4]                   endInboxRollingHash
+ *   [5 .. 5+N-1]          checkpointHeaderHashes[i] for i in 0..N-1   (N = MAX_CHECKPOINTS_PER_EPOCH)
+ *   [5+N .. 5+3N-1]       fees[i] = (recipient, value) for i in 0..N-1
+ *   [5+3N .. 5+3N+4]      EpochConstantData (chainId, version, vkTreeRoot, protocolContractsHash, proverId)
+ *   [5+3N+5 ..]           blobPublicInputs (FinalBlobAccumulator)
  */
 async function reportPublicInputsMismatch(input: {
   rollupPublicInputs: readonly Fr[];
@@ -390,7 +394,8 @@ async function reportPublicInputsMismatch(input: {
 }): Promise<Error> {
   const { rollupPublicInputs, argsPublicInputs, fromCheckpoint, toCheckpoint, rollupContract, log } = input;
   const N = MAX_CHECKPOINTS_PER_EPOCH;
-  const constantsStart = 3 + 3 * N;
+  const headerHashesStart = 5;
+  const constantsStart = headerHashesStart + 3 * N;
   const blobStart = constantsStart + 5;
   const constantLabels = ['chainId', 'version', 'vkTreeRoot', 'protocolContractsHash', 'proverId'];
 
@@ -410,11 +415,15 @@ async function reportPublicInputsMismatch(input: {
       label = 'endArchiveRoot';
     } else if (i === 2) {
       label = 'outHash';
-    } else if (i < 3 + N) {
-      checkpointIndex = i - 3;
+    } else if (i === 3) {
+      label = 'previousInboxRollingHash';
+    } else if (i === 4) {
+      label = 'endInboxRollingHash';
+    } else if (i < headerHashesStart + N) {
+      checkpointIndex = i - headerHashesStart;
       label = `checkpointHeaderHashes[${checkpointIndex}]`;
-    } else if (i < 3 + 3 * N) {
-      const feePairIndex = i - (3 + N);
+    } else if (i < headerHashesStart + 3 * N) {
+      const feePairIndex = i - (headerHashesStart + N);
       const feeIndex = Math.floor(feePairIndex / 2);
       const sub = feePairIndex % 2 === 0 ? 'recipient' : 'value';
       label = `fees[${feeIndex}].${sub}`;

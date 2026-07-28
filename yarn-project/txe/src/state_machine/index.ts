@@ -116,6 +116,7 @@ export class TXEStateMachine {
       CheckpointHeader.from({
         lastArchiveRoot: block.header.lastArchive.root,
         inHash: Fr.ZERO,
+        inboxRollingHash: Fr.ZERO,
         blobsHash: Fr.ZERO,
         blockHeadersHash: Fr.ZERO,
         epochOutHash: Fr.ZERO,

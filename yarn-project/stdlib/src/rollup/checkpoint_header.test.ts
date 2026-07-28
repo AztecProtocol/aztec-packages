@@ -22,7 +22,7 @@ describe('CheckpointHeader', () => {
     const header = CheckpointHeader.empty();
     const hash = header.hash().toString();
 
-    expect(hash).toMatchInlineSnapshot('"0x002e384af86a480f952aa16443fd29646a9063865e62d7c403fc7ed697bb7712"');
+    expect(hash).toMatchInlineSnapshot(`"0x0008c3e5bbea4fba57201a69d4bf70a0d255df921fdef4924c22da087f9338c2"`);
 
     // Run with AZTEC_GENERATE_TEST_DATA=1 to update noir test data
     updateInlineTestData(
@@ -38,6 +38,7 @@ describe('CheckpointHeader', () => {
       blockHeadersHash: new Fr(456),
       blobsHash: new Fr(77),
       inHash: new Fr(88),
+      inboxRollingHash: new Fr(89),
       epochOutHash: new Fr(99),
       slotNumber: SlotNumber(1234),
       timestamp: BigInt(5678),
@@ -49,7 +50,7 @@ describe('CheckpointHeader', () => {
     });
     const hash = header.hash().toString();
 
-    expect(hash).toMatchInlineSnapshot('"0x00d0dc440023ae006b0880b29ebfd5fda599d1aa7707f925229a362c5f24f3fc"');
+    expect(hash).toMatchInlineSnapshot(`"0x00519b87177a8a5e4edd03f4d820aec6d402497ef1ab70e2ecd4d4c39b339611"`);
 
     // Run with AZTEC_GENERATE_TEST_DATA=1 to update noir test data
     updateInlineTestData(
@@ -65,6 +66,7 @@ describe('CheckpointHeader', () => {
       blockHeadersHash: new Fr(MAX_FIELD_VALUE - 456n),
       blobsHash: new Fr(MAX_FIELD_VALUE - 77n),
       inHash: new Fr(MAX_FIELD_VALUE - 88n),
+      inboxRollingHash: new Fr(MAX_FIELD_VALUE - 89n),
       epochOutHash: new Fr(MAX_FIELD_VALUE - 99n),
       slotNumber: SlotNumber(1234),
       timestamp: 2n ** 64n - 1n - 5678n,
@@ -79,7 +81,7 @@ describe('CheckpointHeader', () => {
 
     const hash = header.hash().toString();
 
-    expect(hash).toMatchInlineSnapshot('"0x0077f763e5840cc3f24686ac79f58ef8a7f08c6418fd757e7e84566dc2eb032a"');
+    expect(hash).toMatchInlineSnapshot(`"0x00d64307fa93c32ae46a4c3b6a1911d31994daa8d11d50201f0086a6cbaa9bac"`);
 
     // Run with AZTEC_GENERATE_TEST_DATA=1 to update noir test data
     updateInlineTestData(

@@ -30,7 +30,7 @@ import {
 import { OffenseType, WANT_TO_CLEAR_SLASH_EVENT, WANT_TO_SLASH_EVENT } from '@aztec/slasher';
 import { AztecAddress } from '@aztec/stdlib/aztec-address';
 import { type BlockData, BlockHash, L2Block, type L2BlockSink, type L2BlockSource } from '@aztec/stdlib/block';
-import { type Checkpoint, CheckpointReexecutionTracker } from '@aztec/stdlib/checkpoint';
+import { type Checkpoint, CheckpointReexecutionTracker, type ProposedCheckpointData } from '@aztec/stdlib/checkpoint';
 import type { SlasherConfig, WorldStateSynchronizer } from '@aztec/stdlib/interfaces/server';
 import { type L1ToL2MessageSource, computeInHashFromL1ToL2Messages } from '@aztec/stdlib/messaging';
 import {
@@ -39,6 +39,7 @@ import {
   ValidatedBlockProposal,
   ValidatedCheckpointProposalCore,
 } from '@aztec/stdlib/p2p';
+import { CheckpointHeader } from '@aztec/stdlib/rollup';
 import {
   TEST_COORDINATION_SIGNATURE_CONTEXT,
   makeBlockHeader,
@@ -171,6 +172,15 @@ describe('ValidatorClient', () => {
     blockSource.getBlocksForSlot.mockResolvedValue([]);
     blockSource.getSyncedL2SlotNumber.mockResolvedValue(SlotNumber(Number.MAX_SAFE_INTEGER));
     blockSource.syncImmediate.mockResolvedValue(undefined);
+    // The proposal handler sources the parent checkpoint's inboxRollingHash from the block source; serve an
+    // empty (all-zero) parent header from the proposed-checkpoint fallback so proposals beyond the genesis
+    // checkpoint resolve their chain start. getCheckpointData stays undefined: the checkpoint-proposal path
+    // uses it as an already-published-on-L1 existence check.
+    blockSource.getProposedCheckpointData.mockImplementation(query =>
+      Promise.resolve(
+        query && 'number' in query ? ({ header: CheckpointHeader.empty() } as ProposedCheckpointData) : undefined,
+      ),
+    );
     epochCache.isEscapeHatchOpenAtSlot.mockResolvedValue(false);
     l1ToL2MessageSource = mock<L1ToL2MessageSource>();
     txProvider = mock<TxProvider>();

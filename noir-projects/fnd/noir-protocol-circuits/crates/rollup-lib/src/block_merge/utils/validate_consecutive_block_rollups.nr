@@ -49,4 +49,14 @@ fn assert_prev_block_rollups_follow_on_from_each_other(
     // We prevent the right rollup from propagating a nonzero `in_hash`, so it's impossible for any
     // block but the first to propagate a nonzero `in_hash` up to the checkpoint root.
     assert_eq(right.in_hash, 0, "Right rollup must not carry in_hash");
+
+    // The inbox rolling-hash pair follows the same rule: only the first block root (which becomes the leftmost leaf)
+    // may carry it, so the right rollup's pair must always be zero. The first block's nonzero `in_hash` already pins it
+    // as the leftmost leaf, so the rolling hash rides along on the same block even when its value is legitimately zero.
+    assert_eq(
+        right.start_inbox_rolling_hash,
+        0,
+        "Right rollup must not carry start_inbox_rolling_hash",
+    );
+    assert_eq(right.end_inbox_rolling_hash, 0, "Right rollup must not carry end_inbox_rolling_hash");
 }
