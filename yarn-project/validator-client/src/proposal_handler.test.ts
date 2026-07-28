@@ -66,7 +66,6 @@ describe('ProposalHandler checkpoint validation', () => {
     blockSource.syncImmediate.mockResolvedValue(undefined);
 
     l1ToL2MessageSource = mock<L1ToL2MessageSource>();
-    l1ToL2MessageSource.getL1ToL2Messages.mockResolvedValue([]);
 
     checkpointsBuilder = mock<FullNodeCheckpointsBuilder>();
     checkpointsBuilder.getConfig.mockReturnValue({

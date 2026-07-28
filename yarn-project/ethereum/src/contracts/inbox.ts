@@ -1,6 +1,6 @@
 import { asyncPool } from '@aztec/foundation/async-pool';
 import { maxBigint } from '@aztec/foundation/bigint';
-import { Buffer16, Buffer32 } from '@aztec/foundation/buffer';
+import { Buffer32 } from '@aztec/foundation/buffer';
 import { Fr } from '@aztec/foundation/curves/bn254';
 import { EthAddress } from '@aztec/foundation/eth-address';
 import { InboxAbi } from '@aztec/l1-artifacts/InboxAbi';
@@ -18,11 +18,9 @@ import { checkBlockTag } from './utils.js';
 export type MessageSentArgs = {
   index: bigint;
   leaf: Fr;
-  /** Legacy 128-bit keccak rolling hash of all messages inserted up to and including this one. */
-  rollingHash: Buffer16;
-  /** Consensus rolling hash (truncated sha256 chain) after this message (AZIP-22 Fast Inbox). */
+  /** Consensus rolling hash (truncated sha256 chain) after this message. */
   inboxRollingHash: Fr;
-  /** Sequence number of the Inbox bucket this message was absorbed into (AZIP-22 Fast Inbox). */
+  /** Sequence number of the Inbox bucket this message was absorbed into. */
   bucketSeq: bigint;
 };
 
@@ -72,8 +70,39 @@ export class InboxContract {
     const state = await this.inbox.read.getState(opts);
     return {
       totalMessagesInserted: state.totalMessagesInserted,
-      messagesRollingHash: Buffer16.fromString(state.rollingHash),
     };
+  }
+
+  /** Returns the sequence number of the Inbox bucket currently accumulating messages. */
+  public async getCurrentBucketSeq(opts: { blockTag?: BlockTag; blockNumber?: bigint } = {}): Promise<bigint> {
+    await checkBlockTag(opts.blockNumber, this.client);
+    return this.inbox.read.getCurrentBucketSeq(opts);
+  }
+
+  /** Returns the Inbox bucket with the given sequence number. */
+  public async getBucket(
+    seq: bigint,
+    opts: { blockTag?: BlockTag; blockNumber?: bigint } = {},
+  ): Promise<InboxContractBucket> {
+    await checkBlockTag(opts.blockNumber, this.client);
+    const bucket = await this.inbox.read.getBucket([seq], opts);
+    return {
+      rollingHash: Fr.fromString(bucket.rollingHash),
+      totalMsgCount: bucket.totalMsgCount,
+      timestamp: bucket.timestamp,
+      msgCount: bucket.msgCount,
+    };
+  }
+
+  /**
+   * Returns the Inbox bucket currently accumulating messages: its consensus rolling hash and cumulative message
+   * total are the Inbox's live chain position, used by the archiver's message sync and L1-reorg detection.
+   */
+  public async getCurrentBucket(
+    opts: { blockTag?: BlockTag; blockNumber?: bigint } = {},
+  ): Promise<InboxContractBucket> {
+    const seq = await this.getCurrentBucketSeq(opts);
+    return this.getBucket(seq, opts);
   }
 
   /** Fetches MessageSent events within the given block range. */
@@ -128,7 +157,6 @@ export class InboxContract {
       args: {
         index?: bigint;
         hash?: `0x${string}`;
-        rollingHash?: `0x${string}`;
         inboxRollingHash?: `0x${string}`;
         bucketSeq?: bigint;
       };
@@ -143,7 +171,6 @@ export class InboxContract {
       args: {
         index: log.args.index!,
         leaf: Fr.fromString(log.args.hash!),
-        rollingHash: Buffer16.fromString(log.args.rollingHash!),
         inboxRollingHash: Fr.fromString(log.args.inboxRollingHash!),
         bucketSeq: log.args.bucketSeq!,
       },
@@ -153,10 +180,16 @@ export class InboxContract {
 
 export type InboxContractState = {
   totalMessagesInserted: bigint;
-  messagesRollingHash: Buffer16;
-  /**
-   * Checkpoint currently accumulating messages, when known. No longer tracked on-chain post-flip (AZIP-22 Fast
-   * Inbox); used only by the legacy per-checkpoint message-readiness gate.
-   */
-  treeInProgress?: bigint;
+};
+
+/** A snapshot of an on-chain Inbox rolling-hash bucket. */
+export type InboxContractBucket = {
+  /** Consensus rolling hash (truncated sha256 chain) after the last message absorbed into this bucket. */
+  rollingHash: Fr;
+  /** Cumulative number of messages inserted into the Inbox up to and including this bucket. */
+  totalMsgCount: bigint;
+  /** L1 block timestamp at which this bucket was opened; its recency key, in seconds. */
+  timestamp: bigint;
+  /** Number of messages absorbed into this bucket. */
+  msgCount: number;
 };

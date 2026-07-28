@@ -71,7 +71,6 @@ describe('veto slash', () => {
       blockDurationMs: 2000,
       aztecProofSubmissionEpochs: 1024, // effectively do not reorg
       minTxsPerBlock: 0,
-      inboxLag: 2,
       aztecTargetCommitteeSize: NUM_VALIDATORS,
       slashSelfAllowed: true,
       slashingOffsetInRounds: SLASH_OFFSET_IN_ROUNDS,

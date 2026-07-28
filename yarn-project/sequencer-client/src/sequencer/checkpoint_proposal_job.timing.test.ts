@@ -455,7 +455,6 @@ describe('CheckpointProposalJob Timing Tests', () => {
     worldState.fork.mockResolvedValue(mockFork);
 
     l1ToL2MessageSource = mock<L1ToL2MessageSource>();
-    l1ToL2MessageSource.getL1ToL2Messages.mockResolvedValue(Array(4).fill(Fr.ZERO));
     l1ToL2MessageSource.getInboxBucketByTotalMsgCount.mockResolvedValue({
       seq: 0n,
       inboxRollingHash: Fr.ZERO,

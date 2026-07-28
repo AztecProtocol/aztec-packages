@@ -10,7 +10,7 @@ import type { AztecNode } from '@aztec/stdlib/interfaces/client';
  * @param opts - Options
  */
 export function waitForL1ToL2MessageReady(
-  node: Pick<AztecNode, 'getBlockData' | 'getL1ToL2MessageCheckpoint'>,
+  node: Pick<AztecNode, 'getBlockData' | 'getL1ToL2MessageIndex'>,
   l1ToL2MessageHash: Fr,
   opts: {
     /** Timeout for the operation in seconds */ timeoutSeconds: number;
@@ -39,16 +39,17 @@ export function waitForL1ToL2MessageReady(
  * @returns True if the message is ready to be consumed, false otherwise
  */
 export async function isL1ToL2MessageReady(
-  node: Pick<AztecNode, 'getBlockData' | 'getL1ToL2MessageCheckpoint'>,
+  node: Pick<AztecNode, 'getBlockData' | 'getL1ToL2MessageIndex'>,
   l1ToL2MessageHash: Fr,
   chainTip: BlockTag = 'latest',
 ): Promise<boolean> {
-  const messageCheckpointNumber = await node.getL1ToL2MessageCheckpoint(l1ToL2MessageHash);
-  if (messageCheckpointNumber === undefined) {
+  const messageIndex = await node.getL1ToL2MessageIndex(l1ToL2MessageHash);
+  if (messageIndex === undefined) {
     return false;
   }
 
-  // L1 to L2 messages are included in the first block of a checkpoint
+  // Blocks consume L1-to-L2 messages in Inbox order into consecutive leaves of the message tree, so the message is
+  // available at a tip exactly when that tip's tree has grown past the message's leaf index.
   const block = await node.getBlockData(chainTip);
-  return block !== undefined && block.checkpointNumber >= messageCheckpointNumber;
+  return block !== undefined && messageIndex < BigInt(block.header.state.l1ToL2MessageTree.nextAvailableLeafIndex);
 }

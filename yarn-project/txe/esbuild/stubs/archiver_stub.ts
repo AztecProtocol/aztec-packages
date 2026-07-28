@@ -8,10 +8,3 @@ export { createArchiverDataStores } from '../../../archiver/dest/store/data_stor
 export function createArchiver(..._args: unknown[]): never {
   throwStub('createArchiver');
 }
-
-export class L1ToL2MessagesNotReadyError extends Error {
-  constructor(message?: string) {
-    super(message);
-    this.name = 'L1ToL2MessagesNotReadyError';
-  }
-}

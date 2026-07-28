@@ -14,8 +14,8 @@ pub struct CheckpointHeader {
     pub last_archive_root: Field,
     pub block_headers_hash: Field,
     pub blobs_hash: Field,
-    // Inbox rolling-hash chain value after consuming all L1-to-L2 messages bundled into this checkpoint (AZIP-22 Fast
-    // Inbox): the truncated-to-field sha256 chain the L1 Inbox accumulates. This is the checkpoint's only inbox
+    // Inbox rolling-hash chain value after consuming all L1-to-L2 messages bundled into this checkpoint:
+    // the truncated-to-field sha256 chain the L1 Inbox accumulates. This is the checkpoint's only inbox
     // commitment.
     pub inbox_rolling_hash: Field,
     // The root of the epoch out hash balanced tree. The out hash of the first checkpoint in the epoch is inserted at

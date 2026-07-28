@@ -63,7 +63,7 @@ contract DepositToAztecPublic is Test {
     uint256 amount = 100 ether;
 
     Inbox inbox = Inbox(address(Rollup(address(registry.getCanonicalRollup())).getInbox()));
-    // Compact cumulative index (AZIP-22 Fast Inbox): the first message against a fresh Inbox has index 0.
+    // Compact cumulative index: the first message against a fresh Inbox has index 0.
     uint256 expectedIndex = 0;
 
     // The purpose of including the function selector is to make the message unique to that specific call. Note that
@@ -86,10 +86,9 @@ contract DepositToAztecPublic is Test {
 
     assertEq(inbox.getTotalMessagesInserted(), 0);
 
-    bytes16 expectedHash = bytes16(keccak256(abi.encodePacked(inbox.getState().rollingHash, expectedKey)));
     bytes32 expectedInboxRollingHash = Hash.accumulateInboxRollingHash(bytes32(0), expectedKey);
     vm.expectEmit(true, true, true, true, address(inbox));
-    emit IInbox.MessageSent(expectedIndex, expectedKey, expectedHash, expectedInboxRollingHash, 1);
+    emit IInbox.MessageSent(expectedIndex, expectedKey, expectedInboxRollingHash, 1);
     vm.expectEmit(true, true, true, true, address(feeJuicePortal));
     emit IFeeJuicePortal.DepositToAztecPublic(to, amount, secretHash, expectedKey, expectedIndex);
 

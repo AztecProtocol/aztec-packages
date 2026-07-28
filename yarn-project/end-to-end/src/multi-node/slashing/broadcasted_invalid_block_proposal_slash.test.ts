@@ -49,7 +49,6 @@ describe('multi-node/slashing/broadcasted_invalid_block_proposal_slash', () => {
       sentinelEnabled: false, // reuse only the fast 8s-slot timing; this test does not use the sentinel
       blockDurationMs: 2000,
       aztecTargetCommitteeSize: COMMITTEE_SIZE,
-      inboxLag: 2,
       aztecProofSubmissionEpochs: 1024, // effectively do not reorg
       slashInactivityConsecutiveEpochThreshold: 32, // effectively do not slash for inactivity
       minTxsPerBlock: 0, // always be building

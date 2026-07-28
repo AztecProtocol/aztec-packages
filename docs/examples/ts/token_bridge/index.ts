@@ -167,7 +167,6 @@ const INBOX_ABI = [
     inputs: [
       { name: "index", type: "uint256", indexed: false },
       { name: "hash", type: "bytes32", indexed: true },
-      { name: "rollingHash", type: "bytes16", indexed: false },
       { name: "inboxRollingHash", type: "bytes32", indexed: false },
       { name: "bucketSeq", type: "uint256", indexed: false },
     ],

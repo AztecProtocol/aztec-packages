@@ -145,7 +145,7 @@ impl<let NumBlobs: u32> CheckpointRollupPublicInputsComposer<NumBlobs> {
             last_archive_root: merged_rollup.previous_archive.root,
             block_headers_hash: merged_rollup.block_headers_hash,
             blobs_hash: self.blobs_hash,
-            // Sourced from the inbox parity proof: the checkpoint's only inbox commitment (AZIP-22 Fast Inbox).
+            // Sourced from the inbox parity proof: the checkpoint's only inbox commitment.
             inbox_rolling_hash: self.parity.end_rolling_hash,
             epoch_out_hash,
             slot_number: constants.slot_number,

@@ -153,7 +153,6 @@ export interface Validator {
     blockHeader: BlockHeader,
     checkpointNumber: CheckpointNumber,
     indexWithinCheckpoint: number,
-    inHash: Fr,
     archive: Fr,
     txs: Tx[],
     proposerAddress: EthAddress | undefined,

@@ -44,9 +44,9 @@ Two independent syncpoints track progress on L1:
 
 ### L1-to-L2 Messages
 
-Messages are synced from the Inbox contract. The sync compares local state (message count and rolling hash) against the Inbox contract state on L1, downloads any missing messages, and verifies consistency afterwards. On success, the syncpoint advances to the current L1 block. On failure (L1 reorg or inconsistency), the syncpoint rolls back to the last known-good message and the operation retries (up to 3 times within the same sync iteration).
+Messages are synced from the Inbox contract. The sync compares local state (message count and consensus rolling hash) against the Inbox's current rolling-hash bucket on L1, downloads any missing messages, and verifies consistency afterwards. On success, the syncpoint advances to the current L1 block. On failure (L1 reorg or inconsistency), the syncpoint rolls back to the last known-good message and the operation retries (up to 3 times within the same sync iteration).
 
-1. Query Inbox state at the current L1 block (message count + rolling hash)
+1. Query the Inbox's current bucket at the current L1 block (cumulative message count + consensus rolling hash)
 2. Compare local state against remote
 3. If they match, advance syncpoint and return
 4. If mismatch, fetch `MessageSent` events in batches and store them
@@ -55,7 +55,7 @@ Messages are synced from the Inbox contract. The sync compares local state (mess
    - If still mismatched (e.g., messages missed due to a concurrent L1 reorg), rollback and retry
 6. On success, advance the syncpoint
 
-The syncpoint and the `inboxTreeInProgress` marker (which tracks which checkpoint's messages are currently being filled on L1) are updated atomically. The marker is only advanced after messages are stored, so concurrent reads don't see an unsealed checkpoint as readable before its messages are available.
+Messages are stored with compact (unpadded) global indices matching the Inbox's insertion order, and each carries the consensus rolling hash (a truncated sha256 chain) and the sequence of the Inbox bucket it was absorbed into (AZIP-22 Fast Inbox). Bucket snapshots let the sequencer and validator resolve message bundles per block.
 
 ### Checkpoints
 
@@ -70,13 +70,12 @@ Checkpoints are synced from the Rollup contract via `handleCheckpoints()`:
    - Verify archive matches (checkpoint still in chain)
    - Validate attestations (2/3 + 1 committee signatures required)
    - Skip invalid checkpoints (see "Invalid Checkpoints" in Edge Cases)
-   - Verify `inHash` matches expected value (see below)
    - Store valid checkpoints with their blocks
 6. Update proven checkpoint again (may have advanced after storing new checkpoints)
 7. Handle epoch prune if applicable
 8. Check for checkpoints behind syncpoint (L1 reorg case)
 
-The `inHash` is a hash of all L1-to-L2 messages consumed by a checkpoint. The archiver computes the expected `inHash` from locally stored messages and compares it against the checkpoint header. A mismatch indicates a bug (messages out of sync with checkpoints) and causes a fatal error.
+L1 enforces at propose time that a checkpoint header's consensus rolling hash matches the Inbox bucket the checkpoint consumes through (AZIP-22 Fast Inbox), so the archiver does not re-derive or cross-check a per-checkpoint message hash while syncing.
 
 The `blocksSynchedTo` syncpoint is updated:
 - When checkpoints are stored: set to the L1 block of the last stored checkpoint
