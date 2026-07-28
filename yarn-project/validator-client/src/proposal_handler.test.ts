@@ -14,8 +14,8 @@ import type { BlockData, L2Block, L2BlockSink, L2BlockSource } from '@aztec/stdl
 import { type Checkpoint, CheckpointReexecutionTracker, type ProposedCheckpointData } from '@aztec/stdlib/checkpoint';
 import type { L1RollupConstants } from '@aztec/stdlib/epoch-helpers';
 import type { ITxProvider, ValidatorClientFullConfig, WorldStateSynchronizer } from '@aztec/stdlib/interfaces/server';
-import type { L1ToL2MessageSource } from '@aztec/stdlib/messaging';
-import { accumulateCheckpointOutHashes } from '@aztec/stdlib/messaging';
+import type { InboxBucket, L1ToL2MessageSource } from '@aztec/stdlib/messaging';
+import { InboxBucketRef, accumulateCheckpointOutHashes } from '@aztec/stdlib/messaging';
 import { ValidatedBlockProposal, ValidatedCheckpointProposalCore } from '@aztec/stdlib/p2p';
 import { CheckpointHeader } from '@aztec/stdlib/rollup';
 import {
@@ -966,6 +966,226 @@ describe('ProposalHandler checkpoint validation', () => {
 
       const result = await blockHandler.handleBlockProposal(proposal, {} as any, false);
       expect(result).toEqual({ isValid: true, blockNumber: BlockNumber(INITIAL_L2_BLOCK_NUM) });
+    });
+  });
+
+  // AZIP-22 Fast Inbox: with `streamingInbox` on, a block proposal's L1-to-L2 bundle is derived from its bucket
+  // reference and gated by the four acceptance checks, replacing the legacy per-checkpoint inHash comparison.
+  describe('handleBlockProposal streaming inbox checks (flag on)', () => {
+    const bucket = (overrides: Partial<InboxBucket> = {}): InboxBucket => ({
+      seq: 1n,
+      inboxRollingHash: new Fr(0xabc),
+      totalMsgCount: 2n,
+      timestamp: 100n,
+      msgCount: 2,
+      lastMessageIndex: 1n,
+      ...overrides,
+    });
+
+    /** Genesis-parent streaming block proposal at slot 1, with the handler wired to reach the streaming checks. */
+    async function setupStreamingProposal(bucketRef: InboxBucketRef | undefined) {
+      const proposal = ValidatedBlockProposal(
+        await makeBlockProposal({
+          blockHeader: makeBlockHeader(1, { slotNumber: SlotNumber(1) }),
+          archiveRoot: Fr.random(),
+          txHashes: [],
+          bucketRef,
+        }),
+      );
+      blockSource.getGenesisValues.mockResolvedValue({
+        genesisArchiveRoot: proposal.blockHeader.lastArchive.root,
+      } as any);
+      blockSource.getBlockData.mockResolvedValue(undefined);
+
+      const txProvider = mock<ITxProvider>();
+      txProvider.getTxsForBlockProposal.mockResolvedValue({ txs: [], missingTxs: [] } as any);
+
+      // Well past the 12s lag for a bucket opened at t=100.
+      dateProvider.setTime(1_000_000);
+
+      const blockHandler = new ProposalHandler(
+        checkpointsBuilder,
+        mock<WorldStateSynchronizer>(),
+        blockSource,
+        l1ToL2MessageSource,
+        txProvider,
+        epochCache,
+        consensusTimetable,
+        { ...config, streamingInbox: true } as ValidatorClientFullConfig,
+        mock<BlobClientInterface>(),
+        new CheckpointReexecutionTracker(),
+        metrics,
+        dateProvider,
+      );
+      return { proposal, blockHandler };
+    }
+
+    it('rejects (without re-executing) when the referenced bucket is unknown', async () => {
+      const ref = new InboxBucketRef(1n, 100n, new Fr(0xabc));
+      const { proposal, blockHandler } = await setupStreamingProposal(ref);
+      l1ToL2MessageSource.getInboxBucket.mockResolvedValue(undefined);
+      const reexecuteSpy = jest.spyOn(blockHandler, 'reexecuteTransactions');
+
+      const result = await blockHandler.handleBlockProposal(proposal, {} as any, true);
+
+      expect(result).toEqual({
+        isValid: false,
+        blockNumber: BlockNumber(INITIAL_L2_BLOCK_NUM),
+        reason: 'bucket_unknown',
+      });
+      expect(reexecuteSpy).not.toHaveBeenCalled();
+    });
+
+    it('rejects (without re-executing) when the resolved bucket hash disagrees with the reference', async () => {
+      const ref = new InboxBucketRef(1n, 100n, new Fr(0xdead));
+      const { proposal, blockHandler } = await setupStreamingProposal(ref);
+      l1ToL2MessageSource.getInboxBucket.mockResolvedValue(bucket({ inboxRollingHash: new Fr(0xabc) }));
+      const reexecuteSpy = jest.spyOn(blockHandler, 'reexecuteTransactions');
+
+      const result = await blockHandler.handleBlockProposal(proposal, {} as any, true);
+
+      expect(result).toEqual({
+        isValid: false,
+        blockNumber: BlockNumber(INITIAL_L2_BLOCK_NUM),
+        reason: 'bucket_hash_mismatch',
+      });
+      expect(reexecuteSpy).not.toHaveBeenCalled();
+    });
+
+    it('re-executes with the bundle derived from the buckets when the checks pass', async () => {
+      const ref = new InboxBucketRef(1n, 100n, new Fr(0xabc));
+      const { proposal, blockHandler } = await setupStreamingProposal(ref);
+      const derivedBundle = [new Fr(1000), new Fr(1001)];
+      l1ToL2MessageSource.getInboxBucket.mockResolvedValue(bucket());
+      l1ToL2MessageSource.getInboxBucketByTotalMsgCount.mockResolvedValue(
+        bucket({ seq: 0n, totalMsgCount: 0n, msgCount: 0 }),
+      );
+      l1ToL2MessageSource.getL1ToL2MessagesBetweenBuckets.mockResolvedValue(derivedBundle);
+      const reexecuteSpy = jest
+        .spyOn(blockHandler, 'reexecuteTransactions')
+        .mockResolvedValue({ block: undefined } as any);
+
+      const result = await blockHandler.handleBlockProposal(proposal, {} as any, true);
+
+      expect(result.isValid).toBe(true);
+      // The block re-executes with the derived per-block bundle and the streaming flag set.
+      expect(reexecuteSpy).toHaveBeenCalledWith(
+        proposal,
+        BlockNumber(INITIAL_L2_BLOCK_NUM),
+        CheckpointNumber.INITIAL,
+        [],
+        derivedBundle,
+        expect.anything(),
+        expect.anything(),
+        true,
+      );
+    });
+  });
+
+  // AZIP-22 Fast Inbox: with `streamingInbox` on, the checkpoint handler enforces the last-block minimum-consumption
+  // (censorship) rule before attesting.
+  describe('checkpoint proposal last-block censorship (flag on)', () => {
+    /** Two-block checkpoint at slot 10 whose last block consumed through leaf count `lastBlockTotal`. */
+    function setupCensorshipMocks(lastBlockTotal: number) {
+      const archiveRoot = Fr.random();
+      const blockWithLeafCount = (leafCount: number, archive: Fr, number: number) =>
+        ({
+          archive: new AppendOnlyTreeSnapshot(archive, number),
+          number,
+          checkpointNumber: CheckpointNumber(1),
+          header: {
+            globalVariables: GlobalVariables.empty({ slotNumber: SlotNumber(10) }),
+            state: { l1ToL2MessageTree: { nextAvailableLeafIndex: leafCount } },
+          },
+        }) as unknown as L2Block;
+
+      blockSource.getBlockData.mockResolvedValue({
+        header: makeBlockHeader(),
+        checkpointNumber: CheckpointNumber(1),
+      } as any);
+      blockSource.getBlocksForSlot.mockResolvedValue([
+        blockWithLeafCount(0, Fr.random(), 1),
+        blockWithLeafCount(lastBlockTotal, archiveRoot, 2),
+      ]);
+      return { archiveRoot };
+    }
+
+    async function makeSlot10Proposal(archiveRoot: Fr) {
+      return ValidatedCheckpointProposalCore(
+        (
+          await makeCheckpointProposal({
+            checkpointHeader: makeCheckpointHeader(0, { slotNumber: SlotNumber(10) }),
+            archiveRoot,
+          })
+        ).toCore(),
+      );
+    }
+
+    it('refuses to attest when a mandatory bucket (at or before the cutoff) is left unconsumed', async () => {
+      config = { ...config, streamingInbox: true } as ValidatorClientFullConfig;
+      handler.updateConfig(config);
+      const { archiveRoot } = setupCensorshipMocks(2);
+      // cutoff(slot=10) with l1GenesisTime=0, slotDuration=24, lag=12 is (10-1)*24 - 12 = 204.
+      l1ToL2MessageSource.getInboxBucketByTotalMsgCount.mockResolvedValue({
+        seq: 1n,
+        totalMsgCount: 2n,
+      } as InboxBucket);
+      // The next (first unconsumed) bucket opened at t=100 <= cutoff 204 is mandatory and was left unconsumed.
+      l1ToL2MessageSource.getInboxBucket.mockResolvedValue({
+        seq: 2n,
+        totalMsgCount: 5n,
+        timestamp: 100n,
+      } as InboxBucket);
+
+      const result = await handler.handleCheckpointProposal(await makeSlot10Proposal(archiveRoot), proposalInfo);
+
+      expect(result).toEqual({
+        isValid: false,
+        reason: 'inbox_consumption_insufficient',
+        checkpointNumber: CheckpointNumber(1),
+      });
+    });
+
+    it('does not reject on censorship when the first unconsumed bucket is past the cutoff', async () => {
+      config = { ...config, streamingInbox: true } as ValidatorClientFullConfig;
+      handler.updateConfig(config);
+      const { archiveRoot } = setupCensorshipMocks(2);
+      l1ToL2MessageSource.getInboxBucketByTotalMsgCount.mockResolvedValue({
+        seq: 1n,
+        totalMsgCount: 2n,
+      } as InboxBucket);
+      // Next bucket opened at t=205 > cutoff 204: not mandatory, so the censorship check passes and validation
+      // proceeds past it to the checkpoint rebuild (which mismatches here, an unrelated reason).
+      l1ToL2MessageSource.getInboxBucket.mockResolvedValue({
+        seq: 2n,
+        totalMsgCount: 5n,
+        timestamp: 205n,
+      } as InboxBucket);
+      const proposal = await makeSlot10Proposal(archiveRoot);
+      // The fork's archive root is checked against the proposal's before the rebuild; report a match so
+      // validation gets past it to the rebuild, which is the rejection this test asserts on.
+      checkpointsBuilder.getFork.mockResolvedValue({
+        [Symbol.asyncDispose]: jest.fn(),
+        getTreeInfo: () => Promise.resolve({ root: proposal.checkpointHeader.lastArchiveRoot.toBuffer() }),
+      } as any);
+      const mockBuilder = mock<CheckpointBuilder>();
+      mockBuilder.completeCheckpoint.mockResolvedValue({
+        header: CheckpointHeader.empty(),
+        archive: new AppendOnlyTreeSnapshot(Fr.ZERO, 0),
+        getCheckpointOutHash: () => Fr.random(),
+        blocks: [],
+        number: CheckpointNumber(1),
+      } as unknown as Checkpoint);
+      checkpointsBuilder.openCheckpoint.mockResolvedValue(mockBuilder);
+
+      const result = await handler.handleCheckpointProposal(proposal, proposalInfo);
+
+      // The censorship rule passed; the checkpoint is rejected later by the rebuild, not the consumption check.
+      expect(result).toEqual({
+        isValid: false,
+        reason: 'checkpoint_header_mismatch',
+        checkpointNumber: CheckpointNumber(1),
+      });
     });
   });
 });

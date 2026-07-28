@@ -6,7 +6,7 @@ import type { FieldsOf } from '@aztec/foundation/types';
 import { z } from 'zod';
 
 /**
- * Snapshot of an Inbox rolling-hash bucket as tracked by the archiver (AZIP-22 Fast Inbox).
+ * Snapshot of an Inbox rolling-hash bucket as tracked by the archiver.
  *
  * A bucket accumulates the message leaves inserted into the Inbox within a single L1 block (up to a per-bucket
  * maximum, after which further messages in the same block spill into the next bucket). Buckets are identified by
@@ -39,7 +39,7 @@ export const InboxBucketSchema = z.object({
 }) satisfies z.ZodType<InboxBucket>;
 
 /**
- * Reference to a settled Inbox rolling-hash bucket, carried alongside a block proposal (AZIP-22 Fast Inbox) so a
+ * Reference to a settled Inbox rolling-hash bucket, carried alongside a block proposal so a
  * validator can look the bucket up in its own Inbox view and derive the consumed-message bundle itself, rather than
  * trusting a proposer-supplied message list. Pins the bucket by its dense sequence number and recency-key timestamp
  * and asserts the expected consensus rolling hash. A wrong reference can only cause a lookup miss or hash mismatch; it

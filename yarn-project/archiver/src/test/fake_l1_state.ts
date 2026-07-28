@@ -143,7 +143,7 @@ export class FakeL1State {
   private checkpoints: CheckpointData[] = [];
   private messages: MessageData[] = [];
   private messagesRollingHash: Buffer16 = Buffer16.ZERO;
-  // Consensus rolling-hash and bucket-ring state, mirroring the on-chain Inbox (AZIP-22 Fast Inbox).
+  // Consensus rolling-hash and bucket-ring state, mirroring the on-chain Inbox.
   private messagesConsensusRollingHash: Fr = Fr.ZERO;
   private currentBucketSeq: bigint = 0n;
   private currentBucketTimestamp: bigint = 0n;

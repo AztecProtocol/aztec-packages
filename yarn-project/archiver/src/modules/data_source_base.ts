@@ -332,8 +332,16 @@ export abstract class ArchiverDataSourceBase
     return this.stores.messages.getInboxBucket(seq);
   }
 
+  public getInboxBucketByTotalMsgCount(totalMsgCount: bigint): Promise<InboxBucket | undefined> {
+    return this.stores.messages.getInboxBucketByTotalMsgCount(totalMsgCount);
+  }
+
   public getL1ToL2MessagesBetweenBuckets(fromExclusive: bigint, toInclusive: bigint): Promise<Fr[]> {
     return this.stores.messages.getL1ToL2MessagesBetweenBuckets(fromExclusive, toInclusive);
+  }
+
+  public getL1ToL2MessagesBetweenLeafCounts(startLeafCount: bigint, endLeafCount: bigint): Promise<Fr[]> {
+    return this.stores.messages.getL1ToL2MessagesBetweenLeafCounts(startLeafCount, endLeafCount);
   }
 
   private async getPublishedCheckpointFromCheckpointData(checkpoint: CheckpointData): Promise<PublishedCheckpoint> {
