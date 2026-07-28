@@ -22,7 +22,7 @@ A bb/proof-system change that rotates VKs touches THREE tracked pins, and all of
 - The standard-contracts pin `noir-projects/labs/noir-contracts/pinned-standard-contracts.tar.gz` freezes the `contracts/standard/` artifacts with their precomputed VKs and deterministic addresses. `noir-contracts/bootstrap.sh build` extracts it and excludes `standard/` from recompilation, so these VKs only refresh via `pin-standard-build` (step 5).
 - The Chonk flow pin `barretenberg/cpp/scripts/chonk-inputs.hash` points to the S3 tarball of captured `ivc-inputs.msgpack` flows. Those msgpacks embed bytecode, witnesses, circuit kinds, and precomputed VKs — including the standard-contract VKs above, so the standard-contracts pin must be correct *before* recapturing flows.
 
-`noir-projects/fnd/noir-protocol-circuits/pinned-build.tar.gz` is not a current tracked pin on the `next` line. `noir-projects/bootstrap.sh pin-build` may generate it as untracked local build output; do not commit it unless intentionally reintroducing that large artifact pin.
+`noir-projects/fnd/noir-protocol-circuits/pinned-build.tar.gz` is not a current tracked pin on the `next` line. `noir-projects/fnd/bootstrap.sh pin-build` may generate it as untracked local build output; do not commit it unless intentionally reintroducing that large artifact pin.
 
 If a bb/proof-system change can affect VKs, refresh in this order:
 
@@ -31,7 +31,7 @@ If a bb/proof-system change can affect VKs, refresh in this order:
    cmake --preset default -DAVM=ON
    cmake --build build --target bb-avm
    ```
-2. Repin Noir artifacts with the AVM-enabled binary: `./bootstrap.sh pin-build` from `noir-projects/`. Do not set `AVM=0` — the `*-tx-base-public` circuits verify an AVM proof, so non-AVM `bb` fails their VK generation with "AVM recursion is not supported in this build". Because pin-build runs under `set +e`, that failure does not abort the run; it silently archives an incomplete `pinned-build.tar.gz` with stale/missing VKs.
+2. Repin Noir artifacts with the AVM-enabled binary: `./bootstrap.sh pin-build` from `noir-projects/fnd/`. Do not set `AVM=0` — the `*-tx-base-public` circuits verify an AVM proof, so non-AVM `bb` fails their VK generation with "AVM recursion is not supported in this build". Because pin-build runs under `set +e`, that failure does not abort the run; it silently archives an incomplete `pinned-build.tar.gz` with stale/missing VKs.
 3. Keep the tracked `noir-projects/fnd/mock-protocol-circuits/pinned-build.tar.gz` diff.
 4. Remove the generated untracked `noir-projects/fnd/noir-protocol-circuits/pinned-build.tar.gz` unless intentionally reintroducing that large pin.
 5. Repin the standard contracts **iteratively, and regenerate their address stamps**. A stale standard-contracts pin surfaces as a "Computed VK differs from precomputed VK" mismatch on a `standard/` contract function during chonk capture verification. Repinning is not a single command: `pin-standard-build` compiles the standard contracts against the *current* `standard_addresses.nr` and tarballs them — it does NOT regenerate the stamps, and standard contracts can reference each other's deterministic addresses. Because a contract's address depends on its bytecode, which depends on the addresses it embeds, you must repeat the re-pin + stamp-regeneration until a round changes nothing (the addresses stop moving):
@@ -41,7 +41,7 @@ If a bb/proof-system change can affect VKs, refresh in this order:
    BB=$(realpath ../../barretenberg/cpp/build/bin/bb-avm) ./bootstrap.sh pin-standard-build
    (cd ../../yarn-project && yarn workspace @aztec/standard-contracts generate)   # rewrites stamps; exits non-zero on drift
    ```
-   `BB` defaults to non-AVM `bb`; set it to `bb-avm` explicitly. Once converged, run `noir-projects/bootstrap.sh` once to recompile dependents against the final addresses, then commit the pin **together with** the two regenerated stamp files:
+   `BB` defaults to non-AVM `bb`; set it to `bb-avm` explicitly. Once converged, run `make noir-projects` from the repo root once to recompile dependents against the final addresses, then commit the pin **together with** the two regenerated stamp files:
    - `yarn-project/standard-contracts/src/standard_contract_data.ts`
    - `noir-projects/labs/aztec-nr/aztec/src/standard_addresses.nr`
 

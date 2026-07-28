@@ -55,7 +55,7 @@ endef
 
 # Fast bootstrap.
 fast: release-image barretenberg boxes playground docs aztec-up \
-		  bb-tests l1-contracts-tests yarn-project-tests boxes-tests playground-tests aztec-up-tests docs-tests noir-protocol-circuits-tests contract-snapshots-tests release-image-tests spartan claude-tests ipc-codegen-tests constants-codegen-tests
+		  bb-tests l1-contracts-tests yarn-project-tests boxes-tests playground-tests aztec-up-tests docs-tests noir-protocol-circuits-tests protocol-contracts-tests contract-snapshots-tests release-image-tests spartan claude-tests ipc-codegen-tests constants-codegen-tests
 
 # Full bootstrap.
 full: fast bb-full-tests bb-cpp-full yarn-project-benches
@@ -359,12 +359,14 @@ claude-tests:
 # which are git-ignored and must exist before nargo can run in that workspace. Needs only
 # yarn/node, so no prerequisites: it runs in parallel with the noir build.
 noir-protocol-circuits-variants:
-	$(call build,$@,noir-projects,generate_variants)
+	$(call build,$@,noir-projects/fnd/noir-protocol-circuits,generate_variants)
 
 # Format check. Also warms the nargo dependency cache, so it must complete before the
 # subproject builds to avoid parallel nargo runs tripping over each other downloading.
+# The fnd and labs checks share that cache, so they run serially in this one target.
 noir-projects-format-check: noir noir-protocol-circuits-variants
-	$(call build,$@,noir-projects,format_check)
+	$(call build,$@,noir-projects/fnd,format_check)
+	$(call build,$@,noir-projects/labs,format_check)
 
 noir-protocol-circuits: noir bb-cpp-native noir-projects-format-check
 	$(call build,$@,noir-projects/fnd/noir-protocol-circuits)
@@ -377,6 +379,9 @@ mock-protocol-circuits: noir bb-cpp-native noir-projects-format-check
 
 protocol-contracts: noir bb-cpp-native noir-projects-format-check
 	$(call build,$@,noir-projects/fnd/noir-contracts)
+
+protocol-contracts-tests: noir protocol-contracts
+	$(call test,$@,noir-projects/fnd/noir-contracts)
 
 noir-contracts: noir bb-cpp-native noir-projects-format-check
 	$(call build,$@,noir-projects/labs/noir-contracts)

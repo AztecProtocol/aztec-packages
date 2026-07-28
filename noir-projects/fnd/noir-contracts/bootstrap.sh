@@ -1,7 +1,5 @@
 #!/usr/bin/env bash
-# Compiles the protocol contracts. A trimmed sibling of labs/noir-contracts/bootstrap.sh, which owns
-# the shared machinery's canonical form (and its debugging notes): this side has no TXE tests, no
-# docs/examples flow, no generated TestToken and no pinned standard contracts.
+# Compiles the protocol contracts.
 source $(git rev-parse --show-toplevel)/ci3/source_bootstrap
 
 export RAYON_NUM_THREADS=${RAYON_NUM_THREADS:-16}
@@ -133,6 +131,25 @@ function build {
   code=$?
   cat joblog.txt
   return $code
+}
+
+function test_cmds {
+  # Fairies want to run these tests on every PR
+  if [ "${TARGET_BRANCH:-}" = "merge-train/fairies" ]; then
+    $NARGO test --list-tests --silence-warnings | sort | while read -r package test; do
+      echo "disabled-cache noir-projects/scripts/run_test.sh fnd/noir-contracts $package $test"
+    done
+  else
+    local -A cache
+    $NARGO test --list-tests --silence-warnings | sort | while read -r package test; do
+      [ -z "${cache[$package]:-}" ] && cache[$package]=$(get_contract_hash $package)
+      echo "${cache[$package]} noir-projects/scripts/run_test.sh fnd/noir-contracts $package $test"
+    done
+  fi
+}
+
+function test {
+  test_cmds | filter_test_cmds | parallelize
 }
 
 function format {
