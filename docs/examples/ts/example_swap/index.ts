@@ -259,7 +259,6 @@ const INBOX_ABI = [
     type: "event",
     name: "MessageSent",
     inputs: [
-      { name: "checkpointNumber", type: "uint256", indexed: true },
       { name: "index", type: "uint256", indexed: false },
       { name: "hash", type: "bytes32", indexed: true },
       { name: "rollingHash", type: "bytes16", indexed: false },

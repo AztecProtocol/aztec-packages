@@ -9,15 +9,11 @@ import {IInbox, MAX_MSGS_PER_BUCKET} from "@aztec/core/interfaces/messagebridge/
 import {MIN_BUCKET_RING_SIZE} from "@aztec/core/messagebridge/Inbox.sol";
 import {InboxHarness} from "./harnesses/InboxHarness.sol";
 import {TestConstants} from "./harnesses/TestConstants.sol";
-import {Constants} from "@aztec/core/libraries/ConstantsGen.sol";
 import {Errors} from "@aztec/core/libraries/Errors.sol";
 import {Hash} from "@aztec/core/libraries/crypto/Hash.sol";
 import {DataStructures} from "@aztec/core/libraries/DataStructures.sol";
 
 contract InboxBucketsTest is Test {
-  uint256 internal constant FIRST_REAL_TREE_NUM = Constants.INITIAL_CHECKPOINT_NUMBER + TestConstants.AZTEC_INBOX_LAG;
-  uint256 internal constant HEIGHT = 10;
-
   InboxHarness internal inbox;
   uint256 internal version = 0;
   bytes32 internal expectedRollingHash;
@@ -28,7 +24,7 @@ contract InboxBucketsTest is Test {
 
   function _deployInbox(uint256 _ringSize) internal returns (InboxHarness) {
     IERC20 feeAsset = new TestERC20("Fee Asset", "FA", address(this));
-    return new InboxHarness(address(this), feeAsset, version, HEIGHT, TestConstants.AZTEC_INBOX_LAG, _ringSize);
+    return new InboxHarness(address(this), feeAsset, version, _ringSize);
   }
 
   function _send(InboxHarness _inbox, uint256 _salt) internal returns (bytes32) {
@@ -140,7 +136,7 @@ contract InboxBucketsTest is Test {
     bytes32 inboxRollingHash = Hash.accumulateInboxRollingHash(bytes32(0), leaf);
 
     vm.expectEmit(true, true, true, true, address(inbox));
-    emit IInbox.MessageSent(FIRST_REAL_TREE_NUM, message.index, leaf, legacyHash, inboxRollingHash, 1);
+    emit IInbox.MessageSent(message.index, leaf, legacyHash, inboxRollingHash, 1);
     inbox.sendL2Message(recipient, content, secretHash);
   }
 
@@ -234,7 +230,7 @@ contract InboxBucketsTest is Test {
   function testConstructorRevertsBelowRingFloor() public {
     IERC20 feeAsset = new TestERC20("Fee Asset", "FA", address(this));
     vm.expectRevert("BUCKET RING TOO SMALL");
-    new InboxHarness(address(this), feeAsset, version, HEIGHT, TestConstants.AZTEC_INBOX_LAG, MIN_BUCKET_RING_SIZE - 1);
+    new InboxHarness(address(this), feeAsset, version, MIN_BUCKET_RING_SIZE - 1);
   }
 
   // Gas cost of a message absorbed into an already-open bucket (the common per-message case): the
@@ -250,7 +246,7 @@ contract InboxBucketsTest is Test {
   }
 
   // Gas cost of the first message of a new L1 block: a larger timestamp opens the next bucket,
-  // writing a fresh ring slot on top of the per-message frontier-tree insert.
+  // writing a fresh ring slot.
   function testGasSendFirstMessageOfNewBlock() public {
     _send(inbox, 0);
     assertEq(inbox.getCurrentBucketSeq(), 1, "warmup opened bucket 1");
@@ -279,9 +275,8 @@ contract InboxBucketsTest is Test {
     assertEq(inbox.getCurrentBucketSeq(), 2, "rollover opened bucket 2");
   }
 
-  // Gas cost of the first-ever message against a freshly deployed Inbox: the state struct, bucket 1, and the
-  // first frontier-tree slots are all written cold. This is the cold-storage case, not the global worst-case
-  // insert — later frontier indices with more levels to hash can cost more.
+  // Gas cost of the first-ever message against a freshly deployed Inbox: the rolling-hash slot and bucket 1
+  // are written cold. This is the cold-storage case for the first message.
   function testGasSendFirstEverMessage() public {
     assertEq(inbox.getCurrentBucketSeq(), 0, "no message sent yet");
 

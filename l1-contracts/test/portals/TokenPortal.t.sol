@@ -11,7 +11,6 @@ import {DataStructures} from "@aztec/core/libraries/DataStructures.sol";
 import {Errors} from "@aztec/core/libraries/Errors.sol";
 import {Hash} from "@aztec/core/libraries/crypto/Hash.sol";
 import {Epoch} from "@aztec/core/libraries/TimeLib.sol";
-import {TestConstants} from "../harnesses/TestConstants.sol";
 import {Inbox} from "@aztec/core/messagebridge/Inbox.sol";
 
 // Interfaces
@@ -33,9 +32,6 @@ contract TokenPortalTest is Test {
   using stdStorage for StdStorage;
 
   event MessageConsumed(bytes32 indexed messageHash, address indexed recipient);
-
-  uint256 internal constant FIRST_REAL_TREE_NUM = Constants.INITIAL_CHECKPOINT_NUMBER + TestConstants.AZTEC_INBOX_LAG;
-  uint256 internal constant L1_TO_L2_MSG_SUBTREE_SIZE = 2 ** Constants.L1_TO_L2_MSG_SUBTREE_HEIGHT;
 
   Registry internal registry;
   RewardDistributor internal rewardDistributor;
@@ -129,7 +125,7 @@ contract TokenPortalTest is Test {
     // Check the event was emitted
     vm.expectEmit(true, true, true, true);
     // event we expect
-    emit IInbox.MessageSent(FIRST_REAL_TREE_NUM, expectedIndex, expectedLeaf, expectedHash, expectedInboxRollingHash, 1);
+    emit IInbox.MessageSent(expectedIndex, expectedLeaf, expectedHash, expectedInboxRollingHash, 1);
     // event we will get
 
     // Perform op
@@ -158,7 +154,7 @@ contract TokenPortalTest is Test {
     // Check the event was emitted
     vm.expectEmit(true, true, true, true);
     // event we expect
-    emit IInbox.MessageSent(FIRST_REAL_TREE_NUM, expectedIndex, expectedLeaf, expectedHash, expectedInboxRollingHash, 1);
+    emit IInbox.MessageSent(expectedIndex, expectedLeaf, expectedHash, expectedInboxRollingHash, 1);
 
     // Perform op
     (bytes32 leaf, uint256 index) = tokenPortal.depositToAztecPublic(to, amount, secretHashForL2MessageConsumption);
