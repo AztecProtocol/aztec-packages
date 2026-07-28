@@ -4,8 +4,8 @@
  *
  * Run with: BASE_PARITY_BENCH_DIR=./bench-out yarn workspace @aztec/ivc-integration test src/base_parity_inputs.test.ts
  *
- * The parity base/root circuits were replaced by the single variable-size InboxParity circuit (AZIP-22 Fast Inbox);
- * this benchmark now targets the 256-message rung (`InboxParity256`), matching the old base-parity circuit's size. The
+ * The parity base/root circuits were replaced by the single variable-size InboxParity circuit; this benchmark now
+ * targets the 256-message rung (`InboxParity256`), matching the old base-parity circuit's size. The
  * output files keep their legacy `parity_base.json` / `witness.gz` names because `ci_benchmark_ultrahonk_circuits.sh`
  * locates inputs as `${circuit_name}.json` with `circuit_name=parity_base`.
  */

@@ -28,7 +28,7 @@ pub struct InboxParityPrivateInputs<let S: u32> {
 
 /// The Inbox Parity circuit recomputes, for one checkpoint, the Inbox rolling-hash chain over the checkpoint's real
 /// L1-to-L2 messages and absorbs the same real messages into the message-bundle sponge. It replaces the parity base +
-/// parity root family with a single variable-size proof per checkpoint (AZIP-22 Fast Inbox / A-1376 topology).
+/// parity root family with a single variable-size proof per checkpoint.
 ///
 /// This circuit:
 /// - Chains the `num_msgs` real messages into the rolling hash (two sha256 compressions per leaf)

@@ -55,7 +55,7 @@ export class BlockRollupPublicInputs {
     public blockHeadersHash: Fr,
     /**
      * Whether this block range starts at the first block of its checkpoint. Only the first block root sets this true;
-     * merges propagate it from the left rollup. Replaces `inHash`'s former structural role (AZIP-22 Fast Inbox).
+     * merges propagate it from the left rollup.
      */
     public isFirstBlock: boolean,
     /**
