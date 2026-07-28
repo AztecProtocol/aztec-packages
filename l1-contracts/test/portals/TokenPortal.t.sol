@@ -124,10 +124,11 @@ contract TokenPortalTest is Test {
 
     bytes32 expectedLeaf = expectedMessage.sha256ToField();
     bytes16 expectedHash = bytes16(keccak256(abi.encodePacked(inbox.getState().rollingHash, expectedLeaf)));
+    bytes32 expectedInboxRollingHash = Hash.accumulateInboxRollingHash(bytes32(0), expectedLeaf);
     // Check the event was emitted
     vm.expectEmit(true, true, true, true);
     // event we expect
-    emit IInbox.MessageSent(FIRST_REAL_TREE_NUM, expectedIndex, expectedLeaf, expectedHash);
+    emit IInbox.MessageSent(FIRST_REAL_TREE_NUM, expectedIndex, expectedLeaf, expectedHash, expectedInboxRollingHash, 1);
     // event we will get
 
     // Perform op
@@ -150,11 +151,12 @@ contract TokenPortalTest is Test {
     DataStructures.L1ToL2Msg memory expectedMessage = _createExpectedMintPublicL1ToL2Message(expectedIndex);
     bytes32 expectedLeaf = expectedMessage.sha256ToField();
     bytes16 expectedHash = bytes16(keccak256(abi.encodePacked(inbox.getState().rollingHash, expectedLeaf)));
+    bytes32 expectedInboxRollingHash = Hash.accumulateInboxRollingHash(bytes32(0), expectedLeaf);
 
     // Check the event was emitted
     vm.expectEmit(true, true, true, true);
     // event we expect
-    emit IInbox.MessageSent(FIRST_REAL_TREE_NUM, expectedIndex, expectedLeaf, expectedHash);
+    emit IInbox.MessageSent(FIRST_REAL_TREE_NUM, expectedIndex, expectedLeaf, expectedHash, expectedInboxRollingHash, 1);
 
     // Perform op
     (bytes32 leaf, uint256 index) = tokenPortal.depositToAztecPublic(to, amount, secretHashForL2MessageConsumption);

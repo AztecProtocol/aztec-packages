@@ -30,7 +30,9 @@ contract InboxTest is Test {
   function setUp() public {
     address rollup = address(this);
     IERC20 feeAsset = new TestERC20("Fee Asset", "FA", address(this));
-    inbox = new InboxHarness(rollup, feeAsset, version, HEIGHT, TestConstants.AZTEC_INBOX_LAG);
+    inbox = new InboxHarness(
+      rollup, feeAsset, version, HEIGHT, TestConstants.AZTEC_INBOX_LAG, TestConstants.AZTEC_INBOX_BUCKET_RING_SIZE
+    );
     emptyTreeRoot = inbox.getEmptyRoot();
   }
 
@@ -96,9 +98,12 @@ contract InboxTest is Test {
 
     bytes32 leaf = message.sha256ToField();
     bytes16 expectedRollingHash = bytes16(keccak256(abi.encodePacked(stateBefore.rollingHash, leaf)));
+    bytes32 expectedInboxRollingHash = Hash.accumulateInboxRollingHash(bytes32(0), leaf);
     vm.expectEmit(true, true, true, true);
     // event we expect
-    emit IInbox.MessageSent(FIRST_REAL_TREE_NUM, globalLeafIndex, leaf, expectedRollingHash);
+    emit IInbox.MessageSent(
+      FIRST_REAL_TREE_NUM, globalLeafIndex, leaf, expectedRollingHash, expectedInboxRollingHash, 1
+    );
     // event we will get
     (bytes32 insertedLeaf, uint256 insertedIndex) =
       inbox.sendL2Message(message.recipient, message.content, message.secretHash);
