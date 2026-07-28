@@ -369,8 +369,8 @@ export class ServerWorldStateSynchronizer
   private async handleL2Blocks(l2Blocks: L2Block[]) {
     this.log.debug(`Handling L2 blocks ${l2Blocks[0].number} to ${l2Blocks.at(-1)!.number}`);
 
-    // Derive each block's real L1-to-L2 message bundle from the compact leaf-index range it inserted (AZIP-22 Fast
-    // Inbox): the messages between the parent block's L1-to-L2 tree leaf count and this block's, resolved via the
+    // Derive each block's real L1-to-L2 message bundle from the compact leaf-index range it inserted:
+    // the messages between the parent block's L1-to-L2 tree leaf count and this block's, resolved via the
     // Inbox buckets. Blocks in a batch are consecutive, so we track the running leaf count.
     const messagesForBlocks = new Map<BlockNumber, Fr[]>();
     let prevLeafCount = await this.getL1ToL2LeafCountBefore(l2Blocks[0].number);

@@ -340,7 +340,7 @@ export const buildHeaderAndBodyFromTxs = runInSpan(
       noteHashRoot: partial.noteHashTree.root,
       nullifierRoot: partial.nullifierTree.root,
       publicDataRoot: partial.publicDataTree.root,
-      // Every block carries its own post-bundle l1-to-l2 message tree root (AZIP-22 Fast Inbox).
+      // Every block carries its own post-bundle l1-to-l2 message tree root.
       l1ToL2MessageRoot: l1ToL2MessageTree.root,
       txs: body.toTxBlobData(),
     });
@@ -401,7 +401,7 @@ export async function getSubtreeSiblingPath(
 
 /**
  * Returns the full-height frontier (left-sibling path) at a tree's next-available leaf index — the hint the append
- * circuits re-hash against the snapshot root when appending leaves at a compact (unaligned) index (AZIP-22 Fast Inbox).
+ * circuits re-hash against the snapshot root when appending leaves at a compact (unaligned) index.
  */
 export async function getFrontierSiblingPath(treeId: MerkleTreeId, db: MerkleTreeReadOperations): Promise<Fr[]> {
   const nextAvailableLeafIndex = await db.getTreeInfo(treeId).then(t => t.size);

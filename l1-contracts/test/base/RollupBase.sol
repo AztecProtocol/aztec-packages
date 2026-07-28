@@ -78,8 +78,8 @@ contract RollupBase is DecoderBase {
       previousArchive: parentCheckpointLog.archive,
       endArchive: endFull.checkpoint.archive,
       outHash: endFull.checkpoint.header.outHash,
-      // Anchor the rolling-hash chain start to the record written at propose for checkpoint start - 1 (AZIP-22 Fast
-      // Inbox). The end value is unchecked on L1 but supplied for completeness.
+      // Anchor the rolling-hash chain start to the record written at propose for checkpoint start - 1.
+      // The end value is unchecked on L1 but supplied for completeness.
       previousInboxRollingHash: proposedHeaders[startCheckpointNumber - 1].inboxRollingHash,
       endInboxRollingHash: proposedHeaders[endCheckpointNumber].inboxRollingHash,
       proverId: _prover
@@ -174,7 +174,7 @@ contract RollupBase is DecoderBase {
     // Legacy frontier root for the header's inHash field. Unchecked at propose post-flip, but kept because the
     // fixtures were generated with it as part of the header hash.
     full.checkpoint.header.inHash = rollup.getInbox().getRoot(full.checkpoint.checkpointNumber);
-    // Streaming Inbox (AZIP-22 Fast Inbox): reference the newest bucket so the checkpoint consumes all messages
+    // Streaming Inbox: reference the newest bucket so the checkpoint consumes all messages
     // seeded above and the mandatory-consumption assert is trivially satisfied (a wrong ref could only revert).
     uint256 bucketHint = rollup.getInbox().getCurrentBucketSeq();
     full.checkpoint.header.inboxRollingHash = rollup.getInbox().getBucket(bucketHint).rollingHash;

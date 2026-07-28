@@ -119,7 +119,7 @@ contract TokenPortalTest is Test {
     testERC20.approve(address(tokenPortal), mintAmount);
 
     // Check for the expected message.
-    // Compact cumulative index (AZIP-22 Fast Inbox): the first message against a fresh Inbox has index 0.
+    // Compact cumulative index: the first message against a fresh Inbox has index 0.
     uint256 expectedIndex = 0;
     DataStructures.L1ToL2Msg memory expectedMessage = _createExpectedMintPrivateL1ToL2Message(expectedIndex);
 
@@ -148,7 +148,7 @@ contract TokenPortalTest is Test {
     testERC20.approve(address(tokenPortal), mintAmount);
 
     // Check for the expected message.
-    // Compact cumulative index (AZIP-22 Fast Inbox): the first message against a fresh Inbox has index 0.
+    // Compact cumulative index: the first message against a fresh Inbox has index 0.
     uint256 expectedIndex = 0;
     DataStructures.L1ToL2Msg memory expectedMessage = _createExpectedMintPublicL1ToL2Message(expectedIndex);
     bytes32 expectedLeaf = expectedMessage.sha256ToField();

@@ -20,8 +20,8 @@ jest.setTimeout(300_000);
 
 // L1→L2 messaging via Inbox: an L1→L2 message survives a rollup prune. Uses CrossChainMessagingTest
 // (prod sequencer, pipelining preset: ethSlot=4s, aztecSlot=12s, inboxLag=2, minTxsPerBlock=1,
-// aztecProofSubmissionEpochs=2, aztecEpochDuration=4) with EpochTestSettler for auto-proving. Post-flip
-// (AZIP-22) messages carry a compact L1-assigned index and stream in by insertion order rather than
+// aztecProofSubmissionEpochs=2, aztecEpochDuration=4) with EpochTestSettler for auto-proving. Messages
+// carry a compact L1-assigned index and stream in by insertion order rather than
 // pinning to a checkpoint, so a message inserted while the proposed chain drifts must still be
 // re-consumed with a stable index after the chain prunes back. Runs over private and public scope via
 // it.each, sharing one node stood up once in beforeAll.
@@ -127,7 +127,7 @@ describe('single-node/cross-chain/l1_to_l2_inbox_drift', () => {
     }
   };
 
-  // Post-flip (AZIP-22), L1→L2 messages carry a compact, L1-assigned global leaf index and are streamed
+  // L1→L2 messages carry a compact, L1-assigned global leaf index and are streamed
   // into the L2 tree in insertion order (subject to inbox lag and per-block/checkpoint caps) rather than
   // being pinned to a fixed checkpoint. This scenario stresses that message state survives an L2 reorg:
   // we let the proposed chain drift by mining several unproven checkpoints, insert a message during the
@@ -183,7 +183,7 @@ describe('single-node/cross-chain/l1_to_l2_inbox_drift', () => {
     markProvenEnabled = true;
     await markAsProven();
 
-    // Post-flip invariant: the compact-indexed message survives the L2 prune and is re-consumed on the
+    // The invariant under test: the compact-indexed message survives the L2 prune and is re-consumed on the
     // new chain within a reasonable window (its bucket and rolling-hash state must persist across the
     // reorg), becoming consumable from the requested scope.
     await waitForMessageReady(msgHash, scope);

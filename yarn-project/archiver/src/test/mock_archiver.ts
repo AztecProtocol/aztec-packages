@@ -76,7 +76,7 @@ export class MockPrefilledArchiver extends MockArchiver {
     }
 
     // Register the Inbox buckets the streaming world-state synchronizer reconstructs each block's consumed
-    // message bundle from (AZIP-22 Fast Inbox): a genesis sentinel (totalMsgCount 0) so a leaf count of 0
+    // message bundle from: a genesis sentinel (totalMsgCount 0) so a leaf count of 0
     // resolves to a bucket, plus one bucket per message-carrying checkpoint whose cumulative totalMsgCount
     // matches the block's post-insertion L1-to-L2 leaf count. Rebuilt from the full prefilled chain (not just
     // this call's checkpoints) so a reorg re-prefill that replaces a suffix keeps the cumulative aligned.

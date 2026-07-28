@@ -17,7 +17,7 @@ import { type TxBlobData, decodeTxBlobData, encodeTxBlobData } from './tx_blob_d
 
 // Must match the implementation in `noir-protocol-circuits/crates/types/src/blob_data/block_blob_data.nr`.
 
-// Every block carries the L1-to-L2 message tree root (AZIP-22 Fast Inbox): once any block can insert its own
+// Every block carries the L1-to-L2 message tree root: once any block can insert its own
 // message bundle, the root is per-block, so blob-syncing nodes reconstruct each block's message-tree root from the
 // blob alone.
 export const NUM_BLOCK_END_BLOB_FIELDS = 7;

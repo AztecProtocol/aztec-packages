@@ -972,7 +972,7 @@ describe('ProposalHandler checkpoint validation', () => {
     });
   });
 
-  // AZIP-22 Fast Inbox: a block proposal's L1-to-L2 bundle is derived from its bucket reference and gated by the four
+  // Streaming Inbox: a block proposal's L1-to-L2 bundle is derived from its bucket reference and gated by the four
   // acceptance checks, replacing the legacy per-checkpoint inHash comparison.
   describe('handleBlockProposal streaming inbox checks', () => {
     const bucket = (overrides: Partial<InboxBucket> = {}): InboxBucket => ({
@@ -1071,7 +1071,7 @@ describe('ProposalHandler checkpoint validation', () => {
       const result = await blockHandler.handleBlockProposal(proposal, {} as any, true);
 
       expect(result.isValid).toBe(true);
-      // The block re-executes with the derived per-block bundle (streaming is the only path post-flip).
+      // The block re-executes with the derived per-block bundle (streaming is the only path).
       expect(reexecuteSpy).toHaveBeenCalledWith(
         proposal,
         BlockNumber(INITIAL_L2_BLOCK_NUM),
@@ -1084,7 +1084,7 @@ describe('ProposalHandler checkpoint validation', () => {
     });
   });
 
-  // AZIP-22 Fast Inbox: the checkpoint handler enforces the last-block minimum-consumption (censorship) rule before
+  // Streaming Inbox: the checkpoint handler enforces the last-block minimum-consumption (censorship) rule before
   // attesting.
   describe('checkpoint proposal last-block censorship', () => {
     /** Two-block checkpoint at slot 10 whose last block consumed through leaf count `lastBlockTotal`. */

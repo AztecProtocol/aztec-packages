@@ -267,7 +267,7 @@ library EpochProofLib {
         );
       }
 
-      // Boundary anchoring for the Inbox rolling-hash chain (AZIP-22 Fast Inbox), mirroring previousArchive/endArchive:
+      // Boundary anchoring for the Inbox rolling-hash chain, mirroring previousArchive/endArchive:
       // both ends of the claimed chain segment must match the rolling hashes recorded at propose for checkpoints
       // _start - 1 and _end. The start needs this to be sound - the previous checkpoint's header is not among this
       // proof's public inputs, so nothing else pins where the segment begins. The end is already pinned transitively
@@ -320,7 +320,7 @@ library EpochProofLib {
 
       publicInputs[2] = _args.outHash;
 
-      // Inbox rolling-hash chain segment consumed across the epoch (AZIP-22 Fast Inbox). The start is validated above
+      // Inbox rolling-hash chain segment consumed across the epoch. The start is validated above
       // against the record written at propose for checkpoint _start - 1; the end is pinned transitively through the
       // stored checkpoint header hashes (see the anchoring block in assertAcceptable).
       publicInputs[3] = _args.previousInboxRollingHash;

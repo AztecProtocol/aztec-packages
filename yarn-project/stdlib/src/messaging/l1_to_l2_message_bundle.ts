@@ -7,7 +7,7 @@ import { bufferToHex, hexToBuffer } from '@aztec/foundation/string';
 
 /**
  * A block's L1-to-L2 message bundle: the real message leaves it inserts into the L1-to-L2 message tree and the count
- * that drives both the compact (unpadded) tree append and the message-sponge absorb (AZIP-22 Fast Inbox). See the Noir
+ * that drives both the compact (unpadded) tree append and the message-sponge absorb. See the Noir
  * `L1ToL2MessageBundle`.
  */
 export class L1ToL2MessageBundle {

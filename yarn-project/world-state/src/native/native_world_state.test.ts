@@ -102,7 +102,7 @@ describe('NativeWorldState', () => {
 
       const status = await ws.handleL2BlockAndMessages(block, messages);
 
-      // Messages are appended unpadded at compact indices (AZIP-22 Fast Inbox).
+      // Messages are appended unpadded at compact indices.
       expect(status.meta.messageTreeMeta.size).toBe(BigInt(numMessages));
 
       const expectedNoteHashCount = txsPerBlock * MAX_NOTE_HASHES_PER_TX;
@@ -189,7 +189,7 @@ describe('NativeWorldState', () => {
     it('advances the L1-to-L2 message tree per block, including on non-first blocks', async () => {
       const fork = await ws.fork();
 
-      // Block 1 is first-in-checkpoint carrying 3 messages, appended unpadded at compact indices (AZIP-22 Fast Inbox).
+      // Block 1 is first-in-checkpoint carrying 3 messages, appended unpadded at compact indices.
       const { block: b1, messages: m1 } = await mockBlockWithIndex(BlockNumber(1), /*index=*/ 0, 1, fork, 3, 1);
       const s1 = await ws.handleL2BlockAndMessages(b1, m1);
       expect(s1.meta.messageTreeMeta.size).toBe(3n);

@@ -187,7 +187,7 @@ describe('Archiver Sync', () => {
     await archiver?.stop();
   });
 
-  // Returns every stored L1-to-L2 message leaf (as hex), in insertion order (compact indexing, AZIP-22 Fast Inbox).
+  // Returns every stored L1-to-L2 message leaf (as hex), in insertion order (compact indexing).
   const getStoredLeaves = async () =>
     (await toArray(archiverStore.messages.iterateL1ToL2Messages())).map(m => m.leaf.toString());
   const asHex = (leaves: Fr[]) => leaves.map(l => l.toString());

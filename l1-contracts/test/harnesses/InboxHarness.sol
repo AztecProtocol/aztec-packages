@@ -40,7 +40,7 @@ contract InboxHarness is Inbox {
   }
 
   function getNextMessageIndex() external view returns (uint256) {
-    // Compact cumulative index (AZIP-22 Fast Inbox): the next message's index is the count inserted so far.
+    // Compact cumulative index: the next message's index is the count inserted so far.
     return state.totalMessagesInserted;
   }
 }

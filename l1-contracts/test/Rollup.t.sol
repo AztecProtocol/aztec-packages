@@ -471,7 +471,7 @@ contract RollupTest is RollupBase {
       interim.feeAmount = interim.manaUsed * interim.minFee + interim.portalBalance;
       header.accumulatedFees = interim.feeAmount;
 
-      // Streaming Inbox (AZIP-22 Fast Inbox): nothing is seeded here, so reference the genesis bucket (hash 0).
+      // Streaming Inbox: nothing is seeded here, so reference the genesis bucket (hash 0).
       header.inboxRollingHash = bytes32(0);
 
       // Assert that balance have NOT been increased by proposing the checkpoint
@@ -938,7 +938,7 @@ contract RollupTest is RollupBase {
   }
 
   // The epoch-proof anchoring pins the rolling-hash chain start to the record written at propose for checkpoint
-  // start - 1 (AZIP-22 Fast Inbox), mirroring previousArchive. A wrong previousInboxRollingHash must be rejected.
+  // start - 1, mirroring previousArchive. A wrong previousInboxRollingHash must be rejected.
   function testGetEpochProofPublicInputsRejectsWrongPreviousInboxRollingHash() public setUpFor("empty_checkpoint_1") {
     _proposeCheckpoint("empty_checkpoint_1", 1);
 
@@ -966,7 +966,7 @@ contract RollupTest is RollupBase {
   }
 
   // The end of the rolling-hash chain segment is pinned to the hash recorded at propose for the epoch's last
-  // checkpoint (AZIP-22 Fast Inbox), mirroring endArchive. A wrong endInboxRollingHash must be rejected here rather
+  // checkpoint, mirroring endArchive. A wrong endInboxRollingHash must be rejected here rather
   // than surfacing as a generic proof-verification failure.
   function testGetEpochProofPublicInputsRejectsWrongEndInboxRollingHash() public setUpFor("empty_checkpoint_1") {
     _proposeCheckpoint("empty_checkpoint_1", 1);

@@ -98,7 +98,7 @@ contract FeeHeaderOverflowTest is DecoderBase {
     header.gasFees.feePerDaGas = 0;
     header.totalManaUsed = 0;
 
-    // Streaming Inbox (AZIP-22 Fast Inbox): reference the newest bucket (genesis here; nothing is seeded).
+    // Streaming Inbox: reference the newest bucket (genesis here; nothing is seeded).
     uint256 bucketHint = _rollup.getInbox().getCurrentBucketSeq();
     header.inboxRollingHash = _rollup.getInbox().getBucket(bucketHint).rollingHash;
 
