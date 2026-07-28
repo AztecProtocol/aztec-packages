@@ -6,7 +6,7 @@ mod msgs_only_tests;
 mod rollup_structure_tests;
 
 use crate::{
-    abis::{BlockRollupPublicInputs, L1ToL2MessageSponge, TxRollupPublicInputs},
+    abis::{BlockRollupPublicInputs, L1ToL2MessageBundle, L1ToL2MessageSponge, TxRollupPublicInputs},
     block_root::{
         block_root_empty_tx_first_rollup::{self, BlockRootEmptyTxFirstRollupPrivateInputs},
         block_root_first_rollup::{self, BlockRootFirstRollupPrivateInputs},
@@ -203,8 +203,7 @@ impl TestBuilder {
             RollupFixtureBuilder::make_proof_data(self.right_rollup, self.right_rollup_vk_index),
         ];
 
-        let l1_to_l2_messages = self.l1_to_l2_messages;
-        let num_msgs = self.num_msgs;
+        let message_bundle = self.message_bundle();
         let l1_to_l2_message_frontier_hint = self.l1_to_l2_message_frontier_hint;
         let new_archive_sibling_path = self.new_archive_sibling_path;
 
@@ -220,8 +219,7 @@ impl TestBuilder {
                     previous_state,
                     constants: self.checkpoint_constants,
                     timestamp: left.constants.global_variables.timestamp,
-                    l1_to_l2_messages,
-                    num_msgs,
+                    message_bundle,
                     l1_to_l2_message_frontier_hint,
                     new_archive_sibling_path,
                 },
@@ -230,8 +228,7 @@ impl TestBuilder {
             block_root_single_tx_first_rollup::execute(
                 BlockRootSingleTxFirstRollupPrivateInputs {
                     previous_rollup: previous_rollups[0],
-                    l1_to_l2_messages,
-                    num_msgs,
+                    message_bundle,
                     previous_l1_to_l2: self.previous_l1_to_l2,
                     l1_to_l2_message_frontier_hint,
                     new_archive_sibling_path,
@@ -241,8 +238,7 @@ impl TestBuilder {
             block_root_first_rollup::execute(
                 BlockRootFirstRollupPrivateInputs {
                     previous_rollups,
-                    l1_to_l2_messages,
-                    num_msgs,
+                    message_bundle,
                     previous_l1_to_l2: self.previous_l1_to_l2,
                     l1_to_l2_message_frontier_hint,
                     new_archive_sibling_path,
@@ -257,8 +253,7 @@ impl TestBuilder {
             RollupFixtureBuilder::make_proof_data(self.right_rollup, self.right_rollup_vk_index),
         ];
 
-        let l1_to_l2_messages = self.l1_to_l2_messages;
-        let num_msgs = self.num_msgs;
+        let message_bundle = self.message_bundle();
         let l1_to_l2_message_frontier_hint = self.l1_to_l2_message_frontier_hint;
         let start_msg_sponge = self.start_msg_sponge;
         let new_archive_sibling_path = self.new_archive_sibling_path;
@@ -267,8 +262,7 @@ impl TestBuilder {
             block_root_single_tx_rollup::execute(
                 BlockRootSingleTxRollupPrivateInputs {
                     previous_rollup: previous_rollups[0],
-                    l1_to_l2_messages,
-                    num_msgs,
+                    message_bundle,
                     start_msg_sponge,
                     l1_to_l2_message_frontier_hint,
                     new_archive_sibling_path,
@@ -278,13 +272,23 @@ impl TestBuilder {
             block_root_rollup::execute(
                 BlockRootRollupPrivateInputs {
                     previous_rollups,
-                    l1_to_l2_messages,
-                    num_msgs,
+                    message_bundle,
                     start_msg_sponge,
                     l1_to_l2_message_frontier_hint,
                     new_archive_sibling_path,
                 },
             )
+        }
+    }
+
+    // The block's message bundle. The unit-test fixture inserts exactly `num_msgs` real leaves into the tree, so the
+    // tree-insert count and the sponge real-count are equal here; the transitional gap between them (padded tree
+    // insert vs real-count sponge) is exercised by the orchestrator and full-rollup tests.
+    fn message_bundle(self) -> L1ToL2MessageBundle {
+        L1ToL2MessageBundle {
+            messages: self.l1_to_l2_messages,
+            num_msgs: self.num_msgs,
+            num_real_msgs: self.num_msgs,
         }
     }
 

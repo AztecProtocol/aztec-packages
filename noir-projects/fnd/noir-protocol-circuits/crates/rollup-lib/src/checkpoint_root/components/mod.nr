@@ -1,7 +1,7 @@
 mod checkpoint_root_inputs_validator;
 mod checkpoint_rollup_public_inputs_composer;
-mod validate_parity_root;
+mod validate_inbox_parity;
 
 pub use checkpoint_rollup_public_inputs_composer::CheckpointRollupPublicInputsComposer;
 pub use checkpoint_root_inputs_validator::CheckpointRootInputsValidator;
-pub use validate_parity_root::validate_parity_root;
+pub use validate_inbox_parity::validate_inbox_parity;

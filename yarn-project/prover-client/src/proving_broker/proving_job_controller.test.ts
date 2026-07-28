@@ -5,7 +5,7 @@ import { promiseWithResolvers } from '@aztec/foundation/promise';
 import { sleep } from '@aztec/foundation/sleep';
 import { type ProvingJobId, makePublicInputsAndRecursiveProof } from '@aztec/stdlib/interfaces/server';
 import { ProvingRequestType, makeRecursiveProof } from '@aztec/stdlib/proofs';
-import { makeParityBasePrivateInputs, makeParityPublicInputs } from '@aztec/stdlib/testing';
+import { makeInboxParityPrivateInputs, makeParityPublicInputs } from '@aztec/stdlib/testing';
 import { VerificationKeyData } from '@aztec/stdlib/vks';
 
 import { jest } from '@jest/globals';
@@ -24,8 +24,8 @@ describe('ProvingJobController', () => {
     controller = new ProvingJobController(
       '1' as ProvingJobId,
       {
-        type: ProvingRequestType.PARITY_BASE,
-        inputs: makeParityBasePrivateInputs(),
+        type: ProvingRequestType.INBOX_PARITY,
+        inputs: makeInboxParityPrivateInputs(),
       },
       EpochNumber(0),
       42,
@@ -63,7 +63,7 @@ describe('ProvingJobController', () => {
       makeRecursiveProof(RECURSIVE_PROOF_LENGTH),
       VerificationKeyData.makeFakeHonk(),
     );
-    jest.spyOn(prover, 'getBaseParityProof').mockResolvedValueOnce(resp);
+    jest.spyOn(prover, 'getInboxParityProof').mockResolvedValueOnce(resp);
 
     controller.start();
     await sleep(1); // give promises a chance to complete
@@ -73,7 +73,7 @@ describe('ProvingJobController', () => {
 
   it('calls onComplete with the error', async () => {
     const err = new Error('test error');
-    jest.spyOn(prover, 'getBaseParityProof').mockRejectedValueOnce(err);
+    jest.spyOn(prover, 'getInboxParityProof').mockRejectedValueOnce(err);
 
     controller.start();
     await sleep(1);
@@ -95,7 +95,7 @@ describe('ProvingJobController', () => {
 
   it('calls onComplete if abort is called but result is masked', async () => {
     const { promise, resolve } = promiseWithResolvers<any>();
-    jest.spyOn(prover, 'getBaseParityProof').mockReturnValueOnce(promise);
+    jest.spyOn(prover, 'getInboxParityProof').mockReturnValueOnce(promise);
 
     controller.start();
 

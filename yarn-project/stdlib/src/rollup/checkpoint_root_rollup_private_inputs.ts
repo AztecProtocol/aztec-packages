@@ -119,10 +119,10 @@ export class CheckpointRootRollupPrivateInputs {
       RollupHonkProofData<BlockRollupPublicInputs>,
     ],
     /**
-     * Parity root proof over the checkpoint's L1-to-L2 messages (AZIP-22 Fast Inbox): it commits to the same message
+     * Inbox parity proof over the checkpoint's L1-to-L2 messages (AZIP-22 Fast Inbox): it commits to the same message
      * list behind the L1-checked `inHash`, and its message sponge is checked against the blocks' accumulated one.
      */
-    public parityRoot: UltraHonkProofData<ParityPublicInputs>,
+    public inboxParity: UltraHonkProofData<ParityPublicInputs>,
     public hints: CheckpointRootRollupHints,
   ) {}
 
@@ -131,7 +131,7 @@ export class CheckpointRootRollupPrivateInputs {
   }
 
   static getFields(fields: FieldsOf<CheckpointRootRollupPrivateInputs>) {
-    return [fields.previousRollups, fields.parityRoot, fields.hints] as const;
+    return [fields.previousRollups, fields.inboxParity, fields.hints] as const;
   }
 
   toBuffer() {
@@ -168,10 +168,10 @@ export class CheckpointRootSingleBlockRollupPrivateInputs {
   constructor(
     public previousRollup: RollupHonkProofData<BlockRollupPublicInputs>,
     /**
-     * Parity root proof over the checkpoint's L1-to-L2 messages (AZIP-22 Fast Inbox): it commits to the same message
+     * Inbox parity proof over the checkpoint's L1-to-L2 messages (AZIP-22 Fast Inbox): it commits to the same message
      * list behind the L1-checked `inHash`, and its message sponge is checked against the block's accumulated one.
      */
-    public parityRoot: UltraHonkProofData<ParityPublicInputs>,
+    public inboxParity: UltraHonkProofData<ParityPublicInputs>,
     public hints: CheckpointRootRollupHints,
   ) {}
 
@@ -182,7 +182,7 @@ export class CheckpointRootSingleBlockRollupPrivateInputs {
   }
 
   static getFields(fields: FieldsOf<CheckpointRootSingleBlockRollupPrivateInputs>) {
-    return [fields.previousRollup, fields.parityRoot, fields.hints] as const;
+    return [fields.previousRollup, fields.inboxParity, fields.hints] as const;
   }
 
   toBuffer() {

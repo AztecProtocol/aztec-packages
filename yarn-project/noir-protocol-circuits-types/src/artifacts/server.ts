@@ -1,8 +1,9 @@
 import type { NoirCompiledCircuit, NoirCompiledCircuitWithName } from '@aztec/stdlib/noir';
 
 import PublicChonkVerifierJson from '../../artifacts/chonk_verifier_public.json' with { type: 'json' };
-import ParityBaseJson from '../../artifacts/parity_base.json' with { type: 'json' };
-import ParityRootJson from '../../artifacts/parity_root.json' with { type: 'json' };
+import InboxParity64Json from '../../artifacts/inbox_parity_64.json' with { type: 'json' };
+import InboxParity256Json from '../../artifacts/inbox_parity_256.json' with { type: 'json' };
+import InboxParity1024Json from '../../artifacts/inbox_parity_1024.json' with { type: 'json' };
 import BlockMergeRollupJson from '../../artifacts/rollup_block_merge.json' with { type: 'json' };
 import BlockRootRollupJson from '../../artifacts/rollup_block_root.json' with { type: 'json' };
 import BlockRootFirstRollupJson from '../../artifacts/rollup_block_root_first.json' with { type: 'json' };
@@ -29,8 +30,9 @@ import TxMergeRollupJson from '../../artifacts/rollup_tx_merge.json' with { type
 import type { ServerProtocolArtifact } from './types.js';
 
 export const ServerCircuitArtifacts: Record<ServerProtocolArtifact, NoirCompiledCircuit> = {
-  ParityBaseArtifact: ParityBaseJson as NoirCompiledCircuit,
-  ParityRootArtifact: ParityRootJson as NoirCompiledCircuit,
+  InboxParity64Artifact: InboxParity64Json as NoirCompiledCircuit,
+  InboxParity256Artifact: InboxParity256Json as NoirCompiledCircuit,
+  InboxParity1024Artifact: InboxParity1024Json as NoirCompiledCircuit,
   PublicChonkVerifier: PublicChonkVerifierJson as NoirCompiledCircuit,
   PrivateTxBaseRollupArtifact: PrivateTxBaseRollupJson as NoirCompiledCircuit,
   PublicTxBaseRollupArtifact: PublicTxBaseRollupJson as NoirCompiledCircuit,
@@ -50,8 +52,11 @@ export const ServerCircuitArtifacts: Record<ServerProtocolArtifact, NoirCompiled
 };
 
 export const SimulatedServerCircuitArtifacts: Record<ServerProtocolArtifact, NoirCompiledCircuit> = {
-  ParityBaseArtifact: ParityBaseJson as NoirCompiledCircuit,
-  ParityRootArtifact: ParityRootJson as NoirCompiledCircuit,
+  // No separate simulated build for the inbox parity ladder: they verify no child proofs, so the constrained
+  // artifacts are used for simulation too.
+  InboxParity64Artifact: InboxParity64Json as NoirCompiledCircuit,
+  InboxParity256Artifact: InboxParity256Json as NoirCompiledCircuit,
+  InboxParity1024Artifact: InboxParity1024Json as NoirCompiledCircuit,
   PublicChonkVerifier: PublicChonkVerifierJson as NoirCompiledCircuit,
   PrivateTxBaseRollupArtifact: PrivateTxBaseRollupSimulatedJson as NoirCompiledCircuit,
   PublicTxBaseRollupArtifact: PublicTxBaseRollupSimulatedJson as NoirCompiledCircuit,

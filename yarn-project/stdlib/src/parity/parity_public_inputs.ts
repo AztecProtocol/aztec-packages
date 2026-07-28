@@ -8,27 +8,28 @@ import { L1ToL2MessageSponge } from '../messaging/l1_to_l2_message_sponge.js';
 
 export class ParityPublicInputs {
   constructor(
-    /** Root of the SHA256 tree. */
-    public shaRoot: Fr,
-    /** Root of the converted tree. */
-    public convertedRoot: Fr,
-    /** Inbox rolling hash before absorbing this batch of messages. */
+    /**
+     * The L1 `in_hash` (sha256 frontier root of the checkpoint's messages). Unconstrained pass-through: InboxParity
+     * echoes the value the prover supplies; it stays the authoritative L1 check until the Fast Inbox flip.
+     */
+    public inHash: Fr,
+    /** Inbox rolling hash before absorbing this checkpoint's messages. */
     public startRollingHash: Fr,
-    /** Inbox rolling hash after absorbing the `numMsgs` real messages in this batch. */
+    /** Inbox rolling hash after absorbing the `numMsgs` real messages. */
     public endRollingHash: Fr,
-    /** Message-bundle sponge before absorbing this batch of leaves. */
+    /** Message-bundle sponge before absorbing this checkpoint's messages (empty at checkpoint start). */
     public startSponge: L1ToL2MessageSponge,
-    /** Message-bundle sponge after absorbing the full (padded) batch of leaves. */
+    /** Message-bundle sponge after absorbing the `numMsgs` real messages. */
     public endSponge: L1ToL2MessageSponge,
-    /** Number of real (non-padding) messages absorbed into the rolling hash by this batch. */
+    /** Number of real (non-padding) messages absorbed into the rolling hash and the sponge. */
     public numMsgs: number,
     /** Root of the VK tree */
     public vkTreeRoot: Fr,
     /** Prover identity committed to by the circuit, for sybil protection. */
     public proverId: Fr,
   ) {
-    if (shaRoot.toBuffer()[0] != 0) {
-      throw new Error(`shaRoot buffer must be 31 bytes. Got 32 bytes`);
+    if (inHash.toBuffer()[0] != 0) {
+      throw new Error(`inHash buffer must be 31 bytes. Got 32 bytes`);
     }
   }
 
@@ -38,8 +39,7 @@ export class ParityPublicInputs {
    */
   toBuffer() {
     return serializeToBuffer(
-      this.shaRoot,
-      this.convertedRoot,
+      this.inHash,
       this.startRollingHash,
       this.endRollingHash,
       this.startSponge,
@@ -79,8 +79,7 @@ export class ParityPublicInputs {
    */
   static getFields(fields: FieldsOf<ParityPublicInputs>) {
     return [
-      fields.shaRoot,
-      fields.convertedRoot,
+      fields.inHash,
       fields.startRollingHash,
       fields.endRollingHash,
       fields.startSponge,
@@ -99,7 +98,6 @@ export class ParityPublicInputs {
   static fromBuffer(buffer: Buffer | BufferReader) {
     const reader = BufferReader.asReader(buffer);
     return new ParityPublicInputs(
-      reader.readObject(Fr),
       reader.readObject(Fr),
       reader.readObject(Fr),
       reader.readObject(Fr),

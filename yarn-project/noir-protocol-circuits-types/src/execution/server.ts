@@ -1,7 +1,8 @@
+import { INBOX_PARITY_SIZE_LARGE, INBOX_PARITY_SIZE_MEDIUM, INBOX_PARITY_SIZE_SMALL } from '@aztec/constants';
 import { pushTestData } from '@aztec/foundation/testing';
 import type { WitnessMap } from '@aztec/noir-acvm_js';
 import { abiDecode, abiEncode } from '@aztec/noir-noirc_abi';
-import type { ParityBasePrivateInputs, ParityPublicInputs, ParityRootPrivateInputs } from '@aztec/stdlib/parity';
+import type { InboxParityPrivateInputs, ParityPublicInputs } from '@aztec/stdlib/parity';
 import type {
   BlockMergeRollupPrivateInputs,
   BlockRollupPublicInputs,
@@ -41,9 +42,8 @@ import {
   mapCheckpointRollupPublicInputsFromNoir,
   mapCheckpointRootRollupPrivateInputsToNoir,
   mapCheckpointRootSingleBlockRollupPrivateInputsToNoir,
-  mapParityBasePrivateInputsToNoir,
+  mapInboxParityPrivateInputsToNoir,
   mapParityPublicInputsFromNoir,
-  mapParityRootPrivateInputsToNoir,
   mapPrivateTxBaseRollupPrivateInputsToNoir,
   mapPublicChonkVerifierPrivateInputsToNoir,
   mapPublicChonkVerifierPublicInputsFromNoir,
@@ -55,8 +55,7 @@ import {
 } from '../conversion/server.js';
 import type {
   ChonkVerifierPublicReturnType,
-  ParityBaseReturnType,
-  ParityRootReturnType,
+  InboxParity64ReturnType,
   RollupBlockMergeReturnType,
   RollupBlockRootFirstEmptyTxReturnType,
   RollupBlockRootFirstReturnType,
@@ -77,27 +76,33 @@ import type { DecodedInputs } from '../utils/decoded_inputs.js';
 export { mapAvmCircuitPublicInputsToNoir } from '../conversion/server.js';
 
 /**
- * Converts the inputs of the base parity circuit into a witness map.
- * @param inputs - The base parity inputs.
+ * Converts the inputs of the inbox parity circuit into a witness map.
+ * @param inputs - The inbox parity inputs.
  * @returns The witness map
  */
-export function convertParityBasePrivateInputsToWitnessMap(
-  inputs: ParityBasePrivateInputs,
+export function convertInboxParityPrivateInputsToWitnessMap(
+  inputs: InboxParityPrivateInputs,
   simulated = false,
 ): WitnessMap {
-  return convertPrivateInputsToWitnessMap('ParityBaseArtifact', mapParityBasePrivateInputsToNoir(inputs), simulated);
+  return convertPrivateInputsToWitnessMap(
+    inboxParityArtifactForSize(inputs.size),
+    mapInboxParityPrivateInputsToNoir(inputs),
+    simulated,
+  );
 }
 
-/**
- * Converts the inputs of the root parity circuit into a witness map.
- * @param inputs - The root parity inputs.
- * @returns The witness map
- */
-export function convertParityRootPrivateInputsToWitnessMap(
-  inputs: ParityRootPrivateInputs,
-  simulated = false,
-): WitnessMap {
-  return convertPrivateInputsToWitnessMap('ParityRootArtifact', mapParityRootPrivateInputsToNoir(inputs), simulated);
+/** Maps an InboxParity ladder size to its server artifact. */
+export function inboxParityArtifactForSize(size: number): ServerProtocolArtifact {
+  switch (size) {
+    case INBOX_PARITY_SIZE_SMALL:
+      return 'InboxParity64Artifact';
+    case INBOX_PARITY_SIZE_MEDIUM:
+      return 'InboxParity256Artifact';
+    case INBOX_PARITY_SIZE_LARGE:
+      return 'InboxParity1024Artifact';
+    default:
+      throw new Error(`No InboxParity artifact for size ${size}`);
+  }
 }
 
 export function convertPublicChonkVerifierPrivateInputsToWitnessMap(
@@ -467,22 +472,21 @@ export function convertRootRollupOutputsFromWitnessMap(outputs: WitnessMap, simu
 }
 
 /**
- * Converts the outputs of the base parity circuit from a witness map.
- * @param outputs - The base parity outputs as a witness map.
+ * Converts the outputs of the inbox parity circuit from a witness map.
+ * @param outputs - The inbox parity outputs as a witness map.
  * @returns The public inputs.
  */
-export function convertParityBaseOutputsFromWitnessMap(outputs: WitnessMap, simulated = false): ParityPublicInputs {
-  const publicInputs = convertOutputsFromWitnessMap<ParityBaseReturnType>('ParityBaseArtifact', outputs, simulated);
-  return mapParityPublicInputsFromNoir(publicInputs);
-}
-
-/**
- * Converts the outputs of the root parity circuit from a witness map.
- * @param outputs - The root parity outputs as a witness map.
- * @returns The public inputs.
- */
-export function convertParityRootOutputsFromWitnessMap(outputs: WitnessMap, simulated = false): ParityPublicInputs {
-  const publicInputs = convertOutputsFromWitnessMap<ParityRootReturnType>('ParityRootArtifact', outputs, simulated);
+export function convertInboxParityOutputsFromWitnessMap(
+  outputs: WitnessMap,
+  size: number,
+  simulated = false,
+): ParityPublicInputs {
+  // Every ladder size shares the same `ParityPublicInputs` return ABI, so the decode is identical across sizes.
+  const publicInputs = convertOutputsFromWitnessMap<InboxParity64ReturnType>(
+    inboxParityArtifactForSize(size),
+    outputs,
+    simulated,
+  );
   return mapParityPublicInputsFromNoir(publicInputs);
 }
 

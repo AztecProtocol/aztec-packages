@@ -18,6 +18,5 @@ export enum ProvingRequestType {
   CHECKPOINT_MERGE_ROLLUP,
   ROOT_ROLLUP,
 
-  PARITY_BASE,
-  PARITY_ROOT,
+  INBOX_PARITY,
 }

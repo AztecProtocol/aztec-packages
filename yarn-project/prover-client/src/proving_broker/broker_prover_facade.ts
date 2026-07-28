@@ -1,6 +1,5 @@
 import type {
   AVM_V2_PROOF_LENGTH_IN_FIELDS,
-  NESTED_RECURSIVE_PROOF_LENGTH,
   NESTED_RECURSIVE_ROLLUP_HONK_PROOF_LENGTH,
   RECURSIVE_PROOF_LENGTH,
 } from '@aztec/constants';
@@ -22,7 +21,7 @@ import {
   type ServerCircuitProver,
   makeProvingJobId,
 } from '@aztec/stdlib/interfaces/server';
-import type { ParityBasePrivateInputs, ParityPublicInputs, ParityRootPrivateInputs } from '@aztec/stdlib/parity';
+import type { InboxParityPrivateInputs, ParityPublicInputs } from '@aztec/stdlib/parity';
 import { ProvingRequestType, RecursiveProof } from '@aztec/stdlib/proofs';
 import type {
   BlockMergeRollupPrivateInputs,
@@ -414,14 +413,14 @@ export class BrokerCircuitProverFacade implements ServerCircuitProver {
     );
   }
 
-  getBaseParityProof(
-    inputs: ParityBasePrivateInputs,
+  getInboxParityProof(
+    inputs: InboxParityPrivateInputs,
     signal?: AbortSignal,
     epochNumber?: EpochNumber,
   ): Promise<PublicInputsAndRecursiveProof<ParityPublicInputs, typeof RECURSIVE_PROOF_LENGTH>> {
     return this.enqueueJob(
-      this.generateId(ProvingRequestType.PARITY_BASE, inputs, epochNumber),
-      ProvingRequestType.PARITY_BASE,
+      this.generateId(ProvingRequestType.INBOX_PARITY, inputs, epochNumber),
+      ProvingRequestType.INBOX_PARITY,
       inputs,
       epochNumber,
       signal,
@@ -480,20 +479,6 @@ export class BrokerCircuitProverFacade implements ServerCircuitProver {
     return this.enqueueJob(
       this.generateId(ProvingRequestType.PUBLIC_TX_BASE_ROLLUP, inputs, epochNumber),
       ProvingRequestType.PUBLIC_TX_BASE_ROLLUP,
-      inputs,
-      epochNumber,
-      signal,
-    );
-  }
-
-  getRootParityProof(
-    inputs: ParityRootPrivateInputs,
-    signal?: AbortSignal,
-    epochNumber?: EpochNumber,
-  ): Promise<PublicInputsAndRecursiveProof<ParityPublicInputs, typeof NESTED_RECURSIVE_PROOF_LENGTH>> {
-    return this.enqueueJob(
-      this.generateId(ProvingRequestType.PARITY_ROOT, inputs, epochNumber),
-      ProvingRequestType.PARITY_ROOT,
       inputs,
       epochNumber,
       signal,

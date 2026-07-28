@@ -1,5 +1,5 @@
 use crate::{
-    abis::{BlockRollupPublicInputs, L1ToL2MessageSponge, TxRollupPublicInputs},
+    abis::{BlockRollupPublicInputs, L1ToL2MessageBundle, L1ToL2MessageSponge, TxRollupPublicInputs},
     tx_merge::merge_tx_rollups,
 };
 use types::{
@@ -9,9 +9,10 @@ use types::{
         partial_state_reference::PartialStateReference, state_reference::StateReference,
     },
     blob_data::SpongeBlob,
-    constants::{ARCHIVE_HEIGHT, L1_TO_L2_MSG_TREE_HEIGHT, MAX_L1_TO_L2_MSGS_PER_BLOCK},
+    constants::{ARCHIVE_HEIGHT, L1_TO_L2_MSG_TREE_HEIGHT},
     merkle_tree::append_only_tree,
     traits::Hash,
+    utils::arrays::assert_trailing_zeros,
 };
 
 pub struct BlockRollupPublicInputsComposer {
@@ -135,38 +136,54 @@ impl BlockRollupPublicInputsComposer {
         Self::new_from_single_rollup(merged_rollup)
     }
 
-    /// Appends this block's L1-to-L2 message bundle to the tree and absorbs the same leaves into the message sponge.
+    /// Appends this block's L1-to-L2 message bundle to the tree and absorbs its real messages into the message sponge.
     ///
     /// `previous_l1_to_l2` is the tree snapshot this block builds on: for the first block it is the pre-insertion
     /// snapshot (hinted, and later checked against the previous checkpoint), for subsequent blocks it is the snapshot
     /// carried in the constants. `start_msg_sponge` is the sponge inherited from the previous block (empty for the
-    /// first block). Only `leaves[0..num_msgs]` are inserted and absorbed; the padding lanes must be zero. The sponge
-    /// absorbs exactly the leaves inserted into the tree, so the checkpoint root can recompute the same commitment.
+    /// first block).
+    ///
+    /// The tree append and the sponge absorb use different counts transitionally (see `L1ToL2MessageBundle`): the tree
+    /// inserts `bundle.num_msgs` leaves (a full padded subtree for a message-bearing block), while the sponge absorbs
+    /// only `bundle.num_real_msgs` real leaves so it matches the checkpoint's variable-size `InboxParity` proof. The
+    /// padding lanes past `num_real_msgs` must be zero.
     pub fn with_message_bundle(
         &mut self,
         is_first_block: bool,
         previous_l1_to_l2: AppendOnlyTreeSnapshot,
         start_msg_sponge: L1ToL2MessageSponge,
-        leaves: [Field; MAX_L1_TO_L2_MSGS_PER_BLOCK],
-        num_msgs: u32,
+        bundle: L1ToL2MessageBundle,
         frontier_hint: [Field; L1_TO_L2_MSG_TREE_HEIGHT],
     ) -> Self {
         self.is_first_block = is_first_block;
         self.previous_l1_to_l2 = previous_l1_to_l2;
         self.bundle_applied = true;
 
+        // Real messages occupy the leading lanes; everything past `num_real_msgs` is zero padding, including the
+        // padding that fills out the tree's fixed subtree insert.
+        assert_trailing_zeros(bundle.messages, bundle.num_real_msgs);
+
+        // The sponge absorbs a prefix of what the tree inserts, so the real count can never exceed the insert count.
+        assert(bundle.num_real_msgs <= bundle.num_msgs, "more real messages than tree leaves");
+
+        // NOTE: `num_msgs` (the tree-insert count) is not otherwise pinned in-circuit — nothing here forces it to the
+        // padded subtree size. On the honest path the orchestrator sets it to `MAX_L1_TO_L2_MSGS_PER_BLOCK` for the
+        // first block and 0 otherwise, and the resulting `new_l1_to_l2` snapshot is what binds it (first-block variants
+        // check it against the tx-constants snapshot, ultimately the L1 pending-chain header hash). Like the
+        // unconstrained `in_hash`, a fully trustless binding is deferred to the Fast Inbox flip.
+
         // Append the bundle to the l1-to-l2 message tree at its current (arbitrary) next-available index.
-        self.new_l1_to_l2 = append_only_tree::append_leaves_to_snapshot::<L1_TO_L2_MSG_TREE_HEIGHT, MAX_L1_TO_L2_MSGS_PER_BLOCK>(
+        self.new_l1_to_l2 = append_only_tree::append_leaves_to_snapshot::<L1_TO_L2_MSG_TREE_HEIGHT, _>(
             previous_l1_to_l2,
-            leaves,
-            num_msgs,
+            bundle.messages,
+            bundle.num_msgs,
             frontier_hint,
         );
 
-        // Absorb the same leaves into the message sponge, threading it from the previous block.
+        // Absorb the real leaves into the message sponge, threading it from the previous block.
         self.start_msg_sponge = start_msg_sponge;
         let mut end_msg_sponge = start_msg_sponge;
-        end_msg_sponge.absorb(leaves, num_msgs);
+        end_msg_sponge.absorb(bundle.messages, bundle.num_real_msgs);
         self.end_msg_sponge = end_msg_sponge;
 
         *self
