@@ -37,6 +37,7 @@ function proposedParent(number: number, slot: number, outHash: Fr): ProposedChec
     blockCount: 1,
     totalManaUsed: 0n,
     feeAssetPriceModifier: 0n,
+    inboxMsgTotal: 0n,
   };
 }
 

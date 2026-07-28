@@ -1,18 +1,15 @@
 import { type BlockBlobData, type BlockEndBlobData, type SpongeBlob, encodeBlockEndBlobData } from '@aztec/blob-lib';
-import {
-  type ARCHIVE_HEIGHT,
-  L1_TO_L2_MSG_SUBTREE_HEIGHT,
-  type L1_TO_L2_MSG_SUBTREE_ROOT_SIBLING_PATH_LENGTH,
-  type L1_TO_L2_MSG_TREE_HEIGHT,
-  MAX_L1_TO_L2_MSGS_PER_BLOCK,
-  type NESTED_RECURSIVE_ROLLUP_HONK_PROOF_LENGTH,
+import type {
+  ARCHIVE_HEIGHT,
+  L1_TO_L2_MSG_TREE_HEIGHT,
+  NESTED_RECURSIVE_ROLLUP_HONK_PROOF_LENGTH,
 } from '@aztec/constants';
 import { BlockNumber } from '@aztec/foundation/branded-types';
 import { Fr } from '@aztec/foundation/curves/bn254';
 import type { Tuple } from '@aztec/foundation/serialize';
 import { type TreeNodeLocation, UnbalancedTreeStore } from '@aztec/foundation/trees';
 import type { PublicInputsAndRecursiveProof } from '@aztec/stdlib/interfaces/server';
-import { L1ToL2MessageBundle, L1ToL2MessageSponge } from '@aztec/stdlib/messaging';
+import { L1ToL2MessageBundle, type L1ToL2MessageSponge, makeL1ToL2MessageBundle } from '@aztec/stdlib/messaging';
 import {
   BlockRollupPublicInputs,
   BlockRootNoTxsRollupPrivateInputs,
@@ -61,7 +58,6 @@ export class BlockProvingState {
   private endState: StateReference | undefined;
   private endSpongeBlob: SpongeBlob | undefined;
   private txs: TxProvingState[] = [];
-  private isFirstBlock: boolean;
   private error: string | undefined;
 
   constructor(
@@ -72,19 +68,31 @@ export class BlockProvingState {
     private readonly timestamp: UInt64,
     public readonly lastArchiveTreeSnapshot: AppendOnlyTreeSnapshot,
     private readonly lastArchiveSiblingPath: Tuple<Fr, typeof ARCHIVE_HEIGHT>,
-    private readonly lastL1ToL2MessageTreeSnapshot: AppendOnlyTreeSnapshot,
-    private readonly lastL1ToL2MessageSubtreeRootSiblingPath: Tuple<
-      Fr,
-      typeof L1_TO_L2_MSG_SUBTREE_ROOT_SIBLING_PATH_LENGTH
-    >,
+    // The full state reference of the previous block, before this block's bundle is appended. Feeds the msgs-only
+    // block root, whose zero-tx block has no tx constants to pin the previous state.
+    private readonly previousState: StateReference,
+    // This block's L1-to-L2 message tree snapshot before and after its own bundle (AZIP-22 Fast Inbox). The start is
+    // the previous block's end (block-merge continuity); the end is this block's own post-bundle snapshot.
+    private readonly startL1ToL2MessageTreeSnapshot: AppendOnlyTreeSnapshot,
     public readonly newL1ToL2MessageTreeSnapshot: AppendOnlyTreeSnapshot,
-    private readonly headerOfLastBlockInPreviousCheckpoint: BlockHeader,
+    // Full-height frontier (left-sibling path) at the block's start index, pinning the append at a compact index.
+    private readonly l1ToL2MessageFrontierHint: Tuple<Fr, typeof L1_TO_L2_MSG_TREE_HEIGHT>,
+    // This block's own real L1-to-L2 message leaves (unpadded slice).
+    private readonly l1ToL2Messages: Fr[],
+    // Message sponge threaded across the checkpoint's blocks (AZIP-22 Fast Inbox): the start is the previous block's
+    // end sponge (empty for the first block), the end absorbs this block's own slice. Block merges assert the
+    // continuity, so the end is exposed for the next block to inherit.
+    private readonly startMsgSponge: L1ToL2MessageSponge,
+    private readonly endMsgSponge: L1ToL2MessageSponge,
     private readonly startSpongeBlob: SpongeBlob,
     public parentCheckpoint: CheckpointProvingState,
   ) {
-    this.isFirstBlock = index === 0;
-
     this.baseOrMergeProofs = new UnbalancedTreeStore(totalNumTxs);
+  }
+
+  /** The message sponge after absorbing this block's slice; inherited by the next block as its start sponge. */
+  public getEndMsgSponge(): L1ToL2MessageSponge {
+    return this.endMsgSponge;
   }
 
   public get epochNumber(): number {
@@ -255,7 +263,8 @@ export class BlockProvingState {
       noteHashRoot: partial.noteHashTree.root,
       nullifierRoot: partial.nullifierTree.root,
       publicDataRoot: partial.publicDataTree.root,
-      l1ToL2MessageRoot: this.isFirstBlock ? this.newL1ToL2MessageTreeSnapshot.root : undefined,
+      // Every block carries its own post-bundle l1-to-l2 message tree root (AZIP-22 Fast Inbox).
+      l1ToL2MessageRoot: this.newL1ToL2MessageTreeSnapshot.root,
     };
   }
 
@@ -298,7 +307,7 @@ export class BlockProvingState {
 
     const messageBundle = this.#getMessageBundle();
     const frontierHint = this.#getFrontierHint();
-    const startMsgSponge = this.#getStartMsgSponge();
+    const startMsgSponge = this.startMsgSponge;
 
     const [leftRollup, rightRollup] = previousRollups;
     if (!leftRollup) {
@@ -306,7 +315,7 @@ export class BlockProvingState {
         rollupType: 'rollup-block-root-no-txs' satisfies CircuitName,
         inputs: new BlockRootNoTxsRollupPrivateInputs(
           this.lastArchiveTreeSnapshot,
-          this.headerOfLastBlockInPreviousCheckpoint.state,
+          this.previousState,
           this.constants,
           this.timestamp,
           this.startSpongeBlob,
@@ -322,7 +331,7 @@ export class BlockProvingState {
         inputs: new BlockRootSingleTxRollupPrivateInputs(
           leftRollup,
           messageBundle,
-          this.lastL1ToL2MessageTreeSnapshot,
+          this.startL1ToL2MessageTreeSnapshot,
           startMsgSponge,
           frontierHint,
           this.lastArchiveSiblingPath,
@@ -334,7 +343,7 @@ export class BlockProvingState {
         inputs: new BlockRootRollupPrivateInputs(
           [leftRollup, rightRollup],
           messageBundle,
-          this.lastL1ToL2MessageTreeSnapshot,
+          this.startL1ToL2MessageTreeSnapshot,
           startMsgSponge,
           frontierHint,
           this.lastArchiveSiblingPath,
@@ -344,41 +353,21 @@ export class BlockProvingState {
   }
 
   /**
-   * The message sponge this block starts from. It resets per checkpoint, so the first block starts from empty and
-   * every later block inherits the checkpoint's accumulated sponge (transitionally the first block carries all of the
-   * checkpoint's messages, so that value is already final after it).
-   */
-  #getStartMsgSponge(): L1ToL2MessageSponge {
-    return this.isFirstBlock ? L1ToL2MessageSponge.empty() : this.parentCheckpoint.getCheckpointMsgSponge();
-  }
-
-  /**
-   * The message bundle this block appends. Transitionally the first block carries the whole checkpoint's messages
-   * padded to `MAX_L1_TO_L2_MSGS_PER_BLOCK` — inserted as a full aligned subtree into the L1-to-L2 tree (`numMsgs` =
-   * the cap), while only the real messages are absorbed into the message sponge (`numRealMsgs`, matching the
-   * checkpoint's InboxParity proof). Non-first blocks carry an empty bundle.
+   * The real-count message bundle this block appends (AZIP-22 Fast Inbox): the block's own message slice, inserted at
+   * compact indices and absorbed into its block-root message sponge.
    */
   #getMessageBundle(): L1ToL2MessageBundle {
-    if (this.isFirstBlock) {
-      return new L1ToL2MessageBundle(
-        this.parentCheckpoint.getPaddedL1ToL2Messages(),
-        MAX_L1_TO_L2_MSGS_PER_BLOCK,
-        this.parentCheckpoint.getNumRealL1ToL2Messages(),
-      );
-    }
-    return L1ToL2MessageBundle.empty();
+    return this.l1ToL2Messages.length === 0
+      ? L1ToL2MessageBundle.empty()
+      : makeL1ToL2MessageBundle(this.l1ToL2Messages);
   }
 
   /**
-   * Full-height frontier hint for the bundle append. The l1-to-l2 tree index is always subtree-aligned in the
-   * transitional wiring, so the bottom `L1_TO_L2_MSG_SUBTREE_HEIGHT` levels are left-child (unread, zero) and the top
-   * levels are exactly the subtree-root sibling path already captured for this block.
+   * Full-height frontier hint for the bundle append: the left-sibling path at the block's compact start index, which
+   * the block-root circuit re-hashes against its start snapshot root (AZIP-22 Fast Inbox).
    */
   #getFrontierHint(): Tuple<Fr, typeof L1_TO_L2_MSG_TREE_HEIGHT> {
-    return [
-      ...Array.from({ length: L1_TO_L2_MSG_SUBTREE_HEIGHT }, () => Fr.ZERO),
-      ...this.lastL1ToL2MessageSubtreeRootSiblingPath,
-    ] as Tuple<Fr, typeof L1_TO_L2_MSG_TREE_HEIGHT>;
+    return this.l1ToL2MessageFrontierHint;
   }
 
   // Returns a specific transaction proving state

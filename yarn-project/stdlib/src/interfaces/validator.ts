@@ -83,10 +83,7 @@ export type ValidatorClientConfig = ValidatorHASignerConfig &
   };
 
 export type ValidatorClientFullConfig = ValidatorClientConfig &
-  Pick<
-    SequencerConfig,
-    'txPublicSetupAllowListExtend' | 'broadcastInvalidBlockProposal' | 'maxBlocksPerCheckpoint' | 'streamingInbox'
-  > &
+  Pick<SequencerConfig, 'txPublicSetupAllowListExtend' | 'broadcastInvalidBlockProposal' | 'maxBlocksPerCheckpoint'> &
   // `blockDurationMs` is optional on the loose `SequencerConfig` but is always populated via the shared
   // `numberConfigHelper(3000)` mapping, so it is required on the fully-resolved validator config.
   Required<Pick<SequencerConfig, 'blockDurationMs'>> &
@@ -137,7 +134,6 @@ export const ValidatorClientFullConfigSchema = zodFor<Omit<ValidatorClientFullCo
     broadcastInvalidBlockProposal: z.boolean().optional(),
     blockDurationMs: z.number().positive(),
     maxBlocksPerCheckpoint: z.number().positive().optional(),
-    streamingInbox: z.boolean().optional(),
     slashBroadcastedInvalidBlockPenalty: schemas.BigInt,
     slashBroadcastedInvalidCheckpointProposalPenalty: schemas.BigInt,
     slashDuplicateProposalPenalty: schemas.BigInt,

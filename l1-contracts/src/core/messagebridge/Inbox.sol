@@ -130,10 +130,10 @@ contract Inbox is IInbox {
       currentTree = trees[inProgress];
     }
 
-    // this is the global leaf index and not index in the checkpoint subtree
-    // such that users can simply use it and don't need access to a node if they are to consume it in public.
-    // trees are constant size so global index = tree number * size + subtree index
-    uint256 index = (inProgress - Constants.INITIAL_CHECKPOINT_NUMBER) * SIZE + currentTree.nextIndex;
+    // Compact cumulative message index (AZIP-22 Fast Inbox): the zero-based position of this message in the Inbox's
+    // insertion order, equal to the number of messages inserted before it. It is embedded in the leaf preimage and
+    // matches the streaming L1-to-L2 tree's leaf count, so consumers do not need per-checkpoint tree geometry.
+    uint256 index = totalMessagesInserted;
 
     // If the sender is the fee asset portal, we use a magic address to simpler have it initialized at genesis.
     // We assume that no-one will know the private key for this address and that the precompile won't change to

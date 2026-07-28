@@ -116,7 +116,6 @@ export class L2Block {
   }
 
   public toBlockBlobData(): BlockBlobData {
-    const isFirstBlock = this.indexWithinCheckpoint === 0;
     return {
       blockEndMarker: {
         numTxs: this.body.txEffects.length,
@@ -134,7 +133,8 @@ export class L2Block {
       noteHashRoot: this.header.state.partial.noteHashTree.root,
       nullifierRoot: this.header.state.partial.nullifierTree.root,
       publicDataRoot: this.header.state.partial.publicDataTree.root,
-      l1ToL2MessageRoot: isFirstBlock ? this.header.state.l1ToL2MessageTree.root : undefined,
+      // Every block carries its own post-bundle l1-to-l2 message tree root (AZIP-22 Fast Inbox).
+      l1ToL2MessageRoot: this.header.state.l1ToL2MessageTree.root,
       txs: this.body.toTxBlobData(),
     };
   }

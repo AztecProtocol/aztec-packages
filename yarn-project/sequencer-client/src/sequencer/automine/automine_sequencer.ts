@@ -1,7 +1,9 @@
 import type { Archiver } from '@aztec/archiver';
+import { INBOX_LAG_SECONDS, MAX_L1_TO_L2_MSGS_PER_BLOCK, MAX_L1_TO_L2_MSGS_PER_CHECKPOINT } from '@aztec/constants';
 import type { L1TxUtils } from '@aztec/ethereum/l1-tx-utils';
 import { type EthCheatCodes, RollupCheatCodes } from '@aztec/ethereum/test';
 import { BlockNumber, CheckpointNumber, EpochNumber, SlotNumber } from '@aztec/foundation/branded-types';
+import { Fr } from '@aztec/foundation/curves/bn254';
 import type { EthAddress } from '@aztec/foundation/eth-address';
 import { Signature } from '@aztec/foundation/eth-signature';
 import { type Logger, createLogger } from '@aztec/foundation/log';
@@ -22,8 +24,9 @@ import {
   getTimestampForSlot,
 } from '@aztec/stdlib/epoch-helpers';
 import { InsufficientValidTxsError, type WorldStateSynchronizer } from '@aztec/stdlib/interfaces/server';
-import type { L1ToL2MessageSource } from '@aztec/stdlib/messaging';
+import { type L1ToL2MessageSource, getInboxCutoffTimestamp } from '@aztec/stdlib/messaging';
 import type { CoordinationSignatureContext } from '@aztec/stdlib/p2p';
+import { MerkleTreeId } from '@aztec/stdlib/trees';
 import type { FailedTx, Tx } from '@aztec/stdlib/tx';
 import type {
   BuildBlockInCheckpointResult,
@@ -35,6 +38,7 @@ import type { GlobalVariableBuilder } from '../../global_variable_builder/global
 import type { SequencerPublisherFactory } from '../../publisher/sequencer-publisher-factory.js';
 import type { SequencerPublisher } from '../../publisher/sequencer-publisher.js';
 import type { SequencerConfig } from '../config.js';
+import { selectInboxBucketForBlock } from '../inbox_bucket_selector.js';
 
 /**
  * L1 rollup constants needed by the AutomineSequencer. Same as SequencerRollupConstants
@@ -447,8 +451,6 @@ export class AutomineSequencer {
       SlotNumber(targetSlot),
     );
 
-    const l1ToL2Messages = await this.deps.l1ToL2MessageSource.getL1ToL2Messages(checkpointNumber);
-
     const previousCheckpointOutHashes = await getPreviousCheckpointOutHashes({
       blockSource: this.deps.l2BlockSource,
       epoch: targetEpoch,
@@ -468,11 +470,34 @@ export class AutomineSequencer {
 
     await using fork = await this.deps.worldState.fork(syncedToBlockNumber, { closeDelayMs: 0 });
 
+    // Streaming Inbox (AZIP-22 Fast Inbox): automine builds a single-block checkpoint, so its one block is the
+    // checkpoint's final block; select its bundle from the newest lag-eligible bucket with the last-block censorship
+    // floor. The parent total is the fork's L1-to-L2 leaf count (compact indexing), which resolves the parent bucket.
+    const parentInfo = await fork.getTreeInfo(MerkleTreeId.L1_TO_L2_MESSAGE_TREE);
+    const parentTotalMsgCount = parentInfo.size;
+    const parentBucket = await this.deps.l1ToL2MessageSource.getInboxBucketByTotalMsgCount(parentTotalMsgCount);
+    if (parentBucket === undefined) {
+      this.log.warn(`Automine streaming inbox: parent bucket for total ${parentTotalMsgCount} not synced; skipping`);
+      return undefined;
+    }
+    const selection = await selectInboxBucketForBlock({
+      messageSource: this.deps.l1ToL2MessageSource,
+      now: BigInt(Math.floor(this.deps.dateProvider.now() / 1000)),
+      lagSeconds: BigInt(INBOX_LAG_SECONDS),
+      parent: { seq: parentBucket.seq, totalMsgCount: parentBucket.totalMsgCount },
+      checkpointStartTotalMsgCount: parentTotalMsgCount,
+      perBlockCap: MAX_L1_TO_L2_MSGS_PER_BLOCK,
+      perCheckpointCap: MAX_L1_TO_L2_MSGS_PER_CHECKPOINT,
+      isLastBlock: true,
+      cutoffTimestamp: getInboxCutoffTimestamp(SlotNumber(targetSlot), this.deps.l1Constants, INBOX_LAG_SECONDS),
+    });
+    const streamingBundle = selection.consume ? selection.bundle : [];
+    const bucketHint = selection.consume ? selection.bucket.seq : parentBucket.seq;
+
     const checkpointBuilder = await this.deps.checkpointsBuilder.startCheckpoint(
       checkpointNumber,
       checkpointGlobals,
       feeAssetPriceModifier,
-      l1ToL2Messages,
       previousCheckpointOutHashes,
       previousInboxRollingHash,
       fork,
@@ -489,6 +514,7 @@ export class AutomineSequencer {
       checkpointGlobals.timestamp,
       allowEmpty,
       checkpointNumber,
+      streamingBundle,
     );
     if (!buildResult) {
       return undefined;
@@ -516,7 +542,12 @@ export class AutomineSequencer {
       feeAssetPriceModifier,
     });
 
-    await this.publisher.enqueueProposeCheckpoint(checkpoint, emptyAttestations, emptyAttestationsSignature);
+    await this.publisher.enqueueProposeCheckpoint(
+      checkpoint,
+      emptyAttestations,
+      emptyAttestationsSignature,
+      bucketHint,
+    );
     // Automine publishes synchronously in the current slot via `sendRequests`. It must NOT use the
     // production `sendRequestsAt` (or `canProposeAt`), which always apply the one-slot pipelining
     // offset — automine is the deliberate non-pipelined exception and builds/publishes in place.
@@ -756,16 +787,19 @@ export class AutomineSequencer {
     timestamp: bigint,
     allowEmpty: boolean,
     checkpointNumber: CheckpointNumber,
+    l1ToL2Messages: Fr[],
   ): Promise<BuildBlockInCheckpointResult | undefined> {
     let buildResult: BuildBlockInCheckpointResult;
     try {
       buildResult = await checkpointBuilder.buildBlock(pendingTxs, nextBlockNumber, timestamp, {
         maxTransactions: this.deps.config.maxTxsPerBlock,
-        // Allow empty for explicit-empty builds; require at least 1 valid tx otherwise.
-        minValidTxs: allowEmpty ? 0 : 1,
+        // Allow empty for explicit-empty builds; a message-only block (non-empty streaming bundle) also builds
+        // with zero txs.
+        minValidTxs: allowEmpty || l1ToL2Messages.length > 0 ? 0 : 1,
         isBuildingProposal: true,
         maxBlocksPerCheckpoint: 1,
         perBlockAllocationMultiplier: 1,
+        l1ToL2Messages,
       });
     } catch (err) {
       // Mirrors production's checkpoint_proposal_job: if every pending tx failed execution and

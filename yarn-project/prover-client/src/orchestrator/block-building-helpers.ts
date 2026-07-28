@@ -312,7 +312,6 @@ export const buildHeaderAndBodyFromTxs = runInSpan(
     endState: StateReference,
     globalVariables: GlobalVariables,
     startSpongeBlob: SpongeBlob,
-    isFirstBlock: boolean,
   ) => {
     span.setAttribute(Attributes.BLOCK_NUMBER, globalVariables.blockNumber);
 
@@ -341,7 +340,8 @@ export const buildHeaderAndBodyFromTxs = runInSpan(
       noteHashRoot: partial.noteHashTree.root,
       nullifierRoot: partial.nullifierTree.root,
       publicDataRoot: partial.publicDataTree.root,
-      l1ToL2MessageRoot: isFirstBlock ? l1ToL2MessageTree.root : undefined,
+      // Every block carries its own post-bundle l1-to-l2 message tree root (AZIP-22 Fast Inbox).
+      l1ToL2MessageRoot: l1ToL2MessageTree.root,
       txs: body.toTxBlobData(),
     });
 
@@ -397,6 +397,15 @@ export async function getSubtreeSiblingPath(
 
   // Drop the first subtreeHeight items since we only care about the path to the subtree root
   return fullSiblingPath.getSubtreeSiblingPath(subtreeHeight).toFields();
+}
+
+/**
+ * Returns the full-height frontier (left-sibling path) at a tree's next-available leaf index — the hint the append
+ * circuits re-hash against the snapshot root when appending leaves at a compact (unaligned) index (AZIP-22 Fast Inbox).
+ */
+export async function getFrontierSiblingPath(treeId: MerkleTreeId, db: MerkleTreeReadOperations): Promise<Fr[]> {
+  const nextAvailableLeafIndex = await db.getTreeInfo(treeId).then(t => t.size);
+  return (await db.getSiblingPath(treeId, nextAvailableLeafIndex)).toFields();
 }
 
 // Scan a tree searching for a specific value and return a membership witness proof for it

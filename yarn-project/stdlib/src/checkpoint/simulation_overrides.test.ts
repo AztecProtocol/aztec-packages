@@ -31,6 +31,7 @@ describe('computePipelinedParentFeeHeader', () => {
     blockCount: 1,
     totalManaUsed: 5000n,
     feeAssetPriceModifier: 100n,
+    inboxMsgTotal: 0n,
   };
 
   const grandparentFeeHeader: FeeHeader = {
@@ -157,6 +158,7 @@ describe('buildCheckpointSimulationOverridesPlan', () => {
       blockCount: 1,
       totalManaUsed: 5000n,
       feeAssetPriceModifier: 100n,
+      inboxMsgTotal: 1500n,
     };
   }
 
@@ -194,6 +196,8 @@ describe('buildCheckpointSimulationOverridesPlan', () => {
     expect(plan?.pendingCheckpointState?.outHash).toEqual(proposedData.checkpointOutHash);
     expect(plan?.pendingCheckpointState?.payloadDigest).toBeDefined();
     expect(plan?.pendingCheckpointState?.feeHeader).toBeDefined();
+    // Without this the parent reads as having consumed no Inbox messages, inflating the child's consumed count.
+    expect(plan?.pendingCheckpointState?.inboxMsgTotal).toEqual(proposedData.inboxMsgTotal);
   });
 
   it('throws when the pipelined parent does not match the expected parent checkpoint', async () => {

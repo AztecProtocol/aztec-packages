@@ -60,6 +60,8 @@ library Errors {
   error Rollup__InvalidCheckpointNumber(uint256 expected, uint256 actual); // 0xd1ba9bfa
   error Rollup__InvalidInHash(bytes32 expected, bytes32 actual); // 0xcd6f4233
   error Rollup__InvalidInboxRollingHash(bytes32 expected, bytes32 actual); // 0xed1f7bb5
+  error Rollup__InvalidPreviousInboxRollingHash(bytes32 expected, bytes32 actual); // 0x2fe7cae5
+  error Rollup__InvalidEndInboxRollingHash(bytes32 expected, bytes32 actual); // 0x4a9cdb72
   error Rollup__InboxBucketStillMutable(uint256 bucketSeq); // 0x7254b980
   error Rollup__UnconsumedInboxMessages(uint256 nextBucketSeq); // 0x2bd4bf10
   error Rollup__InboxConsumptionBehindParent(uint256 expected, uint256 actual); // 0x54e0c025
