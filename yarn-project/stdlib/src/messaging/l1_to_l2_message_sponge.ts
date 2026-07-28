@@ -7,7 +7,7 @@ import type { FieldsOf } from '@aztec/foundation/types';
  * An absorb-only Poseidon2 sponge over L1-to-L2 message leaves.
  *
  * Mirrors `L1ToL2MessageSponge` in
- * `noir-projects/noir-protocol-circuits/crates/rollup-lib/src/abis/l1_to_l2_message_sponge.nr`. Each block of a
+ * `noir-projects/fnd/noir-protocol-circuits/crates/rollup-lib/src/abis/l1_to_l2_message_sponge.nr`. Each block of a
  * checkpoint absorbs its message bundle into the sponge it inherited from the previous block; the checkpoint root
  * recomputes the sponge over the checkpoint's whole message list and asserts the accumulated states are equal.
  */

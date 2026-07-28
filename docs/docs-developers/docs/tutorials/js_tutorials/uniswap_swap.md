@@ -309,7 +309,7 @@ Bridge WETH from L1 to L2:
 When depositing from L1 to L2, we use a secret/secret-hash pattern: generate a random secret on the client, send only the hash to L1 (in the deposit transaction), then later reveal the secret on L2 to claim the tokens. This prevents **front-running attacks**: a malicious sequencer (the node that orders and processes L2 transactions) cannot observe the L1 deposit and claim the tokens themselves because they don't know the secret. Only someone who knows the preimage can claim.
 :::
 
-Before claiming, we need to mine 2 L2 blocks. L1-to-L2 messages are not available in the same block they are sent -- the rollup must first include them in an L2 block, and then one more block must pass before the message can be consumed. We use a helper that deploys throwaway contracts to force these blocks:
+Before claiming, we need to mine a couple of L2 blocks. An L1-to-L2 message is not available the moment it is sent -- the rollup only includes it in an L2 block once it is at least 12 seconds old, and it becomes consumable as soon as that block lands. We use a helper that deploys throwaway contracts to force these blocks:
 
 #include_code mine_blocks /docs/examples/ts/example_swap/index.ts typescript
 
