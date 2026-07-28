@@ -3,6 +3,7 @@ import type { Fr } from '@aztec/foundation/curves/bn254';
 import { type Logger, createLogger } from '@aztec/foundation/log';
 import { promiseWithResolvers } from '@aztec/foundation/promise';
 import { elapsed } from '@aztec/foundation/timer';
+import { assert } from '@aztec/foundation/validation';
 import {
   type BlockHash,
   EventDrivenL2BlockStream,
@@ -406,7 +407,14 @@ export class ServerWorldStateSynchronizer
    * @param l1ToL2Messages - The L1 to L2 messages for the block.
    * @returns Whether the block handled was produced by this same node.
    */
-  private async handleL2Block(l2Block: L2Block, l1ToL2Messages: Fr[]): Promise<WorldStateStatusFull> {
+  protected async handleL2Block(l2Block: L2Block, l1ToL2Messages: Fr[]): Promise<WorldStateStatusFull> {
+    // Transitional invariant (pre-flip): the legacy per-checkpoint fetch only ever attaches messages to the first
+    // block of a checkpoint, so no non-first block should carry a bundle here. World state itself now accepts a bundle
+    // on any block; this rule is owned by the synchronizer until the flip switches it to per-block message derivation.
+    assert(
+      l2Block.indexWithinCheckpoint === 0 || l1ToL2Messages.length === 0,
+      `L1 to L2 messages must be empty for non-first blocks, but got ${l1ToL2Messages.length} messages for block ${l2Block.number} (index ${l2Block.indexWithinCheckpoint} within checkpoint).`,
+    );
     this.log.debug(`Pushing L2 block ${l2Block.number} to merkle tree db `, {
       blockNumber: l2Block.number,
       blockHash: await l2Block.hash().then(h => h.toString()),
