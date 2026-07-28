@@ -22,12 +22,10 @@ library Errors {
   error DevNet__InvalidProposer(address expected, address actual); // 0x11e6e6f7
 
   // Inbox
-  error Inbox__Unauthorized(); // 0xe5336a6b
   error Inbox__ActorTooLarge(bytes32 actor); // 0xa776a06e
   error Inbox__VersionMismatch(uint256 expected, uint256 actual); // 0x47452014
   error Inbox__ContentTooLarge(bytes32 content); // 0x47452014
   error Inbox__SecretHashTooLarge(bytes32 secretHash); // 0xecde7e2c
-  error Inbox__MustBuildBeforeConsume(); // 0xc4901999
   error Inbox__BucketOutOfWindow(uint256 seq, uint256 current); // 0xfee255b7
 
   // Outbox
@@ -58,7 +56,6 @@ library Errors {
   error Rollup__InvalidCheckpointHeader(bytes32 expected, bytes32 actual);
   error Rollup__InvalidCheckpointHeaderCount(uint256 expected, uint256 actual);
   error Rollup__InvalidCheckpointNumber(uint256 expected, uint256 actual); // 0xd1ba9bfa
-  error Rollup__InvalidInHash(bytes32 expected, bytes32 actual); // 0xcd6f4233
   error Rollup__InvalidInboxRollingHash(bytes32 expected, bytes32 actual); // 0xed1f7bb5
   error Rollup__InvalidPreviousInboxRollingHash(bytes32 expected, bytes32 actual); // 0x2fe7cae5
   error Rollup__InboxBucketStillMutable(uint256 bucketSeq); // 0x7254b980
