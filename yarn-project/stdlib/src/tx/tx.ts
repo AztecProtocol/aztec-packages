@@ -2,6 +2,7 @@ import {
   DA_GAS_PER_FIELD,
   MAX_CONTRACT_CLASS_LOGS_PER_TX,
   MAX_ENQUEUED_CALLS_PER_TX,
+  MAX_FR_CALLDATA_TO_ALL_ENQUEUED_CALLS,
   TX_DA_GAS_OVERHEAD,
 } from '@aztec/constants';
 import { type BaseBuffer32, Buffer32 } from '@aztec/foundation/buffer';
@@ -39,16 +40,12 @@ import { TxHash } from './tx_hash.js';
 const TX_SINK_PRESIZE_BYTES = 131072;
 
 /**
- * Upper bound on the calldata entries a tx can carry: one per enqueued call, and a tx can fill both the
- * revertible and non-revertible call request arrays plus a teardown call.
+ * Upper bound on the calldata entries a tx can carry: one per enqueued call, plus one for the teardown call.
+ * The revertible and non-revertible call request arrays are each sized `MAX_ENQUEUED_CALLS_PER_TX`, but the
+ * private tail circuit fills them by partitioning a single array of that size, so their lengths sum to it. The
+ * teardown request is propagated separately and can only be set once.
  */
-export const MAX_PUBLIC_FUNCTION_CALLDATA_PER_TX = 2 * MAX_ENQUEUED_CALLS_PER_TX + 1;
-
-/**
- * Upper bound on the contract class logs a tx can carry. Log hashes are accumulated in both the revertible
- * and non-revertible accumulated data, and the fields of each are carried alongside the tx.
- */
-export const MAX_CONTRACT_CLASS_LOG_FIELDS_PER_TX = 2 * MAX_CONTRACT_CLASS_LOGS_PER_TX;
+export const MAX_PUBLIC_FUNCTION_CALLDATA_PER_TX = MAX_ENQUEUED_CALLS_PER_TX + 1;
 
 /**
  * The interface of an L2 transaction.
@@ -189,8 +186,10 @@ export class Tx extends Gossipable {
       .object({
         data: PrivateKernelTailCircuitPublicInputs.schema,
         chonkProof: ChonkProof.schema,
-        contractClassLogFields: z.array(ContractClassLogFields.schema).max(MAX_CONTRACT_CLASS_LOG_FIELDS_PER_TX),
-        publicFunctionCalldata: z.array(HashedValues.schema).max(MAX_PUBLIC_FUNCTION_CALLDATA_PER_TX),
+        contractClassLogFields: z.array(ContractClassLogFields.schema).max(MAX_CONTRACT_CLASS_LOGS_PER_TX),
+        publicFunctionCalldata: z
+          .array(HashedValues.schemaFor(MAX_FR_CALLDATA_TO_ALL_ENQUEUED_CALLS))
+          .max(MAX_PUBLIC_FUNCTION_CALLDATA_PER_TX),
       })
       .transform(Tx.create);
   }

@@ -1,4 +1,8 @@
-import { PRIVATE_LOG_SIZE_IN_FIELDS } from '@aztec/constants';
+import {
+  MAX_CONTRACT_CLASS_LOGS_PER_TX,
+  MAX_FR_CALLDATA_TO_ALL_ENQUEUED_CALLS,
+  PRIVATE_LOG_SIZE_IN_FIELDS,
+} from '@aztec/constants';
 import { makeTuple } from '@aztec/foundation/array';
 import { times } from '@aztec/foundation/collection';
 import { randomBytes } from '@aztec/foundation/crypto/random';
@@ -13,7 +17,7 @@ import { ContractClassLogFields } from '../logs/contract_class_log.js';
 import { PrivateLog } from '../logs/private_log.js';
 import { L2ToL1Message, ScopedL2ToL1Message } from '../messaging/l2_to_l1_message.js';
 import { mockTx } from '../tests/mocks.js';
-import { MAX_CONTRACT_CLASS_LOG_FIELDS_PER_TX, MAX_PUBLIC_FUNCTION_CALLDATA_PER_TX, Tx, TxArray } from './tx.js';
+import { MAX_PUBLIC_FUNCTION_CALLDATA_PER_TX, Tx, TxArray } from './tx.js';
 
 describe('Tx', () => {
   it('convert to and from buffer', async () => {
@@ -60,15 +64,23 @@ describe('Tx', () => {
       );
     });
 
-    it('accepts contract class logs from both accumulated data sets', async () => {
-      const tx = await parseWithArray('contractClassLogFields', MAX_CONTRACT_CLASS_LOG_FIELDS_PER_TX);
-      expect(tx.contractClassLogFields).toHaveLength(MAX_CONTRACT_CLASS_LOG_FIELDS_PER_TX);
+    it('accepts as many contract class logs as a tx can accumulate', async () => {
+      const tx = await parseWithArray('contractClassLogFields', MAX_CONTRACT_CLASS_LOGS_PER_TX);
+      expect(tx.contractClassLogFields).toHaveLength(MAX_CONTRACT_CLASS_LOGS_PER_TX);
     });
 
     it('rejects more contract class logs than a tx can accumulate', async () => {
-      await expect(parseWithArray('contractClassLogFields', MAX_CONTRACT_CLASS_LOG_FIELDS_PER_TX + 1)).rejects.toThrow(
+      await expect(parseWithArray('contractClassLogFields', MAX_CONTRACT_CLASS_LOGS_PER_TX + 1)).rejects.toThrow(
         expect.objectContaining({ name: 'ZodError' }),
       );
+    });
+
+    it('rejects a calldata entry with more fields than a tx can spend on calldata', async () => {
+      const json = JSON.parse(jsonStringify(await mockTx()));
+      json.publicFunctionCalldata[0].values = times(MAX_FR_CALLDATA_TO_ALL_ENQUEUED_CALLS + 1, () =>
+        Fr.ZERO.toString(),
+      );
+      await expect(Tx.schema.parseAsync(json)).rejects.toThrow(expect.objectContaining({ name: 'ZodError' }));
     });
   });
 
