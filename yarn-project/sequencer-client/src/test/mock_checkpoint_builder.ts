@@ -1,5 +1,6 @@
 import { type BlockNumber, CheckpointNumber, IndexWithinCheckpoint } from '@aztec/foundation/branded-types';
 import { Fr } from '@aztec/foundation/curves/bn254';
+import type { LoggerBindings } from '@aztec/foundation/log';
 import { unfreeze } from '@aztec/foundation/types';
 import { L2Block } from '@aztec/stdlib/block';
 import { Checkpoint } from '@aztec/stdlib/checkpoint';
@@ -206,6 +207,7 @@ export class MockCheckpointsBuilder implements ICheckpointsBuilder {
     l1ToL2Messages: Fr[];
     previousCheckpointOutHashes: Fr[];
     feeAssetPriceModifier: bigint;
+    insertMessagesPerBlock: boolean | undefined;
   }> = [];
   public openCheckpointCalls: Array<{
     checkpointNumber: CheckpointNumber;
@@ -265,6 +267,8 @@ export class MockCheckpointsBuilder implements ICheckpointsBuilder {
     previousCheckpointOutHashes: Fr[],
     _previousInboxRollingHash: Fr,
     _fork: MerkleTreeWriteOperations,
+    _bindings?: LoggerBindings,
+    insertMessagesPerBlock?: boolean,
   ): Promise<ICheckpointBlockBuilder> {
     this.startCheckpointCalls.push({
       checkpointNumber,
@@ -272,6 +276,7 @@ export class MockCheckpointsBuilder implements ICheckpointsBuilder {
       l1ToL2Messages,
       previousCheckpointOutHashes,
       feeAssetPriceModifier,
+      insertMessagesPerBlock,
     });
 
     if (!this.checkpointBuilder) {
