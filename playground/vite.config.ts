@@ -145,9 +145,10 @@ export default defineConfig(({ mode }) => {
         // - JB: bumped from 1750 => 1800 after adding the `aztec_utl_getTxEffect` oracle handler, which pulls TxEffect / FlatPublicLogs / PrivateLog / PublicDataWrite into the eager PXE import path (#22979).
         // - 2026-05-12: bumped from 1800 => 1850 after merge-train/barretenberg brought in further bb-side changes (multi-app kernel circuits #23076 etc.) that pushed the main entrypoint to 1801.31 KB, just over the limit raised four days earlier.
         // - 2026-06-08: bumped from 1850 => 1925 after aztec RPC namespace / client surface changes pushed the main entrypoint to 1872.57 KB on CI (playground cold build).
+        // - 2026-07-17: bumped from 1925 => 1960 after the fast-inbox per-block L1-to-L2 message bundle changes to the rollup circuit artifacts pushed the main entrypoint to 1936.60 KB on CI.
         {
           pattern: /assets\/index-.*\.js$/,
-          maxSizeKB: 1925,
+          maxSizeKB: 1960,
           description: 'Main entrypoint, hard limit',
         },
         // Bump log:

@@ -1,11 +1,14 @@
-use crate::{abis::BlockRollupPublicInputs, block_merge::validate_consecutive_block_rollups};
+use crate::{
+    abis::{BlockRollupPublicInputs, L1ToL2MessageSponge},
+    block_merge::validate_consecutive_block_rollups,
+};
 use types::{
     abis::block_header::BlockHeader,
     blob_data::SpongeBlob,
     constants::ARCHIVE_HEIGHT,
     merkle_tree::{check_membership, MembershipWitness},
     proof::proof_data::RollupHonkProofData,
-    traits::Hash,
+    traits::{Empty, Hash},
 };
 
 pub struct CheckpointRootInputsValidator<let NumPreviousRollups: u32, let NumVkIndices: u32> {
@@ -86,15 +89,21 @@ impl<let NumPreviousRollups: u32, let NumVkIndices: u32> CheckpointRootInputsVal
             "The start timestamp must be after the previous block's timestamp",
         );
 
-        // `in_hash` must be set using the **first** block root rollup circuit for the first block in a checkpoint.
-        // In `validate_consecutive_block_rollups`, it ensures that the hash only propagates through all merge steps
-        // exclusively via the left rollup. The value in the left rollup must not be 0 when it reaches the checkpoint
-        // root (this point).
-        // Note: If the L1 subtree being copied to L2 is empty, then the in_hash will be the root of a tree whose
-        // leaves are empty (0) messages.
+        // The leftmost block of the checkpoint must be a first block root, which is the only variant that sets
+        // `is_first_block`. `validate_consecutive_block_rollups` asserts every non-first ("right") rollup is not a
+        // first block, so the merged value can only be true if the leftmost leaf is a first block root.
         assert(
-            first_rollup.in_hash != 0,
-            "in_hash must be set via the first block root in the checkpoint",
+            first_rollup.is_first_block,
+            "The first block of the checkpoint must be a first block root",
+        );
+
+        // The message sponge resets per checkpoint, so the leftmost block must start from the empty sponge. Combined
+        // with the checkpoint root asserting the merged end equals the parity root's sponge, this anchors the sponge
+        // chain to exactly this checkpoint's messages.
+        assert_eq(
+            first_rollup.start_msg_sponge,
+            L1ToL2MessageSponge::empty(),
+            "The message sponge of the first block was not correctly initialized",
         );
 
         // `previous_block_header` is provided as a private input and is used to validate the values above.

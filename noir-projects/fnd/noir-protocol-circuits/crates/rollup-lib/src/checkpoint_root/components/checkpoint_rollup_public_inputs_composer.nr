@@ -1,5 +1,5 @@
 use crate::{
-    abis::{BlockRollupPublicInputs, CheckpointRollupPublicInputs},
+    abis::{BlockRollupPublicInputs, CheckpointRollupPublicInputs, L1ToL2MessageSponge, ParityPublicInputs},
     block_merge::merge_block_rollups,
 };
 use bignum::BLS12_381_Fr;
@@ -21,6 +21,9 @@ use types::{
 
 pub struct CheckpointRollupPublicInputsComposer<let NumBlobs: u32> {
     merged_rollup: BlockRollupPublicInputs,
+    // Public inputs of the parity root proof (verified by the caller). The checkpoint's `in_hash` and
+    // `inbox_rolling_hash` are sourced from it, and its message sponge is checked against the blocks' accumulated one.
+    parity: ParityPublicInputs,
     // The below are all hints:
     previous_out_hash: AppendOnlyTreeSnapshot,
     new_out_hash_sibling_path: [Field; OUT_HASH_TREE_HEIGHT],
@@ -34,6 +37,7 @@ pub struct CheckpointRollupPublicInputsComposer<let NumBlobs: u32> {
 impl<let NumBlobs: u32> CheckpointRollupPublicInputsComposer<NumBlobs> {
     pub fn new<let NumPreviousRollups: u32>(
         previous_rollups: [BlockRollupPublicInputs; NumPreviousRollups],
+        parity: ParityPublicInputs,
         // The below args are all hints:
         previous_out_hash: AppendOnlyTreeSnapshot,
         new_out_hash_sibling_path: [Field; OUT_HASH_TREE_HEIGHT],
@@ -50,6 +54,7 @@ impl<let NumBlobs: u32> CheckpointRollupPublicInputsComposer<NumBlobs> {
 
         Self {
             merged_rollup,
+            parity,
             previous_out_hash,
             new_out_hash_sibling_path,
             start_blob_accumulator,
@@ -62,6 +67,22 @@ impl<let NumBlobs: u32> CheckpointRollupPublicInputsComposer<NumBlobs> {
 
     pub fn finish(self) -> CheckpointRollupPublicInputs {
         let merged_rollup = self.merged_rollup;
+
+        // The parity root sponge must start empty (the message sponge resets per checkpoint) and must equal the sponge
+        // accumulated across this checkpoint's block roots. Together with the leftmost block starting from the empty
+        // sponge (checked in the inputs validator) and the per-block continuity checks in the block merge circuit, this
+        // proves the blocks inserted exactly the parity-committed message list, in order — no leaf arrays cross the
+        // circuit boundary.
+        assert_eq(
+            self.parity.start_sponge,
+            L1ToL2MessageSponge::empty(),
+            "The parity root message sponge must start empty",
+        );
+        assert_eq(
+            merged_rollup.end_msg_sponge,
+            self.parity.end_sponge,
+            "The blocks' message sponge does not match the parity root's message sponge",
+        );
 
         let constants = EpochConstantData {
             chain_id: merged_rollup.constants.chain_id,
@@ -96,8 +117,11 @@ impl<let NumBlobs: u32> CheckpointRollupPublicInputsComposer<NumBlobs> {
             new_archive: merged_rollup.new_archive,
             previous_out_hash: self.previous_out_hash,
             new_out_hash,
-            start_inbox_rolling_hash: merged_rollup.start_inbox_rolling_hash,
-            end_inbox_rolling_hash: merged_rollup.end_inbox_rolling_hash,
+            // Sourced from the parity root (parity moved to the checkpoint root in AZIP-22 Fast Inbox), which commits
+            // to the same message list behind the L1-checked `in_hash`. Checkpoint merges assert continuity across
+            // checkpoints (`right.start == left.end`).
+            start_inbox_rolling_hash: self.parity.start_rolling_hash,
+            end_inbox_rolling_hash: self.parity.end_rolling_hash,
             checkpoint_header_hashes,
             fees,
             start_blob_accumulator: self.start_blob_accumulator,
@@ -122,8 +146,10 @@ impl<let NumBlobs: u32> CheckpointRollupPublicInputsComposer<NumBlobs> {
             last_archive_root: merged_rollup.previous_archive.root,
             block_headers_hash: merged_rollup.block_headers_hash,
             blobs_hash: self.blobs_hash,
-            in_hash: merged_rollup.in_hash,
-            inbox_rolling_hash: merged_rollup.end_inbox_rolling_hash,
+            // `in_hash` (the sha256 frontier root, checked on L1) and `inbox_rolling_hash` are sourced from the parity
+            // root, which commits to the checkpoint's full L1-to-L2 message list.
+            in_hash: self.parity.sha_root,
+            inbox_rolling_hash: self.parity.end_rolling_hash,
             epoch_out_hash,
             slot_number: constants.slot_number,
             timestamp: merged_rollup.timestamp,
