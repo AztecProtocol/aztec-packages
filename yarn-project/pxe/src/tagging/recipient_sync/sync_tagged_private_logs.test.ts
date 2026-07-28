@@ -132,9 +132,7 @@ describe('syncTaggedPrivateLogs', () => {
     await sync(secrets);
 
     const expectedTags = (
-      await Promise.all(
-        secrets.map(secret => computeSiloedTagRange(secret, UNFINALIZED_TAGGING_INDEXES_WINDOW_LEN + 1)),
-      )
+      await Promise.all(secrets.map(secret => computeSiloedTagRange(secret, UNFINALIZED_TAGGING_INDEXES_WINDOW_LEN)))
     ).flat();
     const asStrings = (tags: SiloedTag[]) => tags.map(t => t.toString()).sort();
 
@@ -191,7 +189,7 @@ describe('syncTaggedPrivateLogs', () => {
   it('updates store correctly when multiple iterations are needed', async () => {
     const secret = await randomAppTaggingSecret(AppTaggingSecretKind.UNCONSTRAINED);
 
-    // A log at the last index of the initial window [0, WINDOW_LEN] moves the finalized index to WINDOW_LEN,
+    // A log at the last index of the initial window [0, WINDOW_LEN) moves the finalized index to WINDOW_LEN - 1,
     // which shifts the next window forward and triggers a second iteration. A second log sits in the advanced
     // window, only reachable in the second iteration.
     const lastIndexInInitialWindow = UNFINALIZED_TAGGING_INDEXES_WINDOW_LEN - 1;
@@ -514,11 +512,11 @@ describe('syncTaggedPrivateLogs', () => {
       expect(await taggingStore.getHighestFinalizedIndex(secret, JOB_ID)).toBe(totalLogs - 1);
       expect(await taggingStore.getHighestAgedIndex(secret, JOB_ID)).toBe(totalLogs - 1);
 
-      // The first round spans the full cold-start window (WINDOW_LEN + 1). Because every index hit, the next round
-      // re-anchors to another full WINDOW_LEN window ahead of the new finalized index: no small initial probe and no
-      // doubling, in contrast to the constrained scan.
+      // The first round spans the full cold-start window. Because every index hit, the next round re-anchors to
+      // another full WINDOW_LEN window ahead of the new finalized index: no small initial probe and no doubling,
+      // in contrast to the constrained scan.
       expect(callSizes().slice(0, 2)).toEqual([
-        UNFINALIZED_TAGGING_INDEXES_WINDOW_LEN + 1,
+        UNFINALIZED_TAGGING_INDEXES_WINDOW_LEN,
         UNFINALIZED_TAGGING_INDEXES_WINDOW_LEN,
       ]);
     });
