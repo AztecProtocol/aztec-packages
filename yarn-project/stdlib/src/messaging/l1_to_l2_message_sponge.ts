@@ -4,12 +4,12 @@ import { BufferReader, FieldReader, serializeToBuffer, serializeToFields } from 
 import type { FieldsOf } from '@aztec/foundation/types';
 
 /**
- * An absorb-only Poseidon2 sponge over L1-to-L2 message leaves (AZIP-22 Fast Inbox).
+ * An absorb-only Poseidon2 sponge over L1-to-L2 message leaves.
  *
  * Mirrors `L1ToL2MessageSponge` in
  * `noir-projects/noir-protocol-circuits/crates/rollup-lib/src/abis/l1_to_l2_message_sponge.nr`. Each block of a
  * checkpoint absorbs its message bundle into the sponge it inherited from the previous block; the checkpoint root
- * recomputes the sponge over the full (padded) message list and asserts the accumulated states are equal.
+ * recomputes the sponge over the checkpoint's whole message list and asserts the accumulated states are equal.
  */
 export class L1ToL2MessageSponge {
   constructor(
@@ -58,9 +58,9 @@ export class L1ToL2MessageSponge {
 }
 
 /**
- * Accumulates a fresh message sponge over `leaves`, in order. This is the value the AZIP-22 parity root commits to and
- * the checkpoint's block roots reach (starting from the empty sponge). The transitional first-block bundle is the whole
- * checkpoint's messages padded to `MAX_L1_TO_L2_MSGS_PER_BLOCK`, so padding zeros are part of `leaves`.
+ * Accumulates a fresh message sponge over `leaves`, in order. This is the value the inbox parity proof commits to and
+ * the checkpoint's block roots reach, starting from the empty sponge. Every leaf passed in is absorbed, so any padding
+ * the caller includes is part of the accumulated state.
  */
 export async function accumulateL1ToL2MessageSponge(leaves: Fr[]): Promise<L1ToL2MessageSponge> {
   const sponge = L1ToL2MessageSponge.empty();

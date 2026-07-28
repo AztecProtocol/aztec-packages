@@ -906,6 +906,7 @@ export function mapBlockRootRollupPrivateInputsToNoir(
       mapProofDataToNoir(inputs.previousRollups[1], mapTxRollupPublicInputsToNoir),
     ],
     message_bundle: mapL1ToL2MessageBundleToNoir(inputs.messageBundle),
+    previous_l1_to_l2: mapAppendOnlyTreeSnapshotToNoir(inputs.previousL1ToL2),
     start_msg_sponge: mapL1ToL2MessageSpongeToNoir(inputs.startMsgSponge),
     l1_to_l2_message_frontier_hint: mapTuple(inputs.l1ToL2MessageFrontierHint, mapFieldToNoir),
     new_archive_sibling_path: mapTuple(inputs.newArchiveSiblingPath, mapFieldToNoir),
@@ -918,6 +919,7 @@ export function mapBlockRootSingleTxRollupPrivateInputsToNoir(
   return {
     previous_rollup: mapProofDataToNoir(inputs.previousRollup, mapTxRollupPublicInputsToNoir),
     message_bundle: mapL1ToL2MessageBundleToNoir(inputs.messageBundle),
+    previous_l1_to_l2: mapAppendOnlyTreeSnapshotToNoir(inputs.previousL1ToL2),
     start_msg_sponge: mapL1ToL2MessageSpongeToNoir(inputs.startMsgSponge),
     l1_to_l2_message_frontier_hint: mapTuple(inputs.l1ToL2MessageFrontierHint, mapFieldToNoir),
     new_archive_sibling_path: mapTuple(inputs.newArchiveSiblingPath, mapFieldToNoir),

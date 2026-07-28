@@ -18,8 +18,7 @@ pub struct RootRollupPublicInputs {
     // The out hash of the first checkpoint in the epoch is inserted at index 0, the second at index 1, and so on.
     pub out_hash: Field,
     // Inbox rolling-hash chain segment consumed across the epoch: the chain value before the first checkpoint's
-    // messages and after the last checkpoint's. Continuity within the range is enforced by the checkpoint merges;
-    // L1 passes both through to proof verification without validating them until the Fast Inbox flip.
+    // messages and after the last checkpoint's. Continuity within the range is enforced by the checkpoint merges.
     pub previous_inbox_rolling_hash: Field,
     pub end_inbox_rolling_hash: Field,
     // Checkpoint header hashes for each checkpoint in this epoch.

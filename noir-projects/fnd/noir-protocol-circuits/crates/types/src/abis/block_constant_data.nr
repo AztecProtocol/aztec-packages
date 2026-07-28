@@ -8,10 +8,10 @@ use std::meta::derive;
 pub struct BlockConstantData {
     // Archive tree snapshot at the very beginning of the entire block.
     pub last_archive: AppendOnlyTreeSnapshot,
-    // L1-to-L2 message tree snapshot after this block lands.
-    // For the first block in a checkpoint, this should be the snapshot after inserting the new l1-to-l2 message subtree
-    // into the last l1-to-l2 tree snapshot in `last_archive`.
-    // For subsequent blocks, this should match the snapshot of the previous block.
+    // L1-to-L2 message tree snapshot after this block's own message bundle has been inserted. The AVM validates this
+    // block's l1-to-l2 message read requests against it, so a tx in this block can read the messages this block
+    // inserts (same-block consumption). Every block-root variant that carries txs asserts this equals its computed
+    // post-bundle root, whether or not the block is the first in its checkpoint.
     pub l1_to_l2_tree_snapshot: AppendOnlyTreeSnapshot,
     pub vk_tree_root: Field,
     pub protocol_contracts_hash: Field,

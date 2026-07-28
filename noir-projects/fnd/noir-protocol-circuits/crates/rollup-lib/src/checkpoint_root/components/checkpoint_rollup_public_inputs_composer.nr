@@ -117,9 +117,8 @@ impl<let NumBlobs: u32> CheckpointRollupPublicInputsComposer<NumBlobs> {
             new_archive: merged_rollup.new_archive,
             previous_out_hash: self.previous_out_hash,
             new_out_hash,
-            // Sourced from the inbox parity proof (parity moved to the checkpoint root in AZIP-22 Fast Inbox), which
-            // commits to the same message list behind the L1-checked `in_hash`. Checkpoint merges assert continuity
-            // across checkpoints (`right.start == left.end`).
+            // Sourced from the inbox parity proof, which commits to the same message list behind the L1-checked
+            // `in_hash`. Checkpoint merges assert continuity across checkpoints (`right.start == left.end`).
             start_inbox_rolling_hash: self.parity.start_rolling_hash,
             end_inbox_rolling_hash: self.parity.end_rolling_hash,
             checkpoint_header_hashes,
