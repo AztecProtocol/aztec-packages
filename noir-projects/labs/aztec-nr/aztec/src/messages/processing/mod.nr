@@ -4,7 +4,7 @@ pub mod offchain;
 pub use crate::oracle::tx_resolution::ResolvedTx;
 
 mod note_validation_request;
-pub use note_validation_request::NoteValidationRequest;
+pub(crate) use note_validation_request::NoteValidationRequest;
 
 pub mod log_retrieval_request;
 pub mod log_retrieval_response;
@@ -51,6 +51,12 @@ pub struct OffchainMessageWithTx {
 
 /// Enqueues a note for validation and storage by PXE.
 ///
+/// The caller must guarantee that every enqueued note's unique hash is actually included in
+/// `tx_hash`'s effects; enqueuing one that is absent bricks sync for that contract. The built-in discovery paths
+/// guarantee this by running nonce discovery first (see
+/// [`process_private_note_msg`](crate::messages::discovery::private_notes)), which is why this is not exposed to
+/// contracts.
+///
 /// Once validated, the note becomes retrievable via the `get_notes` oracle. The note will be scoped to
 /// `contract_address`, meaning other contracts will not be able to access it unless authorized.
 ///
@@ -71,7 +77,7 @@ pub struct OffchainMessageWithTx {
 /// This determines which PXE account can see the note - other accounts will not be able to access it (e.g. other
 /// accounts will not be able to see one another's token balance notes, even in the same PXE) unless authorized. In
 /// most cases `recipient` equals `owner`, but they can differ in scenarios like delegated discovery.
-pub unconstrained fn enqueue_note_for_validation(
+pub(crate) unconstrained fn enqueue_note_for_validation(
     contract_address: AztecAddress,
     owner: AztecAddress,
     storage_slot: Field,
