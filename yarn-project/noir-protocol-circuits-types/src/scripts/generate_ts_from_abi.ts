@@ -34,6 +34,7 @@ const circuits = [
   'rollup_block_root_first',
   'rollup_block_root_first_single_tx',
   'rollup_block_root_first_empty_tx',
+  'rollup_block_root_msgs_only',
   'rollup_block_merge',
   'rollup_checkpoint_root',
   'rollup_checkpoint_root_single_block',

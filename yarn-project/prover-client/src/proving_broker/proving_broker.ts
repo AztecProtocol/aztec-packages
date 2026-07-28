@@ -72,6 +72,7 @@ export class ProvingBroker implements ProvingJobProducer, ProvingJobConsumer, Pr
     [ProvingRequestType.BLOCK_ROOT_EMPTY_TX_FIRST_ROLLUP]: new PriorityMemoryQueue<EnqueuedProvingJob>(
       provingJobComparator,
     ),
+    [ProvingRequestType.BLOCK_ROOT_MSGS_ONLY_ROLLUP]: new PriorityMemoryQueue<EnqueuedProvingJob>(provingJobComparator),
     [ProvingRequestType.BLOCK_ROOT_ROLLUP]: new PriorityMemoryQueue<EnqueuedProvingJob>(provingJobComparator),
     [ProvingRequestType.BLOCK_ROOT_SINGLE_TX_ROLLUP]: new PriorityMemoryQueue<EnqueuedProvingJob>(provingJobComparator),
 
@@ -884,6 +885,7 @@ export const PROOF_TYPES_IN_PRIORITY_ORDER: ProvingRequestType[] = [
   ProvingRequestType.BLOCK_ROOT_EMPTY_TX_FIRST_ROLLUP,
   ProvingRequestType.BLOCK_ROOT_ROLLUP,
   ProvingRequestType.BLOCK_ROOT_SINGLE_TX_ROLLUP,
+  ProvingRequestType.BLOCK_ROOT_MSGS_ONLY_ROLLUP,
   ProvingRequestType.BLOCK_MERGE_ROLLUP,
   ProvingRequestType.CHECKPOINT_ROOT_ROLLUP,
   ProvingRequestType.CHECKPOINT_ROOT_SINGLE_BLOCK_ROLLUP,

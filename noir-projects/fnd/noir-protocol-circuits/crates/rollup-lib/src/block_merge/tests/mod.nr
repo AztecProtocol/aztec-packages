@@ -1,5 +1,6 @@
 mod child_proof_vk_tests;
 mod consecutive_block_rollups_tests;
+mod msgs_only_tests;
 mod rollup_structure_tests;
 
 use crate::{
@@ -13,8 +14,9 @@ use crate::{
 use types::{
     constants::{
         BLOCK_MERGE_ROLLUP_VK_INDEX, BLOCK_ROOT_EMPTY_TX_FIRST_ROLLUP_VK_INDEX,
-        BLOCK_ROOT_FIRST_ROLLUP_VK_INDEX, BLOCK_ROOT_ROLLUP_VK_INDEX,
-        BLOCK_ROOT_SINGLE_TX_FIRST_ROLLUP_VK_INDEX, BLOCK_ROOT_SINGLE_TX_ROLLUP_VK_INDEX,
+        BLOCK_ROOT_FIRST_ROLLUP_VK_INDEX, BLOCK_ROOT_MSGS_ONLY_ROLLUP_VK_INDEX,
+        BLOCK_ROOT_ROLLUP_VK_INDEX, BLOCK_ROOT_SINGLE_TX_FIRST_ROLLUP_VK_INDEX,
+        BLOCK_ROOT_SINGLE_TX_ROLLUP_VK_INDEX,
     },
     hash::accumulate_sha256,
 };
@@ -96,7 +98,8 @@ impl TestBuilder {
                     | (vk_index == BLOCK_ROOT_SINGLE_TX_FIRST_ROLLUP_VK_INDEX)
                     | (vk_index == BLOCK_ROOT_EMPTY_TX_FIRST_ROLLUP_VK_INDEX)
                     | (vk_index == BLOCK_ROOT_ROLLUP_VK_INDEX)
-                    | (vk_index == BLOCK_ROOT_SINGLE_TX_ROLLUP_VK_INDEX),
+                    | (vk_index == BLOCK_ROOT_SINGLE_TX_ROLLUP_VK_INDEX)
+                    | (vk_index == BLOCK_ROOT_MSGS_ONLY_ROLLUP_VK_INDEX),
             );
         }
     }

@@ -8,17 +8,23 @@ use crate::{
 use types::{
     constants::{
         BLOCK_MERGE_ROLLUP_VK_INDEX, BLOCK_ROOT_EMPTY_TX_FIRST_ROLLUP_VK_INDEX,
-        BLOCK_ROOT_FIRST_ROLLUP_VK_INDEX, BLOCK_ROOT_ROLLUP_VK_INDEX,
-        BLOCK_ROOT_SINGLE_TX_FIRST_ROLLUP_VK_INDEX, BLOCK_ROOT_SINGLE_TX_ROLLUP_VK_INDEX,
+        BLOCK_ROOT_FIRST_ROLLUP_VK_INDEX, BLOCK_ROOT_MSGS_ONLY_ROLLUP_VK_INDEX,
+        BLOCK_ROOT_ROLLUP_VK_INDEX, BLOCK_ROOT_SINGLE_TX_FIRST_ROLLUP_VK_INDEX,
+        BLOCK_ROOT_SINGLE_TX_ROLLUP_VK_INDEX,
     },
     proof::proof_data::RollupHonkProofData,
 };
 
 // Note: see `rollup_structure_tests.nr` for valid combinations of left and right vks.
-global ALLOWED_RIGHT_ROLLUP_VK_INDICES: [u32; 3] =
-    [BLOCK_ROOT_ROLLUP_VK_INDEX, BLOCK_ROOT_SINGLE_TX_ROLLUP_VK_INDEX, BLOCK_MERGE_ROLLUP_VK_INDEX];
+// The message-only block root is a non-first variant, so it appears alongside the other non-first block roots.
+global ALLOWED_RIGHT_ROLLUP_VK_INDICES: [u32; 4] = [
+    BLOCK_ROOT_ROLLUP_VK_INDEX,
+    BLOCK_ROOT_SINGLE_TX_ROLLUP_VK_INDEX,
+    BLOCK_ROOT_MSGS_ONLY_ROLLUP_VK_INDEX,
+    BLOCK_MERGE_ROLLUP_VK_INDEX,
+];
 
-global ALLOWED_LEFT_ROLLUP_VK_INDICES: [u32; 6] = ALLOWED_RIGHT_ROLLUP_VK_INDICES.concat([
+global ALLOWED_LEFT_ROLLUP_VK_INDICES: [u32; 7] = ALLOWED_RIGHT_ROLLUP_VK_INDICES.concat([
     // The first block roots may only appear as the left child of the block merge rollup.
     // However, this doesn't prevent having 2 first block roots in the same checkpoint. We rely on the checks in
     // `validate_consecutive_block_rollups` and `checkpoint_root_inputs_validator` to enforce this.
