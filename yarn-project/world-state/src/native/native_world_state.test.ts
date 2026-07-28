@@ -32,7 +32,14 @@ import { tmpdir } from 'os';
 import { join } from 'path';
 
 import type { WorldStateTreeMapSizes } from '../synchronizer/factory.js';
-import { assertSameState, compareChains, mockBlock, mockEmptyBlock, updateBlockState } from '../test/utils.js';
+import {
+  assertSameState,
+  compareChains,
+  mockBlock,
+  mockBlockWithIndex,
+  mockEmptyBlock,
+  updateBlockState,
+} from '../test/utils.js';
 import { INITIAL_NULLIFIER_TREE_SIZE, INITIAL_PUBLIC_DATA_TREE_SIZE } from '../world-state-db/merkle_tree_db.js';
 import type { WorldStateStatusSummary } from './message.js';
 import { NativeWorldStateService, WORLD_STATE_DB_VERSION, WORLD_STATE_DIR } from './native_world_state.js';
@@ -149,14 +156,140 @@ describe('NativeWorldState', () => {
       expect(status.meta.messageTreeMeta.size).toBe(BigInt(NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP));
     });
 
-    it('throws error if messages are provided for non-first block', async () => {
-      const isFirstBlock = false;
-      const numMessages = 1;
-      const { block, messages } = await mockBlock(BlockNumber(1), 1, fork, 1, numMessages, isFirstBlock);
-
-      await expect(ws.handleL2BlockAndMessages(block, messages)).rejects.toThrow(
-        'L1 to L2 messages must be empty for non-first blocks',
+    it('appends a non-first block bundle without padding', async () => {
+      const numMessages = 3;
+      const { block, messages } = await mockBlockWithIndex(
+        BlockNumber(1),
+        /*indexWithinCheckpoint=*/ 1,
+        1,
+        fork,
+        numMessages,
+        1,
       );
+
+      const status = await ws.handleL2BlockAndMessages(block, messages);
+
+      // Non-first blocks append their bundle exactly as given (no padding to NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP).
+      expect(status.meta.messageTreeMeta.size).toBe(BigInt(numMessages));
+    });
+  });
+
+  describe('Per-block message insertion', () => {
+    let ws: NativeWorldStateService;
+
+    beforeEach(async () => {
+      ws = await NativeWorldStateService.tmp();
+    });
+
+    afterEach(async () => {
+      await ws.close();
+    });
+
+    it('advances the L1-to-L2 message tree per block, including on non-first blocks', async () => {
+      const fork = await ws.fork();
+
+      // Block 1 is first-in-checkpoint, so its bundle is padded to NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP (this is how
+      // the circuits build the tree).
+      const { block: b1, messages: m1 } = await mockBlockWithIndex(BlockNumber(1), /*index=*/ 0, 1, fork, 3, 1);
+      const s1 = await ws.handleL2BlockAndMessages(b1, m1);
+      expect(s1.meta.messageTreeMeta.size).toBe(BigInt(NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP));
+      expect(s1.meta.messageTreeMeta.unfinalizedBlockHeight).toBe(1);
+
+      // Block 2 is non-first and carries no messages: the message tree size and root are unchanged, but the tree is
+      // still committed as a new block (so its per-block history stays in lockstep with the other trees).
+      const { block: b2, messages: m2 } = await mockBlockWithIndex(BlockNumber(2), /*index=*/ 1, 1, fork, 0, 1);
+      const s2 = await ws.handleL2BlockAndMessages(b2, m2);
+      expect(s2.meta.messageTreeMeta.size).toBe(BigInt(NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP));
+      expect(s2.meta.messageTreeMeta.root).toEqual(s1.meta.messageTreeMeta.root);
+      expect(s2.meta.messageTreeMeta.unfinalizedBlockHeight).toBe(2);
+
+      // Block 3 is non-first and carries messages: the bundle is appended unpadded, so the tree grows by exactly the
+      // bundle size and the root changes on a non-first block.
+      const { block: b3, messages: m3 } = await mockBlockWithIndex(BlockNumber(3), /*index=*/ 2, 1, fork, 5, 1);
+      const s3 = await ws.handleL2BlockAndMessages(b3, m3);
+      expect(s3.meta.messageTreeMeta.size).toBe(BigInt(NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP + 5));
+      expect(s3.meta.messageTreeMeta.root).not.toEqual(s2.meta.messageTreeMeta.root);
+      expect(s3.meta.messageTreeMeta.unfinalizedBlockHeight).toBe(3);
+
+      await fork.close();
+
+      // A fork opened at block 2 sees exactly the first two bundles (3 padded + 0); at block 3 it also sees the third.
+      const forkAt2 = await ws.fork(BlockNumber(2));
+      expect((await forkAt2.getTreeInfo(MerkleTreeId.L1_TO_L2_MESSAGE_TREE)).size).toBe(
+        BigInt(NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP),
+      );
+      await forkAt2.close();
+
+      const forkAt3 = await ws.fork(BlockNumber(3));
+      expect((await forkAt3.getTreeInfo(MerkleTreeId.L1_TO_L2_MESSAGE_TREE)).size).toBe(
+        BigInt(NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP + 5),
+      );
+      await forkAt3.close();
+    });
+
+    it('unwinds per block, reverting exactly the messages appended by a non-first block', async () => {
+      const fork = await ws.fork();
+
+      const { block: b1, messages: m1 } = await mockBlockWithIndex(BlockNumber(1), /*index=*/ 0, 1, fork, 2, 1);
+      const s1 = await ws.handleL2BlockAndMessages(b1, m1);
+
+      // Non-first block carrying 4 messages.
+      const { block: b2, messages: m2 } = await mockBlockWithIndex(BlockNumber(2), /*index=*/ 1, 1, fork, 4, 1);
+      const s2 = await ws.handleL2BlockAndMessages(b2, m2);
+      expect(s2.meta.messageTreeMeta.size).toBe(BigInt(NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP + 4));
+
+      // Non-first block carrying 5 messages.
+      const { block: b3, messages: m3 } = await mockBlockWithIndex(BlockNumber(3), /*index=*/ 2, 1, fork, 5, 1);
+      const s3 = await ws.handleL2BlockAndMessages(b3, m3);
+      expect(s3.meta.messageTreeMeta.size).toBe(BigInt(NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP + 9));
+      await fork.close();
+
+      // Unwind block 3: the message tree returns to the post-block-2 state.
+      const afterUnwind3 = await ws.unwindBlocks(BlockNumber(2));
+      expect(afterUnwind3.meta.messageTreeMeta.size).toBe(s2.meta.messageTreeMeta.size);
+      expect(afterUnwind3.meta.messageTreeMeta.root).toEqual(s2.meta.messageTreeMeta.root);
+
+      // Unwind block 2 (a message-carrying non-first block): its 4 messages are reverted, back to the post-block-1
+      // state — the pending-chain rollback does not assume the message tree only changes at checkpoint starts.
+      const afterUnwind2 = await ws.unwindBlocks(BlockNumber(1));
+      expect(afterUnwind2.meta.messageTreeMeta.size).toBe(s1.meta.messageTreeMeta.size);
+      expect(afterUnwind2.meta.messageTreeMeta.root).toEqual(s1.meta.messageTreeMeta.root);
+
+      // Re-syncing after the unwind reconverges: fresh non-first blocks append cleanly on top of block 1.
+      const resyncFork = await ws.fork();
+      const { block: b2b, messages: m2b } = await mockBlockWithIndex(BlockNumber(2), /*index=*/ 1, 1, resyncFork, 4, 1);
+      const s2b = await ws.handleL2BlockAndMessages(b2b, m2b);
+      expect(s2b.meta.messageTreeMeta.size).toBe(BigInt(NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP + 4));
+
+      const { block: b3b, messages: m3b } = await mockBlockWithIndex(BlockNumber(3), /*index=*/ 2, 1, resyncFork, 5, 1);
+      const s3b = await ws.handleL2BlockAndMessages(b3b, m3b);
+      expect(s3b.meta.messageTreeMeta.size).toBe(BigInt(NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP + 9));
+      await resyncFork.close();
+    });
+
+    it('leaves the message tree byte-identical on every non-first block of a legacy-shaped checkpoint', async () => {
+      const fork = await ws.fork();
+
+      // Legacy call shape: the whole (padded) checkpoint bundle is attached to the first block; non-first blocks carry
+      // an empty bundle. With this shape the code change is a no-op, so the message tree must match the pre-change
+      // behaviour (identical trees) at every block, not just at the checkpoint end.
+      const { block: b1, messages: m1 } = await mockBlockWithIndex(BlockNumber(1), /*index=*/ 0, 2, fork, 6, 2);
+      const s1 = await ws.handleL2BlockAndMessages(b1, m1);
+      expect(s1.meta.messageTreeMeta.size).toBe(BigInt(NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP));
+
+      for (let index = 1; index <= 2; index++) {
+        const blockNumber = index + 1;
+        const { block, messages } = await mockBlockWithIndex(BlockNumber(blockNumber), index, 2, fork, 0, 2);
+        const status = await ws.handleL2BlockAndMessages(block, messages);
+
+        // The message tree is untouched by non-first blocks in the legacy shape.
+        expect(status.meta.messageTreeMeta.size).toEqual(s1.meta.messageTreeMeta.size);
+        expect(status.meta.messageTreeMeta.root).toEqual(s1.meta.messageTreeMeta.root);
+        // But the chain as a whole still advances: the archive tree grows with each block.
+        expect(status.meta.archiveTreeMeta.unfinalizedBlockHeight).toBe(blockNumber);
+      }
+
+      await fork.close();
     });
   });
 
