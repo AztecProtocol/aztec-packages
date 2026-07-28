@@ -182,6 +182,7 @@ async function buildCheckpointProver(ctx: RerunContext, index: number, log: Logg
       attestations,
       previousBlockHeader,
       l1ToL2Messages,
+      previousInboxRollingHash,
       previousArchiveSiblingPath,
     },
     {
