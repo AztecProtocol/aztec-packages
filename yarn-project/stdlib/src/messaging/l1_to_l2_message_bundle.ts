@@ -6,20 +6,17 @@ import { BufferReader, serializeToBuffer } from '@aztec/foundation/serialize';
 import { bufferToHex, hexToBuffer } from '@aztec/foundation/string';
 
 /**
- * A block's L1-to-L2 message bundle: the leaves it inserts into the L1-to-L2 message tree plus the two counts a block
- * root needs — one for the (transitionally padded) tree insert, one for the real-count sponge absorb. See the Noir
- * `L1ToL2MessageBundle`. Once the tree insert becomes real-count too, `numMsgs === numRealMsgs` and `numRealMsgs` is
- * dropped.
+ * A block's L1-to-L2 message bundle: the real message leaves it inserts into the L1-to-L2 message tree and the count
+ * that drives both the compact (unpadded) tree append and the message-sponge absorb (AZIP-22 Fast Inbox). See the Noir
+ * `L1ToL2MessageBundle`.
  */
 export class L1ToL2MessageBundle {
   constructor(
-    /** The message leaves, padded with zeros to `MAX_L1_TO_L2_MSGS_PER_BLOCK`. Kept as a plain array (not a tuple)
-     * to avoid TS's deep-instantiation limit on the 1024-lane type. */
+    /** The real message leaves in the leading lanes, padded with zeros to `MAX_L1_TO_L2_MSGS_PER_BLOCK`. Kept as a
+     * plain array (not a tuple) to avoid TS's deep-instantiation limit on the wide type. */
     public readonly messages: Fr[],
-    /** Number of leaves inserted into the L1-to-L2 message tree (the padded subtree size, or 0 for an empty block). */
+    /** Number of real messages: drives both the compact tree append and the sponge absorb. */
     public readonly numMsgs: number,
-    /** Number of real (non-padding) messages absorbed into the message sponge. */
-    public readonly numRealMsgs: number,
   ) {}
 
   /** An empty bundle: no leaves inserted, nothing absorbed. */
@@ -27,12 +24,11 @@ export class L1ToL2MessageBundle {
     return new L1ToL2MessageBundle(
       Array.from({ length: MAX_L1_TO_L2_MSGS_PER_BLOCK }, () => Fr.ZERO),
       0,
-      0,
     );
   }
 
   toBuffer() {
-    return serializeToBuffer(this.messages, this.numMsgs, this.numRealMsgs);
+    return serializeToBuffer(this.messages, this.numMsgs);
   }
 
   toString() {
@@ -43,7 +39,7 @@ export class L1ToL2MessageBundle {
     const reader = BufferReader.asReader(buffer);
     // Array.from (not readArray with the literal cap) keeps the type `Fr[]` and avoids TS's deep-tuple instantiation.
     const messages = Array.from({ length: MAX_L1_TO_L2_MSGS_PER_BLOCK }, () => Fr.fromBuffer(reader));
-    return new L1ToL2MessageBundle(messages, reader.readNumber(), reader.readNumber());
+    return new L1ToL2MessageBundle(messages, reader.readNumber());
   }
 
   static fromString(str: string) {
@@ -59,12 +55,11 @@ export class L1ToL2MessageBundle {
   }
 }
 
-/** Pads `messages` to a full subtree and wraps it into a bundle whose tree-insert count is the padded subtree size. */
+/** Wraps `messages` (the real leaves) into a bundle: the leaves fill the leading lanes, the count is the real count. */
 export function makeL1ToL2MessageBundle(messages: Fr[]): L1ToL2MessageBundle {
   // Explicit `<Fr, number>` keeps the result `Fr[]`; padding to the literal cap would otherwise infer a deep tuple.
   return new L1ToL2MessageBundle(
     padArrayEnd<Fr, number>(messages, Fr.ZERO, MAX_L1_TO_L2_MSGS_PER_BLOCK),
-    MAX_L1_TO_L2_MSGS_PER_BLOCK,
     messages.length,
   );
 }

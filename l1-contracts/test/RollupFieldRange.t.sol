@@ -175,7 +175,11 @@ contract RollupFieldRangeTest is RollupBase {
 
     vm.blobhashes(this.getBlobHashes(full.checkpoint.blobCommitments));
 
-    ProposeArgs memory args = ProposeArgs({header: header, archive: bytes32(FIELD_MAX), oracleInput: OracleInput(0)});
+    // Streaming Inbox (AZIP-22 Fast Inbox): nothing is seeded here, so reference the genesis bucket (hash 0).
+    header.inboxRollingHash = bytes32(0);
+
+    ProposeArgs memory args =
+      ProposeArgs({header: header, archive: bytes32(FIELD_MAX), oracleInput: OracleInput(0), bucketHint: 0});
 
     rollup.propose(
       args,
@@ -202,7 +206,8 @@ contract RollupFieldRangeTest is RollupBase {
     skipBlobCheck(address(rollup));
 
     bytes32 archive = _useFixtureArchive ? full.checkpoint.archive : bytes32(_archive);
-    return ProposeArgs({header: header, archive: archive, oracleInput: OracleInput(0)});
+    // Boundary tests revert on a field-range check before Inbox consumption; the genesis bucket hint suffices.
+    return ProposeArgs({header: header, archive: archive, oracleInput: OracleInput(0), bucketHint: 0});
   }
 
   function _expectFieldOutOfRange(ProposeArgs memory _args, bytes32 _value) internal {

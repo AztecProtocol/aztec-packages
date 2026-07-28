@@ -350,9 +350,15 @@ export class ProverNode implements L2BlockStreamEventHandler, ProverNodeApi, Tra
   ): Promise<RegisterCheckpointData> {
     const previousBlockNumber = BlockNumber(checkpoint.blocks[0].number - 1);
     const previousBlockHeader = await this.gatherPreviousBlockHeader(previousBlockNumber);
-    const l1ToL2Messages = await this.l1ToL2MessageSource.getL1ToL2Messages(checkpoint.number);
-    const previousInboxRollingHash = await this.gatherPreviousInboxRollingHash(checkpoint.number);
     const lastBlock = checkpoint.blocks.at(-1)!;
+    // Streaming Inbox (AZIP-22 Fast Inbox): the checkpoint's consumed messages are those between the parent
+    // checkpoint's consumed position and this checkpoint's last block, as a compact leaf-count range. The prover
+    // slices them per block.
+    const l1ToL2Messages = await this.l1ToL2MessageSource.getL1ToL2MessagesBetweenLeafCounts(
+      BigInt(previousBlockHeader.state.l1ToL2MessageTree.nextAvailableLeafIndex),
+      BigInt(lastBlock.header.state.l1ToL2MessageTree.nextAvailableLeafIndex),
+    );
+    const previousInboxRollingHash = await this.gatherPreviousInboxRollingHash(checkpoint.number);
     const lastBlockHash = await lastBlock.header.hash();
     await this.worldState.syncImmediate(lastBlock.number, lastBlockHash);
     const previousArchiveSiblingPath = await getLastSiblingPath(

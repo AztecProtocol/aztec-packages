@@ -118,8 +118,9 @@ contract TokenPortalTest is Test {
     testERC20.mint(address(this), mintAmount);
     testERC20.approve(address(tokenPortal), mintAmount);
 
-    // Check for the expected message
-    uint256 expectedIndex = (FIRST_REAL_TREE_NUM - 1) * L1_TO_L2_MSG_SUBTREE_SIZE;
+    // Check for the expected message.
+    // Compact cumulative index (AZIP-22 Fast Inbox): the first message against a fresh Inbox has index 0.
+    uint256 expectedIndex = 0;
     DataStructures.L1ToL2Msg memory expectedMessage = _createExpectedMintPrivateL1ToL2Message(expectedIndex);
 
     bytes32 expectedLeaf = expectedMessage.sha256ToField();
@@ -146,8 +147,9 @@ contract TokenPortalTest is Test {
     testERC20.mint(address(this), mintAmount);
     testERC20.approve(address(tokenPortal), mintAmount);
 
-    // Check for the expected message
-    uint256 expectedIndex = (FIRST_REAL_TREE_NUM - 1) * L1_TO_L2_MSG_SUBTREE_SIZE;
+    // Check for the expected message.
+    // Compact cumulative index (AZIP-22 Fast Inbox): the first message against a fresh Inbox has index 0.
+    uint256 expectedIndex = 0;
     DataStructures.L1ToL2Msg memory expectedMessage = _createExpectedMintPublicL1ToL2Message(expectedIndex);
     bytes32 expectedLeaf = expectedMessage.sha256ToField();
     bytes16 expectedHash = bytes16(keccak256(abi.encodePacked(inbox.getState().rollingHash, expectedLeaf)));

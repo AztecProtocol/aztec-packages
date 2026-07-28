@@ -1,6 +1,4 @@
-import { NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP } from '@aztec/constants';
 import { BlockNumber } from '@aztec/foundation/branded-types';
-import { padArrayEnd } from '@aztec/foundation/collection';
 import { Fr } from '@aztec/foundation/curves/bn254';
 import { AvmSimulatorPool } from '@aztec/simulator/server';
 import type { BlockHash, L2Block } from '@aztec/stdlib/block';
@@ -35,14 +33,8 @@ export class TXESynchronizer implements WorldStateSynchronizer {
   }
 
   public async handleL2Block(block: L2Block, l1ToL2Messages: Fr[] = []) {
-    // Pad the bundle only for a first-in-checkpoint block, matching how the circuits (and native world state) build the
-    // message tree. TXE mines one block per checkpoint, so this is always the first block, but keep the condition
-    // explicit so the caller matches the per-block message-insertion semantics of handleL2BlockAndMessages.
-    const messages =
-      block.indexWithinCheckpoint === 0
-        ? padArrayEnd<Fr, number>(l1ToL2Messages, Fr.ZERO, NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP)
-        : l1ToL2Messages;
-    await this.nativeWorldStateService.handleL2BlockAndMessages(block, messages);
+    // Append the block's real message leaves unpadded at compact indices (AZIP-22 Fast Inbox).
+    await this.nativeWorldStateService.handleL2BlockAndMessages(block, l1ToL2Messages);
 
     this.blockNumber = block.header.globalVariables.blockNumber;
   }

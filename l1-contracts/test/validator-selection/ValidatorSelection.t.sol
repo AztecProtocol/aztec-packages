@@ -531,10 +531,12 @@ contract ValidatorSelectionTest is ValidatorSelectionTestBase {
     DecoderBase.Full memory full = load(_name);
     ProposedHeader memory header = full.checkpoint.header;
 
-    // We jump to the time of the block. (unless it is in the past)
-    vm.warp(max(block.timestamp, Timestamp.unwrap(full.checkpoint.header.timestamp)));
-
+    // Seed the Inbox before jumping to the checkpoint's L1 block: propose rejects a bucket that is still
+    // accumulating, and a bucket keeps accumulating for the whole L1 block that opened it.
     _populateInbox(full.populate.sender, full.populate.recipient, full.populate.l1ToL2Content);
+
+    // We jump to the time of the block, always past the L1 block the messages above landed in.
+    vm.warp(max(block.timestamp + 1, Timestamp.unwrap(full.checkpoint.header.timestamp)));
 
     rollup.setupEpoch();
 
@@ -549,7 +551,13 @@ contract ValidatorSelectionTest is ValidatorSelectionTestBase {
       header.gasFees.feePerL2Gas = manaMinFee;
     }
 
-    ree.proposeArgs = ProposeArgs({header: header, archive: full.checkpoint.archive, oracleInput: OracleInput(0)});
+    // Streaming Inbox (AZIP-22 Fast Inbox): reference the newest bucket, consuming the messages seeded above.
+    uint256 bucketHint = inbox.getCurrentBucketSeq();
+    header.inboxRollingHash = inbox.getBucket(bucketHint).rollingHash;
+
+    ree.proposeArgs = ProposeArgs({
+      header: header, archive: full.checkpoint.archive, oracleInput: OracleInput(0), bucketHint: bucketHint
+    });
 
     skipBlobCheck(address(rollup));
 
@@ -746,7 +754,7 @@ contract ValidatorSelectionTest is ValidatorSelectionTestBase {
       endArchive: endFull.checkpoint.archive,
       outHash: endFull.checkpoint.header.outHash,
       previousInboxRollingHash: 0,
-      endInboxRollingHash: 0,
+      endInboxRollingHash: proposedHeaders[endCheckpointNumber].inboxRollingHash,
       proverId: prover
     });
 

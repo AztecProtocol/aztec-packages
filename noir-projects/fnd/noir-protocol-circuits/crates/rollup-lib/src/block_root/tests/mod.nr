@@ -280,15 +280,10 @@ impl TestBuilder {
         }
     }
 
-    // The block's message bundle. The unit-test fixture inserts exactly `num_msgs` real leaves into the tree, so the
-    // tree-insert count and the sponge real-count are equal here; the transitional gap between them (padded tree
-    // insert vs real-count sponge) is exercised by the orchestrator and full-rollup tests.
+    // The block's message bundle: exactly `num_msgs` real leaves, appended compactly to the tree and absorbed into the
+    // message sponge (AZIP-22 Fast Inbox).
     fn message_bundle(self) -> L1ToL2MessageBundle {
-        L1ToL2MessageBundle {
-            messages: self.l1_to_l2_messages,
-            num_msgs: self.num_msgs,
-            num_real_msgs: self.num_msgs,
-        }
+        L1ToL2MessageBundle { messages: self.l1_to_l2_messages, num_msgs: self.num_msgs }
     }
 
     pub fn assert_expected_public_inputs(self, pi: BlockRollupPublicInputs) {
@@ -343,7 +338,6 @@ impl TestBuilder {
             pi.end_state,
             self.num_left_txs + self.num_right_txs,
             pi.accumulated_mana_used,
-            self.is_first_block_root,
         );
         assert_eq(pi.end_sponge_blob, expected_end_sponge_blob);
 

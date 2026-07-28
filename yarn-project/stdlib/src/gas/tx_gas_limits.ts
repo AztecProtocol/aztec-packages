@@ -1,8 +1,4 @@
-import {
-  NUM_BLOCK_END_BLOB_FIELDS,
-  NUM_CHECKPOINT_END_MARKER_FIELDS,
-  NUM_FIRST_BLOCK_END_BLOB_FIELDS,
-} from '@aztec/blob-lib/encoding';
+import { NUM_BLOCK_END_BLOB_FIELDS, NUM_CHECKPOINT_END_MARKER_FIELDS } from '@aztec/blob-lib/encoding';
 import {
   BLOBS_PER_CHECKPOINT,
   DA_GAS_PER_FIELD,
@@ -38,9 +34,8 @@ export const MIN_PER_BLOCK_DA_ALLOCATION_MULTIPLIER = 1.5;
  * raw blob capacity (`BLOBS_PER_CHECKPOINT * FIELDS_PER_BLOB * DA_GAS_PER_FIELD`) minus the fields the blob
  * encoding reserves for overhead that no tx pays DA gas for:
  *
- * - one checkpoint-end marker field (`NUM_CHECKPOINT_END_MARKER_FIELDS`),
- * - the first block's block-end fields (`NUM_FIRST_BLOCK_END_BLOB_FIELDS`, 7), and
- * - `NUM_BLOCK_END_BLOB_FIELDS` (6) for each of the `blocks - 1` subsequent blocks.
+ * - one checkpoint-end marker field (`NUM_CHECKPOINT_END_MARKER_FIELDS`), and
+ * - `NUM_BLOCK_END_BLOB_FIELDS` (7, including the per-block l1-to-l2 root) for each of the `blocks` blocks.
  *
  * Subtracting the overhead for every block (not just the first) keeps the network DA admission limit at or
  * below the builder's first-block blob-field cap at every geometry. The builder is the MOST generous for the
@@ -57,10 +52,7 @@ export function getDaCheckpointBudgetForTxs(maxBlocksPerCheckpoint: number): num
   // raw blob capacity, which would otherwise yield a negative advertised DA budget.
   const fields = Math.max(
     0,
-    BLOBS_PER_CHECKPOINT * FIELDS_PER_BLOB -
-      NUM_CHECKPOINT_END_MARKER_FIELDS -
-      NUM_FIRST_BLOCK_END_BLOB_FIELDS -
-      (blocks - 1) * NUM_BLOCK_END_BLOB_FIELDS,
+    BLOBS_PER_CHECKPOINT * FIELDS_PER_BLOB - NUM_CHECKPOINT_END_MARKER_FIELDS - blocks * NUM_BLOCK_END_BLOB_FIELDS,
   );
   return fields * DA_GAS_PER_FIELD;
 }

@@ -1,4 +1,4 @@
-import { BlockNumber, CheckpointNumber, IndexWithinCheckpoint } from '@aztec/foundation/branded-types';
+import { BlockNumber, CheckpointNumber } from '@aztec/foundation/branded-types';
 import { timesParallel } from '@aztec/foundation/collection';
 import { Fr } from '@aztec/foundation/curves/bn254';
 import { type Logger, createLogger } from '@aztec/foundation/log';
@@ -51,9 +51,6 @@ describe('ServerWorldStateSynchronizer', () => {
   beforeEach(() => {
     blockAndMessagesSource = mock<L2BlockSource & L1ToL2MessageSource>();
     blockAndMessagesSource.getBlockNumber.mockResolvedValue(BlockNumber(LATEST_BLOCK_NUMBER));
-    blockAndMessagesSource.getL1ToL2Messages.mockImplementation(checkNumber => {
-      return Promise.resolve(checkpoints.find(c => c.checkpoint.number === checkNumber)?.messages ?? []);
-    });
 
     merkleTreeRead = mock<MerkleTreeReadOperations>();
     merkleTreeRead.getInitialHeader.mockReturnValue({
@@ -251,45 +248,6 @@ describe('ServerWorldStateSynchronizer', () => {
     await expect(pushBlocks(1, 5)).rejects.toThrow(/Test error/i);
   });
 
-  it('fetches L1->L2 messages only for the first block in a checkpoint', async () => {
-    // Generate 3 mock checkpoints, each with i + 1 block and i + 2 message.
-    checkpoints = await timesParallel(3, i =>
-      mockCheckpointAndMessages(CheckpointNumber(i + 1), {
-        startBlockNumber: BlockNumber(
-          Array(i + 1)
-            .fill(0)
-            .reduce((acc, _, index) => acc + index, 1),
-        ),
-        numBlocks: i + 1,
-        numL1ToL2Messages: i + 2,
-      }),
-    );
-
-    void server.start();
-    await pushBlocks(1, 6);
-
-    await expectServerStatus(WorldStateRunningState.RUNNING, 6);
-
-    expect(merkleTreeDb.handleL2BlockAndMessages).toHaveBeenCalledTimes(6);
-    expect(merkleTreeDb.handleL2BlockAndMessages.mock.calls[0][1]).toEqual(checkpoints[0].messages);
-    expect(merkleTreeDb.handleL2BlockAndMessages.mock.calls[1][1]).toEqual(checkpoints[1].messages);
-    expect(merkleTreeDb.handleL2BlockAndMessages.mock.calls[2][1]).toEqual([]);
-    expect(merkleTreeDb.handleL2BlockAndMessages.mock.calls[3][1]).toEqual(checkpoints[2].messages);
-    expect(merkleTreeDb.handleL2BlockAndMessages.mock.calls[4][1]).toEqual([]);
-    expect(merkleTreeDb.handleL2BlockAndMessages.mock.calls[5][1]).toEqual([]);
-  });
-
-  it('rejects a non-first block that carries L1->L2 messages (transitional invariant)', async () => {
-    // World state accepts a bundle on any block, but pre-flip the synchronizer must only attach messages to the first
-    // block of a checkpoint. The call-site guard enforces that until the flip switches to per-block derivation.
-    const nonFirstBlock = await L2Block.random(BlockNumber(2), { indexWithinCheckpoint: IndexWithinCheckpoint(1) });
-
-    await expect(server.callHandleL2Block(nonFirstBlock, [Fr.random()])).rejects.toThrow(
-      'L1 to L2 messages must be empty for non-first blocks',
-    );
-    expect(merkleTreeDb.handleL2BlockAndMessages).not.toHaveBeenCalled();
-  });
-
   describe('getVerifiedSnapshot', () => {
     let snapshot: MockProxy<MerkleTreeReadOperations>;
 
@@ -364,10 +322,6 @@ class TestWorldStateSynchronizer extends ServerWorldStateSynchronizer {
 
   protected override createBlockStream(): EventDrivenL2BlockStream {
     return this.mockBlockStream;
-  }
-
-  public callHandleL2Block(block: L2Block, messages: Fr[]) {
-    return this.handleL2Block(block, messages);
   }
 
   public override getL2Tips() {

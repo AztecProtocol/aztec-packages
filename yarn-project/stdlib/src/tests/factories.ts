@@ -966,11 +966,7 @@ export function makeTxMergeRollupPrivateInputs(seed = 0): TxMergeRollupPrivateIn
 export function makeBlockRootFirstRollupPrivateInputs(seed = 0) {
   return new BlockRootFirstRollupPrivateInputs(
     [makeProofData(seed + 0x1000, makeTxRollupPublicInputs), makeProofData(seed + 0x2000, makeTxRollupPublicInputs)],
-    new L1ToL2MessageBundle(
-      makeArray(MAX_L1_TO_L2_MSGS_PER_BLOCK, fr, seed + 0x2500),
-      MAX_L1_TO_L2_MSGS_PER_BLOCK,
-      MAX_L1_TO_L2_MSGS_PER_BLOCK,
-    ),
+    new L1ToL2MessageBundle(makeArray(MAX_L1_TO_L2_MSGS_PER_BLOCK, fr, seed + 0x2500), MAX_L1_TO_L2_MSGS_PER_BLOCK),
     makeAppendOnlyTreeSnapshot(seed + 0x3000),
     makeSiblingPath(seed + 0x4000, L1_TO_L2_MSG_TREE_HEIGHT),
     makeSiblingPath(seed + 0x5000, ARCHIVE_HEIGHT),
@@ -980,7 +976,7 @@ export function makeBlockRootFirstRollupPrivateInputs(seed = 0) {
 export function makeBlockRootSingleTxRollupPrivateInputs(seed = 0) {
   return new BlockRootSingleTxRollupPrivateInputs(
     makeProofData(seed + 0x1000, makeTxRollupPublicInputs),
-    new L1ToL2MessageBundle(makeArray(MAX_L1_TO_L2_MSGS_PER_BLOCK, fr, seed + 0x2500), 0, 0),
+    new L1ToL2MessageBundle(makeArray(MAX_L1_TO_L2_MSGS_PER_BLOCK, fr, seed + 0x2500), 0),
     makeAppendOnlyTreeSnapshot(seed + 0x2800),
     makeL1ToL2MessageSponge(seed + 0x3000),
     makeSiblingPath(seed + 0x4000, L1_TO_L2_MSG_TREE_HEIGHT),

@@ -6,7 +6,6 @@ import {
   type BlockBlobData,
   NUM_BLOCK_END_BLOB_FIELDS,
   NUM_CHECKPOINT_END_MARKER_FIELDS,
-  NUM_FIRST_BLOCK_END_BLOB_FIELDS,
   decodeBlockBlobData,
   encodeBlockBlobData,
 } from './block_blob_data.js';
@@ -46,7 +45,7 @@ export function decodeCheckpointBlobData(fields: Fr[] | FieldReader): Checkpoint
   const blocks = [];
   let checkpointEndMarker: CheckpointEndMarker | undefined;
   while (!reader.isFinished() && !checkpointEndMarker) {
-    blocks.push(decodeBlockBlobData(reader, blocks.length === 0 /* isFirstBlock */));
+    blocks.push(decodeBlockBlobData(reader));
 
     // After reading a block, the next item must be either a checkpoint end marker or another block.
     // The first field of a block is always a tx start marker. So if the provided fields are valid, it's not possible to
@@ -94,8 +93,7 @@ export function getTotalNumBlobFieldsFromTxs(txsPerBlock: TxStartMarker[][]): nu
   }
 
   return (
-    (numBlocks ? NUM_FIRST_BLOCK_END_BLOB_FIELDS - NUM_BLOCK_END_BLOB_FIELDS : 0) + // l1ToL2Messages root in the first block
-    numBlocks * NUM_BLOCK_END_BLOB_FIELDS + // 6 fields for each block end blob data.
+    numBlocks * NUM_BLOCK_END_BLOB_FIELDS + // block-end fields for each block (includes the per-block l1-to-l2 root)
     txsPerBlock.reduce((total, txs) => total + txs.reduce((total, tx) => total + tx.numBlobFields, 0), 0) +
     NUM_CHECKPOINT_END_MARKER_FIELDS // checkpoint end marker
   );

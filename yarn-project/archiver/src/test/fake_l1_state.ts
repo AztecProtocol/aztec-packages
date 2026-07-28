@@ -14,7 +14,7 @@ import { RollupAbi } from '@aztec/l1-artifacts';
 import { CommitteeAttestation, CommitteeAttestationsAndSigners, L2Block } from '@aztec/stdlib/block';
 import { Checkpoint } from '@aztec/stdlib/checkpoint';
 import { getSlotAtTimestamp } from '@aztec/stdlib/epoch-helpers';
-import { InboxLeaf, updateInboxRollingHash } from '@aztec/stdlib/messaging';
+import { updateInboxRollingHash } from '@aztec/stdlib/messaging';
 import { ConsensusPayload, getHashedSignaturePayloadTypedData } from '@aztec/stdlib/p2p';
 import { mockCheckpointAndMessages } from '@aztec/stdlib/testing';
 import { AppendOnlyTreeSnapshot } from '@aztec/stdlib/trees';
@@ -177,8 +177,9 @@ export class FakeL1State {
    */
   addMessages(checkpointNumber: CheckpointNumber, l1BlockNumber: bigint, messageLeaves: Fr[]): void {
     const timestamp = this.getTimestampAtL1Block(l1BlockNumber);
-    messageLeaves.forEach((leaf, i) => {
-      const index = InboxLeaf.smallestIndexForCheckpoint(checkpointNumber) + BigInt(i);
+    messageLeaves.forEach(leaf => {
+      // Compact global insertion index (AZIP-22 Fast Inbox): position in the Inbox's insertion order.
+      const index = BigInt(this.messages.length);
       this.messagesRollingHash = updateRollingHash(this.messagesRollingHash, leaf);
       const { bucketSeq, inboxRollingHash } = this.absorbIntoBucket(leaf, timestamp);
 
@@ -217,16 +218,18 @@ export class FakeL1State {
     this.currentBucketSeq = 0n;
     this.currentBucketTimestamp = 0n;
     this.currentBucketMsgCount = 0;
-    for (const msg of this.messages) {
+    this.messages.forEach((msg, i) => {
       this.messagesRollingHash = updateRollingHash(this.messagesRollingHash, msg.leaf);
       const { bucketSeq, inboxRollingHash } = this.absorbIntoBucket(
         msg.leaf,
         this.getTimestampAtL1Block(msg.l1BlockNumber),
       );
+      // Keep the compact global insertion index contiguous after the message set changes (e.g. reorgs).
+      msg.index = BigInt(i);
       msg.rollingHash = this.messagesRollingHash;
       msg.inboxRollingHash = inboxRollingHash;
       msg.bucketSeq = bucketSeq;
-    }
+    });
   }
 
   /**
@@ -746,6 +749,7 @@ export class FakeL1State {
           header,
           archive,
           oracleInput: { feeAssetPriceModifier: 0n },
+          bucketHint: 0n,
         },
         verbatimAttestations,
         attestationsAndSigners.getSigners().map(signer => signer.toString()),

@@ -159,6 +159,11 @@ describe('AztecNodeApiSchema', () => {
     expect(response).toEqual(5);
   });
 
+  it('getL1ToL2MessageIndex', async () => {
+    const response = await context.client.getL1ToL2MessageIndex(Fr.random());
+    expect(response).toEqual(5n);
+  });
+
   it('getL2ToL1Messages', async () => {
     const response = await context.client.getL2ToL1Messages(EpochNumber(1));
     expect(response.length).toBe(3);
@@ -713,6 +718,10 @@ class MockAztecNode implements AztecNode {
   getL1ToL2MessageCheckpoint(l1ToL2Message: Fr): Promise<CheckpointNumber | undefined> {
     expect(l1ToL2Message).toBeInstanceOf(Fr);
     return Promise.resolve(CheckpointNumber(5));
+  }
+  getL1ToL2MessageIndex(l1ToL2Message: Fr): Promise<bigint | undefined> {
+    expect(l1ToL2Message).toBeInstanceOf(Fr);
+    return Promise.resolve(5n);
   }
   getL2ToL1Messages(_epoch: EpochNumber): Promise<Fr[][][][]> {
     return Promise.resolve(

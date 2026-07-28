@@ -82,12 +82,9 @@ contract DepositToAztecPublic is Test {
     uint256 amount = 100 ether;
 
     Inbox inbox = Inbox(address(Rollup(address(registry.getCanonicalRollup())).getInbox()));
-    // The first message goes into tree (INITIAL_CHECKPOINT_NUMBER + LAG) at index 0
-    // Global index = (inProgress - INITIAL_CHECKPOINT_NUMBER) * SIZE + 0
-    //              = ((INITIAL_CHECKPOINT_NUMBER + LAG) - INITIAL_CHECKPOINT_NUMBER) * SIZE
-    //              = LAG * SIZE
-    uint256 SIZE = 2 ** Constants.L1_TO_L2_MSG_SUBTREE_HEIGHT;
-    uint256 expectedIndex = TestConstants.AZTEC_INBOX_LAG * SIZE;
+    // Compact cumulative index (AZIP-22 Fast Inbox): the first message against a fresh Inbox has index 0
+    // (equal to the number of messages inserted before it), regardless of the inbox lag.
+    uint256 expectedIndex = 0;
 
     // The purpose of including the function selector is to make the message unique to that specific call. Note that
     // it has nothing to do with calling the function.
@@ -156,8 +153,10 @@ contract DepositToAztecPublic is Test {
       "Initial inProgress should be INITIAL_CHECKPOINT_NUMBER + lag"
     );
     state.initialInProgress = state.testInbox.getInProgress();
-    state.expectedIndex1 = state.lag * state.SIZE;
-    state.expectedIndex2 = state.lag * state.SIZE + 1;
+    // Compact cumulative index (AZIP-22 Fast Inbox): messages are indexed by insertion order from 0,
+    // independent of the lag-based tree geometry.
+    state.expectedIndex1 = 0;
+    state.expectedIndex2 = 1;
 
     vm.prank(state.testToken.owner());
     state.testToken.mint(address(this), state.amount * 2);
@@ -165,7 +164,7 @@ contract DepositToAztecPublic is Test {
 
     // Send first message
     (, uint256 index1) = state.testFeeJuicePortal.depositToAztecPublic(state.to, state.amount, state.secretHash1);
-    assertEq(index1, state.expectedIndex1, "First message index should be lag * SIZE");
+    assertEq(index1, state.expectedIndex1, "First message index should be 0 (compact cumulative)");
     assertEq(
       state.testInbox.getInProgress(),
       state.expectedInProgress,
@@ -175,7 +174,7 @@ contract DepositToAztecPublic is Test {
 
     // Send second message
     (, uint256 index2) = state.testFeeJuicePortal.depositToAztecPublic(state.to, state.amount, state.secretHash2);
-    assertEq(index2, state.expectedIndex2, "Second message index should be lag * SIZE + 1");
+    assertEq(index2, state.expectedIndex2, "Second message index should be 1 (compact cumulative)");
     assertEq(
       state.testInbox.getInProgress(),
       state.expectedInProgress,

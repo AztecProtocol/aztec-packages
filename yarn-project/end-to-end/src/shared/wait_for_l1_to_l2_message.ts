@@ -10,12 +10,12 @@ import { retryUntil } from '@aztec/foundation/retry';
  * blocks afterwards to make the message consumable.
  */
 export function waitForL1ToL2MessageSeen(
-  node: Pick<AztecNode, 'getL1ToL2MessageCheckpoint'>,
+  node: Pick<AztecNode, 'getL1ToL2MessageIndex'>,
   l1ToL2MessageHash: Fr,
   opts: { timeoutSeconds: number },
 ) {
   return retryUntil(
-    async () => (await node.getL1ToL2MessageCheckpoint(l1ToL2MessageHash)) !== undefined,
+    async () => (await node.getL1ToL2MessageIndex(l1ToL2MessageHash)) !== undefined,
     `L1 to L2 message ${l1ToL2MessageHash.toString()} seen`,
     opts.timeoutSeconds,
     0.25,

@@ -1,9 +1,4 @@
-import {
-  MAX_NOTE_HASHES_PER_TX,
-  MAX_NULLIFIERS_PER_TX,
-  NULLIFIER_SUBTREE_HEIGHT,
-  NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP,
-} from '@aztec/constants';
+import { MAX_NOTE_HASHES_PER_TX, MAX_NULLIFIERS_PER_TX, NULLIFIER_SUBTREE_HEIGHT } from '@aztec/constants';
 import { BlockNumber, CheckpointNumber, IndexWithinCheckpoint } from '@aztec/foundation/branded-types';
 import { padArrayEnd } from '@aztec/foundation/collection';
 import { Fr } from '@aztec/foundation/curves/bn254';
@@ -36,10 +31,8 @@ export async function insertTxEffectIntoWorldTrees(
     NULLIFIER_SUBTREE_HEIGHT,
   );
 
-  await worldTrees.appendLeaves(
-    MerkleTreeId.L1_TO_L2_MESSAGE_TREE,
-    padArrayEnd<Fr, number>(l1ToL2Messages, Fr.ZERO, NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP),
-  );
+  // Append the block's real message leaves unpadded at compact indices (AZIP-22 Fast Inbox).
+  await worldTrees.appendLeaves(MerkleTreeId.L1_TO_L2_MESSAGE_TREE, l1ToL2Messages);
 
   // We do not need to add public data writes because we apply them as we go.
 }

@@ -42,6 +42,18 @@ export type ProposedOnlyCheckpointData = {
   feeAssetPriceModifier: bigint;
 };
 
+/** Inbox consumption record of a proposed checkpoint, mirroring what `propose` writes for it on L1. */
+export type ProposedInboxConsumption = {
+  /**
+   * Cumulative Inbox message count consumed as of this checkpoint: its last block's L1-to-L2 message tree leaf count
+   * under compact indexing (AZIP-22 Fast Inbox). L1 records this per checkpoint and reads it back as the parent total
+   * when validating the next checkpoint's consumption, so a simulation against a not-yet-mined parent must override
+   * the parent's cell with it — otherwise the parent reads as having consumed nothing and the child's consumption
+   * looks larger than it is.
+   */
+  inboxMsgTotal: bigint;
+};
+
 /** Lightweight checkpoint metadata without full block data. */
 export type CheckpointData = CommonCheckpointData & StorageEnrichedCheckpointData & L1EnrichedCheckpointData;
 
@@ -51,7 +63,7 @@ export type ProposedCheckpointInput = CommonCheckpointData & ProposedOnlyCheckpo
 
 /** Full data for a proposed checkpoint (proposed but not yet L1-confirmed).
  *  Includes fee-relevant fields used during pipelining to compute the fee header override. */
-export type ProposedCheckpointData = ProposedCheckpointInput & StorageEnrichedCheckpointData;
+export type ProposedCheckpointData = ProposedCheckpointInput & StorageEnrichedCheckpointData & ProposedInboxConsumption;
 
 export const ProposedCheckpointDataSchema = z.object({
   checkpointNumber: CheckpointNumberSchema,
@@ -62,6 +74,7 @@ export const ProposedCheckpointDataSchema = z.object({
   blockCount: z.number(),
   totalManaUsed: schemas.BigInt,
   feeAssetPriceModifier: schemas.BigInt,
+  inboxMsgTotal: schemas.BigInt,
 });
 
 export const CheckpointDataSchema = z
