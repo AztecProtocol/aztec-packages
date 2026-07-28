@@ -49,4 +49,16 @@ library Hash {
   function sha256ToField(bytes memory _data) internal pure returns (bytes32) {
     return bytes32(bytes.concat(new bytes(1), bytes31(sha256(_data))));
   }
+
+  /**
+   * @notice Advances the Inbox consensus rolling hash by one message leaf
+   * @dev Truncated at every link so the value is always a field element; the rollup circuits recompute the
+   * identical chain over the message leaves they insert (AZIP-22 Fast Inbox). The genesis value is zero.
+   * @param _rollingHash - The current rolling hash
+   * @param _leaf - The message leaf to absorb
+   * @return The updated rolling hash
+   */
+  function accumulateInboxRollingHash(bytes32 _rollingHash, bytes32 _leaf) internal pure returns (bytes32) {
+    return sha256ToField(abi.encodePacked(_rollingHash, _leaf));
+  }
 }
