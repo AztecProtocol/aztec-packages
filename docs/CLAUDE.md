@@ -133,7 +133,7 @@ This site uses **Docusaurus multi-instance docs** with independent versioning:
 
 Two API reference systems generate documentation from source code:
 
-- **Aztec.nr API** (`static/aztec-nr-api/`) - Generated from `noir-projects/aztec-nr/` using `nargo doc`
+- **Aztec.nr API** (`static/aztec-nr-api/`) - Generated from `noir-projects/labs/aztec-nr/` using `nargo doc`
 - **TypeScript API** (`static/typescript-api/`) - Generated from `yarn-project/` packages using TypeDoc
 
 The TypeScript API generation is configured in `scripts/typescript_api_generation/config.json` and documents:

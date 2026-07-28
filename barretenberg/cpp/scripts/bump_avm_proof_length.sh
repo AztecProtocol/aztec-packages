@@ -37,7 +37,7 @@ set -euo pipefail
 
 ROOT="$(git rev-parse --show-toplevel)"
 FLAVOR_HPP="${ROOT}/barretenberg/cpp/src/barretenberg/vm2/constraining/flavor.hpp"
-CONSTANTS_NR="${ROOT}/noir-projects/noir-protocol-circuits/crates/types/src/constants.nr"
+CONSTANTS_NR="${ROOT}/noir-projects/fnd/noir-protocol-circuits/crates/types/src/constants.nr"
 CPP_BUILD="${ROOT}/barretenberg/cpp/build"
 
 step() { printf '\n==> %s\n' "$*"; }
@@ -158,7 +158,7 @@ renew_project_pin() {
     local tarball="$project_dir/pinned-build.tar.gz"
     # mock-protocol-circuits has no standalone per-circuit build; it drives the
     # noir-protocol-circuits bootstrap with NOIR_PROTOCOL_CIRCUITS_WORKING_DIR set to it.
-    local npc_bootstrap="$ROOT/noir-projects/noir-protocol-circuits/bootstrap.sh"
+    local npc_bootstrap="$ROOT/noir-projects/fnd/noir-protocol-circuits/bootstrap.sh"
 
     if [[ ! -f "$tarball" ]]; then
         echo "  $(realpath --relative-to="$ROOT" "$tarball") not found; skipping." >&2
@@ -205,9 +205,9 @@ renew_base_public_pins() {
     cmake --build "$CPP_BUILD" --target bb-avm
 
     step "Renewing pinned public-base-rollup VKs (bytecode embeds the AVM proof)"
-    renew_project_pin "$ROOT/noir-projects/noir-protocol-circuits" \
+    renew_project_pin "$ROOT/noir-projects/fnd/noir-protocol-circuits" \
         rollup-tx-base-public rollup-tx-base-public-simulated
-    renew_project_pin "$ROOT/noir-projects/mock-protocol-circuits" \
+    renew_project_pin "$ROOT/noir-projects/fnd/mock-protocol-circuits" \
         mock-rollup-tx-base-public
 }
 

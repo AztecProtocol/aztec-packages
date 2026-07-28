@@ -200,9 +200,9 @@ The bridge reuses the existing `Token` contract and the `token_portal_content_ha
 
 ```toml
 [dependencies]
-aztec = { git="https://github.com/AztecProtocol/aztec-packages", tag = "#include_aztec_version", directory = "noir-projects/aztec-nr/aztec" }
-token_portal_content_hash_lib = { git="https://github.com/AztecProtocol/aztec-packages", tag = "#include_aztec_version", directory = "noir-projects/noir-contracts/contracts/libs/token_portal_content_hash_lib" }
-token = { git="https://github.com/AztecProtocol/aztec-packages", tag = "#include_aztec_version", directory = "noir-projects/noir-contracts/contracts/app/token_contract" }
+aztec = { git="https://github.com/AztecProtocol/aztec-packages", tag = "#include_aztec_version", directory = "noir-projects/labs/aztec-nr/aztec" }
+token_portal_content_hash_lib = { git="https://github.com/AztecProtocol/aztec-packages", tag = "#include_aztec_version", directory = "noir-projects/labs/noir-contracts/contracts/libs/token_portal_content_hash_lib" }
+token = { git="https://github.com/AztecProtocol/aztec-packages", tag = "#include_aztec_version", directory = "noir-projects/labs/noir-contracts/contracts/app/token_contract" }
 ```
 
 ### Bridge Storage

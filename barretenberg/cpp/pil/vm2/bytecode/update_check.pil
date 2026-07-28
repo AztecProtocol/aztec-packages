@@ -17,7 +17,7 @@ include "../trees/public_data_check.pil";
  *
  * 1. A contract owner calls `ContractInstanceRegistry.update(address, new_class_id)`,
  *    which schedules a class id change to take effect after a configurable delay.
- *    See: noir-projects/noir-contracts/contracts/protocol/contract_instance_registry_contract/src/main.nr
+ *    See: noir-projects/fnd/noir-contracts/contracts/protocol/contract_instance_registry_contract/src/main.nr
  *
  * 2. The scheduled change is stored as a `DelayedPublicMutable<ContractClassId>` state variable,
  *    which internally wraps a `ScheduledValueChange<ContractClassId>` struct containing:
@@ -25,8 +25,8 @@ include "../trees/public_data_check.pil";
  *      - `post`: the class id that applies AFTER the scheduled timestamp.
  *      - `timestamp_of_change` (packed into the metadata): the block timestamp at which
  *        the transition from `pre` to `post` takes effect.
- *    See: noir-projects/noir-protocol-circuits/crates/types/src/delayed_public_mutable/scheduled_value_change.nr
- *    See: noir-projects/aztec-nr/aztec/src/utils/with_hash.nr (WithHash wrapper)
+ *    See: noir-projects/fnd/noir-protocol-circuits/crates/types/src/delayed_public_mutable/scheduled_value_change.nr
+ *    See: noir-projects/labs/aztec-nr/aztec/src/utils/with_hash.nr (WithHash wrapper)
  *
  * 3. The `pre` and `post` fields are CONTRACT CLASS IDS. A zero value in
  *    either field means "no explicit override" — the contract has never had its class id set for
@@ -48,7 +48,7 @@ include "../trees/public_data_check.pil";
  *    The hash at slot+3 is a `WithHash` optimization: the AVM performs a single constrained read
  *    of hash(metadata, pre, post), and receives the preimage (metadata, pre, post) as unconstrained
  *    hints that are verified against the hash.
- *    See: noir-projects/noir-protocol-circuits/crates/types/src/delayed_public_mutable/delayed_public_mutable_values.nr
+ *    See: noir-projects/fnd/noir-protocol-circuits/crates/types/src/delayed_public_mutable/delayed_public_mutable_values.nr
  *
  * 5. The metadata field packs delay configuration and the timestamp of change. Only the last
  *    32 bits (the timestamp of change) are relevant to the AVM. The remaining upper bits encode

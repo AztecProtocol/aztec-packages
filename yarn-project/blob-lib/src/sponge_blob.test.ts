@@ -29,7 +29,7 @@ describe('SpongeBlob', () => {
 
     // Run with AZTEC_GENERATE_TEST_DATA=1 to update noir test data.
     updateInlineTestData(
-      'noir-projects/noir-protocol-circuits/crates/types/src/blob_data/sponge_blob.nr',
+      'noir-projects/fnd/noir-protocol-circuits/crates/types/src/blob_data/sponge_blob.nr',
       'small_sponge_hash_from_ts',
       hash,
     );
@@ -45,7 +45,7 @@ describe('SpongeBlob', () => {
 
     // Run with AZTEC_GENERATE_TEST_DATA=1 to update noir test data.
     updateInlineTestData(
-      'noir-projects/noir-protocol-circuits/crates/types/src/blob_data/sponge_blob.nr',
+      'noir-projects/fnd/noir-protocol-circuits/crates/types/src/blob_data/sponge_blob.nr',
       'full_sponge_hash_from_ts',
       hash,
     );

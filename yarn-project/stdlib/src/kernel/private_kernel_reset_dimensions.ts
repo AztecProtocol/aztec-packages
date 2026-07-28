@@ -78,7 +78,7 @@ export interface ResetCatalogEntry {
   cost: number;
 }
 
-// Must match the config in noir-projects/noir-protocol-circuits/private_kernel_reset_config.json
+// Must match the config in noir-projects/fnd/noir-protocol-circuits/private_kernel_reset_config.json
 export interface PrivateKernelResetDimensionsConfig {
   // Variants used for mid-tx resets that prevent overflow. Never the last kernel in the chain.
   inner: ResetCatalogEntry[];

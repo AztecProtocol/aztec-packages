@@ -13,7 +13,7 @@ project(
 # needs the surrounding monorepo; a checkout without it must provide the header by other means.
 if(EXISTS "${CMAKE_CURRENT_SOURCE_DIR}/../../protocol/constants-codegen/src/cli.ts")
     set_property(DIRECTORY APPEND PROPERTY CMAKE_CONFIGURE_DEPENDS
-        "${CMAKE_CURRENT_SOURCE_DIR}/../../noir-projects/noir-protocol-circuits/crates/types/src/constants.nr"
+        "${CMAKE_CURRENT_SOURCE_DIR}/../../noir-projects/fnd/noir-protocol-circuits/crates/types/src/constants.nr"
     )
     execute_process(
         COMMAND "${CMAKE_CURRENT_SOURCE_DIR}/scripts/remake-constants.sh"

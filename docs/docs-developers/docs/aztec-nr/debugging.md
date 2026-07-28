@@ -29,7 +29,7 @@ LOG_LEVEL=verbose aztec start --local-network
 
 | Error                                                    | Solution                                                                                                                                                        |
 | -------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `Aztec dependency not found`                             | Add to Nargo.toml: `aztec = { git="https://github.com/AztecProtocol/aztec-packages/", tag="#include_aztec_version", directory="noir-projects/aztec-nr/aztec" }` |
+| `Aztec dependency not found`                             | Add to Nargo.toml: `aztec = { git="https://github.com/AztecProtocol/aztec-packages/", tag="#include_aztec_version", directory="noir-projects/labs/aztec-nr/aztec" }` |
 | `Public state writes only supported in public functions` | Move state writes to public functions                                                                                                                           |
 | `Unknown contract 0x0`                                   | Call `wallet.registerContract(...)` to register contract                                                                                                        |
 | `No public key registered for address`                   | Call `wallet.registerSender(...)`                                                                                                                               |

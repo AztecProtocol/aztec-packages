@@ -11,7 +11,7 @@ The standards described in this section are maintained by [DeFi Wonderland](http
 Because Aztec contracts have both private and public execution contexts, the standards are more involved than their Ethereum equivalents. Transfers can move value between private notes and public balances, and many operations require coordination between encrypted state and transparent state within a single transaction.
 
 :::note
-The code examples in this section are taken from the [aztec-standards repository](https://github.com/defi-wonderland/aztec-standards) maintained by DeFi Wonderland. They will differ from the reference contract implementations shipped in the [aztec-packages repo](https://github.com/AztecProtocol/aztec-packages) under `noir-projects/noir-contracts/contracts/`. When in doubt, consult the aztec-standards github repo for the canonical standard interfaces.
+The code examples in this section are taken from the [aztec-standards repository](https://github.com/defi-wonderland/aztec-standards) maintained by DeFi Wonderland. They will differ from the reference contract implementations shipped in the [aztec-packages repo](https://github.com/AztecProtocol/aztec-packages) under `noir-projects/labs/noir-contracts/contracts/`. When in doubt, consult the aztec-standards github repo for the canonical standard interfaces.
 :::
 
 ## Standards

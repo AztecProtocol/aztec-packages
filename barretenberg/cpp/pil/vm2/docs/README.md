@@ -143,7 +143,7 @@ Proofs can then be verified either
 
 - Natively using the verifier class (see [example](https://github.com/AztecProtocol/aztec-packages/blob/next/barretenberg/cpp/src/barretenberg/vm2/constraining/verifier.test.cpp)).
 - Natively using the `bb-avm` binary with the `verify_avm` subcommand (see [cli](https://github.com/AztecProtocol/aztec-packages/blob/next/barretenberg/cpp/src/barretenberg/bb/cli.cpp#L594)).
-- Recursively via a Noir circuit (via `std::verify_proof_with_type()`, see [here](https://github.com/AztecProtocol/aztec-packages/blob/next/noir-projects/noir-protocol-circuits/crates/types/src/proof/proof_data.nr#L28)).
+- Recursively via a Noir circuit (via `std::verify_proof_with_type()`, see [here](https://github.com/AztecProtocol/aztec-packages/blob/next/noir-projects/fnd/noir-protocol-circuits/crates/types/src/proof/proof_data.nr#L28)).
 
 Source code folder: [vm2/constraining](https://github.com/AztecProtocol/aztec-packages/tree/next/barretenberg/cpp/src/barretenberg/vm2/constraining).
 
@@ -279,11 +279,11 @@ Precomputed columns are filled in the trace by tracegen, but the proving step do
 
 ### **Public inputs**
 
-Just as with any circuit, the public inputs (PIs) are known public information that is passed both to the prover and the verifier. For a structural description of the AVM public inputs you can look at either the [Noir](https://github.com/AztecProtocol/aztec-packages/blob/next/noir-projects/noir-protocol-circuits/crates/types/src/abis/avm_circuit_public_inputs.nr) or [TypeScript](https://github.com/AztecProtocol/aztec-packages/blob/next/yarn-project/stdlib/src/avm/avm_circuit_public_inputs.ts) structures.
+Just as with any circuit, the public inputs (PIs) are known public information that is passed both to the prover and the verifier. For a structural description of the AVM public inputs you can look at either the [Noir](https://github.com/AztecProtocol/aztec-packages/blob/next/noir-projects/fnd/noir-protocol-circuits/crates/types/src/abis/avm_circuit_public_inputs.nr) or [TypeScript](https://github.com/AztecProtocol/aztec-packages/blob/next/yarn-project/stdlib/src/avm/avm_circuit_public_inputs.ts) structures.
 
 You will notice there are two sections inside the public inputs: inputs and outputs. Conceptually, inputs are the initial state \+ TX information, and outputs are the state after the TX has been executed.
 
-Circuits, however, do not take structures as inputs. They only take in columns (or arrays) of field elements. It is the simulator’s job to collect enough information so that tracegen can construct the public inputs in their column form. The AVM uses [4 public input columns](https://github.com/AztecProtocol/aztec-packages/blob/next/barretenberg/cpp/pil/vm2/public_inputs.pil). The mapping from structure to columns can be found in the Noir [source file](https://github.com/AztecProtocol/aztec-packages/blob/next/noir-projects/noir-protocol-circuits/crates/types/src/abis/avm_circuit_public_inputs.nr). This is a summary
+Circuits, however, do not take structures as inputs. They only take in columns (or arrays) of field elements. It is the simulator’s job to collect enough information so that tracegen can construct the public inputs in their column form. The AVM uses [4 public input columns](https://github.com/AztecProtocol/aztec-packages/blob/next/barretenberg/cpp/pil/vm2/public_inputs.pil). The mapping from structure to columns can be found in the Noir [source file](https://github.com/AztecProtocol/aztec-packages/blob/next/noir-projects/fnd/noir-protocol-circuits/crates/types/src/abis/avm_circuit_public_inputs.nr). This is a summary
 
 | Column    | Contents                                                                                                                                                                                                                                                                                                          |
 | :-------- | :---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |

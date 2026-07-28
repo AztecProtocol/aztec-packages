@@ -17,7 +17,7 @@ import path from 'path';
 
 const log = console.log;
 
-const noirContractsRoot = path.join(import.meta.dirname, '../../../../noir-projects/noir-contracts');
+const noirContractsRoot = path.join(import.meta.dirname, '../../../../noir-projects/fnd/noir-contracts');
 const srcPath = path.join(noirContractsRoot, 'target');
 const outputDir = path.join(import.meta.dirname, '../contract/protocol_contracts');
 

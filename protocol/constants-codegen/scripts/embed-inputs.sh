@@ -8,7 +8,7 @@
 set -euo pipefail
 
 package_dir=$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)
-types_dir="$package_dir/../../noir-projects/noir-protocol-circuits/crates/types/src"
+types_dir="$package_dir/../../noir-projects/fnd/noir-protocol-circuits/crates/types/src"
 
 mkdir -p "$package_dir/inputs"
 cp "$types_dir/constants.nr" "$package_dir/inputs/.constants.nr.$$"

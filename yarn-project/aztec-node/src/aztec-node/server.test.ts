@@ -381,7 +381,7 @@ describe('aztec node', () => {
       // We need to set the last block number to get this working properly because if it was set to 0, it would mean
       // that we are building block 1, and for block 1 the timestamp expiration check is skipped. For details on why
       // see the `validate_expiration_timestamp` function in
-      // `noir-projects/noir-protocol-circuits/crates/rollup-lib/src/base/components/validation_requests.nr`.
+      // `noir-projects/fnd/noir-protocol-circuits/crates/rollup-lib/src/tx_base/components/private_tail_validator.nr`.
       lastBlockNumber = BlockNumber(1);
 
       // Default tx with no should be valid

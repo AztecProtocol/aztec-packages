@@ -23,7 +23,7 @@ RUN jq --arg v "$VERSION" '.version = $v' /usr/src/yarn-project/stdlib/package.j
     && mv /tmp/p.json /usr/src/yarn-project/stdlib/package.json
 
 # Stamp aztec_version into the shipped contract artifacts. The build-time stamp in
-# noir-projects/noir-contracts/bootstrap.sh writes "dev" unconditionally; $VERSION here is the authoritative release
+# noir-projects/labs/noir-contracts/bootstrap.sh writes "dev" unconditionally; $VERSION here is the authoritative release
 # version for this image.
 RUN for dir in \
         /usr/src/yarn-project/accounts/artifacts \

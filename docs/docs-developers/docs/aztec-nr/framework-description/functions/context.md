@@ -3,7 +3,7 @@ title: Understanding Function Context
 sidebar_position: 3
 tags: [functions, context]
 description: Learn about the execution context available to Aztec contract functions, including caller information and block data.
-references: ["noir-projects/aztec-nr/aztec/src/context/*", "noir-projects/noir-protocol-circuits/crates/types/src/abis/*"]
+references: ["noir-projects/labs/aztec-nr/aztec/src/context/*", "noir-projects/fnd/noir-protocol-circuits/crates/types/src/abis/*"]
 ---
 
 import Image from '@theme/IdealImage';
@@ -36,7 +36,7 @@ The following section will cover both contexts.
 ## The Private Context
 
 The code snippet below shows what is contained within the private context.
-#include_code private-context /noir-projects/aztec-nr/aztec/src/context/private_context.nr rust
+#include_code private-context /noir-projects/labs/aztec-nr/aztec/src/context/private_context.nr rust
 
 ### Private Context Broken Down
 
@@ -44,13 +44,13 @@ The code snippet below shows what is contained within the private context.
 
 The context inputs includes all of the information that is passed from the kernel circuit into the application circuit. It contains the following values.
 
-#include_code private-context-inputs /noir-projects/aztec-nr/aztec/src/context/inputs/private_context_inputs.nr rust
+#include_code private-context-inputs /noir-projects/labs/aztec-nr/aztec/src/context/inputs/private_context_inputs.nr rust
 
 As shown in the snippet, the application context is made up of 3 main structures. The call context, the block header, and the private global variables.
 
 First of all, the call context.
 
-#include_code call-context /noir-projects/noir-protocol-circuits/crates/types/src/abis/call_context.nr rust
+#include_code call-context /noir-projects/fnd/noir-protocol-circuits/crates/types/src/abis/call_context.nr rust
 
 The call context contains information about the current call being made:
 
@@ -73,13 +73,13 @@ The call context contains information about the current call being made:
 
 Another structure that is contained within the context is the `BlockHeader` object, which is the header of the block used to generate proofs against.
 
-#include_code block-header /noir-projects/noir-protocol-circuits/crates/types/src/abis/block_header.nr rust
+#include_code block-header /noir-projects/fnd/noir-protocol-circuits/crates/types/src/abis/block_header.nr rust
 
 ### Transaction Context
 
 The private context provides access to the transaction context as well, which are user-defined values for the transaction in general that stay constant throughout its execution.
 
-#include_code tx-context /noir-projects/noir-protocol-circuits/crates/types/src/abis/transaction/tx_context.nr rust
+#include_code tx-context /noir-projects/fnd/noir-protocol-circuits/crates/types/src/abis/transaction/tx_context.nr rust
 
 ### Args Hash
 
@@ -98,7 +98,7 @@ return_hash: Field,
 
 Some data structures impose time constraints, e.g. they may make it so that a value can only be changed after a certain delay. Interacting with these in private involves creating proofs that are only valid as long as they are included before a certain future point in time. To achieve this, the `set_expiration_timestamp` function can be used to set this property:
 
-#include_code expiration-timestamp /noir-projects/aztec-nr/aztec/src/context/private_context.nr rust
+#include_code expiration-timestamp /noir-projects/labs/aztec-nr/aztec/src/context/private_context.nr rust
 
 A transaction that sets this value will never be included in a block with a timestamp larger than the requested value, since it would be considered invalid. This can also be used to make transactions automatically expire after some time if not included.
 
@@ -140,4 +140,4 @@ The Public Context includes all of the information passed from the `Public VM` i
 
 The public global variables are provided by the rollup sequencer and consequently contain some more values than the private global variables.
 
-#include_code global-variables /noir-projects/noir-protocol-circuits/crates/types/src/abis/global_variables.nr rust
+#include_code global-variables /noir-projects/fnd/noir-protocol-circuits/crates/types/src/abis/global_variables.nr rust

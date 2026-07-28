@@ -51,7 +51,7 @@ function assertTxeOracleVersionMajorInSync(): void {
     {
       label: 'aztec-nr/aztec/src/test/helpers/txe_oracles.nr',
       value: readNumericGlobal(
-        join(gitRoot, 'noir-projects/aztec-nr/aztec/src/test/helpers/txe_oracles.nr'),
+        join(gitRoot, 'noir-projects/labs/aztec-nr/aztec/src/test/helpers/txe_oracles.nr'),
         'TXE_ORACLE_VERSION_MAJOR',
       ),
     },
