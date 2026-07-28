@@ -13,12 +13,6 @@ export const nodeRpcConfigMappings: ConfigMappingsType<NodeRPCConfig> = {
       'Maximum memory reads for debug logs performed for public tx simulation in the node on `simulatePublicCalls`. ',
     ...numberConfigHelper(DEFAULT_MAX_DEBUG_LOG_MEMORY_READS),
   },
-  rpcSimulatePublicMaxStorageOverrides: {
-    env: 'RPC_SIMULATE_PUBLIC_MAX_STORAGE_OVERRIDES',
-    description:
-      'Maximum number of public storage overrides accepted for public tx simulation in the node on `simulatePublicCalls`.',
-    ...numberConfigHelper(200),
-  },
   rpcMaxBatchSize: {
     env: 'RPC_MAX_BATCH_SIZE',
     description: 'Maximum allowed batch size for JSON RPC batch requests.',
@@ -36,8 +30,6 @@ export type NodeRPCConfig = {
   rpcSimulatePublicMaxGasLimit: number;
   /** Maximum memory reads for debug logs performed for public tx simulation in the node on `simulatePublicCalls`. */
   rpcSimulatePublicMaxDebugLogMemoryReads: number;
-  /** Maximum number of public storage overrides accepted on `simulatePublicCalls`. */
-  rpcSimulatePublicMaxStorageOverrides: number;
   /** Maximum allowed batch size for JSON RPC batch requests. */
   rpcMaxBatchSize: number;
   /** The maximum body size the RPC server will accept */

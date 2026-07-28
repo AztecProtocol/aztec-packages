@@ -8,7 +8,6 @@ import {
   IndexWithinCheckpoint,
   SlotNumber,
 } from '@aztec/foundation/branded-types';
-import { times } from '@aztec/foundation/collection';
 import { Fr } from '@aztec/foundation/curves/bn254';
 import { EthAddress } from '@aztec/foundation/eth-address';
 import { unfreeze } from '@aztec/foundation/types';
@@ -36,7 +35,6 @@ import {
   type CheckpointGlobalVariables,
   type GlobalVariableBuilder,
   GlobalVariables,
-  SimulationOverrides,
   TxEffect,
 } from '@aztec/stdlib/tx';
 
@@ -48,13 +46,6 @@ import { NodePublicCallsSimulator } from './node_public_calls_simulator.js';
 const CHAIN_ID = new Fr(12345);
 const ROLLUP_VERSION = new Fr(1);
 const ROLLUP_ADDRESS = EthAddress.random();
-const MAX_STORAGE_OVERRIDES = 3;
-
-const simulatorConfig = {
-  rpcSimulatePublicMaxGasLimit: 1e11,
-  rpcSimulatePublicMaxDebugLogMemoryReads: 100,
-  rpcSimulatePublicMaxStorageOverrides: MAX_STORAGE_OVERRIDES,
-};
 
 describe('NodePublicCallsSimulator', () => {
   let blockSource: MockProxy<L2BlockSource>;
@@ -181,7 +172,7 @@ describe('NodePublicCallsSimulator', () => {
       rollupContract,
       epochCache,
       signatureContext: { chainId: CHAIN_ID.toNumber(), rollupAddress: ROLLUP_ADDRESS },
-      config: simulatorConfig,
+      config: { rpcSimulatePublicMaxGasLimit: 1e11, rpcSimulatePublicMaxDebugLogMemoryReads: 100 },
     });
   });
 
@@ -193,40 +184,6 @@ describe('NodePublicCallsSimulator', () => {
     const tx = await lowGasTx();
     unfreeze(tx.data.constants.txContext.gasSettings.gasLimits).l2Gas = 1e12;
     await expect(simulator.simulate(tx)).rejects.toThrow(/gas/i);
-  });
-
-  describe('public storage override limit', () => {
-    const makeOverrides = async (count: number) => {
-      const contract = await AztecAddress.random();
-      return new SimulationOverrides({
-        publicStorage: times(count, () => ({ contract, slot: Fr.random(), value: Fr.random() })),
-      });
-    };
-
-    it('rejects without forking world state when the override count exceeds the maximum', async () => {
-      const tx = await lowGasTx();
-      const overrides = await makeOverrides(MAX_STORAGE_OVERRIDES + 1);
-
-      await expect(simulator.simulate(tx, false, overrides)).rejects.toThrow(/overrides/i);
-
-      expect(worldStateSynchronizer.fork).not.toHaveBeenCalled();
-      expect(merkleTreeFork.sequentialInsert).not.toHaveBeenCalled();
-    });
-
-    it('applies overrides at the maximum', async () => {
-      const tx = await lowGasTx();
-      const overrides = await makeOverrides(MAX_STORAGE_OVERRIDES);
-      blockSource.getL2Tips.mockResolvedValue(
-        makeTips({ proposed: BlockNumber(5), checkpointedBlock: BlockNumber(5), checkpointed: CheckpointNumber(1) }),
-      );
-      mockNextL1Slot(SlotNumber(20));
-
-      await expect(simulator.simulate(tx, false, overrides)).resolves.toBeDefined();
-
-      const [treeId, leaves] = merkleTreeFork.sequentialInsert.mock.calls[0] as [MerkleTreeId, Buffer[]];
-      expect(treeId).toBe(MerkleTreeId.PUBLIC_DATA_TREE);
-      expect(leaves).toHaveLength(MAX_STORAGE_OVERRIDES);
-    });
   });
 
   describe('continuing an in-progress checkpoint', () => {
@@ -453,7 +410,7 @@ describe('NodePublicCallsSimulator', () => {
         globalVariableBuilder,
         epochCache,
         signatureContext: { chainId: CHAIN_ID.toNumber(), rollupAddress: ROLLUP_ADDRESS },
-        config: simulatorConfig,
+        config: { rpcSimulatePublicMaxGasLimit: 1e11, rpcSimulatePublicMaxDebugLogMemoryReads: 100 },
       });
   });
 });

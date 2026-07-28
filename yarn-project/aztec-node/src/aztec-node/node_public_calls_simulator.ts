@@ -40,8 +40,6 @@ export interface NodePublicCallsSimulatorConfig {
   rpcSimulatePublicMaxGasLimit: number;
   /** Maximum number of debug-log memory reads collected during simulation. */
   rpcSimulatePublicMaxDebugLogMemoryReads: number;
-  /** Maximum number of public storage overrides accepted for an incoming simulation. */
-  rpcSimulatePublicMaxStorageOverrides: number;
 }
 
 /** Dependencies required to build a {@link NodePublicCallsSimulator}. */
@@ -130,15 +128,6 @@ export class NodePublicCallsSimulator {
         } (${txGasLimit} + ${teardownGasLimit}) exceeds maximum gas limit ${
           this.config.rpcSimulatePublicMaxGasLimit
         } for simulation`,
-      );
-    }
-
-    // Applying storage overrides means inserting a leaf per override into the forked public data tree,
-    // which is work the simulated tx's gas limit does not account for. Cap it before we fork.
-    const overrideCount = overrides?.publicStorage?.length ?? 0;
-    if (overrideCount > this.config.rpcSimulatePublicMaxStorageOverrides) {
-      throw new BadRequestError(
-        `Number of public storage overrides ${overrideCount} exceeds maximum ${this.config.rpcSimulatePublicMaxStorageOverrides} for simulation`,
       );
     }
 
