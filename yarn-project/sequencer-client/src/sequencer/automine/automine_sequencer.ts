@@ -13,7 +13,7 @@ import type { P2PClient as ConcreteP2PClient, P2P } from '@aztec/p2p';
 import { settleEpochOutbox } from '@aztec/prover-client/test';
 import type { AztecAddress } from '@aztec/stdlib/aztec-address';
 import { CommitteeAttestationsAndSigners, type L2Block, type L2BlockSource } from '@aztec/stdlib/block';
-import { getPreviousCheckpointOutHashes } from '@aztec/stdlib/checkpoint';
+import { getPreviousCheckpointInboxRollingHash, getPreviousCheckpointOutHashes } from '@aztec/stdlib/checkpoint';
 import type { ChainConfig } from '@aztec/stdlib/config';
 import {
   type L1RollupConstants,
@@ -458,6 +458,12 @@ export class AutomineSequencer {
       log: this.log,
     });
 
+    const previousInboxRollingHash = await getPreviousCheckpointInboxRollingHash({
+      blockSource: this.deps.l2BlockSource,
+      checkpointNumber,
+      log: this.log,
+    });
+
     const feeAssetPriceModifier = await this.publisher.getFeeAssetPriceModifier();
 
     await using fork = await this.deps.worldState.fork(syncedToBlockNumber, { closeDelayMs: 0 });
@@ -468,6 +474,7 @@ export class AutomineSequencer {
       feeAssetPriceModifier,
       l1ToL2Messages,
       previousCheckpointOutHashes,
+      previousInboxRollingHash,
       fork,
       this.log.getBindings(),
     );

@@ -36,6 +36,15 @@ export class CheckpointRollupPublicInputs {
      */
     public newOutHash: AppendOnlyTreeSnapshot,
     /**
+     * Inbox rolling hash before consuming this checkpoint range's messages.
+     */
+    public startInboxRollingHash: Fr,
+    /**
+     * Inbox rolling hash after consuming this checkpoint range's messages (the end value lands in the checkpoint
+     * header). Checkpoint merges assert `right.start == left.end` for chain continuity.
+     */
+    public endInboxRollingHash: Fr,
+    /**
      * The hashes of the headers of the constituent checkpoints.
      */
     public checkpointHeaderHashes: Tuple<Fr, typeof MAX_CHECKPOINTS_PER_EPOCH>,
@@ -65,6 +74,8 @@ export class CheckpointRollupPublicInputs {
       reader.readObject(AppendOnlyTreeSnapshot),
       reader.readObject(AppendOnlyTreeSnapshot),
       reader.readObject(AppendOnlyTreeSnapshot),
+      Fr.fromBuffer(reader),
+      Fr.fromBuffer(reader),
       reader.readArray(MAX_CHECKPOINTS_PER_EPOCH, Fr),
       reader.readArray(MAX_CHECKPOINTS_PER_EPOCH, FeeRecipient),
       reader.readObject(BlobAccumulator),
@@ -80,6 +91,8 @@ export class CheckpointRollupPublicInputs {
       this.newArchive,
       this.previousOutHash,
       this.newOutHash,
+      this.startInboxRollingHash,
+      this.endInboxRollingHash,
       this.checkpointHeaderHashes,
       this.fees,
       this.startBlobAccumulator,
@@ -108,6 +121,8 @@ export class CheckpointRollupPublicInputs {
       newArchiveRoot: this.newArchive.root.toString(),
       previousOutHashRoot: this.previousOutHash.root.toString(),
       newOutHashRoot: this.newOutHash.root.toString(),
+      startInboxRollingHash: this.startInboxRollingHash.toString(),
+      endInboxRollingHash: this.endInboxRollingHash.toString(),
     };
   }
 

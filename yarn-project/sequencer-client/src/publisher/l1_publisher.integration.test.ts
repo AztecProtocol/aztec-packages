@@ -472,6 +472,7 @@ describe('L1Publisher integration', () => {
       checkpointConstants,
       l1ToL2Messages,
       previousCheckpointOutHashes,
+      Fr.ZERO,
       tempFork,
     );
 

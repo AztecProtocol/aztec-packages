@@ -33,6 +33,8 @@ pub struct BlockRollupPublicInputsComposer {
     num_txs: u16,
     // The followings are set by calling `with_new_l1_to_l2_messages` explicitly.
     in_hash: Field,
+    start_inbox_rolling_hash: Field,
+    end_inbox_rolling_hash: Field,
     new_l1_to_l2: AppendOnlyTreeSnapshot,
 }
 
@@ -63,6 +65,8 @@ impl BlockRollupPublicInputsComposer {
             num_txs: 0,
             // The followings are updated by calling `with_new_l1_to_l2_messages` explicitly.
             in_hash: 0,
+            start_inbox_rolling_hash: 0,
+            end_inbox_rolling_hash: 0,
             new_l1_to_l2: previous_state.l1_to_l2_message_tree,
         }
     }
@@ -99,6 +103,8 @@ impl BlockRollupPublicInputsComposer {
             // The followings are updated by calling `update_l1_to_l2_tree_snapshots` explicitly.
             previous_l1_to_l2: rollup.constants.l1_to_l2_tree_snapshot,
             in_hash: 0,
+            start_inbox_rolling_hash: 0,
+            end_inbox_rolling_hash: 0,
             new_l1_to_l2: rollup.constants.l1_to_l2_tree_snapshot,
         }
     }
@@ -114,6 +120,8 @@ impl BlockRollupPublicInputsComposer {
         subtree_root_sibling_path: [Field; L1_TO_L2_MSG_SUBTREE_ROOT_SIBLING_PATH_LENGTH],
     ) -> Self {
         self.in_hash = parity.sha_root;
+        self.start_inbox_rolling_hash = parity.start_rolling_hash;
+        self.end_inbox_rolling_hash = parity.end_rolling_hash;
 
         // Insert subtree into the l1-to-l2 message tree.
         self.new_l1_to_l2 = append_only_tree::insert_subtree_root_to_snapshot::<L1_TO_L2_MSG_TREE_HEIGHT, L1_TO_L2_MSG_SUBTREE_HEIGHT>(
@@ -167,6 +175,8 @@ impl BlockRollupPublicInputsComposer {
             timestamp: self.timestamp,
             block_headers_hash: block_header_hash,
             in_hash: self.in_hash,
+            start_inbox_rolling_hash: self.start_inbox_rolling_hash,
+            end_inbox_rolling_hash: self.end_inbox_rolling_hash,
             out_hash: self.out_hash,
             accumulated_fees: self.accumulated_fees,
             accumulated_mana_used: self.accumulated_mana_used,

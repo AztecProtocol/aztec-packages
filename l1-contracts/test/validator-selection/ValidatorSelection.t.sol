@@ -745,6 +745,8 @@ contract ValidatorSelectionTest is ValidatorSelectionTestBase {
       previousArchive: parentCheckpointLog.archive,
       endArchive: endFull.checkpoint.archive,
       outHash: endFull.checkpoint.header.outHash,
+      previousInboxRollingHash: 0,
+      endInboxRollingHash: 0,
       proverId: prover
     });
 

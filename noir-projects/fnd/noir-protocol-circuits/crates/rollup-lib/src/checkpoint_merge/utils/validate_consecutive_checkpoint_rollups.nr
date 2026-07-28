@@ -29,6 +29,15 @@ fn assert_rollups_follow_on_from_each_other(
         "Mismatched out hashes: expected right.previous_out_hash to match left.new_out_hash",
     );
 
+    // The inbox rolling-hash chain must be continuous across consecutive checkpoints: the right checkpoint's chain must
+    // start where the left checkpoint's chain ended. An end-only anchor would let a prover restart the chain from an
+    // earlier bucket and re-insert already-consumed messages, so continuity is enforced here (see AZIP-22).
+    assert_eq(
+        left.end_inbox_rolling_hash,
+        right.start_inbox_rolling_hash,
+        "Mismatched inbox rolling hash: expected right.start to match left.end",
+    );
+
     assert_eq(
         left.end_blob_accumulator,
         right.start_blob_accumulator,

@@ -22,6 +22,7 @@ struct ProposedHeader {
   bytes32 blockHeadersHash;
   bytes32 blobsHash;
   bytes32 inHash;
+  bytes32 inboxRollingHash;
   bytes32 outHash;
   Slot slotNumber;
   Timestamp timestamp;
@@ -56,6 +57,7 @@ library ProposedHeaderLib {
         _header.blockHeadersHash,
         _header.blobsHash,
         _header.inHash,
+        _header.inboxRollingHash,
         _header.outHash,
         _header.slotNumber,
         Timestamp.unwrap(_header.timestamp).toUint64(),

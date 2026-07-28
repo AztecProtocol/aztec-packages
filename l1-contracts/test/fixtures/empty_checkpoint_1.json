@@ -35,6 +35,7 @@
       "blockHeadersHash": "0x2e3e0911389bc48fa8126a93273d016cc7dc08019f8ffc5f1f5ae7d90745eaa2",
       "blobsHash": "0x00e5b752fe6bc2154155ff3a979c4c5fa91d3ac0d716169ac521e1560fd83b2b",
       "inHash": "0x00de7b349d2306334734e4f58b1302a6ed5a6c796a706f6597a5641b6d468223",
+      "inboxRollingHash": "0x00cad6497cf81748167158f149ba70c31f34c68b0ae1b156117de63e073d14b5",
       "outHash": "0x00c95e0ceb41951039e1592745ec2faea9866f6eaf01bf189a4463b4143af093",
       "slotNumber": 99,
       "timestamp": 1776857814,
@@ -47,7 +48,7 @@
       "totalManaUsed": 0,
       "accumulatedFees": 0
     },
-    "headerHash": "0x0069eb49ccf7b0dd2902a19712dd167fd3b5d890df7f0711fdcfe4d2987838ad",
+    "headerHash": "0x0002fc455005d993521be4e6f8ed92d1e0b50e58b21445881c87d02ed51a1e4c",
     "numTxs": 0
   }
 }

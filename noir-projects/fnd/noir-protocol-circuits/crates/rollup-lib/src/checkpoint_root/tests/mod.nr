@@ -340,6 +340,10 @@ impl TestBuilder {
         assert_eq(pi.new_archive, right.new_archive);
         assert(pi.previous_archive != pi.new_archive);
 
+        // The checkpoint's rolling-hash pair comes from the merged block rollup (carried by the first block on the left).
+        assert_eq(pi.start_inbox_rolling_hash, left.start_inbox_rolling_hash);
+        assert_eq(pi.end_inbox_rolling_hash, left.end_inbox_rolling_hash);
+
         // Safety: This is just for testing. Unconstrained to speed up the tests.
         let expected_checkpoint_header = unsafe { self.get_expected_checkpoint_header() };
         assert_array_eq(
@@ -424,6 +428,7 @@ impl TestBuilder {
             block_headers_hash,
             blobs_hash: self.hints.blobs_hash,
             in_hash: left.in_hash,
+            inbox_rolling_hash: left.end_inbox_rolling_hash,
             epoch_out_hash,
             slot_number: left.constants.slot_number,
             timestamp: right.timestamp,

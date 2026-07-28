@@ -3,6 +3,7 @@ import { NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP, PAIRING_POINTS_SIZE } from '@aztec
 import { EpochNumber } from '@aztec/foundation/branded-types';
 import { timesAsync } from '@aztec/foundation/collection';
 import { parseBooleanEnv } from '@aztec/foundation/config';
+import { Fr } from '@aztec/foundation/curves/bn254';
 import { EthAddress } from '@aztec/foundation/eth-address';
 import { type Logger, createLogger } from '@aztec/foundation/log';
 import { getTestData, isGenerateTestDataEnabled } from '@aztec/foundation/testing';
@@ -67,6 +68,9 @@ describe('prover/bb_prover/full-rollup', () => {
         for (let checkpointIndex = 0; checkpointIndex < numCheckpoints; checkpointIndex++) {
           const { constants, blocks, l1ToL2Messages, previousBlockHeader, checkpoint } = checkpoints[checkpointIndex];
 
+          const previousInboxRollingHash =
+            checkpointIndex === 0 ? Fr.ZERO : checkpoints[checkpointIndex - 1].checkpoint.header.inboxRollingHash;
+
           log.info(`Starting new checkpoint #${checkpointIndex}`);
           const subTree = await CheckpointSubTreeOrchestrator.start(
             context.worldState,
@@ -78,6 +82,7 @@ describe('prover/bb_prover/full-rollup', () => {
             makeTestDeferredJobQueue(),
             constants,
             l1ToL2Messages,
+            previousInboxRollingHash,
             numBlockPerCheckpoint,
             previousBlockHeader,
           );

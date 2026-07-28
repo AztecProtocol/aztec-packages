@@ -123,6 +123,7 @@ function createCheckpointHeaderFromBlock(block: L2Block): CheckpointHeader {
     Fr.random(), // blockHeadersHash - mock value for testing
     Fr.random(), // blobsHash - mock value for testing
     Fr.random(), // inHash - mock value for testing
+    Fr.random(), // inboxRollingHash - mock value for testing
     Fr.random(), // outHash - mock value for testing
     gv.slotNumber,
     gv.timestamp,
