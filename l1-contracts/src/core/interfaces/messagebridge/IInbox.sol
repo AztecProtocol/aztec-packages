@@ -5,8 +5,8 @@ pragma solidity >=0.8.27;
 import {DataStructures} from "../../libraries/DataStructures.sol";
 
 // Maximum number of messages a single bucket can hold before further messages in the same L1 block spill over
-// into the next bucket. Matches the number of L1 to L2 messages a single L2 block can insert once the streaming
-// inbox is live, so any one bucket is always consumable by one block.
+// into the next bucket. Matches the number of L1 to L2 messages a single L2 block can insert, so any one bucket
+// is always consumable by one block.
 uint256 constant MAX_MSGS_PER_BUCKET = 256;
 
 /**
@@ -16,16 +16,14 @@ uint256 constant MAX_MSGS_PER_BUCKET = 256;
  */
 interface IInbox {
   struct InboxState {
-    // Rolling hash of all messages inserted into the inbox.
-    // Used by clients to check for consistency.
-    // TODO: remove once the streaming inbox (AZIP-22 Fast Inbox) flips on and clients rely on the
-    // consensus rolling hash tracked in the buckets instead.
+    // Legacy 128-bit keccak rolling hash of all messages inserted into the inbox. Consumed only by the
+    // node for message sync and L1-reorg detection.
+    // TODO: remove once the node relies on the full-width consensus rolling hash tracked in the buckets
+    // instead (AZIP-22 Fast Inbox).
     bytes16 rollingHash;
-    // This value is not used much by the contract, but it is useful for synching the node faster
-    // as it can more easily figure out if it can just skip looking for events for a time period.
+    // Cumulative number of messages inserted into the inbox. Useful for synching the node faster as it can
+    // more easily figure out if it can just skip looking for events for a time period.
     uint64 totalMessagesInserted;
-    // Number of a tree which is currently being filled
-    uint64 inProgress;
   }
 
   /**
@@ -50,20 +48,14 @@ interface IInbox {
 
   /**
    * @notice Emitted when a message is sent
-   * @param checkpointNumber - The checkpoint number in which the message is included
-   * @param index - The index of the message in the L1 to L2 messages tree
+   * @param index - The compact cumulative index of the message in the Inbox insertion order
    * @param hash - The hash of the message
-   * @param rollingHash - The rolling hash of all messages inserted into the inbox
+   * @param rollingHash - The legacy 128-bit rolling hash of all messages inserted into the inbox
    * @param inboxRollingHash - The consensus rolling hash (truncated sha256 chain) after this message
    * @param bucketSeq - The sequence number of the bucket this message was absorbed into
    */
   event MessageSent(
-    uint256 indexed checkpointNumber,
-    uint256 index,
-    bytes32 indexed hash,
-    bytes16 rollingHash,
-    bytes32 inboxRollingHash,
-    uint256 bucketSeq
+    uint256 index, bytes32 indexed hash, bytes16 rollingHash, bytes32 inboxRollingHash, uint256 bucketSeq
   );
 
   // docs:start:send_l1_to_l2_message
@@ -74,36 +66,18 @@ interface IInbox {
    * @param _content - The content of the message (application specific)
    * @param _secretHash - The secret hash of the message (make it possible to hide when a specific message is consumed
    * on L2)
-   * @return The key of the message in the set and its leaf index in the tree
+   * @return The key of the message in the set and its compact cumulative index
    */
   function sendL2Message(DataStructures.L2Actor memory _recipient, bytes32 _content, bytes32 _secretHash)
     external
     returns (bytes32, uint256);
   // docs:end:send_l1_to_l2_message
 
-  // docs:start:consume
-  /**
-   * @notice Consumes the current tree, and starts a new one if needed
-   * @dev Only callable by the rollup contract
-   * @dev In the first iteration we return empty tree root because first checkpoint's messages tree is always
-   * empty because there has to be a 1 checkpoint lag to prevent sequencer DOS attacks
-   *
-   * @param _toConsume - The checkpoint number to consume
-   *
-   * @return The root of the consumed tree
-   */
-  function consume(uint256 _toConsume) external returns (bytes32);
-  // docs:end:consume
-
   function getFeeAssetPortal() external view returns (address);
-
-  function getRoot(uint256 _checkpointNumber) external view returns (bytes32);
 
   function getState() external view returns (InboxState memory);
 
   function getTotalMessagesInserted() external view returns (uint64);
-
-  function getInProgress() external view returns (uint64);
 
   /**
    * @notice Returns the sequence number of the bucket currently accumulating messages

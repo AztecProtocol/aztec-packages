@@ -702,7 +702,6 @@ export class FakeL1State {
       l1TransactionHash: `0x${msg.l1BlockNumber.toString(16)}` as `0x${string}`,
       l1BlockTimestamp: this.getTimestampAtL1Block(msg.l1BlockNumber),
       args: {
-        checkpointNumber: msg.checkpointNumber,
         index: msg.index,
         leaf: msg.leaf,
         rollingHash: msg.rollingHash,

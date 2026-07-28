@@ -2,7 +2,6 @@ import { getInitialTestAccountsData } from '@aztec/accounts/testing';
 import { Fr } from '@aztec/aztec.js/fields';
 import type { AztecNode } from '@aztec/aztec.js/node';
 import { MinedTxReceipt, type TxReceipt } from '@aztec/aztec.js/tx';
-import type { CheatCodes } from '@aztec/aztec/testing';
 import {
   AmmBot,
   Bot,
@@ -29,15 +28,13 @@ import { NO_REORG_SUBMISSION_EPOCHS } from '../setup.js';
 // Tests the transaction bot implementations (transfer bot, AMM bot, cross-chain bot).
 // Uses setup(0, PIPELINING_SETUP_OPTS + aztecProofSubmissionEpochs:NO_REORG_SUBMISSION_EPOCHS) with one node, production
 // sequencer (ethereumSlotDuration=4s, aztecSlotDuration=12s, proofSubEpochs=NO_REORG_SUBMISSION_EPOCHS, minTxsPerBlock=0;
-// aztecEpochDuration is the setup() default). The bridge-resume, setup-via-bridging, and
-// cross-chain-bot subsuites actively drive L1 cross-chain bridging: fee-juice portal deposits,
-// advanceInboxInProgress, and L2→L1 messages via CrossChainBot.
+// aztecEpochDuration is the setup() default). The bridge-resume and cross-chain-bot subsuites actively
+// drive L1 cross-chain bridging: fee-juice portal deposits and L2→L1 messages via CrossChainBot.
 describe('single-node/bot/bot', () => {
   let wallet: EmbeddedWallet;
   let aztecNode: AztecNode;
   let teardown: () => Promise<void>;
   let aztecNodeAdmin: AztecNodeAdmin | undefined;
-  let cheatCodes: CheatCodes;
   let config: BotConfig;
   let l1RpcUrls: string[];
 
@@ -52,7 +49,6 @@ describe('single-node/bot/bot', () => {
       teardown,
       aztecNode,
       aztecNodeAdmin,
-      cheatCodes,
       config: { l1RpcUrls },
     } = setupResult);
     wallet = await testSpan('setup:wallet', () => EmbeddedWallet.create(aztecNode, { ephemeral: true }));
@@ -268,30 +264,6 @@ describe('single-node/bot/bot', () => {
           balancesAfter.senderPrivate.token1 > balancesBefore.senderPrivate.token1,
       ).toBeTrue();
     });
-  });
-
-  // Tests that Bot.create succeeds after the inbox drifts away from the rollup contract.
-  // Actively drives L1 via advanceInboxInProgress.
-  describe('setup via bridging funds cross-chain', () => {
-    beforeAll(() => {
-      config = {
-        ...getBotDefaultConfig(),
-        followChain: 'PROPOSED',
-        botMode: 'transfer',
-        senderPrivateKey: new SecretValue(Fr.random()),
-        l1PrivateKey: getPrivateKey(),
-        l1RpcUrls,
-        flushSetupTransactions: true,
-      };
-    });
-
-    // See 'can consume L1 to L2 message in %s after inbox drifts away from the rollup'
-    // in end-to-end/src/e2e_cross_chain_messaging/l1_to_l2.test.ts for context on this test.
-    // Advances inbox 4 slots then creates Bot; verifies it completes setup without error.
-    it('creates bot after inbox drift', async () => {
-      await cheatCodes.rollup.advanceInboxInProgress(4);
-      await Bot.create(config, wallet, aztecNode, aztecNodeAdmin, new BotStore(await openTmpStore('bot')));
-    }, 300_000);
   });
 
   // Tests the CrossChainBot: seeds L1→L2 messages and on each tick consumes one while seeding

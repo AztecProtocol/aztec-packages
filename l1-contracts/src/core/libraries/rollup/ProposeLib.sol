@@ -139,7 +139,7 @@ library ProposeLib {
    *          - Checkpoint header validations (see validateHeader function for details)
    *          - Proposer signature is valid for designated slot proposer:
    *            Errors.ValidatorSelection__MissingProposerSignature
-   *          - Inbox hash matches expected value: Errors.Rollup__InvalidInHash
+   *          - Streaming Inbox consumption is valid: Errors.Rollup__InvalidInboxRollingHash
    *          - Archive root is within the scalar field: Errors.Rollup__FieldElementOutOfRange
    *
    *          Validations NOT performed:
@@ -151,7 +151,7 @@ library ProposeLib {
    *          - Store archive root for the new checkpoint number
    *          - Store checkpoint metadata in circular storage (TempCheckpointLog)
    *          - Update L1 gas fee oracle
-   *          - Consume inbox messages
+   *          - Validate streaming Inbox consumption against the parent checkpoint
    *          - Setup epoch for validator selection (first block of the epoch)
    *
    * @param _args - The arguments to propose the checkpoint
@@ -398,8 +398,8 @@ library ProposeLib {
 
   /**
    * @notice Validates a checkpoint's Inbox consumption against the streaming inbox buckets and returns how
-   *         far consumption has reached. Not yet called from propose(): the legacy `consume()`/`inHash` flow
-   *         remains the enforced path until the streaming inbox (AZIP-22 Fast Inbox) flips on.
+   *         far consumption has reached. Called from propose() as the enforced consumption path (AZIP-22 Fast
+   *         Inbox).
    *
    * @dev Read-only; performs no Inbox write. Checks, in order:
    *      1. The checkpoint header's `inboxRollingHash` must equal the rolling hash snapshotted in the Inbox

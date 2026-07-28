@@ -111,7 +111,6 @@ contract RollupConfiguration is IRollupConfiguration, Test {
     config.targetCommitteeSize = vm.envUint("AZTEC_TARGET_COMMITTEE_SIZE");
     config.lagInEpochsForValidatorSet = vm.envUint("AZTEC_LAG_IN_EPOCHS_FOR_VALIDATOR_SET");
     config.lagInEpochsForRandao = vm.envUint("AZTEC_LAG_IN_EPOCHS_FOR_RANDAO");
-    config.inboxLag = vm.envUint("AZTEC_INBOX_LAG");
     config.aztecProofSubmissionEpochs = vm.envUint("AZTEC_PROOF_SUBMISSION_EPOCHS");
     config.localEjectionThreshold = vm.envUint("AZTEC_LOCAL_EJECTION_THRESHOLD");
     config.slashingQuorum = vm.envOr("AZTEC_SLASHING_QUORUM", slashingRoundSize / 2 + 1);
