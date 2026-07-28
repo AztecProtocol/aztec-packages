@@ -23,7 +23,7 @@ project_name=$(basename "$PWD")
 # Hash of the entire protocol circuits.
 # Needed for test hash, as we presently don't have a program hash for each individual test.
 # Means if anything within the dir changes, the tests will rerun.
-export circuits_hash=$(hash_str "$NOIR_HASH" $(cache_content_hash "^noir-projects/$project_name/crates/" "^noir-projects/fnd/noir-protocol-circuits/bootstrap.sh"))
+export circuits_hash=$(hash_str "$NOIR_HASH" $(cache_content_hash "^noir-projects/fnd/$project_name/crates/" "^noir-projects/fnd/noir-protocol-circuits/bootstrap.sh"))
 
 # Circuits matching these patterns we have chonk keys computed, rather than ultra-honk.
 # Each entry is `{ pattern, kind }` where kind ∈ {app, kernel, hiding}. The kind is forwarded to
