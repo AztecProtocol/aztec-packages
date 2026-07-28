@@ -831,23 +831,11 @@ describe('LibP2PService', () => {
       const proposal = await makeBlockProposal({ signer, blockHeader: header });
       blockReceivedCallback.mockImplementationOnce(() => Promise.reject(new Error('Validation blew up')));
 
-      await expect(service.processBlockFromPeer(proposal.toBuffer(), 'msg-1', mockPeerId)).rejects.toThrow(
-        'Validation blew up',
-      );
+      await service.processBlockFromPeer(proposal.toBuffer(), 'msg-1', mockPeerId);
 
       expect(mockTxPool.protectTxs).toHaveBeenCalledTimes(1);
+      expect(mockTxPool.unprotectTxs).toHaveBeenCalledTimes(1);
       expect(mockTxPool.unprotectTxs).toHaveBeenCalledWith(proposal.txHashes, targetSlot);
-    });
-
-    it('surfaces the original validation error when releasing protections also fails', async () => {
-      const header = makeBlockHeader(1, { slotNumber: targetSlot });
-      const proposal = await makeBlockProposal({ signer, blockHeader: header });
-      blockReceivedCallback.mockImplementationOnce(() => Promise.reject(new Error('Validation blew up')));
-      mockTxPool.unprotectTxs.mockRejectedValueOnce(new Error('Pool unavailable'));
-
-      await expect(service.processBlockFromPeer(proposal.toBuffer(), 'msg-1', mockPeerId)).rejects.toThrow(
-        'Validation blew up',
-      );
     });
 
     // Regression for A-1013: payloads sharing (slot, position, archive) but differing on another

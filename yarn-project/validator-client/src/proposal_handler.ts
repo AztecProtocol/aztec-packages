@@ -18,6 +18,7 @@ import type { LogData } from '@aztec/foundation/log';
 import { createLogger } from '@aztec/foundation/log';
 import { retryUntil } from '@aztec/foundation/retry';
 import { DateProvider, Timer } from '@aztec/foundation/timer';
+import { isErrorClass } from '@aztec/foundation/types';
 import type { P2P, PeerId } from '@aztec/p2p';
 import { BlockProposalValidator } from '@aztec/p2p/msg_validators';
 import type { BlockData, L2Block, L2BlockSink, L2BlockSource } from '@aztec/stdlib/block';
@@ -530,27 +531,11 @@ export class ProposalHandler {
 
     // Collect txs from the proposal. We start doing this as early as possible,
     // and we do it even if we don't plan to re-execute the txs, so that we have them if another node needs them.
-    let txs: Tx[];
-    let missingTxs: TxHash[];
-    try {
-      ({ txs, missingTxs } = await this.txProvider.getTxsForBlockProposal(proposal, blockNumber, {
-        pinnedPeer: proposalSender,
-        deadline: this.getReexecutionDeadline(slotNumber),
-      }));
-    } catch (error) {
-      // A tx carried in the proposal that fails minimum integrity validation is proposer misbehavior: the
-      // proposal signs both the tx hashes and the tx objects. Map it to a typed failure so the invalid
-      // proposal reaches the slashing and invalid-slot accounting instead of escaping as an exception.
-      // Any other collection error is a local failure and keeps propagating.
-      if (!(error instanceof InvalidBlockProposalTxsError)) {
-        throw error;
-      }
-      this.log.warn(`Block proposal carries ${error.invalidTxs.length} invalid txs`, {
-        ...proposalInfo,
-        invalidTxs: error.invalidTxs.map(({ txHash, reasons }) => ({ txHash: txHash.toString(), reasons })),
-      });
+    const collected = await this.collectProposalTxs(proposal, blockNumber, proposalSender, proposalInfo);
+    if (!collected) {
       return { isValid: false, blockNumber, reason: 'invalid_embedded_txs' };
     }
+    const { txs, missingTxs } = collected;
 
     // Record the tx-collection outcome on the re-execution tracker
     this.reexecutionTracker.recordTxsCollected(slotNumber, proposal.indexWithinCheckpoint, missingTxs.length === 0);
@@ -633,6 +618,36 @@ export class ProposalHandler {
     );
 
     return { isValid: true, blockNumber, reexecutionResult };
+  }
+
+  /**
+   * Collects the txs for a proposal, returning `undefined` if the proposal carries a tx that fails minimum
+   * integrity validation. That is proposer misbehavior — the proposal signs both the tx hashes and the tx
+   * objects — so the caller turns it into an invalid-proposal result that reaches slashing and invalid-slot
+   * accounting, rather than letting it escape as an exception. Any other collection error is a local failure
+   * and keeps propagating.
+   */
+  private async collectProposalTxs(
+    proposal: BlockProposal,
+    blockNumber: BlockNumber,
+    proposalSender: PeerId,
+    proposalInfo: LogData,
+  ): Promise<{ txs: Tx[]; missingTxs: TxHash[] } | undefined> {
+    try {
+      return await this.txProvider.getTxsForBlockProposal(proposal, blockNumber, {
+        pinnedPeer: proposalSender,
+        deadline: this.getReexecutionDeadline(proposal.slotNumber),
+      });
+    } catch (error) {
+      if (!isErrorClass(error, InvalidBlockProposalTxsError)) {
+        throw error;
+      }
+      this.log.warn(`Block proposal carries ${error.invalidTxs.length} invalid txs`, {
+        ...proposalInfo,
+        invalidTxs: error.invalidTxs.map(({ txHash, reasons }) => ({ txHash: txHash.toString(), reasons })),
+      });
+      return undefined;
+    }
   }
 
   private async validateNewBlockInSlot(blockProposal: BlockProposal): Promise<BlockProposalSlotValidationResult> {

@@ -765,6 +765,23 @@ describe('ProposalHandler checkpoint validation', () => {
       });
     });
 
+    // The error is thrown in p2p and caught here, so recognizing it must not depend on `instanceof`
+    // resolving to the same class object.
+    it('classifies the error by name when it comes from another package instance', async () => {
+      const { proposal, blockHandler, txProvider } = await setupGenesisProposal(Fr.random());
+      const error = new Error('Validator Error: Invalid txs in block proposal');
+      error.name = 'InvalidBlockProposalTxsError';
+      Object.assign(error, { invalidTxs: [{ txHash: proposal.txHashes[0], reasons: [TX_ERROR_INVALID_PROOF] }] });
+      txProvider.getTxsForBlockProposal.mockRejectedValue(error);
+
+      const result = await blockHandler.handleBlockProposal(proposal, {} as any, false);
+      expect(result).toEqual({
+        isValid: false,
+        blockNumber: BlockNumber(INITIAL_L2_BLOCK_NUM),
+        reason: 'invalid_embedded_txs',
+      });
+    });
+
     // Only proposer misbehavior gets a typed (and slashable) failure reason; a local collection failure
     // must keep propagating so it is not mistaken for an invalid proposal.
     it('propagates other tx collection errors', async () => {

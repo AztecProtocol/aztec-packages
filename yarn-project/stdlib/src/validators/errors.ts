@@ -42,6 +42,8 @@ export class InvalidBlockProposalTxsError extends ValidatorError {
         .map(({ txHash, reasons }) => `${txHash} (${reasons.join(', ')})`)
         .join('; ')}`,
     );
+    // Set so `isErrorClass` can recognize this error across package instances, where `instanceof` fails.
+    this.name = 'InvalidBlockProposalTxsError';
   }
 }
 
