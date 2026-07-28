@@ -375,6 +375,10 @@ export class FullNodeCheckpointsBuilder implements ICheckpointsBuilder {
     fork: MerkleTreeWriteOperations,
     existingBlocks: L2Block[] = [],
     bindings?: LoggerBindings,
+    // Streaming Inbox (AZIP-22 Fast Inbox): when true the fresh-checkpoint path inserts messages per block (via
+    // `buildBlock`'s `l1ToL2Messages`) instead of the whole checkpoint up front; `l1ToL2Messages` here must be empty.
+    // The resume path never inserts messages up front, so this only affects `startCheckpoint`.
+    insertMessagesPerBlock: boolean = false,
   ): Promise<CheckpointBuilder> {
     const stateReference = await fork.getStateReference();
     const archiveTree = await fork.getTreeInfo(MerkleTreeId.ARCHIVE);
@@ -389,6 +393,7 @@ export class FullNodeCheckpointsBuilder implements ICheckpointsBuilder {
         previousInboxRollingHash,
         fork,
         bindings,
+        insertMessagesPerBlock,
       );
     }
 

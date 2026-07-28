@@ -90,9 +90,9 @@ export class BlockProposal extends Gossipable implements Signable {
     public readonly signedTxs?: SignedTxs,
 
     /**
-     * Reference to the Inbox bucket this block proposes to consume (AZIP-22 Fast Inbox). Optional pre-flip: the
-     * sequencer leaves it unset until the streaming Inbox is enabled, at which point validators derive the consumed
-     * message bundle from it. Covered by the proposal signature (part of `getPayloadToSign`).
+     * Reference to the Inbox bucket this block proposes to consume, when the proposer commits to one. Validators
+     * resolve it against their own Inbox view and derive the consumed message bundle from it rather than trusting a
+     * proposer-supplied message list. Covered by the proposal signature (part of `getPayloadToSign`).
      */
     public readonly bucketRef?: InboxBucketRef,
   ) {
