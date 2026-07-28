@@ -18,7 +18,7 @@ import type { Checkpoint } from '@aztec/stdlib/checkpoint';
 import type { ForkMerkleTreeOperations, ITxProvider } from '@aztec/stdlib/interfaces/server';
 import { CheckpointConstantData } from '@aztec/stdlib/rollup';
 import { MerkleTreeId } from '@aztec/stdlib/trees';
-import type { BlockHeader, ProcessedTx, Tx } from '@aztec/stdlib/tx';
+import type { BlockHeader, ProcessedTx, Tx, TxHash } from '@aztec/stdlib/tx';
 
 import type { ProverNodeJobMetrics } from '../metrics.js';
 
@@ -98,9 +98,6 @@ export class CheckpointProver {
   readonly previousBlockHeader: BlockHeader;
   readonly l1ToL2Messages: Fr[];
   readonly previousArchiveSiblingPath: Tuple<Fr, typeof ARCHIVE_HEIGHT>;
-
-  /** Per-prover tx map — populated by the internal gather. Empty until then. */
-  readonly txs: Map<string, Tx> = new Map();
 
   /** Resolved by the sub-tree on success, rejected on cancel/failure. */
   private readonly blockProofs: PromiseWithResolvers<SubTreeResult['blockProofOutputs']> = promiseWithResolvers();
@@ -232,20 +229,45 @@ export class CheckpointProver {
     this.blockProofs.reject(err);
   }
 
-  private async gatherTxs(): Promise<Map<string, Tx>> {
+  /** Fetches every tx in this checkpoint from the tx pool (by hash, via the block tx effects). */
+  private async fetchTxs(): Promise<{ txs: Map<string, Tx>; missingTxs: TxHash[] }> {
     const deadline = new Date(this.deps.dateProvider.now() + this.deps.txGatheringTimeoutMs);
     const txsByBlock = await Promise.all(
       this.checkpoint.blocks.map(block => this.deps.txProvider.getTxsForBlock(block, { deadline })),
     );
-    const txs = txsByBlock.map(({ txs }) => txs).flat();
-    const missingTxs = txsByBlock.map(({ missingTxs }) => missingTxs).flat();
+    const txs = txsByBlock.flatMap(({ txs }) => txs);
+    const missingTxs = txsByBlock.flatMap(({ missingTxs }) => missingTxs);
+    return { txs: new Map<string, Tx>(txs.map(tx => [tx.getTxHash().toString(), tx])), missingTxs };
+  }
 
+  private async gatherTxs(): Promise<Map<string, Tx>> {
+    const { txs, missingTxs } = await this.fetchTxs();
     if (missingTxs.length > 0) {
       throw new Error(
         `Txs not found for checkpoint ${this.checkpoint.number}: ${missingTxs.map(hash => hash.toString()).join(', ')}`,
       );
     }
-    return new Map<string, Tx>(txs.map(tx => [tx.getTxHash().toString(), tx]));
+    return txs;
+  }
+
+  /**
+   * Re-fetches this checkpoint's txs from the tx pool for a post-mortem failure upload.
+   *
+   * The prover does not cache txs on the heap — they are consumed during proving and dropped — so the
+   * durable pool (which keeps a mined tx until L1 finality, with A-1274's retention margin covering a
+   * lagging prover) is the source of truth, read back by hash here. Best-effort: any tx the pool can
+   * no longer supply is logged and omitted rather than failing the upload, since a partial post-mortem
+   * snapshot is still useful for diagnosis.
+   */
+  public async getTxsForUpload(): Promise<Map<string, Tx>> {
+    const { txs, missingTxs } = await this.fetchTxs();
+    if (missingTxs.length > 0) {
+      this.deps.log.warn(
+        `Missing ${missingTxs.length} tx(s) re-fetching checkpoint ${this.checkpoint.number} for failure upload`,
+        { checkpointNumber: this.checkpoint.number, missingTxCount: missingTxs.length },
+      );
+    }
+    return txs;
   }
 
   private async executeCheckpoint(txs: Map<string, Tx>): Promise<void> {
@@ -259,9 +281,9 @@ export class CheckpointProver {
         await this.deps.checkpointProveOverride();
       }
 
-      for (const [hash, tx] of txs) {
-        this.txs.set(hash, tx);
-      }
+      // The gathered txs are consumed locally below (public processing + sub-tree) and then dropped.
+      // They are deliberately not retained on the instance: the tx pool is the durable source and
+      // `getTxsForUpload` re-fetches them by hash if a post-mortem upload needs them.
 
       const { chainId, version } = this.checkpoint.blocks[0].header.globalVariables;
       const checkpointConstants = CheckpointConstantData.from({
