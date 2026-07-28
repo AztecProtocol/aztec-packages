@@ -13,6 +13,8 @@ interface IInbox {
   struct InboxState {
     // Rolling hash of all messages inserted into the inbox.
     // Used by clients to check for consistency.
+    // TODO: remove once the streaming inbox (AZIP-22 Fast Inbox) flips on and clients rely on the
+    // consensus rolling hash tracked in the buckets instead.
     bytes16 rollingHash;
     // This value is not used much by the contract, but it is useful for synching the node faster
     // as it can more easily figure out if it can just skip looking for events for a time period.
@@ -22,13 +24,42 @@ interface IInbox {
   }
 
   /**
+   * @notice Snapshot of the consensus rolling hash over the messages inserted into the Inbox, stored in a
+   * fixed-size ring indexed by a dense bucket sequence number (`seq % ringSize`). A bucket only accumulates
+   * messages sent within a single L1 block, so its final state is the chain position as of the end of that
+   * block; the censorship check at `propose` compares the checkpoint header's rolling hash against these
+   * snapshots (AZIP-22 Fast Inbox).
+   */
+  struct InboxBucket {
+    // Rolling hash after the last message absorbed into this bucket. Each link is
+    // `sha256ToField(previousRollingHash || leaf)`; the genesis value is zero.
+    bytes32 rollingHash;
+    // Cumulative number of messages inserted into the Inbox up to and including this bucket.
+    uint64 totalMsgCount;
+    // L1 block timestamp at which this bucket was opened. Recency comparisons (message lag,
+    // censorship cutoff) are done in seconds against this value.
+    uint64 timestamp;
+    // Number of messages absorbed into this bucket, capped at the per-bucket maximum.
+    uint32 msgCount;
+  }
+
+  /**
    * @notice Emitted when a message is sent
    * @param checkpointNumber - The checkpoint number in which the message is included
    * @param index - The index of the message in the L1 to L2 messages tree
    * @param hash - The hash of the message
    * @param rollingHash - The rolling hash of all messages inserted into the inbox
+   * @param inboxRollingHash - The consensus rolling hash (truncated sha256 chain) after this message
+   * @param bucketSeq - The sequence number of the bucket this message was absorbed into
    */
-  event MessageSent(uint256 indexed checkpointNumber, uint256 index, bytes32 indexed hash, bytes16 rollingHash);
+  event MessageSent(
+    uint256 indexed checkpointNumber,
+    uint256 index,
+    bytes32 indexed hash,
+    bytes16 rollingHash,
+    bytes32 inboxRollingHash,
+    uint256 bucketSeq
+  );
 
   // docs:start:send_l1_to_l2_message
   /**
@@ -68,4 +99,18 @@ interface IInbox {
   function getTotalMessagesInserted() external view returns (uint64);
 
   function getInProgress() external view returns (uint64);
+
+  /**
+   * @notice Returns the sequence number of the bucket currently accumulating messages
+   * @return The current bucket sequence number
+   */
+  function getCurrentBucketSeq() external view returns (uint64);
+
+  /**
+   * @notice Returns the bucket with the given sequence number
+   * @dev Reverts if the bucket is ahead of the current one or has already been overwritten in the ring
+   * @param _seq - The bucket sequence number
+   * @return The bucket
+   */
+  function getBucket(uint256 _seq) external view returns (InboxBucket memory);
 }

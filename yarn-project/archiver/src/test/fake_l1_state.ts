@@ -628,6 +628,8 @@ export class FakeL1State {
           index: msg.index,
           leaf: msg.leaf,
           rollingHash: msg.rollingHash,
+          inboxRollingHash: Fr.ZERO,
+          bucketSeq: 0n,
         },
       }));
   }
@@ -651,6 +653,8 @@ export class FakeL1State {
         index: msg.index,
         leaf: msg.leaf,
         rollingHash: msg.rollingHash,
+        inboxRollingHash: Fr.ZERO,
+        bucketSeq: 0n,
       },
     };
   }

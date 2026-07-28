@@ -28,6 +28,7 @@ library Errors {
   error Inbox__ContentTooLarge(bytes32 content); // 0x47452014
   error Inbox__SecretHashTooLarge(bytes32 secretHash); // 0xecde7e2c
   error Inbox__MustBuildBeforeConsume(); // 0xc4901999
+  error Inbox__BucketOutOfWindow(uint256 seq, uint256 current); // 0xfee255b7
 
   // Outbox
   error Outbox__Unauthorized(); // 0x2c9490c2
