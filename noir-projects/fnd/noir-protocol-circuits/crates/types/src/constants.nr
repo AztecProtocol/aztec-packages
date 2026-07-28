@@ -128,8 +128,8 @@ pub global CHECKPOINT_ROOT_SINGLE_BLOCK_ROLLUP_VK_INDEX: u32 = 17;
 pub global CHECKPOINT_PADDING_ROLLUP_VK_INDEX: u32 = 18;
 pub global CHECKPOINT_MERGE_ROLLUP_VK_INDEX: u32 = 19;
 pub global ROOT_ROLLUP_VK_INDEX: u32 = 20;
-pub global PARITY_BASE_VK_INDEX: u32 = 21;
-pub global PARITY_ROOT_VK_INDEX: u32 = 22;
+// VK indices 21 and 22 are intentionally unallocated: they were the parity base / parity root, replaced by the
+// InboxParity size ladder (appended at 74-76 below, since the reset range 23-64 is reserved).
 // The three families below carve up the reset-family range (23-42). Each base is the VK index
 // of its family's first variant; subsequent variants occupy successive indices. Bases must
 // stay ascending; `validate_vk_in_vk_tree` depends on this ordering.
@@ -155,6 +155,11 @@ pub global PRIVATE_KERNEL_INNER_5_VK_INDEX: u32 = 72;
 // The block-root variants at 10-14 are full; the non-first message-only block root is appended after the
 // multi-app kernel indices (65-72), since 43-64 are reserved for reset variants.
 pub global BLOCK_ROOT_MSGS_ONLY_ROLLUP_VK_INDEX: u32 = 73;
+// The InboxParity size ladder: one VK per size, checked as an allowed set by the checkpoint root. Appended here
+// (rather than reusing the freed 21/22) so the three sizes stay contiguous and read in order.
+pub global INBOX_PARITY_64_VK_INDEX: u32 = 74;
+pub global INBOX_PARITY_256_VK_INDEX: u32 = 75;
+pub global INBOX_PARITY_1024_VK_INDEX: u32 = 76;
 
 // Maximum number of apps absorbed by a single private kernel iteration.
 pub global MAX_APPS_PER_KERNEL: u32 = 5;
@@ -603,10 +608,16 @@ pub global ROOT_ROLLUP_PUBLIC_INPUTS_LENGTH: u32 = 1 /* previous_archive_root */
     + MAX_CHECKPOINTS_PER_EPOCH * FEE_RECIPIENT_LENGTH /* fees */
     + FINAL_BLOB_ACCUMULATOR_LENGTH /* blob_public_inputs */;
 
-// Depends on the final number of messages per checkpoint.
+// The InboxParity size ladder: one variable-size parity proof is produced per checkpoint, and the prover picks the
+// smallest size >= the checkpoint's real message count. The largest rung equals the per-checkpoint message cap.
+pub global INBOX_PARITY_SIZE_SMALL: u32 = 64;
+pub global INBOX_PARITY_SIZE_MEDIUM: u32 = 256;
+pub global INBOX_PARITY_SIZE_LARGE: u32 = 1024;
+
+// Fan-in of the sha256 `in_hash` frontier tree (NUM_BASE_PARITY_PER_ROOT_PARITY * NUM_MSGS_PER_BASE_PARITY ==
+// NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP). The circuits no longer build this tree, but the constants are still consumed
+// by the generated Solidity `Constants` and the L1 `Parity.t.sol` test that checks the frontier-root construction.
 pub global NUM_MSGS_PER_BASE_PARITY: u32 = 256;
-// pub global NUM_BASE_PARITY_PER_ROOT_PARITY: u32 = NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP / NUM_MSGS_PER_BASE_PARITY;
-// FIX: Sadly, writing this as above causes a type error in type_conversion.ts.
 pub global NUM_BASE_PARITY_PER_ROOT_PARITY: u32 = 4;
 
 // Lengths of the different types of proofs in fields
@@ -1333,9 +1344,9 @@ mod test {
     use crate::merkle_tree::root::compute_empty_sha_tree_root;
     use crate::traits::ToField;
     use super::{
-        GLOBAL_INDEX_CONTRACT_MIN_REVERTIBLE_SIDE_EFFECT_COUNTER_OFFSET, MAX_ETH_ADDRESS_VALUE,
-        NUM_BASE_PARITY_PER_ROOT_PARITY, NUM_MSGS_PER_BASE_PARITY,
-        NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP, TOTAL_COUNTED_SIDE_EFFECTS_PER_CALL,
+        GLOBAL_INDEX_CONTRACT_MIN_REVERTIBLE_SIDE_EFFECT_COUNTER_OFFSET, INBOX_PARITY_SIZE_LARGE,
+        MAX_ETH_ADDRESS_VALUE, NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP,
+        TOTAL_COUNTED_SIDE_EFFECTS_PER_CALL,
     };
 
     #[test]
@@ -1380,10 +1391,8 @@ mod test {
 
     #[test]
     fn parity_covers_all_l1_to_l2_msgs() {
-        assert_eq(
-            NUM_BASE_PARITY_PER_ROOT_PARITY * NUM_MSGS_PER_BASE_PARITY,
-            NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP,
-        );
+        // The largest InboxParity rung must be able to hold a full checkpoint's worth of messages.
+        assert_eq(INBOX_PARITY_SIZE_LARGE, NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP);
     }
 
     #[test]

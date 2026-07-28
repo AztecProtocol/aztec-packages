@@ -1,5 +1,5 @@
 use crate::{
-    abis::{BlockRollupPublicInputs, L1ToL2MessageSponge},
+    abis::{BlockRollupPublicInputs, L1ToL2MessageBundle, L1ToL2MessageSponge},
     block_root::block_root_msgs_only_rollup::{self, BlockRootMsgsOnlyRollupPrivateInputs},
     tests::RollupFixtureBuilder,
 };
@@ -76,8 +76,11 @@ impl TestBuilder {
             timestamp: self.timestamp,
             start_sponge_blob: self.start_sponge_blob,
             start_msg_sponge: self.start_msg_sponge,
-            l1_to_l2_messages: self.l1_to_l2_messages,
-            num_msgs: self.num_msgs,
+            message_bundle: L1ToL2MessageBundle {
+                messages: self.l1_to_l2_messages,
+                num_msgs: self.num_msgs,
+                num_real_msgs: self.num_msgs,
+            },
             l1_to_l2_message_frontier_hint: self.l1_to_l2_message_frontier_hint,
             new_archive_sibling_path: self.new_archive_sibling_path,
         }

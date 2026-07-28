@@ -1,7 +1,5 @@
-pub mod parity_base;
-pub mod parity_root;
+pub mod inbox_parity;
 mod tests;
 
 pub use crate::abis::ParityPublicInputs;
-pub use parity_base::ParityBasePrivateInputs;
-pub use parity_root::ParityRootPrivateInputs;
+pub use inbox_parity::InboxParityPrivateInputs;

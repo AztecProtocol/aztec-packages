@@ -3,7 +3,7 @@ use crate::{
     checkpoint_root::{
         checkpoint_root_rollup::CheckpointRootRollupHints,
         components::{
-            CheckpointRollupPublicInputsComposer, CheckpointRootInputsValidator, validate_parity_root,
+            CheckpointRollupPublicInputsComposer, CheckpointRootInputsValidator, validate_inbox_parity,
         },
     },
 };
@@ -32,9 +32,9 @@ global ALLOWED_PREVIOUS_VK_INDICES: [u32; 4] = [
 
 pub struct CheckpointRootSingleBlockRollupPrivateInputs {
     pub(crate) previous_rollup: RollupHonkProofData<BlockRollupPublicInputs>,
-    // Parity root proof over the checkpoint's L1-to-L2 messages. Moved here from the first block root (AZIP-22 Fast
+    // Inbox parity proof over the checkpoint's L1-to-L2 messages. One variable-size proof per checkpoint (AZIP-22 Fast
     // Inbox): the checkpoint root is the only circuit that sees the whole checkpoint's message commitments.
-    pub(crate) parity_root: UltraHonkProofData<ParityPublicInputs>,
+    pub(crate) inbox_parity: UltraHonkProofData<ParityPublicInputs>,
     pub(crate) hints: CheckpointRootRollupHints,
 }
 
@@ -69,11 +69,11 @@ pub fn execute(
         .validate();
 
     let constants = inputs.previous_rollup.public_inputs.constants;
-    validate_parity_root(inputs.parity_root, constants.vk_tree_root, constants.prover_id);
+    validate_inbox_parity(inputs.inbox_parity, constants.vk_tree_root, constants.prover_id);
 
     CheckpointRollupPublicInputsComposer::new(
         [inputs.previous_rollup.public_inputs],
-        inputs.parity_root.public_inputs,
+        inputs.inbox_parity.public_inputs,
         hints.previous_out_hash,
         hints.new_out_hash_sibling_path,
         hints.start_blob_accumulator,

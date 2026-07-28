@@ -6,7 +6,7 @@ import { promiseWithResolvers } from '@aztec/foundation/promise';
 import { sleep } from '@aztec/foundation/sleep';
 import { ProvingJob, makeProvingJobId } from '@aztec/stdlib/interfaces/server';
 import { ProvingRequestType } from '@aztec/stdlib/proofs';
-import { makeParityBasePrivateInputs, makeParityPublicInputs } from '@aztec/stdlib/testing';
+import { makeInboxParityPrivateInputs, makeParityPublicInputs } from '@aztec/stdlib/testing';
 
 import { jest } from '@jest/globals';
 
@@ -63,9 +63,9 @@ describe('ProvingBroker <-> ProvingAgent integration', () => {
 
     const duplicateJobs: string[] = [];
 
-    jest.spyOn(prover, 'getBaseParityProof').mockImplementation((inputs, signal) => {
+    jest.spyOn(prover, 'getInboxParityProof').mockImplementation((inputs, signal) => {
       const inputsHash = sha256(inputs.toBuffer());
-      const id = makeProvingJobId(EpochNumber(0), ProvingRequestType.PARITY_BASE, inputsHash.toString('hex'));
+      const id = makeProvingJobId(EpochNumber(0), ProvingRequestType.INBOX_PARITY, inputsHash.toString('hex'));
       // job was given to two agents
       if (deferreds[id]) {
         duplicateJobs.push(id);
@@ -78,17 +78,17 @@ describe('ProvingBroker <-> ProvingAgent integration', () => {
 
     const enqueueRandomJob = async () => {
       while (true) {
-        const inputs = makeParityBasePrivateInputs(randomInt(Number.MAX_SAFE_INTEGER));
+        const inputs = makeInboxParityPrivateInputs(randomInt(Number.MAX_SAFE_INTEGER));
         const inputsHash = sha256(inputs.toBuffer());
-        const id = makeProvingJobId(EpochNumber(0), ProvingRequestType.PARITY_BASE, inputsHash.toString('hex'));
+        const id = makeProvingJobId(EpochNumber(0), ProvingRequestType.INBOX_PARITY, inputsHash.toString('hex'));
         if (jobs[id]) {
           continue;
         }
 
         jobs[id] = {
           id,
-          type: ProvingRequestType.PARITY_BASE,
-          inputsUri: await store.saveProofInput(id, ProvingRequestType.PARITY_BASE, inputs),
+          type: ProvingRequestType.INBOX_PARITY,
+          inputsUri: await store.saveProofInput(id, ProvingRequestType.INBOX_PARITY, inputs),
           epochNumber: EpochNumber(0),
         };
         await broker.enqueueProvingJob(jobs[id]);

@@ -12,8 +12,9 @@ import {
   CHECKPOINT_ROOT_SINGLE_BLOCK_ROLLUP_VK_INDEX,
   HIDING_KERNEL_TO_PUBLIC_VK_INDEX,
   HIDING_KERNEL_TO_ROLLUP_VK_INDEX,
-  PARITY_BASE_VK_INDEX,
-  PARITY_ROOT_VK_INDEX,
+  INBOX_PARITY_64_VK_INDEX,
+  INBOX_PARITY_256_VK_INDEX,
+  INBOX_PARITY_1024_VK_INDEX,
   PRIVATE_KERNEL_INIT_2_VK_INDEX,
   PRIVATE_KERNEL_INIT_3_VK_INDEX,
   PRIVATE_KERNEL_INIT_4_VK_INDEX,
@@ -33,8 +34,9 @@ import {
 import { VerificationKeyData } from '@aztec/stdlib/vks';
 
 import PublicChonkVerifier from '../../../artifacts/chonk_verifier_public.json' with { type: 'json' };
-import ParityBase from '../../../artifacts/parity_base.json' with { type: 'json' };
-import ParityRoot from '../../../artifacts/parity_root.json' with { type: 'json' };
+import InboxParity64 from '../../../artifacts/inbox_parity_64.json' with { type: 'json' };
+import InboxParity256 from '../../../artifacts/inbox_parity_256.json' with { type: 'json' };
+import InboxParity1024 from '../../../artifacts/inbox_parity_1024.json' with { type: 'json' };
 import BlockMergeRollup from '../../../artifacts/rollup_block_merge.json' with { type: 'json' };
 import BlockRootRollup from '../../../artifacts/rollup_block_root.json' with { type: 'json' };
 import BlockRootFirstRollup from '../../../artifacts/rollup_block_root_first.json' with { type: 'json' };
@@ -59,8 +61,9 @@ import { abiToVKData } from '../../utils/vk_json.js';
 import type { ProtocolCircuitName, ServerProtocolCircuitName } from '../types.js';
 
 export const ServerCircuitVks: Record<ServerProtocolCircuitName, VerificationKeyData> = {
-  ParityBaseArtifact: abiToVKData(ParityBase),
-  ParityRootArtifact: abiToVKData(ParityRoot),
+  InboxParity64Artifact: abiToVKData(InboxParity64),
+  InboxParity256Artifact: abiToVKData(InboxParity256),
+  InboxParity1024Artifact: abiToVKData(InboxParity1024),
   PublicChonkVerifier: abiToVKData(PublicChonkVerifier),
   PrivateTxBaseRollupArtifact: abiToVKData(PrivateTxBaseRollup),
   PublicTxBaseRollupArtifact: abiToVKData(PublicTxBaseRollup),
@@ -95,8 +98,9 @@ export const ProtocolCircuitVkIndexes: Record<ProtocolCircuitName, number> = {
   HidingKernelToRollup: HIDING_KERNEL_TO_ROLLUP_VK_INDEX,
   HidingKernelToPublic: HIDING_KERNEL_TO_PUBLIC_VK_INDEX,
   PublicChonkVerifier: PUBLIC_CHONK_VERIFIER_VK_INDEX,
-  ParityBaseArtifact: PARITY_BASE_VK_INDEX,
-  ParityRootArtifact: PARITY_ROOT_VK_INDEX,
+  InboxParity64Artifact: INBOX_PARITY_64_VK_INDEX,
+  InboxParity256Artifact: INBOX_PARITY_256_VK_INDEX,
+  InboxParity1024Artifact: INBOX_PARITY_1024_VK_INDEX,
   PrivateTxBaseRollupArtifact: PRIVATE_TX_BASE_ROLLUP_VK_INDEX,
   PublicTxBaseRollupArtifact: PUBLIC_TX_BASE_ROLLUP_VK_INDEX,
   TxMergeRollupArtifact: TX_MERGE_ROLLUP_VK_INDEX,
