@@ -66,11 +66,10 @@ contract InboxTest is Test {
     DataStructures.L1ToL2Msg memory message = _boundMessage(_message, globalLeafIndex);
 
     bytes32 leaf = message.sha256ToField();
-    bytes16 expectedRollingHash = bytes16(keccak256(abi.encodePacked(stateBefore.rollingHash, leaf)));
     bytes32 expectedInboxRollingHash = Hash.accumulateInboxRollingHash(bytes32(0), leaf);
     vm.expectEmit(true, true, true, true);
     // event we expect
-    emit IInbox.MessageSent(globalLeafIndex, leaf, expectedRollingHash, expectedInboxRollingHash, 1);
+    emit IInbox.MessageSent(globalLeafIndex, leaf, expectedInboxRollingHash, 1);
     // event we will get
     (bytes32 insertedLeaf, uint256 insertedIndex) =
       inbox.sendL2Message(message.recipient, message.content, message.secretHash);
@@ -80,7 +79,6 @@ contract InboxTest is Test {
 
     Inbox.InboxState memory stateAfter = inbox.getState();
     assertEq(stateBefore.totalMessagesInserted + 1, stateAfter.totalMessagesInserted);
-    assertEq(expectedRollingHash, stateAfter.rollingHash);
   }
 
   function testSendDuplicateL2Messages() public {

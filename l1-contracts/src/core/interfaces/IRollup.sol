@@ -27,7 +27,7 @@ struct PublicInputArgs {
   bytes32 previousArchive;
   bytes32 endArchive;
   bytes32 outHash;
-  // Inbox rolling-hash chain segment consumed across the proven epoch (AZIP-22 Fast Inbox). Both boundaries are
+  // Inbox rolling-hash chain segment consumed across the proven epoch. Both boundaries are
   // anchored at proof submission against the rolling hashes recorded at propose for checkpoints start - 1 and end.
   bytes32 previousInboxRollingHash;
   bytes32 endInboxRollingHash;

@@ -136,7 +136,6 @@ export const ArchiverApiSchema: ApiSchemaFor<ArchiverApi> = {
   }),
   getContractClassIds: z.function({ input: z.tuple([]), output: z.array(schemas.Fr) }),
   registerContractFunctionSignatures: z.function({ input: z.tuple([z.array(z.string())]), output: z.void() }),
-  getL1ToL2Messages: z.function({ input: z.tuple([CheckpointNumberSchema]), output: z.array(schemas.Fr) }),
   getL1ToL2MessageIndex: z.function({ input: z.tuple([schemas.Fr]), output: schemas.BigInt.optional() }),
   getLatestInboxBucketAtOrBefore: z.function({
     input: z.tuple([schemas.BigInt]),

@@ -559,7 +559,7 @@ const METHOD_GROUPS: { heading: string; namespace: string; methods: string[] }[]
     namespace: 'aztec',
     methods: [
       'getL1ToL2MessageMembershipWitness',
-      'getL1ToL2MessageCheckpoint',
+      'getL1ToL2MessageIndex',
       'getL2ToL1MembershipWitness',
       'getL2ToL1Messages',
     ],

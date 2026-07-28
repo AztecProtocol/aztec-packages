@@ -65,7 +65,6 @@ describe('e2e_p2p_network', () => {
           slashingRoundSizeInEpochs: 2,
           slashingQuorum: 5,
           listenAddress: '127.0.0.1',
-          inboxLag: 2,
         },
       });
 
@@ -160,7 +159,6 @@ describe('e2e_p2p_network', () => {
           // Without this, no blocks are built until txs arrive, and a failed checkpoint during tx
           // submission causes block pruning that invalidates tx references.
           minTxsPerBlock: 0,
-          inboxLag: 2,
         },
       });
 

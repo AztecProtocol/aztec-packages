@@ -7,15 +7,10 @@ import type { InboxBucket, L1ToL2MessageSource } from '@aztec/stdlib/messaging';
  * A mocked implementation of L1ToL2MessageSource to be used in tests.
  */
 export class MockL1ToL2MessageSource implements L1ToL2MessageSource {
-  private messagesPerCheckpoint = new Map<CheckpointNumber, Fr[]>();
   private buckets = new Map<bigint, InboxBucket>();
   private messagesPerBucket = new Map<bigint, Fr[]>();
 
   constructor(private blockNumber: number) {}
-
-  public setL1ToL2Messages(checkpointNumber: CheckpointNumber, msgs: Fr[]) {
-    this.messagesPerCheckpoint.set(checkpointNumber, msgs);
-  }
 
   public setInboxBucket(bucket: InboxBucket, msgs: Fr[] = []) {
     this.buckets.set(bucket.seq, bucket);
@@ -24,10 +19,6 @@ export class MockL1ToL2MessageSource implements L1ToL2MessageSource {
 
   public setBlockNumber(blockNumber: number) {
     this.blockNumber = blockNumber;
-  }
-
-  getL1ToL2Messages(checkpointNumber: CheckpointNumber): Promise<Fr[]> {
-    return Promise.resolve(this.messagesPerCheckpoint.get(checkpointNumber) ?? []);
   }
 
   getL1ToL2MessageIndex(_l1ToL2Message: Fr): Promise<bigint | undefined> {

@@ -1,4 +1,3 @@
-import type { CheckpointNumber } from '@aztec/foundation/branded-types';
 import { Fr } from '@aztec/foundation/curves/bn254';
 import type { L2BlockSource } from '@aztec/stdlib/block';
 import type { Checkpoint } from '@aztec/stdlib/checkpoint';
@@ -13,16 +12,8 @@ import { MockL2BlockSource } from './mock_l2_block_source.js';
 export class MockArchiver extends MockL2BlockSource implements L2BlockSource, L1ToL2MessageSource {
   private messageSource = new MockL1ToL2MessageSource(0);
 
-  public setL1ToL2Messages(checkpointNumber: CheckpointNumber, msgs: Fr[]) {
-    this.messageSource.setL1ToL2Messages(checkpointNumber, msgs);
-  }
-
   public setInboxBucket(bucket: InboxBucket, msgs: Fr[] = []) {
     this.messageSource.setInboxBucket(bucket, msgs);
-  }
-
-  getL1ToL2Messages(checkpointNumber: CheckpointNumber): Promise<Fr[]> {
-    return this.messageSource.getL1ToL2Messages(checkpointNumber);
   }
 
   getL1ToL2MessageIndex(_l1ToL2Message: Fr): Promise<bigint | undefined> {
@@ -63,12 +54,11 @@ export class MockPrefilledArchiver extends MockArchiver {
   }
 
   public setPrefilled(prefilled: { checkpoint: Checkpoint; messages: Fr[] }[]) {
-    for (const { checkpoint, messages } of prefilled) {
+    for (const { checkpoint } of prefilled) {
       this.prefilled[checkpoint.number - 1] = checkpoint;
       if (checkpoint.blocks.length !== 1) {
         throw new Error('Prefilled checkpoint must only have 1 block at the moment.');
       }
-      this.setL1ToL2Messages(checkpoint.number, messages);
     }
 
     for (const { checkpoint, messages } of prefilled) {

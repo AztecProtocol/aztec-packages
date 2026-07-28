@@ -24,7 +24,6 @@ import { type Logger, createLogger } from '@aztec/foundation/log';
 import { RollupAbi } from '@aztec/l1-artifacts';
 import { Body, CommitteeAttestation, L2Block } from '@aztec/stdlib/block';
 import { Checkpoint, L1PublishedData, PublishedCheckpoint } from '@aztec/stdlib/checkpoint';
-import { InboxLeaf } from '@aztec/stdlib/messaging';
 import { Proof } from '@aztec/stdlib/proofs';
 import { CheckpointHeader } from '@aztec/stdlib/rollup';
 import { AppendOnlyTreeSnapshot } from '@aztec/stdlib/trees';
@@ -364,7 +363,7 @@ export async function retrieveL1ToL2Message(
  * @param inbox - The inbox contract wrapper.
  * @param searchStartBlock - The block number to use for starting the search.
  * @param searchEndBlock - The highest block number that we should search up to.
- * @returns An array of InboxLeaf and next eth block to search from.
+ * @returns The L1 to L2 messages retrieved from the Inbox, as an array of InboxMessage.
  */
 export async function retrieveL1ToL2Messages(
   inbox: InboxContract,
@@ -392,10 +391,6 @@ function mapLogInboxMessage(log: MessageSentLog): InboxMessage {
     leaf: log.args.leaf,
     l1BlockNumber: log.l1BlockNumber,
     l1BlockHash: log.l1BlockHash,
-    // The Inbox no longer emits a checkpoint number (AZIP-22 Fast Inbox). Derive it from the compact index for the
-    // legacy per-checkpoint message store, which the node still keeps until it drops the per-checkpoint flow.
-    checkpointNumber: InboxLeaf.checkpointNumberFromIndex(log.args.index),
-    rollingHash: log.args.rollingHash,
     inboxRollingHash: log.args.inboxRollingHash,
     bucketSeq: log.args.bucketSeq,
     bucketTimestamp: log.l1BlockTimestamp,
