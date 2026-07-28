@@ -101,7 +101,11 @@ pub fn execute(inputs: CheckpointRootRollupPrivateInputs) -> CheckpointRollupPub
     let previous_rollups = inputs.previous_rollups.map(|rollup| rollup.public_inputs);
 
     let constants = previous_rollups[0].constants;
-    validate_inbox_parity(inputs.inbox_parity, constants.vk_tree_root, constants.prover_id);
+    validate_inbox_parity(
+        inputs.inbox_parity,
+        constants.vk_tree_root,
+        constants.prover_id,
+    );
 
     CheckpointRollupPublicInputsComposer::new(
         previous_rollups,

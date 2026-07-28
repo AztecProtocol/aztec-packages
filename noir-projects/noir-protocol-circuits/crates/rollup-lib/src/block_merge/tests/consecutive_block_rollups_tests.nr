@@ -1,7 +1,5 @@
 use super::TestBuilder;
-use types::{
-    address::EthAddress, constants::BLOCK_ROOT_ROLLUP_VK_INDEX, hash::accumulate_sha256,
-};
+use types::{address::EthAddress, constants::BLOCK_ROOT_ROLLUP_VK_INDEX, hash::accumulate_sha256};
 
 #[test]
 fn accumulated_out_hash_correctly() {

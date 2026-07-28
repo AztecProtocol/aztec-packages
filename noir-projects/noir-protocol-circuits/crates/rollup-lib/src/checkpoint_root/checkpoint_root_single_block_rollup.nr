@@ -3,7 +3,8 @@ use crate::{
     checkpoint_root::{
         checkpoint_root_rollup::CheckpointRootRollupHints,
         components::{
-            CheckpointRollupPublicInputsComposer, CheckpointRootInputsValidator, validate_inbox_parity,
+            CheckpointRollupPublicInputsComposer, CheckpointRootInputsValidator,
+            validate_inbox_parity,
         },
     },
 };
@@ -71,7 +72,11 @@ pub fn execute(
         .validate();
 
     let constants = inputs.previous_rollup.public_inputs.constants;
-    validate_inbox_parity(inputs.inbox_parity, constants.vk_tree_root, constants.prover_id);
+    validate_inbox_parity(
+        inputs.inbox_parity,
+        constants.vk_tree_root,
+        constants.prover_id,
+    );
 
     CheckpointRollupPublicInputsComposer::new(
         [inputs.previous_rollup.public_inputs],

@@ -15,12 +15,14 @@ fn merge(
     right: BlockRollupPublicInputs,
     right_vk_index: u32,
 ) -> BlockRollupPublicInputs {
-    block_merge_rollup::execute(BlockMergeRollupPrivateInputs {
-        previous_rollups: [
-            RollupFixtureBuilder::make_proof_data(left, left_vk_index),
-            RollupFixtureBuilder::make_proof_data(right, right_vk_index),
-        ],
-    })
+    block_merge_rollup::execute(
+        BlockMergeRollupPrivateInputs {
+            previous_rollups: [
+                RollupFixtureBuilder::make_proof_data(left, left_vk_index),
+                RollupFixtureBuilder::make_proof_data(right, right_vk_index),
+            ],
+        },
+    )
 }
 
 // The roadmap's done-when: a checkpoint made of [first block, message-only block, normal block] proves. The
@@ -47,7 +49,12 @@ fn checkpoint_with_mid_checkpoint_msgs_only_block() {
         msgs_only,
         BLOCK_ROOT_MSGS_ONLY_ROLLUP_VK_INDEX,
     );
-    let merged = merge(left, BLOCK_MERGE_ROLLUP_VK_INDEX, normal, BLOCK_ROOT_ROLLUP_VK_INDEX);
+    let merged = merge(
+        left,
+        BLOCK_MERGE_ROLLUP_VK_INDEX,
+        normal,
+        BLOCK_ROOT_ROLLUP_VK_INDEX,
+    );
 
     assert_eq(merged.num_blocks(), 3);
     // `is_first_block` propagates from the leftmost (first) block only.

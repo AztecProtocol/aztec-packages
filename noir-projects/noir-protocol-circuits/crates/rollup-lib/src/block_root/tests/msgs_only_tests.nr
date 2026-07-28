@@ -48,8 +48,7 @@ impl TestBuilder {
 
         // Borrow a partial state from a tx rollup fixture; it is simply propagated to the start and end states.
         let partial = fixture_builder.get_tx_rollup_public_inputs(6).start_tree_snapshots;
-        let previous_state =
-            StateReference { l1_to_l2_message_tree: previous_l1_to_l2, partial };
+        let previous_state = StateReference { l1_to_l2_message_tree: previous_l1_to_l2, partial };
 
         Self {
             previous_archive,
