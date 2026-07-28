@@ -46,6 +46,7 @@ type DeserializeFn<T> = (
  * @param vector - The vector to deserialize.
  * @param offset - The position in the vector to start deserializing from.
  * @returns Deserialized array and how many bytes we advanced by.
+ * @throws If the length prefix declares more elements than the remaining bytes could hold.
  */
 export function deserializeArrayFromVector<T>(
   deserialize: DeserializeFn<T>,
@@ -64,6 +65,13 @@ export function deserializeArrayFromVector<T>(
   let pos = offset;
   const size = vector.readUInt32BE(pos);
   pos += 4;
+  // The length prefix is attacker-controlled on anything read off the wire, and element deserializers are not
+  // required to bounds-check. Every element takes at least one byte, so any size beyond the bytes left is
+  // unsatisfiable: reject it before allocating or looping, otherwise a 4 byte prefix can OOM the process.
+  const remaining = vector.length - pos;
+  if (size > remaining) {
+    throw new Error(`Serialized array length ${size} exceeds remaining buffer length ${remaining}`);
+  }
   const arr = new Array<T>(size);
   for (let i = 0; i < size; ++i) {
     const { elem, adv } = deserialize(vector, pos);

@@ -131,10 +131,14 @@ export class SiblingPath<N extends number> {
    * @returns The deserialized sibling path and the number of bytes advanced.
    */
   static deserialize<N extends number>(buf: Buffer, offset = 0) {
-    const deserializePath = (buf: Buffer, offset: number) => ({
-      elem: buf.slice(offset, offset + 32),
-      adv: 32,
-    });
+    const deserializePath = (buf: Buffer, offset: number) => {
+      // `subarray` clamps instead of throwing, so without this check a truncated path silently yields
+      // undersized elements rather than an error.
+      if (offset + 32 > buf.length) {
+        throw new Error(`Sibling path is truncated: expected 32 bytes at offset ${offset} of ${buf.length}`);
+      }
+      return { elem: buf.subarray(offset, offset + 32), adv: 32 };
+    };
     const { elem, adv } = deserializeArrayFromVector(deserializePath, buf, offset);
     const size = elem.length;
     return { elem: new SiblingPath<N>(size as N, elem), adv };

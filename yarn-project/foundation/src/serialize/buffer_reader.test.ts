@@ -129,18 +129,20 @@ describe('buffer reader', () => {
 
   describe('readVector', () => {
     it('should read vector and generate result array', () => {
-      const fn = jest.fn();
-      let i = -1;
-      const result = bufferReader.readVector({
-        fromBuffer: () => {
-          fn();
-          i++;
-          return i;
-        },
-      });
-      expect(result.length).toBe(NUMBER);
-      expect(result).toEqual(Array.from(Array(NUMBER).keys()));
-      expect(fn).toHaveBeenCalledTimes(NUMBER);
+      const items = Array.from(Array(10).keys());
+      const reader = new BufferReader(serializeArrayOfBufferableToVector(items.map(i => Buffer.from([i]))));
+
+      const result = reader.readVector({ fromBuffer: (r: BufferReader) => r.readUInt8() });
+
+      expect(result).toEqual(items);
+      expect(reader.isEmpty()).toBe(true);
+    });
+
+    it('should throw when size exceeds the bytes left in the buffer', () => {
+      // BUFFER holds NUMBER as its size prefix, far more elements than its 28 remaining bytes can hold.
+      expect(() => bufferReader.readVector({ fromBuffer: () => 1 })).toThrow(
+        `Vector size ${NUMBER} exceeds remaining buffer length 28`,
+      );
     });
   });
 
