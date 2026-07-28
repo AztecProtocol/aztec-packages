@@ -1,3 +1,6 @@
+import type { Logger } from '@aztec/foundation/log';
+import { elapsedSync } from '@aztec/foundation/timer';
+
 import type { DasContextJs } from '@crate-crypto/node-eth-kzg';
 import { createRequire } from 'module';
 
@@ -30,12 +33,17 @@ export function getBytesPerCommitment(): number {
 let kzgInstance: DasContextJs | undefined;
 
 /**
- * Returns the lazily-initialized KZG context.
- * The first call takes ~3 seconds to initialize the precomputation tables.
+ * Returns the lazily-initialized KZG context. The first call synchronously builds the
+ * precomputation tables (~2s locally, blocking the event loop; longer under constrained CPU), so
+ * callers on a latency-sensitive path should warm it ahead of time. Pass a logger to record how
+ * long that first build took.
+ * @param logger - Optional logger; when provided, the initial table build is timed and logged.
  */
-export function getKzg(): DasContextJs {
+export function getKzg(logger?: Logger): DasContextJs {
   if (!kzgInstance) {
-    kzgInstance = loadNativeModule().DasContextJs.create({ usePrecomp: true });
+    const [durationMs, instance] = elapsedSync(() => loadNativeModule().DasContextJs.create({ usePrecomp: true }));
+    kzgInstance = instance;
+    logger?.verbose(`Loaded KZG trusted setup`, { durationMs });
   }
   return kzgInstance;
 }

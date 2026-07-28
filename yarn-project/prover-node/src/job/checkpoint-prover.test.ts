@@ -17,6 +17,7 @@ import { jest } from '@jest/globals';
 import { mock } from 'jest-mock-extended';
 
 import { ProverNodeJobMetrics } from '../metrics.js';
+import { SessionManager } from '../session-manager.js';
 import { CheckpointProver, type CheckpointProverArgs, type CheckpointProverDeps } from './checkpoint-prover.js';
 
 describe('CheckpointProver', () => {
@@ -318,6 +319,46 @@ describe('CheckpointProver', () => {
       // The owner is notified exactly once, with this prover, so it can upload a checkpoint post-mortem.
       expect(onFailed).toHaveBeenCalledTimes(1);
       expect(onFailed).toHaveBeenCalledWith(prover);
+
+      await cleanup(prover);
+    });
+  });
+
+  // ---------------- tx re-fetch for failure upload ----------------
+
+  describe('getTxsForUpload', () => {
+    // A minimal Tx stand-in: getTxsForUpload only keys the map by getTxHash().toString().
+    const fakeTx = (hash: string) => ({ getTxHash: () => ({ toString: () => hash }) }) as unknown as Tx;
+
+    it('re-fetches txs from the pool on demand (the prover caches nothing)', async () => {
+      // The prover holds no tx map — the pool is the source of truth. Let the eager gather fail so the
+      // pipeline unwinds, then reconfigure the pool and re-fetch, mirroring a post-failure upload.
+      const prover = makeProver();
+      await prover.whenBlockProofsReady().catch(() => {});
+
+      txProvider.getTxsForBlock.mockReset();
+      txProvider.getTxsForBlock.mockResolvedValue({ txs: [fakeTx('0xaa'), fakeTx('0xbb')], missingTxs: [] });
+
+      const uploaded = await prover.getTxsForUpload();
+      // One fetch per block; returns the pool's txs keyed by hash.
+      expect(txProvider.getTxsForBlock).toHaveBeenCalledTimes(checkpoint.blocks.length);
+      expect(uploaded.get('0xaa')).toBeDefined();
+      expect(uploaded.get('0xbb')).toBeDefined();
+
+      await cleanup(prover);
+    });
+
+    it('failure-upload re-fetches from the pool and builds complete EpochProvingJobData', async () => {
+      const prover = makeProver();
+      await prover.whenBlockProofsReady().catch(() => {});
+
+      txProvider.getTxsForBlock.mockReset();
+      txProvider.getTxsForBlock.mockResolvedValue({ txs: [fakeTx('0xaa')], missingTxs: [] });
+
+      const data = await SessionManager.buildProvingData([prover]);
+      expect(data.txs.get('0xaa')).toBeDefined();
+      expect(data.checkpoints).toEqual([checkpoint]);
+      expect(data.epochNumber).toEqual(prover.epochNumber);
 
       await cleanup(prover);
     });

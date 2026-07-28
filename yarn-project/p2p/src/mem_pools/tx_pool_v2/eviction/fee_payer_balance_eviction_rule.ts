@@ -69,9 +69,7 @@ export class FeePayerBalanceEvictionRule implements EvictionRule {
 
     if (txsToEvict.length > 0) {
       await pool.deleteTxs(txsToEvict, this.name);
-      this.log.debug(`Evicted ${txsToEvict.length} txs due to insufficient fee payer balance`, {
-        txHashes: txsToEvict,
-      });
+      this.log.info(`Evicted ${txsToEvict.length} txs due to insufficient fee payer balance`, { txsToEvict });
     }
 
     return {

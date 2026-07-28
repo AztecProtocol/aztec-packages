@@ -435,14 +435,17 @@ export class SessionManager {
    * checkpoint provers. Includes every checkpoint regardless of whether sub-tree proving
    * completed — partial state is still useful for post-mortem analysis.
    */
-  public static buildProvingData(checkpoints: readonly CheckpointProver[]): EpochProvingJobData {
+  public static async buildProvingData(checkpoints: readonly CheckpointProver[]): Promise<EpochProvingJobData> {
     if (checkpoints.length === 0) {
       throw new Error('Cannot build proving data from an empty checkpoint set');
     }
+    // Provers no longer cache their txs; re-fetch each checkpoint's txs from the tx pool (concurrently)
+    // for the snapshot. The pool retains them past the proving window (A-1274), so this is durable.
+    const perCheckpoint = await Promise.all(checkpoints.map(async c => ({ c, txs: await c.getTxsForUpload() })));
     const txs = new Map();
     const l1ToL2Messages: Record<number, Fr[]> = {};
-    for (const c of checkpoints) {
-      for (const [hash, tx] of c.txs) {
+    for (const { c, txs: checkpointTxs } of perCheckpoint) {
+      for (const [hash, tx] of checkpointTxs) {
         txs.set(hash, tx);
       }
       l1ToL2Messages[c.checkpoint.number] = c.l1ToL2Messages;

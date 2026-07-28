@@ -56,16 +56,15 @@ export class LowPriorityEvictionRule implements EvictionRule {
         if (context.event === EvictionEvent.TXS_ADDED) {
           const toEvictSet = new Set(txsToEvict);
           const numNewTxsEvicted = context.newTxHashes.filter(newTxHash => toEvictSet.has(newTxHash)).length;
-          this.log.info(`Evicted ${txsToEvict.length} low priority txs, including ${numNewTxsEvicted} newly added txs`);
+          this.log.info(
+            `Evicted ${txsToEvict.length} low priority txs, including ${numNewTxsEvicted} newly added txs`,
+            { txsToEvict },
+          );
         } else {
-          this.log.info(`Evicted ${txsToEvict.length} low priority txs after chain prune`);
+          this.log.info(`Evicted ${txsToEvict.length} low priority txs after chain prune`, { txsToEvict });
         }
         await pool.deleteTxs(txsToEvict, this.name);
       }
-
-      this.log.debug(`Evicted ${txsToEvict.length} low priority txs`, {
-        txHashes: txsToEvict,
-      });
 
       return {
         reason: 'low_priority',
