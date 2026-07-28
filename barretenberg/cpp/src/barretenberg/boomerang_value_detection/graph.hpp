@@ -102,6 +102,10 @@ template <typename FF, typename CircuitBuilder> class StaticAnalyzer_ {
     };
     uint32_t to_real(const uint32_t& variable_index) const
     {
+        // Diagnostic callers can analyze deliberately corrupted builders; missing wires should be ignored.
+        if (variable_index >= circuit_builder.real_variable_index.size()) {
+            return circuit_builder.zero_idx();
+        }
         return circuit_builder.real_variable_index[variable_index];
     }
     void process_gate_variables(std::vector<uint32_t>& gate_variables, size_t gate_index, auto& blk);
