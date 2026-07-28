@@ -56,12 +56,28 @@ pub fn execute(inputs: ParityRootPrivateInputs) -> ParityPublicInputs {
         converted_roots[i] = inputs.children[i].public_inputs.converted_root;
     }
 
+    // Thread the rolling hash sequentially across the four base segments: each child must start from where the previous
+    // one ended. This keeps the sha256 chain chunked across the parallel base proofs while enforcing continuity.
+    let mut num_msgs = inputs.children[0].public_inputs.num_msgs;
+    for i in 1..NUM_BASE_PARITY_PER_ROOT_PARITY {
+        assert_eq(
+            inputs.children[i].public_inputs.start_rolling_hash,
+            inputs.children[i - 1].public_inputs.end_rolling_hash,
+            "Inconsistent rolling hash across parity base circuits",
+        );
+        num_msgs += inputs.children[i].public_inputs.num_msgs;
+    }
+
     let sha_tree = MerkleTree::new_sha(sha_roots);
     let poseidon_tree = MerkleTree::new(converted_roots);
 
     ParityPublicInputs {
         sha_root: sha_tree.get_root(),
         converted_root: poseidon_tree.get_root(),
+        start_rolling_hash: inputs.children[0].public_inputs.start_rolling_hash,
+        end_rolling_hash: inputs.children[NUM_BASE_PARITY_PER_ROOT_PARITY - 1].public_inputs
+            .end_rolling_hash,
+        num_msgs,
         vk_tree_root,
         prover_id,
     }

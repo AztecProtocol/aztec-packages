@@ -200,6 +200,7 @@ function makeRegisterData() {
     attestations: [],
     previousBlockHeader: {} as any,
     l1ToL2Messages: [],
+    previousInboxRollingHash: Fr.ZERO,
     previousArchiveSiblingPath: makeTuple(ARCHIVE_HEIGHT, () => Fr.ZERO),
   };
 }

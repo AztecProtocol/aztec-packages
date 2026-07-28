@@ -112,7 +112,12 @@ contract submitEpochRootProofTest is EscapeHatchIntegrationBase {
     bytes32 outHash = rollup.getCheckpoint(1).outHash;
 
     PublicInputArgs memory args = PublicInputArgs({
-      previousArchive: previousArchive, endArchive: endArchive, outHash: outHash, proverId: address(this)
+      previousArchive: previousArchive,
+      endArchive: endArchive,
+      outHash: outHash,
+      previousInboxRollingHash: 0,
+      endInboxRollingHash: 0,
+      proverId: address(this)
     });
 
     ProposedHeader[] memory headers = new ProposedHeader[](1);

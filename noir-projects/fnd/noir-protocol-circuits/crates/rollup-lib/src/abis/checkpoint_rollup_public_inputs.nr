@@ -29,6 +29,12 @@ pub struct CheckpointRollupPublicInputs {
     // final epoch out hash inserted into the Outbox on L1.
     pub new_out_hash: AppendOnlyTreeSnapshot,
 
+    // Inbox rolling-hash chain segment consumed by this checkpoint range. `start_inbox_rolling_hash` is the chain value
+    // before the first checkpoint's messages, `end_inbox_rolling_hash` is the value after the last checkpoint's. The end
+    // value is what lands in the checkpoint header. Checkpoint merges assert `right.start == left.end` for continuity.
+    pub start_inbox_rolling_hash: Field,
+    pub end_inbox_rolling_hash: Field,
+
     // Hashes of checkpoint headers for this checkpoint range.
     pub checkpoint_header_hashes: [Field; MAX_CHECKPOINTS_PER_EPOCH],
 
@@ -61,6 +67,8 @@ impl Empty for CheckpointRollupPublicInputs {
             new_archive: AppendOnlyTreeSnapshot::empty(),
             previous_out_hash: AppendOnlyTreeSnapshot::empty(),
             new_out_hash: AppendOnlyTreeSnapshot::empty(),
+            start_inbox_rolling_hash: 0,
+            end_inbox_rolling_hash: 0,
             checkpoint_header_hashes: [0; MAX_CHECKPOINTS_PER_EPOCH],
             fees: [FeeRecipient::empty(); MAX_CHECKPOINTS_PER_EPOCH],
             start_blob_accumulator: BlobAccumulator::empty(),

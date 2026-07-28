@@ -263,6 +263,7 @@ export class MockCheckpointsBuilder implements ICheckpointsBuilder {
     feeAssetPriceModifier: bigint,
     l1ToL2Messages: Fr[],
     previousCheckpointOutHashes: Fr[],
+    _previousInboxRollingHash: Fr,
     _fork: MerkleTreeWriteOperations,
   ): Promise<ICheckpointBlockBuilder> {
     this.startCheckpointCalls.push({
@@ -289,6 +290,7 @@ export class MockCheckpointsBuilder implements ICheckpointsBuilder {
     feeAssetPriceModifier: bigint,
     l1ToL2Messages: Fr[],
     previousCheckpointOutHashes: Fr[],
+    _previousInboxRollingHash: Fr,
     _fork: MerkleTreeWriteOperations,
     existingBlocks: L2Block[] = [],
   ): Promise<ICheckpointBlockBuilder> {

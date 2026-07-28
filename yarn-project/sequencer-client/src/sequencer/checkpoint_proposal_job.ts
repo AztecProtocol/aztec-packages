@@ -39,6 +39,7 @@ import {
   type Checkpoint,
   type ProposedCheckpointData,
   buildCheckpointSimulationOverridesPlan,
+  getPreviousCheckpointInboxRollingHash,
   getPreviousCheckpointOutHashes,
   validateCheckpoint,
 } from '@aztec/stdlib/checkpoint';
@@ -629,6 +630,16 @@ export class CheckpointProposalJob implements Traceable {
         log: this.log,
       });
 
+      // Chain start for this checkpoint's inbox rolling hash: the parent checkpoint's `inboxRollingHash`. Unlike the
+      // epoch out-hash tree, the chain is continuous across epochs, so this is always the immediately preceding
+      // checkpoint's value (or zero at genesis).
+      const previousInboxRollingHash = await getPreviousCheckpointInboxRollingHash({
+        blockSource: this.l2BlockSource,
+        checkpointNumber: this.checkpointNumber,
+        proposedCheckpointData: this.proposedCheckpointData,
+        log: this.log,
+      });
+
       // Anchor the modifier to the predicted parent fee header: L1 will apply it against
       // that, not against the latest published checkpoint (which lags by one under pipelining).
       const predictedParentEthPerFeeAssetE12 =
@@ -645,6 +656,7 @@ export class CheckpointProposalJob implements Traceable {
         feeAssetPriceModifier,
         l1ToL2Messages,
         previousCheckpointOutHashes,
+        previousInboxRollingHash,
         fork,
         this.log.getBindings(),
       );

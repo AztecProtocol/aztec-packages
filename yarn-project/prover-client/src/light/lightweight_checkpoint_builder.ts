@@ -8,6 +8,7 @@ import { Checkpoint } from '@aztec/stdlib/checkpoint';
 import type { MerkleTreeWriteOperations } from '@aztec/stdlib/interfaces/server';
 import {
   accumulateCheckpointOutHashes,
+  accumulateInboxRollingHash,
   appendL1ToL2MessagesToTree,
   computeCheckpointOutHash,
   computeInHashFromL1ToL2Messages,
@@ -47,6 +48,8 @@ export class LightweightCheckpointBuilder {
     public feeAssetPriceModifier: bigint,
     public readonly l1ToL2Messages: Fr[],
     private readonly previousCheckpointOutHashes: Fr[],
+    // Inbox rolling hash of the previous checkpoint (this checkpoint's chain start); genesis is zero.
+    private readonly previousInboxRollingHash: Fr,
     public readonly db: MerkleTreeWriteOperations,
     bindings?: LoggerBindings,
   ) {
@@ -63,6 +66,7 @@ export class LightweightCheckpointBuilder {
     constants: CheckpointGlobalVariables,
     l1ToL2Messages: Fr[],
     previousCheckpointOutHashes: Fr[],
+    previousInboxRollingHash: Fr,
     db: MerkleTreeWriteOperations,
     bindings?: LoggerBindings,
     feeAssetPriceModifier: bigint = 0n,
@@ -76,6 +80,7 @@ export class LightweightCheckpointBuilder {
       feeAssetPriceModifier,
       l1ToL2Messages,
       previousCheckpointOutHashes,
+      previousInboxRollingHash,
       db,
       bindings,
     );
@@ -93,6 +98,7 @@ export class LightweightCheckpointBuilder {
     feeAssetPriceModifier: bigint,
     l1ToL2Messages: Fr[],
     previousCheckpointOutHashes: Fr[],
+    previousInboxRollingHash: Fr,
     db: MerkleTreeWriteOperations,
     existingBlocks: L2Block[],
     bindings?: LoggerBindings,
@@ -103,6 +109,7 @@ export class LightweightCheckpointBuilder {
       feeAssetPriceModifier,
       l1ToL2Messages,
       previousCheckpointOutHashes,
+      previousInboxRollingHash,
       db,
       bindings,
     );
@@ -264,6 +271,7 @@ export class LightweightCheckpointBuilder {
     const blobsHash = computeBlobsHashFromBlobs(blobs);
 
     const inHash = computeInHashFromL1ToL2Messages(this.l1ToL2Messages);
+    const inboxRollingHash = accumulateInboxRollingHash(this.previousInboxRollingHash, this.l1ToL2Messages);
 
     const { slotNumber, coinbase, feeRecipient, gasFees } = this.constants;
     const checkpointOutHash = computeCheckpointOutHash(
@@ -281,6 +289,7 @@ export class LightweightCheckpointBuilder {
       lastArchiveRoot: this.lastArchives[0].root,
       blobsHash,
       inHash,
+      inboxRollingHash,
       epochOutHash,
       blockHeadersHash,
       slotNumber,
@@ -310,6 +319,7 @@ export class LightweightCheckpointBuilder {
       this.feeAssetPriceModifier,
       [...this.l1ToL2Messages],
       [...this.previousCheckpointOutHashes],
+      this.previousInboxRollingHash,
       this.db,
       this.logger.getBindings(),
     );

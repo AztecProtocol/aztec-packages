@@ -57,6 +57,15 @@ export class BlockRollupPublicInputs {
      */
     public inHash: Fr,
     /**
+     * Inbox rolling hash before consuming this block range's messages. Set (with `endInboxRollingHash`) only by the
+     * first block root of a checkpoint; zero on non-first block roots. The dual of `inHash` (AZIP-22 Fast Inbox).
+     */
+    public startInboxRollingHash: Fr,
+    /**
+     * Inbox rolling hash after consuming this block range's messages.
+     */
+    public endInboxRollingHash: Fr,
+    /**
      * SHA256 hash of L2 to L1 messages created in this block range.
      */
     public outHash: Fr,
@@ -86,6 +95,8 @@ export class BlockRollupPublicInputs {
       Fr.fromBuffer(reader),
       Fr.fromBuffer(reader),
       Fr.fromBuffer(reader),
+      Fr.fromBuffer(reader),
+      Fr.fromBuffer(reader),
     );
   }
 
@@ -101,6 +112,8 @@ export class BlockRollupPublicInputs {
       bigintToUInt64BE(this.timestamp),
       this.blockHeadersHash,
       this.inHash,
+      this.startInboxRollingHash,
+      this.endInboxRollingHash,
       this.outHash,
       this.accumulatedFees,
       this.accumulatedManaUsed,
@@ -125,6 +138,8 @@ export class BlockRollupPublicInputs {
       newArchiveRoot: this.newArchive.root.toString(),
       blockHeadersHash: this.blockHeadersHash.toString(),
       inHash: this.inHash.toString(),
+      startInboxRollingHash: this.startInboxRollingHash.toString(),
+      endInboxRollingHash: this.endInboxRollingHash.toString(),
       outHash: this.outHash.toString(),
       timestamp: this.timestamp.toString(),
       accumulatedFees: this.accumulatedFees.toString(),

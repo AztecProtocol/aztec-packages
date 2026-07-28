@@ -725,7 +725,7 @@ describe('ProverNode', () => {
   ): Checkpoint {
     return {
       number: CheckpointNumber(checkpointNumber),
-      header: { slotNumber: SlotNumber(slot) },
+      header: { slotNumber: SlotNumber(slot), inboxRollingHash: Fr.ZERO },
       archive: { root: archiveRoot },
       blocks: [{ number: blockNumber, header: { hash: () => Promise.resolve('0x01') } }],
       hash: () => new Fr(checkpointNumber),
@@ -747,9 +747,19 @@ describe('ProverNode', () => {
    */
   function mineCheckpoint(checkpoint: Checkpoint): L2BlockStreamEvent {
     mined.set(Number(checkpoint.number), checkpoint);
-    l2BlockSource.getCheckpoint.mockImplementation((query: any) =>
-      Promise.resolve('number' in query ? makeMaybePublished(mined.get(Number(query.number))) : undefined),
-    );
+    l2BlockSource.getCheckpoint.mockImplementation((query: any) => {
+      if (!('number' in query)) {
+        return Promise.resolve(undefined);
+      }
+      const number = Number(query.number);
+      const found = mined.get(number);
+      // Ancestors below the mined window exist on chain but are irrelevant to the scenario; serve a synthetic
+      // parent so inbox rolling-hash sourcing for the earliest mined checkpoint resolves.
+      const belowWindow = number > 0 && number < Math.min(...mined.keys());
+      return Promise.resolve(
+        makeMaybePublished(found ?? (belowWindow ? makeCheckpoint(number, number, number) : undefined)),
+      );
+    });
     l2BlockSource.getCheckpointsData.mockImplementation((query: any) => {
       if (!('from' in query)) {
         return Promise.resolve([]);

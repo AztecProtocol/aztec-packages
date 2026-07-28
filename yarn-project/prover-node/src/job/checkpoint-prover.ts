@@ -65,6 +65,8 @@ export type CheckpointProverArgs = {
   attestations: CommitteeAttestation[];
   previousBlockHeader: BlockHeader;
   l1ToL2Messages: Fr[];
+  /** Inbox rolling hash of the previous checkpoint (this checkpoint's chain start); genesis is zero. */
+  previousInboxRollingHash: Fr;
   previousArchiveSiblingPath: Tuple<Fr, typeof ARCHIVE_HEIGHT>;
 };
 
@@ -97,6 +99,7 @@ export class CheckpointProver {
   readonly attestations: CommitteeAttestation[];
   readonly previousBlockHeader: BlockHeader;
   readonly l1ToL2Messages: Fr[];
+  readonly previousInboxRollingHash: Fr;
   readonly previousArchiveSiblingPath: Tuple<Fr, typeof ARCHIVE_HEIGHT>;
 
   /** Resolved by the sub-tree on success, rejected on cancel/failure. */
@@ -133,6 +136,7 @@ export class CheckpointProver {
     this.attestations = args.attestations;
     this.previousBlockHeader = args.previousBlockHeader;
     this.l1ToL2Messages = args.l1ToL2Messages;
+    this.previousInboxRollingHash = args.previousInboxRollingHash;
     this.previousArchiveSiblingPath = args.previousArchiveSiblingPath;
     this.id = CheckpointProver.idFor(args.checkpoint);
     // Mark blockProofs as observed so a cancel that lands before any consumer awaits
@@ -321,6 +325,7 @@ export class CheckpointProver {
         this.epochNumber,
         checkpointConstants,
         this.l1ToL2Messages,
+        this.previousInboxRollingHash,
         this.checkpoint.blocks.length,
         this.previousBlockHeader,
       );

@@ -8,13 +8,24 @@ export class ParityBasePrivateInputs {
   constructor(
     /** Aggregated proof of all the parity circuit iterations. */
     public readonly msgs: Tuple<Fr, typeof NUM_MSGS_PER_BASE_PARITY>,
+    /** Inbox rolling hash before absorbing this base's real messages (threaded from the previous base's end). */
+    public readonly startRollingHash: Fr,
+    /** Number of real (non-padding) messages in `msgs`. */
+    public readonly numMsgs: number,
     /** Root of the VK tree */
     public readonly vkTreeRoot: Fr,
     /** Prover identity committed to by the circuit, for sybil protection. */
     public readonly proverId: Fr,
   ) {}
 
-  public static fromSlice(array: Fr[], index: number, vkTreeRoot: Fr, proverId: Fr): ParityBasePrivateInputs {
+  public static fromSlice(
+    array: Fr[],
+    index: number,
+    startRollingHash: Fr,
+    numMsgs: number,
+    vkTreeRoot: Fr,
+    proverId: Fr,
+  ): ParityBasePrivateInputs {
     // Can't use Tuple<Fr, typeof NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP> due to length
     if (array.length !== NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP) {
       throw new Error(
@@ -24,12 +35,18 @@ export class ParityBasePrivateInputs {
     const start = index * NUM_MSGS_PER_BASE_PARITY;
     const end = start + NUM_MSGS_PER_BASE_PARITY;
     const msgs = array.slice(start, end);
-    return new ParityBasePrivateInputs(msgs as Tuple<Fr, typeof NUM_MSGS_PER_BASE_PARITY>, vkTreeRoot, proverId);
+    return new ParityBasePrivateInputs(
+      msgs as Tuple<Fr, typeof NUM_MSGS_PER_BASE_PARITY>,
+      startRollingHash,
+      numMsgs,
+      vkTreeRoot,
+      proverId,
+    );
   }
 
   /** Serializes the inputs to a buffer. */
   toBuffer() {
-    return serializeToBuffer(this.msgs, this.vkTreeRoot, this.proverId);
+    return serializeToBuffer(this.msgs, this.startRollingHash, new Fr(this.numMsgs), this.vkTreeRoot, this.proverId);
   }
 
   /** Serializes the inputs to a hex string. */
@@ -45,6 +62,8 @@ export class ParityBasePrivateInputs {
     const reader = BufferReader.asReader(buffer);
     return new ParityBasePrivateInputs(
       reader.readArray(NUM_MSGS_PER_BASE_PARITY, Fr),
+      Fr.fromBuffer(reader),
+      Fr.fromBuffer(reader).toNumber(),
       Fr.fromBuffer(reader),
       Fr.fromBuffer(reader),
     );
