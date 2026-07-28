@@ -155,7 +155,7 @@ abstract contract EscapeHatchIntegrationBase is ValidatorSelectionTestBase {
       accumulatedFees: 0
     });
 
-    // Streaming Inbox (AZIP-22 Fast Inbox): reference the newest bucket (genesis here; nothing is seeded).
+    // Streaming Inbox: reference the newest bucket (genesis here; nothing is seeded).
     uint256 bucketHint = rollup.getInbox().getCurrentBucketSeq();
     header.inboxRollingHash = rollup.getInbox().getBucket(bucketHint).rollingHash;
 
@@ -211,7 +211,7 @@ abstract contract EscapeHatchIntegrationBase is ValidatorSelectionTestBase {
       header.gasFees.feePerL2Gas = manaMinFee;
     }
 
-    // Streaming Inbox (AZIP-22 Fast Inbox): reference the newest bucket (genesis here; nothing is seeded).
+    // Streaming Inbox: reference the newest bucket (genesis here; nothing is seeded).
     uint256 bucketHint = rollup.getInbox().getCurrentBucketSeq();
     header.inboxRollingHash = rollup.getInbox().getBucket(bucketHint).rollingHash;
 

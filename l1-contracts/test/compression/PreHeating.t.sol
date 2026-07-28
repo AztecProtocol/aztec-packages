@@ -327,7 +327,7 @@ contract PreHeatingTest is FeeModelTestPoints, DecoderBase {
     header.totalManaUsed = manaSpent;
     header.accumulatedFees = uint256(manaMinFee) * manaSpent;
 
-    // Streaming Inbox (AZIP-22 Fast Inbox): reference the newest bucket (nothing seeded here, so the genesis bucket).
+    // Streaming Inbox: reference the newest bucket (nothing seeded here, so the genesis bucket).
     uint256 bucketHint = rollup.getInbox().getCurrentBucketSeq();
     header.inboxRollingHash = rollup.getInbox().getBucket(bucketHint).rollingHash;
 

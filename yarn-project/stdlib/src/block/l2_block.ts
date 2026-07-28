@@ -133,7 +133,7 @@ export class L2Block {
       noteHashRoot: this.header.state.partial.noteHashTree.root,
       nullifierRoot: this.header.state.partial.nullifierTree.root,
       publicDataRoot: this.header.state.partial.publicDataTree.root,
-      // Every block carries its own post-bundle l1-to-l2 message tree root (AZIP-22 Fast Inbox).
+      // Every block carries its own post-bundle l1-to-l2 message tree root.
       l1ToL2MessageRoot: this.header.state.l1ToL2MessageTree.root,
       txs: this.body.toTxBlobData(),
     };

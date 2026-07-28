@@ -149,7 +149,7 @@ export function makeBlockEndBlobData({
     noteHashRoot: fr(seed + 0x300),
     nullifierRoot: fr(seed + 0x400),
     publicDataRoot: fr(seed + 0x500),
-    // Every block carries the l1-to-l2 message tree root post-flip (AZIP-22 Fast Inbox).
+    // Every block carries the l1-to-l2 message tree root.
     l1ToL2MessageRoot: fr(seed + 0x600),
     ...blockEndBlobDataOverrides,
   };

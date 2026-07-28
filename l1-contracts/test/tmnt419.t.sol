@@ -174,7 +174,7 @@ contract Tmnt419Test is RollupBase {
     header.gasFees.feePerL2Gas = SafeCast.toUint128(rollup.getManaMinFeeAt(Timestamp.wrap(block.timestamp), true));
     header.totalManaUsed = MANA_TARGET;
 
-    // Streaming Inbox (AZIP-22 Fast Inbox): reference the newest bucket so any seeded messages are consumed.
+    // Streaming Inbox: reference the newest bucket so any seeded messages are consumed.
     uint256 bucketHint = rollup.getInbox().getCurrentBucketSeq();
     header.inboxRollingHash = rollup.getInbox().getBucket(bucketHint).rollingHash;
 

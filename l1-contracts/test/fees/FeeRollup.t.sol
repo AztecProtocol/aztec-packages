@@ -269,7 +269,7 @@ contract FeeRollupTest is FeeModelTestPoints, DecoderBase {
       if (rollup.getCurrentSlot() == nextSlot) {
         TestPoint memory point = points[Slot.unwrap(nextSlot) - 1];
         Checkpoint memory b = getCheckpoint();
-        // Streaming Inbox (AZIP-22 Fast Inbox): reference the newest bucket (genesis here; nothing is seeded).
+        // Streaming Inbox: reference the newest bucket (genesis here; nothing is seeded).
         uint256 bucketHint = rollup.getInbox().getCurrentBucketSeq();
         b.header.inboxRollingHash = rollup.getInbox().getBucket(bucketHint).rollingHash;
         skipBlobCheck(address(rollup));
@@ -365,7 +365,7 @@ contract FeeRollupTest is FeeModelTestPoints, DecoderBase {
 
         Checkpoint memory b = getCheckpoint();
 
-        // Streaming Inbox (AZIP-22 Fast Inbox): reference the newest bucket (genesis here; nothing is seeded).
+        // Streaming Inbox: reference the newest bucket (genesis here; nothing is seeded).
         uint256 bucketHint = rollup.getInbox().getCurrentBucketSeq();
         b.header.inboxRollingHash = rollup.getInbox().getBucket(bucketHint).rollingHash;
         skipBlobCheck(address(rollup));

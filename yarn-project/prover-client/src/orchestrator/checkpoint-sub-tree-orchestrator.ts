@@ -292,7 +292,7 @@ export class CheckpointSubTreeOrchestrator extends ProvingScheduler {
     // msgs-only block root, whose zero-tx block carries no tx constants to pin the previous state.
     const previousState = await db.getStateReference();
 
-    // Streaming Inbox (AZIP-22 Fast Inbox): insert this block's own real message slice at compact indices, capturing
+    // Streaming Inbox: insert this block's own real message slice at compact indices, capturing
     // the start snapshot + full-height frontier before the append and the block's own post-bundle end snapshot after.
     const startL1ToL2Snapshot = await getTreeSnapshot(MerkleTreeId.L1_TO_L2_MESSAGE_TREE, db);
     const l1ToL2FrontierHint = assertLength(
@@ -537,7 +537,7 @@ export class CheckpointSubTreeOrchestrator extends ProvingScheduler {
     // Get archive sibling path before any block in this checkpoint lands.
     const lastArchiveSiblingPath = await getLastSiblingPath(MerkleTreeId.ARCHIVE, db);
 
-    // Streaming Inbox (AZIP-22 Fast Inbox): messages are inserted per block in `startNewBlock`, not the whole
+    // Streaming Inbox: messages are inserted per block in `startNewBlock`, not the whole
     // checkpoint up front. The message sponge is likewise threaded per block (each block's start sponge is the
     // previous block's end), so the last block's end sponge matches the checkpoint's single InboxParity proof.
     this.provingState = new CheckpointProvingState(

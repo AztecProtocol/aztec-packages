@@ -81,7 +81,7 @@ describe('data_retrieval', () => {
       );
 
       // Each block's L1-to-L2 message tree root must be reconstructed from its own blob data, not the
-      // checkpoint's first block. Post-flip (AZIP-22 streaming inbox) any block can insert messages, so
+      // checkpoint's first block. Any block can insert messages, so
       // intra-checkpoint blocks carry distinct roots; using the first block's root forks follower nodes.
       expect(reconstructedBlock1.header.state.l1ToL2MessageTree.root.toString()).toEqual(
         block1BlobData.l1ToL2MessageRoot.toString(),

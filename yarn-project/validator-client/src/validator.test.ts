@@ -458,7 +458,7 @@ describe('ValidatorClient', () => {
           Array.isArray(args) &&
           args[0]?.offenseType === OffenseType.ATTESTED_TO_INVALID_CHECKPOINT_PROPOSAL,
       );
-    // AZIP-22 Fast Inbox: an empty-consumption streaming setup. Proposals reference the genesis Inbox bucket, the
+    // Streaming Inbox: an empty-consumption streaming setup. Proposals reference the genesis Inbox bucket, the
     // parent block's L1-to-L2 leaf count equals its cumulative total (0), so the derived per-block bundle is empty.
     const genesisInboxBucket: InboxBucket = {
       seq: 0n,

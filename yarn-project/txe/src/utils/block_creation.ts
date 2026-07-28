@@ -31,7 +31,7 @@ export async function insertTxEffectIntoWorldTrees(
     NULLIFIER_SUBTREE_HEIGHT,
   );
 
-  // Append the block's real message leaves unpadded at compact indices (AZIP-22 Fast Inbox).
+  // Append the block's real message leaves unpadded at compact indices.
   await worldTrees.appendLeaves(MerkleTreeId.L1_TO_L2_MESSAGE_TREE, l1ToL2Messages);
 
   // We do not need to add public data writes because we apply them as we go.

@@ -71,7 +71,7 @@ export class BlockProvingState {
     // The full state reference of the previous block, before this block's bundle is appended. Feeds the msgs-only
     // block root, whose zero-tx block has no tx constants to pin the previous state.
     private readonly previousState: StateReference,
-    // This block's L1-to-L2 message tree snapshot before and after its own bundle (AZIP-22 Fast Inbox). The start is
+    // This block's L1-to-L2 message tree snapshot before and after its own bundle. The start is
     // the previous block's end (block-merge continuity); the end is this block's own post-bundle snapshot.
     private readonly startL1ToL2MessageTreeSnapshot: AppendOnlyTreeSnapshot,
     public readonly newL1ToL2MessageTreeSnapshot: AppendOnlyTreeSnapshot,
@@ -79,7 +79,7 @@ export class BlockProvingState {
     private readonly l1ToL2MessageFrontierHint: Tuple<Fr, typeof L1_TO_L2_MSG_TREE_HEIGHT>,
     // This block's own real L1-to-L2 message leaves (unpadded slice).
     private readonly l1ToL2Messages: Fr[],
-    // Message sponge threaded across the checkpoint's blocks (AZIP-22 Fast Inbox): the start is the previous block's
+    // Message sponge threaded across the checkpoint's blocks: the start is the previous block's
     // end sponge (empty for the first block), the end absorbs this block's own slice. Block merges assert the
     // continuity, so the end is exposed for the next block to inherit.
     private readonly startMsgSponge: L1ToL2MessageSponge,
@@ -263,7 +263,7 @@ export class BlockProvingState {
       noteHashRoot: partial.noteHashTree.root,
       nullifierRoot: partial.nullifierTree.root,
       publicDataRoot: partial.publicDataTree.root,
-      // Every block carries its own post-bundle l1-to-l2 message tree root (AZIP-22 Fast Inbox).
+      // Every block carries its own post-bundle l1-to-l2 message tree root.
       l1ToL2MessageRoot: this.newL1ToL2MessageTreeSnapshot.root,
     };
   }
@@ -353,7 +353,7 @@ export class BlockProvingState {
   }
 
   /**
-   * The real-count message bundle this block appends (AZIP-22 Fast Inbox): the block's own message slice, inserted at
+   * The real-count message bundle this block appends: the block's own message slice, inserted at
    * compact indices and absorbed into its block-root message sponge.
    */
   #getMessageBundle(): L1ToL2MessageBundle {
@@ -364,7 +364,7 @@ export class BlockProvingState {
 
   /**
    * Full-height frontier hint for the bundle append: the left-sibling path at the block's compact start index, which
-   * the block-root circuit re-hashes against its start snapshot root (AZIP-22 Fast Inbox).
+   * the block-root circuit re-hashes against its start snapshot root.
    */
   #getFrontierHint(): Tuple<Fr, typeof L1_TO_L2_MSG_TREE_HEIGHT> {
     return this.l1ToL2MessageFrontierHint;
