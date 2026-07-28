@@ -122,6 +122,10 @@ impl TestBuilder {
 
         assert_eq(pi.out_hash, right.new_out_hash.root);
 
+        // The epoch exposes the first checkpoint's chain start and the last checkpoint's chain end as a pass-through.
+        assert_eq(pi.previous_inbox_rolling_hash, left.start_inbox_rolling_hash);
+        assert_eq(pi.end_inbox_rolling_hash, right.end_inbox_rolling_hash);
+
         let mut expected_header_hashes = [0; MAX_CHECKPOINTS_PER_EPOCH];
         let mut expected_fees = [FeeRecipient::empty(); MAX_CHECKPOINTS_PER_EPOCH];
         for i in 0..self.num_left_checkpoints as u32 {
@@ -152,6 +156,9 @@ impl TestBuilder {
         assert(pi.previous_archive_root != pi.new_archive_root);
 
         assert_eq(pi.out_hash, left.new_out_hash.root);
+
+        assert_eq(pi.previous_inbox_rolling_hash, left.start_inbox_rolling_hash);
+        assert_eq(pi.end_inbox_rolling_hash, left.end_inbox_rolling_hash);
 
         assert_eq(pi.checkpoint_header_hashes, left.checkpoint_header_hashes);
 

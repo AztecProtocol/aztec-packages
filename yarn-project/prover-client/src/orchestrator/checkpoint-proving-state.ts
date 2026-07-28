@@ -11,6 +11,7 @@ import { Fr } from '@aztec/foundation/curves/bn254';
 import type { Tuple } from '@aztec/foundation/serialize';
 import { type TreeNodeLocation, UnbalancedTreeStore } from '@aztec/foundation/trees';
 import type { PublicInputsAndRecursiveProof } from '@aztec/stdlib/interfaces/server';
+import { accumulateInboxRollingHash } from '@aztec/stdlib/messaging';
 import { ParityBasePrivateInputs } from '@aztec/stdlib/parity';
 import { BlockMergeRollupPrivateInputs, BlockRollupPublicInputs, CheckpointConstantData } from '@aztec/stdlib/rollup';
 import type { AppendOnlyTreeSnapshot } from '@aztec/stdlib/trees';
@@ -35,6 +36,9 @@ export class CheckpointProvingState {
     private readonly headerOfLastBlockInPreviousCheckpoint: BlockHeader,
     private readonly lastArchiveSiblingPath: Tuple<Fr, typeof ARCHIVE_HEIGHT>,
     private readonly l1ToL2Messages: Fr[],
+    // Inbox rolling hash before this checkpoint's messages (the previous checkpoint's end value; genesis is zero).
+    // Threaded into the base parity circuits so the resulting checkpoint header rolling hash matches the proposer's.
+    private readonly startInboxRollingHash: Fr,
     // The snapshot and sibling path before the new l1 to l2 message subtree is inserted.
     private readonly lastL1ToL2MessageTreeSnapshot: AppendOnlyTreeSnapshot,
     private readonly lastL1ToL2MessageSubtreeRootSiblingPath: Tuple<
@@ -139,15 +143,23 @@ export class CheckpointProvingState {
   }
 
   public getBaseParityInputs(baseParityIndex: number) {
-    const messages = padArrayEnd(
-      this.l1ToL2Messages.slice(
-        baseParityIndex * NUM_MSGS_PER_BASE_PARITY,
-        (baseParityIndex + 1) * NUM_MSGS_PER_BASE_PARITY,
-      ),
-      Fr.ZERO,
-      NUM_MSGS_PER_BASE_PARITY,
+    const start = baseParityIndex * NUM_MSGS_PER_BASE_PARITY;
+    const realMessages = this.l1ToL2Messages.slice(start, start + NUM_MSGS_PER_BASE_PARITY);
+    const messages = padArrayEnd(realMessages, Fr.ZERO, NUM_MSGS_PER_BASE_PARITY);
+    // Thread the rolling hash: this base's start is the chain value after all real messages in earlier bases, so the
+    // four bases chain sequentially and the parity root ends at the checkpoint's rolling hash. Only real (non-padding)
+    // messages are absorbed, matching the proposer's `accumulateInboxRollingHash`.
+    const startRollingHash = accumulateInboxRollingHash(
+      this.startInboxRollingHash,
+      this.l1ToL2Messages.slice(0, start),
     );
-    return new ParityBasePrivateInputs(messages, this.constants.vkTreeRoot, this.constants.proverId);
+    return new ParityBasePrivateInputs(
+      messages,
+      startRollingHash,
+      realMessages.length,
+      this.constants.vkTreeRoot,
+      this.constants.proverId,
+    );
   }
 
   public getParentLocation(location: TreeNodeLocation) {

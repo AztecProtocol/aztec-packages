@@ -108,6 +108,7 @@ describe('LightweightCheckpointBuilder', () => {
         constants,
         l1ToL2Messages,
         previousCheckpointOutHashes,
+        Fr.ZERO,
         fork,
       );
 
@@ -148,6 +149,7 @@ describe('LightweightCheckpointBuilder', () => {
         constants,
         l1ToL2Messages,
         previousCheckpointOutHashes,
+        Fr.ZERO,
         fork,
       );
 
@@ -198,6 +200,7 @@ describe('LightweightCheckpointBuilder', () => {
         constants,
         l1ToL2Messages,
         previousCheckpointOutHashes,
+        Fr.ZERO,
         fork,
       );
 
@@ -237,6 +240,7 @@ describe('LightweightCheckpointBuilder', () => {
         constants,
         l1ToL2Messages,
         previousCheckpointOutHashes,
+        Fr.ZERO,
         fork,
       );
 
@@ -290,6 +294,7 @@ describe('LightweightCheckpointBuilder', () => {
         constants,
         l1ToL2Messages,
         previousCheckpointOutHashes,
+        Fr.ZERO,
         fork,
       );
 
@@ -314,6 +319,7 @@ describe('LightweightCheckpointBuilder', () => {
         constants,
         l1ToL2Messages,
         previousCheckpointOutHashes,
+        Fr.ZERO,
         fork,
       );
 
@@ -348,6 +354,7 @@ describe('LightweightCheckpointBuilder', () => {
         constants,
         l1ToL2Messages,
         previousCheckpointOutHashes,
+        Fr.ZERO,
         fork,
       );
 

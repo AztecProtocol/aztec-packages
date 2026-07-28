@@ -156,6 +156,7 @@ export interface ICheckpointsBuilder {
     feeAssetPriceModifier: bigint,
     l1ToL2Messages: Fr[],
     previousCheckpointOutHashes: Fr[],
+    previousInboxRollingHash: Fr,
     fork: MerkleTreeWriteOperations,
     bindings?: LoggerBindings,
   ): Promise<ICheckpointBlockBuilder>;

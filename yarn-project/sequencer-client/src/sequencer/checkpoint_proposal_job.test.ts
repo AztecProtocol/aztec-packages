@@ -249,6 +249,11 @@ describe('CheckpointProposalJob', () => {
 
     l2BlockSource = mock<L2BlockSource>();
     l2BlockSource.getCheckpointsData.mockResolvedValue([]);
+    // The job sources the parent checkpoint's inboxRollingHash; serve an empty parent header so jobs beyond
+    // the genesis checkpoint resolve their chain start.
+    l2BlockSource.getCheckpointData.mockImplementation(query =>
+      Promise.resolve('number' in query ? ({ header: CheckpointHeader.empty() } as CheckpointData) : undefined),
+    );
     // The (always-on) pipelined submission path waits for the archiver to confirm the parent
     // checkpoint on L1 before enqueuing the proposal. For the default job (checkpoint 1, no
     // proposed parent), the parent is genesis (cp 0), so a synced archiver reporting a
