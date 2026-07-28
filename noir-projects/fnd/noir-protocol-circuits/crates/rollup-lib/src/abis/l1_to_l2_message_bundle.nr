@@ -5,7 +5,7 @@ use types::{
 };
 
 /// A block's L1-to-L2 message bundle: the real message leaves it inserts into the L1-to-L2 message tree, and the
-/// count a block root needs to append them and absorb them into the message sponge (AZIP-22 Fast Inbox).
+/// count a block root needs to append them and absorb them into the message sponge.
 ///
 /// The `num_msgs` real messages occupy the leading lanes; the same count drives both the compact (unpadded) tree
 /// append and the message-sponge absorb, matching the checkpoint's variable-size `InboxParity` proof. Lanes past

@@ -132,7 +132,7 @@ contract InboxBucketsTest is Test {
       recipient: recipient,
       content: content,
       secretHash: secretHash,
-      // Compact cumulative index (AZIP-22 Fast Inbox): the first message against a fresh Inbox has index 0.
+      // Compact cumulative index: the first message against a fresh Inbox has index 0.
       index: inbox.getState().totalMessagesInserted
     });
     bytes32 leaf = Hash.sha256ToField(message);

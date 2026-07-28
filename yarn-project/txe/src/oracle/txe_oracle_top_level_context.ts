@@ -663,7 +663,7 @@ export class TXEOracleTopLevelContext implements IMiscOracle, ITxeExecutionOracl
 
     txEffect.txHash = new TxHash(new Fr(blockNumber));
 
-    // Post-flip TXE blocks carry no L1-to-L2 messages, so the message tree is left unadvanced (AZIP-22 Fast Inbox).
+    // TXE blocks carry no L1-to-L2 messages, so the message tree is left unadvanced.
 
     const l2Block = await makeTXEBlock(forkedWorldTrees, globals, [txEffect]);
 
@@ -827,7 +827,7 @@ export class TXEOracleTopLevelContext implements IMiscOracle, ITxeExecutionOracl
 
     txEffect.txHash = new TxHash(new Fr(blockNumber));
 
-    // Post-flip TXE blocks carry no L1-to-L2 messages, so the message tree is left unadvanced (AZIP-22 Fast Inbox).
+    // TXE blocks carry no L1-to-L2 messages, so the message tree is left unadvanced.
 
     const l2Block = await makeTXEBlock(forkedWorldTrees, globals, [txEffect]);
 

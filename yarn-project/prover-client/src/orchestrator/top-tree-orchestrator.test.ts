@@ -7,7 +7,7 @@ import { createLogger } from '@aztec/foundation/log';
 import { promiseWithResolvers } from '@aztec/foundation/promise';
 import { retryUntil } from '@aztec/foundation/retry';
 import { sleep } from '@aztec/foundation/sleep';
-import { ScopedL2ToL1Message, computeEpochOutHash } from '@aztec/stdlib/messaging';
+import { ScopedL2ToL1Message, accumulateInboxRollingHash, computeEpochOutHash } from '@aztec/stdlib/messaging';
 import { makeScopedL2ToL1Message } from '@aztec/stdlib/testing';
 
 import { TestContext, makeTestDeferredJobQueue } from '../mocks/test_context.js';
@@ -42,20 +42,14 @@ describe('prover/orchestrator/top-tree', () => {
     await context.cleanup();
   });
 
-  /**
-   * Drives a single checkpoint through `CheckpointSubTreeOrchestrator` and returns
-   * the assembled `CheckpointTopTreeData` plus the originating checkpoint metadata.
-   */
-  async function driveSubTree(numBlocks: number, numTxsPerBlock: number, numL1ToL2Messages = 0, numL2ToL1Messages = 0) {
-    const fixture = await context.makeCheckpoint(numBlocks, {
-      numTxsPerBlock,
-      numL1ToL2Messages,
-      makeProcessedTxOpts:
-        numL2ToL1Messages > 0
-          ? () => ({ privateOnly: false, avmAccumulatedData: { l2ToL1Msgs: makeL2ToL1Messages(numL2ToL1Messages) } })
-          : undefined,
-    });
+  /** The checkpoint fixture shape shared by `makeCheckpoint` and `makeCheckpointWithMessagesPerBlock`. */
+  type CheckpointFixture = Awaited<ReturnType<TestContext['makeCheckpoint']>>;
 
+  /**
+   * Drives a checkpoint fixture through `CheckpointSubTreeOrchestrator`, feeding block `i` the message slice
+   * `messagesPerBlock[i]`, and returns the assembled `CheckpointTopTreeData` plus the originating fixture.
+   */
+  async function driveFixture(fixture: CheckpointFixture, messagesPerBlock: Fr[][]) {
     const subTree = await CheckpointSubTreeOrchestrator.start(
       context.worldState,
       context.prover,
@@ -66,20 +60,15 @@ describe('prover/orchestrator/top-tree', () => {
       makeTestDeferredJobQueue(),
       fixture.constants,
       fixture.l1ToL2Messages,
-      Fr.ZERO,
-      numBlocks,
+      fixture.startInboxRollingHash,
+      fixture.blocks.length,
       fixture.previousBlockHeader,
     );
     const resultPromise = subTree.getSubTreeResult();
 
     for (const [blockIndex, block] of fixture.blocks.entries()) {
       const { blockNumber, timestamp } = block.header.globalVariables;
-      await subTree.startNewBlock(
-        blockNumber,
-        timestamp,
-        block.txs.length,
-        blockIndex === 0 ? fixture.l1ToL2Messages : [],
-      );
+      await subTree.startNewBlock(blockNumber, timestamp, block.txs.length, messagesPerBlock[blockIndex]);
       if (block.txs.length > 0) {
         await subTree.addTxs(block.txs);
       }
@@ -101,6 +90,33 @@ describe('prover/orchestrator/top-tree', () => {
     };
 
     return { fixture, topTreeData };
+  }
+
+  /**
+   * Builds a checkpoint via `makeCheckpoint` (every message in the first block) and drives it through
+   * `CheckpointSubTreeOrchestrator`, returning the assembled `CheckpointTopTreeData` plus the fixture.
+   */
+  async function driveSubTree(numBlocks: number, numTxsPerBlock: number, numL1ToL2Messages = 0, numL2ToL1Messages = 0) {
+    const fixture = await context.makeCheckpoint(numBlocks, {
+      numTxsPerBlock,
+      numL1ToL2Messages,
+      makeProcessedTxOpts:
+        numL2ToL1Messages > 0
+          ? () => ({ privateOnly: false, avmAccumulatedData: { l2ToL1Msgs: makeL2ToL1Messages(numL2ToL1Messages) } })
+          : undefined,
+    });
+    const messagesPerBlock = fixture.blocks.map((_, i) => (i === 0 ? fixture.l1ToL2Messages : []));
+    return await driveFixture(fixture, messagesPerBlock);
+  }
+
+  /**
+   * Like {@link driveSubTree} but distributes the checkpoint's messages across its blocks (streaming Inbox):
+   * block `i` carries `l1ToL2MessagesPerBlock[i]` as its own slice. A zero-tx entry in `numTxsPerBlock`
+   * whose slice is non-empty produces a message-only block, proven by the msgs-only block root.
+   */
+  async function driveSubTreeWithMessageSlices(l1ToL2MessagesPerBlock: Fr[][], numTxsPerBlock: number[]) {
+    const fixture = await context.makeCheckpointWithMessagesPerBlock(l1ToL2MessagesPerBlock, { numTxsPerBlock });
+    return await driveFixture(fixture, l1ToL2MessagesPerBlock);
   }
 
   it('produces an epoch proof for a single-checkpoint, single-block, single-tx epoch', async () => {
@@ -168,6 +184,39 @@ describe('prover/orchestrator/top-tree', () => {
       await topTree.stop();
     }
   });
+
+  it('produces an epoch proof when messages span blocks, including a message-only block', async () => {
+    // The streaming Inbox shapes, driven through the entire proving DAG at simulated-circuit
+    // fidelity: a checkpoint whose messages land in a non-first block, a zero-tx message-only block (proven by the
+    // msgs-only block root), a block merge above the three block roots, the two-input checkpoint root over per-block
+    // bundles, the single-block checkpoint root for the follow-on checkpoints, the checkpoint merge asserting inbox
+    // rolling-hash continuity across a message-carrying boundary, and the root rollup exposing the epoch's
+    // rolling-hash range.
+    const ckpt1Slices = [[new Fr(0x100), new Fr(0x101)], [], [new Fr(0x102), new Fr(0x103), new Fr(0x104)]];
+    const a = await driveSubTreeWithMessageSlices(ckpt1Slices, [1, 1, 0]);
+    // A single-block checkpoint with messages after a message-carrying checkpoint: its parity chain starts from
+    // checkpoint 0's (non-zero) end rolling hash.
+    const b = await driveSubTree(1, 1, 2);
+    // A message-less checkpoint after message-carrying ones: the rolling hash must pass through unchanged.
+    const c = await driveSubTree(1, 1);
+    const challenges = await context.getFinalBlobChallenges();
+
+    const topTree = new TopTreeOrchestrator(context.prover, EthAddress.ZERO, makeTestDeferredJobQueue());
+    try {
+      const result = await topTree.prove(EpochNumber(1), 3, challenges, [a.topTreeData, b.topTreeData, c.topTreeData]);
+      expect(result.proof).toBeDefined();
+      expect(result.publicInputs).toBeDefined();
+
+      // The epoch's rolling-hash range binds the exact message sequence consumed, in block order, across all three
+      // checkpoints; L1 validates this range against the Inbox when the proof lands.
+      const epochMessages = [...a.fixture.l1ToL2Messages, ...b.fixture.l1ToL2Messages];
+      expect(epochMessages.length).toBe(7); // sanity: the fixtures really did carry messages
+      expect(result.publicInputs.previousInboxRollingHash).toEqual(Fr.ZERO);
+      expect(result.publicInputs.endInboxRollingHash).toEqual(accumulateInboxRollingHash(Fr.ZERO, epochMessages));
+    } finally {
+      await topTree.stop();
+    }
+  }, 300_000);
 
   it('pipelines: starts ckpt0 root rollup before ckpt1 sub-tree resolves', async () => {
     // Drive both sub-trees synchronously (still no top tree running).

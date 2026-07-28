@@ -1107,8 +1107,8 @@ export class CheckpointProposalJob implements Traceable {
   }
 
   /**
-   * Resolves where a streaming-Inbox checkpoint's consumption starts: the parent checkpoint's last-consumed bucket
-   * (AZIP-22 Fast Inbox). The parent's cumulative consumed total is the L1-to-L2 message tree leaf count of the fork
+   * Resolves where a streaming-Inbox checkpoint's consumption starts: the parent checkpoint's last-consumed bucket.
+   * The parent's cumulative consumed total is the L1-to-L2 message tree leaf count of the fork
    * this checkpoint builds on (compact indexing makes leaf count equal cumulative message count), which resolves the
    * parent bucket by total. Genesis is the `total = 0` case, resolving the genesis bucket 0.
    */
@@ -1398,7 +1398,7 @@ export class CheckpointProposalJob implements Traceable {
     const { indexWithinCheckpoint, blockNumber, buildDeadline, forceCreate } = opts;
 
     // A non-empty streaming Inbox bundle is work on its own: the block must be produced even with zero txs,
-    // regardless of minTxsPerBlock, so the messages get inserted (message-only block, AZIP-22 Fast Inbox).
+    // regardless of minTxsPerBlock, so the messages get inserted (message-only block).
     // Without a bundle, a non-first block needs at least one tx to avoid empty filler blocks even when
     // minTxsPerBlock is zero.
     const hasStreamingBundle = (opts.l1ToL2Messages?.length ?? 0) > 0;

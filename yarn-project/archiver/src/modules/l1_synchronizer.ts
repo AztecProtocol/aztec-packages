@@ -1015,8 +1015,6 @@ export class ArchiverL1Synchronizer implements Traceable {
       for (const calldataCheckpoint of checkpointsToIngest) {
         const published = publishedByNumber.get(calldataCheckpoint.checkpointNumber)!;
 
-        // The legacy inHash cross-check is dead post-flip (the header carries zero): the consensus Inbox rolling hash
-        // is verified on L1 at propose, so no equivalent check is needed here (AZIP-22 Fast Inbox).
         validCheckpoints.push(published);
         this.log.debug(
           `Ingesting new checkpoint ${published.checkpoint.number} with ${published.checkpoint.blocks.length} blocks`,

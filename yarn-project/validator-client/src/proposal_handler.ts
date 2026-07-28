@@ -75,7 +75,7 @@ export type BlockProposalValidationFailureReason =
   | 'parent_block_not_found'
   | 'parent_block_wrong_slot'
   | 'in_hash_mismatch'
-  // Streaming Inbox (AZIP-22 Fast Inbox) per-block acceptance failures.
+  // Streaming Inbox per-block acceptance failures.
   | StreamingBlockCheckReason
   | 'global_variables_mismatch'
   | 'block_number_already_exists'
@@ -126,7 +126,7 @@ export type CheckpointProposalValidationFailureReason =
   | 'checkpoint_header_mismatch'
   | 'archive_mismatch'
   | 'out_hash_mismatch'
-  // Streaming Inbox (AZIP-22 Fast Inbox) last-block censorship failure.
+  // Streaming Inbox last-block censorship failure.
   | 'inbox_consumption_insufficient'
   | 'checkpoint_validation_failed';
 
@@ -597,7 +597,7 @@ export class ProposalHandler {
     proposalInfo.checkpointNumber = checkpointNumber;
 
     // Resolve this block's L1-to-L2 message bundle from its proposal bucket reference, gated by the four streaming
-    // acceptance checks (AZIP-22 Fast Inbox).
+    // acceptance checks.
     const streamingResult = await this.runStreamingBlockChecks(proposal, blockNumber, parentBlock);
     if (!streamingResult.accepted) {
       this.log.warn(`Streaming Inbox block acceptance check failed, skipping processing`, {
@@ -1054,7 +1054,7 @@ export class ProposalHandler {
 
   /**
    * Derives the ordered list of L1-to-L2 messages a checkpoint consumed across its blocks, from the Inbox buckets
-   * between the parent checkpoint's consumed position and the checkpoint's last block (AZIP-22 Fast Inbox). Empty when
+   * between the parent checkpoint's consumed position and the checkpoint's last block. Empty when
    * the checkpoint consumed nothing or its consumption cannot be resolved against the local Inbox view.
    */
   private async deriveCheckpointConsumedMessages(blocks: L2Block[]): Promise<Fr[]> {

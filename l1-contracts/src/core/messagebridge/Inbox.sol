@@ -130,7 +130,7 @@ contract Inbox is IInbox {
       currentTree = trees[inProgress];
     }
 
-    // Compact cumulative message index (AZIP-22 Fast Inbox): the zero-based position of this message in the Inbox's
+    // Compact cumulative message index: the zero-based position of this message in the Inbox's
     // insertion order, equal to the number of messages inserted before it. It is embedded in the leaf preimage and
     // matches the streaming L1-to-L2 tree's leaf count, so consumers do not need per-checkpoint tree geometry.
     uint256 index = totalMessagesInserted;

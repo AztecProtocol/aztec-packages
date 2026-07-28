@@ -373,7 +373,7 @@ export class CheckpointProver {
         }
       }
 
-      // Streaming Inbox (AZIP-22 Fast Inbox): the checkpoint's messages are consumed contiguously across its blocks;
+      // Streaming Inbox: the checkpoint's messages are consumed contiguously across its blocks;
       // each block's slice runs from its parent block's L1-to-L2 leaf count to its own (compact indices make leaf
       // count equal cumulative message count).
       const l1ToL2LeafCount = (block: L2Block) => Number(block.header.state.l1ToL2MessageTree.nextAvailableLeafIndex);
@@ -544,7 +544,7 @@ export class CheckpointProver {
 
   private async createFork(blockNumber: BlockNumber, l1ToL2Messages: Fr[]) {
     const db = await this.deps.dbProvider.fork(blockNumber);
-    // Append the block's real message leaves unpadded at compact indices (AZIP-22 Fast Inbox).
+    // Append the block's real message leaves unpadded at compact indices.
     await db.appendLeaves(MerkleTreeId.L1_TO_L2_MESSAGE_TREE, l1ToL2Messages);
     return db;
   }

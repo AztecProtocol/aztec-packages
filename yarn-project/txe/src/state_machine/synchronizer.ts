@@ -33,7 +33,7 @@ export class TXESynchronizer implements WorldStateSynchronizer {
   }
 
   public async handleL2Block(block: L2Block, l1ToL2Messages: Fr[] = []) {
-    // Append the block's real message leaves unpadded at compact indices (AZIP-22 Fast Inbox).
+    // Append the block's real message leaves unpadded at compact indices.
     await this.nativeWorldStateService.handleL2BlockAndMessages(block, l1ToL2Messages);
 
     this.blockNumber = block.header.globalVariables.blockNumber;

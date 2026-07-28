@@ -93,7 +93,7 @@ contract InboxTest is Test {
 
   function testFuzzInsert(DataStructures.L1ToL2Msg memory _message) public checkInvariant {
     Inbox.InboxState memory stateBefore = inbox.getState();
-    // Compact cumulative index (AZIP-22 Fast Inbox): the message's index is the count inserted before it.
+    // Compact cumulative index: the message's index is the count inserted before it.
     uint256 globalLeafIndex = stateBefore.totalMessagesInserted;
     DataStructures.L1ToL2Msg memory message = _boundMessage(_message, globalLeafIndex);
 
