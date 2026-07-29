@@ -548,7 +548,7 @@ export class ProposalHandler {
     // Collect txs from the proposal. We start doing this as early as possible,
     // and we do it even if we don't plan to re-execute the txs, so that we have them if another node needs them.
     const collected = await this.collectProposalTxs(proposal, blockNumber, proposalSender, proposalInfo);
-    if (typeof collected === 'string') {
+    if (collected === 'invalid_embedded_txs') {
       return { isValid: false, blockNumber, reason: collected };
     }
     const { txs, missingTxs } = collected;
