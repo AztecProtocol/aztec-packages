@@ -18,7 +18,7 @@ function format_check {
   # around. Cache layout is $HOME/nargo/<host>/<org>/<repo>/<ref>, and a clone
   # that did not complete has no resolvable HEAD.
   local nargo=$root/noir/noir-repo/target/release/nargo
-  local fmt_check="( set -e; for dir in noir-contracts aztec-nr protocol-fuzzer/contracts; do (cd \"\$dir\" && \"$nargo\" fmt --check); done )"
+  local fmt_check="( set -e; for dir in noir-contracts aztec-nr; do (cd \"\$dir\" && \"$nargo\" fmt --check); done )"
   local drop_partial_clones="for dep in \"\$HOME\"/nargo/*/*/*/*; do [ -d \"\$dep\" ] || continue; git -C \"\$dep\" rev-parse --verify --quiet HEAD >/dev/null 2>&1 || rm -rf \"\$dep\"; done"
   RETRY_SLEEP=10 retry "$fmt_check || { $drop_partial_clones; exit 1; }"
 }

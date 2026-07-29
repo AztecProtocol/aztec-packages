@@ -53,7 +53,7 @@ if [[ -n "$staged_nr_files" ]]; then
     exit 0
   fi
 
-  for dir in fnd/noir-contracts labs/noir-contracts fnd/noir-protocol-circuits fnd/mock-protocol-circuits labs/aztec-nr labs/protocol-fuzzer/contracts; do
+  for dir in fnd/noir-contracts labs/noir-contracts fnd/noir-protocol-circuits fnd/mock-protocol-circuits labs/aztec-nr; do
     if [[ -d "$dir" ]]; then
       echo "Formatting in $dir..."
       (cd "$dir" && "$NARGO_ABS" fmt) || echo "Warning: Formatting failed in $dir, but continuing..."
