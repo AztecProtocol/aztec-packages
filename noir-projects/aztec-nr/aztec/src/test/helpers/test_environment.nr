@@ -1062,7 +1062,8 @@ impl TestEnvironment {
     /// associated methods. For more information on how to specify the path and initialization, read the sections
     /// below.
     ///
-    /// ### Path Contracts can be deployed from either the same crate as the test, from a different crate in the same workspace, or from an altogether independent crate.
+    /// ### Path Contracts can be deployed from either the same crate as the test, from a different crate in the same
+    /// workspace, or from an altogether independent crate.
     ///
     /// If deploying contracts from the same crate as the test, just refer to it by its name:
     /// ```noir

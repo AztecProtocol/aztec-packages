@@ -2,7 +2,6 @@ use crate::{
     macros::utils::{compute_struct_selector, derive_serialize_if_not_implemented, get_trait_impl_method},
     utils::cmap::CHashMap,
 };
-use std::panic;
 
 /// A map from event selector to event name indicating whether the event selector has already been seen during the
 /// contract compilation - prevents event selector collisions.

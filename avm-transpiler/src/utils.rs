@@ -28,7 +28,7 @@ pub fn extract_brillig_from_acir_program(
     match opcodes[0] {
         Opcode::BrilligCall { id, .. } => assert_eq!(
             id,
-            BrilligFunctionId(0),
+            BrilligFunctionId::new(0),
             "The ID of the `BrilligCall` must be 0 as we have a single `Brillig` function"
         ),
         _ => panic!(
