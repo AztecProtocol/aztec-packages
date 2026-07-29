@@ -3,14 +3,17 @@ import { z } from 'zod';
 import { makeTuple } from '../array/array.js';
 import { Fr } from '../curves/bn254/index.js';
 import { schemas } from '../schemas/index.js';
-import {
-  type Tuple,
-  assertLength,
-  deserializeArrayFromVector,
-  serializeArrayOfBufferableToVector,
-} from '../serialize/index.js';
+import { BufferReader, type Tuple, assertLength, serializeArrayOfBufferableToVector } from '../serialize/index.js';
 import { bufferToHex, hexToBuffer } from '../string/index.js';
 import type { Hasher } from './hasher.js';
+
+/**
+ * Upper bound on the elements a serialized sibling path may declare. The deepest protocol tree is 42 levels,
+ * and the stacked path proving L2-to-L1 message inclusion spans four unbalanced trees, so this leaves room to
+ * spare while keeping a malformed length prefix from driving a large allocation. `stdlib` asserts that it stays
+ * above every protocol tree height, which this package cannot check itself without depending on `@aztec/constants`.
+ */
+export const MAX_SIBLING_PATH_LENGTH = 128;
 
 /**
  * Contains functionality to compute and serialize/deserialize a sibling path.
@@ -118,26 +121,12 @@ export class SiblingPath<N extends number> {
    * @param buf - A buffer containing the buffer representation of SiblingPath.
    * @param offset - An offset to start deserializing from.
    * @returns A SiblingPath object.
+   * @throws If the length prefix exceeds MAX_SIBLING_PATH_LENGTH or the buffer holds fewer elements than it declares.
    */
   static fromBuffer<N extends number>(buf: Buffer, offset = 0): SiblingPath<N> {
-    const { elem } = SiblingPath.deserialize<N>(buf, offset);
-    return elem;
-  }
-
-  /**
-   * Deserializes a SiblingPath object from a slice of a part of a buffer and returns the amount of bytes advanced.
-   * @param buf - A buffer representation of the sibling path.
-   * @param offset - An offset to start deserializing from.
-   * @returns The deserialized sibling path and the number of bytes advanced.
-   */
-  static deserialize<N extends number>(buf: Buffer, offset = 0) {
-    const deserializePath = (buf: Buffer, offset: number) => ({
-      elem: buf.slice(offset, offset + 32),
-      adv: 32,
-    });
-    const { elem, adv } = deserializeArrayFromVector(deserializePath, buf, offset);
-    const size = elem.length;
-    return { elem: new SiblingPath<N>(size as N, elem), adv };
+    const reader = new BufferReader(buf, offset);
+    const path = reader.readVector({ fromBuffer: r => r.readBytes(Fr.SIZE_IN_BYTES) }, MAX_SIBLING_PATH_LENGTH);
+    return new SiblingPath<N>(path.length as N, path);
   }
 
   /**
