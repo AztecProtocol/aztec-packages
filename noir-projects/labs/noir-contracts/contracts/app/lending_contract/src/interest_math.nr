@@ -26,7 +26,7 @@ pub fn compute_multiplier(rate_per_second: u128, dt: u64) -> u128 {
         let second_term = temp.mul(base_power_two).div(2 as u128);
         let third_term = temp.mul(exp_minus_two).mul(base_power_three).div(6 as u128);
 
-        // throwing away precision to keep us under u128 :sob:
+        // throwing away precision to keep us under u128
         let offset = dt.mul(rate).add(second_term).add(third_term).div(diff);
 
         res = base.add(offset);

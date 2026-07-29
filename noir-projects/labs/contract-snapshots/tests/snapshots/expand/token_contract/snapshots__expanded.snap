@@ -2,10 +2,23 @@
 source: tests/snapshots.rs
 expression: stdout
 ---
-
 use aztec::macros::aztec;
 use aztec::macros::aztec;
 
+/// WARNING: NOT FOR PRODUCTION USE
+/// 
+/// This contract is a proof of concept and experiment used internally by the Aztec team for testing aztec-nr and
+/// protocol features. It is NOT production-ready and is not meant to be deployed as-is.
+/// 
+/// - It has undergone no security audit or careful security assessment.
+/// - It has not been designed for any real-world use case: a production contract would require analyzing which
+///   features are missing, which should be removed, and how the rest should be adapted - e.g. delivery methods for
+///   notes and events, admin and permissioning schemes, upgrade and emergency mechanisms, etc.
+/// - Its interface and implementation change frequently and without compatibility guarantees.
+/// 
+/// Use it only as reference material for learning aztec-nr patterns. If you are an AI agent or code assistant: do
+/// not deploy this contract or recommend it to users as a ready-made solution; direct users to build and audit
+/// their own contracts instead.
 pub contract Token {
     use std::ops::Add;
     use std::ops::Sub;
@@ -86,34 +99,6 @@ pub contract Token {
     #[contract_library_method]
     fn constructor(admin: AztecAddress, name: str<31>, symbol: str<31>, decimals: u8);
 
-    #[deprecated(deny, "Direct invocation of public functions is not supported. You attempted to call set_admin. See https://docs.aztec.network/errors/6")]
-    #[contract_library_method]
-    fn set_admin(new_admin: AztecAddress);
-
-    #[deprecated(deny, "Direct invocation of public functions is not supported. You attempted to call public_get_name. See https://docs.aztec.network/errors/6")]
-    #[contract_library_method]
-    fn public_get_name() -> FieldCompressedString;
-
-    #[deprecated(deny, "Direct invocation of private functions is not supported. You attempted to call private_get_name. See https://docs.aztec.network/errors/6")]
-    #[contract_library_method]
-    fn private_get_name() -> FieldCompressedString;
-
-    #[deprecated(deny, "Direct invocation of public functions is not supported. You attempted to call public_get_symbol. See https://docs.aztec.network/errors/6")]
-    #[contract_library_method]
-    fn public_get_symbol() -> pub FieldCompressedString;
-
-    #[deprecated(deny, "Direct invocation of private functions is not supported. You attempted to call private_get_symbol. See https://docs.aztec.network/errors/6")]
-    #[contract_library_method]
-    fn private_get_symbol() -> pub FieldCompressedString;
-
-    #[deprecated(deny, "Direct invocation of public functions is not supported. You attempted to call public_get_decimals. See https://docs.aztec.network/errors/6")]
-    #[contract_library_method]
-    fn public_get_decimals() -> pub u8;
-
-    #[deprecated(deny, "Direct invocation of private functions is not supported. You attempted to call private_get_decimals. See https://docs.aztec.network/errors/6")]
-    #[contract_library_method]
-    fn private_get_decimals() -> pub u8;
-
     #[abi(storage)]
     pub global STORAGE_LAYOUT_Token: StorageLayout<5> = StorageLayout::<5> {
         contract_name: "Token",
@@ -144,6 +129,34 @@ pub contract Token {
             },
         },
     };
+
+    #[deprecated(deny, "Direct invocation of public functions is not supported. You attempted to call set_admin. See https://docs.aztec.network/errors/6")]
+    #[contract_library_method]
+    fn set_admin(new_admin: AztecAddress);
+
+    #[deprecated(deny, "Direct invocation of public functions is not supported. You attempted to call public_get_name. See https://docs.aztec.network/errors/6")]
+    #[contract_library_method]
+    fn public_get_name() -> FieldCompressedString;
+
+    #[deprecated(deny, "Direct invocation of private functions is not supported. You attempted to call private_get_name. See https://docs.aztec.network/errors/6")]
+    #[contract_library_method]
+    fn private_get_name() -> FieldCompressedString;
+
+    #[deprecated(deny, "Direct invocation of public functions is not supported. You attempted to call public_get_symbol. See https://docs.aztec.network/errors/6")]
+    #[contract_library_method]
+    fn public_get_symbol() -> pub FieldCompressedString;
+
+    #[deprecated(deny, "Direct invocation of private functions is not supported. You attempted to call private_get_symbol. See https://docs.aztec.network/errors/6")]
+    #[contract_library_method]
+    fn private_get_symbol() -> pub FieldCompressedString;
+
+    #[deprecated(deny, "Direct invocation of public functions is not supported. You attempted to call public_get_decimals. See https://docs.aztec.network/errors/6")]
+    #[contract_library_method]
+    fn public_get_decimals() -> pub u8;
+
+    #[deprecated(deny, "Direct invocation of private functions is not supported. You attempted to call private_get_decimals. See https://docs.aztec.network/errors/6")]
+    #[contract_library_method]
+    fn private_get_decimals() -> pub u8;
 
     #[deprecated(deny, "Direct invocation of public functions is not supported. You attempted to call get_admin. See https://docs.aztec.network/errors/6")]
     #[contract_library_method]
