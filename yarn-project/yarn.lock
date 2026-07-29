@@ -725,8 +725,8 @@ __metadata:
     "@aztec/foundation": "workspace:^"
     "@aztec/kv-store": "workspace:^"
     "@aztec/l1-artifacts": "npm:0.1.0-dummy"
-    "@aztec/noir-protocol-circuits-types": "workspace:^"
     "@aztec/protocol-contracts": "workspace:^"
+    "@aztec/standard-contracts": "workspace:^"
     "@aztec/stdlib": "workspace:^"
     "@aztec/telemetry-client": "workspace:^"
     "@jest/globals": "npm:^30.0.0"
@@ -1216,10 +1216,19 @@ __metadata:
   languageName: unknown
   linkType: soft
 
+"@aztec/constants-codegen@portal:../../protocol/constants-codegen::locator=%40aztec%2Fconstants%40workspace%3Aconstants":
+  version: 0.0.0-use.local
+  resolution: "@aztec/constants-codegen@portal:../../protocol/constants-codegen::locator=%40aztec%2Fconstants%40workspace%3Aconstants"
+  bin:
+    constants-codegen: ./dest/cli.js
+  languageName: node
+  linkType: soft
+
 "@aztec/constants@workspace:^, @aztec/constants@workspace:constants":
   version: 0.0.0-use.local
   resolution: "@aztec/constants@workspace:constants"
   dependencies:
+    "@aztec/constants-codegen": "portal:../../protocol/constants-codegen"
     "@aztec/foundation": "workspace:^"
     "@jest/globals": "npm:^30.0.0"
     "@types/jest": "npm:^30.0.0"
@@ -1785,7 +1794,6 @@ __metadata:
     "@aztec/ethereum": "workspace:^"
     "@aztec/foundation": "workspace:^"
     "@aztec/kv-store": "workspace:^"
-    "@aztec/noir-contracts.js": "workspace:^"
     "@aztec/noir-protocol-circuits-types": "workspace:^"
     "@aztec/protocol-contracts": "workspace:^"
     "@aztec/simulator": "workspace:^"
@@ -2015,7 +2023,6 @@ __metadata:
     "@aztec/l1-artifacts": "npm:0.1.0-dummy"
     "@aztec/node-keystore": "workspace:^"
     "@aztec/noir-acvm_js": "portal:../../noir/packages/acvm_js"
-    "@aztec/noir-contracts.js": "workspace:^"
     "@aztec/noir-protocol-circuits-types": "workspace:^"
     "@aztec/noir-types": "portal:../../noir/packages/types"
     "@aztec/p2p": "workspace:^"
@@ -2063,7 +2070,6 @@ __metadata:
     "@aztec/noir-acvm_js": "portal:../../noir/packages/acvm_js"
     "@aztec/noir-contracts.js": "workspace:^"
     "@aztec/noir-noirc_abi": "portal:../../noir/packages/noirc_abi"
-    "@aztec/noir-protocol-circuits-types": "workspace:^"
     "@aztec/noir-test-contracts.js": "workspace:^"
     "@aztec/noir-types": "portal:../../noir/packages/types"
     "@aztec/protocol-contracts": "workspace:^"

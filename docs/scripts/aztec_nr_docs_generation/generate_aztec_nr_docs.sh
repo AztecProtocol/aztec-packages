@@ -13,7 +13,7 @@ set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 DOCS_ROOT="$(cd "$SCRIPT_DIR/../.." && pwd)"
-AZTEC_NR_DIR="$(cd "$DOCS_ROOT/../noir-projects/aztec-nr" && pwd)"
+AZTEC_NR_DIR="$(cd "$DOCS_ROOT/../noir-projects/labs/aztec-nr" && pwd)"
 
 # Version defaults to "next" if not provided
 VERSION="${1:-next}"

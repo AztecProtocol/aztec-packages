@@ -16,6 +16,7 @@ release-out/
 .env
 
 /generated
+/src/core/libraries/ConstantsGen.sol
 lcov.info
 
 # Local foundry env

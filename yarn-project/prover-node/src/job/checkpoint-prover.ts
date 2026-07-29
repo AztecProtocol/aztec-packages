@@ -18,7 +18,7 @@ import type { Checkpoint } from '@aztec/stdlib/checkpoint';
 import type { ForkMerkleTreeOperations, ITxProvider } from '@aztec/stdlib/interfaces/server';
 import { CheckpointConstantData } from '@aztec/stdlib/rollup';
 import { MerkleTreeId } from '@aztec/stdlib/trees';
-import type { BlockHeader, ProcessedTx, Tx } from '@aztec/stdlib/tx';
+import type { BlockHeader, ProcessedTx, Tx, TxHash } from '@aztec/stdlib/tx';
 
 import type { ProverNodeJobMetrics } from '../metrics.js';
 
@@ -38,7 +38,23 @@ export type CheckpointProverDeps = {
   txGatheringTimeoutMs: number;
   /** Public processor deadline. */
   deadline: Date | undefined;
+  /**
+   * Fired once when the prover's block proofs reject for a genuine (non-cancel) reason — a sub-tree
+   * fault or a prune-induced fork fault. Useful for performing post mortem on failures.
+   */
+  onFailed?: (prover: CheckpointProver) => void;
+  /**
+   * Test-only hook: if set, invoked at the start of checkpoint execution instead of proving. Lets e2e
+   * tests force a sub-tree failure (it should throw) to exercise the checkpoint failure/upload path.
+   */
+  checkpointProveOverride?: () => Promise<never>;
   log: Logger;
+};
+
+/** Test-only hooks the store injects into every `CheckpointProver` it constructs. */
+export type CheckpointProverTestHooks = {
+  /** If set, invoked at the start of checkpoint execution instead of proving; should throw to fail. */
+  checkpointProveOverride?: () => Promise<never>;
 };
 
 /** Inputs that fully describe a checkpoint at register time. */
@@ -59,16 +75,16 @@ export type CheckpointProverArgs = {
  * The store creates a CheckpointProver once per content-key. Keying on the checkpoint's
  * own archive root (its post-state) means two checkpoints are "the same" iff they
  * produce the same archive — so a reorg branch, or a replacement built on the same
- * predecessor but with different content, keys to a distinct prover; an identical
- * re-add keys to the same one and reuses its in-flight sub-tree work.
+ * predecessor but with different content, keys to a distinct prover.
  *
  * The prover eagerly starts its own tx gather and sub-tree work in the constructor, so
  * callers only need to call `whenBlockProofsReady()` to obtain the resulting block-rollup
  * proofs.
  *
- * The prover survives prune/re-add cycles via `markPruned()` / `markCanonical()` —
- * sub-tree proving keeps running underneath, so a checkpoint that is re-added after
- * a brief reorg can be re-consumed with no re-proving.
+ * A CheckpointProver does not survive a prune: its sub-tree work forks world-state per
+ * block, and an L1 prune of a base block faults those reads. The store therefore cancels and
+ * discards a prover when its checkpoint is pruned, and a re-add (even of identical content)
+ * constructs a fresh prover.
  *
  * `cancel()` is idempotent. It aborts the gather + sub-tree, rejects the block-proof
  * promise, and exposes a `whenDone()` that resolves once teardown has unwound.
@@ -83,17 +99,21 @@ export class CheckpointProver {
   readonly l1ToL2Messages: Fr[];
   readonly previousArchiveSiblingPath: Tuple<Fr, typeof ARCHIVE_HEIGHT>;
 
-  /** Per-prover tx map — populated by the internal gather. Empty until then. */
-  readonly txs: Map<string, Tx> = new Map();
-
   /** Resolved by the sub-tree on success, rejected on cancel/failure. */
   private readonly blockProofs: PromiseWithResolvers<SubTreeResult['blockProofOutputs']> = promiseWithResolvers();
 
+  // Three independent lifecycle facts — deliberately not collapsed into one status enum, because several
+  // combinations are legal and relied on: a prover can be `completed` and then `cancelled` (routine
+  // teardown of an already-proven checkpoint), or `completed` and then `failed` (block proving was
+  // enqueued, but the sub-tree subsequently faulted). Only `failed` + `cancelled` is excluded — a cancel
+  // is not a failure (enforced in `failBlockProofs`).
+  /** Block-level proving was fully *enqueued* (a progress marker; the sub-tree may still be proving). */
+  private completed = false;
+  /** Block proofs rejected for a genuine (non-cancel) reason — a sub-tree or prune-induced fork fault. */
+  private failed = false;
+  /** The prover was torn down (prune / reap / shutdown). */
   private cancelled = false;
   private subTree?: CheckpointSubTreeOrchestrator;
-  private completed = false;
-  /** Pruned in the canonical chain but not yet reaped — sub-tree continues running. */
-  private pruned = false;
   private readonly abortController = new AbortController();
 
   /** Tracks the eager gather+execute task so `cancel()` and `whenDone()` can await its unwind. */
@@ -141,40 +161,14 @@ export class CheckpointProver {
     return this.cancelled;
   }
 
-  /** True once block-level proving has been fully *enqueued* (sub-tree completion may still be pending). */
-  public isCompleted(): boolean {
-    return this.completed;
-  }
-
-  public isPruned(): boolean {
-    return this.pruned;
-  }
-
   /**
-   * Mark this prover as no longer present in the canonical chain. Sub-tree proving keeps
-   * running so the work survives if the checkpoint is re-added. Idempotent.
+   * True once this prover's block proofs have rejected for a genuine (non-cancel) reason — a sub-tree
+   * proving fault or a prune-induced world-state fork fault. A failed prover cannot produce its block
+   * proofs, so the reconciler must not build (or rebuild) an EpochSession over it; it is cleared only by
+   * a prune/re-add replacing it with a fresh prover, or by expiry reaping it.
    */
-  public markPruned(): void {
-    if (this.pruned) {
-      return;
-    }
-    this.pruned = true;
-    this.deps.log.info(`Marking CheckpointProver ${this.id} as pruned`, {
-      checkpointNumber: this.checkpoint.number,
-      slotNumber: this.slotNumber,
-    });
-  }
-
-  /** Mark this prover as part of the canonical chain again after a re-add. Idempotent. */
-  public markCanonical(): void {
-    if (!this.pruned) {
-      return;
-    }
-    this.pruned = false;
-    this.deps.log.info(`Marking CheckpointProver ${this.id} as canonical`, {
-      checkpointNumber: this.checkpoint.number,
-      slotNumber: this.slotNumber,
-    });
+  public isFailed(): boolean {
+    return this.failed;
   }
 
   /** AbortSignal that fires on cancel — for callers that want to wire their own tasks. */
@@ -212,24 +206,68 @@ export class CheckpointProver {
       this.deps.log.error(`Error in CheckpointProver ${this.id}`, err, {
         checkpointNumber: this.checkpoint.number,
       });
-      this.blockProofs.reject(err instanceof Error ? err : new Error(String(err)));
+      this.failBlockProofs(err instanceof Error ? err : new Error(String(err)));
     }
   }
 
-  private async gatherTxs(): Promise<Map<string, Tx>> {
+  /**
+   * Rejects the block-proof promise and, unless this is a cancellation, records the prover as failed so
+   * the reconciler won't build an EpochSession over it. First rejection wins, so a later duplicate reject
+   * (e.g. the executeCheckpoint `finally`) is a harmless no-op.
+   */
+  private failBlockProofs(err: Error): void {
+    if (!this.cancelled && !this.failed) {
+      this.failed = true;
+      // Notify the owner so it can upload a post-mortem for this checkpoint. Fire-and-forget: the
+      // callback must not block the prover's teardown, and a throw in it must not mask the rejection.
+      try {
+        this.deps.onFailed?.(this);
+      } catch (err) {
+        this.deps.log.error(`Error in CheckpointProver onFailed callback for ${this.id}`, err);
+      }
+    }
+    this.blockProofs.reject(err);
+  }
+
+  /** Fetches every tx in this checkpoint from the tx pool (by hash, via the block tx effects). */
+  private async fetchTxs(): Promise<{ txs: Map<string, Tx>; missingTxs: TxHash[] }> {
     const deadline = new Date(this.deps.dateProvider.now() + this.deps.txGatheringTimeoutMs);
     const txsByBlock = await Promise.all(
       this.checkpoint.blocks.map(block => this.deps.txProvider.getTxsForBlock(block, { deadline })),
     );
-    const txs = txsByBlock.map(({ txs }) => txs).flat();
-    const missingTxs = txsByBlock.map(({ missingTxs }) => missingTxs).flat();
+    const txs = txsByBlock.flatMap(({ txs }) => txs);
+    const missingTxs = txsByBlock.flatMap(({ missingTxs }) => missingTxs);
+    return { txs: new Map<string, Tx>(txs.map(tx => [tx.getTxHash().toString(), tx])), missingTxs };
+  }
 
+  private async gatherTxs(): Promise<Map<string, Tx>> {
+    const { txs, missingTxs } = await this.fetchTxs();
     if (missingTxs.length > 0) {
       throw new Error(
         `Txs not found for checkpoint ${this.checkpoint.number}: ${missingTxs.map(hash => hash.toString()).join(', ')}`,
       );
     }
-    return new Map<string, Tx>(txs.map(tx => [tx.getTxHash().toString(), tx]));
+    return txs;
+  }
+
+  /**
+   * Re-fetches this checkpoint's txs from the tx pool for a post-mortem failure upload.
+   *
+   * The prover does not cache txs on the heap — they are consumed during proving and dropped — so the
+   * durable pool (which keeps a mined tx until L1 finality, with A-1274's retention margin covering a
+   * lagging prover) is the source of truth, read back by hash here. Best-effort: any tx the pool can
+   * no longer supply is logged and omitted rather than failing the upload, since a partial post-mortem
+   * snapshot is still useful for diagnosis.
+   */
+  public async getTxsForUpload(): Promise<Map<string, Tx>> {
+    const { txs, missingTxs } = await this.fetchTxs();
+    if (missingTxs.length > 0) {
+      this.deps.log.warn(
+        `Missing ${missingTxs.length} tx(s) re-fetching checkpoint ${this.checkpoint.number} for failure upload`,
+        { checkpointNumber: this.checkpoint.number, missingTxCount: missingTxs.length },
+      );
+    }
+    return txs;
   }
 
   private async executeCheckpoint(txs: Map<string, Tx>): Promise<void> {
@@ -238,9 +276,14 @@ export class CheckpointProver {
     let subTreeStarted = false;
 
     try {
-      for (const [hash, tx] of txs) {
-        this.txs.set(hash, tx);
+      // Test hook: force a sub-tree failure to exercise the checkpoint failure/upload path.
+      if (this.deps.checkpointProveOverride) {
+        await this.deps.checkpointProveOverride();
       }
+
+      // The gathered txs are consumed locally below (public processing + sub-tree) and then dropped.
+      // They are deliberately not retained on the instance: the tx pool is the durable source and
+      // `getTxsForUpload` re-fetches them by hash if a post-mortem upload needs them.
 
       const { chainId, version } = this.checkpoint.blocks[0].header.globalVariables;
       const checkpointConstants = CheckpointConstantData.from({
@@ -281,7 +324,7 @@ export class CheckpointProver {
           this.deps.metrics.recordCheckpointProving(checkpointTimer.ms());
           this.blockProofs.resolve(result.blockProofOutputs);
         },
-        err => this.blockProofs.reject(err),
+        err => this.failBlockProofs(err instanceof Error ? err : new Error(String(err))),
       );
       if (signal.aborted) {
         return;
@@ -361,7 +404,7 @@ export class CheckpointProver {
         if (subTreeStarted) {
           await this.teardownSubTree();
         }
-        this.blockProofs.reject(new Error(`Checkpoint ${this.id} did not complete block processing`));
+        this.failBlockProofs(new Error(`Checkpoint ${this.id} did not complete block processing`));
       }
     }
   }
@@ -432,7 +475,14 @@ export class CheckpointProver {
   }
 
   private async processTxs(publicProcessor: PublicProcessor, txs: Tx[]): Promise<ProcessedTx[]> {
-    const [processedTxs, failedTxs] = await publicProcessor.process(txs, { deadline: this.deps.deadline });
+    // Pass the abort signal so a prune-driven cancel stops the current block's public execution
+    // immediately, rather than running it to completion before the next `signal.aborted` check.
+    // On abort `process` returns a partial result, the length check below throws, and
+    // `gatherAndExecute` swallows it via its `cancelled` guard.
+    const [processedTxs, failedTxs] = await publicProcessor.process(txs, {
+      deadline: this.deps.deadline,
+      signal: this.abortController.signal,
+    });
 
     if (failedTxs.length) {
       const failedTxHashes = await Promise.all(failedTxs.map(({ tx }) => tx.getTxHash()));

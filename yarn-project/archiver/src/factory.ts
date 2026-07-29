@@ -12,6 +12,7 @@ import { DateProvider } from '@aztec/foundation/timer';
 import { createStore } from '@aztec/kv-store/lmdb-v2';
 import { protocolContractNames } from '@aztec/protocol-contracts';
 import { BundledProtocolContractsProvider } from '@aztec/protocol-contracts/providers/bundle';
+import { getPublishableStandardContracts } from '@aztec/standard-contracts';
 import { FunctionType, decodeFunctionSignature } from '@aztec/stdlib/abi';
 import type { ArchiverEmitter, BlockHash } from '@aztec/stdlib/block';
 import { DEFAULT_BLOCK_DURATION_MS } from '@aztec/stdlib/config';
@@ -68,6 +69,9 @@ export async function createArchiver(
 ): Promise<Archiver> {
   const archiverStore = await createArchiverStore(config, initialBlockHash);
   await registerProtocolContracts(archiverStore);
+  if (config.testPreloadStandardContracts) {
+    await registerStandardContracts(archiverStore);
+  }
 
   // Create Ethereum clients
   const chain = createEthereumChain(config.l1RpcUrls, config.l1ChainId);
@@ -207,6 +211,36 @@ export async function registerProtocolContracts(stores: ArchiverDataStores) {
     const provider = new BundledProtocolContractsProvider();
     const contract = await provider.getProtocolContractArtifact(name);
 
+    // Skip if already registered (happens on node restart with a persisted store).
+    if (await stores.contractClasses.getContractClass(contract.contractClass.id)) {
+      continue;
+    }
+
+    const publicBytecodeCommitment = await computePublicBytecodeCommitment(contract.contractClass.packedBytecode);
+    const contractClassPublic: ContractClassPublicWithCommitment = {
+      ...contract.contractClass,
+      publicBytecodeCommitment,
+    };
+
+    const publicFunctionSignatures = contract.artifact.functions
+      .filter(fn => fn.functionType === FunctionType.PUBLIC)
+      .map(fn => decodeFunctionSignature(fn.name, fn.parameters));
+
+    await stores.functionNames.register(publicFunctionSignatures);
+    await stores.contractClasses.addContractClasses([contractClassPublic], BlockNumber(blockNumber));
+    await stores.contractInstances.addContractInstances([contract.instance], BlockNumber(blockNumber));
+  }
+}
+
+/**
+ * Preloads the standard contracts (AuthRegistry, PublicChecks, HandshakeRegistry) into the archiver store at block 0,
+ * mirroring {@link registerProtocolContracts}. Only invoked for test environments (via `testPreloadStandardContracts`),
+ * which also seed the matching registration/deployment nullifiers into the genesis nullifier tree so the store and tree
+ * stay consistent. Idempotent — skips contracts that already exist (e.g. on node restart).
+ */
+export async function registerStandardContracts(stores: ArchiverDataStores) {
+  const blockNumber = 0;
+  for (const contract of await getPublishableStandardContracts()) {
     // Skip if already registered (happens on node restart with a persisted store).
     if (await stores.contractClasses.getContractClass(contract.contractClass.id)) {
       continue;

@@ -497,7 +497,9 @@ export class BBNativeRollupProver implements ServerCircuitProver {
         getUltraHonkFlavorForCircuit(circuitType),
       );
     } catch (error) {
-      throw new ProvingError(`Failed to generate proof for ${circuitType}: ${error}`);
+      // Preserve retryability of the underlying failure (e.g. a transient bb startup error).
+      const retry = error instanceof ProvingError && error.retry;
+      throw new ProvingError(`Failed to generate proof for ${circuitType}: ${error}`, error, retry);
     }
 
     return {
@@ -635,7 +637,9 @@ export class BBNativeRollupProver implements ServerCircuitProver {
         flavor,
       ));
     } catch (error) {
-      throw new ProvingError(`Failed to verify proof for ${circuitType}: ${error}`);
+      // Preserve retryability of the underlying failure (e.g. a transient bb startup error).
+      const retry = error instanceof ProvingError && error.retry;
+      throw new ProvingError(`Failed to verify proof for ${circuitType}: ${error}`, error, retry);
     }
 
     if (!verified) {

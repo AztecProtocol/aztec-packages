@@ -1,0 +1,17 @@
+---
+source: tests/snapshots.rs
+expression: stderr
+---
+error: Function 'foo' is marked as #[internal("utility")], but 'utility' is not a valid internal function type. Internal functions must be one of 'private', 'public'
+  ┌─ std/panic.nr:8:12
+  │
+8 │     assert(false, message);
+  │            ----- Assertion failed
+  │
+  = Call stack:
+    1: ?
+            at src/main.nr:8:5
+    2: internal
+            at <repo>/noir-projects/labs/aztec-nr/aztec/src/macros/functions/mod.nr:<line>:<col>
+
+Aborting due to 1 previous error

@@ -28,9 +28,6 @@
       "path": "../node-keystore"
     },
     {
-      "path": "../noir-protocol-circuits-types"
-    },
-    {
       "path": "../p2p"
     },
     {
@@ -56,6 +53,9 @@
     },
     {
       "path": "../archiver"
+    },
+    {
+      "path": "../noir-protocol-circuits-types"
     },
     {
       "path": "../world-state"

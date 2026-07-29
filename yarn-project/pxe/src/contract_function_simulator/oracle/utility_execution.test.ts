@@ -120,7 +120,7 @@ describe('Utility Execution test suite', () => {
     anchorBlockHeader = BlockHeader.random();
     senderTaggingStore.getLastFinalizedIndex.mockResolvedValue(undefined);
     senderTaggingStore.getLastUsedIndex.mockResolvedValue(undefined);
-    senderTaggingStore.getTxHashesOfPendingIndexes.mockResolvedValue([]);
+    senderTaggingStore.getPendingTxs.mockResolvedValue([]);
     senderTaggingStore.storePendingIndexes.mockResolvedValue();
     taggingSecretSourcesStore.getSenders.mockResolvedValue([]);
     taggingSecretSourcesStore.getSharedSecretsForRecipient.mockResolvedValue([]);

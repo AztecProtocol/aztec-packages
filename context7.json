@@ -7,7 +7,7 @@
   "folders": [
     "docs/docs",
     "docs/docs-developers",
-    "noir-projects/aztec-nr",
+    "noir-projects/labs/aztec-nr",
     "yarn-project/aztec.js",
     "boxes"
   ],

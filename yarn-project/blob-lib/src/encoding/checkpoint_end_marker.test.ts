@@ -21,7 +21,7 @@ describe('checkpoint end marker', () => {
 
     // AZTEC_GENERATE_TEST_DATA=1 yarn test checkpoint_end_marker.test.ts
     updateInlineTestData(
-      'noir-projects/noir-protocol-circuits/crates/types/src/blob_data/checkpoint_blob_data.nr',
+      'noir-projects/fnd/noir-protocol-circuits/crates/types/src/blob_data/checkpoint_blob_data.nr',
       'checkpoint_end_marker_from_ts',
       encoded.toString(),
     );
@@ -40,7 +40,7 @@ describe('checkpoint end marker', () => {
 
     // AZTEC_GENERATE_TEST_DATA=1 yarn test checkpoint_end_marker.test.ts
     updateInlineTestData(
-      'noir-projects/noir-protocol-circuits/crates/types/src/blob_data/checkpoint_blob_data.nr',
+      'noir-projects/fnd/noir-protocol-circuits/crates/types/src/blob_data/checkpoint_blob_data.nr',
       'large_checkpoint_end_marker_from_ts',
       encoded.toString(),
     );

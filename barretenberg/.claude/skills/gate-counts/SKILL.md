@@ -18,17 +18,17 @@ Use this skill when asked to:
 
 All paths relative to the git root.
 
-- Protocol circuits workspace: `noir-projects/noir-protocol-circuits/`
-- Circuit crates: `noir-projects/noir-protocol-circuits/crates/<crate-name>/`
-- Variant generator: `noir-projects/noir-protocol-circuits/scripts/generate_variants.js`
-- Workspace manifest (generated): `noir-projects/noir-protocol-circuits/Nargo.toml`
-- Workspace template (source of truth): `noir-projects/noir-protocol-circuits/Nargo.template.toml`
+- Protocol circuits workspace: `noir-projects/fnd/noir-protocol-circuits/`
+- Circuit crates: `noir-projects/fnd/noir-protocol-circuits/crates/<crate-name>/`
+- Variant generator: `noir-projects/fnd/noir-protocol-circuits/scripts/generate_variants.js`
+- Workspace manifest (generated): `noir-projects/fnd/noir-protocol-circuits/Nargo.toml`
+- Workspace template (source of truth): `noir-projects/fnd/noir-protocol-circuits/Nargo.template.toml`
 - `nargo` binary: `noir/noir-repo/target/release/nargo` — do NOT use a globally
   installed nargo; version mismatches produce opaque bytecode failures.
 - `bb` binary: `barretenberg/cpp/build/bin/bb`
 - `bb-avm` binary: `barretenberg/cpp/build/bin/bb-avm` — required for circuits that
   recurse the AVM (see Gotchas).
-- Compiled artifacts: `noir-projects/noir-protocol-circuits/target/<package_name>.json`
+- Compiled artifacts: `noir-projects/fnd/noir-protocol-circuits/target/<package_name>.json`
 
 ## Step 1 — Regenerate Variants (only when crates were added/removed)
 
@@ -38,7 +38,7 @@ All paths relative to the git root.
 are actually included in the workspace — otherwise `nargo` won't see them.
 
 ```bash
-cd noir-projects/noir-protocol-circuits
+cd noir-projects/fnd/noir-protocol-circuits
 node scripts/generate_variants.js
 ```
 
@@ -62,7 +62,7 @@ from the template. If no crates changed, you can skip this step.
 `--package` fails with "invalid character '-' in package name".
 
 ```bash
-cd noir-projects/noir-protocol-circuits
+cd noir-projects/fnd/noir-protocol-circuits
 NARGO=../../noir/noir-repo/target/release/nargo
 $NARGO compile --package <package_name> --silence-warnings
 ```
@@ -117,7 +117,7 @@ ChonkStats - circuit: ivc_circuit, acir_opcodes: 8653, circuit_size: 32209 (mem:
 ### Example A — chonk circuit: private kernel init
 
 ```bash
-cd noir-projects/noir-protocol-circuits
+cd noir-projects/fnd/noir-protocol-circuits
 NARGO=../../noir/noir-repo/target/release/nargo
 BB=../../barretenberg/cpp/build/bin/bb
 
@@ -133,7 +133,7 @@ for the inner proofs), so you must pass `--verifier_target noir-rollup`.
 Without it the construction aborts with `IPA proofs present when not expected`.
 
 ```bash
-cd noir-projects/noir-protocol-circuits
+cd noir-projects/fnd/noir-protocol-circuits
 NARGO=../../noir/noir-repo/target/release/nargo
 BB=../../barretenberg/cpp/build/bin/bb
 
@@ -258,7 +258,7 @@ git root, which does bb → noir → l1-contracts → yarn-project):
   back to WASM if absent, but you want a current native build.
 - **acvm** at `noir/noir-repo/target/release/acvm` (witness generation; WASM
   fallback if absent).
-- **Protocol circuits compiled** under `noir-projects/noir-protocol-circuits`
+- **Protocol circuits compiled** under `noir-projects/fnd/noir-protocol-circuits`
   (artifacts are bundled into `@aztec/noir-protocol-circuits-types`).
 - **TS build current**, especially `@aztec/constants` (regenerated from
   `noir-projects/.../constants.nr`), then `@aztec/noir-protocol-circuits-types`,

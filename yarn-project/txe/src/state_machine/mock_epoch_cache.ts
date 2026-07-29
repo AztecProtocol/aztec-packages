@@ -104,4 +104,8 @@ export class MockEpochCache implements EpochCacheInterface {
   getL1Constants(): L1RollupConstants {
     return EmptyL1RollupConstants;
   }
+
+  getLagInEpochsForValidatorSet(): number {
+    return 0;
+  }
 }

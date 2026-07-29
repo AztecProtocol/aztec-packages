@@ -53,4 +53,52 @@ describe('ProvingBroker RPC', () => {
       httpServer.close();
     }
   });
+
+  it('reports a proof result larger than the default 1 mb request body limit', async () => {
+    const broker = new ProvingBroker(new InMemoryBrokerDatabase(), {
+      proverBrokerJobTimeoutMs: 10000,
+      proverBrokerPollIntervalMs: 100,
+      proverBrokerJobMaxRetries: 3,
+      proverBrokerMaxEpochsToKeepResultsFor: 1,
+      proverBrokerDebugReplayEnabled: false,
+    });
+    await broker.start();
+
+    const rpcServer = createNamespacedSafeJsonRpcServer(
+      { proverBroker: [broker, ProvingJobBrokerSchema] },
+      { maxBodySizeBytes: '50mb' },
+    );
+
+    const httpServer = await startHttpRpcServer(rpcServer, { host: '127.0.0.1' });
+
+    try {
+      const client = createProvingJobBrokerClient(
+        `http://127.0.0.1:${httpServer.port}`,
+        {},
+        makeUndiciFetch(new Agent()),
+      );
+
+      const job: ProvingJob = {
+        id: makeRandomProvingJobId(EpochNumber(1)),
+        type: ProvingRequestType.PUBLIC_VM,
+        inputsUri: makeInputsUri(),
+        epochNumber: EpochNumber(1),
+      };
+
+      await client.enqueueProvingJob(job);
+      await client.getProvingJob({ allowList: [ProvingRequestType.PUBLIC_VM] });
+
+      // An AVM result is around 1.3 mb inlined as a data URI, so it exceeds the 1 mb default the generic JSON-RPC
+      // client applies. The client must not reject it before it reaches the broker.
+      const resultUri = `data:application/json;base64,${'A'.repeat(1_400_000)}` as ProofUri;
+      expect(resultUri.length).toBeGreaterThan(1024 * 1024);
+
+      await client.reportProvingJobSuccess(job.id, resultUri);
+
+      await expect(client.getProvingJobStatus(job.id)).resolves.toEqual({ status: 'fulfilled', value: resultUri });
+    } finally {
+      await broker.stop();
+      httpServer.close();
+    }
+  });
 });

@@ -166,3 +166,16 @@ grafana:
         - name: Tempo
           type: tempo
           url: http://metrics-tempo.metrics:3100
+        - name: propose-watcher
+          uid: propose-watcher-pg
+          type: postgres
+          access: proxy
+          url: $PROPOSE_WATCHER_PG_HOST
+          user: $PROPOSE_WATCHER_PG_USER
+          jsonData:
+            database: $PROPOSE_WATCHER_PG_DATABASE
+            sslmode: disable
+            postgresVersion: 1600
+            maxOpenConns: 4
+          secureJsonData:
+            password: $PROPOSE_WATCHER_PG_PASSWORD

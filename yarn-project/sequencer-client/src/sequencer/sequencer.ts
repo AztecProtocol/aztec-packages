@@ -55,6 +55,7 @@ import { CheckpointVoter } from './checkpoint_voter.js';
 import { SequencerInterruptedError } from './errors.js';
 import type { SequencerEvents } from './events.js';
 import { SequencerMetrics } from './metrics.js';
+import { logMissingCommittee } from './missing_committee.js';
 import { RequestsTracker } from './requests_tracker.js';
 import type { SequencerRollupConstants } from './types.js';
 import { SequencerState } from './utils.js';
@@ -96,8 +97,8 @@ export class Sequencer extends (EventEmitter as new () => TypedEventEmitter<Sequ
    * re-simulating and re-submitting the same invalidation across the many ticks within a single slot. */
   private lastInvalidationAttempt: { slot: SlotNumber; checkpointNumber: CheckpointNumber } | undefined;
 
-  /** The last slot for which we logged "no committee" warning, to avoid spam */
-  private lastSlotForNoCommitteeWarning: SlotNumber | undefined;
+  /** The last epoch for which we logged a "no committee" diagnostic, to avoid per-slot log spam. */
+  private lastEpochForNoCommitteeLog: EpochNumber | undefined;
 
   /** The last slot for which we triggered a checkpoint proposal job, to prevent duplicate attempts. */
   protected lastSlotForCheckpointProposalJob: SlotNumber | undefined;
@@ -970,9 +971,17 @@ export class Sequencer extends (EventEmitter as new () => TypedEventEmitter<Sequ
       proposer = await this.epochCache.getProposerAttesterAddressInSlot(targetSlot);
     } catch (e) {
       if (e instanceof NoCommitteeError) {
-        if (this.lastSlotForNoCommitteeWarning !== targetSlot) {
-          this.lastSlotForNoCommitteeWarning = targetSlot;
-          this.log.warn(`Cannot propose at target slot ${targetSlot} since the committee does not exist on L1`);
+        const targetEpoch = getEpochAtSlot(targetSlot, this.l1Constants);
+        if (this.lastEpochForNoCommitteeLog !== targetEpoch) {
+          this.lastEpochForNoCommitteeLog = targetEpoch;
+          await logMissingCommittee(targetSlot, targetEpoch, {
+            epochCache: this.epochCache,
+            rollupContract: this.rollupContract,
+            l2BlockSource: this.l2BlockSource,
+            l1Constants: this.l1Constants,
+            dateProvider: this.dateProvider,
+            logger: this.log,
+          });
         }
         return [false, undefined];
       }

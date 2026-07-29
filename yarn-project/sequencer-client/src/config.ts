@@ -64,6 +64,7 @@ export const DefaultSequencerConfig = {
   injectUnrecoverableSignatureAttestation: false,
   injectYParityAttestation: false,
   fishermanMode: false,
+  governanceProposerForcePayloadVote: false,
   shuffleAttestationOrdering: false,
   skipPushProposedBlocksToArchiver: false,
   skipPublishingCheckpointsPercent: 0,
@@ -160,6 +161,12 @@ export const sequencerConfigMappings: ConfigMappingsType<SequencerConfig> = {
     env: 'GOVERNANCE_PROPOSER_PAYLOAD_ADDRESS',
     description: 'The address of the payload for the governanceProposer',
     parseEnv: (val: string) => EthAddress.fromString(val),
+  },
+  governanceProposerForcePayloadVote: {
+    env: 'GOVERNANCE_PROPOSER_FORCE_PAYLOAD_VOTE',
+    description:
+      'Keep signalling the configured governance payload even if a proposal referencing it was already executed.',
+    ...booleanConfigHelper(DefaultSequencerConfig.governanceProposerForcePayloadVote),
   },
   l1PublishingTime: {
     env: 'SEQ_L1_PUBLISHING_TIME_ALLOWANCE_IN_SLOT',

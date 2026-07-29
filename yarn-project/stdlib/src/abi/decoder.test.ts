@@ -187,7 +187,7 @@ describe('decoder', () => {
   });
 
   it('decodes a tuple', () => {
-    // ABI copied from noir-projects/noir-contracts/target/returning_tuple_contract-ReturningTuple.json
+    // ABI copied from noir-projects/labs/noir-contracts/target/returning_tuple_contract-ReturningTuple.json
     const decoded = decodeFromAbi(
       [
         {

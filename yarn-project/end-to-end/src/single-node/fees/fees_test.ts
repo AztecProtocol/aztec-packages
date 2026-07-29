@@ -1,6 +1,9 @@
 import type { AztecAddress } from '@aztec/aztec.js/addresses';
+import { BatchCall } from '@aztec/aztec.js/contracts';
+import { Fr } from '@aztec/aztec.js/fields';
 import { createLogger } from '@aztec/aztec.js/log';
 import type { AztecNode } from '@aztec/aztec.js/node';
+import { FeeJuiceContract } from '@aztec/aztec.js/protocol';
 import { CheatCodes, getTokenAllowedSetupFunctions } from '@aztec/aztec/testing';
 import { createExtendedL1Client } from '@aztec/ethereum/client';
 import type { RollupContract } from '@aztec/ethereum/contracts';
@@ -11,12 +14,10 @@ import { sleep } from '@aztec/foundation/sleep';
 import { TestERC20Abi } from '@aztec/l1-artifacts';
 import { AppSubscriptionContract } from '@aztec/noir-contracts.js/AppSubscription';
 import { FPCContract } from '@aztec/noir-contracts.js/FPC';
-import { FeeJuiceContract } from '@aztec/noir-contracts.js/FeeJuice';
 import { SponsoredFPCContract } from '@aztec/noir-contracts.js/SponsoredFPC';
 import { TokenContract as BananaCoin } from '@aztec/noir-contracts.js/Token';
 import { CounterContract } from '@aztec/noir-test-contracts.js/Counter';
-import { ProtocolContractAddress } from '@aztec/protocol-contracts';
-import { getCanonicalFeeJuice } from '@aztec/protocol-contracts/fee-juice';
+import { getContractInstanceFromInstantiationParams } from '@aztec/stdlib/contract';
 import { Gas, GasSettings } from '@aztec/stdlib/gas';
 import type { AztecNodeAdmin } from '@aztec/stdlib/interfaces/client';
 
@@ -34,13 +35,41 @@ import {
 import { TestWallet } from '../../test-wallet/test_wallet.js';
 import { SingleNodeTestContext, type SingleNodeTestOpts } from '../single_node_test_context.js';
 
+// Fixed deploy salts so BananaCoin and its BananaFPC land at deterministic addresses given the FPC
+// admin. This lets the BananaFPC's fee-juice balance be seeded at genesis (see `FeesTest.setup`)
+// instead of bridged from L1 during setup — the address must be known before genesis is computed.
+const BANANA_COIN_SALT = new Fr(0xba4a4a);
+const BANANA_FPC_SALT = new Fr(0xfacade);
+
+const BANANA_COIN_CONSTRUCTOR_ARGS = ['BC', 'BC', 18n] as const;
+
+/**
+ * Computes the deterministic BananaCoin and BananaFPC instances for the given admin/deployer, matching
+ * what {@link FeesTest.applyDeployBananaToken} and {@link FeesTest.applyFPCSetup} deploy with the fixed
+ * salts above. Used both to seed the BananaFPC's fee juice at genesis and to assert the deployed
+ * addresses match the seeded one.
+ */
+async function computeBananaContractAddresses(admin: AztecAddress) {
+  const bananaCoin = await getContractInstanceFromInstantiationParams(BananaCoin.artifact, {
+    salt: BANANA_COIN_SALT,
+    constructorArgs: [admin, ...BANANA_COIN_CONSTRUCTOR_ARGS],
+    deployer: admin,
+  });
+  const bananaFPC = await getContractInstanceFromInstantiationParams(FPCContract.artifact, {
+    salt: BANANA_FPC_SALT,
+    constructorArgs: [bananaCoin.address, admin],
+    deployer: admin,
+  });
+  return { bananaCoinAddress: bananaCoin.address, bananaFPCAddress: bananaFPC.address };
+}
+
 /**
  * Test fixture for testing fees. Provides the following setup steps:
  * InitialAccounts: Initializes 3 Schnorr account contracts.
  * PublicDeployAccounts: Deploys the accounts publicly.
  * DeployFeeJuice: Deploys the Fee Juice contract.
- * FPCSetup: Deploys BananaCoin and FPC contracts, and bridges gas from L1.
- * SponsoredFPCSetup: Deploys Sponsored FPC contract, and bridges gas from L1.
+ * FPCSetup: Deploys BananaCoin and FPC contracts; the FPC's fee juice is seeded at genesis.
+ * SponsoredFPCSetup: Registers the Sponsored FPC contract, whose fee juice is seeded at genesis.
  * FundAlice: Mints private and public bananas to Alice.
  * SetupSubscription: Deploys a counter contract and a subscription contract, and mints Fee Juice to the subscription contract.
  *
@@ -116,6 +145,11 @@ export class FeesTest extends SingleNodeTestContext {
       ...this.setupOptions,
       ...opts,
       fundSponsoredFPC: true,
+      // Seed the BananaFPC's fee juice at genesis instead of bridging it from L1 in applyFPCSetup. The
+      // FPC admin is the first account, so its address is deterministic once the accounts are generated.
+      computeExtraGenesisFundedAddresses: async defaultAccounts => [
+        (await computeBananaContractAddresses(defaultAccounts[0].address)).bananaFPCAddress,
+      ],
       l1ContractsArgs: { ...this.setupOptions },
       txPublicSetupAllowListExtend: [...(this.setupOptions.txPublicSetupAllowListExtend ?? []), ...tokenAllowList],
     });
@@ -131,15 +165,22 @@ export class FeesTest extends SingleNodeTestContext {
   }
 
   async catchUpProvenChain() {
-    const bn = await this.aztecNode.getBlockNumber();
-    while ((await this.aztecNode.getBlockNumber('proven')) < bn) {
-      await sleep(1000);
-    }
+    await testSpan('wait:proven-checkpoint', async () => {
+      const bn = await this.aztecNode.getBlockNumber();
+      while ((await this.aztecNode.getBlockNumber('proven')) < bn) {
+        await sleep(1000);
+      }
+    });
+  }
+
+  /** Warps L1 to the next epoch boundary so the current epoch closes and can be proven. */
+  async advanceToNextEpoch() {
+    await testSpan('warp:proven-checkpoint-epoch', () => this.cheatCodes.rollup.advanceToNextEpoch());
   }
 
   /** Advances to the next epoch and waits for the proven chain to catch up, so all prior fees are paid out. */
   async waitForEpochProven() {
-    await this.cheatCodes.rollup.advanceToNextEpoch();
+    await this.advanceToNextEpoch();
     await this.catchUpProvenChain();
   }
 
@@ -208,14 +249,13 @@ export class FeesTest extends SingleNodeTestContext {
     // We set Alice as the FPC admin to avoid the need for deployment of another account.
     this.fpcAdmin = this.aliceAddress;
 
-    const canonicalFeeJuice = await getCanonicalFeeJuice();
-    this.feeJuiceContract = FeeJuiceContract.at(canonicalFeeJuice.address, this.wallet);
+    this.feeJuiceContract = FeeJuiceContract.withWallet(this.wallet);
   }
 
   async applySetupFeeJuice() {
     this.logger.info('Applying fee juice setup');
 
-    this.feeJuiceContract = FeeJuiceContract.at(ProtocolContractAddress.FeeJuice, this.wallet);
+    this.feeJuiceContract = FeeJuiceContract.withWallet(this.wallet);
 
     this.getGasBalanceFn = getBalancesFn('⛽', this.feeJuiceContract.methods.balance_of_public, this.logger);
 
@@ -240,7 +280,10 @@ export class FeesTest extends SingleNodeTestContext {
     this.logger.info('Applying deploy banana token setup');
 
     const { contract: bananaCoin } = await testSpan('deploy:token', () =>
-      BananaCoin.deploy(this.wallet, this.aliceAddress, 'BC', 'BC', 18n).send({
+      BananaCoin.deploy(this.wallet, this.aliceAddress, ...BANANA_COIN_CONSTRUCTOR_ARGS, {
+        salt: BANANA_COIN_SALT,
+        deployer: this.aliceAddress,
+      }).send({
         from: this.aliceAddress,
       }),
     );
@@ -263,15 +306,26 @@ export class FeesTest extends SingleNodeTestContext {
 
     const bananaCoin = this.bananaCoin;
     const { contract: bananaFPC } = await testSpan('deploy:fpc', () =>
-      FPCContract.deploy(this.wallet, bananaCoin.address, this.fpcAdmin).send({
+      FPCContract.deploy(this.wallet, bananaCoin.address, this.fpcAdmin, {
+        salt: BANANA_FPC_SALT,
+        deployer: this.aliceAddress,
+      }).send({
         from: this.aliceAddress,
       }),
     );
 
     this.logger.info(`BananaPay deployed at ${bananaFPC.address}`);
 
-    // bridgeFromL1ToL2 carries its own setup:bridge span.
-    await this.feeJuiceBridgeTestHarness.bridgeFromL1ToL2(bananaFPC.address, this.aliceAddress);
+    // The BananaFPC's fee juice is seeded at genesis (see FeesTest.setup) rather than bridged here.
+    // Assert the deploy landed at the seeded address so a params drift surfaces as a clear error rather
+    // than a downstream "insufficient fee payer balance".
+    const { bananaFPCAddress } = await computeBananaContractAddresses(this.aliceAddress);
+    if (!bananaFPC.address.equals(bananaFPCAddress)) {
+      throw new Error(
+        `Deployed BananaFPC address ${bananaFPC.address} does not match the genesis-funded address ` +
+          `${bananaFPCAddress}; the deterministic deploy params drifted from the genesis funding computation.`,
+      );
+    }
 
     this.bananaFPC = bananaFPC;
 
@@ -352,12 +406,24 @@ export class FeesTest extends SingleNodeTestContext {
   public async applyFundAliceWithBananas() {
     this.logger.info('Applying fund Alice with bananas setup');
 
-    await this.mintPrivateBananas(this.ALICE_INITIAL_BANANAS, this.aliceAddress);
+    // Both mints are alice sends on BananaCoin touching disjoint balances, so they ride a single
+    // BatchCall tx (one proof, one slot) rather than two concurrent txs. The PXE serializes proving,
+    // so two concurrent sends would still be proven back-to-back and land in consecutive slots.
+    const { result: privateBalanceBefore } = await this.bananaCoin.methods
+      .balance_of_private(this.aliceAddress)
+      .simulate({ from: this.aliceAddress });
+
     await testSpan('tx:mint', () =>
-      this.bananaCoin.methods.mint_to_public(this.aliceAddress, this.ALICE_INITIAL_BANANAS).send({
-        from: this.aliceAddress,
-      }),
+      new BatchCall(this.wallet, [
+        this.bananaCoin.methods.mint_to_private(this.aliceAddress, this.ALICE_INITIAL_BANANAS),
+        this.bananaCoin.methods.mint_to_public(this.aliceAddress, this.ALICE_INITIAL_BANANAS),
+      ]).send({ from: this.aliceAddress }),
     );
+
+    const { result: privateBalanceAfter } = await this.bananaCoin.methods
+      .balance_of_private(this.aliceAddress)
+      .simulate({ from: this.aliceAddress });
+    expect(privateBalanceAfter).toEqual(privateBalanceBefore + this.ALICE_INITIAL_BANANAS);
   }
 
   public async applyFundAliceWithPrivateBananas() {

@@ -57,12 +57,12 @@ describe('multi-node/recovery/equivocation_recovery', () => {
     // Build 4 validators (V1..V4) using the shared deterministic builder (keys from index 3).
     const validators = buildMockGossipValidators(NODE_COUNT);
 
-    // Timing calculation for 3 blocks per checkpoint with 8s sub-slots:
+    // Timing calculation for 3 blocks per checkpoint with 5s sub-slots:
     // - initializationOffset = 0.5s (test mode, ethereumSlotDuration < 8)
-    // - 3 blocks x 8s = 24s
+    // - 3 blocks x 5s = 15s
     // - checkpointFinalization = 0.5s (assemble) + 0 (p2p in test) + 2s (L1 publish) = 2.5s
-    // - finalBlockDuration = 8s (re-execution)
-    // - Total: 0.5 + 24 + 8 + 2.5 = 35s => use 36s
+    // - finalBlockDuration = 5s (re-execution)
+    // - Total: 0.5 + 15 + 5 + 2.5 = 23s => use 24s
     const slashingUnit = BigInt(1e14);
     test = await MultiNodeTestContext.setup({
       ...MOCK_GOSSIP_MULTI_VALIDATOR_OPTS,

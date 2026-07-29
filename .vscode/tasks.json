@@ -11,7 +11,7 @@
         "./target/bytecode.bin"
       ],
       "options": {
-        "cwd": "${workspaceFolder}/noir-projects/noir-contracts"
+        "cwd": "${workspaceFolder}/noir-projects/labs/noir-contracts"
       },
       "problemMatcher": []
     },
@@ -21,7 +21,7 @@
       "command": "rm",
       "args": ["-f", "./target/bytecode.bin"],
       "options": {
-        "cwd": "${workspaceFolder}/noir-projects/noir-contracts"
+        "cwd": "${workspaceFolder}/noir-projects/labs/noir-contracts"
       },
       "problemMatcher": []
     },
@@ -34,7 +34,7 @@
       "type": "shell",
       "command": "jq -r '.bytecode' ./target/private_kernel_init_3.json | base64 -d > ./target/bytecode.bin",
       "options": {
-        "cwd": "${workspaceFolder}/noir-projects/noir-protocol-circuits"
+        "cwd": "${workspaceFolder}/noir-projects/fnd/noir-protocol-circuits"
       },
       "problemMatcher": []
     },
@@ -44,7 +44,7 @@
       "command": "rm",
       "args": ["-f", "./target/bytecode.bin"],
       "options": {
-        "cwd": "${workspaceFolder}/noir-projects/noir-protocol-circuits"
+        "cwd": "${workspaceFolder}/noir-projects/fnd/noir-protocol-circuits"
       },
       "problemMatcher": []
     }

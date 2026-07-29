@@ -246,6 +246,8 @@ export -f cmake_build preset_cache_paths build_preset build_format_check build_n
 function build {
   echo_header "bb cpp build"
 
+  denoise ./scripts/remake-constants.sh
+
   if [ "$CI_FULL" -eq 1 ]; then
     # Deletes all build dirs and build bb and wasms from scratch.
     rm -rf build*

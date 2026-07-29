@@ -73,12 +73,12 @@ describe('blob', () => {
 
     // Run with AZTEC_GENERATE_TEST_DATA=1 to update noir test data.
     updateInlineTestData(
-      'noir-projects/noir-protocol-circuits/crates/blob/src/blob.nr',
+      'noir-projects/fnd/noir-protocol-circuits/crates/blob/src/blob.nr',
       'kzg_commitment_blob_400_from_ts',
       toInlineStrArray(blobCommitmentFields),
     );
     updateInlineTestData(
-      'noir-projects/noir-protocol-circuits/crates/blob/src/blob.nr',
+      'noir-projects/fnd/noir-protocol-circuits/crates/blob/src/blob.nr',
       'y_limbs_blob_400_from_ts',
       toInlineStrArray(y.toNoirBigNum().limbs),
     );
@@ -103,12 +103,12 @@ describe('blob', () => {
 
     // Run with AZTEC_GENERATE_TEST_DATA=1 to update noir test data.
     updateInlineTestData(
-      'noir-projects/noir-protocol-circuits/crates/blob/src/blob.nr',
+      'noir-projects/fnd/noir-protocol-circuits/crates/blob/src/blob.nr',
       'kzg_commitment_blob_full_from_ts',
       toInlineStrArray(blobCommitmentFields),
     );
     updateInlineTestData(
-      'noir-projects/noir-protocol-circuits/crates/blob/src/blob.nr',
+      'noir-projects/fnd/noir-protocol-circuits/crates/blob/src/blob.nr',
       'y_limbs_blob_full_from_ts',
       toInlineStrArray(y.toNoirBigNum().limbs),
     );

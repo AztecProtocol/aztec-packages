@@ -3,7 +3,7 @@ title: Retrieving and Filtering Notes
 sidebar_position: 0
 tags: [private-state, smart-contracts, notes]
 description: Step-by-step guide to retrieving, filtering, and sorting notes from private storage in Aztec contracts.
-references: ["noir-projects/noir-contracts/contracts/app/nft_contract/src/main.nr", "noir-projects/noir-contracts/contracts/test/pending_note_hashes_contract/src/filter.nr"]
+references: ["noir-projects/labs/noir-contracts/contracts/app/nft_contract/src/main.nr", "noir-projects/labs/noir-contracts/contracts/test/pending_note_hashes_contract/src/filter.nr"]
 ---
 
 This guide shows you how to retrieve and filter notes from private storage using `NoteGetterOptions`.
@@ -46,7 +46,7 @@ let confirmed_notes = storage.my_notes.at(owner).get_notes(options);
 
 Here's an example of `pop_notes` with filtering from the NFT contract:
 
-#include_code pop_notes noir-projects/noir-contracts/contracts/app/nft_contract/src/main.nr rust
+#include_code pop_notes noir-projects/labs/noir-contracts/contracts/app/nft_contract/src/main.nr rust
 
 ## Filter notes by properties
 
@@ -96,7 +96,7 @@ Database `select` is more efficient than custom filters. Use custom filters only
 
 ### Create and use a custom filter
 
-#include_code custom_filter noir-projects/noir-contracts/contracts/test/pending_note_hashes_contract/src/filter.nr rust
+#include_code custom_filter noir-projects/labs/noir-contracts/contracts/test/pending_note_hashes_contract/src/filter.nr rust
 
 Then use it with `NoteGetterOptions`:
 
@@ -134,7 +134,7 @@ await contract.methods.read_notes(Comparator.GTE, 5).simulate({ from: senderAddr
 
 Use `NoteViewerOptions` in unconstrained utility functions to query notes without generating proofs:
 
-#include_code view_notes noir-projects/noir-contracts/contracts/app/nft_contract/src/main.nr rust
+#include_code view_notes noir-projects/labs/noir-contracts/contracts/app/nft_contract/src/main.nr rust
 
 :::tip Viewer vs Getter
 

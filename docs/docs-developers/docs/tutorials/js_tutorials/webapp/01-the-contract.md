@@ -47,7 +47,7 @@ compiler_version = ">=0.25.0"
 type = "contract"
 
 [dependencies]
-aztec = { path = "../../../../noir-projects/aztec-nr/aztec" }
+aztec = { path = "../../../../noir-projects/labs/aztec-nr/aztec" }
 ```
 
 :::note
