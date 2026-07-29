@@ -1,5 +1,5 @@
 use crate::{
-    abis::{BlockRollupPublicInputs, CheckpointRollupPublicInputs, L1ToL2MessageSponge, ParityPublicInputs},
+    abis::{BlockRollupPublicInputs, CheckpointRollupPublicInputs, ParityPublicInputs},
     block_merge::merge_block_rollups,
 };
 use bignum::BLS12_381_Fr;
@@ -68,16 +68,11 @@ impl<let NumBlobs: u32> CheckpointRollupPublicInputsComposer<NumBlobs> {
     pub fn finish(self) -> CheckpointRollupPublicInputs {
         let merged_rollup = self.merged_rollup;
 
-        // The inbox parity sponge must start empty (the message sponge resets per checkpoint) and must equal the
-        // sponge accumulated across this checkpoint's block roots. Together with the leftmost block starting from the
-        // empty sponge (checked in the inputs validator) and the per-block continuity checks in the block merge
-        // circuit, this proves the blocks inserted exactly the parity-committed message list, in order — no leaf
-        // arrays cross the circuit boundary.
-        assert_eq(
-            self.parity.start_sponge,
-            L1ToL2MessageSponge::empty(),
-            "The inbox parity message sponge must start empty",
-        );
+        // The inbox parity sponge starts empty by construction (the message sponge resets per checkpoint, and the
+        // circuit hard-codes the empty start) and must equal the sponge accumulated across this checkpoint's block
+        // roots. Together with the leftmost block starting from the empty sponge (checked in the inputs validator) and
+        // the per-block continuity checks in the block merge circuit, this proves the blocks inserted exactly the
+        // parity-committed message list, in order — no leaf arrays cross the circuit boundary.
         assert_eq(
             merged_rollup.end_msg_sponge,
             self.parity.end_sponge,

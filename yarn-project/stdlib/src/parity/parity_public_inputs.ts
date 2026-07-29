@@ -17,9 +17,7 @@ export class ParityPublicInputs {
     public startRollingHash: Fr,
     /** Inbox rolling hash after absorbing the `numMsgs` real messages. */
     public endRollingHash: Fr,
-    /** Message-bundle sponge before absorbing this checkpoint's messages (empty at checkpoint start). */
-    public startSponge: L1ToL2MessageSponge,
-    /** Message-bundle sponge after absorbing the `numMsgs` real messages. */
+    /** Message-bundle sponge after absorbing the `numMsgs` real messages into the empty per-checkpoint sponge. */
     public endSponge: L1ToL2MessageSponge,
     /** Number of real (non-padding) messages absorbed into the rolling hash and the sponge. */
     public numMsgs: number,
@@ -42,7 +40,6 @@ export class ParityPublicInputs {
       this.inHash,
       this.startRollingHash,
       this.endRollingHash,
-      this.startSponge,
       this.endSponge,
       new Fr(this.numMsgs),
       this.vkTreeRoot,
@@ -82,7 +79,6 @@ export class ParityPublicInputs {
       fields.inHash,
       fields.startRollingHash,
       fields.endRollingHash,
-      fields.startSponge,
       fields.endSponge,
       fields.numMsgs,
       fields.vkTreeRoot,
@@ -101,7 +97,6 @@ export class ParityPublicInputs {
       reader.readObject(Fr),
       reader.readObject(Fr),
       reader.readObject(Fr),
-      reader.readObject(L1ToL2MessageSponge),
       reader.readObject(L1ToL2MessageSponge),
       Fr.fromBuffer(reader).toNumber(),
       Fr.fromBuffer(reader),
