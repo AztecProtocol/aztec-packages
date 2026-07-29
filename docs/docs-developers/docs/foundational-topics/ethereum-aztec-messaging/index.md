@@ -118,6 +118,29 @@ The following diagram shows the overall architecture, combining the earlier sect
 
 <Image img={require("@site/static/img/com-abs-7.png")} />
 
+## Using the L1 contract interfaces in your own project
+
+Portal contracts import Aztec's L1 interfaces (`IRegistry`, `IInbox`, `IOutbox`, `IRollup`, and supporting libraries). These ship in the [`@aztec/l1-artifacts`](https://www.npmjs.com/package/@aztec/l1-artifacts) npm package as a self-contained Foundry project under `l1-contracts/`, versioned to match each Aztec release:
+
+```bash
+npm install @aztec/l1-artifacts@<aztec-version>
+```
+
+In a Foundry project, add remappings so `@aztec/*` imports (and the bundled OpenZeppelin copy) resolve into the package:
+
+```toml
+# foundry.toml
+remappings = [
+  "@aztec/=node_modules/@aztec/l1-artifacts/l1-contracts/src/",
+  "@oz/=node_modules/@aztec/l1-artifacts/l1-contracts/lib/openzeppelin-contracts/contracts/",
+  "@aztec-blob-lib/=node_modules/@aztec/l1-artifacts/l1-contracts/src/core/libraries/rollup/"
+]
+```
+
+Then import interfaces as `@aztec/core/interfaces/IRollup.sol`, `@aztec/governance/interfaces/IRegistry.sol`, and so on. Note that `forge install` cannot fetch the package: it only clones whole git repositories, and the L1 contract sources include generated files that exist only in built distributions, so npm is the supported channel.
+
+In a Hardhat project, import with full package paths (`@aztec/l1-artifacts/l1-contracts/src/core/interfaces/IRollup.sol`), or configure equivalent aliases pointing at `node_modules/@aztec/l1-artifacts/l1-contracts/src`.
+
 ## See also
 
 - [Communicating Cross-Chain](../../aztec-nr/framework-description/ethereum_aztec_messaging.md) - Practical guide with code examples for L1-L2 messaging

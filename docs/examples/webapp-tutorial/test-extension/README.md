@@ -127,8 +127,8 @@ test-extension/
 The wallet overrides `completeFeeOptions()` to use SponsoredFPC by default:
 
 ```typescript
-override async completeFeeOptions(from, feePayer, gasSettings) {
-  if (!feePayer) {
+override async completeFeeOptions(config) {
+  if (!config.feePayer) {
     const sponsoredFPC = await getSponsoredFPCContract();
     return {
       walletFeePaymentMethod: new SponsoredFeePaymentMethod(sponsoredFPC.address),
@@ -136,7 +136,7 @@ override async completeFeeOptions(from, feePayer, gasSettings) {
       // ...
     };
   }
-  return super.completeFeeOptions(from, feePayer, gasSettings);
+  return super.completeFeeOptions(config);
 }
 ```
 

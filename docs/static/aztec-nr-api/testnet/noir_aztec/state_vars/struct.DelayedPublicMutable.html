@@ -1,0 +1,377 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="UTF-8">
+<link rel="stylesheet" href="../../styles.css">
+<script defer src="../../nargo_doc.js"></script>
+<title>Struct DelayedPublicMutable documentation</title>
+</head>
+<body>
+<div id="sidebar-toggle">
+<button id="sidebar-toggle-button"></button>
+<div id="sidebar-toggle-title">DelayedPublicMutable</div>
+</div>
+<span id="main-contents">
+<nav class="sidebar">
+<h1><a href="../../index.html">aztec-nr</a></h1>
+<div><a href="../../all.html">All items</a></div>
+<h2 id="crate-name"><a href="../index.html">noir_aztec</a></h2>
+<div id="crate-version">0.0.0</div>
+<h2><a href="#struct">Struct DelayedPublicMutable</a></h2>
+<h3>Methods</h3>
+<ul class="sidebar-list">
+<li><a href="#get_current_delay">get_current_delay</a></li>
+<li><a href="#get_current_value">get_current_value</a></li>
+<li><a href="#get_current_value">get_current_value</a></li>
+<li><a href="#get_current_value">get_current_value</a></li>
+<li><a href="#get_scheduled_delay">get_scheduled_delay</a></li>
+<li><a href="#get_scheduled_value">get_scheduled_value</a></li>
+<li><a href="#schedule_and_get_value_change">schedule_and_get_value_change</a></li>
+<li><a href="#schedule_delay_change">schedule_delay_change</a></li>
+<li><a href="#schedule_value_change">schedule_value_change</a></li>
+</ul>
+<h3>Trait implementations</h3>
+<ul class="sidebar-list">
+<li><a href="#impl-StateVariable&lt;M+1, Context&gt;-for-DelayedPublicMutable<T, InitialDelay, Context>">StateVariable&lt;M+1, Context&gt;</a></li>
+</ul>
+<h2>In module state_vars</h2>
+<h3>Structs</h3><ul class="item-list">
+<li><a href="struct.DelayedPublicMutable.html">DelayedPublicMutable</a></div></li>
+<li><a href="struct.Map.html">Map</a></div></li>
+<li><a href="struct.Owned.html">Owned</a></div></li>
+<li><a href="struct.PrivateImmutable.html">PrivateImmutable</a></div></li>
+<li><a href="struct.PrivateMutable.html">PrivateMutable</a></div></li>
+<li><a href="struct.PrivateSet.html">PrivateSet</a></div></li>
+<li><a href="struct.PublicImmutable.html">PublicImmutable</a></div></li>
+<li><a href="struct.PublicMutable.html">PublicMutable</a></div></li>
+<li><a href="struct.SinglePrivateImmutable.html">SinglePrivateImmutable</a></div></li>
+<li><a href="struct.SinglePrivateMutable.html">SinglePrivateMutable</a></div></li>
+<li><a href="struct.SingleUseClaim.html">SingleUseClaim</a></div></li>
+<li><a href="struct.Storable.html">Storable</a></div></li>
+</ul>
+<h3>Traits</h3><ul class="item-list">
+<li><a href="trait.OwnedStateVariable.html">OwnedStateVariable</a></div></li>
+<li><a href="trait.StateVariable.html">StateVariable</a></div></li>
+</ul>
+</nav>
+<main>
+<div><a href="../../index.html">aztec-nr</a> - <a href="../index.html">noir_aztec</a>::<a href="index.html">state_vars</a></div>
+<h1>Struct <span id="struct" class="struct">DelayedPublicMutable</span></h1>
+<pre><code>pub struct DelayedPublicMutable&lt;T, let InitialDelay: <a href="../../std/primitive.u64.html" class="primitive">u64</a>, Context&gt;
+{ <span class="comment">/* private fields */</span> }
+</code></pre>
+<div class="comments">
+<p>Mutable public values with private read access.</p>
+<p>This is an advanced public state variable, with no native Solidity equivalent.</p>
+<p>Like <a href="../../noir_aztec/state_vars/struct.PublicMutable.html"><code>PublicMutable</code></a> it represents a public value of type <code>T</code> that can be
+written to repeatedly, but with a key improvement: the current value can also be <strong>read from a private contract
+function</strong>.</p>
+<p>This comes at the cost of extra restrictions on the state variable: writes do not come into effect immediately,
+they must be <strong>scheduled</strong> to take place after some minimum delay. Reading from the state variable will therefore
+return the previous value until some time passes, which is why this is a <em>delayed</em> mutable variable.</p>
+<p>It is these delays that enable the capacity for reads from private contract functions, as they provide guarantees
+regarding how long can some historical state observed at the anchor block be known to not change.</p>
+<p>Delays can be modified during the lifetime of the contract.</p>
+<h2>Access Patterns</h2>
+<p>The current value stored in a <code>DelayedPublicMutable</code> can be read from public contract functions, and writes can be
+scheduled to happen in the future.</p>
+<p>Public contract functions can also schedule changes to the write delay, as well as inspect any already scheduled
+value or delay changes.</p>
+<p>Private contract functions can read the <strong>current</strong> value of the state variable, but not past or scheduled values.
+They cannot read the current delay, and they cannot schedule any kind of value change.</p>
+<h2>Privacy</h2>
+<p>The value stored in <code>DelayedPublicMutable</code> is fully public, as are all scheduled value and delay changes.</p>
+<p>Reads from a private contract function are almost fully private: the only observable effect is that they set the
+transaction's <code>expiration_timestamp</code> property, possibly reducing the privacy set. See
+<a href="../../noir_aztec/context/struct.PrivateContext.html#set_expiration_timestamp"><code>PrivateContext::set_expiration_timestamp</code></a>.</p>
+<h2>Use Cases</h2>
+<p>These are mostly an extension of <a href="../../noir_aztec/state_vars/struct.PublicMutable.html"><code>PublicMutable</code></a>'s, given that what this state
+variable essentially achieves is to provide private reads to it. For example, it can be used for global contract
+configuration (such as fees, access control, etc.) that users will need to access during private interactions.</p>
+<p>The key consideration is whether the enforced minimum delay on writes prevents using this state variable. In some
+scenarios this restriction is incompatible with requirements (such as a token's total supply, which must always be
+up to date), while in others the enhanced privacy might make the tradeoff acceptable (such as when dealing with
+contract pauses or access control revocation, where a delay of some hours could be acceptable).</p>
+<p>Note that, just like in <a href="../../noir_aztec/state_vars/struct.PublicMutable.html"><code>PublicMutable</code></a>, the fact that the values are public
+does not necessarily mean the actions that update these values must themselves be wholly public. To learn more,
+see the notes there regarding usage of <a href="../../noir_aztec/macros/functions/fn.only_self.html"><code>only_self</code></a>.</p>
+<h2>Choosing Delays</h2>
+<p>A short delay reduces the most obvious downside of <code>DelayedPublicMutable</code>, and so it is natural to wish to make it
+be as low as possible. It is therefore important to understand the tradeoffs involved in delay selection.</p>
+<p>A shorter delay will result in a lower <code>expiration_timestamp</code> property of transactions that privately read the
+state variable, reducing its privacy set. If the delay is smaller than that of any other contract, then this
+privacy leak might be large enough to uniquely identify those transactions that interact with the contract - fully
+defeating the purpose of <code>DelayedPublicMutable</code>.</p>
+<p>Additionally, a lower <code>expiration_timestamp</code> obviously causes transactions to expire earlier, resulting in
+multiple issues. Among others, this can make large transactions that take long to prove be unfeasible, restrict
+users with slow proving devices, and force large transaction fees to guarantee fast inclusion.</p>
+<p>In practice, a delay of at least a couple hours is recommended. From a privacy point of view the optimal delay is
+<a href="../../protocol_types/constants/global.MAX_TX_LIFETIME.html"><code>crate::protocol::constants::MAX_TX_LIFETIME</code></a>, which puts contracts in the same privacy set as those that do not
+use <code>DelayedPublicMutable</code> at all.</p>
+<h2>Examples</h2>
+<p>Declaring a <code>DelayedPublicMutable</code> in the contract's <a href="../../noir_aztec/macros/storage/fn.storage.html"><code>storage</code></a> struct
+requires specifying the type <code>T</code> that is stored in the variable, along with the initial delay used when scheduling
+value changes:</p>
+<pre><code><span class="kw">global</span> PAUSE_CONTRACT_INITIAL_DELAY_S: u64 = <span class="number">6</span> * <span class="number">60</span> * <span class="number">60</span>; <span class="comment">// 6 hours</span>
+<span class="kw">global</span> CHANGE_AUTHORIZATION_INITIAL_DELAY_S: u64 = <span class="number">24</span> * <span class="number">60</span> * <span class="number">60</span>; <span class="comment">// 24 hours</span>
+
+#[storage]
+<span class="kw">struct</span> Storage&lt;C&gt; {
+    paused: DelayedPublicMutable&lt;bool, PAUSE_CONTRACT_INITIAL_DELAY_S, C&gt;,
+    user_authorization: Map&lt;AztecAddress, DelayedPublicMutable&lt;bool, CHANGE_AUTHORIZATION_INITIAL_DELAY_S, C&gt;, C&gt;,
+}</code></pre>
+<p>Note that this initial delay can be altered during the contract's lifetime via
+<a href="../../noir_aztec/state_vars/struct.DelayedPublicMutable.html#schedule_delay_change"><code>DelayedPublicMutable::schedule_delay_change</code></a>.</p>
+<h2>Requirements</h2>
+<p>The type <code>T</code> stored in the <code>DelayedPublicMutable</code> must implement the <code>Eq</code> and
+<a href="../../protocol_types/traits/trait.Packable.html"><code>Packable</code></a> traits.</p>
+<h2>Implementation Details</h2>
+<p>This state variable stores more information in public storage than
+<a href="../../noir_aztec/state_vars/struct.PublicMutable.html"><code>PublicMutable</code></a>, as it needs to keep track of the current and scheduled change
+information for both the value and the delay - see
+<a href="../../protocol_types/delayed_public_mutable/delayed_public_mutable_values/struct.DelayedPublicMutableValues.html"><code>crate::protocol::delayed_public_mutable::DelayedPublicMutableValues</code></a>.</p>
+<p>It also stores a hash of this entire configuration so that private reads can be performed in a single historical
+public storage read - see <a href="../../noir_aztec/utils/struct.WithHash.html"><code>crate::utils::WithHash</code></a>.</p>
+<p>This results in a total of <code>N * 2 + 2</code> storage slots used, where <code>N</code> is the packing length of the stored type <code>T</code>.
+This makes it quite important to ensure <code>T</code>'s implementation of <a href="../../protocol_types/traits/trait.Packable.html"><code>Packable</code></a> is
+space-efficient.</p></div>
+<h2>Implementations</h2>
+<h3><code class="code-header">impl&lt;let InitialDelay: <a href="../../std/primitive.u64.html" class="primitive">u64</a>, T&gt; <a href="../../noir_aztec/state_vars/struct.DelayedPublicMutable.html" class="struct">DelayedPublicMutable</a>&lt;T, InitialDelay, &mut <a href="../../noir_aztec/context/struct.PrivateContext.html" class="struct">PrivateContext</a>&gt;</code></h3>
+
+<div class="padded-methods"><code id="get_current_value" class="code-header">pub fn <a href="#get_current_value"><span class="fn">get_current_value</span></a>(self) -> T
+<div class="where-clause">where
+    T: <a href="../../protocol_types/traits/trait.Packable.html" class="trait">Packable</a>,
+    T: <a href="../../std/cmp/trait.Eq.html" class="trait">Eq</a></div></code>
+
+<div class="padded-description"><div class="comments">
+<p>Returns the current value.</p>
+<p>This sets the transaction's <code>expiration_timestamp</code> (see
+<a href="../../noir_aztec/context/struct.PrivateContext.html#set_expiration_timestamp"><code>PrivateContext::set_expiration_timestamp</code></a>),
+invalidating the transaction if not included before that time. See the 'Privacy' section below to learn more.</p>
+<p>If <a href="../../noir_aztec/state_vars/struct.DelayedPublicMutable.html#schedule_value_change"><code>schedule_value_change</code></a> has never been called, then this
+returns the default empty public storage value, which is all zeroes - equivalent to <code>let t = T::unpack(std::mem::zeroed());</code>.</p>
+<p>It is not possible to detect if a <code>DelayedPublicMutable</code> has ever been initialized or not other than by testing
+for the zero sentinel value. For a more robust solution, store an <code>Option&lt;T&gt;</code> in the <code>DelayedPublicMutable</code>.</p>
+<h4>Privacy</h4>
+<p>This function leaks information via the transaction's expiration timestamp. The degree of leakage depends on
+the delay that is set, and on whether a value change is currently scheduled.</p>
+<p>Private reads are based on a historical public storage read at the anchor block (i.e.
+<a href="../../noir_aztec/history/storage/fn.public_storage_historical_read.html"><code>crate::history::storage::public_storage_historical_read</code></a>). <code>DelayedPublicMutable</code> is able to provide
+guarantees that values read in the past remain the state variable's current value into the future due to
+the existence of delays when scheduling writes. It then sets the <code>expiration_timestamp</code> property of the current
+transaction to ensure that the transaction can only be included in a block <strong>prior</strong> to the state variable's
+value changing. In other words, it knows some facts about the near future up until some time horizon, and then
+makes sure that it doesn't act on this knowledge past said moment.</p>
+<p>Because the <code>expiration_timestamp</code> property is part of the transaction's public information, any mutation to
+this value could result in transaction fingerprinting. Note that multiple contracts may set this value during a
+transaction: it is the smallest (most restrictive) timestamp that will be used.</p>
+<p>If the state variable <strong>does not</strong> have any value changes scheduled, then the timestamp will be set to that of
+the anchor block plus the current delay. If multiple contracts use the same delay for their
+<code>DelayedPublicMutable</code> state variables, then these will all be in the same privacy set.</p>
+<p>If the state variable <strong>does</strong> have a value change scheduled, then the timestamp will be set to equal the time
+at which the current value will change, i.e. the one
+<a href="../../noir_aztec/state_vars/struct.DelayedPublicMutable.html#get_scheduled_value"><code>get_scheduled_value</code></a> returns - which is public information. This
+results in an unavoidable privacy leak of any transactions in which a contract privately reads a
+<code>DelayedPublicMutable</code> that will change soon.</p>
+<p>Transactions that do not read from a <code>DelayedPublicMutable</code> are part of a privacy set in which the
+<code>expiration_timestamp</code> is set to their anchor block plus <a href="../../protocol_types/constants/global.MAX_TX_LIFETIME.html"><code>crate::protocol::constants::MAX_TX_LIFETIME</code></a>,
+making this the most privacy-preserving delay. The less frequent said value changes are, the more private the
+contract is. Wallets can also then choose to further lower this timestamp to make it less obvious that their
+transactions are interacting with this soon-to-change variable.</p>
+<h4>Examples</h4>
+<p>A private action that requires authorization:</p>
+<pre><code>#[external(<span class="string">"private"</span>)]
+<span class="kw">fn</span> do_action() {
+    <span class="kw">assert</span>(
+        self.storage.user_authorization.at(self.msg_sender()).get_current_value(),
+        <span class="string">"caller is not authorized"</span>
+    );
+
+    <span class="comment">// do the action</span>
+}</code></pre>
+<p>A private action that can be paused:</p>
+<pre><code>#[external(<span class="string">"private"</span>)]
+<span class="kw">fn</span> do_action() {
+    <span class="kw">assert</span>(!self.storage.paused.get_current_value(), <span class="string">"contract is paused"</span>);
+
+    <span class="comment">// do the action</span>
+}</code></pre>
+<h4>Cost</h4>
+<p>This function performs a historical public storage read (which is ~4k gates), <strong>regardless of
+<code>T</code>'s packed length</strong>. This is because <a href="../../noir_aztec/state_vars/struct.DelayedPublicMutable.html#schedule_value_change"><code>DelayedPublicMutable::schedule_value_change</code></a> stores not just the
+value but also its hash: this function obtains the preimage from an oracle and proves that it matches the hash
+from public storage.</p>
+<p>Because of this reason, if two mutable values are often privately read together it can be convenient to group
+them in a single type <code>T</code>. Note however that this will result in them sharing the mutation delay:</p>
+<pre><code><span class="comment">// Bad: reading both `paused` and `fee` will require two historical public storage reads</span>
+#[storage]
+<span class="kw">struct</span> Storage&lt;C&gt; {
+    paused: DelayedPublicMutable&lt;bool, INITIAL_DELAY_S, C&gt;,
+    fee: DelayedPublicMutable&lt;Field, INITIAL_DELAY_S, C&gt;,
+}
+
+<span class="comment">// Good: both `paused` and `fee` are retrieved in a single historical public storage read</span>
+#[derive(Packable)]
+<span class="kw">struct</span> Config {
+    paused: bool,
+    fee: Field,
+}
+
+#[storage]
+<span class="kw">struct</span> Storage&lt;Context&gt; {
+    config: DelayedPublicMutable&lt;Config, INITIAL_DELAY_S, Context&gt;,
+}</code></pre></div>
+</div></div><h3><code class="code-header">impl&lt;let InitialDelay: <a href="../../std/primitive.u64.html" class="primitive">u64</a>, T&gt; <a href="../../noir_aztec/state_vars/struct.DelayedPublicMutable.html" class="struct">DelayedPublicMutable</a>&lt;T, InitialDelay, <a href="../../noir_aztec/context/struct.PublicContext.html" class="struct">PublicContext</a>&gt;</code></h3>
+
+<div class="padded-methods"><code id="schedule_value_change" class="code-header">pub fn <a href="#schedule_value_change"><span class="fn">schedule_value_change</span></a>(self, new_value: T)
+<div class="where-clause">where
+    T: <a href="../../protocol_types/traits/trait.Packable.html" class="trait">Packable</a>,
+    T: <a href="../../std/cmp/trait.Eq.html" class="trait">Eq</a></div></code>
+
+<div class="padded-description"><div class="comments">
+<p>Schedules a write to the current value.</p>
+<p>The current value does not immediately change. Once the current delay passes,
+<a href="../../noir_aztec/state_vars/struct.DelayedPublicMutable.html#get_current_value"><code>get_current_value</code></a> automatically begins to return <code>new_value</code>.</p>
+<h4>Multiple Scheduled Changes</h4>
+<p>Only a <strong>single</strong> value can be scheduled to become the new value at a given point in time. Any prior scheduled
+changes which have not yet become current are <strong>replaced</strong> with the new one and discarded.</p>
+<p>To illustrate this, consider a scenario at <code>t0</code> with a current value <code>A</code>. A value change to <code>B</code> is scheduled to
+occur at <code>t1</code>. At some point <em>before</em> <code>t1</code>, a second value change to <code>C</code> is scheduled to occur at <code>t2</code> (<code>t2 &gt; t1</code>). The result is that the current value continues to be <code>A</code> all the way until <code>t2</code>, at which point it
+changes to <code>C</code>.</p>
+<p>This also means that it is possible to <strong>cancel</strong> a scheduled change by calling <code>schedule_value_change</code> with
+the current value.</p>
+<h4>Examples</h4>
+<p>A public setter that authorizes a user:</p>
+<pre><code>#[external(<span class="string">"public"</span>)]
+<span class="kw">fn</span> authorize_user(user: AztecAddress) {
+    <span class="kw">assert_eq</span>(self.storage.admin.read(), self.msg_sender(), <span class="string">"caller is not admin"</span>);
+    self.storage.user_authorization.at(user).schedule_value_change(<span class="bool-var">true</span>);
+}</code></pre>
+<h4>Cost</h4>
+<p>The <code>SSTORE</code> AVM opcode is invoked <code>2 * N + 2</code> times, where <code>N</code> is <code>T</code>'s packed length.</p></div>
+</div><code id="schedule_and_get_value_change" class="code-header">pub fn <a href="#schedule_and_get_value_change"><span class="fn">schedule_and_get_value_change</span></a>(self, new_value: T) -> <a href="../../protocol_types/delayed_public_mutable/scheduled_value_change/struct.ScheduledValueChange.html" class="struct">ScheduledValueChange</a>&lt;T&gt;
+<div class="where-clause">where
+    T: <a href="../../protocol_types/traits/trait.Packable.html" class="trait">Packable</a>,
+    T: <a href="../../std/cmp/trait.Eq.html" class="trait">Eq</a></div></code>
+
+<div class="padded-description"><div class="comments">
+<p>Schedules a write to the current value, returning the scheduled entry.</p>
+</div>
+</div><code id="schedule_delay_change" class="code-header">pub fn <a href="#schedule_delay_change"><span class="fn">schedule_delay_change</span></a>(self, new_delay: <a href="../../std/primitive.u64.html" class="primitive">u64</a>)
+<div class="where-clause">where
+    T: <a href="../../protocol_types/traits/trait.Packable.html" class="trait">Packable</a>,
+    T: <a href="../../std/cmp/trait.Eq.html" class="trait">Eq</a></div></code>
+
+<div class="padded-description"><div class="comments">
+<p>Schedules a write to the current delay.</p>
+<p>This works just like <a href="../../noir_aztec/state_vars/struct.DelayedPublicMutable.html#schedule_value_change"><code>schedule_value_change</code></a>, except instead of
+changing the value in the state variable, it changes the delay that will govern future invocations of that
+function.</p>
+<p>The current delay does not immediately change. Once the current delay passes,
+<a href="../../noir_aztec/state_vars/struct.DelayedPublicMutable.html#get_current_delay"><code>get_current_delay</code></a> automatically begins to return <code>new_delay</code>, and
+<a href="../../noir_aztec/state_vars/struct.DelayedPublicMutable.html#schedule_value_change"><code>schedule_value_change</code></a> begins using it.</p>
+<h4>Multiple Scheduled Changes</h4>
+<p>Only a <strong>single</strong> delay can be scheduled to become the new delay at a given point in time. Any prior scheduled
+changes which have not yet become current are <strong>replaced</strong> with the new one and discarded.</p>
+<p>To illustrate this, consider a scenario at <code>t0</code> with a current delay <code>A</code>. A delay change to <code>B</code> is scheduled to
+occur at <code>t1</code>. At some point <em>before</em> <code>t1</code>, a second delay change to <code>C</code> is scheduled to occur at <code>t2</code> (<code>t2 &gt; t1</code>). The result is that the current delay continues to be <code>A</code> all the way until <code>t2</code>, at which point it
+changes to <code>C</code>.</p>
+<h4>Delays When Changing Delays</h4>
+<p>A delay change cannot always be immediate: if it were, then it'd be possible to break <code>DelayedPublicMutable</code>'s
+invariants by setting the delay to a very low or zero value and then scheduling a value change, resulting in a
+new value becoming the current one earlier than was predictable based on the prior delay. This would prohibit
+private reads, which is the reason for existence of this state variable.</p>
+<p>Instead, delay changes are themselves scheduled and delay so that the property mentioned above is preserved.
+This results in delay increases and decreases being asymmetrical.</p>
+<p>If the delay is being decreased, then this requires a delay equal to the difference between the current and new
+delay, so that a scheduled value change that occurred as the new delay came into effect would be scheduled for
+the same timestamp as if no delay change had occurred.</p>
+<p>If the delay is being increased, then the new delay becomes effective immediately, as new value changes would
+be scheduled for a timestamp that is further than the current delay.</p>
+<h4>Examples</h4>
+<p>A public setter that sets the pause delay:</p>
+<pre><code>#[public]
+<span class="kw">fn</span> set_pause_delay(delay: u64) {
+    <span class="kw">assert_eq</span>(self.storage.admin.read(), self.msg_sender(), <span class="string">"caller is not admin"</span>);
+    self.storage.paused.schedule_delay_change(delay);
+}</code></pre>
+<h4>Cost</h4>
+<p>The <code>SSTORE</code> AVM opcode is invoked <code>2 * N + 2</code> times, where <code>N</code> is <code>T</code>'s packed length.</p></div>
+</div><code id="get_current_value" class="code-header">pub fn <a href="#get_current_value"><span class="fn">get_current_value</span></a>(self) -> T
+<div class="where-clause">where
+    T: <a href="../../protocol_types/traits/trait.Packable.html" class="trait">Packable</a>,
+    T: <a href="../../std/cmp/trait.Eq.html" class="trait">Eq</a></div></code>
+
+<div class="padded-description"><div class="comments">
+<p>Returns the current value.</p>
+<p>If <a href="../../noir_aztec/state_vars/struct.DelayedPublicMutable.html#schedule_value_change"><code>schedule_value_change</code></a> has never been called, then this
+returns the default empty public storage value, which is all zeroes - equivalent to <code>let t = T::unpack(std::mem::zeroed());</code>.</p>
+<p>It is not possible to detect if a <code>DelayedPublicMutable</code> has ever been initialized or not other than by testing
+for the zero sentinel value. For a more robust solution, store an <code>Option&lt;T&gt;</code> in the <code>DelayedPublicMutable</code>.</p>
+<p>Use <a href="../../noir_aztec/state_vars/struct.DelayedPublicMutable.html#get_scheduled_value"><code>get_scheduled_value</code></a> to instead get the last value that was
+scheduled to become the current one (which will equal the current value if the delay has already passed).</p>
+<h4>Examples</h4>
+<p>A public getter that returns a user's authorization status:</p>
+<pre><code>#[external(<span class="string">"public"</span>)]
+<span class="kw">fn</span> is_authorized(user: AztecAddress) -&gt; bool {
+    self.storage.user_authorization.at(user).get_current_value()
+}</code></pre>
+<h4>Cost</h4>
+<p>The <code>SLOAD</code> AVM opcode is invoked <code>2 * N + 1</code> times, where <code>N</code> is <code>T</code>'s packed length.</p></div>
+</div><code id="get_current_delay" class="code-header">pub fn <a href="#get_current_delay"><span class="fn">get_current_delay</span></a>(self) -> <a href="../../std/primitive.u64.html" class="primitive">u64</a>
+<div class="where-clause">where
+    T: <a href="../../protocol_types/traits/trait.Packable.html" class="trait">Packable</a>,
+    T: <a href="../../std/cmp/trait.Eq.html" class="trait">Eq</a></div></code>
+
+<div class="padded-description"><div class="comments">
+<p>Returns the current delay.</p>
+<p>This is the delay that would be used by <a href="../../noir_aztec/state_vars/struct.DelayedPublicMutable.html#schedule_value_change"><code>schedule_value_change</code></a>
+if it were called in the current transaction.</p>
+<p>If <a href="../../noir_aztec/state_vars/struct.DelayedPublicMutable.html#schedule_delay_change"><code>schedule_delay_change</code></a> has never been called, then this
+returns the <code>InitialDelay</code> used in the <a href="../../noir_aztec/macros/storage/fn.storage.html"><code>storage</code></a> struct.</p>
+<p>Use <a href="../../noir_aztec/state_vars/struct.DelayedPublicMutable.html#get_scheduled_delay"><code>get_scheduled_delay</code></a> to instead get the last delay that was
+scheduled to become the current one (which will equal the current delay if the delay has already passed).</p>
+<h4>Examples</h4>
+<p>A public getter that returns the pause delay:</p>
+<pre><code>#[external(<span class="string">"public"</span>)]
+<span class="kw">fn</span> get_pause_delay() -&gt; u64 {
+    self.storage.paused.get_current_delay()
+}</code></pre>
+<h4>Cost</h4>
+<p>The <code>SLOAD</code> AVM opcode is invoked a single time, regardless of <code>T</code>.</p></div>
+</div><code id="get_scheduled_value" class="code-header">pub fn <a href="#get_scheduled_value"><span class="fn">get_scheduled_value</span></a>(self) -> (T, <a href="../../std/primitive.u64.html" class="primitive">u64</a>)
+<div class="where-clause">where
+    T: <a href="../../protocol_types/traits/trait.Packable.html" class="trait">Packable</a>,
+    T: <a href="../../std/cmp/trait.Eq.html" class="trait">Eq</a></div></code>
+
+<div class="padded-description"><div class="comments">
+<p>Returns the last scheduled value and timestamp of change.</p>
+</div>
+</div><code id="get_scheduled_delay" class="code-header">pub fn <a href="#get_scheduled_delay"><span class="fn">get_scheduled_delay</span></a>(self) -> (<a href="../../std/primitive.u64.html" class="primitive">u64</a>, <a href="../../std/primitive.u64.html" class="primitive">u64</a>)
+<div class="where-clause">where
+    T: <a href="../../protocol_types/traits/trait.Packable.html" class="trait">Packable</a>,
+    T: <a href="../../std/cmp/trait.Eq.html" class="trait">Eq</a></div></code>
+
+<div class="padded-description"><div class="comments">
+<p>Returns the last scheduled delay and timestamp of change.</p>
+</div>
+</div></div><h3><code class="code-header">impl&lt;let InitialDelay: <a href="../../std/primitive.u64.html" class="primitive">u64</a>, T&gt; <a href="../../noir_aztec/state_vars/struct.DelayedPublicMutable.html" class="struct">DelayedPublicMutable</a>&lt;T, InitialDelay, <a href="../../noir_aztec/context/struct.UtilityContext.html" class="struct">UtilityContext</a>&gt;</code></h3>
+
+<div class="padded-methods"><code id="get_current_value" class="code-header">pub unconstrained fn <a href="#get_current_value"><span class="fn">get_current_value</span></a>(self) -> T
+<div class="where-clause">where
+    T: <a href="../../protocol_types/traits/trait.Packable.html" class="trait">Packable</a>,
+    T: <a href="../../std/cmp/trait.Eq.html" class="trait">Eq</a></div></code>
+
+</div><h2>Trait implementations</h2>
+<h3 id="impl-StateVariable&lt;M+1, Context&gt;-for-DelayedPublicMutable<T, InitialDelay, Context>"><code class="code-header">impl&lt;Context, let InitialDelay: <a href="../../std/primitive.u64.html" class="primitive">u64</a>, let M: <a href="../../std/primitive.u32.html" class="primitive">u32</a>, T&gt; <a href="../../noir_aztec/state_vars/trait.StateVariable.html" class="trait">StateVariable</a>&lt;M + 1, Context&gt; for <a href="../../noir_aztec/state_vars/struct.DelayedPublicMutable.html" class="struct">DelayedPublicMutable</a>&lt;T, InitialDelay, Context&gt;
+<div class="where-clause">where
+    <a href="../../protocol_types/delayed_public_mutable/delayed_public_mutable_values/struct.DelayedPublicMutableValues.html" class="struct">DelayedPublicMutableValues</a>&lt;T, InitialDelay&gt;: <a href="../../protocol_types/traits/trait.Packable.html" class="trait">Packable</a>&lt;N = M&gt;</div></code></h3>
+
+<div class="padded-methods"><code class="code-header">pub fn <span class="fn">new</span>(context: Context, storage_slot: <a href="../../std/primitive.Field.html" class="primitive">Field</a>) -> Self</code>
+
+<code class="code-header">pub fn <span class="fn">get_storage_slot</span>(self) -> <a href="../../std/primitive.Field.html" class="primitive">Field</a></code>
+
+</div></main>
+</span>
+</body>
+</html>

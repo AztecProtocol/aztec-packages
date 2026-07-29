@@ -31,5 +31,3 @@ Initialization cost is completely eliminated (no constructor transaction). The p
 ## Getting started
 
 For installation instructions, usage examples, and a reference implementation of an initializerless Schnorr account contract, see the [aztec-immutables-macro README](https://github.com/defi-wonderland/aztec-immutables-macro/tree/dev).
-
-The protocol ships a built-in account contract using the same pattern: see [account deployment](../../foundational-topics/accounts/deployment.md) for how initializerless accounts work and [creating accounts](../../aztec-js/how_to_create_account.md#create-an-initializerless-account) for using them from Aztec.js.

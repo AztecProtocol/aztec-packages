@@ -110,6 +110,9 @@ export default defineConfig({
     ],
   },
   resolve: {
+    // Keep linked @aztec packages under this app so plugin-injected shim imports
+    // resolve from the webapp tutorial's node_modules.
+    preserveSymlinks: true,
     alias: {
       // Ensure crypto polyfill for browser
       crypto: 'crypto-browserify',

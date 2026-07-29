@@ -1,0 +1,59 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="UTF-8">
+<link rel="stylesheet" href="../../../styles.css">
+<script defer src="../../../nargo_doc.js"></script>
+<title>Function allow_phase_change documentation</title>
+</head>
+<body>
+<div id="sidebar-toggle">
+<button id="sidebar-toggle-button"></button>
+<div id="sidebar-toggle-title">allow_phase_change</div>
+</div>
+<span id="main-contents">
+<nav class="sidebar">
+<h1><a href="../../../index.html">aztec-nr</a></h1>
+<div><a href="../../../all.html">All items</a></div>
+<h2 id="crate-name"><a href="../../index.html">noir_aztec</a></h2>
+<div id="crate-version">0.0.0</div>
+<h2>In module functions</h2>
+<h3>Modules</h3><ul class="item-list">
+<li><a href="initialization_utils/index.html">initialization_utils</a></div></li>
+</ul>
+<h3>Functions</h3><ul class="item-list">
+<li><a href="fn.allow_phase_change.html">allow_phase_change</a></div></li>
+<li><a href="fn.authorize_once.html">authorize_once</a></div></li>
+<li><a href="fn.external.html">external</a></div></li>
+<li><a href="fn.initializer.html">initializer</a></div></li>
+<li><a href="fn.internal.html">internal</a></div></li>
+<li><a href="fn.noinitcheck.html">noinitcheck</a></div></li>
+<li><a href="fn.only_self.html">only_self</a></div></li>
+<li><a href="fn.view.html">view</a></div></li>
+</ul>
+</nav>
+<main>
+<div><a href="../../../index.html">aztec-nr</a> - <a href="../../index.html">noir_aztec</a>::<a href="../index.html">macros</a>::<a href="index.html">functions</a></div>
+<h1>Function <span class="fn">allow_phase_change</span></h1>
+<pre><code>pub comptime fn allow_phase_change(f: <a href="../../../std/primitive.FunctionDefinition.html" class="primitive">FunctionDefinition</a>)</code></pre>
+
+<div class="comments">
+<p>An <code>allow_phase_change</code> function will allow transitioning from the non-revertible to the revertible phase
+during its execution.</p>
+<p>This is an advanced feature that is typically only required for account contract entrypoints that handle
+transaction fee payment.</p>
+<h2>Note Retrieval</h2>
+<p>When notes are read e.g. via <a href="../../../noir_aztec/note/note_getter/fn.get_notes.html"><code>crate::note::note_getter::get_notes</code></a>, a
+<a href="../../../noir_aztec/note/struct.ConfirmedNote.html"><code>ConfirmedNote</code></a> value is returned which includes note metadata, notably whether the
+note was created in a previous transaction (a settled note) or in the current one (a pending note), either in the
+current or previous phase. Because <code>allow_phase_change</code> functions can change phases, this metadata can be left
+stale, e.g. it is possible to read a pending current phase note and then change phases, resulting in the note being
+<a href=""><code>PENDING_PREVIOUS_PHASE</code></a> instead.</p>
+<p>Such a note would be rejected by the kernels if it was tried to be nullified, as the metadata is incorrect. It is
+therefore important to not allow <a href="../../../noir_aztec/note/struct.ConfirmedNote.html"><code>ConfirmedNote</code></a>,
+<a href="../../../noir_aztec/note/struct.HintedNote.html"><code>HintedNote</code></a> or <a href="../../../noir_aztec/note/note_metadata/struct.NoteMetadata.html"><code>NoteMetadata</code></a> values to
+cross the phase barrier caused by <a href="../../../noir_aztec/context/struct.PrivateContext.html#end_setup"><code>crate::context::PrivateContext::end_setup</code></a>.</p></div>
+</main>
+</span>
+</body>
+</html>

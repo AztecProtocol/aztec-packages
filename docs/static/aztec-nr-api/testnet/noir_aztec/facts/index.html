@@ -1,0 +1,83 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="UTF-8">
+<link rel="stylesheet" href="../../styles.css">
+<script defer src="../../nargo_doc.js"></script>
+<title>Module facts documentation</title>
+</head>
+<body>
+<div id="sidebar-toggle">
+<button id="sidebar-toggle-button"></button>
+<div id="sidebar-toggle-title">facts</div>
+</div>
+<span id="main-contents">
+<nav class="sidebar">
+<h1><a href="../../index.html">aztec-nr</a></h1>
+<div><a href="../../all.html">All items</a></div>
+<h2 id="crate-name"><a href="../index.html">noir_aztec</a></h2>
+<div id="crate-version">0.0.0</div>
+<h2><a href="#mod">Module facts</a></h2>
+<h3>Module items</h3>
+<ul class="sidebar-list">
+<li><a href="#structs">Structs</a></li>
+<li><a href="#functions">Functions</a></li>
+</ul>
+<h2>In crate facts</h2>
+<h3>Modules</h3><ul class="item-list">
+<li><a href="../authwit/index.html">authwit</a></div></li>
+<li><a href="../capsules/index.html">capsules</a></div></li>
+<li><a href="../context/index.html">context</a></div></li>
+<li><a href="../contract_self/index.html">contract_self</a></div></li>
+<li><a href="../ephemeral/index.html">ephemeral</a></div></li>
+<li><a href="../event/index.html">event</a></div></li>
+<li><a href="../facts/index.html">facts</a></div></li>
+<li><a href="../hash/index.html">hash</a></div></li>
+<li><a href="../history/index.html">history</a></div></li>
+<li><a href="../keys/index.html">keys</a></div></li>
+<li><a href="../macros/index.html">macros</a></div></li>
+<li><a href="../messages/index.html">messages</a></div></li>
+<li><a href="../note/index.html">note</a></div></li>
+<li><a href="../nullifier/index.html">nullifier</a></div></li>
+<li><a href="../oracle/index.html">oracle</a></div></li>
+<li><a href="../protocol/index.html">protocol</a></div></li>
+<li><a href="../public_checks/index.html">public_checks</a></div></li>
+<li><a href="../publish_contract_instance/index.html">publish_contract_instance</a></div></li>
+<li><a href="../standard_addresses/index.html">standard_addresses</a></div></li>
+<li><a href="../state_vars/index.html">state_vars</a></div></li>
+<li><a href="../test/index.html">test</a></div></li>
+<li><a href="../transient/index.html">transient</a></div></li>
+<li><a href="../unconstrained_array/index.html">unconstrained_array</a></div></li>
+<li><a href="../utils/index.html">utils</a></div></li>
+</ul>
+</nav>
+<main>
+<div><a href="../../index.html">aztec-nr</a> - <a href="../index.html">noir_aztec</a>::facts</div>
+<h1>Module <span id="mod" class="module">facts</span></h1>
+<div class="comments">
+<p>Per-contract storage of immutable facts grouped into collections.</p>
+<p>A fact is a contract-defined, typed, immutable datum. Facts are grouped into collections identified by a
+<code>(collection type, collection id)</code> tuple.</p>
+<p>They are stored in PXE's FactStore, which automatically deals with reorgs by removing any facts
+associated with blocks that have been pruned.</p>
+</div>
+<h2 id="structs">Structs</h2><ul class="item-list">
+<li><div class="item-name"><a href="struct.Fact.html" class="struct">Fact</a></div><div class="item-description">A single immutable fact in a collection.</div></li>
+<li><div class="item-name"><a href="struct.FactCollection.html" class="struct">FactCollection</a></div><div class="item-description">A fact collection as returned by the store.</div></li>
+<li><div class="item-name"><a href="struct.OriginBlock.html" class="struct">OriginBlock</a></div><div class="item-description">The block a retractable fact originates from.</div></li>
+<li><div class="item-name"><a href="struct.OriginBlockState.html" class="struct">OriginBlockState</a></div><div class="item-description">Chain state of a retractable fact's origin block, mirroring the L2 chain tips.</div></li>
+<li><div class="item-name"><a href="struct.RetractableFactOrigin.html" class="struct">RetractableFactOrigin</a></div><div class="item-description">A retractable fact's origin block.</div></li>
+</ul>
+<h2 id="functions">Functions</h2><ul class="item-list">
+<li><div class="item-name"><a href="fn.delete_fact_collection.html" class="fn">delete_fact_collection</a></div><div class="item-description">Deletes a fact collection, removing all its facts from PXE storage.</div></li>
+<li><div class="item-name"><a href="fn.get_fact_collection.html" class="fn">get_fact_collection</a></div><div class="item-description">Fetches a fact collection.</div></li>
+<li><div class="item-name"><a href="fn.get_fact_collections_by_type.html" class="fn">get_fact_collections_by_type</a></div><div class="item-description">Returns every fact collection of <code>fact_collection_type_id</code>.</div></li>
+<li><div class="item-name"><a href="fn.record_non_retractable_fact.html" class="fn">record_non_retractable_fact</a></div><div class="item-description">Records a non-retractable fact into a collection: it survives reorgs and will persist until the fact collection
+itself is deleted. Re-recording an identical fact is a no-op.</div></li>
+<li><div class="item-name"><a href="fn.record_retractable_fact.html" class="fn">record_retractable_fact</a></div><div class="item-description">Records a retractable fact into a collection: PXE prunes it if <code>origin_block</code> is reorg'd away. Re-recording an
+identical fact is a no-op.</div></li>
+</ul>
+</main>
+</span>
+</body>
+</html>

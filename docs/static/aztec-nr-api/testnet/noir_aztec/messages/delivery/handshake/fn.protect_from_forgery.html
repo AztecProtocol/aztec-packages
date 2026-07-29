@@ -1,0 +1,69 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="UTF-8">
+<link rel="stylesheet" href="../../../../styles.css">
+<script defer src="../../../../nargo_doc.js"></script>
+<title>Function protect_from_forgery documentation</title>
+</head>
+<body>
+<div id="sidebar-toggle">
+<button id="sidebar-toggle-button"></button>
+<div id="sidebar-toggle-title">protect_from_forgery</div>
+</div>
+<span id="main-contents">
+<nav class="sidebar">
+<h1><a href="../../../../index.html">aztec-nr</a></h1>
+<div><a href="../../../../all.html">All items</a></div>
+<h2 id="crate-name"><a href="../../../index.html">noir_aztec</a></h2>
+<div id="crate-version">0.0.0</div>
+<h2>In module handshake</h2>
+<h3>Structs</h3><ul class="item-list">
+<li><a href="struct.AppSiloedHandshakeSecrets.html">AppSiloedHandshakeSecrets</a></div></li>
+<li><a href="struct.DiscoveredHandshake.html">DiscoveredHandshake</a></div></li>
+<li><a href="struct.HandshakePage.html">HandshakePage</a></div></li>
+</ul>
+<h3>Functions</h3><ul class="item-list">
+<li><a href="fn.forgery_protected_eph_pk.html">forgery_protected_eph_pk</a></div></li>
+<li><a href="fn.protect_from_forgery.html">protect_from_forgery</a></div></li>
+</ul>
+<h3>Globals</h3><ul class="item-list">
+<li><a href="global.GET_APP_SILOED_SECRETS_SELECTOR.html">GET_APP_SILOED_SECRETS_SELECTOR</a></div></li>
+<li><a href="global.GET_NON_INTERACTIVE_HANDSHAKES_SELECTOR.html">GET_NON_INTERACTIVE_HANDSHAKES_SELECTOR</a></div></li>
+<li><a href="global.INTERACTIVE_HANDSHAKE_SELECTOR.html">INTERACTIVE_HANDSHAKE_SELECTOR</a></div></li>
+<li><a href="global.MAX_HANDSHAKES_PER_PAGE.html">MAX_HANDSHAKES_PER_PAGE</a></div></li>
+<li><a href="global.NON_INTERACTIVE_HANDSHAKE_SELECTOR.html">NON_INTERACTIVE_HANDSHAKE_SELECTOR</a></div></li>
+</ul>
+</nav>
+<main>
+<div><a href="../../../../index.html">aztec-nr</a> - <a href="../../../index.html">noir_aztec</a>::<a href="../../index.html">messages</a>::<a href="../index.html">delivery</a>::<a href="index.html">handshake</a></div>
+<h1>Function <span class="fn">protect_from_forgery</span></h1>
+<pre><code>pub fn protect_from_forgery(
+    secret: <a href="../../../../std/embedded_curve_ops/struct.EmbeddedCurvePoint.html" class="struct">EmbeddedCurvePoint</a>,
+    eph_pk: <a href="../../../../std/embedded_curve_ops/struct.EmbeddedCurvePoint.html" class="struct">EmbeddedCurvePoint</a>,
+    recipient_point: <a href="../../../../std/embedded_curve_ops/struct.EmbeddedCurvePoint.html" class="struct">EmbeddedCurvePoint</a>,
+) -> <a href="../../../../std/embedded_curve_ops/struct.EmbeddedCurvePoint.html" class="struct">EmbeddedCurvePoint</a></code></pre>
+
+<div class="comments">
+<p>Protects a handshake's shared secret from recipient forgery.</p>
+<p>The handshake's ECDH shared secret is symmetric: <code>S = eph_sk * recipient_pub</code>, where <code>(eph_sk, eph_pk)</code> is
+the sender's ephemeral key pair, also equals <code>recipient_priv * eph_pk</code>. The recipient recomputing <code>S</code> this
+way is normal: it is how they derive the handshake's tags when scanning. The attack is minting a second
+handshake with the same secret: the ephemeral key is unconstrained, so a malicious recipient can register
+its own handshake crafted to land on <code>S</code> again, with a different sender-only secret, and emit logs under
+the honest handshake's constrained-delivery tag. That breaks the invariant that a constrained-delivery log
+sequence is tied to a single sender: by colliding on the tag it blocks the honest sender, who can no longer
+emit the next note in their sequence.</p>
+<p>The protection multiplies <code>S</code> by the scalar <code>k = hash(eph_pk, recipient_point)</code>: a forgery must announce a
+different <code>eph_pk</code>, so the protected secrets diverge. The result is still a point and silos like <code>S</code>.</p>
+<p>The recipient point must be part of <code>k</code>: were <code>k</code> independent of it, an attacker choosing the fake
+recipient point as a multiple of the honest protected secret could solve for the multiplier that makes the
+forged secret land exactly on it.</p>
+<p>Concretely, on the sender's side:
+S  = eph_sk * recipient_point
+S' = protect_from_forgery(S, eph_pk, recipient_point) = k * S</p>
+<p>See <a href="../../../../noir_aztec/messages/delivery/handshake/fn.forgery_protected_eph_pk.html"><code>forgery_protected_eph_pk</code></a> for how that arrives at the same <code>S'</code>.</p></div>
+</main>
+</span>
+</body>
+</html>

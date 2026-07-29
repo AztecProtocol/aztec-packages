@@ -30,29 +30,9 @@ The secret derives the account's encryption keys, the signing key authenticates 
 Save the `secret`, `salt`, and `signingKey` values securely. You need all three to recover access to your account. If you lose them, you will permanently lose access to the account and any assets it holds.
 :::
 
-## Create an initializerless account
-
-Alternatively, create an [initializerless account](../foundational-topics/accounts/deployment.md), which needs no deployment transaction at all:
-
-```typescript
-const secret = Fr.random();
-const salt = Fr.random();
-const account = await wallet.createSchnorrInitializerlessAccount(secret, salt);
-console.log("Account address:", account.address.toString());
-```
-
-An initializerless account commits its signing public key into the address itself (through the instance's `immutables_hash`), so there is no onchain state to initialize. Creating the account registers it locally in the PXE, and it is ready to use immediately: skip the deployment section below entirely. Fees are only needed for the account's first real transaction, paid with any of the usual [payment methods](./how_to_pay_fees.md).
-
-Two things to keep in mind:
-
-- The signing key cannot be changed later. A new key means a new address.
-- Calling `getDeployMethod()` on an initializerless account throws, since there is nothing to deploy.
-
-See [account deployment](../foundational-topics/accounts/deployment.md) for how this works and how to choose between the two account types.
-
 ## Deploy the account
 
-Accounts created with `createSchnorrAccount` must be deployed before they can send transactions (initializerless accounts skip this step). Deployment requires paying fees.
+New accounts must be deployed before they can send transactions. Deployment requires paying fees.
 
 ### Using the Sponsored FPC
 
@@ -90,5 +70,5 @@ Confirm the account was deployed successfully. Substitute the account variable f
 
 - [Deploy contracts](./how_to_deploy_contract.md) with your new account
 - [Send transactions](./how_to_send_transaction.md) from an account
-- Learn about [account abstraction](../foundational-topics/accounts/index.md) and [account deployment](../foundational-topics/accounts/deployment.md)
+- Learn about [account abstraction](../foundational-topics/accounts/index.md)
 - Implement [authentication witnesses](./how_to_use_authwit.md)
