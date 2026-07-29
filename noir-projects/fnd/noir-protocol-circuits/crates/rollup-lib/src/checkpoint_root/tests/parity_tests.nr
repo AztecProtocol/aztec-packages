@@ -75,16 +75,6 @@ fn mismatched_prover_id_from_parity() {
 
 // --- Message sponge ---
 
-#[test(should_fail_with = "The inbox parity message sponge must start empty")]
-fn inbox_parity_sponge_not_empty() {
-    let mut builder = TestBuilder::default();
-
-    // The inbox parity's message sponge must reset per checkpoint (start empty).
-    builder.inbox_parity.start_sponge.num_absorbed += 1;
-
-    builder.execute_with_mock_and_fail();
-}
-
 #[test(should_fail_with = "The blocks' message sponge does not match the inbox parity's message sponge")]
 fn blocks_sponge_mismatch_parity() {
     let mut builder = TestBuilder::default();

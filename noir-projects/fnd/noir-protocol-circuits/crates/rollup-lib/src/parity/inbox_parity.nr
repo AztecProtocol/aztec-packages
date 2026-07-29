@@ -16,8 +16,6 @@ pub struct InboxParityPrivateInputs<let S: u32> {
     // Rolling hash of the Inbox chain before this checkpoint's messages (the previous checkpoint's end value; genesis
     // is zero).
     pub(crate) start_rolling_hash: Field,
-    // Message-bundle sponge before this checkpoint's messages (empty at checkpoint start).
-    pub(crate) start_sponge: L1ToL2MessageSponge,
     // The L1 `in_hash` (sha256 frontier root of this checkpoint's messages), passed through UNCONSTRAINED to the
     // public inputs. See `ParityPublicInputs::in_hash`: the frontier tree is gone from this body, so the prover
     // supplies the value and the circuit does not recompute or bind it to `msgs`.
@@ -32,8 +30,9 @@ pub struct InboxParityPrivateInputs<let S: u32> {
 ///
 /// This circuit:
 /// - Chains the `num_msgs` real messages into the rolling hash (two sha256 compressions per leaf)
-/// - Absorbs the same real messages into the message sponge (real-count absorb; the checkpoint root asserts this
-///   equals the sponge the block roots accumulate)
+/// - Absorbs the same real messages into the empty message sponge (real-count absorb; the checkpoint root asserts this
+///   equals the sponge the block roots accumulate). The sponge resets per checkpoint and there is one proof per
+///   checkpoint, so the start is always the empty sponge and is hard-coded rather than witnessed.
 /// - Asserts the padding lanes past `num_msgs` are zero so they cannot silently enter either accumulator
 /// - Passes `in_hash` through unconstrained (see `InboxParityPrivateInputs::in_hash`)
 ///
@@ -47,14 +46,13 @@ pub fn execute<let S: u32>(inputs: InboxParityPrivateInputs<S>) -> ParityPublicI
     let end_rolling_hash =
         accumulate_inbox_rolling_hash(inputs.start_rolling_hash, inputs.msgs, inputs.num_msgs);
 
-    let mut end_sponge = inputs.start_sponge;
+    let mut end_sponge = L1ToL2MessageSponge::new();
     end_sponge.absorb(inputs.msgs, inputs.num_msgs);
 
     ParityPublicInputs {
         in_hash: inputs.in_hash,
         start_rolling_hash: inputs.start_rolling_hash,
         end_rolling_hash,
-        start_sponge: inputs.start_sponge,
         end_sponge,
         num_msgs: inputs.num_msgs,
         vk_tree_root: inputs.vk_tree_root,
