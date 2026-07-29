@@ -11,11 +11,16 @@ function format_check {
   # Under heavy parallel CI load the VPC DNS resolver drops lookups
   # ("Could not resolve host: github.com"), leaving a half-cloned dependency dir
   # that then fails with "Cannot read file .../Nargo.toml". Retry the download,
-  # wiping the partial dependency cache after a failure so the next attempt
-  # re-clones cleanly. A warm cache is left intact on success.
+  # dropping only the dependencies that never finished cloning so the next
+  # attempt re-fetches just those. Completed clones are kept: protocol_types is
+  # served from a several-hundred-megabyte clone of aztec-packages, so wiping
+  # the whole cache on each attempt costs far more than the flake it works
+  # around. Cache layout is $HOME/nargo/<host>/<org>/<repo>/<ref>, and a clone
+  # that did not complete has no resolvable HEAD.
   local nargo=$root/noir/noir-repo/target/release/nargo
   local fmt_check="( set -e; for dir in noir-contracts aztec-nr protocol-fuzzer/contracts; do (cd \"\$dir\" && \"$nargo\" fmt --check); done )"
-  RETRY_SLEEP=10 retry "$fmt_check || { rm -rf \"\$HOME/nargo\"; exit 1; }"
+  local drop_partial_clones="for dep in \"\$HOME\"/nargo/*/*/*/*; do [ -d \"\$dep\" ] || continue; git -C \"\$dep\" rev-parse --verify --quiet HEAD >/dev/null 2>&1 || rm -rf \"\$dep\"; done"
+  RETRY_SLEEP=10 retry "$fmt_check || { $drop_partial_clones; exit 1; }"
 }
 
 function build {

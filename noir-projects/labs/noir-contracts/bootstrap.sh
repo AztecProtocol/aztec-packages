@@ -51,8 +51,7 @@ function get_contract_hash {
         ../barretenberg/cpp/.rebuild_patterns \
         ../barretenberg/ts/.rebuild_patterns \
         "^docs/examples/$contract_path/" \
-        "^noir-projects/labs/aztec-nr/" \
-        "^noir-projects/fnd/noir-protocol-circuits/crates/types/")
+        "^noir-projects/labs/aztec-nr/")
   else
     # Called from noir-contracts
     hash_str \
@@ -62,8 +61,7 @@ function get_contract_hash {
         ../../../barretenberg/cpp/.rebuild_patterns \
         ../../../barretenberg/ts/.rebuild_patterns \
         "^noir-projects/labs/noir-contracts/contracts/$contract_path/" \
-        "^noir-projects/labs/aztec-nr/" \
-        "^noir-projects/fnd/noir-protocol-circuits/crates/types/")
+        "^noir-projects/labs/aztec-nr/")
   fi
 }
 export -f get_contract_hash
@@ -308,7 +306,6 @@ function bench_cmds {
       ../../../barretenberg/ts/.rebuild_patterns \
       "^noir-projects/labs/noir-contracts/" \
       "^noir-projects/labs/aztec-nr/" \
-      "^noir-projects/fnd/noir-protocol-circuits/crates/types/" \
       "^noir-projects/labs/noir-contracts/scripts/bench_artifact_sizes.sh"))
   echo "$hash noir-projects/labs/noir-contracts/scripts/bench_artifact_sizes.sh"
 }
