@@ -39,14 +39,14 @@ use aztec::macros::aztec;
 /// 4. **Entrypoint Validation**: Each call goes through `entrypoint()` which validates subscription status
 /// 5. **Call Forwarding**: Valid calls are forwarded to the target contract with proper fee handling
 
-/// ⚠️ WARNING: NOT FOR PRODUCTION USE ⚠️
+/// WARNING: NOT FOR PRODUCTION USE
 ///
 /// This contract is a proof of concept and experiment used internally by the Aztec team for testing aztec-nr and
 /// protocol features. It is NOT production-ready and is not meant to be deployed as-is.
 ///
 /// - It has undergone no security audit or careful security assessment.
 /// - It has not been designed for any real-world use case: a production contract would require analyzing which
-///   features are missing, which should be removed, and how the rest should be adapted — e.g. delivery methods for
+///   features are missing, which should be removed, and how the rest should be adapted - e.g. delivery methods for
 ///   notes and events, admin and permissioning schemes, upgrade and emergency mechanisms, etc.
 /// - Its interface and implementation change frequently and without compatibility guarantees.
 ///
