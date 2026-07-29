@@ -47,5 +47,10 @@ export default defineConfig({
       "@aztec/noir-noir_js",
     ],
   },
+  resolve: {
+    // Keep linked @aztec packages under this app so plugin-injected shim imports
+    // resolve from the webapp tutorial's node_modules.
+    preserveSymlinks: true,
+  },
 });
 // docs:end:vite-config

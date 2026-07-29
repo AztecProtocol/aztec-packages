@@ -1,0 +1,45 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="UTF-8">
+<link rel="stylesheet" href="../../../styles.css">
+<script defer src="../../../nargo_doc.js"></script>
+<title>Function compute_confirmed_note_hash_for_nullification documentation</title>
+</head>
+<body>
+<div id="sidebar-toggle">
+<button id="sidebar-toggle-button"></button>
+<div id="sidebar-toggle-title">compute_confirmed_note_hash_for_nullification</div>
+</div>
+<span id="main-contents">
+<nav class="sidebar">
+<h1><a href="../../../index.html">aztec-nr</a></h1>
+<div><a href="../../../all.html">All items</a></div>
+<h2 id="crate-name"><a href="../../index.html">noir_aztec</a></h2>
+<div id="crate-version">0.0.0</div>
+<h2>In module utils</h2>
+<h3>Functions</h3><ul class="item-list">
+<li><a href="fn.compute_confirmed_note_hash_for_nullification.html">compute_confirmed_note_hash_for_nullification</a></div></li>
+<li><a href="fn.compute_note_existence_request.html">compute_note_existence_request</a></div></li>
+<li><a href="fn.compute_note_hash.html">compute_note_hash</a></div></li>
+<li><a href="fn.compute_note_hash_for_nullification.html">compute_note_hash_for_nullification</a></div></li>
+<li><a href="fn.compute_note_nullifier.html">compute_note_nullifier</a></div></li>
+</ul>
+</nav>
+<main>
+<div><a href="../../../index.html">aztec-nr</a> - <a href="../../index.html">noir_aztec</a>::<a href="../index.html">note</a>::<a href="index.html">utils</a></div>
+<h1>Function <span class="fn">compute_confirmed_note_hash_for_nullification</span></h1>
+<pre><code>pub fn compute_confirmed_note_hash_for_nullification&lt;Note&gt;(
+    confirmed_note: <a href="../../../noir_aztec/note/struct.ConfirmedNote.html" class="struct">ConfirmedNote</a>&lt;Note&gt;,
+) -> <a href="../../../std/primitive.Field.html" class="primitive">Field</a></code></pre>
+
+<div class="comments">
+<p>Returns the note hash to use when computing its nullifier.</p>
+<p>The <code>note_hash_for_nullification</code> parameter <a href="../../../noir_aztec/note/note_interface/trait.NoteHash.html#compute_nullifier"><code>NoteHash::compute_nullifier</code></a> takes depends on the note's stage, e.g.
+settled notes use the unique note hash, but pending notes cannot as they have no nonce. This function returns the
+correct note hash to use.</p>
+<p>Use <a href="../../../noir_aztec/note/utils/fn.compute_note_hash_for_nullification.html"><code>compute_note_hash_for_nullification</code></a> when computing this value in unconstrained functions.</p></div>
+</main>
+</span>
+</body>
+</html>

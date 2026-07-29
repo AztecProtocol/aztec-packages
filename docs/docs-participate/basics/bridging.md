@@ -75,7 +75,7 @@ This delay is inherent to ZK rollups since the proof must be generated and verif
 
 Aztec uses a portal contract pattern where each L2 token contract is paired with a portal contract on L1. Any token can be bridged if a corresponding portal contract is deployed. There is no fixed list of "supported" tokens - developers can create portals for any L1 asset.
 
-The fee token used on Aztec has its own portal for bridging in and out of the network.
+The network's fee asset has its own dedicated portal: the **Fee Juice Portal**. It converts $AZTEC on Ethereum into [Fee Juice](/participate/basics/fees) on Aztec. Unlike regular token portals, this one is one-way for users: Fee Juice cannot be transferred or withdrawn, only spent on transaction fees.
 
 ## Security Considerations
 
@@ -89,7 +89,17 @@ Aztec's ZK proofs provide strong guarantees - if a proof verifies on L1, the sta
 
 ## Using Bridges
 
-Bridging typically involves interacting with the portal contract on L1 (for deposits) or initiating a withdrawal on L2 (for withdrawals). The exact interface depends on the specific bridge implementation and any frontend tooling built around it.
+You usually will not interact with portal contracts directly. You have a few options for moving assets to Aztec:
+
+- **Bridge apps** - [Shield](https://shield.human.tech/) is a bridge for moving assets into Aztec, including converting $AZTEC into [Fee Juice](/participate/basics/fees) to pay transaction fees, with bridge-plus-swap functionality rolling out as well. To connect to a bridge app you need an Aztec [wallet](/participate/basics/wallets) such as [Azguard](https://azguardwallet.io/). Find the current list of bridges in the Bridges category of the [Aztec ecosystem page](https://aztec.network/projects).
+- **Wallet and app flows** - Some Aztec wallets and apps include bridging or funding flows directly, so check your wallet before reaching for a separate bridge.
+- **Direct contract interaction** - Advanced users can interact with portal contracts directly. Official contract addresses are listed on the [networks page](/networks).
+
+:::caution Verify before you bridge
+Fake bridge sites are a common scam. Open bridge apps from the [ecosystem page](https://aztec.network/projects) rather than from search results or links sent to you in chat, and read [Staying safe](/participate/safety) before your first deposit.
+:::
+
+New to Aztec? The [Get started guide](/participate/get-started) walks through funding your account step by step.
 
 ---
 

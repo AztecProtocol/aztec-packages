@@ -18,7 +18,7 @@ if (ExecutionEnvironment.canUseDOM) {
       title: "Ask about Aztec",
       heroTitle: "Aztec Docs Assistant",
       heroDescription:
-        "Searches Aztec v4.3.0 developer docs, Aztec.nr, aztec.js SDK, protocol circuits, and more.",
+        "Searches Aztec v5.0.1 developer docs, Aztec.nr, aztec.js SDK, protocol circuits, and more.",
       theme: "ink",
       accent: "chartreuse",
       buttonStyle: "symbol",
