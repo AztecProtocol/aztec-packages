@@ -18,9 +18,15 @@ Foundation tools are built and maintained by the Aztec Foundation. Community too
 
 [stake.aztec.network](https://stake.aztec.network)
 
-The canonical interface for staking, delegation, registering sequencers, claiming rewards, and signaling governance. Supports both delegator and provider flows. Recently gained multi-rollup reward claiming (PR #66) and a provider commission-claim tab (PR #72).
+The canonical interface for staking, delegation, registering sequencers, claiming rewards, and signaling governance. Supports both delegator and provider flows, including multi-rollup reward claiming and a provider commission-claim tab.
 
 The backend API that serves this dashboard is not a supported public surface: its endpoints, response shapes, and rate limits can change without notice. If you need stable programmatic access to staking data, run your own indexer instead of calling the dashboard backend. The dashboard's indexer, [`atp-indexer`](https://github.com/AztecProtocol/staking-dashboard/tree/main/atp-indexer), is open source (a Ponder indexer in the staking-dashboard repository) and serves as the reference implementation you can self-host.
+
+### Monitoring installer
+
+[aztec-monitoring.sh](/scripts/aztec-monitoring.sh)
+
+A single self-contained script that sets up a full self-hosted monitoring stack for your sequencers: an OpenTelemetry collector next to each node, plus Grafana, Prometheus, and Alertmanager with Telegram alerts on a monitoring machine. The Grafana dashboard, alert rules, and Alertmanager template are embedded in the script. Targets `v5.0.0` and works with nodes run via Docker Compose. This is the recommended starting point for node monitoring; see [Monitoring and metrics](/operate/operators/concepts/monitoring#set-up-monitoring-with-the-installer) for the walkthrough. It is optional and replaceable with your own monitoring.
 
 ### Fee model
 
@@ -56,10 +62,15 @@ A self-hostable Aztec L2 indexer (Chicmoz-based, MIT): a listener that ingests p
 ### Scripts and installers
 
 **[pittpv/aztec-monitoring-script](https://github.com/pittpv/aztec-monitoring-script)**
-A bash-menu installer and monitoring script. One-stop install, upgrade, downgrade, status check, and Telegram alerting. The most widely recommended onboarding tool in the operator community.
+A community bash-menu installer and monitoring script. One-stop install, upgrade, downgrade, status check, and Telegram alerting. An alternative to the Foundation [monitoring installer](#monitoring-installer) above.
 
 **[pittpv/aztec-rpc-script](https://github.com/pittpv/aztec-rpc-script)**
 Companion script for setting up your own Ethereum execution + consensus client (with the supernode flags Aztec requires). Avoids depending on a hosted RPC provider.
+
+### Provider and key management
+
+**[aztec-scan/aztec-butler](https://github.com/aztec-scan/aztec-butler)**
+A CLI for operators running multiple nodes, from the team behind the AztecScan explorer. Generates and deploys validator keys, registers them, tracks each attester through its lifecycle states, sets coinbase addresses, and exports telemetry. Runs on Node.js as a systemd daemon; supports native and Olla registries. A newer, more advanced tool aimed at provider-scale operations rather than single-node setups.
 
 ### Coordination
 
