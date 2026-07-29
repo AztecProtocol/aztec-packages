@@ -5,6 +5,7 @@ import { createLogger } from '@aztec/foundation/log';
 import { TestDateProvider } from '@aztec/foundation/timer';
 import { GovernanceAbi } from '@aztec/l1-artifacts/GovernanceAbi';
 
+import { jest } from '@jest/globals';
 import { type Hex, encodeFunctionData, parseEventLogs } from 'viem';
 import { type PrivateKeyAccount, privateKeyToAccount } from 'viem/accounts';
 import { foundry } from 'viem/chains';
@@ -19,9 +20,30 @@ import {
   type GovernanceConfiguration,
   GovernanceContract,
   MAX_PROPOSAL_LIFETIME_SECONDS,
+  type Proposal,
   ProposalState,
   ReadOnlyGovernanceContract,
 } from './governance.js';
+
+describe('ProposalState', () => {
+  it('matches the on-chain IGovernance.ProposalState enum ordering', () => {
+    // Mirrors `IGovernance.ProposalState` in l1-contracts. On-chain enum values are decoded by
+    // numeric index, so any drift here silently misclassifies proposal states (e.g. an `Expired`
+    // proposal decoding as out-of-range and throwing, or `Dropped` decoding as `Droppable`).
+    const solidityOrder = [
+      'Pending',
+      'Active',
+      'Queued',
+      'Executable',
+      'Rejected',
+      'Executed',
+      'Droppable',
+      'Dropped',
+      'Expired',
+    ];
+    expect(solidityOrder.map((_name, index) => ProposalState[index])).toEqual(solidityOrder);
+  });
+});
 
 describe('Governance', () => {
   let anvil: Anvil;
@@ -89,7 +111,7 @@ describe('Governance', () => {
       expect(governance.getProposal).toBeDefined();
       expect(governance.getProposalState).toBeDefined();
       expect(governance.getProposalCount).toBeDefined();
-      expect(governance.hasActiveProposalWithPayload).toBeDefined();
+      expect(governance.getPayloadProposalStatus).toBeDefined();
       expect(governance.awaitProposalActive).toBeDefined();
       expect(governance.awaitProposalExecutable).toBeDefined();
     });
@@ -108,7 +130,7 @@ describe('Governance', () => {
       expect(config.minimumVotes).toBeGreaterThan(0n);
     });
 
-    describe('hasActiveProposalWithPayload', () => {
+    describe('getPayloadProposalStatus', () => {
       // Runtime bytecode for a contract whose only behavior is: ignore calldata, return `original`
       // (zero-padded to 32 bytes). This is a stand-in for `IProposerPayload.getOriginalPayload()`.
       // The point is to faithfully exercise the 'getOriginalPayload' path.
@@ -163,6 +185,27 @@ describe('Governance', () => {
       // Returns the latest L1 block timestamp as a bigint
       const nowOnChain = () => publicClient.getBlock({ includeTransactions: false }).then(b => b.timestamp);
 
+      // Builds a fully-populated synthetic Proposal for spy-driven tests of states that are hard to
+      // reach on a fresh anvil deployment (Executed / Droppable), where no voting power is available.
+      const makeProposal = (overrides: Partial<Proposal>): Proposal => ({
+        config: {
+          votingDelay: 0n,
+          votingDuration: 0n,
+          executionDelay: 0n,
+          gracePeriod: 0n,
+          quorum: 0n,
+          requiredYeaMargin: 0n,
+          minimumVotes: 0n,
+        },
+        cachedState: ProposalState.Pending,
+        state: ProposalState.Pending,
+        payload: EthAddress.random(),
+        proposer: EthAddress.random(),
+        creation: 0n,
+        summedBallot: { yea: 0n, nay: 0n },
+        ...overrides,
+      });
+
       beforeAll(async () => {
         await cheatCodes.startImpersonating(governanceProposerAddress);
       });
@@ -171,14 +214,14 @@ describe('Governance', () => {
         await cheatCodes.stopImpersonating(governanceProposerAddress);
       });
 
-      it('returns false on a fresh governance with no proposals', async () => {
+      it('reports none on a fresh governance with no proposals', async () => {
         const proposalCount = await governance.getProposalCount();
         expect(proposalCount).toBe(0n);
         const arbitraryPayload = EthAddress.random().toString();
-        await expect(governance.hasActiveProposalWithPayload(arbitraryPayload)).resolves.toBe(false);
+        await expect(governance.getPayloadProposalStatus(arbitraryPayload)).resolves.toBe('none');
       });
 
-      it('returns true when a live proposal unwraps to the queried payload', async () => {
+      it('reports live when a live proposal unwraps to the queried payload', async () => {
         const original = EthAddress.random();
         const wrapper = await etchCode(buildMockWrapperBytecode(original));
 
@@ -186,29 +229,29 @@ describe('Governance', () => {
 
         // The proposal is freshly created, so it should be in `Pending` state
         await expect(governance.getProposalState(proposalId)).resolves.toBe(ProposalState.Pending);
-        await expect(governance.hasActiveProposalWithPayload(original.toString())).resolves.toBe(true);
+        await expect(governance.getPayloadProposalStatus(original.toString())).resolves.toBe('live');
       });
 
-      it('returns false when no live proposal references the queried payload', async () => {
+      it('reports none when no proposal references the queried payload', async () => {
         // Create a proposal for a different payload than the one we query.
         const proposalOriginal = EthAddress.random();
         const wrapper = await etchCode(buildMockWrapperBytecode(proposalOriginal));
         await proposeAsProposer(wrapper);
 
         const queriedPayload = EthAddress.random();
-        await expect(governance.hasActiveProposalWithPayload(queriedPayload.toString())).resolves.toBe(false);
+        await expect(governance.getPayloadProposalStatus(queriedPayload.toString())).resolves.toBe('none');
       });
 
-      it('returns false once the matching proposal reaches a terminal state', async () => {
+      it('reports none once the matching proposal reaches a re-signalable terminal state', async () => {
         // No tokens were ever deposited, so no votes can be cast. Once the active phase ends with no
-        // yea votes the proposal transitions to `Rejected`, which is terminal -- and at that point
-        // re-signaling/re-proposing is allowed, so `hasActiveProposalWithPayload` must report false.
+        // yea votes the proposal transitions to `Rejected`, which allows re-signaling/re-proposing,
+        // so `getPayloadProposalStatus` must report `none`.
         const original = EthAddress.random();
         const wrapper = await etchCode(buildMockWrapperBytecode(original));
         const proposalId = await proposeAsProposer(wrapper);
 
-        // Pending while the queried payload is in Pending.
-        await expect(governance.hasActiveProposalWithPayload(original.toString())).resolves.toBe(true);
+        // Live while the queried payload's proposal is in Pending.
+        await expect(governance.getPayloadProposalStatus(original.toString())).resolves.toBe('live');
 
         // Warp past the active phase so the proposal becomes terminal. We use the proposal's own
         // frozen config (creation + votingDelay + votingDuration + 1) rather than the live config,
@@ -218,7 +261,7 @@ describe('Governance', () => {
         await cheatCodes.warp(Number(activeThrough + 1n));
 
         await expect(governance.getProposalState(proposalId)).resolves.toBe(ProposalState.Rejected);
-        await expect(governance.hasActiveProposalWithPayload(original.toString())).resolves.toBe(false);
+        await expect(governance.getPayloadProposalStatus(original.toString())).resolves.toBe('none');
       });
 
       it('skips proposals whose payload reverts on getOriginalPayload (proposeWithLock-style)', async () => {
@@ -235,7 +278,17 @@ describe('Governance', () => {
 
         // The proposal is freshly created, so it should be in `Pending` state
         await expect(governance.getProposalState(proposalId)).resolves.toBe(ProposalState.Pending);
-        await expect(governance.hasActiveProposalWithPayload(original.toString())).resolves.toBe(true);
+        await expect(governance.getPayloadProposalStatus(original.toString())).resolves.toBe('live');
+      });
+
+      it('matches a proposeWithLock proposal by its stored payload address directly', async () => {
+        // proposeWithLock stores the raw payload (no GSEPayload wrapper), so `getOriginalPayload`
+        // reverts and there is no unwrapped original to compare. The queried payload must still match
+        // directly against the proposal's stored payload address.
+        const rawPayload = await etchCode(REVERTING_WRAPPER_BYTECODE);
+        await proposeAsProposer(rawPayload);
+
+        await expect(governance.getPayloadProposalStatus(rawPayload)).resolves.toBe('live');
       });
 
       it('finds a live proposal among multiple unrelated proposals', async () => {
@@ -255,7 +308,7 @@ describe('Governance', () => {
         const noiseWrapper2 = await etchCode(buildMockWrapperBytecode(irrelevantOriginal2));
         await proposeAsProposer(noiseWrapper2);
 
-        await expect(governance.hasActiveProposalWithPayload(targetOriginal.toString())).resolves.toBe(true);
+        await expect(governance.getPayloadProposalStatus(targetOriginal.toString())).resolves.toBe('live');
       });
 
       it('matches case-insensitively against the original payload address', async () => {
@@ -266,10 +319,84 @@ describe('Governance', () => {
         await proposeAsProposer(wrapper);
 
         const upperHex = ('0x' + original.toString().slice(2).toUpperCase()) as Hex;
-        await expect(governance.hasActiveProposalWithPayload(upperHex)).resolves.toBe(true);
+        await expect(governance.getPayloadProposalStatus(upperHex)).resolves.toBe('live');
       });
 
-      it('early-stops on the protocol-wide lifetime cap and returns false for old proposals', async () => {
+      it('reports executed when the matching proposal has been executed', async () => {
+        // Executed requires a full deposit/vote/execute lifecycle that a fresh anvil deployment has
+        // no voting power for, so we drive the state via a synthetic proposal read.
+        const original = EthAddress.random();
+        const wrapper = await etchCode(buildMockWrapperBytecode(original));
+        const creation = await nowOnChain();
+
+        jest.spyOn(governance, 'getProposalCount').mockResolvedValue(1n);
+        jest
+          .spyOn(governance, 'getProposal')
+          .mockResolvedValue(
+            makeProposal({ state: ProposalState.Executed, payload: EthAddress.fromString(wrapper), creation }),
+          );
+
+        await expect(governance.getPayloadProposalStatus(original.toString())).resolves.toBe('executed');
+      });
+
+      it('prefers live over executed when both reference the payload', async () => {
+        // A payload re-submitted while a prior execution is still in the lookback window must read as
+        // `live` so the in-flight proposal is not re-signalled prematurely.
+        const original = EthAddress.random();
+        const executedWrapper = EthAddress.fromString(await etchCode(buildMockWrapperBytecode(original)));
+        const liveWrapper = EthAddress.fromString(await etchCode(buildMockWrapperBytecode(original)));
+        const creation = await nowOnChain();
+
+        jest.spyOn(governance, 'getProposalCount').mockResolvedValue(2n);
+        jest
+          .spyOn(governance, 'getProposal')
+          .mockImplementation((id: bigint) =>
+            Promise.resolve(
+              id === 1n
+                ? makeProposal({ state: ProposalState.Executed, payload: executedWrapper, creation })
+                : makeProposal({ state: ProposalState.Pending, payload: liveWrapper, creation }),
+            ),
+          );
+
+        await expect(governance.getPayloadProposalStatus(original.toString())).resolves.toBe('live');
+      });
+
+      it('reports live for a Droppable proposal (blocks re-signalling)', async () => {
+        // Droppable is neither live nor terminal; conservatively it blocks re-signalling, since the
+        // proposal can resume its lifecycle if the governanceProposer is restored.
+        const original = EthAddress.random();
+        const wrapper = await etchCode(buildMockWrapperBytecode(original));
+        const creation = await nowOnChain();
+
+        jest.spyOn(governance, 'getProposalCount').mockResolvedValue(1n);
+        jest
+          .spyOn(governance, 'getProposal')
+          .mockResolvedValue(
+            makeProposal({ state: ProposalState.Droppable, payload: EthAddress.fromString(wrapper), creation }),
+          );
+
+        await expect(governance.getPayloadProposalStatus(original.toString())).resolves.toBe('live');
+      });
+
+      it('memoizes the executed verdict so it survives the proposal aging past the lookback', async () => {
+        const original = EthAddress.random();
+        const wrapper = await etchCode(buildMockWrapperBytecode(original));
+        const creation = await nowOnChain();
+
+        // First sweep observes the executed proposal; subsequent sweeps see no proposals at all.
+        jest.spyOn(governance, 'getProposalCount').mockResolvedValueOnce(1n).mockResolvedValue(0n);
+        jest
+          .spyOn(governance, 'getProposal')
+          .mockResolvedValue(
+            makeProposal({ state: ProposalState.Executed, payload: EthAddress.fromString(wrapper), creation }),
+          );
+
+        await expect(governance.getPayloadProposalStatus(original.toString())).resolves.toBe('executed');
+        // Even with the executed proposal gone from the sweep, the memoized verdict still reports executed.
+        await expect(governance.getPayloadProposalStatus(original.toString())).resolves.toBe('executed');
+      });
+
+      it('early-stops on the protocol-wide lifetime cap and reports none for old proposals', async () => {
         // Even if a proposal is "live" in the sense that no terminal-state transition has been
         // recorded, once its creation timestamp is more than 4 * TIME_UPPER (= 360 days) in the past
         // it cannot possibly still be in Pending/Active/Queued/Executable, because each phase is
@@ -280,7 +407,7 @@ describe('Governance', () => {
         await proposeAsProposer(wrapper);
 
         // Live initially.
-        await expect(governance.hasActiveProposalWithPayload(original.toString())).resolves.toBe(true);
+        await expect(governance.getPayloadProposalStatus(original.toString())).resolves.toBe('live');
 
         // Warp beyond 4 * 90 days so the proposal's creation falls outside the hard cutoff.
         const FOUR_TIME_UPPER = 4n * 90n * 24n * 3600n;
@@ -288,13 +415,13 @@ describe('Governance', () => {
         await cheatCodes.warp(Number(target));
 
         // We don't assert on getProposalState here; it would return `Rejected` (no votes cast in the
-        // active phase), but the early-stop in `hasActiveProposalWithPayload` is meant to fire even
-        // if it were stuck in some non-terminal state, so we test the boolean directly.
-        await expect(governance.hasActiveProposalWithPayload(original.toString())).resolves.toBe(false);
+        // active phase), but the early-stop in `getPayloadProposalStatus` is meant to fire even if it
+        // were stuck in some non-terminal state, so we test the classification directly.
+        await expect(governance.getPayloadProposalStatus(original.toString())).resolves.toBe('none');
 
         // Sanity: the older live proposals from earlier tests are also past the cutoff now, so the
-        // sweep should report false for any payload, including the dummy one.
-        await expect(governance.hasActiveProposalWithPayload(EthAddress.random().toString())).resolves.toBe(false);
+        // sweep should report none for any payload, including the dummy one.
+        await expect(governance.getPayloadProposalStatus(EthAddress.random().toString())).resolves.toBe('none');
       });
     });
 
@@ -374,7 +501,7 @@ describe('Governance', () => {
       expect(governance.getProposal).toBeDefined();
       expect(governance.getProposalState).toBeDefined();
       expect(governance.getProposalCount).toBeDefined();
-      expect(governance.hasActiveProposalWithPayload).toBeDefined();
+      expect(governance.getPayloadProposalStatus).toBeDefined();
       expect(governance.awaitProposalActive).toBeDefined();
       expect(governance.awaitProposalExecutable).toBeDefined();
     });

@@ -43,7 +43,9 @@ export class InsufficientFeePerGasEvictionRule implements EvictionRule {
       }
 
       if (txsToEvict.length > 0) {
-        this.log.info(`Evicted ${txsToEvict.length} txs with insufficient fee per gas after block mined`);
+        this.log.info(`Evicted ${txsToEvict.length} txs with insufficient fee per gas after block mined`, {
+          txsToEvict,
+        });
         await pool.deleteTxs(txsToEvict, this.name);
       }
 

@@ -4,7 +4,7 @@ import type { AztecNode } from '@aztec/stdlib/interfaces/server';
 import type { AppTaggingSecret } from '@aztec/stdlib/logs';
 
 import type { SenderTaggingStore } from '../../storage/tagging_store/sender_tagging_store.js';
-import { UNFINALIZED_TAGGING_INDEXES_WINDOW_LEN } from '../constants.js';
+import { unfinalizedTaggingIndexesWindowEnd } from '../constants.js';
 import { loadAndStoreNewTaggingIndexes } from './utils/load_and_store_new_tagging_indexes.js';
 import { resolvePendingTxs } from './utils/resolve_pending_txs.js';
 
@@ -50,7 +50,9 @@ export async function syncSenderTaggingIndexes(
   const finalizedIndex = await taggingStore.getLastFinalizedIndex(secret, jobId);
 
   let start = finalizedIndex === undefined ? 0 : finalizedIndex + 1;
-  let end = start + UNFINALIZED_TAGGING_INDEXES_WINDOW_LEN;
+  // The loop only extends the window when the finalized index moves,
+  // so this first window must cover the entire permitted range on its own.
+  let end = unfinalizedTaggingIndexesWindowEnd(finalizedIndex);
 
   let previousFinalizedIndex = finalizedIndex;
   let newFinalizedIndex = undefined;
@@ -99,8 +101,7 @@ export async function syncSenderTaggingIndexes(
       //    New window:                                             [21, 22, 23]
 
       const previousEnd = end;
-      // Add 1 because `end` is exclusive and the known finalized index is not included in the window.
-      end = newFinalizedIndex! + UNFINALIZED_TAGGING_INDEXES_WINDOW_LEN + 1;
+      end = unfinalizedTaggingIndexesWindowEnd(newFinalizedIndex);
       start = previousEnd;
       previousFinalizedIndex = newFinalizedIndex;
     } else {

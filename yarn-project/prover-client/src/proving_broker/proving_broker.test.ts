@@ -175,11 +175,15 @@ describe.each([
         type: ProvingRequestType.PARITY_BASE,
         inputsUri: makeInputsUri(),
       });
+      // Re-enqueuing the same id with different metadata (here, a different type) is a caller bug and
+      // must throw. The identity check is metadata-level: `inputsUri` lives in the database now, not the
+      // in-memory cache, and job ids are content-addressed so genuinely different content yields a
+      // different id (it would not reach this same-id branch at all).
       await expect(
         broker.enqueueProvingJob({
           id,
           epochNumber: EpochNumber(1),
-          type: ProvingRequestType.PARITY_BASE,
+          type: ProvingRequestType.PRIVATE_TX_BASE_ROLLUP,
           inputsUri: makeInputsUri(),
         }),
       ).rejects.toThrow('Duplicate proving job ID');
@@ -1053,7 +1057,7 @@ describe.each([
         inputsUri: makeInputsUri(),
       });
 
-      const jobPromise = (broker as any).promises.get(id)?.promise;
+      const jobPromise: Promise<void> | undefined = (broker as any).promises.get(id)?.promise;
       expect(jobPromise).toBeDefined();
 
       // Advance the epoch height so epoch 1 becomes stale (oldestEpochToKeep = 3 - 1 = 2)
@@ -1068,8 +1072,9 @@ describe.each([
       await sleep(brokerIntervalMs * 2);
       await assertJobStatus(id, 'not-found');
 
-      // The promise must have been settled (resolved with a rejected status) rather than left pending
-      await expect(jobPromise).resolves.toEqual({ status: 'rejected', reason: 'Proving job cleaned up' });
+      // The promise must have been settled (resolved rather than left pending) on clean-up. It carries no
+      // payload now — settled status/results are read from resultsCache/pendingResults/DB, not the promise.
+      await expect(jobPromise).resolves.toBeUndefined();
     });
 
     it('keeps the jobs in progress while it is alive', async () => {
@@ -1207,6 +1212,40 @@ describe.each([
       await expect(broker.getProvingJobStatus(id)).resolves.toEqual({
         status: 'not-found',
       });
+    });
+  });
+
+  describe('off-heap payloads', () => {
+    it('keeps only metadata/status in memory and serves inputs & result from the database', async () => {
+      const provingJob: ProvingJob = {
+        id: makeRandomProvingJobId(EpochNumber(1)),
+        type: ProvingRequestType.PARITY_BASE,
+        epochNumber: EpochNumber(1),
+        inputsUri: makeInputsUri(),
+      };
+      await broker.enqueueProvingJob(provingJob);
+
+      // The in-memory job cache holds metadata only — no inputsUri.
+      expect((broker as any).jobsCache.get(provingJob.id)).toEqual({
+        id: provingJob.id,
+        type: provingJob.type,
+        epochNumber: provingJob.epochNumber,
+      });
+
+      // Dispatch reconstructs the full job by reading inputsUri back from the database.
+      const dispatched = await broker.getProvingJob({ allowList: [ProvingRequestType.PARITY_BASE] });
+      expect(dispatched?.job).toEqual(provingJob);
+
+      const value = makeOutputsUri();
+      await broker.reportProvingJobSuccess(provingJob.id, value);
+
+      // The fulfilled proof value is not retained in memory: resultsCache holds status only, and the
+      // transient pendingResults hold was evicted once the database write committed.
+      expect((broker as any).resultsCache.get(provingJob.id)).toEqual({ status: 'fulfilled' });
+      expect((broker as any).pendingResults.has(provingJob.id)).toBe(false);
+
+      // ...yet the status endpoint still returns the full result, read back from the database.
+      await expect(broker.getProvingJobStatus(provingJob.id)).resolves.toEqual({ status: 'fulfilled', value });
     });
   });
 

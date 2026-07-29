@@ -50,6 +50,11 @@ export interface SequencerConfig {
   /** Payload address to vote for */
   governanceProposerPayload?: EthAddress;
   /**
+   * Keep signalling the configured governance payload even if a proposal referencing it was already
+   * executed within the lookback window. For payloads deliberately designed to be re-executed.
+   */
+  governanceProposerForcePayloadVote?: boolean;
+  /**
    * Minimum block-building time (`min_block_duration`) still worth allocating if the proposer starts
    * late, in seconds.
    */
@@ -150,6 +155,7 @@ export const SequencerConfigSchema = zodFor<SequencerConfig>()(
     acvmBinaryPath: z.string().optional(),
     txPublicSetupAllowListExtend: z.array(AllowedElementSchema).optional(),
     governanceProposerPayload: schemas.EthAddress.optional(),
+    governanceProposerForcePayloadVote: z.boolean().optional(),
     minBlockDuration: z.number().positive().optional(),
     checkpointProposalPrepareTime: z.number().nonnegative().optional(),
     l1PublishingTime: z.number().optional(),

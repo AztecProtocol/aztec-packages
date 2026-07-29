@@ -2898,6 +2898,45 @@ describe('BlockStore', () => {
       expect(removedBlocks).toEqual([]);
     });
 
+    it('fully cleans up blocks sharing a tx effect', async () => {
+      // Two blocks carrying the same tx, as when a tx is re-included after its original proposal expired.
+      // Inserting block2 pointed the shared tx's index entry at block2, so deleting block1 must not remove it:
+      // doing so makes block2 unreadable, and a cleanup that skips unreadable blocks would then leak block2's
+      // row and tx effects to be overwritten in place by later inserts at the same number.
+      const block1 = await L2Block.random(BlockNumber(1), {
+        checkpointNumber: CheckpointNumber(1),
+        indexWithinCheckpoint: IndexWithinCheckpoint(0),
+        txsPerBlock: 2,
+      });
+      const block2 = await L2Block.random(BlockNumber(2), {
+        checkpointNumber: CheckpointNumber(1),
+        indexWithinCheckpoint: IndexWithinCheckpoint(1),
+        lastArchive: block1.archive,
+        txsPerBlock: 2,
+      });
+      const sharedTx = block1.body.txEffects[0];
+      block2.body.txEffects[0] = sharedTx;
+
+      await addProposedBlocks(blockStore, [block1, block2]);
+      expect((await blockStore.getTxEffect(sharedTx.txHash))?.l2BlockNumber).toBe(2);
+
+      const removedBlocks = await blockStore.removeBlocksAfter(BlockNumber(0));
+
+      expect(removedBlocks.map(b => b.number)).toEqual([1, 2]);
+      expect(await blockStore.getLatestL2BlockNumber()).toBe(0);
+      for (const tx of [sharedTx, block1.body.txEffects[1], block2.body.txEffects[1]]) {
+        expect(await blockStore.getTxEffect(tx.txHash)).toBeUndefined();
+      }
+      for (const block of [block1, block2]) {
+        expect(await blockStore.getBlock({ number: block.number })).toBeUndefined();
+        expect(await blockStore.getBlockNumber({ hash: await block.hash() })).toBeUndefined();
+        expect(await blockStore.getBlockNumber({ archive: block.archive.root })).toBeUndefined();
+      }
+
+      // The store accepts the same chain again: nothing stale was left behind.
+      await expect(addProposedBlocks(blockStore, [block1, block2])).resolves.toBe(true);
+    });
+
     it('cleans up related data (tx effects, hash index, archive index)', async () => {
       const block1 = await L2Block.random(BlockNumber(1), {
         checkpointNumber: CheckpointNumber(1),

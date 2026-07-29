@@ -9,6 +9,7 @@ import {
 } from '@aztec/foundation/branded-types';
 import { sha256Trunc } from '@aztec/foundation/crypto/sha256';
 import { Fr } from '@aztec/foundation/curves/bn254';
+import type { AztecAsyncKVStore } from '@aztec/kv-store';
 import { type L2ToL1MembershipWitness, computeEpochOutHash } from '@aztec/stdlib/messaging';
 import { TxHash } from '@aztec/stdlib/tx';
 
@@ -41,7 +42,13 @@ describe('OutboxTreesResolver lazy roots cache', () => {
       return Promise.resolve(makeZeroRoots());
     });
 
-    resolver = new OutboxTreesResolver(outbox, archiver, () => Promise.resolve(syncedL1Block), EPOCH_DURATION);
+    resolver = new OutboxTreesResolver(
+      outbox,
+      archiver,
+      makeFakeStore(),
+      () => Promise.resolve(syncedL1Block),
+      EPOCH_DURATION,
+    );
   });
 
   // Exercises the private #getRoots path through a witness request whose epoch has no blocks,
@@ -83,6 +90,7 @@ describe('OutboxTreesResolver lazy roots cache', () => {
     const notSyncedResolver = new OutboxTreesResolver(
       outbox,
       archiver,
+      makeFakeStore(),
       () => Promise.resolve(undefined),
       EPOCH_DURATION,
     );
@@ -114,7 +122,7 @@ describe('OutboxTreesResolver witness building', () => {
     outbox = mock<OutboxContract>();
     archiver = mock<OutboxTreesArchiverView>();
     // Witness tests fetch the covering roots once at synced block 0 via the outbox mock.
-    resolver = new OutboxTreesResolver(outbox, archiver, () => Promise.resolve(0n), EPOCH_DURATION);
+    resolver = new OutboxTreesResolver(outbox, archiver, makeFakeStore(), () => Promise.resolve(0n), EPOCH_DURATION);
   });
 
   it('returns undefined when the tx is not yet in a block', async () => {
@@ -216,6 +224,7 @@ describe('OutboxTreesResolver witness building', () => {
     const drifting = new OutboxTreesResolver(
       outbox,
       archiver,
+      makeFakeStore(),
       () => Promise.resolve(BigInt(syncedCalls++)),
       EPOCH_DURATION,
     );
@@ -225,6 +234,17 @@ describe('OutboxTreesResolver witness building', () => {
 });
 
 // --- Helpers ----------------------------------------------------------------
+
+/**
+ * Store double whose `transactionAsync` just runs the callback. The archiver view is mocked here, so
+ * there is no real snapshot to isolate; the resolver only needs the callback invoked. Snapshot
+ * consistency of the real store is covered by the kv-store transaction tests.
+ */
+function makeFakeStore(): AztecAsyncKVStore {
+  const store = mock<AztecAsyncKVStore>();
+  store.transactionAsync.mockImplementation(callback => callback());
+  return store;
+}
 
 function makeZeroRoots(): Fr[] {
   return Array.from({ length: MAX_CHECKPOINTS_PER_EPOCH }, () => Fr.ZERO);
