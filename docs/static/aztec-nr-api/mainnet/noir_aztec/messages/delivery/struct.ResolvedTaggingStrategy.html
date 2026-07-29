@@ -1,0 +1,104 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="UTF-8">
+<link rel="stylesheet" href="../../../styles.css">
+<script defer src="../../../nargo_doc.js"></script>
+<title>Struct ResolvedTaggingStrategy documentation</title>
+</head>
+<body>
+<div id="sidebar-toggle">
+<button id="sidebar-toggle-button"></button>
+<div id="sidebar-toggle-title">ResolvedTaggingStrategy</div>
+</div>
+<span id="main-contents">
+<nav class="sidebar">
+<h1><a href="../../../index.html">aztec-nr</a></h1>
+<div><a href="../../../all.html">All items</a></div>
+<h2 id="crate-name"><a href="../../index.html">noir_aztec</a></h2>
+<div id="crate-version">0.0.0</div>
+<h2><a href="#struct">Struct ResolvedTaggingStrategy</a></h2>
+<h3>Methods</h3>
+<ul class="sidebar-list">
+<li><a href="#interactive_handshake">interactive_handshake</a></li>
+<li><a href="#is_unconstrained_secret">is_unconstrained_secret</a></li>
+<li><a href="#non_interactive_handshake">non_interactive_handshake</a></li>
+<li><a href="#unconstrained_secret">unconstrained_secret</a></li>
+</ul>
+<h3>Trait implementations</h3>
+<ul class="sidebar-list">
+<li><a href="#impl-Deserialize-for-ResolvedTaggingStrategy">Deserialize</a></li>
+<li><a href="#impl-Eq-for-ResolvedTaggingStrategy">Eq</a></li>
+<li><a href="#impl-Serialize-for-ResolvedTaggingStrategy">Serialize</a></li>
+</ul>
+<h2>In module delivery</h2>
+<h3>Modules</h3><ul class="item-list">
+<li><a href="constrained_delivery/index.html">constrained_delivery</a></div></li>
+<li><a href="handshake/index.html">handshake</a></div></li>
+</ul>
+<h3>Structs</h3><ul class="item-list">
+<li><a href="struct.MessageDelivery.html">MessageDelivery</a></div></li>
+<li><a href="struct.OffchainDelivery.html">OffchainDelivery</a></div></li>
+<li><a href="struct.OnchainConstrainedDelivery.html">OnchainConstrainedDelivery</a></div></li>
+<li><a href="struct.OnchainDeliveryMode.html">OnchainDeliveryMode</a></div></li>
+<li><a href="struct.OnchainUnconstrainedDelivery.html">OnchainUnconstrainedDelivery</a></div></li>
+<li><a href="struct.ResolvedTaggingStrategy.html">ResolvedTaggingStrategy</a></div></li>
+</ul>
+<h3>Traits</h3><ul class="item-list">
+<li><a href="trait.MessageDeliveryBuilder.html">MessageDeliveryBuilder</a></div></li>
+</ul>
+<h3>Functions</h3><ul class="item-list">
+<li><a href="fn.do_private_message_delivery.html">do_private_message_delivery</a></div></li>
+</ul>
+</nav>
+<main>
+<div><a href="../../../index.html">aztec-nr</a> - <a href="../../index.html">noir_aztec</a>::<a href="../index.html">messages</a>::<a href="index.html">delivery</a></div>
+<h1>Struct <span id="struct" class="struct">ResolvedTaggingStrategy</span></h1>
+<pre><code>pub struct ResolvedTaggingStrategy
+{ <span class="comment">/* private fields */</span> }
+</code></pre>
+<div class="comments">
+<p>The tagging secret the PXE hands to the contract after applying the wallet's tagging secret strategy. It is already
+app-siloed, so the contract uses it directly to derive the message tag and never sees raw key material.</p>
+</div>
+<h2>Implementations</h2>
+<h3><code class="code-header">impl <a href="../../../noir_aztec/messages/delivery/struct.ResolvedTaggingStrategy.html" class="struct">ResolvedTaggingStrategy</a></code></h3>
+
+<div class="padded-methods"><code id="non_interactive_handshake" class="code-header">pub fn <a href="#non_interactive_handshake"><span class="fn">non_interactive_handshake</span></a>() -> Self</code>
+
+<div class="padded-description"><div class="comments">
+<p>A non-interactive handshake: the recipient re-derives the secret from the onchain handshake registry.</p>
+</div>
+</div><code id="unconstrained_secret" class="code-header">pub fn <a href="#unconstrained_secret"><span class="fn">unconstrained_secret</span></a>(secret: <a href="../../../std/primitive.Field.html" class="primitive">Field</a>) -> Self</code>
+
+<div class="padded-description"><div class="comments">
+<p>An app-siloed, recipient-directional secret, ready to use. Only sound for unconstrained delivery.</p>
+</div>
+</div><code id="interactive_handshake" class="code-header">pub fn <a href="#interactive_handshake"><span class="fn">interactive_handshake</span></a>() -> Self</code>
+
+<div class="padded-description"><div class="comments">
+<p>An interactive handshake: the recipient learns the secret while signing its authorization.</p>
+</div>
+</div><code id="is_unconstrained_secret" class="code-header">pub fn <a href="#is_unconstrained_secret"><span class="fn">is_unconstrained_secret</span></a>(self) -> <a href="../../../std/primitive.bool.html" class="primitive">bool</a></code>
+
+</div><h2>Trait implementations</h2>
+<h3 id="impl-Deserialize-for-ResolvedTaggingStrategy"><code class="code-header">impl <a href="../../../serde/serialization/trait.Deserialize.html" class="trait">Deserialize</a> for <a href="../../../noir_aztec/messages/delivery/struct.ResolvedTaggingStrategy.html" class="struct">ResolvedTaggingStrategy</a></code></h3>
+
+<div class="padded-methods"><code class="code-header">pub fn <span class="fn">deserialize</span>(fields: [<a href="../../../std/primitive.Field.html" class="primitive">Field</a>; 2]) -> Self</code>
+
+<code class="code-header">pub fn <span class="fn">stream_deserialize</span>&lt;let K: <a href="../../../std/primitive.u32.html" class="primitive">u32</a>&gt;(reader: &mut <a href="../../../serde/reader/struct.Reader.html" class="struct">Reader</a>&lt;K&gt;) -> Self</code>
+
+</div><h3 id="impl-Eq-for-ResolvedTaggingStrategy"><code class="code-header">impl <a href="../../../std/cmp/trait.Eq.html" class="trait">Eq</a> for <a href="../../../noir_aztec/messages/delivery/struct.ResolvedTaggingStrategy.html" class="struct">ResolvedTaggingStrategy</a></code></h3>
+
+<div class="padded-methods"><code class="code-header">pub fn <span class="fn">eq</span>(_self: Self, _other: Self) -> <a href="../../../std/primitive.bool.html" class="primitive">bool</a></code>
+
+</div><h3 id="impl-Serialize-for-ResolvedTaggingStrategy"><code class="code-header">impl <a href="../../../serde/serialization/trait.Serialize.html" class="trait">Serialize</a> for <a href="../../../noir_aztec/messages/delivery/struct.ResolvedTaggingStrategy.html" class="struct">ResolvedTaggingStrategy</a></code></h3>
+
+<div class="padded-methods"><code class="code-header">pub fn <span class="fn">serialize</span>(self) -> [<a href="../../../std/primitive.Field.html" class="primitive">Field</a>; 2]</code>
+
+<code class="code-header">pub fn <span class="fn">stream_serialize</span>&lt;let K: <a href="../../../std/primitive.u32.html" class="primitive">u32</a>&gt;(self, writer: &mut <a href="../../../serde/writer/struct.Writer.html" class="struct">Writer</a>&lt;K&gt;)</code>
+
+</div></main>
+</span>
+</body>
+</html>

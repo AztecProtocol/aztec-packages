@@ -8,14 +8,32 @@ displayed_sidebar: participateSidebar
 
 Wallets on Aztec do more than just store your keys. This page covers what wallets are available, what makes them different, and the future of hardware wallet support.
 
-## Available Wallets
+## Available wallets
+
+### Azguard
+
+[Azguard](https://azguardwallet.io/) is a browser extension wallet for Aztec, and currently the wallet to use if you want to interact with Aztec applications from your browser. It connects to Aztec apps the same way MetaMask connects to Ethereum apps: a website requests a connection, and you approve it in the extension.
+
+With Azguard you can:
+
+- Create and manage Aztec accounts
+- Connect to Aztec applications, such as the [Shield](https://shield.human.tech/) bridge for [getting Fee Juice](/participate/basics/fees#how-to-get-fee-juice)
+- Sign and send transactions, with proofs generated on your device
+
+### Other wallets
+
+Ecosystem teams are building more wallets for everyday users, and availability changes quickly at this stage. Check the Wallets category of the [Aztec ecosystem page](https://aztec.network/projects) for the current list.
+
+:::caution Install from official sources only
+Fake wallet extensions and apps are a common scam. Open wallet download pages from the [ecosystem page](https://aztec.network/projects) or the wallet team's official channels, never from search ads or links sent to you in chat. See [Staying safe](/participate/safety).
+:::
 
 ### Aztec CLI Wallet
 
-The Aztec CLI wallet is the reference wallet packaged and maintained by the Aztec team. It is a command-line tool that handles account creation, transaction signing, and private state management.
+The Aztec CLI wallet is the reference wallet packaged and maintained by the Aztec team. It is a command-line tool that handles account creation, transaction signing, and private state management. It is aimed at developers and advanced users.
 
 :::note
-This is the wallet shipped as part of the Aztec tooling suite. Third-party wallets may become available as the ecosystem grows.
+More third-party wallets are expected to become available as the ecosystem grows.
 :::
 
 ### Developer Wallets
@@ -81,7 +99,7 @@ The Aztec team is working on hardware wallet integration. Ledger and Trezor supp
 
 ## Choosing a Wallet
 
-When selecting an Aztec wallet, consider:
+When comparing the wallets listed on the [ecosystem page](https://aztec.network/projects), consider:
 
 | Factor | What to Look For |
 |--------|------------------|
@@ -98,6 +116,10 @@ When selecting an Aztec wallet, consider:
 - **Keep software updated** - Use the latest wallet versions for security fixes
 
 ---
+
+:::tip Ready to set one up?
+The [Get started guide](/participate/get-started) walks through wallet setup, funding your account, and your first transaction.
+:::
 
 :::tip For developers
 Learn about building wallet integrations in the [Wallets documentation](/developers/docs/foundational-topics/wallets).

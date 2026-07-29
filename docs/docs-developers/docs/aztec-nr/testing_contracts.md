@@ -372,11 +372,11 @@ The version uses two components, `major.minor`, with the same compatibility rule
 
 If you see an error like _"Incompatible test environment version: The test was compiled with a newer version of Aztec.nr than your test environment supports"_, the test uses oracles from a newer Aztec.nr than your `aztec test` CLI supports.
 
-To fix it, make sure your `aztec` CLI version and the `aztec` dependency in the test crate's `Nargo.toml` are on the same release. Note that the test crate's Aztec.nr version can differ from the contract crate's version, depending on your project configuration. For example, if your CLI is on `v4.3.0`, the test crate's `Nargo.toml` should reference the matching tag:
+To fix it, make sure your `aztec` CLI version and the `aztec` dependency in the test crate's `Nargo.toml` are on the same release. Note that the test crate's Aztec.nr version can differ from the contract crate's version, depending on your project configuration. For example, if your CLI is on `#include_aztec_version`, the test crate's `Nargo.toml` should reference the matching tag:
 
 ```toml
 [dependencies]
-aztec = { git="https://github.com/AztecProtocol/aztec-nr", tag="v4.3.0", directory="aztec" }
+aztec = { git="https://github.com/AztecProtocol/aztec-nr", tag="#include_aztec_version", directory="aztec" }
 ```
 
 If the test environment reports a version that _should_ include every oracle the test needs but an oracle is still missing, this is likely a bug rather than a version problem.

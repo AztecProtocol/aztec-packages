@@ -1,18 +1,15 @@
 // docs:start:embedded-wallet-imports
-import { NO_FROM } from "@aztec/aztec.js/account";
-import { AztecAddress } from "@aztec/aztec.js/addresses";
-import { getContractInstanceFromInstantiationParams } from "@aztec/aztec.js/contracts";
-import { SponsoredFeePaymentMethod } from "@aztec/aztec.js/fee";
-import { Fr } from "@aztec/aztec.js/fields";
-import { SPONSORED_FPC_SALT } from "@aztec/constants";
-import { AccountFeePaymentMethodOptions } from "@aztec/entrypoints/account";
-import { getInitialTestAccountsData } from "@aztec/accounts/testing/lazy";
-import type { ContractArtifact } from "@aztec/stdlib/abi";
-import {
-  type CompleteFeeOptionsConfig,
-  type FeeOptions,
-} from "@aztec/wallet-sdk/base-wallet";
-import { EmbeddedWallet as BaseEmbeddedWallet } from "@aztec/wallets/embedded";
+import { type NoFrom, NO_FROM } from '@aztec/aztec.js/account';
+import { AztecAddress } from '@aztec/aztec.js/addresses';
+import { getContractInstanceFromInstantiationParams } from '@aztec/aztec.js/contracts';
+import { SponsoredFeePaymentMethod } from '@aztec/aztec.js/fee';
+import { Fr } from '@aztec/aztec.js/fields';
+import { SPONSORED_FPC_SALT } from '@aztec/constants';
+import { AccountFeePaymentMethodOptions } from '@aztec/entrypoints/account';
+import { getInitialTestAccountsData } from '@aztec/accounts/testing/lazy';
+import type { ContractArtifact } from '@aztec/stdlib/abi';
+import { type CompleteFeeOptionsConfig, type FeeOptions } from '@aztec/wallet-sdk/base-wallet';
+import { EmbeddedWallet as BaseEmbeddedWallet } from '@aztec/wallets/embedded';
 // docs:end:embedded-wallet-imports
 
 // docs:start:embedded-wallet-class
@@ -35,25 +32,20 @@ export class EmbeddedWallet extends BaseEmbeddedWallet {
    * Uses SponsoredFPC for fee payment by default, so users
    * don't need to hold fee tokens.
    */
-  override async completeFeeOptions(
-    config: CompleteFeeOptionsConfig,
-  ): Promise<FeeOptions> {
-    const feeOptions = await super.completeFeeOptions(config);
+  override async completeFeeOptions(config: CompleteFeeOptionsConfig): Promise<FeeOptions> {
+    const base = await super.completeFeeOptions(config);
 
     if (config.feePayer) {
-      return feeOptions;
+      return base;
     }
 
     const fpc = await EmbeddedWallet.#getSponsoredFPCContract();
+
     return {
-      ...feeOptions,
-      walletFeePaymentMethod: new SponsoredFeePaymentMethod(
-        fpc.instance.address,
-      ),
+      ...base,
+      walletFeePaymentMethod: new SponsoredFeePaymentMethod(fpc.instance.address),
       accountFeePaymentMethodOptions:
-        config.from !== NO_FROM
-          ? AccountFeePaymentMethodOptions.EXTERNAL
-          : feeOptions.accountFeePaymentMethodOptions,
+        config.from !== NO_FROM ? AccountFeePaymentMethodOptions.EXTERNAL : base.accountFeePaymentMethodOptions,
     };
   }
   // docs:end:fee-options
@@ -63,10 +55,10 @@ export class EmbeddedWallet extends BaseEmbeddedWallet {
    * Creates a new EmbeddedWallet connected to the given Aztec node URL.
    * Sets up an in-browser PXE and registers the SponsoredFPC contract.
    */
-  static async initialize(nodeUrl: string) {
+  static async initialize(nodeUrl: string): Promise<EmbeddedWallet> {
     const isLocal =
-      nodeUrl.includes("localhost") || nodeUrl.includes("127.0.0.1");
-    const wallet = await EmbeddedWallet.create(nodeUrl, {
+      nodeUrl.includes('localhost') || nodeUrl.includes('127.0.0.1');
+    const wallet = await EmbeddedWallet.create<EmbeddedWallet>(nodeUrl, {
       ephemeral: true,
       pxeConfig: { proverEnabled: !isLocal },
     });
@@ -81,7 +73,7 @@ export class EmbeddedWallet extends BaseEmbeddedWallet {
 
   static async #getSponsoredFPCContract() {
     const { SponsoredFPCContractArtifact } = await import(
-      "@aztec/noir-contracts.js/SponsoredFPC"
+      '@aztec/noir-contracts.js/SponsoredFPC'
     );
     const instance = await getContractInstanceFromInstantiationParams(
       SponsoredFPCContractArtifact,
