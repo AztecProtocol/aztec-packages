@@ -31,8 +31,8 @@ SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 CONTRACTS_DIR="${SCRIPT_DIR}/contracts"
 
 # Binaries (overridable via env vars)
-NARGO="${NARGO:-${REPO_ROOT}/noir/noir-repo/target/release/nargo}"
-BB="${BB:-${REPO_ROOT}/barretenberg/cpp/build/bin/bb}"
+NARGO="${NARGO:-${REPO_ROOT}/labs-aztec-toolchain/bin/nargo}"
+BB="${BB:-${REPO_ROOT}/labs-aztec-toolchain/bin/bb}"
 ANVIL="${ANVIL:-/opt/foundry/bin/anvil}"
 TRANSPILER="${TRANSPILER:-${REPO_ROOT}/avm-transpiler/target/release/avm-transpiler}"
 

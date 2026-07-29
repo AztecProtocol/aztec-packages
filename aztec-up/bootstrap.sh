@@ -1,7 +1,12 @@
 #!/usr/bin/env bash
 source $(git rev-parse --show-toplevel)/ci3/source_bootstrap
 
-hash=$(hash_str $(cache_content_hash ^aztec-up/) $(../ipc-runtime/bootstrap.sh hash) $(../wsdb/bootstrap.sh hash) $(../barretenberg/ts/bootstrap.sh hash) $(../yarn-project/bootstrap.sh hash))
+hash=$(hash_str \
+  $(cache_content_hash ^aztec-up/) \
+  $(../ipc-runtime/bootstrap.sh hash) \
+  $(../wsdb/bootstrap.sh hash) \
+  $(../barretenberg/ts/bootstrap.sh hash) \
+  $(../yarn-project/bootstrap.sh hash))
 
 # Bare aliases ("nightly", "latest") resolve to this major version.
 DEFAULT_MAJOR_VERSION=${AZTEC_TOOLCHAIN_DEFAULT_MAJOR_VERSION:-4}
@@ -17,6 +22,15 @@ function barretenberg_ts_package_dirs {
   "$root"/barretenberg/ts/bootstrap.sh get_projects
 }
 
+# Tool versions baked into the install artifacts (uploaded to S3 on release).
+# The installer reads exactly these keys: noir (noirup), foundry (foundryup),
+# node (nvm minimum version).
+function versions {
+  echo "noir: $("$root"/labs-aztec-toolchain/bootstrap.sh noir_version)"
+  echo "foundry: $(anvil --version | head -n1 | sed -E 's/anvil Version: ([0-9.]+).*/\1/')"
+  echo "node: $(node --version | cut -d 'v' -f 2)"
+}
+
 function build {
   # Noop if user doesn't have docker.
   if ! command -v docker &>/dev/null; then
@@ -24,8 +38,8 @@ function build {
     return
   fi
 
-  # Create versions.json so we know what to install.
-  ../bootstrap.sh versions > ./bin/0.0.1/versions
+  # Create versions file so we know what to install.
+  versions > ./bin/0.0.1/versions
   echo "Versions:"
   cat ./bin/0.0.1/versions
   echo
@@ -99,6 +113,10 @@ EOF
 
     # Configure local npm registry.
     export npm_config_registry="http://localhost:4873"
+    # Throwaway cache: on transient registry errors npm serves stale cached
+    # localhost:4873 packuments from a previous run, which makes deploy_npm's
+    # "already published" check skip packages that were never published.
+    export npm_config_cache=$(mktemp -d)
     export npm_config_userconfig=$(mktemp)
     cat > "$npm_config_userconfig" <<'EOF'
 max_body_size=1000mb
