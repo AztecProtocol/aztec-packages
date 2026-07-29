@@ -1,13 +1,16 @@
+import type { BlockNumber } from '@aztec/foundation/branded-types';
 import type { BlockHash } from '@aztec/stdlib/block';
 import type { AztecNode } from '@aztec/stdlib/interfaces/server';
-import { type AppTaggingSecret, SiloedTag } from '@aztec/stdlib/logs';
+import { type AppTaggingSecret, type LogResult, SiloedTag } from '@aztec/stdlib/logs';
 import { TxHash } from '@aztec/stdlib/tx';
 
 import type { SenderTaggingStore } from '../../../storage/tagging_store/sender_tagging_store.js';
 import { getAllPrivateLogsByTags } from '../../get_all_logs_by_tags.js';
 
 /**
- * Loads tagging indexes from the Aztec node and stores them in the tagging data provider.
+ * Loads tagging indexes from the Aztec node and stores them in the tagging data provider. Returns the txs the
+ * window's logs carried, keyed by tx hash string, with the block each was mined in and the window indexes it used,
+ * so the caller can classify their finalization status without further node queries.
  * @remarks This function is one of two places by which a pending index can get to the tagging data provider. The other
  * place is when a tx is being sent from this PXE.
  * @param extendedSecret - The app tagging secret whose indexes are being synced.
@@ -27,62 +30,62 @@ export async function loadAndStoreNewTaggingIndexes(
   taggingStore: SenderTaggingStore,
   anchorBlockHash: BlockHash,
   jobId: string,
-) {
+): Promise<Map<string, TxInLogs>> {
   // We compute the tags for the current window of indexes
   const siloedTagsForWindow = await Promise.all(
     Array.from({ length: end - start }, (_, i) => SiloedTag.compute({ extendedSecret, index: start + i })),
   );
 
-  const txsForTags = await getTxsContainingTags(siloedTagsForWindow, aztecNode, anchorBlockHash);
-  const txIndexesMap = getTxIndexesMap(txsForTags, start, siloedTagsForWindow.length);
+  const allLogs = await getAllPrivateLogsByTags(aztecNode, siloedTagsForWindow, anchorBlockHash);
+  if (allLogs.length !== siloedTagsForWindow.length) {
+    throw new Error(
+      `Number of log arrays does not match number of tags. ${allLogs.length} !== ${siloedTagsForWindow.length}`,
+    );
+  }
+
+  const txsInLogs = getTxsInLogs(allLogs, start);
 
   // Now we iterate over the map, construct the tagging index ranges and store them in the db. A tx already tracked
   // in the store is merged rather than range-checked: if this PXE sent the tx and it partially reverted, the chain
   // only shows the surviving sub-range of the prove-time entry (the finalized receipt step of the sync owns
   // resolving that difference), and a tx from another PXE may straddle a sync window boundary, in which case the
   // entry is widened so the next index choice covers the full onchain range.
-  for (const [txHashStr, indexes] of txIndexesMap.entries()) {
+  for (const [txHashStr, { taggingIndexes }] of txsInLogs.entries()) {
     const txHash = TxHash.fromString(txHashStr);
-    const ranges = [{ extendedSecret, lowestIndex: Math.min(...indexes), highestIndex: Math.max(...indexes) }];
+    const ranges = [
+      { extendedSecret, lowestIndex: Math.min(...taggingIndexes), highestIndex: Math.max(...taggingIndexes) },
+    ];
     await taggingStore.mergePendingIndexes(ranges, txHash, jobId);
   }
+
+  return txsInLogs;
 }
 
-// Returns txs that used the given tags. A tag might have been used in multiple txs and for this reason we return
-// an array for each tag.
-async function getTxsContainingTags(
-  tags: SiloedTag[],
-  aztecNode: AztecNode,
-  anchorBlockHash: BlockHash,
-): Promise<TxHash[][]> {
-  // We use the utility function below to retrieve all logs for the tags across all pages, so we don't need to handle
-  // pagination here. Sender sync only needs `txHash` from each log, so we leave `includeEffects` off.
-  const allLogs = await getAllPrivateLogsByTags(aztecNode, tags, anchorBlockHash);
-  return allLogs.map(logs => logs.map(log => log.txHash));
-}
+/** A tx that a sync window's logs carried. */
+export type TxInLogs = {
+  /** The block the tx was mined in, which decides whether it is finalized. */
+  blockNumber: BlockNumber;
+  /** The window's tagging indexes whose siloed tags this tx's logs carried. */
+  taggingIndexes: number[];
+};
 
-// Returns a map of txHash to all indexes for that txHash.
-function getTxIndexesMap(txHashesForTags: TxHash[][], start: number, count: number): Map<string, number[]> {
-  if (txHashesForTags.length !== count) {
-    throw new Error(`Number of tx hashes arrays does not match number of tags. ${txHashesForTags.length} !== ${count}`);
-  }
-
-  const indexesMap = new Map<string, number[]>();
+// Returns a map of txHash to the block it was mined in and all window indexes used by it.
+function getTxsInLogs(logsForTags: LogResult[][], start: number): Map<string, TxInLogs> {
+  const txsInLogs = new Map<string, TxInLogs>();
   // Iterate over indexes
-  for (let i = 0; i < txHashesForTags.length; i++) {
+  for (let i = 0; i < logsForTags.length; i++) {
     const taggingIndex = start + i;
-    const txHashesForTag = txHashesForTags[i];
-    // iterate over tx hashes that used that index (tag)
-    for (const txHash of txHashesForTag) {
-      const key = txHash.toString();
-      const existing = indexesMap.get(key);
+    // iterate over logs that used that index (tag)
+    for (const log of logsForTags[i]) {
+      const key = log.txHash.toString();
+      const existing = txsInLogs.get(key);
       // Add the index to the tx's indexes
       if (existing) {
-        existing.push(taggingIndex);
+        existing.taggingIndexes.push(taggingIndex);
       } else {
-        indexesMap.set(key, [taggingIndex]);
+        txsInLogs.set(key, { blockNumber: log.blockNumber, taggingIndexes: [taggingIndex] });
       }
     }
   }
-  return indexesMap;
+  return txsInLogs;
 }
