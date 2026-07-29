@@ -3,13 +3,15 @@ source $(git rev-parse --show-toplevel)/ci3/source_bootstrap
 
 export RAYON_NUM_THREADS=${RAYON_NUM_THREADS:-16}
 export HARDWARE_CONCURRENCY=${HARDWARE_CONCURRENCY:-16}
-export NARGO=${NARGO:-../../../noir/noir-repo/target/release/nargo}
+ROOT=$(git rev-parse --show-toplevel)
+export NARGO=${NARGO:-"$ROOT/labs-aztec-toolchain/bin/nargo"}
+export AZTEC_TOOLCHAIN_HASH=${AZTEC_TOOLCHAIN_HASH:-$($ROOT/labs-aztec-toolchain/bootstrap.sh hash)}
 
 # Fairies want to run these tests on every PR
 if [ "${TARGET_BRANCH:-}" = "merge-train/fairies" ]; then
   hash=disabled-cache
 else
-  hash=$(hash_str $(../../../noir/bootstrap.sh hash) $(cache_content_hash "^noir-projects/labs/aztec-nr"))
+  hash=$(hash_str $AZTEC_TOOLCHAIN_HASH $(cache_content_hash "^noir-projects/labs/aztec-nr"))
 fi
 
 function build {
@@ -147,6 +149,9 @@ function release_git_push {
 case "$cmd" in
   "")
     build
+    ;;
+  "hash")
+    echo $hash
     ;;
   *)
     default_cmd_handler "$@"

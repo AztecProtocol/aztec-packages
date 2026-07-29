@@ -47,7 +47,7 @@ endef
 # PHONY TARGETS - List every target that has a file/dir of the same name.
 #==============================================================================
 
-.PHONY: noir barretenberg noir-projects l1-contracts release-image boxes playground docs aztec-up spartan wsdb bb-avm-sim
+.PHONY: noir barretenberg noir-projects l1-contracts release-image boxes playground docs aztec-up spartan wsdb bb-avm-sim labs-aztec-toolchain
 
 #==============================================================================
 # BOOTSTRAP TARGETS
@@ -352,6 +352,19 @@ claude-tests:
 	$(call test,$@,.claude)
 
 #==============================================================================
+# Labs Aztec Toolchain
+#==============================================================================
+
+labs-aztec-toolchain:
+	$(call build,$@,labs-aztec-toolchain)
+
+# If we are running on the monorepo, we need to additionally depend on targets
+# that generate/place the binaries.
+ifneq ($(REPO_ORG),labs)
+labs-aztec-toolchain: noir bb-cpp-native
+endif
+
+#==============================================================================
 # Noir Projects
 #==============================================================================
 
@@ -368,6 +381,12 @@ noir-projects-format-check: noir noir-protocol-circuits-variants
 	$(call build,$@,noir-projects/fnd,format_check)
 	$(call build,$@,noir-projects/labs,format_check)
 
+# If we are running on the labs repo, we need to additionally depend on targets
+# that generate/place the binaries.
+ifeq ($(REPO_ORG),labs)
+noir-projects-format-check: labs-aztec-toolchain
+endif
+
 noir-protocol-circuits: noir bb-cpp-native noir-projects-format-check
 	$(call build,$@,noir-projects/fnd/noir-protocol-circuits)
 
@@ -383,10 +402,10 @@ protocol-contracts: noir bb-cpp-native noir-projects-format-check
 protocol-contracts-tests: noir protocol-contracts
 	$(call test,$@,noir-projects/fnd/noir-contracts)
 
-noir-contracts: noir bb-cpp-native noir-projects-format-check
+noir-contracts: noir bb-cpp-native noir-projects-format-check labs-aztec-toolchain
 	$(call build,$@,noir-projects/labs/noir-contracts)
 
-aztec-nr: noir bb-cpp-native noir-projects-format-check
+aztec-nr: noir bb-cpp-native noir-projects-format-check labs-aztec-toolchain
 	$(call build,$@,noir-projects/labs/aztec-nr)
 
 # These tests are not included in the dep tree.
@@ -440,7 +459,7 @@ l1-contracts-tests: l1-contracts-verifier
 # Yarn Project - TypeScript monorepo with all TS packages
 #==============================================================================
 
-yarn-project: bb-ts noir-projects l1-contracts wsdb bb-avm-sim constants-codegen
+yarn-project: bb-ts noir-projects l1-contracts wsdb bb-avm-sim constants-codegen labs-aztec-toolchain
 	$(call build,$@,yarn-project)
 
 yarn-project-tests: yarn-project
@@ -461,7 +480,7 @@ release-image: yarn-project
 release-image-tests: release-image
 	$(call test,$@,release-image)
 
-boxes: yarn-project
+boxes: yarn-project labs-aztec-toolchain
 	$(call build,$@,boxes)
 
 boxes-tests: boxes
@@ -473,13 +492,13 @@ playground: yarn-project
 playground-tests: playground
 	$(call test,$@,playground)
 
-docs: yarn-project
+docs: yarn-project labs-aztec-toolchain
 	$(call build,$@,docs)
 
 docs-tests: docs
 	$(call test,$@,docs)
 
-aztec-up: yarn-project
+aztec-up: yarn-project labs-aztec-toolchain
 	$(call build,$@,aztec-up)
 
 aztec-up-tests: aztec-up
