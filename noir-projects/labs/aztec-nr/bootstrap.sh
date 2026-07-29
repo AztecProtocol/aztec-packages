@@ -95,17 +95,15 @@ function release_git_push {
 
   cd release-out
 
-  # Update Nargo.toml files to reference noir-protocol-circuits from the monorepo tag
-  monorepo_url="https://github.com/AztecProtocol/aztec-packages"
-  monorepo_protocol_circuits_path="noir-projects/fnd/noir-protocol-circuits"
-
   # Find all Nargo.toml files that reference noir-protocol-circuits
   nargo_files="$(find . -name 'Nargo.toml' | xargs grep --files-with-matches 'noir-protocol-circuits' || true)"
 
-  # Replace relative paths with git references
+  # Move the noir-protocol-circuits pin from whatever monorepo tag the sources track to the tag
+  # being released. Only lines mentioning noir-protocol-circuits are touched, so the other git
+  # dependencies keep their own tags.
   for nargo_file in $nargo_files; do
     sed --regexp-extended --in-place \
-      "s;path\s*=\s*\".*noir-protocol-circuits(.*)\";git=\"$monorepo_url\", tag=\"$tag_name\", directory=\"$monorepo_protocol_circuits_path\1\";" \
+      "/noir-protocol-circuits/ s;tag\s*=\s*\"[^\"]*\";tag = \"$tag_name\";" \
       $nargo_file
   done
 
