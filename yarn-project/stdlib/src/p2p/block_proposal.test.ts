@@ -116,7 +116,7 @@ describe('Block Proposal serialization / deserialization', () => {
     expect(tampered.getSender()).toBeUndefined();
   });
 
-  describe('bucket reference (AZIP-22 Fast Inbox)', () => {
+  describe('bucket reference', () => {
     it('round-trips with a bucket reference set', async () => {
       const bucketRef = InboxBucketRef.random();
       const proposal = await makeBlockProposal({ bucketRef });
