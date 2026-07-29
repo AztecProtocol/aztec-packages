@@ -83,6 +83,11 @@ locals {
       username                       = "testnet-rpc-consumer-client2"
       gcp_secret_manager_secret_name = "testnet-rpc-consumer-client2"
       rate_limit_minute              = 3000
+    },
+    "testnet-rpc-consumer-client3" = {
+      username                       = "testnet-rpc-consumer-client3"
+      gcp_secret_manager_secret_name = "testnet-rpc-consumer-client3"
+      rate_limit_minute              = 1000
     }
   }
 
