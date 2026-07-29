@@ -1,0 +1,81 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="UTF-8">
+<link rel="stylesheet" href="../../../../styles.css">
+<script defer src="../../../../nargo_doc.js"></script>
+<title>Struct DiscoveredHandshake documentation</title>
+</head>
+<body>
+<div id="sidebar-toggle">
+<button id="sidebar-toggle-button"></button>
+<div id="sidebar-toggle-title">DiscoveredHandshake</div>
+</div>
+<span id="main-contents">
+<nav class="sidebar">
+<h1><a href="../../../../index.html">aztec-nr</a></h1>
+<div><a href="../../../../all.html">All items</a></div>
+<h2 id="crate-name"><a href="../../../index.html">noir_aztec</a></h2>
+<div id="crate-version">0.0.0</div>
+<h2><a href="#struct">Struct DiscoveredHandshake</a></h2>
+<h3>Fields</h3>
+<ul class="sidebar-list">
+<li><a href="#structfield.eph_pk">eph_pk</a></li>
+</ul>
+<h3>Trait implementations</h3>
+<ul class="sidebar-list">
+<li><a href="#impl-Deserialize-for-DiscoveredHandshake">Deserialize</a></li>
+<li><a href="#impl-Eq-for-DiscoveredHandshake">Eq</a></li>
+<li><a href="#impl-Serialize-for-DiscoveredHandshake">Serialize</a></li>
+</ul>
+<h2>In module handshake</h2>
+<h3>Structs</h3><ul class="item-list">
+<li><a href="struct.AppSiloedHandshakeSecrets.html">AppSiloedHandshakeSecrets</a></div></li>
+<li><a href="struct.DiscoveredHandshake.html">DiscoveredHandshake</a></div></li>
+<li><a href="struct.HandshakePage.html">HandshakePage</a></div></li>
+</ul>
+<h3>Functions</h3><ul class="item-list">
+<li><a href="fn.forgery_protected_eph_pk.html">forgery_protected_eph_pk</a></div></li>
+<li><a href="fn.protect_from_forgery.html">protect_from_forgery</a></div></li>
+</ul>
+<h3>Globals</h3><ul class="item-list">
+<li><a href="global.GET_APP_SILOED_SECRETS_SELECTOR.html">GET_APP_SILOED_SECRETS_SELECTOR</a></div></li>
+<li><a href="global.GET_NON_INTERACTIVE_HANDSHAKES_SELECTOR.html">GET_NON_INTERACTIVE_HANDSHAKES_SELECTOR</a></div></li>
+<li><a href="global.INTERACTIVE_HANDSHAKE_SELECTOR.html">INTERACTIVE_HANDSHAKE_SELECTOR</a></div></li>
+<li><a href="global.MAX_HANDSHAKES_PER_PAGE.html">MAX_HANDSHAKES_PER_PAGE</a></div></li>
+<li><a href="global.NON_INTERACTIVE_HANDSHAKE_SELECTOR.html">NON_INTERACTIVE_HANDSHAKE_SELECTOR</a></div></li>
+</ul>
+</nav>
+<main>
+<div><a href="../../../../index.html">aztec-nr</a> - <a href="../../../index.html">noir_aztec</a>::<a href="../../index.html">messages</a>::<a href="../index.html">delivery</a>::<a href="index.html">handshake</a></div>
+<h1>Struct <span id="struct" class="struct">DiscoveredHandshake</span></h1>
+<pre><code>pub struct DiscoveredHandshake {
+    pub eph_pk: <a href="../../../../std/embedded_curve_ops/struct.EmbeddedCurvePoint.html" class="struct">EmbeddedCurvePoint</a>,
+}
+</code></pre>
+<div class="comments">
+<p>A handshake discovered during sync: the sender's ephemeral public key.</p>
+</div>
+<h2>Fields</h2>
+<div id="structfield.eph_pk" class="struct-field"><code class="code-header">eph_pk: <a href="../../../../std/embedded_curve_ops/struct.EmbeddedCurvePoint.html" class="struct">EmbeddedCurvePoint</a></code></div>
+<div class="padded-description"></div><h2>Trait implementations</h2>
+<h3 id="impl-Deserialize-for-DiscoveredHandshake"><code class="code-header">impl <a href="../../../../serde/serialization/trait.Deserialize.html" class="trait">Deserialize</a> for <a href="../../../../noir_aztec/messages/delivery/handshake/struct.DiscoveredHandshake.html" class="struct">DiscoveredHandshake</a></code></h3>
+
+<div class="padded-methods"><code class="code-header">pub fn <span class="fn">deserialize</span>(fields: [<a href="../../../../std/primitive.Field.html" class="primitive">Field</a>; 2]) -> Self</code>
+
+<code class="code-header">pub fn <span class="fn">stream_deserialize</span>&lt;let K: <a href="../../../../std/primitive.u32.html" class="primitive">u32</a>&gt;(reader: &mut <a href="../../../../serde/reader/struct.Reader.html" class="struct">Reader</a>&lt;K&gt;) -> Self</code>
+
+</div><h3 id="impl-Eq-for-DiscoveredHandshake"><code class="code-header">impl <a href="../../../../std/cmp/trait.Eq.html" class="trait">Eq</a> for <a href="../../../../noir_aztec/messages/delivery/handshake/struct.DiscoveredHandshake.html" class="struct">DiscoveredHandshake</a></code></h3>
+
+<div class="padded-methods"><code class="code-header">pub fn <span class="fn">eq</span>(_self: Self, _other: Self) -> <a href="../../../../std/primitive.bool.html" class="primitive">bool</a></code>
+
+</div><h3 id="impl-Serialize-for-DiscoveredHandshake"><code class="code-header">impl <a href="../../../../serde/serialization/trait.Serialize.html" class="trait">Serialize</a> for <a href="../../../../noir_aztec/messages/delivery/handshake/struct.DiscoveredHandshake.html" class="struct">DiscoveredHandshake</a></code></h3>
+
+<div class="padded-methods"><code class="code-header">pub fn <span class="fn">serialize</span>(self) -> [<a href="../../../../std/primitive.Field.html" class="primitive">Field</a>; 2]</code>
+
+<code class="code-header">pub fn <span class="fn">stream_serialize</span>&lt;let K: <a href="../../../../std/primitive.u32.html" class="primitive">u32</a>&gt;(self, writer: &mut <a href="../../../../serde/writer/struct.Writer.html" class="struct">Writer</a>&lt;K&gt;)</code>
+
+</div></main>
+</span>
+</body>
+</html>

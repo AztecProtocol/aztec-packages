@@ -1,0 +1,195 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="UTF-8">
+<link rel="stylesheet" href="../../../styles.css">
+<script defer src="../../../nargo_doc.js"></script>
+<title>Struct ContractSelfPublic documentation</title>
+</head>
+<body>
+<div id="sidebar-toggle">
+<button id="sidebar-toggle-button"></button>
+<div id="sidebar-toggle-title">ContractSelfPublic</div>
+</div>
+<span id="main-contents">
+<nav class="sidebar">
+<h1><a href="../../../index.html">aztec-nr</a></h1>
+<div><a href="../../../all.html">All items</a></div>
+<h2 id="crate-name"><a href="../../index.html">noir_aztec</a></h2>
+<div id="crate-version">0.0.0</div>
+<h2><a href="#struct">Struct ContractSelfPublic</a></h2>
+<h3>Fields</h3>
+<ul class="sidebar-list">
+<li><a href="#structfield.address">address</a></li>
+<li><a href="#structfield.call_self">call_self</a></li>
+<li><a href="#structfield.call_self_static">call_self_static</a></li>
+<li><a href="#structfield.context">context</a></li>
+<li><a href="#structfield.internal">internal</a></li>
+<li><a href="#structfield.storage">storage</a></li>
+</ul>
+<h3>Methods</h3>
+<ul class="sidebar-list">
+<li><a href="#call">call</a></li>
+<li><a href="#emit">emit</a></li>
+<li><a href="#msg_sender">msg_sender</a></li>
+<li><a href="#new">new</a></li>
+<li><a href="#view">view</a></li>
+</ul>
+<h2>In module contract_self_public</h2>
+<h3>Structs</h3><ul class="item-list">
+<li><a href="struct.ContractSelfPublic.html">ContractSelfPublic</a></div></li>
+</ul>
+</nav>
+<main>
+<div><a href="../../../index.html">aztec-nr</a> - <a href="../../index.html">noir_aztec</a>::<a href="../index.html">contract_self</a>::<a href="index.html">contract_self_public</a></div>
+<h1>Struct <span id="struct" class="struct">ContractSelfPublic</span></h1>
+<pre><code>pub struct ContractSelfPublic&lt;Storage, CallSelf, CallSelfStatic, CallInternal&gt; {
+    pub address: <a href="../../../protocol_types/address/aztec_address/struct.AztecAddress.html" class="struct">AztecAddress</a>,
+    pub storage: Storage,
+    pub context: <a href="../../../noir_aztec/context/struct.PublicContext.html" class="struct">PublicContext</a>,
+    pub call_self: CallSelf,
+    pub call_self_static: CallSelfStatic,
+    pub internal: CallInternal,
+}
+</code></pre>
+<div class="comments">
+<p>Core interface for interacting with aztec-nr contract features in public execution contexts.</p>
+<p>This struct is automatically injected into every <a href="../../../noir_aztec/macros/functions/fn.external.html"><code>external</code></a> and
+<a href="../../../noir_aztec/macros/functions/fn.internal.html"><code>internal</code></a> contract function marked with <code>&quot;public&quot;</code> by the Aztec macro
+system and is accessible through the <code>self</code> variable.</p>
+<h2>Type Parameters</h2>
+<ul>
+<li><code>Storage</code>: The contract's storage struct (defined with <a href="../../../noir_aztec/macros/storage/fn.storage.html"><code>storage</code></a>, or <code>()</code> if
+the contract has no storage</li>
+<li><code>CallSelf</code>: Macro-generated type for calling contract's own non-view functions</li>
+<li><code>CallSelfStatic</code>: Macro-generated type for calling contract's own view functions</li>
+<li><code>CallInternal</code>: Macro-generated type for calling internal functions</li>
+</ul></div>
+<h2>Fields</h2>
+<div id="structfield.address" class="struct-field"><code class="code-header">address: <a href="../../../protocol_types/address/aztec_address/struct.AztecAddress.html" class="struct">AztecAddress</a></code></div>
+<div class="padded-description"><div class="comments">
+<p>The address of this contract</p>
+</div>
+</div><div id="structfield.storage" class="struct-field"><code class="code-header">storage: Storage</code></div>
+<div class="padded-description"><div class="comments">
+<p>The contract's storage instance, representing the struct to which the
+<a href="../../../noir_aztec/macros/storage/fn.storage.html"><code>storage</code></a> macro was applied in your contract. If the contract has no
+storage, the type of this will be <code>()</code>.</p>
+<p>This storage instance is specialized for the current execution context (public) and
+provides access to the contract's state variables.</p>
+<h4>Developer Note</h4>
+<p>If you've arrived here while trying to access your contract's storage while the <code>Storage</code> generic type is set
+to unit type <code>()</code>, it means you haven't yet defined a Storage struct using the
+<a href="../../../noir_aztec/macros/storage/fn.storage.html"><code>storage</code></a> macro in your contract. For guidance on setting this up, please
+refer to our docs: <a href="https://docs.aztec.network/developers/docs/guides/smart_contracts/storage">https://docs.aztec.network/developers/docs/guides/smart_contracts/storage</a></p></div>
+</div><div id="structfield.context" class="struct-field"><code class="code-header">context: <a href="../../../noir_aztec/context/struct.PublicContext.html" class="struct">PublicContext</a></code></div>
+<div class="padded-description"><div class="comments">
+<p>The public execution context.</p>
+</div>
+</div><div id="structfield.call_self" class="struct-field"><code class="code-header">call_self: CallSelf</code></div>
+<div class="padded-description"><div class="comments">
+<p>Provides type-safe methods for calling this contract's own non-view functions.</p>
+<p>Example API:</p>
+<pre><code>self.call_self.some_public_function(args)</code></pre></div>
+</div><div id="structfield.call_self_static" class="struct-field"><code class="code-header">call_self_static: CallSelfStatic</code></div>
+<div class="padded-description"><div class="comments">
+<p>Provides type-safe methods for calling this contract's own view functions.</p>
+<p>Example API:</p>
+<pre><code>self.call_self_static.some_view_function(args)</code></pre></div>
+</div><div id="structfield.internal" class="struct-field"><code class="code-header">internal: CallInternal</code></div>
+<div class="padded-description"><div class="comments">
+<p>Provides type-safe methods for calling internal functions.</p>
+<p>Example API:</p>
+<pre><code>self.internal.some_internal_function(args)</code></pre></div>
+</div><h2>Implementations</h2>
+<h3><code class="code-header">impl&lt;CallInternal, CallSelf, CallSelfStatic, Storage&gt; <a href="../../../noir_aztec/contract_self/contract_self_public/struct.ContractSelfPublic.html" class="struct">ContractSelfPublic</a>&lt;Storage, CallSelf, CallSelfStatic, CallInternal&gt;</code></h3>
+
+<div class="padded-methods"><code id="new" class="code-header">pub fn <a href="#new"><span class="fn">new</span></a>(
+    context: <a href="../../../noir_aztec/context/struct.PublicContext.html" class="struct">PublicContext</a>,
+    storage: Storage,
+    call_self: CallSelf,
+    call_self_static: CallSelfStatic,
+    internal: CallInternal,
+) -> Self</code>
+
+<div class="padded-description"><div class="comments">
+<p>Creates a new <code>ContractSelfPublic</code> instance for a public function.</p>
+<p>This constructor is called automatically by the macro system and should not be called directly.</p>
+</div>
+</div><code id="msg_sender" class="code-header">pub fn <a href="#msg_sender"><span class="fn">msg_sender</span></a>(self) -> <a href="../../../protocol_types/address/aztec_address/struct.AztecAddress.html" class="struct">AztecAddress</a></code>
+
+<div class="padded-description"><div class="comments">
+<p>The address of the contract address that made this function call.</p>
+<p>This is similar to Solidity's <code>msg.sender</code> value.</p>
+<h4>Incognito Calls</h4>
+<p>Contracts can call public functions from private ones hiding their identity (see</p>
+<p><a href="../../../noir_aztec/contract_self/contract_self_private/struct.ContractSelfPrivate.html#enqueue_incognito"><code>ContractSelfPrivate::enqueue_incognito</code></a>).
+This function reverts when executed in such a context.</p>
+<p>If you need to handle these cases, use <a href="../../../noir_aztec/context/struct.PublicContext.html#maybe_msg_sender"><code>PublicContext::maybe_msg_sender</code></a>.</p></div>
+</div><code id="emit" class="code-header">pub unconstrained fn <a href="#emit"><span class="fn">emit</span></a>&lt;Event&gt;(&mut self, event: Event)
+<div class="where-clause">where
+    Event: <a href="../../../noir_aztec/event/event_interface/trait.EventInterface.html" class="trait">EventInterface</a>,
+    Event: <a href="../../../serde/serialization/trait.Serialize.html" class="trait">Serialize</a></div></code>
+
+<div class="padded-description"><div class="comments">
+<p>Emits an event publicly.</p>
+<p>Public events are emitted as plaintext and are therefore visible to everyone. This is is the same as Solidity
+events on EVM chains.</p>
+<p>Unlike private events, they don't require delivery of an event message.</p>
+<h4>Example</h4>
+<pre><code>#[event]
+<span class="kw">struct</span> Update { value: Field }
+
+#[external(<span class="string">"public"</span>)]
+<span class="kw">fn</span> publish_update(value: Field) {
+    self.emit(Update { value });
+}</code></pre>
+<h4>Cost</h4>
+<p>Public event emission is achieved by emitting public transaction logs. A total of <code>N+1</code> fields are emitted,
+where <code>N</code> is the serialization length of the event.</p></div>
+</div><code id="call" class="code-header">pub unconstrained fn <a href="#call"><span class="fn">call</span></a>&lt;let M: <a href="../../../std/primitive.u32.html" class="primitive">u32</a>, let N: <a href="../../../std/primitive.u32.html" class="primitive">u32</a>, T&gt;(
+    self,
+    call: <a href="../../../noir_aztec/context/calls/struct.PublicCall.html" class="struct">PublicCall</a>&lt;M, N, T&gt;,
+) -> T
+<div class="where-clause">where
+    T: <a href="../../../serde/serialization/trait.Deserialize.html" class="trait">Deserialize</a></div></code>
+
+<div class="padded-description"><div class="comments">
+<p>Makes a public contract call.</p>
+<p>Will revert if the called function reverts or runs out of gas.</p>
+<h4>Arguments</h4>
+<ul>
+<li><code>call</code> - The object representing the public function to invoke.</li>
+</ul>
+<h4>Returns</h4>
+<ul>
+<li><code>T</code> - Whatever data the called function has returned.</li>
+</ul>
+<h4>Example</h4>
+<pre><code>self.call(Token::at(address).transfer_in_public(recipient, amount));</code></pre></div>
+</div><code id="view" class="code-header">pub unconstrained fn <a href="#view"><span class="fn">view</span></a>&lt;let M: <a href="../../../std/primitive.u32.html" class="primitive">u32</a>, let N: <a href="../../../std/primitive.u32.html" class="primitive">u32</a>, T&gt;(
+    self,
+    call: <a href="../../../noir_aztec/context/calls/struct.PublicStaticCall.html" class="struct">PublicStaticCall</a>&lt;M, N, T&gt;,
+) -> T
+<div class="where-clause">where
+    T: <a href="../../../serde/serialization/trait.Deserialize.html" class="trait">Deserialize</a></div></code>
+
+<div class="padded-description"><div class="comments">
+<p>Makes a public read-only contract call.</p>
+<p>This is similar to Solidity's <code>staticcall</code>. The called function cannot modify state or emit events. Any nested
+calls are constrained to also be static calls.</p>
+<p>Will revert if the called function reverts or runs out of gas.</p>
+<h4>Arguments</h4>
+<ul>
+<li><code>call</code> - The object representing the read-only public function to invoke.</li>
+</ul>
+<h4>Returns</h4>
+<ul>
+<li><code>T</code> - Whatever data the called function has returned.</li>
+</ul>
+<h4>Example</h4>
+<pre><code>self.view(Token::at(address).balance_of_public(recipient));</code></pre></div>
+</div></div></main>
+</span>
+</body>
+</html>
