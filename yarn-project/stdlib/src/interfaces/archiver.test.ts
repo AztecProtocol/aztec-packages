@@ -17,6 +17,7 @@ import {
   BlocksQuerySchema,
   type CheckpointQuery,
   type CheckpointsQuery,
+  CheckpointsQuerySchema,
   type L2Tips,
   type ProposedCheckpointQuery,
 } from '../block/l2_block_source.js';
@@ -42,6 +43,7 @@ import { AppendOnlyTreeSnapshot } from '../trees/append_only_tree_snapshot.js';
 import type { IndexedTxEffect } from '../tx/indexed_tx_effect.js';
 import { TxEffect } from '../tx/tx_effect.js';
 import { TxHash } from '../tx/tx_hash.js';
+import { MAX_RPC_CHECKPOINTS_DATA_LEN } from './api_limit.js';
 import { type ArchiverApi, ArchiverApiSchema } from './archiver.js';
 
 describe('ArchiverApiSchema', () => {
@@ -354,6 +356,29 @@ describe('BlocksQuerySchema', () => {
 
   it('rejects epoch query with onlyCheckpointed: false', () => {
     expect(BlocksQuerySchema.safeParse({ epoch: 1, onlyCheckpointed: false }).success).toBe(false);
+  });
+});
+
+describe('CheckpointsQuerySchema', () => {
+  it.each<[string, CheckpointsQuery]>([
+    ['{ from, limit }', { from: CheckpointNumber(1), limit: 10 }],
+    ['{ fromSlot, limit, reverse }', { fromSlot: SlotNumber(1), limit: 10, reverse: true }],
+    ['{ epoch }', { epoch: EpochNumber(5) }],
+  ])('roundtrips %s', (_, query) => {
+    const json = JSON.parse(JSON.stringify(query));
+    expect(CheckpointsQuerySchema.parse(json)).toEqual(query);
+  });
+
+  it('accepts a limit at MAX_RPC_CHECKPOINTS_DATA_LEN', () => {
+    const limit = MAX_RPC_CHECKPOINTS_DATA_LEN;
+    expect(CheckpointsQuerySchema.safeParse({ from: 1, limit }).success).toBe(true);
+    expect(CheckpointsQuerySchema.safeParse({ fromSlot: 1, limit }).success).toBe(true);
+  });
+
+  it('rejects a limit over MAX_RPC_CHECKPOINTS_DATA_LEN', () => {
+    const limit = MAX_RPC_CHECKPOINTS_DATA_LEN + 1;
+    expect(CheckpointsQuerySchema.safeParse({ from: 1, limit }).success).toBe(false);
+    expect(CheckpointsQuerySchema.safeParse({ fromSlot: 1, limit }).success).toBe(false);
   });
 });
 
