@@ -47,6 +47,13 @@ fi
 if [[ -n "$staged_nr_files" ]]; then
   echo "Detected staged .nr files. Running nargo fmt..."
 
+  # The toolchain dir is gitignored and can be absent even when the binaries themselves exist
+  # (e.g. after a partial build that never ran the toolchain bootstrap). Setting it up only
+  # creates symlinks, so try that before giving up — but never let it block the commit.
+  if [[ ! -x "$NARGO_PATH" ]]; then
+    (cd ../../labs-aztec-toolchain && ./bootstrap.sh &>/dev/null) || true
+  fi
+
   # Check if nargo exists (the user might be making a quick change, without wanting to have to bootstrap the entire repo, so we don't want an inconvenient catastrophic failure if this hook can't complete execution; we want to fail gracefully).
   if [[ ! -x "$NARGO_PATH" ]]; then
     echo "Warning: nargo not found at $NARGO_PATH"

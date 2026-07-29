@@ -35,10 +35,9 @@ logger.info(`Using tmp folder: ${tmp}`);
 // Use bb-avm for AVM proofs, bb for all other proof types
 const bbBinary = type === ProvingRequestType.PUBLIC_VM ? 'bb-avm' : 'bb';
 const prover = await BBNativeRollupProver.new({
-  bbBinaryPath:
-    process.env.BB_BINARY_PATH ?? join(import.meta.pathname, `../../../labs-aztec-toolchain/bin/${bbBinary}`),
+  bbBinaryPath: process.env.BB_BINARY_PATH ?? join(import.meta.dirname, `../../labs-aztec-toolchain/bin/${bbBinary}`),
   bbWorkingDirectory: join(tmp, 'bb'),
-  acvmBinaryPath: process.env.ACVM_BINARY_PATH ?? join(import.meta.pathname, '../../../labs-aztec-toolchain/bin/acvm'),
+  acvmBinaryPath: process.env.ACVM_BINARY_PATH ?? join(import.meta.dirname, '../../labs-aztec-toolchain/bin/acvm'),
   acvmWorkingDirectory: join(tmp, 'acvm'),
   bbSkipCleanup: true,
 });

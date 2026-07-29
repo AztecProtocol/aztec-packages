@@ -124,8 +124,9 @@ elif [ -x "$TRANSPILER" ]; then
 else
     die "No artifact processor found.
   Option A: Rebuild bb with AVM support
-  Option B: Build the avm-transpiler:
-    cd ${REPO_ROOT}/avm-transpiler && cargo build --release"
+  Option B: Build the avm-transpiler and expose it via the labs toolchain:
+    cd ${REPO_ROOT}/avm-transpiler && cargo build --release
+    ${REPO_ROOT}/labs-aztec-toolchain/bootstrap.sh"
 fi
 
 # Verify yarn-project is properly built. A partial build (swc-only, no generate steps)
