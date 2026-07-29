@@ -13,7 +13,9 @@ AVM_TRANSPILER_BINARY=avm-transpiler
 function link_tool {
   local full_path=$1
   local name=$2
-  ln -sf "$full_path" "$TARGET_DIR/$name"
+  # The link must be relative: the checkout gets mounted at other paths (e.g. the aztec-up test
+  # container bind-mounts it at /home/ubuntu/aztec-packages), where an absolute target dangles.
+  ln -sf "$(realpath --relative-to="$TARGET_DIR" "$full_path")" "$TARGET_DIR/$name"
   echo "Created symlink: $TARGET_DIR/$name -> $full_path"
 }
 
