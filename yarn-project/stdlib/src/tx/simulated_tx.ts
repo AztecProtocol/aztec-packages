@@ -9,6 +9,7 @@ import {
 } from '../contract/interfaces/contract_instance.js';
 import { Gas } from '../gas/gas.js';
 import type { GasUsed } from '../gas/gas_used.js';
+import { MAX_RPC_CONTRACT_OVERRIDES_LEN, MAX_RPC_PUBLIC_STORAGE_OVERRIDES_LEN } from '../interfaces/api_limit.js';
 import { type PublicStorageOverride, PublicStorageOverrideSchema } from '../interfaces/public_storage_override.js';
 import { PrivateKernelTailCircuitPublicInputs } from '../kernel/private_kernel_tail_circuit_public_inputs.js';
 import { ChonkProof } from '../proofs/chonk_proof.js';
@@ -50,8 +51,18 @@ export class SimulationOverrides {
   static get schema() {
     return z
       .object({
-        publicStorage: optional(z.array(PublicStorageOverrideSchema)),
-        contracts: optional(z.record(z.string(), z.object({ instance: ContractInstanceWithAddressSchema }))),
+        publicStorage: optional(
+          z.array(PublicStorageOverrideSchema).max(MAX_RPC_PUBLIC_STORAGE_OVERRIDES_LEN, {
+            message: `publicStorage must have at most ${MAX_RPC_PUBLIC_STORAGE_OVERRIDES_LEN} entries`,
+          }),
+        ),
+        contracts: optional(
+          z
+            .record(z.string(), z.object({ instance: ContractInstanceWithAddressSchema }))
+            .refine(contracts => Object.keys(contracts).length <= MAX_RPC_CONTRACT_OVERRIDES_LEN, {
+              message: `contracts must have at most ${MAX_RPC_CONTRACT_OVERRIDES_LEN} entries`,
+            }),
+        ),
       })
       .transform(args => new SimulationOverrides(args));
   }

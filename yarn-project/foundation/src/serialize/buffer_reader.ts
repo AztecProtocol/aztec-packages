@@ -255,6 +255,11 @@ export class BufferReader {
     if (maxSize !== undefined && size > maxSize) {
       throw new Error(`Vector size ${size} exceeds maximum allowed ${maxSize}`);
     }
+    // Every element consumes at least one byte, so a size beyond the bytes left is unsatisfiable. Reject it
+    // up front rather than relying on each item deserializer to bounds-check as the loop runs out of input.
+    if (size > this.remainingBytes()) {
+      throw new Error(`Vector size ${size} exceeds remaining buffer length ${this.remainingBytes()}`);
+    }
     const result = new Array<T>(size);
     for (let i = 0; i < size; i++) {
       result[i] = itemDeserializer.fromBuffer(this);
