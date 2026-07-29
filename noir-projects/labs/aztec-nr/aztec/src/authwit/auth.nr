@@ -8,11 +8,14 @@ use crate::{
 use crate::protocol::{
     abis::function_selector::FunctionSelector,
     address::AztecAddress,
-    constants::{DOM_SEP__AUTHWIT_INNER, DOM_SEP__AUTHWIT_NULLIFIER, DOM_SEP__AUTHWIT_OUTER},
+    constants::{DOM_SEP__AUTHWIT_INNER, DOM_SEP__AUTHWIT_OUTER},
     hash::poseidon2_hash_with_separator,
     traits::{Serialize, ToField},
 };
 use crate::standard_addresses::STANDARD_AUTH_REGISTRY_ADDRESS;
+
+/// Domain separator for authentication witness nullifiers.
+pub(crate) global DOM_SEP__AUTHWIT_NULLIFIER: u32 = 1239150694;
 
 /// Authentication witness helper library
 ///
