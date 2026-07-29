@@ -5,8 +5,6 @@ import { bufferSchemaFor } from '@aztec/foundation/schemas';
 import { BufferReader, serializeToBuffer } from '@aztec/foundation/serialize';
 import { bufferToHex, hexToBuffer } from '@aztec/foundation/string';
 
-import { L1ToL2MessageSponge } from '../messaging/l1_to_l2_message_sponge.js';
-
 /** The InboxParity size ladder, ascending. One VK per size; the prover proves the smallest that fits. */
 export const INBOX_PARITY_SIZES = [INBOX_PARITY_SIZE_SMALL, INBOX_PARITY_SIZE_MEDIUM, INBOX_PARITY_SIZE_LARGE] as const;
 
@@ -41,8 +39,6 @@ export class InboxParityPrivateInputs {
     public readonly numMessages: number,
     /** Inbox rolling hash before this checkpoint's messages (the previous checkpoint's end; genesis is zero). */
     public readonly startRollingHash: Fr,
-    /** Message-bundle sponge before this checkpoint's messages (empty at checkpoint start). */
-    public readonly startSponge: L1ToL2MessageSponge,
     /** The L1 `in_hash` (sha256 frontier root), passed through unconstrained by the circuit. */
     public readonly inHash: Fr,
     /** Root of the VK tree. */
@@ -62,7 +58,6 @@ export class InboxParityPrivateInputs {
   static fromMessages(
     messages: Fr[],
     startRollingHash: Fr,
-    startSponge: L1ToL2MessageSponge,
     inHash: Fr,
     vkTreeRoot: Fr,
     proverId: Fr,
@@ -74,7 +69,6 @@ export class InboxParityPrivateInputs {
       padArrayEnd<Fr, number>(messages, Fr.ZERO, size),
       messages.length,
       startRollingHash,
-      startSponge,
       inHash,
       vkTreeRoot,
       proverId,
@@ -88,7 +82,6 @@ export class InboxParityPrivateInputs {
       this.messages,
       new Fr(this.numMessages),
       this.startRollingHash,
-      this.startSponge,
       this.inHash,
       this.vkTreeRoot,
       this.proverId,
@@ -114,7 +107,6 @@ export class InboxParityPrivateInputs {
       messages,
       Fr.fromBuffer(reader).toNumber(),
       Fr.fromBuffer(reader),
-      reader.readObject(L1ToL2MessageSponge),
       Fr.fromBuffer(reader),
       Fr.fromBuffer(reader),
       Fr.fromBuffer(reader),

@@ -17,7 +17,6 @@ fn public_inputs_match_expected() {
         msgs,
         num_msgs: S,
         start_rolling_hash: 0,
-        start_sponge: L1ToL2MessageSponge::empty(),
         in_hash: 0x1234,
         vk_tree_root: 42,
         prover_id: 7,
@@ -34,43 +33,9 @@ fn public_inputs_match_expected() {
     assert_eq(public_inputs.num_msgs, S);
     assert_eq(public_inputs.end_rolling_hash, accumulate_inbox_rolling_hash(0, msgs, S));
 
-    // The sponge absorbs exactly the real messages (real-count), threading the start.
-    assert_eq(public_inputs.start_sponge, L1ToL2MessageSponge::empty());
+    // The sponge absorbs exactly the real messages (real-count) into the empty sponge the circuit starts from.
     let mut expected_end_sponge = L1ToL2MessageSponge::empty();
     expected_end_sponge.absorb(msgs, S);
-    assert_eq(public_inputs.end_sponge, expected_end_sponge);
-}
-
-#[test]
-fn rolling_hash_and_sponge_ignore_padding_and_thread_start() {
-    // Only the first three lanes are real; the rest are zero padding.
-    let mut msgs = [0; S];
-    msgs[0] = 11;
-    msgs[1] = 22;
-    msgs[2] = 33;
-
-    let start = 0x2a;
-    let mut start_sponge = L1ToL2MessageSponge::new();
-    start_sponge.absorb([7, 8], 2);
-    let private_inputs = InboxParityPrivateInputs {
-        msgs,
-        num_msgs: 3,
-        start_rolling_hash: start,
-        start_sponge,
-        in_hash: 0,
-        vk_tree_root: 42,
-        prover_id: 7,
-    };
-    let public_inputs = inbox_parity::execute(private_inputs);
-
-    assert_eq(public_inputs.start_rolling_hash, start);
-    assert_eq(public_inputs.num_msgs, 3);
-    assert_eq(public_inputs.end_rolling_hash, accumulate_inbox_rolling_hash(start, [11, 22, 33], 3));
-
-    // Both the rolling hash and the sponge see only the three real leaves (real-count absorb).
-    assert_eq(public_inputs.start_sponge, start_sponge);
-    let mut expected_end_sponge = start_sponge;
-    expected_end_sponge.absorb([11, 22, 33], 3);
     assert_eq(public_inputs.end_sponge, expected_end_sponge);
 }
 
@@ -87,7 +52,6 @@ fn sponge_matches_block_root_real_count_absorb() {
         msgs,
         num_msgs: 2,
         start_rolling_hash: 0,
-        start_sponge: L1ToL2MessageSponge::empty(),
         in_hash: 0,
         vk_tree_root: 42,
         prover_id: 7,
@@ -112,7 +76,6 @@ fn non_zero_padding_lane_fails() {
         msgs,
         num_msgs: 2,
         start_rolling_hash: 0,
-        start_sponge: L1ToL2MessageSponge::empty(),
         in_hash: 0,
         vk_tree_root: 42,
         prover_id: 7,
@@ -126,7 +89,6 @@ fn num_msgs_greater_than_size_fails() {
         msgs: [0; S],
         num_msgs: S + 1,
         start_rolling_hash: 0,
-        start_sponge: L1ToL2MessageSponge::empty(),
         in_hash: 0,
         vk_tree_root: 42,
         prover_id: 7,

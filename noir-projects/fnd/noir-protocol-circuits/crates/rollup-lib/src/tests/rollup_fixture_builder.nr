@@ -461,9 +461,8 @@ impl RollupFixtureBuilder {
             in_hash: slot_number * 85831493,
             start_rolling_hash: self.get_inbox_rolling_hash(slot_number),
             end_rolling_hash: self.get_inbox_rolling_hash(slot_number + 1),
-            // The message sponge resets per checkpoint, so it starts empty and ends at the checkpoint's accumulated
-            // sponge — the same value the block roots reach across the checkpoint.
-            start_sponge: L1ToL2MessageSponge::empty(),
+            // The message sponge resets per checkpoint, so it ends at the checkpoint's accumulated sponge — the same
+            // value the block roots reach across the checkpoint.
             end_sponge: self.get_msg_sponge(slot_number),
             num_msgs: 7,
             vk_tree_root: self.vk_tree_root,
