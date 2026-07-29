@@ -296,6 +296,8 @@ library EpochProofLib {
       // proof's public inputs, so nothing else pins where the segment begins. The end is already pinned transitively
       // (the checkpoint root binds end_inbox_rolling_hash to the last checkpoint header, whose hash verifyHeaders ties
       // to storage), so checking it here only trades a bare proof-verification failure for a specific error.
+      // The end check is therefore a deliberate gas-for-diagnostics trade: it costs one cold SLOAD (2,100 gas per
+      // submission) and can be deleted if the submit path ever needs trimming.
       {
         bytes32 expectedPreviousInboxRollingHash = STFLib.getInboxRollingHash(_start - 1);
         require(

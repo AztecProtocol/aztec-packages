@@ -43,7 +43,7 @@ describe('CheckpointProposal serialization / deserialization', () => {
     expect(deserialized.toBuffer()).toEqual(proposal.toBuffer());
   });
 
-  describe('bucket reference (AZIP-22 Fast Inbox)', () => {
+  describe('bucket reference', () => {
     it('round-trips with a bucket reference on the last block', async () => {
       const checkpointHeader = CheckpointHeader.random();
       const bucketRef = new InboxBucketRef(17n, 1_700_000_000n, checkpointHeader.inboxRollingHash);
