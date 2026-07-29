@@ -70,25 +70,19 @@ git -C origin.git show gh-pages:bench/stale/data.js > /dev/null || fail "test1: 
 [ "$(git -C origin.git rev-list --count gh-pages)" -eq 42 ] || fail "test1: expected 42 commits"
 pass "test1: append without maintain"
 
-# --- Test 2: maintain squashes >6mo history and prunes stale dir ---
+# --- Test 2: maintain prunes stale dir, never rewrites history ---
 run_script "Aztec Benchmarks" bench/next bench.json deadbeef2 --maintain > /dev/null
 new_count=$(git -C origin.git rev-list --count gh-pages)
-# squash boundary = retention+2 months ≈ 35 weeks: root + weeks -33..-0 + 2 appends ≈ 37
-[ "$new_count" -lt 39 ] || fail "test2: history not squashed (count=$new_count)"
-root=$(git -C origin.git rev-list --max-parents=0 gh-pages)
-[ "$(echo "$root" | wc -l)" -eq 1 ] || fail "test2: multiple roots"
-# stale dir pruned, active + top-level preserved
+[ "$new_count" -eq 43 ] || fail "test2: expected exactly one new commit (42 -> $new_count)"
+# stale dir pruned, active + top-level + full history preserved
 git -C origin.git show gh-pages:bench/stale/data.js > /dev/null 2>&1 && fail "test2: stale dir not pruned"
 git -C origin.git show gh-pages:bench/index.html > /dev/null || fail "test2: top-level file lost"
 n=$(check_tip bench/next/data.js | jq '.entries["Aztec Benchmarks"] | length')
 [ "$n" -eq 3 ] || fail "test2: expected 3 entries after second append, got $n"
-# recent commit messages preserved through rewrite
-git -C origin.git log --format=%s gh-pages | grep -q "bench update week -30" || fail "test2: recent history lost"
-git -C origin.git log --format=%s gh-pages | grep -q "bench update week -36" && fail "test2: old history survived"
-git -C origin.git show gh-pages:bench/.squash-stamp > /dev/null || fail "test2: squash stamp missing"
-pass "test2: maintain squash + prune (commits: 42 -> $new_count)"
+git -C origin.git log --format=%s gh-pages | grep -q "bench update week -40" || fail "test2: old history lost"
+pass "test2: maintain prune without history rewrite (commits: 42 -> $new_count)"
 
-# --- Test 3: maintain is idempotent (no shallow -> no squash, nothing new pruned) ---
+# --- Test 3: maintain is idempotent (nothing new pruned) ---
 count_before=$(git -C origin.git rev-list --count gh-pages)
 run_script "Aztec Benchmarks" bench/next bench.json deadbeef3 --maintain > /dev/null
 count_after=$(git -C origin.git rev-list --count gh-pages)
@@ -111,5 +105,23 @@ n=$(check_tip bench/pr-1234/data.js | jq '.entries["Spartan"] | length')
 first=$(check_tip bench/pr-1234/data.js | jq -r '.entries["Spartan"][0].commit.id')
 [ "$first" = "trim1" ] || fail "test5: oldest kept entry: $first"
 pass "test5: MAX_ITEMS trim"
+
+# --- Test 6: entry larger than the 128KB per-argv-element limit still uploads ---
+# (regression: --argjson "$(cat entry.json)" died with "Argument list too long" in CI)
+jq -n '[range(3000) | {name: ("bench_\(.)_" + ("x" * 60)), value: ., unit: "ms"}]' > big_bench.json
+[ "$(wc -c < big_bench.json)" -gt 131072 ] || fail "test6: fixture not big enough"
+run_script "Aztec Benchmarks" bench/next big_bench.json bigentry1 > /dev/null || fail "test6: upload failed"
+n=$(check_tip bench/next/data.js | jq '.entries["Aztec Benchmarks"][-1].benches | length')
+[ "$n" -eq 3000 ] || fail "test6: expected 3000 benches in entry, got $n"
+pass "test6: >128KB entry uploads intact"
+
+# --- Test 7: unreachable data repo fails loudly, pushes nothing ---
+# (regression: a mid-append jq failure was swallowed by the if-suppressed errexit and a
+# truncated data.js was committed and pushed as a "success")
+if RETRY_SLEEP=0 BENCH_REPO_URL="file://$WORK/nonexistent.git" GITHUB_TOKEN= \
+    "$SCRIPT" "Aztec Benchmarks" bench/next bench.json deadbeef9 > /dev/null 2>&1; then
+  fail "test7: expected nonzero exit for unreachable repo"
+fi
+pass "test7: failure is loud"
 
 echo "ALL TESTS PASSED"
