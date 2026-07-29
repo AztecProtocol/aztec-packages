@@ -20,7 +20,7 @@ fn repo_root() -> PathBuf {
 fn nargo_path() -> PathBuf {
     let raw = std::env::var("NARGO")
         .map(PathBuf::from)
-        .unwrap_or_else(|_| manifest_dir().join("../../../noir/noir-repo/target/release/nargo"));
+        .unwrap_or_else(|_| manifest_dir().join("../../../labs-aztec-toolchain/bin/nargo"));
     if raw.is_absolute() {
         raw
     } else {

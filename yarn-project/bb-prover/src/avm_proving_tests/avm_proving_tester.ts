@@ -22,7 +22,7 @@ import path from 'path';
 
 import { BBJsFactory } from '../bb/bb_js_backend.js';
 
-const BB_PATH = path.resolve('../../barretenberg/cpp/build/bin/bb-avm');
+const BB_PATH = path.resolve('../../labs-aztec-toolchain/bin/bb-avm');
 
 // Config with collectHints enabled for proving tests
 const provingConfig: PublicSimulatorConfig = PublicSimulatorConfig.from({

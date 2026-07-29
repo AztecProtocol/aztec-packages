@@ -13,7 +13,7 @@ GIT_ROOT="$(cd "$SCRIPT_DIR" && git rev-parse --show-toplevel 2>/dev/null || ech
 
 # Default paths (relative to git root)
 DEFAULT_NOIR_ROOT="$GIT_ROOT/noir/noir-repo"
-DEFAULT_TRANSPILER_BIN="$GIT_ROOT/avm-transpiler/target/release/avm-transpiler"
+DEFAULT_TRANSPILER_BIN="$GIT_ROOT/labs-aztec-toolchain/bin/avm-transpiler"
 DEFAULT_SIMULATOR_BIN="$GIT_ROOT/yarn-project/simulator/dest/public/fuzzing/avm_simulator_bin.js"
 
 # Usage information

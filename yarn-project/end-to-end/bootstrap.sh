@@ -249,7 +249,7 @@ function test_and_collect_avm_inputs {
 
 # Generates commands to run avm_check_circuit on all dumped AVM circuit inputs
 function avm_check_circuit_cmds {
-  local bb_avm="barretenberg/cpp/build/bin/bb-avm"
+  local bb_avm="labs-aztec-toolchain/bin/bb-avm"
   # Commands run from repo root via parallelize, so use path from top
   local dump_dir_from_top="yarn-project/end-to-end/$default_avm_inputs_dump_dir"
 

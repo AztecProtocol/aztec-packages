@@ -34,7 +34,7 @@ CONTRACTS_DIR="${SCRIPT_DIR}/contracts"
 NARGO="${NARGO:-${REPO_ROOT}/labs-aztec-toolchain/bin/nargo}"
 BB="${BB:-${REPO_ROOT}/labs-aztec-toolchain/bin/bb}"
 ANVIL="${ANVIL:-/opt/foundry/bin/anvil}"
-TRANSPILER="${TRANSPILER:-${REPO_ROOT}/avm-transpiler/target/release/avm-transpiler}"
+TRANSPILER="${TRANSPILER:-${REPO_ROOT}/labs-aztec-toolchain/bin/avm-transpiler}"
 
 # --------------------------------------------------------------------------- #
 # Helpers

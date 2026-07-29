@@ -216,13 +216,13 @@ function test_cmds {
   # Fairies want to run these tests on every PR
   if [ "${TARGET_BRANCH:-}" = "merge-train/fairies" ]; then
     $NARGO test --list-tests --silence-warnings | sort | while read -r package test; do
-      echo "disabled-cache noir-projects/scripts/run_test.sh labs/noir-contracts $package $test $txe_port"
+      echo "disabled-cache noir-projects/labs/scripts/run_test.sh noir-contracts $package $test $txe_port"
     done
   else
     local -A cache
     $NARGO test --list-tests --silence-warnings | sort | while read -r package test; do
       [ -z "${cache[$package]:-}" ] && cache[$package]=$(get_contract_hash $package $folder_name)
-      echo "${cache[$package]} noir-projects/scripts/run_test.sh labs/noir-contracts $package $test $txe_port"
+      echo "${cache[$package]} noir-projects/labs/scripts/run_test.sh noir-contracts $package $test $txe_port"
     done
   fi
 }
@@ -283,7 +283,7 @@ function test-one {
   local txe_port=$DEFAULT_TXE_PORT
   start_txe "$txe_port"
 
-  $root/noir-projects/scripts/run_test.sh labs/noir-contracts "$package" "$test_name" "$txe_port"
+  $root/noir-projects/labs/scripts/run_test.sh noir-contracts "$package" "$test_name" "$txe_port"
 }
 
 function format {

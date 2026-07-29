@@ -8,7 +8,6 @@ import path from 'path';
 import { fileURLToPath } from 'url';
 
 const {
-  BB_RELEASE_DIR = 'barretenberg/cpp/build/bin',
   BB_BINARY_PATH,
   BB_SKIP_CLEANUP = '',
   TEMP_DIR = tmpdir(),
@@ -25,7 +24,7 @@ export const getBBConfig = async (
   try {
     const bbBinaryPath =
       BB_BINARY_PATH ??
-      path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../../../../', BB_RELEASE_DIR, 'bb-avm');
+      path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../../../../labs-aztec-toolchain/bin/bb-avm');
     await fs.access(bbBinaryPath, fs.constants.R_OK);
 
     let bbWorkingDirectory: string;
