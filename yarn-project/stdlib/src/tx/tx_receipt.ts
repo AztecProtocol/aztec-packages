@@ -277,6 +277,23 @@ export class MinedTxReceipt<Opts extends GetTxReceiptOptions = GetTxReceiptOptio
     );
   }
 
+  /** A successful receipt with a random tx hash and placeholder block coordinates, FINALIZED unless overridden. */
+  static random(overrides: Partial<FieldsOf<MinedTxReceipt>> = {}): MinedTxReceipt {
+    return MinedTxReceipt.from({
+      txHash: TxHash.random(),
+      status: TxStatus.FINALIZED,
+      executionResult: TxExecutionResult.SUCCESS,
+      transactionFee: 0n,
+      blockHash: BlockHash.random(),
+      blockNumber: BlockNumber(1),
+      slotNumber: SlotNumber(1),
+      txIndexInBlock: 0,
+      epochNumber: EpochNumber(1),
+      txEffect: TxEffect.empty(),
+      ...overrides,
+    });
+  }
+
   static get schema(): ZodFor<MinedTxReceipt> {
     return z
       .object({

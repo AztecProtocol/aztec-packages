@@ -319,12 +319,9 @@ export class PXE {
     } = openPxeStores(store, initialBlockHash);
     const contractClassService = new ContractClassService(node, contractStore);
     // PXE-wide store of node reads, shared by every read-caching node wrapper below and wiped by the block
-    // synchronizer on every anchor update. Some cached results can still change while the anchor stands still (a
-    // receipt can finalize or drop), so every consumer of a wrapped node must either interpret the chain as of the
-    // anchor block, discarding anything mined beyond it (simulators, kernel proving, tx resolution, contract sync),
-    // or react only to monotone status transitions, where staleness at worst defers the reaction past the next wipe
-    // (sender tagging sync). Consumers that need live chain state (the block synchronizer, tx submission, validity
-    // checks) must keep using the raw node.
+    // synchronizer on every anchor update (the caching rule lives on `withReadCache`). The wipe only covers reorgs
+    // that move the anchor, so pinned reads must stay at or below it. Consumers that operate on the live tip (the
+    // block synchronizer, tx submission, validity checks) read above the anchor by nature and use the raw node.
     const nodeReadCache = new AztecNodeReadCache();
     const anchorReadNode = withReadCache(node, nodeReadCache);
     const contractSyncService = new ContractSyncService(

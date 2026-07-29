@@ -382,25 +382,6 @@ describe('Utility Execution test suite', () => {
     });
 
     describe('getTxEffects', () => {
-      const makeTxEffect = (txHash: TxHash) => TxEffect.from({ ...TxEffect.empty(), txHash });
-      const makeMinedReceipt = (
-        txHash: TxHash,
-        txEffect = makeTxEffect(txHash),
-        blockNumber = BlockNumber(syncedBlockNumber),
-      ) =>
-        new MinedTxReceipt(
-          txHash,
-          TxStatus.FINALIZED,
-          TxExecutionResult.SUCCESS,
-          0n,
-          BlockHash.random(),
-          blockNumber,
-          SlotNumber(1),
-          0,
-          EpochNumber(1),
-          txEffect,
-        );
-
       it('returns None for tx effects that are dropped or beyond the synced block', async () => {
         const service = new EphemeralArrayService();
         const presentTxHash = TxHash.random();
@@ -426,6 +407,29 @@ describe('Utility Execution test suite', () => {
         expect(options[0].value?.txHash).toEqual(presentTxHash);
         expect(options[3].value?.txHash).toEqual(presentTxHash);
       });
+
+      function makeTxEffect(txHash: TxHash) {
+        return TxEffect.from({ ...TxEffect.empty(), txHash });
+      }
+
+      function makeMinedReceipt(
+        txHash: TxHash,
+        txEffect = makeTxEffect(txHash),
+        blockNumber = BlockNumber(syncedBlockNumber),
+      ) {
+        return new MinedTxReceipt(
+          txHash,
+          TxStatus.FINALIZED,
+          TxExecutionResult.SUCCESS,
+          0n,
+          BlockHash.random(),
+          blockNumber,
+          SlotNumber(1),
+          0,
+          EpochNumber(1),
+          txEffect,
+        );
+      }
     });
 
     describe('areBlockHashesInArchive', () => {

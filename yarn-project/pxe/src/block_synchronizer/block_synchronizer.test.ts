@@ -19,7 +19,7 @@ import {
 } from '@aztec/stdlib/block';
 import type { AztecNode, BlockResponse } from '@aztec/stdlib/interfaces/client';
 import { NoteDao, NoteStatus } from '@aztec/stdlib/note';
-import { DroppedTxReceipt, TxHash } from '@aztec/stdlib/tx';
+import { MinedTxReceipt, TxHash } from '@aztec/stdlib/tx';
 
 import { type MockProxy, mock } from 'jest-mock-extended';
 
@@ -177,9 +177,12 @@ describe('BlockSynchronizer', () => {
     const block = await L2Block.random(BlockNumber(1));
     await serveBlockDataByHash(block);
     const txHash = TxHash.random();
-    aztecNode.getTxReceipt.mockResolvedValue(new DroppedTxReceipt(txHash));
+    // A FINALIZED receipt: others are never kept, so they could not tell a wiped cache from an unwiped one.
+    aztecNode.getTxReceipt.mockResolvedValue(MinedTxReceipt.random({ txHash }));
     const cachingNode = withReadCache(aztecNode, nodeReadCache);
     await cachingNode.getTxReceipt(txHash);
+    await cachingNode.getTxReceipt(txHash);
+    expect(aztecNode.getTxReceipt).toHaveBeenCalledTimes(1);
 
     await synchronizer.handleBlockStreamEvent(await proposedEvent(block));
 
