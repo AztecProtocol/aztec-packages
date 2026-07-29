@@ -8,7 +8,10 @@ import type { KeyStore } from '@aztec/key-store';
 import { openTmpStore } from '@aztec/kv-store/lmdb-v2';
 import { StatefulTestContractArtifact } from '@aztec/noir-test-contracts.js/StatefulTest';
 import { type CircuitSimulator, WASMSimulator } from '@aztec/simulator/client';
-import { HandshakeRegistryArtifact } from '@aztec/standard-contracts/handshake-registry';
+import {
+  HandshakeRegistryArtifact,
+  getHistoricalStandardHandshakeRegistries,
+} from '@aztec/standard-contracts/handshake-registry';
 import { STANDARD_HANDSHAKE_REGISTRY_ADDRESS } from '@aztec/standard-contracts/handshake-registry/constants';
 import {
   type ContractArtifact,
@@ -541,6 +544,29 @@ describe('Utility Execution test suite', () => {
           }
         },
       );
+
+      it('applies the same read allowlist to historical HandshakeRegistry deployments', async () => {
+        for (const { address, artifact } of await getHistoricalStandardHandshakeRegistries()) {
+          for (const { name } of artifact.functions) {
+            contractSyncService.ensureContractSynced.mockClear();
+            nestedSimulator.executeUserCircuit.mockClear();
+            const selector = await prepareNestedUtilityCall(address, artifact, name);
+
+            if (defaultAuthorizedHandshakeRegistryReads.has(name)) {
+              const args = defaultAuthorizedHandshakeRegistryReads.get(name) ?? [];
+              await expect(utilityExecutionOracle.callUtilityFunction(address, selector, args)).resolves.toEqual([]);
+              expect(contractSyncService.ensureContractSynced).toHaveBeenCalled();
+              expect(nestedSimulator.executeUserCircuit).toHaveBeenCalled();
+            } else {
+              await expect(utilityExecutionOracle.callUtilityFunction(address, selector, [])).rejects.toThrow(
+                'Cross-contract utility call denied: No authorizeUtilityCall hook configured',
+              );
+              expect(contractSyncService.ensureContractSynced).not.toHaveBeenCalled();
+              expect(nestedSimulator.executeUserCircuit).not.toHaveBeenCalled();
+            }
+          }
+        }
+      });
     });
 
     describe('getSharedSecrets', () => {

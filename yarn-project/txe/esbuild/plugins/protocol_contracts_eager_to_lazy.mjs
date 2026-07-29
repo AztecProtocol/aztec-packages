@@ -7,9 +7,10 @@
  *   - protocol-contracts `class-registry` / `instance-registry`: the archiver, simulator, and
  *     aztec-node import these subpaths only for event classes (`ContractClassPublishedEvent`,
  *     `ContractInstancePublishedEvent`, …) which the `/lazy` barrel also re-exports.
- *   - standard-contracts `auth-registry` / `handshake-registry` / `multi-call-entrypoint`: pulled
- *     in eagerly by `@aztec/pxe/server` (node entrypoint), which calls only the async
- *     `getStandard*()` getters — those exist identically on the `/lazy` barrels.
+ *   - standard-contracts `auth-registry` / `handshake-registry` / `multi-call-entrypoint` /
+ *     `preloaded`: pulled in eagerly by `@aztec/pxe/server` (node entrypoint), which calls only
+ *     the async `getStandard*()` / `getDefaultStandardPreloadedContracts()` getters — those exist
+ *     identically on the `/lazy` barrels.
  *
  * `fee-juice/index.js` is intentionally NOT rewritten: the eager barrel exposes synchronous
  * utilities (`computeFeePayerBalanceStorageSlot`) the simulator calls on every public tx, and
@@ -27,7 +28,10 @@
  */
 const eagerBarrels = [
   { pkg: 'protocol-contracts', subpaths: ['class-registry', 'instance-registry'] },
-  { pkg: 'standard-contracts', subpaths: ['auth-registry', 'handshake-registry', 'multi-call-entrypoint'] },
+  {
+    pkg: 'standard-contracts',
+    subpaths: ['auth-registry', 'handshake-registry', 'multi-call-entrypoint', 'preloaded'],
+  },
 ];
 
 export const protocolContractsEagerToLazyPlugin = {

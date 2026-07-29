@@ -95,6 +95,7 @@
     "src",
     "!*.test.*",
     "artifacts",
+    "artifacts-historical",
     "!src/scripts/*"
   ],
   "engines": {

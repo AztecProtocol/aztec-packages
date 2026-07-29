@@ -7,6 +7,8 @@ import type { AztecAddress } from '@aztec/stdlib/aztec-address';
 
 import { StandardContractAddress, StandardContractClassId, StandardContractSalt } from '../standard_contract_data.js';
 
+export { HISTORICAL_STANDARD_HANDSHAKE_REGISTRY_ADDRESSES } from './historical.js';
+
 export const STANDARD_HANDSHAKE_REGISTRY_ADDRESS: AztecAddress = StandardContractAddress.HandshakeRegistry;
 export const STANDARD_HANDSHAKE_REGISTRY_CLASS_ID = StandardContractClassId.HandshakeRegistry;
 export const STANDARD_HANDSHAKE_REGISTRY_SALT = StandardContractSalt.HandshakeRegistry;
