@@ -5,19 +5,107 @@ import { deployAztecL1Contracts } from '@aztec/ethereum/deploy-aztec-l1-contract
 import type { L1SyncSnapshot, L1SyncSnapshotProvider } from '@aztec/ethereum/l1-types';
 import { type Anvil, EthCheatCodes, RollupCheatCodes, startAnvil } from '@aztec/ethereum/test';
 import type { ViemClient } from '@aztec/ethereum/types';
-import { CheckpointNumber } from '@aztec/foundation/branded-types';
+import { CheckpointNumber, SlotNumber } from '@aztec/foundation/branded-types';
 import { Buffer32 } from '@aztec/foundation/buffer';
+import { times } from '@aztec/foundation/collection';
 import { Fr } from '@aztec/foundation/curves/bn254';
 import { EthAddress } from '@aztec/foundation/eth-address';
 import { createLogger } from '@aztec/foundation/log';
 import { DateProvider, ManualDateProvider } from '@aztec/foundation/timer';
-import { FEE_ORACLE_LAG, ManaUsageEstimate } from '@aztec/stdlib/gas';
+import {
+  type L1RollupConstants,
+  getNextL1SlotTimestamp,
+  getSlotAtNextL1Block,
+  getTimestampForSlot,
+} from '@aztec/stdlib/epoch-helpers';
+import { FEE_ORACLE_LAG, GasFees, ManaUsageEstimate, computeExcessMana } from '@aztec/stdlib/gas';
 
 import { foundry } from 'viem/chains';
 
-import { type FeeSnapshotServiceConfig, getDefaultFeeSnapshotServiceConfig } from './fee_snapshot.js';
-import { FeeSnapshotService } from './fee_snapshot_service.js';
-import { computeLegacyCurrentMinFees, computeLegacyPredictedMinFees } from './legacy_fee_oracle.js';
+import { type FeeOracleState, computePredictions } from './fee_prediction.js';
+import {
+  FeeSnapshotService,
+  type FeeSnapshotServiceConfig,
+  getDefaultFeeSnapshotServiceConfig,
+} from './fee_snapshot_service.js';
+
+type LegacyOracleConstants = Pick<L1RollupConstants, 'l1GenesisTime' | 'slotDuration' | 'ethereumSlotDuration'>;
+
+/**
+ * Faithful refactor of the pre-snapshot `FeeProviderImpl.computeCurrentMinFees`, taking `(blockNumber, now)`
+ * explicitly and pinned to that block. Kept here as the equivalence oracle for the snapshot service.
+ */
+async function computeLegacyCurrentMinFees(
+  rollup: RollupContract,
+  blockNumber: bigint,
+  nowSeconds: number,
+  constants: LegacyOracleConstants,
+): Promise<GasFees> {
+  const pendingCheckpointNumber = await rollup.getCheckpointNumber({ blockNumber });
+  const lastCheckpoint = await rollup.getCheckpoint(pendingCheckpointNumber, { blockNumber });
+  const earliestTimestamp = getTimestampForSlot(SlotNumber.add(lastCheckpoint.slotNumber, 1), constants);
+  const nextEthTimestamp = getNextL1SlotTimestamp(nowSeconds, constants);
+  const timestamp = earliestTimestamp > nextEthTimestamp ? earliestTimestamp : nextEthTimestamp;
+  return new GasFees(0, await rollup.getManaMinFeeAt(timestamp, true, { blockNumber }));
+}
+
+/**
+ * Faithful refactor of the pre-snapshot `FeePredictor.fetchState`, taking `(blockNumber, now)` explicitly and
+ * pinned to that block.
+ */
+async function fetchLegacyFeeOracleState(
+  rollup: RollupContract,
+  blockNumber: bigint,
+  nowSeconds: number,
+  constants: LegacyOracleConstants,
+): Promise<FeeOracleState> {
+  const opts = { blockNumber };
+  const [manaTarget, manaLimit, provingCostPerManaEth, epochDuration] = await Promise.all([
+    rollup.readManaTarget(opts),
+    rollup.readManaLimit(opts),
+    rollup.readProvingCostPerManaInEth(opts),
+    rollup.getEpochDuration(),
+  ]);
+
+  const currentSlot = await rollup.getSlotNumber(opts);
+  const slotAtNextL1Block = getSlotAtNextL1Block(BigInt(nowSeconds), constants);
+  const preliminaryNextSlot = SlotNumber(Math.max(currentSlot, slotAtNextL1Block));
+  const nextSlotTimestamp = getTimestampForSlot(preliminaryNextSlot, constants);
+
+  const lastCheckpoint = await rollup.getEffectivePendingCheckpoint(nextSlotTimestamp, opts);
+  const lastSlot = lastCheckpoint.slotNumber;
+  const nextSlot = SlotNumber(Math.max(SlotNumber.add(lastSlot, 1), preliminaryNextSlot));
+  const feeHeader = lastCheckpoint.feeHeader;
+
+  const timestamps = times(FEE_ORACLE_LAG, i => getTimestampForSlot(SlotNumber.add(nextSlot, i), constants));
+  const l1FeesBySlot = await Promise.all(timestamps.map(ts => rollup.getL1FeesAt(ts, opts)));
+
+  return {
+    lastSlot,
+    excessMana: computeExcessMana(feeHeader.excessMana, feeHeader.manaUsed, manaTarget),
+    ethPerFeeAsset: feeHeader.ethPerFeeAsset,
+    manaTarget,
+    manaLimit,
+    provingCostPerManaEth,
+    epochDuration: BigInt(epochDuration),
+    l1FeesBySlot,
+  };
+}
+
+/** Legacy `getPredictedMinFees`: current fee followed by the prediction window, on identical explicit inputs. */
+async function computeLegacyPredictedMinFees(
+  rollup: RollupContract,
+  blockNumber: bigint,
+  nowSeconds: number,
+  constants: LegacyOracleConstants,
+  manaUsage: ManaUsageEstimate,
+): Promise<GasFees[]> {
+  const [current, state] = await Promise.all([
+    computeLegacyCurrentMinFees(rollup, blockNumber, nowSeconds, constants),
+    fetchLegacyFeeOracleState(rollup, blockNumber, nowSeconds, constants),
+  ]);
+  return [current, ...computePredictions(state, manaUsage)];
+}
 
 // The snapshot service path must reduce exactly to the legacy oracle on identical (blockNumber, now).
 describe('FeeSnapshot equivalence with legacy oracle', () => {
@@ -67,10 +155,8 @@ describe('FeeSnapshot equivalence with legacy oracle', () => {
   function makeService(identity: L1SyncSnapshot, dateProvider: ManualDateProvider): FeeSnapshotService {
     const config: FeeSnapshotServiceConfig = {
       ...getDefaultFeeSnapshotServiceConfig({ slotDuration, l1GenesisTime, ethereumSlotDuration, epochDuration }),
-      clockDriftAllowanceSeconds: 0,
-      maxRefreshAgeMs: 0,
+      // The cases below drive the clock explicitly, so the head-age bound is disabled and the loop never ticks.
       maxL1HeadAgeSeconds: 0,
-      futureHeadAllowanceSeconds: 0,
       refreshTimeoutMs: 30_000,
       pollIntervalMs: 1_000_000_000,
     };

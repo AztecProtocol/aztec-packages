@@ -12,8 +12,8 @@ import {
 
 /**
  * Resolved rollup state for a single prediction anchor slot. Every field is a finished input to the pure
- * fee math below; nothing here reads L1. The snapshot service and the test-only legacy oracle both build
- * this from pinned reads and then feed it to {@link computePredictions}.
+ * fee math below; nothing here reads L1. Callers build this from pinned reads and then feed it to
+ * {@link computePredictions}.
  */
 export type FeeOracleState = {
   /** Slot of the effective parent checkpoint (prune-aware) at the anchor timestamp. */
@@ -31,29 +31,33 @@ export type FeeOracleState = {
 };
 
 /**
- * Builds a {@link FeeOracleState} for a prediction anchored at `anchorSlot`, using already-fetched checkpoints,
- * governance values, and L1 fees. Mirrors the state assembly `FeePredictor.fetchState` used to do inline, but
- * takes every input explicitly so it is a pure function shared by the snapshot service and the legacy oracle.
+ * The slots a prediction anchored at `anchorSlot` needs L1 fee oracle values for. The window starts at the slot
+ * after the effective parent, but never before the anchor slot.
+ */
+export function getPredictionWindowSlots(anchorSlot: SlotNumber, effectiveParentSlot: SlotNumber): SlotNumber[] {
+  const nextSlot = SlotNumber(Math.max(SlotNumber.add(effectiveParentSlot, 1), anchorSlot));
+  return times(FEE_ORACLE_LAG, i => SlotNumber.add(nextSlot, i));
+}
+
+/**
+ * Builds a {@link FeeOracleState} for a prediction anchored at `anchorSlot`, using the already-selected
+ * prune-aware effective parent checkpoint, governance values, and L1 fees. Mirrors the state assembly
+ * `FeePredictor.fetchState` used to do inline, but takes every input explicitly so it is a pure function.
  *
  * @param l1FeesForSlot - Resolves the L1 fees at a slot from the caller's pre-fetched map; throws if missing.
  */
 export function buildFeeOracleState(params: {
   anchorSlot: SlotNumber;
-  canPrune: boolean;
-  pendingCheckpoint: { slotNumber: SlotNumber; feeHeader: FeeHeader };
-  provenCheckpoint: { slotNumber: SlotNumber; feeHeader: FeeHeader };
+  effectiveParent: { slotNumber: SlotNumber; feeHeader: FeeHeader };
   manaTarget: bigint;
   manaLimit: bigint;
   provingCostPerManaEth: bigint;
   epochDuration: bigint;
   l1FeesForSlot: (slot: SlotNumber) => L1FeeData;
 }): FeeOracleState {
-  const effectiveParent = params.canPrune ? params.provenCheckpoint : params.pendingCheckpoint;
-  const lastSlot = effectiveParent.slotNumber;
-  // The prediction starts at the slot after the effective parent, but never before the anchor slot.
-  const nextSlot = SlotNumber(Math.max(SlotNumber.add(lastSlot, 1), params.anchorSlot));
-  const feeHeader = effectiveParent.feeHeader;
-  const l1FeesBySlot = times(FEE_ORACLE_LAG, i => params.l1FeesForSlot(SlotNumber.add(nextSlot, i)));
+  const lastSlot = params.effectiveParent.slotNumber;
+  const feeHeader = params.effectiveParent.feeHeader;
+  const l1FeesBySlot = getPredictionWindowSlots(params.anchorSlot, lastSlot).map(params.l1FeesForSlot);
 
   return {
     lastSlot,

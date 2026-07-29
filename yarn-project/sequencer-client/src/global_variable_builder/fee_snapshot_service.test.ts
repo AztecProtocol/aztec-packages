@@ -1,26 +1,37 @@
-import type { CheckpointLog, FeeHeader, RollupFeeRead, RollupFeeReadResult } from '@aztec/ethereum/contracts';
+import type {
+  CheckpointLog,
+  FeeHeader,
+  L1FeeData,
+  RollupChainTips,
+  RollupFeeGlobals,
+  RollupSlotFeeInputs,
+} from '@aztec/ethereum/contracts';
 import type { L1SyncSnapshot, L1SyncSnapshotProvider } from '@aztec/ethereum/l1-types';
 import { CheckpointNumber, SlotNumber } from '@aztec/foundation/branded-types';
 import { Buffer32 } from '@aztec/foundation/buffer';
 import { Fr } from '@aztec/foundation/curves/bn254';
+import { promiseWithResolvers } from '@aztec/foundation/promise';
+import { retryUntil } from '@aztec/foundation/retry';
+import { sleep } from '@aztec/foundation/sleep';
 import { ManualDateProvider } from '@aztec/foundation/timer';
 import { FEE_ORACLE_LAG, ManaUsageEstimate } from '@aztec/stdlib/gas';
 
 import {
-  FeeSnapshotConfigError,
-  FeeSnapshotFutureHeadError,
-  FeeSnapshotL1HeadStaleError,
+  FeeQuoteStaleError,
+  FeeQuoteUnavailableError,
+  FeeSnapshotService,
   type FeeSnapshotServiceConfig,
-  FeeSnapshotStoppedError,
-  FeeSnapshotUnavailableError,
+  type RollupFeeReader,
   getDefaultFeeSnapshotServiceConfig,
-} from './fee_snapshot.js';
-import { FeeSnapshotService, type RollupFeeReader } from './fee_snapshot_service.js';
+} from './fee_snapshot_service.js';
 
 const L1_GENESIS_TIME = 0n;
 const SLOT_DURATION = 24;
 const ETHEREUM_SLOT_DURATION = 12;
 const EPOCH_DURATION = 32;
+
+/** Round trips one refresh makes: globals, checkpoints, per-slot fee inputs, L1 fees + trailing tips. */
+const STAGES_PER_REFRESH = 4;
 
 const FEE_HEADER: FeeHeader = {
   excessMana: 0n,
@@ -46,69 +57,70 @@ function makeCheckpoint(slot: number): CheckpointLog {
   };
 }
 
-/** Deterministic in-memory rollup reader. `getManaMinFeeAt` returns the slot number so current fees are identifiable. */
+/** Deterministic in-memory rollup reader. `manaMinFee` returns the slot number so current fees are identifiable. */
 class FakeRollup implements RollupFeeReader {
+  /** Number of stage round trips made (one refresh is {@link STAGES_PER_REFRESH}). */
   public callCount = 0;
-  public calls: { blockNumber: bigint; reads: RollupFeeRead[] }[] = [];
-  public tips = { pending: CheckpointNumber(5), proven: CheckpointNumber(3) };
+  public blockNumbers: bigint[] = [];
+  public tips: RollupChainTips = { pending: CheckpointNumber(5), proven: CheckpointNumber(3) };
   public pendingSlot = 100;
   public provenSlot = 90;
   public manaTarget = 1000n;
   public manaLimit = 2000n;
   public provingCost = 5n;
   public canPrune = false;
-  /** Number of upcoming readFeeInputs calls to fail. */
+  /** Number of upcoming stage calls to fail. */
   public failNext = 0;
-  /** Optional gate: when set, readFeeInputs waits on this before resolving. */
+  /** Optional gate: when set, every stage waits on this before resolving. */
   public gate: Promise<void> | undefined;
-  /** Wave-2 tips override to simulate fork mixing (applied once). */
-  public wave2TipsOnce: { pending: CheckpointNumber; proven: CheckpointNumber } | undefined;
-  /** Wave-2 tips override applied on every wave 2, to simulate persistent tips instability. */
-  public wave2TipsAlways: { pending: CheckpointNumber; proven: CheckpointNumber } | undefined;
+  /** Tips reported by the trailing re-read of the last stage, to simulate divergence across stages. */
+  public tailTips: RollupChainTips | undefined;
 
-  async readFeeInputs(reads: RollupFeeRead[], options: { blockNumber: bigint }): Promise<RollupFeeReadResult[]> {
+  async getFeeGlobals(options: { blockNumber: bigint }): Promise<RollupFeeGlobals> {
+    await this.stage(options);
+    return {
+      tips: this.tips,
+      manaTarget: this.manaTarget,
+      manaLimit: this.manaLimit,
+      provingCostPerManaEth: this.provingCost,
+    };
+  }
+
+  async getCheckpoints(
+    checkpointNumbers: CheckpointNumber[],
+    options: { blockNumber: bigint },
+  ): Promise<CheckpointLog[]> {
+    await this.stage(options);
+    return checkpointNumbers.map(n =>
+      makeCheckpoint(Number(n) === Number(this.tips.pending) ? this.pendingSlot : this.provenSlot),
+    );
+  }
+
+  async getSlotFeeInputs(timestamps: bigint[], options: { blockNumber: bigint }): Promise<RollupSlotFeeInputs[]> {
+    await this.stage(options);
+    return timestamps.map(ts => ({ manaMinFee: BigInt(slotOfTimestamp(ts)), canPrune: this.canPrune }));
+  }
+
+  async getL1FeesAndTips(
+    timestamps: bigint[],
+    options: { blockNumber: bigint },
+  ): Promise<{ l1Fees: L1FeeData[]; tips: RollupChainTips }> {
+    await this.stage(options);
+    return {
+      l1Fees: timestamps.map(() => ({ baseFee: 1n, blobFee: 1n })),
+      tips: this.tailTips ?? this.tips,
+    };
+  }
+
+  private async stage(options: { blockNumber: bigint }): Promise<void> {
     this.callCount++;
-    this.calls.push({ blockNumber: options.blockNumber, reads });
+    this.blockNumbers.push(options.blockNumber);
     if (this.gate) {
       await this.gate;
     }
     if (this.failNext > 0) {
       this.failNext--;
       throw new Error('L1 read failed');
-    }
-    const isWave2 = reads.some(r => r.kind === 'checkpoint');
-    return reads.map(r => this.resolve(r, isWave2));
-  }
-
-  private resolve(read: RollupFeeRead, isWave2: boolean): RollupFeeReadResult {
-    switch (read.kind) {
-      case 'tips': {
-        if (isWave2 && this.wave2TipsAlways) {
-          return { kind: 'tips', value: this.wave2TipsAlways };
-        }
-        if (isWave2 && this.wave2TipsOnce) {
-          const value = this.wave2TipsOnce;
-          this.wave2TipsOnce = undefined;
-          return { kind: 'tips', value };
-        }
-        return { kind: 'tips', value: this.tips };
-      }
-      case 'manaTarget':
-        return { kind: 'manaTarget', value: this.manaTarget };
-      case 'manaLimit':
-        return { kind: 'manaLimit', value: this.manaLimit };
-      case 'provingCostPerManaEth':
-        return { kind: 'provingCostPerManaEth', value: this.provingCost };
-      case 'manaMinFeeAt':
-        return { kind: 'manaMinFeeAt', timestamp: read.timestamp, value: BigInt(slotOfTimestamp(read.timestamp)) };
-      case 'canPruneAtTime':
-        return { kind: 'canPruneAtTime', timestamp: read.timestamp, value: this.canPrune };
-      case 'l1FeesAt':
-        return { kind: 'l1FeesAt', timestamp: read.timestamp, value: { baseFee: 1n, blobFee: 1n } };
-      case 'checkpoint': {
-        const slot = Number(read.checkpointNumber) === Number(this.tips.pending) ? this.pendingSlot : this.provenSlot;
-        return { kind: 'checkpoint', checkpointNumber: read.checkpointNumber, value: makeCheckpoint(slot) };
-      }
     }
   }
 }
@@ -144,12 +156,15 @@ describe('FeeSnapshotService', () => {
         ethereumSlotDuration: ETHEREUM_SLOT_DURATION,
         epochDuration: EPOCH_DURATION,
       }),
-      clockDriftAllowanceSeconds: 0,
       refreshTimeoutMs: 100,
       pollIntervalMs: 10_000_000,
       ...overrides,
     };
     return new FeeSnapshotService(rollup, identity, dateProvider, config);
+  }
+
+  function coveredSlots(): number[] {
+    return [...service.getSnapshot()!.candidates.keys()].sort((a, b) => a - b);
   }
 
   beforeEach(() => {
@@ -167,7 +182,7 @@ describe('FeeSnapshotService', () => {
   });
 
   it('serves the current fee floored on the pending checkpoint slot', async () => {
-    // pendingSlot = 100, so wantedCurrent = max(101, slotAtNextL1Block(now)=100) = 101.
+    // pendingSlot = 100, so the current anchor is max(101, slotAtNextL1Block(now) = 100) = 101.
     const fees = await service.getCurrentMinFees();
     expect(fees.feePerL2Gas).toBe(101n);
   });
@@ -181,7 +196,7 @@ describe('FeeSnapshotService', () => {
   it('warm calls issue zero L1 requests', async () => {
     await service.getCurrentMinFees();
     const afterFirst = rollup.callCount;
-    expect(afterFirst).toBeGreaterThan(0);
+    expect(afterFirst).toBe(STAGES_PER_REFRESH);
     for (let i = 0; i < 20; i++) {
       await service.getPredictedMinFees(ManaUsageEstimate.Target);
     }
@@ -193,8 +208,7 @@ describe('FeeSnapshotService', () => {
     for (const fees of results) {
       expect(fees.feePerL2Gas).toBe(101n);
     }
-    // A normal refresh is two waves (wave1 + wave2); single-flight collapses the 20 callers into one refresh.
-    expect(rollup.callCount).toBe(2);
+    expect(rollup.callCount).toBe(STAGES_PER_REFRESH);
   });
 
   it('refreshes once on an archiver identity change and shares the completion', async () => {
@@ -205,7 +219,7 @@ describe('FeeSnapshotService', () => {
     for (const fees of results) {
       expect(fees.feePerL2Gas).toBe(101n);
     }
-    expect(rollup.callCount).toBe(before + 2);
+    expect(rollup.callCount).toBe(before + STAGES_PER_REFRESH);
     expect(service.getSnapshot()!.l1.blockNumber).toBe(2n);
   });
 
@@ -214,7 +228,7 @@ describe('FeeSnapshotService', () => {
     const before = rollup.callCount;
     identity.snapshot = makeIdentity(1n, PINNED_SLOT, Buffer32.fromNumber(999));
     await service.getCurrentMinFees();
-    expect(rollup.callCount).toBe(before + 2);
+    expect(rollup.callCount).toBe(before + STAGES_PER_REFRESH);
     expect(service.getSnapshot()!.l1.blockHash.equals(Buffer32.fromNumber(999))).toBe(true);
   });
 
@@ -251,9 +265,18 @@ describe('FeeSnapshotService', () => {
     await expect(service.getCurrentMinFees()).rejects.toThrow('L1 read failed');
     // During the backoff window, reads fail fast with a typed error and issue no L1 requests.
     const calls = rollup.callCount;
-    await expect(service.getCurrentMinFees()).rejects.toBeInstanceOf(FeeSnapshotUnavailableError);
+    await expect(service.getCurrentMinFees()).rejects.toBeInstanceOf(FeeQuoteUnavailableError);
     expect(rollup.callCount).toBe(calls);
     // After the backoff elapses, reads refresh again.
+    dateProvider.advanceTimeMs(1_000);
+    const fees = await service.getCurrentMinFees();
+    expect(fees.feePerL2Gas).toBe(101n);
+  });
+
+  it('recovers when the very first refresh fails', async () => {
+    rollup.failNext = 100;
+    await expect(service.getCurrentMinFees()).rejects.toThrow('L1 read failed');
+    rollup.failNext = 0;
     dateProvider.advanceTimeMs(1_000);
     const fees = await service.getCurrentMinFees();
     expect(fees.feePerL2Gas).toBe(101n);
@@ -270,131 +293,128 @@ describe('FeeSnapshotService', () => {
     expect(service.getSnapshot()!.l1.blockNumber).toBe(4n);
   });
 
-  it('exceeding the refresh restart bound counts as a failure and engages backoff', async () => {
-    rollup.wave2TipsAlways = { pending: CheckpointNumber(6), proven: CheckpointNumber(3) };
-    // The cold caller parks on the first-snapshot promise (resolved only on success) and times out typed.
-    await expect(service.getCurrentMinFees()).rejects.toBeInstanceOf(FeeSnapshotUnavailableError);
+  it('reports unavailable when there is no L1 identity yet', async () => {
+    identity.snapshot = undefined;
+    await expect(service.getCurrentMinFees()).rejects.toBeInstanceOf(FeeQuoteUnavailableError);
+  });
+
+  it('reports unavailable for reads after the service is stopped', async () => {
+    await service.getCurrentMinFees();
+    await service.stop();
+    await expect(service.getCurrentMinFees()).rejects.toBeInstanceOf(FeeQuoteUnavailableError);
+  });
+
+  it('fails closed when the pinned L1 head age exceeds the bound', async () => {
+    service = makeService({ maxL1HeadAgeSeconds: 60 });
+    await service.getCurrentMinFees();
+    dateProvider.advanceTime(120);
+    await expect(service.getCurrentMinFees()).rejects.toBeInstanceOf(FeeQuoteStaleError);
+  });
+
+  it('serves an arbitrarily old pinned head when the age bound is disabled', async () => {
+    service = makeService({ maxL1HeadAgeSeconds: 0 });
+    await service.getCurrentMinFees();
+    dateProvider.advanceTime(100_000);
+    await expect(service.getCurrentMinFees()).resolves.toBeDefined();
+  });
+
+  it('fails the refresh when the trailing tips differ, keeping the stored snapshot until it can be replaced', async () => {
+    await service.getCurrentMinFees();
+    const stored = service.getSnapshot();
+    rollup.tailTips = { pending: CheckpointNumber(6), proven: CheckpointNumber(3) };
+
+    // (a) With the identity unchanged and the wanted slots covered, reads keep serving the identity-1 snapshot.
+    const callsAfterGood = rollup.callCount;
+    await expect(service.getCurrentMinFees()).resolves.toBeDefined();
+    expect(rollup.callCount).toBe(callsAfterGood);
+
+    // (b) On a new identity the read must refresh, and that refresh fails on the tips comparison: the caller
+    // gets the refresh error rather than the superseded quote, and the stored snapshot is left alone.
+    identity.snapshot = makeIdentity(2n, PINNED_SLOT);
+    await expect(service.getCurrentMinFees()).rejects.toThrow(/Chain tips changed/);
     expect(service.getStats().refreshFailures).toBe(1);
-    expect(service.getStats().tipsMismatchDiscards).toBe(4);
-    // Backoff is engaged: an immediate retry issues no further L1 reads.
-    const calls = rollup.callCount;
-    await expect(service.getCurrentMinFees()).rejects.toBeInstanceOf(FeeSnapshotUnavailableError);
-    expect(rollup.callCount).toBe(calls);
+    expect(service.getSnapshot()).toBe(stored);
+    await expect(service.getCurrentMinFees()).rejects.toBeInstanceOf(FeeQuoteUnavailableError);
+    expect(service.getSnapshot()).toBe(stored);
+
+    // (c) Once the divergence clears and the backoff elapses, the next read serves the new identity.
+    rollup.tailTips = undefined;
+    dateProvider.advanceTimeMs(1_000);
+    await expect(service.getCurrentMinFees()).resolves.toBeDefined();
+    expect(service.getSnapshot()!.l1.blockNumber).toBe(2n);
   });
 
-  it('discards and restarts the refresh when wave-2 tips differ from wave-1', async () => {
-    rollup.wave2TipsOnce = { pending: CheckpointNumber(6), proven: CheckpointNumber(3) };
-    const fees = await service.getCurrentMinFees();
-    expect(fees.feePerL2Gas).toBe(101n);
-    expect(service.getStats().tipsMismatchDiscards).toBe(1);
-  });
+  describe('identity change during an in-flight refresh', () => {
+    /** Gates the first refresh, publishes `next` while it is in flight, and asserts the read lands on `next`. */
+    async function assertReadLandsOn(next: L1SyncSnapshot): Promise<void> {
+      service = makeService({ refreshTimeoutMs: 5_000 });
+      const gate = promiseWithResolvers<void>();
+      rollup.gate = gate.promise;
 
-  describe('first-snapshot promise', () => {
-    it('times out with a typed error while the first refresh keeps failing, then serves once it succeeds', async () => {
-      rollup.failNext = 100;
-      await expect(service.getCurrentMinFees()).rejects.toBeInstanceOf(FeeSnapshotUnavailableError);
-      rollup.failNext = 0;
-      dateProvider.advanceTimeMs(1_000);
-      const fees = await service.getCurrentMinFees();
+      const read = service.getCurrentMinFees();
+      await sleep(1);
+      identity.snapshot = next;
+      rollup.gate = undefined;
+      gate.resolve();
+
+      const fees = await read;
       expect(fees.feePerL2Gas).toBe(101n);
+      expect(service.getSnapshot()!.l1.blockHash.equals(next.blockHash)).toBe(true);
+      // One refresh for the old identity plus one corrective refresh: no fan-out per caller.
+      expect(service.getStats().refreshes).toBe(2);
+    }
+
+    it('lands on a higher block number published mid-refresh', async () => {
+      await assertReadLandsOn(makeIdentity(2n, PINNED_SLOT));
     });
 
-    it('reports unavailable when there is no L1 identity yet', async () => {
-      identity.snapshot = undefined;
-      await expect(service.getCurrentMinFees()).rejects.toBeInstanceOf(FeeSnapshotUnavailableError);
-    });
-  });
-
-  describe('stop', () => {
-    it('rejects the first-snapshot waiter on stop', async () => {
-      // No L1 identity yet, so no refresh is triggered and the caller parks on the first-snapshot promise.
-      service = makeService({ refreshTimeoutMs: 10_000 });
-      identity.snapshot = undefined;
-      const pending = service.getCurrentMinFees();
-      await service.stop();
-      await expect(pending).rejects.toBeInstanceOf(FeeSnapshotStoppedError);
+    it('lands on a same-height reorg published mid-refresh', async () => {
+      await assertReadLandsOn(makeIdentity(1n, PINNED_SLOT, Buffer32.fromNumber(777)));
     });
   });
 
-  describe('staleness', () => {
-    it('repairs a stale computation age with one refresh instead of failing', async () => {
-      service = makeService({ maxRefreshAgeMs: 1_000, maxL1HeadAgeSeconds: 0, futureHeadAllowanceSeconds: 0 });
+  describe('coverage across an L1 stall', () => {
+    it('serves the advancing wanted slot from headroom, then extends coverage from the poll tick', async () => {
+      service = makeService({ pollIntervalMs: 10 });
       await service.getCurrentMinFees();
-      const refreshesBefore = service.getStats().refreshes;
-      dateProvider.advanceTimeMs(2_000);
-      // Computation staleness is recoverable: the read triggers one refresh (re-anchoring refreshedAtMs) and serves.
-      await expect(service.getCurrentMinFees()).resolves.toBeDefined();
-      expect(service.getStats().refreshes).toBe(refreshesBefore + 1);
-      expect(service.getStats().computationStaleErrors).toBe(0);
+      // Anchors at slot 101 (current) and 100 (prediction), each with two slots of headroom.
+      expect(coveredSlots()).toEqual([100, 101, 102, 103]);
+
+      // The identity stays frozen: the wall clock alone moves the wanted slot up through the headroom.
+      const calls = rollup.callCount;
+      dateProvider.advanceTime(SLOT_DURATION);
+      expect((await service.getCurrentMinFees()).feePerL2Gas).toBe(101n);
+      dateProvider.advanceTime(SLOT_DURATION);
+      expect((await service.getCurrentMinFees()).feePerL2Gas).toBe(102n);
+      expect(rollup.callCount).toBe(calls);
+
+      // One more slot leaves the wanted slot covered but the tick's one-slot lookahead uncovered, so the
+      // background loop re-centres the window on the same pinned block.
+      service.start();
+      dateProvider.advanceTime(SLOT_DURATION);
+      await retryUntil(() => service.getStats().refreshes >= 2, 'coverage refresh', 10, 0.02);
+      expect(service.getSnapshot()!.l1.blockNumber).toBe(1n);
+      expect(coveredSlots()).toEqual([103, 104, 105]);
     });
 
-    it('fails closed when the computation age exceeds the bound and the repair refresh fails', async () => {
-      service = makeService({ maxRefreshAgeMs: 1_000, maxL1HeadAgeSeconds: 0, futureHeadAllowanceSeconds: 0 });
+    it('serves a read landing exactly on a slot boundary while a coverage refresh is in flight', async () => {
+      service = makeService({ pollIntervalMs: 10 });
       await service.getCurrentMinFees();
-      dateProvider.advanceTimeMs(2_000);
-      rollup.failNext = 100;
-      // The repair refresh fails, so the caller sees the underlying refresh error rather than a stale serve.
-      await expect(service.getCurrentMinFees()).rejects.toThrow('L1 read failed');
-    });
 
-    it('refreshes instead of failing when stale but the archiver already has a new identity', async () => {
-      service = makeService({ maxRefreshAgeMs: 1_000, maxL1HeadAgeSeconds: 0, futureHeadAllowanceSeconds: 0 });
-      await service.getCurrentMinFees();
-      dateProvider.advanceTimeMs(2_000);
-      identity.snapshot = makeIdentity(2n, PINNED_SLOT);
-      // Identity is checked before staleness: the read refreshes to the new identity and serves.
-      await expect(service.getCurrentMinFees()).resolves.toBeDefined();
-      expect(service.getSnapshot()!.l1.blockNumber).toBe(2n);
-    });
+      const gate = promiseWithResolvers<void>();
+      rollup.gate = gate.promise;
+      service.start();
+      // Slot 103 starts exactly at this timestamp: the read wants a covered slot while the tick's lookahead
+      // (slot 104) does not, so the gated coverage refresh is in flight when the read arrives.
+      dateProvider.advanceTime(3 * SLOT_DURATION);
+      await retryUntil(() => rollup.callCount > STAGES_PER_REFRESH, 'gated refresh started', 10, 0.02);
 
-    it('fails closed when the L1 head age exceeds the bound', async () => {
-      service = makeService({ maxRefreshAgeMs: 0, maxL1HeadAgeSeconds: 60, futureHeadAllowanceSeconds: 0 });
-      await service.getCurrentMinFees();
-      dateProvider.advanceTime(120);
-      await expect(service.getCurrentMinFees()).rejects.toBeInstanceOf(FeeSnapshotL1HeadStaleError);
-      expect(service.getStats().l1HeadStaleErrors).toBe(1);
-    });
-
-    it('fails closed when the L1 head is dated too far into the future', async () => {
-      service = makeService({ maxRefreshAgeMs: 0, maxL1HeadAgeSeconds: 0, futureHeadAllowanceSeconds: 10 });
-      await service.getCurrentMinFees();
-      // Step the wall clock backwards so the pinned head is far ahead of "now".
-      dateProvider.advanceTime(-120);
-      await expect(service.getCurrentMinFees()).rejects.toBeInstanceOf(FeeSnapshotFutureHeadError);
-      expect(service.getStats().futureHeadErrors).toBe(1);
-    });
-
-    it('disables each staleness check independently when its config is 0', async () => {
-      service = makeService({ maxRefreshAgeMs: 0, maxL1HeadAgeSeconds: 0, futureHeadAllowanceSeconds: 0 });
-      await service.getCurrentMinFees();
-      dateProvider.advanceTime(100_000);
-      // With all checks disabled, a very old snapshot is still served for the covered slot.
-      await expect(service.getCurrentMinFees()).resolves.toBeDefined();
-    });
-  });
-
-  describe('drift window', () => {
-    it('rejects a configuration whose drift enumerates more candidates than the cap', () => {
-      expect(() => makeService({ clockDriftAllowanceSeconds: 1000, maxClockCandidates: 2 })).toThrow(
-        FeeSnapshotConfigError,
-      );
-    });
-
-    it('drift 0 reduces to the single-anchor selection', async () => {
       const fees = await service.getCurrentMinFees();
-      expect(fees.feePerL2Gas).toBe(101n);
-    });
+      expect(fees.feePerL2Gas).toBe(103n);
+      expect(service.getStats().refreshes).toBe(1);
 
-    it('enumerates every slot across a multi-slot drift window and takes the element-wise max', async () => {
-      // Lower the pending checkpoint so the wall clock (not the floor) drives the enumerated window.
-      rollup.pendingSlot = 90;
-      // A drift of one slot each way spans multiple candidate slots; current fee == slot, so max == highest slot.
-      service = makeService({ clockDriftAllowanceSeconds: SLOT_DURATION, maxClockCandidates: 8 });
-      const fees = await service.getCurrentMinFees();
-      const nowSeconds = BigInt(dateProvider.nowInSeconds());
-      const highBoundary = nowSeconds + BigInt(SLOT_DURATION) + BigInt(ETHEREUM_SLOT_DURATION);
-      const expectedHigh = Math.max(rollup.pendingSlot + 1, slotOfTimestamp(highBoundary));
-      expect(fees.feePerL2Gas).toBe(BigInt(expectedHigh));
+      rollup.gate = undefined;
+      gate.resolve();
     });
   });
 });
