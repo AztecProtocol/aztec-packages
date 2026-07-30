@@ -264,18 +264,21 @@ export class SlashingProposerContract {
 
   /**
    * Listen for VoteCast events
-   * @param callback - Callback function to handle vote cast events
+   * @param callback - Callback receiving the round, the vote's index within the round as accepted by `getVoteAt`,
+   * and the proposer that cast it
    * @returns Unwatch function
    */
-  public listenToVoteCast(callback: (args: { round: bigint; proposer: string }) => void): () => void {
+  public listenToVoteCast(
+    callback: (args: { round: bigint; voteIndex: bigint; proposer: string }) => void,
+  ): () => void {
     return this.contract.watchEvent.VoteCast(
       {},
       {
         onLogs: logs => {
           for (const log of logs) {
-            const { round, proposer } = log.args;
-            if (round !== undefined && proposer) {
-              callback({ round, proposer });
+            const { round, voteIndex, proposer } = log.args;
+            if (round !== undefined && voteIndex !== undefined && proposer) {
+              callback({ round, voteIndex, proposer });
             }
           }
         },

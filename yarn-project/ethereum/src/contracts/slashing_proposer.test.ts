@@ -310,7 +310,15 @@ describe('SlashingProposer', () => {
         proposerKey.signTypedData(typedData),
       );
       const hash = await writeClient.sendTransaction(request);
-      await writeClient.waitForTransactionReceipt({ hash });
+      const receipt = await writeClient.waitForTransactionReceipt({ hash });
+
+      // The event identifies the vote it recorded, so consumers can read it back without deriving its index
+      expect(slashingProposer.tryExtractVoteCastEvent(receipt.logs)?.args).toEqual({
+        round,
+        slot: BigInt(slot),
+        proposer: proposer.toChecksumString(),
+        voteIndex: voteCount,
+      });
 
       const committeeSize = testConfig.aztecTargetCommitteeSize;
       const validators = await slashingProposer.getSlashTargetValidators(round);

@@ -1117,7 +1117,7 @@ describe('SlasherClient', () => {
 
   describe('own validator slash monitor wiring', () => {
     let ownValidator: EthAddress;
-    let voteCastCallback: (args: { round: bigint; proposer: string }) => void;
+    let voteCastCallback: (args: { round: bigint; voteIndex: bigint; proposer: string }) => void;
 
     // Recreates the telemetry client along with the slasher client so metric assertions only see this client's data
     const setupClient = (ownValidators: EthAddress[]) => {
@@ -1160,7 +1160,11 @@ describe('SlasherClient', () => {
 
       await slasherClient.start();
       // A round ahead of the one the monitor started tracking, so its vote is read regardless of the startup baseline
-      voteCastCallback({ round: slasherClient.getCurrentRound() + 1n, proposer: EthAddress.random().toString() });
+      voteCastCallback({
+        round: slasherClient.getCurrentRound() + 1n,
+        voteIndex: 0n,
+        proposer: EthAddress.random().toString(),
+      });
 
       await retryFastUntil(
         () => getValues(Metrics.SLASHER_OWN_VALIDATOR_TARGETED_COUNT.name).length > 1 || undefined,
