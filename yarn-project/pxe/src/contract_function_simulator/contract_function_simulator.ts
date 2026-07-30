@@ -97,7 +97,6 @@ import type { ContractClassService } from '../contract/contract_class_service.js
 import type { ContractSyncService } from '../contract/contract_sync_service.js';
 import type { ExecutionHooks } from '../hooks/index.js';
 import type { TxResolverService } from '../messages/tx_resolver_service.js';
-import type { BenchmarkedNode } from '../node/benchmarked_node.js';
 import type { AddressStore } from '../storage/address_store/address_store.js';
 import { CapsuleService } from '../storage/capsule_store/capsule_service.js';
 import type { CapsuleStore } from '../storage/capsule_store/capsule_store.js';
@@ -443,22 +442,6 @@ export class ContractFunctionSimulator {
     } catch (err) {
       throw createSimulationError(err instanceof Error ? err : new Error('Unknown error during private execution'));
     }
-  }
-
-  /**
-   * Returns the execution statistics collected during the simulator run.
-   * @returns The execution statistics.
-   */
-  getStats() {
-    const nodeRPCCalls =
-      typeof (this.aztecNode as BenchmarkedNode).getStats === 'function'
-        ? (this.aztecNode as BenchmarkedNode).getStats()
-        : {
-            perMethod: {},
-            roundTrips: { roundTrips: 0, totalBlockingTime: 0, roundTripDurations: [], roundTripMethods: [] },
-          };
-
-    return { nodeRPCCalls };
   }
 }
 

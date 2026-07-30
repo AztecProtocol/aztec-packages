@@ -19,14 +19,13 @@ import {
 } from '@aztec/stdlib/block';
 import type { AztecNode, BlockResponse } from '@aztec/stdlib/interfaces/client';
 import { NoteDao, NoteStatus } from '@aztec/stdlib/note';
-import { MinedTxReceipt, TxHash } from '@aztec/stdlib/tx';
+import { TxHash } from '@aztec/stdlib/tx';
 
 import { type MockProxy, mock } from 'jest-mock-extended';
 
 import type { BlockSynchronizerConfig } from '../config/index.js';
-import type { ContractClassService } from '../contract/contract_class_service.js';
 import type { ContractSyncService } from '../contract/contract_sync_service.js';
-import { AztecNodeReadCache, withReadCache } from '../node/aztec_node_read_cache.js';
+import { type CachingAztecNode, withCache } from '../node/caching_aztec_node.js';
 import { AnchorBlockStore } from '../storage/anchor_block_store/anchor_block_store.js';
 import { FactStore } from '../storage/fact_store/fact_store.js';
 import { FactCollectionKey, FactCollectionTypeKey } from '../storage/fact_store/fact_store_keys.js';
@@ -52,8 +51,7 @@ describe('BlockSynchronizer', () => {
   let getBlock: NodeGetBlockMock;
   let blockStream: MockProxy<L2BlockStream>;
   let contractSyncService: MockProxy<ContractSyncService>;
-  let contractClassService: MockProxy<ContractClassService>;
-  let nodeReadCache: AztecNodeReadCache;
+  let cachedNode: CachingAztecNode;
 
   const TestSynchronizer = class extends BlockSynchronizer {
     protected override createBlockStream(): L2BlockStream {
@@ -63,7 +61,7 @@ describe('BlockSynchronizer', () => {
 
   const createSynchronizer = (config: Partial<BlockSynchronizerConfig> = {}) => {
     return new TestSynchronizer(
-      aztecNode,
+      cachedNode,
       store,
       anchorBlockStore,
       noteStore,
@@ -71,8 +69,6 @@ describe('BlockSynchronizer', () => {
       factStore,
       tipsStore,
       contractSyncService,
-      contractClassService,
-      nodeReadCache,
       config,
     );
   };
@@ -133,8 +129,7 @@ describe('BlockSynchronizer', () => {
     privateEventStore = new PrivateEventStore(store);
     factStore = new FactStore(store);
     contractSyncService = mock<ContractSyncService>();
-    contractClassService = mock<ContractClassService>();
-    nodeReadCache = new AztecNodeReadCache();
+    cachedNode = withCache(aztecNode);
     synchronizer = createSynchronizer();
   });
 
@@ -173,24 +168,23 @@ describe('BlockSynchronizer', () => {
     expect(obtainedHeader.equals(block.header)).toBe(true);
   });
 
-  it('wipes the contract sync, contract class, and node read caches when the anchor block changes', async () => {
+  it('wipes the contract sync and node read caches when the anchor block changes', async () => {
     const block = await L2Block.random(BlockNumber(1));
     await serveBlockDataByHash(block);
-    const txHash = TxHash.random();
-    // A FINALIZED receipt: others are never kept, so they could not tell a wiped cache from an unwiped one.
-    aztecNode.getTxReceipt.mockResolvedValue(MinedTxReceipt.random({ txHash }));
-    const cachingNode = withReadCache(aztecNode, nodeReadCache);
-    await cachingNode.getTxReceipt(txHash);
-    await cachingNode.getTxReceipt(txHash);
-    expect(aztecNode.getTxReceipt).toHaveBeenCalledTimes(1);
+    const referenceBlock = BlockHash.random();
+    const contractAddress = await AztecAddress.random();
+    const storageSlot = Fr.random();
+    aztecNode.getPublicStorageAt.mockResolvedValue(new Fr(1));
+    await cachedNode.getPublicStorageAt(referenceBlock, contractAddress, storageSlot);
+    await cachedNode.getPublicStorageAt(referenceBlock, contractAddress, storageSlot);
+    expect(aztecNode.getPublicStorageAt).toHaveBeenCalledTimes(1);
 
     await synchronizer.handleBlockStreamEvent(await proposedEvent(block));
 
     expect(contractSyncService.wipe).toHaveBeenCalled();
-    expect(contractClassService.wipe).toHaveBeenCalled();
     // The anchor update wiped the node read cache: the same read reaches the node again.
-    await cachingNode.getTxReceipt(txHash);
-    expect(aztecNode.getTxReceipt).toHaveBeenCalledTimes(2);
+    await cachedNode.getPublicStorageAt(referenceBlock, contractAddress, storageSlot);
+    expect(aztecNode.getPublicStorageAt).toHaveBeenCalledTimes(2);
   });
 
   it('updates anchor block on a reorg', async () => {
@@ -816,7 +810,7 @@ describe('BlockSynchronizer', () => {
       );
 
       realSynchronizer = new BlockSynchronizer(
-        aztecNode,
+        withCache(aztecNode),
         store,
         anchorBlockStore,
         noteStore,
@@ -824,8 +818,6 @@ describe('BlockSynchronizer', () => {
         factStore,
         tipsStore,
         contractSyncService,
-        contractClassService,
-        new AztecNodeReadCache(),
         { syncChainTip: 'proposed' },
       );
     });

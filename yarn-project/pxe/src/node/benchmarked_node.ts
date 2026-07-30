@@ -1,6 +1,6 @@
 import { Timer } from '@aztec/foundation/timer';
 import type { AztecNode } from '@aztec/stdlib/interfaces/client';
-import type { NodeStats, RoundTripStats } from '@aztec/stdlib/tx';
+import type { NodeStats } from '@aztec/stdlib/tx';
 
 /*
  * Proxy generator for an AztecNode that tracks the time taken for each RPC call and the number of round trips (actual
@@ -17,87 +17,124 @@ import type { NodeStats, RoundTripStats } from '@aztec/stdlib/tx';
  * value in `safe_json_rpc_client.ts` to 1 (the main motivation for batching was to get around parallel http requests
  * limits in web browsers which is not a problem when debugging in node.js).
  */
-export type BenchmarkedNode = AztecNode & { getStats(): NodeStats };
+export interface Recording {
+  /** Closes the recording and returns what it saw. Reads served after this are not recorded. */
+  stop(): NodeStats;
+}
 
-export class BenchmarkedNodeFactory {
-  static create(node: AztecNode): BenchmarkedNode {
-    // Per-method call stats
-    const perMethod: Partial<Record<keyof AztecNode, { times: number[] }>> = {};
+/** An {@link AztecNode} wrapper that can report the reads it serves. */
+export interface BenchmarkedAztecNode extends AztecNode {
+  /**
+   * Opens a recording of the reads this wrapper serves, until {@link Recording.stop}. Recordings are independent, so
+   * several may run at once: one measuring a whole run sees the same reads as one measuring a single operation.
+   *
+   * Nothing is measured while none is open, which is what keeps a long-lived wrapper from accumulating a run's worth
+   * of timings nobody asked for.
+   */
+  startRecording(): Recording;
+}
 
-    // Round trip tracking
-    let inFlightCount = 0;
-    let currentRoundTripTimer: Timer | null = null;
-    let currentRoundTripMethods: string[] = [];
-    const roundTrips: RoundTripStats = {
-      roundTrips: 0,
-      totalBlockingTime: 0,
-      roundTripDurations: [],
-      roundTripMethods: [],
-    };
+/** Wraps `node` so that the reads it answers can be recorded. */
+export function withRecording(node: AztecNode): BenchmarkedAztecNode {
+  // The stats of every recording currently open
+  const open = new Set<NodeStats>();
 
-    return new Proxy(node, {
-      get(target, prop: keyof BenchmarkedNode) {
-        if (prop === 'getStats') {
-          return (): NodeStats => {
-            return { perMethod, roundTrips };
+  // Round trip tracking
+  let inFlightCount = 0;
+  let currentRoundTripTimer: Timer | null = null;
+  let currentRoundTripMethods: string[] = [];
+
+  return new Proxy(node, {
+    get(target, prop) {
+      if (prop === 'startRecording') {
+        return (): Recording => {
+          const stats: NodeStats = {
+            perMethod: {},
+            roundTrips: { roundTrips: 0, totalBlockingTime: 0, roundTripDurations: [], roundTripMethods: [] },
           };
-        } else {
-          return function (...args: any[]) {
-            // Track per-method stats
-            if (!perMethod[prop]) {
-              perMethod[prop] = { times: [] };
-            }
-
-            // Start of a new round trip batch?
-            if (inFlightCount === 0) {
-              roundTrips.roundTrips++;
-              currentRoundTripTimer = new Timer();
-              currentRoundTripMethods = [];
-            }
-            inFlightCount++;
-            currentRoundTripMethods.push(prop);
-
-            const callTimer = new Timer();
-            const result = (target[prop] as any).apply(target, args);
-
-            // Handle completion - called when the call finishes (after Promise resolves)
-            const handleCompletion = () => {
-              const callTime = callTimer.ms();
-              perMethod[prop]!.times.push(callTime);
-
-              inFlightCount--;
-
-              // End of round trip batch - all concurrent calls completed
-              if (inFlightCount === 0 && currentRoundTripTimer) {
-                const roundTripTime = currentRoundTripTimer.ms();
-                roundTrips.totalBlockingTime += roundTripTime;
-                roundTrips.roundTripDurations.push(roundTripTime);
-                roundTrips.roundTripMethods.push(currentRoundTripMethods);
-                currentRoundTripTimer = null;
-                currentRoundTripMethods = [];
-              }
-            };
-
-            // If the result is a Promise, chain the completion handler
-            if (result && typeof result.then === 'function') {
-              return result.then(
-                (value: any) => {
-                  handleCompletion();
-                  return value;
-                },
-                (error: any) => {
-                  handleCompletion();
-                  throw error;
-                },
-              );
-            } else {
-              // Synchronous method - handle completion immediately
-              handleCompletion();
-              return result;
-            }
+          open.add(stats);
+          return {
+            stop: () => {
+              open.delete(stats);
+              return stats;
+            },
           };
+        };
+      }
+
+      const value = Reflect.get(target, prop);
+      if (typeof value !== 'function' || typeof prop !== 'string') {
+        return value;
+      }
+
+      return (...args: unknown[]) => {
+        // With no recording open there is nobody to report to, so the read is left untimed.
+        if (open.size === 0) {
+          return value.apply(target, args);
         }
-      },
-    }) as BenchmarkedNode;
-  }
+
+        // Start of a new round trip batch?
+        if (inFlightCount === 0) {
+          currentRoundTripTimer = new Timer();
+          currentRoundTripMethods = [];
+        }
+        inFlightCount++;
+        currentRoundTripMethods.push(prop);
+
+        const callTimer = new Timer();
+        const result = value.apply(target, args);
+
+        // Handle completion - called when the call finishes (after Promise resolves)
+        const handleCompletion = () => {
+          const callTime = callTimer.ms();
+          for (const stats of open) {
+            timesFor(stats, prop).push(callTime);
+          }
+
+          inFlightCount--;
+
+          // End of round trip batch - all concurrent calls completed
+          if (inFlightCount === 0 && currentRoundTripTimer) {
+            const roundTripTime = currentRoundTripTimer.ms();
+            for (const { roundTrips } of open) {
+              roundTrips.roundTrips++;
+              roundTrips.totalBlockingTime += roundTripTime;
+              roundTrips.roundTripDurations.push(roundTripTime);
+              roundTrips.roundTripMethods.push(currentRoundTripMethods);
+            }
+            currentRoundTripTimer = null;
+            currentRoundTripMethods = [];
+          }
+        };
+
+        // If the result is a Promise, chain the completion handler
+        if (isThenable(result)) {
+          return result.then(
+            resolved => {
+              handleCompletion();
+              return resolved;
+            },
+            error => {
+              handleCompletion();
+              throw error;
+            },
+          );
+        } else {
+          // Synchronous method - handle completion immediately
+          handleCompletion();
+          return result;
+        }
+      };
+    },
+  }) as BenchmarkedAztecNode;
+}
+
+/** The times `stats` holds for `method`, added on first use. */
+function timesFor(stats: NodeStats, method: string) {
+  return (stats.perMethod[method as keyof AztecNode] ??= { times: [] }).times;
+}
+
+/** Whether completion can be chained onto `value` with `.then`, which a promise from any implementation allows. */
+function isThenable(value: unknown): value is PromiseLike<unknown> {
+  return typeof value === 'object' && value !== null && 'then' in value && typeof value.then === 'function';
 }

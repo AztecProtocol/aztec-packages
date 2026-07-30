@@ -14,14 +14,6 @@ import type { ContractStore } from '../storage/contract_store/contract_store.js'
  * falling back to a local instance if no upgrades were scheduled.
  */
 export class ContractClassService {
-  /**
-   * Class ids are cached per `(address, anchorHash)`. This avoid unnecessary network roundtrips in scenarios where
-   * multiple executions are done on the same anchor block (e.g. simulation followed by witgen), or when the same
-   * contract is invoked multiple times in an execution (e.g. authwit checks).
-   * It also means the callers don't need to worry about caching this service's return values, simplifying callsites.
-   */
-  #cache: Map<string, Promise<Fr | undefined>> = new Map();
-
   constructor(
     private node: AztecNode,
     private contractStore: ContractStore,
@@ -40,44 +32,14 @@ export class ContractClassService {
       return instance?.originalContractClassId;
     }
 
-    const key = `${address.toString()}:${(await anchorBlockHeader.hash()).toString()}`;
-    let promise = this.#cache.get(key);
-    if (!promise) {
-      promise = (async () => {
-        // The node resolves the current class from the same scheduled value change the AVM enforces against the public
-        // data tree. If the contract was upgraded the node returns a non-undefined instance; an undefined result means
-        // no upgrade happened (or the node has no record of it, e.g. it was never publicly deployed), so the original
-        // class is current.
-
-        const nodeInstance = await this.node.getContract(address, await anchorBlockHeader.hash());
-
-        if (nodeInstance) {
-          return nodeInstance.currentContractClassId;
-        } else {
-          return (await this.contractStore.getContractInstance(address))?.originalContractClassId;
-        }
-      })().catch(err => {
-        this.#cache.delete(key);
-        throw err;
-      });
-      this.#cache.set(key, promise);
+    // The node resolves the current class from the same scheduled value change the AVM enforces against the public
+    // data tree. If the contract was upgraded the node returns a non-undefined instance; an undefined result means no
+    // upgrade happened (or the node has no record of it, e.g. it was never publicly deployed), so the original class
+    // is current.
+    const nodeInstance = await this.node.getContract(address, await anchorBlockHeader.hash());
+    if (nodeInstance) {
+      return nodeInstance.currentContractClassId;
     }
-
-    const classId = await promise;
-    if (classId === undefined) {
-      // Don't memoize a missing instance: it may be registered later in this PXE (e.g. via contract sync
-      // mid-execution), and a cached miss would then hide it. Only successful resolutions stay cached.
-      this.#cache.delete(key);
-    }
-    return classId;
-  }
-
-  /**
-   * Clears the cache.
-   *
-   * This is not required for correctness, only to limit how much memory the cache uses. The cache is resilient against
-   * reorgs etc. as it is based on block hashes, not block numbers. */
-  wipe(): void {
-    this.#cache.clear();
+    return (await this.contractStore.getContractInstance(address))?.originalContractClassId;
   }
 }

@@ -73,8 +73,7 @@ import { PrivateEventFilterValidator } from './events/private_event_filter_valid
 import type { ExecutionHooks } from './hooks/index.js';
 import { JobCoordinator } from './job_coordinator/job_coordinator.js';
 import { TxResolverService } from './messages/tx_resolver_service.js';
-import { AztecNodeReadCache, withReadCache } from './node/aztec_node_read_cache.js';
-import { BenchmarkedNodeFactory } from './node/benchmarked_node.js';
+import { type CachingAztecNode, withCache } from './node/caching_aztec_node.js';
 import {
   PrivateKernelExecutionProver,
   type PrivateKernelExecutionProverConfig,
@@ -231,7 +230,7 @@ export type RegisteredTaggingSecretSource =
  */
 export class PXE {
   private constructor(
-    private node: AztecNode,
+    private node: CachingAztecNode,
     private nodeDebug: AztecNodeDebug | undefined,
     private db: AztecAsyncKVStore,
     private blockStateSynchronizer: BlockSynchronizer,
@@ -248,7 +247,6 @@ export class PXE {
     private privateEventStore: PrivateEventStore,
     private contractSyncService: ContractSyncService,
     private contractClassService: ContractClassService,
-    private nodeReadCache: AztecNodeReadCache,
     private txResolver: TxResolverService,
     private l2TipsStore: L2TipsProvider,
     private simulator: CircuitSimulator,
@@ -317,24 +315,22 @@ export class PXE {
       l2TipsStore,
       factStore,
     } = openPxeStores(store, initialBlockHash);
-    const contractClassService = new ContractClassService(node, contractStore);
-    // PXE-wide store of node reads, shared by every read-caching node wrapper below and wiped by the block
-    // synchronizer on every anchor update (the caching rule lives on `withReadCache`). The wipe only covers reorgs
-    // that move the anchor, so pinned reads must stay at or below it. Consumers that operate on the live tip (the
-    // block synchronizer, tx submission, validity checks) read above the anchor by nature and use the raw node.
-    const nodeReadCache = new AztecNodeReadCache();
-    const anchorReadNode = withReadCache(node, nodeReadCache);
+    // Every PXE consumer reads through this one wrapper, so a read cached by one is served to the rest. Only
+    // immutable, hash-pinned reads are cached (the rule lives on `withCache`), which makes it safe regardless of
+    // the consumer's anchor block; the block synchronizer wipes it on anchor updates to bound memory.
+    const readCachedNode = withCache(node);
+    const contractClassService = new ContractClassService(readCachedNode, contractStore);
     const contractSyncService = new ContractSyncService(
-      anchorReadNode,
+      readCachedNode,
       contractStore,
       contractClassService,
       noteStore,
       createLogger('pxe:contract_sync', bindings),
     );
-    const txResolver = new TxResolverService(anchorReadNode);
+    const txResolver = new TxResolverService(readCachedNode);
 
     const synchronizer = new BlockSynchronizer(
-      node,
+      readCachedNode,
       store,
       anchorBlockStore,
       noteStore,
@@ -342,8 +338,6 @@ export class PXE {
       factStore,
       l2TipsStore,
       contractSyncService,
-      contractClassService,
-      nodeReadCache,
       config,
       bindings,
     );
@@ -364,7 +358,7 @@ export class PXE {
     const jobQueue = new SerialQueue();
 
     const pxe = new PXE(
-      node,
+      readCachedNode,
       nodeDebug,
       store,
       synchronizer,
@@ -381,7 +375,6 @@ export class PXE {
       privateEventStore,
       contractSyncService,
       contractClassService,
-      nodeReadCache,
       txResolver,
       l2TipsStore,
       simulator,
@@ -420,7 +413,7 @@ export class PXE {
       noteStore: this.noteStore,
       keyStore: this.keyStore,
       addressStore: this.addressStore,
-      aztecNode: withReadCache(BenchmarkedNodeFactory.create(this.node), this.nodeReadCache),
+      aztecNode: this.node,
       l2TipsStore: this.l2TipsStore,
       senderTaggingStore: this.senderTaggingStore,
       recipientTaggingStore: this.recipientTaggingStore,
@@ -673,7 +666,7 @@ export class PXE {
       this.contractStore,
       this.contractClassService,
       this.keyStore,
-      withReadCache(this.node, this.nodeReadCache),
+      this.node,
       anchorBlockHeader,
     );
     const kernelTraceProver = new PrivateKernelExecutionProver(
@@ -1026,6 +1019,7 @@ export class PXE {
     // computationally demanding that it'd be rare for someone to try to do it concurrently regardless.
     return this.#putInJobQueue(async jobId => {
       const totalTimer = new Timer();
+      const recording = this.node.startRecording();
       try {
         const syncTimer = new Timer();
         await this.#maybeSync();
@@ -1073,7 +1067,7 @@ export class PXE {
 
         const txProvingResult = new TxProvingResult(privateExecutionResult, publicInputs, chonkProof!, {
           timings,
-          nodeRPCCalls: contractFunctionSimulator?.getStats().nodeRPCCalls,
+          nodeRPCCalls: recording.stop(),
         });
 
         // We keep track of which tagging indices we've used in this tx so that we don't repeat them in future txs
@@ -1094,6 +1088,9 @@ export class PXE {
         return txProvingResult;
       } catch (err: any) {
         throw this.#contextualizeError(err, inspect(txRequest), inspect(privateExecutionResult));
+      } finally {
+        // Idempotent cleanup for the error and early-exit paths. The success path already stopped the recording.
+        recording.stop();
       }
     });
   }
@@ -1111,6 +1108,7 @@ export class PXE {
     // We disable concurrent profiles for consistency with simulateTx.
     return this.#putInJobQueue(async jobId => {
       const totalTimer = new Timer();
+      const recording = this.node.startRecording();
       try {
         const txInfo = {
           origin: txRequest.origin,
@@ -1176,10 +1174,12 @@ export class PXE {
             total - ((syncTime ?? 0) + (proving ?? 0) + perFunction.reduce((acc, { time }) => acc + time, 0)),
         };
 
-        const simulatorStats = contractFunctionSimulator.getStats();
-        return new TxProfileResult(executionSteps, { timings, nodeRPCCalls: simulatorStats.nodeRPCCalls });
+        return new TxProfileResult(executionSteps, { timings, nodeRPCCalls: recording.stop() });
       } catch (err: any) {
         throw this.#contextualizeError(err, inspect(txRequest), `profileMode=${profileMode}`);
+      } finally {
+        // Idempotent cleanup for the error and early-exit paths. The success path already stopped the recording.
+        recording.stop();
       }
     });
   }
@@ -1218,6 +1218,7 @@ export class PXE {
     // to the capsules), and we need to prevent concurrent runs from interfering with one another (e.g. attempting to
     // delete the same read value, or reading values that another simulation is currently modifying).
     return this.#putInJobQueue(async jobId => {
+      const recording = this.node.startRecording();
       try {
         const totalTimer = new Timer();
         const txInfo = {
@@ -1261,7 +1262,7 @@ export class PXE {
           ({ publicInputs, executionSteps } = await generateSimulatedProvingResult(
             privateExecutionResult,
             (addr, sel) => this.#getDebugFunctionName(addr, sel, anchorBlockHeader),
-            withReadCache(this.node, this.nodeReadCache),
+            this.node,
           ));
         } else {
           // Kernel logic, plus proving of all private functions and kernels.
@@ -1338,10 +1339,9 @@ export class PXE {
             : {}),
         });
 
-        const simulatorStats = contractFunctionSimulator.getStats();
         return TxSimulationResult.fromPrivateSimulationResultAndPublicOutput(privateSimulationResult, publicOutput, {
           timings,
-          nodeRPCCalls: simulatorStats.nodeRPCCalls,
+          nodeRPCCalls: recording.stop(),
         });
       } catch (err: any) {
         throw this.#contextualizeError(
@@ -1351,6 +1351,9 @@ export class PXE {
           `skipTxValidation=${skipTxValidation}`,
           `scopes=${scopes.map(s => s.toString()).join(', ')}`,
         );
+      } finally {
+        // Idempotent cleanup for the error and early-exit paths. The success path already stopped the recording.
+        recording.stop();
       }
     });
   }
@@ -1367,6 +1370,7 @@ export class PXE {
     // to the capsules), and we need to prevent concurrent runs from interfering with one another (e.g. attempting to
     // delete the same read value, or reading values that another execution is currently modifying).
     return this.#putInJobQueue(async jobId => {
+      const recording = this.node.startRecording();
       try {
         const totalTimer = new Timer();
         const syncTimer = new Timer();
@@ -1406,12 +1410,11 @@ export class PXE {
           unaccounted: totalTime - (syncTime + perFunction.reduce((acc, { time }) => acc + time, 0)),
         };
 
-        const simulationStats = contractFunctionSimulator.getStats();
         return {
           result: executionResult,
           offchainEffects,
           anchorBlockTimestamp: anchorBlockHeader.globalVariables.timestamp,
-          stats: { timings, nodeRPCCalls: simulationStats.nodeRPCCalls },
+          stats: { timings, nodeRPCCalls: recording.stop() },
         };
       } catch (err: any) {
         const { to, name, args } = call;
@@ -1421,6 +1424,9 @@ export class PXE {
           `executeUtility ${to}:${name}(${stringifiedArgs})`,
           `scopes=${scopes.map(s => s.toString()).join(', ')}`,
         );
+      } finally {
+        // Idempotent cleanup for the error and early-exit paths. The success path already stopped the recording.
+        recording.stop();
       }
     });
   }

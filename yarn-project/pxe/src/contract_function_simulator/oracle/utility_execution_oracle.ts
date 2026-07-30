@@ -37,6 +37,7 @@ import {
   type OffchainEffect,
   type TxEffect,
   type TxHash,
+  type TxReceipt,
 } from '@aztec/stdlib/tx';
 
 import type { ContractSyncService } from '../../contract/contract_sync_service.js';
@@ -121,6 +122,7 @@ export class UtilityExecutionOracle implements IMiscOracle, IUtilityExecutionOra
   private offchainEffects: OffchainEffect[] = [];
   private readonly ephemeralArrayService = new EphemeralArrayService();
   protected readonly transientArrayService: TransientArrayService;
+  readonly #txReceipts = new Map<string, Promise<TxReceipt<{ includeTxEffect: true }>>>();
 
   // We store oracle version to be able to show a nice error message when an oracle handler is missing.
   private contractOracleVersion: { major: number; minor: number } | undefined;
@@ -1105,14 +1107,12 @@ export class UtilityExecutionOracle implements IMiscOracle, IUtilityExecutionOra
   }
 
   /**
-   * Fetches tx effects for the given hashes in parallel, deduplicating repeated hashes so each tx is only requested
-   * once. Returns a map keyed by `TxHash.toString()`; hashes for which the node has no tx effect are omitted.
+   * Fetches tx effects for the given hashes in parallel. Returns a map keyed by `TxHash.toString()`; hashes for which
+   * the node has no tx effect are omitted.
    */
   async #fetchTxEffects(txHashes: TxHash[]): Promise<Map<string, IndexedTxEffect>> {
     const uniqueTxHashes = uniqueBy(txHashes, h => h.toString());
-    const fetched = await Promise.all(
-      uniqueTxHashes.map(h => this.aztecNode.getTxReceipt(h, { includeTxEffect: true })),
-    );
+    const fetched = await Promise.all(uniqueTxHashes.map(h => this.#getTxReceiptWithEffect(h)));
     return new Map(
       uniqueTxHashes
         .map((h, i): [string, IndexedTxEffect | undefined] => {
@@ -1135,8 +1135,29 @@ export class UtilityExecutionOracle implements IMiscOracle, IUtilityExecutionOra
     );
   }
 
+  /**
+   * Reads a receipt with its effect, at most once per tx for the lifetime of this execution.
+   *
+   * A receipt is not cacheable in general, since pending, mined and dropped are all correct answers to the same call
+   * over time. Within one execution it is: the execution is anchored at a fixed block, and validation runs in several
+   * batches that name overlapping tx hashes, so re-reading would both cost extra requests and let one execution see a
+   * tx as included in one batch and absent in the next.
+   */
+  #getTxReceiptWithEffect(txHash: TxHash) {
+    const key = txHash.toString();
+    let receipt = this.#txReceipts.get(key);
+    if (!receipt) {
+      receipt = this.aztecNode.getTxReceipt(txHash, { includeTxEffect: true }).catch(err => {
+        this.#txReceipts.delete(key);
+        throw err;
+      });
+      this.#txReceipts.set(key, receipt);
+    }
+    return receipt;
+  }
+
   async #getTxEffectOption(txHash: TxHash): Promise<Option<TxEffectData>> {
-    const receipt = await this.aztecNode.getTxReceipt(txHash, { includeTxEffect: true });
+    const receipt = await this.#getTxReceiptWithEffect(txHash);
     if (!receipt.isMined() || !receipt.txEffect || receipt.blockNumber > this.anchorBlockHeader.getBlockNumber()) {
       return Option.none();
     }
