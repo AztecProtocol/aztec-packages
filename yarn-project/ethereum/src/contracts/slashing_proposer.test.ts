@@ -1,6 +1,7 @@
 import { EthCheatCodes, RollupCheatCodes, startAnvil } from '@aztec/ethereum/test';
 import type { ExtendedViemWalletClient } from '@aztec/ethereum/types';
 import { EpochNumber, SlotNumber } from '@aztec/foundation/branded-types';
+import { times } from '@aztec/foundation/collection';
 import { SecretValue } from '@aztec/foundation/config';
 import { Fr } from '@aztec/foundation/curves/bn254';
 import { EthAddress } from '@aztec/foundation/eth-address';
@@ -288,6 +289,41 @@ describe('SlashingProposer', () => {
       const votes = decodeSlashConsensusVotes(buffer);
 
       expect(votes).toEqual([0, 0, 1, 2, 3, 2, 1, 0]);
+    });
+  });
+
+  describe('getVoteAt', () => {
+    it('decodes the slash targets of a vote read by its index in the round', async () => {
+      // Slash targets are the committees of a round some rounds back, so vote from a round late enough that those
+      // committees have already been formed
+      await rollupCheatCodes.advanceToEpoch(EpochNumber(18));
+      const round = await slashingProposer.getCurrentRound();
+      const { voteCount } = await slashingProposer.getRound(round);
+
+      // Every byte of the vote holds four validators, so a byte of 0x01 votes one small slash unit against the
+      // first validator of a committee and nothing against the other three
+      const votes = bufferToHex(Buffer.alloc(testConfig.slashingRoundSizeInEpochs, 1));
+      const slot = await rollup.getSlotNumber();
+      const proposer = await rollup.getCurrentProposer();
+      const proposerKey = validatorsPrivateKeys[validatorsAddresses.findIndex(addr => addr.equals(proposer))];
+      const request = await slashingProposer.buildVoteRequestFromSigner(votes, slot, typedData =>
+        proposerKey.signTypedData(typedData),
+      );
+      const hash = await writeClient.sendTransaction(request);
+      await writeClient.waitForTransactionReceipt({ hash });
+
+      const committeeSize = testConfig.aztecTargetCommitteeSize;
+      const validators = await slashingProposer.getSlashTargetValidators(round);
+      expect(validators).toHaveLength(committeeSize * testConfig.slashingRoundSizeInEpochs);
+
+      // Validators voted for zero units are left out, so only the first validator of each committee is returned
+      expect(await slashingProposer.getVoteAt(round, voteCount)).toEqual(
+        times(testConfig.slashingRoundSizeInEpochs, epochIndex => ({
+          validator: validators[epochIndex * committeeSize],
+          slashAmount: testConfig.slashAmountSmall,
+          position: epochIndex * committeeSize,
+        })),
+      );
     });
   });
 });
