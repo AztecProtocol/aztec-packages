@@ -6,7 +6,7 @@
 # Usage: merge_train_stale_check <merge-train-branch> <slack-channel>
 #
 # Example:
-#   merge_train_stale_check merge-train/spartan '#team-alpha'
+#   merge_train_stale_check merge-train/spartan '#team-alpha-ci'
 #
 # Required env vars:
 #   GH_TOKEN        — GitHub API token (used by `gh api`)

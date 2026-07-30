@@ -1,0 +1,410 @@
+use crate::{
+    context::PrivateContext,
+    note::{
+        ConfirmedNote,
+        HintedNote,
+        note_getter_options::{NoteGetterOptions, NoteStatus, PropertySelector, Select, Sort, SortOrder},
+        note_interface::{NoteHash, NoteType},
+        note_viewer_options::NoteViewerOptions,
+        utils::compute_note_existence_request,
+    },
+    oracle,
+    utils::{array, comparison::compare},
+};
+
+use crate::protocol::{
+    address::AztecAddress,
+    constants::MAX_NOTE_HASH_READ_REQUESTS_PER_CALL,
+    traits::{Packable, ToField},
+};
+
+pub use crate::note::constants::MAX_NOTES_PER_PAGE;
+
+mod test;
+
+fn extract_property_value_from_selector<let N: u32>(
+    packed_note: [Field; N],
+    selector: PropertySelector<Field>,
+) -> Field {
+    // Selectors use PropertySelectors in order to locate note properties inside the packed note. This allows easier
+    // packing and custom (un)packing schemas. A note property is located inside the packed note using the index inside
+    // the array, a byte offset and a length.
+    let value: [u8; 32] = packed_note[selector.index as u32].to_be_bytes();
+    let offset = selector.offset;
+    let length = selector.length;
+    assert(offset as u32 + length as u32 <= 32, "PropertySelector offset + length exceeds field byte width");
+    let mut value_field = 0 as Field;
+    let mut acc: Field = 1;
+    for i in 0..32 {
+        if i < length {
+            // `value` is big-endian, so the last byte (index 31) holds the lowest value.
+            // offset shifts the starting point away from that last byte, and i walks
+            // through consecutive bytes.
+            value_field += value[(31 - offset - i) as u32] as Field * acc;
+            acc = acc * 256;
+        }
+    }
+    value_field
+}
+
+fn check_packed_note<let N: u32>(packed_note: [Field; N], selects: BoundedVec<Option<Select>, N>) {
+    for i in 0..selects.max_len() {
+        if i < selects.len() {
+            let select = selects.get_unchecked(i).unwrap_unchecked();
+            let value_field = extract_property_value_from_selector(packed_note, select.property_selector);
+
+            assert(compare(value_field, select.comparator, select.value.to_field()), "Mismatch return note field.");
+        }
+    }
+}
+
+// Asserts that two notes are correctly ordered given the sort criteria.
+//
+// Only the provided criteria are checked -- fields not covered by any criterion are never compared, and if
+// `sort_criteria` is empty no ordering is enforced at all. Criteria are evaluated in priority order: the first
+// criterion where the two notes differ determines whether the pair is correctly ordered. If all sorted fields are
+// equal, any order is accepted.
+//
+// For example, with criteria `[field_0 ASC, field_1 DESC]`:
+//   - `[1, 10], [2, 999]` -> passes: field_0 (1 < 2) satisfies ASC, field_1 is not checked.
+//   - `[1, 10], [1, 5]`  -> passes: field_0 ties, so field_1 (10 > 5) satisfies DESC.
+//   - `[1, 5],  [1, 10]` -> fails:  field_0 ties, so field_1 (5 < 10) violates DESC.
+//   - `[1, 10], [1, 10]` -> passes: all fields tie, any order criteria is valid.
+//
+// With a single criterion, `[field_0 DESC]`:
+//   - `[10, 1], [5, 20]` -> passes: field_0 (10 > 5) satisfies DESC, field_1 is never compared.
+//   - `[5, 1],  [5, 20]` -> passes: field_0 ties and there are no more criteria, so any order is accepted.
+//
+// With no criteria:
+//   - `[2, 5],  [1, 10]` -> passes: nothing to check.
+//
+// This is called by [`confirm_hinted_notes`] to validate that the oracle returned notes in the requested order.
+fn assert_notes_order<let N: u32>(note_1: [Field; N], note_2: [Field; N], sort_criteria: BoundedVec<Option<Sort>, N>) {
+    // Tracks whether a prior criterion already determined the ordering. Once true, all subsequent
+    // asserts become trivially satisfied. We fold this into the assert condition instead of
+    // predicating the loop body to avoid gating field extraction behind a branch, which would be
+    // more expensive in a circuit.
+    let mut order_decided = false;
+    for i in 0..sort_criteria.max_len() {
+        if i < sort_criteria.len() {
+            let sort = sort_criteria.get_unchecked(i).unwrap_unchecked();
+            let field_1 = extract_property_value_from_selector(note_1, sort.property_selector);
+            let field_2 = extract_property_value_from_selector(note_2, sort.property_selector);
+            if field_1 != field_2 {
+                let lt = field_1.lt(field_2);
+                if sort.order == SortOrder.ASC {
+                    assert(lt | order_decided, "Return notes not sorted in ascending order.");
+                } else {
+                    assert(!lt | order_decided, "Return notes not sorted in descending order.");
+                }
+                order_decided = true;
+            }
+        }
+    }
+}
+
+pub fn get_note<Note>(
+    context: &mut PrivateContext,
+    owner: Option<AztecAddress>,
+    storage_slot: Field,
+) -> ConfirmedNote<Note>
+where
+    Note: NoteType + NoteHash + Packable,
+{
+    // Safety: Constraining that we got a valid note from the oracle is fairly straightforward: all we need to do is
+    // check that the metadata is correct, and that the note exists.
+    let hinted_note = unsafe { view_note::<Note>(owner, storage_slot) };
+
+    confirm_hinted_note(context, hinted_note, owner, storage_slot)
+}
+
+fn confirm_hinted_note<Note>(
+    context: &mut PrivateContext,
+    hinted_note: HintedNote<Note>,
+    owner: Option<AztecAddress>,
+    storage_slot: Field,
+) -> ConfirmedNote<Note>
+where
+    Note: NoteType + NoteHash + Packable,
+{
+    // For settled notes, the contract address is implicitly checked since the hash returned from
+    // `compute_note_existence_request` is siloed and kernels verify the siloing during note read request validation.
+    // Pending notes however are read with the unsiloed note hash, so we need to check that the contract address
+    // returned from the oracle matches. Since branching in circuits is expensive, we perform this check on all note
+    // types.
+    assert(hinted_note.contract_address.eq(context.this_address()), "Note contract address mismatch.");
+
+    // If an owner was provided in the function call, we need to check that it matches the one in the note. This is
+    // necessary because if there were two valid notes that differed only by owner, the note existence request check
+    // below would still pass even if the owner on the input would not match the one in the note.
+    if owner.is_some() {
+        assert(hinted_note.owner.eq(owner.unwrap_unchecked()), "Note owner mismatch.");
+    }
+
+    // We need to constrain that the storage slot in the hinted note matches the value on the input. Note that this
+    // assertion could be avoided if we did not receive the storage slot from the oracle but we instead directly
+    // injected it into the returned note type (e.g. by doing something like `HintedNote::from(hinted_note_from_oracle,
+    // storage_slot)`). This optimization is too low of a priority now.
+    assert(hinted_note.storage_slot == storage_slot, "Note storage slot mismatch.");
+
+    let note_existence_request = compute_note_existence_request(hinted_note);
+    context.assert_note_exists(note_existence_request);
+
+    ConfirmedNote::new(hinted_note, note_existence_request.note_hash())
+}
+
+/// Returns a BoundedVec of notes that have been proven to have been created by this contract, either in the current or
+/// past transactions (i.e. pending or settled notes). A second BoundedVec contains the note hashes used for the read
+/// requests, which can save constraints when computing the note's nullifiers.
+///
+/// WARNING: recall that notes are never destroyed! Note existence therefore does not imply that the note is _current_
+/// or _valid_ - this typically requires also emitting the note's nullifier to prove that it had not been emitted
+/// before. Because of this, calling this function directly from end-user applications should be discouraged, and safe
+/// abstractions such as aztec-nr's state variables should be used instead.
+pub fn get_notes<Note, let M: u32, PreprocessorArgs, FilterArgs>(
+    context: &mut PrivateContext,
+    storage_slot: Field,
+    options: NoteGetterOptions<Note, M, PreprocessorArgs, FilterArgs>,
+) -> BoundedVec<ConfirmedNote<Note>, MAX_NOTE_HASH_READ_REQUESTS_PER_CALL>
+where
+    Note: NoteType + NoteHash + Eq + Packable<N = M>,
+{
+    // Safety: The notes are constrained below.
+    let maybe_hinted_notes = unsafe { get_notes_internal(storage_slot, options) };
+
+    // We apply the constraints in a separate function instead of inlining them here to make it easier to test that
+    // these checks correctly reject bad notes.
+    confirm_hinted_notes(context, storage_slot, maybe_hinted_notes, options)
+}
+
+unconstrained fn apply_preprocessor<Note, PreprocessorArgs>(
+    notes: [Option<Note>; MAX_NOTE_HASH_READ_REQUESTS_PER_CALL],
+    preprocessor: fn([Option<Note>; MAX_NOTE_HASH_READ_REQUESTS_PER_CALL], PreprocessorArgs) -> [Option<Note>; MAX_NOTE_HASH_READ_REQUESTS_PER_CALL],
+    preprocessor_args: PreprocessorArgs,
+) -> [Option<Note>; MAX_NOTE_HASH_READ_REQUESTS_PER_CALL] {
+    preprocessor(notes, preprocessor_args)
+}
+
+fn confirm_hinted_notes<Note, let M: u32, PreprocessorArgs, FilterArgs>(
+    context: &mut PrivateContext,
+    storage_slot: Field,
+    maybe_hinted_notes: [Option<HintedNote<Note>>; MAX_NOTE_HASH_READ_REQUESTS_PER_CALL],
+    options: NoteGetterOptions<Note, M, PreprocessorArgs, FilterArgs>,
+) -> BoundedVec<ConfirmedNote<Note>, MAX_NOTE_HASH_READ_REQUESTS_PER_CALL>
+where
+    Note: NoteType + NoteHash + Eq + Packable<N = M>,
+{
+    // The filter is applied first to avoid pushing note read requests for notes we're not interested in. Note that
+    // while the filter function can technically mutate the notes (as opposed to simply removing some), the private
+    // kernel will later validate that these note actually exist, so transformations would cause for that check to
+    // fail.
+    let filter_fn = options.filter;
+    let filter_args = options.filter_args;
+    let filtered_notes = filter_fn(maybe_hinted_notes, filter_args);
+
+    let hinted_notes = array::collapse(filtered_notes);
+
+    // We have now collapsed the sparse array of Options into a BoundedVec. This is a more ergonomic type and also
+    // results in reduced gate counts when setting a limit value, since we guarantee that the limit is an upper bound
+    // for the runtime length, and can therefore have fewer loop iterations.
+    assert(hinted_notes.len() <= options.limit, "Got more notes than limit.");
+
+    // What remains is to iterate over the hinted notes, assert their existence, and convert them into confirmed notes.
+    // Naively, we would construct a `BoundedVec<ConfirmedNote, _>` and simply `push` into it as we process each hinted
+    // note. We cannot use `BoundedVec::map` as the user specified the maximum number of notes in `options.limit`
+    // instead of a numeric type parameter (which is more ergonomic), and `map` requires the latter.
+    // Unfortunately, this results in terrible proving time performance. This is because the compiler is not smart
+    // enough to understand the structure of looping over the `BoundedVec<HintedNote, _>`: it treats every `push` as a
+    // conditional write to the confirmed array, resulting in runtime write indices (e.g. iteration 1 could write to
+    // indices either 0 or 1, beucase iteration 0 might not push).
+    // The loop does however have an interesting structure that we can reason about to achieve better performance:
+    // because we're just going over a `BoundedVec`, the first `vec.len()` iterations will result in writes, and the
+    // rest will not. Hence, we can just _unconditionally_ write to a raw storage array at the iteration index: we know
+    // the resulting array will have no gaps. Because of this, we can then manually create a correct `BoundedVec`.
+    let mut confirmed_notes_bvec_storage: [ConfirmedNote<_>; _] = std::mem::zeroed();
+
+    let mut prev_packed_note = [0; M];
+    for i in 0..options.limit {
+        if i < hinted_notes.len() {
+            let hinted_note = hinted_notes.get_unchecked(i);
+
+            // For settled notes, the contract address is implicitly checked since the hash returned from
+            // `compute_note_existence_request` is siloed and kernels verify the siloing during note read request
+            // validation. Pending notes however are read with the unsiloed note hash, so we need to check that the
+            // contract address returned from the oracle matches. Since branching in circuits is expensive, we perform
+            // this check on all note types.
+            assert(hinted_note.contract_address.eq(context.this_address()), "Note contract address mismatch.");
+
+            // If owner is provided, constrain that it matches the owner in the hinted note.
+            if options.owner.is_some() {
+                assert(hinted_note.owner.eq(options.owner.unwrap()), "Note owner mismatch.");
+            }
+
+            // We need to constrain that the storage slot in the hinted note matches the value on the input. Note that
+            // this assertion could be avoided if we did not receive the storage slot from the oracle but we instead
+            // directly injected it into the returned note type (e.g. by doing something like
+            // `HintedNote::from(hinted_note_from_oracle, storage_slot)`). This optimization is too low of a priority
+            // now.
+            assert(hinted_note.storage_slot == storage_slot, "Note storage slot mismatch.");
+
+            let packed_note = hinted_note.note.pack();
+            check_packed_note(packed_note, options.selects);
+            if i != 0 {
+                assert_notes_order(prev_packed_note, packed_note, options.sorts);
+            }
+            prev_packed_note = packed_note;
+
+            let note_existence_request = compute_note_existence_request(hinted_note);
+            context.assert_note_exists(note_existence_request);
+
+            confirmed_notes_bvec_storage[i] = ConfirmedNote::new(hinted_note, note_existence_request.note_hash());
+        };
+    }
+
+    BoundedVec::from_parts(confirmed_notes_bvec_storage, hinted_notes.len())
+}
+
+pub unconstrained fn view_note<Note>(owner: Option<AztecAddress>, storage_slot: Field) -> HintedNote<Note>
+where
+    Note: NoteType + Packable,
+{
+    let maybe_hinted_notes: [_; 1] = oracle::notes::get_notes(
+        owner,
+        storage_slot,
+        0,
+        [],
+        [],
+        [],
+        [],
+        [],
+        [],
+        [],
+        [],
+        [],
+        1, // limit
+        0, // offset
+        NoteStatus.ACTIVE,
+    );
+
+    maybe_hinted_notes[0].expect(f"Failed to get a note")
+}
+
+unconstrained fn get_notes_internal<Note, let M: u32, PreprocessorArgs, FilterArgs>(
+    storage_slot: Field,
+    options: NoteGetterOptions<Note, M, PreprocessorArgs, FilterArgs>,
+) -> [Option<HintedNote<Note>>; MAX_NOTE_HASH_READ_REQUESTS_PER_CALL]
+where
+    Note: NoteType + Packable<N = M>,
+{
+    // This function simply performs some transformations from NoteGetterOptions into the types required by the oracle.
+    let (num_selects, select_by_indexes, select_by_offsets, select_by_lengths, select_values, select_comparators, sort_by_indexes, sort_by_offsets, sort_by_lengths, sort_order) =
+        flatten_options(options.selects, options.sorts);
+
+    let maybe_hinted_notes = oracle::notes::get_notes(
+        options.owner,
+        storage_slot,
+        num_selects,
+        select_by_indexes,
+        select_by_offsets,
+        select_by_lengths,
+        select_values,
+        select_comparators,
+        sort_by_indexes,
+        sort_by_offsets,
+        sort_by_lengths,
+        sort_order,
+        options.limit,
+        options.offset,
+        options.status,
+    );
+
+    apply_preprocessor(
+        maybe_hinted_notes,
+        options.preprocessor,
+        options.preprocessor_args,
+    )
+}
+
+/// Unconstrained variant of `get_notes`, meant to be used in unconstrained execution contexts. Notably only the note
+/// content is returned, and not any of the information used when proving its existence (e.g. note nonce, note hash,
+/// etc.).
+pub unconstrained fn view_notes<Note, let M: u32>(
+    storage_slot: Field,
+    options: NoteViewerOptions<Note, M>,
+) -> BoundedVec<Note, MAX_NOTES_PER_PAGE>
+where
+    Note: NoteType + Packable<N = M> + Eq,
+{
+    let (num_selects, select_by_indexes, select_by_offsets, select_by_lengths, select_values, select_comparators, sort_by_indexes, sort_by_offsets, sort_by_lengths, sort_order) =
+        flatten_options(options.selects, options.sorts);
+
+    // We fetch the notes from the same oracle we use in the constrained case, except we don't bother inspecting the
+    // metadata in order to prove existence.
+    let maybe_hinted_notes = oracle::notes::get_notes(
+        options.owner,
+        storage_slot,
+        num_selects,
+        select_by_indexes,
+        select_by_offsets,
+        select_by_lengths,
+        select_values,
+        select_comparators,
+        sort_by_indexes,
+        sort_by_offsets,
+        sort_by_lengths,
+        sort_order,
+        options.limit,
+        options.offset,
+        options.status,
+    );
+
+    // Even though we don't expect for the maybe_hinted_notes array to be sparse, collapse is still useful in this case
+    // to convert it into a BoundedVec.
+    array::collapse(maybe_hinted_notes).map(
+        // view_notes just returns the actual note, so we drop the metadata
+        |hinted_note| hinted_note.note,
+    )
+}
+
+unconstrained fn flatten_options<let N: u32>(
+    selects: BoundedVec<Option<Select>, N>,
+    sorts: BoundedVec<Option<Sort>, N>,
+) -> (u8, [u8; N], [u8; N], [u8; N], [Field; N], [u8; N], [u8; N], [u8; N], [u8; N], [u8; N]) {
+    let mut num_selects = 0;
+    let mut select_by_indexes = [0; N];
+    let mut select_by_offsets = [0; N];
+    let mut select_by_lengths = [0; N];
+    let mut select_values = [0; N];
+    let mut select_comparators = [0; N];
+
+    for i in 0..selects.len() {
+        let select = selects.get(i);
+        if select.is_some() {
+            select_by_indexes[num_selects as u32] = select.unwrap_unchecked().property_selector.index;
+            select_by_offsets[num_selects as u32] = select.unwrap_unchecked().property_selector.offset;
+            select_by_lengths[num_selects as u32] = select.unwrap_unchecked().property_selector.length;
+            select_values[num_selects as u32] = select.unwrap_unchecked().value;
+            select_comparators[num_selects as u32] = select.unwrap_unchecked().comparator;
+            num_selects += 1;
+        };
+    }
+
+    let mut sort_by_indexes = [0; N];
+    let mut sort_by_offsets = [0; N];
+    let mut sort_by_lengths = [0; N];
+    let mut sort_order = [0; N];
+    for i in 0..sorts.len() {
+        let sort = sorts.get(i);
+        if sort.is_some() {
+            sort_by_indexes[i] = sort.unwrap_unchecked().property_selector.index;
+            sort_by_offsets[i] = sort.unwrap_unchecked().property_selector.offset;
+            sort_by_lengths[i] = sort.unwrap_unchecked().property_selector.length;
+            sort_order[i] = sort.unwrap_unchecked().order;
+        };
+    }
+
+    (
+        num_selects, select_by_indexes, select_by_offsets, select_by_lengths, select_values, select_comparators,
+        sort_by_indexes, sort_by_offsets, sort_by_lengths, sort_order,
+    )
+}

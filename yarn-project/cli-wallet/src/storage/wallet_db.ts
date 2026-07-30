@@ -1,4 +1,5 @@
 import { Fr } from '@aztec/foundation/curves/bn254';
+import { GrumpkinScalar } from '@aztec/foundation/curves/grumpkin';
 import type { LogFn } from '@aztec/foundation/log';
 import type { AztecAsyncKVStore, AztecAsyncMap } from '@aztec/kv-store';
 import type { AuthWitness } from '@aztec/stdlib/auth-witness';
@@ -88,13 +89,28 @@ export class WalletDB {
     address: AztecAddress,
     {
       type,
+      signingKey,
       secretKey,
       salt,
       alias,
       publicKey,
-    }: { type: AccountType; secretKey: Fr; salt: Fr; alias: string | undefined; publicKey: string | undefined },
+    }: {
+      type: AccountType;
+      signingKey?: GrumpkinScalar;
+      secretKey?: Fr;
+      salt: Fr;
+      alias: string | undefined;
+      publicKey: string | undefined;
+    },
     log: LogFn,
   ) {
+    // Even though the privacy secret key is sometimes derived from the signing key, we store it in the database
+    // regardless as that is not always the case. Local-key accounts also store their signing key, while external-key
+    // accounts such as SSH store only the privacy secret.
+    if (!secretKey) {
+      throw new Error('Cannot store account without a secret key');
+    }
+
     let publicSigningKey: Buffer | undefined;
     if (type === 'ecdsasecp256r1ssh' && publicKey) {
       publicSigningKey = extractECDSAPublicKeyFromBase64String(publicKey);
@@ -106,6 +122,9 @@ export class WalletDB {
       }
       await this.#accounts.set(`${address.toString()}:type`, Buffer.from(type));
       await this.#accounts.set(`${address.toString()}:sk`, secretKey.toBuffer());
+      if (signingKey) {
+        await this.#accounts.set(`${address.toString()}:signing`, signingKey.toBuffer());
+      }
       await this.#accounts.set(`${address.toString()}:salt`, salt.toBuffer());
       if (publicSigningKey) {
         await this.#accounts.set(`${address.toString()}:publicSigningKey`, publicSigningKey);
@@ -226,10 +245,13 @@ export class WalletDB {
     if (!secretKeyBuffer) {
       throw new Error(`Could not find ${address}:sk. Account "${address.toString}" does not exist on this wallet.`);
     }
+    const signingKeyBuffer = await this.#accounts.getAsync(`${address.toString()}:signing`);
     const secretKey = Fr.fromBuffer(secretKeyBuffer);
+    // External-key accounts (e.g. SSH) store no signing key.
+    const signingKey = signingKeyBuffer ? GrumpkinScalar.fromBuffer(signingKeyBuffer) : undefined;
     const salt = Fr.fromBuffer((await this.#accounts.getAsync(`${address.toString()}:salt`))!);
     const type = (await this.#accounts.getAsync(`${address.toString()}:type`))!.toString('utf8') as AccountType;
-    return { address, secretKey, salt, type };
+    return { address, signingKey, secretKey, salt, type };
   }
 
   async storeAlias(type: AliasType, key: string, value: Buffer, log: LogFn) {

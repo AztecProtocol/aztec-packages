@@ -34,6 +34,7 @@ import { type Hex, decodeEventLog, encodeFunctionData, getAddress, getContract }
 import { foundry } from 'viem/chains';
 
 import { sendL1ToL2Message } from '../../fixtures/l1_to_l2_messaging.js';
+import { getStandardContractGenesisNullifiers } from '../../fixtures/standard_contracts_genesis.js';
 import { getPrivateKeyFromIndex, getSponsoredFPCAddress } from '../../fixtures/utils.js';
 import { TestWallet } from '../../test-wallet/test_wallet.js';
 import {
@@ -136,7 +137,13 @@ describe('multi-node/governance/add_rollup', () => {
       genesisArchiveRoot,
       fundingNeeded,
       genesis: newGenesis,
-    } = await getGenesisValues(genesisFundedAddresses, undefined, undefined, context.genesis!.genesisTimestamp + 1n);
+    } = await getGenesisValues(
+      genesisFundedAddresses,
+      undefined,
+      undefined,
+      context.genesis!.genesisTimestamp + 1n,
+      await getStandardContractGenesisNullifiers(),
+    );
 
     const { rollup: newRollup } = await deployRollupForUpgrade(
       deployerPrivateKey,
@@ -240,6 +247,7 @@ describe('multi-node/governance/add_rollup', () => {
       const aliceAccountManager = await wallet.createSchnorrInitializerlessAccount(
         aliceAccount.secret,
         aliceAccount.salt,
+        aliceAccount.signingKey,
       );
 
       const aliceAddress = aliceAccountManager.address;

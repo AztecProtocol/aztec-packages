@@ -6,6 +6,9 @@ variable "API_KEY_SECRET_NAMES" {
     "eth-sepolia-rpc-consumer-client2",
     "eth-sepolia-rpc-consumer-client3",
     "eth-sepolia-rpc-consumer-client4",
+    "eth-sepolia-rpc-consumer-client5",
+
+    "eth-mainnet-rpc-consumer-client1",
   ]
 }
 

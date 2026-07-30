@@ -19,6 +19,6 @@ EOF
 );
 
 for contract in "${contracts[@]}"; do
-  cp "../../noir-projects/noir-contracts/target/$contract.json" ./artifacts/${contract#*-}.json
+  cp "../../noir-projects/labs/noir-contracts/target/$contract.json" ./artifacts/${contract#*-}.json
   echo "$decl" > ./artifacts/${contract#*-}.d.json.ts
 done

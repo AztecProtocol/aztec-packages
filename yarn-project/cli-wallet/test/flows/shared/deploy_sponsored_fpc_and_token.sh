@@ -25,4 +25,4 @@ aztec-wallet send set_minter -ca $TOKEN_ALIAS --args accounts:test0 true -f test
 # Claim the fee juice by calling the fee juice contract directly. Reference it via the registered
 # protocol-contract alias rather than a hardcoded address, which moves when protocol addresses are renumbered.
 # Using a pre-funded test account because SponsoredFPC is not an account contract and can't be used to send a tx.
-aztec-wallet send claim -ca contracts:FeeJuice -c fee_juice_contract@FeeJuice --args contracts:$FPC_ALIAS $claimAmount $claimSecret $messageLeafIndex -f test0
+aztec-wallet send claim -ca contracts:FeeJuice -c ../../fnd/noir-contracts/target/fee_juice_contract-FeeJuice.json --args contracts:$FPC_ALIAS $claimAmount $claimSecret $messageLeafIndex -f test0

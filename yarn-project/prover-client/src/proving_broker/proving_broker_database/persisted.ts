@@ -41,13 +41,22 @@ class SingleEpochDatabase {
     return this.store.estimateSize();
   }
 
-  async batchWrite(jobs: ProvingJob[], results: Array<[ProvingJobId, ProvingJobSettledResult]>) {
+  async batchWrite(
+    jobs: ProvingJob[],
+    results: Array<[ProvingJobId, ProvingJobSettledResult]>,
+    deletedResults: ProvingJobId[] = [],
+  ) {
     await this.store.transactionAsync(async () => {
       for (const job of jobs) {
         await this.jobs.set(job.id, jsonStringify(job));
       }
       for (const [id, result] of results) {
         await this.jobResults.set(id, jsonStringify(result));
+      }
+      // Deletes are applied after sets so that, if a set and a delete for the same id land in one
+      // batch (e.g. an abort immediately followed by a revive's result-delete), the delete wins.
+      for (const id of deletedResults) {
+        await this.jobResults.delete(id);
       }
     });
   }
@@ -61,8 +70,23 @@ class SingleEpochDatabase {
     }
   }
 
+  async getProvingJobInputs(id: ProvingJobId): Promise<ProofUri | undefined> {
+    const jobStr = await this.jobs.getAsync(id);
+    return jobStr ? jsonParseWithSchema(jobStr, ProvingJob).inputsUri : undefined;
+  }
+
+  async getProvingJobResult(id: ProvingJobId): Promise<ProvingJobSettledResult | undefined> {
+    const resultStr = await this.jobResults.getAsync(id);
+    return resultStr ? jsonParseWithSchema(resultStr, ProvingJobSettledResult) : undefined;
+  }
+
   async setProvingJobError(id: ProvingJobId, reason: string): Promise<void> {
     const result: ProvingJobSettledResult = { status: 'rejected', reason };
+    await this.jobResults.set(id, jsonStringify(result));
+  }
+
+  async setProvingJobAborted(id: ProvingJobId): Promise<void> {
+    const result: ProvingJobSettledResult = { status: 'aborted' };
     await this.jobResults.set(id, jsonStringify(result));
   }
 
@@ -80,10 +104,19 @@ class SingleEpochDatabase {
   }
 }
 
+/**
+ * An item queued for a batched write. A {@link ProvingJob} adds/updates a job; a `[id, result]`
+ * tuple sets a job's settled result; a `[id, undefined]` tuple deletes a job's result. Deletes ride
+ * the same queue as writes so they stay FIFO-ordered against them: a revive's result-delete must
+ * land after the abort that preceded it, otherwise a still-queued abort could flush later and
+ * resurrect the cancelled state on disk.
+ */
+type BrokerWrite = ProvingJob | [ProvingJobId, ProvingJobSettledResult | undefined];
+
 export class KVBrokerDatabase implements ProvingBrokerDatabase {
   private metrics: LmdbMetrics;
 
-  private batchQueue: BatchQueue<ProvingJob | [ProvingJobId, ProvingJobSettledResult], number>;
+  private batchQueue: BatchQueue<BrokerWrite, number>;
 
   public readonly tracer: Tracer;
 
@@ -112,12 +145,16 @@ export class KVBrokerDatabase implements ProvingBrokerDatabase {
   }
 
   // exposed for testing
-  public async commitWrites(items: Array<ProvingJob | [ProvingJobId, ProvingJobSettledResult]>, epochNumber: number) {
+  public async commitWrites(items: Array<BrokerWrite>, epochNumber: number) {
     const jobsToAdd = items.filter((item): item is ProvingJob => 'id' in item);
-    const resultsToAdd = items.filter((item): item is [ProvingJobId, ProvingJobSettledResult] => Array.isArray(item));
+    const resultOps = items.filter((item): item is [ProvingJobId, ProvingJobSettledResult | undefined] =>
+      Array.isArray(item),
+    );
+    const resultsToSet = resultOps.filter((op): op is [ProvingJobId, ProvingJobSettledResult] => op[1] !== undefined);
+    const resultsToDelete = resultOps.filter(op => op[1] === undefined).map(([id]) => id);
 
     const db = await this.getEpochDatabase(EpochNumber(epochNumber));
-    await db.batchWrite(jobsToAdd, resultsToAdd);
+    await db.batchWrite(jobsToAdd, resultsToSet, resultsToDelete);
   }
 
   private async estimateSize() {
@@ -192,8 +229,13 @@ export class KVBrokerDatabase implements ProvingBrokerDatabase {
     }
   }
 
+  // Key jobs by the id-derived epoch, the same epoch results are written under (setProvingJobResult et
+  // al.). This keeps a job's inputs and its result co-located in one epoch database so both can be read
+  // back with a single keyed lookup (getProvingJobInputs/getProvingJobResult) rather than a scan. The id
+  // embeds the epoch and equals `job.epochNumber` at every construction site, so this matches the prior
+  // storage epoch while making the id the single source of truth for placement.
   addProvingJob(job: ProvingJob): Promise<void> {
-    return this.batchQueue.put(job, job.epochNumber);
+    return this.batchQueue.put(job, getEpochFromProvingJobId(job.id));
   }
 
   async *allProvingJobs(): AsyncIterableIterator<[ProvingJob, ProvingJobSettledResult | undefined]> {
@@ -203,8 +245,29 @@ export class KVBrokerDatabase implements ProvingBrokerDatabase {
     }
   }
 
+  // A job id is `${epochNumber}:${type}:${inputsHash}`, so its epoch is recoverable directly and maps to
+  // exactly one epoch database. Results are already written under this same id-derived epoch (see
+  // setProvingJobResult et al.), and a job's `epochNumber` equals its id-epoch at every construction site,
+  // so inputs live there too. Use `epochs.get` (not `getEpochDatabase`, which would create the store on a
+  // miss) so a read for an unknown id has no side effects.
+  getProvingJobInputs(id: ProvingJobId): Promise<ProofUri | undefined> {
+    return this.epochs.get(getEpochFromProvingJobId(id))?.getProvingJobInputs(id) ?? Promise.resolve(undefined);
+  }
+
+  getProvingJobResult(id: ProvingJobId): Promise<ProvingJobSettledResult | undefined> {
+    return this.epochs.get(getEpochFromProvingJobId(id))?.getProvingJobResult(id) ?? Promise.resolve(undefined);
+  }
+
   setProvingJobError(id: ProvingJobId, reason: string): Promise<void> {
     return this.batchQueue.put([id, { status: 'rejected', reason }], getEpochFromProvingJobId(id));
+  }
+
+  setProvingJobAborted(id: ProvingJobId): Promise<void> {
+    return this.batchQueue.put([id, { status: 'aborted' }], getEpochFromProvingJobId(id));
+  }
+
+  deleteProvingJobResult(id: ProvingJobId): Promise<void> {
+    return this.batchQueue.put([id, undefined], getEpochFromProvingJobId(id));
   }
 
   setProvingJobResult(id: ProvingJobId, value: ProofUri): Promise<void> {

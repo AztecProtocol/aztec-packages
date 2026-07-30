@@ -13,7 +13,7 @@ import { getKzg } from './kzg_context.js';
 
 /**
  * A class to create, manage, and prove batched EVM blobs.
- * See noir-projects/noir-protocol-circuits/crates/blob/src/abis/blob_accumulator.nr
+ * See noir-projects/fnd/noir-protocol-circuits/crates/blob/src/abis/blob_accumulator.nr
  */
 export class BatchedBlobAccumulator {
   constructor(

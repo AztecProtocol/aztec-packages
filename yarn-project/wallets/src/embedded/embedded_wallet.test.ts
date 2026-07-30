@@ -42,7 +42,7 @@ describe('EmbeddedWallet', () => {
   });
 
   describe('sendTx', () => {
-    it('passes sendMessagesAs as senderForTags to PXE simulation', async () => {
+    it('passes sendMessagesAs as senderForTags and includes it in scopes for PXE simulation', async () => {
       getPredictedMinFees.mockResolvedValue([new GasFees(2, 2)]);
       getNodeInfo.mockResolvedValue({
         l1ChainId: 1,
@@ -68,7 +68,10 @@ describe('EmbeddedWallet', () => {
 
       expect(simulateTx).toHaveBeenCalledWith(
         expect.anything(),
-        expect.objectContaining({ senderForTags: sendMessagesAs }),
+        expect.objectContaining({
+          senderForTags: sendMessagesAs,
+          scopes: expect.arrayContaining([sendMessagesAs]),
+        }),
       );
     });
 

@@ -4,6 +4,7 @@ import { FeeJuicePaymentMethodWithClaim } from '@aztec/aztec.js/fee';
 import { type FeePaymentMethod, PrivateFeePaymentMethod, SponsoredFeePaymentMethod } from '@aztec/aztec.js/fee';
 import { type Logger, createLogger } from '@aztec/aztec.js/log';
 import type { AztecNode } from '@aztec/aztec.js/node';
+import { FeeJuiceContract } from '@aztec/aztec.js/protocol';
 import type { Wallet } from '@aztec/aztec.js/wallet';
 import { CheatCodes, getTokenAllowedSetupFunctions } from '@aztec/aztec/testing';
 import { createExtendedL1Client } from '@aztec/ethereum/client';
@@ -13,20 +14,17 @@ import { deployL1Contract } from '@aztec/ethereum/deploy-l1-contract';
 import { ChainMonitor } from '@aztec/ethereum/test';
 import { randomBytes } from '@aztec/foundation/crypto/random';
 import { Fr } from '@aztec/foundation/curves/bn254';
+import { GrumpkinScalar } from '@aztec/foundation/curves/grumpkin';
 import { EthAddress } from '@aztec/foundation/eth-address';
 import { TestERC20Abi } from '@aztec/l1-artifacts/TestERC20Abi';
 import { TestERC20Bytecode } from '@aztec/l1-artifacts/TestERC20Bytecode';
 import { AMMContract } from '@aztec/noir-contracts.js/AMM';
 import { FPCContract } from '@aztec/noir-contracts.js/FPC';
-import { FeeJuiceContract } from '@aztec/noir-contracts.js/FeeJuice';
 import { SponsoredFPCContract } from '@aztec/noir-contracts.js/SponsoredFPC';
 import { TestTokenContract as BananaCoin, TestTokenContract } from '@aztec/noir-test-contracts.js/TestToken';
-import { ProtocolContractAddress } from '@aztec/protocol-contracts';
-import { getCanonicalFeeJuice } from '@aztec/protocol-contracts/fee-juice';
 import { type PXEConfig, getPXEConfig } from '@aztec/pxe/server';
 import type { ContractInstanceWithAddress } from '@aztec/stdlib/contract';
 import { Gas, GasSettings } from '@aztec/stdlib/gas';
-import { deriveSigningKey } from '@aztec/stdlib/keys';
 import { AppTaggingSecretKind } from '@aztec/stdlib/logs';
 
 import {
@@ -192,7 +190,7 @@ export class ClientFlowsBenchmark {
 
     let benchysPrivateSigningKey;
     if (type === 'schnorr') {
-      benchysPrivateSigningKey = deriveSigningKey(benchysSecret);
+      benchysPrivateSigningKey = GrumpkinScalar.random();
       return wallet.createSchnorrAccount(benchysSecret, salt, benchysPrivateSigningKey);
     } else if (type === 'ecdsar1') {
       benchysPrivateSigningKey = randomBytes(32);
@@ -218,8 +216,7 @@ export class ClientFlowsBenchmark {
     this.adminAddress = adminAddress;
     this.sequencerAddress = sequencerAddress;
 
-    const canonicalFeeJuice = await getCanonicalFeeJuice();
-    this.feeJuiceContract = FeeJuiceContract.at(canonicalFeeJuice.address, this.adminWallet);
+    this.feeJuiceContract = FeeJuiceContract.withWallet(this.adminWallet);
     this.coinbase = EthAddress.random();
 
     const userPXEConfig = getPXEConfig();
@@ -250,7 +247,7 @@ export class ClientFlowsBenchmark {
 
   async applySetupFeeJuice() {
     this.logger.info('Applying fee juice setup');
-    this.feeJuiceContract = FeeJuiceContract.at(ProtocolContractAddress.FeeJuice, this.adminWallet);
+    this.feeJuiceContract = FeeJuiceContract.withWallet(this.adminWallet);
 
     this.feeJuiceBridgeTestHarness = await FeeJuicePortalTestingHarnessFactory.create({
       aztecNode: this.context.aztecNodeService,

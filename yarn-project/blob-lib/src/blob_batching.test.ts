@@ -92,32 +92,32 @@ describe('Blob Batching', () => {
 
     // Run with AZTEC_GENERATE_TEST_DATA=1 to update noir test data.
     updateInlineTestData(
-      'noir-projects/noir-protocol-circuits/crates/blob/src/blob_batching.nr',
+      'noir-projects/fnd/noir-protocol-circuits/crates/blob/src/blob_batching.nr',
       'blob_fields_hash_blob_400_from_ts',
       blobFieldsHash.toString(),
     );
     updateInlineTestData(
-      'noir-projects/noir-protocol-circuits/crates/blob/src/blob_batching.nr',
+      'noir-projects/fnd/noir-protocol-circuits/crates/blob/src/blob_batching.nr',
       'kzg_commitment_x_limbs_blob_400_from_ts',
       toInlineStrArray(commitment.x.toNoirBigNum().limbs),
     );
     updateInlineTestData(
-      'noir-projects/noir-protocol-circuits/crates/blob/src/blob_batching.nr',
+      'noir-projects/fnd/noir-protocol-circuits/crates/blob/src/blob_batching.nr',
       'kzg_commitment_y_limbs_blob_400_from_ts',
       toInlineStrArray(commitment.y.toNoirBigNum().limbs),
     );
     updateInlineTestData(
-      'noir-projects/noir-protocol-circuits/crates/blob/src/blob_batching.nr',
+      'noir-projects/fnd/noir-protocol-circuits/crates/blob/src/blob_batching.nr',
       'z_blob_400_from_ts',
       finalZ.toString(),
     );
     updateInlineTestData(
-      'noir-projects/noir-protocol-circuits/crates/blob/src/blob_batching.nr',
+      'noir-projects/fnd/noir-protocol-circuits/crates/blob/src/blob_batching.nr',
       'gamma_limbs_blob_400_from_ts',
       toInlineStrArray(finalGamma.toNoirBigNum().limbs),
     );
     updateInlineTestData(
-      'noir-projects/noir-protocol-circuits/crates/blob/src/blob_batching.nr',
+      'noir-projects/fnd/noir-protocol-circuits/crates/blob/src/blob_batching.nr',
       'y_limbs_blob_400_from_ts',
       toInlineStrArray(y.toNoirBigNum().limbs),
     );
@@ -254,10 +254,10 @@ describe('Blob Batching', () => {
 
       if (isCheckpointRootTest) {
         writeNoirTestData(
-          'noir-projects/noir-protocol-circuits/crates/rollup-lib/src/checkpoint_root/tests/blob_tests.nr',
+          'noir-projects/fnd/noir-protocol-circuits/crates/rollup-lib/src/checkpoint_root/tests/blob_tests.nr',
         );
       } else {
-        writeNoirTestData('noir-projects/noir-protocol-circuits/crates/blob/src/blob_batching.nr');
+        writeNoirTestData('noir-projects/fnd/noir-protocol-circuits/crates/blob/src/blob_batching.nr');
       }
     },
   );

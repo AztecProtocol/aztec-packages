@@ -10,10 +10,10 @@ All the packages that make up [Aztec](https://docs.aztec.network).
 
 ## Popular packages
 
-- [Aztec.nr](./noir-projects/aztec-nr/): A [Noir](https://noir-lang.org) framework for smart contracts on Aztec.
+- [Aztec.nr](./noir-projects/labs/aztec-nr/): A [Noir](https://noir-lang.org) framework for smart contracts on Aztec.
 - [Aztec](./yarn-project/aztec/): A package for starting up local dev net modules, including a local 'network' devnet, an Ethereum network, deployed rollup contracts and Aztec execution environment.
 - [Aztec.js](./yarn-project/aztec.js/): A tool for interacting with the Aztec network. It communicates via the [Private Execution Environment (PXE)](./yarn-project/pxe/).
-- [Example contracts](./noir-projects/noir-contracts/): Example contracts for the Aztec network, written in Noir.
+- [Example contracts](./noir-projects/labs/noir-contracts/): Example contracts for the Aztec network, written in Noir.
 - [End to end tests](./yarn-project/end-to-end/): Integration tests written in Typescript--a good reference for how to use the packages for specific tasks.
 - [Aztec Boxes](./boxes/): Example starter projects.
 
@@ -32,10 +32,6 @@ Releases are driven by git tags. The current version is tracked in `.release-ple
 ## Contribute
 
 There are many ways you can participate and help build high quality software. Check out the [contribution guide](CONTRIBUTING.md)!
-
-## Syncing noir
-
-We use marker commits and [git-subrepo](https://github.com/ingydotnet/git-subrepo) (for a subset of its intended use) to manage a mirror of noir. This tool was chosen because it makes code checkout and development as simple as possible (compared to submodules or subtrees), with the tradeoff of complexity around sync's.
 
 ## Development and CI
 

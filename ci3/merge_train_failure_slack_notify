@@ -36,9 +36,9 @@ elif [[ "$REF_NAME" == "merge-train/fairies" ]]; then
 elif [[ "$REF_NAME" == "merge-train/fairies-v5" ]]; then
   channel="#team-fairies"
 elif [[ "$REF_NAME" == "merge-train/spartan" ]]; then
-  channel="#team-alpha"
+  channel="#team-alpha-ci"
 elif [[ "$REF_NAME" == "merge-train/spartan-v5" ]]; then
-  channel="#team-alpha"
+  channel="#team-alpha-ci"
 else
   exit 0
 fi
@@ -55,7 +55,8 @@ if [[ "$MODE" == "dequeued" ]]; then
     --repo "${GITHUB_REPOSITORY:-}"
 
 elif [[ "$MODE" == "merged" ]]; then
-  "$TOPDIR/ci3/slack_notify" "PR merged into $REF_NAME: <$PR_URL|$commit_title> by $commit_author" "$channel"
+  merged_target="${TARGET_BRANCH:-$REF_NAME}"
+  "$TOPDIR/ci3/slack_notify" "PR merged into $merged_target: <$PR_URL|$commit_title> by $commit_author" "$channel"
 
 else
   "$TOPDIR/ci3/slack_notify_with_claudebox_kickoff" "$channel" \

@@ -14,6 +14,7 @@ import {
 
 import { type MockProxy, mock } from 'jest-mock-extended';
 
+import type { FeePaymentMethod } from '../fee/fee_payment_method.js';
 import { TxSimulationResultWithAppOffset } from '../wallet/tx_simulation_result_with_app_offset.js';
 import type { Wallet } from '../wallet/wallet.js';
 import { BatchCall } from './batch_call.js';
@@ -383,6 +384,101 @@ describe('BatchCall', () => {
 
       expect(wallet.batch).not.toHaveBeenCalled();
       expect(results).toEqual([]);
+    });
+  });
+
+  describe('simulate with fee payment method', () => {
+    it('offsets return-value indices by the calls the fee payment method prepends', async () => {
+      const appContract = await AztecAddress.random();
+      const feeContract = await AztecAddress.random();
+
+      const appPrivatePayload = createPrivateExecutionPayload('appPrivate', [Fr.random()], appContract, 1);
+      const appPublicPayload = createPublicExecutionPayload('appPublic', [Fr.random()], appContract);
+
+      batchCall = new BatchCall(wallet, [appPrivatePayload, appPublicPayload]);
+
+      // The fee method contributes one private and one public call, prepended ahead of the batch.
+      const feePrivateCall = createPrivateExecutionPayload('feePrivate', [], feeContract).calls[0];
+      const feePublicCall = createPublicExecutionPayload('feePublic', [], feeContract).calls[0];
+      const feePayload = new ExecutionPayload([feePrivateCall, feePublicCall], [], [], [], await AztecAddress.random());
+
+      const paymentMethod = mock<FeePaymentMethod>();
+      paymentMethod.getExecutionPayload.mockResolvedValue(feePayload);
+
+      const appPrivateReturnValues = [Fr.random()];
+      const appPublicReturnValues = [Fr.random()];
+
+      const txSimResult = mockTxSimResult();
+      // Private nested index 0 is the fee call, index 1 is the app call. Returning distinct values lets us detect
+      // an off-by-one that would decode the fee call's return values as the app call's.
+      txSimResult.getPrivateReturnValuesOfAppCall.mockImplementation(
+        (idx?: number) => (idx === 1 ? { values: appPrivateReturnValues } : { values: [Fr.random()] }) as any,
+      );
+      // Public index 0 is the fee call, index 1 is the app call.
+      txSimResult.getPublicReturnValues.mockReturnValue([
+        { values: [Fr.random()] },
+        { values: appPublicReturnValues },
+      ] as any);
+
+      wallet.batch.mockResolvedValue([{ name: 'simulateTx', result: txSimResult }] as any);
+
+      const { result: results } = await batchCall.simulate({
+        from: await AztecAddress.random(),
+        fee: { paymentMethod },
+      });
+
+      expect(txSimResult.getPrivateReturnValuesOfAppCall).toHaveBeenCalledWith(1);
+      expect(results).toHaveLength(2);
+      expect(results[0].result).toEqual(appPrivateReturnValues[0].toBigInt());
+      expect(results[1].result).toEqual(appPublicReturnValues[0].toBigInt());
+    });
+
+    it('merges the fee payment method payload and preserves its fee payer', async () => {
+      const appContract = await AztecAddress.random();
+      const feeContract = await AztecAddress.random();
+      const feePayer = await AztecAddress.random();
+
+      const appPayload = createPrivateExecutionPayload('app', [Fr.random()], appContract, 1);
+      batchCall = new BatchCall(wallet, [appPayload]);
+
+      const feeCall = createPrivateExecutionPayload('payFee', [], feeContract).calls[0];
+      const feePayload = new ExecutionPayload([feeCall], [], [], [], feePayer);
+
+      const paymentMethod = mock<FeePaymentMethod>();
+      paymentMethod.getExecutionPayload.mockResolvedValue(feePayload);
+
+      const txSimResult = mockTxSimResult();
+      txSimResult.getPrivateReturnValuesOfAppCall.mockReturnValue({ values: [Fr.random()] } as any);
+      wallet.batch.mockResolvedValue([{ name: 'simulateTx', result: txSimResult }] as any);
+
+      await batchCall.simulate({ from: await AztecAddress.random(), fee: { paymentMethod } });
+
+      const methods = wallet.batch.mock.calls[0][0] as any[];
+      const { args } = methods.find(m => m.name === 'simulateTx')!;
+      const [executionPayload] = args;
+      expect(executionPayload.calls).toHaveLength(2);
+      expect(executionPayload.calls[0]).toEqual(feeCall);
+      expect(executionPayload.calls[1]).toEqual(appPayload.calls[0]);
+      expect(executionPayload.feePayer).toEqual(feePayer);
+    });
+
+    it('preserves a fee payer carried by a batched execution payload', async () => {
+      const appContract = await AztecAddress.random();
+      const feePayer = await AztecAddress.random();
+
+      const appCall = createPrivateExecutionPayload('app', [Fr.random()], appContract, 1).calls[0];
+      const payloadWithFeePayer = new ExecutionPayload([appCall], [], [], [], feePayer);
+      batchCall = new BatchCall(wallet, [payloadWithFeePayer]);
+
+      const txSimResult = mockTxSimResult();
+      txSimResult.getPrivateReturnValuesOfAppCall.mockReturnValue({ values: [Fr.random()] } as any);
+      wallet.batch.mockResolvedValue([{ name: 'simulateTx', result: txSimResult }] as any);
+
+      await batchCall.simulate({ from: await AztecAddress.random() });
+
+      const methods = wallet.batch.mock.calls[0][0] as any[];
+      const { args } = methods.find(m => m.name === 'simulateTx')!;
+      expect(args[0].feePayer).toEqual(feePayer);
     });
   });
 

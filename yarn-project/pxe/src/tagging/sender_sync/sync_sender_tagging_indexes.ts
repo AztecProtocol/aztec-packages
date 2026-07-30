@@ -1,20 +1,19 @@
+import type { BlockNumber } from '@aztec/foundation/branded-types';
 import type { BlockHash } from '@aztec/stdlib/block';
 import type { AztecNode } from '@aztec/stdlib/interfaces/server';
 import type { AppTaggingSecret } from '@aztec/stdlib/logs';
 
 import type { SenderTaggingStore } from '../../storage/tagging_store/sender_tagging_store.js';
-import { UNFINALIZED_TAGGING_INDEXES_WINDOW_LEN } from '../constants.js';
-import {
-  EMPTY_STATUS_CHANGE,
-  getStatusChangeOfPending,
-  mergeStatusChanges,
-} from './utils/get_status_change_of_pending.js';
+import { unfinalizedTaggingIndexesWindowEnd } from '../constants.js';
 import { loadAndStoreNewTaggingIndexes } from './utils/load_and_store_new_tagging_indexes.js';
+import { resolvePendingTxs } from './utils/resolve_pending_txs.js';
 
 /**
  * Syncs tagging indexes. This function needs to be called whenever a private log is being sent.
  *
  * @param secret - The sender-side tagging `AppTaggingSecret`.
+ * @param finalizedBlockNumber - The locally-synced finalized tip, used to tell whether the block a discovered log
+ * sits in is finalized.
  * @remarks When syncing the indexes as sender we don't care about the log contents - we only care about the highest
  * pending and highest finalized indexes as that guides the next index choice when sending a log. The next index choice
  * is simply the highest pending index plus one (or finalized if pending is undefined).
@@ -25,6 +24,7 @@ export async function syncSenderTaggingIndexes(
   secret: AppTaggingSecret,
   aztecNode: AztecNode,
   taggingStore: SenderTaggingStore,
+  finalizedBlockNumber: BlockNumber,
   anchorBlockHash: BlockHash,
   jobId: string,
 ): Promise<void> {
@@ -43,68 +43,47 @@ export async function syncSenderTaggingIndexes(
   // than WINDOW_LEN from the highest finalized index.
   //
   // # Note on performance
-  // Each window advance requires two queries (logs + tx status). For example, syncing indexes 0–500 with a window of
-  // 100 takes at least 10 round trips (5 windows × 2 queries).
+  // A window advance usually takes a single logs query: the finalization status of most txs the logs surface is
+  // derived from the log block numbers and the locally-synced finalized tip, without a per-tx node call. See
+  // `resolvePendingTxs` for the txs that the logs cannot settle and what they cost.
 
   const finalizedIndex = await taggingStore.getLastFinalizedIndex(secret, jobId);
 
   let start = finalizedIndex === undefined ? 0 : finalizedIndex + 1;
-  let end = start + UNFINALIZED_TAGGING_INDEXES_WINDOW_LEN;
+  // The loop only extends the window when the finalized index moves,
+  // so this first window must cover the entire permitted range on its own.
+  let end = unfinalizedTaggingIndexesWindowEnd(finalizedIndex);
 
   let previousFinalizedIndex = finalizedIndex;
   let newFinalizedIndex = undefined;
 
   while (true) {
-    // Pending tx hashes already in the store for this window (from prior syncs or txs this PXE itself sent).
-    // Reading these before issuing any RPC lets us fetch their receipts in parallel with the logs query below.
-    const knownPendingTxHashes = await taggingStore.getTxHashesOfPendingIndexes(secret, start, end, jobId);
+    const txsInLogs = await loadAndStoreNewTaggingIndexes(
+      secret,
+      start,
+      end,
+      aztecNode,
+      taggingStore,
+      anchorBlockHash,
+      jobId,
+    );
 
-    // Fire the logs query and the known-pending receipts query in parallel
-    const [, statusOfKnown] = await Promise.all([
-      loadAndStoreNewTaggingIndexes(secret, start, end, aztecNode, taggingStore, anchorBlockHash, jobId),
-      knownPendingTxHashes.length > 0
-        ? getStatusChangeOfPending(knownPendingTxHashes, aztecNode)
-        : Promise.resolve(EMPTY_STATUS_CHANGE),
-    ]);
-
-    // Re-read pending tx hashes after the logs query writes any newly-discovered ones to the store.
-    const allPendingTxHashes = await taggingStore.getTxHashesOfPendingIndexes(secret, start, end, jobId);
-    if (allPendingTxHashes.length === 0) {
+    // Pending txs for this window: prior syncs, txs this PXE itself sent, and what the logs just stored.
+    const pendingTxs = await taggingStore.getPendingTxs(secret, start, end, jobId);
+    if (pendingTxs.length === 0) {
       break;
     }
 
-    // Receipts for pending tx hashes that the logs query just surfaced still need a sequential follow-up call.
-    // `storePendingIndexes` is idempotent on (secret, txHash), so a re-discovered hash stays classified as known
-    // and is not re-fetched here.
-    const knownSet = new Set(knownPendingTxHashes.map(h => h.toString()));
-    const newPendingTxHashes = allPendingTxHashes.filter(h => !knownSet.has(h.toString()));
+    const { txHashesFinalizedFromLogs, txHashesFinalizedFromReceipts, txHashesDropped, receiptsWithExecutionReverted } =
+      await resolvePendingTxs(pendingTxs, txsInLogs, finalizedBlockNumber, aztecNode);
 
-    const statusOfNew =
-      newPendingTxHashes.length > 0
-        ? await getStatusChangeOfPending(newPendingTxHashes, aztecNode)
-        : EMPTY_STATUS_CHANGE;
+    await taggingStore.dropPendingIndexes(txHashesDropped, jobId);
+    // The logs are queried per secret, so they only evidence this one's indexes. A receipt covers the whole tx.
+    await taggingStore.finalizePendingIndexesOfSecret(secret, txHashesFinalizedFromLogs, jobId);
+    await taggingStore.finalizePendingIndexes(txHashesFinalizedFromReceipts, jobId);
 
-    const { txHashesToFinalize, txHashesToDrop, txHashesWithExecutionReverted } = mergeStatusChanges(
-      statusOfKnown,
-      statusOfNew,
-    );
-
-    await taggingStore.dropPendingIndexes(txHashesToDrop, jobId);
-    await taggingStore.finalizePendingIndexes(txHashesToFinalize, jobId);
-
-    if (txHashesWithExecutionReverted.length > 0) {
-      const receipts = await Promise.all(
-        txHashesWithExecutionReverted.map(txHash => aztecNode.getTxReceipt(txHash, { includeTxEffect: true })),
-      );
-      for (const receipt of receipts) {
-        if (!receipt.isMined() || !receipt.txEffect) {
-          throw new Error(
-            'TxEffect not found for execution-reverted tx. This is either a bug or a reorg has occurred.',
-          );
-        }
-
-        await taggingStore.finalizePendingIndexesOfAPartiallyRevertedTx(receipt.txEffect, jobId);
-      }
+    for (const receipt of receiptsWithExecutionReverted) {
+      await taggingStore.finalizePendingIndexesOfAPartiallyRevertedTx(receipt.txEffect, jobId);
     }
 
     // We check if the finalized index has been updated.
@@ -122,8 +101,7 @@ export async function syncSenderTaggingIndexes(
       //    New window:                                             [21, 22, 23]
 
       const previousEnd = end;
-      // Add 1 because `end` is exclusive and the known finalized index is not included in the window.
-      end = newFinalizedIndex! + UNFINALIZED_TAGGING_INDEXES_WINDOW_LEN + 1;
+      end = unfinalizedTaggingIndexesWindowEnd(newFinalizedIndex);
       start = previousEnd;
       previousFinalizedIndex = newFinalizedIndex;
     } else {

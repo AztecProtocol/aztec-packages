@@ -4,6 +4,7 @@
 
 #include <gtest/gtest.h>
 #include <unordered_map>
+#include <unordered_set>
 
 using namespace bb;
 
@@ -119,6 +120,47 @@ TEST_F(UltraCircuitBuilderLookup, DifferentTablesGetUniqueIndices)
 
     // Exactly three different tables should have been created
     EXPECT_EQ(builder.get_num_lookup_tables(), 3UL);
+}
+
+// Every basic table reachable through any MultiTable must receive a unique, positive circuit-local
+// table_index. The LogDeriv lookup relation identifies a table solely by table_index (not BasicTableId),
+// so a generator that stores anything other than the builder-assigned index silently collapses distinct tables to one
+// identity. This sweeps the whole table space so any such generator is caught.
+TEST_F(UltraCircuitBuilderLookup, AllMultiTableBasicTablesGetUniquePositiveIndices)
+{
+    Builder builder;
+    for (size_t mt = 0; mt < static_cast<size_t>(plookup::MultiTableId::NUM_MULTI_TABLES); ++mt) {
+        const auto& multitable = plookup::get_multitable(static_cast<plookup::MultiTableId>(mt));
+        for (const auto id : multitable.basic_table_ids) {
+            builder.get_table(id);
+        }
+    }
+
+    std::unordered_set<size_t> seen;
+    for (const auto& table : builder.get_lookup_tables()) {
+        EXPECT_GT(table.table_index, 0UL) << "non-positive index for basic table id " << static_cast<size_t>(table.id);
+        EXPECT_TRUE(seen.insert(table.table_index).second)
+            << "duplicate table_index " << table.table_index << " for basic table id " << static_cast<size_t>(table.id);
+    }
+    EXPECT_NO_THROW(builder.finalize_circuit());
+}
+
+TEST_F(UltraCircuitBuilderLookup, FinalizationRejectsDuplicateTableIndices)
+{
+    Builder builder;
+    builder.get_table(plookup::BasicTableId::UINT_XOR_SLICE_6_ROTATE_0);
+    builder.get_table(plookup::BasicTableId::UINT_AND_SLICE_6_ROTATE_0);
+    builder.get_lookup_tables()[1].table_index = builder.get_lookup_tables()[0].table_index;
+
+    EXPECT_THROW_OR_ABORT(builder.finalize_circuit(), "Lookup table indices must be unique within a circuit");
+}
+
+TEST_F(UltraCircuitBuilderLookup, FinalizationRejectsZeroTableIndex)
+{
+    Builder builder;
+    builder.get_table(plookup::BasicTableId::UINT_XOR_SLICE_6_ROTATE_0).table_index = 0;
+
+    EXPECT_THROW_OR_ABORT(builder.finalize_circuit(), "Lookup table indices must be positive");
 }
 
 // Verifies correct behavior when key_b_index is not provided (2-to-1 lookup without second index)

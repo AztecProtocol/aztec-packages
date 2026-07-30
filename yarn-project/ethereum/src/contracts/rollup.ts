@@ -560,6 +560,16 @@ export class RollupContract {
     return Number(await this.rollup.read.getActiveAttesterCount(options));
   }
 
+  /**
+   * Number of attesters that were staked at the given (historical) L1 timestamp. This is the count that
+   * validator-set sampling uses to decide whether an epoch gets a committee, and the historical counterpart
+   * of {@link getActiveAttesterCount} (which reads at the latest L1 block).
+   */
+  async getAttesterCountAtTime(timestamp: bigint, options?: { blockNumber?: bigint }): Promise<number> {
+    const gse = new GSEContract(this.client, await this.getGSE());
+    return gse.getAttesterCountAtTime(this.address, timestamp, options);
+  }
+
   public async getSlashingProposerAddress() {
     const slasher = await this.getSlasherContract();
     if (!slasher) {

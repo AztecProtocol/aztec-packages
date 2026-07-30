@@ -39,6 +39,12 @@ You can install any specific version of `bb` with the `-v` flag. Example:
 bbup -v 0.56.0
 ```
 
+For scripted or CI use, `--no-modify-path` skips updating shell configuration files (`.bashrc`, `.zshrc`, fish config). Combine with `BB_PATH` to control the install destination:
+
+```bash
+BB_PATH=/some/dir bbup -v 0.56.0 --no-modify-path
+```
+
 You can also pass [any Noir version](https://github.com/noir-lang/noir/tags) with the `-nv` flag, or specify `nightly` for the nightly version. Examples:
 
 ```bash

@@ -30,7 +30,7 @@ import {
 } from '@aztec/stdlib/contract';
 import type { AztecNode, AztecNodeDebug, BlockResponse } from '@aztec/stdlib/interfaces/client';
 import { computeAddressSecret, deriveKeys } from '@aztec/stdlib/keys';
-import { deriveEcdhSharedSecretPoint } from '@aztec/stdlib/logs';
+import { deriveEcdhSharedSecretPoint, protectFromForgery } from '@aztec/stdlib/logs';
 import {
   randomContractArtifact,
   randomContractInstanceWithAddress,
@@ -214,7 +214,12 @@ describe('PXE', () => {
       await completeAddress.getPreaddress(),
       privacyKeys.masterIncomingViewingSecretKey,
     );
-    const expectedSecret = await deriveEcdhSharedSecretPoint(addressSecret, await Point.fromXAndSign(ephPk, true));
+    const ephPkPoint = await Point.fromXAndSign(ephPk, true);
+    const expectedSecret = await protectFromForgery(
+      await deriveEcdhSharedSecretPoint(addressSecret, ephPkPoint),
+      ephPkPoint,
+      await recipient.toAddressPoint(),
+    );
     expect(await pxe.getTaggingSecretSources({ kind: 'handshake' })).toContainEqual({
       kind: 'handshake',
       recipient,

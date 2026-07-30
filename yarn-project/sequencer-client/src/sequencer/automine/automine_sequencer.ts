@@ -790,7 +790,11 @@ export class AutomineSequencer {
       return;
     }
     const failedTxHashes = failedTxs.map(fail => fail.tx.getTxHash());
-    this.log.verbose(`Dropping failed txs ${failedTxHashes.join(', ')}`);
+    const failures = failedTxs.map(fail => ({ txHash: fail.tx.getTxHash().toString(), reason: fail.error.message }));
+    this.log.warn(
+      `Dropping ${failedTxs.length} failed txs: ${failures.map(f => `${f.txHash} (${f.reason})`).join(', ')}`,
+      { failures },
+    );
     await this.deps.p2pClient.handleFailedExecution(failedTxHashes);
   }
 }

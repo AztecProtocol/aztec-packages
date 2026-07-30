@@ -19,7 +19,7 @@
     "build": "yarn clean && ../scripts/tsc.sh",
     "build:dev": "../scripts/tsc.sh --watch",
     "clean": "rm -rf ./dest .tsbuildinfo",
-    "remake-constants": "./scripts/remake-constants.sh",
+    "generate": "./scripts/remake-constants.sh",
     "test": "NODE_NO_WARNINGS=1 node --experimental-vm-modules ../node_modules/.bin/jest --passWithNoTests --maxWorkers=${JEST_MAX_WORKERS:-8}"
   },
   "dependencies": {
@@ -27,6 +27,7 @@
     "tslib": "^2.4.0"
   },
   "devDependencies": {
+    "@aztec/constants-codegen": "portal:../../protocol/constants-codegen",
     "@jest/globals": "^30.0.0",
     "@types/jest": "^30.0.0",
     "@types/node": "^22.15.17",

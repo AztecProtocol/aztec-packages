@@ -8,7 +8,7 @@ Bootstrap modes:
 
 ## `bb` vs `bb-avm`: which binary do downstream scripts pick?
 
-`barretenberg/cpp/scripts/find-bb` returns `bb-avm` by default (when `AVM` is unset or `AVM=1`) and `bb` only when `AVM=0`. `noir-projects/noir-protocol-circuits/bootstrap.sh` and most other downstream tooling go through `find-bb`, so when those scripts run "the bb binary", they are running `bb-avm`.
+`barretenberg/cpp/scripts/find-bb` returns `bb-avm` by default (when `AVM` is unset or `AVM=1`) and `bb` only when `AVM=0`. `noir-projects/fnd/noir-protocol-circuits/bootstrap.sh` and most other downstream tooling go through `find-bb`, so when those scripts run "the bb binary", they are running `bb-avm`.
 
 Consequence: when changing C++ that affects VK derivation, proving, or anything else exercised by downstream bootstrap scripts, `cmake --build build --target bb` is **not enough** — `bb` is non-AVM and will not be picked up. You must rebuild the AVM-enabled binary:
 
@@ -121,8 +121,10 @@ The remote benchmark script:
 When making changes that affect proof sizes (e.g., pairing points encoding, public inputs structure), you must update constants in multiple places:
 
 1. **C++ static_asserts** in `dsl/acir_format/mock_verifier_inputs.test.cpp` - These catch size changes at compile time
-2. **Noir constants** in `noir-projects/noir-protocol-circuits/crates/types/src/constants.nr`
-3. **TypeScript constants** - Run `yarn remake-constants` from `yarn-project/constants` to regenerate
+2. **Noir constants** in `noir-projects/fnd/noir-protocol-circuits/crates/types/src/constants.nr`
+3. **Generated constants** - All projections (`aztec_constants.hpp`, `constants.gen.ts`, `ConstantsGen.sol`,
+   `constants_gen.pil`) regenerate automatically at build time; none need a manual step. If AVM-related constants
+   changed, also run `scripts/avm2_gen.sh` and commit the resulting `vm2/generated` changes.
 
 Key constants to watch:
 - `RECURSIVE_PROOF_LENGTH` - UltraHonk proof + DefaultIO public inputs
@@ -130,7 +132,8 @@ Key constants to watch:
 - `PAIRING_POINTS_SIZE` - Size of pairing points in public inputs
 - `HIDING_KERNEL_PUBLIC_INPUTS_SIZE` - Size of HidingKernelIO
 
-If C++ static_asserts fail after your changes, update both the assert values AND the corresponding Noir constants, then run `yarn remake-constants`.
+If C++ static_asserts fail after your changes, update both the assert values and the corresponding Noir constants, then
+run the generation commands above.
 
 ## Prover.toml Fixtures
 
@@ -143,7 +146,7 @@ cd yarn-project
 AZTEC_GENERATE_TEST_DATA=1 FAKE_PROOFS=1 yarn workspace @aztec/end-to-end test e2e_prover/full.test
 ```
 
-`FAKE_PROOFS=1` skips real proving — runs in ~2 min (orchestrator + witness generation only). Writes 12 `Prover.toml` files under `noir-projects/noir-protocol-circuits/crates/<circuit>/Prover.toml`.
+`FAKE_PROOFS=1` skips real proving — runs in ~2 min (orchestrator + witness generation only). Writes 12 `Prover.toml` files under `noir-projects/fnd/noir-protocol-circuits/crates/<circuit>/Prover.toml`.
 
 For circuits not exercised by `full.test.ts` (`rollup-tx-merge`, `rollup-block-root`, `rollup-block-root-single-tx`, `rollup-block-merge`, `rollup-checkpoint-root`, `rollup-block-root-first-empty-tx`), additionally run:
 
@@ -151,7 +154,7 @@ For circuits not exercised by `full.test.ts` (`rollup-tx-merge`, `rollup-block-r
 AZTEC_GENERATE_TEST_DATA=1 yarn workspace @aztec/prover-client test orchestrator_single_checkpoint
 ```
 
-Verify with `nargo execute --program-dir noir-projects/noir-protocol-circuits/crates/<crate>` for any previously-failing crate; should print `Circuit witness successfully solved`.
+Verify with `nargo execute --program-dir noir-projects/fnd/noir-protocol-circuits/crates/<crate>` for any previously-failing crate; should print `Circuit witness successfully solved`.
 
 ## Verification Keys
 

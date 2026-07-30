@@ -17,8 +17,12 @@ export class InMemoryBrokerDatabase implements ProvingBrokerDatabase {
     return this.jobs.get(id);
   }
 
-  getProvingJobResult(id: ProvingJobId): ProvingJobSettledResult | undefined {
-    return this.results.get(id);
+  getProvingJobInputs(id: ProvingJobId): Promise<ProofUri | undefined> {
+    return Promise.resolve(this.jobs.get(id)?.inputsUri);
+  }
+
+  getProvingJobResult(id: ProvingJobId): Promise<ProvingJobSettledResult | undefined> {
+    return Promise.resolve(this.results.get(id));
   }
 
   addProvingJob(job: ProvingJob): Promise<void> {
@@ -33,6 +37,16 @@ export class InMemoryBrokerDatabase implements ProvingBrokerDatabase {
 
   setProvingJobError(id: ProvingJobId, reason: string): Promise<void> {
     this.results.set(id, { status: 'rejected', reason });
+    return Promise.resolve();
+  }
+
+  setProvingJobAborted(id: ProvingJobId): Promise<void> {
+    this.results.set(id, { status: 'aborted' });
+    return Promise.resolve();
+  }
+
+  deleteProvingJobResult(id: ProvingJobId): Promise<void> {
+    this.results.delete(id);
     return Promise.resolve();
   }
 

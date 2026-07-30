@@ -3,7 +3,7 @@ title: Proving historic state
 sidebar_position: 15
 tags: [contracts]
 description: Prove historical notes, nullifiers, contract deployment, and public storage in your Aztec smart contracts.
-references: ["noir-projects/noir-contracts/contracts/app/claim_contract/src/main.nr"]
+references: ["noir-projects/labs/noir-contracts/contracts/app/claim_contract/src/main.nr"]
 ---
 
 This guide shows you how to prove facts about Aztec's historical state from inside a private function: that a note existed, that a nullifier was or wasn't present, that a contract was deployed, or what a public storage slot held at a past block.
@@ -28,7 +28,7 @@ You can create proofs for these elements at any past block height:
 Common use cases:
 - Verify ownership of an asset from another contract without revealing which specific note
 - Prove eligibility based on historical state (e.g., "owned tokens at block X")
-- Claim rewards based on past contributions (see the [claim contract](https://github.com/AztecProtocol/aztec-packages/blob/#include_aztec_version/noir-projects/noir-contracts/contracts/app/claim_contract/src/main.nr) for a complete example)
+- Claim rewards based on past contributions (see the [claim contract](https://github.com/AztecProtocol/aztec-packages/blob/#include_aztec_version/noir-projects/labs/noir-contracts/contracts/app/claim_contract/src/main.nr) for a complete example)
 
 ## Choosing a block header
 
@@ -45,26 +45,28 @@ Producing these proofs requires the historical state trees (note hashes, nullifi
 
 Import the function:
 
-#include_code history_import noir-projects/noir-contracts/contracts/app/claim_contract/src/main.nr rust
+#include_code history_import noir-projects/labs/noir-contracts/contracts/app/claim_contract/src/main.nr rust
 
 Prove a note exists in the note hash tree:
 
-#include_code prove_note_inclusion noir-projects/noir-contracts/contracts/app/claim_contract/src/main.nr rust
+#include_code prove_note_inclusion noir-projects/labs/noir-contracts/contracts/app/claim_contract/src/main.nr rust
 
 ## Prove note validity
 
 To prove a note was valid (existed AND wasn't nullified) at a historical block:
 
 ```rust
-use aztec::history::note::assert_note_was_valid_by;
+use aztec::history::note::assert_local_note_was_valid_by;
 
 let header = self.context.get_anchor_block_header();
-assert_note_was_valid_by(header, hinted_note, &mut self.context);
+assert_local_note_was_valid_by(header, hinted_note, &mut self.context);
 ```
 
 This verifies both:
 1. The note was included in the note hash tree
 2. The note's nullifier was not in the nullifier tree
+
+The `assert_local_note_was_*` helpers only work for the executing contract's own notes: this is because it is not possible for a contract to retrieve the app-siloed nullifier hiding secret key that corresponds to another contract. To prove facts about another contract's notes, use `assert_note_existed_by`, which supports notes of any contract (see [Prove note inclusion](#prove-note-inclusion)).
 
 ## Prove at a specific historical block
 
@@ -83,13 +85,13 @@ Using `get_block_header_at` adds ~3k constraints to prove Archive tree membershi
 
 ## Prove a note was nullified
 
-To prove a note has been spent/nullified:
+To prove a note has been nullified:
 
 ```rust
-use aztec::history::note::assert_note_was_nullified_by;
+use aztec::history::note::assert_local_note_was_nullified_by;
 
 let header = self.context.get_anchor_block_header();
-assert_note_was_nullified_by(header, confirmed_note, &mut self.context);
+assert_local_note_was_nullified_by(header, confirmed_note, &mut self.context);
 ```
 
 ## Prove contract bytecode was published
@@ -137,10 +139,10 @@ The `aztec::history` module provides these functions:
 
 | Function | Module | Purpose |
 |----------|--------|---------|
-| `assert_note_existed_by` | `history::note` | Prove note exists in note hash tree |
-| `assert_note_was_valid_by` | `history::note` | Prove note exists and is not nullified |
-| `assert_note_was_nullified_by` | `history::note` | Prove note's nullifier is in nullifier tree |
-| `assert_note_was_not_nullified_by` | `history::note` | Prove note's nullifier is not in nullifier tree |
+| `assert_note_existed_by` | `history::note` | Prove note exists in note hash tree (any contract) |
+| `assert_local_note_was_valid_by` | `history::note` | Prove own note exists and is not nullified |
+| `assert_local_note_was_nullified_by` | `history::note` | Prove own note's nullifier is in nullifier tree |
+| `assert_local_note_was_not_nullified_by` | `history::note` | Prove own note's nullifier is not in nullifier tree |
 | `assert_nullifier_existed_by` | `history::nullifier` | Prove a siloed nullifier exists |
 | `assert_nullifier_did_not_exist_by` | `history::nullifier` | Prove a siloed nullifier does not exist |
 | `assert_contract_bytecode_was_published_by` | `history::deployment` | Prove a contract's bytecode was published |

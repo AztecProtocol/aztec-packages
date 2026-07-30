@@ -28,6 +28,7 @@ AZIP
 AZTC
 aztecexplorer
 aztecjs
+aztecnetwork
 aztecrc
 aztecscan
 barebones
@@ -265,6 +266,7 @@ NULLIFIEREXISTS
 nullifierexists
 NULLIFIERSEXISTS
 nullptr
+Nemi
 offchain
 onramps
 opcdoe
@@ -307,6 +309,7 @@ publically
 Quicknode
 Rabby
 ragequit
+RavenHouse
 rdoffset
 reahed
 recalibrated
@@ -362,6 +365,7 @@ stakeˮ
 Standardisation
 subcomponents
 suboperation
+subkey
 subpath
 subpaths
 Substate
@@ -475,3 +479,4 @@ slashveto
 unstaked
 watchlist
 watchlists
+Alertmanager

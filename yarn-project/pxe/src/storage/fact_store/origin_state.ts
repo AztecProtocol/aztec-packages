@@ -12,13 +12,22 @@ import type { Fact } from './stored_fact.js';
  * - `Finalized`: L1-finalized.
  *
  * The numeric discriminants must stay in sync with the Noir `OriginBlockState` in
- * `noir-projects/aztec-nr/aztec/src/facts/origin_state.nr`: PXE serializes this value into the `Fact` oracle response
+ * `noir-projects/labs/aztec-nr/aztec/src/facts/origin_state.nr`: PXE serializes this value into the `Fact` oracle response
  * and Noir deserializes it via `from_u8`, which rejects any value outside this set.
  */
 export enum OriginBlockState {
   Pending = 1,
   Proven = 2,
   Finalized = 3,
+}
+
+/** Parses a numeric origin-block-state discriminant, rejecting unknown values. */
+export function originBlockStateFromNumber(value: number): OriginBlockState {
+  if (!(value in OriginBlockState)) {
+    const validNames = Object.keys(OriginBlockState).filter(k => isNaN(Number(k)));
+    throw new Error(`Invalid OriginBlockState value ${value}, expected one of ${validNames.join(', ')}`);
+  }
+  return value as OriginBlockState;
 }
 
 /** The two chain-tip block numbers needed to classify an origin block (`finalized <= proven` always holds). */

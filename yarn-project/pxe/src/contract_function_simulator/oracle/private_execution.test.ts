@@ -330,7 +330,7 @@ describe('Private Execution test suite', () => {
     // Mock sender tagging data provider methods
     senderTaggingStore.getLastFinalizedIndex.mockResolvedValue(undefined);
     senderTaggingStore.getLastUsedIndex.mockResolvedValue(undefined);
-    senderTaggingStore.getTxHashesOfPendingIndexes.mockResolvedValue([]);
+    senderTaggingStore.getPendingTxs.mockResolvedValue([]);
     senderTaggingStore.storePendingIndexes.mockResolvedValue();
 
     taggingSecretSourcesStore.getSenders.mockResolvedValue([]);

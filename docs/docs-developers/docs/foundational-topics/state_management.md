@@ -3,7 +3,7 @@ title: State Management
 description: How public and private state work in Aztec, including storage slots, notes, and the UTXO model
 sidebar_position: 0
 tags: [protocol, storage]
-references: ["noir-projects/aztec-nr/uint-note/src/uint_note.nr"]
+references: ["noir-projects/labs/aztec-nr/uint-note/src/uint_note.nr"]
 ---
 
 import Image from "@theme/IdealImage";
@@ -91,13 +91,13 @@ Notes can also be custom types storing any values your application needs. Use th
 
 **`UintNote`** - Stores a numeric value (`u128`). Supports partial notes for scenarios where the value is determined in public execution.
 
-#include_code uint_note_def noir-projects/aztec-nr/uint-note/src/uint_note.nr rust
+#include_code uint_note_def noir-projects/labs/aztec-nr/uint-note/src/uint_note.nr rust
 
 **`FieldNote`** - Stores a single `Field` value.
 
 ### Creating and Destroying Notes
 
-The [lifecycle module](https://github.com/AztecProtocol/aztec-packages/tree/#include_aztec_version/noir-projects/aztec-nr/aztec/src/note/lifecycle.nr) contains functions for note management:
+The [lifecycle module](https://github.com/AztecProtocol/aztec-packages/tree/#include_aztec_version/noir-projects/labs/aztec-nr/aztec/src/note/lifecycle.nr) contains functions for note management:
 
 - `create_note` - Creates a new note, computing its hash and pushing it to the context
 - `destroy_note` - Nullifies a note by computing and emitting its nullifier
@@ -106,7 +106,7 @@ Notes created and nullified within the same transaction are called **transient n
 
 ### Note Interface
 
-Notes must implement the `NoteHash` trait from [note_interface.nr](https://github.com/AztecProtocol/aztec-packages/tree/#include_aztec_version/noir-projects/aztec-nr/aztec/src/note/note_interface.nr):
+Notes must implement the `NoteHash` trait from [note_interface.nr](https://github.com/AztecProtocol/aztec-packages/tree/#include_aztec_version/noir-projects/labs/aztec-nr/aztec/src/note/note_interface.nr):
 
 - `compute_note_hash(self, owner, storage_slot, randomness)` - Computes the note's commitment
 - `compute_nullifier(self, context, owner, note_hash_for_nullification)` - Computes the nullifier for consumption

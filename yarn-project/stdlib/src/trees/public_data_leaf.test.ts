@@ -19,7 +19,7 @@ describe('PublicDataTreeLeaf', () => {
 
     // Run with AZTEC_GENERATE_TEST_DATA=1 to update noir test data
     updateInlineTestData(
-      'noir-projects/noir-protocol-circuits/crates/types/src/data/public_data_tree_leaf_preimage.nr',
+      'noir-projects/fnd/noir-protocol-circuits/crates/types/src/data/public_data_tree_leaf_preimage.nr',
       'hash_from_ts',
       hash.toString(),
     );
