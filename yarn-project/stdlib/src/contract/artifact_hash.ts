@@ -110,7 +110,7 @@ export async function computeFunctionArtifactHash(
   return sha256Fr(Buffer.concat([numToUInt8(VERSION), selector.toBuffer(), metadataHash.toBuffer(), bytecodeHash]));
 }
 
-export function computeFunctionMetadataHash(fn: FunctionArtifact) {
+export function computeFunctionMetadataHash(fn: Pick<FunctionArtifact, 'returnType' | 'returnTypes'>) {
   // Hashed as a list because that is what the field held when this hash was introduced. It feeds contract class ids,
   // so the shape is frozen: serializing the type any other way changes every deployed contract's address.
   const returnType = getFunctionReturnType(fn);

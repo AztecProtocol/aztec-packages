@@ -1,4 +1,4 @@
-import type { AbiType, ContractArtifact, FunctionArtifact } from '../abi/index.js';
+import type { AbiType, ContractArtifact } from '../abi/index.js';
 import { getTestContractArtifact } from '../tests/fixtures.js';
 import { DEV_VERSION } from '../update-checker/dev_version.js';
 import { computeArtifactHash, computeFunctionMetadataHash } from './artifact_hash.js';
@@ -37,19 +37,13 @@ describe('ArtifactHash', () => {
     it('hashes a returned type the same whether it is read from the singular field or the deprecated list', () => {
       const returnType: AbiType = { kind: 'boolean' };
 
-      expect(computeFunctionMetadataHash(functionWith({ returnType }))).toEqual(
-        computeFunctionMetadataHash(functionWith({ returnTypes: [returnType] })),
+      expect(computeFunctionMetadataHash({ returnType })).toEqual(
+        computeFunctionMetadataHash({ returnTypes: [returnType] }),
       );
     });
 
     it('hashes a function returning nothing the same whether the deprecated list is absent or empty', () => {
-      expect(computeFunctionMetadataHash(functionWith({}))).toEqual(
-        computeFunctionMetadataHash(functionWith({ returnTypes: [] })),
-      );
+      expect(computeFunctionMetadataHash({})).toEqual(computeFunctionMetadataHash({ returnTypes: [] }));
     });
   });
 });
-
-function functionWith(returns: Pick<FunctionArtifact, 'returnType' | 'returnTypes'>): FunctionArtifact {
-  return { ...returns } as FunctionArtifact;
-}

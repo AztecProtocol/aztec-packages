@@ -66,6 +66,14 @@ export class FunctionCall {
       );
   }
 
+  /**
+   * Serializes the deprecated `returnTypes` alongside `returnType`, so that peers that still require the old field can
+   * parse calls sent by this version.
+   */
+  public toJSON() {
+    return { ...this, returnTypes: this.returnType ? [this.returnType] : [] };
+  }
+
   public isPublicStatic(): boolean {
     return this.type === FunctionType.PUBLIC && this.isStatic;
   }

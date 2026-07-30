@@ -142,7 +142,7 @@ export class ContractFunctionInteraction extends BaseContractInteraction {
       // Decode the raw field elements to the actual return type
       const returnValue = utilityResult.result
         ? decodeFromAbi(getFunctionReturnType(this.functionDao), utilityResult.result)
-        : [];
+        : undefined;
       const offchainOutput = extractOffchainOutput(utilityResult.offchainEffects, utilityResult.anchorBlockTimestamp);
 
       if (options.includeMetadata) {
@@ -172,7 +172,9 @@ export class ContractFunctionInteraction extends BaseContractInteraction {
       rawReturnValues = simulatedTx.getPublicReturnValues()?.[appCallIndex]?.values;
     }
 
-    const returnValue = rawReturnValues ? decodeFromAbi(getFunctionReturnType(this.functionDao), rawReturnValues) : [];
+    const returnValue = rawReturnValues
+      ? decodeFromAbi(getFunctionReturnType(this.functionDao), rawReturnValues)
+      : undefined;
     const offchainOutput = extractOffchainOutput(
       simulatedTx.offchainEffects,
       simulatedTx.publicInputs.constants.anchorBlockHeader.globalVariables.timestamp,

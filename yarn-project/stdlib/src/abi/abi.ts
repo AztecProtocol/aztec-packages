@@ -212,6 +212,9 @@ export interface FunctionAbi {
  * artifacts serialized before `returnType` existed still resolve.
  */
 export function getFunctionReturnType(abi: Pick<FunctionAbi, 'returnType' | 'returnTypes'>): AbiType | undefined {
+  if (abi.returnTypes !== undefined && abi.returnTypes.length > 1) {
+    throw new Error(`Expected at most one return type, got ${abi.returnTypes.length}`);
+  }
   return abi.returnType ?? abi.returnTypes?.[0];
 }
 

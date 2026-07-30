@@ -392,7 +392,7 @@ describe('BatchCall', () => {
       const appContract = await AztecAddress.random();
       const feeContract = await AztecAddress.random();
 
-      const appPrivatePayload = createPrivateExecutionPayload('appPrivate', [Fr.random()], appContract, 1);
+      const appPrivatePayload = createPrivateExecutionPayload('appPrivate', [Fr.random()], appContract, ONE_FIELD);
       const appPublicPayload = createPublicExecutionPayload('appPublic', [Fr.random()], appContract);
 
       batchCall = new BatchCall(wallet, [appPrivatePayload, appPublicPayload]);
@@ -438,7 +438,7 @@ describe('BatchCall', () => {
       const feeContract = await AztecAddress.random();
       const feePayer = await AztecAddress.random();
 
-      const appPayload = createPrivateExecutionPayload('app', [Fr.random()], appContract, 1);
+      const appPayload = createPrivateExecutionPayload('app', [Fr.random()], appContract, ONE_FIELD);
       batchCall = new BatchCall(wallet, [appPayload]);
 
       const feeCall = createPrivateExecutionPayload('payFee', [], feeContract).calls[0];
@@ -466,7 +466,7 @@ describe('BatchCall', () => {
       const appContract = await AztecAddress.random();
       const feePayer = await AztecAddress.random();
 
-      const appCall = createPrivateExecutionPayload('app', [Fr.random()], appContract, 1).calls[0];
+      const appCall = createPrivateExecutionPayload('app', [Fr.random()], appContract, ONE_FIELD).calls[0];
       const payloadWithFeePayer = new ExecutionPayload([appCall], [], [], [], feePayer);
       batchCall = new BatchCall(wallet, [payloadWithFeePayer]);
 

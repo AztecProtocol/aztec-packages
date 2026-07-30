@@ -143,5 +143,11 @@ describe('abi', () => {
     it('prefers the singular type when both are present', () => {
       expect(getFunctionReturnType({ returnType: boolean, returnTypes: [field] })).toEqual(boolean);
     });
+
+    it('rejects a deprecated list holding more than one type', () => {
+      expect(() => getFunctionReturnType({ returnTypes: [boolean, field] })).toThrow(
+        'Expected at most one return type',
+      );
+    });
   });
 });
