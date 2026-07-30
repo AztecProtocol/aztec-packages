@@ -40,9 +40,47 @@ In priority order:
 4. **L1 block height stalled for 5+ minutes** (warning). Your L1 RPC is degraded. See [L1 RPC](./l1-rpc) for common causes.
 5. **CPU sustained above 70% of cores** (warning). May indicate the node is struggling to keep up; check disk IOPS and RAM headroom.
 
-## How to wire this up
+## Set up monitoring with the installer
 
-The shortest path from zero to a working monitoring stack:
+The fastest way to a complete stack is the maintained installer script. It sets up an OpenTelemetry collector next to your node and, on a monitoring machine, a Grafana dashboard, Prometheus, and Alertmanager with Telegram alerts. Everything runs on infrastructure you control. It is optional, and adaptable or replaceable with your own monitoring; nothing here is required to operate a node.
+
+The script is one self-contained file: the dashboard, alert rules, and Alertmanager template are embedded in it. It targets Aztec `v5.0.0` and works with sequencer nodes run via Docker Compose.
+
+**Prerequisites:** Docker Engine with the Docker Compose plugin on every machine. Verify with `docker compose version`. The monitoring machine must be able to reach each node on port `8889`; it can be one of the node servers, but a separate machine keeps alerting alive even if a node host goes down.
+
+**Step 1: on the sequencer node.** Download and run the script, then choose **option 1** (set up node metrics):
+
+```bash
+curl -fsSLO https://docs.aztec.network/scripts/aztec-monitoring.sh
+bash aztec-monitoring.sh
+```
+
+The script finds your node's `docker-compose.yml`, writes a `docker-compose.override.yml` that enables metrics export (your base compose file is never modified), shows it to you for confirmation, and restarts the node. Afterward a collector serves Prometheus-format metrics on port `8889`. Open port `8889` only to the monitoring machine's IP, not the public internet:
+
+```bash
+sudo ufw allow from <monitoring-machine-ip> to any port 8889 proto tcp
+```
+
+**Step 2: repeat on every additional node** (for high availability or a larger fleet). Each node gets its own collector on its own port `8889`.
+
+**Step 3: on the monitoring machine.** Download and run the script, then choose **option 2** (set up the monitoring stack):
+
+```bash
+curl -fsSLO https://docs.aztec.network/scripts/aztec-monitoring.sh
+bash aztec-monitoring.sh
+```
+
+The script asks for each node as `<node-ip>:8889` with a label you choose (for example `sequencer-1`), offers Telegram setup (it walks you through creating a bot with `@BotFather` and detects your chat id), then starts Grafana, Prometheus, and Alertmanager and confirms every node target is up. If a target is down, the usual cause is the port `8889` firewall rule from Step 1.
+
+**Step 4: open the dashboard** at `http://localhost:3000` on the monitoring machine (or tunnel with `ssh -L 3000:localhost:3000 <user>@<monitoring-machine>`). Log in with `admin` / `admin` and change the password. Pick your node in the **instance** dropdown at the top.
+
+**Day-2:** re-run `bash aztec-monitoring.sh` on the relevant machine at any time; settings are kept between runs. Option 2 adds or removes nodes, option 3 manages Telegram, option 4 shows what is installed, option 5 uninstalls (node and monitoring sides independently). To update, re-download the script and re-run the option you use on that machine.
+
+Keep ports `3000` (Grafana), `9090` (Prometheus), and `9093` (Alertmanager) closed to the public internet. The stack is read-only toward your node: it scrapes metrics and never touches keys, the database, or node configuration beyond the metrics override.
+
+## Set up monitoring manually
+
+If you prefer to run your own stack instead of the installer:
 
 1. **Enable metrics on your node** by setting the OpenTelemetry environment variables. Point the exporter at your OTLP collector and give the node a service name:
 
@@ -76,23 +114,16 @@ scrape_configs:
 
 Use a distinct, durable value for each node (for example `my-sequencer-01`, `my-sequencer-02`), and keep it the same across restarts and upgrades of that node. The node's own generated id is preserved as `exported_instance` (Prometheus keeps the original under an `exported_` prefix when a scrape label collides, unless you set `honor_labels: true`).
 
-## Community monitoring options
-
-If you do not want to maintain your own Prometheus + Grafana stack:
-
-- **pittpv's monitoring script** runs a bundled installer with Telegram alerts. See [Operator tooling](/operate/operators/tooling).
-- **dashtec.xyz** shows per-epoch performance for any registered attester. No install required; sign in and add your attester to your watchlist.
-- **aztec.vision** surfaces misconfigured coinbase addresses and provider-level stats. Useful even if you only check it manually a few times a week.
-
 ## What about alerting on slashing risk
 
 The Aztec node does not natively emit a "you are about to be slashed" metric. The slashing voting process happens on L1 through the TallySlashingProposer contract; by the time a slash payload is queued, it is too late to fix the underlying behavior.
 
 The actionable proxies:
 
-- Watch `aztec_l1_publisher_balance_eth` (above). Most slashing incidents trace back to a failed publish, which traces back to an L1 issue.
+- Alert on **missed attestations and missed proposals**. Inactivity slashing is the accumulation of missed duties, so sustained failures are the direct early warning: they precede an inactivity penalty. The [installer](#set-up-monitoring-with-the-installer) ships alert rules for both (failed attestations and failed proposals in the last hour), so a stack set up that way warns you before the pattern becomes slashable.
+- Watch `aztec_l1_publisher_balance_eth` (above). A dry publisher is a common upstream cause of missed proposals; the installer alerts on it too.
 - Check **slashveto.me**, where the community veto council surfaces pending slash payloads before they execute.
-- Watch your performance on **dashtec.xyz**. A drop in your attestation rate is the early signal that an inactivity payload is coming.
+- Watch your performance on **dashtec.xyz**. A drop in your attestation rate is the same signal, visible without your own monitoring.
 
 See [Slashing](./slashing) for the full slashing context.
 
