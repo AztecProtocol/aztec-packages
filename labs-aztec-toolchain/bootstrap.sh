@@ -19,7 +19,7 @@ function link_tool {
 }
 
 function build_monorepo {
-  echo "Setting up labs' aztec toolchain (for the monorepo)..."
+  echo "Setting up labs' aztec toolchain..."
   local bb_full_path="$ROOT/barretenberg/cpp/build/bin/$BB_BINARY"
   local nargo_full_path="$ROOT/noir/noir-repo/target/release/$NARGO_BINARY"
   local noir_profiler_full_path="$ROOT/noir/noir-repo/target/release/$NOIR_PROFILER_BINARY"
@@ -53,7 +53,7 @@ function build_monorepo {
 }
 
 function build_labs {
-  echo "Setting up labs' aztec toolchain (for the labs repo)..."
+  echo "Setting up labs' aztec toolchain..."
   # TODO(fcarreiro): Implement.
   echo_stderr "Not operational yet."
   exit 1
@@ -65,11 +65,7 @@ function clean {
 }
 
 function build {
-  if [ "${REPO_ORG:-}" = "labs" ]; then
-    build_labs
-  else
-    build_monorepo
-  fi
+  build_monorepo
 }
 
 # The nargo release version (e.g. "1.0.0-beta.25"), read from the binary itself
@@ -91,12 +87,21 @@ function hash {
   local noir_profiler="$TARGET_DIR/$NOIR_PROFILER_BINARY"
   if [ ! -f "$bb" ] || [ ! -f "$nargo" ] || [ ! -f "$noir_profiler" ]; then
     echo_stderr "Cannot compute toolchain hash, binaries not found (build first):"
-    echo_stderr "bb: $(realpath $bb)"
-    echo_stderr "nargo: $(realpath $nargo)"
-    echo_stderr "noir-profiler: $(realpath $noir_profiler)"
+    echo_stderr "bb: $(realpath -m "$bb")"
+    echo_stderr "nargo: $(realpath -m "$nargo")"
+    echo_stderr "noir-profiler: $(realpath -m "$noir_profiler")"
     exit 1
   fi
-  hash_str $(git hash-object "$bb" "$nargo" "$noir_profiler")
+  # The optional binaries are hashed only when provisioned: what the toolchain
+  # provides (including their absence) is part of its identity.
+  local files=("$bb" "$nargo" "$noir_profiler")
+  local optional
+  for optional in "$TARGET_DIR/$BB_AVM_BINARY" "$TARGET_DIR/$ACVM_BINARY"; do
+    if [ -f "$optional" ]; then
+      files+=("$optional")
+    fi
+  done
+  hash_str $(git hash-object "${files[@]}")
 }
 
 case "$cmd" in
