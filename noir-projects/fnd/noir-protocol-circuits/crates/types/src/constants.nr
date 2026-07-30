@@ -725,6 +725,12 @@ pub global DOM_SEP__PUBLIC_DATA_MERKLE: u32 = 3756303423;
 pub global DOM_SEP__WRITTEN_SLOTS_MERKLE: u32 = 2292766212;
 pub global DOM_SEP__RETRIEVED_BYTECODES_MERKLE: u32 = 2789215184;
 
+/// Domain separator for the Inbox rolling sha256 chain over L1 to L2 message leaves.
+///
+/// Prefixed to every link's sha256 preimage so a chain link cannot be reinterpreted as an untagged two-field sha256
+/// hash, in particular the `out_hash` merkle node hash, which absorbs the same 64-byte two-field preimage shape.
+pub global DOM_SEP__INBOX_ROLLING_HASH: u32 = 3737216265;
+
 // ---------------------------------------------------------------
 // Contract Address
 
