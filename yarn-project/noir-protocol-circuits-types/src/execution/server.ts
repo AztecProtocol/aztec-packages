@@ -6,11 +6,8 @@ import type { InboxParityPrivateInputs, ParityPublicInputs } from '@aztec/stdlib
 import type {
   BlockMergeRollupPrivateInputs,
   BlockRollupPublicInputs,
-  BlockRootEmptyTxFirstRollupPrivateInputs,
-  BlockRootFirstRollupPrivateInputs,
-  BlockRootMsgsOnlyRollupPrivateInputs,
+  BlockRootNoTxsRollupPrivateInputs,
   BlockRootRollupPrivateInputs,
-  BlockRootSingleTxFirstRollupPrivateInputs,
   BlockRootSingleTxRollupPrivateInputs,
   CheckpointMergeRollupPrivateInputs,
   CheckpointPaddingRollupPrivateInputs,
@@ -32,11 +29,8 @@ import { type ServerProtocolArtifact, mapProtocolArtifactNameToCircuitName } fro
 import {
   mapBlockMergeRollupPrivateInputsToNoir,
   mapBlockRollupPublicInputsFromNoir,
-  mapBlockRootEmptyTxFirstRollupPrivateInputsToNoir,
-  mapBlockRootFirstRollupPrivateInputsToNoir,
-  mapBlockRootMsgsOnlyRollupPrivateInputsToNoir,
+  mapBlockRootNoTxsRollupPrivateInputsToNoir,
   mapBlockRootRollupPrivateInputsToNoir,
-  mapBlockRootSingleTxFirstRollupPrivateInputsToNoir,
   mapBlockRootSingleTxRollupPrivateInputsToNoir,
   mapCheckpointMergeRollupPrivateInputsToNoir,
   mapCheckpointRollupPublicInputsFromNoir,
@@ -57,10 +51,7 @@ import type {
   ChonkVerifierPublicReturnType,
   InboxParity64ReturnType,
   RollupBlockMergeReturnType,
-  RollupBlockRootFirstEmptyTxReturnType,
-  RollupBlockRootFirstReturnType,
-  RollupBlockRootFirstSingleTxReturnType,
-  RollupBlockRootMsgsOnlyReturnType,
+  RollupBlockRootNoTxsReturnType,
   RollupBlockRootReturnType,
   RollupBlockRootSingleTxReturnType,
   RollupCheckpointMergeReturnType,
@@ -154,39 +145,6 @@ export function convertTxMergeRollupPrivateInputsToWitnessMap(
   );
 }
 
-export function convertBlockRootFirstRollupPrivateInputsToWitnessMap(
-  inputs: BlockRootFirstRollupPrivateInputs,
-  simulated = false,
-): WitnessMap {
-  return convertPrivateInputsToWitnessMap(
-    'BlockRootFirstRollupArtifact',
-    mapBlockRootFirstRollupPrivateInputsToNoir(inputs),
-    simulated,
-  );
-}
-
-export function convertBlockRootSingleTxFirstRollupPrivateInputsToWitnessMap(
-  inputs: BlockRootSingleTxFirstRollupPrivateInputs,
-  simulated = false,
-): WitnessMap {
-  return convertPrivateInputsToWitnessMap(
-    'BlockRootSingleTxFirstRollupArtifact',
-    mapBlockRootSingleTxFirstRollupPrivateInputsToNoir(inputs),
-    simulated,
-  );
-}
-
-export function convertBlockRootEmptyTxFirstRollupPrivateInputsToWitnessMap(
-  inputs: BlockRootEmptyTxFirstRollupPrivateInputs,
-  simulated = false,
-): WitnessMap {
-  return convertPrivateInputsToWitnessMap(
-    'BlockRootEmptyTxFirstRollupArtifact',
-    mapBlockRootEmptyTxFirstRollupPrivateInputsToNoir(inputs),
-    simulated,
-  );
-}
-
 export function convertBlockRootRollupPrivateInputsToWitnessMap(
   inputs: BlockRootRollupPrivateInputs,
   simulated = false,
@@ -209,13 +167,13 @@ export function convertBlockRootSingleTxRollupPrivateInputsToWitnessMap(
   );
 }
 
-export function convertBlockRootMsgsOnlyRollupPrivateInputsToWitnessMap(
-  inputs: BlockRootMsgsOnlyRollupPrivateInputs,
+export function convertBlockRootNoTxsRollupPrivateInputsToWitnessMap(
+  inputs: BlockRootNoTxsRollupPrivateInputs,
   simulated = false,
 ): WitnessMap {
   return convertPrivateInputsToWitnessMap(
-    'BlockRootMsgsOnlyRollupArtifact',
-    mapBlockRootMsgsOnlyRollupPrivateInputsToNoir(inputs),
+    'BlockRootNoTxsRollupArtifact',
+    mapBlockRootNoTxsRollupPrivateInputsToNoir(inputs),
     simulated,
   );
 }
@@ -329,42 +287,6 @@ export function convertTxMergeRollupOutputsFromWitnessMap(
   return mapTxRollupPublicInputsFromNoir(publicInputs);
 }
 
-export function convertBlockRootFirstRollupOutputsFromWitnessMap(
-  outputs: WitnessMap,
-  simulated = false,
-): BlockRollupPublicInputs {
-  const publicInputs = convertOutputsFromWitnessMap<RollupBlockRootFirstReturnType>(
-    'BlockRootFirstRollupArtifact',
-    outputs,
-    simulated,
-  );
-  return mapBlockRollupPublicInputsFromNoir(publicInputs);
-}
-
-export function convertBlockRootSingleTxFirstRollupOutputsFromWitnessMap(
-  outputs: WitnessMap,
-  simulated = false,
-): BlockRollupPublicInputs {
-  const publicInputs = convertOutputsFromWitnessMap<RollupBlockRootFirstSingleTxReturnType>(
-    'BlockRootSingleTxFirstRollupArtifact',
-    outputs,
-    simulated,
-  );
-  return mapBlockRollupPublicInputsFromNoir(publicInputs);
-}
-
-export function convertBlockRootEmptyTxFirstRollupOutputsFromWitnessMap(
-  outputs: WitnessMap,
-  simulated = false,
-): BlockRollupPublicInputs {
-  const publicInputs = convertOutputsFromWitnessMap<RollupBlockRootFirstEmptyTxReturnType>(
-    'BlockRootEmptyTxFirstRollupArtifact',
-    outputs,
-    simulated,
-  );
-  return mapBlockRollupPublicInputsFromNoir(publicInputs);
-}
-
 export function convertBlockRootRollupOutputsFromWitnessMap(
   outputs: WitnessMap,
   simulated = false,
@@ -389,12 +311,12 @@ export function convertBlockRootSingleTxRollupOutputsFromWitnessMap(
   return mapBlockRollupPublicInputsFromNoir(publicInputs);
 }
 
-export function convertBlockRootMsgsOnlyRollupOutputsFromWitnessMap(
+export function convertBlockRootNoTxsRollupOutputsFromWitnessMap(
   outputs: WitnessMap,
   simulated = false,
 ): BlockRollupPublicInputs {
-  const publicInputs = convertOutputsFromWitnessMap<RollupBlockRootMsgsOnlyReturnType>(
-    'BlockRootMsgsOnlyRollupArtifact',
+  const publicInputs = convertOutputsFromWitnessMap<RollupBlockRootNoTxsReturnType>(
+    'BlockRootNoTxsRollupArtifact',
     outputs,
     simulated,
   );

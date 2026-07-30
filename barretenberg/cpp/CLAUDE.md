@@ -148,7 +148,7 @@ AZTEC_GENERATE_TEST_DATA=1 FAKE_PROOFS=1 yarn workspace @aztec/end-to-end test e
 
 `FAKE_PROOFS=1` skips real proving — runs in ~2 min (orchestrator + witness generation only). Writes 12 `Prover.toml` files under `noir-projects/fnd/noir-protocol-circuits/crates/<circuit>/Prover.toml`.
 
-For circuits not exercised by `full.test.ts` (`rollup-tx-merge`, `rollup-block-root`, `rollup-block-root-single-tx`, `rollup-block-merge`, `rollup-checkpoint-root`, `rollup-block-root-first-empty-tx`), additionally run:
+For circuits not exercised by `full.test.ts` (`rollup-tx-merge`, `rollup-block-root-no-txs`, `rollup-block-merge`, `rollup-checkpoint-root`), additionally run:
 
 ```bash
 AZTEC_GENERATE_TEST_DATA=1 yarn workspace @aztec/prover-client test orchestrator_single_checkpoint

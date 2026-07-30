@@ -2,16 +2,14 @@ mod child_proof_vk_tests;
 mod consecutive_rollups_tests;
 mod failures_tests;
 mod message_bundle_tests;
-mod msgs_only_tests;
+mod no_txs_tests;
 mod rollup_structure_tests;
 
 use crate::{
     abis::{BlockRollupPublicInputs, L1ToL2MessageBundle, L1ToL2MessageSponge, TxRollupPublicInputs},
     block_root::{
-        block_root_empty_tx_first_rollup::{self, BlockRootEmptyTxFirstRollupPrivateInputs},
-        block_root_first_rollup::{self, BlockRootFirstRollupPrivateInputs},
+        block_root_no_txs_rollup::{self, BlockRootNoTxsRollupPrivateInputs},
         block_root_rollup::{self, BlockRootRollupPrivateInputs},
-        block_root_single_tx_first_rollup::{self, BlockRootSingleTxFirstRollupPrivateInputs},
         block_root_single_tx_rollup::{self, BlockRootSingleTxRollupPrivateInputs},
     },
     tests::RollupFixtureBuilder,
@@ -48,6 +46,8 @@ struct TestBuilder {
     l1_to_l2_message_frontier_hint: [Field; L1_TO_L2_MSG_TREE_HEIGHT],
     previous_l1_to_l2: AppendOnlyTreeSnapshot,
     new_l1_to_l2: AppendOnlyTreeSnapshot,
+    // Sponge blob the block starts from, used by the tx-less variant (initialized for first blocks).
+    start_sponge_blob: SpongeBlob,
     // Message sponge inherited from the previous block (empty for first blocks).
     start_msg_sponge: L1ToL2MessageSponge,
     new_archive_sibling_path: [Field; ARCHIVE_HEIGHT],
@@ -134,7 +134,13 @@ impl TestBuilder {
         left_rollup.constants.l1_to_l2_tree_snapshot = new_l1_to_l2;
         right_rollup.constants.l1_to_l2_tree_snapshot = new_l1_to_l2;
 
-        // First blocks start the message sponge from empty; non-first blocks inherit a (non-empty) sponge.
+        // First blocks start both sponges from their initial values; later blocks inherit non-empty ones. For the
+        // tx-carrying variants the sponge blob reaches the block root through the child tx rollups, so it is set on
+        // the left rollup rather than passed to the circuit directly.
+        if is_first_block_root {
+            left_rollup.start_sponge_blob = SpongeBlob::init();
+        }
+        let start_sponge_blob = left_rollup.start_sponge_blob;
         let start_msg_sponge = if is_first_block_root {
             L1ToL2MessageSponge::empty()
         } else {
@@ -162,6 +168,7 @@ impl TestBuilder {
             l1_to_l2_message_frontier_hint,
             previous_l1_to_l2,
             new_l1_to_l2,
+            start_sponge_blob,
             start_msg_sponge,
             new_archive_sibling_path,
             checkpoint_constants,
@@ -182,69 +189,9 @@ impl TestBuilder {
         }
     }
 
+    /// The block root variant is picked by transaction count alone; whether the block is the first of its checkpoint
+    /// is expressed through the start sponge values, not through a separate circuit.
     pub fn execute(self) -> BlockRollupPublicInputs {
-        if self.is_first_block_root {
-            self.execute_first_block_root()
-        } else {
-            self.execute_non_first_block_root()
-        }
-    }
-
-    pub fn execute_and_fail(self) {
-        let _ = self.execute();
-    }
-
-    fn execute_first_block_root(self) -> BlockRollupPublicInputs {
-        let previous_rollups = [
-            RollupFixtureBuilder::make_proof_data(self.left_rollup, self.left_rollup_vk_index),
-            RollupFixtureBuilder::make_proof_data(self.right_rollup, self.right_rollup_vk_index),
-        ];
-
-        let message_bundle = self.message_bundle();
-        let l1_to_l2_message_frontier_hint = self.l1_to_l2_message_frontier_hint;
-        let new_archive_sibling_path = self.new_archive_sibling_path;
-
-        if self.num_left_txs == 0 {
-            let left = self.left_rollup;
-            let previous_state = StateReference {
-                l1_to_l2_message_tree: self.previous_l1_to_l2,
-                partial: self.left_rollup.start_tree_snapshots,
-            };
-            block_root_empty_tx_first_rollup::execute(
-                BlockRootEmptyTxFirstRollupPrivateInputs {
-                    previous_archive: left.constants.last_archive,
-                    previous_state,
-                    constants: self.checkpoint_constants,
-                    timestamp: left.constants.global_variables.timestamp,
-                    message_bundle,
-                    l1_to_l2_message_frontier_hint,
-                    new_archive_sibling_path,
-                },
-            )
-        } else if self.num_right_txs == 0 {
-            block_root_single_tx_first_rollup::execute(
-                BlockRootSingleTxFirstRollupPrivateInputs {
-                    previous_rollup: previous_rollups[0],
-                    message_bundle,
-                    previous_l1_to_l2: self.previous_l1_to_l2,
-                    l1_to_l2_message_frontier_hint,
-                    new_archive_sibling_path,
-                },
-            )
-        } else {
-            block_root_first_rollup::execute(
-                BlockRootFirstRollupPrivateInputs {
-                    previous_rollups,
-                    message_bundle,
-                    previous_l1_to_l2: self.previous_l1_to_l2,
-                    l1_to_l2_message_frontier_hint,
-                    new_archive_sibling_path,
-                },
-            )
-        }
-    }
-
-    fn execute_non_first_block_root(self) -> BlockRollupPublicInputs {
         let previous_rollups = [
             RollupFixtureBuilder::make_proof_data(self.left_rollup, self.left_rollup_vk_index),
             RollupFixtureBuilder::make_proof_data(self.right_rollup, self.right_rollup_vk_index),
@@ -255,7 +202,26 @@ impl TestBuilder {
         let start_msg_sponge = self.start_msg_sponge;
         let new_archive_sibling_path = self.new_archive_sibling_path;
 
-        if self.num_right_txs == 0 {
+        if self.num_left_txs == 0 {
+            let left = self.left_rollup;
+            let previous_state = StateReference {
+                l1_to_l2_message_tree: self.previous_l1_to_l2,
+                partial: self.left_rollup.start_tree_snapshots,
+            };
+            block_root_no_txs_rollup::execute(
+                BlockRootNoTxsRollupPrivateInputs {
+                    previous_archive: left.constants.last_archive,
+                    previous_state,
+                    constants: self.checkpoint_constants,
+                    timestamp: left.constants.global_variables.timestamp,
+                    start_sponge_blob: self.start_sponge_blob,
+                    start_msg_sponge,
+                    message_bundle,
+                    l1_to_l2_message_frontier_hint,
+                    new_archive_sibling_path,
+                },
+            )
+        } else if self.num_right_txs == 0 {
             block_root_single_tx_rollup::execute(
                 BlockRootSingleTxRollupPrivateInputs {
                     previous_rollup: previous_rollups[0],
@@ -278,6 +244,10 @@ impl TestBuilder {
                 },
             )
         }
+    }
+
+    pub fn execute_and_fail(self) {
+        let _ = self.execute();
     }
 
     // The block's message bundle. The unit-test fixture inserts exactly `num_msgs` real leaves into the tree, so the
@@ -323,17 +293,12 @@ impl TestBuilder {
 
         // --- Sponge blobs ---
 
-        let expected_start_sponge_blob = if is_empty_block {
-            SpongeBlob::init()
-        } else {
-            // Although the first block should always have an empty start sponge blob, but it's not checked in this
-            // circuit. So here we simply check that the output is whatever value assigned to the left rollup.
-            left.start_sponge_blob
-        };
-        assert_eq(pi.start_sponge_blob, expected_start_sponge_blob);
+        // The start sponge blob is a witnessed value for the tx-less variant and comes from the child tx rollups
+        // otherwise; either way the block root passes it through unchanged.
+        assert_eq(pi.start_sponge_blob, self.start_sponge_blob);
 
         let mut expected_end_sponge_blob = if is_empty_block {
-            SpongeBlob::init()
+            self.start_sponge_blob
         } else {
             right.end_sponge_blob
         };
@@ -397,10 +362,6 @@ impl TestBuilder {
         // --- Timestamps ---
 
         assert_eq(pi.timestamp, left.constants.global_variables.timestamp);
-
-        // --- is_first_block ---
-
-        assert_eq(pi.is_first_block, self.is_first_block_root);
 
         // --- Message sponge ---
 

@@ -42,7 +42,7 @@ const cachedProvingJobs = {
 
 const enqueuedBlockRollupJobs = {
   alert: 'EnqueuedBlockRootRollup',
-  expr: `sum(rate(aztec_proving_queue_enqueued_jobs_count{k8s_namespace_name="${config.NAMESPACE}",aztec_proving_job_type=~"BLOCK_ROOT_EMPTY_TX_FIRST_ROLLUP|CHECKPOINT_ROOT_SINGLE_BLOCK_ROLLUP"}[${interval}]))>0`,
+  expr: `sum(rate(aztec_proving_queue_enqueued_jobs_count{k8s_namespace_name="${config.NAMESPACE}",aztec_proving_job_type=~"BLOCK_ROOT_NO_TXS_ROLLUP|CHECKPOINT_ROOT_SINGLE_BLOCK_ROLLUP"}[${interval}]))>0`,
   labels: { severity: 'error' },
   for: interval,
   annotations: {},

@@ -150,20 +150,8 @@ export class ProvingJobController {
         return await this.circuitProver.getTxMergeRollupProof(inputs, signal, this.epochNumber);
       }
 
-      case ProvingRequestType.BLOCK_ROOT_FIRST_ROLLUP: {
-        return await this.circuitProver.getBlockRootFirstRollupProof(inputs, signal, this.epochNumber);
-      }
-
-      case ProvingRequestType.BLOCK_ROOT_SINGLE_TX_FIRST_ROLLUP: {
-        return await this.circuitProver.getBlockRootSingleTxFirstRollupProof(inputs, signal, this.epochNumber);
-      }
-
-      case ProvingRequestType.BLOCK_ROOT_EMPTY_TX_FIRST_ROLLUP: {
-        return await this.circuitProver.getBlockRootEmptyTxFirstRollupProof(inputs, signal, this.epochNumber);
-      }
-
-      case ProvingRequestType.BLOCK_ROOT_MSGS_ONLY_ROLLUP: {
-        return await this.circuitProver.getBlockRootMsgsOnlyRollupProof(inputs, signal, this.epochNumber);
+      case ProvingRequestType.BLOCK_ROOT_NO_TXS_ROLLUP: {
+        return await this.circuitProver.getBlockRootNoTxsRollupProof(inputs, signal, this.epochNumber);
       }
 
       case ProvingRequestType.BLOCK_ROOT_ROLLUP: {

@@ -1,23 +1,23 @@
 import { jsonStringify } from '@aztec/foundation/json-rpc';
 
-import { makeBlockRootFirstRollupPrivateInputs, makeBlockRootSingleTxRollupPrivateInputs } from '../tests/factories.js';
+import { makeBlockRootRollupPrivateInputs, makeBlockRootSingleTxRollupPrivateInputs } from '../tests/factories.js';
 import {
-  BlockRootFirstRollupPrivateInputs,
+  BlockRootRollupPrivateInputs,
   BlockRootSingleTxRollupPrivateInputs,
 } from './block_root_rollup_private_inputs.js';
 
-describe('BlockRootFirstRollupPrivateInputs', () => {
-  it('serializes a BlockRootFirstRollupPrivateInputs to buffer and deserializes it back', () => {
-    const expected = makeBlockRootFirstRollupPrivateInputs();
+describe('BlockRootRollupPrivateInputs', () => {
+  it('serializes a BlockRootRollupPrivateInputs to buffer and deserializes it back', () => {
+    const expected = makeBlockRootRollupPrivateInputs();
     const buffer = expected.toBuffer();
-    const res = BlockRootFirstRollupPrivateInputs.fromBuffer(buffer);
+    const res = BlockRootRollupPrivateInputs.fromBuffer(buffer);
     expect(res).toEqual(expected);
   });
 
   it('serializes to json and deserializes it back', () => {
-    const expected = makeBlockRootFirstRollupPrivateInputs();
+    const expected = makeBlockRootRollupPrivateInputs();
     const json = jsonStringify(expected);
-    expect(BlockRootFirstRollupPrivateInputs.schema.parse(JSON.parse(json))).toEqual(expected);
+    expect(BlockRootRollupPrivateInputs.schema.parse(JSON.parse(json))).toEqual(expected);
   });
 });
 

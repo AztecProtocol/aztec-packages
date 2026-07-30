@@ -11,16 +11,10 @@ import {
   type ServerProtocolArtifact,
   convertBlockMergeRollupOutputsFromWitnessMap,
   convertBlockMergeRollupPrivateInputsToWitnessMap,
-  convertBlockRootEmptyTxFirstRollupOutputsFromWitnessMap,
-  convertBlockRootEmptyTxFirstRollupPrivateInputsToWitnessMap,
-  convertBlockRootFirstRollupOutputsFromWitnessMap,
-  convertBlockRootFirstRollupPrivateInputsToWitnessMap,
-  convertBlockRootMsgsOnlyRollupOutputsFromWitnessMap,
-  convertBlockRootMsgsOnlyRollupPrivateInputsToWitnessMap,
+  convertBlockRootNoTxsRollupOutputsFromWitnessMap,
+  convertBlockRootNoTxsRollupPrivateInputsToWitnessMap,
   convertBlockRootRollupOutputsFromWitnessMap,
   convertBlockRootRollupPrivateInputsToWitnessMap,
-  convertBlockRootSingleTxFirstRollupOutputsFromWitnessMap,
-  convertBlockRootSingleTxFirstRollupPrivateInputsToWitnessMap,
   convertBlockRootSingleTxRollupOutputsFromWitnessMap,
   convertBlockRootSingleTxRollupPrivateInputsToWitnessMap,
   convertCheckpointMergeRollupOutputsFromWitnessMap,
@@ -66,11 +60,8 @@ import {
 import {
   type BlockMergeRollupPrivateInputs,
   type BlockRollupPublicInputs,
-  type BlockRootEmptyTxFirstRollupPrivateInputs,
-  type BlockRootFirstRollupPrivateInputs,
-  type BlockRootMsgsOnlyRollupPrivateInputs,
+  type BlockRootNoTxsRollupPrivateInputs,
   type BlockRootRollupPrivateInputs,
-  type BlockRootSingleTxFirstRollupPrivateInputs,
   type BlockRootSingleTxRollupPrivateInputs,
   type CheckpointMergeRollupPrivateInputs,
   type CheckpointPaddingRollupPrivateInputs,
@@ -206,62 +197,17 @@ export class TestCircuitProver implements ServerCircuitProver {
     );
   }
 
-  @trackSpan('TestCircuitProver.getBlockRootFirstRollupProof')
-  public getBlockRootFirstRollupProof(
-    input: BlockRootFirstRollupPrivateInputs,
+  @trackSpan('TestCircuitProver.getBlockRootNoTxsRollupProof')
+  public getBlockRootNoTxsRollupProof(
+    input: BlockRootNoTxsRollupPrivateInputs,
   ): Promise<PublicInputsAndRecursiveProof<BlockRollupPublicInputs, typeof NESTED_RECURSIVE_ROLLUP_HONK_PROOF_LENGTH>> {
-    return this.applyDelay(ProvingRequestType.BLOCK_ROOT_FIRST_ROLLUP, () =>
+    return this.applyDelay(ProvingRequestType.BLOCK_ROOT_NO_TXS_ROLLUP, () =>
       this.simulate(
         input,
-        'BlockRootFirstRollupArtifact',
+        'BlockRootNoTxsRollupArtifact',
         NESTED_RECURSIVE_ROLLUP_HONK_PROOF_LENGTH,
-        convertBlockRootFirstRollupPrivateInputsToWitnessMap,
-        convertBlockRootFirstRollupOutputsFromWitnessMap,
-      ),
-    );
-  }
-
-  @trackSpan('TestCircuitProver.getBlockRootSingleTxFirstRollupProof')
-  public async getBlockRootSingleTxFirstRollupProof(
-    input: BlockRootSingleTxFirstRollupPrivateInputs,
-  ): Promise<PublicInputsAndRecursiveProof<BlockRollupPublicInputs, typeof NESTED_RECURSIVE_ROLLUP_HONK_PROOF_LENGTH>> {
-    return await this.applyDelay(ProvingRequestType.BLOCK_ROOT_SINGLE_TX_FIRST_ROLLUP, () =>
-      this.simulate(
-        input,
-        'BlockRootSingleTxFirstRollupArtifact',
-        NESTED_RECURSIVE_ROLLUP_HONK_PROOF_LENGTH,
-        convertBlockRootSingleTxFirstRollupPrivateInputsToWitnessMap,
-        convertBlockRootSingleTxFirstRollupOutputsFromWitnessMap,
-      ),
-    );
-  }
-
-  @trackSpan('TestCircuitProver.getBlockRootEmptyTxFirstRollupProof')
-  public getBlockRootEmptyTxFirstRollupProof(
-    input: BlockRootEmptyTxFirstRollupPrivateInputs,
-  ): Promise<PublicInputsAndRecursiveProof<BlockRollupPublicInputs, typeof NESTED_RECURSIVE_ROLLUP_HONK_PROOF_LENGTH>> {
-    return this.applyDelay(ProvingRequestType.BLOCK_ROOT_EMPTY_TX_FIRST_ROLLUP, () =>
-      this.simulate(
-        input,
-        'BlockRootEmptyTxFirstRollupArtifact',
-        NESTED_RECURSIVE_ROLLUP_HONK_PROOF_LENGTH,
-        convertBlockRootEmptyTxFirstRollupPrivateInputsToWitnessMap,
-        convertBlockRootEmptyTxFirstRollupOutputsFromWitnessMap,
-      ),
-    );
-  }
-
-  @trackSpan('TestCircuitProver.getBlockRootMsgsOnlyRollupProof')
-  public getBlockRootMsgsOnlyRollupProof(
-    input: BlockRootMsgsOnlyRollupPrivateInputs,
-  ): Promise<PublicInputsAndRecursiveProof<BlockRollupPublicInputs, typeof NESTED_RECURSIVE_ROLLUP_HONK_PROOF_LENGTH>> {
-    return this.applyDelay(ProvingRequestType.BLOCK_ROOT_MSGS_ONLY_ROLLUP, () =>
-      this.simulate(
-        input,
-        'BlockRootMsgsOnlyRollupArtifact',
-        NESTED_RECURSIVE_ROLLUP_HONK_PROOF_LENGTH,
-        convertBlockRootMsgsOnlyRollupPrivateInputsToWitnessMap,
-        convertBlockRootMsgsOnlyRollupOutputsFromWitnessMap,
+        convertBlockRootNoTxsRollupPrivateInputsToWitnessMap,
+        convertBlockRootNoTxsRollupOutputsFromWitnessMap,
       ),
     );
   }

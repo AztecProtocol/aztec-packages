@@ -23,9 +23,8 @@ import { type CheckpointTopTreeData, TopTreeOrchestrator } from '../orchestrator
 // Without that flag the whole suite is skipped, so it is a no-op (no prover setup) in normal CI.
 //
 // The scenarios are chosen to exercise each block-root variant the orchestrator selects (see
-// BlockProvingState#getBlockRootRollupTypeAndInputs): a first block with 0 txs, with >=2 txs, and
-// with 1 tx; non-first blocks with 1 tx (from the three-block checkpoint) and with >=2 txs (from the
-// two-block checkpoint). The three-block checkpoint also produces a block-merge and the three-
+// BlockProvingState#getBlockRootRollupTypeAndInputs), which is picked by transaction count alone:
+// 0 txs, 1 tx and >=2 txs. The three-block checkpoint also produces a block-merge and the three-
 // checkpoint epoch a checkpoint-merge; a merge node only exists above the tree root, so both merges
 // need three leaves — two would pair directly at the root. Single-block checkpoints feed the
 // checkpoint-root-single-block circuit and multi-block checkpoints the (two-input) checkpoint-root
@@ -53,33 +52,21 @@ describeOrSkip('prover/regenerate-rollup-sample-inputs', () => {
       numBlocksPerCheckpoint: 1,
       numTxsPerBlock: 0,
       numL1ToL2Messages: withMessages,
-      dump: ['rollup-block-root-first-empty-tx'],
+      dump: ['rollup-block-root-no-txs'],
     },
     {
       numCheckpoints: 1,
       numBlocksPerCheckpoint: 1,
       numTxsPerBlock: 2,
       numL1ToL2Messages: withMessages,
-      dump: ['rollup-block-root-first', 'rollup-checkpoint-root-single-block', 'rollup-root'],
+      dump: ['rollup-block-root', 'rollup-checkpoint-root-single-block', 'rollup-root'],
     },
     {
       numCheckpoints: 1,
       numBlocksPerCheckpoint: 3,
       numTxsPerBlock: 1,
       numL1ToL2Messages: withMessages,
-      dump: [
-        'rollup-block-root-first-single-tx',
-        'rollup-block-root-single-tx',
-        'rollup-block-merge',
-        'rollup-checkpoint-root',
-      ],
-    },
-    {
-      numCheckpoints: 1,
-      numBlocksPerCheckpoint: 2,
-      numTxsPerBlock: 2,
-      numL1ToL2Messages: withMessages,
-      dump: ['rollup-block-root'],
+      dump: ['rollup-block-root-single-tx', 'rollup-block-merge', 'rollup-checkpoint-root'],
     },
     // The checkpoint-merge only appears with three checkpoints. Independently-built checkpoints do
     // not carry the inbox message state forward, so this scenario runs with no L1-to-L2 messages and

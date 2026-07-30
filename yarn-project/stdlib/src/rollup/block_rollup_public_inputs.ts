@@ -54,11 +54,6 @@ export class BlockRollupPublicInputs {
      */
     public blockHeadersHash: Fr,
     /**
-     * Whether this block range starts at the first block of its checkpoint. Only the first block root sets this true;
-     * merges propagate it from the left rollup.
-     */
-    public isFirstBlock: boolean,
-    /**
      * Message-bundle sponge threaded across the checkpoint's blocks, before this block range absorbs its bundle.
      */
     public startMsgSponge: L1ToL2MessageSponge,
@@ -93,7 +88,6 @@ export class BlockRollupPublicInputs {
       reader.readObject(SpongeBlob),
       reader.readUInt64(),
       Fr.fromBuffer(reader),
-      reader.readBoolean(),
       reader.readObject(L1ToL2MessageSponge),
       reader.readObject(L1ToL2MessageSponge),
       Fr.fromBuffer(reader),
@@ -113,7 +107,6 @@ export class BlockRollupPublicInputs {
       this.endSpongeBlob,
       bigintToUInt64BE(this.timestamp),
       this.blockHeadersHash,
-      this.isFirstBlock,
       this.startMsgSponge,
       this.endMsgSponge,
       this.outHash,
@@ -139,7 +132,6 @@ export class BlockRollupPublicInputs {
       previousArchiveRoot: this.previousArchive.root.toString(),
       newArchiveRoot: this.newArchive.root.toString(),
       blockHeadersHash: this.blockHeadersHash.toString(),
-      isFirstBlock: this.isFirstBlock,
       startMsgSpongeNumAbsorbed: this.startMsgSponge.numAbsorbed,
       endMsgSpongeNumAbsorbed: this.endMsgSponge.numAbsorbed,
       outHash: this.outHash.toString(),

@@ -9,21 +9,16 @@ use types::{
     abis::{append_only_tree_snapshot::AppendOnlyTreeSnapshot, block_header::BlockHeader},
     constants::{
         ARCHIVE_HEIGHT, BLOBS_PER_CHECKPOINT, BLOCK_MERGE_ROLLUP_VK_INDEX,
-        BLOCK_ROOT_EMPTY_TX_FIRST_ROLLUP_VK_INDEX, BLOCK_ROOT_FIRST_ROLLUP_VK_INDEX,
-        BLOCK_ROOT_MSGS_ONLY_ROLLUP_VK_INDEX, BLOCK_ROOT_ROLLUP_VK_INDEX,
-        BLOCK_ROOT_SINGLE_TX_FIRST_ROLLUP_VK_INDEX, BLOCK_ROOT_SINGLE_TX_ROLLUP_VK_INDEX,
-        FIELDS_PER_BLOB, OUT_HASH_TREE_HEIGHT,
+        BLOCK_ROOT_NO_TXS_ROLLUP_VK_INDEX, BLOCK_ROOT_ROLLUP_VK_INDEX,
+        BLOCK_ROOT_SINGLE_TX_ROLLUP_VK_INDEX, FIELDS_PER_BLOB, OUT_HASH_TREE_HEIGHT,
     },
     proof::proof_data::{RollupHonkProofData, UltraHonkProofData},
 };
 
-global ALLOWED_PREVIOUS_VK_INDICES: [u32; 7] = [
-    BLOCK_ROOT_FIRST_ROLLUP_VK_INDEX,
-    BLOCK_ROOT_SINGLE_TX_FIRST_ROLLUP_VK_INDEX,
-    BLOCK_ROOT_EMPTY_TX_FIRST_ROLLUP_VK_INDEX,
+global ALLOWED_PREVIOUS_VK_INDICES: [u32; 4] = [
     BLOCK_ROOT_ROLLUP_VK_INDEX,
     BLOCK_ROOT_SINGLE_TX_ROLLUP_VK_INDEX,
-    BLOCK_ROOT_MSGS_ONLY_ROLLUP_VK_INDEX,
+    BLOCK_ROOT_NO_TXS_ROLLUP_VK_INDEX,
     BLOCK_MERGE_ROLLUP_VK_INDEX,
 ];
 
@@ -101,7 +96,11 @@ pub fn execute(inputs: CheckpointRootRollupPrivateInputs) -> CheckpointRollupPub
     let previous_rollups = inputs.previous_rollups.map(|rollup| rollup.public_inputs);
 
     let constants = previous_rollups[0].constants;
-    validate_inbox_parity(inputs.inbox_parity, constants.vk_tree_root, constants.prover_id);
+    validate_inbox_parity(
+        inputs.inbox_parity,
+        constants.vk_tree_root,
+        constants.prover_id,
+    );
 
     CheckpointRollupPublicInputsComposer::new(
         previous_rollups,

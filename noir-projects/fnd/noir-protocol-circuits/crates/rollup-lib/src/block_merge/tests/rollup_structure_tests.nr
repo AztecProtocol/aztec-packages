@@ -1,49 +1,23 @@
 use super::TestBuilder;
 use types::constants::{
-    BLOCK_MERGE_ROLLUP_VK_INDEX, BLOCK_ROOT_EMPTY_TX_FIRST_ROLLUP_VK_INDEX,
-    BLOCK_ROOT_FIRST_ROLLUP_VK_INDEX, BLOCK_ROOT_ROLLUP_VK_INDEX,
-    BLOCK_ROOT_SINGLE_TX_FIRST_ROLLUP_VK_INDEX, BLOCK_ROOT_SINGLE_TX_ROLLUP_VK_INDEX,
+    BLOCK_MERGE_ROLLUP_VK_INDEX, BLOCK_ROOT_NO_TXS_ROLLUP_VK_INDEX, BLOCK_ROOT_ROLLUP_VK_INDEX,
+    BLOCK_ROOT_SINGLE_TX_ROLLUP_VK_INDEX,
 };
 
 #[test]
-fn with_both_roots_left_is_first() {
-    // Left rollups are first block roots. Right rollups are not first block roots.
+fn with_both_roots() {
+    // Every block root variant is allowed on either side: no variant is tied to a position in the checkpoint.
     let children_vk_indices = [
-        [BLOCK_ROOT_FIRST_ROLLUP_VK_INDEX, BLOCK_ROOT_SINGLE_TX_ROLLUP_VK_INDEX],
-        [BLOCK_ROOT_SINGLE_TX_FIRST_ROLLUP_VK_INDEX, BLOCK_ROOT_ROLLUP_VK_INDEX],
-        [BLOCK_ROOT_EMPTY_TX_FIRST_ROLLUP_VK_INDEX, BLOCK_ROOT_ROLLUP_VK_INDEX],
+        [BLOCK_ROOT_ROLLUP_VK_INDEX, BLOCK_ROOT_SINGLE_TX_ROLLUP_VK_INDEX],
+        [BLOCK_ROOT_SINGLE_TX_ROLLUP_VK_INDEX, BLOCK_ROOT_ROLLUP_VK_INDEX],
+        [BLOCK_ROOT_NO_TXS_ROLLUP_VK_INDEX, BLOCK_ROOT_ROLLUP_VK_INDEX],
+        [BLOCK_ROOT_ROLLUP_VK_INDEX, BLOCK_ROOT_NO_TXS_ROLLUP_VK_INDEX],
     ];
     for vk_indices in children_vk_indices {
         let builder = TestBuilder::new(vk_indices[0], 1, vk_indices[1], 1);
         let pi = builder.execute();
         builder.assert_expected_public_inputs(pi);
     }
-}
-
-#[test(should_fail_with = "Vk index not in allowed list")]
-fn with_both_roots_right_is_first() {
-    TestBuilder::new(
-        // Left rollup is not a first block root.
-        BLOCK_ROOT_ROLLUP_VK_INDEX,
-        1,
-        // Right rollup is a first block root.
-        BLOCK_ROOT_FIRST_ROLLUP_VK_INDEX,
-        1,
-    )
-        .execute_and_fail();
-}
-
-#[test(should_fail_with = "Vk index not in allowed list")]
-fn with_both_first_roots() {
-    TestBuilder::new(
-        // Left rollup is a first block root.
-        BLOCK_ROOT_FIRST_ROLLUP_VK_INDEX,
-        1,
-        // Right rollup is also a first block root.
-        BLOCK_ROOT_FIRST_ROLLUP_VK_INDEX,
-        1,
-    )
-        .execute_and_fail();
 }
 
 #[test]
@@ -64,7 +38,7 @@ fn with_left_merge_and_right_root() {
 fn with_left_root_and_right_merge() {
     TestBuilder::new(
         // Left rollup is a root.
-        BLOCK_ROOT_FIRST_ROLLUP_VK_INDEX,
+        BLOCK_ROOT_ROLLUP_VK_INDEX,
         1,
         // Right rollup is a merge that has 4 blocks.
         BLOCK_MERGE_ROLLUP_VK_INDEX,

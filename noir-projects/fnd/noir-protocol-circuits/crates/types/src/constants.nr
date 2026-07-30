@@ -117,9 +117,9 @@ pub global PUBLIC_CHONK_VERIFIER_VK_INDEX: u32 = 6;
 pub global PRIVATE_TX_BASE_ROLLUP_VK_INDEX: u32 = 7;
 pub global PUBLIC_TX_BASE_ROLLUP_VK_INDEX: u32 = 8;
 pub global TX_MERGE_ROLLUP_VK_INDEX: u32 = 9;
-pub global BLOCK_ROOT_FIRST_ROLLUP_VK_INDEX: u32 = 10;
-pub global BLOCK_ROOT_SINGLE_TX_FIRST_ROLLUP_VK_INDEX: u32 = 11;
-pub global BLOCK_ROOT_EMPTY_TX_FIRST_ROLLUP_VK_INDEX: u32 = 12;
+// VK indices 10 and 11 are intentionally unallocated: they were the first-block block roots, merged into the
+// variants below (which now cover both the first and non-first cases).
+pub global BLOCK_ROOT_NO_TXS_ROLLUP_VK_INDEX: u32 = 12;
 pub global BLOCK_ROOT_ROLLUP_VK_INDEX: u32 = 13;
 pub global BLOCK_ROOT_SINGLE_TX_ROLLUP_VK_INDEX: u32 = 14;
 pub global BLOCK_MERGE_ROLLUP_VK_INDEX: u32 = 15;
@@ -152,9 +152,7 @@ pub global PRIVATE_KERNEL_INNER_2_VK_INDEX: u32 = 69;
 pub global PRIVATE_KERNEL_INNER_3_VK_INDEX: u32 = 70;
 pub global PRIVATE_KERNEL_INNER_4_VK_INDEX: u32 = 71;
 pub global PRIVATE_KERNEL_INNER_5_VK_INDEX: u32 = 72;
-// The block-root variants at 10-14 are full; the non-first message-only block root is appended after the
-// multi-app kernel indices (65-72), since 43-64 are reserved for reset variants.
-pub global BLOCK_ROOT_MSGS_ONLY_ROLLUP_VK_INDEX: u32 = 73;
+// VK index 73 is intentionally unallocated: it was the message-only block root, merged into the no-txs block root.
 // The InboxParity size ladder: one VK per size, checked as an allowed set by the checkpoint root. Appended here
 // (rather than reusing the freed 21/22) so the three sizes stay contiguous and read in order.
 pub global INBOX_PARITY_64_VK_INDEX: u32 = 74;
@@ -197,6 +195,11 @@ pub global INITIAL_L2_BLOCK_NUM: Field = 1;
 pub global FIELDS_PER_BLOB: u32 = 4096;
 pub global BLOBS_PER_CHECKPOINT: u32 = 6;
 pub global MAX_CHECKPOINTS_PER_EPOCH: u32 = 32;
+// Cap on the number of L2 blocks a single checkpoint may contain, asserted in the checkpoint root circuit. It bounds
+// the epoch prover's worst case at `MAX_BLOCKS_PER_CHECKPOINT` block-root proofs plus one fewer block merges, which is
+// what makes fully empty blocks safe to allow at any position in a checkpoint. The value is one block per second over
+// the production slot length.
+pub global MAX_BLOCKS_PER_CHECKPOINT: u32 = 72;
 pub global MAX_TX_LIFETIME: u64 = 86400; // 1 day. Arbitrarily chosen.
 // The genesis values are taken from world_state.test.cpp > WorldStateTest.GetInitialTreeInfoForAllTrees
 pub global GENESIS_BLOCK_HEADER_HASH: Field =
@@ -580,7 +583,6 @@ pub global BLOCK_ROLLUP_PUBLIC_INPUTS_LENGTH: u32 = CHECKPOINT_CONSTANT_DATA_LEN
     + 2 * SPONGE_BLOB_LENGTH /* start_sponge_blob and end_sponge_blob */
     + 1 /* timestamp */
     + 1 /* block_headers_hash */
-    + 1 /* is_first_block */
     + 2 * L1_TO_L2_MESSAGE_SPONGE_LENGTH /* start_msg_sponge and end_msg_sponge */
     + 1 /* out_hash */
     + 1 /* accumulated_fees */

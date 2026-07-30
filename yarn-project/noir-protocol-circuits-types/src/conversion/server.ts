@@ -40,11 +40,8 @@ import {
   BlockConstantData,
   BlockMergeRollupPrivateInputs,
   BlockRollupPublicInputs,
-  BlockRootEmptyTxFirstRollupPrivateInputs,
-  BlockRootFirstRollupPrivateInputs,
-  BlockRootMsgsOnlyRollupPrivateInputs,
+  BlockRootNoTxsRollupPrivateInputs,
   BlockRootRollupPrivateInputs,
-  BlockRootSingleTxFirstRollupPrivateInputs,
   BlockRootSingleTxRollupPrivateInputs,
   CheckpointConstantData,
   CheckpointMergeRollupPrivateInputs,
@@ -77,11 +74,8 @@ import type {
   BlockConstantData as BlockConstantDataNoir,
   BlockMergeRollupPrivateInputs as BlockMergeRollupPrivateInputsNoir,
   BlockRollupPublicInputs as BlockRollupPublicInputsNoir,
-  BlockRootEmptyTxFirstRollupPrivateInputs as BlockRootEmptyTxFirstRollupPrivateInputsNoir,
-  BlockRootFirstRollupPrivateInputs as BlockRootFirstRollupPrivateInputsNoir,
-  BlockRootMsgsOnlyRollupPrivateInputs as BlockRootMsgsOnlyRollupPrivateInputsNoir,
+  BlockRootNoTxsRollupPrivateInputs as BlockRootNoTxsRollupPrivateInputsNoir,
   BlockRootRollupPrivateInputs as BlockRootRollupPrivateInputsNoir,
-  BlockRootSingleTxFirstRollupPrivateInputs as BlockRootSingleTxFirstRollupPrivateInputsNoir,
   BlockRootSingleTxRollupPrivateInputs as BlockRootSingleTxRollupPrivateInputsNoir,
   CheckpointConstantData as CheckpointConstantDataNoir,
   CheckpointMergeRollupPrivateInputs as CheckpointMergeRollupPrivateInputsNoir,
@@ -630,7 +624,6 @@ export function mapBlockRollupPublicInputsFromNoir(inputs: BlockRollupPublicInpu
     mapSpongeBlobFromNoir(inputs.end_sponge_blob),
     mapU64FromNoir(inputs.timestamp),
     mapFieldFromNoir(inputs.block_headers_hash),
-    inputs.is_first_block,
     mapL1ToL2MessageSpongeFromNoir(inputs.start_msg_sponge),
     mapL1ToL2MessageSpongeFromNoir(inputs.end_msg_sponge),
     mapFieldFromNoir(inputs.out_hash),
@@ -650,7 +643,6 @@ export function mapBlockRollupPublicInputsToNoir(inputs: BlockRollupPublicInputs
     end_sponge_blob: mapSpongeBlobToNoir(inputs.endSpongeBlob),
     timestamp: mapU64ToNoir(inputs.timestamp),
     block_headers_hash: mapFieldToNoir(inputs.blockHeadersHash),
-    is_first_block: inputs.isFirstBlock,
     start_msg_sponge: mapL1ToL2MessageSpongeToNoir(inputs.startMsgSponge),
     end_msg_sponge: mapL1ToL2MessageSpongeToNoir(inputs.endMsgSponge),
     out_hash: mapFieldToNoir(inputs.outHash),
@@ -837,50 +829,9 @@ function mapL1ToL2MessageBundleToNoir(bundle: L1ToL2MessageBundle) {
   };
 }
 
-export function mapBlockRootFirstRollupPrivateInputsToNoir(
-  inputs: BlockRootFirstRollupPrivateInputs,
-): BlockRootFirstRollupPrivateInputsNoir {
-  return {
-    previous_rollups: [
-      mapProofDataToNoir(inputs.previousRollups[0], mapTxRollupPublicInputsToNoir),
-      mapProofDataToNoir(inputs.previousRollups[1], mapTxRollupPublicInputsToNoir),
-    ],
-    message_bundle: mapL1ToL2MessageBundleToNoir(inputs.messageBundle),
-    previous_l1_to_l2: mapAppendOnlyTreeSnapshotToNoir(inputs.previousL1ToL2),
-    l1_to_l2_message_frontier_hint: mapTuple(inputs.l1ToL2MessageFrontierHint, mapFieldToNoir),
-    new_archive_sibling_path: mapTuple(inputs.newArchiveSiblingPath, mapFieldToNoir),
-  };
-}
-
-export function mapBlockRootSingleTxFirstRollupPrivateInputsToNoir(
-  inputs: BlockRootSingleTxFirstRollupPrivateInputs,
-): BlockRootSingleTxFirstRollupPrivateInputsNoir {
-  return {
-    previous_rollup: mapProofDataToNoir(inputs.previousRollup, mapTxRollupPublicInputsToNoir),
-    message_bundle: mapL1ToL2MessageBundleToNoir(inputs.messageBundle),
-    previous_l1_to_l2: mapAppendOnlyTreeSnapshotToNoir(inputs.previousL1ToL2),
-    l1_to_l2_message_frontier_hint: mapTuple(inputs.l1ToL2MessageFrontierHint, mapFieldToNoir),
-    new_archive_sibling_path: mapTuple(inputs.newArchiveSiblingPath, mapFieldToNoir),
-  };
-}
-
-export function mapBlockRootEmptyTxFirstRollupPrivateInputsToNoir(
-  inputs: BlockRootEmptyTxFirstRollupPrivateInputs,
-): BlockRootEmptyTxFirstRollupPrivateInputsNoir {
-  return {
-    previous_archive: mapAppendOnlyTreeSnapshotToNoir(inputs.previousArchive),
-    previous_state: mapStateReferenceToNoir(inputs.previousState),
-    constants: mapCheckpointConstantDataToNoir(inputs.constants),
-    timestamp: mapU64ToNoir(inputs.timestamp),
-    message_bundle: mapL1ToL2MessageBundleToNoir(inputs.messageBundle),
-    l1_to_l2_message_frontier_hint: mapTuple(inputs.l1ToL2MessageFrontierHint, mapFieldToNoir),
-    new_archive_sibling_path: mapTuple(inputs.newArchiveSiblingPath, mapFieldToNoir),
-  };
-}
-
-export function mapBlockRootMsgsOnlyRollupPrivateInputsToNoir(
-  inputs: BlockRootMsgsOnlyRollupPrivateInputs,
-): BlockRootMsgsOnlyRollupPrivateInputsNoir {
+export function mapBlockRootNoTxsRollupPrivateInputsToNoir(
+  inputs: BlockRootNoTxsRollupPrivateInputs,
+): BlockRootNoTxsRollupPrivateInputsNoir {
   return {
     previous_archive: mapAppendOnlyTreeSnapshotToNoir(inputs.previousArchive),
     previous_state: mapStateReferenceToNoir(inputs.previousState),

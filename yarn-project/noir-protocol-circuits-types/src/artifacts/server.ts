@@ -6,12 +6,7 @@ import InboxParity256Json from '../../artifacts/inbox_parity_256.json' with { ty
 import InboxParity1024Json from '../../artifacts/inbox_parity_1024.json' with { type: 'json' };
 import BlockMergeRollupJson from '../../artifacts/rollup_block_merge.json' with { type: 'json' };
 import BlockRootRollupJson from '../../artifacts/rollup_block_root.json' with { type: 'json' };
-import BlockRootFirstRollupJson from '../../artifacts/rollup_block_root_first.json' with { type: 'json' };
-import BlockRootEmptyTxFirstRollupJson from '../../artifacts/rollup_block_root_first_empty_tx.json' with { type: 'json' };
-import BlockRootFirstRollupSimulatedJson from '../../artifacts/rollup_block_root_first_simulated.json' with { type: 'json' };
-import BlockRootSingleTxFirstRollupJson from '../../artifacts/rollup_block_root_first_single_tx.json' with { type: 'json' };
-import BlockRootSingleTxFirstRollupSimulatedJson from '../../artifacts/rollup_block_root_first_single_tx_simulated.json' with { type: 'json' };
-import BlockRootMsgsOnlyRollupJson from '../../artifacts/rollup_block_root_msgs_only.json' with { type: 'json' };
+import BlockRootNoTxsRollupJson from '../../artifacts/rollup_block_root_no_txs.json' with { type: 'json' };
 import BlockRootRollupSimulatedJson from '../../artifacts/rollup_block_root_simulated.json' with { type: 'json' };
 import BlockRootSingleTxRollupJson from '../../artifacts/rollup_block_root_single_tx.json' with { type: 'json' };
 import BlockRootSingleTxRollupSimulatedJson from '../../artifacts/rollup_block_root_single_tx_simulated.json' with { type: 'json' };
@@ -37,12 +32,9 @@ export const ServerCircuitArtifacts: Record<ServerProtocolArtifact, NoirCompiled
   PrivateTxBaseRollupArtifact: PrivateTxBaseRollupJson as NoirCompiledCircuit,
   PublicTxBaseRollupArtifact: PublicTxBaseRollupJson as NoirCompiledCircuit,
   TxMergeRollupArtifact: TxMergeRollupJson as NoirCompiledCircuit,
-  BlockRootFirstRollupArtifact: BlockRootFirstRollupJson as NoirCompiledCircuit,
-  BlockRootSingleTxFirstRollupArtifact: BlockRootSingleTxFirstRollupJson as NoirCompiledCircuit,
-  BlockRootEmptyTxFirstRollupArtifact: BlockRootEmptyTxFirstRollupJson as NoirCompiledCircuit,
   BlockRootRollupArtifact: BlockRootRollupJson as NoirCompiledCircuit,
   BlockRootSingleTxRollupArtifact: BlockRootSingleTxRollupJson as NoirCompiledCircuit,
-  BlockRootMsgsOnlyRollupArtifact: BlockRootMsgsOnlyRollupJson as NoirCompiledCircuit,
+  BlockRootNoTxsRollupArtifact: BlockRootNoTxsRollupJson as NoirCompiledCircuit,
   BlockMergeRollupArtifact: BlockMergeRollupJson as NoirCompiledCircuit,
   CheckpointRootRollupArtifact: CheckpointRootRollupJson as NoirCompiledCircuit,
   CheckpointRootSingleBlockRollupArtifact: CheckpointRootSingleBlockRollupJson as NoirCompiledCircuit,
@@ -61,14 +53,11 @@ export const SimulatedServerCircuitArtifacts: Record<ServerProtocolArtifact, Noi
   PrivateTxBaseRollupArtifact: PrivateTxBaseRollupSimulatedJson as NoirCompiledCircuit,
   PublicTxBaseRollupArtifact: PublicTxBaseRollupSimulatedJson as NoirCompiledCircuit,
   TxMergeRollupArtifact: TxMergeRollupJson as NoirCompiledCircuit,
-  BlockRootFirstRollupArtifact: BlockRootFirstRollupSimulatedJson as NoirCompiledCircuit,
-  BlockRootSingleTxFirstRollupArtifact: BlockRootSingleTxFirstRollupSimulatedJson as NoirCompiledCircuit,
-  BlockRootEmptyTxFirstRollupArtifact: BlockRootEmptyTxFirstRollupJson as NoirCompiledCircuit,
   BlockRootRollupArtifact: BlockRootRollupSimulatedJson as NoirCompiledCircuit,
   BlockRootSingleTxRollupArtifact: BlockRootSingleTxRollupSimulatedJson as NoirCompiledCircuit,
-  // No separate simulated build (mirrors the empty-tx-first variant): the message-only block root verifies no child
-  // proofs, so the constrained artifact is used for simulation too.
-  BlockRootMsgsOnlyRollupArtifact: BlockRootMsgsOnlyRollupJson as NoirCompiledCircuit,
+  // No separate simulated build: the transaction-less block root verifies no child proofs, so the constrained
+  // artifact is used for simulation too.
+  BlockRootNoTxsRollupArtifact: BlockRootNoTxsRollupJson as NoirCompiledCircuit,
   BlockMergeRollupArtifact: BlockMergeRollupJson as NoirCompiledCircuit,
   CheckpointRootRollupArtifact: CheckpointRootRollupSimulatedJson as NoirCompiledCircuit,
   CheckpointRootSingleBlockRollupArtifact: CheckpointRootSingleBlockRollupSimulatedJson as NoirCompiledCircuit,

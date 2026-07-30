@@ -12,14 +12,11 @@ import { Fr } from '@aztec/foundation/curves/bn254';
 import type { Tuple } from '@aztec/foundation/serialize';
 import { type TreeNodeLocation, UnbalancedTreeStore } from '@aztec/foundation/trees';
 import type { PublicInputsAndRecursiveProof } from '@aztec/stdlib/interfaces/server';
-import { L1ToL2MessageBundle } from '@aztec/stdlib/messaging';
-import type { RollupHonkProofData } from '@aztec/stdlib/proofs';
+import { L1ToL2MessageBundle, L1ToL2MessageSponge } from '@aztec/stdlib/messaging';
 import {
   BlockRollupPublicInputs,
-  BlockRootEmptyTxFirstRollupPrivateInputs,
-  BlockRootFirstRollupPrivateInputs,
+  BlockRootNoTxsRollupPrivateInputs,
   BlockRootRollupPrivateInputs,
-  BlockRootSingleTxFirstRollupPrivateInputs,
   BlockRootSingleTxRollupPrivateInputs,
   CheckpointConstantData,
   TxMergeRollupPrivateInputs,
@@ -44,9 +41,7 @@ export type ProofState<T, PROOF_LENGTH extends number> = {
  * can dispatch to the matching prover entrypoint with the correctly-typed inputs.
  */
 export type BlockRootRollupTypeAndInputs =
-  | { rollupType: 'rollup-block-root-first'; inputs: BlockRootFirstRollupPrivateInputs }
-  | { rollupType: 'rollup-block-root-first-single-tx'; inputs: BlockRootSingleTxFirstRollupPrivateInputs }
-  | { rollupType: 'rollup-block-root-first-empty-tx'; inputs: BlockRootEmptyTxFirstRollupPrivateInputs }
+  | { rollupType: 'rollup-block-root-no-txs'; inputs: BlockRootNoTxsRollupPrivateInputs }
   | { rollupType: 'rollup-block-root-single-tx'; inputs: BlockRootSingleTxRollupPrivateInputs }
   | { rollupType: 'rollup-block-root'; inputs: BlockRootRollupPrivateInputs };
 
@@ -88,9 +83,6 @@ export class BlockProvingState {
     public parentCheckpoint: CheckpointProvingState,
   ) {
     this.isFirstBlock = index === 0;
-    if (!totalNumTxs && !this.isFirstBlock) {
-      throw new Error(`Cannot create a block with 0 txs, unless it's the first block.`);
-    }
 
     this.baseOrMergeProofs = new UnbalancedTreeStore(totalNumTxs);
   }
@@ -291,6 +283,11 @@ export class BlockProvingState {
     return new TxMergeRollupPrivateInputs([toProofData(left), toProofData(right)]);
   }
 
+  /**
+   * The block root variant is selected by transaction count alone. Whether this is the checkpoint's first block is
+   * expressed through the start sponge values it feeds the circuit, which the checkpoint root pins to their initial
+   * values for the leftmost block and the block merge pins to the previous block's end values otherwise.
+   */
   public getBlockRootRollupTypeAndInputs(): BlockRootRollupTypeAndInputs {
     const provingOutputs = this.#getChildProvingOutputsForBlockRoot();
     if (!provingOutputs.every(p => !!p)) {
@@ -299,16 +296,27 @@ export class BlockProvingState {
 
     const previousRollups = provingOutputs.map(p => toProofData(p));
 
-    if (this.isFirstBlock) {
-      return this.#getFirstBlockRootRollupTypeAndInputs(previousRollups);
-    }
-
     const messageBundle = this.#getMessageBundle();
     const frontierHint = this.#getFrontierHint();
-    const startMsgSponge = this.parentCheckpoint.getCheckpointMsgSponge();
+    const startMsgSponge = this.#getStartMsgSponge();
 
     const [leftRollup, rightRollup] = previousRollups;
-    if (!rightRollup) {
+    if (!leftRollup) {
+      return {
+        rollupType: 'rollup-block-root-no-txs' satisfies CircuitName,
+        inputs: new BlockRootNoTxsRollupPrivateInputs(
+          this.lastArchiveTreeSnapshot,
+          this.headerOfLastBlockInPreviousCheckpoint.state,
+          this.constants,
+          this.timestamp,
+          this.startSpongeBlob,
+          startMsgSponge,
+          messageBundle,
+          frontierHint,
+          this.lastArchiveSiblingPath,
+        ),
+      };
+    } else if (!rightRollup) {
       return {
         rollupType: 'rollup-block-root-single-tx' satisfies CircuitName,
         inputs: new BlockRootSingleTxRollupPrivateInputs(
@@ -335,49 +343,13 @@ export class BlockProvingState {
     }
   }
 
-  #getFirstBlockRootRollupTypeAndInputs([
-    leftRollup,
-    rightRollup,
-  ]: RollupHonkProofData<TxRollupPublicInputs>[]): BlockRootRollupTypeAndInputs {
-    const messageBundle = this.#getMessageBundle();
-    const frontierHint = this.#getFrontierHint();
-
-    if (!leftRollup) {
-      return {
-        rollupType: 'rollup-block-root-first-empty-tx' satisfies CircuitName,
-        inputs: new BlockRootEmptyTxFirstRollupPrivateInputs(
-          this.lastArchiveTreeSnapshot,
-          this.headerOfLastBlockInPreviousCheckpoint.state,
-          this.constants,
-          this.timestamp,
-          messageBundle,
-          frontierHint,
-          this.lastArchiveSiblingPath,
-        ),
-      };
-    } else if (!rightRollup) {
-      return {
-        rollupType: 'rollup-block-root-first-single-tx' satisfies CircuitName,
-        inputs: new BlockRootSingleTxFirstRollupPrivateInputs(
-          leftRollup,
-          messageBundle,
-          this.lastL1ToL2MessageTreeSnapshot,
-          frontierHint,
-          this.lastArchiveSiblingPath,
-        ),
-      };
-    } else {
-      return {
-        rollupType: 'rollup-block-root-first' satisfies CircuitName,
-        inputs: new BlockRootFirstRollupPrivateInputs(
-          [leftRollup, rightRollup],
-          messageBundle,
-          this.lastL1ToL2MessageTreeSnapshot,
-          frontierHint,
-          this.lastArchiveSiblingPath,
-        ),
-      };
-    }
+  /**
+   * The message sponge this block starts from. It resets per checkpoint, so the first block starts from empty and
+   * every later block inherits the checkpoint's accumulated sponge (transitionally the first block carries all of the
+   * checkpoint's messages, so that value is already final after it).
+   */
+  #getStartMsgSponge(): L1ToL2MessageSponge {
+    return this.isFirstBlock ? L1ToL2MessageSponge.empty() : this.parentCheckpoint.getCheckpointMsgSponge();
   }
 
   /**
