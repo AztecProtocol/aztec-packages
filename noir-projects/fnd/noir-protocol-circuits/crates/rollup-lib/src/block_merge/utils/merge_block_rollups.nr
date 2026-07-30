@@ -16,11 +16,6 @@ pub fn merge_block_rollups(
     let block_headers_hash =
         accumulate_block_headers_hash(left.block_headers_hash, right.block_headers_hash);
 
-    // `is_first_block` originates from the first block root and must propagate through all merge steps via the left
-    // rollup only. `validate_consecutive_block_rollups` asserts the right rollup's is false, so only the leftmost leaf
-    // can carry it up to the checkpoint root.
-    let is_first_block = left.is_first_block;
-
     // The message sponge threads across the checkpoint's blocks: the range spans left's start through right's end.
     // `validate_consecutive_block_rollups` asserts `right.start_msg_sponge == left.end_msg_sponge` for continuity.
     let start_msg_sponge = left.start_msg_sponge;
@@ -42,7 +37,6 @@ pub fn merge_block_rollups(
         end_sponge_blob: right.end_sponge_blob,
         timestamp: left.timestamp, // Both blocks have the same timestamp.
         block_headers_hash,
-        is_first_block,
         start_msg_sponge,
         end_msg_sponge,
         out_hash,

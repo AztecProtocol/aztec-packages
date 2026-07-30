@@ -67,12 +67,12 @@ describe('ProvingJobSourceSchema', () => {
 });
 
 describe('ProvingJobResult', () => {
-  it('round-trips a message-only block-root rollup result through the schema', () => {
-    // The message-only block-root proof type must survive serialization: a checkpoint that builds a message-only
-    // block produces this result, and the proof store decodes it via the ProvingJobResult schema. Omitting it from
+  it('round-trips a transaction-less block-root rollup result through the schema', () => {
+    // The transaction-less block-root proof type must survive serialization: a checkpoint that builds a block with no
+    // txs produces this result, and the proof store decodes it via the ProvingJobResult schema. Omitting it from
     // the union throws "Invalid discriminator value" and stalls proving.
     const result: ProvingJobResult = {
-      type: ProvingRequestType.BLOCK_ROOT_MSGS_ONLY_ROLLUP,
+      type: ProvingRequestType.BLOCK_ROOT_NO_TXS_ROLLUP,
       result: makePublicInputsAndRecursiveProof<
         BlockRollupPublicInputs,
         typeof NESTED_RECURSIVE_ROLLUP_HONK_PROOF_LENGTH
@@ -84,7 +84,7 @@ describe('ProvingJobResult', () => {
     };
 
     const roundTripped = jsonParseWithSchema<ProvingJobResult>(jsonStringify(result), ProvingJobResult);
-    expect(roundTripped.type).toEqual(ProvingRequestType.BLOCK_ROOT_MSGS_ONLY_ROLLUP);
+    expect(roundTripped.type).toEqual(ProvingRequestType.BLOCK_ROOT_NO_TXS_ROLLUP);
   });
 });
 

@@ -1,6 +1,6 @@
 use crate::{
     abis::{BlockRollupPublicInputs, L1ToL2MessageBundle, L1ToL2MessageSponge},
-    block_root::block_root_msgs_only_rollup::{self, BlockRootMsgsOnlyRollupPrivateInputs},
+    block_root::block_root_no_txs_rollup::{self, BlockRootNoTxsRollupPrivateInputs},
     tests::RollupFixtureBuilder,
 };
 use types::{
@@ -17,8 +17,10 @@ use types::{
 
 global TEST_NUM_MSGS: u32 = 5;
 
-// Builds the inputs for a non-first, transaction-less block that inserts an L1-to-L2 message bundle.
+// Builds the inputs for a transaction-less block. `is_first_block` selects the checkpoint position: the first block
+// starts both sponges from their initial values, a later block inherits them from its predecessor.
 struct TestBuilder {
+    is_first_block: bool,
     previous_archive: AppendOnlyTreeSnapshot,
     previous_state: StateReference,
     constants: CheckpointConstantData,
@@ -36,6 +38,14 @@ struct TestBuilder {
 
 impl TestBuilder {
     pub fn new() -> Self {
+        Self::new_at_position(false)
+    }
+
+    pub fn new_first() -> Self {
+        Self::new_at_position(true)
+    }
+
+    fn new_at_position(is_first_block: bool) -> Self {
         let fixture_builder = RollupFixtureBuilder::new();
         let slot_number = fixture_builder.start_slot_number;
         let block_number = fixture_builder.start_block_number;
@@ -48,17 +58,28 @@ impl TestBuilder {
 
         // Borrow a partial state from a tx rollup fixture; it is simply propagated to the start and end states.
         let partial = fixture_builder.get_tx_rollup_public_inputs(6).start_tree_snapshots;
-        let previous_state =
-            StateReference { l1_to_l2_message_tree: previous_l1_to_l2, partial };
+        let previous_state = StateReference { l1_to_l2_message_tree: previous_l1_to_l2, partial };
+
+        let start_sponge_blob = if is_first_block {
+            SpongeBlob::init()
+        } else {
+            // A later block inherits a non-empty sponge blob from the previous block.
+            fixture_builder.get_sponge_blob(block_number)
+        };
+        let start_msg_sponge = if is_first_block {
+            L1ToL2MessageSponge::new()
+        } else {
+            fixture_builder.get_msg_sponge(slot_number)
+        };
 
         Self {
+            is_first_block,
             previous_archive,
             previous_state,
             constants: fixture_builder.get_checkpoint_constant_data(slot_number),
             timestamp: fixture_builder.get_global_variables(block_number).timestamp,
-            // A non-first block inherits a non-empty sponge blob and message sponge from the previous block.
-            start_sponge_blob: fixture_builder.get_sponge_blob(block_number),
-            start_msg_sponge: fixture_builder.get_msg_sponge(slot_number),
+            start_sponge_blob,
+            start_msg_sponge,
             l1_to_l2_messages,
             num_msgs: TEST_NUM_MSGS,
             l1_to_l2_message_frontier_hint,
@@ -68,8 +89,8 @@ impl TestBuilder {
         }
     }
 
-    fn to_inputs(self) -> BlockRootMsgsOnlyRollupPrivateInputs {
-        BlockRootMsgsOnlyRollupPrivateInputs {
+    fn to_inputs(self) -> BlockRootNoTxsRollupPrivateInputs {
+        BlockRootNoTxsRollupPrivateInputs {
             previous_archive: self.previous_archive,
             previous_state: self.previous_state,
             constants: self.constants,
@@ -87,7 +108,7 @@ impl TestBuilder {
     }
 
     pub fn execute(self) -> BlockRollupPublicInputs {
-        block_root_msgs_only_rollup::execute(self.to_inputs())
+        block_root_no_txs_rollup::execute(self.to_inputs())
     }
 
     pub fn execute_and_fail(self) {
@@ -95,12 +116,11 @@ impl TestBuilder {
     }
 
     pub fn assert_expected_public_inputs(self, pi: BlockRollupPublicInputs) {
-        // A message-only block is a single, non-first block.
         assert_eq(pi.num_blocks(), 1);
         assert_eq(pi.constants, self.constants);
-        assert(!pi.is_first_block);
 
-        // --- Sponge blobs: threaded from the (non-empty) provided start, with the block end data absorbed. ---
+        // --- Sponge blobs: threaded from the provided start, with the block end data absorbed. The l1-to-l2 tree
+        // root is part of that data only for the checkpoint's first block. ---
         assert_eq(pi.start_sponge_blob, self.start_sponge_blob);
         let mut expected_end_sponge_blob = self.start_sponge_blob;
         expected_end_sponge_blob.absorb_block_end_data(
@@ -109,7 +129,7 @@ impl TestBuilder {
             pi.end_state,
             0, // num_txs
             0, // total_mana_used
-            false, // is_first_block
+            self.is_first_block,
         );
         assert_eq(pi.end_sponge_blob, expected_end_sponge_blob);
 
@@ -169,19 +189,49 @@ impl TestBuilder {
 }
 
 #[test]
-fn msgs_only_block_root_success() {
+fn no_txs_block_root_success() {
     let builder = TestBuilder::new();
     let pi = builder.execute();
     builder.assert_expected_public_inputs(pi);
 }
 
-#[test(should_fail_with = "A message-only block must insert at least one L1-to-L2 message")]
-fn msgs_only_block_root_rejects_empty_bundle() {
+#[test]
+fn first_no_txs_block_root_success() {
+    let builder = TestBuilder::new_first();
+    let pi = builder.execute();
+    builder.assert_expected_public_inputs(pi);
+}
+
+// A fully empty block (no txs and no messages) is valid at any position in a checkpoint. The prover cost of such
+// blocks is bounded by the checkpoint's block cap, not by requiring every block to carry work.
+#[test]
+fn no_txs_block_root_accepts_empty_bundle() {
     let mut builder = TestBuilder::new();
 
-    // A non-first empty block with no messages has no reason to exist and must be rejected.
     builder.num_msgs = 0;
     builder.l1_to_l2_messages = [0; MAX_L1_TO_L2_MSGS_PER_BLOCK];
+    builder.new_l1_to_l2 = builder.previous_state.l1_to_l2_message_tree;
 
-    builder.execute_and_fail();
+    let pi = builder.execute();
+    builder.assert_expected_public_inputs(pi);
+
+    // With no messages the l1-to-l2 tree and the message sponge are both untouched.
+    assert_eq(pi.end_state.l1_to_l2_message_tree, pi.start_state.l1_to_l2_message_tree);
+    assert_eq(pi.end_msg_sponge, pi.start_msg_sponge);
+}
+
+// The first block of a checkpoint additionally absorbs the l1-to-l2 message tree root into its blob data, which is
+// what distinguishes its blob layout from a later block's.
+#[test]
+fn first_no_txs_block_absorbs_one_more_blob_field() {
+    let first_pi = TestBuilder::new_first().execute();
+    let later_pi = TestBuilder::new().execute();
+
+    assert_eq(
+        first_pi.end_sponge_blob.num_absorbed_fields
+            - first_pi.start_sponge_blob.num_absorbed_fields,
+        later_pi.end_sponge_blob.num_absorbed_fields
+            - later_pi.start_sponge_blob.num_absorbed_fields
+            + 1,
+    );
 }

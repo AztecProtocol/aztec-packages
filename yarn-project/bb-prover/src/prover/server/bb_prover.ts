@@ -13,16 +13,10 @@ import {
   type ServerProtocolArtifact,
   convertBlockMergeRollupOutputsFromWitnessMap,
   convertBlockMergeRollupPrivateInputsToWitnessMap,
-  convertBlockRootEmptyTxFirstRollupOutputsFromWitnessMap,
-  convertBlockRootEmptyTxFirstRollupPrivateInputsToWitnessMap,
-  convertBlockRootFirstRollupOutputsFromWitnessMap,
-  convertBlockRootFirstRollupPrivateInputsToWitnessMap,
-  convertBlockRootMsgsOnlyRollupOutputsFromWitnessMap,
-  convertBlockRootMsgsOnlyRollupPrivateInputsToWitnessMap,
+  convertBlockRootNoTxsRollupOutputsFromWitnessMap,
+  convertBlockRootNoTxsRollupPrivateInputsToWitnessMap,
   convertBlockRootRollupOutputsFromWitnessMap,
   convertBlockRootRollupPrivateInputsToWitnessMap,
-  convertBlockRootSingleTxFirstRollupOutputsFromWitnessMap,
-  convertBlockRootSingleTxFirstRollupPrivateInputsToWitnessMap,
   convertBlockRootSingleTxRollupOutputsFromWitnessMap,
   convertBlockRootSingleTxRollupPrivateInputsToWitnessMap,
   convertCheckpointMergeRollupOutputsFromWitnessMap,
@@ -64,11 +58,8 @@ import { Proof, RecursiveProof, makeRecursiveProofFromBinary } from '@aztec/stdl
 import {
   BlockMergeRollupPrivateInputs,
   BlockRollupPublicInputs,
-  BlockRootEmptyTxFirstRollupPrivateInputs,
-  BlockRootFirstRollupPrivateInputs,
-  BlockRootMsgsOnlyRollupPrivateInputs,
+  BlockRootNoTxsRollupPrivateInputs,
   BlockRootRollupPrivateInputs,
-  BlockRootSingleTxFirstRollupPrivateInputs,
   BlockRootSingleTxRollupPrivateInputs,
   CheckpointMergeRollupPrivateInputs,
   CheckpointPaddingRollupPrivateInputs,
@@ -240,42 +231,6 @@ export class BBNativeRollupProver implements ServerCircuitProver {
     );
   }
 
-  public getBlockRootFirstRollupProof(
-    input: BlockRootFirstRollupPrivateInputs,
-  ): Promise<PublicInputsAndRecursiveProof<BlockRollupPublicInputs, typeof NESTED_RECURSIVE_ROLLUP_HONK_PROOF_LENGTH>> {
-    return this.createRecursiveProofAndVerify(
-      input,
-      'BlockRootFirstRollupArtifact',
-      NESTED_RECURSIVE_ROLLUP_HONK_PROOF_LENGTH,
-      convertBlockRootFirstRollupPrivateInputsToWitnessMap,
-      convertBlockRootFirstRollupOutputsFromWitnessMap,
-    );
-  }
-
-  public getBlockRootSingleTxFirstRollupProof(
-    input: BlockRootSingleTxFirstRollupPrivateInputs,
-  ): Promise<PublicInputsAndRecursiveProof<BlockRollupPublicInputs, typeof NESTED_RECURSIVE_ROLLUP_HONK_PROOF_LENGTH>> {
-    return this.createRecursiveProofAndVerify(
-      input,
-      'BlockRootSingleTxFirstRollupArtifact',
-      NESTED_RECURSIVE_ROLLUP_HONK_PROOF_LENGTH,
-      convertBlockRootSingleTxFirstRollupPrivateInputsToWitnessMap,
-      convertBlockRootSingleTxFirstRollupOutputsFromWitnessMap,
-    );
-  }
-
-  public getBlockRootEmptyTxFirstRollupProof(
-    input: BlockRootEmptyTxFirstRollupPrivateInputs,
-  ): Promise<PublicInputsAndRecursiveProof<BlockRollupPublicInputs, typeof NESTED_RECURSIVE_ROLLUP_HONK_PROOF_LENGTH>> {
-    return this.createRecursiveProofAndVerify(
-      input,
-      'BlockRootEmptyTxFirstRollupArtifact',
-      NESTED_RECURSIVE_ROLLUP_HONK_PROOF_LENGTH,
-      convertBlockRootEmptyTxFirstRollupPrivateInputsToWitnessMap,
-      convertBlockRootEmptyTxFirstRollupOutputsFromWitnessMap,
-    );
-  }
-
   public getBlockRootRollupProof(
     input: BlockRootRollupPrivateInputs,
   ): Promise<PublicInputsAndRecursiveProof<BlockRollupPublicInputs, typeof NESTED_RECURSIVE_ROLLUP_HONK_PROOF_LENGTH>> {
@@ -300,15 +255,15 @@ export class BBNativeRollupProver implements ServerCircuitProver {
     );
   }
 
-  public getBlockRootMsgsOnlyRollupProof(
-    input: BlockRootMsgsOnlyRollupPrivateInputs,
+  public getBlockRootNoTxsRollupProof(
+    input: BlockRootNoTxsRollupPrivateInputs,
   ): Promise<PublicInputsAndRecursiveProof<BlockRollupPublicInputs, typeof NESTED_RECURSIVE_ROLLUP_HONK_PROOF_LENGTH>> {
     return this.createRecursiveProofAndVerify(
       input,
-      'BlockRootMsgsOnlyRollupArtifact',
+      'BlockRootNoTxsRollupArtifact',
       NESTED_RECURSIVE_ROLLUP_HONK_PROOF_LENGTH,
-      convertBlockRootMsgsOnlyRollupPrivateInputsToWitnessMap,
-      convertBlockRootMsgsOnlyRollupOutputsFromWitnessMap,
+      convertBlockRootNoTxsRollupPrivateInputsToWitnessMap,
+      convertBlockRootNoTxsRollupOutputsFromWitnessMap,
     );
   }
 

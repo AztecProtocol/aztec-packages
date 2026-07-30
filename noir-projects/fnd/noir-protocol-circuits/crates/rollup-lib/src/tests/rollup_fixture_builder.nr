@@ -379,7 +379,6 @@ impl RollupFixtureBuilder {
     ) -> BlockRollupPublicInputs {
         let slot_number = self.start_slot_number;
 
-        // Only the first block of a checkpoint (the leftmost leaf) carries `is_first_block`.
         let is_first_block = start_block_number == self.start_block_number;
 
         // The message sponge threads across the checkpoint's blocks. The leftmost block starts from empty; every block
@@ -403,7 +402,6 @@ impl RollupFixtureBuilder {
             end_sponge_blob: self.get_sponge_blob(end_block_number),
             timestamp: self.get_timestamp(slot_number),
             block_headers_hash: self.get_block_headers_hash(end_block_number),
-            is_first_block,
             start_msg_sponge,
             end_msg_sponge,
             out_hash: self.get_out_hash(end_block_number),

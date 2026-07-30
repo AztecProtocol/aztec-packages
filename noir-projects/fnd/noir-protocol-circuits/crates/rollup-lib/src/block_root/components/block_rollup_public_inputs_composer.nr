@@ -30,7 +30,6 @@ pub struct BlockRollupPublicInputsComposer {
     accumulated_mana_used: Field,
     num_txs: u16,
     // The followings are set by calling `with_message_bundle` explicitly.
-    is_first_block: bool,
     start_msg_sponge: L1ToL2MessageSponge,
     end_msg_sponge: L1ToL2MessageSponge,
     new_l1_to_l2: AppendOnlyTreeSnapshot,
@@ -41,27 +40,11 @@ pub struct BlockRollupPublicInputsComposer {
 }
 
 impl BlockRollupPublicInputsComposer {
+    /// Builds a block with no transactions. The `start_sponge_blob` is witnessed: the leftmost block of a checkpoint
+    /// supplies `SpongeBlob::init()` (checked by the checkpoint root), any later block supplies the sponge blob it
+    /// inherited from its predecessor (checked by the block merge). It is threaded unchanged as the end sponge blob
+    /// (before this block's end data is absorbed in `finish`), since a block with no txs adds no tx effects.
     pub fn new_from_no_rollups(
-        previous_archive: AppendOnlyTreeSnapshot,
-        previous_state: StateReference,
-        constants: CheckpointConstantData,
-        timestamp: u64,
-    ) -> Self {
-        // The first block of a checkpoint starts from an empty sponge blob.
-        Self::new_from_no_rollups_with_start_sponge_blob(
-            previous_archive,
-            previous_state,
-            constants,
-            timestamp,
-            SpongeBlob::init(),
-        )
-    }
-
-    /// Same as `new_from_no_rollups` but for a non-first block, which inherits a (non-empty) sponge blob from the
-    /// previous block instead of starting from empty. The `start_sponge_blob` is threaded unchanged as the end sponge
-    /// blob (before this block's end data is absorbed in `finish`), since a block with no txs adds no tx effects. It is
-    /// pinned against the previous block's `end_sponge_blob` at the block merge or checkpoint root.
-    pub fn new_from_no_rollups_with_start_sponge_blob(
         previous_archive: AppendOnlyTreeSnapshot,
         previous_state: StateReference,
         constants: CheckpointConstantData,
@@ -84,7 +67,6 @@ impl BlockRollupPublicInputsComposer {
             accumulated_mana_used: 0,
             num_txs: 0,
             // The followings are updated by calling `with_message_bundle` explicitly.
-            is_first_block: false,
             start_msg_sponge: L1ToL2MessageSponge::new(),
             end_msg_sponge: L1ToL2MessageSponge::new(),
             new_l1_to_l2: previous_state.l1_to_l2_message_tree,
@@ -123,7 +105,6 @@ impl BlockRollupPublicInputsComposer {
             num_txs: rollup.num_txs,
             // The followings are updated by calling `with_message_bundle` explicitly.
             previous_l1_to_l2: rollup.constants.l1_to_l2_tree_snapshot,
-            is_first_block: false,
             start_msg_sponge: L1ToL2MessageSponge::new(),
             end_msg_sponge: L1ToL2MessageSponge::new(),
             new_l1_to_l2: rollup.constants.l1_to_l2_tree_snapshot,
@@ -150,13 +131,11 @@ impl BlockRollupPublicInputsComposer {
     /// padding lanes past `num_real_msgs` must be zero.
     pub fn with_message_bundle(
         &mut self,
-        is_first_block: bool,
         previous_l1_to_l2: AppendOnlyTreeSnapshot,
         start_msg_sponge: L1ToL2MessageSponge,
         bundle: L1ToL2MessageBundle,
         frontier_hint: [Field; L1_TO_L2_MSG_TREE_HEIGHT],
     ) -> Self {
-        self.is_first_block = is_first_block;
         self.previous_l1_to_l2 = previous_l1_to_l2;
         self.bundle_applied = true;
 
@@ -231,7 +210,6 @@ impl BlockRollupPublicInputsComposer {
             end_sponge_blob,
             timestamp: self.timestamp,
             block_headers_hash: block_header_hash,
-            is_first_block: self.is_first_block,
             start_msg_sponge: self.start_msg_sponge,
             end_msg_sponge: self.end_msg_sponge,
             out_hash: self.out_hash,
@@ -284,16 +262,19 @@ impl BlockRollupPublicInputsComposer {
         let mut block_end_sponge_blob = self.end_sponge_blob;
 
         // The l1-to-l2 message tree root is absorbed only for the first block of a checkpoint (the value is shared by
-        // all blocks in the checkpoint). `is_first_block` is asserted true at the checkpoint root and false for every
-        // non-first ("right") rollup in `validate_consecutive_block_rollups.nr`, so it can only be true for the first
-        // block. This replaces the former `in_hash != 0` derivation.
+        // all blocks in the checkpoint). The first block is exactly the block whose start sponge blob is still at its
+        // initial state: every block absorbs its block-end fields here, so a block that follows another one inside the
+        // checkpoint always inherits a sponge blob with fields already absorbed. Since `start_sponge_blob` is a public
+        // input pinned by the checkpoint root (leftmost must equal `SpongeBlob::init()`) and by the block merge
+        // (`right.start_sponge_blob == left.end_sponge_blob`), this derivation cannot be steered by the prover.
+        let is_first_block_in_checkpoint = self.start_sponge_blob.num_absorbed_fields == 0;
         block_end_sponge_blob.absorb_block_end_data(
             global_variables,
             last_archive,
             state,
             self.num_txs,
             self.accumulated_mana_used,
-            self.is_first_block,
+            is_first_block_in_checkpoint,
         );
 
         // Duplicate the `block_end_sponge_blob` so that we can squeeze it.

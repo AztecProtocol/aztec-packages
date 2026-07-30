@@ -1,7 +1,5 @@
 use super::TestBuilder;
-use types::{
-    address::EthAddress, constants::BLOCK_ROOT_ROLLUP_VK_INDEX, hash::accumulate_sha256,
-};
+use types::{address::EthAddress, hash::accumulate_sha256};
 
 #[test]
 fn accumulated_out_hash_correctly() {
@@ -53,48 +51,6 @@ fn output_zero_when_both_out_hashes_are_zero() {
     builder.assert_expected_public_inputs(pi);
 
     assert_eq(pi.out_hash, 0);
-}
-
-#[test]
-fn first_block_in_left_rollup() {
-    // The default builder has a first block root on the left and a non-first block on the right.
-    let mut builder = TestBuilder::default();
-
-    let pi = builder.execute();
-    builder.assert_expected_public_inputs(pi);
-
-    assert(pi.is_first_block);
-}
-
-#[test]
-fn no_first_block_in_either_rollup() {
-    // A merge of two non-first blocks in the middle of a checkpoint carries no first block.
-    let mut builder =
-        TestBuilder::new(BLOCK_ROOT_ROLLUP_VK_INDEX, 1, BLOCK_ROOT_ROLLUP_VK_INDEX, 1);
-
-    let pi = builder.execute();
-    builder.assert_expected_public_inputs(pi);
-
-    assert(!pi.is_first_block);
-}
-
-#[test(should_fail_with = "Right rollup must not be a first block")]
-fn first_block_in_right_rollup() {
-    let mut builder = TestBuilder::default();
-
-    builder.right_rollup.is_first_block = true;
-
-    builder.execute_and_fail();
-}
-
-#[test(should_fail_with = "Right rollup must not be a first block")]
-fn first_block_in_both_rollups() {
-    let mut builder = TestBuilder::default();
-
-    builder.left_rollup.is_first_block = true;
-    builder.right_rollup.is_first_block = true;
-
-    builder.execute_and_fail();
 }
 
 #[test(should_fail_with = "Mismatched message sponge: expected right.start_msg_sponge to match left.end_msg_sponge")]

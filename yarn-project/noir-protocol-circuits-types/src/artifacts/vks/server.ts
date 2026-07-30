@@ -1,10 +1,7 @@
 import {
   BLOCK_MERGE_ROLLUP_VK_INDEX,
-  BLOCK_ROOT_EMPTY_TX_FIRST_ROLLUP_VK_INDEX,
-  BLOCK_ROOT_FIRST_ROLLUP_VK_INDEX,
-  BLOCK_ROOT_MSGS_ONLY_ROLLUP_VK_INDEX,
+  BLOCK_ROOT_NO_TXS_ROLLUP_VK_INDEX,
   BLOCK_ROOT_ROLLUP_VK_INDEX,
-  BLOCK_ROOT_SINGLE_TX_FIRST_ROLLUP_VK_INDEX,
   BLOCK_ROOT_SINGLE_TX_ROLLUP_VK_INDEX,
   CHECKPOINT_MERGE_ROLLUP_VK_INDEX,
   CHECKPOINT_PADDING_ROLLUP_VK_INDEX,
@@ -39,10 +36,7 @@ import InboxParity256 from '../../../artifacts/inbox_parity_256.json' with { typ
 import InboxParity1024 from '../../../artifacts/inbox_parity_1024.json' with { type: 'json' };
 import BlockMergeRollup from '../../../artifacts/rollup_block_merge.json' with { type: 'json' };
 import BlockRootRollup from '../../../artifacts/rollup_block_root.json' with { type: 'json' };
-import BlockRootFirstRollup from '../../../artifacts/rollup_block_root_first.json' with { type: 'json' };
-import BlockRootEmptyTxFirstRollup from '../../../artifacts/rollup_block_root_first_empty_tx.json' with { type: 'json' };
-import BlockRootSingleTxFirstRollup from '../../../artifacts/rollup_block_root_first_single_tx.json' with { type: 'json' };
-import BlockRootMsgsOnlyRollup from '../../../artifacts/rollup_block_root_msgs_only.json' with { type: 'json' };
+import BlockRootNoTxsRollup from '../../../artifacts/rollup_block_root_no_txs.json' with { type: 'json' };
 import BlockRootSingleTxRollup from '../../../artifacts/rollup_block_root_single_tx.json' with { type: 'json' };
 import CheckpointMergeRollup from '../../../artifacts/rollup_checkpoint_merge.json' with { type: 'json' };
 import CheckpointPaddingRollup from '../../../artifacts/rollup_checkpoint_padding.json' with { type: 'json' };
@@ -68,12 +62,9 @@ export const ServerCircuitVks: Record<ServerProtocolCircuitName, VerificationKey
   PrivateTxBaseRollupArtifact: abiToVKData(PrivateTxBaseRollup),
   PublicTxBaseRollupArtifact: abiToVKData(PublicTxBaseRollup),
   TxMergeRollupArtifact: abiToVKData(TxMergeRollup),
-  BlockRootFirstRollupArtifact: abiToVKData(BlockRootFirstRollup),
-  BlockRootSingleTxFirstRollupArtifact: abiToVKData(BlockRootSingleTxFirstRollup),
-  BlockRootEmptyTxFirstRollupArtifact: abiToVKData(BlockRootEmptyTxFirstRollup),
   BlockRootSingleTxRollupArtifact: abiToVKData(BlockRootSingleTxRollup),
   BlockRootRollupArtifact: abiToVKData(BlockRootRollup),
-  BlockRootMsgsOnlyRollupArtifact: abiToVKData(BlockRootMsgsOnlyRollup),
+  BlockRootNoTxsRollupArtifact: abiToVKData(BlockRootNoTxsRollup),
   BlockMergeRollupArtifact: abiToVKData(BlockMergeRollup),
   CheckpointRootRollupArtifact: abiToVKData(CheckpointRootRollup),
   CheckpointRootSingleBlockRollupArtifact: abiToVKData(CheckpointRootSingleBlockRollup),
@@ -104,12 +95,9 @@ export const ProtocolCircuitVkIndexes: Record<ProtocolCircuitName, number> = {
   PrivateTxBaseRollupArtifact: PRIVATE_TX_BASE_ROLLUP_VK_INDEX,
   PublicTxBaseRollupArtifact: PUBLIC_TX_BASE_ROLLUP_VK_INDEX,
   TxMergeRollupArtifact: TX_MERGE_ROLLUP_VK_INDEX,
-  BlockRootFirstRollupArtifact: BLOCK_ROOT_FIRST_ROLLUP_VK_INDEX,
-  BlockRootSingleTxFirstRollupArtifact: BLOCK_ROOT_SINGLE_TX_FIRST_ROLLUP_VK_INDEX,
-  BlockRootEmptyTxFirstRollupArtifact: BLOCK_ROOT_EMPTY_TX_FIRST_ROLLUP_VK_INDEX,
   BlockRootRollupArtifact: BLOCK_ROOT_ROLLUP_VK_INDEX,
   BlockRootSingleTxRollupArtifact: BLOCK_ROOT_SINGLE_TX_ROLLUP_VK_INDEX,
-  BlockRootMsgsOnlyRollupArtifact: BLOCK_ROOT_MSGS_ONLY_ROLLUP_VK_INDEX,
+  BlockRootNoTxsRollupArtifact: BLOCK_ROOT_NO_TXS_ROLLUP_VK_INDEX,
   BlockMergeRollupArtifact: BLOCK_MERGE_ROLLUP_VK_INDEX,
   CheckpointRootRollupArtifact: CHECKPOINT_ROOT_ROLLUP_VK_INDEX,
   CheckpointRootSingleBlockRollupArtifact: CHECKPOINT_ROOT_SINGLE_BLOCK_ROLLUP_VK_INDEX,

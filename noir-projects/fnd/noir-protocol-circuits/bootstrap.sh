@@ -267,11 +267,9 @@ function test_cmds {
     rollup-tx-base-private
     rollup-tx-base-public
     rollup-tx-merge
-    rollup-block-root-first
-    rollup-block-root-first-single-tx
-    rollup-block-root-first-empty-tx
     rollup-block-root
     rollup-block-root-single-tx
+    rollup-block-root-no-txs
     rollup-block-merge
     rollup-checkpoint-root
     rollup-checkpoint-root-single-block

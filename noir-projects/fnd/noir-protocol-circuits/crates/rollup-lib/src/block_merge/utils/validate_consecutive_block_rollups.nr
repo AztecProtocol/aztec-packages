@@ -42,11 +42,6 @@ fn assert_prev_block_rollups_follow_on_from_each_other(
         "Mismatched timestamps: expected right.timestamp to match left.timestamp",
     );
 
-    // `is_first_block` originates from the first block root only, and is propagated through all merge steps via the
-    // left rollup only (see merge_block_rollups.nr). We prevent the right rollup from carrying it, so it's impossible
-    // for any block but the first to propagate `is_first_block == true` up to the checkpoint root.
-    assert(!right.is_first_block, "Right rollup must not be a first block");
-
     // The message sponge threads across the checkpoint's blocks: the right rollup must start from where the left rollup
     // ended. Combined with the checkpoint root asserting the leftmost start is empty and the merged end matches the
     // parity root's sponge, this pins the blocks to insert exactly the parity-committed message list, in order.
