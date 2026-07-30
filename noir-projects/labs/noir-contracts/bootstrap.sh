@@ -27,10 +27,11 @@ export RAYON_NUM_THREADS=${RAYON_NUM_THREADS:-16}
 export HARDWARE_CONCURRENCY=${HARDWARE_CONCURRENCY:-16}
 export PLATFORM_TAG=any
 
-export BB=${BB:-../../../barretenberg/cpp/build/bin/bb}
-export NARGO=${NARGO:-../../../noir/noir-repo/target/release/nargo}
-export BB_HASH=${BB_HASH:-$(../../../barretenberg/cpp/bootstrap.sh hash)}
-export NOIR_HASH=${NOIR_HASH:-$(../../../noir/bootstrap.sh hash)}
+ROOT=$(git rev-parse --show-toplevel)
+export BB=${BB:-"$ROOT/labs-aztec-toolchain/bin/bb"}
+export NARGO=${NARGO:-"$ROOT/labs-aztec-toolchain/bin/nargo"}
+AZTEC_TOOLCHAIN_HASH=${AZTEC_TOOLCHAIN_HASH:-$($ROOT/labs-aztec-toolchain/bootstrap.sh hash)}
+export AZTEC_TOOLCHAIN_HASH
 # Below the Linux ephemeral range (32768-60999) to reduce accidental port conflicts.
 DEFAULT_TXE_PORT=14730
 
@@ -45,10 +46,8 @@ function get_contract_hash {
   if [ "$2" = "examples" ]; then
     # Called from docs
     hash_str \
-      $NOIR_HASH \
+      $AZTEC_TOOLCHAIN_HASH \
       $(cache_content_hash \
-        ../avm-transpiler/.rebuild_patterns \
-        ../barretenberg/cpp/.rebuild_patterns \
         ../barretenberg/ts/.rebuild_patterns \
         "^docs/examples/$contract_path/" \
         "^noir-projects/labs/aztec-nr/" \
@@ -56,10 +55,8 @@ function get_contract_hash {
   else
     # Called from noir-contracts
     hash_str \
-      $NOIR_HASH \
+      $AZTEC_TOOLCHAIN_HASH \
       $(cache_content_hash \
-        ../../../avm-transpiler/.rebuild_patterns \
-        ../../../barretenberg/cpp/.rebuild_patterns \
         ../../../barretenberg/ts/.rebuild_patterns \
         "^noir-projects/labs/noir-contracts/contracts/$contract_path/" \
         "^noir-projects/labs/aztec-nr/" \
@@ -163,7 +160,7 @@ export -f compile
 # If given an argument, it's the contract to compile.
 # Otherwise parse out all relevant contracts from the root Nargo.toml and process them in parallel.
 function build {
-  echo_stderr "Compiling contracts (bb-hash: $BB_HASH)..."
+  echo_stderr "Compiling contracts (toolchain hash: $AZTEC_TOOLCHAIN_HASH)..."
   local folder_name
   if [ -n "${DOCS_WORKING_DIR:-}" ]; then
     folder_name="examples"
@@ -214,18 +211,18 @@ function test_cmds {
   fi
 
   # Test bb aztec_process command
-  echo "$BB_HASH noir-projects/labs/noir-contracts/scripts/test_aztec_process.sh"
+  echo "$AZTEC_TOOLCHAIN_HASH noir-projects/labs/noir-contracts/scripts/test_aztec_process.sh"
 
   # Fairies want to run these tests on every PR
   if [ "${TARGET_BRANCH:-}" = "merge-train/fairies" ]; then
     $NARGO test --list-tests --silence-warnings | sort | while read -r package test; do
-      echo "disabled-cache noir-projects/scripts/run_test.sh labs/noir-contracts $package $test $txe_port"
+      echo "disabled-cache noir-projects/labs/scripts/run_test.sh noir-contracts $package $test $txe_port"
     done
   else
     local -A cache
     $NARGO test --list-tests --silence-warnings | sort | while read -r package test; do
       [ -z "${cache[$package]:-}" ] && cache[$package]=$(get_contract_hash $package $folder_name)
-      echo "${cache[$package]} noir-projects/scripts/run_test.sh labs/noir-contracts $package $test $txe_port"
+      echo "${cache[$package]} noir-projects/labs/scripts/run_test.sh noir-contracts $package $test $txe_port"
     done
   fi
 }
@@ -286,7 +283,7 @@ function test-one {
   local txe_port=$DEFAULT_TXE_PORT
   start_txe "$txe_port"
 
-  $root/noir-projects/scripts/run_test.sh labs/noir-contracts "$package" "$test_name" "$txe_port"
+  $root/noir-projects/labs/scripts/run_test.sh noir-contracts "$package" "$test_name" "$txe_port"
 }
 
 function format {
@@ -300,8 +297,7 @@ function bench_cmds {
   # contracts) so it re-runs whenever any artifact could change. Skipped in the docs/examples flow.
   [ -n "${DOCS_WORKING_DIR:-}" ] && return
   local hash=$(hash_str \
-    $NOIR_HASH \
-    $BB_HASH \
+    $AZTEC_TOOLCHAIN_HASH \
     $(cache_content_hash \
       ../../../avm-transpiler/.rebuild_patterns \
       ../../../barretenberg/cpp/.rebuild_patterns \

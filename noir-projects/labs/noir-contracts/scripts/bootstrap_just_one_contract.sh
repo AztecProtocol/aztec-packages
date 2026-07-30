@@ -23,14 +23,16 @@ if [ ! -f "../target/$JSON_NAME.json" ]; then
   exit 1
 fi
 
+ROOT=$(git rev-parse --show-toplevel)
+
 # Compile the contract
 echo "Compiling contract..."
-NARGO=${NARGO:-../../../noir/noir-repo/target/release/nargo}
+NARGO=${NARGO:-$ROOT/labs-aztec-toolchain/bin/nargo}
 $NARGO compile --silence-warnings --inliner-aggressiveness 0 --package $CONTRACT_PACKAGE_NAME
 
 # Transpile public functions, strip internal prefixes, and generate VKs for private functions.
 echo "Processing contract artifact..."
-BB=${BB:-../../../barretenberg/cpp/build/bin/bb}
+BB=${BB:-$ROOT/labs-aztec-toolchain/bin/bb}
 "$BB" aztec_process -i "../target/$JSON_NAME.json" -o "../target/$JSON_NAME.json" -f
 
 echo "Done."

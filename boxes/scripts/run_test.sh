@@ -4,9 +4,10 @@ source $(git rev-parse --show-toplevel)/ci3/source
 BOX=$1
 BROWSER=$2
 
+ROOT=$(git rev-parse --show-toplevel)
 export AZTEC=$(realpath ../../yarn-project/aztec/scripts/aztec.sh)
-export BB=$(realpath ../../barretenberg/cpp/build/bin/bb)
-export NARGO=$(realpath ../../noir/noir-repo/target/release/nargo)
+export BB=${BB:-"$ROOT/labs-aztec-toolchain/bin/bb"}
+export NARGO=${NARGO:-"$ROOT/labs-aztec-toolchain/bin/nargo"}
 
 function cleanup {
   set +e

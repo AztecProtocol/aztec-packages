@@ -60,7 +60,7 @@ echo_error() {
 # Check if nargo is available
 if ! command -v nargo &> /dev/null; then
     # Try to use the nargo from the noir-repo if available
-    NARGO="${NARGO:-$DOCS_ROOT/../noir/noir-repo/target/release/nargo}"
+    NARGO="${NARGO:-$DOCS_ROOT/../labs-aztec-toolchain/bin/nargo}"
     # Convert to absolute path (important since we cd to aztec-nr directory later)
     if [[ "$NARGO" != /* ]]; then
         NARGO="$(cd "$DOCS_ROOT" && cd "$(dirname "$NARGO")" && pwd)/$(basename "$NARGO")"

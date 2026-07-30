@@ -2,10 +2,10 @@
 source $(git rev-parse --show-toplevel)/ci3/source_bootstrap
 
 # Format check across the labs workspaces. CI runs this via the root Makefile's
-# noir-projects-format-check target, which runs the fnd and labs checks serially:
-# both warm the shared nargo dependency cache, and parallel nargo runs trip over
-# each other downloading. Ordered before the subproject builds so the cache is
-# warm by the time they run.
+# noir-projects-labs-format-check target. The fnd and labs checks both warm the
+# shared nargo dependency cache — parallel nargo runs trip over each other
+# downloading — so on the monorepo the Makefile serializes labs after fnd.
+# Ordered before the subproject builds so the cache is warm by the time they run.
 function format_check {
   # nargo downloads its git dependencies (e.g. noir-lang/poseidon) on first use.
   # Under heavy parallel CI load the VPC DNS resolver drops lookups
@@ -13,7 +13,7 @@ function format_check {
   # that then fails with "Cannot read file .../Nargo.toml". Retry the download,
   # wiping the partial dependency cache after a failure so the next attempt
   # re-clones cleanly. A warm cache is left intact on success.
-  local nargo=$root/noir/noir-repo/target/release/nargo
+  local nargo=$root/labs-aztec-toolchain/bin/nargo
   local fmt_check="( set -e; for dir in noir-contracts aztec-nr; do (cd \"\$dir\" && \"$nargo\" fmt --check); done )"
   RETRY_SLEEP=10 retry "$fmt_check || { rm -rf \"\$HOME/nargo\"; exit 1; }"
 }
