@@ -268,6 +268,41 @@ describe('LightweightCheckpointBuilder', () => {
 
       await fork.close();
     });
+
+    it('builds a mid-checkpoint block with no txs that only carries messages', async () => {
+      const checkpointNumber = CheckpointNumber(1);
+      const slotNumber = SlotNumber(15);
+
+      const constants = makeCheckpointConstants(slotNumber);
+      const previousCheckpointOutHashes: Fr[] = [];
+
+      const fork = await worldState.fork();
+
+      const checkpointBuilder = LightweightCheckpointBuilder.startNewCheckpoint(
+        checkpointNumber,
+        constants,
+        previousCheckpointOutHashes,
+        Fr.ZERO,
+        fork,
+      );
+
+      const globalVariables1 = makeGlobalVariables(BlockNumber(1), slotNumber);
+      const txs1 = await timesAsync(2, i => makeProcessedTx(globalVariables1, 3000 + i));
+      await checkpointBuilder.addBlock(globalVariables1, txs1, [], { insertTxsEffects: true });
+
+      const messages = [new Fr(0xb00), new Fr(0xb01)];
+      const globalVariables2 = makeGlobalVariables(BlockNumber(2), slotNumber);
+      const { block } = await checkpointBuilder.addBlock(globalVariables2, [], messages, { insertTxsEffects: true });
+
+      expect(block.body.txEffects.length).toBe(0);
+      expect(block.header.state.l1ToL2MessageTree.nextAvailableLeafIndex).toBe(messages.length);
+
+      const checkpoint = await checkpointBuilder.completeCheckpoint();
+      expect(checkpoint.blocks.length).toBe(2);
+      expect(checkpoint.blocks[1].number).toEqual(BlockNumber(2));
+
+      await fork.close();
+    });
   });
 
   describe('error handling', () => {
@@ -290,39 +325,6 @@ describe('LightweightCheckpointBuilder', () => {
 
       // Try to complete checkpoint without adding any blocks
       await expect(checkpointBuilder.completeCheckpoint()).rejects.toThrow(/no blocks/);
-
-      await fork.close();
-    });
-
-    it('adding an empty (no txs) block that is NOT the first block in the checkpoint fails', async () => {
-      const checkpointNumber = CheckpointNumber(1);
-      const slotNumber = SlotNumber(15);
-
-      const constants = makeCheckpointConstants(slotNumber);
-      const previousCheckpointOutHashes: Fr[] = [];
-
-      const fork = await worldState.fork();
-
-      const checkpointBuilder = LightweightCheckpointBuilder.startNewCheckpoint(
-        checkpointNumber,
-        constants,
-        previousCheckpointOutHashes,
-        Fr.ZERO,
-        fork,
-      );
-
-      // Add first block with txs - insertTxsEffects will handle inserting side effects
-      const globalVariables1 = makeGlobalVariables(BlockNumber(1), slotNumber);
-      const txs1 = await timesAsync(2, i => makeProcessedTx(globalVariables1, 3000 + i));
-      await checkpointBuilder.addBlock(globalVariables1, txs1, [], {
-        insertTxsEffects: true,
-      });
-
-      // Try to add second block with no txs - this should fail
-      const globalVariables2 = makeGlobalVariables(BlockNumber(2), slotNumber);
-      await expect(checkpointBuilder.addBlock(globalVariables2, [], [], { insertTxsEffects: true })).rejects.toThrow(
-        /first block/,
-      );
 
       await fork.close();
     });
