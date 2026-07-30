@@ -1,5 +1,5 @@
 import { Fr } from '@aztec/foundation/curves/bn254';
-import { FunctionCall, FunctionSelector, FunctionType } from '@aztec/stdlib/abi';
+import { type AbiType, FunctionCall, FunctionSelector, FunctionType } from '@aztec/stdlib/abi';
 import { AuthWitness } from '@aztec/stdlib/auth-witness';
 import { AztecAddress } from '@aztec/stdlib/aztec-address';
 import {
@@ -31,6 +31,9 @@ function mockTxSimResult(overrides: { anchorBlockTimestamp?: bigint; offchainEff
   return txSimResult;
 }
 
+const ONE_FIELD: AbiType = { kind: 'field' };
+const TWO_FIELDS: AbiType = { kind: 'tuple', fields: [{ kind: 'field' }, { kind: 'field' }] };
+
 function createUtilityExecutionPayload(
   functionName: string,
   args: Fr[],
@@ -46,7 +49,7 @@ function createUtilityExecutionPayload(
         hideMsgSender: false,
         isStatic: true,
         args,
-        returnTypes: [{ kind: 'field' }],
+        returnType: ONE_FIELD,
       }),
     ],
     [],
@@ -60,7 +63,7 @@ function createPrivateExecutionPayload(
   functionName: string,
   args: Fr[],
   contractAddress: AztecAddress,
-  numReturnValues: number = 2,
+  returnType: AbiType = TWO_FIELDS,
 ): ExecutionPayload {
   return new ExecutionPayload(
     [
@@ -72,7 +75,7 @@ function createPrivateExecutionPayload(
         hideMsgSender: false,
         isStatic: false,
         args,
-        returnTypes: Array(numReturnValues).fill({ kind: 'field' }),
+        returnType,
       }),
     ],
     [],
@@ -97,7 +100,7 @@ function createPublicExecutionPayload(
         hideMsgSender: false,
         isStatic: false,
         args,
-        returnTypes: [{ kind: 'field' }],
+        returnType: ONE_FIELD,
       }),
     ],
     [],
@@ -274,8 +277,8 @@ describe('BatchCall', () => {
 
       batchCall = new BatchCall(wallet, [
         createUtilityExecutionPayload('getBalance', [Fr.random()], emitterContract),
-        createPrivateExecutionPayload('transfer', [Fr.random()], emitterContract, 1),
-        createPrivateExecutionPayload('transfer', [Fr.random()], emitterContract, 1),
+        createPrivateExecutionPayload('transfer', [Fr.random()], emitterContract, ONE_FIELD),
+        createPrivateExecutionPayload('transfer', [Fr.random()], emitterContract, ONE_FIELD),
       ]);
 
       const utilityResult = new UtilityExecutionResult(
@@ -335,7 +338,7 @@ describe('BatchCall', () => {
       const contractAddress1 = await AztecAddress.random();
       const contractAddress2 = await AztecAddress.random();
 
-      const privatePayload = createPrivateExecutionPayload('privateFunc', [Fr.random()], contractAddress1, 1);
+      const privatePayload = createPrivateExecutionPayload('privateFunc', [Fr.random()], contractAddress1, ONE_FIELD);
       const publicPayload = createPublicExecutionPayload('publicFunc', [Fr.random()], contractAddress2);
 
       batchCall = new BatchCall(wallet, [privatePayload, publicPayload]);

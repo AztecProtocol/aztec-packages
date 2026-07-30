@@ -182,12 +182,29 @@ export interface FunctionAbi {
   isStatic: boolean;
   /** Function parameters. */
   parameters: ABIParameter[];
-  /** The types of the return values. */
-  returnTypes: AbiType[];
+  /** The type of the value the function returns, or undefined if it returns nothing. */
+  returnType?: AbiType;
+  /**
+   * The same type as `returnType`, as a list that is either:
+   * - a single entry, when the function returns something. Multiple return values are expressed as a single `tuple`
+   *   type, so this never holds more than one entry.
+   * - empty, when the function returns nothing.
+   *
+   * @deprecated Read it through {@link getFunctionReturnType}.
+   */
+  returnTypes?: AbiType[];
   /** The types of the errors that the function can throw. */
   errorTypes: Partial<Record<string, AbiErrorType>>;
   /** Whether the function is flagged as an initializer. */
   isInitializer: boolean;
+}
+
+/**
+ * The type a function returns, or undefined if it returns nothing. Falls back to the deprecated `returnTypes` so that
+ * artifacts serialized before `returnType` existed still resolve.
+ */
+export function getFunctionReturnType(abi: Pick<FunctionAbi, 'returnType' | 'returnTypes'>): AbiType | undefined {
+  return abi.returnType ?? abi.returnTypes?.[0];
 }
 
 export const FunctionAbiSchema = z.object({
@@ -197,7 +214,8 @@ export const FunctionAbiSchema = z.object({
   isStatic: z.boolean(),
   isInitializer: z.boolean(),
   parameters: z.array(z.object({ name: z.string(), type: AbiTypeSchema, visibility: z.enum(ABIParameterVisibility) })),
-  returnTypes: z.array(AbiTypeSchema),
+  returnType: AbiTypeSchema.optional(),
+  returnTypes: z.array(AbiTypeSchema).optional(),
   errorTypes: z.record(z.string(), AbiErrorTypeSchema.optional()),
 }) satisfies z.ZodType<FunctionAbi>;
 
@@ -566,7 +584,6 @@ export function emptyFunctionAbi(): FunctionAbi {
     isOnlySelf: false,
     isStatic: false,
     parameters: [],
-    returnTypes: [],
     errorTypes: {},
     isInitializer: false,
   };

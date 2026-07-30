@@ -330,7 +330,6 @@ describe('PXE', () => {
         isStatic: false,
         isInitializer: false,
         parameters: [],
-        returnTypes: [],
         errorTypes: {},
         bytecode: Buffer.from(''),
         debugSymbols: '',

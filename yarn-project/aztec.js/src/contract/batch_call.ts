@@ -125,7 +125,7 @@ export class BatchCall extends BaseContractInteraction {
         const rawReturnValues = utilityResult.result;
         const offchainOutput = extractOffchainOutput(utilityResult.offchainEffects, utilityResult.anchorBlockTimestamp);
         results[resultIndex] = {
-          result: rawReturnValues ? decodeFromAbi(call.returnTypes, rawReturnValues) : [],
+          result: rawReturnValues ? decodeFromAbi(call.returnType, rawReturnValues) : [],
           ...offchainOutput,
         };
       }
@@ -146,7 +146,7 @@ export class BatchCall extends BaseContractInteraction {
               : simulatedTx!.getPublicReturnValues()?.[resultIndex].values;
 
           results[callIndex] = {
-            result: rawReturnValues ? decodeFromAbi(call.returnTypes, rawReturnValues) : [],
+            result: rawReturnValues ? decodeFromAbi(call.returnType, rawReturnValues) : [],
             ...extractOffchainOutput(
               simulatedTx!.offchainEffects,
               simulatedTx!.publicInputs.constants.anchorBlockHeader.globalVariables.timestamp,

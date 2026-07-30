@@ -1,5 +1,12 @@
 import { Fr } from '@aztec/foundation/curves/bn254';
-import { type FunctionAbi, FunctionCall, FunctionSelector, FunctionType, decodeFromAbi } from '@aztec/stdlib/abi';
+import {
+  type FunctionAbi,
+  FunctionCall,
+  FunctionSelector,
+  FunctionType,
+  decodeFromAbi,
+  getFunctionReturnType,
+} from '@aztec/stdlib/abi';
 import { AztecAddress } from '@aztec/stdlib/aztec-address';
 import type { GasSettings } from '@aztec/stdlib/gas';
 import { ExecutionPayload } from '@aztec/stdlib/tx';
@@ -54,20 +61,18 @@ export class PrivateFeePaymentMethod implements FeePaymentMethod {
         isOnlySelf: false,
         isStatic: false,
         parameters: [],
-        returnTypes: [
-          {
-            kind: 'struct',
-            path: 'authwit::aztec::protocol_types::address::aztec_address::AztecAddress',
-            fields: [
-              {
-                name: 'inner',
-                type: {
-                  kind: 'field',
-                },
+        returnType: {
+          kind: 'struct',
+          path: 'authwit::aztec::protocol_types::address::aztec_address::AztecAddress',
+          fields: [
+            {
+              name: 'inner',
+              type: {
+                kind: 'field',
               },
-            ],
-          },
-        ],
+            },
+          ],
+        },
         errorTypes: {},
         isInitializer: false,
       } as FunctionAbi;
@@ -81,7 +86,7 @@ export class PrivateFeePaymentMethod implements FeePaymentMethod {
         })
         .then(simulationResult => {
           const rawReturnValues = simulationResult.getPrivateReturnValues().values;
-          return decodeFromAbi(abi.returnTypes, rawReturnValues!);
+          return decodeFromAbi(getFunctionReturnType(abi), rawReturnValues!);
         }) as Promise<AztecAddress>;
     }
     return this.assetPromise!;
@@ -112,7 +117,6 @@ export class PrivateFeePaymentMethod implements FeePaymentMethod {
         hideMsgSender: false,
         isStatic: false,
         args: [this.sender.toField(), this.paymentContract.toField(), maxFee, txNonce],
-        returnTypes: [],
       }),
     });
 
@@ -126,7 +130,6 @@ export class PrivateFeePaymentMethod implements FeePaymentMethod {
           hideMsgSender: false,
           isStatic: false,
           args: [maxFee, txNonce],
-          returnTypes: [],
         }),
       ],
       [witness],

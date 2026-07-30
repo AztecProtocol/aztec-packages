@@ -2,8 +2,8 @@ import { Fr } from '@aztec/foundation/curves/bn254';
 import { EthAddress } from '@aztec/foundation/eth-address';
 
 import { AztecAddress } from '../aztec-address/index.js';
-import type { ABIParameterVisibility, FunctionArtifact } from './abi.js';
-import { decodeFromAbi } from './decoder.js';
+import type { ABIParameterVisibility, AbiType, FunctionArtifact } from './abi.js';
+import { decodeEachFromAbi, decodeFromAbi } from './decoder.js';
 import { decodeFunctionSignature, decodeFunctionSignatureWithParameterNames } from './function_signature_decoder.js';
 
 describe('abi/decoder', () => {
@@ -84,25 +84,21 @@ describe('abi/decoder', () => {
 describe('decoder', () => {
   it('decodes an i8', () => {
     let decoded = decodeFromAbi(
-      [
-        {
-          kind: 'integer',
-          sign: 'signed',
-          width: 8,
-        },
-      ],
+      {
+        kind: 'integer',
+        sign: 'signed',
+        width: 8,
+      },
       [Fr.fromBuffer(Buffer.from('00000000000000000000000000000000000000000000000000000000000000ff', 'hex'))],
     );
     expect(decoded).toBe(-1n);
 
     decoded = decodeFromAbi(
-      [
-        {
-          kind: 'integer',
-          sign: 'signed',
-          width: 8,
-        },
-      ],
+      {
+        kind: 'integer',
+        sign: 'signed',
+        width: 8,
+      },
       [Fr.fromBuffer(Buffer.from('000000000000000000000000000000000000000000000000000000000000007f', 'hex'))],
     );
     expect(decoded).toBe(2n ** 7n - 1n);
@@ -110,25 +106,21 @@ describe('decoder', () => {
 
   it('decodes an i16', () => {
     let decoded = decodeFromAbi(
-      [
-        {
-          kind: 'integer',
-          sign: 'signed',
-          width: 16,
-        },
-      ],
+      {
+        kind: 'integer',
+        sign: 'signed',
+        width: 16,
+      },
       [Fr.fromBuffer(Buffer.from('000000000000000000000000000000000000000000000000000000000000ffff', 'hex'))],
     );
     expect(decoded).toBe(-1n);
 
     decoded = decodeFromAbi(
-      [
-        {
-          kind: 'integer',
-          sign: 'signed',
-          width: 16,
-        },
-      ],
+      {
+        kind: 'integer',
+        sign: 'signed',
+        width: 16,
+      },
       [Fr.fromBuffer(Buffer.from('0000000000000000000000000000000000000000000000000000000000007fff', 'hex'))],
     );
     expect(decoded).toBe(2n ** 15n - 1n);
@@ -136,25 +128,21 @@ describe('decoder', () => {
 
   it('decodes an i32', () => {
     let decoded = decodeFromAbi(
-      [
-        {
-          kind: 'integer',
-          sign: 'signed',
-          width: 32,
-        },
-      ],
+      {
+        kind: 'integer',
+        sign: 'signed',
+        width: 32,
+      },
       [Fr.fromBuffer(Buffer.from('00000000000000000000000000000000000000000000000000000000ffffffff', 'hex'))],
     );
     expect(decoded).toBe(-1n);
 
     decoded = decodeFromAbi(
-      [
-        {
-          kind: 'integer',
-          sign: 'signed',
-          width: 32,
-        },
-      ],
+      {
+        kind: 'integer',
+        sign: 'signed',
+        width: 32,
+      },
       [Fr.fromBuffer(Buffer.from('000000000000000000000000000000000000000000000000000000007fffffff', 'hex'))],
     );
     expect(decoded).toBe(2n ** 31n - 1n);
@@ -162,25 +150,21 @@ describe('decoder', () => {
 
   it('decodes an i64', () => {
     let decoded = decodeFromAbi(
-      [
-        {
-          kind: 'integer',
-          sign: 'signed',
-          width: 64,
-        },
-      ],
+      {
+        kind: 'integer',
+        sign: 'signed',
+        width: 64,
+      },
       [Fr.fromBuffer(Buffer.from('000000000000000000000000000000000000000000000000ffffffffffffffff', 'hex'))],
     );
     expect(decoded).toBe(-1n);
 
     decoded = decodeFromAbi(
-      [
-        {
-          kind: 'integer',
-          sign: 'signed',
-          width: 64,
-        },
-      ],
+      {
+        kind: 'integer',
+        sign: 'signed',
+        width: 64,
+      },
       [Fr.fromBuffer(Buffer.from('0000000000000000000000000000000000000000000000007fffffffffffffff', 'hex'))],
     );
     expect(decoded).toBe(2n ** 63n - 1n);
@@ -189,58 +173,56 @@ describe('decoder', () => {
   it('decodes a tuple', () => {
     // ABI copied from noir-projects/noir-contracts/target/returning_tuple_contract-ReturningTuple.json
     const decoded = decodeFromAbi(
-      [
-        {
-          kind: 'tuple',
-          fields: [
-            {
-              kind: 'field',
-            },
-            {
-              kind: 'integer',
-              sign: 'unsigned',
-              width: 128,
-            },
-            {
-              kind: 'boolean',
-            },
-            {
-              kind: 'string',
-              length: 3,
-            },
-            {
-              kind: 'struct',
-              path: 'aztec::protocol_types::address::aztec_address::AztecAddress',
-              fields: [
-                {
-                  name: 'inner',
-                  type: {
-                    kind: 'field',
-                  },
+      {
+        kind: 'tuple',
+        fields: [
+          {
+            kind: 'field',
+          },
+          {
+            kind: 'integer',
+            sign: 'unsigned',
+            width: 128,
+          },
+          {
+            kind: 'boolean',
+          },
+          {
+            kind: 'string',
+            length: 3,
+          },
+          {
+            kind: 'struct',
+            path: 'aztec::protocol_types::address::aztec_address::AztecAddress',
+            fields: [
+              {
+                name: 'inner',
+                type: {
+                  kind: 'field',
                 },
-              ],
-            },
-            {
-              kind: 'struct',
-              path: 'std::embedded_curve_ops::EmbeddedCurvePoint',
-              fields: [
-                {
-                  name: 'x',
-                  type: {
-                    kind: 'field',
-                  },
+              },
+            ],
+          },
+          {
+            kind: 'struct',
+            path: 'std::embedded_curve_ops::EmbeddedCurvePoint',
+            fields: [
+              {
+                name: 'x',
+                type: {
+                  kind: 'field',
                 },
-                {
-                  name: 'y',
-                  type: {
-                    kind: 'field',
-                  },
+              },
+              {
+                name: 'y',
+                type: {
+                  kind: 'field',
                 },
-              ],
-            },
-          ],
-        },
-      ],
+              },
+            ],
+          },
+        ],
+      },
       [
         Fr.fromBuffer(Buffer.from('0000000000000000000000000000000000000000000000000000000000000001', 'hex')), // field
         Fr.fromBuffer(Buffer.from('0000000000000000000000000000000000000000000000000000000000000002', 'hex')), // u128
@@ -259,26 +241,24 @@ describe('decoder', () => {
 
   it('decodes Option::Some as the wrapped value', () => {
     const decoded = decodeFromAbi(
-      [
-        {
-          kind: 'struct',
-          path: 'std::option::Option',
-          fields: [
-            { name: '_is_some', type: { kind: 'boolean' } },
-            {
-              name: '_value',
-              type: {
-                kind: 'struct',
-                path: 'Test::CustomStruct',
-                fields: [
-                  { name: 'w', type: { kind: 'field' } },
-                  { name: 'x', type: { kind: 'boolean' } },
-                ],
-              },
+      {
+        kind: 'struct',
+        path: 'std::option::Option',
+        fields: [
+          { name: '_is_some', type: { kind: 'boolean' } },
+          {
+            name: '_value',
+            type: {
+              kind: 'struct',
+              path: 'Test::CustomStruct',
+              fields: [
+                { name: 'w', type: { kind: 'field' } },
+                { name: 'x', type: { kind: 'boolean' } },
+              ],
             },
-          ],
-        },
-      ],
+          },
+        ],
+      },
       [new Fr(1n), new Fr(7n), new Fr(1n)],
     );
 
@@ -287,26 +267,24 @@ describe('decoder', () => {
 
   it('decodes Option::None as undefined', () => {
     const decoded = decodeFromAbi(
-      [
-        {
-          kind: 'struct',
-          path: 'std::option::Option',
-          fields: [
-            { name: '_is_some', type: { kind: 'boolean' } },
-            {
-              name: '_value',
-              type: {
-                kind: 'struct',
-                path: 'Test::CustomStruct',
-                fields: [
-                  { name: 'w', type: { kind: 'field' } },
-                  { name: 'x', type: { kind: 'boolean' } },
-                ],
-              },
+      {
+        kind: 'struct',
+        path: 'std::option::Option',
+        fields: [
+          { name: '_is_some', type: { kind: 'boolean' } },
+          {
+            name: '_value',
+            type: {
+              kind: 'struct',
+              path: 'Test::CustomStruct',
+              fields: [
+                { name: 'w', type: { kind: 'field' } },
+                { name: 'x', type: { kind: 'boolean' } },
+              ],
             },
-          ],
-        },
-      ],
+          },
+        ],
+      },
       [Fr.ZERO, new Fr(7n), new Fr(1n)],
     );
 
@@ -316,13 +294,11 @@ describe('decoder', () => {
   it('decodes EthAddress struct as EthAddress instance', () => {
     const field = new Fr(0xdeadbeefn);
     const decoded = decodeFromAbi(
-      [
-        {
-          kind: 'struct',
-          path: 'aztec::protocol_types::address::EthAddress',
-          fields: [{ name: 'inner', type: { kind: 'field' } }],
-        },
-      ],
+      {
+        kind: 'struct',
+        path: 'aztec::protocol_types::address::EthAddress',
+        fields: [{ name: 'inner', type: { kind: 'field' } }],
+      },
       [field],
     );
 
@@ -333,13 +309,11 @@ describe('decoder', () => {
   it('decodes wrapped field struct as Fr', () => {
     const field = new Fr(42n);
     const decoded = decodeFromAbi(
-      [
-        {
-          kind: 'struct',
-          path: 'some::custom::WrappedType',
-          fields: [{ name: 'inner', type: { kind: 'field' } }],
-        },
-      ],
+      {
+        kind: 'struct',
+        path: 'some::custom::WrappedType',
+        fields: [{ name: 'inner', type: { kind: 'field' } }],
+      },
       [field],
     );
 
@@ -351,29 +325,54 @@ describe('decoder', () => {
     const addressField = new Fr(0x1234n);
     const amountField = new Fr(100n);
     const decoded = decodeFromAbi(
-      [
-        {
-          kind: 'struct',
-          path: 'MyContract::MyEvent',
-          fields: [
-            {
-              name: 'recipient',
-              type: {
-                kind: 'struct',
-                path: 'aztec::protocol_types::address::EthAddress',
-                fields: [{ name: 'inner', type: { kind: 'field' } }],
-              },
+      {
+        kind: 'struct',
+        path: 'MyContract::MyEvent',
+        fields: [
+          {
+            name: 'recipient',
+            type: {
+              kind: 'struct',
+              path: 'aztec::protocol_types::address::EthAddress',
+              fields: [{ name: 'inner', type: { kind: 'field' } }],
             },
-            { name: 'amount', type: { kind: 'field' } },
-          ],
-        },
-      ],
+          },
+          { name: 'amount', type: { kind: 'field' } },
+        ],
+      },
       [addressField, amountField],
     );
 
     expect(decoded).toEqual({
       recipient: EthAddress.fromField(addressField),
       amount: 100n,
+    });
+  });
+  describe('decodeFromAbi', () => {
+    it('decodes nothing when the function returns nothing', () => {
+      expect(decodeFromAbi(undefined, [new Fr(1n)])).toBeUndefined();
+    });
+
+    it('decodes multiple return values from the tuple they are expressed as', () => {
+      const type: AbiType = { kind: 'tuple', fields: [{ kind: 'boolean' }, { kind: 'field' }] };
+
+      expect(decodeFromAbi(type, [new Fr(1n), new Fr(7n)])).toEqual([true, 7n]);
+    });
+  });
+
+  describe('decodeEachFromAbi', () => {
+    it('decodes one value per type, in order', () => {
+      const types: AbiType[] = [{ kind: 'field' }, { kind: 'boolean' }];
+
+      expect(decodeEachFromAbi(types, [new Fr(5n), new Fr(0n)])).toEqual([5n, false]);
+    });
+
+    it('decodes a single argument as a one-element list', () => {
+      expect(decodeEachFromAbi([{ kind: 'field' }], [new Fr(5n)])).toEqual([5n]);
+    });
+
+    it('decodes nothing when there are no arguments', () => {
+      expect(decodeEachFromAbi([], [])).toEqual([]);
     });
   });
 });

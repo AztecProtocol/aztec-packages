@@ -8,6 +8,7 @@ import {
   canBeMappedFromNullOrUndefined,
   decodeFromAbi,
   encodeArguments,
+  getFunctionReturnType,
   isOptionStruct,
 } from '@aztec/stdlib/abi';
 import type { AuthWitness } from '@aztec/stdlib/auth-witness';
@@ -84,7 +85,7 @@ export class ContractFunctionInteraction extends BaseContractInteraction {
       hideMsgSender: false /** Only set to `true` for enqueued public function calls */,
       isStatic: this.functionDao.isStatic,
       args,
-      returnTypes: this.functionDao.returnTypes,
+      returnType: getFunctionReturnType(this.functionDao),
     });
   }
 
@@ -139,7 +140,9 @@ export class ContractFunctionInteraction extends BaseContractInteraction {
       });
 
       // Decode the raw field elements to the actual return type
-      const returnValue = utilityResult.result ? decodeFromAbi(this.functionDao.returnTypes, utilityResult.result) : [];
+      const returnValue = utilityResult.result
+        ? decodeFromAbi(getFunctionReturnType(this.functionDao), utilityResult.result)
+        : [];
       const offchainOutput = extractOffchainOutput(utilityResult.offchainEffects, utilityResult.anchorBlockTimestamp);
 
       if (options.includeMetadata) {
@@ -163,7 +166,7 @@ export class ContractFunctionInteraction extends BaseContractInteraction {
       rawReturnValues = simulatedTx.getPublicReturnValues()?.[0]?.values;
     }
 
-    const returnValue = rawReturnValues ? decodeFromAbi(this.functionDao.returnTypes, rawReturnValues) : [];
+    const returnValue = rawReturnValues ? decodeFromAbi(getFunctionReturnType(this.functionDao), rawReturnValues) : [];
     const offchainOutput = extractOffchainOutput(
       simulatedTx.offchainEffects,
       simulatedTx.publicInputs.constants.anchorBlockHeader.globalVariables.timestamp,

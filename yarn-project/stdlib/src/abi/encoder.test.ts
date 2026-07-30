@@ -24,7 +24,6 @@ describe('abi/encoder', () => {
           visibility: 'private',
         },
       ],
-      returnTypes: [],
       errorTypes: {},
     };
 
@@ -53,7 +52,6 @@ describe('abi/encoder', () => {
           visibility: 'private',
         },
       ],
-      returnTypes: [],
       errorTypes: {},
     };
 
@@ -78,7 +76,6 @@ describe('abi/encoder', () => {
           visibility: 'private',
         },
       ],
-      returnTypes: [],
       errorTypes: {},
     };
 
@@ -111,7 +108,6 @@ describe('abi/encoder', () => {
           visibility: 'private',
         },
       ],
-      returnTypes: [],
       errorTypes: {},
     };
 
@@ -150,7 +146,6 @@ describe('abi/encoder', () => {
           visibility: 'private',
         },
       ],
-      returnTypes: [],
       errorTypes: {},
     };
 
@@ -193,7 +188,6 @@ describe('abi/encoder', () => {
           visibility: 'private',
         },
       ],
-      returnTypes: [],
       errorTypes: {},
     };
 
@@ -250,7 +244,6 @@ describe('abi/encoder', () => {
           visibility: 'private',
         },
       ],
-      returnTypes: [],
       errorTypes: {},
     };
 
@@ -273,7 +266,6 @@ describe('abi/encoder', () => {
           visibility: 'private',
         },
       ],
-      returnTypes: [],
       errorTypes: {},
     };
 
@@ -296,7 +288,6 @@ describe('abi/encoder', () => {
           visibility: 'private',
         },
       ],
-      returnTypes: [],
       errorTypes: {},
     };
 
@@ -316,7 +307,6 @@ describe('abi/encoder', () => {
         { name: 'a', type: { kind: 'field' }, visibility: 'private' },
         { name: 'b', type: { kind: 'field' }, visibility: 'private' },
       ],
-      returnTypes: [],
       errorTypes: {},
     };
 
@@ -337,7 +327,6 @@ describe('abi/encoder', () => {
           visibility: 'private',
         },
       ],
-      returnTypes: [],
       errorTypes: {},
     };
 
@@ -360,7 +349,6 @@ describe('abi/encoder', () => {
           visibility: 'private',
         },
       ],
-      returnTypes: [],
       errorTypes: {},
     };
 
@@ -386,7 +374,6 @@ describe('abi/encoder', () => {
           visibility: 'private',
         },
       ],
-      returnTypes: [],
       errorTypes: {},
     };
 
@@ -416,7 +403,6 @@ describe('abi/encoder', () => {
           visibility: 'private',
         },
       ],
-      returnTypes: [],
       errorTypes: {},
     };
     const args = ['garbage'];
@@ -442,7 +428,6 @@ describe('abi/encoder', () => {
           visibility: 'private',
         },
       ],
-      returnTypes: [],
       errorTypes: {},
     };
     const args = ['garbage'];
@@ -463,7 +448,6 @@ describe('abi/encoder', () => {
           visibility: 'private',
         },
       ],
-      returnTypes: [],
       errorTypes: {},
     };
 
@@ -492,7 +476,6 @@ describe('abi/encoder', () => {
           visibility: 'private',
         },
       ],
-      returnTypes: [],
       errorTypes: {},
     };
     const args = [
@@ -539,7 +522,6 @@ describe('abi/encoder', () => {
           visibility: 'private',
         },
       ],
-      returnTypes: [],
       errorTypes: {},
     };
 
@@ -617,7 +599,6 @@ describe('abi/encoder', () => {
           visibility: 'private',
         },
       ],
-      returnTypes: [],
       errorTypes: {},
     };
 
@@ -697,7 +678,6 @@ describe('abi/encoder', () => {
           visibility: 'private',
         },
       ],
-      returnTypes: [],
       errorTypes: {},
     };
 

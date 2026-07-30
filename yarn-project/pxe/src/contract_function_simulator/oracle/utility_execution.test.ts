@@ -15,6 +15,7 @@ import {
   FunctionType,
   encodeArguments,
   getFunctionArtifactByName,
+  getFunctionReturnType,
 } from '@aztec/stdlib/abi';
 import { AztecAddress } from '@aztec/stdlib/aztec-address';
 import { BlockHash, type L2TipsProvider } from '@aztec/stdlib/block';
@@ -237,7 +238,7 @@ describe('Utility Execution test suite', () => {
       hideMsgSender: false,
       isStatic: false,
       args: encodeArguments(artifact, [owner]),
-      returnTypes: artifact.returnTypes,
+      returnType: getFunctionReturnType(artifact),
     });
 
     const { result, offchainEffects } = await acirSimulator.runUtility(
@@ -328,7 +329,7 @@ describe('Utility Execution test suite', () => {
       hideMsgSender: false,
       isStatic: false,
       args: encodeArguments(artifact, [owner]),
-      returnTypes: artifact.returnTypes,
+      returnType: getFunctionReturnType(artifact),
     });
 
     const results = await Promise.all(

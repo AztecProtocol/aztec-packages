@@ -6,7 +6,13 @@ import { MerkleTree, MerkleTreeCalculator } from '@aztec/foundation/trees';
 
 import deterministicStringify from 'json-stringify-deterministic';
 
-import { type ContractArtifact, type FunctionArtifact, FunctionSelector, FunctionType } from '../abi/index.js';
+import {
+  type ContractArtifact,
+  type FunctionArtifact,
+  FunctionSelector,
+  FunctionType,
+  getFunctionReturnType,
+} from '../abi/index.js';
 
 const VERSION = 1;
 
@@ -105,7 +111,10 @@ export async function computeFunctionArtifactHash(
 }
 
 export function computeFunctionMetadataHash(fn: FunctionArtifact) {
-  return sha256Fr(Buffer.from(deterministicStringify(fn.returnTypes), 'utf8'));
+  // Hashed as a list because that is what the field held when this hash was introduced. It feeds contract class ids,
+  // so the shape is frozen: serializing the type any other way changes every deployed contract's address.
+  const returnType = getFunctionReturnType(fn);
+  return sha256Fr(Buffer.from(deterministicStringify(returnType ? [returnType] : []), 'utf8'));
 }
 
 function getLogger() {
