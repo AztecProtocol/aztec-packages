@@ -53,12 +53,7 @@ export class InboxParityPrivateInputs {
    * Builds the inputs from a checkpoint's real messages, sizing the circuit by the message count and padding the
    * message array out to that size.
    */
-  static fromMessages(
-    messages: Fr[],
-    startRollingHash: Fr,
-    vkTreeRoot: Fr,
-    proverId: Fr,
-  ): InboxParityPrivateInputs {
+  static fromMessages(messages: Fr[], startRollingHash: Fr, vkTreeRoot: Fr, proverId: Fr): InboxParityPrivateInputs {
     const size = pickInboxParitySize(messages.length);
     // Explicit `<Fr, number>` keeps the result `Fr[]`; padding to the union-literal `size` would infer a deep tuple.
     return new InboxParityPrivateInputs(

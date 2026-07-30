@@ -57,12 +57,7 @@ describe('BB.js Debug Wrapper', () => {
     // Generate inbox parity inputs (same approach as base_parity_inputs.test.ts)
     const l1ToL2Messages = new Array(INBOX_PARITY_SIZE_MEDIUM).fill(null).map(() => Fr.random());
     const vkTreeRoot = getVKTreeRoot();
-    const inboxParityInputs = InboxParityPrivateInputs.fromMessages(
-      l1ToL2Messages,
-      Fr.ZERO,
-      vkTreeRoot,
-      Fr.random(),
-    );
+    const inboxParityInputs = InboxParityPrivateInputs.fromMessages(l1ToL2Messages, Fr.ZERO, vkTreeRoot, Fr.random());
 
     const noirInputs = {
       msgs: inboxParityInputs.messages.map(m => m.toString()),

@@ -42,12 +42,7 @@ describe('Inbox Parity Benchmark Inputs', () => {
 
     // Create InboxParity inputs (picks the 256 rung for 256 messages).
     const vkTreeRoot = getVKTreeRoot();
-    const inputs = InboxParityPrivateInputs.fromMessages(
-      l1ToL2Messages,
-      Fr.ZERO,
-      vkTreeRoot,
-      Fr.random(),
-    );
+    const inputs = InboxParityPrivateInputs.fromMessages(l1ToL2Messages, Fr.ZERO, vkTreeRoot, Fr.random());
     logger.info('Created inbox parity inputs');
 
     // Convert inputs to Noir format (inline the mapping since it's simple)
