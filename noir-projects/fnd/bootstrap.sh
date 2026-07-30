@@ -55,6 +55,145 @@ function format {
     parallel -k ./{}/bootstrap.sh format ::: noir-protocol-circuits noir-contracts
 }
 
+# What staging wrote into each package, keyed by package directory, one path per line relative to it.
+# Recorded as we go rather than recovered afterwards by listing the directory, so that check_publishable
+# compares the tarball against the payload this run intended and not against whatever happens to be on
+# disk.
+declare -A staged_payload
+
+# Copies a subproject's compiled output into the npm package that publishes it. Named arguments
+# beyond the source select individual artifacts; with none, every artifact in the directory is
+# published.
+function stage_artifacts {
+  local pkg=${1:?package dir required}
+  local src=${2:?source dir required}
+  shift 2
+
+  local -a sources
+  if [ $# -eq 0 ]; then
+    # Artifacts only. The source also holds a keys/ subdirectory of generated Solidity verifiers, which
+    # are no use to a consumer of these artifacts.
+    sources=($src/*.json)
+    # The circuit subprojects create target/keys before doing any work, so a source directory that
+    # exists tells you nothing about whether anything was compiled into it. An unmatched glob is left
+    # verbatim, so this catches an empty and an absent source alike.
+    [ -e "${sources[0]}" ] || { echo_stderr "no artifacts in $src; was the build phase run?"; exit 1; }
+  else
+    local artifact
+    for artifact in "$@"; do
+      [ -f "$src/$artifact.json" ] || { echo_stderr "$src/$artifact.json not found."; exit 1; }
+      sources+=($src/$artifact.json)
+    done
+  fi
+
+  rm -rf $pkg/artifacts && mkdir -p $pkg/artifacts
+  cp "${sources[@]}" $pkg/artifacts
+
+  local source
+  for source in "${sources[@]}"; do
+    staged_payload[$pkg]+="artifacts/${source##*/}"$'\n'
+  done
+}
+
+# Copies a file the consuming generators read alongside the artifacts. These sit at the package root
+# rather than in artifacts/, because they describe the artifacts instead of being one, and because
+# release_prep_package_json rewrites every artifacts/*.json to stamp a version into it, which fails
+# outright on a JSON array.
+function stage_config {
+  local pkg=${1:?package dir required}
+  local src=${2:?source file required}
+  cp $src $pkg/
+  staged_payload[$pkg]+="${src##*/}"$'\n'
+}
+
+# Blanks the fields carrying Noir source mapping, which is what noir-protocol-circuits-types does to
+# its own copy of these artifacts before publishing.
+function strip_debug_info {
+  local pkg=${1:?package dir required}
+  local artifact tmp
+  for artifact in $pkg/artifacts/*.json; do
+    tmp=$(mktemp)
+    jq -c '.file_map = {} | .debug_symbols = ""' $artifact > $tmp
+    # npm packs a file's mode verbatim, and mktemp creates 0600. Left alone, anyone extracting the
+    # tarball directly rather than through npm gets artifacts only the extracting user can read.
+    chmod 644 $tmp
+    mv $tmp $artifact
+  done
+}
+
+# The packages published from here, declared once so the check and publish loops cannot disagree about
+# which ones exist.
+function artifact_packages {
+  echo noir-protocol-circuits-artifacts mock-protocol-circuits-artifacts protocol-contracts-artifacts
+}
+
+# Fills each package with the payload it publishes.
+function stage_packages {
+  stage_artifacts noir-protocol-circuits-artifacts noir-protocol-circuits/target
+  # Two thirds of this package is source mapping its consumer blanks anyway. The mock and contract
+  # artifacts keep theirs, because PXE resolves a failing public call against contract debug info.
+  strip_debug_info noir-protocol-circuits-artifacts
+  # The reset-data and abi generators downstream read both of these. The dimensions file is written by
+  # generate_variants, so a release needs that to have run and not merely the circuits to have compiled.
+  stage_config noir-protocol-circuits-artifacts noir-protocol-circuits/private_kernel_reset_config.json
+  stage_config noir-protocol-circuits-artifacts noir-protocol-circuits/private_kernel_reset_dimensions.json
+
+  stage_artifacts mock-protocol-circuits-artifacts mock-protocol-circuits/target
+
+  # Assigned on its own line because errexit ignores a failing command substitution in argument
+  # position: inlined, a missing or unreadable manifest would pass zero names, and staging would
+  # fall through to copying every contract in the target directory.
+  local protocol_contracts
+  protocol_contracts=$(jq -r '.[]' noir-contracts/protocol_contracts.json)
+  [ -n "$protocol_contracts" ] || { echo_stderr "noir-contracts/protocol_contracts.json lists no contracts."; exit 1; }
+  stage_artifacts protocol-contracts-artifacts noir-contracts/target $protocol_contracts
+  # The generators derive each artifact's filename and TypeScript name from this list.
+  stage_config protocol-contracts-artifacts noir-contracts/protocol_contracts.json
+}
+
+# Fails unless everything staging wrote into $1 makes it into the tarball npm would publish. The
+# mistake it guards is a file staged and never added to the manifest's files list, which npm drops
+# without a word, leaving a package that publishes clean and is missing an input its consumer needs.
+function check_publishable {
+  local pkg=${1:?package dir required}
+  [ -n "${staged_payload[$pkg]:-}" ] || { echo_stderr "nothing was staged into $pkg."; exit 1; }
+
+  local tmp
+  tmp=$(mktemp -d)
+  (cd $pkg && npm pack --quiet --pack-destination $tmp >/dev/null)
+
+  local packed missing
+  packed=$(tar tzf $tmp/*.tgz | sed 's|^package/||' | sort)
+  missing=$(comm -23 <(printf '%s' "${staged_payload[$pkg]}" | sort) <(echo "$packed"))
+  rm -rf $tmp
+
+  [ -z "$missing" ] || {
+    echo_stderr "$pkg: staged but missing from the tarball npm would publish:"
+    echo_stderr "$missing"
+    echo_stderr "Add it to the files list in $pkg/package.json."
+    exit 1
+  }
+}
+
+# Publishes the compiled protocol artifacts to npm, so repos without a Noir toolchain can generate
+# their own bindings from them. Only runs for release tags; see ci3/source_bootstrap.
+function release {
+  echo_header "noir-projects fnd release"
+  local version=${REF_NAME#v}
+
+  stage_packages
+
+  # Every package is checked before any is published. npm forbids reusing a version, so a check that
+  # failed after an earlier publish would leave the release tag permanently half-published.
+  local pkg
+  for pkg in $(artifact_packages); do
+    check_publishable $pkg
+  done
+  for pkg in $(artifact_packages); do
+    (cd $pkg && retry "deploy_npm $version")
+  done
+}
+
 function pin-build {
   echo_header "noir-projects fnd pin-build"
   parallel --tag --line-buffered --halt now,fail=1 './{}/bootstrap.sh pin-build' ::: \
