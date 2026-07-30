@@ -360,8 +360,7 @@ labs-aztec-toolchain:
 
 # If we are running on the monorepo, we need to additionally depend on targets
 # that generate/place the binaries.
-# TODO(fcarreiro): comment this out when pinning binaries.
-labs-aztec-toolchain: noir bb-cpp-native
+# labs-aztec-toolchain: noir bb-cpp-native
 
 #==============================================================================
 # Noir Projects
@@ -383,7 +382,7 @@ noir-projects-labs-format-check: labs-aztec-toolchain
 
 # The fnd and labs checks share the nargo dependency cache, so on the monorepo they are
 # serialized (labs after fnd) rather than allowed to run in parallel.
-# TODO(fcarreiro): comment this out when pinning binaries.
+# TODO(fcarreiro): comment this out when we don't build fnd components anymore.
 noir-projects-labs-format-check: noir-projects-fnd-format-check
 
 noir-protocol-circuits: noir bb-cpp-native noir-projects-fnd-format-check
