@@ -112,13 +112,21 @@ export function processEnumTS(enumName: string, enumValues: { [key: string]: num
  * Processes a collection of constants and generates code to export them as Solidity constants.
  *
  * @param constants - An object containing key-value pairs representing constants.
+ * @param generatorIndices - An object containing key-value pairs representing domain separator indices.
  * @param prefix - A prefix to add to the constant names.
  * @returns A string containing code that exports the constants as Noir constants.
  */
-export function processConstantsSolidity(constants: { [key: string]: string }, prefix = ''): string {
+export function processConstantsSolidity(
+  constants: { [key: string]: string },
+  generatorIndices: { [key: string]: number },
+  prefix = '',
+): string {
   const code: string[] = [];
   Object.entries(constants).forEach(([key, value]) => {
     code.push(`  uint256 internal constant ${prefix}${key} = ${value};`);
+  });
+  Object.entries(generatorIndices).forEach(([key, value]) => {
+    code.push(`  uint256 internal constant ${prefix}DOM_SEP__${key} = ${value};`);
   });
   return code.join('\n');
 }
@@ -190,7 +198,7 @@ ${processConstantsPil(constants, domainSeparatorEnum)}
 /**
  * Generate the constants file in Solidity.
  */
-export function generateSolidityConstants({ constants }: ParsedContent, targetPath: string) {
+export function generateSolidityConstants({ constants, domainSeparatorEnum }: ParsedContent, targetPath: string) {
   const resultSolidity: string = `// GENERATED FILE - DO NOT EDIT
 // SPDX-License-Identifier: Apache-2.0
 // Copyright 2023 Aztec Labs.
@@ -206,7 +214,7 @@ library Constants {
   uint256 internal constant P =
     21888242871839275222246405745257275088548364400416034343698204186575808495617;
 
-${processConstantsSolidity(constants)}
+${processConstantsSolidity(constants, domainSeparatorEnum)}
 }\n`;
 
   fs.writeFileSync(targetPath, resultSolidity);
