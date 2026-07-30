@@ -2,9 +2,8 @@
 source $(git rev-parse --show-toplevel)/ci3/source_bootstrap
 
 repo_root=$(git rev-parse --show-toplevel)
-export BB=${BB:-$repo_root/barretenberg/cpp/build/bin/bb}
-export NARGO=${NARGO:-$repo_root/noir/noir-repo/target/release/nargo}
-export BB_HASH=${BB_HASH:-$($repo_root/barretenberg/cpp/bootstrap.sh hash)}
+export BB=${BB:-$repo_root/labs-aztec-toolchain/bin/bb}
+export NARGO=${NARGO:-$repo_root/labs-aztec-toolchain/bin/nargo}
 
 # We search the docs/*.md files to find included code, and use those as our rebuild dependencies.
 # We prefix the results with ^ to make them "not a file", otherwise they'd be interpreted as pattern files.

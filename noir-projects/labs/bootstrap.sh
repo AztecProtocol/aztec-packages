@@ -2,10 +2,10 @@
 source $(git rev-parse --show-toplevel)/ci3/source_bootstrap
 
 # Format check across the labs workspaces. CI runs this via the root Makefile's
-# noir-projects-format-check target, which runs the fnd and labs checks serially:
-# both warm the shared nargo dependency cache, and parallel nargo runs trip over
-# each other downloading. Ordered before the subproject builds so the cache is
-# warm by the time they run.
+# noir-projects-labs-format-check target. The fnd and labs checks both warm the
+# shared nargo dependency cache — parallel nargo runs trip over each other
+# downloading — so on the monorepo the Makefile serializes labs after fnd.
+# Ordered before the subproject builds so the cache is warm by the time they run.
 function format_check {
   # nargo downloads its git dependencies (e.g. noir-lang/poseidon) on first use.
   # Under heavy parallel CI load the VPC DNS resolver drops lookups
@@ -17,7 +17,7 @@ function format_check {
   # the whole cache on each attempt costs far more than the flake it works
   # around. Cache layout is $HOME/nargo/<host>/<org>/<repo>/<ref>, and a clone
   # that did not complete has no resolvable HEAD.
-  local nargo=$root/noir/noir-repo/target/release/nargo
+  local nargo=$root/labs-aztec-toolchain/bin/nargo
   local fmt_check="( set -e; for dir in noir-contracts aztec-nr; do (cd \"\$dir\" && \"$nargo\" fmt --check); done )"
   local drop_partial_clones="for dep in \"\$HOME\"/nargo/*/*/*/*; do [ -d \"\$dep\" ] || continue; git -C \"\$dep\" rev-parse --verify --quiet HEAD >/dev/null 2>&1 || rm -rf \"\$dep\"; done"
   RETRY_SLEEP=10 retry "$fmt_check || { $drop_partial_clones; exit 1; }"

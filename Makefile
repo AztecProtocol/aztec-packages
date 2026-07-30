@@ -47,7 +47,7 @@ endef
 # PHONY TARGETS - List every target that has a file/dir of the same name.
 #==============================================================================
 
-.PHONY: noir barretenberg noir-projects l1-contracts release-image boxes playground docs aztec-up spartan wsdb bb-avm-sim
+.PHONY: noir barretenberg noir-projects l1-contracts release-image boxes playground docs aztec-up spartan wsdb bb-avm-sim labs-aztec-toolchain
 
 #==============================================================================
 # BOOTSTRAP TARGETS
@@ -352,6 +352,18 @@ claude-tests:
 	$(call test,$@,.claude)
 
 #==============================================================================
+# Labs Aztec Toolchain
+#==============================================================================
+
+labs-aztec-toolchain:
+	$(call build,$@,labs-aztec-toolchain)
+
+# If we are running on the monorepo, we need to additionally depend on targets
+# that generate/place the binaries.
+# TODO(fcarreiro): comment this out when pinning binaries.
+labs-aztec-toolchain: noir bb-cpp-native
+
+#==============================================================================
 # Noir Projects
 #==============================================================================
 
@@ -361,32 +373,38 @@ claude-tests:
 noir-protocol-circuits-variants:
 	$(call build,$@,noir-projects/fnd/noir-protocol-circuits,generate_variants)
 
-# Format check. Also warms the nargo dependency cache, so it must complete before the
-# subproject builds to avoid parallel nargo runs tripping over each other downloading.
-# The fnd and labs checks share that cache, so they run serially in this one target.
-noir-projects-format-check: noir noir-protocol-circuits-variants
+# Format checks. They also warm the nargo dependency cache, so each must complete before its
+# side's subproject builds to avoid parallel nargo runs tripping over each other downloading.
+noir-projects-fnd-format-check: noir noir-protocol-circuits-variants
 	$(call build,$@,noir-projects/fnd,format_check)
+
+noir-projects-labs-format-check: labs-aztec-toolchain
 	$(call build,$@,noir-projects/labs,format_check)
 
-noir-protocol-circuits: noir bb-cpp-native noir-projects-format-check
+# The fnd and labs checks share the nargo dependency cache, so on the monorepo they are
+# serialized (labs after fnd) rather than allowed to run in parallel.
+# TODO(fcarreiro): comment this out when pinning binaries.
+noir-projects-labs-format-check: noir-projects-fnd-format-check
+
+noir-protocol-circuits: noir bb-cpp-native noir-projects-fnd-format-check
 	$(call build,$@,noir-projects/fnd/noir-protocol-circuits)
 
 noir-protocol-circuits-tests: noir noir-protocol-circuits
 	$(call test,$@,noir-projects/fnd/noir-protocol-circuits)
 
-mock-protocol-circuits: noir bb-cpp-native noir-projects-format-check
+mock-protocol-circuits: noir bb-cpp-native noir-projects-fnd-format-check
 	$(call build,$@,noir-projects/fnd/mock-protocol-circuits)
 
-protocol-contracts: noir bb-cpp-native noir-projects-format-check
+protocol-contracts: noir bb-cpp-native noir-projects-fnd-format-check
 	$(call build,$@,noir-projects/fnd/noir-contracts)
 
 protocol-contracts-tests: noir protocol-contracts
 	$(call test,$@,noir-projects/fnd/noir-contracts)
 
-noir-contracts: noir bb-cpp-native noir-projects-format-check
+noir-contracts: noir bb-cpp-native noir-projects-labs-format-check labs-aztec-toolchain
 	$(call build,$@,noir-projects/labs/noir-contracts)
 
-aztec-nr: noir bb-cpp-native noir-projects-format-check
+aztec-nr: noir bb-cpp-native noir-projects-labs-format-check labs-aztec-toolchain
 	$(call build,$@,noir-projects/labs/aztec-nr)
 
 # These tests are not included in the dep tree.
@@ -395,7 +413,7 @@ noir-projects-txe-tests:
 	$(call test,$@,noir-projects/labs/aztec-nr)
 	$(call test,$@,noir-projects/labs/noir-contracts)
 
-contract-snapshots-tests: noir noir-projects-format-check
+contract-snapshots-tests: noir noir-projects-labs-format-check labs-aztec-toolchain
 	$(call test,$@,noir-projects/labs/contract-snapshots)
 
 # Noir Projects - Aggregate target (builds all sub-projects)
@@ -440,7 +458,7 @@ l1-contracts-tests: l1-contracts-verifier
 # Yarn Project - TypeScript monorepo with all TS packages
 #==============================================================================
 
-yarn-project: bb-ts noir-projects l1-contracts wsdb bb-avm-sim constants-codegen
+yarn-project: bb-ts noir-projects l1-contracts wsdb bb-avm-sim constants-codegen labs-aztec-toolchain
 	$(call build,$@,yarn-project)
 
 yarn-project-tests: yarn-project
@@ -461,7 +479,7 @@ release-image: yarn-project
 release-image-tests: release-image
 	$(call test,$@,release-image)
 
-boxes: yarn-project
+boxes: yarn-project labs-aztec-toolchain
 	$(call build,$@,boxes)
 
 boxes-tests: boxes
@@ -473,13 +491,13 @@ playground: yarn-project
 playground-tests: playground
 	$(call test,$@,playground)
 
-docs: yarn-project
+docs: yarn-project labs-aztec-toolchain
 	$(call build,$@,docs)
 
 docs-tests: docs
 	$(call test,$@,docs)
 
-aztec-up: yarn-project
+aztec-up: yarn-project labs-aztec-toolchain
 	$(call build,$@,aztec-up)
 
 aztec-up-tests: aztec-up

@@ -2,7 +2,7 @@
 source $(git rev-parse --show-toplevel)/ci3/source_bootstrap
 
 # nargo binary path relative to the crate root (this directory)
-export NARGO=${NARGO:-../../../noir/noir-repo/target/release/nargo}
+export NARGO=${NARGO:-../../../labs-aztec-toolchain/bin/nargo}
 
 # Build the snapshot test binaries (compiles build.rs codegen too) and run Rust lints.
 function build {
