@@ -40,11 +40,7 @@ describe('Inbox Parity Benchmark Inputs', () => {
     const l1ToL2Messages = new Array(INBOX_PARITY_SIZE_MEDIUM).fill(null).map(() => Fr.random());
 
     // Create InboxParity inputs (picks the 256 rung for 256 messages).
-    const inputs = InboxParityPrivateInputs.fromMessages(
-      l1ToL2Messages,
-      Fr.ZERO,
-      Fr.random(),
-    );
+    const inputs = InboxParityPrivateInputs.fromMessages(l1ToL2Messages, Fr.ZERO, Fr.random());
     logger.info('Created inbox parity inputs');
 
     // Convert inputs to Noir format (inline the mapping since it's simple)
