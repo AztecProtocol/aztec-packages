@@ -4,6 +4,7 @@ import { type Blob, encodeCheckpointBlobDataFromBlocks, getBlobsPerL1Block } fro
 import {
   INBOX_LAG_SECONDS,
   INITIAL_L2_BLOCK_NUM,
+  MAX_BLOCKS_PER_CHECKPOINT,
   MAX_L1_TO_L2_MSGS_PER_BLOCK,
   MAX_L1_TO_L2_MSGS_PER_CHECKPOINT,
 } from '@aztec/constants';
@@ -1342,9 +1343,15 @@ export class ProposalHandler {
       };
     }
 
-    // Note this condition should never trigger, since we dont process block proposals that exceed indexWithinCheckpoint
-    const maxBlocksPerCheckpoint = this.config.maxBlocksPerCheckpoint;
-    if (maxBlocksPerCheckpoint !== undefined && blocks.length > maxBlocksPerCheckpoint) {
+    // The checkpoint root circuit caps how many blocks a checkpoint may contain, and L1 cannot check it when the
+    // checkpoint is proposed (`ProposedHeader` carries no block count, only `blockHeadersHash`). An over-cap
+    // checkpoint would therefore be accepted on L1 and then be unprovable, forcing an epoch reorg, so validators
+    // reject it before attesting. An operator-configured limit may only tighten the protocol cap, never relax it.
+    const maxBlocksPerCheckpoint = Math.min(
+      this.config.maxBlocksPerCheckpoint ?? MAX_BLOCKS_PER_CHECKPOINT,
+      MAX_BLOCKS_PER_CHECKPOINT,
+    );
+    if (blocks.length > maxBlocksPerCheckpoint) {
       this.log.warn(`Checkpoint proposal exceeds maxBlocksPerCheckpoint`, {
         ...proposalInfo,
         blocksInProposal: blocks.length,
