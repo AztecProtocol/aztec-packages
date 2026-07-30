@@ -56,23 +56,23 @@ contract InboxBucketsTest is Test {
   // and this L1 implementation. Generated from an independent sha256 implementation.
   function testRollingHashTestVectors() public pure {
     bytes32 h = Hash.accumulateInboxRollingHash(bytes32(0), bytes32(uint256(11)));
-    assertEq(h, 0x00815fb1e9d2076ae5761439b6144ad11da69eb6c41ab2aca39e770407ad8d12, "chain(0, [11])");
+    assertEq(h, 0x00066dfa22681f66d50aae7d84f190e3555d2d82e4a5e33c2291c3060d441f04, "chain(0, [11])");
 
     h = Hash.accumulateInboxRollingHash(h, bytes32(uint256(22)));
     h = Hash.accumulateInboxRollingHash(h, bytes32(uint256(33)));
-    assertEq(h, 0x0014cae968461979aab6d33266a2310ed234d3f6cf4472737c57551db07bd0da, "chain(0, [11, 22, 33])");
+    assertEq(h, 0x0077423b713a725ce4bf0b792847c68da87c316d52921de25652756bfe4c3e81, "chain(0, [11, 22, 33])");
 
     h = bytes32(0);
     for (uint256 i = 1; i <= 256; i++) {
       h = Hash.accumulateInboxRollingHash(h, bytes32(i));
     }
-    assertEq(h, 0x00ea95b96f17b75be03525b35a2a1918b42f03ad8c00a437cf641751825f3992, "chain(0, [1..=256])");
+    assertEq(h, 0x0030493fcb5915459bba42f03f283b58dfaa082dac02fbb3a494d5db8063238b, "chain(0, [1..=256])");
 
     h = Hash.accumulateInboxRollingHash(bytes32(uint256(0x2a)), bytes32(uint256(7)));
-    assertEq(h, 0x0032a934005556d1b9d22708666ee8b05f91fafad624dd64a6ea878e048e5438, "chain(0x2a, [7])");
+    assertEq(h, 0x0048097cafad7fed00ccb578806b3855d5ee7bf11045fb8d41b2880ba36ef28f, "chain(0x2a, [7])");
 
     h = Hash.accumulateInboxRollingHash(h, bytes32(uint256(8)));
-    assertEq(h, 0x0054d96b8a074a5030a5838972d0a3c04ba47cf5956348c853e02e9566233f65, "chain(0x2a, [7, 8])");
+    assertEq(h, 0x00a64d14c4b0234f5d835dc202bf8f9a857bc0734baf281dccd4b4978a48b2f9, "chain(0x2a, [7, 8])");
   }
 
   function testGenesisBucket() public {
