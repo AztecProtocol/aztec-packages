@@ -1,5 +1,4 @@
 import type { SlashVoteTarget, SlashingProposerContract } from '@aztec/ethereum/contracts';
-import { maxBigint } from '@aztec/foundation/bigint';
 import { uniqueBy } from '@aztec/foundation/collection';
 import type { EthAddress } from '@aztec/foundation/eth-address';
 import { createLogger } from '@aztec/foundation/log';
@@ -11,15 +10,15 @@ import type { SlasherMetrics } from './metrics.js';
 /**
  * Watches slashing activity that targets the node's own validators: warns and counts on every vote naming one of
  * them, tracks how close the current round's tally is to quorum, and reports executed slashes. Does nothing when
- * the node runs no validators. Lifecycle calls must be sequential: start() awaited before events are wired, and
- * stop() awaited before any restart.
+ * the node runs no validators. Lifecycle calls must be sequential: start() before events are wired, and stop()
+ * awaited before any restart.
  */
 export class OwnValidatorSlashMonitor {
   /**
    * Tally for the single round being tracked (votes are only ever cast for the current round). `nextVoteIndex` is
-   * the cursor: the index of the first vote in the round not yet processed. It is undefined until the startup
-   * baseline read completes; if that read fails, the first event falls back to counting from the latest vote only,
-   * so votes cast before the node subscribed are never replayed into the cumulative metrics.
+   * the cursor: the index of the first vote in the round not yet processed, advanced from the indices the VoteCast
+   * events carry. It is undefined until the first event of a round that started mid-round, whose own vote is then
+   * the first one counted, so votes cast before the node subscribed are never replayed into the cumulative metrics.
    * The tally is per flattened committee position because that is the unit the contract tallies quorum by.
    */
   private state: { round: bigint; nextVoteIndex: bigint | undefined; countByPosition: Map<number, number> } = {
@@ -29,9 +28,9 @@ export class OwnValidatorSlashMonitor {
   };
 
   /**
-   * All vote processing (including the startup baseline) runs through this queue, one job at a time in arrival
-   * order. Serialization is what makes the cursor sound: without it, concurrent event handlers could process the
-   * same index twice or emit warnings with out-of-order running tallies.
+   * All vote processing runs through this queue, one job at a time in arrival order. Serialization is what makes
+   * the cursor sound: without it, concurrent event handlers could process the same index twice or emit warnings
+   * with out-of-order running tallies.
    */
   private queue: Promise<void> = Promise.resolve();
 
@@ -50,28 +49,18 @@ export class OwnValidatorSlashMonitor {
   }
 
   /**
-   * Starts tracking at the given round. Reads a baseline of the round's current vote count so votes cast before
-   * startup are skipped: replaying them would warn about votes the operator can no longer react to sooner, and
-   * would double-count cumulative counters across restarts. Await the returned promise before subscribing to vote
-   * events, so a vote cast after the baseline read always sits at an index past the cursor and is caught up by a
-   * later drain instead of being skipped as pre-startup. A failed baseline read resolves rather than rejects, and
-   * the first drain falls back to processing the latest vote only.
+   * Starts tracking at the given round, leaving the cursor unset so the round's votes already cast are skipped:
+   * replaying them would warn about votes the operator can no longer react to sooner, and would double-count
+   * cumulative counters across restarts.
    */
-  public start(currentRound: bigint): Promise<void> {
+  public start(currentRound: bigint): void {
     if (!this.enabled) {
-      return Promise.resolve();
+      return;
     }
     this.stopped = false;
     this.state = { round: currentRound, nextVoteIndex: undefined, countByPosition: new Map() };
     this.metrics.recordQuorumSize(this.settings.slashingQuorumSize);
     this.metrics.recordCurrentRoundVotesMax(0);
-    return this.enqueue(async () => {
-      const { voteCount } = await this.slashingProposer.getRound(currentRound);
-      // The round may have rolled while awaiting, in which case the cursor is already 0 for the new round
-      if (!this.stopped && this.state.round === currentRound && this.state.nextVoteIndex === undefined) {
-        this.state.nextVoteIndex = voteCount;
-      }
-    });
   }
 
   /** Stops processing and waits for any in-flight drain, so no warning or metric is emitted after shutdown. */
@@ -90,12 +79,15 @@ export class OwnValidatorSlashMonitor {
     }
   }
 
-  /** Called on each VoteCast event. The event is only a trigger: the drain reads all not-yet-seen votes from L1. */
-  public handleVoteCast(round: bigint): Promise<void> {
+  /**
+   * Called on each VoteCast event with the index the event carries. Reads every vote from the cursor up to that
+   * index, so an event delivery that never arrived is healed by the next one.
+   */
+  public handleVoteCast(round: bigint, voteIndex: bigint): Promise<void> {
     if (!this.enabled || this.stopped) {
       return Promise.resolve();
     }
-    return this.enqueue(() => this.drainVotes(round));
+    return this.enqueue(() => this.drainVotesTo(round, voteIndex));
   }
 
   /** Reports executed slashes against own validators. Called with the Slashed events already fetched by the client. */
@@ -120,8 +112,8 @@ export class OwnValidatorSlashMonitor {
     return this.queue;
   }
 
-  /** Processes votes [cursor, voteCount) of a round, in order, advancing the cursor after each success. */
-  private async drainVotes(round: bigint): Promise<void> {
+  /** Processes votes [cursor, voteIndex] of a round, in order, advancing the cursor after each success. */
+  private async drainVotesTo(round: bigint, voteIndex: bigint): Promise<void> {
     if (this.stopped) {
       return; // enqueued before stop() but not yet started: emit nothing and read nothing after shutdown
     }
@@ -132,14 +124,13 @@ export class OwnValidatorSlashMonitor {
       this.rollTo(round); // the event beat the round-monitor clock to the boundary
     }
 
-    const { voteCount } = await this.slashingProposer.getRound(round);
-    if (this.stopped || round !== this.state.round) {
-      return; // stopped, or rolled to a newer round while awaiting
+    // The first event of a round tracked from mid-round counts its own vote only: earlier ones predate the subscription
+    const from = this.state.nextVoteIndex ?? voteIndex;
+    if (voteIndex < from) {
+      return; // a duplicate or out-of-order delivery of a vote already processed
     }
 
-    // If the startup baseline failed, start from the latest vote only: earlier votes predate the subscription
-    const from = this.state.nextVoteIndex ?? maxBigint(voteCount - 1n, 0n);
-    for (let index = from; index < voteCount; index++) {
+    for (let index = from; index <= voteIndex; index++) {
       const vote = await this.slashingProposer.getVoteAt(round, index);
       if (this.stopped || round !== this.state.round) {
         return; // stopped, or rolled mid-drain: either way this vote must no longer be counted

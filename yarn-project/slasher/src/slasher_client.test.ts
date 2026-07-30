@@ -1156,12 +1156,10 @@ describe('SlasherClient', () => {
       slashingProposer.getVoteAt.mockResolvedValue([
         { validator: ownValidator, slashAmount: slashingUnit, position: 7 },
       ]);
-      slashingProposer.getRound.mockResolvedValue({ isExecuted: false, voteCount: 1n });
 
       await slasherClient.start();
-      // A round ahead of the one the monitor started tracking, so its vote is read regardless of the startup baseline
       voteCastCallback({
-        round: slasherClient.getCurrentRound() + 1n,
+        round: slasherClient.getCurrentRound(),
         voteIndex: 0n,
         proposer: EthAddress.random().toString(),
       });

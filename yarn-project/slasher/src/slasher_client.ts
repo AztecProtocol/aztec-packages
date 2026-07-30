@@ -133,12 +133,13 @@ export class SlasherClient implements ProposerSlashActionProvider, SlasherClient
     this.unwatchCallbacks.push(this.roundMonitor.listenToNewRound(round => this.handleNewRound(round)));
 
     // Warn early when a slashing vote names one of our own validators. Skipped entirely when running none, so
-    // those nodes pay no extra L1 subscription. Subscribed only after the monitor's baseline read completes, so a
-    // vote cast in between is caught up by a later drain instead of being mistaken for a pre-startup vote.
+    // those nodes pay no extra L1 subscription.
     if (this.ownValidators.length > 0) {
-      await this.ownValidatorMonitor.start(this.roundMonitor.getCurrentRound().round);
+      this.ownValidatorMonitor.start(this.roundMonitor.getCurrentRound().round);
       this.unwatchCallbacks.push(
-        this.slashingProposer.listenToVoteCast(({ round }) => void this.ownValidatorMonitor.handleVoteCast(round)),
+        this.slashingProposer.listenToVoteCast(
+          ({ round, voteIndex }) => void this.ownValidatorMonitor.handleVoteCast(round, voteIndex),
+        ),
       );
     }
 
