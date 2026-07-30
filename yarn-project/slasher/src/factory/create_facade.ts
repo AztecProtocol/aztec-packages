@@ -25,7 +25,10 @@ export async function createSlasherFacade(
   watchers: Watcher[],
   dateProvider: DateProvider,
   epochCache: EpochCache,
-  /** List of own validator addresses to add to the slashValidatorNever list unless slashSelfAllowed is true */
+  /**
+   * List of own validator addresses. Added to the slashValidatorNever list unless slashSelfAllowed is true, and used
+   * (independently of slashSelfAllowed) to warn and record metrics when they are targeted by onchain slashing.
+   */
   validatorAddresses: EthAddress[] = [],
   logger = createLogger('slasher'),
 ): Promise<SlasherClientInterface> {
@@ -76,6 +79,7 @@ export async function createSlasherFacade(
     dateProvider,
     kvStore,
     rollupRegisteredAtL2Slot,
+    validatorAddresses,
     logger,
   );
 }
