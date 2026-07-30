@@ -1,6 +1,6 @@
 import type { Archiver } from '@aztec/archiver';
 import type { BlobClientInterface } from '@aztec/blob-client/client';
-import { INITIAL_L2_BLOCK_NUM } from '@aztec/constants';
+import { INITIAL_L2_BLOCK_NUM, MAX_BLOCKS_PER_CHECKPOINT } from '@aztec/constants';
 import type { EpochCache } from '@aztec/epoch-cache';
 import { MAX_FEE_ASSET_PRICE_MODIFIER_BPS } from '@aztec/ethereum/contracts';
 import { BlockNumber, CheckpointNumber, SlotNumber } from '@aztec/foundation/branded-types';
@@ -190,6 +190,25 @@ describe('ProposalHandler checkpoint validation', () => {
         { archive: new AppendOnlyTreeSnapshot(Fr.random(), 2), number: 2 },
         { archive: new AppendOnlyTreeSnapshot(archiveRoot, 3), number: 3 },
       ] as unknown as L2Block[];
+      blockSource.getBlocksForSlot.mockResolvedValue(blocks);
+
+      const proposal = await makeProposal({ archiveRoot });
+      const result = await handler.handleCheckpointProposal(proposal, proposalInfo);
+      expect(result).toEqual({ isValid: false, reason: 'too_many_blocks_in_checkpoint' });
+    });
+
+    it('returns too_many_blocks_in_checkpoint when blocks exceed the protocol cap without an operator limit', async () => {
+      // The checkpoint root circuit caps the blocks a checkpoint may contain; an over-cap checkpoint is unprovable,
+      // and L1 cannot reject it at propose time, so the validator must not attest to it.
+      expect(config.maxBlocksPerCheckpoint).toBeUndefined();
+
+      const archiveRoot = Fr.random();
+      blockSource.getBlockData.mockResolvedValue({ header: makeBlockHeader() } as BlockData);
+      const overCap = MAX_BLOCKS_PER_CHECKPOINT + 1;
+      const blocks = Array.from({ length: overCap }, (_, i) => ({
+        archive: new AppendOnlyTreeSnapshot(i === overCap - 1 ? archiveRoot : Fr.random(), i + 1),
+        number: i + 1,
+      })) as unknown as L2Block[];
       blockSource.getBlocksForSlot.mockResolvedValue(blocks);
 
       const proposal = await makeProposal({ archiveRoot });
