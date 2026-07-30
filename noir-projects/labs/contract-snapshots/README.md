@@ -23,13 +23,13 @@ test_programs/
 
 ### Prerequisites
 
-`nargo` must be built. From the repo root:
+`nargo` must be provisioned. From the repo root:
 
 ```sh
-(cd noir && ./bootstrap.sh)
+(cd labs-aztec-toolchain && ./bootstrap.sh)
 ```
 
-By default the test harness looks for `nargo` at `../../noir/noir-repo/target/release/nargo`. Override with `NARGO=/path/to/nargo cargo test`.
+By default the test harness looks for `nargo` at `../../../labs-aztec-toolchain/bin/nargo`. Override with `NARGO=/path/to/nargo cargo test`.
 
 ### Running
 

@@ -17,7 +17,7 @@ Dependencies flow barretenberg → noir → l1-contracts → yarn-project. From 
 
 When a change spans multiple components, rebuild in dependency order: first `barretenberg/cpp/` with `cmake --preset default && cd build && ninja`, then `barretenberg/ts/` with `./bootstrap.sh` (which generates TS bindings from C++), then `noir/` with `./bootstrap.sh` if noir changes are needed, then `noir-projects/` to compile contracts, then `l1-contracts/` with `forge build`, and finally `yarn-project/` with `yarn build` from inside `yarn-project/` (not the git root).
 
-The noir-projects build scripts default `$NARGO` to `noir/noir-repo/target/release/nargo`. Do not override this with a globally installed nargo — version mismatches produce opaque bytecode failures in downstream components.
+The noir-projects build scripts default `$NARGO` per side: `noir-projects/fnd/**` uses the submodule build at `noir/noir-repo/target/release/nargo`, while `noir-projects/labs/**` uses `labs-aztec-toolchain/bin/nargo`, which is provisioned from the versions pinned in `labs-aztec-toolchain/bootstrap.sh`. Do not override either with a globally installed nargo — version mismatches produce opaque bytecode failures in downstream components.
 </build_system>
 
 <bumping_noir>
