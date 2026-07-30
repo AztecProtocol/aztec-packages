@@ -9,11 +9,9 @@ import { ProvingRequestType } from '@aztec/stdlib/proofs';
  */
 const PROOF_TYPES_IN_PRIORITY_ORDER: ProvingRequestType[] = [
   ProvingRequestType.ROOT_ROLLUP,
-  ProvingRequestType.BLOCK_ROOT_FIRST_ROLLUP,
-  ProvingRequestType.BLOCK_ROOT_SINGLE_TX_FIRST_ROLLUP,
-  ProvingRequestType.BLOCK_ROOT_EMPTY_TX_FIRST_ROLLUP,
   ProvingRequestType.BLOCK_ROOT_ROLLUP,
   ProvingRequestType.BLOCK_ROOT_SINGLE_TX_ROLLUP,
+  ProvingRequestType.BLOCK_ROOT_NO_TXS_ROLLUP,
   ProvingRequestType.BLOCK_MERGE_ROLLUP,
   ProvingRequestType.CHECKPOINT_ROOT_ROLLUP,
   ProvingRequestType.CHECKPOINT_ROOT_SINGLE_BLOCK_ROLLUP,
@@ -198,19 +196,14 @@ function getJobDuration(job: Job): number {
   return WITGEN_DELAY_MS[job.type] + PROOF_DELAY_MS[job.type];
 }
 
-function getBlockRootType(isFirst: boolean, txCount: number): ProvingRequestType {
+function getBlockRootType(txCount: number): ProvingRequestType {
   if (txCount === 0) {
-    if (!isFirst) {
-      throw new Error('Non-first empty blocks should have been rejected during initialization');
-    }
-    return ProvingRequestType.BLOCK_ROOT_EMPTY_TX_FIRST_ROLLUP;
+    return ProvingRequestType.BLOCK_ROOT_NO_TXS_ROLLUP;
   }
   if (txCount === 1) {
-    return isFirst
-      ? ProvingRequestType.BLOCK_ROOT_SINGLE_TX_FIRST_ROLLUP
-      : ProvingRequestType.BLOCK_ROOT_SINGLE_TX_ROLLUP;
+    return ProvingRequestType.BLOCK_ROOT_SINGLE_TX_ROLLUP;
   }
-  return isFirst ? ProvingRequestType.BLOCK_ROOT_FIRST_ROLLUP : ProvingRequestType.BLOCK_ROOT_ROLLUP;
+  return ProvingRequestType.BLOCK_ROOT_ROLLUP;
 }
 
 function getCheckpointRootType(blockCount: number): ProvingRequestType {
@@ -359,11 +352,9 @@ function enqueueDependentJobs(job: Job, state: SimState, queues: Queues, checkpo
       break;
     }
 
-    case ProvingRequestType.BLOCK_ROOT_FIRST_ROLLUP:
-    case ProvingRequestType.BLOCK_ROOT_SINGLE_TX_FIRST_ROLLUP:
-    case ProvingRequestType.BLOCK_ROOT_EMPTY_TX_FIRST_ROLLUP:
     case ProvingRequestType.BLOCK_ROOT_ROLLUP:
-    case ProvingRequestType.BLOCK_ROOT_SINGLE_TX_ROLLUP: {
+    case ProvingRequestType.BLOCK_ROOT_SINGLE_TX_ROLLUP:
+    case ProvingRequestType.BLOCK_ROOT_NO_TXS_ROLLUP: {
       handleBlockRootComplete(checkpoint, block, state, queues);
       break;
     }
@@ -511,7 +502,7 @@ function tryEnqueueBlockRoot(checkpoint: number, blk: number, state: SimState, q
     return;
   }
 
-  const blockRootType = getBlockRootType(isFirst, totalTxs);
+  const blockRootType = getBlockRootType(totalTxs);
   queue[blockRootType].push(createJob(checkpoint, blk, blockRootType));
 }
 

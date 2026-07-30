@@ -767,12 +767,8 @@ export class CheckpointSubTreeOrchestrator extends ProvingScheduler {
         'getBlockRootRollupProof',
         signal => {
           switch (rollup.rollupType) {
-            case 'rollup-block-root-first':
-              return this.prover.getBlockRootFirstRollupProof(rollup.inputs, signal, provingState.epochNumber);
-            case 'rollup-block-root-first-single-tx':
-              return this.prover.getBlockRootSingleTxFirstRollupProof(rollup.inputs, signal, provingState.epochNumber);
-            case 'rollup-block-root-first-empty-tx':
-              return this.prover.getBlockRootEmptyTxFirstRollupProof(rollup.inputs, signal, provingState.epochNumber);
+            case 'rollup-block-root-no-txs':
+              return this.prover.getBlockRootNoTxsRollupProof(rollup.inputs, signal, provingState.epochNumber);
             case 'rollup-block-root-single-tx':
               return this.prover.getBlockRootSingleTxRollupProof(rollup.inputs, signal, provingState.epochNumber);
             case 'rollup-block-root':

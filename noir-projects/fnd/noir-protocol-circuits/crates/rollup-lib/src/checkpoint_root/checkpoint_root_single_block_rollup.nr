@@ -3,31 +3,26 @@ use crate::{
     checkpoint_root::{
         checkpoint_root_rollup::CheckpointRootRollupHints,
         components::{
-            CheckpointRollupPublicInputsComposer, CheckpointRootInputsValidator, validate_inbox_parity,
+            CheckpointRollupPublicInputsComposer, CheckpointRootInputsValidator,
+            validate_inbox_parity,
         },
     },
 };
 use types::{
     constants::{
-        BLOCK_ROOT_EMPTY_TX_FIRST_ROLLUP_VK_INDEX, BLOCK_ROOT_FIRST_ROLLUP_VK_INDEX,
-        BLOCK_ROOT_MSGS_ONLY_ROLLUP_VK_INDEX, BLOCK_ROOT_SINGLE_TX_FIRST_ROLLUP_VK_INDEX,
+        BLOCK_ROOT_NO_TXS_ROLLUP_VK_INDEX, BLOCK_ROOT_ROLLUP_VK_INDEX,
+        BLOCK_ROOT_SINGLE_TX_ROLLUP_VK_INDEX,
     },
     proof::proof_data::{RollupHonkProofData, UltraHonkProofData},
 };
 
-// If there's only one previous rollup (i.e., one block in the checkpoint), it must be a first block root: the inputs
-// validator asserts the leftmost rollup's `is_first_block`. The message-only block root sets `is_first_block = false`,
-// so it is listed here (for symmetry with the multi-block variant) but can never actually pass as the sole block.
-//
-// That `is_first_block` assertion is the only thing keeping a message-only block from standing as a checkpoint's sole
-// block. If it is ever relaxed (e.g. replaced by a "leftmost block's start_msg_sponge is empty" check), this entry
-// must be dropped in the same change, or a transaction-less single-block checkpoint — one whose blob omits the
-// first-block l1-to-l2 root — would silently become provable.
-global ALLOWED_PREVIOUS_VK_INDICES: [u32; 4] = [
-    BLOCK_ROOT_FIRST_ROLLUP_VK_INDEX,
-    BLOCK_ROOT_SINGLE_TX_FIRST_ROLLUP_VK_INDEX,
-    BLOCK_ROOT_EMPTY_TX_FIRST_ROLLUP_VK_INDEX,
-    BLOCK_ROOT_MSGS_ONLY_ROLLUP_VK_INDEX,
+// The sole block of the checkpoint is also its first block, which any block root variant can be: the inputs validator
+// pins the leftmost block's start values to their initial ones. Block merges are excluded, since a merge means the
+// checkpoint has more than one block.
+global ALLOWED_PREVIOUS_VK_INDICES: [u32; 3] = [
+    BLOCK_ROOT_ROLLUP_VK_INDEX,
+    BLOCK_ROOT_SINGLE_TX_ROLLUP_VK_INDEX,
+    BLOCK_ROOT_NO_TXS_ROLLUP_VK_INDEX,
 ];
 
 pub struct CheckpointRootSingleBlockRollupPrivateInputs {
@@ -43,7 +38,7 @@ pub struct CheckpointRootSingleBlockRollupPrivateInputs {
 /// This variant is used when the checkpoint contains only one block.
 ///
 /// This circuit:
-/// - Verifies the proof from a single block rollup (must be a first block root variant)
+/// - Verifies the proof from a single block rollup
 /// - Validates continuity with the previous checkpoint using the previous block header
 ///   - Validates the start state matches the previous block's end state
 ///   - Validates the previous archive matches the previous block header hash
@@ -69,7 +64,11 @@ pub fn execute(
         .validate();
 
     let constants = inputs.previous_rollup.public_inputs.constants;
-    validate_inbox_parity(inputs.inbox_parity, constants.vk_tree_root, constants.prover_id);
+    validate_inbox_parity(
+        inputs.inbox_parity,
+        constants.vk_tree_root,
+        constants.prover_id,
+    );
 
     CheckpointRollupPublicInputsComposer::new(
         [inputs.previous_rollup.public_inputs],

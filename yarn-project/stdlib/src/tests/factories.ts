@@ -142,7 +142,7 @@ import { BlockConstantData } from '../rollup/block_constant_data.js';
 import { BlockMergeRollupPrivateInputs } from '../rollup/block_merge_rollup_private_inputs.js';
 import { BlockRollupPublicInputs } from '../rollup/block_rollup_public_inputs.js';
 import {
-  BlockRootFirstRollupPrivateInputs,
+  BlockRootRollupPrivateInputs,
   BlockRootSingleTxRollupPrivateInputs,
 } from '../rollup/block_root_rollup_private_inputs.js';
 import { CheckpointConstantData } from '../rollup/checkpoint_constant_data.js';
@@ -787,7 +787,6 @@ export function makeBlockRollupPublicInputs(seed = 0): BlockRollupPublicInputs {
     makeSpongeBlob(seed + 0x700),
     BigInt(seed + 0x800),
     fr(seed + 0x820),
-    (seed & 1) === 0,
     makeL1ToL2MessageSponge(seed + 0x835),
     makeL1ToL2MessageSponge(seed + 0x838),
     fr(seed + 0x840),
@@ -959,8 +958,8 @@ export function makeTxMergeRollupPrivateInputs(seed = 0): TxMergeRollupPrivateIn
   ]);
 }
 
-export function makeBlockRootFirstRollupPrivateInputs(seed = 0) {
-  return new BlockRootFirstRollupPrivateInputs(
+export function makeBlockRootRollupPrivateInputs(seed = 0) {
+  return new BlockRootRollupPrivateInputs(
     [makeProofData(seed + 0x1000, makeTxRollupPublicInputs), makeProofData(seed + 0x2000, makeTxRollupPublicInputs)],
     new L1ToL2MessageBundle(
       makeArray(MAX_L1_TO_L2_MSGS_PER_BLOCK, fr, seed + 0x2500),
@@ -968,6 +967,7 @@ export function makeBlockRootFirstRollupPrivateInputs(seed = 0) {
       MAX_L1_TO_L2_MSGS_PER_BLOCK,
     ),
     makeAppendOnlyTreeSnapshot(seed + 0x3000),
+    makeL1ToL2MessageSponge(seed + 0x3500),
     makeSiblingPath(seed + 0x4000, L1_TO_L2_MSG_TREE_HEIGHT),
     makeSiblingPath(seed + 0x5000, ARCHIVE_HEIGHT),
   );

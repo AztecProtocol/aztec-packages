@@ -173,16 +173,11 @@ function getProofCounts(
   const numTxsPerBlock = numPrivateBasesPerBlock + numPublicBasesPerBlock;
   const totalNumBlocks = numBlocksPerCheckpoint * numCheckpoints;
   if (numTxsPerBlock === 0) {
-    counts[priorityIndex(ProvingRequestType.BLOCK_ROOT_EMPTY_TX_FIRST_ROLLUP)] = numCheckpoints;
-    if (numBlocksPerCheckpoint !== 1) {
-      throw new Error('There must be only one block per checkpoint when there are no transactions.');
-    }
+    counts[priorityIndex(ProvingRequestType.BLOCK_ROOT_NO_TXS_ROLLUP)] = totalNumBlocks;
   } else if (numTxsPerBlock === 1) {
-    counts[priorityIndex(ProvingRequestType.BLOCK_ROOT_SINGLE_TX_FIRST_ROLLUP)] = numCheckpoints;
-    counts[priorityIndex(ProvingRequestType.BLOCK_ROOT_SINGLE_TX_ROLLUP)] = totalNumBlocks - numCheckpoints;
+    counts[priorityIndex(ProvingRequestType.BLOCK_ROOT_SINGLE_TX_ROLLUP)] = totalNumBlocks;
   } else {
-    counts[priorityIndex(ProvingRequestType.BLOCK_ROOT_FIRST_ROLLUP)] = numCheckpoints;
-    counts[priorityIndex(ProvingRequestType.BLOCK_ROOT_ROLLUP)] = totalNumBlocks - numCheckpoints;
+    counts[priorityIndex(ProvingRequestType.BLOCK_ROOT_ROLLUP)] = totalNumBlocks;
   }
 
   if (numTxsPerBlock > 2) {

@@ -19,11 +19,8 @@ import { makeEmptyRecursiveProof, makeRecursiveProof } from '@aztec/stdlib/proof
 import type {
   BlockMergeRollupPrivateInputs,
   BlockRollupPublicInputs,
-  BlockRootEmptyTxFirstRollupPrivateInputs,
-  BlockRootFirstRollupPrivateInputs,
-  BlockRootMsgsOnlyRollupPrivateInputs,
+  BlockRootNoTxsRollupPrivateInputs,
   BlockRootRollupPrivateInputs,
-  BlockRootSingleTxFirstRollupPrivateInputs,
   BlockRootSingleTxRollupPrivateInputs,
   CheckpointMergeRollupPrivateInputs,
   CheckpointPaddingRollupPrivateInputs,
@@ -175,50 +172,8 @@ export class MockProver implements ServerCircuitProver {
     );
   }
 
-  getBlockRootFirstRollupProof(
-    _input: BlockRootFirstRollupPrivateInputs,
-    _signal?: AbortSignal,
-    _epochNumber?: number,
-  ): Promise<PublicInputsAndRecursiveProof<BlockRollupPublicInputs, typeof NESTED_RECURSIVE_ROLLUP_HONK_PROOF_LENGTH>> {
-    return Promise.resolve(
-      makePublicInputsAndRecursiveProof(
-        makeBlockRollupPublicInputs(),
-        makeRecursiveProof(NESTED_RECURSIVE_ROLLUP_HONK_PROOF_LENGTH),
-        VerificationKeyData.makeFakeRollupHonk(),
-      ),
-    );
-  }
-
-  getBlockRootSingleTxFirstRollupProof(
-    _input: BlockRootSingleTxFirstRollupPrivateInputs,
-    _signal?: AbortSignal,
-    _epochNumber?: number,
-  ): Promise<PublicInputsAndRecursiveProof<BlockRollupPublicInputs, typeof NESTED_RECURSIVE_ROLLUP_HONK_PROOF_LENGTH>> {
-    return Promise.resolve(
-      makePublicInputsAndRecursiveProof(
-        makeBlockRollupPublicInputs(),
-        makeRecursiveProof(NESTED_RECURSIVE_ROLLUP_HONK_PROOF_LENGTH),
-        VerificationKeyData.makeFakeHonk(),
-      ),
-    );
-  }
-
-  getBlockRootEmptyTxFirstRollupProof(
-    _input: BlockRootEmptyTxFirstRollupPrivateInputs,
-    _signal?: AbortSignal,
-    _epochNumber?: number,
-  ): Promise<PublicInputsAndRecursiveProof<BlockRollupPublicInputs, typeof NESTED_RECURSIVE_ROLLUP_HONK_PROOF_LENGTH>> {
-    return Promise.resolve(
-      makePublicInputsAndRecursiveProof(
-        makeBlockRollupPublicInputs(),
-        makeRecursiveProof(NESTED_RECURSIVE_ROLLUP_HONK_PROOF_LENGTH),
-        VerificationKeyData.makeFakeRollupHonk(),
-      ),
-    );
-  }
-
-  getBlockRootMsgsOnlyRollupProof(
-    _input: BlockRootMsgsOnlyRollupPrivateInputs,
+  getBlockRootNoTxsRollupProof(
+    _input: BlockRootNoTxsRollupPrivateInputs,
     _signal?: AbortSignal,
     _epochNumber?: number,
   ): Promise<PublicInputsAndRecursiveProof<BlockRollupPublicInputs, typeof NESTED_RECURSIVE_ROLLUP_HONK_PROOF_LENGTH>> {

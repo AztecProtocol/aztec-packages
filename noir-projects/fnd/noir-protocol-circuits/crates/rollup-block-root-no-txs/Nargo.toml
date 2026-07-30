@@ -1,5 +1,5 @@
 [package]
-name = "rollup_block_root_msgs_only"
+name = "rollup_block_root_no_txs"
 type = "bin"
 authors = [""]
 compiler_version = ">=0.18.0"

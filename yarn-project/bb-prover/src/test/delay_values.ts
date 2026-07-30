@@ -3,10 +3,7 @@ import { ProvingRequestType } from '@aztec/stdlib/proofs';
 export const WITGEN_DELAY_MS: Record<ProvingRequestType, number> = {
   [ProvingRequestType.PUBLIC_CHONK_VERIFIER]: 60,
   [ProvingRequestType.INBOX_PARITY]: 1_600,
-  [ProvingRequestType.BLOCK_ROOT_FIRST_ROLLUP]: 45,
-  [ProvingRequestType.BLOCK_ROOT_EMPTY_TX_FIRST_ROLLUP]: 18,
-  [ProvingRequestType.BLOCK_ROOT_MSGS_ONLY_ROLLUP]: 18,
-  [ProvingRequestType.BLOCK_ROOT_SINGLE_TX_FIRST_ROLLUP]: 27,
+  [ProvingRequestType.BLOCK_ROOT_NO_TXS_ROLLUP]: 18,
   [ProvingRequestType.CHECKPOINT_MERGE_ROLLUP]: 30,
   [ProvingRequestType.CHECKPOINT_ROOT_SINGLE_BLOCK_ROLLUP]: 36_000,
   [ProvingRequestType.ROOT_ROLLUP]: 35,
@@ -26,10 +23,7 @@ export const WITGEN_DELAY_MS: Record<ProvingRequestType, number> = {
 export const PROOF_DELAY_MS: Record<ProvingRequestType, number> = {
   [ProvingRequestType.PUBLIC_CHONK_VERIFIER]: 16_300,
   [ProvingRequestType.INBOX_PARITY]: 15_300,
-  [ProvingRequestType.BLOCK_ROOT_FIRST_ROLLUP]: 17_400,
-  [ProvingRequestType.BLOCK_ROOT_EMPTY_TX_FIRST_ROLLUP]: 4_500,
-  [ProvingRequestType.BLOCK_ROOT_MSGS_ONLY_ROLLUP]: 4_500,
-  [ProvingRequestType.BLOCK_ROOT_SINGLE_TX_FIRST_ROLLUP]: 9_200,
+  [ProvingRequestType.BLOCK_ROOT_NO_TXS_ROLLUP]: 4_500,
   [ProvingRequestType.CHECKPOINT_MERGE_ROLLUP]: 10_200,
   [ProvingRequestType.CHECKPOINT_ROOT_SINGLE_BLOCK_ROLLUP]: 37_100,
   [ProvingRequestType.ROOT_ROLLUP]: 93_000,
