@@ -4,8 +4,19 @@ source $(git rev-parse --show-toplevel)/ci3/source_bootstrap
 ROOT=$(git rev-parse --show-toplevel)
 TARGET_DIR=bin
 BB_BINARY=bb
+BB_AVM_BINARY=bb-avm
 NARGO_BINARY=nargo
 NOIR_PROFILER_BINARY=noir-profiler
+ACVM_BINARY=acvm
+
+function link_tool {
+  local full_path=$1
+  local name=$2
+  # The link must be relative: the checkout gets mounted at other paths (e.g. the aztec-up test
+  # container bind-mounts it at /home/ubuntu/aztec-packages), where an absolute target dangles.
+  ln -sf "$(realpath --relative-to="$TARGET_DIR" "$full_path")" "$TARGET_DIR/$name"
+  echo "Created symlink: $TARGET_DIR/$name -> $full_path"
+}
 
 function build_monorepo {
   echo "Setting up labs' aztec toolchain (for the monorepo)..."
@@ -22,14 +33,23 @@ function build_monorepo {
   fi
 
   mkdir -p "$TARGET_DIR"
-  ln -sf $bb_full_path "$TARGET_DIR/$BB_BINARY"
-  ln -sf $nargo_full_path "$TARGET_DIR/$NARGO_BINARY"
-  ln -sf $noir_profiler_full_path "$TARGET_DIR/$NOIR_PROFILER_BINARY"
+  link_tool "$bb_full_path" "$BB_BINARY"
+  link_tool "$nargo_full_path" "$NARGO_BINARY"
+  link_tool "$noir_profiler_full_path" "$NOIR_PROFILER_BINARY"
+
+  # These may legitimately be absent: bb-avm is skipped by AVM=0 builds, and noir releases
+  # don't ship acvm (the noir-from-release flow). Link whatever exists; a consumer of an
+  # absent binary fails at the point of use.
+  local optional_path
+  for optional_path in \
+    "$ROOT/barretenberg/cpp/build/bin/$BB_AVM_BINARY" \
+    "$ROOT/noir/noir-repo/target/release/$ACVM_BINARY"; do
+    if [ -f "$optional_path" ]; then
+      link_tool "$optional_path" "$(basename "$optional_path")"
+    fi
+  done
 
   echo "Done."
-  echo "Created symlink: $bb_full_path -> $TARGET_DIR/$BB_BINARY"
-  echo "Created symlink: $nargo_full_path -> $TARGET_DIR/$NARGO_BINARY"
-  echo "Created symlink: $noir_profiler_full_path -> $TARGET_DIR/$NOIR_PROFILER_BINARY"
 }
 
 function build_labs {

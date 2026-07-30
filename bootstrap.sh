@@ -309,7 +309,8 @@ set -euo pipefail
 (cd barretenberg/cpp && ./format.sh staged)
 ./yarn-project/precommit.sh
 ./noir/precommit.sh
-./noir-projects/precommit.sh
+./noir-projects/fnd/precommit.sh
+./noir-projects/labs/precommit.sh
 ./yarn-project/constants/precommit.sh
 ./docs/examples/ts/precommit.sh
 EOF

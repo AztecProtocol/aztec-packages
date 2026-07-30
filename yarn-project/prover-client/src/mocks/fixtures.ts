@@ -17,12 +17,10 @@ import { promises as fs } from 'fs';
 import path from 'path';
 
 const {
-  BB_RELEASE_DIR = 'cpp/build/bin',
   TEMP_DIR = '/tmp',
   BB_BINARY_PATH = '',
   BB_WORKING_DIRECTORY = '',
   BB_SKIP_CLEANUP = '',
-  NOIR_RELEASE_DIR = 'noir-repo/target/release',
   ACVM_BINARY_PATH = '',
   ACVM_WORKING_DIRECTORY = '',
 } = process.env;
@@ -32,7 +30,7 @@ export const getEnvironmentConfig = async (logger: Logger) => {
   try {
     const expectedBBPath = BB_BINARY_PATH
       ? BB_BINARY_PATH
-      : `${path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../../../../barretenberg/', BB_RELEASE_DIR)}/bb-avm`;
+      : `${path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../../../../labs-aztec-toolchain/bin')}/bb-avm`;
     await fs.access(expectedBBPath, fs.constants.R_OK);
     const tempWorkingDirectory = `${TEMP_DIR}/${randomBytes(4).toString('hex')}`;
     const bbWorkingDirectory = BB_WORKING_DIRECTORY ? BB_WORKING_DIRECTORY : `${tempWorkingDirectory}/bb`;
@@ -41,7 +39,7 @@ export const getEnvironmentConfig = async (logger: Logger) => {
 
     const expectedAcvmPath = ACVM_BINARY_PATH
       ? ACVM_BINARY_PATH
-      : `${path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../../../../noir/', NOIR_RELEASE_DIR)}/acvm`;
+      : `${path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../../../../labs-aztec-toolchain/bin')}/acvm`;
     await fs.access(expectedAcvmPath, fs.constants.R_OK);
     const acvmWorkingDirectory = ACVM_WORKING_DIRECTORY ? ACVM_WORKING_DIRECTORY : `${tempWorkingDirectory}/acvm`;
     await fs.mkdir(acvmWorkingDirectory, { recursive: true });

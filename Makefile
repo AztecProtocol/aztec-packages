@@ -374,38 +374,39 @@ endif
 noir-protocol-circuits-variants:
 	$(call build,$@,noir-projects/fnd/noir-protocol-circuits,generate_variants)
 
-# Format check. Also warms the nargo dependency cache, so it must complete before the
-# subproject builds to avoid parallel nargo runs tripping over each other downloading.
-# The fnd and labs checks share that cache, so they run serially in this one target.
-noir-projects-format-check: noir noir-protocol-circuits-variants
+# Format checks. They also warm the nargo dependency cache, so each must complete before its
+# side's subproject builds to avoid parallel nargo runs tripping over each other downloading.
+noir-projects-fnd-format-check: noir noir-protocol-circuits-variants
 	$(call build,$@,noir-projects/fnd,format_check)
+
+noir-projects-labs-format-check: labs-aztec-toolchain
 	$(call build,$@,noir-projects/labs,format_check)
 
-# If we are running on the labs repo, we need to additionally depend on targets
-# that generate/place the binaries.
-ifeq ($(REPO_ORG),labs)
-noir-projects-format-check: labs-aztec-toolchain
+# The fnd and labs checks share the nargo dependency cache, so on the monorepo they are
+# serialized (labs after fnd) rather than allowed to run in parallel.
+ifneq ($(REPO_ORG),labs)
+noir-projects-labs-format-check: noir-projects-fnd-format-check
 endif
 
-noir-protocol-circuits: noir bb-cpp-native noir-projects-format-check
+noir-protocol-circuits: noir bb-cpp-native noir-projects-fnd-format-check
 	$(call build,$@,noir-projects/fnd/noir-protocol-circuits)
 
 noir-protocol-circuits-tests: noir noir-protocol-circuits
 	$(call test,$@,noir-projects/fnd/noir-protocol-circuits)
 
-mock-protocol-circuits: noir bb-cpp-native noir-projects-format-check
+mock-protocol-circuits: noir bb-cpp-native noir-projects-fnd-format-check
 	$(call build,$@,noir-projects/fnd/mock-protocol-circuits)
 
-protocol-contracts: noir bb-cpp-native noir-projects-format-check
+protocol-contracts: noir bb-cpp-native noir-projects-fnd-format-check
 	$(call build,$@,noir-projects/fnd/noir-contracts)
 
 protocol-contracts-tests: noir protocol-contracts
 	$(call test,$@,noir-projects/fnd/noir-contracts)
 
-noir-contracts: noir bb-cpp-native noir-projects-format-check labs-aztec-toolchain
+noir-contracts: noir bb-cpp-native noir-projects-labs-format-check labs-aztec-toolchain
 	$(call build,$@,noir-projects/labs/noir-contracts)
 
-aztec-nr: noir bb-cpp-native noir-projects-format-check labs-aztec-toolchain
+aztec-nr: noir bb-cpp-native noir-projects-labs-format-check labs-aztec-toolchain
 	$(call build,$@,noir-projects/labs/aztec-nr)
 
 # These tests are not included in the dep tree.
@@ -414,7 +415,7 @@ noir-projects-txe-tests:
 	$(call test,$@,noir-projects/labs/aztec-nr)
 	$(call test,$@,noir-projects/labs/noir-contracts)
 
-contract-snapshots-tests: noir noir-projects-format-check
+contract-snapshots-tests: noir noir-projects-labs-format-check labs-aztec-toolchain
 	$(call test,$@,noir-projects/labs/contract-snapshots)
 
 # Noir Projects - Aggregate target (builds all sub-projects)
