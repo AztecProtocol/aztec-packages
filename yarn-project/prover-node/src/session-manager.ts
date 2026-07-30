@@ -231,8 +231,6 @@ export class SessionManager {
   }
 
   private async reconcile(trigger: ReconcileTrigger): Promise<void> {
-    this.log.debug(`Reconciling`, { trigger });
-
     this.recreateInvalidSessions();
 
     const implicatedEpochs = await this.epochsForTrigger(trigger);
