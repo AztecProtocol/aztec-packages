@@ -26,6 +26,14 @@ import {
 export class SlashingProposerContract {
   private readonly contract: GetContractReturnType<typeof SlashingProposerAbi, ViemClient>;
 
+  /**
+   * Slash target validators of the last round asked for. Safe to cache because a round's targets are the committees
+   * of epochs that had already ended when the round opened (see SLASH_OFFSET_IN_ROUNDS), and those committees are
+   * sampled from validator set and randao snapshots taken before the epoch started, so they cannot change while the
+   * round is live. The promise is cached rather than the result, so concurrent callers share one in-flight read.
+   */
+  private slashTargetValidators: { round: bigint; validators: Promise<EthAddress[]> } | undefined;
+
   constructor(
     public readonly client: ViemClient,
     address: Hex | EthAddress,
@@ -237,8 +245,30 @@ export class SlashingProposerContract {
     };
   }
 
-  /** Returns the validators eligible to be voted against in a round, in the order votes encode them */
-  public async getSlashTargetValidators(round: bigint): Promise<EthAddress[]> {
+  /**
+   * Returns the validators eligible to be voted against in a round, in the order votes encode them. Cached for the
+   * last round asked for: reading them runs a committee sampling simulation on L1, and every vote of a round decodes
+   * against the same list, so a caller walking a round's votes would otherwise repeat that call per vote. Only the
+   * last round is kept since callers move forward round by round.
+   */
+  public getSlashTargetValidators(round: bigint): Promise<EthAddress[]> {
+    const cached = this.slashTargetValidators;
+    if (cached?.round === round) {
+      return cached.validators;
+    }
+
+    const entry = { round, validators: this.fetchSlashTargetValidators(round) };
+    this.slashTargetValidators = entry;
+    // A failed read must not stay cached, or every later vote of the round would replay the same rejection
+    entry.validators.catch(() => {
+      if (this.slashTargetValidators === entry) {
+        this.slashTargetValidators = undefined;
+      }
+    });
+    return entry.validators;
+  }
+
+  private async fetchSlashTargetValidators(round: bigint): Promise<EthAddress[]> {
     const { result } = await this.contract.simulate.getSlashTargetCommittees([round]);
     return result.flat().map(validator => EthAddress.fromString(validator));
   }

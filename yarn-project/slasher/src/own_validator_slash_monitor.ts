@@ -2,6 +2,7 @@ import type { SlashVoteTarget, SlashingProposerContract } from '@aztec/ethereum/
 import { uniqueBy } from '@aztec/foundation/collection';
 import type { EthAddress } from '@aztec/foundation/eth-address';
 import { createLogger } from '@aztec/foundation/log';
+import { SerialQueue } from '@aztec/foundation/queue';
 
 import type { Hex } from 'viem';
 
@@ -30,9 +31,10 @@ export class OwnValidatorSlashMonitor {
   /**
    * All vote processing runs through this queue, one job at a time in arrival order. Serialization is what makes
    * the cursor sound: without it, concurrent event handlers could process the same index twice or emit warnings
-   * with out-of-order running tallies.
+   * with out-of-order running tallies. Replaced on every start(), since a queue that has been ended cannot run
+   * jobs again.
    */
-  private queue: Promise<void> = Promise.resolve();
+  private queue = new SerialQueue();
 
   private stopped = false;
 
@@ -42,7 +44,9 @@ export class OwnValidatorSlashMonitor {
     private readonly ownValidators: EthAddress[],
     private readonly metrics: SlasherMetrics,
     private readonly log = createLogger('slasher:own-validators'),
-  ) {}
+  ) {
+    this.queue.start();
+  }
 
   private get enabled(): boolean {
     return this.ownValidators.length > 0;
@@ -58,6 +62,8 @@ export class OwnValidatorSlashMonitor {
       return;
     }
     this.stopped = false;
+    this.queue = new SerialQueue();
+    this.queue.start();
     this.state = { round: currentRound, nextVoteIndex: undefined, countByPosition: new Map() };
     this.metrics.recordQuorumSize(this.settings.slashingQuorumSize);
     this.metrics.recordCurrentRoundVotesMax(0);
@@ -66,7 +72,9 @@ export class OwnValidatorSlashMonitor {
   /** Stops processing and waits for any in-flight drain, so no warning or metric is emitted after shutdown. */
   public async stop(): Promise<void> {
     this.stopped = true;
-    await this.queue;
+    // Jobs already queued are no-ops now that the flag is set, so end() runs through them at no cost while still
+    // settling the promises their callers hold, where cancel() would discard them and leave those promises pending.
+    await this.queue.end();
   }
 
   /**
@@ -87,7 +95,11 @@ export class OwnValidatorSlashMonitor {
     if (!this.enabled || this.stopped) {
       return Promise.resolve();
     }
-    return this.enqueue(() => this.drainVotesTo(round, voteIndex));
+    // Errors are logged rather than propagated: callers fire and forget, and a failed read is retried by the drain
+    // the next event triggers.
+    return this.queue
+      .put(() => this.drainVotesTo(round, voteIndex))
+      .catch(err => this.log.error('Error processing slashing votes', err));
   }
 
   /** Reports executed slashes against own validators. Called with the Slashed events already fetched by the client. */
@@ -104,12 +116,6 @@ export class OwnValidatorSlashMonitor {
       });
       this.metrics.recordOwnValidatorSlashed(amount);
     }
-  }
-
-  /** Serializes a job behind all previously enqueued ones. Errors are logged and never break the chain. */
-  private enqueue(job: () => Promise<void>): Promise<void> {
-    this.queue = this.queue.then(job).catch(err => this.log.error('Error processing slashing votes', err));
-    return this.queue;
   }
 
   /** Processes votes [cursor, voteIndex] of a round, in order, advancing the cursor after each success. */
