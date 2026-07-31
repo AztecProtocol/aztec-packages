@@ -6,4 +6,4 @@ compiler_version = ">=0.25.0"
 
 [dependencies]
 aztec = { path = "../../../../noir-projects/labs/aztec-nr/aztec" }
-bb_proof_verification = { path = "../../../../barretenberg/noir/bb_proof_verification" }
+bb_proof_verification = { git = "https://github.com/AztecProtocol/aztec-packages", tag = "v6.0.0-nightly.20260729", directory = "barretenberg/noir/bb_proof_verification" }

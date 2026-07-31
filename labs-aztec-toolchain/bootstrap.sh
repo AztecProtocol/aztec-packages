@@ -12,11 +12,14 @@ NOIR_PROFILER_BINARY=noir-profiler
 # nargo only reports its base cargo version, never the nightly/release tag.
 PIN_FILE=$TARGET_DIR/.pin
 
-# Pinned versions installed in the labs repo (see build_labs).
+# Pinned versions installed in the labs repo (see build_labs). These versions are also
+# hardcoded in other files throughout the monorepo, so a change here requires also updating
+# those. check_pin_drift detects any drift between this and those declarations.
 # The monorepo links the locally built binaries instead.
 # Note that BB is downloaded from the AztecProtocol/barretenberg mirror first (via bbup).
 BB_VERSION=6.0.0-nightly.20260729
 NOIR_VERSION=1.0.0-beta.25
+
 # The installers and sources are fetched at build time; overridable for testing/mirroring.
 BBUP_URL=${BBUP_URL:-https://raw.githubusercontent.com/AztecProtocol/aztec-packages/86f69c8751f63ca604a1dab5967f208b211a1611/barretenberg/bbup/bbup}
 NOIRUP_URL=${NOIRUP_URL:-https://raw.githubusercontent.com/noir-lang/noirup/324a51fca2c410d2477400316efc5ce0d743a5b3/noirup}
@@ -322,7 +325,40 @@ function clean {
   rm -rf $TARGET_DIR
 }
 
+# The pinned versions above are also written out in files that consume the release
+# directly and cannot read them from here. This asserts they all match BB_VERSION
+# so a pin bump cannot leave one behind.
+function check_pin_drift {
+  local repo_root=$(git rev-parse --show-toplevel)
+  local failed=false
+
+  local hit tag
+  while IFS= read -r hit; do
+    tag=$(sed -n 's/.*tag *= *"\([^"]*\)".*/\1/p' <<< "${hit#*:*:}")
+    if [ "$tag" != "v$BB_VERSION" ]; then
+      echo_stderr "${hit%%:*}:$(cut -d: -f2 <<< "$hit"): aztec-packages git dep pins tag \"$tag\", expected \"v$BB_VERSION\" (BB_VERSION in labs-aztec-toolchain/bootstrap.sh)."
+      failed=true
+    fi
+  done < <(git -C "$repo_root" grep -n 'github.com/AztecProtocol/aztec-packages' -- '*Nargo.toml' || true)
+
+  local config=$repo_root/docs/examples/ts/recursive_verification/config.yaml
+  local pin version
+  while IFS= read -r pin; do
+    version=${pin##*@}
+    if [ "$version" != "$BB_VERSION" ]; then
+      echo_stderr "$config: \"$pin\" pins version \"$version\", expected \"$BB_VERSION\" (BB_VERSION in labs-aztec-toolchain/bootstrap.sh)."
+      failed=true
+    fi
+  done < <(grep -o 'npm:@aztec/[^"]*' "$config" 2>/dev/null || true)
+
+  if $failed; then
+    echo_stderr "Pinned release versions drifted - align them with BB_VERSION."
+    exit 1
+  fi
+}
+
 function build {
+  check_pin_drift
   build_labs
 }
 
