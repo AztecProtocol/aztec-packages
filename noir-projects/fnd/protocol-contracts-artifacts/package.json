@@ -6,9 +6,5 @@
     "./package.json": "./package.json",
     "./artifacts/*": "./artifacts/*",
     "./protocol_contracts.json": "./protocol_contracts.json"
-  },
-  "files": [
-    "artifacts",
-    "protocol_contracts.json"
-  ]
+  }
 }

@@ -5,8 +5,5 @@
   "exports": {
     "./package.json": "./package.json",
     "./artifacts/*": "./artifacts/*"
-  },
-  "files": [
-    "artifacts"
-  ]
+  }
 }
