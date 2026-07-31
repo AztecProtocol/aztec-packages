@@ -3,6 +3,7 @@ import type { ViemClient } from '@aztec/ethereum/types';
 import { mergeAbis, tryExtractEvent } from '@aztec/ethereum/utils';
 import { SlotNumber } from '@aztec/foundation/branded-types';
 import { Buffer32 } from '@aztec/foundation/buffer';
+import { memoize } from '@aztec/foundation/decorators';
 import { EthAddress } from '@aztec/foundation/eth-address';
 import { Signature } from '@aztec/foundation/eth-signature';
 import { hexToBuffer } from '@aztec/foundation/string';
@@ -24,6 +25,14 @@ import {
  */
 export class SlashingProposerContract {
   private readonly contract: GetContractReturnType<typeof SlashingProposerAbi, ViemClient>;
+
+  /**
+   * Slash target validators of the last round asked for. Safe to cache because a round's targets are the committees
+   * of epochs that had already ended when the round opened (see SLASH_OFFSET_IN_ROUNDS), and those committees are
+   * sampled from validator set and randao snapshots taken before the epoch started, so they cannot change while the
+   * round is live. The promise is cached rather than the result, so concurrent callers share one in-flight read.
+   */
+  private slashTargetValidators: { round: bigint; validators: Promise<EthAddress[]> } | undefined;
 
   constructor(
     public readonly client: ViemClient,
@@ -64,6 +73,8 @@ export class SlashingProposerContract {
     return this.contract.read.EXECUTION_DELAY_IN_ROUNDS();
   }
 
+  /** Returns the slash amounts for the three slash unit levels. Immutable on the contract, so memoized. */
+  @memoize
   public getSlashingAmounts(): Promise<[bigint, bigint, bigint]> {
     return Promise.all([
       this.contract.read.SLASH_AMOUNT_SMALL(),
@@ -234,19 +245,51 @@ export class SlashingProposerContract {
     };
   }
 
+  /**
+   * Returns the validators eligible to be voted against in a round, in the order votes encode them. Cached for the
+   * last round asked for: reading them runs a committee sampling simulation on L1, and every vote of a round decodes
+   * against the same list, so a caller walking a round's votes would otherwise repeat that call per vote. Only the
+   * last round is kept since callers move forward round by round.
+   */
+  public getSlashTargetValidators(round: bigint): Promise<EthAddress[]> {
+    const cached = this.slashTargetValidators;
+    if (cached?.round === round) {
+      return cached.validators;
+    }
+
+    const entry = { round, validators: this.fetchSlashTargetValidators(round) };
+    this.slashTargetValidators = entry;
+    // A failed read must not stay cached, or every later vote of the round would replay the same rejection
+    entry.validators.catch(() => {
+      if (this.slashTargetValidators === entry) {
+        this.slashTargetValidators = undefined;
+      }
+    });
+    return entry.validators;
+  }
+
+  private async fetchSlashTargetValidators(round: bigint): Promise<EthAddress[]> {
+    const { result } = await this.contract.simulate.getSlashTargetCommittees([round]);
+    return result.flat().map(validator => EthAddress.fromString(validator));
+  }
+
+  /**
+   * Returns the slash amount voted for each target validator by a single vote of a round.
+   * @param index - Position of the vote within the round, from 0 (inclusive) to the round's vote count (exclusive)
+   */
+  public async getVoteAt(round: bigint, index: bigint): Promise<SlashVoteTarget[]> {
+    const [validators, vote, slashAmounts] = await Promise.all([
+      this.getSlashTargetValidators(round),
+      this.contract.read.getVotes([round, index]),
+      this.getSlashingAmounts(),
+    ]);
+    return decodeVote(vote, validators, slashAmounts);
+  }
+
   /** Returns the last vote emitted for a given round  */
   public async getLastVote(round: bigint) {
     const { voteCount } = await this.getRound(round);
-    const validators = (await this.contract.simulate.getSlashTargetCommittees([round])).result.flat();
-    const vote = await this.contract.read.getVotes([round, voteCount - 1n]);
-    const decoded = decodeSlashConsensusVotes(hexToBuffer(vote));
-    const slashAmounts = await this.getSlashingAmounts();
-    return decoded
-      .map((units, i) => ({
-        validator: EthAddress.fromString(validators[i]),
-        slashAmount: slashAmounts[units - 1] ?? 0n,
-      }))
-      .filter(v => v.slashAmount > 0n);
+    return await this.getVoteAt(round, voteCount - 1n);
   }
 
   /**
@@ -292,6 +335,23 @@ export class SlashingProposerContract {
       },
     );
   }
+}
+
+/**
+ * A validator targeted by a slashing vote, with the amount voted. The position is the validator's index in the
+ * round's flattened slash target committees — the unit the contract tallies quorum by. A validator sitting in
+ * several of the round's committees holds several positions, each with its own tally.
+ */
+export type SlashVoteTarget = { validator: EthAddress; slashAmount: bigint; position: number };
+
+function decodeVote(vote: Hex, validators: EthAddress[], slashAmounts: [bigint, bigint, bigint]): SlashVoteTarget[] {
+  return decodeSlashConsensusVotes(hexToBuffer(vote))
+    .map((units, position) => ({
+      validator: validators[position],
+      slashAmount: slashAmounts[units - 1] ?? 0n,
+      position,
+    }))
+    .filter(v => v.slashAmount > 0n);
 }
 
 /**
