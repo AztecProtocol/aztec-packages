@@ -18,6 +18,11 @@ PIN_FILE=$TARGET_DIR/.pin
 # The monorepo links the locally built binaries instead.
 # Note that BB is downloaded from the AztecProtocol/barretenberg mirror first (via bbup).
 BB_VERSION=6.0.0-nightly.20260729
+# NOIR_VERSION must be the noir release the $BB_VERSION aztec-packages release was built
+# against (its noir submodule): the pinned nargo's output is consumed by tools from that
+# release (bb, and the @aztec/noir-* js packages, which are that submodule republished).
+# Skew is not detected by check_pin_drift, it surfaces in other places (e.g. the docs
+# examples' runtime tests).
 NOIR_VERSION=1.0.0-beta.25
 
 # The installers and sources are fetched at build time; overridable for testing/mirroring.
@@ -349,7 +354,9 @@ function check_pin_drift {
       echo_stderr "$config: \"$pin\" pins version \"$version\", expected \"$BB_VERSION\" (BB_VERSION in labs-aztec-toolchain/bootstrap.sh)."
       failed=true
     fi
-  done < <(grep -o 'npm:@aztec/[^"]*' "$config" 2>/dev/null || true)
+  # Only bb.js and the noir packages track BB_VERSION: other @aztec-scoped pins
+  # (e.g. the viem fork) version independently and must not be checked.
+  done < <(grep -oE 'npm:@aztec/(bb\.js|noir-[^@"]*)@[^"]*' "$config" 2>/dev/null || true)
 
   if $failed; then
     echo_stderr "Pinned release versions drifted - align them with BB_VERSION."
