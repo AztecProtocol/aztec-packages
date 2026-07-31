@@ -224,11 +224,13 @@ RUN apt update && \
     && rm -rf /var/lib/apt/lists/* /tmp/* /var/tmp/*
 
 # Install gh (github cli).
-RUN mkdir -p -m 755 /etc/apt/keyrings && wget -qO- https://cli.github.com/packages/githubcli-archive-keyring.gpg > /etc/apt/keyrings/githubcli-archive-keyring.gpg \
-    && chmod go+r /etc/apt/keyrings/githubcli-archive-keyring.gpg \
-    && echo "deb [arch=$(dpkg --print-architecture) signed-by=/etc/apt/keyrings/githubcli-archive-keyring.gpg] https://cli.github.com/packages stable main" | tee /etc/apt/sources.list.d/github-cli.list > /dev/null \
-    && apt update \
-    && apt install gh -y
+# We take the release deb rather than cli.github.com's apt repo, which only ever carries the newest
+# gh: a version there can't be pinned, and an unpinned install silently freezes at whatever gh was
+# current when this layer was last built.
+RUN gh_version=2.97.0 && \
+    curl -fsSL https://github.com/cli/cli/releases/download/v${gh_version}/gh_${gh_version}_linux_$(dpkg --print-architecture).deb -o gh.deb \
+    && dpkg -i gh.deb \
+    && rm gh.deb
 
 # Install gt (graphite).
 RUN npm install -g @withgraphite/graphite-cli@stable
@@ -269,7 +271,7 @@ RUN echo '%sudo ALL=(ALL) NOPASSWD: ALL' >> /etc/sudoers
 FROM basebox AS devbox
 
 # Install gosu so we can start as root, adjust uid/gid, and then use gosu to become aztec-dev.
-RUN apt install -y gosu
+RUN apt update && apt install -y gosu
 
 # Detect if the host machine is Mac, if so set an env var, and disable prompts vcs info for performance.
 RUN echo ' \
