@@ -178,8 +178,8 @@ export class BlockSynchronizer implements L2BlockStreamEventHandler {
     // execution.
     this.contractSyncService.wipe();
 
-    // Cached node reads are immutable up to reorgs, and an anchor update is the only signal PXE gets that a reorg
-    // may have moved the chain, so the store is cleared on every anchor update.
+    // Cached node reads stay correct indefinitely, so this wipe is only about bounding memory growth. An anchor
+    // update is the recurring trigger PXE already has.
     this.node.wipeCache();
 
     this.log.verbose(`Updated pxe last block to ${blockHeader.getBlockNumber()}`, blockHeader.toInspect());

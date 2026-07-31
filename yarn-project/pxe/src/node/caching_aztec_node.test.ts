@@ -151,6 +151,16 @@ describe('withCache', () => {
       expect(aztecNode.getBlock).toHaveBeenCalledTimes(2);
     });
 
+    it('passes archive-referenced reads through to the node uncached', async () => {
+      const archive = Fr.random();
+      aztecNode.getBlock.mockResolvedValue(makeBlockResponse(BlockNumber(1)));
+
+      await cachedNode.getBlock({ archive });
+      await cachedNode.getBlock({ archive });
+
+      expect(aztecNode.getBlock).toHaveBeenCalledTimes(2);
+    });
+
     it('passes reads requesting attestations or L1 publish info through to the node uncached', async () => {
       const blockHash = BlockHash.random();
       aztecNode.getBlock.mockResolvedValue(makeBlockResponse(BlockNumber(1)));
@@ -292,17 +302,20 @@ describe('withCache', () => {
       expect(aztecNode.getPublicStorageAt).toHaveBeenCalledTimes(2);
     });
 
-    it('passes number- and tag-referenced reads through to the node uncached', async () => {
+    it('passes number-, tag- and archive-referenced reads through to the node uncached', async () => {
       const contractAddress = await AztecAddress.random();
       const storageSlot = new Fr(100);
+      const archive = Fr.random();
       aztecNode.getPublicStorageAt.mockResolvedValue(new Fr(1));
 
       await cachedNode.getPublicStorageAt('latest', contractAddress, storageSlot);
       await cachedNode.getPublicStorageAt('latest', contractAddress, storageSlot);
       await cachedNode.getPublicStorageAt(BlockNumber(1), contractAddress, storageSlot);
       await cachedNode.getPublicStorageAt(BlockNumber(1), contractAddress, storageSlot);
+      await cachedNode.getPublicStorageAt({ archive }, contractAddress, storageSlot);
+      await cachedNode.getPublicStorageAt({ archive }, contractAddress, storageSlot);
 
-      expect(aztecNode.getPublicStorageAt).toHaveBeenCalledTimes(4);
+      expect(aztecNode.getPublicStorageAt).toHaveBeenCalledTimes(6);
     });
   });
 
@@ -328,6 +341,21 @@ describe('withCache', () => {
       expect(aztecNode.findLeavesIndexes).toHaveBeenLastCalledWith(blockHash, MerkleTreeId.NULLIFIER_TREE, [leafB]);
     });
 
+    it('asks the node once for a leaf repeated within a batch', async () => {
+      const blockHash = BlockHash.random();
+      const leafA = Fr.random();
+      const leafB = Fr.random();
+      const indexA = { data: 7n, ...randomInBlock() };
+      const indexB = { data: 8n, ...randomInBlock() };
+      aztecNode.findLeavesIndexes.mockResolvedValueOnce([indexA, indexB]);
+
+      await expect(
+        cachedNode.findLeavesIndexes(blockHash, MerkleTreeId.NULLIFIER_TREE, [leafA, leafB, leafA]),
+      ).resolves.toEqual([indexA, indexB, indexA]);
+
+      expect(aztecNode.findLeavesIndexes).toHaveBeenCalledWith(blockHash, MerkleTreeId.NULLIFIER_TREE, [leafA, leafB]);
+    });
+
     it('caches undefined reads as non-membership answers', async () => {
       const blockHash = BlockHash.random();
       const leafA = Fr.random();
@@ -347,8 +375,9 @@ describe('withCache', () => {
       expect(aztecNode.findLeavesIndexes).toHaveBeenLastCalledWith(blockHash, MerkleTreeId.NULLIFIER_TREE, [leafB]);
     });
 
-    it('passes tag-referenced reads through to the node uncached', async () => {
+    it('passes tag- and archive-referenced reads through to the node uncached', async () => {
       const leaf = Fr.random();
+      const archive = Fr.random();
       const index = { data: 7n, ...randomInBlock() };
       aztecNode.findLeavesIndexes.mockResolvedValue([index]);
 
@@ -358,8 +387,14 @@ describe('withCache', () => {
       await expect(cachedNode.findLeavesIndexes('latest', MerkleTreeId.NULLIFIER_TREE, [leaf])).resolves.toEqual([
         index,
       ]);
+      await expect(cachedNode.findLeavesIndexes({ archive }, MerkleTreeId.NULLIFIER_TREE, [leaf])).resolves.toEqual([
+        index,
+      ]);
+      await expect(cachedNode.findLeavesIndexes({ archive }, MerkleTreeId.NULLIFIER_TREE, [leaf])).resolves.toEqual([
+        index,
+      ]);
 
-      expect(aztecNode.findLeavesIndexes).toHaveBeenCalledTimes(2);
+      expect(aztecNode.findLeavesIndexes).toHaveBeenCalledTimes(4);
     });
 
     it('rejects and evicts a batch whose response is shorter than the request', async () => {
@@ -531,15 +566,18 @@ function buildPinnedReadTests(opts: {
       expect(node).toHaveBeenCalledTimes(1);
     });
 
-    it('passes number- and tag-referenced reads through to the node uncached', async () => {
+    it('passes number-, tag- and archive-referenced reads through to the node uncached', async () => {
       const { node, read } = opts.setup();
+      const archive = Fr.random();
 
       await read('latest');
       await read('latest');
       await read(BlockNumber(1));
       await read(BlockNumber(1));
+      await read({ archive });
+      await read({ archive });
 
-      expect(node).toHaveBeenCalledTimes(4);
+      expect(node).toHaveBeenCalledTimes(6);
     });
 
     opts.extraTests?.();

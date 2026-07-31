@@ -11,7 +11,7 @@ import { type BenchmarkedAztecNode, withRecording } from './benchmarked_node.js'
  * An {@link AztecNode} wrapper that serves repeated reads from a cache it owns.
  */
 export interface CachingAztecNode extends BenchmarkedAztecNode {
-  /** Clears the read cache. The cache owner calls this on reorg, the only event that can change a hash-pinned read. */
+  /** Clears the read cache. The owner calls this periodically to bound memory. Cached entries never go stale. */
   wipeCache(): void;
 }
 
@@ -21,9 +21,9 @@ export interface CachingAztecNode extends BenchmarkedAztecNode {
  *
  * Only hash-pinned reads are cached. A block hash names immutable content, so the same call can never correctly answer
  * differently, and even an `undefined` witness or leaf index is kept as a non-membership fact. That makes the wrapper
- * safe for any consumer, whatever its anchor block. Uncached methods, and reads pinned by number or tag, pass straight
- * through, since those name a moving chain position. A few entries below opt out even when hash-pinned, where the
- * answer can still change.
+ * safe for any consumer, whatever its anchor block. Uncached methods, and reads that name a block any other way (see
+ * {@link hashReferenceOf}), pass straight through. A few entries below opt out even when hash-pinned, where the answer
+ * can still change.
  *
  * Wiping (see {@link CachingAztecNode.wipeCache}) bounds memory. Correctness does not depend on it.
  */
@@ -127,32 +127,36 @@ export function withCache(node: AztecNode): CachingAztecNode {
       if (referenceHash === undefined) {
         return source.findLeavesIndexes(referenceBlock, treeId, leafValues);
       }
-      const keys = leafValues.map(leaf => `leaf-index:${referenceHash.toString()}:${treeId}:${leaf.toString()}`);
-      const results = cache.peekAll<DataInBlock<bigint> | undefined>(keys);
-      const missIndexes = results.flatMap((result, i) => (result === undefined ? [i] : []));
-      if (missIndexes.length > 0) {
-        const batch = source
-          .findLeavesIndexes(
-            referenceBlock,
-            treeId,
-            missIndexes.map(i => leafValues[i]),
-          )
-          .then(fetched => {
-            if (fetched.length !== missIndexes.length) {
-              // A correct node returns one result per requested leaf. A short response would otherwise be indexed
-              // positionally and cached as durable non-membership for the missing tail; reject instead so the derived
-              // entries evict and callers retry.
-              throw new Error(
-                `findLeavesIndexes returned ${fetched.length} results for ${missIndexes.length} requested leaves`,
-              );
-            }
-            return fetched;
-          });
-        missIndexes.forEach((missIndex, batchIndex) => {
-          results[missIndex] = cache.fetch(keys[missIndex], () => batch.then(fetched => fetched[batchIndex]));
+      const keyOf = (leaf: Fr) => `leaf-index:${referenceHash.toString()}:${treeId}:${leaf.toString()}`;
+      const keys = leafValues.map(keyOf);
+      const cached = cache.peekAll<DataInBlock<bigint> | undefined>(keys);
+      // Held by cache key, so a leaf repeated in `leafValues` is asked of the node once and each of its positions
+      // reads the single entry that one request seeds.
+      const missingLeaves = new Map<string, Fr>(
+        leafValues.filter((_leaf, index) => cached[index] === undefined).map(leaf => [keyOf(leaf), leaf]),
+      );
+      const fetches = new Map<string, Promise<DataInBlock<bigint> | undefined>>();
+      if (missingLeaves.size > 0) {
+        const batch = source.findLeavesIndexes(referenceBlock, treeId, [...missingLeaves.values()]).then(fetched => {
+          if (fetched.length !== missingLeaves.size) {
+            // Each leaf's cache entry is filled from the batch response by position (fetched[batchIndex]). If the node
+            // returned fewer results than we asked for, the positions past the end would read undefined, and the cache
+            // keeps undefined as a genuine "leaf not in tree" answer, so a truncated response would be cached as fact.
+            // Rejecting the whole batch evicts those entries instead, so a retry re-fetches every leaf.
+            throw new Error(
+              `findLeavesIndexes returned ${fetched.length} results for ${missingLeaves.size} requested leaves`,
+            );
+          }
+          return fetched;
+        });
+        [...missingLeaves.keys()].forEach((key, batchIndex) => {
+          fetches.set(
+            key,
+            cache.fetch(key, () => batch.then(fetched => fetched[batchIndex])),
+          );
         });
       }
-      return Promise.all(results);
+      return Promise.all(keys.map((key, index) => cached[index] ?? fetches.get(key)));
     },
   };
 
@@ -192,7 +196,7 @@ class AztecNodeCache {
     read: () => Promise<T>,
     { shouldCache }: { shouldCache?: (value: T) => boolean } = {},
   ): Promise<T> {
-    return this.#get<T>(key) ?? this.set(key, read(), shouldCache);
+    return this.#get<T>(key) ?? this.#set(key, read(), shouldCache);
   }
 
   /**
@@ -214,7 +218,7 @@ class AztecNodeCache {
     return this.cache.get(key) as Promise<T> | undefined;
   }
 
-  private set<T>(key: string, promise: Promise<T>, shouldCache?: (value: T) => boolean): Promise<T> {
+  #set<T>(key: string, promise: Promise<T>, shouldCache?: (value: T) => boolean): Promise<T> {
     const evict = () => {
       if (this.cache.get(key) === promise) {
         this.cache.delete(key);
@@ -235,8 +239,14 @@ class AztecNodeCache {
 }
 
 /**
- * The block hash `block` pins to (a `BlockHash` or `{ hash }` reference), or `undefined` for any other reference and
- * for no reference at all, since a caller naming no block reads the latest one.
+ * The block hash `block` pins to (a `BlockHash` or `{ hash }` reference), or `undefined` for every other way of naming
+ * a block.
+ *
+ * A number or a tag names a moving chain position, as does naming no block at all: a reorg can put a different block
+ * at the same number, and tags follow the growing chain. An `{ archive }` root is different, since it commits to every
+ * block hash up to its own block and so pins content as tightly as a hash. It stays uncached because no PXE read uses
+ * one: keeping an `undefined` answer as a non-membership fact is only sound because PXE pins blocks it has already
+ * seen, and that holds for the references PXE actually builds.
  */
 function hashReferenceOf(block: BlockParameter | undefined): BlockHash | undefined {
   if (block instanceof BlockHash) {
