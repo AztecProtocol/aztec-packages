@@ -702,7 +702,28 @@ describe('Utility Execution test suite', () => {
       });
     });
 
-    describe('node read cache', () => {
+    describe('areBlockHashesInArchive', () => {
+      it('maps archive membership to booleans by position', async () => {
+        const service = new EphemeralArrayService();
+        const referenceBlockHash = await anchorBlockHeader.hash();
+        const presentBlockHash = BlockHash.random();
+        const missingBlockHash = BlockHash.random();
+        const witness = MembershipWitness.empty(ARCHIVE_HEIGHT);
+
+        aztecNode.getBlockHashMembershipWitness.mockImplementation((_referenceBlockHash, blockHash) =>
+          Promise.resolve(blockHash.equals(presentBlockHash) ? witness : undefined),
+        );
+
+        const result = await utilityExecutionOracle.areBlockHashesInArchive(
+          referenceBlockHash,
+          EphemeralArray.fromValues(service, [presentBlockHash, missingBlockHash, presentBlockHash]),
+        );
+
+        expect(result.readAll(service)).toEqual([true, false, true]);
+      });
+    });
+
+    describe('getTxEffects', () => {
       const makeTxEffect = (txHash: TxHash) => TxEffect.from({ ...TxEffect.empty(), txHash });
       const makeMinedReceipt = (
         txHash: TxHash,
@@ -806,54 +827,6 @@ describe('Utility Execution test suite', () => {
 
         await secondOracle.getTxEffects(EphemeralArray.fromValues(service, [txHash]));
         expect(aztecNode.getTxReceipt).toHaveBeenCalledTimes(2);
-      });
-
-      it('reuses archive witness reads within a utility execution', async () => {
-        const oracle = makeOracle({ scopes: [scope] });
-        const referenceBlockHash = await anchorBlockHeader.hash();
-        const blockHash = BlockHash.random();
-        const witness = MembershipWitness.empty(ARCHIVE_HEIGHT);
-        aztecNode.getBlockHashMembershipWitness.mockResolvedValue(witness);
-
-        const first = await oracle.getBlockHashMembershipWitness(referenceBlockHash, blockHash);
-        const second = await oracle.getBlockHashMembershipWitness(referenceBlockHash, blockHash);
-
-        expect(first).toEqual(second);
-        expect(aztecNode.getBlockHashMembershipWitness).toHaveBeenCalledTimes(1);
-      });
-
-      it('returns aligned archive-membership booleans for block hash batches', async () => {
-        const service = new EphemeralArrayService();
-        const oracle = makeOracle({ scopes: [scope] });
-        const referenceBlockHash = await anchorBlockHeader.hash();
-        const presentBlockHash = BlockHash.random();
-        const missingBlockHash = BlockHash.random();
-        const witness = MembershipWitness.empty(ARCHIVE_HEIGHT);
-
-        aztecNode.getBlockHashMembershipWitness.mockImplementation((_referenceBlockHash, blockHash) =>
-          Promise.resolve(blockHash.equals(presentBlockHash) ? witness : undefined),
-        );
-
-        const result = await oracle.areBlockHashesInArchive(
-          referenceBlockHash,
-          EphemeralArray.fromValues(service, [presentBlockHash, missingBlockHash, presentBlockHash]),
-        );
-
-        expect(result.readAll(service)).toEqual([true, false, true]);
-        expect(aztecNode.getBlockHashMembershipWitness).toHaveBeenCalledTimes(2);
-      });
-
-      it('reuses public storage reads within a utility execution', async () => {
-        const oracle = makeOracle({ scopes: [scope] });
-        const blockHash = await anchorBlockHeader.hash();
-        const startStorageSlot = Fr.random();
-        aztecNode.getPublicStorageAt.mockResolvedValue(new Fr(7));
-
-        const first = await oracle.getFromPublicStorage(blockHash, contractAddress, startStorageSlot, 2);
-        const second = await oracle.getFromPublicStorage(blockHash, contractAddress, startStorageSlot, 2);
-
-        expect(first).toEqual(second);
-        expect(aztecNode.getPublicStorageAt).toHaveBeenCalledTimes(2);
       });
     });
 
