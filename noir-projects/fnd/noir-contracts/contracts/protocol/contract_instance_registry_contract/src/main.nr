@@ -95,6 +95,9 @@ pub contract ContractInstanceRegistry {
     ///    --> this address nullifier is then checked to exist by the AVM upon public function execution (if it doesn't
     ///        exist AVM reverts)
     /// 5. Broadcasts a `ContractInstancePublished` event so nodes can reconstruct the instance.
+    // Mirrors the private entrypoint the aztec-nr macro generates: PrivateCircuitPublicInputs has constant fields
+    // that cannot be dropped from the protocol ABI.
+    #[allow(constant_return)]
     #[aztec::macros::internals_functions_generation::abi_attributes::abi_private]
     fn publish_for_public_execution(
         inputs: aztec::context::inputs::PrivateContextInputs,

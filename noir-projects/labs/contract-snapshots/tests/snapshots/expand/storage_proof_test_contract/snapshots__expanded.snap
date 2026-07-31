@@ -2,6 +2,7 @@
 source: tests/snapshots.rs
 expression: stdout
 ---
+
 use aztec::macros::aztec;
 use aztec::macros::aztec;
 
@@ -505,6 +506,7 @@ contract StorageProofTest {
         return_type: ([u64; 4], u32),
     }
 
+    #[allow(constant_return)]
     fn __aztec_nr_internals__storage_proof(inputs: aztec::context::inputs::PrivateContextInputs, address: EthAddress, slot_key: [u8; 32], slot_contents: StorageSlot, eth_storage_root: [u64; 4]) -> return_data aztec::protocol::abis::private_circuit_public_inputs::PrivateCircuitPublicInputs {
         aztec::oracle::version::assert_compatible_oracle_version();
         let mut self: aztec::contract_self::contract_self_private::ContractSelfPrivate<(), CallSelf<&mut aztec::context::PrivateContext>, EnqueueSelf<&mut aztec::context::PrivateContext>, CallSelfStatic<&mut aztec::context::PrivateContext>, EnqueueSelfStatic<&mut aztec::context::PrivateContext>, CallInternal<&mut aztec::context::PrivateContext>, CallSelfUtility> = {
@@ -573,6 +575,7 @@ contract StorageProofTest {
         self.context.finish()
     }
 
+    #[allow(constant_return)]
     fn __aztec_nr_internals__verify_storage_proof_path_recursively(inputs: aztec::context::inputs::PrivateContextInputs, num_processed_nodes: u32, num_total_nodes: u32, start_nibble_index: u32, parent_hash: [u64; 4], storage_trie_key_nibbles: [u8; 64], storage_proof_capsule_key: Field) -> return_data aztec::protocol::abis::private_circuit_public_inputs::PrivateCircuitPublicInputs {
         aztec::oracle::version::assert_compatible_oracle_version();
         let mut self: aztec::contract_self::contract_self_private::ContractSelfPrivate<(), CallSelf<&mut aztec::context::PrivateContext>, EnqueueSelf<&mut aztec::context::PrivateContext>, CallSelfStatic<&mut aztec::context::PrivateContext>, EnqueueSelfStatic<&mut aztec::context::PrivateContext>, CallInternal<&mut aztec::context::PrivateContext>, CallSelfUtility> = {
@@ -1198,7 +1201,7 @@ mod storage_proofs {
                 self.add_byte(byte);
             }
 
-            fn add_u64(&mut self, mut value: u64) {
+            fn add_u64(&mut self, value: u64) {
                 self.add_u64(value);
             }
         }
