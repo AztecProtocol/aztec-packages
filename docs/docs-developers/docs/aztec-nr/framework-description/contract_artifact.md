@@ -48,7 +48,7 @@ Each function in the artifact includes:
 | `isStatic` | If `true`, function cannot alter state |
 | `isInitializer` | If `true`, function can be used as a constructor |
 | `parameters` | Array of input parameters with name, type, and visibility |
-| `returnTypes` | Array of return value types |
+| `returnType` | The type the function returns, omitted when it returns nothing. Multiple return values are expressed as a single `tuple` type |
 | `errorTypes` | Custom error types the function can throw |
 | `bytecode` | Compiled ACIR bytecode (base64 encoded) |
 | `verificationKey` | Verification key for private functions (optional) |

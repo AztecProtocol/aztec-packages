@@ -61,7 +61,7 @@ export async function getPublicEvents<T>(
 
   const [logsForTag] = await node.getPublicLogsByTags(query);
   const events: PublicEvent<T>[] = logsForTag.map(log => ({
-    event: decodeFromAbi([eventMetadataDef.abiType], log.logData.slice(1)) as T,
+    event: decodeFromAbi(eventMetadataDef.abiType, log.logData.slice(1)) as T,
     metadata: {
       l2BlockNumber: log.blockNumber,
       l2BlockHash: log.blockHash,

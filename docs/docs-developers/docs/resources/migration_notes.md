@@ -9,6 +9,22 @@ Aztec is in active development. Each version may introduce breaking changes that
 
 ## TBD
 
+### [Aztec.js] A function's return type is a single `returnType`, not a `returnTypes` list
+
+`FunctionAbi.returnTypes` is deprecated in favor of the single optional `FunctionAbi.returnType`, since multiple return values are already expressed as one `tuple` type. Read it through `getFunctionReturnType(abi)`, which also resolves artifacts serialized before `returnType` existed. `FunctionCall.returnTypes` is likewise replaced by `FunctionCall.returnType`.
+
+`decodeFromAbi` now takes the single type a function returns (or `undefined`) instead of a list, and returns `undefined` for a function that returns nothing, where it previously returned `[]`. To decode a list of values, such as a function's arguments, use the new `decodeEachFromAbi`.
+
+**Migration:**
+
+```diff
+- decodeFromAbi(abi.returnTypes, values)
++ decodeFromAbi(getFunctionReturnType(abi), values)
+
+- decodeFromAbi(fn.parameters.map(param => param.type), args) as AbiDecoded[]
++ decodeEachFromAbi(fn.parameters.map(param => param.type), args)
+```
+
 ### [Aztec.js] Protocol contracts removed from `@aztec/noir-contracts.js`
 
 `@aztec/noir-contracts.js` no longer includes the protocol contracts: the `FeeJuice`, `ContractClassRegistry`, and `ContractInstanceRegistry` artifacts and typed wrappers have been removed from the package, so imports such as `@aztec/noir-contracts.js/FeeJuice` no longer resolve. These names are also no longer available to the `aztec` CLI's contract-name lookup (e.g. in `aztec example-contracts`).
