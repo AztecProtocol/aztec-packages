@@ -10,6 +10,7 @@ import { bufferToHex } from '@aztec/foundation/string';
 import { DateProvider } from '@aztec/foundation/timer';
 import { SlashingProposerAbi } from '@aztec/l1-artifacts/SlashingProposerAbi';
 
+import { jest } from '@jest/globals';
 import { type Hex, type TypedDataDefinition, encodeFunctionData, hashTypedData } from 'viem';
 import { type PrivateKeyAccount, privateKeyToAccount } from 'viem/accounts';
 import { foundry } from 'viem/chains';
@@ -324,6 +325,45 @@ describe('SlashingProposer', () => {
           position: epochIndex * committeeSize,
         })),
       );
+    });
+  });
+
+  describe('getSlashTargetValidators', () => {
+    it('reads the committees of a round from L1 only once', async () => {
+      await rollupCheatCodes.advanceToEpoch(EpochNumber(24));
+      const round = await slashingProposer.getCurrentRound();
+      const simulate = jest.spyOn(writeClient, 'simulateContract');
+
+      try {
+        const [first, second] = await Promise.all([
+          slashingProposer.getSlashTargetValidators(round),
+          slashingProposer.getSlashTargetValidators(round),
+        ]);
+
+        expect(first).not.toHaveLength(0);
+        expect(second).toEqual(first);
+        expect(await slashingProposer.getSlashTargetValidators(round)).toEqual(first);
+        // A round's targets cannot change while it is live, so every vote of the round decodes off a single read
+        expect(simulate).toHaveBeenCalledTimes(1);
+
+        await slashingProposer.getSlashTargetValidators(round - 1n);
+        expect(simulate).toHaveBeenCalledTimes(2);
+      } finally {
+        simulate.mockRestore();
+      }
+    });
+
+    it('retries after a failed read instead of caching the failure', async () => {
+      // Voting only opens once SLASH_OFFSET_IN_ROUNDS rounds have passed, so round 0 has no targets to look up
+      const simulate = jest.spyOn(writeClient, 'simulateContract');
+
+      try {
+        await expect(slashingProposer.getSlashTargetValidators(0n)).rejects.toThrow();
+        await expect(slashingProposer.getSlashTargetValidators(0n)).rejects.toThrow();
+        expect(simulate).toHaveBeenCalledTimes(2);
+      } finally {
+        simulate.mockRestore();
+      }
     });
   });
 });

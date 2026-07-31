@@ -366,6 +366,29 @@ describe('OwnValidatorSlashMonitor', () => {
       expect(getVotesMax()).toEqual([0]);
     });
 
+    it('settles the events queued behind the drain in flight without reading their votes', async () => {
+      const pendingVote = promiseWithResolvers<SlashVoteTarget[]>();
+      slashingProposer.getRound.mockResolvedValue(roundWithVotes(1n));
+      slashingProposer.getVoteAt
+        .mockReturnValueOnce(pendingVote.promise)
+        .mockResolvedValue([voteAgainst(ownValidator)]);
+
+      const inFlight = monitor.handleVoteCast(round);
+      const queued = monitor.handleVoteCast(round);
+      await sleep(1);
+      const stopped = monitor.stop();
+      pendingVote.resolve([voteAgainst(ownValidator)]);
+      await stopped;
+      // Both callers' promises resolve: the queued drain is run rather than discarded, and returns doing nothing
+      await inFlight;
+      await queued;
+
+      expect(slashingProposer.getRound).toHaveBeenCalledTimes(1);
+      expect(slashingProposer.getVoteAt).toHaveBeenCalledTimes(1);
+      expect(warnSpy).not.toHaveBeenCalled();
+      expect(getVotesMax()).toEqual([0]);
+    });
+
     it('ignores events and executed slashes after stop and tracks fresh state after a restart', async () => {
       slashingProposer.getRound.mockResolvedValueOnce(roundWithVotes(0n)).mockResolvedValueOnce(roundWithVotes(1n));
       slashingProposer.getVoteAt.mockResolvedValue([voteAgainst(ownValidator)]);
