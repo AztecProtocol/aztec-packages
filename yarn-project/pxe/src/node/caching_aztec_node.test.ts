@@ -487,8 +487,7 @@ describe('withCache', () => {
       const boundOnly = { tags, toBlock: BlockNumber(101) };
       aztecNode.getPrivateLogsByTags.mockResolvedValue([[]]);
 
-      // An anchor names the chain to answer on, and a bound with no anchor cannot detect a reorg. Neither on its own
-      // makes the answer a fact about blocks that can no longer change.
+      // Neither half of the pin is enough on its own, see `isBlockRangePinned`.
       await cachedNode.getPrivateLogsByTags(anchorOnly);
       await cachedNode.getPrivateLogsByTags(anchorOnly);
       await cachedNode.getPrivateLogsByTags(boundOnly);
@@ -506,6 +505,7 @@ describe('withCache', () => {
       await expect(cachedNode.getPrivateLogsByTags(pinnedLogsQuery(anchorHash, [tagA, tagB]))).rejects.toThrow(
         'returned 1 results for 2 requested tags',
       );
+      // Nothing from the rejected batch is kept, so the identical query re-fetches and gets the full response.
       await expect(cachedNode.getPrivateLogsByTags(pinnedLogsQuery(anchorHash, [tagA, tagB]))).resolves.toEqual([
         logs,
         [],
@@ -513,6 +513,15 @@ describe('withCache', () => {
 
       expect(aztecNode.getPrivateLogsByTags).toHaveBeenCalledTimes(2);
     });
+
+    /**
+     * A tag query pinned to an immutable block range: `referenceBlock` names the chain to answer on, and `toBlock`
+     * closes the range at the anchor block, so no later block can add to the answer. The height itself is arbitrary,
+     * only naming one matters.
+     */
+    function pinnedLogsQuery(anchorHash: BlockHash, tags: SiloedTag[]): PrivateLogsQuery {
+      return { tags, referenceBlock: anchorHash, toBlock: BlockNumber(101) };
+    }
   });
 
   describe('uncached methods', () => {
@@ -607,14 +616,6 @@ describe('withCache', () => {
     });
   });
 });
-
-/**
- * A tag query pinned to an immutable block range: `referenceBlock` names the chain to answer on, and `toBlock` closes
- * the range at the anchor block, so no later block can add to the answer.
- */
-function pinnedLogsQuery(anchorHash: BlockHash, tags: SiloedTag[]): PrivateLogsQuery {
-  return { tags, referenceBlock: anchorHash, toBlock: BlockNumber(101) };
-}
 
 /** How many reads of each method `stats` saw, dropping the timings. */
 function callCounts(stats: NodeStats) {

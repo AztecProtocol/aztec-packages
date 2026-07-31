@@ -14,6 +14,9 @@ import { getAllPrivateLogsByTags } from './get_all_logs_by_tags.js';
 
 const MOCK_ANCHOR = { hash: BlockHash.random(), number: BlockNumber(100) };
 
+/** The exclusive upper bound queries anchored at `MOCK_ANCHOR` are expected to carry: one block past its number. */
+const MOCK_ANCHOR_TO_BLOCK = BlockNumber(MOCK_ANCHOR.number + 1);
+
 /** Builds a log with a stable blockNumber/logIndexWithinTx so we can assert cursor wiring. */
 function makeLog({ blockNumber = 1, logIndexWithinTx = 0 }: { blockNumber?: number; logIndexWithinTx?: number } = {}) {
   return { ...randomLogResult(), blockNumber: BlockNumber(blockNumber), logIndexWithinTx };
@@ -49,7 +52,7 @@ describe('getAllPrivateLogsByTags', () => {
       tags,
       referenceBlock: MOCK_ANCHOR.hash,
       fromBlock: undefined,
-      toBlock: BlockNumber(101),
+      toBlock: MOCK_ANCHOR_TO_BLOCK,
       includeEffects: false,
     } satisfies PrivateLogsQuery);
   });
@@ -81,7 +84,7 @@ describe('getAllPrivateLogsByTags', () => {
       tags,
       referenceBlock: MOCK_ANCHOR.hash,
       fromBlock: undefined,
-      toBlock: BlockNumber(101),
+      toBlock: MOCK_ANCHOR_TO_BLOCK,
       includeEffects: false,
     });
 
@@ -90,7 +93,7 @@ describe('getAllPrivateLogsByTags', () => {
       tags: [{ tag: tags[0], afterLog: LogCursor.fromLog(lastLogOfFirstPage) }],
       referenceBlock: MOCK_ANCHOR.hash,
       fromBlock: undefined,
-      toBlock: BlockNumber(101),
+      toBlock: MOCK_ANCHOR_TO_BLOCK,
       includeEffects: false,
     });
   });
@@ -129,7 +132,9 @@ describe('getAllPrivateLogsByTags', () => {
 
     await getAllPrivateLogsByTags(aztecNode, tags, MOCK_ANCHOR, { toBlock: BlockNumber(500) });
 
-    expect(aztecNode.getPrivateLogsByTags).toHaveBeenCalledWith(expect.objectContaining({ toBlock: BlockNumber(101) }));
+    expect(aztecNode.getPrivateLogsByTags).toHaveBeenCalledWith(
+      expect.objectContaining({ toBlock: MOCK_ANCHOR_TO_BLOCK }),
+    );
   });
 
   describe('batching when tags exceed MAX_RPC_LEN', () => {
@@ -158,14 +163,14 @@ describe('getAllPrivateLogsByTags', () => {
         tags: batch1Tags,
         referenceBlock: MOCK_ANCHOR.hash,
         fromBlock: undefined,
-        toBlock: BlockNumber(101),
+        toBlock: MOCK_ANCHOR_TO_BLOCK,
         includeEffects: false,
       });
       expect(aztecNode.getPrivateLogsByTags).toHaveBeenNthCalledWith(2, {
         tags: batch2Tags,
         referenceBlock: MOCK_ANCHOR.hash,
         fromBlock: undefined,
-        toBlock: BlockNumber(101),
+        toBlock: MOCK_ANCHOR_TO_BLOCK,
         includeEffects: false,
       });
     });

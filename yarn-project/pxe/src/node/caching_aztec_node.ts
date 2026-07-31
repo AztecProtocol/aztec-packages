@@ -154,10 +154,10 @@ export function withCache(node: AztecNode): CachingAztecNode {
       if (!isBlockRangePinned(query)) {
         return source.getPrivateLogsByTags(query);
       }
-      const envelope = `private-logs:${logsQueryKey(query)}`;
+      const keyPrefix = `private-logs:${logsQueryKey(query)}`;
       return readBatchedPerKey<LogResult[]>(
         cache,
-        query.tags.map(tag => `${envelope}:${tagQueryKey(tag)}`),
+        query.tags.map(tag => `${keyPrefix}:${tagQueryKey(tag)}`),
         missing => source.getPrivateLogsByTags({ ...query, tags: missing.map(i => query.tags[i]) }),
         { method: 'getPrivateLogsByTags', requested: 'tags' },
       );
@@ -167,10 +167,10 @@ export function withCache(node: AztecNode): CachingAztecNode {
       if (!isBlockRangePinned(query)) {
         return source.getPublicLogsByTags(query);
       }
-      const envelope = `public-logs:${keyPart(query.contractAddress)}:${logsQueryKey(query)}`;
+      const keyPrefix = `public-logs:${keyPart(query.contractAddress)}:${logsQueryKey(query)}`;
       return readBatchedPerKey<LogResult[]>(
         cache,
-        query.tags.map(tag => `${envelope}:${tagQueryKey(tag)}`),
+        query.tags.map(tag => `${keyPrefix}:${tagQueryKey(tag)}`),
         missing => source.getPublicLogsByTags({ ...query, tags: missing.map(i => query.tags[i]) }),
         { method: 'getPublicLogsByTags', requested: 'tags' },
       );
@@ -332,11 +332,10 @@ function readBatchedPerKey<T>(
  * Whether a tag query names a block range fixed enough to cache its answer.
  *
  * Both ends have to be pinned. `referenceBlock` names the chain the answer belongs to and fails the call once that
- * block is gone, but on its own it leaves the top of the range at the chain tip: nothing in the query type promises
- * that an anchor also caps results, so a response kept on that basis would rest on node behavior outside our control.
- * An explicit `toBlock` closes the range in the request itself, making the response a fact about blocks that can no
- * longer change. PXE's tag queries get that bound from `getAllPrivateLogsByTags`, which derives it from the anchor
- * block they are already pinned to.
+ * block is gone, but it does not tell this wrapper which blocks the answer covers, so it cannot key a response by
+ * them. An explicit `toBlock` closes the range in the request itself, making the response a fact about blocks that
+ * can no longer change. PXE's tag queries get that bound from `getAllPrivateLogsByTags`, which derives it from the
+ * anchor block they are already pinned to.
  */
 function isBlockRangePinned(query: LogsQueryBase): boolean {
   return query.referenceBlock !== undefined && query.toBlock !== undefined;
@@ -344,9 +343,17 @@ function isBlockRangePinned(query: LogsQueryBase): boolean {
 
 /** Cache-key segment for the parts of a tag query that every tag in it shares. */
 function logsQueryKey(query: LogsQueryBase): string {
-  return [query.referenceBlock, query.fromBlock, query.toBlock, query.txHash, query.includeEffects, query.limitPerTag]
-    .map(keyPart)
-    .join(':');
+  // Total over the query type, so a field added to `LogsQueryBase` fails to compile here rather than
+  // silently being left out of the key and colliding with a query that differs only in it.
+  const parts: { [K in keyof Required<LogsQueryBase>]: unknown } = {
+    referenceBlock: query.referenceBlock,
+    fromBlock: query.fromBlock,
+    toBlock: query.toBlock,
+    txHash: query.txHash,
+    includeEffects: query.includeEffects,
+    limitPerTag: query.limitPerTag,
+  };
+  return Object.values(parts).map(keyPart).join(':');
 }
 
 /**

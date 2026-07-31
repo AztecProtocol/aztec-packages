@@ -16,20 +16,23 @@ import type { BlockHeader } from '@aztec/stdlib/tx';
 /**
  * The block a tag query is anchored to.
  *
- * `hash` names the chain the query must be answered on: the node throws if that block is gone, which is how a reorg
- * surfaces. `number` is the height of that same block, and bounds the query to blocks at or below it.
- *
  * Both fields come from one header (see {@link logQueryAnchorOf}), which is what keeps the bound and the reorg check
  * talking about the same block.
  */
 export type LogQueryAnchor = {
-  /** Hash of the anchor block. */
+  /**
+   * Hash of the anchor block, naming the chain the query must be answered on: the node throws if that block is gone,
+   * which is how a reorg surfaces.
+   */
   hash: BlockHash;
-  /** Height of the anchor block. */
+  /** Height of the anchor block, bounding the query to blocks at or below it. */
   number: BlockNumber;
 };
 
-/** Anchors tag queries to `anchorBlockHeader`, hashing it once for all the queries that share the anchor. */
+/**
+ * The {@link LogQueryAnchor} naming `anchorBlockHeader`: its hash and its height. Callers build it once and reuse
+ * it across every query anchored to that block, so the header is hashed only once.
+ */
 export async function logQueryAnchorOf(anchorBlockHeader: BlockHeader): Promise<LogQueryAnchor> {
   return { hash: await anchorBlockHeader.hash(), number: anchorBlockHeader.getBlockNumber() };
 }
@@ -76,19 +79,6 @@ async function getAllPagesInBatches<T extends Tag | SiloedTag, Opts extends LogI
   }
   const batchResults = await Promise.all(batches.map(fetchAllPagesForBatch));
   return batchResults.flat();
-}
-
-/**
- * Exclusive upper block bound for a query anchored at `anchor`: one past the anchor block, or the caller's own
- * `toBlock` when that is tighter.
- *
- * Anchored queries are bounded here instead of leaving the bound implicit in `referenceBlock`, so that the request
- * itself names a fixed block range. That is what lets the node read cache keep a response: a range derived from a
- * block the caller has already synced to cannot widen later, whatever the chain does next.
- */
-function exclusiveUpperBound(anchor: LogQueryAnchor, toBlock: BlockNumber | undefined): BlockNumber {
-  const anchorBound = BlockNumber(anchor.number + 1);
-  return toBlock === undefined ? anchorBound : BlockNumber(Math.min(toBlock, anchorBound));
 }
 
 /**
@@ -152,4 +142,15 @@ export function getAllPublicLogsByTagsFromContract<Opts extends GetAllLogsByTags
         limitPerTag: options.limitPerTag,
       }) as Promise<LogResult<Opts>[][]>,
   );
+}
+
+/**
+ * Exclusive upper block bound for a query anchored at `anchor`: one past the anchor block, or the caller's own
+ * `toBlock` when that is tighter.
+ *
+ * The bound is spelled out in the request rather than left implicit in `referenceBlock`, so the request itself
+ * names a fixed block range that no later block can widen.
+ */
+function exclusiveUpperBound(anchor: LogQueryAnchor, toBlock: BlockNumber | undefined): BlockNumber {
+  return BlockNumber(Math.min(toBlock ?? Infinity, anchor.number + 1));
 }

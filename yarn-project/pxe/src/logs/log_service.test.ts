@@ -482,6 +482,10 @@ describe('LogService', () => {
   });
 });
 
+// Tag queries are bounded at the anchor block, so the anchor has to sit above every `toBlock` these tests pass or
+// their forwarding assertions would see a clamped value.
+const ANCHOR_BLOCK_ABOVE_TEST_RANGES = BlockNumber(1000);
+
 async function createTestLogService(
   l2TipsProvider: MockProxy<L2TipsProvider> = mock<L2TipsProvider>(),
   scopes: AztecAddress[] = [],
@@ -491,9 +495,8 @@ async function createTestLogService(
   const taggingSecretSourcesStore = new TaggingSecretSourcesStore(await openTmpStore('test'));
   const addressStore = new AddressStore(await openTmpStore('test'));
   const aztecNode = mock<AztecNode>();
-  // Anchor block header is required for bulkRetrieveLogs. Queries are bounded at the anchor block, so it sits well
-  // above the block ranges the tests ask for, leaving those ranges to reach the node as written.
-  const anchorBlockHeader = makeBlockHeader(randomInt(1000), { blockNumber: BlockNumber(1000) });
+  // Anchor block header is required for bulkRetrieveLogs.
+  const anchorBlockHeader = makeBlockHeader(randomInt(1000), { blockNumber: ANCHOR_BLOCK_ABOVE_TEST_RANGES });
 
   const logService = new LogService(
     aztecNode,
