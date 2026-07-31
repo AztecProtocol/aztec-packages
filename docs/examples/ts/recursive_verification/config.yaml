@@ -10,7 +10,6 @@ contracts:
 
 # Dependencies:
 #   - @aztec/* packages are auto-linked from yarn-project/
-#   - Use link:path for packages outside yarn-project/
 #   - Use npm:package-name or npm:package-name@range for external npm packages
 dependencies:
   - "@aztec/aztec.js"
@@ -19,20 +18,7 @@ dependencies:
   - "@aztec/kv-store"
   - "@aztec/pxe"
   - "@aztec/noir-contracts.js"
-  # Packages outside yarn-project/ - use explicit link paths
-  - "link:@aztec/bb.js:barretenberg/ts/bb.js"
-  - "link:@aztec/noir-noir_js:noir/packages/noir_js"
-  # Transitive dependencies of @aztec/noir-noir_js
-  - "link:@aztec/noir-acvm_js:noir/packages/acvm_js"
-  - "link:@aztec/noir-noirc_abi:noir/packages/noirc_abi"
-  - "link:@aztec/noir-types:noir/packages/types"
-  # Runtime deps of @aztec/bb.js (linked, so its own deps are not auto-installed).
-  # Version ranges must mirror bb.js's package.json: these are bare `yarn add`s, so leaving them
-  # unversioned installs the latest major and breaks when a dep ships a breaking release (e.g. pako 3.0.0
-  # dropped the ESM default export that bb.js's `import pako from 'pako'` relies on).
-  - "npm:pako@^2.1.0"
-  - "npm:msgpackr@^1.11.2"
-  - "npm:comlink@^4.4.1"
-  - "npm:idb-keyval@^6.2.1"
-  - "npm:commander@^12.1.0"
-  - "npm:tslib@^2.4.0"
+  # Published packages pinned to the toolchain's BB_VERSION (enforced by
+  # labs-aztec-toolchain/bootstrap.sh).
+  - "npm:@aztec/bb.js@6.0.0-nightly.20260729"
+  - "npm:@aztec/noir-noir_js@6.0.0-nightly.20260729"

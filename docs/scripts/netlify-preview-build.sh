@@ -9,23 +9,15 @@ DOCS_ROOT="$(cd "$SCRIPT_DIR/.." && pwd)"
 echo "=== Installing noirup and nargo ==="
 export PATH="$HOME/.nargo/bin:$PATH"
 
-# Ensure noir submodule is available for version detection
+# Install the noir release the labs toolchain pins (the single source of truth for
+# the nargo version this repo builds against). The toolchain binaries themselves are
+# not provisioned on Netlify, so the pin is read from the file rather than the record
+# a toolchain build would produce.
 REPO_ROOT="$DOCS_ROOT/.."
-if [ ! -f "$REPO_ROOT/noir/noir-repo/.git" ] && [ ! -d "$REPO_ROOT/noir/noir-repo/.git" ]; then
-    git -C "$REPO_ROOT" submodule update --init --depth 1 noir/noir-repo
-fi
-
-# Fetch tags so git describe can identify the exact noir version pinned by the submodule.
-# The shallow clone (--depth 1) does not fetch tags, causing describe to fail and the
-# build to fall back to "nightly", which may pull a newer nargo with breaking stdlib changes.
-git -C "$REPO_ROOT/noir/noir-repo" fetch --tags --depth 1 2>/dev/null || true
-
-# Use the pinned noir version from the submodule
-NOIR_TAG=$(git -C "$REPO_ROOT/noir/noir-repo" describe --tags --exact-match 2>/dev/null || echo "")
+NOIR_TAG=$(sed -n 's/^NOIR_VERSION=//p' "$REPO_ROOT/labs-aztec-toolchain/bootstrap.sh")
 if [ -z "$NOIR_TAG" ]; then
-    echo "WARNING: Could not determine noir version from submodule tags. Falling back to 'nightly'."
-    echo "This may install a newer nargo with breaking stdlib changes."
-    NOIR_TAG="nightly"
+    echo "ERROR: Could not read NOIR_VERSION from labs-aztec-toolchain/bootstrap.sh"
+    exit 1
 fi
 echo "Using noir version: $NOIR_TAG"
 
