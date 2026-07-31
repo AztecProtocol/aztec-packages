@@ -111,8 +111,11 @@ export async function computeFunctionArtifactHash(
 }
 
 export function computeFunctionMetadataHash(fn: Pick<FunctionArtifact, 'returnType' | 'returnTypes'>) {
-  // Hashed as a list because that is what the field held when this hash was introduced. It feeds contract class ids,
-  // so the shape is frozen: serializing the type any other way changes every deployed contract's address.
+  // Wrap the type in a list (empty when the function returns nothing) so the hash preimage is identical to
+  // what it was when this hash consumed the deprecated `returnTypes` list. This hash is part of the
+  // artifact hash preimage, which contract class ids commit to - changing it would move the computed
+  // class id and address of every contract, and break artifact validation against already-registered
+  // classes.
   const returnType = getFunctionReturnType(fn);
   return sha256Fr(Buffer.from(deterministicStringify(returnType ? [returnType] : []), 'utf8'));
 }
