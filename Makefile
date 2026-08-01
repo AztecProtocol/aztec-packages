@@ -55,7 +55,7 @@ endef
 
 # Fast bootstrap.
 fast: release-image barretenberg boxes playground docs aztec-up \
-		  bb-tests l1-contracts-tests yarn-project-tests boxes-tests playground-tests aztec-up-tests docs-tests noir-protocol-circuits-tests protocol-contracts-tests contract-snapshots-tests release-image-tests spartan claude-tests ipc-codegen-tests constants-codegen-tests
+		  bb-tests l1-contracts-tests yarn-project-tests boxes-tests playground-tests aztec-up-tests docs-tests noir-protocol-circuits-tests protocol-contracts-tests fnd-release-tests contract-snapshots-tests release-image-tests spartan claude-tests ipc-codegen-tests constants-codegen-tests
 
 # Full bootstrap.
 full: fast bb-full-tests bb-cpp-full yarn-project-benches
@@ -382,6 +382,16 @@ protocol-contracts: noir bb-cpp-native noir-projects-format-check
 
 protocol-contracts-tests: noir protocol-contracts
 	$(call test,$@,noir-projects/fnd/noir-contracts)
+
+# Everything the npm release path stages. Exists as its own target because filter_test_cmds derives
+# MAKEFILE_TARGET by stripping the -tests suffix, so the stem has to name something buildable for
+# grind_test to do a targeted rebuild.
+fnd-release: noir-protocol-circuits mock-protocol-circuits protocol-contracts
+
+# Smoke-tests the release path (staging plus a dry-run publish) against real build output, so a break
+# surfaces on a PR rather than the first time it runs, on a release tag.
+fnd-release-tests: fnd-release
+	$(call test,$@,noir-projects/fnd,release)
 
 noir-contracts: noir bb-cpp-native noir-projects-format-check
 	$(call build,$@,noir-projects/labs/noir-contracts)

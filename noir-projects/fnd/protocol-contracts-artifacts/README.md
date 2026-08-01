@@ -3,10 +3,9 @@
 Compiled artifacts for the protocol contracts, published so consumers can generate TypeScript bindings
 without a Noir toolchain.
 
-The release assembles this package in a `dist/` staging directory: `artifacts/` is copied from
-`noir-projects/fnd/noir-contracts/target`, so it is absent from a checkout. Nothing here is written by
-hand. The contracts included are the ones named in `protocol_contracts.json`, which today is everything
-that subproject builds.
+`artifacts/` holds the compiled contracts, one JSON file per contract, and the contracts included are
+the ones named in `protocol_contracts.json`. It is build output, assembled by the release, and is not
+edited by hand.
 
 That manifest is published too, since a consumer derives both each artifact's filename and its
 TypeScript name from the `<package>-<Contract>` entries in it.

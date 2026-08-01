@@ -578,7 +578,6 @@ function release {
     barretenberg/rust
     noir
     l1-contracts
-    noir-projects/fnd
     noir-projects/labs/aztec-nr
     protocol/constants-codegen
     yarn-project
@@ -586,6 +585,7 @@ function release {
     aztec-up
     playground
     release-image
+    noir-projects/fnd
   )
   if [ $(arch) == arm64 ]; then
     projects=(

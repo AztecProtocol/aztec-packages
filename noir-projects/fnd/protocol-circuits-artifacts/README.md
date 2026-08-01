@@ -1,11 +1,10 @@
-# @aztec/noir-protocol-circuits-artifacts
+# @aztec/protocol-circuits-artifacts
 
 Compiled protocol circuit artifacts, published so consumers can generate TypeScript bindings without a
 Noir toolchain.
 
-The release assembles this package in a `dist/` staging directory: `artifacts/` is copied from
-`noir-projects/fnd/noir-protocol-circuits/target`, so it is absent from a checkout. Nothing here is
-written by hand.
+`artifacts/` holds the compiled circuits, one JSON file per circuit. It is build output, assembled by
+the release, and is not edited by hand.
 
 `private_kernel_reset_config.json` and `private_kernel_reset_dimensions.json` sit alongside it because
 generating the reset data and the circuit types needs both. They describe which reset variants exist and
