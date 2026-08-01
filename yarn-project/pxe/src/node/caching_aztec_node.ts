@@ -154,7 +154,7 @@ export function withCache(node: AztecNode): CachingAztecNode {
       if (!isBlockRangePinned(query)) {
         return source.getPrivateLogsByTags(query);
       }
-      const keyPrefix = `private-logs:${logsQueryKey(query)}`;
+      const keyPrefix = `private-logs:${privateLogsQueryKey(query)}`;
       return readBatchedPerKey<LogResult[]>(
         cache,
         query.tags.map(tag => `${keyPrefix}:${tagQueryKey(tag)}`),
@@ -167,7 +167,7 @@ export function withCache(node: AztecNode): CachingAztecNode {
       if (!isBlockRangePinned(query)) {
         return source.getPublicLogsByTags(query);
       }
-      const keyPrefix = `public-logs:${keyPart(query.contractAddress)}:${logsQueryKey(query)}`;
+      const keyPrefix = `public-logs:${publicLogsQueryKey(query)}`;
       return readBatchedPerKey<LogResult[]>(
         cache,
         query.tags.map(tag => `${keyPrefix}:${tagQueryKey(tag)}`),
@@ -341,11 +341,33 @@ function isBlockRangePinned(query: LogsQueryBase): boolean {
   return query.referenceBlock !== undefined && query.toBlock !== undefined;
 }
 
-/** Cache-key segment for the parts of a tag query that every tag in it shares. */
-function logsQueryKey(query: LogsQueryBase): string {
-  // Total over the query type, so a field added to `LogsQueryBase` fails to compile here rather than
-  // silently being left out of the key and colliding with a query that differs only in it.
-  const parts: { [K in keyof Required<LogsQueryBase>]: unknown } = {
+/** Cache-key segment for the parts of a private tag query that every tag in it shares. */
+function privateLogsQueryKey(query: PrivateLogsQuery): string {
+  const parts: QueryKeyParts<PrivateLogsQuery> = { ...sharedQueryKeyParts(query) };
+  return Object.values(parts).map(keyPart).join(':');
+}
+
+/** Cache-key segment for the parts of a public tag query that every tag in it shares. */
+function publicLogsQueryKey(query: PublicLogsQuery): string {
+  const parts: QueryKeyParts<PublicLogsQuery> = {
+    ...sharedQueryKeyParts(query),
+    contractAddress: query.contractAddress,
+  };
+  return Object.values(parts).map(keyPart).join(':');
+}
+
+/**
+ * The fields of a query that a key has to cover, which is all of them but `tags`: each tag is keyed on its own by
+ * {@link tagQueryKey}.
+ *
+ * The key builders are total over this type, so a field added to a query fails to compile there rather than silently
+ * being left out of the key and colliding with a query that differs only in it.
+ */
+type QueryKeyParts<T extends LogsQueryBase> = { [K in keyof Required<Omit<T, 'tags'>>]: unknown };
+
+/** The key parts {@link PrivateLogsQuery} and {@link PublicLogsQuery} have in common. */
+function sharedQueryKeyParts(query: LogsQueryBase): QueryKeyParts<LogsQueryBase> {
+  return {
     referenceBlock: query.referenceBlock,
     fromBlock: query.fromBlock,
     toBlock: query.toBlock,
@@ -353,7 +375,6 @@ function logsQueryKey(query: LogsQueryBase): string {
     includeEffects: query.includeEffects,
     limitPerTag: query.limitPerTag,
   };
-  return Object.values(parts).map(keyPart).join(':');
 }
 
 /**
