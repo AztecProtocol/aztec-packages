@@ -41,9 +41,14 @@ trap 'rm -rf "$tmp"' EXIT
 # dashboard can render author/link info; degrade to bare sha metadata otherwise.
 build_entry() {
   local commit_info
+  # Trim the response to the fields the entry actually reads (commit, author, committer, html_url).
+  # The full response includes a files[] array with every changed file's patch, which for a
+  # merge-queue commit merging a large PR can exceed the 128KB per-argv-element cap on Linux; passing
+  # the raw body through --argjson below then fails execve with E2BIG ("Argument list too long").
   if ! commit_info=$(curl -sf --max-time 15 \
       ${GITHUB_TOKEN:+-H "Authorization: Bearer $GITHUB_TOKEN"} \
-      "https://api.github.com/repos/${source_repo_url##*github.com/}/commits/$commit_sha" 2>/dev/null); then
+      "https://api.github.com/repos/${source_repo_url##*github.com/}/commits/$commit_sha" 2>/dev/null \
+      | jq -c '{commit, author, committer, html_url}'); then
     commit_info='{}'
   fi
   jq -n \
