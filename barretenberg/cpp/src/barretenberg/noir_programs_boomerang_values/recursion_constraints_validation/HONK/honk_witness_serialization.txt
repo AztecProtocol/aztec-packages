@@ -1,0 +1,177 @@
+# HONK witness serialization — opcode=0 proof_type=HONK
+# key.size=115 proof.size=410 public_inputs.size=0
+# Production: honk_recursion_constraint.cpp fields_from_witnesses / from_witness_index
+# Rule A: proof_indices = { public_inputs | proof }
+# Rule B: key[i] → VK limb i; key_hash → single witness
+# Rule C: io_prefix=8; group g base = prefix + HONK_PROOF_POSITION_BY_GROUP[g] * 4
+# Rule D: none (constant-true predicate; no rollup split; no write-vk)
+
+# Aligned witness table
+# logical_slot | source_rule | witness_index | primitive_part | role | prod_order
+key_hash | B | 525 | Oink:vk_hash | wrapper→circuit | 5
+key[0] | B | 0 | Oink:num_public_inputs_assert/scalars | wrapper | 1
+key[1] | B | 1 | Oink:num_public_inputs_assert/scalars | wrapper | 1
+key[2] | B | 2 | Oink:num_public_inputs_assert/scalars | wrapper | 1
+key[3] | B | 3 | VkDeserialize | circuit | 4
+key[4] | B | 4 | VkDeserialize | circuit | 4
+key[5] | B | 5 | VkDeserialize | circuit | 4
+key[6] | B | 6 | VkDeserialize | circuit | 4
+key[7] | B | 7 | VkDeserialize | circuit | 4
+key[8] | B | 8 | VkDeserialize | circuit | 4
+key[9] | B | 9 | VkDeserialize | circuit | 4
+key[10] | B | 10 | VkDeserialize | circuit | 4
+key[11] | B | 11 | VkDeserialize | circuit | 4
+key[12] | B | 12 | VkDeserialize | circuit | 4
+key[13] | B | 13 | VkDeserialize | circuit | 4
+key[14] | B | 14 | VkDeserialize | circuit | 4
+key[15] | B | 15 | VkDeserialize | circuit | 4
+key[16] | B | 16 | VkDeserialize | circuit | 4
+key[17] | B | 17 | VkDeserialize | circuit | 4
+key[18] | B | 18 | VkDeserialize | circuit | 4
+key[19] | B | 19 | VkDeserialize | circuit | 4
+key[20] | B | 20 | VkDeserialize | circuit | 4
+key[21] | B | 21 | VkDeserialize | circuit | 4
+key[22] | B | 22 | VkDeserialize | circuit | 4
+key[23] | B | 23 | VkDeserialize | circuit | 4
+key[24] | B | 24 | VkDeserialize | circuit | 4
+key[25] | B | 25 | VkDeserialize | circuit | 4
+key[26] | B | 26 | VkDeserialize | circuit | 4
+key[27] | B | 27 | VkDeserialize | circuit | 4
+key[28] | B | 28 | VkDeserialize | circuit | 4
+key[29] | B | 29 | VkDeserialize | circuit | 4
+key[30] | B | 30 | VkDeserialize | circuit | 4
+key[31] | B | 31 | VkDeserialize | circuit | 4
+key[32] | B | 32 | VkDeserialize | circuit | 4
+key[33] | B | 33 | VkDeserialize | circuit | 4
+key[34] | B | 34 | VkDeserialize | circuit | 4
+key[35] | B | 35 | VkDeserialize | circuit | 4
+key[36] | B | 36 | VkDeserialize | circuit | 4
+key[37] | B | 37 | VkDeserialize | circuit | 4
+key[38] | B | 38 | VkDeserialize | circuit | 4
+key[39] | B | 39 | VkDeserialize | circuit | 4
+key[40] | B | 40 | VkDeserialize | circuit | 4
+key[41] | B | 41 | VkDeserialize | circuit | 4
+key[42] | B | 42 | VkDeserialize | circuit | 4
+key[43] | B | 43 | VkDeserialize | circuit | 4
+key[44] | B | 44 | VkDeserialize | circuit | 4
+key[45] | B | 45 | VkDeserialize | circuit | 4
+key[46] | B | 46 | VkDeserialize | circuit | 4
+key[47] | B | 47 | VkDeserialize | circuit | 4
+key[48] | B | 48 | VkDeserialize | circuit | 4
+key[49] | B | 49 | VkDeserialize | circuit | 4
+key[50] | B | 50 | VkDeserialize | circuit | 4
+key[51] | B | 51 | VkDeserialize | circuit | 4
+key[52] | B | 52 | VkDeserialize | circuit | 4
+key[53] | B | 53 | VkDeserialize | circuit | 4
+key[54] | B | 54 | VkDeserialize | circuit | 4
+key[55] | B | 55 | VkDeserialize | circuit | 4
+key[56] | B | 56 | VkDeserialize | circuit | 4
+key[57] | B | 57 | VkDeserialize | circuit | 4
+key[58] | B | 58 | VkDeserialize | circuit | 4
+key[59] | B | 59 | VkDeserialize | circuit | 4
+key[60] | B | 60 | VkDeserialize | circuit | 4
+key[61] | B | 61 | VkDeserialize | circuit | 4
+key[62] | B | 62 | VkDeserialize | circuit | 4
+key[63] | B | 63 | VkDeserialize | circuit | 4
+key[64] | B | 64 | VkDeserialize | circuit | 4
+key[65] | B | 65 | VkDeserialize | circuit | 4
+key[66] | B | 66 | VkDeserialize | circuit | 4
+key[67] | B | 67 | VkDeserialize | circuit | 4
+key[68] | B | 68 | VkDeserialize | circuit | 4
+key[69] | B | 69 | VkDeserialize | circuit | 4
+key[70] | B | 70 | VkDeserialize | circuit | 4
+key[71] | B | 71 | VkDeserialize | circuit | 4
+key[72] | B | 72 | VkDeserialize | circuit | 4
+key[73] | B | 73 | VkDeserialize | circuit | 4
+key[74] | B | 74 | VkDeserialize | circuit | 4
+key[75] | B | 75 | VkDeserialize | circuit | 4
+key[76] | B | 76 | VkDeserialize | circuit | 4
+key[77] | B | 77 | VkDeserialize | circuit | 4
+key[78] | B | 78 | VkDeserialize | circuit | 4
+key[79] | B | 79 | VkDeserialize | circuit | 4
+key[80] | B | 80 | VkDeserialize | circuit | 4
+key[81] | B | 81 | VkDeserialize | circuit | 4
+key[82] | B | 82 | VkDeserialize | circuit | 4
+key[83] | B | 83 | VkDeserialize | circuit | 4
+key[84] | B | 84 | VkDeserialize | circuit | 4
+key[85] | B | 85 | VkDeserialize | circuit | 4
+key[86] | B | 86 | VkDeserialize | circuit | 4
+key[87] | B | 87 | VkDeserialize | circuit | 4
+key[88] | B | 88 | VkDeserialize | circuit | 4
+key[89] | B | 89 | VkDeserialize | circuit | 4
+key[90] | B | 90 | VkDeserialize | circuit | 4
+key[91] | B | 91 | VkDeserialize | circuit | 4
+key[92] | B | 92 | VkDeserialize | circuit | 4
+key[93] | B | 93 | VkDeserialize | circuit | 4
+key[94] | B | 94 | VkDeserialize | circuit | 4
+key[95] | B | 95 | VkDeserialize | circuit | 4
+key[96] | B | 96 | VkDeserialize | circuit | 4
+key[97] | B | 97 | VkDeserialize | circuit | 4
+key[98] | B | 98 | VkDeserialize | circuit | 4
+key[99] | B | 99 | VkDeserialize | circuit | 4
+key[100] | B | 100 | VkDeserialize | circuit | 4
+key[101] | B | 101 | VkDeserialize | circuit | 4
+key[102] | B | 102 | VkDeserialize | circuit | 4
+key[103] | B | 103 | VkDeserialize | circuit | 4
+key[104] | B | 104 | VkDeserialize | circuit | 4
+key[105] | B | 105 | VkDeserialize | circuit | 4
+key[106] | B | 106 | VkDeserialize | circuit | 4
+key[107] | B | 107 | VkDeserialize | circuit | 4
+key[108] | B | 108 | VkDeserialize | circuit | 4
+key[109] | B | 109 | VkDeserialize | circuit | 4
+key[110] | B | 110 | VkDeserialize | circuit | 4
+key[111] | B | 111 | VkDeserialize | circuit | 4
+key[112] | B | 112 | VkDeserialize | circuit | 4
+key[113] | B | 113 | VkDeserialize | circuit | 4
+key[114] | B | 114 | VkDeserialize | circuit | 4
+stitched_proof[0] | A | 115 | Oink:public_inputs/Output | serialization | 3
+stitched_proof[1] | A | 116 | Oink:public_inputs/Output | serialization | 3
+stitched_proof[2] | A | 117 | Oink:public_inputs/Output | serialization | 3
+stitched_proof[3] | A | 118 | Oink:public_inputs/Output | serialization | 3
+stitched_proof[4] | A | 119 | Oink:public_inputs/Output | serialization | 3
+stitched_proof[5] | A | 120 | Oink:public_inputs/Output | serialization | 3
+stitched_proof[6] | A | 121 | Oink:public_inputs/Output | serialization | 3
+stitched_proof[7] | A | 122 | Oink:public_inputs/Output | serialization | 3
+commitment_g0_fr0 | C | 123 | Oink:w_l | serialization | 6
+commitment_g0_fr1 | C | 124 | Oink:w_l | serialization | 6
+commitment_g0_fr2 | C | 125 | Oink:w_l | serialization | 6
+commitment_g0_fr3 | C | 126 | Oink:w_l | serialization | 6
+commitment_g1_fr0 | C | 127 | Oink:w_r | serialization | 6
+commitment_g1_fr1 | C | 128 | Oink:w_r | serialization | 6
+commitment_g1_fr2 | C | 129 | Oink:w_r | serialization | 6
+commitment_g1_fr3 | C | 130 | Oink:w_r | serialization | 6
+commitment_g2_fr0 | C | 131 | Oink:w_o | serialization | 6
+commitment_g2_fr1 | C | 132 | Oink:w_o | serialization | 6
+commitment_g2_fr2 | C | 133 | Oink:w_o | serialization | 6
+commitment_g2_fr3 | C | 134 | Oink:w_o | serialization | 6
+commitment_g3_fr0 | C | 143 | Oink:w_4 | serialization | 6
+commitment_g3_fr1 | C | 144 | Oink:w_4 | serialization | 6
+commitment_g3_fr2 | C | 145 | Oink:w_4 | serialization | 6
+commitment_g3_fr3 | C | 146 | Oink:w_4 | serialization | 6
+commitment_g4_fr0 | C | 151 | Oink:z_perm | serialization | 6
+commitment_g4_fr1 | C | 152 | Oink:z_perm | serialization | 6
+commitment_g4_fr2 | C | 153 | Oink:z_perm | serialization | 6
+commitment_g4_fr3 | C | 154 | Oink:z_perm | serialization | 6
+commitment_g5_fr0 | C | 147 | Oink:lookup_inverses | serialization | 6
+commitment_g5_fr1 | C | 148 | Oink:lookup_inverses | serialization | 6
+commitment_g5_fr2 | C | 149 | Oink:lookup_inverses | serialization | 6
+commitment_g5_fr3 | C | 150 | Oink:lookup_inverses | serialization | 6
+commitment_g6_fr0 | C | 135 | Oink:lookup_read_counts | serialization | 6
+commitment_g6_fr1 | C | 136 | Oink:lookup_read_counts | serialization | 6
+commitment_g6_fr2 | C | 137 | Oink:lookup_read_counts | serialization | 6
+commitment_g6_fr3 | C | 138 | Oink:lookup_read_counts | serialization | 6
+commitment_g7_fr0 | C | 139 | Oink:lookup_read_tags | serialization | 6
+commitment_g7_fr1 | C | 140 | Oink:lookup_read_tags | serialization | 6
+commitment_g7_fr2 | C | 141 | Oink:lookup_read_tags | serialization | 6
+commitment_g7_fr3 | C | 142 | Oink:lookup_read_tags | serialization | 6
+
+# Early processing order (production)
+1 wrapper | key[] | fields_from_witnesses | wiring
+2 wrapper | key_hash | from_witness_index | wiring
+3 wrapper | proof_indices | fields_from_witnesses | wiring
+4 circuit | key[3..] | RecursiveVK construction | VkDeserialize (first_primitive_part)
+5 circuit | key_hash | Oink vk_hash | Oink:vk_hash
+6 serialization | proof commitment groups | Oink receive | Oink:w_*/lookup/z_perm
+early_opcode_witnesses=key[],key_hash,proof_indices[]
+first_primitive_part=VkDeserialize
+last_serialization_part_before_primitive=wrapper (no gates)

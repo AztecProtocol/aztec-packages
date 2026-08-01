@@ -1,0 +1,155 @@
+# HONK recursion — Phase 1 production trace + component map
+# Baseline: proof_type=HONK, UltraRecursiveFlavor_<UltraCircuitBuilder>, DefaultIO,
+#           constant-true predicate, single recursive verification.
+# Generated: 2026-07-26 against current source (post transcript convert_full_challenge refactor).
+# Skill: acir-constraint-fingerprint / boomerang-constraint-validator Phase 1.
+
+###############################################################################
+# Production trace (execution order, file:line)
+###############################################################################
+#
+# create_circuit<UltraCircuitBuilder>
+#   dsl/acir_format/acir_format.cpp:286-309
+#     → build_constraints → create_recursion_constraints
+#       dsl/acir_format/acir_format.cpp:259-277
+#
+# Ultra dispatch (HONK / non-ZK / DefaultIO)
+#   dsl/acir_format/recursion_constraint.cpp:103-126
+#     → create_honk_recursion_constraints<UltraRecursiveFlavor_<UltraCircuitBuilder>, DefaultIO>
+#
+# create_honk_recursion_constraints
+#   dsl/acir_format/honk_recursion_constraint.cpp:30-130
+#   C0  L58-62   fields_from_witnesses(key), from_witness_index(key_hash),
+#                fields_from_witnesses(add_public_inputs_to_proof(proof, public_inputs)),
+#                to_field_ct(predicate)                                          [WITNESS]
+#   C0b L71-83   mock / arbitrary valid honk proof+vk (write-vk / predicate path only)
+#   C0c L86-92   write-vk populate_fields (skipped when !is_write_vk_mode)
+#   C0d L95-118  predicate conditional_assign (skipped when predicate.is_constant())
+#   C1  L121-124 RecursiveVK / VKAndHash / UltraVerifier_::verify_proof(proof_fields)
+#
+# UltraVerifier_::verify_proof  (ultra_honk/ultra_verifier.cpp:197-258)
+#   Step1 L204-208  split_rollup_proof — N/A for DefaultIO (HasIPA=false)
+#   Step2 L211      reduce_to_pairing_check(honk_proof)
+#   Step3 L222-227  IO::reconstruct_from_public + PairingPoints::aggregate
+#
+# UltraVerifier_::reduce_to_pairing_check  (ultra_verifier.cpp:103-186)
+#   L110            transcript->load_proof(proof)
+#   L113            compute_log_n() — USE_PADDING → VIRTUAL_LOG_N (no indicator array)
+#   L123            derive_num_public_inputs
+#   L125-126        OinkVerifier::verify()
+#   L128-129        get_dyadic_powers_of_challenge("Sumcheck:gate_challenge", log_n)
+#   L131-133        VerifierCommitmentsConstructor (no gates; pointer packing)
+#   L136-145        SumcheckVerifier::verify(...)
+#   L152-171        Shplemini::compute_batch_opening_claim(...)
+#   L175-176        PCS::reduce_verify_batch_opening_claim (KZG)
+#
+# OinkVerifier::verify  (ultra_honk/oink_verifier.cpp:29-44)
+#   receive_vk_hash_and_public_inputs
+#   receive_wire_commitments
+#   receive_lookup_counts_and_w4_commitments   (eta + rom_logup_gamma when HasMemory)
+#   receive_logderiv_commitments              (beta, gamma)
+#   complete_grand_product_round              (public_input_delta, z_perm)
+#   get_challenge("alpha")
+#
+# Mirrored executor (test helpers — must stay line-for-line with above):
+#   recursion_constraints_validation/honk_recursion_test_helpers.hpp
+#     run_oink_step / compute_log_n / run_gate_challenges_step /
+#     run_sumcheck_step / run_shplemini_step / run_kzg_step / run_output_step /
+#     build_full_honk_circuit
+#   HONK/honk_recursion_honk_test_helpers.hpp
+#     make_mock_acir_program / setup_honk_verifier_components
+#     (forces predicate to WitnessOrConstant::from_constant(1) — baseline)
+
+###############################################################################
+# Component map (plan §4.1 vs current source)
+###############################################################################
+# Columns: dump_tag | role | witness | production_anchor | gate_notes
+#
+# role: wrapper | serialization | circuit | output | DEAD
+# gate_notes: post-merge reality for FF=fr challenges (convert_full_challenge<fr>
+#             is passthrough — zero decompose gates). Poseidon hash of FS rounds
+#             still emits poseidon2_* gates via get_next_challenge_hash.
+
+# --- ACIR wrapper ---
+HONK:ACIR:witness_load                  wrapper   key,key_hash,proof,public_inputs,predicate   honk_recursion_constraint.cpp:58-62   [WITNESS] field_ct from witness indices
+HONK:ACIR:verifier_entry                wrapper   (via vk_and_hash, proof_fields)              honk_recursion_constraint.cpp:121-124  RecursiveVK + verify_proof entry
+HONK:ACIR:predicate_conditional_assign  wrapper   predicate                                    honk_recursion_constraint.cpp:95-118   EXTENSION — skipped for constant-true baseline
+HONK:ACIR:write_vk_populate             wrapper   —                                            honk_recursion_constraint.cpp:86-92    EXTENSION — skipped when !is_write_vk_mode
+
+# --- Oink ---
+Oink:vk_hash                            circuit   key_hash (assert_equal)                      oink_verifier.cpp:53-64               [WITNESS] poseidon VK hash + assert_equal
+Oink:num_public_inputs_assert           circuit   —                                            oink_verifier.cpp:67                   assert_equal on VK field
+Oink:public_inputs                      serialization  proof[]                                  oink_verifier.cpp:76-81               [WITNESS] receive_from_prover FF × N
+Oink:w_l                                serialization  proof[]                                  oink_verifier.cpp:91-92               [WITNESS] receive Commitment
+Oink:w_r                                serialization  proof[]                                  oink_verifier.cpp:93-94               [WITNESS]
+Oink:w_o                                serialization  proof[]                                  oink_verifier.cpp:95-96               [WITNESS]
+Oink:eta                                circuit   —                                            oink_verifier.cpp:124-129             FS get_challenges{eta,rom_logup_gamma}; fr challenge = 0 decompose gates; eta^2/eta^3 mul gates remain
+Oink:lookup_read_counts                 serialization  proof[]                                  oink_verifier.cpp:134-135             [WITNESS]
+Oink:lookup_read_tags                   serialization  proof[]                                  oink_verifier.cpp:136-137             [WITNESS]
+Oink:w_4                                serialization  proof[]                                  oink_verifier.cpp:139-140             [WITNESS]
+Oink:beta_gamma                         circuit   —                                            oink_verifier.cpp:148-157             FS get_challenges{beta,gamma}; fr = 0 decompose; beta^2/beta^3 muls remain
+Oink:lookup_inverses                    serialization  proof[]                                  oink_verifier.cpp:160-161             [WITNESS]
+Oink:public_input_delta                 circuit   public_inputs (from proof)                   oink_verifier.cpp:179-183             compute_public_input_delta
+Oink:z_perm                             serialization  proof[]                                  oink_verifier.cpp:185-186             [WITNESS]
+Oink:alpha                              circuit   —                                            oink_verifier.cpp:42                  FS get_challenge; fr = 0 decompose
+
+# --- Preprocessor ---
+HONK:Preprocessor:padding_indicator_array  DEAD  —  (deleted upstream)  —
+  # Was compute_padding_indicator_array. Current ultra_verifier.cpp:compute_log_n
+  # (L28-39) and mirror compute_log_n just return VIRTUAL_LOG_N when USE_PADDING.
+  # No separate gate-emitting stage. Do not dump / fingerprint this tag.
+
+HONK:Preprocessor:gate_challenges       circuit   —                                            ultra_verifier.cpp:128-129            get_dyadic_powers_of_challenge; base challenge fr=0 decompose; dyadic powers still mul
+
+# --- Sumcheck (round-symbolic; dump as Sumcheck aggregate + per-round in finer dumps) ---
+Sumcheck:initialize_target_sum          circuit   —                                            sumcheck/sumcheck.hpp (verify entry)
+Sumcheck:u_i                            circuit   —                                            FS get_challenge per round; fr=0 decompose
+Sumcheck:check_sum_i                    circuit   —                                            per-round arithmetic
+Sumcheck:compute_next_target_sum_i      circuit   —                                            per-round arithmetic
+Sumcheck:gate_separators_partially_evaluate_i  circuit  —                                      per-round arithmetic
+
+# --- Shplemini ---
+Shplemini:rho                           circuit   —                                            FS challenge; fr=0 decompose
+Shplemini:Gemini_fold_commitments       serialization  proof[]                                  receive fold commitments [WITNESS]
+Shplemini:Gemini_r                      circuit   —                                            FS challenge; fr=0 decompose
+Shplemini:Gemini_evaluation_challenge_powers  circuit  —                                       powers of r
+Shplemini:Shplonk_nu                    circuit   —                                            FS challenge; fr=0 decompose
+Shplemini:Shplonk_batching_challenge_powers  circuit  —                                        powers of nu
+Shplemini:Shplonk_Q                     serialization  proof[]                                  receive Q [WITNESS]
+Shplemini:Shplonk_z                     circuit   —                                            FS challenge; fr=0 decompose
+Shplemini:ClaimBatcher_compute_scalars  circuit   —                                            claim batcher
+Shplemini:ClaimBatcher_update_batch_mul_inputs  circuit  —                                     claim batcher
+Shplemini:finalize_batch_opening_claim  circuit   —                                            finalize
+
+# --- KZG ---
+KZG:W_receive                           serialization  proof[]                                  receive W [WITNESS]
+KZG:masking_challenge                   circuit   —                                            FS challenge; fr=0 decompose
+KZG:batch_mul                           circuit   —                                            MSM / batch_mul
+
+# --- Output ---
+HONK:Output:reconstruct_from_public     output    public_inputs (from Oink)                    ultra_verifier.cpp:222-223            IO::reconstruct_from_public
+HONK:Output:pairing_points_aggregate    output    —                                            ultra_verifier.cpp:226-227            PairingPoints::aggregate (emits recursion_separator FS / poseidon)
+
+###############################################################################
+# Drift vs plan §4.1 (must not be ignored downstream)
+###############################################################################
+# 1. padding_indicator_array — DEAD (function deleted; USE_PADDING is log_n only).
+# 2. Oink:eta now also samples rom_logup_gamma (HasMemory) — label list changed.
+# 3. Full-width fr challenges no longer emit the 2^127 decompose "squeeze" gate that
+#    find_all_transcript_squeeze_gates scans for. Squeeze-window anchoring is dead for
+#    baseline HONK challenge labels; FS poseidon hashes remain as potential anchors.
+# 4. Mirror build_full_honk_circuit already omits padding step — matches production.
+# 5. make_mock_acir_program forces constant-true predicate so real create_honk_* path
+#    skips conditional_assign (baseline). Without that, parity fails by design.
+# 6. Round 12 witness-linkage (2026-07-26 re-measure): with constant-true predicate,
+#    mirror and real builds show IDENTICAL get_variable_gates for key_hash and proof[0],
+#    and validate_vk_hash passes on both. Prior Round 12 FAIL was against a different
+#    (likely witness-predicate / non-matching) setup — not reproducible on current baseline.
+#    Gate-count parity still does NOT license Phase 3 witness-link validators on the
+#    opposite source without re-checking; this diagnostic is the re-check for baseline.
+
+###############################################################################
+# Phase 1 dump tags (coarse, used by HonkBaselineAnalysis)
+###############################################################################
+# Oink | Preprocessor | Sumcheck | Shplemini | KZG | Output
+# (Preprocessor = gate_challenges only; padding DEAD)
