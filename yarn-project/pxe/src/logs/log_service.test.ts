@@ -491,8 +491,9 @@ async function createTestLogService(
   const taggingSecretSourcesStore = new TaggingSecretSourcesStore(await openTmpStore('test'));
   const addressStore = new AddressStore(await openTmpStore('test'));
   const aztecNode = mock<AztecNode>();
-  // Anchor block header is required for bulkRetrieveLogs.
-  const anchorBlockHeader = makeBlockHeader(randomInt(1000), { blockNumber: BlockNumber(INITIAL_L2_BLOCK_NUM) });
+  // Anchor block header is required for bulkRetrieveLogs. Queries are bounded at the anchor block, so it sits well
+  // above the block ranges the tests ask for, leaving those ranges to reach the node as written.
+  const anchorBlockHeader = makeBlockHeader(randomInt(1000), { blockNumber: BlockNumber(1000) });
 
   const logService = new LogService(
     aztecNode,

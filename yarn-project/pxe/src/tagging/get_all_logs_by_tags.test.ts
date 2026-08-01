@@ -12,7 +12,7 @@ import { getAllPrivateLogsByTags } from './get_all_logs_by_tags.js';
 // We don't bother testing getAllPublicLogsByTagsFromContract because both of the functions are a simple wrapper around
 // the same per-tag pagination loop, so testing the private logs function is enough.
 
-const MOCK_ANCHOR_BLOCK_HASH = BlockHash.random();
+const MOCK_ANCHOR = { hash: BlockHash.random(), number: BlockNumber(100) };
 
 /** Builds a log with a stable blockNumber/logIndexWithinTx so we can assert cursor wiring. */
 function makeLog({ blockNumber = 1, logIndexWithinTx = 0 }: { blockNumber?: number; logIndexWithinTx?: number } = {}) {
@@ -42,14 +42,14 @@ describe('getAllPrivateLogsByTags', () => {
   it('returns empty arrays when no logs found', async () => {
     aztecNode.getPrivateLogsByTags.mockResolvedValue(tags.map(() => []));
 
-    const result = await getAllPrivateLogsByTags(aztecNode, tags, MOCK_ANCHOR_BLOCK_HASH);
+    const result = await getAllPrivateLogsByTags(aztecNode, tags, MOCK_ANCHOR);
 
     expect(result).toEqual([[], [], []]);
     expect(aztecNode.getPrivateLogsByTags).toHaveBeenCalledWith({
       tags,
-      referenceBlock: MOCK_ANCHOR_BLOCK_HASH,
+      referenceBlock: MOCK_ANCHOR.hash,
       fromBlock: undefined,
-      toBlock: undefined,
+      toBlock: BlockNumber(101),
       includeEffects: false,
     } satisfies PrivateLogsQuery);
   });
@@ -58,7 +58,7 @@ describe('getAllPrivateLogsByTags', () => {
     const logsPerTag = tags.map((_tag, i) => Array.from({ length: i + 1 }, () => makeLog()));
     aztecNode.getPrivateLogsByTags.mockResolvedValue(logsPerTag);
 
-    const result = await getAllPrivateLogsByTags(aztecNode, tags, MOCK_ANCHOR_BLOCK_HASH);
+    const result = await getAllPrivateLogsByTags(aztecNode, tags, MOCK_ANCHOR);
 
     expect(result.map(logs => logs.length)).toEqual([1, 2, 3]);
     expect(aztecNode.getPrivateLogsByTags).toHaveBeenCalledTimes(1);
@@ -71,7 +71,7 @@ describe('getAllPrivateLogsByTags', () => {
 
     aztecNode.getPrivateLogsByTags.mockResolvedValueOnce(firstPage).mockResolvedValueOnce(secondPage);
 
-    const result = await getAllPrivateLogsByTags(aztecNode, tags, MOCK_ANCHOR_BLOCK_HASH);
+    const result = await getAllPrivateLogsByTags(aztecNode, tags, MOCK_ANCHOR);
 
     expect(result.map(logs => logs.length)).toEqual([MAX_LOGS_PER_TAG + 5, 1, 0]);
     expect(aztecNode.getPrivateLogsByTags).toHaveBeenCalledTimes(2);
@@ -79,18 +79,18 @@ describe('getAllPrivateLogsByTags', () => {
     // Round 1: all tags queried with bare tags
     expect(aztecNode.getPrivateLogsByTags).toHaveBeenNthCalledWith(1, {
       tags,
-      referenceBlock: MOCK_ANCHOR_BLOCK_HASH,
+      referenceBlock: MOCK_ANCHOR.hash,
       fromBlock: undefined,
-      toBlock: undefined,
+      toBlock: BlockNumber(101),
       includeEffects: false,
     });
 
     // Round 2: only tag[0] re-queried, with an afterLog cursor pointing at the last log of round 1
     expect(aztecNode.getPrivateLogsByTags).toHaveBeenNthCalledWith(2, {
       tags: [{ tag: tags[0], afterLog: LogCursor.fromLog(lastLogOfFirstPage) }],
-      referenceBlock: MOCK_ANCHOR_BLOCK_HASH,
+      referenceBlock: MOCK_ANCHOR.hash,
       fromBlock: undefined,
-      toBlock: undefined,
+      toBlock: BlockNumber(101),
       includeEffects: false,
     });
   });
@@ -98,7 +98,7 @@ describe('getAllPrivateLogsByTags', () => {
   it('handles empty tags array', async () => {
     aztecNode.getPrivateLogsByTags.mockResolvedValue([]);
 
-    const result = await getAllPrivateLogsByTags(aztecNode, [], MOCK_ANCHOR_BLOCK_HASH);
+    const result = await getAllPrivateLogsByTags(aztecNode, [], MOCK_ANCHOR);
 
     expect(result).toEqual([]);
     expect(aztecNode.getPrivateLogsByTags).not.toHaveBeenCalled();
@@ -107,7 +107,7 @@ describe('getAllPrivateLogsByTags', () => {
   it('forwards options (fromBlock/toBlock/includeEffects/limitPerTag) to the node', async () => {
     aztecNode.getPrivateLogsByTags.mockResolvedValue(tags.map(() => []));
 
-    await getAllPrivateLogsByTags(aztecNode, tags, MOCK_ANCHOR_BLOCK_HASH, {
+    await getAllPrivateLogsByTags(aztecNode, tags, MOCK_ANCHOR, {
       fromBlock: BlockNumber(5),
       toBlock: BlockNumber(10),
       includeEffects: true,
@@ -116,12 +116,20 @@ describe('getAllPrivateLogsByTags', () => {
 
     expect(aztecNode.getPrivateLogsByTags).toHaveBeenCalledWith({
       tags,
-      referenceBlock: MOCK_ANCHOR_BLOCK_HASH,
+      referenceBlock: MOCK_ANCHOR.hash,
       fromBlock: BlockNumber(5),
       toBlock: BlockNumber(10),
       includeEffects: true,
       limitPerTag: 3,
     });
+  });
+
+  it('narrows a toBlock that reaches past the anchor block', async () => {
+    aztecNode.getPrivateLogsByTags.mockResolvedValue(tags.map(() => []));
+
+    await getAllPrivateLogsByTags(aztecNode, tags, MOCK_ANCHOR, { toBlock: BlockNumber(500) });
+
+    expect(aztecNode.getPrivateLogsByTags).toHaveBeenCalledWith(expect.objectContaining({ toBlock: BlockNumber(101) }));
   });
 
   describe('batching when tags exceed MAX_RPC_LEN', () => {
@@ -139,7 +147,7 @@ describe('getAllPrivateLogsByTags', () => {
         return Promise.resolve(query.tags.map(() => [makeLog()]));
       });
 
-      const result = await getAllPrivateLogsByTags(aztecNode, manyTags, MOCK_ANCHOR_BLOCK_HASH);
+      const result = await getAllPrivateLogsByTags(aztecNode, manyTags, MOCK_ANCHOR);
 
       expect(result).toHaveLength(MAX_RPC_LEN + 50);
       expect(result.every(logs => logs.length === 1)).toBe(true);
@@ -148,16 +156,16 @@ describe('getAllPrivateLogsByTags', () => {
       expect(aztecNode.getPrivateLogsByTags).toHaveBeenCalledTimes(2);
       expect(aztecNode.getPrivateLogsByTags).toHaveBeenNthCalledWith(1, {
         tags: batch1Tags,
-        referenceBlock: MOCK_ANCHOR_BLOCK_HASH,
+        referenceBlock: MOCK_ANCHOR.hash,
         fromBlock: undefined,
-        toBlock: undefined,
+        toBlock: BlockNumber(101),
         includeEffects: false,
       });
       expect(aztecNode.getPrivateLogsByTags).toHaveBeenNthCalledWith(2, {
         tags: batch2Tags,
-        referenceBlock: MOCK_ANCHOR_BLOCK_HASH,
+        referenceBlock: MOCK_ANCHOR.hash,
         fromBlock: undefined,
-        toBlock: undefined,
+        toBlock: BlockNumber(101),
         includeEffects: false,
       });
     });
@@ -184,7 +192,7 @@ describe('getAllPrivateLogsByTags', () => {
         return Promise.resolve(query.tags.map(() => [makeLog()]));
       });
 
-      const result = await getAllPrivateLogsByTags(aztecNode, manyTags, MOCK_ANCHOR_BLOCK_HASH);
+      const result = await getAllPrivateLogsByTags(aztecNode, manyTags, MOCK_ANCHOR);
 
       expect(result).toHaveLength(MAX_RPC_LEN + 50);
       // First tag in batch 1 got paginated: MAX_LOGS_PER_TAG + 3

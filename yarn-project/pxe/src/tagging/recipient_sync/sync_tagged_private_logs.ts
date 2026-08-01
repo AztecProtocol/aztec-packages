@@ -1,6 +1,5 @@
-import { BlockNumber } from '@aztec/foundation/branded-types';
+import type { BlockNumber } from '@aztec/foundation/branded-types';
 import { isDefined } from '@aztec/foundation/types';
-import type { BlockHash } from '@aztec/stdlib/block';
 import type { AztecNode } from '@aztec/stdlib/interfaces/client';
 import type { AppTaggingSecret, LogResult } from '@aztec/stdlib/logs';
 import { AppTaggingSecretKind, SiloedTag } from '@aztec/stdlib/logs';
@@ -12,7 +11,7 @@ import {
   UNFINALIZED_TAGGING_INDEXES_WINDOW_LEN,
   unfinalizedTaggingIndexesWindowEnd,
 } from '../constants.js';
-import { getAllPrivateLogsByTags } from '../get_all_logs_by_tags.js';
+import { type LogQueryAnchor, getAllPrivateLogsByTags, logQueryAnchorOf } from '../get_all_logs_by_tags.js';
 import { findHighestIndexes } from './utils/find_highest_indexes.js';
 
 /**
@@ -94,8 +93,7 @@ export async function syncTaggedPrivateLogs(
     return [];
   }
 
-  const anchorBlockNumber = anchorBlockHeader.getBlockNumber();
-  const anchorBlockHash = await anchorBlockHeader.hash();
+  const anchor = await logQueryAnchorOf(anchorBlockHeader);
   const currentTimestamp = anchorBlockHeader.globalVariables.timestamp;
 
   // Read stored indexes from the db and compute the initial [start, end) range for each secret
@@ -104,7 +102,7 @@ export async function syncTaggedPrivateLogs(
 
   while (pending.length > 0) {
     // Compute tags for all pending secrets and fetch logs in batched RPC calls
-    const logsPerSecret = await fetchLogsForSecrets(pending, aztecNode, anchorBlockNumber, anchorBlockHash);
+    const logsPerSecret = await fetchLogsForSecrets(pending, aztecNode, anchor);
 
     const nextRound = await Promise.all(
       pending.map(async (pendingSecret, i) => {
@@ -185,8 +183,7 @@ function getIndexRangesForSecrets(
 async function fetchLogsForSecrets(
   pending: PendingSecret[],
   aztecNode: AztecNode,
-  anchorBlockNumber: BlockNumber,
-  anchorBlockHash: BlockHash,
+  anchor: LogQueryAnchor,
 ): Promise<LogWithIndex[][]> {
   // Determine the index range for each secret
   const indexesPerSecret = pending.map(({ start, end }) => Array.from({ length: end - start }, (_, i) => start + i));
@@ -200,14 +197,10 @@ async function fetchLogsForSecrets(
 
   const allTags = tagsPerSecret.flat();
 
-  // getAllPrivateLogsByTags handles MAX_RPC_LEN chunking internally. Recipient sync builds `PendingTaggedLog` from
-  // each log's note hashes and first nullifier, so we opt into effects. The `toBlock` cap (anchor block + 1,
-  // exclusive) tells the node to skip any logs in blocks past the anchor — the same guard previously enforced
-  // by an in-memory filter on the response.
-  const allResults = await getAllPrivateLogsByTags(aztecNode, allTags, anchorBlockHash, {
-    includeEffects: true,
-    toBlock: BlockNumber(anchorBlockNumber + 1),
-  });
+  // getAllPrivateLogsByTags handles MAX_RPC_LEN chunking internally, and bounds the query at the anchor block so
+  // logs from later blocks are never returned. Recipient sync builds `PendingTaggedLog` from each log's note hashes
+  // and first nullifier, so we opt into effects.
+  const allResults = await getAllPrivateLogsByTags(aztecNode, allTags, anchor, { includeEffects: true });
 
   // Split flat results back per secret using the known lengths
   const logsPerSecret: LogWithIndex[][] = [];

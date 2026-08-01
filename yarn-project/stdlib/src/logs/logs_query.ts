@@ -34,7 +34,10 @@ export type LogsQueryBase = {
   txHash?: TxHash;
   /**
    * Reorg-safety anchor: the latest block hash the caller has synced to. If set and the block is no
-   * longer present, the call throws. Distinct from `toBlock`, which is a filter, not a safety check.
+   * longer present, the call throws. Results are also capped at the anchor block, which `toBlock` can
+   * narrow further but not widen. A caller that depends on that bound is better off stating it as a
+   * `toBlock` of its own, so the range it covers is fixed by the request rather than by the node it
+   * happens to be talking to.
    */
   referenceBlock?: BlockHash;
   /** When set, each log also carries `noteHashes` and all `nullifiers` for note-nonce discovery. */
