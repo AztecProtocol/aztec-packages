@@ -352,7 +352,7 @@ describe('LogService', () => {
 
       const logs = await logService.fetchTaggedLogs(contractAddress, recipient, []);
 
-      const txHashes = logs.map(l => l.context.txHash);
+      const txHashes = logs.map(l => l.txHash);
       expect(txHashes).toContainEqual(unconstrainedLog.txHash);
       expect(txHashes).toContainEqual(constrainedLog.txHash);
     });
@@ -374,7 +374,7 @@ describe('LogService', () => {
 
       const logs = await logService.fetchTaggedLogs(contractAddress, recipient, []);
 
-      const txHashes = logs.map(l => l.context.txHash);
+      const txHashes = logs.map(l => l.txHash);
       expect(txHashes).toContainEqual(directionalLog.txHash);
       expect(txHashes).not.toContainEqual(handshakeStreamLog.txHash);
     });
@@ -395,7 +395,7 @@ describe('LogService', () => {
 
       const logs = await logService.fetchTaggedLogs(contractAddress, recipient, []);
 
-      const txHashes = logs.map(l => l.context.txHash);
+      const txHashes = logs.map(l => l.txHash);
       expect(txHashes).toContainEqual(handshakeStreamLog.txHash);
       expect(txHashes).not.toContainEqual(directionalLog.txHash);
     });
@@ -477,7 +477,7 @@ describe('LogService', () => {
       const discovered = await logService.fetchTaggedLogs(contractAddress, recipient, []);
 
       expect(discovered).toHaveLength(1);
-      expect(discovered[0].context.txHash).toEqual(senderLog.txHash);
+      expect(discovered[0].txHash).toEqual(senderLog.txHash);
     });
   });
 });
