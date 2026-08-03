@@ -66,7 +66,7 @@ fast-foundation: barretenberg bb-tests \
 		noir-protocol-circuits-variants \
 		protocol-contracts protocol-contracts-tests \
 		fnd-release-tests \
-		ipc-runtime ipc-runtime-tests ipc-codegen-tests \
+		ipc-runtime ipc-codegen-tests \
 		constants-codegen constants-codegen-tests \
 		claude-tests
 
