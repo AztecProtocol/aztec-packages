@@ -72,6 +72,9 @@ pub contract FeeJuice {
     ///
     /// Use this variant when the claimed Fee Juice is NOT intended to pay for the current transaction's fees (e.g.,
     /// pre-funding an account for future transactions).
+    // Mirrors the private entrypoint the aztec-nr macro generates: PrivateCircuitPublicInputs has constant fields
+    // that cannot be dropped from the protocol ABI.
+    #[allow(constant_return)]
     #[aztec::macros::internals_functions_generation::abi_attributes::abi_private]
     fn claim(
         inputs: aztec::context::inputs::PrivateContextInputs,
@@ -102,6 +105,9 @@ pub contract FeeJuice {
     /// after the claim, the balance increase is placed in the non-revertible phase, ensuring the fee payer's balance
     /// is credited even if the revertible portion of the transaction fails. This guarantees the sequencer can collect
     /// fees.
+    // Mirrors the private entrypoint the aztec-nr macro generates: PrivateCircuitPublicInputs has constant fields
+    // that cannot be dropped from the protocol ABI.
+    #[allow(constant_return)]
     #[aztec::macros::internals_functions_generation::abi_attributes::abi_private]
     fn claim_and_end_setup(
         inputs: aztec::context::inputs::PrivateContextInputs,

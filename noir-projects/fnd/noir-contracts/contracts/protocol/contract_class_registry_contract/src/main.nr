@@ -50,6 +50,9 @@ pub contract ContractClassRegistry {
     /// a proof of publication).
     /// 3. Broadcasts a `ContractClassPublished` event containing the full class metadata and bytecode so that nodes
     /// can reconstruct the class.
+    // Mirrors the private entrypoint the aztec-nr macro generates: PrivateCircuitPublicInputs has constant fields
+    // that cannot be dropped from the protocol ABI.
+    #[allow(constant_return)]
     #[aztec::macros::internals_functions_generation::abi_attributes::abi_private]
     fn publish(
         inputs: aztec::context::inputs::PrivateContextInputs,

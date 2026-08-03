@@ -1739,6 +1739,7 @@ pub contract AMM {
         parameters: swap_tokens_for_exact_tokens_parameters,
     }
 
+    #[allow(constant_return)]
     fn __aztec_nr_internals__add_liquidity(inputs: aztec::context::inputs::PrivateContextInputs, amount0_max: u128, amount1_max: u128, amount0_min: u128, amount1_min: u128, authwit_nonce: Field) -> return_data aztec::protocol::abis::private_circuit_public_inputs::PrivateCircuitPublicInputs {
         aztec::oracle::version::assert_compatible_oracle_version();
         let mut self: aztec::contract_self::contract_self_private::ContractSelfPrivate<Storage<&mut aztec::context::PrivateContext>, CallSelf<&mut aztec::context::PrivateContext>, EnqueueSelf<&mut aztec::context::PrivateContext>, CallSelfStatic<&mut aztec::context::PrivateContext>, EnqueueSelfStatic<&mut aztec::context::PrivateContext>, CallInternal<&mut aztec::context::PrivateContext>, CallSelfUtility> = {
@@ -1805,6 +1806,7 @@ pub contract AMM {
         self.context.finish()
     }
 
+    #[allow(constant_return)]
     fn __aztec_nr_internals__remove_liquidity(inputs: aztec::context::inputs::PrivateContextInputs, liquidity: u128, amount0_min: u128, amount1_min: u128, authwit_nonce: Field) -> return_data aztec::protocol::abis::private_circuit_public_inputs::PrivateCircuitPublicInputs {
         aztec::oracle::version::assert_compatible_oracle_version();
         let mut self: aztec::contract_self::contract_self_private::ContractSelfPrivate<Storage<&mut aztec::context::PrivateContext>, CallSelf<&mut aztec::context::PrivateContext>, EnqueueSelf<&mut aztec::context::PrivateContext>, CallSelfStatic<&mut aztec::context::PrivateContext>, EnqueueSelfStatic<&mut aztec::context::PrivateContext>, CallInternal<&mut aztec::context::PrivateContext>, CallSelfUtility> = {
@@ -1862,6 +1864,7 @@ pub contract AMM {
         self.context.finish()
     }
 
+    #[allow(constant_return)]
     fn __aztec_nr_internals__swap_exact_tokens_for_tokens(inputs: aztec::context::inputs::PrivateContextInputs, token_in: AztecAddress, token_out: AztecAddress, amount_in: u128, amount_out_min: u128, authwit_nonce: Field) -> return_data aztec::protocol::abis::private_circuit_public_inputs::PrivateCircuitPublicInputs {
         aztec::oracle::version::assert_compatible_oracle_version();
         let mut self: aztec::contract_self::contract_self_private::ContractSelfPrivate<Storage<&mut aztec::context::PrivateContext>, CallSelf<&mut aztec::context::PrivateContext>, EnqueueSelf<&mut aztec::context::PrivateContext>, CallSelfStatic<&mut aztec::context::PrivateContext>, EnqueueSelfStatic<&mut aztec::context::PrivateContext>, CallInternal<&mut aztec::context::PrivateContext>, CallSelfUtility> = {
@@ -1924,6 +1927,7 @@ pub contract AMM {
         self.context.finish()
     }
 
+    #[allow(constant_return)]
     fn __aztec_nr_internals__swap_tokens_for_exact_tokens(inputs: aztec::context::inputs::PrivateContextInputs, token_in: AztecAddress, token_out: AztecAddress, amount_out: u128, amount_in_max: u128, authwit_nonce: Field) -> return_data aztec::protocol::abis::private_circuit_public_inputs::PrivateCircuitPublicInputs {
         aztec::oracle::version::assert_compatible_oracle_version();
         let mut self: aztec::contract_self::contract_self_private::ContractSelfPrivate<Storage<&mut aztec::context::PrivateContext>, CallSelf<&mut aztec::context::PrivateContext>, EnqueueSelf<&mut aztec::context::PrivateContext>, CallSelfStatic<&mut aztec::context::PrivateContext>, EnqueueSelfStatic<&mut aztec::context::PrivateContext>, CallInternal<&mut aztec::context::PrivateContext>, CallSelfUtility> = {
