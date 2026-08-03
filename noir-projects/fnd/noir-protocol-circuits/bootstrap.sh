@@ -255,7 +255,7 @@ function test_cmds {
     if [[ "$test" =~ checkpoint || "$package" =~ "blob" ]]; then
       prefix+=":TIMEOUT=20m"
     fi
-    echo "$prefix noir-projects/scripts/run_test.sh fnd/noir-protocol-circuits $package $test"
+    echo "$prefix noir-projects/fnd/scripts/run_test.sh noir-protocol-circuits $package $test"
   done
   # We don't blindly execute all circuits as some will have no `Prover.toml`.
   circuits_to_execute="

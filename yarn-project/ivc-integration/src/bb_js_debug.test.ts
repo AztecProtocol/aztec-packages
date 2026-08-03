@@ -37,7 +37,7 @@ const logger = createLogger('ivc-integration:test:bb-js-debug');
 jest.setTimeout(120_000);
 
 const BB_PATH = path.resolve(
-  path.join(path.dirname(new URL(import.meta.url).pathname), '../../../barretenberg/cpp/build/bin/bb'),
+  path.join(path.dirname(new URL(import.meta.url).pathname), '../../../labs-aztec-toolchain/bin/bb'),
 );
 
 describe('BB.js Debug Wrapper', () => {

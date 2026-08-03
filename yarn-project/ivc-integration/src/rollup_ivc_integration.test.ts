@@ -65,7 +65,7 @@ describe('Rollup IVC Integration', () => {
 
     bbBinaryPath = path.join(
       path.dirname(fileURLToPath(import.meta.url)),
-      '../../../barretenberg/cpp/build/bin',
+      '../../../labs-aztec-toolchain/bin',
       'bb-avm',
     );
 
