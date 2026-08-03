@@ -14,6 +14,9 @@
 # Shell to use for all commands
 SHELL := /bin/bash
 
+# Make would otherwise default to the first target in the file.
+.DEFAULT_GOAL := fast
+
 export DENOISE := 1
 
 ROOT := $(shell git rev-parse --show-toplevel)
@@ -63,7 +66,7 @@ fast-foundation: barretenberg bb-tests \
 		noir-protocol-circuits-variants \
 		protocol-contracts protocol-contracts-tests \
 		fnd-release-tests \
-		ipc-runtime ipc-codegen-tests \
+		ipc-runtime ipc-runtime-tests ipc-codegen-tests \
 		constants-codegen constants-codegen-tests \
 		claude-tests
 
@@ -463,8 +466,12 @@ noir-projects-txe-tests:
 contract-snapshots-tests: noir noir-projects-labs-format-check labs-aztec-toolchain
 	$(call test,$@,noir-projects/labs/contract-snapshots)
 
-# Noir Projects - Aggregate target (builds all sub-projects)
-noir-projects: noir-protocol-circuits mock-protocol-circuits protocol-contracts noir-contracts aztec-nr
+# Noir Projects - Aggregate targets (build all sub-projects per side)
+noir-projects-fnd: noir-protocol-circuits mock-protocol-circuits protocol-contracts
+
+noir-projects-labs: noir-contracts aztec-nr
+
+noir-projects: noir-projects-fnd noir-projects-labs
 
 #==============================================================================
 # L1 Contracts - Ethereum L1 smart contracts
@@ -505,13 +512,13 @@ l1-contracts-tests: l1-contracts-verifier
 # Yarn Project - TypeScript monorepo with all TS packages
 #==============================================================================
 
-yarn-project: noir-projects labs-aztec-toolchain
+yarn-project: noir-projects-labs labs-aztec-toolchain
 	$(call build,$@,yarn-project)
 
 # If we still in the monorepo, we need to additionally depend on everything else explicitly.
 # In the labs repo, we will consume them differently.
 # TODO(fcarreiro): comment this out when pinning binaries.
-yarn-project: bb-ts l1-contracts wsdb bb-avm-sim constants-codegen
+yarn-project: bb-ts l1-contracts wsdb bb-avm-sim constants-codegen noir-projects-fnd
 
 yarn-project-tests: yarn-project
 	$(call test,$@,yarn-project/end-to-end)
