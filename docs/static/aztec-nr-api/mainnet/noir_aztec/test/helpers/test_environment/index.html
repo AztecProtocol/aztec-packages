@@ -42,6 +42,12 @@ methods setting each value, e.g.:</p>
 MyContract::at(addr).<span class="kw">fn</span>());</code></pre>
 <p>Gas settings fields are not cross-validated - nonsense combinations (e.g. <code>teardown_gas_limits</code> larger than
 <code>gas_limits</code>) will be forwarded as-is and may be rejected by simulation.</div></li>
+<li><div class="item-name"><a href="struct.CreateAccountOptions.html" class="struct">CreateAccountOptions</a></div><div class="item-description">Configuration values for <a href="../../../../noir_aztec/test/helpers/test_environment/struct.TestEnvironment.html#create_light_account_opts"><code>TestEnvironment::create_light_account_opts</code></a>. Meant to be used by calling <code>new</code> and then
+chaining methods setting each value, e.g.:</p>
+<pre><code>env.create_light_account_opts(CreateAccountOptions::new().with_secret(<span class="number">42</span>).with_partial_address(<span class="number">1</span>));</code></pre>
+<p>The account address is derived from both the public keys (which come from the secret) and the partial address.
+Setting the same secret with different partial addresses produces accounts that share master keys but have distinct
+addresses.</div></li>
 <li><div class="item-name"><a href="struct.DeployOptions.html" class="struct">DeployOptions</a></div><div class="item-description">Configuration values for <a href="../../../../noir_aztec/test/helpers/test_environment/struct.TestEnvironment.html#deploy_opts"><code>TestEnvironment::deploy_opts</code></a>. Meant to be used by calling <code>new</code> and then chaining
 methods setting each value, e.g.:</p>
 <pre><code>env.deploy_opts(DeployOptions::new().with_salt(<span class="number">42</span>).with_secret(<span class="number">100</span>), <span class="string">"MyContract"</span>).without_initializer();</code></pre></div></li>
