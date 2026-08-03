@@ -41,17 +41,25 @@
 <main>
 <div><a href="../../../index.html">aztec-nr</a> - <a href="../../index.html">noir_aztec</a>::<a href="../index.html">note</a>::<a href="index.html">note_getter_options</a></div>
 <h1>Struct <span id="struct" class="struct">PropertySelector</span></h1>
-<pre><code>pub struct PropertySelector {
+<pre><code>pub struct PropertySelector&lt;T&gt; {
     pub index: <a href="../../../std/primitive.u8.html" class="primitive">u8</a>,
     pub offset: <a href="../../../std/primitive.u8.html" class="primitive">u8</a>,
     pub length: <a href="../../../std/primitive.u8.html" class="primitive">u8</a>,
 }
 </code></pre>
+<div class="comments">
+<p>Locates a note property inside the packed note.</p>
+<p><code>T</code> is the type of the selected property: it is not stored, and is only used to validate the selector when
+constructing a <code>Select</code> or <code>Sort</code> criterion.</p>
+</div>
 <h2>Fields</h2>
 <div id="structfield.index" class="struct-field"><code class="code-header">index: <a href="../../../std/primitive.u8.html" class="primitive">u8</a></code></div>
 <div class="padded-description"></div><div id="structfield.offset" class="struct-field"><code class="code-header">offset: <a href="../../../std/primitive.u8.html" class="primitive">u8</a></code></div>
 <div class="padded-description"></div><div id="structfield.length" class="struct-field"><code class="code-header">length: <a href="../../../std/primitive.u8.html" class="primitive">u8</a></code></div>
-<div class="padded-description"></div></main>
+<div class="padded-description"></div><h2>Implementations</h2>
+<h3><code class="code-header">impl&lt;T&gt; <a href="../../../noir_aztec/note/note_getter_options/struct.PropertySelector.html" class="struct">PropertySelector</a>&lt;T&gt;</code></h3>
+
+<div class="padded-methods"></div></main>
 </span>
 </body>
 </html>

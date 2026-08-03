@@ -160,7 +160,7 @@ done
 
 cat "$PREAMBLE" > "$TMP"
 echo '```bash' >> "$TMP"
-cat "$HELP_FILE" >> "$TMP"
+sed 's/on-chain/onchain/g' "$HELP_FILE" >> "$TMP"
 echo '```' >> "$TMP"
 
 # mktemp creates the temp file 0600; normalize before moving so the generated
