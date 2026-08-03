@@ -43,12 +43,12 @@ function test_cmds {
       hash=disabled-cache
     else
       hash=$(hash_str \
-        $(../../../noir/bootstrap.sh hash) \
+        $($root/labs-aztec-toolchain/bootstrap.sh hash) \
+        $($root/noir-projects/labs/aztec-nr/bootstrap.sh hash) \
         $(cache_content_hash \
             ^noir-projects/labs/contract-snapshots \
             ^noir-projects/labs/noir-contracts/contracts/app \
-            ^noir-projects/labs/noir-contracts/contracts/test \
-            ^noir-projects/labs/aztec-nr))
+            ^noir-projects/labs/noir-contracts/contracts/test))
     fi
     echo "$hash ./noir-projects/labs/contract-snapshots/bootstrap.sh test"
 }

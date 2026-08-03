@@ -32,6 +32,8 @@ export BB=${BB:-"$ROOT/labs-aztec-toolchain/bin/bb"}
 export NARGO=${NARGO:-"$ROOT/labs-aztec-toolchain/bin/nargo"}
 AZTEC_TOOLCHAIN_HASH=${AZTEC_TOOLCHAIN_HASH:-$($ROOT/labs-aztec-toolchain/bootstrap.sh hash)}
 export AZTEC_TOOLCHAIN_HASH
+AZTEC_NR_HASH=${AZTEC_NR_HASH:-$($ROOT/noir-projects/labs/aztec-nr/bootstrap.sh hash)}
+export AZTEC_NR_HASH
 # Below the Linux ephemeral range (32768-60999) to reduce accidental port conflicts.
 DEFAULT_TXE_PORT=14730
 
@@ -43,22 +45,22 @@ export PARALLEL_FLAGS="-j${PARALLELISM:-16} --halt now,fail=1 --memsuspend $(mem
 function get_contract_hash {
   local contract_path=$(get_contract_path "$1" "$2")
 
+  # aztec-nr's hash will include the Nargo.toml and therefore the pinned noir-protocol-circuit
+  # in the "aztec" subdirectory (as long as it's pinned to a version and not a path).
   if [ "$2" = "examples" ]; then
     # Called from docs
     hash_str \
       $AZTEC_TOOLCHAIN_HASH \
+      $AZTEC_NR_HASH \
       $(cache_content_hash \
-        ../barretenberg/ts/.rebuild_patterns \
-        "^docs/examples/$contract_path/" \
-        "^noir-projects/labs/aztec-nr/")
+        "^docs/examples/$contract_path/")
   else
     # Called from noir-contracts
     hash_str \
       $AZTEC_TOOLCHAIN_HASH \
+      $AZTEC_NR_HASH \
       $(cache_content_hash \
-        ../../../barretenberg/ts/.rebuild_patterns \
-        "^noir-projects/labs/noir-contracts/contracts/$contract_path/" \
-        "^noir-projects/labs/aztec-nr/")
+        "^noir-projects/labs/noir-contracts/contracts/$contract_path/")
   fi
 }
 export -f get_contract_hash
@@ -190,6 +192,13 @@ function test_cmds {
     folder_name="contracts"
   fi
 
+  # Tests depend on the TXE so we have to inject this dependency.
+  local yarn_project_hash
+  yarn_project_hash=$($ROOT/yarn-project/bootstrap.sh hash)
+  function get_contract_hash_for_testing {
+    hash_str $yarn_project_hash $(get_contract_hash "$1" "$2")
+  }
+
   # Test bb aztec_process command
   echo "$AZTEC_TOOLCHAIN_HASH noir-projects/labs/noir-contracts/scripts/test_aztec_process.sh"
 
@@ -201,7 +210,7 @@ function test_cmds {
   else
     local -A cache
     $NARGO test --list-tests --silence-warnings | sort | while read -r package test; do
-      [ -z "${cache[$package]:-}" ] && cache[$package]=$(get_contract_hash $package $folder_name)
+      [ -z "${cache[$package]:-}" ] && cache[$package]=$(get_contract_hash_for_testing $package $folder_name)
       echo "${cache[$package]} noir-projects/labs/scripts/run_test.sh noir-contracts $package $test $txe_port"
     done
   fi
@@ -326,6 +335,9 @@ case "$cmd" in
     ;;
   "pin-standard-build")
     pin-standard-build
+    ;;
+  "hash")
+    hash_str $AZTEC_TOOLCHAIN_HASH $AZTEC_NR_HASH $(cache_content_hash "^noir-projects/labs/noir-contracts/")
     ;;
   *)
     default_cmd_handler "$@"
