@@ -7,7 +7,7 @@ import { AztecAddress } from '@aztec/stdlib/aztec-address';
 import { BlockHash, type BlockParameter, randomInBlock } from '@aztec/stdlib/block';
 import type { BlockResponse } from '@aztec/stdlib/interfaces/client';
 import type { AztecNode } from '@aztec/stdlib/interfaces/server';
-import { SiloedTag } from '@aztec/stdlib/logs';
+import { LogCursor, type PrivateLogsQuery, SiloedTag, Tag, randomLogResult } from '@aztec/stdlib/logs';
 import { AppendOnlyTreeSnapshot, MerkleTreeId, PublicDataWitness } from '@aztec/stdlib/trees';
 import { BlockHeader, type NodeStats } from '@aztec/stdlib/tx';
 
@@ -421,6 +421,109 @@ describe('withCache', () => {
     });
   });
 
+  describe('log queries by tag', () => {
+    it('caches a page per tag and only fetches the tags a later query has not seen', async () => {
+      const anchorHash = BlockHash.random();
+      const [tagA, tagB] = [new SiloedTag(Fr.random()), new SiloedTag(Fr.random())];
+      const logsForB = [randomLogResult()];
+      aztecNode.getPrivateLogsByTags.mockResolvedValueOnce([[]]).mockResolvedValueOnce([logsForB]);
+
+      // An empty page is an answer like any other: no log can appear in a range that is already closed.
+      await expect(cachedNode.getPrivateLogsByTags(cacheableLogsQuery(anchorHash, [tagA]))).resolves.toEqual([[]]);
+      await expect(cachedNode.getPrivateLogsByTags(cacheableLogsQuery(anchorHash, [tagA, tagB]))).resolves.toEqual([
+        [],
+        logsForB,
+      ]);
+
+      expect(aztecNode.getPrivateLogsByTags).toHaveBeenCalledTimes(2);
+      expect(aztecNode.getPrivateLogsByTags).toHaveBeenLastCalledWith(cacheableLogsQuery(anchorHash, [tagB]));
+    });
+
+    it('keys each page of a paginated tag by its cursor', async () => {
+      const anchorHash = BlockHash.random();
+      const tag = new SiloedTag(Fr.random());
+      const firstPage = cacheableLogsQuery(anchorHash, [tag]);
+      const secondPage = { ...firstPage, tags: [{ tag, afterLog: LogCursor.random() }] };
+      aztecNode.getPrivateLogsByTags.mockResolvedValue([[randomLogResult()]]);
+
+      await cachedNode.getPrivateLogsByTags(firstPage);
+      await cachedNode.getPrivateLogsByTags(secondPage);
+      await cachedNode.getPrivateLogsByTags(firstPage);
+      await cachedNode.getPrivateLogsByTags(secondPage);
+
+      expect(aztecNode.getPrivateLogsByTags).toHaveBeenCalledTimes(2);
+    });
+
+    it('keeps queries that ask for different data apart', async () => {
+      const anchorHash = BlockHash.random();
+      const tag = new SiloedTag(Fr.random());
+      const query = cacheableLogsQuery(anchorHash, [tag]);
+      aztecNode.getPrivateLogsByTags.mockResolvedValue([[randomLogResult()]]);
+
+      await cachedNode.getPrivateLogsByTags(query);
+      await cachedNode.getPrivateLogsByTags({ ...query, includeEffects: true });
+      await cachedNode.getPrivateLogsByTags({ ...query, fromBlock: BlockNumber(50) });
+
+      expect(aztecNode.getPrivateLogsByTags).toHaveBeenCalledTimes(3);
+    });
+
+    it('keys public queries by the contract that emitted the logs', async () => {
+      const anchorHash = BlockHash.random();
+      const tag = new Tag(Fr.random());
+      const [contract, otherContract] = await Promise.all([AztecAddress.random(), AztecAddress.random()]);
+      const query = { ...cacheableLogsQuery(anchorHash, []), tags: [tag], contractAddress: contract };
+      aztecNode.getPublicLogsByTags.mockResolvedValue([[]]);
+
+      await cachedNode.getPublicLogsByTags(query);
+      await cachedNode.getPublicLogsByTags({ ...query, contractAddress: otherContract });
+      await cachedNode.getPublicLogsByTags(query);
+
+      expect(aztecNode.getPublicLogsByTags).toHaveBeenCalledTimes(2);
+    });
+
+    it('passes queries whose answer can still change through to the node', async () => {
+      const tags = [new SiloedTag(Fr.random())];
+      const anchorOnly = { tags, referenceBlock: BlockHash.random() };
+      const boundOnly = { tags, toBlock: BlockNumber(101) };
+      aztecNode.getPrivateLogsByTags.mockResolvedValue([[]]);
+
+      // Neither condition is enough on its own, see `hasImmutableAnswer`.
+      await cachedNode.getPrivateLogsByTags(anchorOnly);
+      await cachedNode.getPrivateLogsByTags(anchorOnly);
+      await cachedNode.getPrivateLogsByTags(boundOnly);
+      await cachedNode.getPrivateLogsByTags(boundOnly);
+
+      expect(aztecNode.getPrivateLogsByTags).toHaveBeenCalledTimes(4);
+    });
+
+    it('rejects and evicts a batch whose response is shorter than the request', async () => {
+      const anchorHash = BlockHash.random();
+      const [tagA, tagB] = [new SiloedTag(Fr.random()), new SiloedTag(Fr.random())];
+      const logs = [randomLogResult()];
+      aztecNode.getPrivateLogsByTags.mockResolvedValueOnce([logs]).mockResolvedValueOnce([logs, []]);
+
+      await expect(cachedNode.getPrivateLogsByTags(cacheableLogsQuery(anchorHash, [tagA, tagB]))).rejects.toThrow(
+        'returned 1 results for 2 requested tags',
+      );
+      // Nothing from the rejected batch is kept, so the identical query re-fetches and gets the full response.
+      await expect(cachedNode.getPrivateLogsByTags(cacheableLogsQuery(anchorHash, [tagA, tagB]))).resolves.toEqual([
+        logs,
+        [],
+      ]);
+
+      expect(aztecNode.getPrivateLogsByTags).toHaveBeenCalledTimes(2);
+    });
+
+    /**
+     * A tag query whose answer can no longer change: `referenceBlock` names the chain to answer on, and `toBlock`
+     * stops it at the anchor block, so no later block can add to the answer. The height itself is arbitrary, only
+     * naming one matters.
+     */
+    function cacheableLogsQuery(anchorHash: BlockHash, tags: SiloedTag[]): PrivateLogsQuery {
+      return { tags, referenceBlock: anchorHash, toBlock: BlockNumber(101) };
+    }
+  });
+
   describe('uncached methods', () => {
     it('passes repeated reads through to the node', async () => {
       aztecNode.getBlockNumber.mockResolvedValue(BlockNumber(42));
@@ -429,16 +532,6 @@ describe('withCache', () => {
       await expect(cachedNode.getBlockNumber()).resolves.toBe(42);
 
       expect(aztecNode.getBlockNumber).toHaveBeenCalledTimes(2);
-    });
-
-    it('passes tag-addressed log queries through to the node', async () => {
-      const query = { tags: [new SiloedTag(Fr.random())] };
-      aztecNode.getPrivateLogsByTags.mockResolvedValue([[]]);
-
-      await expect(cachedNode.getPrivateLogsByTags(query)).resolves.toEqual([[]]);
-      await expect(cachedNode.getPrivateLogsByTags(query)).resolves.toEqual([[]]);
-
-      expect(aztecNode.getPrivateLogsByTags).toHaveBeenCalledTimes(2);
     });
 
     it('binds passthrough methods to the node', async () => {

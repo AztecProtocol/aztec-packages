@@ -1,11 +1,10 @@
 import type { BlockNumber } from '@aztec/foundation/branded-types';
-import type { BlockHash } from '@aztec/stdlib/block';
 import type { AztecNode } from '@aztec/stdlib/interfaces/server';
 import { type AppTaggingSecret, type LogResult, SiloedTag } from '@aztec/stdlib/logs';
 import { TxHash } from '@aztec/stdlib/tx';
 
 import type { SenderTaggingStore } from '../../../storage/tagging_store/sender_tagging_store.js';
-import { getAllPrivateLogsByTags } from '../../get_all_logs_by_tags.js';
+import { type LogQueryAnchor, getAllPrivateLogsByTags } from '../../get_all_logs_by_tags.js';
 
 /**
  * Loads tagging indexes from the Aztec node and stores them in the tagging data provider. Returns the txs the
@@ -18,7 +17,7 @@ import { getAllPrivateLogsByTags } from '../../get_all_logs_by_tags.js';
  * @param end - The ending index (exclusive) of the window to process.
  * @param aztecNode - The Aztec node instance to query for logs.
  * @param taggingStore - The data provider to store pending indexes.
- * @param anchorBlockHash - Hash of a block to use as reference block when querying node.
+ * @param anchor - Block the log query is anchored to.
  * @param jobId - Job identifier, used to keep writes in-memory until they can be persisted in a data integrity
  * preserving way.
  */
@@ -28,7 +27,7 @@ export async function loadAndStoreNewTaggingIndexes(
   end: number,
   aztecNode: AztecNode,
   taggingStore: SenderTaggingStore,
-  anchorBlockHash: BlockHash,
+  anchor: LogQueryAnchor,
   jobId: string,
 ): Promise<Map<string, TxInLogs>> {
   // We compute the tags for the current window of indexes
@@ -36,7 +35,7 @@ export async function loadAndStoreNewTaggingIndexes(
     Array.from({ length: end - start }, (_, i) => SiloedTag.compute({ extendedSecret, index: start + i })),
   );
 
-  const allLogs = await getAllPrivateLogsByTags(aztecNode, siloedTagsForWindow, anchorBlockHash);
+  const allLogs = await getAllPrivateLogsByTags(aztecNode, siloedTagsForWindow, anchor);
   if (allLogs.length !== siloedTagsForWindow.length) {
     throw new Error(
       `Number of log arrays does not match number of tags. ${allLogs.length} !== ${siloedTagsForWindow.length}`,

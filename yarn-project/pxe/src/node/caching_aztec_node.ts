@@ -3,6 +3,15 @@ import type { AztecAddress } from '@aztec/stdlib/aztec-address';
 import { BlockHash, type BlockParameter, type DataInBlock } from '@aztec/stdlib/block';
 import type { BlockIncludeOptions } from '@aztec/stdlib/interfaces/client';
 import type { AztecNode } from '@aztec/stdlib/interfaces/server';
+import type {
+  LogResult,
+  LogsQueryBase,
+  PrivateLogsQuery,
+  PublicLogsQuery,
+  SiloedTag,
+  Tag,
+  TagQuery,
+} from '@aztec/stdlib/logs';
 import type { MerkleTreeId } from '@aztec/stdlib/trees';
 
 import { type BenchmarkedAztecNode, withRecording } from './benchmarked_node.js';
@@ -23,7 +32,8 @@ export interface CachingAztecNode extends BenchmarkedAztecNode {
  * differently, and even an `undefined` witness or leaf index is kept as a non-membership fact. That makes the wrapper
  * safe for any consumer, whatever its anchor block. Uncached methods, and reads that name a block any other way (see
  * {@link hashReferenceOf}), pass straight through. A few entries below opt out even when hash-pinned, where the answer
- * can still change.
+ * can still change, and the tag queries opt in only once the request also stops short of blocks yet to be produced
+ * (see {@link hasImmutableAnswer}).
  *
  * Wiping (see {@link CachingAztecNode.wipeCache}) bounds memory. Correctness does not depend on it.
  */
@@ -127,36 +137,43 @@ export function withCache(node: AztecNode): CachingAztecNode {
       if (referenceHash === undefined) {
         return source.findLeavesIndexes(referenceBlock, treeId, leafValues);
       }
-      const keyOf = (leaf: Fr) => `leaf-index:${referenceHash.toString()}:${treeId}:${leaf.toString()}`;
-      const keys = leafValues.map(keyOf);
-      const cached = cache.peekAll<DataInBlock<bigint> | undefined>(keys);
-      // Held by cache key, so a leaf repeated in `leafValues` is asked of the node once and each of its positions
-      // reads the single entry that one request seeds.
-      const missingLeaves = new Map<string, Fr>(
-        leafValues.filter((_leaf, index) => cached[index] === undefined).map(leaf => [keyOf(leaf), leaf]),
+      return readBatchedPerKey<DataInBlock<bigint> | undefined>(
+        cache,
+        leafValues.map(leaf => `leaf-index:${referenceHash.toString()}:${treeId}:${leaf.toString()}`),
+        missing =>
+          source.findLeavesIndexes(
+            referenceBlock,
+            treeId,
+            missing.map(i => leafValues[i]),
+          ),
+        { method: 'findLeavesIndexes', requested: 'leaves' },
       );
-      const fetches = new Map<string, Promise<DataInBlock<bigint> | undefined>>();
-      if (missingLeaves.size > 0) {
-        const batch = source.findLeavesIndexes(referenceBlock, treeId, [...missingLeaves.values()]).then(fetched => {
-          if (fetched.length !== missingLeaves.size) {
-            // Each leaf's cache entry is filled from the batch response by position (fetched[batchIndex]). If the node
-            // returned fewer results than we asked for, the positions past the end would read undefined, and the cache
-            // keeps undefined as a genuine "leaf not in tree" answer, so a truncated response would be cached as fact.
-            // Rejecting the whole batch evicts those entries instead, so a retry re-fetches every leaf.
-            throw new Error(
-              `findLeavesIndexes returned ${fetched.length} results for ${missingLeaves.size} requested leaves`,
-            );
-          }
-          return fetched;
-        });
-        [...missingLeaves.keys()].forEach((key, batchIndex) => {
-          fetches.set(
-            key,
-            cache.fetch(key, () => batch.then(fetched => fetched[batchIndex])),
-          );
-        });
+    },
+
+    getPrivateLogsByTags: (query: PrivateLogsQuery) => {
+      if (!hasImmutableAnswer(query)) {
+        return source.getPrivateLogsByTags(query);
       }
-      return Promise.all(keys.map((key, index) => cached[index] ?? fetches.get(key)));
+      const keyPrefix = `private-logs:${privateLogsQueryKey(query)}`;
+      return readBatchedPerKey<LogResult[]>(
+        cache,
+        query.tags.map(tag => `${keyPrefix}:${tagQueryKey(tag)}`),
+        missing => source.getPrivateLogsByTags({ ...query, tags: missing.map(i => query.tags[i]) }),
+        { method: 'getPrivateLogsByTags', requested: 'tags' },
+      );
+    },
+
+    getPublicLogsByTags: (query: PublicLogsQuery) => {
+      if (!hasImmutableAnswer(query)) {
+        return source.getPublicLogsByTags(query);
+      }
+      const keyPrefix = `public-logs:${publicLogsQueryKey(query)}`;
+      return readBatchedPerKey<LogResult[]>(
+        cache,
+        query.tags.map(tag => `${keyPrefix}:${tagQueryKey(tag)}`),
+        missing => source.getPublicLogsByTags({ ...query, tags: missing.map(i => query.tags[i]) }),
+        { method: 'getPublicLogsByTags', requested: 'tags' },
+      );
     },
   };
 
@@ -256,6 +273,116 @@ function hashReferenceOf(block: BlockParameter | undefined): BlockHash | undefin
     return block.hash;
   }
   return undefined;
+}
+
+/**
+ * Answers one result per entry of `keys`, taking whatever the cache already holds and fetching the rest in a single
+ * batched call. Each fetched result is cached under its own key, so a later call that overlaps this one fetches only
+ * the entries it has not seen, and a key repeated within `keys` is asked of the node once.
+ *
+ * `fetchMissing` receives the indexes still missing, in order, and must answer one result per requested index.
+ * `shortResponse` names the method and what it requests, for the error raised when it does not.
+ */
+function readBatchedPerKey<T>(
+  cache: AztecNodeCache,
+  keys: string[],
+  fetchMissing: (missingIndexes: number[]) => Promise<T[]>,
+  shortResponse: { method: string; requested: string },
+): Promise<T[]> {
+  const cached = cache.peekAll<T>(keys);
+
+  // One request per missing key rather than per missing position, so a key repeated in `keys` seeds a single entry
+  // that every position carrying it then reads.
+  const requestIndexByKey = new Map<string, number>();
+  cached.forEach((result, index) => {
+    if (result === undefined && !requestIndexByKey.has(keys[index])) {
+      requestIndexByKey.set(keys[index], index);
+    }
+  });
+
+  const fetchedByKey = new Map<string, Promise<T>>();
+  if (requestIndexByKey.size > 0) {
+    const requestedIndexes = [...requestIndexByKey.values()];
+    const batch = fetchMissing(requestedIndexes).then(fetched => {
+      if (fetched.length !== requestedIndexes.length) {
+        // Each entry is filled from the batch response by position. If the node returned fewer results than we asked
+        // for, the positions past the end would read undefined, which the cache keeps as a genuine answer, so a
+        // truncated response would be cached as fact. Rejecting the whole batch evicts those entries instead, so a
+        // retry re-fetches every one of them.
+        throw new Error(
+          `${shortResponse.method} returned ${fetched.length} results for ${requestedIndexes.length} requested ` +
+            `${shortResponse.requested}`,
+        );
+      }
+      return fetched;
+    });
+    [...requestIndexByKey.keys()].forEach((key, batchIndex) => {
+      fetchedByKey.set(
+        key,
+        cache.fetch(key, () => batch.then(fetched => fetched[batchIndex])),
+      );
+    });
+  }
+
+  // Every position is answered: a cache hit, or the entry its key's request seeded just above.
+  return Promise.all(keys.map((key, index) => cached[index] ?? fetchedByKey.get(key)!));
+}
+
+/**
+ * Whether a tag query's answer can no longer change, and so can be cached.
+ *
+ * Two things would let it change, and the query has to rule out both. `referenceBlock` names the chain the answer
+ * belongs to, so the call fails once that block is gone rather than answering from a chain that reorged. `toBlock`
+ * stops the query below the tip, so blocks yet to be produced cannot add logs to the answer. Where the query starts
+ * does not matter: an open lower end reaches only blocks that are already behind it, which no longer move. PXE's tag
+ * queries get both from the `getAll*LogsByTags` helpers, which take them from the anchor block the query is pinned to.
+ */
+function hasImmutableAnswer(query: LogsQueryBase): boolean {
+  return query.referenceBlock !== undefined && query.toBlock !== undefined;
+}
+
+/** Cache-key segment for the parts of a private tag query that every tag in it shares. */
+function privateLogsQueryKey(query: PrivateLogsQuery): string {
+  const parts: QueryKeyParts<PrivateLogsQuery> = { ...sharedQueryKeyParts(query) };
+  return Object.values(parts).map(keyPart).join(':');
+}
+
+/** Cache-key segment for the parts of a public tag query that every tag in it shares. */
+function publicLogsQueryKey(query: PublicLogsQuery): string {
+  const parts: QueryKeyParts<PublicLogsQuery> = {
+    ...sharedQueryKeyParts(query),
+    contractAddress: query.contractAddress,
+  };
+  return Object.values(parts).map(keyPart).join(':');
+}
+
+/**
+ * The fields of a query that a key has to cover, which is all of them but `tags`: each tag is keyed on its own by
+ * {@link tagQueryKey}.
+ *
+ * The key builders are total over this type, so a field added to a query fails to compile there rather than silently
+ * being left out of the key and colliding with a query that differs only in it.
+ */
+type QueryKeyParts<T extends LogsQueryBase> = { [K in keyof Required<Omit<T, 'tags'>>]: unknown };
+
+/** The key parts {@link PrivateLogsQuery} and {@link PublicLogsQuery} have in common. */
+function sharedQueryKeyParts(query: LogsQueryBase): QueryKeyParts<LogsQueryBase> {
+  return {
+    referenceBlock: query.referenceBlock,
+    fromBlock: query.fromBlock,
+    toBlock: query.toBlock,
+    txHash: query.txHash,
+    includeEffects: query.includeEffects,
+    limitPerTag: query.limitPerTag,
+  };
+}
+
+/**
+ * Cache-key segment for one tag entry, covering the pagination cursor as well as the tag: each page of a tag's stream
+ * is a read of its own, and a repeated query asks for the same pages in the same order.
+ */
+function tagQueryKey(entry: TagQuery<Tag | SiloedTag>): string {
+  return 'tag' in entry ? `${keyPart(entry.tag)}@${keyPart(entry.afterLog)}` : keyPart(entry);
 }
 
 /**
