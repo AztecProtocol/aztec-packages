@@ -12,11 +12,7 @@ use crate::{
 };
 
 use crate::macros::functions::initialization_utils::DOM_SEP__INITIALIZATION_NULLIFIER;
-use crate::protocol::{
-    address::AztecAddress,
-    hash::poseidon2_hash_with_separator,
-    traits::{Packable, ToField},
-};
+use crate::protocol::{address::AztecAddress, hash::poseidon2_hash_with_separator, traits::{Packable, ToField}};
 
 mod test;
 

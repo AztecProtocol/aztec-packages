@@ -137,7 +137,7 @@ export async function proveAvm(
   proof: Fr[];
   publicInputs: AvmCircuitPublicInputs;
 }> {
-  const bbPath = path.resolve('../../barretenberg/cpp/build/bin/bb-avm');
+  const bbPath = path.resolve('../../labs-aztec-toolchain/bin/bb-avm');
   const factory = new BBJsFactory(bbPath, { logger });
   try {
     const inputsBuffer = avmCircuitInputs.serializeWithMessagePack();
