@@ -13,7 +13,7 @@ The `Inbox` is a contract deployed on L1 that handles message passing from L1 to
 
 Sends a message from L1 to L2.
 
-#include_code send_l1_to_l2_message l1-contracts/src/core/interfaces/messagebridge/IInbox.sol solidity
+#include_code send_l1_to_l2_message docs/node_modules/@aztec/l1-artifacts/l1-contracts/src/core/interfaces/messagebridge/IInbox.sol solidity
 
 | Name        | Type                 | Description                                                                                                                                                                                                                                                                                                                                                                                                                                    |
 | ----------- | -------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
@@ -51,7 +51,7 @@ The following functions are only callable by the Rollup contract and are documen
 
 Consumes a message tree for a given checkpoint number.
 
-#include_code consume l1-contracts/src/core/interfaces/messagebridge/IInbox.sol solidity
+#include_code consume docs/node_modules/@aztec/l1-artifacts/l1-contracts/src/core/interfaces/messagebridge/IInbox.sol solidity
 
 | Name        | Type      | Description                              |
 | ----------- | --------- | ---------------------------------------- |

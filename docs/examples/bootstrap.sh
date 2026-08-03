@@ -85,6 +85,13 @@ function compile-solidity {
   local SOLIDITY_DIR="$REPO_ROOT/docs/examples/solidity"
   local OUTPUT_DIR="$REPO_ROOT/docs/target/solidity"
 
+  # The examples compile against the l1-contracts sources shipped in the
+  # @aztec/l1-artifacts package (see foundry.toml), so docs' node_modules
+  # must be populated.
+  if [ ! -d "$REPO_ROOT/docs/node_modules/@aztec/l1-artifacts" ]; then
+    (cd "$REPO_ROOT/docs" && npm_install_deps)
+  fi
+
   # Find all .sol files recursively
   local sol_files
   sol_files=$(find "$SOLIDITY_DIR" -name "*.sol" 2>/dev/null)
