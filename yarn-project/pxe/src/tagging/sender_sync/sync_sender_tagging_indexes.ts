@@ -1,10 +1,10 @@
 import type { BlockNumber } from '@aztec/foundation/branded-types';
-import type { BlockHash } from '@aztec/stdlib/block';
 import type { AztecNode } from '@aztec/stdlib/interfaces/server';
 import type { AppTaggingSecret } from '@aztec/stdlib/logs';
 
 import type { SenderTaggingStore } from '../../storage/tagging_store/sender_tagging_store.js';
 import { unfinalizedTaggingIndexesWindowEnd } from '../constants.js';
+import type { LogQueryAnchor } from '../get_all_logs_by_tags.js';
 import { loadAndStoreNewTaggingIndexes } from './utils/load_and_store_new_tagging_indexes.js';
 import { resolvePendingTxs } from './utils/resolve_pending_txs.js';
 
@@ -25,7 +25,7 @@ export async function syncSenderTaggingIndexes(
   aztecNode: AztecNode,
   taggingStore: SenderTaggingStore,
   finalizedBlockNumber: BlockNumber,
-  anchorBlockHash: BlockHash,
+  anchor: LogQueryAnchor,
   jobId: string,
 ): Promise<void> {
   // # Explanation of how syncing works
@@ -58,15 +58,7 @@ export async function syncSenderTaggingIndexes(
   let newFinalizedIndex = undefined;
 
   while (true) {
-    const txsInLogs = await loadAndStoreNewTaggingIndexes(
-      secret,
-      start,
-      end,
-      aztecNode,
-      taggingStore,
-      anchorBlockHash,
-      jobId,
-    );
+    const txsInLogs = await loadAndStoreNewTaggingIndexes(secret, start, end, aztecNode, taggingStore, anchor, jobId);
 
     // Pending txs for this window: prior syncs, txs this PXE itself sent, and what the logs just stored.
     const pendingTxs = await taggingStore.getPendingTxs(secret, start, end, jobId);
