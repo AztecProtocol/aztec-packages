@@ -174,7 +174,11 @@ describe('SlasherClient', () => {
     slashingProposer.listenToRoundExecuted.mockReturnValue(() => {});
 
     // Create consensus slasher client with proper constructor parameters
-    slasherClient = new TestSlasherClient(
+    slasherClient = createClient();
+  });
+
+  const createClient = (ownValidators: EthAddress[] = []) =>
+    new TestSlasherClient(
       config,
       settings,
       slashingProposer,
@@ -184,10 +188,10 @@ describe('SlasherClient', () => {
       mockEpochCache,
       dateProvider,
       offensesStore,
+      ownValidators,
       logger,
       new SlasherMetrics(telemetryClient),
     );
-  });
 
   afterEach(async () => {
     await slasherClient.stop();
@@ -1110,6 +1114,80 @@ describe('SlasherClient', () => {
       });
     });
   });
+
+  describe('own validator slash monitor wiring', () => {
+    let ownValidator: EthAddress;
+    let voteCastCallback: (args: { round: bigint; voteIndex: bigint; proposer: string }) => void;
+
+    // Recreates the telemetry client along with the slasher client so metric assertions only see this client's data
+    const setupClient = (ownValidators: EthAddress[]) => {
+      telemetryClient = new BenchmarkTelemetryClient();
+      slasherClient = createClient(ownValidators);
+    };
+
+    const getValues = (name: string) =>
+      telemetryClient
+        .getMeters()
+        .flatMap(meter => meter.metrics)
+        .find(metric => metric.name === name)
+        ?.points.map(point => point.value) ?? [];
+
+    beforeEach(() => {
+      ownValidator = committee[7];
+      setupClient([ownValidator]);
+      slashingProposer.listenToVoteCast.mockImplementation(callback => {
+        voteCastCallback = callback;
+        return () => {};
+      });
+    });
+
+    it('subscribes to vote cast events only when running own validators', async () => {
+      setupClient([]);
+      await slasherClient.start();
+      expect(slashingProposer.listenToVoteCast).not.toHaveBeenCalled();
+      await slasherClient.stop();
+
+      setupClient([ownValidator]);
+      await slasherClient.start();
+      expect(slashingProposer.listenToVoteCast).toHaveBeenCalledTimes(1);
+    });
+
+    it('reports a vote cast event that names an own validator', async () => {
+      slashingProposer.getVoteAt.mockResolvedValue([
+        { validator: ownValidator, slashAmount: slashingUnit, position: 7 },
+      ]);
+
+      await slasherClient.start();
+      voteCastCallback({
+        round: slasherClient.getCurrentRound(),
+        voteIndex: 0n,
+        proposer: EthAddress.random().toString(),
+      });
+
+      await retryFastUntil(
+        () => getValues(Metrics.SLASHER_OWN_VALIDATOR_TARGETED_COUNT.name).length > 1 || undefined,
+        'own validator to be reported as targeted',
+        5,
+        0.05,
+      );
+      expect(getValues(Metrics.SLASHER_OWN_VALIDATOR_TARGETED_COUNT.name)).toEqual([0, 1]);
+      expect(getValues(Metrics.SLASHER_OWN_VALIDATOR_CURRENT_ROUND_VOTES_MAX.name).at(-1)).toEqual(1);
+    });
+
+    it('reports an own validator slashed at round execution', async () => {
+      rollup.getSlashEvents.mockResolvedValue([
+        { attester: ownValidator, amount: slashingUnit * 2n },
+        { attester: committee[1], amount: slashingUnit },
+      ]);
+
+      await slasherClient.handleRoundExecuted(7n, 2n, '0x1');
+
+      expect(getValues(Metrics.SLASHER_OWN_VALIDATOR_SLASHED_COUNT.name)).toEqual([0, 1]);
+      // The 2e18 base-unit slash is recorded as 2 whole staking-asset tokens
+      expect(getValues(Metrics.SLASHER_OWN_VALIDATOR_SLASHED_AMOUNT.name)).toEqual([0, 2]);
+      expect(getValues(Metrics.SLASHER_ROUND_EXECUTED_COUNT.name)).toEqual([0, 1]);
+    });
+  });
 });
 
 // Test helper class that exposes protected methods for testing
@@ -1120,6 +1198,10 @@ class TestSlasherClient extends SlasherClient {
 
   public override handleNewRound(round: bigint): Promise<void> {
     return super.handleNewRound(round);
+  }
+
+  public getCurrentRound(): bigint {
+    return this.roundMonitor.getCurrentRound().round;
   }
 
   public override getExecuteSlashAction(slotNumber: SlotNumber): Promise<ProposerSlashAction | undefined> {
