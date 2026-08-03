@@ -429,20 +429,20 @@ describe('withCache', () => {
       aztecNode.getPrivateLogsByTags.mockResolvedValueOnce([[]]).mockResolvedValueOnce([logsForB]);
 
       // An empty page is an answer like any other: no log can appear in a range that is already closed.
-      await expect(cachedNode.getPrivateLogsByTags(pinnedLogsQuery(anchorHash, [tagA]))).resolves.toEqual([[]]);
-      await expect(cachedNode.getPrivateLogsByTags(pinnedLogsQuery(anchorHash, [tagA, tagB]))).resolves.toEqual([
+      await expect(cachedNode.getPrivateLogsByTags(cacheableLogsQuery(anchorHash, [tagA]))).resolves.toEqual([[]]);
+      await expect(cachedNode.getPrivateLogsByTags(cacheableLogsQuery(anchorHash, [tagA, tagB]))).resolves.toEqual([
         [],
         logsForB,
       ]);
 
       expect(aztecNode.getPrivateLogsByTags).toHaveBeenCalledTimes(2);
-      expect(aztecNode.getPrivateLogsByTags).toHaveBeenLastCalledWith(pinnedLogsQuery(anchorHash, [tagB]));
+      expect(aztecNode.getPrivateLogsByTags).toHaveBeenLastCalledWith(cacheableLogsQuery(anchorHash, [tagB]));
     });
 
     it('keys each page of a paginated tag by its cursor', async () => {
       const anchorHash = BlockHash.random();
       const tag = new SiloedTag(Fr.random());
-      const firstPage = pinnedLogsQuery(anchorHash, [tag]);
+      const firstPage = cacheableLogsQuery(anchorHash, [tag]);
       const secondPage = { ...firstPage, tags: [{ tag, afterLog: LogCursor.random() }] };
       aztecNode.getPrivateLogsByTags.mockResolvedValue([[randomLogResult()]]);
 
@@ -457,7 +457,7 @@ describe('withCache', () => {
     it('keeps queries that ask for different data apart', async () => {
       const anchorHash = BlockHash.random();
       const tag = new SiloedTag(Fr.random());
-      const query = pinnedLogsQuery(anchorHash, [tag]);
+      const query = cacheableLogsQuery(anchorHash, [tag]);
       aztecNode.getPrivateLogsByTags.mockResolvedValue([[randomLogResult()]]);
 
       await cachedNode.getPrivateLogsByTags(query);
@@ -471,7 +471,7 @@ describe('withCache', () => {
       const anchorHash = BlockHash.random();
       const tag = new Tag(Fr.random());
       const [contract, otherContract] = await Promise.all([AztecAddress.random(), AztecAddress.random()]);
-      const query = { ...pinnedLogsQuery(anchorHash, []), tags: [tag], contractAddress: contract };
+      const query = { ...cacheableLogsQuery(anchorHash, []), tags: [tag], contractAddress: contract };
       aztecNode.getPublicLogsByTags.mockResolvedValue([[]]);
 
       await cachedNode.getPublicLogsByTags(query);
@@ -481,13 +481,13 @@ describe('withCache', () => {
       expect(aztecNode.getPublicLogsByTags).toHaveBeenCalledTimes(2);
     });
 
-    it('passes queries that leave the block range open through to the node', async () => {
+    it('passes queries whose answer can still change through to the node', async () => {
       const tags = [new SiloedTag(Fr.random())];
       const anchorOnly = { tags, referenceBlock: BlockHash.random() };
       const boundOnly = { tags, toBlock: BlockNumber(101) };
       aztecNode.getPrivateLogsByTags.mockResolvedValue([[]]);
 
-      // Neither half of the pin is enough on its own, see `isBlockRangePinned`.
+      // Neither condition is enough on its own, see `hasImmutableAnswer`.
       await cachedNode.getPrivateLogsByTags(anchorOnly);
       await cachedNode.getPrivateLogsByTags(anchorOnly);
       await cachedNode.getPrivateLogsByTags(boundOnly);
@@ -502,11 +502,11 @@ describe('withCache', () => {
       const logs = [randomLogResult()];
       aztecNode.getPrivateLogsByTags.mockResolvedValueOnce([logs]).mockResolvedValueOnce([logs, []]);
 
-      await expect(cachedNode.getPrivateLogsByTags(pinnedLogsQuery(anchorHash, [tagA, tagB]))).rejects.toThrow(
+      await expect(cachedNode.getPrivateLogsByTags(cacheableLogsQuery(anchorHash, [tagA, tagB]))).rejects.toThrow(
         'returned 1 results for 2 requested tags',
       );
       // Nothing from the rejected batch is kept, so the identical query re-fetches and gets the full response.
-      await expect(cachedNode.getPrivateLogsByTags(pinnedLogsQuery(anchorHash, [tagA, tagB]))).resolves.toEqual([
+      await expect(cachedNode.getPrivateLogsByTags(cacheableLogsQuery(anchorHash, [tagA, tagB]))).resolves.toEqual([
         logs,
         [],
       ]);
@@ -515,11 +515,11 @@ describe('withCache', () => {
     });
 
     /**
-     * A tag query pinned to an immutable block range: `referenceBlock` names the chain to answer on, and `toBlock`
-     * closes the range at the anchor block, so no later block can add to the answer. The height itself is arbitrary,
-     * only naming one matters.
+     * A tag query whose answer can no longer change: `referenceBlock` names the chain to answer on, and `toBlock`
+     * stops it at the anchor block, so no later block can add to the answer. The height itself is arbitrary, only
+     * naming one matters.
      */
-    function pinnedLogsQuery(anchorHash: BlockHash, tags: SiloedTag[]): PrivateLogsQuery {
+    function cacheableLogsQuery(anchorHash: BlockHash, tags: SiloedTag[]): PrivateLogsQuery {
       return { tags, referenceBlock: anchorHash, toBlock: BlockNumber(101) };
     }
   });

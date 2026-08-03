@@ -32,8 +32,8 @@ export interface CachingAztecNode extends BenchmarkedAztecNode {
  * differently, and even an `undefined` witness or leaf index is kept as a non-membership fact. That makes the wrapper
  * safe for any consumer, whatever its anchor block. Uncached methods, and reads that name a block any other way (see
  * {@link hashReferenceOf}), pass straight through. A few entries below opt out even when hash-pinned, where the answer
- * can still change, and the tag queries opt in only once the request also closes the block range they cover (see
- * {@link isBlockRangePinned}).
+ * can still change, and the tag queries opt in only once the request also stops short of blocks yet to be produced
+ * (see {@link hasImmutableAnswer}).
  *
  * Wiping (see {@link CachingAztecNode.wipeCache}) bounds memory. Correctness does not depend on it.
  */
@@ -151,7 +151,7 @@ export function withCache(node: AztecNode): CachingAztecNode {
     },
 
     getPrivateLogsByTags: (query: PrivateLogsQuery) => {
-      if (!isBlockRangePinned(query)) {
+      if (!hasImmutableAnswer(query)) {
         return source.getPrivateLogsByTags(query);
       }
       const keyPrefix = `private-logs:${privateLogsQueryKey(query)}`;
@@ -164,7 +164,7 @@ export function withCache(node: AztecNode): CachingAztecNode {
     },
 
     getPublicLogsByTags: (query: PublicLogsQuery) => {
-      if (!isBlockRangePinned(query)) {
+      if (!hasImmutableAnswer(query)) {
         return source.getPublicLogsByTags(query);
       }
       const keyPrefix = `public-logs:${publicLogsQueryKey(query)}`;
@@ -329,15 +329,15 @@ function readBatchedPerKey<T>(
 }
 
 /**
- * Whether a tag query names a block range fixed enough to cache its answer.
+ * Whether a tag query's answer can no longer change, and so can be cached.
  *
- * Both ends have to be pinned. `referenceBlock` names the chain the answer belongs to and fails the call once that
- * block is gone, but it does not tell this wrapper which blocks the answer covers, so it cannot key a response by
- * them. An explicit `toBlock` closes the range in the request itself, making the response a fact about blocks that
- * can no longer change. PXE's tag queries get that bound from `getAllPrivateLogsByTags`, which derives it from the
- * anchor block they are already pinned to.
+ * Two things would let it change, and the query has to rule out both. `referenceBlock` names the chain the answer
+ * belongs to, so the call fails once that block is gone rather than answering from a chain that reorged. `toBlock`
+ * stops the query below the tip, so blocks yet to be produced cannot add logs to the answer. Where the query starts
+ * does not matter: an open lower end reaches only blocks that are already behind it, which no longer move. PXE's tag
+ * queries get both from the `getAll*LogsByTags` helpers, which take them from the anchor block the query is pinned to.
  */
-function isBlockRangePinned(query: LogsQueryBase): boolean {
+function hasImmutableAnswer(query: LogsQueryBase): boolean {
   return query.referenceBlock !== undefined && query.toBlock !== undefined;
 }
 
