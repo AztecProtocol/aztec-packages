@@ -1,9 +1,14 @@
 use crate::context::PrivateContext;
 
-use crate::protocol::{constants::DOM_SEP__TX_NULLIFIER, hash::poseidon2_hash_with_separator, traits::Hash};
+use crate::protocol::{hash::poseidon2_hash_with_separator, traits::Hash};
 
 use crate::authwit::auth::{compute_authwit_message_hash, IS_VALID_SELECTOR};
 use crate::authwit::entrypoint::app::AppPayload;
+
+/// Domain separator for transaction nullifiers
+///
+/// Used to produce cancellable (replaceable) transactions.
+pub(crate) global DOM_SEP__TX_NULLIFIER: u32 = 1025801951;
 
 pub struct AccountActions<Context> {
     context: Context,

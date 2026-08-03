@@ -9,6 +9,22 @@ Aztec is in active development. Each version may introduce breaking changes that
 
 ## TBD
 
+### [Aztec.js] A function's return type is a single `returnType`, not a `returnTypes` list
+
+`FunctionAbi.returnTypes` is deprecated in favor of the single optional `FunctionAbi.returnType`, since multiple return values are already expressed as one `tuple` type. Read it through `getFunctionReturnType(abi)`, which also resolves artifacts serialized before `returnType` existed. `FunctionCall.returnTypes` is likewise replaced by `FunctionCall.returnType`.
+
+`decodeFromAbi` now takes the single type a function returns (or `undefined`) instead of a list, and returns `undefined` for a function that returns nothing, where it previously returned `[]`. To decode a list of values, such as a function's arguments, use the new `decodeEachFromAbi`.
+
+**Migration:**
+
+```diff
+- decodeFromAbi(abi.returnTypes, values)
++ decodeFromAbi(getFunctionReturnType(abi), values)
+
+- decodeFromAbi(fn.parameters.map(param => param.type), args) as AbiDecoded[]
++ decodeEachFromAbi(fn.parameters.map(param => param.type), args)
+```
+
 ### [Aztec.js] Protocol contracts removed from `@aztec/noir-contracts.js`
 
 `@aztec/noir-contracts.js` no longer includes the protocol contracts: the `FeeJuice`, `ContractClassRegistry`, and `ContractInstanceRegistry` artifacts and typed wrappers have been removed from the package, so imports such as `@aztec/noir-contracts.js/FeeJuice` no longer resolve. These names are also no longer available to the `aztec` CLI's contract-name lookup (e.g. in `aztec example-contracts`).
@@ -51,6 +67,26 @@ Breaking changes:
 - `select` takes its value typed as the property's type. Cast the value if a mixed-type comparison was intentional.
 - `properties()` cannot be used with a custom `Packable` layout. Define property selectors manually for such notes.
 - Every note field type must implement `Packable`, even when the note's own `Packable` is hand-written.
+
+### [Aztec.nr] Domain separators moved out of the protocol constants module
+
+Nine `DOM_SEP__*` domain separators that used to live in the protocol constants module (`aztec::protocol::constants`, generated from `noir-protocol-circuits`) have moved into the `aztec` crate, next to the code that uses them. None of them were ever protocol constants (each hash is computed per-contract), so they no longer belong on the protocol export.
+
+Two remain public, at a new path:
+
+| Constant | Old path | New path |
+| --- | --- | --- |
+| `DOM_SEP__PARTIAL_NOTE_COMMITMENT` | `aztec::protocol::constants` | `aztec::note::partial_note` |
+| `DOM_SEP__NOTE_COMPLETION_LOG_TAG` | `aztec::protocol::constants` | `aztec::note::partial_note` |
+
+```diff
+- use aztec::protocol::constants::{DOM_SEP__NOTE_COMPLETION_LOG_TAG, DOM_SEP__PARTIAL_NOTE_COMMITMENT};
++ use aztec::note::partial_note::{DOM_SEP__NOTE_COMPLETION_LOG_TAG, DOM_SEP__PARTIAL_NOTE_COMMITMENT};
+```
+
+The other seven are now crate-internal (`pub(crate)`) and can no longer be imported from outside the `aztec` crate: `DOM_SEP__AUTHWIT_NULLIFIER`, `DOM_SEP__TX_NULLIFIER`, `DOM_SEP__SINGLE_USE_CLAIM_NULLIFIER`, `DOM_SEP__CONSTRAINED_MSG_NULLIFIER`, `DOM_SEP__ECDH_SUBKEY`, `DOM_SEP__ECDH_FIELD_MASK`, and `DOM_SEP__INITIALIZATION_NULLIFIER`.
+
+**Impact**: Contracts that use aztec-nr's high-level APIs (notes, authwit, state variables, message delivery, ECDH) are unaffected, since these separators are applied internally. A contract that imported one of these constants directly must either switch to the new `aztec::note::partial_note` path (for the two public ones) or, for the now-internal ones, call the corresponding aztec-nr helper instead of recomputing the hash by hand. The generated TypeScript `DomainSeparator` enum in `@aztec/constants` / `@aztec/stdlib` likewise no longer contains the seven removed members (their values were unused in TypeScript).
 
 ## 5.0.1
 

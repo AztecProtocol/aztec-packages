@@ -604,7 +604,7 @@ export abstract class BaseWallet implements Wallet {
 
     const decodedEvents = pxeEvents.map((pxeEvent: PackedPrivateEvent): PrivateEvent<T> => {
       return {
-        event: decodeFromAbi([eventDef.abiType], pxeEvent.packedEvent) as T,
+        event: decodeFromAbi(eventDef.abiType, pxeEvent.packedEvent) as T,
         metadata: {
           l2BlockNumber: pxeEvent.l2BlockNumber,
           l2BlockHash: pxeEvent.l2BlockHash,

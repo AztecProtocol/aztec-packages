@@ -76,7 +76,6 @@ pub global MAX_TOTAL_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX: u32 =
     (1 as u8 << PUBLIC_DATA_SUBTREE_HEIGHT as u8) as u32;
 pub global MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX: u32 =
     MAX_TOTAL_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX - PROTOCOL_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX;
-pub global MAX_PUBLIC_DATA_READS_PER_TX: u32 = 64;
 pub global MAX_L2_TO_L1_MSGS_PER_TX: u32 = 8; // Leave at 8, because it results in sha256 hashing in the Tx Base Rollup
 pub global MAX_PRIVATE_LOGS_PER_TX: u32 = MAX_NOTE_HASHES_PER_TX;
 pub global MAX_CONTRACT_CLASS_LOGS_PER_TX: u32 = 1;
@@ -179,7 +178,6 @@ pub global TOTAL_COUNTED_SIDE_EFFECTS_PER_CALL: u32 = GLOBAL_INDEX_CONTRACT_MIN_
     + 1 /* min_revertible_side_effect_counter */;
 
 // MISC CONSTANTS
-pub global FUNCTION_SELECTOR_NUM_BYTES: Field = 4;
 pub global INITIAL_CHECKPOINT_NUMBER: Field = 1;
 pub global INITIAL_L2_BLOCK_NUM: Field = 1;
 pub global FIELDS_PER_BLOB: u32 = 4096;
@@ -199,8 +197,6 @@ pub global MAX_PACKED_PUBLIC_BYTECODE_SIZE_IN_FIELDS: u32 = 3000; // Arbitrary.
 // Bytecode size for private functions is per function, not for the entire contract.
 // Note that private functions bytecode includes a mix of acir and brillig.
 pub global MAX_PACKED_BYTECODE_SIZE_PER_PRIVATE_FUNCTION_IN_FIELDS: u32 = 3000; // Arbitrary.
-// Same for utility functions: the size is per function.
-pub global MAX_PACKED_BYTECODE_SIZE_PER_UTILITY_FUNCTION_IN_FIELDS: u32 = 3000; // Arbitrary.
 
 // How many fields are on the serialized ClassPrivateFunctionBroadcasted event in addition to MAX_PACKED_BYTECODE_SIZE_PER_PRIVATE_FUNCTION_IN_FIELDS.
 pub global CLASS_REGISTRY_PRIVATE_FUNCTION_BROADCASTED_ADDITIONAL_FIELDS: u32 =/* magic value */ 1
@@ -215,24 +211,10 @@ pub global CLASS_REGISTRY_PRIVATE_FUNCTION_BROADCASTED_ADDITIONAL_FIELDS: u32 =/
     + 1 /* function metadata_hash */
     + 1 /* function vk_hash */;
 
-// How many fields are on the serialized ClassUtilityFunctionBroadcasted event in addition to MAX_PACKED_BYTECODE_SIZE_PER_UTILITY_FUNCTION_IN_FIELDS.
-pub global CLASS_REGISTRY_UTILITY_FUNCTION_BROADCASTED_ADDITIONAL_FIELDS: u32 =/* magic value */ 1
-    + 1 /* contract_class_id */
-    + 1 /* artifact_metadata_hash */
-    + 1 /* private_functions_artifact_tree_root */
-    + ARTIFACT_FUNCTION_TREE_MAX_HEIGHT /* artifact_function_tree_sibling_path */
-    + 1 /* artifact_function_tree_leaf_index */
-    + 1 /* function selector */
-    + 1 /* function metadata_hash */;
-
 // We use these magic values to identify events emitted by the ContractClassRegistry and ContractInstanceRegistry.
 // The values were generated and checked in `constants_tests.nr`.
 pub global CONTRACT_CLASS_PUBLISHED_MAGIC_VALUE: Field =
     0x20f5895a4e837356c2d551743df6bf642756dcd93cd31cbd37c556c90bf7f244;
-pub global CONTRACT_CLASS_REGISTRY_PRIVATE_FUNCTION_BROADCASTED_MAGIC_VALUE: Field =
-    0x0ea9d22f6c3686a6866f103431c5796d2be7b7a3d0c3abcf7636b064ab09e618;
-pub global CONTRACT_CLASS_REGISTRY_UTILITY_FUNCTION_BROADCASTED_MAGIC_VALUE: Field =
-    0x06549ee6586be1c25c81f2d579c06a4c3f31255def74dd729903811d90ba2369;
 pub global CONTRACT_INSTANCE_PUBLISHED_MAGIC_VALUE: Field =
     0x174c6b3d0fd14728e4fc5e53f7b262ab943546a7e125e2ed5e9fde3cf0b3e22f;
 pub global CONTRACT_INSTANCE_UPDATED_MAGIC_VALUE: Field =
@@ -342,10 +324,8 @@ pub global CONTRACT_STORAGE_READ_LENGTH: u32 = 3;
 pub global CONTRACT_STORAGE_UPDATE_REQUEST_LENGTH: u32 = 3;
 pub global ETH_ADDRESS_LENGTH: u32 = 1;
 pub global FUNCTION_DATA_LENGTH: u32 = 2;
-pub global FUNCTION_LEAF_PREIMAGE_LENGTH: u32 = 5;
 pub global GLOBAL_VARIABLES_LENGTH: u32 = 7 + GAS_FEES_LENGTH;
 pub global APPEND_ONLY_TREE_SNAPSHOT_LENGTH: u32 = 2;
-pub global APPEND_ONLY_TREE_SNAPSHOT_LENGTH_BYTES: u32 = 36;
 pub global SPONGE_BLOB_LENGTH: u32 = 10;
 pub global BLS12_FR_LIMBS: u32 = 3; // TODO(#14646): get this from bignum
 pub global BLS12_FQ_LIMBS: u32 = 4; // TODO(#14646): get this from bignum
@@ -360,17 +340,14 @@ pub global FINAL_BLOB_ACCUMULATOR_LENGTH: u32 = 1 /* blob_commitments_hash */
     + 1 /* z */
     + BLS12_FR_LIMBS /* y */
     + 2 /* c */;
-pub global L1_TO_L2_MESSAGE_LENGTH: u32 = 6;
 pub global L2_TO_L1_MESSAGE_LENGTH: u32 = 1 /* recipient */ + 1 /* content */;
 pub global COUNTED_L2_TO_L1_MESSAGE_LENGTH: u32 = L2_TO_L1_MESSAGE_LENGTH + 1;
 pub global SCOPED_L2_TO_L1_MESSAGE_LENGTH: u32 = L2_TO_L1_MESSAGE_LENGTH + 1;
-pub global SCOPED_COUNTED_L2_TO_L1_MESSAGE_LENGTH: u32 = COUNTED_L2_TO_L1_MESSAGE_LENGTH + 1;
 pub global KEY_VALIDATION_REQUEST_LENGTH: u32 = 2;
 pub global KEY_VALIDATION_REQUEST_AND_GENERATOR_LENGTH: u32 = KEY_VALIDATION_REQUEST_LENGTH + 1;
 pub global SCOPED_KEY_VALIDATION_REQUEST_AND_GENERATOR_LENGTH: u32 =
     KEY_VALIDATION_REQUEST_AND_GENERATOR_LENGTH + 1;
 pub global PARTIAL_STATE_REFERENCE_LENGTH: u32 = 6;
-pub global TREE_LEAF_READ_REQUEST_LENGTH: u32 = 2;
 pub global PRIVATE_LOG_SIZE_IN_FIELDS: u32 = 16;
 pub global PRIVATE_LOG_LENGTH: u32 = PRIVATE_LOG_SIZE_IN_FIELDS + 1 /* length */;
 pub global PRIVATE_LOG_DATA_LENGTH: u32 = PRIVATE_LOG_LENGTH
@@ -380,7 +357,6 @@ pub global PRIVATE_LOG_DATA_LENGTH: u32 = PRIVATE_LOG_LENGTH
 /// because, unlike public logs, it is expected that private logs are encrypted (though this is not
 /// mandatory).
 pub global PRIVATE_LOG_CIPHERTEXT_LEN: u32 = PRIVATE_LOG_SIZE_IN_FIELDS - 1; // -1 for the tag
-pub global SCOPED_PRIVATE_LOG_DATA_LENGTH: u32 = PRIVATE_LOG_DATA_LENGTH + 1 /* contract_address */;
 // Below are constants for the entire PublicLogs struct.
 pub global FLAT_PUBLIC_LOGS_HEADER_LENGTH: u32 = 1 /* length */;
 pub global FLAT_PUBLIC_LOGS_PAYLOAD_LENGTH: u32 = 4096;
@@ -401,11 +377,8 @@ pub global CONTRACT_CLASS_LOG_LENGTH: u32 = CONTRACT_CLASS_LOG_SIZE_IN_FIELDS
 pub global LOG_HASH_LENGTH: u32 = 1 /* value */ + 1 /* length */;
 pub global COUNTED_LOG_HASH_LENGTH: u32 = LOG_HASH_LENGTH + 1 /* counter */;
 pub global SCOPED_LOG_HASH_LENGTH: u32 = LOG_HASH_LENGTH + 1 /* contract_address */;
-pub global SCOPED_COUNTED_LOG_HASH_LENGTH: u32 = SCOPED_LOG_HASH_LENGTH + 1 /* counter */;
 pub global NOTE_HASH_LENGTH: u32 = 2;
-pub global SCOPED_NOTE_HASH_LENGTH: u32 = NOTE_HASH_LENGTH + 1;
 pub global NULLIFIER_LENGTH: u32 = 3;
-pub global SCOPED_NULLIFIER_LENGTH: u32 = NULLIFIER_LENGTH + 1;
 pub global PUBLIC_DATA_WRITE_LENGTH: u32 = 2;
 pub global PUBLIC_CALL_STACK_ITEM_COMPRESSED_LENGTH: u32 =
     AZTEC_ADDRESS_LENGTH + CALL_CONTEXT_LENGTH + 3 + 2 * GAS_LENGTH;
@@ -415,8 +388,6 @@ pub global PUBLIC_CALL_REQUEST_LENGTH: u32 = AZTEC_ADDRESS_LENGTH /* msg_sender 
     + 1 /* is_static_call */
     + 1 /* calldata_hash */;
 pub global COUNTED_PUBLIC_CALL_REQUEST_LENGTH: u32 = PUBLIC_CALL_REQUEST_LENGTH + 1;
-pub global PUBLIC_INNER_CALL_REQUEST_LENGTH: u32 =
-    PUBLIC_CALL_STACK_ITEM_COMPRESSED_LENGTH + 1 /* counter */;
 pub global STATE_REFERENCE_LENGTH: u32 =
     APPEND_ONLY_TREE_SNAPSHOT_LENGTH + PARTIAL_STATE_REFERENCE_LENGTH;
 pub global TREE_SNAPSHOTS_LENGTH: u32 = APPEND_ONLY_TREE_SNAPSHOT_LENGTH * 4;
@@ -489,14 +460,6 @@ pub global HIDING_KERNEL_IO_PUBLIC_INPUTS_SIZE: u32 = 28;
 pub global PAIRING_POINTS_SIZE: u32 = 8;
 pub global IPA_CLAIM_SIZE: u32 = 6;
 
-pub global PUBLIC_DATA_READ_LENGTH: u32 = 3;
-// The `(... + 1)` is because these arrays include a `length` field.
-pub global PRIVATE_VALIDATION_REQUESTS_LENGTH: u32 = (
-    SCOPED_READ_REQUEST_LEN * MAX_NOTE_HASH_READ_REQUESTS_PER_TX + 1
-)
-    + (SCOPED_READ_REQUEST_LEN * MAX_NULLIFIER_READ_REQUESTS_PER_TX + 1)
-    + (SCOPED_KEY_VALIDATION_REQUEST_AND_GENERATOR_LENGTH * MAX_KEY_VALIDATION_REQUESTS_PER_TX + 1);
-
 pub global PRIVATE_TO_ROLLUP_ACCUMULATED_DATA_LENGTH: u32 = MAX_NOTE_HASHES_PER_TX
     + MAX_NULLIFIERS_PER_TX
     + (MAX_L2_TO_L1_MSGS_PER_TX * SCOPED_L2_TO_L1_MESSAGE_LENGTH)
@@ -507,26 +470,6 @@ pub global TX_CONSTANT_DATA_LENGTH: u32 = BLOCK_HEADER_LENGTH
     + TX_CONTEXT_LENGTH
     + 1 /* vk_tree_root */
     + 1 /* protocol_contracts_hash */;
-pub global COMBINED_CONSTANT_DATA_LENGTH: u32 = TX_CONSTANT_DATA_LENGTH + GLOBAL_VARIABLES_LENGTH;
-
-pub global PRIVATE_ACCUMULATED_DATA_LENGTH: u32 =
-    // The `(... + 1)` is because these arrays include a `length` field.
-    (SCOPED_NOTE_HASH_LENGTH * MAX_NOTE_HASHES_PER_TX + 1)
-        + (SCOPED_NULLIFIER_LENGTH * MAX_NULLIFIERS_PER_TX + 1)
-        + (MAX_L2_TO_L1_MSGS_PER_TX * SCOPED_COUNTED_L2_TO_L1_MESSAGE_LENGTH + 1)
-        + (SCOPED_PRIVATE_LOG_DATA_LENGTH * MAX_PRIVATE_LOGS_PER_TX + 1)
-        + (SCOPED_COUNTED_LOG_HASH_LENGTH * MAX_CONTRACT_CLASS_LOGS_PER_TX + 1)
-        + (PRIVATE_CALL_REQUEST_LENGTH * MAX_PRIVATE_CALL_STACK_LENGTH_PER_TX + 1)
-        + (COUNTED_PUBLIC_CALL_REQUEST_LENGTH * MAX_ENQUEUED_CALLS_PER_TX + 1);
-pub global PRIVATE_KERNEL_CIRCUIT_PUBLIC_INPUTS_LENGTH: u32 = TX_CONSTANT_DATA_LENGTH
-    + 1 /* min_revertible_side_effect_counter */
-    + PRIVATE_VALIDATION_REQUESTS_LENGTH
-    + PRIVATE_ACCUMULATED_DATA_LENGTH
-    + PUBLIC_CALL_REQUEST_LENGTH
-    + AZTEC_ADDRESS_LENGTH
-    + 1 /* expiration_timestamp */
-    + 1 /* is private only */
-    + 1 /* claimed_revertible_counter */;
 
 pub global PRIVATE_TO_PUBLIC_ACCUMULATED_DATA_LENGTH: u32 = MAX_NOTE_HASHES_PER_TX
     + MAX_NULLIFIERS_PER_TX
@@ -685,9 +628,8 @@ pub global CHONK_VK_LENGTH_IN_FIELDS: u32 = MEGA_ZK_VK_LENGTH_IN_FIELDS; // size
 pub global AVM_VERIFICATION_KEY_LENGTH_IN_FIELDS: u32 = 2 + 21 * 4;
 
 // Setting limits for MAX_PUBLIC_CALLS_TO_UNIQUE_CONTRACT_CLASS_IDS
-// This value is determined by the length of the AVM trace and the MAX_PUBLIC_BYTECODE_SIZE_IN_BYTES
-// (i.e. 2^21 / MAX_PUBLIC_BYTECODE_SIZE_IN_BYTES ==> 2^21 / 96,000 = 21
-pub global MAX_PUBLIC_BYTECODE_SIZE_IN_BYTES: u32 = MAX_PACKED_PUBLIC_BYTECODE_SIZE_IN_FIELDS * 32;
+// This value is determined by the length of the AVM trace and the max public bytecode size in bytes
+// (MAX_PACKED_PUBLIC_BYTECODE_SIZE_IN_FIELDS * 32 = 96,000), i.e. 2^21 / 96,000 = 21
 pub global MAX_PUBLIC_CALLS_TO_UNIQUE_CONTRACT_CLASS_IDS: u32 = 21;
 
 // ---------------------------------------------------------------
@@ -699,15 +641,6 @@ pub global MAX_PUBLIC_CALLS_TO_UNIQUE_CONTRACT_CLASS_IDS: u32 = 21;
 ///
 /// This is not technically a protocol constant as note hashes are computed by each contract.
 pub global DOM_SEP__NOTE_HASH: u32 = 116501019;
-
-/// Domain separator for partial note commitments.
-///
-/// This is not technically a protocol constant as partial note commitments are computed by each contract.
-///
-/// A partial note commitment is the first round of hashing of a partial note, combining the private fields before the
-/// public completion fields (storage slot and public note data) are mixed in. Distinct from [`DOM_SEP__NOTE_HASH`],
-/// which preserves the storage-slot-first invariant.
-pub global DOM_SEP__PARTIAL_NOTE_COMMITMENT: u32 = 568912195;
 
 /// Domain separator for siloed note hashes.
 ///
@@ -723,11 +656,6 @@ pub global DOM_SEP__UNIQUE_NOTE_HASH: u32 = 226850429;
 ///
 /// Used by [`crate::hash::compute_note_hash_nonce`].
 pub global DOM_SEP__NOTE_HASH_NONCE: u32 = 1721808740;
-
-/// Domain separator for `SingleUseClaim` nullifiers.
-///
-/// This is not technically a protocol constant as these nullifiers are computed by each contract.
-pub global DOM_SEP__SINGLE_USE_CLAIM_NULLIFIER: u32 = 1465998995;
 
 /// Domain separator for note nullifiers.
 ///
@@ -746,14 +674,10 @@ pub global DOM_SEP__MESSAGE_NULLIFIER: u32 = 3754509616;
 
 /// Domain separator for event log tags. Used by [`crate::hash::compute_log_tag`].
 pub global DOM_SEP__EVENT_LOG_TAG: u32 = 926040838;
-/// Domain separator for partial note completion log tags. Used by [`crate::hash::compute_log_tag`].
-pub global DOM_SEP__NOTE_COMPLETION_LOG_TAG: u32 = 3372669888;
 /// Domain separator for unconstrained message delivery log tags. Used by [`crate::hash::compute_log_tag`].
 pub global DOM_SEP__UNCONSTRAINED_MSG_LOG_TAG: u32 = 1485357192;
 /// Domain separator for constrained message delivery log tags. Used by [`crate::hash::compute_log_tag`].
 pub global DOM_SEP__CONSTRAINED_MSG_LOG_TAG: u32 = 3715244738;
-/// Domain separator for nullifiers used during constrained delivery.
-pub global DOM_SEP__CONSTRAINED_MSG_NULLIFIER: u32 = 3723577546;
 /// Domain separator for the sender-only secret folded into constrained-delivery nullifiers.
 pub global DOM_SEP__CONSTRAINED_MSG_SENDER_SECRET: u32 = 1182889476;
 /// Domain separator for non-interactive handshake log tags emitted by the handshake registry contract. Used by
@@ -841,11 +765,8 @@ pub global DOM_SEP__EVENT_COMMITMENT: u32 = 2517418573;
 
 pub global DOM_SEP__AUTHWIT_INNER: u32 = 221354163;
 pub global DOM_SEP__AUTHWIT_OUTER: u32 = 3283595782;
-pub global DOM_SEP__AUTHWIT_NULLIFIER: u32 = 1239150694;
 
 pub global DOM_SEP__APP_SILOED_ECDH_SHARED_SECRET: u32 = 1707851664;
-pub global DOM_SEP__ECDH_SUBKEY: u32 = 4277646631;
-pub global DOM_SEP__ECDH_FIELD_MASK: u32 = 190532684;
 
 pub global DOM_SEP__PARTIAL_NOTE_VALIDITY_COMMITMENT: u32 = 623934423;
 
@@ -853,22 +774,11 @@ pub global DOM_SEP__PARTIAL_NOTE_VALIDITY_COMMITMENT: u32 = 623934423;
 // TODO(F-397): move these to aztec-nr, along with note hash, note nullifier, message nullifier and single use claim
 // nullifier.
 
-/// Domain separator for state variable initialization.
-///
-/// Should not be reused for a given storage slot.
-pub global DOM_SEP__INITIALIZATION_NULLIFIER: u32 = 1653084894;
 pub global DOM_SEP__PUBLIC_INITIALIZATION_NULLIFIER: u32 = 3342006647;
 pub global DOM_SEP__PRIVATE_INITIALIZATION_NULLIFIER: u32 = 3990889078;
 
 /// Domain separator for L1 to L2 message secret hashes.
 pub global DOM_SEP__SECRET_HASH: u32 = 4199652938;
-
-/// Domain separator for transaction nullifiers.
-///
-/// Used to produce cancellable (replaceable) transactions.
-///
-/// This is not technically a protocol constant as cancellable transactions are an account contract feature.
-pub global DOM_SEP__TX_NULLIFIER: u32 = 1025801951;
 
 /// Domain separator for account contract payloads.
 ///
@@ -1387,10 +1297,6 @@ pub global UPDATES_DELAYED_PUBLIC_MUTABLE_METADATA_BIT_SIZE: u32 =
 
 pub global GRUMPKIN_ONE_X: Field = 1;
 pub global GRUMPKIN_ONE_Y: Field = 17631683881184975370165255887551781615748388533673675138860;
-
-// Excessive memory reads due to debug logging can open a DOS vector to nodes that perform public tx simulation for users.
-// This default limit (4MB) can be configured further by node runners via the `RPC_SIMULATE_PUBLIC_MAX_DEBUG_LOG_MEMORY_READS` environment variable.
-pub global DEFAULT_MAX_DEBUG_LOG_MEMORY_READS: u32 = 125000;
 
 mod test {
     use crate::constants::{

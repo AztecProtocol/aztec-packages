@@ -1,4 +1,3 @@
-import { DEFAULT_MAX_DEBUG_LOG_MEMORY_READS } from '@aztec/constants';
 import { Fr } from '@aztec/foundation/curves/bn254';
 import { jsonParseWithSchema, jsonStringify } from '@aztec/foundation/json-rpc';
 
@@ -1383,6 +1382,10 @@ export class PublicTxResult {
     return revertReason;
   }
 }
+
+// Excessive memory reads due to debug logging can open a DOS vector to nodes that perform public tx simulation for users.
+// This default limit (4MB) can be configured further by node runners via the `RPC_SIMULATE_PUBLIC_MAX_DEBUG_LOG_MEMORY_READS` environment variable.
+export const DEFAULT_MAX_DEBUG_LOG_MEMORY_READS = 125000;
 
 export class CollectionLimitsConfig {
   constructor(

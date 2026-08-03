@@ -40,19 +40,31 @@ trap 'rm -rf "$tmp"' EXIT
 # Build the datapoint entry. Commit metadata comes from the GitHub API when available so the
 # dashboard can render author/link info; degrade to bare sha metadata otherwise.
 build_entry() {
-  local commit_info
-  if ! commit_info=$(curl -sf --max-time 15 \
+  # Trim the response to the exact leaf fields the entry reads, bounding it to ~1KB: the raw
+  # response includes files[].patch (353KB observed on a merge-queue commit) and
+  # commit.verification.payload (repeats the full message, 120KB observed on next), either of
+  # which can exceed the 128KB per-argv-element cap on Linux (execve E2BIG, "Argument list too
+  # long"). The message is cut to its first line here since that is all the entry keeps.
+  # Belt and braces, the result reaches the second jq as a file, never argv.
+  if ! curl -sf --max-time 15 \
       ${GITHUB_TOKEN:+-H "Authorization: Bearer $GITHUB_TOKEN"} \
-      "https://api.github.com/repos/${source_repo_url##*github.com/}/commits/$commit_sha" 2>/dev/null); then
-    commit_info='{}'
+      "https://api.github.com/repos/${source_repo_url##*github.com/}/commits/$commit_sha" 2>/dev/null \
+      | jq -c '{commit: {author: {name: .commit.author.name, date: .commit.author.date},
+                         committer: {name: .commit.committer.name},
+                         message: (.commit.message // "" | split("\n")[0])},
+                author: {login: .author.login},
+                committer: {login: .committer.login},
+                html_url}' > "$tmp/commit_info.json" 2>/dev/null; then
+    echo '{}' > "$tmp/commit_info.json"
   fi
   jq -n \
-    --argjson info "$commit_info" \
+    --slurpfile info_file "$tmp/commit_info.json" \
     --arg id "$commit_sha" \
     --arg url "$source_repo_url/commit/$commit_sha" \
     --arg now_iso "$(date -u +%Y-%m-%dT%H:%M:%SZ)" \
     --slurpfile benches "$bench_json" \
-    '{
+    '($info_file[0] // {}) as $info |
+    {
       commit: {
         author: { name: ($info.commit.author.name // "unknown"), username: ($info.author.login // "") },
         committer: { name: ($info.commit.committer.name // "unknown"), username: ($info.committer.login // "") },

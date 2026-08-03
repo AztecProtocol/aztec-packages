@@ -45,7 +45,6 @@ describe('ContractSyncService', () => {
           hideMsgSender: false,
           isStatic: false,
           args: [],
-          returnTypes: [],
         }),
       ),
     );

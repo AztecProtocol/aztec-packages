@@ -585,6 +585,7 @@ function release {
     aztec-up
     playground
     release-image
+    noir-projects/fnd
   )
   if [ $(arch) == arm64 ]; then
     projects=(

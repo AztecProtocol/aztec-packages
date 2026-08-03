@@ -227,6 +227,22 @@ describe('oracle type mappings', () => {
       );
     });
 
+    it('rejects a length beyond the storage array capacity', () => {
+      const storage = new FieldReader([new Fr(1), new Fr(2)]);
+      const length = new FieldReader([new Fr(3)]);
+      expect(() => BOUNDED_VEC(FIELD).deserialization!.fn([storage, length])).toThrow(
+        'length 3 exceeds the 2 element(s) its storage array holds',
+      );
+    });
+
+    it('rejects a storage array that is not a whole number of elements', () => {
+      const storage = new FieldReader([new Fr(1), new Fr(2), new Fr(3)]);
+      const length = new FieldReader([new Fr(1)]);
+      expect(() => BOUNDED_VEC(POINT).deserialization!.fn([storage, length])).toThrow(
+        'storage array holds 3 field(s), which is not a whole number of 2-field elements',
+      );
+    });
+
     it('reads two input slots', () => {
       expect(slotsOf(BOUNDED_VEC(FIELD))).toBe(2); // storage + length
     });

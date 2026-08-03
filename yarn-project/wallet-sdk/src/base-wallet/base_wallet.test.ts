@@ -68,7 +68,7 @@ async function makeFunctionCall(type: FunctionType, isStatic: boolean, name: str
     hideMsgSender: false,
     isStatic,
     args: [Fr.random()],
-    returnTypes: [{ kind: 'field' as const }],
+    returnType: { kind: 'field' as const },
   });
 }
 

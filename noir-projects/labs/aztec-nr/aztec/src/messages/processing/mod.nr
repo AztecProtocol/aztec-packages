@@ -22,9 +22,9 @@ use crate::{
     oracle::message_processing,
     partial_notes::DeliveredPendingPartialNote,
 };
+use crate::note::partial_note::DOM_SEP__NOTE_COMPLETION_LOG_TAG;
 use crate::protocol::{
     address::AztecAddress,
-    constants::DOM_SEP__NOTE_COMPLETION_LOG_TAG,
     hash::{compute_log_tag, sha256_to_field},
     traits::{Deserialize, Serialize},
 };

@@ -105,4 +105,31 @@ if RETRY_SLEEP=0 BENCH_REPO_URL="file://$WORK/nonexistent.git" GITHUB_TOKEN= \
 fi
 pass "test5: failure is loud"
 
+# --- Test 6: oversized commit-API response cannot reach argv ---
+# (regression: files[].patch and commit.verification.payload pushed the response past the
+# 128KB per-argv-element cap; execve of jq failed with E2BIG and the upload died)
+mkdir -p fakebin
+head -c 200000 /dev/zero | tr '\0' 'p' > big.txt
+jq -n --rawfile big big.txt '{
+  commit: {
+    author: {name: "Big Author", date: "2026-08-01T00:00:00Z"},
+    committer: {name: "Big Committer"},
+    message: "feat: giant merge\n\nbody line",
+    verification: {payload: $big}
+  },
+  author: {login: "biguser"},
+  committer: {login: "bigcommitter"},
+  html_url: "https://github.com/AztecProtocol/aztec-packages/commit/feedbead",
+  files: [{patch: $big}]
+}' > api_response.json
+[ "$(wc -c < api_response.json)" -gt 300000 ] || fail "test6: fixture response not big enough"
+printf '#!/usr/bin/env bash\ncat "%s/api_response.json"\n' "$WORK" > fakebin/curl
+chmod +x fakebin/curl
+PATH="$WORK/fakebin:$PATH" run_script "Aztec Benchmarks" bench/next bench.json feedbead > /dev/null || fail "test6: upload failed"
+author=$(check_tip bench/next/data.js | jq -r '.entries["Aztec Benchmarks"][-1].commit.author.name')
+[ "$author" = "Big Author" ] || fail "test6: API metadata not used (author: $author)"
+msg=$(check_tip bench/next/data.js | jq -r '.entries["Aztec Benchmarks"][-1].commit.message')
+[ "$msg" = "feat: giant merge" ] || fail "test6: message not trimmed to first line (got: $msg)"
+pass "test6: oversized commit-API response handled"
+
 echo "ALL TESTS PASSED"

@@ -2,7 +2,7 @@ import type { ContractArtifact } from '@aztec/aztec.js/abi';
 import type { AztecAddress } from '@aztec/aztec.js/addresses';
 import { CallAuthorizationRequest } from '@aztec/aztec.js/authorization';
 import type { LogFn } from '@aztec/foundation/log';
-import { type AbiDecoded, decodeFromAbi, getFunctionArtifact } from '@aztec/stdlib/abi';
+import { decodeEachFromAbi, getFunctionArtifact } from '@aztec/stdlib/abi';
 import type { OffchainEffect } from '@aztec/stdlib/tx';
 
 import { format } from 'util';
@@ -31,10 +31,10 @@ export async function printAuthorizations(
       );
     } else {
       const functionAbi = await getFunctionArtifact(artifact, callAuthorizationRequest.functionSelector);
-      const callData = decodeFromAbi(
+      const callData = decodeEachFromAbi(
         functionAbi.parameters.map(param => param.type),
         callAuthorizationRequest.args,
-      ) as AbiDecoded[];
+      );
       const parameters = functionAbi.parameters.map((param, i) => ({ name: param.name, value: callData[i] }));
       log(format(' -', `Call authorization. Inner hash: ${callAuthorizationRequest.innerHash.toString()}`));
       log(format('  ', `Contract: ${artifact.name}@${callAuthorizationEffect.contractAddress}`));
