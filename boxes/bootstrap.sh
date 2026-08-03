@@ -1,16 +1,20 @@
 #!/usr/bin/env bash
 source $(git rev-parse --show-toplevel)/ci3/source_bootstrap
 
+ROOT=$(git rev-parse --show-toplevel)
 export AZTEC=$(realpath ../yarn-project/aztec/scripts/aztec.sh)
-export BB=$(realpath ../barretenberg/cpp/build/bin/bb)
-export NARGO=$(realpath ../noir/noir-repo/target/release/nargo)
+export BB=${BB:-"$ROOT/labs-aztec-toolchain/bin/bb"}
+export NARGO=${NARGO:-"$ROOT/labs-aztec-toolchain/bin/nargo"}
+export AZTEC_TOOLCHAIN_HASH=${AZTEC_TOOLCHAIN_HASH:-$($ROOT/labs-aztec-toolchain/bootstrap.sh hash)}
 
+# TODO(fcarreiro): The dependencies on l1-contracts and BB should go away.
 hash=$(hash_str \
-  $(../noir/bootstrap.sh hash) \
+  $AZTEC_TOOLCHAIN_HASH \
+  $(../noir-projects/labs/aztec-nr/bootstrap.sh hash) \
   $(cache_content_hash \
     .rebuild_patterns \
-    ../{avm-transpiler,noir-projects,l1-contracts,yarn-project}/.rebuild_patterns \
-    ../barretenberg/*/.rebuild_patterns))
+    ../barretenberg/*/.rebuild_patterns \
+    ../{l1-contracts,yarn-project}/.rebuild_patterns))
 
 function build_box {
   cd boxes/$1

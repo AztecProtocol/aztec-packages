@@ -4,10 +4,10 @@ source $(git rev-parse --show-toplevel)/ci3/source_bootstrap
 # Get repo root for absolute paths
 REPO_ROOT=$(git rev-parse --show-toplevel)
 
-export BB=${BB:-"$REPO_ROOT/barretenberg/cpp/build/bin/bb"}
-export NARGO=${NARGO:-"$REPO_ROOT/noir/noir-repo/target/release/nargo"}
-export BB_HASH=${BB_HASH:-$("$REPO_ROOT/barretenberg/cpp/bootstrap.sh" hash)}
-export NOIR_HASH=${NOIR_HASH:-$("$REPO_ROOT/noir/bootstrap.sh" hash)}
+export BB=${BB:-"$REPO_ROOT/labs-aztec-toolchain/bin/bb"}
+export NARGO=${NARGO:-"$REPO_ROOT/labs-aztec-toolchain/bin/nargo"}
+AZTEC_TOOLCHAIN_HASH=${AZTEC_TOOLCHAIN_HASH:-$("$REPO_ROOT/labs-aztec-toolchain/bootstrap.sh" hash)}
+export AZTEC_TOOLCHAIN_HASH
 
 # Safety net: ensure all TS example yarn.lock files are empty on exit.
 # Both validate-ts and execute-examples (via Docker volume mount) can populate
@@ -15,8 +15,7 @@ export NOIR_HASH=${NOIR_HASH:-$("$REPO_ROOT/noir/bootstrap.sh" hash)}
 trap 'for lf in "$REPO_ROOT"/docs/examples/ts/*/yarn.lock; do [ -f "$lf" ] && > "$lf"; done' EXIT
 
 hash=$(hash_str \
-  $BB_HASH \
-  $NOIR_HASH \
+  $AZTEC_TOOLCHAIN_HASH \
   $(cache_content_hash .rebuild_patterns))
 
 function compile-circuits {

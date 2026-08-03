@@ -119,13 +119,13 @@ function test_cmds {
   # Fairies want to run these tests on every PR
   if [ "${TARGET_BRANCH:-}" = "merge-train/fairies" ]; then
     $NARGO test --list-tests --silence-warnings | sort | while read -r package test; do
-      echo "disabled-cache noir-projects/scripts/run_test.sh fnd/noir-contracts $package $test"
+      echo "disabled-cache noir-projects/fnd/scripts/run_test.sh noir-contracts $package $test"
     done
   else
     local -A cache
     $NARGO test --list-tests --silence-warnings | sort | while read -r package test; do
       [ -z "${cache[$package]:-}" ] && cache[$package]=$(get_contract_hash $package)
-      echo "${cache[$package]} noir-projects/scripts/run_test.sh fnd/noir-contracts $package $test"
+      echo "${cache[$package]} noir-projects/fnd/scripts/run_test.sh noir-contracts $package $test"
     done
   fi
 }
