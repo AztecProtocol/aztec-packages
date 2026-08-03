@@ -84,7 +84,8 @@ locals {
     "mainnet-rpc-consumer-client9",
     "mainnet-rpc-consumer-client10",
     "mainnet-rpc-consumer-client11",
-    "mainnet-rpc-consumer-client12"
+    "mainnet-rpc-consumer-client12",
+    "mainnet-rpc-consumer-client13"
   ]
 
   consumers = {
