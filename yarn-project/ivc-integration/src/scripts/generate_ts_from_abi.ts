@@ -34,10 +34,17 @@ const main = async () => {
     const abiObj: CompiledCircuit = JSON.parse(rawData);
     programs.push([pascalCase(circuit), abiObj]);
   }
-  const code = codegen(
+  let code = codegen(
     programs,
     false, // Don't embed artifacts
     true, // Use fixed length arrays
+  );
+  // noir_codegen emits `InputMap` as a value import, but it is type-only: under
+  // verbatimModuleSyntax that trips TS1484. Rewrite until the generator qualifies it upstream.
+  // TODO(A-1611): Remove once fixed upstream in Noir.
+  code = code.replace(
+    'import { Noir, InputMap, type CompiledCircuit, type ForeignCallHandler }',
+    'import { Noir, type InputMap, type CompiledCircuit, type ForeignCallHandler }',
   );
   await fs.writeFile('./src/types/index.ts', code);
 };
