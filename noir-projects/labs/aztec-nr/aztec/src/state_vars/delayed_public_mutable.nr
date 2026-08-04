@@ -134,6 +134,7 @@ where
     DelayedPublicMutableValues<T, InitialDelay>: Packable<N = M>,
 {
     fn new(context: Context, storage_slot: Field) -> Self {
+        std::static_assert(InitialDelay > 0, "InitialDelay must be greater than zero");
         assert(storage_slot != 0, "Storage slot 0 not allowed. Storage slots must start from 1.");
         Self { context, storage_slot }
     }

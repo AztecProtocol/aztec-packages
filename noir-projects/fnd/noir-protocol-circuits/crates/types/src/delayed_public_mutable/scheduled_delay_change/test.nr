@@ -191,8 +191,9 @@ unconstrained fn test_schedule_change_to_minimum_delay() {
 
 global ZERO_INITIAL_DELAY: u64 = 0;
 
-// A zero `INITIAL_DELAY` is rejected by a `static_assert`, which surfaces here as a test failure because each test is
-// compiled on demand. A contract declaring such a state variable fails to compile.
+// Reading a delay out of a zero `INITIAL_DELAY` structure is rejected by a `static_assert`, which surfaces here as a
+// test failure because each test is compiled on demand. Construction and packing remain allowed, since those are
+// independent of the initial delay - `DelayedPublicMutable` rejects a zero initial delay at declaration.
 #[test(should_fail_with = "INITIAL_DELAY must be greater than zero")]
 unconstrained fn test_zero_initial_delay_fails() {
     let delay_change: ScheduledDelayChange<ZERO_INITIAL_DELAY> = std::mem::zeroed();
