@@ -358,6 +358,18 @@ function check_pin_drift {
   # (e.g. the viem fork) version independently and must not be checked.
   done < <(grep -oE 'npm:@aztec/(bb\.js|noir-[^@"]*)@[^"]*' "$config" 2>/dev/null || true)
 
+  # yarn-project pins its first-party npm dependencies in one place, the resolutions block; the
+  # workspace manifests carry a dummy version. Every @aztec-scoped entry there is a release of this
+  # repo and so tracks BB_VERSION, unlike the third-party entries it sits beside.
+  local manifest=$repo_root/yarn-project/package.json
+  local pkg
+  while IFS=$'\t' read -r pkg version; do
+    if [ "$version" != "$BB_VERSION" ]; then
+      echo_stderr "$manifest: \"$pkg\" pins version \"$version\", expected \"$BB_VERSION\" (BB_VERSION in labs-aztec-toolchain/bootstrap.sh)."
+      failed=true
+    fi
+  done < <(jq -r '.resolutions | to_entries[] | select(.key | startswith("@aztec/")) | "\(.key)\t\(.value)"' "$manifest")
+
   if $failed; then
     echo_stderr "Pinned release versions drifted - align them with BB_VERSION."
     exit 1

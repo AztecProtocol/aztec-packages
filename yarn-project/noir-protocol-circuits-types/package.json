@@ -76,6 +76,7 @@
   },
   "devDependencies": {
     "@aztec/kv-store": "workspace:^",
+    "@aztec/protocol-circuits-artifacts": "0.1.0-dummy",
     "@jest/globals": "^30.0.0",
     "@swc/helpers": "^0.5.15",
     "@types/jest": "^30.0.0",

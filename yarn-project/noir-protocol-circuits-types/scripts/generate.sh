@@ -3,13 +3,18 @@ set -euo pipefail
 
 cd $(dirname $0)/..
 
+# Resolved rather than hardcoded to node_modules/: the linker may hoist the package to the workspace
+# root instead of installing it here. Kept above the loader export because the loader crashes node on
+# exit, which under errexit would fail this command substitution despite the path being printed.
+artifacts_pkg=$(node -p "require('path').dirname(require.resolve('@aztec/protocol-circuits-artifacts/package.json'))")
+
 export SWCRC=true
 export NODE_OPTIONS="--no-warnings --loader @swc-node/register/esm"
 
 rm -rf ./artifacts
 mkdir -p ./artifacts
 
-cp -r ../../noir-projects/fnd/noir-protocol-circuits/target/* ./artifacts
+cp -r $artifacts_pkg/artifacts/* ./artifacts
 # generate_vk_hashes rewrites ./artifacts/*.json in place; generate_ts_from_abi reads those same
 # files. They must not run concurrently or the reader can observe a partially-written artifact
 # ("Unterminated string in JSON"). Writers run first, readers second.

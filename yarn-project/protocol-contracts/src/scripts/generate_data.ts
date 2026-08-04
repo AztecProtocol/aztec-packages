@@ -12,6 +12,7 @@ import {
 import { makeTuple } from '@aztec/foundation/array';
 import { Fr } from '@aztec/foundation/curves/bn254';
 import { createConsoleLogger } from '@aztec/foundation/log';
+import { fileURLToPath } from '@aztec/foundation/url';
 import { FunctionSelector, loadContractArtifact } from '@aztec/stdlib/abi';
 import { AztecAddress } from '@aztec/stdlib/aztec-address';
 import {
@@ -29,8 +30,10 @@ import path from 'path';
 
 const log = createConsoleLogger('autogenerate');
 
-const noirContractsRoot = '../../noir-projects/fnd/noir-contracts';
-const srcPath = path.join(noirContractsRoot, './target');
+const artifactsPkgRoot = path.dirname(
+  fileURLToPath(import.meta.resolve('@aztec/protocol-contracts-artifacts/package.json')),
+);
+const srcPath = path.join(artifactsPkgRoot, 'artifacts');
 const destArtifactsDir = './artifacts';
 const outputFilePath = './src/protocol_contract_data.ts';
 
@@ -248,7 +251,7 @@ async function main() {
   await clearDestDir();
 
   const srcNames = JSON.parse(
-    await fs.readFile(path.join(noirContractsRoot, 'protocol_contracts.json'), 'utf8'),
+    await fs.readFile(path.join(artifactsPkgRoot, 'protocol_contracts.json'), 'utf8'),
   ) as string[];
 
   const contractDataList: ContractData[] = [];

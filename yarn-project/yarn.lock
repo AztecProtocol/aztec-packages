@@ -805,6 +805,7 @@ __metadata:
     "@aztec/foundation": "workspace:^"
     "@aztec/l1-artifacts": "npm:0.1.0-dummy"
     "@aztec/protocol-contracts": "workspace:^"
+    "@aztec/protocol-contracts-artifacts": "npm:0.1.0-dummy"
     "@aztec/standard-contracts": "workspace:^"
     "@aztec/stdlib": "workspace:^"
     "@jest/globals": "npm:^30.0.0"
@@ -1494,6 +1495,7 @@ __metadata:
     "@aztec/constants": "workspace:^"
     "@aztec/foundation": "workspace:^"
     "@aztec/kv-store": "workspace:^"
+    "@aztec/mock-protocol-circuits-artifacts": "npm:0.1.0-dummy"
     "@aztec/noir-noir_codegen": "npm:0.1.0-dummy"
     "@aztec/noir-noir_js": "npm:0.1.0-dummy"
     "@aztec/noir-noirc_abi": "npm:0.1.0-dummy"
@@ -1586,6 +1588,13 @@ __metadata:
   dependencies:
     tslib: "npm:^2.4.0"
   checksum: 10/f3c6d433990ebf2efaeccf549daa210408769bfa637d67081c04db7df9fb022bd7d584a50141f70b87c7694a69fe557c3544328d14242a4f2ac09b0e1c375eaa
+  languageName: node
+  linkType: hard
+
+"@aztec/mock-protocol-circuits-artifacts@npm:6.0.0-nightly.20260804":
+  version: 6.0.0-nightly.20260804
+  resolution: "@aztec/mock-protocol-circuits-artifacts@npm:6.0.0-nightly.20260804"
+  checksum: 10/8e8afde1c73b74b321383c7d8222824ba60e6b08014b68d621ad531b69e1ad6045d119727a293ff2d38d3d72e3079035bc351b382857ad739ac61fb85a255877
   languageName: node
   linkType: hard
 
@@ -1732,6 +1741,7 @@ __metadata:
     "@aztec/noir-noir_codegen": "npm:0.1.0-dummy"
     "@aztec/noir-noirc_abi": "npm:0.1.0-dummy"
     "@aztec/noir-types": "npm:0.1.0-dummy"
+    "@aztec/protocol-circuits-artifacts": "npm:0.1.0-dummy"
     "@aztec/stdlib": "workspace:^"
     "@jest/globals": "npm:^30.0.0"
     "@swc/helpers": "npm:^0.5.15"
@@ -1849,12 +1859,27 @@ __metadata:
   languageName: unknown
   linkType: soft
 
+"@aztec/protocol-circuits-artifacts@npm:6.0.0-nightly.20260804":
+  version: 6.0.0-nightly.20260804
+  resolution: "@aztec/protocol-circuits-artifacts@npm:6.0.0-nightly.20260804"
+  checksum: 10/5b686d47024fa86d5c9be0e7736817dae2ea0e0e690b0488728c25cfacb24938baa213b00288743bb5e6831b36fdf902166f87ea0d46105d4f546cf23ad53420
+  languageName: node
+  linkType: hard
+
+"@aztec/protocol-contracts-artifacts@npm:6.0.0-nightly.20260804":
+  version: 6.0.0-nightly.20260804
+  resolution: "@aztec/protocol-contracts-artifacts@npm:6.0.0-nightly.20260804"
+  checksum: 10/fe7a9ec29480d7445e19f0fa78b8d93e806466cabc0a50f3b7f4a8f5ce0b61fa01e40b57f6bf7a39b0b8153a5d5b2c849c9258091e507eb3bc5abcbbf408b16e
+  languageName: node
+  linkType: hard
+
 "@aztec/protocol-contracts@workspace:^, @aztec/protocol-contracts@workspace:protocol-contracts":
   version: 0.0.0-use.local
   resolution: "@aztec/protocol-contracts@workspace:protocol-contracts"
   dependencies:
     "@aztec/constants": "workspace:^"
     "@aztec/foundation": "workspace:^"
+    "@aztec/protocol-contracts-artifacts": "npm:0.1.0-dummy"
     "@aztec/stdlib": "workspace:^"
     "@jest/globals": "npm:^30.0.0"
     "@types/jest": "npm:^30.0.0"
