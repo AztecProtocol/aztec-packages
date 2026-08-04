@@ -10,6 +10,8 @@
 
 extern "C" size_t LLVMFuzzerMutate(uint8_t* Data, size_t Size, size_t MaxSize);
 
+using namespace bb;
+
 namespace {
 
 avm2::Fq random_fq_scalar(std::mt19937_64& rng)

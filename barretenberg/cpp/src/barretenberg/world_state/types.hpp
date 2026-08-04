@@ -11,50 +11,22 @@
 #include "barretenberg/crypto/merkle_tree/types.hpp"
 #include "barretenberg/ecc/curves/bn254/fr.hpp"
 #include "barretenberg/serialize/msgpack.hpp"
+#include "barretenberg/world_state_reference/merkle_tree_id.hpp"
 
 namespace bb::world_state {
 
 using namespace bb::crypto::merkle_tree;
 
-enum MerkleTreeId {
-    NULLIFIER_TREE = 0,
-    NOTE_HASH_TREE = 1,
-    PUBLIC_DATA_TREE = 2,
-    L1_TO_L2_MESSAGE_TREE = 3,
-    ARCHIVE = 4,
-};
+// MerkleTreeId, getMerkleTreeName and WorldStateRevision are the Aztec world-state vocabulary. They are
+// defined in the world_state_reference component (namespace bb::world_state) so that the in-memory
+// reference, this lmdb-backed service, and the merkle-DB IPC client all share one definition. The
+// `#include` above brings them into scope for the (many) existing world_state:: references here.
 
 const uint64_t CANONICAL_FORK_ID = 0;
 const uint64_t NUM_TREES = 5;
 
-std::string getMerkleTreeName(MerkleTreeId id);
-
 using TreeStateReference = std::pair<bb::fr, bb::crypto::merkle_tree::index_t>;
 using StateReference = std::unordered_map<MerkleTreeId, TreeStateReference>;
-
-struct WorldStateRevision {
-    // Sentinel value for `blockNumber` indicating "not pinned to any historical block;
-    // use the latest committed state of the underlying tree". This is distinct from
-    // `blockNumber == 0`, which means "pin to block 0 (the initial / genesis state)".
-    // We use the maximum uint32_t rather than 0 because 0 is a valid historical block
-    // number (the genesis header), and overloading 0 caused silent regressions where
-    // genesis-anchored witnesses would return the current tip instead of genesis.
-    static constexpr block_number_t LATEST = std::numeric_limits<block_number_t>::max();
-
-    index_t forkId{ 0 };
-    block_number_t blockNumber{ LATEST };
-    bool includeUncommitted{ false };
-
-    SERIALIZATION_FIELDS(forkId, blockNumber, includeUncommitted)
-
-    static WorldStateRevision committed() { return WorldStateRevision{ .includeUncommitted = false }; }
-    static WorldStateRevision uncommitted() { return WorldStateRevision{ .includeUncommitted = true }; }
-
-    // True when the revision is pinned to a specific historical block rather than the latest state.
-    bool is_historical() const { return blockNumber != LATEST; }
-
-    bool operator==(const WorldStateRevision& other) const = default;
-};
 
 struct WorldStateStatusSummary {
     index_t unfinalizedBlockNumber;

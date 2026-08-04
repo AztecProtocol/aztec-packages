@@ -1,8 +1,10 @@
+#include "barretenberg/world_state_reference/merkle_tree_id.hpp"
 
-#include "barretenberg/world_state/types.hpp"
+#include <stdexcept>
 #include <string>
 
 namespace bb::world_state {
+
 std::string getMerkleTreeName(MerkleTreeId id)
 {
     switch (id) {
@@ -20,4 +22,5 @@ std::string getMerkleTreeName(MerkleTreeId id)
         throw std::invalid_argument("Unknown MerkleTreeId");
     }
 }
+
 } // namespace bb::world_state

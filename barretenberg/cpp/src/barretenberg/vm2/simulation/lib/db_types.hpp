@@ -66,8 +66,6 @@ struct TreeCounters {
     bool operator==(const TreeCounters& other) const = default;
 };
 
-} // namespace bb::avm2::simulation
-
 // We need this helper to avoid having const and non-const versions methods in db classes.
 auto& get_tree_info_helper(world_state::MerkleTreeId tree_id, auto& tree_roots)
 {
@@ -84,3 +82,5 @@ auto& get_tree_info_helper(world_state::MerkleTreeId tree_id, auto& tree_roots)
         throw std::runtime_error("AVM cannot process tree id: " + std::to_string(static_cast<uint64_t>(tree_id)));
     }
 }
+
+} // namespace bb::avm2::simulation

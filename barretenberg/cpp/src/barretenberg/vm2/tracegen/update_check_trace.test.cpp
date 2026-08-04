@@ -37,6 +37,9 @@
 #include "barretenberg/vm2/tracegen/update_check_trace.hpp"
 
 namespace bb::avm2::tracegen {
+
+using namespace bb::crypto::merkle_tree;
+
 namespace {
 
 using ::testing::_;
