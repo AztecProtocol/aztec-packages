@@ -178,8 +178,6 @@ function compile_all {
   fi
 }
 
-export -f compile_project format lint get_projects compile_all hash
-
 # The @aztec/l1-artifacts foundry bundle references solc by version (a portable npm
 # package cannot ship a platform binary), so the runtime forge deploy resolves it through
 # ~/.svm. The e2e containers run without network and inherit ~/.svm from the host's home
@@ -211,6 +209,8 @@ function warm_solc_cache {
     exit 1
   fi
 }
+
+export -f compile_project format lint get_projects compile_all hash warm_solc_cache
 
 function build {
   echo_header "yarn-project build"
