@@ -161,6 +161,45 @@ unconstrained fn test_schedule_change_to_longer_delay_from_initial() {
     assert_eq(delay_change.get_current(current_timestamp), new);
 }
 
+// A zero delay leaves no window during which a value is known not to change, so there is no effective minimum delay to
+// report and the computation underflows instead. This is why `schedule_change` rejects zero.
+#[test(should_fail_with = "attempt to subtract with overflow")]
+unconstrained fn test_zero_delay_has_no_effective_minimum_delay() {
+    let delay_change = get_non_initial_delay_change(0, 0, 0);
+
+    let _ = delay_change.get_effective_minimum_delay_at(100);
+}
+
+#[test(should_fail_with = "Delay must be greater than zero")]
+unconstrained fn test_schedule_change_to_zero_delay_fails() {
+    let mut delay_change = get_initial_delay_change();
+
+    delay_change.schedule_change(0, 50);
+}
+
+#[test]
+unconstrained fn test_schedule_change_to_minimum_delay() {
+    let current_timestamp = 50;
+
+    let mut delay_change = get_initial_delay_change();
+    delay_change.schedule_change(1, current_timestamp);
+
+    assert_eq(delay_change.pre.unwrap(), TEST_INITIAL_DELAY);
+    assert_eq(delay_change.post.unwrap(), 1);
+    assert_eq(delay_change.timestamp_of_change, current_timestamp + TEST_INITIAL_DELAY - 1);
+}
+
+global ZERO_INITIAL_DELAY: u64 = 0;
+
+// A zero `INITIAL_DELAY` is rejected by a `static_assert`, which surfaces here as a test failure because each test is
+// compiled on demand. A contract declaring such a state variable fails to compile.
+#[test(should_fail_with = "INITIAL_DELAY must be greater than zero")]
+unconstrained fn test_zero_initial_delay_fails() {
+    let delay_change: ScheduledDelayChange<ZERO_INITIAL_DELAY> = std::mem::zeroed();
+
+    let _ = delay_change.get_effective_minimum_delay_at(100);
+}
+
 unconstrained fn assert_effective_minimum_delay_invariants<let INITIAL_DELAY: u64>(
     delay_change: &mut ScheduledDelayChange<INITIAL_DELAY>,
     anchor_block_timestamp: u64,
@@ -191,11 +230,11 @@ unconstrained fn assert_effective_minimum_delay_invariants<let INITIAL_DELAY: u6
         change_schedule_timestamp + delay_change.get_current(change_schedule_timestamp);
     assert(expected_earliest_value_change_timestamp <= value_change_timestamp);
 
-    // Finally, a delay reduction could be scheduled at the anchor block timestamp. We reduce the delay to zero, which
-    // means that at the delay timestamp of change there'll be no delay and a value change could be performed
-    // immediately then.
-    delay_change.schedule_change(0, anchor_block_timestamp + 0);
-    assert(expected_earliest_value_change_timestamp <= delay_change.timestamp_of_change);
+    // Finally, a delay reduction could be scheduled at the anchor block timestamp. We reduce the delay to 1 second (the
+    // smallest permitted delay), which means that at the delay timestamp of change a value change could be scheduled to
+    // take effect one second later.
+    delay_change.schedule_change(1, anchor_block_timestamp);
+    assert(expected_earliest_value_change_timestamp <= delay_change.timestamp_of_change + 1);
 }
 
 #[test]

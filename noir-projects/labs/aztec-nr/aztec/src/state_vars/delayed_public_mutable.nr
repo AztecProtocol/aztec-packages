@@ -65,6 +65,9 @@ mod test;
 ///
 /// ## Choosing Delays
 ///
+/// Delays must be greater than zero: a zero `InitialDelay` is rejected at compile time, and
+/// [`schedule_delay_change`](DelayedPublicMutable::schedule_delay_change) rejects a zero delay.
+///
 /// A short delay reduces the most obvious downside of `DelayedPublicMutable`, and so it is natural to wish to make it
 /// be as low as possible. It is therefore important to understand the tradeoffs involved in delay selection.
 ///
@@ -212,6 +215,8 @@ where
     /// The current delay does not immediately change. Once the current delay passes,
     /// [`get_current_delay`](DelayedPublicMutable::get_current_delay) automatically begins to return `new_delay`, and
     /// [`schedule_value_change`](DelayedPublicMutable::schedule_value_change) begins using it.
+    ///
+    /// `new_delay` must be greater than zero.
     ///
     /// ## Multiple Scheduled Changes
     ///

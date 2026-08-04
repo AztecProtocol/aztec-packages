@@ -174,7 +174,7 @@ The existence of minimum delays means that a private function that reads a publi
 
 #### Declaration
 
-Unlike other state variables, `DelayedPublicMutable` receives not only a type parameter for the underlying datatype, but also a `DELAY` type parameter with the value change delay as a number of seconds.
+Unlike other state variables, `DelayedPublicMutable` receives not only a type parameter for the underlying datatype, but also a `DELAY` type parameter with the value change delay as a number of seconds. Delays must be greater than zero, both here and when scheduling a delay change: with no delay the value could change at any moment, leaving no window in which a private read is valid.
 
 #include_code delayed_public_mutable_storage /noir-projects/labs/noir-contracts/contracts/app/auth_contract/src/main.nr rust
 

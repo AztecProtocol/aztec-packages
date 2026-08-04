@@ -25,6 +25,14 @@ impl<let INITIAL_DELAY: u64> ScheduledDelayChange<INITIAL_DELAY> {
         Self { pre, post, timestamp_of_change }
     }
 
+    /// Returns the delay in effect before any delay change has been scheduled.
+    ///
+    /// Delays must be strictly positive (see `schedule_change`), so a zero `INITIAL_DELAY` is rejected at compile time.
+    fn initial_delay() -> u64 {
+        std::static_assert(INITIAL_DELAY > 0, "INITIAL_DELAY must be greater than zero");
+        INITIAL_DELAY
+    }
+
     /// Returns the current value of the delay stored in the data structure.
     /// WARNING: This function only returns a meaningful value when called in public with the current timestamp - for
     /// historical private reads use `get_effective_minimum_delay_at` instead.
@@ -32,9 +40,9 @@ impl<let INITIAL_DELAY: u64> ScheduledDelayChange<INITIAL_DELAY> {
         // The post value becomes the current one at the timestamp of change, so any transaction that is included at or
         // after the timestamp of change will use the post value.
         if current_timestamp < self.timestamp_of_change {
-            self.pre.unwrap_or(INITIAL_DELAY)
+            self.pre.unwrap_or(Self::initial_delay())
         } else {
-            self.post.unwrap_or(INITIAL_DELAY)
+            self.post.unwrap_or(Self::initial_delay())
         }
     }
 
@@ -42,7 +50,7 @@ impl<let INITIAL_DELAY: u64> ScheduledDelayChange<INITIAL_DELAY> {
     /// delay. Note that this timestamp may be in the past if the change has already taken place.
     /// Additionally, further changes might be later scheduled, potentially canceling the one returned by this function.
     pub fn get_scheduled(self) -> (u64, u64) {
-        (self.post.unwrap_or(INITIAL_DELAY), self.timestamp_of_change)
+        (self.post.unwrap_or(Self::initial_delay()), self.timestamp_of_change)
     }
 
     /// Schedules a change to the delay, given the `current_timestamp` and the `current` delay.
@@ -52,7 +60,12 @@ impl<let INITIAL_DELAY: u64> ScheduledDelayChange<INITIAL_DELAY> {
     ///  - when reducing the delay, the change will take effect after a delay equal to the difference between old and
     ///    new delay. For example, if reducing from 3 days to 1 day, the reduction will be scheduled to happen after 2
     ///    days.
+    ///
+    /// The new delay must be strictly positive: a zero delay would let the value change at any moment, so there'd be no
+    /// window during which a private read is known to remain valid.
     pub fn schedule_change(&mut self, new: u64, current_timestamp: u64) {
+        assert(new > 0, "Delay must be greater than zero");
+
         let current = self.get_current(current_timestamp);
 
         // When changing the delay value we must ensure that it is not possible to produce a value change with a delay
@@ -175,7 +188,7 @@ impl<let INITIAL_DELAY: u64> ScheduledDelayChange<INITIAL_DELAY> {
             //
             // If no delay changes are scheduled (as at the time of the anchor timestamp), then the "current delay" (as
             // at the time of the anchor block timestamp) is `self.post - 1` (or the `INITIAL_DELAY - 1` if never set).
-            self.post.unwrap_or(INITIAL_DELAY) - 1
+            self.post.unwrap_or(Self::initial_delay()) - 1
         } else {
             //
             //          `anchor_block_timestamp` < `self.timestamp_of_change`
@@ -298,8 +311,8 @@ impl<let INITIAL_DELAY: u64> ScheduledDelayChange<INITIAL_DELAY> {
             let time_until_delay_change = self.timestamp_of_change - anchor_block_timestamp;
 
             let time_until_next_delay_change = min(
-                self.pre.unwrap_or(INITIAL_DELAY), // in case the scheduled delay (`post`) gets cancelled before it takes effect.
-                time_until_delay_change + self.post.unwrap_or(INITIAL_DELAY),
+                self.pre.unwrap_or(Self::initial_delay()), // in case the scheduled delay (`post`) gets cancelled before it takes effect.
+                time_until_delay_change + self.post.unwrap_or(Self::initial_delay()),
             );
 
             // The effective minimum delay equals the minimum time until a value change, minus 1, since reads are
