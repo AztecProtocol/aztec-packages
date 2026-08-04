@@ -2,14 +2,17 @@
 source $(git rev-parse --show-toplevel)/ci3/source_bootstrap
 
 function hash {
-  # Pinned dependencies are hashed via yarn.lock (covered by the yarn-project patterns), so nothing
-  # under noir-projects/fnd is an input here: everything it produces arrives as a pinned package.
+  # Pinned dependencies are hashed via yarn.lock (covered by the yarn-project patterns).
+  # fnd noir-contracts remains because check_oracle_version reads ORACLE_VERSION_MAJOR out of
+  # aztec_sublib's version.nr during the build; the compiled artifacts it used to be here for now
+  # arrive as pinned packages.
   # The ipc-codegen/cdb patterns cover the simulator's cdb server codegen, which
   # runs ipc-codegen against barretenberg's cdb_schema.json on every build.
   hash_str \
     $(../labs-aztec-toolchain/bootstrap.sh hash) \
     $(../noir-projects/labs/noir-contracts/bootstrap.sh hash) \
     $(../noir-projects/labs/aztec-nr/bootstrap.sh hash) \
+    $(cache_content_hash "^noir-projects/fnd/noir-contracts/") \
     $(cache_content_hash "^ipc-codegen/" "^barretenberg/cpp/src/barretenberg/cdb/") \
     $(cache_content_hash ../yarn-project/.rebuild_patterns)
 }
