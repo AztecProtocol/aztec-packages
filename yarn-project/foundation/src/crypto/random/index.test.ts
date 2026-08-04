@@ -34,6 +34,10 @@ describe('random', () => {
       expect([...seen].sort()).toEqual([0, 1, 2]);
     });
 
+    it('returns zero for a max of one', () => {
+      expect(randomInt(1)).toEqual(0);
+    });
+
     it('rejects a non-positive or unsafe max', () => {
       expect(() => randomInt(0)).toThrow(RangeError);
       expect(() => randomInt(-1)).toThrow(RangeError);
@@ -57,6 +61,10 @@ describe('random', () => {
       const max = 1n << 200n;
       const values = Array.from({ length: 500 }, () => randomBigInt(max));
       expect(values.reduce((a, b) => (a > b ? a : b))).toBeGreaterThan(1n << 64n);
+    });
+
+    it('returns zero for a max of one', () => {
+      expect(randomBigInt(1n)).toEqual(0n);
     });
 
     it('rejects a non-positive max', () => {

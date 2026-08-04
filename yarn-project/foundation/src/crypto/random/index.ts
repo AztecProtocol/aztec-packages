@@ -18,6 +18,9 @@ export function randomBigInt(max: bigint): bigint {
   if (max <= 0n) {
     throw new RangeError(`randomBigInt requires a positive max, got ${max}`);
   }
+  if (max === 1n) {
+    return 0n;
+  }
   const bits = BigInt((max - 1n).toString(2).length);
   const mask = (1n << bits) - 1n;
   const bytes = Number((bits + 7n) / 8n);
