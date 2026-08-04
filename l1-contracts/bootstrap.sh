@@ -5,12 +5,23 @@ function download_solc {
   # Read solc path from foundry.toml and extract version (e.g., "./solc-0.8.27" -> "0.8.27")
   local solc_path=$(grep '^solc = ' foundry.toml | sed 's/.*"\.\/\(.*\)"/\1/')
   local solc_version=${solc_path#solc-}
+  # The @aztec/l1-artifacts foundry bundle references solc by version (it cannot ship a
+  # platform binary), which forge resolves through ~/.svm. The e2e containers run with no
+  # network and inherit ~/.svm from the host's home mount, so every path through this
+  # function must leave the svm cache populated - not just the svm-download one below.
+  local svm_path="$HOME/.svm/$solc_version/solc-$solc_version"
   if [ -f "$solc_path" ]; then
+    if [ ! -f "$svm_path" ]; then
+      mkdir -p "$(dirname "$svm_path")"
+      cp "$solc_path" "$svm_path"
+    fi
     return 0
   fi
   local platform="$(os)-$(arch)"
   local artifact="solc-$platform-$solc_version.tar.gz"
   if cache_download "$artifact"; then
+    mkdir -p "$(dirname "$svm_path")"
+    cp "$solc_path" "$svm_path"
     return 0
   fi
 
@@ -30,7 +41,6 @@ function download_solc {
     "forge build --use \"$solc_version\" src/core/interfaces/IVerifier.sol"
 
   # Copy from svm cache to local path
-  local svm_path="$HOME/.svm/$solc_version/solc-$solc_version"
   if [ ! -f "$svm_path" ]; then
     echo_stderr "ERROR: svm failed to download solc $solc_version"
     exit 1
