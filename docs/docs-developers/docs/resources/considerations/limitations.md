@@ -112,9 +112,27 @@ Due to the rigidity of zk-SNARK circuits, there are upper bounds on the amount o
 
 > Blockchain developers are no stranger to restrictive computational environments. Ethereum has gas limits, local variable stack limits, call stack limits, contract deployment size limits, log size limits, etc.
 
-Here are the current constants:
+Here are the current limits:
 
-#include_code constants /noir-projects/fnd/noir-protocol-circuits/crates/types/src/constants.nr rust
+| Limit | Per call | Per transaction |
+| --- | --- | --- |
+| Note hashes | `MAX_NOTE_HASHES_PER_CALL` = 16 | `MAX_NOTE_HASHES_PER_TX` = 64 |
+| Nullifiers | `MAX_NULLIFIERS_PER_CALL` = 16 | `MAX_NULLIFIERS_PER_TX` = 64 |
+| Private function calls | `MAX_PRIVATE_CALL_STACK_LENGTH_PER_CALL` = 8 | `MAX_PRIVATE_CALL_STACK_LENGTH_PER_TX` = 16 |
+| Enqueued public calls | `MAX_ENQUEUED_CALLS_PER_CALL` = 32 | `MAX_ENQUEUED_CALLS_PER_TX` = 32 |
+| L2 to L1 messages | `MAX_L2_TO_L1_MSGS_PER_CALL` = 8 | `MAX_L2_TO_L1_MSGS_PER_TX` = 8 |
+| Private logs | `MAX_PRIVATE_LOGS_PER_CALL` = 16 | `MAX_PRIVATE_LOGS_PER_TX` = 64 |
+| Contract class logs | `MAX_CONTRACT_CLASS_LOGS_PER_CALL` = 1 | `MAX_CONTRACT_CLASS_LOGS_PER_TX` = 1 |
+| Note hash read requests | `MAX_NOTE_HASH_READ_REQUESTS_PER_CALL` = 16 | `MAX_NOTE_HASH_READ_REQUESTS_PER_TX` = 64 |
+| Nullifier read requests | `MAX_NULLIFIER_READ_REQUESTS_PER_CALL` = 16 | `MAX_NULLIFIER_READ_REQUESTS_PER_TX` = 64 |
+| Key validation requests | `MAX_KEY_VALIDATION_REQUESTS_PER_CALL` = 16 | `MAX_KEY_VALIDATION_REQUESTS_PER_TX` = 64 |
+| Public data writes | n/a | `MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX` = 63 |
+| Public data reads | n/a | `MAX_PUBLIC_DATA_READS_PER_TX` = 64 |
+
+:::note
+Public data writes have no per-call limit, and one of the 64 write slots per transaction is reserved by the protocol for the fee payer's fee juice balance update.
+The full list of protocol constants, including tree heights and other protocol parameters, is available in the [API reference](pathname:///aztec-nr-api/#api_ref_version/noir_aztec/protocol/constants/index.html).
+:::
 
 #### What are the consequences?
 
