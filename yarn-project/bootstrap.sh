@@ -215,7 +215,7 @@ function warm_solc_cache {
 function build {
   echo_header "yarn-project build"
   denoise "./bootstrap.sh clean-lite"
-  npm_install_deps ../noir
+  npm_install_deps
   denoise "warm_solc_cache"
   denoise "compile_all"
 }
