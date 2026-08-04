@@ -3,7 +3,7 @@ title: Ethereum<>Aztec Messaging
 tags: [contracts, portals]
 sidebar_position: 12
 description: Send messages and data between L1 and L2 contracts using portal contracts and cross-chain messaging.
-references: ["l1-contracts/test/portals/TokenPortal.sol", "noir-projects/labs/noir-contracts/contracts/app/token_bridge_contract/src/main.nr"]
+references: ["docs/examples/solidity/example_swap/ExampleTokenPortal.sol", "noir-projects/labs/noir-contracts/contracts/app/token_bridge_contract/src/main.nr"]
 ---
 
 This guide covers cross-chain communication between Ethereum (L1) and Aztec (L2) using portal contracts.
@@ -91,7 +91,7 @@ const witness = await aztecNode.getL2ToL1MembershipWitness(
 
 ## Example implementations
 
-- [Token Portal (L1)](https://github.com/AztecProtocol/aztec-packages/blob/#include_aztec_version/l1-contracts/test/portals/TokenPortal.sol)
+- [Token Portal (L1)](https://github.com/AztecProtocol/aztec-packages/blob/#include_aztec_version/docs/examples/solidity/example_swap/ExampleTokenPortal.sol)
 - [Token Bridge (L2)](https://github.com/AztecProtocol/aztec-packages/blob/#include_aztec_version/noir-projects/labs/noir-contracts/contracts/app/token_bridge_contract/src/main.nr)
 
 ## Next steps

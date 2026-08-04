@@ -5,6 +5,13 @@ const path = require("path");
 // node_modules path: the source link instead points at the repo and tag the
 // installed version was published from, with the in-repo path as display text.
 // Line numbers remain valid because the package ships the tag's sources verbatim.
+//
+// On release builds this tag deliberately diverges from COMMIT_TAG (which the
+// rest of the site links at): the snippet is extracted from the installed
+// package's sources, so only the package's own version tag is guaranteed to
+// match it line-for-line. The pin is kept equal to the toolchain's BB_VERSION
+// by check_pin_drift in labs-aztec-toolchain/bootstrap.sh, so these links
+// track the pinned toolchain release rather than the docs release.
 const PUBLISHED_SNIPPET_SOURCES = [
   {
     pathPrefix: "docs/node_modules/@aztec/l1-artifacts/",

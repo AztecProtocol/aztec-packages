@@ -87,10 +87,9 @@ function compile-solidity {
 
   # The examples compile against the l1-contracts sources shipped in the
   # @aztec/l1-artifacts package (see foundry.toml), so docs' node_modules
-  # must be populated.
-  if [ ! -d "$REPO_ROOT/docs/node_modules/@aztec/l1-artifacts" ]; then
-    (cd "$REPO_ROOT/docs" && npm_install_deps)
-  fi
+  # must be populated. Unconditional so that a pin bump refreshes an
+  # existing node_modules instead of compiling against stale sources.
+  (cd "$REPO_ROOT/docs" && npm_install_deps)
 
   # Find all .sol files recursively
   local sol_files
@@ -109,10 +108,13 @@ function compile-solidity {
       if [ -d "$subdir" ] && ls "$subdir"/*.sol >/dev/null 2>&1; then
         local subdir_name=$(basename "$subdir")
         echo_stderr "Compiling $subdir_name..."
-        forge build \
-          --contracts "$subdir" \
-          --out "$OUTPUT_DIR/$subdir_name" \
-          --no-cache
+        # On a cold ~/.svm, forge downloads the pinned solc from
+        # binaries.soliditylang.org, which intermittently fails to resolve
+        # under heavy parallel CI load (same failure mode l1-contracts'
+        # download_solc rides out). Retry on connection/DNS failures only so
+        # a genuine build error still fails fast.
+        RETRY_ATTEMPTS=30 RETRY_SLEEP=10 retry -p 'dns error|Temporary failure in name resolution|error sending request|failed to lookup address|Connection refused|connection reset' \
+          "forge build --contracts \"$subdir\" --out \"$OUTPUT_DIR/$subdir_name\" --no-cache"
       fi
     done
   )
