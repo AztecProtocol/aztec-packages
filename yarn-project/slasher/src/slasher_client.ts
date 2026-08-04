@@ -22,6 +22,7 @@ import { getTelemetryClient } from '@aztec/telemetry-client';
 import type { Hex } from 'viem';
 
 import { SlasherMetrics } from './metrics.js';
+import { OwnValidatorSlashMonitor } from './own_validator_slash_monitor.js';
 import {
   SlashOffensesCollector,
   type SlashOffensesCollectorConfig,
@@ -91,6 +92,7 @@ export class SlasherClient implements ProposerSlashActionProvider, SlasherClient
   protected unwatchCallbacks: (() => void)[] = [];
   protected roundMonitor: SlashRoundMonitor;
   protected offensesCollector: SlashOffensesCollector;
+  protected readonly ownValidatorMonitor: OwnValidatorSlashMonitor;
 
   constructor(
     private config: SlasherClientConfig,
@@ -102,11 +104,13 @@ export class SlasherClient implements ProposerSlashActionProvider, SlasherClient
     private epochCache: EpochCache,
     private dateProvider: DateProvider,
     private offensesStore: SlasherOffensesStore,
+    private readonly ownValidators: EthAddress[] = [],
     private log = createLogger('slasher:consensus'),
     private readonly metrics = new SlasherMetrics(getTelemetryClient()),
   ) {
     this.roundMonitor = new SlashRoundMonitor(settings, dateProvider);
     this.offensesCollector = new SlashOffensesCollector(config, settings, watchers, offensesStore);
+    this.ownValidatorMonitor = new OwnValidatorSlashMonitor(slashingProposer, settings, ownValidators, this.metrics);
   }
 
   public async start() {
@@ -128,6 +132,16 @@ export class SlasherClient implements ProposerSlashActionProvider, SlasherClient
     // Check for round changes
     this.unwatchCallbacks.push(this.roundMonitor.listenToNewRound(round => this.handleNewRound(round)));
 
+    // Warn early when a slashing vote names one of our own validators. Skipped entirely when running none, so
+    // those nodes pay no extra L1 subscription. Subscribed only after the monitor's baseline read completes, so a
+    // vote cast in between is caught up by a later drain instead of being mistaken for a pre-startup vote.
+    if (this.ownValidators.length > 0) {
+      await this.ownValidatorMonitor.start(this.roundMonitor.getCurrentRound().round);
+      this.unwatchCallbacks.push(
+        this.slashingProposer.listenToVoteCast(({ round }) => void this.ownValidatorMonitor.handleVoteCast(round)),
+      );
+    }
+
     this.log.info(`Started slasher client`);
     return Promise.resolve();
   }
@@ -141,6 +155,7 @@ export class SlasherClient implements ProposerSlashActionProvider, SlasherClient
     }
 
     this.roundMonitor.stop();
+    await this.ownValidatorMonitor.stop();
     await this.offensesCollector.stop();
 
     this.log.info('Slasher client stopped');
@@ -159,14 +174,16 @@ export class SlasherClient implements ProposerSlashActionProvider, SlasherClient
   /** Triggered on a time basis when we enter a new slashing round. Clears expired offenses. */
   protected async handleNewRound(round: bigint) {
     this.log.info(`Starting new slashing round ${round}`);
+    this.ownValidatorMonitor.handleNewRound(round);
     await this.offensesCollector.handleNewRound(round);
   }
 
-  /** Called when we see a RoundExecuted event on the SlashingProposer (just for logging). */
+  /** Called when we see a RoundExecuted event on the SlashingProposer (just for logging and metrics). */
   protected async handleRoundExecuted(round: bigint, slashCount: bigint, l1BlockHash: Hex) {
     this.metrics.recordRoundExecuted();
     const slashes = await this.rollup.getSlashEvents(l1BlockHash);
     this.log.info(`Slashing round ${round} has been executed with ${slashCount} slashes`, { slashes });
+    this.ownValidatorMonitor.handleSlashes(round, slashes, l1BlockHash);
   }
 
   /**
