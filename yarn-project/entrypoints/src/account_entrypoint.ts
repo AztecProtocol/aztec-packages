@@ -1,5 +1,11 @@
 import { Fr } from '@aztec/foundation/curves/bn254';
-import { type FunctionAbi, FunctionCall, FunctionSelector, encodeArguments } from '@aztec/stdlib/abi';
+import {
+  type FunctionAbi,
+  FunctionCall,
+  FunctionSelector,
+  encodeArguments,
+  getFunctionReturnType,
+} from '@aztec/stdlib/abi';
 import { computeOuterAuthWitHash } from '@aztec/stdlib/auth-witness';
 import type { AztecAddress } from '@aztec/stdlib/aztec-address';
 import type { GasSettings } from '@aztec/stdlib/gas';
@@ -100,7 +106,7 @@ export class DefaultAccountEntrypoint implements EntrypointInterface {
       hideMsgSender: false,
       isStatic: callData.abi.isStatic,
       args: callData.encodedArgs,
-      returnTypes: callData.abi.returnTypes,
+      returnType: getFunctionReturnType(callData.abi),
     });
 
     return new ExecutionPayload(
@@ -204,7 +210,6 @@ export class DefaultAccountEntrypoint implements EntrypointInterface {
         { name: 'fee_payment_method', type: { kind: 'integer', sign: 'unsigned', width: 8 } },
         { name: 'cancellable', type: { kind: 'boolean' } },
       ],
-      returnTypes: [],
       errorTypes: {},
     } as FunctionAbi;
   }

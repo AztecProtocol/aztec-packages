@@ -15,9 +15,12 @@ use crate::messages::delivery::handshake::AppSiloedHandshakeSecrets;
 use crate::nullifier::utils::compute_nullifier_existence_request;
 
 use crate::protocol::{
-    abis::function_selector::FunctionSelector, address::AztecAddress, constants::DOM_SEP__CONSTRAINED_MSG_NULLIFIER,
-    hash::poseidon2_hash_with_separator, traits::ToField,
+    abis::function_selector::FunctionSelector, address::AztecAddress, hash::poseidon2_hash_with_separator,
+    traits::ToField,
 };
+
+/// Domain separator for nullifiers used during constrained delivery.
+pub(crate) global DOM_SEP__CONSTRAINED_MSG_NULLIFIER: u32 = 3723577546;
 
 // The helper cannot import the handshake registry interface because the registry contract depends on aztec-nr. The
 // registry's test suite compares this against its macro-generated `HandshakeRegistry::at(...).method(...).selector`

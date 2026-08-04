@@ -1,6 +1,12 @@
 import { Fr } from '@aztec/foundation/curves/bn254';
 import { STANDARD_MULTI_CALL_ENTRYPOINT_ADDRESS } from '@aztec/standard-contracts/multi-call-entrypoint/constants';
-import { type FunctionAbi, FunctionCall, FunctionSelector, encodeArguments } from '@aztec/stdlib/abi';
+import {
+  type FunctionAbi,
+  FunctionCall,
+  FunctionSelector,
+  encodeArguments,
+  getFunctionReturnType,
+} from '@aztec/stdlib/abi';
 import type { AztecAddress } from '@aztec/stdlib/aztec-address';
 import type { GasSettings } from '@aztec/stdlib/gas';
 import { ExecutionPayload, HashedValues, TxContext, TxExecutionRequest } from '@aztec/stdlib/tx';
@@ -48,7 +54,7 @@ export class DefaultMultiCallEntrypoint implements EntrypointInterface {
       hideMsgSender: false,
       isStatic: callData.abi.isStatic,
       args: callData.encodedArgs,
-      returnTypes: callData.abi.returnTypes,
+      returnType: getFunctionReturnType(callData.abi),
     });
 
     return new ExecutionPayload(
@@ -137,7 +143,6 @@ export class DefaultMultiCallEntrypoint implements EntrypointInterface {
           visibility: 'public',
         },
       ],
-      returnTypes: [],
       errorTypes: {},
     } as FunctionAbi;
   }

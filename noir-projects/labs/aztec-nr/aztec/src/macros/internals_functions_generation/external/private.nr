@@ -193,7 +193,12 @@ pub(crate) comptime fn generate_private_external(f: FunctionDefinition) -> Quote
         $context_finish
     };
 
+    // `PrivateCircuitPublicInputs` is a fixed protocol ABI: some of its fields are constant for a given function (e.g.
+    // the `is_static_call` flag of a non-static function), and the compiler flags those as constants that could be
+    // dropped from the return value. They cannot be dropped without changing the ABI, so silence the lint here rather
+    // than letting it defeat `--deny-warnings` for every contract.
     quote {
+        #[allow(constant_return)]
         #[aztec::macros::internals_functions_generation::abi_attributes::abi_private]
         $abi_relevant_attributes
         fn $fn_name($params) -> return_data aztec::protocol::abis::private_circuit_public_inputs::PrivateCircuitPublicInputs {

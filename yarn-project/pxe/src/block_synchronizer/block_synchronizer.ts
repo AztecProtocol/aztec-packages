@@ -4,12 +4,11 @@ import { SerialQueue } from '@aztec/foundation/queue';
 import type { AztecAsyncKVStore } from '@aztec/kv-store';
 import type { L2TipsKVStore } from '@aztec/kv-store/stores';
 import { BlockHash, L2BlockStream, type L2BlockStreamEvent, type L2BlockStreamEventHandler } from '@aztec/stdlib/block';
-import type { AztecNode } from '@aztec/stdlib/interfaces/client';
 import type { BlockHeader } from '@aztec/stdlib/tx';
 
 import type { BlockSynchronizerConfig } from '../config/index.js';
-import type { ContractClassService } from '../contract/contract_class_service.js';
 import type { ContractSyncService } from '../contract/contract_sync_service.js';
+import type { CachingAztecNode } from '../node/caching_aztec_node.js';
 import type { AnchorBlockStore } from '../storage/anchor_block_store/index.js';
 import type { FactStore } from '../storage/fact_store/fact_store.js';
 import type { NoteStore } from '../storage/note_store/index.js';
@@ -28,7 +27,7 @@ export class BlockSynchronizer implements L2BlockStreamEventHandler {
   protected readonly blockStream: L2BlockStream;
 
   constructor(
-    private readonly node: AztecNode,
+    private readonly node: CachingAztecNode,
     private readonly store: AztecAsyncKVStore,
     private readonly anchorBlockStore: AnchorBlockStore,
     private readonly noteStore: NoteStore,
@@ -36,7 +35,6 @@ export class BlockSynchronizer implements L2BlockStreamEventHandler {
     private readonly factStore: FactStore,
     private readonly l2TipsStore: L2TipsKVStore,
     private readonly contractSyncService: ContractSyncService,
-    private readonly contractClassService: ContractClassService,
     private readonly config: Partial<BlockSynchronizerConfig> = {},
     bindings?: LoggerBindings,
   ) {
@@ -180,10 +178,9 @@ export class BlockSynchronizer implements L2BlockStreamEventHandler {
     // execution.
     this.contractSyncService.wipe();
 
-    // The contract class service keeps a per-block cache - since updating our anchor means it is very unlikely we'd
-    // ever re-simulate at past anchors, we wipe its cache to prevent runaway memory growth on very long-lived PXE
-    // instances.
-    this.contractClassService.wipe();
+    // Cached node reads stay correct indefinitely, so this wipe is only about bounding memory growth. An anchor
+    // update is the recurring trigger PXE already has.
+    this.node.wipeCache();
 
     this.log.verbose(`Updated pxe last block to ${blockHeader.getBlockNumber()}`, blockHeader.toInspect());
     await this.anchorBlockStore.setHeader(blockHeader);

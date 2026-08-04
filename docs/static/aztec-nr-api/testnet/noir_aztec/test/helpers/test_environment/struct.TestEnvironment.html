@@ -28,6 +28,7 @@
 <li><a href="#call_public_opts">call_public_opts</a></li>
 <li><a href="#create_contract_account">create_contract_account</a></li>
 <li><a href="#create_light_account">create_light_account</a></li>
+<li><a href="#create_light_account_opts">create_light_account_opts</a></li>
 <li><a href="#deploy">deploy</a></li>
 <li><a href="#deploy_opts">deploy_opts</a></li>
 <li><a href="#discover_note">discover_note</a></li>
@@ -61,6 +62,7 @@
 <h3>Structs</h3><ul class="item-list">
 <li><a href="struct.CallPrivateOptions.html">CallPrivateOptions</a></div></li>
 <li><a href="struct.CallPublicOptions.html">CallPublicOptions</a></div></li>
+<li><a href="struct.CreateAccountOptions.html">CreateAccountOptions</a></div></li>
 <li><a href="struct.DeployOptions.html">DeployOptions</a></div></li>
 <li><a href="struct.ExecuteUtilityOptions.html">ExecuteUtilityOptions</a></div></li>
 <li><a href="struct.PrivateContextOptions.html">PrivateContextOptions</a></div></li>
@@ -326,6 +328,20 @@ contracts that rely on private authwits, use <code>create_contract_account</code
 <p>Each call to <code>create_light_account</code> will return a different address, and so it can be called repeatedly to
 generate multiple addresses. These addresses are also different from the ones that <code>create_contract_account</code>
 returns, and so these two functions can be mixed and match to create a set of unique accounts.</p>
+<p>See <a href="../../../../noir_aztec/test/helpers/test_environment/struct.TestEnvironment.html#create_light_account_opts"><code>create_light_account_opts</code></a> for a variant that allows
+controlling the account's secret and partial address, e.g. to create accounts that share keys but have
+different addresses.</p></div>
+</div><code id="create_light_account_opts" class="code-header">pub unconstrained fn <a href="#create_light_account_opts"><span class="fn">create_light_account_opts</span></a>(
+    &mut self,
+    opts: <a href="../../../../noir_aztec/test/helpers/test_environment/struct.CreateAccountOptions.html" class="struct">CreateAccountOptions</a>,
+) -> <a href="../../../../protocol_types/address/aztec_address/struct.AztecAddress.html" class="struct">AztecAddress</a></code>
+
+<div class="padded-description"><div class="comments">
+<p>Variant of <code>create_light_account</code> which allows specifying configuration values via <code>CreateAccountOptions</code>, such
+as a custom secret or partial address. If not specified, the secret and partial address default to values from
+internal counters.</p>
+<p>Setting the same secret with different partial addresses produces accounts that share master keys but have
+distinct addresses.</p>
 </div>
 </div><code id="deploy" class="code-header">pub unconstrained fn <a href="#deploy"><span class="fn">deploy</span></a>&lt;let N: <a href="../../../../std/primitive.u32.html" class="primitive">u32</a>&gt;(
     &mut self,

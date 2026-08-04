@@ -40,7 +40,6 @@ export class FeeJuicePaymentMethodWithClaim implements FeePaymentMethod {
             this.claim.claimSecret,
             new Fr(this.claim.messageLeafIndex),
           ],
-          returnTypes: [],
         }),
       ],
       [],

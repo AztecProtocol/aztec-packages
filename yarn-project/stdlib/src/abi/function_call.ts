@@ -5,7 +5,7 @@ import { z } from 'zod';
 
 import { AztecAddress } from '../aztec-address/index.js';
 import { schemas } from '../schemas/index.js';
-import { type AbiType, AbiTypeSchema, FunctionType } from './abi.js';
+import { type AbiType, AbiTypeSchema, FunctionType, getFunctionReturnType } from './abi.js';
 import { FunctionSelector } from './function_selector.js';
 
 /** A request to call a function on a contract. */
@@ -25,8 +25,8 @@ export class FunctionCall {
     public isStatic: boolean,
     /** The encoded args */
     public args: Fr[],
-    /** The return type for decoding */
-    public returnTypes: AbiType[],
+    /** The type the call returns, for decoding, or undefined if it returns nothing */
+    public returnType?: AbiType,
   ) {}
 
   static getFields(fields: FieldsOf<FunctionCall>) {
@@ -38,7 +38,7 @@ export class FunctionCall {
       fields.hideMsgSender,
       fields.isStatic,
       fields.args,
-      fields.returnTypes,
+      fields.returnType,
     ] as const;
   }
 
@@ -56,9 +56,22 @@ export class FunctionCall {
         isStatic: z.boolean(),
         hideMsgSender: z.boolean(),
         args: z.array(schemas.Fr),
-        returnTypes: z.array(AbiTypeSchema),
+        returnType: AbiTypeSchema.optional(),
+        // Old consumers send `returnTypes`, not `returnType`. So we accept both for now, until we can safely remove
+        // the old version.
+        returnTypes: z.array(AbiTypeSchema).optional(),
       })
-      .transform(FunctionCall.from);
+      .transform(({ returnType, returnTypes, ...fields }) =>
+        FunctionCall.from({ ...fields, returnType: getFunctionReturnType({ returnType, returnTypes }) }),
+      );
+  }
+
+  /**
+   * Serializes the deprecated `returnTypes` alongside `returnType`, so that peers that still require the old field can
+   * parse calls sent by this version.
+   */
+  public toJSON() {
+    return { ...this, returnTypes: this.returnType ? [this.returnType] : [] };
   }
 
   public isPublicStatic(): boolean {
@@ -78,7 +91,6 @@ export class FunctionCall {
       hideMsgSender: false,
       isStatic: false,
       args: [],
-      returnTypes: [],
     });
   }
 }
