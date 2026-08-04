@@ -161,6 +161,7 @@ function generate_vk {
   # Remove temporary json file
   rm $key_path
 }
+
 function check_pinned_vk {
   set -euo pipefail
   local name=$1
@@ -335,6 +336,14 @@ case "$cmd" in
   "clean-keys")
     rm -rf $key_dir
     ;;
+  "hash")
+    # While $circuits_hash is meant for tests, this extended hash
+    # more accuratelly captures the identity of the protocol circuits.
+    hash_str $circuits_hash $(cache_content_hash \
+      "^noir-projects/fnd/noir-protocol-circuits/" \
+      "^noir-projects/fnd/chonk_circuits.json" \
+      "^noir-projects/fnd/rollup_honk_circuits.json")
+  ;;
   "")
     build
     ;;

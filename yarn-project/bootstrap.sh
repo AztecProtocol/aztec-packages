@@ -2,11 +2,18 @@
 source $(git rev-parse --show-toplevel)/ci3/source_bootstrap
 
 function hash {
+  # Pinned dependencies are hashed via yarn.lock.
+  # NOTE: This does NOT work for portals.
+  # TODO(monorepo-split): Once fnd dependencies are pinned, they should be removed from here. Including l1-contracts!
   hash_str \
-    $(../noir/bootstrap.sh hash) \
     $(../barretenberg/bootstrap.sh hash) \
     $(../ipc-codegen/bootstrap.sh hash) \
-    $(cache_content_hash ../{avm-transpiler,noir-projects,l1-contracts,yarn-project}/.rebuild_patterns)
+    $(../labs-aztec-toolchain/bootstrap.sh hash) \
+    $(../noir-projects/labs/noir-contracts/bootstrap.sh hash) \
+    $(../noir-projects/labs/aztec-nr/bootstrap.sh hash) \
+    $(../noir-projects/fnd/noir-protocol-circuits/bootstrap.sh hash) \
+    $(cache_content_hash "^noir-projects/fnd/mock-protocol-circuits/" "^noir-projects/fnd/noir-contracts/") \
+    $(cache_content_hash ../{l1-contracts,yarn-project}/.rebuild_patterns)
 }
 
 function compile_project {
