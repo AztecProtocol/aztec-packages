@@ -119,33 +119,15 @@ function compile {
   if ! cache_download contract-$contract_hash.tar.gz; then
     # Aztec private app circuits intentionally defer validation of some oracle outputs (including
     # note-read requests) to the private kernels. Noir's local underconstrained and Brillig coverage
-    # checks cannot see those downstream constraints.
-    #
-    # beta.25 also recognizes constant fields in the fixed PrivateCircuitPublicInputs ABI and
-    # reports them as ReturnConstant warnings. Those fields cannot be removed from the protocol ABI,
-    # so allow that one diagnostic while continuing to reject every other compiler warning or bug.
-    local diagnostics_file=$(mktemp)
-    if ! $NARGO compile \
+    # checks cannot see those downstream constraints. Every other diagnostic is an error:
+    # the fixed PrivateCircuitPublicInputs ABI carries constant fields, and the entrypoint the
+    # aztec-nr macro generates silences that one lint with #[allow(constant_return)].
+    $NARGO compile \
       --package $contract \
       --inliner-aggressiveness 0 \
       --skip-underconstrained-check \
       --skip-brillig-constraints-check \
-      2>"$diagnostics_file"; then
-      cat "$diagnostics_file" >&2
-      rm "$diagnostics_file"
-      return 1
-    fi
-    cat "$diagnostics_file" >&2
-
-    local unexpected_diagnostics
-    unexpected_diagnostics=$(grep -E '^(warning|bug):' "$diagnostics_file" \
-      | grep -Fvx 'warning: Return variable contains a constant value' || true)
-    rm "$diagnostics_file"
-    if [ -n "$unexpected_diagnostics" ]; then
-      echo_stderr "Unexpected Noir compiler diagnostics:"
-      echo_stderr "$unexpected_diagnostics"
-      return 1
-    fi
+      --deny-warnings
     $BB aztec_process -i $json_path
     cache_upload contract-$contract_hash.tar.gz $json_path
   fi

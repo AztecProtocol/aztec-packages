@@ -4,7 +4,7 @@ import type { GrumpkinScalar, Point } from '@aztec/foundation/curves/grumpkin';
 import { type Logger, type LoggerBindings, createLogger } from '@aztec/foundation/log';
 import type { KeyStore } from '@aztec/key-store';
 import { AztecAddress } from '@aztec/stdlib/aztec-address';
-import type { BlockHash, L2TipsProvider } from '@aztec/stdlib/block';
+import type { L2TipsProvider } from '@aztec/stdlib/block';
 import type { CompleteAddress } from '@aztec/stdlib/contract';
 import type { AztecNode } from '@aztec/stdlib/interfaces/server';
 import {
@@ -27,8 +27,10 @@ import { assertAllowedScope } from '../storage/allowed_scopes.js';
 import type { RecipientTaggingStore } from '../storage/tagging_store/recipient_tagging_store.js';
 import type { TaggingSecretSourcesStore } from '../storage/tagging_store/tagging_secret_sources_store.js';
 import {
+  type LogQueryAnchor,
   getAllPrivateLogsByTags,
   getAllPublicLogsByTagsFromContract,
+  logQueryAnchorOf,
   syncTaggedPrivateLogs,
 } from '../tagging/index.js';
 
@@ -69,11 +71,11 @@ export class LogService {
       return [];
     }
 
-    const anchorBlockHash = await this.anchorBlockHeader.hash();
+    const anchor = await logQueryAnchorOf(this.anchorBlockHeader);
 
     const [publicLogsPerRequest, privateLogsPerRequest] = await Promise.all([
-      this.#fetchPublicLogs(contractAddress, logRetrievalRequests, anchorBlockHash),
-      this.#fetchPrivateLogs(logRetrievalRequests, anchorBlockHash),
+      this.#fetchPublicLogs(contractAddress, logRetrievalRequests, anchor),
+      this.#fetchPrivateLogs(logRetrievalRequests, anchor),
     ]);
 
     return logRetrievalRequests.map((_request, i) => [
@@ -85,7 +87,7 @@ export class LogService {
   async #fetchPublicLogs(
     contractAddress: AztecAddress,
     requests: LogRetrievalRequest[],
-    anchorBlockHash: BlockHash,
+    anchor: LogQueryAnchor,
   ): Promise<LogResult[][]> {
     const indices = requests.flatMap((r, i) => (r.source !== LogSource.PRIVATE ? [i] : []));
     if (indices.length === 0) {
@@ -98,13 +100,11 @@ export class LogService {
     await Promise.all(
       Array.from(groups.values()).map(async group => {
         const tags = group.entries.map(e => e.request.tag);
-        const results = await getAllPublicLogsByTagsFromContract(
-          this.aztecNode,
-          contractAddress,
-          tags,
-          anchorBlockHash,
-          { fromBlock: group.fromBlock, toBlock: group.toBlock, includeEffects: true },
-        );
+        const results = await getAllPublicLogsByTagsFromContract(this.aztecNode, contractAddress, tags, anchor, {
+          fromBlock: group.fromBlock,
+          toBlock: group.toBlock,
+          includeEffects: true,
+        });
         group.entries.forEach((entry, i) => {
           resultsPerRequest[entry.index] = results[i];
         });
@@ -114,7 +114,7 @@ export class LogService {
     return resultsPerRequest;
   }
 
-  async #fetchPrivateLogs(requests: LogRetrievalRequest[], anchorBlockHash: BlockHash): Promise<LogResult[][]> {
+  async #fetchPrivateLogs(requests: LogRetrievalRequest[], anchor: LogQueryAnchor): Promise<LogResult[][]> {
     const indices = requests.flatMap((r, i) => (r.source !== LogSource.PUBLIC ? [i] : []));
     if (indices.length === 0) {
       return requests.map(() => []);
@@ -128,7 +128,7 @@ export class LogService {
         const siloedTags = await Promise.all(
           group.entries.map(e => SiloedTag.computeFromTagAndApp(e.request.tag, e.request.contractAddress)),
         );
-        const results = await getAllPrivateLogsByTags(this.aztecNode, siloedTags, anchorBlockHash, {
+        const results = await getAllPrivateLogsByTags(this.aztecNode, siloedTags, anchor, {
           fromBlock: group.fromBlock,
           toBlock: group.toBlock,
           includeEffects: true,

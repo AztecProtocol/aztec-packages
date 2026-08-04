@@ -1,0 +1,135 @@
+#!/usr/bin/env bash
+set -euo pipefail
+# Self-contained test for ci3/upload_benchmarks against a local fixture data repo. Run directly.
+SCRIPT="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/upload_benchmarks"
+WORK=$(mktemp -d)
+trap 'rm -rf "$WORK"' EXIT
+cd "$WORK"
+
+fail() { echo "FAIL: $1" >&2; exit 1; }
+pass() { echo "PASS: $1"; }
+
+# --- Build fixture: bare repo with 8 months of weekly commits ---
+git init -q --bare origin.git -b gh-pages
+git -C origin.git config uploadpack.allowFilter true
+git -C origin.git config uploadpack.allowAnySHA1InWant true
+
+git clone -q origin.git seed 2>/dev/null
+cd seed
+git checkout -q -b gh-pages
+mkdir -p bench/next bench/stale bench/data-top
+echo "<html>dashboard</html>" > bench/next/index.html
+echo "<html>dashboard</html>" > bench/stale/index.html
+echo "top-level" > bench/index.html
+
+datapoint() { # sha value
+  echo "{\"commit\":{\"id\":\"$1\"},\"date\":0,\"tool\":\"customSmallerIsBetter\",\"benches\":[{\"name\":\"t\",\"value\":$2,\"unit\":\"ms\"}]}"
+}
+
+commit_at() { # date msg
+  GIT_AUTHOR_DATE="$1" GIT_COMMITTER_DATE="$1" git -c user.name=fixture -c user.email=f@x commit -qam "$2"
+}
+
+# 41 weekly commits, from 40 weeks ago (~9 months) to now. bench/stale stops being updated at
+# week -28, exercising append behavior alongside untouched sibling dirs.
+for i in $(seq 40 -1 0); do
+  when=$(date -d "-$i weeks" --iso-8601=seconds)
+  echo "window.BENCHMARK_DATA = $(jq -n --argjson e "$(datapoint c$i $i)" '{lastUpdate:0,repoUrl:"r",entries:{"Aztec Benchmarks":[$e]}}')" > bench/next/data.js
+  if [ "$i" -ge 28 ]; then
+    cp bench/next/data.js bench/stale/data.js
+  fi
+  git add -A
+  commit_at "$when" "bench update week -$i"
+done
+git push -q origin gh-pages
+cd "$WORK"
+total_commits=$(git -C origin.git rev-list --count gh-pages)
+[ "$total_commits" -eq 41 ] || fail "fixture should have 41 commits, has $total_commits"
+
+# bench.json input
+echo '[{"name":"proof_time","value":123.4,"unit":"ms"},{"name":"mem","value":9,"unit":"MB"}]' > bench.json
+
+run_script() {
+  BENCH_REPO_URL="file://$WORK/origin.git" GITHUB_TOKEN= SOURCE_REPO_URL=https://github.com/AztecProtocol/aztec-packages \
+    "$SCRIPT" "$@"
+}
+
+check_tip() { # path -> stdout data.js json
+  git -C origin.git show "gh-pages:$1" | sed '1s/^window\.BENCHMARK_DATA *= *//'
+}
+
+# --- Test 1: plain append ---
+run_script "Aztec Benchmarks" bench/next bench.json deadbeef1 > /dev/null
+n=$(check_tip bench/next/data.js | jq '.entries["Aztec Benchmarks"] | length')
+[ "$n" -eq 2 ] || fail "test1: expected 2 entries, got $n"
+last=$(check_tip bench/next/data.js | jq -r '.entries["Aztec Benchmarks"][-1].commit.id')
+[ "$last" = "deadbeef1" ] || fail "test1: last entry commit id: $last"
+benchname=$(check_tip bench/next/data.js | jq -r '.entries["Aztec Benchmarks"][-1].benches[0].name')
+[ "$benchname" = "proof_time" ] || fail "test1: bench name: $benchname"
+git -C origin.git show gh-pages:bench/stale/data.js > /dev/null || fail "test1: stale dir should be untouched"
+[ "$(git -C origin.git rev-list --count gh-pages)" -eq 42 ] || fail "test1: expected 42 commits"
+pass "test1: append"
+
+# --- Test 2: append to a brand-new data dir creates data.js + index.html ---
+run_script "Spartan" bench/pr-1234 bench.json cafef00d > /dev/null
+n=$(check_tip bench/pr-1234/data.js | jq '.entries["Spartan"] | length')
+[ "$n" -eq 1 ] || fail "test2: new dir entry count: $n"
+git -C origin.git show gh-pages:bench/pr-1234/index.html > /dev/null || fail "test2: index.html not created"
+pass "test2: new data dir initialized"
+
+# --- Test 3: MAX_ITEMS trims the series ---
+for i in 1 2 3; do
+  MAX_ITEMS=3 BENCH_REPO_URL="file://$WORK/origin.git" GITHUB_TOKEN= "$SCRIPT" "Spartan" bench/pr-1234 bench.json trim$i > /dev/null
+done
+n=$(check_tip bench/pr-1234/data.js | jq '.entries["Spartan"] | length')
+[ "$n" -eq 3 ] || fail "test3: expected 3 entries after trim, got $n"
+first=$(check_tip bench/pr-1234/data.js | jq -r '.entries["Spartan"][0].commit.id')
+[ "$first" = "trim1" ] || fail "test3: oldest kept entry: $first"
+pass "test3: MAX_ITEMS trim"
+
+# --- Test 4: entry larger than the 128KB per-argv-element limit still uploads ---
+# (regression: --argjson "$(cat entry.json)" died with "Argument list too long" in CI)
+jq -n '[range(3000) | {name: ("bench_\(.)_" + ("x" * 60)), value: ., unit: "ms"}]' > big_bench.json
+[ "$(wc -c < big_bench.json)" -gt 131072 ] || fail "test4: fixture not big enough"
+run_script "Aztec Benchmarks" bench/next big_bench.json bigentry1 > /dev/null || fail "test4: upload failed"
+n=$(check_tip bench/next/data.js | jq '.entries["Aztec Benchmarks"][-1].benches | length')
+[ "$n" -eq 3000 ] || fail "test4: expected 3000 benches in entry, got $n"
+pass "test4: >128KB entry uploads intact"
+
+# --- Test 5: unreachable data repo fails loudly, pushes nothing ---
+# (regression: a mid-append jq failure was swallowed by the if-suppressed errexit and a
+# truncated data.js was committed and pushed as a "success")
+if RETRY_SLEEP=0 BENCH_REPO_URL="file://$WORK/nonexistent.git" GITHUB_TOKEN= \
+    "$SCRIPT" "Aztec Benchmarks" bench/next bench.json deadbeef9 > /dev/null 2>&1; then
+  fail "test5: expected nonzero exit for unreachable repo"
+fi
+pass "test5: failure is loud"
+
+# --- Test 6: oversized commit-API response cannot reach argv ---
+# (regression: files[].patch and commit.verification.payload pushed the response past the
+# 128KB per-argv-element cap; execve of jq failed with E2BIG and the upload died)
+mkdir -p fakebin
+head -c 200000 /dev/zero | tr '\0' 'p' > big.txt
+jq -n --rawfile big big.txt '{
+  commit: {
+    author: {name: "Big Author", date: "2026-08-01T00:00:00Z"},
+    committer: {name: "Big Committer"},
+    message: "feat: giant merge\n\nbody line",
+    verification: {payload: $big}
+  },
+  author: {login: "biguser"},
+  committer: {login: "bigcommitter"},
+  html_url: "https://github.com/AztecProtocol/aztec-packages/commit/feedbead",
+  files: [{patch: $big}]
+}' > api_response.json
+[ "$(wc -c < api_response.json)" -gt 300000 ] || fail "test6: fixture response not big enough"
+printf '#!/usr/bin/env bash\ncat "%s/api_response.json"\n' "$WORK" > fakebin/curl
+chmod +x fakebin/curl
+PATH="$WORK/fakebin:$PATH" run_script "Aztec Benchmarks" bench/next bench.json feedbead > /dev/null || fail "test6: upload failed"
+author=$(check_tip bench/next/data.js | jq -r '.entries["Aztec Benchmarks"][-1].commit.author.name')
+[ "$author" = "Big Author" ] || fail "test6: API metadata not used (author: $author)"
+msg=$(check_tip bench/next/data.js | jq -r '.entries["Aztec Benchmarks"][-1].commit.message')
+[ "$msg" = "feat: giant merge" ] || fail "test6: message not trimmed to first line (got: $msg)"
+pass "test6: oversized commit-API response handled"
+
+echo "ALL TESTS PASSED"

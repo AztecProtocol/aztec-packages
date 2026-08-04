@@ -8,6 +8,7 @@ import {
   type FunctionAbi,
   FunctionType,
   getAllFunctionAbis,
+  getFunctionReturnType,
   loadContractArtifact,
 } from '@aztec/stdlib/abi';
 import type { NoirCompiledContract } from '@aztec/stdlib/noir';
@@ -43,7 +44,7 @@ function generateFunctionAbiJson(abi: FunctionAbi): string {
     isStatic: abi.isStatic,
     isInitializer: abi.isInitializer,
     parameters: abi.parameters,
-    returnTypes: abi.returnTypes,
+    returnType: getFunctionReturnType(abi),
     errorTypes: abi.errorTypes,
   };
   const jsonStr = JSON.stringify(baseObj);

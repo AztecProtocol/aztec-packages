@@ -188,7 +188,6 @@ describe('WalletSchema', () => {
       hideMsgSender: false,
       isStatic: false,
       args: [Fr.random()],
-      returnTypes: [],
     });
     const result = await context.client.executeUtility(call, {
       scopes: [await AztecAddress.random()],
@@ -320,7 +319,6 @@ describe('WalletSchema', () => {
       hideMsgSender: false,
       isStatic: false,
       args: [Fr.random()],
-      returnTypes: [],
     });
 
     const mockInstance: ContractInstancePreimageWithAddress = {

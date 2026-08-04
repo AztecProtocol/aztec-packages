@@ -1,12 +1,17 @@
 use crate::protocol::{
     address::aztec_address::AztecAddress,
-    constants::{DOM_SEP__APP_SILOED_ECDH_SHARED_SECRET, DOM_SEP__ECDH_FIELD_MASK, DOM_SEP__ECDH_SUBKEY},
+    constants::DOM_SEP__APP_SILOED_ECDH_SHARED_SECRET,
     hash::poseidon2_hash_with_separator,
     point::EmbeddedCurvePoint,
     scalar::Scalar,
     traits::{FromField, ToField},
 };
 use std::{embedded_curve_ops::multi_scalar_mul, ops::Neg};
+
+/// Domain separator for deriving ECDH sub-secrets from an app-siloed shared secret.
+pub(crate) global DOM_SEP__ECDH_SUBKEY: u32 = 4277646631;
+/// Domain separator for deriving field masks from an app-siloed shared secret.
+pub(crate) global DOM_SEP__ECDH_FIELD_MASK: u32 = 190532684;
 
 /// Computes a standard ECDH shared secret: secret * public_key = shared_secret.
 ///

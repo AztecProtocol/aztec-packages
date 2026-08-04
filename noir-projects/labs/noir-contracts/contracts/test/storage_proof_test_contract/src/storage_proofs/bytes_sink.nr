@@ -72,7 +72,7 @@ impl BytesSink for KeccakHasher {
         KeccakHasher::add_byte(self, byte);
     }
 
-    fn add_u64(&mut self, mut value: u64) {
+    fn add_u64(&mut self, value: u64) {
         KeccakHasher::add_u64(self, value);
     }
 }

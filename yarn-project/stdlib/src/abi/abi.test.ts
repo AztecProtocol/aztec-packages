@@ -1,8 +1,10 @@
 import {
+  type AbiType,
   type ContractArtifact,
   type FunctionArtifact,
   FunctionType,
   getDefaultInitializer,
+  getFunctionReturnType,
   getInitializer,
 } from './abi.js';
 
@@ -115,6 +117,37 @@ describe('abi', () => {
       const contract = {} as ContractArtifact;
       const artifact = { name: 'foo', isInitializer: false } as FunctionArtifact;
       expect(() => getInitializer(contract, artifact)).toThrow();
+    });
+  });
+
+  describe('getFunctionReturnType', () => {
+    const boolean: AbiType = { kind: 'boolean' };
+    const field: AbiType = { kind: 'field' };
+
+    it('returns the type a function returns', () => {
+      expect(getFunctionReturnType({ returnType: boolean })).toEqual(boolean);
+    });
+
+    it('returns undefined when the function returns nothing', () => {
+      expect(getFunctionReturnType({})).toBeUndefined();
+    });
+
+    it('falls back to the deprecated list when only it is present', () => {
+      expect(getFunctionReturnType({ returnTypes: [boolean] })).toEqual(boolean);
+    });
+
+    it('reads an empty deprecated list as returning nothing', () => {
+      expect(getFunctionReturnType({ returnTypes: [] })).toBeUndefined();
+    });
+
+    it('prefers the singular type when both are present', () => {
+      expect(getFunctionReturnType({ returnType: boolean, returnTypes: [field] })).toEqual(boolean);
+    });
+
+    it('rejects a deprecated list holding more than one type', () => {
+      expect(() => getFunctionReturnType({ returnTypes: [boolean, field] })).toThrow(
+        'Expected at most one return type',
+      );
     });
   });
 });

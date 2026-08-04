@@ -13,6 +13,7 @@ SUCCESS="✓"
 ERROR="✗"
 
 BB_PATH=${BB_PATH:-"$HOME/.bb"}
+MODIFY_PATH=true
 
 # Utility functions
 print_spinner() {
@@ -132,7 +133,9 @@ install_bb() {
     rm -rf "$temp_dir"
 
     # Update shell configuration
-    update_shell_config "$BB_PATH"
+    if [ "$MODIFY_PATH" = true ]; then
+        update_shell_config "$BB_PATH"
+    fi
 
     printf "${GREEN}${SUCCESS} Installed barretenberg to ${BB_PATH}${NC}\n"
 }
@@ -140,18 +143,19 @@ install_bb() {
 update_shell_config() {
     local bb_bin_path=$1
     local path_entry="export PATH=\"${bb_bin_path}:\$PATH\""
+    local fish_path_entry="set -gx PATH ${bb_bin_path} \$PATH"
 
-    # Update various shell configs if they exist
-    if [ -f "${HOME}/.bashrc" ]; then
+    # Update various shell configs if they exist and don't already have the entry
+    if [ -f "${HOME}/.bashrc" ] && ! grep -qxF "$path_entry" "${HOME}/.bashrc"; then
         echo "$path_entry" >> "${HOME}/.bashrc"
     fi
 
-    if [ -f "${HOME}/.zshrc" ]; then
+    if [ -f "${HOME}/.zshrc" ] && ! grep -qxF "$path_entry" "${HOME}/.zshrc"; then
         echo "$path_entry" >> "${HOME}/.zshrc"
     fi
 
-    if [ -f "${HOME}/.config/fish/config.fish" ]; then
-        echo "set -gx PATH ${bb_bin_path} \$PATH" >> "${HOME}/.config/fish/config.fish"
+    if [ -f "${HOME}/.config/fish/config.fish" ] && ! grep -qxF "$fish_path_entry" "${HOME}/.config/fish/config.fish"; then
+        echo "$fish_path_entry" >> "${HOME}/.config/fish/config.fish"
     fi
 
     # Update current session's PATH
@@ -173,6 +177,10 @@ main() {
             -nv|--noir-version)
                 noir_version="$2"
                 shift 2
+                ;;
+            --no-modify-path)
+                MODIFY_PATH=false
+                shift
                 ;;
             *)
                 printf "${RED}${ERROR} Unknown option: $1${NC}\n"

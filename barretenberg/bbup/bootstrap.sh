@@ -7,10 +7,12 @@ export hash=$(cache_content_hash .rebuild_patterns)
 # Paths are relative to repo root.
 # We append the hash as a comment. This ensures the test harness and cache and skip future runs.
 function test_cmds {
+  # 0.72.1 covers the pre-0.77.0 artifact naming, which was only published for amd64 linux.
   if [ $(arch) == "amd64" ]; then
-    echo -e "$hash barretenberg/bbup/run_test.sh 0.72.1"
+    echo -e "$hash barretenberg/bbup/run_test.sh install 0.72.1"
   fi
-  echo -e "$hash barretenberg/bbup/run_test.sh 0.77.1"
+  echo -e "$hash barretenberg/bbup/run_test.sh install 0.77.1"
+  echo -e "$hash barretenberg/bbup/run_test.sh shell_config 0.77.1"
 }
 
 # This is not called in ci. It is just for a developer to run the tests.

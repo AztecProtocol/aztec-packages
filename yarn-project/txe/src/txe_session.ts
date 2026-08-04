@@ -780,10 +780,7 @@ export class TXESession implements TXESessionStateHandler {
       scopes: await this.keyStore.getAccounts(),
       txResolver: this.stateMachine.txResolver,
       simulator: new WASMSimulator(),
-      hooks: composeHooks({
-        resolveTaggingSecretStrategy: makeResolveTaggingSecretStrategyHook(this.taggingSecretStrategies),
-        authorizeUtilityCall: this.authorizeAllUtilityCallTargets ? authorizeAllUtilityCallsHook : undefined,
-      }),
+      hooks: this.buildExecutionHooks(),
       transientArrayService,
     });
 
@@ -883,9 +880,7 @@ export class TXESession implements TXESessionStateHandler {
       scopes: await this.keyStore.getAccounts(),
       simulator: new WASMSimulator(),
       utilityExecutor: this.utilityExecutorForContractSync(anchorBlockHeader),
-      hooks: composeHooks({
-        authorizeUtilityCall: this.authorizeAllUtilityCallTargets ? authorizeAllUtilityCallsHook : undefined,
-      }),
+      hooks: this.buildExecutionHooks(),
       // Execution-tree root (top-level utility run): own store; nested frames inherit it.
       transientArrayService: new TransientArrayService(),
     });
@@ -1013,6 +1008,7 @@ export class TXESession implements TXESessionStateHandler {
           scopes,
           simulator,
           utilityExecutor: this.utilityExecutorForContractSync(anchorBlock),
+          hooks: this.buildExecutionHooks(),
           // Top-level utility entrypoint: gets a fresh store. Nested frames inherit it via UtilityExecutionOracle.
           transientArrayService: new TransientArrayService(),
         });
@@ -1034,5 +1030,13 @@ export class TXESession implements TXESessionStateHandler {
         throw createSimulationError(err instanceof Error ? err : new Error('Unknown error contract data sync'));
       }
     };
+  }
+
+  /** Execution hooks for the oracles this session builds. Every oracle construction site must use this. */
+  private buildExecutionHooks() {
+    return composeHooks({
+      resolveTaggingSecretStrategy: makeResolveTaggingSecretStrategyHook(this.taggingSecretStrategies),
+      authorizeUtilityCall: this.authorizeAllUtilityCallTargets ? authorizeAllUtilityCallsHook : undefined,
+    });
   }
 }

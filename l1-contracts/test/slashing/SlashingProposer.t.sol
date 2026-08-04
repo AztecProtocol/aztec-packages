@@ -52,7 +52,7 @@ contract SlashingProposerTest is TestBase {
   uint256[] internal validatorKeys;
   address[] internal validators;
 
-  event VoteCast(SlashRound indexed round, address indexed proposer);
+  event VoteCast(SlashRound indexed round, Slot indexed slot, address indexed proposer, uint256 voteIndex);
   event SlashRoundExecuted(SlashRound indexed round, uint256 slashCount);
 
   function setUp() public {
@@ -291,6 +291,25 @@ contract SlashingProposerTest is TestBase {
 
     // Second vote in same slot should fail
     _castVote(Errors.SlashingProposer__VoteAlreadyCastInCurrentSlot.selector);
+  }
+
+  function test_voteEmitsVoteIndex() public {
+    _jumpToSlashRound(FIRST_SLASH_ROUND);
+
+    for (uint256 expectedVoteIndex = 0; expectedVoteIndex < 2; expectedVoteIndex++) {
+      Slot slot = rollup.getCurrentSlot();
+      address proposer = rollup.getCurrentProposer();
+      bytes memory voteData = _createVoteData(new uint8[](COMMITTEE_SIZE * ROUND_SIZE_IN_EPOCHS));
+      Signature memory sig = _createSignature(_getProposerKey(), slot, voteData);
+
+      vm.expectEmit(true, true, true, true, address(slashingProposer));
+      emit VoteCast(SlashRound.wrap(FIRST_SLASH_ROUND), slot, proposer, expectedVoteIndex);
+
+      vm.prank(proposer);
+      slashingProposer.vote(voteData, sig);
+
+      timeCheater.cheat__progressSlot();
+    }
   }
 
   function test_voteAccumulatesAcrossSlots() public {
