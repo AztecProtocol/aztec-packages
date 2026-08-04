@@ -191,17 +191,19 @@ function validate-webapp-tutorial {
         }
       }
 
-      // Also pick up @aztec packages that the monorepo declares as local portals
-      // in yarn-project's root resolutions but that live outside the scanned dirs
-      // above (e.g. the generated native service packages @aztec/wsdb and
-      // @aztec/bb-avm-sim, and @aztec/ipc-runtime). These are workspace-local
-      // and unpublished, so the closure walk must link them rather than fall back
-      // to an npm lookup that 404s.
+      // yarn-project pins the @aztec packages built outside it (e.g. @aztec/bb.js,
+      // @aztec/ipc-runtime, @aztec/wsdb, @aztec/noir-*) to published npm versions via
+      // its root resolutions. Workspace manifests declare those with placeholder
+      // versions that only the resolutions rewrite, so mirror the pins here: consume
+      // them from npm at the pinned version, never link them. Path-based entries
+      // (portal:/file:) still resolve to local dirs for the closure walk.
       const rootManifest = JSON.parse(fs.readFileSync(path.join(yp, 'package.json'), 'utf8'));
+      const npmPins = new Map();
       for (const [name, ver] of Object.entries(rootManifest.resolutions || {})) {
         if (!name.startsWith('@aztec/')) continue;
         const m = /^(portal:|file:)(.*)$/.exec(String(ver));
         if (m) addPackageDir(path.resolve(yp, m[2]));
+        else npmPins.set(name, String(ver));
       }
 
       function setLinkedDependency(name, dir) {
@@ -247,8 +249,12 @@ function validate-webapp-tutorial {
       for (const section of ['dependencies', 'devDependencies']) {
         for (const [name, ver] of Object.entries(pkg[section] || {})) {
           if (ver === '#include_aztec_version' && name.startsWith('@aztec/')) {
-            queue.push(name);
-            queued.add(name);
+            if (npmPins.has(name)) {
+              pkg[section][name] = npmPins.get(name);
+            } else {
+              queue.push(name);
+              queued.add(name);
+            }
           }
         }
       }
@@ -264,6 +270,13 @@ function validate-webapp-tutorial {
         const manifest = JSON.parse(fs.readFileSync(path.join(dir, 'package.json'), 'utf8'));
         for (const section of ['dependencies', 'peerDependencies']) {
           for (const [dep, ver] of Object.entries(manifest[section] || {})) {
+            // Pinned packages always come from npm at the pinned version, matching
+            // how yarn-project's own resolutions rewrite them; the declared version
+            // is a placeholder and a local dir (if any) is not what workspaces use.
+            if (npmPins.has(dep)) {
+              if (section === 'dependencies') addNpmDependency(dep, npmPins.get(dep));
+              continue;
+            }
             // Link any @aztec dep we have a local dir for — either resolved by
             // version (workspace:/portal:/file:) or discovered as a local portal
             // in the root resolutions above. Otherwise it's a published npm dep.

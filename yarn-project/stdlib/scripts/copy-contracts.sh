@@ -11,14 +11,10 @@ cp "../../noir-projects/labs/noir-contracts/target/token_contract-Token.json" ./
 # per-function verificationKeyHash and functionSelector).
 # These allow TypeScript to skip expensive hash computations and also serve as cross-validation
 # that the C++ and TypeScript implementations are equivalent.
-bb=$(../../barretenberg/cpp/scripts/find-bb)
+bb=../../labs-aztec-toolchain/bin/bb
 if [ ! -x "$bb" ]; then
   echo "Missing Barretenberg binary: $bb" >&2
-  if [ "$(basename "$bb")" = "bb-avm" ]; then
-    echo "bb-avm is required to post-process contract fixtures." >&2
-    echo "Rebuild Barretenberg with AVM enabled." >&2
-    echo "If using bootstrap, ensure AVM is not set to 0: AVM=1 ./bootstrap.sh build_native" >&2
-  fi
+  echo "Provision the toolchain first: run ./labs-aztec-toolchain/bootstrap.sh from the repo root." >&2
   exit 1
 fi
 for fixture in ./fixtures/Benchmarking.test.json ./fixtures/Test.test.json ./fixtures/Token.test.json; do

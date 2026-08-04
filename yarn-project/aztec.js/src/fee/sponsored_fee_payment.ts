@@ -30,7 +30,6 @@ export class SponsoredFeePaymentMethod implements FeePaymentMethod {
           hideMsgSender: false,
           isStatic: false,
           args: [],
-          returnTypes: [],
         }),
       ],
       [],

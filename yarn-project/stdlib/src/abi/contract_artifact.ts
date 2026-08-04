@@ -168,9 +168,9 @@ function generateFunctionAbi(fn: NoirCompiledContractFunction, contract: NoirCom
     parameters = parameters.slice(1);
   }
 
-  let returnTypes: AbiType[] = [];
+  let returnType: AbiType | undefined;
   if (functionType === FunctionType.UTILITY) {
-    returnTypes = fn.abi.return_type ? [fn.abi.return_type.abi_type] : returnTypes;
+    returnType = fn.abi.return_type?.abi_type;
   } else {
     const pathToFind = `${contract.name}::${fn.name}_abi`;
     const abiStructs: AbiType[] = contract.outputs.structs['functions'];
@@ -182,10 +182,7 @@ function generateFunctionAbi(fn: NoirCompiledContractFunction, contract: NoirCom
         throw new Error('Could not generate contract function artifact');
       }
 
-      const returnTypeField = returnStruct.fields.find(field => field.name === 'return_type');
-      if (returnTypeField) {
-        returnTypes = [returnTypeField.type];
-      }
+      returnType = returnStruct.fields.find(field => field.name === 'return_type')?.type;
     }
   }
 
@@ -196,7 +193,10 @@ function generateFunctionAbi(fn: NoirCompiledContractFunction, contract: NoirCom
     isStatic,
     isInitializer: fn.custom_attributes.includes(AZTEC_INITIALIZER_ATTRIBUTE),
     parameters,
-    returnTypes,
+    returnType,
+    // Old consumers expect `returnTypes` property, not `returnType`. So we write both down for now, until we can
+    // safely remove the old version.
+    returnTypes: returnType ? [returnType] : [],
     errorTypes: fn.abi.error_types,
     ...(fn.assert_messages ? { assertMessages: fn.assert_messages } : undefined),
   };

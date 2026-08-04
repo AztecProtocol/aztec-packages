@@ -1,0 +1,10 @@
+{
+  "name": "@aztec/mock-protocol-circuits-artifacts",
+  "version": "0.1.0",
+  "license": "Apache-2.0",
+  "description": "Compiled Noir mock protocol circuit artifacts, for proving system integration tests.",
+  "exports": {
+    "./package.json": "./package.json",
+    "./artifacts/*": "./artifacts/*"
+  }
+}

@@ -61,7 +61,6 @@ describe('EmbeddedWallet', () => {
         hideMsgSender: false,
         isStatic: false,
         args: [],
-        returnTypes: [],
       });
       const payload = new ExecutionPayload([call], [], []);
 
@@ -94,7 +93,6 @@ describe('EmbeddedWallet', () => {
         hideMsgSender: false,
         isStatic: false,
         args: [],
-        returnTypes: [],
       });
       const payload = new ExecutionPayload([call], [], []);
 

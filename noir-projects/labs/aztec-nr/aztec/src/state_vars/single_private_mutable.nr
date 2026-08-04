@@ -11,10 +11,8 @@ use crate::{
     state_vars::StateVariable,
 };
 
-use crate::protocol::{
-    address::AztecAddress, constants::DOM_SEP__INITIALIZATION_NULLIFIER, hash::poseidon2_hash_with_separator,
-    traits::Packable,
-};
+use crate::macros::functions::initialization_utils::DOM_SEP__INITIALIZATION_NULLIFIER;
+use crate::protocol::{address::AztecAddress, hash::poseidon2_hash_with_separator, traits::Packable};
 
 mod test;
 

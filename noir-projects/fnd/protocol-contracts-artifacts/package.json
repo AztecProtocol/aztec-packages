@@ -1,0 +1,11 @@
+{
+  "name": "@aztec/protocol-contracts-artifacts",
+  "version": "0.1.0",
+  "license": "Apache-2.0",
+  "description": "Compiled Noir artifacts for the protocol contracts.",
+  "exports": {
+    "./package.json": "./package.json",
+    "./artifacts/*": "./artifacts/*",
+    "./protocol_contracts.json": "./protocol_contracts.json"
+  }
+}

@@ -32,17 +32,14 @@ export type AbiDecoded =
  * Decodes values using a provided ABI.
  */
 class AbiDecoder {
-  constructor(
-    private types: AbiType[],
-    private flattened: Fr[],
-  ) {}
+  constructor(private flattened: Fr[]) {}
 
   /**
-   * Decodes a single return value from field to the given type.
-   * @param abiType - The type of the return value.
-   * @returns The decoded return value.
+   * Decodes a single value from field to the given type.
+   * @param abiType - The type of the value.
+   * @returns The decoded value.
    */
-  private decodeNext(abiType: AbiType): AbiDecoded {
+  public decodeNext(abiType: AbiType): AbiDecoded {
     switch (abiType.kind) {
       case 'field':
         return this.getNextField().toBigInt();
@@ -121,26 +118,25 @@ class AbiDecoder {
     }
     return field;
   }
-
-  /**
-   * Decodes all the values for the given ABI.
-   * The decided value can be simple types, structs or arrays
-   * @returns The decoded return values.
-   */
-  public decode(): AbiDecoded {
-    if (this.types.length === 1) {
-      return this.decodeNext(this.types[0]);
-    }
-    return this.types.map(type => this.decodeNext(type));
-  }
 }
 
 /**
- * Decodes values in a flattened Field array using a provided ABI.
- * @param abi - The ABI to use as reference.
+ * Decodes the single value a function returns, or undefined if it returns nothing. Multiple return values are expressed
+ * as one `tuple` type, so they decode through here too.
+ * @param type - The type the function returns.
  * @param buffer - The flattened Field array to decode.
- * @returns
  */
-export function decodeFromAbi(typ: AbiType[], buffer: Fr[]) {
-  return new AbiDecoder(typ, buffer.slice()).decode();
+export function decodeFromAbi(type: AbiType | undefined, buffer: Fr[]): AbiDecoded {
+  return type === undefined ? undefined : new AbiDecoder(buffer.slice()).decodeNext(type);
+}
+
+/**
+ * Decodes one value per given type, consumed from the buffer in order. Always returns one decoded value per type, so
+ * callers can index the result positionally. A function's arguments are encoded this way.
+ * @param types - The type of each value, in order.
+ * @param buffer - The flattened Field array to decode.
+ */
+export function decodeEachFromAbi(types: AbiType[], buffer: Fr[]): AbiDecoded[] {
+  const decoder = new AbiDecoder(buffer.slice());
+  return types.map(type => decoder.decodeNext(type));
 }
