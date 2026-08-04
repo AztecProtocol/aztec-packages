@@ -180,10 +180,43 @@ function compile_all {
 
 export -f compile_project format lint get_projects compile_all hash
 
+# The @aztec/l1-artifacts foundry bundle references solc by version (a portable npm
+# package cannot ship a platform binary), so the runtime forge deploy resolves it through
+# ~/.svm. The e2e containers run without network and inherit ~/.svm from the host's home
+# mount, so warm it at build time. The version is read from the installed bundle, so it
+# cannot drift from what the deploy will request. On the monorepo this is normally a no-op:
+# l1-contracts-solc has already populated ~/.svm by the time yarn-project builds.
+function warm_solc_cache {
+  local foundry_toml=node_modules/@aztec/l1-artifacts/l1-contracts/foundry.toml
+  [ -f "$foundry_toml" ] || return 0
+  local solc_version=$(sed -n 's/^solc_version = "\(.*\)"$/\1/p' "$foundry_toml")
+  # A bundle that ships its own solc binary (solc = "./solc-x.y.z") needs no warming.
+  [ -n "$solc_version" ] || return 0
+  [ -f "$HOME/.svm/$solc_version/solc-$solc_version" ] && return 0
+  echo_stderr "Warming solc $solc_version into ~/.svm for the offline forge deploy path..."
+  # svm-rs only uses ~/.svm if it exists (falling back to XDG dirs otherwise), so make sure
+  # it does: the deploy path inside the containers must find the binary at this exact path.
+  mkdir -p "$HOME/.svm"
+  local tmp=$(mktemp -d)
+  mkdir -p "$tmp/src"
+  printf '[profile.default]\nsolc_version = "%s"\n' "$solc_version" > "$tmp/foundry.toml"
+  printf '// SPDX-License-Identifier: MIT\npragma solidity ^0.8.0;\ncontract Warm {}\n' > "$tmp/src/Warm.sol"
+  # svm fetches from binaries.soliditylang.org, which intermittently fails to resolve under
+  # heavy parallel CI load; retry only on connection/DNS failures so real errors fail fast.
+  RETRY_ATTEMPTS=30 RETRY_SLEEP=10 retry -p 'dns error|Temporary failure in name resolution|error sending request|failed to lookup address|Connection refused|connection reset' \
+    "cd $tmp && forge build"
+  rm -rf "$tmp"
+  if [ ! -f "$HOME/.svm/$solc_version/solc-$solc_version" ]; then
+    echo_stderr "ERROR: forge/svm did not install solc $solc_version into ~/.svm."
+    exit 1
+  fi
+}
+
 function build {
   echo_header "yarn-project build"
   denoise "./bootstrap.sh clean-lite"
   npm_install_deps ../noir
+  denoise "warm_solc_cache"
   denoise "compile_all"
 }
 
