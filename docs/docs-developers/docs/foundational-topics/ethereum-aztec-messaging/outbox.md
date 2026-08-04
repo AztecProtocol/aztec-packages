@@ -13,7 +13,7 @@ The `Outbox` is a contract deployed on L1 that handles message passing from L2 t
 
 Inserts the root of a merkle tree containing all of the L2 to L1 messages in an epoch, after a proof covering the first `_numCheckpointsInEpoch` checkpoints of that epoch lands. This function is only callable by the Rollup contract.
 
-#include_code outbox_insert l1-contracts/src/core/interfaces/messagebridge/IOutbox.sol solidity
+#include_code outbox_insert docs/node_modules/@aztec/l1-artifacts/l1-contracts/src/core/interfaces/messagebridge/IOutbox.sol solidity
 
 | Name                     | Type      | Description                                                                                                  |
 | ------------------------ | --------- | ------------------------------------------------------------------------------------------------------------ |
@@ -29,7 +29,7 @@ Inserts the root of a merkle tree containing all of the L2 to L1 messages in an 
 
 Allows a recipient to consume a message from the `Outbox`.
 
-#include_code outbox_consume l1-contracts/src/core/interfaces/messagebridge/IOutbox.sol solidity
+#include_code outbox_consume docs/node_modules/@aztec/l1-artifacts/l1-contracts/src/core/interfaces/messagebridge/IOutbox.sol solidity
 
 | Name                     | Type        | Description                                                                                          |
 | ------------------------ | ----------- | ---------------------------------------------------------------------------------------------------- |
@@ -55,7 +55,7 @@ Allows a recipient to consume a message from the `Outbox`.
 
 Checks if an L2 to L1 message in a specific epoch has been consumed.
 
-#include_code outbox_has_message_been_consumed_at_epoch_and_index l1-contracts/src/core/interfaces/messagebridge/IOutbox.sol solidity
+#include_code outbox_has_message_been_consumed_at_epoch_and_index docs/node_modules/@aztec/l1-artifacts/l1-contracts/src/core/interfaces/messagebridge/IOutbox.sol solidity
 
 | Name      | Type      | Description                                                  |
 | --------- | --------- | ------------------------------------------------------------ |

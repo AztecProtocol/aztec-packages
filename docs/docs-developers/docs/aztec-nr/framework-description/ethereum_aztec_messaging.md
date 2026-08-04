@@ -3,7 +3,7 @@ title: Ethereum<>Aztec Messaging
 tags: [contracts, portals]
 sidebar_position: 12
 description: Send messages and data between L1 and L2 contracts using portal contracts and cross-chain messaging.
-references: ["l1-contracts/test/portals/TokenPortal.sol", "noir-projects/labs/noir-contracts/contracts/app/token_bridge_contract/src/main.nr"]
+references: ["docs/examples/solidity/example_swap/ExampleTokenPortal.sol", "noir-projects/labs/noir-contracts/contracts/app/token_bridge_contract/src/main.nr"]
 ---
 
 This guide covers cross-chain communication between Ethereum (L1) and Aztec (L2) using portal contracts.
@@ -28,7 +28,7 @@ Use the `Inbox` contract's `sendL2Message` function:
 | `_content`    | `bytes32` | Hash of message content (use `Hash.sha256ToField`)      |
 | `_secretHash` | `bytes32` | Hash of secret for message consumption                  |
 
-#include_code deposit_public l1-contracts/test/portals/TokenPortal.sol solidity
+#include_code deposit_to_aztec_public docs/examples/solidity/example_swap/ExampleTokenPortal.sol solidity
 
 :::note Message availability
 L1 to L2 messages are not available immediately. The proposer batches messages from the Inbox and includes them in the next L2 block. You must wait for this before consuming the message on L2.
@@ -62,7 +62,7 @@ Use the `Outbox` contract to consume L2 messages.
 L2 to L1 messages are only available after the epoch proof is submitted to L1. Since multiple L2 blocks fit within an epoch, there may be a delay—especially if the message was sent near the start of an epoch.
 :::
 
-#include_code token_portal_withdraw l1-contracts/test/portals/TokenPortal.sol solidity
+#include_code withdraw docs/examples/solidity/example_swap/ExampleTokenPortal.sol solidity
 
 :::info Getting the membership witness
 
@@ -91,7 +91,7 @@ const witness = await aztecNode.getL2ToL1MembershipWitness(
 
 ## Example implementations
 
-- [Token Portal (L1)](https://github.com/AztecProtocol/aztec-packages/blob/#include_aztec_version/l1-contracts/test/portals/TokenPortal.sol)
+- [Token Portal (L1)](https://github.com/AztecProtocol/aztec-packages/blob/#include_aztec_version/docs/examples/solidity/example_swap/ExampleTokenPortal.sol)
 - [Token Bridge (L2)](https://github.com/AztecProtocol/aztec-packages/blob/#include_aztec_version/noir-projects/labs/noir-contracts/contracts/app/token_bridge_contract/src/main.nr)
 
 ## Next steps
