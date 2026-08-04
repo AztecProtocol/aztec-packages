@@ -912,6 +912,16 @@ export class RPCTranslator {
     });
   }
 
+  // eslint-disable-next-line camelcase
+  aztec_utl_callUtilityFunction(...inputs: ForeignCallArgs) {
+    return callTxeHandler({
+      oracle: 'aztec_utl_callUtilityFunction',
+      inputs,
+      handler: ([contractAddress, functionSelector, args]) =>
+        this.handlerAsUtility().callUtilityFunction(contractAddress, functionSelector, args),
+    });
+  }
+
   // AVM opcodes
 
   // eslint-disable-next-line camelcase

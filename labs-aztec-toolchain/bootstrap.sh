@@ -17,13 +17,13 @@ PIN_FILE=$TARGET_DIR/.pin
 # those. check_pin_drift detects any drift between this and those declarations.
 # The monorepo links the locally built binaries instead.
 # Note that BB is downloaded from the AztecProtocol/barretenberg mirror first (via bbup).
-BB_VERSION=6.0.0-nightly.20260729
+BB_VERSION=6.0.0-nightly.20260804
 # NOIR_VERSION must be the noir release the $BB_VERSION aztec-packages release was built
 # against (its noir submodule): the pinned nargo's output is consumed by tools from that
 # release (bb, and the @aztec/noir-* js packages, which are that submodule republished).
 # Skew is not detected by check_pin_drift, it surfaces in other places (e.g. the docs
 # examples' runtime tests).
-NOIR_VERSION=1.0.0-beta.25
+NOIR_VERSION=1.0.0-beta.26
 
 # The installers and sources are fetched at build time; overridable for testing/mirroring.
 BBUP_URL=${BBUP_URL:-https://raw.githubusercontent.com/AztecProtocol/aztec-packages/86f69c8751f63ca604a1dab5967f208b211a1611/barretenberg/bbup/bbup}
@@ -402,6 +402,10 @@ function hash {
       files+=("$optional")
     fi
   done
+  # The script itself is part of the identity: it defines the pins and the
+  # provisioning logic, and a pin bump must move the hash even before the
+  # binaries have been refreshed.
+  files+=("bootstrap.sh")
   hash_str $(git hash-object "${files[@]}")
 }
 

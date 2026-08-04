@@ -14,6 +14,9 @@
 # Shell to use for all commands
 SHELL := /bin/bash
 
+# Make would otherwise default to the first target in the file.
+.DEFAULT_GOAL := fast
+
 export DENOISE := 1
 
 ROOT := $(shell git rev-parse --show-toplevel)
@@ -54,23 +57,59 @@ endef
 #==============================================================================
 
 # Fast bootstrap.
+# wsdb belongs to foundation until disentangled.
+fast-foundation: barretenberg bb-tests \
+		wsdb \
+		l1-contracts l1-contracts-tests \
+		mock-protocol-circuits \
+		noir-protocol-circuits noir-protocol-circuits-tests \
+		noir-protocol-circuits-variants \
+		protocol-contracts protocol-contracts-tests \
+		fnd-release-tests \
+		ipc-runtime ipc-codegen-tests \
+		constants-codegen constants-codegen-tests \
+		claude-tests
+
 # aztec-up and aztec-up-tests are temporarily absent: see the aztec-up target below.
-fast: release-image barretenberg boxes playground docs \
-		  bb-tests l1-contracts-tests yarn-project-tests boxes-tests playground-tests docs-tests noir-protocol-circuits-tests protocol-contracts-tests contract-snapshots-tests release-image-tests spartan claude-tests ipc-codegen-tests constants-codegen-tests
+fast-labs: yarn-project yarn-project-tests \
+		aztec-nr \
+		noir-contracts \
+		contract-snapshots-tests \
+		spartan \
+		boxes boxes-tests \
+		playground playground-tests \
+		docs docs-tests \
+		release-image release-image-tests \
+		claude-tests
+
+fast: fast-foundation fast-labs
 
 # Full bootstrap.
-full: fast bb-full-tests bb-cpp-full yarn-project-benches
+full-foundation: fast-foundation bb-full-tests bb-cpp-full
+
+full-labs: fast-labs yarn-project-benches
+
+full: full-foundation full-labs
 
 # Everything required to run the full benchmark suite (see bootstrap.sh bench_cmds),
-# and nothing more. yarn-project-benches transitively builds the bb native/wasm bench
-# binaries (via bb-ts -> bb-cpp-native/wasm-threads), the e2e bench inputs, noir-projects
-# and l1-contracts; bb-sol adds the Solidity gas benchmark's generated verifier; bb-acir
-# builds barretenberg/acir_tests, whose headless-test harness (ts-node) the bb browser
-# memory bench (ci_benchmark_browser_memory.sh) drives.
-bench: yarn-project-benches bb-sol bb-acir
+# and nothing more. bb-sol adds the Solidity gas benchmark's generated verifier;
+# bb-acir builds barretenberg/acir_tests, whose headless-test harness (ts-node)
+# the bb browser memory bench (ci_benchmark_browser_memory.sh) drives.
+bench-foundation: bb-cpp-native bb-cpp-wasm-threads bb-ts bb-sol bb-acir \
+		noir-protocol-circuits l1-contracts
+
+# yarn-project-benches covers the e2e bench inputs and yarn-project's own benches;
+# noir-contracts was previously built transitively via yarn-project.
+bench-labs: yarn-project-benches noir-contracts
+
+bench: bench-foundation bench-labs
 
 # Release. Everything plus copy bb cross compiles to ts projects.
-release: fast bb-cpp-release-dir bb-ts-cross-copy bb-avm-sim-cross-copy ipc-runtime-cross
+release-foundation: fast-foundation bb-cpp-release-dir bb-ts-cross-copy bb-avm-sim-cross-copy ipc-runtime-cross
+
+release-labs: fast-labs
+
+release: release-foundation release-labs
 
 #==============================================================================
 # Noir
@@ -401,6 +440,16 @@ protocol-contracts: noir bb-cpp-native noir-projects-fnd-format-check
 protocol-contracts-tests: noir protocol-contracts
 	$(call test,$@,noir-projects/fnd/noir-contracts)
 
+# Everything the npm release path stages. Exists as its own target because filter_test_cmds derives
+# MAKEFILE_TARGET by stripping the -tests suffix, so the stem has to name something buildable for
+# grind_test to do a targeted rebuild.
+fnd-release: noir-protocol-circuits mock-protocol-circuits protocol-contracts
+
+# Smoke-tests the release path (staging plus a dry-run publish) against real build output, so a break
+# surfaces on a PR rather than the first time it runs, on a release tag.
+fnd-release-tests: fnd-release
+	$(call test,$@,noir-projects/fnd,release)
+
 noir-contracts: noir bb-cpp-native noir-projects-labs-format-check labs-aztec-toolchain
 	$(call build,$@,noir-projects/labs/noir-contracts)
 
@@ -416,8 +465,12 @@ noir-projects-txe-tests:
 contract-snapshots-tests: noir noir-projects-labs-format-check labs-aztec-toolchain
 	$(call test,$@,noir-projects/labs/contract-snapshots)
 
-# Noir Projects - Aggregate target (builds all sub-projects)
-noir-projects: noir-protocol-circuits mock-protocol-circuits protocol-contracts noir-contracts aztec-nr
+# Noir Projects - Aggregate targets (build all sub-projects per side)
+noir-projects-fnd: noir-protocol-circuits mock-protocol-circuits protocol-contracts
+
+noir-projects-labs: noir-contracts aztec-nr
+
+noir-projects: noir-projects-fnd noir-projects-labs
 
 #==============================================================================
 # L1 Contracts - Ethereum L1 smart contracts
@@ -458,8 +511,13 @@ l1-contracts-tests: l1-contracts-verifier
 # Yarn Project - TypeScript monorepo with all TS packages
 #==============================================================================
 
-yarn-project: bb-ts noir-projects l1-contracts wsdb bb-avm-sim constants-codegen labs-aztec-toolchain
+yarn-project: noir-projects-labs labs-aztec-toolchain
 	$(call build,$@,yarn-project)
+
+# If we still in the monorepo, we need to additionally depend on everything else explicitly.
+# In the labs repo, we will consume them differently.
+# TODO(fcarreiro): comment this out when pinning binaries.
+yarn-project: bb-ts l1-contracts wsdb bb-avm-sim constants-codegen noir-projects-fnd
 
 yarn-project-tests: yarn-project
 	$(call test,$@,yarn-project/end-to-end)
@@ -497,7 +555,7 @@ docs: yarn-project labs-aztec-toolchain
 docs-tests: docs
 	$(call test,$@,docs)
 
-# Disabled until the repo split is complete: not built or tested here, and left out of `fast`.
+# Disabled until the repo split is complete: not built or tested here, and left out of `fast-labs`.
 aztec-up: yarn-project labs-aztec-toolchain
 	$(call build,$@,aztec-up)
 

@@ -91,7 +91,9 @@ fi
 # --- 3. yarn-project/yarn.lock ------------------------------------------------
 echo "==> Refreshing yarn-project/yarn.lock"
 # --mode=update-lockfile skips linking and build scripts; it just reconciles the
-# lockfile with the new noir JS package versions / file: hashes.
+# lockfile with the new noir JS package versions / file: hashes. Resolution still
+# reads every portal target's manifest, so noir/packages must already be built
+# (`(cd noir && ./bootstrap.sh)`) or yarn aborts with "Manifest not found".
 corepack enable 2>/dev/null || true
 (cd yarn-project && yarn install --mode=update-lockfile) \
   || echo "warning: yarn lockfile update failed; yarn.lock may be unchanged" >&2
@@ -101,8 +103,10 @@ echo "==> Formatting noir-projects"
 # A compiler bump can change how the formatter handles identical code; skipping
 # this reformat is a CI failure. Needs a built nargo (noir/noir-repo/target/release/nargo);
 # run `(cd noir && ./bootstrap.sh)` first if the format step reports nargo is missing.
-(cd noir-projects && ./bootstrap.sh format) \
-  || echo "warning: noir-projects format failed (is nargo built?); run '(cd noir-projects && ./bootstrap.sh format)' before committing, or CI will fail." >&2
+for workspace in fnd labs; do
+  (cd "noir-projects/$workspace" && ./bootstrap.sh format) \
+    || echo "warning: noir-projects/$workspace format failed (is nargo built?); run '(cd noir-projects/$workspace && ./bootstrap.sh format)' before committing, or CI will fail." >&2
+done
 
 echo "==> Staging changes"
 git add "$SUBMODULE" avm-transpiler/Cargo.lock yarn-project/yarn.lock noir-projects

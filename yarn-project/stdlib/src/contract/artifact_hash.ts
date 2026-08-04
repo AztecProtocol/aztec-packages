@@ -6,7 +6,13 @@ import { MerkleTree, MerkleTreeCalculator } from '@aztec/foundation/trees';
 
 import deterministicStringify from 'json-stringify-deterministic';
 
-import { type ContractArtifact, type FunctionArtifact, FunctionSelector, FunctionType } from '../abi/index.js';
+import {
+  type ContractArtifact,
+  type FunctionArtifact,
+  FunctionSelector,
+  FunctionType,
+  getFunctionReturnType,
+} from '../abi/index.js';
 
 const VERSION = 1;
 
@@ -104,8 +110,14 @@ export async function computeFunctionArtifactHash(
   return sha256Fr(Buffer.concat([numToUInt8(VERSION), selector.toBuffer(), metadataHash.toBuffer(), bytecodeHash]));
 }
 
-export function computeFunctionMetadataHash(fn: FunctionArtifact) {
-  return sha256Fr(Buffer.from(deterministicStringify(fn.returnTypes), 'utf8'));
+export function computeFunctionMetadataHash(fn: Pick<FunctionArtifact, 'returnType' | 'returnTypes'>) {
+  // Wrap the type in a list (empty when the function returns nothing) so the hash preimage is identical to
+  // what it was when this hash consumed the deprecated `returnTypes` list. This hash is part of the
+  // artifact hash preimage, which contract class ids commit to - changing it would move the computed
+  // class id and address of every contract, and break artifact validation against already-registered
+  // classes.
+  const returnType = getFunctionReturnType(fn);
+  return sha256Fr(Buffer.from(deterministicStringify(returnType ? [returnType] : []), 'utf8'));
 }
 
 function getLogger() {

@@ -17,6 +17,7 @@ import {
   findFunctionAbiBySelector,
   findFunctionArtifactBySelector,
   getFunctionDebugMetadata,
+  getFunctionReturnType,
 } from '@aztec/stdlib/abi';
 import { AztecAddress } from '@aztec/stdlib/aztec-address';
 import {
@@ -371,7 +372,7 @@ export class ContractStore {
       hideMsgSender: false,
       isStatic: functionDao.isStatic,
       args: encodeArguments(functionDao, args),
-      returnTypes: functionDao.returnTypes,
+      returnType: getFunctionReturnType(functionDao),
     });
   }
 }

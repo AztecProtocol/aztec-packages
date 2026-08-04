@@ -49,7 +49,7 @@
     "@aztec/l1-artifacts": "0.1.0-dummy",
     "@aztec/node-keystore": "workspace:^",
     "@aztec/noir-contracts.js": "workspace:^",
-    "@aztec/noir-noirc_abi": "portal:../../noir/packages/noirc_abi",
+    "@aztec/noir-noirc_abi": "0.1.0-dummy",
     "@aztec/noir-protocol-circuits-types": "workspace:^",
     "@aztec/noir-test-contracts.js": "workspace:^",
     "@aztec/p2p": "workspace:^",

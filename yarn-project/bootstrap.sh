@@ -2,11 +2,21 @@
 source $(git rev-parse --show-toplevel)/ci3/source_bootstrap
 
 function hash {
+  # Pinned dependencies are hashed via yarn.lock (covered by the yarn-project patterns).
+  # The fnd components remain because their build artifacts are still copied from
+  # source at generate time (noir-protocol-circuits-types, ivc-integration,
+  # protocol-contracts); TODO(monorepo-split): remove them once those are consumed
+  # as published packages.
+  # The ipc-codegen/cdb patterns cover the simulator's cdb server codegen, which
+  # runs ipc-codegen against barretenberg's cdb_schema.json on every build.
   hash_str \
-    $(../noir/bootstrap.sh hash) \
-    $(../barretenberg/bootstrap.sh hash) \
-    $(../ipc-codegen/bootstrap.sh hash) \
-    $(cache_content_hash ../{avm-transpiler,noir-projects,l1-contracts,yarn-project}/.rebuild_patterns)
+    $(../labs-aztec-toolchain/bootstrap.sh hash) \
+    $(../noir-projects/labs/noir-contracts/bootstrap.sh hash) \
+    $(../noir-projects/labs/aztec-nr/bootstrap.sh hash) \
+    $(../noir-projects/fnd/noir-protocol-circuits/bootstrap.sh hash) \
+    $(cache_content_hash "^noir-projects/fnd/mock-protocol-circuits/" "^noir-projects/fnd/noir-contracts/") \
+    $(cache_content_hash "^ipc-codegen/" "^barretenberg/cpp/src/barretenberg/cdb/") \
+    $(cache_content_hash ../yarn-project/.rebuild_patterns)
 }
 
 function compile_project {
@@ -168,12 +178,45 @@ function compile_all {
   fi
 }
 
-export -f compile_project format lint get_projects compile_all hash
+# The @aztec/l1-artifacts foundry bundle references solc by version (a portable npm
+# package cannot ship a platform binary), so the runtime forge deploy resolves it through
+# ~/.svm. The e2e containers run without network and inherit ~/.svm from the host's home
+# mount, so warm it at build time. The version is read from the installed bundle, so it
+# cannot drift from what the deploy will request. On the monorepo this is normally a no-op:
+# l1-contracts-solc has already populated ~/.svm by the time yarn-project builds.
+function warm_solc_cache {
+  local foundry_toml=node_modules/@aztec/l1-artifacts/l1-contracts/foundry.toml
+  [ -f "$foundry_toml" ] || return 0
+  local solc_version=$(sed -n 's/^solc_version = "\(.*\)"$/\1/p' "$foundry_toml")
+  # A bundle that ships its own solc binary (solc = "./solc-x.y.z") needs no warming.
+  [ -n "$solc_version" ] || return 0
+  [ -f "$HOME/.svm/$solc_version/solc-$solc_version" ] && return 0
+  echo_stderr "Warming solc $solc_version into ~/.svm for the offline forge deploy path..."
+  # svm-rs only uses ~/.svm if it exists (falling back to XDG dirs otherwise), so make sure
+  # it does: the deploy path inside the containers must find the binary at this exact path.
+  mkdir -p "$HOME/.svm"
+  local tmp=$(mktemp -d)
+  mkdir -p "$tmp/src"
+  printf '[profile.default]\nsolc_version = "%s"\n' "$solc_version" > "$tmp/foundry.toml"
+  printf '// SPDX-License-Identifier: MIT\npragma solidity ^0.8.0;\ncontract Warm {}\n' > "$tmp/src/Warm.sol"
+  # svm fetches from binaries.soliditylang.org, which intermittently fails to resolve under
+  # heavy parallel CI load; retry only on connection/DNS failures so real errors fail fast.
+  RETRY_ATTEMPTS=30 RETRY_SLEEP=10 retry -p 'dns error|Temporary failure in name resolution|error sending request|failed to lookup address|Connection refused|connection reset' \
+    "cd $tmp && forge build"
+  rm -rf "$tmp"
+  if [ ! -f "$HOME/.svm/$solc_version/solc-$solc_version" ]; then
+    echo_stderr "ERROR: forge/svm did not install solc $solc_version into ~/.svm."
+    exit 1
+  fi
+}
+
+export -f compile_project format lint get_projects compile_all hash warm_solc_cache
 
 function build {
   echo_header "yarn-project build"
   denoise "./bootstrap.sh clean-lite"
-  npm_install_deps ../noir
+  npm_install_deps
+  denoise "warm_solc_cache"
   denoise "compile_all"
 }
 

@@ -1,6 +1,6 @@
 # @aztec/aztec.js
 
-Version: 5.0.1
+Version: 5.1.0
 
 ## Quick Import Reference
 

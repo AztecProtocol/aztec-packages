@@ -20,5 +20,5 @@ dependencies:
   - "@aztec/noir-contracts.js"
   # Published packages pinned to the toolchain's BB_VERSION (enforced by
   # labs-aztec-toolchain/bootstrap.sh).
-  - "npm:@aztec/bb.js@6.0.0-nightly.20260729"
-  - "npm:@aztec/noir-noir_js@6.0.0-nightly.20260729"
+  - "npm:@aztec/bb.js@6.0.0-nightly.20260804"
+  - "npm:@aztec/noir-noir_js@6.0.0-nightly.20260804"

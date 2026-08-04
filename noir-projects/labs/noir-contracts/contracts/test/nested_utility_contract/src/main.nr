@@ -1,12 +1,27 @@
 // Demonstrates nested utility calls by implementing pow_utility(x, n) = x^n recursively,
 // and calling it from a private function via pow_private.
+//
+// A custom sync_state hook additionally makes a cross-contract utility call to the instance stored in the
+// sync-target capsule (when one is set), so tests can cover authorization of utility calls made during
+// contract sync.
 
-use aztec::macros::aztec;
+use aztec::{
+    macros::{aztec, AztecConfig},
+    messages::{
+        discovery::{ComputeNoteHash, ComputeNoteNullifier, CustomMessageHandler, do_sync_state},
+        processing::offchain::OffchainInboxSync,
+    },
+    oracle::{call_utility_function::call_utility_function, capsules},
+    protocol::{address::AztecAddress, hash::sha256_to_field},
+};
 
 mod pow_note;
 mod test;
 
-#[aztec]
+global SYNC_UTILITY_TARGET_SLOT: Field = sha256_to_field("SYNC_UTILITY_TARGET".as_bytes());
+global SYNC_CALL_RESULT_SLOT: Field = sha256_to_field("SYNC_CALL_RESULT".as_bytes());
+
+#[aztec(AztecConfig::new().custom_sync_state(sync_with_cross_contract_utility_call))]
 pub contract NestedUtility {
     use crate::pow_note::PowNote;
     use aztec::macros::{functions::{external, view}, storage::storage};
@@ -96,4 +111,35 @@ pub contract NestedUtility {
             self.utility.call(NestedUtility::at(target).pow_utility(x, n))
         }
     }
+}
+
+/// Calls `pow_utility` on the instance stored in the sync-target capsule (when one is set), recording the result in
+/// the sync-call-result capsule, then forwards to [`do_sync_state`] so that normal note discovery still happens.
+unconstrained fn sync_with_cross_contract_utility_call(
+    contract_address: AztecAddress,
+    compute_note_hash: ComputeNoteHash,
+    compute_note_nullifier: ComputeNoteNullifier,
+    process_custom_message: Option<CustomMessageHandler>,
+    offchain_inbox_sync: Option<OffchainInboxSync>,
+    scope: AztecAddress,
+) {
+    let maybe_target: Option<AztecAddress> = capsules::load(contract_address, SYNC_UTILITY_TARGET_SLOT, scope);
+    if maybe_target.is_some() {
+        let call = NestedUtility::at(maybe_target.unwrap()).pow_utility(2, 3);
+        let return_values: [Field; 1] = call_utility_function(call.target_contract, call.selector, call.args);
+        capsules::store(
+            contract_address,
+            SYNC_CALL_RESULT_SLOT,
+            return_values[0],
+            scope,
+        );
+    }
+    do_sync_state(
+        contract_address,
+        compute_note_hash,
+        compute_note_nullifier,
+        process_custom_message,
+        offchain_inbox_sync,
+        scope,
+    );
 }

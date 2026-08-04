@@ -76,7 +76,7 @@
     "@aztec/foundation": "workspace:^",
     "@aztec/kv-store": "workspace:^",
     "@aztec/noir-contracts.js": "workspace:^",
-    "@aztec/noir-noirc_abi": "portal:../../noir/packages/noirc_abi",
+    "@aztec/noir-noirc_abi": "0.1.0-dummy",
     "@aztec/pxe": "workspace:^",
     "@aztec/standard-contracts": "workspace:^",
     "@aztec/stdlib": "workspace:^",

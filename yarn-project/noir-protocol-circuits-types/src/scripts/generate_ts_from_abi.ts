@@ -120,6 +120,13 @@ const main = async () => {
     'export type ProofData<A, B extends number> = {\n  public_inputs: A;\n  proof: FixedLengthArray<Field, B>;\n  vk_data: VkData<115>;\n}',
     'export type ProofData<A, B extends number, C extends number = 115> = {\n  public_inputs: A;\n  proof: FixedLengthArray<Field, B>;\n  vk_data: VkData<C>;\n}',
   );
+  // noir_codegen emits `InputMap` as a value import, but it is type-only: under
+  // verbatimModuleSyntax that trips TS1484. Rewrite until the generator qualifies it upstream.
+  // TODO(A-1611): Remove once fixed upstream in Noir.
+  code = code.replace(
+    'import { Noir, InputMap, type CompiledCircuit, type ForeignCallHandler }',
+    'import { Noir, type InputMap, type CompiledCircuit, type ForeignCallHandler }',
+  );
 
   await fs.writeFile('./src/types/index.ts', code);
 };

@@ -76,7 +76,7 @@
     "@aztec/foundation": "workspace:^",
     "@aztec/kv-store": "workspace:^",
     "@aztec/noir-protocol-circuits-types": "workspace:^",
-    "@aztec/noir-types": "portal:../../noir/packages/types",
+    "@aztec/noir-types": "0.1.0-dummy",
     "@aztec/protocol-contracts": "workspace:^",
     "@aztec/simulator": "workspace:^",
     "@aztec/stdlib": "workspace:^",

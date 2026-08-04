@@ -52,7 +52,7 @@ Set the required environment variables:
 
 ```bash
 export NODE_URL=https://v5.testnet.rpc.aztec-labs.com
-export SPONSORED_FPC_ADDRESS=0x1441491b59934ec64f8c98f17c91f23c01ca2a45dbb35caf123146ec76f9970c
+export SPONSORED_FPC_ADDRESS=0x130925fbd734a252e3d8ddff87f6c346052dd5c13314eb96026b32baa1923296
 ```
 
 ### Step 2: Register the Sponsored FPC

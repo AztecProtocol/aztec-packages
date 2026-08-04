@@ -16,7 +16,7 @@ import { computeSiloedTagForIndex, extractTags } from '../testing/tag_query_test
 import { syncSenderTaggingIndexes } from './sync_sender_tagging_indexes.js';
 import { minedReceipt } from './utils/test_utils.js';
 
-const MOCK_ANCHOR_BLOCK_HASH = BlockHash.random();
+const MOCK_ANCHOR = { hash: BlockHash.random(), number: BlockNumber(100) };
 // The finalized tip the tests sync against, and log block numbers on either side of it.
 const MOCK_FINALIZED_BLOCK_NUMBER = BlockNumber(15);
 const FINALIZED_LOG_BLOCK = MOCK_FINALIZED_BLOCK_NUMBER - 1;
@@ -510,6 +510,6 @@ describe('syncSenderTaggingIndexes', () => {
   }
 
   function sync({ finalizedAt = MOCK_FINALIZED_BLOCK_NUMBER }: { finalizedAt?: BlockNumber } = {}) {
-    return syncSenderTaggingIndexes(secret, aztecNode, taggingStore, finalizedAt, MOCK_ANCHOR_BLOCK_HASH, 'test');
+    return syncSenderTaggingIndexes(secret, aztecNode, taggingStore, finalizedAt, MOCK_ANCHOR, 'test');
   }
 });

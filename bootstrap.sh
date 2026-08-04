@@ -586,6 +586,7 @@ function release {
     # aztec-up is omitted until the repo split is complete.
     playground
     release-image
+    noir-projects/fnd
   )
   if [ $(arch) == arm64 ]; then
     projects=(

@@ -1,5 +1,6 @@
-import { DEFAULT_MAX_DEBUG_LOG_MEMORY_READS } from '@aztec/constants';
 import { type ConfigMappingsType, numberConfigHelper } from '@aztec/foundation/config';
+
+import { DEFAULT_MAX_DEBUG_LOG_MEMORY_READS } from '../avm/avm.js';
 
 export const nodeRpcConfigMappings: ConfigMappingsType<NodeRPCConfig> = {
   rpcSimulatePublicMaxGasLimit: {

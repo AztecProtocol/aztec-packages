@@ -2,25 +2,20 @@ use crate::{
     address::AztecAddress,
     constants::{
         BLOCK_END_PREFIX, CHECKPOINT_END_PREFIX, CONTRACT_CLASS_PUBLISHED_MAGIC_VALUE,
-        CONTRACT_CLASS_REGISTRY_BYTECODE_CAPSULE_SLOT,
-        CONTRACT_CLASS_REGISTRY_PRIVATE_FUNCTION_BROADCASTED_MAGIC_VALUE,
-        CONTRACT_CLASS_REGISTRY_UTILITY_FUNCTION_BROADCASTED_MAGIC_VALUE,
-        CONTRACT_INSTANCE_PUBLISHED_MAGIC_VALUE, CONTRACT_INSTANCE_UPDATED_MAGIC_VALUE,
-        DOM_SEP__APP_SILOED_ECDH_SHARED_SECRET, DOM_SEP__AUTHWIT_INNER, DOM_SEP__AUTHWIT_NULLIFIER,
-        DOM_SEP__AUTHWIT_OUTER, DOM_SEP__BLOB_CHALLENGE_Z, DOM_SEP__BLOB_GAMMA_ACC,
-        DOM_SEP__BLOB_GAMMA_FINAL, DOM_SEP__BLOB_HASHED_Y_LIMBS, DOM_SEP__BLOB_Z_ACC,
-        DOM_SEP__BLOCK_HEADER_HASH, DOM_SEP__BLOCK_HEADERS_HASH, DOM_SEP__CONSTRAINED_MSG_LOG_TAG,
-        DOM_SEP__CONSTRAINED_MSG_NULLIFIER, DOM_SEP__CONSTRAINED_MSG_SENDER_SECRET,
-        DOM_SEP__CONTRACT_ADDRESS_V2, DOM_SEP__CONTRACT_CLASS_ID, DOM_SEP__ECDH_FIELD_MASK,
-        DOM_SEP__ECDH_SUBKEY, DOM_SEP__EVENT_COMMITMENT, DOM_SEP__EVENT_LOG_TAG, DOM_SEP__FBSK_M,
-        DOM_SEP__FUNCTION_ARGS, DOM_SEP__HANDSHAKE_FORGERY_PROTECTION,
-        DOM_SEP__INITIALIZATION_NULLIFIER, DOM_SEP__INITIALIZER,
+        CONTRACT_CLASS_REGISTRY_BYTECODE_CAPSULE_SLOT, CONTRACT_INSTANCE_PUBLISHED_MAGIC_VALUE,
+        CONTRACT_INSTANCE_UPDATED_MAGIC_VALUE, DOM_SEP__APP_SILOED_ECDH_SHARED_SECRET,
+        DOM_SEP__AUTHWIT_INNER, DOM_SEP__AUTHWIT_OUTER, DOM_SEP__BLOB_CHALLENGE_Z,
+        DOM_SEP__BLOB_GAMMA_ACC, DOM_SEP__BLOB_GAMMA_FINAL, DOM_SEP__BLOB_HASHED_Y_LIMBS,
+        DOM_SEP__BLOB_Z_ACC, DOM_SEP__BLOCK_HEADER_HASH, DOM_SEP__BLOCK_HEADERS_HASH,
+        DOM_SEP__CONSTRAINED_MSG_LOG_TAG, DOM_SEP__CONSTRAINED_MSG_SENDER_SECRET,
+        DOM_SEP__CONTRACT_ADDRESS_V2, DOM_SEP__CONTRACT_CLASS_ID, DOM_SEP__EVENT_COMMITMENT,
+        DOM_SEP__EVENT_LOG_TAG, DOM_SEP__FBSK_M, DOM_SEP__FUNCTION_ARGS,
+        DOM_SEP__HANDSHAKE_FORGERY_PROTECTION, DOM_SEP__INITIALIZER,
         DOM_SEP__INTERACTIVE_HANDSHAKE_SIGNATURE, DOM_SEP__IVSK_M, DOM_SEP__MERKLE_HASH,
         DOM_SEP__MESSAGE_NULLIFIER, DOM_SEP__MSSK_M, DOM_SEP__NHK_M,
-        DOM_SEP__NON_INTERACTIVE_HANDSHAKE_LOG_TAG, DOM_SEP__NOTE_COMPLETION_LOG_TAG,
-        DOM_SEP__NOTE_HASH, DOM_SEP__NOTE_HASH_NONCE, DOM_SEP__NOTE_NULLIFIER,
-        DOM_SEP__NULLIFIER_MERKLE, DOM_SEP__OVSK_M, DOM_SEP__PARTIAL_ADDRESS,
-        DOM_SEP__PARTIAL_NOTE_COMMITMENT, DOM_SEP__PARTIAL_NOTE_VALIDITY_COMMITMENT,
+        DOM_SEP__NON_INTERACTIVE_HANDSHAKE_LOG_TAG, DOM_SEP__NOTE_HASH, DOM_SEP__NOTE_HASH_NONCE,
+        DOM_SEP__NOTE_NULLIFIER, DOM_SEP__NULLIFIER_MERKLE, DOM_SEP__OVSK_M,
+        DOM_SEP__PARTIAL_ADDRESS, DOM_SEP__PARTIAL_NOTE_VALIDITY_COMMITMENT,
         DOM_SEP__PRIVATE_FUNCTION_LEAF, DOM_SEP__PRIVATE_INITIALIZATION_NULLIFIER,
         DOM_SEP__PRIVATE_LOG_FIRST_FIELD, DOM_SEP__PRIVATE_TX_HASH, DOM_SEP__PROTOCOL_CONTRACTS,
         DOM_SEP__PUBLIC_BYTECODE, DOM_SEP__PUBLIC_CALLDATA, DOM_SEP__PUBLIC_DATA_MERKLE,
@@ -28,8 +23,7 @@ use crate::{
         DOM_SEP__PUBLIC_LEAF_SLOT, DOM_SEP__PUBLIC_STORAGE_MAP_SLOT, DOM_SEP__PUBLIC_TX_HASH,
         DOM_SEP__RETRIEVED_BYTECODES_MERKLE, DOM_SEP__SALTED_INITIALIZATION_HASH,
         DOM_SEP__SECRET_HASH, DOM_SEP__SIGNATURE_PAYLOAD, DOM_SEP__SILOED_NOTE_HASH,
-        DOM_SEP__SILOED_NULLIFIER, DOM_SEP__SINGLE_PUBLIC_KEY_HASH,
-        DOM_SEP__SINGLE_USE_CLAIM_NULLIFIER, DOM_SEP__TSK_M, DOM_SEP__TX_NULLIFIER,
+        DOM_SEP__SILOED_NULLIFIER, DOM_SEP__SINGLE_PUBLIC_KEY_HASH, DOM_SEP__TSK_M,
         DOM_SEP__TX_REQUEST, DOM_SEP__UNCONSTRAINED_MSG_LOG_TAG, DOM_SEP__UNIQUE_NOTE_HASH,
         DOM_SEP__WRITTEN_SLOTS_MERKLE, NULL_MSG_SENDER_CONTRACT_ADDRESS,
         SIDE_EFFECT_MASKING_ADDRESS, TX_START_PREFIX,
@@ -146,7 +140,7 @@ impl<let NUM_VALUES: u32, let NUM_U32_VALUES: u32> HashedValueTester<NUM_VALUES,
 
 #[test]
 fn hashed_values_match_derived() {
-    let mut tester = HashedValueTester::<78, 71>::new();
+    let mut tester = HashedValueTester::<67, 62>::new();
 
     // -----------------
     // Domain separators
@@ -156,10 +150,6 @@ fn hashed_values_match_derived() {
     tester.assert_dom_sep_matches_derived(DOM_SEP__UNIQUE_NOTE_HASH, "unique_note_hash");
     tester.assert_dom_sep_matches_derived(DOM_SEP__SILOED_NOTE_HASH, "siloed_note_hash");
     tester.assert_dom_sep_matches_derived(DOM_SEP__NOTE_NULLIFIER, "note_nullifier");
-    tester.assert_dom_sep_matches_derived(
-        DOM_SEP__SINGLE_USE_CLAIM_NULLIFIER,
-        "single_use_claim_nullifier",
-    );
     tester.assert_dom_sep_matches_derived(DOM_SEP__SILOED_NULLIFIER, "siloed_nullifier");
     tester.assert_dom_sep_matches_derived(
         DOM_SEP__PRIVATE_LOG_FIRST_FIELD,
@@ -172,20 +162,12 @@ fn hashed_values_match_derived() {
     );
     tester.assert_dom_sep_matches_derived(DOM_SEP__EVENT_LOG_TAG, "event_log_tag");
     tester.assert_dom_sep_matches_derived(
-        DOM_SEP__NOTE_COMPLETION_LOG_TAG,
-        "note_completion_log_tag",
-    );
-    tester.assert_dom_sep_matches_derived(
         DOM_SEP__UNCONSTRAINED_MSG_LOG_TAG,
         "unconstrained_msg_log_tag",
     );
     tester.assert_dom_sep_matches_derived(
         DOM_SEP__CONSTRAINED_MSG_LOG_TAG,
         "constrained_msg_log_tag",
-    );
-    tester.assert_dom_sep_matches_derived(
-        DOM_SEP__CONSTRAINED_MSG_NULLIFIER,
-        "constrained_msg_nullifier",
     );
     tester.assert_dom_sep_matches_derived(
         DOM_SEP__CONSTRAINED_MSG_SENDER_SECRET,
@@ -232,24 +214,13 @@ fn hashed_values_match_derived() {
     tester.assert_dom_sep_matches_derived(DOM_SEP__EVENT_COMMITMENT, "event_commitment");
     tester.assert_dom_sep_matches_derived(DOM_SEP__AUTHWIT_INNER, "authwit_inner");
     tester.assert_dom_sep_matches_derived(DOM_SEP__AUTHWIT_OUTER, "authwit_outer");
-    tester.assert_dom_sep_matches_derived(DOM_SEP__AUTHWIT_NULLIFIER, "authwit_nullifier");
     tester.assert_dom_sep_matches_derived(
         DOM_SEP__APP_SILOED_ECDH_SHARED_SECRET,
         "app_siloed_ecdh_shared_secret",
     );
-    tester.assert_dom_sep_matches_derived(DOM_SEP__ECDH_SUBKEY, "ecdh_subkey");
-    tester.assert_dom_sep_matches_derived(DOM_SEP__ECDH_FIELD_MASK, "ecdh_field_mask");
     tester.assert_dom_sep_matches_derived(
         DOM_SEP__PARTIAL_NOTE_VALIDITY_COMMITMENT,
         "partial_note_validity_commitment",
-    );
-    tester.assert_dom_sep_matches_derived(
-        DOM_SEP__PARTIAL_NOTE_COMMITMENT,
-        "partial_note_commitment",
-    );
-    tester.assert_dom_sep_matches_derived(
-        DOM_SEP__INITIALIZATION_NULLIFIER,
-        "initialization_nullifier",
     );
     tester.assert_dom_sep_matches_derived(
         DOM_SEP__PUBLIC_INITIALIZATION_NULLIFIER,
@@ -260,7 +231,6 @@ fn hashed_values_match_derived() {
         "private_initialization_nullifier",
     );
     tester.assert_dom_sep_matches_derived(DOM_SEP__SECRET_HASH, "secret_hash");
-    tester.assert_dom_sep_matches_derived(DOM_SEP__TX_NULLIFIER, "tx_nullifier");
     tester.assert_dom_sep_matches_derived(DOM_SEP__SIGNATURE_PAYLOAD, "signature_payload");
     tester.assert_dom_sep_matches_derived(DOM_SEP__BLOCK_HEADERS_HASH, "block_headers_hash");
     tester.assert_dom_sep_matches_derived(DOM_SEP__BLOB_HASHED_Y_LIMBS, "blob_hashed_y_limbs");
@@ -298,14 +268,6 @@ fn hashed_values_match_derived() {
     tester.assert_aztec_nr_values_matches_derived(
         CONTRACT_CLASS_PUBLISHED_MAGIC_VALUE,
         "contract_class_published",
-    );
-    tester.assert_aztec_nr_values_matches_derived(
-        CONTRACT_CLASS_REGISTRY_PRIVATE_FUNCTION_BROADCASTED_MAGIC_VALUE,
-        "contract_class_registry_private_function_broadcasted",
-    );
-    tester.assert_aztec_nr_values_matches_derived(
-        CONTRACT_CLASS_REGISTRY_UTILITY_FUNCTION_BROADCASTED_MAGIC_VALUE,
-        "contract_class_registry_utility_function_broadcasted",
     );
     tester.assert_aztec_nr_values_matches_derived(
         CONTRACT_INSTANCE_PUBLISHED_MAGIC_VALUE,

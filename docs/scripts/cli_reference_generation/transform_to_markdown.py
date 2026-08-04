@@ -109,6 +109,7 @@ class MarkdownGenerator:
 
     def escape_html_entities(self, text: str) -> str:
         """Escape HTML-like syntax and MDX special characters to prevent parsing errors."""
+        text = text.replace('on-chain', 'onchain')
         # Replace < and > with their HTML entities to prevent MDX from treating them as tags
         text = text.replace('<', '&lt;').replace('>', '&gt;')
         # Escape curly braces to prevent MDX from treating them as JSX expressions
