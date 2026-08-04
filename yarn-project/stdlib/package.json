@@ -98,7 +98,7 @@
     "@aztec/ethereum": "workspace:^",
     "@aztec/foundation": "workspace:^",
     "@aztec/l1-artifacts": "0.1.0-dummy",
-    "@aztec/noir-noirc_abi": "portal:../../noir/packages/noirc_abi",
+    "@aztec/noir-noirc_abi": "0.1.0-dummy",
     "@google-cloud/storage": "^7.15.0",
     "axios": "^1.15.1",
     "json-stringify-deterministic": "1.0.12",
