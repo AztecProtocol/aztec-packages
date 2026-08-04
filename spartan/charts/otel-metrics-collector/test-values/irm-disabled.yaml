@@ -1,0 +1,10 @@
+externalSecret:
+  gcpSecretName: otel-collector-url
+
+scrapeConfigs:
+  - job_name: fixture
+    targets:
+      - fixture.metrics.svc.cluster.local:9090
+
+irm:
+  enabled: false
