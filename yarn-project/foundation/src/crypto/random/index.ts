@@ -1,15 +1,10 @@
 import { randomBytes as bbRandomBytes } from '@aztec/bb.js';
 
-import { RandomnessSingleton } from './randomness_singleton.js';
-
-export const randomBytes = (len: number) => {
-  const singleton = RandomnessSingleton.getInstance();
-
-  if (singleton.isDeterministic()) {
-    return singleton.getBytes(len);
-  }
-  return Buffer.from(bbRandomBytes(len)) as Buffer<ArrayBuffer>;
-};
+/**
+ * Generate a buffer of cryptographically secure random bytes.
+ * @param len - The number of bytes to generate.
+ */
+export const randomBytes = (len: number) => Buffer.from(bbRandomBytes(len)) as Buffer<ArrayBuffer>;
 
 /**
  * Generate a random integer less than max.
