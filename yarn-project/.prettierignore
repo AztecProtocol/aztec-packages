@@ -20,5 +20,4 @@ noir-protocol-circuits-types/src/vk_tree.ts
 noir-protocol-circuits-types/src/client_artifacts_helper.ts
 constants/src/constants.gen.ts
 cli/src/config/generated
-simulator/src/public/cdb/generated
 sqlite3mc-wasm/vendor/

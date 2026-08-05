@@ -102,6 +102,17 @@ __metadata:
   languageName: unknown
   linkType: soft
 
+"@aztec/cdb@workspace:cdb":
+  version: 0.0.0-use.local
+  resolution: "@aztec/cdb@workspace:cdb"
+  dependencies:
+    "@types/node": "npm:^22.15.17"
+    msgpackr: "npm:^1.11.2"
+    tslib: "npm:^2.4.0"
+    typescript: "npm:^5.3.3"
+  languageName: unknown
+  linkType: soft
+
 "@aztec/ipc-runtime@portal:../../ipc-runtime/ts::locator=%40aztec%2Fbarretenberg-ts-packages%40workspace%3A.":
   version: 0.0.0-use.local
   resolution: "@aztec/ipc-runtime@portal:../../ipc-runtime/ts::locator=%40aztec%2Fbarretenberg-ts-packages%40workspace%3A."
