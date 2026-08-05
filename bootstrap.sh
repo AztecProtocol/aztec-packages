@@ -582,7 +582,6 @@ function release {
     noir-projects/labs/aztec-nr
     protocol/constants-codegen
     yarn-project
-    boxes
     aztec-up
     playground
     release-image
