@@ -392,6 +392,10 @@ export class PublicProcessor implements Traceable {
         blockNumber: this.globalVariables.blockNumber,
         successfulCount: result.length,
         failedCount: failed.length,
+        failedTxs: failed.map(({ tx, error }) => ({
+          txHash: tx.getTxHash().toString(),
+          reason: error.message,
+        })),
         duration,
         rate,
         totalPublicGas,
