@@ -8,7 +8,10 @@ import type { KeyStore } from '@aztec/key-store';
 import { openTmpStore } from '@aztec/kv-store/lmdb-v2';
 import { StatefulTestContractArtifact } from '@aztec/noir-test-contracts.js/StatefulTest';
 import { type CircuitSimulator, WASMSimulator } from '@aztec/simulator/client';
-import { HandshakeRegistryArtifact } from '@aztec/standard-contracts/handshake-registry';
+import {
+  HandshakeRegistryArtifact,
+  getHistoricalStandardHandshakeRegistries,
+} from '@aztec/standard-contracts/handshake-registry';
 import { STANDARD_HANDSHAKE_REGISTRY_ADDRESS } from '@aztec/standard-contracts/handshake-registry/constants';
 import {
   type ContractArtifact,
@@ -120,7 +123,7 @@ describe('Utility Execution test suite', () => {
     anchorBlockHeader = BlockHeader.random();
     senderTaggingStore.getLastFinalizedIndex.mockResolvedValue(undefined);
     senderTaggingStore.getLastUsedIndex.mockResolvedValue(undefined);
-    senderTaggingStore.getTxHashesOfPendingIndexes.mockResolvedValue([]);
+    senderTaggingStore.getPendingTxs.mockResolvedValue([]);
     senderTaggingStore.storePendingIndexes.mockResolvedValue();
     taggingSecretSourcesStore.getSenders.mockResolvedValue([]);
     taggingSecretSourcesStore.getSharedSecretsForRecipient.mockResolvedValue([]);
@@ -541,6 +544,29 @@ describe('Utility Execution test suite', () => {
           }
         },
       );
+
+      it('applies the same read allowlist to historical HandshakeRegistry deployments', async () => {
+        for (const { address, artifact } of await getHistoricalStandardHandshakeRegistries()) {
+          for (const { name } of artifact.functions) {
+            contractSyncService.ensureContractSynced.mockClear();
+            nestedSimulator.executeUserCircuit.mockClear();
+            const selector = await prepareNestedUtilityCall(address, artifact, name);
+
+            if (defaultAuthorizedHandshakeRegistryReads.has(name)) {
+              const args = defaultAuthorizedHandshakeRegistryReads.get(name) ?? [];
+              await expect(utilityExecutionOracle.callUtilityFunction(address, selector, args)).resolves.toEqual([]);
+              expect(contractSyncService.ensureContractSynced).toHaveBeenCalled();
+              expect(nestedSimulator.executeUserCircuit).toHaveBeenCalled();
+            } else {
+              await expect(utilityExecutionOracle.callUtilityFunction(address, selector, [])).rejects.toThrow(
+                'Cross-contract utility call denied: No authorizeUtilityCall hook configured',
+              );
+              expect(contractSyncService.ensureContractSynced).not.toHaveBeenCalled();
+              expect(nestedSimulator.executeUserCircuit).not.toHaveBeenCalled();
+            }
+          }
+        }
+      });
     });
 
     describe('getSharedSecrets', () => {
@@ -676,7 +702,28 @@ describe('Utility Execution test suite', () => {
       });
     });
 
-    describe('node read cache', () => {
+    describe('areBlockHashesInArchive', () => {
+      it('maps archive membership to booleans by position', async () => {
+        const service = new EphemeralArrayService();
+        const referenceBlockHash = await anchorBlockHeader.hash();
+        const presentBlockHash = BlockHash.random();
+        const missingBlockHash = BlockHash.random();
+        const witness = MembershipWitness.empty(ARCHIVE_HEIGHT);
+
+        aztecNode.getBlockHashMembershipWitness.mockImplementation((_referenceBlockHash, blockHash) =>
+          Promise.resolve(blockHash.equals(presentBlockHash) ? witness : undefined),
+        );
+
+        const result = await utilityExecutionOracle.areBlockHashesInArchive(
+          referenceBlockHash,
+          EphemeralArray.fromValues(service, [presentBlockHash, missingBlockHash, presentBlockHash]),
+        );
+
+        expect(result.readAll(service)).toEqual([true, false, true]);
+      });
+    });
+
+    describe('getTxEffects', () => {
       const makeTxEffect = (txHash: TxHash) => TxEffect.from({ ...TxEffect.empty(), txHash });
       const makeMinedReceipt = (
         txHash: TxHash,
@@ -780,54 +827,6 @@ describe('Utility Execution test suite', () => {
 
         await secondOracle.getTxEffects(EphemeralArray.fromValues(service, [txHash]));
         expect(aztecNode.getTxReceipt).toHaveBeenCalledTimes(2);
-      });
-
-      it('reuses archive witness reads within a utility execution', async () => {
-        const oracle = makeOracle({ scopes: [scope] });
-        const referenceBlockHash = await anchorBlockHeader.hash();
-        const blockHash = BlockHash.random();
-        const witness = MembershipWitness.empty(ARCHIVE_HEIGHT);
-        aztecNode.getBlockHashMembershipWitness.mockResolvedValue(witness);
-
-        const first = await oracle.getBlockHashMembershipWitness(referenceBlockHash, blockHash);
-        const second = await oracle.getBlockHashMembershipWitness(referenceBlockHash, blockHash);
-
-        expect(first).toEqual(second);
-        expect(aztecNode.getBlockHashMembershipWitness).toHaveBeenCalledTimes(1);
-      });
-
-      it('returns aligned archive-membership booleans for block hash batches', async () => {
-        const service = new EphemeralArrayService();
-        const oracle = makeOracle({ scopes: [scope] });
-        const referenceBlockHash = await anchorBlockHeader.hash();
-        const presentBlockHash = BlockHash.random();
-        const missingBlockHash = BlockHash.random();
-        const witness = MembershipWitness.empty(ARCHIVE_HEIGHT);
-
-        aztecNode.getBlockHashMembershipWitness.mockImplementation((_referenceBlockHash, blockHash) =>
-          Promise.resolve(blockHash.equals(presentBlockHash) ? witness : undefined),
-        );
-
-        const result = await oracle.areBlockHashesInArchive(
-          referenceBlockHash,
-          EphemeralArray.fromValues(service, [presentBlockHash, missingBlockHash, presentBlockHash]),
-        );
-
-        expect(result.readAll(service)).toEqual([true, false, true]);
-        expect(aztecNode.getBlockHashMembershipWitness).toHaveBeenCalledTimes(2);
-      });
-
-      it('reuses public storage reads within a utility execution', async () => {
-        const oracle = makeOracle({ scopes: [scope] });
-        const blockHash = await anchorBlockHeader.hash();
-        const startStorageSlot = Fr.random();
-        aztecNode.getPublicStorageAt.mockResolvedValue(new Fr(7));
-
-        const first = await oracle.getFromPublicStorage(blockHash, contractAddress, startStorageSlot, 2);
-        const second = await oracle.getFromPublicStorage(blockHash, contractAddress, startStorageSlot, 2);
-
-        expect(first).toEqual(second);
-        expect(aztecNode.getPublicStorageAt).toHaveBeenCalledTimes(2);
       });
     });
 

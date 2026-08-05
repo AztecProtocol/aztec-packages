@@ -54,6 +54,50 @@ describe('BrokerCircuitProverFacade', () => {
     expect(errorProofStore.saveProofInput).not.toHaveBeenCalled();
   });
 
+  it('does not retain the inputs URI for in-flight jobs when no failed-proof store is configured', async () => {
+    // With no failed-proof store there is no consumer for the retained inputs URI (only
+    // `backupFailedProofInputs` reads it). With the default InlineProofStore that URI embeds the full
+    // circuit inputs, so the facade must not pin it in memory for the in-flight window.
+    // Stop the shared facade so it doesn't drain this job's completion notification from the broker,
+    // which would otherwise force this facade onto the slow full-snapshot sync path.
+    await facade.stop();
+    const facadeNoFailedStore = new BrokerCircuitProverFacade(broker, proofStore);
+    facadeNoFailedStore.start();
+    try {
+      const inputs = makeParityBasePrivateInputs();
+      const controller = new AbortController();
+
+      const resultPromise = promiseWithResolvers<any>();
+      const enqueueSpy = jest.spyOn(broker, 'enqueueProvingJob');
+      jest.spyOn(prover, 'getBaseParityProof').mockReturnValue(resultPromise.promise);
+
+      const proofPromise = facadeNoFailedStore.getBaseParityProof(inputs, controller.signal, EpochNumber(42));
+
+      // Wait until the job has been sent to the broker — past the point where the URI would be retained.
+      await retryFastUntil(() => enqueueSpy.mock.calls.length > 0, 'job to be enqueued');
+
+      // The broker still receives the inputs URI...
+      const enqueued = enqueueSpy.mock.calls[0][0] as { inputsUri?: string };
+      expect(enqueued.inputsUri).toBeTruthy();
+
+      // ...but the facade does not hold onto it for the in-flight job.
+      const jobs = (facadeNoFailedStore as any).jobs as Map<string, { inputsUri?: string }>;
+      expect(jobs.size).toBe(1);
+      expect([...jobs.values()][0].inputsUri).toBeUndefined();
+
+      // The job still completes normally.
+      const result = makePublicInputsAndRecursiveProof(
+        makeParityPublicInputs(),
+        makeRecursiveProof(RECURSIVE_PROOF_LENGTH),
+        VerificationKeyData.makeFakeHonk(),
+      );
+      resultPromise.resolve(result);
+      await expect(proofPromise).resolves.toEqual(result);
+    } finally {
+      await facadeNoFailedStore.stop();
+    }
+  });
+
   it('handles multiple calls for the same job', async () => {
     const inputs = makeParityBasePrivateInputs();
     const controller = new AbortController();

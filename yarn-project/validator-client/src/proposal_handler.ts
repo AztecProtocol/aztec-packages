@@ -18,6 +18,7 @@ import type { LogData } from '@aztec/foundation/log';
 import { createLogger } from '@aztec/foundation/log';
 import { retryUntil } from '@aztec/foundation/retry';
 import { DateProvider, Timer } from '@aztec/foundation/timer';
+import { isErrorClass } from '@aztec/foundation/types';
 import type { P2P, PeerId } from '@aztec/p2p';
 import { BlockProposalValidator } from '@aztec/p2p/msg_validators';
 import type { BlockData, L2Block, L2BlockSink, L2BlockSource } from '@aztec/stdlib/block';
@@ -39,8 +40,9 @@ import {
 import type { BlockProposal, CheckpointAttestation, CheckpointProposalCore } from '@aztec/stdlib/p2p';
 import type { ConsensusTimetable } from '@aztec/stdlib/timetable';
 import { MerkleTreeId } from '@aztec/stdlib/trees';
-import type { CheckpointGlobalVariables, FailedTx, Tx } from '@aztec/stdlib/tx';
+import type { CheckpointGlobalVariables, FailedTx, Tx, TxHash } from '@aztec/stdlib/tx';
 import {
+  InvalidBlockProposalTxsError,
   ReExFailedTxsError,
   ReExInitialStateMismatchError,
   ReExStateMismatchError,
@@ -61,6 +63,8 @@ export type BlockProposalValidationFailureReason =
   | 'global_variables_mismatch'
   | 'block_number_already_exists'
   | 'txs_not_available'
+  | 'duplicate_txs'
+  | 'invalid_embedded_txs'
   | 'state_mismatch'
   | 'failed_txs'
   | 'initial_state_mismatch'
@@ -172,6 +176,8 @@ export const SLASHABLE_BLOCK_PROPOSAL_VALIDATION_RESULT: BlockProposalValidation
   'invalid_proposal',
   'parent_block_wrong_slot',
   'in_hash_mismatch',
+  'duplicate_txs',
+  'invalid_embedded_txs',
 ];
 
 /** Checkpoint-proposal validation failures that constitute a slashable invalid-checkpoint offense. */
@@ -474,6 +480,20 @@ export class ProposalHandler {
       return { isValid: false, reason: 'invalid_proposal' };
     }
 
+    // A tx can only appear once in a block: the second copy would emit nullifiers already emitted by the
+    // first. This is not a relaying-peer fault, so it passes gossip validation and is classified here as
+    // proposer misbehavior. Tx collection also reconciles a deduplicated hash set against the full list,
+    // so it must not be handed a proposal with repeated hashes.
+    const uniqueTxHashes = new Set(proposal.txHashes.map(txHash => txHash.toString()));
+    if (uniqueTxHashes.size !== proposal.txHashes.length) {
+      this.log.warn(`Proposal lists duplicate tx hashes, skipping processing`, {
+        ...proposalInfo,
+        txCount: proposal.txHashes.length,
+        uniqueTxCount: uniqueTxHashes.size,
+      });
+      return { isValid: false, reason: 'duplicate_txs' };
+    }
+
     const retainedSlotValidation = await this.validateNewBlockInSlot(proposal);
     if (!retainedSlotValidation.isValid) {
       this.log.info(`Block proposal conflicts with retained proposals, skipping archiver processing`, {
@@ -527,10 +547,11 @@ export class ProposalHandler {
 
     // Collect txs from the proposal. We start doing this as early as possible,
     // and we do it even if we don't plan to re-execute the txs, so that we have them if another node needs them.
-    const { txs, missingTxs } = await this.txProvider.getTxsForBlockProposal(proposal, blockNumber, {
-      pinnedPeer: proposalSender,
-      deadline: this.getReexecutionDeadline(slotNumber),
-    });
+    const collected = await this.collectProposalTxs(proposal, blockNumber, proposalSender, proposalInfo);
+    if (collected === 'invalid_embedded_txs') {
+      return { isValid: false, blockNumber, reason: collected };
+    }
+    const { txs, missingTxs } = collected;
 
     // Record the tx-collection outcome on the re-execution tracker
     this.reexecutionTracker.recordTxsCollected(slotNumber, proposal.indexWithinCheckpoint, missingTxs.length === 0);
@@ -613,6 +634,36 @@ export class ProposalHandler {
     );
 
     return { isValid: true, blockNumber, reexecutionResult };
+  }
+
+  /**
+   * Collects the txs for a proposal, returning `invalid_embedded_txs` if the proposal carries a tx that fails
+   * minimum integrity validation. That is proposer misbehavior — the proposal signs both the tx hashes and the
+   * tx objects — so the caller turns it into an invalid-proposal result that reaches slashing and invalid-slot
+   * accounting, rather than letting it escape as an exception. Any other collection error is a local failure
+   * and keeps propagating.
+   */
+  private async collectProposalTxs(
+    proposal: BlockProposal,
+    blockNumber: BlockNumber,
+    proposalSender: PeerId,
+    proposalInfo: LogData,
+  ): Promise<{ txs: Tx[]; missingTxs: TxHash[] } | 'invalid_embedded_txs'> {
+    try {
+      return await this.txProvider.getTxsForBlockProposal(proposal, blockNumber, {
+        pinnedPeer: proposalSender,
+        deadline: this.getReexecutionDeadline(proposal.slotNumber),
+      });
+    } catch (error) {
+      if (!isErrorClass(error, InvalidBlockProposalTxsError)) {
+        throw error;
+      }
+      this.log.warn(`Block proposal carries ${error.invalidTxs.length} invalid txs`, {
+        ...proposalInfo,
+        invalidTxs: error.invalidTxs.map(({ txHash, reasons }) => ({ txHash: txHash.toString(), reasons })),
+      });
+      return 'invalid_embedded_txs';
+    }
   }
 
   private async validateNewBlockInSlot(blockProposal: BlockProposal): Promise<BlockProposalSlotValidationResult> {

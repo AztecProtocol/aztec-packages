@@ -50,41 +50,22 @@ Note the `registryAddress` from the output.
 
 ---
 
-## Step 2: Clone and Set Up l1-contracts
+## Step 2: Download the l1-contracts bundle
 
-Clone the l1-contracts repo and checkout the version matching your Aztec installation. Run `aztec --version` to find your version:
+The [`@aztec/l1-artifacts`](https://www.npmjs.com/package/@aztec/l1-artifacts) npm package bundles a self-contained Foundry project with the L1 contract sources, prebuilt artifacts, deploy scripts, and governance payload contracts. Download the version matching your Aztec installation (run `aztec --version` to find it):
 
 ```bash
-git clone https://github.com/AztecProtocol/l1-contracts.git
+npm pack @aztec/l1-artifacts@#release_version
+mkdir l1-contracts
+tar xzf aztec-l1-artifacts-#release_version.tgz --strip-components=2 -C l1-contracts package/l1-contracts
 cd l1-contracts
-git checkout #release_version
 ```
 
-Install dependencies and set up the build environment:
+No further setup is needed: the bundle includes the library dependencies and the generated verifier, and forge downloads the matching solc version automatically on first use.
 
-```bash
-# Install forge dependencies
-mkdir -p lib
-cd lib
-git clone --depth 1 https://github.com/foundry-rs/forge-std forge-std
-git clone --depth 1 https://github.com/OpenZeppelin/openzeppelin-contracts openzeppelin-contracts
-cd ..
-
-# Install solc (uses forge's built-in svm). The Aztec installer ships
-# Foundry as `aztec-forge`/`aztec-cast`/`aztec-anvil` -- substitute your
-# own `forge` install if you have one.
-aztec-forge build --use 0.8.30 src/core/libraries/ConstantsGen.sol
-cp ~/.svm/0.8.30/solc-0.8.30 ./solc-0.8.30
-
-# Copy the HonkVerifier to the generated directory (required for build)
-mkdir -p generated
-cp src/HonkVerifier.sol generated/HonkVerifier.sol
-echo '{}' > generated/default.json
-
-# Remove zkpassport-dependent files (not needed for rollup deployment)
-rm -f src/mock/StakingAssetHandler.sol
-rm -rf src/mock/staking_asset_handler/
-```
+:::note
+The Aztec installer ships Foundry as `aztec-forge`, `aztec-cast`, and `aztec-anvil`. Substitute your own `forge` and `cast` installs in the commands below if you have them.
+:::
 
 ---
 
@@ -120,7 +101,7 @@ export AZTEC_SLASHING_VETOER=0x0000000000000000000000000000000000000000
 export AZTEC_SLASHING_DISABLE_DURATION=0
 export AZTEC_MANA_TARGET=100000000
 export AZTEC_EXIT_DELAY_SECONDS=0
-export AZTEC_PROVING_COST_PER_MANA=0
+export AZTEC_PROVING_COST_PER_MANA=100
 export AZTEC_SLASH_AMOUNT_SMALL=0
 export AZTEC_SLASH_AMOUNT_MEDIUM=0
 export AZTEC_SLASH_AMOUNT_LARGE=0
@@ -148,6 +129,10 @@ export NEW_ROLLUP_ADDRESS=0x...
 
 ## Step 5: Deploy Governance Payload
 
+:::tip
+The deploy script in Step 4 also deploys this payload and prints it as `payloadAddress` in its JSON output. You can export that address as `PAYLOAD_ADDRESS` and skip this step.
+:::
+
 **Important:** Place flags before the contract path to avoid argument parsing issues.
 
 ```bash
@@ -157,7 +142,7 @@ aztec-forge create \
   --rpc-url $L1_RPC_URL \
   --private-key $PRIVATE_KEY \
   --broadcast \
-  test/governance/scenario/RegisterNewRollupVersionPayload.sol:RegisterNewRollupVersionPayload \
+  src/periphery/RegisterNewRollupVersionPayload.sol:RegisterNewRollupVersionPayload \
   --constructor-args $REGISTRY_ADDRESS $NEW_ROLLUP_ADDRESS
 ```
 

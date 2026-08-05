@@ -304,7 +304,10 @@ export const TXE_ORACLE_REGISTRY = {
   }),
 
   aztec_txe_createAccount: makeEntry({
-    params: [{ name: 'secret', type: FIELD }],
+    params: [
+      { name: 'secret', type: FIELD },
+      { name: 'partialAddress', type: FIELD },
+    ],
     returnType: COMPLETE_ADDRESS,
   }),
 

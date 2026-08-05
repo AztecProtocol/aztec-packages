@@ -13,6 +13,6 @@
       "path": "../stdlib"
     }
   ],
-  "include": ["src", "artifacts/*.d.json.ts"],
+  "include": ["src", "artifacts/*.d.json.ts", "artifacts-historical/*.d.json.ts"],
   "exclude": ["src/scripts"]
 }

@@ -28,12 +28,17 @@ export class HashedValues {
   }
 
   static get schema(): ZodFor<HashedValues> {
-    return z
-      .object({
-        values: z.array(schemas.Fr),
-        hash: schemas.Fr,
-      })
-      .transform(HashedValues.from);
+    return HashedValues.schemaFor();
+  }
+
+  /**
+   * Returns a schema that additionally rejects more than `maxValues` values. The bound belongs to the caller
+   * rather than to this class: the same container carries public calldata, private call arguments and authwit
+   * arguments, and those have different limits.
+   */
+  static schemaFor(maxValues?: number): ZodFor<HashedValues> {
+    const values = maxValues === undefined ? z.array(schemas.Fr) : z.array(schemas.Fr).max(maxValues);
+    return z.object({ values, hash: schemas.Fr }).transform(HashedValues.from);
   }
 
   static from(fields: FieldsOf<HashedValues>): HashedValues {

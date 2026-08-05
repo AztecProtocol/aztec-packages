@@ -6,7 +6,10 @@
 const sidebars = {
   participateSidebar: [
     { type: "doc", id: "index", label: "Overview" },
+    { type: "doc", id: "get-started", label: "Get Started" },
     { type: "doc", id: "alpha", label: "Alpha Network" },
+    { type: "doc", id: "apps", label: "Explore Apps" },
+    { type: "doc", id: "safety", label: "Staying Safe" },
     {
       type: "html",
       value: '<span class="sidebar-title">Basics of Aztec</span>',

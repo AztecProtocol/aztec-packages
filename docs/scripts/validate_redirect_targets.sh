@@ -142,6 +142,15 @@ check_file_or_id() {
       if [[ "$file_id" == "$slug" ]]; then
         return 0
       fi
+      # Docusaurus strips "NN-" number prefixes from filenames when deriving
+      # doc ids/routes, so 01-foo.md is served at .../foo.
+      local base_name
+      base_name=$(basename "$file")
+      base_name="${base_name%.mdx}"
+      base_name="${base_name%.md}"
+      if [[ "$base_name" =~ ^[0-9]+-(.+)$ ]] && [[ "${BASH_REMATCH[1]}" == "$slug" ]]; then
+        return 0
+      fi
     done
   fi
 
@@ -227,6 +236,11 @@ check_docs_path() {
   # Remove leading slash for path construction
   local clean_path="${url_path#/}"
 
+  # Static assets (e.g. /img/*) are served directly from static/
+  if [[ -f "$DOCS_ROOT/static/$clean_path" ]]; then
+    return 0
+  fi
+
   # Handle /aztec-nr-api/* paths (static HTML from nargo doc)
   if [[ "$clean_path" =~ ^aztec-nr-api/(.*) ]]; then
     local api_path="${BASH_REMATCH[1]}"
@@ -311,15 +325,14 @@ if [[ -n "$INVALID_PATHS" ]]; then
   INVALID_COUNT=$(echo -e "$INVALID_PATHS" | grep -c "^  -" || echo "0")
   echo "  - Invalid: $INVALID_COUNT"
   echo ""
-  echo "WARNING: The following redirect targets may not point to valid documentation paths:"
+  echo "ERROR: The following redirect targets do not point to valid documentation paths:"
   echo -e "$INVALID_PATHS"
   echo ""
-  echo "Note: These paths were checked against the default versioned docs."
-  echo "If these paths exist in the source docs but not in the versioned docs,"
-  echo "they will become valid after the next docs version is released."
+  echo "These targets were checked against the default versioned docs, which is what"
+  echo "production serves at the bare URL. A redirect to one of these paths would 301"
+  echo "visitors straight into a 404. Fix the 'to' value or remove the redirect."
   echo ""
-  # Exit with success to avoid breaking builds, but warn about potential issues
-  exit 0
+  exit 1
 fi
 
 echo ""

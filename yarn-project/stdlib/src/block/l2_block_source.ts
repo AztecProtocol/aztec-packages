@@ -19,6 +19,7 @@ import type { CheckpointData, ProposedCheckpointData, ProposedCheckpointInput } 
 import type { CheckpointInfo } from '../checkpoint/checkpoint_info.js';
 import type { PublishedCheckpoint } from '../checkpoint/published_checkpoint.js';
 import type { L1RollupConstants } from '../epoch-helpers/index.js';
+import { MAX_RPC_CHECKPOINTS_DATA_LEN } from '../interfaces/api_limit.js';
 import type { L2ToL1MembershipWitness } from '../messaging/l2_to_l1_membership.js';
 import { CheckpointHeader } from '../rollup/checkpoint_header.js';
 import type { IndexedTxEffect } from '../tx/indexed_tx_effect.js';
@@ -89,9 +90,20 @@ export const CheckpointQuerySchema: z.ZodType<CheckpointQuery, unknown> = z.unio
   z.object({ tag: z.union([z.literal('checkpointed'), z.literal('proven'), z.literal('finalized')]) }).strict(),
 ]);
 
+const checkpointsQueryLimitSchema = () =>
+  z
+    .number()
+    .int()
+    .min(1)
+    .max(MAX_RPC_CHECKPOINTS_DATA_LEN, {
+      message: `limit must be at most ${MAX_RPC_CHECKPOINTS_DATA_LEN}`,
+    });
+
 export const CheckpointsQuerySchema: z.ZodType<CheckpointsQuery, unknown> = z.union([
-  z.object({ from: CheckpointNumberSchema, limit: z.number().int().min(1) }).strict(),
-  z.object({ fromSlot: SlotNumberSchema, limit: z.number().int().min(1), reverse: z.boolean().optional() }).strict(),
+  z.object({ from: CheckpointNumberSchema, limit: checkpointsQueryLimitSchema() }).strict(),
+  z
+    .object({ fromSlot: SlotNumberSchema, limit: checkpointsQueryLimitSchema(), reverse: z.boolean().optional() })
+    .strict(),
   z.object({ epoch: EpochNumberSchema }).strict(),
 ]);
 

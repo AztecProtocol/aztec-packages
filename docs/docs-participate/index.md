@@ -12,6 +12,10 @@ Welcome to the Participate section. Here you'll find educational content about h
 Aztec is currently in its **Alpha** phase, a live mainnet where bugs, including critical ones, are expected. Before using the network, read the [Alpha Network](/participate/alpha) page to understand current limitations, security expectations, and what to expect from rollup upgrades.
 :::
 
+:::tip New to Aztec? Start here
+The [Get started guide](/participate/get-started) gives you an ordered path: get a wallet, fund your account, make your first private transaction, [explore apps](/participate/apps), and [stay safe](/participate/safety) along the way.
+:::
+
 import YouTubeEmbed from '@site/src/components/YouTubeEmbed';
 
 ## What is Aztec?
@@ -20,13 +24,21 @@ This explainer covers what Aztec is in under 90 seconds (find more on the [video
 
 <YouTubeEmbed videoId="urcBvo2QJp0" title="What is Aztec: Explained in Under 90 Seconds" />
 
+## Using Aztec
+
+Want to use the network as a user?
+
+- [**Get started**](/participate/get-started) - Step-by-step onboarding: wallet, funds, first transaction
+- [**Explore apps**](/participate/apps) - Wallets, payments, DeFi, and more built on Aztec
+- [**Staying safe**](/participate/safety) - Official links and how to avoid scams
+
 ## Basics of Aztec
 
-New to Aztec? Start here to understand the fundamentals:
+Want to understand the fundamentals? Start here:
 
 - [**Addresses**](/participate/basics/addresses) - How addresses work on Aztec
 - [**Wallets**](/participate/basics/wallets) - Available wallets and hardware wallet support
-- [**Fees**](/participate/basics/fees) - How fees and mana work
+- [**Fees**](/participate/basics/fees) - How fees, mana, and Fee Juice work, and how to get Fee Juice
 - [**Transactions**](/participate/basics/transactions) - The transaction lifecycle and client-side proving
 - [**Blocks**](/participate/basics/blocks) - Blocks, epochs, and proving
 - [**Bridging**](/participate/basics/bridging) - How to move assets between Ethereum and Aztec
@@ -53,6 +65,10 @@ Understand how the protocol evolves through decentralized governance:
 - [**L1 Contracts**](/participate/governance/contracts) - Smart contracts powering governance
 
 ---
+
+:::tip Ready to use Aztec?
+If you want to try the network today, follow the [Get started guide](/participate/get-started).
+:::
 
 :::tip Ready to build?
 If you're a developer looking to build on Aztec, head over to the [Developer Guides](/developers/overview).

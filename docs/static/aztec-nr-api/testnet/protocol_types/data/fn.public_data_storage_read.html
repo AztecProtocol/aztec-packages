@@ -1,0 +1,61 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="UTF-8">
+<link rel="stylesheet" href="../../styles.css">
+<script defer src="../../nargo_doc.js"></script>
+<title>Function public_data_storage_read documentation</title>
+</head>
+<body>
+<div id="sidebar-toggle">
+<button id="sidebar-toggle-button"></button>
+<div id="sidebar-toggle-title">public_data_storage_read</div>
+</div>
+<span id="main-contents">
+<nav class="sidebar">
+<h1><a href="../../index.html">aztec-nr</a></h1>
+<div><a href="../../all.html">All items</a></div>
+<h2 id="crate-name"><a href="../index.html">protocol_types</a></h2>
+<div id="crate-version">0.0.0</div>
+<h2>In module data</h2>
+<h3>Modules</h3><ul class="item-list">
+<li><a href="hash/index.html">hash</a></div></li>
+<li><a href="public_data_tree_leaf/index.html">public_data_tree_leaf</a></div></li>
+<li><a href="public_data_tree_leaf_preimage/index.html">public_data_tree_leaf_preimage</a></div></li>
+</ul>
+<h3>Functions</h3><ul class="item-list">
+<li><a href="fn.public_data_storage_read.html">public_data_storage_read</a></div></li>
+</ul>
+</nav>
+<main>
+<div><a href="../../index.html">aztec-nr</a> - <a href="../index.html">protocol_types</a>::<a href="index.html">data</a></div>
+<h1>Function <span class="fn">public_data_storage_read</span></h1>
+<pre><code>pub fn public_data_storage_read(
+    public_data_tree_root: <a href="../../std/primitive.Field.html" class="primitive">Field</a>,
+    public_data_leaf_slot: <a href="../../std/primitive.Field.html" class="primitive">Field</a>,
+    witness: <a href="../../protocol_types/merkle_tree/membership/struct.MembershipWitness.html" class="struct">MembershipWitness</a>&lt;40&gt;,
+    leaf_preimage: <a href="../../protocol_types/data/public_data_tree_leaf_preimage/struct.PublicDataTreeLeafPreimage.html" class="struct">PublicDataTreeLeafPreimage</a>,
+) -> <a href="../../std/primitive.Field.html" class="primitive">Field</a></code></pre>
+
+<div class="comments">
+<p>Read the value from public storage at the given <code>leaf_slot</code>.</p>
+<p>Parameters:</p>
+<ul>
+<li><code>public_data_tree_root</code>: The root of the public data tree.</li>
+<li><code>public_data_leaf_slot</code>: The slot of the leaf in the public data tree.</li>
+<li><code>witness</code>: A hint to prove that the <code>leaf_preimage</code> exists in the tree.</li>
+</ul>
+<p>The slot could either exist (has been initialized) in the tree or not:</p>
+<ul>
+<li>If it's in the tree, <code>leaf_preimage</code> should be the preimage for the slot.</li>
+<li>If it's not in the tree, <code>leaf_preimage</code> should be the preimage for the low leaf of the slot.</li>
+</ul>
+<p>Returns:</p>
+<ul>
+<li><code>Field</code>: The value read from the public data tree.</li>
+</ul>
+</div>
+</main>
+</span>
+</body>
+</html>

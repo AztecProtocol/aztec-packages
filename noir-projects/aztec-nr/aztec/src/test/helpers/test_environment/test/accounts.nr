@@ -2,7 +2,7 @@ use crate::{
     authwit::auth::{compute_authwit_message_hash, IS_VALID_SELECTOR},
     context::calls::PrivateStaticCall,
     keys::getters::get_public_keys,
-    test::helpers::{test_environment::TestEnvironment, txe_oracles},
+    test::helpers::{test_environment::{CreateAccountOptions, TestEnvironment}, txe_oracles},
 };
 use crate::protocol::abis::function_selector::FunctionSelector;
 
@@ -12,6 +12,45 @@ unconstrained fn create_light_account_does_not_repeat_accounts() {
 
     let first_account = env.create_light_account();
     let second_account = env.create_light_account();
+
+    assert(first_account != second_account);
+}
+
+#[test]
+unconstrained fn create_light_account_opts_same_secret_and_partial_address_repeats_address() {
+    let mut env = TestEnvironment::new();
+
+    let first_account =
+        env.create_light_account_opts(CreateAccountOptions::new().with_secret(42).with_partial_address(1));
+    let second_account =
+        env.create_light_account_opts(CreateAccountOptions::new().with_secret(42).with_partial_address(1));
+
+    assert_eq(first_account, second_account);
+}
+
+#[test]
+unconstrained fn create_light_account_opts_shared_secret_distinct_partial_address_shares_keys_not_address() {
+    let mut env = TestEnvironment::new();
+
+    let first_account =
+        env.create_light_account_opts(CreateAccountOptions::new().with_secret(42).with_partial_address(1));
+    let second_account =
+        env.create_light_account_opts(CreateAccountOptions::new().with_secret(42).with_partial_address(2));
+
+    assert(first_account != second_account);
+    env.utility_context(|_| {
+        assert_eq(get_public_keys(first_account).npk_m_hash, get_public_keys(second_account).npk_m_hash);
+    });
+}
+
+#[test]
+unconstrained fn create_light_account_opts_distinct_secret_shared_partial_address_differ() {
+    let mut env = TestEnvironment::new();
+
+    let first_account =
+        env.create_light_account_opts(CreateAccountOptions::new().with_secret(42).with_partial_address(1));
+    let second_account =
+        env.create_light_account_opts(CreateAccountOptions::new().with_secret(43).with_partial_address(1));
 
     assert(first_account != second_account);
 }

@@ -51,6 +51,13 @@ template <typename ExecutionTrace> void UltraCircuitBuilder_<ExecutionTrace>::fi
      * our circuit is finalized, and we must not to execute these functions again.
      */
     if (!this->circuit_finalized) {
+        std::unordered_set<size_t> table_indices;
+        for (const auto& table : lookup_tables) {
+            BB_ASSERT_GT(table.table_index, 0U, "Lookup table indices must be positive");
+            BB_ASSERT(table_indices.insert(table.table_index).second,
+                      "Lookup table indices must be unique within a circuit");
+        }
+
         process_non_native_field_multiplications();
 #ifndef ULTRA_FUZZ
         this->rom_ram_logic.process_ROM_arrays(this);
