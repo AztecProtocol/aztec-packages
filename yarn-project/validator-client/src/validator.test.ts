@@ -710,6 +710,7 @@ describe('ValidatorClient', () => {
           slotNumber: futureSlot,
         }),
         inHash: computeInHashFromL1ToL2Messages([]),
+        bucketRef: genesisBucketRef,
       });
 
       // Under pipelining, the target slot is the future slot the proposer is building for, built during
