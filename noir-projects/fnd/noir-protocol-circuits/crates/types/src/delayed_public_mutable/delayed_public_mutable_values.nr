@@ -56,6 +56,8 @@ where
 pub fn unpack_delay_change<let INITIAL_DELAY: u64>(
     packed: Field,
 ) -> ScheduledDelayChange<INITIAL_DELAY> {
+    std::static_assert(INITIAL_DELAY > 0, "INITIAL_DELAY must be greater than zero");
+
     // This function expects to be called with just the first field of the packed representation, which contains sdc
     // and svc timestamp_of_change. We'll discard the svc component.
     let svc_timestamp_of_change = packed as u32;

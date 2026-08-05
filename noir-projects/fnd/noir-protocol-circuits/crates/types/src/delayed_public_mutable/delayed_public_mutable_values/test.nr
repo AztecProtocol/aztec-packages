@@ -1,7 +1,8 @@
 use crate::{constants::{MAX_FIELD_VALUE, MAX_U32_VALUE}, traits::Packable};
 use crate::delayed_public_mutable::{
-    delayed_public_mutable_values::DelayedPublicMutableValues,
-    scheduled_delay_change::ScheduledDelayChange, scheduled_value_change::ScheduledValueChange,
+    delayed_public_mutable_values::{DelayedPublicMutableValues, unpack_delay_change},
+    scheduled_delay_change::ScheduledDelayChange,
+    scheduled_value_change::ScheduledValueChange,
 };
 
 global TEST_INITIAL_DELAY: u64 = 13;
@@ -148,6 +149,14 @@ unconstrained fn schedule_change_accepts_delay_at_u32_max() {
     sdc.schedule_change(max_u32, 1_000);
 
     assert_eq(sdc.post.unwrap(), max_u32);
+}
+
+// Every read of a stored delay goes through `unpack_delay_change`, so guarding it there covers both the aztec-nr and
+// `aztec_sublib` state variables as well as the private kernel's contract update horizon. The `static_assert` failure
+// surfaces as a test failure because each test is compiled on demand.
+#[test(should_fail_with = "INITIAL_DELAY must be greater than zero")]
+unconstrained fn unpacking_a_zero_initial_delay_fails() {
+    let _ = unpack_delay_change::<0_u64>(0);
 }
 
 #[test]

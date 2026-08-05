@@ -9,8 +9,8 @@ mod test;
 // is performed via `schedule_change` in order to satisfy ScheduleValueChange constraints: if e.g. we allowed for the
 // delay to be decreased immediately then it'd be possible for the state variable to schedule a value change with a
 // reduced delay, invalidating prior private reads.
-// INITIAL_DELAY must be nonzero: DelayedPublicMutable enforces this, while direct users of this low-level type must
-// uphold it themselves.
+// INITIAL_DELAY must be nonzero, since a zero delay leaves no window during which a private read is known to remain
+// valid. This is enforced at compile time by `unpack_delay_change`, which every read of a stored delay goes through.
 pub struct ScheduledDelayChange<let INITIAL_DELAY: u64> {
     // Both pre and post are stored in public storage, so by default they are zeroed. By wrapping them in an Option,
     // they default to Option::none(), which we detect and replace with INITIAL_DELAY. The end result is that a
