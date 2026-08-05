@@ -77,6 +77,17 @@ use crate::{context::{PrivateContext, PublicContext, UtilityContext}, state_vars
 /// delay leaves no window at all in which a read is known to hold, making private reads impossible. Zero delays are
 /// therefore rejected outright, both when declaring the state variable and when scheduling a delay change.
 ///
+/// The zero check is the only bound that is enforced: it rejects a configuration that can never work, not one that
+/// is merely unwise. A delay of a few seconds is accepted by the compiler despite being just as unusable in practice,
+/// since no transaction can be proven, broadcast and included that quickly. There is no universal minimum that is
+/// safe for every use case: proving times, user hardware and the nature of the guarded value all factor in.
+///
+/// Delay selection is also a power in itself. An account that can schedule delay changes can drive the delay low
+/// enough that private reads become unusable, blocking user actions that depend on them: a subtle escalation of
+/// privileges, since the delay is precisely what protects users from whoever controls the value. Contracts that let a
+/// privileged account call [`DelayedPublicMutable::schedule_delay_change`] should enforce a minimum delay appropriate
+/// to their use case in that function.
+///
 /// In practice, a delay of at least a couple hours is recommended. From a privacy point of view the optimal delay is
 /// [`crate::protocol::constants::MAX_TX_LIFETIME`], which puts contracts in the same privacy set as those that do not
 /// use `DelayedPublicMutable` at all.
@@ -214,7 +225,8 @@ where
     /// [`get_current_delay`](DelayedPublicMutable::get_current_delay) automatically begins to return `new_delay`, and
     /// [`schedule_value_change`](DelayedPublicMutable::schedule_value_change) begins using it.
     ///
-    /// `new_delay` must be greater than zero.
+    /// `new_delay` must be greater than zero. This is the only enforced bound; values above zero are not necessarily
+    /// safe: see the Choosing Delays section on [`DelayedPublicMutable`] for guidance.
     ///
     /// ## Multiple Scheduled Changes
     ///

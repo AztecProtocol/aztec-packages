@@ -178,6 +178,12 @@ Unlike other state variables, `DelayedPublicMutable` receives not only a type pa
 
 #include_code delayed_public_mutable_storage /noir-projects/labs/noir-contracts/contracts/app/auth_contract/src/main.nr rust
 
+#### Choosing delays
+
+The zero check is the only bound that is enforced; delays above zero are accepted but not necessarily safe. A transaction that privately reads the value expires `DELAY` seconds after its anchor block timestamp, so a delay of a few seconds is just as unusable in practice: no transaction can be proven, broadcast and included that quickly. Short delays also lower the transaction's expiration timestamp, shrinking its privacy set. There is no universal minimum that is safe for every use case, but a delay of at least a couple of hours is recommended.
+
+Delay selection is also a power in itself. An account that can schedule delay changes can drive the delay low enough that private reads become unusable, blocking user actions that depend on them, which is a subtle escalation of privileges: the delay is precisely what protects users from whoever controls the value. If your contract lets an admin change the delay, enforce a minimum appropriate to your use case in the function that schedules the change.
+
 #### `schedule_value_change`
 
 This is the means by which a `DelayedPublicMutable` variable mutates its contents. It schedules a value change for the variable at a future timestamp after the `DELAY` has elapsed.
