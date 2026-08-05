@@ -124,8 +124,10 @@ export class UtilityExecutionOracle implements IMiscOracle, IUtilityExecutionOra
   /** Keyed by tx hash string. */
   private readonly txReceiptsCache = new Map<string, Promise<TxReceipt<{ includeTxEffect: true }>>>();
   /**
-   * Keyed by tx hash string. Holds every tx surfaced by this execution's tagged-log queries, which is where validation
-   * requests overwhelmingly point; only txs reached through other paths (e.g. offchain inbox messages) need a receipt.
+   * Information that can be used to validate the existence of a note or an event, keyed by tx hash string. It is
+   * populated by the node queries that precede validation (tagged log retrieval, tx resolution), which already return
+   * everything validation needs, so validating a note or event created in one of those txs costs no node roundtrip.
+   * Notes and events reached through other paths (e.g. offchain inbox messages) still need a receipt.
    */
   private readonly validationTxDataCache = new Map<string, ValidationTxData>();
 
@@ -606,8 +608,9 @@ export class UtilityExecutionOracle implements IMiscOracle, IUtilityExecutionOra
 
     const logService = this.#createLogService();
     const retrievedLogs = await logService.fetchTaggedLogs(this.contractAddress, scope, secrets);
-    // Cache each tx's onchain context so later validation requests for it cost no node reads.
-    retrievedLogs.forEach(log => this.validationTxDataCache.set(log.txHash.toString(), toValidationTxData(log)));
+
+    this.#cacheValidationTxData(retrievedLogs);
+
     return EphemeralArray.fromValues(this.ephemeralArrayService, retrievedLogs.map(toPendingTaggedLog));
   }
 
@@ -664,10 +667,8 @@ export class UtilityExecutionOracle implements IMiscOracle, IUtilityExecutionOra
     const logService = this.#createLogService();
 
     const retrievedLogsPerRequest = await logService.fetchLogsByTag(this.contractAddress, logRetrievalRequests);
-    // Cache each tx's onchain context so later validation requests for it cost no node reads.
-    retrievedLogsPerRequest
-      .flat()
-      .forEach(log => this.validationTxDataCache.set(log.txHash.toString(), toValidationTxData(log)));
+
+    this.#cacheValidationTxData(retrievedLogsPerRequest.flat());
 
     // Create an inner ephemeral array for each request's matching logs, then wrap all slots in an outer array.
     const innerArrays = retrievedLogsPerRequest.map(retrievedLogs =>
@@ -682,10 +683,8 @@ export class UtilityExecutionOracle implements IMiscOracle, IUtilityExecutionOra
     const txHashes = requests.readAll(this.ephemeralArrayService);
 
     const resolved = await this.txResolver.resolveTxs(txHashes, this.anchorBlockHeader.getBlockNumber());
-    // Cache each tx's onchain context so later validation requests for it cost no node reads.
-    resolved
-      .filter(tx => tx !== null)
-      .forEach(tx => this.validationTxDataCache.set(tx.txHash.toString(), toValidationTxData(tx)));
+
+    this.#cacheValidationTxData(resolved.filter(tx => tx !== null));
 
     const options = resolved.map(tx => (tx ? Option.some(toResolvedTx(tx)) : Option.none<ResolvedTx>()));
     return EphemeralArray.fromValues(this.ephemeralArrayService, options);
@@ -1121,10 +1120,15 @@ export class UtilityExecutionOracle implements IMiscOracle, IUtilityExecutionOra
     return this.offchainEffects;
   }
 
+  /** Stores the onchain context of the given txs, so that validating the notes and events they created is free. */
+  #cacheValidationTxData(txs: TxOnchainContext[]) {
+    txs.forEach(tx => this.validationTxDataCache.set(tx.txHash.toString(), toValidationTxData(tx)));
+  }
+
   /**
-   * Returns the {@link ValidationTxData} for the given hashes, keyed by `TxHash.toString()`. Txs this execution has
-   * already seen are served from {@link validationTxDataCache}; the rest go through
-   * {@link #getTxReceiptWithEffect}, in parallel. Hashes with no tx effect are omitted.
+   * Returns the information needed to validate the notes and events created in the given txs, keyed by
+   * `TxHash.toString()`. Txs already in {@link validationTxDataCache} cost no node request, and the rest are read from
+   * the node. Txs with no tx effect are absent from the returned map.
    */
   async #getValidationTxData(txHashes: TxHash[]): Promise<Map<string, ValidationTxData>> {
     const known: [string, ValidationTxData][] = [];
