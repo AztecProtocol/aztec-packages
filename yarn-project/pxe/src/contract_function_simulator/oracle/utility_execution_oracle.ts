@@ -1,4 +1,4 @@
-import { ARCHIVE_HEIGHT, type NOTE_HASH_TREE_HEIGHT } from '@aztec/constants';
+import { ARCHIVE_HEIGHT, type NOTE_HASH_TREE_HEIGHT, PRIVATE_LOG_CIPHERTEXT_LEN } from '@aztec/constants';
 import type { BlockNumber } from '@aztec/foundation/branded-types';
 import { uniqueBy } from '@aztec/foundation/collection';
 import { Aes128 } from '@aztec/foundation/crypto/aes128';
@@ -36,7 +36,6 @@ import {
   type BlockHeader,
   CallContext,
   type Capsule,
-  type IndexedTxEffect,
   type OffchainEffect,
   type TxEffect,
   type TxHash,
@@ -45,12 +44,12 @@ import {
 
 import type { ContractSyncService } from '../../contract/contract_sync_service.js';
 import { createContractLogger, logContractMessage, stripAztecnrLogPrefix } from '../../contract_logging.js';
-import { EventService } from '../../events/event_service.js';
+import { EventService, type EventValidationTxData } from '../../events/event_service.js';
 import type { UtilityCallAuthorizationRequest } from '../../hooks/authorize_utility_call.js';
 import type { ExecutionHooks } from '../../hooks/index.js';
-import { LogService } from '../../logs/log_service.js';
-import { TxResolverService } from '../../messages/tx_resolver_service.js';
-import { NoteService } from '../../notes/note_service.js';
+import { LogService, type RetrievedTaggedLog } from '../../logs/log_service.js';
+import { type TxOnchainContext, TxResolverService } from '../../messages/tx_resolver_service.js';
+import { NoteService, type NoteValidationTxData } from '../../notes/note_service.js';
 import { ORACLE_VERSION_MAJOR } from '../../oracle_version.js';
 import type { AddressStore } from '../../storage/address_store/address_store.js';
 import { assertAllowedScope } from '../../storage/allowed_scopes.js';
@@ -125,7 +124,15 @@ export class UtilityExecutionOracle implements IMiscOracle, IUtilityExecutionOra
   private offchainEffects: OffchainEffect[] = [];
   private readonly ephemeralArrayService = new EphemeralArrayService();
   protected readonly transientArrayService: TransientArrayService;
-  readonly #txReceipts = new Map<string, Promise<TxReceipt<{ includeTxEffect: true }>>>();
+  /** Keyed by tx hash string. */
+  private readonly txReceiptsCache = new Map<string, Promise<TxReceipt<{ includeTxEffect: true }>>>();
+  /**
+   * Information that can be used to validate the existence of a note or an event, keyed by tx hash string. It is
+   * populated by the node queries that precede validation (tagged log retrieval, tx resolution), which already return
+   * everything validation needs, so validating a note or event created in one of those txs costs no node roundtrip.
+   * Notes and events reached through other paths (e.g. offchain inbox messages) still need a receipt.
+   */
+  private readonly validationTxDataCache = new Map<string, ValidationTxData>();
 
   // We store oracle version to be able to show a nice error message when an oracle handler is missing.
   private contractOracleVersion: { major: number; minor: number } | undefined;
@@ -603,8 +610,11 @@ export class UtilityExecutionOracle implements IMiscOracle, IUtilityExecutionOra
       .map(ps => new AppTaggingSecret(ps.secret, this.contractAddress, ps.mode));
 
     const logService = this.#createLogService();
-    const logs = await logService.fetchTaggedLogs(this.contractAddress, scope, secrets);
-    return EphemeralArray.fromValues(this.ephemeralArrayService, logs);
+    const retrievedLogs = await logService.fetchTaggedLogs(this.contractAddress, scope, secrets);
+
+    this.#cacheValidationTxData(retrievedLogs);
+
+    return EphemeralArray.fromValues(this.ephemeralArrayService, retrievedLogs.map(toPendingTaggedLog));
   }
 
   #createLogService(): LogService {
@@ -639,7 +649,7 @@ export class UtilityExecutionOracle implements IMiscOracle, IUtilityExecutionOra
     eventValidationRequests: EventValidationRequest[],
     scope: AztecAddress,
   ) {
-    const txEffects = await this.#fetchTxEffects([
+    const validationTxData = await this.#getValidationTxData([
       ...noteValidationRequests.map(r => r.txHash),
       ...eventValidationRequests.map(r => r.txHash),
     ]);
@@ -648,8 +658,8 @@ export class UtilityExecutionOracle implements IMiscOracle, IUtilityExecutionOra
     const eventService = new EventService(this.anchorBlockHeader, this.aztecNode, this.privateEventStore, this.jobId);
 
     await Promise.all([
-      noteService.validateAndStoreNotes(noteValidationRequests, scope, txEffects),
-      eventService.validateAndStoreEvents(eventValidationRequests, scope, txEffects),
+      noteService.validateAndStoreNotes(noteValidationRequests, scope, validationTxData),
+      eventService.validateAndStoreEvents(eventValidationRequests, scope, validationTxData),
     ]);
   }
 
@@ -659,11 +669,13 @@ export class UtilityExecutionOracle implements IMiscOracle, IUtilityExecutionOra
     const logRetrievalRequests = requests.readAll(this.ephemeralArrayService);
     const logService = this.#createLogService();
 
-    const logRetrievalResponses = await logService.fetchLogsByTag(this.contractAddress, logRetrievalRequests);
+    const retrievedLogsPerRequest = await logService.fetchLogsByTag(this.contractAddress, logRetrievalRequests);
+
+    this.#cacheValidationTxData(retrievedLogsPerRequest.flat());
 
     // Create an inner ephemeral array for each request's matching logs, then wrap all slots in an outer array.
-    const innerArrays = logRetrievalResponses.map(responses =>
-      EphemeralArray.fromValues(this.ephemeralArrayService, responses),
+    const innerArrays = retrievedLogsPerRequest.map(retrievedLogs =>
+      EphemeralArray.fromValues(this.ephemeralArrayService, retrievedLogs.map(toLogRetrievalResponse)),
     );
 
     return EphemeralArray.fromValues(this.ephemeralArrayService, innerArrays);
@@ -675,7 +687,9 @@ export class UtilityExecutionOracle implements IMiscOracle, IUtilityExecutionOra
 
     const resolved = await this.txResolver.resolveTxs(txHashes, this.anchorBlockHeader.getBlockNumber());
 
-    const options = resolved.map(r => (r ? Option.some(r) : Option.none<ResolvedTx>()));
+    this.#cacheValidationTxData(resolved.filter(tx => tx !== null));
+
+    const options = resolved.map(tx => (tx ? Option.some(toResolvedTx(tx)) : Option.none<ResolvedTx>()));
     return EphemeralArray.fromValues(this.ephemeralArrayService, options);
   }
 
@@ -1109,16 +1123,34 @@ export class UtilityExecutionOracle implements IMiscOracle, IUtilityExecutionOra
     return this.offchainEffects;
   }
 
+  /** Stores the onchain context of the given txs, so that validating the notes and events they created is free. */
+  #cacheValidationTxData(txs: TxOnchainContext[]) {
+    txs.forEach(tx => this.validationTxDataCache.set(tx.txHash.toString(), toValidationTxData(tx)));
+  }
+
   /**
-   * Fetches tx effects for the given hashes in parallel. Returns a map keyed by `TxHash.toString()`; hashes for which
-   * the node has no tx effect are omitted.
+   * Returns the information needed to validate the notes and events created in the given txs, keyed by
+   * `TxHash.toString()`. Txs already in {@link validationTxDataCache} cost no node request, and the rest are read from
+   * the node. Txs with no tx effect are absent from the returned map.
    */
-  async #fetchTxEffects(txHashes: TxHash[]): Promise<Map<string, IndexedTxEffect>> {
-    const uniqueTxHashes = uniqueBy(txHashes, h => h.toString());
-    const fetched = await Promise.all(uniqueTxHashes.map(h => this.#getTxReceiptWithEffect(h)));
-    return new Map(
-      uniqueTxHashes
-        .map((h, i): [string, IndexedTxEffect | undefined] => {
+  async #getValidationTxData(txHashes: TxHash[]): Promise<Map<string, ValidationTxData>> {
+    const known: [string, ValidationTxData][] = [];
+    const misses: TxHash[] = [];
+    for (const txHash of uniqueBy(txHashes, h => h.toString())) {
+      const key = txHash.toString();
+      const cached = this.validationTxDataCache.get(key);
+      if (cached) {
+        known.push([key, cached]);
+      } else {
+        misses.push(txHash);
+      }
+    }
+
+    const fetched = await Promise.all(misses.map(h => this.#getTxReceiptWithEffect(h)));
+    return new Map([
+      ...known,
+      ...misses
+        .map((h, i): [string, ValidationTxData | undefined] => {
           const receipt = fetched[i];
           if (!receipt.isMined() || !receipt.txEffect) {
             return [h.toString(), undefined];
@@ -1126,16 +1158,16 @@ export class UtilityExecutionOracle implements IMiscOracle, IUtilityExecutionOra
           return [
             h.toString(),
             {
-              data: receipt.txEffect,
+              noteHashes: receipt.txEffect.noteHashes,
+              nullifiers: receipt.txEffect.nullifiers,
               l2BlockNumber: receipt.blockNumber,
               l2BlockHash: receipt.blockHash,
               txIndexInBlock: receipt.txIndexInBlock,
-              slotNumber: receipt.slotNumber,
             },
           ];
         })
-        .filter((entry): entry is [string, IndexedTxEffect] => entry[1] !== undefined),
-    );
+        .filter((entry): entry is [string, ValidationTxData] => entry[1] !== undefined),
+    ]);
   }
 
   /**
@@ -1148,13 +1180,13 @@ export class UtilityExecutionOracle implements IMiscOracle, IUtilityExecutionOra
    */
   #getTxReceiptWithEffect(txHash: TxHash) {
     const key = txHash.toString();
-    let receipt = this.#txReceipts.get(key);
+    let receipt = this.txReceiptsCache.get(key);
     if (!receipt) {
       receipt = this.aztecNode.getTxReceipt(txHash, { includeTxEffect: true }).catch(err => {
-        this.#txReceipts.delete(key);
+        this.txReceiptsCache.delete(key);
         throw err;
       });
-      this.#txReceipts.set(key, receipt);
+      this.txReceiptsCache.set(key, receipt);
     }
     return receipt;
   }
@@ -1260,3 +1292,41 @@ async function isStandardHandshakeRegistryUtilityRead(
   );
   return matches.some(Boolean);
 }
+
+function toPendingTaggedLog(retrievedLog: RetrievedTaggedLog): PendingTaggedLog {
+  return { log: retrievedLog.logData, context: toResolvedTx(retrievedLog) };
+}
+
+function toResolvedTx(tx: TxOnchainContext): ResolvedTx {
+  const { txHash, blockNumber, blockHash, noteHashes, nullifiers } = tx;
+  return {
+    txHash,
+    uniqueNoteHashesInTx: noteHashes,
+    firstNullifierInTx: nullifiers[0],
+    blockNumber,
+    blockHash: blockHash.toFr(),
+  };
+}
+
+function toLogRetrievalResponse(retrievedLog: RetrievedTaggedLog): LogRetrievalResponse {
+  const { logData, txHash, blockNumber, blockHash, blockTimestamp, noteHashes, nullifiers } = retrievedLog;
+  return {
+    // Skip the tag, and clip to the wire cap: public logs can exceed PRIVATE_LOG_CIPHERTEXT_LEN, which is the fixed
+    // size of the oracle's BoundedVec slot. A no-op for private logs, which are already within the cap.
+    logPayload: logData.slice(1, 1 + PRIVATE_LOG_CIPHERTEXT_LEN),
+    txHash,
+    uniqueNoteHashesInTx: noteHashes,
+    firstNullifierInTx: nullifiers[0],
+    blockNumber,
+    blockTimestamp,
+    blockHash,
+  };
+}
+
+function toValidationTxData(tx: TxOnchainContext): ValidationTxData {
+  const { blockNumber, blockHash, txIndexInBlock, noteHashes, nullifiers } = tx;
+  return { noteHashes, nullifiers, l2BlockNumber: blockNumber, l2BlockHash: blockHash, txIndexInBlock };
+}
+
+/** The onchain context of a tx served to note and event validation: the union of what the two services read. */
+type ValidationTxData = NoteValidationTxData & EventValidationTxData;
