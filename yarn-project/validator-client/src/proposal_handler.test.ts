@@ -786,6 +786,16 @@ describe('ProposalHandler checkpoint validation', () => {
     });
   });
 
+  /** The archiver's genesis sentinel bucket: the "consumed nothing" position every chain starts from. */
+  const genesisBucket: InboxBucket = {
+    seq: 0n,
+    inboxRollingHash: Fr.ZERO,
+    totalMsgCount: 0n,
+    timestamp: 0n,
+    msgCount: 0,
+    lastMessageIndex: 0n,
+  };
+
   /**
    * Builds a proposal whose parent resolves to genesis (so blockNumber = INITIAL_L2_BLOCK_NUM) and a
    * handler wired to accept it up to the block-number guard.
@@ -795,6 +805,9 @@ describe('ProposalHandler checkpoint validation', () => {
       await makeBlockProposal({
         blockHeader: makeBlockHeader(1, { slotNumber: SlotNumber(1) }),
         archiveRoot: proposalArchive,
+        // A consume-nothing reference to the genesis bucket, so the streaming metadata checks pass and the
+        // guard under test is what decides the outcome.
+        bucketRef: new InboxBucketRef(genesisBucket.seq, genesisBucket.timestamp, genesisBucket.inboxRollingHash),
         ...(txHashes ? { txHashes } : {}),
       }),
     );
@@ -803,6 +816,8 @@ describe('ProposalHandler checkpoint validation', () => {
     blockSource.getGenesisValues.mockResolvedValue({
       genesisArchiveRoot: proposal.blockHeader.lastArchive.root,
     } as any);
+    l1ToL2MessageSource.getInboxBucket.mockResolvedValue(genesisBucket);
+    l1ToL2MessageSource.getInboxBucketByTotalMsgCount.mockResolvedValue(genesisBucket);
 
     const txProvider = mock<ITxProvider>();
     txProvider.getTxsForBlockProposal.mockResolvedValue({ txs: [], missingTxs: [] } as any);
@@ -915,8 +930,9 @@ describe('ProposalHandler checkpoint validation', () => {
 
     it('processes a rebuilt proposal once the stale fork at this number is pruned', async () => {
       const { proposal, blockHandler } = await setupGenesisProposal(Fr.random());
-      // Well before the slot-1 attestation deadline (40s), so the prune wait has budget to retry.
-      dateProvider.setTime(1_000);
+      // Past the minimum bucket age but well before the slot-1 attestation deadline (40s), so the prune wait has
+      // budget to retry.
+      dateProvider.setTime(5_000);
       // Stale block (different archive) on the first read, then pruned (undefined) on the retry.
       blockSource.getBlockData.mockResolvedValueOnce(blockAt(Fr.random())).mockResolvedValue(undefined);
 
@@ -1039,12 +1055,15 @@ describe('ProposalHandler checkpoint validation', () => {
         metrics,
         dateProvider,
       );
-      return { proposal, blockHandler };
+      return { proposal, blockHandler, txProvider };
     }
 
-    it('rejects (without re-executing) when the referenced bucket is unknown', async () => {
+    // The metadata checks are point lookups against the local Inbox view, so they run before tx collection: a
+    // proposer signing a bogus bucket reference must not be able to make validators spend their window fetching
+    // txs over P2P for a proposal a map lookup rejects.
+    it('rejects without collecting txs when the referenced bucket is unknown', async () => {
       const ref = new InboxBucketRef(1n, 100n, new Fr(0xabc));
-      const { proposal, blockHandler } = await setupStreamingProposal(ref);
+      const { proposal, blockHandler, txProvider } = await setupStreamingProposal(ref);
       l1ToL2MessageSource.getInboxBucket.mockResolvedValue(undefined);
       const reexecuteSpy = jest.spyOn(blockHandler, 'reexecuteTransactions');
 
@@ -1055,12 +1074,13 @@ describe('ProposalHandler checkpoint validation', () => {
         blockNumber: BlockNumber(INITIAL_L2_BLOCK_NUM),
         reason: 'bucket_unknown',
       });
+      expect(txProvider.getTxsForBlockProposal).not.toHaveBeenCalled();
       expect(reexecuteSpy).not.toHaveBeenCalled();
     });
 
-    it('rejects (without re-executing) when the resolved bucket hash disagrees with the reference', async () => {
+    it('rejects without collecting txs when the resolved bucket hash disagrees with the reference', async () => {
       const ref = new InboxBucketRef(1n, 100n, new Fr(0xdead));
-      const { proposal, blockHandler } = await setupStreamingProposal(ref);
+      const { proposal, blockHandler, txProvider } = await setupStreamingProposal(ref);
       l1ToL2MessageSource.getInboxBucket.mockResolvedValue(bucket({ inboxRollingHash: new Fr(0xabc) }));
       const reexecuteSpy = jest.spyOn(blockHandler, 'reexecuteTransactions');
 
@@ -1071,12 +1091,26 @@ describe('ProposalHandler checkpoint validation', () => {
         blockNumber: BlockNumber(INITIAL_L2_BLOCK_NUM),
         reason: 'bucket_hash_mismatch',
       });
+      expect(txProvider.getTxsForBlockProposal).not.toHaveBeenCalled();
       expect(reexecuteSpy).not.toHaveBeenCalled();
+    });
+
+    it('rejects without collecting txs when the proposal carries no bucket reference', async () => {
+      const { proposal, blockHandler, txProvider } = await setupStreamingProposal(undefined);
+
+      const result = await blockHandler.handleBlockProposal(proposal, {} as any, true);
+
+      expect(result).toEqual({
+        isValid: false,
+        blockNumber: BlockNumber(INITIAL_L2_BLOCK_NUM),
+        reason: 'bucket_unknown',
+      });
+      expect(txProvider.getTxsForBlockProposal).not.toHaveBeenCalled();
     });
 
     it('re-executes with the bundle derived from the buckets when the checks pass', async () => {
       const ref = new InboxBucketRef(1n, 100n, new Fr(0xabc));
-      const { proposal, blockHandler } = await setupStreamingProposal(ref);
+      const { proposal, blockHandler, txProvider } = await setupStreamingProposal(ref);
       const derivedBundle = [new Fr(1000), new Fr(1001)];
       l1ToL2MessageSource.getInboxBucket.mockResolvedValue(bucket());
       l1ToL2MessageSource.getInboxBucketByTotalMsgCount.mockResolvedValue(
@@ -1090,6 +1124,8 @@ describe('ProposalHandler checkpoint validation', () => {
       const result = await blockHandler.handleBlockProposal(proposal, {} as any, true);
 
       expect(result.isValid).toBe(true);
+      // A valid reference still triggers tx collection, which also feeds this node's ability to serve txs to peers.
+      expect(txProvider.getTxsForBlockProposal).toHaveBeenCalledTimes(1);
       // The block re-executes with the derived per-block bundle (streaming is the only path).
       expect(reexecuteSpy).toHaveBeenCalledWith(
         proposal,

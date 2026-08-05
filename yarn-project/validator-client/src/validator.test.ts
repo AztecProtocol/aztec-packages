@@ -721,6 +721,7 @@ describe('ValidatorClient', () => {
             slotNumber: futureSlot,
           }),
           inHash: computeInHashFromL1ToL2Messages([]),
+          bucketRef: genesisBucketRef,
         }),
       );
 
