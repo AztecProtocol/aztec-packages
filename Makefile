@@ -70,10 +70,10 @@ fast-foundation: barretenberg bb-tests \
 		constants-codegen constants-codegen-tests \
 		claude-tests
 
+# aztec-up and aztec-up-tests are temporarily absent: see the aztec-up target below.
 fast-labs: yarn-project yarn-project-tests \
 		aztec-nr \
 		noir-contracts \
-		aztec-up aztec-up-tests \
 		contract-snapshots-tests \
 		spartan \
 		boxes boxes-tests \
@@ -557,6 +557,7 @@ docs: yarn-project labs-aztec-toolchain
 docs-tests: docs
 	$(call test,$@,docs)
 
+# Disabled until the repo split is complete: not built or tested here, and left out of `fast-labs`.
 aztec-up: yarn-project labs-aztec-toolchain
 	$(call build,$@,aztec-up)
 

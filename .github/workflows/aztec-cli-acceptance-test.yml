@@ -1,5 +1,6 @@
 # Validates that a published Aztec CLI release can be installed and used end-to-end.
-# Runs after CI3 completes a tag release (via workflow_run), or manually via workflow_dispatch.
+# Manual only until the repo split is complete: uncomment the workflow_run trigger below to restore the
+# automatic post-release run.
 name: Aztec CLI Acceptance Test
 
 on:
@@ -9,12 +10,12 @@ on:
         description: "Version to install (e.g. latest, nightly, 4.3.0, 4.3.0-nightly.20260420)"
         required: true
         type: string
-  workflow_run:
-    workflows: ["CI3"]
-    types:
-      - completed
-    branches:
-      - "v*"
+  # workflow_run:
+  #   workflows: ["CI3"]
+  #   types:
+  #     - completed
+  #   branches:
+  #     - "v*"
 
 jobs:
   release-acceptance:
