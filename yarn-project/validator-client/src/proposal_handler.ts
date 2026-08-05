@@ -63,8 +63,9 @@ import type { FullNodeCheckpointsBuilder } from './checkpoint_builder.js';
 import type { ValidatorMetrics } from './metrics.js';
 import {
   type StreamingBlockCheckReason,
-  type StreamingBlockCheckResult,
-  checkStreamingBlockProposal,
+  type StreamingBlockMetadataCheckResult,
+  checkStreamingBlockProposalMetadata,
+  getStreamingBlockBundle,
 } from './streaming_inbox_checks.js';
 
 export type BlockProposalValidationFailureReason =
@@ -548,12 +549,32 @@ export class ProposalHandler {
       return { isValid: false, blockNumber, reason: 'block_number_already_exists' };
     }
 
+    // Streaming Inbox: run the metadata checks before committing to any network work. They are point lookups
+    // against our own Inbox view, so a proposal carrying a bucket reference that does not resolve locally is
+    // rejected without a proposer being able to make us spend the validation window collecting its txs.
+    const streamingMetadata = await this.checkStreamingBlockMetadata(proposal, blockNumber, parentBlock);
+    if (!streamingMetadata.accepted) {
+      this.log.warn(`Streaming Inbox block acceptance check failed, skipping processing`, {
+        reason: streamingMetadata.reason,
+        bucketRef: proposal.bucketRef?.toInspect(),
+        ...proposalInfo,
+      });
+      return { isValid: false, blockNumber, reason: streamingMetadata.reason };
+    }
+
     // Collect txs from the proposal. We start doing this as early as possible,
     // and we do it even if we don't plan to re-execute the txs, so that we have them if another node needs them.
-    const { txs, missingTxs } = await this.txProvider.getTxsForBlockProposal(proposal, blockNumber, {
+    // The block's message bundle is an independent read, so derive it concurrently with the collection.
+    const txsPromise = this.txProvider.getTxsForBlockProposal(proposal, blockNumber, {
       pinnedPeer: proposalSender,
       deadline: this.getReexecutionDeadline(slotNumber),
     });
+    const bundlePromise = getStreamingBlockBundle(this.l1ToL2MessageSource, streamingMetadata);
+    // Promise.all settles on the first rejection, so without a handler of its own the loser's later rejection
+    // would surface as an unhandled rejection. Awaiting below still observes whichever rejected first.
+    txsPromise.catch(() => {});
+    bundlePromise.catch(() => {});
+    const [{ txs, missingTxs }, l1ToL2Messages] = await Promise.all([txsPromise, bundlePromise]);
 
     // Record the tx-collection outcome on the re-execution tracker
     this.reexecutionTracker.recordTxsCollected(slotNumber, proposal.indexWithinCheckpoint, missingTxs.length === 0);
@@ -574,19 +595,6 @@ export class ProposalHandler {
     }
     const checkpointNumber = checkpointResult.checkpointNumber;
     proposalInfo.checkpointNumber = checkpointNumber;
-
-    // Resolve this block's L1-to-L2 message bundle from its proposal bucket reference, gated by the four streaming
-    // acceptance checks.
-    const streamingResult = await this.runStreamingBlockChecks(proposal, blockNumber, parentBlock);
-    if (!streamingResult.accepted) {
-      this.log.warn(`Streaming Inbox block acceptance check failed, skipping processing`, {
-        reason: streamingResult.reason,
-        bucketRef: proposal.bucketRef?.toInspect(),
-        ...proposalInfo,
-      });
-      return { isValid: false, blockNumber, reason: streamingResult.reason };
-    }
-    const l1ToL2Messages = streamingResult.bundle;
 
     // Check that all of the transactions in the proposal are available
     if (missingTxs.length > 0) {
@@ -906,16 +914,16 @@ export class ProposalHandler {
   }
 
   /**
-   * Runs the streaming-Inbox per-block acceptance checks for a block proposal and returns the derived L1-to-L2
-   * message bundle for re-execution, or a rejection reason. The parent block's consumed total and the checkpoint's
-   * starting total are derived from L1-to-L2 tree leaf counts; a parent whose count does not sit on a bucket boundary
-   * is rejected inside {@link checkStreamingBlockProposal}.
+   * Runs the streaming-Inbox per-block metadata checks for a block proposal, returning the bucket range its message
+   * bundle derives from or a rejection reason. The parent block's consumed total and the checkpoint's starting total
+   * are derived from L1-to-L2 tree leaf counts; a parent whose count does not sit on a bucket boundary is rejected
+   * inside {@link checkStreamingBlockProposalMetadata}.
    */
-  private async runStreamingBlockChecks(
+  private async checkStreamingBlockMetadata(
     proposal: BlockProposal,
     blockNumber: BlockNumber,
     parentBlock: 'genesis' | BlockData,
-  ): Promise<StreamingBlockCheckResult> {
+  ): Promise<StreamingBlockMetadataCheckResult> {
     const parentTotalMsgCount = this.getConsumedMsgTotal(parentBlock);
     const checkpointStartTotalMsgCount = await this.resolveCheckpointStartTotal(
       blockNumber,
@@ -928,7 +936,7 @@ export class ProposalHandler {
       return { accepted: false, reason: 'bucket_unknown' };
     }
     const nowSeconds = BigInt(Math.floor(this.dateProvider.now() / 1000));
-    return checkStreamingBlockProposal({
+    return checkStreamingBlockProposalMetadata({
       messageSource: this.l1ToL2MessageSource,
       bucketRef: proposal.bucketRef,
       parentTotalMsgCount,
