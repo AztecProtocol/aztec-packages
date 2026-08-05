@@ -4,7 +4,12 @@ import type { L2BlockSource } from '@aztec/stdlib/block';
 import type { Checkpoint } from '@aztec/stdlib/checkpoint';
 import { type L1RollupConstants, getEpochAtSlot, getSlotRangeForEpoch } from '@aztec/stdlib/epoch-helpers';
 
-import { CheckpointProver, type CheckpointProverArgs, type CheckpointProverDeps } from './job/checkpoint-prover.js';
+import {
+  CheckpointProver,
+  type CheckpointProverArgs,
+  type CheckpointProverDeps,
+  type CheckpointProverTestHooks,
+} from './job/checkpoint-prover.js';
 
 /** Register-time data needed to construct a `CheckpointProver` (everything except the checkpoint + epoch). */
 export type RegisterCheckpointData = Omit<CheckpointProverArgs, 'checkpoint' | 'epochNumber'>;
@@ -35,6 +40,8 @@ export class CheckpointStore {
    */
   private readonly pendingTeardowns = new Map<number, Promise<void>>();
   private nextTeardownId = 0;
+  /** Test-only hooks injected into every prover this store constructs. */
+  private testHooks: CheckpointProverTestHooks = {};
   private readonly log: Logger;
 
   constructor(
@@ -100,9 +107,20 @@ export class CheckpointStore {
       }
     }
 
-    const prover = this.proverFactoryFn({ ...data, checkpoint, epochNumber }, { ...this.proverDeps, log: this.log });
+    const prover = this.proverFactoryFn(
+      { ...data, checkpoint, epochNumber },
+      { ...this.proverDeps, checkpointProveOverride: this.testHooks.checkpointProveOverride, log: this.log },
+    );
     this.provers.set(id, prover);
     return prover;
+  }
+
+  /**
+   * Installs test-only hooks applied to every prover constructed from now on. Used by the e2e harness to
+   * force a checkpoint sub-tree failure without monkey-patching the prover factory.
+   */
+  public setTestHooks(hooks: CheckpointProverTestHooks): void {
+    this.testHooks = hooks;
   }
 
   /**

@@ -295,8 +295,13 @@ function format {
 }
 
 # Force-builds standard contracts and tar-balls their artifacts into pinned-standard-contracts.tar.gz.
-# Run this to (re)pin the standard-contract artifacts, then commit the resulting tarball. Re-run and
-# re-commit whenever the canonical standard-contract artifacts are intended to change.
+#
+# WARNING: re-pinning (running this, then committing the new tarball) moves the standard contracts'
+# canonical deterministic addresses and class ids. Rebuilding changes the artifact hash and bytecode
+# commitment, which changes the class id and the address derived from it. Those addresses are baked
+# into every already-deployed network and published package, so a re-pin breaks compatibility with all
+# of them and means the standard contracts must be redeployed at their new addresses on any network
+# meant to run the new artifacts. It is only correct as part of a deliberate, coordinated redeploy.
 # Mirrors the v4 `pin-build` mechanism that pins protocol contracts.
 function pin-standard-build {
   rm -f pinned-standard-contracts.tar.gz

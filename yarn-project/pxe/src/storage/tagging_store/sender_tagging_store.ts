@@ -3,10 +3,13 @@ import { AppTaggingSecret, SiloedTag, type TaggingIndexRange } from '@aztec/stdl
 import { TxEffect, TxHash } from '@aztec/stdlib/tx';
 
 import type { StagedStore } from '../../job_coordinator/job_coordinator.js';
-import { UNFINALIZED_TAGGING_INDEXES_WINDOW_LEN } from '../../tagging/constants.js';
+import { UNFINALIZED_TAGGING_INDEXES_WINDOW_LEN, unfinalizedTaggingIndexesWindowEnd } from '../../tagging/constants.js';
+
+/** A tx still awaiting finalization, and the highest tagging index it used for one secret. */
+export type PendingTx = { txHash: string; highestIndex: number };
 
 /** Internal representation of a pending index range entry. */
-type PendingIndexesEntry = { lowestIndex: number; highestIndex: number; txHash: string };
+type PendingIndexesEntry = PendingTx & { lowestIndex: number };
 
 /**
  * Data provider of tagging data used when syncing the sender tagging indexes. The recipient counterpart of this class
@@ -195,13 +198,9 @@ export class SenderTaggingStore implements StagedStore {
 
       // Process in memory and validate
       for (const { range, secretStr, pendingData, finalizedIndex } of rangeData) {
-        // Check that the highest index is not further than window length from the highest finalized index.
-        if (range.highestIndex > (finalizedIndex ?? 0) + UNFINALIZED_TAGGING_INDEXES_WINDOW_LEN) {
-          throw new Error(
-            `Highest used index ${range.highestIndex} is further than window length from the highest finalized index ${finalizedIndex ?? 0}.
-            Tagging window length ${UNFINALIZED_TAGGING_INDEXES_WINDOW_LEN} is configured too low. Contact the Aztec team
-            to increase it!`,
-          );
+        const windowEnd = unfinalizedTaggingIndexesWindowEnd(finalizedIndex);
+        if (range.highestIndex >= windowEnd) {
+          throw windowExceededError(range.highestIndex, windowEnd, finalizedIndex);
         }
 
         // Throw if the lowest index is lower than or equal to the last finalized index
@@ -255,27 +254,20 @@ export class SenderTaggingStore implements StagedStore {
   }
 
   /**
-   * Returns the transaction hashes of all pending transactions that contain highest indexes within a specified range
-   * for a given directional app tagging secret. We check based on the highest indexes only as that is the relevant
-   * information for the caller of this function.
+   * Returns the pending txs whose highest index falls within [startIndex, endIndex) for a given directional app
+   * tagging secret. The highest index is what decides whether a tx belongs to the window, so it alone is matched
+   * against the bounds, and it is also the only index a caller needs: a tx whose highest index is onchain has every
+   * lower one onchain too. A secret holds at most one entry per tx hash, so no tx hash appears twice in the result.
    * @param secret - The directional app tagging secret to query pending indexes for.
    * @param startIndex - The lower bound of the index range (inclusive).
    * @param endIndex - The upper bound of the index range (exclusive).
-   * @returns An array of unique transaction hashes for pending transactions that contain indexes in the range
-   * [startIndex, endIndex). Returns an empty array if no pending indexes exist in the range.
    */
-  getTxHashesOfPendingIndexes(
-    secret: AppTaggingSecret,
-    startIndex: number,
-    endIndex: number,
-    jobId: string,
-  ): Promise<TxHash[]> {
+  getPendingTxs(secret: AppTaggingSecret, startIndex: number, endIndex: number, jobId: string): Promise<PendingTx[]> {
     return this.#store.transactionAsync(async () => {
       const existing = await this.#readPendingIndexes(jobId, secret.toString());
-      const txHashes = existing
+      return existing
         .filter(entry => entry.highestIndex >= startIndex && entry.highestIndex < endIndex)
-        .map(entry => entry.txHash);
-      return Array.from(new Set(txHashes)).map(TxHash.fromString);
+        .map(entry => ({ txHash: entry.txHash, highestIndex: entry.highestIndex }));
     });
   }
 
@@ -405,15 +397,33 @@ export class SenderTaggingStore implements StagedStore {
 
   /**
    * Updates pending indexes corresponding to the given transaction hashes to be finalized and prunes any lower pending
-   * indexes.
+   * indexes. Applies to every secret the txs used, so the caller must hold tx-level evidence that the whole tx
+   * finalized. Callers holding evidence about a single secret must use {@link finalizePendingIndexesOfSecret} instead.
    */
-  async finalizePendingIndexes(txHashes: TxHash[], jobId: string): Promise<void> {
+  finalizePendingIndexes(txHashes: TxHash[], jobId: string): Promise<void> {
+    return this.#finalizePendingIndexes(txHashes, jobId);
+  }
+
+  /**
+   * Same as {@link finalizePendingIndexes}, but restricted to the pending indexes of a single secret.
+   *
+   * Finalizing every secret off single-secret evidence would be unsound: a tx whose execution partially reverted can
+   * have all of one secret's tags onchain and none of another's, and the second secret's indexes must not be recorded
+   * as finalized when they never reached the chain.
+   */
+  finalizePendingIndexesOfSecret(secret: AppTaggingSecret, txHashes: TxHash[], jobId: string): Promise<void> {
+    return this.#finalizePendingIndexes(txHashes, jobId, secret.toString());
+  }
+
+  async #finalizePendingIndexes(txHashes: TxHash[], jobId: string, onlySecret?: string): Promise<void> {
     if (txHashes.length === 0) {
       return;
     }
 
     const txHashStrings = new Set(txHashes.map(tx => tx.toString()));
-    const secretsWithData = await this.#getSecretsWithPendingData(jobId);
+    const secretsWithData = (await this.#getSecretsWithPendingData(jobId)).filter(
+      ({ secret }) => onlySecret === undefined || secret === onlySecret,
+    );
 
     for (const { secret, pendingData, lastFinalized } of secretsWithData) {
       let currentPending = pendingData;
@@ -520,4 +530,19 @@ export class SenderTaggingStore implements StagedStore {
       this.#writePendingIndexes(jobId, secret, currentPending);
     }
   }
+}
+
+/** Builds the error thrown when a pending tag index is at or past the unfinalized tagging window end. */
+export function windowExceededError(
+  highestIndex: number,
+  windowEnd: number,
+  finalizedIndex: number | undefined,
+): Error {
+  const finalizedDescription =
+    finalizedIndex === undefined ? 'no index finalized yet' : `highest finalized index ${finalizedIndex}`;
+  return new Error(
+    `Highest used index ${highestIndex} is at or past the window end ${windowEnd} (${finalizedDescription}). ` +
+      `Tagging window length ${UNFINALIZED_TAGGING_INDEXES_WINDOW_LEN} is configured too low. ` +
+      `Contact the Aztec team to increase it!`,
+  );
 }

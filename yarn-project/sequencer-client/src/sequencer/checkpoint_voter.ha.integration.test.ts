@@ -72,6 +72,8 @@ describe('CheckpointVoter HA Integration', () => {
   function createMockGovernanceContract(): MockProxy<GovernanceProposerContract> {
     const contract = mock<GovernanceProposerContract>();
     Object.defineProperty(contract, 'address', { value: EthAddress.random(), writable: false });
+    contract.getRollupAddress.mockResolvedValue(EthAddress.fromString(rollupContract.address));
+    contract.getPayloadProposalStatus.mockResolvedValue('none');
     contract.getRoundInfo.mockResolvedValue({
       lastSignalSlot: SlotNumber(1),
       payloadWithMostSignals: EthAddress.ZERO.toString(),
@@ -176,7 +178,7 @@ describe('CheckpointVoter HA Integration', () => {
 
     // Set up mocks using helper functions
     rollupContract = mock<RollupContract>();
-    Object.defineProperty(rollupContract, 'address', { value: EthAddress.random(), writable: false });
+    Object.defineProperty(rollupContract, 'address', { value: EthAddress.random().toString(), writable: false });
     rollupContract.listenToSlasherChanged.mockReturnValue(undefined as any);
     rollupContract.getSlashingProposer.mockResolvedValue(undefined);
 

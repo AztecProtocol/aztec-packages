@@ -49,6 +49,8 @@ export class ValidatorMetrics {
           'failed_txs',
           'in_hash_mismatch',
           'parent_block_wrong_slot',
+          'duplicate_txs',
+          'invalid_embedded_txs',
         ],
         [Attributes.IS_COMMITTEE_MEMBER]: [true, false],
       },

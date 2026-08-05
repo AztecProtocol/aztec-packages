@@ -1,0 +1,57 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="UTF-8">
+<link rel="stylesheet" href="../../../styles.css">
+<script defer src="../../../nargo_doc.js"></script>
+<title>Function encode_message documentation</title>
+</head>
+<body>
+<div id="sidebar-toggle">
+<button id="sidebar-toggle-button"></button>
+<div id="sidebar-toggle-title">encode_message</div>
+</div>
+<span id="main-contents">
+<nav class="sidebar">
+<h1><a href="../../../index.html">aztec-nr</a></h1>
+<div><a href="../../../all.html">All items</a></div>
+<h2 id="crate-name"><a href="../../index.html">noir_aztec</a></h2>
+<div id="crate-version">0.0.0</div>
+<h2>In module encoding</h2>
+<h3>Functions</h3><ul class="item-list">
+<li><a href="fn.decode_message.html">decode_message</a></div></li>
+<li><a href="fn.encode_message.html">encode_message</a></div></li>
+</ul>
+<h3>Globals</h3><ul class="item-list">
+<li><a href="global.EPH_PK_X_SIZE_IN_FIELDS.html">EPH_PK_X_SIZE_IN_FIELDS</a></div></li>
+<li><a href="global.MAX_MESSAGE_CONTENT_LEN.html">MAX_MESSAGE_CONTENT_LEN</a></div></li>
+<li><a href="global.MESSAGE_CIPHERTEXT_LEN.html">MESSAGE_CIPHERTEXT_LEN</a></div></li>
+<li><a href="global.MESSAGE_EXPANDED_METADATA_LEN.html">MESSAGE_EXPANDED_METADATA_LEN</a></div></li>
+<li><a href="global.MESSAGE_PLAINTEXT_LEN.html">MESSAGE_PLAINTEXT_LEN</a></div></li>
+</ul>
+</nav>
+<main>
+<div><a href="../../../index.html">aztec-nr</a> - <a href="../../index.html">noir_aztec</a>::<a href="../index.html">messages</a>::<a href="index.html">encoding</a></div>
+<h1>Function <span class="fn">encode_message</span></h1>
+<pre><code>pub fn encode_message&lt;let N: <a href="../../../std/primitive.u32.html" class="primitive">u32</a>&gt;(
+    msg_type: <a href="../../../std/primitive.u64.html" class="primitive">u64</a>,
+    msg_metadata: <a href="../../../std/primitive.u64.html" class="primitive">u64</a>,
+    msg_content: [<a href="../../../std/primitive.Field.html" class="primitive">Field</a>; N],
+) -> [<a href="../../../std/primitive.Field.html" class="primitive">Field</a>; N + 1]</code></pre>
+
+<div class="comments">
+<p>Encodes a message following aztec-nr's standard message encoding. This message can later be decoded with
+<code>decode_message</code> to retrieve the original values.</p>
+<ul>
+<li>The <code>msg_type</code> is an identifier that groups types of messages that are all processed the same way, e.g. private
+notes or events. Possible values are defined in <code>aztec::messages::msg_type</code>.</li>
+<li>The <code>msg_metadata</code> and <code>msg_content</code> are the values stored in the message, whose meaning depends on the
+<code>msg_type</code>. The only special thing about <code>msg_metadata</code> that separates it from <code>msg_content</code> is that it is a u64
+instead of a full Field (due to details of how messages are encoded), allowing applications that can fit values
+into this smaller variable to achieve higher data efficiency.</li>
+</ul>
+</div>
+</main>
+</span>
+</body>
+</html>

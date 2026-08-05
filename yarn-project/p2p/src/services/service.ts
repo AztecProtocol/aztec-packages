@@ -143,6 +143,10 @@ export interface P2PService {
   /** Returns the number of peers in the GossipSub mesh for a given topic type. */
   getGossipMeshPeerCount(topicType: TopicType): number;
 
+  /**
+   * Runs minimum integrity validation on txs carried in a block proposal.
+   * @throws InvalidBlockProposalTxsError - If any tx fails validation.
+   */
   validateTxsReceivedInBlockProposal(txs: Tx[]): Promise<void>;
 
   addReqRespSubProtocol(subProtocol: ReqRespSubProtocol, handler: ReqRespSubProtocolHandler): Promise<void>;

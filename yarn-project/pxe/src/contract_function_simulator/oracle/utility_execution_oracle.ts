@@ -15,7 +15,10 @@ import {
   toACVMWitness,
   witnessMapToFields,
 } from '@aztec/simulator/client';
-import { STANDARD_HANDSHAKE_REGISTRY_ADDRESS } from '@aztec/standard-contracts/handshake-registry/constants';
+import {
+  HISTORICAL_STANDARD_HANDSHAKE_REGISTRY_ADDRESSES,
+  STANDARD_HANDSHAKE_REGISTRY_ADDRESS,
+} from '@aztec/standard-contracts/handshake-registry/constants';
 import { type FunctionCall, FunctionSelector } from '@aztec/stdlib/abi';
 import type { AuthWitness } from '@aztec/stdlib/auth-witness';
 import { AztecAddress } from '@aztec/stdlib/aztec-address';
@@ -1204,12 +1207,20 @@ const STANDARD_HANDSHAKE_REGISTRY_DEFAULT_AUTHORIZED_READ_SIGNATURES = [
   'get_app_siloed_secrets((Field),(Field))',
 ];
 
+// Contracts compiled against an older release have that release's registry address baked into their bytecode, so
+// historical deployments get the same default authorization as the current one.
+const DEFAULT_AUTHORIZED_HANDSHAKE_REGISTRY_ADDRESSES = [
+  STANDARD_HANDSHAKE_REGISTRY_ADDRESS,
+  ...HISTORICAL_STANDARD_HANDSHAKE_REGISTRY_ADDRESSES,
+];
+
 async function doesSelectorHaveSignature(functionSelector: FunctionSelector, signature: string): Promise<boolean> {
   return functionSelector.equals(await FunctionSelector.fromSignature(signature));
 }
 
 /**
- * Whether a cross-contract utility call targets one of the standard handshake registry's read functions.
+ * Whether a cross-contract utility call targets a default-authorized read function of a standard handshake
+ * registry deployment (the current one or a superseded historical one).
  *
  * These reads are authorized by PXE for every wallet, without consulting the `authorizeUtilityCall` hook, so that
  * wallets don't need to know the handshake registry exists in order to deliver and discover messages through it.
@@ -1218,7 +1229,7 @@ async function isStandardHandshakeRegistryUtilityRead(
   targetContractAddress: AztecAddress,
   functionSelector: FunctionSelector,
 ): Promise<boolean> {
-  if (!targetContractAddress.equals(STANDARD_HANDSHAKE_REGISTRY_ADDRESS)) {
+  if (!DEFAULT_AUTHORIZED_HANDSHAKE_REGISTRY_ADDRESSES.some(address => targetContractAddress.equals(address))) {
     return false;
   }
 

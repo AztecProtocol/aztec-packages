@@ -1,0 +1,70 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="UTF-8">
+<link rel="stylesheet" href="../../../styles.css">
+<script defer src="../../../nargo_doc.js"></script>
+<title>Function do_private_message_delivery documentation</title>
+</head>
+<body>
+<div id="sidebar-toggle">
+<button id="sidebar-toggle-button"></button>
+<div id="sidebar-toggle-title">do_private_message_delivery</div>
+</div>
+<span id="main-contents">
+<nav class="sidebar">
+<h1><a href="../../../index.html">aztec-nr</a></h1>
+<div><a href="../../../all.html">All items</a></div>
+<h2 id="crate-name"><a href="../../index.html">noir_aztec</a></h2>
+<div id="crate-version">0.0.0</div>
+<h2>In module delivery</h2>
+<h3>Modules</h3><ul class="item-list">
+<li><a href="constrained_delivery/index.html">constrained_delivery</a></div></li>
+<li><a href="handshake/index.html">handshake</a></div></li>
+</ul>
+<h3>Structs</h3><ul class="item-list">
+<li><a href="struct.MessageDelivery.html">MessageDelivery</a></div></li>
+<li><a href="struct.OffchainDelivery.html">OffchainDelivery</a></div></li>
+<li><a href="struct.OnchainConstrainedDelivery.html">OnchainConstrainedDelivery</a></div></li>
+<li><a href="struct.OnchainDeliveryMode.html">OnchainDeliveryMode</a></div></li>
+<li><a href="struct.OnchainUnconstrainedDelivery.html">OnchainUnconstrainedDelivery</a></div></li>
+<li><a href="struct.ResolvedTaggingStrategy.html">ResolvedTaggingStrategy</a></div></li>
+</ul>
+<h3>Traits</h3><ul class="item-list">
+<li><a href="trait.MessageDeliveryBuilder.html">MessageDeliveryBuilder</a></div></li>
+</ul>
+<h3>Functions</h3><ul class="item-list">
+<li><a href="fn.do_private_message_delivery.html">do_private_message_delivery</a></div></li>
+</ul>
+</nav>
+<main>
+<div><a href="../../../index.html">aztec-nr</a> - <a href="../../index.html">noir_aztec</a>::<a href="../index.html">messages</a>::<a href="index.html">delivery</a></div>
+<h1>Function <span class="fn">do_private_message_delivery</span></h1>
+<pre><code>pub fn do_private_message_delivery&lt;Env, let MESSAGE_PLAINTEXT_LEN: <a href="../../../std/primitive.u32.html" class="primitive">u32</a>, D&gt;(
+    context: &mut <a href="../../../noir_aztec/context/struct.PrivateContext.html" class="struct">PrivateContext</a>,
+    encode_into_message_plaintext: fn[Env]() -> [<a href="../../../std/primitive.Field.html" class="primitive">Field</a>; MESSAGE_PLAINTEXT_LEN],
+    maybe_note_hash_counter: <a href="../../../std/option/struct.Option.html" class="struct">Option</a>&lt;<a href="../../../std/primitive.u32.html" class="primitive">u32</a>&gt;,
+    recipient: <a href="../../../protocol_types/address/aztec_address/struct.AztecAddress.html" class="struct">AztecAddress</a>,
+    delivery_mode: D,
+)
+<div class="where-clause">where
+    D: <a href="../../../noir_aztec/messages/delivery/trait.MessageDeliveryBuilder.html" class="trait">MessageDeliveryBuilder</a></div></code></pre>
+
+<div class="comments">
+<p>Performs private delivery of a message to <code>recipient</code> according to <code>delivery_mode</code>.</p>
+<p>The message is encoded into plaintext and then encrypted for <code>recipient</code>. This function takes a <em>function</em> that
+returns the plaintext instead of taking the plaintext directly in order to not waste constraints encoding the
+message in scenarios where the plaintext will be encrypted with unconstrained encryption.</p>
+<p><code>maybe_note_hash_counter</code> is only relevant for on-chain delivery modes (i.e. via protocol logs): if a newly created
+note hash's side effect counter is passed and constrained tagging is not in use, then the log will be squashed
+alongside the note should its nullifier be emitted in the current transaction. Constrained-tagged logs are not tied
+to note squashing, because recipient discovery scans those tags sequentially and a removed log would break the
+per-secret index sequence.</p>
+<h2>Privacy</h2>
+<p>The emitted log always has the same length regardless of <code>MESSAGE_PLAINTEXT_LEN</code>, because all message ciphertexts
+also have the same length. This prevents accidental privacy leakage via the log length.</p>
+</div>
+</main>
+</span>
+</body>
+</html>

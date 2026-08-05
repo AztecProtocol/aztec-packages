@@ -53,6 +53,56 @@ function test {
   test_cmds | parallelize
 }
 
+function check_orphaned_urls {
+  echo_header "Check orphaned URLs"
+  # Source the baseline from the base branch, not the working tree, so a PR
+  # cannot weaken its own gate by deleting URLs from the snapshot in the same
+  # diff. The committed snapshot only grows the protected set for future PRs;
+  # the check a PR must satisfy is the base-branch version it cannot edit.
+  local snapshot=snapshots/published-urls.txt
+  local base_ref="${GITHUB_BASE_REF:-${MERGE_GROUP_BASE_REF:-next}}"
+  base_ref="${base_ref#refs/heads/}"
+  local tmp
+  tmp=$(mktemp)
+  # shellcheck disable=SC2064
+  trap "rm -f '$tmp'" RETURN
+
+  # Resolve the base branch first, distinguishing "base unreachable" from "base
+  # reachable but snapshot absent". Only the latter is a legitimate fallback (it
+  # happens for the PR that first introduces the snapshot). Treating an
+  # unreachable base as a fallback would silently reopen the bypass.
+  local base_obj=""
+  if git rev-parse --verify -q "refs/remotes/origin/${base_ref}" >/dev/null; then
+    base_obj="refs/remotes/origin/${base_ref}"
+  elif git fetch -q --depth=1 origin "refs/heads/${base_ref}:refs/remotes/origin/${base_ref}" 2>/dev/null &&
+    git rev-parse --verify -q "refs/remotes/origin/${base_ref}" >/dev/null; then
+    base_obj="refs/remotes/origin/${base_ref}"
+  fi
+
+  local baseline
+  if [[ -n "$base_obj" ]]; then
+    if git show "${base_obj}:docs/${snapshot}" >"$tmp" 2>/dev/null; then
+      echo "Using base-branch baseline (${base_obj})."
+      baseline="$tmp"
+    else
+      echo "Base branch ${base_ref} has no snapshot yet; using working-tree snapshot (introducing PR)."
+      baseline="$snapshot"
+    fi
+  elif [[ "${CI:-0}" -eq 1 ]]; then
+    # In CI the base must be reachable; downgrading to the PR's own editable
+    # snapshot would reopen the bypass this gate exists to close.
+    echo "ERROR: cannot resolve base branch origin/${base_ref} to source the orphan-check baseline." >&2
+    return 1
+  else
+    echo "Base branch origin/${base_ref} unavailable; using working-tree snapshot (local run)."
+    baseline="$snapshot"
+  fi
+
+  local rc=0
+  FAIL_ON_ORPHAN=1 ./scripts/check_orphaned_urls.sh "$baseline" || rc=$?
+  return $rc
+}
+
 function check_references {
   if [[ "${GITHUB_EVENT_NAME:-}" != "merge_group" ]]; then
     echo "Skipping doc reference check (only runs in merge queue)."
@@ -81,11 +131,13 @@ case "$cmd" in
     build_examples
     build_docs
     test
+    check_orphaned_urls
     check_references
     ;;
   "")
     build_examples
     build_docs
+    check_orphaned_urls
     check_references
     ;;
   "hash")

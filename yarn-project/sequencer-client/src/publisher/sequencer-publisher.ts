@@ -8,6 +8,7 @@ import {
   MULTI_CALL_3_ADDRESS,
   Multicall3,
   MulticallForwarderRevertedError,
+  type PayloadProposalStatus,
   type RollupContract,
   type SimulationOverridesPlan,
   type SlashingProposerContract,
@@ -45,6 +46,7 @@ import { EmpireBaseAbi, ErrorsAbi, RollupAbi, SlashingProposerAbi } from '@aztec
 import { type ProposerSlashAction, encodeSlashConsensusVotes } from '@aztec/slasher';
 import { CommitteeAttestationsAndSigners, type ValidateCheckpointResult } from '@aztec/stdlib/block';
 import type { Checkpoint } from '@aztec/stdlib/checkpoint';
+import type { SequencerConfig } from '@aztec/stdlib/config';
 import {
   getLastL1SlotTimestampForL2Slot,
   getNextL1SlotTimestamp,
@@ -215,6 +217,7 @@ export class SequencerPublisher {
       | 'sequencerPublisherPreviousL1BlockWaitTimeoutMs'
       | 'sequencerPublisherPreviousL1BlockWaitPollIntervalMs'
     > &
+      Pick<SequencerConfig, 'governanceProposerForcePayloadVote'> &
       Pick<L1ContractsConfig, 'ethereumSlotDuration' | 'aztecSlotDuration'> & { l1ChainId: number },
     deps: {
       telemetry?: TelemetryClient;
@@ -958,6 +961,19 @@ export class SequencerPublisher {
       this.log.warn(`Cannot enqueue vote cast signal ${signalType} for address zero at slot ${slotNumber}`);
       return false;
     }
+
+    const canonicalRollup = await base.getRollupAddress();
+    if (!canonicalRollup.equals(EthAddress.fromString(this.rollupContract.address))) {
+      this.log.warn(`Rollup ${this.rollupContract.address} is not canonical, skipping governance signal`, {
+        slotNumber,
+        signalType,
+        canonicalRollup,
+        targetRollup: this.rollupContract.address,
+        payload: payload.toString(),
+      });
+      return false;
+    }
+
     const round = await base.computeRound(slotNumber);
     const roundInfo = await base.getRoundInfo(this.rollupContract.address, round);
 
@@ -974,23 +990,38 @@ export class SequencerPublisher {
       return false;
     }
 
-    // Skip signaling if there is already a live (non-terminal) Governance proposal for this
-    // payload. This is intentionally not cached: a previously-live proposal may transition to
-    // a terminal state (Dropped/Rejected/Expired/Executed), at which point we may want to re-signal
-    // the same payload in a future round.
-    let proposed = false;
+    // Classify the payload against the Governance proposal history so we stop signalling once its
+    // proposal is live or was already executed, while still re-signalling one whose proposal was
+    // merely rejected/dropped/expired.
+    let status: PayloadProposalStatus = 'none';
     try {
-      proposed = await base.hasActiveProposalWithPayload(payload.toString());
+      status = await base.getPayloadProposalStatus(payload.toString());
     } catch (err) {
       // We deliberately swallow the error and proceed to signal. Failing closed (skipping the
       // signal) on transient RPC errors would let a flaky L1 endpoint silence governance
       // participation entirely; failing open at worst produces a duplicate signal that the
       // contract will simply count alongside others in the round.
-      this.log.error(`Failed to check if payload ${payload} was already proposed (signalling anyway)`, err);
+      this.log.error(`Failed to check governance proposal status for payload ${payload} (signalling anyway)`, err, {
+        slotNumber,
+        signalType,
+      });
     }
 
-    if (proposed) {
-      this.log.info(`Payload ${payload} has a live governance proposal, stopping signals`);
+    if (status === 'live') {
+      this.log.info(`Payload ${payload} has a live governance proposal, stopping signals`, {
+        slotNumber,
+        signalType,
+        payload: payload.toString(),
+      });
+      return false;
+    }
+
+    if (status === 'executed' && !this.config.governanceProposerForcePayloadVote) {
+      this.log.info(
+        `Payload ${payload} was executed by governance within lookback, stopping signals ` +
+          `(set GOVERNANCE_PROPOSER_FORCE_PAYLOAD_VOTE to re-signal)`,
+        { slotNumber, signalType, payload: payload.toString() },
+      );
       return false;
     }
 

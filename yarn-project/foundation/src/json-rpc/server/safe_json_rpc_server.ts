@@ -224,7 +224,11 @@ export class SafeJsonRpcServer {
           result = await this.proxy.call(method, params);
         }
 
-        return { jsonrpc, id, result };
+        // Coerce an undefined return value to null so the response always carries a `result` key.
+        // JSON.stringify drops undefined-valued keys, which would otherwise produce a JSON-RPC
+        // response with neither `result` nor `error` — a spec violation that leaves callers unable
+        // to distinguish "not found" from a malformed response.
+        return { jsonrpc, id, result: result ?? null };
       } catch (err: any) {
         if (err && err instanceof ZodError) {
           const message = err.issues.map(e => `${e.message} (${e.path.join('.')})`).join('. ') || 'Validation error';
