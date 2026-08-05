@@ -824,7 +824,6 @@ export function makeParityPublicInputs(seed = 0): ParityPublicInputs {
     new Fr(BigInt(seed + 0x400)),
     new Fr(BigInt(seed + 0x500)),
     makeL1ToL2MessageSponge(seed + 0x580),
-    seed + 0x600,
     new Fr(BigInt(seed + 0x700)),
     new Fr(BigInt(seed + 0x800)),
   );
