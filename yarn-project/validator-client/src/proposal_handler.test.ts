@@ -921,7 +921,7 @@ describe('ProposalHandler checkpoint validation', () => {
       const txProvider = mock<ITxProvider>();
       txProvider.getTxsForBlockProposal.mockResolvedValue({ txs: [], missingTxs: [] } as any);
 
-      // Well past the 12s lag for a bucket opened at t=100.
+      // Well past the minimum bucket age (one 12s Ethereum slot) for a bucket opened at t=100.
       dateProvider.setTime(1_000_000);
 
       const blockHandler = new ProposalHandler(
@@ -1043,12 +1043,13 @@ describe('ProposalHandler checkpoint validation', () => {
     it('refuses to attest when a mandatory bucket (at or before the cutoff) is left unconsumed', async () => {
       handler.updateConfig(config);
       const { archiveRoot } = setupCensorshipMocks(2);
-      // cutoff(slot=10) with l1GenesisTime=0, slotDuration=24, lag=12 is (10-1)*24 - 12 = 204.
+      // cutoff(slot=10) is the build frame start: with l1GenesisTime=0, slotDuration=24 and
+      // ethereumSlotDuration=4 that is (10-1)*24 - 4 = 212.
       l1ToL2MessageSource.getInboxBucketByTotalMsgCount.mockResolvedValue({
         seq: 1n,
         totalMsgCount: 2n,
       } as InboxBucket);
-      // The next (first unconsumed) bucket opened at t=100 <= cutoff 204 is mandatory and was left unconsumed.
+      // The next (first unconsumed) bucket opened at t=100 <= cutoff 212 is mandatory and was left unconsumed.
       l1ToL2MessageSource.getInboxBucket.mockResolvedValue({
         seq: 2n,
         totalMsgCount: 5n,
@@ -1071,12 +1072,12 @@ describe('ProposalHandler checkpoint validation', () => {
         seq: 1n,
         totalMsgCount: 2n,
       } as InboxBucket);
-      // Next bucket opened at t=205 > cutoff 204: not mandatory, so the censorship check passes and validation
+      // Next bucket opened at t=213 > cutoff 212: not mandatory, so the censorship check passes and validation
       // proceeds past it to the checkpoint rebuild (which mismatches here, an unrelated reason).
       l1ToL2MessageSource.getInboxBucket.mockResolvedValue({
         seq: 2n,
         totalMsgCount: 5n,
-        timestamp: 205n,
+        timestamp: 213n,
       } as InboxBucket);
       const proposal = await makeSlot10Proposal(archiveRoot);
       // The fork's archive root is checked against the proposal's before the rebuild; report a match so

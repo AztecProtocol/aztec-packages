@@ -10,23 +10,39 @@ import { getInboxCutoffTimestamp, isInboxConsumptionSufficient } from './inbox_c
 // L1, TS, and the design doc agree on the cutoff formula and the mandatory-consumption boundary.
 const GENESIS_TIME = 100_000n;
 const SLOT_DURATION = 36;
-const LAG_SECONDS = 12;
+const ETHEREUM_SLOT_DURATION = 12;
 
-const l1Constants = { l1GenesisTime: GENESIS_TIME, slotDuration: SLOT_DURATION } as Pick<
-  L1RollupConstants,
-  'l1GenesisTime' | 'slotDuration'
->;
+const constantsFor = (slotDuration: number, ethereumSlotDuration: number) =>
+  ({ l1GenesisTime: GENESIS_TIME, slotDuration, ethereumSlotDuration }) as Pick<
+    L1RollupConstants,
+    'l1GenesisTime' | 'slotDuration' | 'ethereumSlotDuration'
+  >;
+
+const l1Constants = constantsFor(SLOT_DURATION, ETHEREUM_SLOT_DURATION);
 
 describe('inbox_consumption', () => {
   describe('getInboxCutoffTimestamp', () => {
-    // buildFrameStart(S) = 100000 + (S - 1) * 36; cutoff(S) = buildFrameStart(S) - 12.
+    // buildFrameStart(S) = 100000 + (S - 1) * 36; cutoff(S) = buildFrameStart(S) - E, with E = 12.
     it.each([
       [1, 99_988n],
       [2, 100_024n],
       [10, 100_312n],
       [11, 100_348n],
     ])('matches the A-1371 §13 cutoff table for slot %i', (slot, expectedCutoff) => {
-      expect(getInboxCutoffTimestamp(SlotNumber(slot), l1Constants, LAG_SECONDS)).toBe(expectedCutoff);
+      expect(getInboxCutoffTimestamp(SlotNumber(slot), l1Constants)).toBe(expectedCutoff);
+    });
+
+    // The cutoff is the build-frame start, which scales with the *configured* Ethereum slot duration rather than a
+    // fixed 12 seconds. These pin the same slot 10 / 72s-slot geometry the `ProposeInboxConsumptionTest` Foundry
+    // harness runs `TimeLib.getBuildFrameStart` on for its non-12s L1 cases, so a divergence between the two
+    // formulas fails on one side or the other.
+    it.each([
+      [4, 100_644n],
+      [12, 100_636n],
+      [24, 100_624n],
+    ])('tracks the configured Ethereum slot duration of %is', (ethereumSlotDuration, expectedCutoff) => {
+      // previousSlotStart = 100000 + (10 - 1) * 72 = 100648; cutoff = previousSlotStart - E.
+      expect(getInboxCutoffTimestamp(SlotNumber(10), constantsFor(72, ethereumSlotDuration))).toBe(expectedCutoff);
     });
   });
 

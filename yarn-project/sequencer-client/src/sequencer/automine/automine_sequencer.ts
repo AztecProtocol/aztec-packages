@@ -1,5 +1,5 @@
 import type { Archiver } from '@aztec/archiver';
-import { INBOX_LAG_SECONDS, MAX_L1_TO_L2_MSGS_PER_BLOCK, MAX_L1_TO_L2_MSGS_PER_CHECKPOINT } from '@aztec/constants';
+import { MAX_L1_TO_L2_MSGS_PER_BLOCK, MAX_L1_TO_L2_MSGS_PER_CHECKPOINT } from '@aztec/constants';
 import type { L1TxUtils } from '@aztec/ethereum/l1-tx-utils';
 import { type EthCheatCodes, RollupCheatCodes } from '@aztec/ethereum/test';
 import { BlockNumber, CheckpointNumber, EpochNumber, SlotNumber } from '@aztec/foundation/branded-types';
@@ -483,13 +483,13 @@ export class AutomineSequencer {
     const selection = await selectInboxBucketForBlock({
       messageSource: this.deps.l1ToL2MessageSource,
       now: BigInt(Math.floor(this.deps.dateProvider.now() / 1000)),
-      lagSeconds: BigInt(INBOX_LAG_SECONDS),
+      minBucketAgeSeconds: BigInt(this.deps.l1Constants.ethereumSlotDuration),
       parent: { seq: parentBucket.seq, totalMsgCount: parentBucket.totalMsgCount },
       checkpointStartTotalMsgCount: parentTotalMsgCount,
       perBlockCap: MAX_L1_TO_L2_MSGS_PER_BLOCK,
       perCheckpointCap: MAX_L1_TO_L2_MSGS_PER_CHECKPOINT,
       isLastBlock: true,
-      cutoffTimestamp: getInboxCutoffTimestamp(SlotNumber(targetSlot), this.deps.l1Constants, INBOX_LAG_SECONDS),
+      cutoffTimestamp: getInboxCutoffTimestamp(SlotNumber(targetSlot), this.deps.l1Constants),
     });
     const streamingBundle = selection.consume ? selection.bundle : [];
     const bucketHint = selection.consume ? selection.bucket.seq : parentBucket.seq;
