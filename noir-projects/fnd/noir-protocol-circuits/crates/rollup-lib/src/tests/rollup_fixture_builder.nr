@@ -462,7 +462,6 @@ impl RollupFixtureBuilder {
             // The message sponge resets per checkpoint, so it ends at the checkpoint's accumulated sponge — the same
             // value the block roots reach across the checkpoint.
             end_sponge: self.get_msg_sponge(slot_number),
-            num_msgs: 7,
             vk_tree_root: self.vk_tree_root,
             prover_id: self.prover_id,
         }

@@ -15,12 +15,10 @@ export class ParityPublicInputs {
     public inHash: Fr,
     /** Inbox rolling hash before absorbing this checkpoint's messages. */
     public startRollingHash: Fr,
-    /** Inbox rolling hash after absorbing the `numMsgs` real messages. */
+    /** Inbox rolling hash after absorbing the checkpoint's real messages. */
     public endRollingHash: Fr,
-    /** Message-bundle sponge after absorbing the `numMsgs` real messages into the empty per-checkpoint sponge. */
+    /** Message-bundle sponge after absorbing the same real messages into the empty per-checkpoint sponge. */
     public endSponge: L1ToL2MessageSponge,
-    /** Number of real (non-padding) messages absorbed into the rolling hash and the sponge. */
-    public numMsgs: number,
     /** Root of the VK tree */
     public vkTreeRoot: Fr,
     /** Prover identity committed to by the circuit, for sybil protection. */
@@ -41,7 +39,6 @@ export class ParityPublicInputs {
       this.startRollingHash,
       this.endRollingHash,
       this.endSponge,
-      new Fr(this.numMsgs),
       this.vkTreeRoot,
       this.proverId,
     );
@@ -80,7 +77,6 @@ export class ParityPublicInputs {
       fields.startRollingHash,
       fields.endRollingHash,
       fields.endSponge,
-      fields.numMsgs,
       fields.vkTreeRoot,
       fields.proverId,
     ] as const;
@@ -98,7 +94,6 @@ export class ParityPublicInputs {
       reader.readObject(Fr),
       reader.readObject(Fr),
       reader.readObject(L1ToL2MessageSponge),
-      Fr.fromBuffer(reader).toNumber(),
       Fr.fromBuffer(reader),
       Fr.fromBuffer(reader),
     );

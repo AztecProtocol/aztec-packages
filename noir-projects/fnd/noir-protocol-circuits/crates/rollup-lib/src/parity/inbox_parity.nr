@@ -54,7 +54,6 @@ pub fn execute<let S: u32>(inputs: InboxParityPrivateInputs<S>) -> ParityPublicI
         start_rolling_hash: inputs.start_rolling_hash,
         end_rolling_hash,
         end_sponge,
-        num_msgs: inputs.num_msgs,
         vk_tree_root: inputs.vk_tree_root,
         prover_id: inputs.prover_id,
     }

@@ -28,9 +28,8 @@ fn public_inputs_match_expected() {
     assert_eq(public_inputs.vk_tree_root, 42);
     assert_eq(public_inputs.prover_id, 7);
 
-    // The rolling hash chains all real messages on top of the start value; the circuit echoes back its start/count.
+    // The rolling hash chains all real messages on top of the start value, which the circuit echoes back.
     assert_eq(public_inputs.start_rolling_hash, 0);
-    assert_eq(public_inputs.num_msgs, S);
     assert_eq(public_inputs.end_rolling_hash, accumulate_inbox_rolling_hash(0, msgs, S));
 
     // The sponge absorbs exactly the real messages (real-count) into the empty sponge the circuit starts from.
