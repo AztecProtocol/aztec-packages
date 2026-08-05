@@ -14,7 +14,6 @@ import {
 } from '@aztec/blob-lib';
 import {
   GENESIS_ARCHIVE_ROOT,
-  INBOX_LAG_SECONDS,
   MAX_L1_TO_L2_MSGS_PER_BLOCK,
   MAX_L1_TO_L2_MSGS_PER_CHECKPOINT,
   MAX_NULLIFIERS_PER_TX,
@@ -568,11 +567,11 @@ describe('L1Publisher integration', () => {
       );
 
       // Streaming Inbox consumption: the L1 Rollup only lets a checkpoint consume Inbox buckets
-      // that have aged past the censorship cutoff (`toTimestamp(slot - 1) - INBOX_LAG_SECONDS`), measured in L1 time,
-      // not whole checkpoints. Each checkpoint mirrors the real Inbox buckets into messageSource, then reuses the
-      // production `selectInboxBucketForBlock` (which mirrors `ProposeLib.validateInboxConsumption`) to pick exactly
-      // the buckets it must consume, deriving the consumed bundle, the propose bucket hint, and the header rolling
-      // hash from that one selection so header, world state, and L1 agree by construction.
+      // that have aged past the censorship cutoff (the build frame start, `toTimestamp(slot - 1)` minus one L1 slot),
+      // measured in L1 time, not whole checkpoints. Each checkpoint mirrors the real Inbox buckets into messageSource,
+      // then reuses the production `selectInboxBucketForBlock` (which mirrors `ProposeLib.validateInboxConsumption`) to
+      // pick exactly the buckets it must consume, deriving the consumed bundle, the propose bucket hint, and the header
+      // rolling hash from that one selection so header, world state, and L1 agree by construction.
       const inbox = getContract({
         address: getAddress(l1ContractAddresses.inboxAddress.toString()),
         abi: InboxAbi,
@@ -646,12 +645,12 @@ describe('L1Publisher integration', () => {
         // Reuse the production streaming selector to pick the buckets this single-block (hence last-block) checkpoint
         // must consume, then derive the consumed bundle, the propose bucket hint, and the rolling-hash cursor from
         // that one selection so the header, world state, and L1 all agree.
-        const buildFrameStart = await rollup.getTimestampForSlot(SlotNumber(slot - 1));
-        const cutoffTimestamp = buildFrameStart - BigInt(INBOX_LAG_SECONDS);
+        const previousSlotStart = await rollup.getTimestampForSlot(SlotNumber(slot - 1));
+        const cutoffTimestamp = previousSlotStart - BigInt(config.ethereumSlotDuration);
         const selection = await selectInboxBucketForBlock({
           messageSource,
-          now: buildFrameStart,
-          lagSeconds: BigInt(INBOX_LAG_SECONDS),
+          now: previousSlotStart,
+          minBucketAgeSeconds: BigInt(config.ethereumSlotDuration),
           parent,
           checkpointStartTotalMsgCount: parent.totalMsgCount,
           perBlockCap: MAX_L1_TO_L2_MSGS_PER_BLOCK,
