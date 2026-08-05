@@ -13,11 +13,7 @@ Aztec has two execution environments—Private and Public—each with different 
 
 ## Private Global Variables
 
-Private functions access transaction context via `TxContext`:
-
-#include_code tx-context /noir-projects/fnd/noir-protocol-circuits/crates/types/src/abis/transaction/tx_context.nr rust
-
-The following fields are accessible via `context` methods:
+Private functions access transaction context via [`TxContext`](pathname:///aztec-nr-api/#api_ref_version/noir_aztec/protocol/abis/transaction/tx_context/struct.TxContext.html). The following fields are accessible via `context` methods:
 
 ### Chain Id
 
@@ -45,9 +41,7 @@ self.context.gas_settings();
 
 ## Public Global Variables
 
-Public functions access block-level context via `GlobalVariables`:
-
-#include_code global-variables /noir-projects/fnd/noir-protocol-circuits/crates/types/src/abis/global_variables.nr rust
+Public functions access block-level context via [`GlobalVariables`](pathname:///aztec-nr-api/#api_ref_version/noir_aztec/protocol/abis/global_variables/struct.GlobalVariables.html).
 
 :::note
 Not all fields in `GlobalVariables` are exposed via context methods. The `coinbase`, `fee_recipient`, and `slot_number` fields are used internally by the protocol.

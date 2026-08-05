@@ -48,11 +48,7 @@ The context inputs includes all of the information that is passed from the kerne
 
 As shown in the snippet, the application context is made up of 3 main structures. The call context, the block header, and the private global variables.
 
-First of all, the call context.
-
-#include_code call-context /noir-projects/fnd/noir-protocol-circuits/crates/types/src/abis/call_context.nr rust
-
-The call context contains information about the current call being made:
+First of all, the [`CallContext`](pathname:///aztec-nr-api/#api_ref_version/noir_aztec/protocol/abis/call_context/struct.CallContext.html), which contains information about the current call being made:
 
 1. Msg Sender
    - The message sender is the account (Aztec Contract) that sent the message to the current context. In the first call of the kernel circuit (often the account contract call), this value will be empty. For all subsequent calls the value will be the previous call.
@@ -71,15 +67,11 @@ The call context contains information about the current call being made:
 
 ### Block Header
 
-Another structure that is contained within the context is the `BlockHeader` object, which is the header of the block used to generate proofs against.
-
-#include_code block-header /noir-projects/fnd/noir-protocol-circuits/crates/types/src/abis/block_header.nr rust
+Another structure that is contained within the context is the [`BlockHeader`](pathname:///aztec-nr-api/#api_ref_version/noir_aztec/protocol/abis/block_header/struct.BlockHeader.html) object, which is the header of the block used to generate proofs against.
 
 ### Transaction Context
 
-The private context provides access to the transaction context as well, which are user-defined values for the transaction in general that stay constant throughout its execution.
-
-#include_code tx-context /noir-projects/fnd/noir-protocol-circuits/crates/types/src/abis/transaction/tx_context.nr rust
+The private context provides access to the [`TxContext`](pathname:///aztec-nr-api/#api_ref_version/noir_aztec/protocol/abis/transaction/tx_context/struct.TxContext.html) as well, which holds user-defined values for the transaction in general that stay constant throughout its execution.
 
 ### Args Hash
 
@@ -138,6 +130,4 @@ The Public Context includes all of the information passed from the `Public VM` i
 
 ### Public Global Variables
 
-The public global variables are provided by the rollup sequencer and consequently contain some more values than the private global variables.
-
-#include_code global-variables /noir-projects/fnd/noir-protocol-circuits/crates/types/src/abis/global_variables.nr rust
+The public global variables ([`GlobalVariables`](pathname:///aztec-nr-api/#api_ref_version/noir_aztec/protocol/abis/global_variables/struct.GlobalVariables.html)) are provided by the rollup sequencer and consequently contain some more values than the private global variables.
