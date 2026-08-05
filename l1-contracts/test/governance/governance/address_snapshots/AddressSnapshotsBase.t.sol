@@ -84,7 +84,9 @@ contract AddressSnapshotsBase is TestBase {
   function setUp() public {
     vm.warp(block.timestamp + 1000);
     GENESIS_TIME = block.timestamp;
-    TimeLib.initialize(GENESIS_TIME, SLOT_DURATION, EPOCH_DURATION, PROOF_SUBMISSION_EPOCHS);
+    TimeLib.initialize(
+      GENESIS_TIME, SLOT_DURATION, EPOCH_DURATION, PROOF_SUBMISSION_EPOCHS, TestConstants.ETHEREUM_SLOT_DURATION
+    );
     validatorSet = new AddressSetWrapper();
     timeCheater =
       new TimeCheater(address(validatorSet), GENESIS_TIME, SLOT_DURATION, EPOCH_DURATION, PROOF_SUBMISSION_EPOCHS);

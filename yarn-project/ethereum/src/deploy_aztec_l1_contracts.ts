@@ -576,6 +576,7 @@ export function getDeployRollupForUpgradeEnvVars(
     PROTOCOL_CONTRACTS_HASH: args.protocolContractsHash.toString(),
     GENESIS_ARCHIVE_ROOT: args.genesisArchiveRoot.toString(),
     // Rollup config
+    ETHEREUM_SLOT_DURATION: args.ethereumSlotDuration.toString(),
     AZTEC_SLOT_DURATION: args.aztecSlotDuration.toString(),
     AZTEC_EPOCH_DURATION: args.aztecEpochDuration.toString(),
     AZTEC_TARGET_COMMITTEE_SIZE: args.aztecTargetCommitteeSize.toString(),

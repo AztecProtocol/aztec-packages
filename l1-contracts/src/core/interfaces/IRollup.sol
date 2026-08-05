@@ -85,6 +85,7 @@ struct RollupConfigInput {
   StakingQueueConfig stakingQueueConfig;
   uint256 localEjectionThreshold;
   uint256 inboxLag;
+  uint256 ethereumSlotDuration;
 }
 
 struct RollupConfig {

@@ -21,11 +21,8 @@ import {Signature} from "@aztec/shared/libraries/SignatureLib.sol";
 import {ProposedHeader, ProposedHeaderLib} from "./ProposedHeaderLib.sol";
 import {STFLib} from "./STFLib.sol";
 
-// Streaming-inbox protocol constants (AZIP-22 Fast Inbox). These mirror the protocol circuit constants and
-// should move into the generated Constants library once the Solidity emitter includes them.
-// Minimum bucket age, in seconds, at the start of a checkpoint's build frame for its consumption to be
-// mandatory. One L1 slot: validators cannot be required to act on buckets they may not have seen.
-uint256 constant INBOX_LAG_SECONDS = 12;
+// Streaming-inbox protocol constant (AZIP-22 Fast Inbox). Mirrors the protocol circuit constant and should move
+// into the generated Constants library once the Solidity emitter includes it.
 // Maximum number of L1 to L2 messages a single checkpoint can insert.
 uint256 constant MAX_L1_TO_L2_MSGS_PER_CHECKPOINT = 1024;
 
@@ -399,9 +396,9 @@ library ProposeLib {
    *      5. Mandatory consumption (the censorship assert): the first unconsumed bucket (`_bucketHint + 1`)
    *         must either not exist, sit past the consumption cutoff, or be cap-escaped — consuming through it
    *         would exceed MAX_L1_TO_L2_MSGS_PER_CHECKPOINT messages since the parent checkpoint's cumulative
-   *         total. The cutoff is the start of the checkpoint's build frame minus INBOX_LAG_SECONDS: a
-   *         checkpoint proposed in slot S is built during slot S-1, and validators are not required to have
-   *         seen buckets younger than one L1 slot at build start.
+   *         total. The cutoff is the start of the checkpoint's build frame (`TimeLib.getBuildFrameStart`):
+   *         everything on L1 by then was visible to every node for the whole frame, while validators are not
+   *         required to have seen buckets that only appeared once building was under way.
    *
    *      No consumed-bucket pointer is written here. The caller (FI-14) stores the returned consumed
    *      position in the checkpoint's temp-log record, which is the authoritative consumed total: temp logs
@@ -452,8 +449,7 @@ library ProposeLib {
 
     if (_bucketHint < _inbox.getCurrentBucketSeq()) {
       IInbox.InboxBucket memory next = _inbox.getBucket(_bucketHint + 1);
-      Timestamp buildFrameStart = TimeLib.toTimestamp(_slotNumber - Slot.wrap(1));
-      Timestamp cutoff = buildFrameStart - Timestamp.wrap(INBOX_LAG_SECONDS);
+      Timestamp cutoff = TimeLib.getBuildFrameStart(_slotNumber);
       require(
         next.timestamp > Timestamp.unwrap(cutoff)
           || next.totalMsgCount - _parentTotalMsgCount > MAX_L1_TO_L2_MSGS_PER_CHECKPOINT,

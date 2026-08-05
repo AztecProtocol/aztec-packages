@@ -6,11 +6,7 @@ import {Test} from "forge-std/Test.sol";
 import {TestERC20} from "src/mock/TestERC20.sol";
 import {IERC20} from "@oz/token/ERC20/IERC20.sol";
 import {IInbox, MAX_MSGS_PER_BUCKET} from "@aztec/core/interfaces/messagebridge/IInbox.sol";
-import {
-  ProposeLib,
-  INBOX_LAG_SECONDS,
-  MAX_L1_TO_L2_MSGS_PER_CHECKPOINT
-} from "@aztec/core/libraries/rollup/ProposeLib.sol";
+import {ProposeLib, MAX_L1_TO_L2_MSGS_PER_CHECKPOINT} from "@aztec/core/libraries/rollup/ProposeLib.sol";
 import {TimeLib, Slot, Timestamp} from "@aztec/core/libraries/TimeLib.sol";
 import {Errors} from "@aztec/core/libraries/Errors.sol";
 import {DataStructures} from "@aztec/core/libraries/DataStructures.sol";
@@ -19,8 +15,8 @@ import {InboxHarness} from "../harnesses/InboxHarness.sol";
 import {TestConstants} from "../harnesses/TestConstants.sol";
 
 contract ProposeLibHarness {
-  constructor(uint256 _genesisTime, uint256 _slotDuration, uint256 _epochDuration) {
-    TimeLib.initialize(_genesisTime, _slotDuration, _epochDuration, 1);
+  constructor(uint256 _genesisTime, uint256 _slotDuration, uint256 _epochDuration, uint256 _ethereumSlotDuration) {
+    TimeLib.initialize(_genesisTime, _slotDuration, _epochDuration, 1, _ethereumSlotDuration);
   }
 
   function validateInboxConsumption(
@@ -38,8 +34,9 @@ contract ProposeLibHarness {
 
 contract ProposeInboxConsumptionTest is Test {
   uint256 internal constant GENESIS_TIME = 100_000;
-  uint256 internal constant SLOT_DURATION = 36;
+  uint256 internal constant SLOT_DURATION = 72;
   uint256 internal constant EPOCH_DURATION = 32;
+  uint256 internal constant ETHEREUM_SLOT_DURATION = 12;
   uint256 internal constant HEIGHT = 10;
 
   Slot internal constant SLOT = Slot.wrap(10);
@@ -48,14 +45,19 @@ contract ProposeInboxConsumptionTest is Test {
   InboxHarness internal inbox;
   uint256 internal version = 0;
 
-  // Start of the build frame for a checkpoint proposed in SLOT: it is built during the previous slot.
-  uint256 internal buildFrameStart = GENESIS_TIME + (Slot.unwrap(SLOT) - 1) * SLOT_DURATION;
-  // Buckets at or before the cutoff must be consumed by the checkpoint.
-  uint256 internal cutoff = buildFrameStart - INBOX_LAG_SECONDS;
+  // The checkpoint proposed in SLOT is built during the previous slot, whose start this is.
+  uint256 internal previousSlotStart = GENESIS_TIME + (Slot.unwrap(SLOT) - 1) * SLOT_DURATION;
+  // Buckets at or before the cutoff (the build frame start) must be consumed by the checkpoint.
+  uint256 internal cutoff = previousSlotStart - ETHEREUM_SLOT_DURATION;
 
   function setUp() public {
     vm.warp(GENESIS_TIME);
-    rollup = new ProposeLibHarness(GENESIS_TIME, SLOT_DURATION, EPOCH_DURATION);
+    _useEthereumSlotDuration(ETHEREUM_SLOT_DURATION);
+  }
+
+  // Redeploys the harness, and an Inbox owned by it, on a given L1 slot duration.
+  function _useEthereumSlotDuration(uint256 _ethereumSlotDuration) internal {
+    rollup = new ProposeLibHarness(GENESIS_TIME, SLOT_DURATION, EPOCH_DURATION, _ethereumSlotDuration);
     inbox = _deployInbox(TestConstants.AZTEC_INBOX_BUCKET_RING_SIZE);
   }
 
@@ -299,5 +301,49 @@ contract ProposeInboxConsumptionTest is Test {
       abi.encodeWithSelector(Errors.Rollup__TooManyInboxMessagesConsumed.selector, MAX_L1_TO_L2_MSGS_PER_CHECKPOINT + 1)
     );
     rollup.validateInboxConsumption(inbox, endHash, 5, SLOT, 0);
+  }
+
+  function testShortEthereumSlotBucketBeforeCutoffMustBeConsumed() public {
+    // The cutoff tracks the configured L1 slot duration: on a 4 second L1 the build frame opens 4 seconds
+    // before the previous slot, so a bucket 6 seconds before it was already visible for the whole frame.
+    _useEthereumSlotDuration(4);
+    vm.warp(previousSlotStart - 6);
+    _send(0);
+
+    vm.warp(GENESIS_TIME + Slot.unwrap(SLOT) * SLOT_DURATION);
+    vm.expectRevert(abi.encodeWithSelector(Errors.Rollup__UnconsumedInboxMessages.selector, 1));
+    rollup.validateInboxConsumption(inbox, bytes32(0), 0, SLOT, 0);
+  }
+
+  function testShortEthereumSlotBucketAfterCutoffNeedNotBeConsumed() public {
+    _useEthereumSlotDuration(4);
+    vm.warp(previousSlotStart - 3);
+    _send(0);
+
+    vm.warp(GENESIS_TIME + Slot.unwrap(SLOT) * SLOT_DURATION);
+    uint256 consumed = rollup.validateInboxConsumption(inbox, bytes32(0), 0, SLOT, 0);
+    assertEq(consumed, 0, "nothing consumed");
+  }
+
+  function testLongEthereumSlotBucketAfterCutoffNeedNotBeConsumed() public {
+    // On a 24 second L1 the build frame opens 24 seconds before the previous slot, so a bucket 18 seconds
+    // before it appeared mid-frame and validators cannot be required to have seen it.
+    _useEthereumSlotDuration(24);
+    vm.warp(previousSlotStart - 18);
+    _send(0);
+
+    vm.warp(GENESIS_TIME + Slot.unwrap(SLOT) * SLOT_DURATION);
+    uint256 consumed = rollup.validateInboxConsumption(inbox, bytes32(0), 0, SLOT, 0);
+    assertEq(consumed, 0, "nothing consumed");
+  }
+
+  function testLongEthereumSlotBucketAtCutoffMustBeConsumed() public {
+    _useEthereumSlotDuration(24);
+    vm.warp(previousSlotStart - 24);
+    _send(0);
+
+    vm.warp(GENESIS_TIME + Slot.unwrap(SLOT) * SLOT_DURATION);
+    vm.expectRevert(abi.encodeWithSelector(Errors.Rollup__UnconsumedInboxMessages.selector, 1));
+    rollup.validateInboxConsumption(inbox, bytes32(0), 0, SLOT, 0);
   }
 }

@@ -134,6 +134,7 @@ library TestConstants {
     config.slasherEnabled = false;
     config.localEjectionThreshold = 0;
     config.inboxLag = AZTEC_INBOX_LAG;
+    config.ethereumSlotDuration = ETHEREUM_SLOT_DURATION;
 
     // For the version we derive it based on the config (with a 0 version)
     // TODO(https://linear.app/aztec-labs/issue/TMNT-139/version-at-deployment)
