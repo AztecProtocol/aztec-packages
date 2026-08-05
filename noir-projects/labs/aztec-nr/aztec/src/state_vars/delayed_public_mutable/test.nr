@@ -33,8 +33,7 @@ unconstrained fn in_utility(
     DelayedPublicMutable::new(context, storage_slot)
 }
 
-// A zero initial delay is rejected by a `static_assert`, which surfaces here as a test failure because each test is
-// compiled on demand. A contract declaring such a state variable fails to compile.
+// The `static_assert` failure surfaces as a test failure because each test is compiled on demand.
 #[test(should_fail_with = "InitialDelay must be greater than zero")]
 unconstrained fn declaring_with_zero_initial_delay_fails() {
     let _: DelayedPublicMutable<MockStruct, 0_u64, PublicContext> = DelayedPublicMutable::new(zeroed(), storage_slot);

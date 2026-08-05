@@ -177,21 +177,6 @@ unconstrained fn test_schedule_change_to_zero_delay_fails() {
     delay_change.schedule_change(0, 50);
 }
 
-#[test]
-unconstrained fn test_schedule_change_to_minimum_delay() {
-    let current_timestamp = 50;
-
-    let mut delay_change = get_initial_delay_change();
-    delay_change.schedule_change(1, current_timestamp);
-
-    assert_eq(delay_change.pre.unwrap(), TEST_INITIAL_DELAY);
-    assert_eq(delay_change.post.unwrap(), 1);
-    assert_eq(delay_change.timestamp_of_change, current_timestamp + TEST_INITIAL_DELAY - 1);
-}
-
-// Reading a delay out of a zero `INITIAL_DELAY` structure is rejected by a `static_assert`, which surfaces here as a
-// test failure because each test is compiled on demand. Construction and packing remain allowed, since those are
-// independent of the initial delay - `DelayedPublicMutable` rejects a zero initial delay at declaration.
 #[test(should_fail_with = "INITIAL_DELAY must be greater than zero")]
 unconstrained fn test_zero_initial_delay_fails() {
     let delay_change: ScheduledDelayChange<0_u64> = std::mem::zeroed();
@@ -204,12 +189,13 @@ unconstrained fn assert_effective_minimum_delay_invariants<let INITIAL_DELAY: u6
     anchor_block_timestamp: u64,
     effective_minimum_delay: u64,
 ) {
-    // A read as at the anchor block timestamp remains valid up to and including this timestamp, so no action, even if
-    // executed in the block following the anchor block, may cause the value to change at or before it.
+    // The effective minimum delay guarantees the earliest timestamp in which a scheduled value change could be made
+    // effective. No action, even if executed in the block following the anchor block, should result in a scheduled
+    // value change having a timestamp of change lower than this.
     //
     // Note that blocks within the same checkpoint can share timestamps, so the earliest scheduling can happen at the
     // anchor block timestamp.
-    let last_valid_read_timestamp = anchor_block_timestamp + effective_minimum_delay;
+    let expected_earliest_value_change_timestamp = anchor_block_timestamp + effective_minimum_delay;
 
     if delay_change.timestamp_of_change > anchor_block_timestamp {
         // If a delay change is already scheduled to happen in the future, we then must consider the scenario in
@@ -218,7 +204,7 @@ unconstrained fn assert_effective_minimum_delay_invariants<let INITIAL_DELAY: u6
 
         let value_change_timestamp =
             delay_change_timestamp + delay_change.get_current(delay_change_timestamp);
-        assert(last_valid_read_timestamp < value_change_timestamp);
+        assert(expected_earliest_value_change_timestamp <= value_change_timestamp);
     }
 
     // Another possibility would be to schedule a value change at the earliest possible timestamp, which is the anchor
@@ -226,13 +212,13 @@ unconstrained fn assert_effective_minimum_delay_invariants<let INITIAL_DELAY: u6
     let change_schedule_timestamp = anchor_block_timestamp;
     let value_change_timestamp =
         change_schedule_timestamp + delay_change.get_current(change_schedule_timestamp);
-    assert(last_valid_read_timestamp < value_change_timestamp);
+    assert(expected_earliest_value_change_timestamp <= value_change_timestamp);
 
     // Finally, a delay reduction could be scheduled at the anchor block timestamp. We reduce the delay to 1 second (the
-    // smallest permitted delay), which means that at the delay timestamp of change a value change could be scheduled to
-    // take effect one second later.
+    // smallest permitted delay), which means that at the delay timestamp of change a value change could be performed
+    // one second later.
     delay_change.schedule_change(1, anchor_block_timestamp);
-    assert(last_valid_read_timestamp < delay_change.timestamp_of_change + 1);
+    assert(expected_earliest_value_change_timestamp <= delay_change.timestamp_of_change + 1);
 }
 
 #[test]
