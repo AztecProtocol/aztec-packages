@@ -1,5 +1,5 @@
 import type { Fr } from '@aztec/foundation/curves/bn254';
-import type { InboxBucket, L1ToL2MessageSource } from '@aztec/stdlib/messaging';
+import { type InboxBucket, type L1ToL2MessageSource, isInboxConsumptionSufficient } from '@aztec/stdlib/messaging';
 
 /** The subset of the archiver's Inbox-bucket queries the selector needs. */
 export type InboxBucketSource = Pick<
@@ -44,8 +44,8 @@ export type SelectInboxBucketInput = {
   cutoffTimestamp: bigint;
 };
 
-/** Result of a block's streaming Inbox-bucket selection. */
-export type InboxBucketSelection =
+/** Whether and through which bucket a block consumes. */
+type InboxBucketConsumption =
   | {
       /** The block consumes messages, advancing to `bucket`. */
       consume: true;
@@ -58,6 +58,17 @@ export type InboxBucketSelection =
       /** The block consumes nothing; it reuses the parent bucket reference. */
       consume: false;
     };
+
+/** Result of a block's streaming Inbox-bucket selection. */
+export type InboxBucketSelection = InboxBucketConsumption & {
+  /**
+   * Set on the checkpoint's final block when the selected position still leaves a mandatory bucket unconsumed, so no
+   * checkpoint ending on this block can satisfy the censorship floor. The consumption fields still describe the best
+   * reachable prefix, but proposing it would produce a checkpoint every honest validator refuses to attest and that
+   * L1 `propose` would revert, so the caller is expected to abandon the checkpoint rather than build on it.
+   */
+  insufficientFinalBlockCapacity?: true;
+};
 
 /**
  * Selects the newest Inbox bucket a block streams from, mirroring the L1 consumption predicate in
@@ -72,6 +83,10 @@ export type InboxBucketSelection =
  *    (`bucket.totalMsgCount - checkpointStartTotalMsgCount`). If even the first bucket past the parent overshoots the
  *    per-checkpoint cap, consume nothing — the L1 cap-escape (`ProposeLib` allows leaving a bucket unconsumed when
  *    consuming through it would exceed the per-checkpoint cap).
+ * 4. On the last block only, check the resulting position against the censorship floor with the shared
+ *    `isInboxConsumptionSufficient` predicate. Because buckets are indivisible, the walk-back in step 3 can be forced
+ *    onto a prefix that still leaves a mandatory bucket behind; that is reported as
+ *    `insufficientFinalBlockCapacity` rather than passed off as a usable selection.
  *
  * The `<=` comparisons make a bucket exactly `minBucketAgeSeconds` old lag-eligible and a bucket exactly at the cutoff
  * mandatory, matching the strict `>` "past cutoff" test on L1 (`next.timestamp > cutoff` leaves it optional).
@@ -80,6 +95,25 @@ export type InboxBucketSelection =
  * so per-block walk-back always lands on at least one bucket; only the per-checkpoint cap can force consuming nothing.
  */
 export async function selectInboxBucketForBlock(input: SelectInboxBucketInput): Promise<InboxBucketSelection> {
+  const consumption = await selectConsumption(input);
+  if (!input.isLastBlock) {
+    return consumption;
+  }
+
+  const { messageSource, parent, checkpointStartTotalMsgCount, perCheckpointCap, cutoffTimestamp } = input;
+  const finalSeq = consumption.consume ? consumption.bucket.seq : parent.seq;
+  const nextBucket = await messageSource.getInboxBucket(finalSeq + 1n);
+  const sufficient = isInboxConsumptionSufficient({
+    nextBucket,
+    cutoffTimestamp,
+    checkpointStartTotalMsgCount,
+    perCheckpointCap,
+  });
+  return sufficient ? consumption : { ...consumption, insufficientFinalBlockCapacity: true };
+}
+
+/** Steps 1 to 3 of {@link selectInboxBucketForBlock}: the cap-bounded walk back from the newest eligible bucket. */
+async function selectConsumption(input: SelectInboxBucketInput): Promise<InboxBucketConsumption> {
   const {
     messageSource,
     now,

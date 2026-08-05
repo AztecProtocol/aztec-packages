@@ -1,3 +1,4 @@
+import { MAX_L1_TO_L2_MSGS_PER_BLOCK, MAX_L1_TO_L2_MSGS_PER_CHECKPOINT } from '@aztec/constants';
 import { SlotNumber } from '@aztec/foundation/branded-types';
 
 import { type L1RollupConstants, getTimestampForSlot } from '../epoch-helpers/index.js';
@@ -21,6 +22,25 @@ export function getInboxCutoffTimestamp(
 ): bigint {
   return getTimestampForSlot(SlotNumber(slot - 1), l1Constants) - BigInt(l1Constants.ethereumSlotDuration);
 }
+
+/**
+ * Smallest number of blocks a checkpoint must be able to build for the streaming Inbox to be guaranteed to clear any
+ * mandatory backlog, and therefore the floor on a network's `maxBlocksPerCheckpoint`.
+ *
+ * Blocks consume whole buckets — a bucket is never split — so a block can only consume a bucket prefix whose message
+ * count fits `MAX_L1_TO_L2_MSGS_PER_BLOCK`. The worst case alternates a one-message bucket with a full
+ * `MAX_L1_TO_L2_MSGS_PER_BLOCK`-message bucket: each such pair needs two blocks (the pair's `cap + 1` messages
+ * overflow one block), and the backlog only stops being mandatory once consuming the next bucket would exceed
+ * `MAX_L1_TO_L2_MSGS_PER_CHECKPOINT` (the cap-escape). That bounds the backlog at `cap + 1` messages per block-pair
+ * and yields `2 * ceil((MAX_L1_TO_L2_MSGS_PER_CHECKPOINT + 1) / (MAX_L1_TO_L2_MSGS_PER_BLOCK + 1)) - 1` blocks (the
+ * final pair needs only its first block).
+ *
+ * A network configured below this floor can be halted permanently: an adversary posts that bucket pattern, no
+ * checkpoint can reach the censorship floor within its block budget, every checkpoint is rejected, and because a
+ * rejected checkpoint never advances the consumed position the next checkpoint faces the identical backlog.
+ */
+export const MIN_BLOCKS_FOR_INBOX_CATCHUP =
+  2 * Math.ceil((MAX_L1_TO_L2_MSGS_PER_CHECKPOINT + 1) / (MAX_L1_TO_L2_MSGS_PER_BLOCK + 1)) - 1;
 
 /**
  * Whether a checkpoint whose last-consumed bucket is immediately followed by `nextBucket` meets the censorship floor,

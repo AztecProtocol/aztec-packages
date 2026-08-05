@@ -227,8 +227,14 @@ networks:
     AZTEC_LAG_IN_EPOCHS_FOR_RANDAO: 1
     # Single-validator dev network.
     AZTEC_TARGET_COMMITTEE_SIZE: 1
-    # Must equal what the default proposer budgets derive for a 36s slot / 6s block (see chain_l2_config.test.ts).
-    MAX_BLOCKS_PER_CHECKPOINT: 4
+    # 3s blocks rather than the 6s of the 72s-slot networks: at 6s a 36s slot only fits 4 blocks per checkpoint,
+    # below MIN_BLOCKS_FOR_INBOX_CATCHUP, which leaves the network haltable by an adversarial L1-to-L2 message
+    # pattern no checkpoint can consume within its block budget.
+    SEQ_BLOCK_DURATION_MS: 3000
+    # Must equal what the default proposer budgets derive for a 36s slot / 3s block (see chain_l2_config.test.ts).
+    MAX_BLOCKS_PER_CHECKPOINT: 9
+    # Grace period for received checkpoint proposals to materialize locally (2 block durations).
+    CHECKPOINT_PROPOSAL_SYNC_GRACE_SECONDS: 6
     AZTEC_SLASHING_EXECUTION_DELAY_IN_ROUNDS: 1
     # Quorums made explicit to match the Solidity vm.envOr default (round_size / 2 + 1), unchanged behavior.
     # Slashing: AZTEC_SLASHING_ROUND_SIZE_IN_EPOCHS (4) * AZTEC_EPOCH_DURATION (8) = 32 slots; 32 / 2 + 1 = 17.
