@@ -1,4 +1,4 @@
-import { INBOX_LAG_SECONDS, MAX_L1_TO_L2_MSGS_PER_BLOCK, MAX_L1_TO_L2_MSGS_PER_CHECKPOINT } from '@aztec/constants';
+import { MAX_L1_TO_L2_MSGS_PER_BLOCK, MAX_L1_TO_L2_MSGS_PER_CHECKPOINT } from '@aztec/constants';
 import { PROPOSER_PIPELINING_SLOT_OFFSET } from '@aztec/epoch-cache';
 import type { EpochCacheInterface } from '@aztec/epoch-cache';
 import {
@@ -278,16 +278,17 @@ export class NodePublicCallsSimulator {
         return;
       }
 
+      const l1Constants = this.epochCache.getL1Constants();
       const selection = await selectInboxBucketForBlock({
         messageSource: this.l1ToL2MessageSource,
         now: BigInt(Math.floor(this.dateProvider.now() / 1000)),
-        lagSeconds: BigInt(INBOX_LAG_SECONDS),
+        minBucketAgeSeconds: BigInt(l1Constants.ethereumSlotDuration),
         parent: { seq: parentBucket.seq, totalMsgCount: parentBucket.totalMsgCount },
         checkpointStartTotalMsgCount,
         perBlockCap: MAX_L1_TO_L2_MSGS_PER_BLOCK,
         perCheckpointCap: MAX_L1_TO_L2_MSGS_PER_CHECKPOINT,
         isLastBlock: false,
-        cutoffTimestamp: getInboxCutoffTimestamp(opts.slotNumber, this.epochCache.getL1Constants(), INBOX_LAG_SECONDS),
+        cutoffTimestamp: getInboxCutoffTimestamp(opts.slotNumber, l1Constants),
       });
       if (!selection.consume || selection.bundle.length === 0) {
         return;
