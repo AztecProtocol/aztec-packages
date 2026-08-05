@@ -4,6 +4,7 @@ source $(git rev-parse --show-toplevel)/ci3/source_bootstrap
 ROOT=$(git rev-parse --show-toplevel)
 BB_AVM_SIM_BINARY=bb-avm-sim
 BB_AVM_SIM_PACKAGE=@aztec/bb-avm-sim
+CDB_PACKAGE=@aztec/cdb
 
 hash=$(hash_str \
   $(bb.js/bootstrap.sh hash) \
@@ -27,6 +28,27 @@ function generate_bb_avm_sim_package {
     --strip-method-prefix \
     --package-transports uds \
     --package-ipc-path-args 'msgpack,run,--input,{path}'
+}
+
+# Server binding package for the AVM CDB protocol: generated wire types +
+# Handler/dispatch + the schema itself. Pure TS — no binary, no arch packages.
+function generate_cdb_package {
+  node --experimental-strip-types --experimental-transform-types --no-warnings \
+    "$ROOT/ipc-codegen/src/generate.ts" \
+    --schema "$ROOT/barretenberg/cpp/src/barretenberg/cdb/cdb_schema.json" \
+    --lang ts \
+    --server \
+    --out "$ROOT/barretenberg/ts/cdb/src/generated" \
+    --package "$ROOT/barretenberg/ts/cdb" \
+    --package-name "$CDB_PACKAGE"
+}
+
+# Both bb-avm-sim and cdb are gitignored workspaces declared in package.json, so
+# `yarn install --immutable` fails against the committed lockfile unless both exist.
+# Generate them together before installing, whichever one we're about to build.
+function generate_packages {
+  generate_bb_avm_sim_package
+  generate_cdb_package
 }
 
 function copy_bb_avm_sim_native {
@@ -62,16 +84,24 @@ function build_bb_js {
 
 function build_bb_avm_sim {
   echo_header "bb-avm-sim package build"
-  generate_bb_avm_sim_package
+  generate_packages
   copy_bb_avm_sim_native
   npm_install_deps
   yarn workspace "$BB_AVM_SIM_PACKAGE" build
   prepare_bb_avm_sim_arch_packages "$(arch)-$(os)=build/$(arch)-$(os)/$BB_AVM_SIM_BINARY"
 }
 
+function build_cdb {
+  echo_header "cdb package build"
+  generate_packages
+  npm_install_deps
+  yarn workspace "$CDB_PACKAGE" build
+}
+
 function build {
   build_bb_js
   build_bb_avm_sim
+  build_cdb
 }
 
 function test_cmds {
@@ -91,7 +121,7 @@ function cross_copy_bb_js {
 }
 
 function cross_copy_bb_avm_sim {
-  generate_bb_avm_sim_package
+  generate_packages
   copy_bb_avm_sim_cross "$@"
   npm_install_deps
   yarn workspace "$BB_AVM_SIM_PACKAGE" build
@@ -110,10 +140,13 @@ function get_projects {
     done
     echo "$PWD/bb-avm-sim"
   fi
+  if [ -d cdb ]; then
+    echo "$PWD/cdb"
+  fi
 }
 
 function release_bb_avm_sim {
-  generate_bb_avm_sim_package
+  generate_packages
   copy_bb_avm_sim_native
   copy_bb_avm_sim_cross
   npm_install_deps
@@ -125,13 +158,21 @@ function release_bb_avm_sim {
   (cd bb-avm-sim && retry "deploy_npm ${REF_NAME#v}")
 }
 
+function release_cdb {
+  generate_packages
+  npm_install_deps
+  yarn workspace "$CDB_PACKAGE" build
+  (cd cdb && retry "deploy_npm ${REF_NAME#v}")
+}
+
 function release {
   (cd bb.js && ./bootstrap.sh release)
   release_bb_avm_sim
+  release_cdb
 }
 
-export -f generate_bb_avm_sim_package copy_bb_avm_sim_native copy_bb_avm_sim_cross
-export -f build_bb_js build_bb_avm_sim build cross_copy_bb_js cross_copy_bb_avm_sim release
+export -f generate_bb_avm_sim_package copy_bb_avm_sim_native copy_bb_avm_sim_cross generate_cdb_package generate_packages
+export -f build_bb_js build_bb_avm_sim build_cdb build cross_copy_bb_js cross_copy_bb_avm_sim release release_cdb
 
 case "$cmd" in
   "")

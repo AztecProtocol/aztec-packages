@@ -1,4 +1,4 @@
-import { BlockNumber, SlotNumber } from '@aztec/foundation/branded-types';
+import { BlockNumber } from '@aztec/foundation/branded-types';
 import { Fr } from '@aztec/foundation/curves/bn254';
 import { KeyStore } from '@aztec/key-store';
 import { openTmpStore } from '@aztec/kv-store/lmdb-v2';
@@ -11,14 +11,14 @@ import { deriveKeys } from '@aztec/stdlib/keys';
 import { NoteDao, NoteStatus } from '@aztec/stdlib/note';
 import { makeBlockHeader } from '@aztec/stdlib/testing';
 import { MerkleTreeId } from '@aztec/stdlib/trees';
-import { type IndexedTxEffect, TxEffect, TxHash } from '@aztec/stdlib/tx';
+import { TxEffect, TxHash } from '@aztec/stdlib/tx';
 
 import { jest } from '@jest/globals';
 import { mock } from 'jest-mock-extended';
 
 import type { NoteValidationRequest } from '../contract_function_simulator/noir-structs/note_validation_request.js';
 import { NoteStore } from '../storage/note_store/note_store.js';
-import { NoteService } from './note_service.js';
+import { NoteService, type NoteValidationTxData } from './note_service.js';
 
 describe('NoteService', () => {
   let noteStore: NoteStore;
@@ -213,7 +213,7 @@ describe('NoteService', () => {
 
     let txHash: TxHash;
     let txEffect: TxEffect;
-    let indexedTxEffect: IndexedTxEffect;
+    let validationTxData: NoteValidationTxData;
     let blockNumber: BlockNumber;
 
     let buildRequest: (overrides?: Partial<NoteValidationRequest>) => NoteValidationRequest;
@@ -239,12 +239,11 @@ describe('NoteService', () => {
         noteHashes: [uniqueNoteHash],
       });
 
-      indexedTxEffect = {
+      validationTxData = {
         l2BlockNumber: blockNumber,
         l2BlockHash: BlockHash.random(),
-        data: txEffect,
+        noteHashes: txEffect.noteHashes,
         txIndexInBlock: 0,
-        slotNumber: SlotNumber(Number(blockNumber)),
       };
 
       /* Happy path context conditions:
@@ -273,7 +272,7 @@ describe('NoteService', () => {
     });
 
     it('should store note if it exists in a tx effect', async () => {
-      await noteService.validateAndStoreNotes([buildRequest()], recipient.address, defaultTxEffectsMap());
+      await noteService.validateAndStoreNotes([buildRequest()], recipient.address, defaultValidationTxDataMap());
 
       // Verify note was stored
       const notes = await noteStore.getNotes({ contractAddress, scopes: [recipient.address] }, 'test');
@@ -297,7 +296,7 @@ describe('NoteService', () => {
         noteService.validateAndStoreNotes(
           [buildRequest({ txHash: TxHash.random() })],
           recipient.address,
-          defaultTxEffectsMap(),
+          defaultValidationTxDataMap(),
         ),
       ).rejects.toThrow(/Could not find tx effect/);
     });
@@ -307,7 +306,7 @@ describe('NoteService', () => {
         noteService.validateAndStoreNotes(
           [buildRequest({ noteHash: Fr.random() })],
           recipient.address,
-          defaultTxEffectsMap(),
+          defaultValidationTxDataMap(),
         ),
       ).rejects.toThrow(/is not present in tx/);
     });
@@ -316,12 +315,12 @@ describe('NoteService', () => {
       setSyncedBlockNumber(BlockNumber(blockNumber - 1));
 
       await expect(
-        noteService.validateAndStoreNotes([buildRequest()], recipient.address, defaultTxEffectsMap()),
+        noteService.validateAndStoreNotes([buildRequest()], recipient.address, defaultValidationTxDataMap()),
       ).rejects.toThrow(/Obtained a newer tx effect for .* for a note validation request than the anchor block/);
     });
 
     it('should batch findLeavesIndexes across notes', async () => {
-      // Two notes from the same tx so we can reuse the indexedTxEffect; each carries its own unique note hash.
+      // Two notes from the same tx so we can reuse the validationTxData; each carries its own unique note hash.
       const otherNoteHash = Fr.random();
       const otherNullifier = Fr.random();
       const otherNoteNonce = Fr.random();
@@ -330,14 +329,11 @@ describe('NoteService', () => {
         await siloNoteHash(contractAddress, otherNoteHash),
       );
 
-      const sharedTxEffect: IndexedTxEffect = {
-        ...indexedTxEffect,
-        data: TxEffect.from({
-          ...indexedTxEffect.data,
-          noteHashes: [uniqueNoteHash, otherUniqueNoteHash],
-        }),
+      const sharedTxData: NoteValidationTxData = {
+        ...validationTxData,
+        noteHashes: [uniqueNoteHash, otherUniqueNoteHash],
       };
-      const map = new Map([[txHash.toString(), sharedTxEffect]]);
+      const map = new Map([[txHash.toString(), sharedTxData]]);
 
       await noteService.validateAndStoreNotes(
         [
@@ -367,7 +363,7 @@ describe('NoteService', () => {
         );
       });
 
-      await noteService.validateAndStoreNotes([buildRequest()], recipient.address, defaultTxEffectsMap());
+      await noteService.validateAndStoreNotes([buildRequest()], recipient.address, defaultValidationTxDataMap());
 
       const verifyNoteNullifiedInJobContext = async (jobId: string) => {
         // Now we verify that the note is stored as nullified by checking it can be retrieved only with
@@ -400,8 +396,8 @@ describe('NoteService', () => {
       await verifyNoteNullifiedInJobContext('fresh-job');
     });
 
-    function defaultTxEffectsMap() {
-      return new Map([[txHash.toString(), indexedTxEffect]]);
+    function defaultValidationTxDataMap() {
+      return new Map([[txHash.toString(), validationTxData]]);
     }
   });
 });
