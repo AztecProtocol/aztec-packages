@@ -63,9 +63,6 @@ use crate::{context::{PrivateContext, PublicContext, UtilityContext}, state_vars
 ///
 /// ## Choosing Delays
 ///
-/// Delays must be greater than zero: a zero `InitialDelay` is rejected at compile time, and
-/// [`schedule_delay_change`](DelayedPublicMutable::schedule_delay_change) rejects a zero delay.
-///
 /// A short delay reduces the most obvious downside of `DelayedPublicMutable`, and so it is natural to wish to make it
 /// be as low as possible. It is therefore important to understand the tradeoffs involved in delay selection.
 ///
@@ -76,7 +73,9 @@ use crate::{context::{PrivateContext, PublicContext, UtilityContext}, state_vars
 ///
 /// Additionally, a lower `expiration_timestamp` obviously causes transactions to expire earlier, resulting in
 /// multiple issues. Among others, this can make large transactions that take long to prove be unfeasible, restrict
-/// users with slow proving devices, and force large transaction fees to guarantee fast inclusion.
+/// users with slow proving devices, and force large transaction fees to guarantee fast inclusion. At the limit, a zero
+/// delay leaves no window at all in which a read is known to hold, making private reads impossible. Zero delays are
+/// therefore rejected outright, both when declaring the state variable and when scheduling a delay change.
 ///
 /// In practice, a delay of at least a couple hours is recommended. From a privacy point of view the optimal delay is
 /// [`crate::protocol::constants::MAX_TX_LIFETIME`], which puts contracts in the same privacy set as those that do not
