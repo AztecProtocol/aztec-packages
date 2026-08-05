@@ -234,7 +234,11 @@ contract RollupCore is EIP712("Aztec Rollup", "1"), Ownable, IStakingCore, IVali
     );
 
     TimeLib.initialize(
-      block.timestamp, _config.aztecSlotDuration, _config.aztecEpochDuration, _config.aztecProofSubmissionEpochs
+      block.timestamp,
+      _config.aztecSlotDuration,
+      _config.aztecEpochDuration,
+      _config.aztecProofSubmissionEpochs,
+      _config.ethereumSlotDuration
     );
 
     ISlasher slasher = _deploySlasher(_config, _governance);
