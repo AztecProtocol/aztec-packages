@@ -30,7 +30,8 @@ interface IInbox {
    */
   struct InboxBucket {
     // Rolling hash after the last message absorbed into this bucket. Each link is
-    // `sha256ToField(previousRollingHash || leaf)`; the genesis value is zero.
+    // `sha256ToField(DOM_SEP__INBOX_ROLLING_HASH || previousRollingHash || leaf)`, over the 4-byte big-endian domain
+    // separator followed by the two 32-byte big-endian values; the genesis value is zero.
     bytes32 rollingHash;
     // Cumulative number of messages inserted into the Inbox up to and including this bucket.
     uint64 totalMsgCount;
