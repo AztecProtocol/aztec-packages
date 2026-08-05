@@ -50,7 +50,7 @@ endef
 # PHONY TARGETS - List every target that has a file/dir of the same name.
 #==============================================================================
 
-.PHONY: noir barretenberg noir-projects l1-contracts release-image boxes playground docs aztec-up spartan wsdb bb-avm-sim labs-aztec-toolchain
+.PHONY: noir barretenberg noir-projects l1-contracts release-image playground docs aztec-up spartan wsdb bb-avm-sim labs-aztec-toolchain
 
 #==============================================================================
 # BOOTSTRAP TARGETS
@@ -76,7 +76,6 @@ fast-labs: yarn-project yarn-project-tests \
 		aztec-up aztec-up-tests \
 		contract-snapshots-tests \
 		spartan \
-		boxes boxes-tests \
 		playground playground-tests \
 		docs docs-tests \
 		release-image release-image-tests \
@@ -537,12 +536,6 @@ release-image: yarn-project
 
 release-image-tests: release-image
 	$(call test,$@,release-image)
-
-boxes: yarn-project labs-aztec-toolchain
-	$(call build,$@,boxes)
-
-boxes-tests: boxes
-	$(call test,$@,boxes)
 
 playground: yarn-project
 	$(call build,$@,playground)
