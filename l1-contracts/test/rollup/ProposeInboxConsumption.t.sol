@@ -6,7 +6,8 @@ import {Test} from "forge-std/Test.sol";
 import {TestERC20} from "src/mock/TestERC20.sol";
 import {IERC20} from "@oz/token/ERC20/IERC20.sol";
 import {IInbox, MAX_MSGS_PER_BUCKET} from "@aztec/core/interfaces/messagebridge/IInbox.sol";
-import {ProposeLib, MAX_L1_TO_L2_MSGS_PER_CHECKPOINT} from "@aztec/core/libraries/rollup/ProposeLib.sol";
+import {ProposeLib} from "@aztec/core/libraries/rollup/ProposeLib.sol";
+import {Constants} from "@aztec/core/libraries/ConstantsGen.sol";
 import {TimeLib, Slot, Timestamp} from "@aztec/core/libraries/TimeLib.sol";
 import {Errors} from "@aztec/core/libraries/Errors.sol";
 import {DataStructures} from "@aztec/core/libraries/DataStructures.sol";
@@ -127,7 +128,7 @@ contract ProposeInboxConsumptionTest is Test {
     // One more message than the checkpoint cap, all before the cutoff. They spill over into buckets
     // 1..4 of 256 (the per-bucket cap) plus bucket 5 with the single excess message.
     vm.warp(cutoff - 100);
-    _sendMany(MAX_L1_TO_L2_MSGS_PER_CHECKPOINT + 1);
+    _sendMany(Constants.MAX_L1_TO_L2_MSGS_PER_CHECKPOINT + 1);
     assertEq(inbox.getCurrentBucketSeq(), 5, "expected five buckets");
 
     vm.warp(GENESIS_TIME + Slot.unwrap(SLOT) * SLOT_DURATION);
@@ -136,12 +137,12 @@ contract ProposeInboxConsumptionTest is Test {
     // even though it is old.
     bytes32 endHash = inbox.getBucket(4).rollingHash;
     uint256 consumed = rollup.validateInboxConsumption(inbox, endHash, 4, SLOT, 0);
-    assertEq(consumed, MAX_L1_TO_L2_MSGS_PER_CHECKPOINT, "consumed the full cap");
+    assertEq(consumed, Constants.MAX_L1_TO_L2_MSGS_PER_CHECKPOINT, "consumed the full cap");
   }
 
   function testNoCapEscapeAtExactCap() public {
     vm.warp(cutoff - 100);
-    _sendMany(MAX_L1_TO_L2_MSGS_PER_CHECKPOINT + 1);
+    _sendMany(Constants.MAX_L1_TO_L2_MSGS_PER_CHECKPOINT + 1);
 
     vm.warp(GENESIS_TIME + Slot.unwrap(SLOT) * SLOT_DURATION);
 
@@ -156,7 +157,7 @@ contract ProposeInboxConsumptionTest is Test {
     // Same layout as testCapEscape, but the parent checkpoint had already consumed one message:
     // buckets 2..5 then hold cap messages total, which fit in one checkpoint, so no escape from bucket 1.
     vm.warp(cutoff - 100);
-    _sendMany(MAX_L1_TO_L2_MSGS_PER_CHECKPOINT + 1);
+    _sendMany(Constants.MAX_L1_TO_L2_MSGS_PER_CHECKPOINT + 1);
 
     vm.warp(GENESIS_TIME + Slot.unwrap(SLOT) * SLOT_DURATION);
 
@@ -290,14 +291,16 @@ contract ProposeInboxConsumptionTest is Test {
     // One more message than the checkpoint cap, all before the cutoff, referenced in a single proposal from
     // a fresh parent: the consumed delta exceeds what the circuits can insert.
     vm.warp(cutoff - 100);
-    _sendMany(MAX_L1_TO_L2_MSGS_PER_CHECKPOINT + 1);
+    _sendMany(Constants.MAX_L1_TO_L2_MSGS_PER_CHECKPOINT + 1);
     assertEq(inbox.getCurrentBucketSeq(), 5, "expected five buckets");
 
     bytes32 endHash = inbox.getBucket(5).rollingHash;
 
     vm.warp(GENESIS_TIME + Slot.unwrap(SLOT) * SLOT_DURATION);
     vm.expectRevert(
-      abi.encodeWithSelector(Errors.Rollup__TooManyInboxMessagesConsumed.selector, MAX_L1_TO_L2_MSGS_PER_CHECKPOINT + 1)
+      abi.encodeWithSelector(
+        Errors.Rollup__TooManyInboxMessagesConsumed.selector, Constants.MAX_L1_TO_L2_MSGS_PER_CHECKPOINT + 1
+      )
     );
     rollup.validateInboxConsumption(inbox, endHash, 5, SLOT, 0);
   }
