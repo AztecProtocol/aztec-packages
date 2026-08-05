@@ -37,9 +37,10 @@
 //!
 //! ## Transitions (each evaluated by [`step`](PartialNoteFsm::step))
 //!
-//! - **Pending -> Completed** ([`complete_with_log`](PartialNoteFsm::complete_with_log)): the completion log is
+//! - **Pending -> Completed** ([`discover_and_enqueue`](PartialNoteFsm::discover_and_enqueue)): a completion log is
 //!   found. Its public content is combined with the delivered private content, the resulting note(s) are discovered
-//!   and enqueued for storage.
+//!   and enqueued for storage. Since the completion log tag is not unique, the first fetched log that yields a note
+//!   wins; if none does, the reception still advances so it cannot be kept searching forever.
 //! - **Completed -> Pending**: the completion log block is re-orged out. The completion log is searched for again.
 //! - **Pending -> Terminated**: the delivery block is re-orged out, retracting the `delivered` birth fact. The
 //!   delivery was reverted, so there is nothing left to do.
@@ -215,17 +216,36 @@ impl PartialNoteFsm {
             let num_logs = completion_logs.len();
             if num_logs != 0 {
                 // The tag is not unique, so a pending partial note can resolve to more than one completion log (e.g.
-                // the same partial note completed twice). We complete with the first and ignore the rest rather than
-                // fail.
+                // the same partial note completed twice, or anyone emitting a log under the same tag). Each is tried in
+                // turn, since a leading log that discovers nothing must not cost the reception a genuine completion
+                // later in the set.
                 if num_logs > 1 {
                     let tag = self.read_pending_partial_note().note_completion_log_tag;
                     aztecnr_warn_log_format!(
-                        "Found {0} completion logs for partial note with tag {1}, completing with the first",
+                        "Found {0} completion logs for partial note with tag {1}, using the first that yields a note",
                     )(
                         [num_logs as Field, tag],
                     );
                 }
-                self.complete_with_log(completion_logs.get(0), compute_note_hash, compute_note_nullifier);
+
+                let mut i = 0;
+                let mut completed = false;
+                while (i < num_logs) & !completed {
+                    let log = completion_logs.get(i);
+                    if self.discover_and_enqueue(log, compute_note_hash, compute_note_nullifier) {
+                        self.mark_completed(OriginBlock { block_number: log.block_number, block_hash: log.block_hash });
+                        completed = true;
+                    }
+                    i += 1;
+                }
+
+                if !completed {
+                    // No log yielded a note, but the reception still advances: leaving it pending would let anyone
+                    // emitting a log under this tag keep it searching, and re-running nonce discovery, on every sync
+                    // forever.
+                    let first = completion_logs.get(0);
+                    self.mark_completed(OriginBlock { block_number: first.block_number, block_hash: first.block_hash });
+                }
             }
         }
     }
@@ -238,23 +258,21 @@ impl PartialNoteFsm {
         }
     }
 
-    /// Completes a partial note.
-    ///
-    /// Combines the delivered private content with the log's public content, discovers the resulting note(s), enqueues
-    /// them for validation, and transitions the FSM to `completed` state conditional to the completion log's block.
+    /// Combines the delivered private content with the log's public content, discovers the resulting note(s) and
+    /// enqueues them for validation. Returns whether any note was discovered.
     ///
     /// A completion log that cannot yield a note (an empty payload, content too large to pack into a note, or one
-    /// matching no real note) is skipped without failing and the FSM still advances, so one bad message cannot break
+    /// matching no real note) is reported as yielding nothing rather than failing, so one bad message cannot break
     /// sync.
     ///
-    /// Because the completion fact is retractable, a reorg of the completion log's block rewinds the FSM back to
-    /// `pending` state (which signals that completion log search should restart).
-    unconstrained fn complete_with_log(
+    /// Because the completion fact recorded by the caller is retractable, a reorg of the completion log's block rewinds
+    /// the FSM back to `pending` state (which signals that completion log search should restart).
+    unconstrained fn discover_and_enqueue(
         self,
         log: LogRetrievalResponse,
         compute_note_hash: ComputeNoteHash,
         compute_note_nullifier: ComputeNoteNullifier,
-    ) {
+    ) -> bool {
         let pending = self.read_pending_partial_note();
 
         // The completion log payload is the storage slot followed by the public note content, so an empty payload
@@ -270,6 +288,7 @@ impl PartialNoteFsm {
             )(
                 [pending.note_completion_log_tag],
             );
+            false
         } else if combined_len > MAX_NOTE_PACKED_LEN {
             // A valid note packs into at most MAX_NOTE_PACKED_LEN fields, so this content cannot form one and would
             // overflow the append below.
@@ -278,6 +297,7 @@ impl PartialNoteFsm {
             )(
                 [pending.note_completion_log_tag, combined_len as Field, MAX_NOTE_PACKED_LEN as Field],
             );
+            false
         } else {
             let storage_slot = log.log_payload.get(0);
             let public_note_content: BoundedVec<Field, MAX_LOG_CONTENT_LEN - 1> = array::subbvec(log.log_payload, 1);
@@ -307,28 +327,28 @@ impl PartialNoteFsm {
                 )(
                     [pending.note_completion_log_tag],
                 );
+                false
             } else {
                 aztecnr_debug_log_format!("Discovered {0} notes for partial note with tag {1}")(
                     [discovered_notes.len() as Field, pending.note_completion_log_tag],
                 );
+
+                discovered_notes.for_each(|discovered_note| {
+                    enqueue_note_for_validation(
+                        self.collection.contract_address,
+                        pending.owner,
+                        storage_slot,
+                        pending.randomness,
+                        discovered_note.note_nonce,
+                        complete_packed_note,
+                        discovered_note.note_hash,
+                        discovered_note.inner_nullifier,
+                        log.tx_hash,
+                    );
+                });
+                true
             }
-
-            discovered_notes.for_each(|discovered_note| {
-                enqueue_note_for_validation(
-                    self.collection.contract_address,
-                    pending.owner,
-                    storage_slot,
-                    pending.randomness,
-                    discovered_note.note_nonce,
-                    complete_packed_note,
-                    discovered_note.note_hash,
-                    discovered_note.inner_nullifier,
-                    log.tx_hash,
-                );
-            });
         }
-
-        self.mark_completed(OriginBlock { block_number: log.block_number, block_hash: log.block_hash });
     }
 }
 
@@ -474,7 +494,7 @@ mod test {
     }
 
     #[test]
-    unconstrained fn complete_with_log_advances_a_pending_reception_whose_log_yields_no_notes() {
+    unconstrained fn step_advances_a_reception_whose_log_yields_no_notes() {
         let (env, scope) = setup();
         env.private_context(|context| {
             let address = context.this_address();
@@ -482,9 +502,11 @@ mod test {
 
             // A malicious sender can deliver a partial note whose private content does not match the completion log it
             // points at: the note hash computes but is absent from the log's transaction, so nonce discovery yields no
-            // note.
-            PartialNoteFsm::load_all(address, scope).get(0).complete_with_log(
-                completion_log_with_unrelated_note_hashes(),
+            // note. The reception must survive without panicking and must not be left searching forever.
+            PartialNoteFsm::load_all(address, scope).get(0).step(
+                Option::some(
+                    single_completion_log(completion_log_with_unrelated_note_hashes()),
+                ),
                 |_, _, _, _, _, _| Option::some(DISCOVERED_NOTE_HASH),
                 dummy_compute_note_nullifier,
             );
@@ -497,14 +519,14 @@ mod test {
     }
 
     #[test]
-    unconstrained fn complete_with_log_advances_when_combined_content_exceeds_note_packed_len() {
+    unconstrained fn step_advances_when_combined_content_exceeds_note_packed_len() {
         let (env, scope) = setup();
         env.private_context(|context| {
             let address = context.this_address();
 
             // A poisoned delivery can carry a private half as long as MAX_PARTIAL_NOTE_PRIVATE_PACKED_LEN, which equals
             // the packed-note capacity. Combined with any completion log's public content it exceeds that capacity, so
-            // completing must advance the reception rather than overflow the packed-note append and panic.
+            // stepping must discover nothing rather than overflow the packed-note append and panic.
             let pending = DeliveredPendingPartialNote {
                 owner: scope,
                 randomness: 0x11,
@@ -518,8 +540,8 @@ mod test {
             let mut log = completion_log_with_unrelated_note_hashes();
             log.log_payload = BoundedVec::from_array([0, 0]);
 
-            PartialNoteFsm::load_all(address, scope).get(0).complete_with_log(
-                log,
+            PartialNoteFsm::load_all(address, scope).get(0).step(
+                Option::some(single_completion_log(log)),
                 dummy_compute_note_hash,
                 dummy_compute_note_nullifier,
             );
@@ -532,19 +554,19 @@ mod test {
     }
 
     #[test]
-    unconstrained fn complete_with_log_advances_when_the_log_payload_is_empty() {
+    unconstrained fn step_advances_when_the_log_payload_is_empty() {
         let (env, scope) = setup();
         env.private_context(|context| {
             let address = context.this_address();
             PartialNoteFsm::init(address, scope, make_pending(scope), finalized_block());
 
             // An attacker can emit a tag-only public log, which arrives with an empty payload (no storage slot).
-            // Completing must advance the reception rather than read the storage slot out of bounds and panic.
+            // Stepping must discover nothing rather than read the storage slot out of bounds and panic.
             let mut log = completion_log_with_unrelated_note_hashes();
             log.log_payload = BoundedVec::new();
 
-            PartialNoteFsm::load_all(address, scope).get(0).complete_with_log(
-                log,
+            PartialNoteFsm::load_all(address, scope).get(0).step(
+                Option::some(single_completion_log(log)),
                 dummy_compute_note_hash,
                 dummy_compute_note_nullifier,
             );
@@ -557,7 +579,7 @@ mod test {
     }
 
     #[test]
-    unconstrained fn complete_with_log_discovers_a_note_whose_combined_content_fills_note_packed_len() {
+    unconstrained fn step_discovers_a_note_whose_combined_content_fills_note_packed_len() {
         let (env, scope) = setup();
         env.private_context(|context| {
             let address = context.this_address();
@@ -583,8 +605,8 @@ mod test {
             let mut log = matching_completion_log(address, COMPLETION_LOG_FIRST_NULLIFIER);
             log.log_payload = BoundedVec::from_array([0, 0]);
 
-            PartialNoteFsm::load_all(address, scope).get(0).complete_with_log(
-                log,
+            PartialNoteFsm::load_all(address, scope).get(0).step(
+                Option::some(single_completion_log(log)),
                 |_, _, _, _, _, _| Option::some(DISCOVERED_NOTE_HASH),
                 |_, _, _, _, _, _, _| Option::some(DISCOVERED_NOTE_NULLIFIER),
             );
@@ -620,6 +642,69 @@ mod test {
             assert_eq(all.len(), 1);
             assert(all.get(0).is_completed());
             assert_eq(enqueued_note_count(), 1);
+        });
+    }
+
+    #[test]
+    unconstrained fn step_discovers_the_note_when_an_earlier_completion_log_yields_none() {
+        let (env, scope) = setup();
+        env.private_context(|context| {
+            let address = context.this_address();
+            PartialNoteFsm::init(address, scope, make_pending(scope), finalized_block());
+
+            // The completion log tag is not unique, so log retrieval can return a log that discovers nothing ahead of
+            // the genuine completion. Consuming the leading one must not cost the reception its note: the genuine log
+            // later in the set still has to be discovered.
+            let completion_logs: EphemeralArray<LogRetrievalResponse> = EphemeralArray::empty();
+            completion_logs.push(completion_log_with_unrelated_note_hashes());
+
+            // Sits in a later block than the leading log, so the recorded origin identifies which log completed it.
+            let mut genuine_log = matching_completion_log(address, SECOND_COMPLETION_LOG_FIRST_NULLIFIER);
+            genuine_log.block_number = 2;
+            completion_logs.push(genuine_log);
+
+            PartialNoteFsm::load_all(address, scope).get(0).step(
+                Option::some(completion_logs),
+                |_, _, _, _, _, _| Option::some(DISCOVERED_NOTE_HASH),
+                |_, _, _, _, _, _, _| Option::some(DISCOVERED_NOTE_NULLIFIER),
+            );
+
+            let all = PartialNoteFsm::load_all(address, scope);
+            assert_eq(all.len(), 1);
+            assert(all.get(0).is_completed());
+            assert_eq(enqueued_note_count(), 1);
+            assert_eq(all.get(0).completion_log_origin().unwrap().block_number, 2);
+        });
+    }
+
+    #[test]
+    unconstrained fn step_advances_when_every_completion_log_yields_no_note() {
+        let (env, scope) = setup();
+        env.private_context(|context| {
+            let address = context.this_address();
+            PartialNoteFsm::init(address, scope, make_pending(scope), finalized_block());
+
+            // No log discovers a note, so the reception advances on the first one rather than staying pending: anyone
+            // able to emit a log under this tag could otherwise keep it re-running nonce discovery on every sync.
+            let completion_logs: EphemeralArray<LogRetrievalResponse> = EphemeralArray::empty();
+            completion_logs.push(completion_log_with_unrelated_note_hashes());
+
+            // Sits in a later block, so the recorded origin identifies which log the reception advanced on.
+            let mut second_log = completion_log_with_unrelated_note_hashes();
+            second_log.block_number = 2;
+            completion_logs.push(second_log);
+
+            PartialNoteFsm::load_all(address, scope).get(0).step(
+                Option::some(completion_logs),
+                |_, _, _, _, _, _| Option::some(DISCOVERED_NOTE_HASH),
+                |_, _, _, _, _, _, _| Option::some(DISCOVERED_NOTE_NULLIFIER),
+            );
+
+            let all = PartialNoteFsm::load_all(address, scope);
+            assert_eq(all.len(), 1);
+            assert(all.get(0).is_completed());
+            assert_eq(enqueued_note_count(), 0);
+            assert_eq(all.get(0).completion_log_origin().unwrap().block_number, 1);
         });
     }
 
@@ -671,9 +756,16 @@ mod test {
     global DISCOVERED_NOTE_HASH: Field = 0x99;
     global DISCOVERED_NOTE_NULLIFIER: Field = 0x55;
 
-    /// The number of notes `complete_with_log` has enqueued for validation in the current context.
+    /// The number of notes discovery has enqueued for validation in the current context.
     unconstrained fn enqueued_note_count() -> u32 {
         get_enqueued_note_validation_requests().len()
+    }
+
+    /// A one-element completion log set, as `step` receives it from log retrieval.
+    unconstrained fn single_completion_log(log: LogRetrievalResponse) -> EphemeralArray<LogRetrievalResponse> {
+        let completion_logs: EphemeralArray<LogRetrievalResponse> = EphemeralArray::empty();
+        completion_logs.push(log);
+        completion_logs
     }
 
     /// A completion log whose transaction contains the unique note hash that `DISCOVERED_NOTE_HASH` resolves to for the
