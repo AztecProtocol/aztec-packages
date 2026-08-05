@@ -21,8 +21,12 @@ export type SelectInboxBucketInput = {
   messageSource: InboxBucketSource;
   /** Wall-clock time of this sub-slot, in seconds; the lag-eligibility anchor. */
   now: bigint;
-  /** Minimum bucket age in seconds (`INBOX_LAG_SECONDS`) for a bucket to be lag-eligible this sub-slot. */
-  lagSeconds: bigint;
+  /**
+   * Minimum bucket age in seconds for a bucket to be lag-eligible this sub-slot: one configured Ethereum slot, the
+   * same value the validator's acceptance check applies (which documents why age in seconds is only a proxy for the
+   * L1 reorg depth this really guards against).
+   */
+  minBucketAgeSeconds: bigint;
   /** The last bucket consumed by this checkpoint so far (parent checkpoint's at the first block). */
   parent: ConsumedBucketCursor;
   /** Cumulative Inbox message count consumed as of the parent checkpoint; the per-checkpoint cap origin. */
@@ -34,7 +38,7 @@ export type SelectInboxBucketInput = {
   /** True on the checkpoint's final block, where the censorship cutoff becomes a consumption floor. */
   isLastBlock: boolean;
   /**
-   * Censorship cutoff timestamp, `toTimestamp(slot - 1) - lagSeconds` (mirrors `ProposeLib.validateInboxConsumption`).
+   * Censorship cutoff timestamp from `getInboxCutoffTimestamp` (mirrors `ProposeLib.validateInboxConsumption`).
    * Buckets opened at or before it are mandatory to consume by the checkpoint's last block.
    */
   cutoffTimestamp: bigint;
@@ -59,7 +63,7 @@ export type InboxBucketSelection =
  * Selects the newest Inbox bucket a block streams from, mirroring the L1 consumption predicate in
  * `ProposeLib.validateInboxConsumption`. The policy, per block:
  *
- * 1. Pick the newest lag-eligible bucket: the newest bucket opened at or before `now - lagSeconds`. On the
+ * 1. Pick the newest lag-eligible bucket: the newest bucket opened at or before `now - minBucketAgeSeconds`. On the
  *    checkpoint's last block, also consider the cutoff bucket (newest opened at or before `cutoffTimestamp`) and take
  *    whichever is newer, so the checkpoint reaches the censorship floor even if the sub-slot lag preferred less.
  * 2. If nothing is newer than the parent bucket, consume nothing.
@@ -69,7 +73,7 @@ export type InboxBucketSelection =
  *    per-checkpoint cap, consume nothing — the L1 cap-escape (`ProposeLib` allows leaving a bucket unconsumed when
  *    consuming through it would exceed the per-checkpoint cap).
  *
- * The `<=` comparisons make a bucket exactly `lagSeconds` old lag-eligible and a bucket exactly at the cutoff
+ * The `<=` comparisons make a bucket exactly `minBucketAgeSeconds` old lag-eligible and a bucket exactly at the cutoff
  * mandatory, matching the strict `>` "past cutoff" test on L1 (`next.timestamp > cutoff` leaves it optional).
  *
  * A single bucket never exceeds the per-block cap by construction (the Inbox bucket size is at most the per-block cap),
@@ -79,7 +83,7 @@ export async function selectInboxBucketForBlock(input: SelectInboxBucketInput): 
   const {
     messageSource,
     now,
-    lagSeconds,
+    minBucketAgeSeconds,
     parent,
     checkpointStartTotalMsgCount,
     perBlockCap,
@@ -88,7 +92,7 @@ export async function selectInboxBucketForBlock(input: SelectInboxBucketInput): 
     cutoffTimestamp,
   } = input;
 
-  let candidate = await messageSource.getLatestInboxBucketAtOrBefore(now - lagSeconds);
+  let candidate = await messageSource.getLatestInboxBucketAtOrBefore(now - minBucketAgeSeconds);
 
   if (isLastBlock) {
     const cutoffBucket = await messageSource.getLatestInboxBucketAtOrBefore(cutoffTimestamp);

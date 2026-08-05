@@ -63,15 +63,15 @@ function makeSource(specs: TestBucketSpec[]): {
 const GENESIS_PARENT = { seq: 0n, totalMsgCount: 0n };
 
 // Pinned cross-layer values shared with the L1 Foundry harness: genesisTime=100000, slotDuration=36,
-// INBOX_LAG_SECONDS=12.
+// ethereumSlotDuration=12 (which is also the minimum bucket age).
 const GENESIS_TIME = 100000n;
 const SLOT_DURATION = 36n;
-const LAG = 12n;
-const cutoffForSlot = (slot: bigint) => GENESIS_TIME + (slot - 1n) * SLOT_DURATION - LAG;
+const MIN_AGE = 12n;
+const cutoffForSlot = (slot: bigint) => GENESIS_TIME + (slot - 1n) * SLOT_DURATION - MIN_AGE;
 
 describe('selectInboxBucketForBlock', () => {
   const baseInput = {
-    lagSeconds: LAG,
+    minBucketAgeSeconds: MIN_AGE,
     checkpointStartTotalMsgCount: 0n,
     perBlockCap: 1024,
     perCheckpointCap: 1024,
@@ -100,7 +100,7 @@ describe('selectInboxBucketForBlock', () => {
     const result = await selectInboxBucketForBlock({
       ...baseInput,
       messageSource: source,
-      now: 250n + LAG,
+      now: 250n + MIN_AGE,
       parent: GENESIS_PARENT,
     });
     expect(result).toMatchObject({ consume: true });
@@ -110,22 +110,22 @@ describe('selectInboxBucketForBlock', () => {
     }
   });
 
-  it('treats a bucket exactly lagSeconds old as eligible (inclusive lag boundary)', async () => {
+  it('treats a bucket exactly one Ethereum slot old as eligible (inclusive lag boundary)', async () => {
     const { source } = makeSource([{ seq: 1n, timestamp: 500n, msgCount: 1 }]);
-    // Bucket age exactly == lag: timestamp == now - lag.
+    // Bucket age exactly == the minimum: timestamp == now - minBucketAgeSeconds.
     const result = await selectInboxBucketForBlock({
       ...baseInput,
       messageSource: source,
-      now: 500n + LAG,
+      now: 500n + MIN_AGE,
       parent: GENESIS_PARENT,
     });
     expect(result.consume).toBe(true);
 
-    // One second younger than the lag boundary: not yet eligible.
+    // One second younger than the minimum-age boundary: not yet eligible.
     const tooYoung = await selectInboxBucketForBlock({
       ...baseInput,
       messageSource: source,
-      now: 500n + LAG - 1n,
+      now: 500n + MIN_AGE - 1n,
       parent: GENESIS_PARENT,
     });
     expect(tooYoung.consume).toBe(false);
@@ -141,7 +141,7 @@ describe('selectInboxBucketForBlock', () => {
     const result = await selectInboxBucketForBlock({
       ...baseInput,
       messageSource: source,
-      now: 300n + LAG,
+      now: 300n + MIN_AGE,
       parent: GENESIS_PARENT,
       perBlockCap: 400,
     });
@@ -162,7 +162,7 @@ describe('selectInboxBucketForBlock', () => {
     const result = await selectInboxBucketForBlock({
       ...baseInput,
       messageSource: source,
-      now: 200n + LAG,
+      now: 200n + MIN_AGE,
       parent: { seq: 1n, totalMsgCount: buckets.get(1n)!.totalMsgCount },
       checkpointStartTotalMsgCount: 0n,
       perCheckpointCap: 1000,
@@ -179,7 +179,7 @@ describe('selectInboxBucketForBlock', () => {
     const first = await selectInboxBucketForBlock({
       ...baseInput,
       messageSource: source,
-      now: 150n + LAG,
+      now: 150n + MIN_AGE,
       parent: GENESIS_PARENT,
     });
     expect(first).toMatchObject({ consume: true });
@@ -192,7 +192,7 @@ describe('selectInboxBucketForBlock', () => {
     const second = await selectInboxBucketForBlock({
       ...baseInput,
       messageSource: source,
-      now: 300n + LAG,
+      now: 300n + MIN_AGE,
       parent: { seq: first.bucket.seq, totalMsgCount: first.bucket.totalMsgCount },
       checkpointStartTotalMsgCount: 0n,
     });
@@ -212,7 +212,7 @@ describe('selectInboxBucketForBlock', () => {
     const nonLast = await selectInboxBucketForBlock({
       ...baseInput,
       messageSource: source,
-      now: cutoff + LAG - 1n, // bucket is one second too young for lag eligibility
+      now: cutoff + MIN_AGE - 1n, // bucket is one second too young for lag eligibility
       parent: GENESIS_PARENT,
       isLastBlock: false,
       cutoffTimestamp: cutoff,
@@ -222,7 +222,7 @@ describe('selectInboxBucketForBlock', () => {
     const last = await selectInboxBucketForBlock({
       ...baseInput,
       messageSource: source,
-      now: cutoff + LAG - 1n,
+      now: cutoff + MIN_AGE - 1n,
       parent: GENESIS_PARENT,
       isLastBlock: true,
       cutoffTimestamp: cutoff,
@@ -265,7 +265,7 @@ describe('selectInboxBucketForBlock', () => {
     const result = await selectInboxBucketForBlock({
       ...baseInput,
       messageSource: source,
-      now: 100n + LAG,
+      now: 100n + MIN_AGE,
       parent: GENESIS_PARENT,
       perBlockCap: 4096,
       perCheckpointCap: 1024,

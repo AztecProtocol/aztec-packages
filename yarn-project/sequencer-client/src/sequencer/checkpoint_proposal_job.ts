@@ -1,4 +1,4 @@
-import { INBOX_LAG_SECONDS, MAX_L1_TO_L2_MSGS_PER_BLOCK, MAX_L1_TO_L2_MSGS_PER_CHECKPOINT } from '@aztec/constants';
+import { MAX_L1_TO_L2_MSGS_PER_BLOCK, MAX_L1_TO_L2_MSGS_PER_CHECKPOINT } from '@aztec/constants';
 import { type EpochCache, PROPOSER_PIPELINING_SLOT_OFFSET } from '@aztec/epoch-cache';
 import type { SimulationOverridesPlan } from '@aztec/ethereum/contracts';
 import {
@@ -1139,11 +1139,11 @@ export class CheckpointProposalJob implements Traceable {
     isLastBlock: boolean,
     nowSeconds: number,
   ): Promise<InboxBucketSelection> {
-    const cutoffTimestamp = getInboxCutoffTimestamp(this.targetSlot, this.l1Constants, INBOX_LAG_SECONDS);
+    const cutoffTimestamp = getInboxCutoffTimestamp(this.targetSlot, this.l1Constants);
     return selectInboxBucketForBlock({
       messageSource: this.l1ToL2MessageSource,
       now: BigInt(Math.floor(nowSeconds)),
-      lagSeconds: BigInt(INBOX_LAG_SECONDS),
+      minBucketAgeSeconds: BigInt(this.l1Constants.ethereumSlotDuration),
       parent: state.parent,
       checkpointStartTotalMsgCount: state.checkpointStartTotalMsgCount,
       perBlockCap: MAX_L1_TO_L2_MSGS_PER_BLOCK,

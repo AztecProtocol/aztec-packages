@@ -5,7 +5,6 @@ import type { Logger } from '@aztec/aztec.js/log';
 import type { AztecNode } from '@aztec/aztec.js/node';
 import { TxExecutionResult } from '@aztec/aztec.js/tx';
 import type { Wallet } from '@aztec/aztec.js/wallet';
-import { INBOX_LAG_SECONDS } from '@aztec/constants';
 import { BlockNumber, SlotNumber } from '@aztec/foundation/branded-types';
 import { retryUntil } from '@aztec/foundation/retry';
 import { TestContract } from '@aztec/noir-test-contracts.js/Test';
@@ -48,7 +47,7 @@ describe('single-node/cross-chain/streaming_inbox', () => {
       'streaming_inbox',
       // A 36s slot with 6s blocks yields up to ~4 blocks per checkpoint (the pipelining timing model gives
       // maxBlocks = floor((36 - 0.5 - (0.5 + D)) / D) = 4 for D=6), which is what lets a message aged past
-      // INBOX_LAG_SECONDS land in a non-first block of the same checkpoint. minTxsPerBlock=0 permits a
+      // the minimum bucket age land in a non-first block of the same checkpoint. minTxsPerBlock=0 permits a
       // zero-tx message-only block (the FI-05 relaxation).
       { ...PIPELINING_SETUP_OPTS, aztecSlotDuration: 36, blockDurationMs: 6000, minTxsPerBlock: 0 },
       { aztecProofSubmissionEpochs: 2, aztecEpochDuration: 4 },
@@ -134,7 +133,7 @@ describe('single-node/cross-chain/streaming_inbox', () => {
   // Test 1 (mid-checkpoint inclusion): a message sent mid-checkpoint becomes available in a *later* block of
   // the same checkpoint (indexWithinCheckpoint > 0), which the legacy first-block-of-next-checkpoint flow
   // could never produce. Feeds a steady tx stream so checkpoints fill to multiple blocks, times the send so
-  // the message ages past INBOX_LAG_SECONDS partway through a checkpoint's build, then locates the inserting
+  // the message ages past the minimum bucket age partway through a checkpoint's build, then locates the inserting
   // block. Retries with fresh messages so a message that happens to age exactly at a checkpoint boundary (and
   // lands at index 0) does not fail the run.
   it('includes a message in a non-first block of a checkpoint (mid-checkpoint streaming)', async () => {
@@ -146,13 +145,14 @@ describe('single-node/cross-chain/streaming_inbox', () => {
 
       for (let attempt = 0; attempt < 4 && inserting === undefined; attempt++) {
         // Aim the send so the message ages past the lag partway through a checkpoint's build window. The
-        // eligibility instant is T + INBOX_LAG_SECONDS; targeting it a few seconds into an upcoming build
+        // eligibility instant is T + ethereumSlotDuration; targeting it a few seconds into an upcoming build
         // window lands it on a non-first block across the ~4-block checkpoint. The eligible window is wide
         // (any block after the first whose build time exceeds T + lag), so exact timing is not required.
         const nowTs = BigInt(await t.cheatCodes.eth.lastBlockTimestamp());
         const currentSlot = getSlotAtTimestamp(nowTs, t.constants);
         const targetSlot = SlotNumber(Number(currentSlot) + 3);
-        const sendTargetTs = getTimestampForSlot(targetSlot, t.constants) - BigInt(INBOX_LAG_SECONDS) + 4n;
+        const sendTargetTs =
+          getTimestampForSlot(targetSlot, t.constants) - BigInt(t.constants.ethereumSlotDuration) + 4n;
         log.warn(`Attempt ${attempt}: waiting for L1 to reach ${sendTargetTs} before sending message`, {
           currentSlot,
           targetSlot,
@@ -203,12 +203,13 @@ describe('single-node/cross-chain/streaming_inbox', () => {
   // Test 2 (latency bound): the delay between a message's L1 inclusion and the L2 block that makes it
   // available stays within the streaming bound. Asserted in slot-denominated terms (L1/L2 timestamps, not
   // wall-clock): the including block's timestamp minus the message's L1 timestamp must be at most
-  // INBOX_LAG_SECONDS + 2 * slotDuration (lag + a full slot straddle + one slot of CI slack). No lower bound
+  // ethereumSlotDuration + 2 * slotDuration (the minimum bucket age + a full slot straddle + one slot of CI
+  // slack). No lower bound
   // is asserted (eligibility is already enforced by L1 and the validator). The wall-clock latency is logged
   // for information only.
   it('makes a message available within the streaming latency bound', async () => {
     const { slotDuration } = t.constants;
-    const maxDelaySeconds = BigInt(INBOX_LAG_SECONDS) + 2n * BigInt(slotDuration);
+    const maxDelaySeconds = BigInt(t.constants.ethereumSlotDuration) + 2n * BigInt(slotDuration);
 
     await withBackgroundFeeder(async () => {
       const blockAtSend = await aztecNode.getBlockNumber();

@@ -5,20 +5,21 @@ import type { InboxBucket } from './inbox_bucket.js';
 
 /**
  * Censorship cutoff timestamp for a checkpoint proposed in `slot`, mirroring the cutoff in
- * `ProposeLib.validateInboxConsumption`. A checkpoint proposed in slot `S` is built during slot `S - 1`, so
- * `buildFrameStart(S) = toTimestamp(S - 1)` and `cutoff(S) = buildFrameStart(S) - lagSeconds`. Buckets opened at or
- * before the cutoff are mandatory to consume by the checkpoint's last block; the strict `>` on the L1 "past cutoff"
- * test (see {@link isInboxConsumptionSufficient}) makes a bucket opened exactly at the cutoff mandatory.
+ * `ProposeLib.validateInboxConsumption`, which is `TimeLib.getBuildFrameStart(slot)`. A checkpoint proposed in slot
+ * `S` is built during slot `S - 1`, and the build frame opens one Ethereum slot before that slot starts, since the
+ * builder works from the L1 state as of the preceding L1 block: `cutoff(S) = toTimestamp(S - 1) - E`. Buckets opened
+ * at or before the cutoff were visible to every node for the whole build frame and are mandatory to consume by the
+ * checkpoint's last block; the strict `>` on the L1 "past cutoff" test (see {@link isInboxConsumptionSufficient})
+ * makes a bucket opened exactly at the cutoff mandatory.
  *
  * This is the single source of truth for the cutoff formula shared by the sequencer's streaming bucket selection and
  * the validator's last-block censorship check.
  */
 export function getInboxCutoffTimestamp(
   slot: SlotNumber,
-  l1Constants: Pick<L1RollupConstants, 'l1GenesisTime' | 'slotDuration'>,
-  lagSeconds: number,
+  l1Constants: Pick<L1RollupConstants, 'l1GenesisTime' | 'slotDuration' | 'ethereumSlotDuration'>,
 ): bigint {
-  return getTimestampForSlot(SlotNumber(slot - 1), l1Constants) - BigInt(lagSeconds);
+  return getTimestampForSlot(SlotNumber(slot - 1), l1Constants) - BigInt(l1Constants.ethereumSlotDuration);
 }
 
 /**

@@ -48,8 +48,8 @@ jest.setTimeout(60_000);
 describe('ValidatorClient Integration', () => {
   // Constants for L1
   const l1Constants: L1RollupConstants = {
-    // Non-zero genesis time so the slot-1 validation clock is well past INBOX_LAG_SECONDS; otherwise the streaming
-    // Inbox acceptance check rejects even a genesis-timestamp (0) bucket as `bucket_too_new`.
+    // Non-zero genesis time so the slot-1 validation clock is well past the minimum bucket age; otherwise the
+    // streaming Inbox acceptance check rejects even a genesis-timestamp (0) bucket as `bucket_too_new`.
     l1GenesisTime: 1_700_000_000n,
     slotDuration: 24,
     epochDuration: 16,
