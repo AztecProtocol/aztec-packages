@@ -225,6 +225,7 @@ function build_release_dir {
 
   # bb cross-compiles.
   tar -czf build-release/barretenberg-arm64-linux.tar.gz -C build-arm64-linux/bin bb
+  tar -czf build-release/barretenberg-avm-arm64-linux.tar.gz -C build-arm64-linux/bin bb-avm
   tar -czf build-release/barretenberg-arm64-darwin.tar.gz -C build-arm64-macos/bin bb
   tar -czf build-release/barretenberg-amd64-darwin.tar.gz -C build-amd64-macos/bin bb
   tar -czf build-release/barretenberg-amd64-windows.tar.gz -C build-amd64-windows/bin bb.exe
