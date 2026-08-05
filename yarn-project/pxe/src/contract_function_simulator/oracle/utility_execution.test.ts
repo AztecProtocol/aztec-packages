@@ -28,6 +28,7 @@ import {
   type ContractInstanceWithAddress,
   computeContractAddressFromInstance,
 } from '@aztec/stdlib/contract';
+import { computeUniqueNoteHash, siloNoteHash } from '@aztec/stdlib/hash';
 import type { AztecNode } from '@aztec/stdlib/interfaces/server';
 import { PublicKeys, deriveKeys, hashPublicKey } from '@aztec/stdlib/keys';
 import { AppTaggingSecret, AppTaggingSecretKind, SiloedTag } from '@aztec/stdlib/logs';
@@ -69,6 +70,8 @@ import { EphemeralArrayService } from '../ephemeral_array_service.js';
 import { BoundedVec } from '../noir-structs/bounded_vec.js';
 import type { EmbeddedCurvePoint } from '../noir-structs/embedded_curve_point.js';
 import { EphemeralArray } from '../noir-structs/ephemeral_array.js';
+import type { EventValidationRequest } from '../noir-structs/event_validation_request.js';
+import { NoteValidationRequest } from '../noir-structs/note_validation_request.js';
 import { Option } from '../noir-structs/option.js';
 import type { ProvidedSecret } from '../noir-structs/provided_secret.js';
 import { TransientArrayService } from '../transient_array_service.js';
@@ -702,7 +705,28 @@ describe('Utility Execution test suite', () => {
       });
     });
 
-    describe('node read cache', () => {
+    describe('areBlockHashesInArchive', () => {
+      it('maps archive membership to booleans by position', async () => {
+        const service = new EphemeralArrayService();
+        const referenceBlockHash = await anchorBlockHeader.hash();
+        const presentBlockHash = BlockHash.random();
+        const missingBlockHash = BlockHash.random();
+        const witness = MembershipWitness.empty(ARCHIVE_HEIGHT);
+
+        aztecNode.getBlockHashMembershipWitness.mockImplementation((_referenceBlockHash, blockHash) =>
+          Promise.resolve(blockHash.equals(presentBlockHash) ? witness : undefined),
+        );
+
+        const result = await utilityExecutionOracle.areBlockHashesInArchive(
+          referenceBlockHash,
+          EphemeralArray.fromValues(service, [presentBlockHash, missingBlockHash, presentBlockHash]),
+        );
+
+        expect(result.readAll(service)).toEqual([true, false, true]);
+      });
+    });
+
+    describe('getTxEffects', () => {
       const makeTxEffect = (txHash: TxHash) => TxEffect.from({ ...TxEffect.empty(), txHash });
       const makeMinedReceipt = (
         txHash: TxHash,
@@ -807,54 +831,106 @@ describe('Utility Execution test suite', () => {
         await secondOracle.getTxEffects(EphemeralArray.fromValues(service, [txHash]));
         expect(aztecNode.getTxReceipt).toHaveBeenCalledTimes(2);
       });
+    });
 
-      it('reuses archive witness reads within a utility execution', async () => {
-        const oracle = makeOracle({ scopes: [scope] });
-        const referenceBlockHash = await anchorBlockHeader.hash();
-        const blockHash = BlockHash.random();
-        const witness = MembershipWitness.empty(ARCHIVE_HEIGHT);
-        aztecNode.getBlockHashMembershipWitness.mockResolvedValue(witness);
+    describe('validateAndStoreEnqueuedNotesAndEvents', () => {
+      const service = new EphemeralArrayService();
 
-        const first = await oracle.getBlockHashMembershipWitness(referenceBlockHash, blockHash);
-        const second = await oracle.getBlockHashMembershipWitness(referenceBlockHash, blockHash);
+      it('validates notes of a tx seen by log retrieval without reading its receipt', async () => {
+        const oracle = makeOracle({ contractAddress, scopes: [owner] });
+        const txHash = TxHash.random();
+        const { request, uniqueNoteHash } = await makeNoteRequest(txHash);
 
-        expect(first).toEqual(second);
-        expect(aztecNode.getBlockHashMembershipWitness).toHaveBeenCalledTimes(1);
-      });
-
-      it('returns aligned archive-membership booleans for block hash batches', async () => {
-        const service = new EphemeralArrayService();
-        const oracle = makeOracle({ scopes: [scope] });
-        const referenceBlockHash = await anchorBlockHeader.hash();
-        const presentBlockHash = BlockHash.random();
-        const missingBlockHash = BlockHash.random();
-        const witness = MembershipWitness.empty(ARCHIVE_HEIGHT);
-
-        aztecNode.getBlockHashMembershipWitness.mockImplementation((_referenceBlockHash, blockHash) =>
-          Promise.resolve(blockHash.equals(presentBlockHash) ? witness : undefined),
+        const secret = Fr.random();
+        const mode = AppTaggingSecretKind.CONSTRAINED;
+        const tag = await SiloedTag.compute({
+          extendedSecret: new AppTaggingSecret(secret, contractAddress, mode),
+          index: 0,
+        });
+        const log = {
+          logData: [tag.value, Fr.random()],
+          blockNumber: anchorBlockHeader.globalVariables.blockNumber,
+          blockHash: await anchorBlockHeader.hash(),
+          blockTimestamp: anchorBlockHeader.globalVariables.timestamp,
+          txHash,
+          txIndexWithinBlock: 3,
+          logIndexWithinTx: 0,
+          noteHashes: [uniqueNoteHash],
+          nullifiers: [Fr.random()],
+        };
+        aztecNode.getPrivateLogsByTags.mockImplementation(query =>
+          Promise.resolve(query.tags.map(entry => (('tag' in entry ? entry.tag : entry).equals(tag) ? [log] : []))),
         );
 
-        const result = await oracle.areBlockHashesInArchive(
-          referenceBlockHash,
-          EphemeralArray.fromValues(service, [presentBlockHash, missingBlockHash, presentBlockHash]),
+        await oracle.getPendingTaggedLogsV2(
+          owner,
+          EphemeralArray.fromValues<ProvidedSecret>(service, [{ secret, mode }]),
+        );
+        await oracle.validateAndStoreEnqueuedNotesAndEvents(
+          EphemeralArray.fromValues(service, [request]),
+          EphemeralArray.fromValues<EventValidationRequest>(service, []),
+          owner,
         );
 
-        expect(result.readAll(service)).toEqual([true, false, true]);
-        expect(aztecNode.getBlockHashMembershipWitness).toHaveBeenCalledTimes(2);
+        expect(aztecNode.getTxReceipt).not.toHaveBeenCalled();
+        const [storedNotes] = noteStore.addNotes.mock.calls[0];
+        expect(storedNotes.map(note => [note.noteHash, note.l2BlockNumber, note.txIndexInBlock])).toEqual([
+          [request.noteHash, log.blockNumber, log.txIndexWithinBlock],
+        ]);
       });
 
-      it('reuses public storage reads within a utility execution', async () => {
-        const oracle = makeOracle({ scopes: [scope] });
-        const blockHash = await anchorBlockHeader.hash();
-        const startStorageSlot = Fr.random();
-        aztecNode.getPublicStorageAt.mockResolvedValue(new Fr(7));
+      it('reads the receipt once for a tx that log retrieval never returned', async () => {
+        const oracle = makeOracle({ contractAddress, scopes: [owner] });
+        const txHash = TxHash.random();
+        const first = await makeNoteRequest(txHash);
+        const second = await makeNoteRequest(txHash);
+        aztecNode.getTxReceipt.mockResolvedValue(
+          makeMinedReceiptWithNoteHashes(txHash, [first.uniqueNoteHash, second.uniqueNoteHash]),
+        );
 
-        const first = await oracle.getFromPublicStorage(blockHash, contractAddress, startStorageSlot, 2);
-        const second = await oracle.getFromPublicStorage(blockHash, contractAddress, startStorageSlot, 2);
+        await oracle.validateAndStoreEnqueuedNotesAndEvents(
+          EphemeralArray.fromValues(service, [first.request, second.request]),
+          EphemeralArray.fromValues<EventValidationRequest>(service, []),
+          owner,
+        );
 
-        expect(first).toEqual(second);
-        expect(aztecNode.getPublicStorageAt).toHaveBeenCalledTimes(2);
+        expect(aztecNode.getTxReceipt).toHaveBeenCalledTimes(1);
+        const [storedNotes] = noteStore.addNotes.mock.calls[0];
+        expect(storedNotes.map(note => note.noteHash)).toEqual([first.request.noteHash, second.request.noteHash]);
       });
+
+      async function makeNoteRequest(txHash: TxHash) {
+        const noteNonce = Fr.random();
+        const noteHash = Fr.random();
+        const request = new NoteValidationRequest(
+          contractAddress,
+          owner,
+          Fr.random(),
+          Fr.random(),
+          noteNonce,
+          [Fr.random()],
+          noteHash,
+          Fr.random(),
+          txHash,
+        );
+        const uniqueNoteHash = await computeUniqueNoteHash(noteNonce, await siloNoteHash(contractAddress, noteHash));
+        return { request, uniqueNoteHash };
+      }
+
+      function makeMinedReceiptWithNoteHashes(txHash: TxHash, noteHashes: Fr[]) {
+        return new MinedTxReceipt(
+          txHash,
+          TxStatus.FINALIZED,
+          TxExecutionResult.SUCCESS,
+          0n,
+          BlockHash.random(),
+          BlockNumber(syncedBlockNumber),
+          SlotNumber(1),
+          0,
+          EpochNumber(1),
+          TxEffect.from({ ...TxEffect.empty(), txHash, noteHashes }),
+        );
+      }
     });
 
     describe('fact store', () => {
