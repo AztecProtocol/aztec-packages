@@ -3,6 +3,8 @@ import { AbortError } from '@aztec/foundation/error';
 import { createLogger } from '@aztec/foundation/log';
 import { RunningPromise } from '@aztec/foundation/running-promise';
 
+import type { BlockHeader } from '../../tx/block_header.js';
+import { BlockHash } from '../block_hash.js';
 import type { L2Block } from '../l2_block.js';
 import { type L2BlockId, type L2BlockSource, type LocalL2Tips, makeL2BlockId } from '../l2_block_source.js';
 import {
@@ -100,6 +102,13 @@ export class L2BlockStream {
       // Baseline for the chain-proposed event; captured before the local store mutates during the pass.
       const prePassProposed = localTips.proposed;
 
+      // In tips-only mode there is no download loop to supply the chain-proposed event's header, so it must be
+      // fetched. Start the read now so it runs in parallel with the walk-back below.
+      const prefetch: ProposedHeaderPrefetch | undefined =
+        this.opts.tipsOnly && localBlockIdDiffers(prePassProposed, sourceTips.proposed)
+          ? { hash: sourceTips.proposed.hash, header: this.getHeaderFromSource(sourceTips.proposed.hash) }
+          : undefined;
+
       // Walk back to find a reorg, floored at the local finalized tip (a legitimate reorg can never reach it, since
       // finalized means the proving tx is itself L1-finalized). Seed the cache with ONLY the proposed tip: a stale
       // tier seed at a reorged height equals the local old-fork hash, faking agreement and stopping the walk above the
@@ -169,17 +178,29 @@ export class L2BlockStream {
       }
 
       // Pass atomicity: a prune mid-download leaves the source unable to serve the planned blocks, so the snapshot's
-      // tier tips may reference blocks the consumer never saw — skip tier reconciliation in that case. Tips-only mode
-      // has no download plan (the snapshot is one atomic getL2Tips read), so it always reconciles.
-      if (!this.opts.tipsOnly && !(await this.downloadBlocks(latestBlockNumber, sourceTips))) {
-        return;
-      }
+      // tier tips may reference blocks the consumer never saw — downloadBlocks aborts the pass in that case.
+      // Tips-only mode has no download plan (the snapshot is one atomic getL2Tips read), so it always reconciles.
+      const deliveredProposedHeader = this.opts.tipsOnly
+        ? undefined
+        : await this.downloadBlocks(latestBlockNumber, sourceTips);
 
       // End-of-pass reconciliation: chain-proposed fires against the pre-pass baseline (a post-prune re-read would
       // equal the source tip and suppress it), then the tiers highest-to-lowest so the finalized <= proven <=
       // checkpointed <= proposed invariant holds mid-pass.
       if (localBlockIdDiffers(prePassProposed, sourceTips.proposed)) {
-        await this.emitEvent({ type: 'chain-proposed', block: sourceTips.proposed });
+        const availableHeader =
+          prefetch?.hash === sourceTips.proposed.hash ? await prefetch.header : deliveredProposedHeader;
+        const header = availableHeader ?? (await this.getHeaderFromSource(sourceTips.proposed.hash));
+        if (header === undefined) {
+          // Abort the pass rather than skip just this event: the later tier events must not get ahead of a
+          // proposed tip the consumer never received. Nothing advanced, so the next pass retries.
+          this.log.warn(`No header for the proposed tip; aborting this sync pass`, {
+            blockNumber: sourceTips.proposed.number,
+            blockHash: sourceTips.proposed.hash,
+          });
+          throw new AbortError();
+        }
+        await this.emitEvent({ type: 'chain-proposed', block: sourceTips.proposed, header });
       }
 
       const reconcileTips = pruned ? await this.localData.getL2Tips() : localTips;
@@ -222,13 +243,15 @@ export class L2BlockStream {
   }
 
   /**
-   * Downloads every block from the post-prune cursor through the source's proposed tip, emitting `blocks-added`
-   * events. The return value gates tier-cursor advancement (pass atomicity): tier tips may only be reconciled when
-   * the plan that backs them ran to the proposed tip.
-   * @returns `true` if the plan completed (caught up, or delivered the proposed tip with a matching hash); `false` if
-   * the source no longer has a promised block, or served a fork at the proposed height mid-pass.
+   * Delivers every block from the agreed-on point through the advertised proposed tip as `blocks-added` events,
+   * aborting the pass when the source's own answers prove that tip is no longer real.
+   * @returns The delivered tip's header, so the caller can avoid a re-fetch; undefined when there was nothing to
+   * download (already at the tip, or startingBlock past it).
    */
-  private async downloadBlocks(latestBlockNumber: BlockNumber, sourceTips: LocalL2Tips): Promise<boolean> {
+  private async downloadBlocks(
+    latestBlockNumber: BlockNumber,
+    sourceTips: LocalL2Tips,
+  ): Promise<BlockHeader | undefined> {
     // The post-prune cursor: the highest block number both sides agree on. Block downloads resume from here.
     let nextBlockNumber = latestBlockNumber + 1;
 
@@ -258,12 +281,12 @@ export class L2BlockStream {
       if (blocks.length === 0) {
         // The source no longer has a block the snapshot promised: the snapshot is provably stale, so report the plan
         // incomplete and skip reconciliation this pass.
-        this.log.warn(`Block source returned no blocks for a promised range; skipping reconciliation this pass`, {
+        this.log.warn(`Block source returned no blocks for a promised range; aborting this sync pass`, {
           from: nextBlockNumber,
           limit,
           sourceProposed: sourceTips.proposed.number,
         });
-        return false;
+        throw new AbortError();
       }
       await this.emitEvent({ type: 'blocks-added', blocks });
       lastDeliveredBlock = blocks.at(-1)!;
@@ -271,22 +294,23 @@ export class L2BlockStream {
     }
 
     if (lastDeliveredBlock === undefined) {
-      // Loop never ran: caught up before the plan started, or startingBlock past the tip (A-1061). Trivially complete.
-      return true;
+      // Loop never ran (caught up before the plan started, or startingBlock past the tip, see A-1061), so nothing
+      // was downloaded that could disprove the snapshot.
+      return undefined;
     }
 
-    // Complete iff the block delivered at the proposed height carries the snapshot's proposed hash; a different hash
-    // means a same-height fork swap happened mid-pass, so the snapshot is stale.
+    // The block delivered at the proposed height must carry the snapshot's proposed hash; a different hash means a
+    // same-height fork swap happened mid-pass, so the snapshot is stale.
     const deliveredHash = (await lastDeliveredBlock.hash()).toString();
     if (deliveredHash !== sourceTips.proposed.hash) {
-      this.log.warn(`Delivered proposed-block hash differs from snapshot; skipping reconciliation this pass`, {
+      this.log.warn(`Delivered proposed-block hash differs from snapshot; aborting this sync pass`, {
         blockNumber: lastDeliveredBlock.number,
         deliveredHash,
         snapshotHash: sourceTips.proposed.hash,
       });
-      return false;
+      throw new AbortError();
     }
-    return true;
+    return lastDeliveredBlock.header;
   }
 
   /**
@@ -342,6 +366,16 @@ export class L2BlockStream {
       .then(hash => hash?.toString());
   }
 
+  private getHeaderFromSource(hash: string): Promise<BlockHeader | undefined> {
+    return this.l2BlockSource
+      .getBlockData({ hash: BlockHash.fromString(hash) })
+      .then(data => data?.header)
+      .catch(err => {
+        this.log.error(`Failed to read header for block ${hash}`, err);
+        return undefined;
+      });
+  }
+
   private async emitEvent(event: L2BlockStreamEvent) {
     this.log.debug(
       `Emitting ${event.type} (${
@@ -358,6 +392,9 @@ export class L2BlockStream {
     }
   }
 }
+
+/** A speculative proposed-tip header read, tagged with the hash it targets so a moved tip is detectable. */
+type ProposedHeaderPrefetch = { hash: string; header: Promise<BlockHeader | undefined> };
 
 class BlockHashCache {
   private readonly cache: Map<number, string> = new Map();
